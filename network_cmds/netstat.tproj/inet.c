@@ -376,8 +376,8 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 				if (prioflag >= 0)
 					printf(" %7.7s[%1d] %7.7s[%1d]", "rxbytes", prioflag, "txbytes", prioflag);
 				if (vflag > 0)
-					printf(" %6.6s %6.6s %6.6s %6.6s",
-					    "rhiwat", "shiwat", "pid", "epid");
+					printf(" %6.6s %6.6s %6.6s %6.6s %6s %10s",
+					       "rhiwat", "shiwat", "pid", "epid", "state", "options");
 				printf("\n");
 			}
 			first = 0;
@@ -509,11 +509,13 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 				   prioflag < SO_TC_STATS_MAX ? so_stat->xst_tc_stats[prioflag].txbytes : 0);
 		}
 		if (vflag > 0) {
-			printf(" %6u %6u %6u %6u",
+			printf(" %6u %6u %6u %6u 0x%04x 0x%08x",
 			       so_rcv->sb_hiwat,
 			       so_snd->sb_hiwat,
 			       so->so_last_pid,
-			       so->so_e_pid);
+			       so->so_e_pid,
+			       so->so_state,
+			       so->so_options);
 		}
 		putchar('\n');
 	}
@@ -585,6 +587,8 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_sndwinup, "\t\t%u window update packet%s\n");
 	p(tcps_sndctrl, "\t\t%u control packet%s\n");
 	p(tcps_fcholdpacket, "\t\t%u data packet%s sent after flow control\n");
+	p(tcps_synchallenge, "\t\t%u challenge ACK%s sent due to unexpected SYN\n");
+	p(tcps_rstchallenge, "\t\t%u challenge ACK%s sent due to unexpected RST\n");
 	t_swcsum = tcpstat.tcps_snd_swcsum + tcpstat.tcps_snd6_swcsum;
 	if ((t_swcsum - pt_swcsum) || sflag <= 1)
         printf("\t\t%u checksummed in software\n", (t_swcsum - pt_swcsum));
@@ -612,6 +616,7 @@ tcp_stats(uint32_t off , char *name, int af)
 		"\t\t%u packet%s (%u byte%s) of data after window\n");
 	p(tcps_rcvwinprobe, "\t\t%u window probe%s\n");
 	p(tcps_rcvwinupd, "\t\t%u window update packet%s\n");
+	p(tcps_recovered_pkts, "\t\t%u packet%s recovered after loss\n");
 	p(tcps_rcvafterclose, "\t\t%u packet%s received after close\n");
 	p(tcps_badrst, "\t\t%u bad reset%s\n");
 	p(tcps_rcvbadsum, "\t\t%u discarded for bad checksum%s\n");
@@ -639,12 +644,18 @@ tcp_stats(uint32_t off , char *name, int af)
 	  "\t\t%u connection%s updated cached RTT variance on close\n");
 	p(tcps_cachedssthresh,
 	  "\t\t%u connection%s updated cached ssthresh on close\n");
+	p(tcps_usedrtt, "\t\t%u connection%s initialized RTT from route cache\n");
+	p(tcps_usedrttvar,
+	  "\t\t%u connection%s initialized RTT variance from route cache\n");
+	p(tcps_usedssthresh,
+	  "\t\t%u connection%s initialized ssthresh from route cache\n");
 	p(tcps_conndrops, "\t%u embryonic connection%s dropped\n");
 	p2(tcps_rttupdated, tcps_segstimed,
 		"\t%u segment%s updated rtt (of %u attempt%s)\n");
 	p(tcps_rexmttimeo, "\t%u retransmit timeout%s\n");
 	p(tcps_timeoutdrop, "\t\t%u connection%s dropped by rexmit timeout\n");
 	p(tcps_rxtfindrop, "\t\t%u connection%s dropped after retransmitting FIN\n");
+	p(tcps_sndrexmitbad, "\t\t%u unnecessary packet retransmissions%s\n");
 	p(tcps_persisttimeo, "\t%u persist timeout%s\n");
 	p(tcps_persistdrop, "\t\t%u connection%s dropped by persist timeout\n");
 	p(tcps_keeptimeo, "\t%u keepalive timeout%s\n");
@@ -700,11 +711,16 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_ecn_fallback_synloss, "\t\t%u connection%s fell back to non-ECN due to SYN-loss\n");
 	p(tcps_ecn_fallback_reorder, "\t\t%u connection%s fell back to non-ECN due to reordering\n");
 	p(tcps_ecn_fallback_ce, "\t\t%u connection%s fell back to non-ECN due to excessive CE-markings\n");
+	p(tcps_ecn_fallback_droprst, "\t\t%u connection%s fell back caused by connection drop due to RST\n");
+	p(tcps_ecn_fallback_droprxmt, "\t\t%u connection%s fell back due to drop after multiple retransmits \n");
+	p(tcps_ecn_fallback_synrst, "\t\t%u connection%s fell back due to RST after SYN\n");
+
 	p(tcps_detect_reordering, "\t%u time%s packet reordering was detected on a connection\n");
 	p(tcps_reordered_pkts, "\t\t%u time%s transmitted packets were reordered\n");
 	p(tcps_delay_recovery, "\t\t%u time%s fast recovery was delayed to handle reordering\n");
 	p(tcps_avoid_rxmt, "\t\t%u time%s retransmission was avoided by delaying recovery\n");
 	p(tcps_unnecessary_rxmt, "\t\t%u retransmission%s not needed \n");
+	p(tcps_tailloss_rto, "\t%u retransmission%s due to tail loss\n");
 	p(tcps_dsack_sent, "\t%u time%s DSACK option was sent\n");
 	p(tcps_dsack_recvd, "\t\t%u time%s DSACK option was received\n");
 	p(tcps_dsack_disable, "\t\t%u time%s DSACK was disabled on a connection\n");
@@ -713,6 +729,7 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_dsack_recvd_old,"\t\t%u time%s ignored old DSACK options\n");
 	p(tcps_pmtudbh_reverted, "\t%u time%s PMTU Blackhole detection, size reverted\n");
 	p(tcps_drop_after_sleep, "\t%u connection%s were dropped after long sleep\n");
+	p(tcps_nostretchack, "\t%u connection%s had stretch ack algorithm disabled\n");
 
 	p(tcps_tfo_cookie_sent,"\t%u time%s a TFO-cookie has been announced\n");
 	p(tcps_tfo_syn_data_rcv,"\t%u SYN%s with data and a valid TFO-cookie have been received\n");
@@ -724,6 +741,11 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_tfo_syn_data_acked,"\t\t%u time%s our SYN with data has been acknowledged\n");
 	p(tcps_tfo_syn_loss,"\t%u time%s a connection-attempt with TFO fell back to regular TCP\n");
 	p(tcps_tfo_blackhole,"\t%u time%s a TFO-connection blackhole'd\n");
+	p(tcps_tfo_cookie_wrong,"\t%u time%s a TFO-cookie we sent was wrong\n");
+	p(tcps_tfo_no_cookie_rcv,"\t%u time%s did not received a TFO-cookie we asked for\n");
+	p(tcps_tfo_heuristics_disable,"\t%u time%s TFO got disabled due to heuristicsn\n");
+	p(tcps_tfo_sndblackhole,"\t%u time%s TFO got blackholed in the sending direction\n");
+
 	p(tcps_mss_to_default,"\t%u time%s maximum segment size was changed to default\n");
 	p(tcps_mss_to_medium,"\t%u time%s maximum segment size was changed to medium\n");
 	p(tcps_mss_to_low,"\t%u time%s maximum segment size was changed to low\n");

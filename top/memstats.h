@@ -39,7 +39,7 @@ struct statistic *top_pageins_create(WINDOW *parent, const char *name);
 struct statistic *top_kprvt_create(WINDOW *parent, const char *name);
 struct statistic *top_kshrd_create(WINDOW *parent, const char *name);
 #ifdef TOP_ANONYMOUS_MEMORY
-struct statistic *top_rmem_create(WINDOW *parent, const char *name);
+struct statistic *top_pmem_create(WINDOW *parent, const char *name);
 struct statistic *top_purg_create(WINDOW *parent, const char *name);
 struct statistic *top_compressed_create(WINDOW *parent, const char *name);
 #endif /* TOP_ANONYMOUS_MEMORY */

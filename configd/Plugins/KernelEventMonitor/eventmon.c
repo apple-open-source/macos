@@ -61,7 +61,11 @@
 #include <notify.h>
 #include <sys/sysctl.h>
 #include <sys/kern_event.h>
+#if __has_include(<nw/private.h>)
+#include <nw/private.h>
+#else // __has_include(<nw/private.h>)
 #include <network/config.h>
+#endif // __has_include(<nw/private.h>)
 #include <netinet6/nd6.h>
 
 static dispatch_queue_t			S_kev_queue;
@@ -72,7 +76,7 @@ __private_extern__ Boolean		_verbose		= FALSE;
 
 
 __private_extern__ os_log_t
-__log_KernelEventMonitor()
+__log_KernelEventMonitor(void)
 {
     static os_log_t	log	= NULL;
 

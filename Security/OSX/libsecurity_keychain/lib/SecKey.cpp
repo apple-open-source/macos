@@ -35,6 +35,10 @@
 #include <security_utilities/casts.h>
 #include <CommonCrypto/CommonKeyDerivation.h>
 
+#include <CoreFoundation/CFPriv.h>
+// 'verify' macro is somehow dragged in from CFPriv.h and breaks compilation of signclient.h, so undef it, we don't need it.
+#undef verify
+
 #include "SecBridge.h"
 
 #include <security_keychain/Access.h>
@@ -56,6 +60,7 @@ SecCDSAKeyInit(SecKeyRef key, const uint8_t *keyData, CFIndex keyDataLength, Sec
     key->key = const_cast<KeyItem *>(reinterpret_cast<const KeyItem *>(keyData));
     key->key->initializeWithSecKeyRef(key);
     key->credentialType = kSecCredentialTypeDefault;
+    key->cdsaKeyMutex = new Mutex();
     return errSecSuccess;
 }
 
@@ -65,13 +70,21 @@ SecCDSAKeyDestroy(SecKeyRef keyRef) {
     // If we hold the keychain's mutex (the key's 'mutexForObject') during this destruction, pthread gets upset.
     // Hold a reference to the keychain (if it exists) until after we release the keychain's mutex.
 
+    StMaybeLock<Mutex> cdsaMutex(keyRef->cdsaKeyMutex);
+
     KeyItem *keyItem = keyRef->key;
+
     if (keyItem == NULL) {
         // KeyImpl::attachSecKeyRef disconnected us from KeyItem instance, there is nothing to do for us.
+        cdsaMutex.unlock();
+        delete keyRef->cdsaKeyMutex;
         return;
     }
 
     Keychain kc = keyItem->keychain();
+
+    // We have a +1 reference to the KeyItem now; no need to protect our storage any more
+    cdsaMutex.unlock();
 
     {
         StMaybeLock<Mutex> _(keyItem->getMutexForObject());
@@ -84,6 +97,8 @@ SecCDSAKeyDestroy(SecKeyRef keyRef) {
         keyItem->aboutToDestruct();
         delete keyItem;
     }
+
+    delete keyRef->cdsaKeyMutex;
 
     (void) kc; // Tell the compiler we're actually using this variable. At destruction time, it'll release the keychain.
 }
@@ -501,7 +516,7 @@ static CSSM_DB_NAME_ATTR(kInfoKeyLabel, kSecKeyLabel, (char*) "Label", 0, NULL, 
 #pragma clang diagnostic pop
 
 static SecKeyRef SecCDSAKeyCopyPublicKey(SecKeyRef privateKey) {
-    CFErrorRef *error;
+    CFErrorRef *error = NULL;
     BEGIN_SECKEYAPI(SecKeyRef, NULL)
 
     result = NULL;
@@ -761,7 +776,7 @@ static CFTypeRef SecCDSAKeyCopyOperationResult(SecKeyRef key, SecKeyOperationTyp
 }
 
 static Boolean SecCDSAKeyIsEqual(SecKeyRef key1, SecKeyRef key2) {
-    CFErrorRef *error;
+    CFErrorRef *error = NULL;
     BEGIN_SECKEYAPI(Boolean, false)
 
     result = key1->key->equal(*key2->key);
@@ -797,6 +812,8 @@ const SecKeyDescriptor kSecCDSAKeyDescriptor = {
     .copyOperationResult = SecCDSAKeyCopyOperationResult,
     .isEqual = SecCDSAKeyIsEqual,
     .setParameter = SecCDSAKeySetParameter,
+
+    .extraBytes = (sizeof(struct OpaqueSecKeyRef) > sizeof(struct __SecKey) ? (sizeof(struct OpaqueSecKeyRef) - sizeof(struct __SecKey)) : 0),
 };
 
 namespace Security {
@@ -910,7 +927,7 @@ SecKeyGetCSSMKey(SecKeyRef key, const CSSM_KEY **cssmKey)
 //
 
 static ModuleNexus<Mutex> gSecReturnedKeyCSPsMutex;
-static std::set<CssmClient::CSP> gSecReturnedKeyCSPs;
+static ModuleNexus<std::set<CssmClient::CSP>> gSecReturnedKeyCSPs;
 
 OSStatus
 SecKeyGetCSPHandle(SecKeyRef keyRef, CSSM_CSP_HANDLE *cspHandle)
@@ -924,7 +941,7 @@ SecKeyGetCSPHandle(SecKeyRef keyRef, CSSM_CSP_HANDLE *cspHandle)
     CssmClient::CSP returnedKeyCSP = keyItem->csp();
     {
         StLock<Mutex> _(gSecReturnedKeyCSPsMutex());
-        gSecReturnedKeyCSPs.insert(returnedKeyCSP);
+        gSecReturnedKeyCSPs().insert(returnedKeyCSP);
     }
 	Required(cspHandle) = returnedKeyCSP->handle();
 
@@ -1544,19 +1561,26 @@ SecKeyGeneratePairInternal(
     Required(publicKey);
     Required(privateKey);
 
-    CFTypeRef tokenID = GetAttributeFromParams(parameters, kSecAttrTokenID, NULL);
-    CFTypeRef noLegacy = GetAttributeFromParams(parameters, kSecAttrNoLegacy, NULL);
-    CFTypeRef sync = GetAttributeFromParams(parameters, kSecAttrSynchronizable, kSecPrivateKeyAttrs);
-    CFTypeRef accessControl = GetAttributeFromParams(parameters, kSecAttrAccessControl, kSecPrivateKeyAttrs) ?:
-    GetAttributeFromParams(parameters, kSecAttrAccessControl, kSecPublicKeyAttrs);
-    CFTypeRef accessGroup = GetAttributeFromParams(parameters, kSecAttrAccessGroup, kSecPrivateKeyAttrs) ?:
-    GetAttributeFromParams(parameters, kSecAttrAccessGroup, kSecPublicKeyAttrs);
+    bool forceIOSKey = false;
+    if (_CFMZEnabled()) {
+        // On Marzipan, always go iOS SecItem/SecKey route, do not drag CSSM keys in.
+        forceIOSKey = true;
+    } else {
+        CFTypeRef tokenID = GetAttributeFromParams(parameters, kSecAttrTokenID, NULL);
+        CFTypeRef noLegacy = GetAttributeFromParams(parameters, kSecAttrNoLegacy, NULL);
+        CFTypeRef sync = GetAttributeFromParams(parameters, kSecAttrSynchronizable, kSecPrivateKeyAttrs);
+        CFTypeRef accessControl = GetAttributeFromParams(parameters, kSecAttrAccessControl, kSecPrivateKeyAttrs) ?:
+        GetAttributeFromParams(parameters, kSecAttrAccessControl, kSecPublicKeyAttrs);
+        CFTypeRef accessGroup = GetAttributeFromParams(parameters, kSecAttrAccessGroup, kSecPrivateKeyAttrs) ?:
+        GetAttributeFromParams(parameters, kSecAttrAccessGroup, kSecPublicKeyAttrs);
+        // If any of these attributes are present, forward the call to iOS implementation (and create keys in iOS keychain).
+        forceIOSKey = (tokenID != NULL ||
+                       (noLegacy != NULL && CFBooleanGetValue((CFBooleanRef)noLegacy)) ||
+                       (sync != NULL && CFBooleanGetValue((CFBooleanRef)sync)) ||
+                       accessControl != NULL || (accessGroup != NULL && CFEqual(accessGroup, kSecAttrAccessGroupToken)));
+    }
 
-    // If any of these attributes are present, forward the call to iOS implementation (and create keys in iOS keychain).
-    if (tokenID != NULL ||
-        (noLegacy != NULL && CFBooleanGetValue((CFBooleanRef)noLegacy)) ||
-        (sync != NULL && CFBooleanGetValue((CFBooleanRef)sync)) ||
-        accessControl != NULL || (accessGroup != NULL && CFEqual(accessGroup, kSecAttrAccessGroupToken))) {
+    if (forceIOSKey) {
         // Generate keys in iOS keychain.
         return SecKeyGeneratePair_ios(parameters, publicKey, privateKey);
     }

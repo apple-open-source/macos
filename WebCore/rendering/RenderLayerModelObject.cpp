@@ -119,15 +119,15 @@ void RenderLayerModelObject::styleWillChange(StyleDifference diff, const RenderS
         if (parent()) {
             // Do a repaint with the old style first, e.g., for example if we go from
             // having an outline to not having an outline.
-            if (diff == StyleDifferenceRepaintLayer) {
+            if (diff == StyleDifference::RepaintLayer) {
                 layer()->repaintIncludingDescendants();
                 if (!(oldStyle->clip() == newStyle.clip()))
                     layer()->clearClipRectsIncludingDescendants();
-            } else if (diff == StyleDifferenceRepaint || newStyle.outlineSize() < oldStyle->outlineSize())
+            } else if (diff == StyleDifference::Repaint || newStyle.outlineSize() < oldStyle->outlineSize())
                 repaint();
         }
 
-        if (diff == StyleDifferenceLayout || diff == StyleDifferenceSimplifiedLayout) {
+        if (diff == StyleDifference::Layout || diff == StyleDifference::SimplifiedLayout) {
             // When a layout hint happens, we do a repaint of the layer, since the layer could end up being destroyed.
             if (hasLayer()) {
                 if (oldStyle->position() != newStyle.position()
@@ -238,7 +238,7 @@ void RenderLayerModelObject::styleDidChange(StyleDifference diff, const RenderSt
 bool RenderLayerModelObject::shouldPlaceBlockDirectionScrollbarOnLeft() const
 {
 // RTL Scrollbars require some system support, and this system support does not exist on certain versions of OS X. iOS uses a separate mechanism.
-#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
+#if PLATFORM(IOS)
     return false;
 #else
     switch (settings().userInterfaceDirectionPolicy()) {

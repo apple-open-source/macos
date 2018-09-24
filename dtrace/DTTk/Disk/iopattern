@@ -131,8 +131,8 @@ fi
  inline int COUNTER 	= '$count';
  inline int FILTER 	= '$filter';
  inline string DEVICE 	= "'$device'";
- inline string FILENAME = "'$filename'";
- inline string MOUNT 	= "'$mount'";
+ inline string FILENAME = "'"$filename"'";
+ inline string MOUNT 	= "'"$mount"'";
  
  #pragma D option quiet
 

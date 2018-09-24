@@ -12,6 +12,7 @@
         "identifier",
         "cdhash",
         "platform",
+        "notarized",
         "anchor",
         "apple",
         "generic",

@@ -432,7 +432,7 @@ std::unique_ptr<RootInlineBox> RenderSVGText::createRootInlineBox()
 bool RenderSVGText::nodeAtFloatPoint(const HitTestRequest& request, HitTestResult& result, const FloatPoint& pointInParent, HitTestAction hitTestAction)
 {
     PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_TEXT_HITTESTING, request, style().pointerEvents());
-    bool isVisible = (style().visibility() == VISIBLE);
+    bool isVisible = (style().visibility() == Visibility::Visible);
     if (isVisible || !hitRules.requireVisible) {
         if ((hitRules.canHitStroke && (style().svgStyle().hasStroke() || !hitRules.requireStroke))
             || (hitRules.canHitFill && (style().svgStyle().hasFill() || !hitRules.requireFill))) {
@@ -518,26 +518,6 @@ FloatRect RenderSVGText::repaintRectInLocalCoordinates() const
         textShadow->adjustRectForShadow(repaintRect);
 
     return repaintRect;
-}
-
-void RenderSVGText::addChild(RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
-{
-    auto& child = *newChild;
-    RenderSVGBlock::addChild(WTFMove(newChild), beforeChild);
-
-    SVGResourcesCache::clientWasAddedToTree(child);
-    subtreeChildWasAdded(&child);
-}
-
-RenderPtr<RenderObject> RenderSVGText::takeChild(RenderObject& child)
-{
-    SVGResourcesCache::clientWillBeRemovedFromTree(child);
-
-    Vector<SVGTextLayoutAttributes*, 2> affectedAttributes;
-    subtreeChildWillBeRemoved(&child, affectedAttributes);
-    auto takenChild = RenderSVGBlock::takeChild(child);
-    subtreeChildWasRemoved(affectedAttributes);
-    return takenChild;
 }
 
 // Fix for <rdar://problem/8048875>. We should not render :first-line CSS Style

@@ -54,8 +54,6 @@
 #include "internal.h"
 #include "kern/kern_trace.h"
 
-extern int __unix_conforming;
-
 #ifndef BUILDING_VARIANT /* [ */
 
 #ifdef PLOCKSTAT
@@ -85,31 +83,73 @@ _plockstat_never_fired(void)
 
 #define PTHREAD_MUTEX_INIT_UNUSED 1
 
-PTHREAD_NOEXPORT PTHREAD_WEAK // prevent inlining of return value into callers
-int _pthread_mutex_lock_slow(pthread_mutex_t *omutex, bool trylock);
+PTHREAD_NOEXPORT PTHREAD_WEAK
+int _pthread_mutex_lock_init_slow(_pthread_mutex *mutex, bool trylock);
 
 PTHREAD_NOEXPORT PTHREAD_WEAK // prevent inlining of return value into callers
-int _pthread_mutex_unlock_slow(pthread_mutex_t *omutex);
+int _pthread_mutex_fairshare_lock_slow(_pthread_mutex *mutex, bool trylock);
+
+PTHREAD_NOEXPORT PTHREAD_WEAK // prevent inlining of return value into callers
+int _pthread_mutex_firstfit_lock_slow(_pthread_mutex *mutex, bool trylock);
+
+PTHREAD_NOEXPORT PTHREAD_WEAK // prevent inlining of return value into callers
+int _pthread_mutex_fairshare_unlock_slow(_pthread_mutex *mutex);
+
+PTHREAD_NOEXPORT PTHREAD_WEAK // prevent inlining of return value into callers
+int _pthread_mutex_firstfit_unlock_slow(_pthread_mutex *mutex);
 
 PTHREAD_NOEXPORT PTHREAD_WEAK // prevent inlining of return value into callers
 int _pthread_mutex_corruption_abort(_pthread_mutex *mutex);
 
-extern int __pthread_mutex_default_policy PTHREAD_NOEXPORT;
+extern int __pthread_mutex_default_opt_policy PTHREAD_NOEXPORT;
 
 
-int __pthread_mutex_default_policy PTHREAD_NOEXPORT =
-		_PTHREAD_MUTEX_POLICY_FAIRSHARE;
+int __pthread_mutex_default_opt_policy PTHREAD_NOEXPORT =
+		_PTHREAD_MTX_OPT_POLICY_DEFAULT;
+
+static inline bool
+_pthread_mutex_policy_validate(int policy)
+{
+	return (policy >= 0 && policy < _PTHREAD_MUTEX_POLICY_LAST);
+}
+
+static inline int
+_pthread_mutex_policy_to_opt(int policy)
+{
+	switch (policy) {
+	case PTHREAD_MUTEX_POLICY_FAIRSHARE_NP:
+		return _PTHREAD_MTX_OPT_POLICY_FAIRSHARE;
+	case PTHREAD_MUTEX_POLICY_FIRSTFIT_NP:
+		return _PTHREAD_MTX_OPT_POLICY_FIRSTFIT;
+	default:
+		__builtin_unreachable();
+	}
+}
 
 PTHREAD_NOEXPORT
 void
 _pthread_mutex_global_init(const char *envp[],
 		struct _pthread_registration_data *registration_data)
 {
+
+	int opt = _PTHREAD_MTX_OPT_POLICY_DEFAULT;
+	if (registration_data->mutex_default_policy) {
+		int policy = registration_data->mutex_default_policy;
+		if (_pthread_mutex_policy_validate(policy)) {
+			opt = _pthread_mutex_policy_to_opt(policy);
+		}
+	}
+
 	const char *envvar = _simple_getenv(envp, "PTHREAD_MUTEX_DEFAULT_POLICY");
-	if ((envvar && (envvar[0] - '0') == _PTHREAD_MUTEX_POLICY_FIRSTFIT) ||
-			(registration_data->mutex_default_policy ==
-				_PTHREAD_MUTEX_POLICY_FIRSTFIT)) {
-		__pthread_mutex_default_policy = _PTHREAD_MUTEX_POLICY_FIRSTFIT;
+	if (envvar) {
+		int policy = envvar[0] - '0';
+		if (_pthread_mutex_policy_validate(policy)) {
+			opt = _pthread_mutex_policy_to_opt(policy);
+		}
+	}
+
+	if (opt != __pthread_mutex_default_opt_policy) {
+		__pthread_mutex_default_opt_policy = opt;
 	}
 }
 
@@ -162,7 +202,7 @@ mutex_seq_load(mutex_seq *seqaddr, mutex_seq *oldseqval)
 #define mutex_seq_atomic_load(seqaddr, oldseqval, m) \
 		mutex_seq_atomic_load_##m(seqaddr, oldseqval)
 
-PTHREAD_ALWAYS_INLINE
+PTHREAD_ALWAYS_INLINE PTHREAD_USED
 static inline bool
 mutex_seq_atomic_cmpxchgv_relaxed(mutex_seq *seqaddr, mutex_seq *oldseqval,
 		mutex_seq *newseqval)
@@ -171,7 +211,7 @@ mutex_seq_atomic_cmpxchgv_relaxed(mutex_seq *seqaddr, mutex_seq *oldseqval,
 			newseqval->seq_LU, &oldseqval->seq_LU, relaxed);
 }
 
-PTHREAD_ALWAYS_INLINE
+PTHREAD_ALWAYS_INLINE PTHREAD_USED
 static inline bool
 mutex_seq_atomic_cmpxchgv_acquire(mutex_seq *seqaddr, mutex_seq *oldseqval,
 		mutex_seq *newseqval)
@@ -180,7 +220,7 @@ mutex_seq_atomic_cmpxchgv_acquire(mutex_seq *seqaddr, mutex_seq *oldseqval,
 			newseqval->seq_LU, &oldseqval->seq_LU, acquire);
 }
 
-PTHREAD_ALWAYS_INLINE
+PTHREAD_ALWAYS_INLINE PTHREAD_USED
 static inline bool
 mutex_seq_atomic_cmpxchgv_release(mutex_seq *seqaddr, mutex_seq *oldseqval,
 		mutex_seq *newseqval)
@@ -274,8 +314,16 @@ pthread_mutexattr_getpolicy_np(const pthread_mutexattr_t *attr, int *policy)
 {
 	int res = EINVAL;
 	if (attr->sig == _PTHREAD_MUTEX_ATTR_SIG) {
-		*policy = attr->policy;
-		res = 0;
+		switch (attr->opt) {
+		case _PTHREAD_MTX_OPT_POLICY_FAIRSHARE:
+			*policy = PTHREAD_MUTEX_POLICY_FAIRSHARE_NP;
+			res = 0;
+			break;
+		case _PTHREAD_MTX_OPT_POLICY_FIRSTFIT:
+			*policy = PTHREAD_MUTEX_POLICY_FIRSTFIT_NP;
+			res = 0;
+			break;
+		}
 	}
 	return res;
 }
@@ -307,7 +355,7 @@ pthread_mutexattr_init(pthread_mutexattr_t *attr)
 {
 	attr->prioceiling = _PTHREAD_DEFAULT_PRIOCEILING;
 	attr->protocol = _PTHREAD_DEFAULT_PROTOCOL;
-	attr->policy = __pthread_mutex_default_policy;
+	attr->opt = __pthread_mutex_default_opt_policy;
 	attr->type = PTHREAD_MUTEX_DEFAULT;
 	attr->sig = _PTHREAD_MUTEX_ATTR_SIG;
 	attr->pshared = _PTHREAD_DEFAULT_PSHARED;
@@ -349,12 +397,18 @@ pthread_mutexattr_setpolicy_np(pthread_mutexattr_t *attr, int policy)
 {
 	int res = EINVAL;
 	if (attr->sig == _PTHREAD_MUTEX_ATTR_SIG) {
+		// <rdar://problem/35844519> the first-fit implementation was broken
+		// pre-Liberty so this mapping exists to ensure that the old first-fit
+		// define (2) is no longer valid when used on older systems.
 		switch (policy) {
-			case _PTHREAD_MUTEX_POLICY_FAIRSHARE:
-			case _PTHREAD_MUTEX_POLICY_FIRSTFIT:
-				attr->policy = policy;
-				res = 0;
-				break;
+		case PTHREAD_MUTEX_POLICY_FAIRSHARE_NP:
+			attr->opt = _PTHREAD_MTX_OPT_POLICY_FAIRSHARE;
+			res = 0;
+			break;
+		case PTHREAD_MUTEX_POLICY_FIRSTFIT_NP:
+			attr->opt = _PTHREAD_MTX_OPT_POLICY_FIRSTFIT;
+			res = 0;
+			break;
 		}
 	}
 	return res;
@@ -412,6 +466,115 @@ _pthread_mutex_corruption_abort(_pthread_mutex *mutex)
 }
 
 
+PTHREAD_NOINLINE
+static int
+_pthread_mutex_check_init_slow(_pthread_mutex *mutex)
+{
+	int res = EINVAL;
+
+	if (_pthread_mutex_check_signature_init(mutex)) {
+		_PTHREAD_LOCK(mutex->lock);
+		if (_pthread_mutex_check_signature_init(mutex)) {
+			// initialize a statically initialized mutex to provide
+			// compatibility for misbehaving applications.
+			// (unlock should not be the first operation on a mutex)
+			res = _pthread_mutex_init(mutex, NULL, (mutex->sig & 0xf));
+		} else if (_pthread_mutex_check_signature(mutex)) {
+			res = 0;
+		}
+		_PTHREAD_UNLOCK(mutex->lock);
+	} else if (_pthread_mutex_check_signature(mutex)) {
+		res = 0;
+	}
+	if (res != 0) {
+		PLOCKSTAT_MUTEX_ERROR((pthread_mutex_t *)mutex, res);
+	}
+	return res;
+}
+
+PTHREAD_ALWAYS_INLINE
+static inline int
+_pthread_mutex_check_init(_pthread_mutex *mutex)
+{
+	int res = 0;
+	if (!_pthread_mutex_check_signature(mutex)) {
+		return _pthread_mutex_check_init_slow(mutex);
+	}
+	return res;
+}
+
+PTHREAD_ALWAYS_INLINE
+static inline bool
+_pthread_mutex_is_fairshare(_pthread_mutex *mutex)
+{
+	return (mutex->mtxopts.options.policy == _PTHREAD_MTX_OPT_POLICY_FAIRSHARE);
+}
+
+PTHREAD_ALWAYS_INLINE
+static inline bool
+_pthread_mutex_is_firstfit(_pthread_mutex *mutex)
+{
+	return (mutex->mtxopts.options.policy == _PTHREAD_MTX_OPT_POLICY_FIRSTFIT);
+}
+
+PTHREAD_ALWAYS_INLINE
+static inline bool
+_pthread_mutex_is_recursive(_pthread_mutex *mutex)
+{
+	return (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE);
+}
+
+PTHREAD_ALWAYS_INLINE
+static int
+_pthread_mutex_lock_handle_options(_pthread_mutex *mutex, bool trylock,
+		uint64_t *tidaddr)
+{
+	if (mutex->mtxopts.options.type == PTHREAD_MUTEX_NORMAL) {
+		// NORMAL does not do EDEADLK checking
+		return 0;
+	}
+
+	uint64_t selfid = _pthread_selfid_direct();
+	if (os_atomic_load(tidaddr, relaxed) == selfid) {
+		if (_pthread_mutex_is_recursive(mutex)) {
+			if (mutex->mtxopts.options.lock_count < USHRT_MAX) {
+				mutex->mtxopts.options.lock_count += 1;
+				return mutex->mtxopts.options.lock_count;
+			} else {
+				return -EAGAIN;
+			}
+		} else if (trylock) { /* PTHREAD_MUTEX_ERRORCHECK */
+			// <rdar://problem/16261552> as per OpenGroup, trylock cannot
+			// return EDEADLK on a deadlock, it should return EBUSY.
+			return -EBUSY;
+		} else { /* PTHREAD_MUTEX_ERRORCHECK */
+			return -EDEADLK;
+		}
+	}
+
+	// Not recursive, or recursive but first lock.
+	return 0;
+}
+
+PTHREAD_ALWAYS_INLINE
+static int
+_pthread_mutex_unlock_handle_options(_pthread_mutex *mutex, uint64_t *tidaddr)
+{
+	if (mutex->mtxopts.options.type == PTHREAD_MUTEX_NORMAL) {
+		// NORMAL does not do EDEADLK checking
+		return 0;
+	}
+
+	uint64_t selfid = _pthread_selfid_direct();
+	if (os_atomic_load(tidaddr, relaxed) != selfid) {
+		return -EPERM;
+	} else if (_pthread_mutex_is_recursive(mutex) &&
+			--mutex->mtxopts.options.lock_count) {
+		return 1;
+	}
+	return 0;
+}
+
 /*
  * Sequence numbers and TID:
  *
@@ -444,11 +607,9 @@ _pthread_mutex_corruption_abort(_pthread_mutex *mutex)
  */
 PTHREAD_ALWAYS_INLINE
 static inline int
-_pthread_mutex_unlock_updatebits(_pthread_mutex *mutex, uint32_t *flagsp,
-		uint32_t **pmtxp, uint32_t *mgenp, uint32_t *ugenp)
+_pthread_mutex_fairshare_unlock_updatebits(_pthread_mutex *mutex,
+		uint32_t *flagsp, uint32_t **pmtxp, uint32_t *mgenp, uint32_t *ugenp)
 {
-	bool firstfit = (mutex->mtxopts.options.policy ==
-			_PTHREAD_MUTEX_POLICY_FIRSTFIT);
 	uint32_t flags = mutex->mtxopts.value;
 	flags &= ~_PTHREAD_MTX_OPT_NOTIFY; // no notification by default
 
@@ -462,27 +623,24 @@ _pthread_mutex_unlock_updatebits(_pthread_mutex *mutex, uint32_t *flagsp,
 	MUTEX_GETTID_ADDR(mutex, &tidaddr);
 	uint64_t oldtid, newtid;
 
-	if (mutex->mtxopts.options.type != PTHREAD_MUTEX_NORMAL) {
-		uint64_t selfid = _pthread_selfid_direct();
-		if (os_atomic_load(tidaddr, relaxed) != selfid) {
-			PLOCKSTAT_MUTEX_ERROR((pthread_mutex_t *)mutex, EPERM);
-			return EPERM;
-		} else if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE &&
-			   --mutex->mtxopts.options.lock_count) {
-			PLOCKSTAT_MUTEX_RELEASE((pthread_mutex_t *)mutex, 1);
-			if (flagsp != NULL) {
-				*flagsp = flags;
-			}
-			return 0;
+	int res = _pthread_mutex_unlock_handle_options(mutex, tidaddr);
+	if (res > 0) {
+		// Valid recursive unlock
+		if (flagsp) {
+			*flagsp = flags;
 		}
+		PLOCKSTAT_MUTEX_RELEASE((pthread_mutex_t *)mutex, 1);
+		return 0;
+	} else if (res < 0) {
+		PLOCKSTAT_MUTEX_ERROR((pthread_mutex_t *)mutex, -res);
+		return -res;
 	}
 
-	bool clearprepost, clearnotify, spurious;
+	bool clearnotify, spurious;
 	do {
 		newseq = oldseq;
 		oldtid = os_atomic_load(tidaddr, relaxed);
 
-		clearprepost = false;
 		clearnotify = false;
 		spurious = false;
 
@@ -504,13 +662,7 @@ _pthread_mutex_unlock_updatebits(_pthread_mutex *mutex, uint32_t *flagsp,
 				clearnotify = true;
 				newtid = 0; // clear owner
 			} else {
-				if (firstfit) {
-					// reset E bit so another can acquire meanwhile
-					newseq.lgenval &= ~PTH_RWL_EBIT;
-					newtid = 0;
-				} else {
-					newtid = PTHREAD_MTX_TID_SWITCHING;
-				}
+				newtid = PTHREAD_MTX_TID_SWITCHING;
 				// need to signal others waiting for mutex
 				flags |= _PTHREAD_MTX_OPT_NOTIFY;
 			}
@@ -530,20 +682,11 @@ _pthread_mutex_unlock_updatebits(_pthread_mutex *mutex, uint32_t *flagsp,
 
 		if (clearnotify || spurious) {
 			flags &= ~_PTHREAD_MTX_OPT_NOTIFY;
-			if (firstfit && (newseq.lgenval & PTH_RWL_PBIT)) {
-				clearprepost = true;
-				newseq.lgenval &= ~PTH_RWL_PBIT;
-			}
 		}
 	} while (!mutex_seq_atomic_cmpxchgv(seqaddr, &oldseq, &newseq, release));
 
 	PTHREAD_TRACE(psynch_mutex_unlock_updatebits, mutex, oldseq.lgenval,
 			newseq.lgenval, oldtid);
-
-	if (clearprepost) {
-		__psynch_cvclrprepost(mutex, newseq.lgenval, newseq.ugenval, 0, 0,
-				newseq.lgenval, flags | _PTHREAD_MTX_OPT_MUTEX);
-	}
 
 	if (mgenp != NULL) {
 		*mgenp = newseq.lgenval;
@@ -561,20 +704,11 @@ _pthread_mutex_unlock_updatebits(_pthread_mutex *mutex, uint32_t *flagsp,
 	return 0;
 }
 
-PTHREAD_NOEXPORT PTHREAD_NOINLINE
-int
-_pthread_mutex_droplock(_pthread_mutex *mutex, uint32_t *flagsp,
-		uint32_t **pmtxp, uint32_t *mgenp, uint32_t *ugenp)
-{
-	return _pthread_mutex_unlock_updatebits(mutex, flagsp, pmtxp, mgenp, ugenp);
-}
-
 PTHREAD_ALWAYS_INLINE
 static inline int
-_pthread_mutex_lock_updatebits(_pthread_mutex *mutex, uint64_t selfid)
+_pthread_mutex_fairshare_lock_updatebits(_pthread_mutex *mutex, uint64_t selfid)
 {
-	bool firstfit = (mutex->mtxopts.options.policy ==
-			_PTHREAD_MUTEX_POLICY_FIRSTFIT);
+	bool firstfit = _pthread_mutex_is_firstfit(mutex);
 	bool gotlock = true;
 
 	mutex_seq *seqaddr;
@@ -585,11 +719,9 @@ _pthread_mutex_lock_updatebits(_pthread_mutex *mutex, uint64_t selfid)
 
 	uint64_t *tidaddr;
 	MUTEX_GETTID_ADDR(mutex, &tidaddr);
-	uint64_t oldtid;
 
 	do {
 		newseq = oldseq;
-		oldtid = os_atomic_load(tidaddr, relaxed);
 
 		if (firstfit) {
 			// firstfit locks can have the lock stolen out from under a locker
@@ -605,17 +737,14 @@ _pthread_mutex_lock_updatebits(_pthread_mutex *mutex, uint64_t selfid)
 
 		newseq.lgenval |= PTH_RWL_KBIT | PTH_RWL_EBIT;
 	} while (!mutex_seq_atomic_cmpxchgv(seqaddr, &oldseq, &newseq,
-			relaxed));
+			acquire));
 
 	if (gotlock) {
-		if (!os_atomic_cmpxchg(tidaddr, oldtid, selfid, relaxed)) {
-			// we own this mutex, nobody should be updating it except us
-			return _pthread_mutex_corruption_abort(mutex);
-		}
+		os_atomic_store(tidaddr, selfid, relaxed);
 	}
 
 	PTHREAD_TRACE(psynch_mutex_lock_updatebits, mutex, oldseq.lgenval,
-			newseq.lgenval, oldtid);
+			newseq.lgenval, 0);
 
 	// failing to take the lock in firstfit returns 1 to force the caller
 	// to wait in the kernel
@@ -624,113 +753,35 @@ _pthread_mutex_lock_updatebits(_pthread_mutex *mutex, uint64_t selfid)
 
 PTHREAD_NOINLINE
 static int
-_pthread_mutex_markprepost(_pthread_mutex *mutex, uint32_t updateval)
-{
-	mutex_seq *seqaddr;
-	MUTEX_GETSEQ_ADDR(mutex, &seqaddr);
-
-	mutex_seq oldseq, newseq;
-	mutex_seq_load(seqaddr, &oldseq);
-
-	bool clearprepost;
-	do {
-		clearprepost = false;
-		newseq = oldseq;
-
-		/* update the bits */
-		if ((oldseq.lgenval & PTHRW_COUNT_MASK) ==
-				(oldseq.ugenval & PTHRW_COUNT_MASK)) {
-			clearprepost = true;
-			newseq.lgenval &= ~PTH_RWL_PBIT;
-		} else {
-			newseq.lgenval |= PTH_RWL_PBIT;
-		}
-	} while (!mutex_seq_atomic_cmpxchgv(seqaddr, &oldseq, &newseq, relaxed));
-
-	if (clearprepost) {
-		__psynch_cvclrprepost(mutex, newseq.lgenval, newseq.ugenval, 0, 0,
-				newseq.lgenval, mutex->mtxopts.value | _PTHREAD_MTX_OPT_MUTEX);
-	}
-
-	return 0;
-}
-
-PTHREAD_NOINLINE
-static int
-_pthread_mutex_check_init_slow(pthread_mutex_t *omutex)
-{
-	int res = EINVAL;
-	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
-
-	if (_pthread_mutex_check_signature_init(mutex)) {
-		_PTHREAD_LOCK(mutex->lock);
-		if (_pthread_mutex_check_signature_init(mutex)) {
-			// initialize a statically initialized mutex to provide
-			// compatibility for misbehaving applications.
-			// (unlock should not be the first operation on a mutex)
-			res = _pthread_mutex_init(mutex, NULL, (mutex->sig & 0xf));
-		} else if (_pthread_mutex_check_signature(mutex)) {
-			res = 0;
-		}
-		_PTHREAD_UNLOCK(mutex->lock);
-	} else if (_pthread_mutex_check_signature(mutex)) {
-		res = 0;
-	}
-	if (res != 0) {
-		PLOCKSTAT_MUTEX_ERROR(omutex, res);
-	}
-	return res;
-}
-
-PTHREAD_ALWAYS_INLINE
-static inline int
-_pthread_mutex_check_init(pthread_mutex_t *omutex)
-{
-	int res = 0;
-	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
-
-	if (!_pthread_mutex_check_signature(mutex)) {
-		return _pthread_mutex_check_init_slow(omutex);
-	}
-	return res;
-}
-
-PTHREAD_NOINLINE
-static int
-_pthread_mutex_lock_wait(pthread_mutex_t *omutex, mutex_seq newseq,
+_pthread_mutex_fairshare_lock_wait(_pthread_mutex *mutex, mutex_seq newseq,
 		uint64_t oldtid)
 {
-	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
-
 	uint64_t *tidaddr;
 	MUTEX_GETTID_ADDR(mutex, &tidaddr);
 	uint64_t selfid = _pthread_selfid_direct();
 
-	PLOCKSTAT_MUTEX_BLOCK(omutex);
+	PLOCKSTAT_MUTEX_BLOCK((pthread_mutex_t *)mutex);
 	do {
 		uint32_t updateval;
 		do {
-			updateval = __psynch_mutexwait(omutex, newseq.lgenval,
+			updateval = __psynch_mutexwait(mutex, newseq.lgenval,
 					newseq.ugenval, oldtid, mutex->mtxopts.value);
 			oldtid = os_atomic_load(tidaddr, relaxed);
 		} while (updateval == (uint32_t)-1);
 
 		// returns 0 on succesful update; in firstfit it may fail with 1
-	} while (_pthread_mutex_lock_updatebits(mutex, selfid) == 1);
-	PLOCKSTAT_MUTEX_BLOCKED(omutex, BLOCK_SUCCESS_PLOCKSTAT);
+	} while (_pthread_mutex_fairshare_lock_updatebits(mutex, selfid) == 1);
+	PLOCKSTAT_MUTEX_BLOCKED((pthread_mutex_t *)mutex, BLOCK_SUCCESS_PLOCKSTAT);
 
 	return 0;
 }
 
 PTHREAD_NOEXPORT PTHREAD_NOINLINE
 int
-_pthread_mutex_lock_slow(pthread_mutex_t *omutex, bool trylock)
+_pthread_mutex_fairshare_lock_slow(_pthread_mutex *omutex, bool trylock)
 {
 	int res, recursive = 0;
 	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
-
-	res = _pthread_mutex_check_init(omutex);
-	if (res != 0) return res;
 
 	mutex_seq *seqaddr;
 	MUTEX_GETSEQ_ADDR(mutex, &seqaddr);
@@ -742,25 +793,14 @@ _pthread_mutex_lock_slow(pthread_mutex_t *omutex, bool trylock)
 	MUTEX_GETTID_ADDR(mutex, &tidaddr);
 	uint64_t oldtid, selfid = _pthread_selfid_direct();
 
-	if (mutex->mtxopts.options.type != PTHREAD_MUTEX_NORMAL) {
-		if (os_atomic_load(tidaddr, relaxed) == selfid) {
-			if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE) {
-				if (mutex->mtxopts.options.lock_count < USHRT_MAX) {
-					mutex->mtxopts.options.lock_count++;
-					recursive = 1;
-					res = 0;
-				} else {
-					res = EAGAIN;
-				}
-			} else if (trylock) { /* PTHREAD_MUTEX_ERRORCHECK */
-				// <rdar://problem/16261552> as per OpenGroup, trylock cannot
-				// return EDEADLK on a deadlock, it should return EBUSY.
-				res = EBUSY;
-			} else	{ /* PTHREAD_MUTEX_ERRORCHECK */
-				res = EDEADLK;
-			}
-			goto out;
-		}
+	res = _pthread_mutex_lock_handle_options(mutex, trylock, tidaddr);
+	if (res > 0) {
+		recursive = 1;
+		res = 0;
+		goto out;
+	} else if (res < 0) {
+		res = -res;
+		goto out;
 	}
 
 	bool gotlock;
@@ -797,43 +837,38 @@ _pthread_mutex_lock_slow(pthread_mutex_t *omutex, bool trylock)
 	} else {
 		PTHREAD_TRACE(psynch_mutex_ulock | DBG_FUNC_START, omutex,
 				newseq.lgenval, newseq.ugenval, oldtid);
-		res = _pthread_mutex_lock_wait(omutex, newseq, oldtid);
+		res = _pthread_mutex_fairshare_lock_wait(mutex, newseq, oldtid);
 		PTHREAD_TRACE(psynch_mutex_ulock | DBG_FUNC_END, omutex,
 				newseq.lgenval, newseq.ugenval, oldtid);
 	}
 
-	if (res == 0 && mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE) {
+	if (res == 0 && _pthread_mutex_is_recursive(mutex)) {
 		mutex->mtxopts.options.lock_count = 1;
 	}
 
 out:
 #if PLOCKSTAT
 	if (res == 0) {
-		PLOCKSTAT_MUTEX_ACQUIRE(omutex, recursive, 0);
+		PLOCKSTAT_MUTEX_ACQUIRE((pthread_mutex_t *)mutex, recursive, 0);
 	} else {
-		PLOCKSTAT_MUTEX_ERROR(omutex, res);
+		PLOCKSTAT_MUTEX_ERROR((pthread_mutex_t *)mutex, res);
 	}
 #endif
 
 	return res;
 }
 
-PTHREAD_ALWAYS_INLINE
+PTHREAD_NOINLINE
 static inline int
-_pthread_mutex_lock(pthread_mutex_t *omutex, bool trylock)
+_pthread_mutex_fairshare_lock(_pthread_mutex *mutex, bool trylock)
 {
 #if ENABLE_USERSPACE_TRACE
-	return _pthread_mutex_lock_slow(omutex, trylock);
+	return _pthread_mutex_fairshare_lock_slow(mutex, trylock);
 #elif PLOCKSTAT
 	if (PLOCKSTAT_MUTEX_ACQUIRE_ENABLED() || PLOCKSTAT_MUTEX_ERROR_ENABLED()) {
-		return _pthread_mutex_lock_slow(omutex, trylock);
+		return _pthread_mutex_fairshare_lock_slow(mutex, trylock);
 	}
 #endif
-
-	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
-	if (os_unlikely(!_pthread_mutex_check_signature_fast(mutex))) {
-		return _pthread_mutex_lock_slow(omutex, trylock);
-	}
 
 	uint64_t *tidaddr;
 	MUTEX_GETTID_ADDR(mutex, &tidaddr);
@@ -846,7 +881,7 @@ _pthread_mutex_lock(pthread_mutex_t *omutex, bool trylock)
 	mutex_seq_load(seqaddr, &oldseq);
 
 	if (os_unlikely(oldseq.lgenval & PTH_RWL_EBIT)) {
-		return _pthread_mutex_lock_slow(omutex, trylock);
+		return _pthread_mutex_fairshare_lock_slow(mutex, trylock);
 	}
 
 	bool gotlock;
@@ -865,7 +900,7 @@ _pthread_mutex_lock(pthread_mutex_t *omutex, bool trylock)
 			newseq.lgenval += PTHRW_INC;
 			newseq.lgenval |= PTH_RWL_EBIT | PTH_RWL_KBIT;
 		} else {
-			return _pthread_mutex_lock_slow(omutex, trylock);
+			return _pthread_mutex_fairshare_lock_slow(mutex, trylock);
 		}
 	} while (os_unlikely(!mutex_seq_atomic_cmpxchgv(seqaddr, &oldseq, &newseq,
 			acquire)));
@@ -880,45 +915,24 @@ _pthread_mutex_lock(pthread_mutex_t *omutex, bool trylock)
 	}
 }
 
-PTHREAD_NOEXPORT_VARIANT
-int
-pthread_mutex_lock(pthread_mutex_t *mutex)
-{
-	return _pthread_mutex_lock(mutex, false);
-}
-
-PTHREAD_NOEXPORT_VARIANT
-int
-pthread_mutex_trylock(pthread_mutex_t *mutex)
-{
-	return _pthread_mutex_lock(mutex, true);
-}
-
-/*
- * Unlock a mutex.
- * TODO: Priority inheritance stuff
- */
-
 PTHREAD_NOINLINE
 static int
-_pthread_mutex_unlock_drop(pthread_mutex_t *omutex, mutex_seq newseq,
+_pthread_mutex_fairshare_unlock_drop(_pthread_mutex *mutex, mutex_seq newseq,
 		uint32_t flags)
 {
 	int res;
-	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
-
 	uint32_t updateval;
 
 	uint64_t *tidaddr;
 	MUTEX_GETTID_ADDR(mutex, &tidaddr);
 
-	PTHREAD_TRACE(psynch_mutex_uunlock | DBG_FUNC_START, omutex, newseq.lgenval,
+	PTHREAD_TRACE(psynch_mutex_uunlock | DBG_FUNC_START, mutex, newseq.lgenval,
 			newseq.ugenval, os_atomic_load(tidaddr, relaxed));
 
-	updateval = __psynch_mutexdrop(omutex, newseq.lgenval, newseq.ugenval,
+	updateval = __psynch_mutexdrop(mutex, newseq.lgenval, newseq.ugenval,
 			os_atomic_load(tidaddr, relaxed), flags);
 
-	PTHREAD_TRACE(psynch_mutex_uunlock | DBG_FUNC_END, omutex, updateval, 0, 0);
+	PTHREAD_TRACE(psynch_mutex_uunlock | DBG_FUNC_END, mutex, updateval, 0, 0);
 
 	if (updateval == (uint32_t)-1) {
 		res = errno;
@@ -930,9 +944,6 @@ _pthread_mutex_unlock_drop(pthread_mutex_t *omutex, mutex_seq newseq,
 			PTHREAD_ABORT("__psynch_mutexdrop failed with error %d", res);
 		}
 		return res;
-	} else if ((mutex->mtxopts.options.policy == _PTHREAD_MUTEX_POLICY_FIRSTFIT)
-			&& (updateval & PTH_RWL_PBIT)) {
-		return _pthread_mutex_markprepost(mutex, updateval);
 	}
 
 	return 0;
@@ -940,49 +951,39 @@ _pthread_mutex_unlock_drop(pthread_mutex_t *omutex, mutex_seq newseq,
 
 PTHREAD_NOEXPORT PTHREAD_NOINLINE
 int
-_pthread_mutex_unlock_slow(pthread_mutex_t *omutex)
+_pthread_mutex_fairshare_unlock_slow(_pthread_mutex *mutex)
 {
 	int res;
-	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
 	mutex_seq newseq;
 	uint32_t flags;
 
-	// Initialize static mutexes for compatibility with misbehaving
-	// applications (unlock should not be the first operation on a mutex).
-	res = _pthread_mutex_check_init(omutex);
-	if (res != 0) return res;
-
-	res = _pthread_mutex_unlock_updatebits(mutex, &flags, NULL, &newseq.lgenval,
-			&newseq.ugenval);
+	res = _pthread_mutex_fairshare_unlock_updatebits(mutex, &flags, NULL,
+			&newseq.lgenval, &newseq.ugenval);
 	if (res != 0) return res;
 
 	if ((flags & _PTHREAD_MTX_OPT_NOTIFY) != 0) {
-		return _pthread_mutex_unlock_drop(omutex, newseq, flags);
+		return _pthread_mutex_fairshare_unlock_drop(mutex, newseq, flags);
 	} else {
 		uint64_t *tidaddr;
 		MUTEX_GETTID_ADDR(mutex, &tidaddr);
-		PTHREAD_TRACE(psynch_mutex_uunlock, omutex, newseq.lgenval,
+		PTHREAD_TRACE(psynch_mutex_uunlock, mutex, newseq.lgenval,
 				newseq.ugenval, os_atomic_load(tidaddr, relaxed));
 	}
 
 	return 0;
 }
 
-PTHREAD_NOEXPORT_VARIANT
-int
-pthread_mutex_unlock(pthread_mutex_t *omutex)
+PTHREAD_NOINLINE
+static int
+_pthread_mutex_fairshare_unlock(_pthread_mutex *mutex)
 {
 #if ENABLE_USERSPACE_TRACE
-	return _pthread_mutex_unlock_slow(omutex);
+	return _pthread_mutex_fairshare_unlock_slow(mutex);
 #elif PLOCKSTAT
 	if (PLOCKSTAT_MUTEX_RELEASE_ENABLED() || PLOCKSTAT_MUTEX_ERROR_ENABLED()) {
-		return _pthread_mutex_unlock_slow(omutex);
+		return _pthread_mutex_fairshare_unlock_slow(mutex);
 	}
 #endif
-	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
-	if (os_unlikely(!_pthread_mutex_check_signature_fast(mutex))) {
-		return _pthread_mutex_unlock_slow(omutex);
-	}
 
 	uint64_t *tidaddr;
 	MUTEX_GETTID_ADDR(mutex, &tidaddr);
@@ -1012,18 +1013,482 @@ pthread_mutex_unlock(pthread_mutex_t *omutex)
 
 		if (os_likely((oldseq.lgenval & PTHRW_COUNT_MASK) ==
 				(newseq.ugenval & PTHRW_COUNT_MASK))) {
-			// our unlock sequence matches to lock sequence, so if the
-			// CAS is successful, the mutex is unlocked
+			// if we succeed in performing the CAS we can be sure of a fast
+			// path (only needing the CAS) unlock, if:
+			//   a. our lock and unlock sequence are equal
+			//   b. we don't need to clear an unlock prepost from the kernel
 
 			// do not reset Ibit, just K&E
 			newseq.lgenval &= ~(PTH_RWL_KBIT | PTH_RWL_EBIT);
 		} else {
-			return _pthread_mutex_unlock_slow(omutex);
+			return _pthread_mutex_fairshare_unlock_slow(mutex);
 		}
 	} while (os_unlikely(!mutex_seq_atomic_cmpxchgv(seqaddr, &oldseq, &newseq,
 			release)));
 
 	return 0;
+}
+
+#pragma mark firstfit
+
+PTHREAD_ALWAYS_INLINE
+static inline int
+_pthread_mutex_firstfit_unlock_updatebits(_pthread_mutex *mutex,
+		uint32_t *flagsp, uint32_t **mutexp, uint32_t *lvalp, uint32_t *uvalp)
+{
+	uint32_t flags = mutex->mtxopts.value & ~_PTHREAD_MTX_OPT_NOTIFY;
+	bool kernel_wake;
+
+	mutex_seq *seqaddr;
+	MUTEX_GETSEQ_ADDR(mutex, &seqaddr);
+
+	mutex_seq oldseq, newseq;
+	mutex_seq_load(seqaddr, &oldseq);
+
+	uint64_t *tidaddr;
+	MUTEX_GETTID_ADDR(mutex, &tidaddr);
+	uint64_t oldtid;
+
+	int res = _pthread_mutex_unlock_handle_options(mutex, tidaddr);
+	if (res > 0) {
+		// Valid recursive unlock
+		if (flagsp) {
+			*flagsp = flags;
+		}
+		PLOCKSTAT_MUTEX_RELEASE((pthread_mutex_t *)mutex, 1);
+		return 0;
+	} else if (res < 0) {
+		PLOCKSTAT_MUTEX_ERROR((pthread_mutex_t *)mutex, -res);
+		return -res;
+	}
+
+	do {
+		newseq = oldseq;
+		oldtid = os_atomic_load(tidaddr, relaxed);
+		// More than one kernel waiter means we need to do a wake.
+		kernel_wake = diff_genseq(oldseq.lgenval, oldseq.ugenval) > 0;
+		newseq.lgenval &= ~PTH_RWL_EBIT;
+
+		if (kernel_wake) {
+			// Going to the kernel post-unlock removes a single waiter unlock
+			// from the mutex counts.
+			newseq.ugenval += PTHRW_INC;
+		}
+
+		if (oldtid != 0) {
+			if (!os_atomic_cmpxchg(tidaddr, oldtid, 0, relaxed)) {
+				return _pthread_mutex_corruption_abort(mutex);
+			}
+		}
+	} while (!mutex_seq_atomic_cmpxchgv(seqaddr, &oldseq, &newseq, release));
+
+	PTHREAD_TRACE(psynch_ffmutex_unlock_updatebits, mutex, oldseq.lgenval,
+			newseq.lgenval, newseq.ugenval);
+
+	if (kernel_wake) {
+		// We choose to return this out via flags because the condition
+		// variable also uses this to determine whether to do a kernel wake
+		// when beginning a cvwait.
+		flags |= _PTHREAD_MTX_OPT_NOTIFY;
+	}
+	if (lvalp) {
+		*lvalp = newseq.lgenval;
+	}
+	if (uvalp) {
+		*uvalp = newseq.ugenval;
+	}
+	if (mutexp) {
+		*mutexp = (uint32_t *)mutex;
+	}
+	if (flagsp) {
+		*flagsp = flags;
+	}
+	return 0;
+}
+
+PTHREAD_NOEXPORT PTHREAD_NOINLINE
+static int
+_pthread_mutex_firstfit_wake(_pthread_mutex *mutex, mutex_seq newseq,
+		uint32_t flags)
+{
+	PTHREAD_TRACE(psynch_ffmutex_wake, mutex, newseq.lgenval, newseq.ugenval,
+			0);
+	int res = __psynch_mutexdrop(mutex, newseq.lgenval, newseq.ugenval, 0,
+			flags);
+
+	if (res == -1) {
+		res = errno;
+		if (res == EINTR) {
+			res = 0;
+		}
+		if (res != 0) {
+			PTHREAD_ABORT("__psynch_mutexdrop failed with error %d", res);
+		}
+		return res;
+	}
+	return 0;
+}
+
+PTHREAD_NOEXPORT PTHREAD_NOINLINE
+int
+_pthread_mutex_firstfit_unlock_slow(_pthread_mutex *mutex)
+{
+	mutex_seq newseq;
+	uint32_t flags;
+	int res;
+
+	res = _pthread_mutex_firstfit_unlock_updatebits(mutex, &flags, NULL,
+			&newseq.lgenval, &newseq.ugenval);
+	if (res != 0) return res;
+
+	if (flags & _PTHREAD_MTX_OPT_NOTIFY) {
+		return _pthread_mutex_firstfit_wake(mutex, newseq, flags);
+	}
+	return 0;
+}
+
+PTHREAD_ALWAYS_INLINE
+static bool
+_pthread_mutex_firstfit_lock_updatebits(_pthread_mutex *mutex, uint64_t selfid,
+		mutex_seq *newseqp)
+{
+	bool gotlock;
+
+	mutex_seq *seqaddr;
+	MUTEX_GETSEQ_ADDR(mutex, &seqaddr);
+
+	mutex_seq oldseq, newseq;
+	mutex_seq_load(seqaddr, &oldseq);
+
+	uint64_t *tidaddr;
+	MUTEX_GETTID_ADDR(mutex, &tidaddr);
+
+	PTHREAD_TRACE(psynch_ffmutex_lock_updatebits | DBG_FUNC_START, mutex,
+			oldseq.lgenval, oldseq.ugenval, 0);
+
+	do {
+		newseq = oldseq;
+		gotlock = is_rwl_ebit_clear(oldseq.lgenval);
+
+		if (gotlock) {
+			// If we see the E-bit cleared, we should just attempt to take it.
+			newseq.lgenval |= PTH_RWL_EBIT;
+		} else {
+			// If we failed to get the lock then we need to put ourselves back
+			// in the queue of waiters. The previous unlocker that woke us out
+			// of the kernel consumed the S-count for our previous wake. So
+			// take another ticket on L and go back in the kernel to sleep.
+			newseq.lgenval += PTHRW_INC;
+		}
+	} while (!mutex_seq_atomic_cmpxchgv(seqaddr, &oldseq, &newseq, acquire));
+
+	if (gotlock) {
+		os_atomic_store(tidaddr, selfid, relaxed);
+	}
+
+	PTHREAD_TRACE(psynch_ffmutex_lock_updatebits | DBG_FUNC_END, mutex,
+			newseq.lgenval, newseq.ugenval, 0);
+
+	if (newseqp) {
+		*newseqp = newseq;
+	}
+	return gotlock;
+}
+
+PTHREAD_NOINLINE
+static int
+_pthread_mutex_firstfit_lock_wait(_pthread_mutex *mutex, mutex_seq newseq,
+		uint64_t oldtid)
+{
+	uint64_t *tidaddr;
+	MUTEX_GETTID_ADDR(mutex, &tidaddr);
+	uint64_t selfid = _pthread_selfid_direct();
+
+	PLOCKSTAT_MUTEX_BLOCK((pthread_mutex_t *)mutex);
+	do {
+		uint32_t uval;
+		do {
+			PTHREAD_TRACE(psynch_ffmutex_wait | DBG_FUNC_START, mutex,
+					newseq.lgenval, newseq.ugenval, mutex->mtxopts.value);
+			uval = __psynch_mutexwait(mutex, newseq.lgenval, newseq.ugenval,
+					oldtid, mutex->mtxopts.value);
+			PTHREAD_TRACE(psynch_ffmutex_wait | DBG_FUNC_END, mutex,
+					uval, 0, 0);
+			oldtid = os_atomic_load(tidaddr, relaxed);
+		} while (uval == (uint32_t)-1);
+	} while (!_pthread_mutex_firstfit_lock_updatebits(mutex, selfid, &newseq));
+	PLOCKSTAT_MUTEX_BLOCKED((pthread_mutex_t *)mutex, BLOCK_SUCCESS_PLOCKSTAT);
+
+	return 0;
+}
+
+PTHREAD_NOEXPORT PTHREAD_NOINLINE
+int
+_pthread_mutex_firstfit_lock_slow(_pthread_mutex *mutex, bool trylock)
+{
+	int res, recursive = 0;
+
+	mutex_seq *seqaddr;
+	MUTEX_GETSEQ_ADDR(mutex, &seqaddr);
+
+	mutex_seq oldseq, newseq;
+	mutex_seq_load(seqaddr, &oldseq);
+
+	uint64_t *tidaddr;
+	MUTEX_GETTID_ADDR(mutex, &tidaddr);
+	uint64_t oldtid, selfid = _pthread_selfid_direct();
+
+	res = _pthread_mutex_lock_handle_options(mutex, trylock, tidaddr);
+	if (res > 0) {
+		recursive = 1;
+		res = 0;
+		goto out;
+	} else if (res < 0) {
+		res = -res;
+		goto out;
+	}
+
+	PTHREAD_TRACE(psynch_ffmutex_lock_updatebits | DBG_FUNC_START, mutex,
+			oldseq.lgenval, oldseq.ugenval, 0);
+
+	bool gotlock;
+	do {
+		newseq = oldseq;
+		oldtid = os_atomic_load(tidaddr, relaxed);
+
+		gotlock = is_rwl_ebit_clear(oldseq.lgenval);
+		if (trylock && !gotlock) {
+			// We still want to perform the CAS here, even though it won't
+			// do anything so that it fails if someone unlocked while we were
+			// in the loop
+		} else if (gotlock) {
+			// In first-fit, getting the lock simply adds the E-bit
+			newseq.lgenval |= PTH_RWL_EBIT;
+		} else {
+			// Failed to get the lock, increment the L-val and go to
+			// the kernel to sleep
+			newseq.lgenval += PTHRW_INC;
+		}
+	} while (!mutex_seq_atomic_cmpxchgv(seqaddr, &oldseq, &newseq, acquire));
+
+	PTHREAD_TRACE(psynch_ffmutex_lock_updatebits | DBG_FUNC_END, mutex,
+			newseq.lgenval, newseq.ugenval, 0);
+
+	if (gotlock) {
+		os_atomic_store(tidaddr, selfid, relaxed);
+		res = 0;
+		PTHREAD_TRACE(psynch_mutex_ulock, mutex, newseq.lgenval,
+				newseq.ugenval, selfid);
+	} else if (trylock) {
+		res = EBUSY;
+		PTHREAD_TRACE(psynch_mutex_utrylock_failed, mutex, newseq.lgenval,
+				newseq.ugenval, oldtid);
+	} else {
+		PTHREAD_TRACE(psynch_mutex_ulock | DBG_FUNC_START, mutex,
+				newseq.lgenval, newseq.ugenval, oldtid);
+		res = _pthread_mutex_firstfit_lock_wait(mutex, newseq, oldtid);
+		PTHREAD_TRACE(psynch_mutex_ulock | DBG_FUNC_END, mutex,
+				newseq.lgenval, newseq.ugenval, oldtid);
+	}
+
+	if (res == 0 && _pthread_mutex_is_recursive(mutex)) {
+		mutex->mtxopts.options.lock_count = 1;
+	}
+
+out:
+#if PLOCKSTAT
+	if (res == 0) {
+		PLOCKSTAT_MUTEX_ACQUIRE((pthread_mutex_t *)mutex, recursive, 0);
+	} else {
+		PLOCKSTAT_MUTEX_ERROR((pthread_mutex_t *)mutex, res);
+	}
+#endif
+	return res;
+}
+
+#pragma mark fast path
+
+PTHREAD_NOEXPORT PTHREAD_NOINLINE
+int
+_pthread_mutex_droplock(_pthread_mutex *mutex, uint32_t *flagsp,
+		uint32_t **pmtxp, uint32_t *mgenp, uint32_t *ugenp)
+{
+	if (_pthread_mutex_is_fairshare(mutex)) {
+		return _pthread_mutex_fairshare_unlock_updatebits(mutex, flagsp,
+				pmtxp, mgenp, ugenp);
+	}
+	return _pthread_mutex_firstfit_unlock_updatebits(mutex, flagsp, pmtxp,
+			mgenp, ugenp);
+}
+
+PTHREAD_NOEXPORT PTHREAD_NOINLINE
+int
+_pthread_mutex_lock_init_slow(_pthread_mutex *mutex, bool trylock)
+{
+	int res;
+
+	res = _pthread_mutex_check_init(mutex);
+	if (res != 0) return res;
+
+	if (os_unlikely(_pthread_mutex_is_fairshare(mutex))) {
+		return _pthread_mutex_fairshare_lock_slow(mutex, trylock);
+	}
+	return _pthread_mutex_firstfit_lock_slow(mutex, trylock);
+}
+
+PTHREAD_NOEXPORT PTHREAD_NOINLINE
+static int
+_pthread_mutex_unlock_init_slow(_pthread_mutex *mutex)
+{
+	int res;
+
+	// Initialize static mutexes for compatibility with misbehaving
+	// applications (unlock should not be the first operation on a mutex).
+	res = _pthread_mutex_check_init(mutex);
+	if (res != 0) return res;
+
+	if (os_unlikely(_pthread_mutex_is_fairshare(mutex))) {
+		return _pthread_mutex_fairshare_unlock_slow(mutex);
+	}
+	return _pthread_mutex_firstfit_unlock_slow(mutex);
+}
+
+PTHREAD_NOEXPORT_VARIANT
+int
+pthread_mutex_unlock(pthread_mutex_t *omutex)
+{
+	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
+	if (os_unlikely(!_pthread_mutex_check_signature_fast(mutex))) {
+		return _pthread_mutex_unlock_init_slow(mutex);
+	}
+
+	if (os_unlikely(_pthread_mutex_is_fairshare(mutex))) {
+		return _pthread_mutex_fairshare_unlock(mutex);
+	}
+
+#if ENABLE_USERSPACE_TRACE
+	return _pthread_mutex_firstfit_unlock_slow(mutex);
+#elif PLOCKSTAT
+	if (PLOCKSTAT_MUTEX_RELEASE_ENABLED() || PLOCKSTAT_MUTEX_ERROR_ENABLED()) {
+		return _pthread_mutex_firstfit_unlock_slow(mutex);
+	}
+#endif
+
+	/*
+	 * This is the first-fit fast path. The fairshare fast-ish path is in
+	 * _pthread_mutex_firstfit_unlock()
+	 */
+	uint64_t *tidaddr;
+	MUTEX_GETTID_ADDR(mutex, &tidaddr);
+
+	mutex_seq *seqaddr;
+	MUTEX_GETSEQ_ADDR(mutex, &seqaddr);
+
+	mutex_seq oldseq, newseq;
+	mutex_seq_load(seqaddr, &oldseq);
+
+	// We're giving up the mutex one way or the other, so go ahead and
+	// update the owner to 0 so that once the CAS below succeeds, there
+	// is no stale ownership information. If the CAS of the seqaddr
+	// fails, we may loop, but it's still valid for the owner to be
+	// SWITCHING/0
+	os_atomic_store(tidaddr, 0, relaxed);
+
+	do {
+		newseq = oldseq;
+
+		if (diff_genseq(oldseq.lgenval, oldseq.ugenval) == 0) {
+			// No outstanding waiters in kernel, we can simply drop the E-bit
+			// and return.
+			newseq.lgenval &= ~PTH_RWL_EBIT;
+		} else {
+			return _pthread_mutex_firstfit_unlock_slow(mutex);
+		}
+	} while (os_unlikely(!mutex_seq_atomic_cmpxchgv(seqaddr, &oldseq, &newseq,
+			release)));
+
+	return 0;
+}
+
+PTHREAD_ALWAYS_INLINE
+static inline int
+_pthread_mutex_firstfit_lock(pthread_mutex_t *omutex, bool trylock)
+{
+	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
+	if (os_unlikely(!_pthread_mutex_check_signature_fast(mutex))) {
+		return _pthread_mutex_lock_init_slow(mutex, trylock);
+	}
+
+	if (os_unlikely(_pthread_mutex_is_fairshare(mutex))) {
+		return _pthread_mutex_fairshare_lock(mutex, trylock);
+	}
+
+#if ENABLE_USERSPACE_TRACE
+	return _pthread_mutex_firstfit_lock_slow(mutex, trylock);
+#elif PLOCKSTAT
+	if (PLOCKSTAT_MUTEX_ACQUIRE_ENABLED() || PLOCKSTAT_MUTEX_ERROR_ENABLED()) {
+		return _pthread_mutex_firstfit_lock_slow(mutex, trylock);
+	}
+#endif
+
+	/*
+	 * This is the first-fit fast path. The fairshare fast-ish path is in
+	 * _pthread_mutex_firstfit_lock()
+	 */
+	uint64_t *tidaddr;
+	MUTEX_GETTID_ADDR(mutex, &tidaddr);
+	uint64_t selfid = _pthread_selfid_direct();
+
+	mutex_seq *seqaddr;
+	MUTEX_GETSEQ_ADDR(mutex, &seqaddr);
+
+	mutex_seq oldseq, newseq;
+	mutex_seq_load(seqaddr, &oldseq);
+
+	if (os_unlikely(oldseq.lgenval & PTH_RWL_EBIT)) {
+		return _pthread_mutex_firstfit_lock_slow(mutex, trylock);
+	}
+
+	bool gotlock;
+	do {
+		newseq = oldseq;
+		gotlock = is_rwl_ebit_clear(oldseq.lgenval);
+
+		if (trylock && !gotlock) {
+			// A trylock on a held lock will fail immediately. But since
+			// we did not load the sequence words atomically, perform a
+			// no-op CAS64 to ensure that nobody has unlocked concurrently.
+		} else if (os_likely(gotlock)) {
+			// In first-fit, getting the lock simply adds the E-bit
+			newseq.lgenval |= PTH_RWL_EBIT;
+		} else {
+			return _pthread_mutex_firstfit_lock_slow(mutex, trylock);
+		}
+	} while (os_unlikely(!mutex_seq_atomic_cmpxchgv(seqaddr, &oldseq, &newseq,
+			acquire)));
+
+	if (os_likely(gotlock)) {
+		os_atomic_store(tidaddr, selfid, relaxed);
+		return 0;
+	} else if (trylock) {
+		return EBUSY;
+	} else {
+		__builtin_trap();
+	}
+}
+
+PTHREAD_NOEXPORT_VARIANT
+int
+pthread_mutex_lock(pthread_mutex_t *mutex)
+{
+	return _pthread_mutex_firstfit_lock(mutex, false);
+}
+
+PTHREAD_NOEXPORT_VARIANT
+int
+pthread_mutex_trylock(pthread_mutex_t *mutex)
+{
+	return _pthread_mutex_firstfit_lock(mutex, true);
 }
 
 
@@ -1040,7 +1505,7 @@ _pthread_mutex_init(_pthread_mutex *mutex, const pthread_mutexattr_t *attr,
 		}
 		mutex->prioceiling = (int16_t)attr->prioceiling;
 		mutex->mtxopts.options.protocol = attr->protocol;
-		mutex->mtxopts.options.policy = attr->policy;
+		mutex->mtxopts.options.policy = attr->opt;
 		mutex->mtxopts.options.type = attr->type;
 		mutex->mtxopts.options.pshared = attr->pshared;
 	} else {
@@ -1063,9 +1528,9 @@ _pthread_mutex_init(_pthread_mutex *mutex, const pthread_mutexattr_t *attr,
 		mutex->prioceiling = _PTHREAD_DEFAULT_PRIOCEILING;
 		mutex->mtxopts.options.protocol = _PTHREAD_DEFAULT_PROTOCOL;
 		if (static_type != 3) {
-			mutex->mtxopts.options.policy = __pthread_mutex_default_policy;
+			mutex->mtxopts.options.policy = __pthread_mutex_default_opt_policy;
 		} else {
-			mutex->mtxopts.options.policy = _PTHREAD_MUTEX_POLICY_FIRSTFIT;
+			mutex->mtxopts.options.policy = _PTHREAD_MTX_OPT_POLICY_FIRSTFIT;
 		}
 		mutex->mtxopts.options.pshared = _PTHREAD_DEFAULT_PSHARED;
 	}
@@ -1089,7 +1554,8 @@ _pthread_mutex_init(_pthread_mutex *mutex, const pthread_mutexattr_t *attr,
 
 	long sig = _PTHREAD_MUTEX_SIG;
 	if (mutex->mtxopts.options.type == PTHREAD_MUTEX_NORMAL &&
-			mutex->mtxopts.options.policy == _PTHREAD_MUTEX_POLICY_FAIRSHARE) {
+			(_pthread_mutex_is_fairshare(mutex) ||
+			 _pthread_mutex_is_firstfit(mutex))) {
 		// rdar://18148854 _pthread_mutex_lock & pthread_mutex_unlock fastpath
 		sig = _PTHREAD_MUTEX_SIG_fast;
 	}

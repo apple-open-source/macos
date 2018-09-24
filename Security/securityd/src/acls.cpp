@@ -148,6 +148,9 @@ void SecurityServerAcl::validate(AclAuthorization auth, const Context &context, 
 //
 void SecurityServerAcl::validatePartition(SecurityServerEnvironment& env, bool prompt)
 {
+    // Avert your eyes!
+    StMaybeLock<Mutex> lock(env.database && env.database->hasCommon() ? &(env.database->common()) : NULL);
+
     // Calling checkAppleSigned() early at boot on a clean system install
     // will end up trying to create the system keychain and causes a hang.
     // Avoid this by checking for the presence of the db first.

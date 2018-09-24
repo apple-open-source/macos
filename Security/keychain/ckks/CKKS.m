@@ -59,7 +59,7 @@ CKKSKeyClass* const SecCKKSKeyClassTLK = (CKKSKeyClass*) @"tlk";
 CKKSKeyClass* const SecCKKSKeyClassA = (CKKSKeyClass*) @"classA";
 CKKSKeyClass* const SecCKKSKeyClassC = (CKKSKeyClass*) @"classC";
 
-NSString* const SecCKKSContainerName = @"com.apple.security.keychain";
+NSString* SecCKKSContainerName = @"com.apple.security.keychain";
 bool SecCKKSContainerUsePCS = false;
 
 NSString* const SecCKKSSubscriptionID = @"keychain-changes";
@@ -142,6 +142,7 @@ CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingZone = (CKKSZoneKeyState*) @
 CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingLocalData = (CKKSZoneKeyState*) @"resetlocal";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateLoggedOut = (CKKSZoneKeyState*) @"loggedout";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateZoneCreationFailed = (CKKSZoneKeyState*) @"zonecreationfailed";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateProcess = (CKKSZoneKeyState*) @"process";
 
 NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void) {
     static NSDictionary<CKKSZoneKeyState*, NSNumber*>* map = nil;

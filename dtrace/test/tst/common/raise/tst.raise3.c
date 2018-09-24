@@ -45,9 +45,10 @@ main(int argc, char **argv)
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = 0;
 
-	(void) sigaction(SIGINT, &sa, NULL);
+	(void) sigaction(SIGUSR1, &sa, NULL);
 
 	for (;;) {
 		(void) geteuid();
+		usleep(1000);
 	}
 }

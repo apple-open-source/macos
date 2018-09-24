@@ -29,6 +29,7 @@
 #import "keychain/ckks/CKKSReencryptOutgoingItemsOperation.h"
 #import "keychain/ckks/CKKSItemEncrypter.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #if OCTAGON
 

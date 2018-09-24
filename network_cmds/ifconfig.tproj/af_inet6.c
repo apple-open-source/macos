@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -345,6 +345,8 @@ in6_status(int s __unused, const struct ifaddrs *ifa)
 		printf("dynamic ");
 	if ((flags6 & IN6_IFF_SECURED) != 0)
 		printf("secured ");
+	if ((flags6 & IN6_IFF_CLAT46) != 0)
+		printf("clat46 ");
 
         if (scopeid)
 		printf("scopeid 0x%x ", scopeid);

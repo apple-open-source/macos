@@ -69,7 +69,7 @@ SecCmsContentInfoGetContent(SecCmsContentInfoRef cinfo);
     @discussion This is typically only called by SecCmsMessageGetContent().
  */
 extern CSSM_DATA_PTR
-SecCmsContentInfoGetInnerContent(SecCmsContentInfoRef cinfo);
+SecCmsContentInfoGetInnerContent(SecCmsContentInfoRef cinfo) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
@@ -84,7 +84,7 @@ SecCmsContentInfoGetContentTypeTag(SecCmsContentInfoRef cinfo);
     @discussion Caches pointer to lookup result for future reference.
  */
 extern CSSM_OID *
-SecCmsContentInfoGetContentTypeOID(SecCmsContentInfoRef cinfo);
+SecCmsContentInfoGetContentTypeOID(SecCmsContentInfoRef cinfo) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
@@ -99,7 +99,7 @@ SecCmsContentInfoGetContentEncAlgTag(SecCmsContentInfoRef cinfo);
     @discussion Caches pointer to lookup result for future reference.
  */
 extern SECAlgorithmID *
-SecCmsContentInfoGetContentEncAlg(SecCmsContentInfoRef cinfo);
+SecCmsContentInfoGetContentEncAlg(SecCmsContentInfoRef cinfo) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 
 /*! @functiongroup Message construction */
@@ -115,7 +115,7 @@ SecCmsContentInfoGetContentEncAlg(SecCmsContentInfoRef cinfo);
     @availability 10.4 and later
  */
 extern OSStatus
-SecCmsContentInfoSetContentData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached);
+SecCmsContentInfoSetContentData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
@@ -170,21 +170,21 @@ extern OSStatus
 SecCmsContentInfoSetContentEncryptedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsEncryptedDataRef encd);
 
 OSStatus
-SecCmsContentInfoSetContentOther(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached, const CSSM_OID *eContentType);
+SecCmsContentInfoSetContentOther(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached, const CSSM_OID *eContentType) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
  */
 extern OSStatus
 SecCmsContentInfoSetContentEncAlg(SecArenaPoolRef pool, SecCmsContentInfoRef cinfo,
-				    SECOidTag bulkalgtag, CSSM_DATA_PTR parameters, int keysize);
+				    SECOidTag bulkalgtag, CSSM_DATA_PTR parameters, int keysize) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
  */
 extern OSStatus
 SecCmsContentInfoSetContentEncAlgID(SecArenaPoolRef pool, SecCmsContentInfoRef cinfo,
-				    SECAlgorithmID *algid, int keysize);
+				    SECAlgorithmID *algid, int keysize) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function

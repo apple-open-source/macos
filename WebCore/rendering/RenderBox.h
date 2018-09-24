@@ -61,10 +61,6 @@ public:
     // Returns false for the body renderer if its background is propagated to the root.
     bool paintsOwnBackground() const;
 
-    // Use this with caution! No type checking is done!
-    RenderBox* firstChildBox() const;
-    RenderBox* lastChildBox() const;
-
     LayoutUnit x() const { return m_frameRect.x(); }
     LayoutUnit y() const { return m_frameRect.y(); }
     LayoutUnit width() const { return m_frameRect.width(); }
@@ -178,10 +174,12 @@ public:
     FloatRect repaintRectInLocalCoordinates() const override { return borderBoxRect(); }
     FloatRect objectBoundingBox() const override { return borderBoxRect(); }
 
-    // Use this with caution! No type checking is done!
+    // Note these functions are not equivalent of childrenOfType<RenderBox>
+    RenderBox* parentBox() const;
+    RenderBox* firstChildBox() const;
+    RenderBox* lastChildBox() const;
     RenderBox* previousSiblingBox() const;
     RenderBox* nextSiblingBox() const;
-    RenderBox* parentBox() const;
 
     // Visual and layout overflow are in the coordinate space of the box.  This means that they aren't purely physical directions.
     // For horizontal-tb and vertical-lr they will match physical directions, but for horizontal-bt and vertical-rl, the top/bottom and left/right
@@ -304,23 +302,23 @@ public:
     // the border-box height/width like the regular height/width accessors on RenderBox.
     // Right now, these are different than contentHeight/contentWidth because they still
     // include the scrollbar height/width.
-    LayoutUnit overrideLogicalContentWidth() const;
-    LayoutUnit overrideLogicalContentHeight() const;
-    bool hasOverrideLogicalContentHeight() const;
-    bool hasOverrideLogicalContentWidth() const;
-    void setOverrideLogicalContentHeight(LayoutUnit);
-    void setOverrideLogicalContentWidth(LayoutUnit);
-    void clearOverrideSize();
-    void clearOverrideLogicalContentHeight();
-    void clearOverrideLogicalContentWidth();
+    LayoutUnit overrideContentLogicalWidth() const;
+    LayoutUnit overrideContentLogicalHeight() const;
+    bool hasOverrideContentLogicalHeight() const;
+    bool hasOverrideContentLogicalWidth() const;
+    void setOverrideContentLogicalHeight(LayoutUnit);
+    void setOverrideContentLogicalWidth(LayoutUnit);
+    void clearOverrideContentSize();
+    void clearOverrideContentLogicalHeight();
+    void clearOverrideContentLogicalWidth();
 
     std::optional<LayoutUnit> overrideContainingBlockContentLogicalWidth() const;
     std::optional<LayoutUnit> overrideContainingBlockContentLogicalHeight() const;
-    bool hasOverrideContainingBlockLogicalWidth() const;
-    bool hasOverrideContainingBlockLogicalHeight() const;
+    bool hasOverrideContainingBlockContentLogicalWidth() const;
+    bool hasOverrideContainingBlockContentLogicalHeight() const;
     void setOverrideContainingBlockContentLogicalWidth(std::optional<LayoutUnit>);
     void setOverrideContainingBlockContentLogicalHeight(std::optional<LayoutUnit>);
-    void clearContainingBlockOverrideSize();
+    void clearOverrideContainingBlockContentSize();
     void clearOverrideContainingBlockContentLogicalHeight();
 
     LayoutSize offsetFromContainer(RenderElement&, const LayoutPoint&, bool* offsetDependsOnPoint = nullptr) const override;
@@ -461,8 +459,8 @@ public:
     bool hasHorizontalScrollbarWithAutoBehavior() const;
 
     bool scrollsOverflow() const { return scrollsOverflowX() || scrollsOverflowY(); }
-    bool scrollsOverflowX() const { return hasOverflowClip() && (style().overflowX() == OSCROLL || hasHorizontalScrollbarWithAutoBehavior()); }
-    bool scrollsOverflowY() const { return hasOverflowClip() && (style().overflowY() == OSCROLL || hasVerticalScrollbarWithAutoBehavior()); }
+    bool scrollsOverflowX() const { return hasOverflowClip() && (style().overflowX() == Overflow::Scroll || hasHorizontalScrollbarWithAutoBehavior()); }
+    bool scrollsOverflowY() const { return hasOverflowClip() && (style().overflowY() == Overflow::Scroll || hasVerticalScrollbarWithAutoBehavior()); }
 
     bool hasHorizontalOverflow() const { return scrollWidth() != roundToInt(clientWidth()); }
     bool hasVerticalOverflow() const { return scrollHeight() != roundToInt(clientHeight()); }
@@ -635,7 +633,7 @@ protected:
 
     bool createsNewFormattingContext() const;
 
-    virtual ItemPosition selfAlignmentNormalBehavior(const RenderBox* = nullptr) const { return ItemPositionStretch; }
+    virtual ItemPosition selfAlignmentNormalBehavior(const RenderBox* = nullptr) const { return ItemPosition::Stretch; }
 
     // Returns false if it could not cheaply compute the extent (e.g. fixed background), in which case the returned rect may be incorrect.
     bool getBackgroundPaintedExtent(const LayoutPoint& paintOffset, LayoutRect&) const;
@@ -664,8 +662,6 @@ protected:
     void mapAbsoluteToLocalPoint(MapCoordinatesFlags, TransformState&) const override;
 
     void paintRootBoxFillLayers(const PaintInfo&);
-
-    RenderObject* splitAnonymousBoxesAroundChild(RenderObject* beforeChild);
 
     bool skipContainingBlockForPercentHeightCalculation(const RenderBox& containingBlock, bool isPerpendicularWritingMode) const;
 
@@ -742,29 +738,49 @@ private:
     static bool s_hadOverflowClip;
 };
 
-inline RenderBox* RenderBox::previousSiblingBox() const
-{
-    return downcast<RenderBox>(previousSibling());
-}
-
-inline RenderBox* RenderBox::nextSiblingBox() const
-{ 
-    return downcast<RenderBox>(nextSibling());
-}
-
 inline RenderBox* RenderBox::parentBox() const
 {
-    return downcast<RenderBox>(parent());
+    if (is<RenderBox>(parent()))
+        return downcast<RenderBox>(parent());
+
+    ASSERT(!parent());
+    return nullptr;
 }
 
 inline RenderBox* RenderBox::firstChildBox() const
 {
-    return downcast<RenderBox>(firstChild());
+    if (is<RenderBox>(firstChild()))
+        return downcast<RenderBox>(firstChild());
+
+    ASSERT(!firstChild());
+    return nullptr;
 }
 
 inline RenderBox* RenderBox::lastChildBox() const
 {
-    return downcast<RenderBox>(lastChild());
+    if (is<RenderBox>(lastChild()))
+        return downcast<RenderBox>(lastChild());
+
+    ASSERT(!lastChild());
+    return nullptr;
+}
+
+inline RenderBox* RenderBox::previousSiblingBox() const
+{
+    if (is<RenderBox>(previousSibling()))
+        return downcast<RenderBox>(previousSibling());
+
+    ASSERT(!previousSibling());
+    return nullptr;
+}
+
+inline RenderBox* RenderBox::nextSiblingBox() const
+{
+    if (is<RenderBox>(nextSibling()))
+        return downcast<RenderBox>(nextSibling());
+
+    ASSERT(!nextSibling());
+    return nullptr;
 }
 
 inline void RenderBox::setInlineBoxWrapper(InlineElementBox* boxWrapper)

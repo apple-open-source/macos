@@ -1,7 +1,7 @@
 /*
  * TLS check program for CUPS.
  *
- * Copyright 2007-2015 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
@@ -54,6 +54,8 @@ main(int  argc,				/* I - Number of command-line arguments */
   int		af = AF_UNSPEC,		/* Address family */
 		tls_options = _HTTP_TLS_NONE,
 					/* TLS options */
+		tls_min_version = _HTTP_TLS_1_0,
+		tls_max_version = _HTTP_TLS_MAX,
 		verbose = 0;		/* Verbosity */
   ipp_t		*request,		/* IPP Get-Printer-Attributes request */
 		*response;		/* IPP Get-Printer-Attributes response */
@@ -82,9 +84,33 @@ main(int  argc,				/* I - Number of command-line arguments */
     {
       tls_options |= _HTTP_TLS_ALLOW_DH;
     }
+    else if (!strcmp(argv[i], "--no-cbc"))
+    {
+      tls_options |= _HTTP_TLS_DENY_CBC;
+    }
     else if (!strcmp(argv[i], "--no-tls10"))
     {
-      tls_options |= _HTTP_TLS_DENY_TLS10;
+      tls_min_version = _HTTP_TLS_1_1;
+    }
+    else if (!strcmp(argv[i], "--tls10"))
+    {
+      tls_min_version = _HTTP_TLS_1_0;
+      tls_max_version = _HTTP_TLS_1_0;
+    }
+    else if (!strcmp(argv[i], "--tls11"))
+    {
+      tls_min_version = _HTTP_TLS_1_1;
+      tls_max_version = _HTTP_TLS_1_1;
+    }
+    else if (!strcmp(argv[i], "--tls12"))
+    {
+      tls_min_version = _HTTP_TLS_1_2;
+      tls_max_version = _HTTP_TLS_1_2;
+    }
+    else if (!strcmp(argv[i], "--tls13"))
+    {
+      tls_min_version = _HTTP_TLS_1_3;
+      tls_max_version = _HTTP_TLS_1_3;
     }
     else if (!strcmp(argv[i], "--rc4"))
     {
@@ -140,7 +166,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   if (!port)
     port = 631;
 
-  _httpTLSSetOptions(tls_options);
+  _httpTLSSetOptions(tls_options, tls_min_version, tls_max_version);
 
   http = httpConnect2(server, port, NULL, af, HTTP_ENCRYPTION_ALWAYS, 1, 30000, NULL);
   if (!http)
@@ -729,8 +755,13 @@ usage(void)
   puts("");
   puts("Options:");
   puts("  --dh        Allow DH/DHE key exchange");
+  puts("  --no-cbc    Disable CBC cipher suites");
   puts("  --no-tls10  Disable TLS/1.0");
   puts("  --rc4       Allow RC4 encryption");
+  puts("  --tls10     Only use TLS/1.0");
+  puts("  --tls11     Only use TLS/1.1");
+  puts("  --tls12     Only use TLS/1.2");
+  puts("  --tls13     Only use TLS/1.3");
   puts("  --verbose   Be verbose");
   puts("  -4          Connect using IPv4 addresses only");
   puts("  -6          Connect using IPv6 addresses only");

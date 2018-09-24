@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,7 @@
 #import <WebCore/SearchPopupMenuCocoa.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/NeverDestroyed.h>
+#import <wtf/ProcessPrivilege.h>
 
 #if PLATFORM(IOS)
 #import <UIKit/UIApplication.h>
@@ -52,10 +53,12 @@ static Vector<WebsiteDataStore*>& dataStoresWithStorageManagers()
 
 WebsiteDataStoreParameters WebsiteDataStore::parameters()
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+
     resolveDirectoriesIfNecessary();
 
     WebsiteDataStoreParameters parameters;
-    parameters.networkSessionParameters = { m_sessionID, nullptr, m_boundInterfaceIdentifier, m_allowsCellularAccess, m_proxyConfiguration };
+    parameters.networkSessionParameters = { m_sessionID, m_boundInterfaceIdentifier, m_allowsCellularAccess, m_proxyConfiguration };
 
     auto cookieFile = resolvedCookieStorageFile();
 
@@ -74,11 +77,6 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
 
     if (!cookieFile.isEmpty())
         SandboxExtension::createHandleForReadWriteDirectory(WebCore::FileSystem::directoryName(cookieFile), parameters.cookieStoragePathExtensionHandle);
-
-    if (!m_configuration.cacheStorageDirectory.isNull()) {
-        parameters.cacheStorageDirectory = m_configuration.cacheStorageDirectory;
-        SandboxExtension::createHandleForReadWriteDirectory(parameters.cacheStorageDirectory, parameters.cacheStorageDirectoryExtensionHandle);
-    }
 
     return parameters;
 }

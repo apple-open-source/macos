@@ -14,9 +14,8 @@
 #include <tls_handshake.h>
 #include <tls_ciphersuites.h>
 
-#include "sslHandshake.h"
-#include "sslBuildFlags.h"
-#include "CipherSuite.h"
+#include <sslHandshake.h>
+#include <CipherSuite.h>
 
 #include <corecrypto/ccec.h>
 #include <corecrypto/ccdh.h>
@@ -198,9 +197,9 @@ typedef struct _SslTlsCallouts {
 
 
 /* From ssl3Callouts.c and tls1Callouts.c */
-extern const SslTlsCallouts	Ssl3Callouts;
-extern const SslTlsCallouts	Tls1Callouts;
-extern const SslTlsCallouts Tls12Callouts;
+CORETLS_EXTERN const SslTlsCallouts	Ssl3Callouts;
+CORETLS_EXTERN const SslTlsCallouts	Tls1Callouts;
+CORETLS_EXTERN const SslTlsCallouts Tls12Callouts;
 
 
 typedef struct WaitingMessage
@@ -255,12 +254,10 @@ struct _tls_handshake_s {
     /* result of peer cert evaluation */
     tls_handshake_trust_t peerTrust;
 
-#if		APPLE_DH
     unsigned            dhMinGroupSize;     /* Minimum allowed DH group size */
     tls_buffer          dhPeerPublic;       /* Peer public DH key */
     ccdh_gp_t           dhParams;           /* native dh parameter object */
     ccdh_full_ctx_t     dhContext;          /* Our private DH key */
-#endif	/* APPLE_DH */
 
 	/*
 	 * ECDH support
@@ -275,14 +272,11 @@ struct _tls_handshake_s {
 	tls_named_curve     ecdhPeerCurve;          /* named curve associated with ecdhPeerPublic or
 												 *    peerPubKey */
     ccec_full_ctx_t     ecdhContext;            /* Our private, ephemeral, ECDH Key */
-
-#if ALLOW_RSA_SERVER_KEY_EXCHANGE
     /*
      * RSA Ephemeral Hack
      */
     bool                forceRsaServerKeyExchange;
     SSLPubKey           rsaEncryptPubKey;
-#endif
 
 
     tls_buffer          dtlsCookie;             /* DTLS ClientHello cookie */

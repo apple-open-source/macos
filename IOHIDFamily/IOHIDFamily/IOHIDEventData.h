@@ -113,14 +113,6 @@ enum {
 };
 
 enum {
-    kIOHIDDigitizerOrientationTypeTilt = 0,
-    kIOHIDDigitizerOrientationTypePolar,
-    kIOHIDDigitizerOrientationTypeQuality
-};
-typedef uint8_t IOHIDDigitizerOrientationType;
-
-
-enum {
     kIOHIDAccelerated                   = 0x00010000,
 };
 
@@ -184,43 +176,47 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
     IOHIDEventGetSize(type,size);               \
     size += sizeof(IOHIDSystemQueueElement);    \
 }
-
+#ifndef SET_EVENT_VALUE
 #define SET_EVENT_VALUE(event, field, value, options, typeToken)                        \
 {                                                                                       \
     IOHIDEventType  fieldEvType = IOHIDEventFieldEventType(field);                      \
     IOHIDEventRef   ev          = (fieldEvType == kIOHIDEventTypeNULL) ? event : NULL;  \
     if ( ev || (ev = IOHIDEventGetEventWithOptions(event, fieldEvType, options)) ) {    \
         IOHIDEventData * e = GET_EVENTDATA(ev);                                         \
-        switch (fieldEvType) {                                                              \
+        switch (fieldEvType) {                                                          \
             IOHIDEventSet ## typeToken ## FieldsMacro(e,key);                           \
         }                                                                               \
     }                                                                                   \
 }
+#endif
 
-
+#ifndef GET_EVENT_VALUE
 #define GET_EVENT_VALUE(event, field, value, options, typeToken)                        \
 {                                                                                       \
     IOHIDEventType  fieldEvType = IOHIDEventFieldEventType(field);                      \
     IOHIDEventRef   ev          = (fieldEvType == kIOHIDEventTypeNULL) ? event : NULL;  \
     if ( ev || (ev = IOHIDEventGetEventWithOptions(event, fieldEvType, options)) ) {    \
         IOHIDEventData * e = GET_EVENTDATA(ev);                                         \
-        switch (fieldEvType) {                                                              \
+        switch (fieldEvType) {                                                          \
             IOHIDEventGet ## typeToken ## FieldsMacro(e,key);                           \
         }                                                                               \
     }                                                                                   \
 }
+#endif
 
+#ifndef GET_EVENT_DATA
 #define GET_EVENT_DATA(event, field, value, options )                                   \
 {                                                                                       \
     IOHIDEventType  fieldEvType = IOHIDEventFieldEventType(field);                      \
     IOHIDEventRef   ev          = (fieldEvType == kIOHIDEventTypeNULL) ? event : NULL;  \
     if ( ev || (ev = IOHIDEventGetEventWithOptions(event, fieldEvType, options)) ) {    \
         IOHIDEventData * e = GET_EVENTDATA(ev);                                         \
-        switch (fieldEvType) {                                                              \
+        switch (fieldEvType) {                                                          \
             IOHIDEventGetDataFieldsMacro(e,key);                                        \
         }                                                                               \
     }                                                                                   \
 }
+#endif
 
 #define _IOHIDDigitizerGetSynthesizedFieldsAsIntegerMacro(event, field)                                                      \
     case kIOHIDEventFieldDigitizerEstimatedMask: {                                                                           \

@@ -34,9 +34,9 @@
 #import "PageLoadState.h"
 #import "ProcessTerminationReason.h"
 #import "ProcessThrottler.h"
-#import "WeakObjCPtr.h"
 #import <wtf/RetainPtr.h>
 #import <wtf/RunLoop.h>
+#import <wtf/WeakObjCPtr.h>
 
 @class WKWebView;
 @protocol WKHistoryDelegatePrivate;
@@ -82,6 +82,11 @@ public:
 
     void didFirstPaint();
 
+#if PLATFORM(IOS)
+    enum class NetworkActivityTokenReleaseReason { LoadCompleted, ScreenLocked };
+    void releaseNetworkActivityToken(NetworkActivityTokenReleaseReason);
+#endif
+
 private:
     class NavigationClient final : public API::NavigationClient {
     public:
@@ -105,11 +110,13 @@ private:
 
         bool canAuthenticateAgainstProtectionSpace(WebPageProxy&, WebProtectionSpace*) override;
         void didReceiveAuthenticationChallenge(WebPageProxy&, AuthenticationChallengeProxy&) override;
-        void processDidTerminate(WebPageProxy&, ProcessTerminationReason) override;
+        bool processDidTerminate(WebPageProxy&, ProcessTerminationReason) override;
         void processDidBecomeResponsive(WebPageProxy&) override;
         void processDidBecomeUnresponsive(WebPageProxy&) override;
 
         RefPtr<API::Data> webCryptoMasterKey(WebPageProxy&) override;
+
+        RefPtr<API::String> signedPublicKeyAndChallengeString(WebPageProxy&, unsigned keySizeIndex, const RefPtr<API::String>& challengeString, const WebCore::URL&) override;
 
 #if USE(QUICK_LOOK)
         void didStartLoadForQuickLookDocumentInMainFrame(const WTF::String& fileName, const WTF::String& uti) override;
@@ -121,6 +128,8 @@ private:
         void resolveWebGLLoadPolicy(WebPageProxy&, const WebCore::URL&, WTF::Function<void(WebCore::WebGLLoadPolicy)>&& completionHandler) const final;
         bool willGoToBackForwardListItem(WebPageProxy&, WebBackForwardListItem&, bool inPageCache, API::Object*) final;
         bool didFailToInitializePlugIn(WebPageProxy&, API::Dictionary&) final;
+        bool didBlockInsecurePluginVersion(WebPageProxy&, API::Dictionary&) final;
+        WebKit::PluginModuleLoadPolicy decidePolicyForPluginLoad(WebKit::WebPageProxy&, WebKit::PluginModuleLoadPolicy, API::Dictionary&, WTF::String&) final;
         bool didChangeBackForwardList(WebPageProxy&, WebBackForwardListItem*, const Vector<Ref<WebBackForwardListItem>>&) final;
 #endif
 
@@ -168,7 +177,7 @@ private:
     void didChangeWebProcessIsResponsive() override;
 
 #if PLATFORM(IOS)
-    void releaseNetworkActivityToken();
+    void releaseNetworkActivityTokenAfterLoadCompletion() { releaseNetworkActivityToken(NetworkActivityTokenReleaseReason::LoadCompleted); }
 #endif
 
     WKWebView *m_webView;
@@ -221,7 +230,9 @@ private:
         bool webViewResolveWebGLLoadPolicyForURL : 1;
         bool webViewBackForwardListItemAddedRemoved : 1;
         bool webViewDidFailToInitializePlugInWithInfo : 1;
+        bool webViewDidBlockInsecurePluginVersionWithInfo : 1;
         bool webViewWillGoToBackForwardListItemInPageCache : 1;
+        bool webViewDecidePolicyForPluginLoadWithCurrentPolicyPluginInfoUnavailabilityDescription : 1;
 #endif
     } m_navigationDelegateMethods;
 

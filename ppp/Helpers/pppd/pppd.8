@@ -835,11 +835,8 @@ the connection. The \fBmaxfail\fR option still has an effect on
 persistent connections.
 .TP
 .B plugin \fIfilename
-Load the shared library object file \fIfilename\fR as a plugin.  This
-is a privileged option.  If \fIfilename\fR does not contain a slash
-(/), pppd will look in the \fB/usr/lib/pppd/\fIversion\fR directory
-for the plugin, where
-\fIversion\fR is the version number of pppd (for example, 2.4.2).
+This option is deprecated starting in macOS 10.14.  The NEPacketTunnelProvider
+API should be used for VPN plugins.
 .TP
 .B predictor1
 Request that the peer compress frames that it sends using Predictor-1

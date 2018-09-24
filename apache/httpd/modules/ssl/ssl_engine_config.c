@@ -137,8 +137,8 @@ static void modssl_ctx_init(modssl_ctx_t *mctx, apr_pool_t *p)
     mctx->auth.verify_depth   = UNSET;
     mctx->auth.verify_mode    = SSL_CVERIFY_UNSET;
 
-    mctx->ocsp_enabled        = FALSE;
-    mctx->ocsp_force_default  = FALSE;
+    mctx->ocsp_mask           = UNSET;
+    mctx->ocsp_force_default  = UNSET;
     mctx->ocsp_responder      = NULL;
     mctx->ocsp_resptime_skew  = UNSET;
     mctx->ocsp_resp_maxage    = UNSET;
@@ -282,7 +282,7 @@ static void modssl_ctx_cfg_merge(apr_pool_t *p,
     cfgMergeInt(auth.verify_depth);
     cfgMerge(auth.verify_mode, SSL_CVERIFY_UNSET);
 
-    cfgMergeBool(ocsp_enabled);
+    cfgMergeInt(ocsp_mask);
     cfgMergeBool(ocsp_force_default);
     cfgMerge(ocsp_responder, NULL);
     cfgMergeInt(ocsp_resptime_skew);
@@ -502,13 +502,21 @@ void *ssl_config_perdir_merge(apr_pool_t *p, void *basev, void *addv)
     cfgMergeInt(nRenegBufferSize);
 
     mrg->proxy_post_config = add->proxy_post_config;
-    if (!add->proxy_post_config) {
+    if (!mrg->proxy_post_config) {
         cfgMergeBool(proxy_enabled);
         modssl_ctx_init_proxy(mrg, p);
         modssl_ctx_cfg_merge_proxy(p, base->proxy, add->proxy, mrg->proxy);
+
+        /* Since ssl_proxy_section_post_config() hook won't be called if there
+         * is no SSLProxy* in this dir config, the ssl_ctx may still be NULL
+         * here at runtime. Merging it is either a no-op (NULL => NULL) because
+         * we are still before post config, or we really want to reuse the one
+         * from the upper/server context (outside of <Proxy> sections).
+         */
+        cfgMerge(proxy->ssl_ctx, NULL);
     }
     else {
-        /* post_config hook has already merged and initialized the
+        /* The post_config hook has already merged and initialized the
          * proxy context, use it.
          */
         mrg->proxy_enabled = add->proxy_enabled;
@@ -1695,11 +1703,46 @@ const char *ssl_cmd_SSLUserName(cmd_parms *cmd, void *dcfg,
     return NULL;
 }
 
-const char *ssl_cmd_SSLOCSPEnable(cmd_parms *cmd, void *dcfg, int flag)
+static const char *ssl_cmd_ocspcheck_parse(cmd_parms *parms,
+                                           const char *arg,
+                                           int *mask)
+{
+    const char *w;
+
+    w = ap_getword_conf(parms->temp_pool, &arg);
+    if (strcEQ(w, "off")) {
+        *mask = SSL_OCSPCHECK_NONE;
+    }
+    else if (strcEQ(w, "leaf")) {
+        *mask = SSL_OCSPCHECK_LEAF;
+    }
+    else if (strcEQ(w, "on")) {
+        *mask = SSL_OCSPCHECK_CHAIN;
+    }
+    else {
+        return apr_pstrcat(parms->temp_pool, parms->cmd->name,
+                           ": Invalid argument '", w, "'",
+                           NULL);
+    }
+
+    while (*arg) {
+        w = ap_getword_conf(parms->temp_pool, &arg);
+        if (strcEQ(w, "no_ocsp_for_cert_ok")) {
+            *mask |= SSL_OCSPCHECK_NO_OCSP_FOR_CERT_OK;
+        }
+        else {
+            return apr_pstrcat(parms->temp_pool, parms->cmd->name,
+                               ": Invalid argument '", w, "'",
+                               NULL);
+        }
+    }
+
+    return NULL;
+}
+
+const char *ssl_cmd_SSLOCSPEnable(cmd_parms *cmd, void *dcfg, const char *arg)
 {
     SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
-
-    sc->server->ocsp_enabled = flag ? TRUE : FALSE;
 
 #ifdef OPENSSL_NO_OCSP
     if (flag) {
@@ -1708,7 +1751,7 @@ const char *ssl_cmd_SSLOCSPEnable(cmd_parms *cmd, void *dcfg, int flag)
     }
 #endif
 
-    return NULL;
+    return ssl_cmd_ocspcheck_parse(cmd, arg, &sc->server->ocsp_mask);
 }
 
 const char *ssl_cmd_SSLOCSPOverrideResponder(cmd_parms *cmd, void *dcfg, int flag)
@@ -2087,3 +2130,4 @@ void ssl_hook_ConfigTest(apr_pool_t *pconf, server_rec *s)
     }
 
 }
+

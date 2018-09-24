@@ -145,8 +145,6 @@ WI.DebuggerSidebarPanel = class DebuggerSidebarPanel extends WI.NavigationSideba
         let breakpointsSection = new WI.DetailsSection("breakpoints", WI.UIString("Breakpoints"), [breakpointsGroup]);
         this.contentView.element.appendChild(breakpointsSection.element);
 
-        this._breakpointSectionElement = breakpointsSection.element;
-
         this._breakpointsContentTreeOutline.addEventListener(WI.TreeOutline.Event.SelectionDidChange, this._treeSelectionDidChange, this);
         this._breakpointsContentTreeOutline.ondelete = this._breakpointTreeOutlineDeleteTreeElement.bind(this);
         this._breakpointsContentTreeOutline.populateContextMenu = function(contextMenu, event, treeElement) {
@@ -497,10 +495,10 @@ WI.DebuggerSidebarPanel = class DebuggerSidebarPanel extends WI.NavigationSideba
     {
         this._addResource(frame.mainResource);
 
-        for (let resource of frame.resourceCollection.items)
+        for (let resource of frame.resourceCollection)
             this._addResource(resource);
 
-        for (let childFrame of frame.childFrameCollection.items)
+        for (let childFrame of frame.childFrameCollection)
             this._addResourcesRecursivelyForFrame(childFrame);
     }
 
@@ -830,7 +828,7 @@ WI.DebuggerSidebarPanel = class DebuggerSidebarPanel extends WI.NavigationSideba
 
     _treeSelectionDidChange(event)
     {
-        if (!this.visible)
+        if (!this.selected)
             return;
 
         let treeElement = event.data.selectedElement;

@@ -99,6 +99,7 @@ struct kcmap {
     struct kcmap_entry entries[];
 };
 
+struct ImageInfo;
 
 #pragma mark Function Prototypes
 /*******************************************************************************
@@ -110,16 +111,14 @@ ExitStatus readArgs(
     KclistArgs  * toolArgs);
 ExitStatus checkArgs(KclistArgs * toolArgs);
 void listPrelinkedKexts(KclistArgs * toolArgs,
-                        CFPropertyListRef kcInfoPlist,
-                        const char *prelinkTextBytes,
-                        uint64_t prelinkTextSourceAddress,
-                        uint64_t prelinkTextSourceSize,
+                        struct ImageInfo * ki,
                         struct kcmap *kcmap,
+                        CFPropertyListRef kcInfoPlist,
                         const NXArchInfo * archInfo);
 void printKextInfo(KclistArgs *toolArgs,
-                   CFDictionaryRef kextPlist,
-                   const char *kextTextBytes,
-                   struct kcmap *kcmap);
+                   struct ImageInfo *ki,
+                   struct kcmap *kcmap,
+                   CFDictionaryRef kextPlist);
 
 void usage(UsageLevel usageLevel);
 

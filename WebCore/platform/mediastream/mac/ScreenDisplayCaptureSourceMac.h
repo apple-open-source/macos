@@ -28,6 +28,7 @@
 #if ENABLE(MEDIA_STREAM) && PLATFORM(MAC)
 
 #include "DisplayCaptureSourceCocoa.h"
+#include "IOSurface.h"
 #include <CoreGraphics/CGDisplayConfiguration.h>
 #include <CoreGraphics/CGDisplayStream.h>
 #include <wtf/Lock.h>
@@ -99,13 +100,12 @@ private:
     RetainPtr<CGDisplayStreamRef> m_displayStream;
     RetainPtr<CFMutableDictionaryRef> m_bufferAttributes;
     CGDisplayStreamFrameAvailableHandler m_frameAvailableBlock;
-    WeakPtrFactory<ScreenDisplayCaptureSourceMac> m_weakFactory;
     MediaTime m_presentationTimeStamp;
     MediaTime m_frameDuration;
 
     OSObjectPtr<dispatch_queue_t> m_captureQueue;
 
-    double m_lastFrameTime { NAN };
+    MonotonicTime m_lastFrameTime { MonotonicTime::nan() };
     uint32_t m_displayID { 0 };
     bool m_isRunning { false };
     bool m_observingDisplayChanges { false };

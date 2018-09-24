@@ -27,7 +27,6 @@
 
 #include "AXObjectCache.h"
 #include "AccessibilityMenuList.h"
-#include "AccessibleNode.h"
 #include "CSSFontSelector.h"
 #include "Chrome.h"
 #include "Frame.h"
@@ -42,6 +41,7 @@
 #include "RenderScrollbar.h"
 #include "RenderText.h"
 #include "RenderTheme.h"
+#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "StyleResolver.h"
 #include "TextRun.h"
@@ -99,20 +99,11 @@ void RenderMenuList::willBeDestroyed()
     RenderFlexibleBox::willBeDestroyed();
 }
 
-void RenderMenuList::createInnerBlock()
+void RenderMenuList::setInnerRenderer(RenderBlock& innerRenderer)
 {
-    if (m_innerBlock) {
-        ASSERT(firstChild() == m_innerBlock);
-        ASSERT(!m_innerBlock->nextSibling());
-        return;
-    }
-
-    // Create an anonymous block.
-    ASSERT(!firstChild());
-    auto newInnerBlock = createAnonymousBlock();
-    m_innerBlock = makeWeakPtr(*newInnerBlock.get());
+    ASSERT(!m_innerBlock.get());
+    m_innerBlock = makeWeakPtr(innerRenderer);
     adjustInnerStyle();
-    RenderFlexibleBox::addChild(WTFMove(newInnerBlock));
 }
 
 void RenderMenuList::adjustInnerStyle()
@@ -125,10 +116,10 @@ void RenderMenuList::adjustInnerStyle()
     // Use margin:auto instead of align-items:center to get safe centering, i.e.
     // when the content overflows, treat it the same as align-items: flex-start.
     // But we only do that for the cases where html.css would otherwise use center.
-    if (style().alignItems().position() == ItemPositionCenter) {
+    if (style().alignItems().position() == ItemPosition::Center) {
         innerStyle.setMarginTop(Length());
         innerStyle.setMarginBottom(Length());
-        innerStyle.setAlignSelfPosition(ItemPositionFlexStart);
+        innerStyle.setAlignSelfPosition(ItemPosition::FlexStart);
     }
 
     innerStyle.setPaddingBox(theme().popupInternalPaddingBox(style()));
@@ -136,12 +127,12 @@ void RenderMenuList::adjustInnerStyle()
     if (document().page()->chrome().selectItemWritingDirectionIsNatural()) {
         // Items in the popup will not respect the CSS text-align and direction properties,
         // so we must adjust our own style to match.
-        innerStyle.setTextAlign(LEFT);
+        innerStyle.setTextAlign(TextAlignMode::Left);
         TextDirection direction = (m_buttonText && m_buttonText->text().defaultWritingDirection() == U_RIGHT_TO_LEFT) ? RTL : LTR;
         innerStyle.setDirection(direction);
 #if PLATFORM(IOS)
     } else if (document().page()->chrome().selectItemAlignmentFollowsMenuWritingDirection()) {
-        innerStyle.setTextAlign(style().direction() == LTR ? LEFT : RIGHT);
+        innerStyle.setTextAlign(style().direction() == LTR ? TextAlignMode::Left : TextAlignMode::Right);
         TextDirection direction;
         EUnicodeBidi unicodeBidi;
         if (multiple() && selectedOptionCount(*this) != 1) {
@@ -162,7 +153,7 @@ void RenderMenuList::adjustInnerStyle()
     } else if (m_optionStyle && document().page()->chrome().selectItemAlignmentFollowsMenuWritingDirection()) {
         if ((m_optionStyle->direction() != innerStyle.direction() || m_optionStyle->unicodeBidi() != innerStyle.unicodeBidi()))
             m_innerBlock->setNeedsLayoutAndPrefWidthsRecalc();
-        innerStyle.setTextAlign(style().isLeftToRightDirection() ? LEFT : RIGHT);
+        innerStyle.setTextAlign(style().isLeftToRightDirection() ? TextAlignMode::Left : TextAlignMode::Right);
         innerStyle.setDirection(m_optionStyle->direction());
         innerStyle.setUnicodeBidi(m_optionStyle->unicodeBidi());
     }
@@ -174,22 +165,10 @@ HTMLSelectElement& RenderMenuList::selectElement() const
     return downcast<HTMLSelectElement>(nodeForNonAnonymous());
 }
 
-void RenderMenuList::addChild(RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
+void RenderMenuList::didAttachChild(RenderObject& child, RenderObject*)
 {
-    createInnerBlock();
-    auto& child = *newChild;
-    m_innerBlock->addChild(WTFMove(newChild), beforeChild);
-    ASSERT(m_innerBlock == firstChild());
-
     if (AXObjectCache* cache = document().existingAXObjectCache())
         cache->childrenChanged(this, &child);
-}
-
-RenderPtr<RenderObject> RenderMenuList::takeChild(RenderObject& oldChild)
-{
-    if (!m_innerBlock || &oldChild == m_innerBlock)
-        return RenderFlexibleBox::takeChild(oldChild);
-    return m_innerBlock->takeChild(oldChild);
 }
 
 void RenderMenuList::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -291,14 +270,18 @@ void RenderMenuList::setTextFromOption(int optionIndex)
 
 void RenderMenuList::setText(const String& s)
 {
-    String textToUse = s.isEmpty() ? String(ASCIILiteral("\n")) : s;
+    String textToUse = s.isEmpty() ? String("\n"_s) : s;
 
     if (m_buttonText)
         m_buttonText->setText(textToUse.impl(), true);
     else {
         auto newButtonText = createRenderer<RenderText>(document(), textToUse);
         m_buttonText = makeWeakPtr(*newButtonText);
-        addChild(WTFMove(newButtonText));
+        // FIXME: This mutation should go through the normal RenderTreeBuilder path.
+        if (RenderTreeBuilder::current())
+            RenderTreeBuilder::current()->attach(*this, WTFMove(newButtonText));
+        else
+            RenderTreeBuilder(*document().renderView()).attach(*this, WTFMove(newButtonText));
     }
 
     adjustInnerStyle();
@@ -373,10 +356,7 @@ void RenderMenuList::showPopup()
     if (m_popupIsVisible)
         return;
 
-    // Create m_innerBlock here so it ends up as the first child.
-    // This is important because otherwise we might try to create m_innerBlock
-    // inside the showPopup call and it would fail.
-    createInnerBlock();
+    ASSERT(m_innerBlock);
     if (!m_popup)
         m_popup = document().page()->chrome().createPopupMenu(*this);
     m_popupIsVisible = true;
@@ -476,7 +456,7 @@ String RenderMenuList::itemAccessibilityText(unsigned listIndex) const
     const Vector<HTMLElement*>& listItems = selectElement().listItems();
     if (listIndex >= listItems.size())
         return String();
-    return AccessibleNode::effectiveStringValueForElement(*listItems[listIndex], AXPropertyName::Label);
+    return listItems[listIndex]->attributeWithoutSynchronization(aria_labelAttr);
 }
     
 String RenderMenuList::itemToolTip(unsigned listIndex) const
@@ -527,8 +507,8 @@ PopupMenuStyle RenderMenuList::itemStyle(unsigned listIndex) const
     getItemBackgroundColor(listIndex, itemBackgroundColor, itemHasCustomBackgroundColor);
 
     auto& style = *element->computedStyle();
-    return PopupMenuStyle(style.visitedDependentColor(CSSPropertyColor), itemBackgroundColor, style.fontCascade(), style.visibility() == VISIBLE,
-        style.display() == NONE, true, style.textIndent(), style.direction(), isOverride(style.unicodeBidi()),
+    return PopupMenuStyle(style.visitedDependentColorWithColorFilter(CSSPropertyColor), itemBackgroundColor, style.fontCascade(), style.visibility() == Visibility::Visible,
+        style.display() == DisplayType::None, true, style.textIndent(), style.direction(), isOverride(style.unicodeBidi()),
         itemHasCustomBackgroundColor ? PopupMenuStyle::CustomBackgroundColor : PopupMenuStyle::DefaultBackgroundColor);
 }
 
@@ -536,13 +516,13 @@ void RenderMenuList::getItemBackgroundColor(unsigned listIndex, Color& itemBackg
 {
     const Vector<HTMLElement*>& listItems = selectElement().listItems();
     if (listIndex >= listItems.size()) {
-        itemBackgroundColor = style().visitedDependentColor(CSSPropertyBackgroundColor);
+        itemBackgroundColor = style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
         itemHasCustomBackgroundColor = false;
         return;
     }
     HTMLElement* element = listItems[listIndex];
 
-    Color backgroundColor = element->computedStyle()->visitedDependentColor(CSSPropertyBackgroundColor);
+    Color backgroundColor = element->computedStyle()->visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
     itemHasCustomBackgroundColor = backgroundColor.isValid() && backgroundColor.isVisible();
     // If the item has an opaque background color, return that.
     if (backgroundColor.isOpaque()) {
@@ -551,7 +531,7 @@ void RenderMenuList::getItemBackgroundColor(unsigned listIndex, Color& itemBackg
     }
 
     // Otherwise, the item's background is overlayed on top of the menu background.
-    backgroundColor = style().visitedDependentColor(CSSPropertyBackgroundColor).blend(backgroundColor);
+    backgroundColor = style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor).blend(backgroundColor);
     if (backgroundColor.isOpaque()) {
         itemBackgroundColor = backgroundColor;
         return;
@@ -565,8 +545,8 @@ PopupMenuStyle RenderMenuList::menuStyle() const
 {
     const RenderStyle& styleToUse = m_innerBlock ? m_innerBlock->style() : style();
     IntRect absBounds = absoluteBoundingBoxRectIgnoringTransforms();
-    return PopupMenuStyle(styleToUse.visitedDependentColor(CSSPropertyColor), styleToUse.visitedDependentColor(CSSPropertyBackgroundColor),
-        styleToUse.fontCascade(), styleToUse.visibility() == VISIBLE, styleToUse.display() == NONE,
+    return PopupMenuStyle(styleToUse.visitedDependentColorWithColorFilter(CSSPropertyColor), styleToUse.visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor),
+        styleToUse.fontCascade(), styleToUse.visibility() == Visibility::Visible, styleToUse.display() == DisplayType::None,
         style().hasAppearance() && style().appearance() == MenulistPart, styleToUse.textIndent(),
         style().direction(), isOverride(style().unicodeBidi()), PopupMenuStyle::DefaultBackgroundColor,
         PopupMenuStyle::SelectPopup, theme().popupMenuSize(styleToUse, absBounds));
@@ -579,7 +559,7 @@ HostWindow* RenderMenuList::hostWindow() const
 
 Ref<Scrollbar> RenderMenuList::createScrollbar(ScrollableArea& scrollableArea, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)
 {
-    bool hasCustomScrollbarStyle = style().hasPseudoStyle(SCROLLBAR);
+    bool hasCustomScrollbarStyle = style().hasPseudoStyle(PseudoId::Scrollbar);
     if (hasCustomScrollbarStyle)
         return RenderScrollbar::createCustomScrollbar(scrollableArea, orientation, &selectElement());
     return Scrollbar::createNativeScrollbar(scrollableArea, orientation, controlSize);

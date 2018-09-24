@@ -24,6 +24,7 @@ InstallHeaders /usr/local/include \
 	lookup.subproj/ils.h \
 	lookup.subproj/kvbuf.h \
 	lookup.subproj/libinfo.h \
+	lookup.subproj/si_compare.h \
 	lookup.subproj/si_data.h \
 	lookup.subproj/si_module.h \
 	lookup.subproj/thread_data.h
@@ -51,8 +52,8 @@ InstallHeaders /usr/include/rpcsvc \
 	nis.subproj/yp_prot.h \
 	nis.subproj/ypclnt.h
 
-# Don't install man pages for installhdrs nor simulator builds
-if [[ "${ACTION}" == "installhdrs" ]]; then
+# Don't install man pages for installhdrs, installapi, nor simulator builds
+if [[ "${ACTION}" == "installhdrs" ]] || [[ "${ACTION}" == "installapi" ]]; then
     exit 0
 fi
 

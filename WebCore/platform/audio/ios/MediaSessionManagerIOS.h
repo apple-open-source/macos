@@ -23,12 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MediaSessionManageriOS_h
-#define MediaSessionManageriOS_h
+#pragma once
 
 #if PLATFORM(IOS)
 
-#include "PlatformMediaSessionManager.h"
+#include "MediaSessionManagerCocoa.h"
 #include <wtf/RetainPtr.h>
 
 OBJC_CLASS WebMediaSessionHelper;
@@ -42,7 +41,7 @@ extern NSString* WebUIApplicationDidEnterBackgroundNotification;
 
 namespace WebCore {
 
-class MediaSessionManageriOS : public PlatformMediaSessionManager {
+class MediaSessionManageriOS : public MediaSessionManagerCocoa {
 public:
     virtual ~MediaSessionManageriOS();
 
@@ -66,8 +65,6 @@ private:
 
     void configureWireLessTargetMonitoring() override;
 
-    bool sessionCanLoadMedia(const PlatformMediaSession&) const override;
-
     bool hasActiveNowPlayingSession() const final { return m_nowPlayingActive; }
     String lastUpdatedNowPlayingTitle() const final { return m_reportedTitle; }
     double lastUpdatedNowPlayingDuration() const final { return m_reportedDuration; }
@@ -87,7 +84,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // MediaSessionManageriOS_h
 
 #endif // PLATFORM(IOS)

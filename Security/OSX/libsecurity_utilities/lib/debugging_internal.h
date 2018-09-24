@@ -80,7 +80,8 @@ string typeName()
 #undef DEBUGGING
 #if !defined(NDEBUG)
 # define DEBUGGING 1
-# define DEBUGDUMP  1
+// No more debugdump, it emits thread-unsafe buggy code which hampers actual debugging, ironically enough
+// # define DEBUGDUMP 1
 #else //NDEBUG
 # define DEBUGGING 0
 #endif //NDEBUG
@@ -125,8 +126,8 @@ typedef const void *DTException;
 #include <security_utilities/utilities_dtrace.h>
 
 // The following are deprecated functions. Don't use them (but they need to be here for symbol reasons).
-void secdebug_internal(const char* scope, const char* format, ...);
-void secdebugfunc_internal(const char* scope, const char* functionname, const char* format, ...);
+__attribute__((visibility("default"))) void secdebug_internal(const char* scope, const char* format, ...);
+__attribute__((visibility("default"))) void secdebugfunc_internal(const char* scope, const char* functionname, const char* format, ...);
 
 __END_DECLS
 

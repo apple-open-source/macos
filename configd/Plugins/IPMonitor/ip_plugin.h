@@ -57,7 +57,7 @@
 #endif	// !my_log
 
 os_log_t
-__log_IPMonitor();
+__log_IPMonitor(void);
 
 boolean_t
 cfstring_to_ip(CFStringRef str, struct in_addr * ip_p);

@@ -114,23 +114,6 @@ static bool scheduledWithCustomRunLoopMode(const std::optional<SchedulePairHashS
     [super dealloc];
 }
 
-- (void)continueDidReceiveResponse
-{
-    dispatch_semaphore_signal(m_semaphore);
-}
-
-- (void)continueCanAuthenticateAgainstProtectionSpace:(BOOL)canAuthenticate
-{
-    m_boolResult = canAuthenticate;
-    dispatch_semaphore_signal(m_semaphore);
-}
-
-- (void)continueWillCacheResponse:(NSCachedURLResponse *)response
-{
-    m_cachedResponseResult = response;
-    dispatch_semaphore_signal(m_semaphore);
-}
-
 - (NSURLRequest *)connection:(NSURLConnection *)connection willSendRequest:(NSURLRequest *)newRequest redirectResponse:(NSURLResponse *)redirectResponse
 {
     ASSERT(!isMainThread());
@@ -158,7 +141,7 @@ static bool scheduledWithCustomRunLoopMode(const std::optional<SchedulePairHashS
         }
 
         m_handle->willSendRequest(newRequest.get(), redirectResponse.get(), [self, protectedSelf = WTFMove(protectedSelf)](ResourceRequest&& request) {
-            m_requestResult = request.nsURLRequest(UpdateHTTPBody);
+            m_requestResult = request.nsURLRequest(HTTPBodyUpdatePolicy::UpdateHTTPBody);
             dispatch_semaphore_signal(m_semaphore);
         });
     };
@@ -211,7 +194,10 @@ static bool scheduledWithCustomRunLoopMode(const std::optional<SchedulePairHashS
             dispatch_semaphore_signal(m_semaphore);
             return;
         }
-        m_handle->canAuthenticateAgainstProtectionSpace(ProtectionSpace(protectionSpace.get()));
+        m_handle->canAuthenticateAgainstProtectionSpace(ProtectionSpace(protectionSpace.get()), [self, protectedSelf = WTFMove(protectedSelf)] (bool result) mutable {
+            m_boolResult = result;
+            dispatch_semaphore_signal(m_semaphore);
+        });
     };
 
     [self callFunctionOnMainThread:WTFMove(work)];
@@ -251,14 +237,16 @@ static bool scheduledWithCustomRunLoopMode(const std::optional<SchedulePairHashS
             adjustMIMETypeIfNecessary([r _CFURLResponse], isMainResourceLoad);
         }
 
-        if ([m_handle->firstRequest().nsURLRequest(DoNotUpdateHTTPBody) _propertyForKey:@"ForceHTMLMIMEType"])
+        if ([m_handle->firstRequest().nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody) _propertyForKey:@"ForceHTMLMIMEType"])
             [r _setMIMEType:@"text/html"];
 
         ResourceResponse resourceResponse(r.get());
         resourceResponse.setSource(ResourceResponse::Source::Network);
         ResourceHandle::getConnectionTimingData(connection.get(), resourceResponse.deprecatedNetworkLoadMetrics());
 
-        m_handle->didReceiveResponse(WTFMove(resourceResponse));
+        m_handle->didReceiveResponse(WTFMove(resourceResponse), [self, protectedSelf = WTFMove(protectedSelf)] {
+            dispatch_semaphore_signal(m_semaphore);
+        });
     };
 
     [self callFunctionOnMainThread:WTFMove(work)];
@@ -367,7 +355,10 @@ static bool scheduledWithCustomRunLoopMode(const std::optional<SchedulePairHashS
             return;
         }
 
-        m_handle->client()->willCacheResponseAsync(m_handle, cachedResponse.get());
+        m_handle->client()->willCacheResponseAsync(m_handle, cachedResponse.get(), [self, protectedSelf = WTFMove(protectedSelf)] (NSCachedURLResponse * response) mutable {
+            m_cachedResponseResult = response;
+            dispatch_semaphore_signal(m_semaphore);
+        });
     };
 
     [self callFunctionOnMainThread:WTFMove(work)];

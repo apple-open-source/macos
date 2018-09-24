@@ -57,7 +57,7 @@ ffsll(long long mask)
 #endif
 }
 
-#if VARIANT_DYLD && TARGET_IPHONE_SIMULATOR
+#if VARIANT_DYLD && TARGET_OS_SIMULATOR
 int
 ffsl(long mask)
 {

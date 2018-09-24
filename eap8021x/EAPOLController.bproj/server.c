@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -487,7 +487,14 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	    if (r != MACH_MSG_SUCCESS) {
 		EAPLOG(LOG_NOTICE, "EAPOLController: mach_msg(send): %s", 
 		       mach_error_string(r));
-		mach_msg_destroy(reply);
+		switch (r) {
+		case MACH_SEND_INVALID_DEST:
+		case MACH_SEND_TIMED_OUT:
+		    mach_msg_destroy(reply);
+		    break;
+		default:
+		    break;
+		}
 	    }
 	}
     }

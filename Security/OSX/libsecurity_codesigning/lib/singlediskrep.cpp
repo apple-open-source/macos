@@ -108,6 +108,12 @@ void SingleDiskRep::flush()
 	mFd.close();
 }
 
+//Check the magic darwinup xattr
+bool SingleDiskRep::appleInternalForcePlatform() const
+{
+	return mFd.hasExtendedAttribute("com.apple.root.installed");
+}
+
 //
 // The recommended identifier of a SingleDiskRep is, absent any better clue,
 // the basename of its path.

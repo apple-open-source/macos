@@ -41,7 +41,7 @@ typedef uint32 CSSM_MANAGER_EVENT_TYPES;
 #define CSSM_MANAGER_SERVICE_REQUEST 1
 #define CSSM_MANAGER_REPLY 2
 
-typedef struct cssm_manager_event_notification {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_manager_event_notification {
     CSSM_SERVICE_MASK DestinationModuleManagerType;
     CSSM_SERVICE_MASK SourceModuleManagerType;
     CSSM_MANAGER_EVENT_TYPES Event;

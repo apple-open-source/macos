@@ -1,8 +1,8 @@
 /*
  * Configuration file for CUPS on Windows.
  *
- * Copyright 2007-2017 by Apple Inc.
- * Copyright 1997-2007 by Easy Software Products.
+ * Copyright © 2007-2018 by Apple Inc.
+ * Copyright © 1997-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
@@ -56,8 +56,8 @@
  * and strnicmp() functions...
  */
 
-#define strcasecmp	stricmp
-#define strncasecmp	strnicmp
+#define strcasecmp	_stricmp
+#define strncasecmp	_strnicmp
 
 
 /*
@@ -94,8 +94,8 @@ typedef unsigned long useconds_t;
  * Version of software...
  */
 
-#define CUPS_SVERSION "CUPS v2.2.4"
-#define CUPS_MINIMAL "CUPS/2.2.4"
+#define CUPS_SVERSION "CUPS v2.2.8"
+#define CUPS_MINIMAL "CUPS/2.2.8"
 
 
 /*

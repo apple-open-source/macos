@@ -55,9 +55,9 @@
 #include "configd_server.h"
 #include "plugin_support.h"
 
-#if	TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
+#if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !defined(DO_NOT_INFORM)
 #include <CoreFoundation/CFUserNotification.h>
-#endif	// TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
+#endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !defined(DO_NOT_INFORM)
 
 __private_extern__
 Boolean	_configd_verbose		= FALSE;	/* TRUE if verbose logging enabled */
@@ -348,7 +348,7 @@ main(int argc, char * const argv[])
 	/* check if we have been started by launchd */
 	vproc_swap_integer(NULL, VPROC_GSK_IS_MANAGED, NULL, &is_launchd_job);
 
-#if	TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
+#if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !defined(DO_NOT_INFORM)
 	// if launchd job, check to see if we have been restarted
 	if (is_launchd_job) {
 		int64_t	status	= 0;
@@ -373,7 +373,7 @@ main(int argc, char * const argv[])
 			}
 		}
 	}
-#endif	// TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
+#endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !defined(DO_NOT_INFORM)
 
 	/* ensure that forked plugins behave */
 	if (testBundle != NULL) {

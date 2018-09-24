@@ -42,7 +42,7 @@ OBJC_CLASS WebCoreFPSContentKeySessionDelegate;
 
 namespace WebCore {
 
-class CDMInstanceFairPlayStreamingAVFObjC final : public CDMInstance {
+class CDMInstanceFairPlayStreamingAVFObjC final : public CDMInstance, public CanMakeWeakPtr<CDMInstanceFairPlayStreamingAVFObjC> {
 public:
     CDMInstanceFairPlayStreamingAVFObjC();
     virtual ~CDMInstanceFairPlayStreamingAVFObjC();
@@ -65,6 +65,8 @@ public:
     void closeSession(const String&, CloseSessionCallback) final;
     void removeSessionData(const String&, LicenseType, RemoveSessionDataCallback) final;
     void storeRecordOfKeyUsage(const String&) final;
+    void setClient(CDMInstanceClient&) final;
+    void clearClient() final;
 
     const String& keySystem() const final;
 
@@ -72,18 +74,18 @@ public:
     void didProvideRenewingRequest(AVContentKeyRequest *);
     void didProvidePersistableRequest(AVContentKeyRequest *);
     void didFailToProvideRequest(AVContentKeyRequest *, NSError *);
+    void requestDidSucceed(AVContentKeyRequest *);
     bool shouldRetryRequestForReason(AVContentKeyRequest *, NSString *);
     void sessionIdentifierChanged(NSData *);
+    void outputObscuredDueToInsufficientExternalProtectionChanged(bool);
 
     AVContentKeySession *contentKeySession() { return m_session.get(); }
 
 private:
-    WeakPtr<CDMInstanceFairPlayStreamingAVFObjC> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(*this); }
     bool isLicenseTypeSupported(LicenseType) const;
 
     Vector<Ref<SharedBuffer>> keyIDs();
 
-    WeakPtrFactory<CDMInstanceFairPlayStreamingAVFObjC> m_weakPtrFactory;
     RefPtr<SharedBuffer> m_serverCertificate;
     bool m_persistentStateAllowed { true };
     RetainPtr<NSURL> m_storageDirectory;
@@ -91,6 +93,7 @@ private:
     RetainPtr<AVContentKeyRequest> m_request;
     RetainPtr<WebCoreFPSContentKeySessionDelegate> m_delegate;
     Vector<RetainPtr<NSData>> m_expiredSessions;
+    CDMInstanceClient* m_client;
     String m_sessionId;
 
     LicenseCallback m_requestLicenseCallback;

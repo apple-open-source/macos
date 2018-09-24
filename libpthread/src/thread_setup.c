@@ -45,23 +45,24 @@
  * MkLinux
  */
 
+#include "internal.h"
+
+#if !defined(__OPEN_SOURCE__) && TARGET_OS_OSX // 40703288
 /*
  * Machine specific support for thread initialization
  */
 
-#include "internal.h"
-#include <platform/string.h>
+// NOTE: no resolvers, so this file must not contain any atomic operations
 
+PTHREAD_NOEXPORT void _pthread_setup_suspended(pthread_t th, void (*f)(pthread_t), void *sp);
 
 /*
  * Set up the initial state of a MACH thread
  */
 void
-_pthread_setup(pthread_t thread,
+_pthread_setup_suspended(pthread_t thread,
 	       void (*routine)(pthread_t),
-	       void *vsp,
-	       int suspended,
-	       int needresume)
+	       void *vsp)
 {
 #if defined(__i386__)
 	i386_thread_state_t state = { };
@@ -71,20 +72,12 @@ _pthread_setup(pthread_t thread,
 	x86_thread_state64_t state = { };
 	thread_state_flavor_t flavor = x86_THREAD_STATE64;
 	mach_msg_type_number_t count = x86_THREAD_STATE64_COUNT;
-#elif defined(__arm__)
-	arm_thread_state_t state = { };
-	thread_state_flavor_t flavor = ARM_THREAD_STATE;
-	mach_msg_type_number_t count = ARM_THREAD_STATE_COUNT;
 #else
 #error _pthread_setup not defined for this architecture
 #endif
 
-	if (suspended) {
-		(void)thread_get_state(_pthread_kernel_thread(thread),
-				     flavor,
-				     (thread_state_t)&state,
-				     &count);
-	}
+	(void)thread_get_state(_pthread_kernel_thread(thread),
+			flavor, (thread_state_t)&state, &count);
 
 #if defined(__i386__)
 	uintptr_t *sp = vsp;
@@ -110,46 +103,10 @@ _pthread_setup(pthread_t thread,
 	state.__rdi = (uintptr_t)thread;	// argument to function
 	*--sp = 0;				// fake return address
 	state.__rsp = (uintptr_t)sp;		// set stack pointer
-#elif defined(__arm__)
-	state.__pc = (uintptr_t)routine;
-
-	// Detect switch to thumb mode.
-	if (state.__pc & 1) {
-	    state.__pc &= ~1;
-	    state.__cpsr |= 0x20; /* PSR_THUMB */
-	}
-
-	state.__sp = (uintptr_t)vsp - C_ARGSAVE_LEN - C_RED_ZONE;
-	state.__r[0] = (uintptr_t)thread;
 #else
-#error _pthread_setup not defined for this architecture
+#error _pthread_setup_suspended not defined for this architecture
 #endif
 
-	if (suspended) {
-		(void)thread_set_state(_pthread_kernel_thread(thread), flavor, (thread_state_t)&state, count);
-		if (needresume) {
-			(void)thread_resume(_pthread_kernel_thread(thread));
-		}
-	} else {
-		mach_port_t kernel_thread;
-		(void)thread_create_running(mach_task_self(), flavor, (thread_state_t)&state, count, &kernel_thread);
-		_pthread_set_kernel_thread(thread, kernel_thread);
-	}
+	(void)thread_set_state(_pthread_kernel_thread(thread), flavor, (thread_state_t)&state, count);
 }
-
-// pthread_setup initializes large structures to 0, which the compiler turns into a library call to memset. To avoid linking against
-// Libc, provide a simple wrapper that calls through to the libplatform primitives
-
-#undef memset
-__attribute__((visibility("hidden"))) void *
-memset(void *b, int c, size_t len)
-{
-	return _platform_memset(b, c, len);
-}
-
-#undef bzero
-__attribute__((visibility("hidden"))) void
-bzero(void *s, size_t n)
-{
-	_platform_bzero(s, n);
-}
+#endif // !defined(__OPEN_SOURCE__) && TARGET_OS_OSX

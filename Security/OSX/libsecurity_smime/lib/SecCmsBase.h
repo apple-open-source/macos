@@ -53,7 +53,7 @@ typedef struct SECOidDataStr SECOidData;
     @typedef
     @discussion XXX We might want to get rid of this alltogether.
  */
-typedef CSSM_X509_ALGORITHM_IDENTIFIER SECAlgorithmID;
+typedef CSSM_X509_ALGORITHM_IDENTIFIER SECAlgorithmID DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @typedef
@@ -155,7 +155,7 @@ typedef void (*SecCmsContentCallback)(void *arg, const char *buf, size_t len);
     @typedef
     @discussion Type of function passed to SecCmsDecode or SecCmsDecoderStart to retrieve the decryption key.  This function is intended to be used for EncryptedData content info's which do not have a key available in a certificate, etc.
  */
-typedef SecSymmetricKeyRef(*SecCmsGetDecryptKeyCallback)(void *arg, SECAlgorithmID *algid);
+typedef SecSymmetricKeyRef(*SecCmsGetDecryptKeyCallback)(void *arg, SECAlgorithmID *algid) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @enum SecCmsVerificationStatus
@@ -487,6 +487,9 @@ typedef enum {
     /* Apple CMS Attributes */
     SEC_OID_APPLE_HASH_AGILITY = 214,
     SEC_OID_APPLE_HASH_AGILITY_V2 = 215,
+
+    /* Apple Expiration Time Attribute */
+    SEC_OID_APPLE_EXPIRATION_TIME = 216,
 
     SEC_OID_TOTAL
 } SECOidTag;

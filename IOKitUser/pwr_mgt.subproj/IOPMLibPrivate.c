@@ -347,6 +347,9 @@ IOPMNotificationHandle IOPMScheduleUserActivityLevelNotificationWithTimeout(
                                uint32_t timeout,
                                void (^inblock)(uint64_t, uint64_t))
 {
+#if TARGET_OS_SIMULATOR
+    return NULL;
+#else
     xpc_object_t connection;
     _UserActiveNotification *_useractive = NULL;
     _useractive = calloc(1, sizeof(_UserActiveNotification));
@@ -374,6 +377,7 @@ IOPMNotificationHandle IOPMScheduleUserActivityLevelNotificationWithTimeout(
     sendUserActivityMsg(_useractive, kUserActivityRegister);
 
     return _useractive;
+#endif // TARGET_OS_SIMULATOR
 }
 
 IOReturn IOPMSetUserActivityIdleTimeout(IOPMNotificationHandle handle, uint32_t timeout)
@@ -1143,8 +1147,25 @@ exit:
 
 /*****************************************************************************/
 /*****************************************************************************/
-/*****************************************************************************/
-/*****************************************************************************/
+/*
+ * IOPMConnection is the connection created by clients to receive sleep/wake notifications
+ * from powerd. Below interfaces are provided to manage IOPMConnecion. Complete documentation
+ * of these interfaces is available in the header file.
+ *
+ * IOPMConnectionCreate() opens an IOPMConnection.
+ * IOPMConnectionSetNotification() associates a notificiation handler with an IOPMConnection.
+ * IOPMConnectionScheduleWithRunLoop() schedules a notification on the specified runloop.
+ * IOPMConnectionUnscheduleFromRunLoop() removes a previously scheduled run loop source.
+ *
+ * IOPMConnectionSetDispatchQueue() schedules IOPMConnection callbacks on a dispatch queue,
+ * instead of run loop source. This interace can also be used un-schedule IOPMConnection callbacks.
+ *
+ * IOPMConnectionRelease() cleans up state and notifications for the specified IOPMConnection.
+ *
+ * IOPMConnectionCreate() registers for notifications on 'kIOUserAssertionReSync'.  powerd posts a
+ * notification on this string when process starts and completes its initialization. IOPMConnection
+ * is re-established with powerd when that notification is observed.
+ */
 
 /* __IOPMConnection is the IOKit-tracking struct to keep track of
  * open connections.
@@ -1152,7 +1173,9 @@ exit:
 typedef struct {
     uint32_t                id;
     int                     pid;
-    CFStringRef             connectionName;
+    CFStringRef             name;
+    IOPMCapabilityBits      interests;
+    int                     restoreToken;
     
     /* for dispatch-style notifications */
     mach_port_t             mach_port;
@@ -1217,6 +1240,7 @@ static kern_return_t _conveyMachPortToPowerd(
 {
     mach_port_t             pm_server       = MACH_PORT_NULL;
     kern_return_t           return_code     = KERN_SUCCESS;
+    IOReturn                rc = kIOReturnSuccess;
     
     return_code = _pm_connect(&pm_server);
     
@@ -1224,12 +1248,19 @@ static kern_return_t _conveyMachPortToPowerd(
         goto exit;
     }
     
-    return_code = io_pm_connection_schedule_notification(pm_server, connection->id, the_port, enable ? 0:1, &return_code);
-    
+    return_code = io_pm_connection_schedule_notification(pm_server, connection->id, the_port, enable ? 0:1, &rc);
+    if (return_code != KERN_SUCCESS) {
+        os_log_error(OS_LOG_DEFAULT, "Failed to send mach port for IOPMConnection id 0x%x. rc:0x%x\n", connection->id, return_code);
+        rc = kIOReturnInternalError;
+    }
+    else if (rc != kIOReturnSuccess) {
+        os_log_error(OS_LOG_DEFAULT, "Failed to update machport for IOPMConnection id 0x%x. rc:0x%x\n", connection->id, rc);
+    }
+
     _pm_disconnect(pm_server);
     
 exit:
-    return return_code;
+    return rc;
 }
 
 /*****************************************************************************/
@@ -1284,49 +1315,55 @@ IOReturn IOPMConnectionScheduleWithRunLoop(
 {
     __IOPMConnection *connection = (__IOPMConnection *)myConnection;
 
-    IOReturn                return_code = kIOReturnError;
-    CFMachPortContext       mpContext = { 1, (void *)connection, NULL, NULL, NULL };
+    __block IOReturn        return_code = kIOReturnError;
 
     if (!connection || !theRunLoop || !runLoopMode)
         return kIOReturnBadArgument;
 
-    if (NULL == connection->localCFMachPort)
-    {
-        // Create the mach port on which we'll receive mach messages
-        // from PM configd.
-        connection->localCFMachPort = CFMachPortCreate(
-                                            kCFAllocatorDefault,
-                                            iopm_mach_port_callback,
-                                            &mpContext, NULL);
-        
-        if (connection->localCFMachPort) {
-            connection->localCFMachPortRLS = CFMachPortCreateRunLoopSource(
-                                            kCFAllocatorDefault,
-                                            connection->localCFMachPort,
-                                            0);
-        }   
-    }
+    dispatch_sync(getPMQueue(), ^{
+        CFMachPortContext       mpContext = { 1, (void *)connection, NULL, NULL, NULL };
 
-    if (!connection->localCFMachPortRLS)
-        return kIOReturnInternalError;
+        if (NULL == connection->localCFMachPort)
+        {
+            // Create the mach port on which we'll receive mach messages
+            // from PM configd.
+            connection->localCFMachPort = CFMachPortCreate(
+                                               kCFAllocatorDefault,
+                                               iopm_mach_port_callback,
+                                               &mpContext, NULL);
 
-    // Record our new run loop.
-    connection->runLoopCount++;
-
-    CFRunLoopAddSource(theRunLoop, connection->localCFMachPortRLS, runLoopMode);
-
-    // We have a mapping of one mach_port connected to PM configd to as many
-    // CFRunLoopSources that the caller originates.
-    if (1 == connection->runLoopCount)
-    {
-        mach_port_t notify_mach_port = MACH_PORT_NULL;
-
-        if (connection->localCFMachPort) {
-            notify_mach_port = CFMachPortGetPort(connection->localCFMachPort);
+            if (connection->localCFMachPort) {
+                connection->localCFMachPortRLS = CFMachPortCreateRunLoopSource(
+                                                           kCFAllocatorDefault,
+                                                           connection->localCFMachPort,
+                                                           0);
+            }
         }
-    
-        return_code =_conveyMachPortToPowerd(connection, notify_mach_port, true);
-    }
+
+        if (!connection->localCFMachPortRLS) {
+            return_code = kIOReturnInternalError;
+            return;
+        }
+
+        // Record our new run loop.
+        connection->runLoopCount++;
+
+        CFRunLoopAddSource(theRunLoop, connection->localCFMachPortRLS, runLoopMode);
+
+        // We have a mapping of one mach_port connected to PM configd to as many
+        // CFRunLoopSources that the caller originates.
+        if (1 == connection->runLoopCount)
+        {
+            mach_port_t notify_mach_port = MACH_PORT_NULL;
+
+            if (connection->localCFMachPort) {
+                notify_mach_port = CFMachPortGetPort(connection->localCFMachPort);
+            }
+
+            return_code =_conveyMachPortToPowerd(connection, notify_mach_port, true);
+
+        }
+    });
     
     return return_code;
 }
@@ -1340,48 +1377,53 @@ IOReturn IOPMConnectionUnscheduleFromRunLoop(
                                              CFStringRef runLoopMode)
 {
     __IOPMConnection    *connection = (__IOPMConnection *)myConnection;
-    IOReturn            return_code = kIOReturnSuccess;
+    __block IOReturn            return_code = kIOReturnSuccess;
     
     if (!connection || !theRunLoop || !runLoopMode)
         return kIOReturnBadArgument;
     
-    if (connection->localCFMachPort) {
-        CFRunLoopRemoveSource(theRunLoop, connection->localCFMachPortRLS, runLoopMode);
-    }
-    
-    connection->runLoopCount--;
-    
-    if (0 == connection->runLoopCount) 
-    {
-        mach_port_t notify_mach_port = MACH_PORT_NULL;
-
+    dispatch_sync(getPMQueue(), ^{
         if (connection->localCFMachPort) {
-            notify_mach_port = CFMachPortGetPort(connection->localCFMachPort);
+            CFRunLoopRemoveSource(theRunLoop, connection->localCFMachPortRLS, runLoopMode);
         }
-    
-        return_code = _conveyMachPortToPowerd(connection, notify_mach_port, false);
-    }
+
+        connection->runLoopCount--;
+
+        if (0 == connection->runLoopCount)
+        {
+            mach_port_t notify_mach_port = MACH_PORT_NULL;
+
+            if (connection->localCFMachPortRLS) {
+                CFRelease(connection->localCFMachPortRLS);
+            }
+            if (connection->localCFMachPort) {
+                notify_mach_port = CFMachPortGetPort(connection->localCFMachPort);
+
+                return_code = _conveyMachPortToPowerd(connection, notify_mach_port, false);
+                CFMachPortInvalidate(connection->localCFMachPort);
+                CFRelease(connection->localCFMachPort);
+            }
+
+        }
+    });
 
     return return_code;
 }
 
-/*****************************************************************************/
-/*****************************************************************************/
-
-void IOPMConnectionSetDispatchQueue(
-    IOPMConnection myConnection, 
-    dispatch_queue_t myQueue)
+/*
+ * IOPMConnectionSetDispatchQueue - Associates the specified dispatch queue with connection and posts sleep/wake notifications
+ * on that dispatch queue.
+ * Setting myQueue parameter to null value disassociates the previously set dispatch queue from the connection.
+ */
+void setDispatchQueue( __IOPMConnection *connection, dispatch_queue_t myQueue)
 {
-    __IOPMConnection *connection = (__IOPMConnection *)myConnection;
-
-    if (!connection)
-        return;
-
     if (!myQueue) {
         /* Clean up a previously scheduled dispatch. */
-        if (connection->dispatchDelivery) 
+        if (connection->dispatchDelivery)
         {
+            _conveyMachPortToPowerd(connection, connection->mach_port, false);
             dispatch_source_cancel(connection->dispatchDelivery);
+            connection->dispatchDelivery = 0;
         }
         return;
     }
@@ -1392,140 +1434,190 @@ void IOPMConnectionSetDispatchQueue(
         return;
     }
 
-    mach_port_insert_right(mach_task_self(), connection->mach_port, connection->mach_port, 
+    mach_port_insert_right(mach_task_self(), connection->mach_port, connection->mach_port,
                            MACH_MSG_TYPE_MAKE_SEND);
 
     if (!(connection->dispatchDelivery
-          = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, connection->mach_port, 0, myQueue))) 
+          = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, connection->mach_port, 0, myQueue)))
     {
         // Error creating dispatch_source
         mach_port_deallocate(mach_task_self(), connection->mach_port);
         mach_port_mod_refs(mach_task_self(), connection->mach_port, MACH_PORT_RIGHT_RECEIVE, -1);
+        connection->mach_port = MACH_PORT_NULL;
         return;
     }
-    
+
+    mach_port_t  mach_port = connection->mach_port;
+    dispatch_source_t  dispatchDelivery = connection->dispatchDelivery;
+
     dispatch_source_set_cancel_handler(connection->dispatchDelivery,
                                        ^{
-                                           _conveyMachPortToPowerd(connection, connection->mach_port, false);
-                                           
-                                           dispatch_release(connection->dispatchDelivery);
-                                           connection->dispatchDelivery = 0;
-                                           
-                                           mach_port_mod_refs(mach_task_self(), connection->mach_port, MACH_PORT_RIGHT_RECEIVE, -1);
-                                           mach_port_deallocate(mach_task_self(), connection->mach_port);
-                                           connection->mach_port = MACH_PORT_NULL;
-                                       });
-    
-    dispatch_source_set_event_handler(connection->dispatchDelivery,      
-                                      ^{
-                                        struct {
-                                            IOPMMessageStructure    m;
-                                            mach_msg_trailer_t      trailer;
-                                        } msg;
+                                           dispatch_release(dispatchDelivery);
 
-                                        bzero(&msg, sizeof(msg));
-                                        kern_return_t status = mach_msg( ( void * )&msg,
-                                                         MACH_RCV_MSG | MACH_RCV_TIMEOUT,
-                                                         0,
-                                                         sizeof( msg ),
-                                                         connection->mach_port,
-                                                         0,
-                                                         MACH_PORT_NULL );
-                                                                                                                                        
-                                        if (!connection || !connection->userCallout
-                                            || (KERN_SUCCESS != status)) 
-                                        {
-                                            return;
-                                        }
-                                        
-                                        (*(connection->userCallout))(connection->userParam,
-                                                                 (IOPMConnection)connection,
-                                                                 msg.m.payload[1], msg.m.payload[0]);
-                                    });
-    
+                                           mach_port_mod_refs(mach_task_self(), mach_port, MACH_PORT_RIGHT_RECEIVE, -1);
+                                           mach_port_deallocate(mach_task_self(), mach_port);
+                                       });
+
+    dispatch_source_set_event_handler(connection->dispatchDelivery,
+                                      ^{
+                                          struct {
+                                              IOPMMessageStructure    m;
+                                              mach_msg_trailer_t      trailer;
+                                          } msg;
+
+                                          bzero(&msg, sizeof(msg));
+                                          kern_return_t status = mach_msg( ( void * )&msg,
+                                                                          MACH_RCV_MSG | MACH_RCV_TIMEOUT,
+                                                                          0,
+                                                                          sizeof( msg ),
+                                                                          connection->mach_port,
+                                                                          0,
+                                                                          MACH_PORT_NULL );
+
+                                          if (!connection || !connection->userCallout
+                                              || (KERN_SUCCESS != status))
+                                          {
+                                              return;
+                                          }
+
+                                          (*(connection->userCallout))(connection->userParam,
+                                                                       (IOPMConnection)connection,
+                                                                       msg.m.payload[1], msg.m.payload[0]);
+                                      });
+
     dispatch_resume(connection->dispatchDelivery);
-    
+
     _conveyMachPortToPowerd(connection, connection->mach_port, true);
-    
+    return;
+}
+
+void IOPMConnectionSetDispatchQueue(
+    IOPMConnection myConnection, 
+    dispatch_queue_t myQueue)
+{
+    __IOPMConnection *connection = (__IOPMConnection *)myConnection;
+
+    if (!connection)
+        return;
+
+    setDispatchQueue(connection, myQueue);
     return;
 }
 
 /*****************************************************************************/
 /*****************************************************************************/
+static IOReturn _connectionCreate(__IOPMConnection *connection)
+{
+    mach_port_t     pm_server = MACH_PORT_NULL;
+    IOReturn        return_code = kIOReturnSuccess;
+    kern_return_t   kern_result;
+    char            arg_name_str[kMaxNameLength];
+    uint32_t        new_connection_id = 0;
+
+    return_code = _pm_connect(&pm_server);
+    if (return_code != kIOReturnSuccess) {
+        goto exit;
+    }
+
+    CFStringGetCString(connection->name, arg_name_str,
+                        sizeof(arg_name_str), kCFStringEncodingMacRoman);
+
+    kern_result = io_pm_connection_create(
+                                    pm_server,
+                                    arg_name_str,
+                                    connection->interests,
+                                    &new_connection_id,
+                                    &return_code);
+    if (kern_result != KERN_SUCCESS) {
+        os_log_error(OS_LOG_DEFAULT, "Failed to send IOPMConnection request. rc:0x%x\n", kern_result);
+        return_code = kIOReturnInternalError;
+        goto exit;
+    }
+    else if (return_code != kIOReturnSuccess) {
+        os_log_error(OS_LOG_DEFAULT, "Failed to create IOPMConnection. rc:0x%x\n", return_code);
+        goto exit;
+    }
+
+    connection->id = (int)new_connection_id;
+    os_log_info(OS_LOG_DEFAULT, "Created IOPMConnection with id 0x%x\n", connection->id);
+exit:
+    return return_code;
+}
+
+static void restoreConnection(__IOPMConnection *connection)
+{
+    mach_port_t notify_mach_port = MACH_PORT_NULL;
+
+    os_log_info(OS_LOG_DEFAULT, "Recreating IOPMConnection id 0x%x\n", connection->id);
+    _connectionCreate(connection);
+
+    if (connection->mach_port != MACH_PORT_NULL) {
+        notify_mach_port = connection->mach_port;
+    }
+    else if (connection->localCFMachPort) {
+        notify_mach_port = CFMachPortGetPort(connection->localCFMachPort);
+    }
+    if (notify_mach_port != MACH_PORT_NULL) {
+        _conveyMachPortToPowerd(connection, notify_mach_port, true);
+    }
+}
+
 
 IOReturn IOPMConnectionCreate(
     CFStringRef myName,
     IOPMCapabilityBits interests,
     IOPMConnection *newConnection)
 {
-    __IOPMConnection        *connection = NULL;
-
-    mach_port_t             pm_server = MACH_PORT_NULL;
-    int                     return_code = kIOReturnError;
-    IOReturn                err = kIOReturnError;
-    kern_return_t           kern_result = KERN_SUCCESS;
-
-    char                    arg_name_str[kMaxNameLength];
-    uint32_t                new_connection_id = 0;
+    __block IOReturn   return_code = kIOReturnError;
 
     // * vet argument newConnection
-    // * and create new connection
     if (!newConnection)
         return kIOReturnBadArgument;
-        
-    *newConnection = NULL;
-
-    err = _pm_connect(&pm_server);
-    if(kIOReturnSuccess != err) {
-        return_code = kIOReturnInternalError;
-        goto exit;
-    }
 
     // * vet argument 'interests'
     // A caller specifying 0 interests would get no notifications
     if (0 == interests) {
-        return_code = kIOReturnBadArgument;
-        goto exit;
+        return kIOReturnBadArgument;
     }
 
     // * vet argument 'myName'
     if (!myName || (kMaxNameLength < CFStringGetLength(myName))) {
-        return_code = kIOReturnBadArgument;
-        goto exit;
-    }
-    CFStringGetCString( myName, arg_name_str,
-                        sizeof(arg_name_str), kCFStringEncodingMacRoman);
-
-
-    connection = calloc(1, sizeof(__IOPMConnection));
-    if (!connection) {
-        return_code = kIOReturnInternalError;
-        goto exit;
+        return kIOReturnBadArgument;
     }
 
-    kern_result = io_pm_connection_create(
-                                    pm_server,
-                                    arg_name_str,
-                                    interests,
-                                    &new_connection_id,
-                                    &return_code);
+    dispatch_sync(getPMQueue(), ^{
+        __IOPMConnection        *connection = NULL;
+        int status;
 
-    if (KERN_SUCCESS != kern_result) {
-        return_code = kern_result;
-        free(connection);
-        goto exit;
-    }
-    
-    connection->id = (int)new_connection_id;
-    *newConnection = (void *)connection;    
-    
-    return_code = kIOReturnSuccess;
+        *newConnection = NULL;
+        connection = calloc(1, sizeof(__IOPMConnection));
+        if (!connection) {
+            return_code = kIOReturnInternalError;
+            return;
+        }
+        connection->restoreToken = -1;
 
-exit:
-    if (MACH_PORT_NULL != pm_server) {
-        _pm_disconnect(pm_server);
-    }
+        CFRetain(myName);
+        connection->name = myName;
+        connection->interests = interests;
 
+        return_code = _connectionCreate(connection);
+        if (return_code != kIOReturnSuccess) {
+            CFRelease(myName);
+            free(connection);
+            return;
+        }
+
+        // Register a handler to re-establish connection on powerd's restart
+        status = notify_register_dispatch(kIOUserAssertionReSync, &connection->restoreToken, getPMQueue(),
+                                 ^(int token __unused){ restoreConnection(connection); });
+        if (status != NOTIFY_STATUS_OK) {
+            os_log_error(OS_LOG_DEFAULT, "Failed to register for reconnecting with powerd. rc:0x%x", status);
+        }
+
+        *newConnection = (void *)connection;
+        return_code = kIOReturnSuccess;
+    });
     return return_code;
 
 }
@@ -1535,34 +1627,46 @@ exit:
 
 IOReturn IOPMConnectionRelease(IOPMConnection connection)
 {
-    __IOPMConnection    *connection_private = (__IOPMConnection *)connection;
-    IOReturn            return_code = kIOReturnError;
-    mach_port_t         pm_server = MACH_PORT_NULL;
-    kern_return_t       kern_result;
-    IOReturn            err;
-    
-    err = _pm_connect(&pm_server);
-    if(kIOReturnSuccess != err) {
-        return_code = kIOReturnInternalError;
-        goto exit;
-    }
-    
+    __block IOReturn            return_code = kIOReturnError;
+
+    dispatch_sync(getPMQueue(), ^{
+        __IOPMConnection    *connection_private = (__IOPMConnection *)connection;
+        mach_port_t         pm_server = MACH_PORT_NULL;
+        kern_return_t       kern_result;
+        IOReturn            err;
+
+        if (notify_is_valid_token(connection_private->restoreToken)) {
+            notify_cancel(connection_private->restoreToken);
+        }
+        if (connection_private->name) {
+            CFRelease(connection_private->name);
+        }
+
+        err = _pm_connect(&pm_server);
+        if(kIOReturnSuccess != err) {
+            return_code = kIOReturnInternalError;
+            goto exit;
+        }
+
 #if !TARGET_OS_IPHONE
-    if (connection_private->dispatchDelivery) {
-        IOPMConnectionSetDispatchQueue(connection, NULL);
-    }
+        if (connection_private->dispatchDelivery) {
+            setDispatchQueue(connection_private, NULL);
+        }
 #endif 
 
-    kern_result = io_pm_connection_release(pm_server, 
-                                            connection_private->id, 
-                                            &return_code);
-    if (kern_result != KERN_SUCCESS) {
-        return_code = kern_result;
-    }
-exit:
-    if (MACH_PORT_NULL != pm_server) {
-        _pm_disconnect(pm_server);
-    }
+        kern_result = io_pm_connection_release(pm_server,
+                                               connection_private->id,
+                                               &return_code);
+        if (kern_result != KERN_SUCCESS) {
+            return_code = kern_result;
+        }
+        bzero(connection_private, sizeof(*connection_private));
+        free(connection_private);
+    exit:
+        if (MACH_PORT_NULL != pm_server) {
+            _pm_disconnect(pm_server);
+        }
+    });
 
     return return_code;
 }
@@ -1588,7 +1692,6 @@ IOReturn IOPMConnectionAcknowledgeEvent(
 
 /*****************************************************************************/
 /*****************************************************************************/
-
 IOReturn IOPMConnectionAcknowledgeEventWithOptions(
     IOPMConnection myConnection, 
     IOPMConnectionMessageToken token, 
@@ -1601,58 +1704,64 @@ IOReturn IOPMConnectionAcknowledgeEventWithOptions(
     
     return kIOReturnUnsupported;
 #else
-    __IOPMConnection    *connection = (__IOPMConnection *)myConnection;
+    __block IOReturn   return_code = kIOReturnError;
 
-    IOReturn            return_code = kIOReturnError;
-    mach_port_t         pm_server = MACH_PORT_NULL;
-    kern_return_t       kern_result;
-    IOReturn            err;
+    dispatch_sync(getPMQueue(), ^{
 
-    CFDataRef           serializedData = NULL;    
-    vm_offset_t         buffer_ptr = 0;
-    size_t              buffer_size = 0;
+        __IOPMConnection    *connection = (__IOPMConnection *)myConnection;
 
-    // No response is expected when token is 0
-    if (token == 0)
-        return kIOReturnSuccess;
-    
-    err = _pm_connect(&pm_server);
-    if(kIOReturnSuccess != err) {
-        return_code = kIOReturnInternalError;
-        goto exit;
-    }
-    
-    if (options) 
-    {
-        serializedData = CFPropertyListCreateData(
-                                    kCFAllocatorDefault,
-                                    (CFPropertyListRef)options,
-                                    kCFPropertyListBinaryFormat_v1_0, 0, NULL);
-            
-        if (serializedData)
-        {
-            buffer_ptr = (vm_offset_t)CFDataGetBytePtr(serializedData);
-            buffer_size = (size_t)CFDataGetLength(serializedData);
-        
+        mach_port_t         pm_server = MACH_PORT_NULL;
+        kern_return_t       kern_result;
+        IOReturn            err;
+
+        CFDataRef           serializedData = NULL;
+        vm_offset_t         buffer_ptr = 0;
+        size_t              buffer_size = 0;
+
+        // No response is expected when token is 0
+        if (token == 0) {
+            return_code = kIOReturnSuccess;
+            goto exit;
         }
-    }
-    
-    kern_result = io_pm_connection_acknowledge_event(pm_server, 
-                                    (uint32_t)connection->id, 
-                                    (uint32_t)token,
-                                    buffer_ptr, 
-                                    buffer_size,
-                                    &return_code);
 
-    if (kern_result != KERN_SUCCESS) {
-        return_code = kern_result;
-    }
-exit:
-    if (MACH_PORT_NULL != pm_server) {
-        _pm_disconnect(pm_server);
-    }
+        err = _pm_connect(&pm_server);
+        if(kIOReturnSuccess != err) {
+            return_code = kIOReturnInternalError;
+            goto exit;
+        }
 
-    if (serializedData) CFRelease(serializedData);
+        if (options)
+        {
+            serializedData = CFPropertyListCreateData(
+                                                      kCFAllocatorDefault,
+                                                      (CFPropertyListRef)options,
+                                                      kCFPropertyListBinaryFormat_v1_0, 0, NULL);
+
+            if (serializedData)
+            {
+                buffer_ptr = (vm_offset_t)CFDataGetBytePtr(serializedData);
+                buffer_size = (size_t)CFDataGetLength(serializedData);
+
+            }
+        }
+
+        kern_result = io_pm_connection_acknowledge_event(pm_server,
+                                                         (uint32_t)connection->id,
+                                                         (uint32_t)token,
+                                                         buffer_ptr,
+                                                         buffer_size,
+                                                         &return_code);
+
+        if (kern_result != KERN_SUCCESS) {
+            return_code = kern_result;
+        }
+    exit:
+        if (MACH_PORT_NULL != pm_server) {
+            _pm_disconnect(pm_server);
+        }
+
+        if (serializedData) CFRelease(serializedData);
+    });
 
     return return_code;
 #endif /* TARGET_OS_IPHONE */

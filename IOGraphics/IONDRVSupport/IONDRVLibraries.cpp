@@ -527,28 +527,6 @@ EXP(RegistryCStrEntryLookup)( const RegEntryID *        parentEntry,
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-OSStatus EXP(VSLGestalt)( VSLGestaltType selector, UInt32 * response )
-{
-    IOReturn ret;
-
-    if (!response)
-        return (paramErr);
-
-    *response = 0;
-
-    switch (selector)
-    {
-        case kVSLClamshellStateGestaltType:
-            ret = IOGetHardwareClamshellState(response);
-            break;
-        default:
-            ret = gestaltUndefSelectorErr;
-            break;
-    }
-
-    return (ret);
-}
-
 OSErr
 EXP(VSLNewInterruptService)(
   RegEntryID *            serviceDevice,

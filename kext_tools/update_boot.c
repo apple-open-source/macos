@@ -127,6 +127,7 @@ struct updatingVol {
     Boolean customSource, customDest;   // vs. default B!=R setup
     Boolean useOnceDir;                 // copy to com.apple.boot.once
     Boolean useStagingDir;              // use staging directory for copy
+    Boolean skipFDECopy;                // skip FDE update
 
     // updated as each Apple_Boot is updated
     int bootIdx;                        // which helper are we updating
@@ -1421,6 +1422,7 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
     CFArrayRef          helpers;
     CFStringRef         firstHelper;
     Boolean             doUpdateStamps = false;
+    Boolean             doFDEResouceCopy = false;
     struct updatingVol  up = { /* NULL, ... */ };
     up.curbootfd = -1;
 
@@ -1466,6 +1468,12 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
         doUpdateStamps = true;
     }
     up.doSanitize = doUpdateStamps;
+
+    // kBROptsNoFDEResCopy means we shouldn't try to copy / build FDE resources.
+    if (opts & kBROptsNoFDEResCopy) {
+        doFDEResouceCopy = true;
+    }
+    up.skipFDECopy = doFDEResouceCopy;
 
     // Make sure all caches are up to date on the source
     // (undefined if OOD & system's kext management/EFILogin can't rebuild)
@@ -2610,7 +2618,7 @@ ucopyRPS(struct updatingVol *up)
             if ((bsderr = writeBootPrefs(up, dstpath))) {
                 rval = bsderr; goto finish;     // error logged by function
             }
-        } else if (curItem == up->caches->erpropcache && up->csfdeprops && up->onAPM == false) {
+        } else if (curItem == up->caches->erpropcache && up->csfdeprops && up->onAPM == false && !up->skipFDECopy) {
 
             // use csfdeprops
             if ((bsderr = _writeFDEPropsToHelper(up, dstpath))) {                      
@@ -2645,7 +2653,7 @@ ucopyRPS(struct updatingVol *up)
     // re-write correctly-encrypted context to secondary location
     if ((up->flatTarget[0] || up->useOnceDir)
             && up->caches->erpropTSOnly == false && up->onAPM == false
-            && up->caches->erpropcache && up->csfdeprops) {
+            && up->caches->erpropcache && up->csfdeprops && !up->skipFDECopy) {
         pathcpy(dstpath, erdir);
         pathcat(dstpath, up->caches->erpropcache->rpath);
         if ((bsderr = _writeFDEPropsToHelper(up, dstpath))) {

@@ -82,7 +82,7 @@ SecCmsSignedDataGetSignerInfo(SecCmsSignedDataRef sigd, int i);
     @abstract Retrieve the SignedData's digest algorithm list.
  */
 extern SECAlgorithmID **
-SecCmsSignedDataGetDigestAlgs(SecCmsSignedDataRef sigd);
+SecCmsSignedDataGetDigestAlgs(SecCmsSignedDataRef sigd) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
@@ -161,7 +161,7 @@ SecCmsSignedDataContainsCertsOrCrls(SecCmsSignedDataRef sigd);
     @abstract Retrieve the SignedData's certificate list.
  */
 extern CSSM_DATA_PTR *
-SecCmsSignedDataGetCertificateList(SecCmsSignedDataRef sigd);
+SecCmsSignedDataGetCertificateList(SecCmsSignedDataRef sigd) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
@@ -176,7 +176,7 @@ SecCmsSignedDataAddSignerInfo(SecCmsSignedDataRef sigd,
 extern OSStatus
 SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
 				SECAlgorithmID **digestalgs,
-				CSSM_DATA_PTR *digests);
+				CSSM_DATA_PTR *digests) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function

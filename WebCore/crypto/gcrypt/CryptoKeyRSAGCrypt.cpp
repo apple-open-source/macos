@@ -34,8 +34,8 @@
 #include "GCryptUtilities.h"
 #include "ScriptExecutionContext.h"
 #include <JavaScriptCore/GenericTypedArrayViewInlines.h>
+#include <JavaScriptCore/HeapInlines.h>
 #include <JavaScriptCore/JSGenericTypedArrayViewInlines.h>
-#include <heap/HeapInlines.h>
 #include <pal/crypto/gcrypt/Handle.h>
 #include <pal/crypto/gcrypt/Utilities.h>
 #include <pal/crypto/tasn1/Utilities.h>
@@ -231,14 +231,12 @@ void CryptoKeyRSA::generatePair(CryptoAlgorithmIdentifier algorithm, CryptoAlgor
         return;
     }
 
-    context->ref();
     context->postTask(
-        [algorithm, hash, hasHash, extractable, usage, publicKeySexp = publicKeySexp.release(), privateKeySexp = privateKeySexp.release(), callback = WTFMove(callback)](ScriptExecutionContext& context) mutable {
+        [algorithm, hash, hasHash, extractable, usage, publicKeySexp = publicKeySexp.release(), privateKeySexp = privateKeySexp.release(), callback = WTFMove(callback)](auto&) mutable {
             auto publicKey = CryptoKeyRSA::create(algorithm, hash, hasHash, CryptoKeyType::Public, publicKeySexp, true, usage);
             auto privateKey = CryptoKeyRSA::create(algorithm, hash, hasHash, CryptoKeyType::Private, privateKeySexp, extractable, usage);
 
             callback(CryptoKeyPair { WTFMove(publicKey), WTFMove(privateKey) });
-            context.deref();
         });
 }
 
@@ -645,8 +643,6 @@ auto CryptoKeyRSA::algorithm() const -> KeyAlgorithm
 
 std::unique_ptr<CryptoKeyRSAComponents> CryptoKeyRSA::exportData() const
 {
-    ASSERT(extractable());
-
     switch (type()) {
     case CryptoKeyType::Public:
         return CryptoKeyRSAComponents::createPublic(getRSAKeyParameter(m_platformKey, "n"), getRSAKeyParameter(m_platformKey, "e"));

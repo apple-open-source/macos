@@ -54,9 +54,10 @@
     [self.ckksZones addObject:self.keychainZoneID];
 
     // Wait for the ViewManager to be brought up
-    XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:4*NSEC_PER_SEC], "No timeout waiting for SecCKKSInitialize");
+    XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:20*NSEC_PER_SEC], "No timeout waiting for SecCKKSInitialize");
 
     self.keychainView = [[CKKSViewManager manager] findView:@"keychain"];
+    [self.ckksViews addObject:self.keychainView];
     XCTAssertNotNil(self.keychainView, "CKKSViewManager created the keychain view");
 
     // Check that your environment is set up correctly

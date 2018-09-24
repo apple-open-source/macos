@@ -29,6 +29,8 @@
 #include <wtf/MonotonicTime.h>
 #include <wtf/RunLoop.h>
 #include <wtf/WallTime.h>
+#include <wtf/WeakPtr.h>
+#include <wtf/WorkQueue.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -37,26 +39,17 @@ class FileMonitor;
 
 namespace WebKit {
 
-class WebResourceLoadStatisticsStore;
+class ResourceLoadStatisticsMemoryStore;
 
-class ResourceLoadStatisticsPersistentStorage {
+// Can only be constructed / destroyed / used from the WebResourceLoadStatisticsStore's statistic queue.
+class ResourceLoadStatisticsPersistentStorage : public CanMakeWeakPtr<ResourceLoadStatisticsPersistentStorage> {
 public:
-    enum class IsReadOnly { No, Yes };
-    ResourceLoadStatisticsPersistentStorage(WebResourceLoadStatisticsStore&, const String& storageDirectoryPath, IsReadOnly);
+    ResourceLoadStatisticsPersistentStorage(ResourceLoadStatisticsMemoryStore&, WorkQueue&, const String& storageDirectoryPath);
     ~ResourceLoadStatisticsPersistentStorage();
 
-    void initialize();
     void clear();
 
-    void finishAllPendingWorkSynchronously();
-
-    void ref();
-    void deref();
-
-    enum class ForceImmediateWrite {
-        No,
-        Yes,
-    };
+    enum class ForceImmediateWrite { No, Yes, };
     void scheduleOrWriteMemoryStore(ForceImmediateWrite);
 
 private:
@@ -71,15 +64,13 @@ private:
     void populateMemoryStoreFromDisk();
     void excludeFromBackup() const;
     void refreshMemoryStoreFromDisk();
-    void asyncWriteTimerFired();
 
-    WebResourceLoadStatisticsStore& m_memoryStore;
+    ResourceLoadStatisticsMemoryStore& m_memoryStore;
+    Ref<WorkQueue> m_workQueue;
     const String m_storageDirectoryPath;
-    RunLoop::Timer<ResourceLoadStatisticsPersistentStorage> m_asyncWriteTimer;
     std::unique_ptr<WebCore::FileMonitor> m_fileMonitor;
     WallTime m_lastStatisticsFileSyncTime;
     MonotonicTime m_lastStatisticsWriteTime;
-    IsReadOnly m_isReadOnly { IsReadOnly::No };
     bool m_hasPendingWrite { false };
 };
 

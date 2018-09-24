@@ -78,12 +78,18 @@ static uint8_t descriptor[] = {
         self.sourceController = nil;
     }
     
+    int status = system ("leaks hidxctest");
+    XCTAssert (status == 0);
+    
+    system("kextunload -b com.apple.IOHIDEventFastPathDriver");
+    
     [super tearDown];
 }
 
 - (void)MAC_OS_ONLY_TEST_CASE(testFastPathInit) {
     Boolean result;
     NSString *ioClassName;
+    
     IOHIDEventSystemTestController * eventController = [[IOHIDEventSystemTestController alloc] initWithDeviceUniqueID:self.uniqueID AndQueue:self.eventControllerQueue];
     HIDXCTAssertAndThrowTrue(eventController != nil);
     
@@ -97,8 +103,67 @@ static uint8_t descriptor[] = {
     }
     
     [eventController invalidate];
-
 }
+
+- (void)MAC_OS_ONLY_TEST_CASE(testFastPathInitError) {
+    Boolean result;
+    NSString *ioClassName;
+    NSDictionary * properties;
+    IOHIDEventRef event;
+    
+    IOHIDEventSystemTestController * eventController = [[IOHIDEventSystemTestController alloc] initWithDeviceUniqueID:self.uniqueID AndQueue:self.eventControllerQueue];
+    HIDXCTAssertAndThrowTrue(eventController != nil);
+    
+    ioClassName  = CFBridgingRelease(IOHIDServiceClientCopyProperty(eventController.eventService,CFSTR("IOClass")));
+    XCTAssertTrue (ioClassName && [ioClassName isEqualToString: @"IOHIDEventFastPathDriver"]);
+
+
+    properties = @{@"RequireEntitlement" : @YES};
+    result = IOHIDServiceClientFastPathInit (eventController.eventService, (CFDictionaryRef)properties);
+    XCTAssertTrue (result == false);
+    IOHIDServiceClientFastPathInvalidate (eventController.eventService);
+
+
+    properties = @{@"RequireEntitlement" : @NO};
+    result = IOHIDServiceClientFastPathInit (eventController.eventService, (CFDictionaryRef)properties);
+    XCTAssertTrue (result == true);
+    IOHIDServiceClientFastPathInvalidate (eventController.eventService);
+ 
+    
+    properties = @{@"QueueSize" : @0};
+    result = IOHIDServiceClientFastPathInit (eventController.eventService, (CFDictionaryRef)properties);
+    XCTAssertTrue (result == true);
+    event = IOHIDServiceClientFastPathCopyEvent (eventController.eventService, NULL, 0);
+    HIDXCTAssertAndThrowTrue (event == NULL);
+    IOHIDServiceClientFastPathInvalidate (eventController.eventService);
+    
+    
+    properties = @{@"QueueSize" : @2};
+    result = IOHIDServiceClientFastPathInit (eventController.eventService, (CFDictionaryRef)properties);
+    XCTAssertTrue (result == false);
+    IOHIDServiceClientFastPathInvalidate (eventController.eventService);
+  
+    
+    properties = @{@"QueueSize" : @6};
+    result = IOHIDServiceClientFastPathInit (eventController.eventService, (CFDictionaryRef)properties);
+    XCTAssertTrue (result == true);
+    
+    event = IOHIDServiceClientFastPathCopyEvent (eventController.eventService, NULL, 0);
+    HIDXCTAssertAndThrowTrue (event == NULL);
+    IOHIDServiceClientFastPathInvalidate (eventController.eventService);
+
+    properties = @{@"QueueSize" : @120};
+    result = IOHIDServiceClientFastPathInit (eventController.eventService, (CFDictionaryRef)properties);
+    XCTAssertTrue (result == true);
+
+    event = IOHIDServiceClientFastPathCopyEvent (eventController.eventService, NULL, 0);
+    HIDXCTAssertAndThrowTrue (event != NULL);
+    CFRelease(event);
+    IOHIDServiceClientFastPathInvalidate (eventController.eventService);
+
+    [eventController invalidate];
+}
+
 
 - (void)MAC_OS_ONLY_TEST_CASE(testFastPathProperty) {
     Boolean result;
@@ -121,11 +186,21 @@ static uint8_t descriptor[] = {
         value = IOHIDServiceClientFastPathCopyProperty (eventController.eventService, CFSTR("Client"));
         XCTAssertTrue (value != NULL && CFEqual (value ,(CFNumberRef)clientIndex));
         
+        if (value) {
+            CFRelease(value);
+        }
+        
         result = IOHIDServiceClientFastPathSetProperty (eventController.eventService, CFSTR("Test") , (CFNumberRef)clientIndex);
         XCTAssertTrue (result);
         
         value = IOHIDServiceClientFastPathCopyProperty (eventController.eventService, CFSTR("Test"));
         XCTAssertTrue (value != NULL && CFEqual (value ,(CFNumberRef)clientIndex));
+ 
+        if (value) {
+            CFRelease(value);
+        }
+        
+        IOHIDServiceClientFastPathInvalidate (eventController.eventService);
         
         [eventController invalidate];
 
@@ -135,46 +210,100 @@ static uint8_t descriptor[] = {
 - (void)MAC_OS_ONLY_TEST_CASE(testFastPathEventCopy) {
     Boolean result;
     NSString *ioClassName;
-    __block IOHIDEventRef event;
-    NSMutableArray *clients = [[NSMutableArray alloc] initWithCapacity:10];
-    for (NSUInteger index = 1 ; index < 10 ; index++) {
-        IOHIDEventSystemTestController *  eventController = [[IOHIDEventSystemTestController alloc] initWithDeviceUniqueID:self.uniqueID AndQueue:self.eventControllerQueue];
-        HIDXCTAssertAndThrowTrue(eventController != nil);
+    IOHIDEventRef event;
+    NSArray* children;
+
+    IOHIDEventSystemTestController *  eventController = [[IOHIDEventSystemTestController alloc] initWithDeviceUniqueID:self.uniqueID AndQueue:self.eventControllerQueue];
+    HIDXCTAssertAndThrowTrue(eventController != nil);
+
+    result = IOHIDServiceClientFastPathInit (eventController.eventService, NULL);
+    HIDXCTAssertAndThrowTrue (result);
+
+    event = IOHIDServiceClientFastPathCopyEvent (eventController.eventService, NULL, 0);
+    HIDXCTAssertAndThrowTrue (event != NULL);
+    CFRelease (event);
+
+    id value = CFBridgingRelease(IOHIDServiceClientFastPathCopyProperty(eventController.eventService, CFSTR(kIOHIDEventServiceQueueSize)));
+    NSLog(@"Queue size:%@", value);
+ 
+    ioClassName  = CFBridgingRelease(IOHIDServiceClientCopyProperty(eventController.eventService,CFSTR("IOClass")));
+    HIDXCTAssertAndThrowTrue (ioClassName && [ioClassName isEqualToString: @"IOHIDEventFastPathDriver"]);
+
+    for (NSUInteger index = 1 ; index < 500 ; index++) {
         
-        [clients addObject:eventController];
-        ioClassName  = CFBridgingRelease(IOHIDServiceClientCopyProperty(eventController.eventService,CFSTR("IOClass")));
-        HIDXCTAssertAndThrowTrue (ioClassName && [ioClassName isEqualToString: @"IOHIDEventFastPathDriver"]);
+        NSLog(@"Copy:%d events", (int)index);
         
+        NSDictionary * dictCopySpec = @{@"NumberOfEventToCopy":@(index)};
+        event = IOHIDServiceClientFastPathCopyEvent (eventController.eventService, (__bridge CFDictionaryRef)dictCopySpec, 0);
+        HIDXCTAssertAndThrowTrue (event != NULL);
+        if (index > 1) {
+            children = (NSArray*)IOHIDEventGetChildren (event);
+            XCTAssertTrue (children != NULL && children.count == index, "index:%d events:%@", (int)index, children);
+        }
+        CFRelease (event);
+        
+        NSData * dataCopySpec = [NSData dataWithBytes: &index length:sizeof(index)];
+        event = IOHIDServiceClientFastPathCopyEvent (eventController.eventService, (__bridge CFDataRef)dataCopySpec, 0);
+        HIDXCTAssertAndThrowTrue (event != NULL);
+        if (index > 1) {
+            children = (NSArray*)IOHIDEventGetChildren (event);
+            XCTAssertTrue (children != NULL && children.count == index);
+        }
+        CFRelease (event);
+        
+    }
+    IOHIDServiceClientFastPathInvalidate (eventController.eventService);
+    [eventController invalidate];
+}
+
+- (void)MAC_OS_ONLY_TEST_CASE(testFastPathEventCopyWithInvalidation) {
+    Boolean result;
+    NSString *ioClassName;
+    IOHIDEventRef event;
+    NSArray* children;
+    
+    IOHIDEventSystemTestController *  eventController = [[IOHIDEventSystemTestController alloc] initWithDeviceUniqueID:self.uniqueID AndQueue:self.eventControllerQueue];
+    HIDXCTAssertAndThrowTrue(eventController != nil);
+    
+    
+    for (NSUInteger index = 1 ; index < 500 ; index++) {
+
         result = IOHIDServiceClientFastPathInit (eventController.eventService, NULL);
         HIDXCTAssertAndThrowTrue (result);
         
         event = IOHIDServiceClientFastPathCopyEvent (eventController.eventService, NULL, 0);
         HIDXCTAssertAndThrowTrue (event != NULL);
-        
         CFRelease (event);
+        
+        ioClassName  = CFBridgingRelease(IOHIDServiceClientCopyProperty(eventController.eventService,CFSTR("IOClass")));
+        HIDXCTAssertAndThrowTrue (ioClassName && [ioClassName isEqualToString: @"IOHIDEventFastPathDriver"]);
+
+        NSLog(@"Copy:%d events", (int)index);
+        
         NSDictionary * dictCopySpec = @{@"NumberOfEventToCopy":@(index)};
         event = IOHIDServiceClientFastPathCopyEvent (eventController.eventService, (__bridge CFDictionaryRef)dictCopySpec, 0);
         HIDXCTAssertAndThrowTrue (event != NULL);
-        
         if (index > 1) {
-            NSArray* children = (NSArray*)IOHIDEventGetChildren (event);
-            XCTAssertTrue (children != NULL && children.count == index, "events:%@", children);
+            children = (NSArray*)IOHIDEventGetChildren (event);
+            XCTAssertTrue (children != NULL && children.count == index, "index:%d events:%@", (int)index, children);
         }
         CFRelease (event);
+        
         NSData * dataCopySpec = [NSData dataWithBytes: &index length:sizeof(index)];
         event = IOHIDServiceClientFastPathCopyEvent (eventController.eventService, (__bridge CFDataRef)dataCopySpec, 0);
         HIDXCTAssertAndThrowTrue (event != NULL);
-        
+
         if (index > 1) {
-            NSArray* children = (NSArray*)IOHIDEventGetChildren (event);
+            children = (NSArray*)IOHIDEventGetChildren (event);
             XCTAssertTrue (children != NULL && children.count == index);
         }
         CFRelease (event);
-        
-        [eventController invalidate];
 
+        IOHIDServiceClientFastPathInvalidate (eventController.eventService);
+        [eventController invalidate];
     }
 }
+
 
 - (void)CONDTIONAL_TEST_CASE(PerformanceOfCopyWithDictSpec) {
     Boolean result;

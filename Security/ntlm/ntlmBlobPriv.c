@@ -295,7 +295,7 @@ OSStatus ntlmHostName(
 		*flat = (unsigned char *)malloc(len+1);
 		*flatLen = (unsigned)len;
 		memmove(*flat, hostname, len);
-        flat[len] = '\0'; // ensure null terminator
+        flat[len] = NULL; // ensure null terminator
 		return errSecSuccess;
 	}
 }

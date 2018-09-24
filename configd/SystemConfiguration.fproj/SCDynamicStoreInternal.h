@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2009-2011, 2013, 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2009-2011, 2013, 2015-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,7 +24,7 @@
 #ifndef _SCDYNAMICSTOREINTERNAL_H
 #define _SCDYNAMICSTOREINTERNAL_H
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <dispatch/dispatch.h>
@@ -121,8 +121,9 @@ typedef struct {
 
 __BEGIN_DECLS
 
+__private_extern__
 os_log_t
-__log_SCDynamicStore			();
+__log_SCDynamicStore			(void);
 
 SCDynamicStorePrivateRef
 __SCDynamicStoreCreatePrivate		(CFAllocatorRef			allocator,
@@ -130,18 +131,21 @@ __SCDynamicStoreCreatePrivate		(CFAllocatorRef			allocator,
 					 SCDynamicStoreCallBack		callout,
 					 SCDynamicStoreContext		*context);
 
+__private_extern__
 SCDynamicStoreRef
 __SCDynamicStoreNullSession		(void);
 
+__private_extern__
 Boolean
 __SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef		store,
 					 kern_return_t			status,
 					 int				*sc_status,
 					 const char			*func);
 
+__private_extern__
 Boolean
 __SCDynamicStoreReconnectNotifications	(SCDynamicStoreRef		store);
 
 __END_DECLS
 
-#endif /* _SCDYNAMICSTOREINTERNAL_H */
+#endif	/* _SCDYNAMICSTOREINTERNAL_H */

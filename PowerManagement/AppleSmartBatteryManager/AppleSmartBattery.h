@@ -26,6 +26,7 @@
 
 #include <IOKit/IOService.h>
 #include <IOKit/pwr_mgt/IOPMPowerSource.h>
+#include <IOKit/IOReporter.h>
 #include <IOKit/smbus/IOSMBusController.h>
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 
@@ -35,6 +36,7 @@
 
 #define kBatteryPollingDebugKey     "BatteryPollingPeriodOverride"
 
+class AppleBatteryAuth;
 class AppleSmartBatteryManager;
 
 typedef struct {
@@ -105,6 +107,7 @@ protected:
 
     CommandTable                cmdTable;
     bool                        fDisplayKeys;
+    OSSet                       *fReportersSet;
 
 
     
@@ -154,6 +157,7 @@ protected:
     CommandStruct *commandForState(uint32_t state);
     void    initializeCommands(void);
     bool    initiateTransaction(const CommandStruct *cs);
+    bool    doInitiateTransaction(const CommandStruct *cs);
     bool    initiateNextTransaction(uint32_t state);
     bool    retryCurrentTransaction(uint32_t state);
     bool    handleSetItAndForgetIt(int state, int val16,
@@ -196,6 +200,16 @@ protected:
     IOReturn readBlockAsync(uint32_t refnum, uint8_t address, uint8_t cmd);
 
     void    acknowledgeSystemSleepWake( void );
+    IOReturn createReporters(void);
+    IOReturn updateChannelValue(IOSimpleReporter * reporter, uint64_t channel, OSObject *obj);
+    IOReturn updateChannelValue(IOSimpleReporter * reporter, uint64_t channel, SInt64 value);
+    IOReturn configureReport(IOReportChannelList *channels, IOReportConfigureAction action,
+                                   void *result, void *destination) APPLE_KEXT_OVERRIDE;
+    IOReturn updateReport(IOReportChannelList *channels, IOReportUpdateAction action,
+                                void *result, void *destination) APPLE_KEXT_OVERRIDE;
+#if TARGET_OS_IOS || TARGET_OS_WATCH
+    uint16_t    _gasGaugeFirmwareVersion;
+#endif
 };
 
 #endif

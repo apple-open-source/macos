@@ -22,6 +22,13 @@
  *
  */
 
+#ifndef _SECURITY_SECREVOCATIONNETWORKING_H_
+#define _SECURITY_SECREVOCATIONNETWORKING_H_
+
 #import <CoreFoundation/CoreFoundation.h>
+#import <securityd/SecRevocationServer.h>
 
 bool SecValidUpdateRequest(dispatch_queue_t queue, CFStringRef server, CFIndex version);
+bool SecORVCBeginFetches(SecORVCRef orvc, SecCertificateRef cert);
+
+#endif /* _SECURITY_SECREVOCATIONNETWORKING_H_ */

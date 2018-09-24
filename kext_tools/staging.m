@@ -53,7 +53,7 @@ isSIPDisabled(void) {
 Boolean
 pathIsSecure(NSString *path) {
     Boolean is_secure = false;
-    BOOL is_protected_volume = rootless_protected_volume(path.UTF8String) ? YES : NO;
+    BOOL is_protected_volume = rootless_protected_volume(path.UTF8String) == 1 ? YES : NO;
     BOOL is_trusted_path = rootless_check_trusted_class(path.UTF8String, "KernelExtensionManagement") == 0 ? YES : NO;
 
     if (isSIPDisabled()) {

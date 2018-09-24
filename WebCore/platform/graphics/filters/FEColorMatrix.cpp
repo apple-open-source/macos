@@ -25,7 +25,7 @@
 
 #include "Filter.h"
 #include "GraphicsContext.h"
-#include <runtime/Uint8ClampedArray.h>
+#include <JavaScriptCore/Uint8ClampedArray.h>
 #include <wtf/MathExtras.h>
 #include <wtf/text/TextStream.h>
 
@@ -87,6 +87,7 @@ inline void saturateAndHueRotate(float& red, float& green, float& blue, const fl
     blue    = r * components[6] + g * components[7] + b * components[8];
 }
 
+// FIXME: this should use luminance(const FloatComponents& sRGBCompontents).
 inline void luminance(float& red, float& green, float& blue, float& alpha)
 {
     alpha = 0.2125 * red + 0.7154 * green + 0.0721 * blue;

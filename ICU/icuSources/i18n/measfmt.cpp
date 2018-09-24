@@ -44,10 +44,13 @@
 #include "standardplural.h"
 #include "unifiedcache.h"
 
-#define MEAS_UNIT_COUNT 135
-#define WIDTH_INDEX_COUNT (UMEASFMT_WIDTH_NARROW + 1)
 
 U_NAMESPACE_BEGIN
+
+static constexpr int32_t PER_UNIT_INDEX = StandardPlural::COUNT;
+static constexpr int32_t PATTERN_COUNT = PER_UNIT_INDEX + 1;
+static constexpr int32_t MEAS_UNIT_COUNT = 138;  // see assertion in MeasureFormatCacheData constructor
+static constexpr int32_t WIDTH_INDEX_COUNT = UMEASFMT_WIDTH_NARROW + 1;
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(MeasureFormat)
 
@@ -102,8 +105,6 @@ static UMeasureFormatWidth getRegularWidth(UMeasureFormatWidth width) {
  */
 class MeasureFormatCacheData : public SharedObject {
 public:
-    static const int32_t PER_UNIT_INDEX = StandardPlural::COUNT;
-    static const int32_t PATTERN_COUNT = PER_UNIT_INDEX + 1;
 
     /**
      * Redirection data from root-bundle, top-level sideways aliases.
@@ -112,7 +113,7 @@ public:
      */
     UMeasureFormatWidth widthFallback[WIDTH_INDEX_COUNT];
     /** Measure unit -> format width -> array of patterns ("{0} meters") (plurals + PER_UNIT_INDEX) */
-    SimpleFormatter *patterns[MEAS_UNIT_COUNT][WIDTH_INDEX_COUNT][PATTERN_COUNT];
+    SimpleFormatter* patterns[MEAS_UNIT_COUNT][WIDTH_INDEX_COUNT][PATTERN_COUNT];
     const UChar* dnams[MEAS_UNIT_COUNT][WIDTH_INDEX_COUNT];
     SimpleFormatter perFormatters[WIDTH_INDEX_COUNT];
 
@@ -148,24 +149,25 @@ public:
     }
 
 private:
-    NumberFormat *currencyFormats[WIDTH_INDEX_COUNT];
-    NumberFormat *integerFormat;
-    NumericDateFormatters *numericDateFormatters;
+    NumberFormat* currencyFormats[WIDTH_INDEX_COUNT];
+    NumberFormat* integerFormat;
+    NumericDateFormatters* numericDateFormatters;
+
     MeasureFormatCacheData(const MeasureFormatCacheData &other);
     MeasureFormatCacheData &operator=(const MeasureFormatCacheData &other);
 };
 
-MeasureFormatCacheData::MeasureFormatCacheData() {
+MeasureFormatCacheData::MeasureFormatCacheData()
+        : integerFormat(nullptr), numericDateFormatters(nullptr) {
+    // Please update MEAS_UNIT_COUNT if it gets out of sync with the true count!
+    U_ASSERT(MEAS_UNIT_COUNT == MeasureUnit::getIndexCount());
+
     for (int32_t i = 0; i < WIDTH_INDEX_COUNT; ++i) {
         widthFallback[i] = UMEASFMT_WIDTH_COUNT;
     }
-    for (int32_t i = 0; i < UPRV_LENGTHOF(currencyFormats); ++i) {
-        currencyFormats[i] = NULL;
-    }
-    uprv_memset(patterns, 0, sizeof(patterns));
-    uprv_memset(dnams, 0, sizeof(dnams));
-    integerFormat = NULL;
-    numericDateFormatters = NULL;
+    memset(&patterns[0][0][0], 0, sizeof(patterns));
+    memset(&dnams[0][0], 0, sizeof(dnams));
+    memset(currencyFormats, 0, sizeof(currencyFormats));
 }
 
 MeasureFormatCacheData::~MeasureFormatCacheData() {
@@ -238,6 +240,9 @@ struct UnitDataSink : public ResourceSink {
 
     void setFormatterIfAbsent(int32_t index, const ResourceValue &value,
                                 int32_t minPlaceholders, UErrorCode &errorCode) {
+        U_ASSERT(unitIndex < MEAS_UNIT_COUNT);
+        U_ASSERT(width < WIDTH_INDEX_COUNT);
+        U_ASSERT(index < PATTERN_COUNT);
         SimpleFormatter **patterns = &cacheData.patterns[unitIndex][width][0];
         if (U_SUCCESS(errorCode) && patterns[index] == NULL) {
             if (minPlaceholders >= 0) {
@@ -251,6 +256,8 @@ struct UnitDataSink : public ResourceSink {
     }
 
     void setDnamIfAbsent(const ResourceValue &value, UErrorCode& errorCode) {
+        U_ASSERT(unitIndex < MEAS_UNIT_COUNT);
+        U_ASSERT(width < WIDTH_INDEX_COUNT);
         if (cacheData.dnams[unitIndex][width] == NULL) {
             int32_t length;
             cacheData.dnams[unitIndex][width] = value.getString(length, errorCode);
@@ -268,7 +275,7 @@ struct UnitDataSink : public ResourceSink {
             setDnamIfAbsent(value, errorCode);
         } else if (uprv_strcmp(key, "per") == 0) {
             // For example, "{0}/h".
-            setFormatterIfAbsent(MeasureFormatCacheData::PER_UNIT_INDEX, value, 1, errorCode);
+            setFormatterIfAbsent(PER_UNIT_INDEX, value, 1, errorCode);
         } else {
             // The key must be one of the plural form strings. For example:
             // one{"{0} hr"}
@@ -917,10 +924,11 @@ UnicodeString &MeasureFormat::formatMeasurePerUnit(
     if (U_FAILURE(status)) {
         return appendTo;
     }
-    MeasureUnit *resolvedUnit =
-            MeasureUnit::resolveUnitPerUnit(measure.getUnit(), perUnit);
-    if (resolvedUnit != NULL) {
-        Measure newMeasure(measure.getNumber(), resolvedUnit, status);
+    bool isResolved = false;
+    MeasureUnit resolvedUnit =
+        MeasureUnit::resolveUnitPerUnit(measure.getUnit(), perUnit, &isResolved);
+    if (isResolved) {
+        Measure newMeasure(measure.getNumber(), new MeasureUnit(resolvedUnit), status);
         return formatMeasure(
                 newMeasure, **numberFormat, appendTo, pos, status);
     }
@@ -1383,9 +1391,13 @@ UnicodeString &MeasureFormat::formatNumeric(
     }
 
     // Format time. draft becomes something like '5:30:45'
+    // #13606: DateFormat is not thread-safe, but MeasureFormat advertises itself as thread-safe.
     FieldPositionIterator posIter;
     UnicodeString draft;
+    static UMutex dateFmtMutex = U_MUTEX_INITIALIZER;
+    umtx_lock(&dateFmtMutex);
     dateFmt.format(date, draft, &posIter, status);
+    umtx_unlock(&dateFmtMutex);
 
     int32_t start = appendTo.length();
     FieldPosition smallestFieldPosition(smallestField);
@@ -1455,8 +1467,7 @@ UnicodeString &MeasureFormat::formatNumeric(
 const SimpleFormatter *MeasureFormat::getFormatterOrNull(
         const MeasureUnit &unit, UMeasureFormatWidth width, int32_t index) const {
     width = getRegularWidth(width);
-    SimpleFormatter *const (*unitPatterns)[MeasureFormatCacheData::PATTERN_COUNT] =
-            &cache->patterns[unit.getIndex()][0];
+    SimpleFormatter *const (*unitPatterns)[PATTERN_COUNT] = &cache->patterns[unit.getIndex()][0];
     if (unitPatterns[width][index] != NULL) {
         return unitPatterns[width][index];
     }
@@ -1524,8 +1535,7 @@ int32_t MeasureFormat::withPerUnitAndAppend(
     if (U_FAILURE(status)) {
         return offset;
     }
-    const SimpleFormatter *perUnitFormatter =
-            getFormatterOrNull(perUnit, width, MeasureFormatCacheData::PER_UNIT_INDEX);
+    const SimpleFormatter *perUnitFormatter = getFormatterOrNull(perUnit, width, PER_UNIT_INDEX);
     if (perUnitFormatter != NULL) {
         const UnicodeString *params[] = {&formatted};
         perUnitFormatter->formatAndAppend(

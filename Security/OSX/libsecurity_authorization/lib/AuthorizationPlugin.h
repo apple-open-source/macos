@@ -255,7 +255,7 @@ typedef struct AuthorizationCallbacks {
 	 userful for kSecUseAuthenticationContext for SecItem calls.
      Caller is responsible for outValue release	 */
     OSStatus (*GetLAContext)(AuthorizationEngineRef inEngine,
-        CFTypeRef __nullable * __nullable outValue) __OSX_AVAILABLE_STARTING(__MAC_10_13, __PHONE_NA);
+        CFTypeRef __nullable * __nullable outValue) __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_NA);
 
     /*
 	 Available only on systems with callback version 2 or higher
@@ -265,14 +265,14 @@ typedef struct AuthorizationCallbacks {
      Caller is responsible for outValue release */
     OSStatus (*GetTokenIdentities)(AuthorizationEngineRef inEngine,
         CFTypeRef context,
-        CFArrayRef __nullable * __nullable outValue) __OSX_AVAILABLE_STARTING(__MAC_10_13, __PHONE_NA);
+        CFArrayRef __nullable * __nullable outValue) __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_NA);
 
     /*
      Available only on systems with callback version 3 or higher
      Constructs TKTokenWatcher object.
      Caller is responsible for outValue release     */
     OSStatus (*GetTKTokenWatcher)(AuthorizationEngineRef inEngine,
-        CFTypeRef __nullable * __nullable outValue)  __OSX_AVAILABLE_STARTING(__MAC_10_13_4, __PHONE_NA);
+        CFTypeRef __nullable * __nullable outValue)  __OSX_AVAILABLE_STARTING(__MAC_10_13_4, __IPHONE_NA);
 
 } AuthorizationCallbacks;
 

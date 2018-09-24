@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="14205.1" systemVersion="17E183" minimumToolsVersion="Automatic" sourceLanguage="Objective-C" userDefinedModelVersionIdentifier="">
+    <entity name="AccessControlEntity" representedClassName="SecCDKeychainManagedAccessControlEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="stringRepresentation" attributeType="String" minValueString="1" syncable="YES"/>
+        <attribute name="type" attributeType="Integer 32" minValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <relationship name="accessedItems" toMany="YES" deletionRule="Deny" destinationEntity="Item" inverseName="accessControlList" inverseEntity="Item" syncable="YES"/>
+        <relationship name="ownedItems" toMany="YES" deletionRule="Deny" destinationEntity="Item" inverseName="owner" inverseEntity="Item" syncable="YES"/>
+    </entity>
+    <entity name="Item" representedClassName="SecCDKeychainManagedItem" syncable="YES" codeGenerationType="class">
+        <attribute name="data" attributeType="Binary" syncable="YES"/>
+        <attribute name="metadata" attributeType="Binary" syncable="YES"/>
+        <attribute name="persistentID" attributeType="UUID" usesScalarValueType="NO" syncable="YES"/>
+        <relationship name="accessControlList" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="AccessControlEntity" inverseName="accessedItems" inverseEntity="AccessControlEntity" syncable="YES"/>
+        <relationship name="itemType" maxCount="1" deletionRule="Nullify" destinationEntity="ItemType" inverseName="items" inverseEntity="ItemType" syncable="YES"/>
+        <relationship name="lookupEntries" toMany="YES" deletionRule="Nullify" destinationEntity="LookupEntry" inverseName="matchingItems" inverseEntity="LookupEntry" syncable="YES"/>
+        <relationship name="owner" maxCount="1" deletionRule="Nullify" destinationEntity="AccessControlEntity" inverseName="ownedItems" inverseEntity="AccessControlEntity" syncable="YES"/>
+    </entity>
+    <entity name="ItemType" representedClassName="SecCDKeychainManagedItemType" syncable="YES" codeGenerationType="class">
+        <attribute name="name" attributeType="String" syncable="YES"/>
+        <attribute name="primaryKeys" attributeType="Binary" syncable="YES"/>
+        <attribute name="syncableKeys" attributeType="Binary" syncable="YES"/>
+        <attribute name="version" attributeType="Integer 32" minValueString="1" usesScalarValueType="YES" syncable="YES"/>
+        <relationship name="items" optional="YES" toMany="YES" deletionRule="Deny" destinationEntity="Item" inverseName="itemType" inverseEntity="Item" syncable="YES"/>
+    </entity>
+    <entity name="LookupEntry" representedClassName="SecCDKeychainManagedLookupEntry" syncable="YES" codeGenerationType="class">
+        <attribute name="itemTypeName" attributeType="String" minValueString="4" syncable="YES"/>
+        <attribute name="lookupKey" attributeType="String" minValueString="1" syncable="YES"/>
+        <attribute name="lookupValue" attributeType="String" minValueString="1" syncable="YES"/>
+        <attribute name="lookupValueType" attributeType="String" syncable="YES"/>
+        <attribute name="systemEntry" optional="YES" attributeType="Boolean" usesScalarValueType="YES" syncable="YES"/>
+        <relationship name="matchingItems" optional="YES" toMany="YES" deletionRule="Deny" destinationEntity="Item" inverseName="lookupEntries" inverseEntity="Item" syncable="YES"/>
+    </entity>
+    <elements>
+        <element name="AccessControlEntity" positionX="-54" positionY="63" width="128" height="105"/>
+        <element name="Item" positionX="-63" positionY="-18" width="128" height="150"/>
+        <element name="ItemType" positionX="-63" positionY="54" width="128" height="120"/>
+        <element name="LookupEntry" positionX="-54" positionY="27" width="128" height="135"/>
+    </elements>
+</model>

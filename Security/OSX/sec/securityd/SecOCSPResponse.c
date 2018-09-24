@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009,2012-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2009,2012-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -329,8 +329,9 @@ exit:
 
 SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t responseID) {
 	SecAsn1OCSPResponse topResp = {};
-    SecOCSPResponseRef this;
+    SecOCSPResponseRef this = NULL;
 
+    require(ocspResponse, errOut);
     require(this = (SecOCSPResponseRef)calloc(1, sizeof(struct __SecOCSPResponse)),
         errOut);
     require_noerr(SecAsn1CoderCreate(&this->coder), errOut);
@@ -429,7 +430,7 @@ fini:
 errOut:
 #ifdef DEBUG
     {
-        CFStringRef hexResp = CFDataCopyHexString(this->data);
+        CFStringRef hexResp = (this) ? CFDataCopyHexString(this->data) : NULL;
         secdebug("ocsp", "bad ocsp response: %@", hexResp);
         CFReleaseSafe(hexResp);
     }
@@ -531,11 +532,7 @@ SecOCSPSingleResponseRef SecOCSPResponseCopySingleResponse(
     if (!request) { return sr; }
     CFDataRef issuer = SecCertificateCopyIssuerSequence(request->certificate);
     const DERItem *publicKey = SecCertificateGetPublicKeyData(request->issuer);
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
-    CFDataRef serial = SecCertificateCopySerialNumber(request->certificate, NULL);
-#else
-    CFDataRef serial = SecCertificateCopySerialNumber(request->certificate);
-#endif
+    CFDataRef serial = SecCertificateCopySerialNumberData(request->certificate, NULL);
     CFDataRef issuerNameHash = NULL;
     CFDataRef issuerPubKeyHash = NULL;
     SecAsn1Oid *algorithm = NULL;
@@ -650,11 +647,7 @@ static bool SecOCSPResponseIsIssuer(SecOCSPResponseRef this,
     }
 
     if (shouldBeSigner) {
-#if TARGET_OS_IPHONE
-        SecKeyRef key = SecCertificateCopyPublicKey(issuer);
-#else
-        SecKeyRef key = SecCertificateCopyPublicKey_ios(issuer);
-#endif
+        SecKeyRef key = SecCertificateCopyKey(issuer);
         if (key) {
             shouldBeSigner = SecOCSPResponseVerifySignature(this, key);
             ocspdDebug("ocsp response signature %sok", shouldBeSigner ? "" : "not ");

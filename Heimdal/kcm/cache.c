@@ -234,6 +234,8 @@ kcm_ccache_get_client_principals(krb5_context context,
 {
     kcm_ccache p;
     krb5_error_code ret = 0;
+    char *name = NULL;
+    krb5_timestamp exptime;
 
     if (!CLIENT_IS_ROOT(client))
 	return EPERM;
@@ -241,10 +243,11 @@ kcm_ccache_get_client_principals(krb5_context context,
     HEIMDAL_MUTEX_lock(&ccache_mutex);
 
     TAILQ_FOREACH(p, &ccache_head, members) {
-	char *name = NULL;
+	if (!p->client)
+	    break;
 
 	ret = krb5_unparse_name(context, p->client, &name);
-	if (ret)
+	if (ret || !name)
 	    break;
 
 	ret = krb5_store_string(sp, name);
@@ -255,12 +258,20 @@ kcm_ccache_get_client_principals(krb5_context context,
 	if (ret)
 	    break;
 
-	ret = krb5_store_int32(sp, (int32_t)p->creds->cred.times.endtime);
+	if (p->creds)
+	    exptime = p->creds->cred.times.endtime;
+	else
+	    exptime = 0;
+	ret = krb5_store_int32(sp, (int32_t)exptime);
 	if (ret)
 	    break;
 
 	free(name);
+	name = NULL;
     }
+
+    if (name)
+	free(name);
 
     HEIMDAL_MUTEX_unlock(&ccache_mutex);
 

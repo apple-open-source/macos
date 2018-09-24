@@ -119,12 +119,12 @@ struct entry {
 };
 
 struct th_info {
-        uintptr_t  thread;
+        uint64_t thread;
         int  depth;
         int  vfslookup;
         int  curpri;
-        long *pathptr;
-        long pathname[NUMPARMS + 1];
+        int64_t *pathptr;
+        int64_t pathname[NUMPARMS + 1];
         struct entry th_entry[MAX_NESTED];
 };
 
@@ -305,10 +305,12 @@ main(int argc, char *argv[])
 	      exit(1);
 	}
 
-        if (0 != reexec_to_match_kernel()) {
+#if !defined(__arm64__)
+	if (0 != reexec_to_match_kernel()) {
 		fprintf(stderr, "Could not re-execute: %d\n", errno);
 		exit(1);
 	}
+#endif
 
 	/* get our name */
 	if (argc > 0) {
@@ -1054,7 +1056,7 @@ find_proc_names(void)
 }
 
 static struct th_info *
-find_thread(uintptr_t thread)
+find_thread(uint64_t thread)
 {
        struct th_info *ti;
 
@@ -1120,7 +1122,7 @@ sort_scalls(void)
 			        if ((unsigned long)(((double)now - te->otime) / divisor) > 5000000) {
 				        ti->thread = 0;
 					ti->vfslookup = 0;
-					ti->pathptr = (long *)NULL;
+					ti->pathptr = (int64_t *)NULL;
 					ti->pathname[0] = 0;
 					num_of_threads--;
 				}
@@ -1325,7 +1327,7 @@ sample_sc(void)
 		        th_state[i].depth = 0;
 			th_state[i].thread = 0;
 			th_state[i].vfslookup = 0;
-			th_state[i].pathptr = (long *)NULL;
+			th_state[i].pathptr = (int64_t *)NULL;
 			th_state[i].pathname[0] = 0;
 		}
 		num_of_threads = 0;
@@ -1341,7 +1343,7 @@ sample_sc(void)
 
 	for (i = 0; i < count; i++) {
 	        int debugid, baseid;
-		uintptr_t thread;
+		uint64_t thread;
 		int type, code;
 		uint64_t now;
 		struct th_info *ti, *switched_out, *switched_in;
@@ -1361,7 +1363,7 @@ sample_sc(void)
 		baseid = debugid & 0xffff0000;
 
 		if (type == vfs_lookup) {
-		        long *sargptr;
+		        int64_t *sargptr;
 
 		        if ((ti = find_thread(thread)) == (struct th_info *)0)
 			        continue;

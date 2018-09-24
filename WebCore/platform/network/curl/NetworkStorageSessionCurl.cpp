@@ -29,6 +29,10 @@
 #if USE(CURL)
 
 #include "Cookie.h"
+#include "CookieJarCurlDatabase.h"
+#include "CookieJarDB.h"
+#include "CurlContext.h"
+#include "FileSystem.h"
 #include "NetworkingContext.h"
 #include "ResourceHandle.h"
 
@@ -37,9 +41,21 @@
 
 namespace WebCore {
 
+static String defaultCookieJarPath()
+{
+    static const char* defaultFileName = "cookie.jar.db";
+    char* cookieJarPath = getenv("CURL_COOKIE_JAR_PATH");
+    if (cookieJarPath)
+        return cookieJarPath;
+
+    return FileSystem::pathByAppendingComponent(FileSystem::localUserSpecificStorageDirectory(), defaultFileName);
+}
+
 NetworkStorageSession::NetworkStorageSession(PAL::SessionID sessionID, NetworkingContext* context)
     : m_sessionID(sessionID)
     , m_context(context)
+    , m_cookieStorage(makeUniqueRef<CookieJarCurlDatabase>())
+    , m_cookieDatabase(makeUniqueRef<CookieJarDB>(defaultCookieJarPath()))
 {
 }
 
@@ -50,6 +66,17 @@ NetworkStorageSession::~NetworkStorageSession()
 NetworkingContext* NetworkStorageSession::context() const
 {
     return m_context.get();
+}
+
+void NetworkStorageSession::setCookieDatabase(UniqueRef<CookieJarDB>&& cookieDatabase) const
+{
+    m_cookieDatabase = WTFMove(cookieDatabase);
+}
+
+CookieJarDB& NetworkStorageSession::cookieDatabase() const
+{
+    m_cookieDatabase->open();
+    return m_cookieDatabase;
 }
 
 static std::unique_ptr<NetworkStorageSession>& defaultSession()

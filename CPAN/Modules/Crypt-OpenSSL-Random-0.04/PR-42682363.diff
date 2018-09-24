@@ -1,0 +1,19 @@
+--- Makefile.PL.orig	2001-04-08 19:17:54.000000000 -0700
++++ Makefile.PL	2018-07-27 21:39:08.000000000 -0700
+@@ -1,11 +1,14 @@
+ use ExtUtils::MakeMaker;
+ # See lib/ExtUtils/MakeMaker.pm for details of how to influence
+ # the contents of the Makefile that is written.
++
++my $OPENSSL_PREFIX = $ENV{OPENSSL_PREFIX};
++
+ WriteMakefile(
+     'NAME'		=> 'Crypt::OpenSSL::Random',
+     'VERSION_FROM'	=> 'Random.pm', # finds $VERSION
+     'PREREQ_PM'		=> {}, # e.g., Module::Name => 1.1
+-    'LIBS'	        => ['-lssl -lcrypto'],   # e.g., '-lm' 
++    'LIBS'	        => ['-lssl -lcrypto -L'.$OPENSSL_PREFIX.'/lib'],   # e.g., '-lm' 
+     'DEFINE'		=> '', # e.g., '-DHAVE_SOMETHING'
+-    'INC'		=> '', # e.g., '-I/usr/include/other'
++    'INC'		=> '-I'.$OPENSSL_PREFIX.'/include', # e.g., '-I/usr/include/other'
+ );

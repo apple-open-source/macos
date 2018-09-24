@@ -3,6 +3,7 @@ set -e -x
 
 # Do nothing for installhdrs
 [ "$ACTION" == "installhdrs" ] && exit 0
+[ "$ACTION" == "installapi" ] && exit 0
 
 # Do nothing for iPhoneSimulator build alias
 [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] && exit 0

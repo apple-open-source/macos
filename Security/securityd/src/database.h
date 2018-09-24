@@ -207,6 +207,7 @@ public:
 	static const int maxUnlockTryCount = 3;
 
 public:
+    bool hasCommon() const;
 	DbCommon& common() const			{ return parent<DbCommon>(); }
 	virtual const char *dbName() const = 0;
 	virtual void dbName(const char *name);

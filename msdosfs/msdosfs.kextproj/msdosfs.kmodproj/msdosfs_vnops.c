@@ -622,6 +622,11 @@ exit:
 
 static char MSDOSFS_XATTR_VOLUME_ID_NAME[] = "com.apple.filesystems.msdosfs.volume_id";
 
+static bool is_xattr_volume_id_name(const char* name)
+{
+    return !strcmp(name, MSDOSFS_XATTR_VOLUME_ID_NAME);
+}
+
 int msdosfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 /* {
  struct vnodeop_desc *a_desc;
@@ -633,8 +638,7 @@ int msdosfs_vnop_getxattr(struct vnop_getxattr_args *ap)
  vfs_context_t a_context;
  } */
 {
-	if (vnode_isvroot(ap->a_vp) &&
-		!bcmp(ap->a_name, MSDOSFS_XATTR_VOLUME_ID_NAME, sizeof(MSDOSFS_XATTR_VOLUME_ID_NAME)))
+	if (vnode_isvroot(ap->a_vp) && is_xattr_volume_id_name(ap->a_name))
 	{
 		struct denode *dep = VTODE(ap->a_vp);
 		struct msdosfsmount *pmp = dep->de_pmp;
@@ -675,8 +679,7 @@ int msdosfs_vnop_setxattr(struct vnop_setxattr_args *ap)
  vfs_context_t a_context;
  } */
 {
-	if (vnode_isvroot(ap->a_vp) &&
-		!bcmp(ap->a_name, MSDOSFS_XATTR_VOLUME_ID_NAME, sizeof(MSDOSFS_XATTR_VOLUME_ID_NAME)))
+	if (vnode_isvroot(ap->a_vp) && is_xattr_volume_id_name(ap->a_name))
 	{
 		return EPERM;
 	}
@@ -695,8 +698,7 @@ int msdosfs_vnop_removexattr(struct vnop_removexattr_args *ap)
  vfs_context_t a_context;
  } */
 {
-	if (vnode_isvroot(ap->a_vp) &&
-		!bcmp(ap->a_name, MSDOSFS_XATTR_VOLUME_ID_NAME, sizeof(MSDOSFS_XATTR_VOLUME_ID_NAME)))
+	if (vnode_isvroot(ap->a_vp) && is_xattr_volume_id_name(ap->a_name))
 	{
 		return EPERM;
 	}

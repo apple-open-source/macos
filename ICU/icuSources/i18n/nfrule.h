@@ -74,6 +74,7 @@ public:
                   ParsePosition& pos, 
                   UBool isFractional, 
                   double upperBound,
+                  uint32_t nonNumericalExecutedRuleMask,
                   Formattable& result,
                   UBool isDecimFmtParseable=TRUE) const;
 
@@ -95,6 +96,7 @@ private:
     int32_t indexOfAnyRulePrefix() const;
     double matchToDelimiter(const UnicodeString& text, int32_t startPos, double baseValue,
                             const UnicodeString& delimiter, ParsePosition& pp, const NFSubstitution* sub, 
+                            uint32_t nonNumericalExecutedRuleMask,
                             double upperBound) const;
     void stripPrefix(UnicodeString& text, const UnicodeString& prefix, ParsePosition& pp) const;
 

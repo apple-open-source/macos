@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,7 +42,6 @@
 #import <WebCore/Frame.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/InspectorController.h>
-#import <WebCore/MainFrame.h>
 #import <WebCore/PageOverlayController.h>
 #import <WebCore/RenderLayerCompositor.h>
 #import <WebCore/RenderView.h>
@@ -143,7 +142,7 @@ void RemoteLayerTreeDrawingArea::setRootCompositingLayer(GraphicsLayer* rootLaye
     scheduleCompositingLayerFlush();
 }
 
-void RemoteLayerTreeDrawingArea::updateGeometry(const IntSize& viewSize, const IntSize& layerPosition, bool flushSynchronously, const WebCore::MachSendRight&)
+void RemoteLayerTreeDrawingArea::updateGeometry(const IntSize& viewSize, bool flushSynchronously, const WTF::MachSendRight&)
 {
     m_viewSize = viewSize;
     m_webPage.setSize(viewSize);
@@ -168,8 +167,7 @@ void RemoteLayerTreeDrawingArea::updatePreferences(const WebPreferencesStore&)
 
     m_rootLayer->setShowDebugBorder(settings.showDebugBorders());
 
-    if (MainFrame* mainFrame = m_webPage.mainFrame())
-        DebugPageOverlays::settingsChanged(*mainFrame);
+    DebugPageOverlays::settingsChanged(*m_webPage.corePage());
 }
 
 #if PLATFORM(IOS)
@@ -208,7 +206,7 @@ void RemoteLayerTreeDrawingArea::forceRepaint()
     flushLayers();
 }
 
-void RemoteLayerTreeDrawingArea::acceleratedAnimationDidStart(uint64_t layerID, const String& key, double startTime)
+void RemoteLayerTreeDrawingArea::acceleratedAnimationDidStart(uint64_t layerID, const String& key, MonotonicTime startTime)
 {
     m_remoteLayerTreeContext->animationDidStart(layerID, key, startTime);
 }
@@ -353,6 +351,9 @@ void RemoteLayerTreeDrawingArea::flushLayers()
         }
     } forPhase:kCATransactionPhasePostCommit];
 
+    if (m_nextFlushIsForImmediatePaint)
+        m_webPage.mainFrameView()->invalidateImagesWithAsyncDecodes();
+
     m_webPage.mainFrameView()->flushCompositingStateIncludingSubframes();
 
     // Because our view-relative overlay root layer is not attached to the FrameView's GraphicsLayer tree, we need to flush it manually.
@@ -373,6 +374,9 @@ void RemoteLayerTreeDrawingArea::flushLayers()
 
     layerTransaction.setNewlyReachedLayoutMilestones(m_pendingNewlyReachedLayoutMilestones);
     m_pendingNewlyReachedLayoutMilestones = 0;
+
+    layerTransaction.setActivityStateChangeID(m_activityStateChangeID);
+    m_activityStateChangeID = ActivityStateChangeAsynchronous;
 
     RemoteScrollingCoordinatorTransaction scrollingTransaction;
 #if ENABLE(ASYNC_SCROLLING)
@@ -484,12 +488,13 @@ void RemoteLayerTreeDrawingArea::BackingStoreFlusher::flush()
     m_connection->sendMessage(WTFMove(m_commitEncoder), { });
 }
 
-void RemoteLayerTreeDrawingArea::activityStateDidChange(ActivityState::Flags, bool wantsDidUpdateActivityState, const Vector<CallbackID>&)
+void RemoteLayerTreeDrawingArea::activityStateDidChange(ActivityState::Flags, ActivityStateChangeID activityStateChangeID, const Vector<CallbackID>&)
 {
     // FIXME: Should we suspend painting while not visible, like TiledCoreAnimationDrawingArea? Probably.
 
-    if (wantsDidUpdateActivityState) {
+    if (activityStateChangeID != ActivityStateChangeAsynchronous) {
         m_nextFlushIsForImmediatePaint = true;
+        m_activityStateChangeID = activityStateChangeID;
         scheduleCompositingLayerFlushImmediately();
     }
 }

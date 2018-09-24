@@ -26,6 +26,9 @@
 #import "config.h"
 #import "PlatformScreen.h"
 
+#if PLATFORM(IOS)
+
+#import "DeprecatedGlobalSettings.h"
 #import "Device.h"
 #import "FloatRect.h"
 #import "FloatSize.h"
@@ -94,7 +97,7 @@ FloatRect screenRect(Widget* widget)
         CGRect screenRect = { CGPointZero, [window screenSize] };
         return enclosingIntRect(screenRect);
     }
-    return enclosingIntRect(FloatRect(FloatPoint(), widget->root()->hostWindow()->screenSize()));
+    return enclosingIntRect(FloatRect(FloatPoint(), widget->root()->hostWindow()->overrideScreenSize()));
 }
 
 FloatRect screenAvailableRect(Widget* widget)
@@ -144,6 +147,15 @@ FloatSize availableScreenSize()
     return FloatSize([get_UIKit_UIScreenClass() mainScreen].bounds.size);
 }
 
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/PlatformScreenIOS.mm>)
+#import <WebKitAdditions/PlatformScreenIOS.mm>
+#else
+FloatSize overrideScreenSize()
+{
+    return screenSize();
+}
+#endif
+
 float screenScaleFactor(UIScreen *screen)
 {
     if (!screen)
@@ -153,3 +165,5 @@ float screenScaleFactor(UIScreen *screen)
 }
 
 } // namespace WebCore
+
+#endif // PLATFORM(IOS)

@@ -26,6 +26,8 @@
 #import "config.h"
 #import "Editor.h"
 
+#if PLATFORM(MAC)
+
 #import "Blob.h"
 #import "CSSPrimitiveValueMappings.h"
 #import "CSSValuePool.h"
@@ -261,7 +263,7 @@ void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElemen
 {
     PasteboardImage pasteboardImage;
 
-    CachedImage* cachedImage;
+    CachedImage* cachedImage = nullptr;
     getImage(imageElement, pasteboardImage.image, cachedImage);
     if (!pasteboardImage.image)
         return;
@@ -299,3 +301,5 @@ void Editor::applyFontStyles(const String& fontFamily, double fontSize, unsigned
 }
 
 } // namespace WebCore
+
+#endif // PLATFORM(MAC)

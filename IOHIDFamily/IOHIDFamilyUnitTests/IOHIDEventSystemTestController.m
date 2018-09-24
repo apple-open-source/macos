@@ -84,9 +84,17 @@ static void EventSystemPropertyChangedCallback (void * _Nullable target, void * 
     if (self.eventSystemClient) {
         CFRelease (self.eventSystemClient);
     }
+
+    if (self.eventService) {
+        CFRelease (self.eventService);
+    }
+
 }
 
 -(void) EventSystemServiceAdded: (IOHIDServiceClientRef) service {
+    if (_eventService) {
+        CFRelease(_eventService);
+    }
     self->_eventService = (IOHIDServiceClientRef)CFRetain(service);
     TestLog("ServiceAdded: %@\n", self.eventService);
     IOHIDServiceClientRegisterRemovalCallback (service, EventSystemServiceRemovedCallback, (__bridge void * _Nullable) self, NULL);

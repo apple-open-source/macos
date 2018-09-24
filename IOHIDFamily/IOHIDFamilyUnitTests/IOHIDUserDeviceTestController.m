@@ -59,6 +59,15 @@ static IOReturn UserDeviceGetReportWithReturnLengthCallbackStatic(void * _Nullab
         return nil;
     }
 
+    io_service_t service = IOHIDUserDeviceCopyService(self->_userDevice);
+    if (service == IO_OBJECT_NULL) {
+        TestLog("initWithDeviceConfiguration: IOHIDUserDeviceCopyService == 0\n");
+        return nil;
+    }
+    
+    mach_timespec_t waitTime = {30, 0};
+    IOServiceWaitQuiet(service, &waitTime);
+    
     self.userDeviceSetReports = [[NSMutableArray alloc] init];
     if (!self.userDeviceSetReports) {
         return nil;

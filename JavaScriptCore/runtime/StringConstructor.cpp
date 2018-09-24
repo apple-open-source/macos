@@ -77,9 +77,9 @@ static EncodedJSValue JSC_HOST_CALL stringFromCharCode(ExecState* exec)
 
     unsigned length = exec->argumentCount();
     if (LIKELY(length == 1)) {
-        unsigned code = exec->uncheckedArgument(0).toUInt32(exec);
-        RETURN_IF_EXCEPTION(scope, encodedJSValue());
         scope.release();
+        unsigned code = exec->uncheckedArgument(0).toUInt32(exec);
+        // Not checking for an exception here is ok because jsSingleCharacterString will just fetch an unused string if there's an exception.
         return JSValue::encode(jsSingleCharacterString(exec, code));
     }
 
@@ -114,7 +114,7 @@ static EncodedJSValue JSC_HOST_CALL stringFromCodePoint(ExecState* exec)
         uint32_t codePoint = static_cast<uint32_t>(codePointAsDouble);
 
         if (codePoint != codePointAsDouble || codePoint > UCHAR_MAX_VALUE)
-            return throwVMError(exec, scope, createRangeError(exec, ASCIILiteral("Arguments contain a value that is out of range of code points")));
+            return throwVMError(exec, scope, createRangeError(exec, "Arguments contain a value that is out of range of code points"_s));
 
         if (U_IS_BMP(codePoint))
             builder.append(static_cast<UChar>(codePoint));
@@ -130,8 +130,8 @@ static EncodedJSValue JSC_HOST_CALL stringFromCodePoint(ExecState* exec)
 
 static EncodedJSValue JSC_HOST_CALL constructWithStringConstructor(ExecState* exec)
 {
-    JSGlobalObject* globalObject = asInternalFunction(exec->jsCallee())->globalObject();
-    VM& vm = globalObject->vm();
+    VM& vm = exec->vm();
+    JSGlobalObject* globalObject = jsCast<InternalFunction*>(exec->jsCallee())->globalObject(vm);
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     Structure* structure = InternalFunction::createSubclassStructure(exec, exec->newTarget(), globalObject->stringObjectStructure());

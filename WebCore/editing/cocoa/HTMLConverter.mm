@@ -1031,7 +1031,7 @@ static PlatformFont *_font(Element& element)
     auto* renderer = element.renderer();
     if (!renderer)
         return nil;
-    return (PlatformFont *)renderer->style().fontCascade().primaryFont().getCTFont();
+    return (__bridge PlatformFont *)renderer->style().fontCascade().primaryFont().getCTFont();
 }
 
 #define UIFloatIsZero(number) (fabs(number - 0) < FLT_EPSILON)
@@ -1355,7 +1355,7 @@ static Class _WebMessageDocumentClass()
     static BOOL lookedUpClass = NO;
     if (!lookedUpClass) {
         // If the class is not there, we don't want to try again
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
         _WebMessageDocumentClass = objc_lookUpClass("EditableWebMessageDocument");
 #endif
         if (!_WebMessageDocumentClass)
@@ -2447,7 +2447,7 @@ static RetainPtr<NSFileWrapper> fileWrapperForElement(HTMLImageElement& element)
     if (is<RenderImage>(renderer)) {
         auto* image = downcast<RenderImage>(*renderer).cachedImage();
         if (image && !image->errorOccurred()) {
-            RetainPtr<NSFileWrapper> wrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:(NSData *)image->imageForRenderer(renderer)->tiffRepresentation()]);
+            RetainPtr<NSFileWrapper> wrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:(__bridge NSData *)image->imageForRenderer(renderer)->tiffRepresentation()]);
             [wrapper setPreferredFilename:@"image.tiff"];
             return wrapper;
         }
@@ -2505,25 +2505,29 @@ NSAttributedString *editingAttributedStringFromRange(Range& range, IncludeImages
         if (!renderer)
             continue;
         const RenderStyle& style = renderer->style();
-        if (style.textDecorationsInEffect() & TextDecorationUnderline)
+        if (style.textDecorationsInEffect() & TextDecoration::Underline)
             [attrs.get() setObject:[NSNumber numberWithInteger:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
-        if (style.textDecorationsInEffect() & TextDecorationLineThrough)
+        if (style.textDecorationsInEffect() & TextDecoration::LineThrough)
             [attrs.get() setObject:[NSNumber numberWithInteger:NSUnderlineStyleSingle] forKey:NSStrikethroughStyleAttributeName];
         if (auto font = style.fontCascade().primaryFont().getCTFont())
             [attrs.get() setObject:toNSFont(font) forKey:NSFontAttributeName];
         else
             [attrs.get() setObject:[fontManager convertFont:WebDefaultFont() toSize:style.fontCascade().primaryFont().platformData().size()] forKey:NSFontAttributeName];
-        if (style.visitedDependentColor(CSSPropertyColor).alpha())
-            [attrs.get() setObject:nsColor(style.visitedDependentColor(CSSPropertyColor)) forKey:NSForegroundColorAttributeName];
+
+        Color foregroundColor = style.visitedDependentColorWithColorFilter(CSSPropertyColor);
+        if (foregroundColor.isVisible())
+            [attrs.get() setObject:nsColor(foregroundColor) forKey:NSForegroundColorAttributeName];
         else
             [attrs.get() removeObjectForKey:NSForegroundColorAttributeName];
-        if (style.visitedDependentColor(CSSPropertyBackgroundColor).alpha())
-            [attrs.get() setObject:nsColor(style.visitedDependentColor(CSSPropertyBackgroundColor)) forKey:NSBackgroundColorAttributeName];
+
+        Color backgroundColor = style.visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+        if (backgroundColor.isVisible())
+            [attrs.get() setObject:nsColor(backgroundColor) forKey:NSBackgroundColorAttributeName];
         else
             [attrs.get() removeObjectForKey:NSBackgroundColorAttributeName];
 
         RetainPtr<NSString> text;
-        if (style.nbspMode() == NBNORMAL)
+        if (style.nbspMode() == NBSPMode::Normal)
             text = it.text().createNSStringWithoutCopying();
         else
             text = it.text().toString().replace(noBreakSpace, ' ');

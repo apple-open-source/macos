@@ -102,8 +102,11 @@
 
     self.zones = [[NSMutableDictionary alloc] init];
 
+    self.apsEnvironment = @"fake APS push string";
+
     self.mockDatabaseExceptionCatcher = OCMStrictClassMock([CKDatabase class]);
     self.mockDatabase = OCMStrictClassMock([CKDatabase class]);
+    self.mockContainerExpectations = OCMStrictClassMock([CKContainer class]);
     self.mockContainer = OCMClassMock([CKContainer class]);
     OCMStub([self.mockContainer containerWithIdentifier:[OCMArg isKindOfClass:[NSString class]]]).andReturn(self.mockContainer);
     OCMStub([self.mockContainer defaultContainer]).andReturn(self.mockContainer);
@@ -111,7 +114,8 @@
     OCMStub([self.mockContainer containerIdentifier]).andReturn(SecCKKSContainerName);
     OCMStub([self.mockContainer initWithContainerID: [OCMArg any] options: [OCMArg any]]).andReturn(self.mockContainer);
     OCMStub([self.mockContainer privateCloudDatabase]).andReturn(self.mockDatabaseExceptionCatcher);
-    OCMStub([self.mockContainer serverPreferredPushEnvironmentWithCompletionHandler: ([OCMArg invokeBlockWithArgs:@"fake APS push string", [NSNull null], nil])]);
+    OCMStub([self.mockContainer serverPreferredPushEnvironmentWithCompletionHandler: ([OCMArg invokeBlockWithArgs:self.apsEnvironment, [NSNull null], nil])]);
+    OCMStub([self.mockContainer submitEventMetric:[OCMArg any]]).andCall(self, @selector(ckcontainerSubmitEventMetric:));
 
     // Use two layers of mockDatabase here, so we can both add Expectations and catch the exception (instead of crash) when one fails.
     OCMStub([self.mockDatabaseExceptionCatcher addOperation:[OCMArg any]]).andCall(self, @selector(ckdatabaseAddOperation:));
@@ -169,7 +173,7 @@
         return NO;
     }]]);
 
-    self.circleStatus = kSOSCCInCircle;
+    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCInCircle error:nil];
     self.mockAccountStateTracker = OCMClassMock([CKKSCKAccountStateTracker class]);
     OCMStub([self.mockAccountStateTracker getCircleStatus]).andCall(self, @selector(circleStatus));
 
@@ -180,7 +184,7 @@
                                                                NSError * error)) {
         __strong __typeof(self) strongSelf = weakSelf;
         if(passedBlock && strongSelf) {
-            if(strongSelf.circleStatus == kSOSCCInCircle) {
+            if(strongSelf.circleStatus.status == kSOSCCInCircle) {
                 passedBlock(strongSelf.circlePeerID, nil);
             } else {
                 passedBlock(nil, [NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey:@"no account, no circle id"}]);
@@ -295,6 +299,14 @@
     kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
 }
 
+- (void)ckcontainerSubmitEventMetric:(CKEventMetric*)metric {
+    @try {
+        [self.mockContainerExpectations submitEventMetric:metric];
+    } @catch (NSException *exception) {
+        XCTFail("Received an container exception when trying to add a metric: %@", exception);
+    }
+}
+
 - (void)ckdatabaseAddOperation:(NSOperation*)op {
     @try {
         [self.mockDatabase addOperation:op];
@@ -328,7 +340,7 @@
     [self expectCKFetchAndRunBeforeFinished: nil];
 }
 
--(void)expectCKFetchAndRunBeforeFinished: (void (^)())blockAfterFetch {
+-(void)expectCKFetchAndRunBeforeFinished: (void (^)(void))blockAfterFetch {
     // Create an object for the block to retain and modify
     BoolHolder* runAlready = [[BoolHolder alloc] init];
 
@@ -338,11 +350,14 @@
         if(runAlready.state) {
             return NO;
         }
+
+        secnotice("fakecloudkit", "Received an operation (%@), checking if it's a fetch changes", obj);
         BOOL matches = NO;
         if ([obj isKindOfClass: [FakeCKFetchRecordZoneChangesOperation class]]) {
             matches = YES;
             runAlready.state = true;
 
+            secnotice("fakecloudkit", "Running fetch changes: %@", obj);
             FakeCKFetchRecordZoneChangesOperation *frzco = (FakeCKFetchRecordZoneChangesOperation *)obj;
             frzco.blockAfterFetch = blockAfterFetch;
             [frzco addNullableDependency: strongSelf.ckFetchHoldOperation];
@@ -523,7 +538,7 @@
       deletedRecordTypeCounts:(NSDictionary<NSString*, NSNumber*>*) expectedDeletedRecordTypeCounts
                        zoneID:(CKRecordZoneID*) zoneID
           checkModifiedRecord:(BOOL (^)(CKRecord*)) checkModifiedRecord
-         runAfterModification:(void (^) ())afterModification
+         runAfterModification:(void (^) (void))afterModification
 {
     __weak __typeof(self) weakSelf = self;
 
@@ -534,7 +549,7 @@
               expectedRecordTypeCounts, expectedDeletedRecordTypeCounts);
 
     [[self.mockDatabase expect] addOperation:[OCMArg checkWithBlock:^BOOL(id obj) {
-        secnotice("fakecloudkit", "Received an operation, checking");
+        secnotice("fakecloudkit", "Received an operation (%@), checking if it's a modification", obj);
         __block bool matches = false;
         if(runAlready.state) {
             secnotice("fakecloudkit", "Run already, skipping");
@@ -563,118 +578,132 @@
             FakeCKZone* zone = strongSelf.zones[zoneID];
             XCTAssertNotNil(zone, "Have a zone for these records");
 
-            for(CKRecord* record in op.recordsToSave) {
-                if(![record.recordID.zoneID isEqual: zoneID]) {
-                    secnotice("fakecloudkit", "Modified record zone ID mismatch: %@ %@", zoneID, record.recordID.zoneID);
-                    return NO;
-                }
+            __block BOOL result = YES;
+            dispatch_sync(zone.queue, ^{
 
-                NSError* recordError = [zone errorFromSavingRecord: record];
-                if(recordError) {
-                    secnotice("fakecloudkit", "Record zone rejected record write: %@ %@", recordError, record);
-                    XCTFail(@"Record zone rejected record write: %@ %@", recordError, record);
-                    return NO;
-                }
-
-                NSNumber* currentCountNumber = modifiedRecordTypeCounts[record.recordType];
-                NSUInteger currentCount = currentCountNumber ? [currentCountNumber unsignedIntegerValue] : 0;
-                modifiedRecordTypeCounts[record.recordType] = [NSNumber numberWithUnsignedInteger: currentCount + 1];
-            }
-
-            for(CKRecordID* recordID in op.recordIDsToDelete) {
-                if(![recordID.zoneID isEqual: zoneID]) {
-                    matches = false;
-                    secnotice("fakecloudkit", "Deleted record zone ID mismatch: %@ %@", zoneID, recordID.zoneID);
-                }
-
-                // Find the object in CloudKit, and record its type
-                CKRecord* record = strongSelf.zones[zoneID].currentDatabase[recordID];
-                if(record) {
-                    NSNumber* currentCountNumber = deletedRecordTypeCounts[record.recordType];
-                    NSUInteger currentCount = currentCountNumber ? [currentCountNumber unsignedIntegerValue] : 0;
-                    deletedRecordTypeCounts[record.recordType] = [NSNumber numberWithUnsignedInteger: currentCount + 1];
-                }
-            }
-
-            NSMutableDictionary* filteredExpectedRecordTypeCounts = [expectedRecordTypeCounts mutableCopy];
-            for(NSString* key in filteredExpectedRecordTypeCounts.allKeys) {
-                if([filteredExpectedRecordTypeCounts[key] isEqual: [NSNumber numberWithInt:0]]) {
-                    filteredExpectedRecordTypeCounts[key] = nil;
-                }
-            }
-            filteredExpectedRecordTypeCounts[SecCKRecordManifestType] = modifiedRecordTypeCounts[SecCKRecordManifestType];
-            filteredExpectedRecordTypeCounts[SecCKRecordManifestLeafType] = modifiedRecordTypeCounts[SecCKRecordManifestLeafType];
-
-            // Inspect that we have exactly the same records as we expect
-            if(expectedRecordTypeCounts) {
-                matches &= !![modifiedRecordTypeCounts isEqual: filteredExpectedRecordTypeCounts];
-                if(!matches) {
-                    secnotice("fakecloudkit", "Record number mismatch: %@ %@", modifiedRecordTypeCounts, filteredExpectedRecordTypeCounts);
-                    return NO;
-                }
-            } else {
-                matches &= op.recordsToSave.count == 0u;
-                if(!matches) {
-                    secnotice("fakecloudkit", "Record number mismatch: %@ 0", modifiedRecordTypeCounts);
-                    return NO;
-                }
-            }
-            if(expectedDeletedRecordTypeCounts) {
-                matches &= !![deletedRecordTypeCounts  isEqual: expectedDeletedRecordTypeCounts];
-                if(!matches) {
-                    secnotice("fakecloudkit", "Deleted record number mismatch: %@ %@", deletedRecordTypeCounts, expectedDeletedRecordTypeCounts);
-                    return NO;
-                }
-            } else {
-                matches &= op.recordIDsToDelete.count == 0u;
-                if(!matches) {
-                    secnotice("fakecloudkit", "Deleted record number mismatch: %@ 0", deletedRecordTypeCounts);
-                    return NO;
-                }
-            }
-
-            // We have the right number of things, and their etags match. Ensure that they have the right etags
-            if(matches && checkModifiedRecord) {
-                // Clearly we have the right number of things. Call checkRecord on them...
                 for(CKRecord* record in op.recordsToSave) {
-                    matches &= !!(checkModifiedRecord(record));
-                    if(!matches) {
-                        secnotice("fakecloudkit", "Check record reports NO: %@ 0", record);
-                        return NO;
+                    if(![record.recordID.zoneID isEqual: zoneID]) {
+                        secnotice("fakecloudkit", "Modified record zone ID mismatch: %@ %@", zoneID, record.recordID.zoneID);
+                        result = NO;
+                        return;
+                    }
+
+                    NSError* recordError = [zone errorFromSavingRecord: record];
+                    if(recordError) {
+                        secnotice("fakecloudkit", "Record zone rejected record write: %@ %@", recordError, record);
+                        XCTFail(@"Record zone rejected record write: %@ %@", recordError, record);
+                        result = NO;
+                        return;
+                    }
+
+                    NSNumber* currentCountNumber = modifiedRecordTypeCounts[record.recordType];
+                    NSUInteger currentCount = currentCountNumber ? [currentCountNumber unsignedIntegerValue] : 0;
+                    modifiedRecordTypeCounts[record.recordType] = [NSNumber numberWithUnsignedInteger: currentCount + 1];
+                }
+
+                for(CKRecordID* recordID in op.recordIDsToDelete) {
+                    if(![recordID.zoneID isEqual: zoneID]) {
+                        matches = false;
+                        secnotice("fakecloudkit", "Deleted record zone ID mismatch: %@ %@", zoneID, recordID.zoneID);
+                    }
+
+                    // Find the object in CloudKit, and record its type
+                    CKRecord* record = strongSelf.zones[zoneID].currentDatabase[recordID];
+                    if(record) {
+                        NSNumber* currentCountNumber = deletedRecordTypeCounts[record.recordType];
+                        NSUInteger currentCount = currentCountNumber ? [currentCountNumber unsignedIntegerValue] : 0;
+                        deletedRecordTypeCounts[record.recordType] = [NSNumber numberWithUnsignedInteger: currentCount + 1];
                     }
                 }
-            }
 
-            if(matches) {
-                // Emulate cloudkit and schedule the operation for execution. Be sure to wait for this operation
-                // if you'd like to read the data from this write.
-                NSBlockOperation* ckop = [NSBlockOperation named:@"cloudkit-write" withBlock: ^{
-                    @synchronized(zone.currentDatabase) {
-                        NSMutableArray* savedRecords = [[NSMutableArray alloc] init];
-                        for(CKRecord* record in op.recordsToSave) {
-                            CKRecord* reflectedRecord = [record copy];
-                            reflectedRecord.modificationDate = [NSDate date];
-
-                            [zone addToZone: reflectedRecord];
-
-                            [savedRecords addObject:reflectedRecord];
-                            op.perRecordCompletionBlock(reflectedRecord, nil);
-                        }
-                        for(CKRecordID* recordID in op.recordIDsToDelete) {
-                            // I don't believe CloudKit fails an operation if you delete a record that's not there, so:
-                            [zone deleteCKRecordIDFromZone: recordID];
-                        }
-
-                        if(afterModification) {
-                            afterModification();
-                        }
-
-                        op.modifyRecordsCompletionBlock(savedRecords, op.recordIDsToDelete, nil);
-                        op.isFinished = YES;
+                NSMutableDictionary* filteredExpectedRecordTypeCounts = [expectedRecordTypeCounts mutableCopy];
+                for(NSString* key in filteredExpectedRecordTypeCounts.allKeys) {
+                    if([filteredExpectedRecordTypeCounts[key] isEqual: [NSNumber numberWithInt:0]]) {
+                        filteredExpectedRecordTypeCounts[key] = nil;
                     }
-                }];
-                [ckop addNullableDependency:strongSelf.ckModifyHoldOperation];
-                [strongSelf.operationQueue addOperation: ckop];
+                }
+                filteredExpectedRecordTypeCounts[SecCKRecordManifestType] = modifiedRecordTypeCounts[SecCKRecordManifestType];
+                filteredExpectedRecordTypeCounts[SecCKRecordManifestLeafType] = modifiedRecordTypeCounts[SecCKRecordManifestLeafType];
+
+                // Inspect that we have exactly the same records as we expect
+                if(expectedRecordTypeCounts) {
+                    matches &= !![modifiedRecordTypeCounts isEqual: filteredExpectedRecordTypeCounts];
+                    if(!matches) {
+                        secnotice("fakecloudkit", "Record number mismatch: %@ %@", modifiedRecordTypeCounts, filteredExpectedRecordTypeCounts);
+                        result = NO;
+                        return;
+                    }
+                } else {
+                    matches &= op.recordsToSave.count == 0u;
+                    if(!matches) {
+                        secnotice("fakecloudkit", "Record number mismatch: %@ 0", modifiedRecordTypeCounts);
+                        result = NO;
+                        return;
+                    }
+                }
+                if(expectedDeletedRecordTypeCounts) {
+                    matches &= !![deletedRecordTypeCounts  isEqual: expectedDeletedRecordTypeCounts];
+                    if(!matches) {
+                        secnotice("fakecloudkit", "Deleted record number mismatch: %@ %@", deletedRecordTypeCounts, expectedDeletedRecordTypeCounts);
+                        result = NO;
+                        return;
+                    }
+                } else {
+                    matches &= op.recordIDsToDelete.count == 0u;
+                    if(!matches) {
+                        secnotice("fakecloudkit", "Deleted record number mismatch: %@ 0", deletedRecordTypeCounts);
+                        result = NO;
+                        return;
+                    }
+                }
+
+                // We have the right number of things, and their etags match. Ensure that they have the right etags
+                if(matches && checkModifiedRecord) {
+                    // Clearly we have the right number of things. Call checkRecord on them...
+                    for(CKRecord* record in op.recordsToSave) {
+                        matches &= !!(checkModifiedRecord(record));
+                        if(!matches) {
+                            secnotice("fakecloudkit", "Check record reports NO: %@ 0", record);
+                            result = NO;
+                            return;
+                        }
+                    }
+                }
+
+                if(matches) {
+                    // Emulate cloudkit and schedule the operation for execution. Be sure to wait for this operation
+                    // if you'd like to read the data from this write.
+                    NSBlockOperation* ckop = [NSBlockOperation named:@"cloudkit-write" withBlock: ^{
+                        @synchronized(zone.currentDatabase) {
+                            NSMutableArray* savedRecords = [[NSMutableArray alloc] init];
+                            for(CKRecord* record in op.recordsToSave) {
+                                CKRecord* reflectedRecord = [record copy];
+                                reflectedRecord.modificationDate = [NSDate date];
+
+                                [zone addToZone: reflectedRecord];
+
+                                [savedRecords addObject:reflectedRecord];
+                                op.perRecordCompletionBlock(reflectedRecord, nil);
+                            }
+                            for(CKRecordID* recordID in op.recordIDsToDelete) {
+                                // I don't believe CloudKit fails an operation if you delete a record that's not there, so:
+                                [zone deleteCKRecordIDFromZone: recordID];
+                            }
+
+                            if(afterModification) {
+                                afterModification();
+                            }
+
+                            op.modifyRecordsCompletionBlock(savedRecords, op.recordIDsToDelete, nil);
+                            op.isFinished = YES;
+                        }
+                    }];
+                    [ckop addNullableDependency:strongSelf.ckModifyHoldOperation];
+                    [strongSelf.operationQueue addOperation: ckop];
+                }
+            });
+            if(result != YES) {
+                return result;
             }
         }
         if(matches) {
@@ -712,11 +741,11 @@
     [self failNextCKAtomicModifyItemRecordsUpdateFailure:zoneID blockAfterReject:nil];
 }
 
-- (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID blockAfterReject: (void (^)())blockAfterReject {
+- (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID blockAfterReject: (void (^)(void))blockAfterReject {
     [self failNextCKAtomicModifyItemRecordsUpdateFailure:zoneID blockAfterReject:blockAfterReject withError:nil];
 }
 
-- (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID blockAfterReject: (void (^)())blockAfterReject withError:(NSError*)error {
+- (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID blockAfterReject: (void (^)(void))blockAfterReject withError:(NSError*)error {
     __weak __typeof(self) weakSelf = self;
 
     [[self.mockDatabase expect] addOperation:[OCMArg checkWithBlock:^BOOL(id obj) {
@@ -888,7 +917,7 @@
         [self.operationQueue cancelAllOperations];
         [self waitForCKModifications];
 
-        XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:2*NSEC_PER_SEC],
+        XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:20*NSEC_PER_SEC],
             "Timeout did not occur waiting for SecCKKSInitialize");
 
         // Ensure that we can fetch zone status for all zones
@@ -898,14 +927,14 @@
                 XCTAssertNil(error, "Should be no error fetching status");
                 [statusReturned fulfill];
             }];
-            [self waitForExpectations: @[statusReturned] timeout:5];
+            [self waitForExpectations: @[statusReturned] timeout:20];
         }
 
         // Make sure this happens before teardown.
-        XCTAssertEqual(0, [self.accountStateTracker.finishedInitialDispatches wait:1*NSEC_PER_SEC], "Account state tracker initialized itself");
+        XCTAssertEqual(0, [self.accountStateTracker.finishedInitialDispatches wait:20*NSEC_PER_SEC], "Account state tracker initialized itself");
 
         dispatch_group_t accountChangesDelivered = [self.accountStateTracker checkForAllDeliveries];
-        XCTAssertEqual(0, dispatch_group_wait(accountChangesDelivered, dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC)), "Account state tracker finished delivering everything");
+        XCTAssertEqual(0, dispatch_group_wait(accountChangesDelivered, dispatch_time(DISPATCH_TIME_NOW, 10*NSEC_PER_SEC)), "Account state tracker finished delivering everything");
     }
 
     [super tearDown];

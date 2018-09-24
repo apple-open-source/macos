@@ -25,6 +25,9 @@
 //
 // mach++ - C++ bindings for useful Mach primitives
 //
+#define __STDC_WANT_LIB_EXT1__ 1
+#include <string.h>
+
 #include <security_utilities/mach++.h>
 #include <mach/mach_error.h>
 #include <security_utilities/debugging.h>
@@ -347,10 +350,14 @@ void Message::setBuffer(mach_msg_size_t size)
 	assert(size >= sizeof(mach_msg_header_t));
 	release();
 	mSize = size + MAX_TRAILER_SIZE;
-	mBuffer = reinterpret_cast<mig_reply_error_t *>(new char[mSize]);
+	mBuffer = reinterpret_cast<mig_reply_error_t *>(new char[mSize]());
 	mRelease = true;
 }
 
+void Message::clearBuffer(void)
+{
+    (void)memset_s(mBuffer, mSize, 0, mSize);
+}
 
 void Message::release()
 {

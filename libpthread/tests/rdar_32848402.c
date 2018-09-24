@@ -72,7 +72,9 @@ T_DECL(thread_request_32848402, "repro for rdar://32848402")
 	end_spin = clock_gettime_nsec_np(CLOCK_MONOTONIC) + 2 * NSEC_PER_SEC;
 
 	dispatch_async_f(a, (void *)0, spin_and_pause);
-	for (long i = 1; i < get_ncpu(); i++) {
+	long n_threads = MIN((long)get_ncpu(),
+			pthread_qos_max_parallelism(QOS_CLASS_BACKGROUND, 0));
+	for (long i = 1; i < n_threads; i++) {
 		dispatch_async_f(b, (void *)i, spin);
 	}
 

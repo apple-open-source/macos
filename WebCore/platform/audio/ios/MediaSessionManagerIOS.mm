@@ -34,23 +34,31 @@
 #import "SystemMemory.h"
 #import "WebCoreThreadRun.h"
 #import <AVFoundation/AVAudioSession.h>
-#import <MediaPlayer/MPMediaItem.h>
-#import <MediaPlayer/MPNowPlayingInfoCenter.h>
-#import <MediaPlayer/MPVolumeView.h>
+#import <AVFoundation/AVRouteDetector.h>
 #import <UIKit/UIApplication.h>
 #import <objc/runtime.h>
-#import <pal/spi/ios/MediaPlayerSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/MainThread.h>
 #import <wtf/RAMSize.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/SoftLinking.h>
 
+#if HAVE(MEDIA_PLAYER)
+#import <MediaPlayer/MPMediaItem.h>
+#import <MediaPlayer/MPNowPlayingInfoCenter.h>
+#import <pal/spi/ios/MediaPlayerSPI.h>
+#endif
+
 SOFT_LINK_FRAMEWORK(AVFoundation)
 SOFT_LINK_CLASS(AVFoundation, AVAudioSession)
-SOFT_LINK_POINTER(AVFoundation, AVAudioSessionInterruptionNotification, NSString *)
-SOFT_LINK_POINTER(AVFoundation, AVAudioSessionInterruptionTypeKey, NSString *)
-SOFT_LINK_POINTER(AVFoundation, AVAudioSessionInterruptionOptionKey, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionInterruptionNotification, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionInterruptionTypeKey, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionInterruptionOptionKey, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVRouteDetectorMultipleRoutesDetectedDidChangeNotification, NSString *)
+
+#if HAVE(MEDIA_PLAYER) && !PLATFORM(WATCHOS)
+SOFT_LINK_CLASS(AVFoundation, AVRouteDetector)
+#endif
 
 #define AVAudioSession getAVAudioSessionClass()
 #define AVAudioSessionInterruptionNotification getAVAudioSessionInterruptionNotification()
@@ -59,10 +67,10 @@ SOFT_LINK_POINTER(AVFoundation, AVAudioSessionInterruptionOptionKey, NSString *)
 
 SOFT_LINK_FRAMEWORK(UIKit)
 SOFT_LINK_CLASS(UIKit, UIApplication)
-SOFT_LINK_POINTER(UIKit, UIApplicationWillResignActiveNotification, NSString *)
-SOFT_LINK_POINTER(UIKit, UIApplicationWillEnterForegroundNotification, NSString *)
-SOFT_LINK_POINTER(UIKit, UIApplicationDidBecomeActiveNotification, NSString *)
-SOFT_LINK_POINTER(UIKit, UIApplicationDidEnterBackgroundNotification, NSString *)
+SOFT_LINK_CONSTANT(UIKit, UIApplicationWillResignActiveNotification, NSString *)
+SOFT_LINK_CONSTANT(UIKit, UIApplicationWillEnterForegroundNotification, NSString *)
+SOFT_LINK_CONSTANT(UIKit, UIApplicationDidBecomeActiveNotification, NSString *)
+SOFT_LINK_CONSTANT(UIKit, UIApplicationDidEnterBackgroundNotification, NSString *)
 
 #define UIApplication getUIApplicationClass()
 #define UIApplicationWillResignActiveNotification getUIApplicationWillResignActiveNotification()
@@ -70,23 +78,21 @@ SOFT_LINK_POINTER(UIKit, UIApplicationDidEnterBackgroundNotification, NSString *
 #define UIApplicationDidBecomeActiveNotification getUIApplicationDidBecomeActiveNotification()
 #define UIApplicationDidEnterBackgroundNotification getUIApplicationDidEnterBackgroundNotification()
 
+#if HAVE(MEDIA_PLAYER)
 SOFT_LINK_FRAMEWORK(MediaPlayer)
-SOFT_LINK_CLASS(MediaPlayer, MPAVRoutingController)
 SOFT_LINK_CLASS(MediaPlayer, MPNowPlayingInfoCenter)
-SOFT_LINK_CLASS(MediaPlayer, MPVolumeView)
-SOFT_LINK_POINTER(MediaPlayer, MPMediaItemPropertyTitle, NSString *)
-SOFT_LINK_POINTER(MediaPlayer, MPMediaItemPropertyPlaybackDuration, NSString *)
-SOFT_LINK_POINTER(MediaPlayer, MPNowPlayingInfoPropertyElapsedPlaybackTime, NSString *)
-SOFT_LINK_POINTER(MediaPlayer, MPNowPlayingInfoPropertyPlaybackRate, NSString *)
-SOFT_LINK_POINTER(MediaPlayer, MPVolumeViewWirelessRoutesAvailableDidChangeNotification, NSString *)
-SOFT_LINK_POINTER(MediaPlayer, kMRMediaRemoteNowPlayingInfoUniqueIdentifier, NSString *)
+SOFT_LINK_CONSTANT(MediaPlayer, MPMediaItemPropertyTitle, NSString *)
+SOFT_LINK_CONSTANT(MediaPlayer, MPMediaItemPropertyPlaybackDuration, NSString *)
+SOFT_LINK_CONSTANT(MediaPlayer, MPNowPlayingInfoPropertyElapsedPlaybackTime, NSString *)
+SOFT_LINK_CONSTANT(MediaPlayer, MPNowPlayingInfoPropertyPlaybackRate, NSString *)
+SOFT_LINK_CONSTANT(MediaPlayer, kMRMediaRemoteNowPlayingInfoUniqueIdentifier, NSString *)
 
 #define MPMediaItemPropertyTitle getMPMediaItemPropertyTitle()
 #define MPMediaItemPropertyPlaybackDuration getMPMediaItemPropertyPlaybackDuration()
 #define MPNowPlayingInfoPropertyElapsedPlaybackTime getMPNowPlayingInfoPropertyElapsedPlaybackTime()
 #define MPNowPlayingInfoPropertyPlaybackRate getMPNowPlayingInfoPropertyPlaybackRate()
-#define MPVolumeViewWirelessRoutesAvailableDidChangeNotification getMPVolumeViewWirelessRoutesAvailableDidChangeNotification()
 #define kMRMediaRemoteNowPlayingInfoUniqueIdentifier getkMRMediaRemoteNowPlayingInfoUniqueIdentifier()
+#endif // HAVE(MEDIA_PLAYER)
 
 WEBCORE_EXPORT NSString* WebUIApplicationWillResignActiveNotification = @"WebUIApplicationWillResignActiveNotification";
 WEBCORE_EXPORT NSString* WebUIApplicationWillEnterForegroundNotification = @"WebUIApplicationWillEnterForegroundNotification";
@@ -97,21 +103,28 @@ using namespace WebCore;
 
 @interface WebMediaSessionHelper : NSObject {
     MediaSessionManageriOS* _callback;
-    RetainPtr<MPVolumeView> _volumeView;
-    RetainPtr<MPAVRoutingController> _airPlayPresenceRoutingController;
+
+#if HAVE(MEDIA_PLAYER) && !PLATFORM(WATCHOS)
+    RetainPtr<AVRouteDetector> _routeDetector;
+#endif
+    bool _monitoringAirPlayRoutes;
+    bool _startMonitoringAirPlayRoutesPending;
 }
 
 - (id)initWithCallback:(MediaSessionManageriOS*)callback;
-- (void)allocateVolumeView;
-- (void)setVolumeView:(RetainPtr<MPVolumeView>)volumeView;
+
 - (void)clearCallback;
 - (void)interruption:(NSNotification *)notification;
 - (void)applicationWillEnterForeground:(NSNotification *)notification;
 - (void)applicationWillResignActive:(NSNotification *)notification;
 - (void)applicationDidEnterBackground:(NSNotification *)notification;
 - (BOOL)hasWirelessTargetsAvailable;
+
+#if HAVE(MEDIA_PLAYER) && !PLATFORM(WATCHOS)
 - (void)startMonitoringAirPlayRoutes;
 - (void)stopMonitoringAirPlayRoutes;
+#endif
+
 @end
 
 namespace WebCore {
@@ -131,7 +144,7 @@ PlatformMediaSessionManager* PlatformMediaSessionManager::sharedManagerIfExists(
 }
 
 MediaSessionManageriOS::MediaSessionManageriOS()
-    : PlatformMediaSessionManager()
+    : MediaSessionManagerCocoa()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     m_objcObserver = adoptNS([[WebMediaSessionHelper alloc] initWithCallback:this]);
@@ -173,6 +186,7 @@ bool MediaSessionManageriOS::hasWirelessTargetsAvailable()
 
 void MediaSessionManageriOS::configureWireLessTargetMonitoring()
 {
+#if HAVE(MEDIA_PLAYER) && !PLATFORM(WATCHOS)
     bool requiresMonitoring = anyOfSessions([] (PlatformMediaSession& session, size_t) {
         return session.requiresPlaybackTargetRouteMonitoring();
     });
@@ -187,6 +201,7 @@ void MediaSessionManageriOS::configureWireLessTargetMonitoring()
         [m_objcObserver stopMonitoringAirPlayRoutes];
 
     END_BLOCK_OBJC_EXCEPTIONS
+#endif
 }
 
 bool MediaSessionManageriOS::sessionWillBeginPlayback(PlatformMediaSession& session)
@@ -235,6 +250,7 @@ PlatformMediaSession* MediaSessionManageriOS::nowPlayingEligibleSession()
 
 void MediaSessionManageriOS::updateNowPlayingInfo()
 {
+#if HAVE(MEDIA_PLAYER)
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     MPNowPlayingInfoCenter *nowPlaying = (MPNowPlayingInfoCenter *)[getMPNowPlayingInfoCenterClass() defaultCenter];
     const PlatformMediaSession* currentSession = this->nowPlayingEligibleSession();
@@ -264,6 +280,7 @@ void MediaSessionManageriOS::updateNowPlayingInfo()
     m_reportedDuration = duration;
     m_reportedTitle = title;
     m_reportedCurrentTime = currentTime;
+    m_lastUpdatedNowPlayingInfoUniqueIdentifier = currentSession->uniqueIdentifier();
 
     auto info = adoptNS([[NSMutableDictionary alloc] init]);
     if (!title.isEmpty())
@@ -282,14 +299,7 @@ void MediaSessionManageriOS::updateNowPlayingInfo()
     m_nowPlayingActive = true;
     [nowPlaying setNowPlayingInfo:info.get()];
     END_BLOCK_OBJC_EXCEPTIONS
-}
-
-bool MediaSessionManageriOS::sessionCanLoadMedia(const PlatformMediaSession& session) const
-{
-    if (session.displayType() == PlatformMediaSession::Optimized)
-        return true;
-
-    return PlatformMediaSessionManager::sessionCanLoadMedia(session);
+#endif // HAVE(MEDIA_PLAYER)
 }
 
 void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
@@ -304,37 +314,6 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 } // namespace WebCore
 
 @implementation WebMediaSessionHelper
-
-- (void)allocateVolumeView
-{
-    if (pthread_main_np()) {
-        [self setVolumeView:adoptNS([allocMPVolumeViewInstance() init])];
-        return;
-    }
-
-    RetainPtr<WebMediaSessionHelper> strongSelf = self;
-    dispatch_async(dispatch_get_main_queue(), [strongSelf]() {
-        BEGIN_BLOCK_OBJC_EXCEPTIONS
-        RetainPtr<MPVolumeView> volumeView = adoptNS([allocMPVolumeViewInstance() init]);
-        callOnWebThreadOrDispatchAsyncOnMainThread([strongSelf, volumeView]() {
-            BEGIN_BLOCK_OBJC_EXCEPTIONS
-            [strongSelf setVolumeView:volumeView];
-            END_BLOCK_OBJC_EXCEPTIONS
-        });
-        END_BLOCK_OBJC_EXCEPTIONS
-    });
-}
-
-- (void)setVolumeView:(RetainPtr<MPVolumeView>)volumeView
-{
-    if (_volumeView)
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:MPVolumeViewWirelessRoutesAvailableDidChangeNotification object:_volumeView.get()];
-
-    _volumeView = volumeView;
-
-    if (_volumeView)
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(wirelessRoutesAvailableDidChange:) name:MPVolumeViewWirelessRoutesAvailableDidChangeNotification object:_volumeView.get()];
-}
 
 - (id)initWithCallback:(MediaSessionManageriOS*)callback
 {
@@ -357,8 +336,6 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
     [center addObserver:self selector:@selector(applicationDidEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:nil];
     [center addObserver:self selector:@selector(applicationDidEnterBackground:) name:WebUIApplicationDidEnterBackgroundNotification object:nil];
 
-    [self allocateVolumeView];
-
     // Now playing won't work unless we turn on the delivery of remote control events.
     dispatch_async(dispatch_get_main_queue(), ^ {
         BEGIN_BLOCK_OBJC_EXCEPTIONS
@@ -373,19 +350,18 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 {
     LOG(Media, "-[WebMediaSessionHelper dealloc]");
 
-    if (!isMainThread()) {
-        callOnMainThread([volumeView = WTFMove(_volumeView), routingController = WTFMove(_airPlayPresenceRoutingController)] () mutable {
-            LOG(Media, "-[WebMediaSessionHelper dealloc] - dipatched to MainThread");
-
-            volumeView.clear();
-
-            if (!routingController)
-                return;
-
-            [routingController setDiscoveryMode:MPRouteDiscoveryModeDisabled];
-            routingController.clear();
+#if HAVE(MEDIA_PLAYER) && !PLATFORM(WATCHOS)
+    if (!pthread_main_np()) {
+        dispatch_async(dispatch_get_main_queue(), [routeDetector = WTFMove(_routeDetector)] () mutable {
+            LOG(Media, "safelyTearDown - dipatched to UI thread.");
+            BEGIN_BLOCK_OBJC_EXCEPTIONS
+            routeDetector.get().routeDetectionEnabled = NO;
+            routeDetector.clear();
+            END_BLOCK_OBJC_EXCEPTIONS
         });
-    }
+    } else
+        _routeDetector.get().routeDetectionEnabled = NO;
+#endif
 
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     [super dealloc];
@@ -400,44 +376,59 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 - (BOOL)hasWirelessTargetsAvailable
 {
     LOG(Media, "-[WebMediaSessionHelper hasWirelessTargetsAvailable]");
-    return _volumeView ? [_volumeView areWirelessRoutesAvailable] : NO;
+#if HAVE(MEDIA_PLAYER) && !PLATFORM(WATCHOS)
+    return _routeDetector.get().multipleRoutesDetected;
+#else
+    return NO;
+#endif
 }
 
+#if HAVE(MEDIA_PLAYER) && !PLATFORM(WATCHOS)
 - (void)startMonitoringAirPlayRoutes
 {
-    if (_airPlayPresenceRoutingController)
+    if (_monitoringAirPlayRoutes)
         return;
+
+    _monitoringAirPlayRoutes = true;
+
+    if (_startMonitoringAirPlayRoutesPending)
+        return;
+
+    if (_routeDetector) {
+        _routeDetector.get().routeDetectionEnabled = YES;
+        return;
+    }
+
+    _startMonitoringAirPlayRoutesPending = true;
 
     LOG(Media, "-[WebMediaSessionHelper startMonitoringAirPlayRoutes]");
 
-    callOnMainThread([protectedSelf = RetainPtr<WebMediaSessionHelper>(self)] () {
-        LOG(Media, "-[WebMediaSessionHelper startMonitoringAirPlayRoutes] - dipatched to MainThread");
+    callOnWebThreadOrDispatchAsyncOnMainThread([protectedSelf = WTFMove(self)]() mutable {
+        ASSERT(!protectedSelf->_routeDetector);
 
-        if (protectedSelf->_airPlayPresenceRoutingController)
-            return;
+        if (protectedSelf->_callback) {
+            BEGIN_BLOCK_OBJC_EXCEPTIONS
+            protectedSelf->_routeDetector = adoptNS([allocAVRouteDetectorInstance() init]);
+            protectedSelf->_routeDetector.get().routeDetectionEnabled = protectedSelf->_monitoringAirPlayRoutes;
+            [[NSNotificationCenter defaultCenter] addObserver:protectedSelf selector:@selector(wirelessRoutesAvailableDidChange:) name:getAVRouteDetectorMultipleRoutesDetectedDidChangeNotification() object:protectedSelf->_routeDetector.get()];
+            END_BLOCK_OBJC_EXCEPTIONS
+        }
 
-        protectedSelf->_airPlayPresenceRoutingController = adoptNS([allocMPAVRoutingControllerInstance() initWithName:@"WebCore - HTML media element checking for AirPlay route presence"]);
-        [protectedSelf->_airPlayPresenceRoutingController setDiscoveryMode:MPRouteDiscoveryModePresence];
+        protectedSelf->_startMonitoringAirPlayRoutesPending = false;
     });
 }
 
 - (void)stopMonitoringAirPlayRoutes
 {
-    if (!_airPlayPresenceRoutingController)
+    if (!_monitoringAirPlayRoutes)
         return;
 
     LOG(Media, "-[WebMediaSessionHelper stopMonitoringAirPlayRoutes]");
 
-    callOnMainThread([protectedSelf = RetainPtr<WebMediaSessionHelper>(self)] () {
-        LOG(Media, "-[WebMediaSessionHelper stopMonitoringAirPlayRoutes] - dipatched to MainThread");
-
-        if (!protectedSelf->_airPlayPresenceRoutingController)
-            return;
-
-        [protectedSelf->_airPlayPresenceRoutingController setDiscoveryMode:MPRouteDiscoveryModeDisabled];
-        protectedSelf->_airPlayPresenceRoutingController = nil;
-    });
+    _monitoringAirPlayRoutes = false;
+    _routeDetector.get().routeDetectionEnabled = NO;
 }
+#endif // HAVE(MEDIA_PLAYER) && !PLATFORM(WATCHOS)
 
 - (void)interruption:(NSNotification *)notification
 {
@@ -452,14 +443,15 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
     if (type == AVAudioSessionInterruptionTypeEnded && [[[notification userInfo] objectForKey:AVAudioSessionInterruptionOptionKey] unsignedIntegerValue] == AVAudioSessionInterruptionOptionShouldResume)
         flags = PlatformMediaSession::MayResumePlaying;
 
-    WebThreadRun(^{
-        if (!_callback)
+    callOnWebThreadOrDispatchAsyncOnMainThread([protectedSelf = WTFMove(self), type, flags]() mutable {
+        auto* callback = protectedSelf->_callback;
+        if (!callback)
             return;
 
         if (type == AVAudioSessionInterruptionTypeBegan)
-            _callback->beginInterruption(PlatformMediaSession::SystemInterruption);
+            callback->beginInterruption(PlatformMediaSession::SystemInterruption);
         else
-            _callback->endInterruption(flags);
+            callback->endInterruption(flags);
 
     });
 }
@@ -474,12 +466,9 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
     LOG(Media, "-[WebMediaSessionHelper applicationWillEnterForeground]");
 
     BOOL isSuspendedUnderLock = [[[notification userInfo] objectForKey:@"isSuspendedUnderLock"] boolValue];
-
-    WebThreadRun(^{
-        if (!_callback)
-            return;
-
-        _callback->applicationWillEnterForeground(isSuspendedUnderLock);
+    callOnWebThreadOrDispatchAsyncOnMainThread([protectedSelf = WTFMove(self), isSuspendedUnderLock]() mutable {
+        if (auto* callback = protectedSelf->_callback)
+            callback->applicationWillEnterForeground(isSuspendedUnderLock);
     });
 }
 
@@ -492,11 +481,9 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 
     LOG(Media, "-[WebMediaSessionHelper applicationDidBecomeActive]");
 
-    WebThreadRun(^{
-        if (!_callback)
-            return;
-
-        _callback->applicationDidBecomeActive();
+    callOnWebThreadOrDispatchAsyncOnMainThread([protectedSelf = WTFMove(self)]() mutable {
+        if (auto* callback = protectedSelf->_callback)
+            callback->applicationDidBecomeActive();
     });
 }
 
@@ -509,11 +496,9 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 
     LOG(Media, "-[WebMediaSessionHelper applicationWillResignActive]");
 
-    WebThreadRun(^{
-        if (!_callback)
-            return;
-
-        _callback->applicationWillBecomeInactive();
+    callOnWebThreadOrDispatchAsyncOnMainThread([protectedSelf = WTFMove(self)]() mutable {
+        if (auto* callback = protectedSelf->_callback)
+            callback->applicationWillBecomeInactive();
     });
 }
 
@@ -521,16 +506,14 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 {
     UNUSED_PARAM(notification);
 
-    if (!_callback)
+    if (!_callback || !_monitoringAirPlayRoutes)
         return;
 
     LOG(Media, "-[WebMediaSessionHelper wirelessRoutesAvailableDidChange]");
 
-    WebThreadRun(^{
-        if (!_callback)
-            return;
-
-        _callback->externalOutputDeviceAvailableDidChange();
+    callOnWebThreadOrDispatchAsyncOnMainThread([protectedSelf = WTFMove(self)]() mutable {
+        if (auto* callback = protectedSelf->_callback)
+            callback->externalOutputDeviceAvailableDidChange();
     });
 }
 
@@ -542,12 +525,9 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
     LOG(Media, "-[WebMediaSessionHelper applicationDidEnterBackground]");
 
     BOOL isSuspendedUnderLock = [[[notification userInfo] objectForKey:@"isSuspendedUnderLock"] boolValue];
-
-    WebThreadRun(^{
-        if (!_callback)
-            return;
-
-        _callback->applicationDidEnterBackground(isSuspendedUnderLock);
+    callOnWebThreadOrDispatchAsyncOnMainThread([protectedSelf = WTFMove(self), isSuspendedUnderLock]() mutable {
+        if (auto* callback = protectedSelf->_callback)
+            callback->applicationDidEnterBackground(isSuspendedUnderLock);
     });
 }
 @end

@@ -58,18 +58,37 @@
 #define    kFSEncryptNameKey             "FSEncryptionName"
 #endif
 
+// Disk Images IORegistry object keys
+#ifndef kIOHDIXImageEncryptedProperty
+#define kIOHDIXImageEncryptedProperty   "image-encrypted"
+#endif
+
 /* APFS type and subtype number */
 #define APFS_NAME	"apfs"
 #define CASE_SENSITIVE			CFSTR("CaseSensitive")
 
 // APFS IORegistry object keys - can remove this if they enter IOKit framework at some point
 #define kAPFSEncryptedKey			"Encrypted"		/* Volume is encrypted (boolean) */
+#define kAPFSEncryptionRolling      "EncryptionRolling"     /* Volume is encrypting or decrypting (boolean) */
 #define APFS_FS_NAME				CFSTR("APFS")
+#define APFS_CONTAINER_CLASS        "AppleAPFSContainer"
 
 enum {
     kAPFSXSubType    = 0,    /* APFS Case-sensitive */
     kAPFSSubType     = 1     /* APFS Case-insensitive */
 };
+
+// APFS constants for getting volume encryption key state
+#define APFS_IOUC_VOLUME_GET_VEK_STATE 19 // from apfs_iouc.h. If this changes, the world ends.
+
+typedef struct {
+    uint32_t index;
+} volume_vek_state_input;
+
+typedef struct {
+    bool user_protected;
+    bool sys_protected;
+} volume_vek_state_output;
 
 /* HFS type and subtype number */
 #define HFS_NAME	"hfs" 
@@ -100,4 +119,7 @@ bool is_msdos(char *devnode, int *fssubtype);
 static int getblk(int fd, unsigned long blk, int blksize, char* buf);
 static int getwrapper(const HFSMasterDirectoryBlock *mdbp, off_t *offset);
 ssize_t readdisk(int fd, off_t startaddr, size_t length, size_t blocksize, char* buf);
+errno_t GetFSEncryptionStatus(const char *bsdname, bool *encryption_status, bool require_FDE,
+                              fs_media_encryption_details_t *encryption_details);
+errno_t GetDiskImageEncryptionStatus(const char *bsdname, bool *encryption_status);
 #endif /* !__FS_FORMATNAME__ */

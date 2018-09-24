@@ -29,6 +29,8 @@
 #pragma once
 
 #include "IntSize.h"
+#include <wtf/Condition.h>
+#include <wtf/Lock.h>
 #include <wtf/MallocPtr.h>
 #include <wtf/Ref.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -43,13 +45,17 @@ public:
     };
     using Flags = unsigned;
 
-    static Ref<Buffer> create(const WebCore::IntSize&, Flags);
-    ~Buffer();
+    WEBCORE_EXPORT static Ref<Buffer> create(const WebCore::IntSize&, Flags);
+    WEBCORE_EXPORT ~Buffer();
 
     bool supportsAlpha() const { return m_flags & SupportsAlpha; }
     const WebCore::IntSize& size() const { return m_size; }
     int stride() const { return m_size.width() * 4; }
     unsigned char* data() const { return m_data.get(); }
+
+    void beginPainting();
+    void completePainting();
+    void waitUntilPaintingComplete();
 
 private:
     Buffer(const WebCore::IntSize&, Flags);
@@ -57,6 +63,17 @@ private:
     MallocPtr<unsigned char> m_data;
     WebCore::IntSize m_size;
     Flags m_flags;
+
+    enum class PaintingState {
+        InProgress,
+        Complete
+    };
+
+    struct {
+        Lock lock;
+        Condition condition;
+        PaintingState state { PaintingState::Complete };
+    } m_painting;
 };
 
 } // namespace Nicosia

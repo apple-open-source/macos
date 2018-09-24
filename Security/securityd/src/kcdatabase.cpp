@@ -192,24 +192,46 @@ unlock_keybag_with_cred(KeychainDatabase &db, const AccessCredentials *cred){
             sample.checkProper();
             switch (sample.type()) {
                 // interactively prompt the user - no additional data
-                case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT: {
-                    StSyncLock<Mutex, Mutex> uisync(db.common().uiLock(), db.common());
-                    // Once we get the ui lock, check whether another thread has already unlocked keybag
-                    bool locked = false;
-                    service_context_t context = db.common().session().get_current_service_context();
-                    if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
-                        QueryKeybagPassphrase keybagQuery(db.common().session(), 3);
-                        keybagQuery.inferHints(Server::process());
-                        if (keybagQuery.query() == SecurityAgent::noReason) {
-                            return true;
+                case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
+                {
+                    /*
+                     Okay, this is messy. We need to hold the common lock to be certain we're modifying the world
+                     as we intend. But UI ^ common, and QueryKeybagPassphrase::query() has tons of side effects by necessity,
+                     so just confirm that the operation did what we wanted after the fact.
+                     */
+                    bool query_success = false;
+                    bool unlock_success = false;
+                    bool looped = false;
+                    do {
+                        {
+                            StSyncLock<Mutex, Mutex> uisync(db.common().uiLock(), db.common());
+                            // Once we get the ui lock, check whether another thread has already unlocked keybag
+                            bool locked = false;
+                            query_success = false;
+                            service_context_t context = db.common().session().get_current_service_context();
+                            if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
+                                QueryKeybagPassphrase keybagQuery(db.common().session(), 3);
+                                keybagQuery.inferHints(Server::process());
+                                if (keybagQuery.query() == SecurityAgent::noReason) {
+                                    query_success = true;
+                                }
+                            } else {
+                                // another thread already unlocked the keybag
+                                query_success = true;   // NOT unlock_success because we have the wrong lock
+                            }
+                        }   // StSyncLock goes out of scope, we have common lock again
+                        bool locked = false;
+                        service_context_t context = db.common().session().get_current_service_context();
+                        if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && !locked) {
+                            unlock_success = true;
                         }
-                    }
-                    else {
-                        // another thread already unlocked the keybag
-                        return true;
-                    }
-                    break;
+                        if (looped) {
+                            secnotice("KCdb", "Unlocking the keybag again (threading?)");
+                        }
+                        looped = true;
+                    } while (query_success && !unlock_success);
                 }
+                break;
                 // try to use an explicitly given passphrase - Data:passphrase
                 case CSSM_SAMPLE_TYPE_PASSWORD: {
                     if (sample.length() != 2)
@@ -617,7 +639,7 @@ void KeychainDatabase::authenticate(CSSM_DB_ACCESS_TYPE mode,
 RefPointer<Key> KeychainDatabase::makeKey(Database &db, const CssmKey &newKey,
 	uint32 moreAttributes, const AclEntryPrototype *owner)
 {
-
+    StLock<Mutex> lock(common());
 	if (moreAttributes & CSSM_KEYATTR_PERMANENT)
 		return new KeychainKey(db, newKey, moreAttributes, owner);
 	else
@@ -794,7 +816,14 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred, bool unlockKe
     if (isLocked()) {
 		secnotice("KCdb", "%p(%p) unlocking for makeUnlocked()", this, &common());
         assert(mBlob || (mValidData && common().hasMaster()));
-		establishOldSecrets(cred);
+        bool asking_again = false;
+        do {
+            if (asking_again) {
+                secnotice("KCdb", "makeUnlocked: establishing old secrets again (threading?)");
+            }
+            establishOldSecrets(cred);
+            asking_again = true;
+        } while (!common().hasMaster());
 		common().setUnlocked(); // mark unlocked
         if (common().isLoginKeychain()) {
             CssmKey master = common().masterKey();
@@ -1133,6 +1162,8 @@ bool KeychainDatabase::checkCredentials(const AccessCredentials *creds) {
 
 uint32_t KeychainDatabase::interactiveUnlockAttempts = 0;
 
+// This does UI so needs the UI lock. It also interacts with the common, so needs the common lock. But can't have both at once!
+// Try to hold the UI lock for the smallest amount of time possible while having the common lock where needed.
 bool KeychainDatabase::interactiveUnlock()
 {
 	secinfo("KCdb", "%p attempting interactive unlock", this);
@@ -1140,13 +1171,12 @@ bool KeychainDatabase::interactiveUnlock()
 
 	SecurityAgent::Reason reason = SecurityAgent::noReason;
     QueryUnlock query(*this);
-	// take UI interlock and release DbCommon lock (to avoid deadlocks)
-	StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
-	
-	// now that we have the UI lock, interact unless another thread unlocked us first
+
 	if (isLocked()) {
 		query.inferHints(Server::process());
+        StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
         reason = query();
+        uisync.unlock();
         if (mSaveSecret && reason == SecurityAgent::noReason) {
             query.retrievePassword(mSecret);
         }
@@ -1163,7 +1193,9 @@ bool KeychainDatabase::interactiveUnlock()
             keybagQuery.inferHints(Server::process());
             CssmAutoData pass(Allocator::standard(Allocator::sensitive));
             CssmAutoData oldPass(Allocator::standard(Allocator::sensitive));
+            StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
             SecurityAgent::Reason queryReason = keybagQuery.query(oldPass, pass);
+            uisync.unlock();
             if (queryReason == SecurityAgent::noReason) {
                 service_client_kb_change_secret(&context, oldPass.data(), (int)oldPass.length(), pass.data(), (int)pass.length());
             } else if (queryReason == SecurityAgent::resettingPassword) {
@@ -1201,17 +1233,19 @@ bool KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 			// interactively prompt the user
 			case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
                 {
-				secinfo("KCdb", "%p specified interactive passphrase", this);
-				QueryNewPassphrase query(*this, reason);
-				StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
-				query.inferHints(Server::process());
-				CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
-                CssmAutoData oldPassphrase(Allocator::standard(Allocator::sensitive));
-				if (query(oldPassphrase, passphrase) == SecurityAgent::noReason) {
-					common().setup(NULL, passphrase);
-                    change_secret_on_keybag(*this, oldPassphrase.data(), (int)oldPassphrase.length(), passphrase.data(), (int)passphrase.length());
-					return true;
-				}
+                    secinfo("KCdb", "%p specified interactive passphrase", this);
+                    QueryNewPassphrase query(*this, reason);
+                    StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
+                    query.inferHints(Server::process());
+                    CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
+                    CssmAutoData oldPassphrase(Allocator::standard(Allocator::sensitive));
+                    SecurityAgent::Reason reason(query(oldPassphrase, passphrase));
+                    uisync.unlock();
+                    if (reason == SecurityAgent::noReason) {
+                        common().setup(NULL, passphrase);
+                        change_secret_on_keybag(*this, oldPassphrase.data(), (int)oldPassphrase.length(), passphrase.data(), (int)passphrase.length());
+                        return true;
+                    }
                 }
 				break;
 			// try to use an explicitly given passphrase
@@ -1279,7 +1313,9 @@ bool KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
         query.inferHints(Server::process());
 		CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
         CssmAutoData oldPassphrase(Allocator::standard(Allocator::sensitive));
-		if (query(oldPassphrase, passphrase) == SecurityAgent::noReason) {
+        SecurityAgent::Reason reason(query(oldPassphrase, passphrase));
+        uisync.unlock();
+		if (reason == SecurityAgent::noReason) {
 			common().setup(NULL, passphrase);
             change_secret_on_keybag(*this, oldPassphrase.data(), (int)oldPassphrase.length(), passphrase.data(), (int)passphrase.length());
 			return true;
@@ -1678,6 +1714,9 @@ void KeychainDatabase::validateBlob(const DbBlob *blob)
     // perform basic validation on the blob
 	assert(blob);
 	blob->validate(CSSMERR_APPLEDL_INVALID_DATABASE_BLOB);
+	if (blob->startCryptoBlob > blob->totalLength) {
+		CssmError::throwMe(CSSMERR_APPLEDL_INVALID_DATABASE_BLOB);
+	}
 	switch (blob->version()) {
 #if defined(COMPAT_OSX_10_0)
 		case DbBlob::version_MacOS_10_0:

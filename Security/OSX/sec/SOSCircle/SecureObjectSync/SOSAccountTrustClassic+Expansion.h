@@ -22,6 +22,8 @@
 -(bool) resetRing:(SOSAccount*)account ringName:(CFStringRef) ringName err:(CFErrorRef *)error;
 -(bool) leaveRing:(SOSKVSCircleStorageTransport*)circle_transport ring:(SOSRingRef) ring err:(CFErrorRef*) error;
 -(bool) resetAccountToEmpty:(SOSAccount*)account transport: (SOSCircleStorageTransport*)circleTransport err:(CFErrorRef*) error;
+-(bool) resetAccountToEmptyWithAnalytics:(SOSAccount*)account transport: (SOSCircleStorageTransport*)circleTransport parentEvent:(NSData*)parentEvent err:(CFErrorRef*) error;
+
 -(SOSRingRef) copyRing:(CFStringRef) ringName err:(CFErrorRef *)error;
 -(CFMutableDictionaryRef) getRings:(CFErrorRef *)error;
 -(bool) forEachRing:(RingNameBlock)block;

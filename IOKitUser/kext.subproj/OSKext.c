@@ -63,6 +63,7 @@
 #include <zlib.h>
 #include <sys/file.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <uuid/uuid.h>
 #include <libgen.h>
@@ -1491,8 +1492,9 @@ static void __OSKextInitialize(void)
     CFAllocatorRef     nonrefcountAllocator = NULL;  // must release
 
     // must release each
-    CFURLRef  extensionsDirs[_kOSKextNumSystemExtensionsFolders] = { 0, 0 };
+    CFURLRef  extensionsDirs[_kOSKextNumSystemExtensionsFolders] = {0};
 
+    struct stat sb;
     int    numValues;
 
    /* Prevent deadlock when calling other functions that might think they
@@ -1515,7 +1517,9 @@ static void __OSKextInitialize(void)
         OSKextLogMemError();
         goto finish;
     }
-    
+
+    numValues = _kOSKextNumSystemExtensionsFolders;
+
     extensionsDirs[0] = CFURLCreateFromFileSystemRepresentation(
                 nonrefcountAllocator,
                 (const UInt8 *)_kOSKextSystemLibraryExtensionsFolder,
@@ -1527,16 +1531,38 @@ static void __OSKextInitialize(void)
                 (const UInt8 *)_kOSKextLibraryExtensionsFolder,
                 strlen(_kOSKextLibraryExtensionsFolder),
                 /* isDir */ true);
-    
+
+    /* /AppleInternal/Library/Extensions may not exist.  Avoid adding
+     * it in that case, to avoid confusing the various tools that consume
+     * this array and expect all kext repos to exist.  We generally assume
+     * that this won't be created post-boot.  In the unlikely case that it
+     * is, any tools/daemons that consume OSKextLib will need to be reloaded
+     * to catch the new directory.
+     */
+    if (stat(_kOSKextAppleInternalLibraryExtensionsFolder, &sb) == 0) {
+        extensionsDirs[2] = CFURLCreateFromFileSystemRepresentation(
+                    nonrefcountAllocator,
+                    (const UInt8 *)_kOSKextAppleInternalLibraryExtensionsFolder,
+                    strlen(_kOSKextAppleInternalLibraryExtensionsFolder),
+                    /* isDir */ true);
+    } else {
+        --numValues;
+    }
+
+    for (int i = 0; i < numValues; ++i) {
+        if (extensionsDirs[i] == NULL) {
+            OSKextLogMemError();
+            goto finish;
+        }
+    }
+
     __sOSKextSystemExtensionsFolderURLs = CFArrayCreate(
                     nonrefcountAllocator,
                     (const void **)extensionsDirs,
-                    _kOSKextNumSystemExtensionsFolders,
+                    numValues,
                     &kCFTypeArrayCallBacks);
-    
-    if (!extensionsDirs[0] ||
-        !extensionsDirs[1] ||
-        !__sOSKextSystemExtensionsFolderURLs) {
+
+    if (!__sOSKextSystemExtensionsFolderURLs) {
         OSKextLogMemError();
         goto finish;
     }
@@ -4566,6 +4592,7 @@ finish:
 void __OSKextRemoveIdentifierCacheForKext(OSKextRef aKext)
 {
     char         scratchPath[PATH_MAX];
+    char         repoPath[PATH_MAX];
     const char * delRoot = NULL;   // do not free
 
    /* We can't do it if we aren't root.
@@ -4582,25 +4609,20 @@ void __OSKextRemoveIdentifierCacheForKext(OSKextRef aKext)
 
    /* I'm sick of CF verbosity so we're going to do this C style.
     */
-    if (!strncmp(scratchPath,
-        _kOSKextSystemLibraryExtensionsFolder,
-        strlen(_kOSKextSystemLibraryExtensionsFolder))) {
-        
-        delRoot = _kOSKextSystemLibraryExtensionsFolder;
 
-    } else if (!strncmp(scratchPath,
-        _kOSKextLibraryExtensionsFolder,
-        strlen(_kOSKextLibraryExtensionsFolder))){
+    CFIndex count = CFArrayGetCount(__sOSKextSystemExtensionsFolderURLs);
+    for (CFIndex i = 0; i < count; i++) {
+        CFURLRef directoryURL = CFArrayGetValueAtIndex(
+            __sOSKextSystemExtensionsFolderURLs, i);
 
-        delRoot = _kOSKextSystemLibraryExtensionsFolder;
+        CFURLGetFileSystemRepresentation(directoryURL, true, (UInt8 *)repoPath, PATH_MAX);
 
-    } else if (!strncmp(scratchPath,
-        _kOSKextAppleInternalLibraryExtensionsFolder,
-        strlen(_kOSKextAppleInternalLibraryExtensionsFolder))){
-
-        delRoot = _kOSKextSystemLibraryExtensionsFolder;
+        if (!strncmp(scratchPath, repoPath, PATH_MAX)) {
+            delRoot = repoPath;
+            break;
+        }
     }
-    
+
     if (!delRoot) {
         goto finish;
     }
@@ -13788,6 +13810,10 @@ void __OSKextAddDiagnostic(
     CFStringRef            valueToSet     = NULL;  // do not release
 
     if (!(type & __sOSKextRecordsDiagnositcs)) {
+        goto finish;
+    }
+
+    if (!value) {
         goto finish;
     }
 

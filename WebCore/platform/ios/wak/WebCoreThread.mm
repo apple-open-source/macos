@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,26 +30,26 @@
 
 #import "CommonVM.h"
 #import "FloatingPointEnvironment.h"
+#import "Logging.h"
 #import "RuntimeApplicationChecks.h"
 #import "ThreadGlobalData.h"
 #import "WAKWindow.h"
+#import "WKUtilities.h"
 #import "WebCoreThreadInternal.h"
 #import "WebCoreThreadMessage.h"
 #import "WebCoreThreadRun.h"
-#import "WKUtilities.h"
-
-#import <runtime/InitializeThreading.h>
-#import <runtime/JSLock.h>
+#import <Foundation/NSInvocation.h>
+#import <JavaScriptCore/InitializeThreading.h>
+#import <JavaScriptCore/JSLock.h>
+#import <libkern/OSAtomic.h>
+#import <objc/runtime.h>
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
 #import <wtf/RecursiveLockAdapter.h>
 #import <wtf/RunLoop.h>
 #import <wtf/Threading.h>
+#import <wtf/spi/cocoa/FoundationSPI.h>
 #import <wtf/text/AtomicString.h>
-
-#import <Foundation/NSInvocation.h>
-#import <libkern/OSAtomic.h>
-#import <objc/runtime.h>
 
 #define LOG_MESSAGES 0
 #define LOG_WEB_LOCK 0
@@ -81,23 +81,11 @@ static void _WebThreadUnlock();
 
 @end
 
-using NSAutoreleasePoolMark = void*;
-#ifdef __cplusplus
-extern "C" {
-#endif
-extern NSAutoreleasePoolMark NSPushAutoreleasePool(unsigned ignored);
-extern void NSPopAutoreleasePool(NSAutoreleasePoolMark token);
-#ifdef __cplusplus
-}
-#endif
+static RecursiveLock webLock;
+static Lock webThreadReleaseLock;
+static RecursiveLock webCoreReleaseLock;
 
-using StaticRecursiveLock = WTF::RecursiveLockAdapter<StaticLock>;
-
-static StaticRecursiveLock webLock;
-static StaticLock webThreadReleaseLock;
-static StaticRecursiveLock webCoreReleaseLock;
-
-static NSAutoreleasePoolMark autoreleasePoolMark;
+static void* autoreleasePoolMark;
 static CFRunLoopRef webThreadRunLoop;
 static NSRunLoop* webThreadNSRunLoop;
 static pthread_t webThread;
@@ -105,7 +93,7 @@ static BOOL isWebThreadLocked;
 static BOOL webThreadStarted;
 static unsigned webThreadLockCount;
 
-static NSAutoreleasePoolMark savedAutoreleasePoolMark;
+static void* savedAutoreleasePoolMark;
 static BOOL isNestedWebThreadRunLoop;
 typedef enum {
     PushOrPopAutoreleasePool,
@@ -117,7 +105,7 @@ static CFMutableArrayRef WebThreadReleaseObjArray;
 
 static void MainThreadAdoptAndRelease(id obj);
 
-static StaticLock delegateLock;
+static Lock delegateLock;
 static StaticCondition delegateCondition;
 static NSInvocation* delegateInvocation;
 static CFRunLoopSourceRef delegateSource = nullptr;
@@ -128,7 +116,7 @@ static BOOL sendingDelegateMessage;
 
 static CFRunLoopObserverRef mainRunLoopAutoUnlockObserver;
 
-static StaticLock startupLock;
+static Lock startupLock;
 static StaticCondition startupCondition;
 
 static WebThreadContext* webThreadContext;
@@ -466,7 +454,7 @@ static void WebRunLoopLockInternal(AutoreleasePoolOperation poolOperation)
 {
     _WebThreadLock();
     if (poolOperation == PushOrPopAutoreleasePool)
-        autoreleasePoolMark = NSPushAutoreleasePool(0);
+        autoreleasePoolMark = objc_autoreleasePoolPush();
     isWebThreadLocked = YES;
 }
 
@@ -480,7 +468,7 @@ static void WebRunLoopUnlockInternal(AutoreleasePoolOperation poolOperation)
     }
 
     if (poolOperation == PushOrPopAutoreleasePool)
-        NSPopAutoreleasePool(autoreleasePoolMark);
+        objc_autoreleasePoolPop(autoreleasePoolMark);
 
     _WebThreadUnlock();
     isWebThreadLocked = NO;
@@ -878,6 +866,8 @@ WebThreadContext* WebThreadCurrentContext(void)
 void WebThreadEnable(void)
 {
     RELEASE_ASSERT_WITH_MESSAGE(!WebCore::IOSApplication::isWebProcess(), "The WebProcess should never run a Web Thread");
+    if (WebCore::IOSApplication::isSpringBoard())
+        RELEASE_LOG_FAULT(Threading, "SpringBoard enabled WebThread.");
 
     static std::once_flag flag;
     std::call_once(flag, StartWebThread);

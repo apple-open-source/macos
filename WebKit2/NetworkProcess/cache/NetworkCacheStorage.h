@@ -30,9 +30,11 @@
 #include "NetworkCacheKey.h"
 #include <WebCore/Timer.h>
 #include <wtf/BloomFilter.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/Deque.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
+#include <wtf/MonotonicTime.h>
 #include <wtf/Optional.h>
 #include <wtf/WallTime.h>
 #include <wtf/WorkQueue.h>
@@ -49,20 +51,38 @@ public:
     static RefPtr<Storage> open(const String& cachePath, Mode);
 
     struct Record {
-        WTF_MAKE_FAST_ALLOCATED;
-    public:
         Key key;
         WallTime timeStamp;
         Data header;
         Data body;
         std::optional<SHA1::Digest> bodyHash;
+
+        WTF_MAKE_FAST_ALLOCATED;
     };
+
+    struct Timings {
+        MonotonicTime startTime;
+        MonotonicTime dispatchTime;
+        MonotonicTime recordIOStartTime;
+        MonotonicTime recordIOEndTime;
+        MonotonicTime blobIOStartTime;
+        MonotonicTime blobIOEndTime;
+        MonotonicTime completionTime;
+        size_t dispatchCountAtStart { 0 };
+        size_t dispatchCountAtDispatch { 0 };
+        bool synchronizationInProgressAtDispatch { false };
+        bool shrinkInProgressAtDispatch { false };
+        bool wasCanceled { false };
+
+        WTF_MAKE_FAST_ALLOCATED;
+    };
+
     // This may call completion handler synchronously on failure.
-    typedef Function<bool (std::unique_ptr<Record>)> RetrieveCompletionHandler;
+    using RetrieveCompletionHandler = Function<bool (std::unique_ptr<Record>, const Timings&)>;
     void retrieve(const Key&, unsigned priority, RetrieveCompletionHandler&&);
 
-    typedef Function<void (const Data& mappedBody)> MappedBodyHandler;
-    void store(const Record&, MappedBodyHandler&&);
+    using MappedBodyHandler = Function<void (const Data& mappedBody)>;
+    void store(const Record&, MappedBodyHandler&&, CompletionHandler<void()>&& = { });
 
     void remove(const Key&);
     void remove(const Vector<Key>&, Function<void ()>&&);
@@ -88,10 +108,10 @@ public:
     size_t approximateSize() const;
 
     // Incrementing this number will delete all existing cache content for everyone. Do you really need to do it?
-    static const unsigned version = 12;
+    static const unsigned version = 13;
 #if PLATFORM(MAC)
     /// Allow the last stable version of the cache to co-exist with the latest development one.
-    static const unsigned lastStableVersion = 12;
+    static const unsigned lastStableVersion = 13;
 #endif
 
     String basePath() const;
@@ -99,8 +119,6 @@ public:
     String recordsPath() const;
 
     const Salt& salt() const { return m_salt; }
-
-    bool canUseSharedMemoryForBodyData() const { return m_canUseSharedMemoryForBodyData; }
 
     ~Storage();
 
@@ -129,6 +147,7 @@ private:
     void dispatchPendingWriteOperations();
     void finishWriteOperation(WriteOperation&);
 
+    bool shouldStoreBodyAsBlob(const Data& bodyData);
     std::optional<BlobStorage::Blob> storeBodyAsBlob(WriteOperation&);
     Data encodeRecord(const Record&, std::optional<BlobStorage::Blob>);
     void readRecord(ReadOperation&, const Data&);
@@ -151,7 +170,7 @@ private:
     
     const Mode m_mode;
     const Salt m_salt;
-    const bool m_canUseSharedMemoryForBodyData;
+    const bool m_canUseBlobsForForBodyData;
 
     size_t m_capacity { std::numeric_limits<size_t>::max() };
     size_t m_approximateRecordsSize { 0 };
@@ -163,6 +182,7 @@ private:
 
     bool m_synchronizationInProgress { false };
     bool m_shrinkInProgress { false };
+    size_t m_readOperationDispatchCount { 0 };
 
     Vector<Key::HashType> m_recordFilterHashesAddedDuringSynchronization;
     Vector<Key::HashType> m_blobFilterHashesAddedDuringSynchronization;

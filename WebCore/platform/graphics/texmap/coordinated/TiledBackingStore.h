@@ -51,7 +51,7 @@ public:
 
     void invalidate(const IntRect& dirtyRect);
 
-    IntRect mapToContents(const IntRect&) const;
+    WEBCORE_EXPORT IntRect mapToContents(const IntRect&) const;
     IntRect mapFromContents(const IntRect&) const;
 
     IntRect tileRectForCoordinate(const Tile::Coordinate&) const;
@@ -61,8 +61,6 @@ public:
     IntRect coverRect() const { return m_coverRect; }
     bool visibleAreaIsCovered() const;
     void removeAllNonVisibleTiles(const IntRect& unscaledVisibleRect, const IntRect& contentsRect);
-
-    void setSupportsAlpha(bool);
 
 private:
     void createTiles(const IntRect& visibleRect, const IntRect& scaledContentsRect, float coverAreaMultiplier);
@@ -96,7 +94,6 @@ private:
 
     float m_contentsScale;
 
-    bool m_supportsAlpha;
     bool m_pendingTileCreation;
 
     friend class Tile;

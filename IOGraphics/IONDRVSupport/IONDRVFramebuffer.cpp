@@ -658,7 +658,7 @@ bool IONDRVFramebuffer::_videoJackStateChangeHandler( void * target, void * ref,
         IOService * resourceService, IONotifier * notifier )
 {
     IONDRVFB_START(_videoJackStateChangeHandler,0,0,0);
-    IONDRVFramebuffer * self = (IONDRVFramebuffer *) target;
+    IONDRVFramebuffer * fb = (IONDRVFramebuffer *) target;
     uint32_t            jackData;
 
     OSObject * jackValue = resourceService->getProperty(kAppleAudioVideoJackStateKey);
@@ -671,20 +671,20 @@ bool IONDRVFramebuffer::_videoJackStateChangeHandler( void * target, void * ref,
     jackData = (jackValue == kOSBooleanTrue);
     IOLog(kAppleAudioVideoJackStateKey " %d\n", jackData);
 
-    self->fNub->setProperty( kAppleAudioVideoJackStateKey, &jackData, sizeof32(jackData) );
+    fb->fNub->setProperty( kAppleAudioVideoJackStateKey, &jackData, sizeof32(jackData) );
     resourceService->removeProperty(kAppleAudioVideoJackStateKey);
 
-    if (!self->__private->probeInterrupt)
+    if (!fb->__private->probeInterrupt)
     {
-        self->__private->probeInterrupt = IOTimerEventSource::timerEventSource(
-                                            self, &IONDRVFramebuffer::_avProbeAction);
-        if (self->__private->probeInterrupt)
-            self->getControllerWorkLoop()->addEventSource(self->__private->probeInterrupt);
+        fb->__private->probeInterrupt = IOTimerEventSource::timerEventSource(
+                                            fb, &IONDRVFramebuffer::_avProbeAction);
+        if (fb->__private->probeInterrupt)
+            fb->getControllerWorkLoop()->addEventSource(fb->__private->probeInterrupt);
     }
-    if (self->__private->probeInterrupt && (self->avJackState != jackData))
+    if (fb->__private->probeInterrupt && (fb->avJackState != jackData))
     {
-        self->avJackState = jackData;
-        self->__private->probeInterrupt->setTimeoutMS(kIONDRVAVJackProbeDelayMS);
+        fb->avJackState = jackData;
+        fb->__private->probeInterrupt->setTimeoutMS(kIONDRVAVJackProbeDelayMS);
     }
 
     IONDRVFB_END(_videoJackStateChangeHandler,true,0,0);
@@ -698,39 +698,39 @@ void IONDRVFramebuffer::_avProbeAction( OSObject * p0, IOTimerEventSource * evtS
     IONDRVFB_END(_avProbeAction,0,0,0);
 }
 
-IOReturn IONDRVFramebuffer::_probeAction( IONDRVFramebuffer * self, IOOptionBits options )
+IOReturn IONDRVFramebuffer::_probeAction( IONDRVFramebuffer * fb, IOOptionBits options )
 {
     IONDRVFB_START(_probeAction,options,0,0);
     IOReturn err = kIOReturnSuccess;
 
-    if (self->captured)
+    if (fb->captured)
     {
         err = kIOReturnBusy;
     }
     else if (options & (kIOFBUserRequestProbe | kIOFBAVProbe))
     {
-        if ((options & kIOFBUserRequestProbe) && !self->supportsProbe)
+        if ((options & kIOFBUserRequestProbe) && !fb->supportsProbe)
         {
             err = kIOReturnUnsupported;
         }
         else
         {
 #if 1
-            err = self->_doControl( self, cscProbeConnection, 0 );
+            err = fb->_doControl( fb, cscProbeConnection, 0 );
 #else
             do
             {
-                OSNumber * num = OSDynamicCast(OSNumber, self->getProperty(kIOFBDependentIndexKey));
+                OSNumber * num = OSDynamicCast(OSNumber, fb->getProperty(kIOFBDependentIndexKey));
                 if (num && (0 != num->unsigned32BitValue()))
                     continue;
 
-				IONDRVFramebuffer * next = self;
+				IONDRVFramebuffer * next = fb;
 				do
 				{
 					next->_doControl( next, cscProbeConnection, 0 );
 					next = OSDynamicCast(IONDRVFramebuffer, next->nextDependent);
 				}
-				while (next && (next != self));
+				while (next && (next != fb));
             }
             while (false);
 #endif
@@ -738,14 +738,14 @@ IOReturn IONDRVFramebuffer::_probeAction( IONDRVFramebuffer * self, IOOptionBits
     }
     else if (options & kIOFBForceReadEDID)
     {
-        if (!self->forceReadEDID)
+        if (!fb->forceReadEDID)
         {
             _VSLService *       service;
             IOFBInterruptProc   proc;
 
-            self->forceReadEDID = 1;
+            fb->forceReadEDID = 1;
 
-            for (service = self->vslServices;
+            for (service = fb->vslServices;
                     service && (kIOFBConnectInterruptType != service->type);
                     service = service->next)
             {}
@@ -785,11 +785,11 @@ IODeviceMemory * IONDRVFramebuffer::getVRAMRange( void )
     return (vramMemory);
 }
 
-const IOTVector * IONDRVFramebuffer::_undefinedSymbolHandler( void * self,
+const IOTVector * IONDRVFramebuffer::_undefinedSymbolHandler( void * obj,
         const char * libraryName, const char * symbolName )
 {
     IONDRVFB_START(_undefinedSymbolHandler,0,0,0);
-    const IOTVector * vc = ((IONDRVFramebuffer *)self)->undefinedSymbolHandler(libraryName, symbolName);
+    const IOTVector * vc = ((IONDRVFramebuffer *)obj)->undefinedSymbolHandler(libraryName, symbolName);
     IONDRVFB_END(_undefinedSymbolHandler,0,0,0);
     return (vc);
 }
@@ -1149,7 +1149,7 @@ IOReturn IONDRVFramebuffer::doDriverIO( UInt32 commandID, void * contents,
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-IOReturn IONDRVFramebuffer::_doControl( IONDRVFramebuffer * self, UInt32 code, void * params )
+IOReturn IONDRVFramebuffer::_doControl( IONDRVFramebuffer * fb, UInt32 code, void * params )
 {
     IONDRVFB_START(_doControl,code,0,0);
     IOReturn                    err;
@@ -1157,11 +1157,11 @@ IOReturn IONDRVFramebuffer::_doControl( IONDRVFramebuffer * self, UInt32 code, v
 
 #if IONDRVCHECK
     IOWorkLoop * wl;
-    if (!ml_at_interrupt_context() && (wl = self->getControllerWorkLoop()) && !wl->inGate())
-        OSReportWithBacktrace("%s::_doControl(%d) not gated\n", self->thisName, code);
+    if (!ml_at_interrupt_context() && (wl = fb->getControllerWorkLoop()) && !wl->inGate())
+        OSReportWithBacktrace("%s::_doControl(%d) not gated\n", fb->thisName, code);
 #endif
 
-    if (self->ndrvState == 0)
+    if (fb->ndrvState == 0)
     {
         IONDRVFB_END(_doControl,kIOReturnNotOpen,0,0);
         return (kIOReturnNotOpen);
@@ -1170,13 +1170,13 @@ IOReturn IONDRVFramebuffer::_doControl( IONDRVFramebuffer * self, UInt32 code, v
     pb.code = code;
     pb.params = params;
 
-    err = self->doDriverIO( /*ID*/ 1, &pb,
+    err = fb->doDriverIO( /*ID*/ 1, &pb,
                                    kIONDRVControlCommand, kIONDRVImmediateIOCommandKind );
 
 #if FORCE_CONNECT_CHANGE
     if (cscProbeConnection == code)
     {
-        _VSLService * vslService  = self->vslServices;
+        _VSLService * vslService  = fb->vslServices;
         while (vslService && (kIOFBConnectInterruptType != vslService->type))
             vslService = vslService->next;
         if (vslService)
@@ -1188,13 +1188,13 @@ IOReturn IONDRVFramebuffer::_doControl( IONDRVFramebuffer * self, UInt32 code, v
     return (err);
 }
 
-IOReturn IONDRVFramebuffer::_doStatus( IONDRVFramebuffer * self, UInt32 code, void * params )
+IOReturn IONDRVFramebuffer::_doStatus( IONDRVFramebuffer * fb, UInt32 code, void * params )
 {
     IONDRVFB_START(_doStatus,code,0,0);
     IOReturn                    err;
     IONDRVControlParameters     pb;
 
-    if (self->ndrvState == 0)
+    if (fb->ndrvState == 0)
     {
         IONDRVFB_END(_doStatus,kIOReturnNotOpen,0,0);
         return (kIOReturnNotOpen);
@@ -1202,14 +1202,14 @@ IOReturn IONDRVFramebuffer::_doStatus( IONDRVFramebuffer * self, UInt32 code, vo
 
 #if IONDRVCHECK
     IOWorkLoop * wl;
-    if (!ml_at_interrupt_context() && (wl = self->getControllerWorkLoop()) && !wl->inGate())
-        OSReportWithBacktrace("%s::_doStatus(%d) not gated\n", self->thisName, code);
+    if (!ml_at_interrupt_context() && (wl = fb->getControllerWorkLoop()) && !wl->inGate())
+        OSReportWithBacktrace("%s::_doStatus(%d) not gated\n", fb->thisName, code);
 #endif
 
     pb.code = code;
     pb.params = params;
 
-    err = self->doDriverIO( /*ID*/ 1, &pb,
+    err = fb->doDriverIO( /*ID*/ 1, &pb,
                                    kIONDRVStatusCommand, kIONDRVImmediateIOCommandKind );
 
     IONDRVFB_END(_doStatus,err,0,0);
@@ -1219,11 +1219,11 @@ IOReturn IONDRVFramebuffer::_doStatus( IONDRVFramebuffer * self, UInt32 code, vo
 IOReturn IONDRVFramebuffer::extControl( OSObject * owner, void * code, void * params )
 {
     IONDRVFB_START(extControl,0,0,0);
-    IONDRVFramebuffer * self = (IONDRVFramebuffer *) owner;
+    IONDRVFramebuffer * fb = (IONDRVFramebuffer *) owner;
     IOReturn            err;
 
-    if (self->powerState)
-        err = _doControl( self, (UInt32)(uintptr_t) code, params );
+    if (fb->powerState)
+        err = _doControl( fb, (UInt32)(uintptr_t) code, params );
     else
         err = kIOReturnNotReady;
 
@@ -1234,11 +1234,11 @@ IOReturn IONDRVFramebuffer::extControl( OSObject * owner, void * code, void * pa
 IOReturn IONDRVFramebuffer::extStatus( OSObject * owner, void * code, void * params )
 {
     IONDRVFB_START(extStatus,0,0,0);
-    IONDRVFramebuffer * self = (IONDRVFramebuffer *) owner;
+    IONDRVFramebuffer * fb = (IONDRVFramebuffer *) owner;
     IOReturn            err;
 
-    if (self->powerState)
-        err = _doStatus( self, (UInt32)(uintptr_t) code, params );
+    if (fb->powerState)
+        err = _doStatus( fb, (UInt32)(uintptr_t) code, params );
     else
         err = kIOReturnNotReady;
 

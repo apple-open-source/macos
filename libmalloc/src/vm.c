@@ -42,7 +42,7 @@ void
 mvm_aslr_init(void)
 {
 	// Prepare ASLR
-#if __i386__ || __x86_64__ || __arm64__ || TARGET_OS_EMBEDDED
+#if __i386__ || __x86_64__ || __arm64__ || (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #if __i386__
 	uintptr_t stackbase = 0x8fe00000;
 	int entropic_bits = 3;
@@ -50,8 +50,13 @@ mvm_aslr_init(void)
 	uintptr_t stackbase = USRSTACK64;
 	int entropic_bits = 16;
 #elif __arm64__
+#if __LP64__
 	uintptr_t stackbase = USRSTACK64;
 	int entropic_bits = 7;
+#else // __LP64__
+	uintptr_t stackbase = USRSTACK;
+	int entropic_bits = 3;
+#endif
 #else
 	uintptr_t stackbase = USRSTACK;
 	int entropic_bits = 3;
@@ -69,9 +74,9 @@ mvm_aslr_init(void)
 		malloc_entropy[0] = 0;
 		malloc_entropy[1] = 0;
 	}
-#else
+#else // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 #error ASLR unhandled on this platform
-#endif
+#endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 }
 
 void *
@@ -109,7 +114,7 @@ mvm_allocate_pages(size_t size, unsigned char align, unsigned debug_flags, int v
 	kr = mach_vm_map(mach_task_self(), &vm_addr, allocation_size, allocation_mask, alloc_flags, MEMORY_OBJECT_NULL, 0, FALSE,
 					 VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
 	if (kr) {
-		szone_error(debug_flags, 0, "can't allocate region", NULL, "*** mach_vm_map(size=%lu) failed (error code=%d)\n", size, kr);
+		malloc_zone_error(debug_flags, false, "can't allocate region\n*** mach_vm_map(size=%lu) failed (error code=%d)\n", size, kr);
 		return NULL;
 	}
 	addr = (uintptr_t)vm_addr;
@@ -130,16 +135,17 @@ mvm_allocate_pages(size_t size, unsigned char align, unsigned debug_flags, int v
 			/* Unmap the excess area. */
 			kr = mach_vm_deallocate(mach_task_self(), addr, leading);
 			if (kr) {
-				szone_error(debug_flags, 0, "can't unmap excess guard region", NULL,
-							"*** mach_vm_deallocate(addr=%p, size=%lu) failed (code=%d)", (void *)addr, leading, kr);
+				malloc_zone_error(debug_flags, false, "can't unmap excess guard region\n"
+						"*** mach_vm_deallocate(addr=%p, size=%lu) failed (code=%d)\n",
+						(void *)addr, leading, kr);
 				return NULL;
 			}
 
 			kr = mach_vm_deallocate(mach_task_self(), addr + allocation_size - trailing, trailing);
 			if (kr) {
-				szone_error(debug_flags, 0, "can't unmap excess trailing guard region", NULL,
-							"*** mach_vm_deallocate(addr=%p, size=%lu) failed (code=%d)", (void *)(addr + allocation_size - trailing),
-							trailing, kr);
+				malloc_zone_error(debug_flags, false, "can't unmap excess trailing guard region\n"
+						"*** mach_vm_deallocate(addr=%p, size=%lu) failed (code=%d)\n",
+						(void *)(addr + allocation_size - trailing), trailing, kr);
 				return NULL;
 			}
 
@@ -183,8 +189,8 @@ retry:
 						 VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
 	}
 	if (kr) {
-		szone_error(debug_flags, 0, "can't allocate region securely",
-					NULL, "*** mach_vm_map(size=%lu) failed (error code=%d)\n", size, kr);
+		malloc_zone_error(debug_flags, false, "can't allocate region securely\n",
+				"*** mach_vm_map(size=%lu) failed (error code=%d)\n", size, kr);
 		return NULL;
 	}
 	addr = (uintptr_t)vm_addr;
@@ -227,7 +233,7 @@ mvm_deallocate_pages(void *addr, size_t size, unsigned debug_flags)
 	}
 	kr = mach_vm_deallocate(mach_task_self(), vm_addr, allocation_size);
 	if (kr) {
-		szone_error(debug_flags, 0, "Can't deallocate_pages region", addr, NULL);
+		malloc_zone_error(debug_flags, false, "Can't deallocate_pages region at %p\n", addr);
 	}
 }
 
@@ -239,29 +245,30 @@ mvm_protect(void *address, size_t size, unsigned protection, unsigned debug_flag
 	if (!(debug_flags & MALLOC_DONT_PROTECT_PRELUDE)) {
 		err = mprotect((void *)((uintptr_t)address - vm_page_quanta_size), vm_page_quanta_size, protection);
 		if (err) {
-			malloc_printf("*** can't mvm_protect(%p) region for prelude guard page at %p\n", protection,
-						  (uintptr_t)address - vm_page_quanta_size);
+			malloc_report(ASL_LEVEL_ERR, "*** can't mvm_protect(%u) region for prelude guard page at %p\n", protection,
+					(void *)((uintptr_t)address - vm_page_quanta_size));
 		}
 	}
 	if (!(debug_flags & MALLOC_DONT_PROTECT_POSTLUDE)) {
 		err = mprotect((void *)(round_page_quanta(((uintptr_t)address + size))), vm_page_quanta_size, protection);
 		if (err) {
-			malloc_printf("*** can't mvm_protect(%p) region for postlude guard page at %p\n", protection, (uintptr_t)address + size);
+			malloc_report(ASL_LEVEL_ERR, "*** can't mvm_protect(%u) region for postlude guard page at %p\n", protection,
+					(void *)((uintptr_t)address + size));
 		}
 	}
 }
 
 int
-mvm_madvise_free(rack_t *rack, region_t r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t *last)
+mvm_madvise_free(void *rack, void *r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t *last, boolean_t scribble)
 {
 	if (pgHi > pgLo) {
 		size_t len = pgHi - pgLo;
 
-		if (rack->debug_flags & MALLOC_DO_SCRIBBLE) {
+		if (scribble) {
 			memset((void *)pgLo, SCRUBBLE_BYTE, len); // Scribble on MADV_FREEd memory
 		}
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 		if (last) {
 			if (*last == pgLo) {
 				return 0;
@@ -269,32 +276,19 @@ mvm_madvise_free(rack_t *rack, region_t r, uintptr_t pgLo, uintptr_t pgHi, uintp
 
 			*last = pgLo;
 		}
-#endif
+#endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 
-		MAGMALLOC_MADVFREEREGION((void *)rack, (void *)r, (void *)pgLo, (int)len); // DTrace USDT Probe
+		MAGMALLOC_MADVFREEREGION(rack, r, (void *)pgLo, (int)len); // DTrace USDT Probe
 		if (-1 == madvise((void *)pgLo, len, CONFIG_MADVISE_STYLE)) {
 			/* -1 return: VM map entry change makes this unfit for reuse. Something evil lurks. */
 #if DEBUG_MADVISE
-			szone_error(NULL, 0, "madvise_free_range madvise(..., MADV_FREE_REUSABLE) failed", (void *)pgLo, "length=%d\n", len);
-#endif
-		}
-	}
-	return 0;
-}
-
-int
-mvm_madvise_reuse(region_t r, uintptr_t pgLo, uintptr_t phHi, uint32_t debug_flags)
-{
-	if (phHi > pgLo) {
-		size_t len = phHi - pgLo;
-
-		if (madvise((void *)pgLo, len, MADV_FREE_REUSE) == -1) {
-			/* -1 return: VM map entry change makes this unfit for reuse. Something evil lurks. */
-#if DEBUG_MADVISE
-			szone_error(debug_flags, 0, "madvise_reuse_range madvise(..., MADV_FREE_REUSE) failed", sparse_region, "length=%d\n",
-						TINY_REGION_PAYLOAD_BYTES);
+			malloc_zone_error(NULL, false,
+					"madvise_free_range madvise(..., MADV_FREE_REUSABLE) failed for %p, length=%d\n",
+					(void *)pgLo, len);
 #endif
 			return 1;
+		} else {
+			MALLOC_TRACE(TRACE_madvise, (uintptr_t)r, (uintptr_t)pgLo, len, CONFIG_MADVISE_STYLE);
 		}
 	}
 	return 0;

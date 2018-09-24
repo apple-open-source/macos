@@ -71,7 +71,6 @@ NS_ASSUME_NONNULL_BEGIN
                    error:(NSError**)error;
 
 -(OctagonBottleCheckState)doesThisDeviceHaveABottle:(NSError**)error;
--(void) postFollowUp;
 
 @end
 NS_ASSUME_NONNULL_END

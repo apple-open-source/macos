@@ -25,18 +25,18 @@
 
 #include "WebContextMenuClient.h"
 
-#include "UserGestureIndicator.h"
 #include "WebElementPropertyBag.h"
 #include "WebLocalizableStrings.h"
 #include "WebView.h"
 #include <WebCore/ContextMenuController.h>
 #include <WebCore/Editor.h>
 #include <WebCore/Event.h>
+#include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/MainFrame.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/ResourceRequest.h>
+#include <WebCore/UserGestureIndicator.h>
 
 using namespace WebCore;
 
@@ -60,7 +60,7 @@ void WebContextMenuClient::searchWithGoogle(const Frame* frame)
     String searchString = frame->editor().selectedText();
     searchString.stripWhiteSpace();
     String encoded = encodeWithURLEscapeSequences(searchString);
-    encoded.replace(ASCIILiteral { "%20" }, ASCIILiteral { "+" });
+    encoded.replace("%20"_s, "+"_s);
 
     String url = "https://www.google.com/search?q=" + encoded + "&ie=UTF-8&oe=UTF-8";
 

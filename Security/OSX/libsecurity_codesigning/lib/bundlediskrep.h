@@ -30,6 +30,14 @@
 #include "diskrep.h"
 #include "machorep.h"
 
+#include <sys/cdefs.h>
+
+#if TARGET_OS_OSX
+__BEGIN_DECLS
+#include <AppleFSCompression/AppleFSCompression.h>
+__END_DECLS
+#endif
+
 namespace Security {
 namespace CodeSigning {
 
@@ -80,6 +88,10 @@ public:
 	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags);
 	CFArrayRef allowedResourceOmissions();
 
+	void registerStapledTicket();
+
+	bool appleInternalForcePlatform() const {return forcePlatform;};
+
 	CFBundleRef bundle() const { return mBundle; }
 
 public:
@@ -118,6 +130,7 @@ private:
 	bool mComponentsFromExecValid;			// mComponentsFromExec is valid (tri-state)
 	std::set<CodeDirectory::SpecialSlot> mUsedComponents; // remember what components we've retrieved
 	std::set<OSStatus> mStrictErrors;		// strict validation errors encountered
+	bool forcePlatform;						// treat as anchor apple on apple internal
 };
 
 

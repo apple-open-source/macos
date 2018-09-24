@@ -172,7 +172,7 @@ public:
 #if PLATFORM(COCOA)
     virtual void accessibilityWebProcessTokenReceived(const IPC::DataReference&) = 0;
     virtual bool executeSavedCommandBySelector(const String& selector) = 0;
-    virtual void setDragImage(const WebCore::IntPoint& clientPosition, Ref<ShareableBitmap>&& dragImage, WebCore::DragSourceAction) = 0;
+    virtual void startDrag(const WebCore::DragItem&, const ShareableBitmap::Handle&) { }
     virtual void updateSecureInputState() = 0;
     virtual void resetSecureInputState() = 0;
     virtual void notifyInputContextAboutDiscardedComposition() = 0;
@@ -193,8 +193,6 @@ public:
 #if USE(APPKIT)
     virtual void setPromisedDataForImage(const String& pasteboardName, Ref<WebCore::SharedBuffer>&& imageBuffer, const String& filename, const String& extension, const String& title, const String& url, const String& visibleUrl, RefPtr<WebCore::SharedBuffer>&& archiveBuffer) = 0;
 #endif
-
-    virtual void prepareToDragPromisedBlob(const WebCore::PromisedBlobInfo&) { }
 
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&) = 0;
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&) = 0;
@@ -286,7 +284,6 @@ public:
     virtual void didCommitLayerTree(const RemoteLayerTreeTransaction&) = 0;
     virtual void layerTreeCommitComplete() = 0;
 
-    virtual void dynamicViewportUpdateChangedTarget(double newScale, const WebCore::FloatPoint& newScrollPosition, uint64_t transactionID) = 0;
     virtual void couldNotRestorePageState() = 0;
     virtual void restorePageState(std::optional<WebCore::FloatPoint> scrollPosition, const WebCore::FloatPoint& scrollOrigin, const WebCore::FloatBoxExtent& obscuredInsetsOnSave, double scale) = 0;
     virtual void restorePageCenterAndScale(std::optional<WebCore::FloatPoint> center, double scale) = 0;
@@ -297,9 +294,6 @@ public:
     virtual bool interpretKeyEvent(const NativeWebKeyboardEvent&, bool isCharEvent) = 0;
     virtual void positionInformationDidChange(const InteractionInformationAtPosition&) = 0;
     virtual void saveImageToLibrary(Ref<WebCore::SharedBuffer>&&) = 0;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-    virtual void didUpdateBlockSelectionWithTouch(uint32_t touch, uint32_t flags, float growThreshold, float shrinkThreshold) = 0;
-#endif
     virtual void showPlaybackTargetPicker(bool hasVideo, const WebCore::IntRect& elementRect, WebCore::RouteSharingPolicy, const String&) = 0;
     virtual void disableDoubleTapGesturesDuringTapIfNecessary(uint64_t requestID) = 0;
     virtual double minimumZoomScale() const = 0;
@@ -352,9 +346,9 @@ public:
     virtual void* immediateActionAnimationControllerForHitTestResult(RefPtr<API::HitTestResult>, uint64_t, RefPtr<API::Object>) = 0;
 
     virtual void didHandleAcceptedCandidate() = 0;
-
-    virtual void videoControlsManagerDidChange() = 0;
 #endif
+
+    virtual void videoControlsManagerDidChange() { };
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
     virtual WebCore::WebMediaSessionManager& mediaSessionManager() = 0;
@@ -381,18 +375,13 @@ public:
     virtual void didPerformDataInteractionControllerOperation(bool handled) = 0;
     virtual void didHandleStartDataInteractionRequest(bool started) = 0;
     virtual void didHandleAdditionalDragItemsRequest(bool added) = 0;
-    virtual void startDrag(const WebCore::DragItem&, const ShareableBitmap::Handle& image) = 0;
     virtual void didConcludeEditDataInteraction(std::optional<WebCore::TextIndicatorData>) = 0;
     virtual void didChangeDataInteractionCaretRect(const WebCore::IntRect& previousCaretRect, const WebCore::IntRect& caretRect) = 0;
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
-    virtual void didInsertAttachment(const String& identifier) { }
+    virtual void didInsertAttachment(const String& identifier, const String& source) { }
     virtual void didRemoveAttachment(const String& identifier) { }
-#endif
-
-#if PLATFORM(GTK) || PLATFORM(WPE)
-    virtual JSGlobalContextRef javascriptGlobalContext() { return nullptr; }
 #endif
 };
 

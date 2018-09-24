@@ -26,7 +26,7 @@
 #import "keychain/ckks/CKKSResultOperation.h"
 #import "keychain/ckks/NSOperationCategories.h"
 #import "keychain/ckks/CKKSCondition.h"
-#import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 #include <utilities/debugging.h>
 
 @interface CKKSResultOperation()

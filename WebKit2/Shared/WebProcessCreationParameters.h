@@ -38,7 +38,12 @@
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(COCOA)
-#include <WebCore/MachSendRight.h>
+#include <wtf/MachSendRight.h>
+#endif
+
+#if PLATFORM(MAC)
+#include <WebCore/PlatformScreen.h>
+#include <WebCore/ScreenProperties.h>
 #endif
 
 #if USE(SOUP)
@@ -79,7 +84,7 @@ struct WebProcessCreationParameters {
     SandboxExtension::Handle mediaCacheDirectoryExtensionHandle;
     String javaScriptConfigurationDirectory;
     SandboxExtension::Handle javaScriptConfigurationDirectoryExtensionHandle;
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     Vector<uint8_t> uiProcessCookieStorageIdentifier;
 #endif
 #if PLATFORM(IOS)
@@ -108,9 +113,13 @@ struct WebProcessCreationParameters {
     Vector<String> urlSchemesRegisteredAsAlwaysRevalidated;
     Vector<String> urlSchemesRegisteredAsCachePartitioned;
     Vector<String> urlSchemesServiceWorkersCanHandle;
+    Vector<String> urlSchemesRegisteredAsCanDisplayOnlyIfCanRequest;
 
     Vector<String> fontWhitelist;
     Vector<String> languages;
+#if USE(GSTREAMER)
+    Vector<String> gstreamerOptions;
+#endif
 
     CacheModel cacheModel;
 
@@ -137,12 +146,13 @@ struct WebProcessCreationParameters {
 
 #if PLATFORM(COCOA)
     String uiProcessBundleIdentifier;
+    uint32_t uiProcessSDKVersion { 0 };
 #endif
 
     ProcessID presentingApplicationPID { 0 };
 
 #if PLATFORM(COCOA)
-    WebCore::MachSendRight acceleratedCompositingPort;
+    WTF::MachSendRight acceleratedCompositingPort;
 
     String uiProcessBundleResourcePath;
     SandboxExtension::Handle uiProcessBundleResourcePathExtensionHandle;
@@ -158,7 +168,7 @@ struct WebProcessCreationParameters {
     HashMap<String, bool> notificationPermissions;
 #endif
 
-    HashMap<PAL::SessionID, HashMap<unsigned, double>> plugInAutoStartOriginHashes;
+    HashMap<PAL::SessionID, HashMap<unsigned, WallTime>> plugInAutoStartOriginHashes;
     Vector<String> plugInAutoStartOrigins;
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -169,16 +179,25 @@ struct WebProcessCreationParameters {
     RetainPtr<CFDataRef> networkATSContext;
 #endif
 
-#if OS(LINUX)
-    IPC::Attachment memoryPressureMonitorHandle;
-#endif
-
 #if PLATFORM(WAYLAND)
     String waylandCompositorDisplayName;
 #endif
 
 #if USE(SOUP)
     WebCore::SoupNetworkProxySettings proxySettings;
+#endif
+
+#if PLATFORM(COCOA)
+    Vector<String> mediaMIMETypes;
+#endif
+
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
+    bool shouldLogUserInteraction { false };
+#endif
+
+#if PLATFORM(MAC)
+    WebCore::ScreenProperties screenProperties;
+    bool useOverlayScrollbars { true };
 #endif
 };
 

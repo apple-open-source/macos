@@ -564,6 +564,8 @@ DateFormat::adoptCalendar(Calendar* newCalendar)
 void
 DateFormat::setCalendar(const Calendar& newCalendar)
 {
+    if (fCalendar && fCalendar->isEquivalentTo( newCalendar ))
+        return;
     Calendar* newCalClone = newCalendar.clone();
     if (newCalClone != NULL) {
         adoptCalendar(newCalClone);
@@ -586,6 +588,7 @@ DateFormat::adoptNumberFormat(NumberFormat* newNumberFormat)
     delete fNumberFormat;
     fNumberFormat = newNumberFormat;
     newNumberFormat->setParseIntegerOnly(TRUE);
+    newNumberFormat->setGroupingUsed(FALSE);
 }
 //----------------------------------------------------------------------
 
@@ -738,7 +741,7 @@ DateFormat::setBooleanAttribute(UDateFormatBooleanAttribute attr,
 UBool 
 DateFormat::getBooleanAttribute(UDateFormatBooleanAttribute attr, UErrorCode &/*status*/) const {
 
-    return fBoolFlags.get(attr);
+    return static_cast<UBool>(fBoolFlags.get(attr));
 }
 
 U_NAMESPACE_END

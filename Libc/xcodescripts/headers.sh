@@ -1,9 +1,6 @@
 #!/bin/bash
 set -x
 
-# Skip installing headers during Xcode build (buildit uses installhdrs+install)
-if [ "$ACTION" == build ]; then exit 0; fi
-
 # Installs Libc header files
 
 MKDIR="mkdir -p"
@@ -23,10 +20,16 @@ FGREP=fgrep
 eval $(${SRCROOT}/xcodescripts/generate_features.pl --bash)
 UNIFDEFARGS=$(${SRCROOT}/xcodescripts/generate_features.pl --unifdef)
 
-INCDIR=${DSTROOT}/${PUBLIC_HEADERS_FOLDER_PATH}
-LOCINCDIR=${DSTROOT}/${PRIVATE_HEADERS_FOLDER_PATH}
-SYSTEMFRAMEWORK=${DSTROOT}/System/Library/Frameworks/System.framework
-KERNELFRAMEWORK=${DSTROOT}/System/Library/Frameworks/Kernel.framework
+if [[ "${DEPLOYMENT_LOCATION}" == "NO" ]] ; then
+    HDRROOT=${BUILT_PRODUCTS_DIR}
+else
+    HDRROOT=${DSTROOT}
+fi
+
+INCDIR=${HDRROOT}/${PUBLIC_HEADERS_FOLDER_PATH}
+LOCINCDIR=${HDRROOT}/${PRIVATE_HEADERS_FOLDER_PATH}
+SYSTEMFRAMEWORK=${HDRROOT}/System/Library/Frameworks/System.framework
+KERNELFRAMEWORK=${HDRROOT}/System/Library/Frameworks/Kernel.framework
 
 PRIVHDRS=${SYSTEMFRAMEWORK}/Versions/B/PrivateHeaders
 PRIVKERNELHDRS=${KERNELFRAMEWORK}/Versions/A/PrivateHeaders
@@ -184,7 +187,8 @@ LOCALHDRS=(
 	${SRCROOT}/darwin/libc_private.h
 	${SRCROOT}/gen/utmpx_thread.h
 	${SRCROOT}/nls/FreeBSD/msgcat.h
-	${SRCROOT}/libdarwin/dirstat.h
+	${SRCROOT}/gen/thread_stack_pcs.h
+	${SRCROOT}/libdarwin/h/dirstat.h
 )
 
 OS_LOCALHDRS=( ${SRCROOT}/os/assumes.h ${SRCROOT}/os/debug_private.h )
@@ -242,13 +246,13 @@ ${INSTALL} -m ${INSTALLMODE} ${SYS_INSTHDRS[@]} ${PRIVHDRS}/sys
 ${INSTALL} -m ${INSTALLMODE} ${PRIVUUID_INSTHDRS[@]} ${PRIVHDRS}/uuid
 ${INSTALL} -m ${INSTALLMODE} ${PRIVUUID_INSTHDRS[@]} ${PRIVKERNELHDRS}/uuid
 
-for i in `${FIND} "${DSTROOT}" -name \*.h -print0 | ${XARGS} -0 ${GREP} -l '^//Begin-Libc'`; do
+for i in `${FIND} "${HDRROOT}" -name \*.h -print0 | ${XARGS} -0 ${GREP} -l '^//Begin-Libc'`; do
 	${CHMOD} u+w $i &&
 	${ECHO} ${ED} - $i \< ${SRCROOT}/xcodescripts/strip-header.ed &&
 	${ED} - $i < ${SRCROOT}/xcodescripts/strip-header.ed &&
 	${CHMOD} u-w $i || exit 1;
 done
-for i in `${FIND} "${DSTROOT}" -name \*.h -print0 | ${XARGS} -0 ${FGREP} -l -e UNIFDEF -e OPEN_SOURCE`; do
+for i in `${FIND} "${HDRROOT}" -name \*.h -print0 | ${XARGS} -0 ${FGREP} -l -e UNIFDEF -e OPEN_SOURCE`; do
 	${CHMOD} u+w $i &&
 	${CP} $i $i.orig &&
 	${ECHO} ${UNIFDEF} ${UNIFDEFARGS} $i.orig \> $i &&

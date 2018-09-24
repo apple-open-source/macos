@@ -31,6 +31,7 @@ ro{
         151{"Europa Orientală"}
         154{"Europa Septentrională"}
         155{"Europa Occidentală"}
+        202{"Africa Subsahariană"}
         419{"America Latină"}
         AC{"Insula Ascension"}
         AD{"Andorra"}
@@ -58,7 +59,7 @@ ro{
         BH{"Bahrain"}
         BI{"Burundi"}
         BJ{"Benin"}
-        BL{"Sfântul Bartolomeu"}
+        BL{"Saint-Barthélemy"}
         BM{"Bermuda"}
         BN{"Brunei"}
         BO{"Bolivia"}
@@ -106,6 +107,7 @@ ro{
         ES{"Spania"}
         ET{"Etiopia"}
         EU{"Uniunea Europeană"}
+        EZ{"Zona euro"}
         FI{"Finlanda"}
         FJ{"Fiji"}
         FK{"Insulele Falkland"}
@@ -247,7 +249,7 @@ ro{
         SO{"Somalia"}
         SR{"Suriname"}
         SS{"Sudanul de Sud"}
-        ST{"Sao Tomé și Príncipe"}
+        ST{"Sao Tome și Principe"}
         SV{"El Salvador"}
         SX{"Sint-Maarten"}
         SY{"Siria"}
@@ -298,7 +300,7 @@ ro{
         HK{"Hong Kong"}
         MO{"Macao"}
         PS{"Palestina"}
-        UN{"NU"}
+        UN{"ONU"}
         US{"S.U.A."}
     }
     Countries%variant{
@@ -308,6 +310,7 @@ ro{
         CZ{"Republica Cehă"}
         FK{"Insulele Falkland (Insulele Malvine)"}
         MK{"Republica Macedonia (FRIM)"}
+        TL{"TL"}
     }
-    Version{"2.1.32.60"}
+    Version{"2.1.41.97"}
 }

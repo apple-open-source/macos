@@ -27,12 +27,12 @@
 
 #define _LIBICONV_VERSION 0x010B    /* version number: (major<<8) + minor */
 
-#if 1 && BUILDING_LIBICONV
-#define LIBICONV_DLL_EXPORTED __attribute__((__visibility__("default")))
+#if BUILDING_LIBICONV
+#define __LIBICONV_DLL_EXPORTED __attribute__((__visibility__("default")))
 #else
-#define LIBICONV_DLL_EXPORTED
+#define __LIBICONV_DLL_EXPORTED
 #endif
-extern LIBICONV_DLL_EXPORTED  int _libiconv_version; /* Likewise */
+extern __LIBICONV_DLL_EXPORTED  int _libiconv_version; /* Likewise */
 
 /* We would like to #include any system header file which could define
    iconv_t, 1. in order to eliminate the risk that the user gets compilation
@@ -65,17 +65,17 @@ extern "C" {
 
 /* Allocates descriptor for code conversion from encoding `fromcode' to
    encoding `tocode'. */
-extern LIBICONV_DLL_EXPORTED iconv_t iconv_open (const char* tocode, const char* fromcode);
+extern __LIBICONV_DLL_EXPORTED iconv_t iconv_open (const char* __tocode, const char* __fromcode);
 
 /* Converts, using conversion descriptor `cd', at most `*inbytesleft' bytes
    starting at `*inbuf', writing at most `*outbytesleft' bytes starting at
    `*outbuf'.
    Decrements `*inbytesleft' and increments `*inbuf' by the same amount.
    Decrements `*outbytesleft' and increments `*outbuf' by the same amount. */
-extern LIBICONV_DLL_EXPORTED size_t iconv (iconv_t cd, char* * __restrict inbuf, size_t * __restrict inbytesleft, char* * __restrict outbuf, size_t * __restrict outbytesleft);
+extern __LIBICONV_DLL_EXPORTED size_t iconv (iconv_t __cd, char* * __restrict __inbuf, size_t * __restrict __inbytesleft, char* * __restrict __outbuf, size_t * __restrict __outbytesleft);
 
 /* Frees resources allocated for conversion descriptor `cd'. */
-extern LIBICONV_DLL_EXPORTED int iconv_close (iconv_t cd);
+extern __LIBICONV_DLL_EXPORTED int iconv_close (iconv_t _cd);
 
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 
@@ -84,7 +84,7 @@ extern LIBICONV_DLL_EXPORTED int iconv_close (iconv_t cd);
 #include <sys/_types/_wchar_t.h>
 
 /* Control of attributes. */
-extern LIBICONV_DLL_EXPORTED int iconvctl (iconv_t cd, int request, void* argument);
+extern __LIBICONV_DLL_EXPORTED int iconvctl (iconv_t cd, int request, void* argument);
 
 /* Hook performed after every successful conversion of a Unicode character. */
 typedef void (*iconv_unicode_char_hook) (unsigned int uc, void* data);
@@ -163,14 +163,14 @@ struct iconv_fallbacks {
 #define ICONV_SET_FALLBACKS       6  /* const struct iconv_fallbacks *argument */
 
 /* Listing of locale independent encodings. */
-extern LIBICONV_DLL_EXPORTED void iconvlist (int (*do_one) (unsigned int namescount,
+extern __LIBICONV_DLL_EXPORTED void iconvlist (int (*do_one) (unsigned int namescount,
                                       const char * const * names,
                                       void* data),
                        void* data);
 
 /* Canonicalize an encoding name.
    The result is either a canonical encoding name, or name itself. */
-extern LIBICONV_DLL_EXPORTED const char * iconv_canonicalize (const char * name);
+extern __LIBICONV_DLL_EXPORTED const char * iconv_canonicalize (const char * name);
 
 /* Support for relocatable packages.  */
 
@@ -179,7 +179,7 @@ extern LIBICONV_DLL_EXPORTED const char * iconv_canonicalize (const char * name)
    by the corresponding pathname with the current prefix instead.  Both
    prefixes should be directory names without trailing slash (i.e. use ""
    instead of "/").  */
-extern LIBICONV_DLL_EXPORTED void libiconv_set_relocation_prefix (const char *orig_prefix,
+extern __LIBICONV_DLL_EXPORTED void libiconv_set_relocation_prefix (const char *orig_prefix,
 					    const char *curr_prefix);
 
 #endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */

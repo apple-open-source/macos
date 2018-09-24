@@ -163,7 +163,7 @@ ProcessAssertion::ProcessAssertion(pid_t pid, AssertionState assertionState, Fun
     : m_invalidationCallback(WTFMove(invalidationCallback))
     , m_assertionState(assertionState)
 {
-    auto weakThis = createWeakPtr();
+    auto weakThis = makeWeakPtr(*this);
     BKSProcessAssertionAcquisitionHandler handler = ^(BOOL acquired) {
         if (!acquired) {
             RELEASE_LOG_ERROR(ProcessSuspension, " %p - ProcessAssertion() Unable to acquire assertion for process with PID %d", this, pid);
@@ -175,7 +175,7 @@ ProcessAssertion::ProcessAssertion(pid_t pid, AssertionState assertionState, Fun
         }
     };
     RELEASE_LOG(ProcessSuspension, "%p - ProcessAssertion() Acquiring assertion for process with PID %d", this, pid);
-    m_assertion = adoptNS([[BKSProcessAssertion alloc] initWithPID:pid flags:flagsForState(assertionState) reason:BKSProcessAssertionReasonExtension name:@"Web content visible" withHandler:handler]);
+    m_assertion = adoptNS([[BKSProcessAssertion alloc] initWithPID:pid flags:flagsForState(assertionState) reason:BKSProcessAssertionReasonExtension name:@"Web content visibility" withHandler:handler]);
     m_assertion.get().invalidationHandler = ^() {
         dispatch_async(dispatch_get_main_queue(), ^{
             RELEASE_LOG(ProcessSuspension, "%p - ProcessAssertion() Process assertion for process with PID %d was invalidated", this, pid);

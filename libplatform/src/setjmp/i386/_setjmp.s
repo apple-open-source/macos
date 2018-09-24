@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,7 @@
  */
 
 #include <architecture/i386/asm_help.h>
+#include <os/tsd.h>
 
 // The FP control word is actually two bytes, but there's no harm in
 // using four bytes for it and keeping the struct aligned.
@@ -64,45 +65,56 @@
 #define JB_GS           68
 
 LEAF(__setjmp, 0)
-        movl    4(%esp), %ecx           // jmp_buf (struct sigcontext *)
+	movl    4(%esp), %ecx           // jmp_buf (struct sigcontext *)
 
-        // Build the jmp_buf
-        fnstcw  JB_FPCW(%ecx)			// Save the FP control word
-        stmxcsr JB_MXCSR(%ecx)			// Save the MXCSR
-        movl    %ebx, JB_EBX(%ecx)
-        movl    %edi, JB_EDI(%ecx)
-        movl    %esi, JB_ESI(%ecx)
-        movl    %ebp, JB_EBP(%ecx)
+	// Build the jmp_buf
+	fnstcw  JB_FPCW(%ecx)			// Save the FP control word
+	stmxcsr JB_MXCSR(%ecx)			// Save the MXCSR
+	movl    %ebx, JB_EBX(%ecx)
+	movl    %edi, JB_EDI(%ecx)
+	movl    %esi, JB_ESI(%ecx)
+	movl    %ebp, %eax
+	_OS_PTR_MUNGE(%eax)
+	movl    %eax, JB_EBP(%ecx)
 
-        // EIP is set to the frame return address value
-        movl    (%esp), %eax
-        movl    %eax, JB_EIP(%ecx)
-        // ESP is set to the frame return address plus 4
-        leal    4(%esp), %eax
-        movl    %eax, JB_ESP(%ecx)
+	// EIP is set to the frame return address value
+	movl    (%esp), %eax
+	_OS_PTR_MUNGE(%eax)
+	movl    %eax, JB_EIP(%ecx)
+	// ESP is set to the frame return address plus 4
+	leal    4(%esp), %eax
+	_OS_PTR_MUNGE(%eax)
+	movl    %eax, JB_ESP(%ecx)
 
-        // return 0
-        xorl    %eax, %eax
-        ret
+	// return 0
+	xorl    %eax, %eax
+	ret
 
 
 LEAF(__longjmp, 0)
-	fninit				// Clear all FP exceptions
-	movl    4(%esp), %ecx           // jmp_buf (struct sigcontext *)
-	movl	8(%esp), %eax		// return value
-	testl	%eax, %eax
-	jnz 1f
-	incl    %eax
+	fninit						// Clear all FP exceptions
+	movl    4(%esp), %ecx		// jmp_buf (struct sigcontext *)
+	movl	8(%esp), %edx		// return value
+	xorl	%eax, %eax
+	incl	%eax
+	testl	%edx, %edx
+	cmovnel	%edx, %eax
 
 	// general registers
-1:	movl	JB_EBX(%ecx), %ebx
+	movl	JB_EBX(%ecx), %ebx
 	movl	JB_ESI(%ecx), %esi
 	movl	JB_EDI(%ecx), %edi
-	movl	JB_EBP(%ecx), %ebp
-	movl	JB_ESP(%ecx), %esp
+	movl	JB_EBP(%ecx), %edx
+	_OS_PTR_UNMUNGE(%edx)
+	movl	%edx, %ebp
+	movl	JB_ESP(%ecx), %edx
+	_OS_PTR_UNMUNGE(%edx)
+	movl	%edx, %esp
+	movl	JB_EIP(%ecx), %edx
+	_OS_PTR_UNMUNGE(%edx)
 
 	fldcw	JB_FPCW(%ecx)			// Restore FP control word
 	ldmxcsr JB_MXCSR(%ecx)			// Restore the MXCSR
 
-	cld					// Make sure DF is reset
-	jmp	*JB_EIP(%ecx)
+	cld								// Make sure DF is reset
+	jmp		*%edx

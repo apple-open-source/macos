@@ -1,5 +1,5 @@
---- ./common/unicode/uconfig.h	2017-04-18 11:33:51.000000000 -0700
-+++ ./common/unicode/uconfig.h	2017-04-30 10:35:22.000000000 -0700
+--- ./common/unicode/uconfig.h	2018-06-10 16:06:23.000000000 -0700
++++ ./common/unicode/uconfig.h	2018-06-11 22:27:39.000000000 -0700
 @@ -89,7 +89,7 @@
   * @internal
   */
@@ -9,7 +9,7 @@
  #endif
  
  /**
-@@ -415,7 +415,7 @@
+@@ -418,7 +418,7 @@
   * @stable ICU 3.2
   */
  #ifndef UCONFIG_NO_SERVICE
@@ -18,8 +18,8 @@
  #endif
  
  /**
---- ./common/unicode/utypes.h	2017-04-27 17:14:50.000000000 -0700
-+++ ./common/unicode/utypes.h	2017-04-30 10:36:14.000000000 -0700
+--- ./common/unicode/utypes.h	2018-06-10 16:54:07.000000000 -0700
++++ ./common/unicode/utypes.h	2018-06-11 22:30:05.000000000 -0700
 @@ -63,7 +63,7 @@
   */
  #ifdef __cplusplus

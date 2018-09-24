@@ -36,7 +36,7 @@ OS_ASSUME_NONNULL_BEGIN
  * Low-level lock SPI
  */
 
-#define OS_LOCK_SPI_VERSION 20160406
+#define OS_LOCK_SPI_VERSION 20171006
 
 /*!
  * @typedef os_lock_t
@@ -57,7 +57,7 @@ OS_ASSUME_NONNULL_BEGIN
 #define OS_LOCK_DECL(type, size) \
 		typedef OS_LOCK_STRUCT(type) : public OS_LOCK(base) { \
 			private: \
-			OS_LOCK_TYPE_STRUCT(type) * const osl_type OS_UNUSED; \
+			OS_LOCK_TYPE_STRUCT(type) * osl_type OS_UNUSED; \
 			uintptr_t _osl_##type##_opaque[size-1] OS_UNUSED; \
 			public: \
             constexpr OS_LOCK(type)() : \
@@ -74,7 +74,7 @@ typedef OS_LOCK_STRUCT(base) {
 
 #define OS_LOCK_DECL(type, size) \
 		typedef OS_LOCK_STRUCT(type) { \
-			OS_LOCK_TYPE_STRUCT(type) * const osl_type; \
+			OS_LOCK_TYPE_STRUCT(type) * osl_type; \
 			uintptr_t _osl_##type##_opaque[size-1]; \
 		} OS_LOCK(type)
 
@@ -350,47 +350,6 @@ OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
 void os_unfair_lock_lock_with_options(os_unfair_lock_t lock,
 		os_unfair_lock_options_t options);
 
-/*!
- * @function os_unfair_lock_assert_owner
- *
- * @abstract
- * Asserts that the calling thread is the current owner of the specified
- * unfair lock.
- *
- * @discussion
- * If the lock is currently owned by the calling thread, this function returns.
- *
- * If the lock is unlocked or owned by a different thread, this function
- * asserts and terminates the process.
- *
- * @param lock
- * Pointer to an os_unfair_lock.
- */
-OS_UNFAIR_LOCK_AVAILABILITY
-OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
-void os_unfair_lock_assert_owner(os_unfair_lock_t lock);
-
-/*!
- * @function os_unfair_lock_assert_not_owner
- *
- * @abstract
- * Asserts that the calling thread is not the current owner of the specified
- * unfair lock.
- *
- * @discussion
- * If the lock is unlocked or owned by a different thread, this function
- * returns.
- *
- * If the lock is currently owned by the current thread, this function asserts
- * and terminates the process.
- *
- * @param lock
- * Pointer to an os_unfair_lock.
- */
-OS_UNFAIR_LOCK_AVAILABILITY
-OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
-void os_unfair_lock_assert_not_owner(os_unfair_lock_t lock);
-
 /*! @group os_unfair_lock no-TSD interfaces
  *
  * Like the above, but don't require being on a thread with valid TSD, so they
@@ -409,6 +368,172 @@ void os_unfair_lock_lock_no_tsd_4libpthread(os_unfair_lock_t lock);
 OS_UNFAIR_LOCK_AVAILABILITY
 OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
 void os_unfair_lock_unlock_no_tsd_4libpthread(os_unfair_lock_t lock);
+
+/*! @group os_unfair_recursive_lock SPI
+ *
+ * @abstract
+ * Similar to os_unfair_lock, but recursive.
+ *
+ * @discussion
+ * Must be initialized with OS_UNFAIR_RECURSIVE_LOCK_INIT
+ */
+
+#define OS_UNFAIR_RECURSIVE_LOCK_AVAILABILITY \
+		__OSX_AVAILABLE(10.14) __IOS_AVAILABLE(12.0) \
+		__TVOS_AVAILABLE(12.0) __WATCHOS_AVAILABLE(5.0)
+
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#define OS_UNFAIR_RECURSIVE_LOCK_INIT \
+		((os_unfair_recursive_lock){OS_UNFAIR_LOCK_INIT, 0})
+#elif defined(__cplusplus) && __cplusplus >= 201103L
+#define OS_UNFAIR_RECURSIVE_LOCK_INIT \
+		(os_unfair_recursive_lock{OS_UNFAIR_LOCK_INIT, 0})
+#elif defined(__cplusplus)
+#define OS_UNFAIR_RECURSIVE_LOCK_INIT (os_unfair_recursive_lock(\
+		(os_unfair_recursive_lock){OS_UNFAIR_LOCK_INIT, 0}))
+#else
+#define OS_UNFAIR_RECURSIVE_LOCK_INIT \
+		{OS_UNFAIR_LOCK_INIT, 0}
+#endif // OS_UNFAIR_RECURSIVE_LOCK_INIT
+
+/*!
+ * @typedef os_unfair_recursive_lock
+ *
+ * @abstract
+ * Low-level lock that allows waiters to block efficiently on contention.
+ *
+ * @discussion
+ * See os_unfair_lock.
+ *
+ */
+OS_UNFAIR_RECURSIVE_LOCK_AVAILABILITY
+typedef struct os_unfair_recursive_lock_s {
+	os_unfair_lock ourl_lock;
+	uint32_t ourl_count;
+} os_unfair_recursive_lock, *os_unfair_recursive_lock_t;
+
+/*!
+ * @function os_unfair_recursive_lock_lock_with_options
+ *
+ * @abstract
+ * See os_unfair_lock_lock_with_options
+ */
+OS_UNFAIR_RECURSIVE_LOCK_AVAILABILITY
+OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
+void os_unfair_recursive_lock_lock_with_options(os_unfair_recursive_lock_t lock,
+		os_unfair_lock_options_t options);
+
+/*!
+ * @function os_unfair_recursive_lock_lock
+ *
+ * @abstract
+ * See os_unfair_lock_lock
+ */
+OS_UNFAIR_RECURSIVE_LOCK_AVAILABILITY
+OS_INLINE OS_ALWAYS_INLINE OS_NOTHROW OS_NONNULL_ALL
+void
+os_unfair_recursive_lock_lock(os_unfair_recursive_lock_t lock)
+{
+	os_unfair_recursive_lock_lock_with_options(lock, OS_UNFAIR_LOCK_NONE);
+}
+
+/*!
+ * @function os_unfair_recursive_lock_trylock
+ *
+ * @abstract
+ * See os_unfair_lock_trylock
+ */
+OS_UNFAIR_RECURSIVE_LOCK_AVAILABILITY
+OS_EXPORT OS_NOTHROW OS_WARN_RESULT OS_NONNULL_ALL
+bool os_unfair_recursive_lock_trylock(os_unfair_recursive_lock_t lock);
+
+/*!
+ * @function os_unfair_recursive_lock_unlock
+ *
+ * @abstract
+ * See os_unfair_lock_unlock
+ */
+OS_UNFAIR_RECURSIVE_LOCK_AVAILABILITY
+OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
+void os_unfair_recursive_lock_unlock(os_unfair_recursive_lock_t lock);
+
+/*!
+ * @function os_unfair_recursive_lock_tryunlock4objc
+ *
+ * @abstract
+ * See os_unfair_lock_unlock
+ */
+OS_UNFAIR_RECURSIVE_LOCK_AVAILABILITY
+OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
+bool os_unfair_recursive_lock_tryunlock4objc(os_unfair_recursive_lock_t lock);
+
+/*!
+ * @function os_unfair_recursive_lock_assert_owner
+ *
+ * @abstract
+ * See os_unfair_lock_assert_owner
+ */
+OS_UNFAIR_RECURSIVE_LOCK_AVAILABILITY
+OS_INLINE OS_ALWAYS_INLINE OS_NOTHROW OS_NONNULL_ALL
+void
+os_unfair_recursive_lock_assert_owner(os_unfair_recursive_lock_t lock)
+{
+	os_unfair_lock_assert_owner(&lock->ourl_lock);
+}
+
+/*!
+ * @function os_unfair_recursive_lock_assert_not_owner
+ *
+ * @abstract
+ * See os_unfair_lock_assert_not_owner
+ */
+OS_UNFAIR_RECURSIVE_LOCK_AVAILABILITY
+OS_INLINE OS_ALWAYS_INLINE OS_NOTHROW OS_NONNULL_ALL
+void
+os_unfair_recursive_lock_assert_not_owner(os_unfair_recursive_lock_t lock)
+{
+	os_unfair_lock_assert_not_owner(&lock->ourl_lock);
+}
+
+#if __has_attribute(cleanup)
+
+/*!
+ * @function os_unfair_lock_scoped_guard_unlock
+ *
+ * @abstract
+ * Used by os_unfair_lock_lock_scoped_guard
+ */
+OS_UNFAIR_LOCK_AVAILABILITY
+OS_INLINE OS_ALWAYS_INLINE OS_NOTHROW OS_NONNULL_ALL
+void
+os_unfair_lock_scoped_guard_unlock(os_unfair_lock_t _Nonnull * _Nonnull lock)
+{
+	os_unfair_lock_unlock(*lock);
+}
+
+/*!
+ * @function os_unfair_lock_lock_scoped_guard
+ *
+ * @abstract
+ * Same as os_unfair_lock_lock() except that os_unfair_lock_unlock() is
+ * automatically called when the enclosing C scope ends.
+ *
+ * @param name
+ * Name for the variable holding the guard.
+ *
+ * @param lock
+ * Pointer to an os_unfair_lock.
+ *
+ * @see os_unfair_lock_lock
+ * @see os_unfair_lock_unlock
+ */
+#define os_unfair_lock_lock_scoped_guard(guard_name, lock) \
+	os_unfair_lock_t \
+		__attribute__((cleanup(os_unfair_lock_scoped_guard_unlock))) \
+		guard_name = lock; \
+	os_unfair_lock_lock(guard_name)
+
+#endif // __has_attribute(cleanup)
 
 __END_DECLS
 
@@ -483,7 +608,7 @@ void
 os_unfair_lock_lock_inline(os_unfair_lock_t lock)
 {
 	if (!_pthread_has_direct_tsd()) return os_unfair_lock_lock(lock);
-	uintptr_t mts = (uintptr_t)_pthread_getspecific_direct(
+	uint32_t mts = (uint32_t)(uintptr_t)_pthread_getspecific_direct(
 			_PTHREAD_TSD_SLOT_MACH_THREAD_SELF);
 	os_unfair_lock unlocked = OS_UNFAIR_LOCK_UNLOCKED, locked = { mts };
 	if (!OSLOCK_STD(atomic_compare_exchange_strong_explicit)(
@@ -515,7 +640,7 @@ os_unfair_lock_lock_with_options_inline(os_unfair_lock_t lock,
 	if (!_pthread_has_direct_tsd()) {
 		return os_unfair_lock_lock_with_options(lock, options);
 	}
-	uintptr_t mts = (uintptr_t)_pthread_getspecific_direct(
+	uint32_t mts = (uint32_t)(uintptr_t)_pthread_getspecific_direct(
 			_PTHREAD_TSD_SLOT_MACH_THREAD_SELF);
 	os_unfair_lock unlocked = OS_UNFAIR_LOCK_UNLOCKED, locked = { mts };
 	if (!OSLOCK_STD(atomic_compare_exchange_strong_explicit)(
@@ -550,7 +675,7 @@ bool
 os_unfair_lock_trylock_inline(os_unfair_lock_t lock)
 {
 	if (!_pthread_has_direct_tsd()) return os_unfair_lock_trylock(lock);
-	uintptr_t mts = (uintptr_t)_pthread_getspecific_direct(
+	uint32_t mts = (uint32_t)(uintptr_t)_pthread_getspecific_direct(
 			_PTHREAD_TSD_SLOT_MACH_THREAD_SELF);
 	os_unfair_lock unlocked = OS_UNFAIR_LOCK_UNLOCKED, locked = { mts };
 	return OSLOCK_STD(atomic_compare_exchange_strong_explicit)(
@@ -573,7 +698,7 @@ void
 os_unfair_lock_unlock_inline(os_unfair_lock_t lock)
 {
 	if (!_pthread_has_direct_tsd()) return os_unfair_lock_unlock(lock);
-	uintptr_t mts = (uintptr_t)_pthread_getspecific_direct(
+	uint32_t mts = (uint32_t)(uintptr_t)_pthread_getspecific_direct(
 			_PTHREAD_TSD_SLOT_MACH_THREAD_SELF);
 	os_unfair_lock unlocked = OS_UNFAIR_LOCK_UNLOCKED, locked = { mts };
 	if (!OSLOCK_STD(atomic_compare_exchange_strong_explicit)(
@@ -600,7 +725,7 @@ OS_INLINE OS_ALWAYS_INLINE OS_NONNULL_ALL
 void
 os_unfair_lock_lock_inline_no_tsd_4libpthread(os_unfair_lock_t lock)
 {
-	uintptr_t mts = (uintptr_t)MACH_PORT_DEAD;
+	uint32_t mts = MACH_PORT_DEAD;
 	os_unfair_lock unlocked = OS_UNFAIR_LOCK_UNLOCKED, locked = { mts };
 	if (!OSLOCK_STD(atomic_compare_exchange_strong_explicit)(
 			(_os_atomic_unfair_lock*)lock, &unlocked, locked,
@@ -626,7 +751,7 @@ OS_INLINE OS_ALWAYS_INLINE OS_NONNULL_ALL
 void
 os_unfair_lock_unlock_inline_no_tsd_4libpthread(os_unfair_lock_t lock)
 {
-	uintptr_t mts = (uintptr_t)MACH_PORT_DEAD;
+	uint32_t mts = MACH_PORT_DEAD;
 	os_unfair_lock unlocked = OS_UNFAIR_LOCK_UNLOCKED, locked = { mts };
 	if (!OSLOCK_STD(atomic_compare_exchange_strong_explicit)(
 			(_os_atomic_unfair_lock*)lock, &locked, unlocked,

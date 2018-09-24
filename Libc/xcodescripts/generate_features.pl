@@ -20,13 +20,7 @@ for my $arch (split(/ /, $ENV{"ARCHS"}))
 	# set ENV{"CURRENT_ARCH"} so we can predicate on it
 	$ENV{"CURRENT_ARCH"} = $arch;
 
-	# BridgeOS shares the same platform name than the watch so
-	# we need to fix it and pick the right configuration.
-	my $platformName = $ENV{"PLATFORM_NAME"};
-	if ($ENV{"RC_BRIDGE"} eq "YES") {
-		$platformName = "bridgeos";
-	}
-
+	my $platformName = $ENV{"VARIANT_PLATFORM_NAME"};
 	$platformName =~ s/simulator/os/;
 
 	my $platformPath = $ENV{"SRCROOT"} . "/Platforms/" . $platformName . "/Makefile.inc";
@@ -125,7 +119,7 @@ for my $arch (split(/ /, $ENV{"ARCHS"}))
 		$shortarch =~ s/armv\d+[a-z]?/arm/g;
 
 		# map all arm64 subtypes to arm64
-		$shortarch =~ s/arm64[_a-z0-9]?/arm64/g;
+		$shortarch =~ s/arm64[_a-z0-9]*/arm64/g;
 
 		printf HEADER "#if !defined(__".$shortarch."__)\n";
 		printf HEADER "#error Mismatched libc-features.h architecture\n";

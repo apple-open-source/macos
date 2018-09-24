@@ -68,10 +68,38 @@
 		<dict>
 			<key>TestName</key>
 			<string>secitemfunctionality</string>
+			<key>EnableEasyperf</key>
+			<true/>
+			<key>EasyperfArgs</key>
+			<array>
+				<string>-p</string>
+				<string>secd</string>
+			</array>
 			<key>Command</key>
 			<array>
 				<string>/AppleInternal/CoreOS/tests/Security/secitemfunctionality</string>
 			</array>
+			<key>EligibleResource</key>
+			<string>type != &apos;CAMEmbeddedDeviceResource&apos;</string>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>secitemfunctionality</string>
+			<key>EnableEasyperf</key>
+			<true/>
+			<key>EasyperfArgs</key>
+			<array>
+				<string>-p</string>
+				<string>securityd</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secitemfunctionality</string>
+			</array>
+			<key>EligibleResource</key>
+			<string>type == &apos;CAMEmbeddedDeviceResource&apos;</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -135,17 +163,59 @@
 				<string>/AppleInternal/CoreOS/tests/Security/authdtest</string>
 			</array>
 			<key>EligibleResource</key>
-			<string>NOT (cpuArchitecture BEGINSWITH &apos;arm&apos;)</string>
+			<string>type != &apos;CAMEmbeddedDeviceResource&apos;</string>
 		</dict>
-        <dict>
-            <key>TestName</key>
-            <string>KeychainAnalytics</string>
-            <key>Command</key>
-            <array>
-                <string>BATS_XCTEST_CMD</string>
-                <string>/AppleInternal/XCTests/com.apple.security/KeychainAnalyticsTests.xctest</string>
-            </array>
-        </dict>
+		<dict>
+			<key>TestName</key>
+			<string>KeychainAnalyticsTests</string>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD</string>
+				<string>/AppleInternal/XCTests/com.apple.security/KeychainAnalyticsTests.xctest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>KeychainMockAKSTests</string>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD</string>
+				<string>/AppleInternal/XCTests/com.apple.security/secdmockaks.xctest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>MultiDeviceSimulatorTests</string>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD</string>
+				<string>/AppleInternal/XCTests/com.apple.security/MultiDeviceSimulatorTests.xctest</string>
+			</array>
+			<key>EligibleResource</key>
+			<string>type != &apos;CAMEmbeddedDeviceResource&apos;</string>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>KeychainSecd_macOS</string>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD</string>
+				<string>/AppleInternal/XCTests/com.apple.security/secdxctests_mac.xctest</string>
+			</array>
+			<key>EligibleResource</key>
+			<string>type != &apos;CAMEmbeddedDeviceResource&apos;</string>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>KeychainSecd_iOS</string>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD</string>
+				<string>/AppleInternal/XCTests/com.apple.security/secdxctests_ios.xctest</string>
+			</array>
+			<key>EligibleResource</key>
+			<string>type == &apos;CAMEmbeddedDeviceResource&apos;</string>
+		</dict>
 	</array>
 </dict>
 </plist>

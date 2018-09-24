@@ -158,8 +158,10 @@ extern NCURSES_EXPORT(void) _nc_free_entries (ENTRY *);
 extern NCURSES_IMPEXP void NCURSES_API (*_nc_check_termtype)(TERMTYPE *); /* obs 20040705 */
 extern NCURSES_IMPEXP void NCURSES_API (*_nc_check_termtype2)(TERMTYPE *, bool);
 
+#ifndef __APPLE__
 /* trace_xnames.c */
 extern NCURSES_EXPORT(void) _nc_trace_xnames (TERMTYPE *);
+#endif
 
 #ifdef __cplusplus
 }

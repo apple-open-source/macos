@@ -82,7 +82,7 @@ printReachabilityFlags(const char *source, SCNetworkReachabilityFlags flags)
     if (flags & kSCNetworkReachabilityFlagsIsDirect) {
 	printf("[%s]  direct\n", source);
     }
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     if (flags & kSCNetworkReachabilityFlagsIsWWAN) {
 	printf("[%s]  wwan\n", source);
     }

@@ -192,7 +192,7 @@ print "//
 ";
 while (($name, $_) = each %spi) {
   print "extern const char *const ${name}NameTable[] = {";
-  s/^.*struct cssm_spi.*{(.*)} CSSM_SPI.*$/$1/s
+    s/^.*struct(?: DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER)? cssm_spi.*{(.*)} CSSM_SPI.*$/$1/s
     or die "bad format in $SPI_H{$name}";
   s/CSSM_RETURN \(CSSM[A-Z]*I \*([A-Za-z_]+)\)\s+\([^)]+\)[^;]*;/\t"$1",/g;
   print;

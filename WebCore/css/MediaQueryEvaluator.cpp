@@ -33,12 +33,13 @@
 #include "CSSPrimitiveValue.h"
 #include "CSSToLengthConversionData.h"
 #include "CSSValueKeywords.h"
+#include "Frame.h"
 #include "FrameView.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "MediaFeatureNames.h"
 #include "MediaList.h"
 #include "MediaQuery.h"
+#include "MediaQueryParserContext.h"
 #include "NodeRenderStyle.h"
 #include "Page.h"
 #include "PlatformScreen.h"
@@ -109,7 +110,7 @@ MediaQueryEvaluator::MediaQueryEvaluator(const String& acceptedMediaType, bool m
 
 MediaQueryEvaluator::MediaQueryEvaluator(const String& acceptedMediaType, const Document& document, const RenderStyle* style)
     : m_mediaType(acceptedMediaType)
-    , m_document(const_cast<Document&>(document).createWeakPtr())
+    , m_document(makeWeakPtr(const_cast<Document&>(document)))
     , m_style(style)
 {
 }
@@ -359,13 +360,11 @@ static bool aspectRatioEvaluate(CSSValue* value, const CSSToLengthConversionData
     // assume if we have a device, its aspect ratio is non-zero
     if (!value)
         return true;
-
     FrameView* view = frame.view();
     if (!view)
         return true;
-
     bool result = compareAspectRatioValue(value, view->layoutWidth(), view->layoutHeight(), op);
-    LOG_WITH_STREAM(MediaQueries, stream << "  aspectRatioEvaluate: " << op << " " << aspectRatioValueAsString(value) << " actual view size " << LayoutSize(view->layoutWidth(), view->layoutHeight()) << ": " << result);
+    LOG_WITH_STREAM(MediaQueries, stream << "  aspectRatioEvaluate: " << op << " " << aspectRatioValueAsString(value) << " actual view size " << view->layoutWidth() << "x" << view->layoutHeight() << " : " << result);
     return result;
 }
 
@@ -713,6 +712,19 @@ static bool anyPointerEvaluate(CSSValue* value, const CSSToLengthConversionData&
 {
     return pointerEvaluate(value, cssToLengthConversionData, frame, prefix);
 }
+    
+static bool prefersDarkInterfaceEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame& frame, MediaFeaturePrefix)
+{
+    bool prefersDarkInterface = false;
+
+    if (frame.page()->useSystemAppearance() && frame.page()->useDarkAppearance())
+        prefersDarkInterface = true;
+
+    if (!value)
+        return prefersDarkInterface;
+
+    return downcast<CSSPrimitiveValue>(*value).valueID() == (prefersDarkInterface ? CSSValuePrefers : CSSValueNoPreference);
+}
 
 static bool prefersReducedMotionEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame& frame, MediaFeaturePrefix)
 {
@@ -745,7 +757,7 @@ static bool displayModeEvaluate(CSSValue* value, const CSSToLengthConversionData
 
     auto keyword = downcast<CSSPrimitiveValue>(*value).valueID();
 
-    auto manifest = frame.mainFrame().applicationManifest();
+    auto manifest = frame.page() ? frame.page()->applicationManifest() : std::nullopt;
     if (!manifest)
         return keyword == CSSValueBrowser;
 
@@ -803,8 +815,8 @@ bool MediaQueryEvaluator::evaluate(const MediaQueryExpression& expression) const
 bool MediaQueryEvaluator::mediaAttributeMatches(Document& document, const String& attributeValue)
 {
     ASSERT(document.renderView());
-    auto mediaQueries = MediaQuerySet::create(attributeValue);
+    auto mediaQueries = MediaQuerySet::create(attributeValue, MediaQueryParserContext(document));
     return MediaQueryEvaluator { "screen", document, &document.renderView()->style() }.evaluate(mediaQueries.get());
 }
 
-} // namespace
+} // WebCore

@@ -345,6 +345,9 @@ void updatePrecision();
 void updateGrouping();
 void updateCurrency(UErrorCode &status);
 
+// Apple-specific
+UBool getFormatFullPrecision() const { return fFormatFullPrecision; }
+void setFormatFullPrecision(UBool formatFullPrecision) { fFormatFullPrecision = formatFullPrecision; }
 
 private:
 // Disallow copy and assign
@@ -414,6 +417,9 @@ DigitGrouping fEffGrouping;
 SciFormatterOptions fOptions;   // Encapsulates fixed precision options
 DigitFormatter fFormatter;
 DigitAffixesAndPadding fAffixes;
+
+// Flag to cap double conversion precision at DBL_DIG digits (Apple specific)
+UBool fFormatFullPrecision;
 
 UnicodeString &formatInt32(
         int32_t number,

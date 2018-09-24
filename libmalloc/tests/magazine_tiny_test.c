@@ -91,41 +91,34 @@ T_DECL(basic_tiny_realloc_in_place, "tiny rack realloc in place")
 	struct rack_s rack;
 	test_rack_setup(&rack);
 
+	// Allocate two blocks and free the second, then try to realloc() the first.
+	// This should extend in-place using the one-level death row cache that's
+	// occupied by the second block.
 	void *ptr = tiny_malloc_should_clear(&rack, TINY_MSIZE_FOR_BYTES(16), false);
 	T_ASSERT_NOTNULL(ptr, "allocation");
 
 	size_t sz = tiny_size(&rack, ptr);
 	T_ASSERT_EQ((int)sz, 16, "size == 16");
 
-	// Due to <rdar://problem/28032870>, we can't just do alloc+realloc here because
-	// the allocator won't see the remainder of the region as free (the
-	// mag_bytes_free_at_end section is marked as busy and realloc doesn't check
-	// for it).
-
-	// On top of that, <rdar://problem/28033016> means we can't do
-	// alloc+alloc+free+realloc because the free'd block gets put in the tiny cache
-	// and the realloc path *also* doesn't check that. That means to actually do a
-	// fast-path realloc you need to:
-
-	//   1. alloc three times (to get the blocks out of the free_at_end region)
-	//   2. free the logically consecutive block
-	//   3. free any other block, to get the consecutive block out of the tiny cache
-
 	void *ptr2 = tiny_malloc_should_clear(&rack, TINY_MSIZE_FOR_BYTES(16), false);
 	T_ASSERT_NOTNULL(ptr2, "allocation 2");
 	T_ASSERT_EQ_PTR(ptr2, (void *)((uintptr_t)ptr + 16), "sequential allocations");
-
-	void *ptr3 = tiny_malloc_should_clear(&rack, TINY_MSIZE_FOR_BYTES(16), false);
-	T_ASSERT_NOTNULL(ptr3, "allocation 3");
-
 	free_tiny(&rack, ptr2, TINY_REGION_FOR_PTR(ptr2), 0);
-	free_tiny(&rack, ptr3, TINY_REGION_FOR_PTR(ptr3), 0);
 
-	// attempt to realloc up to 32 bytes, this should happen in place
-	// as the rack is otherwise completely empty
+	// Attempt to realloc up to 32 bytes, this should happen in place
+	// because of the death-row cache.
 	boolean_t reallocd = tiny_try_realloc_in_place(&rack, ptr, sz, 32);
-	T_ASSERT_TRUE(reallocd, "realloced");
+	T_ASSERT_TRUE(reallocd, "realloced #1");
 
 	size_t nsz = tiny_size(&rack, ptr);
 	T_ASSERT_EQ((int)nsz, 32, "realloc size == 32");
+
+	// Try another realloc(). This should extend in place because the rest of
+	// the rack is empty.
+	reallocd = tiny_try_realloc_in_place(&rack, ptr, nsz, 64);
+	T_ASSERT_TRUE(reallocd, "realloced #2");
+	nsz = tiny_size(&rack, ptr);
+	T_ASSERT_EQ((int)nsz, 64, "realloc size == 64");
+
+	free_tiny(&rack, ptr, TINY_REGION_FOR_PTR(ptr), 0);
 }

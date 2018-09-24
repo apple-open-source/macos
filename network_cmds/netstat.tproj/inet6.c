@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -450,6 +450,29 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	p1a(ip6s_forward_cachemiss, "\t\t%llu forward cache miss\n");
 	p(ip6s_pktdropcntrl,
 	    "\t\t%llu packet%s dropped due to no bufs for control data\n");
+	/* CLAT46 input stats */
+	p(ip6s_clat464_in_tooshort_drop,
+	    "\t\t%llu input packet%s dropped due to too short length \n");
+	p(ip6s_clat464_in_nov6addr_drop,
+	    "\t\t%llu input packet%s dropped due to missing CLAT46 IPv6 address\n");
+	p(ip6s_clat464_in_nov4addr_drop,
+	    "\t\t%llu input packet%s dropped due to missing CLAT46 IPv4 address\n");
+	p(ip6s_clat464_in_v4synthfail_drop,
+	    "\t\t%llu input packet%s dropped due to CLAT46 IPv4 address derivation failure\n");
+	p(ip6s_clat464_in_64transfail_drop,
+	    "\t\t%llu input packet%s dropped due to CLAT46 IP header translation failure\n");
+	p(ip6s_clat464_in_64proto_transfail_drop,
+	    "\t\t%llu input packet%s dropped due to CLAT46 protocol translation failure\n");
+	p(ip6s_clat464_in_64frag_transfail_drop,
+	    "\t\t%llu input packet%s dropped due to CLAT46 fragment translation failure\n");
+	p(ip6s_clat464_in_invalpbuf_drop,
+	    "\t\t%llu input packet%s dropped due to invalid pbuf\n");
+	p(ip6s_clat464_in_v4_drop,
+	    "\t\t%llu input IPv4 packet%s dropped on CLAT46 enabled interface\n");
+	p(ip6s_clat464_in_drop,
+	    "\t\t%llu input packet%s dropped due to CLAT46 failures\n");
+	p(ip6s_clat464_in_success,
+	    "\t\t%llu input packet%s successfully translated from IPv6 to IPv4\n");
 
 #define INPERFDIFF(f) (in_net_perf.f - pin_net_perf.f)
 	if (INPERFDIFF(np_total_pkts) > 0 && in_net_perf.np_total_usecs > 0) {
@@ -485,6 +508,23 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	p(ip6s_cantfrag, "\t\t%llu datagram%s that can't be fragmented\n");
 	p(ip6s_badscope, "\t\t%llu packet%s that violated scope rules\n");
 	p(ip6s_necp_policy_drop, "\t\t%llu packet%s dropped due to NECP policy\n");
+	/* CLAT46 output stats */
+	p(ip6s_clat464_out_nov6addr_drop,
+	    "\t\t%llu output packet%s dropped due to missing CLAT46 IPv6 address\n");
+	p(ip6s_clat464_out_v6synthfail_drop,
+	    "\t\t%llu output packet%s dropped due to CLAT46 IPv6 address synthesis failure\n");
+	p(ip6s_clat464_out_46transfail_drop,
+	    "\t\t%llu output packet%s dropped due to CLAT46 IP header translation failure\n");
+	p(ip6s_clat464_out_46proto_transfail_drop,
+	    "\t\t%llu output packet%s dropped due to CLAT46 protocol translation failure\n");
+	p(ip6s_clat464_out_46frag_transfail_drop,
+	    "\t\t%llu output packet%s dropped due to CLAT46 fragment translation failure\n");
+	p(ip6s_clat464_out_invalpbuf_drop,
+	    "\t\t%llu output packet%s dropped due to invalid pbuf\n");
+	p(ip6s_clat464_out_drop,
+	    "\t\t%llu output packet%s dropped due to CLAT46 failures\n");
+	p(ip6s_clat464_out_success,
+	    "\t\t%llu output packet%s successfully translated from IPv4 to IPv6\n");
 
 #define OUTPERFDIFF(f) (out_net_perf.f - pout_net_perf.f)
 	if (OUTPERFDIFF(np_total_pkts) > 0 && out_net_perf.np_total_usecs > 0) {

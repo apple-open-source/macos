@@ -32,8 +32,9 @@
 #import	<ucontext.h>
 #import	<mach/thread_status.h>
 #include <TargetConditionals.h>
+#import <os/internal.h>
 
-extern int __sigreturn(ucontext_t *, int);
+extern int __sigreturn(ucontext_t *, int, uintptr_t);
 
 /*
  * sigvec registers _sigtramp as the handler for any signal requiring
@@ -45,31 +46,13 @@ extern int __sigreturn(ucontext_t *, int);
 
 /* On i386, i386/sys/_sigtramp.s defines this. There is no in_sigtramp on arm */
 #if defined(__DYNAMIC__) && defined(__x86_64__)
-__attribute__((visibility("hidden")))
+OS_NOEXPORT
 int __in_sigtramp = 0;
 #endif
 
 /* These defn should match the kernel one */
 #define UC_TRAD			1
 #define UC_FLAVOR		30
-#if defined(__ppc__) || defined(__ppc64__)
-#define UC_TRAD64		20
-#define UC_TRAD64_VEC		25
-#define UC_FLAVOR_VEC		35
-#define UC_FLAVOR64		40
-#define UC_FLAVOR64_VEC		45
-#define UC_DUAL			50
-#define UC_DUAL_VEC		55
-
- /* The following are valid mcontext sizes */
-#define UC_FLAVOR_SIZE ((PPC_THREAD_STATE_COUNT + PPC_EXCEPTION_STATE_COUNT + PPC_FLOAT_STATE_COUNT) * sizeof(int))
-
-#define UC_FLAVOR_VEC_SIZE ((PPC_THREAD_STATE_COUNT + PPC_EXCEPTION_STATE_COUNT + PPC_FLOAT_STATE_COUNT + PPC_VECTOR_STATE_COUNT) * sizeof(int))
-
-#define UC_FLAVOR64_SIZE ((PPC_THREAD_STATE64_COUNT + PPC_EXCEPTION_STATE64_COUNT + PPC_FLOAT_STATE_COUNT) * sizeof(int))
-
-#define UC_FLAVOR64_VEC_SIZE ((PPC_THREAD_STATE64_COUNT + PPC_EXCEPTION_STATE64_COUNT + PPC_FLOAT_STATE_COUNT + PPC_VECTOR_STATE_COUNT) * sizeof(int))
-#endif
 
 #define UC_SET_ALT_STACK	0x40000000
 #define UC_RESET_ALT_STACK	0x80000000
@@ -83,25 +66,27 @@ int __in_sigtramp = 0;
  * to having more than one set of registers, etc., for the various 32/64 etc.
  * contexts)..
  */
+OS_NOEXPORT
 void
 _sigunaltstack(int set)
 {
         /* sigreturn(uctx, ctxstyle); */
 	/* syscall (SYS_SIGRETURN, uctx, ctxstyle); */
-	__sigreturn (NULL, (set == SS_ONSTACK) ? UC_SET_ALT_STACK : UC_RESET_ALT_STACK);
+	__sigreturn (NULL, (set == SS_ONSTACK) ? UC_SET_ALT_STACK : UC_RESET_ALT_STACK, 0);
 }
 
 /* On these architectures, _sigtramp is implemented in assembly to
    ensure it matches its DWARF unwind information.  */
 #if !defined (__i386__) && !defined (__x86_64__)
-
+OS_NOEXPORT
 void
 _sigtramp(
 	union __sigaction_u __sigaction_u,
 	int 			sigstyle,
 	int 			sig,
 	siginfo_t		*sinfo,
-	ucontext_t		*uctx
+	ucontext_t		*uctx,
+	uintptr_t		token
 ) {
 	int ctxstyle = UC_FLAVOR;
 
@@ -118,7 +103,8 @@ _sigtramp(
 
         /* sigreturn(uctx, ctxstyle); */
 	/* syscall (SYS_SIGRETURN, uctx, ctxstyle); */
-	__sigreturn (uctx, ctxstyle);
+	__sigreturn (uctx, ctxstyle, token);
+	__builtin_trap(); /* __sigreturn returning is a fatal error */
 }
 
 #endif /* not ppc nor ppc64 nor i386 nor x86_64 */

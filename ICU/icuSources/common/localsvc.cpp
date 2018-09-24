@@ -16,7 +16,7 @@ U_CAPI void* uprv_svc_hook(const char *what, UErrorCode *status)
 {
 	if (uprv_strcmp(what, "languageBreakFactory") == 0) {
 #if U_PLATFORM_IS_DARWIN_BASED && TARGET_OS_MAC
-		return new AppleLanguageBreakFactory(*status);
+		return new icu::AppleLanguageBreakFactory(*status);
 	}
 #else
 	}

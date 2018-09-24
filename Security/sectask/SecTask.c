@@ -379,7 +379,10 @@ Boolean SecTaskEntitlementsValidated(SecTaskRef task) {
     // TODO: Cache the result
     uint32_t csflags = 0;
     const uint32_t mask = CS_VALID | CS_KILL | CS_ENTITLEMENTS_VALIDATED;
+	const uint32_t debug_mask = CS_DEBUGGED | CS_ENTITLEMENTS_VALIDATED;
     int rc = csops_task(task, CS_OPS_STATUS, &csflags, sizeof(csflags));
-    return rc != -1 && ((csflags & mask) == mask);
+	// Allow debugged processes that were valid to continue being treated as valid
+	// We need this all the time (not just on internal) because third parties may need to debug their entitled process in xcode
+    return (rc != -1) && ((mask & csflags) == mask || (debug_mask & csflags) == debug_mask);
 }
 

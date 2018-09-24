@@ -23,6 +23,8 @@
 #include "unicode/putil.h"
 #include "unicode/ustring.h"
 #include "unicode/ucnv.h"
+#include "unicode/utf8.h"
+#include "unicode/utf16.h"
 #include "string.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -2127,7 +2129,7 @@ static void TestFallback()
         UResourceBundle* tResB;
         UResourceBundle* zoneResource;
         const UChar* version = NULL;
-        static const UChar versionStr[] = { 0x0032, 0x002E, 0x0031, 0x002E, 0x0033, 0x0031, 0x002E, 0x0033, 0x0033, 0x0000}; // 2.1.31.33 in nn_NO
+        static const UChar versionStr[] = { 0x0032, 0x002E, 0x0031, 0x002E, 0x0033, 0x0038, 0x002E, 0x0036, 0x0039, 0x0000}; // 2.1.38.69 in nn_NO
 
         if(err != U_ZERO_ERROR){
             log_data_err("Expected U_ZERO_ERROR when trying to test no_NO_NY aliased to nn_NO for Version err=%s\n",u_errorName(err));
@@ -2670,6 +2672,7 @@ static void TestGetFunctionalEquivalent(void) {
         "f",    "mo",                             "ro",
         "f",    "no",                             "no", /* ? */
         "f",    "ars",                            "ars", /* ? */
+        "f",    "wuu",                            "wuu", /* ? */
         /* Additions to test locales without resources */
         "f",    "en_CN",                          "root",
         "f",    "zh_Hant_CN",                     "zh@collation=stroke",

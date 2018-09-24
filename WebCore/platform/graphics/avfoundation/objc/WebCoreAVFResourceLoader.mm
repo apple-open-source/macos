@@ -72,7 +72,19 @@ void WebCoreAVFResourceLoader::startLoading()
 
     // FIXME: Skip Content Security Policy check if the element that inititated this request
     // is in a user-agent shadow tree. See <https://bugs.webkit.org/show_bug.cgi?id=173498>.
-    CachedResourceRequest request(WTFMove(resourceRequest), ResourceLoaderOptions(SendCallbacks, DoNotSniffContent, BufferData, StoredCredentialsPolicy::DoNotUse, ClientCredentialPolicy::CannotAskClientForCredentials, FetchOptions::Credentials::Omit, DoSecurityCheck, FetchOptions::Mode::NoCors, DoNotIncludeCertificateInfo, ContentSecurityPolicyImposition::DoPolicyCheck, DefersLoadingPolicy::AllowDefersLoading, CachingPolicy::DisallowCaching));
+    CachedResourceRequest request(WTFMove(resourceRequest), ResourceLoaderOptions(
+        SendCallbackPolicy::SendCallbacks,
+        ContentSniffingPolicy::DoNotSniffContent,
+        DataBufferingPolicy::BufferData,
+        StoredCredentialsPolicy::DoNotUse,
+        ClientCredentialPolicy::CannotAskClientForCredentials,
+        FetchOptions::Credentials::Omit,
+        SecurityCheckPolicy::DoSecurityCheck,
+        FetchOptions::Mode::NoCors,
+        CertificateInfoPolicy::DoNotIncludeCertificateInfo,
+        ContentSecurityPolicyImposition::DoPolicyCheck,
+        DefersLoadingPolicy::AllowDefersLoading,
+        CachingPolicy::DisallowCaching));
     if (auto* loader = m_parent->player()->cachedResourceLoader())
         m_resource = loader->requestMedia(WTFMove(request)).value_or(nullptr);
 
@@ -108,9 +120,10 @@ void WebCoreAVFResourceLoader::invalidate()
     });
 }
 
-void WebCoreAVFResourceLoader::responseReceived(CachedResource& resource, const ResourceResponse& response)
+void WebCoreAVFResourceLoader::responseReceived(CachedResource& resource, const ResourceResponse& response, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT_UNUSED(resource, &resource == m_resource);
+    CompletionHandlerCallingScope completionHandlerCaller(WTFMove(completionHandler));
 
     int status = response.httpStatusCode();
     if (status && (status < 200 || status > 299)) {

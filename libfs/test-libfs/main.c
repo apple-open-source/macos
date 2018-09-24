@@ -50,6 +50,27 @@ int main(int argc, const char * argv[]) {
 		}
 	}
 
+	// If passed a device path, test our encryption status functions.
+	if (argc > 1) {
+		res = test_fs_encryption_status(argv[1]);
+		if (res != 0) {
+			printf("[FAIL]: Test %d\n", NUM_TESTS);
+			return res;
+		}
+
+		res = test_di_encryption_status(argv[1]);
+		if (res != 0) {
+			printf("[FAIL]: Test %d\n", NUM_TESTS + 1);
+			return res;
+		}
+
+		res = test_encryption_status(argv[1]);
+		if (res != 0) {
+			printf("[FAIL]: Test %d\n", NUM_TESTS + 2);
+			return res;
+		}
+	}
+
 	printf("[SUCCESS]\n");
 	return 0;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -55,7 +55,7 @@ void cpuStart(CPUUsageInfo *);
 void cpuEnd(CPUUsageInfo *);
 NSString * createUsageStringForCPU(CPUUsageInfo *cpu);
 
-NSArray<NSString *> *getTestClasses();
+NSArray<NSString *> *getTestClasses(void);
 NSArray<NSString *> *getUnitTestListForClass(Class base);
 NSDictionary *getOptionsDictionary(int argc, const char **argv);
 

@@ -59,45 +59,18 @@ static inline uint32_t ccGetCipherBlockSize(CCCryptor *ref) {
     }
 }
 
-struct info_pack{
-    int i;
-    CCAlgorithm cipher;
-};
-
-static void init_globals(void *info){
-    int i = ((struct info_pack *)info)->i;
-    CCAlgorithm cipher = ((struct info_pack *)info)->cipher;
-    cc_globals_t globals = _cc_globals();
-    
-    globals->cipherModeTab[cipher][i].ecb = ccmodeList[cipher][i].ecb();
-    globals->cipherModeTab[cipher][i].cbc = ccmodeList[cipher][i].cbc();
-    globals->cipherModeTab[cipher][i].cfb = ccmodeList[cipher][i].cfb();
-    globals->cipherModeTab[cipher][i].cfb8 = ccmodeList[cipher][i].cfb8();
-    globals->cipherModeTab[cipher][i].ctr = ccmodeList[cipher][i].ctr();
-    globals->cipherModeTab[cipher][i].ofb = ccmodeList[cipher][i].ofb();
-    globals->cipherModeTab[cipher][i].xts = ccmodeList[cipher][i].xts();
-    globals->cipherModeTab[cipher][i].gcm = ccmodeList[cipher][i].gcm();
-    globals->cipherModeTab[cipher][i].ccm = ccmodeList[cipher][i].ccm();
-}
-
 const corecryptoMode getCipherMode(CCAlgorithm cipher, CCMode mode, CCOperation direction)
 {
-    cc_globals_t globals = _cc_globals();
-    for(int i = 0; i<2; i++) {
-        struct info_pack info = {i, cipher};
-        cc_dispatch_once(&(globals->cipherModeTab[cipher][i].init), &info, init_globals);
-    }
-
     switch(mode) {
-        case kCCModeECB: return (corecryptoMode) globals->cipherModeTab[cipher][direction].ecb;
-        case kCCModeCBC: return (corecryptoMode) globals->cipherModeTab[cipher][direction].cbc;
-        case kCCModeCFB: return (corecryptoMode) globals->cipherModeTab[cipher][direction].cfb;
-        case kCCModeCFB8: return (corecryptoMode) globals->cipherModeTab[cipher][direction].cfb8;
-        case kCCModeCTR: return (corecryptoMode) globals->cipherModeTab[cipher][direction].ctr;
-        case kCCModeOFB: return (corecryptoMode) globals->cipherModeTab[cipher][direction].ofb;
-        case kCCModeXTS: return (corecryptoMode) globals->cipherModeTab[cipher][direction].xts;
-        case kCCModeGCM: return (corecryptoMode) globals->cipherModeTab[cipher][direction].gcm;
-        case kCCModeCCM: return (corecryptoMode) globals->cipherModeTab[cipher][direction].ccm;
+        case kCCModeECB:  return (corecryptoMode) ccmodeList[cipher][direction].ecb();
+        case kCCModeCBC:  return (corecryptoMode) ccmodeList[cipher][direction].cbc();
+        case kCCModeCFB:  return (corecryptoMode) ccmodeList[cipher][direction].cfb();
+        case kCCModeCFB8: return (corecryptoMode) ccmodeList[cipher][direction].cfb8();
+        case kCCModeCTR:  return (corecryptoMode) ccmodeList[cipher][direction].ctr();
+        case kCCModeOFB:  return (corecryptoMode) ccmodeList[cipher][direction].ofb();
+        case kCCModeXTS:  return (corecryptoMode) ccmodeList[cipher][direction].xts();
+        case kCCModeGCM:  return (corecryptoMode) ccmodeList[cipher][direction].gcm();
+        case kCCModeCCM:  return (corecryptoMode) ccmodeList[cipher][direction].ccm();
     }
     return (corecryptoMode) (const struct ccmode_ecb*) NULL;
 }
@@ -189,12 +162,6 @@ static inline CCCryptorStatus ccSetupCryptor(CCCryptor *ref, CCAlgorithm cipher,
 }
 
 #define OP4INFO(X) (((X)->op == 3) ? 0: (X)->op)
-
-#if 0
-static inline size_t ccGetBlockSize(CCCryptor *ref) {
-    return ref->modeDesc->mode_get_block_size(ref->symMode[OP4INFO(ref)]);
-}
-#endif
 
 static inline bool ccIsStreaming(CCCryptor *ref) {
     return ref->modeDesc->mode_get_block_size(ref->symMode[ref->op]) == 1;

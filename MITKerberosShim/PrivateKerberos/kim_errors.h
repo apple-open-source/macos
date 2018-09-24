@@ -12,8 +12,6 @@
 extern "C" {
 #endif
 
-extern const struct error_table et_KIM_error_table;
-
 #define initialize_KIM_error_table()
 
 #define KIM_OUT_OF_MEMORY_ERR                    (11685120L)

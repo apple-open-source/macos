@@ -27,7 +27,6 @@
 #include "GraphicsContext.h"
 
 #include "COMPtr.h"
-#include "CurrentTime.h"
 #include "DisplayListRecorder.h"
 #include "FloatRoundedRect.h"
 #include "GraphicsContextPlatformPrivateDirect2D.h"
@@ -267,9 +266,9 @@ void GraphicsContext::drawNativeImage(const COMPtr<ID2D1Bitmap>& image, const Fl
         context->SetTransform(ctm);
 }
 
-void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
+void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend)
 {
-    bool createdBitmap = mayCreateBitmap && (!m_data->m_hdc || isInTransparencyLayer());
+    bool createdBitmap = m_impl || !m_data->m_hdc || isInTransparencyLayer();
     if (!createdBitmap) {
         m_data->restore();
         return;
@@ -1242,7 +1241,7 @@ void GraphicsContext::fillRectWithRoundedHole(const FloatRect& rect, const Float
     WindRule oldFillRule = fillRule();
     Color oldFillColor = fillColor();
 
-    setFillRule(RULE_EVENODD);
+    setFillRule(WindRule::EvenOdd);
     setFillColor(color);
 
     // fillRectWithRoundedHole() assumes that the edges of rect are clipped out, so we only care about shadows cast around inside the hole.
@@ -1313,7 +1312,7 @@ void GraphicsContext::clipOut(const Path& path)
     boundingRect.appendGeometry(path.platformPath());
 
     COMPtr<ID2D1GeometryGroup> pathToClip;
-    boundingRect.createGeometryWithFillMode(RULE_EVENODD, pathToClip);
+    boundingRect.createGeometryWithFillMode(WindRule::EvenOdd, pathToClip);
 
     m_data->clip(pathToClip.get());
 }

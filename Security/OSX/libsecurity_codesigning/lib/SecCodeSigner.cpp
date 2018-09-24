@@ -60,6 +60,7 @@ const CFStringRef kSecCodeSignerPreserveMetadata = CFSTR("preserve-metadata");
 const CFStringRef kSecCodeSignerTeamIdentifier =	CFSTR("teamidentifier");
 const CFStringRef kSecCodeSignerPlatformIdentifier = CFSTR("platform-identifier");
 const CFStringRef kSecCodeSignerRuntimeVersion = CFSTR("runtime-version");
+const CFStringRef kSecCodeSignerPreserveAFSC = CFSTR("preserve-afsc");
 
 
 

@@ -31,6 +31,7 @@
 #include "CSSAnimationController.h"
 #include "Editing.h"
 #include "FloatQuad.h"
+#include "Frame.h"
 #include "FrameSelection.h"
 #include "FrameView.h"
 #include "GeometryUtilities.h"
@@ -41,7 +42,6 @@
 #include "HTMLTableElement.h"
 #include "HitTestResult.h"
 #include "LogicalSelectionOffsetCaches.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PseudoElement.h"
 #include "RenderChildIterator.h"
@@ -62,6 +62,7 @@
 #include "RenderScrollbarPart.h"
 #include "RenderTableRow.h"
 #include "RenderTheme.h"
+#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "SVGRenderSupport.h"
@@ -254,12 +255,6 @@ void RenderObject::setParent(RenderElement* parent)
     m_parent = parent;
 }
 
-void RenderObject::removeFromParentAndDestroy()
-{
-    ASSERT(m_parent);
-    m_parent->removeAndDestroyChild(*this);
-}
-
 RenderObject* RenderObject::nextInPreOrder() const
 {
     if (RenderObject* o = firstChildSlow())
@@ -419,7 +414,7 @@ RenderLayer* RenderObject::enclosingLayer() const
     return nullptr;
 }
 
-bool RenderObject::scrollRectToVisible(SelectionRevealMode revealMode, const LayoutRect& absoluteRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY)
+bool RenderObject::scrollRectToVisible(SelectionRevealMode revealMode, const LayoutRect& absoluteRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY, ShouldAllowCrossOriginScrolling shouldAllowCrossOriginScrolling)
 {
     if (revealMode == SelectionRevealMode::DoNotReveal)
         return false;
@@ -428,7 +423,7 @@ bool RenderObject::scrollRectToVisible(SelectionRevealMode revealMode, const Lay
     if (!enclosingLayer)
         return false;
 
-    enclosingLayer->scrollRectToVisible(revealMode, absoluteRect, insideFixed, alignX, alignY);
+    enclosingLayer->scrollRectToVisible(revealMode, absoluteRect, insideFixed, alignX, alignY, shouldAllowCrossOriginScrolling);
     return true;
 }
 
@@ -830,7 +825,7 @@ void RenderObject::propagateRepaintToParentWithOutlineAutoIfNeeded(const RenderL
     for (const auto* renderer = this; renderer; renderer = renderer->parent()) {
         bool rendererHasOutlineAutoAncestor = renderer->hasOutlineAutoAncestor();
         ASSERT(rendererHasOutlineAutoAncestor
-            || renderer->outlineStyleForRepaint().outlineStyleIsAuto()
+            || renderer->outlineStyleForRepaint().outlineStyleIsAuto() == OutlineIsAuto::On
             || (is<RenderBoxModelObject>(*renderer) && downcast<RenderBoxModelObject>(*renderer).isContinuation()));
         if (renderer == &repaintContainer && rendererHasOutlineAutoAncestor)
             repaintRectNeedsConverting = true;
@@ -1401,11 +1396,11 @@ static inline RenderElement* containerForElement(const RenderObject& renderer, c
     // (2) For absolute positioned elements, it will return a relative positioned inline, while
     // containingBlock() skips to the non-anonymous containing block.
     // This does mean that computePositionedLogicalWidth and computePositionedLogicalHeight have to use container().
-    EPosition pos = renderer.style().position();
+    auto pos = renderer.style().position();
     auto* parent = renderer.parent();
-    if (is<RenderText>(renderer) || (pos != FixedPosition && pos != AbsolutePosition))
+    if (is<RenderText>(renderer) || (pos != PositionType::Fixed && pos != PositionType::Absolute))
         return parent;
-    for (; parent && (pos == AbsolutePosition ? !parent->canContainAbsolutelyPositionedObjects() : !parent->canContainFixedPositionObjects()); parent = parent->parent()) {
+    for (; parent && (pos == PositionType::Absolute ? !parent->canContainAbsolutelyPositionedObjects() : !parent->canContainFixedPositionObjects()); parent = parent->parent()) {
         if (repaintContainerSkipped && repaintContainer == parent)
             *repaintContainerSkipped = true;
     }
@@ -1454,12 +1449,8 @@ void RenderObject::willBeDestroyed()
 void RenderObject::insertedIntoTree()
 {
     // FIXME: We should ASSERT(isRooted()) here but generated content makes some out-of-order insertion.
-
     if (!isFloating() && parent()->childrenInline())
         parent()->dirtyLinesFromChangedChild(*this);
-
-    if (RenderFragmentedFlow* fragmentedFlow = enclosingFragmentedFlow())
-        fragmentedFlow->fragmentedFlowDescendantInserted(*this);
 }
 
 void RenderObject::willBeRemovedFromTree()
@@ -1469,65 +1460,12 @@ void RenderObject::willBeRemovedFromTree()
     parent()->setNeedsBoundariesUpdate();
 }
 
-static bool isAnonymousAndSafeToDelete(RenderElement& element)
-{
-    if (!element.isAnonymous())
-        return false;
-    if (element.isRenderView() || element.isRenderFragmentedFlow())
-        return false;
-    return true;
-}
-
-static RenderObject& findDestroyRootIncludingAnonymous(RenderObject& renderer)
-{
-    auto* destroyRoot = &renderer;
-    while (true) {
-        auto& destroyRootParent = *destroyRoot->parent();
-        if (!isAnonymousAndSafeToDelete(destroyRootParent))
-            break;
-        bool destroyingOnlyChild = destroyRootParent.firstChild() == destroyRoot && destroyRootParent.lastChild() == destroyRoot;
-        if (!destroyingOnlyChild)
-            break;
-        destroyRoot = &destroyRootParent;
-    }
-    return *destroyRoot;
-}
-
-void RenderObject::removeFromParentAndDestroyCleaningUpAnonymousWrappers()
-{
-    // If the tree is destroyed, there is no need for a clean-up phase.
-    if (renderTreeBeingDestroyed()) {
-        removeFromParentAndDestroy();
-        return;
-    }
-
-    // Remove intruding floats from sibling blocks before detaching.
-    if (is<RenderBox>(*this) && isFloatingOrOutOfFlowPositioned())
-        downcast<RenderBox>(*this).removeFloatingOrPositionedChildFromBlockLists();
-    auto& destroyRoot = findDestroyRootIncludingAnonymous(*this);
-    if (is<RenderTableRow>(destroyRoot))
-        downcast<RenderTableRow>(destroyRoot).collapseAndDestroyAnonymousSiblingRows();
-
-    auto& destroyRootParent = *destroyRoot.parent();
-    destroyRootParent.removeAndDestroyChild(destroyRoot);
-    destroyRootParent.removeAnonymousWrappersForInlinesIfNecessary();
-
-    // Anonymous parent might have become empty, try to delete it too.
-    if (isAnonymousAndSafeToDelete(destroyRootParent) && !destroyRootParent.firstChild())
-        destroyRootParent.removeFromParentAndDestroyCleaningUpAnonymousWrappers();
-
-    // WARNING: |this| is deleted here.
-}
-
 void RenderObject::destroy()
 {
     RELEASE_ASSERT(!m_parent);
     RELEASE_ASSERT(!m_next);
     RELEASE_ASSERT(!m_previous);
     RELEASE_ASSERT(!m_bitfields.beingDestroyed());
-
-    if (is<RenderElement>(*this))
-        downcast<RenderElement>(*this).destroyLeftoverChildren();
 
     m_bitfields.setBeingDestroyed(true);
 
@@ -1636,7 +1574,7 @@ int RenderObject::innerLineHeight() const
 void RenderObject::addAnnotatedRegions(Vector<AnnotatedRegionValue>& regions)
 {
     // Convert the style regions to absolute coordinates.
-    if (style().visibility() != VISIBLE || !is<RenderBox>(*this))
+    if (style().visibility() != Visibility::Visible || !is<RenderBox>(*this))
         return;
     
     auto& box = downcast<RenderBox>(*this);
@@ -1905,15 +1843,15 @@ RenderFragmentedFlow* RenderObject::locateEnclosingFragmentedFlow() const
     return containingBlock ? containingBlock->enclosingFragmentedFlow() : nullptr;
 }
 
-void RenderObject::calculateBorderStyleColor(const EBorderStyle& style, const BoxSide& side, Color& color)
+void RenderObject::calculateBorderStyleColor(const BorderStyle& style, const BoxSide& side, Color& color)
 {
-    ASSERT(style == INSET || style == OUTSET);
+    ASSERT(style == BorderStyle::Inset || style == BorderStyle::Outset);
     // This values were derived empirically.
     const RGBA32 baseDarkColor = 0xFF202020;
     const RGBA32 baseLightColor = 0xFFEBEBEB;
     enum Operation { Darken, Lighten };
 
-    Operation operation = (side == BSTop || side == BSLeft) == (style == INSET) ? Darken : Lighten;
+    Operation operation = (side == BSTop || side == BSLeft) == (style == BorderStyle::Inset) ? Darken : Lighten;
 
     // Here we will darken the border decoration color when needed. This will yield a similar behavior as in FF.
     if (operation == Darken) {

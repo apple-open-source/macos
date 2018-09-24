@@ -81,7 +81,7 @@ SECDB_ATTR(v6cdat, "cdat", CreationDate,   SecDbFlags( ,L, , ,A, , ,C,H, , , , ,
 SECDB_ATTR(v6mdat, "mdat",ModificationDate,SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), SecDbKeychainItemCopyCurrentDate, NULL);
 SECDB_ATTR(v6labl, "labl", Blob,           SecDbFlags( ,L, ,S,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6data, "data", EncryptedData,  SecDbFlags( ,L, , , , , , , ,B, , , , ,  , ), SecDbKeychainItemCopyEncryptedData, NULL);
-SECDB_ATTR(v6agrp, "agrp", String,         SecDbFlags(P,L, , ,A, , , ,H, , , ,N,U,V0,Y), NULL, NULL);
+SECDB_ATTR(v6agrp, "agrp", String,         SecDbFlags(P,L,I, ,A, , , ,H, , , ,N,U,V0,Y), NULL, NULL);
 SECDB_ATTR(v6pdmn, "pdmn", Access,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6sync, "sync", Sync,           SecDbFlags(P,L,I, ,A, , , ,H, ,Z, ,N,U,V0, ), NULL, NULL);
 SECDB_ATTR(v6tomb, "tomb", Tomb,           SecDbFlags( ,L, , , , , , ,H, ,Z, ,N,U,  ,Y), NULL, NULL);
@@ -89,8 +89,8 @@ SECDB_ATTR(v6sha1, "sha1", SHA1,           SecDbFlags( ,L,I, ,A, ,R, , , , , , ,
 SECDB_ATTR(v6accc, "accc", AccessControl,  SecDbFlags( , , , ,A, , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v6v_Data, "v_Data", Data,       SecDbFlags( , , , , ,D, ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6v_pk, "v_pk", PrimaryKey,     SecDbFlags( , , , , , , , , , , , , , ,  , ), SecDbKeychainItemCopyPrimaryKey, NULL);
-SECDB_ATTR(v7vwht, "vwht", String,         SecDbFlags(P,L, , ,A, , , ,H, , , , ,U,V2,Y), NULL, NULL);
-SECDB_ATTR(v7tkid, "tkid", String,         SecDbFlags(P,L, , ,A, , , ,H, , , , ,U,V2,Y), NULL, NULL);
+SECDB_ATTR(v7vwht, "vwht", String,         SecDbFlags(P,L,I, ,A, , , ,H, , , , ,U,V2,Y), NULL, NULL);
+SECDB_ATTR(v7tkid, "tkid", String,         SecDbFlags(P,L,I, ,A, , , ,H, , , , ,U,V2,Y), NULL, NULL);
 SECDB_ATTR(v7utomb, "u_Tomb", UTomb,       SecDbFlags( , , , , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v8musr, "musr", UUID,           SecDbFlags(P,L,I, , , , , , , , , ,N,U,  ,Y), NULL, NULL);
 // genp and inet and keys                             | | | | | | | | | | | | | | |  |
@@ -99,29 +99,29 @@ SECDB_ATTR(v6alis, "alis", Blob,           SecDbFlags( ,L, ,S,A, , ,C,H, , , , ,
 // genp and inet                                      | | | | | | | | | | | | | | |  |
 SECDB_ATTR(v6desc, "desc", Blob,           SecDbFlags( ,L, ,S,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6icmt, "icmt", Blob,           SecDbFlags( ,L, ,S,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
-SECDB_ATTR(v6type, "type", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
+SECDB_ATTR(v6type, "type", Number,         SecDbFlags( ,L,I, ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6invi, "invi", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6nega, "nega", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6cusi, "cusi", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6prot, "prot", Blob,           SecDbFlags( ,L, ,S,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6scrp, "scrp", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
-SECDB_ATTR(v6acct, "acct", Blob,           SecDbFlags(P,L, ,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6acct, "acct", Blob,           SecDbFlags(P,L,I,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
 // genp only                                          | | | | | | | | | | | | | | |  |
-SECDB_ATTR(v6svce, "svce", Blob,           SecDbFlags(P,L, ,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6svce, "svce", Blob,           SecDbFlags(P,L,I,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
 SECDB_ATTR(v6gena, "gena", Blob,           SecDbFlags( ,L, ,S,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 // inet only                                          | | | | | | | | | | | | | | |  |
-SECDB_ATTR(v6sdmn, "sdmn", Blob,           SecDbFlags(P,L, ,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6srvr, "srvr", Blob,           SecDbFlags(P,L, ,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6ptcl, "ptcl", Number,         SecDbFlags(P,L, , ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6atyp, "atyp", Blob,           SecDbFlags(P,L, ,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6port, "port", Number,         SecDbFlags(P,L, , ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6path, "path", Blob,           SecDbFlags(P,L, ,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6sdmn, "sdmn", Blob,           SecDbFlags(P,L,I,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6srvr, "srvr", Blob,           SecDbFlags(P,L,I,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6ptcl, "ptcl", Number,         SecDbFlags(P,L,I, ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6atyp, "atyp", Blob,           SecDbFlags(P,L,I,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6port, "port", Number,         SecDbFlags(P,L,I, ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6path, "path", Blob,           SecDbFlags(P,L,I,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
 // cert only                                          | | | | | | | | | | | | | |  | |
-SECDB_ATTR(v6ctyp, "ctyp", Number,         SecDbFlags(P,L, , ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6ctyp, "ctyp", Number,         SecDbFlags(P,L,I, ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
 SECDB_ATTR(v6cenc, "cenc", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6subj, "subj", Data,           SecDbFlags( ,L,I,S,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
-SECDB_ATTR(v6issr, "issr", Data,           SecDbFlags(P,L, ,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6slnr, "slnr", Data,           SecDbFlags(P,L, ,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6issr, "issr", Data,           SecDbFlags(P,L,I,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6slnr, "slnr", Data,           SecDbFlags(P,L,I,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
 SECDB_ATTR(v6skid, "skid", Data,           SecDbFlags( ,L,I,S,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6pkhh, "pkhh", Data,           SecDbFlags( ,L,I, ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 // cert attributes that share names with common ones but have different flags
@@ -132,11 +132,11 @@ SECDB_ATTR(v6perm, "perm", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , ,
 SECDB_ATTR(v6priv, "priv", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6modi, "modi", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6klbl, "klbl", Data,           SecDbFlags(P,L,I, ,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6atag, "atag", Blob,           SecDbFlags(P,L, ,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6bsiz, "bsiz", Number,         SecDbFlags(P,L, , ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6esiz, "esiz", Number,         SecDbFlags(P,L, , ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6sdat, "sdat", Date,           SecDbFlags(P,L, , ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6edat, "edat", Date,           SecDbFlags(P,L, , ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6atag, "atag", Blob,           SecDbFlags(P,L,I,S,A, , ,C,H, , ,E,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6bsiz, "bsiz", Number,         SecDbFlags(P,L,I, ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6esiz, "esiz", Number,         SecDbFlags(P,L,I, ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6sdat, "sdat", Date,           SecDbFlags(P,L,I, ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6edat, "edat", Date,           SecDbFlags(P,L,I, ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
 SECDB_ATTR(v6sens, "sens", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6asen, "asen", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6extr, "extr", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
@@ -151,32 +151,32 @@ SECDB_ATTR(v6vyrc, "vyrc", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , ,
 SECDB_ATTR(v6wrap, "wrap", Number,         SecDbFlags( ,L,I, ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6unwp, "unwp", Number,         SecDbFlags( ,L,I, ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 // keys attributes that share names with common ones but have different flags
-SECDB_ATTR(v6keytype, "type", Number,      SecDbFlags(P,L, , ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
-SECDB_ATTR(v6keycrtr, "crtr", Number,      SecDbFlags(P,L, , ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6keytype, "type", Number,      SecDbFlags(P,L,I, ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
+SECDB_ATTR(v6keycrtr, "crtr", Number,      SecDbFlags(P,L,I, ,A, , ,C,H, ,Z, ,N, ,V0,Y), NULL, NULL);
 //                                                    | | | | | | | | | | | | | | |
-SECDB_ATTR(v6version, "version", Number,   SecDbFlags(P,L, , , , , , , , , , ,N, ,  ,Y), NULL, NULL);
+SECDB_ATTR(v6version, "version", Number,   SecDbFlags(P,L,I, , , , , , , , , ,N, ,  ,Y), NULL, NULL);
 SECDB_ATTR(v91minor, "minor", Number,      SecDbFlags( ,L, , , , , , , , ,Z, ,N, ,  ,Y), NULL, NULL);
 
 SECDB_ATTR(v10_1pcsservice,       "pcss",     Number,  SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v10_1pcspublickey,     "pcsk",     Blob,    SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v10_1pcspublicidentity,"pcsi",     Blob,    SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 
-SECDB_ATTR(v10itemuuid,      "UUID",          String,  SecDbFlags( ,L, , , , , , , , , , , ,U,  , ), NULL, NULL);
-SECDB_ATTR(v10syncuuid,      "UUID",          String,  SecDbFlags(P,L, , , , , , , , , , , ,U,  , ), NULL, NULL);
-SECDB_ATTR(v10parentKeyUUID, "parentKeyUUID", String,  SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
+SECDB_ATTR(v10itemuuid,      "UUID",          String,  SecDbFlags( ,L,I, , , , , , , , , , ,U,  , ), NULL, NULL);
+SECDB_ATTR(v10syncuuid,      "UUID",          String,  SecDbFlags(P,L,I, , , , , , , , , , ,U,  , ), NULL, NULL);
+SECDB_ATTR(v10parentKeyUUID, "parentKeyUUID", String,  SecDbFlags( ,L,I, , , , , , , , , ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v10currentKeyUUID,"currentKeyUUID",String,  SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v10wrappedkey,    "wrappedkey",    Blob,    SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v10encrypteditem, "encitem",       Blob,    SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v10gencount,      "gencount",      Number,  SecDbFlags( ,L, , , , , , , , ,Z, ,N, ,  , ), NULL, NULL);
-SECDB_ATTR(v10action,        "action",        String,  SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
-SECDB_ATTR(v10state,         "state",         String,  SecDbFlags(P,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
+SECDB_ATTR(v10action,        "action",        String,  SecDbFlags( ,L,I, , , , , , , , , ,N, ,  , ), NULL, NULL);
+SECDB_ATTR(v10state,         "state",         String,  SecDbFlags(P,L,I, , , , , , , , , ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v10waituntiltime, "waituntil",     String,  SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v10encodedCKRecord, "ckrecord",    Blob,    SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v10_1wasCurrent,  "wascurrent",    Number,  SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
-SECDB_ATTR(v10accessgroup,   "accessgroup",   String,  SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
-SECDB_ATTR(v10keyclass,      "keyclass",      String,  SecDbFlags(P,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
+SECDB_ATTR(v10accessgroup,   "accessgroup",   String,  SecDbFlags( ,L,I, , , , , , , , , ,N, ,  , ), NULL, NULL);
+SECDB_ATTR(v10keyclass,      "keyclass",      String,  SecDbFlags(P,L,I, , , , , , , , , ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v10currentkey,    "currentkey",    Number,  SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
-SECDB_ATTR(v10ckzone,        "ckzone",        String,  SecDbFlags(P,L, , , , , , , , , , ,N,U,  , ), NULL, NULL);
+SECDB_ATTR(v10ckzone,        "ckzone",        String,  SecDbFlags(P,L,I, , , , , , , , , ,N,U,  , ), NULL, NULL);
 SECDB_ATTR(v10ckzonecreated, "ckzonecreated", Number,  SecDbFlags( ,L, , , , , , , , ,Z, , ,N,  , ), NULL, NULL);
 SECDB_ATTR(v10ckzonesubscribed,"ckzonesubscribed", Number,  SecDbFlags( ,L, , , , , , , , ,Z, ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v10ratelimiter,   "ratelimiter",   Blob,    SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
@@ -186,8 +186,8 @@ SECDB_ATTR(v10itempersistentref,"persistref", UUID,    SecDbFlags( ,L, , , , , ,
 SECDB_ATTR(v10sysbound,      "sysb",          Number,  SecDbFlags( ,L, , ,A, , ,C,H, ,Z, , , ,  , ), NULL, NULL);
 SECDB_ATTR(v10encryptionver, "encver",        Number,  SecDbFlags( ,L, , , , , , , , ,Z, ,N,U,  , ), NULL, NULL);
 
-SECDB_ATTR(v10primaryKey,    "primaryKey",    String,  SecDbFlags(P,L, , ,A, , , , , , , ,N,U,  , ), NULL, NULL);
-SECDB_ATTR(v10publickeyHash, "publickeyHash", Blob,    SecDbFlags(P,L, , , , , , , , , , ,N,U,  , ), NULL, NULL);
+SECDB_ATTR(v10primaryKey,    "primaryKey",    String,  SecDbFlags(P,L,I, ,A, , , , , , , ,N,U,  , ), NULL, NULL);
+SECDB_ATTR(v10publickeyHash, "publickeyHash", Blob,    SecDbFlags(P,L,I, , , , , , , , , ,N,U,  , ), NULL, NULL);
 SECDB_ATTR(v10publickey,     "publickey",     Blob,    SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v10backupData,    "backupData",    Blob,    SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
 
@@ -202,8 +202,8 @@ SECDB_ATTR(v10_2futureData,  "futureData",    Blob,    SecDbFlags( ,L, , , , , ,
 SECDB_ATTR(v10_2schema,      "schema",        Blob,    SecDbFlags( ,L, , , , , , , , , , ,N,U,  , ), NULL, NULL);
 SECDB_ATTR(v10_1encRecord,   "ckrecord",      Blob,    SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 
-SECDB_ATTR(v10_1keyArchiveHash,  "key_archive_hash", String, SecDbFlags(P,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
-SECDB_ATTR(v10_1keyArchive,      "key_archive",      String, SecDbFlags(P,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
+SECDB_ATTR(v10_1keyArchiveHash,  "key_archive_hash", String, SecDbFlags(P,L,I, , , , , , , , , ,N, ,  , ), NULL, NULL);
+SECDB_ATTR(v10_1keyArchive,      "key_archive",      String, SecDbFlags(P,L,I, , , , , , , , , ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v10_1archivedKey,     "archived_key",     String, SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v10_1keyArchiveName, "keyarchive_name",  String, SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v10_1optionalEncodedCKRecord, "ckrecord", String, SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
@@ -211,11 +211,11 @@ SECDB_ATTR(v10_1archiveEscrowID,"archive_escrowid", String, SecDbFlags( ,L, , , 
 
 SECDB_ATTR(v10_1itempersistentref,"persistref", UUID,  SecDbFlags( ,L,I, , , , , , , , , ,N,U,  , ), NULL, NULL);
 
-SECDB_ATTR(v10_1currentItemUUID,"currentItemUUID",String,  SecDbFlags(P,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+SECDB_ATTR(v10_1currentItemUUID,"currentItemUUID",String,  SecDbFlags(P,L,I, , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v10_4currentItemUUID,"currentItemUUID",String,  SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
-SECDB_ATTR(v10_1currentPtrIdentifier,"identifier",String,  SecDbFlags(P,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+SECDB_ATTR(v10_1currentPtrIdentifier,"identifier",String,  SecDbFlags(P,L,I, , , , , , , , , , , ,  , ), NULL, NULL);
 
-SECDB_ATTR(v10_2device,      "device",        String,      SecDbFlags(P,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+SECDB_ATTR(v10_2device,      "device",        String,      SecDbFlags(P,L,I, , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v10_2peerid,      "peerid",        String,      SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v10_2circleStatus,"circlestatus",  String,      SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v10_2keyState,    "keystate",      String,      SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
@@ -225,8 +225,8 @@ SECDB_ATTR(v10_2currentClassC,"currentClassC",String,      SecDbFlags( ,L, , , ,
 
 SECDB_ATTR(v10_4lastFixup,    "lastfixup",    Number,      SecDbFlags( ,L, , , , , , , , ,Z, , ,N,  , ), NULL, NULL);
 
-SECDB_ATTR(v10_5senderPeerID,"senderpeerid",  String,     SecDbFlags(P,L, , , , , , , , , , , , ,  , ), NULL, NULL);
-SECDB_ATTR(v10_5recvPeerID,  "recvpeerid",    String,     SecDbFlags(P,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+SECDB_ATTR(v10_5senderPeerID,"senderpeerid",  String,     SecDbFlags(P,L,I, , , , , , , , , , , ,  , ), NULL, NULL);
+SECDB_ATTR(v10_5recvPeerID,  "recvpeerid",    String,     SecDbFlags(P,L,I, , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v10_5recvPubKey,  "recvpubenckey", Blob,       SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v10_5curve,       "curve",         Number,     SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v10_5poisoned,    "poisoned",      Number,     SecDbFlags( ,L, , , , , , , , ,Z, ,N, ,  , ), NULL, NULL);
@@ -937,6 +937,76 @@ const SecDbClass v_identity_class = {
     .attrs = {
         0
     },
+};
+
+/*
+ * Version 11.4 (Add some more indexes)
+ */
+const SecDbSchema v11_4_schema = {
+    .majorVersion = 11,
+    .minorVersion = 4,
+    .classes = {
+        &v10_1_genp_class,
+        &v10_1_inet_class,
+        &v10_1_cert_class,
+        &v10_1_keys_class,
+        &v10_0_tversion_class,
+        &v10_2_outgoing_queue_class,
+        &v10_2_incoming_queue_class,
+        &v10_0_sync_key_class,
+        &v10_1_ckmirror_class,
+        &v10_0_current_key_class,
+        &v10_4_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v10_4_current_item_class,
+        &v11_1_ckdevicestate_class,
+        &v10_5_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
+
+/*
+ * Version 11.3 (no changes, restores the use of indexes in upgrade code. Gotta go fast!)
+ */
+const SecDbSchema v11_3_schema = {
+    .majorVersion = 11,
+    .minorVersion = 3,
+    .classes = {
+        &v10_1_genp_class,
+        &v10_1_inet_class,
+        &v10_1_cert_class,
+        &v10_1_keys_class,
+        &v10_0_tversion_class,
+        &v10_2_outgoing_queue_class,
+        &v10_2_incoming_queue_class,
+        &v10_0_sync_key_class,
+        &v10_1_ckmirror_class,
+        &v10_0_current_key_class,
+        &v10_4_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v10_4_current_item_class,
+        &v11_1_ckdevicestate_class,
+        &v10_5_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
 };
 
 /*
@@ -2448,6 +2518,8 @@ static const SecDbSchema v5_schema = {
 SecDbSchema const * const * kc_schemas = NULL;
 
 const SecDbSchema *v10_kc_schemas[] = {
+    &v11_4_schema,
+    &v11_3_schema,
     &v11_2_schema,
     &v11_1_schema,
     &v11_schema,

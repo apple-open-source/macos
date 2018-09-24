@@ -659,6 +659,7 @@ archive_read_format_cpio_cleanup(struct archive_read *a)
                 cpio->links_head = lp;
         }
 	archive_string_free(&cpio->entry_name);
+    archive_string_free(&cpio->entry_linkname);   
 	free(cpio);
 	(a->format->data) = NULL;
 	return (ARCHIVE_OK);

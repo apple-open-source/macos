@@ -27,8 +27,6 @@
 #ifndef	_STRTAB_H
 #define	_STRTAB_H
 
-#pragma ident	"@(#)strtab.h	1.2	05/06/08 SMI"
-
 #include <sys/types.h>
 
 #ifdef	__cplusplus

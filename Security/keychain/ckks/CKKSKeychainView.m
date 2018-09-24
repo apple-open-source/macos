@@ -64,6 +64,7 @@
 #import "keychain/ckks/CKKSTLKShare.h"
 #import "keychain/ckks/CKKSHealTLKSharesOperation.h"
 #import "keychain/ckks/CKKSLocalSynchronizeOperation.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecDb.h>
@@ -83,6 +84,7 @@
 @property bool keyStateFetchRequested;
 @property bool keyStateFullRefetchRequested;
 @property bool keyStateProcessRequested;
+@property bool trustedPeersSetChanged;
 
 @property bool keyStateCloudKitDeleteRequested;
 @property NSHashTable<CKKSResultOperation*>* cloudkitDeleteZoneOperations;
@@ -100,6 +102,7 @@
 @property CKKSNearFutureScheduler* outgoingQueueOperationScheduler;
 
 @property CKKSResultOperation* processIncomingQueueAfterNextUnlockOperation;
+@property CKKSResultOperation* resultsOfNextIncomingQueueOperationOperation;
 
 @property NSMutableDictionary<NSString*, SecBoolNSErrorCallback>* pendingSyncCallbacks;
 
@@ -124,6 +127,7 @@
                        accountTracker:(CKKSCKAccountStateTracker*) accountTracker
                      lockStateTracker:(CKKSLockStateTracker*) lockStateTracker
                   reachabilityTracker:(CKKSReachabilityTracker *)reachabilityTracker
+                        changeFetcher:(CKKSZoneChangeFetcher*)fetcher
                      savedTLKNotifier:(CKKSNearFutureScheduler*) savedTLKNotifier
                          peerProvider:(id<CKKSPeerProvider>)peerProvider
  fetchRecordZoneChangesOperationClass: (Class<CKKSFetchRecordZoneChangesOperation>) fetchRecordZoneChangesOperationClass
@@ -155,7 +159,9 @@
         _outgoingQueueOperations = [NSHashTable weakObjectsHashTable];
         _cloudkitDeleteZoneOperations = [NSHashTable weakObjectsHashTable];
         _localResetOperations = [NSHashTable weakObjectsHashTable];
-        _zoneChangeFetcher = [[CKKSZoneChangeFetcher alloc] initWithCKKSKeychainView: self];
+
+        _zoneChangeFetcher = fetcher;
+        [fetcher registerClient:self];
 
         _notifierClass = notifierClass;
         _notifyViewChangedScheduler = [[CKKSNearFutureScheduler alloc] initWithName:[NSString stringWithFormat: @"%@-notify-scheduler", self.zoneName]
@@ -565,15 +571,23 @@
 
     // If we're currently signed in, the reset operation will be handled by the CKKS key state machine, and a reset should end up in 'ready'
     if(accountStatus == CKKSAccountStatusAvailable) {
-        __block CKKSResultOperation* resetOperation = nil;
-        [self dispatchSyncWithAccountKeys:^bool {
-            self.keyStateLocalResetRequested = true;
-            resetOperation = [self createPendingResetLocalDataOperation];
-            [self _onqueueAdvanceKeyStateMachineToState:nil withError:nil];
-            return true;
-        }];
-
         __weak __typeof(self) weakSelf = self;
+        CKKSGroupOperation* resetOperationGroup = [CKKSGroupOperation named:@"local-reset" withBlockTakingSelf:^(CKKSGroupOperation *strongOp) {
+            __strong __typeof(self) strongSelf = weakSelf;
+
+            __block CKKSResultOperation* resetOperation = nil;
+
+            [strongSelf dispatchSyncWithAccountKeys:^bool {
+                strongSelf.keyStateLocalResetRequested = true;
+                resetOperation = [strongSelf createPendingResetLocalDataOperation];
+                [strongSelf _onqueueAdvanceKeyStateMachineToState:nil withError:nil];
+                return true;
+            }];
+
+            [strongOp dependOnBeforeGroupFinished:resetOperation];
+        }];
+        [self scheduleOperationWithoutDependencies:resetOperationGroup];
+
         CKKSGroupOperation* viewReset = [CKKSGroupOperation named:@"local-data-reset" withBlockTakingSelf:^(CKKSGroupOperation *strongOp) {
             __strong __typeof(weakSelf) strongSelf = weakSelf;
             // Now that the local reset finished, wait for the key hierarchy state machine to churn
@@ -584,7 +598,7 @@
 
             [strongOp runBeforeGroupFinished:waitOp];
         }];
-        [viewReset addSuccessDependency:resetOperation];
+        [viewReset addSuccessDependency:resetOperationGroup];
 
         [self scheduleOperationWithoutDependencies:viewReset];
         return viewReset;
@@ -923,9 +937,7 @@
         if(self.keyStateProcessRequested || [remoteKeys count] > 0) {
             // We've either received some remote keys from the last fetch, or someone has requested a reprocess.
             ckksnotice("ckkskey", self, "Kicking off a key reprocess based on request:%d and remote key count %lu", self.keyStateProcessRequested, (unsigned long)[remoteKeys count]);
-            [self _onqueueKeyHierarchyProcess];
-            // Stay in state 'ready': this reprocess might not change anything. If it does, cleanup code elsewhere will
-            // reencode items that arrive during this ready
+            nextState = SecCKKSZoneKeyStateProcess;
 
         } else if(self.keyStateFullRefetchRequested) {
             // In ready, but someone has requested a full fetch. Kick it off.
@@ -1040,9 +1052,16 @@
         // We're in a hold state: waiting for the TLK bytes to arrive.
 
         if(self.keyStateProcessRequested) {
-            // Someone has requsted a reprocess! Run a ProcessReceivedKeysOperation.
-            ckksnotice("ckkskey", self, "Received a nudge that our TLK might be here! Starting operation to check.");
-            [self _onqueueKeyHierarchyProcess];
+            // Someone has requsted a reprocess! Go to the correct state.
+            ckksnotice("ckkskey", self, "Received a nudge that our TLK might be here! Reprocessing.");
+            nextState = SecCKKSZoneKeyStateProcess;
+
+        } else if(self.trustedPeersSetChanged) {
+            // Hmm, maybe this trust set change will cause us to recover this TLK (due to a previously-untrusted share becoming trusted). Worth a shot!
+            ckksnotice("ckkskey", self, "Received a nudge that the trusted peers set might have changed! Reprocessing.");
+            nextState = SecCKKSZoneKeyStateProcess;
+            self.trustedPeersSetChanged = false;
+
         } else {
             // Should we nuke this zone?
             if([self _onqueueOtherDevicesReportHavingTLKs:keyset]) {
@@ -1084,6 +1103,13 @@
         ckksnotice("ckksshare", self, "Key hierarchy is okay, but not shared appropriately. Launching fix.");
         self.keyStateMachineOperation = [[CKKSHealTLKSharesOperation alloc] initWithCKKSKeychainView:self
                                                                                     ckoperationGroup:self.keyHierarchyOperationGroup];
+
+    } else if([state isEqualToString:SecCKKSZoneKeyStateProcess]) {
+        ckksnotice("ckksshare", self, "Launching key state process");
+        self.keyStateMachineOperation = [[CKKSProcessReceivedKeysOperation alloc] initWithCKKSKeychainView: self];
+
+        // Since we're starting a reprocess, this is answering all previous requests.
+        self.keyStateProcessRequested = false;
 
     } else {
         ckkserror("ckks", self, "asked to advance state machine to unknown state: %@", state);
@@ -1435,7 +1461,7 @@
 
     // Check keyset
     if(!set.tlk || !set.classA || !set.classC) {
-        ckkserror("ckkskey", self, "Error examining existing key hierarchy: %@", set);
+        ckkserror("ckkskey", self, "Error examining existing key hierarchy (missing at least one key): %@", set);
         if(error) {
             *error = set.error;
         }
@@ -1586,22 +1612,12 @@
     }];
     self.keyStateMachineOperation.name = @"waiting-for-refetch";
 
-    NSOperation* fetchOp = [self.zoneChangeFetcher requestSuccessfulResyncFetch: CKKSFetchBecauseKeyHierarchy];
+    NSOperation* fetchOp = [self.zoneChangeFetcher requestSuccessfulFetchForManyReasons:[NSSet setWithObjects:CKKSFetchBecauseKeyHierarchy, CKKSFetchBecauseResync, nil]];
     [self.keyStateMachineOperation addDependency: fetchOp];
 
     self.keyStateMachineRefetched = true;
     self.keyStateFullRefetchRequested = false;
     self.keyStateFetchRequested = false;
-}
-
-
-- (void)_onqueueKeyHierarchyProcess {
-    dispatch_assert_queue(self.queue);
-
-    self.keyStateMachineOperation = [[CKKSProcessReceivedKeysOperation alloc] initWithCKKSKeychainView: self];
-
-    // Since we're starting a reprocess, this is answering all previous requests.
-    self.keyStateProcessRequested = false;
 }
 
 - (void) handleKeychainEventDbConnection: (SecDbConnectionRef) dbconn
@@ -2034,6 +2050,16 @@
     }
 }
 
+- (CKKSResultOperation*)resultsOfNextProcessIncomingQueueOperation {
+    if(self.resultsOfNextIncomingQueueOperationOperation && [self.resultsOfNextIncomingQueueOperationOperation isPending]) {
+        return self.resultsOfNextIncomingQueueOperationOperation;
+    }
+
+    // Else, make a new one.
+    self.resultsOfNextIncomingQueueOperationOperation = [CKKSResultOperation named:[NSString stringWithFormat:@"wait-for-next-incoming-queue-operation-%@", self.zoneName] withBlock:^{}];
+    return self.resultsOfNextIncomingQueueOperationOperation;
+}
+
 - (CKKSIncomingQueueOperation*)processIncomingQueue:(bool)failOnClassA {
     return [self processIncomingQueue:failOnClassA after: nil];
 }
@@ -2045,6 +2071,7 @@
         if(after) {
             [incomingop addNullableDependency: after];
         }
+
         // check (again) for race condition; if the op has started we need to add another (for the dependency)
         if([incomingop isPending]) {
             incomingop.errorOnClassAFailure |= failOnClassA;
@@ -2052,10 +2079,15 @@
         }
     }
 
-    CKKSIncomingQueueOperation* op  = [[CKKSIncomingQueueOperation alloc] initWithCKKSKeychainView:self errorOnClassAFailure:failOnClassA];
+    CKKSIncomingQueueOperation* op = [[CKKSIncomingQueueOperation alloc] initWithCKKSKeychainView:self errorOnClassAFailure:failOnClassA];
     op.name = @"incoming-queue-operation";
     if(after != nil) {
         [op addSuccessDependency: after];
+    }
+
+    if(self.resultsOfNextIncomingQueueOperationOperation) {
+        [self.resultsOfNextIncomingQueueOperationOperation addSuccessDependency:op];
+        [self scheduleOperation:self.resultsOfNextIncomingQueueOperationOperation];
     }
 
     [self scheduleOperation: op];
@@ -2200,7 +2232,7 @@
                                                                       osVersion:SecCKKSHostOSVersion()
                                                                  lastUnlockTime:lastUnlockDay
                                                                    circlePeerID:accountTracker.accountCirclePeerID
-                                                                   circleStatus:accountTracker.currentCircleStatus
+                                                                   circleStatus:accountTracker.currentCircleStatus.status
                                                                        keyState:self.keyHierarchyState
                                                                  currentTLKUUID:suggestedTLK.uuid
                                                               currentClassAUUID:suggestedClassAKey.uuid
@@ -2238,6 +2270,16 @@
 
     // We fetched some changes; try to process them!
     return [self processIncomingQueue:false after:[self.zoneChangeFetcher requestSuccessfulFetch:because]];
+}
+
+- (CKKSResultOperation*)fetchAndProcessCKChangesDueToAPNS:(CKRecordZoneNotification*)notification {
+    if(!SecCKKSIsEnabled()) {
+        ckksinfo("ckks", self, "Skipping fetchAndProcessCKChanges due to disabled CKKS");
+        return nil;
+    }
+
+    // We fetched some changes; try to process them!
+    return [self processIncomingQueue:false after:[self.zoneChangeFetcher requestSuccessfulFetchDueToAPNS:notification]];
 }
 
 // Lets the view know about a failed CloudKit write. If the error is "already have one of these records", it will
@@ -2394,35 +2436,37 @@
 - (bool)_onqueueCKRecordChanged:(CKRecord*)record resync:(bool)resync {
     dispatch_assert_queue(self.queue);
 
-    ckksinfo("ckksfetch", self, "Processing record modification(%@): %@", record.recordType, record);
+    @autoreleasepool {
+        ckksnotice("ckksfetch", self, "Processing record modification(%@): %@", record.recordType, record);
 
-    if([[record recordType] isEqual: SecCKRecordItemType]) {
-        [self _onqueueCKRecordItemChanged:record resync:resync];
-        return true;
-    } else if([[record recordType] isEqual: SecCKRecordCurrentItemType]) {
-        [self _onqueueCKRecordCurrentItemPointerChanged:record resync:resync];
-        return true;
-    } else if([[record recordType] isEqual: SecCKRecordIntermediateKeyType]) {
-        [self _onqueueCKRecordKeyChanged:record resync:resync];
-        return true;
-    } else if ([[record recordType] isEqual: SecCKRecordTLKShareType]) {
-        [self _onqueueCKRecordTLKShareChanged:record resync:resync];
-        return true;
-    } else if([[record recordType] isEqualToString: SecCKRecordCurrentKeyType]) {
-        [self _onqueueCKRecordCurrentKeyPointerChanged:record resync:resync];
-        return true;
-    } else if ([[record recordType] isEqualToString:SecCKRecordManifestType]) {
-        [self _onqueueCKRecordManifestChanged:record resync:resync];
-        return true;
-    } else if ([[record recordType] isEqualToString:SecCKRecordManifestLeafType]) {
-        [self _onqueueCKRecordManifestLeafChanged:record resync:resync];
-        return true;
-    } else if ([[record recordType] isEqualToString:SecCKRecordDeviceStateType]) {
-        [self _onqueueCKRecordDeviceStateChanged:record resync:resync];
-        return true;
-    } else {
-        ckkserror("ckksfetch", self, "unknown record type: %@ %@", [record recordType], record);
-        return false;
+        if([[record recordType] isEqual: SecCKRecordItemType]) {
+            [self _onqueueCKRecordItemChanged:record resync:resync];
+            return true;
+        } else if([[record recordType] isEqual: SecCKRecordCurrentItemType]) {
+            [self _onqueueCKRecordCurrentItemPointerChanged:record resync:resync];
+            return true;
+        } else if([[record recordType] isEqual: SecCKRecordIntermediateKeyType]) {
+            [self _onqueueCKRecordKeyChanged:record resync:resync];
+            return true;
+        } else if ([[record recordType] isEqual: SecCKRecordTLKShareType]) {
+            [self _onqueueCKRecordTLKShareChanged:record resync:resync];
+            return true;
+        } else if([[record recordType] isEqualToString: SecCKRecordCurrentKeyType]) {
+            [self _onqueueCKRecordCurrentKeyPointerChanged:record resync:resync];
+            return true;
+        } else if ([[record recordType] isEqualToString:SecCKRecordManifestType]) {
+            [self _onqueueCKRecordManifestChanged:record resync:resync];
+            return true;
+        } else if ([[record recordType] isEqualToString:SecCKRecordManifestLeafType]) {
+            [self _onqueueCKRecordManifestLeafChanged:record resync:resync];
+            return true;
+        } else if ([[record recordType] isEqualToString:SecCKRecordDeviceStateType]) {
+            [self _onqueueCKRecordDeviceStateChanged:record resync:resync];
+            return true;
+        } else {
+            ckkserror("ckksfetch", self, "unknown record type: %@ %@", [record recordType], record);
+            return false;
+        }
     }
 }
 
@@ -3039,7 +3083,7 @@
 - (void)notifyZoneChange: (CKRecordZoneNotification*) notification {
     ckksnotice("ckks", self, "received a zone change notification for %@ %@", self, notification);
 
-    [self fetchAndProcessCKChanges:CKKSFetchBecauseAPNS];
+    [self fetchAndProcessCKChangesDueToAPNS:notification];
 }
 
 - (void)superHandleCKLogin {
@@ -3124,26 +3168,135 @@
     });
 }
 
-#pragma mark - CKKSChangeFetcherErrorOracle
+#pragma mark - CKKSChangeFetcherClient
 
-- (bool) isFatalCKFetchError: (NSError*) error {
+- (CKKSCloudKitFetchRequest*)participateInFetch
+{
+    __block CKKSCloudKitFetchRequest* request = [[CKKSCloudKitFetchRequest alloc] init];
+    [self dispatchSync: ^bool {
+        if(self.accountStatus != CKKSAccountStatusAvailable) {
+            ckksnotice("ckksfetch", self, "Not participating in fetch: not logged in");
+            request.participateInFetch = false;
+            return false;
+        }
+
+        if(!self.zoneCreated) {
+            ckksnotice("ckksfetch", self, "Not participating in fetch: zone not created yet");
+            request.participateInFetch = false;
+            return false;
+        }
+
+        request.participateInFetch = true;
+
+        if([self.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateNeedFullRefetch]) {
+            // We want to return a nil change tag (to force a resync)
+            ckksnotice("ckksfetch", self, "Beginning refetch");
+            request.changeToken = nil;
+        } else {
+            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.zoneName];
+            if(!ckse) {
+                ckkserror("ckksfetch", self, "couldn't fetch zone change token for %@", self.zoneName);
+                return false;
+            }
+            request.changeToken = ckse.changeToken;
+        }
+        return true;
+    }];
+
+    return request;
+}
+
+- (void)changesFetched:(NSArray<CKRecord*>*)changedRecords
+      deletedRecordIDs:(NSArray<CKKSCloudKitDeletion*>*)deletedRecords
+        oldChangeToken:(CKServerChangeToken*)oldChangeToken
+        newChangeToken:(CKServerChangeToken*)newChangeToken
+{
+    [self dispatchSyncWithAccountKeys:^bool{
+        // This is a resync if we already have a change token, but this fetch didn't have one
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state: self.zoneName];
+        bool resync = ckse.changeToken && (oldChangeToken == nil);
+
+        for (CKRecord* record in changedRecords) {
+            [self _onqueueCKRecordChanged:record resync:resync];
+        }
+
+        for (CKKSCloudKitDeletion* deletion in deletedRecords) {
+            [self _onqueueCKRecordDeleted:deletion.recordID recordType:deletion.recordType resync:resync];
+        }
+
+        NSError* error = nil;
+        if(resync) {
+            // Scan through all CKMirrorEntries and determine if any exist that CloudKit didn't tell us about
+            ckksnotice("ckksresync", self, "Comparing local UUIDs against the CloudKit list");
+            NSMutableArray<NSString*>* uuids = [[CKKSMirrorEntry allUUIDs:self.zoneID error:&error] mutableCopy];
+
+            for(NSString* uuid in uuids) {
+                CKRecord* record = nil;
+                CKRecordID* recordID = [[CKRecordID alloc] initWithRecordName:uuid zoneID:self.zoneID];
+                for(CKRecord* r in changedRecords) {
+                    if([r.recordID isEqual:recordID]) {
+                        record = r;
+                        break;
+                    }
+                }
+
+                if(record) {
+                    ckksnotice("ckksresync", self, "UUID %@ is still in CloudKit; carry on.", uuid);
+                } else {
+                    CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid zoneID:self.zoneID error:&error];
+                    if(error != nil) {
+                        ckkserror("ckksresync", self, "Couldn't read an item from the database, but it used to be there: %@ %@", uuid, error);
+                        continue;
+                    }
+                    if(!ckme) {
+                        ckkserror("ckksresync", self, "Couldn't read ckme(%@) from database; continuing", uuid);
+                        continue;
+                    }
+
+                    ckkserror("ckksresync", self, "BUG: Local item %@ not found in CloudKit, deleting", uuid);
+                    [self _onqueueCKRecordDeleted:ckme.item.storedCKRecord.recordID recordType:ckme.item.storedCKRecord.recordType resync:resync];
+                }
+            }
+        }
+
+        error = nil;
+
+        CKKSZoneStateEntry* state = [CKKSZoneStateEntry state:self.zoneName];
+        state.lastFetchTime = [NSDate date]; // The last fetch happened right now!
+        state.changeToken = newChangeToken;
+        [state saveToDatabase:&error];
+        if(error) {
+            ckkserror("ckksfetch", self, "Couldn't save new server change token: %@", error);
+        }
+
+        // Might as well kick off a IQO!
+        [self processIncomingQueue:false];
+
+        ckksnotice("ckksfetch", self, "Finished processing changes for %@", self.zoneID);
+
+        return true;
+    }];
+}
+
+// Return false if this is a 'fatal' error and we don't want another fetch to be tried
+- (bool)notifyFetchError: (NSError*) error {
     __weak __typeof(self) weakSelf = self;
 
-    // Again, note that this handles exactly one zone. Mutli-zone errors are not supported.
     bool isChangeTokenExpiredError = false;
     if([error.domain isEqualToString:CKErrorDomain] && (error.code == CKErrorChangeTokenExpired)) {
         isChangeTokenExpiredError = true;
     } else if([error.domain isEqualToString:CKErrorDomain] && (error.code == CKErrorPartialFailure)) {
         NSDictionary* partialErrors = error.userInfo[CKPartialErrorsByItemIDKey];
-        for(NSError* partialError in partialErrors.allValues) {
-            if([partialError.domain isEqualToString:CKErrorDomain] && (partialError.code == CKErrorChangeTokenExpired)) {
+        for(CKRecordZoneID* zoneID in partialErrors) {
+            NSError* partialError = partialErrors[zoneID];
+            if([zoneID isEqual:self.zoneID] && [partialError.domain isEqualToString:CKErrorDomain] && (partialError.code == CKErrorChangeTokenExpired)) {
                 isChangeTokenExpiredError = true;
             }
         }
     }
 
     if(isChangeTokenExpiredError) {
-        ckkserror("ckks", self, "Received notice that our change token is out of date. Resetting local data...");
+        ckkserror("ckks", self, "Received notice that our change token is out of date (for %@). Resetting local data...", self.zoneID);
         CKKSResultOperation* resetOp = [self resetLocalData];
         CKKSResultOperation* resetHandler = [CKKSResultOperation named:@"local-reset-handler" withBlock:^{
             __strong __typeof(self) strongSelf = weakSelf;
@@ -3161,7 +3314,7 @@
 
         [resetHandler addDependency:resetOp];
         [self scheduleOperation:resetHandler];
-        return true;
+        return false;
     }
 
     bool isDeletedZoneError = false;
@@ -3169,15 +3322,16 @@
         isDeletedZoneError = true;
     } else if([error.domain isEqualToString:CKErrorDomain] && (error.code == CKErrorPartialFailure)) {
         NSDictionary* partialErrors = error.userInfo[CKPartialErrorsByItemIDKey];
-        for(NSError* partialError in partialErrors.allValues) {
-            if([partialError.domain isEqualToString:CKErrorDomain] && ((partialError.code == CKErrorUserDeletedZone) || (partialError.code == CKErrorZoneNotFound))) {
+        for(CKRecordZoneID* zoneID in partialErrors) {
+            NSError* partialError = partialErrors[zoneID];
+            if([self.zoneID isEqual:zoneID] && [partialError.domain isEqualToString:CKErrorDomain] && ((partialError.code == CKErrorUserDeletedZone) || (partialError.code == CKErrorZoneNotFound))) {
                 isDeletedZoneError = true;
             }
         }
     }
 
     if(isDeletedZoneError) {
-        ckkserror("ckks", self, "Received notice that our zone does not exist. Resetting local data.");
+        ckkserror("ckks", self, "Received notice that our zone(%@) does not exist. Resetting local data.", self.zoneID);
         CKKSResultOperation* resetOp = [self resetLocalData];
         CKKSResultOperation* resetHandler = [CKKSResultOperation named:@"reset-handler" withBlock:^{
             __strong __typeof(self) strongSelf = weakSelf;
@@ -3195,15 +3349,15 @@
 
         [resetHandler addDependency:resetOp];
         [self scheduleOperation:resetHandler];
-        return true;
+        return false;
     }
 
     if([error.domain isEqualToString:CKErrorDomain] && (error.code == CKErrorBadContainer)) {
         ckkserror("ckks", self, "Received notice that our container does not exist. Nothing to do.");
-        return true;
+        return false;
     }
 
-    return false;
+    return true;
 }
 
 #pragma mark CKKSPeerUpdateListener
@@ -3218,7 +3372,9 @@
     // We might need to share the TLK to some new people, or we might now trust the TLKs we have.
     // The key state machine should handle that, so poke it.
     ckkserror("ckks", self, "Received update that the trust set has changed");
-    [self keyStateMachineRequestProcess];
+
+    self.trustedPeersSetChanged = true;
+    [self.pokeKeyStateMachineScheduler trigger];
 }
 
 #pragma mark - Test Support
@@ -3359,7 +3515,6 @@
                  @"lastIncomingQueueOperation":         stringify(self.lastIncomingQueueOperation),
                  @"lastNewTLKOperation":                stringify(self.lastNewTLKOperation),
                  @"lastOutgoingQueueOperation":         stringify(self.lastOutgoingQueueOperation),
-                 @"lastRecordZoneChangesOperation":     stringify(self.lastRecordZoneChangesOperation),
                  @"lastProcessReceivedKeysOperation":   stringify(self.lastProcessReceivedKeysOperation),
                  @"lastReencryptOutgoingItemsOperation":stringify(self.lastReencryptOutgoingItemsOperation),
                  @"lastScanLocalItemsOperation":        stringify(self.lastScanLocalItemsOperation),

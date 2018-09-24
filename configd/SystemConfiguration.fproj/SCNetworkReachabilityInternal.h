@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,7 +24,7 @@
 #ifndef _SCNETWORKREACHABILITYINTERNAL_H
 #define _SCNETWORKREACHABILITYINTERNAL_H
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -38,7 +38,11 @@
 #include <net/if.h>
 #include <xpc/xpc.h>
 
+#if __has_include(<nw/private.h>)
+#include <nw/private.h>
+#else // __has_include(<nw/private.h>)
 #include <network/private.h>
+#endif // __has_include(<nw/private.h>)
 
 #pragma mark -
 #pragma mark SCNetworkReachability
@@ -121,10 +125,6 @@ typedef struct {
 
 
 __BEGIN_DECLS
-
-CFStringRef
-_SCNetworkReachabilityCopyTargetDescription	(SCNetworkReachabilityRef	target);
-
 
 static __inline__ ReachabilityRankType
 __SCNetworkReachabilityRank(SCNetworkReachabilityFlags flags)

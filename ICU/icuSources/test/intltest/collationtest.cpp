@@ -189,7 +189,7 @@ void CollationTest::TestImplicits() {
     IcuTestErrorCode errorCode(*this, "TestImplicits");
 
     const CollationData *cd = CollationRoot::getData(errorCode);
-    if(errorCode.logDataIfFailureAndReset("CollationRoot::getData()")) {
+    if(errorCode.errDataIfFailureAndReset("CollationRoot::getData()")) {
         return;
     }
 
@@ -220,7 +220,7 @@ void CollationTest::TestImplicits() {
             errorCode);
     UnicodeSet inOrder(someHanInCPOrder);
     inOrder.addAll(unassigned).freeze();
-    if(errorCode.logIfFailureAndReset("UnicodeSet")) {
+    if(errorCode.errIfFailureAndReset("UnicodeSet")) {
         return;
     }
     const UnicodeSet *sets[] = { &coreHan, &otherHan, &unassigned };
@@ -235,7 +235,7 @@ void CollationTest::TestImplicits() {
             ci.setText(s.getBuffer(), s.getBuffer() + s.length());
             int64_t ce = ci.nextCE(errorCode);
             int64_t ce2 = ci.nextCE(errorCode);
-            if(errorCode.logIfFailureAndReset("CollationIterator.nextCE()")) {
+            if(errorCode.errIfFailureAndReset("CollationIterator.nextCE()")) {
                 return;
             }
             if(ce == Collation::NO_CE || ce2 != Collation::NO_CE) {
@@ -261,7 +261,7 @@ void CollationTest::TestImplicits() {
 void CollationTest::TestNulTerminated() {
     IcuTestErrorCode errorCode(*this, "TestNulTerminated");
     const CollationData *data = CollationRoot::getData(errorCode);
-    if(errorCode.logDataIfFailureAndReset("CollationRoot::getData()")) {
+    if(errorCode.errDataIfFailureAndReset("CollationRoot::getData()")) {
         return;
     }
 
@@ -272,7 +272,7 @@ void CollationTest::TestNulTerminated() {
     for(int32_t i = 0;; ++i) {
         int64_t ce1 = ci1.nextCE(errorCode);
         int64_t ce2 = ci2.nextCE(errorCode);
-        if(errorCode.logIfFailureAndReset("CollationIterator.nextCE()")) {
+        if(errorCode.errIfFailureAndReset("CollationIterator.nextCE()")) {
             return;
         }
         if(ce1 != ce2) {
@@ -294,24 +294,22 @@ void CollationTest::TestIllegalUTF8() {
     coll->setAttribute(UCOL_STRENGTH, UCOL_IDENTICAL, errorCode);
 
     static const char *strings[] = {
-        // U+FFFD
-        "a\xef\xbf\xbdz",
-        // illegal byte sequences
-        "a\x80z",  // trail byte
-        "a\xc1\x81z",  // non-shortest form
-        "a\xe0\x82\x83z",  // non-shortest form
-        "a\xed\xa0\x80z",  // lead surrogate: would be U+D800
-        "a\xed\xbf\xbfz",  // trail surrogate: would be U+DFFF
-        "a\xf0\x8f\xbf\xbfz",  // non-shortest form
-        "a\xf4\x90\x80\x80z"  // out of range: would be U+110000
+        // string with U+FFFD == illegal byte sequence
+        u8"a\uFFFDz", "a\x80z",  // trail byte
+        u8"a\uFFFD\uFFFDz", "a\xc1\x81z",  // non-shortest form
+        u8"a\uFFFD\uFFFD\uFFFDz", "a\xe0\x82\x83z",  // non-shortest form
+        u8"a\uFFFD\uFFFD\uFFFDz", "a\xed\xa0\x80z",  // lead surrogate: would be U+D800
+        u8"a\uFFFD\uFFFD\uFFFDz", "a\xed\xbf\xbfz",  // trail surrogate: would be U+DFFF
+        u8"a\uFFFD\uFFFD\uFFFD\uFFFDz", "a\xf0\x8f\xbf\xbfz",  // non-shortest form
+        u8"a\uFFFD\uFFFD\uFFFD\uFFFDz", "a\xf4\x90\x80\x80z"  // out of range: would be U+110000
     };
 
-    StringPiece fffd(strings[0]);
-    for(int32_t i = 1; i < UPRV_LENGTHOF(strings); ++i) {
-        StringPiece illegal(strings[i]);
+    for(int32_t i = 0; i < UPRV_LENGTHOF(strings); i += 2) {
+        StringPiece fffd(strings[i]);
+        StringPiece illegal(strings[i + 1]);
         UCollationResult order = coll->compareUTF8(fffd, illegal, errorCode);
         if(order != UCOL_EQUAL) {
-            errln("compareUTF8(U+FFFD, string %d with illegal UTF-8)=%d != UCOL_EQUAL",
+            errln("compareUTF8(pair %d: U+FFFD, illegal UTF-8)=%d != UCOL_EQUAL",
                   (int)i, order);
         }
     }
@@ -442,7 +440,7 @@ void CollationTest::checkFCD(const char *name,
 void CollationTest::TestFCD() {
     IcuTestErrorCode errorCode(*this, "TestFCD");
     const CollationData *data = CollationRoot::getData(errorCode);
-    if(errorCode.logDataIfFailureAndReset("CollationRoot::getData()")) {
+    if(errorCode.errDataIfFailureAndReset("CollationRoot::getData()")) {
         return;
     }
 
@@ -475,7 +473,7 @@ void CollationTest::TestFCD() {
     };
 
     FCDUTF16CollationIterator u16ci(data, FALSE, s, s, NULL);
-    if(errorCode.logIfFailureAndReset("FCDUTF16CollationIterator constructor")) {
+    if(errorCode.errIfFailureAndReset("FCDUTF16CollationIterator constructor")) {
         return;
     }
     CodePointIterator cpi(cp, UPRV_LENGTHOF(cp));
@@ -486,7 +484,7 @@ void CollationTest::TestFCD() {
     UnicodeString(s).toUTF8String(utf8);
     FCDUTF8CollationIterator u8ci(data, FALSE,
                                   reinterpret_cast<const uint8_t *>(utf8.c_str()), 0, -1);
-    if(errorCode.logIfFailureAndReset("FCDUTF8CollationIterator constructor")) {
+    if(errorCode.errIfFailureAndReset("FCDUTF8CollationIterator constructor")) {
         return;
     }
     checkFCD("FCDUTF8CollationIterator", u8ci, cpi);
@@ -495,7 +493,7 @@ void CollationTest::TestFCD() {
     UCharIterator iter;
     uiter_setString(&iter, s, UPRV_LENGTHOF(s) - 1);  // -1: without the terminating NUL
     FCDUIterCollationIterator uici(data, FALSE, iter, 0);
-    if(errorCode.logIfFailureAndReset("FCDUIterCollationIterator constructor")) {
+    if(errorCode.errIfFailureAndReset("FCDUIterCollationIterator constructor")) {
         return;
     }
     checkFCD("FCDUIterCollationIterator", uici, cpi);
@@ -761,7 +759,7 @@ private:
 void CollationTest::TestRootElements() {
     IcuTestErrorCode errorCode(*this, "TestRootElements");
     const CollationData *root = CollationRoot::getData(errorCode);
-    if(errorCode.logDataIfFailureAndReset("CollationRoot::getData()")) {
+    if(errorCode.errDataIfFailureAndReset("CollationRoot::getData()")) {
         return;
     }
     CollationRootElements rootElements(root->rootElements, root->rootElementsLength);
@@ -864,13 +862,13 @@ void CollationTest::TestRootElements() {
 void CollationTest::TestTailoredElements() {
     IcuTestErrorCode errorCode(*this, "TestTailoredElements");
     const CollationData *root = CollationRoot::getData(errorCode);
-    if(errorCode.logDataIfFailureAndReset("CollationRoot::getData()")) {
+    if(errorCode.errDataIfFailureAndReset("CollationRoot::getData()")) {
         return;
     }
     CollationRootElements rootElements(root->rootElements, root->rootElementsLength);
 
     UHashtable *prevLocales = uhash_open(uhash_hashChars, uhash_compareChars, NULL, errorCode);
-    if(errorCode.logIfFailureAndReset("failed to create a hash table")) {
+    if(errorCode.errIfFailureAndReset("failed to create a hash table")) {
         return;
     }
     uhash_setKeyDeleter(prevLocales, uprv_free);
@@ -898,7 +896,7 @@ void CollationTest::TestTailoredElements() {
             localeWithType.setKeywordValue("collation", type, errorCode);
             errorCode.assertSuccess();
             LocalPointer<Collator> coll(Collator::createInstance(localeWithType, errorCode));
-            if(errorCode.logIfFailureAndReset("Collator::createInstance(%s)",
+            if(errorCode.errIfFailureAndReset("Collator::createInstance(%s)",
                                               localeWithType.getName())) {
                 continue;
             }
@@ -1810,7 +1808,7 @@ void CollationTest::TestDataDriven() {
 
     fcd = Normalizer2Factory::getFCDInstance(errorCode);
     nfd = Normalizer2::getNFDInstance(errorCode);
-    if(errorCode.logDataIfFailureAndReset("Normalizer2Factory::getFCDInstance() or getNFDInstance()")) {
+    if(errorCode.errDataIfFailureAndReset("Normalizer2Factory::getFCDInstance() or getNFDInstance()")) {
         return;
     }
 
@@ -1818,7 +1816,7 @@ void CollationTest::TestDataDriven() {
     path.appendPathPart("collationtest.txt", errorCode);
     const char *codePage = "UTF-8";
     LocalUCHARBUFPointer f(ucbuf_open(path.data(), &codePage, TRUE, FALSE, errorCode));
-    if(errorCode.logIfFailureAndReset("ucbuf_open(collationtest.txt)")) {
+    if(errorCode.errIfFailureAndReset("ucbuf_open(collationtest.txt)")) {
         return;
     }
     // Read a new line if necessary.

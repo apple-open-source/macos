@@ -53,7 +53,7 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
         this.element.addEventListener("focus", () => { this.focused = true; }, true);
         this.element.addEventListener("blur", (event) => {
             let focusedElement = event.relatedTarget;
-            if (focusedElement && focusedElement.isDescendant(this.element))
+            if (focusedElement && this.element.contains(focusedElement))
                 return;
 
             this.focused = false;
@@ -62,6 +62,11 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
 
     layout()
     {
+        // Prevent layout of properties when one of them is being edited. A full layout resets
+        // the focus, text selection, and completion state <http://webkit.org/b/182619>.
+        if (this.editing && !this._propertyPendingStartEditing && isNaN(this._pendingAddBlankPropertyIndexOffset))
+            return;
+
         super.layout();
 
         this.element.removeChildren();
@@ -103,6 +108,12 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
 
         for (let propertyView of this._propertyViews)
             propertyView.detached();
+    }
+
+    hidden()
+    {
+        for (let propertyView of this._propertyViews)
+            propertyView.hidden();
     }
 
     get style()
@@ -221,6 +232,11 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
 
     spreadsheetStylePropertyFocusMoved(propertyView, {direction, willRemoveProperty})
     {
+        this._updatePropertiesStatus();
+
+        if (!direction)
+            return;
+
         let movedFromIndex = this._propertyViews.indexOf(propertyView);
         console.assert(movedFromIndex !== -1, "Property doesn't exist, focusing on a selector as a fallback.");
         if (movedFromIndex === -1) {
@@ -237,9 +253,8 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
                 propertyView.nameTextField.startEditing();
             else {
                 if (willRemoveProperty) {
-                    // Move from the last value in the rule to the next rule's selector.
-                    let reverse = false;
-                    this._delegate.cssStyleDeclarationEditorStartEditingAdjacentRule(reverse);
+                    const delta = 1;
+                    this._delegate.spreadsheetCSSStyleDeclarationEditorStartEditingAdjacentRule(this, delta);
                 } else {
                     const appendAfterLast = -1;
                     this.addBlankProperty(appendAfterLast);
@@ -249,11 +264,15 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
             let propertyView = this._editablePropertyBefore(movedFromIndex);
             if (propertyView) {
                 // Move from the property's name to the previous enabled property's value.
-                propertyView.valueTextField.startEditing()
+                propertyView.valueTextField.startEditing();
             } else {
                 // Move from the first property's name to the rule's selector.
                 if (this._style.selectorEditable)
                     this._delegate.cssStyleDeclarationTextEditorStartEditingRuleSelector();
+                else {
+                    const delta = -1;
+                    this._delegate.spreadsheetCSSStyleDeclarationEditorStartEditingAdjacentRule(this, delta);
+                }
             }
         }
     }
@@ -337,11 +356,16 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
 
     _propertiesChanged(event)
     {
-        if (this.editing && isNaN(this._pendingAddBlankPropertyIndexOffset)) {
-            for (let propertyView of this._propertyViews)
-                propertyView.updateStatus();
-        } else
+        if (this.editing && isNaN(this._pendingAddBlankPropertyIndexOffset))
+            this._updatePropertiesStatus();
+        else
             this.needsLayout();
+    }
+
+    _updatePropertiesStatus()
+    {
+        for (let propertyView of this._propertyViews)
+            propertyView.updateStatus();
     }
 
     _updateStyleLock()

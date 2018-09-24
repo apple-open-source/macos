@@ -36,7 +36,6 @@
 #include "apr_want.h"
 
 #define BUFSIZE         65536
-#define ERRMSGSZ        256
 
 #define ROTATE_NONE     0
 #define ROTATE_NEW      1
@@ -64,7 +63,7 @@ struct rotate_config {
     int force_open;
     int verbose;
     int echo;
-    const char *szLogRoot;
+    char *szLogRoot;
     int truncate;
     const char *linkfile;
     const char *postrotate_prog;
@@ -72,6 +71,7 @@ struct rotate_config {
     int create_empty;
 #endif
     int num_files;
+    int create_path;
 };
 
 typedef struct rotate_status rotate_status_t;
@@ -93,7 +93,6 @@ struct logfile {
 struct rotate_status {
     struct logfile current; /* current logfile. */
     apr_pool_t *pool; /* top-level pool */
-    char errbuf[ERRMSGSZ];
     int rotateReason;
     adjusted_time_t tLogEnd;
     int nMessCount;
@@ -110,9 +109,9 @@ static void usage(const char *argv0, const char *reason)
     }
     fprintf(stderr,
 #if APR_FILES_AS_SOCKETS
-            "Usage: %s [-v] [-l] [-L linkname] [-p prog] [-f] [-t] [-e] [-c] [-n number] <logfile> "
+            "Usage: %s [-v] [-l] [-L linkname] [-p prog] [-f] [-D] [-t] [-e] [-c] [-n number] <logfile> "
 #else
-            "Usage: %s [-v] [-l] [-L linkname] [-p prog] [-f] [-t] [-e] [-n number] <logfile> "
+            "Usage: %s [-v] [-l] [-L linkname] [-p prog] [-f] [-D] [-t] [-e] [-n number] <logfile> "
 #endif
             "{<rotation time in seconds>|<rotation size>(B|K|M|G)} "
             "[offset minutes from UTC]\n\n",
@@ -144,13 +143,15 @@ static void usage(const char *argv0, const char *reason)
             "  -L path  Create hard link from current log to specified path.\n"
             "  -p prog  Run specified program after opening a new log file. See below.\n"
             "  -f       Force opening of log on program start.\n"
+            "  -D       Create parent directories of log file.\n" 
             "  -t       Truncate logfile instead of rotating, tail friendly.\n"
             "  -e       Echo log to stdout for further processing.\n"
 #if APR_FILES_AS_SOCKETS
             "  -c       Create log even if it is empty.\n"
 #endif
+            "  -n num   Rotate file by adding suffixes '.1', '.2', ..., '.num'.\n"
             "\n"
-            "The program is invoked as \"[prog] <curfile> [<prevfile>]\"\n"
+            "The program for '-p' is invoked as \"[prog] <curfile> [<prevfile>]\"\n"
             "where <curfile> is the filename of the newly opened logfile, and\n"
             "<prevfile>, if given, is the filename of the previously used logfile.\n"
             "\n");
@@ -207,12 +208,13 @@ static void dumpConfig (rotate_config_t *config)
     fprintf(stderr, "Rotation based on localtime: %12s\n", config->use_localtime ? "yes" : "no");
     fprintf(stderr, "Rotation file date pattern:  %12s\n", config->use_strftime ? "yes" : "no");
     fprintf(stderr, "Rotation file forced open:   %12s\n", config->force_open ? "yes" : "no");
+    fprintf(stderr, "Create parent directories:   %12s\n", config->create_path ? "yes" : "no");
     fprintf(stderr, "Rotation verbose:            %12s\n", config->verbose ? "yes" : "no");
 #if APR_FILES_AS_SOCKETS
     fprintf(stderr, "Rotation create empty logs:  %12s\n", config->create_empty ? "yes" : "no");
 #endif
     fprintf(stderr, "Rotation file name: %21s\n", config->szLogRoot);
-    fprintf(stderr, "Post-rotation prog: %21s\n", config->postrotate_prog);
+    fprintf(stderr, "Post-rotation prog: %21s\n", config->postrotate_prog ? config->postrotate_prog : "not used");
 }
 
 /*
@@ -280,7 +282,7 @@ static void post_rotate(apr_pool_t *pool, struct logfile *newlog,
     if (config->linkfile) {
         apr_file_remove(config->linkfile, newlog->pool);
         if (config->verbose) {
-            fprintf(stderr,"Linking %s to %s\n", newlog->name, config->linkfile);
+            fprintf(stderr, "Linking %s to %s\n", newlog->name, config->linkfile);
         }
         rv = apr_file_link(newlog->name, config->linkfile);
         if (rv != APR_SUCCESS) {
@@ -343,19 +345,19 @@ static void post_rotate(apr_pool_t *pool, struct logfile *newlog,
 }
 
 /* After a error, truncate the current file and write out an error
- * message, which must be contained in status->errbuf.  The process is
+ * message, which must be contained in message.  The process is
  * terminated on failure.  */
-static void truncate_and_write_error(rotate_status_t *status)
+static void truncate_and_write_error(rotate_status_t *status, const char *message)
 {
-    apr_size_t buflen = strlen(status->errbuf);
+    apr_size_t buflen = strlen(message);
 
     if (apr_file_trunc(status->current.fd, 0) != APR_SUCCESS) {
         fprintf(stderr, "Error truncating the file %s\n", status->current.name);
         exit(2);
     }
-    if (apr_file_write_full(status->current.fd, status->errbuf, buflen, NULL) != APR_SUCCESS) {
+    if (apr_file_write_full(status->current.fd, message, buflen, NULL) != APR_SUCCESS) {
         fprintf(stderr, "Error writing error (%s) to the file %s\n", 
-                status->errbuf, status->current.name);
+                message, status->current.name);
         exit(2);
     }
 }
@@ -437,6 +439,23 @@ static void doRotate(rotate_config_t *config, rotate_status_t *status)
         }
     }
     apr_pool_create(&newlog.pool, status->pool);
+    if (config->create_path) {
+        char *ptr = strrchr(newlog.name, '/');
+        if (ptr && ptr > newlog.name) {
+            char *path = apr_pstrmemdup(newlog.pool, newlog.name, ptr - newlog.name);
+            if (config->verbose) {
+                fprintf(stderr, "Creating directory tree %s\n", path);
+            }
+            rv = apr_dir_make_recursive(path, APR_FPROT_OS_DEFAULT, newlog.pool);
+            if (rv != APR_SUCCESS) {
+                char error[120];
+
+                apr_strerror(rv, error, sizeof error);
+                fprintf(stderr, "Could not create directory '%s' (%s)\n", path, error);
+                exit(2);
+            }
+        }
+    }
     if (config->verbose) {
         fprintf(stderr, "Opening file %s\n", newlog.name);
     }
@@ -457,9 +476,8 @@ static void doRotate(rotate_config_t *config, rotate_status_t *status)
         status->current = newlog;
     }
     else {
-        char error[120];
-
-        apr_strerror(rv, error, sizeof error);
+        char *error = apr_psprintf(newlog.pool, "%pm", &rv);
+        char *message;
 
         /* Uh-oh. Failed to open the new log file. Try to clear
          * the previous log file, note the lost log entries,
@@ -469,17 +487,17 @@ static void doRotate(rotate_config_t *config, rotate_status_t *status)
             exit(2);
         }
 
-        /* Throw away new state; it isn't going to be used. */
-        apr_pool_destroy(newlog.pool);
-
         /* Try to keep this error message constant length
          * in case it occurs several times. */
-        apr_snprintf(status->errbuf, sizeof status->errbuf,
-                     "Resetting log file due to error opening "
-                     "new log file, %10d messages lost: %-25.25s\n",
-                     status->nMessCount, error);
+        message = apr_psprintf(newlog.pool,
+                               "Resetting log file due to error opening "
+                               "new log file, %10d messages lost: %-25.25s\n",
+                               status->nMessCount, error);
 
-        truncate_and_write_error(status);
+        truncate_and_write_error(status, message);
+
+        /* Throw away new state; it isn't going to be used. */
+        apr_pool_destroy(newlog.pool);
     }
 
     status->nMessCount = 0;
@@ -567,9 +585,9 @@ int main (int argc, const char * const argv[])
     apr_pool_create(&status.pool, NULL);
     apr_getopt_init(&opt, status.pool, argc, argv);
 #if APR_FILES_AS_SOCKETS
-    while ((rv = apr_getopt(opt, "lL:p:ftvecn:", &c, &opt_arg)) == APR_SUCCESS) {
+    while ((rv = apr_getopt(opt, "lL:p:fDtvecn:", &c, &opt_arg)) == APR_SUCCESS) {
 #else
-    while ((rv = apr_getopt(opt, "lL:p:ftven:", &c, &opt_arg)) == APR_SUCCESS) {
+    while ((rv = apr_getopt(opt, "lL:p:fDtven:", &c, &opt_arg)) == APR_SUCCESS) {
 #endif
         switch (c) {
         case 'l':
@@ -587,6 +605,9 @@ int main (int argc, const char * const argv[])
             break;
         case 'f':
             config.force_open = 1;
+            break;
+        case 'D':
+            config.create_path = 1;
             break;
         case 't':
             config.truncate = 1;
@@ -622,7 +643,11 @@ int main (int argc, const char * const argv[])
         usage(argv[0], "Incorrect number of arguments");
     }
 
-    config.szLogRoot = argv[opt->ind++];
+    rv = apr_filepath_merge(&config.szLogRoot, "", argv[opt->ind++],
+                            APR_FILEPATH_TRUENAME, status.pool);
+    if (rv != APR_SUCCESS && rv != APR_EPATHWILD) {
+        usage(argv[0], "Invalid filename given");
+    }
 
     /* Read in the remaining flags, namely time, size and UTC offset. */
     for(; opt->ind < argc; opt->ind++) {
@@ -725,18 +750,21 @@ int main (int argc, const char * const argv[])
         rv = apr_file_write_full(status.current.fd, buf, nWrite, &nWrite);
         if (nWrite != nRead) {
             apr_off_t cur_offset;
+            apr_pool_t *pool;
+            char *error;
 
             cur_offset = 0;
             if (apr_file_seek(status.current.fd, APR_CUR, &cur_offset) != APR_SUCCESS) {
                 cur_offset = -1;
             }
             status.nMessCount++;
-            apr_snprintf(status.errbuf, sizeof status.errbuf,
-                         "Error %d writing to log file at offset %" APR_OFF_T_FMT ". "
-                         "%10d messages lost (%pm)\n",
-                         rv, cur_offset, status.nMessCount, &rv);
+            apr_pool_create(&pool, status.pool);
+            error = apr_psprintf(pool, "Error %d writing to log file at offset %"
+                                 APR_OFF_T_FMT ". %10d messages lost (%pm)\n",
+                                 rv, cur_offset, status.nMessCount, &rv);
 
-            truncate_and_write_error(&status);
+            truncate_and_write_error(&status, error);
+            apr_pool_destroy(pool);
         }
         else {
             status.nMessCount++;

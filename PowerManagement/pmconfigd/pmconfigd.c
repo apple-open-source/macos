@@ -26,6 +26,38 @@
  *
  * configd entry point
  */
+// Global keys
+static CFStringRef              gTZNotificationNameString           = NULL;
+
+IOPMNotificationHandle          gESPreferences                      = 0;
+
+static io_connect_t             _pm_ack_port                        = 0;
+static io_iterator_t            _ups_added_noteref                  = 0;
+static int                      _alreadyRunningIOUPSD               = 0;
+
+static int                      gCPUPowerNotificationToken          = 0;
+static bool                     gExpectingWakeFromSleepClockResync  = false;
+static CFAbsoluteTime           *gLastWakeTime                      = NULL;
+static CFTimeInterval           *gLastSMCS3S0WakeInterval           = NULL;
+static CFStringRef              gCachedNextSleepWakeUUIDString      = NULL;
+static int                      gLastWakeTimeToken                  = -1;
+static int                      gLastSMCS3S0WakeIntervalToken       = -1;
+
+static LoginWindowNotifyTokens  lwNotify = {0,0,0,0,0};
+
+static CFStringRef              gConsoleNotifyKey                   = NULL;
+static bool                     gDisplayIsAsleep = false;
+static struct timeval           gLastSleepTime                      = {0, 0};
+
+static mach_port_t              serverPort                          = MACH_PORT_NULL;
+#ifndef POWERD_TEST
+__private_extern__ CFMachPortRef pmServerMachPort                   = NULL;
+#endif
+static bool                     gSMCSupportsWakeupTimer             = true;
+static int                      _darkWakeThermalEventCount          = 0;
+static dispatch_source_t        gDWTMsgDispatch; /* Darkwake thermal emergency message handler dispatch */
+
+
 
 // foward declarations
 static void initializeESPrefsNotification(void);
@@ -90,8 +122,6 @@ static void mig_server_callback(
 
 static void incoming_XPC_connection(xpc_connection_t);
 static void xpc_register(void);
-
-static void AppClaimWakeReason(xpc_connection_t peer, xpc_object_t claim);
 
 static CFStringRef
 serverMPCopyDescription(const void *info)
@@ -173,12 +203,15 @@ int main(int argc __unused, char *argv[] __unused)
 
     createOnBootAssertions();
     enableSleepWakeWdog();
-    standbyTimer_prime();
     ads_prime();
+    standbyTimer_prime();
 
     _unclamp_silent_running(false);
     notify_post(kIOUserAssertionReSync);
     logASLMessagePMStart();
+
+
+    BatteryTimeRemaining_finish();
 
     CFRunLoopRun();
     return 0;
@@ -219,39 +252,54 @@ static void ioregBatteryMatch(
     evalTcpkaForPSChange();
 }
 
-
-static void ioregBatteryInterest(
-    void *refcon, 
-    io_service_t batt, 
-    natural_t messageType, 
-    void *messageArgument)
+__private_extern__ void ioregBatteryProcess(IOPMBattery *changed_batt,
+                                            io_service_t batt)
 {
-    IOPMBattery         *changed_batt = (IOPMBattery *)refcon;
-    IOPMBattery         **batt_stats;
+    if (!changed_batt) {
+        return;
+    }
 
-    if(kIOPMMessageBatteryStatusHasChanged == messageType)
-    {
-        // Update the arbiter
-        changed_batt->me = (io_registry_entry_t)batt;
-        _batteryChanged(changed_batt);
+    PowerSources oldPS = _getPowerSource();
 
-        if (changed_batt->properties == NULL) {
-            // Nothing to do
-            return;
-        }
+    // Update the arbiter
+    changed_batt->me = (io_registry_entry_t)batt;
+    _batteryChanged(changed_batt);
 
-        LogObjectRetainCount("PM:BatteryInterest(B0) msg_port", changed_batt->msg_port);
-        LogObjectRetainCount("PM:BatteryInterest(B1) msg_port", changed_batt->me);
+    if (changed_batt->properties == NULL) {
+        // Nothing to do
+        return;
+    }
 
-        batt_stats = _batteries();
-        kernelPowerSourcesDidChange(changed_batt);
-        SystemLoadBatteriesHaveChanged(batt_stats);
-        InternalEvaluateAssertions();
-        InternalEvalConnections();
+    LogObjectRetainCount("PM:BatteryInterest(B0) msg_port", changed_batt->msg_port);
+    LogObjectRetainCount("PM:BatteryInterest(B1) msg_port", changed_batt->me);
+
+    IOPMBattery **batt_stats = _batteries();
+    kernelPowerSourcesDidChange(changed_batt);
+
+    SystemLoadBatteriesHaveChanged(batt_stats);
+    InternalEvaluateAssertions();
+    InternalEvalConnections();
+    if (_getPowerSource() != oldPS) {
         evalTcpkaForPSChange();
+        evalProxForPSChange();
     }
 
     return;
+}
+
+static void ioregBatteryInterest(
+    void *refcon,
+    io_service_t batt,
+    natural_t messageType,
+    void *messageArgument)
+{
+    if (kIOPMMessageBatteryStatusHasChanged != messageType) {
+        return;
+    }
+
+    IOPMBattery *changed_batt = (IOPMBattery *)refcon;
+
+    ioregBatteryProcess(changed_batt, batt);
 }
 
 
@@ -284,24 +332,16 @@ ClockSleepWakeNotification(IOPMSystemPowerStateCapabilities old_cap,
 }
 
 
-static char* const spindump_args_full_wake[] =
-{ "/usr/sbin/taskpolicy", "-b", "/usr/sbin/spindump",
-  "-notarget","5", "100",
-  "-file", kSpindumpOnFullWakeDir"/fullwake-spindump.txt", 0 };
-
-static char* const spindump_args_kextd[] =
-{ "/usr/sbin/taskpolicy", "-b", "/usr/sbin/spindump",
-  "kextd","30", "400", "-sampleWithoutTarget",
+static char* const spindump_args[] =
+{ "/usr/sbin/spindump", "kextd","30", "400", "-sampleWithoutTarget",
    "-file", kSpindumpIOKitDir"/iokitwaitquiet-spindump.txt", 0 };
 
-static char* const* spindump_args[kSpindumpNumKinds] = { spindump_args_full_wake, spindump_args_kextd };
-
-static void takeSpindump(uint32_t kind)
+static void takeSpindump()
 {
 
     static int debug_arg = -1;
     int rc;
-    static int spindump_pid[kSpindumpNumKinds] = { -1, -1 };
+    static int spindump_pid = -1;
     const char * dir;
     struct stat sb;
 
@@ -332,22 +372,19 @@ static void takeSpindump(uint32_t kind)
     if (debug_arg <= 0) {
         return;
     }
-    if (kind >= kSpindumpNumKinds) {
-        return;
-    }
 
-    if (spindump_pid[kind] != -1) {
+    if (spindump_pid != -1) {
         /* If the previously spawned process is alive, kill it */
         struct proc_bsdinfo pbsd;
-        rc = proc_pidinfo(spindump_pid[kind], PROC_PIDTBSDINFO, (uint64_t)0, &pbsd, sizeof(struct proc_bsdinfo));
+        rc = proc_pidinfo(spindump_pid, PROC_PIDTBSDINFO, (uint64_t)0, &pbsd, sizeof(struct proc_bsdinfo));
         if ((rc == sizeof(pbsd)) && (pbsd.pbi_ppid == getpid())) {
-            kill(spindump_pid[kind], SIGKILL);
+            kill(spindump_pid, SIGKILL);
             // Don't start another spindump if one is running
             return;
         }
     }
 
-    dir  = kind ? kSpindumpIOKitDir : kSpindumpOnFullWakeDir;
+    dir  = kSpindumpIOKitDir;
     rc = stat(dir, &sb);
     if ((rc == -1) && (errno == ENOENT)) {
         rc = mkdir(dir, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
@@ -356,7 +393,7 @@ static void takeSpindump(uint32_t kind)
         return;
     }
 
-    spindump_pid[kind] = _SCDPluginExecCommand(NULL, NULL, 0, 0, "/usr/sbin/taskpolicy", spindump_args[kind]);
+    spindump_pid = _SCDPluginExecCommand(NULL, NULL, 0, 0, "/usr/sbin/spindump", spindump_args);
 }
 
 void sendSleepNotificationResponse(void *acknowledgementToken, bool allow)
@@ -410,8 +447,6 @@ SleepWakeCallback(
             INFO_LOG("Received %{public}s. UUID: %{public}@\n",
                     (messageType == kIOMessageSystemWillPowerOn) ? "kIOMessageSystemWillPowerOn" :
                         "kIOMessageSystemWillNotSleep", uuid);
-           dispatch_after(dispatch_time(DISPATCH_TIME_NOW, kPMSpindumpDelayOnFullWake * NSEC_PER_SEC),
-                           dispatch_get_main_queue(), ^{ takeSpindump(0); });
             _set_sleep_revert(true);
             checkPendingWakeReqs(ALLOW_PURGING);
             break;
@@ -443,6 +478,7 @@ ESPrefsHaveChanged(void)
     mt2EvaluateSystemSupport();
     UPSLowPowerPrefsHaveChanged();
     TTYKeepAwakePrefsHaveChanged();
+    evalProximityPrefsChange();
     SystemLoadPrefsHaveChanged();
     
     return;
@@ -775,42 +811,7 @@ static void pushNewSleepWakeUUID(void)
 }
 
 
-static void AppClaimWakeReason(xpc_connection_t peer, xpc_object_t claim)
-{
-    const char              *id;
-    const char              *reason;
-    SecTaskRef secTask = NULL;
-    CFTypeRef  entitled_DarkWakeControl = NULL;
-    audit_token_t token;
 
-    if (!claim) {
-        return;
-    }
-    xpc_connection_get_audit_token(peer, &token);
-    secTask = SecTaskCreateWithAuditToken(kCFAllocatorDefault, token);
-    if (secTask) {
-        entitled_DarkWakeControl = SecTaskCopyValueForEntitlement(secTask, kIOPMDarkWakeControlEntitlement, NULL);
-    }
-
-    if (!entitled_DarkWakeControl) {
-        goto exit;;
-    }
-
-    id = xpc_dictionary_get_string(claim, "identity");
-    reason = xpc_dictionary_get_string(claim, "reason");
-
-
-    logASLAppWakeReason(id, reason);
-    INFO_LOG("Wake reason: \"%s\"  identitiy: \"%s\" \n", reason, id);
-
-exit:
-    if (secTask) {
-        CFRelease(secTask);
-    }
-    if (entitled_DarkWakeControl) {
-        CFRelease(entitled_DarkWakeControl);
-    }
-}
 
 static void handle_xpc_error(xpc_connection_t peer, xpc_object_t error)
 {
@@ -840,7 +841,7 @@ static void incoming_XPC_connection(xpc_connection_t peer)
                         updateUserActivityTimeout(peer, inEvent);
                      }
                      else if ((inEvent = xpc_dictionary_get_value(event, kClaimSystemWakeEvent))) {
-                        AppClaimWakeReason(peer, inEvent);
+                        appClaimWakeReason(peer, inEvent);
                      }
                      else if ((inEvent = xpc_dictionary_get_value(event, kAssertionCreateMsg))) {
                         asyncAssertionCreate(peer, event);
@@ -1693,8 +1694,11 @@ static void handleDWThermalMsg(CFStringRef wakeType)
     if (wakeType == NULL)
         getPlatformWakeReason(NULL, &wakeType);
 
-    if ( (isA_BTMtnceWake() || isA_SleepSrvcWake()) && !isA_NotificationDisplayWake() && 
-               (CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) || 
+    INFO_LOG("DarkWake Thermal Emergency message is received. BTWake: %d ssWake:%d ProxWake:%d NotificationWake:%d\n",
+            isA_BTMtnceWake(), isA_SleepSrvcWake(), checkForAppWakeReason(CFSTR(kProximityWakeReason)), isA_NotificationDisplayWake());
+    gateProximityDarkWakeState(kPMAllowSleep);
+    if ( (isA_BTMtnceWake() || isA_SleepSrvcWake() || checkForAppWakeReason(CFSTR(kProximityWakeReason))) &&
+            (!isA_NotificationDisplayWake()) && (CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) ||
                         CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepService))
 #if TCPKEEPALIVE
             && !((getTCPKeepAliveState(NULL, 0) == kActive) && checkForActivesByType(kInteractivePushServiceType)) ) {
@@ -1715,6 +1719,10 @@ static void handleDWThermalMsg(CFStringRef wakeType)
     else {
         // For all other cases, let system run in non-silent running mode
         _unclamp_silent_running(true);
+
+        // Cancel Dark Wake capabilities timer
+        cancelDarkWakeCapabilitiesTimer();
+
         logASLMessageIgnoredDWTEmergency();
     }
 }
@@ -1796,7 +1804,7 @@ RootDomainInterest(
 
     if (messageType == kIOPMMessageLaunchBootSpinDump)
     {
-        dispatch_async(dispatch_get_main_queue(), ^{ takeSpindump((uint32_t)(uintptr_t)messageArgument); });
+        dispatch_async(dispatch_get_main_queue(), ^{ takeSpindump(); });
     }
 
     if (messageType == kIOPMMessageFeatureChange)

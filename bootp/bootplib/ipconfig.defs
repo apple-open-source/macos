@@ -141,3 +141,10 @@ routine ipconfig_refresh_service(
 				service_id : inline_data;
 			out	status : ipconfig_status;
 	    ServerAuditToken	audit_token : audit_token_t);
+
+routine ipconfig_forget_network(
+				server : mach_port_t;
+				name : if_name;
+				network_data : xmlData;
+			out	status : ipconfig_status;
+	    ServerAuditToken	audit_token : audit_token_t);

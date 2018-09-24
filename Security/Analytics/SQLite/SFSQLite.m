@@ -32,12 +32,9 @@
 
 #define kSFSQLiteBusyTimeout       (5*60*1000)
 
-// Vaccuum our databases approximately once a week
-#define kCKSQLVacuumInterval       ((60*60*24)*7)
-#define kSFSQLiteLastVacuumKey     @"LastVacuum"
-
 #define kSFSQLiteSchemaVersionKey  @"SchemaVersion"
 #define kSFSQLiteCreatedDateKey    @"Created"
+#define kSFSQLiteAutoVacuumFull    1
 
 static NSString *const kSFSQLiteCreatePropertiesTableSQL =
     @"create table if not exists Properties (\n"
@@ -223,7 +220,6 @@ allDone:
 @synthesize userVersion = _userVersion;
 @synthesize synchronousMode = _synchronousMode;
 @synthesize hasMigrated = _hasMigrated;
-@synthesize shouldVacuum = _shouldVacuum;
 @synthesize traced = _traced;
 @synthesize db = _db;
 @synthesize openCount = _openCount;
@@ -235,8 +231,16 @@ allDone:
 #endif
 
 - (instancetype)initWithPath:(NSString *)path schema:(NSString *)schema {
+    if (![path length]) {
+        seccritical("Cannot init db with empty path");
+        return nil;
+    }
+    if (![schema length]) {
+        seccritical("Cannot init db without schema");
+        return nil;
+    }
+
     if ((self = [super init])) {
-        NSAssert([path length], @"Can't init a database with a zero-length path");
         _path = path;
         _schema = schema;
         _schemaVersion = [self _createSchemaHash];
@@ -244,7 +248,6 @@ allDone:
         _objectClassPrefix = @"CK";
         _synchronousMode = SFSQLiteSynchronousModeNormal;
         _hasMigrated = NO;
-        _shouldVacuum = YES;
     }
     return self;
 }
@@ -286,25 +289,6 @@ allDone:
 
 - (BOOL)isOpen {
     return _db != NULL;
-}
-
-- (void)_periodicVacuum {
-    // "When the auto-vacuum mode is 1 or "full", the freelist pages are moved to the end of the database file and the database file is truncated to remove the freelist pages at every transaction commit.
-    // Note, however, that auto-vacuum only truncates the freelist pages from the file. Auto-vacuum does not defragment the database nor repack individual database pages the way that the VACUUM command does.
-    // In fact, because it moves pages around within the file, auto-vacuum can actually make fragmentation worse."
-    // https://sqlite.org/pragma.html#pragma_auto_vacuum
-    NSDate *lastVacuumDate = [NSDate dateWithTimeIntervalSinceReferenceDate:[[self propertyForKey:kSFSQLiteLastVacuumKey] floatValue]];
-    if ([lastVacuumDate timeIntervalSinceNow] < -(kCKSQLVacuumInterval)) {
-        @autoreleasepool {
-            os_transaction_t transaction = os_transaction_create("SFSQLITE DB Vacuum");
-            secnotice("SFSQLITE", "performing periodic vacuum");
-            [self executeSQL:@"VACUUM"];
-            (void)transaction; // dead store
-
-            NSString *vacuumDateString = [NSString stringWithFormat:@"%f", [[NSDate date] timeIntervalSinceReferenceDate]];
-            [self setProperty:vacuumDateString forKey:kSFSQLiteLastVacuumKey];
-        }
-    }
 }
 
 /*
@@ -374,8 +358,11 @@ allDone:
     if (![self executeSQL:@"pragma synchronous = %@", [self _synchronousModeString]]) {
         goto done;
     }
-    if (![self executeSQL:@"pragma auto_vacuum = FULL"]) {
-        goto done;
+    if ([self autoVacuumSetting] != kSFSQLiteAutoVacuumFull) {
+        /* After changing the auto_vacuum setting the DB must be vacuumed */
+        if (![self executeSQL:@"pragma auto_vacuum = FULL"] || ![self executeSQL:@"VACUUM"]) {
+            goto done;
+        }
     }
     
     // rdar://problem/32168789
@@ -432,8 +419,6 @@ allDone:
     }
 #endif
     
-    if (self.shouldVacuum) [self _periodicVacuum];
-
     if (create || _hasMigrated) {
         [self setProperty:self.schemaVersion forKey:kSFSQLiteSchemaVersionKey];
         if (self.userVersion) {
@@ -606,7 +591,10 @@ done:
 }
 
 - (NSString *)propertyForKey:(NSString *)key {
-    NSAssert(key, @"Null key");
+    if (![key length]) {
+        secerror("SFSQLite: attempt to retrieve property without a key");
+        return nil;
+    }
     
     NSString *value = nil;
     
@@ -621,7 +609,10 @@ done:
 }
 
 - (void)setProperty:(NSString *)value forKey:(NSString *)key {
-    NSAssert(key, @"Null key");
+    if (![key length]) {
+        secerror("SFSQLite: attempt to set property without a key");
+        return;
+    }
     
     if (value) {
         SFSQLiteStatement *statement = [self statementForSQL:@"insert or replace into Properties (key, value) values (?,?)"];
@@ -660,7 +651,9 @@ done:
 }
 
 - (void)removePropertyForKey:(NSString *)key {
-    NSAssert(key, @"Null key");
+    if (![key length]) {
+        return;
+    }
     
     SFSQLiteStatement *statement = [self statementForSQL:@"delete from Properties where key = ?"];
     [statement bindText:key atIndex:0];
@@ -805,10 +798,12 @@ done:
 }
 
 - (void)update:(NSString *)tableName set:(NSString *)setSQL where:(NSString *)whereSQL bindings:(NSArray *)whereBindings limit:(NSNumber *)limit {
+    if (![setSQL length]) {
+        return;
+    }
+
     NSMutableString *SQL = [[NSMutableString alloc] init];
     [SQL appendFormat:@"update %@", tableName];
-    
-    NSAssert(setSQL.length > 0, @"null set expression");
 
     [SQL appendFormat:@" set %@", setSQL];
     if (whereSQL.length) {
@@ -916,6 +911,17 @@ done:
     [statement reset];
     
     return userVersion;
+}
+
+- (SInt32)autoVacuumSetting {
+    SInt32 vacuumMode = 0;
+    SFSQLiteStatement *statement = [self statementForSQL:@"pragma auto_vacuum"];
+    while ([statement step]) {
+        vacuumMode = [statement intAtIndex:0];
+    }
+    [statement reset];
+
+    return vacuumMode;
 }
 
 @end

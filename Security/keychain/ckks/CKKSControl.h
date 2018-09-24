@@ -43,7 +43,8 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
 - (void)rpcStatus:(NSString* _Nullable)viewName
             reply:(void (^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
 - (void)rpcResetLocal:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
-- (void)rpcResetCloudKit:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
+- (void)rpcResetCloudKit:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply __deprecated_msg("use rpcResetCloudKit:reason:reply:");
+- (void)rpcResetCloudKit:(NSString* _Nullable)viewName reason:(NSString *)reason reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcResync:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcFetchAndProcessChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcFetchAndProcessClassAChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;

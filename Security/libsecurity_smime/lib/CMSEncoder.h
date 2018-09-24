@@ -250,6 +250,10 @@ typedef CF_OPTIONS(uint32_t, CMSSignedAttributes) {
      */
     kCMSAttrAppleCodesigningHashAgility = 0x0010,
     kCMSAttrAppleCodesigningHashAgilityV2 = 0x0020,
+    /*
+     * Include the expiration time.
+     */
+    kCMSAttrAppleExpirationTime         = 0x0040,
 };
 
 /*
@@ -348,7 +352,7 @@ OSStatus CMSEncodeContent(
     CFDataRef * __nullable CF_RETURNS_RETAINED encodedContentOut)	/* RETURNED */
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_11_0);
 
-#if TIMESTAMPING_SUPOORTED
+#if TIMESTAMPING_SUPPORTED
 OSStatus CMSEncoderCopySignerTimestamp(
     CMSEncoderRef		cmsEncoder,
     size_t				signerIndex,        /* usually 0 */
@@ -364,7 +368,7 @@ OSStatus CMSEncoderCopySignerTimestampWithPolicy(
 
 void
 CmsMessageSetTSAContext(CMSEncoderRef cmsEncoder, CFTypeRef tsaContext);
-#endif
+#endif // TIMESTAMPING_SUPPORTED
 
 /*
  * Obtain the SecCmsMessageRef associated with a CMSEncoderRef. Intended
@@ -427,6 +431,14 @@ OSStatus CMSEncoderSetAppleCodesigningHashAgility(
 OSStatus CMSEncoderSetAppleCodesigningHashAgilityV2(
     CMSEncoderRef       cmsEncoder,
     CFDictionaryRef     hashAgilityV2AttrValues);
+
+/*
+ * Set the expiration time for a CMSEncoder.
+ * This is only used if the kCMSAttrAppleExpirationTime attribute is included.
+ */
+OSStatus CMSEncoderSetAppleExpirationTime(
+      CMSEncoderRef        cmsEncoder,
+      CFAbsoluteTime        time);
 
 
 CF_ASSUME_NONNULL_END

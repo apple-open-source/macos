@@ -318,6 +318,8 @@ OSStatus CMSDecoderCopySignerSigningTime(
 	CFAbsoluteTime      *signingTime)			/* RETURNED */
     __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_NA);
 
+#define TIMESTAMPING_SUPPORTED 1
+#if TIMESTAMPING_SUPPORTED
 /*
  * Obtain the timestamp of signer 'signerIndex' of a CMS message, if
  * present. This timestamp is an authenticated timestamp provided by
@@ -368,6 +370,7 @@ OSStatus CMSDecoderCopySignerTimestampCertificates(
 	size_t				signerIndex,                            /* usually 0 */
 	CFArrayRef * __nonnull CF_RETURNS_RETAINED certificateRefs) /* RETURNED */
     __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_NA);
+#endif // TIMESTAMPING_SUPPORTED
 
 CF_ASSUME_NONNULL_END
 

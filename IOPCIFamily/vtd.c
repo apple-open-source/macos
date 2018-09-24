@@ -60,6 +60,18 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 
 #define kMaxRounding    (10)
 
+#if 1
+#define VTHWLOCKTYPE   IOLock
+#define VTHWLOCKALLOC  IOLockAlloc
+#define VTHWLOCK(l)    IOLockLock(l)
+#define VTHWUNLOCK(l)  IOLockUnlock(l)
+#else
+#define VTHWLOCKTYPE   IOSimpleLock
+#define VTHWLOCKALLOC  IOSimpleLockAlloc
+#define VTHWLOCK(l)    IOSimpleLockLock(l)
+#define VTHWUNLOCK(l)  IOSimpleLockUnlock(l)
+#endif
+
 #define VTLOG(fmt, args...)                   \
     do {                                                    						\
         if ((gIOPCIFlags & kIOPCIConfiguratorVTLog) && !ml_at_interrupt_context())  \
@@ -847,7 +859,7 @@ class AppleVTD : public IOMapper
     OSDeclareDefaultStructors(AppleVTD);
 
 public:
-	IOSimpleLock  		   * fHWLock;
+	VTHWLOCKTYPE 		   * fHWLock;
 	const OSData  	       * fDMARData;
 	IOWorkLoop             * fWorkLoop;
 	IOInterruptEventSource * fIntES;
@@ -1018,6 +1030,8 @@ public:
 OSDefineMetaClassAndStructors(AppleVTD, IOMapper);
 #define super IOMapper
 
+IOLock * gAppleVTDDeviceMapperLock;
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 void
@@ -1030,6 +1044,7 @@ AppleVTD::install(IOWorkLoop * wl, uint32_t flags,
 	VTLOG("DMAR %p\n", data);
 	if (data) 
 	{
+        gAppleVTDDeviceMapperLock = IOLockAlloc();
 		mapper = new AppleVTD;
 		if (mapper)
 		{
@@ -1078,12 +1093,22 @@ AppleVTD::adjustDevice(IOService * device)
 	}
 	else if (kIOPCIConfiguratorDeviceMap & gIOPCIFlags)
 	{
-		mapper = AppleVTDDeviceMapper::forDevice(device, 0);
+		IOService * originator = IOPCIDeviceDMAOriginator(pciDevice);
+
+        IOLockLock(gAppleVTDDeviceMapperLock);
+        mapper = (typeof(mapper)) originator->copyProperty("iommu-parent");
+        if (!mapper)
+		{
+			mapper = AppleVTDDeviceMapper::forDevice(originator, 0);
+            VTLOG("%s->%s: mapper %p\n", pciDevice->getName(), originator->getName(), mapper);
+            if (mapper) originator->setProperty("iommu-parent", mapper);
+        }
 		if (mapper)
 		{
-			device->setProperty("iommu-parent", mapper);
+			pciDevice->setProperty("iommu-parent", mapper);
 			mapper->release();
 		}
+        IOLockUnlock(gAppleVTDDeviceMapperLock);
 	}
 }
 
@@ -1165,9 +1190,9 @@ AppleVTD::space_destroy(vtd_space_t * bf)
     vtd_vaddr_t count, start;
     uint32_t    present, missing;
 
-	IOSimpleLockLock(fHWLock);
+	VTHWLOCK(fHWLock);
 	if (bf->domain) vtd_bitmap_bitset(fDomainBitmap, false, bf->domain);
-	IOSimpleLockUnlock(fHWLock);
+	VTHWUNLOCK(fHWLock);
 
 	vtd_rballocator_free(bf);
 	vtassert(0 == bf->rentries);
@@ -1253,10 +1278,10 @@ AppleVTD::space_create(ppnum_t vsize, uint32_t buddybits, ppnum_t rsize)
 		if (!bf->rlock) break;
 		bf->cachelinesize = fCacheLineSize;
 
-		IOSimpleLockLock(fHWLock);
+		VTHWLOCK(fHWLock);
 		domain = vtd_bitmap_count(fDomainBitmap, true, 0, fDomainSize);
 		if (domain != fDomainSize) vtd_bitmap_bitset(fDomainBitmap, true, domain);
-		IOSimpleLockUnlock(fHWLock);
+		VTHWUNLOCK(fHWLock);
 
 		if (domain == fDomainSize) break;
 		bf->domain = domain;
@@ -1436,9 +1461,9 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_vaddr_t addr, vtd_vaddr_t size,
 	}
 
 #if !FREE_ON_FREE
-	IOSimpleLockLock(fHWLock);
+	VTHWLOCK(fHWLock);
 	checkFree(bf, uselarge);
-	IOSimpleLockUnlock(fHWLock);
+	VTHWUNLOCK(fHWLock);
 #endif
 
 	do
@@ -1649,7 +1674,7 @@ AppleVTD::initHardware(IOService *provider)
 	if (!((CPUID_LEAF7_FEATURE_SMEP|CPUID_LEAF7_FEATURE_SMAP) & cpuid_info()->cpuid_leaf7_features)) return (false);
 	//
 
-	fHWLock = IOSimpleLockAlloc();
+	fHWLock = VTHWLOCKALLOC();
 
 	fDomainBitmap = vtd_bitmap_alloc(fDomainSize);
 	vtd_bitmap_bitset(fDomainBitmap, true, 0);
@@ -2026,13 +2051,13 @@ AppleVTD::handleInterrupt(IOInterruptEventSource * source, int count)
 	uint32_t idx;
 	vtd_unit_t * unit;
 
-	IOSimpleLockLock(fHWLock);
+	VTHWLOCK(fHWLock);
 	for (idx = 0; idx < kFreeQCount; idx++) checkFree(fSpace, idx);
 	for (idx = 0; (unit = units[idx]); idx++) 
 	{
 		unit->regs->invalidation_completion_status = 1;
 	}
-	IOSimpleLockUnlock(fHWLock);
+	VTHWUNLOCK(fHWLock);
 
 	return (kIOReturnSuccess);
 }
@@ -2053,9 +2078,9 @@ AppleVTD::timer(OSObject * owner, IOTimerEventSource * sender)
 {
 	uint32_t idx;
 
-	IOSimpleLockLock(fHWLock);
+	VTHWLOCK(fHWLock);
 	for (idx = 0; idx < kFreeQCount; idx++) checkFree(fSpace, idx);
-	IOSimpleLockUnlock(fHWLock);
+	VTHWUNLOCK(fHWLock);
 
 	fTimerES->setTimeoutMS(10);
 
@@ -2167,7 +2192,7 @@ AppleVTD::spaceMapMemory(
 			index += segLen;
 		}
 
-		assert (index >= length);
+		vtassert (index >= length);
 		if (index < length) return (kIOReturnVMError);
 	}
 	else pageCount = ((length + mapperPageMask) >> mapperPageShift);
@@ -2266,7 +2291,7 @@ AppleVTD::spaceUnmapMemory(	vtd_space_t * space,
 	leaf = true;
 	isLarge = (addr >= space->rsize);
 
-	IOSimpleLockLock(fHWLock);
+	VTHWLOCK(fHWLock);
 
 #if 0
 	int32_t      freeCount;
@@ -2362,7 +2387,7 @@ AppleVTD::spaceUnmapMemory(	vtd_space_t * space,
 		unit->qi_tail = next;
 	}
 
-	IOSimpleLockUnlock(fHWLock);
+	VTHWUNLOCK(fHWLock);
 
     return (kIOReturnSuccess);
 }
@@ -2394,11 +2419,11 @@ AppleVTD::checkFree(vtd_space_t * space, uint32_t isLarge)
 			addr = space->free_queue[isLarge][idx].addr;
 			size = space->free_queue[isLarge][idx].size;
 			space->free_head[isLarge] = next;
-			IOSimpleLockUnlock(fHWLock);
+			VTHWUNLOCK(fHWLock);
 
 			space_free(space, addr, size);
 
-			IOSimpleLockLock(fHWLock);
+			VTHWLOCK(fHWLock);
 			idx = space->free_head[isLarge];
 			count++;
 		}
@@ -2420,7 +2445,7 @@ AppleVTD::contextInvalidate(uint16_t domainID)
 	uint64_t     deadline;
 	bool         ok;
 
-	IOSimpleLockLock(fHWLock);
+	VTHWLOCK(fHWLock);
 
 	stamp = ++fQIStamp;
 	gran = (domainID != 0) ? 2 : 1;		// global or domain selective
@@ -2474,7 +2499,7 @@ AppleVTD::contextInvalidate(uint16_t domainID)
 		unit->qi_tail = next;
 	}
 
-	IOSimpleLockUnlock(fHWLock);
+	VTHWUNLOCK(fHWLock);
 
 	clock_interval_to_deadline(600, kMillisecondScale, &deadline);
 	while (true)
@@ -2504,7 +2529,7 @@ AppleVTD::interruptInvalidate(uint16_t index, uint16_t count)
 
 	count = vtd_log2up(count);
 
-	IOSimpleLockLock(fHWLock);
+	VTHWLOCK(fHWLock);
 
 	stamp = ++fQIStamp;
 	for (unitIdx = 0; (unit = units[unitIdx]); unitIdx++)
@@ -2532,7 +2557,7 @@ AppleVTD::interruptInvalidate(uint16_t index, uint16_t count)
 		unit->qi_tail = next;
 	}
 
-	IOSimpleLockUnlock(fHWLock);
+	VTHWUNLOCK(fHWLock);
 
 	clock_interval_to_deadline(600, kMillisecondScale, &deadline);
 	while (true)
@@ -2677,7 +2702,7 @@ AppleVTD::newContextPage(uint32_t idx)
 	context = (typeof(context)) map->getVirtualAddress();
 	context[0].address_space_root = 0;
 
-	IOSimpleLockLock(fHWLock);
+	VTHWLOCK(fHWLock);
 
 	if (fGlobalContextMap == fContextMaps[idx])
 	{
@@ -2692,7 +2717,7 @@ AppleVTD::newContextPage(uint32_t idx)
 		map = 0;
 	}
 
-	IOSimpleLockUnlock(fHWLock);
+	VTHWUNLOCK(fHWLock);
 
 	if (map) map->release();
 

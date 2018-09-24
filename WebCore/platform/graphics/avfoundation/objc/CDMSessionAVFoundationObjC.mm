@@ -35,8 +35,8 @@
 #import "WebCoreNSErrorExtras.h"
 #import <AVFoundation/AVAsset.h>
 #import <AVFoundation/AVAssetResourceLoader.h>
+#import <JavaScriptCore/TypedArrayInlines.h>
 #import <objc/objc-runtime.h>
-#import <runtime/TypedArrayInlines.h>
 #import <wtf/MainThread.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/UUID.h>
@@ -50,7 +50,7 @@ SOFT_LINK_CLASS(AVFoundation, AVAssetResourceLoadingRequest)
 namespace WebCore {
 
 CDMSessionAVFoundationObjC::CDMSessionAVFoundationObjC(MediaPlayerPrivateAVFoundationObjC* parent, LegacyCDMSessionClient* client)
-    : m_parent(parent->createWeakPtr())
+    : m_parent(makeWeakPtr(*parent))
     , m_client(client)
     , m_sessionId(createCanonicalUUIDString())
 {

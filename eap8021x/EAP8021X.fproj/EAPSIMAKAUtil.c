@@ -607,7 +607,7 @@ EAPSIMAKAIdentityTypeGetAttributeType(CFStringRef string)
 }
 
 PRIVATE_EXTERN EAPSIMAKAEncryptedIdentityInfoRef
-EAPSIMAKAInitEncryptedIdentityInfo(CFDictionaryRef properties, bool static_config)
+EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, bool static_config)
 {
     EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info = NULL;
     CFDataRef				encrypted_identity = NULL;
@@ -616,7 +616,7 @@ EAPSIMAKAInitEncryptedIdentityInfo(CFDictionaryRef properties, bool static_confi
     CFBooleanRef 			b;
 
     b = isA_CFBoolean(CFDictionaryGetValue(properties, kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled));
-    if (b != NULL && CFBooleanGetValue(b) == false) {
+    if (b == NULL || CFBooleanGetValue(b) == false) {
 	EAPLOG_FL(LOG_DEBUG, "The carrier does not support encrypted identity");
 	return NULL;
     }
@@ -646,7 +646,7 @@ EAPSIMAKAInitEncryptedIdentityInfo(CFDictionaryRef properties, bool static_confi
 	goto done;
     }
 #if TARGET_OS_EMBEDDED
-    CFDictionaryRef info = SIMCopyEncryptedIMSIInfo(kEAPTypeEAPAKA);
+    CFDictionaryRef info = SIMCopyEncryptedIMSIInfo(type);
     if (info == NULL) {
 	return NULL;
     }
@@ -663,7 +663,7 @@ EAPSIMAKAInitEncryptedIdentityInfo(CFDictionaryRef properties, bool static_confi
     } else {
 	CFRetain(anonymous_username);
     }
-    CFStringRef realm = SIMCopyRealm();
+    CFStringRef realm = SIMCopyRealm(NULL);
     if (realm != NULL) {
 	anonymous_identity = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"),
 						      anonymous_username,

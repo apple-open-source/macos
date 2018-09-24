@@ -74,6 +74,12 @@ static io_iterator_t            gAddedIter = MACH_PORT_NULL;
 //---------------------------------------------------------------------------
 // TypeDefs
 //---------------------------------------------------------------------------
+typedef enum DeviceType {
+    kDeviceTypeUPS,
+    kDeviceTypeAccessoryBattery,
+    kDeviceTypeBatteryCase,
+} DeviceType;
+
 typedef struct UPSData {
     IOPSPowerSourceID       powerSourceID;
     io_object_t             notification;
@@ -83,9 +89,8 @@ typedef struct UPSData {
     CFMutableDictionaryRef  upsStoreDict;
     CFRunLoopSourceRef      upsEventSource;
     CFRunLoopTimerRef       upsEventTimer;
-    uint32_t                isBatteryCase:1;
-    uint32_t                isAccessoryBattery:1;
-    uint32_t                isUPS:1;
+    DeviceType              deviceType;
+    Boolean                 requiresCurrentLimitControl;
     Boolean                 hasACPower;
     io_object_t             batteryStateNotification;
     io_object_t             currentLimitNotification;
@@ -338,6 +343,65 @@ void ProcessUPSEventSource(CFTypeRef typeRef, CFRunLoopTimerRef * pTimer, CFRunL
 }
 
 //---------------------------------------------------------------------------
+// IdentifyUPSDeviceType
+//
+// Determine the correct DeviceType enum value for the given UPS based on
+// its HID usages.
+//---------------------------------------------------------------------------
+
+DeviceType IdentifyDeviceType(io_object_t upsDevice)
+{
+    DeviceType deviceTypeToReturn = kDeviceTypeUPS; // default to generic UPS
+    CFArrayRef usagePairs = IORegistryEntrySearchCFProperty(upsDevice,
+                                                            kIOServicePlane,
+                                                            CFSTR(kIOHIDDeviceUsagePairsKey),
+                                                            kCFAllocatorDefault,
+                                                            0);
+    if (usagePairs) {
+        int     i           = 0;
+        CFIndex count       = CFArrayGetCount(usagePairs);
+        int     usagePage   = 0;
+        int     usage       = 0;
+
+        for (;i < count; i++) {
+            CFDictionaryRef usagePair = (CFDictionaryRef)CFArrayGetValueAtIndex(usagePairs, i);
+            if (!usagePair) continue;
+
+            CFNumberRef usagePageRef = CFDictionaryGetValue(usagePair, CFSTR(kIOHIDDeviceUsagePageKey));
+            CFNumberRef usageRef = CFDictionaryGetValue(usagePair, CFSTR(kIOHIDDeviceUsageKey));
+
+            if (usagePageRef) {
+                CFNumberGetValue(usagePageRef, kCFNumberIntType, &usagePage);
+            }
+            if (usageRef) {
+                CFNumberGetValue(usageRef, kCFNumberIntType, &usage);
+            }
+
+            if (((usagePage == kHIDPage_AppleVendor) && (usage == kHIDUsage_AppleVendor_AccessoryBattery)) ||
+                ((usagePage == kHIDPage_PowerDevice) && (usage == kHIDUsage_PD_PeripheralDevice))){
+                deviceTypeToReturn = kDeviceTypeAccessoryBattery;
+            }
+        }
+
+        CFRelease(usagePairs);
+    }
+
+    return deviceTypeToReturn;
+}
+
+
+//---------------------------------------------------------------------------
+// IsCurrentLimitControlRequired
+//
+// Identify whether a UPS is a device that sends/receives available
+// current limits over HID
+//---------------------------------------------------------------------------
+Boolean IsCurrentLimitControlRequired(UPSDataRef upsDataRef)
+{
+    return false;
+}
+
+//---------------------------------------------------------------------------
 // UPSDeviceAdded
 //
 // This routine is the callback for our IOServiceAddMatchingNotification.
@@ -435,59 +499,7 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
             upsDataRef->upsEventSource      = upsEventSource;
             upsDataRef->upsEventTimer       = upsEventTimer;
             upsDataRef->isPresent           = true;
-            
-            
-            // On iOS HID UPS devices that describe themself with:
-            //    Primary Usage Page: Battery System (0x85)
-            //    Usage:              Primary Battery (0x2E)
-            // are considered to be battery cases which upsd is responsible for
-            // managing the current draw to and from. This is because these
-            // devices cannot identify power sources plugged into them, since
-            // they pass that information straight through to the iOS device.
-            //
-            
-            CFArrayRef usagePairs = IORegistryEntrySearchCFProperty(upsDevice,
-                                                                         kIOServicePlane,
-                                                                         CFSTR(kIOHIDDeviceUsagePairsKey),
-                                                                         kCFAllocatorDefault,
-                                                                         0);
-
-            if (usagePairs) {
-                int     i           = 0;
-                CFIndex count       = CFArrayGetCount(usagePairs);
-                int     usagePage   = 0;
-                int     usage       = 0;
-                
-                for (;i < count; i++) {
-                    CFDictionaryRef usagePair = (CFDictionaryRef)CFArrayGetValueAtIndex(usagePairs, i);
-                    if (!usagePair) continue;
-                    
-                    CFNumberRef usagePageRef = CFDictionaryGetValue(usagePair, CFSTR(kIOHIDDeviceUsagePageKey));
-                    CFNumberRef usageRef = CFDictionaryGetValue(usagePair, CFSTR(kIOHIDDeviceUsageKey));
-                    
-                    if (usagePageRef) {
-                        CFNumberGetValue(usagePageRef, kCFNumberIntType, &usagePage);
-                    }
-                    
-                    if (usageRef) {
-                        CFNumberGetValue(usageRef, kCFNumberIntType, &usage);
-                    }
-                    
-                    if (((usagePage == kHIDPage_AppleVendor) && (usage == kHIDUsage_AppleVendor_AccessoryBattery)) ||
-                        ((usagePage == kHIDPage_PowerDevice) && (usage == kHIDUsage_PD_PeripheralDevice))){
-                        upsDataRef->isAccessoryBattery = true;
-                    }
-                    else if ((usagePage == kHIDPage_BatterySystem) && (usage == kHIDUsage_BS_PrimaryBattery)) {
-                        upsDataRef->isBatteryCase = true;
-                        upsDataRef->hasACPower = false;
-                    }
-                    else {
-                        upsDataRef->isUPS = true;
-                    }
-                }
-                
-                CFRelease(usagePairs);
-            }
+            upsDataRef->deviceType          = IdentifyDeviceType(upsDevice);
             
             kr = (*upsPlugInInterface)->getCapabilities(upsPlugInInterface, &upsCapabilites);
             
@@ -495,20 +507,22 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
                 goto UPSDEVICEADDED_FAIL;
             
             kr = CreatePowerManagerUPSEntry(upsDataRef, upsProperties, upsCapabilites);
+            upsDataRef->requiresCurrentLimitControl = IsCurrentLimitControlRequired(upsDataRef);
             
             if (kr != kIOReturnSuccess)
                 goto UPSDEVICEADDED_FAIL;
             
-            if (upsDataRef->isBatteryCase) {
+            if (upsDataRef->deviceType == kDeviceTypeBatteryCase) {
                 // Initialize AC state manually according to the default value.
                 // If a UPS is not on battery power, this will get fixed in the
                 // first ProcessUPSEvent call below
+                upsDataRef->hasACPower = false;
                 BatteryCaseHandleACStateChange(upsDataRef, CFSTR(kIOPSBatteryPowerValue));
                 
                 // Register for interest in battery state changes to update
                 // battery cases on our state of charge
                 io_service_t chargerService = IOServiceGetMatchingService(kIOMasterPortDefault,
-                                                                          IOServiceMatching("AppleARMPMUCharger"));
+                                                                          IOServiceMatching("IOPMPowerSource"));
                 
                 if (chargerService != MACH_PORT_NULL) {
                     IOServiceAddInterestNotification(gNotifyPort,
@@ -711,14 +725,16 @@ void ProcessUPSEvent(UPSDataRef upsDataRef, CFDictionaryRef event)
             // If a battery case changes from "unplugged" to "plugged in",
             // or vice versa, we need to configure it.
             if (CFEqual(keys[index], CFSTR(kIOPSPowerSourceStateKey)) &&
-                upsDataRef->isBatteryCase) {
+                upsDataRef->deviceType == kDeviceTypeBatteryCase) {
                 CFTypeRef oldValue = CFDictionaryGetValue(upsDataRef->upsStoreDict, keys[index]);
                 if (oldValue && !CFEqual(oldValue, values[index])) {
                     BatteryCaseHandleACStateChange(upsDataRef, values[index]);
                 }
             // Battery cases will indicate how much current we can draw from them
             } else if (CFEqual(keys[index], CFSTR(kIOPSAppleBatteryCaseAvailableCurrentKey)) &&
-                       upsDataRef->isBatteryCase && !upsDataRef->hasACPower) {
+                       upsDataRef->deviceType == kDeviceTypeBatteryCase &&
+                       upsDataRef->requiresCurrentLimitControl &&
+                       !upsDataRef->hasACPower) {
                 BatteryCaseSetDeviceCurrentLimit(values[index]);
             }
             
@@ -753,8 +769,6 @@ kern_return_t BatteryCaseSendCommand(UPSDataRef upsDataRef, CFStringRef commandS
 //
 // Called whenever the PMU charger updates. We filter for battery state
 // changes, and tell battery cases what the internal state of charge is.
-// The battery case is also disabled/enabled based on the internal battery's
-// capacity to optimize battery life.
 //---------------------------------------------------------------------------
 void BatteryCaseBatteryStateChangedCallback(void *refcon, io_service_t service,
                                             uint32_t messageType, void *messageArgument) {
@@ -913,7 +927,7 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
         CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSNameKey), upsName);
         CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSTransportTypeKey), transport);
         CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSIsPresentKey), kCFBooleanTrue);
-        if (upsDataRef->isUPS) {
+        if (upsDataRef->deviceType == kDeviceTypeUPS) {
             CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSIsChargingKey), kCFBooleanTrue);
             CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSPowerSourceStateKey), CFSTR(kIOPSACPowerValue));
         }
@@ -921,6 +935,7 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
             CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
             CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSPowerSourceStateKey), CFSTR(kIOPSBatteryPowerValue));
         }
+
         if (vid) {
             CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSVendorIDKey), vid);
         }
@@ -937,7 +952,7 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
         // rdar://problem/21817316 Initialize battery cases to a max capacity
         // of 0 so they don't show up in UI until we've received the correct
         // value from the device.
-        if (upsDataRef->isBatteryCase) {
+        if (upsDataRef->deviceType == kDeviceTypeBatteryCase) {
             elementValue = 0;
         } else {
             elementValue = 100;
@@ -1005,7 +1020,7 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
             CFRelease(number);
         }
         
-        if (upsDataRef->isAccessoryBattery) {
+        if (upsDataRef->deviceType == kDeviceTypeAccessoryBattery) {
             // This is an accessory battery
             CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSTypeKey), CFSTR(kIOPSAccessoryType));
         }

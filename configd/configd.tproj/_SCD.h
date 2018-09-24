@@ -191,7 +191,7 @@ _removeWatcher				(CFNumberRef		sessionNum,
 					 CFStringRef		watchedKey);
 
 void
-pushNotifications			();
+pushNotifications			(void);
 
 __END_DECLS
 

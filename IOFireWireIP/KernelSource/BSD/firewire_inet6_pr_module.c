@@ -100,7 +100,7 @@ inet6_firewire_input(
 			mbuf_t				m, 
 			char				*frame_header)
 {
-    register struct firewire_header *eh = (struct firewire_header *) frame_header;
+    struct firewire_header *eh = (struct firewire_header *) frame_header;
 
     if ((ifnet_flags(ifp) & IFF_UP) == 0) 
 	{

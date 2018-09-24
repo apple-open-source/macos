@@ -26,24 +26,12 @@
 #import "sec_action.h"
 #import <CoreFoundation/CFPreferences.h>   // For clarity. Also included in debugging.h
 
-#if !TARGET_OS_BRIDGE
-#import <WirelessDiagnostics/WirelessDiagnostics.h>
-#import "keychain/analytics/awd/AWDMetricIds_Keychain.h"
-#import "keychain/analytics/awd/AWDKeychainCKKSRateLimiterOverload.h"
-#import "keychain/analytics/awd/AWDKeychainCKKSRateLimiterTopWriters.h"
-#import "keychain/analytics/awd/AWDKeychainCKKSRateLimiterAggregatedScores.h"
-#endif
-
 @interface RateLimiter()
 @property (readwrite, nonatomic) NSDictionary *config;
 @property (nonatomic) NSArray<NSMutableDictionary<NSString *, NSDate *> *> *groups;
 @property (nonatomic) NSDate *lastJudgment;
 @property (nonatomic) NSDate *overloadUntil;
 @property (nonatomic) NSString *assetType;
-#if !TARGET_OS_BRIDGE
-@property (nonatomic) NSMutableArray<NSNumber *> *badnessData;
-@property (nonatomic) AWDServerConnection *awdConnection;
-#endif
 @end
 
 @implementation RateLimiter
@@ -54,7 +42,6 @@
         _config = config;
         _assetType = nil;
         [self reset];
-        [self setUpAwdMetrics];
     }
     return self;
 }
@@ -69,7 +56,6 @@
         }
         _assetType = nil;
         [self reset];
-        [self setUpAwdMetrics];
     }
     return self;
 }
@@ -94,12 +80,6 @@
         _overloadUntil = [coder decodeObjectOfClass:[NSDate class] forKey:@"RLoverLoadedUntil"];
         _lastJudgment = [coder decodeObjectOfClass:[NSDate class] forKey:@"RLlastJudgment"];
         _assetType = [coder decodeObjectOfClass:[NSString class] forKey:@"RLassetType"];
-#if !TARGET_OS_BRIDGE
-        _badnessData = [coder decodeObjectOfClasses:[NSSet setWithObjects: [NSArray class],
-                                                                           [NSNumber class],
-                                                                           nil]
-                                             forKey:@"RLbadnessData"];
-#endif
         if (!_assetType) {
             // This list of types might be wrong. Be careful.
             _config = [coder decodeObjectOfClasses:[NSSet setWithObjects: [NSMutableArray class],
@@ -110,7 +90,6 @@
                                                                           nil]
                                             forKey:@"RLconfig"];
         }
-        [self setUpAwdMetrics];
     }
     return self;
 }
@@ -159,9 +138,6 @@
     }
 
     if (badness != RateLimiterBadnessClear) {
-#if !TARGET_OS_BRIDGE
-        self.badnessData[badness] = @(self.badnessData[badness].intValue + 1);
-#endif
         return badness;
     }
     
@@ -191,9 +167,6 @@
         }
     }
 
-#if !TARGET_OS_BRIDGE
-    self.badnessData[badness] = @(self.badnessData[badness].intValue + 1);
-#endif
     *limitTime = badness == RateLimiterBadnessClear ? nil : resultTime;
     self.lastJudgment = time;
     return badness;
@@ -237,10 +210,6 @@
     self.groups = newgroups;
     self.lastJudgment = [NSDate distantPast];   // will cause extraneous trim on first judgment but on empty groups
     self.overloadUntil = nil;
-#if !TARGET_OS_BRIDGE
-    // Corresponds to the number of RateLimiterBadness enum values
-    self.badnessData = [[NSMutableArray alloc] initWithObjects:@0, @0, @0, @0, @0, nil];
-#endif
 }
 
 - (void)trim:(NSDate *)time {
@@ -260,11 +229,6 @@
                  (unsigned long)[self stateSize],
                  [self.config[@"general"][@"maxStateSize"] unsignedLongValue],
                  self.overloadUntil);
-#if !TARGET_OS_BRIDGE
-        AWDKeychainCKKSRateLimiterOverload *metric = [AWDKeychainCKKSRateLimiterOverload new];
-        metric.ratelimitertype = self.config[@"general"][@"name"];
-        AWDPostMetric(AWDComponentId_Keychain, metric);
-#endif
     } else {
         self.overloadUntil = nil;
     }
@@ -310,9 +274,6 @@
     if (!_assetType) {
         [coder encodeObject:_config forKey:@"RLconfig"];
     }
-#if !TARGET_OS_BRIDGE
-    [coder encodeObject:_badnessData forKey:@"RLbadnessData"];
-#endif
 }
 
 + (BOOL)supportsSecureCoding {
@@ -332,33 +293,6 @@
                                                                                      notFoundMarker:[NSDate date]]
                                                            forKeys:[contenderkeys allObjects]];
     return [[[contenders keysSortedByValueUsingSelector:@selector(compare:)] reverseObjectEnumerator] allObjects];
-}
-
-- (void)setUpAwdMetrics {
-#if !TARGET_OS_BRIDGE
-    self.awdConnection = [[AWDServerConnection alloc] initWithComponentId:AWDComponentId_Keychain];
-
-    [self.awdConnection registerQueriableMetric:AWDMetricId_Keychain_CKKSRateLimiterTopWriters callback:^(UInt32 metricId) {
-        AWDKeychainCKKSRateLimiterTopWriters *metric = [AWDKeychainCKKSRateLimiterTopWriters new];
-        NSArray *offenders = [self topOffenders:3];
-        for (NSString *offender in offenders) {
-            [metric addWriter:offender];
-        }
-        metric.ratelimitertype = self.config[@"general"][@"name"];
-        AWDPostMetric(metricId, metric);
-    }];
-
-    [self.awdConnection registerQueriableMetric:AWDMetricId_Keychain_CKKSRateLimiterAggregatedScores callback:^(UInt32 metricId) {
-        AWDKeychainCKKSRateLimiterAggregatedScores *metric = [AWDKeychainCKKSRateLimiterAggregatedScores new];
-        for (NSNumber *num in self.badnessData) {
-            [metric addData:[num unsignedIntValue]];
-        }
-        metric.ratelimitertype = self.config[@"general"][@"name"];
-        AWDPostMetric(metricId, metric);
-        // Corresponds to the number of RateLimiterBadness enum values
-        self.badnessData = [[NSMutableArray alloc] initWithObjects:@0, @0, @0, @0, @0, nil];
-    }];
-#endif
 }
 
 @end

@@ -191,18 +191,6 @@ int CCSymmFinish(
 	return 0;
 }
 
-#if	ENABLE_DES
-const SSLSymmetricCipher SSLCipherDES_CBC = {
-    .params = &SSLCipherDES_CBCParams,
-    .c.cipher = {
-        .initialize = CCSymmInit,
-        .encrypt = CCSymmEncryptDecrypt,
-        .decrypt = CCSymmEncryptDecrypt
-    },
-    .finish = CCSymmFinish
-};
-#endif	/* ENABLE_DES */
-
 #if	ENABLE_3DES
 const SSLSymmetricCipher SSLCipher3DES_CBC = {
     .params = &SSLCipher3DES_CBCParams,
@@ -214,18 +202,6 @@ const SSLSymmetricCipher SSLCipher3DES_CBC = {
     .finish = CCSymmFinish
 };
 #endif	/* ENABLE_3DES */
-
-#if		ENABLE_RC2
-const SSLSymmetricCipher SSLCipherRC2_128 = {
-    .params = &SSLCipherRC2_128Params,
-    .c.cipher = {
-        .initialize = CCSymmInit,
-        .encrypt = CCSymmEncryptDecrypt,
-        .decrypt = CCSymmEncryptDecrypt
-    },
-    .finish = CCSymmFinish
-};
-#endif	/* ENABLE_RC2*/
 
 #if		ENABLE_AES
 const SSLSymmetricCipher SSLCipherAES_128_CBC = {

@@ -44,9 +44,9 @@
 
 namespace WebCore {
 
-static std::unique_ptr<char[]> createCopy(const char* data, int length)
+static UniqueArray<char> createCopy(const char* data, int length)
 {
-    std::unique_ptr<char[]> copy(new char[length]);
+    auto copy = makeUniqueArray<char>(length);
     memcpy(copy.get(), data, length);
 
     return copy;
@@ -66,7 +66,7 @@ SocketStreamHandleImpl::~SocketStreamHandleImpl()
     ASSERT(!m_workerThread);
 }
 
-std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const char* data, size_t length)
+std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t* data, size_t length)
 {
     LOG(Network, "SocketStreamHandle %p platformSend", this);
 
@@ -74,7 +74,7 @@ std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const char* d
 
     startThread();
 
-    auto copy = createCopy(data, length);
+    auto copy = createCopy(reinterpret_cast<const char*>(data), length);
 
     std::lock_guard<Lock> lock(m_mutexSend);
     m_sendData.append(SocketData { WTFMove(copy), length });
@@ -88,6 +88,10 @@ void SocketStreamHandleImpl::platformClose()
 
     ASSERT(isMainThread());
 
+    if (m_closed)
+        return;
+
+    m_closed = true;
     stopThread();
 
     m_client.didCloseSocketStream(*this);
@@ -98,7 +102,7 @@ bool SocketStreamHandleImpl::readData(CURL* curlHandle)
     ASSERT(!isMainThread());
 
     const size_t bufferSize = 1024;
-    std::unique_ptr<char[]> data(new char[bufferSize]);
+    auto data = makeUniqueArray<char>(bufferSize);
     size_t bytesRead = 0;
 
     CURLcode ret = curl_easy_recv(curlHandle, data.get(), bufferSize, &bytesRead);
@@ -268,7 +272,7 @@ void SocketStreamHandleImpl::didReceiveData()
         if (socketData.size > 0) {
             if (state() == Open)
                 m_client.didReceiveSocketStreamData(*this, socketData.data.get(), socketData.size);
-        } else
+        } else if (!m_closed)
             platformClose();
     }
 }

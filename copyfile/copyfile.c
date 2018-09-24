@@ -79,6 +79,8 @@ static int qtn_file_set_flags(void *x, uint32_t flags) { return 0; }
 #include "copyfile_private.h"
 #include "xattr_flags.h"
 
+#define XATTR_ROOT_INSTALLED_NAME "com.apple.root.installed"
+
 enum cfInternalFlags {
 	cfDelayAce                = 1 << 0, /* set if ACE shouldn't be set until post-order traversal */
 	cfMakeFileInvisible       = 1 << 1, /* set if kFinderInvisibleMask is on src */
@@ -2330,7 +2332,7 @@ static int copyfile_data(copyfile_state_t s)
 	int ret = 0;
 	size_t iBlocksize = 0, iMinblocksize = 0;
 	size_t oBlocksize = 0, oMinblocksize = 0; // If 0, we don't support sparse copying.
-	const size_t onegig = 1 << 30;
+	const size_t blocksize_limit = 1 << 30; // 1 GiB
 	struct statfs sfs;
 	copyfile_callback_t status = s->statuscb;
 
@@ -2350,6 +2352,8 @@ static int copyfile_data(copyfile_state_t s)
 	}
 #endif
 
+	// Calculate the input and output block sizes.
+	// Our output block size can be no greater than our input block size.
 	if (fstatfs(s->src_fd, &sfs) == -1) {
 		iBlocksize = s->sb.st_blksize;
 	} else {
@@ -2357,22 +2361,26 @@ static int copyfile_data(copyfile_state_t s)
 		iMinblocksize = sfs.f_bsize;
 	}
 
-	/* Work-around for 6453525, limit blocksize to 1G */
-	if (iBlocksize > onegig) {
-		iBlocksize = onegig;
-	}
-
 	if (fstatfs(s->dst_fd, &sfs) == -1) {
 		oBlocksize = iBlocksize;
-	} else if (sfs.f_iosize == 0) {
-		oBlocksize = iBlocksize;
-		oMinblocksize = sfs.f_bsize;
 	} else {
+		oBlocksize = (sfs.f_iosize == 0) ? iBlocksize : MIN((size_t) sfs.f_iosize, iBlocksize);
 		oMinblocksize = sfs.f_bsize;
-		oBlocksize = sfs.f_iosize;
-		if (oBlocksize > onegig)
-			oBlocksize = onegig;
 	}
+
+	// 6453525 and 34848916 require us to limit our blocksize to resonable values.
+	if ((size_t) s->sb.st_size < iBlocksize && iMinblocksize > 0) {
+		copyfile_debug(3, "rounding up block size from fsize: %lld to multiple of %zu\n", s->sb.st_size, iMinblocksize);
+		iBlocksize = roundup((size_t) s->sb.st_size, iMinblocksize);
+		oBlocksize = MIN(oBlocksize, iBlocksize);
+	}
+
+	if (iBlocksize > blocksize_limit) {
+		iBlocksize = blocksize_limit;
+		oBlocksize = MIN(oBlocksize, iBlocksize);
+	}
+
+	copyfile_debug(3, "input block size: %zu output block size: %zu\n", iBlocksize, oBlocksize);
 
 	s->totalCopied = 0;
 
@@ -2958,9 +2966,16 @@ static int copyfile_xattr(copyfile_state_t s)
 		}
 		if (fsetxattr(s->dst_fd, name, xa_dataptr, xa_size, 0, look_for_decmpea) < 0)
 		{
-			if (s->statuscb)
+			int error = errno;
+			if (error == EPERM && strcmp(name, XATTR_ROOT_INSTALLED_NAME) == 0) {
+				//Silently ignore if we fail to set XATTR_ROOT_INSTALLED_NAME
+				errno = error;
+				continue;
+			}
+			else if (s->statuscb)
 			{
 				int rv;
+				error = errno;
 				if (s->xattr_name == NULL)
 					s->xattr_name = strdup(name);
 				rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
@@ -2973,8 +2988,9 @@ static int copyfile_xattr(copyfile_state_t s)
 			}
 			else
 			{
+				errno = error;
 				ret = -1;
-				copyfile_warn("could not set attributes %s on destination file descriptor: %s", name, strerror(errno));
+				copyfile_warn("could not set attributes %s on destination file descriptor: %s", name, strerror(error));
 				continue;
 			}
 		}
@@ -3918,9 +3934,14 @@ static int copyfile_unpack(copyfile_state_t s)
 							goto exit;
 						}
 					}
-					if (fsetxattr(s->dst_fd, (char *)entry->name, dataptr, entry->length, 0, 0) == -1) {
+					//Silently ignore failure to set XATTR_ROOT_INSTALLED_NAME
+					int result = fsetxattr(s->dst_fd, (char *)entry->name, dataptr, entry->length, 0, 0);
+					int errorcode = errno;
+					if (result == -1 && !(errorcode == EPERM &&
+										 strcmp((char*)entry->name, XATTR_ROOT_INSTALLED_NAME) == 0)) {
+						errno = errorcode;
 						if (COPYFILE_VERBOSE & s->flags)
-							copyfile_warn("error %d setting attribute %s", errno, entry->name);
+							copyfile_warn("error %d setting attribute %s", errorcode, entry->name);
 						if (s->statuscb) {
 							int rv;
 
@@ -3940,6 +3961,7 @@ static int copyfile_unpack(copyfile_state_t s)
 						}
 					} else if (s->statuscb) {
 						int rv;
+						errno = errorcode;
 						s->xattr_name = strdup((char*)entry->name);
 						s->totalCopied = entry->length;
 						rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
@@ -3952,6 +3974,8 @@ static int copyfile_unpack(copyfile_state_t s)
 							s->err = ECANCELED;
 							goto exit;
 						}
+					} else {
+						errno = errorcode;
 					}
 				}
 			}

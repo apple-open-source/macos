@@ -38,7 +38,7 @@
 #include "ServiceWorkerClientData.h"
 #include "ServiceWorkerGlobalScope.h"
 #include "ServiceWorkerProvider.h"
-#include <runtime/JSCJSValueInlines.h>
+#include <JavaScriptCore/JSCJSValueInlines.h>
 #include <wtf/NeverDestroyed.h>
 
 #define WORKER_RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(isAlwaysOnLoggingAllowed(), ServiceWorker, "%p - ServiceWorker::" fmt, this, ##__VA_ARGS__)
@@ -99,7 +99,7 @@ ExceptionOr<void> ServiceWorker::postMessage(ScriptExecutionContext& context, JS
         return Exception { InvalidStateError };
 
     if (state() == State::Redundant)
-        return Exception { InvalidStateError, ASCIILiteral("Service Worker state is redundant") };
+        return Exception { InvalidStateError, "Service Worker state is redundant"_s };
 
     // FIXME: Invoke Run Service Worker algorithm with serviceWorker as the argument.
 

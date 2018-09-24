@@ -34,6 +34,10 @@
 
 #include <security_utilities/debugging.h>
 
+#if OCTAGON
+#import <SecurityFoundation/SFKey.h>
+#endif
+
 @interface OTControl ()
 @property NSXPCConnection *connection;
 @end

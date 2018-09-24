@@ -15,10 +15,10 @@
 #include <sys/syscall.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
-#include <IOKit/storage/CoreStorage/CoreStorageCryptoIDs.h>
 #include <dirent.h>
 #include <sys/xattr.h>
 #include <sys/mount.h>
+#include <libkern/OSAtomic.h>
 
 #include <err.h>
 #include <errno.h>
@@ -35,12 +35,13 @@
 
 #include "BootCache_private.h"
 
-// --- For composite disk checking
+// --- For fusion disk checking
 #include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
 #include <IOKit/storage/IOMedia.h>
+#include <APFS/APFSConstants.h>
 
 static int	usage(const char *reason);
-static int	do_boot_cache();
+static int	do_boot_cache(void);
 static int	start_cache(const char *pfname);
 static int	stop_cache(const char *pfname, int debugging);
 static int	jettison_cache(void);
@@ -54,10 +55,13 @@ static int	truncate_playlist(const char *pfname, char *larg);
 static int	add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool low_priority);
 static int	add_directory(struct BC_playlist *pc, const char *fname, const int batch);
 static int	add_fseventsd_files(struct BC_playlist *pc, const int batch);
-static int	add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk);
+static int	add_playlist_for_preheated_user(struct BC_playlist *pc, bool isFusion);
 static int	add_logical_playlist(const char *playlist, struct BC_playlist *pc, int batch);
 static int	add_native_shared_cache(struct BC_playlist *pc, int batch, bool low_priority);
 static int	add_32bit_shared_cache(struct BC_playlist *pc, int batch, bool low_priority);
+
+static CFStringRef _bootcachectl_copy_root_volume_uuid(bool *is_apfs_out, bool* is_fusion_out);
+static CFStringRef _bootcachectl_copy_uuid_for_bsd_device(const char* bsd_name, bool *is_apfs_out, bool *is_fusion_out);
 
 static int verbose;
 static char *myname;
@@ -208,12 +212,13 @@ usage(const char *reason)
  * Returns a pointer to a static buffer, which is
  * racy, so this should only be used for debugging purposes
  */
-static inline const char* uuid_string(uuid_t uuid)
+static inline const char* uuid_string(const uuid_t uuid)
 {
-	/* Racy, but used for debug output so who cares */
-	static uuid_string_t uuidString;
-	uuid_unparse(uuid, uuidString);
-	return (char*)uuidString;
+	static uuid_string_t string[4];
+	static int index = 0;
+	int i = OSAtomicIncrement32(&index) % 4;
+	uuid_unparse(uuid, string[i]);
+	return string[i];
 }
 
 static int add_logical_playlist(const char *playlist, struct BC_playlist *pc, int batch)
@@ -229,7 +234,7 @@ static int add_logical_playlist(const char *playlist, struct BC_playlist *pc, in
 	}
 
 	while (fgets(filename, sizeof filename, lpl)){
-		int len = strlen(filename);
+		size_t len = strlen(filename);
 		if (len < 3)
 			continue;
 
@@ -252,142 +257,28 @@ static int add_logical_playlist(const char *playlist, struct BC_playlist *pc, in
 }
 
 /*
- * Return whether the root disk is a composite disk.
- */
-static bool
-isRootCPDK()
-{
-	//*********************************************//
-	// Get the bsd device name for the root volume //
-	//*********************************************//
-
-	char* bsdDevPath = NULL;
-
-	struct statfs buffer;
-	bzero (&buffer, sizeof (buffer));
-	if (0 == statfs("/", &buffer)) {
-
-		if (strlen(buffer.f_mntfromname) >= 9) { /* /dev/disk */
-
-			bsdDevPath = &(buffer.f_mntfromname[5]);
-
-		}
-	}
-
-	if (NULL == bsdDevPath) {
-		// No bsd device? Assume not composite
-		return false;
-	}
-
-	//*************************************************************//
-	// Get the CoreStorage Logical Volume UUID from the bsd device //
-	//*************************************************************//
-
-	CFStringRef lvUUID = NULL;
-
-	mach_port_t masterPort;
-	if (KERN_SUCCESS == IOMasterPort(bootstrap_port, &masterPort)) {
-
-		io_registry_entry_t diskObj = IOServiceGetMatchingService(masterPort, IOBSDNameMatching(masterPort, 0, bsdDevPath));
-		if (IO_OBJECT_NULL != diskObj) {
-
-			if (IOObjectConformsTo(diskObj, kCoreStorageLogicalClassName)) {
-
-				CFTypeRef cfRef = IORegistryEntryCreateCFProperty(diskObj, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
-				if (NULL != cfRef) {
-
-					if (CFGetTypeID(cfRef) == CFStringGetTypeID()) {
-
-						lvUUID = CFStringCreateCopy(NULL, cfRef);
-						DLOG("CoreStorage Logical Volume UUID is %p %s", lvUUID, CFStringGetCStringPtr(lvUUID, 0));
-
-					}
-
-					CFRelease(cfRef);
-				}
-
-			} else {
-				//Common case for non-CoreStorage filesystems
-			}
-
-			IOObjectRelease(diskObj);
-		}
-
-	}
-
-	if (NULL == lvUUID) {
-		// Not composite if it's not CoreStorage
-		return false;
-	}
-
-	//****************************************************************************************//
-	// Get the CoreStorage Logical Volume Group UUID from the CoreStorage Logical Volume UUID //
-	//****************************************************************************************//
-
-	CFStringRef lvgUUID = NULL;
-
-	CFMutableDictionaryRef propLV = CoreStorageCopyVolumeProperties ((CoreStorageLogicalRef)lvUUID);
-	CFRelease(lvUUID);
-	if (NULL != propLV) {
-
-		lvgUUID = CFDictionaryGetValue(propLV, CFSTR(kCoreStorageLogicalGroupUUIDKey));
-		if (NULL != lvgUUID) {
-
-			lvgUUID = CFStringCreateCopy(NULL, lvgUUID);
-			DLOG("CoreStorage Logical Volume Group UUID is %p %s", lvgUUID, CFStringGetCStringPtr(lvgUUID, 0));
-
-		}
-
-		CFRelease(propLV);
-	}
-
-	if (NULL == lvgUUID) {
-		// Can't get the group? Assume not composite
-		return false;
-	}
-
-	//**************************************************************************************************//
-	// Check if the Core Storage Group Type of the CoreStorage Logical Volume Group is a Composite Disk //
-	//**************************************************************************************************//
-
-	bool isCompositeDisk = false;
-
-	CFMutableDictionaryRef lvgProperties = CoreStorageCopyLVGProperties ((CoreStorageGroupRef)lvgUUID);
-	CFRelease(lvgUUID);
-	if (NULL != lvgProperties) {
-
-		CFStringRef groupType = CFDictionaryGetValue(lvgProperties, CFSTR(kCoreStorageGroupTypeKey));
-		if (NULL != groupType) {
-
-			isCompositeDisk = (kCFCompareEqualTo == CFStringCompare(groupType, CFSTR(kCoreStorageGroupTypeCPDK), 0x0));
-
-		}
-
-		CFRelease(lvgProperties);
-	}
-
-	if (isCompositeDisk) {
-		DLOG("is cpdk");
-	} else {
-		DLOG("is not cpdk");
-	}
-
-	return isCompositeDisk;
-}
-
-static struct BC_userspace_statistics boot_statistics;
-
-/*
  * Kick off the boot cache.
  */
 static int
 do_boot_cache()
 {
-	boot_statistics.ssup_launch_timestamp = mach_absolute_time();
+	struct BC_userspace_timestamps userspace_timestamps = {0};
+	userspace_timestamps.ssup_launch_timestamp = mach_absolute_time();
 #ifdef DEBUG
 	outstream = fopen("/var/log/BootCacheControl.log", "a");
 	err_set_file(outstream);
 	bc_log_stream = outstream;
+	
+	struct tm tm;
+	time_t seconds = time(NULL);
+	localtime_r(&seconds, &tm);
+	char date[32];
+	size_t ret = strftime(date, sizeof(date), "%Y-%m-%d %T", &tm);
+	if (ret != 0) {
+		LOG("Launched at %s", date);
+	} else {
+		LOG("Launched");
+	}
 #endif
 
 	struct BC_playlist *pc;
@@ -398,7 +289,15 @@ do_boot_cache()
 		return error;
 	}
 
-	bool isCompositeDisk = isRootCPDK();
+	bool isFusion = false;
+	bool isAPFS = false;
+	CFStringRef uuid = _bootcachectl_copy_root_volume_uuid(&isAPFS, &isFusion);
+	if (!uuid) {
+		isFusion = false;
+		isAPFS = false;
+	} else {
+		CFRelease(uuid);
+	}
 
 	/* set up to start recording with no playback */
 	pc = NULL;
@@ -469,41 +368,40 @@ do_boot_cache()
 			// LOG("Took %dus to sync /var/db/", end_time.tv_usec);
 		}
 
-		if (! isCompositeDisk) {
+		if (!isFusion) {
 			// rdar://9424845 Add any files we know are read in every boot, but change every boot
 			add_fseventsd_files(pc, 0);
 			add_logical_playlist(BC_ROOT_EXTRA_LOGICAL_PLAYLIST, pc, 0);
 			add_logical_playlist(BC_LOGIN_EXTRA_LOGICAL_PLAYLIST, pc, 2);
 		}
+		
 	} else {
 		if (last_shutdown_was_clean) {
 			pc = BC_allocate_playlist(0, 0, 0);
 
 			// No Root playlist: we're during an install so use our premade logical playlists
 
-			if (! isCompositeDisk) {
+			if (!isFusion) {
 				add_logical_playlist(BC_ROOT_LOGICAL_PLAYLIST, pc, 0);
 				add_logical_playlist(BC_LOGIN_LOGICAL_PLAYLIST, pc, 2);
 			}
 		}
 	}
-
+	
 	// If we don't have a playlist here, we don't want to play back anything
 	if (pc) {
-		// Add the login playlist of user we expect to log in to the boot playlist
-		if (0 != add_playlist_for_preheated_user(pc, isCompositeDisk)) {
-			// Unable to add user playlist, add 32-bit shared cache to low-priority playlist
-			add_32bit_shared_cache(pc, 0, true);
-			DLOG("Added 32-bit shared cache to the low priority batch");
+		if (!isAPFS || !isFusion) {
+			// Add the login playlist of user we expect to log in to the boot playlist
+			add_playlist_for_preheated_user(pc, isFusion);
+			
+			// rdar://9021675 Always warm the shared cache
+			DLOG("Adding shared cache");
+			add_native_shared_cache(pc, -1, false);
 		}
-
-		// rdar://9021675 Always warm the shared cache
-		DLOG("Adding shared cache");
-		add_native_shared_cache(pc, -1, false);
 	}
 
-	boot_statistics.ssup_oid_timestamp = mach_absolute_time();
-	BC_set_userspace_statistics(&boot_statistics);
+	userspace_timestamps.ssup_oid_timestamp = mach_absolute_time();
+	BC_set_userspace_timestamps(&userspace_timestamps);
 
 	error = BC_start(pc);
 	if (error != 0) {
@@ -523,7 +421,7 @@ do_boot_cache()
  * Fetch or create a login playlist for the given user and add it to the provided playlist in subsequent batches
  */
 static int
-add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
+add_playlist_for_preheated_user(struct BC_playlist *pc, bool isFusion) {
 
 	if (!pc) return 1;
 
@@ -544,7 +442,7 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 #define I386_SHARED_CACHE_LOW_PRIORITY_BATCH_NUM (-1)
 
 	int error, i;
-	int playlist_path_end_idx = 0;
+	size_t playlist_path_end_idx = 0;
 	char playlist_path[MAX_PLAYLIST_PATH_LENGTH] = DEFAULT_USER_DIR;
 	struct BC_playlist* user_playlist = NULL;
 	bool already_added_i386_shared_cache = false;
@@ -642,8 +540,8 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 				if (iteration == 0) {
 					// We can't tell the order between apps, so just put them all background to give the login playlist priority
 					batch_offset = TAL_LOGIN_BACKGROUND_APP_BATCH_NUM;
-					if (isCompositeDisk) {
-						//rdar://11294417 All user data is low priority on composite disks
+					if (isFusion) {
+						//rdar://11294417 All user data is low priority on CoreStorage Fusion
 						flags |= BC_PE_LOWPRIORITY;
 					}
 				} else {
@@ -668,6 +566,9 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 										app_playlist->p_entries[i].pe_flags |= flags;
 										app_playlist->p_entries[i].pe_batch += batch_offset;
 										playlist_size += app_playlist->p_entries[i].pe_length;
+									}
+									for (i = 0; i < app_playlist->p_nomaps; i++) {
+										app_playlist->p_omaps[i].po_omap.otr_batch += batch_offset;
 									}
 
 									// Make sure we don't oversize the playlist
@@ -722,7 +623,7 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 		goto out;
 	}
 
-	if (! isCompositeDisk) {
+	if (!isFusion) {
 		// Add any files we know are read in every login, but change every login
 		// --- none yet, use add_file ---
 	}
@@ -737,6 +638,9 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 	batch_max ++;
 	for (i = 0; i < user_playlist->p_nentries; i++) {
 		user_playlist->p_entries[i].pe_batch += batch_max;
+	}
+	for (i = 0; i < user_playlist->p_nomaps; i++) {
+		user_playlist->p_omaps[i].po_omap.otr_batch += batch_max;
 	}
 
 	error = BC_merge_playlists(pc, user_playlist);
@@ -767,11 +671,17 @@ merge_into_batch(struct BC_playlist *dest, const struct BC_playlist *source, con
 			for (i = 0; i < source->p_nentries; i++) {
 				source->p_entries[i].pe_batch += batch;
 			}
+			for (i = 0; i < source->p_nomaps; i++) {
+				source->p_omaps[i].po_omap.otr_batch += batch;
+			}
 		} else if (batch < 0) {
 			int i;
 			int inverse_batch = 0 - batch;
 			for (i = 0; i < dest->p_nentries; i++) {
 				dest->p_entries[i].pe_batch += inverse_batch;
+			}
+			for (i = 0; i < dest->p_nomaps; i++) {
+				dest->p_omaps[i].po_omap.otr_batch += inverse_batch;
 			}
 		}
 	}
@@ -933,7 +843,7 @@ add_fseventsd_files(struct BC_playlist *pc, const int batch)
  * Add the native shared cache to the bootcache.
  */
 static int
-add_shared_cache(struct BC_playlist *pc, const char* shared_cache_path, int batch, bool low_priority, bool look_for_update, uint64_t max_text_size, uint64_t max_data_size, uint64_t max_linkedit_size)
+add_shared_cache(struct BC_playlist *pc, const char* shared_cache_path, int batch, bool low_priority, bool look_for_update, u_int64_t max_text_size, u_int64_t max_data_size, u_int64_t max_linkedit_size)
 {
 	int error;
 	
@@ -962,12 +872,12 @@ add_shared_cache(struct BC_playlist *pc, const char* shared_cache_path, int batc
 		nextents = 1;
 	} else {
 		
-		uint64_t shared_cache_text_offset;
-		uint64_t shared_cache_text_length = 0;
-		uint64_t shared_cache_data_offset;
-		uint64_t shared_cache_data_length = 0;
-		uint64_t shared_cache_linkedit_offset;
-		uint64_t shared_cache_linkedit_length = 0;
+		u_int64_t shared_cache_text_offset;
+		u_int64_t shared_cache_text_length = 0;
+		u_int64_t shared_cache_data_offset;
+		u_int64_t shared_cache_data_length = 0;
+		u_int64_t shared_cache_linkedit_offset;
+		u_int64_t shared_cache_linkedit_length = 0;
 		
 		
 		// Code to find regions of the shared cache copied from dyld_shared_cache_util
@@ -1010,21 +920,21 @@ add_shared_cache(struct BC_playlist *pc, const char* shared_cache_path, int batc
 		}
 		
 		
-		uint64_t shared_cache_text_highpri_offset = shared_cache_text_offset;
-		uint64_t shared_cache_data_highpri_offset = shared_cache_data_offset;
-		uint64_t shared_cache_linkedit_highpri_offset = shared_cache_linkedit_offset;
+		u_int64_t shared_cache_text_highpri_offset = shared_cache_text_offset;
+		u_int64_t shared_cache_data_highpri_offset = shared_cache_data_offset;
+		u_int64_t shared_cache_linkedit_highpri_offset = shared_cache_linkedit_offset;
 		
-		uint64_t shared_cache_text_highpri_length = (shared_cache_text_length <= max_text_size ? shared_cache_text_length : max_text_size);
-		uint64_t shared_cache_data_highpri_length = (shared_cache_data_length <= max_data_size ? shared_cache_data_length : max_data_size);
-		uint64_t shared_cache_linkedit_highpri_length = (shared_cache_linkedit_length <= max_linkedit_size ? shared_cache_linkedit_length : max_linkedit_size);
+		u_int64_t shared_cache_text_highpri_length = (shared_cache_text_length <= max_text_size ? shared_cache_text_length : max_text_size);
+		u_int64_t shared_cache_data_highpri_length = (shared_cache_data_length <= max_data_size ? shared_cache_data_length : max_data_size);
+		u_int64_t shared_cache_linkedit_highpri_length = (shared_cache_linkedit_length <= max_linkedit_size ? shared_cache_linkedit_length : max_linkedit_size);
 		
-		uint64_t shared_cache_text_lowpri_offset = shared_cache_text_offset + shared_cache_text_highpri_length;
-		uint64_t shared_cache_data_lowpri_offset = shared_cache_data_offset + shared_cache_data_highpri_length;
-		uint64_t shared_cache_linkedit_lowpri_offset = shared_cache_linkedit_offset + shared_cache_linkedit_highpri_length;
+		u_int64_t shared_cache_text_lowpri_offset = shared_cache_text_offset + shared_cache_text_highpri_length;
+		u_int64_t shared_cache_data_lowpri_offset = shared_cache_data_offset + shared_cache_data_highpri_length;
+		u_int64_t shared_cache_linkedit_lowpri_offset = shared_cache_linkedit_offset + shared_cache_linkedit_highpri_length;
 		
-		uint64_t shared_cache_text_lowpri_length = shared_cache_text_length > max_text_size ? shared_cache_text_length - max_text_size : 0;
-		uint64_t shared_cache_data_lowpri_length = shared_cache_data_length > max_data_size ? shared_cache_data_length - max_data_size : 0;
-		uint64_t shared_cache_linkedit_lowpri_length = shared_cache_linkedit_length > max_linkedit_size ? shared_cache_linkedit_length - max_linkedit_size : 0;
+		u_int64_t shared_cache_text_lowpri_length = shared_cache_text_length > max_text_size ? shared_cache_text_length - max_text_size : 0;
+		u_int64_t shared_cache_data_lowpri_length = shared_cache_data_length > max_data_size ? shared_cache_data_length - max_data_size : 0;
+		u_int64_t shared_cache_linkedit_lowpri_length = shared_cache_linkedit_length > max_linkedit_size ? shared_cache_linkedit_length - max_linkedit_size : 0;
 		
 		
 		extents[0].offset = shared_cache_text_highpri_offset;
@@ -1230,11 +1140,6 @@ stop_cache(const char *pfname, int debugging)
 	int error;
 
 	/*
-	 * Notify whoever cares that BootCache has stopped recording.
-	 */
-	notify_post("com.apple.system.private.bootcache.done");
-
-	/*
 	 * Stop the cache and fetch the history and omap list.
 	 */
 	if ((error = BC_stop_and_fetch(&hc, &oh)) != 0) {
@@ -1254,6 +1159,7 @@ stop_cache(const char *pfname, int debugging)
 	/* write history and stats to debug logs if debugging */
 	if (debugging) {
 		BC_print_history(BC_BOOT_HISTFILE, hc);
+		BC_print_omap_history(BC_BOOT_OMAPHISTFILE, oh);
 		if ((error = BC_fetch_statistics(&ss)) != 0)
 			errx(1, "could not fetch cache statistics: %d %s", error, strerror(error));
 		if (ss != NULL) {
@@ -1277,6 +1183,7 @@ stop_cache(const char *pfname, int debugging)
 	if ((error = BC_convert_history_and_omaps(hc, oh, &pc)) != 0) {
 		if (!debugging) {
 			BC_print_history(BC_BOOT_HISTFILE, hc);
+			BC_print_omap_history(BC_BOOT_OMAPHISTFILE, oh);
 		}
 		HC_FREE_ZERO(hc);
 		OH_FREE_ZERO(oh);
@@ -1352,6 +1259,9 @@ merge_playlists(const char *pfname, int argc, char *argv[], int* pbatch)
 			for (j = 0; j < npc->p_nentries; j++) {
 				npc->p_entries[j].pe_batch += *pbatch;
 			}
+			for (j = 0; j < npc->p_nomaps; j++) {
+				npc->p_omaps[j].po_omap.otr_batch += *pbatch;
+			}
 		}
 
 		if (BC_merge_playlists(pc, npc)){
@@ -1395,15 +1305,18 @@ print_history(struct BC_history *hc)
 {
 	int i;
 	for (i = 0; i < hc->h_nentries; i++) {
-		LOG("%s %#-12llx %#-8llx %#-12llx %5u%s%s",
-			   uuid_string(hc->h_mounts[hc->h_entries[i].he_mount_idx].hm_uuid),
-			   hc->h_entries[i].he_offset, hc->h_entries[i].he_length,
-			   hc->h_entries[i].he_crypto_offset,
-			   hc->h_entries[i].he_pid,
-			   hc->h_entries[i].he_flags & BC_HE_HIT	? " hit"	:
-			   hc->h_entries[i].he_flags & BC_HE_WRITE	? " write"	:
-			   hc->h_entries[i].he_flags & BC_HE_TAG	? " tag"	: " miss",
-			   hc->h_entries[i].he_flags & BC_HE_SHARED ? " shared" : "");
+		LOG("%s %s %-12llu %#-12llx %#-8llx %#-12llx %5u%s%s",
+			uuid_string(hc->h_mounts[hc->h_entries[i].he_mount_idx].hm_uuid),
+			uuid_string(hc->h_mounts[hc->h_entries[i].he_mount_idx].hm_group_uuid),
+			hc->h_entries[i].he_inode,
+			hc->h_entries[i].he_offset, hc->h_entries[i].he_length,
+			hc->h_entries[i].he_crypto_offset,
+			hc->h_entries[i].he_pid,
+			hc->h_entries[i].he_flags & BC_HE_OPTIMIZED ? " optimized" :
+			hc->h_entries[i].he_flags & BC_HE_HIT	? " hit"	:
+			hc->h_entries[i].he_flags & BC_HE_WRITE	? " write"	:
+			hc->h_entries[i].he_flags & BC_HE_TAG	? " tag"	: " miss",
+			hc->h_entries[i].he_flags & BC_HE_SHARED ? " shared" : "");
 	}
 }
 
@@ -1424,7 +1337,7 @@ print_playlist_on_disk(const char *pfname)
 	if (BC_read_playlist(pfname, &pc))
 		errx(1, "could not read playlist");
 
-	BC_print_playlist(pc);
+	BC_print_playlist(pc, true);
 
 	PC_FREE_ZERO(pc);
 	return(0);
@@ -1458,11 +1371,12 @@ unprint_playlist(const char *pfname)
 	struct BC_playlist *pc;
 	int nentries, alloced, error, got, i;
 	uuid_string_t uuid_string;
+	uuid_string_t uuid_grouping_string;
 	uuid_t uuid;
 	int seen_old_style;
 	int m_nentries;
 	int m_fs_flags;
-	uint64_t unused;
+	u_int64_t unused;
 	char buf[128];
 
 	pc = BC_allocate_playlist(0, 0, 0);
@@ -1480,10 +1394,10 @@ unprint_playlist(const char *pfname)
 		/*
 		 * Parse mounts
 		 */
-		got = sscanf(buf, "Mount %s flags 0x%x, %u entries",
-					 uuid_string, &m_fs_flags, &m_nentries);
+		got = sscanf(buf, "Mount %s grouping %s flags 0x%x, %u entries",
+					 uuid_string, uuid_grouping_string, &m_fs_flags, &m_nentries);
 
-		if (got == 3) {
+		if (got == 4) {
 			/* make sure we have space for the next mount */
 			if ((pc->p_mounts = realloc(pc->p_mounts, (pc->p_nmounts + 1) * sizeof(*pc->p_mounts))) == NULL)
 				errx(1, "could not allocate memory for %d mounts", pc->p_nmounts + 1);
@@ -1492,6 +1406,11 @@ unprint_playlist(const char *pfname)
 			pc->p_mounts[pc->p_nmounts].pm_fs_flags  = m_fs_flags;
 			pc->p_mounts[pc->p_nmounts].pm_nomaps = 0;
 			uuid_parse(uuid_string, pc->p_mounts[pc->p_nmounts].pm_uuid);
+			if (0 != strcmp("none", uuid_grouping_string)) {
+				uuid_parse(uuid_grouping_string, pc->p_mounts[pc->p_nmounts].pm_group_uuid);
+			} else {
+				uuid_clear(pc->p_mounts[pc->p_nmounts].pm_group_uuid); // No grouping
+			}
 
 			pc->p_nmounts++;
 
@@ -1688,3 +1607,207 @@ truncate_playlist(const char *pfname, char *larg)
 	return(0);
 }
 
+
+#pragma mark -
+// Code copied from warmd that should really be in libary.c, except libBootCache is used by other people (apfs) so I don't want to add linking requirements to it
+
+/*!
+ * @function    _bootcachectl_copy_root_volume_uuid
+ *
+ * @abstract
+ *
+ * Returns the CoreStorage Logical Volume UUID for the root disk, if it is CoreStorage, and *is_apfs_out will be false
+ * Returns the APFS Volume UUID for the root disk, if it is APFS, and *is_apfs_out will be true
+ * Upon non-null return, *is_fusion_out will indicate whether the volume is Fusion or not
+ * Return NULL if the root volume is not CS nor APFS
+ *
+ */
+static CFStringRef
+_bootcachectl_copy_root_volume_uuid(bool *is_apfs_out, bool* is_fusion_out)
+{
+	//*********************************************//
+	// Get the bsd device name for the root volume //
+	//*********************************************//
+	
+	char* bsdDevPath = NULL;
+	
+	struct statfs buffer;
+	bzero (&buffer, sizeof (buffer));
+	if (0 == statfs("/", &buffer)) {
+		
+		if (strlen(buffer.f_mntfromname) >= 9) { /* /dev/disk */
+			
+			bsdDevPath = &(buffer.f_mntfromname[5]);
+			
+		}
+	}
+	
+	if (NULL == bsdDevPath) {
+		// No bsd device? Assume not Fusion
+		return NULL;
+	}
+	
+	return _bootcachectl_copy_uuid_for_bsd_device(bsdDevPath, is_apfs_out, is_fusion_out);
+	
+}
+// _bootcachectl_copy_root_volume_uuid
+
+/*!
+ * @function    _bootcachectl_copy_uuid_for_bsd_device
+ *
+ * @abstract
+ *
+ * Returns the CoreStorage Logical Volume UUID for the bsd device, if it is CoreStorage, and *is_apfs_out will be false
+ * Returns the APFS Volume UUID for the bsd device, if it is APFS, and *is_apfs_out will be true
+ * Upon non-null return, *is_fusion_out will indicate whether the volume is Fusion or not
+ * Return NULL if the root volume is not CS nor APFS
+ */
+static CFStringRef
+_bootcachectl_copy_uuid_for_bsd_device(const char* bsd_name, bool *is_apfs_out, bool *is_fusion_out)
+{
+	if (NULL == bsd_name) return NULL;
+	
+	if (is_apfs_out) {
+		*is_apfs_out = false;
+	}
+	if (is_fusion_out) {
+		*is_fusion_out = false;
+	}
+	
+	//*************************************************************//
+	// Get the CoreStorage Logical Volume UUID from the bsd device //
+	// or the APFS volume UUID                                     //
+	//*************************************************************//
+	
+	CFStringRef uuid = NULL;
+	
+	mach_port_t masterPort;
+	if (KERN_SUCCESS == IOMasterPort(bootstrap_port, &masterPort)) {
+		
+		io_registry_entry_t volume = IOServiceGetMatchingService(masterPort, IOBSDNameMatching(masterPort, 0, bsd_name));
+		if (IO_OBJECT_NULL != volume) {
+			
+			if (IOObjectConformsTo(volume, kCoreStorageLogicalClassName) ||
+				IOObjectConformsTo(volume, APFS_VOLUME_OBJECT)) {
+				
+				CFTypeRef cfRef = IORegistryEntryCreateCFProperty(volume, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+				if (NULL != cfRef) {
+					
+					if (CFGetTypeID(cfRef) == CFStringGetTypeID()) {
+						
+						uuid = CFStringCreateCopy(NULL, cfRef);
+						
+					}
+					
+					CFRelease(cfRef);
+				}
+				
+				if (is_apfs_out || is_fusion_out) {
+					if (IOObjectConformsTo(volume, APFS_VOLUME_OBJECT)) {
+						if (is_apfs_out) {
+							*is_apfs_out = true;
+						}
+						
+						if (is_fusion_out) {
+							io_registry_entry_t container;
+							kern_return_t err = IORegistryEntryGetParentEntry(volume, kIOServicePlane, &container);
+							if (err == 0) {
+								if (IOObjectConformsTo(container, APFS_CONTAINER_OBJECT)) {
+									
+									io_registry_entry_t media;
+									err = IORegistryEntryGetParentEntry(container, kIOServicePlane, &media);
+									if (err == 0) {
+										if (IOObjectConformsTo(media, APFS_MEDIA_OBJECT)) {
+											
+											io_registry_entry_t scheme;
+											err = IORegistryEntryGetParentEntry(media, kIOServicePlane, &scheme);
+											if (err == 0) {
+												if (IOObjectConformsTo(scheme, APFS_SCHEME_OBJECT)) {
+													
+													
+													CFBooleanRef container_is_fusion = IORegistryEntryCreateCFProperty(scheme, CFSTR(kAPFSContainerIsCompositedKey), kCFAllocatorDefault, 0);
+													if (container_is_fusion != NULL) {
+														
+														if (CFGetTypeID(container_is_fusion) == CFBooleanGetTypeID()) {
+															if (CFBooleanGetValue(container_is_fusion)) {
+																*is_fusion_out = true;
+															}
+														} else {
+															LOG("Disk %s has bad composited property type %lu", bsd_name, CFGetTypeID(container_is_fusion));
+														}
+														
+														CFRelease(container_is_fusion);
+													}
+													
+												} else {
+													LOG("Parent is not an apfs scheme for apfs media for volume %s", bsd_name);
+												}
+												IOObjectRelease(scheme);
+												scheme = IO_OBJECT_NULL;
+											} else {
+												LOG("Unable to get scheme for volume %s: %d", bsd_name, err);
+											}
+											
+											
+										} else {
+											LOG("Parent is not an apfs media for apfs container for volume %s", bsd_name);
+										}
+										IOObjectRelease(media);
+										media = IO_OBJECT_NULL;
+									} else {
+										LOG("Unable to get media for volume %s: %d", bsd_name, err);
+									}
+									
+									
+								} else {
+									LOG("Parent is not an apfs container for volume %s", bsd_name);
+								}
+								IOObjectRelease(container);
+								container = IO_OBJECT_NULL;
+							} else {
+								LOG("Unable to get container for volume %s: %d", bsd_name, err);
+							}
+						}
+						
+						
+					} else {
+						if (is_apfs_out) {
+							*is_apfs_out = false;
+						}
+						
+						if (is_fusion_out) {
+							CFBooleanRef cs_volume_is_fusion = IORegistryEntryCreateCFProperty(volume, CFSTR(kCoreStorageIsCompositedKey), kCFAllocatorDefault, 0);
+							if (cs_volume_is_fusion != NULL) {
+								
+								if (CFGetTypeID(cs_volume_is_fusion) == CFBooleanGetTypeID()) {
+									if (CFBooleanGetValue(cs_volume_is_fusion)) {
+										*is_fusion_out = true;
+									} else {
+										*is_fusion_out = false;
+									}
+								} else {
+									*is_fusion_out = false;
+									LOG("Disk %s has bad composited property type %lu", bsd_name, CFGetTypeID(cs_volume_is_fusion));
+								}
+								
+								CFRelease(cs_volume_is_fusion);
+							} else {
+								*is_fusion_out = false;
+							}
+						}
+					}
+				}
+				
+				
+			} else {
+				// Case for non-CoreStorage, non-APFS filesystems, nothing special to do for them
+			}
+			
+			IOObjectRelease(volume);
+		}
+		
+	}
+	
+	return uuid;
+}
+// _bootcachectl_copy_uuid_for_bsd_device

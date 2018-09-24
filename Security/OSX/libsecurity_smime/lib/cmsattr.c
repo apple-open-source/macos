@@ -262,6 +262,7 @@ cms_attr_choose_attr_value_template(void *src_or_dest, Boolean encoding, const c
 	    theTemplate = SEC_ASN1_GET(kSecAsn1OctetStringTemplate);
 	    break;
 	case SEC_OID_PKCS9_SIGNING_TIME:
+	case SEC_OID_APPLE_EXPIRATION_TIME:
 	    encoded = PR_FALSE;
 	    theTemplate = SEC_ASN1_GET(kSecAsn1UTCTimeTemplate); // @@@ This should be a choice between UTCTime and GeneralizedTime -- mb
 	    break;

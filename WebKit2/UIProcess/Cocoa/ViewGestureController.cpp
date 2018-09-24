@@ -30,6 +30,7 @@
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "ViewGestureControllerMessages.h"
 #import "WebBackForwardList.h"
+#import "WebFullScreenManagerProxy.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
 #import <wtf/MathExtras.h>
@@ -107,19 +108,26 @@ void ViewGestureController::didEndGesture()
     
 void ViewGestureController::setAlternateBackForwardListSourcePage(WebPageProxy* page)
 {
-    if (page)
-        m_alternateBackForwardListSourcePage = page->createWeakPtr();
-    else
-        m_alternateBackForwardListSourcePage.clear();
+    m_alternateBackForwardListSourcePage = makeWeakPtr(page);
 }
     
 bool ViewGestureController::canSwipeInDirection(SwipeDirection direction) const
 {
+#if ENABLE(FULLSCREEN_API)
+    if (m_webPageProxy.fullScreenManager() && m_webPageProxy.fullScreenManager()->isFullScreen())
+        return false;
+#endif
     RefPtr<WebPageProxy> alternateBackForwardListSourcePage = m_alternateBackForwardListSourcePage.get();
     auto& backForwardList = alternateBackForwardListSourcePage ? alternateBackForwardListSourcePage->backForwardList() : m_webPageProxy.backForwardList();
     if (direction == SwipeDirection::Back)
         return !!backForwardList.backItem();
     return !!backForwardList.forwardItem();
+}
+
+void ViewGestureController::didStartProvisionalLoadForMainFrame()
+{
+    if (auto provisionalOrSameDocumentLoadCallback = WTFMove(m_provisionalOrSameDocumentLoadCallback))
+        provisionalOrSameDocumentLoadCallback();
 }
 
 
@@ -150,6 +158,12 @@ void ViewGestureController::didRestoreScrollPosition()
 
 void ViewGestureController::didReachMainFrameLoadTerminalState()
 {
+    if (m_provisionalOrSameDocumentLoadCallback) {
+        m_provisionalOrSameDocumentLoadCallback = nullptr;
+        removeSwipeSnapshot();
+        return;
+    }
+
     if (!m_snapshotRemovalTracker.eventOccurred(SnapshotRemovalTracker::MainFrameLoad))
         return;
 
@@ -174,6 +188,10 @@ void ViewGestureController::didReachMainFrameLoadTerminalState()
 
 void ViewGestureController::didSameDocumentNavigationForMainFrame(SameDocumentNavigationType type)
 {
+
+    if (auto provisionalOrSameDocumentLoadCallback = WTFMove(m_provisionalOrSameDocumentLoadCallback))
+        provisionalOrSameDocumentLoadCallback();
+
     bool cancelledOutstandingEvent = false;
 
     // Same-document navigations don't have a main frame load or first visually non-empty layout.
@@ -267,9 +285,6 @@ bool ViewGestureController::SnapshotRemovalTracker::stopWaitingForEvent(Events e
     if (!(m_outstandingEvents & event))
         return false;
 
-#if LOG_DISABLED
-    UNUSED_PARAM(logReason);
-#endif
     log(logReason + eventsDescription(event));
 
     m_outstandingEvents &= ~event;

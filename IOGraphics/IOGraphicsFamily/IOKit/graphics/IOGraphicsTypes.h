@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     64
+#define IOGRAPHICSTYPES_REV     67
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -272,7 +272,7 @@ enum {
 
     kIOClamshellStateAttribute          = 'clam',
 
-	kIOFBDisplayPortTrainingAttribute   = 'dpta',
+    kIOFBDisplayPortTrainingAttribute   = 'dpta',
 
     kIOFBDisplayState                   = 'dstt',
 
@@ -349,6 +349,27 @@ enum {
     kIOWSAA_DeferEnd            = 0x200,
     kIOWSAA_NonConsoleDevice    = 0x400,    // If present, associated FB is non-console.  See ERS for further details.
     kIOWSAA_Reserved            = 0xF0000000
+};
+
+// IOFBNS prefix is IOFramebuffer notifyServer
+enum {
+    kIOFBNS_Rendezvous           = 0x87654321,  // Note sign-bit is 1 here.
+
+    kIOFBNS_MessageMask         = 0x0000000f,
+    kIOFBNS_Sleep               = 0x00,
+    kIOFBNS_Wake                = 0x01,
+    kIOFBNS_Doze                = 0x02,
+
+    // For Wake messages this field contains the current kIOFBDisplayState as
+    // returned by attribute 'kIOFBDisplayState'
+    kIOFBNS_DisplayStateMask    = 0x00000f00,
+    kIOFBNS_DisplayStateShift   = 8,
+
+    // Message Generation Count, top-bit i.e. sign-bit is always 0 for normal
+    // messages, see kIOFBNS_Rendezvous is the only exception and it doesn't
+    // encode a generation count.
+    kIOFBNS_GenerationMask      = 0x7fff0000,
+    kIOFBNS_GenerationShift     = 16,
 };
 
 // values for kIOMirrorAttribute
@@ -914,6 +935,8 @@ enum {
 
     kConnectionEnableAudio               = 'aud ',
     kConnectionAudioStreaming            = 'auds',
+
+    kConnectionStartOfFrameTime          = 'soft',  // as of IOGRAPHICSTYPES_REV 65
 };
 
 // kConnectionFlags values

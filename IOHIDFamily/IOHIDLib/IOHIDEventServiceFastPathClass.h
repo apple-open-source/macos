@@ -48,8 +48,8 @@ protected:
     io_service_t                        _service;
     io_connect_t                        _connect;
     io_service_t                        _client;
-    IODataQueueMemory *                 _queueMappedMemory;
-    vm_size_t                           _queueMappedMemorySize;
+    void *                              _sharedMemory;
+    vm_size_t                           _sharedMemorySize;
 
     static inline IOHIDEventServiceFastPathClass *getThis(void *self) { return (IOHIDEventServiceFastPathClass *)((InterfaceMap *) self)->obj; };
     

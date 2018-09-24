@@ -160,13 +160,14 @@ add_subregions_for_libent(
 
                 if (OPTIONS_DEBUG(opt, 2)) {
                     hsize_str_t hstr;
-                    printr(r, "subregion %llx-%llx %7s %12s\t%s [%s off %zd for %zd nsects %u flags %x]\n",
+                    printr(r, "subregion %llx-%llx %7s %12s\t%s [%s off %lu for %lu nsects %u flags %x]\n",
                            S_ADDR(s), S_ENDADDR(s),
                            str_hsize(hstr, S_SIZE(s)),
                            sc->segname,
                            S_FILENAME(s),
                            str_prot(sc->initprot),
-                           sc->fileoff, sc->filesize,
+                           (unsigned long)sc->fileoff,
+                           (unsigned long)sc->filesize,
                            sc->nsects, sc->flags);
                 }
                 break;

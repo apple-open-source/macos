@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +42,7 @@
 #include "symbol_scope.h"
 #include "myCFUtil.h"
 #include "EAP.h"
+#include "EAPSecurity.h"
 #include "EAPKeychainUtil.h"
 #include "EAPLog.h"
 #include "EAPSIMAKAPersistentState.h"

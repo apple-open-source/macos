@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2018 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -86,7 +86,11 @@
 #include <netinet/icmp6.h>
 #include <netinet6/in6_var.h>
 #include <netinet6/nd6.h>
+#if __has_include(<si_compare.h>)
+#include <si_compare.h>
+#else // __has_include(<si_compare.h>)
 #include <network/sa_compare.h>
+#endif // __has_include(<si_compare.h>)
 #include <arpa/inet.h>
 #include <sys/sysctl.h>
 #include <limits.h>
@@ -157,7 +161,7 @@ enum {
 
 typedef unsigned int	IFIndex;
 
-static dispatch_queue_t		__network_change_queue();
+static dispatch_queue_t		__network_change_queue(void);
 
 
 #pragma mark -
@@ -165,7 +169,7 @@ static dispatch_queue_t		__network_change_queue();
 
 
 __private_extern__ os_log_t
-__log_IPMonitor()
+__log_IPMonitor(void)
 {
     static os_log_t	log = NULL;
 
@@ -4003,6 +4007,29 @@ service_copy_interface(CFStringRef serviceID, CFDictionaryRef new_service)
 }
 #endif	/* !TARGET_OS_SIMULATOR */
 
+static boolean_t
+service_has_clat46_address(CFStringRef serviceID)
+{
+    CFDictionaryRef	ip_dict;
+
+    ip_dict = service_dict_get(serviceID, kSCEntNetIPv4);
+    if (ip_dict != NULL) {
+	CFBooleanRef	clat46	= NULL;
+	CFDictionaryRef	ipv4;
+
+	ipv4 = ipdict_get_service(ip_dict);
+	if (isA_CFDictionary(ipv4) &&
+	    CFDictionaryGetValueIfPresent(ipv4,
+					  kSCPropNetIPv4CLAT46,
+					  (const void **)&clat46) &&
+	    isA_CFBoolean(clat46)) {
+	    return CFBooleanGetValue(clat46);
+	}
+    }
+
+    return FALSE;
+}
+
 #ifndef kSCPropNetHostname
 #define kSCPropNetHostname CFSTR("Hostname")
 #endif
@@ -4476,8 +4503,20 @@ get_ipv6_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 #if	!TARGET_OS_SIMULATOR
     if (interface != NULL) {
 	if (changed) {
-	    // IPv6 configuration changed for this interface, poke NAT64
-	    my_CFSetAddValue_async(__network_change_queue(), &S_nat64_prefix_changes, interface);
+	    CFBooleanRef	needs_plat	= NULL;
+
+	    if ((state_dict != NULL) &&
+		CFDictionaryGetValueIfPresent(state_dict,
+					      kSCPropNetIPv6PerformPLATDiscovery,
+					      (const void **)&needs_plat) &&
+	    	isA_CFBoolean(needs_plat) &&
+		CFBooleanGetValue(needs_plat)) {
+		// perform PLAT discovery
+		my_CFSetAddValue_async(__network_change_queue(), &S_nat64_prefix_requests, interface);
+	    } else {
+		// IPv6 configuration changed for this interface, poke NAT64
+		my_CFSetAddValue_async(__network_change_queue(), &S_nat64_prefix_changes, interface);
+	    }
 	}
 	CFRelease(interface);
     }
@@ -4627,8 +4666,13 @@ order_dns_servers(CFArrayRef servers, ProtocolFlags active_protos)
 	    if (((proto == kProtocolFlagsIPv4) && (v4_n == 1)) ||
 		((proto == kProtocolFlagsIPv6) && (v6_n == 1))) {
 		/* if we now have the 1st server address of another protocol */
+#if __has_include(<si_compare.h>)
+		favor_v4 = (si_destination_compare_no_dependencies((struct sockaddr *)&v4_dns1,
+								   (struct sockaddr *)&v6_dns1) >= 0);
+#else // __has_include(<si_compare.h>)
 		favor_v4 = (sa_dst_compare_no_dependencies((struct sockaddr *)&v4_dns1,
 							   (struct sockaddr *)&v6_dns1) >= 0);
+#endif // __has_include(<si_compare.h>)
 #ifdef	TEST_DNS_ORDER
 		char v4_buf[INET_ADDRSTRLEN];
 		char v6_buf[INET6_ADDRSTRLEN];
@@ -6887,6 +6931,10 @@ ElectionResultsCopy(int af, CFArrayRef order)
  *   Check whether the given candidate requires demotion. A candidate
  *   might need to be demoted if its IPv4 and IPv6 services must be coupled
  *   but a higher ranked service has IPv4 or IPv6.
+ *
+ *   The converse is also true: if the given candidate has lower rank than
+ *   the other candidate and the other candidate is coupled, this candidate
+ *   needs to be demoted.
  */
 static Boolean
 ElectionResultsCandidateNeedsDemotion(CandidateRef other_candidate,
@@ -6894,9 +6942,20 @@ ElectionResultsCandidateNeedsDemotion(CandidateRef other_candidate,
 {
     Boolean		ret = FALSE;
 
-    if (other_candidate == NULL
-	|| !candidate->ip_is_coupled
-	|| RANK_ASSERTION_MASK(candidate->rank) == kRankAssertionNever) {
+    if (other_candidate == NULL) {
+	/* no other candidate */
+	goto done;
+    }
+    if (other_candidate->ineligible) {
+	/* other candidate can't become primary */
+	goto done;
+    }
+    if (RANK_ASSERTION_MASK(other_candidate->rank) == kRankAssertionNever) {
+	/* the other candidate can't become primary */
+	goto done;
+    }
+    if (!candidate->ip_is_coupled && !other_candidate->ip_is_coupled) {
+	/* neither candidate is coupled */
 	goto done;
     }
     if (CFEqual(other_candidate->if_name, candidate->if_name)) {
@@ -6907,17 +6966,26 @@ ElectionResultsCandidateNeedsDemotion(CandidateRef other_candidate,
 	/* avoid creating a feedback loop */
 	goto done;
     }
-    if (RANK_ASSERTION_MASK(other_candidate->rank) == kRankAssertionNever) {
-	/* the other candidate isn't eligible to become primary, ignore */
-	goto done;
-    }
     if (candidate->rank < other_candidate->rank) {
 	/* we're higher ranked than the other candidate, ignore */
 	goto done;
     }
-    if (candidate->rank == other_candidate->rank
-	&& other_candidate->ip_is_coupled) {
-	/* same rank as another service that is coupled, ignore */
+    if (candidate->ip_is_coupled) {
+	if (other_candidate->ip_is_coupled
+	    && candidate->rank == other_candidate->rank) {
+	    /* same rank as another service that is coupled, ignore */
+	    goto done;
+	}
+    }
+    else if (other_candidate->ip_is_coupled) { /* must be true */
+	if (candidate->rank == other_candidate->rank) {
+	    /* other candidate will be demoted, so we don't need to */
+	    goto done;
+	}
+	/* we're lower rank and need to be demoted */
+    }
+    else { /* can't happen, we already tested for this above */
+	/* neither candidate is coupled */
 	goto done;
     }
     ret = TRUE;
@@ -6974,6 +7042,9 @@ add_candidate_to_nwi_state(nwi_state_t nwi_state, int af,
     }
     if (service_dict_get(candidate->serviceID, kSCEntNetDNS) != NULL) {
 	flags |= NWI_IFSTATE_FLAGS_HAS_DNS;
+    }
+    if ((af == AF_INET) && service_has_clat46_address(candidate->serviceID)) {
+	flags |= NWI_IFSTATE_FLAGS_HAS_CLAT46;
     }
     CFStringGetCString(candidate->if_name, ifname, sizeof(ifname),
 		       kCFStringEncodingASCII);
@@ -7095,8 +7166,11 @@ ElectionResultsGetPrimary(ElectionResultsRef results,
 							  scan)) {
 		    /* demote the service */
 		    my_log(LOG_NOTICE,
-			   "IPv%c over %@ demoted: not primary for IPv%c",
-			   ipvx_char(af), scan->if_name, ipvx_other_char(af));
+			   "IPv%c over %@ (rank 0x%x) demoted: "
+			   "primary IPv%c %@ (rank 0x%x)",
+			   ipvx_char(af), scan->if_name, scan->rank,
+			   ipvx_other_char(af), other_candidate->if_name,
+			   other_candidate->rank);
 		    deferred[deferred_count++] = scan;
 		    skip = TRUE;
 		}

@@ -29,6 +29,7 @@
 #include "Encoder.h"
 #include <utility>
 #include <wtf/Forward.h>
+#include <wtf/MonotonicTime.h>
 #include <wtf/SHA1.h>
 #include <wtf/WallTime.h>
 
@@ -233,19 +234,19 @@ template<typename KeyType, typename ValueType> struct ArgumentCoder<WTF::KeyValu
     }
 };
 
-template<bool fixedSizeElements, typename T, size_t inlineCapacity> struct VectorArgumentCoder;
+template<bool fixedSizeElements, typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity> struct VectorArgumentCoder;
 
-template<typename T, size_t inlineCapacity> struct VectorArgumentCoder<false, T, inlineCapacity> {
-    static void encode(Encoder& encoder, const Vector<T, inlineCapacity>& vector)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity> struct VectorArgumentCoder<false, T, inlineCapacity, OverflowHandler, minCapacity> {
+    static void encode(Encoder& encoder, const Vector<T, inlineCapacity, OverflowHandler, minCapacity>& vector)
     {
         encoder << static_cast<uint64_t>(vector.size());
         for (size_t i = 0; i < vector.size(); ++i)
             encoder << vector[i];
     }
 
-    static bool decode(Decoder& decoder, Vector<T, inlineCapacity>& vector)
+    static bool decode(Decoder& decoder, Vector<T, inlineCapacity, OverflowHandler, minCapacity>& vector)
     {
-        std::optional<Vector<T, inlineCapacity>> optional;
+        std::optional<Vector<T, inlineCapacity, OverflowHandler, minCapacity>> optional;
         decoder >> optional;
         if (!optional)
             return false;
@@ -253,13 +254,13 @@ template<typename T, size_t inlineCapacity> struct VectorArgumentCoder<false, T,
         return true;
     }
 
-    static std::optional<Vector<T, inlineCapacity>> decode(Decoder& decoder)
+    static std::optional<Vector<T, inlineCapacity, OverflowHandler, minCapacity>> decode(Decoder& decoder)
     {
         uint64_t size;
         if (!decoder.decode(size))
             return std::nullopt;
 
-        Vector<T, inlineCapacity> vector;
+        Vector<T, inlineCapacity, OverflowHandler, minCapacity> vector;
         for (size_t i = 0; i < size; ++i) {
             std::optional<T> element;
             decoder >> element;
@@ -272,14 +273,14 @@ template<typename T, size_t inlineCapacity> struct VectorArgumentCoder<false, T,
     }
 };
 
-template<typename T, size_t inlineCapacity> struct VectorArgumentCoder<true, T, inlineCapacity> {
-    static void encode(Encoder& encoder, const Vector<T, inlineCapacity>& vector)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity> struct VectorArgumentCoder<true, T, inlineCapacity, OverflowHandler, minCapacity> {
+    static void encode(Encoder& encoder, const Vector<T, inlineCapacity, OverflowHandler, minCapacity>& vector)
     {
         encoder << static_cast<uint64_t>(vector.size());
         encoder.encodeFixedLengthData(reinterpret_cast<const uint8_t*>(vector.data()), vector.size() * sizeof(T), alignof(T));
     }
     
-    static bool decode(Decoder& decoder, Vector<T, inlineCapacity>& vector)
+    static bool decode(Decoder& decoder, Vector<T, inlineCapacity, OverflowHandler, minCapacity>& vector)
     {
         uint64_t size;
         if (!decoder.decode(size))
@@ -293,7 +294,7 @@ template<typename T, size_t inlineCapacity> struct VectorArgumentCoder<true, T, 
             return false;
         }
 
-        Vector<T, inlineCapacity> temp;
+        Vector<T, inlineCapacity, OverflowHandler, minCapacity> temp;
         temp.grow(size);
 
         decoder.decodeFixedLengthData(reinterpret_cast<uint8_t*>(temp.data()), size * sizeof(T), alignof(T));
@@ -302,7 +303,7 @@ template<typename T, size_t inlineCapacity> struct VectorArgumentCoder<true, T, 
         return true;
     }
     
-    static std::optional<Vector<T, inlineCapacity>> decode(Decoder& decoder)
+    static std::optional<Vector<T, inlineCapacity, OverflowHandler, minCapacity>> decode(Decoder& decoder)
     {
         uint64_t size;
         if (!decoder.decode(size))
@@ -316,7 +317,7 @@ template<typename T, size_t inlineCapacity> struct VectorArgumentCoder<true, T, 
             return std::nullopt;
         }
         
-        Vector<T, inlineCapacity> vector;
+        Vector<T, inlineCapacity, OverflowHandler, minCapacity> vector;
         vector.grow(size);
         
         decoder.decodeFixedLengthData(reinterpret_cast<uint8_t*>(vector.data()), size * sizeof(T), alignof(T));
@@ -325,7 +326,7 @@ template<typename T, size_t inlineCapacity> struct VectorArgumentCoder<true, T, 
     }
 };
 
-template<typename T, size_t inlineCapacity> struct ArgumentCoder<Vector<T, inlineCapacity>> : VectorArgumentCoder<std::is_arithmetic<T>::value, T, inlineCapacity> { };
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity> struct ArgumentCoder<Vector<T, inlineCapacity, OverflowHandler, minCapacity>> : VectorArgumentCoder<std::is_arithmetic<T>::value, T, inlineCapacity, OverflowHandler, minCapacity> { };
 
 template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTraitsArg, typename MappedTraitsArg> struct ArgumentCoder<HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>> {
     typedef HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg> HashMapType;
@@ -368,23 +369,26 @@ template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTrai
         uint64_t hashMapSize;
         if (!decoder.decode(hashMapSize))
             return std::nullopt;
-        
+
         HashMapType hashMap;
         for (uint64_t i = 0; i < hashMapSize; ++i) {
-            KeyArg key;
-            MappedArg value;
-            if (!decoder.decode(key))
+            std::optional<KeyArg> key;
+            decoder >> key;
+            if (!key)
                 return std::nullopt;
-            if (!decoder.decode(value))
+
+            std::optional<MappedArg> value;
+            decoder >> value;
+            if (!value)
                 return std::nullopt;
-            
-            if (!hashMap.add(key, value).isNewEntry) {
+
+            if (!hashMap.add(WTFMove(key.value()), WTFMove(value.value())).isNewEntry) {
                 // The hash map already has the specified key, bail.
                 decoder.markInvalid();
                 return std::nullopt;
             }
         }
-        
+
         return WTFMove(hashMap);
     }
 };
@@ -401,26 +405,36 @@ template<typename KeyArg, typename HashArg, typename KeyTraitsArg> struct Argume
 
     static bool decode(Decoder& decoder, HashSetType& hashSet)
     {
-        uint64_t hashSetSize;
-        if (!decoder.decode(hashSetSize))
+        std::optional<HashSetType> tempHashSet;
+        decoder >> tempHashSet;
+        if (!tempHashSet)
             return false;
 
-        HashSetType tempHashSet;
+        hashSet.swap(tempHashSet.value());
+        return true;
+    }
+
+    static std::optional<HashSetType> decode(Decoder& decoder)
+    {
+        uint64_t hashSetSize;
+        if (!decoder.decode(hashSetSize))
+            return std::nullopt;
+
+        HashSetType hashSet;
         for (uint64_t i = 0; i < hashSetSize; ++i) {
             std::optional<KeyArg> key;
             decoder >> key;
             if (!key)
-                return false;
+                return std::nullopt;
 
-            if (!tempHashSet.add(*key).isNewEntry) {
-                // The hash map already has the specified key, bail.
+            if (!hashSet.add(WTFMove(key.value())).isNewEntry) {
+                // The hash set already has the specified key, bail.
                 decoder.markInvalid();
-                return false;
+                return std::nullopt;
             }
         }
 
-        hashSet.swap(tempHashSet);
-        return true;
+        return WTFMove(hashSet);
     }
 };
 

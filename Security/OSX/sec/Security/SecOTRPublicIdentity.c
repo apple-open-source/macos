@@ -346,8 +346,9 @@ bool SecOTRPIVerifySignature(SecOTRPublicIdentityRef publicID,
                                  (uint8_t*)signatureStart, signatureSize, NULL), fail);
     return true;
 fail: ;
+    uint8_t *replacementSignature = malloc(signatureSize + 3);
+    require(replacementSignature != NULL, fail2);
     
-    uint8_t replacementSignature[signatureSize + 3];
     size_t replacementSignatureLen = sizeof(replacementSignature);
     uint8_t *replacementSignaturePtr = replacementSignature;
     
@@ -358,9 +359,11 @@ fail: ;
     require(SecKeyDigestAndVerifyWithError(publicID->publicSigningKey, kOTRSignatureAlgIDPtr,
                                            dataToHash, amountToHash,
                                            replacementSignaturePtr, replacementSignatureLen, error), fail2);
+    free(replacementSignature);
     return true;
 
 fail2:
+    free(replacementSignature);
     return false;
 }
 

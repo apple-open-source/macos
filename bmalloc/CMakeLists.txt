@@ -24,9 +24,11 @@ set(bmalloc_SOURCES
     bmalloc/IsoTLSLayout.cpp
     bmalloc/LargeMap.cpp
     bmalloc/Logging.cpp
+    bmalloc/Mutex.cpp
     bmalloc/ObjectType.cpp
+    bmalloc/PerProcess.cpp
+    bmalloc/PerThread.cpp
     bmalloc/Scavenger.cpp
-    bmalloc/StaticMutex.cpp
     bmalloc/VMHeap.cpp
     bmalloc/bmalloc.cpp
     bmalloc/mbmalloc.cpp
@@ -34,7 +36,6 @@ set(bmalloc_SOURCES
 
 if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
     list(APPEND bmalloc_SOURCES
-        bmalloc/ProcessCheck.mm
         bmalloc/Zone.cpp
     )
 endif ()
@@ -43,12 +44,16 @@ set(bmalloc_LIBRARIES
     ${CMAKE_DL_LIBS}
 )
 
+WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
+
 WEBKIT_WRAP_SOURCELIST(${bmalloc_SOURCES})
 include_directories(${bmalloc_INCLUDE_DIRECTORIES})
 add_library(bmalloc STATIC ${bmalloc_SOURCES})
 target_link_libraries(bmalloc ${bmalloc_LIBRARIES})
 set_target_properties(bmalloc PROPERTIES COMPILE_DEFINITIONS "BUILDING_bmalloc")
 
-add_library(mbmalloc SHARED bmalloc/mbmalloc.cpp)
-target_link_libraries(mbmalloc bmalloc ${CMAKE_THREAD_LIBS_INIT} ${bmalloc_LIBRARIES})
-set_target_properties(mbmalloc PROPERTIES COMPILE_DEFINITIONS "BUILDING_mbmalloc")
+if (DEVELOPER_MODE)
+    add_library(mbmalloc SHARED bmalloc/mbmalloc.cpp)
+    target_link_libraries(mbmalloc bmalloc ${CMAKE_THREAD_LIBS_INIT} ${bmalloc_LIBRARIES})
+    set_target_properties(mbmalloc PROPERTIES COMPILE_DEFINITIONS "BUILDING_mbmalloc")
+endif ()

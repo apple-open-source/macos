@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005, 2008-2010, 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2005, 2008-2010, 2015-2016, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,7 +24,7 @@
 #ifndef _SCNETWORKREACHABILITY_H
 #define _SCNETWORKREACHABILITY_H
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
@@ -49,7 +49,7 @@ CF_ASSUME_NONNULL_BEGIN
 		computer.
 		Note that reachability does <i>not</i> guarantee that the data
 		packet will actually be received by the host.
- 
+
 		When reachability is used without scheduling updates on a runloop
 		or dispatch queue, the system will not generate DNS traffic and
 		will be optimistic about its reply - it will assume that the target
@@ -57,7 +57,7 @@ CF_ASSUME_NONNULL_BEGIN
 		needed to learn the address. When scheduled, the first callback
 		will behave like an unscheduled call but subsequent calls will
 		leverage DNS results.
- 
+
 		When used on IPv6-only (NAT64+DNS64) networks, reachability checks
 		for IPv4 address literals (either a struct sockaddr_in * or textual
 		representations such as "192.0.2.1") will automatically give the
@@ -157,24 +157,22 @@ typedef struct {
 		This flag indicates that network traffic to the specified
 		nodename or address will not go through a gateway, but is
 		routed directly to one of the interfaces in the system.
-#if	TARGET_OS_IPHONE
 	@constant kSCNetworkReachabilityFlagsIsWWAN
 		This flag indicates that the specified nodename or address can
 		be reached via an EDGE, GPRS, or other "cell" connection.
-#endif	// TARGET_OS_IPHONE
  */
 typedef CF_OPTIONS(uint32_t, SCNetworkReachabilityFlags) {
-	kSCNetworkReachabilityFlagsTransientConnection	= 1<<0,
-	kSCNetworkReachabilityFlagsReachable		= 1<<1,
-	kSCNetworkReachabilityFlagsConnectionRequired	= 1<<2,
-	kSCNetworkReachabilityFlagsConnectionOnTraffic	= 1<<3,
-	kSCNetworkReachabilityFlagsInterventionRequired	= 1<<4,
-	kSCNetworkReachabilityFlagsConnectionOnDemand	= 1<<5,	// __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0)
-	kSCNetworkReachabilityFlagsIsLocalAddress	= 1<<16,
-	kSCNetworkReachabilityFlagsIsDirect		= 1<<17,
-#if	TARGET_OS_IPHONE
-	kSCNetworkReachabilityFlagsIsWWAN		= 1<<18,
-#endif	// TARGET_OS_IPHONE
+	kSCNetworkReachabilityFlagsTransientConnection		= 1<<0,
+	kSCNetworkReachabilityFlagsReachable			= 1<<1,
+	kSCNetworkReachabilityFlagsConnectionRequired		= 1<<2,
+	kSCNetworkReachabilityFlagsConnectionOnTraffic		= 1<<3,
+	kSCNetworkReachabilityFlagsInterventionRequired		= 1<<4,
+	kSCNetworkReachabilityFlagsConnectionOnDemand
+		API_AVAILABLE(macos(6.0),ios(3.0))		= 1<<5,
+	kSCNetworkReachabilityFlagsIsLocalAddress		= 1<<16,
+	kSCNetworkReachabilityFlagsIsDirect			= 1<<17,
+	kSCNetworkReachabilityFlagsIsWWAN
+		API_UNAVAILABLE(macos) API_AVAILABLE(ios(2.0))	= 1<<18,
 
 	kSCNetworkReachabilityFlagsConnectionAutomatic	= kSCNetworkReachabilityFlagsConnectionOnTraffic
 };
@@ -211,7 +209,7 @@ SCNetworkReachabilityRef __nullable
 SCNetworkReachabilityCreateWithAddress		(
 						CFAllocatorRef			__nullable	allocator,
 						const struct sockaddr				*address
-						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
+						)				API_AVAILABLE(macos(10.3), ios(2.0));
 
 /*!
 	@function SCNetworkReachabilityCreateWithAddressPair
@@ -231,7 +229,7 @@ SCNetworkReachabilityCreateWithAddressPair	(
 						CFAllocatorRef			__nullable	allocator,
 						const struct sockaddr		* __nullable	localAddress,
 						const struct sockaddr		* __nullable	remoteAddress
-						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
+						)				API_AVAILABLE(macos(10.3), ios(2.0));
 
 /*!
 	@function SCNetworkReachabilityCreateWithName
@@ -249,7 +247,7 @@ SCNetworkReachabilityRef __nullable
 SCNetworkReachabilityCreateWithName		(
 						CFAllocatorRef			__nullable	allocator,
 						const char					*nodename
-						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
+						)				API_AVAILABLE(macos(10.3), ios(2.0));
 
 /*!
 	@function SCNetworkReachabilityGetTypeID
@@ -257,7 +255,7 @@ SCNetworkReachabilityCreateWithName		(
 		instances.
  */
 CFTypeID
-SCNetworkReachabilityGetTypeID			(void)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
+SCNetworkReachabilityGetTypeID			(void)				API_AVAILABLE(macos(10.3), ios(2.0));
 
 
 /*!
@@ -276,7 +274,7 @@ Boolean
 SCNetworkReachabilityGetFlags			(
 						SCNetworkReachabilityRef	target,
 						SCNetworkReachabilityFlags	*flags
-						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
+						)				API_AVAILABLE(macos(10.3), ios(2.0));
 
 /*!
 	@function SCNetworkReachabilitySetCallback
@@ -296,7 +294,7 @@ SCNetworkReachabilitySetCallback		(
 						SCNetworkReachabilityRef			target,
 						SCNetworkReachabilityCallBack	__nullable	callout,
 						SCNetworkReachabilityContext	* __nullable	context
-						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
+						)				API_AVAILABLE(macos(10.3), ios(2.0));
 
 /*!
 	@function SCNetworkReachabilityScheduleWithRunLoop
@@ -315,7 +313,7 @@ SCNetworkReachabilityScheduleWithRunLoop	(
 						SCNetworkReachabilityRef	target,
 						CFRunLoopRef			runLoop,
 						CFStringRef			runLoopMode
-						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
+						)				API_AVAILABLE(macos(10.3), ios(2.0));
 
 /*!
 	@function SCNetworkReachabilityUnscheduleFromRunLoop
@@ -335,7 +333,7 @@ SCNetworkReachabilityUnscheduleFromRunLoop	(
 						SCNetworkReachabilityRef	target,
 						CFRunLoopRef			runLoop,
 						CFStringRef			runLoopMode
-						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
+						)				API_AVAILABLE(macos(10.3), ios(2.0));
 
 /*!
 	@function SCNetworkReachabilitySetDispatchQueue
@@ -343,7 +341,7 @@ SCNetworkReachabilityUnscheduleFromRunLoop	(
 		dispatch queue.
 	@param target The address or name that is set up for asynchronous
 		notifications.  Must be non-NULL.
-	@param queue A libdispatch queue to run the callback on. 
+	@param queue A libdispatch queue to run the callback on.
 		Pass NULL to unschedule callbacks.
 	@result Returns TRUE if the target is scheduled or unscheduled successfully;
 		FALSE otherwise.
@@ -352,11 +350,11 @@ Boolean
 SCNetworkReachabilitySetDispatchQueue		(
 						SCNetworkReachabilityRef			target,
 						dispatch_queue_t		__nullable	queue
-						)				__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0);
+						)				API_AVAILABLE(macos(10.6), ios(4.0));
 
 __END_DECLS
 
 CF_ASSUME_NONNULL_END
 CF_IMPLICIT_BRIDGING_DISABLED
 
-#endif /* _SCNETWORKREACHABILITY_H */
+#endif	/* _SCNETWORKREACHABILITY_H */

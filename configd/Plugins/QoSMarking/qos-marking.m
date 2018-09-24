@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -72,7 +72,7 @@ static NSArray *	qosMarkingAudioVideoCalls_executablePaths	= nil;
 
 
 __private_extern__ os_log_t
-__log_QoSMarking()
+__log_QoSMarking(void)
 {
 	static os_log_t	log	= NULL;
 

@@ -93,7 +93,7 @@ private:
 	void updateWakeReason(IOPCIDevice * device);
 
 protected:
-#if !defined(__LP64__) || defined(__x86_64__)
+#if !defined(__arm64__)
     static SInt32 compareAddressCell( UInt32 cellCount, UInt32 cleft[], UInt32 cright[] );
 #else
     static SInt64 compareAddressCell( UInt32 cellCount, UInt32 cleft[], UInt32 cright[] );

@@ -1,0 +1,35 @@
+# With libarchive3, upstream seems to not be caring as much about
+# controling symbol visibility any more.  List list can be easily
+# updated via:
+# 1) xcodebuild -target libarchive
+# 2) Copy the tapi errors
+# 3) pbpaste | cut -f3 -d\' | pbcopy
+# 4) Paste the results in here
+___archive_check_child
+___archive_check_magic
+___archive_create_child
+___archive_errx
+___archive_parse_options
+___archive_read_ahead
+___archive_read_consume
+___archive_read_filter_ahead
+___archive_read_filter_consume
+___archive_read_filter_skip
+___archive_read_get_bidder
+___archive_read_program
+___archive_read_register_format
+___archive_read_skip
+___archive_read_skip_lenient
+___archive_strappend_char
+___archive_strappend_w_mbs
+___archive_strappend_w_utf8
+___archive_string_append
+___archive_string_concat
+___archive_string_copy
+___archive_string_ensure
+___archive_string_free
+___archive_string_sprintf
+___archive_string_utf8_w
+___archive_string_vsprintf
+___archive_strncat
+___archive_write_format_header_ustar

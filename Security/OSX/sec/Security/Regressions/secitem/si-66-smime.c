@@ -2484,7 +2484,8 @@ static void tests(void)
 	CFRelease(anchor_array);
 
     ok_status(SecTrustEvaluate(trust, &result), "evaluate trust");
-    ok(result == kSecTrustResultRecoverableTrustFailure, "private root");
+    // the root of this chain has a MD2 signature; a weak digest algorithm error is now considered fatal.
+    ok(result == kSecTrustResultFatalTrustFailure, "private root");
 
 #if DUMP_CERTS
 // debug code to save a cert chain retrieved from a SecTrustRef (written to /tmp/c[0-9].cer)

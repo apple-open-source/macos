@@ -26,7 +26,13 @@
 @protocol CKKSControlProtocol <NSObject>
 - (void)performanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply;
 - (void)rpcResetLocal:    (NSString*)viewName reply: (void(^)(NSError* result)) reply;
-- (void)rpcResetCloudKit: (NSString*)viewName reply: (void(^)(NSError* result)) reply;
+- (void)rpcResetCloudKit: (NSString*)viewName reply: (void(^)(NSError* result)) reply __deprecated_msg("use rpcResetCloudKit:reason:reply");
+
+/**
+ * Reset CloudKit zone with a caller provided reason, the reason will be logged in the operation group
+ * name so that the reason for reset can be summarized server side.
+ */
+- (void)rpcResetCloudKit: (NSString*)viewName reason:(NSString *)reason reply: (void(^)(NSError* result)) reply;
 - (void)rpcResync:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcResyncLocal:(NSString*)viewName reply:(void(^)(NSError* result))reply;
 - (void)rpcStatus:(NSString*)viewName reply: (void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply;

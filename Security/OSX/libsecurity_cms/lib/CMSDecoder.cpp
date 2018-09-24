@@ -311,7 +311,9 @@ OSStatus CMSDecoderFinalizeMessage(
                 (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci);
 				/* dig down one more layer for eContentType */
 				ci = SecCmsSignedDataGetContentInfo(cmsDecoder->signedData);
-				cmsDecoder->eContentType = SecCmsContentInfoGetContentTypeOID(ci);
+				if (ci) {
+					cmsDecoder->eContentType = SecCmsContentInfoGetContentTypeOID(ci);
+				}
 				break;
 			default:
 				break;
@@ -1070,5 +1072,44 @@ exit:
     } else {
         *hashAgilityV2AttrValues = NULL;
     }
+    return status;
+}
+
+/*
+ * Obtain the expiration time of signer 'signerIndex' of a CMS message, if
+ * present. This is part of the signed attributes of the message.
+ *
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one.
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called.
+ */
+OSStatus CMSDecoderCopySignerAppleExpirationTime(
+    CMSDecoderRef      cmsDecoder,
+    size_t             signerIndex,
+    CFAbsoluteTime     *expirationTime)            /* RETURNED */
+{
+    OSStatus status = errSecParam;
+    SecCmsMessageRef cmsg = NULL;
+    int numContentInfos  = 0;
+    SecCmsSignedDataRef signedData = NULL;
+
+    require(cmsDecoder && expirationTime, xit);
+    require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
+    numContentInfos = SecCmsMessageContentLevelCount(cmsg);
+    for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
+        SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
+        SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
+        if (tag == SEC_OID_PKCS7_SIGNED_DATA) {
+            if ((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci))) {
+                SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
+                if (signerInfo) {
+                    status = SecCmsSignerInfoGetAppleExpirationTime(signerInfo, expirationTime);
+                    break;
+                }
+            }
+        }
+    }
+xit:
     return status;
 }

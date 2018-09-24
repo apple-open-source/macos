@@ -93,6 +93,14 @@
     return self;
 }
 
+- (void)changeDelays:(dispatch_time_t)initialDelay continuingDelay:(dispatch_time_t)continuingDelay
+{
+    dispatch_sync(self.queue, ^{
+        self.initialDelay = initialDelay;
+        self.continuingDelay = continuingDelay;
+    });
+}
+
 - (CKKSResultOperation*)makeOperationDependency {
     CKKSResultOperation* op = [CKKSResultOperation named:[NSString stringWithFormat:@"nfs-%@", self.name] withBlock:^{}];
     op.descriptionErrorCode = self.operationDependencyDescriptionCode;

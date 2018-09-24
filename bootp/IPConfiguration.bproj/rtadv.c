@@ -95,6 +95,7 @@ typedef struct {
     boolean_t			renew;
     uint32_t			restart_count;
     boolean_t			has_autoconf_address;
+    struct in_addr		clat46_address;
 } Service_rtadv_t;
 
 
@@ -157,6 +158,36 @@ rtadv_set_dns_search_domains(Service_rtadv_t * rtadv,
 		   ifname, rtadv->dns_search_domains);
 	}
     }
+}
+
+STATIC void
+rtadv_set_clat46_address(ServiceRef service_p)
+{
+    Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+
+    if (rtadv->clat46_address.s_addr == 0) {
+	struct in_addr	clat46_address;
+
+	/* add CLAT46 IPv4 address: 192.0.0.1 */
+	clat46_address.s_addr = htonl(IN_SERVICE_CONTINUITY + 1);
+	if (service_clat46_set_address(service_p, clat46_address) == 0) {
+	    rtadv->clat46_address = clat46_address;
+	}
+    }
+    return;
+}
+
+STATIC void
+rtadv_remove_clat46_address(ServiceRef service_p)
+{
+    Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+
+    if (rtadv->clat46_address.s_addr != 0) {
+	/* remove CLAT46 IPv4 address */
+	(void)service_clat46_remove_address(service_p, rtadv->clat46_address);
+	rtadv->clat46_address = G_ip_zeroes;
+    }
+    return;
 }
 
 STATIC void
@@ -274,6 +305,10 @@ rtadv_submit_awd_report(ServiceRef service_p, boolean_t success)
 	    }
 	}
     }
+    /* 464XLAT */
+    if (service_clat46_is_enabled(service_p)) {
+	IPv6AWDReportSetXLAT464Enabled(report);
+    }
 
     /* DNS options from RA */
     if (rtadv->dns_servers != NULL) {
@@ -328,6 +363,9 @@ rtadv_submit_awd_report(ServiceRef service_p, boolean_t success)
 	/* TBD metric to handle */
 	IPv6AWDReportSetControlQueueUnsentCount(report, count);
 #endif
+	if (service_plat_discovery_failed(service_p)) {
+	    IPv6AWDReportSetXLAT464PLATDiscoveryFailed(report);
+	}
 	rtadv->success_report_submitted = FALSE;
     }
 
@@ -395,6 +433,7 @@ rtadv_failed(ServiceRef service_p, ipconfig_status_t status)
     rtadv->restart_count = 0;
     rtadv_cancel_pending_events(service_p);
     inet6_rtadv_disable(if_name(service_interface(service_p)));
+    rtadv_remove_clat46_address(service_p);
     rtadv_clear_dns_servers(rtadv);
     rtadv_clear_dns_search_domains(rtadv);
     service_publish_failure(service_p, status);
@@ -431,6 +470,7 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	rtadv->dhcpv6_complete = 0;
 	rtadv->success_report_submitted = FALSE;
 	rtadv_cancel_pending_events(service_p);
+	rtadv_remove_clat46_address(service_p);
 	RTADVSocketEnableReceive(rtadv->sock,
 				 (RTADVSocketReceiveFuncPtr)rtadv_start,
 				 service_p, (void *)IFEventID_data_e);
@@ -697,8 +737,8 @@ rtadv_trigger_dad(ServiceRef service_p, inet6_addrinfo_t * list, int count)
 }
 
 STATIC void
-rtadv_address_changed(ServiceRef service_p,
-		      inet6_addrlist_t * addr_list_p)
+rtadv_address_changed_common(ServiceRef service_p,
+			     inet6_addrlist_t * addr_list_p)
 {
     interface_t *	if_p = service_interface(service_p);
     inet6_addrinfo_t *	linklocal;
@@ -750,7 +790,6 @@ rtadv_address_changed(ServiceRef service_p,
 	uint32_t		detached_count = 0;
 	int			i;
 	dhcpv6_info_t		info;
-	dhcpv6_info_t *		info_p = NULL;
 	inet6_addrinfo_t *	scan;
 	inet6_addrinfo_t	list[addr_list_p->count];
 	struct in6_addr *	router = NULL;
@@ -820,15 +859,25 @@ rtadv_address_changed(ServiceRef service_p,
 	    if (dhcp_has_address && rtadv->dhcpv6_complete == 0) {
 		rtadv->dhcpv6_complete = timer_get_current_time();
 	    }
-	    info_p = &info;
 	}
 	if (rtadv->dns_servers != NULL) {
-	    info_p = &info;
 	    info.dns_servers = rtadv->dns_servers;
 	    info.dns_servers_count = rtadv->dns_servers_count;
 	    if (rtadv->dns_search_domains != NULL) {
 		info.dns_search_domains = rtadv->dns_search_domains;
 	    }
+	}
+	if (service_clat46_is_enabled(service_p)) {
+	    boolean_t	have_nat64_prefix;
+
+	    have_nat64_prefix = service_nat64_prefix_available(service_p);
+	    if (have_nat64_prefix) {
+		rtadv_set_clat46_address(service_p);
+	    }
+	    else {
+		rtadv_remove_clat46_address(service_p);
+	    }
+	    info.clat46_address = rtadv->clat46_address;
 	}
 	if (router_count != 0) {
 	    CFStringRef		signature;
@@ -836,7 +885,7 @@ rtadv_address_changed(ServiceRef service_p,
 	    signature = rtadv_create_signature(service_p, list, count);
 	    ServicePublishSuccessIPv6(service_p, list, count,
 				      router, router_count,
-				      info_p, signature);
+				      &info, signature);
 	    rtadv_submit_awd_success_report(service_p);
 	    my_CFRelease(&signature);
 	}
@@ -850,18 +899,25 @@ rtadv_address_changed(ServiceRef service_p,
 }
 
 STATIC void
+rtadv_address_changed(ServiceRef service_p)
+{
+    inet6_addrlist_t	addrs;
+
+    inet6_addrlist_copy(&addrs,
+			if_link_index(service_interface(service_p)));
+    rtadv_address_changed_common(service_p, &addrs);
+    inet6_addrlist_free(&addrs);
+}
+
+STATIC void
 rtadv_dhcp_callback(DHCPv6ClientRef client, void * callback_arg,
 		    DHCPv6ClientNotificationType type)
 {
-    inet6_addrlist_t	addrs;
     ServiceRef		service_p = (ServiceRef)callback_arg;
 
     switch (type) {
     case kDHCPv6ClientNotificationTypeStatusChanged:
-	inet6_addrlist_copy(&addrs,
-			    if_link_index(service_interface(service_p)));
-	rtadv_address_changed(service_p, &addrs);
-	inet6_addrlist_free(&addrs);
+	rtadv_address_changed(service_p);
 	break;
     case kDHCPv6ClientNotificationTypeGenerateSymptom:
 	ServiceGenerateFailureSymptom(service_p);
@@ -875,14 +931,10 @@ rtadv_dhcp_callback(DHCPv6ClientRef client, void * callback_arg,
 STATIC void
 rtadv_init(ServiceRef service_p)
 {
-    inet6_addrlist_t	addrs;
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
 
     rtadv->try = 0;
-    inet6_addrlist_copy(&addrs,
-			if_link_index(service_interface(service_p)));
-    rtadv_address_changed(service_p, &addrs);
-    inet6_addrlist_free(&addrs);
+    rtadv_address_changed(service_p);
     return;
 }
 
@@ -960,6 +1012,9 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	/* this flushes the addresses */
 	(void)inet6_rtadv_disable(if_name(if_p));
 
+	/* remove any CLAT46 address */
+	(void)rtadv_remove_clat46_address(service_p);
+
 	/* clean-up resources */
 	if (rtadv->timer) {
 	    timer_callout_free(&rtadv->timer);
@@ -982,7 +1037,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	if (rtadv->dhcp_client != NULL) {
 	    DHCPv6ClientAddressChanged(rtadv->dhcp_client, event_data);
 	}
-	rtadv_address_changed(service_p, event_data);
+	rtadv_address_changed_common(service_p, event_data);
 	break;
 
     case IFEventID_wake_e:
@@ -997,8 +1052,10 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	if (link_status.valid == FALSE
 	    || link_status.active == TRUE) {
 	    link_event_data_t	link_event = (link_event_data_t)event_data;
+	    boolean_t		ssid_changed;
 
-	    if ((link_event->flags & kLinkFlagsSSIDChanged) != 0) {
+	    ssid_changed = (link_event->flags & kLinkFlagsSSIDChanged) != 0;
+	    if (ssid_changed) {
 		rtadv->restart_count = 0;
 		rtadv_flush(service_p);
 	    }
@@ -1012,8 +1069,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		&& if_ift_type(if_p) == IFT_CELLULAR) {
 		rtadv->renew = TRUE;
 	    }
-	    if (evid != IFEventID_wake_e
-		|| ServiceIsPublished(service_p) == FALSE) {
+	    if (evid != IFEventID_wake_e || ssid_changed) {
 		rtadv_init(service_p);
 	    }
 	}
@@ -1049,6 +1105,32 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 			     (ipv6_router_prefix_counts_t *)event_data);
 	break;
 
+    case IFEventID_plat_discovery_complete_e: {
+	boolean_t	success;
+
+	if (rtadv == NULL) {
+	    my_log(LOG_INFO, "RTADV %s: private data is NULL",
+		   if_name(if_p));
+	    status = ipconfig_status_internal_error_e;
+	    break;
+	}
+	if (event_data != NULL) {
+	    success = *((boolean_t *)event_data);
+	}
+	else {
+	    success = FALSE;
+	}
+	if (success) {
+	    rtadv_address_changed(service_p);
+	}
+	else {
+	    /* generate failure metric */
+	    my_log(LOG_NOTICE, "RTADV %s: PLAT discovery failed",
+		   if_name(if_p));
+	    rtadv_submit_awd_report(service_p, FALSE);
+	}
+	break;
+    }
     default:
 	break;
     } /* switch */

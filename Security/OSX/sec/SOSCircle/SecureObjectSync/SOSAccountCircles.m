@@ -7,7 +7,6 @@
 #import <Security/SecureObjectSync/SOSTransport.h>
 #import <Security/SecureObjectSync/SOSTransportKeyParameter.h>
 #import <Security/SecureObjectSync/SOSTransportMessageKVS.h>
-#import <Security/SecureObjectSync/SOSTransportMessageIDS.h>
 #import <Security/SecureObjectSync/SOSTransportCircleKVS.h>
 #import <Security/SecureObjectSync/SOSTransportCircleCK.h>
 #import <Security/SecureObjectSync/SOSAccountTrust.h>

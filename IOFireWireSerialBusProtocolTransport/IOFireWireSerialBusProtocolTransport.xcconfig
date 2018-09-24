@@ -1,2 +1,20 @@
 IO_FIREWIRE_SERIAL_BUS_PROTOCOL_TRANSPORT_MODULE_VERSION = 2.5.1
 IO_FIREWIRE_SERIAL_BUS_PROTOCOL_TRANSPORT_VERSION_COPYRIGHT = $IO_FIREWIRE_SERIAL_BUS_PROTOCOL_TRANSPORT_MODULE_VERSION, Copyright Apple Inc. 1999-2011
+
+//==============================================================================
+//
+// KASan support
+//
+//==============================================================================
+
+BUILD_VARIANTS[sdk=macosx*] = normal kasan
+BUILD_VARIANTS[sdk=iphoneos*] = normal kasan
+CODE_SIGN_IDENTITY = -
+OTHER_CFLAGS_kasan = $(KASAN_DEFAULT_CFLAGS)
+
+
+//==============================================================================
+//
+// End Of File
+//
+//==============================================================================

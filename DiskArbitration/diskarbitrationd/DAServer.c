@@ -828,20 +828,6 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                 {
                     DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
                 }
-                else
-                {
-                    DADiskRef unit;
-
-                    unit = _DAUnitGetParentUnit( disk );
-
-                    if ( unit )
-                    {
-                        if ( DAUnitGetState( unit, kDAUnitStateHasQuiescedNoTimeout ) )
-                        {
-                            DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
-                        }
-                    }
-                }
 ///w:23678897:start
                 }
 ///w:23678897:stop
@@ -1718,7 +1704,7 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
 
                                     if ( path )
                                     {
-                                        status = sandbox_check( audit_token_to_pid( _token ), "file-mount", SANDBOX_FILTER_PATH, path );
+                                        status = sandbox_check_by_audit_token(_token, "file-mount", SANDBOX_FILTER_PATH, path);
 
                                         if ( status )
                                         {

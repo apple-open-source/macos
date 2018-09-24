@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,7 @@
  */
 
 #include <architecture/i386/asm_help.h>
+#include <os/tsd.h>
 
 #define JB_RBX			0
 #define JB_RBP			8
@@ -60,7 +61,9 @@ LEAF(__setjmp, 0)
 
 	// now build sigcontext
 	movq	%rbx, JB_RBX(%rdi)
-	movq	%rbp, JB_RBP(%rdi)
+	movq	%rbp, %rax
+	_OS_PTR_MUNGE(%rax)
+	movq	%rax, JB_RBP(%rdi)
 	movq	%r12, JB_R12(%rdi)
 	movq	%r13, JB_R13(%rdi)
 	movq	%r14, JB_R14(%rdi)
@@ -68,9 +71,11 @@ LEAF(__setjmp, 0)
 
 	// RIP is set to the frame return address value
 	movq	(%rsp), %rax
+	_OS_PTR_MUNGE(%rax)
 	movq	%rax, JB_RIP(%rdi)
 	// RSP is set to the frame return address plus 8
 	leaq	8(%rsp), %rax
+	_OS_PTR_MUNGE(%rax)
 	movq	%rax, JB_RSP(%rdi)
 
 	// save fp control word
@@ -88,20 +93,24 @@ LEAF(__longjmp, 0)
 	fninit				// Clear all FP exceptions
 	// %rdi is a jmp_buf (struct sigcontext *)
 	// %esi is the return value
-	movl	%esi, %eax
 	testl	%esi, %esi
-	jnz	1f
-	incl	%eax
+	movl	$1, %eax
+	cmovnel	%esi, %eax
 
 	// general registers
-1:
 	movq	JB_RBX(%rdi), %rbx
-	movq	JB_RBP(%rdi), %rbp
-	movq	JB_RSP(%rdi), %rsp
+	movq	JB_RBP(%rdi), %rsi
+	_OS_PTR_UNMUNGE(%rsi)
+	movq	%rsi, %rbp
+	movq	JB_RSP(%rdi), %rsi
+	_OS_PTR_UNMUNGE(%rsi)
+	movq	%rsi, %rsp
 	movq	JB_R12(%rdi), %r12
 	movq	JB_R13(%rdi), %r13
 	movq	JB_R14(%rdi), %r14
 	movq	JB_R15(%rdi), %r15
+	movq	JB_RIP(%rdi), %rsi
+	_OS_PTR_UNMUNGE(%rsi)
 
 	// restore FP control word
 	fldcw	JB_FPCONTROL(%rdi)
@@ -109,8 +118,7 @@ LEAF(__longjmp, 0)
 	// restore MXCSR
 	ldmxcsr	JB_MXCSR(%rdi)
 
-
 	// Make sure DF is reset
 	cld
 
-	jmp		*JB_RIP(%rdi)
+	jmp		*%rsi

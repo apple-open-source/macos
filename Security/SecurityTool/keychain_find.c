@@ -492,6 +492,10 @@ do_keychain_delete_generic_password(CFTypeRef keychainOrArray,
     SecKeychainItemRef itemRef = NULL;
 	void *passwordData = NULL;
 
+	if (!itemCreator && !itemType && !kind && !value && !comment && !label && !serviceName && !accountName) {
+		return SHOW_USAGE_MESSAGE;
+	}
+
 	itemRef = find_first_generic_password(keychainOrArray,
 										  itemCreator,
 										  itemType,
@@ -583,6 +587,10 @@ do_keychain_delete_internet_password(CFTypeRef keychainOrArray,
 	OSStatus result = noErr;
     SecKeychainItemRef itemRef = NULL;
 	void *passwordData = NULL;
+
+	if (!itemCreator && !itemType && !kind && !comment && !label && !serverName && !securityDomain && !accountName && !path && !port && !protocol && !authenticationType) {
+		return SHOW_USAGE_MESSAGE;
+	}
 
 	itemRef = find_first_internet_password(keychainOrArray,
 										   itemCreator,

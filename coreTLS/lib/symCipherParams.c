@@ -35,16 +35,6 @@
  * NULL cipher in nullciph.c).
  */
 
-#if	ENABLE_DES
-const SSLSymmetricCipherParams SSLCipherDES_CBCParams = {
-    .keyAlg = SSL_CipherAlgorithmDES_CBC,
-    .keySize = 8,
-    .ivSize = 8,
-    .blockSize = 8,
-    .cipherType = blockCipherType,
-};
-#endif	/* ENABLE_DES */
-
 #if	ENABLE_3DES
 const SSLSymmetricCipherParams SSLCipher3DES_CBCParams = {
     .keyAlg = SSL_CipherAlgorithm3DES_CBC,
@@ -54,24 +44,6 @@ const SSLSymmetricCipherParams SSLCipher3DES_CBCParams = {
     .cipherType = blockCipherType,
 };
 #endif	/* ENABLE_3DES */
-
-#if		ENABLE_RC4
-const SSLSymmetricCipherParams SSLCipherRC4_128Params = {
-    .keyAlg = SSL_CipherAlgorithmRC4_128,
-    .keySize = 16,
-    .cipherType = streamCipherType,
-};
-#endif	/* ENABLE_RC4 */
-
-#if		ENABLE_RC2
-const SSLSymmetricCipherParams SSLCipherRC2_128Params = {
-    .keyAlg = SSL_CipherAlgorithmRC2_128,
-    .keySize = 16,
-    .ivSize = 8,
-    .blockSize = 8,
-    .cipherType = blockCipherType,
-};
-#endif	/* ENABLE_RC2*/
 
 #if		ENABLE_AES
 const SSLSymmetricCipherParams SSLCipherAES_128_CBCParams = {

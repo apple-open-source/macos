@@ -40,13 +40,15 @@
 
 namespace WebCore {
 
+const char* QLPreviewProtocol = "x-apple-ql-id";
+
 NSSet *QLPreviewGetSupportedMIMETypesSet()
 {
     static NSSet *set = [QLPreviewGetSupportedMIMETypes() retain];
     return set;
 }
 
-static StaticLock qlPreviewConverterDictionaryLock;
+static Lock qlPreviewConverterDictionaryLock;
 
 static NSMutableDictionary *QLPreviewConverterDictionary()
 {
@@ -90,24 +92,15 @@ RetainPtr<NSURLRequest> registerQLPreviewConverterIfNeeded(NSURL *url, NSString 
         // the URL that the WebDataSource will see during -dealloc.
         addQLPreviewConverterWithFileForURL(previewRequest.url(), converter->platformConverter(), nil);
 
-        return previewRequest.nsURLRequest(DoNotUpdateHTTPBody);
+        return previewRequest.nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody);
     }
 
     return nil;
 }
 
-const char* QLPreviewProtocol()
-{
-    static const char* const previewProtocol = fastStrDup([QLPreviewScheme UTF8String]);
-    return previewProtocol;
-}
-
 bool isQuickLookPreviewURL(const URL& url)
 {
-    // Use some known protocols as a short-cut to avoid loading the QuickLook framework.
-    if (url.protocolIsInHTTPFamily() || url.isBlankURL() || url.protocolIsBlob() || url.protocolIsData() || SchemeRegistry::shouldTreatURLSchemeAsLocal(url.protocol().toString()))
-        return false;
-    return url.protocolIs(QLPreviewProtocol());
+    return url.protocolIs(QLPreviewProtocol);
 }
 
 static NSDictionary *temporaryFileAttributes()

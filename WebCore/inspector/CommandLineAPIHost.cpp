@@ -41,11 +41,11 @@
 #include "JSEventListener.h"
 #include "Pasteboard.h"
 #include "Storage.h"
-#include <bindings/ScriptValue.h>
-#include <inspector/agents/InspectorAgent.h>
-#include <inspector/agents/InspectorConsoleAgent.h>
-#include <runtime/JSCInlines.h>
-#include <runtime/JSLock.h>
+#include <JavaScriptCore/InspectorAgent.h>
+#include <JavaScriptCore/InspectorConsoleAgent.h>
+#include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSLock.h>
+#include <JavaScriptCore/ScriptValue.h>
 #include <wtf/JSONValues.h>
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
@@ -95,17 +95,18 @@ static Vector<CommandLineAPIHost::ListenerEntry> listenerEntriesFromListenerInfo
 
     Vector<CommandLineAPIHost::ListenerEntry> entries;
     for (auto& eventListener : listenerInfo.eventListenerVector) {
-        auto jsListener = JSEventListener::cast(&eventListener->callback());
-        if (!jsListener) {
+        if (!is<JSEventListener>(eventListener->callback())) {
             ASSERT_NOT_REACHED();
             continue;
         }
 
+        auto& jsListener = downcast<JSEventListener>(eventListener->callback());
+
         // Hide listeners from other contexts.
-        if (&jsListener->isolatedWorld() != &currentWorld(&state))
+        if (&jsListener.isolatedWorld() != &currentWorld(state))
             continue;
 
-        auto function = jsListener->jsFunction(document);
+        auto function = jsListener.jsFunction(document);
         if (!function)
             continue;
 

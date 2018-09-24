@@ -26,7 +26,7 @@
 
 /* String constant declarations */
 
-#define SEC_CONST_DECL(k,v) const CFTypeRef k = CFSTR(v);
+#define SEC_CONST_DECL(k,v) const CFStringRef k = CFSTR(v);
 
 /* Class Key Constant */
 SEC_CONST_DECL (kSecClass, "class");
@@ -160,6 +160,7 @@ SEC_CONST_DECL (kSecUseSystemKeychain, "u_SystemKeychain");
 SEC_CONST_DECL (kSecUseSyncBubbleKeychain, "u_SyncBubbleKeychain");
 SEC_CONST_DECL (kSecUseCallerName, "u_CallerName");
 SEC_CONST_DECL (kSecUseTokenRawItems, "u_TokenRawItems");
+SEC_CONST_DECL (kSecUseCertificatesWithMatchIssuers, "u_CertWithIssuers");
 
 /* kSecAttrAccessible Value Constants. */
 SEC_CONST_DECL (kSecAttrAccessibleWhenUnlocked, "ak");

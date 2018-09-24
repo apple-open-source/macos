@@ -657,7 +657,6 @@
 		EB04E8DE0F347896009A5B13 /* erealloc.c in Sources */ = {isa = PBXBuildFile; fileRef = EBFB57110F21822D0009D37C /* erealloc.c */; };
 		EB04E9100F3479DE009A5B13 /* parse_bytes.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB575A0F21822D0009D37C /* parse_bytes.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EB079B9711F4E59A00508E4C /* check-apple-od in Install Apple tests */ = {isa = PBXBuildFile; fileRef = EB079B9611F4E59200508E4C /* check-apple-od */; };
-		EB079B9711F4E59A00508E4D /* check-apple-no-home-directory in Install Apple tests */ = {isa = PBXBuildFile; fileRef = EB079B9611F4E59200508E4D /* check-apple-no-home-directory */; };
 		EB07D56018A43A85009D77F5 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = EBEF29590FFEB23E00B7E286 /* libbsm.dylib */; };
 		EB081D940FD5FB7900F8373D /* parse.c in Sources */ = {isa = PBXBuildFile; fileRef = EB081D930FD5FB7900F8373D /* parse.c */; };
 		EB081DF00FD5FDBD00F8373D /* asn1parse.c in Sources */ = {isa = PBXBuildFile; fileRef = EB081DE50FD5FD3000F8373D /* asn1parse.c */; };
@@ -2394,6 +2393,7 @@
 		EB7B41EB114F0FEC00D6EA17 /* krb5-private.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F26C0F22CD3500D1AB35 /* krb5-private.h */; };
 		EB7B41EC114F0FEE00D6EA17 /* krb5-private.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F26C0F22CD3500D1AB35 /* krb5-private.h */; };
 		EB7B4203114F115800D6EA17 /* test_gic.c in Sources */ = {isa = PBXBuildFile; fileRef = EB7B4200114F115800D6EA17 /* test_gic.c */; };
+		EB7BB5291F8351B1009EBDD7 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7BB5281F8351B1009EBDD7 /* libnetwork.tbd */; };
 		EB805BBD1492EE7D00F1E44F /* check-apple-ac in Install Apple tests */ = {isa = PBXBuildFile; fileRef = EB805BA71492EDEB00F1E44F /* check-apple-ac */; };
 		EB8066B0170DF0D7000016CB /* kkdcp.c in Sources */ = {isa = PBXBuildFile; fileRef = EB8066AF170DF0D7000016CB /* kkdcp.c */; };
 		EB8066B2170DF789000016CB /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB8066B1170DF789000016CB /* CFNetwork.framework */; };
@@ -7422,7 +7422,6 @@
 				EBBDF0B71165641F006BFBDB /* check-apple-hodadmin in Install Apple tests */,
 				EB536B4D115EC5B400C8D044 /* check-apple-lkdc in Install Apple tests */,
 				EB079B9711F4E59A00508E4C /* check-apple-od in Install Apple tests */,
-				EB079B9711F4E59A00508E4D /* check-apple-no-home-directory in Install Apple tests */,
 				EB1A97D513145359008903D6 /* krb5-mitdump.conf in Install Apple tests */,
 				EB1A97D513145359008903D7 /* krb5-kkdcp.conf in Install Apple tests */,
 				EB1A97D613145359008903D6 /* check-apple-mitdump in Install Apple tests */,
@@ -7886,7 +7885,6 @@
 		EB04E8570F3476B2009A5B13 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		EB04E85B0F3476BE009A5B13 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		EB079B9611F4E59200508E4C /* check-apple-od */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "check-apple-od"; path = "tests/apple/check-apple-od"; sourceTree = "<group>"; };
-		EB079B9611F4E59200508E4D /* check-apple-no-home-directory */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "check-apple-no-home-directory"; path = "tests/apple/check-apple-no-home-directory"; sourceTree = "<group>"; };
 		EB081D930FD5FB7900F8373D /* parse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = parse.c; path = Derived/compile_et/parse.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB081DE50FD5FD3000F8373D /* asn1parse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = asn1parse.c; path = Derived/asn1_compile/asn1parse.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB081DE60FD5FD3000F8373D /* asn1parse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = asn1parse.h; path = Derived/asn1_compile/asn1parse.h; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -8588,6 +8586,7 @@
 		EB7B41FE114F115800D6EA17 /* dll.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dll.c; path = lib/krb5/dll.c; sourceTree = "<group>"; };
 		EB7B41FF114F115800D6EA17 /* test_fx.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_fx.c; path = lib/krb5/test_fx.c; sourceTree = "<group>"; };
 		EB7B4200114F115800D6EA17 /* test_gic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_gic.c; path = lib/krb5/test_gic.c; sourceTree = "<group>"; };
+		EB7BB5281F8351B1009EBDD7 /* libnetwork.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libnetwork.tbd; path = usr/lib/libnetwork.tbd; sourceTree = SDKROOT; };
 		EB7F14191768EF6800492225 /* Heimdal-embedded.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Heimdal-embedded.xcconfig"; path = "xcconfig/Heimdal-embedded.xcconfig"; sourceTree = "<group>"; };
 		EB7F141A1768EF6800492225 /* Heimdal.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Heimdal.xcconfig; path = xcconfig/Heimdal.xcconfig; sourceTree = "<group>"; };
 		EB805BA71492EDEB00F1E44F /* check-apple-ac */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "check-apple-ac"; path = "tests/apple/check-apple-ac"; sourceTree = "<group>"; };
@@ -9515,7 +9514,6 @@
 		EBFA152B13ABDDDB008069DF /* gssapi_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gssapi_plugin.h; path = lib/gssapi/gssapi/gssapi_plugin.h; sourceTree = "<group>"; };
 		EBFB161218DC47EB00C34C11 /* check-apple-ac.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "check-apple-ac.in"; path = "tests/apple/check-apple-ac.in"; sourceTree = "<group>"; };
 		EBFB161318DC47EB00C34C11 /* check-apple-netlogon.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "check-apple-netlogon.in"; path = "tests/apple/check-apple-netlogon.in"; sourceTree = "<group>"; };
-		EBFB161418DC47EC00C34C11 /* check-apple-no-home-directory.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "check-apple-no-home-directory.in"; path = "tests/apple/check-apple-no-home-directory.in"; sourceTree = "<group>"; };
 		EBFB161518DC47EC00C34C11 /* coswin7-od.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "coswin7-od.plist"; path = "tests/apple/coswin7-od.plist"; sourceTree = "<group>"; };
 		EBFB161718DC483C00C34C11 /* check-apple-netlogon */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "check-apple-netlogon"; path = "tests/apple/check-apple-netlogon"; sourceTree = "<group>"; };
 		EBFB567A0F2181960009D37C /* asn1_err.et */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = asn1_err.et; path = lib/asn1/asn1_err.et; sourceTree = "<group>"; };
@@ -10049,6 +10047,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB7BB5291F8351B1009EBDD7 /* libnetwork.tbd in Frameworks */,
 				EB4A37401B5713F8008C97DF /* Foundation.framework in Frameworks */,
 				EBE5865A16CCA4DC000D7E07 /* libheimcred.a in Frameworks */,
 				EBC379370F25A28D00D7DD3F /* libkrb5.a in Frameworks */,
@@ -11300,7 +11299,6 @@
 				EBC177361283693700CC7BBE /* krb5-dump.conf */,
 				EB13F5901280B24300E610D1 /* check-apple-ad */,
 				EB079B9611F4E59200508E4C /* check-apple-od */,
-				EB079B9611F4E59200508E4D /* check-apple-no-home-directory */,
 				EB75412311AF26B20099C2E3 /* check-server-hodadmin */,
 				EBC5CE5911871B39001EC98F /* check-apple-leo */,
 				EBBDF0B61165641A006BFBDB /* check-apple-hodadmin */,
@@ -12564,7 +12562,6 @@
 				EBF3F4BE12F10372005EC680 /* check-apple-ad.in */,
 				EBFB161218DC47EB00C34C11 /* check-apple-ac.in */,
 				EBFB161318DC47EB00C34C11 /* check-apple-netlogon.in */,
-				EBFB161418DC47EC00C34C11 /* check-apple-no-home-directory.in */,
 				EBFB161518DC47EC00C34C11 /* coswin7-od.plist */,
 				EBF3F4BF12F10372005EC680 /* check-apple-dump.in */,
 				EBF3F4C012F10372005EC680 /* check-apple-od.in */,
@@ -12864,6 +12861,7 @@
 			isa = PBXGroup;
 			children = (
 				77FADD341FFC407B0046BF01 /* CoreFoundation.framework */,
+				EB7BB5281F8351B1009EBDD7 /* libnetwork.tbd */,
 				EB670F821C5ED421003D49CA /* IOKit.framework */,
 				EB670F801C5ED342003D49CA /* Security.framework */,
 				EB670F791C5ED239003D49CA /* Foundation.framework */,
@@ -23517,6 +23515,7 @@
 				PRODUCT_NAME = "roken-application";
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
 				ZERO_LINK = NO;
 			};
 			name = "Release-Embedded";
@@ -24890,6 +24889,7 @@
 				PRODUCT_NAME = "roken-application";
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
 				ZERO_LINK = NO;
 			};
 			name = "Release-asan";
@@ -27780,6 +27780,7 @@
 				PRODUCT_NAME = "roken-application";
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
 				ZERO_LINK = NO;
 			};
 			name = Release;

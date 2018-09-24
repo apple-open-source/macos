@@ -123,8 +123,8 @@ dtrace='
  inline int OPT_totals   = '$opt_totals';
  inline int OPT_command  = '$opt_command';
  inline int PID          = '$pid';
- inline string NAME      = "'$pname'";
- inline string COMMAND   = "'$command'";
+ inline string NAME      = "'"$pname"'";
+ inline string COMMAND   = "'"$command"'";
 
  dtrace:::BEGIN 
  {

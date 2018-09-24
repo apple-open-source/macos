@@ -178,14 +178,12 @@ IOReturn IOHIDevice::setParamProperties( OSDictionary * dict )
             deviceParameters = OSDictionary::withCapacity(4);
         }
         else {
-            if (deviceParameters->setOptions(0, 0) & OSDictionary::kImmutable) {
-                OSDictionary * temp = deviceParameters;
-                deviceParameters = OSDynamicCast(OSDictionary, temp->copyCollection());
-                temp->release();
-            }
-            else {
-                // do nothing
-            }
+            // each writer must have seprate copy to modify property
+            // to avoid race condition and call to global copy is
+            // handled through sync lock
+            OSDictionary * temp = deviceParameters;
+            deviceParameters = OSDynamicCast(OSDictionary, temp->copyCollection());
+            temp->release();
         }
 
         if ( deviceParameters ) {

@@ -207,7 +207,7 @@ sub gen_header {
     print "void __attribute__((constructor)) heim_load_frameworks(void);\n";
     print "void heim_load_functions(void);\n";
     foreach $sym (@$syms) {
-	print "extern void (*fun_${sym})();\n";
+	print "extern void *fun_${sym};\n";
     }
 }
 

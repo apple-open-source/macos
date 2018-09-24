@@ -119,7 +119,7 @@
     return [self.item whereClauseToFindSelf];
 }
 
-- (NSDictionary<NSString*,NSString*>*)sqlValues {
+- (NSDictionary<NSString*,id>*)sqlValues {
     NSMutableDictionary* values = [[self.item sqlValues] mutableCopy];
     values[@"wascurrent"] = [NSNumber numberWithUnsignedLongLong:self.wasCurrent];
     return values;

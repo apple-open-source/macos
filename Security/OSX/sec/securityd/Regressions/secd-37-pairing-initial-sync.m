@@ -43,7 +43,7 @@
 #include "SecdTestKeychainUtilities.h"
 
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
-CFArrayRef SecAccessGroupsGetCurrent();
+CFArrayRef SecAccessGroupsGetCurrent(void);
 
 
 static void AddItem(NSDictionary *attr)

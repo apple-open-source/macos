@@ -39,6 +39,7 @@
 
 #include <Security/SecureObjectSync/SOSTypes.h>
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
+#import <Security/SFSignInAnalytics.h>
 
 __BEGIN_DECLS
 
@@ -117,6 +118,7 @@ bool SOSCCSetUserCredentials(CFStringRef user_label, CFDataRef user_password, CF
  */
 
 bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
+bool SOSCCSetUserCredentialsAndDSIDWithAnalytics(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFDataRef parentevent, CFErrorRef *error);
 
 /*!
  @function SOSCCTryUserCredentials
@@ -134,20 +136,6 @@ bool SOSCCTryUserCredentials(CFStringRef user_label, CFDataRef user_password, CF
  */
 
 bool SOSCCTryUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
-/*!
- @function SOSCCCopyDeviceID
- @abstract Retrieves this device's IDS device ID
- @param error What went wrong if we returned false
- */
-CFStringRef SOSCCCopyDeviceID(CFErrorRef* error);
-
-/*!
- @function SOSCCSetDeviceID
- @abstract Sets this device's IDS device ID
- @param IDS The ID to set
- @param error What went wrong if we returned false
- */
-bool SOSCCSetDeviceID(CFStringRef IDS, CFErrorRef* error);
 
 /*!
  @function SOSCCRegisterUserCredentials
@@ -162,6 +150,7 @@ bool SOSCCRegisterUserCredentials(CFStringRef user_label, CFDataRef user_passwor
  @return if we waited successfully
  */
 bool SOSCCWaitForInitialSync(CFErrorRef* error);
+bool SOSCCWaitForInitialSyncWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
  @function SOSCCCopyYetToSyncViewsList
@@ -187,6 +176,15 @@ bool SOSCCCanAuthenticate(CFErrorRef *error);
  @discussion If we have an error figuring out if we're in the circle we return false and the error.
  */
 SOSCCStatus SOSCCThisDeviceIsInCircle(CFErrorRef* error);
+
+/*!
+ @function SOSCCThisDeviceIsInCircleNonCached
+ @abstract Finds and returns if this devices status in the user's circle.  This call is added explicitly for CDP.
+ @param error What went wrong if we returned kSOSCCError.
+ @result kSOSCCInCircle if we're in the circle.
+ @discussion If we have an error figuring out if we're in the circle we return false and the error.
+ */
+SOSCCStatus SOSCCThisDeviceIsInCircleNonCached(CFErrorRef* error);
 
 /*!
  @function SOSCCIsIcloudKeychainSyncing
@@ -249,6 +247,8 @@ bool SOSCCIsContinuityUnlockSyncing(void);
  @discussion Requests to join the user's circle or all the pending circles (other than his) if there are multiple pending circles.
  */
 bool SOSCCRequestToJoinCircle(CFErrorRef* error);
+bool SOSCCRequestToJoinCircleWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
+
 
 /*!
  @function SOSCCRequestToJoinCircleAfterRestore
@@ -258,6 +258,7 @@ bool SOSCCRequestToJoinCircle(CFErrorRef* error);
  @discussion Uses the cloud identity to get in the circle if it can. If it cannot it falls back on simple application.
  */
 bool SOSCCRequestToJoinCircleAfterRestore(CFErrorRef* error);
+bool SOSCCRequestToJoinCircleAfterRestoreWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
  @function SOSCCRequestEnsureFreshParameters
@@ -290,6 +291,7 @@ bool SOSCCResetToOffering(CFErrorRef* error);
  @result true if we posted the circle successfully. False if there was an error.
  */
 bool SOSCCResetToEmpty(CFErrorRef* error);
+bool SOSCCResetToEmptyWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
  @function SOSCCRemoveThisDeviceFromCircle
@@ -299,6 +301,8 @@ bool SOSCCResetToEmpty(CFErrorRef* error);
  @discussion This removes us from the circle.
  */
 bool SOSCCRemoveThisDeviceFromCircle(CFErrorRef* error);
+
+bool SOSCCRemoveThisDeviceFromCircleWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
  @function SOSCCRemoveThisDeviceFromCircle
@@ -310,6 +314,7 @@ bool SOSCCRemoveThisDeviceFromCircle(CFErrorRef* error);
              that we don't have the user credentail (need to prompt for password)
  */
 bool SOSCCRemovePeersFromCircle(CFArrayRef peerList, CFErrorRef* error);
+bool SOSCCRemovePeersFromCircleWithAnalytics(CFArrayRef peers, CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
  @function SOSCCRemoveThisDeviceFromCircle
@@ -444,14 +449,6 @@ bool SOSCCRejectApplicants(CFArrayRef applicants, CFErrorRef *error);
  */
 CFArrayRef SOSCCCopyPeerPeerInfo(CFErrorRef* error);
 
-/*!
- @function SOSCCCheckPeerAvailability
- @abstract Prompts KeychainSyncingOverIDSProxy to query all devices in the circle with the same view.
- @param error What went wrong.
- @result true if the operation succeeded, otherwise false.
- */
-bool SOSCCCheckPeerAvailability(CFErrorRef *error);
-
 /*
  * Return values for SOSCCGetLastDepartureReason
  */
@@ -564,6 +561,7 @@ extern const CFStringRef kCKKSViewManatee;
 extern const CFStringRef kCKKSViewAutoUnlock;
 extern const CFStringRef kCKKSViewHealth;
 extern const CFStringRef kCKKSViewApplePay;
+extern const CFStringRef kCKKSViewHome;
 
 
 /*!
@@ -607,44 +605,13 @@ SOSViewResultCode SOSCCView(CFStringRef view, SOSViewActionCode action, CFErrorR
  */
 
 bool SOSCCViewSet(CFSetRef enabledviews, CFSetRef disabledviews);
-
+bool SOSCCViewSetWithAnalytics(CFSetRef enabledviews, CFSetRef disabledviews, CFDataRef parentEvent);
 /*
  Security Attributes for PeerInfos
  
  Initial View List - To be expanded
  */
 
-extern const CFStringRef kSOSSecPropertyHasEntropy;
-extern const CFStringRef kSOSSecPropertyScreenLock;
-extern const CFStringRef kSOSSecPropertySEP;
-extern const CFStringRef kSOSSecPropertyIOS;
-
-
-/*!
- @function SOSCCSecurityProperty
- @abstract Enable, disable or query status of a SecurityProperty for this peer.
- @param property The SecurityProperty for which the action should be performed.
- @param action The action code to take with the SecurityProperty
- @param error More description of the error if one occurred.
- @discussion
- For all actions any error return can fallback to kSOSCCGeneralSecurityPropertyError.
- For kSOSCCSecurityPropertyEnable actions other possible return codes are:
- kSOSCCSecurityPropertyValid if the operation was successful and the peer's SecurityProperty is valid
- kSOSCCSecurityPropertyNotValid if the operation was unsuccessful
- kSOSCCSecurityPropertyNotQualified if the device can't support prerequisite security capabilities
- kSOSCCNoSuchSecurityProperty if the CFStringRef doesn't match one of the known SecurityProperties
- 
- For kSOSCCSecurityPropertyDisable actions other possible return codes are:
- kSOSCCSecurityPropertyNotMember for successfully disabling the SecurityProperty
- kSOSCCNoSuchSecurityProperty if the CFStringRef doesn't match one of the known SecurityProperties
- 
- For kSOSCCSecurityPropertyQuery actions other possible return codes are:
- kSOSCCSecurityPropertyValid or kSOSCCDSNotValidMember for successful querying of the status for a SecurityProperty for this peer
- kSOSCCNoSuchSecurityProperty if the CFStringRef doesn't match one of the known SecurityProperties
- 
- */
-
-SOSSecurityPropertyResultCode SOSCCSecurityProperty(CFStringRef property, SOSSecurityPropertyActionCode action, CFErrorRef *error);
 
 //
 // Backup APIs

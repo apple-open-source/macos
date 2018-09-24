@@ -44,10 +44,6 @@ typedef struct SecECPublicKeyParams {
 	CFIndex             exponentLength;
 } SecECPublicKeyParams;
 
-enum {
-    kSecPaddingECIES_SHA2_AES128GCM_MAC128 = 0x9000, /* EC Key Using IESGCM to encrypt */
-};
-
 /* Given an EC public key in encoded form return a SecKeyRef representing
    that key. Supported encodings are kSecKeyEncodingPkcs1. */
 SecKeyRef SecKeyCreateECPublicKey(CFAllocatorRef allocator,
@@ -59,24 +55,6 @@ SecKeyRef SecKeyCreateECPublicKey(CFAllocatorRef allocator,
 SecKeyRef SecKeyCreateECPrivateKey(CFAllocatorRef allocator,
     const uint8_t *keyData, CFIndex keyDataLength,
     SecKeyEncoding encoding);
-
-#if SEC_OS_IPHONE_INCLUDES
-/* These are the named curves we support. These values come from RFC 4492
-   section 5.1.1, with the exception of SSL_Curve_None which means
-   "ECDSA not negotiated". */
-typedef enum
-{
-	kSecECCurveNone = -1,
-	kSecECCurveSecp256r1 = 23,
-	kSecECCurveSecp384r1 = 24,
-	kSecECCurveSecp521r1 = 25
-} SecECNamedCurve;
-
-/* Return a named curve enum for ecPrivateKey. */
-SecECNamedCurve SecECKeyGetNamedCurve(SecKeyRef ecPrivateKey);
-CFDataRef SecECKeyCopyPublicBits(SecKeyRef key);
-#endif
-
 
 __END_DECLS
 

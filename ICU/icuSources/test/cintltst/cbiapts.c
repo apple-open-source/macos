@@ -1,7 +1,7 @@
 // © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
- * COPYRIGHT: 
+ * COPYRIGHT:
  * Copyright (c) 1997-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
@@ -316,14 +316,14 @@ static void TestBreakIteratorCAPI()
 
 
     log_verbose("\nTesting the functions for sentence\n");
-    ubrk_first(sentence);
+    pos = ubrk_first(sentence);
     pos = ubrk_current(sentence);
     log_verbose("Current(sentence) = %d\n", (int32_t)pos);
        pos = ubrk_last(sentence);
     if(pos!=49)
         log_err("error ubrk_last for sentence did not return 49\n");
     log_verbose("Last (sentence) = %d\n", (int32_t)pos);
-    ubrk_first(sentence);
+    pos = ubrk_first(sentence);
     to = ubrk_following( sentence, 0 );
     if (to == 0) log_err("ubrk_following returned 0\n");
     to = ubrk_preceding( sentence, to );
@@ -625,7 +625,7 @@ static void TestBreakIteratorRules() {
                         pos2 = ubrk_next(bi2);
                         pos = ubrk_next(bi);
                     } while ((pos != UBRK_DONE || pos2 != UBRK_DONE) && maxCount-- > 0);
-                    
+
                     ubrk_close(bi2);
                 }
             }
@@ -817,15 +817,19 @@ static const int32_t kmTestOffs_kmRev[] =  { 43,  40,   /*33,*/ 31, 23, 17, 11, 
 /* Korean keepAll vs Normal */
 static const UChar koTest[] = { /* 00 */ 0xBAA8, 0xB4E0, 0x0020, 0xC778, 0xB958, 0x0020, 0xAD6C, 0xC131, 0xC6D0, 0xC758,
                                 /* 10 */ 0x0020, 0xCC9C, 0xBD80, 0xC758, 0x0020, 0xC874, 0xC5C4, 0xC131, 0xACFC, 0x0020,
-                                /* 20 */ 0xB3D9, 0xB4F1, 0xD558, 0xACE0, 0x0020, 0xC591, 0xB3C4, 0xD560, 0 };
-static const int32_t koTestOffs_koKeepFwd[] =  {   3,  6, 11, 15, 20, 25, 28 };
-static const int32_t koTestOffs_koKeepRev[] =  {  25, 20, 15, 11,  6,  3,  0 };
-static const int32_t koTestOffs_koNormFwd[] =  {  1,  3,  4,  6,  7,  8,  9, 11, 12, 13, 15, 16, 17, 18, 20, 21, 22, 23, 25, 26, 27, 28 };
-static const int32_t koTestOffs_koNormRev[] =  { 27, 26, 25, 23, 22, 21, 20, 18, 17, 16, 15, 13, 12, 11,  9,  8,  7,  6,  4,  3,  1,  0 };
+                                /* 20 */ 0xB3D9, 0xB4F1, 0xD558, 0xACE0, 0x0020, 0xC591, 0xB3C4, 0xD560, 0x002E, 0x8BA1, 
+                                /* 30 */ 0x7B97, 0x673A, 0x53EA, 0x662F, 0x5904, 0x7406, 0x6570, 0x5B57, 0x3002, 0 }; // 基本上，计算机只是处理数字。
+static const int32_t koTestOffs_koKeepAllFwd[] =  {   3,  6, 11, 15, 20, 25, 29, 39 };
+static const int32_t koTestOffs_koKeepAllRev[] =  {  29, 25, 20, 15, 11,  6,  3,  0 };
+static const int32_t koTestOffs_koKeepHngFwd[] =  {   3,  6, 11, 15, 20, 25, 29, 30, 31, 32, 33, 34, 35, 36, 37, 39 };
+static const int32_t koTestOffs_koKeepHngRev[] =  {  37, 36, 35, 34, 33, 32, 31, 30, 29, 25, 20, 15, 11,  6,  3,  0 };
+static const int32_t koTestOffs_koNormFwd[]    =  {  1,  3,  4,  6,  7,  8,  9, 11, 12, 13, 15, 16, 17, 18, 20, 21, 22, 23, 25, 26, 27, 29, 30, 31, 32, 33, 34, 35, 36, 37, 39 };
+static const int32_t koTestOffs_koNormRev[]    =  { 37, 36, 35, 34, 33, 32, 31, 30, 29, 27, 26, 25, 23, 22, 21, 20, 18, 17, 16, 15, 13, 12, 11,  9,  8,  7,  6,  4,  3,  1,  0 };
 
 typedef struct {
     const char * locale;
     UBreakIteratorType type;
+    ULineWordOptions lineWordOpts;
     const UChar * test;
     const int32_t * offsFwd;
     const int32_t * offsRev;
@@ -833,17 +837,20 @@ typedef struct {
 } RBBITailoringTest;
 
 static const RBBITailoringTest tailoringTests[] = {
-    { "en",            UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, UPRV_LENGTHOF(thTestOffs_thFwd) },
-    { "en_US_POSIX",   UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, UPRV_LENGTHOF(thTestOffs_thFwd) },
-    { "en",            UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, UPRV_LENGTHOF(heTestOffs_heFwd) },
-    { "he",            UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, UPRV_LENGTHOF(heTestOffs_heFwd) },
-    { "en",            UBRK_LINE,      fiTest, fiTestOffs_enFwd, fiTestOffs_enRev, UPRV_LENGTHOF(fiTestOffs_enFwd) },
-    { "fi",            UBRK_LINE,      fiTest, fiTestOffs_fiFwd, fiTestOffs_fiRev, UPRV_LENGTHOF(fiTestOffs_fiFwd) },
-    { "km",            UBRK_WORD,      kmTest, kmTestOffs_kmFwd, kmTestOffs_kmRev, UPRV_LENGTHOF(kmTestOffs_kmFwd) },
-    { "ko",            UBRK_LINE,      koTest, koTestOffs_koNormFwd, koTestOffs_koNormRev, UPRV_LENGTHOF(koTestOffs_koNormFwd) },
-    { "ko@lw=keepall", UBRK_LINE,      koTest, koTestOffs_koKeepFwd, koTestOffs_koKeepRev, UPRV_LENGTHOF(koTestOffs_koKeepFwd) },
-    { "ko@lw=normal",  UBRK_LINE,      koTest, koTestOffs_koNormFwd, koTestOffs_koNormRev, UPRV_LENGTHOF(koTestOffs_koNormFwd) },
-    { NULL, 0, NULL, NULL, NULL, 0 },
+    { "en",                UBRK_CHARACTER, UBRK_LINEWORD_NORMAL,      thTest, thTestOffs_thFwd,        thTestOffs_thRev,        UPRV_LENGTHOF(thTestOffs_thFwd) },
+    { "en_US_POSIX",       UBRK_CHARACTER, UBRK_LINEWORD_NORMAL,      thTest, thTestOffs_thFwd,        thTestOffs_thRev,        UPRV_LENGTHOF(thTestOffs_thFwd) },
+    { "en",                UBRK_LINE,      UBRK_LINEWORD_NORMAL,      heTest, heTestOffs_heFwd,        heTestOffs_heRev,        UPRV_LENGTHOF(heTestOffs_heFwd) },
+    { "he",                UBRK_LINE,      UBRK_LINEWORD_NORMAL,      heTest, heTestOffs_heFwd,        heTestOffs_heRev,        UPRV_LENGTHOF(heTestOffs_heFwd) },
+    { "en",                UBRK_LINE,      UBRK_LINEWORD_NORMAL,      fiTest, fiTestOffs_enFwd,        fiTestOffs_enRev,        UPRV_LENGTHOF(fiTestOffs_enFwd) },
+    { "fi",                UBRK_LINE,      UBRK_LINEWORD_NORMAL,      fiTest, fiTestOffs_fiFwd,        fiTestOffs_fiRev,        UPRV_LENGTHOF(fiTestOffs_fiFwd) },
+    { "km",                UBRK_WORD,      UBRK_LINEWORD_NORMAL,      kmTest, kmTestOffs_kmFwd,        kmTestOffs_kmRev,        UPRV_LENGTHOF(kmTestOffs_kmFwd) },
+    { "ko",                UBRK_LINE,      UBRK_LINEWORD_NORMAL,      koTest, koTestOffs_koNormFwd,    koTestOffs_koNormRev,    UPRV_LENGTHOF(koTestOffs_koNormFwd) },
+    { "ko@lw=keepall",     UBRK_LINE,      UBRK_LINEWORD_NORMAL,      koTest, koTestOffs_koKeepAllFwd, koTestOffs_koKeepAllRev, UPRV_LENGTHOF(koTestOffs_koKeepAllFwd) },
+    { "ko",                UBRK_LINE,      UBRK_LINEWORD_KEEP_ALL,    koTest, koTestOffs_koKeepAllFwd, koTestOffs_koKeepAllRev, UPRV_LENGTHOF(koTestOffs_koKeepAllFwd) },
+    { "ko@lw=keep-hangul", UBRK_LINE,      UBRK_LINEWORD_NORMAL,      koTest, koTestOffs_koKeepHngFwd, koTestOffs_koKeepHngRev, UPRV_LENGTHOF(koTestOffs_koKeepHngFwd) },
+    { "ko",                UBRK_LINE,      UBRK_LINEWORD_KEEP_HANGUL, koTest, koTestOffs_koKeepHngFwd, koTestOffs_koKeepHngRev, UPRV_LENGTHOF(koTestOffs_koKeepHngFwd) },
+    { "ko@lw=normal",      UBRK_LINE,      UBRK_LINEWORD_NORMAL,      koTest, koTestOffs_koNormFwd,    koTestOffs_koNormRev,    UPRV_LENGTHOF(koTestOffs_koNormFwd) },
+    { NULL, 0, 0, NULL, NULL, 0 },
 };
 
 static void TestBreakIteratorTailoring(void) {
@@ -855,6 +862,9 @@ static void TestBreakIteratorTailoring(void) {
             int32_t offset, offsindx;
             UBool foundError;
 
+            if (testPtr->lineWordOpts != UBRK_LINEWORD_NORMAL) {
+                ubrk_setLineWordOpts(ubrkiter, testPtr->lineWordOpts);
+            }
             foundError = FALSE;
             ubrk_first(ubrkiter);
             for (offsindx = 0; (offset = ubrk_next(ubrkiter)) != UBRK_DONE; ++offsindx) {
@@ -1183,12 +1193,24 @@ static void TestBreakIteratorSuppressions(void) {
 #if APPLE_ADDITIONS
 #include <stdio.h>
 #include <unistd.h>
-#include <mach/mach_time.h>
 #include "unicode/urbtok.h"
 #include "cstring.h"
+#if U_PLATFORM_IS_DARWIN_BASED
+#include <mach/mach_time.h>
+#define GET_START() mach_absolute_time()
+#define GET_DURATION(start, info) ((mach_absolute_time() - start) * info.numer)/info.denom
+#else
+#include "putilimp.h"
+#define GET_START() (uint64_t)uprv_getUTCtime()
+#define GET_DURATION(start, info) ((uint64_t)uprv_getUTCtime() - start)
+#endif
 
-static const char testRulesFilePath[] = "../testdata/word_urbTokTest.txt";
-static const UChar textToTokenize[] = {
+typedef struct {
+    RuleBasedTokenRange token;
+    unsigned long       flags;
+} RBTokResult;
+
+static const UChar tokTextLatn[] = {
 /*
 "Short phrase! Another (with parens); done.\n
 At 4:00, tea-time.\n
@@ -1204,330 +1226,1481 @@ x3:30 -- x1.0"
     0x40,0x66,0x75,0x6E,0x6D,0x61,0x6E,0x20,0x3A,0x29,0x0A,
     0x78,0x33,0x3A,0x33,0x30,0x20,0x2D,0x2D,0x20,0x78,0x31,0x2E,0x30,0
 };
-typedef struct {
-    RuleBasedTokenRange token;
-    unsigned long       flags;
-} RBTokResult;
-static const RBTokResult expectedResults[] = { // 66 tokens
-    { {  0, 5 }, 0xC8 },  // Short
-    { {  5, 1 }, 0x01 },  // _sp_
-    { {  6, 6 }, 0xC8 },  // phrase
-    { { 12, 1 }, 0x00 },  // !
-    { { 13, 1 }, 0x01 },  // _sp_
-    { { 14, 7 }, 0xC8 },  // Another
-    { { 21, 1 }, 0x01 },  // _sp_
-    { { 22, 1 }, 0x00 },  // (
-    { { 23, 4 }, 0xC8 },  // with
-    { { 27, 1 }, 0x01 },  // _sp_
-    { { 28, 6 }, 0xC8 },  // parens
-    { { 34, 1 }, 0x00 },  // )
-    { { 35, 1 }, 0x00 },  // ;
-    { { 36, 1 }, 0x01 },  // _sp_
-    { { 37, 4 }, 0xC8 },  // done
-    { { 41, 1 }, 0x14 },  // .
-    { { 42, 1 }, 0x00 },  // _nl_
 
-    { { 43, 2 }, 0xC8 },  // At
-    { { 45, 1 }, 0x01 },  // _sp_
-    { { 46, 4 }, 0x76 },  // 4:00       ** here RBBI has x64
-    { { 50, 1 }, 0x00 },  // ,
-    { { 51, 1 }, 0x01 },  // _sp_
-    { { 52, 3 }, 0xC8 },  // tea
-    { { 55, 1 }, 0x15 },  // -
-    { { 56, 4 }, 0xC8 },  // time
-    { { 60, 1 }, 0x14 },  // .
-    { { 61, 1 }, 0x00 },  // _nl_
 
-    { { 62, 2 }, 0xC8 },  // He
-    { { 64, 1 }, 0x01 },  // _sp_
-    { { 65, 8 }, 0xCA },  // wouldn't
-    { { 73, 1 }, 0x16 },  // '
-    { { 74, 2 }, 0xC8 },  // ve
-    { { 76, 1 }, 0x01 },  // _sp_
-    { { 77, 6 }, 0xC8 },  // wanted
-    { { 83, 1 }, 0x01 },  // _sp_
-    { { 84, 5 }, 0xCA },  // y'all
-    { { 89, 1 }, 0x01 },  // _sp_
-    { { 90, 2 }, 0xC8 },  // to
-    { { 92, 1 }, 0x01 },  // _sp_
-    { { 93, 3 }, 0x3C },  // ...        ** here RBBI has 0x28
-    { { 96, 1 }, 0x01 },  // _sp_
-    { { 97, 4 }, 0xC8 },  // come
-    { { 101, 1 }, 0x01 },  // _sp_
+static const RBTokResult expTokLatnCFST[] = { // 26 tokens
+    { {   0,  5 }, 0x002 },  // Short
+    { {   6,  7 }, 0x020 },  // phrase!
+    { {  14,  7 }, 0x002 },  // Another
+    { {  22,  5 }, 0x020 },  // (with
+    { {  28,  8 }, 0x020 },  // parens);
+    { {  37,  5 }, 0x020 },  // done.
+    { {  43,  2 }, 0x002 },  // 
+    { {  46,  5 }, 0x030 },  // 
+    { {  52,  9 }, 0x020 },  // 
+    { {  62,  2 }, 0x002 },  // 
+    { {  65, 11 }, 0x020 },  // 
+    { {  77,  6 }, 0x000 },  // 
+    { {  84,  5 }, 0x020 },  // 
+    { {  90,  2 }, 0x000 },  // 
+    { {  93,  3 }, 0x020 },  // 
+    { {  97,  4 }, 0x000 },  // 
+    { { 102,  2 }, 0x000 },  // 
+    { { 105,  6 }, 0x030 },  // 
+    { { 112,  3 }, 0x000 },  // 
+    { { 116,  2 }, 0x030 },  // 
+    { { 119,  6 }, 0x000 },  // 
+    { { 126,  7 }, 0x020 },  // 
+    { { 134,  2 }, 0x020 },  // 
+    { { 137,  5 }, 0x030 },  // 
+    { { 143,  2 }, 0x020 },  // 
+    { { 146,  4 }, 0x030 },  // 
+};
+
+// The following was expTokLatnNLLT for ICU 61-based Apple ICU
+static const RBTokResult expTokLatnNLLT_Old[] = { // 66 tokens
+    { {   0, 5 }, 0xC8 },  // Short
+    { {   5, 1 }, 0x00 },  // _sp_
+    { {   6, 6 }, 0xC8 },  // phrase
+    { {  12, 1 }, 0x00 },  // !
+    { {  13, 1 }, 0x00 },  // _sp_
+    { {  14, 7 }, 0xC8 },  // Another
+    { {  21, 1 }, 0x00 },  // _sp_
+    { {  22, 1 }, 0x00 },  // (
+    { {  23, 4 }, 0xC8 },  // with
+    { {  27, 1 }, 0x00 },  // _sp_
+    { {  28, 6 }, 0xC8 },  // parens
+    { {  34, 1 }, 0x00 },  // )
+    { {  35, 1 }, 0x00 },  // ;
+    { {  36, 1 }, 0x00 },  // _sp_
+    { {  37, 4 }, 0xC8 },  // done
+    { {  41, 1 }, 0x14 },  // .
+    { {  42, 1 }, 0x00 },  // _nl_
+
+    { {  43, 2 }, 0xC8 },  // At
+    { {  45, 1 }, 0x00 },  // _sp_
+    { {  46, 4 }, 0x76 },  // 4:00
+    { {  50, 1 }, 0x00 },  // ,
+    { {  51, 1 }, 0x00 },  // _sp_
+    { {  52, 3 }, 0xC8 },  // tea
+    { {  55, 1 }, 0x15 },  // -
+    { {  56, 4 }, 0xC8 },  // time
+    { {  60, 1 }, 0x14 },  // .
+    { {  61, 1 }, 0x00 },  // _nl_
+
+    { {  62, 2 }, 0xC8 },  // He
+    { {  64, 1 }, 0x00 },  // _sp_
+    { {  65, 8 }, 0xCA },  // wouldn't
+    { {  73, 1 }, 0x16 },  // '
+    { {  74, 2 }, 0xC8 },  // ve
+    { {  76, 1 }, 0x00 },  // _sp_
+    { {  77, 6 }, 0xC8 },  // wanted
+    { {  83, 1 }, 0x00 },  // _sp_
+    { {  84, 5 }, 0xCA },  // y'all
+    { {  89, 1 }, 0x00 },  // _sp_
+    { {  90, 2 }, 0xC8 },  // to
+    { {  92, 1 }, 0x00 },  // _sp_
+    { {  93, 3 }, 0x3C },  // ...
+    { {  96, 1 }, 0x00 },  // _sp_
+    { {  97, 4 }, 0xC8 },  // come
+    { { 101, 1 }, 0x00 },  // _sp_
     { { 102, 2 }, 0xC8 },  // at
-    { { 104, 1 }, 0x01 },  // _sp_
-    { { 105, 6 }, 0xC8 },  // 3:30pm
-    { { 111, 1 }, 0x01 },  // _sp_
+    { { 104, 1 }, 0x00 },  // _sp_
+    { { 105, 4 }, 0xC8 },  // 3:30
+    { { 109, 2 }, 0xC8 },  // pm
+    { { 111, 1 }, 0x00 },  // _sp_
     { { 112, 3 }, 0xC8 },  // for
-    { { 115, 1 }, 0x01 },  // _sp_
+    { { 115, 1 }, 0x00 },  // _sp_
     { { 116, 1 }, 0x00 },  // $
     { { 117, 1 }, 0x64 },  // 3
-    { { 118, 1 }, 0x01 },  // _sp_
+    { { 118, 1 }, 0x00 },  // _sp_
     { { 119, 6 }, 0xC8 },  // coffee
-    { { 125, 1 }, 0x01 },  // _sp_
-    { { 126, 7 }, 0xDF },  // @funman   ** here RBBI has 0xC8
-    { { 133, 1 }, 0x01 },  // _sp_
+    { { 125, 1 }, 0x00 },  // _sp_
+    { { 126, 7 }, 0xDF },  // @funman
+    { { 133, 1 }, 0x00 },  // _sp_
     { { 134, 2 }, 0x20 },  // :)
     { { 136, 1 }, 0x00 },  // _nl_
+    { { 137, 1 }, 0x76 },  // x
+    { { 138, 4 }, 0x76 },  // 3:30
+    { { 142, 1 }, 0x00 },  // _sp_
+    { { 143, 2 }, 0x3D },  // --
+    { { 145, 1 }, 0x00 },  //  _sp_
+    { { 146, 1 }, 0x77 },  // x
+    { { 147, 3 }, 0x77 },  // 1.0
+};
 
-    // ** incorrect ranges (and flags) currently produced by RBTok
-    { { 137, 2 }, 0xEC },  // x3
-    { { 139, 1 }, 0x00 },  // :
-    { { 140, 2 }, 0x64 },  // 30
-    // ** for the above, RBBI has
-    //{ { 137, 1 }, 0x64 },  // x
-    //{ { 138, 4 }, 0x64 },  // 3:30
-    //
-    { { 142, 1 }, 0x01 },  // _sp_
-    { { 143, 2 }, 0x3D },  // --        ** here RBBI has 0x28
-    { { 145, 1 }, 0x01 },  //  _sp_
-    { { 146, 2 }, 0xEC },  // x1        ** here RBBI has 0xC8
+// For ICU 62-based Apple ICU, expTokLatnNLLT matches expTokLatnNLLT_File
+#define expTokLatnNLLT expTokLatnNLLT_File
+static const RBTokResult expTokLatnNLLT_File[] = { // 67 tokens
+    { {   0, 5 }, 0xC8 },  // Short
+    { {   5, 1 }, 0x00 },  // _sp_
+    { {   6, 6 }, 0xC8 },  // phrase
+    { {  12, 1 }, 0x00 },  // !
+    { {  13, 1 }, 0x00 },  // _sp_
+    { {  14, 7 }, 0xC8 },  // Another
+    { {  21, 1 }, 0x00 },  // _sp_
+    { {  22, 1 }, 0x00 },  // (
+    { {  23, 4 }, 0xC8 },  // with
+    { {  27, 1 }, 0x00 },  // _sp_
+    { {  28, 6 }, 0xC8 },  // parens
+    { {  34, 1 }, 0x00 },  // )
+    { {  35, 1 }, 0x00 },  // ;
+    { {  36, 1 }, 0x00 },  // _sp_
+    { {  37, 4 }, 0xC8 },  // done
+    { {  41, 1 }, 0x14 },  // .
+    { {  42, 1 }, 0x00 },  // _nl_
+
+    { {  43, 2 }, 0xC8 },  // At
+    { {  45, 1 }, 0x00 },  // _sp_
+    { {  46, 4 }, 0x76 },  // 4:00
+    { {  50, 1 }, 0x00 },  // ,
+    { {  51, 1 }, 0x00 },  // _sp_
+    { {  52, 3 }, 0xC8 },  // tea
+    { {  55, 1 }, 0x15 },  // -
+    { {  56, 4 }, 0xC8 },  // time
+    { {  60, 1 }, 0x14 },  // .
+    { {  61, 1 }, 0x00 },  // _nl_
+
+    { {  62, 2 }, 0xC8 },  // He
+    { {  64, 1 }, 0x00 },  // _sp_
+    { {  65, 8 }, 0xCA },  // wouldn't
+    { {  73, 1 }, 0x16 },  // '
+    { {  74, 2 }, 0xC8 },  // ve
+    { {  76, 1 }, 0x00 },  // _sp_
+    { {  77, 6 }, 0xC8 },  // wanted
+    { {  83, 1 }, 0x00 },  // _sp_
+    { {  84, 5 }, 0xCA },  // y'all
+    { {  89, 1 }, 0x00 },  // _sp_
+    { {  90, 2 }, 0xC8 },  // to
+    { {  92, 1 }, 0x00 },  // _sp_
+    { {  93, 3 }, 0x3C },  // ...
+    { {  96, 1 }, 0x00 },  // _sp_
+    { {  97, 4 }, 0xC8 },  // come
+    { { 101, 1 }, 0x00 },  // _sp_
+    { { 102, 2 }, 0xC8 },  // at
+    { { 104, 1 }, 0x00 },  // _sp_
+    { { 105, 4 }, 0xC8 },  // 3:30
+    { { 109, 2 }, 0xC8 },  // pm
+    { { 111, 1 }, 0x00 },  // _sp_
+    { { 112, 3 }, 0xC8 },  // for
+    { { 115, 1 }, 0x00 },  // _sp_
+    { { 116, 1 }, 0x00 },  // $
+    { { 117, 1 }, 0x64 },  // 3
+    { { 118, 1 }, 0x00 },  // _sp_
+    { { 119, 6 }, 0xC8 },  // coffee
+    { { 125, 1 }, 0x00 },  // _sp_
+    { { 126, 7 }, 0xDF },  // @funman
+    { { 133, 1 }, 0x00 },  // _sp_
+    { { 134, 2 }, 0x20 },  // :)
+    { { 136, 1 }, 0x00 },  // _nl_
+    { { 137, 1 }, 0x76 },  // x
+    { { 138, 4 }, 0x76 },  // 3:30
+    { { 142, 1 }, 0x00 },  // _sp_
+    { { 143, 2 }, 0x3D },  // --
+    { { 145, 1 }, 0x00 },  //  _sp_
+    { { 146, 2 }, 0xEC },  // x1
     { { 148, 1 }, 0x14 },  // .
     { { 149, 1 }, 0x64 },  // 0
 };
+
+static const RBTokResult expTokLatnNLLT_57[] = { // 67 tokens
+    { {   0, 5 }, 0xC8 },  //
+    { {   5, 1 }, 0x00 },  //
+    { {   6, 6 }, 0xC8 },  //
+    { {  12, 1 }, 0x00 },  //
+    { {  13, 1 }, 0x00 },  //
+    { {  14, 7 }, 0xC8 },  //
+    { {  21, 1 }, 0x00 },  //
+    { {  22, 1 }, 0x00 },  //
+    { {  23, 4 }, 0xC8 },  //
+    { {  27, 1 }, 0x00 },  //
+    { {  28, 6 }, 0xC8 },  //
+    { {  34, 1 }, 0x00 },  //
+    { {  35, 1 }, 0x00 },  //
+    { {  36, 1 }, 0x00 },  //
+    { {  37, 4 }, 0xC8 },  //
+    { {  41, 1 }, 0x14 },  //
+    { {  42, 1 }, 0x00 },  //
+
+    { {  43, 2 }, 0xC8 },  //
+    { {  45, 1 }, 0x00 },  //
+    { {  46, 4 }, 0x76 },  //
+    { {  50, 1 }, 0x00 },  //
+    { {  51, 1 }, 0x00 },  //
+    { {  52, 3 }, 0xC8 },  //
+    { {  55, 1 }, 0x15 },  //
+    { {  56, 4 }, 0xC8 },  //
+    { {  60, 1 }, 0x14 },  //
+    { {  61, 1 }, 0x00 },  //
+
+    { {  62, 2 }, 0xC8 },  //
+    { {  64, 1 }, 0x00 },  //
+    { {  65, 8 }, 0xCA },  //
+    { {  73, 1 }, 0x16 },  //
+    { {  74, 2 }, 0xC8 },  //
+    { {  76, 1 }, 0x00 },  //
+    { {  77, 6 }, 0xC8 },  //
+    { {  83, 1 }, 0x00 },  //
+    { {  84, 5 }, 0xCA },  //
+    { {  89, 1 }, 0x00 },  //
+    { {  90, 2 }, 0xC8 },  //
+    { {  92, 1 }, 0x00 },  //
+    { {  93, 3 }, 0x3C },  //
+    { {  96, 1 }, 0x00 },  //
+    { {  97, 4 }, 0xC8 },  //
+    { { 101, 1 }, 0x00 },  //
+    { { 102, 2 }, 0xC8 },  //
+    { { 104, 1 }, 0x00 },  //
+    { { 105, 6 }, 0xC8 },  //
+    { { 111, 1 }, 0x00 },  //
+    { { 112, 3 }, 0xC8 },  //
+    { { 115, 1 }, 0x00 },  //
+    { { 116, 1 }, 0x00 },  //
+    { { 117, 1 }, 0x64 },  //
+    { { 118, 1 }, 0x00 },  //
+    { { 119, 6 }, 0xC8 },  //
+    { { 125, 1 }, 0x00 },  //
+    { { 126, 7 }, 0xDF },  //
+    { { 133, 1 }, 0x00 },  //
+    { { 134, 2 }, 0x20 },  //
+    { { 136, 1 }, 0x00 },  //
+    { { 137, 2 }, 0xEC },  //
+    { { 139, 1 }, 0x00 },  //
+    { { 140, 2 }, 0x64 },  //
+    { { 142, 1 }, 0x00 },  //
+    { { 143, 2 }, 0x3D },  //
+    { { 145, 1 }, 0x00 },  //
+    { { 146, 2 }, 0xEC },  //
+    { { 148, 1 }, 0x14 },  //
+    { { 149, 1 }, 0x64 },  //
+};
+
+
+static const RBTokResult expTokLatnStdW[] = { // 72 tokens
+    { {   0,  5 }, 0x0C8 }, //
+    { {   5,  1 }, 0x000 }, //
+    { {   6,  6 }, 0x0C8 }, //
+    { {  12,  1 }, 0x000 }, //
+    { {  13,  1 }, 0x000 }, //
+    { {  14,  7 }, 0x0C8 }, //
+    { {  21,  1 }, 0x000 }, //
+    { {  22,  1 }, 0x000 }, //
+    { {  23,  4 }, 0x0C8 }, //
+    { {  27,  1 }, 0x000 }, //
+    { {  28,  6 }, 0x0C8 }, //
+    { {  34,  1 }, 0x000 }, //
+    { {  35,  1 }, 0x000 }, //
+    { {  36,  1 }, 0x000 }, //
+    { {  37,  4 }, 0x0C8 }, //
+    { {  41,  1 }, 0x000 }, //
+    { {  42,  1 }, 0x000 }, //
+    { {  43,  2 }, 0x0C8 }, //
+    { {  45,  1 }, 0x000 }, //
+    { {  46,  1 }, 0x064 }, //
+    { {  47,  1 }, 0x000 }, //
+    { {  48,  2 }, 0x064 }, //
+    { {  50,  1 }, 0x000 }, //
+    { {  51,  1 }, 0x000 }, //
+    { {  52,  3 }, 0x0C8 }, //
+    { {  55,  1 }, 0x000 }, //
+    { {  56,  4 }, 0x0C8 }, //
+    { {  60,  1 }, 0x000 }, //
+    { {  61,  1 }, 0x000 }, //
+    { {  62,  2 }, 0x0C8 }, //
+    { {  64,  1 }, 0x000 }, //
+    { {  65, 11 }, 0x0C8 }, //
+    { {  76,  1 }, 0x000 }, //
+    { {  77,  6 }, 0x0C8 }, //
+    { {  83,  1 }, 0x000 }, //
+    { {  84,  5 }, 0x0C8 }, //
+    { {  89,  1 }, 0x000 }, //
+    { {  90,  2 }, 0x0C8 }, //
+    { {  92,  1 }, 0x000 }, //
+    { {  93,  1 }, 0x000 }, //
+    { {  94,  1 }, 0x000 }, //
+    { {  95,  1 }, 0x000 }, //
+    { {  96,  1 }, 0x000 }, //
+    { {  97,  4 }, 0x0C8 }, //
+    { { 101,  1 }, 0x000 }, //
+    { { 102,  2 }, 0x0C8 }, //
+    { { 104,  1 }, 0x000 }, //
+    { { 105,  1 }, 0x064 }, //
+    { { 106,  1 }, 0x000 }, //
+    { { 107,  4 }, 0x0C8 }, //
+    { { 111,  1 }, 0x000 }, //
+    { { 112,  3 }, 0x0C8 }, //
+    { { 115,  1 }, 0x000 }, //
+    { { 116,  1 }, 0x000 }, //
+    { { 117,  1 }, 0x064 }, //
+    { { 118,  1 }, 0x000 }, //
+    { { 119,  6 }, 0x0C8 }, //
+    { { 125,  1 }, 0x000 }, //
+    { { 126,  1 }, 0x000 }, //
+    { { 127,  6 }, 0x0C8 }, //
+    { { 133,  1 }, 0x000 }, //
+    { { 134,  1 }, 0x000 }, //
+    { { 135,  1 }, 0x000 }, //
+    { { 136,  1 }, 0x000 }, //
+    { { 137,  2 }, 0x0EC }, //
+    { { 139,  1 }, 0x000 }, //
+    { { 140,  2 }, 0x064 }, //
+    { { 142,  1 }, 0x000 }, //
+    { { 143,  1 }, 0x000 }, //
+    { { 144,  1 }, 0x000 }, //
+    { { 145,  1 }, 0x000 }, //
+    { { 146,  4 }, 0x064 }, //
+};
+
+static const UChar tokTextMisc[] = {
+/*
+"4‑inch phone.\n
+3월 30일\n
+从你开始使用 iPhone 6s 的那一刻起，你就会感觉到它是如此不同。\n""
+*/
+    0x0034,0x2011,0x0069,0x006E,0x0063,0x0068,0x0020,0x0070,0x0068,0x006F,0x006E,0x0065,0x002E,0x000A,
+    0x0033,0xC6D4,0x0020,0x0033,0x0030,0xC77C,0x000A,
+    0x4ECE,0x4F60,0x5F00,0x59CB,0x4F7F,0x7528,0x0020,0x0069,0x0050,0x0068,0x006F,0x006E,0x0065,0x0020,
+    0x0036,0x0073,0x0020,0x7684,0x90A3,0x4E00,0x523B,0x8D77,0xFF0C,
+    0x4F60,0x5C31,0x4F1A,0x611F,0x89C9,0x5230,0x5B83,0x662F,0x5982,0x6B64,0x4E0D,0x540C,0x3002,0x000A,0
+};
+
+static const RBTokResult expTokMiscCFST[] = { // 8 tokens
+    // ranges   flags            text
+    { {   0,  6}, 0x131      }, // 4‑inch
+    { {   7,  6}, 0x20       }, // phone.
+    { {  14,  2}, 0x1110     }, // 3월
+    { {  17,  3}, 0x1110     }, // 30일
+    { {  21,  6}, 0x40000000 }, // 从你开始使用
+    { {  28,  6}, 0x04       }, // iPhone
+    { {  35,  2}, 0x10       }, // 6s
+    { {  38, 19}, 0x40000121 }, // 的那一刻起，你就会感觉到它是如此不同。
+};
+
+static const RBTokResult expTokMiscCFST_57Bulk[] = { // 5 tokens
+    // ranges   flags            text
+    { {   0,  6}, 0x131      }, // 4‑inch
+    { {   7,  6}, 0x20       }, // phone.
+    { {  14,  2}, 0x1110     }, // 3월
+    { {  17,  3}, 0x1110     }, // 30일
+    { {  21,  6}, 0x40000000 }, // 从你开始使用
+    // missing the last 3 entries
+};
+
+
+static const RBTokResult expTokMiscNLLT[] = { // 36 tokens
+    { {   0,  1 }, 0x064 }, //
+    { {   1,  1 }, 0x000 }, //
+    { {   2,  4 }, 0x0C8 }, //
+    { {   6,  1 }, 0x000 }, //
+    { {   7,  5 }, 0x0C8 }, //
+    { {  12,  1 }, 0x014 }, //
+    { {  13,  1 }, 0x000 }, //
+    { {  14,  1 }, 0x064 }, //
+    { {  15,  1 }, 0x0C8 }, //
+    { {  16,  1 }, 0x000 }, //
+    { {  17,  2 }, 0x064 }, //
+    { {  19,  1 }, 0x0C8 }, //
+    { {  20,  1 }, 0x000 }, //
+    { {  21,  1 }, 0x190 }, //
+    { {  22,  1 }, 0x190 }, //
+    { {  23,  2 }, 0x190 }, //
+    { {  25,  2 }, 0x190 }, //
+    { {  27,  1 }, 0x000 }, //
+    { {  28,  6 }, 0x0C8 }, //
+    { {  34,  1 }, 0x000 }, //
+    { {  35,  2 }, 0x0C8 }, //
+    { {  37,  1 }, 0x000 }, //
+    { {  38,  1 }, 0x190 }, //
+    { {  39,  2 }, 0x190 }, //
+    { {  41,  2 }, 0x190 }, //
+    { {  43,  1 }, 0x000 }, //
+    { {  44,  1 }, 0x190 }, //
+    { {  45,  1 }, 0x190 }, //
+    { {  46,  1 }, 0x190 }, //
+    { {  47,  2 }, 0x190 }, //
+    { {  49,  1 }, 0x190 }, //
+    { {  50,  2 }, 0x190 }, //
+    { {  52,  2 }, 0x190 }, //
+    { {  54,  2 }, 0x190 }, //
+    { {  56,  1 }, 0x000 }, //
+    { {  57,  1 }, 0x000 }, //
+};
+
+static const RBTokResult expTokMiscNLLT_57Loop[] = { // 36 tokens
+    { {   0,  1 }, 0x064 }, //
+    { {   1,  1 }, 0x000 }, //
+    { {   2,  4 }, 0x0C8 }, //
+    { {   6,  1 }, 0x000 }, //
+    { {   7,  5 }, 0x0C8 }, //
+    { {  12,  1 }, 0x014 }, //
+    { {  13,  1 }, 0x000 }, //
+    { {  14,  1 }, 0x064 }, //
+    { {  15,  1 }, 0x0C8 }, //
+    { {  16,  1 }, 0x000 }, //
+    { {  17,  2 }, 0x064 }, //
+    { {  19,  1 }, 0x0C8 }, //
+    { {  20,  1 }, 0x000 }, //
+    { {  21,  1 }, 0x190 }, //
+    { {  22,  1 }, 0x000 }, //
+    { {  23,  2 }, 0x000 }, //
+    { {  25,  2 }, 0x000 }, //
+    { {  27,  1 }, 0x000 }, //
+    { {  28,  6 }, 0x0C8 }, //
+    { {  34,  1 }, 0x000 }, //
+    { {  35,  2 }, 0x0C8 }, //
+    { {  37,  1 }, 0x000 }, //
+    { {  38,  1 }, 0x190 }, //
+    { {  39,  2 }, 0x000 }, //
+    { {  41,  2 }, 0x000 }, //
+    { {  43,  1 }, 0x000 }, //
+    { {  44,  1 }, 0x190 }, //
+    { {  45,  1 }, 0x000 }, //
+    { {  46,  1 }, 0x000 }, //
+    { {  47,  2 }, 0x000 }, //
+    { {  49,  1 }, 0x000 }, //
+    { {  50,  2 }, 0x000 }, //
+    { {  52,  2 }, 0x000 }, //
+    { {  54,  2 }, 0x000 }, //
+    { {  56,  1 }, 0x000 }, //
+    { {  57,  1 }, 0x000 }, //
+};
+
+static const RBTokResult expTokMiscStdW[] = { // 36 tokens
+    { {   0,  1 }, 0x064 }, //
+    { {   1,  1 }, 0x000 }, //
+    { {   2,  4 }, 0x0C8 }, //
+    { {   6,  1 }, 0x000 }, //
+    { {   7,  5 }, 0x0C8 }, //
+    { {  12,  1 }, 0x000 }, // 0x014 for NLLT
+    { {  13,  1 }, 0x000 }, //
+    { {  14,  1 }, 0x064 }, //
+    { {  15,  1 }, 0x0C8 }, //
+    { {  16,  1 }, 0x000 }, //
+    { {  17,  2 }, 0x064 }, //
+    { {  19,  1 }, 0x0C8 }, //
+    { {  20,  1 }, 0x000 }, //
+    { {  21,  1 }, 0x190 }, //
+    { {  22,  1 }, 0x190 }, //
+    { {  23,  2 }, 0x190 }, //
+    { {  25,  2 }, 0x190 }, //
+    { {  27,  1 }, 0x000 }, //
+    { {  28,  6 }, 0x0C8 }, //
+    { {  34,  1 }, 0x000 }, //
+    { {  35,  2 }, 0x0C8 }, //
+    { {  37,  1 }, 0x000 }, //
+    { {  38,  1 }, 0x190 }, //
+    { {  39,  2 }, 0x190 }, //
+    { {  41,  2 }, 0x190 }, //
+    { {  43,  1 }, 0x000 }, //
+    { {  44,  1 }, 0x190 }, //
+    { {  45,  1 }, 0x190 }, //
+    { {  46,  1 }, 0x190 }, //
+    { {  47,  2 }, 0x190 }, //
+    { {  49,  1 }, 0x190 }, //
+    { {  50,  2 }, 0x190 }, //
+    { {  52,  2 }, 0x190 }, //
+    { {  54,  2 }, 0x190 }, //
+    { {  56,  1 }, 0x000 }, //
+    { {  57,  1 }, 0x000 }, //
+};
+
+static const UChar tokTextJpan[] = {
+    0x30B3,0x30F3,0x30D4,0x30E5,0x30FC,0x30BF,0x30FC, // {{ 0, 7 }, 400 }
+    0x306F,                      // {{  7, 1 }, 400 }
+    0x3001,                      // {{  8, 1 }, 0 } 、
+    0x672C,0x8CEA,               // {{  9, 2 }, 400 }
+    0x7684,                      // {{ 11, 1 }, 400 }
+    0x306B,                      // {{ 12, 1 }, 400 }
+    0x306F,                      // {{ 13, 1 }, 400 }
+    0x6570,0x5B57,               // {{ 14, 2 }, 400 }
+    0x3057,0x304B,               // {{ 16, 2 }, 400 }
+    0x6271,0x3046,               // {{ 18, 2 }, 400 }
+    0x3053,0x3068,               // {{ 20, 2 }, 400 }
+    0x304C,                      // {{ 22, 1 }, 400 }
+    0x3067,0x304D,               // {{ 23, 2 }, 400 }
+    0x307E,                      // {{ 25, 1 }, 400 }
+    0x305B,0x3093,               // {{ 26, 2 }, 400 }
+    0x3002,                      // {{ 28, 1 }, 0 } 。
+    0x30B3,0x30F3,0x30D4,0x30E5,0x30FC,0x30BF,0x30FC, // {{ 29, 7 }, 400 }
+    0x306F,                      // {{ 36, 1 }, 400 }
+    0x3001,                      // {{ 37, 1 }, 0 } 、
+    0x6587,0x5B57,               // {{ 38, 2 }, 400 }
+    0x3084,                      // {{ 40, 1 }, 400 }
+    0x8A18,0x53F7,               // {{ 41, 2 }, 400 }
+    0x306A,0x3069,               // {{ 43, 2 }, 400 }
+    0x306E,                      // {{ 45, 1 }, 400 }
+    0x305D,0x308C,0x305E,0x308C,0x306B, // {{ 46, 5 }, 400 }
+    0x756A,0x53F7,               // {{ 51, 2 }, 400 }
+    0x3092,                      // {{ 53, 1 }, 400 }
+    0x5272,0x308A,0x632F,0x308B, // {{ 54, 4 }, 400 }
+    0x3053,0x3068,               // {{ 58, 2 }, 400 }
+    0x306B,0x3088,0x3063,0x3066, // {{ 60, 4 }, 400 }
+    0x6271,0x3048,0x308B,        // {{ 64, 3 }, 400 }
+    0x3088,0x3046,               // {{ 67, 2 }, 400 }
+    0x306B,0x3057,               // {{ 69, 2 }, 400 }
+    0x307E,0x3059,               // {{ 71, 2 }, 400 }
+    0x3002,                      // {{ 73, 1 }, 0 } 。
+    0x30E6,0x30CB,               // {{ 74, 2 }, 400 }
+    0x30B3,0x30FC,0x30C9,        // {{ 76, 3 }, 400 }
+    0x304C,                      // {{ 79, 1 }, 400 }
+    0x51FA,0x6765,0x308B,        // {{ 80, 3 }, 400 }
+    0x307E,0x3067,               // {{ 83, 2 }, 400 }
+    0x306F,                      // {{ 85, 1 }, 400 }
+    0x3001,                      // {{ 86, 1 }, 0 } 、
+    0x3053,0x308C,0x3089,0x306E, // {{ 87, 4 }, 400 }
+    0x756A,0x53F7,               // {{ 91, 2 }, 400 }
+    0x3092,                      // {{ 93, 1 }, 400 }
+    0x5272,0x308A,0x632F,0x308B, // {{ 94, 4 }, 400 }
+    0x4ED5,0x7D44,0x307F,        // {{ 98, 3 }, 400 }
+    0x304C,                      // {{ 101, 1 }, 400 }
+    0x767E,                      // {{ 102, 1 }, 400 }
+    0x7A2E,0x985E,               // {{ 103, 2 }, 400 }
+    0x3082,                      // {{ 105, 1 }, 400 }
+    0x5B58,0x5728,               // {{ 106, 2  }, 400 }
+    0x3057,0x307E,               // {{ 108, 2 }, 400 }
+    0x3057,0x305F,               // {{ 110, 2 }, 400 }
+    0x3002,                      // {{ 112, 1 }, 0 } 。
+    0
+};
+
+static const RBTokResult expTokJpanCFST[] = { // 1 token (??)
+    // ranges   flags            text
+    {{  0, 113 }, 0x40000120 },
+};
+
+static const RBTokResult expTokJpan[] = { // 55 tokens
+    // ranges   flags            text
+    {{   0, 7 }, 400 },
+    {{   7, 1 }, 400 },
+    {{   8, 1 }, 0 },              // 、
+    {{   9, 2 }, 400 },
+    {{  11, 1 }, 400 },
+    {{  12, 1 }, 400 },
+    {{  13, 1 }, 400 },
+    {{  14, 2 }, 400 },
+    {{  16, 2 }, 400 },
+    {{  18, 2 }, 400 },
+    {{  20, 2 }, 400 },
+    {{  22, 1 }, 400 },
+    {{  23, 2 }, 400 },
+    {{  25, 1 }, 400 },
+    {{  26, 2 }, 400 },
+    {{  28, 1 }, 0 },               // 。
+    {{  29, 7 }, 400 },
+    {{  36, 1 }, 400 },
+    {{  37, 1 }, 0 },               // 、
+    {{  38, 2 }, 400 },
+    {{  40, 1 }, 400 },
+    {{  41, 2 }, 400 },
+    {{  43, 2 }, 400 },
+    {{  45, 1 }, 400 },
+    {{  46, 5 }, 400 },
+    {{  51, 2 }, 400 },
+    {{  53, 1 }, 400 },
+    {{  54, 4 }, 400 },
+    {{  58, 2 }, 400 },
+    {{  60, 4 }, 400 },
+    {{  64, 3 }, 400 },
+    {{  67, 2 }, 400 },
+    {{  69, 2 }, 400 },
+    {{  71, 2 }, 400 },
+    {{  73, 1 }, 0 },                // 。
+    {{  74, 2 }, 400 },
+    {{  76, 3 }, 400 },
+    {{  79, 1 }, 400 },
+    {{  80, 3 }, 400 },
+    {{  83, 2 }, 400 },
+    {{  85, 1 }, 400 },
+    {{  86, 1 }, 0 },                // 、
+    {{  87, 4 }, 400 },
+    {{  91, 2 }, 400 },
+    {{  93, 1 }, 400 },
+    {{  94, 4 }, 400 },
+    {{  98, 3 }, 400 },
+    {{ 101, 1 }, 400 },
+    {{ 102, 1 }, 400 },
+    {{ 103, 2 }, 400 },
+    {{ 105, 1 }, 400 },
+    {{ 106, 2 }, 400 },
+    {{ 108, 2 }, 400 },
+    {{ 110, 2 }, 400 },
+    {{ 112, 1 }, 0 },              // 。
+};
+
+static const RBTokResult expTokJpanNLLT_57Loop[] = { // 55 tokens
+    {{   0, 7 }, 0x190 }, //
+    {{   7, 1 }, 0x000 }, //
+    {{   8, 1 }, 0x000 }, //
+    {{   9, 2 }, 0x190 }, //
+    {{  11, 1 }, 0x000 }, //
+    {{  12, 1 }, 0x000 }, //
+    {{  13, 1 }, 0x000 }, //
+    {{  14, 2 }, 0x000 }, //
+    {{  16, 2 }, 0x000 }, //
+    {{  18, 2 }, 0x000 }, //
+    {{  20, 2 }, 0x000 }, //
+    {{  22, 1 }, 0x000 }, //
+    {{  23, 2 }, 0x000 }, //
+    {{  25, 1 }, 0x000 }, //
+    {{  26, 2 }, 0x000 }, //
+    {{  28, 1 }, 0x000 }, //
+    {{  29, 7 }, 0x190 }, //
+    {{  36, 1 }, 0x000 }, //
+    {{  37, 1 }, 0x000 }, //
+    {{  38, 2 }, 0x190 }, //
+    {{  40, 1 }, 0x000 }, //
+    {{  41, 2 }, 0x000 }, //
+    {{  43, 2 }, 0x000 }, //
+    {{  45, 1 }, 0x000 }, //
+    {{  46, 5 }, 0x000 }, //
+    {{  51, 2 }, 0x000 }, //
+    {{  53, 1 }, 0x000 }, //
+    {{  54, 4 }, 0x000 }, //
+    {{  58, 2 }, 0x000 }, //
+    {{  60, 4 }, 0x000 }, //
+    {{  64, 3 }, 0x000 }, //
+    {{  67, 2 }, 0x000 }, //
+    {{  69, 2 }, 0x000 }, //
+    {{  71, 2 }, 0x000 }, //
+    {{  73, 1 }, 0x000 }, //
+    {{  74, 2 }, 0x190 }, //
+    {{  76, 3 }, 0x000 }, //
+    {{  79, 1 }, 0x000 }, //
+    {{  80, 3 }, 0x000 }, //
+    {{  83, 2 }, 0x000 }, //
+    {{  85, 1 }, 0x000 }, //
+    {{  86, 1 }, 0x000 }, //
+    {{  87, 4 }, 0x190 }, //
+    {{  91, 2 }, 0x000 }, //
+    {{  93, 1 }, 0x000 }, //
+    {{  94, 4 }, 0x000 }, //
+    {{  98, 3 }, 0x000 }, //
+    {{ 101, 1 }, 0x000 }, //
+    {{ 102, 1 }, 0x000 }, //
+    {{ 103, 2 }, 0x000 }, //
+    {{ 105, 1 }, 0x000 }, //
+    {{ 106, 2 }, 0x000 }, //
+    {{ 108, 2 }, 0x000 }, //
+    {{ 110, 2 }, 0x000 }, //
+    {{ 112, 1 }, 0x000 }, //
+};
+
+
+static const UChar tokTextThai[] = {
+    0x55,0x6E,0x69,0x63,0x6F,0x64,0x65, // {{  0, 7 }, 200 },
+    0x20,                               // {{  7, 1 }, 1 },
+    0x0E04,0x0E37,0x0E2D,               // {{  8, 3 }, 200 },
+    0x0E2D,0x0E30,0x0E44,0x0E23,        // {{ 11, 4 }, 200 },
+    0x3F,                               // {{ 15, 1 }, 0 },
+    0x0A,                               // {{ 16, 1 }, 0 },
+    0x55,0x6E,0x69,0x63,0x6F,0x64,0x65, // {{ 17, 7 }, 200 },
+    0x20,                               // {{ 24, 1 }, 1 },
+    0x0E01,0x0E33,0x0E2B,0x0E19,0x0E14, // {{ 25, 5 }, 200 },
+    0x0E2B,0x0E21,0x0E32,0x0E22,0x0E40,0x0E25,0x0E02, // {{ 30, 7 }, 200 },
+    0x0E40,0x0E09,0x0E1E,0x0E32,0x0E30,        // {{ 37, 5 }, 200 },
+    0x0E2A,0x0E33,0x0E2B,0x0E23,0x0E31,0x0E1A, // {{ 42, 6 }, 200 },
+    0x0E17,0x0E38,0x0E01,                      // {{ 48, 3 }, 200 },
+    0x0E2D,0x0E31,0x0E01,0x0E02,0x0E23,0x0E30, // {{ 51, 6 }, 200 },
+    0x0A,                               // {{ 57, 1 }, 0 },
+    0x0E42,0x0E14,0x0E22,               // {{ 58, 3 }, 200 },
+    0x0E44,0x0E21,0x0E48,               // {{ 61, 3 }, 200 },
+    0x0E2A,0x0E19,0x0E43,0x0E08,        // {{ 64, 4 }, 200 },
+    0x0E27,0x0E48,0x0E32,               // {{ 68, 3 }, 200 },
+    0x0E40,0x0E1B,0x0E47,0x0E19,        // {{ 71, 4 }, 200 },
+    0x0E41,0x0E1E,                      // {{ 75, 2 }, 200 },
+    0x0E25,0x0E47,0x0E15,               // {{ 77, 3 }, 200 },
+    0x0E1F,0x0E2D,0x0E23,0x0E4C,0x0E21, // {{ 80, 5 }, 200 },
+    0x0E43,0x0E14,                      // {{ 85, 2 }, 200 },
+    0x0A,                               // {{ 87, 1 }, 0 },
+    0x0E44,0x0E21,0x0E48,               // {{ 88, 3 }, 200 },
+    0x0E02,0x0E36,0x0E49,0x0E19,        // {{ 91, 4 }, 200 },
+    0x0E01,0x0E31,0x0E1A,               // {{ 95, 3 }, 200 },
+    0x0E27,0x0E48,0x0E32,               // {{ 98, 3 }, 200 },
+    0x0E08,0x0E30,                      // {{ 101, 2 }, 200 },
+    0x0E40,0x0E1B,0x0E47,0x0E19,        // {{ 103, 4 }, 200 },
+    0x0E42,0x0E1B,0x0E23,0x0E41,0x0E01,0x0E23,0x0E21, // {{ 107, 7 }, 200 },
+    0x0E43,0x0E14,                      // {{ 114, 2 }, 200 },
+    0x0A,                               // {{ 116, 1 }, 0 },
+    0x0E41,0x0E25,0x0E30,               // {{ 117, 3 }, 200 },
+    0x0E44,0x0E21,0x0E48,               // {{ 120, 3 }, 200 },
+    0x0E27,0x0E48,0x0E32,               // {{ 123, 3 }, 200 },
+    0x0E08,0x0E30,                      // {{ 126, 2 }, 200 },
+    0x0E40,0x0E1B,0x0E47,0x0E19,        // {{ 128, 4 }, 200 },
+    0x0E20,0x0E32,0x0E29,0x0E32,        // {{ 132, 4 }, 200 },
+    0x0E43,0x0E14,                      // {{ 136, 2 }, 200 },
+    0x0A,                               // {{ 138, 1 }, 0 },
+    0
+};
+
+ static const RBTokResult expTokThaiCFST[] = { // 34 tokens
+    {{   0,  7 }, 0x002 }, //
+    {{   8,  3 }, 0x020 }, //
+    {{  11,  5 }, 0x020 }, //
+    {{  17,  7 }, 0x002 }, //
+    {{  25,  5 }, 0x109 }, //
+    {{  30,  7 }, 0x109 }, //
+    {{  37,  5 }, 0x109 }, //
+    {{  42,  6 }, 0x109 }, //
+    {{  48,  3 }, 0x109 }, //
+    {{  51,  6 }, 0x109 }, //
+    {{  58,  3 }, 0x009 }, //
+    {{  61,  3 }, 0x009 }, //
+    {{  64,  4 }, 0x009 }, //
+    {{  68,  3 }, 0x009 }, //
+    {{  71,  4 }, 0x009 }, //
+    {{  75,  2 }, 0x009 }, //
+    {{  77,  3 }, 0x009 }, //
+    {{  80,  5 }, 0x009 }, //
+    {{  85,  2 }, 0x009 }, //
+    {{  88,  3 }, 0x009 }, //
+    {{  91,  4 }, 0x009 }, //
+    {{  95,  3 }, 0x009 }, //
+    {{  98,  3 }, 0x009 }, //
+    {{ 101,  2 }, 0x009 }, //
+    {{ 103,  4 }, 0x009 }, //
+    {{ 107,  7 }, 0x009 }, //
+    {{ 114,  2 }, 0x009 }, //
+    {{ 117,  3 }, 0x009 }, //
+    {{ 120,  3 }, 0x009 }, //
+    {{ 123,  3 }, 0x009 }, //
+    {{ 126,  2 }, 0x009 }, //
+    {{ 128,  4 }, 0x009 }, //
+    {{ 132,  4 }, 0x009 }, //
+    {{ 136,  2 }, 0x009 }, //
+};
+
+ static const RBTokResult expTokThaiCFST_57Loop[] = { // 34 tokens
+    {{   0,  7 }, 0x002 }, //
+    {{   8,  3 }, 0x020 }, //
+    {{  11,  5 }, 0x000 }, //
+    {{  17,  7 }, 0x002 }, //
+    {{  25,  5 }, 0x109 }, //
+    {{  30,  7 }, 0x000 }, //
+    {{  37,  5 }, 0x000 }, //
+    {{  42,  6 }, 0x000 }, //
+    {{  48,  3 }, 0x000 }, //
+    {{  51,  6 }, 0x000 }, //
+    {{  58,  3 }, 0x009 }, //
+    {{  61,  3 }, 0x000 }, //
+    {{  64,  4 }, 0x000 }, //
+    {{  68,  3 }, 0x000 }, //
+    {{  71,  4 }, 0x000 }, //
+    {{  75,  2 }, 0x000 }, //
+    {{  77,  3 }, 0x000 }, //
+    {{  80,  5 }, 0x000 }, //
+    {{  85,  2 }, 0x000 }, //
+    {{  88,  3 }, 0x009 }, //
+    {{  91,  4 }, 0x000 }, //
+    {{  95,  3 }, 0x000 }, //
+    {{  98,  3 }, 0x000 }, //
+    {{ 101,  2 }, 0x000 }, //
+    {{ 103,  4 }, 0x000 }, //
+    {{ 107,  7 }, 0x000 }, //
+    {{ 114,  2 }, 0x000 }, //
+    {{ 117,  3 }, 0x009 }, //
+    {{ 120,  3 }, 0x000 }, //
+    {{ 123,  3 }, 0x000 }, //
+    {{ 126,  2 }, 0x000 }, //
+    {{ 128,  4 }, 0x000 }, //
+    {{ 132,  4 }, 0x000 }, //
+    {{ 136,  2 }, 0x000 }, //
+};
+
+static const RBTokResult expTokThai[] = { // 42 tokens
+    // ranges   flags            text
+    {{   0, 7 }, 0xC8 },  // 0xC8 = 200
+    {{   7, 1 }, 0x00 },  //
+    {{   8, 3 }, 0xC8 },
+    {{  11, 4 }, 0xC8 },
+    {{  15, 1 }, 0x00 },  //
+    {{  16, 1 }, 0x00 },  //
+    {{  17, 7 }, 0xC8 },
+    {{  24, 1 }, 0x00 },  //
+    {{  25, 5 }, 0xC8 },
+    {{  30, 7 }, 0xC8 },
+    {{  37, 5 }, 0xC8 },
+    {{  42, 6 }, 0xC8 },
+    {{  48, 3 }, 0xC8 },
+    {{  51, 6 }, 0xC8 },
+    {{  57, 1 }, 0x00 },  //
+    {{  58, 3 }, 0xC8 },
+    {{  61, 3 }, 0xC8 },
+    {{  64, 4 }, 0xC8 },
+    {{  68, 3 }, 0xC8 },
+    {{  71, 4 }, 0xC8 },
+    {{  75, 2 }, 0xC8 },
+    {{  77, 3 }, 0xC8 },
+    {{  80, 5 }, 0xC8 },
+    {{  85, 2 }, 0xC8 },
+    {{  87, 1 }, 0x00 },  //
+    {{  88, 3 }, 0xC8 },
+    {{  91, 4 }, 0xC8 },
+    {{  95, 3 }, 0xC8 },
+    {{  98, 3 }, 0xC8 },
+    {{ 101, 2 }, 0xC8 },
+    {{ 103, 4 }, 0xC8 },
+    {{ 107, 7 }, 0xC8 },
+    {{ 114, 2 }, 0xC8 },
+    {{ 116, 1 }, 0x00 },  //
+    {{ 117, 3 }, 0xC8 },
+    {{ 120, 3 }, 0xC8 },
+    {{ 123, 3 }, 0xC8 },
+    {{ 126, 2 }, 0xC8 },
+    {{ 128, 4 }, 0xC8 },
+    {{ 132, 4 }, 0xC8 },
+    {{ 136, 2 }, 0xC8 },
+    {{ 138, 1 }, 0x00 },  //
+};
+
+static const RBTokResult expTokThaiNLLT_57Loop[] = { // 42 tokens
+    {{   0, 7 }, 0xC8 },  // 0xC8 = 200
+    {{   7, 1 }, 0x00 },  //
+    {{   8, 3 }, 0xC8 },  //
+    {{  11, 4 }, 0x00 },  //
+    {{  15, 1 }, 0x00 },  //
+    {{  16, 1 }, 0x00 },  //
+    {{  17, 7 }, 0xC8 },  //
+    {{  24, 1 }, 0x00 },  //
+    {{  25, 5 }, 0xC8 },  //
+    {{  30, 7 }, 0x00 },  //
+    {{  37, 5 }, 0x00 },  //
+    {{  42, 6 }, 0x00 },  //
+    {{  48, 3 }, 0x00 },  //
+    {{  51, 6 }, 0x00 },  //
+    {{  57, 1 }, 0x00 },  //
+    {{  58, 3 }, 0xC8 },  //
+    {{  61, 3 }, 0x00 },  //
+    {{  64, 4 }, 0x00 },  //
+    {{  68, 3 }, 0x00 },  //
+    {{  71, 4 }, 0x00 },  //
+    {{  75, 2 }, 0x00 },  //
+    {{  77, 3 }, 0x00 },  //
+    {{  80, 5 }, 0x00 },  //
+    {{  85, 2 }, 0x00 },  //
+    {{  87, 1 }, 0x00 },  //
+    {{  88, 3 }, 0xC8 },  //
+    {{  91, 4 }, 0x00 },  //
+    {{  95, 3 }, 0x00 },  //
+    {{  98, 3 }, 0x00 },  //
+    {{ 101, 2 }, 0x00 },  //
+    {{ 103, 4 }, 0x00 },  //
+    {{ 107, 7 }, 0x00 },  //
+    {{ 114, 2 }, 0x00 },  //
+    {{ 116, 1 }, 0x00 },  //
+    {{ 117, 3 }, 0xC8 },  //
+    {{ 120, 3 }, 0x00 },  //
+    {{ 123, 3 }, 0x00 },  //
+    {{ 126, 2 }, 0x00 },  //
+    {{ 128, 4 }, 0x00 },  //
+    {{ 132, 4 }, 0x00 },  //
+    {{ 136, 2 }, 0x00 },  //
+    {{ 138, 1 }, 0x00 },  //
+};
+
+
+typedef struct {
+    const char*         descrip;
+    const UChar*        tokText; // zero-terminated text
+    const RBTokResult*  expTok;
+    int32_t             expTokLen;
+    const RBTokResult*  expTokFile;
+    int32_t             expTokFileLen;
+    const RBTokResult*  expTok57Loop;    // Actual urbtok results in ICU 59 for this test
+    int32_t             expTok57LoopLen; // Actual urbtok results in ICU 59 for this test
+    const RBTokResult*  expTok57Bulk;    // Actual urbtok results in ICU 59 for this test
+    int32_t             expTok57BulkLen; // Actual urbtok results in ICU 59 for this test
+}  TokTextAndResults;
+
+static const TokTextAndResults tokTextAndResCFST[] = {
+    { "CFST/Latn", tokTextLatn, expTokLatnCFST, UPRV_LENGTHOF(expTokLatnCFST), expTokLatnCFST, UPRV_LENGTHOF(expTokLatnCFST), expTokLatnCFST,        UPRV_LENGTHOF(expTokLatnCFST),        expTokLatnCFST,        UPRV_LENGTHOF(expTokLatnCFST) },
+    { "CFST/Misc", tokTextMisc, expTokMiscCFST, UPRV_LENGTHOF(expTokMiscCFST), expTokMiscCFST, UPRV_LENGTHOF(expTokMiscCFST), expTokMiscCFST,        UPRV_LENGTHOF(expTokMiscCFST),        expTokMiscCFST_57Bulk, UPRV_LENGTHOF(expTokMiscCFST_57Bulk) },
+    { "CFST/Jpan", tokTextJpan, expTokJpanCFST, UPRV_LENGTHOF(expTokJpanCFST), expTokJpanCFST, UPRV_LENGTHOF(expTokJpanCFST), expTokJpanCFST,        UPRV_LENGTHOF(expTokJpanCFST),        expTokJpanCFST,        UPRV_LENGTHOF(expTokJpanCFST) },
+    { "CFST/Thai", tokTextThai, expTokThaiCFST, UPRV_LENGTHOF(expTokThaiCFST), expTokThaiCFST, UPRV_LENGTHOF(expTokThaiCFST), expTokThaiCFST_57Loop, UPRV_LENGTHOF(expTokThaiCFST_57Loop), expTokThaiCFST,        UPRV_LENGTHOF(expTokThaiCFST) },
+    { NULL, NULL, NULL, 0, NULL, 0, NULL, 0 }
+};
+
+static const TokTextAndResults tokTextAndResNLLT[] = {
+    { "NLLT/Latn", tokTextLatn, expTokLatnNLLT, UPRV_LENGTHOF(expTokLatnNLLT), expTokLatnNLLT_File, UPRV_LENGTHOF(expTokLatnNLLT_File), expTokLatnNLLT_57,     UPRV_LENGTHOF(expTokLatnNLLT_57),     expTokLatnNLLT_57,     UPRV_LENGTHOF(expTokLatnNLLT_57)},
+    { "NLLT/Misc", tokTextMisc, expTokMiscNLLT, UPRV_LENGTHOF(expTokMiscNLLT), expTokMiscNLLT,      UPRV_LENGTHOF(expTokMiscNLLT),      expTokMiscNLLT_57Loop, UPRV_LENGTHOF(expTokMiscNLLT_57Loop), expTokMiscNLLT,        UPRV_LENGTHOF(expTokMiscNLLT)},
+    { "NLLT/Jpan", tokTextJpan, expTokJpan,     UPRV_LENGTHOF(expTokJpan),     expTokJpan,          UPRV_LENGTHOF(expTokJpan),          expTokJpanNLLT_57Loop, UPRV_LENGTHOF(expTokJpanNLLT_57Loop), expTokJpan,            UPRV_LENGTHOF(expTokJpan) },
+    { "NLLT/Thai", tokTextThai, expTokThai,     UPRV_LENGTHOF(expTokThai),     expTokThai,          UPRV_LENGTHOF(expTokThai),          expTokThaiNLLT_57Loop, UPRV_LENGTHOF(expTokThaiNLLT_57Loop), expTokThai,            UPRV_LENGTHOF(expTokThai) },
+    { NULL, NULL, NULL, 0, NULL, 0, NULL, 0 }
+};
+
+static const TokTextAndResults tokTextAndResStdW[] = {
+    { "StdW/Latn", tokTextLatn, expTokLatnStdW, UPRV_LENGTHOF(expTokLatnStdW), expTokLatnStdW, UPRV_LENGTHOF(expTokLatnStdW), expTokLatnStdW,        UPRV_LENGTHOF(expTokLatnStdW),        expTokLatnStdW,       UPRV_LENGTHOF(expTokLatnStdW) },
+    { "StdW/Misc", tokTextMisc, expTokMiscStdW, UPRV_LENGTHOF(expTokMiscStdW), expTokMiscStdW, UPRV_LENGTHOF(expTokMiscStdW), expTokMiscStdW,        UPRV_LENGTHOF(expTokMiscStdW),        expTokMiscStdW,       UPRV_LENGTHOF(expTokMiscStdW) },
+    { "StdW/Jpan", tokTextJpan, expTokJpan,     UPRV_LENGTHOF(expTokJpan),     expTokJpan,     UPRV_LENGTHOF(expTokJpan),     expTokJpan,            UPRV_LENGTHOF(expTokJpan),            expTokJpan,           UPRV_LENGTHOF(expTokJpan) },
+    { "StdW/Thai", tokTextThai, expTokThai,     UPRV_LENGTHOF(expTokThai),     expTokThai,     UPRV_LENGTHOF(expTokThai),     expTokThai,            UPRV_LENGTHOF(expTokThai),            expTokThai,           UPRV_LENGTHOF(expTokThai) },
+    { NULL, NULL, NULL, 0, NULL, 0, NULL, 0 }
+};
+
+typedef struct {
+    const char*             descrip;
+    const char*             rulesSource; // relative to cintltst directory; UTF8 rule source; NULL for std word rules
+    const char*             rulesBin;    // relative to cintltst directory; current binary version
+    const char*             rulesBin57;  // relative to cintltst directory; ICU 57 binary version
+    const TokTextAndResults* textAndResults;
+} TokRulesAndTests;
+
+static const TokRulesAndTests tokRulesTests[] = { // icu60 binary files invalid in ICU 62
+    { "CFST", "../testdata/tokCFSTrules.txt",     NULL,/*tokCFSTrulesLE_icu60.data invalid*/ "../testdata/tokCFSTrulesLE_icu57.data", tokTextAndResCFST },
+    { "NLLT", "../testdata/wordNLLTu8.txt",       NULL,/*wordNLLT_icu60.dat invalid */       "../testdata/wordNLLT_icu57.dat",        tokTextAndResNLLT },
+    { "StdW", "../../data/brkitr/rules/word.txt", NULL,                                      NULL,                                    tokTextAndResStdW },
+    { "WORD", NULL,                               NULL,                                      NULL,                                    tokTextAndResStdW },
+    { NULL, NULL, NULL, NULL, NULL }
+};
+
 enum {
-    kNumTokensExpected = UPRV_LENGTHOF(expectedResults), // 66
     kMaxTokens = 96
 };
 
-static void TestRuleBasedTokenizer(void) {
-    FILE * testRulesFile;
-    char * testRulesUTF8Buf;
-    UChar* testRulesUTF16Buf = NULL;
-    long testRulesFileSize, testRulesFileRead = 0;
-    long testRulesUTF8Offset = 0;
-    int32_t testRulesUTF16Size;
-    UErrorCode status = U_ZERO_ERROR;
+// read data from file into a malloc'ed buf, which must be freed by caller.
+// returns NULL if error.
+static void* dataBufFromFile(const char* path, long* dataBufSizeP) {
+    FILE * dataFile;
+    void * dataBuf;
+    long dataBufSize, dataFileRead = 0;
 
-    testRulesFile = fopen(testRulesFilePath, "r");
-    if (testRulesFile == NULL) {
-        log_data_err("FAIL: fopen fails for: %s\n", testRulesFilePath);
-        return;
+    if (dataBufSizeP) {
+        *dataBufSizeP = 0;
     }
-    fseek(testRulesFile, 0, SEEK_END);
-    testRulesFileSize = ftell(testRulesFile);
-    rewind(testRulesFile);
+    dataFile = fopen(path, "r");
+    if (dataFile == NULL) {
+        log_data_err("FAIL: for %s, fopen fails\n", path);
+        return NULL;
+    }
+    fseek(dataFile, 0, SEEK_END);
+    dataBufSize = ftell(dataFile);
+    rewind(dataFile);
 
-    testRulesUTF8Buf = (char *)uprv_malloc(testRulesFileSize);
-    if (testRulesUTF8Buf != NULL) {
-        testRulesFileRead = fread(testRulesUTF8Buf, 1, testRulesFileSize, testRulesFile);
+    dataBuf = uprv_malloc(dataBufSize);
+    if (dataBuf != NULL) {
+        dataFileRead = fread(dataBuf, 1, dataBufSize, dataFile);
     }
-    fclose(testRulesFile);
-    if (testRulesUTF8Buf == NULL) {
-        log_data_err("FAIL: uprv_malloc fails for testRulesUTF8Buf[%ld]\n", testRulesFileSize);
-        return;
+    fclose(dataFile);
+    if (dataBuf == NULL) {
+        log_data_err("FAIL: for %s, uprv_malloc fails for dataBuf[%ld]\n", path, dataBufSize);
+        return NULL;
     }
-    if (testRulesFileRead < testRulesFileSize) {
-        log_data_err("FAIL: fread fails for %s, read %ld of %ld\n", testRulesFile, testRulesFileRead, testRulesFileSize);
-        uprv_free(testRulesUTF8Buf);
-        return;
+    if (dataFileRead < dataBufSize) {
+        log_data_err("FAIL: for %s, fread fails, read %ld of %ld\n", path, dataFileRead, dataBufSize);
+        uprv_free(dataBuf);
+        return NULL;
     }
-    /* done with file, UTF8 rules in testRulesUTF8Buf. Handle UTF8 BOM: */
-    if (uprv_strncmp(testRulesUTF8Buf, "\xEF\xBB\xBF", 3) == 0) {
-        testRulesUTF8Offset = 3;
-        testRulesFileSize -= testRulesUTF8Offset;
+    if (dataBufSizeP) {
+        *dataBufSizeP = dataBufSize;
     }
+    return dataBuf;
+}
 
-    u_strFromUTF8(NULL, 0, &testRulesUTF16Size, testRulesUTF8Buf+testRulesUTF8Offset, testRulesFileSize, &status); /* preflight */
-    if (status == U_BUFFER_OVERFLOW_ERROR) { /* expected for preflight */
-        status = U_ZERO_ERROR;
-    }
-    if (U_FAILURE(status)) {
-        log_data_err("FAIL: u_strFromUTF8 preflight fails: %s\n", u_errorName(status));
-    } else {
-        testRulesUTF16Buf = (UChar *)uprv_malloc(testRulesUTF16Size*sizeof(UChar));
-        if (testRulesUTF16Buf == NULL) {
-            log_data_err("FAIL: uprv_malloc fails for testRulesUTF16Buf[%ld]\n", testRulesUTF16Size*sizeof(UChar));
-        } else {
-            u_strFromUTF8(testRulesUTF16Buf, testRulesUTF16Size, &testRulesUTF16Size, testRulesUTF8Buf+testRulesUTF8Offset, testRulesFileSize, &status);
+static void handleTokResults(const char* testItem, const char* tokClass, const char* ruleSource, const char* algType,
+                             uint64_t duration, int32_t expTokLen, const RBTokResult* expTokRes,
+                             int32_t getTokLen, RuleBasedTokenRange* getTokens, unsigned long *getFlags) {
+    int32_t iToken;
+    UBool fail = (getTokLen != expTokLen);
+    for (iToken = 0; !fail && iToken < getTokLen; iToken++) {
+        if (  getTokens[iToken].location != expTokRes[iToken].token.location || getTokens[iToken].length != expTokRes[iToken].token.length ||
+              getFlags[iToken] != expTokRes[iToken].flags ) {
+            fail = TRUE;
         }
     }
-    uprv_free(testRulesUTF8Buf);
-    if (testRulesUTF16Buf == NULL) {
-        return;
-    }
-    if (U_FAILURE(status)) {
-        log_data_err("FAIL: u_strFromUTF8 fails: %s\n", u_errorName(status));
-    } else {
-	    mach_timebase_info_data_t info;
-	    uint64_t start, duration;
-        UParseError parseErr;
-        UBreakIterator *brkFromRules;
-
-        mach_timebase_info(&info);
-
-        start = mach_absolute_time();
-        brkFromRules = urbtok_openRules(testRulesUTF16Buf, testRulesUTF16Size, &parseErr, &status);
-        duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
-        if (U_FAILURE(status)) {
-            log_err("FAIL: urbtok_openRules status: %s, line %d, col %d\n", u_errorName(status), parseErr.line, parseErr.offset);
-        } else {
-            uint8_t *rulesBinaryBuf;
-            uint32_t rulesBinarySize;
-            log_info("urbtok_openRules nsec %llu\n", duration);
-            rulesBinarySize = urbtok_getBinaryRules(brkFromRules, NULL, 0, &status);
-            if (U_FAILURE(status)) {
-                log_err("FAIL: urbtok_getBinaryRules preflight status: %s, rulesBinarySize %u\n", u_errorName(status), rulesBinarySize);
+    if (fail) {
+        log_err("FAIL: %s %s %s %s expected %d tokens, got %d\n", testItem, tokClass, ruleSource, algType, expTokLen, getTokLen);
+        printf("# expect               get\n");
+        printf("# loc len flags        loc len flags\n");
+        int32_t maxTokens = (getTokLen >= expTokLen)? getTokLen: expTokLen;
+        for (iToken = 0; iToken < maxTokens; iToken++) {
+            if (iToken < expTokLen) {
+                printf("  %3ld %3ld 0x%-8lX", expTokRes[iToken].token.location,
+                    expTokRes[iToken].token.length, expTokRes[iToken].flags);
             } else {
-                rulesBinaryBuf = (uint8_t *)uprv_malloc(rulesBinarySize);
-                if (rulesBinaryBuf == NULL) {
-                    log_data_err("FAIL: uprv_malloc fails for rulesBinaryBuf[%ld]\n", rulesBinarySize);
+                printf("                  ");
+            }
+            if (iToken < getTokLen) {
+                printf("   %3ld %3ld 0x%-8lX\n", getTokens[iToken].location, getTokens[iToken].length, getFlags[iToken] );
+            } else {
+                printf("\n");
+            }
+        }
+    } else {
+        log_info("%s %s %s %s get %d tokens, nsec %llu\n", testItem, tokClass, ruleSource, algType, getTokLen, duration);
+    }
+}
+
+static void TestRuleBasedTokenizer(void) {
+    const TokRulesAndTests* ruleTypePtr;
+    uint64_t start, duration;
+#if U_PLATFORM_IS_DARWIN_BASED
+    mach_timebase_info_data_t info;
+
+    mach_timebase_info(&info);
+#endif
+    for (ruleTypePtr = tokRulesTests; ruleTypePtr->descrip != NULL; ruleTypePtr++) {
+        UBreakIterator* ubrkFromSource      = NULL;
+        UBreakIterator* ubrkBinFromSource   = NULL;
+        UBreakIterator* utokFromSource      = NULL;
+        UBreakIterator* utokBinFromSource   = NULL;
+        UBreakIterator* utokBinFromFile     = NULL;
+        UBreakIterator* utok57FromSource    = NULL;
+        UBreakIterator* utok57BinFromSource = NULL;
+        UBreakIterator* utok57BinFromFile   = NULL;
+        uint8_t* ubrkBinRules = NULL; // these must be retained while ubrkBinFromSource is open
+        UErrorCode status = U_ZERO_ERROR;
+
+        log_info("- starting tests for rule type %s\n", ruleTypePtr->descrip);
+
+        // Get UBreakIterators
+        if (ruleTypePtr->rulesSource == NULL) {
+            // use standard WORD rules for root
+            start = GET_START();
+            ubrkFromSource = ubrk_open(UBRK_WORD, "root", NULL, 0, &status);
+            duration = GET_DURATION(start, info);
+            if (U_FAILURE(status)) {
+                log_err("FAIL: ubrk_open WORD for root, status: %s\n", u_errorName(status));
+            } else {
+                log_info(" ubrk_open nsec %llu\n", duration);
+                int32_t rulesBinFromStdSize = ubrk_getBinaryRules(ubrkFromSource, NULL, 0, &status);
+                if (U_FAILURE(status)) {
+                    log_err("FAIL: ubrk_getBinaryRules preflight status: %s, rulesBinFromStdSize %d\n", u_errorName(status), rulesBinFromStdSize);
                 } else {
-                    start = mach_absolute_time();
-                    rulesBinarySize = urbtok_getBinaryRules(brkFromRules, rulesBinaryBuf, rulesBinarySize, &status);
-                    duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
-                    if (U_FAILURE(status)) {
-                        log_err("FAIL: urbtok_getBinaryRules status: %s, rulesBinarySize %u\n", u_errorName(status), rulesBinarySize);
+                    ubrkBinRules = (uint8_t *)uprv_malloc(rulesBinFromStdSize);
+                    if (ubrkBinRules == NULL) {
+                        log_data_err("FAIL: uprv_malloc fails for ubrkBinRules[%d]\n", rulesBinFromStdSize);
                     } else {
-                        UBreakIterator *brkFromBinary;
-                        log_info("urbtok_getBinaryRules nsec %llu\n", duration);
-                        start = mach_absolute_time();
-                        brkFromBinary = urbtok_openBinaryRules(rulesBinaryBuf, &status);
-                        duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
+                        start = GET_START();
+                        rulesBinFromStdSize = ubrk_getBinaryRules(ubrkFromSource, ubrkBinRules, rulesBinFromStdSize, &status);
+                        duration = GET_DURATION(start, info);
                         if (U_FAILURE(status)) {
-                            log_err("FAIL: urbtok_openBinaryRules status: %s\n", u_errorName(status));
+                            log_err("FAIL: ubrk_getBinaryRules status: %s, rulesBinFromStdSize %d\n", u_errorName(status), rulesBinFromStdSize);
                         } else {
-                            RuleBasedTokenRange tokens[kMaxTokens];
-                            unsigned long       flags[kMaxTokens];
-                            int32_t iToken, numTokens = 0;
-
-                            log_info("urbtok_openBinaryRules nsec %llu\n", duration);
+                            log_info(" ubrk_getBinaryRules size %d, nsec %llu\n", rulesBinFromStdSize, duration);
 
                             status = U_ZERO_ERROR;
-                            ubrk_setText(brkFromRules, textToTokenize, -1, &status);
+                            start = GET_START();
+                            // ubrk_openBinaryRules does not copy the binary rules, they must be kept around while ubrkBinFromSource is open
+                            ubrkBinFromSource = ubrk_openBinaryRules(ubrkBinRules, rulesBinFromStdSize, NULL, 0, &status);
+                            duration = GET_DURATION(start, info);
                             if (U_FAILURE(status)) {
-                                log_err("FAIL: ubrk_setText brkFromRules status: %s\n", u_errorName(status));
+                                log_err("FAIL: ubrk_openBinaryRules status: %s\n", u_errorName(status));
                             } else {
-                                start = mach_absolute_time();
-                                numTokens = urbtok_tokenize(brkFromRules, kMaxTokens, tokens, flags);
-                                duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
-                                UBool fail = (numTokens != kNumTokensExpected);
-                                for (iToken = 0; !fail && iToken < numTokens; iToken++) {
-                                    if (  tokens[iToken].location != expectedResults[iToken].token.location ||
-                                          tokens[iToken].length   != expectedResults[iToken].token.length   ||
-                                          flags[iToken]           != expectedResults[iToken].flags ) {
-                                        fail = TRUE;
-                                    }
-                                }
-                                if (fail) {
-                                    log_err("FAIL: urbtok_tokenize bulk brkFromRules expected %d tokens, got %d\n", kNumTokensExpected, numTokens);
-                                    printf("# expect          get\n");
-                                    printf("# loc len flags   loc len flags\n");
-                                    int32_t maxTokens = (numTokens >= kNumTokensExpected)? numTokens: kNumTokensExpected;
-                                    for (iToken = 0; iToken < maxTokens; iToken++) {
-                                        if (iToken < kNumTokensExpected) {
-                                            printf("  %3ld %3ld 0x%03lX", expectedResults[iToken].token.location,
-                                                expectedResults[iToken].token.length, expectedResults[iToken].flags);
-                                        } else {
-                                            printf("             ");
-                                        }
-                                        if (iToken < numTokens) {
-                                            printf("   %3ld %3ld 0x%03lX\n",  tokens[iToken].location, tokens[iToken].length, flags[iToken] );
-                                        } else {
-                                            printf("\n");
-                                        }
-                                    }
-                                } else {
-                                    log_info("Latn urbtok_tokenize bulk brkFromRules nsec %llu\n", duration);
-                                }
+                                log_info(" ubrk_openBinaryRules nsec %llu\n", duration);
                             }
 
                             status = U_ZERO_ERROR;
-                            ubrk_setText(brkFromBinary, textToTokenize, -1, &status);
+                            start = GET_START();
+                            utokBinFromSource = urbtok_openBinaryRules(ubrkBinRules, &status);
+                            duration = GET_DURATION(start, info);
                             if (U_FAILURE(status)) {
-                                log_err("FAIL: ubrk_setText brkFromBinary status: %s\n", u_errorName(status));
+                                log_err("FAIL: urbtok_openBinaryRules status: %s\n", u_errorName(status));
                             } else {
-                                start = mach_absolute_time();
-                                numTokens = urbtok_tokenize(brkFromBinary, kMaxTokens, tokens, flags);
-                                duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
-                                UBool fail = (numTokens != kNumTokensExpected);
-                                for (iToken = 0; !fail && iToken < numTokens; iToken++) {
-                                    if (  tokens[iToken].location != expectedResults[iToken].token.location ||
-                                          tokens[iToken].length   != expectedResults[iToken].token.length   ||
-                                          flags[iToken]           != expectedResults[iToken].flags ) {
-                                        fail = TRUE;
-                                    }
-                                }
-                                if (fail) {
-                                    log_err("FAIL: urbtok_tokenize bulk brkFromBinary expected %d tokens, got %d\n", kNumTokensExpected, numTokens);
-                                    printf("# expect          get\n");
-                                    printf("# loc len flags   loc len flags\n");
-                                    int32_t maxTokens = (numTokens >= kNumTokensExpected)? numTokens: kNumTokensExpected;
-                                    for (iToken = 0; iToken < maxTokens; iToken++) {
-                                        if (iToken < kNumTokensExpected) {
-                                            printf("  %3ld %3ld 0x%03lX", expectedResults[iToken].token.location,
-                                                expectedResults[iToken].token.length, expectedResults[iToken].flags);
-                                        } else {
-                                            printf("             ");
-                                        }
-                                        if (iToken < numTokens) {
-                                            printf("   %3ld %3ld 0x%03lX\n",  tokens[iToken].location, tokens[iToken].length, flags[iToken] );
-                                        } else {
-                                            printf("\n");
-                                        }
-                                    }
-                                } else {
-                                     log_info("Latn urbtok_tokenize bulk brkFromBinary nsec %llu\n", duration);
-                               }
+                                log_info(" urbtok_openBinaryRules nsec %llu\n", duration);
                             }
 
                             status = U_ZERO_ERROR;
-                            ubrk_setText(brkFromBinary, textToTokenize, -1, &status);
-                            if (U_FAILURE(status)) {
-                                log_err("FAIL: ubrk_setText brkFromBinary status: %s\n", u_errorName(status));
-                            } else {
-                                RuleBasedTokenRange *tokenLimit = tokens + kMaxTokens;
-                                RuleBasedTokenRange *tokenP;
-                                unsigned long *flagsP;
-
-                                start = mach_absolute_time();
-						        for (tokenP = tokens, flagsP = flags; tokenP < tokenLimit && urbtok_tokenize(brkFromBinary, 1, tokenP, flagsP) == 1; tokenP++, flagsP++) {
-						            ;
-						        }
-                                numTokens = tokenP - tokens;
-                                duration = ((mach_absolute_time() - start) * info.numer)/info.denom;
-                                UBool fail = (numTokens != kNumTokensExpected);
-                                for (iToken = 0; !fail && iToken < numTokens; iToken++) {
-                                    if (  tokens[iToken].location != expectedResults[iToken].token.location ||
-                                          tokens[iToken].length   != expectedResults[iToken].token.length   ||
-                                          flags[iToken]           != expectedResults[iToken].flags ) {
-                                        fail = TRUE;
-                                    }
-                                }
-                                if (fail) {
-                                    log_err("FAIL: urbtok_tokenize loop brkFromBinary expected %d tokens, got %d\n", kNumTokensExpected, numTokens);
-                                    printf("# expect          get\n");
-                                    printf("# loc len flags   loc len flags\n");
-                                    int32_t maxTokens = (numTokens >= kNumTokensExpected)? numTokens: kNumTokensExpected;
-                                    for (iToken = 0; iToken < maxTokens; iToken++) {
-                                        if (iToken < kNumTokensExpected) {
-                                            printf("  %3ld %3ld 0x%03lX", expectedResults[iToken].token.location,
-                                                expectedResults[iToken].token.length, expectedResults[iToken].flags);
-                                        } else {
-                                            printf("             ");
-                                        }
-                                        if (iToken < numTokens) {
-                                            printf("   %3ld %3ld 0x%03lX\n",  tokens[iToken].location, tokens[iToken].length, flags[iToken] );
-                                        } else {
-                                            printf("\n");
-                                        }
-                                    }
-                                } else {
-                                     log_info("Latn urbtok_tokenize loop brkFromBinary nsec %llu\n", duration);
-                               }
+                            utok57BinFromSource = urbtok57_openBinaryRules(ubrkBinRules, &status);
+                            if (U_SUCCESS(status)) {
+                                log_err("FAIL: urbtok57_openBinaryRules with new rules succeeded but should have failed\n");
+                                ubrk_close(utok57BinFromSource);
+                                utok57BinFromSource = NULL;
                             }
-
-                            ubrk_close(brkFromBinary);
                         }
+                        // ubrkBinRules is freed at the end of the main loop
                     }
-                    uprv_free(rulesBinaryBuf);
                 }
             }
-            ubrk_close(brkFromRules);
+            status = U_ZERO_ERROR;
+            start = GET_START();
+            utokFromSource = urbtok_open(UBRK_WORD, "root", &status);
+            duration = GET_DURATION(start, info);
+            if (U_FAILURE(status)) {
+                log_err("FAIL: urbtok_open WORD for root, status: %s\n", u_errorName(status));
+            } else {
+                log_info(" urbtok_open nsec %llu\n", duration);
+            }
+        } else {
+            // use source rules, including custom rules from CoreNLP
+            int32_t rulesUTF16Size;
+            UChar* rulesUTF16Buf = NULL;
+            long rulesUTF8Size;
+            char * rulesUTF8Buf = (char *)dataBufFromFile(ruleTypePtr->rulesSource, &rulesUTF8Size);
+            // dataBufFromFile already logged any errors leading to NULL return
+            if (rulesUTF8Buf) {
+                long rulesUTF8Offset = 0;
+                /* Handle UTF8 BOM: */
+                if (uprv_strncmp(rulesUTF8Buf, "\xEF\xBB\xBF", 3) == 0) {
+                    rulesUTF8Offset = 3;
+                    rulesUTF8Size -= rulesUTF8Offset;
+                }
+                u_strFromUTF8(NULL, 0, &rulesUTF16Size, rulesUTF8Buf+rulesUTF8Offset, rulesUTF8Size, &status); /* preflight */
+                if (status == U_BUFFER_OVERFLOW_ERROR) { /* expected for preflight */
+                    status = U_ZERO_ERROR;
+                }
+                if (U_FAILURE(status)) {
+                    log_data_err("FAIL: for %s, u_strFromUTF8 preflight fails: %s\n", ruleTypePtr->rulesSource, u_errorName(status));
+                } else {
+                    rulesUTF16Buf = (UChar *)uprv_malloc(rulesUTF16Size*sizeof(UChar));
+                    if (rulesUTF16Buf == NULL) {
+                        log_data_err("FAIL: for %s, uprv_malloc fails for rulesUTF16Buf[%ld]\n", ruleTypePtr->rulesSource, rulesUTF16Size*sizeof(UChar));
+                    } else {
+                        u_strFromUTF8(rulesUTF16Buf, rulesUTF16Size, &rulesUTF16Size, rulesUTF8Buf+rulesUTF8Offset, rulesUTF8Size, &status);
+                        if (U_FAILURE(status)) {
+                            log_data_err("FAIL: for %s, u_strFromUTF8 fails: %s\n", ruleTypePtr->rulesSource, u_errorName(status));
+                            uprv_free(rulesUTF16Buf);
+                            rulesUTF16Buf = NULL;
+                        }
+                    }
+                }
+                uprv_free(rulesUTF8Buf);
+            }
+            if (rulesUTF16Buf) {
+                UParseError parseErr;
+
+                status = U_ZERO_ERROR;
+                start = GET_START();
+                ubrkFromSource = ubrk_openRules(rulesUTF16Buf, rulesUTF16Size, NULL, 0, &parseErr, &status);
+                duration = GET_DURATION(start, info);
+                if (U_FAILURE(status)) {
+                    log_err("FAIL: ubrk_openRules %s status: %s, line %d, col %d\n", ruleTypePtr->rulesSource, u_errorName(status), parseErr.line, parseErr.offset);
+                } else {
+                    log_info(" ubrk_openRules nsec %llu\n", duration);
+                }
+
+                status = U_ZERO_ERROR;
+                start = GET_START();
+                utokFromSource = urbtok_openRules(rulesUTF16Buf, rulesUTF16Size, &parseErr, &status);
+                duration = GET_DURATION(start, info);
+                if (U_FAILURE(status)) {
+                    log_err("FAIL: urbtok_openRules %s status: %s, line %d, col %d\n", ruleTypePtr->rulesSource, u_errorName(status), parseErr.line, parseErr.offset);
+                } else {
+                    log_info(" urbtok_openRules nsec %llu\n", duration);
+                }
+
+                status = U_ZERO_ERROR;
+                start = GET_START();
+                utok57FromSource = urbtok57_openRules(rulesUTF16Buf, rulesUTF16Size, &parseErr, &status);
+                duration = GET_DURATION(start, info);
+                if (U_FAILURE(status)) {
+                    if (ruleTypePtr->rulesBin57) {
+                        // Have binary, source should word
+                        log_err("FAIL: urbtok57_openRules %s status: %s, line %d, col %d\n", ruleTypePtr->rulesSource, u_errorName(status), parseErr.line, parseErr.offset);
+                    } else {
+                        // Source may use new syntax not compatible with urbtok57
+                        log_info(" urbtok57_openRules cannot handle %s, status: %s, line %d, col %d\n", ruleTypePtr->rulesSource, u_errorName(status), parseErr.line, parseErr.offset);
+                    }
+                } else {
+                    log_info(" urbtok57_openRules nsec %llu\n", duration);
+                }
+
+                uprv_free(rulesUTF16Buf);
+            }
+            if (ubrkFromSource) {
+                status = U_ZERO_ERROR;
+                int32_t rulesBinFromSourceSize = ubrk_getBinaryRules(ubrkFromSource, NULL, 0, &status);
+                if (U_FAILURE(status)) {
+                    log_err("FAIL: ubrk_getBinaryRules preflight status: %s, rulesBinFromSourceSize %d\n", u_errorName(status), rulesBinFromSourceSize);
+                } else {
+                    ubrkBinRules = (uint8_t *)uprv_malloc(rulesBinFromSourceSize);
+                    if (ubrkBinRules == NULL) {
+                        log_data_err("FAIL: uprv_malloc fails for ubrk ubrkBinRules[%d]\n", rulesBinFromSourceSize);
+                    } else {
+                        start = GET_START();
+                        rulesBinFromSourceSize = ubrk_getBinaryRules(ubrkFromSource, ubrkBinRules, rulesBinFromSourceSize, &status);
+                        duration = GET_DURATION(start, info);
+                        if (U_FAILURE(status)) {
+                            log_err("FAIL: ubrk_getBinaryRules status: %s, rulesBinFromSourceSize %d\n", u_errorName(status), rulesBinFromSourceSize);
+                        } else {
+                            log_info(" ubrk_getBinaryRules size %d, nsec %llu\n", rulesBinFromSourceSize, duration);
+
+                            start = GET_START();
+                            // ubrk_openBinaryRules does not copy the binary rules, they must be kept around while ubrkBinFromSource is open
+                            ubrkBinFromSource = ubrk_openBinaryRules(ubrkBinRules, rulesBinFromSourceSize, NULL, 0, &status);
+                            duration = GET_DURATION(start, info);
+                            if (U_FAILURE(status)) {
+                                log_err("FAIL: ubrk_openBinaryRules status: %s\n", u_errorName(status));
+                            } else {
+                                log_info(" ubrk_openBinaryRules nsec %llu\n", duration);
+                            }
+                        }
+                        // ubrkBinRules is freed at the end of the main loop
+                    }
+                }
+            }
+
+            if (utokFromSource) {
+                status = U_ZERO_ERROR;
+                int32_t rulesBinFromSourceSize = urbtok_getBinaryRules(utokFromSource, NULL, 0, &status);
+                if (U_FAILURE(status)) {
+                    log_err("FAIL: urbtok_getBinaryRules preflight status: %s, rulesBinFromSourceSize %d\n", u_errorName(status), rulesBinFromSourceSize);
+                } else {
+                    uint8_t* rulesBinFromSource = (uint8_t *)uprv_malloc(rulesBinFromSourceSize);
+                    if (rulesBinFromSource == NULL) {
+                        log_data_err("FAIL: uprv_malloc fails for urbtok rulesBinFromSource[%d]\n", rulesBinFromSourceSize);
+                    } else {
+                        start = GET_START();
+                        rulesBinFromSourceSize = urbtok_getBinaryRules(utokFromSource, rulesBinFromSource, rulesBinFromSourceSize, &status);
+                        duration = GET_DURATION(start, info);
+                        if (U_FAILURE(status)) {
+                            log_err("FAIL: urbtok_getBinaryRules status: %s, rulesBinFromSourceSize %d\n", u_errorName(status), rulesBinFromSourceSize);
+                        } else {
+                            log_info(" urbtok_getBinaryRules size %d, nsec %llu\n", rulesBinFromSourceSize, duration);
+
+                            status = U_ZERO_ERROR;
+                            start = GET_START();
+                            // ubrk_openBinaryRules does copy the binary rules, they can be freed at the end of this block
+                            utokBinFromSource = urbtok_openBinaryRules(rulesBinFromSource, &status);
+                            duration = GET_DURATION(start, info);
+                            if (U_FAILURE(status)) {
+                                log_err("FAIL: urbtok_openBinaryRules from source status: %s\n", u_errorName(status));
+                            } else {
+                                log_info(" urbtok_openBinaryRules from source nsec %llu\n", duration);
+                            }
+
+                            status = U_ZERO_ERROR;
+                            utok57BinFromSource = urbtok57_openBinaryRules(rulesBinFromSource, &status);
+                            if (U_SUCCESS(status)) {
+                                log_err("FAIL: urbtok57_openBinaryRules with new rules succeeded but should have failed\n");
+                                ubrk_close(utok57BinFromSource);
+                                utok57BinFromSource = NULL;
+                            }
+
+                            if (ruleTypePtr->rulesBin) {
+                                long rulesBinSize;
+                                uint8_t* rulesBinBuf = (uint8_t*)dataBufFromFile(ruleTypePtr->rulesBin, &rulesBinSize);
+                                // dataBufFromFile already logged any errors leading to NULL return
+                                if (rulesBinBuf) {
+                                    log_info(" get urbtok binary rules from file, rulesBinSize %d\n", rulesBinSize);
+                                    status = U_ZERO_ERROR;
+                                    start = GET_START();
+                                    utokBinFromFile = urbtok_openBinaryRules(rulesBinBuf, &status);
+                                    duration = GET_DURATION(start, info);
+                                    if (U_FAILURE(status)) {
+                                        log_err("FAIL: urbtok_openBinaryRules from file status: %s\n", u_errorName(status));
+                                    } else {
+                                        log_info(" urbtok_openBinaryRules from file nsec %llu\n", duration);
+                                    }
+                                    uprv_free(rulesBinBuf);
+                                }
+                            }
+                        }
+                        uprv_free(rulesBinFromSource);
+                    }
+                }
+            }
+
+            if (utok57FromSource) {
+                status = U_ZERO_ERROR;
+                int32_t rulesBinFromSourceSize = urbtok57_getBinaryRules(utok57FromSource, NULL, 0, &status);
+                if (U_FAILURE(status)) {
+                    log_err("FAIL: urbtok57_getBinaryRules preflight status: %s, rulesBinFromSourceSize %d\n", u_errorName(status), rulesBinFromSourceSize);
+                } else {
+                    uint8_t* rulesBinFromSource = (uint8_t *)uprv_malloc(rulesBinFromSourceSize);
+                    if (rulesBinFromSource == NULL) {
+                        log_data_err("FAIL: uprv_malloc fails for urbtok57 rulesBinFromSource[%d]\n", rulesBinFromSourceSize);
+                    } else {
+                        start = GET_START();
+                        rulesBinFromSourceSize = urbtok57_getBinaryRules(utok57FromSource, rulesBinFromSource, rulesBinFromSourceSize, &status);
+                        duration = GET_DURATION(start, info);
+                        if (U_FAILURE(status)) {
+                            log_err("FAIL: urbtok57_getBinaryRules status: %s, rulesBinFromSourceSize %d\n", u_errorName(status), rulesBinFromSourceSize);
+                        } else {
+                            log_info(" urbtok57_getBinaryRules size %d, nsec %llu\n", rulesBinFromSourceSize, duration);
+
+                            status = U_ZERO_ERROR;
+                            start = GET_START();
+                            // ubrk_openBinaryRules does copy the binary rules, they can be freed at the end of this block
+                            utok57BinFromSource = urbtok57_openBinaryRules(rulesBinFromSource, &status);
+                            duration = GET_DURATION(start, info);
+                            if (U_FAILURE(status)) {
+                                log_err("FAIL: urbtok57_openBinaryRules from source status: %s\n", u_errorName(status));
+                            } else {
+                                log_info(" urbtok57_openBinaryRules from source nsec %llu\n", duration);
+                            }
+
+                            if (ruleTypePtr->rulesBin57) {
+                                long rulesBinSize;
+                                uint8_t* rulesBinBuf = (uint8_t*)dataBufFromFile(ruleTypePtr->rulesBin57, &rulesBinSize);
+                                // dataBufFromFile already logged any errors leading to NULL return
+                                if (rulesBinBuf) {
+                                    log_info(" get urbtok57 binary rules from file, rulesBinSize %d\n", rulesBinSize);
+                                    status = U_ZERO_ERROR;
+                                    start = GET_START();
+                                    utok57BinFromFile = urbtok57_openBinaryRules(rulesBinBuf, &status);
+                                    duration = GET_DURATION(start, info);
+                                    if (U_FAILURE(status)) {
+                                        log_err("FAIL: urbtok57_openBinaryRules from file status: %s\n", u_errorName(status));
+                                    } else {
+                                        log_info(" urbtok57_openBinaryRules file nsec %llu\n", duration);
+                                    }
+                                    uprv_free(rulesBinBuf);
+                                }
+                            }
+                        }
+                        uprv_free(rulesBinFromSource);
+                    }
+                }
+            }
         }
+
+        if (ubrkFromSource) {
+            // Test tokenization
+            const TokTextAndResults* textResultsPtr;
+            for (textResultsPtr = ruleTypePtr->textAndResults; textResultsPtr->descrip != NULL; textResultsPtr++) {
+                RuleBasedTokenRange tokens[kMaxTokens];
+                unsigned long       flags[kMaxTokens];
+                RuleBasedTokenRange *tokenLimit = tokens + kMaxTokens;
+                RuleBasedTokenRange *tokenP;
+                unsigned long *flagsP;
+                int32_t iTest, numTokens;
+                const char* testType[] = { "source", "binFromSource", "binFromFile" };
+                int32_t textLen = u_strlen(textResultsPtr->tokText);
+                log_info("-- starting tests for rule/text combo %s, text UTF16 units: %d\n", textResultsPtr->descrip, textLen);
+
+                if (ubrkFromSource || ubrkBinFromSource) {
+                    for (iTest = 0; iTest < 2; iTest++) {
+                        UBreakIterator* ubrk = (iTest==0)? ubrkFromSource: ubrkBinFromSource;
+                        if (ubrk) {
+                            int32_t offset, lastOffset;
+                            // Do ubrk loop tests
+                            status = U_ZERO_ERROR;
+                            ubrk_setText(ubrk, textResultsPtr->tokText, textLen, &status);
+                            if (U_FAILURE(status)) {
+                                log_err("FAIL: %s ubrk_setText ubrk %s status: %s\n", textResultsPtr->descrip, testType[iTest], u_errorName(status));
+                            } else {
+                                start = GET_START();
+                                lastOffset = ubrk_current(ubrk);
+                                for (tokenP = tokens, flagsP = flags; tokenP < tokenLimit && (offset = ubrk_next(ubrk)) != UBRK_DONE;) {
+                                    int32_t flagSet = ubrk_getRuleStatus(ubrk);
+                                    if (flagSet != -1) {
+                                        int32_t flagVec[8];
+                                        int32_t flagCount;
+                                        UErrorCode locStatus = U_ZERO_ERROR;
+
+                                        tokenP->location = lastOffset;
+                                        tokenP++->length = offset - lastOffset;
+                                        flagCount = ubrk_getRuleStatusVec(ubrk, flagVec, 8, &locStatus);
+                                        if (U_SUCCESS(locStatus) && flagCount-- > 1) {
+                                            // skip last flagVec entry since we have from ubrk_getRuleStatus above
+                                            int32_t flagIdx;
+                                            for (flagIdx = 0; flagIdx < flagCount; flagIdx++) {
+                                                flagSet |= flagVec[flagIdx];
+                                            }
+                                        }
+                                        *flagsP++ = (unsigned long)flagSet;
+                                    }
+                                    lastOffset = offset;
+                                }
+                                numTokens = tokenP - tokens;
+                                duration = GET_DURATION(start, info);
+
+                                handleTokResults(textResultsPtr->descrip, "ubrk", testType[iTest], "(loop)", duration,
+                                            textResultsPtr->expTokLen, textResultsPtr->expTok, numTokens, tokens, flags);
+                            }
+                        }
+                    }
+                }
+
+                if (utokFromSource || utokBinFromSource) {
+                    for (iTest = 0; iTest < 3; iTest++) {
+                        UBreakIterator* utok = (iTest==0)? utokFromSource: ((iTest==1)? utokBinFromSource: utokBinFromFile);
+                        if (utok) {
+                            // Do utok loop & bulk tests
+                            status = U_ZERO_ERROR;
+                            ubrk_setText(utok, textResultsPtr->tokText, textLen, &status);
+                            if (U_FAILURE(status)) {
+                                log_err("FAIL: %s ubrk_setText utok %s (loop) status: %s\n", textResultsPtr->descrip, testType[iTest], u_errorName(status));
+                            } else {
+                                start = GET_START();
+                                for (tokenP = tokens, flagsP = flags; tokenP < tokenLimit && urbtok_tokenize(utok, 1, tokenP, flagsP) == 1; tokenP++, flagsP++) {
+                                    ;
+                                }
+                                numTokens = tokenP - tokens;
+                                duration = GET_DURATION(start, info);
+
+                                if (iTest < 2) {
+                                    handleTokResults(textResultsPtr->descrip, "utok", testType[iTest], "(loop)", duration,
+                                                textResultsPtr->expTokLen, textResultsPtr->expTok, numTokens, tokens, flags);
+                                } else {
+                                    handleTokResults(textResultsPtr->descrip, "utok", testType[iTest], "(loop)", duration,
+                                                textResultsPtr->expTokFileLen, textResultsPtr->expTokFile, numTokens, tokens, flags);
+                                }
+                            }
+
+                            status = U_ZERO_ERROR;
+                            ubrk_setText(utok, textResultsPtr->tokText, textLen, &status);
+                            if (U_FAILURE(status)) {
+                                log_err("FAIL: %s ubrk_setText utok %s (bulk) status: %s\n", textResultsPtr->descrip, testType[iTest], u_errorName(status));
+                            } else {
+                                start = GET_START();
+                                numTokens = urbtok_tokenize(utok, kMaxTokens, tokens, flags);
+                                duration = GET_DURATION(start, info);
+
+                                if (iTest < 2) {
+                                    handleTokResults(textResultsPtr->descrip, "utok", testType[iTest], "(bulk)", duration,
+                                                textResultsPtr->expTokLen, textResultsPtr->expTok, numTokens, tokens, flags);
+                                } else {
+                                    handleTokResults(textResultsPtr->descrip, "utok", testType[iTest], "(bulk)", duration,
+                                                textResultsPtr->expTokFileLen, textResultsPtr->expTokFile, numTokens, tokens, flags);
+                                }
+                            }
+                       }
+                    }
+                }
+
+                if (utok57FromSource || utok57BinFromSource) {
+                    for (iTest = 0; iTest < 3; iTest++) {
+                        UBreakIterator* utok57 = (iTest==0)? utok57FromSource: ((iTest==1)? utok57BinFromSource: utok57BinFromFile);;
+                        if (utok57) {
+                            // Do utok57 loop & bulk tests
+                            status = U_ZERO_ERROR;
+                            ubrk_setText(utok57, textResultsPtr->tokText, textLen, &status);
+                            if (U_FAILURE(status)) {
+                                log_err("FAIL: %s ubrk_setText utok57 %s (loop) status: %s\n", textResultsPtr->descrip, testType[iTest], u_errorName(status));
+                            } else {
+                                start = GET_START();
+                                for (tokenP = tokens, flagsP = flags; tokenP < tokenLimit && urbtok57_tokenize(utok57, 1, tokenP, flagsP) == 1; tokenP++, flagsP++) {
+                                    ;
+                                }
+                                numTokens = tokenP - tokens;
+                                duration = GET_DURATION(start, info);
+
+                                handleTokResults(textResultsPtr->descrip, "utok57", testType[iTest], "(loop)", duration,
+                                            textResultsPtr->expTok57LoopLen, textResultsPtr->expTok57Loop, numTokens, tokens, flags);
+                           }
+
+                            status = U_ZERO_ERROR;
+                            ubrk_setText(utok57, textResultsPtr->tokText, textLen, &status);
+                            if (U_FAILURE(status)) {
+                                log_err("FAIL: %s ubrk_setText utok57 %s (bulk) status: %s\n", textResultsPtr->descrip, testType[iTest], u_errorName(status));
+                            } else {
+                                start = GET_START();
+                                numTokens = urbtok57_tokenize(utok57, kMaxTokens, tokens, flags);
+                                duration = GET_DURATION(start, info);
+
+                                handleTokResults(textResultsPtr->descrip, "utok57", testType[iTest], "(bulk)", duration,
+                                            textResultsPtr->expTok57BulkLen, textResultsPtr->expTok57Bulk, numTokens, tokens, flags);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Close UBreakIterators and rule memory, don't need to check for NULL
+        ubrk_close(ubrkFromSource);
+        ubrk_close(ubrkBinFromSource);
+        ubrk_close(utokFromSource);
+        ubrk_close(utokBinFromSource);
+        ubrk_close(utokBinFromFile);
+        ubrk_close(utok57FromSource);
+        ubrk_close(utok57BinFromSource);
+        ubrk_close(utok57BinFromFile);
+        uprv_free(ubrkBinRules);
     }
-    uprv_free(testRulesUTF16Buf);
 }
+
+
+
 #endif
 
 

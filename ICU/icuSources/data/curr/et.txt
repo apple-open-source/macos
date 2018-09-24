@@ -234,6 +234,10 @@ et{
             "CLP",
             "Tšiili peeso",
         }
+        CNH{
+            "CNH",
+            "Hiina jüaan (välismaine turg)",
+        }
         CNY{
             "CN¥",
             "Hiina jüaan",
@@ -609,6 +613,10 @@ et{
         }
         MRO{
             "MRO",
+            "Mauritaania ugia (1973–2017)",
+        }
+        MRU{
+            "MRU",
             "Mauritaania ugia",
         }
         MTL{
@@ -837,6 +845,10 @@ et{
         }
         STD{
             "STD",
+            "São Tomé ja Príncipe dobra (1977–2017)",
+        }
+        STN{
+            "STN",
             "São Tomé ja Príncipe dobra",
         }
         SUR{
@@ -901,7 +913,7 @@ et{
         }
         TWD{
             "NT$",
-            "Taiwani dollar",
+            "uus Taiwani dollar",
         }
         TZS{
             "TZS",
@@ -1357,6 +1369,10 @@ et{
             one{"Tšiili peeso"}
             other{"Tšiili peesot"}
         }
+        CNH{
+            one{"Hiina jüaan (välismaine turg)"}
+            other{"Hiina jüaani (välismaine turg)"}
+        }
         CNY{
             one{"Hiina jüaan"}
             other{"Hiina jüaani"}
@@ -1722,6 +1738,10 @@ et{
             other{"Macau pataakat"}
         }
         MRO{
+            one{"Mauritaania ugia (1973–2017)"}
+            other{"Mauritaania ugiat (1973–2017)"}
+        }
+        MRU{
             one{"Mauritaania ugia"}
             other{"Mauritaania ugiat"}
         }
@@ -1942,6 +1962,10 @@ et{
             other{"Lõuna-Sudaani naela"}
         }
         STD{
+            one{"São Tomé ja Príncipe dobra (1977–2017)"}
+            other{"São Tomé ja Príncipe dobrat (1977–2017)"}
+        }
+        STN{
             one{"São Tomé ja Príncipe dobra"}
             other{"São Tomé ja Príncipe dobrat"}
         }
@@ -2002,8 +2026,8 @@ et{
             other{"Trinidadi ja Tobago dollarit"}
         }
         TWD{
-            one{"Taiwani dollar"}
-            other{"Taiwani dollarit"}
+            one{"uus Taiwani dollar"}
+            other{"uut Taiwani dollarit"}
         }
         TZS{
             one{"Tansaania šilling"}
@@ -2150,5 +2174,5 @@ et{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

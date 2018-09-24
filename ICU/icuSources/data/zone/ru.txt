@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ru{
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"Абиджан"}
@@ -346,7 +346,7 @@ ru{
             ec{"Эрмосильо"}
         }
         "America:Indiana:Knox"{
-            ec{"Нокс"}
+            ec{"Нокс, Индиана"}
         }
         "America:Indiana:Marengo"{
             ec{"Маренго, Индиана"}
@@ -507,6 +507,9 @@ ru{
         "America:Puerto_Rico"{
             ec{"Пуэрто-Рико"}
         }
+        "America:Punta_Arenas"{
+            ec{"Пунта-Аренас"}
+        }
         "America:Rainy_River"{
             ec{"Рейни-Ривер"}
         }
@@ -657,6 +660,9 @@ ru{
         "Asia:Ashgabat"{
             ec{"Ашхабад"}
         }
+        "Asia:Atyrau"{
+            ec{"Атырау"}
+        }
         "Asia:Baghdad"{
             ec{"Багдад"}
         }
@@ -707,6 +713,9 @@ ru{
         }
         "Asia:Dushanbe"{
             ec{"Душанбе"}
+        }
+        "Asia:Famagusta"{
+            ec{"Фамагуста"}
         }
         "Asia:Gaza"{
             ec{"Газа"}
@@ -880,7 +889,7 @@ ru{
             ec{"Азорские о-ва"}
         }
         "Atlantic:Bermuda"{
-            ec{"Бермуды"}
+            ec{"Бермудские о-ва"}
         }
         "Atlantic:Canary"{
             ec{"Канарские о-ва"}
@@ -1075,6 +1084,9 @@ ru{
         }
         "Europe:Sarajevo"{
             ec{"Сараево"}
+        }
+        "Europe:Saratov"{
+            ec{"Саратов"}
         }
         "Europe:Simferopol"{
             ec{"Симферополь"}
@@ -1835,7 +1847,7 @@ ru{
             ls{"Сингапур"}
         }
         "meta:Solomon"{
-            ls{"Соломоновы Острова"}
+            ls{"Соломоновы острова"}
         }
         "meta:South_Georgia"{
             ls{"Южная Георгия, стандартное время"}
@@ -1928,7 +1940,7 @@ ru{
         gmtZeroFormat{"GMT"}
         hourFormat{"+HH:mm;-HH:mm"}
         regionFormat{"{0}"}
-        regionFormatDaylight{"{0} (+1)"}
-        regionFormatStandard{"{0} (+0)"}
+        regionFormatDaylight{"{0}, летнее время"}
+        regionFormatStandard{"{0}, стандартное время"}
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,6 +51,7 @@
 #import <WebCore/TimeRanges.h>
 #import <WebCore/WebActionDisablingCALayerDelegate.h>
 #import <mach/mach_port.h>
+#import <wtf/MachSendRight.h>
 
 using namespace WebCore;
 
@@ -427,7 +428,26 @@ void VideoFullscreenManager::didSetupFullscreen(uint64_t contextId)
     });
 #endif
 }
-    
+
+void VideoFullscreenManager::willExitFullscreen(uint64_t contextId)
+{
+    LOG(Fullscreen, "VideoFullscreenManager::willExitFullscreen(%p, %x)", this, contextId);
+
+    RefPtr<VideoFullscreenModelVideoElement> model;
+    RefPtr<VideoFullscreenInterfaceContext> interface;
+    std::tie(model, interface) = ensureModelAndInterface(contextId);
+
+    RefPtr<HTMLVideoElement> videoElement = model->videoElement();
+    if (!videoElement)
+        return;
+
+    dispatch_async(dispatch_get_main_queue(), [protectedThis = makeRefPtr(this), videoElement = WTFMove(videoElement), contextId] {
+        videoElement->willExitFullscreen();
+        if (protectedThis->m_page)
+            protectedThis->m_page->send(Messages::VideoFullscreenManagerProxy::PreparedToExitFullscreen(contextId), protectedThis->m_page->pageID());
+    });
+}
+
 void VideoFullscreenManager::didEnterFullscreen(uint64_t contextId)
 {
     LOG(Fullscreen, "VideoFullscreenManager::didEnterFullscreen(%p, %x)", this, contextId);
@@ -439,11 +459,15 @@ void VideoFullscreenManager::didEnterFullscreen(uint64_t contextId)
     interface->setIsAnimating(false);
     interface->setIsFullscreen(false);
 
-    if (interface->targetIsFullscreen())
-        return;
-
     RefPtr<HTMLVideoElement> videoElement = model->videoElement();
     if (!videoElement)
+        return;
+
+    dispatch_async(dispatch_get_main_queue(), [protectedThis = makeRefPtr(this), videoElement] {
+        videoElement->didBecomeFullscreenElement();
+    });
+
+    if (interface->targetIsFullscreen())
         return;
 
     // exit fullscreen now if it was previously requested during an animation.
@@ -540,6 +564,11 @@ void VideoFullscreenManager::setVideoLayerFrameFenced(uint64_t contextId, WebCor
 {
     LOG(Fullscreen, "VideoFullscreenManager::setVideoLayerFrameFenced(%p, %x)", this, contextId);
 
+    if (fencePort.disposition() != MACH_MSG_TYPE_MOVE_SEND) {
+        LOG(Fullscreen, "VideoFullscreenManager::setVideoLayerFrameFenced(%p, %x) Received an invalid fence port: %d, disposition: %d", this, contextId, fencePort.port(), fencePort.disposition());
+        return;
+    }
+
     RefPtr<VideoFullscreenModelVideoElement> model;
     RefPtr<VideoFullscreenInterfaceContext> interface;
     std::tie(model, interface) = ensureModelAndInterface(contextId);
@@ -549,10 +578,10 @@ void VideoFullscreenManager::setVideoLayerFrameFenced(uint64_t contextId, WebCor
         bounds = FloatRect(0, 0, videoRect.width(), videoRect.height());
     }
     
-    if (interface->layerHostingContext())
-        interface->layerHostingContext()->setFencePort(fencePort.port());
+    if (auto* context = interface->layerHostingContext())
+        context->setFencePort(fencePort.port());
     model->setVideoLayerFrame(bounds);
-    mach_port_deallocate(mach_task_self(), fencePort.port());
+    deallocateSendRightSafely(fencePort.port());
 }
 
 } // namespace WebKit

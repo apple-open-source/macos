@@ -24,8 +24,9 @@ messages -> NetworkConnectionToWebProcess LegacyReceiver {
 
     ScheduleResourceLoad(WebKit::NetworkResourceLoadParameters resourceLoadParameters)
     PerformSynchronousLoad(WebKit::NetworkResourceLoadParameters resourceLoadParameters) -> (WebCore::ResourceError error, WebCore::ResourceResponse response, Vector<char> data) Delayed
-    LoadPing(WebKit::NetworkResourceLoadParameters resourceLoadParameters, WebCore::HTTPHeaderMap originalRequestHeaders)
+    LoadPing(WebKit::NetworkResourceLoadParameters resourceLoadParameters)
     RemoveLoadIdentifier(uint64_t resourceLoadIdentifier)
+    PageLoadCompleted(uint64_t webPageID)
     SetDefersLoading(uint64_t resourceLoadIdentifier, bool defers)
     PrefetchDNS(String hostname)
     PreconnectTo(uint64_t preconnectionIdentifier, WebKit::NetworkResourceLoadParameters loadParameters);
@@ -33,11 +34,11 @@ messages -> NetworkConnectionToWebProcess LegacyReceiver {
     StartDownload(PAL::SessionID sessionID, WebKit::DownloadID downloadID, WebCore::ResourceRequest request, String suggestedName)
     ConvertMainResourceLoadToDownload(PAL::SessionID sessionID, uint64_t mainResourceLoadIdentifier, WebKit::DownloadID downloadID, WebCore::ResourceRequest request, WebCore::ResourceResponse response)
 
-    CookiesForDOM(PAL::SessionID sessionID, WebCore::URL firstParty, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, enum WebCore::IncludeSecureCookies includeSecureCookies) -> (String cookieString, bool didAccessSecureCookies)
-    SetCookiesFromDOM(PAL::SessionID sessionID, WebCore::URL firstParty, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, String cookieString)
+    CookiesForDOM(PAL::SessionID sessionID, WebCore::URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, enum WebCore::IncludeSecureCookies includeSecureCookies) -> (String cookieString, bool didAccessSecureCookies)
+    SetCookiesFromDOM(PAL::SessionID sessionID, WebCore::URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, String cookieString)
     CookiesEnabled(PAL::SessionID sessionID) -> (bool enabled)
-    CookieRequestHeaderFieldValue(PAL::SessionID sessionID, WebCore::URL firstParty, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, enum WebCore::IncludeSecureCookies includeSecureCookies) -> (String cookieString, bool didAccessSecureCookies)
-    GetRawCookies(PAL::SessionID sessionID, WebCore::URL firstParty, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID) -> (Vector<WebCore::Cookie> cookies)
+    CookieRequestHeaderFieldValue(PAL::SessionID sessionID, WebCore::URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, enum WebCore::IncludeSecureCookies includeSecureCookies) -> (String cookieString, bool didAccessSecureCookies)
+    GetRawCookies(PAL::SessionID sessionID, WebCore::URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID) -> (Vector<WebCore::Cookie> cookies)
     DeleteCookie(PAL::SessionID sessionID, WebCore::URL url, String cookieName)
 
     RegisterFileBlobURL(WebCore::URL url, String path, WebKit::SandboxExtension::Handle extensionHandle, String contentType)
@@ -60,4 +61,13 @@ messages -> NetworkConnectionToWebProcess LegacyReceiver {
 
     RemoveStorageAccessForFrame(PAL::SessionID sessionID, uint64_t frameID, uint64_t pageID);
     RemoveStorageAccessForAllFramesOnPage(PAL::SessionID sessionID, uint64_t pageID);
+
+    AddOriginAccessWhitelistEntry(String sourceOrigin, String destinationProtocol, String destinationHost, bool allowDestinationSubdomains);
+    RemoveOriginAccessWhitelistEntry(String sourceOrigin, String destinationProtocol, String destinationHost, bool allowDestinationSubdomains);
+    ResetOriginAccessWhitelists();
+
+    GetNetworkLoadInformationRequest(uint64_t resourceLoadIdentifier) -> (WebCore::ResourceRequest request);
+    GetNetworkLoadInformationResponse(uint64_t resourceLoadIdentifier) -> (WebCore::ResourceResponse response);
+    GetNetworkLoadIntermediateInformation(uint64_t resourceLoadIdentifier) -> (Vector<WebCore::NetworkTransactionInformation> transactions);
+    TakeNetworkLoadInformationMetrics(uint64_t resourceLoadIdentifier) -> (WebCore::NetworkLoadMetrics networkMetrics);
 }

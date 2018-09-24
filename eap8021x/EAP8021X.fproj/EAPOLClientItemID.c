@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -218,7 +218,7 @@ EAPOLClientSetACLForIdentity(SecIdentityRef identity)
 	goto done;
     }
     status 
-	= EAPSecKeychainItemSetAccessForTrustedApplications((SecKeychainItemRef)
+	= EAPSecKeychainItemSetAccessForTrustedApplications((EAPSecKeychainItemRef)
 							    private_key,
 							    trusted_apps);
  done:
@@ -871,7 +871,7 @@ EAPOLClientItemIDCopyPasswordItem(EAPOLClientItemIDRef itemID,
 {
     CFDictionaryRef	attrs = NULL;
     int			count;
-    SecKeychainRef	keychain = NULL;
+    EAPSecKeychainRef	keychain = NULL;
     const void *	keys[2];
     CFArrayRef		req_props = NULL;
     OSStatus		status = errSecParam;
@@ -967,7 +967,7 @@ EAPOLClientItemIDSetPasswordItem(EAPOLClientItemIDRef itemID,
 {
     CFMutableDictionaryRef	attrs = NULL;
     CFDataRef			data;
-    SecKeychainRef		keychain = NULL;
+    EAPSecKeychainRef		keychain = NULL;
     CFDataRef			ssid;
     OSStatus			status = errSecParam;
     CFStringRef			unique_string;
@@ -1128,7 +1128,7 @@ Boolean
 EAPOLClientItemIDRemovePasswordItem(EAPOLClientItemIDRef itemID,
 				    EAPOLClientDomain domain)
 {
-    SecKeychainRef		keychain = NULL;
+    EAPSecKeychainRef		keychain = NULL;
     OSStatus			status = errSecParam;
     CFStringRef			unique_string;
 

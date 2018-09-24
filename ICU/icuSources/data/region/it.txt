@@ -31,6 +31,7 @@ it{
         151{"Europa orientale"}
         154{"Europa settentrionale"}
         155{"Europa occidentale"}
+        202{"Africa subsahariana"}
         419{"America Latina"}
         AC{"Isola Ascensione"}
         AD{"Andorra"}
@@ -106,6 +107,7 @@ it{
         ES{"Spagna"}
         ET{"Etiopia"}
         EU{"Unione Europea"}
+        EZ{"Eurozona"}
         FI{"Finlandia"}
         FJ{"Figi"}
         FK{"Isole Falkland"}
@@ -217,7 +219,7 @@ it{
         PH{"Filippine"}
         PK{"Pakistan"}
         PL{"Polonia"}
-        PM{"Saint Pierre e Miquelon"}
+        PM{"Saint-Pierre e Miquelon"}
         PN{"Isole Pitcairn"}
         PR{"Portorico"}
         PS{"Territori palestinesi"}
@@ -272,12 +274,12 @@ it{
         UA{"Ucraina"}
         UG{"Uganda"}
         UM{"Altre isole americane del Pacifico"}
-        UN{"nazioni unite"}
+        UN{"Nazioni Unite"}
         US{"Stati Uniti"}
         UY{"Uruguay"}
         UZ{"Uzbekistan"}
         VA{"Città del Vaticano"}
-        VC{"Saint Vincent e Grenadines"}
+        VC{"Saint Vincent e Grenadine"}
         VE{"Venezuela"}
         VG{"Isole Vergini Britanniche"}
         VI{"Isole Vergini Americane"}
@@ -298,7 +300,7 @@ it{
         HK{"Hong Kong"}
         MO{"Macao"}
         PS{"Palestina"}
-        UN{"nazioni unite"}
+        UN{"ONU"}
         US{"USA"}
     }
     Countries%variant{
@@ -310,5 +312,5 @@ it{
         MK{"Ex Repubblica Jugoslava di Macedonia"}
         TL{"Timor Leste"}
     }
-    Version{"2.1.32.60"}
+    Version{"2.1.41.97"}
 }

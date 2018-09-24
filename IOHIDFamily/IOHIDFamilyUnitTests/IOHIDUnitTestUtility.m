@@ -10,6 +10,7 @@
 #include <dispatch/private.h>
 #include <mach/mach_time.h>
 #include <AssertMacros.h>
+#import <spawn.h>
 
 int __IOHIDUnitTestAttributeInit(pthread_attr_t * p_pthread_attr, int priority, int policy);
 void * __IOHIDUnitTestCreateRunLoopThread(void * context);
@@ -144,3 +145,29 @@ void IOHIDUnitTestDestroyRunLoop (CFRunLoopRef runloop)  {
     CFRelease(runloop);
 }
 
+char *const hidutil[] = { "/usr/local/bin/hidutil", "dump", NULL };
+char *const spindump[] = { "/usr/sbin/spindump", "-notarget", "5", "10", "-stdout", NULL };
+char *const logcollect[] = { "/usr/bin/log", "show", "--debug", "--predicate", "senderImagePath contains \"IOHIDFamily\" or subsystem == \"com.apple.iohid\"", NULL };
+char *const ioreg[] = { "/usr/sbin/ioreg", "-lw0", NULL };
+
+void IOHIDUnitTestRunPosixCommand(char *const argv[], NSString *stdoutFile)
+{
+    int status;
+    pid_t pid;
+    posix_spawn_file_actions_t child_fd_actions = 0;
+    
+    if (stdoutFile) {
+        // for reading stdout
+        posix_spawn_file_actions_init(&child_fd_actions);
+        posix_spawn_file_actions_addopen(&child_fd_actions, STDOUT_FILENO, [stdoutFile cStringUsingEncoding:NSUTF8StringEncoding], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    }
+    
+    NSLog(@"Running %s", argv[0]);
+    status = posix_spawnp(&pid, argv[0], &child_fd_actions, NULL, argv, NULL);
+    if (status) {
+        NSLog(@"posix_spawnp: %s", strerror(status));
+    } else {
+        waitpid(pid, &status, 0);
+        NSLog(@"%s exited with status %i\n", argv[0], status);
+    }
+}

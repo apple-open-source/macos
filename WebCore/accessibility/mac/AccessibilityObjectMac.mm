@@ -30,7 +30,7 @@
 #import "RenderObject.h"
 #import "Settings.h"
 
-#if HAVE(ACCESSIBILITY)
+#if HAVE(ACCESSIBILITY) && PLATFORM(MAC)
 
 #import "WebAccessibilityObjectWrapperMac.h"
 #import "Widget.h"
@@ -84,7 +84,7 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     if (isMenuListPopup() || isMenuListOption())
         return AccessibilityObjectInclusion::IgnoreObject;
 
-    if (roleValue() == AccessibilityRole::Caption)
+    if (roleValue() == AccessibilityRole::Caption && ariaRoleAttribute() == AccessibilityRole::Unknown)
         return AccessibilityObjectInclusion::IgnoreObject;
     
     if (roleValue() == AccessibilityRole::Mark)
@@ -126,4 +126,4 @@ void AccessibilityObject::setCaretBrowsingEnabled(bool on)
 
 } // WebCore
 
-#endif // HAVE(ACCESSIBILITY)
+#endif // HAVE(ACCESSIBILITY) && PLATFORM(MAC)

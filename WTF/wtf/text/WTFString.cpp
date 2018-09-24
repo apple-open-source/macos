@@ -678,8 +678,6 @@ float String::toFloat(bool* ok) const
     return m_impl->toFloat(ok);
 }
 
-#if COMPILER_SUPPORTS(CXX_REFERENCE_QUALIFIED_FUNCTIONS)
-
 String String::isolatedCopy() const &
 {
     // FIXME: Should this function, and the many others like it, be inlined?
@@ -696,16 +694,6 @@ String String::isolatedCopy() &&
 
     return m_impl ? m_impl->isolatedCopy() : String { };
 }
-
-#else
-
-String String::isolatedCopy() const
-{
-    // FIXME: Should this function, and the many others like it, be inlined?
-    return m_impl ? m_impl->isolatedCopy() : String { };
-}
-
-#endif
 
 bool String::isSafeToSendToAnotherThread() const
 {
@@ -816,9 +804,21 @@ CString String::latin1() const
     return result;
 }
 
+Expected<CString, UTF8ConversionError> String::tryGetUtf8(ConversionMode mode) const
+{
+    return m_impl ? m_impl->tryGetUtf8(mode) : CString { "", 0 };
+}
+
+Expected<CString, UTF8ConversionError> String::tryGetUtf8() const
+{
+    return tryGetUtf8(LenientConversion);
+}
+
 CString String::utf8(ConversionMode mode) const
 {
-    return m_impl ? m_impl->utf8(mode) : CString { "", 0 };
+    Expected<CString, UTF8ConversionError> expectedString = tryGetUtf8(mode);
+    RELEASE_ASSERT(expectedString);
+    return expectedString.value();
 }
 
 CString String::utf8() const
@@ -1205,7 +1205,7 @@ String* string(const char* s)
 Vector<char> asciiDebug(StringImpl* impl)
 {
     if (!impl)
-        return asciiDebug(String(ASCIILiteral("[null]")).impl());
+        return asciiDebug(String("[null]"_s).impl());
 
     Vector<char> buffer;
     for (unsigned i = 0; i < impl->length(); ++i) {

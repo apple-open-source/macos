@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,14 +40,15 @@
 #include "libSystemConfiguration_server.h"
 
 #include <network_information.h>
-#include "network_state_information_priv.h"
+#include "network_information_internal.h"
 #include "network_information_server.h"
+#include "network_state_information_priv.h"
 
-#if !TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 #include "agent-monitor.h"
 #include "configAgentDefines.h"
 #include "network_config_agent_info_priv.h"
-#endif // !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR
 
 #ifdef	SC_LOG_HANDLE
 #include <os/log.h>
@@ -190,7 +191,7 @@ _nwi_state_acknowledge(xpc_connection_t connection, xpc_object_t request)
 	return;
 }
 
-#if !TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 /*
  * _nwi_config_agent_copy
  *
@@ -259,7 +260,7 @@ done:
 
 	return;
 }
-#endif // !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR
 
 
 static void
@@ -283,7 +284,7 @@ process_request(xpc_connection_t connection, xpc_object_t request)
 			_nwi_state_acknowledge(connection, request);
 
 			break;
-#if !TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 		case NWI_CONFIG_AGENT_REQUEST_COPY :
 			/*
 			 * Return the agent information
@@ -291,7 +292,7 @@ process_request(xpc_connection_t connection, xpc_object_t request)
 			_nwi_config_agent_copy(connection, request);
 
 			break;
-#endif // !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR
 		default :
 			SC_log(LOG_ERR, "<%p> unknown request : %lld",
 			       connection,
@@ -587,4 +588,4 @@ main(int argc, char **argv)
 	return 0;
 }
 
-#endif  /* MAIN */
+#endif	/* MAIN */

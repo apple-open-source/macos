@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
-*   Copyright (c) 2001-2016 International Business Machines
+*   Copyright (c) 2001-2014, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -53,6 +53,9 @@ static const UChar LAT[] = { 0x4C, 0x61, 0x74, 0 }; // Lat
 #define NO_VARIANT UnicodeString()
 
 // initial estimate for specDAG size
+// ICU 60 Transliterator::countAvailableSources()
+//#define SPECDAG_INIT_SIZE 149
+// Apple adjustment
 #define SPECDAG_INIT_SIZE 134
 
 // initial estimate for number of variant names
@@ -60,9 +63,15 @@ static const UChar LAT[] = { 0x4C, 0x61, 0x74, 0 }; // Lat
 #define VARIANT_LIST_MAX_SIZE 31
 
 // initial estimate for availableIDs count (default estimate is 8 => multiple reallocs)
+// ICU 60 Transliterator::countAvailableIDs()
+//#define AVAILABLE_IDS_INIT_SIZE 641
+// Apple adjustment
 #define AVAILABLE_IDS_INIT_SIZE 493
 
 // initial estimate for number of targets for source "Any", "Lat"
+// ICU 60 Transliterator::countAvailableTargets("Any")/("Latn")
+//#define ANY_TARGETS_INIT_SIZE 125
+// Apple adjustmennt
 #define ANY_TARGETS_INIT_SIZE 102
 #define LAT_TARGETS_INIT_SIZE 23
 
@@ -803,7 +812,7 @@ int32_t TransliteratorRegistry::countAvailableVariants(const UnicodeString& sour
     if (targets == 0) {
         return 0;
     }
-    int32_t varMask = targets->geti(target);
+    uint32_t varMask = targets->geti(target);
     int32_t varCount = 0;
     while (varMask > 0) {
         if (varMask & 1) {
@@ -823,7 +832,7 @@ UnicodeString& TransliteratorRegistry::getAvailableVariant(int32_t index,
         result.truncate(0); // invalid source
         return result;
     }
-    int32_t varMask = targets->geti(target);
+    uint32_t varMask = targets->geti(target);
     int32_t varCount = 0;
     int32_t varListIndex = 0;
     while (varMask > 0) {
@@ -999,8 +1008,8 @@ void TransliteratorRegistry::registerSTV(const UnicodeString& source,
             return;
         }
     }
-    int32_t addMask = 1 << variantListIndex;
-    int32_t varMask = targets->geti(target);
+    uint32_t addMask = 1 << variantListIndex;
+    uint32_t varMask = targets->geti(target);
     targets->puti(target, varMask | addMask, status);
 }
 
@@ -1017,7 +1026,7 @@ void TransliteratorRegistry::removeSTV(const UnicodeString& source,
     if (targets == NULL) {
         return; // should never happen for valid s-t/v
     }
-    int32_t varMask = targets->geti(target);
+    uint32_t varMask = targets->geti(target);
     if (varMask == 0) {
         return; // should never happen for valid s-t/v
     }
@@ -1032,7 +1041,7 @@ void TransliteratorRegistry::removeSTV(const UnicodeString& source,
     } else {
         targets->remove(target); // should delete variants
         if (targets->count() == 0) {
-            specDAG.remove(source); // should delete targetss
+            specDAG.remove(source); // should delete targets
         }
     }
 }

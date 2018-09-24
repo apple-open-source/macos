@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "WasmMemory.h"
+#include "WasmInstance.h"
 
 #if ENABLE(WEBASSEMBLY)
 
@@ -257,7 +258,6 @@ Memory::Memory(PageCount initial, PageCount maximum, Function<void(NotifyPressur
 Memory::Memory(void* memory, PageCount initial, PageCount maximum, size_t mappedCapacity, MemoryMode mode, Function<void(NotifyPressure)>&& notifyMemoryPressure, Function<void(SyncTryToReclaim)>&& syncTryToReclaimMemory, WTF::Function<void(GrowSuccess, PageCount, PageCount)>&& growSuccessCallback)
     : m_memory(memory)
     , m_size(initial.bytes())
-    , m_indexingMask(WTF::computeIndexingMask(initial.bytes()))
     , m_initial(initial)
     , m_maximum(maximum)
     , m_mappedCapacity(mappedCapacity)
@@ -377,6 +377,11 @@ Expected<PageCount, Memory::GrowFailReason> Memory::grow(PageCount delta)
 
     auto success = [&] () {
         m_growSuccessCallback(GrowSuccessTag, oldPageCount, newPageCount);
+        // Update cache for instance
+        for (auto& instance : m_instances) {
+            if (instance.get() != nullptr)
+                instance.get()->updateCachedMemory();
+        }
         return oldPageCount;
     };
 
@@ -414,7 +419,6 @@ Expected<PageCount, Memory::GrowFailReason> Memory::grow(PageCount delta)
         m_memory = newMemory;
         m_mappedCapacity = desiredSize;
         m_size = desiredSize;
-        m_indexingMask = WTF::computeIndexingMask(desiredSize);
         return success();
     }
     case MemoryMode::Signaling: {
@@ -428,13 +432,24 @@ Expected<PageCount, Memory::GrowFailReason> Memory::grow(PageCount delta)
             RELEASE_ASSERT_NOT_REACHED();
         }
         m_size = desiredSize;
-        m_indexingMask = WTF::computeIndexingMask(desiredSize);
         return success();
     }
     }
 
     RELEASE_ASSERT_NOT_REACHED();
     return oldPageCount;
+}
+
+void Memory::registerInstance(Instance* instance)
+{
+    size_t count = m_instances.size();
+    for (size_t index = 0; index < count; index++) {
+        if (m_instances.at(index).get() == nullptr) {
+            m_instances.at(index) = makeWeakPtr(*instance);
+            return;
+        }
+    }
+    m_instances.append(makeWeakPtr(*instance));
 }
 
 void Memory::dump(PrintStream& out) const

@@ -34,76 +34,10 @@
 /* Header files for types: */
 #include <CoreServices/CoreServices.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include "Krb4DeprecatedAPIs.h"
 #include "mit-com_err.h"
 #include "mit-profile.h"
 
-// ---------------------------------------------------------------------------
-
-/*
- * The following functions are part of the KfM ABI.  
- * They are deprecated, so they only appear here, not in krb.h.
- */
-int KRB5_CALLCONV krb_get_num_cred(void);
-int KRB5_CALLCONV krb_get_nth_cred(char *, char *, char *, int);
-int KRB5_CALLCONV krb_delete_cred(char *, char *,char *);
-int KRB5_CALLCONV dest_all_tkts(void);
-
-// ---------------------------------------------------------------------------
-
-typedef struct KClientSession *KClientSession;
-typedef KClientSession KClientSessionInfo;
-
-struct KClientPrincipalOpaque;
-typedef struct KClientPrincipalOpaque* KClientPrincipal;
-
-struct KClientAddress {
-        UInt32                          address;
-        UInt16                          port;
-};
-typedef struct KClientAddress KClientAddress;
-typedef FSSpec KClientFile;
-typedef void *cc_ccache_t;
-
-
-struct KClientKey {
-        unsigned char key[8];
-};
-typedef struct KClientKey KClientKey;
-
-struct key_schedule {
-	struct {
-		UInt32 _[2];
-	} keys[16];
-};
-
-/*
- * Internet address (a structure for historical reasons)
- */
-struct in_addr {
-	in_addr_t s_addr;
-};
-
-
-/*
- * Socket address, internet style.
- */
-struct sockaddr_in {
-	__uint8_t       sin_len;
-	sa_family_t     sin_family;
-	in_port_t       sin_port;
-	struct  in_addr sin_addr;
-	char            sin_zero[8];
-};
-
-#define		MAX_KTXT_LEN	1250
-
-struct ktext {
-    int     length;		/* Length of the text */
-    unsigned char dat[MAX_KTXT_LEN];	/* The data itself */
-    unsigned long mbz;		/* zero to catch runaway strings */
-};
-
-// ---------------------------------------------------------------------------
 
 static inline int _DeprecatedFunctionErrorReturn (const char *functionName);
 static inline char *_DeprecatedFunctionStringReturn (const char *functionName);
@@ -179,12 +113,6 @@ int decomp_ticket(struct ktext tkt, unsigned char *flags, char *pname, char *pin
 {
     return DeprecatedFunctionErrorReturn;
 }
-
-const char * const _krb_err_txt[] = {
-    "krb_err_txt is no longer supported",
-    NULL
-};
-const char * const * const krb_err_txt = _krb_err_txt;
 
 const char * krb_get_err_text(int code)
 {
@@ -1001,19 +929,9 @@ OSStatus KClientVerifyIntegrity (KClientSession inSession,
 
 /* Miscellaneous */
 
-OSStatus KClientPasswordToKey (KClientSession inSession, const char *inPassword, KClientKey *outKey)
-{
-    return DeprecatedFunctionErrorReturn;
-}
-
 /* Getting to other APIs */
 
 OSStatus KClientGetCCacheReference (KClientSession inSession, cc_ccache_t *outCCacheReference)
-{
-    return DeprecatedFunctionErrorReturn;
-}
-
-OSStatus KClientGetProfileHandle (KClientSession inSession, profile_t *outProfileHandle)
 {
     return DeprecatedFunctionErrorReturn;
 }

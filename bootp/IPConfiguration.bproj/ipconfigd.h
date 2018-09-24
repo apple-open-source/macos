@@ -88,4 +88,7 @@ refresh_service(const char * name,
 		void * service_id, 
 		unsigned int service_id_len);
 
+ipconfig_status_t
+forget_network(const char * name, CFStringRef ssid);
+
 #endif /* _S_IPCONFIGD_H */

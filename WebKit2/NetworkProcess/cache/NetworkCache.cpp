@@ -139,14 +139,14 @@ Key Cache::makeCacheKey(const WebCore::ResourceRequest& request)
 static bool cachePolicyAllowsExpired(WebCore::ResourceRequestCachePolicy policy)
 {
     switch (policy) {
-    case WebCore::ReturnCacheDataElseLoad:
-    case WebCore::ReturnCacheDataDontLoad:
+    case WebCore::ResourceRequestCachePolicy::ReturnCacheDataElseLoad:
+    case WebCore::ResourceRequestCachePolicy::ReturnCacheDataDontLoad:
         return true;
-    case WebCore::UseProtocolCachePolicy:
-    case WebCore::ReloadIgnoringCacheData:
-    case WebCore::RefreshAnyCacheData:
+    case WebCore::ResourceRequestCachePolicy::UseProtocolCachePolicy:
+    case WebCore::ResourceRequestCachePolicy::ReloadIgnoringCacheData:
+    case WebCore::ResourceRequestCachePolicy::RefreshAnyCacheData:
         return false;
-    case WebCore::DoNotUseAnyCache:
+    case WebCore::ResourceRequestCachePolicy::DoNotUseAnyCache:
         ASSERT_NOT_REACHED();
         return false;
     }
@@ -209,12 +209,12 @@ static UseDecision makeUseDecision(const Entry& entry, const WebCore::ResourceRe
 
 static RetrieveDecision makeRetrieveDecision(const WebCore::ResourceRequest& request)
 {
-    ASSERT(request.cachePolicy() != WebCore::DoNotUseAnyCache);
+    ASSERT(request.cachePolicy() != WebCore::ResourceRequestCachePolicy::DoNotUseAnyCache);
 
     // FIXME: Support HEAD requests.
     if (request.httpMethod() != "GET")
         return RetrieveDecision::NoDueToHTTPMethod;
-    if (request.cachePolicy() == WebCore::ReloadIgnoringCacheData && !request.isConditional())
+    if (request.cachePolicy() == WebCore::ResourceRequestCachePolicy::ReloadIgnoringCacheData && !request.isConditional())
         return RetrieveDecision::NoDueToReloadIgnoringCache;
 
     return RetrieveDecision::Yes;
@@ -223,33 +223,6 @@ static RetrieveDecision makeRetrieveDecision(const WebCore::ResourceRequest& req
 static bool isMediaMIMEType(const String& type)
 {
     return startsWithLettersIgnoringASCIICase(type, "video/") || startsWithLettersIgnoringASCIICase(type, "audio/");
-}
-
-static std::optional<size_t> expectedTotalResourceSizeFromContentRange(const WebCore::ResourceResponse& response)
-{
-    ASSERT(response.httpStatusCode() == 206);
-
-    auto contentRange = response.httpHeaderField(WebCore::HTTPHeaderName::ContentRange);
-    if (contentRange.isNull())
-        return { };
-
-    if (!contentRange.startsWith("bytes "))
-        return { };
-
-    auto slashPosition = contentRange.find('/');
-    if (slashPosition == notFound)
-        return { };
-
-    auto sizeStringLength = contentRange.length() - slashPosition - 1;
-    if (!sizeStringLength)
-        return { };
-
-    bool isValid;
-    auto size = StringView(contentRange).right(sizeStringLength).toIntStrict(isValid);
-    if (!isValid)
-        return { };
-
-    return size;
 }
 
 static StoreDecision makeStoreDecision(const WebCore::ResourceRequest& originalRequest, const WebCore::ResourceResponse& response, size_t bodySize)
@@ -286,30 +259,20 @@ static StoreDecision makeStoreDecision(const WebCore::ResourceRequest& originalR
             return StoreDecision::NoDueToUnlikelyToReuse;
     }
 
+    // Media loaded via XHR is likely being used for MSE streaming (YouTube and Netflix for example).
     // Streaming media fills the cache quickly and is unlikely to be reused.
     // FIXME: We should introduce a separate media cache partition that doesn't affect other resources.
     // FIXME: We should also make sure make the MSE paths are copy-free so we can use mapped buffers from disk effectively.
     auto requester = originalRequest.requester();
-    bool isDefinitelyMedia = requester == WebCore::ResourceRequest::Requester::Media;
-    if (isDefinitelyMedia) {
-        // Allow caching of smaller media files if we know the total size.
-        const size_t maximumCacheableMediaSize = 5 * 1024 * 1024;
-        auto totalSize = response.httpStatusCode() == 206 ? expectedTotalResourceSizeFromContentRange(response) : bodySize;
-        if (!totalSize || *totalSize > maximumCacheableMediaSize)
-            return StoreDecision::NoDueToStreamingMedia;
-    }
-
+    bool isDefinitelyStreamingMedia = requester == WebCore::ResourceRequest::Requester::Media;
     bool isLikelyStreamingMedia = requester == WebCore::ResourceRequest::Requester::XHR && isMediaMIMEType(response.mimeType());
-    if (isLikelyStreamingMedia) {
-        // Media loaded via XHR is likely being used for MSE streaming (YouTube and Netflix for example).
-        // We have no way of knowing the total media size so disallow caching.
+    if (isLikelyStreamingMedia || isDefinitelyStreamingMedia)
         return StoreDecision::NoDueToStreamingMedia;
-    }
 
     return StoreDecision::Yes;
 }
 
-void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameID& frameID, Function<void (std::unique_ptr<Entry>)>&& completionHandler)
+void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameID& frameID, RetrieveCompletionHandler&& completionHandler)
 {
     ASSERT(request.url().protocolIsInHTTPFamily());
 
@@ -319,9 +282,14 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameI
         m_statistics->recordRetrievalRequest(frameID.first);
 
     Key storageKey = makeCacheKey(request);
+    auto priority = static_cast<unsigned>(request.priority());
+
+    RetrieveInfo info;
+    info.startTime = MonotonicTime::now();
+    info.priority = priority;
 
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-    bool canUseSpeculativeRevalidation = m_speculativeLoadManager && !request.isConditional();
+    bool canUseSpeculativeRevalidation = m_speculativeLoadManager && !request.isConditional() && !cachePolicyAllowsExpired(request.cachePolicy());
     if (canUseSpeculativeRevalidation)
         m_speculativeLoadManager->registerLoad(frameID, request, storageKey);
 #endif
@@ -331,33 +299,33 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameI
         if (m_statistics)
             m_statistics->recordNotUsingCacheForRequest(frameID.first, storageKey, request, retrieveDecision);
 
-        completionHandler(nullptr);
+        completeRetrieve(WTFMove(completionHandler), nullptr, info);
         return;
     }
 
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
     if (canUseSpeculativeRevalidation && m_speculativeLoadManager->canRetrieve(storageKey, request, frameID)) {
-        m_speculativeLoadManager->retrieve(storageKey, [request, completionHandler = WTFMove(completionHandler)](std::unique_ptr<Entry> entry) {
+        m_speculativeLoadManager->retrieve(storageKey, [request, completionHandler = WTFMove(completionHandler), info = WTFMove(info)](std::unique_ptr<Entry> entry) mutable {
+            info.wasSpeculativeLoad = true;
             if (entry && WebCore::verifyVaryingRequestHeaders(entry->varyingRequestHeaders(), request))
-                completionHandler(WTFMove(entry));
+                completeRetrieve(WTFMove(completionHandler), WTFMove(entry), info);
             else
-                completionHandler(nullptr);
+                completeRetrieve(WTFMove(completionHandler), nullptr, info);
         });
         return;
     }
 #endif
 
-    auto startTime = WallTime::now();
-    auto priority = static_cast<unsigned>(request.priority());
+    m_storage->retrieve(storageKey, priority, [this, protectedThis = makeRef(*this), request, completionHandler = WTFMove(completionHandler), info = WTFMove(info), storageKey, frameID](auto record, auto timings) mutable {
+        info.storageTimings = timings;
 
-    m_storage->retrieve(storageKey, priority, [this, protectedThis = makeRef(*this), request, completionHandler = WTFMove(completionHandler), startTime, storageKey, frameID](auto record) {
         if (!record) {
             LOG(NetworkCache, "(NetworkProcess) not found in storage");
 
             if (m_statistics)
                 m_statistics->recordRetrievalFailure(frameID.first, storageKey, request);
 
-            completionHandler(nullptr);
+            completeRetrieve(WTFMove(completionHandler), nullptr, info);
             return false;
         }
 
@@ -377,12 +345,10 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameI
         };
 
 #if !LOG_DISABLED
-        auto elapsed = WallTime::now() - startTime;
+        auto elapsed = MonotonicTime::now() - info.startTime;
         LOG(NetworkCache, "(NetworkProcess) retrieve complete useDecision=%d priority=%d time=%" PRIi64 "ms", static_cast<int>(useDecision), static_cast<int>(request.priority()), elapsed.millisecondsAs<int64_t>());
-#else
-        UNUSED_PARAM(startTime);
 #endif
-        completionHandler(WTFMove(entry));
+        completeRetrieve(WTFMove(completionHandler), WTFMove(entry), info);
 
         if (m_statistics)
             m_statistics->recordRetrievedCachedEntry(frameID.first, storageKey, request, useDecision);
@@ -390,6 +356,11 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameI
     });
 }
 
+void Cache::completeRetrieve(RetrieveCompletionHandler&& handler, std::unique_ptr<Entry> entry, RetrieveInfo& info)
+{
+    info.completionTime = MonotonicTime::now();
+    handler(WTFMove(entry), info);
+}
     
 std::unique_ptr<Entry> Cache::makeEntry(const WebCore::ResourceRequest& request, const WebCore::ResourceResponse& response, RefPtr<WebCore::SharedBuffer>&& responseData)
 {
@@ -427,15 +398,13 @@ std::unique_ptr<Entry> Cache::store(const WebCore::ResourceRequest& request, con
     auto cacheEntry = makeEntry(request, response, WTFMove(responseData));
     auto record = cacheEntry->encodeAsStorageRecord();
 
-    m_storage->store(record, [this, protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)](const Data& bodyData) {
+    m_storage->store(record, [protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)](const Data& bodyData) {
         MappedBody mappedBody;
 #if ENABLE(SHAREABLE_RESOURCE)
-        if (canUseSharedMemoryForBodyData()) {
-            if (auto sharedMemory = bodyData.tryCreateSharedMemory()) {
-                mappedBody.shareableResource = ShareableResource::create(sharedMemory.releaseNonNull(), 0, bodyData.size());
-                ASSERT(mappedBody.shareableResource);
-                mappedBody.shareableResource->createHandle(mappedBody.shareableResourceHandle);
-            }
+        if (auto sharedMemory = bodyData.tryCreateSharedMemory()) {
+            mappedBody.shareableResource = ShareableResource::create(sharedMemory.releaseNonNull(), 0, bodyData.size());
+            ASSERT(mappedBody.shareableResource);
+            mappedBody.shareableResource->createHandle(mappedBody.shareableResourceHandle);
         }
 #endif
         completionHandler(mappedBody);
@@ -623,7 +592,7 @@ String Cache::recordsPath() const
 void Cache::retrieveData(const DataKey& dataKey, Function<void (const uint8_t* data, size_t size)> completionHandler)
 {
     Key key { dataKey, m_storage->salt() };
-    m_storage->retrieve(key, 4, [completionHandler = WTFMove(completionHandler)] (auto record) {
+    m_storage->retrieve(key, 4, [completionHandler = WTFMove(completionHandler)] (auto record, auto) {
         if (!record || !record->body.size()) {
             completionHandler(nullptr, 0);
             return true;

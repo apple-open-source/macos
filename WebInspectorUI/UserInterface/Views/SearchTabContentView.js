@@ -27,8 +27,12 @@ WI.SearchTabContentView = class SearchTabContentView extends WI.ContentBrowserTa
 {
     constructor(identifier)
     {
-        let {image, title} = WI.SearchTabContentView.tabInfo();
-        let tabBarItem = new WI.GeneralTabBarItem(image, title);
+        let tabBarItem;
+        if (WI.settings.experimentalEnableNewTabBar.value)
+            tabBarItem = WI.PinnedTabBarItem.fromTabInfo(WI.SearchTabContentView.tabInfo());
+        else
+            tabBarItem = WI.GeneralTabBarItem.fromTabInfo(WI.SearchTabContentView.tabInfo());
+
         let detailsSidebarPanelConstructors = [WI.ResourceDetailsSidebarPanel, WI.ProbeDetailsSidebarPanel,
             WI.DOMNodeDetailsSidebarPanel, WI.ComputedStyleDetailsSidebarPanel, WI.RulesStyleDetailsSidebarPanel];
 
@@ -37,20 +41,20 @@ WI.SearchTabContentView = class SearchTabContentView extends WI.ContentBrowserTa
 
         super(identifier || "search", "search", tabBarItem, WI.SearchSidebarPanel, detailsSidebarPanelConstructors);
 
+        // Ensures that the Search tab is displayable from a pinned tab bar item.
+        tabBarItem.representedObject = this;
+
         this._forcePerformSearch = false;
     }
 
     static tabInfo()
     {
+        let image = WI.settings.experimentalEnableNewTabBar.value ? "Images/Search.svg" : "Images/SearchResults.svg";
         return {
-            image: "Images/SearchResults.svg",
+            image,
             title: WI.UIString("Search"),
+            isEphemeral: true,
         };
-    }
-
-    static isEphemeral()
-    {
-        return true;
     }
 
     // Public
@@ -95,7 +99,11 @@ WI.SearchTabContentView = class SearchTabContentView extends WI.ContentBrowserTa
 
     handleCopyEvent(event)
     {
-        let selectedTreeElement = this.navigationSidebarPanel.contentTreeOutline.selectedTreeElement;
+        let contentTreeOutline = this.navigationSidebarPanel.contentTreeOutline;
+        if (contentTreeOutline.element !== document.activeElement)
+            return;
+
+        let selectedTreeElement = contentTreeOutline.selectedTreeElement;
         if (!selectedTreeElement)
             return;
 

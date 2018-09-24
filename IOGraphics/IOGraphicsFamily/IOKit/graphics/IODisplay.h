@@ -221,7 +221,7 @@ private:
     OSMetaClassDeclareReservedUnused(IODisplay, 19);
 
 private:
-    static IOReturn _framebufferEvent( OSObject * self, void * ref,
+    static IOReturn _framebufferEvent( OSObject * osobj, void * ref,
                     IOFramebuffer *framebuffer, IOIndex event, void * info );
 
 	void searchParameterHandlers(IORegistryEntry * entry);

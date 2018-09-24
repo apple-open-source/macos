@@ -46,10 +46,6 @@ bool DeprecatedGlobalSettings::gAVFoundationEnabled = true;
 bool DeprecatedGlobalSettings::gAVFoundationNSURLSessionEnabled = true;
 #endif
 
-#if PLATFORM(COCOA)
-bool DeprecatedGlobalSettings::gQTKitEnabled = false;
-#endif
-
 #if USE(GSTREAMER)
 bool DeprecatedGlobalSettings::gGStreamerEnabled = true;
 #endif
@@ -76,6 +72,7 @@ bool DeprecatedGlobalSettings::gAllowsAnySSLCertificate = false;
 bool DeprecatedGlobalSettings::gNetworkDataUsageTrackingEnabled = false;
 bool DeprecatedGlobalSettings::gAVKitEnabled = false;
 bool DeprecatedGlobalSettings::gShouldOptOutOfNetworkStateObservation = false;
+bool DeprecatedGlobalSettings::gDisableScreenSizeOverride = false;
 #endif
 bool DeprecatedGlobalSettings::gManageAudioSession = false;
 
@@ -102,17 +99,6 @@ void DeprecatedGlobalSettings::setAVFoundationNSURLSessionEnabled(bool enabled)
         return;
 
     gAVFoundationNSURLSessionEnabled = enabled;
-}
-#endif
-
-#if PLATFORM(COCOA)
-void DeprecatedGlobalSettings::setQTKitEnabled(bool enabled)
-{
-    if (gQTKitEnabled == enabled)
-        return;
-
-    gQTKitEnabled = enabled;
-    HTMLMediaElement::resetMediaEngines();
 }
 #endif
 

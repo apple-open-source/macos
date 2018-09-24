@@ -43,18 +43,6 @@ extern "C" {
  * linking against the Kerberos framework.
  */
 
-#define ddebuglevel       __KerberosDebugLogLevel
-#define dprintf           __KerberosDebugPrint
-#define dvprintf          __KerberosDebugVAPrint
-#define dprintmem         __KerberosDebugPrintMemory
-#define dprintsession     __KerberosDebugPrintSession
-
-int ddebuglevel (void);
-void dprintf (const char *in_format, ...) __attribute__ ((format (printf, 1, 2)));
-void dvprintf (const char *in_format, va_list in_args);
-void dprintmem (const void *in_data, size_t in_length);
-void dprintsession (void);
-
 #define SetSignalAction_(inAction)
 #ifdef __PowerPlant__
 #define GetSignalAction_() debugAction_Nothing

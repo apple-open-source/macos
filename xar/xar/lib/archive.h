@@ -98,6 +98,8 @@ struct __xar_t {
 	xmlHashTablePtr link_hash;  /* Hash for looking up hardlinked files (extract)*/
 	xmlHashTablePtr csum_hash;  /* Hash for looking up checksums of files */
 	xar_hash_t toc_hash_ctx;
+	int toc_hash_size;			/* size of toc hash that was copied during archive open */
+	void *toc_hash;				/* copy of the toc hash copied during archive open */
 	int skipwarn;
 	struct stat sbcache;
 };

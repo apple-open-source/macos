@@ -124,7 +124,7 @@ OSStatus SecTrustLegacyCRLStatus(SecCertificateRef cert, CFArrayRef chain, CFURL
 
     /* serialNumber is a CSSM_DATA with the value from the TBS Certificate. */
     CSSM_DATA serialNumber = { 0, NULL };
-    serialData = SecCertificateCopySerialNumber(cert, NULL);
+    serialData = SecCertificateCopySerialNumberData(cert, NULL);
     if (serialData) {
         serialNumber.Data = (uint8_t *)CFDataGetBytePtr(serialData);
         serialNumber.Length = CFDataGetLength(serialData);

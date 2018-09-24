@@ -85,7 +85,13 @@ SecTransformRef TransformFactory::MakeTransformWithType(CFStringRef type, CFErro
 			dispatch_barrier_sync(gRegisteredQueue, ^(void) {
                 CFMutableStringRef transformNames = CFStringCreateMutable(NULL, 0);
                 CFIndex numberRegistered = CFDictionaryGetCount(gRegistered);
-                CFStringRef names[numberRegistered];
+                CFStringRef *names = (CFStringRef*)malloc(numberRegistered * sizeof(CFStringRef));
+                if (names == NULL) {
+                    *baseError = CreateSecTransformErrorRef(errSecMemoryError,
+                                                            "The %s transform names can't be allocated.", type);
+                    return NULL;
+                }
+
                 CFDictionaryGetKeysAndValues(gRegistered, (const void**)names, NULL);
                 for(int i = 0; i < numberRegistered; i++) {
                     if (i != 0) {
@@ -94,6 +100,8 @@ SecTransformRef TransformFactory::MakeTransformWithType(CFStringRef type, CFErro
                     CFStringAppend(transformNames, names[i]);
                 }
                 
+                free(names);
+
                 *baseError = CreateSecTransformErrorRef(kSecTransformTransformIsNotRegistered, 
                                                         "The %s transform is not registered, choose from: %@", type,transformNames);
 

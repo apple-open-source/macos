@@ -8,6 +8,7 @@
 #import <Security/SecItemPriv.h>
 #import <xpc/xpc.h>
 #import <err.h>
+#import "OT.h"
 #import <utilities/debugging.h>
 #import "keychain/ot/OTControl.h"
 #import "keychain/ot/OTConstants.h"
@@ -340,27 +341,6 @@
 }
 
 @end
-
-static bool SecOTIsEnabled(void) {
-    
-    bool userDefaultsShouldBottledPeer = true;
-    CFBooleanRef enabled = (CFBooleanRef)CFPreferencesCopyValue(CFSTR("EnableOTRestore"),
-                                                                CFSTR("com.apple.security"),
-                                                                kCFPreferencesAnyUser, kCFPreferencesAnyHost);
-    if(enabled && CFGetTypeID(enabled) == CFBooleanGetTypeID()){
-        if(enabled == kCFBooleanFalse){
-            secnotice("octagon", "Octagon Restore Disabled");
-            userDefaultsShouldBottledPeer = false;
-        }
-        if(enabled == kCFBooleanTrue){
-            secnotice("octagon", "Octagon Restore Enabled");
-            userDefaultsShouldBottledPeer = true;
-        }
-    }
-
-    CFReleaseNull(enabled);
-    return userDefaultsShouldBottledPeer;
-}
 
 static int enroll = false;
 static int restore = false;

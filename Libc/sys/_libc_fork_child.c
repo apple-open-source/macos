@@ -26,6 +26,9 @@
 #include <TargetConditionals.h>
 #include <CrashReporterClient.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+
 extern void _arc4_fork_child();
 extern void _init_clock_port(void);
 extern void __environ_lock_fork_child();
@@ -40,3 +43,4 @@ _libc_fork_child(void)
 	_init_clock_port();
 	__environ_lock_fork_child();
 }
+#pragma clang diagnostic pop

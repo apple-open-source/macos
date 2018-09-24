@@ -51,12 +51,10 @@
 #include "TextTrackList.h"
 #include "TimeRanges.h"
 #include "VideoTrackList.h"
+#include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSLock.h>
+#include <JavaScriptCore/VM.h>
 #include <limits>
-#include <map>
-#include <runtime/JSCInlines.h>
-#include <runtime/JSLock.h>
-#include <runtime/VM.h>
-#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
@@ -107,7 +105,7 @@ SourceBuffer::SourceBuffer(Ref<SourceBufferPrivate>&& sourceBufferPrivate, Media
     , m_groupEndTimestamp(MediaTime::zeroTime())
     , m_buffered(TimeRanges::create())
     , m_appendState(WaitingForSegment)
-    , m_timeOfBufferingMonitor(monotonicallyIncreasingTime())
+    , m_timeOfBufferingMonitor(MonotonicTime::now())
     , m_pendingRemoveStart(MediaTime::invalidTime())
     , m_pendingRemoveEnd(MediaTime::invalidTime())
     , m_removeTimer(*this, &SourceBuffer::removeTimerFired)
@@ -462,6 +460,7 @@ bool SourceBuffer::hasPendingActivity() const
 
 void SourceBuffer::stop()
 {
+    m_asyncEventQueue.close();
     m_appendBufferTimer.stop();
     m_removeTimer.stop();
 }
@@ -1854,7 +1853,23 @@ void SourceBuffer::provideMediaData(TrackBuffer& trackBuffer, const AtomicString
 #endif
     }
 
-    LOG(MediaSource, "SourceBuffer::provideMediaData(%p) - Enqueued %u samples", this, enqueuedSamples);
+    LOG(MediaSource, "SourceBuffer::provideMediaData(%p) - Enqueued %u samples, %zu remaining", this, enqueuedSamples, static_cast<size_t>(trackBuffer.decodeQueue.size()));
+
+    trySignalAllSamplesInTrackEnqueued(trackID);
+}
+
+void SourceBuffer::trySignalAllSamplesInTrackEnqueued(const AtomicString& trackID)
+{
+    if (m_source->isEnded() && m_trackBufferMap.get(trackID).decodeQueue.empty()) {
+        LOG(MediaSource, "SourceBuffer::trySignalAllSamplesInTrackEnqueued(%p) - All samples in track \"%s\" enqueued.", this, trackID.string().utf8().data());
+        m_private->allSamplesInTrackEnqueued(trackID);
+    }
+}
+
+void SourceBuffer::trySignalAllSamplesEnqueued()
+{
+    for (const AtomicString& trackID : m_trackBufferMap.keys())
+        trySignalAllSamplesInTrackEnqueued(trackID);
 }
 
 void SourceBuffer::reenqueueMediaForTime(TrackBuffer& trackBuffer, const AtomicString& trackID, const MediaTime& time)
@@ -1915,14 +1930,14 @@ void SourceBuffer::didDropSample()
 
 void SourceBuffer::monitorBufferingRate()
 {
-    double now = monotonicallyIncreasingTime();
-    double interval = now - m_timeOfBufferingMonitor;
-    double rateSinceLastMonitor = m_bufferedSinceLastMonitor / interval;
+    MonotonicTime now = MonotonicTime::now();
+    Seconds interval = now - m_timeOfBufferingMonitor;
+    double rateSinceLastMonitor = m_bufferedSinceLastMonitor / interval.seconds();
 
     m_timeOfBufferingMonitor = now;
     m_bufferedSinceLastMonitor = 0;
 
-    m_averageBufferRate += (interval * ExponentialMovingAverageCoefficient) * (rateSinceLastMonitor - m_averageBufferRate);
+    m_averageBufferRate += (interval.seconds() * ExponentialMovingAverageCoefficient) * (rateSinceLastMonitor - m_averageBufferRate);
 
     LOG(MediaSource, "SourceBuffer::monitorBufferingRate(%p) - m_avegareBufferRate: %lf", this, m_averageBufferRate);
 }

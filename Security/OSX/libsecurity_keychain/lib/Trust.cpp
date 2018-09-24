@@ -82,8 +82,8 @@ TrustKeychains::TrustKeychains() :
 {
 	if (GetServerMode()) // in server mode?  Don't go through StorageManager to make a keychain
 	{
-		mRootStoreDL = new DL(gGuidAppleFileDL),
-		mRootStoreDb = new Db(*mRootStoreDL, SYSTEM_ROOT_STORE_PATH),
+        mRootStoreDL = new DL(gGuidAppleFileDL);
+        mRootStoreDb = new Db(*mRootStoreDL, SYSTEM_ROOT_STORE_PATH);
         mRootStore = new Keychain(*mRootStoreDb);
 	}
 	else

@@ -42,7 +42,8 @@ CCKeyDerivationHMac(CCKDFAlgorithm algorithm, CCDigestAlgorithm digest,
         return kCCParamError;
 	}
     
-    if(!keyDerivationKeyLen || !keyDerivationKey) {
+    if  ((algorithm!=kCCKDFAlgorithmHKDF)
+        && (!keyDerivationKeyLen || !keyDerivationKey)) {
         CC_DEBUG_LOG("CCKeyDerivationHMac bad KDK parameters %d\n");
         return kCCParamError;
 	}

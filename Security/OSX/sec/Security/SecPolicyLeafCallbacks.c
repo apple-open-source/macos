@@ -638,7 +638,11 @@ bool SecPolicyCheckCertWeakSignature(SecCertificateRef cert, CFTypeRef __unused 
     CFSetAddValue(disallowedHashes, kSecSignatureDigestAlgorithmMD2);
     CFSetAddValue(disallowedHashes, kSecSignatureDigestAlgorithmMD4);
     CFSetAddValue(disallowedHashes, kSecSignatureDigestAlgorithmMD5);
-    if (!SecPolicyCheckCertSignatureHashAlgorithms(cert, disallowedHashes)) {
+
+    /* Weak Signature failures only for non-self-signed certs */
+    Boolean isSelfSigned = false;
+    OSStatus status = SecCertificateIsSelfSigned(cert, &isSelfSigned);
+    if (!SecPolicyCheckCertSignatureHashAlgorithms(cert, disallowedHashes) && (status != errSecSuccess || !isSelfSigned)) {
         result = false;
     }
     CFReleaseSafe(disallowedHashes);
@@ -690,7 +694,7 @@ __PC_ADD_CHECK_##LEAFONLY(NAME)
 
 void SecLeafPVCInit(SecLeafPVCRef pvc, SecCertificateRef leaf, CFArrayRef policies,
                     CFAbsoluteTime verifyTime) {
-    secdebug("alloc", "%p", pvc);
+    secdebug("alloc", "leafpvc %p", pvc);
     // Weird logging policies crashes.
     //secdebug("policy", "%@", policies);
     pvc->leaf = CFRetainSafe(leaf);
@@ -709,7 +713,7 @@ void SecLeafPVCInit(SecLeafPVCRef pvc, SecCertificateRef leaf, CFArrayRef polici
 
 
 void SecLeafPVCDelete(SecLeafPVCRef pvc) {
-    secdebug("alloc", "%p", pvc);
+    secdebug("alloc", "delete leaf pvc %p", pvc);
     CFReleaseNull(pvc->policies);
     CFReleaseNull(pvc->details);
     CFReleaseNull(pvc->callbacks);

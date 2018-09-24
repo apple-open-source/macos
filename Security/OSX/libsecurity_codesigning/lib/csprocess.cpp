@@ -84,7 +84,10 @@ CFDictionaryRef ProcessDynamicCode::infoDictionary()
 {
         if (mGuest->pidBased()->supportInfoPlist())
                 return SecStaticCode::infoDictionary();
-        return makeCFDictionary(0);
+        if (!mEmptyInfoDict) {
+                mEmptyInfoDict.take(makeCFDictionary(0));
+        }
+        return mEmptyInfoDict;
 }
 
 void ProcessDynamicCode::validateComponent(CodeDirectory::SpecialSlot slot, OSStatus fail /* = errSecCSSignatureFailed */)

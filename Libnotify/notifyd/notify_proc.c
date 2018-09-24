@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include "notifyd.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,7 +35,6 @@
 #include <sys/fcntl.h>
 #include <dispatch/private.h>
 #include "notify.h"
-#include "notifyd.h"
 #include "service.h"
 #include "notify_ipc.h"
 #include "notify_ipcServer.h"
@@ -50,7 +50,7 @@ cancel_subscription(client_t *c)
 
 	call_statistics.cleanup++;
 
-	token = c->client_id;
+	token = (int)c->client_id;
 
 	if (c->private != NULL)
 	{
@@ -71,7 +71,7 @@ cancel_subscription(client_t *c)
 	{
 		global.shared_memory_refcount[n->slot]--;
 	}
-    else if (c->notify_type == NOTIFY_TYPE_PORT)
+	else if (c->notify_type == NOTIFY_TYPE_PORT)
 	{
 		_notify_lib_port_proc_release(global.notify_state, c->port, 0);
 	}
@@ -90,7 +90,7 @@ cancel_proc(void *px)
 
 	if (global.notify_state == NULL) return;
 
-	pid = lpid;
+	pid = (pid_t)lpid;
 	x = NULL;
 
 	tt = _nc_table_traverse_start(global.notify_state->client_table);
@@ -219,7 +219,7 @@ register_pid(pid_t pid)
 	pp = _notify_lib_port_proc_find(global.notify_state, MACH_PORT_NULL, pid);
 	if (pp != NULL) return;
 
-	src = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, pid, DISPATCH_PROC_EXIT, global.work_q);
+	src = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, pid, DISPATCH_PROC_EXIT, global.workloop);
 	dispatch_source_set_event_handler_f(src, (dispatch_function_t)cancel_proc);
 
 	lpid = pid;
@@ -227,7 +227,7 @@ register_pid(pid_t pid)
 
 	_notify_lib_port_proc_new(global.notify_state, MACH_PORT_NULL, pid, 0, src);
 
-	dispatch_resume(src);
+	dispatch_activate(src);
 }
 
 static void
@@ -249,7 +249,7 @@ register_port(client_t *c)
 	pp = _notify_lib_port_proc_find(global.notify_state, c->port, 0);
 	if (pp != NULL) return;
 
-	src = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_SEND, c->port, DISPATCH_MACH_SEND_DEAD | DISPATCH_MACH_SEND_POSSIBLE, global.work_q);
+	src = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_SEND, c->port, DISPATCH_MACH_SEND_DEAD | DISPATCH_MACH_SEND_POSSIBLE, global.workloop);
 
 	dispatch_source_set_event_handler_f(src, (dispatch_function_t)port_event);
 
@@ -264,26 +264,29 @@ register_port(client_t *c)
 
 	_notify_lib_port_proc_new(global.notify_state, c->port, 0, NOTIFY_PORT_PROC_STATE_SUSPENDED, src);
 
-	dispatch_resume(src);
+	dispatch_activate(src);
 }
 
 static uint32_t
-server_preflight(caddr_t name, mach_msg_type_number_t nameCnt, audit_token_t audit, int token, uid_t *uid, gid_t *gid, pid_t *pid, uint64_t *cid)
+string_validate(caddr_t path, mach_msg_type_number_t pathCnt)
+{
+	if (path == NULL && pathCnt != 0) {
+		return NOTIFY_STATUS_INVALID_REQUEST;
+	}
+	if (path && (pathCnt == 0 || path[pathCnt - 1] != '\0')) {
+		return NOTIFY_STATUS_INVALID_REQUEST;
+	}
+	return NOTIFY_STATUS_OK;
+}
+
+static uint32_t
+server_preflight(audit_token_t audit, int token, uid_t *uid, gid_t *gid, pid_t *pid, uint64_t *cid)
 {
 	pid_t xpid;
 
-	if ((name == NULL) && (nameCnt != 0)) return NOTIFY_STATUS_INVALID_NAME;
-
 	if (global.notify_state == NULL)
 	{
-		if (name != NULL) vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		return NOTIFY_STATUS_FAILED;
-	}
-
-	if ((name != NULL) && (name[nameCnt] != '\0'))
-	{
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-		return NOTIFY_STATUS_INVALID_NAME;
 	}
 
 	audit_token_to_au32(audit, NULL, uid, gid, NULL, NULL, &xpid, NULL, NULL);
@@ -311,6 +314,7 @@ kern_return_t __notify_server_post_3
 (
 	mach_port_t server,
 	uint64_t name_id,
+	boolean_t claim_root_access,
 	audit_token_t audit
 )
 {
@@ -325,10 +329,12 @@ kern_return_t __notify_server_post_3
 	n = (name_info_t *)_nc_table_find_64(global.notify_state->name_id_table, name_id);
 	if (n == NULL) return KERN_SUCCESS;
 
-	status = server_preflight(NULL, 0, audit, -1, &uid, &gid, &pid, NULL);
+	n->postcount++;
+
+	status = server_preflight(audit, -1, &uid, &gid, &pid, NULL);
 	if (status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 	
-	if ((uid != 0) && has_root_entitlement(pid)) uid = 0;
+	if ((uid != 0) && claim_root_access && has_root_entitlement(pid)) uid = 0;
 
 	status = _notify_lib_check_controlled_access(global.notify_state, n->name, uid, gid, NOTIFY_ACCESS_WRITE);
 	if (status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
@@ -346,9 +352,9 @@ kern_return_t __notify_server_post_2
 (
 	mach_port_t server,
 	caddr_t name,
-	mach_msg_type_number_t nameCnt,
 	uint64_t *name_id,
 	int *status,
+	boolean_t claim_root_access,
 	audit_token_t audit
 )
 {
@@ -359,15 +365,14 @@ kern_return_t __notify_server_post_2
 
 	*name_id = 0;
 
-	*status = server_preflight(name, nameCnt, audit, -1, &uid, &gid, &pid, NULL);
+	*status = server_preflight(audit, -1, &uid, &gid, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
-	if ((uid != 0) && has_root_entitlement(pid)) uid = 0;
+	if ((uid != 0) && claim_root_access && has_root_entitlement(pid)) uid = 0;
 
 	*status = _notify_lib_check_controlled_access(global.notify_state, name, uid, gid, NOTIFY_ACCESS_WRITE);
 	if (*status != NOTIFY_STATUS_OK)
 	{
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		return KERN_SUCCESS;
 	}
 
@@ -389,13 +394,12 @@ kern_return_t __notify_server_post_2
 	}
 	else
 	{
+		n->postcount++;
 		*name_id = n->name_id;
 	}
 
 	if (*name_id == UINT64_MAX) log_message(ASL_LEVEL_DEBUG, "__notify_server_post %s\n", name);
 	else log_message(ASL_LEVEL_DEBUG, "__notify_server_post %s [%llu]\n", name, *name_id);
-
-	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 
 	return KERN_SUCCESS;
 }
@@ -404,7 +408,7 @@ kern_return_t __notify_server_post_4
 (
 	mach_port_t server,
 	caddr_t name,
-	mach_msg_type_number_t nameCnt,
+	boolean_t claim_root_access,
 	audit_token_t audit
 )
 {
@@ -412,34 +416,10 @@ kern_return_t __notify_server_post_4
 	int ignored_status;
 	kern_return_t kstatus;
 
-	kstatus = __notify_server_post_2(server, name, nameCnt, &ignored_name_id, &ignored_status, audit);
+	kstatus = __notify_server_post_2(server, name, &ignored_name_id, &ignored_status, claim_root_access, audit);
 
 	call_statistics.post_by_name_and_fetch_id--;
 	call_statistics.post_by_name++;
-
-	return kstatus;
-}
-
-kern_return_t __notify_server_post
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	int *status,
-	audit_token_t audit
-)
-{
-	uint64_t ignored_name_id;
-	kern_return_t kstatus;
-
-	*status = NOTIFY_STATUS_OK;
-
-	kstatus = __notify_server_post_2(server, name, nameCnt, &ignored_name_id, status, audit);
-
-	call_statistics.post_by_name_and_fetch_id--;
-	call_statistics.post_by_name++;
-
-	if (*status == NOTIFY_STATUS_INVALID_NAME) *status = NOTIFY_STATUS_OK;
 
 	return kstatus;
 }
@@ -448,7 +428,6 @@ kern_return_t __notify_server_register_plain_2
 (
 	mach_port_t server,
 	caddr_t name,
-	mach_msg_type_number_t nameCnt,
 	int token,
 	audit_token_t audit
 )
@@ -463,7 +442,7 @@ kern_return_t __notify_server_register_plain_2
 	call_statistics.reg++;
 	call_statistics.reg_plain++;
 
-	status = server_preflight(name, nameCnt, audit, token, &uid, &gid, &pid, &cid);
+	status = server_preflight(audit, token, &uid, &gid, &pid, &cid);
 	if (status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_register_plain %s %d %d\n", name, pid, token);
@@ -471,14 +450,12 @@ kern_return_t __notify_server_register_plain_2
 	status = _notify_lib_register_plain(global.notify_state, name, pid, token, -1, uid, gid, &nid);
 	if (status != NOTIFY_STATUS_OK)
 	{
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		return KERN_SUCCESS;
 	}
 
 	c = _nc_table_find_64(global.notify_state->client_table, cid);
 
 	if (!strncmp(name, SERVICE_PREFIX, SERVICE_PREFIX_LEN)) service_open(name, c, uid, gid);
-	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 
 	register_pid(pid);
 
@@ -489,7 +466,6 @@ kern_return_t __notify_server_register_check_2
 (
 	mach_port_t server,
 	caddr_t name,
-	mach_msg_type_number_t nameCnt,
 	int token,
 	int *size,
 	int *slot,
@@ -511,7 +487,7 @@ kern_return_t __notify_server_register_check_2
 	*name_id = 0;
 	*status = NOTIFY_STATUS_OK;
 
-	*status = server_preflight(name, nameCnt, audit, token, &uid, &gid, &pid, &cid);
+	*status = server_preflight(audit, token, &uid, &gid, &pid, &cid);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	call_statistics.reg++;
@@ -521,7 +497,7 @@ kern_return_t __notify_server_register_check_2
 	{
 		*size = -1;
 		*slot = -1;
-		return __notify_server_register_plain_2(server, name, nameCnt, token, audit);
+		return __notify_server_register_plain_2(server, name, token, audit);
 	}
 
 	x = (uint32_t)-1;
@@ -582,14 +558,12 @@ kern_return_t __notify_server_register_check_2
 	*status = _notify_lib_register_plain(global.notify_state, name, pid, token, x, uid, gid, name_id);
 	if (*status != NOTIFY_STATUS_OK)
 	{
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		return KERN_SUCCESS;
 	}
 
 	c = _nc_table_find_64(global.notify_state->client_table, cid);
 
 	if (!strncmp(name, SERVICE_PREFIX, SERVICE_PREFIX_LEN)) service_open(name, c, uid, gid);
-	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 
 	register_pid(pid);
 
@@ -600,7 +574,6 @@ kern_return_t __notify_server_register_signal_2
 (
 	mach_port_t server,
 	caddr_t name,
-	mach_msg_type_number_t nameCnt,
 	int token,
 	int sig,
 	audit_token_t audit
@@ -613,7 +586,7 @@ kern_return_t __notify_server_register_signal_2
 	gid_t gid = (gid_t)-1;
 	pid_t pid = (pid_t)-1;
 
-	status = server_preflight(name, nameCnt, audit, token, &uid, &gid, &pid, &cid);
+	status = server_preflight(audit, token, &uid, &gid, &pid, &cid);
 	if (status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	call_statistics.reg++;
@@ -624,14 +597,12 @@ kern_return_t __notify_server_register_signal_2
 	status = _notify_lib_register_signal(global.notify_state, name, pid, token, sig, uid, gid, &name_id);
 	if (status != NOTIFY_STATUS_OK)
 	{
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		return KERN_SUCCESS;
 	}
 
 	c = _nc_table_find_64(global.notify_state->client_table, cid);
 
 	if (!strncmp(name, SERVICE_PREFIX, SERVICE_PREFIX_LEN)) service_open(name, c, uid, gid);
-	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 
 	register_pid(pid);
 
@@ -642,7 +613,6 @@ kern_return_t __notify_server_register_file_descriptor_2
 (
 	mach_port_t server,
 	caddr_t name,
-	mach_msg_type_number_t nameCnt,
 	int token,
 	fileport_t fileport,
 	audit_token_t audit
@@ -656,7 +626,7 @@ kern_return_t __notify_server_register_file_descriptor_2
 	gid_t gid = (gid_t)-1;
 	pid_t pid = (pid_t)-1;
 
-	status = server_preflight(name, nameCnt, audit, token, &uid, &gid, &pid, &cid);
+	status = server_preflight(audit, token, &uid, &gid, &pid, &cid);
 	if (status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	call_statistics.reg++;
@@ -668,35 +638,30 @@ kern_return_t __notify_server_register_file_descriptor_2
 	mach_port_deallocate(mach_task_self(), fileport);
 	if (fd < 0)
 	{
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		return KERN_SUCCESS;
 	}
 
 	flags = fcntl(fd, F_GETFL, 0);
 	if (flags < 0)
 	{
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		return KERN_SUCCESS;
 	}
 
 	flags |= O_NONBLOCK;
 	if (fcntl(fd, F_SETFL, flags) < 0)
 	{
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		return KERN_SUCCESS;
 	}
 
 	status = _notify_lib_register_file_descriptor(global.notify_state, name, pid, token, fd, uid, gid, &name_id);
 	if (status != NOTIFY_STATUS_OK)
 	{
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		return KERN_SUCCESS;
 	}
 
 	c = _nc_table_find_64(global.notify_state->client_table, cid);
 
 	if (!strncmp(name, SERVICE_PREFIX, SERVICE_PREFIX_LEN)) service_open(name, c, uid, gid);
-	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 
 	register_pid(pid);
 
@@ -707,7 +672,6 @@ kern_return_t __notify_server_register_mach_port_2
 (
 	mach_port_t server,
 	caddr_t name,
-	mach_msg_type_number_t nameCnt,
 	int token,
 	mach_port_t port,
 	audit_token_t audit
@@ -722,7 +686,7 @@ kern_return_t __notify_server_register_mach_port_2
 
 	if (port == MACH_PORT_DEAD) return KERN_SUCCESS;
 
-	status = server_preflight(name, nameCnt, audit, token, &uid, &gid, &pid, &cid);
+	status = server_preflight(audit, token, &uid, &gid, &pid, &cid);
 	if (status != NOTIFY_STATUS_OK)
 	{
 		mach_port_deallocate(mach_task_self(), port);
@@ -737,7 +701,6 @@ kern_return_t __notify_server_register_mach_port_2
 	status = _notify_lib_register_mach_port(global.notify_state, name, pid, token, port, uid, gid, &name_id);
 	if (status != NOTIFY_STATUS_OK)
 	{
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		mach_port_deallocate(mach_task_self(), port);
 		return KERN_SUCCESS;
 	}
@@ -745,38 +708,9 @@ kern_return_t __notify_server_register_mach_port_2
 	c = _nc_table_find_64(global.notify_state->client_table,cid);
 
 	if (!strncmp(name, SERVICE_PREFIX, SERVICE_PREFIX_LEN)) service_open(name, c, uid, gid);
-	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 
 	register_pid(pid);
 	register_port(c);
-
-	return KERN_SUCCESS;
-}
-
-kern_return_t __notify_server_cancel
-(
-	mach_port_t server,
-	int token,
-	int *status,
-	audit_token_t audit
-)
-{
-	client_t *c;
-	uid_t uid = (uid_t)-1;
-	pid_t pid = (pid_t)-1;
-
-	*status = server_preflight(NULL, 0, audit, -1, &uid, NULL, &pid, NULL);
-	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
-
-	call_statistics.cancel++;
-
-	log_message(ASL_LEVEL_DEBUG, "__notify_server_cancel %d %d\n", pid, token);
-
-	*status = NOTIFY_STATUS_OK;
-
-	c = _nc_table_find_64(global.notify_state->client_table, make_client_id(pid, token));
-	if (c == NULL) *status = NOTIFY_STATUS_FAILED;
-	else cancel_subscription(c);
 
 	return KERN_SUCCESS;
 }
@@ -788,8 +722,22 @@ kern_return_t __notify_server_cancel_2
 	audit_token_t audit
 )
 {
-	int ignored;
-	return __notify_server_cancel(server, token, &ignored, audit);
+	client_t *c;
+	uid_t uid = (uid_t)-1;
+	pid_t pid = (pid_t)-1;
+	int status;
+
+	status = server_preflight(audit, -1, &uid, NULL, &pid, NULL);
+	if (status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
+
+	call_statistics.cancel++;
+
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_cancel %d %d\n", pid, token);
+
+	c = _nc_table_find_64(global.notify_state->client_table, make_client_id(pid, token));
+	if (c != NULL) cancel_subscription(c);
+
+	return KERN_SUCCESS;
 }
 
 kern_return_t __notify_server_suspend
@@ -802,7 +750,7 @@ kern_return_t __notify_server_suspend
 {
 	pid_t pid = (pid_t)-1;
 
-	*status = server_preflight(NULL, 0, audit, -1, NULL, NULL, &pid, NULL);
+	*status = server_preflight(audit, -1, NULL, NULL, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	call_statistics.suspend++;
@@ -825,7 +773,7 @@ kern_return_t __notify_server_resume
 {
 	pid_t pid = (pid_t)-1;
 
-	*status = server_preflight(NULL, 0, audit, -1, NULL, NULL, &pid, NULL);
+	*status = server_preflight(audit, -1, NULL, NULL, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	call_statistics.resume++;
@@ -867,7 +815,7 @@ kern_return_t __notify_server_suspend_pid
 
 	uid = (uid_t)-1;
 
-	*status = server_preflight(NULL, 0, audit, -1, &uid, NULL, NULL, NULL);
+	*status = server_preflight(audit, -1, &uid, NULL, NULL, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	call_statistics.suspend_pid++;
@@ -901,7 +849,7 @@ kern_return_t __notify_server_resume_pid
 
 	uid = (uid_t)-1;
 
-	*status = server_preflight(NULL, 0, audit, -1, &uid, NULL, NULL, NULL);
+	*status = server_preflight(audit, -1, &uid, NULL, NULL, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	call_statistics.resume_pid++;
@@ -962,7 +910,7 @@ kern_return_t __notify_server_get_state
 
 	*state = 0;
 
-	*status = server_preflight(NULL, 0, audit, -1, &uid, &gid, &pid, NULL);
+	*status = server_preflight(audit, -1, &uid, &gid, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	call_statistics.get_state++;
@@ -977,6 +925,7 @@ kern_return_t __notify_server_get_state
 	}
 	else
 	{
+		c->get_state_count++;
 		*status = _notify_lib_get_state(global.notify_state, c->name_info->name_id, state, uid, gid);
 	}
 
@@ -997,7 +946,7 @@ kern_return_t __notify_server_get_state_2
 
 	*state = 0;
 
-	*status = server_preflight(NULL, 0, audit, -1, &uid, &gid, NULL, NULL);
+	*status = server_preflight(audit, -1, &uid, &gid, NULL, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_state_2 %llu\n", name_id);
@@ -1024,7 +973,7 @@ kern_return_t __notify_server_get_state_3
 	*state = 0;
 	*name_id = 0;
 
-	*status = server_preflight(NULL, 0, audit, -1, &uid, &gid, &pid, NULL);
+	*status = server_preflight(audit, -1, &uid, &gid, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	call_statistics.get_state++;
@@ -1038,6 +987,7 @@ kern_return_t __notify_server_get_state_3
 	}
 	else
 	{
+		c->get_state_count++;
 		*status = _notify_lib_get_state(global.notify_state, c->name_info->name_id, state, uid, gid);
 		*name_id = c->name_info->name_id;
 	}
@@ -1055,6 +1005,7 @@ kern_return_t __notify_server_set_state_3
 	uint64_t state,
 	uint64_t *name_id,
 	int *status,
+	boolean_t claim_root_access,
 	audit_token_t audit
 )
 {
@@ -1065,11 +1016,11 @@ kern_return_t __notify_server_set_state_3
 
 	*name_id = 0;
 
-	*status = server_preflight(NULL, 0, audit, -1, &uid, &gid, &pid, NULL);
+	*status = server_preflight(audit, -1, &uid, &gid, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
-	bool root_entitlement = has_root_entitlement(pid);
-	if ((uid != 0) && root_entitlement) uid = 0;
+	bool root_entitlement = uid != 0 && claim_root_access && has_root_entitlement(pid);
+	if (root_entitlement) uid = 0;
 
 	call_statistics.set_state++;
 	call_statistics.set_state_by_client_and_fetch_id++;
@@ -1092,33 +1043,12 @@ kern_return_t __notify_server_set_state_3
 	return KERN_SUCCESS;
 }
 
-kern_return_t __notify_server_set_state
-(
-	mach_port_t server,
-	int token,
-	uint64_t state,
-	int *status,
-	audit_token_t audit
-)
-{
-	uint64_t ignored;
-	kern_return_t kstatus;
-
-	*status = NOTIFY_STATUS_OK;
-
-	kstatus = __notify_server_set_state_3(server, token, state, &ignored, status, audit);
-
-	call_statistics.set_state_by_client_and_fetch_id--;
-	call_statistics.set_state_by_client++;
-
-	return kstatus;
-}
-
 kern_return_t __notify_server_set_state_2
 (
 	mach_port_t server,
 	uint64_t name_id,
 	uint64_t state,
+	boolean_t claim_root_access,
 	audit_token_t audit
 )
 {
@@ -1134,199 +1064,12 @@ kern_return_t __notify_server_set_state_2
 
 	audit_token_to_au32(audit, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
 
-	bool root_entitlement = has_root_entitlement(pid);
-	if ((uid != 0) && root_entitlement) uid = 0;
+	bool root_entitlement = (uid != 0) && claim_root_access && has_root_entitlement(pid);
+	if (root_entitlement) uid = 0;
 
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_state_2 %d %llu %llu [uid %d%s gid %d]\n", pid, name_id, state, uid, root_entitlement ? " (entitlement)" : "", gid);
 
 	status = _notify_lib_set_state(global.notify_state, name_id, state, uid, gid);
-	return KERN_SUCCESS;
-}
-
-kern_return_t __notify_server_set_owner
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	int uid,
-	int gid,
-	int *status,
-	audit_token_t audit
-)
-{
-	uid_t auid = (uid_t)-1;
-	pid_t pid = (pid_t)-1;
-
-	*status = server_preflight(name, nameCnt, audit, -1, &auid, NULL, &pid, NULL);
-	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
-
-	if ((auid != 0) && has_root_entitlement(pid)) auid = 0;
-
-	call_statistics.set_owner++;
-
-	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_owner %s %d %d\n", name, uid, gid);
-
-	/* only root may set owner for names */
-	if (auid != 0)
-	{ 
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-		*status = NOTIFY_STATUS_NOT_AUTHORIZED;
-		return KERN_SUCCESS;
-	}
-
-	*status = _notify_lib_set_owner(global.notify_state, name, uid, gid);
-	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-	return KERN_SUCCESS;
-}
-
-kern_return_t __notify_server_get_owner
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	int *uid,
-	int *gid,
-	int *status,
-	audit_token_t audit
-)
-{
-	*uid = 0;
-	*gid = 0;
-
-	*status = server_preflight(name, nameCnt, audit, -1, NULL, NULL, NULL, NULL);
-	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
-
-	call_statistics.get_owner++;
-
-	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_owner %s\n", name);
-
-	*status = _notify_lib_get_owner(global.notify_state, name, (uint32_t *)uid, (uint32_t *)gid);
-	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-	return KERN_SUCCESS;
-}
-
-kern_return_t __notify_server_set_access
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	int mode,
-	int *status,
-	audit_token_t audit
-)
-{
-	uint32_t u, g;
-	uid_t uid = (uid_t)-1;
-	gid_t gid = (gid_t)-1;
-	pid_t pid = (pid_t)-1;
-
-	*status = server_preflight(name, nameCnt, audit, -1, &uid, &gid, &pid, NULL);
-	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
-
-	if ((uid != 0) && has_root_entitlement(pid)) uid = 0;
-
-	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_access %s 0x%03x\n", name, mode);
-
-	_notify_lib_get_owner(global.notify_state, name, &u, &g);
-
-	/* only root and owner may set access for names */
-	if ((uid != 0) && (uid != u))
-	{ 
-		*status = NOTIFY_STATUS_NOT_AUTHORIZED;
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-		return KERN_SUCCESS;
-	}
-
-	call_statistics.set_access++;
-
-	*status = _notify_lib_set_access(global.notify_state, name, mode);
-	if ((u != 0) || (g != 0)) *status = _notify_lib_set_owner(global.notify_state, name, u, g);
-	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-	return KERN_SUCCESS;
-}
-
-kern_return_t __notify_server_get_access
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	int *mode,
-	int *status,
-	audit_token_t audit
-)
-{
-	*mode = 0;
-
-	*status = server_preflight(name, nameCnt, audit, -1, NULL, NULL, NULL, NULL);
-	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
-
-	call_statistics.get_access++;
-
-	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_access %s\n", name);
-
-	*status = _notify_lib_get_access(global.notify_state, name, (uint32_t *)mode);
-	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-	return KERN_SUCCESS;
-}
-
-/* Unsupported because it makes no sense */
-kern_return_t __notify_server_release_name
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	int *status,
-	audit_token_t audit
-)
-{
-	*status = NOTIFY_STATUS_FAILED;
-	return KERN_SUCCESS;
-}
-
-kern_return_t __notify_server_monitor_file
-(
-	mach_port_t server,
-	int token,
-	caddr_t path,
-	mach_msg_type_number_t pathCnt,
-	int flags,
-	int *status,
-	audit_token_t audit
-)
-{
-	client_t *c;
-	name_info_t *n;
-	uid_t uid = (uid_t)-1;
-	gid_t gid = (gid_t)-1;
-	pid_t pid = (pid_t)-1;
-	uint32_t ubits = (uint32_t)flags;
-
-	*status = server_preflight(path, pathCnt, audit, -1, &uid, &gid, &pid, NULL);
-	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
-
-	call_statistics.monitor_file++;
-
-	log_message(ASL_LEVEL_DEBUG, "__notify_server_monitor_file %d %d %s 0x%08x\n", pid, token, path, ubits);
-
-	c = _nc_table_find_64(global.notify_state->client_table, make_client_id(pid, token));
-	if (c == NULL)
-	{
-		vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
-		*status = NOTIFY_STATUS_INVALID_REQUEST;
-		return KERN_SUCCESS;
-	}
-
-	n = c->name_info;
-	if (n == NULL)
-	{
-		vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
-		*status = NOTIFY_STATUS_INVALID_REQUEST;
-		return KERN_SUCCESS;
-	}
-
-	*status = service_open_path_private(n->name, c, path, uid, gid, ubits);
-	vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
-
 	return KERN_SUCCESS;
 }
 
@@ -1340,180 +1083,45 @@ kern_return_t __notify_server_monitor_file_2
 	audit_token_t audit
 )
 {
-	int ignored;
-	return __notify_server_monitor_file(server, token, path, pathCnt, flags, &ignored, audit);
-}
-
-/*
- * Original routines provide compatibility for legacy clients.
- * iOS simulator uses them.
- */
-
-/*
- * Generates a integer "token" for legacy client registrations.
- */
-static int
-generate_token(audit_token_t audit)
-{
-	static int legacy_id = 0;
-
-	if (++legacy_id == -1) legacy_id = 1;
-	return legacy_id;
-}
-
-kern_return_t __notify_server_register_plain
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	int *client_id,
-	int *status,
-	audit_token_t audit
-)
-{
-	int token = generate_token(audit);
-
-	*client_id = token;
-	*status = NOTIFY_STATUS_OK;
-
-	return __notify_server_register_plain_2(server, name, nameCnt, token, audit);
-}
-
-kern_return_t __notify_server_register_check
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	int *size,
-	int *slot,
-	int *client_id,
-	int *status,
-	audit_token_t audit
-)
-{
-	*size = 0;
-	*slot = 0;
-	*status = NOTIFY_STATUS_OK;
-
-	uint64_t nid;
-	int token = generate_token(audit);
-
-	*client_id = token;
-
-	return __notify_server_register_check_2(server, name, nameCnt, token, size, slot, &nid, status, audit);
-}
-
-kern_return_t __notify_server_register_signal
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	int sig,
-	int *client_id,
-	int *status,
-	audit_token_t audit
-)
-{
-	int token = generate_token(audit);
-
-	*client_id = token;
-	*status = NOTIFY_STATUS_OK;
-
-	return __notify_server_register_signal_2(server, name, nameCnt, token, sig, audit);
-}
-
-kern_return_t __notify_server_register_file_descriptor
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	fileport_t fileport,
-	int ntoken,
-	int *client_id,
-	int *status,
-	audit_token_t audit
-)
-{
-	kern_return_t kstatus;
 	client_t *c;
+	name_info_t *n;
+	uid_t uid = (uid_t)-1;
+	gid_t gid = (gid_t)-1;
 	pid_t pid = (pid_t)-1;
-	int token = generate_token(audit);
+	uint32_t ubits = (uint32_t)flags;
+	int status;
 
-	*client_id = token;
-	*status = NOTIFY_STATUS_OK;
+	status = string_validate(path, pathCnt);
+	if (status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
-	kstatus = __notify_server_register_file_descriptor_2(server, name, nameCnt, token, fileport, audit);
-	if (kstatus == KERN_SUCCESS)
+	status = server_preflight(audit, -1, &uid, &gid, &pid, NULL);
+	if (status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
+
+	call_statistics.monitor_file++;
+
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_monitor_file %d %d %s 0x%08x\n", pid, token, path, ubits);
+
+	c = _nc_table_find_64(global.notify_state->client_table, make_client_id(pid, token));
+	if (c == NULL)
 	{
-		audit_token_to_au32(audit, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
-		c = _nc_table_find_64(global.notify_state->client_table, make_client_id(pid, token));
-		if (c == NULL) *status = NOTIFY_STATUS_FAILED;
-		else c->send_val = ntoken;
-	}
-
-	return kstatus;
-}
-
-kern_return_t __notify_server_register_mach_port
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	mach_port_t port,
-	int ntoken,
-	int *client_id,
-	int *status,
-	audit_token_t audit
-)
-{
-	kern_return_t kstatus;
-	client_t *c;
-	pid_t pid = (pid_t)-1;
-	int token;
-
-	*client_id = 0;
-	*status = NOTIFY_STATUS_OK;
-
-	if (port == MACH_PORT_DEAD)
-	{
-		if ((name != NULL) && (nameCnt > 0)) vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-		*status = NOTIFY_STATUS_INVALID_REQUEST;
 		return KERN_SUCCESS;
 	}
 
-	token = generate_token(audit);
-
-	*client_id = token;
-	*status = NOTIFY_STATUS_OK;
-
-	kstatus = __notify_server_register_mach_port_2(server, name, nameCnt, token, port, audit);
-	if (kstatus == KERN_SUCCESS)
+	n = c->name_info;
+	if (n == NULL)
 	{
-		audit_token_to_au32(audit, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
-		c = _nc_table_find_64(global.notify_state->client_table, make_client_id(pid, token));
-		if (c == NULL) *status = NOTIFY_STATUS_FAILED;
-		else c->send_val = ntoken;
+		return KERN_SUCCESS;
 	}
 
-	return kstatus;
-}
+	service_open_path_private(n->name, c, path, uid, gid, ubits);
 
-kern_return_t __notify_server_simple_post
-(
-	mach_port_t server,
-	caddr_t name,
-	mach_msg_type_number_t nameCnt,
-	audit_token_t audit
-)
-{
-	return __notify_server_post_4(server, name, nameCnt, audit);
+	return KERN_SUCCESS;
 }
 
 kern_return_t __notify_server_regenerate
 (
 	mach_port_t server,
 	caddr_t name,
-	mach_msg_type_number_t nameCnt,
 	int token,
 	uint32_t reg_type,
 	mach_port_t port,
@@ -1541,28 +1149,8 @@ kern_return_t __notify_server_regenerate
 	*new_nid = 0;
 	*status = NOTIFY_STATUS_OK;
 
-	if (name == NULL)
-	{
-		if (path != NULL) vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
-		*status = NOTIFY_STATUS_INVALID_NAME;
-		return KERN_SUCCESS;
-	}
-
-	if (name[nameCnt] != '\0')
-	{
-		if (path != NULL) vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-		*status = NOTIFY_STATUS_INVALID_NAME;
-		return KERN_SUCCESS;
-	}
-
-	if ((path != NULL) && (path[pathCnt] != '\0'))
-	{
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-		vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
-		*status = NOTIFY_STATUS_INVALID_REQUEST;
-		return KERN_SUCCESS;
-	}
+	*status = string_validate(path, pathCnt);
+	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	call_statistics.regenerate++;
 
@@ -1575,8 +1163,6 @@ kern_return_t __notify_server_regenerate
 	if (c != NULL)
 	{
 		/* duplicate client - this should never happen */
-		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-		if ((path != NULL) && (pathCnt > 0)) vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
@@ -1592,7 +1178,7 @@ kern_return_t __notify_server_regenerate
 				return KERN_SUCCESS;
 			}
 
-			kstatus = __notify_server_register_check_2(server, name, nameCnt, token, &size, new_slot, new_nid, status, audit);
+			kstatus = __notify_server_register_check_2(server, name, token, &size, new_slot, new_nid, status, audit);
 			if (*status == NOTIFY_STATUS_OK)
 			{
 				if ((*new_slot != UINT32_MAX) && (global.last_shm_base != NULL))
@@ -1605,25 +1191,23 @@ kern_return_t __notify_server_regenerate
 		}
 		case NOTIFY_TYPE_PLAIN:
 		{
-			kstatus = __notify_server_register_plain_2(server, name, nameCnt, token, audit);
+			kstatus = __notify_server_register_plain_2(server, name, token, audit);
 			break;
 		}
 		case NOTIFY_TYPE_PORT:
 		{
-			kstatus = __notify_server_register_mach_port_2(server, name, nameCnt, token, port, audit);
+			kstatus = __notify_server_register_mach_port_2(server, name, token, port, audit);
 			break;
 		}
 		case NOTIFY_TYPE_SIGNAL:
 		{
-			kstatus = __notify_server_register_signal_2(server, name, nameCnt, token, sig, audit);
+			kstatus = __notify_server_register_signal_2(server, name, token, sig, audit);
 			break;
 		}
 		case NOTIFY_TYPE_FILE: /* fall through */
 		default:
 		{
 			/* can not regenerate this type */
-			vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
-			if ((path != NULL) && (pathCnt > 0)) vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
 			*status = NOTIFY_STATUS_FAILED;
 			return KERN_SUCCESS;
 		}
@@ -1646,6 +1230,63 @@ kern_return_t __notify_server_regenerate
 		*new_nid = n->name_id;
 		if (prev_time > n->state_time) n->state = prev_state;
 	}
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t __notify_server_checkin
+(
+	mach_port_t server,
+	uint32_t *version,
+	uint32_t *server_pid,
+	int *status,
+	audit_token_t audit
+)
+{
+	pid_t pid = (pid_t)-1;
+
+	call_statistics.checkin++;
+
+	audit_token_to_au32(audit, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_checkin %d\n", pid);
+	*version = NOTIFY_IPC_VERSION;
+	*server_pid = getpid();
+	*status = NOTIFY_STATUS_OK;
+	return KERN_SUCCESS;
+}
+
+
+kern_return_t __notify_server_dump
+(
+	mach_port_t server,
+	fileport_t fileport,
+	audit_token_t audit
+)
+{
+	int fd;
+	int flags;
+
+	fd = fileport_makefd(fileport);
+	mach_port_deallocate(mach_task_self(), fileport);
+	if (fd < 0)
+	{
+		return KERN_SUCCESS;
+	}
+
+	flags = fcntl(fd, F_GETFL, 0);
+	if (flags < 0)
+	{
+		return KERN_SUCCESS;
+	}
+
+	flags |= O_NONBLOCK;
+	if (fcntl(fd, F_SETFL, flags) < 0)
+	{
+		return KERN_SUCCESS;
+	}
+
+	dump_status(STATUS_REQUEST_SHORT, fd);
 
 	return KERN_SUCCESS;
 }

@@ -49,6 +49,8 @@
 #import <notify.h>
 #import <mach/mach.h>
 #import <mach/mach_time.h>
+#import <os/log.h>
+#import <os/log_private.h>
 
 #import <roken.h>
 
@@ -305,6 +307,10 @@ checkACLInCredentialChain(struct peer *peer, CFUUIDRef uuid, bool *hasACL)
     if (hasACL)
 	*hasACL = false;
 
+    if (CFGetTypeID(uuid) != CFUUIDGetTypeID()) {
+	goto out;
+    }
+
     while (1) {
 	HeimCredRef cred = (HeimCredRef)CFDictionaryGetValue(peer->session->items, uuid);
 	CFUUIDRef parent;
@@ -515,9 +521,11 @@ do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply)
     }
 
     /* check if we are ok to link into this cred-tree */
-    uuid = CFDictionaryGetValue(attributes, kHEIMAttrParentCredential);
-    if (uuid != NULL && !checkACLInCredentialChain(peer, uuid, &hasACL))
-	goto out;
+    {
+	CFUUIDRef parentUUID = CFDictionaryGetValue(attributes, kHEIMAttrParentCredential);
+	if (parentUUID != NULL && !checkACLInCredentialChain(peer, parentUUID, &hasACL))
+	    goto out;
+    }
     
     uuid = CFDictionaryGetValue(attributes, kHEIMAttrUUID);
     if (uuid) {
@@ -697,7 +705,6 @@ QueryCopy(struct peer *peer, xpc_object_t request, const char *key)
 	.query = NULL,
 	.attributes = NULL,
     };
-    CFUUIDRef uuidref = NULL;
     CFErrorRef error = NULL;
     
     mc.query = HeimCredMessageCopyAttributes(request, key, CFDictionaryGetTypeID());
@@ -707,7 +714,7 @@ QueryCopy(struct peer *peer, xpc_object_t request, const char *key)
     mc.numQueryItems = CFDictionaryGetCount(mc.query);
 
     if (mc.numQueryItems == 1) {
-	uuidref = CFDictionaryGetValue(mc.query, kHEIMAttrUUID);
+	CFUUIDRef uuidref = CFDictionaryGetValue(mc.query, kHEIMAttrUUID);
 	if (uuidref && CFGetTypeID(uuidref) == CFUUIDGetTypeID()) {
 	
 	    if (!checkACLInCredentialChain(peer, uuidref, NULL))
@@ -1067,7 +1074,7 @@ do_Move(struct peer *peer, xpc_object_t request, xpc_object_t reply)
     CFUUIDRef from = HeimCredMessageCopyAttributes(request, "from", CFUUIDGetTypeID());
     CFUUIDRef to = HeimCredMessageCopyAttributes(request, "to", CFUUIDGetTypeID());
     
-    if (from == NULL || to == NULL) {
+    if (from == NULL || to == NULL || CFEqual(from, to)) {
 	CFRELEASE_NULL(from);
 	CFRELEASE_NULL(to);
 	return;
@@ -1087,7 +1094,7 @@ do_Move(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	CFRelease(to);
 	return;
     }
-
+    heim_assert(credfrom != credto, "must not be same");
 
     CFMutableDictionaryRef newattrs = CFDictionaryCreateMutableCopy(NULL, 0, credfrom->attributes);
     CFDictionaryRemoveValue(peer->session->items, from);
@@ -1477,6 +1484,7 @@ static void GSSCred_event_handler(xpc_connection_t peerconn)
     xpc_connection_set_event_handler(peerconn, ^(xpc_object_t event) {
         GSSCred_peer_event_handler(peer, event);
     });
+    xpc_connection_set_target_queue(peerconn, runQueue);
     xpc_connection_resume(peerconn);
 }
 
@@ -1960,6 +1968,9 @@ SessionMonitor(void)
 int main(int argc, const char *argv[])
 {
     xpc_connection_t conn;
+
+    /* Tell logd we're special */
+    os_log_set_client_type(OS_LOG_CLIENT_TYPE_LOGD_DEPENDENCY, 0);
 
 #if TARGET_OS_EMBEDDED
     char *error = NULL;

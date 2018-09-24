@@ -26,18 +26,18 @@
 #import "config.h"
 #import "WebMemorySampler.h"
 
-#if ENABLE(MEMORY_SAMPLER)  
+#if ENABLE(MEMORY_SAMPLER)
 
+#import <JavaScriptCore/JSLock.h>
 #import <JavaScriptCore/MemoryStatistics.h>
 #import <JavaScriptCore/VM.h>
+#import <WebCore/CommonVM.h>
 #import <mach/mach.h>
-#import <mach/task.h>
 #import <mach/mach_types.h>
+#import <mach/task.h>
 #import <malloc/malloc.h>
 #import <notify.h>
-#import <runtime/JSLock.h>
-#import <WebCore/CommonVM.h>
-#import <wtf/CurrentTime.h>
+#import <wtf/WallTime.h>
 
 using namespace WebCore;
 using namespace JSC;
@@ -140,10 +140,10 @@ WebMemoryStatistics WebMemorySampler::sampleWebKit() const
     
     size_t residentSize = sampleProcessCommittedBytes();
 
-    double now = currentTime();
+    WallTime now = WallTime::now();
         
     webKitMemoryStats.keys.append(String("Timestamp"));
-    webKitMemoryStats.values.append(now);
+    webKitMemoryStats.values.append(now.secondsSinceEpoch().seconds());
     webKitMemoryStats.keys.append(String("Total Bytes of Memory In Use"));
     webKitMemoryStats.values.append(totalBytesInUse);
     webKitMemoryStats.keys.append(String("Fast Malloc Zone Bytes"));

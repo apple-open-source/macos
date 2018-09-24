@@ -30,7 +30,10 @@
 
 #if PLATFORM(IOS)
 
+#import "WKLegacyPDFView.h"
 #import "WKPDFView.h"
+#import "WKSystemPreviewView.h"
+#import "WKWebViewConfigurationPrivate.h"
 #import "WKWebViewInternal.h"
 #import "WebPageProxy.h"
 #import <WebCore/MIMETypeRegistry.h>
@@ -39,6 +42,10 @@
 #import <wtf/text/StringHash.h>
 #import <wtf/text/WTFString.h>
 
+#if USE(SYSTEM_PREVIEW) && USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/SystemPreviewTypes.cpp>
+#endif
+
 using namespace WebKit;
 
 @implementation WKWebViewContentProviderRegistry {
@@ -46,13 +53,25 @@ using namespace WebKit;
     HashCountedSet<WebPageProxy*> _pages;
 }
 
-- (instancetype)init
+- (instancetype)initWithConfiguration:(WKWebViewConfiguration *)configuration
 {
     if (!(self = [super init]))
         return nil;
 
+#if ENABLE(WKPDFVIEW)
     for (auto& mimeType : WebCore::MIMETypeRegistry::getPDFMIMETypes())
         [self registerProvider:[WKPDFView class] forMIMEType:mimeType];
+#elif ENABLE(WKLEGACYPDFVIEW)
+    for (auto& mimeType : WebCore::MIMETypeRegistry::getPDFMIMETypes())
+        [self registerProvider:[WKLegacyPDFView class] forMIMEType:mimeType];
+#endif
+
+#if USE(SYSTEM_PREVIEW) && USE(APPLE_INTERNAL_SDK)
+    if (configuration._systemPreviewEnabled) {
+        for (auto& mimeType : getSystemPreviewMIMETypes())
+            [self registerProvider:[WKSystemPreviewView class] forMIMEType:mimeType];
+    }
+#endif
 
     return self;
 }

@@ -90,6 +90,8 @@ static inline ResourceRequest constructRevalidationRequest(const Key& key, const
     ResourceRequest revalidationRequest(key.identifier());
     revalidationRequest.setHTTPHeaderFields(subResourceInfo.requestHeaders());
     revalidationRequest.setFirstPartyForCookies(subResourceInfo.firstPartyForCookies());
+    revalidationRequest.setIsSameSite(subResourceInfo.isSameSite());
+    revalidationRequest.setIsTopSite(subResourceInfo.isTopSite());
     if (!key.partition().isEmpty())
         revalidationRequest.setCachePartition(key.partition());
     ASSERT_WITH_MESSAGE(key.range().isEmpty(), "range is not supported");
@@ -414,7 +416,7 @@ void SpeculativeLoadManager::addPreloadedEntry(std::unique_ptr<Entry> entry, con
 
 void SpeculativeLoadManager::retrieveEntryFromStorage(const SubresourceInfo& info, RetrieveCompletionHandler&& completionHandler)
 {
-    m_storage.retrieve(info.key(), static_cast<unsigned>(info.priority()), [completionHandler = WTFMove(completionHandler)](auto record) {
+    m_storage.retrieve(info.key(), static_cast<unsigned>(info.priority()), [completionHandler = WTFMove(completionHandler)](auto record, auto timings) {
         if (!record) {
             completionHandler(nullptr);
             return false;
@@ -569,7 +571,7 @@ void SpeculativeLoadManager::retrieveSubresourcesEntry(const Key& storageKey, WT
 {
     ASSERT(storageKey.type() == "Resource");
     auto subresourcesStorageKey = makeSubresourcesKey(storageKey, m_storage.salt());
-    m_storage.retrieve(subresourcesStorageKey, static_cast<unsigned>(ResourceLoadPriority::Medium), [completionHandler = WTFMove(completionHandler)](auto record) {
+    m_storage.retrieve(subresourcesStorageKey, static_cast<unsigned>(ResourceLoadPriority::Medium), [completionHandler = WTFMove(completionHandler)](auto record, auto timings) {
         if (!record) {
             completionHandler(nullptr);
             return false;

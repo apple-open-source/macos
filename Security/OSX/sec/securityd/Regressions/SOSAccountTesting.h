@@ -116,15 +116,6 @@ static inline SOSViewResultCode SOSAccountUpdateView_wTxn(SOSAccount* acct, CFSt
     return result;
 }
 
-static inline bool SOSAccountSetMyDSID_wTxn(SOSAccount* acct, CFStringRef dsid, CFErrorRef* error)
-{
-    __block bool result = false;
-    [acct performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-        result = SOSAccountSetMyDSID(txn, dsid, error);
-    }];
-    return result;
-}
-
 //
 // Account comparison
 //
@@ -137,12 +128,10 @@ static void SOSAccountResetToTest(SOSAccount* a, CFStringRef accountName) {
     SOSUnregisterTransportKeyParameter(a.key_transport);
     SOSUnregisterTransportCircle((SOSCircleStorageTransport*)a.circle_transport);
     SOSUnregisterTransportMessage((SOSMessage*)a.kvs_message_transport);
-    SOSUnregisterTransportMessage((SOSMessage*)a.ids_message_transport);
 
     if(key_transports)
         CFArrayRemoveAllValue(key_transports, (__bridge CFTypeRef)(a.key_transport));
     if(message_transports){
-        CFArrayRemoveAllValue(message_transports, (__bridge CFTypeRef)a.ids_message_transport);
         CFArrayRemoveAllValue(message_transports, (__bridge CFTypeRef)a.kvs_message_transport);
     }
     if(circle_transports)
@@ -150,7 +139,6 @@ static void SOSAccountResetToTest(SOSAccount* a, CFStringRef accountName) {
 
     a.circle_transport = nil;
     a.key_transport = nil;
-    a.ids_message_transport = nil;
     a.kvs_message_transport = nil;
 
     SOSAccountEnsureFactoryCirclesTest(a, accountName);
@@ -440,15 +428,6 @@ static bool FillAllChanges(CFMutableDictionaryRef changes) {
             }
             SOSTransportMessageTestClearChanges(tpt);
         }
-        else if([(__bridge SOSMessage*)value SOSTransportMessageGetTransportType] == kIDSTest){
-            SOSMessageIDSTest* ids = (__bridge SOSMessageIDSTest*) value;
-            CFDictionaryRemoveValue(SOSTransportMessageIDSTestGetChanges(ids), kCFNull);
-            if (AddNewChanges(changes, SOSTransportMessageIDSTestGetChanges(ids), SOSTransportMessageIDSTestGetAccount(ids))) {
-                changed |= true;
-                CFSetAddValue(changedAccounts, (__bridge CFTypeRef)(SOSTransportMessageIDSTestGetAccount(ids)));
-            }
-            SOSTransportMessageIDSTestClearChanges(ids);
-        }
     });
     
     secnotice("process-changes", "Accounts with change (%@): %@", changed ? CFSTR("YES") : CFSTR("NO"), changedAccounts);
@@ -481,14 +460,6 @@ static void FillChanges(CFMutableDictionaryRef changes, SOSAccount* forAccount)
                 CFDictionaryRemoveValue(SOSTransportMessageKVSTestGetChanges(tpt), kCFNull);
                 AddNewChanges(changes, SOSTransportMessageKVSTestGetChanges(tpt), SOSTransportMessageKVSTestGetAccount(tpt));
                 SOSTransportMessageTestClearChanges(tpt);
-            }
-        }
-        else{
-            SOSMessageIDSTest* tpt = (__bridge SOSMessageIDSTest*) value;
-            if(CFEqualSafe((__bridge CFTypeRef)(forAccount), (__bridge CFTypeRef)(SOSTransportMessageIDSTestGetAccount(tpt)))){
-                CFDictionaryRemoveValue(SOSTransportMessageIDSTestGetChanges(tpt), kCFNull);
-                AddNewChanges(changes, SOSTransportMessageIDSTestGetChanges(tpt), SOSTransportMessageIDSTestGetAccount(tpt));
-                SOSTransportMessageIDSTestClearChanges(tpt);
             }
         }
     });
@@ -674,11 +645,6 @@ static inline SOSAccount* CreateAccountForLocalChangesWithStartingAttributes(CFS
     
     CFMutableDictionaryRef testV2dict = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     CFDictionaryAddValue(testV2dict, sSerialNumberKey, serial);
-    CFDictionaryAddValue(testV2dict, sPreferIDS, preferIDS);
-    CFDictionaryAddValue(testV2dict, sPreferIDSFragmentation, preferIDSFragmentation);
-    CFDictionaryAddValue(testV2dict, sPreferIDSACKModel, preferIDSACKModel);
-    CFDictionaryAddValue(testV2dict, sTransportType, transportType);
-    CFDictionaryAddValue(testV2dict, sDeviceID, deviceID);
     SOSAccount* result = SOSAccountCreateTest(kCFAllocatorDefault, name, gestalt, factory);
     [result.trust updateV2Dictionary:result v2:testV2dict];
 
@@ -982,7 +948,7 @@ static inline bool SOSTestJoinThroughPiggyBack(CFDataRef cfpassword, CFStringRef
 
     is(ProcessChangesUntilNoChange(changes, approver, joiner, NULL), 2, "updates");
     
-    ok((retval = [joiner.trust isInCircle:NULL]), "Joiner is in");
+    ok((retval = [joiner isInCircle:NULL]), "Joiner is in");
     
     accounts_agree_internal("Successful join shows same circle view", joiner, approver, false);
     is(countPeers(joiner), expectedCount, "There should be %d valid peers", expectedCount);

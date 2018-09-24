@@ -16,4 +16,4 @@ install -g "$INSTALL_GROUP" -o "$INSTALL_OWNER" -m "$INSTALL_MODE_FLAG" \
 	./ncurses/menu/menu.h \
 	./ncurses/include/term_entry.h \
 	"$DSTROOT/usr/include"
-ln -s curses.h "$DSTROOT/usr/include/ncurses.h"
+ln -s -f curses.h "$DSTROOT/usr/include/ncurses.h"

@@ -30,7 +30,6 @@
 #include <wtf/win/GDIObject.h>
 
 #if USE(CG)
-#include <ApplicationServices/ApplicationServices.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #endif
 
@@ -97,7 +96,7 @@ static String createUniqueFontName()
     return fontName;
 }
 
-std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer)
+std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer, const String&)
 {
     String fontName = createUniqueFontName();
     HANDLE fontReference;

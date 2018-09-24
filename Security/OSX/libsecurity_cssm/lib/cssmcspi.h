@@ -36,7 +36,7 @@ extern "C" {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-typedef struct cssm_spi_csp_funcs {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_spi_csp_funcs {
     CSSM_RETURN (CSSMCSPI *EventNotify)
         (CSSM_CSP_HANDLE CSPHandle,
          CSSM_CONTEXT_EVENT Event,

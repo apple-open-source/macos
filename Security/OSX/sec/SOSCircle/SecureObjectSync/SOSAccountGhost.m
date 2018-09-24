@@ -135,6 +135,7 @@ CF_RETURNS_RETAINED SOSCircleRef SOSAccountCloneCircleWithoutMyGhosts(SOSAccount
                ![account.trust addiCloudIdentity:newCircle key:userPrivKey err:NULL]){
                 CFReleaseNull(newCircle);
             }
+            account.notifyBackupOnExit = true;
         } else {
             CFReleaseNull(newCircle);
         }

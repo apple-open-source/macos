@@ -14,6 +14,12 @@
 #include <Block_private.h>
 #include "test.h"
 
+#if __arm64__
+#   define HAVE_STRET 0
+#else
+#   define HAVE_STRET 1
+#endif
+
 typedef struct bigbig {
     int array[512];
 } BigStruct_t;
@@ -42,8 +48,13 @@ int main()
 
     testassert(! _Block_use_stret(local));
     testassert(! _Block_use_stret(global));
+#if HAVE_STRET
     testassert(_Block_use_stret(local_stret));
     testassert(_Block_use_stret(global_stret));
+#else
+    testassert(! _Block_use_stret(local_stret));
+    testassert(! _Block_use_stret(global_stret));
+#endif
 
     succeed(__FILE__);
 }

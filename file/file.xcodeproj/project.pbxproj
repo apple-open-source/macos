@@ -48,6 +48,8 @@
 /* Begin PBXBuildFile section */
 		3E4D7E221DB5630A006010F2 /* der.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EFE51051DB562C00065DB79 /* der.c */; };
 		3E4D7E231DB5630B006010F2 /* der.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EFE51051DB562C00065DB79 /* der.c */; };
+		3EF8DE3F208E62DC00D4AAD5 /* buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EF8DE3E208E62CC00D4AAD5 /* buffer.c */; };
+		3EF8DE40208E62F600D4AAD5 /* buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EF8DE3E208E62CC00D4AAD5 /* buffer.c */; };
 		FD52DB9519F09E8600ECE87F /* softmagic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083E10A91079007DD96A /* softmagic.c */; };
 		FD52DB9619F09E8800ECE87F /* readmacho.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083D10A91079007DD96A /* readmacho.c */; };
 		FD52DB9719F09E8B00ECE87F /* readelf.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083C10A91079007DD96A /* readelf.c */; };
@@ -124,6 +126,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		3EF8DE3E208E62CC00D4AAD5 /* buffer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = buffer.c; sourceTree = "<group>"; };
 		3EFE51051DB562C00065DB79 /* der.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = der.c; sourceTree = "<group>"; };
 		FD52DB8C19F09C8F00ECE87F /* file.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = file.xcconfig; sourceTree = "<group>"; };
 		FD52DB8D19F09C8F00ECE87F /* libmagic.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmagic.xcconfig; sourceTree = "<group>"; };
@@ -208,6 +211,7 @@
 		FD93084F10A9107C007DD96A /* src */ = {
 			isa = PBXGroup;
 			children = (
+				3EF8DE3E208E62CC00D4AAD5 /* buffer.c */,
 				3EFE51051DB562C00065DB79 /* der.c */,
 				FD9308A810A91805007DD96A /* magic.h */,
 				FD93082F10A91079007DD96A /* apprentice.c */,
@@ -380,6 +384,7 @@
 				FD93084810A91079007DD96A /* is_tar.c in Sources */,
 				FD93084910A91079007DD96A /* magic.c in Sources */,
 				FD93084A10A91079007DD96A /* print.c in Sources */,
+				3EF8DE40208E62F600D4AAD5 /* buffer.c in Sources */,
 				FD93084B10A91079007DD96A /* readcdf.c in Sources */,
 				FD93084C10A91079007DD96A /* readelf.c in Sources */,
 				FD93084D10A91079007DD96A /* readmacho.c in Sources */,
@@ -397,6 +402,7 @@
 				FD52DBA119F09EA100ECE87F /* cdf_time.c in Sources */,
 				FD52DBA019F09E9E00ECE87F /* cdf.c in Sources */,
 				FD52DB9F19F09E9C00ECE87F /* compress.c in Sources */,
+				3EF8DE3F208E62DC00D4AAD5 /* buffer.c in Sources */,
 				FD52DB9E19F09E9A00ECE87F /* encoding.c in Sources */,
 				FD52DB9D19F09E9800ECE87F /* fsmagic.c in Sources */,
 				FD52DB9C19F09E9600ECE87F /* funcs.c in Sources */,

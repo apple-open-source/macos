@@ -23,8 +23,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)output.c	1.16	06/08/22 SMI"
-
 /*
  * Routines for preparing tdata trees for conversion into CTF data, and
  * for placing the resulting data into an output file.
@@ -56,7 +54,6 @@ gelf_getsym_macho(Elf_Data * data, int ndx, int nent, GElf_Sym * dst, const char
 {
 	const struct nlist *nsym = ((const struct nlist *)(data->d_buf)) + ndx;
 	const char *name = base + nsym->n_un.n_strx;
-	char *tmp;
 
 	if (0 == nsym->n_un.n_strx) // iff a null, "", name.
 		name = "null name"; // return NULL;
@@ -101,7 +98,6 @@ gelf_getsym_macho_64(Elf_Data * data, int ndx, int nent, GElf_Sym * dst, const c
 {
 	const struct nlist_64 *nsym = ((const struct nlist_64 *)(data->d_buf)) + ndx;
 	const char *name = base + nsym->n_un.n_strx;
-	char *tmp;
 
 	if (0 == nsym->n_un.n_strx) // iff a null, "", name.
 		name = "null name"; // return NULL;
@@ -852,7 +848,7 @@ write_file_64(Elf *src, const char *srcname, Elf *dst, const char *dstname,
     caddr_t ctfdata, size_t ctfsize, int flags); /* Forward reference. */
 
 static void
-fill_ctf_segments(struct segment_command *seg, struct section *sect, uint32_t vmaddr, size_t size, uint32_t offset, int swap)
+fill_ctf_segments(struct segment_command *seg, struct section *sect, uint32_t vmaddr, size_t size, uint32_t offset)
 {
 	struct segment_command tmpseg = {
 		LC_SEGMENT, 
@@ -882,40 +878,40 @@ fill_ctf_segments(struct segment_command *seg, struct section *sect, uint32_t vm
 		0
 	};
 	
-	if (swap) {
-		__swap_segment_command(&tmpseg);
-		__swap_section(&tmpsect);
-	}
-
 	*seg = tmpseg;
 	*sect = tmpsect;
 }
+
+/*
+ * In CTF_MINIMIZE mode, the output file is stripped of the file data for
+ * all sections other than the symbol table and CTF data. The section headers
+ * remain with the original vmaddr, vmsize, but with filesize and offset zero.
+ * The type is changed to MH_DSYM to reflect this; this is required by other
+ * mach-o parsing code.
+ */
 
 void
 write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
     caddr_t ctfdata, size_t ctfsize, int flags)
 {
-	struct mach_header hdr, *mh = (struct mach_header *)src->ed_image;
+	struct mach_header *mh = (struct mach_header *)src->ed_image;
+	struct mach_header newhdr;
 	struct segment_command ctfseg_command;
 	struct section ctf_sect; 
 	struct segment_command *curcmd, *ctfcmd;
-	int fd, cmdsleft, swap = (MH_CIGAM == mh->magic);
+	struct symtab_command *symcmd = NULL;
+	int    minimize = (0 != (CTF_MINIMIZE & flags));
+	uint32_t origcmdcount;
+	uint64_t origcmdsize;
+	uint64_t ctfoffset;
+	uint32_t idx;
+	int size;
+	uint32_t thecmd;
+	int fd;
 	size_t sz;
 	char *p;
-	uint32_t ctf_vmaddr = 0, t;
+	uint64_t ctf_vmaddr = 0, t;
 
-	if (ELFCLASS64 == src->ed_class) {
-		write_file_64(src, srcname, dst, dstname, ctfdata, ctfsize, flags);
-		return;
-	}
-		
-	/* Swap mach header to host order so we can do arithmetic */
-	if (swap) { 
-		hdr = *mh;
-		mh = &hdr;
-		__swap_mach_header(mh);
-	}
-	
 	/* Get a pristine instance of the source mach-o */
 	if ((fd = open(srcname, O_RDONLY)) < 0)
 		terminate("%s: Cannot open for re-reading", srcname);
@@ -926,44 +922,42 @@ write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 	if ((char *)-1 == p)
 		terminate("%s: Cannot mmap for re-reading", srcname);
 		
-	if ((MH_MAGIC != ((struct mach_header *)p)->magic) && 
-			(MH_CIGAM != ((struct mach_header *)p)->magic))
+	if (MH_MAGIC != ((struct mach_header *)p)->magic)
 		terminate("%s: is not a thin (single architecture) mach-o binary.\n", srcname);
 
 	/* Iterate through load commands looking for CTF data */
 	ctfcmd = NULL;
-	cmdsleft = mh->ncmds;
-	curcmd = (struct segment_command *) (p + sizeof(struct mach_header));
-	
-	if (cmdsleft < 1)
-		terminate("%s: Has no load commands.\n", srcname);
-		
-	while (cmdsleft-- > 0) {
-		int size = curcmd->cmdsize;
-		uint32_t thecmd = curcmd->cmd;
+	origcmdcount = 0;
+	origcmdsize  = 0;
 
-		if (swap) {
-			SWAP32(size);
-			SWAP32(thecmd);
-		}
-		
+	for (idx = 0, curcmd = (struct segment_command *) (p + sizeof(struct mach_header));
+		 idx < mh->ncmds;
+		 idx++, curcmd = (struct segment_command *) (((char *)curcmd) + size)) {
+		size = curcmd->cmdsize;
+		thecmd = curcmd->cmd;
+		int copy = 0;
+
 		if (LC_SEGMENT == thecmd) {
-			uint32_t vmaddr = curcmd->vmaddr;
-			uint32_t vmsize = curcmd->vmsize;
-			if (swap) {
-				SWAP32(vmaddr);
-				SWAP32(vmsize);
-			}
+			uint64_t vmaddr = curcmd->vmaddr;
+			uint64_t vmsize = curcmd->vmsize;
 			t = vmaddr + vmsize;
 			if (t > ctf_vmaddr)
 				ctf_vmaddr = t;
+			if (!strcmp(curcmd->segname, SEG_CTF)) {
+				ctfcmd = curcmd;
+			}
+			copy = 1;
+		} else if (LC_SYMTAB == thecmd) {
+			copy = 1;
+			symcmd = (struct symtab_command *) curcmd;
+		} else if (LC_UUID == thecmd) {
+			copy = 1;
 		}
-			
-		if ((LC_SEGMENT == thecmd) && (!strcmp(curcmd->segname, SEG_CTF))) {
-			ctfcmd = curcmd;
+
+		if (copy || !minimize) {
+			origcmdcount++;
+			origcmdsize += size;
 		}
-		
-		curcmd = (struct segment_command *) (((char *)curcmd) + size);
 	}
 
 	ctf_vmaddr = (ctf_vmaddr + getpagesize() - 1) & (~(getpagesize() - 1)); // page aligned
@@ -971,7 +965,7 @@ write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 	if (ctfcmd) {
 		/* CTF segment command exists: overwrite it */
 		fill_ctf_segments(&ctfseg_command, &ctf_sect, 
-			((struct segment_command *)ctfcmd)->vmaddr, ctfsize, sz /* file offset */, swap);
+			((struct segment_command *)curcmd)->vmaddr, ctfsize, sz /* file offset */);
 
 		write(dst->ed_fd, p, sz); // byte-for-byte copy of input mach-o file
 		write(dst->ed_fd, ctfdata, ctfsize); // append CTF 
@@ -980,49 +974,100 @@ write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 		write(dst->ed_fd, &ctfseg_command, sizeof(ctfseg_command)); // lay down CTF_SEG
 		write(dst->ed_fd, &ctf_sect, sizeof(ctf_sect)); // lay down CTF_SECT
 	} else { 
+		struct symtab_command tmpsymcmd;
 		int cmdlength, dataoffset, datalength;
-		int ctfhdrsz = (sizeof(ctfseg_command) + sizeof(ctf_sect));
+		int ctfhdrsz = sizeof(ctfseg_command) + sizeof(ctf_sect);
 
-		cmdlength = mh->sizeofcmds; // where to write CTF seg/sect
 		dataoffset = sizeof(*mh) + mh->sizeofcmds; // where all real data starts
 		datalength = src->ed_imagesz - dataoffset;
 
+		cmdlength = origcmdsize;
+		cmdlength += ctfhdrsz;
+
+		newhdr = *mh;
+		newhdr.sizeofcmds = cmdlength;
 		/* Add one segment command to header */
-		mh->sizeofcmds += ctfhdrsz; 
-		mh->ncmds++;
-		/* 
-		 * Chop the first ctfhdrsz bytes out of the generic data so
-		 * that all the internal offsets stay the same
-		 * (required for ELF parsing)
-		 * FIXME: This isn't pretty.
-		 */
-		dataoffset += ctfhdrsz;
-		datalength -= ctfhdrsz;
+		newhdr.ncmds = origcmdcount + 1;
 
-		fill_ctf_segments(&ctfseg_command, &ctf_sect, ctf_vmaddr, ctfsize, 
-			(sizeof(*mh) + cmdlength + ctfhdrsz + datalength) /* file offset */, 
-			swap);
-
-		if (swap) {
-			__swap_mach_header(mh);
+		if (symcmd) {
+			tmpsymcmd = *symcmd;
+		} else {
+			bzero(&tmpsymcmd, sizeof(tmpsymcmd));
+		}
+		if (minimize) {
+			newhdr.filetype  = MH_DSYM;
+			tmpsymcmd.symoff = sizeof(*mh) + cmdlength;
+			tmpsymcmd.stroff = tmpsymcmd.symoff + tmpsymcmd.nsyms * sizeof(struct nlist);
+			ctfoffset        = tmpsymcmd.stroff + tmpsymcmd.strsize;
+		} else {
+			tmpsymcmd.symoff += ctfhdrsz;
+			tmpsymcmd.stroff += ctfhdrsz;
+			ctfoffset         = ctfhdrsz + dataoffset + datalength;
 		}
 
-		write(dst->ed_fd, mh, sizeof(*mh));
-		write(dst->ed_fd, p + sizeof(*mh), cmdlength); 
+		fill_ctf_segments(&ctfseg_command, &ctf_sect, ctf_vmaddr, ctfsize, ctfoffset);
+
+		write(dst->ed_fd, &newhdr, sizeof(newhdr));
+
+		for (idx = 0, curcmd = (struct segment_command *) (p + sizeof(struct mach_header));
+			 idx < mh->ncmds;
+			 idx++, curcmd = (struct segment_command *) (((char *)curcmd) + size)) {
+			size = curcmd->cmdsize;
+			thecmd = curcmd->cmd;
+
+			if (LC_SEGMENT == thecmd) {
+				struct segment_command tmpcmd;
+				tmpcmd = *curcmd;
+				if (minimize) {
+					tmpcmd.filesize = 0;
+					tmpcmd.fileoff  = 0;
+				} else {
+					tmpcmd.filesize += ctfhdrsz;
+					tmpcmd.fileoff  += ctfhdrsz;
+				}
+				write(dst->ed_fd, &tmpcmd, sizeof(tmpcmd));
+
+				struct section * sects = (struct section *)(curcmd + 1);
+				for (int i = 0; i < curcmd->nsects; i++) {
+					struct section tmpsect;
+					tmpsect = sects[i];
+					if (minimize) {
+						tmpsect.offset = 0;
+						tmpsect.reloff = 0;
+						tmpsect.nreloc = 0;
+					} else {
+						tmpsect.offset += ctfhdrsz;
+						if (tmpsect.reloff) {
+							tmpsect.reloff += ctfhdrsz;
+						}
+					}
+					write(dst->ed_fd, &tmpsect, sizeof(tmpsect));
+				}
+			} else if (LC_SYMTAB == thecmd) {
+				write(dst->ed_fd, &tmpsymcmd, sizeof(tmpsymcmd));
+			} else if (!minimize || (LC_UUID == thecmd)) {
+				write(dst->ed_fd, curcmd, size);
+			}
+		}
 		write(dst->ed_fd, &ctfseg_command, sizeof(ctfseg_command));
 		write(dst->ed_fd, &ctf_sect, sizeof(ctf_sect));
-		write(dst->ed_fd, p + dataoffset, datalength); 
+		if (minimize) {
+			write(dst->ed_fd, p + symcmd->symoff, symcmd->nsyms * sizeof(struct nlist));
+			write(dst->ed_fd, p + symcmd->stroff, symcmd->strsize);
+		} else {
+			write(dst->ed_fd, p + dataoffset, datalength);
+		}
 		write(dst->ed_fd, ctfdata, ctfsize);
 	}
-	
+
 	(void)munmap(p, sz);
 	(void)close(fd);
-	
+
 	return;
 }
 
 static void
-fill_ctf_segments_64(struct segment_command_64 *seg, struct section_64 *sect, uint64_t vmaddr, size_t size, uint32_t offset, int swap)
+fill_ctf_segments_64(struct segment_command_64 *seg, struct section_64 *sect, uint64_t vmaddr, size_t size, uint32_t offset)
 {
 	struct segment_command_64 tmpseg = {
 		LC_SEGMENT_64,
@@ -1052,11 +1097,6 @@ fill_ctf_segments_64(struct segment_command_64 *seg, struct section_64 *sect, ui
 		0
 	};
 	
-	if (swap) {
-		__swap_segment_command_64(&tmpseg);
-		__swap_section_64(&tmpsect);
-	}
-
 	*seg = tmpseg;
 	*sect = tmpsect;
 }
@@ -1065,22 +1105,24 @@ static void
 write_file_64(Elf *src, const char *srcname, Elf *dst, const char *dstname,
     caddr_t ctfdata, size_t ctfsize, int flags)
 {
-	struct mach_header_64 hdr, *mh = (struct mach_header_64 *)src->ed_image;
+	struct mach_header_64 *mh = (struct mach_header_64 *)src->ed_image;
+	struct mach_header_64 newhdr;
 	struct segment_command_64 ctfseg_command;
 	struct section_64 ctf_sect; 
 	struct segment_command_64 *curcmd, *ctfcmd;
-	int fd, cmdsleft, swap = (MH_CIGAM_64 == mh->magic);
+	struct symtab_command *symcmd;
+	int    minimize = (0 != (CTF_MINIMIZE & flags));
+	uint32_t origcmdcount;
+	uint64_t origcmdsize;
+	uint64_t ctfoffset;
+	uint32_t idx;
+	int size;
+	uint32_t thecmd;
+	int fd;
 	size_t sz;
 	char *p;
 	uint64_t ctf_vmaddr = 0, t;
 
-	/* Swap mach header to host order so we can do arithmetic */
-	if (swap) { 
-		hdr = *mh;
-		mh = &hdr;
-		__swap_mach_header_64(mh);
-	}
-	
 	/* Get a pristine instance of the source mach-o */
 	if ((fd = open(srcname, O_RDONLY)) < 0)
 		terminate("%s: Cannot open for re-reading", srcname);
@@ -1091,52 +1133,50 @@ write_file_64(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 	if ((char *)-1 == p)
 		terminate("%s: Cannot mmap for re-reading", srcname);
 		
-	if ((MH_MAGIC_64 != ((struct mach_header *)p)->magic) && 
-			(MH_CIGAM_64 != ((struct mach_header *)p)->magic))
+	if (MH_MAGIC_64 != ((struct mach_header *)p)->magic)
 		terminate("%s: is not a thin (single architecture) mach-o binary.\n", srcname);
 
 	/* Iterate through load commands looking for CTF data */
 	ctfcmd = NULL;
-	cmdsleft = mh->ncmds;
-	curcmd = (struct segment_command_64 *) (p + sizeof(struct mach_header_64));
-	
-	if (cmdsleft < 1)
-		terminate("%s: Has no load commands.\n", srcname);
-		
-	while (cmdsleft-- > 0) {
-		int size = curcmd->cmdsize;
-		uint32_t thecmd = curcmd->cmd;
-		
-		if (swap) {
-			SWAP32(size);
-			SWAP32(thecmd);
-		}
-		
+	origcmdcount = 0;
+	origcmdsize  = 0;
+
+	for (idx = 0, curcmd = (struct segment_command_64 *) (p + sizeof(struct mach_header_64));
+		 idx < mh->ncmds;
+		 idx++, curcmd = (struct segment_command_64 *) (((char *)curcmd) + size)) {
+		size = curcmd->cmdsize;
+		thecmd = curcmd->cmd;
+		int copy = 0;
+
 		if (LC_SEGMENT_64 == thecmd) {
 			uint64_t vmaddr = curcmd->vmaddr;
 			uint64_t vmsize = curcmd->vmsize;
-			if (swap) {
-				SWAP64(vmaddr);
-				SWAP64(vmsize);
-			}
 			t = vmaddr + vmsize;
 			if (t > ctf_vmaddr)
 				ctf_vmaddr = t;
+			if (!strcmp(curcmd->segname, SEG_CTF)) {
+				ctfcmd = curcmd;
+			}
+			copy = 1;
+		} else if (LC_SYMTAB == thecmd) {
+			copy = 1;
+			symcmd = (struct symtab_command *) curcmd;
+		} else if (LC_UUID == thecmd) {
+			copy = 1;
 		}
 
-		if ((LC_SEGMENT_64 == thecmd) && (!strcmp(curcmd->segname, SEG_CTF))) {
-			ctfcmd = curcmd;
+		if (copy || !minimize) {
+			origcmdcount++;
+			origcmdsize += size;
 		}
-		
-		curcmd = (struct segment_command_64 *) (((char *)curcmd) + size);
 	}
-	
+
 	ctf_vmaddr = (ctf_vmaddr + getpagesize() - 1) & (~(getpagesize() - 1)); // page aligned
 
 	if (ctfcmd) {
 		/* CTF segment command exists: overwrite it */
 		fill_ctf_segments_64(&ctfseg_command, &ctf_sect, 
-			((struct segment_command_64 *)curcmd)->vmaddr, ctfsize, sz /* file offset */, swap);
+			((struct segment_command_64 *)curcmd)->vmaddr, ctfsize, sz /* file offset */);
 
 		write(dst->ed_fd, p, sz); // byte-for-byte copy of input mach-o file
 		write(dst->ed_fd, ctfdata, ctfsize); // append CTF 
@@ -1145,44 +1185,95 @@ write_file_64(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 		write(dst->ed_fd, &ctfseg_command, sizeof(ctfseg_command)); // lay down CTF_SEG
 		write(dst->ed_fd, &ctf_sect, sizeof(ctf_sect)); // lay down CTF_SECT
 	} else { 
+		struct symtab_command tmpsymcmd;
 		int cmdlength, dataoffset, datalength;
-		int ctfhdrsz = (sizeof(ctfseg_command) + sizeof(ctf_sect));
+		int ctfhdrsz = sizeof(ctfseg_command) + sizeof(ctf_sect);
 
-		cmdlength = mh->sizeofcmds; // where to write CTF seg/sect
 		dataoffset = sizeof(*mh) + mh->sizeofcmds; // where all real data starts
 		datalength = src->ed_imagesz - dataoffset;
 
+		cmdlength = origcmdsize;
+		cmdlength += ctfhdrsz;
+
+		newhdr = *mh;
+		newhdr.sizeofcmds = cmdlength;
 		/* Add one segment command to header */
-		mh->sizeofcmds += ctfhdrsz; 
-		mh->ncmds++;
-		/* 
-		 * Chop the first ctfhdrsz bytes out of the generic data so
-		 * that all the internal offsets stay the same
-		 * (required for ELF parsing)
-		 * FIXME: This isn't pretty.
-		 */
-		dataoffset += ctfhdrsz;
-		datalength -= ctfhdrsz;
+		newhdr.ncmds = origcmdcount + 1;
 
-		fill_ctf_segments_64(&ctfseg_command, &ctf_sect, ctf_vmaddr, ctfsize, 
-			(sizeof(*mh) + cmdlength + ctfhdrsz + datalength) /* file offset */, 
-			swap);
-
-		if (swap) {
-			__swap_mach_header_64(mh);
+		if (symcmd) {
+			tmpsymcmd = *symcmd;
+		} else {
+			bzero(&tmpsymcmd, sizeof(tmpsymcmd));
+		}
+		if (minimize) {
+			newhdr.filetype  = MH_DSYM;
+			tmpsymcmd.symoff = sizeof(*mh) + cmdlength;
+			tmpsymcmd.stroff = tmpsymcmd.symoff + tmpsymcmd.nsyms * sizeof(struct nlist_64);
+			ctfoffset        = tmpsymcmd.stroff + tmpsymcmd.strsize;
+		} else {
+			tmpsymcmd.symoff += ctfhdrsz;
+			tmpsymcmd.stroff += ctfhdrsz;
+			ctfoffset         = ctfhdrsz + dataoffset + datalength;
 		}
 
-		write(dst->ed_fd, mh, sizeof(*mh));
-		write(dst->ed_fd, p + sizeof(*mh), cmdlength); 
+		fill_ctf_segments_64(&ctfseg_command, &ctf_sect, ctf_vmaddr, ctfsize, ctfoffset);
+
+		write(dst->ed_fd, &newhdr, sizeof(newhdr));
+
+		for (idx = 0, curcmd = (struct segment_command_64 *) (p + sizeof(struct mach_header_64));
+			 idx < mh->ncmds;
+			 idx++, curcmd = (struct segment_command_64 *) (((char *)curcmd) + size)) {
+			size = curcmd->cmdsize;
+			thecmd = curcmd->cmd;
+
+			if (LC_SEGMENT_64 == thecmd) {
+				struct segment_command_64 tmpcmd;
+				tmpcmd = *curcmd;
+				if (minimize) {
+					tmpcmd.filesize = 0;
+					tmpcmd.fileoff  = 0;
+				} else {
+					tmpcmd.filesize += ctfhdrsz;
+					tmpcmd.fileoff  += ctfhdrsz;
+				}
+				write(dst->ed_fd, &tmpcmd, sizeof(tmpcmd));
+
+				struct section_64 * sects = (struct section_64 *)(curcmd + 1);
+				for (int i = 0; i < curcmd->nsects; i++) {
+					struct section_64 tmpsect;
+					tmpsect = sects[i];
+					if (minimize) {
+						tmpsect.offset = 0;
+						tmpsect.reloff = 0;
+						tmpsect.nreloc = 0;
+					} else {
+						tmpsect.offset += ctfhdrsz;
+						if (tmpsect.reloff) {
+							tmpsect.reloff += ctfhdrsz;
+						}
+					}
+					write(dst->ed_fd, &tmpsect, sizeof(tmpsect));
+				}
+			} else if (LC_SYMTAB == thecmd) {
+				write(dst->ed_fd, &tmpsymcmd, sizeof(tmpsymcmd));
+			} else if (!minimize || (LC_UUID == thecmd)) {
+				write(dst->ed_fd, curcmd, size);
+			}
+		}
 		write(dst->ed_fd, &ctfseg_command, sizeof(ctfseg_command));
 		write(dst->ed_fd, &ctf_sect, sizeof(ctf_sect));
-		write(dst->ed_fd, p + dataoffset, datalength); 
+		if (minimize) {
+			write(dst->ed_fd, p + symcmd->symoff, symcmd->nsyms * sizeof(struct nlist_64));
+			write(dst->ed_fd, p + symcmd->stroff, symcmd->strsize);
+		} else {
+			write(dst->ed_fd, p + dataoffset, datalength);
+		}
 		write(dst->ed_fd, ctfdata, ctfsize);
 	}
-	
+
 	(void)munmap(p, sz);
 	(void)close(fd);
-	
+
 	return;
 }
 
@@ -1227,8 +1318,6 @@ write_ctf(tdata_t *td, const char *curname, const char *newname, int flags)
 
 #if defined(__APPLE__)
 	if (ELFCLASS32 == elf->ed_class) {
-		struct mach_header *mh = (struct mach_header *)elf->ed_image;
-
 		data = make_ctf_data(td, elf, curname, &len, flags);
 		if (flags & CTF_RAW_OUTPUT) {
 			if (write(tfd, data, len) != len) {
@@ -1239,8 +1328,6 @@ write_ctf(tdata_t *td, const char *curname, const char *newname, int flags)
 			write_file(elf, curname, telf, newname, data, len, flags);
 		}
 	} else if (ELFCLASS64 == elf->ed_class) {
-		struct mach_header_64 *mh_64 = (struct mach_header_64 *)elf->ed_image;
-
 		data = make_ctf_data(td, elf, curname, &len, flags);
 		if (flags & CTF_RAW_OUTPUT) {
 			if (write(tfd, data, len) != len) {

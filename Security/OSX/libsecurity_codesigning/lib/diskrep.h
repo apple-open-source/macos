@@ -82,6 +82,8 @@ public:
 	virtual void flush();									// flush caches (refetch as needed)
     virtual CFDictionaryRef diskRepInformation();           // information from diskrep
 
+	virtual void registerStapledTicket();
+
 	// default values for signing operations
 	virtual std::string recommendedIdentifier(const SigningContext &ctx) = 0; // default identifier
 	virtual CFDictionaryRef defaultResourceRules(const SigningContext &ctx); // default resource rules [none]
@@ -91,6 +93,8 @@ public:
 
 	virtual void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags); // perform strict validation
 	virtual CFArrayRef allowedResourceOmissions();			// allowed (default) resource omission rules
+
+	virtual bool appleInternalForcePlatform() const {return false;};
 
 	bool mainExecutableIsMachO() { return mainExecutableImage() != NULL; }
 
@@ -186,10 +190,18 @@ public:
 	void signature(CFDataRef data)			{ component(cdSignatureSlot, data); }
 	void codeDirectory(const CodeDirectory *cd, CodeDirectory::SpecialSlot slot)
 		{ component(slot, CFTempData(cd->data(), cd->length())); }
-	
+
+#if TARGET_OS_OSX
+	bool getPreserveAFSC()					{ return mPreserveAFSC; }
+	void setPreserveAFSC(bool flag)			{ mPreserveAFSC = flag; }
+#endif
+
 private:
 	Architecture mArch;
 	uint32_t mAttributes;
+#if TARGET_OS_OSX
+	bool mPreserveAFSC = false; // preserve AFSC compression
+#endif
 };
 
 //

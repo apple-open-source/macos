@@ -88,6 +88,7 @@ es_CA{
                     M{"MM-dd – MM-dd"}
                     d{"MM-dd – MM-dd"}
                 }
+                fallback{"{0} – {1}"}
                 yM{
                     M{"GGGGG y-MM – y-MM"}
                     y{"GGGGG y-MM – y-MM"}

@@ -20,8 +20,8 @@
 
 #include <Security/SecItem.h>
 
-#include <CoreFoundation/CFNumber.h>
-#include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFPriv.h>
 
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
@@ -48,16 +48,6 @@
 
 
 #include <Security/SecPasswordGenerate.h>
-
-/* Copied from CFPriv.h */
-// #include <CoreFoundation/CFPriv.h>
-
-CF_EXPORT CFDictionaryRef _CFCopySystemVersionDictionary(void);
-CF_EXPORT const CFStringRef _kCFSystemVersionProductNameKey;
-CF_EXPORT const CFStringRef _kCFSystemVersionProductVersionKey;
-CF_EXPORT const CFStringRef _kCFSystemVersionBuildVersionKey;
-
-
 
 static char *CFDictionaryCopyCStringWithDefault(CFDictionaryRef dict, const void *key, char *defaultString) {
     char *retval = NULL;

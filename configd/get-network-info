@@ -427,6 +427,7 @@ collect_configuration_files () {
 		/Library/Preferences/com.apple.networkextension.control.plist			\
 		/Library/Preferences/com.apple.networkextension.necp.plist			\
 		/Library/Preferences/com.apple.networkextension.cache.plist			\
+		/Library/Preferences/com.apple.networkextension.uuidcache.plist			\
 		/Library/Preferences/SystemConfiguration/com.apple.nat.plist			\
 		/Library/Preferences/SystemConfiguration/com.apple.RemoteAccessServers.plist	\
 		/Library/Preferences/SystemConfiguration/com.apple.smb.server.plist		\

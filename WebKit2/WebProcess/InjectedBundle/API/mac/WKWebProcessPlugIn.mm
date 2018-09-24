@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,10 +28,12 @@
 
 #if WK_API_ENABLED
 
+#import "APIArray.h"
 #import "WKConnectionInternal.h"
 #import "WKBundle.h"
 #import "WKBundleAPICast.h"
 #import "WKRetainPtr.h"
+#import "WKStringCF.h"
 #import "WKWebProcessPlugInBrowserContextControllerInternal.h"
 #import <wtf/RetainPtr.h>
 
@@ -54,7 +56,7 @@ using namespace WebKit;
 
 static void didCreatePage(WKBundleRef bundle, WKBundlePageRef page, const void* clientInfo)
 {
-    WKWebProcessPlugInController *plugInController = (WKWebProcessPlugInController *)clientInfo;
+    auto plugInController = (__bridge WKWebProcessPlugInController *)clientInfo;
     id <WKWebProcessPlugIn> principalClassInstance = plugInController->_principalClassInstance.get();
 
     if ([principalClassInstance respondsToSelector:@selector(webProcessPlugIn:didCreateBrowserContextController:)])
@@ -63,7 +65,7 @@ static void didCreatePage(WKBundleRef bundle, WKBundlePageRef page, const void* 
 
 static void willDestroyPage(WKBundleRef bundle, WKBundlePageRef page, const void* clientInfo)
 {
-    WKWebProcessPlugInController *plugInController = (WKWebProcessPlugInController *)clientInfo;
+    auto plugInController = (__bridge WKWebProcessPlugInController *)clientInfo;
     id <WKWebProcessPlugIn> principalClassInstance = plugInController->_principalClassInstance.get();
 
     if ([principalClassInstance respondsToSelector:@selector(webProcessPlugIn:willDestroyBrowserContextController:)])
@@ -76,7 +78,7 @@ static void setUpBundleClient(WKWebProcessPlugInController *plugInController, In
     memset(&bundleClient, 0, sizeof(bundleClient));
 
     bundleClient.base.version = 1;
-    bundleClient.base.clientInfo = plugInController;
+    bundleClient.base.clientInfo = (__bridge void*)plugInController;
     bundleClient.didCreatePage = didCreatePage;
     bundleClient.willDestroyPage = willDestroyPage;
 
@@ -99,6 +101,26 @@ static void setUpBundleClient(WKWebProcessPlugInController *plugInController, In
 - (id)parameters
 {
     return _bundle->bundleParameters();
+}
+
+static Ref<API::Array> createWKArray(NSArray *array)
+{
+    NSUInteger count = [array count];
+    Vector<RefPtr<API::Object>> strings;
+    strings.reserveInitialCapacity(count);
+    
+    for (id entry in array) {
+        if ([entry isKindOfClass:[NSString class]])
+            strings.uncheckedAppend(adoptRef(toImpl(WKStringCreateWithCFString((__bridge CFStringRef)entry))));
+    }
+    
+    return API::Array::create(WTFMove(strings));
+}
+
+- (void)extendClassesForParameterCoder:(NSArray *)classes
+{
+    auto classList = createWKArray(classes);
+    _bundle->extendClassesForParameterCoder(classList.get());
 }
 
 #pragma mark WKObject protocol implementation

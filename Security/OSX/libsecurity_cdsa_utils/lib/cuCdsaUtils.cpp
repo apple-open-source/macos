@@ -502,7 +502,7 @@ CSSM_RETURN cuCspGenKeyPair(CSSM_CSP_HANDLE cspHand,
 	CSSM_CC_HANDLE 			ccHand;
 	CSSM_DATA				keyLabelData;
 	
-	keyLabelData.Data        = (uint8 *)keyLabel,
+	keyLabelData.Data        = (uint8 *)keyLabel;
 	keyLabelData.Length      = keyLabelLen;
 	memset(pubKey, 0, sizeof(CSSM_KEY));
 	memset(privKey, 0, sizeof(CSSM_KEY));

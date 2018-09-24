@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,8 +56,9 @@
 #include <CoreFoundation/CFMachPort.h>
 #include <CoreFoundation/CFRunLoop.h>
 #if TARGET_OS_EMBEDDED
-#include <CoreTelephony/CTServerConnectionPriv.h>
+#include <CoreTelephony/CTSimSupportStrings.h>
 #include <MobileWiFi/MobileWiFi.h>
+#include "SIMAccessPrivate.h"
 #endif
 #include <SystemConfiguration/SCDPlugin.h>
 #include <TargetConditionals.h>
@@ -154,8 +155,8 @@ is_console_user(uid_t check_uid)
     return (TRUE);
 }
 
-static CTServerConnectionRef	S_ct_server_conn = NULL;
-static Boolean			S_wifi_power_state;
+static CFTypeRef        S_SIMAccessConnection = NULL;
+static Boolean          S_wifi_power_state;
 
 #else /* TARGET_OS_EMBEDDED */
 
@@ -1746,20 +1747,8 @@ accept_types_valid_aka_or_sim(CFArrayRef accept)
 }
 
 void
-sim_status_changed(CTServerConnectionRef connection,
-						 CFStringRef notification,
-						 CFDictionaryRef notification_info,
-						 void * info)
+sim_status_changed(CFTypeRef connection, CFStringRef status, void * info)
 {
-    if (notification == NULL || notification_info == NULL) {
-	return;
-    }
-    if (CFEqual(notification,
-                kCTSIMSupportSIMStatusChangeNotification) == FALSE) {
-	return;
-    }
-    CFStringRef status = (CFStringRef)CFDictionaryGetValue(notification_info,
-                                                           kCTSIMSupportSIMStatus);
     if (status == NULL) {
 	return;
     }
@@ -1767,26 +1756,26 @@ sim_status_changed(CTServerConnectionRef connection,
 	return;
     }
     EAPLOG_FL(LOG_INFO, "SIM card ejected");
-	eapolClientRef	client;
-	LIST_FOREACH(client, S_clientHead_p, link) {
-    if (client->state == kEAPOLControlStateStarting ||
-		client->state == kEAPOLControlStateRunning) {
-	CFDictionaryRef cli_config = NULL;
+    eapolClientRef	client;
+    LIST_FOREACH(client, S_clientHead_p, link) {
+	if (client->state == kEAPOLControlStateStarting ||
+	    client->state == kEAPOLControlStateRunning) {
+	    CFDictionaryRef cli_config = NULL;
 
-	cli_config = CFDictionaryGetValue(client->config_dict,
-					  kEAPOLControlEAPClientConfiguration);
-	if (isA_CFDictionary(cli_config) != NULL) {
-	    CFArrayRef accept_types = NULL;
+	    cli_config = CFDictionaryGetValue(client->config_dict,
+					      kEAPOLControlEAPClientConfiguration);
+	    if (isA_CFDictionary(cli_config) != NULL) {
+		CFArrayRef accept_types = NULL;
                                                 
-	    accept_types = CFDictionaryGetValue(cli_config,
-						kEAPClientPropAcceptEAPTypes);
-	    if (accept_types_valid_aka_or_sim(accept_types) == TRUE) {
-		/* stop the eapolclient */
-		EAPLOG_FL(LOG_NOTICE, "stopping eapolclient.");
-		eapolClientStop(client);
+		accept_types = CFDictionaryGetValue(cli_config,
+						    kEAPClientPropAcceptEAPTypes);
+		if (accept_types_valid_aka_or_sim(accept_types) == TRUE) {
+		    /* stop the eapolclient */
+		    EAPLOG_FL(LOG_NOTICE, "stopping eapolclient.");
+		    eapolClientStop(client);
+		}
 	    }
 	}
-   }
    }
 
    /* increment the geration ID in SC prefs so eapclient would know
@@ -1817,27 +1806,11 @@ handle_wifi_switch_toggle(WiFiDeviceClientRef device, void *refcon)
 static void
 register_sim_removal(void)
 {
-    CTError 			cterr;
-    _CTServerConnectionContext	ctx = {	0, NULL, NULL, NULL, NULL };
-
-	S_ct_server_conn = _CTServerConnectionCreate(NULL,
-						 sim_status_changed,
-						 &ctx);
-    if (S_ct_server_conn == NULL) {
-	EAPLOG_FL(LOG_NOTICE,
-		  "_CTServerConnectionCreate failed.");
-	return;
+    S_SIMAccessConnection = _SIMAccessConnectionCreate();
+    if (S_SIMAccessConnection) {
+	_SIMAccessConnectionRegisterForNotification(S_SIMAccessConnection, sim_status_changed, NULL,
+						    CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
     }
-    cterr = _CTServerConnectionRegisterForNotification(S_ct_server_conn,
-						       kCTSIMSupportSIMStatusChangeNotification);
-    if (cterr.error) {
-	EAPLOG_FL(LOG_NOTICE,
-		  "_CTServerConnectionRegisterForNotification failed with "
-		  "error: %d", (int)cterr.error);
-	CFRelease(S_ct_server_conn);
-	S_ct_server_conn = NULL;
-    }
-    _CTServerConnectionAddToRunLoop(S_ct_server_conn, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
     return;
 }
 

@@ -65,7 +65,7 @@ add_stack_to_ptr(szone_t *szone, size_t requested_size, void *ptr)
 	__malloc_unlock_stack_logging();
 	
 	if (stack_id == __invalid_stack_id) {
-		malloc_printf("bad stack id. turning off stack logging\n");
+		malloc_report(ASL_LEVEL_ERR, "bad stack id. turning off stack logging\n");
 		turn_off_stack_logging();
 	} else {
 		set_stack_id_in_ptr(ptr, requested_size, ptr_size, stack_id);
@@ -110,7 +110,7 @@ stack_logging_lite_malloc(malloc_zone_t *zone, size_t size)
 		num_mallocs++;
 		
 		if (max_lite_mallocs > 0 && num_mallocs > max_lite_mallocs) {
-			malloc_printf("lite allocations exceeded limit. disabling lite mode\n");
+			malloc_report(ASL_LEVEL_ERR, "lite allocations exceeded limit. disabling lite mode\n");
 			disable_stack_logging_lite();
 		}
 	} else {
@@ -127,34 +127,16 @@ stack_logging_lite_calloc(struct _malloc_zone_t *zone, size_t num_items, size_t 
 	void *p = NULL;
 	
 	if (stack_logging_lite_enabled) {
-		size_t total_bytes = (num_items * size) + sizeof(malloc_stack_id);
+		size_t total_bytes;
 		
-		if (num_items > 1) {
-			
-#if __LP64__ /* size_t is uint64_t */
-			if ((num_items | size) & 0xffffffff00000000ul) {
-				// num_items or size equals or exceeds sqrt(2^64) == 2^32, appeal to wider arithmetic
-				__uint128_t product = (((__uint128_t)num_items) * ((__uint128_t)size)) + sizeof(malloc_stack_id);
-				if ((uint64_t)(product >> 64)) { // compiles to test on upper register of register pair
-					return NULL;
-				}
-			}
-#else /* size_t is uint32_t */
-			if ((num_items | size) & 0xffff0000ul) {
-				// num_items or size equals or exceeds sqrt(2^32) == 2^16, appeal to wider arithmetic
-				uint64_t product = ((uint64_t)num_items) * ((uint64_t)size) + sizeof(malloc_stack_id);;
-				if ((uint32_t)(product >> 32)) { // compiles to test on upper register of register pair
-					return NULL;
-				}
-			}
-#endif
-			
+		if (calloc_get_size(num_items, size, sizeof(malloc_stack_id), &total_bytes)) {
+			return NULL;
 		}
 		
 		p = szone_malloc_should_clear(szone, total_bytes, 1);
 		
 		if (p) {
-			add_stack_to_ptr(szone, num_items * size, p);
+			add_stack_to_ptr(szone, total_bytes - sizeof(malloc_stack_id), p);
 		}
 	} else {
 		p = szone->helper_zone->basic_zone.calloc((malloc_zone_t *) szone->helper_zone, num_items, size);

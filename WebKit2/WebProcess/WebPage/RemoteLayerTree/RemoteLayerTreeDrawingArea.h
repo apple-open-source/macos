@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,7 +45,7 @@ namespace WebKit {
 class RemoteLayerTreeContext;
 class RemoteLayerTreeDisplayRefreshMonitor;
 
-class RemoteLayerTreeDrawingArea : public DrawingArea, public WebCore::GraphicsLayerClient {
+class RemoteLayerTreeDrawingArea : public DrawingArea, public CanMakeWeakPtr<RemoteLayerTreeDrawingArea>, public WebCore::GraphicsLayerClient {
     friend class RemoteLayerTreeDisplayRefreshMonitor;
 public:
     RemoteLayerTreeDrawingArea(WebPage&, const WebPageCreationParameters&);
@@ -54,14 +54,12 @@ public:
     uint64_t nextTransactionID() const { return m_currentTransactionID + 1; }
     uint64_t lastCommittedTransactionID() const { return m_currentTransactionID; }
 
-    WeakPtr<RemoteLayerTreeDrawingArea> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(*this); }
-
 private:
     // DrawingArea
     void setNeedsDisplay() override;
     void setNeedsDisplayInRect(const WebCore::IntRect&) override;
     void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) override;
-    void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition, bool flushSynchronously, const WebCore::MachSendRight& fencePort) override;
+    void updateGeometry(const WebCore::IntSize& viewSize, bool flushSynchronously, const WTF::MachSendRight& fencePort) override;
 
     WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
     void setRootCompositingLayer(WebCore::GraphicsLayer*) override;
@@ -88,7 +86,7 @@ private:
     void setViewExposedRect(std::optional<WebCore::FloatRect>) override;
     std::optional<WebCore::FloatRect> viewExposedRect() const override { return m_scrolledViewExposedRect; }
 
-    void acceleratedAnimationDidStart(uint64_t layerID, const String& key, double startTime) override;
+    void acceleratedAnimationDidStart(uint64_t layerID, const String& key, MonotonicTime startTime) override;
     void acceleratedAnimationDidEnd(uint64_t layerID, const String& key) override;
 
 #if PLATFORM(IOS)
@@ -104,7 +102,7 @@ private:
 
     void mainFrameContentSizeChanged(const WebCore::IntSize&) override;
 
-    void activityStateDidChange(WebCore::ActivityState::Flags changed, bool wantsDidUpdateActivityState, const Vector<CallbackID>& callbackIDs) override;
+    void activityStateDidChange(WebCore::ActivityState::Flags changed, ActivityStateChangeID, const Vector<CallbackID>& callbackIDs) override;
 
     bool adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags) override;
 
@@ -165,13 +163,12 @@ private:
 
     uint64_t m_currentTransactionID { 0 };
     Vector<RemoteLayerTreeTransaction::TransactionCallbackID> m_pendingCallbackIDs;
+    ActivityStateChangeID m_activityStateChangeID { ActivityStateChangeAsynchronous };
 
     WebCore::LayoutMilestones m_pendingNewlyReachedLayoutMilestones { 0 };
 
     WebCore::GraphicsLayer* m_contentLayer { nullptr };
     WebCore::GraphicsLayer* m_viewOverlayRootLayer { nullptr };
-    
-    WeakPtrFactory<RemoteLayerTreeDrawingArea> m_weakPtrFactory;
 };
 
 } // namespace WebKit

@@ -510,6 +510,7 @@ int
 authorize(int argc, char * const *argv)
 {
 	int ch;
+    int retval = 1;
 	OSStatus status;
 
 	Boolean user_interaction_allowed = FALSE, extend_rights = TRUE;
@@ -582,7 +583,12 @@ authorize(int argc, char * const *argv)
 		(least_privileged ? kAuthorizationFlagLeastPrivileged : 0);
 
 // set up AuthorizationRightSet
-	AuthorizationItem rights[argc];
+	AuthorizationItem *rights = malloc(argc * sizeof(AuthorizationItem));
+    if (!rights) {
+        fprintf(stderr, "Out of memory\n");
+        retval = 1;
+        goto bail;
+    }
 	memset(rights, '\0', argc * sizeof(AuthorizationItem));
 	AuthorizationItemSet rightset = { argc, rights };
 	while (argc > 0)
@@ -594,14 +600,18 @@ authorize(int argc, char * const *argv)
 	if (internalize)
 	{
 		auth_ref = read_auth_ref_from_stdin();
-		if (!auth_ref)
-			return 1;
+        if (!auth_ref) {
+            retval = 1;
+            goto bail;
+        }
 	}
 
 	if (!auth_ref && AuthorizationCreate(NULL, NULL,
 				(least_privileged ? kAuthorizationFlagLeastPrivileged : 0),
-				&auth_ref))
-		return -1;
+                &auth_ref)) {
+        retval = -1;
+        goto bail;
+    }
 
 // prepare environment if needed
 	AuthorizationEnvironment *envp = NULL;
@@ -609,8 +619,10 @@ authorize(int argc, char * const *argv)
 		if (!login)
 			login = getlogin();
 		char *pass = getpass("Password:");
-		if (!(login && pass))
-			return 1;
+        if (!(login && pass)) {
+            retval = 1;
+            goto bail;
+        }
 		static AuthorizationItem authenv[] = {
 			{ kAuthorizationEnvironmentUsername },
 			{ kAuthorizationEnvironmentPassword },
@@ -664,7 +676,12 @@ authorize(int argc, char * const *argv)
 	if (auth_ref)
 		AuthorizationFree(auth_ref, destroy_rights ? kAuthorizationFlagDestroyRights : 0);
 
-	return (status ? -1 : 0);
+    retval = (status ? -1 : 0);
+bail:
+    if (rights)
+        free(rights);
+    
+	return retval;
 }
 
 

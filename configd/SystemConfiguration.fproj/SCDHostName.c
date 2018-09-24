@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2011, 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2011, 2013-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -352,7 +352,7 @@ SCPreferencesSetHostName(SCPreferencesRef	prefs,
 #pragma mark LocalHostName
 
 
-__private_extern__ CFStringRef
+CFStringRef
 _SCPreferencesCopyLocalHostName(SCPreferencesRef	prefs)
 {
 	CFDictionaryRef	dict;

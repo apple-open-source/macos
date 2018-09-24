@@ -36,7 +36,7 @@
 #include <corecrypto/ccaes.h>
 #include <corecrypto/ccmode_siv.h>
 
-#import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 @implementation CKKSBaseAESSIVKey
 - (instancetype)init {
@@ -109,7 +109,7 @@
     if(len != CKKSWrappedKeySize) {
         @throw [NSException
                 exceptionWithName:@"WrongKeySizeException"
-                reason:[NSString stringWithFormat: @"length (%lu) was not %d", len, CKKSWrappedKeySize]
+                reason:[NSString stringWithFormat: @"length (%lu) was not %d", (unsigned long)len, CKKSWrappedKeySize]
                 userInfo:nil];
     }
     if(self = [super initWithBytes: bytes len: len]) {
@@ -121,7 +121,7 @@
         if(self->size != CKKSWrappedKeySize) {
             @throw [NSException
                     exceptionWithName:@"WrongKeySizeException"
-                    reason:[NSString stringWithFormat: @"length (%lu) was not %d", self->size, CKKSWrappedKeySize]
+                    reason:[NSString stringWithFormat: @"length (%lu) was not %d", (unsigned long)self->size, CKKSWrappedKeySize]
                     userInfo:nil];
         }
     }
@@ -158,7 +158,7 @@
     if(len != CKKSKeySize) {
         @throw [NSException
                 exceptionWithName:@"WrongKeySizeException"
-                reason:[NSString stringWithFormat: @"length (%lu) was not %d", len, CKKSKeySize]
+                reason:[NSString stringWithFormat: @"length (%lu) was not %d", (unsigned long)len, CKKSKeySize]
                 userInfo:nil];
     }
     if(self = [super initWithBytes: bytes len: len]) {
@@ -170,7 +170,7 @@
         if(self->size != CKKSKeySize) {
             @throw [NSException
                     exceptionWithName:@"WrongKeySizeException"
-                    reason:[NSString stringWithFormat: @"length (%lu) was not %d", self->size, CKKSKeySize]
+                    reason:[NSString stringWithFormat: @"length (%lu) was not %d", (unsigned long)self->size, CKKSKeySize]
                     userInfo:nil];
         }
     }

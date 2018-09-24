@@ -284,6 +284,9 @@ xar_t xar_open(const char *file, int32_t flags) {
 
 		switch(XAR(ret)->header.cksum_alg) {
 		case XAR_CKSUM_NONE:
+			fprintf(stderr, "Archive uses no hashing algorithm, aborting\n");
+			xar_close(ret);
+			return NULL;
 			break;
 		case XAR_CKSUM_SHA1:
 			XAR(ret)->toc_hash_ctx = xar_hash_new("sha1", (void *)ret);
@@ -324,6 +327,7 @@ xar_t xar_open(const char *file, int32_t flags) {
 		const char* cksum_style = xar_attr_get(XAR_FILE(ret), "checksum", "style");
 		switch(XAR(ret)->header.cksum_alg) {
 			case XAR_CKSUM_NONE:
+				// Although we no longer support none, we are leaving this here to detect mismatches
 				cksum_match = (cksum_style == NULL || strcmp(cksum_style, XAR_OPT_VAL_NONE) == 0);
 				break;
 			case XAR_CKSUM_SHA1:
@@ -411,6 +415,12 @@ xar_t xar_open(const char *file, int32_t flags) {
 			xar_close(ret);
 			return NULL;
 		}
+		
+		// Store our toc hash upon archive open, so callers can determine if it
+		// has changed or been tampered with after archive open
+		XAR(ret)->toc_hash = malloc(tlen);
+		memcpy(XAR(ret)->toc_hash, toccksum, tlen);
+		XAR(ret)->toc_hash_size = tlen;
 		
 		void *cval = calloc(1, tlen);
 		if( ! cval ) {
@@ -744,9 +754,15 @@ CLOSE_BAIL:
 	free((char *)XAR(x)->filename);
 	free((char *)XAR(x)->dirname);
 	free(XAR(x)->readbuf);
+	free(XAR(x)->toc_hash);
 	free((void *)x);
 
 	return retval;
+}
+
+xar_header_t xar_header_get(xar_t x)
+{
+	return XAR(x)->header;
 }
 
 /* xar_opt_get

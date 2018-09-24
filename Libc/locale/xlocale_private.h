@@ -32,6 +32,7 @@
 #include <locale.h>
 #include <libkern/OSAtomic.h>
 #include <pthread.h>
+#include <pthread/tsd_private.h>
 #include <limits.h>
 #include <os/lock.h>
 #include "setlocale.h"
@@ -211,9 +212,13 @@ __current_locale(void)
 		return &__global_locale;
 	}
 #endif
-
-	locale_t __locale = (locale_t)pthread_getspecific(__locale_key);
-	return (__locale ? __locale : &__global_locale);
+	void *__thread_locale;
+	if (_pthread_has_direct_tsd()) {
+		__thread_locale = _pthread_getspecific_direct(__locale_key);
+	} else {
+		__thread_locale = pthread_getspecific(__locale_key);
+	}
+	return (__thread_locale ? (locale_t)__thread_locale : &__global_locale);
 }
 
 static inline __attribute__((always_inline)) locale_t

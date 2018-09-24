@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -98,6 +98,7 @@
 #include <dns_sd.h>
 #include <dnsinfo.h>
 #include <errno.h>
+#include <ifaddrs.h>
 #include <nameser.h>
 #include <notify.h>
 #include <pthread.h>
@@ -182,6 +183,7 @@ static DNSServiceRef _mdns_old_sdref;
 static void _mdns_hostent_clear(mdns_hostent_t *h);
 static void _mdns_reply_clear(mdns_reply_t *r);
 static int _mdns_search(const char *name, int class, int type, const char *interface, DNSServiceFlags flags, uint8_t *answer, uint32_t *anslen, mdns_reply_t *reply);
+static int _mdns_search_ex(const char *name, int class, int type, uint32_t ifindex, DNSServiceFlags flags, uint8_t *answer, uint32_t *anslen, mdns_reply_t *reply);
 
 static const char hexchar[] = "0123456789abcdef";
 
@@ -229,7 +231,7 @@ _mdns_debug_message(const char *str, ...)
 }
 
 static char *
-_mdns_reverse_ipv4(const char *addr)
+_mdns_reverse_ipv4(const uint8_t *addr)
 {
 	union
 	{
@@ -247,7 +249,7 @@ _mdns_reverse_ipv4(const char *addr)
 }
 
 static char *
-_mdns_reverse_ipv6(const char *addr)
+_mdns_reverse_ipv6(const uint8_t *addr)
 {
 	char x[65], *p;
 	int i, j;
@@ -496,6 +498,64 @@ mdns_hostbyname(si_mod_t *si, const char *name, int af, const char *interface, u
 	return out;
 }
 
+static bool _is_v4addr_ifaddr(const uint8_t addrBytes[4])
+{
+	int err;
+	struct ifaddrs *ifaddrs;
+	const struct ifaddrs *ifa;
+	const struct sockaddr_in *sa4;
+	in_addr_t addr;
+	bool found = false;
+
+	err = getifaddrs(&ifaddrs);
+	if (err != 0) goto exit;
+
+	memcpy(&addr, addrBytes, 4);
+	for (ifa = ifaddrs; ifa; ifa = ifa->ifa_next)
+	{
+		if ((ifa->ifa_flags & IFF_UP) == 0) continue;
+		if (!ifa->ifa_addr || (ifa->ifa_addr->sa_family != AF_INET)) continue;
+		sa4 = (const struct sockaddr_in *)ifa->ifa_addr;
+		if (sa4->sin_addr.s_addr == addr)
+		{
+			found = true;
+			break;
+		}
+	}
+	freeifaddrs(ifaddrs);
+
+exit:
+	return found;
+}
+
+static bool _is_v6addr_ifaddr(const uint8_t addrBytes[16], uint32_t ifindex)
+{
+	int err;
+	struct ifaddrs *ifaddrs;
+	const struct ifaddrs *ifa;
+	const struct sockaddr_in6 *sa6;
+	bool found = false;
+
+	err = getifaddrs(&ifaddrs);
+	if (err != 0) goto exit;
+
+	for (ifa = ifaddrs; ifa; ifa = ifa->ifa_next)
+	{
+		if ((ifa->ifa_flags & IFF_UP) == 0) continue;
+		if (!ifa->ifa_addr || (ifa->ifa_addr->sa_family != AF_INET6)) continue;
+		sa6 = (const struct sockaddr_in6 *)ifa->ifa_addr;
+		if ((sa6->sin6_scope_id == ifindex) && (memcmp(&sa6->sin6_addr.s6_addr, addrBytes, 16) == 0))
+		{
+			found = true;
+			break;
+		}
+	}
+	freeifaddrs(ifaddrs);
+
+exit:
+	return found;
+}
+
 static si_item_t *
 mdns_hostbyaddr(si_mod_t *si, const void *addr, int af, const char *interface, uint32_t *err)
 {
@@ -507,6 +567,7 @@ mdns_hostbyaddr(si_mod_t *si, const void *addr, int af, const char *interface, u
 	int cat;
 	int status;
 	DNSServiceFlags flags = 0;
+	uint32_t ifindex = 0;
 
 	if (err != NULL) *err = SI_STATUS_NO_ERROR;
 
@@ -522,17 +583,61 @@ mdns_hostbyaddr(si_mod_t *si, const void *addr, int af, const char *interface, u
 	switch (af)
 	{
 		case AF_INET:
+		{
+			const uint8_t * const target_addr = (const uint8_t *)addr;
+
+			// If no interface is specified; the IPv4 address is a link-local address, i.e., it's in 169.254.0.0/16; and the
+			// IPv4 address belongs to one of the local host's interfaces, then use kDNSServiceInterfaceIndexLocalOnly as
+			// the interface index to pass to DNSServiceQueryRecord(). This is done to get a response directly from
+			// mDNSResponder's authoritative resource records as opposed to issuing an mDNS query, which does not work if
+			// the interface is currently not participating in mDNS. See <rdar://problem/40702045> for more details.
+
+			if (!interface && (target_addr[0] == 169) && (target_addr[1] == 254) && _is_v4addr_ifaddr(target_addr))
+			{
+				ifindex = kDNSServiceInterfaceIndexLocalOnly;
+			}
 			h.host.h_length = 4;
 			reply.h4 = &h;
-			name = _mdns_reverse_ipv4(addr);
+			name = _mdns_reverse_ipv4(target_addr);
 			cat = CATEGORY_HOST_IPV4;
 			break;
+		}
 		case AF_INET6:
+		{
+			const uint8_t *target_addr = (const uint8_t *)addr;
+			uint8_t fixed_addr[16];
+
+			// If no interface is specified; the IPv6 address is a link-local address, i.e., it's in fe80::/10; and the IPv6
+			// address belongs to one of the local host's interfaces, then use kDNSServiceInterfaceIndexLocalOnly as the
+			// interface index to pass to DNSServiceQueryRecord(). For rationale, see the comment for the AF_INET case.
+
+			if (!interface && (target_addr[0] == 0xFE) && ((target_addr[1] & 0xC0) == 0x80))
+			{
+				// Note: si_nameinfo() embeds the scope ID (interface index) in bytes 2 and 3 in network byte order.
+
+				const uint32_t embedded_index = (target_addr[2] << 8) | target_addr[3];
+
+				memcpy(fixed_addr, target_addr, 16);
+				fixed_addr[2] = 0;
+				fixed_addr[3] = 0;
+
+				if ((embedded_index != 0) && _is_v6addr_ifaddr(fixed_addr, embedded_index))
+				{
+					target_addr = fixed_addr;
+					ifindex = kDNSServiceInterfaceIndexLocalOnly;
+				}
+				else
+				{
+					ifindex = embedded_index;
+				}
+			}
+
 			h.host.h_length = 16;
 			reply.h6 = &h;
-			name = _mdns_reverse_ipv6(addr);
+			name = _mdns_reverse_ipv6(target_addr);
 			cat = CATEGORY_HOST_IPV6;
 			break;
+		}
 		default:
 			if (err != NULL) *err = SI_STATUS_H_ERRNO_NO_RECOVERY;
 			return NULL;
@@ -542,7 +647,14 @@ mdns_hostbyaddr(si_mod_t *si, const void *addr, int af, const char *interface, u
 
 	_mdns_debug_message(";; mdns_hostbyaddr %s type %u class %u\n", name, ns_t_ptr, ns_c_in);
 
-	status = _mdns_search(name, ns_c_in, ns_t_ptr, interface, flags, NULL, NULL, &reply);
+	if (interface)
+	{
+		status = _mdns_search(name, ns_c_in, ns_t_ptr, interface, flags, NULL, NULL, &reply);
+	}
+	else
+	{
+		status = _mdns_search_ex(name, ns_c_in, ns_t_ptr, ifindex, flags, NULL, NULL, &reply);
+	}
 	free(name);
 	if (status != 0)
 	{
@@ -1155,7 +1267,7 @@ _mdns_query_callback(DNSServiceRef, DNSServiceFlags, uint32_t, DNSServiceErrorTy
  * initializes the context and starts a DNS-SD query.
  */
 static DNSServiceErrorType
-_mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answer, uint32_t *anslen, const char* name, int class, int type, const char *interface, DNSServiceFlags flags, int kq)
+_mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answer, uint32_t *anslen, const char* name, int class, int type, uint32_t ifindex, DNSServiceFlags flags, int kq)
 {
 	DNSServiceErrorType status;
 
@@ -1195,20 +1307,14 @@ _mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answe
 	char *qname = _mdns_ipv6_extract_scope_id(name, &iface);
 	if (qname == NULL) qname = (char *)name;
 
-	if (interface != NULL)
+	if (ifindex != 0)
 	{
-		/* get interface number from name */
-		int iface2 = if_nametoindex(interface);
-
-		/* balk if interface name lookup failed */
-		if (iface2 == 0) return -1;
-
 		/* balk if scope id is set AND interface is given AND they don't match */
-		if ((iface != 0) && (iface2 != 0) && (iface != iface2)) return -1;
-		if (iface2 != 0) iface = iface2;
+		if ((iface != 0) && (iface != ifindex)) return -1;
+		iface = ifindex;
 	}
 
-	_mdns_debug_message(";; mdns query %s type %d class %d [ctx %p]\n", qname, type, class, ctx);
+	_mdns_debug_message(";; mdns query %s type %d class %d ifindex %d [ctx %p]\n", qname, type, class, (int)iface, ctx);
 
 	status = DNSServiceQueryRecord(&ctx->sd, flags, iface, qname, type, class, _mdns_query_callback, ctx);
 	if (qname != name) free(qname);
@@ -1636,8 +1742,29 @@ _mdns_timeout(struct timespec *timeout, const struct timespec *deadline)
 	_mdns_sub_time(timeout, deadline, &now);
 }
 
-int
+extern int
+si_inet_config(uint32_t *inet4, uint32_t *inet6);
+
+static int
 _mdns_search(const char *name, int class, int type, const char *interface, DNSServiceFlags flags, uint8_t *answer, uint32_t *anslen, mdns_reply_t *reply)
+{
+	uint32_t ifindex;
+
+	if (interface)
+	{
+		ifindex = if_nametoindex(interface);
+		if (ifindex == 0) return -1;
+	}
+	else
+	{
+		ifindex = 0;
+	}
+
+	return _mdns_search_ex(name, class, type, ifindex, flags, answer, anslen, reply);
+}
+
+static int
+_mdns_search_ex(const char *name, int class, int type, uint32_t ifindex, DNSServiceFlags flags, uint8_t *answer, uint32_t *anslen, mdns_reply_t *reply)
 {
 	DNSServiceErrorType err = 0;
 	int kq, n;
@@ -1743,12 +1870,12 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 			 */
 			if (err == 0)
 			{
-				err = _mdns_query_start(&ctx[n_ctx++], reply, answer, anslen, name, class, (type == 0) ? ns_t_a : type, interface, flags, kq);
+				err = _mdns_query_start(&ctx[n_ctx++], reply, answer, anslen, name, class, (type == 0) ? ns_t_a : type, ifindex, flags, kq);
 			}
 
 			if ((err == 0) && (type == 0))
 			{
-				err = _mdns_query_start(&ctx[n_ctx++], reply, answer, anslen, name, class, ns_t_aaaa, interface, flags, kq);
+				err = _mdns_query_start(&ctx[n_ctx++], reply, answer, anslen, name, class, ns_t_aaaa, ifindex, flags, kq);
 			}
 
 			if (err != 0) _mdns_debug_message(";; initialization error %d\n", err);

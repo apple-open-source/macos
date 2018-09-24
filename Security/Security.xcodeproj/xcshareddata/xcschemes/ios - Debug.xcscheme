@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0900"
+   LastUpgradeVersion = "1000"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "NO"
@@ -319,6 +319,14 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "si_34_cms_timestamp"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_35_cms_expiration_time"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_40_seckey"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -355,7 +363,11 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_44_seckey_fv"
+            argument = "si_44_seckey_skv"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_44_seckey_proxy"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

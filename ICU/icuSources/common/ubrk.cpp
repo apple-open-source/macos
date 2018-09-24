@@ -182,6 +182,16 @@ ubrk_close(UBreakIterator *bi)
     delete (BreakIterator *)bi;
 }
 
+
+// Apple only
+U_CAPI void U_EXPORT2
+ubrk_setLineWordOpts(UBreakIterator* bi,
+                     ULineWordOptions lineWordOpts)
+{
+    ((BreakIterator*)bi)->setLineWordOpts(lineWordOpts);
+}
+
+
 U_CAPI void U_EXPORT2
 ubrk_setText(UBreakIterator* bi,
              const UChar*    text,

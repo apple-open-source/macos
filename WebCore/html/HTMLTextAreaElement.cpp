@@ -46,10 +46,13 @@
 #include "TextControlInnerElements.h"
 #include "TextIterator.h"
 #include "TextNodeTraversal.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/Ref.h>
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLTextAreaElement);
 
 using namespace HTMLNames;
 
@@ -243,7 +246,7 @@ bool HTMLTextAreaElement::hasCustomFocusLogic() const
     return true;
 }
 
-bool HTMLTextAreaElement::isKeyboardFocusable(KeyboardEvent&) const
+bool HTMLTextAreaElement::isKeyboardFocusable(KeyboardEvent*) const
 {
     // If a given text area can be focused at all, then it will always be keyboard focusable.
     return isFocusable();
@@ -260,12 +263,9 @@ void HTMLTextAreaElement::updateFocusAppearance(SelectionRestorationMode restora
         // If this is the first focus, set a caret at the beginning of the text.  
         // This matches some browsers' behavior; see bug 11746 Comment #15.
         // http://bugs.webkit.org/show_bug.cgi?id=11746#c15
-        setSelectionRange(0, 0, SelectionHasNoDirection, Element::defaultFocusTextStateChangeIntent());
+        setSelectionRange(0, 0, SelectionHasNoDirection, revealMode, Element::defaultFocusTextStateChangeIntent());
     } else
-        restoreCachedSelection(Element::defaultFocusTextStateChangeIntent());
-
-    if (document().frame())
-        document().frame()->selection().revealSelection(revealMode);
+        restoreCachedSelection(revealMode, Element::defaultFocusTextStateChangeIntent());
 }
 
 void HTMLTextAreaElement::defaultEventHandler(Event& event)
@@ -322,7 +322,7 @@ void HTMLTextAreaElement::handleBeforeTextInsertedEvent(BeforeTextInsertedEvent&
 
 String HTMLTextAreaElement::sanitizeUserInputValue(const String& proposedValue, unsigned maxLength)
 {
-    return proposedValue.left(numCharactersInGraphemeClusters(proposedValue, maxLength));
+    return proposedValue.left(numCodeUnitsInGraphemeClusters(proposedValue, maxLength));
 }
 
 RefPtr<TextControlInnerTextElement> HTMLTextAreaElement::innerTextElement() const
@@ -551,7 +551,7 @@ RenderStyle HTMLTextAreaElement::createInnerTextStyle(const RenderStyle& style)
     auto textBlockStyle = RenderStyle::create();
     textBlockStyle.inheritFrom(style);
     adjustInnerTextStyle(style, textBlockStyle);
-    textBlockStyle.setDisplay(BLOCK);
+    textBlockStyle.setDisplay(DisplayType::Block);
 
 #if PLATFORM(IOS)
     // We're adding three extra pixels of padding to line textareas up with text fields.  

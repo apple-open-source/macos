@@ -19,6 +19,7 @@
 		<array>
 			<string>libtool -arch fixes (4386677).</string>
 			<string>64-bit configure issues (4538922).</string>
+			<string>CVE-2017-12613: ad958385a4180d7a83d90589689fcd36e3bbc57a</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>Apache</string>
@@ -38,6 +39,10 @@
 		<string>b00038b5081472ed094ced28bcbf2b5bb56c589d</string>
 		<key>OpenSourceImportDate</key>
 		<string>2016-04-15</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>CVE-2017-12618: https://github.com/apache/apr/commit/f672b565c825c34de9ee298b5bdc62c01cdd6147</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>Apache</string>
 		<key>OpenSourceLicenseFile</key>

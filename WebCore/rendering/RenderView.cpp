@@ -47,6 +47,7 @@
 #include "RenderMultiColumnSet.h"
 #include "RenderMultiColumnSpannerPlaceholder.h"
 #include "RenderQuote.h"
+#include "RenderTreeBuilder.h"
 #include "RenderWidget.h"
 #include "ScrollbarTheme.h"
 #include "Settings.h"
@@ -99,10 +100,13 @@ RenderView::RenderView(Document& document, RenderStyle&& style)
 
     setPreferredLogicalWidthsDirty(true, MarkOnlyThis);
     
-    setPositionState(AbsolutePosition); // to 0,0 :)
+    setPositionState(PositionType::Absolute); // to 0,0 :)
 }
 
-RenderView::~RenderView() = default;
+RenderView::~RenderView()
+{
+    ASSERT_WITH_MESSAGE(m_rendererCount == 1, "All other renderers in this render tree should have been destroyed");
+}
 
 void RenderView::scheduleLazyRepaint(RenderBox& renderer)
 {
@@ -390,7 +394,7 @@ RenderElement* RenderView::rendererForRootBackground() const
 static inline bool rendererObscuresBackground(const RenderElement& rootElement)
 {
     auto& style = rootElement.style();
-    if (style.visibility() != VISIBLE || style.opacity() != 1 || style.hasTransform())
+    if (style.visibility() != Visibility::Visible || style.opacity() != 1 || style.hasTransform())
         return false;
 
     if (style.hasBorderRadius())
@@ -403,7 +407,7 @@ static inline bool rendererObscuresBackground(const RenderElement& rootElement)
     if (!rendererForBackground)
         return false;
 
-    if (rendererForBackground->style().backgroundClip() == TextFillBox)
+    if (rendererForBackground->style().backgroundClip() == FillBox::Text)
         return false;
 
     return true;
@@ -450,8 +454,7 @@ void RenderView::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint&)
         rootObscuresBackground = rendererObscuresBackground(*rootRenderer);
     }
 
-    bool backgroundShouldExtendBeyondPage = settings().backgroundShouldExtendBeyondPage();
-    compositor().setRootExtendedBackgroundColor(backgroundShouldExtendBeyondPage ? frameView().documentBackgroundColor() : Color());
+    compositor().rootBackgroundColorOrTransparencyChanged();
 
     Page* page = document().page();
     float pageScaleFactor = page ? page->pageScaleFactor() : 1;
@@ -470,7 +473,7 @@ void RenderView::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint&)
         frameView().setCannotBlitToWindow(); // The parent must show behind the child.
     else {
         const Color& documentBackgroundColor = frameView().documentBackgroundColor();
-        const Color& backgroundColor = (backgroundShouldExtendBeyondPage && documentBackgroundColor.isValid()) ? documentBackgroundColor : frameView().baseBackgroundColor();
+        const Color& backgroundColor = (settings().backgroundShouldExtendBeyondPage() && documentBackgroundColor.isValid()) ? documentBackgroundColor : frameView().baseBackgroundColor();
         if (backgroundColor.isVisible()) {
             CompositeOperator previousOperator = paintInfo.context().compositeOperation();
             paintInfo.context().setCompositeOperation(CompositeCopy);
@@ -608,13 +611,6 @@ bool RenderView::isScrollableOrRubberbandableBox() const
     // the main frame; subframes and overflow areas have to have content that can be scrolled to in order to rubber-band.
     FrameView::Scrollability defineScrollable = frame().ownerElement() ? FrameView::Scrollability::Scrollable : FrameView::Scrollability::ScrollableOrRubberbandable;
     return frameView().isScrollable(defineScrollable);
-}
-
-void RenderView::willBeDestroyed()
-{
-    RenderBlockFlow::willBeDestroyed();
-
-    ASSERT_WITH_MESSAGE(m_rendererCount == 1, "All other renderers in this render tree should have been destroyed");
 }
 
 void RenderView::absoluteRects(Vector<IntRect>& rects, const LayoutPoint& accumulatedOffset) const

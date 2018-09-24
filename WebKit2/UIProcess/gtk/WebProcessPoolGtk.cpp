@@ -35,6 +35,7 @@
 #include "WebProcessMessages.h"
 #include <JavaScriptCore/RemoteInspectorServer.h>
 #include <WebCore/FileSystem.h>
+#include <WebCore/GStreamerCommon.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/SchemeRegistry.h>
 #include <wtf/glib/GUniquePtr.h>
@@ -90,6 +91,19 @@ void WebProcessPool::platformInitializeWebProcess(WebProcessCreationParameters& 
 {
     parameters.memoryCacheDisabled = m_memoryCacheDisabled || cacheModel() == CacheModelDocumentViewer;
     parameters.proxySettings = m_networkProxySettings;
+
+    parameters.shouldAlwaysUseComplexTextCodePath = true;
+    const char* forceComplexText = getenv("WEBKIT_FORCE_COMPLEX_TEXT");
+    if (forceComplexText && !strcmp(forceComplexText, "0"))
+        parameters.shouldAlwaysUseComplexTextCodePath = m_alwaysUsesComplexTextCodePath;
+
+    const char* disableMemoryPressureMonitor = getenv("WEBKIT_DISABLE_MEMORY_PRESSURE_MONITOR");
+    if (disableMemoryPressureMonitor && !strcmp(disableMemoryPressureMonitor, "1"))
+        parameters.shouldSuppressMemoryPressureHandler = true;
+
+#if USE(GSTREAMER)
+    parameters.gstreamerOptions = WebCore::extractGStreamerOptionsFromCommandLine();
+#endif
 }
 
 void WebProcessPool::platformInvalidateContext()

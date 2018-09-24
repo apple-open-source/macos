@@ -336,7 +336,7 @@
       "dns_api_endpoint": "",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAESYlKFDLLFmA9JScaiaNnqlU8oWDytxIYMfswHy9Esg0aiX+WnP/yj4O0ViEHtLwbmOQeSWBGkIu9YK9CLeer+g==",
       "description": "DigiCert 'Yeti 2018' log",
-      "state": 2,
+      "state": 0,
       "operated_by": [
         1
       ]
@@ -347,7 +347,7 @@
       "dns_api_endpoint": "",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkZd/ow8X+FSVWAVSf8xzkFohcPph/x6pS1JHh7g1wnCZ5y/8Hk6jzJxs6t3YMAWz2CPd4VkCdxwKexGhcFxD9A==",
       "description": "DigiCert 'Yeti 2019' log",
-      "state": 2,
+      "state": 0,
       "operated_by": [
         1
       ]
@@ -358,7 +358,7 @@
       "dns_api_endpoint": "",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEURAG+Zo0ac3n37ifZKUhBFEV6jfcCzGIRz3tsq8Ca9BP/5XUHy6ZiqsPaAEbVM0uI3Tm9U24RVBHR9JxDElPmg==",
       "description": "DigiCert 'Yeti 2020' log",
-      "state": 2,
+      "state": 0,
       "operated_by": [
         1
       ]
@@ -369,7 +369,7 @@
       "dns_api_endpoint": "",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6J4EbcpIAl1+AkSRsbhoY5oRTj3VoFfaf1DlQkfi7Rbe/HcjfVtrwN8jaC+tQDGjF+dqvKhWJAQ6Q6ev6q9Mew==",
       "description": "DigiCert 'Yeti 2021' log",
-      "state": 2,
+      "state": 0,
       "operated_by": [
         1
       ]
@@ -380,7 +380,7 @@
       "dns_api_endpoint": "",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn/jYHd77W1G1+131td5mEbCdX/1v/KiYW5hPLcOROvv+xA8Nw2BDjB7y+RGyutD2vKXStp/5XIeiffzUfdYTJg==",
       "description": "DigiCert 'Yeti 2022' log",
-      "state": 2,
+      "state": 0,
       "operated_by": [
         1
       ]
@@ -439,6 +439,83 @@
       "operated_by": [
         1
       ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "ct.googleapis.com/logs/xenon2018",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1syJvwQdrv0a8dM2VAnK/SmHJNw/+FxC+CncFcnXMX2jNH9Xs7Q56FiV3taG5G2CokMsizhpcm7xXzuR3IHmag==",
+      "description": "Google 'Xenon 2018' log",
+      "state": 2,
+      "operated_by": [
+        0
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "ct.googleapis.com/logs/xenon2019",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/XyDwqzXL9i2GTjMYkqaEyiRL0Dy9sHq/BTebFdshbvCaXXEh6mjUK0Yy+AsDcI4MpzF1l7Kded2MD5zi420gA==",
+      "description": "Google 'Xenon 2019' log",
+      "state": 2,
+      "operated_by": [
+        0
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "ct.googleapis.com/logs/xenon2020",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZU75VqjyzSTgFZKAnWg1QeYfFFIRZTMK7q3kWWZsmHhQdrBYnHRZ3OA4kUeUx0JN+xX+dSgt1ruqUhhl7jOvmw==",
+      "description": "Google 'Xenon 2020' log",
+      "state": 2,
+      "operated_by": [
+        0
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "ct.googleapis.com/logs/xenon2021",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAER+1MInu8Q39BwDZ5Rp9TwXhwm3ktvgJzpk/r7dDgGk7ZacMm3ljfcoIvP1E72T8jvyLT1bvdapylajZcTH6W5g==",
+      "description": "Google 'Xenon 2021' log",
+      "state": 2,
+      "operated_by": [
+        0
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "ct.googleapis.com/logs/xenon2022",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE+WS9FSxAYlCVEzg8xyGwOrmPonoV14nWjjETAIdZvLvukPzIWBMKv6tDNlQjpIHNrUcUt1igRPpqoKDXw2MeKw==",
+      "description": "Google 'Xenon 2022' log",
+      "state": 2,
+      "operated_by": [
+        0
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "log.gdca.com.cn/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzVH/qe+rgr/Mo+owQ00I6aegDSjHttgqQBmg+hBdTXXLgJT/+8LdSgjfY/8lOBtfivndJzQlTNQ9Le1cU6wXNQ==",
+      "description": "GDCA 'CT Log 1' log",
+      "state": 2,
+      "operated_by": [
+        10
+      ]
+    },
+    {
+      "maximum_merge_delay": 86400,
+      "url": "log2.gdca.com.cn/",
+      "dns_api_endpoint": "",
+      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEx6zC8wCbMs3fpQWnSCeo2RvG827AEssGkMa+5RVIpRF0SDO4hFsn2Ph1l8marSCuwVLhv0JIN3arSzbUieX6HA==",
+      "description": "GDCA 'CT Log 2' log",
+      "state": 2,
+      "operated_by": [
+        10
+      ]
     }
   ],
   "operators": [
@@ -481,6 +558,10 @@
     {
       "id": 9,
       "name": "Cloudflare"
+    },
+    {
+      "id": 10,
+      "name": "GDCA"
     }
   ],
   "states": [

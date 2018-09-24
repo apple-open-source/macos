@@ -47,16 +47,12 @@
 @end
 
 #if USE_KEYSTORE
-#include <libaks.h>
-#endif
+#import <libaks.h>
 
 @interface KeychainCryptoTests : KeychainXCTest
 @end
 
 @implementation KeychainCryptoTests
-
-#if USE_KEYSTORE
-#include <libaks.h>
 
 static keyclass_t parse_keyclass(CFTypeRef value) {
     if (!value || CFGetTypeID(value) != CFStringGetTypeID()) {
@@ -88,6 +84,51 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
         return 0;
     }
 }
+
+- (NSDictionary* _Nullable)addTestItemExpecting:(OSStatus)code account:(NSString*)account accessible:(NSString*)accessible
+{
+    NSDictionary* addQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                                (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+                                (id)kSecAttrAccount : account,
+                                (id)kSecAttrService : [NSString stringWithFormat:@"%@-Service", account],
+                                (id)kSecAttrAccessible : (id)accessible,
+                                (id)kSecAttrNoLegacy : @(YES),
+                                (id)kSecReturnAttributes : @(YES),
+                                };
+    CFTypeRef result = NULL;
+
+    if(code == errSecSuccess) {
+        XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), code, @"Should have succeeded in adding test item to keychain");
+        XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemAdd");
+    } else {
+        XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), code, @"Should have failed to adding test item to keychain with code %d", code);
+        XCTAssertNil((__bridge id)result, @"Should not have received a dictionary back from SecItemAdd");
+    }
+
+    return CFBridgingRelease(result);
+}
+
+- (NSDictionary* _Nullable)findTestItemExpecting:(OSStatus)code account:(NSString*)account
+{
+    NSDictionary* findQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                                 (id)kSecAttrAccount : account,
+                                 (id)kSecAttrService : [NSString stringWithFormat:@"%@-Service", account],
+                                 (id)kSecAttrNoLegacy : @(YES),
+                                 (id)kSecReturnAttributes : @(YES),
+                                 };
+    CFTypeRef result = NULL;
+
+    if(code == errSecSuccess) {
+        XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)findQuery, &result), code, @"Should have succeeded in finding test tiem");
+        XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemCopyMatching");
+    } else {
+        XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)findQuery, &result), code, @"Should have failed to find items in keychain with code %d", code);
+        XCTAssertNotNil((__bridge id)result, @"Should not have received a dictionary back from SecItemCopyMatching");
+    }
+
+    return CFBridgingRelease(result);
+}
+
 
 - (void)testBasicEncryptDecrypt
 {
@@ -300,14 +341,48 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     CFErrorRef cferror = NULL;
 
     kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
-        CFErrorRef errref;
+        CFErrorRef errref = NULL;
         SecDbExec(dbt, CFSTR("DELETE FROM metadatakeys WHERE keyclass = '6'"), &errref);
+        XCTAssertEqual(errref, NULL, "Should be no error deleting class A metadatakey");
         CFReleaseNull(errref);
         return true;
     });
     CFReleaseNull(cferror);
 
     [[SecDbKeychainMetadataKeyStore sharedStore] dropClassAKeys];
+}
+
+- (void)checkDatabaseExistenceOfMetadataKey:(keyclass_t)keyclass shouldExist:(bool)shouldExist
+{
+    CFErrorRef cferror = NULL;
+
+    kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
+        __block CFErrorRef errref = NULL;
+
+        NSString* sql = [NSString stringWithFormat:@"SELECT data, actualKeyclass FROM metadatakeys WHERE keyclass = %d", keyclass];
+        __block bool ok = true;
+        __block bool keyExists = false;
+        ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &errref, ^(sqlite3_stmt *stmt) {
+            ok &= SecDbStep(dbt, stmt, &errref, ^(bool *stop) {
+                NSData* wrappedKeyData = [[NSData alloc] initWithBytes:sqlite3_column_blob(stmt, 0) length:sqlite3_column_bytes(stmt, 0)];
+                NSMutableData* unwrappedKeyData = [NSMutableData dataWithLength:wrappedKeyData.length];
+
+                keyExists = !!unwrappedKeyData;
+            });
+        });
+
+        XCTAssertTrue(ok, "Should have completed all operations correctly");
+        XCTAssertEqual(errref, NULL, "Should be no error deleting class A metadatakey");
+
+        if(shouldExist) {
+            XCTAssertTrue(keyExists, "Metadata class key should exist");
+        } else {
+            XCTAssertFalse(keyExists, "Metadata class key should not exist");
+        }
+        CFReleaseNull(errref);
+        return true;
+    });
+    CFReleaseNull(cferror);
 }
 
 - (void)testKeychainCorruptionCopyMatching
@@ -321,7 +396,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
-
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:true];
 
     NSMutableDictionary* dataQuery = item.mutableCopy;
     [dataQuery removeObjectForKey:(id)kSecValueData];
@@ -334,11 +409,15 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     CFReleaseNull(foundItem);
 
     [self trashMetadataClassAKey];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:false];
 
     /* when metadata corrupted, we should not find the item */
     result = SecItemCopyMatching((__bridge CFDictionaryRef)dataQuery, &foundItem);
     XCTAssertEqual(result, errSecItemNotFound, @"failed to find the data for the item we just added in the keychain");
     CFReleaseNull(foundItem);
+
+    // Just calling SecItemCopyMatching shouldn't have created a new metdata key
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:false];
 
     /* semantics are odd, we should be able to delete it */
     result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
@@ -649,6 +728,44 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     [mockSecDbKeychainMetadataKeyStore stopMocking];
 }
 
+// If a metadata key is created during a database transaction which is later rolled back, it shouldn't be cached for use later.
+- (void)testMetadataKeyDoesntOutliveTxionRollback {
+    NSString* testAccount = @"TestAccount";
+    NSString* otherAccount = @"OtherAccount";
+    NSString* thirdAccount = @"ThirdAccount";
+    [self addTestItemExpecting:errSecSuccess account:testAccount accessible:(id)kSecAttrAccessibleAfterFirstUnlock];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:false];
+
+    // This should fail, and not create a CKU metadata key
+    [self addTestItemExpecting:errSecDuplicateItem account:testAccount accessible:(id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:false];
+
+    // But successfully creating a new CKU item should create the key
+    [self addTestItemExpecting:errSecSuccess account:otherAccount accessible:(id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:true];
+
+    // Drop all metadata key caches
+    [SecDbKeychainMetadataKeyStore resetSharedStore];
+
+    [self findTestItemExpecting:errSecSuccess account:testAccount];
+    [self findTestItemExpecting:errSecSuccess account:otherAccount];
+
+    // Adding another CKU item now should be fine
+    [self addTestItemExpecting:errSecSuccess account:thirdAccount accessible:(id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:true];
+
+    // Drop all metadata key caches once more, to ensure we can find all three items from the persisted keys
+    [SecDbKeychainMetadataKeyStore resetSharedStore];
+
+    [self findTestItemExpecting:errSecSuccess account:testAccount];
+    [self findTestItemExpecting:errSecSuccess account:otherAccount];
+    [self findTestItemExpecting:errSecSuccess account:thirdAccount];
+}
+
 - (void)testRecoverDataFromBadKeyclassStorage
 {
     NSDictionary* metadataAttributesInput = @{@"TestMetadata" : @"TestValue"};
@@ -722,18 +839,24 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     
     [self performMetadataEncryptDecryptWithAccessibility:kSecAttrAccessibleAfterFirstUnlock];
     XCTAssertEqual(self.keyclassUsedForAKSDecryption, key_class_ck | key_class_last + 1);
-    
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [self performMetadataEncryptDecryptWithAccessibility:kSecAttrAccessibleAlways];
     XCTAssertEqual(self.keyclassUsedForAKSDecryption, key_class_dk | key_class_last + 1);
+#pragma clang diagnostic pop
     
     [self performMetadataEncryptDecryptWithAccessibility:kSecAttrAccessibleWhenUnlockedThisDeviceOnly];
     XCTAssertEqual(self.keyclassUsedForAKSDecryption, key_class_aku | key_class_last + 1);
     
     [self performMetadataEncryptDecryptWithAccessibility:kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly];
     XCTAssertEqual(self.keyclassUsedForAKSDecryption, key_class_cku | key_class_last + 1);
-    
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [self performMetadataEncryptDecryptWithAccessibility:kSecAttrAccessibleAlwaysThisDeviceOnly];
     XCTAssertEqual(self.keyclassUsedForAKSDecryption, key_class_dku | key_class_last + 1);
+#pragma clang diagnostic pop
     
     [self performMetadataEncryptDecryptWithAccessibility:kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly];
     XCTAssertEqual(self.keyclassUsedForAKSDecryption, key_class_akpu | key_class_last + 1);
@@ -764,6 +887,6 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     [self performMetadataDecryptionOfData:encryptedData verifyingAccessibility:kSecAttrAccessibleWhenUnlocked];
 }
 
-#endif
-
 @end
+
+#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,9 +31,14 @@
 #include <architecture/arm/asm_help.h>
 #include "_setjmp.h"
 #include <arm/arch.h>
+#include <os/tsd.h>
 
 ENTRY_POINT(__setjmp)
-	stmia	r0!, { r4-r8, r10-r11, sp, lr }
+	_OS_PTR_MUNGE_TOKEN(r12, r12)
+	_OS_PTR_MUNGE(r1, r7, r12) // fp
+	_OS_PTR_MUNGE(r2, lr, r12)
+	_OS_PTR_MUNGE(r3, sp, r12)
+	stmia	r0!, { r1-r6, r8, r10-r11 }
 	vstmia	r0, { d8-d15 }
-	mov	r0, #0
-	bx	lr
+	mov		r0, #0
+	bx		lr

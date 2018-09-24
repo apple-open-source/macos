@@ -122,6 +122,9 @@ DHCPLeaseListFindLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
 int
 DHCPLeaseListFindLeaseWithSSID(DHCPLeaseListRef list_p, CFStringRef ssid);
 
+void
+DHCPLeaseListRemoveLeaseWithSSID(DHCPLeaseListRef list_p, CFStringRef ssid);
+
 static __inline__ int
 DHCPLeaseListCount(DHCPLeaseListRef list_p)
 {

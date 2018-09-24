@@ -16,8 +16,9 @@
 system_symbols:
   deps
     # C
-    PIC system_debug malloc_functions c_strings c_string_formatting
-    floating_point trigonometry
+    PIC system_misc system_debug malloc_functions ubsan
+    c_strings c_string_formatting
+    int_functions floating_point trigonometry
     stdlib_qsort
     pthread system_locale
     stdio_input stdio_output file_io readlink_function dir_io mmap_functions dlfcn
@@ -28,11 +29,18 @@ group: PIC
     # Position-Independent Code (-fPIC) requires a Global Offset Table.
     _GLOBAL_OFFSET_TABLE_
 
+group: system_misc
+    abort
+
 group: system_debug
     __assert_fail __stack_chk_fail
 
 group: malloc_functions
     free malloc realloc
+
+group: ubsan
+    # UBSan=UndefinedBehaviorSanitizer, clang -fsanitize=bounds
+    __ubsan_handle_out_of_bounds
 
 group: c_strings
     isspace isdigit
@@ -46,12 +54,15 @@ group: c_strings
 
 group: c_string_formatting
     atoi atol strtod strtod_l strtol strtoul
-    sprintf
+    sprintf snprintf
     # Additional symbols in an optimized build.
     __sprintf_chk
 
+group: int_functions
+    div
+
 group: floating_point
-    abs fabs floor ceil modf fmod log pow sqrt
+    abs fabs floor ceil modf fmod log pow round sqrt trunc
 
 group: trigonometry
     acos asin atan atan2 cos sin tan
@@ -120,6 +131,8 @@ group: iostream
     "std::basic_ios<char, std::char_traits<char> >::eof() const"
     "std::basic_ios<char, std::char_traits<char> >::fail() const"
     "std::basic_ostream<char, std::char_traits<char> >& std::operator<< <std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*)"
+    std::ios_base::Init::Init()
+    std::ios_base::Init::~Init()
     std::istream::get()
     std::istream::putback(char)
     # Additional symbols in an optimized build.
@@ -144,6 +157,7 @@ library: common
     unistr_props unistr_case unistr_case_locale unistr_titlecase_brkiter unistr_cnv
     cstr
     uniset_core uniset_props uniset_closure usetiter uset uset_props
+    static_unicode_sets
     uiter edits
     ucasemap ucasemap_titlecase_brkiter script_runs
     uprops ubidi_props ucase uscript uscript_props
@@ -185,7 +199,7 @@ group: breakiterator
     #   fThaiWordSet.applyPattern(UNICODE_STRING_SIMPLE("[[:Thai:]&[:LineBreak=SA:]]"), status)
     brkiter.o brkeng.o ubrk.o
     rbbi.o rbbinode.o rbbiscan.o rbbisetb.o rbbistbl.o rbbitblb.o
-    rbbidata.o rbbirb.o
+    rbbidata.o rbbirb.o rbbi_cache.o
     dictionarydata.o dictbe.o
     # BreakIterator::makeInstance() factory implementation makes for circular dependency
     # between BreakIterator base and FilteredBreakIteratorBuilder.
@@ -260,6 +274,7 @@ group: normalizer2
     normalizer2impl.o
   deps
     uniset_core
+    bytestream bytesinkutil  # for UTF-8 output
     utrie2_builder  # for building CanonIterData & FCD
     uvector  # for building CanonIterData
     uhash  # for the instance cache
@@ -269,6 +284,11 @@ group: punycode
     punycode.o
   deps
     platform
+
+group: static_unicode_sets
+    static_unicode_sets.o
+  deps
+    resourcebundle uniset_props
 
 group: uset_props
     uset_props.o
@@ -412,7 +432,7 @@ group: simpleformatter
 group: patternprops
     patternprops.o
   deps
-    PIC
+    PIC ubsan
 
 group: ushape
     ushape.o
@@ -464,17 +484,21 @@ group: ustr_titlecase_brkiter
 group: edits
     edits.o
   deps
+    # Edits::Iterator::toString() calls ICU_Utility::appendNumber()
+    icu_utility
     platform
 
 group: ucasemap_titlecase_brkiter
     ucasemap_titlecase_brkiter.o
   deps
     ucasemap breakiterator utext
+    ustr_titlecase_brkiter  # ustrcase_getTitleBreakIterator()
 
 group: ucasemap
     ucasemap.o
   deps
     ustring_case ustring_case_locale
+    bytestream bytesinkutil  # for UTF-8 output
     resourcebundle  # uloc_getName() etc.
 
 group: ustring_case_locale
@@ -486,7 +510,7 @@ group: ustring_case_locale
 group: ustring_case
     ustrcase.o
   deps
-    ucase edits
+    ucase uchar edits
 
 group: ucase
     ucase.o
@@ -561,6 +585,7 @@ group: currency
   deps
     loclikely resourcebundle ulist ustring_case_locale
     stdlib_qsort  # for ucurr.o (which does not use ICU's uarrsort.o)
+    static_unicode_sets usetiter
 
 group: icudataver  # u_getDataVersion()
     icudataver.o
@@ -727,6 +752,11 @@ group: ustr_wcs
   deps
     platform
 
+group: bytesinkutil
+    bytesinkutil.o
+  deps
+    bytestream edits
+
 group: bytestream
     bytestream.o
   deps
@@ -750,6 +780,8 @@ group: errorcode  # ErrorCode base class
 
 group: utypes  # u_errorName()
     utypes.o
+  deps
+    ubsan
 
 group: platform
     # Files in the "platform" group.
@@ -769,7 +801,8 @@ group: platform
     utrace.o
   deps
     # The "platform" group has no ICU dependencies.
-    PIC system_debug malloc_functions c_strings c_string_formatting
+    PIC system_misc system_debug malloc_functions ubsan
+    c_strings c_string_formatting
     floating_point pthread system_locale
     stdio_input readlink_function dir_io
     dlfcn  # Move related code into icuplug.c?
@@ -783,6 +816,7 @@ library: i18n
     alphabetic_index collation collation_builder string_search
     dayperiodrules
     formatting formattable_cnv regex regex_cnv translit
+    double_conversion number_representation numberformatter numberparser
     universal_time_scale
     uclean_i18n
 
@@ -856,26 +890,66 @@ group: dayperiodrules
   deps
     resourcebundle uclean_i18n
 
+group: double_conversion
+    double-conversion.o double-conversion-bignum.o double-conversion-bignum-dtoa.o
+    double-conversion-cached-powers.o double-conversion-diy-fp.o
+    double-conversion-fast-dtoa.o double-conversion-strtod.o
+  deps
+    platform
+
+group: number_representation
+    number_decimalquantity.o number_stringbuilder.o numparse_stringsegment.o number_utils.o
+  deps
+    decnumber double_conversion
+    # for data loading; that could be split off
+    resourcebundle
+    int_functions
+    ucase uniset_core
+
+group: numberformatter
+    # ICU 60+ NumberFormatter API
+    number_affixutils.o number_asformat.o
+    number_capi.o number_compact.o number_currencysymbols.o
+    number_decimfmtprops.o
+    number_fluent.o number_formatimpl.o
+    number_grouping.o number_integerwidth.o number_longnames.o
+    number_mapper.o number_modifiers.o number_multiplier.o
+    number_notation.o number_padding.o
+    number_patternmodifier.o number_patternstring.o number_rounding.o
+    number_scientific.o number_skeletons.o
+    currpinf.o dcfmtsym.o numsys.o
+    # pluralrules
+    standardplural.o plurrule.o
+  deps
+    decnumber double_conversion formattable format units
+    number_representation
+    uclean_i18n common
+
+group: numberparser
+    numparse_affixes.o numparse_compositions.o numparse_currency.o
+    numparse_decimal.o numparse_impl.o numparse_parsednumber.o
+    numparse_scientific.o numparse_symbols.o
+    numparse_validators.o
+  deps
+    numberformatter
+
 group: formatting
     # TODO: Try to subdivide this ball of wax.
     # currencyformat
-    curramt.o currfmt.o currpinf.o currunit.o
+    curramt.o currfmt.o
+    # pluralrules C API
+    upluralrules.o
     # decimalformat
-    dcfmtsym.o numsys.o unumsys.o
-    affixpatternparser.o decimfmtimpl.o digitaffix.o digitaffixesandpadding.o
-    digitformatter.o digitgrouping.o digitinterval.o
-    pluralaffix.o precision.o smallintformatter.o valueformatter.o
-    decfmtst.o decimfmt.o decimalformatpattern.o compactdecimalformat.o
+    unumsys.o
+    decimfmt.o compactdecimalformat.o
     numfmt.o unum.o
     winnmfmt.o
-    # pluralrules
-    standardplural.o plurrule.o upluralrules.o
     # scientificnumberformatter - would depend on dcfmtsym, so would be circular.
     scientificnumberformatter.o
     # rbnf
     nfrs.o nfrule.o nfsubs.o rbnf.o
     # measureformat
-    measfmt.o measunit.o quantityformatter.o
+    measfmt.o quantityformatter.o
     # dateformat
     astro.o buddhcal.o calendar.o cecal.o chnsecal.o coptccal.o dangical.o ethpccal.o
     gregocal.o gregoimp.o hebrwcal.o indiancal.o islamcal.o japancal.o persncal.o taiwncal.o
@@ -890,7 +964,7 @@ group: formatting
     # messageformat
     choicfmt.o msgfmt.o plurfmt.o selfmt.o umsg.o
   deps
-    digitlist formattable format
+    decnumber formattable format units numberformatter numberparser
     dayperiodrules
     collation collation_builder  # for rbnf
     common
@@ -904,16 +978,21 @@ group: sharedbreakiterator
   deps
     breakiterator
 
-group: digitlist
-    digitlst.o decContext.o decNumber.o visibledigits.o
+group: units
+    measunit.o currunit.o nounit.o
   deps
-    uclean_i18n
+    stringenumeration
+
+group: decnumber
+    decContext.o decNumber.o
+  deps
+    double_conversion uclean_i18n
 
 group: formattable
     fmtable.o
     measure.o
   deps
-    digitlist
+    decnumber number_representation
 
 group: formattable_cnv
     fmtable_cnv.o
@@ -949,6 +1028,8 @@ group: translit
 
 group: universal_time_scale
     utmscale.o
+  deps
+    ubsan
 
 group: uclean_i18n
     ucln_in.o

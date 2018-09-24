@@ -60,6 +60,7 @@
 #define kBCKernelcacheV1Key         CFSTR("Kernelcache v1.1")// dict
 #define kBCKernelcacheV2Key         CFSTR("Kernelcache v1.2")// dict
 #define kBCKernelcacheV3Key         CFSTR("Kernelcache v1.3")// dict
+#define kBCKernelcacheV4Key         CFSTR("Kernelcache v1.4")// dict
 #define kBCKernelPathKey            CFSTR("KernelPath")      //   m_k | kernel
 #define kBCPreferredCompressionKey  CFSTR("Preferred Compression") // "lzvn"
 #if DEV_KERNEL_SUPPORT

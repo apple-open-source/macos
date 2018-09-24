@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,9 @@
 
 const CFStringRef 
 kIPConfigurationServiceOptionEnableDAD = _kIPConfigurationServiceOptionEnableDAD;
+
+const CFStringRef
+kIPConfigurationServiceOptionEnableCLAT46 = _kIPConfigurationServiceOptionEnableCLAT46;
 
 const CFStringRef
 kIPConfigurationServiceOptionMTU = _kIPConfigurationServiceOptionMTU;
@@ -292,11 +295,12 @@ __IPConfigurationServiceAllocate(CFAllocatorRef allocator)
 STATIC CFDictionaryRef
 config_dict_create(CFStringRef serviceID,
 		   CFDictionaryRef requested_ipv6_config,
+		   CFBooleanRef no_publish,
 		   CFNumberRef mtu, CFBooleanRef perform_nud,
 		   CFStringRef ipv6_ll, CFBooleanRef enable_dad,
-		   CFStringRef apn_name)
+		   CFStringRef apn_name, CFBooleanRef enable_clat46)
 {
-#define N_KEYS_VALUES	8
+#define N_KEYS_VALUES	9
     int			count;
     CFDictionaryRef	config_dict;
     CFDictionaryRef 	ipv6_dict;
@@ -311,8 +315,11 @@ config_dict_create(CFStringRef serviceID,
     count++;
 
     /* no publish */
+    if (no_publish == NULL) {
+	no_publish = kCFBooleanTrue;
+    }
     keys[count] = _kIPConfigurationServiceOptionNoPublish;
-    values[count] = kCFBooleanTrue;
+    values[count] = no_publish;
     count++;
 
     /* mtu */
@@ -333,6 +340,13 @@ config_dict_create(CFStringRef serviceID,
     if (enable_dad != NULL) {
 	keys[count] = kIPConfigurationServiceOptionEnableDAD;
 	values[count] = enable_dad;
+	count++;
+    }
+
+    /* enable CLAT46 */
+    if (enable_clat46 != NULL) {
+	keys[count] = kIPConfigurationServiceOptionEnableCLAT46;
+	values[count] = enable_clat46;
 	count++;
     }
 
@@ -615,9 +629,19 @@ store_init(IPConfigurationServiceRef service, dispatch_queue_t queue)
 
 STATIC void
 IPConfigurationServiceSetServiceID(IPConfigurationServiceRef service,
-				   CFStringRef serviceID)
+				   CFStringRef serviceID,
+				   Boolean no_publish)
 {
-    service->store_key = IPConfigurationServiceKey(serviceID);
+    if (no_publish) {
+	service->store_key = IPConfigurationServiceKey(serviceID);
+    }
+    else {
+	service->store_key =
+	    SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							kSCDynamicStoreDomainState,
+							serviceID,
+							kSCEntNetIPv6);
+    }
     service->serviceID_data
 	= CFStringCreateExternalRepresentation(NULL, serviceID,
 					       kCFStringEncodingUTF8, 0);
@@ -655,8 +679,11 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
     CFStringRef			apn_name = NULL;
     CFStringRef			ipv6_ll = NULL;
     CFBooleanRef		enable_dad = NULL;
+    CFBooleanRef		enable_clat46 = NULL;
     kern_return_t		kret;
     CFNumberRef			mtu = NULL;
+    Boolean			no_publish = TRUE;
+    CFBooleanRef		no_publish_cf = NULL;
     CFBooleanRef		perform_nud = NULL;
     CFDictionaryRef		requested_ipv6_config = NULL;
     mach_port_t			server = MACH_PORT_NULL;
@@ -689,6 +716,19 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
     if (options != NULL) {
 	struct in6_addr		ip;
 
+	no_publish_cf
+	    = CFDictionaryGetValue(options,
+				   _kIPConfigurationServiceOptionNoPublish);
+	if (no_publish_cf != NULL) {
+	    if (isA_CFBoolean(no_publish_cf) == NULL) {
+		IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
+			      _kIPConfigurationServiceOptionNoPublish);
+		no_publish_cf = NULL;
+	    }
+	    else {
+		no_publish = CFBooleanGetValue(no_publish_cf);
+	    }
+	}
 	mtu = CFDictionaryGetValue(options,
 				   kIPConfigurationServiceOptionMTU);
 	if (mtu != NULL && isA_CFNumber(mtu) == NULL) {
@@ -712,6 +752,16 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
 			  kIPConfigurationServiceOptionEnableDAD);
 	    enable_dad = NULL;
 	}
+
+	enable_clat46
+	    = CFDictionaryGetValue(options,
+				   kIPConfigurationServiceOptionEnableCLAT46);
+	if (enable_clat46 != NULL && isA_CFBoolean(enable_clat46) == NULL) {
+	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
+			  kIPConfigurationServiceOptionEnableCLAT46);
+	    enable_clat46 = NULL;
+	}
+
 	requested_ipv6_config
 	    = CFDictionaryGetValue(options,
 				   kIPConfigurationServiceOptionIPv6Entity);
@@ -743,8 +793,9 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
     serviceID = my_CFUUIDStringCreate(NULL);
     service->config_dict = config_dict_create(serviceID,
 					      requested_ipv6_config,
+					      no_publish_cf,
 					      mtu, perform_nud, ipv6_ll,
-					      enable_dad, apn_name);
+					      enable_dad, apn_name, enable_clat46);
 
     /* monitor for configd restart */
     service->queue = dispatch_queue_create("IPConfigurationService", NULL);
@@ -762,7 +813,7 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    IPConfigurationServiceSetServiceID(service, serviceID);
+    IPConfigurationServiceSetServiceID(service, serviceID, no_publish);
     dispatch_sync(service->queue,
 		  ^{
 		      service->server = server;

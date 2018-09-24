@@ -25,7 +25,7 @@
 #define MediaPlayerPrivateGStreamerBase_h
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 
-#include "GRefPtrGStreamer.h"
+#include "GStreamerCommon.h"
 #include "MainThreadNotifier.h"
 #include "MediaPlayerPrivate.h"
 #include "PlatformLayer.h"
@@ -61,7 +61,7 @@ class TextureMapperPlatformLayerProxy;
 
 void registerWebKitGStreamerElements();
 
-class MediaPlayerPrivateGStreamerBase : public MediaPlayerPrivateInterface
+class MediaPlayerPrivateGStreamerBase : public MediaPlayerPrivateInterface, public CanMakeWeakPtr<MediaPlayerPrivateGStreamerBase>
 #if USE(TEXTURE_MAPPER_GL)
     , public PlatformLayer
 #endif
@@ -77,7 +77,7 @@ public:
 
 #if USE(GSTREAMER_GL)
     bool ensureGstGLContext();
-    static GstContext* requestGLContext(const gchar* contextType, MediaPlayerPrivateGStreamerBase*);
+    GstContext* requestGLContext(const char* contextType);
 #endif
     static bool initializeGStreamerAndRegisterWebKitElements();
     bool supportsMuting() const override { return true; }
@@ -112,7 +112,6 @@ public:
     virtual MediaTime maxTimeLoaded() const { return MediaTime::zeroTime(); }
 
     bool supportsFullscreen() const override;
-    PlatformMedia platformMedia() const override;
 
     MediaPlayer::MovieLoadType movieLoadType() const override;
     virtual bool isLiveStream() const = 0;
@@ -143,6 +142,8 @@ public:
     void handleProtectionEvent(GstEvent*);
     void attemptToDecryptWithLocalInstance();
     void attemptToDecryptWithInstance(CDMInstance&) override;
+    void dispatchCDMInstance();
+    void initializationDataEncountered(GstEvent*);
 #endif
 
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
@@ -170,10 +171,10 @@ protected:
     GstElement* createVideoSinkGL();
     GstGLContext* gstGLContext() const { return m_glContext.get(); }
     GstGLDisplay* gstGLDisplay() const { return m_glDisplay.get(); }
+    void ensureGLVideoSinkContext();
 #endif
 
 #if USE(TEXTURE_MAPPER_GL)
-    void updateTexture(BitmapTextureGL&, GstVideoInfo&);
     RefPtr<TextureMapperPlatformLayerProxy> proxy() const override;
     void swapBuffersIfNeeded() override;
     void pushTextureToCompositor();
@@ -189,7 +190,7 @@ protected:
 
     void triggerRepaint(GstSample*);
     void repaint();
-    void cancelRepaint();
+    void cancelRepaint(bool destroying = false);
 
     static void repaintCallback(MediaPlayerPrivateGStreamerBase*, GstSample*);
     static void repaintCancelledCallback(MediaPlayerPrivateGStreamerBase*);
@@ -209,10 +210,12 @@ protected:
 #if ENABLE(VIDEO_TRACK)
         TextChanged = 1 << 5,
 #endif
-        SizeChanged = 1 << 6
+        SizeChanged = 1 << 6,
+#if GST_CHECK_VERSION(1, 10, 0)
+        StreamCollectionChanged = 1 << 7
+#endif
     };
 
-    WeakPtrFactory<MediaPlayerPrivateGStreamerBase> m_weakPtrFactory;
     Ref<MainThreadNotifier<MainThreadNotification>> m_notifier;
     MediaPlayer* m_player;
     GRefPtr<GstElement> m_pipeline;
@@ -222,7 +225,7 @@ protected:
     MediaPlayer::ReadyState m_readyState;
     mutable MediaPlayer::NetworkState m_networkState;
     IntSize m_size;
-    mutable GMutex m_sampleMutex;
+    mutable Lock m_sampleMutex;
     GRefPtr<GstSample> m_sample;
 
     mutable FloatSize m_videoSize;
@@ -231,6 +234,7 @@ protected:
 
     Condition m_drawCondition;
     Lock m_drawMutex;
+    bool m_destroying { false };
     RunLoop::Timer<MediaPlayerPrivateGStreamerBase> m_drawTimer;
 
 #if USE(TEXTURE_MAPPER_GL)
@@ -240,6 +244,8 @@ protected:
 #if USE(GSTREAMER_GL)
     GRefPtr<GstGLContext> m_glContext;
     GRefPtr<GstGLDisplay> m_glDisplay;
+    GRefPtr<GstContext> m_glDisplayElementContext;
+    GRefPtr<GstContext> m_glAppElementContext;
     std::unique_ptr<VideoTextureCopierGStreamer> m_videoTextureCopier;
 #endif
 

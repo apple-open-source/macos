@@ -890,8 +890,8 @@ SecKeychainGetDLDBHandle(SecKeychainRef keychainRef, CSSM_DL_DB_HANDLE *dldbHand
     END_SECAPI
 }
 
-static ModuleNexus<Mutex> gSecReturnedKeyCSPsMutex;
-static std::set<CssmClient::CSP> gSecReturnedKeychainCSPs;
+static ModuleNexus<Mutex> gSecReturnedKeychainCSPsMutex;
+static ModuleNexus<std::set<CssmClient::CSP>> gSecReturnedKeychainCSPs;
 
 OSStatus
 SecKeychainGetCSPHandle(SecKeychainRef keychainRef, CSSM_CSP_HANDLE *cspHandle)
@@ -906,8 +906,8 @@ SecKeychainGetCSPHandle(SecKeychainRef keychainRef, CSSM_CSP_HANDLE *cspHandle)
     // Keep a global pointer to it to force the CSP to stay live forever.
     CssmClient::CSP returnedKeychainCSP = keychain->csp();
     {
-        StLock<Mutex> _(gSecReturnedKeyCSPsMutex());
-        gSecReturnedKeychainCSPs.insert(returnedKeychainCSP);
+        StLock<Mutex> _(gSecReturnedKeychainCSPsMutex());
+        gSecReturnedKeychainCSPs().insert(returnedKeychainCSP);
     }
 	*cspHandle = returnedKeychainCSP->handle();
 

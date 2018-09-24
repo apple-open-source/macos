@@ -892,13 +892,13 @@ See remaining rules for examples.
 				<string>loginwindow:login</string>
 				<string>builtin:login-begin</string>
 				<string>builtin:reset-password,privileged</string>
+				<string>loginwindow:FDESupport,privileged</string>
 				<string>builtin:forward-login,privileged</string>
 				<string>builtin:auto-login,privileged</string>
 				<string>builtin:authenticate,privileged</string>
 				<string>PKINITMechanism:auth,privileged</string>
 				<string>builtin:login-success</string>
 				<string>loginwindow:success</string>
-				<string>loginwindow:FDESupport,privileged</string>
 				<string>HomeDirMechanism:login,privileged</string>
 				<string>HomeDirMechanism:status</string>
 				<string>MCXMechanism:login</string>
@@ -906,7 +906,7 @@ See remaining rules for examples.
 				<string>loginwindow:done</string>
 			</array>
 			<key>version</key>
-			<integer>6</integer>
+			<integer>7</integer>
 		</dict>
 		<key>system.login.fus</key>
 		<dict>
@@ -1219,7 +1219,7 @@ See remaining rules for examples.
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>Used by AuthorizationExecuteWithPrivileges(...).  
+			<string>Used by AuthorizationExecuteWithPrivileges(...).
 		AuthorizationExecuteWithPrivileges() is used by programs requesting
 		to run a tool as root (e.g., some installers).</string>
 			<key>group</key>
@@ -1504,7 +1504,7 @@ See remaining rules for examples.
 		    <string>rule</string>
 		    <key>rule</key>
 		    <string>authenticate-session-owner</string>
-		</dict>		
+		</dict>
 		<key>com.apple.security.sudo</key>
 		<dict>
 			<key>class</key>
@@ -1516,7 +1516,7 @@ See remaining rules for examples.
 				<string>entitled</string>
 				<string>authenticate-session-owner</string>
 			</array>
-		</dict>		
+		</dict>
 		<key>system.preferences.continuity</key>
 		<dict>
 			<key>class</key>
@@ -1555,6 +1555,45 @@ See remaining rules for examples.
 			</array>
 			<key>version</key>
 			<integer>1</integer>
+		</dict>
+		<key>com.apple.app-sandbox.create-symlink</key>
+		<dict>
+			<key>comment</key>
+			<string>Authorize an app-sandboxed application to install a symlink into /usr/local/bin.</string>
+			<key>class</key>
+			<string>rule</string>
+			<key>rule</key>
+			<string>authenticate-admin-nonshared</string>
+			<key>shared</key>
+			<false/>
+			<key>timeout</key>
+			<integer>60</integer>
+		</dict>
+		<key>com.apple.app-sandbox.set-attributes</key>
+		<dict>
+			<key>comment</key>
+			<string>Authorize an app-sandboxed application to change permissions on a privileged file.</string>
+			<key>class</key>
+			<string>rule</string>
+			<key>rule</key>
+			<string>authenticate-admin-nonshared</string>
+			<key>shared</key>
+			<false/>
+			<key>timeout</key>
+			<integer>60</integer>
+		</dict>
+		<key>com.apple.app-sandbox.replace-file</key>
+		<dict>
+			<key>comment</key>
+			<string>Authorize an app-sandboxed application to save (overwrite) a file in a privileged location.</string>
+			<key>class</key>
+			<string>rule</string>
+			<key>rule</key>
+			<string>authenticate-admin-nonshared</string>
+			<key>shared</key>
+			<false/>
+			<key>timeout</key>
+			<integer>60</integer>
 		</dict>
 	</dict>
 	<key>rules</key>
@@ -1621,7 +1660,7 @@ See remaining rules for examples.
 			</array>
 			<key>version</key>
 			<integer>1</integer>
-		</dict>		    
+		</dict>
 		<key>authenticate-admin</key>
 		<dict>
 			<key>class</key>
@@ -1653,8 +1692,8 @@ See remaining rules for examples.
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>Like the default rule, but 
-            credentials remain valid for only 30 seconds after they've 
+			<string>Like the default rule, but
+            credentials remain valid for only 30 seconds after they've
             been obtained.  An acquired credential is shared by all clients.
 			</string>
 			<key>group</key>
@@ -1788,8 +1827,8 @@ See remaining rules for examples.
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>Default rule.	
-            Credentials remain valid for 5 minutes after they've been obtained. 
+			<string>Default rule.
+            Credentials remain valid for 5 minutes after they've been obtained.
             An acquired credential is shared by all clients.
 			</string>
 			<key>group</key>
@@ -2129,7 +2168,7 @@ See remaining rules for examples.
 			<true/>
 			<key>timeout</key>
 			<integer>36000</integer>
-		</dict>		
+		</dict>
 	</dict>
 </dict>
 </plist>

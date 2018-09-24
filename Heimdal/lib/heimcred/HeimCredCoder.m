@@ -28,6 +28,7 @@
  */
 
 #import <Foundation/Foundation.h>
+#import <Foundation/NSKeyedArchiver_Private.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <AssertMacros.h>
 #import <Security/Security.h>
@@ -176,13 +177,11 @@ convertDict(const void *key, const void *value, void *context)
 	if (clearText == NULL)
 	    return NULL;
 
-	HeimCredDecoder *decoder = [[[HeimCredDecoder alloc] initForReadingWithData:(NSData *)clearText] autorelease];
+	HeimCredDecoder *decoder = [[[HeimCredDecoder alloc] initForReadingFromData:(NSData *)clearText error:NULL] autorelease];
 	if (decoder == nil)
 	    return NULL;
 
-	[decoder setRequiresSecureCoding:true];
-	
-	id obj = [[decoder decodeObjectForKey:NSKeyedArchiveRootObjectKey] retain];
+	id obj = [[decoder decodeObjectOfClasses:[HeimCredDecoder allowedClasses] forKey:NSKeyedArchiveRootObjectKey] retain];
         [decoder finishDecoding];
 
 	return obj;
@@ -207,8 +206,12 @@ convertDict(const void *key, const void *value, void *context)
     }
 }
 
-
 - (NSSet *)allowedClasses
+{
+    return [HeimCredDecoder allowedClasses];
+}
+
++ (NSSet *)allowedClasses
 {
     static dispatch_once_t onceToken;
     static NSSet *_set;

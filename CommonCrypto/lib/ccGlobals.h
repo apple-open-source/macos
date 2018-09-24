@@ -28,13 +28,17 @@
 #ifndef CCGLOBALS_H
 #define CCGLOBALS_H
 
+#include <os/log.h>
+#include <os/assumes.h>
 #include <corecrypto/ccdh.h>
+#include <corecrypto/ccdigest.h>
 #include "CommonCryptorPriv.h"
 #include "CommonRandomPriv.h"
-#include "../libcn/basexx.h"
+#include "basexx.h"
 
-#include "../libcn/crc.h"
+#include "crc.h"
 #include <CommonNumerics/CommonCRC.h>
+#include <CommonCrypto/CommonDigestSPI.h>
 
 #if defined(_WIN32)
     #define _LIBCOMMONCRYPTO_HAS_ALLOC_ONCE 0
@@ -50,44 +54,41 @@
 #define CN_SUPPORTED_CRCS kCN_CRC_64_ECMA_182+1
 #define CN_STANDARD_BASE_ENCODERS kCNEncodingBase16+1
 
+#define  CC_MAX_N_DIGESTS (kCCDigestSkein512+1)
+
 struct cc_globals_s {
-    // CommonCRC.c
-    dispatch_once_t crc_init;
-    crcInfo crcSelectionTab[CN_SUPPORTED_CRCS];
-    
-    dispatch_once_t basexx_init;
+    crcInfo crcSelectionTab[CN_SUPPORTED_CRCS]; // CommonCRC.c
     BaseEncoderFrame encoderTab[CN_STANDARD_BASE_ENCODERS];
-
-	// CommonDigest.c
-	dispatch_once_t digest_info_init;
-	const struct ccdigest_info **digest_info;
-	
-	// CommonRandom.c
-	dispatch_once_t dev_random_init;
-	dispatch_once_t drbg_init;
-    
-    ccInternalRandom dev_random;
-    ccInternalRandom drbg;
-	
-    // CommonCryptor.c
-    cipherMode cipherModeTab[CC_SUPPORTED_CIPHERS][CC_DIRECTIONS];
-
+	const struct ccdigest_info *digest_info[CC_MAX_N_DIGESTS];// CommonDigest.c
 };
+
 typedef struct cc_globals_s *cc_globals_t;
+void init_globals(void *g);
 
 __attribute__((__pure__))
 static inline cc_globals_t
 _cc_globals(void) {
 #if _LIBCOMMONCRYPTO_HAS_ALLOC_ONCE
-    return (cc_globals_t) os_alloc_once(OS_ALLOC_ONCE_KEY_LIBCOMMONCRYPTO,
+    cc_globals_t globals =  (cc_globals_t) os_alloc_once(OS_ALLOC_ONCE_KEY_LIBCOMMONCRYPTO,
                                         sizeof(struct cc_globals_s),
-                                        NULL);
+                                        init_globals);
+   if(OS_EXPECT(globals==NULL, 0)){
+        struct _os_alloc_once_s *slot = &_os_alloc_once_table[OS_ALLOC_ONCE_KEY_LIBCOMMONCRYPTO-1];
+        os_log_fault(OS_LOG_DEFAULT, "slot=%p once=%li, ptr=%p", slot, slot->once, slot->ptr);
+        slot = &_os_alloc_once_table[OS_ALLOC_ONCE_KEY_LIBCOMMONCRYPTO];
+        os_log_fault(OS_LOG_DEFAULT, "slot=%p once=%li, ptr=%p", slot, slot->once, slot->ptr);
+        slot = &_os_alloc_once_table[OS_ALLOC_ONCE_KEY_LIBCOMMONCRYPTO+1];
+        os_log_fault(OS_LOG_DEFAULT, "slot=%p once=%li, ptr=%p", slot, slot->once, slot->ptr);
+
+        os_crash("output of os_alloc_once() is NULL");
+    }
+    return globals;
 #else
+    #error this mode is not supported
     extern struct cc_globals_s cc_globals_storage;
+    cc_dispatch_once(&globals->digest_info_init, NULL, init_globals);
     return &cc_globals_storage;
 #endif
 }
-
-
 
 #endif /* CCGLOBALS_H */

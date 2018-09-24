@@ -23,8 +23,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dwarf.c	1.9	07/01/10 SMI"
-
 /*
  * DWARF to tdata conversion
  *
@@ -138,6 +136,7 @@ typedef struct dwarf {
 	Dwarf_Debug dw_dw;		/* for libdwarf */
 	Dwarf_Error dw_err;		/* for libdwarf */
 	Dwarf_Unsigned dw_maxoff;	/* highest legal offset in this cu */
+	Dwarf_Off dw_cuoff;		/* lowest offset in this cu */
 	tdata_t *dw_td;			/* root of the tdesc/iidesc tree */
 	hash_t *dw_tidhash;		/* hash of tdescs by t_id */
 	hash_t *dw_fwdhash;		/* hash of fwd decls by name */
@@ -147,10 +146,19 @@ typedef struct dwarf {
 	size_t dw_ptrsz;		/* size of a pointer in this file */
 	tid_t dw_mfgtid_last;		/* last mfg'd type ID used */
 	uint_t dw_nunres;		/* count of unresolved types */
+	Dwarf_Die dw_cu;		/* die of cu */
 	char *dw_cuname;		/* name of compilation unit */
 } dwarf_t;
 
-static void die_create_one(dwarf_t *, Dwarf_Die);
+typedef struct cu_data
+{
+	struct cu_data *cud_next;
+	char * cud_name;
+	Dwarf_Unsigned cud_nxthdr;
+} cu_data_t;
+
+
+static tdesc_t * die_create_one(dwarf_t *, Dwarf_Die);
 static void die_create(dwarf_t *, Dwarf_Die);
 
 static tid_t
@@ -197,7 +205,7 @@ tdesc_size(tdesc_t *tdp)
 			return (tdp->t_size);
 
 		case FORWARD:
-			return (0);
+			return (SIZE_MAX);
 
 		case TYPEDEF:
 		case VOLATILE:
@@ -207,7 +215,7 @@ tdesc_size(tdesc_t *tdp)
 			continue;
 
 		case 0: /* not yet defined */
-			return (0);
+			return (SIZE_MAX);
 
 		default:
 			terminate("tdp %u: tdesc_size on unknown type %d\n",
@@ -424,7 +432,7 @@ die_bool(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name, Dwarf_Bool *valp, int req)
 
 	if (dwarf_formflag(attr, &val, &dw->dw_err) != DW_DLV_OK) {
 		terminate("die %llu: failed to get bool (form 0x%x)\n",
-		    die_off(dw, die), die_attr_form(dw, attr));
+			die_off(dw, die), die_attr_form(dw, attr));
 	}
 
 	dwarf_dealloc(dw->dw_dw, attr, DW_DLA_ATTR);
@@ -444,7 +452,7 @@ die_string(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name, char **strp, int req)
 
 	if (dwarf_formstring(attr, &str, &dw->dw_err) != DW_DLV_OK) {
 		terminate("die %llu: failed to get string (form 0x%x)\n",
-		    die_off(dw, die), die_attr_form(dw, attr));
+			die_off(dw, die), die_attr_form(dw, attr));
 	}
 
 	*strp = xstrdup(str);
@@ -461,9 +469,9 @@ die_attr_ref(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name)
 
 	attr = die_attr(dw, die, name, DW_ATTR_REQ);
 
-	if (dwarf_formref(attr, &off, &dw->dw_err) != DW_DLV_OK) {
+	if (dwarf_global_formref(attr, &off, &dw->dw_err) != DW_DLV_OK) {
 		terminate("die %llu: failed to get ref (form 0x%x)\n",
-		    die_off(dw, die), die_attr_form(dw, attr));
+			die_off(dw, die), die_attr_form(dw, attr));
 	}
 
 	dwarf_dealloc(dw->dw_dw, attr, DW_DLA_ATTR);
@@ -565,6 +573,17 @@ die_lookup_pass1(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name)
 
 	if ((tdp = tdesc_lookup(dw, ref)) != NULL)
 		return (tdp);
+
+	if ((ref < dw->dw_cuoff) || (ref > dw->dw_maxoff))
+	{
+	    Dwarf_Die ref_die;
+		int rc;
+		if ((rc = dwarf_offdie(dw->dw_dw, ref, &ref_die, &dw->dw_err)) != DW_DLV_OK) {
+			terminate("die %llu: failed to find oob ref\n", die);
+		}
+		tdp = die_create_one(dw, ref_die);
+	    return (tdp);
+	}
 
 	return (die_add(dw, ref));
 }
@@ -828,7 +847,7 @@ die_array_resolve(tdesc_t *tdp, tdesc_t **tdpp, void *private)
 	debug(3, "trying to resolve array %d (cont %d)\n", tdp->t_id,
 	    tdp->t_ardef->ad_contents->t_id);
 
-	if ((sz = tdesc_size(tdp->t_ardef->ad_contents)) == 0) {
+	if ((sz = tdesc_size(tdp->t_ardef->ad_contents)) == SIZE_MAX) {
 		debug(3, "unable to resolve array %s (%d) contents %d\n",
 		    tdesc_name(tdp), tdp->t_id,
 		    tdp->t_ardef->ad_contents->t_id);
@@ -1045,12 +1064,13 @@ die_sou_create(dwarf_t *dw, Dwarf_Die str, Dwarf_Off off, tdesc_t *tdp,
 		if ((ml->ml_name = die_name(dw, mem)) == NULL)
 			ml->ml_name = "";
 
+        Dwarf_Off ref = die_attr_ref(dw, mem, DW_AT_type);
 		ml->ml_type = die_lookup_pass1(dw, mem, DW_AT_type);
 
 		if (die_mem_offset(dw, mem, DW_AT_data_member_location,
 		    &mloff, 0)) {
-			debug(3, "die %llu: got mloff %llx\n", off,
-			    (u_longlong_t)mloff);
+			debug(3, "die %llu: got mloff %llx ref %lld\n", off,
+			    (u_longlong_t)mloff, ref);
 			ml->ml_offset = mloff * 8;
 		}
 
@@ -1509,7 +1529,7 @@ die_base_create(dwarf_t *dw, Dwarf_Die base, Dwarf_Off off, tdesc_t *tdp)
 	intr_t *intr;
 	char *new;
 
-	debug(3, "die %llu: creating base type\n", off);
+	debug(3, "die %llu: creating base type %d\n", off, tdp->t_id);
 
 	/*
 	 * The compilers have their own clever (internally inconsistent) ideas
@@ -1528,8 +1548,8 @@ die_base_create(dwarf_t *dw, Dwarf_Die base, Dwarf_Off off, tdesc_t *tdp)
 	/* XXX make a name parser for float too */
 	if ((intr = die_base_name_parse(tdp->t_name, &new)) != NULL) {
 		/* Found it.  We'll use the parsed version */
-		debug(3, "die %llu: name \"%s\" remapped to \"%s\"\n", off,
-		    tdesc_name(tdp), new);
+		debug(3, "die %llu: name \"%s\" remapped to \"%s\" size %d\n", off,
+		    tdesc_name(tdp), new, sz);
 
 		free(tdp->t_name);
 		tdp->t_name = new;
@@ -1561,14 +1581,16 @@ die_through_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp,
 
 	debug(3, "die %llu: creating %s\n", off, typename);
 
-	tdp->t_type = type;
-
 	if ((attr = die_attr(dw, die, DW_AT_type, 0)) != NULL) {
 		dwarf_dealloc(dw->dw_dw, attr, DW_DLA_ATTR);
 		tdp->t_tdesc = die_lookup_pass1(dw, die, DW_AT_type);
+		debug(3, "die %llu: to %llu\n", off, tdp->t_tdesc->t_id);
 	} else {
 		tdp->t_tdesc = tdesc_intr_void(dw);
 	}
+
+    /* set t_type after t_desc since a non-zero t_type requires t_desc */
+	tdp->t_type = type;
 
 	if (type == POINTER)
 		tdp->t_size = dw->dw_ptrsz;
@@ -1845,7 +1867,7 @@ die_tag2ctor(Dwarf_Half tag)
 	return (NULL);
 }
 
-static void
+static tdesc_t *
 die_create_one(dwarf_t *dw, Dwarf_Die die)
 {
 	Dwarf_Off off = die_off(dw, die);
@@ -1854,17 +1876,16 @@ die_create_one(dwarf_t *dw, Dwarf_Die die)
 	tdesc_t *tdp;
 
 	debug(3, "die %llu: create_one\n", off);
-
-	if (off > dw->dw_maxoff) {
-		terminate("illegal die offset %llu (max %llu)\n", off,
-		    dw->dw_maxoff);
+	if ((off < dw->dw_cuoff) || (off > dw->dw_maxoff)) {
+		debug(2, "die offset outside CU %llu (cuoff %llu max %llu)\n",
+				off, dw->dw_cuoff, dw->dw_maxoff);
 	}
 
 	tag = die_tag(dw, die);
 
 	if ((dc = die_tag2ctor(tag)) == NULL) {
 		debug(2, "die %llu: ignoring tag type %x\n", off, tag);
-		return;
+		return (NULL);
 	}
 
 	if ((tdp = tdesc_lookup(dw, off)) == NULL &&
@@ -1885,6 +1906,8 @@ die_create_one(dwarf_t *dw, Dwarf_Die die)
 #endif /* __APPLE__ */
 
 	dc->dc_create(dw, die, off, tdp);
+
+	return (tdp);
 }
 
 static void
@@ -1962,88 +1985,198 @@ die_resolve(dwarf_t *dw)
 
 /*ARGSUSED*/
 int
-dw_read(tdata_t *td, Elf *elf, const char *filename)
+dw_read(Elf *elf, const char *filename, const char *unitmatch, int verbose, tdata_t **mstrtd)
 {
+	dwarf_t _dw;
+	dwarf_t *dw = &_dw;
 	Dwarf_Unsigned abboff, hdrlen, nxthdr;
 	Dwarf_Half vers, addrsz;
-	Dwarf_Die cu, child;
-	dwarf_t dw;
-	char *prod = NULL;
+	Dwarf_Die child;
+	char *prod;
 	int rc;
+	int cucount = 0;
+	int cumerged = 0;
+	cu_data_t *cufirst = NULL;
+	cu_data_t *culast = NULL;
+	cu_data_t *cunext = NULL;
+	cu_data_t *cudata;
+	tdata_t *cutd = NULL;
 
-	bzero(&dw, sizeof (dwarf_t));
-	dw.dw_td = td;
-	dw.dw_ptrsz = elf_ptrsz(elf);
-	dw.dw_mfgtid_last = TID_MFGTID_BASE;
-	dw.dw_tidhash = hash_new(TDESC_HASH_BUCKETS, tdesc_idhash, tdesc_idcmp);
-	dw.dw_fwdhash = hash_new(TDESC_HASH_BUCKETS, tdesc_namehash,
-	    tdesc_namecmp);
-	dw.dw_enumhash = hash_new(TDESC_HASH_BUCKETS, tdesc_namehash,
-	    tdesc_namecmp);
+	bzero(dw, sizeof (dwarf_t));
+	dw->dw_ptrsz = elf_ptrsz(elf);
 
-	if ((rc = dwarf_elf_init(elf, DW_DLC_READ, NULL, NULL, &dw.dw_dw,
-	    &dw.dw_err)) == DW_DLV_NO_ENTRY) {
-		return (0);
+	if ((rc = dwarf_elf_init(elf, DW_DLC_READ, NULL, NULL, &dw->dw_dw,
+		&dw->dw_err)) == DW_DLV_NO_ENTRY) {
+		return (-1);
 	} else if (rc != DW_DLV_OK) {
-		if (dwarf_errno(dw.dw_err) == DW_DLE_DEBUG_INFO_NULL) {
+		if (dwarf_errno(dw->dw_err) == DW_DLE_DEBUG_INFO_NULL) {
 			/*
 			 * There's no type data in the DWARF section, but
 			 * libdwarf is too clever to handle that properly.
 			 */
-			return (0);
+			return (-1);
 		}
 
 		terminate("failed to initialize DWARF: %s\n",
-		    dwarf_errmsg(dw.dw_err));
+			dwarf_errmsg(dw->dw_err));
 	}
 
-	if ((rc = dwarf_next_cu_header(dw.dw_dw, &hdrlen, &vers, &abboff,
-	    &addrsz, &nxthdr, &dw.dw_err)) != DW_DLV_OK ||
-	    (cu = die_sibling(&dw, NULL)) == NULL ||
-	    (child = die_child(&dw, cu)) == NULL)
-		return (0);
+	/* First pass to find the compilation units we will process */
 
-	dw.dw_maxoff = nxthdr - 1;
+	while (1) {
+		if (dw->dw_cuname) {
+			free(dw->dw_cuname);
+			dw->dw_cuname = NULL;
+		}
+		if ((rc = dwarf_next_cu_header(dw->dw_dw, &hdrlen, &vers, &abboff,
+			&addrsz, &nxthdr, &dw->dw_err)) != DW_DLV_OK) {
+			break;
+		}
 
-	if (dw.dw_maxoff > TID_FILEMAX)
-		terminate("file contains too many types\n");
+		dw->dw_maxoff = nxthdr - 1;
+		if (dw->dw_maxoff > TID_FILEMAX)
+			terminate("file contains too many types\n");
 
-	debug(1, "DWARF version: %d\n", vers);
-	if (vers != DWARF_VERSION && vers != DWARF_VERSION3 && vers != DWARF_VERSION4) {
-		terminate("file contains incompatible version %d DWARF code "
-		    "(version 2 required)\n", vers);
+		debug(4, "DWARF version: %d\n", vers);
+		if (vers != DWARF_VERSION && vers != DWARF_VERSION3 && vers != DWARF_VERSION4) {
+			terminate("file contains incompatible version %d DWARF code "
+				"(version 2/3/4 required)\n", vers);
+		}
+
+		Dwarf_Error error = NULL;
+		rc = dwarf_siblingof(dw->dw_dw, NULL, &dw->dw_cu, &error);
+		if(rc != DW_DLV_OK) {
+			debug(4, "Error in dwarf_siblingof on CU die (%s)\n", dwarf_errmsg(error));
+			continue;
+		}
+
+		if (die_string(dw, dw->dw_cu, DW_AT_producer, &prod, 0)) {
+			debug(4, "DWARF emitter: %s\n", prod);
+			free(prod);
+		}
+
+		dw->dw_cuname = die_name(dw, dw->dw_cu);
+		if (!dw->dw_cuname) {
+			debug(1, "no name for CU\n");
+			continue;
+		}
+
+		if (unitmatch) {
+			/* Only extract from CUs built from a directory path
+			 * containing the string unitmatch. */
+			char *comp_dir;
+			if (!die_string(dw, dw->dw_cu, DW_AT_comp_dir, &comp_dir, 0)) {
+				debug(1, "no AT_comp_dir for CU\n");
+				continue;
+			}
+			int skip = (!strstr(comp_dir, unitmatch));
+			free(comp_dir);
+			if (skip) {
+				continue;
+			}
+		}
+
+		Dwarf_Unsigned lang;
+		rc = dwarf_srclang(dw->dw_cu, &lang, &error);
+		if (rc == DW_DLV_OK) {
+			/* This code doesn't handle the DW_TAG_class_type,
+			 *  or scope c++ definitions properly.
+			 */
+			if (lang == DW_LANG_C_plus_plus) {
+				continue;
+			}
+		}
+
+		cudata = xcalloc(sizeof(*cudata));
+		if (!cufirst) {
+			cufirst = cudata;
+		}
+		if (culast) {
+			culast->cud_next = cudata;
+		}
+		culast = cudata;
+		cucount++;
+		cudata->cud_name = xstrdup(dw->dw_cuname);
+		cudata->cud_nxthdr = nxthdr;
 	}
 
-	if (die_string(&dw, cu, DW_AT_producer, &prod, 0)) {
-		debug(1, "DWARF emitter: %s\n", prod);
-		free(prod);
-	}
+	ctfmerge_prepare(cucount);
 
-	if ((dw.dw_cuname = die_name(&dw, cu)) != NULL) {
-		char *base = xstrdup(basename(dw.dw_cuname));
-		free(dw.dw_cuname);
-		dw.dw_cuname = base;
+	/* Second pass to extract & merge */
 
-		debug(1, "CU name: %s\n", dw.dw_cuname);
-	}
+	for (cudata = cunext = cufirst; cudata; cudata = cunext) {
+		dw->dw_cuname = NULL;
+		if ((rc = dwarf_next_cu_header(dw->dw_dw, &hdrlen, &vers, &abboff,
+			&addrsz, &nxthdr, &dw->dw_err)) != DW_DLV_OK) {
+			break;
+		}
+		if (nxthdr != cudata->cud_nxthdr) {
+			continue;
+		}
+		cunext = cudata->cud_next;
 
-	die_create(&dw, child);
+		hash_free(dw->dw_tidhash,  NULL, NULL);
+		hash_free(dw->dw_fwdhash,  NULL, NULL);
+		hash_free(dw->dw_enumhash, NULL, NULL);
 
-	if ((rc = dwarf_next_cu_header(dw.dw_dw, &hdrlen, &vers, &abboff,
-	    &addrsz, &nxthdr, &dw.dw_err)) != DW_DLV_NO_ENTRY)
-		terminate("multiple compilation units not supported\n");
+		dw->dw_mfgtid_last = TID_MFGTID_BASE;
+		dw->dw_tidhash = hash_new(TDESC_HASH_BUCKETS, tdesc_idhash, tdesc_idcmp);
+		dw->dw_fwdhash = hash_new(TDESC_HASH_BUCKETS, tdesc_namehash,
+			tdesc_namecmp);
+		dw->dw_enumhash = hash_new(TDESC_HASH_BUCKETS, tdesc_namehash,
+			tdesc_namecmp);
 
-	(void) dwarf_finish(dw.dw_dw, &dw.dw_err);
+		dw->dw_void = NULL;
+		dw->dw_long = NULL;
+		dw->dw_maxoff = nxthdr - 1;
 
-	die_resolve(&dw);
+		Dwarf_Die no_die = 0;
+		Dwarf_Error error = NULL;
+		rc = dwarf_siblingof(dw->dw_dw, no_die, &dw->dw_cu, &error);
+		if(rc != DW_DLV_OK) {
+			terminate("Error in dwarf_siblingof on CU die (%s)\n", dwarf_errmsg(error));
+		}
+
+		dw->dw_cuoff = die_off(dw, dw->dw_cu);
+		dw->dw_cuname = cudata->cud_name;
+		if (verbose && (cucount > 1)) {
+			printf("[%.02fM] %s\n", nxthdr / 1024. / 1024., dw->dw_cuname);
+		}
+		char *base = xstrdup(basename(dw->dw_cuname));
+		free(dw->dw_cuname);
+		dw->dw_cuname = base;
+
+		rc = dwarf_child(dw->dw_cu, &child, &error);
+		if (rc != DW_DLV_OK) {
+			printf("Error in dwarf_child on CU die \n");
+			continue;
+		}
+
+		dw->dw_td = tdata_new();
+		die_create(dw, child);
+		die_resolve(dw);
 
 #if !defined(__APPLE__)
-	cvt_fixups(td, dw.dw_ptrsz);
+		cvt_fixups(td, dw->dw_ptrsz);
 #else
-	/* Ignore Solaris gore. See on-src-20080707/usr/src/tools/ctf/cvt/fixup_tdescs.c */
+		/* Ignore Solaris gore. See on-src-20080707/usr/src/tools/ctf/cvt/fixup_tdescs.c */
 #endif
 
-	/* leak the dwarf_t */
+		cutd = tdata_new();
+		debug(1, "mergeto %s to cutd\n", dw->dw_cuname);
+		merge_into_master(dw->dw_td, cutd, NULL, 1);
 
-	return (0);
+		ctfmerge_add_td(cutd, dw->dw_cuname);
+		cumerged++;
+	}
+
+	debug(1, "dwarf_finish\n");
+	(void) dwarf_finish(dw->dw_dw, &dw->dw_err);
+
+	if (cumerged) {
+		*mstrtd = ctfmerge_done();
+		return (0);
+	} else {
+		return (-1);
+	}
 }

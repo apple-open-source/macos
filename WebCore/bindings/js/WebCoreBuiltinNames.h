@@ -26,26 +26,31 @@
 
 #pragma once
 
-#include <builtins/BuiltinUtils.h>
+#include <JavaScriptCore/BuiltinUtils.h>
 
 namespace WebCore {
 
 #define WEBCORE_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(macro) \
-    macro(AccessibleNode) \
     macro(Animation) \
-    macro(AnimationEffect) \
+    macro(AnimationEffectReadOnly) \
     macro(AnimationEffectTiming) \
+    macro(AnimationEffectTimingReadOnly) \
     macro(AnimationPlaybackEvent) \
     macro(AnimationTimeline) \
     macro(ApplePaySession) \
     macro(AttachmentElement) \
     macro(Audio) \
+    macro(AuthenticatorAssertionResponse) \
+    macro(AuthenticatorAttestationResponse) \
+    macro(AuthenticatorResponse) \
     macro(Cache) \
     macro(CacheStorage) \
     macro(Client) \
     macro(Clients) \
     macro(Credential) \
     macro(CredentialsContainer) \
+    macro(CSSAnimation) \
+    macro(CSSTransition) \
     macro(CustomElementRegistry) \
     macro(DataTransferItem) \
     macro(DataTransferItemList) \
@@ -83,6 +88,7 @@ namespace WebCore {
     macro(IntersectionObserver) \
     macro(IntersectionObserverEntry) \
     macro(KeyframeEffect) \
+    macro(KeyframeEffectReadOnly) \
     macro(MediaCapabilities) \
     macro(MediaCapabilitiesInfo) \
     macro(MediaEncryptedEvent) \
@@ -112,6 +118,7 @@ namespace WebCore {
     macro(PerformanceObserver) \
     macro(PerformanceObserverEntryList) \
     macro(PerformanceResourceTiming) \
+    macro(PerformanceServerTiming) \
     macro(PublicKeyCredential) \
     macro(RTCDTMFSender) \
     macro(RTCDTMFToneChangeEvent) \
@@ -120,6 +127,7 @@ namespace WebCore {
     macro(RTCIceCandidate) \
     macro(RTCIceTransport) \
     macro(RTCPeerConnection) \
+    macro(RTCPeerConnectionIceEvent) \
     macro(RTCRtpReceiver) \
     macro(RTCRtpSender) \
     macro(RTCRtpTransceiver) \

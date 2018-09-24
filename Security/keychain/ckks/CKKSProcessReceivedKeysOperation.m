@@ -28,6 +28,7 @@
 #import "CKKSKey.h"
 #import "CKKSProcessReceivedKeysOperation.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #if OCTAGON
 

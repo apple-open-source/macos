@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 
 #include "DebugHeap.h"
 #include "Environment.h"
+#include "Gigacage.h"
 #include "IsoTLSEntryInlines.h"
 #include "IsoTLSInlines.h"
 #include "IsoTLSLayout.h"
@@ -34,6 +35,8 @@
 #include <stdio.h>
 
 namespace bmalloc {
+
+IsoTLS::MallocFallbackState IsoTLS::s_mallocFallbackState;
 
 #if !HAVE_PTHREAD_MACHDEP_H
 bool IsoTLS::s_didInitialize;
@@ -189,6 +192,31 @@ bool IsoTLS::debugFree(void* p)
         return true;
     }
     return false;
+}
+
+void IsoTLS::determineMallocFallbackState()
+{
+    static std::once_flag onceFlag;
+    std::call_once(
+        onceFlag,
+        [] {
+            if (s_mallocFallbackState != MallocFallbackState::Undecided)
+                return;
+
+#if GIGACAGE_ENABLED
+            if (!Gigacage::shouldBeEnabled()) {
+                s_mallocFallbackState = MallocFallbackState::FallBackToMalloc;
+                return;
+            }
+            const char* env = getenv("bmalloc_IsoHeap");
+            if (env && (!strcasecmp(env, "false") || !strcasecmp(env, "no") || !strcmp(env, "0")))
+                s_mallocFallbackState = MallocFallbackState::FallBackToMalloc;
+            else
+                s_mallocFallbackState = MallocFallbackState::DoNotFallBack;
+#else
+            s_mallocFallbackState = MallocFallbackState::FallBackToMalloc;
+#endif
+        });
 }
 
 } // namespace bmalloc

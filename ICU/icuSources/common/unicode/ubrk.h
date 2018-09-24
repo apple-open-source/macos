@@ -222,6 +222,25 @@ typedef enum USentenceBreakTag {
 
 
 /**
+ *  Masks to control line break word options (per the CSS word-break property).
+ *  NORMAL allows breaks between CJK characters in the middle of words. Other masks
+ *  prohibit breaks between characters of specific scripts (or all scripts) except as 
+ *  determined by a dictionary, or by spaces or other mechanisms (Western-style breaking).
+ *
+ * @internal Apple only
+*/
+typedef enum ULineWordOptions {
+    /** Allow breaks between characters of all CJK scripts */
+    UBRK_LINEWORD_NORMAL      = 0,
+    /** Prevent breaks between Hangul characters, except as determined by a dictionary. */
+    UBRK_LINEWORD_KEEP_HANGUL = 1,
+    /** Prevent breaks between characters of any script, except as determined by a dictionary. */
+    UBRK_LINEWORD_KEEP_ALL    = 0x7F
+} ULineWordOptions;
+
+
+
+/**
  * Open a new UBreakIterator for locating text boundaries for a specified locale.
  * A UBreakIterator may be used for detecting character, line, word,
  * and sentence breaks in text.
@@ -230,7 +249,8 @@ typedef enum USentenceBreakTag {
  * @param locale The locale specifying the text-breaking conventions. Note that
  * locale keys such as "lb" and "ss" may be used to modify text break behavior,
  * see general discussion of BreakIterator C API.
- * @param text The text to be iterated over.
+ * @param text The text to be iterated over. May be null, in which case ubrk_setText() is
+ *        used to specify the text to be iterated.
  * @param textLength The number of characters in text, or -1 if null-terminated.
  * @param status A UErrorCode to receive any errors.
  * @return A UBreakIterator for the specified locale.
@@ -267,7 +287,6 @@ ubrk_openRules(const UChar     *rules,
                UParseError     *parseErr,
                UErrorCode      *status);
 
-#ifndef U_HIDE_DRAFT_API
 /**
  * Open a new UBreakIterator for locating text boundaries using precompiled binary rules.
  * Opening a UBreakIterator this way is substantially faster than using ubrk_openRules.
@@ -286,14 +305,12 @@ ubrk_openRules(const UChar     *rules,
  * @param status      Pointer to UErrorCode to receive any errors.
  * @return            UBreakIterator for the specified rules.
  * @see ubrk_getBinaryRules
- * @draft ICU 59
+ * @stable ICU 59
  */
-U_DRAFT UBreakIterator* U_EXPORT2
+U_STABLE UBreakIterator* U_EXPORT2
 ubrk_openBinaryRules(const uint8_t *binaryRules, int32_t rulesLength,
                      const UChar *  text, int32_t textLength,
                      UErrorCode *   status);
-
-#endif  /* U_HIDE_DRAFT_API */
 
 /**
  * Thread safe cloning operation
@@ -357,6 +374,20 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUBreakIteratorPointer, UBreakIterator, ubrk_clo
 U_NAMESPACE_END
 
 #endif // U_SHOW_CPLUSPLUS_API
+
+#ifndef U_HIDE_INTERNAL_API
+/**
+ * Set the ULineWordOptions for the specified break iterator.
+ *
+ * @param bi The iterator to use
+ * @param lineWordOpts The ULineWordOptions to set.
+ * @internal Apple only
+ */
+U_INTERNAL void U_EXPORT2
+ubrk_setLineWordOpts(UBreakIterator* bi,
+                     ULineWordOptions lineWordOpts);
+
+#endif  /* U_HIDE_INTERNAL_API */
 
 /**
  * Sets an existing iterator to point to a new piece of text.
@@ -509,7 +540,7 @@ ubrk_countAvailable(void);
 
 
 /**
-* Returns true if the specfied position is a boundary position.  As a side
+* Returns true if the specified position is a boundary position.  As a side
 * effect, leaves the iterator pointing to the first boundary position at
 * or after "offset".
 * @param bi The break iterator to use.
@@ -543,7 +574,7 @@ ubrk_getRuleStatus(UBreakIterator *bi);
  * @param fillInVec an array to be filled in with the status values.
  * @param capacity  the length of the supplied vector.  A length of zero causes
  *                  the function to return the number of status values, in the
- *                  normal way, without attemtping to store any values.
+ *                  normal way, without attempting to store any values.
  * @param status    receives error codes.
  * @return          The number of rule status values from rules that determined
  *                  the most recent boundary returned by the break iterator.
@@ -595,7 +626,6 @@ ubrk_refreshUText(UBreakIterator *bi,
                        UErrorCode     *status);
 
 
-#ifndef U_HIDE_DRAFT_API
 /**
  * Get a compiled binary version of the rules specifying the behavior of a UBreakIterator.
  * The binary rules may be used with ubrk_openBinaryRules to open a new UBreakIterator
@@ -619,14 +649,12 @@ ubrk_refreshUText(UBreakIterator *bi,
  *                      otherwise 0. If not preflighting and this is larger than
  *                      rulesCapacity, *status will be set to an error.
  * @see ubrk_openBinaryRules
- * @draft ICU 59
+ * @stable ICU 59
  */
-U_DRAFT int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 ubrk_getBinaryRules(UBreakIterator *bi,
                     uint8_t *       binaryRules, int32_t rulesCapacity,
                     UErrorCode *    status);
-
-#endif  /* U_HIDE_DRAFT_API */
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */
 

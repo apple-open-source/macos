@@ -138,9 +138,6 @@ static bool isValidDecimalMonetaryValue(StringView value)
 // https://www.w3.org/TR/payment-request/#dfn-check-and-canonicalize-amount
 static ExceptionOr<void> checkAndCanonicalizeAmount(PaymentCurrencyAmount& amount)
 {
-    if (amount.currencySystem != "urn:iso:std:iso:4217")
-        return { };
-
     if (!isWellFormedCurrencyCode(amount.currency))
         return Exception { RangeError, makeString("\"", amount.currency, "\" is not a valid currency code.") };
 
@@ -155,15 +152,12 @@ static ExceptionOr<void> checkAndCanonicalizeAmount(PaymentCurrencyAmount& amoun
 // https://www.w3.org/TR/payment-request/#dfn-check-and-canonicalize-total
 static ExceptionOr<void> checkAndCanonicalizeTotal(PaymentCurrencyAmount& total)
 {
-    if (total.currencySystem != "urn:iso:std:iso:4217")
-        return { };
-
     auto exception = checkAndCanonicalizeAmount(total);
     if (exception.hasException())
         return exception;
 
     if (total.value[0] == '-')
-        return Exception { TypeError, ASCIILiteral("Total currency values cannot be negative.") };
+        return Exception { TypeError, "Total currency values cannot be negative."_s };
 
     return { };
 }
@@ -322,7 +316,7 @@ ExceptionOr<Ref<PaymentRequest>> PaymentRequest::create(Document& document, Vect
         details.id = createCanonicalUUIDString();
 
     if (methodData.isEmpty())
-        return Exception { TypeError, ASCIILiteral("At least one payment method is required.") };
+        return Exception { TypeError, "At least one payment method is required."_s };
 
     Vector<Method> serializedMethodData;
     serializedMethodData.reserveInitialCapacity(methodData.size());

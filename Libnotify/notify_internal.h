@@ -23,23 +23,23 @@
 
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
-#include <pthread.h>
+#include <os/lock.h>
+#include <stdatomic.h>
 #include <stdint.h>
 #include <TargetConditionals.h>
-#include <libkern/OSAtomic.h>
+
+#include "libnotify.h"
 
 struct notify_globals_s
 {
 	/* global lock */
-	pthread_mutex_t notify_lock;
+	os_unfair_lock notify_lock;
 
 	/* notify_check() lock */
-	OSSpinLock checkLock;
-
-	int32_t notify_ipc_version;
+	os_unfair_lock check_lock;
 	pid_t notify_server_pid;
 
-	uint32_t client_opts;
+	atomic_uint_fast32_t client_opts;
 	uint32_t saved_opts;
 
 	/* last allocated name id */
@@ -60,7 +60,7 @@ struct notify_globals_s
 	dispatch_once_t internal_once;
 	table_t *registration_table;
 	table_t *name_table;
-	uint32_t token_id;
+	atomic_uint_fast32_t token_id;
 
 	dispatch_once_t make_background_send_queue_once;
 	dispatch_queue_t background_send_queue;
@@ -83,12 +83,31 @@ struct notify_globals_s
 
 typedef struct notify_globals_s *notify_globals_t;
 
+// When building xctests we link in the client side framework code so we
+// simulate the server calls and can't use the libsystem initializer
+#ifdef BUILDING_TESTS
+extern kern_return_t _notify_server_register_mach_port_2(mach_port_t, caddr_t, int, mach_port_t);
+extern kern_return_t _notify_server_cancel_2(mach_port_t, int);
+extern kern_return_t _notify_server_post_2(mach_port_t, caddr_t, uint64_t *, int *, boolean_t);
+extern kern_return_t _notify_server_post_3(mach_port_t, uint64_t, boolean_t);
+extern kern_return_t _notify_server_post_4(mach_port_t, caddr_t, boolean_t);
+extern kern_return_t _notify_server_register_plain_2(mach_port_t, caddr_t, int);
+extern kern_return_t _notify_server_register_check_2(mach_port_t, caddr_t, int, int *, int *, uint64_t *, int *);
+extern kern_return_t _notify_server_register_signal_2(mach_port_t, caddr_t, int, int);
+extern kern_return_t _notify_server_register_file_descriptor_2(mach_port_t, caddr_t, int, mach_port_t);
+extern kern_return_t _notify_server_register_plain(mach_port_t, caddr_t, int *, int *);
+extern kern_return_t _notify_server_cancel(mach_port_t, int, int *);
+extern kern_return_t _notify_server_get_state(mach_port_t, int, uint64_t *, int *);
+extern kern_return_t _notify_server_checkin(mach_port_t, uint32_t *, uint32_t *, int *);
+#define _NOTIFY_HAS_ALLOC_ONCE 0
+#else
 #if __has_include(<os/alloc_once_private.h>)
 #include <os/alloc_once_private.h>
 #if defined(OS_ALLOC_ONCE_KEY_LIBSYSTEM_NOTIFY)
 #define _NOTIFY_HAS_ALLOC_ONCE 1
 #endif
 #endif
+#endif // BUILDING_TESTS
 
 __attribute__((visibility("hidden")))
 void _notify_init_globals(void * /* notify_globals_t */ globals);

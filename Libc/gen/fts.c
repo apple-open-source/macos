@@ -72,6 +72,9 @@
 #endif /* __BLOCKS__ */
 #include <malloc_private.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+
 static FTSENT	*fts_alloc(FTS *, char *, ssize_t);
 static FTSENT	*fts_build(FTS *, int);
 static void	 fts_lfree(FTSENT *);
@@ -1576,3 +1579,4 @@ bail:
 	errno = oerrno;
 	return (ret);
 }
+#pragma clang diagnostic pop

@@ -21,7 +21,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 messages -> WebProcessProxy LegacyReceiver {
-    AddBackForwardItem(uint64_t itemID, uint64_t pageID, struct WebKit::PageState pageState)
+    UpdateBackForwardItem(struct WebKit::BackForwardListItemState backForwardListItemState)
     DidDestroyFrame(uint64_t frameID) 
 
     DidDestroyUserGestureToken(uint64_t userGestureTokenID) 
@@ -33,7 +33,7 @@ messages -> WebProcessProxy LegacyReceiver {
 
     # Plugin messages.
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    GetPlugins(bool refresh) -> (Vector<WebCore::PluginInfo> plugins, Vector<WebCore::PluginInfo> applicationPlugins)
+    GetPlugins(bool refresh) -> (Vector<WebCore::PluginInfo> plugins, Vector<WebCore::PluginInfo> applicationPlugins, struct std::optional<Vector<WebCore::SupportedPluginIdentifier>> supportedPluginIdentifiers)
     GetPluginProcessConnection(uint64_t pluginProcessToken) -> (IPC::Attachment connectionHandle, bool supportsAsynchronousInitialization) Delayed
 #endif
     GetNetworkProcessConnection() -> (IPC::Attachment connectionHandle) Delayed
@@ -66,4 +66,8 @@ messages -> WebProcessProxy LegacyReceiver {
     CheckRemotePortForActivity(struct WebCore::MessagePortIdentifier port, uint64_t callbackIdentifier)
     DidDeliverMessagePortMessages(uint64_t messageBatchIdentifier)
     DidCheckProcessLocalPortForActivity(uint64_t callbackIdentifier, bool isLocallyReachable)
+
+#if PLATFORM(COCOA)
+    CacheMediaMIMETypes(Vector<String> types)
+#endif
 }

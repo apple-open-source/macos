@@ -402,7 +402,12 @@ CSSM_RETURN encodeOpenSSHv1PrivKey(
 	
 	/* encrypt it */
 	ptextLen = CFDataGetLength(ptext);
-	unsigned char ctext[ptextLen];
+	unsigned char *ctext = (unsigned char*)malloc(ptextLen);
+	if(ctext == NULL) {
+		ourRtn = CSSMERR_CSSM_MEMORY_ERROR;
+		goto errOut;
+	}
+
 	unsigned ctextLen;
 	ourRtn = ssh1DES3Crypt(cipherSpec, true, 
 		(unsigned char *)CFDataGetBytePtr(ptext), (unsigned)ptextLen,
@@ -420,6 +425,7 @@ errOut:
     CFReleaseNull(cfOut);
 cleanup:
 	/* it would be proper to zero out ptext here, but we can't do that to a CFData */
+	free(ctext);
 	CFRelease(ptext);
 	return ourRtn;
 }

@@ -40,41 +40,10 @@
 #include "RenderBox.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
-#include "SpringSolver.h"
-#include "UnitBezier.h"
 #include <algorithm>
-#include <wtf/CurrentTime.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
-
-// The epsilon value we pass to UnitBezier::solve given that the animation is going to run over |dur| seconds. The longer the
-// animation, the more precision we need in the timing function result to avoid ugly discontinuities.
-static inline double solveEpsilon(double duration)
-{
-    return 1.0 / (200.0 * duration);
-}
-
-static inline double solveCubicBezierFunction(double p1x, double p1y, double p2x, double p2y, double t, double duration)
-{
-    // Convert from input time to parametric value in curve, then from
-    // that to output time.
-    UnitBezier bezier(p1x, p1y, p2x, p2y);
-    return bezier.solve(t, solveEpsilon(duration));
-}
-
-static inline double solveStepsFunction(int numSteps, bool stepAtStart, double t)
-{
-    if (stepAtStart)
-        return std::min(1.0, (floor(numSteps * t) + 1) / numSteps);
-    return floor(numSteps * t) / numSteps;
-}
-
-static inline double solveSpringFunction(double mass, double stiffness, double damping, double initialVelocity, double t, double duration)
-{
-    SpringSolver solver(mass, stiffness, damping, initialVelocity);
-    return solver.solve(t * duration);
-}
 
 AnimationBase::AnimationBase(const Animation& animation, Element& element, CompositeAnimation& compositeAnimation)
     : m_element(&element)
@@ -131,7 +100,7 @@ double AnimationBase::duration() const
 
 bool AnimationBase::playStatePlaying() const
 {
-    return m_animation->playState() == AnimPlayStatePlaying;
+    return m_animation->playState() == AnimationPlayState::Playing;
 }
 
 bool AnimationBase::animationsMatch(const Animation& animation) const
@@ -410,7 +379,7 @@ void AnimationBase::updateStateMachine(AnimationStateInput input, double param)
             ASSERT(input == AnimationStateInput::PlayStateRunning);
             ASSERT(paused());
             // Update the times
-            m_startTime = m_startTime.value() + beginAnimationUpdateTime() - m_pauseTime.value_or(0);
+            m_startTime = m_startTime.value_or(0) + beginAnimationUpdateTime() - m_pauseTime.value_or(0);
             m_pauseTime = std::nullopt;
 
             // we were waiting for the start timer to fire, go back and wait again
@@ -426,7 +395,7 @@ void AnimationBase::updateStateMachine(AnimationStateInput input, double param)
             // AnimationState::PausedWaitResponse, we don't yet have a valid startTime, so we send 0 to startAnimation.
             // When the AnimationStateInput::StartTimeSet comes in and we were in AnimationState::PausedRun, we will notice
             // that we have already set the startTime and will ignore it.
-            ASSERT(input == AnimationStateInput::PlayStatePaused || input == AnimationStateInput::PlayStateRunning || input == AnimationStateInput::StartTimeSet || input == AnimationStateInput::StyleAvailable || input == AnimationStateInput::StartAnimation);
+            ASSERT(input == AnimationStateInput::PlayStatePaused || input == AnimationStateInput::PlayStateRunning || input == AnimationStateInput::StartTimeSet || input == AnimationStateInput::StyleAvailable);
             ASSERT(paused());
 
             if (input == AnimationStateInput::PlayStateRunning) {
@@ -442,7 +411,7 @@ void AnimationBase::updateStateMachine(AnimationStateInput input, double param)
 
                 // Update the times
                 if (m_animationState == AnimationState::PausedRun)
-                    m_startTime = m_startTime.value() + beginAnimationUpdateTime() - m_pauseTime.value_or(0);
+                    m_startTime = m_startTime.value_or(0) + beginAnimationUpdateTime() - m_pauseTime.value_or(0);
                 else
                     m_startTime = 0;
 
@@ -487,6 +456,12 @@ void AnimationBase::updateStateMachine(AnimationStateInput input, double param)
             }
 
             ASSERT(m_animationState == AnimationState::PausedNew || m_animationState == AnimationState::PausedWaitStyleAvailable);
+
+            if (input == AnimationStateInput::PlayStatePaused)
+                break;
+
+            ASSERT(input == AnimationStateInput::StyleAvailable);
+
             // We are paused but we got the callback that notifies us that style has been updated.
             // We move to the AnimationState::PausedWaitResponse state
             LOG(Animations, "%p AnimationState %s -> PausedWaitResponse", this, nameForState(m_animationState));
@@ -577,7 +552,7 @@ void AnimationBase::fireAnimationEventsIfNeeded()
     }
 }
 
-void AnimationBase::updatePlayState(EAnimPlayState playState)
+void AnimationBase::updatePlayState(AnimationPlayState playState)
 {
     if (!m_compositeAnimation)
         return;
@@ -585,7 +560,7 @@ void AnimationBase::updatePlayState(EAnimPlayState playState)
     // When we get here, we can have one of 4 desired states: running, paused, suspended, paused & suspended.
     // The state machine can be in one of two states: running, paused.
     // Set the state machine to the desired state.
-    bool pause = playState == AnimPlayStatePaused || m_compositeAnimation->isSuspended();
+    bool pause = playState == AnimationPlayState::Paused || m_compositeAnimation->isSuspended();
 
     if (pause == paused() && !isNew())
         return;
@@ -683,25 +658,7 @@ double AnimationBase::progress(double scale, double offset, const TimingFunction
     if (!timingFunction)
         timingFunction = m_animation->timingFunction();
 
-    switch (timingFunction->type()) {
-    case TimingFunction::CubicBezierFunction: {
-        auto& function = *static_cast<const CubicBezierTimingFunction*>(timingFunction);
-        return solveCubicBezierFunction(function.x1(), function.y1(), function.x2(), function.y2(), fractionalTime, m_animation->duration());
-    }
-    case TimingFunction::StepsFunction: {
-        auto& function = *static_cast<const StepsTimingFunction*>(timingFunction);
-        return solveStepsFunction(function.numberOfSteps(), function.stepAtStart(), fractionalTime);
-    }
-    case TimingFunction::SpringFunction: {
-        auto& function = *static_cast<const SpringTimingFunction*>(timingFunction);
-        return solveSpringFunction(function.mass(), function.stiffness(), function.damping(), function.initialVelocity(), fractionalTime, m_animation->duration());
-    }
-    case TimingFunction::LinearFunction:
-        return fractionalTime;
-    }
-
-    ASSERT_NOT_REACHED();
-    return 0;
+    return timingFunction->transformTime(fractionalTime, m_animation->duration());
 }
 
 void AnimationBase::getTimeToNextEvent(Seconds& time, bool& isLooping) const
@@ -746,7 +703,7 @@ void AnimationBase::freezeAtTime(double t)
         // If we haven't started yet, make it as if we started.
         LOG(Animations, "%p AnimationState %s -> StartWaitResponse", this, nameForState(m_animationState));
         m_animationState = AnimationState::StartWaitResponse;
-        onAnimationStartResponse(monotonicallyIncreasingTime());
+        onAnimationStartResponse(MonotonicTime::now());
     }
 
     ASSERT(m_startTime); // If m_startTime is zero, we haven't started yet, so we'll get a bad pause time.
@@ -756,7 +713,7 @@ void AnimationBase::freezeAtTime(double t)
         m_pauseTime = m_startTime.value_or(0) + t - m_animation->delay();
 
     if (auto* renderer = compositedRenderer())
-        renderer->suspendAnimations(m_pauseTime.value());
+        renderer->suspendAnimations(MonotonicTime::fromRawSeconds(m_pauseTime.value()));
 }
 
 double AnimationBase::beginAnimationUpdateTime() const
@@ -764,7 +721,7 @@ double AnimationBase::beginAnimationUpdateTime() const
     if (!m_compositeAnimation)
         return 0;
 
-    return m_compositeAnimation->animationController().beginAnimationUpdateTime();
+    return m_compositeAnimation->animationController().beginAnimationUpdateTime().secondsSinceEpoch().seconds();
 }
 
 double AnimationBase::getElapsedTime() const

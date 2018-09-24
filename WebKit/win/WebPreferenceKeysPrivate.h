@@ -146,6 +146,8 @@
 
 #define WebKitCustomDragCursorsEnabledPreferenceKey "WebKitCustomDragCursorsEnabled"
 
+#define WebKitSpatialNavigationEnabledPreferenceKey "WebKitSpatialNavigationEnabled"
+
 #define WebKitDNSPrefetchingEnabledPreferenceKey "WebKitDNSPrefetchingEnabled"
 
 #define WebKitFullScreenEnabledPreferenceKey "WebKitFullScreenEnabled"
@@ -176,9 +178,15 @@
 
 #define WebKitCustomElementsEnabledPreferenceKey "WebKitCustomElementsEnabled"
 
+#define WebKitMenuItemElementEnabledPreferenceKey "WebKitMenuItemElementEnabled"
+
+#define WebKitCrossOriginWindowPolicySupportEnabledPreferenceKey "WebKitCrossOriginWindowPolicySupportEnabled"
+
 #define WebKitModernMediaControlsEnabledPreferenceKey "WebKitModernMediaControlsEnabled"
 
 #define WebKitWebAnimationsEnabledPreferenceKey "WebKitWebAnimationsEnabled"
+
+#define WebKitWebAnimationsCSSIntegrationEnabledPreferenceKey "WebKitWebAnimationsCSSIntegrationEnabled"
 
 #define WebKitUserTimingEnabledPreferenceKey "WebKitUserTimingEnabled"
 
@@ -195,3 +203,5 @@
 #define WebKitInspectorAdditionsEnabledPreferenceKey "WebKitInspectorAdditionsEnabled"
 
 #define WebKitVisualViewportAPIEnabledPreferenceKey "WebKitVisualViewportAPIEnabled"
+
+#define WebKitServerTimingEnabledPreferenceKey "WebKitServerTimingEnabled"

@@ -27,6 +27,9 @@
  * SUCH DAMAGE.
  */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)system.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
@@ -156,3 +159,5 @@ __system(command)
 
 __weak_reference(__system, system);
 __weak_reference(__system, _system);
+
+#pragma clang diagnostic pop

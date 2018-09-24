@@ -27,8 +27,6 @@
 #ifndef _TRAVERSE_H
 #define	_TRAVERSE_H
 
-#pragma ident	"@(#)traverse.h	1.4	05/06/08 SMI"
-
 /*
  * Routines used to traverse tdesc trees, invoking user-supplied callbacks
  * as the tree is traversed.

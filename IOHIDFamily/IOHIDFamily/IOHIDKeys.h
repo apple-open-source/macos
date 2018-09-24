@@ -119,7 +119,7 @@ __BEGIN_DECLS
 #define kIOHIDTransportIAPValue                 "iAP"
 #define kIOHIDTransportAirPlayValue             "AirPlay"
 #define kIOHIDTransportSPUValue                 "SPU"
-
+#define kIOHIDTransportBTAACPValue              "BT-AACP"
 
 
 #define kIOHIDCategoryAutomotiveValue       "Automotive"

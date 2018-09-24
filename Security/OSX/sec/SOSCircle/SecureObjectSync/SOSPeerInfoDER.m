@@ -123,8 +123,9 @@ SOSPeerInfoRef SOSPeerInfoCreateFromDER(CFAllocatorRef allocator, CFErrorRef* er
     
     if(!SOSPeerInfoVerify(pi, error)) {
         SOSCreateErrorWithFormat(kSOSErrorBadSignature, NULL, error, NULL, CFSTR("Signature doesn't validate"));
-        if (error)
+        if (error) {
             secerror("Can't validate PeerInfo: %@", *error);
+        }
         goto fail;
     }
     

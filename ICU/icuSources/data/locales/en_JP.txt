@@ -27,8 +27,8 @@ en_JP{
                 EHm{"E H:mm"}
                 EHms{"E H:mm:ss"}
                 Ed{"d E"}
-                Ehm{"E aK:mm"}
-                Ehms{"E aK:mm:ss"}
+                Ehm{"E K:mm a"}
+                Ehms{"E K:mm:ss a"}
                 GyMMMEd{"E, MMM d, r(U)"}
                 GyMMMMd{"MMMM d, r(U)"}
                 GyMMMd{"MMM d, r"}
@@ -71,8 +71,8 @@ en_JP{
                 EHm{"E H:mm"}
                 EHms{"E H:mm:ss"}
                 Ed{"d E"}
-                Ehm{"E aK:mm"}
-                Ehms{"E aK:mm:ss"}
+                Ehm{"E K:mm a"}
+                Ehms{"E K:mm:ss a"}
                 Gy{"y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, MMM d, y G"}
@@ -208,8 +208,8 @@ en_JP{
                 EHm{"E H:mm"}
                 EHms{"E H:mm:ss"}
                 Ed{"d E"}
-                Ehm{"E aK:mm"}
-                Ehms{"E aK:mm:ss"}
+                Ehm{"E K:mm a"}
+                Ehms{"E K:mm:ss a"}
                 Gy{"y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, MMM d, y G"}

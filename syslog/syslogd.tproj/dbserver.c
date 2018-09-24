@@ -655,6 +655,7 @@ register_session(task_name_t task_name, pid_t pid)
 	asldebug("register_session: %u   PID %d\n", (unsigned int)task_name, (int)pid);
 
 	/* register for port death notification */
+	previous = MACH_PORT_NULL;
 	mach_port_request_notification(mach_task_self(), task_name, MACH_NOTIFY_DEAD_NAME, 0, global.dead_session_port, MACH_MSG_TYPE_MAKE_SEND_ONCE, &previous);
 	mach_port_deallocate(mach_task_self(), previous);
 
@@ -1284,12 +1285,15 @@ __asl_server_query_internal
 	uint32_t outlen;
 	kern_return_t kstatus;
 
+	*reply = NULL;
+	*replyCnt = 0;
+	*lastid = 0;
 	*status = ASL_STATUS_OK;
 
 	if ((request != NULL) && (request[requestCnt - 1] != '\0'))
 	{
-		*status = ASL_STATUS_INVALID_ARG;
 		vm_deallocate(mach_task_self(), (vm_address_t)request, requestCnt);
+		*status = ASL_STATUS_INVALID_ARG;
 		return KERN_SUCCESS;
 	}
 
@@ -1341,7 +1345,8 @@ __asl_server_query_internal
 	if (kstatus != KERN_SUCCESS)
 	{
 		free(out);
-		return kstatus;
+		*status = ASL_STATUS_FAILED;
+		return KERN_SUCCESS;
 	}
 
 	memmove(vmbuffer, out, outlen);
@@ -1466,7 +1471,7 @@ __asl_server_prune
 	security_token_t *token
 )
 {
-	return KERN_SUCCESS;
+	return KERN_FAILURE;
 }
 
 /*
@@ -1594,9 +1599,10 @@ __asl_server_create_aux_link
 	char *url, *vmbuffer;
 	int fd;
 
-	*status = ASL_STATUS_OK;
 	*fileport = MACH_PORT_NULL;
-	*newurl = 0;
+	*newurl = NULL;
+	*newurlCnt = 0;
+	*status = ASL_STATUS_OK;
 
 	if (message == NULL)
 	{
@@ -1606,8 +1612,8 @@ __asl_server_create_aux_link
 
 	if (message[messageCnt - 1] != '\0')
 	{
-		*status = ASL_STATUS_INVALID_ARG;
 		vm_deallocate(mach_task_self(), (vm_address_t)message, messageCnt);
+		*status = ASL_STATUS_INVALID_ARG;
 		return KERN_SUCCESS;
 	}
 
@@ -1615,11 +1621,10 @@ __asl_server_create_aux_link
 
 	if ((global.dbtype & DB_TYPE_FILE) == 0)
 	{
+		vm_deallocate(mach_task_self(), (vm_address_t)message, messageCnt);
 		*status = ASL_STATUS_INVALID_STORE;
 		return KERN_SUCCESS;
 	}
-
-	*fileport = MACH_PORT_NULL;
 
 	msg = asl_msg_from_string(message);
 	vm_deallocate(mach_task_self(), (vm_address_t)message, messageCnt);
@@ -1671,7 +1676,8 @@ __asl_server_create_aux_link
 	if (kstatus != KERN_SUCCESS)
 	{
 		free(url);
-		return kstatus;
+		*status = ASL_STATUS_FAILED;
+		return KERN_SUCCESS;
 	}
 
 	memmove(vmbuffer, url, *newurlCnt);

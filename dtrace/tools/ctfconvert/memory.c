@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)memory.c	1.3	05/06/08 SMI"
-
 /*
  * Routines for memory management
  */

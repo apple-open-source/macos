@@ -33,6 +33,7 @@
 
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
+#import "keychain/ckks/CKKSResultOperation.h"
 #import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CKKSAnalytics.h"
 
@@ -99,13 +100,13 @@ callout(SCNetworkReachabilityRef reachability,
     return currentReachability;
 }
 
--(void)_onQueueRunReachablityDependency
+-(void)_onQueueRunreachabilityDependency
 {
     dispatch_assert_queue(self.queue);
     // We're have network now, or timer expired, either way, execute dependency
-    if (self.reachablityDependency) {
-        [self.operationQueue addOperation: self.reachablityDependency];
-        self.reachablityDependency = nil;
+    if (self.reachabilityDependency) {
+        [self.operationQueue addOperation: self.reachabilityDependency];
+        self.reachabilityDependency = nil;
     }
     if (self.timer) {
         dispatch_source_cancel(self.timer);
@@ -116,22 +117,22 @@ callout(SCNetworkReachabilityRef reachability,
 -(void)_onQueueResetReachabilityDependency {
     dispatch_assert_queue(self.queue);
 
-    if(self.reachablityDependency == nil || ![self.reachablityDependency isPending]) {
+    if(self.reachabilityDependency == nil || ![self.reachabilityDependency isPending]) {
         __weak __typeof(self) weakSelf = self;
 
-        self.reachablityDependency = [NSBlockOperation blockOperationWithBlock: ^{
+        secnotice("ckksnetwork", "Network unavailable");
+        self.reachabilityDependency = [CKKSResultOperation named:@"network-available-dependency" withBlock: ^{
             __typeof(self) strongSelf = weakSelf;
             if (strongSelf == nil) {
                 return;
             }
             if (strongSelf.haveNetwork) {
-                secinfo("ckks", "Network available");
+                secnotice("ckksnetwork", "Network available");
             } else {
-                secinfo("ckks", "Network still not available, retrying after waiting %2.1f hours",
+                secnotice("ckksnetwork", "Network still not available, retrying after waiting %2.1f hours",
                         ((float)(REACHABILITY_TIMEOUT/NSEC_PER_SEC)) / 3600);
             }
         }];
-        self.reachablityDependency.name = @"network-available-dependency";
 
         /*
          * Make sure we are not stuck forever and retry every REACHABILITY_TIMEOUT
@@ -147,7 +148,7 @@ callout(SCNetworkReachabilityRef reachability,
             }
             if (strongSelf.timer) {
                 [[CKKSAnalytics logger] noteEvent:CKKSEventReachabilityTimerExpired];
-                [strongSelf _onQueueRunReachablityDependency];
+                [strongSelf _onQueueRunreachabilityDependency];
             }
         });
 
@@ -176,7 +177,7 @@ callout(SCNetworkReachabilityRef reachability,
     if(hadNetwork != self.haveNetwork) {
         if(self.haveNetwork) {
             // We're have network now
-            [self _onQueueRunReachablityDependency];
+            [self _onQueueRunreachabilityDependency];
         } else {
             [self _onQueueResetReachabilityDependency];
         }

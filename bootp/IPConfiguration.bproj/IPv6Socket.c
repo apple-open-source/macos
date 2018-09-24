@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -182,6 +182,16 @@ ICMPv6SocketOpen(bool receive_too)
 		      strerror(errno));
     }
 #endif /* SO_TRAFFIC_CLASS */
+
+#if defined(SO_DEFUNCTOK)
+    opt = 0;
+    /* ensure that our socket can't be defunct'd */
+    if (setsockopt(sockfd, SOL_SOCKET, SO_DEFUNCTOK, &opt,
+		   sizeof(opt)) < 0) {
+	IPConfigLogFL(LOG_ERR, "setsockopt(SO_DEFUNCTOK) failed, %s",
+		      strerror(errno));
+    }
+#endif /* SO_DEFUNCTOK */
 
     return (sockfd);
 

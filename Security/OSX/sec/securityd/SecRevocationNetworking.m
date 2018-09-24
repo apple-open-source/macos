@@ -28,17 +28,26 @@
 
 #include <sys/sysctl.h>
 #include <sys/time.h>
+#include <mach/mach_time.h>
 #include <os/transaction_private.h>
+#include <Security/SecCertificateInternal.h>
 #include "utilities/debugging.h"
 #include "utilities/SecCFWrappers.h"
 #include "utilities/SecPLWrappers.h"
 #include "utilities/SecFileLocations.h"
 
 #include "SecRevocationDb.h"
+#include "SecRevocationServer.h"
+#include "SecTrustServer.h"
+#include "SecOCSPRequest.h"
+#include "SecOCSPResponse.h"
+
 #import "SecTrustLoggingServer.h"
+#import "TrustURLSessionDelegate.h"
 
 #import "SecRevocationNetworking.h"
 
+/* MARK: Valid Update Networking */
 #define kSecRevocationBasePath          "/Library/Keychains/crls"
 
 static CFStringRef kSecPrefsDomain      = CFSTR("com.apple.security");
@@ -82,11 +91,6 @@ typedef void (^CompletionHandler)(void);
 @implementation ValidDelegate
 
 - (void)reschedule {
-    /* make sure we release any os transaction, if we went active */
-    if (self->_transaction) {
-        //os_release(self->_transaction); // ARC does this for us and won't let us call release
-        self->_transaction = NULL;
-    }
     /* POWER LOG EVENT: operation canceled */
     SecPLLogRegisteredEvent(@"ValidUpdateEvent", @{
         @"timestamp" : @([[NSDate date] timeIntervalSince1970]),
@@ -98,6 +102,9 @@ typedef void (^CompletionHandler)(void);
 
     self->_handler();
     SecRevocationDbComputeAndSetNextUpdateTime();
+    if (self->_transaction) {
+        self->_transaction = nil;
+    }
 }
 
 - (void)updateDb:(NSUInteger)version {
@@ -109,6 +116,8 @@ typedef void (^CompletionHandler)(void);
         return;
     }
 
+    /* Hold a transaction until we finish the update */
+    __block os_transaction_t transaction = os_transaction_create("com.apple.trustd.valid.updateDb");
     dispatch_async(_revDbUpdateQueue, ^{
         /* POWER LOG EVENT: background update started */
         SecPLLogRegisteredEvent(@"ValidUpdateEvent", @{
@@ -124,6 +133,7 @@ typedef void (^CompletionHandler)(void);
             secerror("failed to read %@ with error %d", updateFileURL, rtn);
             TrustdHealthAnalyticsLogErrorCode(TAEventValidUpdate, TAFatalError, rtn);
             [self reschedule];
+            transaction = nil;
             return;
         }
 
@@ -154,6 +164,7 @@ typedef void (^CompletionHandler)(void);
         gUpdateStarted = 0;
 
         self->_handler();
+        transaction = nil; // we're all done now
     });
 }
 
@@ -165,6 +176,8 @@ typedef void (^CompletionHandler)(void);
           dataTask:(NSURLSessionDataTask *)dataTask
 didReceiveResponse:(NSURLResponse *)response
  completionHandler:(void (^)(NSURLSessionResponseDisposition disposition))completionHandler {
+    /* nsurlsessiond started our download. Create a transaction since we're going to be working for a little bit */
+    self->_transaction = os_transaction_create("com.apple.trustd.valid.download");
     secinfo("validupdate", "Session %@ data task %@ returned response %ld, expecting %lld bytes", session, dataTask,
             (long)[(NSHTTPURLResponse *)response statusCode],[response expectedContentLength]);
 
@@ -211,8 +224,6 @@ didReceiveResponse:(NSURLResponse *)response
         return;
     }
 
-    /* We're about to begin downloading -- go active now so we don't get jetsammed */
-    self->_transaction = os_transaction_create("com.apple.trustd.valid.download");
     completionHandler(NSURLSessionResponseAllow);
 }
 
@@ -244,11 +255,6 @@ didReceiveResponse:(NSURLResponse *)response
 - (void)URLSession:(NSURLSession *)session
               task:(NSURLSessionTask *)task
 didCompleteWithError:(NSError *)error {
-    /* all finished downloading data -- go inactive */
-    if (self->_transaction) {
-        // os_release(self->_transaction); // ARC does this for us and won't let us call release
-        self->_transaction = NULL;
-    }
     if (error) {
         secnotice("validupdate", "Session %@ task %@ failed with error %@", session, task, error);
 #if ENABLE_TRUSTD_ANALYTICS
@@ -270,6 +276,9 @@ didCompleteWithError:(NSError *)error {
         secdebug("validupdate", "Session %@ task %@ succeeded", session, task);
         self->_finishedDownloading = YES;
         [self updateDb:[self versionFromTask:task]];
+    }
+    if (self->_transaction) {
+        self->_transaction = nil;
     }
 }
 
@@ -359,6 +368,8 @@ static ValidUpdateRequest *request = nil;
      * after system boot before trying to initiate network activity, to avoid the possibility
      * of a performance regression in the boot path. */
     dispatch_async(updateQueue, ^{
+        /* Take a transaction while we work */
+        os_transaction_t transaction = os_transaction_create("com.apple.trustd.valid.scheduleUpdate");
         CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
         if (self.updateScheduled != 0.0) {
             secdebug("validupdate", "update in progress (scheduled %f)", (double)self.updateScheduled);
@@ -386,13 +397,18 @@ static ValidUpdateRequest *request = nil;
         /* clear all old sessions and cleanup disk (for previous download tasks) */
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            [NSURLSession _obliterateAllBackgroundSessionsWithCompletionHandler:^{
-                secnotice("validupdate", "removing all old sessions for trustd");
-            }];
+            @autoreleasepool {
+                [NSURLSession _obliterateAllBackgroundSessionsWithCompletionHandler:^{
+                    secnotice("validupdate", "removing all old sessions for trustd");
+                }];
+            }
         });
 
         if (!self.backgroundSession) {
             [self createSession:updateQueue forServer:server];
+        } else {
+            ValidDelegate *delegate = (ValidDelegate *)[self.backgroundSession delegate];
+            delegate.currentUpdateServer = [server copy];
         }
 
         /* POWER LOG EVENT: scheduling our background download session now */
@@ -406,6 +422,8 @@ static ValidUpdateRequest *request = nil;
         dataTask.taskDescription = [NSString stringWithFormat:@"%lu",(unsigned long)version];
         [dataTask resume];
         secnotice("validupdate", "scheduled background data task %@ at %f", dataTask, CFAbsoluteTimeGetCurrent());
+        (void) transaction; // dead store
+        transaction = nil;
     });
 
     return YES;
@@ -413,9 +431,178 @@ static ValidUpdateRequest *request = nil;
 @end
 
 bool SecValidUpdateRequest(dispatch_queue_t queue, CFStringRef server, CFIndex version)  {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        request = [[ValidUpdateRequest alloc] init];
-    });
-    return [request scheduleUpdateFromServer:(__bridge NSString*)server forVersion:version withQueue:queue];
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            @autoreleasepool {
+                request = [[ValidUpdateRequest alloc] init];
+            }
+        });
+    @autoreleasepool {
+        return [request scheduleUpdateFromServer:(__bridge NSString*)server forVersion:version withQueue:queue];
+    }
+}
+
+/* MARK: - */
+/* MARK: OCSP Fetch Networking */
+#define OCSP_REQUEST_THRESHOLD 10
+
+@interface OCSPFetchDelegate : TrustURLSessionDelegate
+@end
+
+@implementation OCSPFetchDelegate
+- (BOOL)fetchNext:(NSURLSession *)session {
+    SecORVCRef orvc = (SecORVCRef)self.context;
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(orvc->builder);
+
+    BOOL result = true;
+    if ((result = [super fetchNext:session])) {
+        /* no fetch scheduled */
+        orvc->done = true;
+    } else {
+        if (self.URIix > 0) {
+            orvc->responder = (__bridge CFURLRef)self.URIs[self.URIix - 1];
+        } else {
+            orvc->responder = (__bridge CFURLRef)self.URIs[0];
+        }
+        if (analytics) {
+            analytics->ocsp_fetches++;
+        }
+    }
+    return result;
+}
+
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
+    /* call the superclass's method to set expiration */
+    [super URLSession:session task:task didCompleteWithError:error];
+
+    __block SecORVCRef orvc = (SecORVCRef)self.context;
+    if (!orvc || !orvc->builder) {
+        /* We already returned to the PathBuilder state machine. */
+        return;
+    }
+
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(orvc->builder);
+    if (error) {
+        /* Log the error */
+        secnotice("rvc", "Failed to download ocsp response %@, with error %@", task.originalRequest.URL, error);
+        if (analytics) {
+            analytics->ocsp_fetch_failed++;
+        }
+    } else {
+        SecOCSPResponseRef ocspResponse = SecOCSPResponseCreate((__bridge CFDataRef)self.response);
+        if (ocspResponse) {
+            SecORVCConsumeOCSPResponse(orvc, ocspResponse, self.expiration, true, false);
+            if (analytics && !orvc->done) {
+                /* We got an OCSP response that didn't pass validation */
+                analytics-> ocsp_validation_failed = true;
+            }
+        } else if (analytics) {
+            /* We got something that wasn't an OCSP response (e.g. captive portal) --
+             * we consider that a fetch failure */
+            analytics->ocsp_fetch_failed++;
+        }
+    }
+
+    /* If we didn't get a valid OCSP response, try the next URI */
+    if (!orvc->done) {
+        (void)[self fetchNext:session];
+    }
+
+    /* We got a valid OCSP response or couldn't schedule any more fetches.
+     * Close the session, update the PVCs, decrement the async count, and callback if we're all done.  */
+    if (orvc->done) {
+        secdebug("rvc", "builder %p, done with OCSP fetches for cert: %ld", orvc->builder, orvc->certIX);
+        self.context = nil;
+        [session invalidateAndCancel];
+        SecORVCUpdatePVC(orvc);
+        if (0 == SecPathBuilderDecrementAsyncJobCount(orvc->builder)) {
+            /* We're the last async job to finish, jump back into the state machine */
+            secdebug("rvc", "builder %p, done with all async jobs", orvc->builder);
+            dispatch_async(SecPathBuilderGetQueue(orvc->builder), ^{
+                SecPathBuilderStep(orvc->builder);
+            });
+        }
+    }
+}
+
+- (NSURLRequest *)createNextRequest:(NSURL *)uri {
+    SecORVCRef orvc = (SecORVCRef)self.context;
+    CFDataRef ocspDER = CFRetainSafe(SecOCSPRequestGetDER(orvc->ocspRequest));
+    NSData *nsOcspDER = CFBridgingRelease(ocspDER);
+    NSString *ocspBase64 = [nsOcspDER base64EncodedStringWithOptions:0];
+    NSString *escapedRequest = [ocspBase64 stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLPathAllowedCharacterSet]];
+    NSURLRequest *request = nil;
+
+    /* Interesting tidbit from rfc5019
+     When sending requests that are less than or equal to 255 bytes in
+     total (after encoding) including the scheme and delimiters (http://),
+     server name and base64-encoded OCSPRequest structure, clients MUST
+     use the GET method (to enable OCSP response caching).  OCSP requests
+     larger than 255 bytes SHOULD be submitted using the POST method.
+     */
+    if ([escapedRequest length] < 256) {
+        /* Use a GET */
+        NSURL *requestURL = [uri URLByAppendingPathComponent:escapedRequest];
+        request = [NSURLRequest requestWithURL:requestURL];
+    } else {
+        /* Use a POST */
+        NSMutableURLRequest *mutableRequest = [NSMutableURLRequest requestWithURL:uri];
+        mutableRequest.HTTPMethod = @"POST";
+        mutableRequest.HTTPBody = nsOcspDER;
+        request = mutableRequest;
+    }
+
+    return request;
+}
+
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didFinishCollectingMetrics:(NSURLSessionTaskMetrics *)taskMetrics {
+    secdebug("rvc", "got metrics with task interval %f", taskMetrics.taskInterval.duration);
+    SecORVCRef orvc = (SecORVCRef)self.context;
+    if (orvc && orvc->builder) {
+        TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(orvc->builder);
+        if (analytics) {
+            analytics->ocsp_fetch_time += (uint64_t)(taskMetrics.taskInterval.duration * NSEC_PER_SEC);
+        }
+    }
+}
+@end
+
+bool SecORVCBeginFetches(SecORVCRef orvc, SecCertificateRef cert) {
+    @autoreleasepool {
+        CFArrayRef ocspResponders = CFRetainSafe(SecCertificateGetOCSPResponders(cert));
+        NSArray *nsResponders = CFBridgingRelease(ocspResponders);
+
+        NSInteger count = [nsResponders count];
+        if (count > OCSP_REQUEST_THRESHOLD) {
+            secnotice("rvc", "too may OCSP responder entries (%ld)", (long)count);
+            orvc->done = true;
+            return true;
+        }
+
+        NSURLSessionConfiguration *config = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+        config.timeoutIntervalForResource = TrustURLSessionGetResourceTimeout();
+        config.HTTPAdditionalHeaders = @{@"User-Agent" : @"com.apple.trustd/2.0"};
+
+        NSData *auditToken = CFBridgingRelease(SecPathBuilderCopyClientAuditToken(orvc->builder));
+        if (auditToken) {
+            config._sourceApplicationAuditTokenData = auditToken;
+        }
+
+        OCSPFetchDelegate *delegate = [[OCSPFetchDelegate alloc] init];
+        delegate.context = orvc;
+        delegate.URIs = nsResponders;
+        delegate.URIix = 0;
+
+        NSOperationQueue *queue = [[NSOperationQueue alloc] init];
+
+        NSURLSession *session = [NSURLSession sessionWithConfiguration:config delegate:delegate delegateQueue:queue];
+        secdebug("rvc", "created URLSession for %@", cert);
+
+        bool result = false;
+        if ((result = [delegate fetchNext:session])) {
+            /* no fetch scheduled, close the session */
+            [session invalidateAndCancel];
+        }
+        return result;
+    }
 }

@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# $File: filesystems,v 1.120 2017/03/24 19:29:26 christos Exp $
+# $File: filesystems,v 1.124 2018/01/12 12:35:30 christos Exp $
 # filesystems:  file(1) magic for different filesystems
 #
 0	name	partid
@@ -1732,6 +1732,16 @@
 #>0x464	lelong          &0x0000020      (many subdirs)
 #>0x463	lelong          &0x0000040      (extra isize)
 
+# f2fs filesystem - Tuomas Tynkkynen <tuomas.tynkkynen@iki.fi>
+0x400	lelong		0xF2F52010	F2FS filesystem
+>0x46c	belong		x		\b, UUID=%08x
+>0x470	beshort		x		\b-%04x
+>0x472	beshort		x		\b-%04x
+>0x474	beshort		x		\b-%04x
+>0x476	belong		x		\b-%08x
+>0x47a	beshort		x		\b%04x
+>0x147c	lestring16	x		\b, volume name "%s"
+
 # Minix filesystems - Juan Cespedes <cespedes@debian.org>
 0x410	leshort		0x137f
 !:strength / 2
@@ -1937,8 +1947,10 @@
 0	name				cdrom
 >38913	string   !NSR0      ISO 9660 CD-ROM filesystem data
 !:mime	application/x-iso9660-image
+!:ext	iso/iso9660
 >38913	string    NSR0      UDF filesystem data
 !:mime	application/x-iso9660-image
+!:ext	iso/udf
 >>38917	string    1         (version 1.0)
 >>38917	string    2         (version 1.5)
 >>38917	string    3         (version 2.0)
@@ -1959,11 +1971,20 @@
 32769	string    CD001
 # mime line at that position does not work
 # to display CD-ROM (70=81-11) after MBR (113=40+72+1), partition-table (71=50+21) and before Apple Driver Map (51)
-!:strength -11
+#!:strength -11
 # to display CD-ROM (114=81+33) before MBR (113=40+72+1), partition-table (71=50+21) and Apple Driver Map (51)
-# does not work
-#!:strength +33
->0	use cdrom
+!:strength +34
+>0	use	cdrom
+
+# URL: https://en.wikipedia.org/wiki/NRG_(file_format)
+# Reference: https://dl.opendesktop.org/api/files/download/id/1460731811/
+#	11577-mount-iso-0.9.5.tar.bz2/mount-iso-0.9.5/install.sh
+# From: Joerg Jenderek
+# Note:	Only for nero disc with once (DAO) type after 300 KB header
+339969	string    CD001	Nero CD image at 0x4B000
+!:mime	application/x-nrg
+!:ext	nrg
+>307200	use cdrom
 
 # .cso files
 # Reference: http://pismotec.com/ciso/ciso.h
@@ -2388,3 +2409,13 @@
 >>>>>>>>0x1B	ubyte	0x30		\b, media=1D
 >>>>>>>>0x1B	ubyte	0x40		\b, media=1DD
 >>>>>>>>0x1A	ubyte	0x10		\b, write-protected
+
+# HDD Raw Copy Tool disk image, file extension: .imgc
+# From Benjamin Vanheuverzwijn <bvanheu@gmail.com>
+0	pstring	HDD\ Raw\ Copy\ Tool	%s
+>0x100	pstring	x			%s
+>0x200	pstring	x			- HD model: %s
+#>0x300	pstring	x			unknown %s
+>0x400	pstring	x			serial: %s
+#>0x500	pstring	x			unknown: %s
+!:ext	imgc

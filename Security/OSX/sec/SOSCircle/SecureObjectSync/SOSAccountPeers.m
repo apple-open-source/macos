@@ -21,13 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
-#include <stdio.h>
 #include "SOSAccountPriv.h"
+#include "SOSAccount.h"
 #include <Security/SecureObjectSync/SOSPeerInfoCollections.h>
 #include <Security/SecureObjectSync/SOSTransportMessage.h>
 #include <Security/SecureObjectSync/SOSPeerInfoV2.h>
-#include <Security/SecureObjectSync/SOSPeerInfoSecurityProperties.h>
 #import <Security/SecureObjectSync/SOSAccountTrust.h>
 #include <Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h>
 
@@ -264,17 +262,9 @@ CFBooleanRef SOSAccountPeersHaveViewsEnabled(SOSAccount* account, CFArrayRef vie
     CFMutableSetRef viewsRemaining = NULL;
     CFSetRef viewsToLookFor = NULL;
 
-    if(!SOSAccountHasPublicKey(account, error))
-    {
+    if(![account isInCircle:error]) {
         CFReleaseNull(viewsToLookFor);
         CFReleaseNull(viewsRemaining);
-
-        return result;
-    }
-    if(![account.trust isInCircle:error]){
-        CFReleaseNull(viewsToLookFor);
-        CFReleaseNull(viewsRemaining);
-
         return result;
     }
 

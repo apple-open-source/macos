@@ -79,7 +79,7 @@ extern CKKSKeyClass* const SecCKKSKeyClassA;
 extern CKKSKeyClass* const SecCKKSKeyClassC;
 
 /* Useful CloudKit configuration */
-extern NSString* const SecCKKSContainerName;
+extern NSString* SecCKKSContainerName;
 extern bool SecCKKSContainerUsePCS;
 extern NSString* const SecCKKSSubscriptionID;
 extern NSString* const SecCKKSAPSNamedPort;
@@ -195,6 +195,8 @@ extern CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKShares;
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKSharesFailed;
 // The key hierarchy state machine needs to wait for the fixup operation to complete
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForFixupOperation;
+// The key hierarchy state machine is responding to a key state reprocess request
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateProcess;
 
 // CKKS is resetting the remote zone, due to key hierarchy reasons. Will not proceed until the local reset occurs.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingZone;
@@ -316,6 +318,8 @@ typedef CF_ENUM(CFIndex, CKKSErrorCode) {
 
     CKKSNotHSA2 = 40,
     CKKSiCloudGreyMode = 41,
+
+    CKKSNoFetchesRequested = 50,
 };
 
 typedef CF_ENUM(CFIndex, CKKSResultDescriptionErrorCode) {

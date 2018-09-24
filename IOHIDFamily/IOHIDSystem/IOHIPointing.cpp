@@ -1384,7 +1384,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
          (data = OSDynamicCast( OSData, dict->getObject(pointerAccelKey)))))
     {
         value = (number) ? number->unsigned32BitValue() :
-                            *((UInt32 *) (data->getBytesNoCopy()));
+        (data->getLength() >=4 ? *((UInt32 *) (data->getBytesNoCopy())) : 0);
         setupForAcceleration( value );
         updated = true;
     }
@@ -1394,7 +1394,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
 		dict->getObject(kIOHIDPointerAccelerationKey)))) {
 
         value = (number) ? number->unsigned32BitValue() :
-                            *((UInt32 *) (data->getBytesNoCopy()));
+        (data->getLength() >=4 ? *((UInt32 *) (data->getBytesNoCopy())) : 0);
 
         setupForAcceleration( value );
         updated = true;
@@ -1419,7 +1419,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
         ((number = OSDynamicCast( OSNumber, dict->getObject(scrollAccelKey))) ||
          (data = OSDynamicCast( OSData, dict->getObject(scrollAccelKey))))) {
         value = (number) ? number->unsigned32BitValue() :
-                            *((UInt32 *) (data->getBytesNoCopy()));
+                            (data->getLength() >=4 ? *((UInt32 *) (data->getBytesNoCopy())) : 0);
         setupScrollForAcceleration( value );
         updated = true;
     }
@@ -1427,7 +1427,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
             (data = OSDynamicCast( OSData, dict->getObject(kIOHIDScrollAccelerationKey)))) {
 
         value = (number) ? number->unsigned32BitValue() :
-                            *((UInt32 *) (data->getBytesNoCopy()));
+                            (data->getLength() >=4 ? *((UInt32 *) (data->getBytesNoCopy())) : 0);
 
         setupScrollForAcceleration( value );
         updated = true;
@@ -1452,7 +1452,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
         (data = OSDynamicCast(OSData,
                               dict->getObject(kIOHIDPointerConvertAbsoluteKey))))
     {
-        value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
+        value = (number) ? number->unsigned32BitValue() : (data->getLength() >=4 ? *((UInt32 *) (data->getBytesNoCopy())) : 0);
         _convertAbsoluteToRelative = (value != 0) ? true : false;
         updated = true;
     }
@@ -1462,7 +1462,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
         (data = OSDynamicCast(OSData,
                               dict->getObject(kIOHIDPointerContactToMoveKey))))
     {
-        value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
+        value = (number) ? number->unsigned32BitValue() : (data->getLength() >=4 ? *((UInt32 *) (data->getBytesNoCopy())) : 0);
         _contactToMove = (value != 0) ? true : false;
         updated = true;
     }
@@ -1471,7 +1471,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
         (data = OSDynamicCast(OSData, dict->getObject(kIOHIDPointerButtonMode))))
     {
         value = (number) ? number->unsigned32BitValue() :
-                                            *((UInt32 *) (data->getBytesNoCopy()));
+                                            (data->getLength() >=4 ? *((UInt32 *) (data->getBytesNoCopy())) : 0);
 
         if (getProperty(kIOHIDPointerButtonCountKey))
         {
@@ -1501,7 +1501,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
         (data = OSDynamicCast(OSData, dict->getObject(kIOHIDScrollMouseButtonKey))))
 	{
 		value = (number) ? number->unsigned32BitValue() :
-                                            *((UInt32 *) (data->getBytesNoCopy())) ;
+                                            (data->getLength() >=4 ? *((UInt32 *) (data->getBytesNoCopy())) : 0);
 
         if (!value)
             _scrollButtonMask = 0;

@@ -54,17 +54,15 @@ extern const CFStringRef kSOSAccountUUID;
 extern const CFStringRef kSOSAccountPeerNegotiationTimeouts;
 extern const CFStringRef kSOSRecoveryRing;
 extern const CFStringRef kSOSEscrowRecord;
+extern const CFStringRef kSOSAccountName;
 extern const CFStringRef kSOSTestV2Settings;
 extern const CFStringRef kSOSRateLimitingCounters;
 extern const CFStringRef kSOSAccountPeerLastSentTimestamp;
 extern const CFStringRef kSOSAccountRenegotiationRetryCount;
 extern const CFStringRef kSOSInitialSyncTimeoutV0;
 
-#define kSecServerPeerInfoAvailable "com.apple.security.fpiAvailable"
-
 typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flattenFailError);
 
-@class SOSMessageIDS;
 @class SOSMessageKVS;
 @class CKKeyParameter;
 @class SOSAccountTrustClassic;
@@ -92,7 +90,6 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 @property   (nonatomic, retain)     CKKeyParameter*             key_transport;
 @property   (nonatomic)             SOSKVSCircleStorageTransport*  circle_transport;
 @property   (nonatomic, retain)     SOSMessageKVS*              kvs_message_transport;
-@property   (nonatomic, retain)     SOSMessageIDS*              ids_message_transport;
 @property   (nonatomic, retain)     SOSCKCircleStorage*         ck_storage;
 
 
@@ -119,6 +116,13 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 @property   (readonly, nonatomic)   SOSPeerInfoRef              peerInfo;
 @property   (readonly, nonatomic)   SOSFullPeerInfoRef          fullPeerInfo;
 @property   (readonly, nonatomic)   NSString*                   peerID;
+
+@property   (nonatomic, assign)     BOOL                        notifyCircleChangeOnExit;
+@property   (nonatomic, assign)     BOOL                        notifyViewChangeOnExit;
+@property   (nonatomic, assign)     BOOL                        notifyBackupOnExit;
+
+@property   (nonatomic, retain)     NSUserDefaults*              settings;
+
 
 
 -(id) init;
@@ -181,6 +185,7 @@ const uint8_t* der_decode_public_bytes(CFAllocatorRef allocator, CFIndex algorit
 
 // Update
 -(SOSCCStatus) getCircleStatus:(CFErrorRef*) error;
+-(bool) isInCircle:(CFErrorRef *)error;
 
 bool SOSAccountHandleCircleMessage(SOSAccount* account,
                                    CFStringRef circleName, CFDataRef encodedCircleMessage, CFErrorRef *error);
@@ -205,6 +210,8 @@ bool SOSAccountIsPeerInBackupAndCurrentInView(SOSAccount* account, SOSPeerInfoRe
 bool SOSDeleteV0Keybag(CFErrorRef *error);
 void SOSAccountForEachBackupView(SOSAccount* account,  void (^operation)(const void *value));
 bool SOSAccountUpdatePeerInfo(SOSAccount* account, CFStringRef updateDescription, CFErrorRef *error, bool (^update)(SOSFullPeerInfoRef fpi, CFErrorRef *error));
+bool SOSAccountUpdatePeerInfoAndPush(SOSAccount* account, CFStringRef updateDescription, CFErrorRef *error,
+                                     bool (^update)(SOSPeerInfoRef pi, CFErrorRef *error));
 
 // Currently permitted backup rings.
 void SOSAccountForEachBackupRingName(SOSAccount* account, void (^operation)(CFStringRef value));
@@ -249,6 +256,8 @@ void SOSAccountSetUserPublicTrustedForTesting(SOSAccount* account);
 
 void SOSAccountPurgeIdentity(SOSAccount*);
 bool sosAccountLeaveCircle(SOSAccount* account, SOSCircleRef circle, CFErrorRef* error);
+bool sosAccountLeaveCircleWithAnalytics(SOSAccount* account, SOSCircleRef circle, NSData* parentData, CFErrorRef* error);
+
 bool sosAccountLeaveRing(SOSAccount*  account, SOSRingRef ring, CFErrorRef* error);
 bool SOSAccountForEachRing(SOSAccount* account, SOSRingRef (^action)(CFStringRef name, SOSRingRef ring));
 bool SOSAccountUpdateBackUp(SOSAccount* account, CFStringRef viewname, CFErrorRef *error);

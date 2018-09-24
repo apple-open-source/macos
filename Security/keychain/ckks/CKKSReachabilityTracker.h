@@ -26,8 +26,10 @@
 #import <Foundation/Foundation.h>
 #import <SystemConfiguration/SystemConfiguration.h>
 
+@class CKKSResultOperation;
+
 @interface CKKSReachabilityTracker : NSObject
-@property NSOperation* reachablityDependency;
+@property CKKSResultOperation* reachabilityDependency;
 @property (readonly) bool currentReachability; // get current reachability value w/o recheck
 
 - (instancetype)init;

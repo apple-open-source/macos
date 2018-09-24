@@ -25,6 +25,8 @@
 #define OTRamping_h
 #if OCTAGON
 
+#import <CloudKit/CloudKit.h>
+#import <CloudKit/CloudKit_Private.h>
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CloudKitDependencies.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
@@ -50,9 +52,9 @@ NS_ASSUME_NONNULL_BEGIN
                reachabilityTracker:(CKKSReachabilityTracker*) reachabilityTracker
   fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordRecordsOperationClass;
 
--(void) fetchRampRecord:(NSQualityOfService)qos
+-(void) fetchRampRecord:(CKOperationDiscretionaryNetworkBehavior)networkBehavior
                   reply:(void (^)(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError))recordRampStateFetchCompletionBlock;
--(BOOL) checkRampState:(NSInteger*)retryAfter qos:(NSQualityOfService)qos error:(NSError**)error;
+-(BOOL) checkRampState:(NSInteger*)retryAfter networkBehavior:(CKOperationDiscretionaryNetworkBehavior)networkBehavior error:(NSError**)error;
 @end
 NS_ASSUME_NONNULL_END
 #endif /* OCTAGON */

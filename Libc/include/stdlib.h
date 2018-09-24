@@ -59,6 +59,7 @@
 #define _STDLIB_H_
 
 #include <Availability.h>
+#include <sys/cdefs.h>
 
 #include <_types.h>
 #if !defined(_ANSI_SOURCE)
@@ -129,13 +130,7 @@ extern int __mb_cur_max;
 #define LIBC_ABORT(f,...)	abort_report_np("%s:%s:%u: " f, __FILE__, __func__, __LINE__, ## __VA_ARGS__)
 //End-Libc
 
-#ifndef __alloc_size
-#if __has_attribute(alloc_size)
-#define __alloc_size(...) __attribute__((alloc_size(__VA_ARGS__)))
-#else
-#define __alloc_size(...)
-#endif
-#endif // __alloc_size
+#include <malloc/_malloc.h>
 
 __BEGIN_DECLS
 void	 abort(void) __dead2;
@@ -150,10 +145,10 @@ long long
 #endif /* !__DARWIN_NO_LONG_LONG */
 void	*bsearch(const void *__key, const void *__base, size_t __nel,
 	    size_t __width, int (* _Nonnull __compar)(const void *, const void *));
-void	*calloc(size_t __count, size_t __size) __result_use_check __alloc_size(1,2);
+/* calloc is now declared in _malloc.h */
 div_t	 div(int, int) __pure2;
 void	 exit(int) __dead2;
-void	 free(void *);
+/* free is now declared in _malloc.h */
 char	*getenv(const char *);
 long	 labs(long) __pure2;
 ldiv_t	 ldiv(long, long) __pure2;
@@ -162,15 +157,15 @@ long long
 	 llabs(long long);
 lldiv_t	 lldiv(long long, long long);
 #endif /* !__DARWIN_NO_LONG_LONG */
-void	*malloc(size_t __size) __result_use_check __alloc_size(1);
+/* malloc is now declared in _malloc.h */
 int	 mblen(const char *__s, size_t __n);
 size_t	 mbstowcs(wchar_t * __restrict , const char * __restrict, size_t);
 int	 mbtowc(wchar_t * __restrict, const char * __restrict, size_t);
-int 	 posix_memalign(void **__memptr, size_t __alignment, size_t __size) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
+/* posix_memalign is now declared in _malloc.h */
 void	 qsort(void *__base, size_t __nel, size_t __width,
 	    int (* _Nonnull __compar)(const void *, const void *));
 int	 rand(void) __swift_unavailable("Use arc4random instead.");
-void	*realloc(void *__ptr, size_t __size) __result_use_check __alloc_size(2);
+/* realloc is now declared in _malloc.h */
 void	 srand(unsigned) __swift_unavailable("Use arc4random instead.");
 double	 strtod(const char *, char **) __DARWIN_ALIAS(strtod);
 float	 strtof(const char *, char **) __DARWIN_ALIAS(strtof);
@@ -405,7 +400,7 @@ unsigned long long
 	 strtouq(const char *__str, char **__endptr, int __base);
 #endif /* !__DARWIN_NO_LONG_LONG */
 extern char *suboptarg;		/* getsubopt(3) external variable */
-void	*valloc(size_t) __alloc_size(1);
+/* valloc is now declared in _malloc.h */
 #endif	/* !_ANSI_SOURCE && !_POSIX_SOURCE */
 
 /* Poison the following routines if -fshort-wchar is set */

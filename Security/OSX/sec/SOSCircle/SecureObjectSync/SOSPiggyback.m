@@ -54,10 +54,12 @@ static size_t SOSPiggyBackBlobGetDEREncodedSize(SOSGenCountRef gencount, SecKeyR
     require_quiet(accumulate_size(&total_payload, der_sizeof_number(gencount, error)), errOut);
     require_quiet(accumulate_size(&total_payload, der_sizeof_data_or_null(publicBytes, error)), errOut);
     require_quiet(accumulate_size(&total_payload, der_sizeof_data_or_null(signature, error)), errOut);
+    CFReleaseNull(publicBytes);
     return ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE, total_payload);
 
 errOut:
     SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("don't know how to encode"), NULL, error);
+    CFReleaseNull(publicBytes);
     return 0;
 }
 
@@ -77,6 +79,9 @@ static uint8_t* SOSPiggyBackBlobEncodeToDER(SOSGenCountRef gencount, SecKeyRef p
                                            der_encode_number(gencount, error, der,
                                                              der_encode_data_or_null(publicBytes, error, der,
                                                                                      der_encode_data_or_null(signature, error, der, der_end))));
+
+    CFReleaseNull(publicBytes);
+
     return der_end;
 }
 

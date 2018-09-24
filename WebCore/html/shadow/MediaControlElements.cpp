@@ -59,9 +59,37 @@
 #include "ShadowRoot.h"
 #include "TextTrackList.h"
 #include "VTTRegionList.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/Language.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlPanelElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlPanelEnclosureElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlOverlayEnclosureElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlTimelineContainerElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlVolumeSliderContainerElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlStatusDisplayElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlPanelMuteButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlVolumeSliderMuteButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlPlayButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlOverlayPlayButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlSeekForwardButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlSeekBackButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlRewindButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlReturnToRealtimeButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlToggleClosedCaptionsButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlClosedCaptionsContainerElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlClosedCaptionsTrackListElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlTimelineElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlFullscreenButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlPanelVolumeSliderElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlFullscreenVolumeSliderElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlFullscreenVolumeMinButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlFullscreenVolumeMaxButtonElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlTimeRemainingDisplayElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlCurrentTimeDisplayElement);
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlTextTrackContainerElement);
 
 using namespace HTMLNames;
 
@@ -1354,8 +1382,6 @@ void MediaControlTextTrackContainerElement::updateSizes(bool forceUpdate)
     if (!document().page())
         return;
 
-    mediaElement->syncTextTrackBounds();
-
     IntRect videoBox;
     if (m_textTrackRepresentation) {
         videoBox = m_textTrackRepresentation->bounds();
@@ -1373,6 +1399,7 @@ void MediaControlTextTrackContainerElement::updateSizes(bool forceUpdate)
 
     m_videoDisplaySize = videoBox;
     m_updateTextTrackRepresentationStyle = true;
+    mediaElement->syncTextTrackBounds();
 
     // FIXME (121170): This function is called during layout, and should lay out the text tracks immediately.
     m_updateTimer.startOneShot(0_s);

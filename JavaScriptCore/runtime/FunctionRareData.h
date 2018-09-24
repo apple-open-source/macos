@@ -26,7 +26,7 @@
 #pragma once
 
 #include "InternalFunctionAllocationProfile.h"
-#include "JSCell.h"
+#include "JSCast.h"
 #include "ObjectAllocationProfile.h"
 #include "Watchpoint.h"
 
@@ -39,7 +39,7 @@ class SpeculativeJIT;
 class JITCompiler;
 }
 
-class FunctionRareData : public JSCell {
+class FunctionRareData final : public JSCell {
     friend class JIT;
     friend class DFG::SpeculativeJIT;
     friend class DFG::JITCompiler;
@@ -71,6 +71,7 @@ public:
     }
 
     Structure* objectAllocationStructure() { return m_objectAllocationProfile.structure(); }
+    JSObject* objectAllocationPrototype() { return m_objectAllocationProfile.prototype(); }
 
     InlineWatchpointSet& allocationProfileWatchpointSet()
     {
@@ -87,6 +88,10 @@ public:
     Structure* createInternalFunctionAllocationStructureFromBase(VM& vm, JSGlobalObject* globalObject, JSObject* prototype, Structure* baseStructure)
     {
         return m_internalFunctionAllocationProfile.createAllocationStructureFromBase(vm, globalObject, this, prototype, baseStructure);
+    }
+    void clearInternalFunctionAllocationProfile()
+    {
+        m_internalFunctionAllocationProfile.clear();
     }
 
     Structure* getBoundFunctionStructure() { return m_boundFunctionStructure.get(); }
@@ -117,7 +122,7 @@ private:
             : m_rareData(rareData)
         { }
     protected:
-        void fireInternal(const FireDetail&) override;
+        void fireInternal(VM&, const FireDetail&) override;
     private:
         FunctionRareData* m_rareData;
     };

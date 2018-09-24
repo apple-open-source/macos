@@ -784,7 +784,7 @@ static CF_RETURNS_RETAINED CFDataRef make_signature (void *data_pointer, size_t 
 }
 
 CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject, 
-    CFDictionaryRef parameters, SecKeyRef __unused publicKey, SecKeyRef privateKey)
+    CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey)
 {
     if (subject == NULL || *subject == NULL) {
         return NULL;
@@ -820,10 +820,10 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
     }
     const unsigned min1atv_num = atv_num > 0 ? atv_num : 1;
     const unsigned min1num = num > 0 ? num : 1;
-    NSS_ATV atvs[min1atv_num];
-    NSS_ATV *atvps[min1atv_num];
-    NSS_RDN rdns[min1num];
-    NSS_RDN *rdnps[num+1];
+    NSS_ATV *atvs = (NSS_ATV *)malloc(sizeof(NSS_ATV) * min1atv_num);
+    NSS_ATV **atvps = (NSS_ATV **)malloc(sizeof(NSS_ATV *) * min1atv_num);
+    NSS_RDN *rdns = (NSS_RDN *)malloc(sizeof(NSS_RDN) * min1num);
+    NSS_RDN **rdnps = (NSS_RDN **)malloc(sizeof(NSS_RDN *) * (num + 1));
     atv_num = 0;
     unsigned rdn_num = 0;
     for (one_rdn = subject; *one_rdn; one_rdn++) {
@@ -844,6 +844,11 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
     
     /* public key info */
     realPublicKey = SecKeyCopyPublicKey(privateKey);
+    if (!realPublicKey) {
+        /* If we can't get the public key from the private key,
+         * fall back to the public key provided by the caller. */
+        realPublicKey = CFRetainSafe(publicKey);
+    }
     require_quiet(realPublicKey, out);
     publicKeyData = make_public_key(realPublicKey, &certReq.reqInfo.subjectPublicKeyInfo, &allocated_parameters);
     require_quiet(publicKeyData, out);
@@ -880,11 +885,15 @@ out:
     CFReleaseSafe(realPublicKey);
     CFReleaseSafe(publicKeyData);
     CFReleaseSafe(signature);
+    free(atvs);
+    free(atvps);
+    free(rdns);
+    free(rdnps);
     return csr;
 }
 
 CFDataRef SecGenerateCertificateRequest(CFArrayRef subject, 
-    CFDictionaryRef parameters, SecKeyRef __unused publicKey, SecKeyRef privateKey)
+    CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey)
 {
     CFDataRef csr = NULL;
     PRArenaPool *poolp = PORT_NewArena(1024);
@@ -909,6 +918,11 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
     
     /* public key info */
     realPublicKey = SecKeyCopyPublicKey(privateKey);
+    if (!realPublicKey) {
+        /* If we can't get the public key from the private key,
+         * fall back to the public key provided by the caller. */
+        realPublicKey = CFRetainSafe(publicKey);
+    }
     require_quiet(realPublicKey, out);
     publicKeyData = make_public_key(realPublicKey, &certReq.reqInfo.subjectPublicKeyInfo, &allocated_parameters);
     require_quiet(publicKeyData, out);

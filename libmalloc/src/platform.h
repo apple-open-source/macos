@@ -24,11 +24,11 @@
 #ifndef __PLATFORM_H
 #define __PLATFORM_H
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 #define MALLOC_TARGET_IOS 1
-#else // MALLOC_TARGET_IOS
+#else // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 #define MALLOC_TARGET_IOS 0
-#endif // MALLOC_TARGET_IOS
+#endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 
 #ifdef __LP64__
 #define MALLOC_TARGET_64BIT 1
@@ -45,7 +45,7 @@
 
 // <rdar://problem/12596555>
 #if MALLOC_TARGET_IOS
-# define CONFIG_RECIRC_DEPOT 0
+# define CONFIG_RECIRC_DEPOT 1
 # define CONFIG_AGGRESSIVE_MADVISE 1
 #else // MALLOC_TARGET_IOS
 # define CONFIG_RECIRC_DEPOT 1
@@ -57,15 +57,6 @@
 
 // <rdar://problem/19818071>
 #define CONFIG_MADVISE_STYLE MADV_FREE_REUSABLE
-
-// <rdar://problem/13807682>
-#if TARGET_OS_SIMULATOR
-#define CONFIG_OS_LOCK_HANDOFF 1
-#elif MALLOC_TARGET_IOS
-#define CONFIG_OS_LOCK_UNFAIR 1
-#else // MALLOC_TARGET_IOS
-#define CONFIG_OS_LOCK_UNFAIR 1
-#endif // MALLOC_TARGET_IOS
 
 #if MALLOC_TARGET_64BIT
 #define CONFIG_NANOZONE 1
@@ -91,19 +82,14 @@
 
 // <rdar://problem/26823590> compile-time MALLOC_SMALL cut-off size
 #if MALLOC_TARGET_IOS
-#define CONFIG_SMALL_CUTTOFF_127KB 0
+#if MALLOC_TARGET_64BIT
+MALLOC_STATIC_ASSERT(PAGE_MAX_SIZE == 16 * 1024, "Expected 16k pages");
+// TODO: rdar://problem/35395572
+#define CONFIG_SMALL_CUTOFF_DYNAMIC 0
+#endif
 #else
-#define CONFIG_SMALL_CUTTOFF_127KB 1
+#define CONFIG_SMALL_CUTOFF_LARGEMEM 1
 #endif // MALLOC_TARGET_IOS
-
-#if CONFIG_NANOZONE
-// <rdar://problem/35305995>
-#if MALLOC_TARGET_IOS && TARGET_OS_IOS
-#define CONFIG_NANO_SMALLMEM_DYNAMIC_DISABLE_35305995 1
-#else
-#define CONFIG_NANO_SMALLMEM_DYNAMIC_DISABLE_35305995 0
-#endif
-#endif
 
 // memory resource exception handling
 #if MALLOC_TARGET_IOS || TARGET_OS_SIMULATOR
@@ -117,5 +103,9 @@
 
 // presence of commpage number of cpu count
 #define CONFIG_HAS_COMMPAGE_NCPUS 1
+
+// Use of hyper-shift for magazine selection.
+#define CONFIG_TINY_USES_HYPER_SHIFT 0
+#define CONFIG_SMALL_USES_HYPER_SHIFT 0
 
 #endif // __PLATFORM_H

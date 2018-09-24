@@ -24,6 +24,8 @@
 #include "ajp.h"
 #include "scgi.h"
 
+#include "mod_http2.h" /* for http2_get_num_workers() */
+
 #if APR_HAVE_UNISTD_H
 #include <unistd.h>         /* for getpid() */
 #endif
@@ -66,6 +68,7 @@ static int proxy_match_ipaddr(struct dirconn_entry *This, request_rec *r);
 static int proxy_match_domainname(struct dirconn_entry *This, request_rec *r);
 static int proxy_match_hostname(struct dirconn_entry *This, request_rec *r);
 static int proxy_match_word(struct dirconn_entry *This, request_rec *r);
+static int ap_proxy_retry_worker(const char *proxy_function, proxy_worker *worker, server_rec *s);
 
 APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(proxy, PROXY, int, create_req,
                                    (request_rec *r, request_rec *pr), (r, pr),
@@ -956,7 +959,7 @@ PROXY_DECLARE(const char *) ap_proxy_cookie_reverse_map(request_rec *r,
     int i;
     int ddiff = 0;
     int pdiff = 0;
-    char *ret;
+    char *tmpstr, *tmpstr_orig, *token, *last, *ret;
 
     if (r->proxyreq != PROXYREQ_REVERSE) {
         return str;
@@ -966,48 +969,56 @@ PROXY_DECLARE(const char *) ap_proxy_cookie_reverse_map(request_rec *r,
     * Find the match and replacement, but save replacing until we've done
     * both path and domain so we know the new strlen
     */
-    if ((pathp = apr_strmatch(ap_proxy_strmatch_path, str, len)) != NULL) {
-        pathp += 5;
-        poffs = pathp - str;
-        pathe = ap_strchr_c(pathp, ';');
-        l1 = pathe ? (pathe - pathp) : strlen(pathp);
-        pathe = pathp + l1 ;
-        if (conf->interpolate_env == 1) {
-            ent = (struct proxy_alias *)rconf->cookie_paths->elts;
+    tmpstr_orig = tmpstr = apr_pstrdup(r->pool, str);
+    while ((token = apr_strtok(tmpstr, ";", &last))) {
+        /* skip leading spaces */
+        while (apr_isspace(*token)) {
+            ++token;
         }
-        else {
-            ent = (struct proxy_alias *)conf->cookie_paths->elts;
-        }
-        for (i = 0; i < conf->cookie_paths->nelts; i++) {
-            l2 = strlen(ent[i].fake);
-            if (l1 >= l2 && strncmp(ent[i].fake, pathp, l2) == 0) {
-                newpath = ent[i].real;
-                pdiff = strlen(newpath) - l1;
-                break;
-            }
-        }
-    }
 
-    if ((domainp = apr_strmatch(ap_proxy_strmatch_domain, str, len)) != NULL) {
-        domainp += 7;
-        doffs = domainp - str;
-        domaine = ap_strchr_c(domainp, ';');
-        l1 = domaine ? (domaine - domainp) : strlen(domainp);
-        domaine = domainp + l1;
-        if (conf->interpolate_env == 1) {
-            ent = (struct proxy_alias *)rconf->cookie_domains->elts;
-        }
-        else {
-            ent = (struct proxy_alias *)conf->cookie_domains->elts;
-        }
-        for (i = 0; i < conf->cookie_domains->nelts; i++) {
-            l2 = strlen(ent[i].fake);
-            if (l1 >= l2 && strncasecmp(ent[i].fake, domainp, l2) == 0) {
-                newdomain = ent[i].real;
-                ddiff = strlen(newdomain) - l1;
-                break;
+        if (ap_cstr_casecmpn("path=", token, 5) == 0) {
+            pathp = token + 5;
+            poffs = pathp - tmpstr_orig;
+            l1 = strlen(pathp);
+            pathe = str + poffs + l1;
+            if (conf->interpolate_env == 1) {
+                ent = (struct proxy_alias *)rconf->cookie_paths->elts;
+            }
+            else {
+                ent = (struct proxy_alias *)conf->cookie_paths->elts;
+            }
+            for (i = 0; i < conf->cookie_paths->nelts; i++) {
+                l2 = strlen(ent[i].fake);
+                if (l1 >= l2 && strncmp(ent[i].fake, pathp, l2) == 0) {
+                    newpath = ent[i].real;
+                    pdiff = strlen(newpath) - l1;
+                    break;
+                }
             }
         }
+        else if (ap_cstr_casecmpn("domain=", token, 7) == 0) {
+            domainp = token + 7;
+            doffs = domainp - tmpstr_orig;
+            l1 = strlen(domainp);
+            domaine = str + doffs + l1;
+            if (conf->interpolate_env == 1) {
+                ent = (struct proxy_alias *)rconf->cookie_domains->elts;
+            }
+            else {
+                ent = (struct proxy_alias *)conf->cookie_domains->elts;
+            }
+            for (i = 0; i < conf->cookie_domains->nelts; i++) {
+                l2 = strlen(ent[i].fake);
+                if (l1 >= l2 && strncasecmp(ent[i].fake, domainp, l2) == 0) {
+                    newdomain = ent[i].real;
+                    ddiff = strlen(newdomain) - l1;
+                    break;
+                }
+            }
+        }
+
+        /* Iterate the remaining tokens using apr_strtok(NULL, ...) */
+        tmpstr = NULL;
     }
 
     if (newpath) {
@@ -1018,14 +1029,14 @@ PROXY_DECLARE(const char *) ap_proxy_cookie_reverse_map(request_rec *r,
             if (doffs > poffs) {
                 memcpy(ret, str, poffs);
                 memcpy(ret + poffs, newpath, l1);
-                memcpy(ret + poffs + l1, pathe, domainp - pathe);
+                memcpy(ret + poffs + l1, pathe, str + doffs - pathe);
                 memcpy(ret + doffs + pdiff, newdomain, l2);
                 strcpy(ret + doffs + pdiff + l2, domaine);
             }
             else {
                 memcpy(ret, str, doffs) ;
                 memcpy(ret + doffs, newdomain, l2);
-                memcpy(ret + doffs + l2, domaine, pathp - domaine);
+                memcpy(ret + doffs + l2, domaine, str + poffs - domaine);
                 memcpy(ret + poffs + ddiff, newpath, l1);
                 strcpy(ret + poffs + ddiff + l1, pathe);
             }
@@ -1036,17 +1047,15 @@ PROXY_DECLARE(const char *) ap_proxy_cookie_reverse_map(request_rec *r,
             strcpy(ret + poffs + l1, pathe);
         }
     }
-    else {
-        if (newdomain) {
-            ret = apr_palloc(r->pool, len + pdiff + ddiff + 1);
+    else if (newdomain) {
+            ret = apr_palloc(r->pool, len + ddiff + 1);
             l2 = strlen(newdomain);
             memcpy(ret, str, doffs);
             memcpy(ret + doffs, newdomain, l2);
-            strcpy(ret + doffs+l2, domaine);
-        }
-        else {
-            ret = (char *)str; /* no change */
-        }
+            strcpy(ret + doffs + l2, domaine);
+    }
+    else {
+        ret = (char *)str; /* no change */
     }
 
     return ret;
@@ -1296,6 +1305,121 @@ PROXY_DECLARE(apr_status_t) ap_proxy_initialize_balancer(proxy_balancer *balance
         }
     }
     return APR_SUCCESS;
+}
+
+PROXY_DECLARE(proxy_worker *) ap_proxy_balancer_get_best_worker(proxy_balancer *balancer,
+                                                                request_rec *r,
+                                                                proxy_is_best_callback_fn_t *is_best,
+                                                                void *baton)
+{
+    int i = 0;
+    int cur_lbset = 0;
+    int max_lbset = 0;
+    int unusable_workers = 0;
+    apr_pool_t *tpool = NULL;
+    apr_array_header_t *spares = NULL;
+    apr_array_header_t *standbys = NULL;
+    proxy_worker *worker = NULL;
+    proxy_worker *best_worker = NULL;
+
+    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, APLOGNO(10122)
+                 "proxy: Entering %s for BALANCER (%s)",
+                 balancer->lbmethod->name, balancer->s->name);
+
+    apr_pool_create(&tpool, r->pool);
+
+    spares = apr_array_make(tpool, 1, sizeof(proxy_worker*));
+    standbys = apr_array_make(tpool, 1, sizeof(proxy_worker*));
+
+    /* Process lbsets in order, only replacing unusable workers in a given lbset
+     * with available spares from the same lbset. Hot standbys will be used as a
+     * last resort when all other workers and spares are unavailable.
+     */
+    for (cur_lbset = 0; !best_worker && (cur_lbset <= max_lbset); cur_lbset++) {
+        unusable_workers = 0;
+        apr_array_clear(spares);
+        apr_array_clear(standbys);
+
+        for (i = 0; i < balancer->workers->nelts; i++) {
+            worker = APR_ARRAY_IDX(balancer->workers, i, proxy_worker *);
+
+            if (worker->s->lbset > max_lbset) {
+                max_lbset = worker->s->lbset;
+            }
+
+            if (worker->s->lbset != cur_lbset) {
+                continue;
+            }
+
+            /* A draining worker that is neither a spare nor a standby should be
+             * considered unusable to be replaced by spares.
+             */
+            if (PROXY_WORKER_IS_DRAINING(worker)) {
+                if (!PROXY_WORKER_IS_SPARE(worker) && !PROXY_WORKER_IS_STANDBY(worker)) {
+                    unusable_workers++;
+                }
+
+                continue;
+            }
+
+            /* If the worker is in error state run retry on that worker. It will
+             * be marked as operational if the retry timeout is elapsed.  The
+             * worker might still be unusable, but we try anyway.
+             */
+            if (!PROXY_WORKER_IS_USABLE(worker)) {
+                ap_proxy_retry_worker("BALANCER", worker, r->server);
+            }
+
+            if (PROXY_WORKER_IS_SPARE(worker)) {
+                if (PROXY_WORKER_IS_USABLE(worker)) {
+                    APR_ARRAY_PUSH(spares, proxy_worker *) = worker;
+                }
+            }
+            else if (PROXY_WORKER_IS_STANDBY(worker)) {
+                if (PROXY_WORKER_IS_USABLE(worker)) {
+                    APR_ARRAY_PUSH(standbys, proxy_worker *) = worker;
+                }
+            }
+            else if (PROXY_WORKER_IS_USABLE(worker)) {
+              if (is_best(worker, best_worker, baton)) {
+                best_worker = worker;
+              }
+            }
+            else {
+                unusable_workers++;
+            }
+        }
+
+        /* Check if any spares are best. */
+        for (i = 0; (i < spares->nelts) && (i < unusable_workers); i++) {
+          worker = APR_ARRAY_IDX(spares, i, proxy_worker *);
+
+          if (is_best(worker, best_worker, baton)) {
+            best_worker = worker;
+          }
+        }
+
+        /* If no workers are available, use the standbys. */
+        if (!best_worker) {
+            for (i = 0; i < standbys->nelts; i++) {
+              worker = APR_ARRAY_IDX(standbys, i, proxy_worker *);
+
+              if (is_best(worker, best_worker, baton)) {
+                best_worker = worker;
+              }
+            }
+        }
+    }
+
+    apr_pool_destroy(tpool);
+
+    if (best_worker) {
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, APLOGNO(10123)
+                     "proxy: %s selected worker \"%s\" : busy %" APR_SIZE_T_FMT " : lbstatus %d",
+                     balancer->lbmethod->name, best_worker->s->name, best_worker->s->busy, best_worker->s->lbstatus);
+    }
+
+    return best_worker;
 }
 
 /*
@@ -1770,8 +1894,9 @@ PROXY_DECLARE(apr_status_t) ap_proxy_share_worker(proxy_worker *worker, proxy_wo
 
 PROXY_DECLARE(apr_status_t) ap_proxy_initialize_worker(proxy_worker *worker, server_rec *s, apr_pool_t *p)
 {
+    APR_OPTIONAL_FN_TYPE(http2_get_num_workers) *get_h2_num_workers;
     apr_status_t rv = APR_SUCCESS;
-    int mpm_threads;
+    int max_threads, minw, maxw;
 
     if (worker->s->status & PROXY_WORKER_INITIALIZED) {
         /* The worker is already initialized */
@@ -1795,11 +1920,26 @@ PROXY_DECLARE(apr_status_t) ap_proxy_initialize_worker(proxy_worker *worker, ser
             worker->s->is_address_reusable = 1;
         }
 
-        ap_mpm_query(AP_MPMQ_MAX_THREADS, &mpm_threads);
-        if (mpm_threads > 1) {
-            /* Set hard max to no more then mpm_threads */
-            if (worker->s->hmax == 0 || worker->s->hmax > mpm_threads) {
-                worker->s->hmax = mpm_threads;
+        /*
+         * When mod_http2 is loaded we might have more threads since it has
+         * its own pool of processing threads.
+         */
+        ap_mpm_query(AP_MPMQ_MAX_THREADS, &max_threads);
+        get_h2_num_workers = APR_RETRIEVE_OPTIONAL_FN(http2_get_num_workers);
+        if (get_h2_num_workers) {
+            get_h2_num_workers(s, &minw, &maxw);
+            /* So now the max is:
+             *   max_threads-1 threads for HTTP/1 each requiring one connection
+             *   + one thread for HTTP/2 requiring maxw connections
+             */
+            max_threads = max_threads - 1 + maxw;
+        }
+        if (max_threads > 1) {
+            /* Default hmax is max_threads to scale with the load and never
+             * wait for an idle connection to proceed.
+             */
+            if (worker->s->hmax == 0) {
+                worker->s->hmax = max_threads;
             }
             if (worker->s->smax == -1 || worker->s->smax > worker->s->hmax) {
                 worker->s->smax = worker->s->hmax;
@@ -3728,6 +3868,8 @@ static proxy_schemes_t pschemes[] =
     {"scgi",     SCGI_DEF_PORT},
     {"h2c",      DEFAULT_HTTP_PORT},
     {"h2",       DEFAULT_HTTPS_PORT},
+    {"ws",       DEFAULT_HTTP_PORT},
+    {"wss",      DEFAULT_HTTPS_PORT},
     { NULL, 0xFFFF }     /* unknown port */
 };
 

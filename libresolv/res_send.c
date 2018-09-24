@@ -159,8 +159,8 @@ static int		dns_pselect(int, void *, void *, void *, struct timespec *, const si
 static const int niflags = NI_NUMERICHOST | NI_NUMERICSERV;
 
 /* interrupt mechanism is shared with res_query.c */
-int interrupt_pipe_enabled = 0;
-pthread_key_t interrupt_pipe_key;
+__attribute__((__visibility__("hidden"))) int interrupt_pipe_enabled = 0;
+__attribute__((__visibility__("hidden"))) pthread_key_t interrupt_pipe_key;
 
 static int
 bind_random(int sock, int family)

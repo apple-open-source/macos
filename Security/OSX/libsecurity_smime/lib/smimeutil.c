@@ -139,13 +139,13 @@ typedef struct {
 static smime_cipher_map_entry smime_cipher_map[] = {
 /*    cipher			algtag			parms		enabled  allowed */
 /*    ---------------------------------------------------------------------------------- */
-    { SMIME_RC2_CBC_40,		SEC_OID_RC2_CBC,	&param_int40,	PR_TRUE, PR_TRUE },
-    { SMIME_DES_CBC_56,		SEC_OID_DES_CBC,	NULL,		PR_TRUE, PR_TRUE },
-    { SMIME_RC2_CBC_64,		SEC_OID_RC2_CBC,	&param_int64,	PR_TRUE, PR_TRUE },
+    { SMIME_RC2_CBC_40,		SEC_OID_RC2_CBC,	&param_int40,	PR_FALSE,PR_TRUE },
+    { SMIME_DES_CBC_56,		SEC_OID_DES_CBC,	NULL,		PR_FALSE,PR_TRUE },
+    { SMIME_RC2_CBC_64,		SEC_OID_RC2_CBC,	&param_int64,	PR_FALSE,PR_TRUE },
     { SMIME_RC2_CBC_128,	SEC_OID_RC2_CBC,	&param_int128,	PR_TRUE, PR_TRUE },
     { SMIME_DES_EDE3_168,	SEC_OID_DES_EDE3_CBC,	NULL,		PR_TRUE, PR_TRUE },
     { SMIME_AES_CBC_128,        SEC_OID_AES_128_CBC,    NULL,           PR_TRUE, PR_TRUE },
-    { SMIME_FORTEZZA,		SEC_OID_FORTEZZA_SKIPJACK, NULL,	PR_TRUE, PR_TRUE }
+    { SMIME_FORTEZZA,		SEC_OID_FORTEZZA_SKIPJACK, NULL,	PR_FALSE, PR_TRUE }
 };
 static const int smime_cipher_map_count = sizeof(smime_cipher_map) / sizeof(smime_cipher_map_entry);
 
@@ -377,10 +377,9 @@ smime_choose_cipher(SecCertificateRef scert, SecCertificateRef *rcerts)
 {
     PRArenaPool *poolp;
     long cipher;
-    long chosen_cipher;
+    long chosen_cipher = SMIME_DES_EDE3_168;
     int *cipher_abilities;
     int *cipher_votes;
-    int weak_mapi;
     int strong_mapi;
     int rcount, mapi, max, i;
 #if 1
@@ -389,9 +388,6 @@ smime_choose_cipher(SecCertificateRef scert, SecCertificateRef *rcerts)
 #else
     Boolean scert_is_fortezza = (scert == NULL) ? PR_FALSE : PK11_FortezzaHasKEA(scert);
 #endif
-
-    chosen_cipher = SMIME_RC2_CBC_40;		/* the default, LCD */
-    weak_mapi = smime_mapi_by_cipher(chosen_cipher);
 
     poolp = PORT_NewArena (1024);		/* XXX what is right value? */
     if (poolp == NULL)
@@ -445,39 +441,10 @@ smime_choose_cipher(SecCertificateRef scert, SecCertificateRef *rcerts)
 		}
 	    }
 	} else {
-	    /* no profile found - so we can only assume that the user can do
-	     * the mandatory algorithms which is RC2-40 (weak crypto) and 3DES (strong crypto) */
-	    SecPublicKeyRef key;
-	    unsigned int pklen_bits;
-
-	    /*
-	     * if recipient's public key length is > 512, vote for a strong cipher
-	     * please not that the side effect of this is that if only one recipient
-	     * has an export-level public key, the strong cipher is disabled.
-	     *
-	     * XXX This is probably only good for RSA keys.  What I would
-	     * really like is a function to just say;  Is the public key in
-	     * this cert an export-length key?  Then I would not have to
-	     * know things like the value 512, or the kind of key, or what
-	     * a subjectPublicKeyInfo is, etc.
-	     */
-	    key = CERT_ExtractPublicKey(rcerts[rcount]);
-	    pklen_bits = 0;
-	    if (key != NULL) {
-		SecKeyGetStrengthInBits(key, NULL, &pklen_bits);
-		SECKEY_DestroyPublicKey (key);
-	    }
-
-	    if (pklen_bits > 512) {
-		/* cast votes for the strong algorithm */
-		cipher_abilities[strong_mapi]++;
-		cipher_votes[strong_mapi] += pref;
-		pref--;
-	    } 
-
-	    /* always cast (possibly less) votes for the weak algorithm */
-	    cipher_abilities[weak_mapi]++;
-	    cipher_votes[weak_mapi] += pref;
+            /* cast votes for the strong algorithm */
+            cipher_abilities[strong_mapi]++;
+            cipher_votes[strong_mapi] += pref;
+            pref--;
 	}
 	if (profile != NULL)
 	    SECITEM_FreeItem(profile, PR_TRUE);

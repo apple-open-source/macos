@@ -16,7 +16,7 @@
 #include "unicode/utypes.h"
 /**
  * \file
- * \brief C++ API: Formats decimal numbers in compact form.
+ * \brief C++ API: Compatibility APIs for compact decimal number formatting.
  */
 
 #if !UCONFIG_NO_FORMATTING
@@ -31,6 +31,11 @@ U_NAMESPACE_BEGIN
 class PluralRules;
 
 /**
+ * <p><strong>IMPORTANT:</strong> New users are strongly encouraged to see if
+ * numberformatter.h fits their use case.  Although not deprecated, this header
+ * is provided for backwards compatibility only.
+ * <hr/>
+ *
  * The CompactDecimalFormat produces abbreviated numbers, suitable for display in
  * environments will limited real estate. For example, 'Hits: 1.2B' instead of
  * 'Hits: 1,200,000,000'. The format will be appropriate for the given language,
@@ -57,6 +62,9 @@ public:
 
      /**
       * Returns a compact decimal instance for specified locale.
+     * <p>
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
       * @param inLocale the given locale.
       * @param style whether to use short or long style.
       * @param status error code returned  here.

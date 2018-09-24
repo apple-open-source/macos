@@ -122,14 +122,15 @@ private:
     VideoFullscreenControllerContext() { }
 
     // VideoFullscreenChangeObserver
-    void requestUpdateInlineRect() override;
-    void requestVideoContentLayer() override;
-    void returnVideoContentLayer() override;
-    void didSetupFullscreen() override;
-    void didEnterFullscreen() override { }
-    void didExitFullscreen() override;
-    void didCleanupFullscreen() override;
-    void fullscreenMayReturnToInline() override;
+    void requestUpdateInlineRect() final;
+    void requestVideoContentLayer() final;
+    void returnVideoContentLayer() final;
+    void didSetupFullscreen() final;
+    void didEnterFullscreen() final { }
+    void willExitFullscreen() final;
+    void didExitFullscreen() final;
+    void didCleanupFullscreen() final;
+    void fullscreenMayReturnToInline() final;
 
     // VideoFullscreenModelClient
     void hasVideoChanged(bool) override;
@@ -172,6 +173,7 @@ private:
     void togglePictureInPicture() override { }
     void toggleMuted() override;
     void setMuted(bool) final;
+    void setVolume(double) final;
 
     // PlaybackSessionModelClient
     void durationChanged(double) override;
@@ -185,6 +187,7 @@ private:
     void externalPlaybackChanged(bool enabled, PlaybackSessionModel::ExternalPlaybackTargetType, const String& localizedDeviceName) override;
     void wirelessVideoPlaybackDisabledChanged(bool) override;
     void mutedChanged(bool) override;
+    void volumeChanged(double) override;
 
     // VideoFullscreenModel
     void addClient(VideoFullscreenModelClient&) override;
@@ -197,6 +200,8 @@ private:
     bool hasVideo() const override;
     FloatSize videoDimensions() const override;
     bool isMuted() const override;
+    double volume() const override;
+    bool isPictureInPictureActive() const override;
 
     HashSet<PlaybackSessionModelClient*> m_playbackClients;
     HashSet<VideoFullscreenModelClient*> m_fullscreenClients;
@@ -274,6 +279,16 @@ void VideoFullscreenControllerContext::didSetupFullscreen()
                 m_interface->enterFullscreen();
             });
         });
+    });
+#endif
+}
+
+void VideoFullscreenControllerContext::willExitFullscreen()
+{
+#if PLATFORM(WATCHOS)
+    ASSERT(isUIThread());
+    WebThreadRun([protectedThis = makeRefPtr(this), this] () mutable {
+        m_fullscreenModel->willExitFullscreen();
     });
 #endif
 }
@@ -508,6 +523,18 @@ void VideoFullscreenControllerContext::mutedChanged(bool muted)
         client->mutedChanged(muted);
 }
 
+void VideoFullscreenControllerContext::volumeChanged(double volume)
+{
+    if (WebThreadIsCurrent()) {
+        dispatch_async(dispatch_get_main_queue(), [protectedThis = makeRefPtr(this), volume] {
+            protectedThis->volumeChanged(volume);
+        });
+        return;
+    }
+
+    for (auto& client : m_playbackClients)
+        client->volumeChanged(volume);
+}
 #pragma mark VideoFullscreenModel
 
 void VideoFullscreenControllerContext::addClient(VideoFullscreenModelClient& client)
@@ -588,6 +615,18 @@ bool VideoFullscreenControllerContext::isMuted() const
     return m_playbackModel ? m_playbackModel->isMuted() : false;
 }
 
+double VideoFullscreenControllerContext::volume() const
+{
+    ASSERT(isUIThread());
+    return m_playbackModel ? m_playbackModel->volume() : 0;
+}
+
+bool VideoFullscreenControllerContext::isPictureInPictureActive() const
+{
+    ASSERT(isUIThread());
+    return m_playbackModel ? m_playbackModel->isPictureInPictureActive() : false;
+}
+
 FloatSize VideoFullscreenControllerContext::videoDimensions() const
 {
     ASSERT(isUIThread());
@@ -650,6 +689,15 @@ void VideoFullscreenControllerContext::setMuted(bool muted)
     WebThreadRun([protectedThis = makeRefPtr(this), this, muted] {
         if (m_playbackModel)
             m_playbackModel->setMuted(muted);
+    });
+}
+
+void VideoFullscreenControllerContext::setVolume(double volume)
+{
+    ASSERT(isUIThread());
+    WebThreadRun([protectedThis = makeRefPtr(this), this, volume] {
+        if (m_playbackModel)
+            m_playbackModel->setVolume(volume);
     });
 }
 
@@ -871,7 +919,7 @@ void VideoFullscreenControllerContext::setUpFullscreen(HTMLVideoElement& videoEl
         m_interface->setVideoFullscreenChangeObserver(this);
 
         m_videoFullscreenView = adoptNS([allocUIViewInstance() init]);
-        
+
         m_interface->setupFullscreen(*m_videoFullscreenView.get(), videoElementClientRect, viewRef.get(), mode, allowsPictureInPicture, false);
     });
 }

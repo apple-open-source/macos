@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <TargetConditionals.h>
 
 #include <pthread/pthread_spis.h>
 
@@ -104,7 +105,7 @@ check_process_default_mutex_policy(int expected_policy)
 T_DECL(mutex_default_policy,
 		"Tests that the default mutex policy is fairshare")
 {
-	check_process_default_mutex_policy(_PTHREAD_MUTEX_POLICY_FAIRSHARE);
+	check_process_default_mutex_policy(_PTHREAD_MUTEX_POLICY_FIRSTFIT);
 }
 
 T_DECL(mutex_default_policy_sysctl,
@@ -133,7 +134,7 @@ T_HELPER_DECL(mutex_default_policy_sysctl_helper, "sysctl helper")
 
 T_DECL(mutex_default_policy_envvar,
 		"Tests that setting the policy environment variable changes the default policy",
-		T_META_ENVVAR("PTHREAD_MUTEX_DEFAULT_POLICY=2"))
+		T_META_ENVVAR("PTHREAD_MUTEX_DEFAULT_POLICY=3"))
 {
 	check_process_default_mutex_policy(_PTHREAD_MUTEX_POLICY_FIRSTFIT);
 }

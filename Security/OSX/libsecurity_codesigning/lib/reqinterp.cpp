@@ -34,6 +34,7 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOCFUnserialize.h>
 #include "csutilities.h"
+#include "notarization.h"
 
 namespace Security {
 namespace CodeSigning {
@@ -177,6 +178,10 @@ bool Requirement::Interpreter::eval(int depth)
 		{
 			int32_t targetPlatform = get<int32_t>();
 			return mContext->directory && mContext->directory->platform == targetPlatform;
+		}
+	case opNotarized:
+		{
+			return isNotarized(mContext);
 		}
 	default:
 		// opcode not recognized - handle generically if possible, fail otherwise
@@ -371,6 +376,10 @@ bool Requirement::Interpreter::appleLocalAnchored()
     if (csr_check(CSR_ALLOW_APPLE_INTERNAL))
         return false;
 
+	if (mContext->forcePlatform) {
+		return true;
+	}
+
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         additionalTrustedCertificates = getAdditionalTrustedAnchors();
@@ -399,7 +408,7 @@ bool Requirement::Interpreter::appleSigned()
 				return true;
     } else if (appleLocalAnchored()) {
         return true;
-    }
+	}
 	return false;
 }
 

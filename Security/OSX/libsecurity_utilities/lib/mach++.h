@@ -276,6 +276,7 @@ public:
 	
     void setBuffer(void *buffer, mach_msg_size_t size); // use buffer with size
     void setBuffer(mach_msg_size_t size);			// allocate buffer with size
+    void clearBuffer(void);
     void release();							// discard buffer (if any)
 
     operator mig_reply_error_t & () const	{ return *mBuffer; }

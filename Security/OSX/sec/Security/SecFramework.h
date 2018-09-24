@@ -68,6 +68,8 @@ CFDataRef SecDigestCreate(CFAllocatorRef allocator,
 // Wrapper to provide a CFErrorRef for legacy API.
 OSStatus SecOSStatusWith(bool (^perform)(CFErrorRef *error));
 
+extern CFStringRef kSecFrameworkBundleID;
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECFRAMEWORK_H_ */

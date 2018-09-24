@@ -7,8 +7,32 @@ list(APPEND WTF_LIBRARIES
     ${READLINE_LIBRARY}
 )
 
+list(APPEND WTF_PUBLIC_HEADERS
+    cf/TypeCastsCF.h
+
+    cocoa/Entitlements.h
+    cocoa/MachSendRight.h
+    cocoa/SoftLinking.h
+
+    darwin/WeakLinking.h
+
+    mac/AppKitCompatibilityDeclarations.h
+
+    spi/cf/CFBundleSPI.h
+    spi/cf/CFStringSPI.h
+
+    spi/cocoa/FoundationSPI.h
+    spi/cocoa/NSMapTableSPI.h
+    spi/cocoa/SecuritySPI.h
+
+    spi/darwin/SandboxSPI.h
+    spi/darwin/XPCSPI.h
+    spi/darwin/dyldSPI.h
+
+    text/cf/TextBreakIteratorCF.h
+)
+
 list(APPEND WTF_SOURCES
-    AutodrainedPoolMac.mm
     BlockObjCExceptions.mm
     RunLoopTimerCF.cpp
     SchedulePairCF.cpp
@@ -17,9 +41,10 @@ list(APPEND WTF_SOURCES
     cf/LanguageCF.cpp
     cf/RunLoopCF.cpp
 
-    text/mac/TextBreakIteratorInternalICUMac.mm
-
-    cocoa/CPUTimeCocoa.mm
+    cocoa/AutodrainedPool.cpp
+    cocoa/CPUTimeCocoa.cpp
+    cocoa/Entitlements.cpp
+    cocoa/MachSendRight.cpp
     cocoa/MemoryFootprintCocoa.cpp
     cocoa/MemoryPressureHandlerCocoa.mm
     cocoa/WorkQueueCocoa.cpp
@@ -32,14 +57,13 @@ list(APPEND WTF_SOURCES
     text/cf/StringImplCF.cpp
     text/cf/StringViewCF.cpp
 
-    text/mac/StringImplMac.mm
-    text/mac/StringMac.mm
-    text/mac/StringViewObjC.mm
+    text/cocoa/StringImplCocoa.mm
+    text/cocoa/StringViewCocoa.mm
+    text/cocoa/TextBreakIteratorInternalICUMac.mm
 )
 
-list(APPEND WTF_INCLUDE_DIRECTORIES
+list(APPEND WTF_PRIVATE_INCLUDE_DIRECTORIES
     "${WTF_DIR}/icu"
-    "${WTF_DIR}/wtf/spi/darwin"
     ${DERIVED_SOURCES_WTF_DIR}
 )
 

@@ -78,9 +78,9 @@ static void PrintCFStringWithFormat(const char *formatStr, CFStringRef inStr)
     }
 }
 
-const CFStringRef gPrefix = CFSTR("Test Key");
-const CFStringRef gLabel = CFSTR("Test AES Encryption Key");
-const CFStringRef gUUID = CFSTR("550e8400-e29b-41d4-a716-446655441234");
+const CFStringRef g15Prefix = CFSTR("Test Key");
+const CFStringRef g15Label = CFSTR("Test AES Encryption Key");
+const CFStringRef g15UUID = CFSTR("550e8400-e29b-41d4-a716-446655441234");
 
 // CreateSymmetricKey will create a new AES-128 symmetric encryption key
 // with the provided label, application label, and application tag.
@@ -115,7 +115,7 @@ static int CreateSymmetricKey(
 	// note: the access descriptor should be the same string as will be used for the item's label,
 	// since it's the string that is displayed by the access confirmation dialog to describe the item.
 	SecAccessRef access = NULL;
-	status = SecAccessCreate(gLabel, NULL, &access);
+	status = SecAccessCreate(g15Label, NULL, &access);
 
 	// create a dictionary of parameters describing the key we want to create
 	CFMutableDictionaryRef params = CFDictionaryCreateMutable(NULL, 0,
@@ -180,10 +180,10 @@ static int TestUpdateItems(SecKeychainRef keychain)
 	// first, create a symmetric key
 	CFGregorianDate curGDate = CFAbsoluteTimeGetGregorianDate(CFAbsoluteTimeGetCurrent(), NULL);
 	CFStringRef curDateLabel = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ (%4d-%02d-%02d)"),
-		gPrefix, (int) (curGDate.year), (int) (curGDate.month), (int) (curGDate.day));
+		g15Prefix, (int) (curGDate.year), (int) (curGDate.month), (int) (curGDate.day));
 	CFStringRef curAppTag = CFSTR("SecItemUpdate");
 
-	status = CreateSymmetricKey(keychain, curDateLabel, gUUID, curAppTag, noErr);
+	status = CreateSymmetricKey(keychain, curDateLabel, g15UUID, curAppTag, noErr);
     CFReleaseNull(curDateLabel);
 	if (status && status != errSecDuplicateItem)
 		++result;

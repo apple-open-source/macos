@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2015 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include "libinfo_common.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -28,6 +30,7 @@
 #include "si_data.h"
 #include "si_module.h"
 
+LIBINFO_EXPORT
 si_list_t *
 si_list_add(si_list_t *l, si_item_t *e)
 {
@@ -59,6 +62,7 @@ si_list_add(si_list_t *l, si_item_t *e)
 	return l;
 }
 
+LIBINFO_EXPORT
 si_list_t *
 si_list_concat(si_list_t *l, si_list_t *x)
 {
@@ -105,6 +109,7 @@ si_list_concat(si_list_t *l, si_list_t *x)
 	return l;
 }
 
+LIBINFO_EXPORT
 si_item_t *
 si_list_next(si_list_t *list)
 {
@@ -114,12 +119,14 @@ si_list_next(si_list_t *list)
 	return list->entry[list->curr++];
 }
 
+LIBINFO_EXPORT
 void
 si_list_reset(si_list_t *list)
 {
 	if (list != NULL) list->curr = 0;
 }
 
+LIBINFO_EXPORT
 si_list_t *
 si_list_retain(si_list_t *list)
 {
@@ -133,6 +140,7 @@ si_list_retain(si_list_t *list)
 	return list;
 }
 
+LIBINFO_EXPORT
 void
 si_list_release(si_list_t *list)
 {
@@ -155,6 +163,7 @@ si_list_release(si_list_t *list)
 	}
 }
 
+LIBINFO_EXPORT
 si_item_t *
 si_item_retain(si_item_t *item)
 {
@@ -168,6 +177,7 @@ si_item_retain(si_item_t *item)
 	return item;
 }
 
+LIBINFO_EXPORT
 void
 si_item_release(si_item_t *item)
 {

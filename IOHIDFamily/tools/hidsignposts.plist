@@ -4,6 +4,43 @@
 <array>
 	<dict>
 		<key>Name</key>
+		<string>HID Event System (boot)</string>
+		<key>Children</key>
+		<array>
+			<dict>
+				<key>Name</key>
+				<string>HID Event System Create</string>
+				<key>Type</key>
+				<string>Interval</string>
+				<key>KTraceCodeBegin</key>
+				<string>0x523814d</string>
+				<key>KTraceCodeEnd</key>
+				<string>0x523814e</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>HID Event System Open</string>
+				<key>Type</key>
+				<string>Interval</string>
+				<key>KTraceCodeBegin</key>
+				<string>0x5238151</string>
+				<key>KTraceCodeEnd</key>
+				<string>0x5238152</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>HID Event Dispatch Client Enqueue</string>
+				<key>Type</key>
+				<string>Interval</string>
+				<key>KTraceCodeBegin</key>
+				<string>0x523804d</string>
+				<key>KTraceCodeEnd</key>
+				<string>0x523804e</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>Name</key>
 		<string>HID Event System (Intervals)</string>
 		<key>Children</key>
 		<array>

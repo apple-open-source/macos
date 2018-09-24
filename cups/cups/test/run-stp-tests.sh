@@ -3,8 +3,8 @@
 # Perform the complete set of IPP compliance tests specified in the
 # CUPS Software Test Plan.
 #
-# Copyright 2007-2017 by Apple Inc.
-# Copyright 1997-2007 by Easy Software Products, all rights reserved.
+# Copyright © 2007-2018 by Apple Inc.
+# Copyright © 1997-2007 by Easy Software Products, all rights reserved.
 #
 # These coded instructions, statements, and computer programs are the
 # property of Apple Inc. and are protected by Federal copyright
@@ -94,40 +94,35 @@ echo ""
 case "$testtype" in
 	0)
 		echo "Running in test mode (0)"
-		nprinters1=0
-		nprinters2=0
+		nprinters=0
 		pjobs=0
 		pprinters=0
 		loglevel="debug2"
 		;;
 	2)
 		echo "Running the medium tests (2)"
-		nprinters1=10
-		nprinters2=20
+		nprinters=20
 		pjobs=20
 		pprinters=10
 		loglevel="debug"
 		;;
 	3)
 		echo "Running the extreme tests (3)"
-		nprinters1=500
-		nprinters2=1000
+		nprinters=1000
 		pjobs=100
 		pprinters=50
 		loglevel="debug"
 		;;
 	4)
 		echo "Running the torture tests (4)"
-		nprinters1=10000
-		nprinters2=20000
+		nprinters=20000
 		pjobs=200
 		pprinters=100
 		loglevel="debug"
 		;;
 	*)
 		echo "Running the timid tests (1)"
-		nprinters1=0
-		nprinters2=0
+		nprinters=0
 		pjobs=10
 		pprinters=0
 		loglevel="debug2"
@@ -304,8 +299,9 @@ for file in ../locale/cups_*.po; do
 	loc=`basename $file .po | cut -c 6-`
 	mkdir $BASE/share/locale/$loc
 	ln -s $root/locale/cups_$loc.po $BASE/share/locale/$loc
-	ln -s $root/locale/ppdc_$loc.po $BASE/share/locale/$loc
 done
+mkdir $BASE/share/locale/en
+ln -s $root/locale/cups.pot $BASE/share/locale/en/cups_en.po
 mkdir $BASE/share/mime
 mkdir $BASE/share/model
 mkdir $BASE/share/ppdc
@@ -319,6 +315,7 @@ mkdir $BASE/ssl
 ln -s $root/backend/dnssd $BASE/bin/backend
 ln -s $root/backend/http $BASE/bin/backend
 ln -s $root/backend/ipp $BASE/bin/backend
+ln -s ipp $BASE/bin/backend/ipps
 ln -s $root/backend/lpd $BASE/bin/backend
 ln -s $root/backend/mdns $BASE/bin/backend
 ln -s $root/backend/pseudo $BASE/bin/backend
@@ -538,13 +535,13 @@ if test $ssltype != 0 -a `uname` = Darwin; then
 fi
 
 #
-# Setup lots of test queues - half with PPD files, half without...
+# Setup lots of test queues with PPD files...
 #
 
 echo "Creating printers.conf for test..."
 
 i=1
-while test $i -le $nprinters1; do
+while test $i -le $nprinters; do
 	cat >>$BASE/printers.conf <<EOF
 <Printer test-$i>
 Accepting Yes
@@ -558,22 +555,6 @@ StateMessage Printer $1 is idle.
 EOF
 
 	cp testps.ppd $BASE/ppd/test-$i.ppd
-
-	i=`expr $i + 1`
-done
-
-while test $i -le $nprinters2; do
-	cat >>$BASE/printers.conf <<EOF
-<Printer test-$i>
-Accepting Yes
-DeviceURI file:/dev/null
-Info Test raw printer $i
-JobSheets none none
-Location CUPS test suite
-State Idle
-StateMessage Printer $1 is idle.
-</Printer>
-EOF
 
 	i=`expr $i + 1`
 done
@@ -915,9 +896,9 @@ else
 fi
 
 # Paged printed on Test3
-count=`$GREP '^Test3 ' $BASE/log/page_log | grep -v total | awk 'BEGIN{count=0}{count=count+$7}END{print count}'`
+count=`$GREP '^Test3 ' $BASE/log/page_log | awk 'BEGIN{count=0}{count=count+$7}END{print count}'`
 expected=2
-if test $count != $expected; then
+if test $count -lt $expected; then
 	echo "FAIL: Printer 'Test3' produced $count page(s), expected $expected."
 	echo "    <p>FAIL: Printer 'Test3' produced $count page(s), expected $expected.</p>" >>$strfile
 	fail=`expr $fail + 1`
@@ -928,7 +909,7 @@ fi
 
 # Requests logged
 count=`wc -l $BASE/log/access_log | awk '{print $1}'`
-expected=`expr 37 + 18 + 30 + $pjobs \* 8 + $pprinters \* $pjobs \* 4`
+expected=`expr 35 + 18 + 30 + $pjobs \* 8 + $pprinters \* $pjobs \* 4`
 if test $count != $expected; then
 	echo "FAIL: $count requests logged, expected $expected."
 	echo "    <p>FAIL: $count requests logged, expected $expected.</p>" >>$strfile
@@ -997,7 +978,7 @@ else
 fi
 
 # Error log messages
-count=`$GREP '^E ' $BASE/log/error_log | wc -l | awk '{print $1}'`
+count=`$GREP '^E ' $BASE/log/error_log | $GREP -v 'Unknown default SystemGroup' | wc -l | awk '{print $1}'`
 if test $count != 33; then
 	echo "FAIL: $count error messages, expected 33."
 	$GREP '^E ' $BASE/log/error_log

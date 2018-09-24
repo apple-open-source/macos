@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -62,7 +62,7 @@ static const char	*notifyType[] = {
 
 
 __private_extern__ os_log_t
-__log_SCDynamicStore()
+__log_SCDynamicStore(void)
 {
 	static os_log_t	log	= NULL;
 

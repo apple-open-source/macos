@@ -46,7 +46,7 @@ ca{
         ar{"àrab"}
         ar_001{"àrab estàndard modern"}
         arc{"arameu"}
-        arn{"araucà"}
+        arn{"mapudungu"}
         aro{"araona"}
         arp{"arapaho"}
         ars{"àrab najdi"}
@@ -59,7 +59,7 @@ ca{
         av{"àvar"}
         awa{"awadhi"}
         ay{"aimara"}
-        az{"azerbaidjanès"}
+        az{"àzeri"}
         ba{"baixkir"}
         bal{"balutxi"}
         ban{"balinès"}
@@ -101,7 +101,7 @@ ca{
         cay{"cayuga"}
         cch{"atsam"}
         ce{"txetxè"}
-        ceb{"cebuà"}
+        ceb{"cebuano"}
         cgg{"chiga"}
         ch{"chamorro"}
         chb{"txibtxa"}
@@ -112,8 +112,8 @@ ca{
         cho{"choctaw"}
         chp{"chipewyan"}
         chr{"cherokee"}
-        chy{"xeienne"}
-        ckb{"kurd sorani"}
+        chy{"xeiene"}
+        ckb{"kurd central"}
         co{"cors"}
         cop{"copte"}
         cr{"cree"}
@@ -212,7 +212,7 @@ ca{
         guc{"wayú"}
         guz{"gusí"}
         gv{"manx"}
-        gwi{"gwichin"}
+        gwi{"gwich’in"}
         ha{"haussa"}
         hai{"haida"}
         hak{"xinès hakka"}
@@ -220,14 +220,14 @@ ca{
         he{"hebreu"}
         hi{"hindi"}
         hif{"hindi de Fiji"}
-        hil{"hiligainon"}
+        hil{"híligaynon"}
         hit{"hitita"}
         hmn{"hmong"}
         ho{"hiri motu"}
         hr{"croat"}
         hsb{"alt sòrab"}
         hsn{"xinès xiang"}
-        ht{"haitià"}
+        ht{"crioll d’Haití"}
         hu{"hongarès"}
         hup{"hupa"}
         hy{"armeni"}
@@ -240,7 +240,7 @@ ca{
         ig{"igbo"}
         ii{"yi sichuan"}
         ik{"inupiak"}
-        ilo{"ilocà"}
+        ilo{"ilocano"}
         inh{"ingúix"}
         io{"ido"}
         is{"islandès"}
@@ -288,14 +288,14 @@ ca{
         kos{"kosraeà"}
         kpe{"kpelle"}
         kr{"kanuri"}
-        krc{"karatxai"}
+        krc{"karatxai-balkar"}
         kri{"krio"}
         krl{"carelià"}
         kru{"kurukh"}
         ks{"caixmiri"}
         ksb{"shambala"}
         ksf{"bafia"}
-        ksh{"colognian"}
+        ksh{"kölsch"}
         ku{"kurd"}
         kum{"kúmik"}
         kut{"kutenai"}
@@ -303,7 +303,7 @@ ca{
         kw{"còrnic"}
         ky{"kirguís"}
         la{"llatí"}
-        lad{"ladí"}
+        lad{"judeocastellà"}
         lag{"langi"}
         lah{"panjabi occidental"}
         lam{"lamba"}
@@ -353,7 +353,7 @@ ca{
         mic{"micmac"}
         min{"minangkabau"}
         mk{"macedoni"}
-        ml{"malaiàlam"}
+        ml{"malaialam"}
         mn{"mongol"}
         mnc{"manxú"}
         mni{"manipurí"}
@@ -416,7 +416,7 @@ ca{
         pag{"pangasi"}
         pal{"pahlavi"}
         pam{"pampanga"}
-        pap{"papiamento"}
+        pap{"papiamentu"}
         pau{"palauà"}
         pcd{"picard"}
         pcm{"pidgin de Nigèria"}
@@ -436,7 +436,7 @@ ca{
         pt_BR{"portuguès del Brasil"}
         pt_PT{"portuguès de Portugal"}
         qu{"quítxua"}
-        quc{"quitxé"}
+        quc{"k’iche’"}
         raj{"rajasthani"}
         rap{"rapanui"}
         rar{"rarotongà"}
@@ -464,7 +464,7 @@ ca{
         sc{"sard"}
         scn{"sicilià"}
         sco{"escocès"}
-        sd{"sindhi"}
+        sd{"sindi"}
         sdc{"sasserès"}
         sdh{"kurd meridional"}
         se{"sami septentrional"}
@@ -498,7 +498,7 @@ ca{
         ss{"swazi"}
         ssy{"saho"}
         st{"sotho meridional"}
-        su{"sundanès"}
+        su{"sondanès"}
         suk{"sukuma"}
         sus{"susú"}
         sux{"sumeri"}
@@ -514,9 +514,9 @@ ca{
         tem{"temne"}
         teo{"teso"}
         ter{"terena"}
-        tet{"tetun"}
+        tet{"tètum"}
         tg{"tadjik"}
-        th{"tailandès"}
+        th{"tai"}
         ti{"tigrinya"}
         tig{"tigre"}
         tiv{"tiv"}
@@ -796,8 +796,9 @@ ca{
             gregorian{"calendari gregorià"}
             hebrew{"calendari hebreu"}
             indian{"calendari hindú"}
-            islamic{"calendari musulmà"}
+            islamic{"calendari islàmic"}
             islamic-civil{"calendari civil islàmic"}
+            islamic-umalqura{"calendari islàmic (Umm al-Qura)"}
             iso8601{"calendari ISO-8601"}
             japanese{"calendari japonès"}
             persian{"calendari persa"}
@@ -858,8 +859,8 @@ ca{
             unihan{"ordenació per quantitat de traços radicals"}
         }
         d0{
-            fwidth{"Amplada completa"}
-            hwidth{"Amplada mitjana"}
+            fwidth{"amplada completa"}
+            hwidth{"amplada mitjana"}
             npinyin{"Numèric"}
         }
         hc{
@@ -998,7 +999,7 @@ ca{
         VALLADER{"baix engiadinès"}
         WADEGILE{"romanització Wade-Giles"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
     characterLabelPattern{
         all{"{0} — tot"}
         category-list{"{0}: {1}"}

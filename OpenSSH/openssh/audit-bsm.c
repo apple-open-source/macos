@@ -69,6 +69,7 @@
 #include "misc.h"
 #include "servconf.h"
 extern ServerOptions options;
+extern struct sshauthopt *auth_opts;
 #endif
 
 #if defined(HAVE_GETAUDIT_ADDR)
@@ -320,7 +321,7 @@ bsm_audit_session_setup(void)
 	if (the_authctxt->valid)  {
 	    info.ai_flags |=  AU_SESSION_FLAG_HAS_AUTHENTICATED;
 	}
-	if (!no_pty_flag && options.permit_tty) {
+	if (auth_opts->permit_pty_flag && options.permit_tty) {
 		info.ai_flags |=  AU_SESSION_FLAG_HAS_TTY;
 	}
 #endif

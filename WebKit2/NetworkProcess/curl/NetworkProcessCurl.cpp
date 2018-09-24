@@ -45,12 +45,8 @@ namespace WebKit {
 
 void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreationParameters& parameters)
 {
-    notImplemented();
-}
-
-void NetworkProcess::platformSetURLCacheSize(unsigned, uint64_t)
-{
-    notImplemented();
+    if (!parameters.cookiePersistentStorageFile.isEmpty())
+        supplement<WebCookieManager>()->setCookiePersistentStorage(parameters.cookiePersistentStorageFile);
 }
 
 void NetworkProcess::allowSpecificHTTPSCertificateForHost(const CertificateInfo& certificateInfo, const String& host)
@@ -69,6 +65,26 @@ void NetworkProcess::clearDiskCache(WallTime, Function<void()>&&)
 }
 
 void NetworkProcess::platformTerminate()
+{
+    notImplemented();
+}
+
+void NetworkProcess::platformPrepareToSuspend()
+{
+    notImplemented();
+}
+
+void NetworkProcess::platformProcessDidResume()
+{
+    notImplemented();
+}
+
+void NetworkProcess::platformProcessDidTransitionToForeground()
+{
+    notImplemented();
+}
+
+void NetworkProcess::platformProcessDidTransitionToBackground()
 {
     notImplemented();
 }

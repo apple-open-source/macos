@@ -34,21 +34,11 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @interface NSError (CKKS)
-
-// More useful constructor
-+ (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code description:(NSString*)description;
-
-+ (instancetype)errorWithDomain:(NSErrorDomain)domain
-                           code:(NSInteger)code
-                    description:(NSString*)description
-                     underlying:(NSError* _Nullable)underlying;
-
 // Returns true if this is a CloudKit error where
 // 1) An atomic write failed
 // 2) Every single suberror is either CKErrorServerRecordChanged or CKErrorUnknownItem
 - (bool)ckksIsCKErrorRecordChangedError;
 @end
-
 // Ensure we don't print addresses
 @interface CKAccountInfo (CKKS)
 - (NSString*)description;

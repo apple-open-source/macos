@@ -27,7 +27,7 @@
 #include <WebCore/TextureMapperTile.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
-
+#include <wtf/RefCounted.h>
 
 namespace Nicosia {
 class Buffer;
@@ -55,7 +55,7 @@ private:
     float m_scale;
 };
 
-class CoordinatedBackingStore : public WebCore::TextureMapperBackingStore {
+class CoordinatedBackingStore : public RefCounted<CoordinatedBackingStore>, public WebCore::TextureMapperBackingStore {
 public:
     void createTile(uint32_t tileID, float);
     void removeTile(uint32_t tileID);
@@ -63,7 +63,6 @@ public:
     void updateTile(uint32_t tileID, const WebCore::IntRect&, const WebCore::IntRect&, RefPtr<Nicosia::Buffer>&&, const WebCore::IntPoint&);
     static Ref<CoordinatedBackingStore> create() { return adoptRef(*new CoordinatedBackingStore); }
     void commitTileOperations(WebCore::TextureMapper&);
-    RefPtr<WebCore::BitmapTexture> texture() const override;
     void setSize(const WebCore::FloatSize&);
     void paintToTextureMapper(WebCore::TextureMapper&, const WebCore::FloatRect&, const WebCore::TransformationMatrix&, float) override;
     void drawBorder(WebCore::TextureMapper&, const WebCore::Color&, float borderWidth, const WebCore::FloatRect&, const WebCore::TransformationMatrix&) override;

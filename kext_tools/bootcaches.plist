@@ -44,12 +44,13 @@
             <key>LocalizedResourcesCache</key>
             <string>/System/Library/Caches/com.apple.corestorage/EFILoginLocalizations</string>
         </dict>
-        <key>Kernelcache v1.3</key>
+        <key>Kernelcache v1.4</key>
         <dict>
             <key>ExtensionsDir</key>
             <array>
                 <string>/System/Library/Extensions</string>
                 <string>/Library/Extensions</string>
+                <string>/AppleInternal/Library/Extensions</string>
             </array>
             <key>Path</key>
             <string>/System/Library/PrelinkedKernels/prelinkedkernel</string>

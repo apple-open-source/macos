@@ -13,7 +13,10 @@
 #ifndef __HTML_PARSER_H__
 #define __HTML_PARSER_H__
 #include <libxml/xmlversion.h>
+#include <libxml/encoding.h>
 #include <libxml/parser.h>
+#include <libxml/xmlIO.h>
+#include <libxml/xmlstring.h>
 
 #ifdef LIBXML_HTML_ENABLED
 

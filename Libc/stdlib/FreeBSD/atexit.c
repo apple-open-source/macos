@@ -30,6 +30,12 @@
  * SUCH DAMAGE.
  */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wimplicit-function-declaration"
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+#pragma clang diagnostic ignored "-Winvalid-pp-token"
+#pragma clang diagnostic ignored "-Wint-conversion"
+
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)atexit.c	8.2 (Berkeley) 7/3/94";
 #endif /* LIBC_SCCS and not lint */
@@ -324,3 +330,4 @@ __cxa_thread_atexit(void(*f)(void*), void* arg)
     _tlv_atexit(f, arg);
 }
 #endif
+#pragma clang diagnostic pop

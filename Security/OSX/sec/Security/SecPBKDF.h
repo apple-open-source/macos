@@ -22,14 +22,37 @@ void hmac_sha256_PRF(const uint8_t *key,
                    size_t text_len,
                    uint8_t digest[CC_SHA256_DIGEST_LENGTH]);
 
-/* PBKDF for clients who want to let us allocate the intermediate buffer.
-   We over write any intermediate results we use in calculating */
-void pbkdf2_hmac_sha1(const uint8_t *passwordPtr, size_t passwordLen,
+
+/**
+ PBKDF2 key derivation with HMAC-SHA1.
+
+ @param passwordPtr The pointer to the passsword data
+ @param passwordLen The password data length
+ @param saltPtr The pointer to the salt
+ @param saltLen The salt length
+ @param iterationCount Number of PBKDF2 iterations
+ @param dkPtr The pointer to the derived key
+ @param dkLen The derived key length
+ @return errSecMemoryError on a failure to allocate the buffer. errSecSuccess otherwise.
+ */
+OSStatus pbkdf2_hmac_sha1(const uint8_t *passwordPtr, size_t passwordLen,
                       const uint8_t *saltPtr, size_t saltLen,
                       uint32_t iterationCount,
                       void *dkPtr, size_t dkLen);
 
-void pbkdf2_hmac_sha256(const uint8_t *passwordPtr, size_t passwordLen,
+/**
+ PBKDF2 key derivation with HMAC-SHA256.
+ 
+ @param passwordPtr The pointer to the passsword data
+ @param passwordLen The password data length
+ @param saltPtr The pointer to the salt
+ @param saltLen The salt length
+ @param iterationCount Number of PBKDF2 iterations
+ @param dkPtr The pointer to the derived key
+ @param dkLen The derived key length
+ @return errSecMemoryError on a failure to allocate the buffer. errSecSuccess otherwise.
+ */
+OSStatus pbkdf2_hmac_sha256(const uint8_t *passwordPtr, size_t passwordLen,
                       const uint8_t *saltPtr, size_t saltLen,
                       uint32_t iterationCount,
                       void *dkPtr, size_t dkLen);
@@ -64,5 +87,24 @@ void pbkdf2_hmac_sha256(const uint8_t *passwordPtr, size_t passwordLen,
 
 */
 
-void SecKeyFromPassphraseDataHMACSHA1(CFDataRef password, CFDataRef salt, uint32_t interationCount, CFMutableDataRef derivedKey);
-void SecKeyFromPassphraseDataHMACSHA256(CFDataRef password, CFDataRef salt, uint32_t interationCount, CFMutableDataRef derivedKey);
+/**
+ PBKDF2 key derivation with HMAC-SHA1.
+
+ @param password Password data
+ @param salt Salt data
+ @param interationCount Number of PBKDF2 iterations
+ @param derivedKey Mutable data reference to write the result of the key derivation
+ @return errSecMemoryError on a failure to allocate the buffer. errSecSuccess otherwise.
+ */
+OSStatus SecKeyFromPassphraseDataHMACSHA1(CFDataRef password, CFDataRef salt, uint32_t interationCount, CFMutableDataRef derivedKey);
+
+/**
+ PBKDF2 key derivation with HMAC-SHA256.
+ 
+ @param password Password data
+ @param salt Salt data
+ @param interationCount Number of PBKDF2 iterations
+ @param derivedKey Mutable data reference to write the result of the key derivation
+ @return errSecMemoryError on a failure to allocate the buffer. errSecSuccess otherwise.
+ */
+OSStatus SecKeyFromPassphraseDataHMACSHA256(CFDataRef password, CFDataRef salt, uint32_t interationCount, CFMutableDataRef derivedKey);

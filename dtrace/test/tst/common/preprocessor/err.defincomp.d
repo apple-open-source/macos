@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma	ident	"@(#)err.defincomp.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *
@@ -34,9 +32,6 @@
  * SECTION: Program Structure/Use of the C Preprocessor
  *
  */
-
-#define
-
 
 #pragma D option quiet
 

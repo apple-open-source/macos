@@ -123,17 +123,8 @@ CreateDerivedKey(CFDataRef salt, long iterations, NSString *managedCredential)
      * Assume users use the same normalization rules always
      */
 
-    CFIndex strLength = CFStringGetMaximumSizeForEncoding(CFStringGetLength((__bridge CFStringRef)managedCredential), kCFStringEncodingUTF8);
-    strLength += 1;
-    char buffer[strLength];
-    if (!CFStringGetCString((__bridge CFStringRef)managedCredential, buffer, strLength, kCFStringEncodingUTF8)) {
-        return NULL;
-    }
-
-
     CFMutableDataRef key = CFDataCreateMutable(SecCFAllocatorZeroize(), KEY_LENGTH);
     if (key == NULL) {
-        memset_s(buffer, strLength, 0, strLength);
         return NULL;
     }
 
@@ -141,11 +132,10 @@ CreateDerivedKey(CFDataRef salt, long iterations, NSString *managedCredential)
 
     int ret;
     ret = ccpbkdf2_hmac(ccsha256_di(),
-                        strlen(buffer), buffer,
+                        strlen(managedCredential.UTF8String), managedCredential.UTF8String,
                         CFDataGetLength(salt), CFDataGetBytePtr(salt),
                         iterations,
                         KEY_LENGTH, CFDataGetMutableBytePtr(key));
-    memset_s(buffer, strLength, 0, strLength);
     if (ret) {
         CFRelease(key);
         return NULL;

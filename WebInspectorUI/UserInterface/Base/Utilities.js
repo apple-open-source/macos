@@ -80,20 +80,6 @@ Object.defineProperty(Object, "shallowEqual",
     }
 });
 
-Object.defineProperty(Object, "shallowMerge",
-{
-    value(a, b)
-    {
-        let result = Object.shallowCopy(a);
-        let keys = Object.keys(b);
-        for (let i = 0; i < keys.length; ++i) {
-            console.assert(!result.hasOwnProperty(keys[i]) || result[keys[i]] === b[keys[i]], keys[i]);
-            result[keys[i]] = b[keys[i]];
-        }
-        return result;
-    }
-});
-
 Object.defineProperty(Object.prototype, "valueForCaseInsensitiveKey",
 {
     value(key)
@@ -136,21 +122,24 @@ Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithClass",
 {
     value(className)
     {
-        for (var node = this; node && node !== this.ownerDocument; node = node.parentNode)
+        for (let node = this; node; node = node.parentElement) {
             if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains(className))
                 return node;
+        }
+
         return null;
     }
 });
 
 Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithNodeNameInArray",
 {
-    value(nameArray)
+    value(nodeNames)
     {
-        var lowerCaseNameArray = nameArray.map(function(name) { return name.toLowerCase(); });
-        for (var node = this; node && node !== this.ownerDocument; node = node.parentNode) {
-            for (var i = 0; i < nameArray.length; ++i) {
-                if (node.nodeName.toLowerCase() === lowerCaseNameArray[i])
+        let upperCaseNodeNames = nodeNames.map((name) => name.toUpperCase());
+
+        for (let node = this; node; node = node.parentElement) {
+            for (let nodeName of upperCaseNodeNames) {
+                if (node.nodeName === nodeName)
                     return node;
             }
         }
@@ -164,50 +153,6 @@ Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithNodeName",
     value(nodeName)
     {
         return this.enclosingNodeOrSelfWithNodeNameInArray([nodeName]);
-    }
-});
-
-Object.defineProperty(Node.prototype, "isAncestor",
-{
-    value(node)
-    {
-        if (!node)
-            return false;
-
-        var currentNode = node.parentNode;
-        while (currentNode) {
-            if (this === currentNode)
-                return true;
-            currentNode = currentNode.parentNode;
-        }
-
-        return false;
-    }
-});
-
-Object.defineProperty(Node.prototype, "isDescendant",
-{
-    value(descendant)
-    {
-        return !!descendant && descendant.isAncestor(this);
-    }
-});
-
-
-Object.defineProperty(Node.prototype, "isSelfOrAncestor",
-{
-    value(node)
-    {
-        return !!node && (node === this || this.isAncestor(node));
-    }
-});
-
-
-Object.defineProperty(Node.prototype, "isSelfOrDescendant",
-{
-    value(node)
-    {
-        return !!node && (node === this || this.isDescendant(node));
     }
 });
 
@@ -401,7 +346,7 @@ Object.defineProperty(Element.prototype, "isInsertionCaretInside",
         if (!selection.rangeCount || !selection.isCollapsed)
             return false;
         var selectionRange = selection.getRangeAt(0);
-        return selectionRange.startContainer === this || selectionRange.startContainer.isDescendant(this);
+        return selectionRange.startContainer === this || this.contains(selectionRange.startContainer);
     }
 });
 
@@ -586,10 +531,12 @@ Object.defineProperty(String.prototype, "isUpperCase",
     }
 });
 
-Object.defineProperty(String.prototype, "trimMiddle",
+Object.defineProperty(String.prototype, "truncateMiddle",
 {
     value(maxLength)
     {
+        "use strict";
+
         if (this.length <= maxLength)
             return this;
         var leftHalf = maxLength >> 1;
@@ -598,10 +545,12 @@ Object.defineProperty(String.prototype, "trimMiddle",
     }
 });
 
-Object.defineProperty(String.prototype, "trimEnd",
+Object.defineProperty(String.prototype, "truncateEnd",
 {
     value(maxLength)
     {
+        "use strict";
+
         if (this.length <= maxLength)
             return this;
         return this.substr(0, maxLength - 1) + ellipsis;
@@ -644,27 +593,32 @@ Object.defineProperty(String.prototype, "removeWhitespace",
 
 Object.defineProperty(String.prototype, "escapeCharacters",
 {
-    value(chars)
+    value(charactersToEscape)
     {
-        var foundChar = false;
-        for (var i = 0; i < chars.length; ++i) {
-            if (this.indexOf(chars.charAt(i)) !== -1) {
-                foundChar = true;
-                break;
-            }
+        if (!charactersToEscape)
+            return this.valueOf();
+
+        let charactersToEscapeSet = new Set(charactersToEscape);
+
+        let foundCharacter = false;
+        for (let c of this) {
+            if (!charactersToEscapeSet.has(c))
+                continue;
+            foundCharacter = true;
+            break;
         }
 
-        if (!foundChar)
-            return this;
+        if (!foundCharacter)
+            return this.valueOf();
 
-        var result = "";
-        for (var i = 0; i < this.length; ++i) {
-            if (chars.indexOf(this.charAt(i)) !== -1)
+        let result = "";
+        for (let c of this) {
+            if (charactersToEscapeSet.has(c))
                 result += "\\";
-            result += this.charAt(i);
+            result += c;
         }
 
-        return result;
+        return result.valueOf();
     }
 });
 

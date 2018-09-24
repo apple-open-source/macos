@@ -28,7 +28,7 @@
 #include "IDLTypes.h"
 #include "JSDOMConvertBase.h"
 #include "JSDOMExceptionHandling.h"
-#include <runtime/JSCJSValueInlines.h>
+#include <JavaScriptCore/JSCJSValueInlines.h>
 #include <JavaScriptCore/PureNaN.h>
 
 namespace WebCore {
@@ -360,6 +360,7 @@ template<> struct JSConverter<IDLDouble> {
 
     static JSC::JSValue convert(Type value)
     {
+        ASSERT(!std::isnan(value));
         return JSC::jsNumber(value);
     }
 };

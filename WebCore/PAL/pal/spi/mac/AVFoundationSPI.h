@@ -31,7 +31,7 @@
 #if USE(APPLE_INTERNAL_SDK)
 
 #import <AVFoundation/AVAssetCache_Private.h>
-#import <AVFoundation/AVOutputContext.h>
+#import <AVFoundation/AVOutputContext_Private.h>
 #import <AVFoundation/AVPlayerItem_Private.h>
 #import <AVFoundation/AVPlayerLayer_Private.h>
 #import <AVFoundation/AVPlayer_Private.h>
@@ -42,6 +42,10 @@
 
 #if !PLATFORM(IOS)
 #import <AVFoundation/AVStreamDataParser.h>
+#endif
+
+#if PLATFORM(IOS)
+#import <AVFoundation/AVAudioSession_Private.h>
 #endif
 
 #else
@@ -58,30 +62,41 @@ NS_ASSUME_NONNULL_BEGIN
 NS_ASSUME_NONNULL_END
 #endif // (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101300) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000)
 
-#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) || PLATFORM(IOS)
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class AVOutputContext;
+@class AVOutputDevice;
 @interface AVOutputContext : NSObject <NSSecureCoding>
 @property (nonatomic, readonly) NSString *deviceName;
 + (instancetype)outputContext;
++ (nullable AVOutputContext *)sharedAudioPresentationOutputContext;
+@property (readonly) BOOL supportsMultipleOutputDevices;
+@property (readonly) NSArray<AVOutputDevice *> *outputDevices;
 @end
 
+#if !PLATFORM(IOS)
 @interface AVPlayer (AVPlayerExternalPlaybackSupportPrivate)
 @property (nonatomic, retain) AVOutputContext *outputContext;
 @end
+#else
+typedef NS_ENUM(NSInteger, AVPlayerExternalPlaybackType) {
+    AVPlayerExternalPlaybackTypeNone,
+    AVPlayerExternalPlaybackTypeAirPlay,
+    AVPlayerExternalPlaybackTypeTVOut,
+};
+
+@interface AVPlayer (AVPlayerExternalPlaybackSupportPrivate)
+@property (nonatomic, readonly) AVPlayerExternalPlaybackType externalPlaybackType;
+@end
+#endif
 
 NS_ASSUME_NONNULL_END
 
-#endif // ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+#endif // ENABLE(WIRELESS_PLAYBACK_TARGET) || PLATFORM(IOS)
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101200) || PLATFORM(IOS)
 #import <AVFoundation/AVAssetCache.h>
-#else
-@interface AVAssetCache : NSObject
-@end
-#endif
 NS_ASSUME_NONNULL_BEGIN
 @interface AVAssetCache ()
 + (AVAssetCache *)assetCacheWithURL:(NSURL *)URL;
@@ -99,18 +114,6 @@ NS_ASSUME_NONNULL_END
 @end
 
 #endif // PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
-
-#if PLATFORM(IOS)
-typedef NS_ENUM(NSInteger, AVPlayerExternalPlaybackType) {
-    AVPlayerExternalPlaybackTypeNone,
-    AVPlayerExternalPlaybackTypeAirPlay,
-    AVPlayerExternalPlaybackTypeTVOut,
-};
-
-@interface AVPlayer (AVPlayerExternalPlaybackSupportPrivate)
-@property (nonatomic, readonly) AVPlayerExternalPlaybackType externalPlaybackType;
-@end
-#endif
 
 #if !PLATFORM(IOS)
 
@@ -155,7 +158,7 @@ NS_ASSUME_NONNULL_END
 #endif // !PLATFORM(IOS)
 #endif // USE(APPLE_INTERNAL_SDK)
 
-#if PLATFORM(MAC) && (!USE(APPLE_INTERNAL_SDK) || __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
+#if PLATFORM(MAC) && !USE(APPLE_INTERNAL_SDK)
 NS_ASSUME_NONNULL_BEGIN
 @interface AVStreamDataParser (AVStreamDataParserPrivate)
 + (NSString *)outputMIMECodecParameterForInputMIMECodecParameter:(NSString *)inputMIMECodecParameter;
@@ -271,7 +274,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 NS_ASSUME_NONNULL_END
 
-#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR) && !ENABLE(MINIMAL_SIMULATOR)
+#endif // __has_include(<AVFoundation/AVSampleBufferAudioRenderer.h>)
+
+#if !USE(APPLE_INTERNAL_SDK) && PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR) && !PLATFORM(IOSMAC)
+#import <AVFoundation/AVAudioSession.h>
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface AVAudioSession (AVAudioSessionPrivate)
@@ -281,4 +288,3 @@ NS_ASSUME_NONNULL_BEGIN
 NS_ASSUME_NONNULL_END
 #endif
 
-#endif // __has_include(<AVFoundation/AVSampleBufferAudioRenderer.h>)

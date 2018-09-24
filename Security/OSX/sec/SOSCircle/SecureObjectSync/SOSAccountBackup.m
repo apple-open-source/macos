@@ -8,6 +8,7 @@
 
 #include <Security/SecureObjectSync/SOSBackupSliceKeyBag.h>
 #include <Security/SecureObjectSync/SOSPeerInfoCollections.h>
+#include <Security/SecureObjectSync/SOSPeerInfoV2.h>
 #include <Security/SecureObjectSync/SOSViews.h>
 #include <Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h>
 #include <Security/SecureObjectSync/SOSAccountTrustClassic+Expansion.h>
@@ -212,23 +213,6 @@ bool SOSAccountIsBackupRingEmpty(SOSAccount*  account, CFStringRef viewName) {
     return peercnt == 0;
 }
 
-bool SOSAccountUpdatePeerInfo(SOSAccount*  account, CFStringRef updateDescription, CFErrorRef *error, bool (^update)(SOSFullPeerInfoRef fpi, CFErrorRef *error)) {
-
-    if (!account.hasPeerInfo)
-        return true;
-
-    bool result = update(account.fullPeerInfo, error);
-
-    if (result && SOSAccountHasCircle(account, NULL)) {
-        return [account.trust modifyCircle:account.circle_transport err:error action:^(SOSCircleRef circle_to_change) {
-            secnotice("circleChange", "Calling SOSCircleUpdatePeerInfo for %@", updateDescription);
-            return SOSCircleUpdatePeerInfo(circle_to_change, account.peerInfo);
-        }];
-    }
-
-    return result;
-}
-
 bool SOSAccountIsMyPeerInBackupAndCurrentInView(SOSAccount*  account, CFStringRef viewname){
     bool result = false;
     CFErrorRef bsError = NULL;
@@ -393,16 +377,17 @@ bool SOSAccountSetBackupPublicKey(SOSAccountTransaction* aTxn, CFDataRef cfBacku
 {
     SOSAccount*  account = aTxn.account;
     NSData* backupKey = [[NSData alloc]initWithData:(__bridge NSData * _Nonnull)(cfBackupKey)];
-
     __block bool result = false;
+
+    if(![account isInCircle:error]) {
+        return result;
+    }
 
     CFDataPerformWithHexString((__bridge CFDataRef)(backupKey), ^(CFStringRef backupKeyString) {
         CFDataPerformWithHexString((__bridge CFDataRef)((account.backup_key)), ^(CFStringRef oldBackupKey) {
             secnotice("backup", "SetBackupPublic: %@ from %@", backupKeyString, oldBackupKey);
         });
     });
-
-    require_quiet([account.trust isInCircle:error], exit);
 
     if ([backupKey isEqual:account.backup_key])
         return true;
@@ -413,7 +398,6 @@ bool SOSAccountSetBackupPublicKey(SOSAccountTransaction* aTxn, CFDataRef cfBacku
 
     result = true;
     
-exit:
     if (!result) {
         secnotice("backupkey", "SetBackupPublic Failed: %@", error ? (CFTypeRef) *error : (CFTypeRef) CFSTR("No error space"));
     }
@@ -495,7 +479,9 @@ bool SOSAccountSetBSKBagForAllSlices(SOSAccount*  account, CFDataRef aks_bag, bo
     __block bool result = false;
     SOSBackupSliceKeyBagRef backup_slice = NULL;
     
-    require_quiet([account.trust isInCircle:error], exit);
+    if(![account isInCircle:error]) {
+        return result;
+    }
 
     if (setupV0Only) {
         result = SOSSaveV0Keybag(aks_bag, error);
@@ -588,12 +574,16 @@ exit:
 bool SOSAccountIsLastBackupPeer(SOSAccount*  account, CFErrorRef *error) {
     __block bool retval = false;
     SOSPeerInfoRef pi = account.peerInfo;
+
+    if(![account isInCircle:error]) {
+        return retval;
+    }
+
     if(!SOSPeerInfoHasBackupKey(pi))
         return retval;
 
     SOSCircleRef circle = [account.trust getCircle:error];
-    if(![account.trust isInCircle:error])
-        return retval;
+
     if(SOSCircleCountValidSyncingPeers(circle, SOSAccountGetTrustedPublicCredential(account, error)) == 1){
         retval = true;
         return retval;

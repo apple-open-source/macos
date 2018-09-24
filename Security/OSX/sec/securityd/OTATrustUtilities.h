@@ -128,6 +128,10 @@ uint64_t SecOTAPKIGetTrustStoreVersion(SecOTAPKIRef otapkiRef);
 CF_EXPORT
 uint64_t SecOTAPKIGetAssetVersion(SecOTAPKIRef otapkiRef);
 
+// Accessor to retrieve the last check in time for the OTAPKI asset
+CF_EXPORT
+CFDateRef SecOTAPKICopyLastAssetCheckInDate(SecOTAPKIRef otapkiRef);
+
 #if __OBJC__
 // SPI to return the current sampling rate for the event name
 // This rate is actually n where we sample 1 out of every n

@@ -227,3 +227,7 @@ bool Database::validateSecret(const AclSubject *, const AccessCredentials *)
 	return false;
 }
 
+bool Database::hasCommon() const
+{
+    return hasParent();
+}

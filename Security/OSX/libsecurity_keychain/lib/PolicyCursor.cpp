@@ -42,26 +42,29 @@ struct TheOneTP : public TP {
 };
 
 static ModuleNexus<TheOneTP> theOneTP;
-static const CssmOid *theOidList[] = {
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_ISIGN),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_X509_BASIC),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_SSL),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_SMIME),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_EAP),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_SW_UPDATE_SIGNING),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_IP_SEC),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_ICHAT),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_RESOURCE_SIGN),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_PKINIT_CLIENT),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_PKINIT_SERVER),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_CODE_SIGNING),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_PACKAGE_SIGNING),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_CRL),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_OCSP),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_APPLEID_SHARING),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_TIMESTAMPING),
-	NULL	// sentinel
+static const CssmOid** theOidList() {
+    static const CssmOid* list[] = {
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_ISIGN),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_X509_BASIC),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_SSL),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_SMIME),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_EAP),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_SW_UPDATE_SIGNING),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_IP_SEC),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_ICHAT),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_RESOURCE_SIGN),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_PKINIT_CLIENT),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_PKINIT_SERVER),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_CODE_SIGNING),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_PACKAGE_SIGNING),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_CRL),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_OCSP),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_APPLEID_SHARING),
+        static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_TIMESTAMPING),
+        NULL	// sentinel
+    };
+    return list;
 };
 
 
@@ -94,13 +97,13 @@ bool PolicyCursor::next(SecPointer<Policy> &policy)
 {
 	StLock<Mutex>_(mMutex);
 
-    while (theOidList[mSearchPos]) {
-        if (mOidGiven && mOid != *theOidList[mSearchPos]) {
+    while (theOidList()[mSearchPos]) {
+        if (mOidGiven && mOid != *(theOidList()[mSearchPos])) {
             mSearchPos++;
             continue;	// no oid match
         }
         // ignoring mValue - not used by current TP
-        policy = new Policy(theOneTP(), *theOidList[mSearchPos]);
+        policy = new Policy(theOneTP(), *(theOidList()[mSearchPos]));
         mSearchPos++;	// advance cursor
         return true;	// return next match
     }

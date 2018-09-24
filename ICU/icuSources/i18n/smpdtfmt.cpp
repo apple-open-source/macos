@@ -71,6 +71,7 @@
 #include "uvector.h"
 #include "cstr.h"
 #include "dayperiodrules.h"
+#include "tznames_impl.h"   // ZONE_NAME_U16_MAX
 
 #if defined( U_DEBUG_CALSVC ) || defined (U_DEBUG_CAL)
 #include <stdio.h>
@@ -1758,7 +1759,7 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
     case UDAT_TIMEZONE_ISO_FIELD: // 'X'
     case UDAT_TIMEZONE_ISO_LOCAL_FIELD: // 'x'
         {
-            UChar zsbuf[64];
+            UChar zsbuf[ZONE_NAME_U16_MAX];
             UnicodeString zoneString(zsbuf, 0, UPRV_LENGTHOF(zsbuf));
             const TimeZone& tz = cal.getTimeZone();
             UDate date = cal.getTime(status);
@@ -3156,9 +3157,9 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
         // is treated literally:  "2250", "-1", "1", "002".
         if (fDateOverride.compare(hebr)==0 && value < 1000) {
             value += HEBREW_CAL_CUR_MILLENIUM_START_YEAR;
-        } else if ((pos.getIndex() - start) == 2 && !isChineseCalendar
-            && u_isdigit(text.charAt(start))
-            && u_isdigit(text.charAt(start+1)))
+        } else if (text.moveIndex32(start, 2) == pos.getIndex() && !isChineseCalendar
+            && u_isdigit(text.char32At(start))
+            && u_isdigit(text.char32At(text.moveIndex32(start, 1))))
         {
             // only adjust year for patterns less than 3.
             if(count < 3) {
@@ -3196,9 +3197,9 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
         // Comment is the same as for UDAT_Year_FIELDs - look above
         if (fDateOverride.compare(hebr)==0 && value < 1000) {
             value += HEBREW_CAL_CUR_MILLENIUM_START_YEAR;
-        } else if ((pos.getIndex() - start) == 2
-            && u_isdigit(text.charAt(start))
-            && u_isdigit(text.charAt(start+1))
+        } else if (text.moveIndex32(start, 2) == pos.getIndex()
+            && u_isdigit(text.char32At(start))
+            && u_isdigit(text.char32At(text.moveIndex32(start, 1)))
             && fHaveDefaultCentury )
         {
             int32_t ambiguousTwoDigitYear = fDefaultCenturyStartYear % 100;
@@ -3304,7 +3305,7 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
 
     case UDAT_FRACTIONAL_SECOND_FIELD:
         // Fractional seconds left-justify
-        i = pos.getIndex() - start;
+        i = countDigits(text, start, pos.getIndex());
         if (i < 3) {
             while (i < 3) {
                 value *= 10;
@@ -3835,6 +3836,19 @@ void SimpleDateFormat::parseInt(const UnicodeString& text,
     }
 }
 
+int32_t SimpleDateFormat::countDigits(const UnicodeString& text, int32_t start, int32_t end) const {
+    int32_t numDigits = 0;
+    int32_t idx = start;
+    while (idx < end) {
+        UChar32 cp = text.char32At(idx);
+        if (u_isdigit(cp)) {
+            numDigits++;
+        }
+        idx += U16_LENGTH(cp);
+    }
+    return numDigits;
+}
+
 //----------------------------------------------------------------------
 
 void SimpleDateFormat::translatePattern(const UnicodeString& originalPattern,
@@ -3976,15 +3990,19 @@ void SimpleDateFormat::adoptCalendar(Calendar* calendarToAdopt)
 {
   UErrorCode status = U_ZERO_ERROR;
   Locale calLocale(fLocale);
-  calLocale.setKeywordValue("calendar", calendarToAdopt->getType(), status);
-  DateFormatSymbols *newSymbols =
-          DateFormatSymbols::createForLocale(calLocale, status);
-  if (U_FAILURE(status)) {
-      return;
+  DateFormatSymbols *newSymbols = fSymbols;
+  if (!newSymbols || fCalendar->getType() != calendarToAdopt->getType()) {
+    calLocale.setKeywordValue("calendar", calendarToAdopt->getType(), status);
+    newSymbols = DateFormatSymbols::createForLocale(calLocale, status);
+    if (U_FAILURE(status)) {
+        return;
+    }
   }
   DateFormat::adoptCalendar(calendarToAdopt);
-  delete fSymbols;
-  fSymbols = newSymbols;
+  if (fSymbols != newSymbols) {
+    delete fSymbols;
+    fSymbols = newSymbols;
+  }
   initializeDefaultCentury();  // we need a new century (possibly)
 }
 

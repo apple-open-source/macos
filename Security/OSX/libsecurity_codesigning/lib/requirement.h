@@ -100,18 +100,22 @@ private:
 class Requirement::Context {
 protected:
 	Context()
-		: certs(NULL), info(NULL), entitlements(NULL), identifier(""), directory(NULL) { }
+		: certs(NULL), info(NULL), entitlements(NULL), identifier(""), directory(NULL), packageChecksum(NULL), packageAlgorithm(kSecCodeSignatureNoHash), forcePlatform(false) { }
 
 public:
-	Context(CFArrayRef certChain, CFDictionaryRef infoDict, CFDictionaryRef entitlementDict,
-			const std::string &ident, const CodeDirectory *dir)
-		: certs(certChain), info(infoDict), entitlements(entitlementDict), identifier(ident), directory(dir) { }
+	Context(CFArrayRef certChain, CFDictionaryRef infoDict, CFDictionaryRef entitlementDict, const std::string &ident,
+			const CodeDirectory *dir, CFDataRef packageChecksum, SecCSDigestAlgorithm packageAlgorithm, bool force_platform)
+		: certs(certChain), info(infoDict), entitlements(entitlementDict), identifier(ident), directory(dir),
+			packageChecksum(packageChecksum), packageAlgorithm(packageAlgorithm), forcePlatform(force_platform)  { }
 
 	CFArrayRef certs;								// certificate chain
 	CFDictionaryRef info;							// Info.plist
 	CFDictionaryRef entitlements;					// entitlement plist
 	std::string identifier;						// signing identifier
 	const CodeDirectory *directory;				// CodeDirectory
+	CFDataRef packageChecksum;					// package checksum
+	SecCSDigestAlgorithm packageAlgorithm; 		// package checksum algorithm
+	bool forcePlatform;
 
 	SecCertificateRef cert(int ix) const;			// get a cert from the cert chain (NULL if not found)
 	unsigned int certCount() const;				// length of cert chain (including root)
@@ -161,6 +165,7 @@ enum ExprOp {
 	opNamedAnchor,					// named anchor type
 	opNamedCode,					// named subroutine
 	opPlatform,						// platform constraint [integer]
+	opNotarized,					// has a developer id+ ticket
 	exprOpCount						// (total opcode count in use)
 };
 

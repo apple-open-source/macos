@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,12 +46,12 @@ typedef MacroAssembler::RegisterID GPRReg;
 #if USE(JSVALUE64)
 class JSValueRegs {
 public:
-    JSValueRegs()
+    constexpr JSValueRegs()
         : m_gpr(InvalidGPRReg)
     {
     }
     
-    explicit JSValueRegs(GPRReg gpr)
+    constexpr explicit JSValueRegs(GPRReg gpr)
         : m_gpr(gpr)
     {
     }
@@ -464,7 +464,8 @@ public:
     static const GPRReg returnValueGPR = X86Registers::eax; // regT0
     static const GPRReg returnValueGPR2 = X86Registers::edx; // regT1 or regT2
     static const GPRReg nonPreservedNonReturnGPR = X86Registers::r10; // regT5 (regT4 on Windows)
-    static const GPRReg nonPreservedNonArgumentGPR = X86Registers::r10; // regT5 (regT4 on Windows)
+    static const GPRReg nonPreservedNonArgumentGPR0 = X86Registers::r10; // regT5 (regT4 on Windows)
+    static const GPRReg nonPreservedNonArgumentGPR1 = X86Registers::eax;
 
     // FIXME: I believe that all uses of this are dead in the sense that it just causes the scratch
     // register allocator to select a different register and potentially spill things. It would be better
@@ -660,7 +661,8 @@ public:
     static const GPRReg returnValueGPR = ARM64Registers::x0; // regT0
     static const GPRReg returnValueGPR2 = ARM64Registers::x1; // regT1
     static const GPRReg nonPreservedNonReturnGPR = ARM64Registers::x2;
-    static const GPRReg nonPreservedNonArgumentGPR = ARM64Registers::x8;
+    static const GPRReg nonPreservedNonArgumentGPR0 = ARM64Registers::x8;
+    static const GPRReg nonPreservedNonArgumentGPR1 = ARM64Registers::x9;
     static const GPRReg patchpointScratchRegister;
 
     // GPRReg mapping is direct, the machine register numbers can
@@ -727,7 +729,7 @@ public:
 class GPRInfo {
 public:
     typedef GPRReg RegisterType;
-    static const unsigned numberOfRegisters = 7;
+    static const unsigned numberOfRegisters = 11;
     static const unsigned numberOfArgumentRegisters = NUMBER_OF_ARGUMENT_REGISTERS;
 
     // regT0 must be v0 for returning a 32-bit value.
@@ -741,6 +743,10 @@ public:
     static const GPRReg regT4 = MIPSRegisters::t4;
     static const GPRReg regT5 = MIPSRegisters::t5;
     static const GPRReg regT6 = MIPSRegisters::t6;
+    static const GPRReg regT7 = MIPSRegisters::a0;
+    static const GPRReg regT8 = MIPSRegisters::a1;
+    static const GPRReg regT9 = MIPSRegisters::a2;
+    static const GPRReg regT10 = MIPSRegisters::a3;
     // These registers match the baseline JIT.
     static const GPRReg callFrameRegister = MIPSRegisters::fp;
     // These constants provide the names for the general purpose argument & return value registers.
@@ -756,7 +762,7 @@ public:
     static GPRReg toRegister(unsigned index)
     {
         ASSERT(index < numberOfRegisters);
-        static const GPRReg registerForIndex[numberOfRegisters] = { regT0, regT1, regT2, regT3, regT4, regT5, regT6 };
+        static const GPRReg registerForIndex[numberOfRegisters] = { regT0, regT1, regT2, regT3, regT4, regT5, regT6, regT7, regT8, regT9, regT10 };
         return registerForIndex[index];
     }
 
@@ -772,7 +778,7 @@ public:
         ASSERT(reg != InvalidGPRReg);
         ASSERT(reg < 32);
         static const unsigned indexForRegister[32] = {
-            InvalidIndex, InvalidIndex, 0, 1, InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex,
+            InvalidIndex, InvalidIndex, 0, 1, 7, 8, 9, 10,
             InvalidIndex, InvalidIndex, 2, 3, 4, 5, 6, InvalidIndex,
             InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex,
             InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex
@@ -807,6 +813,9 @@ inline GPRReg extractResult(JSValueRegs result) { return result.gpr(); }
 inline JSValueRegs extractResult(JSValueRegs result) { return result; }
 #endif
 inline NoResultTag extractResult(NoResultTag) { return NoResult; }
+
+// We use this hack to get the GPRInfo from the GPRReg type in templates because our code is bad and we should feel bad..
+constexpr GPRInfo toInfoFromReg(GPRReg) { return GPRInfo(); }
 
 #endif // ENABLE(JIT)
 

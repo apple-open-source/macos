@@ -364,6 +364,7 @@ p_fqname(const u_char *cp, const u_char *msg, FILE *file) {
  * that ns_c_any is a qclass but not a class.  (You can ask for records of class
  * ns_c_any, but you can't have any records of that class in the database.)
  */
+static
 const struct res_sym __res_p_class_syms[] = {
 	{ns_c_in,		"IN",		(char *)0},
 	{ns_c_chaos,	"CHAOS",	(char *)0},
@@ -397,24 +398,6 @@ const struct res_sym __res_p_update_section_syms[] = {
 	{ns_s_ud,	"UPDATE",	(char *)0},
 	{ns_s_ar,	"ADDITIONAL",	(char *)0},
 	{0,             (char *)0,	(char *)0}
-};
-
-const struct res_sym __res_p_key_syms[] = {
-	{NS_ALG_MD5RSA,		"RSA",		"RSA KEY with MD5 hash"},
-	{NS_ALG_DH,		"DH",		"Diffie Hellman"},
-	{NS_ALG_DSA,		"DSA",		"Digital Signature Algorithm"},
-	{NS_ALG_EXPIRE_ONLY,	"EXPIREONLY",	"No algorithm"},
-	{NS_ALG_PRIVATE_OID,	"PRIVATE",	"Algorithm obtained from OID"},
-	{0,			NULL,		NULL}
-};
-
-const struct res_sym __res_p_cert_syms[] = {
-	{cert_t_pkix,	"PKIX",		"PKIX (X.509v3) Certificate"},
-	{cert_t_spki,	"SPKI",		"SPKI certificate"},
-	{cert_t_pgp,	"PGP",		"PGP certificate"},
-	{cert_t_url,	"URL",		"URL Private"},
-	{cert_t_oid,	"OID",		"OID Private"},
-	{0,		NULL,		NULL}
 };
 
 /*
@@ -478,6 +461,7 @@ const struct res_sym __p_type_syms[] = {
 /*
  * Names of DNS rcodes.
  */
+static
 const struct res_sym __res_p_rcode_syms[] = {
 	{ns_r_noerror,	"NOERROR",		"no error"},
 	{ns_r_formerr,	"FORMERR",		"format error"},

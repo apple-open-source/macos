@@ -100,11 +100,7 @@ static void test_key_failure(void) {
         SecKeyRef pubkey = NULL;
         require_action(cert, blockOut,
                        fail("Failed to parse cert with SPKI error: %@", url));
-#if TARGET_OS_OSX
-        pubkey = SecCertificateCopyPublicKey_ios(cert);
-#else
-        pubkey = SecCertificateCopyPublicKey(cert);
-#endif
+        pubkey = SecCertificateCopyKey(cert);
         is(pubkey, NULL, "Successfully parsed bad SPKI: %@", url);
 
     blockOut:

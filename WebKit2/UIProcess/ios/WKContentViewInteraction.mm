@@ -40,6 +40,9 @@
 #import "TextInputSPI.h"
 #import "UIKitSPI.h"
 #import "WKActionSheetAssistant.h"
+#import "WKDatePickerViewController.h"
+#import "WKError.h"
+#import "WKFocusedFormControlView.h"
 #import "WKFormInputControl.h"
 #import "WKFormSelectControl.h"
 #import "WKImagePreviewViewController.h"
@@ -48,6 +51,10 @@
 #import "WKPreviewActionItemIdentifiers.h"
 #import "WKPreviewActionItemInternal.h"
 #import "WKPreviewElementInfoInternal.h"
+#import "WKQuickboardListViewController.h"
+#import "WKSelectMenuListViewController.h"
+#import "WKTextInputListViewController.h"
+#import "WKTimePickerViewController.h"
 #import "WKUIDelegatePrivate.h"
 #import "WKWebViewConfiguration.h"
 #import "WKWebViewConfigurationPrivate.h"
@@ -68,6 +75,7 @@
 #import <WebCore/Color.h>
 #import <WebCore/DataDetection.h>
 #import <WebCore/FloatQuad.h>
+#import <WebCore/LocalizedStrings.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/Pasteboard.h>
 #import <WebCore/Path.h>
@@ -87,6 +95,7 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/SetForScope.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/WeakObjCPtr.h>
 #import <wtf/text/TextStream.h>
 
 #if ENABLE(DRAG_SUPPORT)
@@ -94,6 +103,12 @@
 #import <WebCore/DragItem.h>
 #import <WebCore/PlatformPasteboard.h>
 #import <WebCore/WebItemProviderPasteboard.h>
+#endif
+
+#if PLATFORM(IOSMAC)
+#import "NativeWebMouseEvent.h"
+#import <UIKit/UIHoverGestureRecognizer.h>
+#import <pal/spi/ios/GraphicsServicesSPI.h>
 #endif
 
 @interface UIEvent(UIEventInternal)
@@ -113,6 +128,13 @@
 }
 
 @end
+
+#if PLATFORM(WATCHOS)
+
+@interface WKContentView (WatchSupport) <WKFocusedFormControlViewDelegate, WKSelectMenuListViewControllerDelegate, WKTextInputListViewControllerDelegate>
+@end
+
+#endif
 
 using namespace WebCore;
 using namespace WebKit;
@@ -245,7 +267,6 @@ const CGFloat minimumTapHighlightRadius = 2.0;
 // FIXME: this needs to be moved from the internal header to the private.
 - (id)initWithView:(UIResponder <UITextInput> *)view;
 - (void)selectWord;
-- (void)scheduleReanalysis;
 @end
 
 @interface UIView (UIViewInternalHack)
@@ -260,7 +281,7 @@ const CGFloat minimumTapHighlightRadius = 2.0;
 
 @interface WKFormInputSession : NSObject <_WKFormInputSession>
 
-- (instancetype)initWithContentView:(WKContentView *)view focusedElementInfo:(WKFocusedElementInfo *)elementInfo;
+- (instancetype)initWithContentView:(WKContentView *)view focusedElementInfo:(WKFocusedElementInfo *)elementInfo requiresStrongPasswordAssistance:(BOOL)requiresStrongPasswordAssistance;
 - (void)invalidate;
 
 @end
@@ -272,15 +293,17 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     RetainPtr<NSArray<UITextSuggestion *>> _suggestions;
     BOOL _accessoryViewShouldNotShow;
     BOOL _forceSecureTextEntry;
+    BOOL _requiresStrongPasswordAssistance;
 }
 
-- (instancetype)initWithContentView:(WKContentView *)view focusedElementInfo:(WKFocusedElementInfo *)elementInfo
+- (instancetype)initWithContentView:(WKContentView *)view focusedElementInfo:(WKFocusedElementInfo *)elementInfo requiresStrongPasswordAssistance:(BOOL)requiresStrongPasswordAssistance
 {
     if (!(self = [super init]))
         return nil;
 
     _contentView = view;
     _focusedElementInfo = elementInfo;
+    _requiresStrongPasswordAssistance = requiresStrongPasswordAssistance;
 
     return self;
 }
@@ -369,11 +392,21 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     [suggestionDelegate setSuggestions:suggestions];
 }
 
+- (BOOL)requiresStrongPasswordAssistance
+{
+    return _requiresStrongPasswordAssistance;
+}
+
 - (void)invalidate
 {
     id <UITextInputSuggestionDelegate> suggestionDelegate = (id <UITextInputSuggestionDelegate>)_contentView.inputDelegate;
     [suggestionDelegate setSuggestions:nil];
     _contentView = nil;
+}
+
+- (void)reloadFocusedElementContextView
+{
+    [_contentView reloadContextViewForPresentedListViewController];
 }
 
 @end
@@ -383,6 +416,8 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     RetainPtr<NSString> _value;
     BOOL _isUserInitiated;
     RetainPtr<NSObject <NSSecureCoding>> _userObject;
+    RetainPtr<NSString> _placeholder;
+    RetainPtr<NSString> _label;
 }
 
 - (instancetype)initWithAssistedNodeInformation:(const AssistedNodeInformation&)information isUserInitiated:(BOOL)isUserInitiated userObject:(NSObject <NSSecureCoding> *)userObject
@@ -449,6 +484,8 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     _value = information.value;
     _isUserInitiated = isUserInitiated;
     _userObject = userObject;
+    _placeholder = information.placeholder;
+    _label = information.label;
     return self;
 }
 
@@ -471,7 +508,69 @@ const CGFloat minimumTapHighlightRadius = 2.0;
 {
     return _userObject.get();
 }
+
+- (NSString *)label
+{
+    return _label.get();
+}
+
+- (NSString *)placeholder
+{
+    return _placeholder.get();
+}
+
 @end
+
+#if ENABLE(DRAG_SUPPORT)
+
+@interface WKDragSessionContext : NSObject
+- (void)addTemporaryDirectory:(NSString *)temporaryDirectory;
+- (void)cleanUpTemporaryDirectories;
+@end
+
+@implementation WKDragSessionContext {
+    RetainPtr<NSMutableArray> _temporaryDirectories;
+}
+
+- (void)addTemporaryDirectory:(NSString *)temporaryDirectory
+{
+    if (!_temporaryDirectories)
+        _temporaryDirectories = adoptNS([NSMutableArray new]);
+    [_temporaryDirectories addObject:temporaryDirectory];
+}
+
+- (void)cleanUpTemporaryDirectories
+{
+    for (NSString *directory in _temporaryDirectories.get()) {
+        NSError *error = nil;
+        [[NSFileManager defaultManager] removeItemAtPath:directory error:&error];
+        RELEASE_LOG(DragAndDrop, "Removed temporary download directory: %@ with error: %@", directory, error);
+    }
+    _temporaryDirectories = nil;
+}
+
+@end
+
+static WKDragSessionContext *existingLocalDragSessionContext(id <UIDragSession> session)
+{
+    return [session.localContext isKindOfClass:[WKDragSessionContext class]] ? (WKDragSessionContext *)session.localContext : nil;
+}
+
+static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> session)
+{
+    if (WKDragSessionContext *existingContext = existingLocalDragSessionContext(session))
+        return existingContext;
+
+    if (session.localContext) {
+        RELEASE_LOG(DragAndDrop, "Overriding existing local context: %@ on session: %@", session.localContext, session);
+        ASSERT_NOT_REACHED();
+    }
+
+    session.localContext = [[[WKDragSessionContext alloc] init] autorelease];
+    return (WKDragSessionContext *)session.localContext;
+}
+
+#endif // ENABLE(DRAG_SUPPORT)
 
 @interface WKContentView (WKInteractionPrivate)
 - (void)accessibilitySpeakSelectionSetContent:(NSString *)string;
@@ -480,6 +579,11 @@ const CGFloat minimumTapHighlightRadius = 2.0;
 @end
 
 @implementation WKContentView (WKInteraction)
+
+static inline bool hasAssistedNode(WebKit::AssistedNodeInformation assistedNodeInformation)
+{
+    return (assistedNodeInformation.elementType != InputType::None);
+}
 
 - (void)_createAndConfigureDoubleTapGestureRecognizer
 {
@@ -514,6 +618,12 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     _touchEventGestureRecognizer = adoptNS([[UIWebTouchEventsGestureRecognizer alloc] initWithTarget:self action:@selector(_webTouchEventsRecognized:) touchDelegate:self]);
     [_touchEventGestureRecognizer setDelegate:self];
     [self addGestureRecognizer:_touchEventGestureRecognizer.get()];
+
+#if PLATFORM(IOSMAC)
+    _hoverGestureRecognizer = adoptNS([[UIHoverGestureRecognizer alloc] initWithTarget:self action:@selector(_hoverGestureRecognizerChanged:)]);
+    [_hoverGestureRecognizer setDelegate:self];
+    [self addGestureRecognizer:_hoverGestureRecognizer.get()];
+#endif
 
     _singleTapGestureRecognizer = adoptNS([[WKSyntheticClickTapGestureRecognizer alloc] initWithTarget:self action:@selector(_singleTapCommited:)]);
     [_singleTapGestureRecognizer setDelegate:self];
@@ -573,6 +683,8 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     _isDoubleTapPending = NO;
     _showDebugTapHighlightsForFastClicking = [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitShowFastClickDebugTapHighlights"];
     _needsDeferredEndScrollingSelectionUpdate = NO;
+    _isChangingFocus = NO;
+    _isBlurringFocusedNode = NO;
 }
 
 - (void)cleanupInteraction
@@ -592,6 +704,8 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     [_highlightView removeFromSuperview];
     _outstandingPositionInformationRequest = std::nullopt;
 
+    _focusRequiresStrongPasswordAssistance = NO;
+
     if (_interactionViewsContainerView) {
         [self.layer removeObserver:self forKeyPath:@"transform"];
         [_interactionViewsContainerView removeFromSuperview];
@@ -600,6 +714,11 @@ const CGFloat minimumTapHighlightRadius = 2.0;
 
     [_touchEventGestureRecognizer setDelegate:nil];
     [self removeGestureRecognizer:_touchEventGestureRecognizer.get()];
+
+#if PLATFORM(IOSMAC)
+    [_hoverGestureRecognizer setDelegate:nil];
+    [self removeGestureRecognizer:_hoverGestureRecognizer.get()];
+#endif
 
     [_singleTapGestureRecognizer setDelegate:nil];
     [_singleTapGestureRecognizer setGestureRecognizedTarget:nil action:nil];
@@ -627,6 +746,7 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     _layerTreeTransactionIdAtLastTouchStart = 0;
 
 #if ENABLE(DATA_INTERACTION)
+    [existingLocalDragSessionContext(_dragDropInteractionState.dragSession()) cleanUpTemporaryDirectories];
     [self teardownDataInteractionDelegates];
 #endif
 
@@ -648,6 +768,7 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     }
     
     _inputViewUpdateDeferrer = nullptr;
+    _assistedNodeInformation = { };
 }
 
 - (void)_removeDefaultGestureRecognizers
@@ -659,6 +780,9 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     [self removeGestureRecognizer:_nonBlockingDoubleTapGestureRecognizer.get()];
     [self removeGestureRecognizer:_twoFingerDoubleTapGestureRecognizer.get()];
     [self removeGestureRecognizer:_twoFingerSingleTapGestureRecognizer.get()];
+#if PLATFORM(IOSMAC)
+    [self removeGestureRecognizer:_hoverGestureRecognizer.get()];
+#endif
 }
 
 - (void)_addDefaultGestureRecognizers
@@ -670,6 +794,9 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     [self addGestureRecognizer:_nonBlockingDoubleTapGestureRecognizer.get()];
     [self addGestureRecognizer:_twoFingerDoubleTapGestureRecognizer.get()];
     [self addGestureRecognizer:_twoFingerSingleTapGestureRecognizer.get()];
+#if PLATFORM(IOSMAC)
+    [self addGestureRecognizer:_hoverGestureRecognizer.get()];
+#endif
 }
 
 - (UIView*)unscaledView
@@ -694,9 +821,9 @@ const CGFloat minimumTapHighlightRadius = 2.0;
 
 
 #pragma mark - UITextAutoscrolling
-- (void)startAutoscroll:(CGPoint)point
+- (void)startAutoscroll:(CGPoint)pointInDocument
 {
-    _page->startAutoscrollAtPosition(point);
+    _page->startAutoscrollAtPosition(pointInDocument);
 }
 
 - (void)cancelAutoscroll
@@ -772,7 +899,7 @@ const CGFloat minimumTapHighlightRadius = 2.0;
 
 - (id <UITextInputDelegate>)inputDelegate
 {
-    return _inputDelegate;
+    return _inputDelegate.getAutoreleased();
 }
 
 - (CGPoint)lastInteractionLocation
@@ -832,8 +959,6 @@ const CGFloat minimumTapHighlightRadius = 2.0;
         SetForScope<BOOL> becomingFirstResponder { _becomingFirstResponder, YES };
         didBecomeFirstResponder = [super becomeFirstResponder];
     }
-    if (didBecomeFirstResponder && !self.suppressAssistantSelectionView)
-        [_textSelectionAssistant activateSelection];
 
     return didBecomeFirstResponder;
 }
@@ -849,7 +974,6 @@ const CGFloat minimumTapHighlightRadius = 2.0;
     // and do nothing if the return value is NO.
 
     _resigningFirstResponder = YES;
-
     if (!_webView->_activeFocusedStateRetainCount) {
         // We need to complete the editing operation before we blur the element.
         [_inputPeripheral endEditing];
@@ -1054,6 +1178,9 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
     if (!_isTapHighlightIDValid || _latestTapID != requestID)
         return;
 
+    if (hasAssistedNode(_assistedNodeInformation) && _positionInformation.nodeAtPositionIsAssistedNode)
+        return;
+
     _isTapHighlightIDValid = NO;
 
     _tapHighlightInformation.quads = highlightedQuads;
@@ -1151,13 +1278,13 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
     // In case user scaling is force enabled, do not use that scaling when zooming in with an input field.
     // Zooming above the page's default scale factor should only happen when the user performs it.
     [self _zoomToFocusRect:_assistedNodeInformation.elementRect
-             selectionRect:_didAccessoryTabInitiateFocus ? IntRect() : _assistedNodeInformation.selectionRect
-               insideFixed:_assistedNodeInformation.insideFixedPosition
-                  fontSize:_assistedNodeInformation.nodeFontSize
-              minimumScale:_assistedNodeInformation.minimumScaleFactor
-              maximumScale:_assistedNodeInformation.maximumScaleFactorIgnoringAlwaysScalable
-              allowScaling:(_assistedNodeInformation.allowsUserScalingIgnoringAlwaysScalable && !currentUserInterfaceIdiomIsPad())
-               forceScroll:[self requiresAccessoryView]];
+        selectionRect:_didAccessoryTabInitiateFocus ? IntRect() : _assistedNodeInformation.selectionRect
+        insideFixed:_assistedNodeInformation.insideFixedPosition
+        fontSize:_assistedNodeInformation.nodeFontSize
+        minimumScale:_assistedNodeInformation.minimumScaleFactor
+        maximumScale:_assistedNodeInformation.maximumScaleFactorIgnoringAlwaysScalable
+        allowScaling:_assistedNodeInformation.allowsUserScalingIgnoringAlwaysScalable && !currentUserInterfaceIdiomIsPad()
+        forceScroll:[self requiresAccessoryView]];
 
     _didAccessoryTabInitiateFocus = NO;
     [self _ensureFormAccessoryView];
@@ -1166,7 +1293,7 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
 
 - (UIView *)inputView
 {
-    if (_assistedNodeInformation.elementType == InputType::None)
+    if (!hasAssistedNode(_assistedNodeInformation))
         return nil;
 
     if (!_inputPeripheral)
@@ -1179,7 +1306,7 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
 
 - (CGRect)_selectionClipRect
 {
-    if (_assistedNodeInformation.elementType == InputType::None)
+    if (!hasAssistedNode(_assistedNodeInformation))
         return CGRectNull;
     return _page->editorState().postLayoutData().selectionClipRect;
 }
@@ -1195,10 +1322,17 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)preventedGestureRecognizer canBePreventedByGestureRecognizer:(UIGestureRecognizer *)preventingGestureRecognizer {
     // Don't allow the highlight to be prevented by a selection gesture. Press-and-hold on a link should highlight the link, not select it.
-    if ((preventingGestureRecognizer == _textSelectionAssistant.get().loupeGesture || [_webSelectionAssistant isSelectionGestureRecognizer:preventingGestureRecognizer])
-        && (preventedGestureRecognizer == _highlightLongPressGestureRecognizer || preventedGestureRecognizer == _longPressGestureRecognizer)) {
+    bool isForcePressGesture = NO;
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000
+    isForcePressGesture = (preventingGestureRecognizer == _textSelectionAssistant.get().forcePressGesture);
+#endif
+#if PLATFORM(IOSMAC)
+    if ((preventingGestureRecognizer == _textSelectionAssistant.get().loupeGesture) && (preventedGestureRecognizer == _highlightLongPressGestureRecognizer || preventedGestureRecognizer == _longPressGestureRecognizer || preventedGestureRecognizer == _textSelectionAssistant.get().forcePressGesture))
+        return YES;
+#endif
+    
+    if ((preventingGestureRecognizer == _textSelectionAssistant.get().loupeGesture || isForcePressGesture || [_webSelectionAssistant isSelectionGestureRecognizer:preventingGestureRecognizer]) && (preventedGestureRecognizer == _highlightLongPressGestureRecognizer || preventedGestureRecognizer == _longPressGestureRecognizer))
         return NO;
-    }
 
     return YES;
 }
@@ -1215,7 +1349,20 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 
     if (isSamePair(gestureRecognizer, otherGestureRecognizer, _highlightLongPressGestureRecognizer.get(), _webSelectionAssistant.get().selectionLongPressRecognizer))
         return YES;
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000
+#if PLATFORM(IOSMAC)
+    if (isSamePair(gestureRecognizer, otherGestureRecognizer, _textSelectionAssistant.get().loupeGesture, _textSelectionAssistant.get().forcePressGesture))
+        return YES;
 
+    if (isSamePair(gestureRecognizer, otherGestureRecognizer, _singleTapGestureRecognizer.get(), _textSelectionAssistant.get().loupeGesture))
+        return YES;
+
+    if ([gestureRecognizer isKindOfClass:[UIHoverGestureRecognizer class]] || [otherGestureRecognizer isKindOfClass:[UIHoverGestureRecognizer class]])
+        return YES;
+#endif
+    if (isSamePair(gestureRecognizer, otherGestureRecognizer, _highlightLongPressGestureRecognizer.get(), _textSelectionAssistant.get().forcePressGesture))
+        return YES;
+#endif
     if (isSamePair(gestureRecognizer, otherGestureRecognizer, _singleTapGestureRecognizer.get(), _textSelectionAssistant.get().singleTapGesture))
         return YES;
 
@@ -1269,6 +1416,9 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 
 - (SEL)_actionForLongPressFromPositionInformation:(const InteractionInformationAtPosition&)positionInformation
 {
+    if (!_webView.configuration._longPressActionsEnabled)
+        return nil;
+
     if (!positionInformation.touchCalloutEnabled)
         return nil;
 
@@ -1321,16 +1471,16 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     if (!connection)
         return NO;
 
-    if ([self _hasValidOutstandingPositionInformationRequest:request]) {
-        return connection->waitForAndDispatchImmediately<Messages::WebPageProxy::DidReceivePositionInformation>(_page->pageID(), Seconds::infinity(), IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
-    }
+    if ([self _hasValidOutstandingPositionInformationRequest:request])
+        return connection->waitForAndDispatchImmediately<Messages::WebPageProxy::DidReceivePositionInformation>(_page->pageID(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
 
-    _page->process().sendSync(Messages::WebPage::GetPositionInformation(request), Messages::WebPage::GetPositionInformation::Reply(_positionInformation), _page->pageID());
+    _hasValidPositionInformation = _page->process().sendSync(Messages::WebPage::GetPositionInformation(request), Messages::WebPage::GetPositionInformation::Reply(_positionInformation), _page->pageID(), 1_s);
+    
+    // FIXME: We need to clean up these handlers in the event that we are not able to collect data, or if the WebProcess crashes.
+    if (_hasValidPositionInformation)
+        [self _invokeAndRemovePendingHandlersValidForCurrentPositionInformation];
 
-    _hasValidPositionInformation = YES;
-    [self _invokeAndRemovePendingHandlersValidForCurrentPositionInformation];
-
-    return YES;
+    return _hasValidPositionInformation;
 }
 
 - (void)requestAsynchronousPositionInformationUpdate:(WebKit::InteractionInformationRequest)request
@@ -1351,6 +1501,11 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 - (BOOL)_hasValidOutstandingPositionInformationRequest:(const InteractionInformationRequest&)request
 {
     return _outstandingPositionInformationRequest && _outstandingPositionInformationRequest->isValidForRequest(request);
+}
+
+- (BOOL)_currentPositionInformationIsApproximatelyValidForRequest:(const InteractionInformationRequest&)request
+{
+    return _hasValidPositionInformation && _positionInformation.request.isApproximatelyValidForRequest(request);
 }
 
 - (void)_invokeAndRemovePendingHandlersValidForCurrentPositionInformation
@@ -1412,10 +1567,9 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     if (gestureRecognizer == _highlightLongPressGestureRecognizer
         || gestureRecognizer == _doubleTapGestureRecognizer
         || gestureRecognizer == _nonBlockingDoubleTapGestureRecognizer
-        || gestureRecognizer == _twoFingerDoubleTapGestureRecognizer
-        || gestureRecognizer == _singleTapGestureRecognizer) {
+        || gestureRecognizer == _twoFingerDoubleTapGestureRecognizer) {
 
-        if (_textSelectionAssistant) {
+        if (hasAssistedNode(_assistedNodeInformation)) {
             // Request information about the position with sync message.
             // If the assisted node is the same, prevent the gesture.
             if (![self ensurePositionInformationIsUpToDate:InteractionInformationRequest(roundedIntPoint(point))])
@@ -1426,30 +1580,30 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     }
 
     if (gestureRecognizer == _highlightLongPressGestureRecognizer) {
-        if (_textSelectionAssistant) {
+        if (hasAssistedNode(_assistedNodeInformation)) {
             // This is a different node than the assisted one.
             // Prevent the gesture if there is no node.
             // Allow the gesture if it is a node that wants highlight or if there is an action for it.
             if (!_positionInformation.isElement)
                 return NO;
             return [self _actionForLongPress] != nil;
-        } else {
-            // We still have no idea about what is at the location.
-            // Send and async message to find out.
-            _hasValidPositionInformation = NO;
-            InteractionInformationRequest request(roundedIntPoint(point));
-
-            // If 3D Touch is enabled, asynchronously collect snapshots in the hopes that
-            // they'll arrive before we have to synchronously request them in
-            // _interactionShouldBeginFromPreviewItemController.
-            if (self.traitCollection.forceTouchCapability == UIForceTouchCapabilityAvailable) {
-                request.includeSnapshot = true;
-                request.includeLinkIndicator = true;
-            }
-
-            [self requestAsynchronousPositionInformationUpdate:request];
-            return YES;
         }
+        // We still have no idea about what is at the location.
+        // Send an async message to find out.
+        _hasValidPositionInformation = NO;
+        InteractionInformationRequest request(roundedIntPoint(point));
+
+        // If 3D Touch is enabled, asynchronously collect snapshots in the hopes that
+        // they'll arrive before we have to synchronously request them in
+        // _interactionShouldBeginFromPreviewItemController.
+        if (self.traitCollection.forceTouchCapability == UIForceTouchCapabilityAvailable) {
+            request.includeSnapshot = true;
+            request.includeLinkIndicator = true;
+        }
+
+        [self requestAsynchronousPositionInformationUpdate:request];
+        return YES;
+
     }
 
     if (gestureRecognizer == _longPressGestureRecognizer) {
@@ -1460,7 +1614,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
         if (![self ensurePositionInformationIsUpToDate:request])
             return NO;
 
-        if (_textSelectionAssistant) {
+        if (hasAssistedNode(_assistedNodeInformation)) {
             // Prevent the gesture if it is the same node.
             if (_positionInformation.nodeAtPositionIsAssistedNode)
                 return NO;
@@ -1495,6 +1649,9 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 
 - (BOOL)hasSelectablePositionAtPoint:(CGPoint)point
 {
+    if (!_webView.configuration._textInteractionGesturesEnabled)
+        return NO;
+
     if (_inspectorNodeSearchEnabled)
         return NO;
 
@@ -1515,21 +1672,20 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 
 - (BOOL)pointIsNearMarkedText:(CGPoint)point
 {
+    if (!_webView.configuration._textInteractionGesturesEnabled)
+        return NO;
+
     InteractionInformationRequest request(roundedIntPoint(point));
     if (![self ensurePositionInformationIsUpToDate:request])
         return NO;
     return _positionInformation.isNearMarkedText;
 }
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 110000
-- (BOOL)pointIsInAssistedNode:(CGPoint)point
-{
-    // This method is still implemented for backwards compatibility with older UIKit versions.
-    return [self textInteractionGesture:UIWKGestureLoupe shouldBeginAtPoint:point];
-}
-#endif
 
 - (BOOL)textInteractionGesture:(UIWKGestureType)gesture shouldBeginAtPoint:(CGPoint)point
 {
+    if (!_webView.configuration._textInteractionGesturesEnabled)
+        return NO;
+
     InteractionInformationRequest request(roundedIntPoint(point));
     if (![self ensurePositionInformationIsUpToDate:request])
         return NO;
@@ -1544,7 +1700,15 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     // If we're currently editing an assisted node, only allow the selection to move within that assisted node.
     if (self.isAssistingNode)
         return _positionInformation.nodeAtPositionIsAssistedNode;
+    
+    // Don't allow double tap text gestures in noneditable content.
+    if (gesture == UIWKGestureDoubleTap)
+        return NO;
 
+    // If we're selecting something, don't activate highlight.
+    if (gesture == UIWKGestureLoupe && [self hasSelectablePositionAtPoint:point])
+        [self _cancelLongPressGestureRecognizer];
+    
     // Otherwise, if we're using a text interaction assistant outside of editing purposes (e.g. the selection mode
     // is character granularity) then allow text selection.
     return YES;
@@ -1577,7 +1741,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 
 - (NSArray *)webSelectionRects
 {
-    if (_page->editorState().selectionIsNone)
+    if (_page->editorState().isMissingPostLayoutData || _page->editorState().selectionIsNone)
         return nil;
     const auto& selectionRects = _page->editorState().postLayoutData().selectionRects;
     return [self webSelectionRectsForSelectionRects:selectionRects];
@@ -1725,7 +1889,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     // The selection could have been set by autofocusing on page load and not
     // reflected in the UI process since the user was not interacting with the page.
     if (!_page->editorState().isContentEditable)
-        [_webSelectionAssistant clearSelection];
+        _page->clearSelection();
 
     _lastInteractionLocation = gestureRecognizer.location;
 
@@ -1784,31 +1948,19 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 
 - (void)useSelectionAssistantWithGranularity:(WKSelectionGranularity)selectionGranularity
 {
-    if (selectionGranularity == WKSelectionGranularityDynamic) {
-        if (_textSelectionAssistant) {
-            [_textSelectionAssistant deactivateSelection];
-            _textSelectionAssistant = nil;
-        }
-        if (!_webSelectionAssistant)
-            _webSelectionAssistant = adoptNS([[UIWKSelectionAssistant alloc] initWithView:self]);
-    } else if (selectionGranularity == WKSelectionGranularityCharacter) {
-        if (_webSelectionAssistant)
-            _webSelectionAssistant = nil;
+    _webSelectionAssistant = nil;
 
-        if (!_textSelectionAssistant)
-            _textSelectionAssistant = adoptNS([[UIWKTextInteractionAssistant alloc] initWithView:self]);
-        else {
-            // Reset the gesture recognizers in case editibility has changed.
-            [_textSelectionAssistant setGestureRecognizers];
-        }
-
-        if (self.isFirstResponder && !self.suppressAssistantSelectionView)
-            [_textSelectionAssistant activateSelection];
+    if (!_textSelectionAssistant)
+        _textSelectionAssistant = adoptNS([[UIWKTextInteractionAssistant alloc] initWithView:self]);
+    else {
+        // Reset the gesture recognizers in case editibility has changed.
+        [_textSelectionAssistant setGestureRecognizers];
     }
 }
 
 - (void)clearSelection
 {
+    [self _stopAssistingNode];
     _page->clearSelection();
 }
 
@@ -1831,6 +1983,10 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     [_webSelectionAssistant willStartScrollingOrZoomingPage];
     [_textSelectionAssistant willStartScrollingOverflow];
     _page->setIsScrollingOrZooming(true);
+
+#if PLATFORM(WATCHOS)
+    [_focusedFormControlView disengageFocusedFormControlNavigation];
+#endif
 }
 
 - (void)scrollViewWillStartPanOrPinchGesture
@@ -1847,6 +2003,10 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
         [_textSelectionAssistant didEndScrollingOverflow];
     }
     _page->setIsScrollingOrZooming(false);
+
+#if PLATFORM(WATCHOS)
+    [_focusedFormControlView engageFocusedFormControlNavigation];
+#endif
 }
 
 - (BOOL)requiresAccessoryView
@@ -2013,11 +2173,6 @@ FOR_EACH_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
     [_textSelectionAssistant scheduleChineseTransliterationForText:_page->editorState().postLayoutData().wordAtSelection];
 }
 
-- (void)_reanalyzeForWebView:(id)sender
-{
-    [_textSelectionAssistant scheduleReanalysis];
-}
-
 - (void)replaceForWebView:(id)sender
 {
     [[UIKeyboardImpl sharedInstance] replaceText:sender];
@@ -2056,6 +2211,9 @@ FOR_EACH_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
 
 - (UIColor *)insertionPointColor
 {
+    if (!_webView.configuration._textInteractionGesturesEnabled)
+        return [UIColor clearColor];
+
     if (!_page->editorState().isMissingPostLayoutData) {
         WebCore::Color caretColor = _page->editorState().postLayoutData().caretColor;
         if (caretColor.isValid())
@@ -2071,8 +2229,6 @@ FOR_EACH_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
 
 - (BOOL)canPerformActionForWebView:(SEL)action withSender:(id)sender
 {
-    BOOL hasWebSelection = _webSelectionAssistant && !CGRectIsEmpty(_webSelectionAssistant.get().selectionFrame);
-
     if (action == @selector(_arrowKey:))
         return [self isFirstResponder];
         
@@ -2097,11 +2253,11 @@ FOR_EACH_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
     if (action == @selector(copy:)) {
         if (_page->editorState().isInPasswordField)
             return NO;
-        return hasWebSelection || _page->editorState().selectionIsRange;
+        return _page->editorState().selectionIsRange;
     }
 
     if (action == @selector(_define:)) {
-        if (_page->editorState().isInPasswordField || !(hasWebSelection || _page->editorState().selectionIsRange))
+        if (_page->editorState().isInPasswordField || !_page->editorState().selectionIsRange)
             return NO;
 
         NSUInteger textLength = _page->editorState().postLayoutData().selectedTextLength;
@@ -2111,8 +2267,10 @@ FOR_EACH_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
         if (!textLength || textLength > 200)
             return NO;
 
+#if !PLATFORM(IOSMAC)
         if ([[getMCProfileConnectionClass() sharedConnection] effectiveBoolValueForSetting:MCFeatureDefinitionLookupAllowed] == MCRestrictedBoolExplicitNo)
             return NO;
+#endif
             
         return YES;
     }
@@ -2120,22 +2278,24 @@ FOR_EACH_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
     if (action == @selector(_lookup:)) {
         if (_page->editorState().isInPasswordField)
             return NO;
-        
+
+#if !PLATFORM(IOSMAC)
         if ([[getMCProfileConnectionClass() sharedConnection] effectiveBoolValueForSetting:MCFeatureDefinitionLookupAllowed] == MCRestrictedBoolExplicitNo)
             return NO;
-        
-        return YES;
+#endif
+
+        return _page->editorState().selectionIsRange;
     }
 
     if (action == @selector(_share:)) {
-        if (_page->editorState().isInPasswordField || !(hasWebSelection || _page->editorState().selectionIsRange))
+        if (_page->editorState().isInPasswordField || !_page->editorState().selectionIsRange)
             return NO;
 
         return _page->editorState().postLayoutData().selectedTextLength > 0;
     }
 
     if (action == @selector(_addShortcut:)) {
-        if (_page->editorState().isInPasswordField || !(hasWebSelection || _page->editorState().selectionIsRange))
+        if (_page->editorState().isInPasswordField || !_page->editorState().selectionIsRange)
             return NO;
 
         NSString *selectedText = [self selectedText];
@@ -2163,31 +2323,15 @@ FOR_EACH_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
         return UIKeyboardEnabledInputModesAllowChineseTransliterationForText([self selectedText]);
     }
 
-    if (action == @selector(_reanalyze:)) {
-        if (!_page->editorState().selectionIsRange || !_page->editorState().postLayoutData().isReplaceAllowed || ![[UIKeyboardImpl activeInstance] autocorrectSpellingEnabled])
-            return NO;
-        return UIKeyboardCurrentInputModeAllowsChineseOrJapaneseReanalysisForText([self selectedText]);
-    }
-
     if (action == @selector(select:)) {
         // Disable select in password fields so that you can't see word boundaries.
         return !_page->editorState().isInPasswordField && [self hasContent] && !_page->editorState().selectionIsNone && !_page->editorState().selectionIsRange;
     }
 
     if (action == @selector(selectAll:)) {
-        if (_page->editorState().selectionIsNone || ![self hasContent])
-            return NO;
-        if (!_page->editorState().selectionIsRange)
+        if (!_page->editorState().selectionIsNone && !_page->editorState().selectionIsRange)
             return YES;
-        // Enable selectAll for non-editable text, where the user can't access
-        // this command via long-press to get a caret.
-        if (_page->editorState().isContentEditable)
-            return NO;
-        // Don't attempt selectAll with general web content.
-        if (hasWebSelection)
-            return NO;
-        // FIXME: Only enable if the selection doesn't already span the entire document.
-        return YES;
+        return NO;
     }
 
     if (action == @selector(replace:))
@@ -2214,17 +2358,17 @@ FOR_EACH_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
 
 - (void)copyForWebView:(id)sender
 {
-    _page->executeEditCommand(ASCIILiteral("copy"));
+    _page->executeEditCommand("copy"_s);
 }
 
 - (void)cutForWebView:(id)sender
 {
-    _page->executeEditCommand(ASCIILiteral("cut"));
+    _page->executeEditCommand("cut"_s);
 }
 
 - (void)pasteForWebView:(id)sender
 {
-    _page->executeEditCommand(ASCIILiteral("paste"));
+    _page->executeEditCommand("paste"_s);
 }
 
 - (void)selectForWebView:(id)sender
@@ -2237,7 +2381,7 @@ FOR_EACH_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
 - (void)selectAllForWebView:(id)sender
 {
     [_textSelectionAssistant selectAll:sender];
-    _page->executeEditCommand(ASCIILiteral("selectAll"));
+    _page->executeEditCommand("selectAll"_s);
 }
 
 - (void)toggleBoldfaceForWebView:(id)sender
@@ -2281,8 +2425,10 @@ FOR_EACH_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
 
 - (void)_defineForWebView:(id)sender
 {
+#if !PLATFORM(IOSMAC)
     if ([[getMCProfileConnectionClass() sharedConnection] effectiveBoolValueForSetting:MCFeatureDefinitionLookupAllowed] == MCRestrictedBoolExplicitNo)
         return;
+#endif
 
     RetainPtr<WKContentView> view = self;
     _page->getSelectionOrContentsAsString([view](const String& string, WebKit::CallbackBase::Error error) {
@@ -2509,22 +2655,6 @@ static inline UIWKSelectionFlags toUIWKSelectionFlags(SelectionFlags flags)
     return static_cast<UIWKSelectionFlags>(uiFlags);
 }
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-static inline SelectionHandlePosition toSelectionHandlePosition(UIWKHandlePosition position)
-{
-    switch (position) {
-    case UIWKHandleTop:
-        return SelectionHandlePosition::Top;
-    case UIWKHandleRight:
-        return SelectionHandlePosition::Right;
-    case UIWKHandleBottom:
-        return SelectionHandlePosition::Bottom;
-    case UIWKHandleLeft:
-        return SelectionHandlePosition::Left;
-    }
-}
-#endif
-
 static inline WebCore::TextGranularity toWKTextGranularity(UITextGranularity granularity)
 {
     switch (granularity) {
@@ -2583,18 +2713,9 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
         [(UIWKTextInteractionAssistant *)[view interactionAssistant] selectionChangedWithTouchAt:(CGPoint)point withSelectionTouch:toUIWKSelectionTouch((SelectionTouch)touch) withFlags:static_cast<UIWKSelectionFlags>(flags)];
 }
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-- (void)_didUpdateBlockSelectionWithTouch:(SelectionTouch)touch withFlags:(SelectionFlags)flags growThreshold:(CGFloat)growThreshold shrinkThreshold:(CGFloat)shrinkThreshold
-{
-    [_webSelectionAssistant blockSelectionChangedWithTouch:toUIWKSelectionTouch(touch) withFlags:toUIWKSelectionFlags(flags) growThreshold:growThreshold shrinkThreshold:shrinkThreshold];
-    if (touch != SelectionTouch::Started && touch != SelectionTouch::Moved)
-        _usingGestureForSelection = NO;
-}
-#endif
-
 - (BOOL)_isInteractingWithAssistedNode
 {
-    return _textSelectionAssistant != nil;
+    return hasAssistedNode(_assistedNodeInformation);
 }
 
 - (void)changeSelectionWithGestureAt:(CGPoint)point withGesture:(UIWKGestureType)gestureType withState:(UIGestureRecognizerState)state
@@ -2612,7 +2733,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
     });
 }
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 130000
+#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
 - (void)changeSelectionWithTouchAt:(CGPoint)point withSelectionTouch:(UIWKSelectionTouch)touch baseIsStart:(BOOL)baseIsStart
 {
     [self changeSelectionWithTouchAt:point withSelectionTouch:touch baseIsStart:baseIsStart withFlags:UIWKNone];
@@ -2638,19 +2759,6 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
             _usingGestureForSelection = NO;
     });
 }
-
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-- (void)changeBlockSelectionWithTouchAt:(CGPoint)point withSelectionTouch:(UIWKSelectionTouch)touch forHandle:(UIWKHandlePosition)handle
-{
-    // This was only readded to avoid a crash due to incompatibilities with certain version of UIKit.
-    // This should be removed ASAP.
-    // The selection will be properly updated with the next update, selection still functions
-    // without this function doing anything.
-    
-    _usingGestureForSelection = YES;
-    _page->updateBlockSelectionWithTouch(WebCore::IntPoint(point), static_cast<uint32_t>(toSelectionTouch(touch)), static_cast<uint32_t>(toSelectionHandlePosition(handle)));
-}
-#endif
 
 - (void)moveByOffset:(NSInteger)offset
 {
@@ -3037,7 +3145,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
 - (void)insertTextSuggestion:(UITextSuggestion *)textSuggestion
 {
     // FIXME: Replace NSClassFromString with actual class as soon as UIKit submitted the new class into the iOS SDK.
-    if ([textSuggestion isKindOfClass:NSClassFromString(@"UITextAutofillSuggestion")]) {
+    if ([textSuggestion isKindOfClass:[UITextAutofillSuggestion class]]) {
         _page->autofillLoginCredentials([(UITextAutofillSuggestion *)textSuggestion username], [(UITextAutofillSuggestion *)textSuggestion password]);
         return;
     }
@@ -3057,8 +3165,12 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
 
 - (UITextRange *)selectedTextRange
 {
-    if (_page->editorState().selectionIsNone)
+    if (_page->editorState().selectionIsNone || _page->editorState().isMissingPostLayoutData)
         return nil;
+    // UIKit does not expect caret selections in noneditable content.
+    if (!_page->editorState().isContentEditable && !_page->editorState().selectionIsRange)
+        return nil;
+    
     auto& postLayoutEditorStateData = _page->editorState().postLayoutData();
     FloatRect startRect = postLayoutEditorStateData.caretRectAtStart;
     FloatRect endRect = postLayoutEditorStateData.caretRectAtEnd;
@@ -3104,8 +3216,13 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
 
 - (void)setSelectedTextRange:(UITextRange *)range
 {
-    if (_textSelectionAssistant && !range)
-        [self clearSelection];
+    if (range)
+        return;
+#if !PLATFORM(IOSMAC)
+    if (!hasAssistedNode(_assistedNodeInformation))
+        return;
+#endif
+    [self clearSelection];
 }
 
 - (BOOL)hasMarkedText
@@ -3211,6 +3328,12 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
 /* Hit testing. */
 - (UITextPosition *)closestPositionToPoint:(CGPoint)point
 {
+#if PLATFORM(IOSMAC)
+    InteractionInformationRequest request(roundedIntPoint(point));
+    [self requestAsynchronousPositionInformationUpdate:request];
+    if ([self _currentPositionInformationIsApproximatelyValidForRequest:request] && _positionInformation.isSelectable)
+        return [WKTextPosition textPositionWithRect:_positionInformation.caretRect];
+#endif
     return nil;
 }
 
@@ -3226,7 +3349,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
 
 - (void)deleteBackward
 {
-    _page->executeEditCommand(ASCIILiteral("deleteBackward"));
+    _page->executeEditCommand("deleteBackward"_s);
 }
 
 // Inserts the given string, replacing any selected or marked text.
@@ -3304,8 +3427,9 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
         return UITextContentTypeEmailAddress;
     case WebCore::AutofillFieldName::URL:
         return UITextContentTypeURL;
-    case WebCore::AutofillFieldName::None:
     case WebCore::AutofillFieldName::Username:
+        return UITextContentTypeUsername;
+    case WebCore::AutofillFieldName::None:
     case WebCore::AutofillFieldName::NewPassword:
     case WebCore::AutofillFieldName::CurrentPassword:
     case WebCore::AutofillFieldName::AddressLine3:
@@ -3531,6 +3655,9 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
 
     if (_page->editorState().isContentEditable)
         return std::nullopt;
+    
+    if (_assistedNodeInformation.elementType == InputType::Select)
+        return std::nullopt;
 
     NSString *charactersIgnoringModifiers = event.charactersIgnoringModifiers;
     if (!charactersIgnoringModifiers.length)
@@ -3634,13 +3761,13 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
     case kWebReturnKey:
         if (contentEditable && isCharEvent) {
             // Map \r from HW keyboard to \n to match the behavior of the soft keyboard.
-            [keyboard addInputString:@"\n" withFlags:0];
+            [keyboard addInputString:@"\n" withFlags:0 withInputManagerHint:nil];
             return YES;
         }
         break;
 
     case kWebDeleteForwardKey:
-        _page->executeEditCommand(ASCIILiteral("deleteForward"));
+        _page->executeEditCommand("deleteForward"_s);
         return YES;
 
     default:
@@ -3856,12 +3983,20 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
 - (void)_startAssistingKeyboard
 {
     [self useSelectionAssistantWithGranularity:WKSelectionGranularityCharacter];
+    
+    if (self.isFirstResponder && !self.suppressAssistantSelectionView)
+        [_textSelectionAssistant activateSelection];
+
+#if !PLATFORM(WATCHOS)
     [self reloadInputViews];
+#endif
 }
 
 - (void)_stopAssistingKeyboard
 {
     [self useSelectionAssistantWithGranularity:_webView._selectionGranularity];
+    
+    [_textSelectionAssistant deactivateSelection];
 }
 
 - (const AssistedNodeInformation&)assistedNodeInformation
@@ -3912,26 +4047,55 @@ static bool isAssistableInputType(InputType type)
 
 - (void)_startAssistingNode:(const AssistedNodeInformation&)information userIsInteracting:(BOOL)userIsInteracting blurPreviousNode:(BOOL)blurPreviousNode changingActivityState:(BOOL)changingActivityState userObject:(NSObject <NSSecureCoding> *)userObject
 {
+    SetForScope<BOOL> isChangingFocusForScope { _isChangingFocus, hasAssistedNode(_assistedNodeInformation) };
     _inputViewUpdateDeferrer = nullptr;
 
     id <_WKInputDelegate> inputDelegate = [_webView _inputDelegate];
     RetainPtr<WKFocusedElementInfo> focusedElementInfo = adoptNS([[WKFocusedElementInfo alloc] initWithAssistedNodeInformation:information isUserInitiated:userIsInteracting userObject:userObject]);
-    BOOL shouldShowKeyboard;
 
-    if ([inputDelegate respondsToSelector:@selector(_webView:focusShouldStartInputSession:)])
-        shouldShowKeyboard = [inputDelegate _webView:_webView focusShouldStartInputSession:focusedElementInfo.get()];
-    else {
-        // The default behavior is to allow node assistance if the user is interacting or the keyboard is already active.
-        shouldShowKeyboard = userIsInteracting || _textSelectionAssistant || changingActivityState;
-#if ENABLE(DATA_INTERACTION)
-        shouldShowKeyboard |= _dragDropInteractionState.isPerformingDrop();
-#endif
+    BOOL shouldShowKeyboard = NO;
+    _WKFocusStartsInputSessionPolicy startInputSessionPolicy = _WKFocusStartsInputSessionPolicyAuto;
+
+    if ([inputDelegate respondsToSelector:@selector(_webView:focusShouldStartInputSession:)]) {
+        if ([inputDelegate _webView:_webView focusShouldStartInputSession:focusedElementInfo.get()])
+            startInputSessionPolicy = _WKFocusStartsInputSessionPolicyAllow;
+        else
+            startInputSessionPolicy = _WKFocusStartsInputSessionPolicyDisallow;
     }
-    if (!shouldShowKeyboard)
-        return;
+
+    if ([inputDelegate respondsToSelector:@selector(_webView:decidePolicyForFocusedElement:)])
+        startInputSessionPolicy = [inputDelegate _webView:_webView decidePolicyForFocusedElement:focusedElementInfo.get()];
+
+    switch (startInputSessionPolicy) {
+    case _WKFocusStartsInputSessionPolicyAuto:
+        // The default behavior is to allow node assistance if the user is interacting.
+        // We also allow node assistance if the keyboard already is showing, unless we're in extra zoom mode.
+        shouldShowKeyboard = userIsInteracting
+#if PLATFORM(WATCHOS)
+            || (_isChangingFocus && ![_focusedFormControlView isHidden])
+#else
+            || _isChangingFocus
+#endif
+#if ENABLE(DRAG_SUPPORT)
+            || _dragDropInteractionState.isPerformingDrop()
+#endif
+            || changingActivityState;
+        break;
+    case _WKFocusStartsInputSessionPolicyAllow:
+        shouldShowKeyboard = YES;
+        break;
+    case _WKFocusStartsInputSessionPolicyDisallow:
+        shouldShowKeyboard = NO;
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
 
     if (blurPreviousNode)
         [self _stopAssistingNode];
+
+    if (!shouldShowKeyboard)
+        return;
 
     if (!isAssistableInputType(information.elementType))
         return;
@@ -3941,14 +4105,34 @@ static bool isAssistableInputType(InputType type)
     if (_assistedNodeInformation.elementType == information.elementType && _assistedNodeInformation.elementRect == information.elementRect)
         return;
 
+    _focusRequiresStrongPasswordAssistance = NO;
+    if ([inputDelegate respondsToSelector:@selector(_webView:focusRequiresStrongPasswordAssistance:)])
+        _focusRequiresStrongPasswordAssistance = [inputDelegate _webView:_webView focusRequiresStrongPasswordAssistance:focusedElementInfo.get()];
+
+    bool delegateImplementsWillStartInputSession = [inputDelegate respondsToSelector:@selector(_webView:willStartInputSession:)];
+    bool delegateImplementsDidStartInputSession = [inputDelegate respondsToSelector:@selector(_webView:didStartInputSession:)];
+
+    if (delegateImplementsWillStartInputSession || delegateImplementsDidStartInputSession)
+        _formInputSession = adoptNS([[WKFormInputSession alloc] initWithContentView:self focusedElementInfo:focusedElementInfo.get() requiresStrongPasswordAssistance:_focusRequiresStrongPasswordAssistance]);
+
+    if (delegateImplementsWillStartInputSession)
+        [inputDelegate _webView:_webView willStartInputSession:_formInputSession.get()];
+
     BOOL editableChanged = [self setIsEditable:YES];
     _assistedNodeInformation = information;
     _inputPeripheral = nil;
     _traits = nil;
+
     if (![self isFirstResponder])
         [self becomeFirstResponder];
 
+#if PLATFORM(WATCHOS)
+    [self addFocusedFormControlOverlay];
+    if (!_isChangingFocus)
+        [self presentViewControllerForCurrentAssistedNode];
+#else
     [self reloadInputViews];
+#endif
     
     switch (information.elementType) {
     case InputType::Select:
@@ -3968,19 +4152,24 @@ static bool isAssistableInputType(InputType type)
     
     [self _displayFormNodeInputView];
 
+#if PLATFORM(WATCHOS)
+    if (_isChangingFocus)
+        [_focusedFormControlView reloadData:YES];
+#endif
+
     // _inputPeripheral has been initialized in inputView called by reloadInputViews.
     [_inputPeripheral beginEditing];
 
-    if ([inputDelegate respondsToSelector:@selector(_webView:didStartInputSession:)]) {
-        _formInputSession = adoptNS([[WKFormInputSession alloc] initWithContentView:self focusedElementInfo:focusedElementInfo.get()]);
+    if (delegateImplementsDidStartInputSession)
         [inputDelegate _webView:_webView didStartInputSession:_formInputSession.get()];
-    }
     
     [_webView didStartFormControlInteraction];
 }
 
 - (void)_stopAssistingNode
 {
+    SetForScope<BOOL> isBlurringFocusedNodeForScope { _isBlurringFocusedNode, YES };
+
     [_formInputSession invalidate];
     _formInputSession = nil;
 
@@ -3988,6 +4177,7 @@ static bool isAssistableInputType(InputType type)
 
     _assistedNodeInformation.elementType = InputType::None;
     _inputPeripheral = nil;
+    _focusRequiresStrongPasswordAssistance = NO;
 
     [self _stopAssistingKeyboard];
     [_formAccessoryView hideAutoFillButton];
@@ -3996,11 +4186,320 @@ static bool isAssistableInputType(InputType type)
     // The name is misleading, but this actually clears the selection views and removes any selection.
     [_webSelectionAssistant resignedFirstResponder];
 
+#if PLATFORM(WATCHOS)
+    [self dismissAllInputViewControllers:YES];
+    if (!_isChangingFocus)
+        [self removeFocusedFormControlOverlay];
+#endif
+
     // The custom fixed position rect behavior is affected by -isAssistingNode, so if that changes we need to recompute rects.
     if (editableChanged)
         [_webView _scheduleVisibleContentRectUpdate];
 
     [_webView didEndFormControlInteraction];
+}
+
+- (void)updateCurrentAssistedNodeInformation:(Function<void(bool didUpdate)>&&)callback
+{
+    WeakObjCPtr<WKContentView> weakSelf { self };
+    auto identifierBeforeUpdate = _assistedNodeInformation.assistedNodeIdentifier;
+    _page->requestAssistedNodeInformation([callback = WTFMove(callback), identifierBeforeUpdate, weakSelf] (auto& info, auto error) {
+        if (!weakSelf || error != CallbackBase::Error::None || info.assistedNodeIdentifier != identifierBeforeUpdate) {
+            // If the assisted node may have changed in the meantime, don't overwrite assisted node information.
+            callback(false);
+            return;
+        }
+
+        weakSelf.get()->_assistedNodeInformation = info;
+        callback(true);
+    });
+}
+
+- (void)reloadContextViewForPresentedListViewController
+{
+#if PLATFORM(WATCHOS)
+    if ([_presentedFullScreenInputViewController isKindOfClass:[WKTextInputListViewController class]])
+        [(WKTextInputListViewController *)_presentedFullScreenInputViewController.get() reloadContextView];
+#endif
+}
+
+#if PLATFORM(WATCHOS)
+
+- (void)addFocusedFormControlOverlay
+{
+    if (_focusedFormControlView)
+        return;
+
+    ++_webView->_activeFocusedStateRetainCount;
+
+    _focusedFormControlView = adoptNS([[WKFocusedFormControlView alloc] initWithFrame:_webView.bounds delegate:self]);
+    [_focusedFormControlView hide:NO];
+    [_webView addSubview:_focusedFormControlView.get()];
+    [self setInputDelegate:_focusedFormControlView.get()];
+}
+
+- (void)removeFocusedFormControlOverlay
+{
+    if (!_focusedFormControlView)
+        return;
+
+    --_webView->_activeFocusedStateRetainCount;
+
+    [_focusedFormControlView removeFromSuperview];
+    _focusedFormControlView = nil;
+    [self setInputDelegate:nil];
+}
+
+- (void)presentViewControllerForCurrentAssistedNode
+{
+    [self dismissAllInputViewControllers:NO];
+
+    _shouldRestoreFirstResponderStatusAfterLosingFocus = self.isFirstResponder;
+    UIViewController *presentingViewController = [UIViewController _viewControllerForFullScreenPresentationFromView:self];
+
+    ASSERT(!_presentedFullScreenInputViewController);
+
+    BOOL prefersModalPresentation = NO;
+
+    switch (_assistedNodeInformation.elementType) {
+    case InputType::Select:
+        _presentedFullScreenInputViewController = adoptNS([[WKSelectMenuListViewController alloc] initWithDelegate:self]);
+        break;
+    case InputType::Time:
+        // Time inputs are special, in that the only UI affordances for dismissal are push buttons rather than status bar chevrons.
+        // As such, modal presentation and dismissal is preferred even if a navigation stack exists.
+        prefersModalPresentation = YES;
+        _presentedFullScreenInputViewController = adoptNS([[WKTimePickerViewController alloc] initWithDelegate:self]);
+        break;
+    case InputType::Date:
+        _presentedFullScreenInputViewController = adoptNS([[WKDatePickerViewController alloc] initWithDelegate:self]);
+        break;
+    case InputType::None:
+        break;
+    default:
+        _presentedFullScreenInputViewController = adoptNS([[WKTextInputListViewController alloc] initWithDelegate:self]);
+        break;
+    }
+
+    ASSERT(_presentedFullScreenInputViewController);
+    ASSERT(presentingViewController);
+
+    if (!prefersModalPresentation && [presentingViewController isKindOfClass:[UINavigationController class]])
+        _inputNavigationViewControllerForFullScreenInputs = (UINavigationController *)presentingViewController;
+    else
+        _inputNavigationViewControllerForFullScreenInputs = nil;
+
+    // Present the input view controller on an existing navigation stack, if possible. If there is no navigation stack we can use, fall back to presenting modally.
+    // This is because the HI specification (for certain scenarios) calls for navigation-style view controller presentation, but WKWebView can't make any guarantees
+    // about clients' view controller hierarchies, so we can only try our best to avoid presenting modally. Clients can implicitly opt in to specced behavior by using
+    // UINavigationController to present the web view.
+    if (_inputNavigationViewControllerForFullScreenInputs)
+        [_inputNavigationViewControllerForFullScreenInputs pushViewController:_presentedFullScreenInputViewController.get() animated:YES];
+    else
+        [presentingViewController presentViewController:_presentedFullScreenInputViewController.get() animated:YES completion:nil];
+
+    // Presenting a fullscreen input view controller fully obscures the web view. Without taking this token, the web content process will get backgrounded.
+    _page->process().takeBackgroundActivityTokenForFullscreenInput();
+
+    [presentingViewController.transitionCoordinator animateAlongsideTransition:nil completion:[weakWebView = WeakObjCPtr<WKWebView>(_webView), controller = _presentedFullScreenInputViewController] (id <UIViewControllerTransitionCoordinatorContext>) {
+        auto strongWebView = weakWebView.get();
+        id <WKUIDelegatePrivate> uiDelegate = static_cast<id <WKUIDelegatePrivate>>([strongWebView UIDelegate]);
+        if ([uiDelegate respondsToSelector:@selector(_webView:didPresentFocusedElementViewController:)])
+            [uiDelegate _webView:strongWebView.get() didPresentFocusedElementViewController:controller.get()];
+    }];
+}
+
+- (void)dismissAllInputViewControllers:(BOOL)animated
+{
+    auto navigationController = WTFMove(_inputNavigationViewControllerForFullScreenInputs);
+    auto presentedController = WTFMove(_presentedFullScreenInputViewController);
+
+    if (!presentedController)
+        return;
+
+    if ([navigationController viewControllers].lastObject == presentedController.get())
+        [navigationController popViewControllerAnimated:animated];
+    else
+        [presentedController dismissViewControllerAnimated:animated completion:nil];
+
+    [[presentedController transitionCoordinator] animateAlongsideTransition:nil completion:[weakWebView = WeakObjCPtr<WKWebView>(_webView), controller = presentedController] (id <UIViewControllerTransitionCoordinatorContext>) {
+        auto strongWebView = weakWebView.get();
+        id <WKUIDelegatePrivate> uiDelegate = static_cast<id <WKUIDelegatePrivate>>([strongWebView UIDelegate]);
+        if ([uiDelegate respondsToSelector:@selector(_webView:didDismissFocusedElementViewController:)])
+            [uiDelegate _webView:strongWebView.get() didDismissFocusedElementViewController:controller.get()];
+    }];
+
+    if (_shouldRestoreFirstResponderStatusAfterLosingFocus) {
+        _shouldRestoreFirstResponderStatusAfterLosingFocus = NO;
+        if (!self.isFirstResponder)
+            [self becomeFirstResponder];
+    }
+
+    _page->process().releaseBackgroundActivityTokenForFullscreenInput();
+}
+
+- (void)focusedFormControlViewDidSubmit:(WKFocusedFormControlView *)view
+{
+    [self insertText:@"\n"];
+    _page->blurAssistedNode();
+}
+
+- (void)focusedFormControlViewDidCancel:(WKFocusedFormControlView *)view
+{
+    _page->blurAssistedNode();
+}
+
+- (void)focusedFormControlViewDidBeginEditing:(WKFocusedFormControlView *)view
+{
+    [self updateCurrentAssistedNodeInformation:[weakSelf = WeakObjCPtr<WKContentView>(self)] (bool didUpdate) {
+        if (!didUpdate)
+            return;
+
+        auto strongSelf = weakSelf.get();
+        [strongSelf presentViewControllerForCurrentAssistedNode];
+        [strongSelf->_focusedFormControlView hide:YES];
+    }];
+}
+
+- (CGRect)rectForFocusedFormControlView:(WKFocusedFormControlView *)view
+{
+    return [self convertRect:_assistedNodeInformation.elementRect toView:view];
+}
+
+- (CGRect)nextRectForFocusedFormControlView:(WKFocusedFormControlView *)view
+{
+    if (!_assistedNodeInformation.hasNextNode)
+        return CGRectNull;
+
+    return [self convertRect:_assistedNodeInformation.nextNodeRect toView:view];
+}
+
+- (CGRect)previousRectForFocusedFormControlView:(WKFocusedFormControlView *)view
+{
+    if (!_assistedNodeInformation.hasPreviousNode)
+        return CGRectNull;
+
+    return [self convertRect:_assistedNodeInformation.previousNodeRect toView:view];
+}
+
+- (UIScrollView *)scrollViewForFocusedFormControlView:(WKFocusedFormControlView *)view
+{
+    return self._scroller;
+}
+
+- (NSString *)actionNameForFocusedFormControlView:(WKFocusedFormControlView *)view
+{
+    if (_assistedNodeInformation.formAction.isEmpty())
+        return nil;
+
+    switch (_assistedNodeInformation.elementType) {
+    case InputType::Select:
+    case InputType::Time:
+    case InputType::Date:
+        return nil;
+    case InputType::Search:
+        return formControlSearchButtonTitle();
+    default:
+        return formControlGoButtonTitle();
+    }
+}
+
+- (void)focusedFormControlViewDidRequestNextNode:(WKFocusedFormControlView *)view
+{
+    if (_assistedNodeInformation.hasNextNode)
+        _page->focusNextAssistedNode(true);
+}
+
+- (void)focusedFormControlViewDidRequestPreviousNode:(WKFocusedFormControlView *)view
+{
+    if (_assistedNodeInformation.hasPreviousNode)
+        _page->focusNextAssistedNode(false);
+}
+
+- (BOOL)hasNextNodeForFocusedFormControlView:(WKFocusedFormControlView *)view
+{
+    return _assistedNodeInformation.hasNextNode;
+}
+
+- (BOOL)hasPreviousNodeForFocusedFormControlView:(WKFocusedFormControlView *)view
+{
+    return _assistedNodeInformation.hasPreviousNode;
+}
+
+- (void)focusedFormControllerDidUpdateSuggestions:(WKFocusedFormControlView *)view
+{
+    if (_isBlurringFocusedNode || ![_presentedFullScreenInputViewController isKindOfClass:[WKTextInputListViewController class]])
+        return;
+
+    [(WKTextInputListViewController *)_presentedFullScreenInputViewController reloadTextSuggestions];
+}
+
+#pragma mark - WKSelectMenuListViewControllerDelegate
+
+- (void)selectMenu:(WKSelectMenuListViewController *)selectMenu didSelectItemAtIndex:(NSUInteger)index
+{
+    ASSERT(!_assistedNodeInformation.isMultiSelect);
+    _page->setAssistedNodeSelectedIndex(index, false);
+}
+
+- (NSUInteger)numberOfItemsInSelectMenu:(WKSelectMenuListViewController *)selectMenu
+{
+    return self.assistedNodeSelectOptions.size();
+}
+
+- (NSString *)selectMenu:(WKSelectMenuListViewController *)selectMenu displayTextForItemAtIndex:(NSUInteger)index
+{
+    auto& options = self.assistedNodeSelectOptions;
+    if (index >= options.size()) {
+        ASSERT_NOT_REACHED();
+        return @"";
+    }
+
+    return options[index].text;
+}
+
+- (void)selectMenu:(WKSelectMenuListViewController *)selectMenu didCheckItemAtIndex:(NSUInteger)index checked:(BOOL)checked
+{
+    ASSERT(_assistedNodeInformation.isMultiSelect);
+    if (index >= self.assistedNodeSelectOptions.size()) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto& option = self.assistedNodeSelectOptions[index];
+    if (option.isSelected == checked) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    _page->setAssistedNodeSelectedIndex(index, true);
+    option.isSelected = checked;
+}
+
+- (BOOL)selectMenuUsesMultipleSelection:(WKSelectMenuListViewController *)selectMenu
+{
+    return _assistedNodeInformation.isMultiSelect;
+}
+
+- (BOOL)selectMenu:(WKSelectMenuListViewController *)selectMenu hasSelectedOptionAtIndex:(NSUInteger)index
+{
+    if (index >= self.assistedNodeSelectOptions.size()) {
+        ASSERT_NOT_REACHED();
+        return NO;
+    }
+
+    return self.assistedNodeSelectOptions[index].isSelected;
+}
+
+#endif // PLATFORM(WATCHOS)
+
+- (void)_wheelChangedWithEvent:(UIEvent *)event
+{
+#if PLATFORM(WATCHOS)
+    if ([_focusedFormControlView handleWheelEvent:event])
+        return;
+#endif
+    [super _wheelChangedWithEvent:event];
 }
 
 - (void)_selectionChanged
@@ -4055,7 +4554,9 @@ static bool isAssistableInputType(InputType type)
     if (!state.isMissingPostLayoutData && state.postLayoutData().isStableStateUpdate && _needsDeferredEndScrollingSelectionUpdate && _page->inStableState()) {
         [[self selectionInteractionAssistant] showSelectionCommands];
         [_webSelectionAssistant didEndScrollingOrZoomingPage];
+#if !PLATFORM(IOSMAC)
         [[_webSelectionAssistant selectionView] setHidden:NO];
+#endif
 
         if (!self.suppressAssistantSelectionView)
             [_textSelectionAssistant activateSelection];
@@ -4088,6 +4589,7 @@ static bool isAssistableInputType(InputType type)
 
 - (void)_showPlaybackTargetPicker:(BOOL)hasVideo fromRect:(const IntRect&)elementRect routeSharingPolicy:(WebCore::RouteSharingPolicy)routeSharingPolicy routingContextUID:(NSString *)routingContextUID
 {
+#if ENABLE(AIRPLAY_PICKER)
 #if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000 && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     if (!_airPlayRoutePicker)
         _airPlayRoutePicker = adoptNS([[WKAirPlayRoutePicker alloc] init]);
@@ -4096,6 +4598,7 @@ static bool isAssistableInputType(InputType type)
     if (!_airPlayRoutePicker)
         _airPlayRoutePicker = adoptNS([[WKAirPlayRoutePicker alloc] initWithView:self]);
     [_airPlayRoutePicker show:hasVideo fromRect:elementRect];
+#endif
 #endif
 }
 
@@ -4110,19 +4613,12 @@ static bool isAssistableInputType(InputType type)
     [_fileUploadPanel presentWithParameters:parameters resultListener:listener];
 }
 
-#pragma mark - WKFileUploadPanelDelegate
-
 - (void)fileUploadPanelDidDismiss:(WKFileUploadPanel *)fileUploadPanel
 {
     ASSERT(_fileUploadPanel.get() == fileUploadPanel);
 
     [_fileUploadPanel setDelegate:nil];
     _fileUploadPanel = nil;
-}
-
-- (UIViewController *)viewControllerForPresentingFileUploadPanel:(WKFileUploadPanel *)fileUploadPanel
-{
-    return _page->uiClient().presentingViewController();
 }
 
 #pragma mark - UITextInputMultiDocument
@@ -4346,6 +4842,9 @@ static BOOL shouldEnableDragInteractionForPolicy(_WKDragInteractionPolicy policy
 {
     ASSERT(item.sourceAction != DragSourceActionNone);
 
+    if (item.promisedBlob)
+        [self _prepareToDragPromisedBlob:item.promisedBlob];
+
     auto dragImage = adoptNS([[UIImage alloc] initWithCGImage:image.get() scale:_page->deviceScaleFactor() orientation:UIImageOrientationUp]);
     _dragDropInteractionState.stageDragItem(item, dragImage.get());
 }
@@ -4431,7 +4930,9 @@ static UIDropOperation dropOperationForWebCoreDragOperation(DragOperation operat
 
 - (void)cleanUpDragSourceSessionState
 {
-    RELEASE_LOG(DragAndDrop, "Cleaning up dragging state (has pending operation: %d)", [[WebItemProviderPasteboard sharedInstance] hasPendingOperation]);
+    if (_dragDropInteractionState.dragSession() || _dragDropInteractionState.isPerformingDrop())
+        RELEASE_LOG(DragAndDrop, "Cleaning up dragging state (has pending operation: %d)", [[WebItemProviderPasteboard sharedInstance] hasPendingOperation]);
+
     if (![[WebItemProviderPasteboard sharedInstance] hasPendingOperation]) {
         // If we're performing a drag operation, don't clear out the pasteboard yet, since another web view may still require access to it.
         // The pasteboard will be cleared after the last client is finished performing a drag operation using the item providers.
@@ -4545,8 +5046,52 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
 
 - (void)_prepareToDragPromisedBlob:(const PromisedBlobInfo&)info
 {
-    // FIXME: Add iOS support for dragging promised blob data as file promises.
-    UNUSED_PARAM(info);
+    auto session = retainPtr(_dragDropInteractionState.dragSession());
+    if (!session) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto numberOfAdditionalTypes = info.additionalTypes.size();
+    ASSERT(numberOfAdditionalTypes == info.additionalData.size());
+
+    RELEASE_LOG(DragAndDrop, "Drag session: %p preparing to drag blob: %s", session.get(), info.blobURL.string().utf8().data());
+
+    auto registrationList = adoptNS([[WebItemProviderRegistrationInfoList alloc] init]);
+    [registrationList setPreferredPresentationStyle:WebPreferredPresentationStyleAttachment];
+    if (!info.filename.isEmpty())
+        [registrationList setSuggestedName:info.filename];
+    if (numberOfAdditionalTypes == info.additionalData.size() && numberOfAdditionalTypes) {
+        for (size_t index = 0; index < numberOfAdditionalTypes; ++index) {
+            auto nsData = info.additionalData[index]->createNSData();
+            [registrationList addData:nsData.get() forType:info.additionalTypes[index]];
+        }
+    }
+
+    [registrationList addPromisedType:info.contentType fileCallback:[session = WTFMove(session), weakSelf = WeakObjCPtr<WKContentView>(self), url = info.blobURL] (WebItemProviderFileCallback callback) {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf) {
+            callback(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorWebViewInvalidated userInfo:nil]);
+            return;
+        }
+
+        NSString *temporaryBlobDirectory = FileSystem::createTemporaryDirectory(@"blobs");
+        NSURL *destinationURL = [NSURL fileURLWithPath:[temporaryBlobDirectory stringByAppendingPathComponent:[NSUUID UUID].UUIDString] isDirectory:NO];
+
+        RELEASE_LOG(DragAndDrop, "Drag session: %p delivering promised blob at path: %@", session.get(), destinationURL.path);
+        strongSelf->_page->writeBlobToFilePath(url, destinationURL.path, [protectedURL = retainPtr(destinationURL), protectedCallback = makeBlockPtr(callback)] (bool success) {
+            if (success)
+                protectedCallback(protectedURL.get(), nil);
+            else
+                protectedCallback(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:nil]);
+        });
+
+        [ensureLocalDragSessionContext(session.get()) addTemporaryDirectory:temporaryBlobDirectory];
+    }];
+
+    WebItemProviderPasteboard *pasteboard = [WebItemProviderPasteboard sharedInstance];
+    pasteboard.itemProviders = @[ [registrationList itemProvider] ];
+    [pasteboard stageRegistrationList:registrationList.get()];
 }
 
 - (WKDragDestinationAction)_dragDestinationActionForDropSession:(id <UIDropSession>)session
@@ -4587,11 +5132,11 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
     if ([uiDelegate respondsToSelector:@selector(_webView:adjustedDataInteractionItemProvidersForItemProvider:representingObjects:additionalData:)]) {
         auto representingObjects = adoptNS([[NSMutableArray alloc] init]);
         auto additionalData = adoptNS([[NSMutableDictionary alloc] init]);
-        [registrationList enumerateItems:[representingObjects, additionalData] (WebItemProviderRegistrationInfo *item, NSUInteger) {
-            if (item.representingObject)
-                [representingObjects addObject:item.representingObject];
-            if (item.typeIdentifier && item.data)
-                [additionalData setObject:item.data forKey:item.typeIdentifier];
+        [registrationList enumerateItems:[representingObjects, additionalData] (id <WebItemProviderRegistrar> item, NSUInteger) {
+            if ([item respondsToSelector:@selector(representingObjectForClient)])
+                [representingObjects addObject:item.representingObjectForClient];
+            if ([item respondsToSelector:@selector(typeIdentifierForClient)] && [item respondsToSelector:@selector(dataForClient)])
+                [additionalData setObject:item.dataForClient forKey:item.typeIdentifierForClient];
         }];
         adjustedItemProviders = [uiDelegate _webView:_webView adjustedDataInteractionItemProvidersForItemProvider:defaultItemProvider representingObjects:representingObjects.get() additionalData:additionalData.get()];
     } else
@@ -4609,14 +5154,18 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
 
 - (NSDictionary *)_autofillContext
 {
-    if (_assistedNodeInformation.elementType == InputType::None || !_assistedNodeInformation.acceptsAutofilledLoginCredentials)
+    BOOL provideStrongPasswordAssistance = _focusRequiresStrongPasswordAssistance && _assistedNodeInformation.elementType == InputType::Password;
+    if (!hasAssistedNode(_assistedNodeInformation) || (!_assistedNodeInformation.acceptsAutofilledLoginCredentials && !provideStrongPasswordAssistance))
         return nil;
+
+    if (provideStrongPasswordAssistance)
+        return @{ @"_automaticPasswordKeyboard" : @YES };
 
     NSURL *platformURL = _assistedNodeInformation.representingPageURL;
-    if (!platformURL)
-        return nil;
+    if (platformURL)
+        return @{ @"_WebViewURL" : platformURL };
 
-    return @{ @"_WebViewURL" : platformURL };
+    return nil;
 }
 
 #pragma mark - UIDragInteractionDelegate
@@ -4724,6 +5273,9 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
     auto positionForDragEnd = roundedIntPoint(_dragDropInteractionState.adjustedPositionForDragEnd());
     RetainPtr<WKContentView> protectedSelf(self);
     [animator addCompletion:[session, positionForDragEnd, protectedSelf, page = _page] (UIViewAnimatingPosition finalPosition) {
+#if RELEASE_LOG_DISABLED
+        UNUSED_PARAM(session);
+#endif
         if (finalPosition == UIViewAnimatingPositionStart) {
             RELEASE_LOG(DragAndDrop, "Drag session ended at start: %p", session);
             // The lift was canceled, so -dropInteraction:sessionDidEnd: will never be invoked. This is the last chance to clean up.
@@ -4789,6 +5341,11 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
             });
         }
     }];
+}
+
+- (void)dragInteraction:(UIDragInteraction *)interaction sessionDidTransferItems:(id <UIDragSession>)session
+{
+    [existingLocalDragSessionContext(session) cleanUpTemporaryDirectories];
 }
 
 #pragma mark - UIDropInteractionDelegate
@@ -4934,9 +5491,220 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
 
 #endif
 
+#if PLATFORM(WATCHOS)
+
+- (void)dismissQuickboardViewControllerAndRevealFocusedFormOverlayIfNecessary:(PUICQuickboardViewController *)quickboard
+{
+    BOOL shouldRevealFocusOverlay = NO;
+    // In the case where there's nothing the user could potentially do besides dismiss the overlay, we can just automatically without asking the delegate.
+    if ([_webView._inputDelegate respondsToSelector:@selector(_webView:shouldRevealFocusOverlayForInputSession:)]
+        && ([self actionNameForFocusedFormControlView:_focusedFormControlView.get()] || _assistedNodeInformation.hasNextNode || _assistedNodeInformation.hasPreviousNode))
+        shouldRevealFocusOverlay = [_webView._inputDelegate _webView:_webView shouldRevealFocusOverlayForInputSession:_formInputSession.get()];
+
+    if (shouldRevealFocusOverlay) {
+        [_focusedFormControlView show:NO];
+        [self updateCurrentAssistedNodeInformation:[weakSelf = WeakObjCPtr<WKContentView>(self)] (bool didUpdate) {
+            if (!didUpdate)
+                return;
+
+            auto focusedFormController = weakSelf.get()->_focusedFormControlView;
+            [focusedFormController reloadData:YES];
+            [focusedFormController engageFocusedFormControlNavigation];
+        }];
+    } else
+        _page->blurAssistedNode();
+
+    // The Quickboard view controller passed into this delegate method is not necessarily the view controller we originally presented;
+    // this happens in the case when the user chooses an input method (e.g. scribble) and a new Quickboard view controller is presented.
+    if (quickboard != _presentedFullScreenInputViewController)
+        [quickboard dismissViewControllerAnimated:YES completion:nil];
+
+    [self dismissAllInputViewControllers:quickboard == _presentedFullScreenInputViewController];
+}
+
+#pragma mark - PUICQuickboardViewControllerDelegate
+
+- (void)quickboard:(PUICQuickboardViewController *)quickboard textEntered:(NSAttributedString *)attributedText
+{
+    if (attributedText)
+        _page->setTextAsync(attributedText.string);
+
+    [self dismissQuickboardViewControllerAndRevealFocusedFormOverlayIfNecessary:quickboard];
+}
+
+- (void)quickboardInputCancelled:(PUICQuickboardViewController *)quickboard
+{
+    [self dismissQuickboardViewControllerAndRevealFocusedFormOverlayIfNecessary:quickboard];
+}
+
+#pragma mark - WKQuickboardViewControllerDelegate
+
+- (CGFloat)viewController:(PUICQuickboardViewController *)controller inputContextViewHeightForSize:(CGSize)size
+{
+    id <_WKInputDelegate> delegate = _webView._inputDelegate;
+    if (![delegate respondsToSelector:@selector(_webView:focusedElementContextViewHeightForFittingSize:inputSession:)])
+        return 0;
+
+    return [delegate _webView:_webView focusedElementContextViewHeightForFittingSize:size inputSession:_formInputSession.get()];
+}
+
+- (BOOL)allowsLanguageSelectionMenuForListViewController:(PUICQuickboardViewController *)controller
+{
+    switch (_assistedNodeInformation.elementType) {
+    case InputType::ContentEditable:
+    case InputType::Text:
+    case InputType::TextArea:
+    case InputType::Search:
+    case InputType::Email:
+    case InputType::URL:
+        return YES;
+    default:
+        return NO;
+    }
+}
+
+- (UIView *)inputContextViewForViewController:(PUICQuickboardViewController *)controller
+{
+    id <_WKInputDelegate> delegate = _webView._inputDelegate;
+    if (![delegate respondsToSelector:@selector(_webView:focusedElementContextViewForInputSession:)])
+        return nil;
+
+    return [delegate _webView:_webView focusedElementContextViewForInputSession:_formInputSession.get()];
+}
+
+- (NSString *)inputLabelTextForViewController:(PUICQuickboardViewController *)controller
+{
+    if (!_assistedNodeInformation.label.isEmpty())
+        return _assistedNodeInformation.label;
+
+    if (!_assistedNodeInformation.ariaLabel.isEmpty())
+        return _assistedNodeInformation.ariaLabel;
+
+    if (!_assistedNodeInformation.title.isEmpty())
+        return _assistedNodeInformation.title;
+
+    return _assistedNodeInformation.placeholder;
+}
+
+- (NSString *)initialValueForViewController:(PUICQuickboardViewController *)controller
+{
+    return _assistedNodeInformation.value;
+}
+
+- (BOOL)shouldDisplayInputContextViewForListViewController:(PUICQuickboardViewController *)controller
+{
+    switch (_assistedNodeInformation.elementType) {
+    case InputType::ContentEditable:
+    case InputType::Text:
+    case InputType::Password:
+    case InputType::TextArea:
+    case InputType::Search:
+    case InputType::Email:
+    case InputType::URL:
+    case InputType::Phone:
+        return YES;
+    default:
+        return NO;
+    }
+}
+
+#pragma mark - WKTextInputListViewControllerDelegate
+
+- (WKNumberPadInputMode)numericInputModeForListViewController:(WKTextInputListViewController *)controller
+{
+    switch (_assistedNodeInformation.elementType) {
+    case InputType::Phone:
+        return WKNumberPadInputModeTelephone;
+    case InputType::Number:
+        return WKNumberPadInputModeNumbersAndSymbols;
+    case InputType::NumberPad:
+        return WKNumberPadInputModeNumbersOnly;
+    default:
+        return WKNumberPadInputModeNone;
+    }
+}
+
+- (NSString *)textContentTypeForListViewController:(WKTextInputListViewController *)controller
+{
+    switch (_assistedNodeInformation.elementType) {
+    case InputType::Password:
+        return UITextContentTypePassword;
+    case InputType::URL:
+        return UITextContentTypeURL;
+    case InputType::Email:
+        return UITextContentTypeEmailAddress;
+    case InputType::Phone:
+        return UITextContentTypeTelephoneNumber;
+    default:
+        // The element type alone is insufficient to infer content type; fall back to autofill data.
+        if (NSString *contentType = contentTypeFromFieldName(_assistedNodeInformation.autofillFieldName))
+            return contentType;
+
+        if (_assistedNodeInformation.isAutofillableUsernameField)
+            return UITextContentTypeUsername;
+
+        return nil;
+    }
+}
+
+- (NSArray<UITextSuggestion *> *)textSuggestionsForListViewController:(WKTextInputListViewController *)controller
+{
+    return [_focusedFormControlView suggestions];
+}
+
+- (void)listViewController:(WKTextInputListViewController *)controller didSelectTextSuggestion:(UITextSuggestion *)suggestion
+{
+    [self insertTextSuggestion:suggestion];
+    [self dismissQuickboardViewControllerAndRevealFocusedFormOverlayIfNecessary:controller];
+}
+
+- (BOOL)allowsDictationInputForListViewController:(PUICQuickboardViewController *)controller
+{
+    return _assistedNodeInformation.elementType != InputType::Password;
+}
+
+#endif // PLATFORM(WATCHOS)
+
+#if PLATFORM(IOSMAC)
+- (void)_hoverGestureRecognizerChanged:(UIGestureRecognizer *)gestureRecognizer
+{
+    if (!_page->isValid())
+        return;
+
+    // Make a timestamp that matches UITouch and UIEvent.
+    CFTimeInterval timestamp = GSCurrentEventTimestamp() / 1000000000.0;
+
+    CGPoint point;
+    switch (gestureRecognizer.state) {
+    case UIGestureRecognizerStateBegan:
+    case UIGestureRecognizerStateChanged:
+        point = [gestureRecognizer locationInView:self];
+        break;
+    case UIGestureRecognizerStateEnded:
+    case UIGestureRecognizerStateCancelled:
+    default:
+        point = CGPointMake(-1, -1);
+        break;
+    }
+
+    auto event = adoptNS([[::WebEvent alloc] initWithMouseEventType:WebEventMouseMoved timeStamp:timestamp location:point]);
+    _page->handleMouseEvent(NativeWebMouseEvent(event.get()));
+}
+#endif
+
 @end
 
 @implementation WKContentView (WKTesting)
+
+- (void)_simulateTextEntered:(NSString *)text
+{
+#if PLATFORM(WATCHOS)
+    if ([_presentedFullScreenInputViewController isKindOfClass:[WKTextInputListViewController class]])
+        [(WKTextInputListViewController *)_presentedFullScreenInputViewController.get() enterText:text];
+#else
+    [self insertText:text];
+#endif
+}
 
 - (void)_simulateLongPressActionAtLocation:(CGPoint)location
 {
@@ -4949,8 +5717,47 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
 
 - (void)selectFormAccessoryPickerRow:(NSInteger)rowIndex
 {
+#if PLATFORM(WATCHOS)
+    if ([_presentedFullScreenInputViewController isKindOfClass:[WKSelectMenuListViewController class]])
+        [(WKSelectMenuListViewController *)_presentedFullScreenInputViewController.get() selectItemAtIndex:rowIndex];
+#else
     if ([_inputPeripheral isKindOfClass:[WKFormSelectControl self]])
         [(WKFormSelectControl *)_inputPeripheral selectRow:rowIndex inComponent:0 extendingSelection:NO];
+#endif
+}
+
+- (NSString *)textContentTypeForTesting
+{
+#if PLATFORM(WATCHOS)
+    if ([_presentedFullScreenInputViewController isKindOfClass:[WKTextInputListViewController class]])
+        return [self textContentTypeForListViewController:(WKTextInputListViewController *)_presentedFullScreenInputViewController.get()];
+#endif
+    return self.textInputTraits.textContentType;
+}
+
+- (NSString *)selectFormPopoverTitle
+{
+    if (![_inputPeripheral isKindOfClass:[WKFormSelectControl self]])
+        return nil;
+
+    return [(WKFormSelectControl *)_inputPeripheral selectFormPopoverTitle];
+}
+
+- (NSString *)formInputLabel
+{
+#if PLATFORM(WATCHOS)
+    if (_presentedFullScreenInputViewController)
+        return [self inputLabelTextForViewController:(id)_presentedFullScreenInputViewController.get()];
+#endif
+    return nil;
+}
+
+- (void)setTimePickerValueToHour:(NSInteger)hour minute:(NSInteger)minute
+{
+#if PLATFORM(WATCHOS)
+    if ([_presentedFullScreenInputViewController isKindOfClass:[WKTimePickerViewController class]])
+        [(WKTimePickerViewController *)_presentedFullScreenInputViewController.get() setHour:hour minute:minute];
+#endif
 }
 
 - (NSDictionary *)_contentsOfUserInterfaceItem:(NSString *)userInterfaceItem
@@ -5018,8 +5825,10 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
             return NO;
         if (linkURL.protocolIsInHTTPFamily())
             return YES;
+#if ENABLE(DATA_DETECTION)
         if (DataDetection::canBePresentedByDataDetectors(linkURL))
             return YES;
+#endif
         return NO;
     }
     return YES;
@@ -5038,6 +5847,10 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
     BOOL supportsAttachmentPreview = ([uiDelegate respondsToSelector:@selector(_attachmentListForWebView:)] || respondsToAttachmentListForWebViewSourceIsManaged)
         && [uiDelegate respondsToSelector:@selector(_webView:indexIntoAttachmentListForElement:)];
     BOOL canShowAttachmentPreview = (_positionInformation.isAttachment || _positionInformation.isImage) && supportsAttachmentPreview;
+    BOOL isDataDetectorLink = NO;
+#if ENABLE(DATA_DETECTION)
+    isDataDetectorLink = _positionInformation.isDataDetectorLink;
+#endif
 
     if (canShowImagePreview && _positionInformation.isAnimatedImage) {
         canShowImagePreview = NO;
@@ -5049,7 +5862,7 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
         return nil;
 
     const URL& linkURL = _positionInformation.url;
-    if (!useImageURLForLink && (linkURL.isEmpty() || (!linkURL.protocolIsInHTTPFamily() && !_positionInformation.isDataDetectorLink))) {
+    if (!useImageURLForLink && (linkURL.isEmpty() || (!linkURL.protocolIsInHTTPFamily() && !isDataDetectorLink))) {
         if (canShowLinkPreview && !canShowImagePreview)
             return nil;
         canShowLinkPreview = NO;
@@ -5062,7 +5875,8 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
             dataForPreview[UIPreviewDataLink] = (NSURL *)_positionInformation.imageURL;
         else
             dataForPreview[UIPreviewDataLink] = (NSURL *)linkURL;
-        if (_positionInformation.isDataDetectorLink) {
+#if ENABLE(DATA_DETECTION)
+        if (isDataDetectorLink) {
             NSDictionary *context = nil;
             if ([uiDelegate respondsToSelector:@selector(_dataDetectionContextForWebView:)])
                 context = [uiDelegate _dataDetectionContextForWebView:_webView];
@@ -5086,6 +5900,7 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
             if (newContext)
                 dataForPreview[UIPreviewDataDDContext] = newContext;
         }
+#endif // ENABLE(DATA_DETECTION)
     } else if (canShowImagePreview) {
         *type = UIPreviewItemTypeImage;
         dataForPreview[UIPreviewDataLink] = (NSURL *)_positionInformation.imageURL;
@@ -5101,7 +5916,7 @@ static NSArray<UIItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
                 dataForPreview[UIPreviewDataAttachmentList] = [uiDelegate _attachmentListForWebView:_webView];
             dataForPreview[UIPreviewDataAttachmentIndex] = [NSNumber numberWithUnsignedInteger:index];
 
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000
             // FIXME: Replace the following NSString literal with a UIKit NSString constant.
             dataForPreview[@"UIPreviewDataAttachmentListIsContentManaged"] = [NSNumber numberWithBool:sourceIsManaged];
 #else

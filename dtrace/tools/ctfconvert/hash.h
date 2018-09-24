@@ -27,8 +27,6 @@
 #ifndef _HASH_H
 #define	_HASH_H
 
-#pragma ident	"@(#)hash.h	1.4	05/06/08 SMI"
-
 /*
  * Routines for manipulating hash tables
  */

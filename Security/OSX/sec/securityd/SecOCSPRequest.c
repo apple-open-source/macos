@@ -94,11 +94,7 @@ static CFDataRef _SecOCSPRequestCopyDEREncoding(SecOCSPRequestRef this) {
        and call SecDigestCreate here instead. */
     issuerNameDigest = SecCertificateCopyIssuerSHA1Digest(this->certificate);
     issuerPubKeyDigest = SecCertificateCopyPublicKeySHA1Digest(this->issuer);
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
-    serial = SecCertificateCopySerialNumber(this->certificate, NULL);
-#else
-    serial = SecCertificateCopySerialNumber(this->certificate);
-#endif
+    serial = SecCertificateCopySerialNumberData(this->certificate, NULL);
 
 	/* build the CertID from those components */
 	certId->issuerNameHash.Length = CC_SHA1_DIGEST_LENGTH;

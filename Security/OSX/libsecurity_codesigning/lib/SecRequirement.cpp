@@ -167,6 +167,8 @@ OSStatus SecRequirementCopyString(SecRequirementRef requirementRef, SecCSFlags f
 CFStringRef kSecRequirementKeyInfoPlist = CFSTR("requirement:eval:info");
 CFStringRef kSecRequirementKeyEntitlements = CFSTR("requirement:eval:entitlements");
 CFStringRef kSecRequirementKeyIdentifier = CFSTR("requirement:eval:identifier");
+CFStringRef kSecRequirementKeyPackageChecksum = CFSTR("requirement:eval:package_checksum");
+CFStringRef kSecRequirementKeyChecksumAlgorithm = CFSTR("requirement:eval:package_checksum_algorithm");
 
 OSStatus SecRequirementEvaluate(SecRequirementRef requirementRef,
 	CFArrayRef certificateChain, CFDictionaryRef context,
@@ -177,13 +179,24 @@ OSStatus SecRequirementEvaluate(SecRequirementRef requirementRef,
 	const Requirement *req = SecRequirement::required(requirementRef)->requirement();
 	checkFlags(flags);
 	CodeSigning::Required(certificateChain);
-	
+
+	SecCSDigestAlgorithm checksumAlgorithm = kSecCodeSignatureNoHash;
+	if (context) {
+		CFRef<CFNumberRef> num = (CFNumberRef)CFDictionaryGetValue(context, kSecRequirementKeyChecksumAlgorithm);
+		if (num) {
+			checksumAlgorithm = (SecCSDigestAlgorithm)cfNumber<uint32_t>(num);
+		}
+	}
+
 	Requirement::Context ctx(certificateChain,		// mandatory
 		context ? CFDictionaryRef(CFDictionaryGetValue(context, kSecRequirementKeyInfoPlist)) : NULL,
 		context ? CFDictionaryRef(CFDictionaryGetValue(context, kSecRequirementKeyEntitlements)) : NULL,
 		(context && CFDictionaryGetValue(context, kSecRequirementKeyIdentifier)) ?
 			cfString(CFStringRef(CFDictionaryGetValue(context, kSecRequirementKeyIdentifier))) : "",
-		NULL	// can't specify a CodeDirectory here
+		NULL,	// can't specify a CodeDirectory here
+		context ? CFDataRef(CFDictionaryGetValue(context, kSecRequirementKeyPackageChecksum)) : NULL,
+        checksumAlgorithm,
+		false // can't get forced platform this way
 	);
 	req->validate(ctx);
 	

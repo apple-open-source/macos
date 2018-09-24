@@ -1,3 +1,260 @@
+2018-06-25  Keith Rollin  <krollin@apple.com>
+        Unreviewed, rolling out r233087.
+
+        Causes 5% Mac PLT regression.
+
+        Reverted changeset:
+
+        "Recalc styles every time defaultAppearance changes."
+        https://bugs.webkit.org/show_bug.cgi?id=186866
+        https://trac.webkit.org/changeset/233087
+
+2018-06-23  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [WTF] Add user-defined literal for ASCIILiteral
+        https://bugs.webkit.org/show_bug.cgi?id=186839
+
+        Reviewed by Darin Adler.
+
+        * Storage/StorageTracker.cpp:
+        (WebKit::StorageTracker::syncFileSystemAndTrackerDatabase):
+        * WebCoreSupport/PingHandle.h:
+
+2018-06-09  Dan Bernstein  <mitz@apple.com>
+
+        Added missing file references to the Configuration group.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2018-05-25  Alex Christensen  <achristensen@webkit.org>
+
+        URL::host should return a StringView to reduce allocations
+        https://bugs.webkit.org/show_bug.cgi?id=185986
+
+        Reviewed by Geoff Garen.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::hostForURL):
+
+2018-05-11  Charles Vazac  <cvazac@gmail.com>
+
+        Runtime feature flag for Server-Timing
+        https://bugs.webkit.org/show_bug.cgi?id=184758
+
+        Reviewed by Youenn Fablet.
+
+        * mac/WebView/WebPreferenceKeysPrivate.h: Added server-timing preference.
+        * mac/WebView/WebPreferences.mm:
+        (WebKit::WebPreferences::serverTimingEnabled):
+        (WebKit::WebPreferences::setServerTimingEnabled):
+        * mac/WebView/WebPreferencesPrivate.h:
+        (WebKit::WebPreferences::setServerTimingEnabled):
+        (WebKit::WebPreferences::serverTimingEnabled):
+        * mac/WebView/WebView.mm: Set runtime enabled feature based on preference.
+        * win/Interfaces/IWebPreferencesPrivate.idl: define serverTimingEnabled and setServerTimingEnabled.
+        * win/WebPreferenceKeysPrivate.h: Added server-timing preference.
+        * win/WebPreferences.cpp: Initialize server-timing as false and define setter and getter.
+        (WebKit::WebPreferences::serverTimingEnabled):
+        (WebKit::WebPreferences::setServerTimingEnabled):
+        * win/WebPreferences.h: Define serverTimingEnabled and setServerTimingEnabled.
+        * win/WebView.cpp: Set runtime enabled feature based on preference.
+
+2018-05-02  Keith Rollin  <krollin@apple.com>
+
+        Add facility for tracking times and results of page and resource loading
+        https://bugs.webkit.org/show_bug.cgi?id=184838
+        <rdar://problem/36548974>
+
+        Reviewed by Brent Fulgham.
+
+        Add an empty override of the pure virtual
+        LoaderStrategy::pageLoadCompleted method.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::pageLoadCompleted):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2018-05-01  Eric Carlson  <eric.carlson@apple.com>
+
+        [MediaStream] remove WK1 support
+        https://bugs.webkit.org/show_bug.cgi?id=185136
+
+        Reviewed by Youenn Fablet.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2018-04-30  JF Bastien  <jfbastien@apple.com>
+
+        Use some C++17 features
+        https://bugs.webkit.org/show_bug.cgi?id=185135
+
+        Reviewed by Alex Christensen.
+
+        * PlatformMac.cmake:
+
+2018-04-16  Youenn Fablet  <youenn@apple.com>
+
+        Use NetworkLoadChecker to handle synchronous HTTP loads
+        https://bugs.webkit.org/show_bug.cgi?id=184240
+
+        Reviewed by Chris Dumez.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::loadResourceSynchronously):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2018-04-04  Alex Christensen  <achristensen@webkit.org>
+
+        Move PingHandle to WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=184145
+
+        Reviewed by Youenn Fablet.
+
+        * WebCoreSupport/PingHandle.h: Copied from Source/WebCore/platform/network/PingHandle.h.
+        (): Deleted.
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2018-03-27  Chris Dumez  <cdumez@apple.com>
+
+        Move online state detection from the WebProcess to the NetworkProcess
+        https://bugs.webkit.org/show_bug.cgi?id=183989
+        <rdar://problem/37093299>
+
+        Reviewed by Youenn Fablet.
+
+        No change on WebKit1 except that WebResourceLoadScheduler needs to override
+        2 new virtual functions which forward the calls to the NetworkStateNotifier.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::isOnLine const):
+        (WebResourceLoadScheduler::addOnlineStateChangeListener):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2018-03-26  Chris Dumez  <cdumez@apple.com>
+
+        Use SecurityOriginData more consistently in Service Worker code
+        https://bugs.webkit.org/show_bug.cgi?id=183969
+
+        Reviewed by Darin Adler.
+
+        Use SecurityOrigin::data() instead of SecurityOriginData::fromSecurityOrigin().
+
+        * Storage/StorageTracker.cpp:
+        (WebKit::StorageTracker::diskUsageForOrigin):
+
+2018-03-25  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r229954.
+        https://bugs.webkit.org/show_bug.cgi?id=184000
+
+        Caused many layout tests to crash on Apple High Sierra,
+        Sierra, iOS Simulator and GTK Linux Debug test bots (Requested
+        by dydz on #webkit).
+
+        Reverted changeset:
+
+        "Use SecurityOriginData more consistently in Service Worker
+        code"
+        https://bugs.webkit.org/show_bug.cgi?id=183969
+        https://trac.webkit.org/changeset/229954
+
+2018-03-24  Chris Dumez  <cdumez@apple.com>
+
+        Use SecurityOriginData more consistently in Service Worker code
+        https://bugs.webkit.org/show_bug.cgi?id=183969
+
+        Reviewed by Darin Adler.
+
+        Use SecurityOrigin::data() instead of SecurityOriginData::fromSecurityOrigin().
+
+        * Storage/StorageTracker.cpp:
+        (WebKit::StorageTracker::diskUsageForOrigin):
+
+2018-03-23  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt WK_PLATFORM_NAME in WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=183948
+        <rdar://problem/38803908>
+
+        Reviewed by Dan Bernstein.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2018-02-28  Alex Christensen  <achristensen@webkit.org>
+
+        Reduce use of NetworkingContext in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=183213
+
+        Reviewed by Brady Eidson.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::loadResourceSynchronously):
+        (WebResourceLoadScheduler::preconnectTo):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2018-02-26  Don Olmstead  <don.olmstead@sony.com>
+
+        Fix WebCore includes within WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=183147
+
+        Reviewed by Tim Horton.
+
+        * CMakeLists.txt:
+
+2018-02-13  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r228431.
+        https://bugs.webkit.org/show_bug.cgi?id=182766
+
+        Regressed CMake build stability (Requested by dolmstead on
+        #webkit).
+
+        Reverted changeset:
+
+        "[CMake] Make WebCore headers copies"
+        https://bugs.webkit.org/show_bug.cgi?id=182512
+        https://trac.webkit.org/changeset/228431
+
+2018-02-13  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Make WebCore headers copies
+        https://bugs.webkit.org/show_bug.cgi?id=182512
+
+        Reviewed by Keith Miller.
+
+        * PlatformWin.cmake:
+
+2018-02-08  Per Arne Vollan  <pvollan@apple.com>
+
+        Move WebVideoFullscreenController from WebCore to WebKitLegacy.
+        https://bugs.webkit.org/show_bug.cgi?id=182615
+
+        Reviewed by Eric Carlson.
+
+        It is only used by WK1. Also there are a few references to NSApp in WebVideoFullscreenController.mm.
+        Ideally, we should not reference NSApp in WebCore.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2018-01-23  Alex Christensen  <achristensen@webkit.org>
+
+        Use CompletionHandlers for ResourceHandleClient::didReceiveResponseAsync
+        https://bugs.webkit.org/show_bug.cgi?id=181961
+
+        Reviewed by Michael Catanzaro.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+
+2018-01-16  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [CMake] Remove WebCoreDerivedSources library target
+        https://bugs.webkit.org/show_bug.cgi?id=181664
+
+        Reviewed by Carlos Garcia Campos.
+
+        * PlatformWin.cmake: Do not link WebCoreDerivedSources.
+
 2018-01-07  David Kilzer  <ddkilzer@apple.com>
 
         Enable -Wcast-qual for WebInspectorUI, WebKitLegacy, WebKit projects

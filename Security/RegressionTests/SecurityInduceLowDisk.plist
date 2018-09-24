@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BATSConfigVersion</key>
+	<string>0.1.0</string>
+	<key>Project</key>
+	<string>Security</string>
+	<key>Condition</key>
+	<dict>
+		<key>ConditionName</key>
+		<string>LowDiskCondition</string>
+		<key>ConditionProfile</key>
+		<string>LowDiskConditionPrevailingExceedingLowThresholdNonCached</string>
+	</dict>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key>
+			<string>secitemstresstest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secitemstresstest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>secitemnotifications</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secitemnotifications</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>secitemfunctionality</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secitemfunctionality</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

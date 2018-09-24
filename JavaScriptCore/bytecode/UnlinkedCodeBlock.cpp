@@ -54,10 +54,6 @@ const ClassInfo UnlinkedCodeBlock::s_info = { "UnlinkedCodeBlock", nullptr, null
 
 UnlinkedCodeBlock::UnlinkedCodeBlock(VM* vm, Structure* structure, CodeType codeType, const ExecutableInfo& info, DebuggerMode debuggerMode)
     : Base(*vm, structure)
-    , m_numVars(0)
-    , m_numCalleeLocals(0)
-    , m_numParameters(0)
-    , m_globalObjectRegister(VirtualRegister())
     , m_usesEval(info.usesEval())
     , m_isStrictMode(info.isStrictMode())
     , m_isConstructor(info.isConstructor())
@@ -72,20 +68,14 @@ UnlinkedCodeBlock::UnlinkedCodeBlock(VM* vm, Structure* structure, CodeType code
     , m_derivedContextType(static_cast<unsigned>(info.derivedContextType()))
     , m_evalContextType(static_cast<unsigned>(info.evalContextType()))
     , m_hasTailCalls(false)
-    , m_lineCount(0)
-    , m_endColumn(UINT_MAX)
+    , m_codeType(codeType)
     , m_didOptimize(MixedTriState)
     , m_parseMode(info.parseMode())
-    , m_features(0)
-    , m_codeType(codeType)
-    , m_arrayProfileCount(0)
-    , m_arrayAllocationProfileCount(0)
-    , m_objectAllocationProfileCount(0)
-    , m_valueProfileCount(0)
-    , m_llintCallLinkInfoCount(0)
 {
     for (auto& constantRegisterIndex : m_linkTimeConstants)
         constantRegisterIndex = 0;
+    ASSERT(codeType == this->codeType());
+    ASSERT(MixedTriState == this->didOptimize());
     ASSERT(m_constructorKind == static_cast<unsigned>(info.constructorKind()));
 }
 
@@ -94,7 +84,7 @@ void UnlinkedCodeBlock::visitChildren(JSCell* cell, SlotVisitor& visitor)
     UnlinkedCodeBlock* thisObject = jsCast<UnlinkedCodeBlock*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
-    auto locker = holdLock(*thisObject);
+    auto locker = holdLock(thisObject->cellLock());
     for (FunctionExpressionVector::iterator ptr = thisObject->m_functionDecls.begin(), end = thisObject->m_functionDecls.end(); ptr != end; ++ptr)
         visitor.append(*ptr);
     for (FunctionExpressionVector::iterator ptr = thisObject->m_functionExprs.begin(), end = thisObject->m_functionExprs.end(); ptr != end; ++ptr)
@@ -102,27 +92,23 @@ void UnlinkedCodeBlock::visitChildren(JSCell* cell, SlotVisitor& visitor)
     visitor.appendValues(thisObject->m_constantRegisters.data(), thisObject->m_constantRegisters.size());
     if (thisObject->m_unlinkedInstructions)
         visitor.reportExtraMemoryVisited(thisObject->m_unlinkedInstructions->sizeInBytes());
-    if (thisObject->m_rareData) {
-        for (size_t i = 0, end = thisObject->m_rareData->m_regexps.size(); i != end; i++)
-            visitor.append(thisObject->m_rareData->m_regexps[i]);
-    }
 }
 
-size_t UnlinkedCodeBlock::estimatedSize(JSCell* cell)
+size_t UnlinkedCodeBlock::estimatedSize(JSCell* cell, VM& vm)
 {
     UnlinkedCodeBlock* thisObject = jsCast<UnlinkedCodeBlock*>(cell);
     size_t extraSize = thisObject->m_unlinkedInstructions ? thisObject->m_unlinkedInstructions->sizeInBytes() : 0;
-    return Base::estimatedSize(cell) + extraSize;
+    return Base::estimatedSize(cell, vm) + extraSize;
 }
 
 int UnlinkedCodeBlock::lineNumberForBytecodeOffset(unsigned bytecodeOffset)
 {
     ASSERT(bytecodeOffset < instructions().count());
-    int divot;
-    int startOffset;
-    int endOffset;
-    unsigned line;
-    unsigned column;
+    int divot { 0 };
+    int startOffset { 0 };
+    int endOffset { 0 };
+    unsigned line { 0 };
+    unsigned column { 0 };
     expressionRangeForBytecodeOffset(bytecodeOffset, divot, startOffset, endOffset, line, column);
     return line;
 }
@@ -317,7 +303,7 @@ void UnlinkedCodeBlock::setInstructions(std::unique_ptr<UnlinkedInstructionStrea
 {
     ASSERT(instructions);
     {
-        auto locker = holdLock(*this);
+        auto locker = holdLock(cellLock());
         m_unlinkedInstructions = WTFMove(instructions);
     }
     Heap::heap(this)->reportExtraMemoryAllocated(m_unlinkedInstructions->sizeInBytes());
@@ -392,7 +378,7 @@ void UnlinkedCodeBlock::applyModification(BytecodeRewriter& rewriter, UnpackedIn
 
 void UnlinkedCodeBlock::shrinkToFit()
 {
-    auto locker = holdLock(*this);
+    auto locker = holdLock(cellLock());
     
     m_jumpTargets.shrinkToFit();
     m_identifiers.shrinkToFit();
@@ -406,7 +392,6 @@ void UnlinkedCodeBlock::shrinkToFit()
 
     if (m_rareData) {
         m_rareData->m_exceptionHandlers.shrinkToFit();
-        m_rareData->m_regexps.shrinkToFit();
         m_rareData->m_switchJumpTables.shrinkToFit();
         m_rareData->m_stringSwitchJumpTables.shrinkToFit();
         m_rareData->m_expressionInfoFatPositions.shrinkToFit();

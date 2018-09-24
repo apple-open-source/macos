@@ -1,6 +1,6 @@
 /*
 ***************************************************************************
-* Copyright (C) 2006-2008,2017 Apple Inc. All Rights Reserved.            *
+* Copyright (C) 2006-2008,2017-2018 Apple Inc. All Rights Reserved.            *
 ***************************************************************************
 */
 
@@ -8,11 +8,11 @@
 
 #if !UCONFIG_NO_BREAK_ITERATION
 
-#include "rbtok.h"
 #include "unicode/ustring.h"
 #include "unicode/utext.h"
-#include "rbbidata.h"
-#include "rbbirb.h"
+#include "rbbidata57.h"
+#include "rbbi57.h"
+#include "rbtok.h"
 #include "uassert.h"
 
 #ifdef RBBI_DEBUG
@@ -60,8 +60,7 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
     //
     const UTrie *trie = &fData->fTrie;
     while (outTokenP < outTokenLimit) {
-        // LookAheadResults lookAheadMatches; // added in RBBI, #12081/r38387
-        result = prev; // fallback initialization, prevent uninitialized use
+        result = prev; // fallback initialization
         c = UTEXT_NEXT32(text);
         if (c == U_SENTINEL)
         {
@@ -140,10 +139,7 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
                 //lastStatusRow = row;
                 lastAcceptingState = state;
             }
-
-            // rbbi has added code here to check lookAheadMatches and
-            // set lookAheadMatches, per open-source ICU #12081/r38387
-
+    
             if (state == STOP_STATE) {
                 // This is the normal exit from the lookup state machine.
                 // We have advanced through the string until it is certain that no
@@ -260,7 +256,7 @@ RuleBasedTokenizer::init()
 }
 
 RuleBasedTokenizer::RuleBasedTokenizer(const UnicodeString &rules, UParseError &parseErr, UErrorCode &err)
-    : RuleBasedBreakIterator(rules, parseErr, err)
+    : RuleBasedBreakIterator57(rules, parseErr, err)
 {
     if (U_SUCCESS(err)) {
         init();
@@ -268,7 +264,7 @@ RuleBasedTokenizer::RuleBasedTokenizer(const UnicodeString &rules, UParseError &
 }
 
 RuleBasedTokenizer::RuleBasedTokenizer(uint8_t *data, UErrorCode &status)
-    : RuleBasedBreakIterator((RBBIDataHeader *)data, status)
+    : RuleBasedBreakIterator57((RBBIDataHeader57 *)data, status)
 {
     if (U_SUCCESS(status)) {
         init();
@@ -276,7 +272,7 @@ RuleBasedTokenizer::RuleBasedTokenizer(uint8_t *data, UErrorCode &status)
 }
 
 RuleBasedTokenizer::RuleBasedTokenizer(const uint8_t *data, enum EDontAdopt, UErrorCode &status)
-    : RuleBasedBreakIterator((const RBBIDataHeader *)data, RuleBasedBreakIterator::kDontAdopt, status)
+    : RuleBasedBreakIterator57((const RBBIDataHeader57 *)data, RuleBasedBreakIterator57::kDontAdopt, status)
 {
     if (U_SUCCESS(status)) {
         init();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,6 +69,7 @@
 #include "DHCPv6.h"
 #include "DHCPv6Options.h"
 #include "IPConfigurationControlPrefs.h"
+#include "IPConfigurationUtil.h"
 
 #define METHOD_LIST_V4			"BOOTP, MANUAL, DHCP, INFORM"
 #define METHOD_LIST_V4_WITH_NONE	METHOD_LIST_V4 ", NONE"
@@ -755,6 +756,24 @@ S_set_verbose(mach_port_t server, int argc, char * argv[])
     return (0);
 }
 
+static int
+S_set_cellular_clat46_autoenable(mach_port_t server, int argc, char * argv[])
+{
+	int			enable;
+
+	errno = 0;
+	enable = (int)strtol(argv[0], NULL, 0);
+	if (enable == 0 && errno != 0) {
+		fprintf(stderr, "conversion to integer of %s failed\n", argv[0]);
+		return (1);
+	}
+	if (IPConfigurationControlPrefsSetCellularCLAT46AutoEnable(enable != 0) == FALSE) {
+		fprintf(stderr, "failed to set cellular CLAT46 auto-enable\n");
+		return (1);
+	}
+	return (0);
+}
+
 #ifdef IPCONFIG_TEST_NO_ENTRY
 static int
 S_set_something(mach_port_t server, int argc, char * argv[])
@@ -1078,6 +1097,38 @@ S_get_awd_interfaces(mach_port_t server, int argc, char * argv[])
     return (0);
 }
 
+#if ! TARGET_OS_EMBEDDED
+extern Boolean
+IPConfigurationForgetNetwork(CFStringRef ifname, CFStringRef ssid)
+__attribute__((weak_import));
+#endif /* ! TARGET_OS_EMBEDDED */
+
+static int
+S_forget_network(mach_port_t server, int argc, char * argv[])
+{
+    CFStringRef		ifname;
+    CFStringRef		ssid;
+    Boolean		success;
+
+#if ! TARGET_OS_EMBEDDED
+    if (IPConfigurationForgetNetwork == NULL) {
+	fprintf(stderr, "IPConfigurationForgetNetwork unavailable\n");
+	return (1);
+    }
+#endif /* ! TARGET_OS_EMBEDDED */
+    ifname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+    ssid = CFStringCreateWithCString(NULL, argv[1], kCFStringEncodingUTF8);
+    success = IPConfigurationForgetNetwork(ifname, ssid);
+    my_CFRelease(&ifname);
+    my_CFRelease(&ssid);
+    if (!success) {
+	fprintf(stderr, "%s: failed to forget network %s\n",
+		argv[0], argv[1]);
+	return (1);
+    }
+    return (0);
+}
+
 static const struct command_info {
     const char *command;
     funcptr_t	func;
@@ -1088,9 +1139,6 @@ static const struct command_info {
 } commands[] = {
     { "waitall", S_wait_all, 0, "[ timeout secs ]", 1, 1 },
     { "getifaddr", S_if_addr, 1, "<interface name>", 1, 0 },
-#if 0
-    { "waitif", S_wait_if, 1, " <interface name>", 1, 0 },
-#endif /* 0 */
     { "ifcount", S_if_count, 0, "", 1, 0 },
     { "getoption", S_get_option, 2, 
       " <interface name | \"\" > <option name> | <option code>", 1, 0 },
@@ -1104,6 +1152,7 @@ static const struct command_info {
       SHADOW_MOUNT_PATH_COMMAND " | " SHADOW_FILE_PATH_COMMAND
       " | " MACHINE_NAME_COMMAND, 0, 1 },
     { "netbootpacket", S_bsdp_get_packet, 0, "", 0, 1 },
+    { "setclat46enable", S_set_cellular_clat46_autoenable, 1, "0 | 1", 0, 1 },
     { "setverbose", S_set_verbose, 1, "0 | 1", 1, 1 },
 #ifdef IPCONFIG_TEST_NO_ENTRY
     { "setsomething", S_set_something, 1, "0 | 1", 1, 0 },
@@ -1130,6 +1179,7 @@ static const struct command_info {
       "<service ID> <interface name>", 0, 0 },
     { "setawdinterfaces", S_set_awd_interfaces, 0, "[ All | Cellular | None ]", 0, 1 },
     { "getawdinterfaces", S_get_awd_interfaces, 0, NULL, 0, 1 },
+    { "forgetNetwork", S_forget_network, 2, "<interface name> <ssid>", 0, 0},
     { NULL, NULL, 0, NULL, 0, 0 },
 };
 

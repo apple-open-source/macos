@@ -1099,14 +1099,14 @@ bool IODisplay::setParameter( OSDictionary * params, const OSSymbol * paramName,
     return (ok);
 }
 
-IOReturn IODisplay::_framebufferEvent( OSObject * _self, void * ref,
+IOReturn IODisplay::_framebufferEvent( OSObject * osobj, void * ref,
                                        IOFramebuffer * framebuffer, IOIndex event, void * info )
 {
     IOD_START(_framebufferEvent,event,0,0);
     IOReturn    err;
 
-    IODisplay * self = (IODisplay *) _self;
-    err = self->framebufferEvent(framebuffer , event, info);
+    IODisplay * iod = (IODisplay *) osobj;
+    err = iod->framebufferEvent(framebuffer , event, info);
 
     IOD_END(_framebufferEvent,err,0,0);
     return (err);

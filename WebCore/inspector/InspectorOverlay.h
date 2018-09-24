@@ -33,7 +33,7 @@
 #include "LayoutRect.h"
 #include "NodeList.h"
 #include "Timer.h"
-#include <inspector/InspectorProtocolObjects.h>
+#include <JavaScriptCore/InspectorProtocolObjects.h>
 #include <wtf/Deque.h>
 #include <wtf/JSONValues.h>
 #include <wtf/RefPtr.h>
@@ -115,6 +115,8 @@ public:
     
     void setShowingPaintRects(bool);
     void showPaintRect(const FloatRect&);
+
+    void setShowRulers(bool);
     
     Node* highlightedNode() const;
 
@@ -128,17 +130,17 @@ public:
     void freePage();
 private:
     bool shouldShowOverlay() const;
-    void drawGutter();
     void drawNodeHighlight();
     void drawQuadHighlight();
     void drawPausedInDebuggerMessage();
     void drawPaintRects();
+    void drawRulers();
     void updatePaintRectsTimerFired();
 
     Page* overlayPage();
 
     void forcePaint();
-    void reset(const IntSize& viewportSize, const IntSize& frameViewFullSize);
+    void reset(const IntSize& viewportSize, const IntPoint& scrollOffset);
     void evaluateInOverlay(const String& method);
     void evaluateInOverlay(const String& method, const String& argument);
     void evaluateInOverlay(const String& method, RefPtr<JSON::Value>&& argument);
@@ -158,6 +160,7 @@ private:
     Timer m_paintRectUpdateTimer;
     bool m_indicating {false};
     bool m_showingPaintRects {false};
+    bool m_showRulers {false};
 };
 
 } // namespace WebCore

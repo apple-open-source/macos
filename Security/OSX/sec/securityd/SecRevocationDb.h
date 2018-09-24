@@ -31,6 +31,7 @@
 #ifndef _SECURITY_SECREVOCATIONDB_H_
 #define _SECURITY_SECREVOCATIONDB_H_
 
+#include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFDate.h>
 #include <CoreFoundation/CFDictionary.h>
@@ -50,11 +51,13 @@ typedef CF_ENUM(uint32_t, SecValidInfoFormat) {
 
 /*!
     @typedef SecValidInfoRef
-    @abstract Object used to return valid info lookup results.
+    @abstract CFType used to return valid info lookup results.
  */
 typedef struct __SecValidInfo *SecValidInfoRef;
 
 struct __SecValidInfo {
+    CFRuntimeBase _base;
+
     SecValidInfoFormat  format;               // format of per-issuer validity data
     CFDataRef           certHash;             // SHA-256 hash of cert to which the following info applies
     CFDataRef           issuerHash;           // SHA-256 hash of issuing CA certificate
@@ -63,7 +66,7 @@ struct __SecValidInfo {
     bool                valid;                // true if this is an allow list, false if a block list
     bool                complete;             // true if list is complete (i.e. status is definitive)
     bool                checkOCSP;            // true if complete is false and OCSP check is required
-    bool                knownOnly;            // true if all intermediates under issuer must be found in database
+    bool                knownOnly;            // true if intermediate CAs under issuer must be found in database
     bool                requireCT;            // true if this cert must have CT proof
     bool                noCACheck;            // true if an entry does not require an OCSP check to accept
     bool                overridable;          // true if the trust status is recoverable and can be overridden
@@ -75,13 +78,6 @@ struct __SecValidInfo {
     CFDataRef           nameConstraints;      // name constraints blob (if hasNameConstraints is true)
     CFDataRef           policyConstraints;    // policy constraints blob (if policyConstraints is true)
 };
-
-/*!
-	@function SecValidInfoRelease
-	@abstract Releases a SecValidInfo reference previously obtained from a call to SecRevocationDbCopyMatching.
-	@param validInfo The SecValidInfo reference to be released.
- */
-void SecValidInfoRelease(SecValidInfoRef validInfo);
 
 /*!
 	@function SecValidInfoSetAnchor
@@ -103,10 +99,18 @@ void SecRevocationDbCheckNextUpdate(void);
 	@abstract Returns a SecValidInfo reference if matching revocation (or allow list) info was found.
 	@param certificate The certificate whose validity status is being requested.
 	@param issuer The issuing CA certificate. If the cert is self-signed, the same reference should be passed in both certificate and issuer parameters. Omitting either cert parameter is an error and NULL will be returned.
-	@result A SecValidInfoRef if there was matching revocation info. Caller must release this reference when finished by calling SecValidInfoRelease. NULL is returned if no matching info was found in the database.
+	@result A SecValidInfoRef if there was matching revocation info. Caller must release this reference when finished by calling CFRelease. NULL is returned if no matching info was found in the database.
  */
 SecValidInfoRef SecRevocationDbCopyMatching(SecCertificateRef certificate,
                                             SecCertificateRef issuer);
+
+/*!
+ @function SecRevocationDbContainsIssuer
+ @abstract Returns true if the database contains an entry for the specified CA certificate.
+ @param issuer The certificate being checked.
+ @result If a matching issuer group was found, returns true, otherwise false.
+*/
+bool SecRevocationDbContainsIssuer(SecCertificateRef issuer);
 
 /*!
 	@function SecRevocationDbGetVersion
@@ -152,6 +156,16 @@ void SecRevocationDbComputeAndSetNextUpdateTime(void);
  @abstract Initializes revocation database if it doesn't exist or needs to be replaced. This should only be called once at process startup, before any database connections are established.
  */
 void SecRevocationDbInitialize(void);
+
+extern const CFStringRef kValidUpdateProdServer;
+extern const CFStringRef kValidUpdateCarryServer;
+
+/*!
+ @function SecRevocationDbCopyUpdateSource
+ @abstract Returns the server source for updates of the revocation database.
+ @result The base string of the server URI.
+ */
+CFStringRef SecRevocationDbCopyUpdateSource(void);
 
 
 __END_DECLS

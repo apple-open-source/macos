@@ -22,8 +22,7 @@
 #include "config.h"
 #include "JSDOMBuiltinConstructorBase.h"
 
-#include <runtime/JSCInlines.h>
-
+#include <JavaScriptCore/JSCInlines.h>
 
 namespace WebCore {
 using namespace JSC;
@@ -33,7 +32,7 @@ void JSDOMBuiltinConstructorBase::callFunctionWithCurrentArguments(JSC::ExecStat
     JSC::VM& vm = state.vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
     JSC::CallData callData;
-    JSC::CallType callType = JSC::getCallData(&function, callData);
+    JSC::CallType callType = JSC::getCallData(vm, &function, callData);
     ASSERT(callType != CallType::None);
 
     JSC::MarkedArgumentBuffer arguments;

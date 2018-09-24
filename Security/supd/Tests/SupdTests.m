@@ -24,7 +24,7 @@
 #import <OCMock/OCMock.h>
 #import <XCTest/XCTest.h>
 #import "supd.h"
-#import "SFAnalytics.h"
+#import <Security/SFAnalytics.h>
 #import "SFAnalyticsDefines.h"
 #import <CoreFoundation/CFPriv.h>
 
@@ -33,7 +33,6 @@ static NSInteger _testnum;
 static NSString* build = NULL;
 static NSString* product = NULL;
 static NSInteger _reporterWrites;
-static NSInteger _reporterCleanups;
 
 // MARK: Stub FakeCKKSAnalytics
 
@@ -122,15 +121,29 @@ static NSInteger _reporterCleanups;
     return nil;
 }
 
+- (SFAnalyticsTopic *)TrustTopic {
+    for (SFAnalyticsTopic *topic in _supd.analyticsTopics) {
+        if ([topic.internalTopicName isEqualToString:SFAnaltyicsTopicTrust]) {
+            return topic;
+        }
+    }
+    return nil;
+}
+
 - (void)inspectDataBlobStructure:(NSDictionary*)data
+{
+    [self inspectDataBlobStructure:data forTopic:[[self keySyncTopic] splunkTopicName]];
+}
+
+- (void)inspectDataBlobStructure:(NSDictionary*)data forTopic:(NSString*)topic
 {
     if (!data || ![data isKindOfClass:[NSDictionary class]]) {
         XCTFail(@"data is an NSDictionary");
     }
 
     XCTAssert(_supd.analyticsTopics, @"supd has nonnull topics list");
-    SFAnalyticsTopic *keySyncTopic = [self keySyncTopic];
-    XCTAssert([keySyncTopic splunkTopicName], @"supd has a nonnull topic name");
+    XCTAssert([[self keySyncTopic] splunkTopicName], @"keysync topic has a splunk name");
+    XCTAssert([[self TrustTopic] splunkTopicName], @"trust topic has a splunk name");
     XCTAssertEqual([data count], 2ul, @"dictionary event and posttime objects");
     XCTAssertTrue(data[@"events"] && [data[@"events"] isKindOfClass:[NSArray class]], @"data blob contains an NSArray 'events'");
     XCTAssertTrue(data[@"postTime"] && [data[@"postTime"] isKindOfClass:[NSNumber class]], @"data blob contains an NSNumber 'postTime");
@@ -139,13 +152,14 @@ static NSInteger _reporterCleanups;
 
     for (NSDictionary* event in data[@"events"]) {
         if ([event isKindOfClass:[NSDictionary class]]) {
+            NSLog(@"build: \"%@\", eventbuild: \"%@\"", build, event[@"build"]);
             XCTAssertTrue([event[@"build"] isEqual:build], @"event contains correct build string");
             XCTAssertTrue([event[@"product"] isEqual:product], @"event contains correct product string");
             XCTAssertTrue([event[@"eventTime"] isKindOfClass:[NSNumber class]], @"event contains an NSNumber 'eventTime");
             NSDate* eventTime = [NSDate dateWithTimeIntervalSince1970:[event[@"eventTime"] doubleValue]];
             XCTAssertTrue([[NSDate date] timeIntervalSinceDate:eventTime] < 3, @"eventTime is sane");
             XCTAssertTrue([event[@"eventType"] isKindOfClass:[NSString class]], @"all events have a type");
-            XCTAssertTrue([event[@"topic"] isEqual:[keySyncTopic splunkTopicName]], @"all events have a topic name");
+            XCTAssertTrue([event[@"topic"] isEqual:topic], @"all events have a topic name");
         } else {
             XCTFail(@"event %@ is an NSDictionary", event);
         }
@@ -176,10 +190,9 @@ static NSInteger _reporterCleanups;
     return encountered;
 }
 
-- (void)checkTotalEventCount:(NSDictionary*)data hard:(int)hard soft:(int)soft forcedFail:(BOOL)forcedFail
+- (void)checkTotalEventCount:(NSDictionary*)data hard:(int)hard soft:(int)soft accuracy:(int)accuracy summaries:(int)summ
 {
-    int hardfound = 0, softfound = 0;
-    NSUInteger summfound = 0;
+    int hardfound = 0, softfound = 0, summfound = 0;
     for (NSDictionary* event in data[@"events"]) {
         if ([event[SFAnalyticsEventType] hasSuffix:@"HealthSummary"]) {
             ++summfound;
@@ -191,17 +204,21 @@ static NSInteger _reporterCleanups;
     }
 
     XCTAssertLessThanOrEqual(((NSArray*)data[@"events"]).count, 1000ul, @"Total event count fits in alloted data");
-    if (!forcedFail) {
-        XCTAssertEqual(summfound, [[[self keySyncTopic] topicClients] count]);
-    }
-    // Add fuzziness, we're not testing exact implementation details
-    XCTAssertEqualWithAccuracy(hardfound, hard, 10);
-    XCTAssertEqualWithAccuracy(softfound, soft, 10);
+    XCTAssertEqual(summfound, summ);
+
+    // Add customizable fuzziness
+    XCTAssertEqualWithAccuracy(hardfound, hard, accuracy);
+    XCTAssertEqualWithAccuracy(softfound, soft, accuracy);
 }
 
 - (void)checkTotalEventCount:(NSDictionary*)data hard:(int)hard soft:(int)soft
 {
-    [self checkTotalEventCount:data hard:hard soft:soft forcedFail:NO];
+    [self checkTotalEventCount:data hard:hard soft:soft accuracy:10 summaries:(int)[[[self keySyncTopic] topicClients] count]];
+}
+
+- (void)checkTotalEventCount:(NSDictionary*)data hard:(int)hard soft:(int)soft accuracy:(int)accuracy
+{
+    [self checkTotalEventCount:data hard:hard soft:soft accuracy:accuracy summaries:(int)[[[self keySyncTopic] topicClients] count]];
 }
 
 // This is a dumb hack, but inlining stringWithFormat causes the compiler to growl for unknown reasons
@@ -258,9 +275,14 @@ static NSInteger _reporterCleanups;
 
 - (NSDictionary*)getJSONDataFromSupd
 {
+    return [self getJSONDataFromSupdWithTopic:SFAnalyticsTopicKeySync];
+}
+
+- (NSDictionary*)getJSONDataFromSupdWithTopic:(NSString*)topic
+{
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
     __block NSDictionary* data;
-    [_supd getLoggingJSON:YES topic:SFAnalyticsTopicKeySync reply:^(NSData *json, NSError *error) {
+    [_supd getLoggingJSON:YES topic:topic reply:^(NSData *json, NSError *error) {
         XCTAssertNil(error);
         XCTAssertNotNil(json);
         if (!error) {
@@ -314,6 +336,14 @@ static NSInteger _reporterCleanups;
     OCMStub([mockTopic databasePathForPCS]).andReturn(pcsPath);
     OCMStub([mockTopic databasePathForTLS]).andReturn(tlsPath);
 
+    // These are not used for testing, but real data can pollute tests so point to empty DBs
+    NSString *localpath = [_path stringByAppendingFormat:@"/local_empty_%ld.db", _testnum];
+    NSString *trustPath = [_path stringByAppendingFormat:@"/trust_empty_%ld.db", _testnum];
+    NSString *trustdhealthPath = [_path stringByAppendingFormat:@"/trustdhealth_empty_%ld.db", _testnum];
+    OCMStub([mockTopic databasePathForLocal]).andReturn(localpath);
+    OCMStub([mockTopic databasePathForTrust]).andReturn(trustPath);
+    OCMStub([mockTopic databasePathForTrustdHealth]).andReturn(trustdhealthPath);
+
     _reporterWrites = 0;
     mockReporter = OCMClassMock([SFAnalyticsReporter class]);
     OCMStub([mockReporter saveReport:[OCMArg isNotNil] fileName:[OCMArg isNotNil]]).andDo(^(NSInvocation *invocation) {
@@ -326,16 +356,19 @@ static NSInteger _reporterCleanups;
     _sosAnalytics = [FakeSOSAnalytics new];
     _pcsAnalytics = [FakePCSAnalytics new];
     _tlsAnalytics = [FakeTLSAnalytics new];
-    NSLog(@"ckks sqlite3 %@", [FakeCKKSAnalytics databasePath]);
-    NSLog(@"sos  sqlite3 %@", [FakeSOSAnalytics databasePath]);
-    NSLog(@"pcs  sqlite3 %@", [FakePCSAnalytics databasePath]);
-    NSLog(@"tls  sqlite3 %@", [FakeTLSAnalytics databasePath]);
+
+    // These are only useful for debugging
+//    NSLog(@"ckks sqlite3 %@", [FakeCKKSAnalytics databasePath]);
+//    NSLog(@"sos  sqlite3 %@", [FakeSOSAnalytics databasePath]);
+//    NSLog(@"pcs  sqlite3 %@", [FakePCSAnalytics databasePath]);
+//    NSLog(@"tls  sqlite3 %@", [FakeTLSAnalytics databasePath]);
 
     // Forcibly override analytics flags and enable them by default
     deviceAnalyticsOverride = YES;
     deviceAnalyticsEnabled = YES;
     iCloudAnalyticsOverride = YES;
     iCloudAnalyticsEnabled = YES;
+    runningTests = YES;
 }
 
 - (void)tearDown
@@ -372,7 +405,7 @@ static NSInteger _reporterCleanups;
     XCTAssertFalse([keytopic haveEligibleClients], @"Both analytics disabled -> no keysync clients");
 
     deviceAnalyticsEnabled = YES;
-    XCTAssertFalse([keytopic haveEligibleClients], @"Only device analytics enabled -> no keysync clients");
+    XCTAssertTrue([keytopic haveEligibleClients], @"Only device analytics enabled -> we have keysync clients (localkeychain for now)");
 }
 
 - (void)testHaveEligibleClientsTrust
@@ -416,9 +449,10 @@ static NSInteger _reporterCleanups;
         XCTAssertEqual([self failures:data eventType:@"unittestevent" attributes:utAttrs class:SFAnalyticsEventClassHardFailure], 1);
         XCTAssertEqual([self failures:data eventType:@"unittestevent" attributes:utAttrs class:SFAnalyticsEventClassSoftFailure], 1);
 
-        [self checkTotalEventCount:data hard:2 soft:2];
+        [self checkTotalEventCount:data hard:2 soft:2 accuracy:0];
     } else {
-        [self checkTotalEventCount:data hard:0 soft:0 forcedFail:YES];
+        // localkeychain requires device analytics only so we still get it
+        [self checkTotalEventCount:data hard:0 soft:0 accuracy:0 summaries:1];
     }
 }
 
@@ -441,13 +475,13 @@ static NSInteger _reporterCleanups;
     [_tlsAnalytics logHardFailureForEventNamed:@"tlsunittestevent" withAttributes:tlsAttrs];
     [_tlsAnalytics logSoftFailureForEventNamed:@"tlsunittestevent" withAttributes:tlsAttrs];
 
-    NSDictionary* data = [self getJSONDataFromSupd];
-    [self inspectDataBlobStructure:data];
+    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnaltyicsTopicTrust];
+    [self inspectDataBlobStructure:data forTopic:[[self TrustTopic] splunkTopicName]];
 
     if (analyticsEnabled) {
-        [self checkTotalEventCount:data hard:1 soft:1];
+        [self checkTotalEventCount:data hard:1 soft:1 accuracy:0 summaries:(int)[[[self TrustTopic] topicClients] count]];
     } else {
-        [self checkTotalEventCount:data hard:0 soft:0 forcedFail:YES];
+        [self checkTotalEventCount:data hard:0 soft:0 accuracy:0 summaries:0];
     }
 }
 
@@ -530,7 +564,7 @@ static NSInteger _reporterCleanups;
     NSDictionary* data = [self getJSONDataFromSupd];
     [self inspectDataBlobStructure:data];
     
-    [self checkTotalEventCount:data hard:testAmount + 1 soft:testAmount + 1];
+    [self checkTotalEventCount:data hard:testAmount + 1 soft:testAmount + 1 accuracy:0];
     
     XCTAssertEqual([self failures:data eventType:@"ckkshardfail" attributes:nil class:SFAnalyticsEventClassHardFailure], testAmount);
     XCTAssertEqual([self failures:data eventType:@"ckkssoftfail" attributes:nil class:SFAnalyticsEventClassSoftFailure], testAmount);
@@ -617,7 +651,7 @@ static NSInteger _reporterCleanups;
     [self inspectDataBlobStructure:data];
 
     // min, max, avg, med, dev, 1q, 3q
-    [self checkTotalEventCount:data hard:0 soft:0];
+    [self checkTotalEventCount:data hard:0 soft:0 accuracy:0];
     [self sampleStatisticsInEvents:data[@"events"] name:sampleNameEven values:@[@5.22, @90.78, @35.60, @36.18, @21.52, @21.36, @44.11]];
 }
 
@@ -636,7 +670,7 @@ static NSInteger _reporterCleanups;
     NSDictionary* data = [self getJSONDataFromSupd];
     [self inspectDataBlobStructure:data];
 
-    [self checkTotalEventCount:data hard:0 soft:0];
+    [self checkTotalEventCount:data hard:0 soft:0 accuracy:0];
     [self sampleStatisticsInEvents:data[@"events"] name:sampleName4n1 values:@[@10.72, @94.24, @45.76, @43.90, @23.14, @26.33, @58.83]];
 }
 
@@ -654,7 +688,7 @@ static NSInteger _reporterCleanups;
 
     NSDictionary* data = [self getJSONDataFromSupd];
     [self inspectDataBlobStructure:data];
-    [self checkTotalEventCount:data hard:0 soft:0];
+    [self checkTotalEventCount:data hard:0 soft:0 accuracy:0];
 
     [self sampleStatisticsInEvents:data[@"events"] name:sampleName4n3 values:@[@1.67, @99.83, @44.33, @38.45, @35.28, @7.92, @81.70]];
 }
@@ -668,7 +702,7 @@ static NSInteger _reporterCleanups;
 
     NSDictionary* data = [self getJSONDataFromSupd];
     [self inspectDataBlobStructure:data];
-    [self checkTotalEventCount:data hard:0 soft:0];
+    [self checkTotalEventCount:data hard:0 soft:0 accuracy:0];
 
     [self sampleStatisticsInEvents:data[@"events"] name:sampleName values:@[@3.14159]];
 }
@@ -683,7 +717,7 @@ static NSInteger _reporterCleanups;
 
     NSDictionary* data = [self getJSONDataFromSupd];
     [self inspectDataBlobStructure:data];
-    [self checkTotalEventCount:data hard:0 soft:0];
+    [self checkTotalEventCount:data hard:0 soft:0 accuracy:0];
 
     [self sampleStatisticsInEvents:data[@"events"] name:sampleName values:@[@3.14, @6.28, @4.71, @4.71, @1.57]];
 }
@@ -697,7 +731,7 @@ static NSInteger _reporterCleanups;
 
     NSDictionary* data = [self getJSONDataFromSupd];
     [self inspectDataBlobStructure:data];
-    [self checkTotalEventCount:data hard:0 soft:0];
+    [self checkTotalEventCount:data hard:0 soft:0 accuracy:0];
 
     [self sampleStatisticsInEvents:data[@"events"] name:sampleName values:@[@313.37] amount:2];
 }

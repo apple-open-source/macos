@@ -7,7 +7,6 @@
 #include <mach/mach_time.h>
 #include <assert.h>
 
-extern uint32_t notify_register_plain(const char *name, int *out_token);
 #ifdef NO_OP_TESTS
 extern uint32_t notify_no_op_str_sync(const char *name, size_t len);
 extern uint32_t notify_no_op_str_async(const char *name, size_t len);

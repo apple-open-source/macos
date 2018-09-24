@@ -26,6 +26,7 @@
 #include <Security/SecureObjectSync/SOSCircle.h>
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSKVSKeys.h>
+#include <Security/SecureObjectSync/SOSViews.h>
 #include "utilities/SecCFError.h"
 #include "utilities/SecCFRelease.h"
 #include "utilities/SecCFWrappers.h"
@@ -50,17 +51,10 @@
 
 #include <CommonCrypto/CommonRandomSPI.h>
 
+#include <os/lock.h>
+
 #include <AssertMacros.h>
 
-const CFStringRef kSecIDSErrorDomain = CFSTR("com.apple.security.ids.error");
-const CFStringRef kIDSOperationType = CFSTR("IDSMessageOperation");
-const CFStringRef kIDSMessageToSendKey = CFSTR("MessageToSendKey");
-const CFStringRef kIDSMessageUniqueID = CFSTR("MessageID");
-const CFStringRef kIDSMessageRecipientPeerID = CFSTR("RecipientPeerID");
-const CFStringRef kIDSMessageRecipientDeviceID = CFSTR("RecipientDeviceID");
-const CFStringRef kIDSMessageSenderDeviceID = CFSTR("SendersDeviceID");
-
-const CFStringRef kIDSMessageUsesAckModel = CFSTR("UsesAckModel");
 const CFStringRef kSOSErrorDomain = CFSTR("com.apple.security.sos.error");
 const CFStringRef kSOSDSIDKey = CFSTR("AccountDSID");
 const CFStringRef SOSTransportMessageTypeIDSV2 = CFSTR("IDS2.0");
@@ -182,20 +176,22 @@ CFStringRef SOSItemsChangedCopyDescription(CFDictionaryRef changes, bool is_send
     return string;
 }
 
+CFStringRef SOSCopyHashBufAsString(uint8_t *digest, size_t len) {
+    char encoded[2 * len + 1]; // Big enough for base64 encoding.
 
-CFStringRef SOSCopyIDOfDataBuffer(CFDataRef data, CFErrorRef *error) {
-    const struct ccdigest_info * di = ccsha1_di();
-    uint8_t digest[di->output_size];
-    char encoded[2 * di->output_size]; // Big enough for base64 encoding.
-    
-    ccdigest(di, CFDataGetLength(data), CFDataGetBytePtr(data), digest);
-    
-    size_t length = SecBase64Encode(digest, sizeof(digest), encoded, sizeof(encoded));
+    size_t length = SecBase64Encode(digest, len, encoded, sizeof(encoded));
     assert(length && length < sizeof(encoded));
     if (length > kSOSPeerIDLengthMax)
         length = kSOSPeerIDLengthMax;
     encoded[length] = 0;
     return CFStringCreateWithCString(kCFAllocatorDefault, encoded, kCFStringEncodingASCII);
+}
+
+CFStringRef SOSCopyIDOfDataBuffer(CFDataRef data, CFErrorRef *error) {
+    const struct ccdigest_info * di = ccsha1_di();
+    uint8_t digest[di->output_size];    
+    ccdigest(di, CFDataGetLength(data), CFDataGetBytePtr(data), digest);
+    return SOSCopyHashBufAsString(digest, sizeof(digest));
 }
 
 CFStringRef SOSCopyIDOfDataBufferWithLength(CFDataRef data, CFIndex len, CFErrorRef *error) {
@@ -209,9 +205,10 @@ CFStringRef SOSCopyIDOfDataBufferWithLength(CFDataRef data, CFIndex len, CFError
 CFStringRef SOSCopyIDOfKey(SecKeyRef key, CFErrorRef *error) {
     CFDataRef publicBytes = NULL;
     CFStringRef result = NULL;
-    require_quiet(SecError(SecKeyCopyPublicBytes(key, &publicBytes), error, CFSTR("Failed to export public bytes %@"), key), fail);
+    require_action_quiet(key, errOut, SOSErrorCreate(kSOSErrorNoKey, error, NULL, CFSTR("NULL key passed to SOSCopyIDOfKey")));
+    require_quiet(SecError(SecKeyCopyPublicBytes(key, &publicBytes), error, CFSTR("Failed to export public bytes %@"), key), errOut);
     result = SOSCopyIDOfDataBuffer(publicBytes, error);
-fail:
+errOut:
     CFReleaseNull(publicBytes);
     return result;
 }
@@ -326,3 +323,109 @@ CFDataRef CFDataCreateWithDER(CFAllocatorRef allocator, CFIndex size, uint8_t*(^
     }
     return result;
 }
+
+@implementation SOSCachedNotification
++ (NSString *)notificationName:(const char *)notificationString {
+#if TARGET_OS_OSX
+    return [NSString stringWithFormat:@"user.uid.%d.%s", getuid(), notificationString];
+#else
+    return @(notificationString);
+#endif
+}
+
+@end
+
+bool SOSCachedNotificationOperation(const char *notificationString, bool (^operation) (int token, bool gtg)) {
+    static os_unfair_lock token_lock = OS_UNFAIR_LOCK_INIT;
+    static NSMutableDictionary *tokenCache = NULL;
+    int token = NOTIFY_TOKEN_INVALID;
+
+    @autoreleasepool {
+        os_unfair_lock_lock(&token_lock);
+        if (tokenCache == NULL) {
+            tokenCache = [NSMutableDictionary dictionary];
+        }
+        NSString *notification = [SOSCachedNotification notificationName:notificationString];
+        if (notification == NULL) {
+            os_unfair_lock_unlock(&token_lock);
+            return false;
+        }
+
+        NSNumber *cachedToken = tokenCache[notification];
+        if (cachedToken == NULL) {
+            uint32_t status;
+
+            status = notify_register_check([notification UTF8String], &token);
+            if (status == NOTIFY_STATUS_OK) {
+                tokenCache[notification] = @(token);
+            } else {
+                secnotice("cachedStatus", "Failed to retreive token for %@: error %d",
+                          notification, status);
+            }
+        } else {
+            token = [cachedToken intValue];
+        }
+        os_unfair_lock_unlock(&token_lock);
+    }
+
+    return operation(token, (token != NOTIFY_TOKEN_INVALID));
+}
+
+uint64_t SOSGetCachedCircleBitmask(void) {
+    __block uint64_t retval = 0; // If the following call fails and we return 0 the caller, checking CC_STATISVALID will see we didn't get anything.
+    SOSCachedNotificationOperation(kSOSCCCircleChangedNotification, ^bool(int token, bool gtg) {
+        if(gtg) {
+            notify_get_state(token, &retval);
+        }
+        return false;
+    });
+    return retval;
+}
+
+const SOSCCStatus kSOSNoCachedValue = -99;
+
+SOSCCStatus SOSGetCachedCircleStatus(CFErrorRef *error) {
+    uint64_t statusMask = SOSGetCachedCircleBitmask();
+    SOSCCStatus retval = kSOSNoCachedValue;
+
+    if(statusMask & CC_STATISVALID) {
+        if(statusMask & CC_UKEY_TRUSTED) {
+            retval = (SOSCCStatus) statusMask & CC_MASK;
+        } else {
+            retval = kSOSCCError;
+            if(error) {
+                CFReleaseNull(*error);
+                if(statusMask & CC_PEER_IS_IN) {
+                    SOSCreateError(kSOSErrorPublicKeyAbsent, CFSTR("Public Key isn't available, this peer is in the circle, but invalid. The iCloud Password must be provided to keychain syncing subsystem to repair this."), NULL, error);
+                } else {
+                    SOSCreateError(kSOSErrorPublicKeyAbsent, CFSTR("Public Key isn't available. The iCloud Password must be provided to keychain syncing subsystem to repair this."), NULL, error);
+                }
+            }
+        }
+    }
+    return retval;
+}
+
+uint64_t SOSCachedViewBitmask(void) {
+    __block uint64_t retval = 0;
+    if(SOSGetCachedCircleStatus(NULL) == kSOSCCInCircle) {
+        SOSCachedNotificationOperation(kSOSCCViewMembershipChangedNotification, ^bool(int token, bool gtg) {
+            if(gtg) {
+                notify_get_state(token, &retval);
+                return true;
+            }
+            return false;
+        });
+    }
+    return retval;
+}
+
+CFSetRef SOSCreateCachedViewStatus(void) {
+    __block CFSetRef retval = NULL;
+    uint64_t state = SOSCachedViewBitmask();
+    if(state) {
+        retval = SOSViewCreateSetFromBitmask(state);
+    }
+    return retval;
+}
+

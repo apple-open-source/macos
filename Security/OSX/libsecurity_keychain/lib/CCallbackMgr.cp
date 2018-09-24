@@ -310,7 +310,23 @@ void CCallbackMgr::consume (SecurityServer::NotificationDomain domain, SecurityS
 
 	Keychain thisKeychain;
     Item thisItem;
-	list<CallbackInfo> eventCallbacks;
+	list<CallbackInfo> eventCallbacks = CCallbackMgr::Instance().mEventCallbacks;
+
+    // First, does this process care about this notification? If not, just exit early.
+    bool careAboutEventType = thisEvent == kSecDeleteEvent || thisEvent == kSecKeychainListChangedEvent;
+    bool registeredCallbacksForEventType = false;
+    for (ConstCallbackInfoListIterator ix = eventCallbacks.begin(); ix != eventCallbacks.end(); ++ix)
+    {
+        if ((ix->mEventMask & (1U << thisEvent))) {
+            registeredCallbacksForEventType = true;
+            break;
+        }
+    }
+    if(!careAboutEventType && !registeredCallbacksForEventType) {
+        secinfo("kcnotify", "not processing uninteresting event (%d)", (unsigned int)thisEvent);
+        return;
+    }
+
 	{
 		// Lock the global API lock before doing stuff with StorageManager.
 		// make sure we have a database identifier
@@ -342,7 +358,6 @@ void CCallbackMgr::consume (SecurityServer::NotificationDomain domain, SecurityS
 		else if (thisEvent == kSecKeychainListChangedEvent)
 			globals().storageManager.forceUserSearchListReread();
 
-		eventCallbacks = CCallbackMgr::Instance().mEventCallbacks;
 		// We can safely release the global API lock now since thisKeychain and thisItem
 		// are CFRetained and will be until they go out of scope.
 	}

@@ -24,12 +24,14 @@ list(APPEND WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/gtk"
     "${WEBCORE_DIR}/platform/graphics/egl"
     "${WEBCORE_DIR}/platform/graphics/glx"
+    "${WEBCORE_DIR}/platform/graphics/gstreamer"
     "${WEBCORE_DIR}/platform/graphics/gtk"
     "${WEBCORE_DIR}/platform/graphics/opengl"
     "${WEBCORE_DIR}/platform/graphics/opentype"
     "${WEBCORE_DIR}/platform/graphics/wayland"
     "${WEBCORE_DIR}/platform/graphics/x11"
     "${WEBCORE_DIR}/platform/mediastream/gtk"
+    "${WEBCORE_DIR}/platform/mediastream/gstreamer"
     "${WEBCORE_DIR}/platform/mock/mediasource"
     "${WEBCORE_DIR}/platform/network/gtk"
     "${WEBCORE_DIR}/platform/network/soup"
@@ -46,6 +48,7 @@ list(APPEND WebCorePlatformGTK_SOURCES
     platform/graphics/PlatformDisplay.cpp
 
     platform/graphics/gtk/ColorGtk.cpp
+    platform/graphics/gtk/DisplayRefreshMonitorGtk.cpp
     platform/graphics/gtk/GdkCairoUtilities.cpp
     platform/graphics/gtk/IconGtk.cpp
     platform/graphics/gtk/ImageBufferGtk.cpp
@@ -71,7 +74,7 @@ list(APPEND WebCorePlatformGTK_SOURCES
 )
 
 if (ENABLE_GEOLOCATION)
-    list(APPEND WebCore_DERIVED_SOURCES
+    list(APPEND WebCore_SOURCES
         ${DERIVED_SOURCES_WEBCORE_DIR}/Geoclue2Interface.c
     )
     execute_process(COMMAND ${PKG_CONFIG_EXECUTABLE} --variable dbus_interface geoclue-2.0 OUTPUT_VARIABLE GEOCLUE_DBUS_INTERFACE)
@@ -113,10 +116,7 @@ list(APPEND WebCore_LIBRARIES
     ${X11_Xrender_LIB}
     ${X11_Xt_LIB}
     ${ZLIB_LIBRARIES}
-    WTF
 )
-
-list(APPEND WebCoreTestSupport_LIBRARIES WTF)
 
 list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${ATK_INCLUDE_DIRS}
@@ -131,7 +131,7 @@ list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${ZLIB_INCLUDE_DIRS}
 )
 
-if (USE_OPENGL_ES_2)
+if (USE_OPENGL_ES)
     list(APPEND WebCore_SOURCES
         platform/graphics/opengl/Extensions3DOpenGLES.cpp
         platform/graphics/opengl/GraphicsContext3DOpenGLES.cpp
@@ -159,11 +159,11 @@ if (ENABLE_PLUGIN_PROCESS_GTK2)
     )
     target_include_directories(WebCorePlatformGTK2 PRIVATE
         ${WebCore_INCLUDE_DIRECTORIES}
-        ${GTK2_INCLUDE_DIRS}
-        ${GDK2_INCLUDE_DIRS}
     )
     target_include_directories(WebCorePlatformGTK2 SYSTEM PRIVATE
         ${WebCore_SYSTEM_INCLUDE_DIRECTORIES}
+        ${GTK2_INCLUDE_DIRS}
+        ${GDK2_INCLUDE_DIRS}
     )
     target_link_libraries(WebCorePlatformGTK2
          ${WebCore_LIBRARIES}

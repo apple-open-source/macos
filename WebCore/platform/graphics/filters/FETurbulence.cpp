@@ -5,7 +5,7 @@
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) 2010 Renata Hodovan <reni@inf.u-szeged.hu>
  * Copyright (C) 2011 Gabor Loki <loki@webkit.org>
- * Copyright (C) 2017 Apple Inc.
+ * Copyright (C) 2017-2018 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,11 +27,10 @@
 #include "FETurbulence.h"
 
 #include "Filter.h"
-#include <wtf/text/TextStream.h>
-
-#include <runtime/Uint8ClampedArray.h>
+#include <JavaScriptCore/Uint8ClampedArray.h>
 #include <wtf/MathExtras.h>
 #include <wtf/ParallelJobs.h>
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -368,7 +367,10 @@ ColorComponents FETurbulence::calculateTurbulenceValueForPoint(const PaintingDat
 
 void FETurbulence::fillRegion(Uint8ClampedArray& pixelArray, const PaintingData& paintingData, StitchData stitchData, int startY, int endY) const
 {
+    ASSERT(endY > startY);
+
     IntRect filterRegion = absolutePaintRect();
+    filterRegion.scale(filter().filterScale());
     FloatPoint point(0, filterRegion.y() + startY);
     int indexOfPixelChannel = startY * (filterRegion.width() << 2);
     AffineTransform inverseTransfrom = filter().absoluteTransform().inverse().value_or(AffineTransform());
@@ -397,7 +399,10 @@ void FETurbulence::platformApplySoftware()
     if (!pixelArray)
         return;
 
-    if (absolutePaintRect().isEmpty()) {
+    IntSize resultSize(absolutePaintRect().size());
+    resultSize.scale(filter().filterScale());
+
+    if (resultSize.isEmpty()) {
         pixelArray->zeroFill();
         return;
     }
@@ -411,18 +416,19 @@ void FETurbulence::platformApplySoftware()
     PaintingData paintingData(m_seed, tileSize, baseFrequencyX, baseFrequencyY);
     initPaint(paintingData);
 
-    int height = absolutePaintRect().height();
-
-    auto area = absolutePaintRect().area();
+    auto area = resultSize.area();
     if (area.hasOverflowed())
         return;
 
-    unsigned optimalThreadNumber = area.unsafeGet() / s_minimalRectDimension;
+    int height = resultSize.height();
+
+    unsigned maxNumThreads = height / 8;
+    unsigned optimalThreadNumber = std::min<unsigned>(area.unsafeGet() / s_minimalRectDimension, maxNumThreads);
     if (optimalThreadNumber > 1) {
         WTF::ParallelJobs<FillRegionParameters> parallelJobs(&WebCore::FETurbulence::fillRegionWorker, optimalThreadNumber);
 
         // Fill the parameter array
-        unsigned numJobs = parallelJobs.numberOfJobs();
+        auto numJobs = parallelJobs.numberOfJobs();
         if (numJobs > 1) {
             // Split the job into "stepY"-sized jobs, distributing the extra rows into the first "jobsWithExtra" jobs.
             unsigned stepY = height / numJobs;

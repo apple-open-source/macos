@@ -23,6 +23,7 @@
 
 #include "internal.h"
 
+
 /*********************	SMALL FREE LIST UTILITIES	************************/
 
 #pragma mark meta header helpers
@@ -35,6 +36,15 @@ static MALLOC_INLINE void
 small_meta_header_set_is_free(msize_t *meta_headers, msize_t index, msize_t msize)
 {
 	meta_headers[index] = msize | SMALL_IS_FREE;
+}
+
+/*
+ * Mark a block as not free, preserving its size.
+ */
+static MALLOC_INLINE void
+small_meta_header_set_not_free(msize_t *meta_headers, msize_t index)
+{
+	meta_headers[index] &= ~SMALL_IS_FREE;
 }
 
 /*
@@ -56,6 +66,25 @@ small_meta_header_set_middle(msize_t *meta_headers, msize_t index)
 	meta_headers[index] = 0;
 }
 
+static MALLOC_INLINE MALLOC_ALWAYS_INLINE
+mag_index_t
+small_mag_get_thread_index(void)
+{
+#if CONFIG_SMALL_USES_HYPER_SHIFT
+	if (os_likely(_os_cpu_number_override == -1)) {
+		return _os_cpu_number() >> hyper_shift;
+	} else {
+		return _os_cpu_number_override >> hyper_shift;
+	}
+#else // CONFIG_SMALL_USES_HYPER_SHIFT
+	if (os_likely(_os_cpu_number_override == -1)) {
+		return _os_cpu_number();
+	} else {
+		return _os_cpu_number_override;
+	}
+#endif // CONFIG_SMALL_USES_HYPER_SHIFT
+}
+
 #pragma mark in-place free list
 
 static MALLOC_INLINE void
@@ -69,8 +98,8 @@ small_inplace_checksum_ptr(rack_t *rack, inplace_linkage_s *linkage, void *ptr)
 static MALLOC_INLINE free_list_t
 small_inplace_unchecksum_ptr(rack_t *rack, inplace_linkage_s *linkage)
 {
-	if (linkage->checksum != free_list_gen_checksum((uintptr_t)linkage->ptr ^ rack->cookie ^ (uintptr_t)rack)) {
-		free_list_checksum_botch(rack, linkage);
+	if (linkage->checksum != (uint8_t)free_list_gen_checksum((uintptr_t)linkage->ptr ^ rack->cookie ^ (uintptr_t)rack)) {
+		free_list_checksum_botch(rack, linkage, linkage->ptr);
 		__builtin_trap();
 	}
 
@@ -184,7 +213,7 @@ small_oob_free_find_empty(void *ptr, msize_t msize)
 	}
 
 #if DEBUG_MALLOC
-	malloc_printf("used all slots of OOB entries\n");
+	malloc_report(ASL_LEVEL_INFO, "used all slots of OOB entries\n");
 #endif
 	return NULL;
 }
@@ -303,7 +332,7 @@ small_free_mark_free(rack_t *rack, free_list_t entry, msize_t msize)
 }
 
 static MALLOC_INLINE void
-small_free_mark_unfree(rack_t *rack, free_list_t entry, msize_t msize)
+small_free_mark_middle(rack_t *rack, free_list_t entry, msize_t msize)
 {
 	// Marks both the start and end block of a free-list entry as "middle" (unfree).
 	void *ptr = small_free_list_get_ptr(rack, entry);
@@ -311,9 +340,24 @@ small_free_mark_unfree(rack_t *rack, free_list_t entry, msize_t msize)
 	uintptr_t start_index = SMALL_META_INDEX_FOR_PTR(ptr);
 	uintptr_t end_index = SMALL_META_INDEX_FOR_PTR(ptr + SMALL_BYTES_FOR_MSIZE(msize) - 1);
 	MALLOC_ASSERT(start_index <= end_index);
+	MALLOC_ASSERT((meta_headers[start_index] & ~SMALL_IS_FREE) == msize);
 
 	small_meta_header_set_middle(meta_headers, start_index);
 	small_meta_header_set_middle(meta_headers, end_index);
+}
+
+static MALLOC_INLINE void
+small_free_mark_unfree(rack_t *rack, free_list_t entry, msize_t msize)
+{
+	// Marks both the start and end block of a free-list entry as not free.
+	void *ptr = small_free_list_get_ptr(rack, entry);
+	msize_t *meta_headers = SMALL_META_HEADER_FOR_PTR(ptr);
+	uintptr_t start_index = SMALL_META_INDEX_FOR_PTR(ptr);
+	uintptr_t end_index = SMALL_META_INDEX_FOR_PTR(ptr + SMALL_BYTES_FOR_MSIZE(msize) - 1);
+	MALLOC_ASSERT(start_index <= end_index);
+
+	small_meta_header_set_not_free(meta_headers, start_index);
+	small_meta_header_set_not_free(meta_headers, end_index);
 }
 
 static MALLOC_INLINE unsigned int
@@ -344,10 +388,10 @@ small_free_list_add_ptr(rack_t *rack, magazine_t *small_mag_ptr, void *ptr, msiz
 
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("in %s, ptr=%p, msize=%d\n", __FUNCTION__, ptr, msize);
+		malloc_report(ASL_LEVEL_INFO, "in %s, ptr=%p, msize=%d\n", __FUNCTION__, ptr, msize);
 	}
 	if (((uintptr_t)ptr) & (SMALL_QUANTUM - 1)) {
-		szone_error(rack->debug_flags, 1, "small_free_list_add_ptr: Unaligned ptr", ptr, NULL);
+		malloc_zone_error(rack->debug_flags, true, "small_free_list_add_ptr: Unaligned ptr %p\n", ptr);
 	}
 #endif
 
@@ -361,11 +405,11 @@ small_free_list_add_ptr(rack_t *rack, magazine_t *small_mag_ptr, void *ptr, msiz
 	if (small_free_list_get_ptr(rack, free_head)) {
 #if DEBUG_MALLOC
 		if (small_free_list_get_previous(szone, free_head)) {
-			szone_error(rack->debug_flags, 1, "small_free_list_add_ptr: Internal invariant broken (free_head->previous != NULL)", ptr,
+			malloc_zone_error(rack->debug_flags, true, "small_free_list_add_ptr: Internal invariant broken (free_head->previous != NULL)\n"
 						"ptr=%p slot=%d free_head=%p previous=%p\n", ptr, slot, (void *)free_head, free_head->previous.p);
 		}
 		if (!SMALL_PTR_IS_FREE(small_free_list_get_ptr(szone, free_head))) {
-			szone_error(rack->debug_flags, 1, "small_free_list_add_ptr: Internal invariant broken (free_head is not a free pointer)", ptr,
+			malloc_zone_error(rack->debug_flags, true, "small_free_list_add_ptr: Internal invariant broken (free_head is not a free pointer)\n"
 						"ptr=%p slot=%d free_head=%p\n", ptr, slot, (void *)small_free_list_get_ptr(szone, free_head));
 		}
 #endif
@@ -390,7 +434,7 @@ small_free_list_remove_ptr_no_clear(rack_t *rack, magazine_t *small_mag_ptr, fre
 
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("In %s, ptr=%p, msize=%d\n", __FUNCTION__, ptr, msize);
+		malloc_report(ASL_LEVEL_INFO, "In %s, ptr=%p, msize=%d\n", __FUNCTION__, ptr, msize);
 	}
 #endif
 
@@ -401,10 +445,10 @@ small_free_list_remove_ptr_no_clear(rack_t *rack, magazine_t *small_mag_ptr, fre
 		// The block to remove is the head of the free list
 #if DEBUG_MALLOC
 		if (small_mag_ptr->mag_free_list[slot] != ptr) {
-			szone_error(rack->debug_flags, 1,
-						"small_free_list_remove_ptr: Internal invariant broken (small_mag_ptr->mag_free_list[slot])", ptr,
-						"ptr=%p slot=%d msize=%d small_mag_ptr->mag_free_list[slot]=%p\n", ptr, slot, msize,
-						(void *)small_mag_ptr->mag_free_list[slot]);
+			malloc_zone_error(rack->debug_flags, true,
+					"small_free_list_remove_ptr_no_clear: Internal invariant broken (small_mag_ptr->mag_free_list[slot])\n"
+					"ptr=%p slot=%d msize=%d small_mag_ptr->mag_free_list[slot]=%p\n", ptr, slot, msize,
+					(void *)small_mag_ptr->mag_free_list[slot]);
 			return;
 		}
 #endif
@@ -413,10 +457,26 @@ small_free_list_remove_ptr_no_clear(rack_t *rack, magazine_t *small_mag_ptr, fre
 			BITMAPN_CLR(small_mag_ptr->mag_bitmap, slot);
 		}
 	} else {
+		// Check that the next pointer of "previous" points to "entry".
+		free_list_t prev_next = small_free_list_get_next(rack, previous);
+		if (small_free_list_get_ptr(rack, prev_next) != small_free_list_get_ptr(rack, entry)) {
+			malloc_zone_error(rack->debug_flags, true,
+					"small_free_list_remove_ptr_no_clear: Internal invariant broken (next ptr of prev) for %p, prev_next=%p\n",
+					small_free_list_get_ptr(rack, entry), small_free_list_get_ptr(rack, prev_next));
+			__builtin_unreachable(); // Always crashes in malloc_zone_error().
+		}
 		small_free_list_set_next(rack, previous, next);
 	}
 
 	if (small_free_list_get_ptr(rack, next)) {
+		// Check that the previous pointer of "next" points to "entry".
+		free_list_t next_prev = small_free_list_get_previous(rack, next);
+		if (small_free_list_get_ptr(rack, next_prev) != small_free_list_get_ptr(rack, entry)) {
+			malloc_zone_error(rack->debug_flags, true,
+					"small_free_list_remove_ptr_no_clear: Internal invariant broken (prev ptr of next) for %p, next_prev=%p\n",
+					small_free_list_get_ptr(rack, entry), small_free_list_get_ptr(rack, next_prev));
+			__builtin_unreachable(); // Always crashes in malloc_zone_error().
+		}
 		small_free_list_set_previous(rack, next, previous);
 	}
 
@@ -433,7 +493,7 @@ small_free_list_remove_ptr(rack_t *rack, magazine_t *small_mag_ptr, free_list_t 
 	// from/to the recirc depot we rely on the metadata bits being intact to
 	// reconstruct the free list. In that case we have to be able to skip this
 	// metadata manipulation.
-	small_free_mark_unfree(rack, entry, msize);
+	small_free_mark_middle(rack, entry, msize);
 	small_free_list_remove_ptr_no_clear(rack, small_mag_ptr, entry, msize);
 }
 
@@ -463,8 +523,9 @@ small_free_list_find_by_ptr(rack_t *rack, magazine_t *small_mag_ptr, void *ptr, 
 		return (free_list_t){ .p = ptr };
 	}
 
-	szone_error(rack->debug_flags, 1, "small_free_list_find_by_ptr: ptr is not free (ptr metadata !SMALL_IS_FREE)", ptr,
-				"ptr=%p msize=%d metadata=0x%x", ptr, msize, *SMALL_METADATA_FOR_PTR(ptr));
+	malloc_zone_error(rack->debug_flags, true,
+			"small_free_list_find_by_ptr: ptr is not free (ptr metadata !SMALL_IS_FREE), "
+			"ptr=%p msize=%d metadata=0x%x\n", ptr, msize, *SMALL_METADATA_FOR_PTR(ptr));
 	__builtin_trap();
 }
 
@@ -557,7 +618,7 @@ small_free_detach_region(rack_t *rack, magazine_t *small_mag_ptr, region_t r)
 		if (!msize) {
 #if DEBUG_MALLOC
 			boolean_t is_free = msize_and_free & SMALL_IS_FREE;
-			malloc_printf("*** small_free_detach_region error with %p: msize=%d is_free =%d\n", (void *)current, msize, is_free);
+			malloc_report(ASL_LEVEL_ERR, "*** small_free_detach_region error with %p: msize=%d is_free=%d\n", (void *)current, msize, is_free);
 #endif
 			break;
 		}
@@ -591,7 +652,7 @@ small_free_reattach_region(rack_t *rack, magazine_t *small_mag_ptr, region_t r)
 
 		if (!msize) {
 #if DEBUG_MALLOC
-			malloc_printf("*** small_free_reattach_region error with %p: msize=%d is_free =%d\n", (void *)current, msize, is_free);
+			malloc_report(ASL_LEVEL_ERR, "*** small_free_reattach_region error with %p: msize=%d is_free=%d\n", (void *)current, msize, is_free);
 #endif
 			break;
 		}
@@ -631,7 +692,7 @@ small_free_scan_madvise_free(rack_t *rack, magazine_t *depot_ptr, region_t r)
 		if (is_free && !msize && (current == start)) {
 #if DEBUG_MALLOC
 			// first block is all free
-			malloc_printf("*** small_free_scan_madvise_free first block is all free! %p: msize=%d is_free =%d\n", (void *)current,
+			malloc_report(ASL_LEVEL_ERR, "*** small_free_scan_madvise_free first block is all free! %p: msize=%d is_free=%d\n", (void *)current,
 						  msize, is_free);
 #endif
 			uintptr_t pgLo = round_page_kernel(start + sizeof(free_list_t) + sizeof(msize_t));
@@ -646,8 +707,8 @@ small_free_scan_madvise_free(rack_t *rack, magazine_t *depot_ptr, region_t r)
 		}
 		if (!msize) {
 #if DEBUG_MALLOC
-			malloc_printf(
-						  "*** small_free_scan_madvise_free error with %p: msize=%d is_free =%d\n", (void *)current, msize, is_free);
+			malloc_report(ASL_LEVEL_ERR,
+						  "*** small_free_scan_madvise_free error with %p: msize=%d is_free=%d\n", (void *)current, msize, is_free);
 #endif
 			break;
 		}
@@ -673,7 +734,7 @@ small_free_scan_madvise_free(rack_t *rack, magazine_t *depot_ptr, region_t r)
 			uintptr_t addr = (advisory[i].pnum << vm_page_quanta_shift) + start;
 			size_t size = advisory[i].size << vm_page_quanta_shift;
 
-			mvm_madvise_free(rack, r, addr, addr + size, NULL);
+			mvm_madvise_free(rack, r, addr, addr + size, NULL, rack->debug_flags & MALLOC_DO_SCRIBBLE);
 		}
 		SZONE_MAGAZINE_PTR_LOCK(depot_ptr);
 		OSAtomicDecrement32Barrier(&(REGION_TRAILER_FOR_SMALL_REGION(r)->pinned_to_depot));
@@ -701,12 +762,12 @@ small_find_msize_region(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t mag
 
 	// Mask off the bits representing slots holding free blocks smaller than
 	// the size we need.
-	if (rack->debug_flags & MALLOC_EXTENDED_SMALL_SLOTS) {
+	if (SMALL_FREELIST_BITMAP_WORDS(rack) > 1) {
 		// BITMAPN_CTZ implementation
 		unsigned idx = slot >> 5;
 		bitmap = 0;
 		unsigned mask = ~((1 << (slot & 31)) - 1);
-		for (; idx < SMALL_BITMAP_WORDS; ++idx) {
+		for (; idx < SMALL_FREELIST_BITMAP_WORDS(rack); ++idx) {
 			bitmap = small_mag_ptr->mag_bitmap[idx] & mask;
 			if (bitmap != 0) {
 				break;
@@ -714,7 +775,7 @@ small_find_msize_region(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t mag
 			mask = ~0U;
 		}
 		// Check for fallthrough: No bits set in bitmap
-		if ((bitmap == 0) && (idx == SMALL_BITMAP_WORDS)) {
+		if ((bitmap == 0) && (idx == SMALL_FREELIST_BITMAP_WORDS(rack))) {
 			return NULL;
 		}
 
@@ -739,7 +800,7 @@ small_find_msize_region(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t mag
 		} else {
 			/* Shouldn't happen. Fall through to look at last slot. */
 #if DEBUG_MALLOC
-			malloc_printf("in small_malloc_from_free_list(), mag_bitmap out of sync, slot=%d\n", slot);
+			malloc_report(ASL_LEVEL_ERR, "in small_malloc_from_free_list(), mag_bitmap out of sync, slot=%d\n", slot);
 #endif
 		}
 	}
@@ -766,7 +827,7 @@ small_get_region_from_depot(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t
 
 #if DEBUG_MALLOC
 	if (DEPOT_MAGAZINE_INDEX == mag_index) {
-		szone_error(rack->debug_flags, 1, "small_get_region_from_depot called for magazine index -1", NULL, NULL);
+		malloc_zone_error(rack->debug_flags, true, "small_get_region_from_depot called for magazine index -1\n", NULL, NULL);
 		return 0;
 	}
 #endif
@@ -820,10 +881,6 @@ small_get_region_from_depot(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t
 
 	SZONE_MAGAZINE_PTR_UNLOCK(depot_ptr);
 
-	// madvise() outside the Depot lock
-	(void)mvm_madvise_reuse(sparse_region, (uintptr_t)sparse_region,
-			(uintptr_t)sparse_region + SMALL_REGION_PAYLOAD_BYTES, rack->debug_flags);
-
 	MAGMALLOC_DEPOTREGION(SMALL_SZONE_FROM_RACK(rack), (int)mag_index, (void *)sparse_region, SMALL_REGION_SIZE,
 						  (int)BYTES_USED_FOR_SMALL_REGION(sparse_region)); // DTrace USDT Probe
 
@@ -872,10 +929,16 @@ small_madvise_free_range_no_lock(rack_t *rack,
 		uintptr_t free_hi = MIN(trunc_extent, hi);
 
 		if (free_lo < free_hi) {
-			small_free_list_remove_ptr(rack, small_mag_ptr, freee, fmsize);
+			// Before unlocking, ensure that the metadata for the freed region
+			// makes it look not free but includes the length. This ensures that
+			// any code that inspects the metadata while we are unlocked sees
+			// a valid state and will not try to use or coalesce freed memory
+			// into it.
+			small_free_mark_unfree(rack, freee, fmsize);
+			small_free_list_remove_ptr_no_clear(rack, small_mag_ptr, freee, fmsize);
 			OSAtomicIncrement32Barrier(&(node->pinned_to_depot));
 			SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
-			mvm_madvise_free(rack, region, free_lo, free_hi, &rack->last_madvise);
+			mvm_madvise_free(rack, region, free_lo, free_hi, &rack->last_madvise, rack->debug_flags & MALLOC_DO_SCRIBBLE);
 			SZONE_MAGAZINE_PTR_LOCK(small_mag_ptr);
 			OSAtomicDecrement32Barrier(&(node->pinned_to_depot));
 			small_free_list_add_ptr(rack, small_mag_ptr, ptr, fmsize);
@@ -888,7 +951,7 @@ small_madvise_free_range_no_lock(rack_t *rack,
 static region_t
 small_free_try_depot_unmap_no_lock(rack_t *rack, magazine_t *depot_ptr, region_trailer_t *node)
 {
-	if (0 < node->bytes_used || 0 < node->pinned_to_depot || depot_ptr->recirculation_entries < (rack->num_magazines * 2)) {
+	if (0 < node->bytes_used || 0 < node->pinned_to_depot || depot_ptr->recirculation_entries < recirc_retained_regions) {
 		return NULL;
 	}
 
@@ -907,7 +970,7 @@ small_free_try_depot_unmap_no_lock(rack_t *rack, magazine_t *depot_ptr, region_t
 													rack->region_generation->num_regions_allocated_shift,
 													sparse_region);
 		if (NULL == pSlot) {
-			szone_error(rack->debug_flags, 1, "small_free_try_depot_unmap_no_lock hash lookup failed:", NULL, "%p\n", sparse_region);
+			malloc_zone_error(rack->debug_flags, true, "small_free_try_depot_unmap_no_lock hash lookup failed: %p\n", sparse_region);
 			return NULL;
 		}
 		*pSlot = HASHRING_REGION_DEALLOCATED;
@@ -924,7 +987,7 @@ small_free_try_depot_unmap_no_lock(rack_t *rack, magazine_t *depot_ptr, region_t
 		return sparse_region;
 
 	} else {
-		szone_error(rack->debug_flags, 1, "small_free_try_depot_unmap_no_lock objects_in_use not zero:", NULL, "%d\n", objects_in_use);
+		malloc_zone_error(rack->debug_flags, true, "small_free_try_depot_unmap_no_lock objects_in_use not zero: %d\n", objects_in_use);
 		return NULL;
 	}
 }
@@ -937,13 +1000,13 @@ small_free_do_recirc_to_depot(rack_t *rack, magazine_t *small_mag_ptr, mag_index
 	// is at least fraction "f" empty.) Such a region will be marked "suitable" on the recirculation list.
 	region_trailer_t *node = small_mag_ptr->firstNode;
 
-	while (node && !node->recirc_suitable) {
+	while (node && (!node->recirc_suitable || node->pinned_to_depot)) {
 		node = node->next;
 	}
 
 	if (NULL == node) {
 #if DEBUG_MALLOC
-		malloc_printf("*** small_free_do_recirc_to_depot end of list\n");
+		malloc_report(ASL_LEVEL_ERR, "*** small_free_do_recirc_to_depot end of list\n");
 #endif
 		return TRUE; // Caller must SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 	}
@@ -1084,11 +1147,11 @@ small_free_no_lock(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t mag_inde
 
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("in small_free_no_lock(), ptr=%p, msize=%d\n", ptr, msize);
+		malloc_report(ASL_LEVEL_ERR, "in small_free_no_lock(), ptr=%p, msize=%d\n", ptr, msize);
 	}
 	if (!msize) {
-		szone_error(rack->debug_flags, 1, "trying to free small block that is too small", ptr, "in small_free_no_lock(), ptr=%p, msize=%d\n",
-					ptr, msize);
+		malloc_zone_error(rack->debug_flags, true, "trying to free small block that is too small in small_free_no_lock(), ptr=%p, msize=%d\n",
+				ptr, msize);
 	}
 #endif
 
@@ -1097,12 +1160,13 @@ small_free_no_lock(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t mag_inde
 		msize_t previous_msize = meta_headers[index - 1] & ~SMALL_IS_FREE;
 		grain_t previous_index = index - previous_msize;
 
-		// Check if the metadata for the start of the region is also free.
+		// Check if the metadata for the start of the block is also free.
 		if (meta_headers[previous_index] == (previous_msize | SMALL_IS_FREE)) {
 			void *previous_ptr = (void *)((uintptr_t)ptr - SMALL_BYTES_FOR_MSIZE(previous_msize));
 			free_list_t previous = small_free_list_find_by_ptr(rack, small_mag_ptr, previous_ptr, previous_msize);
 			small_free_list_remove_ptr(rack, small_mag_ptr, previous, previous_msize);
 			ptr = previous_ptr;
+			small_meta_header_set_middle(meta_headers, index); // This block is now a middle block.
 			msize += previous_msize;
 			index -= previous_msize;
 		} else {
@@ -1121,7 +1185,7 @@ small_free_no_lock(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t mag_inde
 
 	if (rack->debug_flags & MALLOC_DO_SCRIBBLE) {
 		if (!msize) {
-			szone_error(rack->debug_flags, 1, "incorrect size information - block header was damaged", ptr, NULL);
+			malloc_zone_error(rack->debug_flags, true, "incorrect size information for %p - block header was damaged\n", ptr);
 		} else {
 			memset(ptr, SCRABBLE_BYTE, SMALL_BYTES_FOR_MSIZE(msize));
 		}
@@ -1186,7 +1250,7 @@ small_malloc_from_region_no_lock(rack_t *rack,
 		offset_msize = strtol(getenv("MallocASLRForce"), NULL, 0) & SMALL_ENTROPY_MASK;
 	}
 	if (getenv("MallocASLRPrint")) {
-		malloc_printf("Region: %p offset: %d\n", aligned_address, offset_msize);
+		malloc_report(ASL_LEVEL_INFO, "Region: %p offset: %d\n", aligned_address, offset_msize);
 	}
 #endif
 #else
@@ -1221,14 +1285,8 @@ small_malloc_from_region_no_lock(rack_t *rack,
 void *
 small_memalign(szone_t *szone, size_t alignment, size_t size, size_t span)
 {
-	if (size <= SMALL_THRESHOLD) {
-		// ensure block allocated by small does not have a tiny-possible size
-		size = SMALL_THRESHOLD + TINY_QUANTUM;
-		span = size + alignment - 1;
-	}
-
 	msize_t mspan = SMALL_MSIZE_FOR_BYTES(span + SMALL_QUANTUM - 1);
-	void *p = szone_malloc(szone, span); // avoid inlining small_malloc_should_clear(szone, mspan, 0);
+	void *p = small_malloc_should_clear(&szone->small_rack, mspan, 0);
 
 	if (NULL == p) {
 		return NULL;
@@ -1254,8 +1312,7 @@ small_memalign(szone_t *szone, size_t alignment, size_t size, size_t span)
 		SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 
 		// Give up mpad blocks beginning at p to the small free list
-		// region_t r = SMALL_REGION_FOR_PTR(p);
-		szone_free(szone, p); // avoid inlining free_small(szone, p, &r);
+		free_small(&szone->small_rack, p, SMALL_REGION_FOR_PTR(p), SMALL_BYTES_FOR_MSIZE(mpad));
 
 		p = q; // advance p to the desired alignment
 	}
@@ -1271,11 +1328,17 @@ small_memalign(szone_t *szone, size_t alignment, size_t size, size_t span)
 		SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 
 		// Give up mwaste blocks beginning at q to the small free list
-		// region_t r = SMALL_REGION_FOR_PTR(q);
-		szone_free(szone, q); // avoid inlining free_small(szone, q, &r);
+		free_small(&szone->small_rack, q, SMALL_REGION_FOR_PTR(q), SMALL_BYTES_FOR_MSIZE(mwaste));
 	}
 
 	return p; // p has the desired size and alignment, and can later be free()'d
+}
+
+boolean_t
+small_claimed_address(rack_t *rack, void *ptr)
+{
+	region_t r = small_region_for_ptr_no_lock(rack, ptr);
+	return r && ptr < (void *)SMALL_REGION_END(r);
 }
 
 void *
@@ -1328,10 +1391,10 @@ small_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_
 
 #if DEBUG_MALLOC
 	if ((uintptr_t)next_block & (SMALL_QUANTUM - 1)) {
-		szone_error(rack->debug_flags, 1, "internal invariant broken in realloc(next_block)", next_block, NULL);
+		malloc_zone_error(rack->debug_flags, true, "internal invariant broken in realloc(next_block) for %p\n", next_block);
 	}
 	if (meta_headers[index] != old_msize) {
-		malloc_printf("*** small_try_realloc_in_place incorrect old %d %d\n", meta_headers[index], old_msize);
+		malloc_report(ASL_LEVEL_ERR, "*** small_try_realloc_in_place incorrect old %d %d\n", meta_headers[index], old_msize);
 	}
 #endif
 
@@ -1343,44 +1406,90 @@ small_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_
 		return 0;
 	}
 
-	/*
-	 * Look for a free block immediately afterwards.  If it's large enough, we can consume (part of)
-	 * it.
-	 */
-	next_msize_and_free = meta_headers[next_index];
-	is_free = next_msize_and_free & SMALL_IS_FREE;
-	if (!is_free) {
-		SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
-		return 0; // next_block is in use;
-	}
+	msize_t coalesced_msize = new_msize - old_msize;
+#if CONFIG_SMALL_CACHE
+	void *last_free_ptr = small_mag_ptr->mag_last_free;
+	msize_t last_free_msize = small_mag_ptr->mag_last_free_msize;
+	if (last_free_ptr == next_block && old_msize + last_free_msize >= new_msize) {
+		/*
+		 * There is a block in mag_last_free and it's immediately after
+		 * this block and it's large enough. We can use some or all of it.
+		 */
+		leftover_msize = last_free_msize - coalesced_msize;
+		if (leftover_msize) {
+			small_mag_ptr->mag_last_free_msize -= coalesced_msize;
+			small_mag_ptr->mag_last_free += new_size - old_size;
+			// The block in mag_last_free is still marked as header and in-use, so copy that
+			// state to the block that remains. The state for the block that we're going to
+			// use is adjusted by the small_meta_header_set_middle() call below.
+			small_meta_header_set_in_use(meta_headers, index + new_msize, leftover_msize);
+		} else {
+			// Using the whole block.
+			small_mag_ptr->mag_last_free = NULL;
+			small_mag_ptr->mag_last_free_msize = 0;
+			small_mag_ptr->mag_last_free_rgn = NULL;
+		}
+		small_meta_header_set_in_use(meta_headers, index, new_msize);
+		small_meta_header_set_middle(meta_headers, next_index);
+	} else {
+#endif // CONFIG_SMALL_CACHE
+		/*
+		 * Try to expand into unused space immediately after this block.
+		 */
+		msize_t unused_msize = SMALL_MSIZE_FOR_BYTES(small_mag_ptr->mag_bytes_free_at_end);
+		void *unused_start = SMALL_REGION_END(SMALL_REGION_FOR_PTR(ptr)) - small_mag_ptr->mag_bytes_free_at_end;
+		if (small_mag_ptr->mag_last_region == SMALL_REGION_FOR_PTR(ptr)
+				&& coalesced_msize < unused_msize && unused_start == ptr + old_size) {
+			// Extend the in-use for this block to the new size
+			small_meta_header_set_in_use(meta_headers, index, new_msize);
 
-	next_msize = next_msize_and_free & ~SMALL_IS_FREE;
-	if (old_msize + next_msize < new_msize) {
-		SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
-		return 0; // even with next block, not enough
-	}
+			// Clear the in-use size for the start of the area we extended into
+			small_meta_header_set_middle(meta_headers, next_index);
 
-	// The following block is big enough; pull it from its freelist and chop off enough to satisfy
-	// our needs.
-	free_list_t freee = small_free_list_find_by_ptr(rack, small_mag_ptr, next_block, next_msize);
-	small_free_list_remove_ptr(rack, small_mag_ptr, freee, next_msize);
-	small_meta_header_set_middle(meta_headers, next_index);
-	leftover_msize = old_msize + next_msize - new_msize;
-	if (leftover_msize) {
-		/* there's some left, so put the remainder back */
-		leftover = (unsigned char *)ptr + SMALL_BYTES_FOR_MSIZE(new_msize);
+			// Reduce mag_bytes_free_at_end and update its in-use size.
+			small_mag_ptr->mag_bytes_free_at_end -= SMALL_BYTES_FOR_MSIZE(coalesced_msize);
+			small_meta_header_set_in_use(meta_headers, index + new_msize, SMALL_MSIZE_FOR_BYTES(small_mag_ptr->mag_bytes_free_at_end));
+		} else {
+			/*
+			 * Look for a free block immediately afterwards.  If it's large enough, we can consume (part of)
+			 * it.
+			 */
+			next_msize_and_free = meta_headers[next_index];
+			is_free = next_msize_and_free & SMALL_IS_FREE;
+			if (!is_free) {
+				SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
+				return 0; // next_block is in use;
+			}
 
-		small_free_list_add_ptr(rack, small_mag_ptr, leftover, leftover_msize);
+			next_msize = next_msize_and_free & ~SMALL_IS_FREE;
+			if (old_msize + next_msize < new_msize) {
+				SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
+				return 0; // even with next block, not enough
+			}
+
+			// The following block is big enough; pull it from its freelist and chop off enough to satisfy
+			// our needs.
+			free_list_t freee = small_free_list_find_by_ptr(rack, small_mag_ptr, next_block, next_msize);
+			small_free_list_remove_ptr(rack, small_mag_ptr, freee, next_msize);
+			small_meta_header_set_middle(meta_headers, next_index);
+			leftover_msize = old_msize + next_msize - new_msize;
+			if (leftover_msize) {
+				/* there's some left, so put the remainder back */
+				leftover = (unsigned char *)ptr + SMALL_BYTES_FOR_MSIZE(new_msize);
+				small_free_list_add_ptr(rack, small_mag_ptr, leftover, leftover_msize);
+			}
+			small_meta_header_set_in_use(meta_headers, index, new_msize);
+		}
+#if CONFIG_SMALL_CACHE
 	}
+#endif // CONFIG_SMALL_CACHE
 #if DEBUG_MALLOC
 	if (SMALL_BYTES_FOR_MSIZE(new_msize) > szone->large_threshold) {
-		malloc_printf("*** realloc in place for %p exceeded msize=%d\n", new_msize);
+		malloc_report(ASL_LEVEL_ERR, "*** realloc in place for %p exceeded msize=%d\n", new_msize);
 	}
-#endif
-	small_meta_header_set_in_use(meta_headers, index, new_msize);
-#if DEBUG_MALLOC
+
 	if (LOG(szone, ptr)) {
-		malloc_printf("in small_try_realloc_in_place(), ptr=%p, msize=%d\n", ptr, *SMALL_METADATA_FOR_PTR(ptr));
+		malloc_report(ASL_LEVEL_INFO, "in small_try_realloc_in_place(), ptr=%p, msize=%d\n", ptr, *SMALL_METADATA_FOR_PTR(ptr));
 	}
 #endif
 	small_mag_ptr->mag_num_bytes_in_objects += SMALL_BYTES_FOR_MSIZE(new_msize - old_msize);
@@ -1405,8 +1514,15 @@ small_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_
 	return 1;
 }
 
+static char *small_check_fail_msg = "check: incorrect small region ";
+
+#define SMALL_CHECK_FAIL(fmt, ...) \
+	malloc_zone_check_fail(small_check_fail_msg, \
+			"%ld, counter=%d\n" fmt,  region_index, counter, __VA_ARGS__);
+
 boolean_t
-small_check_region(rack_t *rack, region_t region)
+small_check_region(rack_t *rack, region_t region, size_t region_index,
+		unsigned counter)
 {
 	unsigned char *ptr = SMALL_REGION_ADDRESS(region);
 	msize_t *meta_headers = SMALL_META_HEADER_FOR_PTR(ptr);
@@ -1435,13 +1551,13 @@ small_check_region(rack_t *rack, region_t region)
 			// block is in use
 			msize = msize_and_free;
 			if (!msize) {
-				malloc_printf("*** invariant broken: null msize ptr=%p num_small_regions=%d end=%p\n", ptr,
-							  rack->num_regions, region_end);
+				SMALL_CHECK_FAIL("*** invariant broken: null msize ptr=%p num_small_regions=%d end=%p\n", ptr,
+							  (int)rack->num_regions, region_end);
 				return 0;
 			}
 #if !CONFIG_RELAXED_INVARIANT_CHECKS
 			if (SMALL_BYTES_FOR_MSIZE(msize) > szone->large_threshold) {
-				malloc_printf("*** invariant broken for %p this small msize=%d - size is too large\n", ptr, msize_and_free);
+				SMALL_CHECK_FAIL("*** invariant broken for %p this small msize=%d - size is too large\n", ptr, msize_and_free);
 				return 0;
 			}
 #endif // CONFIG_RELAXED_INVARIANT_CHECKS
@@ -1453,12 +1569,12 @@ small_check_region(rack_t *rack, region_t region)
 			free_head = (free_list_t){ .p = ptr };
 			follower = (msize_t *)FOLLOWING_SMALL_PTR(ptr, msize);
 			if (!msize) {
-				malloc_printf("*** invariant broken for free block %p this msize=%d\n", ptr, msize);
+				SMALL_CHECK_FAIL("*** invariant broken for free block %p this msize=%d\n", ptr, msize);
 				return 0;
 			}
 #if !CONFIG_RELAXED_INVARIANT_CHECKS
 			if (prev_free) {
-				malloc_printf("*** invariant broken for %p (2 free in a row)\n", ptr);
+				SMALL_CHECK_FAIL("*** invariant broken for %p (2 free in a row)\n", ptr);
 				return 0;
 			}
 #endif
@@ -1474,18 +1590,17 @@ small_check_region(rack_t *rack, region_t region)
 			previous = small_free_list_get_previous(rack, free_head);
 			next = small_free_list_get_next(rack, free_head);
 			if (previous.p && !SMALL_PTR_IS_FREE(small_free_list_get_ptr(rack, previous))) {
-				malloc_printf("*** invariant broken for %p (previous %p is not a free pointer)\n", ptr, small_free_list_get_ptr(rack, previous));
+				SMALL_CHECK_FAIL("*** invariant broken for %p (previous %p is not a free pointer)\n", ptr, small_free_list_get_ptr(rack, previous));
 				return 0;
 			}
 			if (next.p && !SMALL_PTR_IS_FREE(small_free_list_get_ptr(rack, next))) {
-				malloc_printf("*** invariant broken for %p (next %p is not a free pointer)\n", ptr, small_free_list_get_ptr(rack, next));
+				SMALL_CHECK_FAIL("*** invariant broken for %p (next %p is not a free pointer)\n", ptr, small_free_list_get_ptr(rack, next));
 				return 0;
 			}
 			if (SMALL_PREVIOUS_MSIZE(follower) != msize) {
-				malloc_printf(
-							  "*** invariant broken for small free %p followed by %p in region [%p-%p] "
-							  "(end marker incorrect) should be %d; in fact %d\n",
-							  ptr, follower, SMALL_REGION_ADDRESS(region), region_end, msize, SMALL_PREVIOUS_MSIZE(follower));
+				SMALL_CHECK_FAIL("*** invariant broken for small free %p followed by %p in region [%p-%p] "
+						"(end marker incorrect) should be %d; in fact %d\n",
+						ptr, follower, SMALL_REGION_ADDRESS(region), region_end, msize, SMALL_PREVIOUS_MSIZE(follower));
 				return 0;
 			}
 			ptr = (unsigned char *)follower;
@@ -1558,8 +1673,7 @@ small_in_use_enumerator(task_t task,
 				recorder(task, context, MALLOC_PTR_REGION_RANGE_TYPE, &ptr_range, 1);
 			}
 			if (type_mask & MALLOC_PTR_IN_USE_RANGE_TYPE) {
-				void *mag_last_free;
-				vm_address_t mag_last_free_ptr = 0;
+				vm_address_t mag_last_free = 0;
 				msize_t mag_last_free_msize = 0;
 
 				err = reader(task, range.address, range.size, (void **)&mapped_region);
@@ -1571,19 +1685,13 @@ small_in_use_enumerator(task_t task,
 				magazine_t *small_mag_ptr = small_mag_base + mag_index;
 
 				if (DEPOT_MAGAZINE_INDEX != mag_index) {
-					mag_last_free = small_mag_ptr->mag_last_free;
-					if (mag_last_free) {
-						mag_last_free_ptr = (uintptr_t)mag_last_free & ~(SMALL_QUANTUM - 1);
-						mag_last_free_msize = (uintptr_t)mag_last_free & (SMALL_QUANTUM - 1);
-					}
+					mag_last_free = (uintptr_t)small_mag_ptr->mag_last_free;
+					mag_last_free_msize = small_mag_ptr->mag_last_free_msize;
 				} else {
 					for (mag_index = 0; mag_index < szone->small_rack.num_magazines; mag_index++) {
 						if ((void *)range.address == (small_mag_base + mag_index)->mag_last_free_rgn) {
-							mag_last_free = (small_mag_base + mag_index)->mag_last_free;
-							if (mag_last_free) {
-								mag_last_free_ptr = (uintptr_t)mag_last_free & ~(SMALL_QUANTUM - 1);
-								mag_last_free_msize = (uintptr_t)mag_last_free & (SMALL_QUANTUM - 1);
-							}
+							mag_last_free = (uintptr_t)(small_mag_base + mag_index)->mag_last_free;
+							mag_last_free_msize = (small_mag_base + mag_index)->mag_last_free_msize;
 						}
 					}
 				}
@@ -1599,7 +1707,7 @@ small_in_use_enumerator(task_t task,
 					msize_and_free = block_header[block_index];
 					msize = msize_and_free & ~SMALL_IS_FREE;
 					if (!(msize_and_free & SMALL_IS_FREE) &&
-						range.address + SMALL_BYTES_FOR_MSIZE(block_index) != mag_last_free_ptr) {
+						range.address + SMALL_BYTES_FOR_MSIZE(block_index) != mag_last_free) {
 						// Block in use
 						buffer[count].address = range.address + SMALL_BYTES_FOR_MSIZE(block_index);
 						buffer[count].size = SMALL_BYTES_FOR_MSIZE(msize);
@@ -1642,7 +1750,6 @@ small_malloc_from_free_list(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t
 	CHECK_MAGAZINE_PTR_LOCKED(szone, small_mag_ptr, __PRETTY_FUNCTION__);
 
 	// Look for an exact match by checking the freelist for this msize.
-	//
 	if (small_free_list_get_ptr(rack, *the_slot)) {
 		ptr = small_free_list_get_ptr(rack, *the_slot);
 		this_msize = msize;
@@ -1653,12 +1760,12 @@ small_malloc_from_free_list(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t
 	// Mask off the bits representing slots holding free blocks smaller than
 	// the size we need.  If there are no larger free blocks, try allocating
 	// from the free space at the end of the small region.
-	if (rack->debug_flags & MALLOC_EXTENDED_SMALL_SLOTS) {
+	if (SMALL_FREELIST_BITMAP_WORDS(rack) > 1) {
 		// BITMAPN_CTZ implementation
 		unsigned idx = slot >> 5;
 		bitmap = 0;
 		unsigned mask = ~((1 << (slot & 31)) - 1);
-		for (; idx < SMALL_BITMAP_WORDS; ++idx) {
+		for (; idx < SMALL_FREELIST_BITMAP_WORDS(rack); ++idx) {
 			bitmap = small_mag_ptr->mag_bitmap[idx] & mask;
 			if (bitmap != 0) {
 				break;
@@ -1666,7 +1773,7 @@ small_malloc_from_free_list(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t
 			mask = ~0U;
 		}
 		// Check for fallthrough: No bits set in bitmap
-		if ((bitmap == 0) && (idx == SMALL_BITMAP_WORDS)) {
+		if ((bitmap == 0) && (idx == SMALL_FREELIST_BITMAP_WORDS(rack))) {
 			goto try_small_from_end;
 		}
 
@@ -1693,7 +1800,7 @@ small_malloc_from_free_list(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t
 	}
 
 #if DEBUG_MALLOC
-	malloc_printf("in small_malloc_from_free_list(), mag_bitmap out of sync, slot=%d\n", slot);
+	malloc_report(ASL_LEVEL_ERR, "in small_malloc_from_free_list(), mag_bitmap out of sync, slot=%d\n", slot);
 #endif
 
 try_small_from_end:
@@ -1733,7 +1840,7 @@ add_leftover_and_proceed:
 		leftover_ptr = (unsigned char *)ptr + SMALL_BYTES_FOR_MSIZE(msize);
 #if DEBUG_MALLOC
 		if (LOG(szone, ptr)) {
-			malloc_printf("in small_malloc_from_free_list(), adding leftover ptr=%p, this_msize=%d\n", ptr, this_msize);
+			malloc_report(ASL_LEVEL_INFO, "in small_malloc_from_free_list(), adding leftover ptr=%p, this_msize=%d\n", ptr, this_msize);
 		}
 #endif
 		small_free_list_add_ptr(rack, small_mag_ptr, leftover_ptr, leftover_msize);
@@ -1760,7 +1867,7 @@ return_small_alloc:
 	}
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("in small_malloc_from_free_list(), ptr=%p, this_msize=%d, msize=%d\n", ptr, this_msize, msize);
+		malloc_report(ASL_LEVEL_INFO, "in small_malloc_from_free_list(), ptr=%p, this_msize=%d, msize=%d\n", ptr, this_msize, msize);
 	}
 #endif
 	small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(ptr), SMALL_META_INDEX_FOR_PTR(ptr), this_msize);
@@ -1771,7 +1878,7 @@ void *
 small_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requested)
 {
 	void *ptr;
-	mag_index_t mag_index = mag_get_thread_index() % rack->num_magazines;
+	mag_index_t mag_index = small_mag_get_thread_index() % rack->num_magazines;
 	magazine_t *small_mag_ptr = &(rack->magazines[mag_index]);
 
 	MALLOC_TRACE(TRACE_small_malloc, (uintptr_t)rack, SMALL_BYTES_FOR_MSIZE(msize), (uintptr_t)small_mag_ptr, cleared_requested);
@@ -1779,15 +1886,15 @@ small_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_request
 	SZONE_MAGAZINE_PTR_LOCK(small_mag_ptr);
 
 #if CONFIG_SMALL_CACHE
-	ptr = (void *)small_mag_ptr->mag_last_free;
+	ptr = small_mag_ptr->mag_last_free;
 
-	if ((((uintptr_t)ptr) & (SMALL_QUANTUM - 1)) == msize) {
+	if (small_mag_ptr->mag_last_free_msize == msize) {
 		// we have a winner
 		small_mag_ptr->mag_last_free = NULL;
+		small_mag_ptr->mag_last_free_msize = 0;
 		small_mag_ptr->mag_last_free_rgn = NULL;
 		SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 		CHECK(szone, __PRETTY_FUNCTION__);
-		ptr = (void *)((uintptr_t)ptr & ~(SMALL_QUANTUM - 1));
 		if (cleared_requested) {
 			memset(ptr, 0, SMALL_BYTES_FOR_MSIZE(msize));
 		}
@@ -1878,14 +1985,14 @@ small_size(rack_t *rack, const void *ptr)
 			if (DEPOT_MAGAZINE_INDEX != mag_index) {
 				magazine_t *small_mag_ptr = &(rack->magazines[mag_index]);
 
-				if (ptr == (void *)((uintptr_t)(small_mag_ptr->mag_last_free) & ~(SMALL_QUANTUM - 1))) {
+				if (ptr == small_mag_ptr->mag_last_free) {
 					return 0;
 				}
 			} else {
 				for (mag_index = 0; mag_index < rack->num_magazines; mag_index++) {
 					magazine_t *small_mag_ptr = &(rack->magazines[mag_index]);
 
-					if (ptr == (void *)((uintptr_t)(small_mag_ptr->mag_last_free) & ~(SMALL_QUANTUM - 1))) {
+					if (ptr == small_mag_ptr->mag_last_free) {
 						return 0;
 					}
 				}
@@ -1904,7 +2011,7 @@ free_small_botch(rack_t *rack, void *ptr)
 	mag_index_t mag_index = MAGAZINE_INDEX_FOR_SMALL_REGION(SMALL_REGION_FOR_PTR(ptr));
 	magazine_t *small_mag_ptr = &(rack->magazines[mag_index]);
 	SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
-	szone_error(rack->debug_flags, 1, "double free", ptr, NULL);
+	malloc_zone_error(rack->debug_flags, true, "double free for ptr %p\n", ptr);
 }
 
 void
@@ -1931,10 +2038,11 @@ free_small(rack_t *rack, void *ptr, region_t small_region, size_t known_size)
 	// Depot does not participate in CONFIG_SMALL_CACHE since it can't be directly malloc()'d
 	if (DEPOT_MAGAZINE_INDEX != mag_index) {
 		void *ptr2 = small_mag_ptr->mag_last_free; // Might be NULL
+		msize_t msize2 = small_mag_ptr->mag_last_free_msize;
 		region_t rgn2 = small_mag_ptr->mag_last_free_rgn;
 
 		/* check that we don't already have this pointer in the cache */
-		if (ptr == (void *)((uintptr_t)ptr2 & ~(SMALL_QUANTUM - 1))) {
+		if (ptr == ptr2) {
 			free_small_botch(rack, ptr);
 			return;
 		}
@@ -1943,7 +2051,8 @@ free_small(rack_t *rack, void *ptr, region_t small_region, size_t known_size)
 			memset(ptr, SCRABBLE_BYTE, SMALL_BYTES_FOR_MSIZE(msize));
 		}
 
-		small_mag_ptr->mag_last_free = (void *)(((uintptr_t)ptr) | msize);
+		small_mag_ptr->mag_last_free = ptr;
+		small_mag_ptr->mag_last_free_msize = msize;
 		small_mag_ptr->mag_last_free_rgn = small_region;
 
 		if (!ptr2) {
@@ -1952,8 +2061,8 @@ free_small(rack_t *rack, void *ptr, region_t small_region, size_t known_size)
 			return;
 		}
 
-		msize = (uintptr_t)ptr2 & (SMALL_QUANTUM - 1);
-		ptr = (void *)(((uintptr_t)ptr2) & ~(SMALL_QUANTUM - 1));
+		msize = msize2;
+		ptr = ptr2;
 		small_region = rgn2;
 	}
 #endif /* CONFIG_SMALL_CACHE */
@@ -2003,7 +2112,7 @@ print_small_free_list(rack_t *rack)
 			}
 			_simple_sappend(b, "\n");
 		}
-		_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX, "%s\n", _simple_string(b));
+		malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "%s\n", _simple_string(b));
 		_simple_sfree(b);
 	}
 }
@@ -2025,7 +2134,7 @@ print_small_region(szone_t *szone, boolean_t verbose, region_t region, size_t by
 	if (region == HASHRING_REGION_DEALLOCATED) {
 		if ((b = _simple_salloc()) != NULL) {
 			_simple_sprintf(b, "Small region [unknown address] was returned to the OS\n");
-			_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX, "%s\n", _simple_string(b));
+			malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "%s\n", _simple_string(b));
 			_simple_sfree(b);
 		}
 		return;
@@ -2036,7 +2145,7 @@ print_small_region(szone_t *szone, boolean_t verbose, region_t region, size_t by
 		msize_and_free = *SMALL_METADATA_FOR_PTR(current);
 		msize = msize_and_free & ~SMALL_IS_FREE;
 		if (!msize) {
-			malloc_printf("*** error with %p: msize=%d\n", (void *)current, (unsigned)msize);
+			malloc_report(ASL_LEVEL_ERR, "*** error with %p: msize=%d\n", (void *)current, (unsigned)msize);
 			break;
 		}
 		if (!(msize_and_free & SMALL_IS_FREE)) {
@@ -2075,13 +2184,19 @@ print_small_region(szone_t *szone, boolean_t verbose, region_t region, size_t by
 				}
 			}
 		}
-		_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX, "%s\n", _simple_string(b));
+		malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "%s\n", _simple_string(b));
 		_simple_sfree(b);
 	}
 }
 
+static char *small_freelist_fail_msg = "check: small free list incorrect";
+
+#define SMALL_FREELIST_FAIL(fmt, ...) \
+	malloc_zone_check_fail(small_freelist_fail_msg, \
+			" (slot=%u), counter=%d\n" fmt,  slot, counter, __VA_ARGS__);
+
 boolean_t
-small_free_list_check(rack_t *rack, grain_t slot)
+small_free_list_check(rack_t *rack, grain_t slot, unsigned counter)
 {
 	mag_index_t mag_index;
 
@@ -2098,22 +2213,22 @@ small_free_list_check(rack_t *rack, grain_t slot)
 		while ((ptr = small_free_list_get_ptr(rack, current))) {
 			msize_and_free = *SMALL_METADATA_FOR_PTR(ptr);
 			if (!(msize_and_free & SMALL_IS_FREE)) {
-				malloc_printf("*** in-use ptr in free list slot=%d count=%d ptr=%p\n", slot, count, ptr);
+				SMALL_FREELIST_FAIL("*** in-use ptr in free list slot=%u count=%d ptr=%p\n", slot, count, ptr);
 				SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 				return 0;
 			}
 			if (((uintptr_t)ptr) & (SMALL_QUANTUM - 1)) {
-				malloc_printf("*** unaligned ptr in free list slot=%d  count=%d ptr=%p\n", slot, count, ptr);
+				SMALL_FREELIST_FAIL("*** unaligned ptr in free list slot=%u count=%d ptr=%p\n", slot, count, ptr);
 				SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 				return 0;
 			}
 			if (!small_region_for_ptr_no_lock(rack, ptr)) {
-				malloc_printf("*** ptr not in szone slot=%d  count=%d ptr=%p\n", slot, count, ptr);
+				SMALL_FREELIST_FAIL("*** ptr not in szone slot=%d count=%d ptr=%p\n", slot, count, ptr);
 				SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 				return 0;
 			}
 			if (small_free_list_get_previous(rack, current).p != previous.p) {
-				malloc_printf("*** previous incorrectly set slot=%d  count=%d ptr=%p\n", slot, count, ptr);
+				SMALL_FREELIST_FAIL("*** previous incorrectly set slot=%u count=%d ptr=%p\n", slot, count, ptr);
 				SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 				return 0;
 			}

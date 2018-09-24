@@ -234,8 +234,7 @@ static CF_RETURNS_RETAINED CFArrayRef _Nullable SecItemCertificateSourceResultsP
     return result;
 }
 
-static bool SecItemCertificateSourceCopyParents(
-                                                SecCertificateSourceRef source, SecCertificateRef certificate,
+static bool SecItemCertificateSourceCopyParents(SecCertificateSourceRef source, SecCertificateRef certificate,
                                                 void *context, SecCertificateSourceParents callback) {
     SecItemCertificateSourceRef msource = (SecItemCertificateSourceRef)source;
     CFDataRef normalizedIssuer = SecCertificateGetNormalizedIssuerContent(certificate);
@@ -261,13 +260,8 @@ static bool SecItemCertificateSourceContains(SecCertificateSourceRef source,
     /* Look up a certificate by issuer and serial number. */
     CFDataRef normalizedIssuer = SecCertificateGetNormalizedIssuerContent(certificate);
     CFRetainSafe(normalizedIssuer);
-    CFDataRef serialNumber =
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
-    SecCertificateCopySerialNumber(certificate, NULL);
-#else
-    SecCertificateCopySerialNumber(certificate);
-#endif
     CFErrorRef localError = NULL;
+    CFDataRef serialNumber = SecCertificateCopySerialNumberData(certificate, &localError);
     bool result = SecItemCertificateExists(normalizedIssuer, serialNumber, msource->accessGroups, &localError);
     if (localError) {
         if (CFErrorGetCode(localError) != errSecItemNotFound) {
@@ -302,8 +296,7 @@ void SecItemCertificateSourceDestroy(SecCertificateSourceRef source) {
  *********** SecSystemAnchorSource object ************
  ********************************************************/
 
-static bool SecSystemAnchorSourceCopyParents(
-                                             SecCertificateSourceRef source, SecCertificateRef certificate,
+static bool SecSystemAnchorSourceCopyParents(SecCertificateSourceRef source, SecCertificateRef certificate,
                                              void *context, SecCertificateSourceParents callback) {
     //#ifndef SECITEM_SHIM_OSX
     CFArrayRef parents = NULL;
@@ -488,8 +481,7 @@ struct SecMemoryCertificateSource {
 };
 typedef struct SecMemoryCertificateSource *SecMemoryCertificateSourceRef;
 
-static bool SecMemoryCertificateSourceCopyParents(
-                                                  SecCertificateSourceRef source, SecCertificateRef certificate,
+static bool SecMemoryCertificateSourceCopyParents(SecCertificateSourceRef source, SecCertificateRef certificate,
                                                   void *context, SecCertificateSourceParents callback) {
     SecMemoryCertificateSourceRef msource =
     (SecMemoryCertificateSourceRef)source;
@@ -529,8 +521,7 @@ static void dictAddValueToArrayForKey(CFMutableDictionaryRef dict,
         CFArrayAppendValue(values, value);
 }
 
-static void SecMemoryCertificateSourceApplierFunction(const void *value,
-                                                      void *context) {
+static void SecMemoryCertificateSourceApplierFunction(const void *value, void *context) {
     SecMemoryCertificateSourceRef msource =
     (SecMemoryCertificateSourceRef)context;
     SecCertificateRef certificate = (SecCertificateRef)value;
@@ -576,8 +567,7 @@ void SecMemoryCertificateSourceDestroy(SecCertificateSourceRef source) {
 /********************************************************
  ********* SecCAIssuerCertificateSource object **********
  ********************************************************/
-static bool SecCAIssuerCertificateSourceCopyParents(
-                                                    SecCertificateSourceRef source, SecCertificateRef certificate,
+static bool SecCAIssuerCertificateSourceCopyParents(SecCertificateSourceRef source, SecCertificateRef certificate,
                                                     void *context, SecCertificateSourceParents callback) {
     /* Some expired certs have dead domains. Let's not check them. */
     SecPathBuilderRef builder = (SecPathBuilderRef)context;
@@ -587,11 +577,10 @@ static bool SecCAIssuerCertificateSourceCopyParents(
         callback(context, NULL);
         return true;
     }
-    return SecCAIssuerCopyParents(certificate, SecPathBuilderGetQueue(builder), context, callback);
+    return SecCAIssuerCopyParents(certificate, context, callback);
 }
 
-static bool SecCAIssuerCertificateSourceContains(
-                                                 SecCertificateSourceRef source, SecCertificateRef certificate) {
+static bool SecCAIssuerCertificateSourceContains(SecCertificateSourceRef source, SecCertificateRef certificate) {
     return false;
 }
 
@@ -611,8 +600,7 @@ const SecCertificateSourceRef kSecCAIssuerSource = &_kSecCAIssuerSource;
  ********** SecLegacyCertificateSource object ***********
  ********************************************************/
 
-static bool SecLegacyCertificateSourceCopyParents(
-                                                  SecCertificateSourceRef source, SecCertificateRef certificate,
+static bool SecLegacyCertificateSourceCopyParents(SecCertificateSourceRef source, SecCertificateRef certificate,
                                                   void *context, SecCertificateSourceParents callback) {
     CFArrayRef parents = SecItemCopyParentCertificates_osx(certificate, NULL);
     callback(context, parents);
@@ -620,8 +608,7 @@ static bool SecLegacyCertificateSourceCopyParents(
     return true;
 }
 
-static bool SecLegacyCertificateSourceContains(
-                                               SecCertificateSourceRef source, SecCertificateRef certificate) {
+static bool SecLegacyCertificateSourceContains(SecCertificateSourceRef source, SecCertificateRef certificate) {
     SecCertificateRef cert = SecItemCopyStoredCertificate(certificate, NULL);
     bool result = (cert) ? true : false;
     CFReleaseSafe(cert);

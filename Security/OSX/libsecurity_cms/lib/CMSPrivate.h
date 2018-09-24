@@ -104,6 +104,14 @@ OSStatus CMSEncoderSetAppleCodesigningHashAgilityV2(
     CMSEncoderRef       cmsEncoder,
     CFDictionaryRef     hashAgilityV2AttrValues);
 
+/*
+ * Set the expiration time for a CMSEncoder.
+ * This is only used if the kCMSAttrAppleExpirationTime attribute is included.
+ */
+OSStatus CMSEncoderSetAppleExpirationTime(
+                                          CMSEncoderRef        cmsEncoder,
+                                          CFAbsoluteTime        time);
+
 void
 CmsMessageSetTSAContext(CMSEncoderRef cmsEncoder, CFTypeRef tsaContext);
 
@@ -173,6 +181,20 @@ OSStatus CMSDecoderCopySignerAppleCodesigningHashAgilityV2(
     CMSDecoderRef                           cmsDecoder,
     size_t                                  signerIndex,            /* usually 0 */
     CFDictionaryRef CF_RETURNS_RETAINED *   hashAgilityAttrValues);   /* RETURNED */
+
+/*
+ * Obtain the expiration time of signer 'signerIndex' of a CMS message, if
+ * present. This is part of the signed attributes of the message.
+ *
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one.
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called.
+ */
+OSStatus CMSDecoderCopySignerAppleExpirationTime(
+                                                 CMSDecoderRef      cmsDecoder,
+                                                 size_t             signerIndex,
+                                                 CFAbsoluteTime     *expirationTime);            /* RETURNED */
 	
 #ifdef __cplusplus
 }

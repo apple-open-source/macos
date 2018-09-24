@@ -55,6 +55,14 @@
 #include "utils.h"
 #include "global.h"
 
+#ifndef DISABLE_SPECIAL_REPLY_PORT_IN_CHROOT
+#define DISABLE_SPECIAL_REPLY_PORT_IN_CHROOT 1
+#endif
+
+#ifndef DISABLE_SPECIAL_REPLY_PORT_IN_SIMULATOR
+#define DISABLE_SPECIAL_REPLY_PORT_IN_SIMULATOR 1
+#endif
+
 #ifndef USE_IMMEDIATE_SEND_TIMEOUT
 #define USE_IMMEDIATE_SEND_TIMEOUT 0
 #endif
@@ -75,8 +83,8 @@ WriteKPD_Iterator(FILE *file, boolean_t in, boolean_t overwrite, boolean_t varyi
   char string[MAX_STR_LEN];
   
   fprintf(file, "\t{\n");
-  fprintf(file, "\t    register\t%s\t*ptr;\n", it->itKPDType);
-  fprintf(file, "\t    register int\ti");
+  fprintf(file, "\t    %s\t*ptr;\n", it->itKPDType);
+  fprintf(file, "\t    int\ti");
   if (varying && !in)
     fprintf(file, ", j");
   fprintf(file, ";\n\n");
@@ -181,6 +189,35 @@ WriteMyIncludes(FILE *file, statement_t *stats)
     fprintf(file, "extern void %s();\n", MessFreeRoutine);
     fprintf(file, "#endif\t/* %s */\n", NewCDecl);
   }
+  if (HasUseSpecialReplyPort) {
+    fprintf(file, "\n");
+    fprintf(file, "#include <TargetConditionals.h>\n");
+    fprintf(file, "#include <mach/mach_sync_ipc.h>\n");
+#if DISABLE_SPECIAL_REPLY_PORT_IN_SIMULATOR
+    fprintf(file, "#ifndef __MigCanUseSpecialReplyPort\n");
+    fprintf(file, "#if TARGET_OS_SIMULATOR\n");
+    fprintf(file, "#define __MigCanUseSpecialReplyPort 0\n");
+    fprintf(file, "#define mig_get_special_reply_port() MACH_PORT_DEAD\n");
+    fprintf(file, "#define mig_dealloc_special_reply_port(port) __builtin_trap()\n");
+    fprintf(file, "#endif\n");
+    fprintf(file, "#endif /* __MigCanUseSpecialReplyPort */\n");
+#endif
+#if DISABLE_SPECIAL_REPLY_PORT_IN_CHROOT
+    fprintf(file, "#ifndef __MigCanUseSpecialReplyPort\n");
+    fprintf(file, "#if TARGET_OS_OSX\n");
+    fprintf(file, "extern _Bool _os_xbs_chrooted;\n");
+    fprintf(file, "#define __MigCanUseSpecialReplyPort (!_os_xbs_chrooted)\n");
+    fprintf(file, "#endif\n");
+    fprintf(file, "#endif /* __MigCanUseSpecialReplyPort */\n");
+#endif
+    fprintf(file, "#ifndef __MigCanUseSpecialReplyPort\n");
+    fprintf(file, "#define __MigCanUseSpecialReplyPort 1\n");
+    fprintf(file, "#endif /* __MigCanUseSpecialReplyPort */\n");
+    fprintf(file, "#ifndef __MigSpecialReplyPortMsgOption\n");
+    fprintf(file, "#define __MigSpecialReplyPortMsgOption (__MigCanUseSpecialReplyPort ? "
+      "(MACH_SEND_SYNC_OVERRIDE|MACH_SEND_SYNC_USE_THRPRI|MACH_RCV_SYNC_WAIT) : MACH_MSG_OPTION_NONE)\n");
+    fprintf(file, "#endif /* __MigSpecialReplyPortMsgOption */\n");
+  }
   fprintf(file, "\n");
 }
 
@@ -199,7 +236,7 @@ WriteGlobalDecls(FILE *file)
 }
 
 static void
-WriteOneMachErrorDefine(FILE *file, char *name, boolean_t timeout)
+WriteOneMachErrorDefine(FILE *file, char *name, boolean_t timeout, boolean_t SpecialReplyPort)
 {
   fprintf(file, "#ifndef\t%s\n", name);
   fprintf(file, "#define\t%s(_R_) { \\\n", name);
@@ -207,14 +244,28 @@ WriteOneMachErrorDefine(FILE *file, char *name, boolean_t timeout)
   fprintf(file, "\tcase MACH_SEND_INVALID_DATA: \\\n");
   fprintf(file, "\tcase MACH_SEND_INVALID_DEST: \\\n");
   fprintf(file, "\tcase MACH_SEND_INVALID_HEADER: \\\n");
-  fprintf(file, "\t\tmig_put_reply_port(InP->Head.msgh_reply_port); \\\n");
+  if (SpecialReplyPort) {
+    fprintf(file, "\t\tif (!__MigCanUseSpecialReplyPort) { \\\n");
+    fprintf(file, "\t\t\tmig_put_reply_port(InP->Head.msgh_reply_port); \\\n");
+    fprintf(file, "\t\t} \\\n");
+  } else {
+    fprintf(file, "\t\tmig_put_reply_port(InP->Head.msgh_reply_port); \\\n");
+  }
   fprintf(file, "\t\tbreak; \\\n");
   if (timeout) {
 	  fprintf(file, "\tcase MACH_SEND_TIMED_OUT: \\\n");
 	  fprintf(file, "\tcase MACH_RCV_TIMED_OUT: \\\n");
   }
   fprintf(file, "\tdefault: \\\n");
-  fprintf(file, "\t\tmig_dealloc_reply_port(InP->Head.msgh_reply_port); \\\n");
+  if (SpecialReplyPort) {
+    fprintf(file, "\t\tif (__MigCanUseSpecialReplyPort) { \\\n");
+    fprintf(file, "\t\t\tmig_dealloc_special_reply_port(InP->Head.msgh_reply_port); \\\n");
+    fprintf(file, "\t\t} else { \\\n");
+    fprintf(file, "\t\t\tmig_dealloc_reply_port(InP->Head.msgh_reply_port); \\\n");
+    fprintf(file, "\t\t} \\\n");
+  } else {
+    fprintf(file, "\t\tmig_dealloc_reply_port(InP->Head.msgh_reply_port); \\\n");
+  }
   fprintf(file, "\t} \\\n}\n");
   fprintf(file, "#endif\t/* %s */\n", name);
   fprintf(file, "\n");
@@ -223,8 +274,12 @@ WriteOneMachErrorDefine(FILE *file, char *name, boolean_t timeout)
 static void
 WriteMachErrorDefines(FILE *file)
 {
-  WriteOneMachErrorDefine(file, "__MachMsgErrorWithTimeout", TRUE);
-  WriteOneMachErrorDefine(file, "__MachMsgErrorWithoutTimeout", FALSE);
+  WriteOneMachErrorDefine(file, "__MachMsgErrorWithTimeout", TRUE, FALSE);
+  WriteOneMachErrorDefine(file, "__MachMsgErrorWithoutTimeout", FALSE, FALSE);
+  if (HasUseSpecialReplyPort) {
+    WriteOneMachErrorDefine(file, "__MachMsgErrorWithTimeoutSRP", TRUE, TRUE);
+    WriteOneMachErrorDefine(file, "__MachMsgErrorWithoutTimeoutSRP", FALSE, TRUE);
+  }
 }
 
 static void
@@ -324,6 +379,8 @@ WriteRequestHead(FILE *file, routine_t *rt)
   }
   else if (rt->rtOneWay)
     fprintf(file, "\tInP->%s = MACH_PORT_NULL;\n", rt->rtReplyPort->argMsgField);
+  else if (rt->rtUseSpecialReplyPort)
+    fprintf(file, "\tInP->%s = __MigCanUseSpecialReplyPort ? mig_get_special_reply_port() : mig_get_reply_port();\n", rt->rtReplyPort->argMsgField);
   else
     fprintf(file, "\tInP->%s = mig_get_reply_port();\n", rt->rtReplyPort->argMsgField);
   
@@ -550,14 +607,13 @@ WriteMsgCheckReceive(FILE *file, routine_t *rt, char *success)
     /* If we aren't using a user-supplied reply port, then
        deallocate the reply port when it is invalid or
        for TIMED_OUT errors. */
-#ifdef DeallocOnAnyError
-    fprintf(file, "\t\tmig_dealloc_reply_port(InP->Head.msgh_reply_port);\n");
-#else
-    if (rt->rtWaitTime != argNULL)
-      fprintf(file, "\t\t__MachMsgErrorWithTimeout(msg_result);\n");
-    else
-      fprintf(file, "\t\t__MachMsgErrorWithoutTimeout(msg_result);\n");
-#endif
+    if (rt->rtWaitTime != argNULL) {
+      fprintf(file, "\t\t__MachMsgErrorWithTimeout%s(msg_result);\n",
+        rt->rtUseSpecialReplyPort ? "SRP" : "");
+    } else {
+      fprintf(file, "\t\t__MachMsgErrorWithoutTimeout%s(msg_result);\n",
+        rt->rtUseSpecialReplyPort ? "SRP" : "");
+    }
   }
   WriteReturnMsgError(file, rt, TRUE, argNULL, "msg_result");
   fprintf(file, "\t}\n");
@@ -2647,6 +2703,61 @@ WriteLimitCheck(FILE *file, routine_t *rt)
 }
 
 static void
+WriteOOLSizeCheck(FILE *file, routine_t *rt)
+{
+    /* Emit code to validate the actual size of ool data vs. the reported size */
+    argument_t  *argPtr;
+    boolean_t   openedTypeCheckConditional = FALSE;
+    
+    // scan through arguments to see if there are any ool data blocks
+    for (argPtr = rt->rtArgs; argPtr != NULL; argPtr = argPtr->argNext) {
+        if (akCheck(argPtr->argKind, akbReturnKPD) && (argPtr->argKPD_Type == MACH_MSG_OOL_DESCRIPTOR)) {
+            register ipc_type_t *it = argPtr->argType;
+            char *tab, string[MAX_STR_LEN];
+            boolean_t test;
+            argument_t  *argCountPtr;
+            
+            if ( !openedTypeCheckConditional ) {
+                openedTypeCheckConditional = TRUE;
+                fputs("#if __MigTypeCheck\n", file);
+            }
+            
+            if (IS_MULTIPLE_KPD(it)) {
+                WriteKPD_Iterator(file, TRUE, FALSE, FALSE, argPtr, TRUE);
+                tab = "\t\t\t";
+                sprintf(string, "ptr->");
+                test = !it->itVarArray && !it->itElement->itVarArray;
+                it = it->itElement; // point to element descriptor, so size calculation is correct
+                argCountPtr = argPtr->argSubCount;
+            }
+            else {
+                tab = "";
+                sprintf(string, "Out%dP->%s.", argPtr->argReplyPos, argPtr->argMsgField);
+                test = !it->itVarArray;
+                argCountPtr = argPtr->argCount;
+            }
+            
+            if (!test) {
+                int multiplier = (argCountPtr->argMultiplier > 1 || it->itSize > 8) ? argCountPtr->argMultiplier * it->itSize / 8 : 1;
+                fprintf(file, "\t%s" "if (%ssize ", tab, string);
+                if (multiplier > 1)
+                    fprintf(file, "/ %d ", multiplier);
+                fprintf(file,"!= Out%dP->%s%s)\n", argCountPtr->argReplyPos, argCountPtr->argVarName, IS_MULTIPLE_KPD(it) ? "[i]" : "");
+                
+                fprintf(file, "\t\t%s" "return MIG_TYPE_ERROR;\n", tab);
+            }
+            
+            if (IS_MULTIPLE_KPD(it))
+                fprintf(file, "\t    }\n\t}\n");
+            
+        }
+    }
+    
+    if ( openedTypeCheckConditional )
+        fputs("#endif" "\t" "/* __MigTypeCheck */" "\n\n", file);
+}
+
+static void
 WriteCheckReply(FILE *file, routine_t *rt)
 {
   int i;
@@ -2744,6 +2855,8 @@ WriteCheckReply(FILE *file, routine_t *rt)
       fprintf(file, "\tif (Out0P->NDR.int_rep != NDR_record.int_rep) {\n");
       WriteList(file, rt->rtArgs, WriteReplyNDRConvertIntRepArgUse, akbReturnNdr, "", "");
       fprintf(file, "\t}\n#endif\t/* defined(__NDR_convert__int_rep...) */\n\n");
+        
+      WriteOOLSizeCheck(file, rt);
       
       fprintf(file, "#if\t");
       WriteList(file, rt->rtArgs, WriteReplyNDRConvertCharRepArgCond, akbReturnNdr, " || \\\n\t", "\n");
@@ -2756,6 +2869,8 @@ WriteCheckReply(FILE *file, routine_t *rt)
       fprintf(file, "\tif (Out0P->NDR.float_rep != NDR_record.float_rep) {\n");
       WriteList(file, rt->rtArgs, WriteReplyNDRConvertFloatRepArgUse, akbReturnNdr, "", "");
       fprintf(file, "\t}\n#endif\t/* defined(__NDR_convert__float_rep...) */\n\n");
+    } else {
+        WriteOOLSizeCheck(file, rt);
     }
     fprintf(file, "\treturn MACH_MSG_SUCCESS;\n");
   }

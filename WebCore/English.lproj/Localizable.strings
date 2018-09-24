@@ -41,7 +41,7 @@
 "%@ SDH" = "%@ SDH";
 
 /* Visible name of Service Worker process. The argument is the application name. */
-"%@ Service Worker" = "%@ Service Worker";
+"%@ Service Worker (%@)" = "%@ Service Worker (%@)";
 
 /* visible name of the storage process. The argument is the application name. */
 "%@ Storage" = "%@ Storage";
@@ -123,6 +123,9 @@
 
 /* Option in segmented control for inserting a bulleted list in text editing */
 "Bulleted list" = "Bulleted list";
+
+/* Title of the Cancel button for zoomed form controls. */
+"Cancel" = "Cancel";
 
 /* Title for Cancel button label in button bar */
 "Cancel button label in button bar" = "Cancel";
@@ -208,6 +211,9 @@
 /* Undo action name */
 "Cut (Undo action name)" = "Cut";
 
+/* Day label in date picker */
+"DAY (Date picker for extra zoom mode)" = "DAY";
+
 /* Default writing direction context menu item */
 "Default" = "Default";
 
@@ -219,6 +225,9 @@
 
 /* Undo action name */
 "Dictation (Undo action name)" = "Dictation";
+
+/* Title of the Done button for zoomed form controls. */
+"Done" = "Done";
 
 /* Download Audio To Disk context menu item */
 "Download Audio" = "Download Audio";
@@ -253,8 +262,14 @@
 /* Validation message for input form controls of type 'email' that have an invalid value */
 "Enter an email address" = "Enter an email address";
 
+/* Custom protocol synchronous load failure description */
+"Error handling synchronous load with custom protocol" = "Error handling synchronous load with custom protocol";
+
 /* Button for exiting full screen when in full screen media playback */
 "Exit Full Screen" = "Exit Full Screen";
+
+/* Fullscreen Deceptive Website Exit Action */
+"Exit Full Screen (Element Fullscreen)" = "Exit Full Screen";
 
 /* Video Exit Fullscreen context menu item */
 "Exit Full Screen (context menu)" = "Exit Full Screen";
@@ -283,8 +298,14 @@
 /* WebKitErrorFrameLoadInterruptedByPolicyChange description */
 "Frame load interrupted" = "Frame load interrupted";
 
+/* Title of the Go button for zoomed form controls. */
+"Go" = "Go";
+
 /* accessibility role description for web area */
 "HTML content" = "HTML content";
+
+/* Title of the Hide button for zoomed form controls. */
+"Hide" = "Hide";
 
 /* Hide Media Controls context menu item */
 "Hide Controls" = "Hide Controls";
@@ -315,6 +336,9 @@
 
 /* Validation message for input form controls with a value not matching type */
 "Invalid value" = "Invalid value";
+
+/* Fullscreen Deceptive Website Warning Sheet Title */
+"It looks like you are typing while in full screen" = "It looks like you are typing while in full screen";
 
 /* Italic context menu item */
 "Italic" = "Italic";
@@ -382,6 +406,9 @@
 /* Undo action name */
 "Lower Baseline (Undo action name)" = "Lower Baseline";
 
+/* Month label in date picker */
+"MONTH (Date picker for extra zoom mode)" = "MONTH";
+
 /* Make Lower Case context menu item */
 "Make Lower Case" = "Make Lower Case";
 
@@ -414,6 +441,9 @@
 
 /* Option in segmented control for inserting a numbered list in text editing */
 "Numbered list" = "Numbered list";
+
+/* Title of the OK button for the number pad in zoomed form controls. */
+"OK (OK button title in extra zoomed number pad)" = "OK";
 
 /* OK button label in document password failure alert */
 "OK (document password failure alert)" = "OK";
@@ -523,6 +553,9 @@
 /* Title for Save Image action button */
 "Save Image" = "Save Image";
 
+/* Title of the Search button for zoomed form controls. */
+"Search" = "Search";
+
 /* Search in Spotlight context menu item */
 "Search in Spotlight" = "Search in Spotlight";
 
@@ -546,6 +579,9 @@
 
 /* Selection direction context sub-menu item */
 "Selection Direction" = "Selection Direction";
+
+/* Set button below date picker */
+"Set (Button below date picker for extra zoom mode)" = "Set";
 
 /* Undo action name */
 "Set Background Color (Undo action name)" = "Set Background Color";
@@ -613,6 +649,9 @@
 /* Start speaking context menu item */
 "Start Speaking" = "Start Speaking";
 
+/* Fullscreen Deceptive Website Stay Action */
+"Stay in Full Screen (Element Fullscreen)" = "Stay in Full Screen";
+
 /* Stop context menu item */
 "Stop" = "Stop";
 
@@ -624,6 +663,9 @@
 
 /* Stop speaking context menu item */
 "Stop Speaking" = "Stop Speaking";
+
+/* Label for strong password. */
+"Strong Password" = "Strong Password";
 
 /* Styles context menu item */
 "Styles…" = "Styles…";
@@ -721,6 +763,9 @@
 /* Undo action name */
 "Typing (Undo action name)" = "Typing";
 
+/* Fullscreen Deceptive Website Warning Sheet Content Text */
+"Typing is not allowed in full screen websites. “%@” may be showing a fake keyboard to trick you into disclosing personal or financial information." = "Typing is not allowed in full screen websites. “%@” may be showing a fake keyboard to trick you into disclosing personal or financial information.";
+
 /* accessibility role description for a URL field. */
 "URL field" = "URL field";
 
@@ -744,6 +789,9 @@
 
 /* Undo action name */
 "Unscript (Undo action name)" = "Unscript";
+
+/* Label text to be used when an unsupported plug-in was blocked from loading */
+"Unsupported Plug-In" = "Unsupported Plug-in";
 
 /* Undo action name */
 "Use All Ligatures (Undo action name)" = "Use All Ligatures";
@@ -792,6 +840,9 @@
 
 /* WebKitErrorInternal description */
 "WebKit encountered an internal error" = "WebKit encountered an internal error";
+
+/* Year label in date picker */
+"YEAR (Date picker for extra zoom mode)" = "YEAR";
 
 /* message in authentication panel */
 "Your login information will be sent securely." = "Your login information will be sent securely.";
@@ -1162,6 +1213,9 @@
 /* accessibility help text for hide closed captions button */
 "stop displaying closed captions" = "stop displaying closed captions";
 
+/* Label for the strong password auto fill button inside a text field. */
+"strong password auto fill" = "strong password auto fill";
+
 /* The suboptimal value description for a meter element. */
 "suboptimal value" = "suboptimal value";
 
@@ -1246,14 +1300,3 @@
 /* Option in segmented control for choosing list type in text editing */
 "•" = "•";
 
-/* Label for strong password. */
-"strong password" = "strong password";
-
-/* Label for the auto fill strong password button inside a text field. */
-"strong password auto fill" = "strong password auto fill";
-
-/* Label for the auto fill strong confirmation password button inside a text field. */
-"strong confirmation password auto fill" = "strong confirmation password auto fill";
-
-/* Text of button that exits element fullscreen. */
-"Done" = "Done";

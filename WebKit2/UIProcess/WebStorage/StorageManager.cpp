@@ -39,9 +39,8 @@
 #include <wtf/WorkQueue.h>
 #include <wtf/threads/BinarySemaphore.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 class StorageManager::StorageArea : public ThreadSafeRefCounted<StorageManager::StorageArea> {
 public:
@@ -52,6 +51,7 @@ public:
 
     void addListener(IPC::Connection&, uint64_t storageMapID);
     void removeListener(IPC::Connection&, uint64_t storageMapID);
+    bool hasListener(IPC::Connection&, uint64_t storageMapID) const;
 
     Ref<StorageArea> clone() const;
 
@@ -195,6 +195,11 @@ void StorageManager::StorageArea::removeListener(IPC::Connection& connection, ui
 {
     ASSERT(isSessionStorage() || m_eventListeners.contains(std::make_pair(&connection, storageMapID)));
     m_eventListeners.remove(std::make_pair(&connection, storageMapID));
+}
+
+bool StorageManager::StorageArea::hasListener(IPC::Connection& connection, uint64_t storageMapID) const
+{
+    return m_eventListeners.contains(std::make_pair(&connection, storageMapID));
 }
 
 Ref<StorageManager::StorageArea> StorageManager::StorageArea::clone() const
@@ -426,8 +431,6 @@ StorageManager::SessionStorageNamespace::~SessionStorageNamespace()
 
 void StorageManager::SessionStorageNamespace::setAllowedConnection(IPC::Connection* allowedConnection)
 {
-    ASSERT(!allowedConnection || !m_allowedConnection);
-
     m_allowedConnection = allowedConnection;
 }
 
@@ -605,7 +608,7 @@ void StorageManager::getLocalStorageOriginDetails(Function<void (Vector<LocalSto
     });
 }
 
-void StorageManager::deleteLocalStorageEntriesForOrigin(SecurityOriginData&& securityOrigin)
+void StorageManager::deleteLocalStorageEntriesForOrigin(const SecurityOriginData& securityOrigin)
 {
     m_queue->dispatch([this, protectedThis = makeRef(*this), copiedOrigin = securityOrigin.isolatedCopy()]() mutable {
         for (auto& localStorageNamespace : m_localStorageNamespaces.values())
@@ -621,15 +624,17 @@ void StorageManager::deleteLocalStorageEntriesForOrigin(SecurityOriginData&& sec
 void StorageManager::deleteLocalStorageOriginsModifiedSince(WallTime time, Function<void()>&& completionHandler)
 {
     m_queue->dispatch([this, protectedThis = makeRef(*this), time, completionHandler = WTFMove(completionHandler)]() mutable {
-        auto deletedOrigins = m_localStorageDatabaseTracker->deleteDatabasesModifiedSince(time);
-
-        for (const auto& origin : deletedOrigins) {
-            for (auto& localStorageNamespace : m_localStorageNamespaces.values())
-                localStorageNamespace->clearStorageAreasMatchingOrigin(origin);
-        }
-
+        auto originsToDelete = m_localStorageDatabaseTracker->databasesModifiedSince(time);
+        
         for (auto& transientLocalStorageNamespace : m_transientLocalStorageNamespaces.values())
             transientLocalStorageNamespace->clearAllStorageAreas();
+
+        for (const auto& origin : originsToDelete) {
+            for (auto& localStorageNamespace : m_localStorageNamespaces.values())
+                localStorageNamespace->clearStorageAreasMatchingOrigin(origin);
+            
+            m_localStorageDatabaseTracker->deleteDatabaseWithOrigin(origin);
+        }
 
         RunLoop::main().dispatch(WTFMove(completionHandler));
     });
@@ -698,7 +703,12 @@ void StorageManager::createTransientLocalStorageMap(IPC::Connection& connection,
         if (!origin.securityOrigin()->isSameSchemeHostPort(area->securityOrigin().securityOrigin().get()))
             continue;
         area->addListener(connection, storageMapID);
-        m_storageAreasByConnection.remove(it);
+        // If the storageMapID used as key in m_storageAreasByConnection is no longer one of the StorageArea's listeners, then this means
+        // that destroyStorageMap() was already called for that storageMapID but it decided not to remove it from m_storageAreasByConnection
+        // so that we could reuse it later on for the same connection/origin combo. In this case, it is safe to remove the previous
+        // storageMapID from m_storageAreasByConnection.
+        if (!area->hasListener(connection, it->key.second))
+            m_storageAreasByConnection.remove(it);
         m_storageAreasByConnection.add({ &connection, storageMapID }, WTFMove(area));
         return;
     }

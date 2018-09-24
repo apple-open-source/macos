@@ -23,7 +23,7 @@
 #ifndef _MESSAGETRACER_H
 #define _MESSAGETRACER_H
 
-#include <asl.h>
+#include <nelog.h>
 
 #define CONSTSTR(str) (const char *)str
 
@@ -34,8 +34,7 @@
 #define PPPSERIALNONVPN														CONSTSTR("pppserial")
 #define PLAINPPPNONVPN														CONSTSTR("ppp")
 
-extern void nelog(int level, const char *format, ...) __attribute__((format(__printf__, 2, 3)));
-#define IPSECLOGASLMSG(format, args...) nelog(LOG_NOTICE, format, ##args);
+#define IPSECLOGASLMSG(format, args...) os_log(ne_log_obj(), format, ##args);
 
 #if TARGET_OS_EMBEDDED
 #define SESSIONTRACERSTOP(service)                                      {service->connecttime = 0; service->establishtime = 0;}

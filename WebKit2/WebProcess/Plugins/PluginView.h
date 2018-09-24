@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PluginView_h
-#define PluginView_h
+#pragma once
 
 #include "LayerTreeContext.h"
 #include "NPRuntimeObjectMap.h"
@@ -51,10 +50,13 @@ OBJC_CLASS NSDictionary;
 OBJC_CLASS PDFSelection;
 #endif
 
+namespace WTF {
+class MachSendRight;
+}
+
 namespace WebCore {
 class Frame;
 class HTMLPlugInElement;
-class MachSendRight;
 class MouseEvent;
 }
 
@@ -70,7 +72,7 @@ public:
 
     WebCore::Frame* frame() const;
 
-    bool isBeingDestroyed() const { return m_isBeingDestroyed; }
+    bool isBeingDestroyed() const { return !m_plugin || m_plugin->isBeingDestroyed(); }
 
     void manualLoadDidReceiveResponse(const WebCore::ResourceResponse&);
     void manualLoadDidReceiveData(const char* bytes, int length);
@@ -167,7 +169,7 @@ private:
     void beginSnapshottingRunningPlugin() override;
     bool shouldAllowNavigationFromDrags() const override;
     bool shouldNotAddLayer() const override;
-    void willDetatchRenderer() override;
+    void willDetachRenderer() override;
 
     // WebCore::Widget
     void setFrameRect(const WebCore::IntRect&) override;
@@ -211,7 +213,7 @@ private:
 #if PLATFORM(COCOA)
     void pluginFocusOrWindowFocusChanged(bool pluginHasFocusAndWindowHasFocus) override;
     void setComplexTextInputState(PluginComplexTextInputState) override;
-    const WebCore::MachSendRight& compositingRenderServerPort() override;
+    const WTF::MachSendRight& compositingRenderServerPort() override;
 #endif
     float contentsScaleFactor() override;
     String proxiesForURL(const String&) override;
@@ -248,7 +250,6 @@ private:
     bool m_isInitialized { false };
     bool m_isWaitingForSynchronousInitialization { false };
     bool m_isWaitingUntilMediaCanStart { false };
-    bool m_isBeingDestroyed { false };
     bool m_pluginProcessHasCrashed { false };
 
 #if ENABLE(PRIMARY_SNAPSHOTTED_PLUGIN_HEURISTIC)
@@ -295,5 +296,3 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // PluginView_h

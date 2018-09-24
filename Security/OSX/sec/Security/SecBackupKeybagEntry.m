@@ -90,12 +90,12 @@
     return @[@"publickey", @"publickeyHash", @"musr"];
 }
 
-- (NSDictionary<NSString*,NSString*>*) whereClauseToFindSelf {
+- (NSDictionary<NSString*,id>*) whereClauseToFindSelf {
     return @{@"publickeyHash": self.publickeyHash};
 }
 
 // used by saveToDatabaseWithConnection to write to db
-- (NSDictionary<NSString*,NSString*>*) sqlValues {
+- (NSDictionary<NSString*,id>*) sqlValues {
     return @{
         @"publickey":       self.publickey,
         @"publickeyHash":   self.publickeyHash,

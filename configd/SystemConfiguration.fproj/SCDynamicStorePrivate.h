@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2010, 2011, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2010, 2011, 2013, 2015, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,8 @@
 #ifndef _SCDYNAMICSTOREPRIVATE_H
 #define _SCDYNAMICSTOREPRIVATE_H
 
+#include <TargetConditionals.h>
+#include <os/availability.h>
 #include <sys/cdefs.h>
 #include <mach/message.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -223,11 +225,11 @@ Boolean
 SCDynamicStoreSetDisconnectCallBack	(
 					 SCDynamicStoreRef			store,
 					 SCDynamicStoreDisconnectCallBack	callout
-					)				__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
+					)				API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 Boolean
 SCDynamicStoreSnapshot			(SCDynamicStoreRef		store);
 
 __END_DECLS
 
-#endif /* _SCDYNAMICSTOREPRIVATE_H */
+#endif	/* _SCDYNAMICSTOREPRIVATE_H */

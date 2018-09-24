@@ -43,7 +43,7 @@ CF_IMPLICIT_BRIDGING_ENABLED
     @typedef SecTrustResultType
     @abstract Specifies the trust result type.
     @discussion SecTrustResultType results have two dimensions.  They specify
-    both whether evaluation suceeded and whether this is because of a user
+    both whether evaluation succeeded and whether this is because of a user
     decision.  The commonly expected result is kSecTrustResultUnspecified,
     which indicates a positive result that wasn't decided by the user.  The
     common failure is kSecTrustResultRecoverableTrustFailure, which means a
@@ -348,7 +348,7 @@ CFAbsoluteTime SecTrustGetVerifyTime(SecTrustRef trust)
     dispatch queue, or in a separate thread from your application's main
     run loop. Alternatively, you can use the SecTrustEvaluateAsync function.
  */
-OSStatus SecTrustEvaluate(SecTrustRef trust, SecTrustResultType * __nullable result)
+OSStatus SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *result)
     __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_2_0);
 
 #ifdef __BLOCKS__
@@ -366,6 +366,31 @@ OSStatus SecTrustEvaluateAsync(SecTrustRef trust,
     dispatch_queue_t __nullable queue, SecTrustCallback result)
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_7_0);
 #endif
+
+/*!
+     @function SecTrustEvaluateWithError
+     @abstract Evaluates a trust reference synchronously.
+     @param trust A reference to the trust object to evaluate.
+     @param error A pointer to an error object
+     @result A boolean value indicating whether the certificate is trusted
+     @discussion This function will completely evaluate trust before returning,
+     possibly including network access to fetch intermediate certificates or to
+     perform revocation checking. Since this function can block during those
+     operations, you should call it from within a function that is placed on a
+     dispatch queue, or in a separate thread from your application's main
+     run loop.
+     If the certificate is trusted and the result is true, the error will be set to NULL.
+     If the certificate is not trusted or the evaluation was unable to complete, the result
+     will be false and the error will be set with a description of the failure.
+     The error contains a code for the most serious error encountered (if multiple trust
+     failures occurred). The localized description indicates the certificate with the most
+     serious problem and the type of error. The underlying error contains a localized
+     description of each certificate in the chain that had an error and all errors found
+     with that certificate.
+ */
+__attribute__((warn_unused_result)) bool
+SecTrustEvaluateWithError(SecTrustRef trust, CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error)
+    API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0));
 
 /*!
     @function SecTrustGetTrustResult

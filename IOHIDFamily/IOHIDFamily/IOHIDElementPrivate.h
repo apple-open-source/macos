@@ -40,6 +40,12 @@ enum {
     kIOHIDTransactionStatePending,
 };
 
+enum {
+    kIOHIDElementVariableSizeElement    = 0x1,
+    kIOHIDElementVariableSizeReport     = 0x2
+};
+
+
 //===========================================================================
 // An object that describes a single HID element.
     
@@ -96,7 +102,9 @@ protected:
     
     bool                    _shouldTickleActivity;
   
-    bool                    _variableSize;
+    
+    UInt8                   _variableSize;
+    
     UInt32                  _currentReportSizeBits;
   
     struct {
@@ -282,7 +290,13 @@ public:
     virtual OSCollection *copyCollection(OSDictionary * cycleDict = 0);
   
     virtual boolean_t                               isVariableSize()
-    {  return _variableSize; }
+    {  return _variableSize & kIOHIDElementVariableSizeElement; }
+    
+    void setVariableSizeInfo            (UInt8 variableSize)
+    { _variableSize = variableSize; }
+
+    UInt8 getVariableSizeInfo           ()
+    { return _variableSize;}
 };
 
 #endif /* !_IOKIT_HID_IOHIDELEMENTPRIVATE_H */

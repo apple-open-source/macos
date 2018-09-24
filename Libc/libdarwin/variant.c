@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -327,9 +327,8 @@ static bool _check_internal_release_type(void)
 
 #else
 
-static bool _check_internal_diags_profile() {
-	static enum check_status internal_diags_profile = S_UNKNOWN;
-
+static bool _check_internal_diags_profile(void)
+{
 	if (internal_diags_profile == S_UNKNOWN) {
 		xpc_object_t profile_settings = read_plist(INTERNAL_DIAGS_PROFILE_PATH);
 		if (profile_settings) {

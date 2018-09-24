@@ -1,11 +1,17 @@
 PRODUCT_NAME = libxml2.2;
 INSTALL_PATH = /usr/lib;
-PUBLIC_HEADERS_FOLDER_PATH = /usr/include/libxml2/libxml;
 
 DYLIB_COMPATIBILITY_VERSION = 10.0.0;
 DYLIB_CURRENT_VERSION = 10.9.0;
 
 OTHER_LDFLAGS = $(inherited) -Wl,-force_load,"$(BUILT_PRODUCTS_DIR)/libxml2.a";
 
+EXPORTED_SYMBOLS_FILE = $(SRCROOT)/Pregenerated Files/libxml2.exp;
+GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 SECTORDER_FLAGS = $(SECTORDER_FLAGS_$(CONFIGURATION));
 SECTORDER_FLAGS_Production[sdk=iphoneos*] = -Wl,-order_file,$(SDKROOT)/AppleInternal/OrderFiles/libxml2.order;
+
+IS_ZIPPERED = YES;
+SUPPORTS_TEXT_BASED_API = YES;
+TAPI_VERIFY_MODE = Pedantic;
+OTHER_TAPI_FLAGS = -extra-public-header $(LIBXML2_HEADER_PATH) -extra-private-header $(SRCROOT)/"Pregenerated Files"/globalsCompat.h;

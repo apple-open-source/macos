@@ -29,6 +29,7 @@
 #include <sys/cdefs.h>
 #include <stdint.h>
 #include <mach/message.h>
+#include <os/base.h>
 #include <Availability.h>
 #ifdef __BLOCKS__
 #include <dispatch/dispatch.h>
@@ -110,7 +111,7 @@ __BEGIN_DECLS
  * This is the only call that is required for a notification producer.
  * Returns status.
  */
-uint32_t notify_post(const char *name);
+OS_EXPORT uint32_t notify_post(const char *name);
 
 
 #ifdef __BLOCKS__
@@ -131,13 +132,13 @@ typedef void (^notify_handler_t)(int token);
  *              The dispatch queue is retained by the notify subsystem while
  *              the notification is registered, and will be released when
  *              notification is canceled.
- * @param block (input) The Block to invoke on the dispatch queue in response
+ * @param handler (input) The Block to invoke on the dispatch queue in response
  *              to a notification.  The notification token is passed to the
  *              Block as an argument so that the callee can modify the state
  *              of the notification or cancel the registration.
  * @result Returns status.
  */
-uint32_t notify_register_dispatch(const char *name, int *out_token, dispatch_queue_t queue, notify_handler_t handler)
+OS_EXPORT uint32_t notify_register_dispatch(const char *name, int *out_token, dispatch_queue_t queue, notify_handler_t handler)
 __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_2);
 #endif /* __BLOCKS__ */
 
@@ -151,7 +152,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_2);
  *    (output) registration token
  * @result Returns status.
  */
-uint32_t notify_register_check(const char *name, int *out_token);
+OS_EXPORT uint32_t notify_register_check(const char *name, int *out_token);
 
 /*!
  * Request notification delivery by UNIX signal.
@@ -165,7 +166,7 @@ uint32_t notify_register_check(const char *name, int *out_token);
  * @param out_token (output) notification token
  * @result Returns status.
  */
-uint32_t notify_register_signal(const char *name, int sig, int *out_token);
+OS_EXPORT uint32_t notify_register_signal(const char *name, int sig, int *out_token);
 
 /*!
  * Request notification by mach message.  
@@ -197,7 +198,7 @@ uint32_t notify_register_signal(const char *name, int sig, int *out_token);
  *     (input/output) pointer to a mach port
  * @result Returns status.
  */
-uint32_t notify_register_mach_port(const char *name, mach_port_t *notify_port, int flags, int *out_token);
+OS_EXPORT uint32_t notify_register_mach_port(const char *name, mach_port_t *notify_port, int flags, int *out_token);
 
 /*
  * Request notification by a write to a file descriptor. 
@@ -227,7 +228,7 @@ uint32_t notify_register_mach_port(const char *name, mach_port_t *notify_port, i
  *     (input/output) pointer to a file descriptor
  * @result Returns status.
  */
-uint32_t notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int *out_token);
+OS_EXPORT uint32_t notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int *out_token);
 
 /*!
  * Check if any notifications have been posted.
@@ -246,7 +247,7 @@ uint32_t notify_register_file_descriptor(const char *name, int *notify_fd, int f
  *     (output) true/false indication
  * @result Returns status.
  */
-uint32_t notify_check(int token, int *check);
+OS_EXPORT uint32_t notify_check(int token, int *check);
 
 /*!
  * Cancel notification and free resources associated with a notification
@@ -258,7 +259,7 @@ uint32_t notify_check(int token, int *check);
  *     (input) notification token
  * @result Returns status.
  */
-uint32_t notify_cancel(int token);
+OS_EXPORT uint32_t notify_cancel(int token);
 
 /*!
  * Suspend delivery of notifications for a token. Notifications for this token will be
@@ -270,7 +271,7 @@ uint32_t notify_cancel(int token);
  *     (input) notification token
  * @result Returns status.
  */
-uint32_t notify_suspend(int token)
+OS_EXPORT uint32_t notify_suspend(int token)
 __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0);
 
 /*!
@@ -284,7 +285,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0);
  *     (input) notification token
  * @result Returns status.
  */
-uint32_t notify_resume(int token)
+OS_EXPORT uint32_t notify_resume(int token)
 __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0);
 
 /*!
@@ -305,7 +306,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0);
  *     (input) 64-bit unsigned integer value
  * @result Returns status.
  */
-uint32_t notify_set_state(int token, uint64_t state64)
+OS_EXPORT uint32_t notify_set_state(int token, uint64_t state64)
 __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 /*!
@@ -317,7 +318,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
  *     (output) 64-bit unsigned integer value
  * @result Returns status.
  */
-uint32_t notify_get_state(int token, uint64_t *state64)
+OS_EXPORT uint32_t notify_get_state(int token, uint64_t *state64)
 __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 /*!
@@ -330,7 +331,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
  *     (input) integer value
  * @result Returns true if the value is a valid token, false otherwise.
  */
-bool notify_is_valid_token(int val)
+OS_EXPORT bool notify_is_valid_token(int val)
 __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
 
 __END_DECLS

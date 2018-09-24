@@ -254,7 +254,7 @@
 
         // We're done checking local keychain for extra items, now let's make sure the mirror doesn't have extra items, either
         if (mirrorUUIDs.count > 0) {
-            ckksnotice("ckksscan", ckks, "keychain missing %lu items from mirror, proceeding with queue scanning", mirrorUUIDs.count);
+            ckksnotice("ckksscan", ckks, "keychain missing %lu items from mirror, proceeding with queue scanning", (unsigned long)mirrorUUIDs.count);
             [mirrorUUIDs minusSet:[NSSet setWithArray:[CKKSIncomingQueueEntry allUUIDs:ckks.zoneID error:&error]]];
             if (error) {
                 ckkserror("ckksscan", ckks, "unable to inspect incoming queue: %@", error);
@@ -270,7 +270,7 @@
             }
 
             if (mirrorUUIDs.count > 0) {
-                ckkserror("ckksscan", ckks, "BUG: keychain missing %lu items from mirror and/or queues: %@", mirrorUUIDs.count, mirrorUUIDs);
+                ckkserror("ckksscan", ckks, "BUG: keychain missing %lu items from mirror and/or queues: %@", (unsigned long)mirrorUUIDs.count, mirrorUUIDs);
                 self.missingLocalItemsFound = mirrorUUIDs.count;
 
                 [[CKKSAnalytics logger] logMetric:[NSNumber numberWithUnsignedInteger:mirrorUUIDs.count] withName:CKKSEventMissingLocalItemsFound];

@@ -33,7 +33,6 @@
 #include "IDBConnectionProxy.h"
 #include "ImageBitmapOptions.h"
 #include "InspectorInstrumentation.h"
-#include "MIMETypeRegistry.h"
 #include "Performance.h"
 #include "ScheduledAction.h"
 #include "ScriptSourceCode.h"
@@ -48,13 +47,13 @@
 #include "WorkerReportingProxy.h"
 #include "WorkerScriptLoader.h"
 #include "WorkerThread.h"
-#include <inspector/ScriptArguments.h>
-#include <inspector/ScriptCallStack.h>
+#include <JavaScriptCore/ScriptArguments.h>
+#include <JavaScriptCore/ScriptCallStack.h>
 
 namespace WebCore {
 using namespace Inspector;
 
-WorkerGlobalScope::WorkerGlobalScope(const URL& url, const String& identifier, const String& userAgent, bool isOnline, WorkerThread& thread, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider, PAL::SessionID sessionID)
+WorkerGlobalScope::WorkerGlobalScope(const URL& url, Ref<SecurityOrigin>&& origin, const String& identifier, const String& userAgent, bool isOnline, WorkerThread& thread, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider, PAL::SessionID sessionID)
     : m_url(url)
     , m_identifier(identifier)
     , m_userAgent(userAgent)
@@ -76,19 +75,20 @@ WorkerGlobalScope::WorkerGlobalScope(const URL& url, const String& identifier, c
     UNUSED_PARAM(connectionProxy);
 #endif
 
-    auto origin = SecurityOrigin::create(url);
     if (m_topOrigin->hasUniversalAccess())
         origin->grantUniversalAccess();
     if (m_topOrigin->needsStorageAccessFromFileURLsQuirk())
         origin->grantStorageAccessFromFileURLsQuirk();
 
     setSecurityOriginPolicy(SecurityOriginPolicy::create(WTFMove(origin)));
-    setContentSecurityPolicy(std::make_unique<ContentSecurityPolicy>(*this));
+    setContentSecurityPolicy(std::make_unique<ContentSecurityPolicy>(URL { m_url }, *this));
 }
 
 WorkerGlobalScope::~WorkerGlobalScope()
 {
     ASSERT(thread().thread() == &Thread::current());
+    // We need to remove from the contexts map very early in the destructor so that calling postTask() on this WorkerGlobalScope from another thread is safe.
+    removeFromContextsMap();
 
     m_performance = nullptr;
     m_crypto = nullptr;
@@ -117,7 +117,7 @@ bool WorkerGlobalScope::isSecureContext() const
 
 void WorkerGlobalScope::applyContentSecurityPolicyResponseHeaders(const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders)
 {
-    contentSecurityPolicy()->didReceiveHeaders(contentSecurityPolicyResponseHeaders);
+    contentSecurityPolicy()->didReceiveHeaders(contentSecurityPolicyResponseHeaders, String { });
 }
 
 URL WorkerGlobalScope::completeURL(const String& url) const
@@ -284,16 +284,9 @@ ExceptionOr<void> WorkerGlobalScope::importScripts(const Vector<String>& urls)
             return Exception { NetworkError };
 
         auto scriptLoader = WorkerScriptLoader::create();
-        scriptLoader->loadSynchronously(this, url, FetchOptions::Mode::NoCors, cachePolicy, shouldBypassMainWorldContentSecurityPolicy ? ContentSecurityPolicyEnforcement::DoNotEnforce : ContentSecurityPolicyEnforcement::EnforceScriptSrcDirective, resourceRequestIdentifier());
-
-        // If the fetching attempt failed, throw a NetworkError exception and abort all these steps.
-        if (scriptLoader->failed())
-            return Exception { NetworkError };
-
-#if ENABLE(SERVICE_WORKER)
-        if (isServiceWorkerGlobalScope && !MIMETypeRegistry::isSupportedJavaScriptMIMEType(scriptLoader->responseMIMEType()))
-            return Exception { NetworkError };
-#endif
+        auto cspEnforcement = shouldBypassMainWorldContentSecurityPolicy ? ContentSecurityPolicyEnforcement::DoNotEnforce : ContentSecurityPolicyEnforcement::EnforceScriptSrcDirective;
+        if (auto exception = scriptLoader->loadSynchronously(this, url, FetchOptions::Mode::NoCors, cachePolicy, cspEnforcement, resourceRequestIdentifier()))
+            return WTFMove(*exception);
 
         InspectorInstrumentation::scriptImported(*this, scriptLoader->identifier(), scriptLoader->script());
 

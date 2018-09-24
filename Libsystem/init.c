@@ -97,10 +97,6 @@ extern void _libcoreservices_fork_child(void);
 extern char *_dirhelper(int, char *, size_t);
 #endif
 
-#if TARGET_OS_EMBEDDED && !TARGET_OS_WATCH && !__LP64__
-extern void _vminterpose_init(void);
-#endif
-
 // advance decls for below;
 void libSystem_atfork_prepare(void);
 void libSystem_atfork_parent(void);
@@ -185,17 +181,13 @@ libSystem_initializer(int argc,
 	_libsecinit_initializer();
 #endif
 
-#if TARGET_OS_EMBEDDED
+#if defined(HAVE_SYSTEM_CONTAINERMANAGER)
 	_container_init(apple);
 #endif
 
 	__libdarwin_init();
 
 	__stack_logging_early_finished();
-
-#if TARGET_OS_EMBEDDED && TARGET_OS_IOS && !__LP64__
-	_vminterpose_init();
-#endif
 
 #if !TARGET_OS_IPHONE
     /* <rdar://problem/22139800> - Preserve the old behavior of apple[] for

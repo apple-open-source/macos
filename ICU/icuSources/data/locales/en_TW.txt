@@ -70,6 +70,7 @@ en_TW{
                 yyyyMd{"GGGGG y/M/d"}
             }
             intervalFormats{
+                fallback{"{0} – {1}"}
                 yM{
                     M{"GGGGG y/M – y/M"}
                     y{"GGGGG y/M – y/M"}

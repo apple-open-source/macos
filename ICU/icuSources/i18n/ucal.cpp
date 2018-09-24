@@ -196,12 +196,24 @@ ucal_setTimeZone(    UCalendar*      cal,
 
   if(U_FAILURE(*status))
     return;
-
-  TimeZone* zone = (zoneID==NULL) ? TimeZone::createDefault()
-      : _createTimeZone(zoneID, len, status);
+    
+  TimeZone* zone;
+  if (zoneID==NULL) {
+      zone = TimeZone::createDefault();
+  } else {
+      UnicodeString zoneStrID, id;
+      zoneStrID.setTo(len < 0, zoneID, len); /* aliasing assignment, avoids copy */
+      ((Calendar*)cal)->getTimeZone().getID(id);
+      if (id == zoneStrID) {
+          return;
+      }
+      zone = TimeZone::createTimeZone(zoneStrID);
+  }
 
   if (zone != NULL) {
       ((Calendar*)cal)->adoptTimeZone(zone);
+  } else {
+      *status = U_MEMORY_ALLOCATION_ERROR;
   }
 }
 

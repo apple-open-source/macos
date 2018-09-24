@@ -39,7 +39,7 @@
 
 #import <pal/cf/CoreMediaSoftLink.h>
 
-SOFT_LINK_FRAMEWORK_OPTIONAL(AVKit)
+SOFTLINK_AVKIT_FRAMEWORK()
 SOFT_LINK_CLASS_OPTIONAL(AVKit, AVValueTiming)
 
 namespace WebCore {
@@ -59,6 +59,15 @@ PlaybackSessionInterfaceMac::PlaybackSessionInterfaceMac(PlaybackSessionModel& m
 PlaybackSessionInterfaceMac::~PlaybackSessionInterfaceMac()
 {
     invalidate();
+}
+
+PlaybackSessionModel* PlaybackSessionInterfaceMac::playbackSessionModel() const
+{
+    return m_playbackSessionModel;
+}
+
+void PlaybackSessionInterfaceMac::resetMediaState()
+{
 }
 
 void PlaybackSessionInterfaceMac::durationChanged(double duration)

@@ -85,7 +85,7 @@
 
     [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testDeviceStateUploadRateLimited {
@@ -126,7 +126,7 @@
            runAfterModification:nil];
 
     CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [op waitUntilFinished];
 
     // Check that an immediate rate-limited retry doesn't upload anything
@@ -140,7 +140,7 @@
             checkModifiedRecord:nil
            runAfterModification:nil];
     op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [op waitUntilFinished];
 
     // And now, if the update is old enough, that'll work too
@@ -178,7 +178,7 @@
             checkModifiedRecord:nil
            runAfterModification:nil];
     op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
-    OCMVerifyAllWithDelay(self.mockDatabase, 12);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [op waitUntilFinished];
 }
 
@@ -190,7 +190,7 @@
 
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
     [self addGenericPassword:@"password" account:@"account-delete-me"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // Check that an immediate rate-limited retry doesn't upload anything
     CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
@@ -236,7 +236,7 @@
 
     // And allow the key state to progress
     [self startCKKSSubsystem];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testDeviceStateUploadWaitsForKeyHierarchyWaitForTLK {
@@ -280,8 +280,8 @@
 
     // And allow the key state to progress
     [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:8*NSEC_PER_SEC], "CKKS entered waitfortlk");
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testDeviceStateReceive {
@@ -368,7 +368,7 @@
         return false;
     }];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testDeviceStateUploadBadKeyState {
@@ -377,7 +377,7 @@
     [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
 
     [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:8*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
     XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateWaitForTLK, "CKKS entered waitfortlk");
 
     __weak __typeof(self) weakSelf = self;
@@ -410,7 +410,7 @@
 
     [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testDeviceStateUploadWaitForUnlockKeyState {
@@ -432,7 +432,7 @@
                   "last unlock date (%@) similar to threeDaysAgo (%@)", self.lockStateTracker.lastUnlockTime, threeDaysAgo);
 
     [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForUnlock] wait:8*NSEC_PER_SEC], "CKKS entered waitforunlock");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForUnlock] wait:20*NSEC_PER_SEC], "CKKS entered waitforunlock");
 
     __weak __typeof(self) weakSelf = self;
     [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
@@ -464,7 +464,7 @@
 
     [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testDeviceStateUploadBadKeyStateAfterRestart {
@@ -473,12 +473,12 @@
     [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
 
     [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:8*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
     XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateWaitForTLK, "CKKS entered waitfortlk");
 
     // And restart CKKS...
     self.keychainView = [[CKKSViewManager manager] restartZone: self.keychainZoneID.zoneName];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:8*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
     XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateWaitForTLK, "CKKS entered waitfortlk");
 
     __weak __typeof(self) weakSelf = self;
@@ -511,12 +511,12 @@
 
     [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 
 - (void)testDeviceStateUploadBadCircleState {
-    self.circleStatus = kSOSCCNotInCircle;
+    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCNotInCircle error:nil];;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
 
     // This test has stuff in CloudKit, but no TLKs.
@@ -524,7 +524,7 @@
 
     [self startCKKSSubsystem];
 
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateLoggedOut] wait:8*NSEC_PER_SEC], "CKKS entered logged out");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateLoggedOut] wait:20*NSEC_PER_SEC], "CKKS entered logged out");
     XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateLoggedOut, "CKKS thinks it's logged out");
 
     __weak __typeof(self) weakSelf = self;
@@ -556,7 +556,7 @@
            runAfterModification:nil];
 
     CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [op waitUntilFinished];
     XCTAssertNil(op.error, "No error uploading 'out of circle' device state");
@@ -573,7 +573,7 @@
     [self startCKKSSubsystem];
 
     // we should be stuck in fetch
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateFetch] wait:8*NSEC_PER_SEC], "Key state should become fetch");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateFetch] wait:20*NSEC_PER_SEC], "Key state should become fetch");
 
     __weak __typeof(self) weakSelf = self;
     [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
@@ -612,7 +612,7 @@
     XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateFetch, "CKKS re-entered fetch");
     [self releaseCloudKitFetchHold];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 16);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 

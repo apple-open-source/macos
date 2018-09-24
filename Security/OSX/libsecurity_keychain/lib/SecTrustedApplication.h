@@ -56,7 +56,7 @@ CFTypeID SecTrustedApplicationGetTypeID(void);
     @param app On return, a pointer to the trusted application reference.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecTrustedApplicationCreateFromPath(const char * __nullable path, SecTrustedApplicationRef * __nonnull CF_RETURNS_RETAINED app);
+OSStatus SecTrustedApplicationCreateFromPath(const char * __nullable path, SecTrustedApplicationRef * __nonnull CF_RETURNS_RETAINED app) API_UNAVAILABLE(ios);
 
 /*!
 	@function SecTrustedApplicationCopyData
@@ -65,7 +65,7 @@ OSStatus SecTrustedApplicationCreateFromPath(const char * __nullable path, SecTr
 	@param data On return, a pointer to a data reference of the trusted application.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef, CFDataRef * __nonnull CF_RETURNS_RETAINED data);
+OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef, CFDataRef * __nonnull CF_RETURNS_RETAINED data) API_UNAVAILABLE(ios);
 
 /*!
 	@function SecTrustedApplicationSetData
@@ -74,7 +74,7 @@ OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef, CFDataRe
 	@param data A reference to the data to set in the trusted application.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecTrustedApplicationSetData(SecTrustedApplicationRef appRef, CFDataRef data);
+OSStatus SecTrustedApplicationSetData(SecTrustedApplicationRef appRef, CFDataRef data) API_UNAVAILABLE(ios);
 
 CF_ASSUME_NONNULL_END
 

@@ -42,14 +42,13 @@
 #include "Logging.h"
 #include "SerializedScriptValue.h"
 #include "UniqueIDBDatabaseConnection.h"
-#include <heap/HeapInlines.h>
-#include <heap/StrongInlines.h>
-#include <runtime/AuxiliaryBarrierInlines.h>
-#include <runtime/StructureInlines.h>
+#include <JavaScriptCore/AuxiliaryBarrierInlines.h>
+#include <JavaScriptCore/HeapInlines.h>
+#include <JavaScriptCore/StrongInlines.h>
+#include <JavaScriptCore/StructureInlines.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Scope.h>
-
 
 namespace WebCore {
 using namespace JSC;
@@ -274,6 +273,8 @@ void UniqueIDBDatabase::scheduleShutdownForClose()
 {
     ASSERT(isMainThread());
 
+    m_operationAndTransactionTimer.stop();
+
     RELEASE_ASSERT(!m_owningPointerForClose);
     m_owningPointerForClose = m_server.closeAndTakeUniqueIDBDatabase(*this);
 
@@ -333,21 +334,6 @@ void UniqueIDBDatabase::didDeleteBackingStore(uint64_t deletedVersion)
     }
 
     m_deleteBackingStoreInProgress = false;
-
-    if (m_clientClosePendingDatabaseConnections.isEmpty() && m_pendingOpenDBRequests.isEmpty()) {
-        // This UniqueIDBDatabase is now ready to be deleted.
-        ASSERT(m_databaseQueue.isEmpty());
-        ASSERT(m_databaseReplyQueue.isEmpty());
-        m_databaseQueue.kill();
-
-        RELEASE_ASSERT(!m_owningPointerForClose);
-        m_owningPointerForClose = m_server.closeAndTakeUniqueIDBDatabase(*this);
-        ASSERT(m_owningPointerForClose);
-
-        postDatabaseTaskReply(createCrossThreadTask(*this, &UniqueIDBDatabase::didShutdownForClose));
-        return;
-    }
-
     invokeOperationAndTransactionTimer();
 }
 
@@ -694,7 +680,7 @@ void UniqueIDBDatabase::deleteObjectStore(UniqueIDBDatabaseTransaction& transact
 
     auto* info = m_databaseInfo->infoForExistingObjectStore(objectStoreName);
     if (!info) {
-        performErrorCallback(callbackID, IDBError { UnknownError, ASCIILiteral("Attempt to delete non-existant object store") });
+        performErrorCallback(callbackID, IDBError { UnknownError, "Attempt to delete non-existant object store"_s });
         return;
     }
 
@@ -735,7 +721,7 @@ void UniqueIDBDatabase::renameObjectStore(UniqueIDBDatabaseTransaction& transact
 
     auto* info = m_databaseInfo->infoForExistingObjectStore(objectStoreIdentifier);
     if (!info) {
-        performErrorCallback(callbackID, IDBError { UnknownError, ASCIILiteral("Attempt to rename non-existant object store") });
+        performErrorCallback(callbackID, IDBError { UnknownError, "Attempt to rename non-existant object store"_s });
         return;
     }
 
@@ -844,13 +830,13 @@ void UniqueIDBDatabase::deleteIndex(UniqueIDBDatabaseTransaction& transaction, u
 
     auto* objectStoreInfo = m_databaseInfo->infoForExistingObjectStore(objectStoreIdentifier);
     if (!objectStoreInfo) {
-        performErrorCallback(callbackID, IDBError { UnknownError, ASCIILiteral("Attempt to delete index from non-existant object store") });
+        performErrorCallback(callbackID, IDBError { UnknownError, "Attempt to delete index from non-existant object store"_s });
         return;
     }
 
     auto* indexInfo = objectStoreInfo->infoForExistingIndex(indexName);
     if (!indexInfo) {
-        performErrorCallback(callbackID, IDBError { UnknownError, ASCIILiteral("Attempt to delete non-existant index") });
+        performErrorCallback(callbackID, IDBError { UnknownError, "Attempt to delete non-existant index"_s });
         return;
     }
 
@@ -894,13 +880,13 @@ void UniqueIDBDatabase::renameIndex(UniqueIDBDatabaseTransaction& transaction, u
 
     auto* objectStoreInfo = m_databaseInfo->infoForExistingObjectStore(objectStoreIdentifier);
     if (!objectStoreInfo) {
-        performErrorCallback(callbackID, IDBError { UnknownError, ASCIILiteral("Attempt to rename index in non-existant object store") });
+        performErrorCallback(callbackID, IDBError { UnknownError, "Attempt to rename index in non-existant object store"_s });
         return;
     }
 
     auto* indexInfo = objectStoreInfo->infoForExistingIndex(indexIdentifier);
     if (!indexInfo) {
-        performErrorCallback(callbackID, IDBError { UnknownError, ASCIILiteral("Attempt to rename non-existant index") });
+        performErrorCallback(callbackID, IDBError { UnknownError, "Attempt to rename non-existant index"_s });
         return;
     }
 
@@ -978,7 +964,7 @@ void UniqueIDBDatabase::performPutOrAdd(uint64_t callbackIdentifier, const IDBRe
 
     auto* objectStoreInfo = m_backingStore->infoForObjectStore(objectStoreIdentifier);
     if (!objectStoreInfo) {
-        error = IDBError(InvalidStateError, ASCIILiteral("Object store cannot be found in the backing store"));
+        error = IDBError(InvalidStateError, "Object store cannot be found in the backing store"_s);
         postDatabaseTaskReply(createCrossThreadTask(*this, &UniqueIDBDatabase::didPerformPutOrAdd, callbackIdentifier, error, usedKey));
         return;
     }
@@ -1005,7 +991,7 @@ void UniqueIDBDatabase::performPutOrAdd(uint64_t callbackIdentifier, const IDBRe
         bool keyExists;
         error = m_backingStore->keyExistsInObjectStore(transactionIdentifier, objectStoreIdentifier, usedKey, keyExists);
         if (error.isNull() && keyExists)
-            error = IDBError(ConstraintError, ASCIILiteral("Key already exists in the object store"));
+            error = IDBError(ConstraintError, "Key already exists in the object store"_s);
 
         if (!error.isNull()) {
             postDatabaseTaskReply(createCrossThreadTask(*this, &UniqueIDBDatabase::didPerformPutOrAdd, callbackIdentifier, error, usedKey));
@@ -1024,18 +1010,18 @@ void UniqueIDBDatabase::performPutOrAdd(uint64_t callbackIdentifier, const IDBRe
 
         auto value = deserializeIDBValueToJSValue(databaseThreadExecState(), originalRecordValue.data());
         if (value.isUndefined()) {
-            postDatabaseTaskReply(createCrossThreadTask(*this, &UniqueIDBDatabase::didPerformPutOrAdd, callbackIdentifier, IDBError(ConstraintError, ASCIILiteral("Unable to deserialize record value for record key injection")), usedKey));
+            postDatabaseTaskReply(createCrossThreadTask(*this, &UniqueIDBDatabase::didPerformPutOrAdd, callbackIdentifier, IDBError(ConstraintError, "Unable to deserialize record value for record key injection"_s), usedKey));
             return;
         }
 
         if (!injectIDBKeyIntoScriptValue(databaseThreadExecState(), usedKey, value, objectStoreInfo->keyPath().value())) {
-            postDatabaseTaskReply(createCrossThreadTask(*this, &UniqueIDBDatabase::didPerformPutOrAdd, callbackIdentifier, IDBError(ConstraintError, ASCIILiteral("Unable to inject record key into record value")), usedKey));
+            postDatabaseTaskReply(createCrossThreadTask(*this, &UniqueIDBDatabase::didPerformPutOrAdd, callbackIdentifier, IDBError(ConstraintError, "Unable to inject record key into record value"_s), usedKey));
             return;
         }
 
         auto serializedValue = SerializedScriptValue::create(databaseThreadExecState(), value);
         if (UNLIKELY(scope.exception())) {
-            postDatabaseTaskReply(createCrossThreadTask(*this, &UniqueIDBDatabase::didPerformPutOrAdd, callbackIdentifier, IDBError(ConstraintError, ASCIILiteral("Unable to serialize record value after injecting record key")), usedKey));
+            postDatabaseTaskReply(createCrossThreadTask(*this, &UniqueIDBDatabase::didPerformPutOrAdd, callbackIdentifier, IDBError(ConstraintError, "Unable to serialize record value after injecting record key"_s), usedKey));
             return;
         }
 
@@ -1329,7 +1315,7 @@ void UniqueIDBDatabase::commitTransaction(UniqueIDBDatabaseTransaction& transact
             return;
         }
 
-        performErrorCallback(callbackID, IDBError { UnknownError, ASCIILiteral("Attempt to commit transaction that is already finishing") });
+        performErrorCallback(callbackID, IDBError { UnknownError, "Attempt to commit transaction that is already finishing"_s });
         return;
     }
 
@@ -1373,7 +1359,7 @@ void UniqueIDBDatabase::abortTransaction(UniqueIDBDatabaseTransaction& transacti
             return;
         }
 
-        performErrorCallback(callbackID, IDBError { UnknownError, ASCIILiteral("Attempt to abort transaction that is already finishing") });
+        performErrorCallback(callbackID, IDBError { UnknownError, "Attempt to abort transaction that is already finishing"_s });
         return;
     }
 
@@ -1548,6 +1534,7 @@ void UniqueIDBDatabase::invokeOperationAndTransactionTimer()
 {
     LOG(IndexedDB, "UniqueIDBDatabase::invokeOperationAndTransactionTimer()");
     ASSERT(!m_hardClosedForUserDelete);
+    ASSERT(!m_owningPointerForClose);
 
     if (!m_operationAndTransactionTimer.isActive())
         m_operationAndTransactionTimer.startOneShot(0_s);

@@ -388,7 +388,7 @@ _SC_isInstallEnvironment() {
 
 
 os_log_t
-_SC_LOG_DEFAULT()
+_SC_LOG_DEFAULT(void)
 {
 	static os_log_t	log	= NULL;
 

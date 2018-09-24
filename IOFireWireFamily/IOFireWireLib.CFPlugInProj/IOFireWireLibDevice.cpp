@@ -36,7 +36,7 @@ namespace IOFireWireLib {
 			throw kIOReturnBadArgument ;
 
 		// mr. safety says, "initialize for safety!"
-		mConnection					= nil ;
+		mConnection					= 0 ;
 		mIsInited					= false ;
 		mIsOpen						= false ;
 		mNotifyIsOn					= false ;

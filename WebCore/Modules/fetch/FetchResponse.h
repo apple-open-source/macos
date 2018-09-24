@@ -32,7 +32,7 @@
 #include "FetchHeaders.h"
 #include "ReadableStreamSink.h"
 #include "ResourceResponse.h"
-#include <runtime/TypedArrays.h>
+#include <JavaScriptCore/TypedArrays.h>
 
 namespace JSC {
 class ExecState;
@@ -51,7 +51,7 @@ public:
 
     struct Init {
         unsigned short status { 200 };
-        String statusText { ASCIILiteral("OK") };
+        String statusText { "OK"_s };
         std::optional<FetchHeaders::Init> headers;
     };
 
@@ -108,6 +108,8 @@ public:
     void initializeOpaqueLoadIdentifierForTesting() { m_opaqueLoadIdentifier = 1; }
 
     const std::optional<ResourceError>& loadingError() const { return m_loadingError; }
+
+    const HTTPHeaderMap& internalResponseHeaders() const { return m_internalResponse.httpHeaderFields(); }
 
 private:
     FetchResponse(ScriptExecutionContext&, std::optional<FetchBody>&&, Ref<FetchHeaders>&&, ResourceResponse&&);

@@ -14,9 +14,8 @@ ToolType	= Commands
 GnuAfterInstall = post-install install-plist install-irbrc install-rails-placeholder
 GnuNoBuild	= YES
 
-# ruby_atomic.h + LibreSSL
-Extra_CC_Flags = -DHAVE_GCC_ATOMIC_BUILTINS -iwithsysroot /usr/local/libressl/include
-Extra_LD_Flags = -L $(SDKROOT)/usr/local/libressl/lib
+# ruby_atomic.h
+Extra_CC_Flags = -DHAVE_GCC_ATOMIC_BUILTINS
 # don't use xcrun as xcrun_log will break configure -- keep it like this for rbconfig.rb
 Extra_Configure_Environment =
 comma := ,
@@ -28,7 +27,9 @@ Extra_Configure_Flags  = \
 	--with-sitedir=$(SITEDIR) \
 	--enable-shared \
 	--with-arch=$(subst $(space),$(comma),$(RC_ARCHS)) \
+	--with-openssl-dir=$(SDKROOT)/usr/local/libressl \
 	--with-out-ext=tk \
+	--disable-silent-rules \
 	ac_cv_func_getcontext=no \
 	ac_cv_func_setcontext=no \
 	ac_cv_func_utimensat=no \

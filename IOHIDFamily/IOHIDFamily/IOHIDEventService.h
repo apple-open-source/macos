@@ -234,6 +234,7 @@ private:
     void                    multiAxisTimerCallback(IOTimerEventSource *sender);
 
     void                    calculateStandardType();
+    bool                    supportsHeadset(OSArray *elements);
 
 protected:
 

@@ -1,0 +1,27 @@
+//
+//  ASAN.xcconfig
+//  CommonCrypto_static
+//
+//  Created on 8/1/17.
+//  Copyright © 2017 Apple Inc. All rights reserved.
+//
+
+//this file is copied from corecrypt project
+
+// Change TOOLCHAINS from SDK to default if ASan is enabled
+// This is to run ASan on trains where the default Clang does not support it
+TOOLCHAINS_ASAN_YES=default
+TOOLCHAINS=$(TOOLCHAINS_ASAN_$(CLANG_ADDRESS_SANITIZER)) $(inherited)
+
+// Name of the asan dylib
+// In most cases:
+INSERT_ASAN_LIB_NAME=libclang_rt.asan_${PLATFORM_NAME}_dynamic.dylib
+// Unfortunately, ios iphoneos is special
+INSERT_ASAN_LIB_NAME[sdk=iphoneos*]=libclang_rt.asan_ios_dynamic.dylib
+
+// Xcode currently does not have a macro for this (per 31183385)
+// Macos is special, it just works and there is not need for inserted dylib
+INSERT_ASAN_LIB_ON_DEVICE_PATH=/private/var/mobile/XcodeBuiltProducts/${PRODUCT_NAME}/${CONFIGURATION}-${PLATFORM_NAME}/$(INSERT_ASAN_LIB_NAME)
+INSERT_ASAN_LIB_ON_DEVICE[sdk=watchos*]=$(INSERT_ASAN_LIB_ON_DEVICE_PATH)
+INSERT_ASAN_LIB_ON_DEVICE[sdk=tvos*]=$(INSERT_ASAN_LIB_ON_DEVICE_PATH)
+INSERT_ASAN_LIB_ON_DEVICE[sdk=iphoneos*]=$(INSERT_ASAN_LIB_ON_DEVICE_PATH)

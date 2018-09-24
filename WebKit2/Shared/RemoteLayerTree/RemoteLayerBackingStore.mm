@@ -1,5 +1,5 @@
  /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@
 #import <WebCore/WebLayer.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
 #import <mach/mach_port.h>
 #endif
 
@@ -72,7 +72,7 @@ RemoteLayerBackingStore::~RemoteLayerBackingStore()
 
 void RemoteLayerBackingStore::ensureBackingStore(FloatSize size, float scale, bool acceleratesDrawing, bool deepColor, bool isOpaque)
 {
-#if !USE(IOSURFACE)
+#if !HAVE(IOSURFACE)
     acceleratesDrawing = false;
 #endif
     if (m_size == size && m_scale == scale && m_deepColor == deepColor && m_acceleratesDrawing == acceleratesDrawing && m_isOpaque == isOpaque)
@@ -97,7 +97,7 @@ void RemoteLayerBackingStore::clearBackingStore()
 {
     m_frontBuffer.discard();
     m_backBuffer.discard();
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
     m_secondaryBackBuffer.discard();
 #endif
 }
@@ -109,12 +109,12 @@ void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
     encoder << m_acceleratesDrawing;
     encoder << m_isOpaque;
 
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
     if (m_acceleratesDrawing) {
         if (m_frontBuffer.surface)
             encoder << m_frontBuffer.surface->createSendRight();
         else
-            encoder << WebCore::MachSendRight();
+            encoder << WTF::MachSendRight();
         return;
     }
 #endif
@@ -140,7 +140,7 @@ bool RemoteLayerBackingStore::decode(IPC::Decoder& decoder, RemoteLayerBackingSt
     if (!decoder.decode(result.m_isOpaque))
         return false;
 
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
     if (result.m_acceleratesDrawing) {
         MachSendRight sendRight;
         if (!decoder.decode(sendRight))
@@ -179,7 +179,7 @@ IntSize RemoteLayerBackingStore::backingStoreSize() const
 
 unsigned RemoteLayerBackingStore::bytesPerPixel() const
 {
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
     switch (surfaceBufferFormat()) {
     case WebCore::IOSurface::Format::RGBA: return 4;
     case WebCore::IOSurface::Format::YUV422: return 2;
@@ -194,7 +194,7 @@ void RemoteLayerBackingStore::swapToValidFrontBuffer()
 {
     IntSize expandedScaledSize = backingStoreSize();
 
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
     if (m_acceleratesDrawing) {
         if (!m_backBuffer.surface || m_backBuffer.surface->isInUse()) {
             std::swap(m_backBuffer, m_secondaryBackBuffer);
@@ -254,7 +254,7 @@ bool RemoteLayerBackingStore::display()
 
     swapToValidFrontBuffer();
 
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
     if (m_acceleratesDrawing) {
         RetainPtr<CGImageRef> backImage;
         if (m_backBuffer.surface && !willPaintEntireBackingStore)
@@ -337,7 +337,7 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context, CGImageRef
 
 #ifndef NDEBUG
     if (m_isOpaque)
-        context.fillRect(scaledLayerBounds, Color(255, 0, 0));
+        context.fillRect(scaledLayerBounds, Color(255, 47, 146));
 #endif
 
     context.scale(m_scale);
@@ -399,7 +399,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
 {
     layer.contentsOpaque = m_isOpaque;
 
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
     if (acceleratesDrawing()) {
         switch (contentsType) {
         case LayerContentsType::IOSurface:
@@ -411,7 +411,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
             break;
         case LayerContentsType::CAMachPort:
             ASSERT(m_frontBufferSendRight);
-            layer.contents = (id)adoptCF(CAMachPortCreate(m_frontBufferSendRight.leakSendRight())).get();
+            layer.contents = (__bridge id)adoptCF(CAMachPortCreate(m_frontBufferSendRight.leakSendRight())).get();
             break;
         }
         return;
@@ -419,7 +419,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
 #endif
 
     ASSERT(!acceleratesDrawing());
-    layer.contents = (id)m_frontBuffer.bitmap->makeCGImageCopy().get();
+    layer.contents = (__bridge id)m_frontBuffer.bitmap->makeCGImageCopy().get();
 }
 
 RetainPtr<CGContextRef> RemoteLayerBackingStore::takeFrontContextPendingFlush()
@@ -427,46 +427,56 @@ RetainPtr<CGContextRef> RemoteLayerBackingStore::takeFrontContextPendingFlush()
     return WTFMove(m_frontContextPendingFlush);
 }
 
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
 bool RemoteLayerBackingStore::setBufferVolatility(BufferType type, bool isVolatile)
 {
+    // Return value is true if we succeeded in making volatile.
+    auto makeVolatile = [] (Buffer& buffer) -> bool {
+        if (!buffer.surface || buffer.isVolatile)
+            return true;
+
+        buffer.surface->releaseGraphicsContext();
+
+        if (!buffer.surface->isInUse()) {
+            buffer.surface->setIsVolatile(true);
+            buffer.isVolatile = true;
+            return true;
+        }
+    
+        return false;
+    };
+
+    // Return value is true if we need to repaint.
+    auto makeNonVolatile = [] (Buffer& buffer) -> bool {
+        if (!buffer.surface || !buffer.isVolatile)
+            return false;
+
+        auto previousState = buffer.surface->setIsVolatile(false);
+        buffer.isVolatile = false;
+
+        return previousState == WebCore::IOSurface::SurfaceState::Empty;
+    };
+
     switch (type) {
     case BufferType::Front:
-        if (m_frontBuffer.surface && m_frontBuffer.isVolatile != isVolatile) {
-            if (isVolatile)
-                m_frontBuffer.surface->releaseGraphicsContext();
-            if (!isVolatile || !m_frontBuffer.surface->isInUse()) {
-                auto previousState = m_frontBuffer.surface->setIsVolatile(isVolatile);
-                m_frontBuffer.isVolatile = isVolatile;
-
-                // Becoming non-volatile and the front buffer was purged, so we need to repaint.
-                if (!isVolatile && (previousState == WebCore::IOSurface::SurfaceState::Empty))
-                    setNeedsDisplay();
-            } else
-                return false;
-        }
+        if (isVolatile)
+            return makeVolatile(m_frontBuffer);
+        
+        // Becoming non-volatile and the front buffer was purged, so we need to repaint.
+        if (makeNonVolatile(m_frontBuffer))
+            setNeedsDisplay();
         break;
     case BufferType::Back:
-        if (m_backBuffer.surface && m_backBuffer.isVolatile != isVolatile) {
-            if (isVolatile)
-                m_backBuffer.surface->releaseGraphicsContext();
-            if (!isVolatile || !m_backBuffer.surface->isInUse()) {
-                m_backBuffer.surface->setIsVolatile(isVolatile);
-                m_backBuffer.isVolatile = isVolatile;
-            } else
-                return false;
-        }
+        if (isVolatile)
+            return makeVolatile(m_backBuffer);
+    
+        makeNonVolatile(m_backBuffer);
         break;
     case BufferType::SecondaryBack:
-        if (m_secondaryBackBuffer.surface && m_secondaryBackBuffer.isVolatile != isVolatile) {
-            if (isVolatile)
-                m_secondaryBackBuffer.surface->releaseGraphicsContext();
-            if (!isVolatile || !m_secondaryBackBuffer.surface->isInUse()) {
-                m_secondaryBackBuffer.surface->setIsVolatile(isVolatile);
-                m_secondaryBackBuffer.isVolatile = isVolatile;
-            } else
-                return false;
-        }
+        if (isVolatile)
+            return makeVolatile(m_secondaryBackBuffer);
+    
+        makeNonVolatile(m_secondaryBackBuffer);
         break;
     }
     return true;
@@ -480,7 +490,7 @@ bool RemoteLayerBackingStore::setBufferVolatility(BufferType, bool)
 
 void RemoteLayerBackingStore::Buffer::discard()
 {
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
     if (surface)
         WebCore::IOSurface::moveToPool(WTFMove(surface));
     isVolatile = false;
@@ -488,7 +498,7 @@ void RemoteLayerBackingStore::Buffer::discard()
     bitmap = nullptr;
 }
 
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
 WebCore::IOSurface::Format RemoteLayerBackingStore::surfaceBufferFormat() const
 {
     if (m_deepColor)
@@ -496,6 +506,6 @@ WebCore::IOSurface::Format RemoteLayerBackingStore::surfaceBufferFormat() const
 
     return WebCore::IOSurface::Format::RGBA;
 }
-#endif // USE(IOSURFACE)
+#endif // HAVE(IOSURFACE)
 
 } // namespace WebKit

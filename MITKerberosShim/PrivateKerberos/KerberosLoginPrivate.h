@@ -97,8 +97,6 @@ KLStatus __KLGetKerberos5PrincipalFromPrincipal (KLPrincipal     inPrincipal,
                                                  krb5_context    inContext, 
                                                  krb5_principal *outKrb5Principal);
 
-KLStatus __KLGetRealmFromPrincipal (KLPrincipal inPrincipal, char **outRealm);
-
 KLBoolean __KLPrincipalIsTicketGrantingService (KLPrincipal inPrincipal);
 
 KLStatus __KLGetKeychainPasswordForPrincipal (KLPrincipal   inPrincipal,

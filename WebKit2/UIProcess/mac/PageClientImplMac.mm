@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,6 +59,7 @@
 #import <WebCore/BitmapImage.h>
 #import <WebCore/Cursor.h>
 #import <WebCore/DictionaryLookup.h>
+#import <WebCore/DragItem.h>
 #import <WebCore/FloatRect.h>
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/Image.h>
@@ -71,6 +72,7 @@
 #import <WebCore/TextUndoInsertionMarkupMac.h>
 #import <WebCore/ValidationBubble.h>
 #import <WebCore/WebCoreCALayerExtras.h>
+#import <wtf/ProcessPrivilege.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
 
@@ -159,6 +161,7 @@ NSWindow *PageClientImpl::activeWindow() const
 
 bool PageClientImpl::isViewWindowActive()
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     NSWindow *activeViewWindow = activeWindow();
     return activeViewWindow.isKeyWindow || [NSApp keyWindow] == activeViewWindow;
 }
@@ -289,6 +292,7 @@ void PageClientImpl::didChangeContentSize(const WebCore::IntSize& newSize)
 
 void PageClientImpl::setCursor(const WebCore::Cursor& cursor)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     // FIXME: Would be nice to share this code with WebKit1's WebChromeClient.
 
     // The Web process may have asked to change the cursor when the view was in an active window, but
@@ -352,15 +356,9 @@ void PageClientImpl::executeUndoRedo(WebPageProxy::UndoOrRedo undoOrRedo)
     return (undoOrRedo == WebPageProxy::Undo) ? [[m_view undoManager] undo] : [[m_view undoManager] redo];
 }
 
-void PageClientImpl::setDragImage(const IntPoint& clientPosition, Ref<ShareableBitmap>&& dragImage, DragSourceAction action)
+void PageClientImpl::startDrag(const WebCore::DragItem& item, const ShareableBitmap::Handle& image)
 {
-    RetainPtr<CGImageRef> dragCGImage = dragImage->makeCGImage();
-    RetainPtr<NSImage> dragNSImage = adoptNS([[NSImage alloc] initWithCGImage:dragCGImage.get() size:dragImage->size()]);
-    IntSize size([dragNSImage size]);
-    size.scale(1.0 / m_impl->page().deviceScaleFactor());
-    [dragNSImage setSize:size];
-
-    m_impl->dragImageForView(m_view, dragNSImage.get(), clientPosition, action == DragSourceActionLink);
+    m_impl->startDrag(item, image);
 }
 
 void PageClientImpl::setPromisedDataForImage(const String& pasteboardName, Ref<SharedBuffer>&& imageBuffer, const String& filename, const String& extension, const String& title, const String& url, const String& visibleURL, RefPtr<SharedBuffer>&& archiveBuffer)
@@ -757,6 +755,12 @@ void PageClientImpl::didRemoveNavigationGestureSnapshot()
 #endif
 }
 
+void PageClientImpl::didStartProvisionalLoadForMainFrame()
+{
+    if (auto gestureController = m_impl->gestureController())
+        gestureController->didStartProvisionalLoadForMainFrame();
+}
+
 void PageClientImpl::didFirstVisuallyNonEmptyLayoutForMainFrame()
 {
     if (auto gestureController = m_impl->gestureController())
@@ -880,11 +884,6 @@ WebCore::UserInterfaceLayoutDirection PageClientImpl::userInterfaceLayoutDirecti
     if (!m_view)
         return WebCore::UserInterfaceLayoutDirection::LTR;
     return (m_view.userInterfaceLayoutDirection == NSUserInterfaceLayoutDirectionLeftToRight) ? WebCore::UserInterfaceLayoutDirection::LTR : WebCore::UserInterfaceLayoutDirection::RTL;
-}
-
-void PageClientImpl::prepareToDragPromisedBlob(const WebCore::PromisedBlobInfo& info)
-{
-    m_impl->prepareToDragPromisedBlob(info);
 }
 
 } // namespace WebKit

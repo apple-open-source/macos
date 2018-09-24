@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1681,6 +1681,7 @@ arp_session_set_debug(arp_session_t * session, int debug)
 
 #ifdef TEST_ARP_SESSION
 #include <stdarg.h>
+#include "cfutil.h"
 typedef boolean_t		func_t(int argc, const char * * argv);
 typedef func_t * 		funcptr_t;
 
@@ -1856,17 +1857,6 @@ arg_info_add(struct arg_info * args, char * new_arg)
 				       sizeof(*args->argv) * args->argv_size);
     }
     args->argv[args->argc++] = new_arg;
-    return;
-}
-
-void
-my_CFRelease(void * t)
-{
-    void * * obj = (void * *)t;
-    if (obj && *obj) {
-	CFRelease(*obj);
-	*obj = NULL;
-    }
     return;
 }
 

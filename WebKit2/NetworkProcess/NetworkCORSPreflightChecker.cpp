@@ -26,11 +26,10 @@
 #include "config.h"
 #include "NetworkCORSPreflightChecker.h"
 
-#if USE(NETWORK_SESSION)
-
 #include "AuthenticationManager.h"
 #include "Logging.h"
 #include "NetworkLoadParameters.h"
+#include "NetworkProcess.h"
 #include "SessionTracker.h"
 #include <WebCore/CrossOriginAccessControl.h>
 #include <WebCore/SecurityOrigin.h>
@@ -41,9 +40,10 @@ namespace WebKit {
 
 using namespace WebCore;
 
-NetworkCORSPreflightChecker::NetworkCORSPreflightChecker(Parameters&& parameters, CompletionCallback&& completionCallback)
+NetworkCORSPreflightChecker::NetworkCORSPreflightChecker(Parameters&& parameters, bool shouldCaptureExtraNetworkLoadMetrics, CompletionCallback&& completionCallback)
     : m_parameters(WTFMove(parameters))
     , m_completionCallback(WTFMove(completionCallback))
+    , m_shouldCaptureExtraNetworkLoadMetrics(shouldCaptureExtraNetworkLoadMetrics)
 {
 }
 
@@ -54,6 +54,8 @@ NetworkCORSPreflightChecker::~NetworkCORSPreflightChecker()
         m_task->clearClient();
         m_task->cancel();
     }
+    if (m_completionCallback)
+        m_completionCallback(ResourceError { ResourceError::Type::Cancellation });
 }
 
 void NetworkCORSPreflightChecker::startPreflight()
@@ -62,8 +64,14 @@ void NetworkCORSPreflightChecker::startPreflight()
 
     NetworkLoadParameters loadParameters;
     loadParameters.sessionID = m_parameters.sessionID;
-    loadParameters.request = createAccessControlPreflightRequest(m_parameters.originalRequest, m_parameters.sourceOrigin, m_parameters.originalRequest.httpReferrer());
+    loadParameters.request = createAccessControlPreflightRequest(m_parameters.originalRequest, m_parameters.sourceOrigin, m_parameters.referrer);
     loadParameters.shouldFollowRedirects = false;
+    if (!m_parameters.userAgent.isNull())
+        loadParameters.request.setHTTPHeaderField(HTTPHeaderName::UserAgent, m_parameters.userAgent);
+
+    if (m_shouldCaptureExtraNetworkLoadMetrics)
+        m_loadInformation = NetworkTransactionInformation { NetworkTransactionInformation::Type::Preflight, loadParameters.request, { }, { } };
+
     if (auto* networkSession = SessionTracker::networkSession(loadParameters.sessionID)) {
         m_task = NetworkDataTask::create(*networkSession, *this, WTFMove(loadParameters));
         m_task->resume();
@@ -71,23 +79,47 @@ void NetworkCORSPreflightChecker::startPreflight()
         ASSERT_NOT_REACHED();
 }
 
-void NetworkCORSPreflightChecker::willPerformHTTPRedirection(WebCore::ResourceResponse&&, WebCore::ResourceRequest&&, RedirectCompletionHandler&& completionHandler)
+void NetworkCORSPreflightChecker::willPerformHTTPRedirection(WebCore::ResourceResponse&& response, WebCore::ResourceRequest&&, RedirectCompletionHandler&& completionHandler)
 {
+    if (m_shouldCaptureExtraNetworkLoadMetrics)
+        m_loadInformation.response = WTFMove(response);
+
     RELEASE_LOG_IF_ALLOWED("willPerformHTTPRedirection");
     completionHandler({ });
-    m_completionCallback(Result::Failure);
+    m_completionCallback(ResourceError { errorDomainWebKitInternal, 0, m_parameters.originalRequest.url(), "Preflight response is not successful"_s, ResourceError::Type::AccessControl });
 }
 
-void NetworkCORSPreflightChecker::didReceiveChallenge(const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler&& completionHandler)
+void NetworkCORSPreflightChecker::didReceiveChallenge(WebCore::AuthenticationChallenge&& challenge, ChallengeCompletionHandler&& completionHandler)
 {
-    RELEASE_LOG_IF_ALLOWED("didReceiveChallenge");
-    completionHandler(AuthenticationChallengeDisposition::Cancel, { });
-    m_completionCallback(Result::Failure);
+    RELEASE_LOG_IF_ALLOWED("didReceiveChallenge, authentication scheme: %u", challenge.protectionSpace().authenticationScheme());
+
+    auto scheme = challenge.protectionSpace().authenticationScheme();
+    bool isTLSHandshake = scheme == ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested
+        || scheme == ProtectionSpaceAuthenticationSchemeClientCertificateRequested;
+
+    if (!isTLSHandshake) {
+        completionHandler(AuthenticationChallengeDisposition::UseCredential, { });
+        return;
+    }
+
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    NetworkProcess::singleton().canAuthenticateAgainstProtectionSpace(challenge.protectionSpace(), m_parameters.pageID, m_parameters.frameID, [this, weakThis = makeWeakPtr(this), completionHandler = WTFMove(completionHandler), challenge = WTFMove(challenge)] (bool canAuthenticate) mutable {
+        if (!canAuthenticate)
+            return completionHandler(AuthenticationChallengeDisposition::RejectProtectionSpace, { });
+        NetworkProcess::singleton().authenticationManager().didReceiveAuthenticationChallenge(m_parameters.pageID, m_parameters.frameID, challenge, WTFMove(completionHandler));
+    });
+#else
+    NetworkProcess::singleton().authenticationManager().didReceiveAuthenticationChallenge(m_parameters.pageID, m_parameters.frameID, challenge, WTFMove(completionHandler));
+#endif
 }
 
 void NetworkCORSPreflightChecker::didReceiveResponseNetworkSession(WebCore::ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
 {
     RELEASE_LOG_IF_ALLOWED("didReceiveResponseNetworkSession");
+
+    if (m_shouldCaptureExtraNetworkLoadMetrics)
+        m_loadInformation.response = response;
+
     m_response = WTFMove(response);
     completionHandler(PolicyAction::Use);
 }
@@ -97,11 +129,18 @@ void NetworkCORSPreflightChecker::didReceiveData(Ref<WebCore::SharedBuffer>&&)
     RELEASE_LOG_IF_ALLOWED("didReceiveData");
 }
 
-void NetworkCORSPreflightChecker::didCompleteWithError(const WebCore::ResourceError& error, const WebCore::NetworkLoadMetrics&)
+void NetworkCORSPreflightChecker::didCompleteWithError(const WebCore::ResourceError& preflightError, const WebCore::NetworkLoadMetrics& metrics)
 {
-    if (!error.isNull()) {
+    if (m_shouldCaptureExtraNetworkLoadMetrics)
+        m_loadInformation.metrics = metrics;
+
+    if (!preflightError.isNull()) {
         RELEASE_LOG_IF_ALLOWED("didCompleteWithError");
-        m_completionCallback(Result::Failure);
+        auto error = preflightError;
+        if (error.isNull() || error.isGeneral())
+            error.setType(ResourceError::Type::AccessControl);
+
+        m_completionCallback(WTFMove(error));
         return;
     }
 
@@ -110,10 +149,10 @@ void NetworkCORSPreflightChecker::didCompleteWithError(const WebCore::ResourceEr
     String errorDescription;
     if (!validatePreflightResponse(m_parameters.originalRequest, m_response, m_parameters.storedCredentialsPolicy, m_parameters.sourceOrigin, errorDescription)) {
         RELEASE_LOG_IF_ALLOWED("didComplete, AccessControl error: %s", errorDescription.utf8().data());
-        m_completionCallback(Result::Failure);
+        m_completionCallback(ResourceError { errorDomainWebKitInternal, 0, m_parameters.originalRequest.url(), errorDescription, ResourceError::Type::AccessControl });
         return;
     }
-    m_completionCallback(Result::Success);
+    m_completionCallback(ResourceError { });
 }
 
 void NetworkCORSPreflightChecker::didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedToSend)
@@ -123,15 +162,19 @@ void NetworkCORSPreflightChecker::didSendData(uint64_t totalBytesSent, uint64_t 
 void NetworkCORSPreflightChecker::wasBlocked()
 {
     RELEASE_LOG_IF_ALLOWED("wasBlocked");
-    m_completionCallback(Result::Failure);
+    m_completionCallback(ResourceError { errorDomainWebKitInternal, 0, m_parameters.originalRequest.url(), "CORS-preflight request was blocked"_s, ResourceError::Type::AccessControl });
 }
 
 void NetworkCORSPreflightChecker::cannotShowURL()
 {
     RELEASE_LOG_IF_ALLOWED("cannotShowURL");
-    m_completionCallback(Result::Failure);
+    m_completionCallback(ResourceError { errorDomainWebKitInternal, 0, m_parameters.originalRequest.url(), "Preflight response was blocked"_s, ResourceError::Type::AccessControl });
+}
+
+NetworkTransactionInformation NetworkCORSPreflightChecker::takeInformation()
+{
+    ASSERT(m_shouldCaptureExtraNetworkLoadMetrics);
+    return WTFMove(m_loadInformation);
 }
 
 } // Namespace WebKit
-
-#endif // USE(NETWORK_SESSION)

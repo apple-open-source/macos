@@ -33,17 +33,16 @@
 #include "DrawingArea.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
+#include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
-#include <WebCore/MainFrame.h>
 #include <WebCore/PageOverlayController.h>
 
 #if USE(GLIB_EVENT_LOOP)
 #include <wtf/glib/RunLoopSourcePriority.h>
 #endif
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 Ref<CoordinatedLayerTreeHost> CoordinatedLayerTreeHost::create(WebPage& webPage)
 {
@@ -140,9 +139,9 @@ void CoordinatedLayerTreeHost::sizeDidChange(const IntSize& newSize)
     scheduleLayerFlush();
 }
 
-void CoordinatedLayerTreeHost::setVisibleContentsRect(const FloatRect& rect, const FloatPoint& trajectoryVector)
+void CoordinatedLayerTreeHost::setVisibleContentsRect(const FloatRect& rect)
 {
-    m_coordinator.setVisibleContentsRect(rect, trajectoryVector);
+    m_coordinator.setVisibleContentsRect(rect);
     scheduleLayerFlush();
 }
 
@@ -213,7 +212,7 @@ void CoordinatedLayerTreeHost::commitSceneState(const CoordinatedGraphicsState& 
 void CoordinatedLayerTreeHost::deviceOrPageScaleFactorChanged()
 {
     m_coordinator.deviceOrPageScaleFactorChanged();
-    m_webPage.mainFrame()->pageOverlayController().didChangeDeviceScaleFactor();
+    m_webPage.corePage()->pageOverlayController().didChangeDeviceScaleFactor();
 }
 
 void CoordinatedLayerTreeHost::pageBackgroundTransparencyChanged()
@@ -235,16 +234,6 @@ void CoordinatedLayerTreeHost::scheduleAnimation()
 
     scheduleLayerFlush();
     m_layerFlushTimer.startOneShot(1_s * m_coordinator.nextAnimationServiceTime());
-}
-
-void CoordinatedLayerTreeHost::commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset)
-{
-    m_coordinator.commitScrollOffset(layerID, offset);
-}
-
-void CoordinatedLayerTreeHost::clearUpdateAtlases()
-{
-    m_coordinator.clearUpdateAtlases();
 }
 
 } // namespace WebKit

@@ -106,12 +106,22 @@ struct PendingReply {
     return remoteObject.autorelease();
 }
 
-- (id)_initWithMessageSender:(IPC::MessageSender&)messageSender
+- (id)_initWithWebPage:(WebKit::WebPage&)page
 {
     if (!(self = [super init]))
         return nil;
 
-    _remoteObjectRegistry = std::make_unique<RemoteObjectRegistry>(self, messageSender);
+    _remoteObjectRegistry = std::make_unique<RemoteObjectRegistry>(self, page);
+
+    return self;
+}
+
+- (id)_initWithWebPageProxy:(WebKit::WebPageProxy&)page
+{
+    if (!(self = [super init]))
+        return nil;
+
+    _remoteObjectRegistry = std::make_unique<RemoteObjectRegistry>(self, page);
 
     return self;
 }
@@ -147,7 +157,7 @@ static uint64_t generateReplyIdentifier()
         if (!replyBlock)
             [NSException raise:NSInvalidArgumentException format:@"A NULL reply block was passed into a message. (%s)", sel_getName(invocation.selector)];
 
-        const char* replyBlockSignature = _Block_signature(replyBlock);
+        const char* replyBlockSignature = _Block_signature((__bridge void*)replyBlock);
 
         if (strcmp([NSMethodSignature signatureWithObjCTypes:replyBlockSignature].methodReturnType, "v"))
             [NSException raise:NSInvalidArgumentException format:@"Return value of block argument must be 'void'. (%s)", sel_getName(invocation.selector)];

@@ -25,8 +25,11 @@
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
 #include "SVGRenderStyle.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(SVGFEDropShadowElement);
 
 // Animated property definitions
 DEFINE_ANIMATED_STRING(SVGFEDropShadowElement, SVGNames::inAttr, In1, in1)
@@ -130,7 +133,7 @@ RefPtr<FilterEffect> SVGFEDropShadowElement::build(SVGFilterBuilder* filterBuild
 
     const SVGRenderStyle& svgStyle = renderer->style().svgStyle();
     
-    const Color& color = svgStyle.floodColor();
+    Color color = renderer->style().colorByApplyingColorFilter(svgStyle.floodColor());
     float opacity = svgStyle.floodOpacity();
 
     auto input1 = filterBuilder->getEffectById(in1());

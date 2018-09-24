@@ -444,7 +444,7 @@ namespace IOFireWireLib {
 		}
 	
 		uint32_t outputCnt = 0;		
-		const uint64_t inputs[3] = {(const uint64_t)mKernAddrSpaceRef, (const uint64_t)commandID, status};
+		const uint64_t inputs[3] = {(const uint64_t)mKernAddrSpaceRef, (const uint64_t)commandID, (const uint64_t)status};
 
 		#if IOFIREWIREUSERCLIENTDEBUG > 0
 		OSStatus err = 

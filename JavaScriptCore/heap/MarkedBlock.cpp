@@ -29,7 +29,7 @@
 #include "AlignedMemoryAllocator.h"
 #include "BlockDirectoryInlines.h"
 #include "FreeListInlines.h"
-#include "JSCell.h"
+#include "JSCast.h"
 #include "JSDestructibleObject.h"
 #include "JSCInlines.h"
 #include "MarkedBlockInlines.h"
@@ -351,7 +351,7 @@ void MarkedBlock::Handle::didAddToDirectory(BlockDirectory* directory, size_t in
     
     m_attributes = directory->attributes();
 
-    if (m_attributes.cellKind != HeapCell::JSCell)
+    if (!isJSCellKind(m_attributes.cellKind))
         RELEASE_ASSERT(m_attributes.destruction == DoesNotNeedDestruction);
     
     double markCountBias = -(Options::minMarkedBlockUtilization() * cellsPerBlock());
@@ -486,15 +486,6 @@ bool MarkedBlock::Handle::isFreeListedCell(const void* target) const
 {
     ASSERT(isFreeListed());
     return m_directory->isFreeListedCell(target);
-}
-
-void MarkedBlock::Handle::associateWithOrigin(SecurityOriginToken securityOriginToken)
-{
-    if (m_securityOriginToken == securityOriginToken)
-        return;
-    
-    memset(&block(), 0, endAtom * atomSize);
-    m_securityOriginToken = securityOriginToken;
 }
 
 } // namespace JSC

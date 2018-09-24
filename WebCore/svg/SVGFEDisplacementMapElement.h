@@ -36,13 +36,13 @@ struct SVGPropertyTraits<ChannelSelectorType> {
         case CHANNEL_UNKNOWN:
             return emptyString();
         case CHANNEL_R:
-            return ASCIILiteral("R");
+            return "R"_s;
         case CHANNEL_G:
-            return ASCIILiteral("G");
+            return "G"_s;
         case CHANNEL_B:
-            return ASCIILiteral("B");
+            return "B"_s;
         case CHANNEL_A:
-            return ASCIILiteral("A");
+            return "A"_s;
         }
 
         ASSERT_NOT_REACHED();
@@ -64,6 +64,7 @@ struct SVGPropertyTraits<ChannelSelectorType> {
 };
 
 class SVGFEDisplacementMapElement final : public SVGFilterPrimitiveStandardAttributes {
+    WTF_MAKE_ISO_ALLOCATED(SVGFEDisplacementMapElement);
 public:
     static Ref<SVGFEDisplacementMapElement> create(const QualifiedName&, Document&);
 

@@ -31,6 +31,7 @@
 
 #import "CommonVM.h"
 #import "Event.h"
+#import "Frame.h"
 #import "HTMLPlugInElement.h"
 #import "HTMLVideoElement.h"
 #import "JSDOMBinding.h"
@@ -41,7 +42,6 @@
 #import "JSHTMLVideoElement.h"
 #import "JSQuickTimePluginReplacement.h"
 #import "Logging.h"
-#import "MainFrame.h"
 #import "RenderElement.h"
 #import "ScriptController.h"
 #import "ScriptSourceCode.h"
@@ -51,9 +51,9 @@
 #import <AVFoundation/AVMetadataItem.h>
 #import <Foundation/NSString.h>
 #import <JavaScriptCore/APICast.h>
+#import <JavaScriptCore/CatchScope.h>
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <objc/runtime.h>
-#import <runtime/CatchScope.h>
 #import <wtf/text/Base64.h>
 
 #import <pal/cf/CoreMediaSoftLink.h>
@@ -159,7 +159,7 @@ bool QuickTimePluginReplacement::ensureReplacementScriptInjected()
     JSC::ExecState* exec = globalObject->globalExec();
     
     JSC::JSValue replacementFunction = globalObject->get(exec, JSC::Identifier::fromString(exec, "createPluginReplacement"));
-    if (replacementFunction.isFunction())
+    if (replacementFunction.isFunction(vm))
         return true;
     
     scriptController.evaluateInWorld(ScriptSourceCode(quickTimePluginReplacementScript()), world);

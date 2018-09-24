@@ -39,12 +39,6 @@
 #include <Security/SecKey.h>
 #include <Security/SecAsn1Types.h>
 
-#if !SEC_OS_OSX_INCLUDES
-#if !USE_CDSA_CRYPTO
-typedef CFTypeRef SecKeychainRef;
-#endif
-#endif // ! SEC_OS_OSX_INCLUDES
-
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -59,7 +53,10 @@ typedef struct SECOidDataStr SECOidData;
     @typedef
     @discussion XXX We might want to get rid of this alltogether.
  */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 typedef SecAsn1AlgId SECAlgorithmID;
+#pragma clang diagnostic pop
 
 /*!
     @typedef
@@ -156,7 +153,10 @@ typedef void (*SecCmsContentCallback)(void *arg, const char *buf, size_t len);
     @typedef
     @discussion Type of function passed to SecCmsDecode or SecCmsDecoderStart to retrieve the decryption key.  This function is intended to be used for EncryptedData content info's which do not have a key available in a certificate, etc.
  */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 typedef SecSymmetricKeyRef(*SecCmsGetDecryptKeyCallback)(void *arg, SECAlgorithmID *algid);
+#pragma clang diagnostic pop
 
 /*!
     @enum SecCmsVerificationStatus
@@ -485,6 +485,9 @@ typedef enum {
     /* Apple CMS Attributes */
     SEC_OID_APPLE_HASH_AGILITY = 214,
     SEC_OID_APPLE_HASH_AGILITY_V2 = 215,
+
+    /* Apple Expiration Time Attribute */
+    SEC_OID_APPLE_EXPIRATION_TIME = 216,
 
     SEC_OID_TOTAL
 } SECOidTag;

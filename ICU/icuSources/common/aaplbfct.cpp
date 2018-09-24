@@ -196,7 +196,7 @@ and CompactTrieDictionary no longer exists. Need to work out  new implementation
 
 DictionaryMatcher *
 AppleLanguageBreakFactory::loadDictionaryMatcherFor(UScriptCode script, int32_t breakType) {
-	DictionaryMatcher *icuDictMatcher = ICULanguageBreakFactory::loadDictionaryMatcherFor(script, breakType);
+	DictionaryMatcher *icuDictMatcher = ICULanguageBreakFactory::loadDictionaryMatcherFor(script);
 #if !TARGET_OS_EMBEDDED
 #if 0
 // need to update loadDictionaryMatcherFor implementation below

@@ -4,7 +4,8 @@
 
 # Defaults typically set by build system
 
-DEFAULT_ARCHS = i386 
+DEFAULT_ARCHS = i386
+DEFAULT_ARCHS += arm
 
 RC_ARCHS ?= $(DEFAULT_ARCHS)
 
@@ -14,10 +15,19 @@ SDKROOT ?= /
 SUPPORTED_ARCHS = i386
 CANONICAL_ARCH_x86_64 = i386
 
+# fold all arm subtypes to the family "arm",
+# and map arm64 -> arm
+#
+SUPPORTED_ARCHS += arm
+
+CANONICAL_ARCH_arm64 = arm
+CANONICAL_ARCH_armv5 = arm
+CANONICAL_ARCH_armv6 = arm
+CANONICAL_ARCH_armv7 = arm
+CANONICAL_ARCH_armv7k = arm
+
 
 ARCHS = $(filter $(SUPPORTED_ARCHS),$(sort $(foreach x,$(RC_ARCHS),$(if $(CANONICAL_ARCH_$(x)),$(CANONICAL_ARCH_$(x)),$(x)))))
-
-
 
 # install machine-independent and per-arch headers
 DIRS = . $(ARCHS)
@@ -34,7 +44,7 @@ all:
 install:	all installhdrs
 
 copyhdrs: all DSTROOT $(DSTROOT)$(LOCAL_DSTDIR) \
-		$(DSTROOT)$(EXPORT_DSTDIR) 
+		$(DSTROOT)$(EXPORT_DSTDIR)
 	for i in ${DIRS};						\
 	do								\
 	    DSTDIR=$(DSTROOT)$(LOCAL_DSTDIR)/$$i;			\
@@ -54,12 +64,10 @@ copyhdrs: all DSTROOT $(DSTROOT)$(LOCAL_DSTDIR) \
 
 installhdrs: copyhdrs
 
-
-
 .PHONY: clean
 
 clean:
-	rm -f *~ */*~ 
+	rm -f *~ */*~
 	rm -rf exports
 
 installsrc: SRCROOT $(SRCROOT)

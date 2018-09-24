@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sony Interactive Entertainment Inc.
+ * Copyright (C) 2018 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 #if USE(CURL)
 #include "ResourceResponse.h"
 
+#include "CurlContext.h"
 #include "CurlResponse.h"
 #include "HTTPParsers.h"
 
@@ -79,11 +80,27 @@ bool ResourceResponse::isAppendableHeader(const String &key)
 ResourceResponse::ResourceResponse(const CurlResponse& response)
     : ResourceResponseBase(response.url, "", response.expectedContentLength, "")
 {
-    setHTTPStatusCode(response.statusCode);
+    setHTTPStatusCode(response.statusCode ? response.statusCode : response.httpConnectCode);
 
     for (const auto& header : response.headers)
         appendHTTPHeaderField(header);
 
+    switch (response.httpVersion) {
+    case CURL_HTTP_VERSION_1_0:
+        setHTTPVersion("HTTP/1.0");
+        break;
+    case CURL_HTTP_VERSION_1_1:
+        setHTTPVersion("HTTP/1.1");
+        break;
+    case CURL_HTTP_VERSION_2_0:
+    case CURL_HTTP_VERSION_2TLS:
+    case CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE:
+        setHTTPVersion("HTTP/2");
+        break;
+    case CURL_HTTP_VERSION_NONE:
+    default:
+        break;
+    }
     setMimeType(extractMIMETypeFromMediaType(httpHeaderField(HTTPHeaderName::ContentType)).convertToASCIILowercase());
     setTextEncodingName(extractCharsetFromMediaType(httpHeaderField(HTTPHeaderName::ContentType)));
 }
@@ -114,9 +131,6 @@ void ResourceResponse::setStatusLine(const String& header)
 
     // Extract the http version
     if (httpVersionEndPosition != notFound) {
-        auto httpVersion = statusLine.left(httpVersionEndPosition);
-        setHTTPVersion(httpVersion.stripWhiteSpace());
-
         statusLine = statusLine.substring(httpVersionEndPosition + 1).stripWhiteSpace();
         statusCodeEndPosition = statusLine.find(' ');
     }
@@ -126,6 +140,16 @@ void ResourceResponse::setStatusLine(const String& header)
         auto statusText = statusLine.substring(statusCodeEndPosition + 1);
         setHTTPStatusText(statusText.stripWhiteSpace());
     }
+}
+
+void ResourceResponse::setCertificateInfo(CertificateInfo&& certificateInfo)
+{
+    m_certificateInfo = WTFMove(certificateInfo);
+}
+
+void ResourceResponse::setDeprecatedNetworkLoadMetrics(NetworkLoadMetrics&& networkLoadMetrics)
+{
+    m_networkLoadMetrics = WTFMove(networkLoadMetrics);
 }
 
 String ResourceResponse::platformSuggestedFilename() const
@@ -172,6 +196,11 @@ bool ResourceResponse::isNotModified() const
 bool ResourceResponse::isUnauthorized() const
 {
     return httpStatusCode() == 401;
+}
+
+bool ResourceResponse::isProxyAuthenticationRequired() const
+{
+    return httpStatusCode() == 407;
 }
 
 }

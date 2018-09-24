@@ -284,7 +284,7 @@ strcmp_trailer(const char *f, const char *p)
 	flen--;
 	
     if (flen > plen)
-	return flen - plen;
+	return (int)(flen - plen)   ;
     return strcasecmp(&f[flen - plen], p);
 }
 

@@ -27,6 +27,7 @@
 #import <CloudKit/CloudKit_Private.h>
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSAPSReceiver.h"
+#import "keychain/ckks/tests/CKKSAPSReceiverTests.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
 #import "keychain/ckks/CKKSCondition.h"
 
@@ -61,14 +62,9 @@
 @end
 
 
-
-@interface CKKSAPSReceiverTests : XCTestCase
-@property CKRecordZoneID* testZoneID;
-@end
-
 @implementation CKKSAPSReceiverTests
 
-- (APSIncomingMessage*)messageForZoneID:(CKRecordZoneID*)zoneID {
++ (APSIncomingMessage*)messageForZoneID:(CKRecordZoneID*)zoneID {
     // reverse engineered from source code. Ugly.
 
     NSMutableDictionary* zoneInfo = [[NSMutableDictionary alloc] init];
@@ -89,7 +85,7 @@
     self.testZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName];
 
     // Make sure our helpers work properly
-    APSIncomingMessage* message = [self messageForZoneID:self.testZoneID];
+    APSIncomingMessage* message = [CKKSAPSReceiverTests messageForZoneID:self.testZoneID];
     XCTAssertNotNil(message, "Should have received a APSIncomingMessage");
 
     CKNotification* notification = [CKNotification notificationFromRemoteNotificationDictionary:message.userInfo];
@@ -126,7 +122,7 @@
 
     CKKSCondition* registered = [apsr registerReceiver:anr forZoneID:self.testZoneID];
     XCTAssertEqual(0, [registered wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
-    APSIncomingMessage* message = [self messageForZoneID:self.testZoneID];
+    APSIncomingMessage* message = [CKKSAPSReceiverTests messageForZoneID:self.testZoneID];
     XCTAssertNotNil(message, "Should have received a APSIncomingMessage");
 
     [apsr connection:apsr.apsConnection didReceiveIncomingMessage:message];
@@ -164,8 +160,8 @@
     XCTAssertEqual(0, [registered wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
     XCTAssertEqual(0, [registered2 wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
 
-    [apsr connection:apsr.apsConnection didReceiveIncomingMessage:[self messageForZoneID:self.testZoneID]];
-    [apsr connection:apsr.apsConnection didReceiveIncomingMessage:[self messageForZoneID:otherZoneID]];
+    [apsr connection:apsr.apsConnection didReceiveIncomingMessage:[CKKSAPSReceiverTests messageForZoneID:self.testZoneID]];
+    [apsr connection:apsr.apsConnection didReceiveIncomingMessage:[CKKSAPSReceiverTests messageForZoneID:otherZoneID]];
 
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
@@ -177,7 +173,7 @@
     XCTAssertNotNil(apsr, "Should have received a CKKSAPSReceiver");
 
     // Receives a notification for the test zone
-    APSIncomingMessage* message = [self messageForZoneID:self.testZoneID];
+    APSIncomingMessage* message = [CKKSAPSReceiverTests messageForZoneID:self.testZoneID];
     XCTAssertNotNil(message, "Should have received a APSIncomingMessage");
     [apsr connection:apsr.apsConnection didReceiveIncomingMessage:message];
 

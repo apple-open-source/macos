@@ -37,7 +37,6 @@
 #import "WKUserContentController.h"
 #import "WKWebView.h"
 #import "WKWebViewContentProviderRegistry.h"
-#import "WeakObjCPtr.h"
 #import "WebKit2Initialize.h"
 #import "_WKVisitedLinkStore.h"
 #import "_WKWebsiteDataStoreInternal.h"
@@ -45,6 +44,7 @@
 #import <WebCore/Settings.h>
 #import <WebCore/URLParser.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/WeakObjCPtr.h>
 
 #if PLATFORM(IOS)
 #import "UIKitSPI.h"
@@ -109,8 +109,8 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     LazyInitialized<RetainPtr<WKUserContentController>> _userContentController;
     LazyInitialized<RetainPtr<_WKVisitedLinkStore>> _visitedLinkStore;
     LazyInitialized<RetainPtr<WKWebsiteDataStore>> _websiteDataStore;
-    WebKit::WeakObjCPtr<WKWebView> _relatedWebView;
-    WebKit::WeakObjCPtr<WKWebView> _alternateWebViewForNavigationGestures;
+    WeakObjCPtr<WKWebView> _relatedWebView;
+    WeakObjCPtr<WKWebView> _alternateWebViewForNavigationGestures;
     RetainPtr<NSString> _groupIdentifier;
     LazyInitialized<RetainPtr<NSString>> _applicationNameForUserAgent;
     LazyInitialized<RetainPtr<NSMutableDictionary<NSString *, id <WKURLSchemeHandler>>>> _urlSchemeHandlers;
@@ -130,6 +130,9 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     BOOL _inlineMediaPlaybackRequiresPlaysInlineAttribute;
     BOOL _allowsInlineMediaPlaybackAfterFullscreen;
     _WKDragLiftDelay _dragLiftDelay;
+    BOOL _textInteractionGesturesEnabled;
+    BOOL _longPressActionsEnabled;
+    BOOL _systemPreviewEnabled;
 #endif
 
     BOOL _invisibleAutoplayNotPermitted;
@@ -159,6 +162,10 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     BOOL _needsStorageAccessFromFileURLsQuirk;
     BOOL _legacyEncryptedMediaAPIEnabled;
     BOOL _allowMediaContentTypesRequiringHardwareSupportAsFallback;
+    BOOL _colorFilterEnabled;
+    BOOL _incompleteImageBorderEnabled;
+    BOOL _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad;
+    BOOL _drawsBackground;
 
     RetainPtr<NSString> _overrideContentSecurityPolicy;
     RetainPtr<NSString> _mediaContentTypesRequiringHardwareSupport;
@@ -172,14 +179,18 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     WebKit::InitializeWebKit2();
 
 #if PLATFORM(IOS)
+#if !PLATFORM(WATCHOS)
     _allowsPictureInPictureMediaPlayback = YES;
+#endif
     _allowsInlineMediaPlayback = WebCore::deviceClass() == MGDeviceClassiPad;
     _inlineMediaPlaybackRequiresPlaysInlineAttribute = !_allowsInlineMediaPlayback;
     _allowsInlineMediaPlaybackAfterFullscreen = !_allowsInlineMediaPlayback;
     _mediaDataLoadsAutomatically = NO;
+#if !PLATFORM(WATCHOS)
     if (WebKit::linkedOnOrAfter(WebKit::SDKVersion::FirstWithMediaTypesRequiringUserActionForPlayback))
         _mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeAudio;
     else
+#endif
         _mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeAll;
     _ignoresViewportScaleLimits = NO;
     _legacyEncryptedMediaAPIEnabled = NO;
@@ -225,10 +236,23 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
 #if PLATFORM(IOS)
     _selectionGranularity = WKSelectionGranularityDynamic;
     _dragLiftDelay = toDragLiftDelay([[NSUserDefaults standardUserDefaults] integerForKey:@"WebKitDebugDragLiftDelay"]);
+#if PLATFORM(WATCHOS)
+    _textInteractionGesturesEnabled = NO;
+    _longPressActionsEnabled = NO;
+#else
+    _textInteractionGesturesEnabled = YES;
+    _longPressActionsEnabled = YES;
 #endif
+    _systemPreviewEnabled = NO;
+#endif // PLATFORM(IOS)
 
     _mediaContentTypesRequiringHardwareSupport = Settings::defaultMediaContentTypesRequiringHardwareSupport();
     _allowMediaContentTypesRequiringHardwareSupportAsFallback = YES;
+
+    _colorFilterEnabled = NO;
+    _incompleteImageBorderEnabled = NO;
+    _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad = NO;
+    _drawsBackground = YES;
 
     return self;
 }
@@ -243,8 +267,6 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     return YES;
 }
 
-// FIXME: Encode the process pool, user content controller and website data store.
-
 - (void)encodeWithCoder:(NSCoder *)coder
 {
     [coder encodeObject:self.processPool forKey:@"processPool"];
@@ -256,6 +278,8 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     [coder encodeObject:self.applicationNameForUserAgent forKey:@"applicationNameForUserAgent"];
     [coder encodeBool:self.allowsAirPlayForMediaPlayback forKey:@"allowsAirPlayForMediaPlayback"];
 
+    [coder encodeBool:self._drawsBackground forKey:@"drawsBackground"];
+
 #if PLATFORM(IOS)
     [coder encodeInteger:self.dataDetectorTypes forKey:@"dataDetectorTypes"];
     [coder encodeBool:self.allowsInlineMediaPlayback forKey:@"allowsInlineMediaPlayback"];
@@ -265,6 +289,9 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     [coder encodeBool:self.allowsPictureInPictureMediaPlayback forKey:@"allowsPictureInPictureMediaPlayback"];
     [coder encodeBool:self.ignoresViewportScaleLimits forKey:@"ignoresViewportScaleLimits"];
     [coder encodeInteger:self._dragLiftDelay forKey:@"dragLiftDelay"];
+    [coder encodeBool:self._textInteractionGesturesEnabled forKey:@"textInteractionGesturesEnabled"];
+    [coder encodeBool:self._longPressActionsEnabled forKey:@"longPressActionsEnabled"];
+    [coder encodeBool:self._systemPreviewEnabled forKey:@"systemPreviewEnabled"];
 #else
     [coder encodeInteger:self.userInterfaceDirectionPolicy forKey:@"userInterfaceDirectionPolicy"];
 #endif
@@ -284,6 +311,9 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     self.applicationNameForUserAgent = decodeObjectOfClassForKeyFromCoder([NSString class], @"applicationNameForUserAgent", coder);
     self.allowsAirPlayForMediaPlayback = [coder decodeBoolForKey:@"allowsAirPlayForMediaPlayback"];
 
+    if ([coder containsValueForKey:@"drawsBackground"])
+        self._drawsBackground = [coder decodeBoolForKey:@"drawsBackground"];
+
 #if PLATFORM(IOS)
     self.dataDetectorTypes = [coder decodeIntegerForKey:@"dataDetectorTypes"];
     self.allowsInlineMediaPlayback = [coder decodeBoolForKey:@"allowsInlineMediaPlayback"];
@@ -293,6 +323,9 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     self.allowsPictureInPictureMediaPlayback = [coder decodeBoolForKey:@"allowsPictureInPictureMediaPlayback"];
     self.ignoresViewportScaleLimits = [coder decodeBoolForKey:@"ignoresViewportScaleLimits"];
     self._dragLiftDelay = toDragLiftDelay([coder decodeIntegerForKey:@"dragLiftDelay"]);
+    self._textInteractionGesturesEnabled = [coder decodeBoolForKey:@"textInteractionGesturesEnabled"];
+    self._longPressActionsEnabled = [coder decodeBoolForKey:@"longPressActionsEnabled"];
+    self._systemPreviewEnabled = [coder decodeBoolForKey:@"systemPreviewEnabled"];
 #else
     auto userInterfaceDirectionPolicyCandidate = static_cast<WKUserInterfaceDirectionPolicy>([coder decodeIntegerForKey:@"userInterfaceDirectionPolicy"]);
     if (userInterfaceDirectionPolicyCandidate == WKUserInterfaceDirectionPolicyContent || userInterfaceDirectionPolicyCandidate == WKUserInterfaceDirectionPolicySystem)
@@ -347,6 +380,9 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     configuration->_selectionGranularity = self->_selectionGranularity;
     configuration->_ignoresViewportScaleLimits = self->_ignoresViewportScaleLimits;
     configuration->_dragLiftDelay = self->_dragLiftDelay;
+    configuration->_textInteractionGesturesEnabled = self->_textInteractionGesturesEnabled;
+    configuration->_longPressActionsEnabled = self->_longPressActionsEnabled;
+    configuration->_systemPreviewEnabled = self->_systemPreviewEnabled;
 #endif
 #if PLATFORM(MAC)
     configuration->_cpuLimit = self->_cpuLimit;
@@ -378,6 +414,10 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
     configuration->_allowMediaContentTypesRequiringHardwareSupportAsFallback = self->_allowMediaContentTypesRequiringHardwareSupportAsFallback;
 
     configuration->_groupIdentifier = adoptNS([self->_groupIdentifier copyWithZone:zone]);
+    configuration->_colorFilterEnabled = self->_colorFilterEnabled;
+    configuration->_incompleteImageBorderEnabled = self->_incompleteImageBorderEnabled;
+    configuration->_shouldDeferAsynchronousScriptsUntilAfterDocumentLoad = self->_shouldDeferAsynchronousScriptsUntilAfterDocumentLoad;
+    configuration->_drawsBackground = self->_drawsBackground;
 
     return configuration;
 }
@@ -501,7 +541,7 @@ static NSString *defaultApplicationNameForUserAgent()
 #if PLATFORM(IOS)
 - (WKWebViewContentProviderRegistry *)_contentProviderRegistry
 {
-    return _contentProviderRegistry.get([] { return adoptNS([[WKWebViewContentProviderRegistry alloc] init]); });
+    return _contentProviderRegistry.get([self] { return adoptNS([[WKWebViewContentProviderRegistry alloc] initWithConfiguration:self]); });
 }
 
 - (void)_setContentProviderRegistry:(WKWebViewContentProviderRegistry *)registry
@@ -664,6 +704,37 @@ static NSString *defaultApplicationNameForUserAgent()
 {
     _dragLiftDelay = dragLiftDelay;
 }
+
+- (BOOL)_textInteractionGesturesEnabled
+{
+    return _textInteractionGesturesEnabled;
+}
+
+- (void)_setTextInteractionGesturesEnabled:(BOOL)enabled
+{
+    _textInteractionGesturesEnabled = enabled;
+}
+
+- (BOOL)_longPressActionsEnabled
+{
+    return _longPressActionsEnabled;
+}
+
+- (void)_setLongPressActionsEnabled:(BOOL)enabled
+{
+    _longPressActionsEnabled = enabled;
+}
+
+- (BOOL)_systemPreviewEnabled
+{
+    return _systemPreviewEnabled;
+}
+
+- (void)_setSystemPreviewEnabled:(BOOL)enabled
+{
+    _systemPreviewEnabled = enabled;
+}
+
 #endif // PLATFORM(IOS)
 
 - (BOOL)_invisibleAutoplayNotPermitted
@@ -694,6 +765,46 @@ static NSString *defaultApplicationNameForUserAgent()
 - (void)_setAttachmentElementEnabled:(BOOL)attachmentElementEnabled
 {
     _attachmentElementEnabled = attachmentElementEnabled;
+}
+
+- (BOOL)_colorFilterEnabled
+{
+    return _colorFilterEnabled;
+}
+
+- (void)_setColorFilterEnabled:(BOOL)colorFilterEnabled
+{
+    _colorFilterEnabled = colorFilterEnabled;
+}
+
+- (BOOL)_incompleteImageBorderEnabled
+{
+    return _incompleteImageBorderEnabled;
+}
+
+- (void)_setIncompleteImageBorderEnabled:(BOOL)incompleteImageBorderEnabled
+{
+    _incompleteImageBorderEnabled = incompleteImageBorderEnabled;
+}
+
+- (BOOL)_shouldDeferAsynchronousScriptsUntilAfterDocumentLoad
+{
+    return _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad;
+}
+
+- (void)_setShouldDeferAsynchronousScriptsUntilAfterDocumentLoad:(BOOL)shouldDeferAsynchronousScriptsUntilAfterDocumentLoad
+{
+    _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad = shouldDeferAsynchronousScriptsUntilAfterDocumentLoad;
+}
+
+- (BOOL)_drawsBackground
+{
+    return _drawsBackground;
+}
+
+- (void)_setDrawsBackground:(BOOL)drawsBackground
+{
+    _drawsBackground = drawsBackground;
 }
 
 - (BOOL)_requiresUserActionForVideoPlayback

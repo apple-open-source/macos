@@ -17,7 +17,7 @@ INFOPLIST_FILE = OSX/lib/Info-Security.plist
 
 INSTALL_PATH = $(SYSTEM_LIBRARY_DIR)/Frameworks
 
-OTHER_LDFLAGS = -laks -lCrashReporterClient -Wl,-upward_framework,Foundation
+OTHER_LDFLAGS = -laks -lCrashReporterClient -Wl,-upward_framework,Foundation -Wl,-no_inits
 
 SECTORDER_FLAGS = -order_file_statistics
 APPLY_RULES_IN_COPY_FILES = NO
@@ -32,3 +32,5 @@ OTHER_TAPI_FLAGS_USR_LIB_HEADERS = -extra-private-header $(PROJECT_DIR)/OSX/util
 OTHER_TAPI_FLAGS_HACKS = -exclude-public-header $(BUILT_PRODUCTS_DIR)/Security.framework/Versions/A/Headers/AuthorizationPlugin.h -extra-public-header $(PROJECT_DIR)/OSX/macos_tapi_hacks.h -D SECURITY_PROJECT_TAPI_HACKS=1
 
 OTHER_TAPI_FLAGS = $(inherited) $(OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK) -I$(PROJECT_DIR)/header_symlinks/ $(OTHER_TAPI_FLAGS_TRUST) $(OTHER_TAPI_FLAGS_USR_LIB_HEADERS) $(OTHER_TAPI_FLAGS_HACKS)
+
+IS_ZIPPERED = YES

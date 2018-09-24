@@ -146,7 +146,7 @@ NAHCopyMMeUserNameFromCertificate(SecCertificateRef cert)
         return NULL;
 
     CC_SHA1_Init(&ctx);
-    CC_SHA1_Update(&ctx, CFDataGetBytePtr(certData), CFDataGetLength(certData));
+    CC_SHA1_Update(&ctx, CFDataGetBytePtr(certData), (CC_LONG)CFDataGetLength(certData));
     CC_SHA1_Final(digest, &ctx);
 
     CFRelease(certData);
@@ -307,7 +307,7 @@ name2oid(CFStringRef name)
     size_t n;
 
     if (name == NULL)
-	return NO_MECH;
+	return NULL;
 
     for (n = 0; n < sizeof(mechs) / sizeof(mechs[0]); n++) {
 	if (CFStringCompare(mechs[n].name, name, kCFCompareCaseInsensitive) == kCFCompareEqualTo)

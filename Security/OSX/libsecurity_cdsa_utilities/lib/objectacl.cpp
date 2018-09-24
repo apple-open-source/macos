@@ -43,7 +43,7 @@ using namespace DataWalkers;
 // These are the kinds of ACL subjects we can deal with.
 //
 ModuleNexus<ObjectAcl::MakerMap> ObjectAcl::makers;
-NormalMutex ObjectAcl::makersMutex;
+ModuleNexus<NormalMutex> ObjectAcl::makersMutex;
 
 
 //
@@ -579,7 +579,7 @@ void ObjectAcl::AclEntry::importBlob(Reader &pub, Reader &priv)
 AclSubject::Maker::Maker(CSSM_ACL_SUBJECT_TYPE type)
 	: mType(type)
 {
-    StLock<Mutex> _(ObjectAcl::makersMutex);
+    StLock<Mutex> _(ObjectAcl::makersMutex());
     ObjectAcl::makers()[type] = this;
 }
 
@@ -598,7 +598,7 @@ AclSubject *ObjectAcl::make(uint32 typeAndVersion, Reader &pub, Reader &priv)
 
 AclSubject::Maker &ObjectAcl::makerFor(CSSM_ACL_SUBJECT_TYPE type)
 {
-    StLock<Mutex> _(ObjectAcl::makersMutex);
+    StLock<Mutex> _(ObjectAcl::makersMutex());
     AclSubject::Maker *maker = makers()[type];
     if (maker == NULL)
         CssmError::throwMe(CSSM_ERRCODE_ACL_SUBJECT_TYPE_NOT_SUPPORTED);

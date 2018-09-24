@@ -14,7 +14,7 @@ en_150{
             }
         }
     }
-    Version{"2.1.31.33"}
+    Version{"2.1.38.69"}
     calendar{
         generic{
             DateTimePatterns{
@@ -33,8 +33,15 @@ en_150{
                 "{1}, {0}",
             }
             availableFormats{
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
                 MEd{"E d/M"}
                 Md{"d/M"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
                 yyyyMEd{"E d/M/y G"}
                 yyyyMd{"d/M/y G"}
             }

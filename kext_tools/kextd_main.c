@@ -71,6 +71,7 @@
 #include "bootcaches.h"
 #include "pgo.h"
 #include "security.h"
+#include "signposts.h"
 #include "staging.h"
 #include "kextaudit.h"
 
@@ -164,6 +165,7 @@ static void LoadLatestExcludeList(void);
 int main(int argc, char * const * argv)
 {
     char       logSpecBuffer[16];  // enough for a 64-bit hex value
+    os_signpost_id_t spid = 0;
 
    /*****
     * Find out what my name is.
@@ -205,6 +207,10 @@ int main(int argc, char * const * argv)
         OSKextGetLogFilter(/* kernel? */ false));
     setenv("KEXT_LOG_FILTER_USER", logSpecBuffer, /* overwrite */ 1);
 
+    /* Measure initialization time with a signpost.
+     */
+    spid = generate_signpost_id();
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_INIT);
 
     /* Setup OSKext authentication options, starting with networking disabled
      * and using the boot timer to enable it shortly after boot.
@@ -297,6 +303,8 @@ int main(int argc, char * const * argv)
     * bumped the busy count).
     */
     sendFinishedToKernel();
+
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_INIT);
 
     // Start run loop
     CFRunLoopRun();
@@ -1099,9 +1107,13 @@ void enableNetworkAuthentication(void)
  */
 void rescanExtensions(void)
 {
+    os_signpost_id_t spid = generate_signpost_id();
+
     OSKextLog(/* kext */ NULL,
         kOSKextLogBasicLevel | kOSKextLogGeneralFlag,
         "Rescanning kernel extensions.");
+
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_RESCAN_EXTENSIONS);
 
 #ifndef NO_CFUserNotification
     resetUserNotifications(/* dismissAlert */ false);
@@ -1127,6 +1139,8 @@ void rescanExtensions(void)
     */
     readSystemKextPropertyValues(CFSTR(kOSBundleHelperKey),
         gKernelArchInfo, /* forceUpdate? */ true, /* values */ NULL);
+
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_RESCAN_EXTENSIONS);
 
     return;
 }

@@ -30,6 +30,10 @@
 #include <errno.h>
 #include <sys/socket.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcomma"
+#pragma clang diagnostic ignored "-Wint-conversion"
+
 #define MAX_V4_ADDR_LEN 16
 #define MAX_V6_ADDR_LEN 64
 
@@ -239,3 +243,4 @@ inet_ntop4(const struct in_addr *addr, char *dst, socklen_t size)
 	memcpy(dst, tmp, len);
 	return dst;
 }
+#pragma clang diagnostic pop

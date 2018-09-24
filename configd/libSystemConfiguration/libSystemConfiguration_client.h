@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, 2013, 2015-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,7 +24,7 @@
 #ifndef _LIBSYSTEMCONFIGURATION_CLIENT_H
 #define _LIBSYSTEMCONFIGURATION_CLIENT_H
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <dispatch/dispatch.h>
@@ -37,11 +37,11 @@
 
 #define	DNSINFO_SERVER_VERSION		20130408
 
-#if	!TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 #define	DNSINFO_SERVICE_NAME		"com.apple.SystemConfiguration.DNSConfiguration"
-#else	// !TARGET_OS_SIMULATOR
+#else	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 #define	DNSINFO_SERVICE_NAME		"com.apple.SystemConfiguration.DNSConfiguration_sim"
-#endif	// !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 
 #define	DNSINFO_PROC_NAME		"proc_name"	// string
 
@@ -62,11 +62,11 @@ enum {
 
 #define	NWI_SERVER_VERSION		20130408
 
-#if	!TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 #define	NWI_SERVICE_NAME		"com.apple.SystemConfiguration.NetworkInformation"
-#else	// !TARGET_OS_SIMULATOR
+#else	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 #define	NWI_SERVICE_NAME		"com.apple.SystemConfiguration.NetworkInformation_sim"
-#endif	// !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 
 #define	NWI_PROC_NAME			"proc_name"	// string
 
@@ -77,10 +77,10 @@ enum {
 	NWI_STATE_REQUEST_COPY		= 0x20001,
 	NWI_STATE_REQUEST_ACKNOWLEDGE,
 
-#if !TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 	/* NWI config agent requests  */
 	NWI_CONFIG_AGENT_REQUEST_COPY
-#endif // !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 };
 
 #define	NWI_CONFIGURATION		"configuration"	// data
@@ -100,7 +100,7 @@ typedef struct {
 __BEGIN_DECLS
 
 _Bool
-libSC_info_available			();
+libSC_info_available			(void);
 
 libSC_info_client_t *
 libSC_info_client_create		(
@@ -122,4 +122,4 @@ libSC_send_message_with_reply_sync	(
 
 __END_DECLS
 
-#endif // _LIBSYSTEMCONFIGURATION_CLIENT_H
+#endif	// _LIBSYSTEMCONFIGURATION_CLIENT_H

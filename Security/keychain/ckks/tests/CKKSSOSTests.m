@@ -86,6 +86,11 @@
 @property FakeCKZone*          applepayZone;
 @property (readonly) ZoneKeys* applepayZoneKeys;
 
+@property CKRecordZoneID*      homeZoneID;
+@property CKKSKeychainView*    homeView;
+@property FakeCKZone*          homeZone;
+@property (readonly) ZoneKeys* homeZoneKeys;
+
 @end
 
 @implementation CloudKitKeychainSyncingSOSIntegrationTests
@@ -105,12 +110,13 @@
     SecCKKSTestSetDisableSOS(false);
 
     // Wait for the ViewManager to be brought up
-    XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:4*NSEC_PER_SEC], "No timeout waiting for SecCKKSInitialize");
+    XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:20*NSEC_PER_SEC], "No timeout waiting for SecCKKSInitialize");
 
     self.engramZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Engram" ownerName:CKCurrentUserDefaultName];
     self.engramZone = [[FakeCKZone alloc] initZone: self.engramZoneID];
     self.zones[self.engramZoneID] = self.engramZone;
     self.engramView = [[CKKSViewManager manager] findView:@"Engram"];
+    [self.ckksViews addObject:self.engramView];
     XCTAssertNotNil(self.engramView, "CKKSViewManager created the Engram view");
     [self.ckksZones addObject:self.engramZoneID];
 
@@ -118,6 +124,7 @@
     self.manateeZone = [[FakeCKZone alloc] initZone: self.manateeZoneID];
     self.zones[self.manateeZoneID] = self.manateeZone;
     self.manateeView = [[CKKSViewManager manager] findView:@"Manatee"];
+    [self.ckksViews addObject:self.manateeView];
     XCTAssertNotNil(self.manateeView, "CKKSViewManager created the Manatee view");
     [self.ckksZones addObject:self.manateeZoneID];
 
@@ -125,6 +132,7 @@
     self.autoUnlockZone = [[FakeCKZone alloc] initZone: self.autoUnlockZoneID];
     self.zones[self.autoUnlockZoneID] = self.autoUnlockZone;
     self.autoUnlockView = [[CKKSViewManager manager] findView:@"AutoUnlock"];
+    [self.ckksViews addObject:self.autoUnlockView];
     XCTAssertNotNil(self.autoUnlockView, "CKKSViewManager created the AutoUnlock view");
     [self.ckksZones addObject:self.autoUnlockZoneID];
 
@@ -132,6 +140,7 @@
     self.healthZone = [[FakeCKZone alloc] initZone: self.healthZoneID];
     self.zones[self.healthZoneID] = self.healthZone;
     self.healthView = [[CKKSViewManager manager] findView:@"Health"];
+    [self.ckksViews addObject:self.healthView];
     XCTAssertNotNil(self.healthView, "CKKSViewManager created the Health view");
     [self.ckksZones addObject:self.healthZoneID];
 
@@ -139,8 +148,16 @@
     self.applepayZone = [[FakeCKZone alloc] initZone: self.healthZoneID];
     self.zones[self.applepayZoneID] = self.applepayZone;
     self.applepayView = [[CKKSViewManager manager] findView:@"ApplePay"];
+    [self.ckksViews addObject:self.applepayView];
     XCTAssertNotNil(self.applepayView, "CKKSViewManager created the ApplePay view");
     [self.ckksZones addObject:self.applepayZoneID];
+
+    self.homeZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Home" ownerName:CKCurrentUserDefaultName];
+    self.homeZone = [[FakeCKZone alloc] initZone: self.healthZoneID];
+    self.zones[self.homeZoneID] = self.homeZone;
+    self.homeView = [[CKKSViewManager manager] findView:@"Home"];
+    XCTAssertNotNil(self.homeView, "CKKSViewManager created the Home view");
+    [self.ckksZones addObject:self.homeZoneID];
 }
 
 + (void)tearDown {
@@ -174,6 +191,10 @@
     [self.applepayView waitUntilAllOperationsAreFinished];
     self.applepayView = nil;
 
+    [self.homeView halt];
+    [self.homeView waitUntilAllOperationsAreFinished];
+    self.homeView = nil;
+
     [super tearDown];
 }
 
@@ -188,6 +209,47 @@
 -(void)saveFakeKeyHierarchiesToLocalDatabase {
     for(CKRecordZoneID* zoneID in self.ckksZones) {
         [self createAndSaveFakeKeyHierarchy: zoneID];
+    }
+}
+
+-(void)testAllViewsMakeNewKeyHierarchies {
+    // Test starts with nothing anywhere
+
+    // Due to our new cross-zone fetch system, CKKS should only issue one fetch for all zones
+    // Since the tests can sometimes be slow, slow down the fetcher to normal speed
+    [self.injectedManager.zoneChangeFetcher.fetchScheduler changeDelays:2*NSEC_PER_SEC continuingDelay:30*NSEC_PER_SEC];
+    self.silentFetchesAllowed = false;
+    [self expectCKFetch];
+
+    [self startCKKSSubsystem];
+
+    // All zones should upload a key hierarchy
+    for(CKRecordZoneID* zoneID in self.ckksZones) {
+        [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:zoneID];
+    }
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    for(CKKSKeychainView* view in self.ckksViews) {
+        XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should enter 'ready' for view %@", view);
+    }
+}
+
+-(void)testAllViewsAcceptExistingKeyHierarchies {
+    for(CKRecordZoneID* zoneID in self.ckksZones) {
+        [self putFakeKeyHierarchyInCloudKit:zoneID];
+        [self saveTLKMaterialToKeychain:zoneID];
+        [self expectCKKSTLKSelfShareUpload:zoneID];
+    }
+
+    [self.injectedManager.zoneChangeFetcher.fetchScheduler changeDelays:2*NSEC_PER_SEC continuingDelay:30*NSEC_PER_SEC];
+    self.silentFetchesAllowed = false;
+    [self expectCKFetch];
+
+    [self startCKKSSubsystem];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    for(CKKSKeychainView* view in self.ckksViews) {
+        XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should enter 'ready' for view %@", view);
     }
 }
 
@@ -214,7 +276,7 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.manateeZoneID];
     [self addGenericPassword: @"data" account: @"account-delete-me-manatee" viewHint:(NSString*) kSecAttrViewHintManatee];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForExpectations:@[manateeChanged] timeout:1];
     [self waitForExpectations:@[pcsChanged] timeout:1];
 }
@@ -233,7 +295,7 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.autoUnlockZoneID];
     [self addGenericPassword: @"data" account: @"account-delete-me-autounlock" viewHint:(NSString*) kSecAttrViewHintAutoUnlock];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForExpectations:@[autoUnlockChanged] timeout:1];
     [self waitForExpectations:@[pcsChanged] timeout:0.2];
 }
@@ -252,7 +314,7 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.healthZoneID];
     [self addGenericPassword: @"data" account: @"account-delete-me-autounlock" viewHint:(NSString*) kSecAttrViewHintHealth];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForExpectations:@[healthChanged] timeout:1];
     [self waitForExpectations:@[pcsChanged] timeout:0.2];
 }
@@ -271,11 +333,29 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.applepayZoneID];
     [self addGenericPassword: @"data" account: @"account-delete-me-autounlock" viewHint:(NSString*) kSecAttrViewHintApplePay];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForExpectations:@[applepayChanged] timeout:1];
     [self waitForExpectations:@[pcsChanged] timeout:0.2];
 }
 
+-(void)testAddHomeItems {
+    [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
+
+    [self startCKKSSubsystem];
+
+    XCTestExpectation* homeChanged = [self expectChangeForView:self.homeZoneID.zoneName];
+    // Home is NOT a PCS view, so it should not send the fake 'PCS' view notification
+    XCTestExpectation* pcsChanged = [self expectChangeForView:@"PCS"];
+    pcsChanged.inverted = YES;
+
+    // We expect a single record to be uploaded to the ApplePay view.
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.homeZoneID];
+    [self addGenericPassword: @"data" account: @"account-delete-me-autounlock" viewHint:(NSString*) kSecAttrViewHintHome];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForExpectations:@[homeChanged] timeout:1];
+    [self waitForExpectations:@[pcsChanged] timeout:0.2];
+}
 
 -(void)testAddOtherViewHintItem {
     [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
@@ -287,7 +367,7 @@
     [self addGenericPassword: @"data" account: @"account-delete-me-password" viewHint:(NSString*) kSOSViewAutofillPasswords];
 
     sleep(1);
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testReceiveItemInView {
@@ -359,6 +439,9 @@
 
     [self.applepayZoneKeys.tlk loadKeyMaterialFromKeychain:&error];
     XCTAssertNil(error, "No error loading ApplePay tlk from piggy contents");
+
+    [self.homeZoneKeys.tlk loadKeyMaterialFromKeychain:&error];
+    XCTAssertNil(error, "No error loading Home tlk from piggy contents");
 }
 
 -(NSString*)fileForStorage
@@ -383,7 +466,7 @@
 
     [self waitForKeyHierarchyReadinesses];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     /*
      * Pull data from keychain and view manager
@@ -418,7 +501,7 @@
     XCTAssertNotNil(result, "Initial not set");
     NSArray *copiedTLKs = result[@"tlks"];
     XCTAssertNotNil(copiedTLKs, "tlks not set");
-    XCTAssertEqual([copiedTLKs count], [tlks count], "tlks count not same");
+    XCTAssertEqual([copiedTLKs count], 5u, "piggybacking should have gotten 5 TLKs across (but we have more than that elsewhere)");
 
     NSArray *copiediCloudidentities = result[@"idents"];
     XCTAssertNotNil(copiediCloudidentities, "idents not set");
@@ -456,12 +539,19 @@
             @"v_Data" : [NSData dataWithBytes:key length:sizeof(key)],
             @"auth" : @YES,
         },
+        @{
+            @"acct" : @"66666666",
+            @"srvr" : @"Home",
+            @"v_Data" : [NSData dataWithBytes:key length:sizeof(key)],
+            @"auth" : @YES,
+        },
     ];
 
     NSArray<NSDictionary *>* sortedTLKs = SOSAccountSortTLKS(tlks);
     XCTAssertNotNil(sortedTLKs, "sortedTLKs not set");
 
-    NSArray<NSString *> *expectedOrder = @[ @"11111111", @"22222222", @"33333333", @"44444444", @"55555555"];
+    // Home gets sorted into the middle, as the other Health and Manatee TLKs aren't 'authoritative'
+    NSArray<NSString *> *expectedOrder = @[ @"11111111", @"22222222", @"33333333", @"66666666", @"44444444", @"55555555"];
     [sortedTLKs enumerateObjectsUsingBlock:^(NSDictionary *tlk, NSUInteger idx, BOOL * _Nonnull stop) {
         NSString *uuid = tlk[@"acct"];
         XCTAssertEqualObjects(uuid, expectedOrder[idx], "wrong order");
@@ -488,7 +578,7 @@
 
     [self.manateeView waitForKeyHierarchyReadiness];
     
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     
     // Verify that there are three local keys, and three local current key records
     __weak __typeof(self) weakSelf = self;
@@ -533,6 +623,7 @@
     [self putFakeDeviceStatusInCloudKit: self.autoUnlockZoneID];
     [self putFakeDeviceStatusInCloudKit: self.healthZoneID];
     [self putFakeDeviceStatusInCloudKit: self.applepayZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.homeZoneID];
 }
 
 -(void)putFakeKeyHierachiesInCloudKit{
@@ -541,6 +632,7 @@
     [self putFakeKeyHierarchyInCloudKit: self.autoUnlockZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.healthZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.applepayZoneID];
+    [self putFakeKeyHierarchyInCloudKit: self.homeZoneID];
 }
 -(void)saveTLKsToKeychain{
     [self saveTLKMaterialToKeychain:self.engramZoneID];
@@ -548,6 +640,7 @@
     [self saveTLKMaterialToKeychain:self.autoUnlockZoneID];
     [self saveTLKMaterialToKeychain:self.healthZoneID];
     [self saveTLKMaterialToKeychain:self.applepayZoneID];
+    [self saveTLKMaterialToKeychain:self.homeZoneID];
 }
 -(void)deleteTLKMaterialsFromKeychain{
     [self deleteTLKMaterialFromKeychain: self.engramZoneID];
@@ -555,6 +648,7 @@
     [self deleteTLKMaterialFromKeychain: self.autoUnlockZoneID];
     [self deleteTLKMaterialFromKeychain: self.healthZoneID];
     [self deleteTLKMaterialFromKeychain: self.applepayZoneID];
+    [self deleteTLKMaterialFromKeychain: self.homeZoneID];
 }
 
 -(void)waitForKeyHierarchyReadinesses {
@@ -563,6 +657,7 @@
     [self.autoUnlockView waitForKeyHierarchyReadiness];
     [self.healthView waitForKeyHierarchyReadiness];
     [self.applepayView waitForKeyHierarchyReadiness];
+    [self.homeView waitForKeyHierarchyReadiness];
 }
 
 -(void)testAcceptExistingAndUsePiggyKeyHierarchy {
@@ -577,9 +672,9 @@
     [self startCKKSSubsystem];
     
     // The CKKS subsystem should not try to write anything to the CloudKit database.
-    XCTAssertEqual(0, [self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:400*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    XCTAssertEqual(0, [self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     
     // Now, save the TLKs to the keychain (to simulate them coming in later via piggybacking).
     for(CKRecordZoneID* zoneID in self.ckksZones) {
@@ -593,7 +688,7 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.manateeZoneID checkItem: [self checkClassCBlock:self.manateeZoneID message:@"Object was encrypted under class C key in hierarchy"]];
     [self addGenericPassword: @"data" account: @"account-delete-me-manatee" viewHint:(id)kSecAttrViewHintManatee];
     
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.manateeZoneID checkItem: [self checkClassABlock:self.manateeZoneID message:@"Object was encrypted under class A key in hierarchy"]];
 
@@ -603,7 +698,7 @@
                       access:(id)kSecAttrAccessibleWhenUnlocked
                    expecting:errSecSuccess
                      message:@"Adding class A item"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 @end
 

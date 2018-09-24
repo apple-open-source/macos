@@ -76,8 +76,6 @@ const CipherSuiteName ciphers[] = {
 #endif
 
 #if 1
-    CIPHER(SSL_RSA_WITH_RC4_128_MD5),
-    CIPHER(SSL_RSA_WITH_RC4_128_SHA),
     CIPHER(SSL_RSA_WITH_3DES_EDE_CBC_SHA),
     CIPHER(TLS_RSA_WITH_AES_128_CBC_SHA),
     CIPHER(TLS_RSA_WITH_AES_128_CBC_SHA256),
@@ -97,7 +95,6 @@ const CipherSuiteName ciphers[] = {
 
 #if 1
     /* DH_anon cipher suites */
-    CIPHER(SSL_DH_anon_WITH_RC4_128_MD5),
     CIPHER(SSL_DH_anon_WITH_3DES_EDE_CBC_SHA),
     CIPHER(TLS_DH_anon_WITH_AES_128_CBC_SHA),
     CIPHER(TLS_DH_anon_WITH_AES_128_CBC_SHA256),
@@ -108,7 +105,6 @@ const CipherSuiteName ciphers[] = {
 #if 1
     /* ECDHE_ECDSA cipher suites */
     CIPHER(TLS_ECDHE_ECDSA_WITH_NULL_SHA),
-    CIPHER(TLS_ECDHE_ECDSA_WITH_RC4_128_SHA),
     CIPHER(TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA),
     CIPHER(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA),
     CIPHER(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256),
@@ -118,7 +114,6 @@ const CipherSuiteName ciphers[] = {
 
 #if 1
     /* ECDHE_RSA cipher suites */
-    CIPHER(TLS_ECDHE_RSA_WITH_RC4_128_SHA),
     CIPHER(TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA),
     CIPHER(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA),
     CIPHER(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256),
@@ -127,7 +122,6 @@ const CipherSuiteName ciphers[] = {
 #endif
 
 #if 1
-    CIPHER(TLS_PSK_WITH_RC4_128_SHA),
     CIPHER(TLS_PSK_WITH_3DES_EDE_CBC_SHA),
     CIPHER(TLS_PSK_WITH_AES_128_CBC_SHA),
     CIPHER(TLS_PSK_WITH_AES_256_CBC_SHA),
@@ -925,8 +919,6 @@ uint16_t only_dhe_rsa_ciphers[] = {
 
 /* For the freak test */
 uint16_t only_rsa_ciphers[] = {
-    SSL_RSA_WITH_RC4_128_MD5,
-    SSL_RSA_WITH_RC4_128_SHA,
     SSL_RSA_WITH_3DES_EDE_CBC_SHA,
     TLS_RSA_WITH_AES_128_CBC_SHA,
     TLS_RSA_WITH_AES_128_CBC_SHA256,

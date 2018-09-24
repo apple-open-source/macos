@@ -1,6 +1,8 @@
-#!/bin/sh
+#!/bin/bash -e -x
 
-set -ex
+# Do nothing for installhdrs
+[ "$ACTION" == "installhdrs" ] && exit 0
+[ "$ACTION" == "installapi" ] && exit 0
 
 # check if we're building for the simulator
 [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] && exit 0

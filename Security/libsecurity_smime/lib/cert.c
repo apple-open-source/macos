@@ -225,6 +225,7 @@ CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage, Bo
     CFArrayRef certChain = NULL;
     CSSM_TP_APPLE_EVIDENCE_INFO *statusChain;
     OSStatus status = 0;
+    SecTrustResultType trustResult = kSecTrustResultInvalid;
 
     if (!cert)
 	goto loser;
@@ -241,7 +242,7 @@ CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage, Bo
     if (status)
 	goto loser;
 
-    status = SecTrustEvaluate(trust, NULL);
+    status = SecTrustEvaluate(trust, &trustResult);
     if (status)
 	goto loser;
 

@@ -50,6 +50,13 @@
 #include <process.h>
 #endif
 
+#if defined(LIBRESSL_VERSION_NUMBER)
+/* Missing from LibreSSL */
+#define MD_USE_OPENSSL_PRE_1_1_API (LIBRESSL_VERSION_NUMBER < 0x2080000f)
+#else /* defined(LIBRESSL_VERSION_NUMBER) */
+#define MD_USE_OPENSSL_PRE_1_1_API (OPENSSL_VERSION_NUMBER < 0x10100000L)
+#endif
+
 static int initialized;
 
 struct md_pkey_t {
@@ -190,7 +197,7 @@ static int pem_passwd(char *buf, int size, int rwflag, void *baton)
  */
 static apr_time_t md_asn1_time_get(const ASN1_TIME* time)
 {
-#ifdef LIBRESSL_VERSION_NUMBER
+#if OPENSSL_VERSION_NUMBER < 0x10002000L || defined(LIBRESSL_VERSION_NUMBER)
     /* courtesy: https://stackoverflow.com/questions/10975542/asn1-time-to-time-t-conversion#11263731
      * all bugs are mine */
     apr_time_exp_t t;
@@ -471,7 +478,8 @@ apr_status_t md_pkey_gen(md_pkey_t **ppkey, apr_pool_t *p, md_pkey_spec_t *spec)
     }
 }
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+#if MD_USE_OPENSSL_PRE_1_1_API || (defined(LIBRESSL_VERSION_NUMBER) && \
+                                   LIBRESSL_VERSION_NUMBER < 0x2070000f)
 
 #ifndef NID_tlsfeature
 #define NID_tlsfeature          1020

@@ -30,28 +30,32 @@
 
 // Truth table for following declarations:
 //
-//                            TARGET_OS_OSX  TARGET_OS_OSX    TARGET_OS_IPHONE    TARGET_OS_IPHONE
-//                                           SEC_IOS_ON_OSX                       SEC_IOS_ON_OSX
-// ===================================================================================================
-// SEC_OS_IPHONE                0             1                1                   1
-// SEC_OS_IPHONE_INCLUDES       0             0                1                   1
-// SEC_OS_OSX                   1             0                0                   0
-// SEC_OS_OSX_INCLUDES          1             1                0                   0
+//                          TARGET_OS_OSX   TARGET_OS_OSX   TARGET_OS_IPHONE    TARGET_OS_IPHONE    TARGET_OS_IOSMAC
+//                                          SEC_IOS_ON_OSX                      SEC_IOS_ON_OSX
+// =================================================================================================================
+// SEC_OS_IPHONE            0               1               1                   1                   1
+// SEC_OS_OSX               1               0               0                   0                   0
+// SEC_OS_OSX_INCLUDES      1               1               0                   0                   0
 
 #if TARGET_OS_OSX
   #ifdef SEC_IOS_ON_OSX
     #define SEC_OS_IPHONE 1
-    #define SEC_OS_IPHONE_INCLUDES 0
 
     #define SEC_OS_OSX 0
     #define SEC_OS_OSX_INCLUDES 1
   #endif // SEC_IOS_ON_OSX
 #endif // TARGET_OS_OSX
 
+#if TARGET_OS_IOSMAC
+  #define SEC_OS_IPHONE 1
+
+  #define SEC_OS_OSX 0
+  #define SEC_OS_OSX_INCLUDES 0
+#endif // TARGET_OS_IOSMAC
+
 #ifndef SEC_OS_IPHONE
     // block above did not fire; set flags to current platform
     #define SEC_OS_IPHONE TARGET_OS_IPHONE
-    #define SEC_OS_IPHONE_INCLUDES TARGET_OS_IPHONE
 
     #define SEC_OS_OSX TARGET_OS_OSX
     #define SEC_OS_OSX_INCLUDES TARGET_OS_OSX
@@ -115,31 +119,30 @@ typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecPolicy) *SecPolicyRef;
 */
 typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecAccessControl) *SecAccessControlRef;
 
-#if SEC_OS_OSX_INCLUDES
-
 /*!
     @typedef SecKeychainRef
     @abstract Contains information about a keychain.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecKeychain) *SecKeychainRef;
+typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecKeychain) *SecKeychainRef
+    API_AVAILABLE(macos(10.0)) SPI_AVAILABLE(ios(1.0), tvos(9.0), watchos(1.0));
 
 /*!
     @typedef SecKeychainItemRef
     @abstract Contains information about a keychain item.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecKeychainItem) *SecKeychainItemRef;
+typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecKeychainItem) *SecKeychainItemRef API_UNAVAILABLE(ios);
 
 /*!
     @typedef SecKeychainSearchRef
     @abstract Contains information about a keychain search.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecKeychainSearch) *SecKeychainSearchRef;
+typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecKeychainSearch) *SecKeychainSearchRef API_UNAVAILABLE(ios);
 
 /*!
     @typedef SecKeychainAttrType
     @abstract Represents a keychain attribute type.
 */
-typedef OSType SecKeychainAttrType;
+typedef OSType SecKeychainAttrType API_UNAVAILABLE(ios);
 
 /*!
     @struct SecKeychainAttribute
@@ -148,19 +151,19 @@ typedef OSType SecKeychainAttrType;
     @field length The length of the buffer pointed to by data.
     @field data A pointer to the attribute data.
 */
-struct SecKeychainAttribute
+struct API_UNAVAILABLE(ios) SecKeychainAttribute
 {
     SecKeychainAttrType tag;
     UInt32 length;
     void * __nullable data;
 };
-typedef struct SecKeychainAttribute SecKeychainAttribute;
+typedef struct SecKeychainAttribute SecKeychainAttribute API_UNAVAILABLE(ios);
 
 /*!
     @typedef SecKeychainAttributePtr
     @abstract Represents a pointer to a keychain attribute structure.
 */
-typedef SecKeychainAttribute *SecKeychainAttributePtr;
+typedef SecKeychainAttribute *SecKeychainAttributePtr API_UNAVAILABLE(ios);
 
 /*!
     @typedef SecKeychainAttributeList
@@ -168,42 +171,42 @@ typedef SecKeychainAttribute *SecKeychainAttributePtr;
     @field count An unsigned 32-bit integer that represents the number of keychain attributes in the array.
     @field attr A pointer to the first keychain attribute in the array.
 */
-struct SecKeychainAttributeList
+struct API_UNAVAILABLE(ios) SecKeychainAttributeList
 {
     UInt32 count;
     SecKeychainAttribute * __nullable attr;
 };
-typedef struct SecKeychainAttributeList  SecKeychainAttributeList;
+typedef struct SecKeychainAttributeList SecKeychainAttributeList API_UNAVAILABLE(ios);
 
 /*!
     @typedef SecKeychainStatus
     @abstract Represents the status of a keychain.
 */
-typedef UInt32 SecKeychainStatus;
+typedef UInt32 SecKeychainStatus API_UNAVAILABLE(ios);
 
 /*!
     @typedef SecTrustedApplicationRef
     @abstract Contains information about a trusted application.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecTrustedApplication) *SecTrustedApplicationRef;
+typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecTrustedApplication) *SecTrustedApplicationRef API_UNAVAILABLE(ios);
 
 /*!
     @typedef SecAccessRef
     @abstract Contains information about an access.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecAccess) *SecAccessRef;
+typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecAccess) *SecAccessRef API_UNAVAILABLE(ios);
 
 /*!
     @typedef SecACLRef
     @abstract Contains information about an access control list (ACL) entry.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecTrust) *SecACLRef;
+typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecTrust) *SecACLRef API_UNAVAILABLE(ios);
 
 /*!
     @typedef SecPasswordRef
     @abstract Contains information about a password.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecPassword) *SecPasswordRef;
+typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecPassword) *SecPasswordRef API_UNAVAILABLE(ios);
 
 /*!
     @typedef SecKeychainAttributeInfo
@@ -213,15 +216,13 @@ typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecPassword) *SecPasswordRef;
     @field format A pointer to the first CSSM_DB_ATTRIBUTE_FORMAT in the array.
     @discussion Each tag and format item form a pair.
 */
-struct SecKeychainAttributeInfo
+struct API_UNAVAILABLE(ios) SecKeychainAttributeInfo
 {
     UInt32 count;
     UInt32 *tag;
     UInt32 * __nullable format;
 };
-typedef struct SecKeychainAttributeInfo  SecKeychainAttributeInfo;
-
-#endif // SEC_OS_OSX_INCLUDES
+typedef struct SecKeychainAttributeInfo SecKeychainAttributeInfo API_UNAVAILABLE(ios);
 
 /*!
     @function SecCopyErrorMessageString

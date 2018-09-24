@@ -61,6 +61,14 @@ OTPowerEvent* const kOTPowerEventEnroll = (OTPowerEvent *)@"enrollBottledPeer";
     });
 }
 
++ (void)CKKSPowerEvent:(CKKSPowerEvent *)operation count:(NSUInteger)count
+{
+    SecPLLogRegisteredEvent(@"CKKSSyncing", @{
+                                              @"operation" : operation,
+                                              @"count" : @(count)
+                                              });
+}
+
 + (void)OTPowerEvent:(NSString *)operation
 {
     SecPLLogRegisteredEvent(@"OctagonTrust", @{

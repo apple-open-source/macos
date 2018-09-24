@@ -477,6 +477,9 @@ CONST_OID mqvSinglePassSha1kdf[]			= {ANSI_X9_63_SCHEME, 4 };
 CONST_OID appleHashAgility[]                = {APPLE_CMS_ATTRIBUTES, 1};
 CONST_OID appleHashAgilityV2[]              = {APPLE_CMS_ATTRIBUTES, 2};
 
+/* Apple Expiration Time */
+CONST_OID appleExpirationTime[]             = {APPLE_CMS_ATTRIBUTES, 3};
+
 /* a special case: always associated with a caller-specified OID */
 CONST_OID noOid[]				= { 0 };
 
@@ -1154,6 +1157,11 @@ const static SECOidData oids[] = {
        INVALID_CERT_EXTENSION),
     OD( appleHashAgilityV2, SEC_OID_APPLE_HASH_AGILITY_V2,
        "appleCodesigningHashAgilityAttribute", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION),
+
+    /* Apple Expiration Time */
+    OD( appleExpirationTime, SEC_OID_APPLE_EXPIRATION_TIME,
+       "appleExpirationTimeAttribute", CSSM_ALGID_NONE,
        INVALID_CERT_EXTENSION),
 };
 

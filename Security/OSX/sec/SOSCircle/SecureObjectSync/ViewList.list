@@ -46,4 +46,5 @@ DOVIEWMACRO(Manatee,                "Manatee",              "manatee",          
 DOVIEWMACRO(AutoUnlock,             "AutoUnlock",           "autounlock",              CKKS, D,  , A,  ,  )
 DOVIEWMACRO(Health,                 "Health",               "health",                  CKKS, D,  , A,  ,  )
 DOVIEWMACRO(ApplePay,               "ApplePay",             "applepay",                CKKS, D,  , A,  ,  )
+DOVIEWMACRO(Home,                   "Home",                 "home",                    CKKS, D,  , A,  ,  )
 

@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 /*
 ******************************************************************************
-*   Copyright (C) 1997-2016, International Business Machines
+*   Copyright (C) 1997-2014, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ******************************************************************************
 *   Date        Name        Description
@@ -86,9 +86,9 @@ public:
     int32_t puti(const UnicodeString& key, int32_t value, UErrorCode& status);
 
     void* get(const UnicodeString& key) const;
-    
+
     int32_t geti(const UnicodeString& key) const;
-    
+
     void* remove(const UnicodeString& key);
 
     int32_t removei(const UnicodeString& key);
@@ -102,9 +102,9 @@ public:
      * @see uhash_nextElement
      */
     const UHashElement* nextElement(int32_t& pos) const;
-    
+
     UKeyComparator* setKeyComparator(UKeyComparator*keyComp);
-    
+
     UValueComparator* setValueComparator(UValueComparator* valueComp);
 
     UBool equals(const Hashtable& that) const;
@@ -117,7 +117,7 @@ private:
  * Implementation
  ********************************************************************/
 
-inline void Hashtable::init(UHashFunction *keyHash, UKeyComparator *keyComp, 
+inline void Hashtable::init(UHashFunction *keyHash, UKeyComparator *keyComp,
                             UValueComparator *valueComp, UErrorCode& status) {
     if (U_FAILURE(status)) {
         return;
@@ -129,7 +129,7 @@ inline void Hashtable::init(UHashFunction *keyHash, UKeyComparator *keyComp,
     }
 }
 
-inline void Hashtable::initSize(UHashFunction *keyHash, UKeyComparator *keyComp, 
+inline void Hashtable::initSize(UHashFunction *keyHash, UKeyComparator *keyComp,
                                 UValueComparator *valueComp, int32_t size, UErrorCode& status) {
     if (U_FAILURE(status)) {
         return;
@@ -141,7 +141,7 @@ inline void Hashtable::initSize(UHashFunction *keyHash, UKeyComparator *keyComp,
     }
 }
 
-inline Hashtable::Hashtable(UKeyComparator *keyComp, UValueComparator *valueComp, 
+inline Hashtable::Hashtable(UKeyComparator *keyComp, UValueComparator *valueComp,
                  UErrorCode& status) : hash(0) {
     init( uhash_hashUnicodeString, keyComp, valueComp, status);
 }
@@ -234,7 +234,7 @@ inline void Hashtable::removeAll(void) {
 inline UKeyComparator* Hashtable::setKeyComparator(UKeyComparator*keyComp){
     return uhash_setKeyComparator(hash, keyComp);
 }
-    
+
 inline UValueComparator* Hashtable::setValueComparator(UValueComparator* valueComp){
     return uhash_setValueComparator(hash, valueComp);
 }

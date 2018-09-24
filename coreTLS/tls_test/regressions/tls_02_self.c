@@ -474,8 +474,6 @@ static const CipherSuiteName ssl_ciphers[] = {
     CIPHER(SSL_RSA_WITH_NULL_MD5)
     CIPHER(TLS_RSA_WITH_NULL_SHA256)
 
-    CIPHER(SSL_RSA_WITH_RC4_128_MD5)
-    CIPHER(SSL_RSA_WITH_RC4_128_SHA)
     CIPHER(SSL_RSA_WITH_3DES_EDE_CBC_SHA)
 
     CIPHER(SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA)
@@ -489,7 +487,6 @@ static int n_ssl_ciphers = sizeof(ssl_ciphers)/sizeof(ssl_ciphers[0]);
 
 /* DH anon ciphers: support SSLv3, don't support Client Auth */
 static const CipherSuiteName anon_ciphers[] = {
-    CIPHER(SSL_DH_anon_WITH_RC4_128_MD5)
     CIPHER(SSL_DH_anon_WITH_3DES_EDE_CBC_SHA)
     CIPHER(TLS_DH_anon_WITH_AES_128_CBC_SHA)
     CIPHER(TLS_DH_anon_WITH_AES_256_CBC_SHA)
@@ -502,7 +499,6 @@ static const CipherSuiteName psk_ciphers[] = {
     CIPHER(TLS_PSK_WITH_AES_128_CBC_SHA256)
     CIPHER(TLS_PSK_WITH_AES_256_CBC_SHA)
     CIPHER(TLS_PSK_WITH_AES_128_CBC_SHA)
-    CIPHER(TLS_PSK_WITH_RC4_128_SHA)
     CIPHER(TLS_PSK_WITH_3DES_EDE_CBC_SHA)
     CIPHER(TLS_PSK_WITH_NULL_SHA384)
     CIPHER(TLS_PSK_WITH_NULL_SHA256)
@@ -537,7 +533,6 @@ static int n_ecdhe_ciphers = sizeof(ecdhe_ciphers)/sizeof(ecdhe_ciphers[0]);
 /* ECDH anon ciphers: TLS only, don't support Client Auth */
 static const CipherSuiteName ecanon_ciphers[] = {
     CIPHER(TLS_ECDH_anon_WITH_NULL_SHA)
-    CIPHER(TLS_ECDH_anon_WITH_RC4_128_SHA)
     CIPHER(TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA)
     CIPHER(TLS_ECDH_anon_WITH_AES_128_CBC_SHA)
     CIPHER(TLS_ECDH_anon_WITH_AES_256_CBC_SHA)
@@ -741,10 +736,6 @@ const uint16_t legacy_ciphersuites[] = {
     TLS_RSA_WITH_AES_256_CBC_SHA,
     TLS_RSA_WITH_AES_128_CBC_SHA,
     SSL_RSA_WITH_3DES_EDE_CBC_SHA,
-    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_MD5,
 };
 
 const uint16_t DHE_ciphersuites[] = {
@@ -776,10 +767,6 @@ const uint16_t DHE_ciphersuites[] = {
     TLS_RSA_WITH_AES_256_CBC_SHA,
     TLS_RSA_WITH_AES_128_CBC_SHA,
     SSL_RSA_WITH_3DES_EDE_CBC_SHA,
-    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_MD5,
 };
 
 

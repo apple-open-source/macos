@@ -20,6 +20,8 @@ _tls_handshake_request_renegotiation
 _tls_handshake_close
 _tls_handshake_retransmit_timer_expired
 _tls_handshake_send_alert
+_tls_handshake_get_peer_requested_ciphersuites
+_tls_handshake_get_peer_requested_ecdh_curves
 
 _tls_handshake_set_renegotiation
 _tls_handshake_set_resumption
@@ -138,6 +140,15 @@ _tls_cache_cleanup
 _tls_cache_save_session_data
 _tls_cache_load_session_data
 _tls_cache_delete_session_data
+_tls_cache_set_default_ttls
+
+_CurvesCount
+_KnownCurves
+_KnownSigAlgs
+_SigAlgsCount
+_Ssl3Callouts
+_Tls12Callouts
+_Tls1Callouts
 
 
 # cipherspecs
@@ -153,4 +164,3 @@ _KnownCipherSuites
 _CipherSuiteCount
 #misc
 _tls_add_debug_logger
-___ssl_debug

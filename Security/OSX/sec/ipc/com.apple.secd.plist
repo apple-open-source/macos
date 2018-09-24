@@ -28,6 +28,8 @@
 		<true/>
 		<key>com.apple.securityd.sos</key>
 		<true/>
+		<key>com.apple.security.sfkeychainserver</key>
+		<true/>
 	</dict>
 	<key>ProgramArguments</key>
 	<array>

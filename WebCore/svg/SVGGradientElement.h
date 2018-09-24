@@ -49,11 +49,11 @@ struct SVGPropertyTraits<SVGSpreadMethodType> {
         case SVGSpreadMethodUnknown:
             return emptyString();
         case SVGSpreadMethodPad:
-            return ASCIILiteral("pad");
+            return "pad"_s;
         case SVGSpreadMethodReflect:
-            return ASCIILiteral("reflect");
+            return "reflect"_s;
         case SVGSpreadMethodRepeat:
-            return ASCIILiteral("repeat");
+            return "repeat"_s;
         }
 
         ASSERT_NOT_REACHED();
@@ -72,9 +72,8 @@ struct SVGPropertyTraits<SVGSpreadMethodType> {
     }
 };
 
-class SVGGradientElement : public SVGElement,
-                           public SVGURIReference,
-                           public SVGExternalResourcesRequired {
+class SVGGradientElement : public SVGElement, public SVGURIReference, public SVGExternalResourcesRequired {
+    WTF_MAKE_ISO_ALLOCATED(SVGGradientElement);
 public:
     enum {
         SVG_SPREADMETHOD_UNKNOWN = SVGSpreadMethodUnknown,

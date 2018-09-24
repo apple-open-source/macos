@@ -391,11 +391,19 @@ MediaTime::ComparisonFlags MediaTime::compare(const MediaTime& rhs) const
     if (m_timeValue == rhs.m_timeValue)
         return m_timeScale < rhs.m_timeScale ? GreaterThan : LessThan;
 
-    if (m_timeValue < rhs.m_timeValue && m_timeScale > rhs.m_timeScale)
-        return LessThan;
+    if (m_timeValue >= 0) {
+        if (m_timeValue < rhs.m_timeValue && m_timeScale > rhs.m_timeScale)
+            return LessThan;
 
-    if (m_timeValue > rhs.m_timeValue && m_timeScale < rhs.m_timeScale)
-        return GreaterThan;
+        if (m_timeValue > rhs.m_timeValue && m_timeScale < rhs.m_timeScale)
+            return GreaterThan;
+    } else {
+        if (m_timeValue < rhs.m_timeValue && m_timeScale < rhs.m_timeScale)
+            return LessThan;
+
+        if (m_timeValue > rhs.m_timeValue && m_timeScale > rhs.m_timeScale)
+            return GreaterThan;
+    }
 
     int64_t lhsFactor;
     int64_t rhsFactor;
@@ -569,28 +577,33 @@ String MediaTime::toString() const
     return builder.toString();
 }
 
-String MediaTime::toJSONString() const
+static Ref<JSON::Object> toJSONStringInternal(const MediaTime& time)
 {
     auto object = JSON::Object::create();
 
-    if (hasDoubleValue())
-        object->setDouble(ASCIILiteral("value"), toDouble());
+    if (time.hasDoubleValue())
+        object->setDouble("value"_s, time.toDouble());
     else {
-        if (isInvalid() || isIndefinite())
-            object->setString(ASCIILiteral("value"), ASCIILiteral("NaN"));
-        else if (isPositiveInfinite())
-            object->setString(ASCIILiteral("value"), ASCIILiteral("POSITIVE_INFINITY"));
-        else if (isNegativeInfinite())
-            object->setString(ASCIILiteral("value"), ASCIILiteral("NEGATIVE_INFINITY"));
+        if (time.isInvalid() || time.isIndefinite())
+            object->setString("value"_s, "NaN"_s);
+        else if (time.isPositiveInfinite())
+            object->setString("value"_s, "POSITIVE_INFINITY"_s);
+        else if (time.isNegativeInfinite())
+            object->setString("value"_s, "NEGATIVE_INFINITY"_s);
         else
-            object->setDouble(ASCIILiteral("value"), toDouble());
+            object->setDouble("value"_s, time.toDouble());
 
-        object->setInteger(ASCIILiteral("numerator"), static_cast<int>(m_timeValue));
-        object->setInteger(ASCIILiteral("denominator"), m_timeScale);
-        object->setInteger(ASCIILiteral("flags"), m_timeFlags);
+        object->setInteger("numerator"_s, static_cast<int>(time.timeValue()));
+        object->setInteger("denominator"_s, time.timeScale());
+        object->setInteger("flags"_s, time.timeFlags());
     }
 
-    return object->toJSONString();
+    return object;
+}
+
+String MediaTime::toJSONString() const
+{
+    return toJSONStringInternal(*this)->toJSONString();
 }
 
 MediaTime abs(const MediaTime& rhs)
@@ -607,5 +620,14 @@ MediaTime abs(const MediaTime& rhs)
     return val;
 }
 
+String MediaTimeRange::toJSONString() const
+{
+    auto object = JSON::Object::create();
+
+    object->setObject("start"_s, toJSONStringInternal(start));
+    object->setObject("end"_s, toJSONStringInternal(end));
+
+    return object->toJSONString();
 }
 
+}

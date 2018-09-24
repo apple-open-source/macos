@@ -26,30 +26,75 @@
 #if OCTAGON
 @class CKKSKeychainView;
 #import "keychain/ckks/CKKSGroupOperation.h"
-#import "keychain/ckks/CKKSZoneChangeFetcher.h"
+#import "keychain/ckks/CloudKitDependencies.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
+/* Fetch Reasons */
+@protocol CKKSFetchBecauseProtocol <NSObject>
+@end
+typedef NSString<CKKSFetchBecauseProtocol> CKKSFetchBecause;
+extern CKKSFetchBecause* const CKKSFetchBecauseAPNS;
+extern CKKSFetchBecause* const CKKSFetchBecauseAPIFetchRequest;
+extern CKKSFetchBecause* const CKKSFetchBecauseCurrentItemFetchRequest;
+extern CKKSFetchBecause* const CKKSFetchBecauseInitialStart;
+extern CKKSFetchBecause* const CKKSFetchBecauseSecuritydRestart;
+extern CKKSFetchBecause* const CKKSFetchBecausePreviousFetchFailed;
+extern CKKSFetchBecause* const CKKSFetchBecauseKeyHierarchy;
+extern CKKSFetchBecause* const CKKSFetchBecauseTesting;
+extern CKKSFetchBecause* const CKKSFetchBecauseResync;
+
+/* Clients that register to use fetches */
+@interface CKKSCloudKitFetchRequest : NSObject
+@property bool participateInFetch;
+@property (nullable) CKServerChangeToken* changeToken;
+@end
+
+@class CKKSCloudKitDeletion;
+@protocol CKKSChangeFetcherClient <NSObject>
+- (CKRecordZoneID*)zoneID;
+- (CKKSCloudKitFetchRequest*)participateInFetch;
+- (bool)notifyFetchError:(NSError*)error;
+- (void)changesFetched:(NSArray<CKRecord*>*)changedRecords
+      deletedRecordIDs:(NSArray<CKKSCloudKitDeletion*>*)deleted
+        oldChangeToken:(CKServerChangeToken* _Nullable)oldChangeToken
+        newChangeToken:(CKServerChangeToken*)changeToken;
+@end
+
+// I don't understand why recordType isn't part of record ID, but deletions come in as both things
+@interface CKKSCloudKitDeletion : NSObject
+@property CKRecordID* recordID;
+@property NSString* recordType;
+- (instancetype)initWithRecordID:(CKRecordID*)recordID recordType:(NSString*)recordType;
+@end
+
+
 @interface CKKSFetchAllRecordZoneChangesOperation : CKKSGroupOperation
+@property (readonly) Class<CKKSFetchRecordZoneChangesOperation> fetchRecordZoneChangesOperationClass;
+@property (readonly) CKContainer* container;
 
 // Set this to true before starting this operation if you'd like resync behavior:
 //  Fetching everything currently in CloudKit and comparing to local copy
 @property bool resync;
 
-@property (nullable, weak) CKKSKeychainView* ckks;
-@property CKRecordZoneID* zoneID;
+@property NSDictionary<CKRecordZoneID*, id<CKKSChangeFetcherClient>>* clientMap;
+@property (nullable) NSMutableArray<CKRecordZoneID*>* fetchedZoneIDs;
 
 @property NSSet<CKKSFetchBecause*>* fetchReasons;
+@property NSSet<CKRecordZoneNotification*>* apnsPushes;
 
 @property NSMutableDictionary<CKRecordID*, CKRecord*>* modifications;
-@property NSMutableDictionary<CKRecordID*, NSString*>* deletions;
-
-@property (nullable) CKServerChangeToken* serverChangeToken;
+@property NSMutableDictionary<CKRecordID*, CKKSCloudKitDeletion*>* deletions;
+@property NSMutableDictionary<CKRecordID*, CKServerChangeToken*>* changeTokens;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks
-                            fetchReasons:(NSSet<CKKSFetchBecause*>*)fetchReasons
-                        ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+- (instancetype)initWithContainer:(CKContainer*)container
+                       fetchClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
+                          clients:(NSArray<id<CKKSChangeFetcherClient>>*)clients
+                     fetchReasons:(NSSet<CKKSFetchBecause*>*)fetchReasons
+                       apnsPushes:(NSSet<CKRecordZoneNotification*>* _Nullable)apnsPushes
+                      forceResync:(bool)forceResync
+                 ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 
 @end
 

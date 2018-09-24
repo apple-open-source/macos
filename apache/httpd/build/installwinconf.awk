@@ -156,8 +156,8 @@ BEGIN {
           print "#LoadModule log_debug_module modules/mod_log_debug.so" > dstfl;
           print "#LoadModule log_forensic_module modules/mod_log_forensic.so" > dstfl;
           print "#LoadModule lua_module modules/mod_lua.so" > dstfl;
-          print "#LoadModule md_module modules/mod_md.so" > dstfl;
           print "#LoadModule macro_module modules/mod_macro.so" > dstfl;
+          print "#LoadModule md_module modules/mod_md.so" > dstfl;
           print "LoadModule mime_module modules/mod_mime.so" > dstfl;
           print "#LoadModule mime_magic_module modules/mod_mime_magic.so" > dstfl;
           print "LoadModule negotiation_module modules/mod_negotiation.so" > dstfl;
@@ -205,15 +205,19 @@ BEGIN {
           print "#LoadModule xml2enc_module modules/mod_xml2enc.so" > dstfl;
           continue;
         }
-        gsub( /@@ServerRoot@@/,   serverroot );
-        gsub( /@exp_cgidir@/,     serverroot "/cgi-bin" );
-        gsub( /@exp_sysconfdir@/, serverroot "/conf" );
-        gsub( /@exp_errordir@/,   serverroot "/error" );
-        gsub( /@exp_htdocsdir@/,  serverroot "/htdocs" );
-        gsub( /@exp_iconsdir@/,   serverroot "/icons" );
-        gsub( /@exp_manualdir@/,  serverroot "/manual" );
-        gsub( /@exp_runtimedir@/, serverroot "/logs" );
-        if ( gsub( /@exp_logfiledir@/, serverroot "/logs" ) ||
+        if ( /^ServerRoot / ) {
+          print "Define SRVROOT \"" serverroot "\"" > dstfl;
+          print "" > dstfl;
+        }
+        gsub( /@@ServerRoot@@/,   "\${SRVROOT}" );
+        gsub( /@exp_cgidir@/,     "\${SRVROOT}" "/cgi-bin" );
+        gsub( /@exp_sysconfdir@/, "\${SRVROOT}" "/conf" );
+        gsub( /@exp_errordir@/,   "\${SRVROOT}" "/error" );
+        gsub( /@exp_htdocsdir@/,  "\${SRVROOT}" "/htdocs" );
+        gsub( /@exp_iconsdir@/,   "\${SRVROOT}" "/icons" );
+        gsub( /@exp_manualdir@/,  "\${SRVROOT}" "/manual" );
+        gsub( /@exp_runtimedir@/, "\${SRVROOT}" "/logs" );
+        if ( gsub( /@exp_logfiledir@/, "\${SRVROOT}" "/logs" ) ||
              gsub( /@rel_logfiledir@/, "logs" ) ) {
           gsub( /_log"/, ".log\"" )
         }

@@ -3085,19 +3085,14 @@
                 "obsolete-url": "https://www.w3.org/TR/SVG11/painting.html#StrokeWidthProperty"
             }
         },
-        "speak": {
+        "speak-as": {
             "inherited": true,
-            "values": [
-                "none",
-                "normal",
-                "spell-out",
-                "digits",
-                "literal-punctuation",
-                "no-punctuation"
-            ],
+            "codegen-properties": {
+                "converter": "SpeakAs"
+            },
             "specification": {
                 "category": "css-speech",
-                "url": "https://www.w3.org/TR/css3-speech/#speak"
+                "url": "https://www.w3.org/TR/css3-speech/#speak-as"
             }
         },
         "table-layout": {
@@ -4309,13 +4304,41 @@
         "column-gap": {
             "codegen-properties": {
                 "aliases": [
+                    "grid-column-gap",
                     "-webkit-column-gap"
                 ],
-                "custom": "All"
+                "converter": "GapLength"
             },
             "specification":  {
-                "category": "css-multicol",
-                "url": ""
+                "category": "css-align",
+                "url": "https://drafts.csswg.org/css-align/#column-row-gap"
+            }
+        },
+        "row-gap": {
+            "codegen-properties": {
+                "aliases": [
+                    "grid-row-gap"
+                ],
+                "converter": "GapLength"
+            },
+            "specification": {
+                "category": "css-align",
+                "url": "https://drafts.csswg.org/css-align/#column-row-gap"
+            }
+        },
+        "gap": {
+            "codegen-properties": {
+                "aliases": [
+                    "grid-gap"
+                ],
+                "longhands": [
+                    "row-gap",
+                    "column-gap"
+                ]
+            },
+            "specification": {
+                "category": "css-align",
+                "url": "https://drafts.csswg.org/css-align/#gap-shorthand"
             }
         },
         "-webkit-column-progression": {
@@ -4497,6 +4520,15 @@
             "specification":  {
                 "category": "css-filters",
                 "url": "https://www.w3.org/TR/filter-effects/#FilterProperty"
+            }
+        },
+        "-apple-color-filter": {
+            "inherited": true,
+            "codegen-properties": {
+                "conditional-converter": "FilterOperations"
+            },
+            "status": {
+                "status": "non-standard"
             }
         },
         "align-content": {
@@ -4715,7 +4747,6 @@
                 "aliases": [
                     "-webkit-justify-items"
                 ],
-                "initial": "initialSelfAlignment",
                 "converter": "SelfOrDefaultAlignmentData"
             },
             "specification": {
@@ -4817,16 +4848,6 @@
                 "url": "https://www.w3.org/TR/css-grid-1/#propdef-grid-column-end"
             }
         },
-        "grid-column-gap": {
-            "codegen-properties": {
-                "initial": "initialZeroLength",
-                "converter": "Length"
-            },
-            "specification": {
-                "category": "css-grid",
-                "url": "https://www.w3.org/TR/css-grid-1/#propdef-grid-column-gap"
-            }
-        },
         "grid-column-start": {
             "codegen-properties": {
                 "name-for-methods": "GridItemColumnStart",
@@ -4878,16 +4899,6 @@
                 "url": "https://www.w3.org/TR/css-grid-1/#propdef-grid-row-end"
             }
         },
-        "grid-row-gap": {
-            "codegen-properties": {
-                "initial": "initialZeroLength",
-                "converter": "Length"
-            },
-            "specification": {
-                "category": "css-grid",
-                "url": "https://www.w3.org/TR/css-grid-1/#propdef-grid-row-gap"
-            }
-        },
         "grid-row-start": {
             "codegen-properties": {
                 "name-for-methods": "GridItemRowStart",
@@ -4908,18 +4919,6 @@
             "specification": {
                 "category": "css-grid",
                 "url": "https://www.w3.org/TR/css-grid-1/#propdef-grid-column"
-            }
-        },
-        "grid-gap": {
-            "codegen-properties": {
-                "longhands": [
-                    "grid-row-gap",
-                    "grid-column-gap"
-                ]
-            },
-            "specification": {
-                "category": "css-grid",
-                "url": "https://www.w3.org/TR/css-grid-1/#propdef-grid-gap"
             }
         },
         "grid-row": {
@@ -6057,7 +6056,7 @@
             ],
             "codegen-properties": {
                 "name-for-methods": "TransformStyle3D",
-                "comment": "Keeping -webkit-transform-style around is how we'll detect legacy content. At that point, we'll have to add a custom builder and a new ETransformStyle3D type. FIXME: this never happened."
+                "comment": "Keeping -webkit-transform-style around is how we'll detect legacy content. At that point, we'll have to add a custom builder and a new TransformStyle3D type. FIXME: this never happened."
             }
         },
         "-webkit-user-drag": {

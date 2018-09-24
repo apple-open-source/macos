@@ -41,6 +41,17 @@ typedef struct {
     long                        capTime;
 } SleepServiceStruct;
 
+// Bits for gPowerState
+#define kSleepState                     0x01
+#define kDarkWakeState                  0x02
+#define kDarkWakeForBTState             0x04
+#define kDarkWakeForSSState             0x08
+#define kDarkWakeForMntceState          0x10
+#define kDarkWakeForServerState         0x20
+#define kFullWakeState                  0x40
+#define kNotificationDisplayWakeState   0x80
+#define kPowerStateMask                 0xff
+
 
 __private_extern__ void PMConnection_prime(void);
 
@@ -67,7 +78,15 @@ __private_extern__ void cancel_NotificationDisplayWake();
 __private_extern__ void InternalEvalConnections(void);
 __private_extern__ kern_return_t getPlatformSleepType(uint32_t *sleepType, uint32_t *standbyTimer);
 __private_extern__ void setDwlInterval(uint32_t newInterval);
+__private_extern__ int getBTWakeInterval(void);
 
 __private_extern__ int getCurrentSleepServiceCapTimeout();
+/** Sets whether processes should get modified vm behavior for darkwake. */
+__private_extern__ void setVMDarkwakeMode(bool darkwakeMode);
+__private_extern__ void cancelDarkWakeCapabilitiesTimer();
+
+#ifdef XCTEST
+__private_extern__ void xctSetPowerState(uint32_t powerState);
+#endif
 #endif
 

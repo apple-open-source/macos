@@ -63,10 +63,10 @@
 #define BEGIN_IPCN	*rcode = CSSM_OK; try {
 #define BEGIN_IPC(name)	BEGIN_IPCN RefPointer<Connection> connRef(&Server::connection(replyPort, auditToken)); \
 		Connection &connection __attribute__((unused)) = *connRef; \
-        secinfo("SS", "request entry " #name " (pid:%d ession:%d)", connection.process().pid(), connection.session().sessionId());
+        secinfo("SecServer", "request entry " #name " (pid:%d ession:%d)", connection.process().pid(), connection.session().sessionId());
 
 #define END_IPC(base)	END_IPCN(base) Server::requestComplete(*rcode); return KERN_SUCCESS;
-#define END_IPCN(base) 	secinfo("SS", "request return: %d", *(rcode)); \
+#define END_IPCN(base) 	secinfo("SecServer", "request return: %d", *(rcode)); \
 	} \
 	catch (const CommonError &err) { *rcode = CssmError::cssmError(err, CSSM_ ## base ## _BASE_ERROR); } \
 	catch (const std::bad_alloc &) { *rcode = CssmError::merge(CSSM_ERRCODE_MEMORY_ERROR, CSSM_ ## base ## _BASE_ERROR); } \
@@ -229,7 +229,7 @@ Database *pickDb(Database *db1, Database *db2)
 kern_return_t ucsp_server_setup(UCSP_ARGS, mach_port_t taskPort, ClientSetupInfo info, const char *identity)
 {
 	BEGIN_IPCN
-    secinfo("SS", "request entry: setup");
+    secinfo("SecServer", "request entry: setup");
 	Server::active().setupConnection(Server::connectNewProcess, replyPort,
 		taskPort, auditToken, &info);
 	END_IPCN(CSSM)
@@ -241,7 +241,7 @@ kern_return_t ucsp_server_setup(UCSP_ARGS, mach_port_t taskPort, ClientSetupInfo
 
 kern_return_t ucsp_server_setupThread(UCSP_ARGS, mach_port_t taskPort)
 {
-    secinfo("SS", "request entry: setupThread");
+    secinfo("SecServer", "request entry: setupThread");
 	BEGIN_IPCN
 	Server::active().setupConnection(Server::connectNewThread, replyPort, taskPort, auditToken);
 	END_IPCN(CSSM)
@@ -254,7 +254,7 @@ kern_return_t ucsp_server_setupThread(UCSP_ARGS, mach_port_t taskPort)
 kern_return_t ucsp_server_teardown(UCSP_ARGS)
 {
 	BEGIN_IPCN
-    secinfo("SS", "request entry: teardown");
+    secinfo("SecServer", "request entry: teardown");
 	Server::active().endConnection(replyPort);
 	END_IPCN(CSSM)
 	return KERN_SUCCESS;
@@ -263,7 +263,7 @@ kern_return_t ucsp_server_teardown(UCSP_ARGS)
 kern_return_t ucsp_server_verifyPrivileged(UCSP_ARGS)
 {
 	BEGIN_IPCN
-    secinfo("SS", "request entry: verifyPrivileged");
+    secinfo("SecServer", "request entry: verifyPrivileged");
 	// doing nothing (we just want securityd's audit credentials returned)
 	END_IPCN(CSSM)
 	return KERN_SUCCESS;
@@ -273,7 +273,7 @@ kern_return_t ucsp_server_verifyPrivileged2(UCSP_ARGS, mach_port_t *originPort)
 {
 	BEGIN_IPCN
 
-    secinfo("SS", "request entry: verifyPrivileged2");
+    secinfo("SecServer", "request entry: verifyPrivileged2");
 	// send the port back to the sender to check for a MitM (6986198)
 	*originPort = servicePort;
 	END_IPCN(CSSM)

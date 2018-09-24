@@ -60,6 +60,12 @@
 #include <IOKit/kext/kextmanager_types.h>
 #include <IOKit/kext/kextmanager_mig.h>
 
+#if __has_include(<prelink.h>)
+/* take prelink.h from host side tools SDK */
+#include <prelink.h>
+#else
+#include <System/libkern/prelink.h>
+#endif
 #include <IOKit/pwr_mgt/IOPMLib.h>
 
 #include "kcgen_main.h"
@@ -541,6 +547,7 @@ void logUsedKexts(
     int               fd;
     int               ret;
     char            * kextTracePath;
+    char            * outputName;
     char              tmpBuffer[PATH_MAX + 1 + 1];
     size_t            tmpBufLen;
     ssize_t           writeSize;
@@ -557,7 +564,11 @@ void logUsedKexts(
         return;
     }
 
-    snprintf(tmpBuffer, sizeof(tmpBuffer), "%s\n", toolArgs->prelinkedKernelPath);
+    outputName = toolArgs->prelinkedKernelPath;
+    if (!outputName) {
+        outputName = toolArgs->loadListPath;
+    }
+    snprintf(tmpBuffer, sizeof(tmpBuffer), "%s\n", outputName);
     tmpBufLen = strlen(tmpBuffer);
     writeSize = write(fd, tmpBuffer, tmpBufLen);
     if (writeSize != (ssize_t)tmpBufLen) {
@@ -1457,9 +1468,35 @@ loadList(
                 result = EX_OSFILE;
                 goto finish;
             }
+            // "ModuleIndex"
             num = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &kmodIdx);
             CFDictionarySetValue(infoDict, CFSTR("ModuleIndex"), num);
             CFRelease(num);
+
+            // kPrelinkBundlePathKey, kPrelinkExecutableRelativePathKey
+            size_t executablePathLen = strnlen(path, PATH_MAX);
+            size_t kextPathLen = strnlen(kextPath, PATH_MAX);
+            if ((executablePathLen > kextPathLen) && !strncmp(kextPath, path, kextPathLen))
+            {
+                CFStringRef
+                string = CFStringCreateWithBytes(kCFAllocatorDefault,
+                    (UInt8 *)kextPath, kextPathLen,
+                    kCFStringEncodingUTF8, false);
+                if (string)
+                {
+                    CFDictionarySetValue(infoDict, CFSTR(kPrelinkBundlePathKey), string);
+                    CFRelease(string);
+                }
+                string = CFStringCreateWithBytes(kCFAllocatorDefault,
+                    (UInt8 *)path + kextPathLen + 1, executablePathLen - kextPathLen - 1,
+                    kCFStringEncodingUTF8, false);
+                if (string)
+                {
+                    CFDictionarySetValue(infoDict, CFSTR(kPrelinkExecutableRelativePathKey), string);
+                    CFRelease(string);
+                }
+            }
+
             kmodIdx++;
             fprintf(f, "%s", path);
             deps = OSKextCopyDeclaredDependencies(aKext, TRUE /* needAll */);
@@ -1515,6 +1552,9 @@ loadList(
         goto finish;
     }
     result = EX_OK;
+
+    /* Log used bundle identifiers for B&I */
+    logUsedKexts(toolArgs, prelinkKexts);
 
 finish:
     if (f) fclose(f);

@@ -36,7 +36,7 @@
 #include "HTTPHeaderValues.h"
 #include "HTTPParsers.h"
 #include "ReadableStreamSource.h"
-#include <runtime/ArrayBufferView.h>
+#include <JavaScriptCore/ArrayBufferView.h>
 
 namespace WebCore {
 
@@ -186,7 +186,7 @@ void FetchBody::consumeAsStream(FetchBodyOwner& owner, FetchBodySource& source)
         owner.loadBlob(blobBody(), nullptr);
         m_data = nullptr;
     } else if (isFormData())
-        source.error(ASCIILiteral("not implemented"));
+        source.error("not implemented"_s);
     else if (m_consumer.hasData())
         closeStream = source.enqueue(m_consumer.takeAsArrayBuffer());
     else

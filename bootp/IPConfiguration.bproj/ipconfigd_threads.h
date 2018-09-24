@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,6 +71,8 @@ typedef enum {
     IFEventID_bssid_changed_e, 		/* BSSID has changed */
     IFEventID_active_during_sleep_e,	/* (active_during_sleep_t) */
     IFEventID_ipv6_router_expired_e,	/* (ipv6_router_prefix_counts_t) */
+    IFEventID_plat_discovery_complete_e,/* (boolean_t *) */
+    IFEventID_forget_ssid_e,		/* forget SSID */
 } IFEventID_t;
 
 typedef struct ServiceInfo * ServiceRef;
@@ -321,6 +323,16 @@ void
 ServiceRemoveAddressConflict(ServiceRef service_p);
 
 #endif /* TARGET_OS_EMBDEDDED */
+
+/**
+ ** 464XLAT routines
+ **/
+boolean_t	service_clat46_is_enabled(ServiceRef service_p);
+int		service_clat46_remove_address(ServiceRef service_p, struct in_addr addr);
+int		service_clat46_set_address(ServiceRef service_p, struct in_addr addr);
+boolean_t	service_nat64_prefix_available(ServiceRef service_p);
+boolean_t	service_plat_discovery_failed(ServiceRef service_p);
+
 
 /**
  ** router_arp routines

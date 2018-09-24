@@ -29,10 +29,13 @@ WARNING_CFLAGS = -Wall -Werror -Wno-error=shorten-64-to-32 -Wno-error=incompatib
 COPY_PHASE_STRIP = NO
 SKIP_INSTALL = YES
 INSTALLHDRS_SCRIPT_PHASE = YES
+INSTALLHDRS_COPY_PHASE = YES
 VERSIONING_SYSTEM =
+VERSION_INFO_PREFIX = __attribute__((visibility("hidden")))
 COPY_PHASE_STRIP = NO
 STRIP_INSTALLED_PRODUCT = NO
 LD_DYLIB_INSTALL_NAME = /usr/lib/system/$(EXECUTABLE_NAME)
+IS_ZIPPERED = YES
 
 BUILD_VARIANTS = normal debug
 BUILD_ARCHIVES = Platform Base FreeBSD NetBSD TRE vCancelable vDarwinExtsn vDarwinExtsnCancelable vPre1050 vLegacy vInode32 FortifySource
@@ -87,29 +90,21 @@ ARCH_FAMILY_armv7s = arm
 ARCH_FAMILY_armv7f = arm
 ARCH_FAMILY_armv7k = arm
 ARCH_FAMILY_arm64 = arm64
-ARCH_FAMILY_arm64_32 = arm64
 
 // Platform target
-Platform_INCLUDED_SOURCE_FILE_NAMES = $(Platform_INCLUDED_SOURCE_FILE_NAMES_gen) $(Platform_INCLUDED_SOURCE_FILE_NAMES_stdlib) $(Platform_INCLUDED_SOURCE_FILE_NAMES_string)
+Platform_INCLUDED_SOURCE_FILE_NAMES = forceLibcToBuild.c $(Platform_INCLUDED_SOURCE_FILE_NAMES_gen)
 Platform_INCLUDED_SOURCE_FILE_NAMES_gen = $(ARCH_FAMILY)/gen/*.c $(ARCH_FAMILY)/gen/*.s $(ARCH_FAMILY)/gen/*.S
-Platform_INCLUDED_SOURCE_FILE_NAMES_stdlib = $(ARCH_FAMILY)/stdlib/*.c $(ARCH_FAMILY)/stdlib/*.s $(ARCH_FAMILY)/stdlib/*.S
-Platform_INCLUDED_SOURCE_FILE_NAMES_string = $(ARCH_FAMILY)/string/*.c $(ARCH_FAMILY)/string/*.s $(ARCH_FAMILY)/string/*.S
 
 // FreeBSD target
 FreeBSD_CFLAGS = -include $(SRCROOT)/fbsdcompat/_fbsd_compat_.h
 FreeBSD_SEARCH_PATHS = $(SRCROOT)/fbsdcompat $(SRCROOT)/gdtoa $(SRCROOT)/gdtoa/FreeBSD
 FreeBSD_EXCLUDED_SOURCE_GDTOA = gdtoa/FreeBSD/machdep* gdtoa-strtopx.c
 // Include the correct parts of gdtoa per-arch
+FreeBSD_INCLUDED_SOURCE_FILE_NAMES = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_$(ARCH_FAMILY))
 FreeBSD_INCLUDED_SOURCE_FILE_NAMES_x86_64 = gdtoa-strtopx.c machdep_ldisx.c
 FreeBSD_INCLUDED_SOURCE_FILE_NAMES_i386 = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_x86_64)
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7 = machdep_ldisd.c
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7s = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7)
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7k = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7)
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7f = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7)
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv6 = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7)
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_arm64 = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7)
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_arm64_32 = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7)
-FreeBSD_INCLUDED_SOURCE_FILE_NAMES_arm64e = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_armv7)
+FreeBSD_INCLUDED_SOURCE_FILE_NAMES_arm = machdep_ldisd.c
+FreeBSD_INCLUDED_SOURCE_FILE_NAMES_arm64 = $(FreeBSD_INCLUDED_SOURCE_FILE_NAMES_arm)
 
 // NetBSD target
 NetBSD_CFLAGS = -include $(SRCROOT)/nbsdcompat/_nbsd_compat_.h
@@ -120,17 +115,10 @@ TRE_CFLAGS = -DHAVE_CONFIG_H
 TRE_SEARCH_PATHS = $(SRCROOT)/regex/TRE $(SRCROOT)/regex/FreeBSD
 
 // Files per architecture to exclude from the non-platform builds (because optimised versions exist in Platform)
-BASE_EXCLUDED_SOURCE_FILE_NAMES = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_$(CURRENT_ARCH)) $(BASE_EXCLUDED_SOURCE_FILE_NAMES_$(PLATFORM_NAME))
-BASE_EXCLUDED_SOURCE_FILE_NAMES_x86_64 = kvm.c nlist.c strcpy.c strlen.c strncpy.c strnlen.c
-BASE_EXCLUDED_SOURCE_FILE_NAMES_i386 = strcpy.c strlcat.c strlcpy.c strlen.c strncpy.c
-BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7 = strlen.c strnlen.c strstr.c
-BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7s = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7)
-BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7k = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7)
-BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7f = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7)
-BASE_EXCLUDED_SOURCE_FILE_NAMES_armv6 = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7)
-BASE_EXCLUDED_SOURCE_FILE_NAMES_arm64 = strlen.c strnlen.c kvm.c nlist.c
-BASE_EXCLUDED_SOURCE_FILE_NAMES_arm64_32 = strlen.c strnlen.c kvm.c nlist.c
-BASE_EXCLUDED_SOURCE_FILE_NAMES_arm64e = strlen.c strnlen.c kvm.c nlist.c
+BASE_INCLUDED_SOURCE_FILE_NAMES = $(BASE_INCLUDED_SOURCE_FILE_NAMES_$(ARCH_FAMILY))
+BASE_EXCLUDED_SOURCE_FILE_NAMES = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_$(ARCH_FAMILY)) $(BASE_EXCLUDED_SOURCE_FILE_NAMES_$(VARIANT_PLATFORM_NAME))
+BASE_EXCLUDED_SOURCE_FILE_NAMES_x86_64 = kvm.c nlist.c
+BASE_EXCLUDED_SOURCE_FILE_NAMES_arm64 = kvm.c nlist.c
 
 // Rune support isn't included on iOS but there's no better way to exclude their complication
 BASE_EXCLUDED_SOURCE_FILE_NAMES_macosx = OSMemoryNotification.c
@@ -146,13 +134,19 @@ BASE_EXCLUDED_SOURCE_FILE_NAMES_bridgeos = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_iph
 BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneosnano = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_watchos)
 BASE_EXCLUDED_SOURCE_FILE_NAMES_iphonesimulatornano = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_watchsimulator)
 
-// <rdar://problem/9513665> - collate.c crashes llvm-gcc on armv6 with -Os + -gdwarf-2
-COLLATE_C_CFLAGS_macosx_armv6 = -O1
+// Enable installapi
+SUPPORTS_TEXT_BASED_API = YES
+TAPI_VERIFY_MODE = Pedantic
+OTHER_TAPI_FLAGS = --no-infer-include-paths -umbrella System -extra-public-header $(TAPI_PUBLIC_HEADER_PATH) -extra-private-header $(TAPI_PRIVATE_HEADER_PATH)
+TAPI_PUBLIC_HEADER_PATH = $(TAPI_PUBLIC_HEADER_PATH_$(DEPLOYMENT_LOCATION))
+TAPI_PUBLIC_HEADER_PATH_NO = $(BUILT_PRODUCTS_DIR)$(PUBLIC_HEADERS_FOLDER_PATH)
+TAPI_PUBLIC_HEADER_PATH_YES = $(DSTROOT)$(PUBLIC_HEADERS_FOLDER_PATH)
+TAPI_PRIVATE_HEADER_PATH = $(TAPI_PRIVATE_HEADER_PATH_$(DEPLOYMENT_LOCATION))
+TAPI_PRIVATE_HEADER_PATH_NO = $(BUILT_PRODUCTS_DIR)$(PRIVATE_HEADERS_FOLDER_PATH)
+TAPI_PRIVATE_HEADER_PATH_YES = $(DSTROOT)$(PRIVATE_HEADERS_FOLDER_PATH)
+TAPI_HEADER_SEARCH_PATHS =
 
-// ARMv6 thumb doesn't support all the instructions needed for OSAtomics
-OSATOMIC_C_CFLAGS_macosx_armv6 = -mno-thumb
-OSATOMIC_C_CFLAGS_iphoneos_armv6 = -mno-thumb
-
-// Make sure that OSAtomic isn't build unoptimised, otherwise the inlines
-// don't do what they are designed to do.
-OSATOMIC_C_CFLAGS = -Os -momit-leaf-frame-pointer $(OSATOMIC_C_CFLAGS_$(PLATFORM_NAME)_$(CURRENT_ARCH))
+// TODO: Remove this hack once Marzipan bringup is done
+VARIANT_PLATFORM_NAME = $(VARIANT_PLATFORM_NAME_$(RC_MARZIPAN))
+VARIANT_PLATFORM_NAME_ = $(PLATFORM_NAME)
+VARIANT_PLATFORM_NAME_YES = macosx

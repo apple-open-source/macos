@@ -42,6 +42,9 @@ KeychainKey::KeychainKey(Database &db, const KeyBlob *blob)
     // perform basic validation on the incoming blob
 	assert(blob);
     blob->validate(CSSMERR_APPLEDL_INVALID_KEY_BLOB);
+    if (blob->startCryptoBlob > blob->totalLength) {
+        CssmError::throwMe(CSSMERR_APPLEDL_INVALID_KEY_BLOB);
+    }
     switch (blob->version()) {
 #if defined(COMPAT_OSX_10_0)
     case KeyBlob::version_MacOS_10_0:
@@ -206,6 +209,9 @@ void KeychainKey::validate(AclAuthorization auth, const AccessCredentials *cred,
 			db->unlockDb(false);
 	}
 	SecurityServerAcl::validate(auth, cred, relatedDatabase);
+
+    // Need the common lock some more. unlockDb and validate (in validatePartition) also take it, so must be down here.
+    StMaybeLock<Mutex> lock(relatedDatabase && relatedDatabase->hasCommon() ? &(relatedDatabase->common()) : NULL);
 	database().activity();		// upon successful validation
 }
 

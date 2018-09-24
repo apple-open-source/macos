@@ -66,7 +66,7 @@ void CodeSigningHost::reset()
 	case dynamicHosting:
 		mHostingPort.destroy();
 		mHostingPort = MACH_PORT_NULL;
-        secnotice("SS", "%d host unregister", mHostingPort.port());
+        secnotice("SecServer", "%d host unregister", mHostingPort.port());
 		break;
 	case proxyHosting:
 		Server::active().remove(*this);	// unhook service handler
@@ -74,7 +74,7 @@ void CodeSigningHost::reset()
 		mHostingState = noHosting;
 		mHostingPort = MACH_PORT_NULL;
 		mGuests.erase(mGuests.begin(), mGuests.end());
-        secnotice("SS", "%d host unregister", mHostingPort.port());
+        secnotice("SecServer", "%d host unregister", mHostingPort.port());
 		break;
 	}
 }
@@ -147,7 +147,16 @@ CodeSigningHost::Guest *CodeSigningHost::findGuest(Guest *host, const CssmData &
 	
 	// now take the rest of the attrs
 	CFIndex count = CFDictionaryGetCount(attrs);
-	CFTypeRef keys[count], values[count];
+
+	CFTypeRef *keys   = (CFTypeRef*)malloc(count*sizeof(CFTypeRef));
+	CFTypeRef *values = (CFTypeRef*)malloc(count*sizeof(CFTypeRef));
+
+	if (keys == NULL || values == NULL) {
+		free(keys);
+		free(values);
+		MacOSError::throwMe(errSecMemoryError);
+	}
+
 	CFDictionaryGetKeysAndValues(attrs, keys, values);
 	for (;;) {
 		Guest *match = NULL;	// previous match found
@@ -155,6 +164,8 @@ CodeSigningHost::Guest *CodeSigningHost::findGuest(Guest *host, const CssmData &
             if (it->second->isGuestOf(host, strict)) {
                 if (it->second->matches(count, keys, values)) {
                     if (match) {
+						free(keys);
+						free(values);
 						MacOSError::throwMe(errSecCSMultipleGuests);	// ambiguous
                     } else {
 						match = it->second;
@@ -162,10 +173,14 @@ CodeSigningHost::Guest *CodeSigningHost::findGuest(Guest *host, const CssmData &
                 }
             }
         }
-		if (!match)		// nothing found
+		if (!match) { // nothing found
+			free(keys);
+			free(values);
 			return host;
-		else
+		}
+		else {
 			host = match;	// and repeat
+		}
 	}
 }
 
@@ -196,7 +211,7 @@ void CodeSigningHost::registerCodeSigning(mach_port_t hostingPort, SecCSFlags fl
 	case noHosting:
 		mHostingPort = hostingPort;
 		mHostingState = dynamicHosting;
-        secnotice("SS", "%d host register: %d", mHostingPort.port(), mHostingPort.port());
+        secnotice("SecServer", "%d host register: %d", mHostingPort.port(), mHostingPort.port());
 		break;
 	default:
 		MacOSError::throwMe(errSecCSHostProtocolContradiction);
@@ -227,7 +242,7 @@ SecGuestRef CodeSigningHost::createGuest(SecGuestRef hostRef,
 		MachServer::Handler::port(mHostingPort);		// put into Handler
 		MachServer::active().add(*this);				// start listening
 		mHostingState = proxyHosting;					// now proxying for this host
-        secnotice("SS", "%d host proxy: %d", mHostingPort.port(), mHostingPort.port());
+        secnotice("SecServer", "%d host proxy: %d", mHostingPort.port(), mHostingPort.port());
 		break;
 	case proxyHosting:									// already proxying
 		break;
@@ -255,7 +270,7 @@ SecGuestRef CodeSigningHost::createGuest(SecGuestRef hostRef,
 	guest->setHash(cdhash, flags & kSecCSGenerateGuestHash);
 	guest->dedicated = (flags & kSecCSDedicatedHost);
 	mGuests[guest->guestRef()] = guest;
-    secnotice("SS", "%d guest create %d %d status:%d %d %s", mHostingPort.port(), hostRef, guest->guestRef(), guest->status, flags, guest->path.c_str());
+    secnotice("SecServer", "%d guest create %d %d status:%d %d %s", mHostingPort.port(), hostRef, guest->guestRef(), guest->status, flags, guest->path.c_str());
 	return guest->guestRef();
 }
 
@@ -273,7 +288,7 @@ void CodeSigningHost::setGuestStatus(SecGuestRef guestRef, uint32_t status, cons
 	if ((~status & guest->status) & (kSecCodeStatusHard | kSecCodeStatusKill))
 		MacOSError::throwMe(errSecCSHostProtocolStateError); // can't clear
 	guest->status = status;
-    secnotice("SS", "%d guest change %d %d", mHostingPort.port(), guestRef, status);
+    secnotice("SecServer", "%d guest change %d %d", mHostingPort.port(), guestRef, status);
 
 	// replace attributes if requested
 	if (attributes)
@@ -305,7 +320,7 @@ void CodeSigningHost::removeGuest(SecGuestRef hostRef, SecGuestRef guestRef)
     }
 
     for (auto &it : matchingGuests) {
-        secnotice("SS", "%d guest destroy %d", mHostingPort.port(), it);
+        secnotice("SecServer", "%d guest destroy %d", mHostingPort.port(), it);
         mGuests.erase(it);
     }
 }

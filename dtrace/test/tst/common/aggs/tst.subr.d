@@ -26,59 +26,34 @@
 
 #pragma ident	"@(#)tst.subr.d	1.1	06/08/28 SMI"
 
-#define INTFUNC(x)			\
-	BEGIN				\
-	/*DSTYLED*/			\
-	{				\
-		subr++;			\
-		@[(long)x] = sum(1);	\
-	/*DSTYLED*/			\
-	}
+BEGIN { DIF_SUBR_MAX = 24; }      /* max subroutine value minus 10 Darwin omissions*/
 
-#define STRFUNC(x)			\
-	BEGIN				\
-	/*DSTYLED*/			\
-	{				\
-		subr++;			\
-		@str[x] = sum(1);	\
-	/*DSTYLED*/			\
-	}
+BEGIN { subr++; @[(long)rand()] = sum(1); }
+BEGIN { subr++; @[(long)copyin(NULL, 1)] = sum(1); }
+BEGIN { subr++; @str[copyinstr(NULL, 1)] = sum(1); }
+BEGIN { subr++; @[(long)speculation()] = sum(1); }
+BEGIN { subr++; @[(long)progenyof($pid)] = sum(1); }
+BEGIN { subr++; @[(long)strlen("fooey")] = sum(1); }
+BEGIN { subr++; }
+BEGIN { subr++; }
+BEGIN { subr++; @[(long)alloca(10)] = sum(1); }
+BEGIN { subr++; }
+BEGIN { subr++; }
+BEGIN { subr++; @[(long)getmajor(0)] = sum(1); }
+BEGIN { subr++; @[(long)getminor(0)] = sum(1); }
+BEGIN { subr++; @str[strjoin("foo", "bar")] = sum(1); }
+BEGIN { subr++; @str[lltostr(12373)] = sum(1); }
+BEGIN { subr++; @str[basename("/var/crash/systemtap")] = sum(1); }
+BEGIN { subr++; @str[dirname("/var/crash/systemtap")] = sum(1); }
+BEGIN { subr++; @str[cleanpath("/var/crash/systemtap")] = sum(1); }
+BEGIN { subr++; @str[strchr("The SystemTap, The.", 't')] = sum(1); }
+BEGIN { subr++; @str[strrchr("The SystemTap, The.", 't')] = sum(1); }
+BEGIN { subr++; @str[strstr("The SystemTap, The.", "The")] = sum(1); }
+BEGIN { subr++; @str[strtok("The SystemTap, The.", "T")] = sum(1); }
+BEGIN { subr++; @str[substr("The SystemTap, The.", 0)] = sum(1); }
+BEGIN { subr++; @[(long)index("The SystemTap, The.", "The")] = sum(1); }
+BEGIN { subr++; @[(long)rindex("The SystemTap, The.", "The")] = sum(1); }
 
-#define VOIDFUNC(x)			\
-	BEGIN				\
-	/*DSTYLED*/			\
-	{				\
-		subr++;			\
-	/*DSTYLED*/			\
-	}
-
-INTFUNC(rand())
-INTFUNC(copyin(NULL, 1))
-STRFUNC(copyinstr(NULL, 1))
-INTFUNC(speculation())
-INTFUNC(progenyof($pid))
-INTFUNC(strlen("fooey"))
-VOIDFUNC(copyout)
-VOIDFUNC(copyoutstr)
-INTFUNC(alloca(10))
-VOIDFUNC(bcopy)
-VOIDFUNC(copyinto)
-INTFUNC(getmajor(0))
-INTFUNC(getminor(0))
-STRFUNC(strjoin("foo", "bar"))
-STRFUNC(lltostr(12373))
-STRFUNC(basename("/var/crash/systemtap"))
-STRFUNC(dirname("/var/crash/systemtap"))
-STRFUNC(cleanpath("/var/crash/systemtap"))
-STRFUNC(strchr("The SystemTap, The.", 't'))
-STRFUNC(strrchr("The SystemTap, The.", 't'))
-STRFUNC(strstr("The SystemTap, The.", "The"))
-STRFUNC(strtok("The SystemTap, The.", "T"))
-STRFUNC(substr("The SystemTap, The.", 0))
-INTFUNC(index("The SystemTap, The.", "The"))
-INTFUNC(rindex("The SystemTap, The.", "The"))
-
-#define DIF_SUBR_MAX                    24      /* max subroutine value minus 10 Darwin omissions*/
 
 BEGIN
 /subr == DIF_SUBR_MAX + 1/

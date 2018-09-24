@@ -250,31 +250,6 @@ const Identifier& BytecodeDumper<Block>::identifier(int index) const
     return block()->identifier(index);
 }
 
-static CString regexpToSourceString(RegExp* regExp)
-{
-    char postfix[7] = { '/', 0, 0, 0, 0, 0, 0 };
-    int index = 1;
-    if (regExp->global())
-        postfix[index++] = 'g';
-    if (regExp->ignoreCase())
-        postfix[index++] = 'i';
-    if (regExp->multiline())
-        postfix[index] = 'm';
-    if (regExp->dotAll())
-        postfix[index++] = 's';
-    if (regExp->unicode())
-        postfix[index++] = 'u';
-    if (regExp->sticky())
-        postfix[index++] = 'y';
-
-    return toCString("/", regExp->pattern().impl(), postfix);
-}
-
-static CString regexpName(int re, RegExp* regexp)
-{
-    return toCString(regexpToSourceString(regexp), "(@re", re, ")");
-}
-
 template<class Instruction>
 static void printLocationAndOp(PrintStream& out, int location, const Instruction*&, const char* op)
 {
@@ -551,6 +526,59 @@ void BytecodeDumper<Block>::printPutByIdCacheStatus(PrintStream& out, int locati
 #endif
 }
 
+template<class Block>
+void BytecodeDumper<Block>::printInByIdCacheStatus(PrintStream& out, int location, const StubInfoMap& map)
+{
+    const auto* instruction = instructionsBegin() + location;
+
+    const Identifier& ident = identifier(instruction[3].u.operand);
+
+    UNUSED_PARAM(ident); // tell the compiler to shut up in certain platform configurations.
+
+#if ENABLE(JIT)
+    if (StructureStubInfo* stubPtr = map.get(CodeOrigin(location))) {
+        StructureStubInfo& stubInfo = *stubPtr;
+        if (stubInfo.resetByGC)
+            out.print(" (Reset By GC)");
+
+        out.printf(" jit(");
+
+        Structure* baseStructure = nullptr;
+        PolymorphicAccess* stub = nullptr;
+
+        switch (stubInfo.cacheType) {
+        case CacheType::InByIdSelf:
+            out.printf("self");
+            baseStructure = stubInfo.u.byIdSelf.baseObjectStructure.get();
+            break;
+        case CacheType::Stub:
+            out.printf("stub");
+            stub = stubInfo.u.stub;
+            break;
+        case CacheType::Unset:
+            out.printf("unset");
+            break;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            break;
+        }
+
+        if (baseStructure) {
+            out.printf(", ");
+            dumpStructure(out, "struct", baseStructure, ident);
+        }
+
+        if (stub)
+            out.print(", ", *stub);
+
+        out.printf(")");
+    }
+#else
+    UNUSED_PARAM(out);
+    UNUSED_PARAM(map);
+#endif
+}
+
 #if ENABLE(JIT)
 template<typename Block>
 void BytecodeDumper<Block>::dumpCallLinkStatus(PrintStream&, unsigned, const CallLinkInfoMap&)
@@ -774,11 +802,7 @@ void BytecodeDumper<Block>::dumpBytecode(PrintStream& out, const typename Block:
         int r0 = (++it)->u.operand;
         int re0 = (++it)->u.operand;
         printLocationAndOp(out, location, it, "new_regexp");
-        out.printf("%s, ", registerName(r0).data());
-        if (r0 >=0 && r0 < (int)block()->numberOfRegExps())
-            out.printf("%s", regexpName(re0, block()->regexp(re0)).data());
-        else
-            out.printf("bad_regexp(%d)", re0);
+        out.printf("%s, %s", registerName(r0).data(), registerName(re0).data());
         break;
     }
     case op_mov: {
@@ -1012,8 +1036,17 @@ void BytecodeDumper<Block>::dumpBytecode(PrintStream& out, const typename Block:
         printUnaryOp(out, location, it, "is_function");
         break;
     }
-    case op_in: {
-        printBinaryOp(out, location, it, "in");
+    case op_in_by_id: {
+        int r0 = (++it)->u.operand;
+        int r1 = (++it)->u.operand;
+        int id0 = (++it)->u.operand;
+        printLocationAndOp(out, location, it, "in_by_id");
+        out.printf("%s, %s, %s", registerName(r0).data(), registerName(r1).data(), idName(id0, identifier(id0)).data());
+        printInByIdCacheStatus(out, location, stubInfos);
+        break;
+    }
+    case op_in_by_val: {
+        printBinaryOp(out, location, it, "in_by_val");
         dumpArrayProfiling(out, it, hasPrintedProfiling);
         break;
     }
@@ -1198,14 +1231,6 @@ void BytecodeDumper<Block>::dumpBytecode(PrintStream& out, const typename Block:
         out.printf("%s, %s, %s", registerName(r0).data(), registerName(r1).data(), registerName(r2).data());
         break;
     }
-    case op_put_by_index: {
-        int r0 = (++it)->u.operand;
-        unsigned n0 = (++it)->u.operand;
-        int r1 = (++it)->u.operand;
-        printLocationAndOp(out, location, it, "put_by_index");
-        out.printf("%s, %u, %s", registerName(r0).data(), n0, registerName(r1).data());
-        break;
-    }
     case op_jmp: {
         int offset = (++it)->u.operand;
         printLocationAndOp(out, location, it, "jmp");
@@ -1267,6 +1292,22 @@ void BytecodeDumper<Block>::dumpBytecode(PrintStream& out, const typename Block:
     }
     case op_jngreatereq: {
         printCompareJump(out, begin, it, location, "jngreatereq");
+        break;
+    }
+    case op_jeq: {
+        printCompareJump(out, begin, it, location, "jeq");
+        break;
+    }
+    case op_jneq: {
+        printCompareJump(out, begin, it, location, "jneq");
+        break;
+    }
+    case op_jstricteq: {
+        printCompareJump(out, begin, it, location, "jstricteq");
+        break;
+    }
+    case op_jnstricteq: {
+        printCompareJump(out, begin, it, location, "jnstricteq");
         break;
     }
     case op_jbelow: {
@@ -1753,19 +1794,6 @@ void BytecodeDumper<Block>::dumpConstants(PrintStream& out)
 }
 
 template<class Block>
-void BytecodeDumper<Block>::dumpRegExps(PrintStream& out)
-{
-    if (size_t count = block()->numberOfRegExps()) {
-        out.printf("\nm_regexps:\n");
-        size_t i = 0;
-        do {
-            out.printf("  re%u = %s\n", static_cast<unsigned>(i), regexpToSourceString(block()->regexp(i)).data());
-            ++i;
-        } while (i < count);
-    }
-}
-
-template<class Block>
 void BytecodeDumper<Block>::dumpExceptionHandlers(PrintStream& out)
 {
     if (unsigned count = block()->numberOfExceptionHandlers()) {
@@ -1832,7 +1860,7 @@ void BytecodeDumper<Block>::dumpBlock(Block* block, const typename Block::Unpack
         ": %lu m_instructions; %lu bytes; %d parameter(s); %d callee register(s); %d variable(s)",
         static_cast<unsigned long>(instructions.size()),
         static_cast<unsigned long>(instructions.size() * sizeof(Instruction)),
-        block->numParameters(), block->numCalleeLocals(), block->m_numVars);
+        block->numParameters(), block->numCalleeLocals(), block->numVars());
     out.print("; scope at ", block->scopeRegister());
     out.printf("\n");
 
@@ -1844,7 +1872,6 @@ void BytecodeDumper<Block>::dumpBlock(Block* block, const typename Block::Unpack
 
     dumper.dumpIdentifiers(out);
     dumper.dumpConstants(out);
-    dumper.dumpRegExps(out);
     dumper.dumpExceptionHandlers(out);
     dumper.dumpSwitchJumpTables(out);
     dumper.dumpStringSwitchJumpTables(out);

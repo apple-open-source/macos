@@ -8,7 +8,7 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
     list(APPEND WebCore_SOURCES
         platform/graphics/gstreamer/AudioTrackPrivateGStreamer.cpp
         platform/graphics/gstreamer/GRefPtrGStreamer.cpp
-        platform/graphics/gstreamer/GStreamerUtilities.cpp
+        platform/graphics/gstreamer/GStreamerCommon.cpp
         platform/graphics/gstreamer/GstAllocatorFastMalloc.cpp
         platform/graphics/gstreamer/InbandTextTrackPrivateGStreamer.cpp
         platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp
@@ -21,7 +21,6 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
         platform/graphics/gstreamer/VideoTrackPrivateGStreamer.cpp
         platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
 
-        platform/graphics/gstreamer/eme/GStreamerEMEUtilities.cpp
         platform/graphics/gstreamer/eme/WebKitClearKeyDecryptorGStreamer.cpp
         platform/graphics/gstreamer/eme/WebKitCommonEncryptionDecryptorGStreamer.cpp
 
@@ -33,6 +32,24 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
         platform/graphics/gstreamer/mse/PlaybackPipeline.cpp
         platform/graphics/gstreamer/mse/SourceBufferPrivateGStreamer.cpp
         platform/graphics/gstreamer/mse/WebKitMediaSourceGStreamer.cpp
+
+        platform/mediastream/libwebrtc/LibWebRTCAudioModule.cpp
+        platform/mediastream/libwebrtc/LibWebRTCProviderGlib.cpp
+
+        platform/mediastream/gstreamer/GStreamerAudioCaptureSource.cpp
+        platform/mediastream/gstreamer/GStreamerAudioCapturer.cpp
+        platform/mediastream/gstreamer/GStreamerCaptureDeviceManager.cpp
+        platform/mediastream/gstreamer/GStreamerCapturer.cpp
+        platform/mediastream/gstreamer/GStreamerMediaStreamSource.cpp
+        platform/mediastream/gstreamer/GStreamerVideoCaptureSource.cpp
+        platform/mediastream/gstreamer/GStreamerVideoCapturer.cpp
+        platform/mediastream/gstreamer/MockGStreamerAudioCaptureSource.cpp
+        platform/mediastream/gstreamer/MockGStreamerVideoCaptureSource.cpp
+        platform/mediastream/gstreamer/RealtimeIncomingAudioSourceLibWebRTC.cpp
+        platform/mediastream/gstreamer/RealtimeIncomingVideoSourceLibWebRTC.cpp
+        platform/mediastream/gstreamer/RealtimeMediaSourceCenterLibWebRTC.cpp
+        platform/mediastream/gstreamer/RealtimeOutgoingAudioSourceLibWebRTC.cpp
+        platform/mediastream/gstreamer/RealtimeOutgoingVideoSourceLibWebRTC.cpp
     )
 
     list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES

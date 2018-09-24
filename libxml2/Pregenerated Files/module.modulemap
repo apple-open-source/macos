@@ -3,6 +3,14 @@ module libxml2 [system] [extern_c] {
 
     module HTMLparser {
         header "libxml/HTMLparser.h"
+        header "libxml/SAX.h"
+        header "libxml/SAX2.h"
+        header "libxml/globals.h"
+        header "libxml/parser.h"
+        header "libxml/threads.h"
+        header "libxml/tree.h"
+        header "libxml/xlink.h"
+        header "libxml/xmlmemory.h"
         export *
     }
 
@@ -12,12 +20,12 @@ module libxml2 [system] [extern_c] {
     }
 
     module SAX {
-        header "libxml/SAX.h"
+        export HTMLparser
         export *
     }
 
     module SAX2 {
-        header "libxml/SAX2.h"
+        export HTMLparser
         export *
     }
 
@@ -57,7 +65,7 @@ module libxml2 [system] [extern_c] {
     }
 
     module globals {
-        header "libxml/globals.h"
+        export HTMLparser
         export *
     }
 
@@ -82,7 +90,7 @@ module libxml2 [system] [extern_c] {
     }
 
     module parser {
-        header "libxml/parser.h"
+        export HTMLparser
         export *
     }
 
@@ -112,12 +120,12 @@ module libxml2 [system] [extern_c] {
     }
 
     module threads {
-        header "libxml/threads.h"
+        export HTMLparser
         export *
     }
 
     module tree {
-        header "libxml/tree.h"
+        export HTMLparser
         export *
     }
 
@@ -137,7 +145,7 @@ module libxml2 [system] [extern_c] {
     }
 
     module xlink {
-        header "libxml/xlink.h"
+        export HTMLparser
         export *
     }
 
@@ -162,7 +170,7 @@ module libxml2 [system] [extern_c] {
     }
 
     module xmlmemory {
-        header "libxml/xmlmemory.h"
+        export HTMLparser
         export *
     }
 

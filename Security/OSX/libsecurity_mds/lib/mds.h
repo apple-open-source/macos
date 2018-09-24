@@ -38,9 +38,9 @@ extern "C" {
 
 typedef CSSM_DL_HANDLE MDS_HANDLE;
 
-typedef CSSM_DL_DB_HANDLE MDS_DB_HANDLE;
+typedef CSSM_DL_DB_HANDLE MDS_DB_HANDLE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct mds_funcs {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER mds_funcs {
     CSSM_RETURN (CSSMAPI *DbOpen)
         (MDS_HANDLE MdsHandle,
          const char *DbName,

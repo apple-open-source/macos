@@ -1,6 +1,9 @@
-EXECUTABLE_PREFIX = lib;
 PRODUCT_NAME = $(TARGET_NAME);
 INSTALL_PATH = /usr/local/libexec/libxml2;
+EXECUTABLE_PREFIX = lib;
+
+// Override HEADER_SEARCH_PATHS from Base.xcconfig for test tool libraries.
+HEADER_SEARCH_PATHS = "$(SRCROOT)/Pregenerated Files/include" $(SRCROOT)/libxml2/include;
 
 DYLIB_COMPATIBILITY_VERSION = 1;
 DYLIB_CURRENT_VERSION = 1;

@@ -145,6 +145,7 @@ homekit_sysdiagnose(void)
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
         (id)kSecReturnAttributes: @YES,
         (id)kSecReturnData: @NO,
+        (id)kSecAttrNoLegacy : @YES,
     } mutableCopy];
 
     CFTypeRef result = NULL;
@@ -196,47 +197,6 @@ unlock_sysdiagnose(void)
     CFReleaseNull(result);
 }
 
-static void idsproxy_print_message(CFDictionaryRef messages)
-{
-    NSDictionary<NSString*, NSDictionary*> *idsMessages = (__bridge NSDictionary *)messages;
-
-    printf("IDS messages in flight: %d\n", (int)[idsMessages count]);
-
-    [idsMessages enumerateKeysAndObjectsUsingBlock:^(NSString*  _Nonnull identifier, NSDictionary*  _Nonnull messageDictionary, BOOL * _Nonnull stop) {
-        printf("message identifier: %s\n", [identifier cStringUsingEncoding:NSUTF8StringEncoding]);
-
-        NSDictionary *messageDataAndPeerID = [messageDictionary valueForKey:(__bridge NSString*)kIDSMessageToSendKey];
-        [messageDataAndPeerID enumerateKeysAndObjectsUsingBlock:^(NSString*  _Nonnull peerID, NSData*  _Nonnull messageData, BOOL * _Nonnull stop1) {
-            if(messageData)
-                printf("size of message to recipient: %lu\n", (unsigned long)[messageData length]);
-        }];
-
-        NSString *deviceID = [messageDictionary valueForKey:(__bridge NSString*)kIDSMessageRecipientDeviceID];
-        if(deviceID)
-            printf("recipient device id: %s\n", [deviceID cStringUsingEncoding:NSUTF8StringEncoding]);
-
-    }];
-}
-
-static void
-idsproxy_sysdiagnose(void)
-{
-
-    dispatch_semaphore_t wait_for = dispatch_semaphore_create(0);
-    __block CFDictionaryRef returned = NULL;
-
-    dispatch_queue_t processQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-    SOSCloudKeychainRetrievePendingMessageFromProxy(processQueue, ^(CFDictionaryRef returnedValues, CFErrorRef error) {
-        secdebug("SOSCloudKeychainRetrievePendingMessageFromProxy", "returned: %@", returnedValues);
-        CFRetainAssign(returned, returnedValues);
-        dispatch_semaphore_signal(wait_for);
-    });
-
-    dispatch_semaphore_wait(wait_for, dispatch_time(DISPATCH_TIME_NOW, 2ull * NSEC_PER_SEC));
-    secdebug("idsproxy sysdiagnose", "messages: %@", returned);
-
-    idsproxy_print_message(returned);
-}
 
 static void
 analytics_sysdiagnose(void)
@@ -281,7 +241,6 @@ main(int argc, const char ** argv)
         engine_sysdiagnose();
         homekit_sysdiagnose();
         unlock_sysdiagnose();
-        idsproxy_sysdiagnose();
         analytics_sysdiagnose();
         
         // Keep this one last

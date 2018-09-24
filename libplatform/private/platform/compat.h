@@ -26,32 +26,6 @@
 
 #include <platform/string.h>
 
-__BEGIN_DECLS
-
-/* Helpers for other common non-primitive routines */
-
-__header_always_inline
-size_t
-_platform_strlen(const char *s) {
-	const char *t = _platform_memchr(s, '\0', SIZE_MAX);
-	return (uintptr_t)t - (uintptr_t)s;
-}
-
-__header_always_inline
-size_t
-_platform_strlcpy(char * restrict dst, const char * restrict src, size_t maxlen) {
-	const size_t srclen = _platform_strlen(src);
-	if (srclen < maxlen) {
-		_platform_memmove(dst, src, srclen+1);
-	} else if (maxlen != 0) {
-		_platform_memmove(dst, src, maxlen-1);
-		dst[maxlen-1] = '\0';
-	}
-	return srclen;
-}
-
-__END_DECLS
-
 /* Compat macros for primitives */
 #define bzero            _platform_bzero
 #define memchr           _platform_memchr
@@ -64,10 +38,13 @@ __END_DECLS
 #define memset_pattern16 _platform_memset_pattern16
 #define strchr           _platform_strchr
 #define strcmp           _platform_strcmp
-#define strncmp          _platform_strncmp
-
-/* Compat macros for non-primitive helpers */
+#define strcpy           _platform_strcpy
+#define strlcat          _platform_strlcat
 #define strlcpy          _platform_strlcpy
 #define strlen           _platform_strlen
+#define strncmp          _platform_strncmp
+#define strncpy          _platform_strncpy
+#define strnlen          _platform_strnlen
+#define strstr           _platform_strstr
 
 #endif /* _PLATFORM_COMPAT_H_ */

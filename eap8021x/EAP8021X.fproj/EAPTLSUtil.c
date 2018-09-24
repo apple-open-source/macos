@@ -1655,7 +1655,9 @@ EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
 	}
     }
 
-done:
+#if TARGET_OS_EMBEDDED
+ done:
+#endif /* TARGET_OS_EMBEDDED */
     *ret_array = NULL;
     return (errSecParam);
 }

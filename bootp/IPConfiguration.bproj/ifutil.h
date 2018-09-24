@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -89,6 +89,7 @@ typedef struct {
 int	inet6_dgram_socket();
 int	inet6_attach_interface(const char * ifname, boolean_t use_cga);
 int	inet6_detach_interface(const char * ifname);
+boolean_t inet6_is_attached(const char * ifname);
 
 void
 in6_netaddr(struct in6_addr * addr, int len);
@@ -115,7 +116,8 @@ int	inet6_linklocal_start(const char * ifname,
 			      const struct in6_addr * v6_ll,
 			      boolean_t perform_nud,
 			      boolean_t use_cga,
-			      boolean_t enable_dad);
+			      boolean_t enable_dad,
+			      boolean_t enable_clat46);
 
 int	inet6_linklocal_stop(const char * ifname);
 
@@ -133,6 +135,9 @@ inet6_get_linklocal_address(int if_index, struct in6_addr * ret_addr);
 
 int
 inet6_router_and_prefix_count(int if_index, int * ret_prefix_count);
+
+boolean_t
+inet6_has_nat64_prefixlist(const char * if_name);
 
 void
 inet6_addrlist_init(inet6_addrlist_t * addr_list_p);

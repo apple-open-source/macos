@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 48;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -111,6 +111,7 @@
 		A613B2A30D46AA65007BA726 /* IOPCIFamily Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IOPCIFamily Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDeviceMappedIO.cpp; sourceTree = "<group>"; };
 		A6849D12126539090033F95C /* IOPCIRange.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIRange.cpp; sourceTree = "<group>"; };
+		A6C9653C2058A50E00C7FBBE /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOPCIConfigurator.h; path = IOKit/pci/IOPCIConfigurator.h; sourceTree = SOURCE_ROOT; };
 		A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOPCIPrivate.h; path = IOKit/pci/IOPCIPrivate.h; sourceTree = SOURCE_ROOT; };
 		A6F210C10A78022400875EC6 /* AppleSamplePCI.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleSamplePCI.cpp; sourceTree = "<group>"; };
@@ -156,6 +157,7 @@
 		089C166AFE841209C02AAC07 /* IOPCIFamily */ = {
 			isa = PBXGroup;
 			children = (
+				A6C9653C2058A50E00C7FBBE /* kext.xcconfig */,
 				A6F210C00A78022400875EC6 /* AppleSamplePCI */,
 				247142CAFF3F8F9811CA285C /* Source */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
@@ -286,7 +288,7 @@
 			attributes = {
 			};
 			buildConfigurationList = 1590525209368A190010639A /* Build configuration list for PBXProject "IOPCIFamily" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 8.0";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -402,23 +404,27 @@
 		1590525309368A190010639A /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INFOPLIST_OUTPUT_FORMAT = XML;
 			};
 			name = Development;
 		};
 		1590525409368A190010639A /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INFOPLIST_OUTPUT_FORMAT = XML;
 			};
 			name = Deployment;
 		};
 		1590525509368A190010639A /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INFOPLIST_OUTPUT_FORMAT = XML;
 			};
 			name = Default;
 		};
 		A613B2890D46AA65007BA726 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
 			buildSettings = {
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
@@ -445,7 +451,6 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_development = "-DDEVELOPMENT=1 -DMACH_ASSERT=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPCIFamily;
@@ -463,6 +468,7 @@
 		};
 		A613B28A0D46AA65007BA726 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
 			buildSettings = {
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
@@ -486,7 +492,6 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_development = "-DDEVELOPMENT=1 -DMACH_ASSERT=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPCIFamily;
@@ -504,11 +509,8 @@
 		};
 		A613B28B0D46AA65007BA726 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					/* development, */
-				);
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -529,7 +531,6 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_development = "-DDEVELOPMENT=1 -DMACH_ASSERT=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPCIFamily;
@@ -642,16 +643,14 @@
 		B169ED9415BA2B4F00A1A90A /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INFOPLIST_OUTPUT_FORMAT = XML;
 			};
 			name = "Development-Embedded";
 		};
 		B169ED9515BA2B4F00A1A90A /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					development,
-				);
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = NO;
@@ -678,7 +677,6 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_development = "-DDEVELOPMENT=1 -DMACH_ASSERT=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPCIFamily;
@@ -733,16 +731,14 @@
 		B169ED9815BA2B6000A1A90A /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INFOPLIST_OUTPUT_FORMAT = XML;
 			};
 			name = "Deployment-Embedded";
 		};
 		B169ED9915BA2B6000A1A90A /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					development,
-				);
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -763,7 +759,6 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_development = "-DDEVELOPMENT=1 -DMACH_ASSERT=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPCIFamily;

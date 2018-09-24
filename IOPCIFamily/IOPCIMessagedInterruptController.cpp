@@ -470,11 +470,11 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 						this, &IOPCIMessagedInterruptController::handleInterrupt);
 				ivector->nub     = device;
 				ivector->target  = this;
-				ivector->refCon  = 0;
+				ivector->refCon  = (void *) msiPhysVectors;
 				initVector(firstVector, ivector);
 				ivector->interruptDisabledSoft = 0;
 				ivector->interruptDisabledHard = 0;
-				ivector->interruptRegistered   = msiPhysVectors;
+				ivector->interruptRegistered   = 0;
 				ivector->sharedController = (IOSharedInterruptController *) device->reserved->msiVectors;
 
 				for (vector = 0; vector < msiPhysVectors; vector++)
@@ -555,10 +555,10 @@ void IOPCIMessagedInterruptController::initDevice(IOPCIDevice * device, IOPCICon
 			{
 				data = saved->savedMSIData;
 				if (vector < numVectors) data += vector;
-				((uint32_t *) device->reserved->msiTable)[vector*4 + 0] = saved->savedMSIAddress0;
-				((uint32_t *) device->reserved->msiTable)[vector*4 + 1] = saved->savedMSIAddress1;
-				((uint32_t *) device->reserved->msiTable)[vector*4 + 2] = data;
-				((uint32_t *) device->reserved->msiTable)[vector*4 + 3] = vectors[vector].interruptDisabledHard;
+				((volatile uint32_t *) device->reserved->msiTable)[vector*4 + 0] = saved->savedMSIAddress0;
+				((volatile uint32_t *) device->reserved->msiTable)[vector*4 + 1] = saved->savedMSIAddress1;
+				((volatile uint32_t *) device->reserved->msiTable)[vector*4 + 2] = data;
+				((volatile uint32_t *) device->reserved->msiTable)[vector*4 + 3] = vectors[vector].interruptDisabledHard;
 			}
 			device->configWrite16(kIOPCIConfigCommand, cmd);
 		}
@@ -709,7 +709,7 @@ void IOPCIMessagedInterruptController::deallocateInterrupt(UInt32 vector)
 
 	if ((subVectors = (IOInterruptVector *) vectors[vector].sharedController))
 	{
-		count = vectors[vector].interruptRegistered;
+		count = (typeof(count))(uintptr_t) vectors[vector].refCon;
 		vectors[vector].sharedController = 0;
 	    IODelete(subVectors, IOInterruptVector, count);
 	}
@@ -743,7 +743,7 @@ IOPCIMessagedInterruptController::handleInterrupt( void *      state,
 
 //      if (!(kIOPCICommandMemorySpace & device->configRead16(kIOPCIConfigCommand))) return (kIOReturnSuccess);
 
-		count = vector->interruptRegistered;
+		count = (typeof(count))(uintptr_t) vector->refCon;
 		bits = 0;
 		for (source = 0; source < count; source++)
 		{
@@ -751,7 +751,7 @@ IOPCIMessagedInterruptController::handleInterrupt( void *      state,
             else
             {
                 bit = (source & 63);
-                if (!bit) bits = ((uint64_t *) device->reserved->msiPBA)[source >> 6];
+                if (!bit) bits = ((volatile uint64_t *) device->reserved->msiPBA)[source >> 6];
                 if (!(bits & (1ULL << bit))) continue;
 
                 vector = &subVectors[source];
@@ -812,7 +812,7 @@ void IOPCIMessagedInterruptController::disableVectorHard(IOInterruptVectorNumber
 	if ((OSTypeID(IOPCIDevice) == device->getMetaClass()) && device->reserved->msiTable)
 	{
 		// masked
-		((uint32_t *) device->reserved->msiTable)[vectorNumber * 4 + 3] = 1;
+		((volatile uint32_t *) device->reserved->msiTable)[vectorNumber * 4 + 3] = 1;
 	}
 }
 
@@ -831,6 +831,6 @@ void IOPCIMessagedInterruptController::enableVector(IOInterruptVectorNumber vect
 	if ((OSTypeID(IOPCIDevice) == device->getMetaClass()) && device->reserved->msiTable)
 	{
 		// enabled
-		((uint32_t *) device->reserved->msiTable)[vectorNumber * 4 + 3] = 0;
+		((volatile uint32_t *) device->reserved->msiTable)[vectorNumber * 4 + 3] = 0;
 	}
 }

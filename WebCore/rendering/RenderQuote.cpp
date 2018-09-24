@@ -25,10 +25,10 @@
 
 #include "QuotesData.h"
 #include "RenderTextFragment.h"
+#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/unicode/CharacterNames.h>
-
 
 namespace WebCore {
 using namespace WTF::Unicode;
@@ -62,7 +62,7 @@ void RenderQuote::willBeRemovedFromTree()
 void RenderQuote::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderInline::styleDidChange(diff, oldStyle);
-    if (diff >= StyleDifferenceLayout) {
+    if (diff >= StyleDifference::Layout) {
         m_needsTextUpdate = true;
         view().setHasQuotesNeedingUpdate(true);
     }
@@ -350,7 +350,7 @@ static RenderTextFragment* quoteTextRenderer(RenderObject* lastChild)
     return downcast<RenderTextFragment>(lastChild);
 }
 
-void RenderQuote::updateTextRenderer()
+void RenderQuote::updateTextRenderer(RenderTreeBuilder& builder)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(document().inRenderTreeUpdate());
     String text = computeText();
@@ -362,7 +362,7 @@ void RenderQuote::updateTextRenderer()
         renderText->dirtyLineBoxes(false);
         return;
     }
-    addChild(createRenderer<RenderTextFragment>(document(), m_text));
+    builder.attach(*this, createRenderer<RenderTextFragment>(document(), m_text));
 }
 
 String RenderQuote::computeText() const
@@ -371,13 +371,13 @@ String RenderQuote::computeText() const
         return emptyString();
     bool isOpenQuote = false;
     switch (m_type) {
-    case NO_OPEN_QUOTE:
-    case NO_CLOSE_QUOTE:
+    case QuoteType::NoOpenQuote:
+    case QuoteType::NoCloseQuote:
         return emptyString();
-    case OPEN_QUOTE:
+    case QuoteType::OpenQuote:
         isOpenQuote = true;
         FALLTHROUGH;
-    case CLOSE_QUOTE:
+    case QuoteType::CloseQuote:
         if (const QuotesData* quotes = style().quotes())
             return isOpenQuote ? quotes->openQuote(m_depth).impl() : quotes->closeQuote(m_depth).impl();
         if (const QuotesForLanguage* quotes = quotesForLanguage(style().locale()))
@@ -392,18 +392,18 @@ String RenderQuote::computeText() const
 bool RenderQuote::isOpen() const
 {
     switch (m_type) {
-    case OPEN_QUOTE:
-    case NO_OPEN_QUOTE:
+    case QuoteType::OpenQuote:
+    case QuoteType::NoOpenQuote:
         return true;
-    case CLOSE_QUOTE:
-    case NO_CLOSE_QUOTE:
+    case QuoteType::CloseQuote:
+    case QuoteType::NoCloseQuote:
         return false;
     }
     ASSERT_NOT_REACHED();
     return false;
 }
 
-void RenderQuote::updateRenderer(RenderQuote* previousQuote)
+void RenderQuote::updateRenderer(RenderTreeBuilder& builder, RenderQuote* previousQuote)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(document().inRenderTreeUpdate());
     int depth = -1;
@@ -423,7 +423,7 @@ void RenderQuote::updateRenderer(RenderQuote* previousQuote)
 
     m_depth = depth;
     m_needsTextUpdate = false;
-    updateTextRenderer();
+    updateTextRenderer(builder);
 }
 
 } // namespace WebCore

@@ -270,31 +270,31 @@ PseudoId CSSSelector::pseudoId(PseudoElementType type)
 {
     switch (type) {
     case PseudoElementFirstLine:
-        return FIRST_LINE;
+        return PseudoId::FirstLine;
     case PseudoElementFirstLetter:
-        return FIRST_LETTER;
+        return PseudoId::FirstLetter;
     case PseudoElementSelection:
-        return SELECTION;
+        return PseudoId::Selection;
     case PseudoElementMarker:
-        return MARKER;
+        return PseudoId::Marker;
     case PseudoElementBefore:
-        return BEFORE;
+        return PseudoId::Before;
     case PseudoElementAfter:
-        return AFTER;
+        return PseudoId::After;
     case PseudoElementScrollbar:
-        return SCROLLBAR;
+        return PseudoId::Scrollbar;
     case PseudoElementScrollbarButton:
-        return SCROLLBAR_BUTTON;
+        return PseudoId::ScrollbarButton;
     case PseudoElementScrollbarCorner:
-        return SCROLLBAR_CORNER;
+        return PseudoId::ScrollbarCorner;
     case PseudoElementScrollbarThumb:
-        return SCROLLBAR_THUMB;
+        return PseudoId::ScrollbarThumb;
     case PseudoElementScrollbarTrack:
-        return SCROLLBAR_TRACK;
+        return PseudoId::ScrollbarTrack;
     case PseudoElementScrollbarTrackPiece:
-        return SCROLLBAR_TRACK_PIECE;
+        return PseudoId::ScrollbarTrackPiece;
     case PseudoElementResizer:
-        return RESIZER;
+        return PseudoId::Resizer;
 #if ENABLE(VIDEO_TRACK)
     case PseudoElementCue:
 #endif
@@ -303,11 +303,11 @@ PseudoId CSSSelector::pseudoId(PseudoElementType type)
     case PseudoElementUserAgentCustom:
     case PseudoElementWebKitCustom:
     case PseudoElementWebKitCustomLegacyPrefixed:
-        return NOPSEUDO;
+        return PseudoId::None;
     }
 
     ASSERT_NOT_REACHED();
-    return NOPSEUDO;
+    return PseudoId::None;
 }
 
 CSSSelector::PseudoElementType CSSSelector::parsePseudoElementType(const String& name)
@@ -452,6 +452,9 @@ String CSSSelector::selectorText(const String& rightSide) const
                 break;
             case CSSSelector::PseudoClassFullScreenDocument:
                 str.appendLiteral(":-webkit-full-screen-document");
+                break;
+            case CSSSelector::PseudoClassFullScreenControlsHidden:
+                str.appendLiteral(":-webkit-full-screen-controls-hidden");
                 break;
 #endif
             case CSSSelector::PseudoClassActive:

@@ -47,7 +47,7 @@ namespace IOFireWireLib {
 			return ;
 	
 		// ranges must be page aligned and have lengths in multiples of the vm page size only:
-		IOVirtualRange range = { trunc_page(inRange.address), round_page( (inRange.address & getpagesize() - 1) + inRange.length - 1) } ;
+		IOVirtualRange range = { trunc_page(inRange.address), (IOByteCount)round_page( (inRange.address & getpagesize() - 1) + inRange.length - 1) } ;
 	
 		if (mTop)
 			CoalesceRange(range, mTop) ;

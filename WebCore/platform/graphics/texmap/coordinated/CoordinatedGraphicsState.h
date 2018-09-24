@@ -103,7 +103,6 @@ struct CoordinatedGraphicsLayerState {
             bool platformLayerUpdated: 1;
             bool platformLayerShouldSwapBuffers: 1;
             bool isScrollableChanged: 1;
-            bool committedScrollOffsetChanged: 1;
             bool contentsTilingChanged: 1;
         };
         unsigned changeMask;
@@ -116,7 +115,6 @@ struct CoordinatedGraphicsLayerState {
             bool backfaceVisible : 1;
             bool masksToBounds : 1;
             bool preserves3D : 1;
-            bool fixedToViewport : 1;
             bool isScrollable: 1;
         };
         unsigned flags;
@@ -130,7 +128,6 @@ struct CoordinatedGraphicsLayerState {
         , backfaceVisible(true)
         , masksToBounds(false)
         , preserves3D(false)
-        , fixedToViewport(false)
         , isScrollable(false)
         , opacity(0)
         , replica(InvalidCoordinatedLayerID)
@@ -170,8 +167,6 @@ struct CoordinatedGraphicsLayerState {
     RefPtr<TextureMapperPlatformLayerProxy> platformLayerProxy;
 #endif
 
-    IntSize committedScrollOffset;
-
     bool hasPendingChanges() const
     {
         return changeMask || tilesToUpdate.size() || tilesToRemove.size() || tilesToCreate.size();
@@ -180,9 +175,6 @@ struct CoordinatedGraphicsLayerState {
 
 struct CoordinatedGraphicsState {
     uint32_t rootCompositingLayer;
-    FloatPoint scrollPosition;
-    IntSize contentsSize;
-    IntRect coveredRect;
 
     Vector<CoordinatedLayerID> layersToCreate;
     Vector<std::pair<CoordinatedLayerID, CoordinatedGraphicsLayerState>> layersToUpdate;
@@ -192,8 +184,6 @@ struct CoordinatedGraphicsState {
     Vector<CoordinatedImageBackingID> imagesToRemove;
     Vector<std::pair<CoordinatedImageBackingID, RefPtr<Nicosia::Buffer>>> imagesToUpdate;
     Vector<CoordinatedImageBackingID> imagesToClear;
-
-    Vector<std::pair<uint32_t /* atlasID */, RefPtr<Nicosia::Buffer>>> updateAtlasesToCreate;
 };
 
 } // namespace WebCore

@@ -36,7 +36,6 @@
 #import "SandboxUtilities.h"
 #import "UIGamepadProvider.h"
 #import "WKObject.h"
-#import "WeakObjCPtr.h"
 #import "WebCertificateInfo.h"
 #import "WebCookieManagerProxy.h"
 #import "WebProcessMessages.h"
@@ -50,6 +49,7 @@
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <pal/spi/cocoa/NSKeyedArchiverSPI.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/WeakObjCPtr.h>
 
 #if PLATFORM(IOS)
 #import <WebCore/WebCoreThreadSystemInterface.h>
@@ -59,8 +59,8 @@
 static WKProcessPool *sharedProcessPool;
 
 @implementation WKProcessPool {
-    WebKit::WeakObjCPtr<id <_WKAutomationDelegate>> _automationDelegate;
-    WebKit::WeakObjCPtr<id <_WKDownloadDelegate>> _downloadDelegate;
+    WeakObjCPtr<id <_WKAutomationDelegate>> _automationDelegate;
+    WeakObjCPtr<id <_WKDownloadDelegate>> _downloadDelegate;
 
     RetainPtr<_WKAutomationSession> _automationSession;
 #if PLATFORM(IOS)
@@ -73,11 +73,6 @@ static WKProcessPool *sharedProcessPool;
 {
     if (!(self = [super init]))
         return nil;
-
-#if PLATFORM(IOS)
-    // FIXME: Remove once <rdar://problem/15256572> is fixed.
-    InitWebCoreThreadSystemInterface();
-#endif
 
     API::Object::constructInWrapper<WebKit::WebProcessPool>(self, *configuration->_processPoolConfiguration);
 
@@ -161,6 +156,15 @@ static WKProcessPool *sharedProcessPool;
     return sharedProcessPool;
 }
 
++ (NSArray<WKProcessPool *> *)_allProcessPoolsForTesting
+{
+    auto& allPools = WebKit::WebProcessPool::allProcessPools();
+    auto nsAllPools = adoptNS([[NSMutableArray alloc] initWithCapacity:allPools.size()]);
+    for (auto* pool : allPools)
+        [nsAllPools addObject:wrapper(*pool)];
+    return nsAllPools.autorelease();
+}
+
 + (NSURL *)_websiteDataURLForContainerWithURL:(NSURL *)containerURL
 {
     return [WKProcessPool _websiteDataURLForContainerWithURL:containerURL bundleIdentifierIfNotInContainer:nil];
@@ -179,12 +183,17 @@ static WKProcessPool *sharedProcessPool;
 
 - (void)_setAllowsSpecificHTTPSCertificate:(NSArray *)certificateChain forHost:(NSString *)host
 {
-    _processPool->allowSpecificHTTPSCertificateForHost(WebKit::WebCertificateInfo::create(WebCore::CertificateInfo((CFArrayRef)certificateChain)).ptr(), host);
+    _processPool->allowSpecificHTTPSCertificateForHost(WebKit::WebCertificateInfo::create(WebCore::CertificateInfo((__bridge CFArrayRef)certificateChain)).ptr(), host);
 }
 
 - (void)_registerURLSchemeServiceWorkersCanHandle:(NSString *)scheme
 {
     _processPool->registerURLSchemeServiceWorkersCanHandle(scheme);
+}
+
+- (void)_registerURLSchemeAsCanDisplayOnlyIfCanRequest:(NSString *)scheme
+{
+    _processPool->registerURLSchemeAsCanDisplayOnlyIfCanRequest(scheme);
 }
 
 - (void)_setMaximumNumberOfProcesses:(NSUInteger)value
@@ -227,14 +236,7 @@ static WebKit::HTTPCookieAcceptPolicy toHTTPCookieAcceptPolicy(NSHTTPCookieAccep
 - (void)_setObject:(id <NSCopying, NSSecureCoding>)object forBundleParameter:(NSString *)parameter
 {
     auto copy = adoptNS([(NSObject *)object copy]);
-
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
-    auto data = adoptNS([[NSMutableData alloc] init]);
-    auto keyedArchiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
-    [keyedArchiver setRequiresSecureCoding:YES];
-#else
     auto keyedArchiver = secureArchiver();
-#endif
 
     @try {
         [keyedArchiver encodeObject:copy.get() forKey:@"parameter"];
@@ -248,24 +250,14 @@ static WebKit::HTTPCookieAcceptPolicy toHTTPCookieAcceptPolicy(NSHTTPCookieAccep
     else
         [_processPool->ensureBundleParameters() removeObjectForKey:parameter];
 
-#if (!PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
     auto data = keyedArchiver.get().encodedData;
-#endif
-
     _processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameter(parameter, IPC::DataReference(static_cast<const uint8_t*>([data bytes]), [data length])));
 }
 
 - (void)_setObjectsForBundleParametersWithDictionary:(NSDictionary *)dictionary
 {
     auto copy = adoptNS([[NSDictionary alloc] initWithDictionary:dictionary copyItems:YES]);
-
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
-    auto data = adoptNS([[NSMutableData alloc] init]);
-    auto keyedArchiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
-    [keyedArchiver setRequiresSecureCoding:YES];
-#else
     auto keyedArchiver = secureArchiver();
-#endif
 
     @try {
         [keyedArchiver encodeObject:copy.get() forKey:@"parameters"];
@@ -276,10 +268,7 @@ static WebKit::HTTPCookieAcceptPolicy toHTTPCookieAcceptPolicy(NSHTTPCookieAccep
 
     [_processPool->ensureBundleParameters() setValuesForKeysWithDictionary:copy.get()];
 
-#if (!PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
     auto data = keyedArchiver.get().encodedData;
-#endif
-
     _processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameters(IPC::DataReference(static_cast<const uint8_t*>([data bytes]), [data length])));
 }
 
@@ -417,9 +406,26 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
     _processPool->setAutomationSession(automationSession ? automationSession->_session.get() : nullptr);
 }
 
+- (void)_addSupportedPlugin:(NSString *) domain named:(NSString *) name withMimeTypes: (NSSet<NSString *> *) nsMimeTypes withExtensions: (NSSet<NSString *> *) nsExtensions
+{
+    HashSet<String> mimeTypes;
+    for (NSString *mimeType in nsMimeTypes)
+        mimeTypes.add(mimeType);
+    HashSet<String> extensions;
+    for (NSString *extension in nsExtensions)
+        extensions.add(extension);
+
+    _processPool->addSupportedPlugin(domain, name, WTFMove(mimeTypes), WTFMove(extensions));
+}
+
+- (void)_clearSupportedPlugins
+{
+    _processPool->clearSupportedPlugins();
+}
+
 - (void)_terminateStorageProcess
 {
-    _processPool->terminateStorageProcess();
+    _processPool->terminateStorageProcessForTesting();
 }
 
 - (void)_terminateNetworkProcess
@@ -427,9 +433,14 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
     _processPool->terminateNetworkProcess();
 }
 
-- (void)_terminateServiceWorkerProcess
+- (void)_terminateServiceWorkerProcesses
 {
-    _processPool->terminateServiceWorkerProcess();
+    _processPool->terminateServiceWorkerProcesses();
+}
+
+- (void)_disableServiceWorkerProcessTerminationDelay
+{
+    _processPool->disableServiceWorkerProcessTerminationDelay();
 }
 
 - (pid_t)_networkProcessIdentifier
@@ -457,27 +468,38 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
     _processPool->setShouldMakeNextWebProcessLaunchFailForTesting(true);
 }
 
+- (void)_makeNextNetworkProcessLaunchFailForTesting
+{
+    _processPool->setShouldMakeNextNetworkProcessLaunchFailForTesting(true);
+}
+
+- (size_t)_prewarmedWebProcessCount
+{
+    size_t result = 0;
+    for (auto& process : _processPool->processes()) {
+        if (process->isInPrewarmedPool())
+            ++result;
+    }
+    return result;
+}
+
+- (size_t)_webProcessCountIgnoringPrewarmed
+{
+    return [self _webProcessCount] - [self _prewarmedWebProcessCount];
+}
+
 - (size_t)_webPageContentProcessCount
 {
     auto allWebProcesses = _processPool->processes();
-    auto* serviceWorkerProcess = _processPool->serviceWorkerProxy();
-    if (!serviceWorkerProcess)
+#if ENABLE(SERVICE_WORKER)
+    auto& serviceWorkerProcesses = _processPool->serviceWorkerProxies();
+    if (serviceWorkerProcesses.isEmpty())
         return allWebProcesses.size();
 
-#if !ASSERT_DISABLED
-    bool serviceWorkerProcessWasFound = false;
-    for (auto& process : allWebProcesses) {
-        if (process == serviceWorkerProcess) {
-            serviceWorkerProcessWasFound = true;
-            break;
-        }
-    }
-
-    ASSERT(serviceWorkerProcessWasFound);
-    ASSERT(allWebProcesses.size() > 1);
+    return allWebProcesses.size() - serviceWorkerProcesses.size();
+#else
+    return allWebProcesses.size();
 #endif
-
-    return allWebProcesses.size() - 1;
 }
 
 - (void)_preconnectToServer:(NSURL *)serverURL
@@ -489,6 +511,15 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
 {
 #if !PLATFORM(IOS)
     return WebKit::PluginProcessManager::singleton().pluginProcesses().size();
+#else
+    return 0;
+#endif
+}
+
+- (size_t)_serviceWorkerProcessCount
+{
+#if ENABLE(SERVICE_WORKER)
+    return _processPool->serviceWorkerProxies().size();
 #else
     return 0;
 #endif

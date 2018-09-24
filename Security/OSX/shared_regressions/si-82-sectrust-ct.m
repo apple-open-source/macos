@@ -38,7 +38,7 @@ static void test_ct_trust(CFArrayRef certs, CFArrayRef scts, CFTypeRef ocsprespo
 
 
 
-    isnt(policy = SecPolicyCreateSSL(false, hostname), NULL, "create policy");
+    isnt(policy = SecPolicyCreateSSL(true, hostname), NULL, "create policy");
     isnt(policies = CFArrayCreate(kCFAllocatorDefault, (const void **)&policy, 1, &kCFTypeArrayCallBacks), NULL, "create policies");
     ok_status(SecTrustCreateWithCertificates(certs, policies, &trust), "create trust");
 
@@ -102,7 +102,7 @@ errOut:
 static
 SecCertificateRef SecCertificateCreateFromResource(NSString *name)
 {
-    NSURL *url = [[NSBundle mainBundle] URLForResource:name withExtension:@".crt" subdirectory:@"si-82-sectrust-ct-data"];
+    NSURL *url = [[NSBundle mainBundle] URLForResource:name withExtension:@".cer" subdirectory:@"si-82-sectrust-ct-data"];
 
     NSData *certData = [NSData dataWithContentsOfURL:url];
 
@@ -194,7 +194,7 @@ static void tests()
     /* Case 1: coreos-ct-test embedded SCT - only 1 SCT - so not CT qualified */
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(certs, certF);
-    test_ct_trust(certs, NULL, NULL, anchors, trustedLogs, CFSTR("coreos-ct-test.apple.com"), date_20150307,
+    test_ct_trust(certs, NULL, NULL, anchors, trustedLogs, NULL, date_20150307,
                   false, false, false, "coreos-ct-test 1");
     CFReleaseNull(certs);
 
@@ -203,7 +203,7 @@ static void tests()
     CFArrayAppendValue(certs, certD);
     isnt(scts = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create SCT array");
     CFArrayAppendValue(scts, proofD);
-    test_ct_trust(certs, scts, NULL, anchors, trustedLogs, CFSTR("coreos-ct-test.apple.com"), date_20150307,
+    test_ct_trust(certs, scts, NULL, anchors, trustedLogs, NULL, date_20150307,
                   false, false, false, "coreos-ct-test 2");
     CFReleaseNull(certs);
     CFReleaseNull(scts);
@@ -216,95 +216,48 @@ static void tests()
                   false, false, false, "digicert 2015");
     CFReleaseNull(certs);
 
-    /* case 4: paypal.com cert - not CT, but EV */
-    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
-    CFArrayAppendValue(certs, www_paypal_com_cert);
-    CFArrayAppendValue(certs, www_paypal_com_issuer_cert);
-    test_ct_trust(certs, NULL, NULL, NULL, trustedLogs, CFSTR("www.paypal.com"), date_20150307,
-                  false, false, false, "paypal");
-    CFReleaseNull(certs);
-
-    /* Case 5: coreos-ct-test standalone SCT -  2 SCTs - CT qualified  */
+    /* Case 4: coreos-ct-test standalone SCT -  2 SCTs - CT qualified  */
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(certs, certA);
     isnt(scts = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create SCT array");
     CFArrayAppendValue(scts, proofA_1);
     CFArrayAppendValue(scts, proofA_2);
-    test_ct_trust(certs, scts, NULL, anchors, trustedLogs, CFSTR("coreos-ct-test.apple.com"), date_20150307,
+    test_ct_trust(certs, scts, NULL, anchors, trustedLogs, NULL, date_20150307,
                   true,  false, false, "coreos-ct-test 3");
     CFReleaseNull(certs);
     CFReleaseNull(scts);
 
-
-    /* Case 6: Test with an invalid OCSP response */
+    /* Case 5: Test with an invalid OCSP response */
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(certs, certA);
     isnt(scts = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create SCT array");
     CFArrayAppendValue(scts, proofA_1);
-    test_ct_trust(certs, scts, invalid_ocsp, anchors, trustedLogs, CFSTR("coreos-ct-test.apple.com"), date_20150307,
+    test_ct_trust(certs, scts, invalid_ocsp, anchors, trustedLogs, NULL, date_20150307,
                   false, false, false, "coreos-ct-test 4");
     CFReleaseNull(certs);
     CFReleaseNull(scts);
 
-    /* Case 7: Test with a valid OCSP response */
+    /* Case 6: Test with a valid OCSP response */
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(certs, certA);
     isnt(scts = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create SCT array");
     CFArrayAppendValue(scts, proofA_1);
-    test_ct_trust(certs, scts, valid_ocsp, anchors, trustedLogs, CFSTR("coreos-ct-test.apple.com"), date_20150307,
+    test_ct_trust(certs, scts, valid_ocsp, anchors, trustedLogs, NULL, date_20150307,
                   false, false, false, "coreos-ct-test 5");
     CFReleaseNull(certs);
     CFReleaseNull(scts);
 
-    /* Case 8: Test with a bad hash OCSP response */
+    /* Case 7: Test with a bad hash OCSP response */
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(certs, certA);
     isnt(scts = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create SCT array");
     CFArrayAppendValue(scts, proofA_1);
-    test_ct_trust(certs, scts, bad_hash_ocsp, anchors, trustedLogs, CFSTR("coreos-ct-test.apple.com"), date_20150307,
+    test_ct_trust(certs, scts, bad_hash_ocsp, anchors, trustedLogs, NULL, date_20150307,
                   false, false, false, "coreos-ct-test 6");
     CFReleaseNull(certs);
     CFReleaseNull(scts);
 
-    /* Case 9: Previously WhiteListed EV cert (expired in Feb 2016, so not on final whitelist)*/
-    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
-    CFArrayAppendValue(certs, pilot_cert_3055998);
-    CFArrayAppendValue(certs, pilot_cert_3055998_issuer);
-    test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("www.ssbwingate.com"), date_20150307,
-                  false, false, false, "previously whitelisted cert");
-    CFReleaseNull(certs);
-
-    /* Case 10-13: WhiteListed EV cert */
-    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
-    CFArrayAppendValue(certs, whitelist_00008013);
-    CFArrayAppendValue(certs, whitelist_00008013_issuer);
-    test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("clava.com"), date_20150307,
-                  false, false, false, "whitelisted cert 00008013");
-    CFReleaseNull(certs);
-
-    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
-    CFArrayAppendValue(certs, whitelist_5555bc4f);
-    CFArrayAppendValue(certs, whitelist_5555bc4f_issuer);
-    test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("lanai.dartmouth.edu"),
-                  date_20150307, false, false, false, "whitelisted cert 5555bc4f");
-    CFReleaseNull(certs);
-
-    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
-    CFArrayAppendValue(certs, whitelist_aaaae152);
-    CFArrayAppendValue(certs, whitelist_5555bc4f_issuer); // Same issuer (Go Daddy) as above
-    test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("www.falymusic.com"),
-                  date_20150307, false, false, false, "whitelisted cert aaaae152");
-    CFReleaseNull(certs);
-
-    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
-    CFArrayAppendValue(certs, whitelist_fff9b5f6);
-    CFArrayAppendValue(certs, whitelist_fff9b5f6_issuer);
-    test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("www.defencehealth.com.au"),
-                  date_20150307, false, false, false, "whitelisted cert fff9b5f6");
-    CFReleaseNull(certs);
-
-
-    /* case 14: Current (April 2016) www.digicert.com cert: 3 embedded SCTs, CT qualified */
+    /* case 8: Current (April 2016) www.digicert.com cert: 3 embedded SCTs, CT qualified */
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(certs, www_digicert_com_2016_cert);
     CFArrayAppendValue(certs, digicert_sha2_ev_server_ca);
@@ -319,7 +272,7 @@ static void tests()
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array for " #x); \
     isnt(cfCert = SecCertificateCreateFromResource(@#x), NULL, "create cfCert from " #x); \
     CFArrayAppendValue(certs, cfCert); \
-    test_ct_trust(certs, NULL, NULL, anchors, trustedLogs, CFSTR("coreos-ct-test.apple.com"), date_20150307, true, false, false, #x); \
+    test_ct_trust(certs, NULL, NULL, anchors, trustedLogs, NULL, date_20150307, true, false, false, #x); \
     CFReleaseNull(certs);  \
     CFReleaseNull(cfCert);  \
  } while (0)
@@ -374,7 +327,7 @@ static void tests()
 
 int si_82_sectrust_ct(int argc, char *const *argv)
 {
-	plan_tests(329);
+	plan_tests(268);
 
 	tests();
 

@@ -32,6 +32,7 @@ sr_Latn{
         151{"Istočna Evropa"}
         154{"Severna Evropa"}
         155{"Zapadna Evropa"}
+        202{"Afrika južno od Sahare"}
         419{"Latinska Amerika"}
         AC{"Ostrvo Asension"}
         AD{"Andora"}
@@ -59,7 +60,7 @@ sr_Latn{
         BH{"Bahrein"}
         BI{"Burundi"}
         BJ{"Benin"}
-        BL{"Sen Bartelemi"}
+        BL{"Sveti Bartolomej"}
         BM{"Bermuda"}
         BN{"Brunej"}
         BO{"Bolivija"}
@@ -77,7 +78,7 @@ sr_Latn{
         CF{"Centralnoafrička Republika"}
         CG{"Kongo - Brazavil"}
         CH{"Švajcarska"}
-        CI{"Obala Slonovače"}
+        CI{"Obala Slonovače (Kot d’Ivoar)"}
         CK{"Kukova Ostrva"}
         CL{"Čile"}
         CM{"Kamerun"}
@@ -107,6 +108,7 @@ sr_Latn{
         ES{"Španija"}
         ET{"Etiopija"}
         EU{"Evropska Unija"}
+        EZ{"Evrozona"}
         FI{"Finska"}
         FJ{"Fidži"}
         FK{"Foklandska Ostrva"}
@@ -261,7 +263,7 @@ sr_Latn{
         TH{"Tajland"}
         TJ{"Tadžikistan"}
         TK{"Tokelau"}
-        TL{"Istočni Timor"}
+        TL{"Timor-Leste (Istočni Timor)"}
         TM{"Turkmenistan"}
         TN{"Tunis"}
         TO{"Tonga"}
@@ -305,8 +307,11 @@ sr_Latn{
     Countries%variant{
         CD{"Kongo (DRK)"}
         CG{"Kongo (Republika)"}
+        CI{"Obala Slonovače"}
+        CZ{"Češka Republika"}
         FK{"Foklandska (Malvinska) ostrva"}
         MK{"Makedonija (BJRM)"}
+        TL{"Istočni Timor"}
     }
-    Version{"2.1.32.73"}
+    Version{"2.1.41.97"}
 }

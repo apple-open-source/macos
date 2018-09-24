@@ -28,10 +28,12 @@
 #include "ExceptionOr.h"
 #include "JSDOMConvert.h"
 #include "JSDOMGuardedObject.h"
-#include <runtime/CatchScope.h>
-#include <runtime/JSPromiseDeferred.h>
+#include <JavaScriptCore/CatchScope.h>
+#include <JavaScriptCore/JSPromiseDeferred.h>
 
 namespace WebCore {
+
+class JSDOMWindow;
 
 class DeferredPromise : public DOMGuarded<JSC::JSPromiseDeferred> {
 public:
@@ -132,6 +134,8 @@ public:
 
     JSC::JSValue promise() const;
 
+    void whenSettled(std::function<void()>&&);
+
 private:
     DeferredPromise(JSDOMGlobalObject& globalObject, JSC::JSPromiseDeferred& deferred, Mode mode)
         : DOMGuarded<JSC::JSPromiseDeferred>(globalObject, deferred)
@@ -142,6 +146,7 @@ private:
     JSC::JSPromiseDeferred* deferred() const { return guarded(); }
 
     WEBCORE_EXPORT void callFunction(JSC::ExecState&, JSC::JSValue function, JSC::JSValue resolution);
+
     void resolve(JSC::ExecState& state, JSC::JSValue resolution) { callFunction(state, deferred()->resolve(), resolution); }
     void reject(JSC::ExecState& state, JSC::JSValue resolution) { callFunction(state, deferred()->reject(), resolution); }
 

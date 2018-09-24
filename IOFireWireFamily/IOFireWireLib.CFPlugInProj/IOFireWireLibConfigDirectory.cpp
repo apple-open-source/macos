@@ -98,7 +98,7 @@ namespace IOFireWireLib {
 	{
 		uint32_t outputCnt = 1;
 		uint64_t outputVal = 0;
-		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, key};
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)key};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetKeyType,
 													inputs,2,
@@ -115,7 +115,7 @@ namespace IOFireWireLib {
 		
 		uint32_t outputCnt = 3;
 		uint64_t outputVal[3];
-		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, key,(text != nil)};
+		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)key,(text != nil)};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetKeyValue_UInt32,
 													inputs,3,
@@ -137,7 +137,7 @@ namespace IOFireWireLib {
 		
 		uint32_t outputCnt = 0;
 		size_t outputStructSize = sizeof(results) ;
-		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, key, (text != nil)};
+		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)key, (text != nil)};
 		IOReturn error = IOConnectCallMethod(mUserClient.GetUserClientConnection(), 
 											 kConfigDirectory_GetKeyValue_Data,
 											 inputs,3,
@@ -171,7 +171,7 @@ namespace IOFireWireLib {
 		
 		uint32_t outputCnt = 3;
 		uint64_t outputVal[3];
-		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, key,(text != nil)};
+		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)key,(text != nil)};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetKeyValue_ConfigDirectory,
 													inputs,3,
@@ -211,7 +211,7 @@ namespace IOFireWireLib {
 		GetKeyOffsetResults results ;
 		uint32_t outputCnt = 0;
 		size_t outputStructSize = sizeof(results) ;
-		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, key, (text != nil)};
+		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)key, (text != nil)};
 		IOReturn error = IOConnectCallMethod(mUserClient.GetUserClientConnection(), 
 											 kConfigDirectory_GetKeyOffset_FWAddress,
 											 inputs,3,
@@ -245,7 +245,7 @@ namespace IOFireWireLib {
 		
 		uint32_t outputCnt = 3;
 		uint64_t outputVal[3];
-		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, key,false};
+		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)key,false};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetKeyValue_ConfigDirectory,
 													inputs,3,
@@ -261,7 +261,7 @@ namespace IOFireWireLib {
 	{
 		uint32_t outputCnt = 1;
 		uint64_t outputVal;
-		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)index};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetIndexType,
 													inputs,2,
@@ -275,7 +275,7 @@ namespace IOFireWireLib {
 	{
 		uint32_t outputCnt = 1;
 		uint64_t outputVal;
-		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)index};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetIndexKey,
 													inputs,2,
@@ -289,7 +289,7 @@ namespace IOFireWireLib {
 	{
 		uint32_t outputCnt = 1;
 		uint64_t outputVal;
-		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)index};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetIndexValue_UInt32,
 													inputs,2,
@@ -307,7 +307,7 @@ namespace IOFireWireLib {
 		
 		uint32_t outputCnt = 2;
 		uint64_t outputVal[2];
-		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)index};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetIndexValue_Data,
 													inputs,2,
@@ -329,7 +329,7 @@ namespace IOFireWireLib {
 		
 		uint32_t outputCnt = 2;
 		uint64_t outputVal[2];
-		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)index};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetIndexValue_String,
 													inputs,2,
@@ -369,7 +369,7 @@ namespace IOFireWireLib {
 		
 		uint32_t outputCnt = 1;
 		uint64_t outputVal;
-		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)index};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetIndexValue_ConfigDirectory,
 													inputs,2,
@@ -401,7 +401,7 @@ namespace IOFireWireLib {
 		
 		uint32_t outputCnt = 0;
 		size_t outputStructSize = sizeof(value) ;
-		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)index};
 		IOReturn result = IOConnectCallMethod(mUserClient.GetUserClientConnection(), 
 											 kConfigDirectory_GetIndexOffset_FWAddress,
 											 inputs,2,
@@ -424,7 +424,7 @@ namespace IOFireWireLib {
 	{
 		uint32_t outputCnt = 1;
 		uint64_t outputVal;
-		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)index};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetIndexOffset_UInt32,
 													inputs,2,
@@ -438,7 +438,7 @@ namespace IOFireWireLib {
 	{
 		uint32_t outputCnt = 1;
 		uint64_t outputVal;
-		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)index};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetIndexEntry,
 													inputs,2,
@@ -467,7 +467,7 @@ namespace IOFireWireLib {
 	{
 		uint32_t outputCnt = 1;
 		uint64_t outputVal;
-		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, key};
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, (const uint64_t)key};
 		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
 													kConfigDirectory_GetKeySubdirectories,
 													inputs,2,

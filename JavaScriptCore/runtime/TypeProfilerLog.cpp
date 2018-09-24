@@ -32,7 +32,6 @@
 #include "JSCInlines.h"
 #include "SlotVisitor.h"
 #include "TypeLocation.h"
-#include <wtf/CurrentTime.h>
 
 
 namespace JSC {
@@ -41,13 +40,14 @@ namespace TypeProfilerLogInternal {
 static const bool verbose = false;
 }
 
-void TypeProfilerLog::initializeLog()
+TypeProfilerLog::TypeProfilerLog(VM& vm)
+    : m_vm(vm)
+    , m_logSize(50000)
+    , m_logStartPtr(new LogEntry[m_logSize])
+    , m_currentLogEntryPtr(m_logStartPtr)
+    , m_logEndPtr(m_logStartPtr + m_logSize)
 {
-    ASSERT(!m_logStartPtr);
-    m_logSize = 50000;
-    m_logStartPtr = new LogEntry[m_logSize];
-    m_currentLogEntryPtr = m_logStartPtr;
-    m_logEndPtr = m_logStartPtr + m_logSize;
+    ASSERT(m_logStartPtr);
 }
 
 TypeProfilerLog::~TypeProfilerLog()
@@ -57,10 +57,10 @@ TypeProfilerLog::~TypeProfilerLog()
 
 void TypeProfilerLog::processLogEntries(const String& reason)
 {
-    double before = 0;
+    MonotonicTime before { };
     if (TypeProfilerLogInternal::verbose) {
         dataLog("Process caller:'", reason, "'");
-        before = currentTimeMS();
+        before = MonotonicTime::now();
     }
 
     HashMap<Structure*, RefPtr<StructureShape>> cachedMonoProtoShapes;
@@ -96,7 +96,7 @@ void TypeProfilerLog::processLogEntries(const String& reason)
                 shape = iter->value;
         }
 
-        RuntimeType type = runtimeTypeForValue(value);
+        RuntimeType type = runtimeTypeForValue(m_vm, value);
         TypeLocation* location = entry->location;
         location->m_lastSeenType = type;
         if (location->m_globalTypeSet)
@@ -114,8 +114,8 @@ void TypeProfilerLog::processLogEntries(const String& reason)
     m_currentLogEntryPtr = m_logStartPtr;
 
     if (TypeProfilerLogInternal::verbose) {
-        double after = currentTimeMS();
-        dataLogF(" Processing the log took: '%f' ms\n", after - before);
+        MonotonicTime after = MonotonicTime::now();
+        dataLogF(" Processing the log took: '%f' ms\n", (after - before).milliseconds());
     }
 }
 

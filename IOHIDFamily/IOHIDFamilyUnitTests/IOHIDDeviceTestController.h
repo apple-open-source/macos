@@ -18,6 +18,7 @@
 @property (          nullable) IOHIDDeviceRef            device;
 @property (readonly, nonnull)  dispatch_queue_t          deviceQueue;
 @property (          nonnull)  NSMutableArray*           values;
+@property (          nonnull)  NSMutableArray*           reports;
 
 /*!
  * @method -initWithDeviceUniqueID:AndQueue:

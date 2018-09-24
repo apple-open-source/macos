@@ -35,7 +35,7 @@
 #include "XCTest_FunctionDefinitions.h"
 
 __private_extern__ void BatteryTimeRemaining_prime(void);
-
+__private_extern__ void BatteryTimeRemaining_finish(void);
 __private_extern__ void BatteryTimeRemainingSleepWakeNotification(natural_t messageType);
 
 __private_extern__ void BatteryTimeRemainingRTCDidResync(void);

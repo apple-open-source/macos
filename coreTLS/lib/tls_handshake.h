@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "tls_types.h"
+#include <tls_types.h>
 
 /* Various types : */
 /*=================*/
@@ -76,17 +76,17 @@ typedef struct {
     };
 } tls_private_key_desc_t;
 
-tls_private_key_t tls_private_key_create(tls_private_key_desc_t *desc, tls_private_key_ctx_t ctx,
+CORETLS_EXTERN tls_private_key_t tls_private_key_create(tls_private_key_desc_t *desc, tls_private_key_ctx_t ctx,
                                          tls_private_key_ctx_release ctx_release);
 
 /* Deprecated way to create private keys, equivalent to tls_private_key_create with ctx_release==NULL */
-tls_private_key_t tls_private_key_rsa_create(tls_private_key_ctx_t ctx, size_t size, tls_private_key_rsa_sign sign,
+CORETLS_EXTERN tls_private_key_t tls_private_key_rsa_create(tls_private_key_ctx_t ctx, size_t size, tls_private_key_rsa_sign sign,
                                              tls_private_key_rsa_decrypt decrypt);
-tls_private_key_t tls_private_key_ecdsa_create(tls_private_key_ctx_t ctx, size_t size,
+CORETLS_EXTERN tls_private_key_t tls_private_key_ecdsa_create(tls_private_key_ctx_t ctx, size_t size,
                                                uint16_t curve, tls_private_key_ecdsa_sign sign);
 
-tls_private_key_ctx_t tls_private_key_get_context(tls_private_key_t key);
-void tls_private_key_destroy(tls_private_key_t key);
+CORETLS_EXTERN tls_private_key_ctx_t tls_private_key_get_context(tls_private_key_t key);
+CORETLS_EXTERN void tls_private_key_destroy(tls_private_key_t key);
 
 
 typedef void *tls_handshake_ctx_t;
@@ -94,16 +94,16 @@ typedef void *tls_handshake_ctx_t;
 typedef struct _tls_handshake_s *tls_handshake_t;
 
 /* Array of ciphersuites enabled by default */
-extern const unsigned CipherSuiteCount;
-extern const uint16_t KnownCipherSuites[];
+CORETLS_EXTERN const unsigned CipherSuiteCount;
+CORETLS_EXTERN const uint16_t KnownCipherSuites[];
 
 /* Array of curves we support */
-extern const unsigned CurvesCount;
-extern const uint16_t KnownCurves[];
+CORETLS_EXTERN const unsigned CurvesCount;
+CORETLS_EXTERN const uint16_t KnownCurves[];
 
 /* Array of sigalgs we support */
-extern const unsigned SigAlgsCount;
-extern const tls_signature_and_hash_algorithm KnownSigAlgs[];
+CORETLS_EXTERN const unsigned SigAlgsCount;
+CORETLS_EXTERN const tls_signature_and_hash_algorithm KnownSigAlgs[];
 
 /* handshake message types */
 typedef enum {
@@ -276,16 +276,16 @@ typedef struct {
 /* Create & Destroy : */
 /*====================*/
 
-tls_handshake_t
+CORETLS_EXTERN tls_handshake_t
 tls_handshake_create(bool dtls, bool server);
 
-void
+CORETLS_EXTERN void
 tls_handshake_destroy(tls_handshake_t ctx);
 
 
 /* Setup : */
 /*=========*/
-int
+CORETLS_EXTERN int
 tls_handshake_set_callbacks(tls_handshake_t filter,
                                    tls_handshake_callbacks_t *callbacks,
                                    tls_handshake_ctx_t ctx);
@@ -294,52 +294,52 @@ tls_handshake_set_callbacks(tls_handshake_t filter,
 /*==============*/
 
 /* Process Incoming message */
-int
+CORETLS_EXTERN int
 tls_handshake_process(tls_handshake_t filter,
                              const tls_buffer message, uint8_t content_type);
 
 /* Continue a handshake that was paused by a callback */
-int
+CORETLS_EXTERN int
 tls_handshake_continue(tls_handshake_t filter);
 
 /* Trigger first or subsequent handshake - client only */
-int
+CORETLS_EXTERN int
 tls_handshake_negotiate(tls_handshake_t filter, tls_buffer *peerID);
 
 /* Request renegotiation - server only */
-int
+CORETLS_EXTERN int
 tls_handshake_request_renegotiation(tls_handshake_t filter);
 
 /* Close the session */
-int
+CORETLS_EXTERN int
 tls_handshake_close(tls_handshake_t filter);
 
 /* Retransmit timer expired - DTLS only */
-int
+CORETLS_EXTERN int
 tls_handshake_retransmit_timer_expired(tls_handshake_t filter);
 
 /* Send a TLS alert message */
-int
+CORETLS_EXTERN int
 tls_handshake_send_alert(tls_handshake_t filter, tls_alert_level_t level, tls_alert_t description);
 
 /* Set/Get options and parameters : */
 /*==============================*/
 
 /* Allow session to be cached for later resumption */
-int
+CORETLS_EXTERN int
 tls_handshake_set_resumption(tls_handshake_t filter, bool allow);
 
 /* Enabled Session Tickets support (RFC 5077) */
-int
+CORETLS_EXTERN int
 tls_handshake_set_session_ticket_enabled(tls_handshake_t filter, bool enabled);
 
 /* Allow session renegotiation */
-int
+CORETLS_EXTERN int
 tls_handshake_set_renegotiation(tls_handshake_t filter, bool allow);
 
 /* Set enabled ciphersuites */
 /* Unsupported ciphersuites will be filtered out */
-int
+CORETLS_EXTERN int
 tls_handshake_set_ciphersuites(tls_handshake_t filter, const uint16_t *ciphersuite, unsigned n);
 
 /* Get enabled ciphersuites */
@@ -347,95 +347,95 @@ tls_handshake_set_ciphersuites(tls_handshake_t filter, const uint16_t *ciphersui
    the returned ciphersuites pointer becomes invalid when the handshake object is free or
    when tls_handshake_set_ciphersuites is called.
  */
-int
+CORETLS_EXTERN int
 tls_handshake_get_ciphersuites(tls_handshake_t filter, const uint16_t **ciphersuites, unsigned *n);
 
 /* Set/Get minimal enabled TLS version */
-int
+CORETLS_EXTERN int
 tls_handshake_set_min_protocol_version(tls_handshake_t filter, tls_protocol_version min);
-int
+CORETLS_EXTERN int
 tls_handshake_get_min_protocol_version(tls_handshake_t filter, tls_protocol_version *min);
 
 /* Set/Get maximal enabled TLS version */
-int
+CORETLS_EXTERN int
 tls_handshake_set_max_protocol_version(tls_handshake_t filter, tls_protocol_version max);
-int
+CORETLS_EXTERN int
 tls_handshake_get_max_protocol_version(tls_handshake_t filter, tls_protocol_version *max);
 
 /* Set the enabled EC Curves */
-int
+CORETLS_EXTERN int
 tls_handshake_set_curves(tls_handshake_t filter, const uint16_t *curves, unsigned n);
 
 /* Set the transport MTU - DTLS only */
-int
+CORETLS_EXTERN int
 tls_handshake_set_mtu(tls_handshake_t filter, size_t mtu);
 
 /* Set/get minimum group size for DHE ciphersuites - Client only */
 /* bits should be between 512 and 2048, other values will be adjusted accordingly */
-int
+CORETLS_EXTERN int
 tls_handshake_set_min_dh_group_size(tls_handshake_t filter, unsigned nbits);
-int
+CORETLS_EXTERN int
 tls_handshake_get_min_dh_group_size(tls_handshake_t filter, unsigned *nbits);
 
 /* Set DH parameters - Server only */
-int
+CORETLS_EXTERN int
 tls_handshake_set_dh_parameters(tls_handshake_t filter, tls_buffer *params);
 
 /* Set the local identity (cert chain and private key) */
-int
+CORETLS_EXTERN int
 tls_handshake_set_identity(tls_handshake_t filter, SSLCertificate *certs, tls_private_key_t key);
 
 /* Set the encryption public key - this is only used to force the server into unhealthy behavior, for test purpose */
-int
+CORETLS_EXTERN int
 tls_handshake_set_encrypt_rsa_public_key(tls_handshake_t filter, const tls_buffer *modulus, const tls_buffer *exponent);
 
 /* Set the PSK identity - Client only */
-int
+CORETLS_EXTERN int
 tls_handshake_set_psk_identity(tls_handshake_t filter, tls_buffer *psk_identity);
 
 /* Set the PSK identity hint - Server only */
-int
+CORETLS_EXTERN int
 tls_handshake_set_psk_identity_hint(tls_handshake_t filter, tls_buffer *psk_identity_hint);
 
 /* Set the PSK secret for PSK cipher suites */
-int
+CORETLS_EXTERN int
 tls_handshake_set_psk_secret(tls_handshake_t filter, tls_buffer *psk_secret);
 
 /* Set client side auth type - Client only - DEPRECATE */
-int
+CORETLS_EXTERN int
 tls_handshake_set_client_auth_type(tls_handshake_t filter, tls_client_auth_type auth_type);
 
 /* Set peer hostname - Client only */
-int
+CORETLS_EXTERN int
 tls_handshake_set_peer_hostname(tls_handshake_t filter, const char *hostname, size_t len);
-int
+CORETLS_EXTERN int
 tls_handshake_get_peer_hostname(tls_handshake_t filter, const char **hostname, size_t *len);
 
 /* Request client auth - Server Only */
-int
+CORETLS_EXTERN int
 tls_handshake_set_client_auth(tls_handshake_t filter, bool request);
 
 /* Set/Get acceptable CA for client side auth - Server only */
-int
+CORETLS_EXTERN int
 tls_handshake_set_acceptable_dn_list(tls_handshake_t filter, DNListElem *);
-int
+CORETLS_EXTERN int
 tls_handshake_get_acceptable_dn_list(tls_handshake_t filter, DNListElem **);
 
 /* Set acceptable sig algs */
-int
+CORETLS_EXTERN int
 tls_handshake_set_sigalgs(tls_handshake_t filter, const tls_signature_and_hash_algorithm *sigalgs, unsigned n);
 
 /* Set acceptable type for client side auth - Server only */
 /* FIXME: auth_types should be const, but internally we use the same field for the server side, which is not const */
-int
+CORETLS_EXTERN int
 tls_handshake_set_acceptable_client_auth_type(tls_handshake_t filter, tls_client_auth_type *auth_types, unsigned n);
 
 /* Set the peer public key data, called by the client upon processing the peer cert */
-int
+CORETLS_EXTERN int
 tls_handshake_set_peer_rsa_public_key(tls_handshake_t filter, const tls_buffer *modulus, const tls_buffer *exponent);
 
 /* Set the peer public key data, called by the client upon processing the peer cert */
-int
+CORETLS_EXTERN int
 tls_handshake_set_peer_ec_public_key(tls_handshake_t filter, tls_named_curve namedCurve, const tls_buffer *pubKeyBits);
 
 /* Set the result of peer certificate evaluation.
@@ -444,79 +444,79 @@ tls_handshake_set_peer_ec_public_key(tls_handshake_t filter, tls_named_curve nam
    Behavior when there is no certificate message involved in the handshake is undefined. This includes
    the case when the selected ciphersuite does not require a certificate, and the case of session resumption.
 */
-int
+CORETLS_EXTERN int
 tls_handshake_set_peer_trust(tls_handshake_t filter, tls_handshake_trust_t trust);
 
 /* Enable false start - Client only */
-int
+CORETLS_EXTERN int
 tls_handshake_set_false_start(tls_handshake_t filter, bool enabled);
-int
+CORETLS_EXTERN int
 tls_handshake_get_false_start(tls_handshake_t filter, bool *enabled);
 
 /* Client only - Enable NPN */
-int
+CORETLS_EXTERN int
 tls_handshake_set_npn_enable(tls_handshake_t filter, bool enabled);
 
 /* Server: Set supported Application Protocols */
 /* Client: Set selected Application protocol */
-int
+CORETLS_EXTERN int
 tls_handshake_set_npn_data(tls_handshake_t filter, tls_buffer npn_data);
 
 /* Client: Set supported Application Protocols */
 /* Server: Set selected Application protocol */
-int
+CORETLS_EXTERN int
 tls_handshake_set_alpn_data(tls_handshake_t filter, tls_buffer alpn_data);
 
 /* Client: set allowing server to change identity */
-int
+CORETLS_EXTERN int
 tls_handshake_set_server_identity_change(tls_handshake_t filter, bool allowed);
-int
+CORETLS_EXTERN int
 tls_handshake_get_server_identity_change(tls_handshake_t filter, bool *allowed);
 
 /* Client/Server: enable ocsp stapling */
-int
+CORETLS_EXTERN int
 tls_handshake_set_ocsp_enable(tls_handshake_t filter, bool enabled);
 
 /* Client: set ocsp responder_id_list */
-int
+CORETLS_EXTERN int
 tls_handshake_set_ocsp_responder_id_list(tls_handshake_t filter, tls_buffer_list_t *ocsp_responder_id_list);
 
 /* Client: set ocsp request_extensions */
-int
+CORETLS_EXTERN int
 tls_handshake_set_ocsp_request_extensions(tls_handshake_t filter, tls_buffer ocsp_request_extensions);
 
 /* Server: set ocsp response data */
-int
+CORETLS_EXTERN int
 tls_handshake_set_ocsp_response(tls_handshake_t filter, tls_buffer *ocsp_response);
 
 /* Client: enable SCT extension */
-int
+CORETLS_EXTERN int
 tls_handshake_set_sct_enable(tls_handshake_t filter, bool enabled);
 
 /* Server: set SCT list */
-int
+CORETLS_EXTERN int
 tls_handshake_set_sct_list(tls_handshake_t filter, tls_buffer_list_t *sct_list);
 
 /* Client only: indicate this is a fallback attempt, apply proper countermeasure */
-int
+CORETLS_EXTERN int
 tls_handshake_set_fallback(tls_handshake_t filter, bool enabled);
 
 /* Client only: get the fallback state */
-int
+CORETLS_EXTERN int
 tls_handshake_get_fallback(tls_handshake_t filter, bool *enabled);
 
 /* Set TLS user agent string, for diagnostic purposes */
-int
+CORETLS_EXTERN int
 tls_handshake_set_user_agent(tls_handshake_t filter, const char *user_agent);
 
 /* Set TLS config */
-int
+CORETLS_EXTERN int
 tls_handshake_set_config(tls_handshake_t filter, tls_handshake_config_t config);
 
-int
+CORETLS_EXTERN int
 tls_handshake_get_config(tls_handshake_t filter, tls_handshake_config_t *config);
 
-int
+CORETLS_EXTERN int
 tls_handshake_set_ems_enable(tls_handshake_t filter, bool enabled);
 
 /* Get session attributes : */
@@ -529,26 +529,26 @@ tls_handshake_set_ems_enable(tls_handshake_t filter, bool enabled);
 /* The following are attributes of an established session
    and are available after getting the read ready callback */
 
-const uint8_t *
+CORETLS_EXTERN const uint8_t *
 tls_handshake_get_server_random(tls_handshake_t filter);
 
-const uint8_t *
+CORETLS_EXTERN const uint8_t *
 tls_handshake_get_client_random(tls_handshake_t filter);
 
 /* Return true if the client sent a session ID,
    and return the sessionID sent */
-bool
+CORETLS_EXTERN bool
 tls_handshake_get_session_proposed(tls_handshake_t filter, tls_buffer *sessionID);
 
 /* Return true if the server resumed the session, 
    and return the resumed or new sessionID */
-bool
+CORETLS_EXTERN bool
 tls_handshake_get_session_match(tls_handshake_t filter, tls_buffer *sessionID);
 
-const uint8_t *
+CORETLS_EXTERN const uint8_t *
 tls_handshake_get_master_secret(tls_handshake_t filter);
 
-bool
+CORETLS_EXTERN bool
 tls_handshake_get_negotiated_ems(tls_handshake_t filter);
 
 /* Negotiation attributes */
@@ -561,91 +561,91 @@ tls_handshake_get_negotiated_ems(tls_handshake_t filter);
    certificate_request message is processed */
 
 /* Available after receiving the client_hello or server_hello message: */
-tls_protocol_version
+CORETLS_EXTERN tls_protocol_version
 tls_handshake_get_negotiated_protocol_version(tls_handshake_t filter);
 
 /* Available after sending or receiving server_hello message */
-uint16_t
+CORETLS_EXTERN uint16_t
 tls_handshake_get_negotiated_cipherspec(tls_handshake_t filter);
 
 /* Available after sending or receiving server_hello message */
-uint16_t
+CORETLS_EXTERN uint16_t
 tls_handshake_get_negotiated_curve(tls_handshake_t filter);
 
 /* Server only:  get the SNI hostname if provided by client - available after receiving the client_hello message */
-const tls_buffer *
+CORETLS_EXTERN const tls_buffer *
 tls_handshake_get_sni_hostname(tls_handshake_t filter);
 
 /* Available after receiving the certificate message */
-const SSLCertificate *
+CORETLS_EXTERN const SSLCertificate *
 tls_handshake_get_peer_certificates(tls_handshake_t filter);
 
 /* Client only - available after receiving the certificate_request message */
-const DNListElem *
+CORETLS_EXTERN const DNListElem *
 tls_handshake_get_peer_acceptable_dn_list(tls_handshake_t filter);
 
 /* Client only - available after receiving the certificate_request message */
-const tls_client_auth_type *
+CORETLS_EXTERN const tls_client_auth_type *
 tls_handshake_get_peer_acceptable_client_auth_type(tls_handshake_t filter, unsigned *num);
 
 /* Server only : available after receiving the client_hello message */
-const uint16_t *
+CORETLS_EXTERN const uint16_t *
 tls_handshake_get_peer_requested_ciphersuites(tls_handshake_t filter, unsigned *num);
 
 /* Server: available after receiving the client_hello message
    Client: available after receiving the certificate_request message */
-const tls_signature_and_hash_algorithm *
+CORETLS_EXTERN const tls_signature_and_hash_algorithm *
 tls_handshake_get_peer_signature_algorithms(tls_handshake_t filter, unsigned *num);
 
 /* Client only - available after receiving the server_key_exchange message */
-const tls_buffer *
+CORETLS_EXTERN const tls_buffer *
 tls_handshake_get_peer_psk_identity_hint(tls_handshake_t filter);
 
 /* Server only - available after receiving the client_key_exchange message */
-const tls_buffer *
+CORETLS_EXTERN const tls_buffer *
 tls_handshake_get_peer_psk_identity(tls_handshake_t filter);
 
 /* Server only - available after receiving the client_hello message */
-bool
-tls_handshake_get_peer_npn_enabled(tls_handshake_t filter);
+//bool
+//tls_handshake_get_peer_npn_enabled(tls_handshake_t filter);
 
 /* Server: available after receiving the NPN_encrypted_extension message
    Client: available after receiving the server_hello message */
-const tls_buffer *
+CORETLS_EXTERN const tls_buffer *
 tls_handshake_get_peer_npn_data(tls_handshake_t filter);
 
 /* Client: available after receiving the server_hello message
    Server: available after receiving the client_hello message */
-const tls_buffer *
+CORETLS_EXTERN const tls_buffer *
 tls_handshake_get_peer_alpn_data(tls_handshake_t filter);
 
 /* Client: available after receiving the server_hello message
  Server: available after receiving the client_hello message */
-bool
+CORETLS_EXTERN bool
 tls_handshake_get_peer_ocsp_enabled(tls_handshake_t filter);
 
 /* Client: available after receiving the certificate_status message */
-const tls_buffer *
+CORETLS_EXTERN const tls_buffer *
 tls_handshake_get_peer_ocsp_response(tls_handshake_t filter);
 
 /* Server: available after receiving the client hello message */
-const tls_buffer_list_t *
+CORETLS_EXTERN const tls_buffer_list_t *
 tls_handshake_get_peer_ocsp_responder_id_list(tls_handshake_t filter);
 
 /* Server: available after receiving the client hello message */
-const tls_buffer *
+CORETLS_EXTERN const tls_buffer *
 tls_handshake_get_peer_ocsp_request_extensions(tls_handshake_t filter);
 
 /* Server: available after receiving the client_hello message */
-bool
+CORETLS_EXTERN bool
 tls_handshake_get_peer_sct_enabled(tls_handshake_t filter);
 
 /* Client: available after receiving the server_hello message */
-const tls_buffer_list_t *
+CORETLS_EXTERN const tls_buffer_list_t *
 tls_handshake_get_peer_sct_list(tls_handshake_t filter);
 
 /* Server only : available after receiving the client_hello message */
-const uint16_t *
+CORETLS_EXTERN const uint16_t *
 tls_handshake_get_peer_requested_ecdh_curves(tls_handshake_t filter, unsigned *num);
 
 
@@ -653,7 +653,7 @@ tls_handshake_get_peer_requested_ecdh_curves(tls_handshake_t filter, unsigned *n
 /*====================*/
 
 /* TLS Internal PRF - not valid for SSL 3 connections */
-int tls_handshake_internal_prf(tls_handshake_t ctx,
+CORETLS_EXTERN int tls_handshake_internal_prf(tls_handshake_t ctx,
                                const void *vsecret,
                                size_t secretLen,
                                const void *label,		// optional, NULL implies that seed contains the label
@@ -674,23 +674,23 @@ typedef void (*tls_handshake_master_secret_function_t)(const void *arg,         
                                                        void *secret,			/* mallocd by caller, SSL_MASTER_SECRET_SIZE */
                                                        size_t *secretLength);   /* in/out */
 
-int
+CORETLS_EXTERN int
 tls_handshake_internal_set_master_secret_function(tls_handshake_t ctx, tls_handshake_master_secret_function_t mFunc, const void *arg);
 
-int
+CORETLS_EXTERN int
 tls_handshake_internal_set_session_ticket(tls_handshake_t ctx, const void *ticket, size_t ticketLength);
 
-int
+CORETLS_EXTERN int
 tls_handshake_internal_master_secret(tls_handshake_t ctx,
                                      void *secret,          // mallocd by caller, SSL_MASTER_SECRET_SIZE
                                      size_t *secretSize);   // in/out
 
-int
+CORETLS_EXTERN int
 tls_handshake_internal_server_random(tls_handshake_t ctx,
                                      void *randBuf, 		// mallocd by caller, SSL_CLIENT_SRVR_RAND_SIZE
                                      size_t *randSize);     // in/out
 
-int
+CORETLS_EXTERN int
 tls_handshake_internal_client_random(tls_handshake_t ctx,
                                      void *randBuf,  	// mallocd by caller, SSL_CLIENT_SRVR_RAND_SIZE
                                      size_t *randSize);	// in/out

@@ -94,6 +94,7 @@ public:
     bool mNoTimeStampCerts;       // don't request certificates with timestamping request
 	LimitedAsync *mLimitedAsync;	// limited async workers for verification
 	uint32_t mRuntimeVersionOverride;	// runtime Version Override
+	bool mPreserveAFSC;             // preserve AFSC compression
 
 };
 

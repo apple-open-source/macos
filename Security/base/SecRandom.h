@@ -52,9 +52,25 @@ extern const SecRandomRef kSecRandomDefault
 
 /*!
      @function SecRandomCopyBytes
-     @abstract Return count random bytes in *bytes, allocated by the caller.
-        It is critical to check the return value for error
+
+     @abstract
+     Return count random bytes in *bytes, allocated by the caller. It
+     is critical to check the return value for error.
+
+     @param rnd
+     Only @p kSecRandomDefault is supported.
+
+     @param count
+     The number of bytes to generate.
+
+     @param bytes
+     A buffer to fill with random output.
+
      @result Return 0 on success, any other value on failure.
+
+     @discussion
+     If @p rnd is unrecognized or unsupported, @p kSecRandomDefault is
+     used.
 */
 int SecRandomCopyBytes(SecRandomRef __nullable rnd, size_t count, void *bytes)
     __attribute__ ((warn_unused_result))

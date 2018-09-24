@@ -30,7 +30,9 @@
 #import "SFAnalyticsMultiSampler+Internal.h"
 #import "SFAnalyticsSQLiteStore.h"
 #import "utilities/debugging.h"
+#import <utilities/SecFileLocations.h>
 #import <objc/runtime.h>
+#import <sys/stat.h>
 #import <CoreFoundation/CFPriv.h>
 
 // SFAnalyticsDefines constants
@@ -107,6 +109,8 @@ NSString* const SFAnalyticsTableSchema =    @"CREATE TABLE IF NOT EXISTS hard_fa
 
 NSUInteger const SFAnalyticsMaxEventsToReport = 1000;
 
+NSString* const SFAnalyticsErrorDomain = @"com.apple.security.sfanalytics";
+
 // Local constants
 NSString* const SFAnalyticsEventBuild = @"build";
 NSString* const SFAnalyticsEventProduct = @"product";
@@ -114,6 +118,7 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
 @interface SFAnalytics ()
 @property (nonatomic) SFAnalyticsSQLiteStore* database;
+@property (nonatomic) dispatch_queue_t queue;
 @end
 
 @implementation SFAnalytics {
@@ -154,6 +159,24 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     return nil;
 }
 
++ (NSString *)defaultAnalyticsDatabasePath:(NSString *)basename
+{
+    WithPathInKeychainDirectory(CFSTR("Analytics"), ^(const char *path) {
+#if TARGET_OS_IPHONE
+        mode_t permissions = 0775;
+#else
+        mode_t permissions = 0700;
+#endif // TARGET_OS_IPHONE
+        int ret = mkpath_np(path, permissions);
+        if (!(ret == 0 || ret ==  EEXIST)) {
+            secerror("could not create path: %s (%s)", path, strerror(ret));
+        }
+        chmod(path, permissions);
+    });
+    NSString *path = [NSString stringWithFormat:@"Analytics/%@.db", basename];
+    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)path) path];
+}
+
 + (NSInteger)fuzzyDaysSinceDate:(NSDate*)date
 {
     // Sentinel: it didn't happen at all
@@ -192,6 +215,9 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 {
     if (!_database) {
         _database = [SFAnalyticsSQLiteStore storeWithPath:self.class.databasePath schema:SFAnalyticsTableSchema];
+        if (!_database) {
+            seccritical("Did not get a database! (Client %@)", NSStringFromClass([self class]));
+        }
     }
     return _database;
 }
@@ -463,7 +489,7 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     }
 
     __weak __typeof(self) weakSelf = self;
-    dispatch_sync(_queue, ^{
+    dispatch_async(_queue, ^{
         __strong __typeof(self) strongSelf = weakSelf;
         if (strongSelf) {
             [strongSelf->_samplers[samplerName] pauseSampling];    // when dealloced it would also stop, but we're not sure when that is so let's stop it right away
@@ -480,7 +506,7 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     }
 
     __weak __typeof(self) weakSelf = self;
-    dispatch_sync(_queue, ^{
+    dispatch_async(_queue, ^{
         __strong __typeof(self) strongSelf = weakSelf;
         if (strongSelf) {
             [strongSelf->_multisamplers[samplerName] pauseSampling];    // when dealloced it would also stop, but we're not sure when that is so let's stop it right away
@@ -496,8 +522,9 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         return nil;
     }
     SFAnalyticsActivityTracker* tracker = [[SFAnalyticsActivityTracker alloc] initWithName:eventName clientClass:[self class]];
-    if (action)
+    if (action) {
         [tracker performAction:action];
+    }
     return tracker;
 }
 
@@ -514,7 +541,7 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     }
 
     __weak __typeof(self) weakSelf = self;
-    dispatch_sync(_queue, ^{
+    dispatch_async(_queue, ^{
         __strong __typeof(self) strongSelf = weakSelf;
         if (strongSelf && !strongSelf->_disableLogging) {
             if (once) {

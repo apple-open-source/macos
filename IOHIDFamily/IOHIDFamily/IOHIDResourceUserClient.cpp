@@ -25,6 +25,7 @@
 #include <IOKit/IOLib.h>
 #include <sys/proc.h>
 #include <TargetConditionals.h>
+#include <os/overflow.h>
 
 #define kIOHIDManagerUserAccessUserDeviceEntitlement "com.apple.hid.manager.user-access-device"
 
@@ -170,6 +171,9 @@ void IOHIDResourceDeviceUserClient::stop(IOService * provider)
         workLoop->removeEventSource(_commandGate);
     }
 
+    releaseNotificationPort (_port);
+    _port = MACH_PORT_NULL;
+
 exit:
     super::stop(provider);
 }
@@ -230,11 +234,15 @@ IOReturn IOHIDResourceDeviceUserClient::registerNotificationPortGated(mach_port_
     require_action(!isInactive(), exit, result=kIOReturnOffline);
     require_action(_queue, exit, result=kIOReturnError);
 
+    releaseNotificationPort (_port);
+    
     _port = port;
     _queue->setNotificationPort(port);
     
     result = kIOReturnSuccess;
+
 exit:
+    
     return result;
 }
 
@@ -890,7 +898,7 @@ bool IOHIDResourceDeviceUserClient::serializeDebugState(void *ref __unused, OSSe
     SET_DICT_NUM(dict, "GetReportTimeoutCount", _getReportTimeoutCount);
     SET_DICT_NUM(dict, "EnqueueFailCount", _enqueueFailCount);
     SET_DICT_NUM(dict, "HandleReportCount", _handleReportCount);
-    SET_DICT_NUM(dict, "ClientTimeoutUS", _maxClientTimeoutUS);
+    SET_DICT_NUM(dict, "MaxClientTimeoutUS", _maxClientTimeoutUS);
     
     result = dict->serialize(serializer);
     OSSafeReleaseNULL(dict);
@@ -947,13 +955,31 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
 {
     UInt32              headerSize  = sizeof(IOHIDResourceDataQueueHeader);
     UInt32              reportSize  = report ? (UInt32)report->getLength() : 0;
-    UInt32              dataSize    = ALIGNED_DATA_SIZE(headerSize + reportSize, sizeof(uint32_t));
+    UInt32              dataSize;
     UInt32              head;
     UInt32              tail;
     UInt32              newTail;
-    const UInt32        entrySize   = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
+    UInt32              entrySize;
     IODataQueueEntry *  entry;
+    UInt32              totalSize;
+    
+    // check overflow of headerSize + reportSize
+    if (os_add_overflow(headerSize, reportSize, &totalSize)) {
+        return false;
+    }
 
+    dataSize = ALIGNED_DATA_SIZE(totalSize, sizeof(uint32_t));
+    
+    // check overflow after alignment
+    if (dataSize < totalSize) {
+        return false;
+    }
+    
+    // check overflow of entrySize
+    if (os_add_overflow(dataSize, DATA_QUEUE_ENTRY_HEADER_SIZE, &entrySize)) {
+        return false;
+    }
+    
     // Force a single read of head and tail
     tail = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->tail, __ATOMIC_RELAXED);
     head = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_ACQUIRE);

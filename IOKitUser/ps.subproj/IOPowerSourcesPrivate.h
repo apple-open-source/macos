@@ -241,15 +241,12 @@ IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
 #define kPSTimeRemainingNotifyFullyChargedBit   (1 << 21)
 #define kPSTimeRemainingNotifyBattSupportBit    (1 << 22)
 #define kPSTimeRemainingNotifyUPSSupportBit     (1 << 23)
-#if TARGET_OS_IPHONE
 #define kPSCriticalLevelBit                     (1 << 24)
 #define kPSRestrictedLevelBit                   (1 << 25)
 #define kPSTimeRemainingNotifyRawExternalBit    (1 << 26)
 #define kPSTimeRemainingNotifyShowChargingUIBit (1 << 27)
-#endif
 #define kPSTimeRemainingNotifyActivePS8BitsStarts   56
 
-#if TARGET_OS_IPHONE
 /*
  * Notify(3) string on which powerd posts a notification when system enters critical level
  */
@@ -258,7 +255,6 @@ IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
  * Notify(3) string on which powerd posts a notification when system enters restricted mode
  */
 #define kIOPSNotifyRestrictedMode           "com.apple.system.powersources.restrictedmode"
-#endif
 
 /*!
  * @define      kIOPSBattLogEntryTime

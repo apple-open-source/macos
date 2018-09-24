@@ -53,6 +53,7 @@
 #include <Security/SecKeyPriv.h>
 #include <CoreFoundation/CFTimeZone.h>
 #include <utilities/SecCFWrappers.h>
+#include <utilities/debugging.h>
 #include <AssertMacros.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <Security/SecPolicyPriv.h>
@@ -633,9 +634,7 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
     
     debugShowSigningCertificate(signerinfo);
 
-    OSStatus status;
-    if ((status = SecCertificateCopyPublicKey(cert, &publickey))) {
-        syslog(LOG_ERR, "SecCmsSignerInfoVerifyWithPolicy: copy public key failed %d", (int)status);
+    if (NULL == (publickey = SecCertificateCopyKey(cert))) {
 	vs = SecCmsVSProcessingError;
 	goto loser;
     }
@@ -821,6 +820,10 @@ SecCmsSignerInfoVerifyUnAuthAttrsWithPolicy(SecCmsSignerInfoRef signerinfo,CFTyp
     dprintf("found an id-ct-TSTInfo\n");
     // Don't check the nonce in this case
     status = decodeTimeStampTokenWithPolicy(signerinfo, timeStampPolicy, (attr->values)[0], &signerinfo->encDigest, 0);
+    if (status != errSecSuccess) {
+        secerror("timestamp verification failed: %d", (int)status);
+    }
+
 xit:
     return status;
 }
@@ -1093,6 +1096,41 @@ SecCmsSignerInfoGetAppleCodesigningHashAgilityV2(SecCmsSignerInfoRef sinfo, CFDi
         return SECSuccess;
     }
     return errSecAllocate;
+}
+
+/*
+ * SecCmsSignerInfoGetAppleExpirationTime - return the expiration time,
+ *                      in UTCTime format, of a CMS signerInfo.
+ *
+ * sinfo - signerInfo data for this signer
+ *
+ * Returns a pointer to XXXX (what?)
+ * A return value of NULL is an error.
+ */
+OSStatus
+SecCmsSignerInfoGetAppleExpirationTime(SecCmsSignerInfoRef sinfo, CFAbsoluteTime *etime)
+{
+    SecCmsAttribute *attr = NULL;
+    SecAsn1Item * value = NULL;
+
+    if (sinfo == NULL || etime == NULL) {
+        return SECFailure;
+    }
+
+    if (sinfo->expirationTime != 0) {
+        *etime = sinfo->expirationTime;    /* cached copy */
+        return SECSuccess;
+    }
+
+    attr = SecCmsAttributeArrayFindAttrByOidTag(sinfo->authAttr, SEC_OID_APPLE_EXPIRATION_TIME, PR_TRUE);
+    if (attr == NULL || (value = SecCmsAttributeGetValue(attr)) == NULL) {
+        return SECFailure;
+    }
+    if (DER_UTCTimeToCFDate(value, etime) != SECSuccess) {
+        return SECFailure;
+    }
+    sinfo->expirationTime = *etime;    /* make cached copy */
+    return SECSuccess;
 }
 
 /*
@@ -1621,6 +1659,46 @@ loser:
     return status;
 }
 
+/*
+ * SecCmsSignerInfoAddAppleExpirationTime - add the expiration time to the
+ * authenticated (i.e. signed) attributes of "signerinfo".
+ *
+ * This is expected to be included in outgoing signed
+ * messages for Asset Receipts but is likely useful in other situations.
+ *
+ * This should only be added once; a second call will do nothing.
+ */
+OSStatus
+SecCmsSignerInfoAddAppleExpirationTime(SecCmsSignerInfoRef signerinfo, CFAbsoluteTime t)
+{
+    SecCmsAttribute *attr = NULL;
+    PLArenaPool *poolp = signerinfo->cmsg->poolp;
+    void *mark = PORT_ArenaMark(poolp);
+
+    /* create new expiration time attribute */
+    SecAsn1Item etime;
+    if (DER_CFDateToUTCTime(t, &etime) != SECSuccess) {
+        goto loser;
+    }
+
+    if ((attr = SecCmsAttributeCreate(poolp, SEC_OID_APPLE_EXPIRATION_TIME, &etime, PR_FALSE)) == NULL) {
+        SECITEM_FreeItem (&etime, PR_FALSE);
+        goto loser;
+    }
+
+    SECITEM_FreeItem(&etime, PR_FALSE);
+
+    if (SecCmsSignerInfoAddAuthAttr(signerinfo, attr) != SECSuccess) {
+        goto loser;
+    }
+
+    PORT_ArenaUnmark(poolp, mark);
+    return SECSuccess;
+
+loser:
+    PORT_ArenaRelease(poolp, mark);
+    return SECFailure;
+}
 
 SecCertificateRef SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(SecCmsSignerInfoRef signerinfo) {
     SecCertificateRef cert = NULL;

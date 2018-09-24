@@ -13,7 +13,7 @@
 static void testFileVaultKeyRawSign() {
     id key = CFBridgingRelease(SecKeyCreateWithSecureKeyVaultID(kCFAllocatorDefault, kSecureKeyVaultIAPAuthPrivateKey));
     id certificate = CFBridgingRelease(SecCertificateCreateWithSecureKeyVaultID(kCFAllocatorDefault, kSecureKeyVaultIAPAuthPrivateKey));
-    id pubKey = CFBridgingRelease(SecCertificateCopyPublicKey((SecCertificateRef)certificate));
+    id pubKey = CFBridgingRelease(SecCertificateCopyKey((SecCertificateRef)certificate));
 
     uint8_t hash[20] = { 0 };
     uint8_t signature[256] = { 0 };
@@ -29,7 +29,7 @@ static void testFileVaultKeySign() {
     NSError *error;
     id key = CFBridgingRelease(SecKeyCreateWithSecureKeyVaultID(kCFAllocatorDefault, kSecureKeyVaultIAPAuthPrivateKey));
     id certificate = CFBridgingRelease(SecCertificateCreateWithSecureKeyVaultID(kCFAllocatorDefault, kSecureKeyVaultIAPAuthPrivateKey));
-    id pubKey = CFBridgingRelease(SecCertificateCopyPublicKey((SecCertificateRef)certificate));
+    id pubKey = CFBridgingRelease(SecCertificateCopyKey((SecCertificateRef)certificate));
 
     algorithm = kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1;
     error = nil;

@@ -22,8 +22,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <AssertMacros.h>
+#if KERNEL
 #include <IOKit/IOLib.h>
+#endif /*KERNEL*/
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdocumentation"
 #include "IOHIDEventTypes.h"
+#pragma clang diagnostic pop
 #include "IOHIDEvent.h"
 #include "IOHIDEventData.h"
 #include "IOHIDUsageTables.h"
@@ -81,7 +86,7 @@ bool IOHIDEvent::initWithType(IOHIDEventType type, IOByteCount additionalCapacit
 
     IOHIDEventGetSize(type,capacity);
 
-    if ( !initWithCapacity(capacity+additionalCapacity) )
+    if ( !initWithCapacity((IOByteCount)(capacity+additionalCapacity ) ) )
         return false;
 
     _data->type = type;
@@ -1280,7 +1285,7 @@ IOHIDEvent * IOHIDEvent::humidityEvent(AbsoluteTime timeStamp, IOFixed rh, UInt3
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// IOHIDEvent::humidityEvent
+// IOHIDEvent::brightnessEvent
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 IOHIDEvent * IOHIDEvent::brightnessEvent(AbsoluteTime timeStamp, IOFixed currentBrightness, IOFixed targetBrightness, UInt64 transitionTime, IOOptionBits options)
 {
@@ -1299,6 +1304,45 @@ IOHIDEvent * IOHIDEvent::brightnessEvent(AbsoluteTime timeStamp, IOFixed current
   
     return me;
 }
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::orienrationEvent
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent *   IOHIDEvent::orientationEvent(AbsoluteTime timeStamp, UInt32 orientationType, IOOptionBits options)
+{
+    IOHIDEvent *me = new IOHIDEvent;
+    
+    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeOrientation, timeStamp, options)) {
+        me->release();
+        return 0;
+    }
+    
+    __IOHIDOrientationEventData *event = (__IOHIDOrientationEventData *) me->_data;
+    
+    event->orientationType = orientationType;
+	
+	return me;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::genericGestureEvent
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent * IOHIDEvent::genericGestureEvent(AbsoluteTime timeStamp, IOHIDGenericGestureType gestureType, IOOptionBits options)
+{
+    IOHIDEvent *me = new IOHIDEvent;
+    
+    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeGenericGesture, timeStamp, options)) {
+        me->release();
+        return NULL;
+    }
+    
+    __IOHIDGenericGestureEventData *event = (__IOHIDGenericGestureEventData *) me->_data;
+    
+    event->gestureType = gestureType;
+    
+    return me;
+}
+
 
 //==============================================================================
 // IOHIDEvent::appendChild
@@ -1520,14 +1564,30 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
         
         if ( (queueElement->attributeLength + offset) > total )
             break;
+        
+        if ((total - (queueElement->attributeLength + offset)) < sizeof(IOHIDEventData) )
+            break;
+        
         IOHIDEventData *    eventData   = (IOHIDEventData *)(queueElement->payload + queueElement->attributeLength + offset);
         if ( eventData->type >= kIOHIDEventTypeCount )
             break;
         IOHIDEvent *        event       = IOHIDEvent::withType(eventData->type);
 
         if ( !event )
-            continue;
+            break;
 
+        if ( eventData->size < event->_data->size )
+            break;
+        
+        if ( (total - (queueElement->attributeLength + offset)) < eventData->size )
+            break;
+        
+        if ( eventData->type == kIOHIDEventTypeVendorDefined ) {
+            
+            if ( !event->initWithCapacity(eventData->size) )
+                break;
+        }
+        
         bcopy(eventData, event->_data, event->_data->size);
         AbsoluteTime_to_scalar(&(event->_timeStamp)) = queueElement->timeStamp;
         event->_options = queueElement->options;
@@ -1537,6 +1597,7 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
             parent = event;
         else {
             //Append event here;
+            parent->appendChild(event);
             event->release();
         }
         
@@ -1547,14 +1608,23 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
 
     return parent;
 }
-
+//==============================================================================
+// IOHIDEvent::getChildren
+//==============================================================================
+OSArray* IOHIDEvent::getChildren()
+{
+    return _children;
+}
 //==============================================================================
 // IOHIDEvent::readBytes
 //==============================================================================
 IOByteCount IOHIDEvent::readBytes(void * bytes, IOByteCount withLength)
 {
     IOHIDSystemQueueElement *   queueElement= NULL;
-
+    
+    if ( withLength < sizeof(IOHIDSystemQueueElement) )
+        return 0;
+    
     queueElement    = (IOHIDSystemQueueElement *)bytes;
 
     queueElement->timeStamp         = *((uint64_t *)&_timeStamp);

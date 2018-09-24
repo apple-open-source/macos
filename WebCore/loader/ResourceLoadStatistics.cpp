@@ -28,10 +28,13 @@
 
 #include "KeyedCoding.h"
 #include "PublicSuffix.h"
+#include <wtf/MainThread.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
+
+static Seconds timestampResolution { 5_s };
 
 typedef WTF::HashMap<String, unsigned, StringHash, HashTraits<String>, HashTraits<unsigned>>::KeyValuePairType ResourceLoadStatisticsValue;
 
@@ -70,15 +73,21 @@ void ResourceLoadStatistics::encode(KeyedEncoder& encoder) const
     // Storage access
     encodeHashSet(encoder, "storageAccessUnderTopFrameOrigins", storageAccessUnderTopFrameOrigins);
 
+    // Top frame stats
+    encodeHashCountedSet(encoder, "topFrameUniqueRedirectsTo", topFrameUniqueRedirectsTo);
+    encodeHashCountedSet(encoder, "topFrameUniqueRedirectsFrom", topFrameUniqueRedirectsFrom);
+
     // Subframe stats
     encodeHashCountedSet(encoder, "subframeUnderTopFrameOrigins", subframeUnderTopFrameOrigins);
     
     // Subresource stats
     encodeHashCountedSet(encoder, "subresourceUnderTopFrameOrigins", subresourceUnderTopFrameOrigins);
     encodeHashCountedSet(encoder, "subresourceUniqueRedirectsTo", subresourceUniqueRedirectsTo);
-    
+    encodeHashCountedSet(encoder, "subresourceUniqueRedirectsFrom", subresourceUniqueRedirectsFrom);
+
     // Prevalent Resource
     encoder.encodeBool("isPrevalentResource", isPrevalentResource);
+    encoder.encodeBool("isVeryPrevalentResource", isVeryPrevalentResource);
     encoder.encodeUInt32("dataRecordsRemoved", dataRecordsRemoved);
 
     encoder.encodeUInt32("timesAccessedAsFirstPartyDueToUserInteraction", timesAccessedAsFirstPartyDueToUserInteraction);
@@ -113,7 +122,7 @@ static void decodeHashSet(KeyedDecoder& decoder, const String& label, HashSet<St
     });
 }
 
-bool ResourceLoadStatistics::decode(KeyedDecoder& decoder)
+bool ResourceLoadStatistics::decode(KeyedDecoder& decoder, unsigned modelVersion)
 {
     if (!decoder.decodeString("PrevalentResourceOrigin", highLevelDomain))
         return false;
@@ -125,16 +134,29 @@ bool ResourceLoadStatistics::decode(KeyedDecoder& decoder)
     // Storage access
     decodeHashSet(decoder, "storageAccessUnderTopFrameOrigins", storageAccessUnderTopFrameOrigins);
 
+    // Top frame stats
+    if (modelVersion >= 11) {
+        decodeHashCountedSet(decoder, "topFrameUniqueRedirectsTo", topFrameUniqueRedirectsTo);
+        decodeHashCountedSet(decoder, "topFrameUniqueRedirectsFrom", topFrameUniqueRedirectsFrom);
+    }
+
     // Subframe stats
     decodeHashCountedSet(decoder, "subframeUnderTopFrameOrigins", subframeUnderTopFrameOrigins);
     
     // Subresource stats
     decodeHashCountedSet(decoder, "subresourceUnderTopFrameOrigins", subresourceUnderTopFrameOrigins);
     decodeHashCountedSet(decoder, "subresourceUniqueRedirectsTo", subresourceUniqueRedirectsTo);
-    
+    if (modelVersion >= 11)
+        decodeHashCountedSet(decoder, "subresourceUniqueRedirectsFrom", subresourceUniqueRedirectsFrom);
+
     // Prevalent Resource
     if (!decoder.decodeBool("isPrevalentResource", isPrevalentResource))
         return false;
+
+    if (modelVersion >= 12) {
+        if (!decoder.decodeBool("isVeryPrevalentResource", isVeryPrevalentResource))
+            return false;
+    }
 
     if (!decoder.decodeUInt32("dataRecordsRemoved", dataRecordsRemoved))
         return false;
@@ -152,11 +174,12 @@ bool ResourceLoadStatistics::decode(KeyedDecoder& decoder)
         return false;
     lastSeen = WallTime::fromRawSeconds(lastSeenTimeAsDouble);
 
-    if (!decoder.decodeUInt32("timesAccessedAsFirstPartyDueToUserInteraction", timesAccessedAsFirstPartyDueToUserInteraction))
-        timesAccessedAsFirstPartyDueToUserInteraction = 0;
-    if (!decoder.decodeUInt32("timesAccessedAsFirstPartyDueToStorageAccessAPI", timesAccessedAsFirstPartyDueToStorageAccessAPI))
-        timesAccessedAsFirstPartyDueToStorageAccessAPI = 0;
-
+    if (modelVersion >= 11) {
+        if (!decoder.decodeUInt32("timesAccessedAsFirstPartyDueToUserInteraction", timesAccessedAsFirstPartyDueToUserInteraction))
+            timesAccessedAsFirstPartyDueToUserInteraction = 0;
+        if (!decoder.decodeUInt32("timesAccessedAsFirstPartyDueToStorageAccessAPI", timesAccessedAsFirstPartyDueToStorageAccessAPI))
+            timesAccessedAsFirstPartyDueToStorageAccessAPI = 0;
+    }
     return true;
 }
 
@@ -222,15 +245,21 @@ String ResourceLoadStatistics::toString() const
     // Storage access
     appendHashSet(builder, "storageAccessUnderTopFrameOrigins", storageAccessUnderTopFrameOrigins);
 
+    // Top frame stats
+    appendHashCountedSet(builder, "topFrameUniqueRedirectsTo", topFrameUniqueRedirectsTo);
+    appendHashCountedSet(builder, "topFrameUniqueRedirectsFrom", topFrameUniqueRedirectsFrom);
+
     // Subframe stats
     appendHashCountedSet(builder, "subframeUnderTopFrameOrigins", subframeUnderTopFrameOrigins);
     
     // Subresource stats
     appendHashCountedSet(builder, "subresourceUnderTopFrameOrigins", subresourceUnderTopFrameOrigins);
     appendHashCountedSet(builder, "subresourceUniqueRedirectsTo", subresourceUniqueRedirectsTo);
-    
+    appendHashCountedSet(builder, "subresourceUniqueRedirectsFrom", subresourceUniqueRedirectsFrom);
+
     // Prevalent Resource
     appendBoolean(builder, "isPrevalentResource", isPrevalentResource);
+    appendBoolean(builder, "    isVeryPrevalentResource", isVeryPrevalentResource);
     builder.appendLiteral("    dataRecordsRemoved: ");
     builder.appendNumber(dataRecordsRemoved);
     builder.append('\n');
@@ -283,15 +312,21 @@ void ResourceLoadStatistics::merge(const ResourceLoadStatistics& other)
     // Storage access
     mergeHashSet(storageAccessUnderTopFrameOrigins, other.storageAccessUnderTopFrameOrigins);
 
+    // Top frame stats
+    mergeHashCountedSet(topFrameUniqueRedirectsTo, other.topFrameUniqueRedirectsTo);
+    mergeHashCountedSet(topFrameUniqueRedirectsFrom, other.topFrameUniqueRedirectsFrom);
+
     // Subframe stats
     mergeHashCountedSet(subframeUnderTopFrameOrigins, other.subframeUnderTopFrameOrigins);
     
     // Subresource stats
     mergeHashCountedSet(subresourceUnderTopFrameOrigins, other.subresourceUnderTopFrameOrigins);
     mergeHashCountedSet(subresourceUniqueRedirectsTo, other.subresourceUniqueRedirectsTo);
-    
+    mergeHashCountedSet(subresourceUniqueRedirectsFrom, other.subresourceUniqueRedirectsFrom);
+
     // Prevalent resource stats
     isPrevalentResource |= other.isPrevalentResource;
+    isVeryPrevalentResource |= other.isVeryPrevalentResource;
     dataRecordsRemoved = std::max(dataRecordsRemoved, other.dataRecordsRemoved);
     
     // In-memory only
@@ -304,19 +339,59 @@ String ResourceLoadStatistics::primaryDomain(const URL& url)
     return primaryDomain(url.host());
 }
 
-String ResourceLoadStatistics::primaryDomain(const String& host)
+String ResourceLoadStatistics::primaryDomain(StringView host)
 {
     if (host.isNull() || host.isEmpty())
-        return ASCIILiteral("nullOrigin");
+        return "nullOrigin"_s;
 
+    String hostString = host.toString();
 #if ENABLE(PUBLIC_SUFFIX_LIST)
-    String primaryDomain = topPrivatelyControlledDomain(host);
+    String primaryDomain = topPrivatelyControlledDomain(hostString);
     // We will have an empty string here if there is no TLD. Use the host as a fallback.
     if (!primaryDomain.isEmpty())
         return primaryDomain;
 #endif
 
-    return host;
+    return hostString;
+}
+
+// FIXME: Temporary fix for <rdar://problem/32343256> until content can be updated.
+bool ResourceLoadStatistics::areDomainsAssociated(bool needsSiteSpecificQuirks, const String& firstDomain, const String& secondDomain)
+{
+    ASSERT(isMainThread());
+
+    static NeverDestroyed<HashMap<String, unsigned>> metaDomainIdentifiers = [] {
+        HashMap<String, unsigned> map;
+
+        // Domains owned by Dow Jones & Company, Inc.
+        const unsigned dowJonesIdentifier = 1;
+        map.add("dowjones.com"_s, dowJonesIdentifier);
+        map.add("wsj.com"_s, dowJonesIdentifier);
+        map.add("barrons.com"_s, dowJonesIdentifier);
+        map.add("marketwatch.com"_s, dowJonesIdentifier);
+        map.add("wsjplus.com"_s, dowJonesIdentifier);
+
+        return map;
+    }();
+
+    if (firstDomain == secondDomain)
+        return true;
+
+    ASSERT(!equalIgnoringASCIICase(firstDomain, secondDomain));
+
+    if (!needsSiteSpecificQuirks)
+        return false;
+
+    unsigned firstMetaDomainIdentifier = metaDomainIdentifiers.get().get(firstDomain);
+    if (!firstMetaDomainIdentifier)
+        return false;
+
+    return firstMetaDomainIdentifier == metaDomainIdentifiers.get().get(secondDomain);
+}
+
+WallTime ResourceLoadStatistics::reduceTimeResolution(WallTime time)
+{
+    return WallTime::fromRawSeconds(std::floor(time.secondsSinceEpoch() / timestampResolution) * timestampResolution.seconds());
 }
 
 }

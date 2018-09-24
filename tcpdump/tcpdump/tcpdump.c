@@ -1436,6 +1436,9 @@ main(int argc, char **argv)
 					case 'D':
 						val |= PRMD_DIR;
 						break;
+					case 'F':
+						val |= PRMD_FLAGS;
+						break;
 					case 'I':
 						val |= PRMD_IF;
 						break;
@@ -3583,6 +3586,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	struct pcap_proc_info *e_proc_info = NULL;
 	uint32_t pkt_svc = -1;
 	uint32_t packet_flags = 0;
+	uint32_t pmdflags = 0;
 	struct pcapng_option_info option_info;
 
 	block = pcap_ng_block_alloc_with_raw_block(ndo->ndo_pcap, (u_char *)sp);
@@ -3701,6 +3705,16 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				pkt_svc = *(uint32_t *)(option_info.value);
 				if (pcap_is_swapped(ndo->ndo_pcap))
 					pkt_svc = SWAPLONG(pkt_svc);
+			}
+			if (pcap_ng_block_get_option(block, PCAPNG_EPB_PMD_FLAGS, &option_info) == 1) {
+				if (option_info.length != 4) {
+					error("%s: pmdflags option length %u != 4", __func__, option_info.length);
+					abort();
+				}
+				bcopy(option_info.value, &pmdflags, sizeof(pmdflags));
+
+				if (pcap_is_swapped(ndo->ndo_pcap))
+					packet_flags = SWAPLONG(pmdflags);
 			}
 
 			if_id = epbp->interface_id;
@@ -3866,6 +3880,37 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				ND_PRINT((ndo, "%sin",
 						  prsep));
 			prsep = ", ";
+		}
+
+		/*
+		 * Custom packet medadata flags
+		 */
+		if (pmdflags != 0) {
+			if ((pmdflags & PCAPNG_EPB_PMDF_NEW_FLOW)) {
+				ND_PRINT((ndo, "%s" "nf",
+					  prsep));
+				prsep = ", ";
+			}
+			if ((pmdflags & PCAPNG_EPB_PMDF_KEEP_ALIVE)) {
+				ND_PRINT((ndo, "%s" "ka",
+					  prsep));
+				prsep = ", ";
+			}
+			if ((pmdflags & PCAPNG_EPB_PMDF_REXMIT)) {
+				ND_PRINT((ndo, "%s" "re",
+					  prsep));
+				prsep = ", ";
+			}
+			if ((pmdflags & PCAPNG_EPB_PMDF_SOCKET)) {
+				ND_PRINT((ndo, "%s" "so",
+					  prsep));
+				prsep = ", ";
+			}
+			if ((pmdflags & PCAPNG_EPB_PMDF_NEXUS_CHANNEL)) {
+				ND_PRINT((ndo, "%s" "ch",
+					  prsep));
+				prsep = ", ";
+			}
 		}
 
 		/*

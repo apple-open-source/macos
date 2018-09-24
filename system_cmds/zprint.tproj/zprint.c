@@ -294,7 +294,7 @@ main(int argc, char **argv)
 				&name, &nameCnt, &info, &infoCnt,
 				&wiredInfo, &wiredInfoCnt);
 		if (kr != KERN_SUCCESS) {
-			fprintf(stderr, "%s: mach_zone_info: %s\n",
+			fprintf(stderr, "%s: mach_memory_info: %s (try running as root)\n",
 					program, mach_error_string(kr));
 			exit(1);
 		}

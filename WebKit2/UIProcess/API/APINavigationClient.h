@@ -26,6 +26,7 @@
 #pragma once
 
 #include "APIData.h"
+#include "APIString.h"
 #include "PluginModuleInfo.h"
 #include "ProcessTerminationReason.h"
 #include "SameDocumentNavigationType.h"
@@ -88,11 +89,13 @@ public:
     virtual void didReceiveAuthenticationChallenge(WebKit::WebPageProxy&, WebKit::AuthenticationChallengeProxy&) { }
 
     // FIXME: These function should not be part of this client.
-    virtual void processDidTerminate(WebKit::WebPageProxy&, WebKit::ProcessTerminationReason) { }
+    virtual bool processDidTerminate(WebKit::WebPageProxy&, WebKit::ProcessTerminationReason) { return false; }
     virtual void processDidBecomeResponsive(WebKit::WebPageProxy&) { }
     virtual void processDidBecomeUnresponsive(WebKit::WebPageProxy&) { }
 
     virtual RefPtr<Data> webCryptoMasterKey(WebKit::WebPageProxy&) { return nullptr; }
+
+    virtual RefPtr<String> signedPublicKeyAndChallengeString(WebKit::WebPageProxy&, unsigned keySizeIndex, const RefPtr<String>& challengeString, const WebCore::URL&) { return nullptr; }
 
 #if USE(QUICK_LOOK)
     virtual void didStartLoadForQuickLookDocumentInMainFrame(const WTF::String& fileName, const WTF::String& uti) { }
@@ -113,7 +116,8 @@ public:
     
 #if ENABLE(NETSCAPE_PLUGIN_API)
     virtual bool didFailToInitializePlugIn(WebKit::WebPageProxy&, API::Dictionary&) { return false; }
-    virtual WebKit::PluginModuleLoadPolicy decidePolicyForPluginLoad(WebKit::WebPageProxy&, WebKit::PluginModuleLoadPolicy currentPluginLoadPolicy, Dictionary*, WTF::String&)
+    virtual bool didBlockInsecurePluginVersion(WebKit::WebPageProxy&, API::Dictionary&) { return false; }
+    virtual WebKit::PluginModuleLoadPolicy decidePolicyForPluginLoad(WebKit::WebPageProxy&, WebKit::PluginModuleLoadPolicy currentPluginLoadPolicy, Dictionary&, WTF::String&)
     {
         return currentPluginLoadPolicy;
     }

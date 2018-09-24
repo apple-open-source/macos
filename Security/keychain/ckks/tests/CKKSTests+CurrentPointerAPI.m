@@ -99,7 +99,7 @@
     // And ensure that global queries do.
     [self expectCKFetch];
     [self fetchCurrentPointerExpectingError:true];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     SecResetLocalSecuritydXPCFakeEntitlements();
 }
 
@@ -171,7 +171,7 @@
                                               [setCurrentExpectation fulfill];
                                           });
     TEST_API_AUTORELEASE_AFTER(SecItemSetCurrentItemAcrossAllDevices);
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForExpectations:@[keychainChanged] timeout:8];
     [self waitForCKModifications];
 
@@ -252,7 +252,7 @@
                                               XCTAssertNil(error, "No error setting current item");
                                               [otherSetCurrentExpectation fulfill];
                                           });
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForExpectations:@[keychainChanged] timeout:8];
     [self waitForCKModifications];
 
@@ -279,7 +279,7 @@
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
     [self startCKKSSubsystem];
 
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
 
     [self fetchCurrentPointerExpectingError:false];
 
@@ -299,7 +299,7 @@
                                               [setCurrentExpectation fulfill];
                                           });
     TEST_API_AUTORELEASE_AFTER(SecItemSetCurrentItemAcrossAllDevices);
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
@@ -320,7 +320,7 @@
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
     [self startCKKSSubsystem];
 
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
 
     [self fetchCurrentPointerExpectingError:false];
 
@@ -370,11 +370,10 @@
                                               [setCurrentExpectation fulfill];
                                           });
     TEST_API_AUTORELEASE_AFTER(SecItemSetCurrentItemAcrossAllDevices);
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
-    [self waitForExpectations:@[keychainChanged] timeout:8];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
-    [self waitForExpectationsWithTimeout:8.0 handler:nil];
+    [self waitForExpectations:@[setCurrentExpectation] timeout:8];
 
     SecResetLocalSecuritydXPCFakeEntitlements();
 }
@@ -391,7 +390,7 @@
 
     // Entirely signed out of iCloud. all current record writes should fail.
     self.accountStatus = CKAccountStatusNoAccount;
-    self.circleStatus = kSOSCCNotInCircle;
+    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCNotInCircle error:nil];
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
 
     self.silentFetchesAllowed = false;
@@ -464,7 +463,7 @@
     }), @"_SecItemAddAndNotifyOnSync succeeded");
 
     // We don't expect this callback to fire, so give it a second or so
-    [self waitForExpectations:@[syncExpectation] timeout:2.0];
+    [self waitForExpectations:@[syncExpectation] timeout:20];
 
     NSDictionary* result = CFBridgingRelease(cfresult);
 
@@ -486,7 +485,7 @@
                                               [setCurrentExpectation fulfill];
                                           });
 
-    [self waitForExpectations:@[setCurrentExpectation] timeout:8.0];
+    [self waitForExpectations:@[setCurrentExpectation] timeout:20];
     SecResetLocalSecuritydXPCFakeEntitlements();
 }
 
@@ -741,7 +740,7 @@
                                               XCTAssertNotNil(error, "Should have received an error setting current item (because of conflict)");
                                               [setCurrentExpectation fulfill];
                                           });
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
 
@@ -812,7 +811,7 @@
                                               XCTAssertNil(error, "No error setting current item");
                                               [setCurrentExpectation fulfill];
                                           });
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
     [self waitForCKModifications];
 
@@ -894,7 +893,7 @@
                                               XCTAssertNotNil(error, "Error setting current item when the write fails");
                                               [setCurrentExpectation fulfill];
                                           });
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
 
@@ -962,7 +961,7 @@
                                               XCTAssertNil(error, "No error setting current item");
                                               [setCurrentExpectation fulfill];
                                           });
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
@@ -975,7 +974,7 @@
                                                                             (id)kSecAttrAccount:@"testaccount",
                                                                             (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
                                                                             }), "Should receive no error deleting item");
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // Now, fetch the current pointer: we should get an error
     [self fetchCurrentPointerExpectingError:false];
@@ -1017,7 +1016,7 @@
                                               XCTAssertNil(error, "No error setting current item");
                                               [setCurrentExpectation fulfill];
                                           });
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
 
@@ -1037,7 +1036,7 @@
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
     [self startCKKSSubsystem];
 
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "Key state should have become ready");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should have become ready");
     [self.keychainView waitUntilAllOperationsAreFinished];
 
     // Before CKKS can add the item, shove a conflicting one into CloudKit
@@ -1116,7 +1115,7 @@
                                               [setCurrentExpectation fulfill];
                                           });
 
-    [self waitForExpectations:@[setCurrentExpectation] timeout:8.0];
+    [self waitForExpectations:@[setCurrentExpectation] timeout:20];
 
     // Now, release the incoming queue processing and retry the failure
     [self.operationQueue addOperation:self.keychainView.holdIncomingQueueOperation];
@@ -1132,7 +1131,7 @@
                                               [setCurrentExpectation fulfill];
                                           });
 
-    [self waitForExpectations:@[setCurrentExpectation] timeout:8.0];
+    [self waitForExpectations:@[setCurrentExpectation] timeout:20];
 
     // Reissue a fetch and find the new persistent ref and sha1 for the item at this UUID
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
@@ -1173,7 +1172,7 @@
                                               [newSetCurrentExpectation fulfill];
                                           });
 
-    [self waitForExpectations:@[newSetCurrentExpectation] timeout:8.0];
+    [self waitForExpectations:@[newSetCurrentExpectation] timeout:20];
 
     SecResetLocalSecuritydXPCFakeEntitlements();
 }

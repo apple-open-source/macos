@@ -109,7 +109,7 @@ static void tests(void)
     const char *home_var = getenv("HOME");
     CFStringRef dbName = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s/Library/Keychains/su-40-sqldb.db"), home_var ? home_var : "");
 
-    SecDbRef db = SecDbCreate(dbName, NULL);
+    SecDbRef db = SecDbCreate(dbName, 0600, true, true, true, true, kSecDbMaxIdleHandles, NULL);
     CFReleaseNull(dbName);
     ok(db, "SecDbCreate");
 

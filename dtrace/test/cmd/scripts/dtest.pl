@@ -42,6 +42,9 @@ $USAGE = "Usage: $PNAME [-hlqsx] [-d dir] [-f file]"
     . "[-x opt[=arg]] [file | dir ...]\n";
 ($MACH = `uname -p`) =~ s/\W*\n//;
 
+$IS_WATCH = `sw_vers -productName` =~m/^Watch OS/ ? 1 : 0;
+$TIMEOUT = $IS_WATCH ? 480 : 240;
+
 $dtrace_path = '/usr/sbin/dtrace';
 @dtrace_argv = ();
 
@@ -207,7 +210,7 @@ die "$PNAME: failed to open $PNAME.$$.log: $!\n"
 # test programs that require compilation of C code.
 #
 $ENV{'PATH'} = $ENV{'PATH'} . ':/usr/bin';
-$ENV{'TZ'} = 'America/Los_Angeles';
+$ENV{'TZ'} = 'Etc/UTC';
 
 logmsg "[TEST] dtrace\n";
 logmsg "Results in $opt_d\n";
@@ -311,8 +314,10 @@ foreach $file (@files) {
 			if ($tag == 0 && $status == $0 && $opt_a) {
 				push(@dtrace_argv, '-A');
 			}
+			if ($file =~ /preprocessor/) {
+				push(@dtrace_argv, '-C');
+			}
 
-			push(@dtrace_argv, '-C');
 			push(@dtrace_argv, '-s');
 			push(@dtrace_argv, $name);
 ## Following moved here from above. Puts the pid number in the right place on the "command line"
@@ -326,7 +331,7 @@ foreach $file (@files) {
 
 	eval {
 		local $SIG{ALRM} = sub { die "alarm clock restart" };
-		alarm(240);
+		alarm($TIMEOUT);
 		if (waitpid($pid, 0) == -1) {
 			alarm(0);
 			die "waitpid returned -1";

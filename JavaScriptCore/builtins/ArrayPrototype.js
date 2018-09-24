@@ -184,7 +184,7 @@ function filter(callback /*, thisArg */)
         // We have this check so that if some array from a different global object
         // calls this map they don't get an array with the Array.prototype of the
         // other global object.
-        if (@isArrayConstructor(constructor) && @Array !== constructor)
+        if (@Array !== constructor && @isArrayConstructor(constructor))
             constructor = @undefined;
         if (@isObject(constructor)) {
             constructor = constructor.@speciesSymbol;
@@ -230,7 +230,7 @@ function map(callback /*, thisArg */)
         // We have this check so that if some array from a different global object
         // calls this map they don't get an array with the Array.prototype of the
         // other global object.
-        if (@isArrayConstructor(constructor) && @Array !== constructor)
+        if (@Array !== constructor && @isArrayConstructor(constructor))
             constructor = @undefined;
         if (@isObject(constructor)) {
             constructor = constructor.@speciesSymbol;
@@ -602,7 +602,7 @@ function sort(comparator)
 
     if (typeof comparator == "function")
         comparatorSort(array, length, comparator);
-    else if (comparator === null || comparator === @undefined)
+    else if (comparator === @undefined)
         stringSort(array, length);
     else
         @throwTypeError("Array.prototype.sort requires the comparsion function be a function or undefined");
@@ -623,7 +623,7 @@ function concatSlowPath()
         // We have this check so that if some array from a different global object
         // calls this map they don't get an array with the Array.prototype of the
         // other global object.
-        if (@isArrayConstructor(constructor) && @Array !== constructor)
+        if (@Array !== constructor && @isArrayConstructor(constructor))
             constructor = @undefined;
         else if (@isObject(constructor)) {
             constructor = constructor.@speciesSymbol;
@@ -678,7 +678,7 @@ function concat(first)
     if (@argumentCount() === 1
         && @isJSArray(this)
         && this.@isConcatSpreadableSymbol === @undefined
-        && (!@isObject(first) || first.@isConcatSpreadableSymbol === @undefined)) {
+        && (!@isObject(first) || (!@isProxyObject(first) && first.@isConcatSpreadableSymbol === @undefined))) {
 
         let result = @concatMemcpy(this, first);
         if (result !== null)
@@ -737,4 +737,108 @@ function copyWithin(target, start /*, end */)
     }
 
     return array;
+}
+
+@globalPrivate
+function arraySpeciesCreate(array, length)
+{
+    "use strict";
+
+    if (!@isArray(array))
+        return @newArrayWithSize(length);
+
+    var constructor = array.constructor;
+    var arrayConstructorInRealm = @Array;
+    // We have this check so that if some array from a different global object
+    // calls this map they don't get an array with the Array.prototype of the
+    // other global object.
+    if (arrayConstructorInRealm !== constructor && @isArrayConstructor(constructor))
+        return @newArrayWithSize(length);
+
+    if (@isObject(constructor)) {
+        constructor = constructor.@speciesSymbol;
+        if (constructor == null)
+            return @newArrayWithSize(length);
+    }
+
+    if (constructor === arrayConstructorInRealm || constructor === @undefined)
+        return @newArrayWithSize(length);
+    return new constructor(length);
+}
+
+@globalPrivate
+function flatIntoArray(target, source, sourceLength, targetIndex, depth)
+{
+    "use strict";
+
+    for (var sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex) {
+        if (sourceIndex in source) {
+            var element = source[sourceIndex];
+            if (depth > 0 && @isArray(element))
+                targetIndex = @flatIntoArray(target, element, @toLength(element.length), targetIndex, depth - 1);
+            else {
+                if (targetIndex >= @MAX_SAFE_INTEGER)
+                    @throwTypeError("flatten array exceeds 2**53 - 1");
+                @putByValDirect(target, targetIndex, element);
+                ++targetIndex;
+            }
+        }
+    }
+    return targetIndex;
+}
+
+function flat()
+{
+    "use strict";
+
+    var array = @toObject(this, "Array.prototype.flat requires that |this| not be null or undefined");
+    var length = @toLength(array.length);
+
+    var depthNum = 1;
+    var depth = @argument(0);
+    if (depth !== @undefined)
+        depthNum = @toInteger(depth);
+
+    var result = @arraySpeciesCreate(array, 0);
+
+    @flatIntoArray(result, array, length, 0, depthNum);
+    return result;
+}
+
+@globalPrivate
+function flatIntoArrayWithCallback(target, source, sourceLength, targetIndex, callback, thisArg)
+{
+    "use strict";
+
+    for (var sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex) {
+        if (sourceIndex in source) {
+            var element = callback.@call(thisArg, source[sourceIndex], sourceIndex, source);
+            if (@isArray(element))
+                targetIndex = @flatIntoArray(target, element, @toLength(element.length), targetIndex, 0);
+            else {
+                if (targetIndex >= @MAX_SAFE_INTEGER)
+                    @throwTypeError("flatten array exceeds 2**53 - 1");
+                @putByValDirect(target, targetIndex, element);
+                ++targetIndex;
+            }
+        }
+    }
+    return target;
+}
+
+function flatMap(callback)
+{
+    "use strict";
+
+    var array = @toObject(this, "Array.prototype.flatMap requires that |this| not be null or undefined");
+    var length = @toLength(array.length);
+
+    if (typeof callback !== "function")
+        @throwTypeError("Array.prototype.flatMap callback must be a function");
+
+    var thisArg = @argument(1);
+
+    var result = @arraySpeciesCreate(array, 0);
+
+    return @flatIntoArrayWithCallback(result, array, length, 0, callback, thisArg);
 }

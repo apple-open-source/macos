@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,11 +24,10 @@
 #ifndef _S_DNSINFO_INTERNAL_H
 #define _S_DNSINFO_INTERNAL_H
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
+#include <SystemConfiguration/SCPrivate.h>	// for SC_log
 #include <arpa/inet.h>
 
 #include <dnsinfo.h>

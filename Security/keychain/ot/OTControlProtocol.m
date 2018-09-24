@@ -30,6 +30,7 @@
 #import <CloudKit/CloudKit_Private.h>
 #import <utilities/debugging.h>
 #include <dlfcn.h>
+#import <SecurityFoundation/SFKey.h>
 #endif // OCTAGON
 
 NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {

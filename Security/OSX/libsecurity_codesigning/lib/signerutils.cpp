@@ -103,6 +103,7 @@ ArchEditor::~ArchEditor()
 ArchEditor::Arch::Arch(const Architecture &arch, CodeDirectory::HashAlgorithms hashTypes)
 	: architecture(arch)
 {
+	blobSize = 0;
 	for (auto type = hashTypes.begin(); type != hashTypes.end(); ++type)
 		cdBuilders.insert(make_pair(*type, new CodeDirectory::Builder(*type)));
 }
@@ -167,6 +168,7 @@ MachOEditor::~MachOEditor()
 	delete mNewCode;
 	if (mTempMayExist)
 		::remove(tempPath.c_str());		// ignore error (can't do anything about it)
+
 	this->kill();
 }
 
@@ -311,7 +313,19 @@ void MachOEditor::commit()
 		
 		// copy metadata from original file...
 		copy(sourcePath.c_str(), NULL, COPYFILE_SECURITY | COPYFILE_METADATA);
-		
+
+#if TARGET_OS_OSX
+		// determine AFSC status if we are told to preserve compression
+		bool conductCompression = false;
+		cmpInfo cInfo;
+		if (writer->getPreserveAFSC()) {
+			if (queryCompressionInfo(sourcePath.c_str(), &cInfo) == 0) {
+				if (cInfo.compressionType != 0 && cInfo.compressedSize > 0)
+					conductCompression = true;
+			}
+		}
+#endif
+
 		// ... but explicitly update the timestamps since we did change the file
 		char buf;
 		mFd.read(&buf, sizeof(buf), 0);
@@ -320,6 +334,28 @@ void MachOEditor::commit()
 		// move the new file into place
 		UnixError::check(::rename(tempPath.c_str(), sourcePath.c_str()));
 		mTempMayExist = false;		// we renamed it away
+
+#if TARGET_OS_OSX
+		// if the original file was compressed, compress the new file after move
+		if (conductCompression) {
+			CFMutableDictionaryRef options = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFStringRef val = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), cInfo.compressionType);
+			CFDictionarySetValue(options, kAFSCCompressionTypes, val);
+			CFRelease(val);
+
+			CompressionQueueContext compressionQueue = CreateCompressionQueue(NULL, NULL, NULL, NULL, options);
+
+			if (!CompressFile(compressionQueue, sourcePath.c_str(), NULL)) {
+				secinfo("signer", "%p Failed to queue compression of file %s", this, sourcePath.c_str());
+				MacOSError::throwMe(errSecCSInternalError);
+			}
+			FinishCompressionAndCleanUp(compressionQueue);
+
+			compressionQueue = NULL;
+			CFRelease(options);
+		}
+#endif
+
 	}
 	this->writer->flush();
 }

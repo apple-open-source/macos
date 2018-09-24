@@ -674,6 +674,8 @@
 		EBC0CFBC1083CEA800B5BAAD /* test-cc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-cc"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EBC0D0091083CF7000B5BAAD /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = main.c; path = mittestcc/main.c; sourceTree = "<group>"; };
 		EBD01FA5108D32DB00AECFF3 /* auth_context.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_context.c; sourceTree = "<group>"; };
+		EBD45196204A82A900A99440 /* Krb4DeprecatedAPIs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Krb4DeprecatedAPIs.h; sourceTree = "<group>"; };
+		EBD45197204AE00700A99440 /* dummy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dummy.h; sourceTree = "<group>"; };
 		EBD885B41056E258006242E9 /* creds.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = creds.c; sourceTree = "<group>"; };
 		EBDB5B6510A38B47003FD0F9 /* krb5-config.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = "krb5-config.1"; sourceTree = "<group>"; };
 		EBDC3380108F33E0006C63C9 /* misc-mit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "misc-mit.c"; sourceTree = "<group>"; };
@@ -857,6 +859,7 @@
 				EB27476E108839F300AAB294 /* mit-include */,
 				EBC0CF2D1083B82400B5BAAD /* mittestcc */,
 				1CF9E7C910605843009E3024 /* Krb4DeprecatedAPIs.c */,
+				EBD45196204A82A900A99440 /* Krb4DeprecatedAPIs.h */,
 				EBD885B41056E258006242E9 /* creds.c */,
 				EBA0D008100A9F76002C4826 /* cache.c */,
 				EB75BB191001BB3B0009B251 /* kll.c */,
@@ -875,6 +878,7 @@
 				EB0F2A0F1000221800224B2D /* ccache.c */,
 				EB0F29FB10001D0000224B2D /* gss-symbols.c */,
 				EB0F299D1000153400224B2D /* dummy.c */,
+				EBD45197204AE00700A99440 /* dummy.h */,
 				EB6EE8021086592700F92EAF /* keytab.c */,
 				EB75BBEC10024FB50009B251 /* profile */,
 				EB0F29C51000164100224B2D /* include */,
@@ -1514,7 +1518,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0930;
 			};
 			buildConfigurationList = 1DEB911E08733D790010E9CD /* Build configuration list for PBXProject "MITKerberosShim" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1832,6 +1836,7 @@
 		1C1A4FB110DC3D1B001883EA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin/;
 				PRODUCT_NAME = "test-gss-server";
 			};
@@ -1840,6 +1845,7 @@
 		1C1A4FB210DC3D1B001883EA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin/;
 				PRODUCT_NAME = "test-gss-server";
@@ -1850,6 +1856,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -1864,6 +1871,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -1877,6 +1885,7 @@
 		1C82A79710C5C9E400115F67 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
 				PRODUCT_NAME = "test-gss-client";
 			};
@@ -1885,6 +1894,7 @@
 		1C82A79810C5C9E400115F67 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
 				PRODUCT_NAME = "test-gss-client";
@@ -1894,6 +1904,7 @@
 		1C82A7AE10C5C9FE00115F67 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
 				PRODUCT_NAME = "test-kClient";
 			};
@@ -1902,6 +1913,7 @@
 		1C82A7AF10C5C9FE00115F67 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
 				PRODUCT_NAME = "test-kClient";
@@ -1911,6 +1923,7 @@
 		1C82A7C510C5CA1900115F67 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
 				PRODUCT_NAME = "test-krb";
 			};
@@ -1919,6 +1932,7 @@
 		1C82A7C610C5CA1900115F67 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
 				PRODUCT_NAME = "test-krb";
@@ -1928,6 +1942,7 @@
 		1C82A7DC10C5CA3900115F67 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
 				PRODUCT_NAME = "test-krb5";
 			};
@@ -1936,6 +1951,7 @@
 		1C82A7DD10C5CA3900115F67 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
 				PRODUCT_NAME = "test-krb5";
@@ -1945,11 +1961,22 @@
 		1DEB911F08733D790010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -1977,11 +2004,22 @@
 		1DEB912008733D790010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -2007,6 +2045,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				DEFINES_MODULE = YES;
@@ -2024,9 +2063,12 @@
 				INFOPLIST_FILE = "Kerberos-Info.plist";
 				INSTALL_PATH = "$(HEIMDAL_ROOT)/System/Library/Frameworks";
 				MODULEMAP_FILE = Modules/Kerberos.modulemap;
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-Wl,-no_warn_inits";
+				OTHER_TAPI_FLAGS = "-extra-private-header dummy.h -extra-private-header Krb4DeprecatedAPIs.h";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = Kerberos;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 			};
 			name = Debug;
 		};
@@ -2034,6 +2076,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				DEFINES_MODULE = YES;
@@ -2050,9 +2093,12 @@
 				INFOPLIST_FILE = "Kerberos-Info.plist";
 				INSTALL_PATH = "$(HEIMDAL_ROOT)/System/Library/Frameworks";
 				MODULEMAP_FILE = Modules/Kerberos.modulemap;
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-Wl,-no_warn_inits";
+				OTHER_TAPI_FLAGS = "-extra-private-header dummy.h -extra-private-header Krb4DeprecatedAPIs.h";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = Kerberos;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -2060,6 +2106,7 @@
 		EB1E273314C8D48E001F3238 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -2068,6 +2115,7 @@
 		EB1E273414C8D48E001F3238 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -2076,6 +2124,7 @@
 		EB1E275314C8D4B6001F3238 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -2084,6 +2133,7 @@
 		EB1E275414C8D4B6001F3238 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -2093,6 +2143,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -2106,6 +2157,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -2120,6 +2172,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -2141,6 +2194,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -2154,6 +2208,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -2167,6 +2222,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -2179,6 +2235,7 @@
 		EB6FCA8A10A6602200D80A61 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2190,6 +2247,7 @@
 		EB6FCA8B10A6602200D80A61 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -2202,6 +2260,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -2215,6 +2274,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -2227,6 +2287,7 @@
 		EBA0D02B100AA2AC002C4826 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
 				PRODUCT_NAME = "test-kll";
 			};
@@ -2235,6 +2296,7 @@
 		EBA0D02C100AA2AC002C4826 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
 				PRODUCT_NAME = "test-kll";
@@ -2244,6 +2306,7 @@
 		EBA0D035100AA379002C4826 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2255,6 +2318,7 @@
 		EBA0D036100AA379002C4826 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -2267,6 +2331,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -2281,6 +2346,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -2295,6 +2361,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -2308,6 +2375,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;

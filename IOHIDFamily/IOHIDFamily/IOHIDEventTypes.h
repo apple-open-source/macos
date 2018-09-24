@@ -119,6 +119,7 @@ enum {
     kIOHIDEventTypeHumidity,
     kIOHIDEventTypeCollection,
     kIOHIDEventTypeBrightness,
+    kIOHIDEventTypeGenericGesture,
     kIOHIDEventTypeCount, // This should always be last
     
     
@@ -131,8 +132,22 @@ typedef uint32_t IOHIDEventType;
 
 typedef uint32_t IOHIDEventField;
 
+typedef uint32_t IOHIDGenericGestureType;
+
+typedef uint8_t IOHIDDigitizerOrientationType;
+
 #include <IOKit/hid/IOHIDEventFieldDefs.h>
 
+enum  {
+    kIOHIDGenericGestureTypeTap        = 0,
+    kIOHIDGenericGestureTypeSwipe
+};
+
+enum {
+    kIOHIDDigitizerOrientationTypeTilt = 0,
+    kIOHIDDigitizerOrientationTypePolar,
+    kIOHIDDigitizerOrientationTypeQuality
+};
 
 enum {
     kIOHIDEventFieldMultiAxisPointerButtonNumber        = kIOHIDEventFieldButtonNumber,
@@ -636,6 +651,11 @@ enum {
     // for kIOHIDSymbolicHotKeyOptionIsCGSHotKey, see IOHIDFamily/IOHIDEventData.h
 };
 typedef uint32_t IOHIDSymbolicHotKeyValue;
+
+enum {
+    kIOHIDOrientationTypePolar             = 0,
+    kIOHIDOrientationTypeCMUsage           = 1  // see kHIDUsage_AppleVendorMotion_DeviceOrientation* for possible options
+};
 
 
 enum {

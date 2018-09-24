@@ -81,6 +81,10 @@
 .Fn pthread_mutexattr_settype "pthread_mutexattr_t *attr" "int type"
 .Ft int
 .Fn pthread_mutexattr_gettype "pthread_mutexattr_t *attr" "int *type"
+.Ft int
+.Fn pthread_mutexattr_setpolicy_np "pthread_mutexattr_t *attr" "int policy"
+.Ft int
+.Fn pthread_mutexattr_getpolicy_np "pthread_mutexattr_t *attr" "int *policy"
 .Sh DESCRIPTION
 Mutex attributes are used to specify parameters to
 .Fn pthread_mutex_init .
@@ -164,6 +168,31 @@ This is the default mutex type for
 functions copy the type value of the attribute to the location pointed to by the second parameter.
 .Pp
 The
+.Fn pthread_mutexattr_setpolicy_np
+function sets the mutex
+.Fa policy
+value of the attribute.
+Valid mutex policies are:
+.Bl -tag -width "XXX" -offset 2n
+.It Dv PTHREAD_MUTEX_POLICY_FIRSTFIT_NP
+The first-fit mutex policy allows acquisition of the mutex to occur in any
+order. This policy is similar in operation to os_unfair_lock, new contending
+acquirers may obtain ownership of the mutex ahead of existing waiters.
+.It Dv PTHREAD_MUTEX_POLICY_FAIRSHARE_NP
+The fairshare mutex policy guarantees that ownership of a contended mutex will
+be granted to waiters on a strictly ordered first-in, first-out basis. That is,
+a mutex holder that unlocks the mutex and then attempts to relock will wait
+behind existing threads already waiting on the mutex before being granted
+ownership again.
+.El
+.Pp
+The
+.Fn pthread_mutexattr_getpolicy_np
+function copies the mutex
+.Fa policy
+value of the attribute to the location pointed to by the second parameter.
+.Pp
+The
 .Fn pthread_mutexattr_set*
 functions set the attribute that corresponds to each function name.
 .Pp
@@ -174,6 +203,39 @@ to the location pointed to by the second function parameter.
 .Sh RETURN VALUES
 If successful, these functions return 0.
 Otherwise, an error number is returned to indicate the error.
+.Sh ENVIRONMENT
+The following environment variables change the behavior of the pthread mutex
+implementation.
+.Bl -tag -width "XXX" -offset 2n
+.It Ev PTHREAD_MUTEX_DEFAULT_POLICY
+Controls the process-wide policy used when initializing a pthread_mutex_t that
+has not had a policy set via
+.Fn pthread_mutexattr_setpolicy_np .
+The valid values are mapped as:
+.Pp
+.Bl -tag -width "XXX"
+.It Fa 1
+.Dv PTHREAD_MUTEX_POLICY_FAIRSHARE_NP
+.It Fa 3
+.Dv PTHREAD_MUTEX_POLICY_FIRSTFIT_NP
+.El
+.El
+.Sh BACKWARDS COMPATIBILITY
+Prior to macOS 10.14 (iOS and tvOS 12.0, watchOS 5.0) the only available
+pthread mutex policy mode was
+.Dv PTHREAD_MUTEX_POLICY_FAIRSHARE_NP .
+macOS 10.14 (iOS and tvOS 12.0, watchOS 5.0) introduces
+.Dv PTHREAD_MUTEX_POLICY_FIRSTFIT_NP
+and also makes this the default mode for mutexes initialized without a policy
+attribute set.
+.Pp
+Attempting to use
+.Fn pthread_mutexattr_setpolicy_np
+to set the policy of a pthread_mutex_t to
+.Dv PTHREAD_MUTEX_POLICY_FIRSTFIT_NP
+on earlier releases will fail with
+.Er EINVAL
+and the mutex will continue to operate in fairshare mode.
 .Sh ERRORS
 The
 .Fn pthread_mutexattr_init
@@ -251,6 +313,27 @@ function will fail if:
 .It Bq Er EINVAL
 Invalid value for
 .Fa attr .
+.El
+.Pp
+The
+.Fn pthread_mutexattr_setpolicy_np
+function will fail if:
+.Bl -tag -width Er
+.It Bq Er EINVAL
+Invalid value for
+.Fa attr .
+.El
+.Pp
+The
+.Fn pthread_mutexattr_getpolicy_np
+function will fail if:
+.Bl -tag -width Er
+.It Bq Er EINVAL
+The value specified either by
+.Fa type
+or
+.Fa attr
+is invalid.
 .El
 .Sh SEE ALSO
 .Xr pthread_mutex_init 3

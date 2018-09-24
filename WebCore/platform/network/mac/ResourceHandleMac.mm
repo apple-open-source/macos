@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,6 +50,7 @@
 #import <pal/spi/cocoa/NSURLConnectionSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/CompletionHandler.h>
+#import <wtf/ProcessPrivilege.h>
 #import <wtf/Ref.h>
 #import <wtf/SchedulePair.h>
 #import <wtf/text/Base64.h>
@@ -178,7 +179,7 @@ void ResourceHandle::createNSURLConnection(id delegate, bool shouldUseCredential
         applyBasicAuthorizationHeader(firstRequest(), d->m_initialCredential);
     }
 
-    NSURLRequest *nsRequest = firstRequest().nsURLRequest(UpdateHTTPBody);
+    NSURLRequest *nsRequest = firstRequest().nsURLRequest(HTTPBodyUpdatePolicy::UpdateHTTPBody);
     applySniffingPoliciesAndStoragePartitionIfNeeded(nsRequest, shouldContentSniff, shouldContentEncodingSniff);
 
     if (d->m_storageSession)
@@ -272,7 +273,7 @@ bool ResourceHandle::start()
     [connection() setDelegateQueue:operationQueueForAsyncClients()];
     [connection() start];
 
-    LOG(Network, "Handle %p starting connection %p for %@", this, connection(), firstRequest().nsURLRequest(DoNotUpdateHTTPBody));
+    LOG(Network, "Handle %p starting connection %p for %@", this, connection(), firstRequest().nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody));
     
     if (d->m_connection) {
         if (d->m_defersLoading)
@@ -360,7 +361,7 @@ CFStringRef ResourceHandle::synchronousLoadRunLoopMode()
 
 void ResourceHandle::platformLoadResourceSynchronously(NetworkingContext* context, const ResourceRequest& request, StoredCredentialsPolicy storedCredentialsPolicy, ResourceError& error, ResourceResponse& response, Vector<char>& data)
 {
-    LOG(Network, "ResourceHandle::platformLoadResourceSynchronously:%@ storedCredentialsPolicy:%u", request.nsURLRequest(DoNotUpdateHTTPBody), static_cast<unsigned>(storedCredentialsPolicy));
+    LOG(Network, "ResourceHandle::platformLoadResourceSynchronously:%@ storedCredentialsPolicy:%u", request.nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody), static_cast<unsigned>(storedCredentialsPolicy));
 
     ASSERT(!request.isEmpty());
     
@@ -471,11 +472,6 @@ void ResourceHandle::willSendRequest(ResourceRequest&& request, ResourceResponse
     });
 }
 
-void ResourceHandle::continueDidReceiveResponse()
-{
-    [delegate() continueDidReceiveResponse];
-}
-
 void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChallenge& challenge)
 {
     ASSERT(!d->m_currentMacChallenge);
@@ -500,6 +496,7 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
     // the keychain.  CFNetwork used to handle this until WebCore was changed to always
     // return NO to -connectionShouldUseCredentialStorage: for <rdar://problem/7704943>.
     if (!challenge.previousFailureCount() && challenge.protectionSpace().isProxy()) {
+        RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessCredentials));
         NSURLAuthenticationChallenge *macChallenge = mac(challenge);
         if (NSURLCredential *credential = [[NSURLCredentialStorage sharedCredentialStorage] defaultCredentialForProtectionSpace:[macChallenge protectionSpace]]) {
             [challenge.sender() useCredential:credential forAuthenticationChallenge:macChallenge];
@@ -569,18 +566,12 @@ bool ResourceHandle::tryHandlePasswordBasedAuthentication(const AuthenticationCh
 }
 
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-bool ResourceHandle::canAuthenticateAgainstProtectionSpace(const ProtectionSpace& protectionSpace)
+void ResourceHandle::canAuthenticateAgainstProtectionSpace(const ProtectionSpace& protectionSpace, CompletionHandler<void(bool)>&& completionHandler)
 {
     if (ResourceHandleClient* client = this->client())
-        client->canAuthenticateAgainstProtectionSpaceAsync(this, protectionSpace);
+        client->canAuthenticateAgainstProtectionSpaceAsync(this, protectionSpace, WTFMove(completionHandler));
     else
-        continueCanAuthenticateAgainstProtectionSpace(false);
-    return false; // Ignored by caller.
-}
-
-void ResourceHandle::continueCanAuthenticateAgainstProtectionSpace(bool result)
-{
-    [(id)delegate() continueCanAuthenticateAgainstProtectionSpace:result];
+        completionHandler(false);
 }
 #endif
 
@@ -661,11 +652,6 @@ void ResourceHandle::receivedChallengeRejection(const AuthenticationChallenge& c
     [[d->m_currentMacChallenge sender] rejectProtectionSpaceAndContinueWithChallenge:d->m_currentMacChallenge];
 
     clearAuthentication();
-}
-
-void ResourceHandle::continueWillCacheResponse(NSCachedURLResponse *response)
-{
-    [(id)delegate() continueWillCacheResponse:response];
 }
 
 void ResourceHandle::getConnectionTimingData(NSURLConnection *connection, NetworkLoadMetrics& timing)

@@ -17,21 +17,12 @@ pthread_callbacks_t pthread_kern;
 
 const struct pthread_functions_s pthread_internal_functions = {
 	.pthread_init = _pthread_init,
-	.fill_procworkqueue = (int(*)(proc_t, void*))_fill_procworkqueue,
-	.get_pwq_state_kdp = _get_pwq_state_kdp,
-	.workqueue_exit = _workqueue_exit,
-	.workqueue_mark_exiting = _workqueue_mark_exiting,
-	.workqueue_thread_yielded = _workqueue_thread_yielded,
-	.workqueue_get_sched_callback = _workqueue_get_sched_callback,
 	.pth_proc_hashinit = _pth_proc_hashinit,
 	.pth_proc_hashdelete = _pth_proc_hashdelete,
 	.bsdthread_create = _bsdthread_create,
 	.bsdthread_register = _bsdthread_register,
 	.bsdthread_terminate = _bsdthread_terminate,
-	.bsdthread_ctl = _bsdthread_ctl,
 	.thread_selfid = _thread_selfid,
-	.workq_kernreturn = _workq_kernreturn,
-	.workq_open = _workq_open,
 
 	.psynch_mutexwait = _psynch_mutexwait,
 	.psynch_mutexdrop = _psynch_mutexdrop,
@@ -48,12 +39,11 @@ const struct pthread_functions_s pthread_internal_functions = {
 	.pthread_find_owner = _pthread_find_owner,
 	.pthread_get_thread_kwq = _pthread_get_thread_kwq,
 
-	.workq_reqthreads = _workq_reqthreads,
-	.thread_qos_from_pthread_priority = _thread_qos_from_pthread_priority,
-	.pthread_priority_canonicalize2 = _pthread_priority_canonicalize,
-	.workq_thread_has_been_unbound = _workq_thread_has_been_unbound,
-	.workq_threadreq = workq_kern_threadreq,
-	.workq_threadreq_modify = workq_kern_threadreq_modify,
+	.workq_create_threadstack = workq_create_threadstack,
+	.workq_destroy_threadstack = workq_destroy_threadstack,
+	.workq_setup_thread = workq_setup_thread,
+	.workq_handle_stack_events = workq_handle_stack_events,
+	.workq_markfree_threadstack = workq_markfree_threadstack,
 };
 
 kern_return_t pthread_start(__unused kmod_info_t * ki, __unused void *d)

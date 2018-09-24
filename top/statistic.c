@@ -65,7 +65,7 @@ struct statistic_name_map statistic_name_map[] = {
     SNAME(STATISTIC_MREGION, top_mregion_create, "#MREGS"),
 
 #ifdef TOP_ANONYMOUS_MEMORY
-    SNAME(STATISTIC_RMEM, top_rmem_create, "MEM"),
+    SNAME(STATISTIC_PMEM, top_pmem_create, "MEM"),
     SNAME(STATISTIC_RPRVT, top_rprvt_create, "RPRVT"),
     SNAME(STATISTIC_PURG, top_purg_create, "PURG"),
     SNAME(STATISTIC_COMPRESSED, top_compressed_create, "CMPRS"),

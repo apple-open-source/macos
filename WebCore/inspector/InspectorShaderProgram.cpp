@@ -26,6 +26,8 @@
 #include "config.h"
 #include "InspectorShaderProgram.h"
 
+#if ENABLE(WEBGL)
+
 #include "GraphicsContext3D.h"
 #include "GraphicsTypes3D.h"
 #include "HTMLCanvasElement.h"
@@ -33,8 +35,7 @@
 #include "WebGLProgram.h"
 #include "WebGLRenderingContextBase.h"
 #include "WebGLShader.h"
-#include <inspector/IdentifiersFactory.h>
-
+#include <JavaScriptCore/IdentifiersFactory.h>
 
 namespace WebCore {
 
@@ -73,3 +74,4 @@ WebGLShader* InspectorShaderProgram::shaderForType(const String& protocolType)
 
 } // namespace WebCore
 
+#endif // ENABLE(WEBGL)

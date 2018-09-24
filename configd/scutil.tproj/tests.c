@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1121,6 +1121,135 @@ do_wait(char *waitKey, int timeout)
 
 	CFRunLoopRun();
 }
+
+/**
+ ** "scutil --advisory <ifname> [ set | -W ]"
+ **/
+void
+timestamp_fprintf(FILE * f, const char * message, ...)
+{
+	struct timeval	tv;
+	struct tm       tm;
+	time_t		t;
+	va_list		ap;
+
+	(void)gettimeofday(&tv, NULL);
+	t = tv.tv_sec;
+	(void)localtime_r(&t, &tm);
+
+	va_start(ap, message);
+	fprintf(f, "%04d/%02d/%02d %2d:%02d:%02d.%06d ",
+		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+		tm.tm_hour, tm.tm_min, tm.tm_sec,
+		tv.tv_usec);
+	vfprintf(f, message, ap);
+	va_end(ap);
+}
+
+static void
+advisoryCheck(SCNetworkInterfaceRef interface, Boolean show_timestamp)
+{
+	if (show_timestamp) {
+		timestamp_fprintf(stdout, "");
+	}
+	printf("%sset\n",
+	       SCNetworkInterfaceAdvisoryIsSet(interface) ? "" : "not ");
+}
+
+static void
+advisoryChanged(SCDynamicStoreRef session, CFArrayRef changes,
+		void * info)
+{
+#pragma unused(session, changes)
+	SCNetworkInterfaceRef	interface = (SCNetworkInterfaceRef)info;
+
+	advisoryCheck(interface, TRUE);
+	return;
+}
+
+static void
+advisoryWatch(SCNetworkInterfaceRef interface)
+{
+	SCDynamicStoreContext	context = {
+		.info = (void *)interface,
+	};
+	CFStringRef		key;
+	CFMutableArrayRef	keys;
+	Boolean			ok;
+
+	store = SCDynamicStoreCreate(NULL, CFSTR("scutil (advisory)"), advisoryChanged, &context);
+	if (store == NULL) {
+		SCPrint(TRUE, stderr,
+			CFSTR("SCDynamicStoreCreate() failed: %s\n"), SCErrorString(SCError()));
+		exit(1);
+	}
+	key = SCNetworkInterfaceCopyAdvisoryNotificationKey(interface);
+	keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFArrayAppendValue(keys, key);
+	CFRelease(key);
+	ok = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
+	CFRelease(keys);
+	if (!ok) {
+		SCPrint(TRUE, stderr,
+			CFSTR("SCDynamicStoreSetNotificationKeys() failed: %s\n"), SCErrorString(SCError()));
+		exit(1);
+	}
+	notifyRls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
+	if (!notifyRls) {
+		SCPrint(TRUE, stderr,
+			CFSTR("SCDynamicStoreCreateRunLoopSource() failed: %s\n"), SCErrorString(SCError()));
+		exit(1);
+	}
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), notifyRls, kCFRunLoopDefaultMode);
+}
+
+__private_extern__
+void
+do_advisory(const char * ifname, Boolean watch, int argc, char **argv)
+{
+	CFStringRef		ifname_cf;
+	SCNetworkInterfaceRef	interface;
+
+	ifname_cf = CFStringCreateWithCString(NULL, ifname, kCFStringEncodingUTF8);
+	interface = _SCNetworkInterfaceCreateWithBSDName(NULL, ifname_cf, kIncludeAllVirtualInterfaces);
+	CFRelease(ifname_cf);
+	if (interface == NULL) {
+		fprintf(stderr, "Failed to instantiate SCNetworkInterfaceRef\n");
+		exit(1);
+	}
+	if (argc >= 1) {
+		SCNetworkInterfaceAdvisory advisory = kSCNetworkInterfaceAdvisoryUplinkIssue;
+
+		if (strcasecmp(argv[0], "set") != 0) {
+			fprintf(stderr,
+				"usage: scutil --advisory <ifname> "
+				"[ set [ linklayer | uplink ] | -W ]\n");
+			exit(1);
+		}
+		if (argc >= 2) {
+			if (strcasecmp(argv[1], "uplink") == 0) {
+				advisory = kSCNetworkInterfaceAdvisoryUplinkIssue;
+			} else if (strcasecmp(argv[1], "linklayer") == 0) {
+				advisory = kSCNetworkInterfaceAdvisoryLinkLayerIssue;
+			} else {
+				fprintf(stderr,
+					"Bad advisory '%s', must be either 'uplink' or 'linklayer'\n",
+					argv[1]);
+				exit(1);
+			}
+		}
+		SCNetworkInterfaceSetAdvisory(interface, advisory, CFSTR("Because"));
+		CFRunLoopRun();
+	} else {
+		advisoryCheck(interface, watch);
+		if (watch) {
+			advisoryWatch(interface);
+			CFRunLoopRun();
+		}
+	}
+	exit(0);
+}
+
 
 #ifdef	TEST_DNS_CONFIGURATION
 

@@ -122,6 +122,7 @@ public:
 
     WebCore::Color backgroundColorForCurrentSnapshot() const { return m_backgroundColorForCurrentSnapshot; }
 
+    void didStartProvisionalLoadForMainFrame();
     void didFinishLoadForMainFrame() { didReachMainFrameLoadTerminalState(); }
     void didFailLoadForMainFrame() { didReachMainFrameLoadTerminalState(); }
     void didFirstVisuallyNonEmptyLayoutForMainFrame();
@@ -191,7 +192,7 @@ private:
 #if PLATFORM(MAC)
     // Message handlers.
     void didCollectGeometryForMagnificationGesture(WebCore::FloatRect visibleContentBounds, bool frameHandlesMagnificationGesture);
-    void didCollectGeometryForSmartMagnificationGesture(WebCore::FloatPoint origin, WebCore::FloatRect renderRect, WebCore::FloatRect visibleContentBounds, bool isReplacedElement, double viewportMinimumScale, double viewportMaximumScale);
+    void didCollectGeometryForSmartMagnificationGesture(WebCore::FloatPoint origin, WebCore::FloatRect renderRect, WebCore::FloatRect visibleContentBounds, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale);
 
     void endMagnificationGesture();
 
@@ -295,6 +296,7 @@ private:
     uint64_t m_snapshotRemovalTargetRenderTreeSize { 0 };
 #endif
 
+    WTF::Function<void()> m_provisionalOrSameDocumentLoadCallback;
     SnapshotRemovalTracker m_snapshotRemovalTracker;
 };
 

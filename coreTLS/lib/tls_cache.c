@@ -44,6 +44,13 @@ tls_cache_empty(tls_cache_t cache)
 }
 
 void
+tls_cache_set_default_ttls(__unused tls_cache_t cache, __unused time_t default_ttl, __unused time_t max_ttl)
+{
+    // no-op
+    return;
+}
+
+void
 tls_cache_cleanup(tls_cache_t cache)
 {
     pthread_mutex_lock(&cache->lock);

@@ -1065,6 +1065,10 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         if (!moveDirection && newText === oldText)
             return;
 
+        // FIXME: Workaround for <https://webkit.org/b/123163> &nbsp; is forced on SPACE between text nodes.
+        const nbspRegex = /\xA0/g;
+        newText = newText.replace(nbspRegex, " ");
+
         var treeOutline = this.treeOutline;
         function moveToNextAttributeIfNeeded(error)
         {
@@ -1271,7 +1275,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
                 attrValueElement.textContent = value;
             } else {
                 if (value.startsWith("data:"))
-                    value = value.trimMiddle(60);
+                    value = value.truncateMiddle(60);
 
                 attrValueElement = document.createElement("a");
                 attrValueElement.href = rewrittenURL;
@@ -1601,7 +1605,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
             this.expand();
         }
 
-        this._startEditingAsHTML(commitCallback, Object.shallowMerge(options, {position}));
+        this._startEditingAsHTML(commitCallback, {...options, position});
     }
 
     _addHTML(event)

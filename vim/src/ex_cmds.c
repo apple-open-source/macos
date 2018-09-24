@@ -6049,6 +6049,7 @@ ex_global(exarg_T *eap)
 #ifdef FEAT_CLIPBOARD
 	    start_global_changes();
 #endif
+        global_last_cmd = 1;
 	    global_exe(cmd);
 #ifdef FEAT_CLIPBOARD
 	    end_global_changes();

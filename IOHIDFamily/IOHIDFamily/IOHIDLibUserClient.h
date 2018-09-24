@@ -180,6 +180,9 @@ protected:
 	
 	bool fClientOpened;
 	bool fNubIsKeyboard;
+    
+    // entitlements
+    bool _customQueueSizeEntitlement;
 	
 	IOOptionBits fCachedOptionBits;
 		

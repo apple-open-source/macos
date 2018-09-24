@@ -65,7 +65,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSOutgoingQueueEntry;
 @class CKKSZoneChangeFetcher;
 
-@interface CKKSKeychainView : CKKSZone <CKKSZoneUpdateReceiver, CKKSChangeFetcherErrorOracle, CKKSPeerUpdateListener>
+@interface CKKSKeychainView : CKKSZone <CKKSZoneUpdateReceiver, CKKSChangeFetcherClient, CKKSPeerUpdateListener>
 {
     CKKSZoneKeyState* _keyHierarchyState;
 }
@@ -108,7 +108,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSNewTLKOperation* lastNewTLKOperation;
 @property CKKSOutgoingQueueOperation* lastOutgoingQueueOperation;
 @property CKKSProcessReceivedKeysOperation* lastProcessReceivedKeysOperation;
-@property CKKSFetchAllRecordZoneChangesOperation* lastRecordZoneChangesOperation;
 @property CKKSReencryptOutgoingItemsOperation* lastReencryptOutgoingItemsOperation;
 @property CKKSScanLocalItemsOperation* lastScanLocalItemsOperation;
 @property CKKSSynchronizeOperation* lastSynchronizeOperation;
@@ -139,6 +138,7 @@ NS_ASSUME_NONNULL_BEGIN
                           accountTracker:(CKKSCKAccountStateTracker*)accountTracker
                         lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                      reachabilityTracker:(CKKSReachabilityTracker *)reachabilityTracker
+                        changeFetcher:(CKKSZoneChangeFetcher*)fetcher
                         savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier
                             peerProvider:(id<CKKSPeerProvider>)peerProvider
     fetchRecordZoneChangesOperationClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
@@ -193,6 +193,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Schedules a process queueoperation to happen after the next device unlock. This may be Immediately, if the device is unlocked.
 - (void)processIncomingQueueAfterNextUnlock;
+
+// This operation will complete directly after the next ProcessIncomingQueue, and should supply that IQO's result. Used mainly for testing; otherwise you'd just kick off a IQO directly.
+- (CKKSResultOperation*)resultsOfNextProcessIncomingQueueOperation;
 
 // Schedules an operation to update this device's state record in CloudKit
 // If rateLimit is true, the operation will abort if it's updated the record in the past 3 days
@@ -256,9 +259,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (bool)_onqueueUpdateLatestManifestWithError:(NSError**)error;
 
 - (CKKSDeviceStateEntry* _Nullable)_onqueueCurrentDeviceStateEntry:(NSError* __autoreleasing*)error;
-
-// Called by the CKKSZoneChangeFetcher
-- (bool)isFatalCKFetchError:(NSError*)error;
 
 // Please don't use these unless you're an Operation in this package
 @property NSHashTable<CKKSIncomingQueueOperation*>* incomingQueueOperations;

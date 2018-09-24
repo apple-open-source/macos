@@ -113,6 +113,7 @@ enum {
 	cdAlternateCodeDirectoryLimit = 0x1005,	// 5+1 hashes should be enough for everyone...
 	cdSignatureSlot = 0x10000,			// CMS signature
 	cdIdentificationSlot,				// identification blob (detached signatures only)
+	cdTicketSlot,						// ticket embedded in signature (DMG only)
 	// (add further virtual slot numbers here)
 };
 

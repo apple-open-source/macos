@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2013, 2016-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,6 +40,7 @@
 #define NWI_IFSTATE_FLAGS_NOT_IN_LIST	0x0008
 #define NWI_IFSTATE_FLAGS_HAS_SIGNATURE	0x0010
 #define NWI_IFSTATE_FLAGS_NOT_IN_IFLIST	0x0020
+#define NWI_IFSTATE_FLAGS_HAS_CLAT46	0x0040	/* has CLAT46 configured */
 
 /*
  * NWI_IFSTATE_FLAGS_MASK
@@ -346,9 +347,6 @@ nwi_ifstate_get_difference(nwi_ifstate_t diff_ifstate);
 
 void
 _nwi_state_update_interface_generations(nwi_state_t old_state, nwi_state_t state, nwi_state_t changes);
-
-void
-_nwi_state_force_refresh();
 
 void
 _nwi_state_compute_sha1_hash(nwi_state_t state,

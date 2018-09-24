@@ -34,7 +34,6 @@
 #include "DefaultPolicyDelegate.h"
 #include "EmbeddedWidget.h"
 #include "MarshallingHelpers.h"
-#include "NotImplemented.h"
 #include "PluginDatabase.h"
 #include "PluginPackage.h"
 #include "PluginView.h"
@@ -76,6 +75,7 @@
 #include <WebCore/HistoryItem.h>
 #include <WebCore/LocalizedStrings.h>
 #include <WebCore/MIMETypeRegistry.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/PolicyChecker.h>
 #include <WebCore/RenderWidget.h>
@@ -354,12 +354,12 @@ void WebFrameLoaderClient::dispatchDidCancelClientRedirect()
         frameLoadDelegate->didCancelClientRedirectForFrame(webView, m_webFrame);
 }
 
-void WebFrameLoaderClient::dispatchWillPerformClientRedirect(const URL& url, double delay, double fireDate)
+void WebFrameLoaderClient::dispatchWillPerformClientRedirect(const URL& url, double delay, WallTime fireDate)
 {
     WebView* webView = m_webFrame->webView();
     COMPtr<IWebFrameLoadDelegate> frameLoadDelegate;
     if (SUCCEEDED(webView->frameLoadDelegate(&frameLoadDelegate)))
-        frameLoadDelegate->willPerformClientRedirectToURL(webView, BString(url.string()), delay, MarshallingHelpers::CFAbsoluteTimeToDATE(fireDate), m_webFrame);
+        frameLoadDelegate->willPerformClientRedirectToURL(webView, BString(url.string()), delay, MarshallingHelpers::CFAbsoluteTimeToDATE(fireDate.secondsSinceEpoch().seconds()), m_webFrame);
 }
 
 void WebFrameLoaderClient::dispatchDidChangeLocationWithinPage()
@@ -565,7 +565,7 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Navigati
     m_policyListenerPrivate->m_policyFunction(PolicyAction::Use);
 }
 
-void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction& action, const ResourceRequest& request, bool, FormState* formState, FramePolicyFunction&& function)
+void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction& action, const ResourceRequest& request, const ResourceResponse&, FormState* formState, WebCore::PolicyDecisionMode, FramePolicyFunction&& function)
 {
     WebView* webView = m_webFrame->webView();
     Frame* coreFrame = core(m_webFrame);
@@ -1169,6 +1169,7 @@ RefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize& pluginSize, HTM
         }
     }
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
     Frame* frame = core(m_webFrame);
     RefPtr<PluginView> pluginView = PluginView::create(frame, pluginSize, &element, url, paramNames, paramValues, mimeType, loadManually);
 
@@ -1176,7 +1177,7 @@ RefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize& pluginSize, HTM
         return pluginView;
 
     dispatchDidFailToStartPlugin(pluginView.get());
-
+#endif
     return nullptr;
 }
 
@@ -1191,6 +1192,7 @@ void WebFrameLoaderClient::redirectDataToPlugin(Widget& pluginWidget)
 
 RefPtr<Widget> WebFrameLoaderClient::createJavaAppletWidget(const IntSize& pluginSize, HTMLAppletElement& element, const URL& /*baseURL*/, const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
+#if ENABLE(NETSCAPE_PLUGIN_API)
     RefPtr<PluginView> pluginView = PluginView::create(core(m_webFrame), pluginSize, &element, URL(), paramNames, paramValues, "application/x-java-applet", false);
 
     // Check if the plugin can be loaded successfully
@@ -1213,6 +1215,9 @@ RefPtr<Widget> WebFrameLoaderClient::createJavaAppletWidget(const IntSize& plugi
     resourceLoadDelegate->plugInFailedWithError(webView, error.get(), getWebDataSource(coreFrame->loader().documentLoader()));
 
     return WTFMove(pluginView);
+#else
+    return nullptr;
+#endif
 }
 
 WebHistory* WebFrameLoaderClient::webHistory() const

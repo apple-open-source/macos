@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -69,9 +69,9 @@ void PolymorphicCallCase::dump(PrintStream& out) const
 }
 
 PolymorphicCallStubRoutine::PolymorphicCallStubRoutine(
-    const MacroAssemblerCodeRef& codeRef, VM& vm, const JSCell* owner, ExecState* callerFrame,
+    const MacroAssemblerCodeRef<JITStubRoutinePtrTag>& codeRef, VM& vm, const JSCell* owner, ExecState* callerFrame,
     CallLinkInfo& info, const Vector<PolymorphicCallCase>& cases,
-    std::unique_ptr<uint32_t[]> fastCounts)
+    UniqueArray<uint32_t>&& fastCounts)
     : GCAwareJITStubRoutine(codeRef, vm)
     , m_fastCounts(WTFMove(fastCounts))
 {

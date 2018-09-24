@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include "DrawingAreaInfo.h"
+#include "DynamicViewportSizeUpdate.h"
 #include "EditorState.h"
 #include "GenericCallback.h"
 #include "PlatformCAAnimationRemote.h"
@@ -218,10 +220,8 @@ public:
     WebCore::Color pageExtendedBackgroundColor() const { return m_pageExtendedBackgroundColor; }
     void setPageExtendedBackgroundColor(WebCore::Color color) { m_pageExtendedBackgroundColor = color; }
 
-#if PLATFORM(MAC)
     WebCore::IntPoint scrollPosition() const { return m_scrollPosition; }
     void setScrollPosition(WebCore::IntPoint p) { m_scrollPosition = p; }
-#endif
 
     double pageScaleFactor() const { return m_pageScaleFactor; }
     void setPageScaleFactor(double pageScaleFactor) { m_pageScaleFactor = pageScaleFactor; }
@@ -262,6 +262,9 @@ public:
     uint64_t transactionID() const { return m_transactionID; }
     void setTransactionID(uint64_t transactionID) { m_transactionID = transactionID; }
 
+    ActivityStateChangeID activityStateChangeID() const { return m_activityStateChangeID; }
+    void setActivityStateChangeID(ActivityStateChangeID activityStateChangeID) { m_activityStateChangeID = activityStateChangeID; }
+
     typedef CallbackID TransactionCallbackID;
     const Vector<TransactionCallbackID>& callbackIDs() const { return m_callbackIDs; }
     void setCallbackIDs(Vector<TransactionCallbackID>&& callbackIDs) { m_callbackIDs = WTFMove(callbackIDs); }
@@ -272,6 +275,9 @@ public:
     bool hasEditorState() const { return !!m_editorState; }
     const EditorState& editorState() const { return m_editorState.value(); }
     void setEditorState(const EditorState& editorState) { m_editorState = editorState; }
+
+    std::optional<DynamicViewportSizeUpdateID> dynamicViewportSizeUpdateID() const { return m_dynamicViewportSizeUpdateID; }
+    void setDynamicViewportSizeUpdateID(DynamicViewportSizeUpdateID resizeID) { m_dynamicViewportSizeUpdateID = resizeID; }
     
 private:
     WebCore::GraphicsLayer::PlatformLayerID m_rootLayerID;
@@ -290,9 +296,7 @@ private:
     WebCore::LayoutSize m_baseLayoutViewportSize;
     WebCore::LayoutPoint m_minStableLayoutViewportOrigin;
     WebCore::LayoutPoint m_maxStableLayoutViewportOrigin;
-#if PLATFORM(MAC)
     WebCore::IntPoint m_scrollPosition;
-#endif
     WebCore::Color m_pageExtendedBackgroundColor;
     double m_pageScaleFactor { 1 };
     double m_minimumScaleFactor { 1 };
@@ -301,6 +305,7 @@ private:
     double m_viewportMetaTagWidth { -1 };
     uint64_t m_renderTreeSize { 0 };
     uint64_t m_transactionID { 0 };
+    ActivityStateChangeID m_activityStateChangeID { ActivityStateChangeAsynchronous };
     WebCore::LayoutMilestones m_newlyReachedLayoutMilestones { 0 };
     bool m_scaleWasSetByUIProcess { false };
     bool m_allowsUserScaling { false };
@@ -309,7 +314,8 @@ private:
     bool m_viewportMetaTagCameFromImageDocument { false };
     bool m_isInStableState { false };
 
-    std::optional<EditorState> m_editorState { std::nullopt };
+    std::optional<EditorState> m_editorState;
+    std::optional<DynamicViewportSizeUpdateID> m_dynamicViewportSizeUpdateID;
 };
 
 } // namespace WebKit

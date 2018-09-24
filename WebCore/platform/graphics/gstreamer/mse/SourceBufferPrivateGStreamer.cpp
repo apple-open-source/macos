@@ -38,7 +38,7 @@
 #if ENABLE(MEDIA_SOURCE) && USE(GSTREAMER)
 
 #include "ContentType.h"
-#include "GStreamerUtilities.h"
+#include "GStreamerCommon.h"
 #include "MediaPlayerPrivateGStreamerMSE.h"
 #include "MediaSample.h"
 #include "MediaSourceClientGStreamerMSE.h"
@@ -116,6 +116,11 @@ void SourceBufferPrivateGStreamer::enqueueSample(Ref<MediaSample>&& sample, cons
     m_notifyWhenReadyForMoreSamples = false;
 
     m_client->enqueueSample(WTFMove(sample));
+}
+
+void SourceBufferPrivateGStreamer::allSamplesInTrackEnqueued(const AtomicString& trackId)
+{
+    m_client->allSamplesInTrackEnqueued(trackId);
 }
 
 bool SourceBufferPrivateGStreamer::isReadyForMoreSamples(const AtomicString&)

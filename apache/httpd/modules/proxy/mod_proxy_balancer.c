@@ -899,8 +899,8 @@ static int balancer_post_config(apr_pool_t *pconf, apr_pool_t *plog,
          * we have identifying info, we can create the real id
          */
         id = APR_ARRAY_IDX(ids, idx, const char *);
-        conf->id = apr_psprintf(pconf, "p%x-%d",
-                                ap_proxy_hashfunc(id, PROXY_HASHFUNC_DEFAULT),(int) tstamp);
+        conf->id = apr_psprintf(pconf, "p%x",
+                                ap_proxy_hashfunc(id, PROXY_HASHFUNC_DEFAULT));
         if (conf->bslot) {
             /* Shared memory already created for this proxy_server_conf.
              */
@@ -908,11 +908,9 @@ static int balancer_post_config(apr_pool_t *pconf, apr_pool_t *plog,
             continue;
         }
         if (conf->bal_persist) {
-            type = AP_SLOTMEM_TYPE_PERSIST;
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01178) "Doing balancers create: bal_persist is , AP_SLOTMEM_TYPE_CLEARINUSE");
+            type = AP_SLOTMEM_TYPE_PERSIST | AP_SLOTMEM_TYPE_CLEARINUSE;
         } else {
-            type = AP_SLOTMEM_TYPE_CLEARINUSE;
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01178) "Doing balancers create: bal_persist is FALSE, AP_SLOTMEM_TYPE_CLEARINUSE");
+            type = 0;
         }
         if (conf->balancers->nelts) {
             conf->max_balancers = conf->balancers->nelts + conf->bgrowth;
@@ -924,10 +922,9 @@ static int balancer_post_config(apr_pool_t *pconf, apr_pool_t *plog,
                                  ALIGNED_PROXY_BALANCER_SHARED_SIZE,
                                  conf->max_balancers, type, pconf);
             if (rv != APR_SUCCESS) {
-                ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01179) "balancer slotmem_create failed for %s", conf->id);
+                ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01179) "balancer slotmem_create failed");
                 return !OK;
             }
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(01179) "balancer slotmem_create SUCCESS for %s", conf->id);
             conf->bslot = new;
         }
         conf->storage = storage;
@@ -1239,6 +1236,9 @@ static int balancer_handler(request_rec *r)
         }
         if ((val = apr_table_get(params, "w_status_H"))) {
             ap_proxy_set_wstatus(PROXY_WORKER_HOT_STANDBY_FLAG, atoi(val), wsel);
+        }
+        if ((val = apr_table_get(params, "w_status_R"))) {
+            ap_proxy_set_wstatus(PROXY_WORKER_HOT_SPARE_FLAG, atoi(val), wsel);
         }
         if ((val = apr_table_get(params, "w_status_S"))) {
             ap_proxy_set_wstatus(PROXY_WORKER_STOPPED_FLAG, atoi(val), wsel);
@@ -1766,7 +1766,8 @@ static int balancer_handler(request_rec *r)
                      "<th>Ignore Errors</th>"
                      "<th>Draining Mode</th>"
                      "<th>Disabled</th>"
-                     "<th>Hot Standby</th>", r);
+                     "<th>Hot Standby</th>"
+                     "<th>Hot Spare</th>", r);
             if (hc_show_exprs_f) {
                 ap_rputs("<th>HC Fail</th>", r);
             }
@@ -1775,6 +1776,7 @@ static int balancer_handler(request_rec *r)
             create_radio("w_status_N", (PROXY_WORKER_IS(wsel, PROXY_WORKER_DRAIN)), r);
             create_radio("w_status_D", (PROXY_WORKER_IS(wsel, PROXY_WORKER_DISABLED)), r);
             create_radio("w_status_H", (PROXY_WORKER_IS(wsel, PROXY_WORKER_HOT_STANDBY)), r);
+            create_radio("w_status_R", (PROXY_WORKER_IS(wsel, PROXY_WORKER_HOT_SPARE)), r);
             if (hc_show_exprs_f) {
                 create_radio("w_status_C", (PROXY_WORKER_IS(wsel, PROXY_WORKER_HC_FAIL)), r);
             }

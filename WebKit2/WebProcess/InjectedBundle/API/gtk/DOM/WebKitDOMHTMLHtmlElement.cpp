@@ -36,6 +36,8 @@
 #include <wtf/GetPtr.h>
 #include <wtf/RefPtr.h>
 
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
+
 namespace WebKit {
 
 WebKitDOMHTMLHtmlElement* kit(WebCore::HTMLHtmlElement* obj)
@@ -84,18 +86,18 @@ static gboolean webkit_dom_html_html_element_remove_event_listener(WebKitDOMEven
     return WebKit::GObjectEventListener::removeEventListener(G_OBJECT(target), coreTarget, eventName, handler, useCapture);
 }
 
-static void webkit_dom_event_target_init(WebKitDOMEventTargetIface* iface)
+static void webkit_dom_html_html_element_dom_event_target_init(WebKitDOMEventTargetIface* iface)
 {
     iface->dispatch_event = webkit_dom_html_html_element_dispatch_event;
     iface->add_event_listener = webkit_dom_html_html_element_add_event_listener;
     iface->remove_event_listener = webkit_dom_html_html_element_remove_event_listener;
 }
 
-G_DEFINE_TYPE_WITH_CODE(WebKitDOMHTMLHtmlElement, webkit_dom_html_html_element, WEBKIT_DOM_TYPE_HTML_ELEMENT, G_IMPLEMENT_INTERFACE(WEBKIT_DOM_TYPE_EVENT_TARGET, webkit_dom_event_target_init))
+G_DEFINE_TYPE_WITH_CODE(WebKitDOMHTMLHtmlElement, webkit_dom_html_html_element, WEBKIT_DOM_TYPE_HTML_ELEMENT, G_IMPLEMENT_INTERFACE(WEBKIT_DOM_TYPE_EVENT_TARGET, webkit_dom_html_html_element_dom_event_target_init))
 
 enum {
-    PROP_0,
-    PROP_VERSION,
+    DOM_HTML_HTML_ELEMENT_PROP_0,
+    DOM_HTML_HTML_ELEMENT_PROP_VERSION,
 };
 
 static void webkit_dom_html_html_element_set_property(GObject* object, guint propertyId, const GValue* value, GParamSpec* pspec)
@@ -103,7 +105,7 @@ static void webkit_dom_html_html_element_set_property(GObject* object, guint pro
     WebKitDOMHTMLHtmlElement* self = WEBKIT_DOM_HTML_HTML_ELEMENT(object);
 
     switch (propertyId) {
-    case PROP_VERSION:
+    case DOM_HTML_HTML_ELEMENT_PROP_VERSION:
         webkit_dom_html_html_element_set_version(self, g_value_get_string(value));
         break;
     default:
@@ -117,7 +119,7 @@ static void webkit_dom_html_html_element_get_property(GObject* object, guint pro
     WebKitDOMHTMLHtmlElement* self = WEBKIT_DOM_HTML_HTML_ELEMENT(object);
 
     switch (propertyId) {
-    case PROP_VERSION:
+    case DOM_HTML_HTML_ELEMENT_PROP_VERSION:
         g_value_take_string(value, webkit_dom_html_html_element_get_version(self));
         break;
     default:
@@ -134,7 +136,7 @@ static void webkit_dom_html_html_element_class_init(WebKitDOMHTMLHtmlElementClas
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_VERSION,
+        DOM_HTML_HTML_ELEMENT_PROP_VERSION,
         g_param_spec_string(
             "version",
             "HTMLHtmlElement:version",
@@ -166,3 +168,4 @@ void webkit_dom_html_html_element_set_version(WebKitDOMHTMLHtmlElement* self, co
     WTF::String convertedValue = WTF::String::fromUTF8(value);
     item->setAttributeWithoutSynchronization(WebCore::HTMLNames::versionAttr, convertedValue);
 }
+G_GNUC_END_IGNORE_DEPRECATIONS;

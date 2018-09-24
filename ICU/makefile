@@ -1,6 +1,6 @@
 ##
 # Wrapper makefile for ICU
-# Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+# Copyright (C) 2003-2018 Apple Inc. All rights reserved.
 #
 # See http://www.gnu.org/manual/make/html_chapter/make_toc.html#SEC_Contents
 # for documentation on makefiles. Most of this was culled from the ncurses makefile.
@@ -99,9 +99,14 @@
 
 # Sane defaults, which are typically overridden on the command line
 #or by the environment
-WINDOWS=NO
-LINUX=NO
-ARCH64=NO
+ifeq ($(OS),Windows_NT)
+	WINDOWS=YES
+	LINUX=NO
+else
+	WINDOWS=NO
+	LINUX?=$(shell [[ "`uname -s`" == "Linux" ]] && echo YES || echo NO)
+endif
+ARCH64?=YES
 RC_ARCHS=
 ifndef RC_ProjectSourceVersion
 ifdef RC_PROJECTSOURCEVERSION
@@ -304,7 +309,7 @@ endif
 ifeq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
 	HOSTCC := $(shell xcrun --sdk macosx --find cc)
 	HOSTCXX := $(shell xcrun --sdk macosx --find c++)
-	HOSTSDKPATH := $(shell xcrun --sdk macosx --show-sdk-path)
+	HOSTSDKPATH := $(shell xcrun --sdk macosx.internal --show-sdk-path)
 	HOSTISYSROOT = -isysroot $(HOSTSDKPATH)
 	ifeq "$(SDKPATH)" "/"
 		ISYSROOT:= -isysroot $(HOSTSDKPATH)
@@ -348,8 +353,13 @@ ifeq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
 else
 	ifeq "$(LINUX)" "YES"
 		ISYSROOT:=
-		CC := gcc
-		CXX := g++
+		ifeq "$(shell (which clang >& /dev/null && which clang++ >& /dev/null && echo YES) || echo NO)" "YES"
+			CC := clang
+			CXX := clang++
+		else
+			CC := gcc
+			CXX := g++
+		endif
 	endif
 	export ICU_FOR_EMBEDDED_TRAINS:=NO
 	TVOS:=0
@@ -383,37 +393,37 @@ $(error Cross-builds currently not allowed on Linux)
 endif
 endif
 
-MAC_OS_X_VERSION_MIN_REQUIRED=101200
-OSX_HOST_VERSION_MIN_STRING=10.12
+MAC_OS_X_VERSION_MIN_REQUIRED=101300
+OSX_HOST_VERSION_MIN_STRING=10.13
 
 ifndef IPHONEOS_DEPLOYMENT_TARGET
-	IOS_VERSION_TARGET_STRING=11.0
+	IOS_VERSION_TARGET_STRING=12.0
 else ifeq "$(IPHONEOS_DEPLOYMENT_TARGET)" ""
-	IOS_VERSION_TARGET_STRING=11.0
+	IOS_VERSION_TARGET_STRING=12.0
 else
 	IOS_VERSION_TARGET_STRING=$(IPHONEOS_DEPLOYMENT_TARGET)
 endif
 
 ifndef MACOSX_DEPLOYMENT_TARGET
-	OSX_VERSION_TARGET_STRING=10.13
+	OSX_VERSION_TARGET_STRING=10.14
 else ifeq "$(MACOSX_DEPLOYMENT_TARGET)" ""
-	OSX_VERSION_TARGET_STRING=10.13
+	OSX_VERSION_TARGET_STRING=10.14
 else
 	OSX_VERSION_TARGET_STRING=$(MACOSX_DEPLOYMENT_TARGET)
 endif
 
 ifndef WATCHOS_DEPLOYMENT_TARGET
-	WATCHOS_VERSION_TARGET_STRING=4.0
+	WATCHOS_VERSION_TARGET_STRING=5.0
 else ifeq "$(WATCHOS_DEPLOYMENT_TARGET)" ""
-	WATCHOS_VERSION_TARGET_STRING=4.0
+	WATCHOS_VERSION_TARGET_STRING=5.0
 else
 	WATCHOS_VERSION_TARGET_STRING=$(WATCHOS_DEPLOYMENT_TARGET)
 endif
 
 ifndef TVOS_DEPLOYMENT_TARGET
-	TVOS_VERSION_TARGET_STRING=11.0
+	TVOS_VERSION_TARGET_STRING=12.0
 else ifeq "$(TVOS_DEPLOYMENT_TARGET)" ""
-	TVOS_VERSION_TARGET_STRING=11.0
+	TVOS_VERSION_TARGET_STRING=12.0
 else
 	TVOS_VERSION_TARGET_STRING=$(TVOS_DEPLOYMENT_TARGET)
 endif
@@ -488,7 +498,7 @@ $(info # buildhost=$(UNAME_PROCESSOR))
 #
 ifeq "$(CROSS_BUILD)" "YES"
 	RC_ARCHS_FIRST=$(shell echo $(RC_ARCHS) | cut -d' ' -f1)
-	TARGET_SPEC=$(RC_ARCHS_FIRST)-apple-darwin16.0.0
+	TARGET_SPEC=$(RC_ARCHS_FIRST)-apple-darwin17.3.0
 	ENV_CONFIGURE_ARCHS=-arch $(RC_ARCHS_FIRST)
 	ICUPKGTOOLIBS="$(CROSSHOST_OBJROOT)/lib:$(CROSSHOST_OBJROOT)/stubdata"
 	ICUPKGTOOL=$(CROSSHOST_OBJROOT)/bin/icupkg
@@ -504,7 +514,7 @@ else ifeq "$(LINUX)" "YES"
 	ICUPKGTOOL=$(OBJROOT_CURRENT)/bin/icupkg
 	FORCEENDIAN=
 else
-	TARGET_SPEC=$(UNAME_PROCESSOR)-apple-darwin16.0.0
+	TARGET_SPEC=$(UNAME_PROCESSOR)-apple-darwin17.3.0
 	ENV_CONFIGURE_ARCHS=
 	ICUPKGTOOLIBS="$(OBJROOT_CURRENT)/lib:$(OBJROOT_CURRENT)/stubdata"
 	ICUPKGTOOL=$(OBJROOT_CURRENT)/bin/icupkg
@@ -681,7 +691,7 @@ endif
 # The ICU version/subversion should reflect the actual ICU version.
 
 LIB_NAME = icucore
-ICU_VERS = 59
+ICU_VERS = 62
 ICU_SUBVERS = 1
 CORE_VERS = A
 
@@ -698,9 +708,9 @@ ifeq "$(WINDOWS)" "YES"
 else ifeq "$(LINUX)" "YES"
 	DYLIB_SUFF = so
 	ifeq "$(ARCH64)" "YES"
-		libdir = /usr/lib64/
+		libdir = /usr/local/lib/
 	else
-		libdir = /usr/lib/
+		libdir = /usr/local/lib32/
 	endif
 	winprogdir =
 	winintlibdir =
@@ -745,15 +755,19 @@ OPEN_SOURCE_LICENSES_DIR=/usr/local/OpenSourceLicenses/
 B_DATA_FILE=icudt$(ICU_VERS)b.dat
 L_DATA_FILE=icudt$(ICU_VERS)l.dat
 DATA_BUILD_SUBDIR= data/out
+ifeq "$(LINUX)" "YES"
+DATA_INSTALL_DIR=/usr/local/share/icu/
+else
 DATA_INSTALL_DIR=/usr/share/icu/
+endif
 
 # DATA_LOOKUP_DIR is what the target ICU_DATA_DIR gets set to in CFLAGS, CXXFLAGS;
 # DATA_LOOKUP_DIR_BUILDHOST is what any crossbuild host ICU_DATA_DIR gets set to.
 # Formerly we had DATA_LOOKUP_DIR=/var/db/icu/ for embedded non-simulator builds
 # and DATA_LOOKUP_DIR=/usr/share/icu/ for everything else. Now all systems look
 # in the same place for the main data file:
-DATA_LOOKUP_DIR=/usr/share/icu/
-DATA_LOOKUP_DIR_BUILDHOST=/usr/share/icu/
+DATA_LOOKUP_DIR=$(DATA_INSTALL_DIR)
+DATA_LOOKUP_DIR_BUILDHOST=$(DATA_INSTALL_DIR)
 
 # Timezone data file(s)
 # ICU will look for /var/db/timezone/icutz/icutz44l.dat
@@ -881,39 +895,44 @@ ifeq "$(WINDOWS)" "YES"
 else ifeq "$(LINUX)" "YES"
 	ifeq "$(ARCH64)" "YES"
 		ENV_CONFIGURE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+			LANG="en_US.utf8" \
 			CPPFLAGS="-DU_DISABLE_RENAMING=1 $(DEFINE_BUILD_LEVEL)"  \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib64"
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
 		ENV= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib64"
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
 		ENV_DEBUG= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -O0 -gfull -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -O0 -gfull -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib64"
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
 		ENV_PROFILE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -pg -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -pg -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib64"
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 	else
 		ENV_CONFIGURE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+			LANG="en_US.utf8" \
 			CPPFLAGS="-DU_DISABLE_RENAMING=1 $(DEFINE_BUILD_LEVEL)" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
@@ -923,6 +942,7 @@ else ifeq "$(LINUX)" "YES"
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
 		ENV= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -fno-exceptions -fvisibility=hidden" \
@@ -931,6 +951,7 @@ else ifeq "$(LINUX)" "YES"
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
 		ENV_DEBUG= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -O0 -gfull -fno-exceptions -fvisibility=hidden" \
@@ -939,6 +960,7 @@ else ifeq "$(LINUX)" "YES"
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
 		ENV_PROFILE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+			LANG="en_US.utf8" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -pg -fno-exceptions -fvisibility=hidden" \
@@ -1073,7 +1095,7 @@ ADJUST_SOURCES = \
 icu debug profile : $(OBJROOT_CURRENT)/Makefile
 	echo "# make for target";
 	(cd $(OBJROOT_CURRENT); \
-		$(MAKE) $($(ENV_$@)); \
+		$(MAKE) $($(ENV_$@)) || exit 1; \
 		if test "$(WINDOWS)" = "YES"; then \
 			(cd common; \
 				rc.exe /folibicuuc.res $(CPPFLAGS) -DU_RELEASE=1 -D_CRT_SECURE_NO_DEPRECATE -I. -I../i18n \
@@ -1137,9 +1159,12 @@ icu debug profile : $(OBJROOT_CURRENT)/Makefile
 			else \
 				tmpfile=`mktemp -t weakexternal.XXXXXX` || exit 1; \
 				$(NM) -m $(RC_ARCHS:%=-arch %) $(DYLIB_OBJS) | fgrep "weak external" | fgrep -v "undefined" | sed -e 's/.*weak external[^_]*//' | sort | uniq | cat >$$tmpfile; \
+				if test ! "$(ICU_FOR_EMBEDDED_TRAINS)" = "YES"; then \
+					ZIPPERING_LDFLAGS=-Wl,-iosmac_version_min,12.0; \
+				fi; \
 				$($(ENV_$@)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
 					$(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) \
-					$(CXXFLAGS) $(LDFLAGS) -single_module $(SECTORDER_FLAGS) -unexported_symbols_list $$tmpfile -dead_strip \
+					$(CXXFLAGS) $(LDFLAGS) $$ZIPPERING_LDFLAGS -single_module $(SECTORDER_FLAGS) -unexported_symbols_list $$tmpfile -dead_strip \
 					-install_name $(libdir)$($(INSTALLED_DYLIB_$@)) -o ./$($(INSTALLED_DYLIB_$@)) $(DYLIB_OBJS); \
 				if test "$@" = "icu"; then \
 					ln -fs  $(INSTALLED_DYLIB) $(DYLIB); \
@@ -1172,7 +1197,7 @@ icu debug profile : $(OBJROOT_CURRENT)/Makefile
 crossbuildhost : $(CROSSHOST_OBJROOT)/Makefile
 	echo "# make for crossbuild host";
 	(cd $(CROSSHOST_OBJROOT); \
-		$(MAKE) $($(ENV_BUILDHOST)); \
+		$(MAKE) $($(ENV_BUILDHOST)) || exit 1; \
 	);
 
 # For the install-icutztoolsforsdk target, SDKROOT will always be an OSX SDK root.
@@ -1183,7 +1208,7 @@ icutztoolsforsdk : $(OBJROOT_CURRENT)/Makefile
 	echo "# make icutztoolsforsdk";
 	(cd $(OBJROOT_CURRENT); \
 		if test ! -d $(SRCROOT)/.git ; then patch -N -p1 <$(SRCROOT)/crosshostpatchconfig.txt; fi; \
-		$(MAKE) $($(ENV)); \
+		$(MAKE) $($(ENV)) || exit 1; \
 		echo '# build' $(TOOLS_DYLIB_FORTOOLS) 'linked against' $(LIB_NAME) ; \
 		$($(ENV)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
 			-g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) \
@@ -1300,7 +1325,7 @@ $(CROSSHOST_OBJROOT)/Makefile :
 installsrc :
 	if test ! -d $(SRCROOT); then mkdir $(SRCROOT); fi;
 	if test -d $(SRCROOT)/icuSources ; then rm -rf $(SRCROOT)/icuSources; fi;
-	tar cf - ./makefile ./ICU.plist ./LICENSE ./icuSources ./cldrFiles ./emojiData $(INSTALLSRC_VARFILES) | (cd $(SRCROOT) ; tar xfp -); \
+	tar cf - ./makefile ./ICU.plist ./LICENSE ./icuSources ./cldrFiles ./emojiData ./modules $(INSTALLSRC_VARFILES) | (cd $(SRCROOT) ; tar xfp -); \
 	(cd $(SRCROOT)/icuSources; $(ADJUST_SOURCES) );
 
 # This works. Just not for ~ in the DSTROOT. We run configure first (in case it hasn't
@@ -1349,6 +1374,12 @@ endif
 					$(CC) $(SRCROOT)/minimalapisTest.c $(INSTALLHDRS_ARCH) $(ISYSROOT) -nostdinc \
 						-I $(DSTROOT)/$(HDR_PREFIX)/include/ -I $(SDKPATH)/usr/include/ -E > /dev/null ; \
 				fi; \
+			fi; \
+			$(INSTALL_DATA) $(SRCROOT)/modules/embedded/module.modulemap $(DSTROOT)/$(HDR_PREFIX)/include/unicode/ ; \
+			$(INSTALL_DATA) $(SRCROOT)/modules/embedded/module.private.modulemap $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/ ; \
+		else \
+			if test "$(ICU_FOR_APPLE_PLATFORMS)" = "YES"; then \
+				$(INSTALL_DATA) $(SRCROOT)/modules/macos/module.private.modulemap $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/ ; \
 			fi; \
 		fi; \
 	);

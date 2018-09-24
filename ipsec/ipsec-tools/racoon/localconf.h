@@ -36,7 +36,11 @@
 #include <vproc.h>
 #endif
 #include <dispatch/dispatch.h>
+#if __has_include(<nw/private.h>)
+#include <nw/private.h>
+#else
 #include <network/nat64.h>
+#endif
 #include "vmbuf.h"
 #include "ipsec_doi.h"
 

@@ -68,7 +68,7 @@
 
 typedef struct th_info {
 	struct th_info *next;
-	uintptr_t thread;
+	uint64_t thread;
 
 	/* this is needed for execve()/posix_spawn(), because the command name at the end probe is the new name, which we don't want */
 	char command[MAXCOMLEN + 1];
@@ -78,21 +78,21 @@ typedef struct th_info {
 	 * (e.g., one absolute, one relative).  traditional fs_usage behavior was to display the
 	 * *first* lookup, so we need to save it off once we see it.
 	 */
-	unsigned long vnodeid; /* the vp of the VFS_LOOKUP we're currently in, 0 if we are not in one */
+	uint64_t vnodeid; /* the vp of the VFS_LOOKUP we're currently in, 0 if we are not in one */
 	char pathname[MAXPATHLEN];
 	char pathname2[MAXPATHLEN];
 	char *newest_pathname; /* points to pathname2 if it's filled, otherwise pathname if it's filled, otherwise NULL */
 
 	int pid;
 	int type;
-	unsigned long arg1;
-	unsigned long arg2;
-	unsigned long arg3;
-	unsigned long arg4;
-	unsigned long arg5;
-	unsigned long arg6;
-	unsigned long arg7;
-	unsigned long arg8;
+	uint64_t arg1;
+	uint64_t arg2;
+	uint64_t arg3;
+	uint64_t arg4;
+	uint64_t arg5;
+	uint64_t arg6;
+	uint64_t arg7;
+	uint64_t arg8;
 	int waited;
 	uint64_t stime;
 } *th_info_t;
@@ -100,17 +100,17 @@ typedef struct th_info {
 struct diskio {
 	struct diskio *next;
 	struct diskio *prev;
-	unsigned long  type;
-	unsigned long  bp;
-	unsigned long  dev;
-	unsigned long  blkno;
-	unsigned long  iosize;
-	unsigned long  io_errno;
-	unsigned long  is_meta;
+	uint64_t  type;
+	uint64_t  bp;
+	uint64_t  dev;
+	uint64_t  blkno;
+	uint64_t  iosize;
+	uint64_t  io_errno;
+	uint64_t  is_meta;
 	uint64_t   vnodeid;
-	uintptr_t  issuing_thread;
+	uint64_t  issuing_thread;
 	pid_t      issuing_pid;
-	uintptr_t  completion_thread;
+	uint64_t  completion_thread;
 	char issuing_command[MAXCOMLEN + 1];
 	uint64_t issued_time;
 	uint64_t completed_time;
@@ -122,12 +122,12 @@ struct diskio {
 #define HASH_MASK       (HASH_SIZE - 1)
 
 void setup_ktrace_callbacks(void);
-void extend_syscall(uintptr_t thread, int type, ktrace_event_t event);
+void extend_syscall(uint64_t thread, int type, ktrace_event_t event);
 
 /* printing routines */
-bool check_filter_mode(pid_t pid, th_info_t ti, unsigned long type, int error, int retval, char *sc_name);
-void format_print(th_info_t ti, char *sc_name, ktrace_event_t event, unsigned long type, int format, uint64_t now, uint64_t stime, int waited, const char *pathname, struct diskio *dio);
-int print_open(ktrace_event_t event, uintptr_t flags);
+bool check_filter_mode(pid_t pid, th_info_t ti, uint64_t type, int error, int retval, char *sc_name);
+void format_print(th_info_t ti, char *sc_name, ktrace_event_t event, uint64_t type, int format, uint64_t now, uint64_t stime, int waited, const char *pathname, struct diskio *dio);
+int print_open(ktrace_event_t event, uint64_t flags);
 
 /* metadata info hash routines */
 void meta_add_name(uint64_t blockno, const char *pathname);
@@ -137,14 +137,14 @@ void meta_delete_all(void);
 /* event ("thread info") routines */
 void event_enter(int type, ktrace_event_t event);
 void event_exit(char *sc_name, int type, ktrace_event_t event, int format);
-th_info_t event_find(uintptr_t thread, int type);
+th_info_t event_find(uint64_t thread, int type);
 void event_delete(th_info_t ti_to_delete);
 void event_delete_all(void);
-void event_mark_thread_waited(uintptr_t);
+void event_mark_thread_waited(uint64_t);
 
 /* network fd set routines */
-void fd_set_is_network(pid_t pid, unsigned long fd, bool set);
-bool fd_is_network(pid_t pid, unsigned long fd);
+void fd_set_is_network(pid_t pid, uint64_t fd, bool set);
+bool fd_is_network(pid_t pid, uint64_t fd);
 void fd_clear_pid(pid_t pid);
 void fd_clear_all(void);
 
@@ -153,17 +153,17 @@ void init_shared_cache_mapping(void);
 void lookup_name(uint64_t user_addr, char **type, char **name);
 
 /* disk I/O tracking routines */
-struct diskio *diskio_start(unsigned long type, unsigned long bp, unsigned long dev, unsigned long blkno, unsigned long iosize, ktrace_event_t event);
-struct diskio *diskio_find(unsigned long bp);
-struct diskio *diskio_complete(unsigned long bp, unsigned long io_errno, unsigned long resid, uintptr_t thread, uint64_t curtime, struct timeval curtime_wall);
+struct diskio *diskio_start(uint64_t type, uint64_t bp, uint64_t dev, uint64_t blkno, uint64_t iosize, ktrace_event_t event);
+struct diskio *diskio_find(uint64_t bp);
+struct diskio *diskio_complete(uint64_t bp, uint64_t io_errno, uint64_t resid, uint64_t thread, uint64_t curtime, struct timeval curtime_wall);
 void diskio_print(struct diskio *dio);
 void diskio_free(struct diskio *dio);
 
 /* disk name routines */
 #define NFS_DEV -1
 #define CS_DEV	-2
-char *generate_cs_disk_name(unsigned long dev, char *s);
-char *find_disk_name(unsigned long dev);
+char *generate_cs_disk_name(uint64_t dev, char *s);
+char *find_disk_name(uint64_t dev);
 void cache_disk_names(void);
 
 #define CLASS_MASK	0xff000000
@@ -386,7 +386,11 @@ void cache_disk_names(void);
 #define BSC_pwrite_nocancel	0x040c067c
 #define BSC_aio_suspend_nocancel 0x40c0694
 #define BSC_guarded_open_np	0x040c06e4
+#define BSC_guarded_open_dprotected_np	0x040c0790
 #define BSC_guarded_close_np	0x040c06e8
+#define BSC_guarded_write_np	0x040c0794
+#define BSC_guarded_pwrite_np	0x040c0798
+#define BSC_guarded_writev_np	0x040c079c
 
 #define BSC_fsgetpath		0x040c06ac
 
@@ -461,6 +465,7 @@ void cache_disk_names(void);
 #define FMT_OPENAT  45
 #define FMT_RENAMEAT	46
 #define FMT_IOCTL_SYNCCACHE 47
+#define FMT_GUARDED_OPEN 48
 
 #define DBG_FUNC_ALL	(DBG_FUNC_START | DBG_FUNC_END)
 
@@ -543,14 +548,18 @@ const struct bsd_syscall bsd_syscalls[MAX_BSD_SYSCALL] = {
 	NORMAL_SYSCALL(posix_spawn),
 	SYSCALL_WITH_NOCANCEL(open, FMT_OPEN),
 	SYSCALL(open_extended, FMT_OPEN),
-	SYSCALL(guarded_open_np, FMT_OPEN),
+	SYSCALL(guarded_open_np, FMT_GUARDED_OPEN),
 	SYSCALL_NAMED(open_dprotected_np, open_dprotected, FMT_OPEN),
+	SYSCALL(guarded_open_dprotected_np, FMT_GUARDED_OPEN),
 	SYSCALL(dup, FMT_FD_2),
 	SYSCALL(dup2, FMT_FD_2),
 	SYSCALL_WITH_NOCANCEL(close, FMT_FD),
 	SYSCALL(guarded_close_np, FMT_FD),
 	SYSCALL_WITH_NOCANCEL(read, FMT_FD_IO),
 	SYSCALL_WITH_NOCANCEL(write, FMT_FD_IO),
+	SYSCALL(guarded_write_np, FMT_FD_IO),
+	SYSCALL(guarded_pwrite_np, FMT_FD_IO),
+	SYSCALL(guarded_writev_np, FMT_FD_IO),
 	SYSCALL(fgetxattr, FMT_FD),
 	SYSCALL(fsetxattr, FMT_FD),
 	SYSCALL(fremovexattr, FMT_FD),
@@ -724,7 +733,13 @@ main(int argc, char *argv[])
 	get_screenwidth();
 
 	s = ktrace_session_create();
-	assert(s);
+	assert(s != NULL);
+	(void)ktrace_ignore_process_filter_for_event(s, P_WrData);
+	(void)ktrace_ignore_process_filter_for_event(s, P_RdData);
+	(void)ktrace_ignore_process_filter_for_event(s, P_WrMeta);
+	(void)ktrace_ignore_process_filter_for_event(s, P_RdMeta);
+	(void)ktrace_ignore_process_filter_for_event(s, P_PgOut);
+	(void)ktrace_ignore_process_filter_for_event(s, P_PgIn);
 
 	while ((ch = getopt(argc, argv, "bewf:R:S:E:t:W")) != -1) {
 		switch (ch) {
@@ -1274,7 +1289,7 @@ setup_ktrace_callbacks(void)
  *     is all we really need.
  */
 void
-extend_syscall(uintptr_t thread, int type, ktrace_event_t event)
+extend_syscall(uint64_t thread, int type, ktrace_event_t event)
 {
 	th_info_t ti;
 
@@ -1338,7 +1353,7 @@ extend_syscall(uintptr_t thread, int type, ktrace_event_t event)
 #pragma mark printing routines
 
 static void
-get_mode_nibble(char *buf, unsigned long smode, unsigned long special, char x_on, char x_off)
+get_mode_nibble(char *buf, uint64_t smode, uint64_t special, char x_on, char x_off)
 {
 	if (smode & 04)
 		buf[0] = 'r';
@@ -1358,7 +1373,7 @@ get_mode_nibble(char *buf, unsigned long smode, unsigned long special, char x_on
 }
 
 static void
-get_mode_string(unsigned long mode, char *buf)
+get_mode_string(uint64_t mode, char *buf)
 {
 	memset(buf, '-', 9);
 	buf[9] = '\0';
@@ -1405,11 +1420,11 @@ clip_64bit(char *s, uint64_t value)
  * filters may be combined; default is all filters on (except cachehit)
  */
 bool
-check_filter_mode(pid_t pid, th_info_t ti, unsigned long type, int error, int retval, char *sc_name)
+check_filter_mode(pid_t pid, th_info_t ti, uint64_t type, int error, int retval, char *sc_name)
 {
 	bool ret = false;
 	int network_fd_isset = 0;
-	unsigned long fd;
+	uint64_t fd;
 
 	/* cachehit is special -- it's not on by default */
 	if (sc_name[0] == 'C' && !strcmp(sc_name, "CACHE_HIT")) {
@@ -1560,7 +1575,7 @@ check_filter_mode(pid_t pid, th_info_t ti, unsigned long type, int error, int re
 }
 
 int
-print_open(ktrace_event_t event, uintptr_t flags)
+print_open(ktrace_event_t event, uint64_t flags)
 {
 	char mode[] = "______";
 
@@ -1602,7 +1617,7 @@ print_open(ktrace_event_t event, uintptr_t flags)
  */
 void
 format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
-	     unsigned long type, int format, uint64_t now, uint64_t stime,
+	     uint64_t type, int format, uint64_t now, uint64_t stime,
 	     int waited, const char *pathname, struct diskio *dio)
 {
 	uint64_t secs, usecs;
@@ -1613,16 +1628,16 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 	int len = 0;
 	int clen = 0;
 	size_t tlen = 0;
-	unsigned long class;
+	uint64_t class;
 	uint64_t user_addr;
 	uint64_t user_size;
 	char *framework_name;
 	char *framework_type;
 	char *p1;
 	char *p2;
-	char buf[MAXWIDTH];
+	char buf[2 * PATH_MAX + 64];
 	char cs_diskname[32];
-	unsigned long threadid;
+	uint64_t threadid;
 	struct timeval now_walltime;
 
 	static char timestamp[32];
@@ -1756,7 +1771,7 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				if (event->arg1)
 					clen += printf(" F=%-3d[%3d]", (int)ti->arg1, (int)event->arg1);
 				else
-					clen += printf(" F=%-3d  B=0x%-6lx", (int)ti->arg1, event->arg2);
+					clen += printf(" F=%-3d  B=0x%-6" PRIx64, (int)ti->arg1, (uint64_t)event->arg2);
 
 				break;
 
@@ -1784,7 +1799,7 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				/*
 				 * pageout
 				 */
-				clen += printf("      B=0x%-8lx", event->arg1);
+				clen += printf("      B=0x%-8" PRIx64, (uint64_t)event->arg1);
 				break;
 
 			case FMT_HFS_update:
@@ -1839,12 +1854,12 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				 * physical disk I/O
 				 */
 				if (dio->io_errno) {
-					clen += printf(" D=0x%8.8lx  [%3d]", dio->blkno, (int)dio->io_errno);
+					clen += printf(" D=0x%8.8" PRIx64 "  [%3d]", dio->blkno, (int)dio->io_errno);
 				} else {
 					if (BC_flag)
-						clen += printf(" D=0x%8.8lx  B=0x%-6lx BC:%s /dev/%s ", dio->blkno, dio->iosize, BC_STR(dio->bc_info), find_disk_name(dio->dev));
+						clen += printf(" D=0x%8.8" PRIx64 "  B=0x%-6" PRIx64 " BC:%s /dev/%s ", dio->blkno, dio->iosize, BC_STR(dio->bc_info), find_disk_name(dio->dev));
 					else
-						clen += printf(" D=0x%8.8lx  B=0x%-6lx /dev/%s ", dio->blkno, dio->iosize, find_disk_name(dio->dev));
+						clen += printf(" D=0x%8.8" PRIx64 "  B=0x%-6" PRIx64 " /dev/%s ", dio->blkno, dio->iosize, find_disk_name(dio->dev));
 
 					if (dio->is_meta) {
 						if (!(type & P_DISKIO_READ)) {
@@ -1867,9 +1882,9 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				 * physical disk I/O
 				 */
 				if (dio->io_errno)
-					clen += printf(" D=0x%8.8lx  [%3lu]", dio->blkno, dio->io_errno);
+					clen += printf(" D=0x%8.8" PRIx64 "  [%3" PRIu64 "]", dio->blkno, dio->io_errno);
 				else
-					clen += printf(" D=0x%8.8lx  B=0x%-6lx /dev/%s", dio->blkno, dio->iosize, generate_cs_disk_name(dio->dev, cs_diskname));
+					clen += printf(" D=0x%8.8" PRIx64 "  B=0x%-6" PRIx64 " /dev/%s", dio->blkno, dio->iosize, generate_cs_disk_name(dio->dev, cs_diskname));
 
 				break;
 
@@ -2094,7 +2109,7 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				/*
 				 * ioctl
 				 */
-				clen += printf(" <DKIOCSYNCHRONIZE>  B=%lu /dev/%s", event->arg3, find_disk_name(event->arg1));
+				clen += printf(" <DKIOCSYNCHRONIZE>  B=%" PRIu64 " /dev/%s", (uint64_t)event->arg3, find_disk_name(event->arg1));
 
 				break;
 			}
@@ -2121,7 +2136,7 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 
 			case FMT_UNMAP_INFO:
 			{
-				clen += printf(" D=0x%8.8lx  B=0x%-6lx /dev/%s", event->arg2, event->arg3, find_disk_name(event->arg1));
+				clen += printf(" D=0x%8.8" PRIx64 "  B=0x%-6" PRIx64 " /dev/%s", (uint64_t)event->arg2, (uint64_t)event->arg3, find_disk_name(event->arg1));
 
 				break;
 			}
@@ -2148,7 +2163,7 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 					clen += printf("[%3d]  ", (int)event->arg1);
 				} else {
 					if (format == FMT_PREAD)
-						clen += printf("  B=0x%-8lx ", event->arg2);
+						clen += printf("  B=0x%-8" PRIx64 " ", (uint64_t)event->arg2);
 					else
 						clen += printf("  ");
 				}
@@ -2310,7 +2325,7 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				/*
 				 * fchmod, fchmod_extended, chmod, chmod_extended
 				 */
-				unsigned long mode;
+				uint64_t mode;
 
 				if (format == FMT_FCHMOD || format == FMT_FCHMOD_EXT) {
 					if (event->arg1)
@@ -2371,9 +2386,9 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 			case FMT_MOUNT:
 			{
 				if (event->arg1)
-					clen += printf("      [%3d] <FLGS=0x%lx> ", (int)event->arg1, ti->arg3);
+					clen += printf("      [%3d] <FLGS=0x%" PRIx64 "> ", (int)event->arg1, ti->arg3);
 				else
-					clen += printf("     <FLGS=0x%lx> ", ti->arg3);
+					clen += printf("     <FLGS=0x%" PRIx64 "> ", ti->arg3);
 
 				nopadding = 1;
 				break;
@@ -2404,6 +2419,11 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 
 			case FMT_OPENAT:
 				clen += print_open(event, ti->arg3);
+				nopadding = 1;
+				break;
+
+			case FMT_GUARDED_OPEN:
+				clen += print_open(event, ti->arg4);
 				nopadding = 1;
 				break;
 
@@ -2458,9 +2478,9 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				}
 
 				if (event->arg1)
-					clen += printf("      [%3d] <%s, %s, 0x%lx>", (int)event->arg1, domain, type, ti->arg3);
+					clen += printf("      [%3d] <%s, %s, 0x%" PRIx64 ">", (int)event->arg1, domain, type, ti->arg3);
 				else
-					clen += printf(" F=%-3d      <%s, %s, 0x%lx>", (int)event->arg2, domain, type, ti->arg3);
+					clen += printf(" F=%-3d      <%s, %s, 0x%" PRIx64 ">", (int)event->arg2, domain, type, ti->arg3);
 
 				break;
 			}
@@ -2482,9 +2502,9 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 					op = "UNKNOWN";
 
 				if (event->arg1)
-					clen += printf("      [%3d] P=0x%8.8lx  <%s>", (int)event->arg1, ti->arg2, op);
+					clen += printf("      [%3d] P=0x%8.8" PRIx64 "  <%s>", (int)event->arg1, ti->arg2, op);
 				else
-					clen += printf("            P=0x%8.8lx  <%s>", ti->arg2, op);
+					clen += printf("            P=0x%8.8" PRIx64 "  <%s>", ti->arg2, op);
 
 				break;
 			}
@@ -2494,9 +2514,9 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				 * aio_return		[errno]   AIOCBP   IOSIZE
 				 */
 				if (event->arg1)
-					clen += printf("      [%3d] P=0x%8.8lx", (int)event->arg1, ti->arg1);
+					clen += printf("      [%3d] P=0x%8.8" PRIx64, (int)event->arg1, ti->arg1);
 				else
-					clen += printf("            P=0x%8.8lx  B=0x%-8lx", ti->arg1, event->arg2);
+					clen += printf("            P=0x%8.8" PRIx64 "  B=0x%-8" PRIx64, ti->arg1, (uint64_t)event->arg2);
 
 				break;
 
@@ -2517,9 +2537,9 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				 */
 				if (ti->arg2) {
 					if (event->arg1)
-						clen += printf("      [%3d] P=0x%8.8lx", (int)event->arg1, ti->arg2);
+						clen += printf("      [%3d] P=0x%8." PRIx64, (int)event->arg1, ti->arg2);
 					else
-						clen += printf("            P=0x%8.8lx", ti->arg2);
+						clen += printf("            P=0x%8.8" PRIx64, ti->arg2);
 				} else {
 					if (event->arg1)
 						clen += printf(" F=%-3d[%3d]", (int)ti->arg1, (int)event->arg1);
@@ -2534,9 +2554,9 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				 * aio_error, aio_read, aio_write	[errno]  AIOCBP
 				 */
 				if (event->arg1)
-					clen += printf("      [%3d] P=0x%8.8lx", (int)event->arg1, ti->arg1);
+					clen += printf("      [%3d] P=0x%8.8" PRIx64, (int)event->arg1, ti->arg1);
 				else
-					clen += printf("            P=0x%8.8lx", ti->arg1);
+					clen += printf("            P=0x%8.8" PRIx64, ti->arg1);
 
 				break;
 
@@ -2645,7 +2665,7 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 		p2 = "  ";
 
 	if (columns > MAXCOLS || wideflag)
-		printf("%s%s %3llu.%06llu%s %s.%lu\n", p1, pathname, secs, usecs, p2, command_name, threadid);
+		printf("%s%s %3llu.%06llu%s %s.%" PRIu64 "\n", p1, pathname, secs, usecs, p2, command_name, threadid);
 	else
 		printf("%s%s %3llu.%06llu%s %-12.12s\n", p1, pathname, secs, usecs, p2, command_name);
 
@@ -2733,7 +2753,7 @@ add_event(ktrace_event_t event, int type)
 {
 	th_info_t ti;
 	int hashid;
-	unsigned long eventid;
+	uint64_t eventid;
 
 	if ((ti = th_info_freelist))
 		th_info_freelist = ti->next;
@@ -2768,7 +2788,7 @@ add_event(ktrace_event_t event, int type)
 }
 
 th_info_t
-event_find(uintptr_t thread, int type)
+event_find(uint64_t thread, int type)
 {
 	th_info_t ti;
 	int hashid;
@@ -2906,7 +2926,7 @@ event_exit(char *sc_name, int type, ktrace_event_t event, int format)
 }
 
 void
-event_mark_thread_waited(uintptr_t thread)
+event_mark_thread_waited(uint64_t thread)
 {
 	th_info_t	ti;
 	int		hashid;
@@ -3009,7 +3029,7 @@ fd_clear_all(void)
 }
 
 void
-fd_set_is_network(pid_t pid, unsigned long fd, bool set)
+fd_set_is_network(pid_t pid, uint64_t fd, bool set)
 {
 	struct pid_fd_set *pfs;
 
@@ -3025,7 +3045,7 @@ fd_set_is_network(pid_t pid, unsigned long fd, bool set)
 
 		if (!set) return;
 
-		newsize = MAX((fd + CHAR_BIT) / CHAR_BIT, 2 * pfs->setsize);
+		newsize = MAX(((size_t)fd + CHAR_BIT) / CHAR_BIT, 2 * pfs->setsize);
 		pfs->set = reallocf(pfs->set, newsize);
 		assert(pfs->set != NULL);
 
@@ -3040,7 +3060,7 @@ fd_set_is_network(pid_t pid, unsigned long fd, bool set)
 }
 
 bool
-fd_is_network(pid_t pid, unsigned long fd)
+fd_is_network(pid_t pid, uint64_t fd)
 {
 	struct pid_fd_set *pfs;
 
@@ -3335,8 +3355,8 @@ struct diskio *free_diskios = NULL;
 struct diskio *busy_diskios = NULL;
 
 struct diskio *
-diskio_start(unsigned long type, unsigned long bp, unsigned long dev,
-	     unsigned long blkno, unsigned long iosize, ktrace_event_t event)
+diskio_start(uint64_t type, uint64_t bp, uint64_t dev,
+	     uint64_t blkno, uint64_t iosize, ktrace_event_t event)
 {
 	const char *command;
 	struct diskio *dio;
@@ -3379,7 +3399,7 @@ diskio_start(unsigned long type, unsigned long bp, unsigned long dev,
 }
 
 struct diskio *
-diskio_find(unsigned long bp)
+diskio_find(uint64_t bp)
 {
 	struct diskio *dio;
 
@@ -3392,8 +3412,8 @@ diskio_find(unsigned long bp)
 }
 
 struct diskio *
-diskio_complete(unsigned long bp, unsigned long io_errno, unsigned long resid,
-		uintptr_t thread, uint64_t curtime, struct timeval curtime_wall)
+diskio_complete(uint64_t bp, uint64_t io_errno, uint64_t resid,
+		uint64_t thread, uint64_t curtime, struct timeval curtime_wall)
 {
 	struct diskio *dio;
 
@@ -3429,7 +3449,7 @@ diskio_print(struct diskio *dio)
 {
 	char  *p = NULL;
 	int   len = 0;
-	unsigned long type;
+	uint64_t type;
 	int   format = FMT_DISKIO;
 	char  buf[64];
 
@@ -3547,8 +3567,11 @@ diskio_print(struct diskio *dio)
 
 	buf[len] = 0;
 
-	if (check_filter_mode(-1, NULL, type, 0, 0, buf))
-		format_print(NULL, buf, NULL, type, format, dio->completed_time, dio->issued_time, 1, "", dio);
+	if (check_filter_mode(-1, NULL, type, 0, 0, buf)) {
+		const char *pathname = ktrace_get_path_for_vp(s, dio->vnodeid);
+		format_print(NULL, buf, NULL, type, format, dio->completed_time,
+				dio->issued_time, 1, pathname ? pathname : "", dio);
+	}
 }
 
 #pragma mark disk name routines
@@ -3618,7 +3641,7 @@ recache_disk_names(void)
 }
 
 char *
-find_disk_name(unsigned long dev)
+find_disk_name(uint64_t dev)
 {
 	struct diskrec *dnp;
 	int	i;
@@ -3641,12 +3664,12 @@ find_disk_name(unsigned long dev)
 }
 
 char *
-generate_cs_disk_name(unsigned long dev, char *s)
+generate_cs_disk_name(uint64_t dev, char *s)
 {
 	if (dev == -1)
 		return "UNKNOWN";
 
-	sprintf(s, "disk%lus%lu", (dev >> 16) & 0xffff, dev & 0xffff);
+	sprintf(s, "disk%" PRIu64 "s%" PRIu64, (dev >> 16) & 0xffff, dev & 0xffff);
 
 	return (s);
 }

@@ -107,8 +107,10 @@ static NSString* tablePath = nil;
     [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions : @(400), NSFileImmutable : @(YES)} ofItemAtPath:tablePath error:&error];
     XCTAssertNil(error, @"encountered error setting database file attributes: %@", error);
     XCTAssertNoThrow([sqlTable openWithError:&error]);
-    XCTAssertNotNil(error, @"failed to generate error when opening file without permissions");
-    error = nil;
+    XCTAssertNil(error, @"encounterd error when opening file without permissions: %@", error);
+
+    XCTAssertFalse([sqlTable executeSQL:@"insert or replace into test (test_column) VALUES (1)"],
+                   @"writing to read-only database succeeded");
 
     [[NSFileManager defaultManager] setAttributes:originalAttributes ofItemAtPath:tablePath error:&error];
     XCTAssertNil(error, @"encountered error setting database file attributes back to original attributes: %@", error);

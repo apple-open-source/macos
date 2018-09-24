@@ -5,6 +5,7 @@ include ../Makefile.inc
 
 custompatching:
 	patch -p0 $(DIR)/OpenSSL/rand/rand.c pyOpenSSL.diff
+	patch -p0 $(DIR)/OpenSSL/ssl/context.c context.diff
 
 postinstall:
 	cp -f $(DIR)/LICENSE $(OSL)/$(NAME)-$(VERSION).txt

@@ -52,11 +52,14 @@ SOSCircleRef SOSCircleCreateFromDER(CFAllocatorRef allocator, CFErrorRef* error,
 SOSCircleRef SOSCircleCreateFromData(CFAllocatorRef allocator, CFDataRef circleData, CFErrorRef *error);
 SOSCircleRef SOSCircleCopyCircle(CFAllocatorRef allocator, SOSCircleRef otherCircle, CFErrorRef *error);
 
+CFStringRef SOSCircleCopyHashString(SOSCircleRef circle);
+
 bool SOSCircleSetSignature(SOSCircleRef circle, SecKeyRef pubkey, CFDataRef signature, CFErrorRef *error);
 CFDataRef SOSCircleGetSignature(SOSCircleRef circle, SecKeyRef pubkey, CFErrorRef *error);
 CFDictionaryRef SOSCircleCopyAllSignatures(SOSCircleRef circle);
 bool SOSCircleSign(SOSCircleRef circle, SecKeyRef privkey, CFErrorRef *error);
 bool SOSCircleVerifySignatureExists(SOSCircleRef circle, SecKeyRef pubKey, CFErrorRef *error);
+bool SOSCircleVerifyPeerSignatureExists(SOSCircleRef circle, SOSPeerInfoRef peer);
 bool SOSCircleVerify(SOSCircleRef circle, SecKeyRef pubkey, CFErrorRef *error);
 
 bool SOSCircleVerifyPeerSigned(SOSCircleRef circle, SOSPeerInfoRef peer, CFErrorRef *error);

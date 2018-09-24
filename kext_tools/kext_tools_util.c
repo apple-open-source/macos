@@ -36,6 +36,10 @@
 #include <IOKit/kext/OSKext.h>
 #include <IOKit/kext/OSKextPrivate.h>
 #include <sandbox/rootless.h>
+#include <os/log_private.h>
+
+#include <sys/types.h>
+#include <sys/sysctl.h>
 
 #include "kext_tools_util.h"
 
@@ -1246,20 +1250,59 @@ void beQuiet(void)
     return;
 }
 
+bool
+get_kextlog(uint32_t *mode)
+{
+    char bootargs[1024];
+    size_t size = sizeof(bootargs);
+    char *kextlog;
+
+    if (sysctlbyname("kern.bootargs", bootargs, &size, NULL, 0) == 0 && (kextlog = strcasestr(bootargs, "kextlog=")) != NULL) {
+        char *token = NULL;
+        uint32_t value = (uint32_t)strtoul(&kextlog[strlen("kextlog=")], &token, 16);
+        if (token == NULL || (*token) == '\0' || isspace(*token)) {
+            *mode = value;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
 /*******************************************************************************
 *******************************************************************************/
 FILE * g_log_stream = NULL;
-aslclient gASLClientHandle = NULL;
-aslmsg    gASLMessage      = NULL;  // reused
+static boolean_t sNewLoggingOnly  = false;
+static os_log_t  sKextLog         = NULL;
+static os_log_t  sKextSignpostLog = NULL;
 // xxx - need to aslclose()
 
-void tool_openlog(const char * name)
+void tool_initlog()
 {
-    // xxx - do we want separate name & facility?
-    gASLClientHandle = asl_open(/* ident */ name, /* facility*/ name,
-        /* options */ 0);
-    gASLMessage     = asl_new(ASL_TYPE_MSG);
-    return;
+    uint32_t kextlog_mode = 0;
+    if (get_kextlog(&kextlog_mode)) {
+        os_log(OS_LOG_DEFAULT, "Setting kext log mode: 0x%x", kextlog_mode);
+        OSKextSetLogFilter(kextlog_mode, /* kernel? */ false);
+        OSKextSetLogFilter(kextlog_mode, /* kernel? */ true);
+    }
+
+    if (sKextLog == NULL) {
+        sKextLog = os_log_create("com.apple.kext", "kextlog");
+        sKextSignpostLog = os_log_create("com.apple.kext", "signposts");
+    }
+}
+
+void tool_openlog(const char * __unused name)
+{
+    sNewLoggingOnly = true;
+    tool_initlog();
+}
+
+os_log_t
+get_signpost_log(void)
+{
+    return sKextSignpostLog;
 }
 
 #if !TARGET_OS_EMBEDDED
@@ -1310,33 +1353,27 @@ void tool_log(
     OSKextLogSpec   msgLogSpec,
     const char    * format, ...)
 {
+    OSKextLogSpec kextLogLevel = msgLogSpec & kOSKextLogLevelMask;
+    os_log_type_t logType = OS_LOG_TYPE_DEFAULT;
     va_list ap;
 
-    if (gASLClientHandle) {
-        int            aslLevel = ASL_LEVEL_ERR;
-        OSKextLogSpec  kextLogLevel = msgLogSpec & kOSKextLogLevelMask;
-        char           messageLogSpec[16];
-
-        if (kextLogLevel == kOSKextLogErrorLevel) {
-            aslLevel = ASL_LEVEL_ERR;
-        } else if (kextLogLevel == kOSKextLogWarningLevel) {
-            aslLevel = ASL_LEVEL_WARNING;
-        } else if (kextLogLevel == kOSKextLogBasicLevel) {
-            aslLevel = ASL_LEVEL_NOTICE;
-        } else if (kextLogLevel < kOSKextLogDebugLevel) {
-            aslLevel = ASL_LEVEL_INFO;
-        } else {
-            aslLevel = ASL_LEVEL_DEBUG;
-        }
-        
-        snprintf(messageLogSpec, sizeof(messageLogSpec), "0x%x", msgLogSpec);
-        asl_set(gASLMessage, "OSKextLogSpec", messageLogSpec);
-
-        va_start(ap, format);
-        asl_vlog(gASLClientHandle, gASLMessage, aslLevel, format, ap);
-        va_end(ap);
-
+    if (kextLogLevel == kOSKextLogErrorLevel) {
+        logType = OS_LOG_TYPE_ERROR;
+    } else if (kextLogLevel == kOSKextLogWarningLevel) {
+        logType = OS_LOG_TYPE_DEFAULT;
+    } else if (kextLogLevel == kOSKextLogBasicLevel) {
+        logType = OS_LOG_TYPE_DEFAULT;
+    } else if (kextLogLevel < kOSKextLogDebugLevel) {
+        logType = OS_LOG_TYPE_INFO;
     } else {
+        logType = OS_LOG_TYPE_DEBUG;
+    }
+
+    va_start(ap, format);
+    os_log_with_args(sKextLog, logType, format, ap, __builtin_return_address(0));
+    va_end(ap);
+
+    if (!sNewLoggingOnly) {
         // xxx - change to pick log stream based on log level
         // xxx - (0 == stdout, all others stderr)
 
@@ -1443,7 +1480,11 @@ Boolean getKernelPathForURL(CFURLRef    theVolRootURL,
                 CFGetTypeID(postBootPathsDict) == CFDictionaryGetTypeID()) {
                 
                 kernelCacheDict = (CFDictionaryRef)
-                    CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV3Key);
+                    CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV4Key);
+                if (!kernelCacheDict) {
+                    kernelCacheDict = (CFDictionaryRef)
+                        CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV3Key);
+                }
             }
         }
     } // theBuffer

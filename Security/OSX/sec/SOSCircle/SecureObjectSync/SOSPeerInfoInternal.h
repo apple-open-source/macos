@@ -25,6 +25,8 @@
 #ifndef sec_SOSPeerInfoInternal_h
 #define sec_SOSPeerInfoInternal_h
 
+/* Please don't use anything from this file unless you're part of the Security project. */
+
 extern const CFStringRef kPIUserDefinedDeviceNameKey;
 extern const CFStringRef kPIDeviceModelNameKey;
 extern const CFStringRef kPIMessageProtocolVersionKey;
@@ -32,5 +34,7 @@ extern const CFStringRef kPIOSVersionKey;
 
 extern const CFStringRef sGestaltKey;
 extern const CFStringRef sVersionKey;
+
+extern CFStringRef SOSGestaltSerial;
 
 #endif

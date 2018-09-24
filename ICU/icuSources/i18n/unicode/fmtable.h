@@ -35,6 +35,11 @@ U_NAMESPACE_BEGIN
 
 class CharString;
 class DigitList;
+namespace number {
+namespace impl {
+class DecimalQuantity;
+}
+}
 
 /**
  * \def UNUM_INTERNAL_STACKARRAY_SIZE
@@ -662,12 +667,36 @@ public:
     DigitList *getInternalDigitList();
 
     /**
+     * Internal function, do not use.
+     * TODO:  figure out how to make this be non-public.
+     *        NumberFormat::format(Formattable, ...
+     *        needs to get at the DecimalQuantity, if it exists, for
+     *        big decimal formatting.
+     *  @internal
+     */
+    number::impl::DecimalQuantity *getDecimalQuantity() const { return fDecimalQuantity;}
+
+    /**
+     * Export the value of this Formattable to a DecimalQuantity.
+     * @internal
+     */
+    void populateDecimalQuantity(number::impl::DecimalQuantity& output, UErrorCode& status) const;
+
+    /**
      *  Adopt, and set value from, a DigitList
      *     Internal Function, do not use.
      *  @param dl the Digit List to be adopted
      *  @internal
      */
     void adoptDigitList(DigitList *dl);
+
+    /**
+     *  Adopt, and set value from, a DecimalQuantity
+     *     Internal Function, do not use.
+     *  @param dl the DecimalQuantity to be adopted
+     *  @internal
+     */
+    void adoptDecimalQuantity(number::impl::DecimalQuantity *dq);
 
     /**
      * Internal function to return the CharString pointer.
@@ -710,6 +739,8 @@ private:
     DigitList            *fDecimalNum;
 
     char                fStackData[UNUM_INTERNAL_STACKARRAY_SIZE]; // must be big enough for DigitList
+
+    number::impl::DecimalQuantity *fDecimalQuantity;
 
     Type                fType;
     UnicodeString       fBogus; // Bogus string when it's needed.

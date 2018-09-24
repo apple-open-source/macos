@@ -102,11 +102,11 @@ public:
     bool authorizesUI() const;
 
 public:
-    static const AccessCredentials &null;	// all null credential
+    static const AccessCredentials& null_credential();
 	
 	// turn NULL into a null credential if needed
 	static const AccessCredentials *needed(const CSSM_ACCESS_CREDENTIALS *cred)
-	{ return cred ? overlay(cred) : &null; }
+	{ return cred ? overlay(cred) : &null_credential(); }
 };
 
 

@@ -31,6 +31,7 @@ id{
         151{"Eropa Bagian Timur"}
         154{"Eropa Bagian Utara"}
         155{"Eropa Bagian Barat"}
+        202{"Afrika Sub-Sahara"}
         419{"Amerika Latin"}
         AC{"Pulau Ascension"}
         AD{"Andorra"}
@@ -62,7 +63,7 @@ id{
         BM{"Bermuda"}
         BN{"Brunei"}
         BO{"Bolivia"}
-        BQ{"Karibia Belanda"}
+        BQ{"Belanda Karibia"}
         BR{"Brasil"}
         BS{"Bahama"}
         BT{"Bhutan"}
@@ -76,7 +77,7 @@ id{
         CF{"Republik Afrika Tengah"}
         CG{"Kongo - Brazzaville"}
         CH{"Swiss"}
-        CI{"Cote d’Ivoire"}
+        CI{"Pantai Gading"}
         CK{"Kepulauan Cook"}
         CL{"Cile"}
         CM{"Kamerun"}
@@ -89,7 +90,7 @@ id{
         CW{"Curaçao"}
         CX{"Pulau Christmas"}
         CY{"Siprus"}
-        CZ{"Cheska"}
+        CZ{"Ceko"}
         DE{"Jerman"}
         DG{"Diego Garcia"}
         DJ{"Jibuti"}
@@ -106,6 +107,7 @@ id{
         ES{"Spanyol"}
         ET{"Etiopia"}
         EU{"Uni Eropa"}
+        EZ{"Zona Euro"}
         FI{"Finlandia"}
         FJ{"Fiji"}
         FK{"Kepulauan Malvinas"}
@@ -304,11 +306,9 @@ id{
     Countries%variant{
         CD{"Kongo (RDK)"}
         CG{"Kongo (Republik)"}
-        CI{"Ivory Coast"}
-        CZ{"Republik Cheska"}
+        CZ{"Republik Ceko"}
         FK{"Kepulauan Malvinas (Falkland)"}
         MK{"Makedonia (BRY)"}
-        TL{"Timor Timur"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

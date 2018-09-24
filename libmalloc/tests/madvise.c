@@ -8,9 +8,10 @@
 
 #include "base.h"
 #include "platform.h"
+#include "nano_zone_common.h"
 #include "nano_zone.h"
 
-extern boolean_t
+extern int
 malloc_engaged_nano(void);
 
 #define T_EXPECT_BYTES(p, len, byte, msg, ...) do { \

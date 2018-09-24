@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-# submit_project.sh 2.0.2
+# submit_project.sh 2.0.4
 # source lives at <ssh://git@stash.sd.apple.com/perf/submit_project.git>
 # usage: submit_project.sh [-v <version>] train [train [...]]
 
@@ -139,7 +139,7 @@ do
 
 	first_and="And now"
 
-	lastvers=$(~rc/bin/getvers -update Built${train} ${projname})
+	lastvers=$(xbsfind projectversions --update Built${train} ${projname} | tail -1 | xargs)
 
 	if [[ $? != 0 ]]
 	then
@@ -196,6 +196,6 @@ fi
 echo "Running submitproject..."
 echo
 
-/Network/Servers/xs1/release/bin/submitproject -git -url "${repourl}" -tag "${projname}-${vers}" ${submit_to_trains}
+xbs submitproject -git -url "${repourl}" -tag "${projname}-${vers}" ${submit_to_trains}
 
 echo "Done, congrats!"

@@ -1,49 +1,93 @@
 /*
-cc -g -o /tmp/goidle goidle.c -framework CoreFoundation -framework IOKit -Wall -arch ppc -arch i386
+cc -g -o /tmp/goidle goidle.c -framework CoreFoundation -framework IOKit -Wall
 */
 
-#include <ctype.h>
+#include <libgen.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/time.h>
+#include <sysexits.h>
+#include <unistd.h>
 
 #include <mach/mach_port.h>
 #include <mach/mach_interface.h>
 #include <mach/mach_init.h>
 #include <CoreFoundation/CoreFoundation.h>
-
-#include <IOKit/pwr_mgt/IOPM.h>
-#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#include <IOKit/IOKitLib.h>
 
 
+static const char *sCmdName;
+
+static void usage(const char *errMsg)
+{
+    if (errMsg && *errMsg)
+        fprintf(stderr, "%s: %s\n", sCmdName, errMsg);
+    fprintf(stderr,
+"usage: %s [-i|-d] [0|<seconds>]\n"
+"where\n"
+"    -i  Idle request (default).\n"
+"The argument sent to the kernel is True by default, otherwise the seconds\n"
+"argument is interpreted a 0 -> False, and n is the time in seconds to ignore\n"
+"user interface events.\n",
+        sCmdName);
+
+    exit(EX_USAGE);
+}
 
 int
 main(int argc, char **argv)
 {
-    kern_return_t kr;
-    CFTypeRef obj;
+    sCmdName = basename(argv[0]);
 
-    io_registry_entry_t regEntry;
+    int iflag = 1;  // RequestIdle by default
+    int dflag = 0;
 
-    regEntry = IORegistryEntryFromPath(kIOMasterPortDefault, 
-                                    kIOServicePlane ":/IOResources/IODisplayWrangler");
+    int ch;
+    while ((ch = getopt(argc, argv, "di")) != -1) {
+        switch (ch) {
+        case 'i': iflag = 1; dflag = 0; break;
+        case '?':
+        default:  usage(""); break;
+        }
+    }
+    argc -= optind;
+    argv += optind;
 
-    obj = CFRetain(kCFBooleanTrue);
-    if (argc > 1)
-    {
-        SInt32 num = 1000 * strtol(argv[1], 0, 0);
+    CFTypeRef obj = CFRetain(kCFBooleanTrue);
+    if (argc >= 1) {
+        int32_t num = 1000 * strtol(argv[0], NULL, 0);
         if (!num)
             obj = CFRetain(kCFBooleanFalse);
-        else
-            obj = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &num);
+        else if (iflag)
+            obj = CFNumberCreate(NULL, kCFNumberSInt32Type, &num);
     }
 
-    kr = IORegistryEntrySetCFProperty(regEntry, CFSTR("IORequestIdle"), obj);
+    const char *request = "Internal error";
+    if (iflag)
+        request = "IORequestIdle";
+    CFStringRef requestStr = CFStringCreateWithCString(
+                                          NULL, request, kCFStringEncodingUTF8);
 
-    printf("IORegistryEntrySetCFProperty(IORequestIdle) 0x%x\n", kr);
+    io_registry_entry_t regEntry = IORegistryEntryFromPath(
+            kIOMasterPortDefault,
+            kIOServicePlane ":/IOResources/IODisplayWrangler");
 
-    CFRelease(obj);
-    IOObjectRelease(regEntry);
+    int32_t objValue = -1;
+    const char *objType = "Unknown";
+    if (CFGetTypeID(obj) == CFBooleanGetTypeID()) {
+        objType = "bool"; objValue = CFBooleanGetValue(obj);
+    } else if (CFGetTypeID(obj) == CFNumberGetTypeID()) {
+        objType = "number";
+        CFNumberGetValue(obj, kCFNumberSInt32Type, &objValue);
+    }
 
-    return (0);
+    kern_return_t err = IORegistryEntrySetCFProperty(regEntry, requestStr, obj);
+    printf("IORegistryEntrySetCFProperty(%s: %s(%d)) %#x\n",
+            request, objType, objValue, err);
+
+    // No need to release we're about to exit
+    // CFRelease(requestStr);
+    // CFRelease(obj);
+    // IOObjectRelease(regEntry);
+
+    return (err) ? EX_OSERR : EX_OK;
 }

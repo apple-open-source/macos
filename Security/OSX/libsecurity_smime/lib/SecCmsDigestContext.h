@@ -46,7 +46,7 @@ extern "C" {
     @abstract Start digest calculation using all the digest algorithms in "digestalgs" in parallel.
  */
 extern SecCmsDigestContextRef
-SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs);
+SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
@@ -69,7 +69,7 @@ SecCmsDigestContextCancel(SecCmsDigestContextRef cmsdigcx);
  */
 extern OSStatus
 SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, SecArenaPoolRef arena,
-			    CSSM_DATA_PTR **digestsp);
+			    CSSM_DATA_PTR **digestsp) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #if defined(__cplusplus)
 }

@@ -238,7 +238,7 @@ ja{
         hr{"クロアチア語"}
         hsb{"高地ソルブ語"}
         hsn{"湘語"}
-        ht{"ハイチ語"}
+        ht{"ハイチ・クレオール語"}
         hu{"ハンガリー語"}
         hup{"フパ語"}
         hy{"アルメニア語"}
@@ -345,7 +345,7 @@ ja{
         lui{"ルイセーニョ語"}
         lun{"ルンダ語"}
         luo{"ルオ語"}
-        lus{"ルシャイ語"}
+        lus{"ミゾ語"}
         luy{"ルヒヤ語"}
         lv{"ラトビア語"}
         lzh{"漢文"}
@@ -876,6 +876,7 @@ ja{
         }
         collation{
             big5han{"繁体字中国語順(Big5)"}
+            compat{"以前の順序（互換性）"}
             dictionary{"辞書順"}
             ducet{"ユニコード照合順"}
             eor{"ヨーロッパ言語文字の並べ替え規則"}
@@ -1046,7 +1047,7 @@ ja{
         VALLADER{"ヴァラダー"}
         WADEGILE{"ウェード式ローマ字表記法"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
     characterLabelPattern{
         all{"{0} — すべて"}
         category-list{"{0}: {1}"}

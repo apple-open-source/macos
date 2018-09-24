@@ -35,6 +35,13 @@
 extern "C" {
 #endif
 
+/*
+ Private SecStaticCodeCreate* SecCS flags.
+ */
+CF_ENUM(uint32_t) {
+	kSecCSForceOnlineNotarizationCheck = 1 << 0,
+};
+
 
 /*
 	@function SecCodeSetCallback

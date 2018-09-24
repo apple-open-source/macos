@@ -36,8 +36,8 @@ extern "C" {
 	CFErrorRef fancy_error(CFStringRef domain, CFIndex code, CFStringRef description);
 	extern void graphviz(FILE *f, SecTransformRef tr);
 	extern void CFfprintf(FILE *f, const char *format, ...);
-	CFErrorRef GetNoMemoryError();
-	CFErrorRef GetNoMemoryErrorAndRetain();
+	CFErrorRef GetNoMemoryError(void);
+	CFErrorRef GetNoMemoryErrorAndRetain(void);
 	void CFSafeRelease(CFTypeRef object);
     
     // NOTE: the return may or allocate a fair bit more space then it needs.

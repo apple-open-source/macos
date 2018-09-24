@@ -18,12 +18,12 @@
 .\"     Title: delv
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2014-04-23
+.\"      Date: 2018-05-25
 .\"    Manual: BIND9
 .\"    Source: ISC
 .\"  Language: English
 .\"
-.TH "DELV" "1" "2014\-04\-23" "ISC" "BIND9"
+.TH "DELV" "1" "2018\-05\-25" "ISC" "BIND9"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -415,6 +415,16 @@ must be used to specify a file containing the key\&.
 Indicates whether to perform DNSSEC lookaside validation, and if so, specifies the name of the DLV trust anchor\&. The default is to perform lookaside validation using a trust anchor of "dlv\&.isc\&.org", for which there is a built\-in key\&. If specifying a different name, then
 \fB\-a\fR
 must be used to specify a file containing the DLV key\&.
+.RE
+.SH "macOS NOTICE"
+.PP
+The
+\fBdelv\fR
+command does not use the host name and address resolution or the DNS query routing mechanisms used by other processes running on macOS.
+The results of name or address queries printed by
+\fBdelv\fR
+may differ from those found by other processes that use the macOS native name and address resolution mechanisms.
+The results of DNS queries may also differ from queries that use the macOS DNS routing library.
 .RE
 .SH "FILES"
 .PP

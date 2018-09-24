@@ -132,8 +132,9 @@ main(int argc, char *argv[])
 		exit (eval);
 	}
 
-	if (cat == 1 && argc > 1)
-		errx(1, "the -c option permits only a single file argument");
+    /*
+     * The UNIX standard requires that `uncompress -c` be able to have multiple file parameters given.
+     */
 
 	for (; *argv; ++argv)
 		switch(style) {
@@ -429,7 +430,7 @@ usage(int iscompress)
 		    "usage: compress [-cfv] [-b bits] [file ...]\n");
 	else
 		(void)fprintf(stderr,
-		    "usage: uncompress [-cfv] [-b bits] [file ...]\n");
+		    "usage: uncompress [-cfv] [file ...]\n");
 	exit(1);
 }
 

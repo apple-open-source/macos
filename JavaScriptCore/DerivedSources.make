@@ -108,7 +108,7 @@ JavaScriptCore_BUILTINS_SOURCES = \
     $(JavaScriptCore)/builtins/IteratorPrototype.js \
     $(JavaScriptCore)/builtins/MapIteratorPrototype.js \
     $(JavaScriptCore)/builtins/MapPrototype.js \
-    $(JavaScriptCore)/builtins/ModuleLoaderPrototype.js \
+    $(JavaScriptCore)/builtins/ModuleLoader.js \
     $(JavaScriptCore)/builtins/NumberConstructor.js \
     $(JavaScriptCore)/builtins/NumberPrototype.js \
     $(JavaScriptCore)/builtins/ObjectConstructor.js \
@@ -124,6 +124,7 @@ JavaScriptCore_BUILTINS_SOURCES = \
     $(JavaScriptCore)/builtins/StringPrototype.js \
     $(JavaScriptCore)/builtins/TypedArrayConstructor.js \
     $(JavaScriptCore)/builtins/TypedArrayPrototype.js \
+    $(JavaScriptCore)/builtins/WebAssemblyPrototype.js \
 #
 
 # The combined output file depends on the contents of builtins and generator scripts, so
@@ -155,14 +156,16 @@ OBJECT_LUT_HEADERS = \
     IntlDateTimeFormatPrototype.lut.h \
     IntlNumberFormatConstructor.lut.h \
     IntlNumberFormatPrototype.lut.h \
+    IntlPluralRulesConstructor.lut.h \
+    IntlPluralRulesPrototype.lut.h \
     JSDataViewPrototype.lut.h \
     JSGlobalObject.lut.h \
     JSInternalPromiseConstructor.lut.h \
+    JSModuleLoader.lut.h \
     JSONObject.lut.h \
     JSPromisePrototype.lut.h \
     JSPromiseConstructor.lut.h \
     MapPrototype.lut.h \
-    ModuleLoaderPrototype.lut.h \
     NumberConstructor.lut.h \
     NumberPrototype.lut.h \
     ObjectConstructor.lut.h \

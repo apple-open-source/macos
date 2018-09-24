@@ -927,7 +927,9 @@ struct screen {
 };
 
 extern NCURSES_EXPORT_VAR(SCREEN *) _nc_screen_chain;
+#ifndef __APPLE__
 extern NCURSES_EXPORT_VAR(SIG_ATOMIC_T) _nc_have_sigwinch;
+#endif
 
 	WINDOWLIST {
 	WINDOW	win;		/* first, so WINDOW_EXT() works */
@@ -1581,10 +1583,12 @@ extern NCURSES_EXPORT(NCURSES_CONST char *) _nc_keyname (SCREEN *, int);
 extern NCURSES_EXPORT(NCURSES_CONST char *) _nc_unctrl (SCREEN *, chtype);
 extern NCURSES_EXPORT(SCREEN *) _nc_screen_of (WINDOW *);
 extern NCURSES_EXPORT(WINDOW *) _nc_makenew (int, int, int, int, int);
+#ifndef __APPLE__
 extern NCURSES_EXPORT(char *) _nc_trace_buf (int, size_t);
 extern NCURSES_EXPORT(char *) _nc_trace_bufcat (int, const char *);
 extern NCURSES_EXPORT(char *) _nc_tracechar (SCREEN *, int);
 extern NCURSES_EXPORT(char *) _nc_tracemouse (SCREEN *, MEVENT const *);
+#endif
 extern NCURSES_EXPORT(int) _nc_access (const char *, int);
 extern NCURSES_EXPORT(int) _nc_baudrate (int);
 extern NCURSES_EXPORT(int) _nc_freewin (WINDOW *);
@@ -1609,7 +1613,9 @@ extern NCURSES_EXPORT(void) _nc_scroll_optimize (void);
 extern NCURSES_EXPORT(void) _nc_set_buffer (FILE *, bool);
 extern NCURSES_EXPORT(void) _nc_signal_handler (bool);
 extern NCURSES_EXPORT(void) _nc_synchook (WINDOW *);
+#ifndef __APPLE__
 extern NCURSES_EXPORT(void) _nc_trace_tries (TRIES *);
+#endif
 
 #if NO_LEAKS
 extern NCURSES_EXPORT(void) _nc_alloc_entry_leaks(void);
@@ -1637,7 +1643,9 @@ extern NCURSES_EXPORT(void) _nc_update_screensize (SCREEN *);
 #endif
 
 #if HAVE_RESIZETERM
+#ifndef __APPLE__
 extern NCURSES_EXPORT(void) _nc_resize_margins (WINDOW *);
+#endif
 #else
 #define _nc_resize_margins(wp) /* nothing */
 #endif

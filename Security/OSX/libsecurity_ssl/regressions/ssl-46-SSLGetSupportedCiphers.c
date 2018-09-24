@@ -97,10 +97,6 @@ static const SSLCipherSuite legacy_ciphersuites[] = {
     TLS_RSA_WITH_AES_256_CBC_SHA,
     TLS_RSA_WITH_AES_128_CBC_SHA,
     SSL_RSA_WITH_3DES_EDE_CBC_SHA,
-    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_MD5,
 };
 
 const SSLCipherSuite legacy_DHE_ciphersuites[] = {
@@ -132,10 +128,6 @@ const SSLCipherSuite legacy_DHE_ciphersuites[] = {
     TLS_RSA_WITH_AES_256_CBC_SHA,
     TLS_RSA_WITH_AES_128_CBC_SHA,
     SSL_RSA_WITH_3DES_EDE_CBC_SHA,
-    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_MD5,
 };
 
 
@@ -238,10 +230,6 @@ const SSLCipherSuite TLSv1_RC4_fallback_ciphersuites[] = {
     TLS_RSA_WITH_AES_256_CBC_SHA,
     TLS_RSA_WITH_AES_128_CBC_SHA,
     SSL_RSA_WITH_3DES_EDE_CBC_SHA,
-    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_MD5,
 };
 
 const SSLCipherSuite TLSv1_fallback_ciphersuites[] = {

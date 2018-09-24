@@ -99,6 +99,14 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
         if (DebuggerAgent.setAsyncStackTraceDepth)
             DebuggerAgent.setAsyncStackTraceDepth(this._asyncStackTraceDepthSetting.value);
 
+        // COMPATIBILITY (iOS 12): DebuggerAgent.setPauseForInternalScripts did not exist yet.
+        if (DebuggerAgent.setPauseForInternalScripts) {
+            let updateBackendSetting = () => { DebuggerAgent.setPauseForInternalScripts(WI.settings.pauseForInternalScripts.value); };
+            WI.settings.pauseForInternalScripts.addEventListener(WI.Setting.Event.Changed, updateBackendSetting);
+
+            updateBackendSetting();
+        }
+
         this._ignoreBreakpointDisplayLocationDidChangeEvent = false;
 
         function restoreBreakpointsSoon() {
@@ -928,18 +936,12 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
         // Convert BreakpointAction types to DebuggerAgent protocol types.
         // NOTE: Breakpoint.options returns new objects each time, so it is safe to modify.
-        // COMPATIBILITY (iOS 7): Debugger.BreakpointActionType did not exist yet.
-        let options;
-        if (DebuggerAgent.BreakpointActionType) {
-            options = this._debuggerBreakpointOptions(breakpoint);
-            if (options.actions.length) {
-                for (let action of options.actions)
-                    action.type = this._debuggerBreakpointActionType(action.type);
-            }
+        let options = this._debuggerBreakpointOptions(breakpoint);
+        if (options.actions.length) {
+            for (let action of options.actions)
+                action.type = this._debuggerBreakpointActionType(action.type);
         }
 
-        // COMPATIBILITY (iOS 7): iOS 7 and earlier, DebuggerAgent.setBreakpoint* took a "condition" string argument.
-        // This has been replaced with an "options" BreakpointOptions object.
         if (breakpoint.contentIdentifier) {
             let targets = specificTarget ? [specificTarget] : WI.targets;
             for (let target of targets) {
@@ -948,7 +950,6 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
                     url: breakpoint.contentIdentifier,
                     urlRegex: undefined,
                     columnNumber: breakpoint.sourceCodeLocation.columnNumber,
-                    condition: breakpoint.condition,
                     options
                 }, didSetBreakpoint.bind(this, target), target.DebuggerAgent);
             }
@@ -956,7 +957,6 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
             let target = breakpoint.target;
             target.DebuggerAgent.setBreakpoint.invoke({
                 location: {scriptId: breakpoint.scriptIdentifier, lineNumber: breakpoint.sourceCodeLocation.lineNumber, columnNumber: breakpoint.sourceCodeLocation.columnNumber},
-                condition: breakpoint.condition,
                 options
             }, didSetBreakpoint.bind(this, target), target.DebuggerAgent);
         }

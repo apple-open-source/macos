@@ -73,8 +73,8 @@ WriteKPD_Iterator(FILE *file, boolean_t in, boolean_t varying, argument_t *arg, 
   char string[MAX_STR_LEN];
 
   fprintf(file, "\t{\n");
-  fprintf(file, "\t    register\t%s\t*ptr;\n", it->itKPDType);
-  fprintf(file, "\t    register int\ti");
+  fprintf(file, "\t    %s\t*ptr;\n", it->itKPDType);
+  fprintf(file, "\t    int\ti");
   if (varying && !in)
     fprintf(file, ", j");
   fprintf(file, ";\n\n");
@@ -507,7 +507,7 @@ WriteDispatcher(FILE *file, statement_t *stats)
   fprintf(file, "\t */\n");
   fprintf(file, "\n");
 
-  fprintf(file, "\tregister mig_routine_t routine;\n");
+  fprintf(file, "\tmig_routine_t routine;\n");
   fprintf(file, "\n");
 
   fprintf(file, "\tOutHeadP->msgh_bits = ");
@@ -556,7 +556,7 @@ WriteDispatcher(FILE *file, statement_t *stats)
   }
 
   fprintf(file, "{\n");
-  fprintf(file, "\tregister int msgh_id;\n");
+  fprintf(file, "\tint msgh_id;\n");
   fprintf(file, "\n");
   fprintf(file, "\tmsgh_id = InHeadP->msgh_id - %d;\n", SubsystemBase);
   fprintf(file, "\n");

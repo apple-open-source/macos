@@ -24,8 +24,5 @@
 #ifndef adaptiveDisplay_h
 #define adaptiveDisplay_h
 
-void evaluateADS( );
-void ads_prime(void);
-
 
 #endif /* adaptiveDisplay_h */

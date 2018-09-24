@@ -1,0 +1,56 @@
+.\" Copyright (c) 2018, Apple Inc.  All rights reserved.
+.\"
+.Dd February 21, 2018
+.Dt ZLOG 1
+.Os "Mac OS X"
+.Sh NAME
+.Nm zlog
+.Nd show allocation backtraces for kernel zones
+.Sh SYNOPSIS
+.Nm
+.Op Fl t
+.Op Fl z Ar name Op Fl n Ar num | Fl l
+.Op Fl h
+.Sh DESCRIPTION
+.Nm
+displays allocation (and free, if used in corruption tracking mode with
+the boot-arg "-zc") backtraces for zones that have zone logging enabled.
+Zone logging can be turned on by using the boot-arg "zlog<N>=<name>",
+where 'N' can range from 1 to 10, and 'name' is the name of the zone to
+be tracked.
+.Pp
+.Nm
+interprets the following options:
+.Pp
+.Bl -tag -width "disable -"
+.\" -t
+.It Fl t
+(Default) list all the zones that have logging enabled
+.\" -z
+.It Fl z Ar name
+show all allocation backtraces for zone
+.Ar name
+.\" -n
+.It Fl n Ar num
+Can be used in combination with the
+.Fl z
+option to show the top
+.Ar num
+backtraces with the most active references in the zone
+.Ar name
+.\" -l
+.It Fl l
+Can be used in combination with the
+.Fl z
+option to show the backtrace most likely contributing to a leak in the zone
+.Ar name
+(prints the backtrace with the most active references)
+.\" -h
+.It Fl h
+show the help text
+.El
+.Sh DIAGNOSTICS
+.Ex -std
+.Sh SEE ALSO
+.Xr zprint 1 ,
+.Xr ioclasscount 1

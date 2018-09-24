@@ -23,8 +23,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)ctfconvert.c	1.12	06/05/03 SMI"
-
 /*
  * Given a file containing sections with stabs data, convert the stabs data to
  * CTF data, and replace the stabs sections with a CTF section.
@@ -48,14 +46,20 @@ int debug_level = DEBUG_LEVEL;
 
 static const char *infile = NULL;
 static const char *outfile = NULL;
+static const char *unitmatch = NULL;
 static int dynsym;
+static int minimize;
 
 static void
 usage(void)
 {
 	(void) fprintf(stderr,
-	    "Usage: %s [-gis] -l label | -L labelenv [-o outfile] object_file\n"
+	    "Usage: %s [-gismc] -l label | -L labelenv [-u compilation_unit_match] [-o outfile] object_file\n"
 	    "\n"
+        "  -v more logging.\n"
+        "  -m minimize size of output by including only symbols and CTF, with no file data for other sections.\n"
+        "  -c enable compressed output.\n"
+        "  -u only extract CUs built from a directory path containing the argument.\n"
 	    "  Note: if -L labelenv is specified and labelenv is not set in\n"
 	    "  the environment, a default value is used.\n",
 	    progname);
@@ -77,13 +81,10 @@ handle_sig(int sig)
 }
 
 static int
-file_read(tdata_t *td, const char *filename, int ignore_non_c)
+file_read(const char *filename, const char *unitmatch, int verbose, int ignore_non_c, tdata_t **td)
 {
-	typedef int (*reader_f)(tdata_t *, Elf *, const char *);
+	typedef int (*reader_f)(Elf *, const char *, const char *, int, tdata_t **);
 	static const reader_f readers[] = {
-#if !defined(__APPLE__)
-		stabs_read,
-#endif /* __APPLE__ */
 		dw_read,
 		NULL
 	};
@@ -92,6 +93,7 @@ file_read(tdata_t *td, const char *filename, int ignore_non_c)
 	Elf *elf;
 	int i, rc, fd;
 
+	*td = NULL;
 	if ((fd = open(filename, O_RDONLY)) < 0)
 		terminate("failed to open %s", filename);
 
@@ -116,10 +118,8 @@ file_read(tdata_t *td, const char *filename, int ignore_non_c)
 	}
 
 	for (i = 0; readers[i] != NULL; i++) {
-		if ((rc = readers[i](td, elf, filename)) == 0)
+		if ((rc = readers[i](elf, filename, unitmatch, verbose, td)) == 0)
 			break;
-
-		assert(rc < 0 && errno == ENOENT);
 	}
 
 	if (readers[i] == NULL) {
@@ -137,8 +137,13 @@ file_read(tdata_t *td, const char *filename, int ignore_non_c)
 			    filename);
 			exit(0);
 		}
-
+#if defined(__APPLE__)
+		/* produce an empty output */
+		*td = tdata_new();
+		rc = 1;
+#else
 		rc = 0;
+#endif
 	} else {
 		rc = 1;
 	}
@@ -152,11 +157,12 @@ file_read(tdata_t *td, const char *filename, int ignore_non_c)
 int
 main(int argc, char **argv)
 {
-	tdata_t *filetd, *mstrtd;
+	tdata_t *mstrtd;
 	char *label = NULL;
 	int verbose = 0;
 	int ignore_non_c = 0;
 	int keep_stabs = 0;
+    int compress = 0;
 	int c;
 
 	sighold(SIGINT);
@@ -167,10 +173,8 @@ main(int argc, char **argv)
 
 	if (getenv("CTFCONVERT_DEBUG_LEVEL"))
 		debug_level = atoi(getenv("CTFCONVERT_DEBUG_LEVEL"));
-	if (getenv("CTFCONVERT_DEBUG_PARSE"))
-		debug_parse = atoi(getenv("CTFCONVERT_DEBUG_PARSE"));
 
-	while ((c = getopt(argc, argv, ":l:L:o:givs")) != EOF) {
+	while ((c = getopt(argc, argv, ":l:L:o:u:givsmc")) != EOF) {
 		switch (c) {
 		case 'l':
 			label = optarg;
@@ -181,6 +185,9 @@ main(int argc, char **argv)
 			break;
 		case 'o':
 			outfile = optarg;
+			break;
+		case 'u':
+			unitmatch = optarg;
 			break;
 		case 's':
 			dynsym = CTF_USE_DYNSYM;
@@ -193,6 +200,12 @@ main(int argc, char **argv)
 			break;
 		case 'v':
 			verbose = 1;
+			break;
+		case 'm':
+			minimize = CTF_MINIMIZE;
+			break;
+		case 'c':
+			compress = CTF_COMPRESS;
 			break;
 		default:
 			usage();
@@ -227,16 +240,11 @@ main(int argc, char **argv)
 	sigset(SIGQUIT, handle_sig);
 	sigset(SIGTERM, handle_sig);
 
-	filetd = tdata_new();
-
-	if (!file_read(filetd, infile, ignore_non_c))
+	if (!file_read(infile, unitmatch, verbose, ignore_non_c, &mstrtd))
 		terminate("%s doesn't have type data to convert\n", infile);
 
 	if (verbose)
-		iidesc_stats(filetd->td_iihash);
-
-	mstrtd = tdata_new();
-	merge_into_master(filetd, mstrtd, NULL, 1);
+		iidesc_stats(mstrtd->td_iihash);
 
 	tdata_label_add(mstrtd, label, CTF_LABEL_LASTIDX);
 
@@ -245,13 +253,16 @@ main(int argc, char **argv)
 	 * input file, write directly to the output file.  Otherwise, write
 	 * to a temporary file, and replace the input file when we're done.
 	 */
+
+	if (getenv("CTFCONVERT_OUTPUT_DEBUG_LEVEL"))
+		debug_level = atoi(getenv("CTFCONVERT_OUTPUT_DEBUG_LEVEL"));
 	 
 	if (outfile && strcmp(infile, outfile) != 0) {
-		write_ctf(mstrtd, infile, outfile, dynsym | keep_stabs);
+		write_ctf(mstrtd, infile, outfile, dynsym | keep_stabs | compress | minimize);
 	} else {
 		char *tmpname = mktmpname(infile, ".ctf");
 
-		write_ctf(mstrtd, infile, tmpname, dynsym | keep_stabs);
+		write_ctf(mstrtd, infile, tmpname, dynsym | keep_stabs | compress | minimize);
 		if (rename(tmpname, infile) != 0)
 			terminate("Couldn't rename temp file %s", tmpname);
 		free(tmpname);

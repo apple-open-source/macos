@@ -135,6 +135,25 @@ public:
     ProcessID presentingApplicationPID() const { return m_presentingApplicationPID; }
     void setPresentingApplicationPID(ProcessID pid) { m_presentingApplicationPID = pid; }
 
+    bool processSwapsOnNavigation() const { return m_processSwapsOnNavigation; }
+    void setProcessSwapsOnNavigation(bool swaps) { m_processSwapsOnNavigation = swaps; }
+
+    bool alwaysKeepAndReuseSwappedProcesses() const { return m_alwaysKeepAndReuseSwappedProcesses; }
+    void setAlwaysKeepAndReuseSwappedProcesses(bool keepAndReuse) { m_alwaysKeepAndReuseSwappedProcesses = keepAndReuse; }
+
+    bool processSwapsOnWindowOpenWithOpener() const { return m_processSwapsOnWindowOpenWithOpener; }
+    void setProcessSwapsOnWindowOpenWithOpener(bool swaps) { m_processSwapsOnWindowOpenWithOpener = swaps; }
+
+#if ENABLE(WIFI_ASSERTIONS)
+    unsigned wirelessContextIdentifier() const { return m_wirelessContextIdentifier; }
+    void setWirelessContextIdentifier(unsigned wirelessContextIdentifier) { m_wirelessContextIdentifier = wirelessContextIdentifier; }
+#endif
+
+#if PLATFORM(COCOA)
+    bool suppressesConnectionTerminationOnSystemChange() const { return m_suppressesConnectionTerminationOnSystemChange; }
+    void setSuppressesConnectionTerminationOnSystemChange(bool suppressesConnectionTerminationOnSystemChange) { m_suppressesConnectionTerminationOnSystemChange = suppressesConnectionTerminationOnSystemChange; }
+#endif
+
 private:
     bool m_shouldHaveLegacyDataStore { false };
 
@@ -166,8 +185,20 @@ private:
     bool m_shouldTakeUIBackgroundAssertion { true };
     bool m_shouldCaptureAudioInUIProcess { false };
     ProcessID m_presentingApplicationPID { getCurrentProcessID() };
+    bool m_processSwapsOnNavigation { false };
+    bool m_alwaysKeepAndReuseSwappedProcesses { false };
+    bool m_processSwapsOnWindowOpenWithOpener { false };
+
 #if PLATFORM(IOS)
     WTF::String m_ctDataConnectionServiceType;
+#endif
+
+#if ENABLE(WIFI_ASSERTIONS)
+    unsigned m_wirelessContextIdentifier { 0 };
+#endif
+
+#if PLATFORM(COCOA)
+    bool m_suppressesConnectionTerminationOnSystemChange { false };
 #endif
 };
 

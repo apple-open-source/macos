@@ -53,6 +53,7 @@
 #import "WebNSURLExtras.h"
 #import "WebResourceInternal.h"
 #import "WebViewInternal.h"
+#import <JavaScriptCore/InitializeThreading.h>
 #import <WebCore/ArchiveResource.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentFragment.h>
@@ -79,7 +80,6 @@
 #import <WebCore/WebContentReader.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <pal/spi/mac/NSSpellCheckerSPI.h>
-#import <runtime/InitializeThreading.h>
 #import <wtf/MainThread.h>
 #import <wtf/RefPtr.h>
 #import <wtf/RunLoop.h>
@@ -417,6 +417,12 @@ void WebEditorClient::willWriteSelectionToPasteboard(WebCore::Range*)
 void WebEditorClient::getClientPasteboardDataForRange(WebCore::Range*, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer>>& pasteboardData)
 {
     // Not implemented WebKit, only WebKit2.
+}
+
+String WebEditorClient::replacementURLForResource(Ref<SharedBuffer>&&, const String&)
+{
+    // Not implemented in WebKitLegacy.
+    return { };
 }
 
 #if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300)
@@ -1207,7 +1213,7 @@ void WebEditorClient::requestCandidatesForSelection(const VisibleSelection& sele
     m_paragraphContextForCandidateRequest = plainText(frame->editor().contextRangeForCandidateRequest().get());
 
     NSTextCheckingTypes checkingTypes = NSTextCheckingTypeSpelling | NSTextCheckingTypeReplacement | NSTextCheckingTypeCorrection;
-    auto weakEditor = m_weakPtrFactory.createWeakPtr(*this);
+    auto weakEditor = makeWeakPtr(*this);
     m_lastCandidateRequestSequenceNumber = [[NSSpellChecker sharedSpellChecker] requestCandidatesForSelectedRange:m_rangeForCandidates inString:m_paragraphContextForCandidateRequest.get() types:checkingTypes options:nil inSpellDocumentWithTag:spellCheckerDocumentTag() completionHandler:[weakEditor](NSInteger sequenceNumber, NSArray<NSTextCheckingResult *> *candidates) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (!weakEditor)

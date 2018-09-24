@@ -22,7 +22,10 @@
  */
 
 #import <Foundation/Foundation.h>
+
 NS_ASSUME_NONNULL_BEGIN
+
+@class SFECKeyPair;
 
 @protocol OTControlProtocol <NSObject>
 - (void)restore:(NSString *)contextID dsid:(NSString *)dsid secret:(NSData*)secret escrowRecordID:(NSString*)escrowRecordID reply:(void (^)(NSData* _Nullable signingKeyData, NSData* _Nullable encryptionKeyData, NSError * _Nullable error))reply;

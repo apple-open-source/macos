@@ -26,8 +26,6 @@
 #include "config.h"
 #include "NetworkDataTask.h"
 
-#if USE(NETWORK_SESSION)
-
 #include "NetworkDataTaskBlob.h"
 #include "NetworkLoadParameters.h"
 #include "NetworkSession.h"
@@ -42,6 +40,9 @@
 #if USE(SOUP)
 #include "NetworkDataTaskSoup.h"
 #endif
+#if USE(CURL)
+#include "NetworkDataTaskCurl.h"
+#endif
 
 using namespace WebCore;
 
@@ -53,9 +54,12 @@ Ref<NetworkDataTask> NetworkDataTask::create(NetworkSession& session, NetworkDat
         return NetworkDataTaskBlob::create(session, client, parameters.request, parameters.contentSniffingPolicy, parameters.blobFileReferences);
 
 #if PLATFORM(COCOA)
-    return NetworkDataTaskCocoa::create(session, client, parameters.request, parameters.webFrameID, parameters.webPageID, parameters.storedCredentialsPolicy, parameters.contentSniffingPolicy, parameters.contentEncodingSniffingPolicy, parameters.shouldClearReferrerOnHTTPSToHTTPRedirect, parameters.shouldPreconnectOnly, parameters.isMainFrameNavigation);
+    return NetworkDataTaskCocoa::create(session, client, parameters.request, parameters.webFrameID, parameters.webPageID, parameters.storedCredentialsPolicy, parameters.contentSniffingPolicy, parameters.contentEncodingSniffingPolicy, parameters.shouldClearReferrerOnHTTPSToHTTPRedirect, parameters.shouldPreconnectOnly, parameters.isMainFrameNavigation, parameters.networkActivityTracker);
 #endif
 #if USE(SOUP)
+    return NetworkDataTaskSoup::create(session, client, parameters.request, parameters.storedCredentialsPolicy, parameters.contentSniffingPolicy, parameters.contentEncodingSniffingPolicy, parameters.shouldClearReferrerOnHTTPSToHTTPRedirect, parameters.isMainFrameNavigation);
+#endif
+#if USE(CURL)
     return NetworkDataTaskCurl::create(session, client, parameters.request, parameters.storedCredentialsPolicy, parameters.contentSniffingPolicy, parameters.contentEncodingSniffingPolicy, parameters.shouldClearReferrerOnHTTPSToHTTPRedirect, parameters.isMainFrameNavigation);
 #endif
 }
@@ -140,6 +144,9 @@ void NetworkDataTask::failureTimerFired()
     ASSERT_NOT_REACHED();
 }
 
-} // namespace WebKit
+String NetworkDataTask::description() const
+{
+    return emptyString();
+}
 
-#endif // USE(NETWORK_SESSION)
+} // namespace WebKit

@@ -24,6 +24,7 @@
 #if !defined(__FILESYSTEM_PRIVATE__)
 #define __FILESYSTEM_PRIVATE__ 1
 
+#include <stdbool.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
 
@@ -74,6 +75,24 @@ extern CFStringRef _FSCopyLocalizedNameForVolumeFormatAtNode(CFStringRef devnode
  * This function returns the English format name for /dev/diskXsXX 
  */
 extern CFStringRef _FSCopyNameForVolumeFormatAtNode(CFStringRef devnode);
+
+#define FS_MEDIA_DEV_ENCRYPTED              0x1     // device-level encryption
+#define FS_MEDIA_FDE_ENCRYPTED              0x2     // full-disk encryption
+#define FS_MEDIA_ENCRYPTION_CONVERTING      0x4     // encryption type is currently in flux
+typedef uint32_t fs_media_encryption_details_t;
+
+/* Input:
+ *  1. CFStringRef devnode: CFStringRef representation of /dev/diskXsXX
+ *  2. bool *encryption_status: pointer to store boolean value of encryption status.
+ *      Only valid on success. Must not be NULL.
+ *  3. uint32_t *encryption_details: pointer to bitfield with extra encryption information.
+ *      Only valid on success. May be NULL.
+ * Output:
+ *  1. errno_t: 0 upon success, or an errno indicating why no information could be found.
+ *
+ * This function returns the encryption status for /dev/diskXsXX
+ */
+extern errno_t _FSGetMediaEncryptionStatus(CFStringRef devnode, bool *encryption_status, fs_media_encryption_details_t *encryption_details);
 
 #ifdef __cplusplus
 }

@@ -159,8 +159,8 @@ fi
  inline int OPT_flags    = '$opt_flags';
  inline int FILTER 	 = '$filter';
  inline int PID		 = '$pid';
- inline string PATHNAME	 = "'$pathname'";
- inline string NAME	 = "'$pname'";
+ inline string PATHNAME	 = "'"$pathname"'";
+ inline string NAME	 = "'"$pname"'";
 
  #pragma D option quiet
  #pragma D option switchrate=10hz

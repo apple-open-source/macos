@@ -24,9 +24,7 @@
 #include <sys/syscall.h>
 
 #if defined(__DYNAMIC__)
-#if IGNORE_RDAR_13625839
 	.private_extern ___in_sigtramp
-#endif
 	.globl ___in_sigtramp
 	.data
 	.align 2
@@ -56,7 +54,8 @@ ___in_sigtramp:
 	%ebp	frame pointer
 	%ebx	Address of "L00000000001$pb"
 	%esi	uctx
-	
+	%edi	token
+
 void
 _sigtramp(
 	union __sigaction_u __sigaction_u,
@@ -67,6 +66,9 @@ _sigtramp(
 )
 */
 
+#if RDAR_35834092
+	.private_extern __sigtramp
+#endif
 	.globl __sigtramp
 	.text
 	.align 4,0x90
@@ -88,6 +90,7 @@ Lstart:
 	movl	16(%ebp), %edx	# get 'sig'
 	movl	20(%ebp), %eax	# get 'sinfo'
 	movl	24(%ebp), %esi	# get 'uctx'
+	movl	28(%ebp), %edi	# get 'token'
 	/* Call the signal handler.
 	   Some variants are not supposed to get the last two parameters,
 	   but the test to prevent this is more expensive than just passing
@@ -101,8 +104,10 @@ Lstart:
 #endif
 	movl	%esi, 4(%esp)
 	movl	$ UC_FLAVOR, 8(%esp)
+	movl	%edi, 12(%esp)
 	movl	$ SYS_sigreturn, %eax
 	int	$0x80
+	ud2 /* __sigreturn returning is a fatal error */
 Lend:
 
 /* DWARF unwind table #defines.  */

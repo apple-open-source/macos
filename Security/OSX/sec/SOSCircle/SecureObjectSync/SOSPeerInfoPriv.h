@@ -23,6 +23,9 @@ struct __OpaqueSOSPeerInfo {
     CFDictionaryRef         gestalt;
     CFStringRef             peerID;
     CFIndex                 version;
+    CFStringRef             verifiedAppKeyID;
+    bool                    verifiedResult;
+
     /* V2 and beyond are listed below */
     CFMutableDictionaryRef  v2Dictionary;
 };

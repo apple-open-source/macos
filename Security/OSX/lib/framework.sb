@@ -5,3 +5,7 @@
 (allow mach-lookup (global-name "com.apple.CoreAuthentication.agent.libxpc"))
 ;; allow clients to communicate with ctkd
 (allow mach-lookup (global-name "com.apple.ctkd.token-client"))
+
+;; On internal builds, allow clients to read the AMFITrustedKeys NVRAM variable
+(with-filter (system-attribute apple-internal)
+    (allow nvram-get (nvram-variable "AMFITrustedKeys")))

@@ -508,13 +508,6 @@ OM_uint32 GSSAPI_CALLCONV _gss_spnego_export_sec_context (
     ret = gss_export_sec_context(minor_status,
 				 &ctx->negotiated_ctx_id,
 				 interprocess_token);
-    if (ret == GSS_S_COMPLETE) {
-	ret = _gss_spnego_internal_delete_sec_context(minor_status,
-					     context_handle,
-					     GSS_C_NO_BUFFER);
-	if (ret == GSS_S_COMPLETE)
-	    return GSS_S_COMPLETE;
-    }
 
     HEIMDAL_MUTEX_unlock(&ctx->ctx_id_mutex);
 

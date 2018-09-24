@@ -110,6 +110,10 @@
     (subpath (param "WEBKIT2_FRAMEWORK_DIR")))
 (allow system-fsctl (fsctl-command (_IO "h" 47)))
 
+(allow file-read-data
+    (literal "/usr/local/lib/log") ; <rdar://problem/36629495>
+)
+
 ;; Sandbox extensions
 (define (apply-read-and-issue-extension op path-filter)
     (op file-read* path-filter)
@@ -157,10 +161,10 @@
 
 ;; Security framework
 (allow mach-lookup
-       (global-name "com.apple.ctkd.token-client") 
-       (global-name "com.apple.ocspd")
+       (global-name "com.apple.ctkd.token-client")
        (global-name "com.apple.securityd.xpc") 
        (global-name "com.apple.CoreAuthentication.agent.libxpc")
+       (global-name "com.apple.ocspd")
        (global-name "com.apple.SecurityServer"))
 
 ;; FIXME: This should be removed when <rdar://problem/10479685> is fixed.
@@ -187,7 +191,7 @@
        (subpath "/private/var/db/mds")
        (literal "/private/var/db/DetachedSignatures")
 
-       ; The following are needed until <rdar://problem/11134688> is resolved.
+       ; The following are needed until the causes of <rdar://problem/41487786> are resolved.
        (literal "/Library/Preferences/com.apple.security.plist")
        (literal "/Library/Preferences/com.apple.security.common.plist")
        (literal "/Library/Preferences/com.apple.security.revocation.plist")

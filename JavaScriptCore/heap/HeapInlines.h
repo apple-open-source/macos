@@ -30,7 +30,7 @@
 #include "HeapCellInlines.h"
 #include "IndexingHeader.h"
 #include "JSCallee.h"
-#include "JSCell.h"
+#include "JSCast.h"
 #include "Structure.h"
 #include <type_traits>
 #include <wtf/Assertions.h>
@@ -167,6 +167,13 @@ inline void Heap::releaseSoon(RetainPtr<T>&& object)
 }
 #endif
 
+#if USE(GLIB)
+inline void Heap::releaseSoon(std::unique_ptr<JSCGLibWrapperObject>&& object)
+{
+    m_delayedReleaseObjects.append(WTFMove(object));
+}
+#endif
+
 inline void Heap::incrementDeferralDepth()
 {
     ASSERT(!mayBeGCThread() || m_worldIsStopped);
@@ -262,17 +269,10 @@ inline void Heap::stopIfNecessary()
 template<typename Func>
 void Heap::forEachSlotVisitor(const Func& func)
 {
-    auto locker = holdLock(m_parallelSlotVisitorLock);
     func(*m_collectorSlotVisitor);
     func(*m_mutatorSlotVisitor);
     for (auto& slotVisitor : m_parallelSlotVisitors)
         func(*slotVisitor);
-}
-
-inline unsigned Heap::numberOfSlotVisitors()
-{
-    auto locker = holdLock(m_parallelSlotVisitorLock);
-    return m_parallelSlotVisitors.size() + 2; // m_collectorSlotVisitor and m_mutatorSlotVisitor
 }
 
 } // namespace JSC

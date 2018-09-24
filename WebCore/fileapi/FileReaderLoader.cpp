@@ -43,7 +43,7 @@
 #include "TextResourceDecoder.h"
 #include "ThreadableBlobRegistry.h"
 #include "ThreadableLoader.h"
-#include <runtime/ArrayBuffer.h>
+#include <JavaScriptCore/ArrayBuffer.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/Base64.h>
@@ -88,8 +88,8 @@ void FileReaderLoader::start(ScriptExecutionContext* scriptExecutionContext, Blo
     request.setHTTPMethod("GET");
 
     ThreadableLoaderOptions options;
-    options.sendLoadCallbacks = SendCallbacks;
-    options.dataBufferingPolicy = DoNotBufferData;
+    options.sendLoadCallbacks = SendCallbackPolicy::SendCallbacks;
+    options.dataBufferingPolicy = DataBufferingPolicy::DoNotBufferData;
     options.credentials = FetchOptions::Credentials::Include;
     options.mode = FetchOptions::Mode::SameOrigin;
     options.contentSecurityPolicyEnforcement = ContentSecurityPolicyEnforcement::DoNotEnforce;

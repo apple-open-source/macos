@@ -1,5 +1,7 @@
 #include <TargetConditionals.h>
 
+_kSecFrameworkBundleID
+
 #include "Security/SecExports.exp-in"
 #include "Security/SecAccessControlExports.exp-in"
 #include "Security/SecureObjectSync/SOSExports.exp-in"
@@ -317,7 +319,7 @@ _OBJC_CLASS_$_SecuritydXPCClient
 #endif
 
 #if __OBJC2__ && (TARGET_OS_IPHONE || (TARGET_OS_OSX && __x86_64__))
-_OBJC_CLASS_$_SFTransactionMetric
+_OBJC_CLASS_$_SFSignInAnalytics
 #endif //__OBJC2__ && IPHONE || OSX
 
 _OTSetupControlProtocol
@@ -337,6 +339,7 @@ _securityd_create_message
 _securityd_message_with_reply_sync
 _securityd_message_no_error
 _securityd_send_sync_and_do
+_securityd_send_async_and_do
 #if TARGET_OS_IOS
 _SecSecuritySetMusrMode
 #endif
@@ -414,6 +417,7 @@ _CMSEncoderAddSignedAttributes
 _CMSEncoderSetSigningTime
 _CMSEncoderSetAppleCodesigningHashAgility
 _CMSEncoderSetAppleCodesigningHashAgilityV2
+_CMSEncoderSetAppleExpirationTime
 _CMSEncoderSetCertificateChainMode
 _CMSEncoderGetCertificateChainMode
 _CMSEncoderUpdateContent
@@ -444,6 +448,7 @@ _CMSEncoderCopySignerTimestamp
 _CMSEncoderCopySignerTimestampWithPolicy
 _CMSDecoderCopySignerAppleCodesigningHashAgility
 _CMSDecoderCopySignerAppleCodesigningHashAgilityV2
+_CMSDecoderCopySignerAppleExpirationTime
 #endif // TARGET_OS_OSX
 
 #if TARGET_OS_OSX
@@ -1538,6 +1543,7 @@ _kSecCodeSignerRequireTimestamp
 _kSecCodeSignerTeamIdentifier
 _kSecCodeSignerPlatformIdentifier
 _kSecCodeSignerRuntimeVersion
+_kSecCodeSignerPreserveAFSC
 _kSecCodeSignerTimestampServer
 _kSecCodeSignerTimestampAuthentication
 _kSecCodeSignerTimestampOmitCertificates
@@ -1575,6 +1581,7 @@ _kSecCodeInfoDiskRepVersionPlatform
 _kSecCodeInfoDiskRepVersionMin
 _kSecCodeInfoDiskRepVersionSDK
 _kSecCodeInfoResourceDirectory
+_kSecCodeInfoNotarizationDate
 _kSecGuestAttributeCanonical
 _kSecGuestAttributeDynamicCode
 _kSecGuestAttributeDynamicCodeInfoPlist
@@ -1587,6 +1594,8 @@ _kSecGuestAttributeAudit
 _kSecRequirementKeyInfoPlist
 _kSecRequirementKeyEntitlements
 _kSecRequirementKeyIdentifier
+_kSecRequirementKeyPackageChecksum
+_kSecRequirementKeyChecksumAlgorithm
 _kSecCFErrorArchitecture
 _kSecCFErrorPath
 _kSecCFErrorPattern
@@ -1607,6 +1616,8 @@ _SecAssessmentUpdate
 _SecAssessmentCopyUpdate
 _SecAssessmentControl
 _SecAssessmentGetTypeID
+_SecAssessmentTicketLookup
+_SecAssessmentTicketRegister
 _kSecAssessmentContextKeyOperation
 _kSecAssessmentOperationTypeExecute
 _kSecAssessmentOperationTypeInstall
@@ -1642,6 +1653,7 @@ _kSecAssessmentAssessmentSource
 _kSecAssessmentAssessmentVerdict
 _kSecAssessmentAssessmentWeakSignature
 _kSecAssessmentAssessmentCodeSigningError
+_kSecAssessmentAssessmentNotarizationDate
 _kSecAssessmentRuleKeyID
 _kSecAssessmentRuleKeyPriority
 _kSecAssessmentRuleKeyAllow
@@ -1672,8 +1684,11 @@ _SecCodeGetTypeID
 _SecCodeMapMemory
 _SecCodeSetStatus
 _SecCodeValidateFileResource
+#endif // TARGET_OS_IPHONE
+
 _SecCopyLastError
 
+#if TARGET_OS_IPHONE
 _SecRequirementCopyData
 _SecRequirementCopyString
 _SecRequirementCreateWithData
@@ -1711,6 +1726,7 @@ _kSecCodeInfoFlags
 _kSecCodeInfoFormat
 _kSecCodeInfoImplicitDesignatedRequirement
 _kSecCodeInfoMainExecutable
+_kSecCodeInfoNotarizationDate
 _kSecCodeInfoPList
 _kSecCodeInfoPlatformIdentifier
 _kSecCodeInfoRequirementData
@@ -1954,6 +1970,7 @@ _OBJC_CLASS_$_SFAnalyticsActivityTracker
 _OBJC_CLASS_$_SFAnalyticsMultiSampler
 _OBJC_CLASS_$_SFAnalyticsSampler
 _OBJC_CLASS_$_SFAnalyticsSQLiteStore
+_OBJC_METACLASS_$_SFSignInAnalytics
 _SFAnalyticsMaxEventsToReport
 _SFSQLiteJournalSuffixes
 _SFAnalyticsSamplerIntervalOncePerReport
@@ -1978,6 +1995,7 @@ _SFAnalyticsAttributeErrorDomain
 _SFAnalyticsAttributeErrorUnderlyingChain
 _SFAnalyticsTopicKeySync
 _SFAnaltyicsTopicTrust
+_SFAnalyticsErrorDomain
 
 _OBJC_CLASS_$_SOSAnalytics
 _CKDKVSPerformanceCountersSampler
@@ -1988,9 +2006,17 @@ _CKDKVSPerfCounterOutgoingMessages
 _CKDKVSPerfCounterTotalWaitTimeSynchronize
 _CKDKVSPerfCounterLongestWaitTimeSynchronize
 _CKDKVSPerfCounterSynchronizeFailures
+
+_OBJC_CLASS_$_LocalKeychainAnalytics
+_LKAEventUpgrade
 #endif // __OBJC2__
 
+_LKAReportKeychainUpgradeOutcome
+_LKAReportKeychainUpgradeOutcomeWithError
+
+//
 // Padding
+//
 _SecPaddingCompute
 
 //

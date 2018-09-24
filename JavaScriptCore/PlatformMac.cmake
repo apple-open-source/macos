@@ -9,11 +9,24 @@ list(APPEND JavaScriptCore_UNIFIED_SOURCE_LIST_FILES
     "SourcesCocoa.txt"
 )
 
-list(APPEND JavaScriptCore_INCLUDE_DIRECTORIES
+list(APPEND JavaScriptCore_PRIVATE_INCLUDE_DIRECTORIES
     ${JAVASCRIPTCORE_DIR}/disassembler/udis86
-    ${JAVASCRIPTCORE_DIR}/icu
     ${JAVASCRIPTCORE_DIR}/inspector/cocoa
     ${JAVASCRIPTCORE_DIR}/inspector/remote/cocoa
+)
+
+list(APPEND JavaScriptCore_PUBLIC_FRAMEWORK_HEADERS
+    API/JSContext.h
+    API/JSExport.h
+    API/JSManagedValue.h
+    API/JSStringRefCF.h
+    API/JSValue.h
+    API/JSVirtualMachine.h
+    API/JavaScriptCore.h
+)
+
+list(APPEND JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
+    inspector/remote/cocoa/RemoteInspectorXPCConnection.h
 )
 
 set(CMAKE_SHARED_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS} "-compatibility_version 1 -current_version ${WEBKIT_MAC_VERSION}")

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,13 +57,12 @@ EAPOLClientInvalidate(EAPOLClientRef client, boolean_t remove_send_right)
 	mach_port_t	port;
 
 	port = CFMachPortGetPort(client->notify_cfport);
+	CFMachPortInvalidate(client->notify_cfport);
 	mach_port_mod_refs(mach_task_self(), port,
 			   MACH_PORT_RIGHT_RECEIVE, -1);
 	if (remove_send_right) {
-	    mach_port_mod_refs(mach_task_self(), port, 
-			       MACH_PORT_RIGHT_SEND, -1);
+	    mach_port_deallocate(mach_task_self(), port);
 	}
-	CFMachPortInvalidate(client->notify_cfport);
 	my_CFRelease(&client->notify_cfport);
     }
     if (client->rls != NULL) {
@@ -97,13 +96,16 @@ EAPOLClientHandleMessage(CFMachPortRef port, void * msg,
 }
 
 static CFMachPortRef
-_EAPOLClientCFMachPortCreate(CFMachPortCallBack callout, CFMachPortContext * context)
+_EAPOLClientCFMachPortCreate(CFMachPortCallBack callout,
+			     CFMachPortContext * context)
 {
     CFMachPortRef	cf_port;
+    Boolean		have_send_right = FALSE;
     mach_port_t 	port = MACH_PORT_NULL;
     kern_return_t 	status;
 
-    status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
+    status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE,
+				&port);
     if (status != KERN_SUCCESS) {
 	goto failed;
     }
@@ -112,6 +114,7 @@ _EAPOLClientCFMachPortCreate(CFMachPortCallBack callout, CFMachPortContext * con
     if (status != KERN_SUCCESS) {
 	goto failed;
     }
+    have_send_right = TRUE;
     cf_port = CFMachPortCreateWithPort(NULL, port, callout, context, NULL);
     if (cf_port != NULL) {
 	return (cf_port);
@@ -119,7 +122,9 @@ _EAPOLClientCFMachPortCreate(CFMachPortCallBack callout, CFMachPortContext * con
  failed:
     if (port != MACH_PORT_NULL) {
 	mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
-	mach_port_deallocate(mach_task_self(), port);
+	if (have_send_right) {
+	    mach_port_deallocate(mach_task_self(), port);
+	}
     }
     return NULL;
 

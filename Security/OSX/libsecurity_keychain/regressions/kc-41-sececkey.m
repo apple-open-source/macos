@@ -136,48 +136,6 @@ static void testdigestandsign(SecKeyRef privKey, SecKeyRef pubKey) {
 }
 #endif
 
-
-#if !TARGET_OS_IPHONE
-/* This is part of Security.framework on iOS */
-
-enum {
-    // kSecKeyKeySizeInBits        = 0, // already exists on osx
-    kSecKeySignatureSize        = 101,
-    kSecKeyEncryptedDataSize    = 102,
-    // More might belong here, but we aren't settled on how
-    // to take into account padding and/or digest types.
-};
-
-static
-size_t SecKeyGetSize(SecKeyRef key, int whichSize)
-{
-    /* SecKeyGetBlockSize return the signature size on OS X -- smh */
-    size_t result = SecKeyGetBlockSize(key);
-
-    result = (result - 2)/2 - 3;
-
-    /* in this test, this is always an ECDSA key */
-    switch (whichSize) {
-        case kSecKeyEncryptedDataSize:
-            result = 0;
-            break;
-        case kSecKeySignatureSize:
-            result = (result >= 66 ? 9 : 8) + 2 * result;
-            break;
-        case kSecKeyKeySizeInBits:
-            if (result >= 66)
-                return 521;
-    }
-
-    if (whichSize == kSecKeyKeySizeInBits)
-        result *= 8;
-
-    return result;
-
-}
-#endif
-
-
 static void testkeygen(size_t keySizeInBits) {
 	SecKeyRef pubKey = NULL, privKey = NULL;
 	size_t keySizeInBytes = (keySizeInBits + 7) / 8;
@@ -211,8 +169,6 @@ SKIP: {
     skip("keygen failed", 8, status == errSecSuccess);
     ok(pubKey, "pubKey returned");
     ok(privKey, "privKey returned");
-    is(SecKeyGetSize(pubKey, kSecKeyKeySizeInBits), (size_t) keySizeInBits, "public key size is ok");
-    is(SecKeyGetSize(privKey, kSecKeyKeySizeInBits), (size_t) keySizeInBits, "private key size is ok");
 
     /* Sign something. */
     uint8_t something[20] = {0x80, 0xbe, 0xef, 0xba, 0xd0, };
@@ -302,8 +258,6 @@ SKIP: {
     skip("keygen failed", 8, status == errSecSuccess);
     ok(pubKey, "pubKey returned");
     ok(privKey, "privKey returned");
-    is(SecKeyGetSize(pubKey, kSecKeyKeySizeInBits), (size_t) keySizeInBits, "public key size is ok");
-    is(SecKeyGetSize(privKey, kSecKeyKeySizeInBits), (size_t) keySizeInBits, "private key size is ok");
 
     SecKeyRef pubKey2, privKey2;
     CFDictionaryAddValue(pubd, kSecClass, kSecClassKey);
@@ -320,7 +274,7 @@ SKIP: {
 
     /* Sign something. */
     uint8_t something[20] = {0x80, 0xbe, 0xef, 0xba, 0xd0, };
-    size_t sigLen = SecKeyGetSize(privKey2, kSecKeySignatureSize);
+    size_t sigLen = (((keySizeInBits + 7) / 8) + 3) * 2 + 3;
     uint8_t sig[sigLen];
     ok_status(SecKeyRawSign(privKey2, kSecPaddingPKCS1,
                             something, sizeof(something), sig, &sigLen), "sign something");
@@ -674,7 +628,7 @@ static void tests(void)
 
 int kc_41_sececkey(int argc, char *const *argv)
 {
-	plan_tests(288);
+	plan_tests(272);
 
 	tests();
 

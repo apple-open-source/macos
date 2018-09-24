@@ -73,8 +73,8 @@ IOHIDEventServiceFastPathClass::IOHIDEventServiceFastPathClass() : IOHIDIUnknown
     _service                    = MACH_PORT_NULL;
     _connect                    = MACH_PORT_NULL;
     _client                     = MACH_PORT_NULL;
-    _queueMappedMemory          = NULL;
-    _queueMappedMemorySize      = 0;
+    _sharedMemory               = NULL;
+    _sharedMemorySize           = 0;
 
 }
 
@@ -84,19 +84,19 @@ IOHIDEventServiceFastPathClass::IOHIDEventServiceFastPathClass() : IOHIDIUnknown
 IOHIDEventServiceFastPathClass::~IOHIDEventServiceFastPathClass()
 {
     // finished with the shared memory
-    if (_queueMappedMemory)
+    if (_sharedMemory)
     {
 #if !__LP64__
-        vm_address_t        mappedMem = (vm_address_t)_queueMappedMemory;
+        vm_address_t        mappedMem = (vm_address_t)_sharedMemory;
 #else
-        mach_vm_address_t   mappedMem = (mach_vm_address_t)_queueMappedMemory;
+        mach_vm_address_t   mappedMem = (mach_vm_address_t)_sharedMemorySize;
 #endif
         IOConnectUnmapMemory (_connect,
                               0,
                               mach_task_self(),
                               mappedMem);
-        _queueMappedMemory = NULL;
-        _queueMappedMemorySize = 0;
+        _sharedMemory       = NULL;
+        _sharedMemorySize   = 0;
     }
     
     if (_service) {
@@ -259,13 +259,13 @@ boolean_t IOHIDEventServiceFastPathClass::open(IOOptionBits options, CFDictionar
         HIDLogError("IOConnectCallMethod (kIOHIDEventServiceFastPathUserClientOpen): 0x%x", ret);
         return  false;
     }
-    uint32_t queueSize = 0;
+    uint32_t sharedMemorySize = 0;
     CFNumberRef value = (CFNumberRef)copyProperty(CFSTR(kIOHIDEventServiceQueueSize));
     if (value) {
-        CFNumberGetValue (value, kCFNumberSInt32Type, &queueSize);
+        CFNumberGetValue (value, kCFNumberSInt32Type, &sharedMemorySize);
         CFRelease(value);
     }
-    if (queueSize) {
+    if (sharedMemorySize) {
         // allocate the memory
 #if !__LP64__
         vm_address_t        address = static_cast<vm_address_t>(0);
@@ -275,14 +275,12 @@ boolean_t IOHIDEventServiceFastPathClass::open(IOOptionBits options, CFDictionar
         mach_vm_size_t      size    = 0;
 #endif
         ret = IOConnectMapMemory (_connect, 0, mach_task_self(), &address, &size, kIOMapAnywhere);
-        _queueMappedMemory = (IODataQueueMemory *) address;
-        _queueMappedMemorySize = size;
-        if (ret != kIOReturnSuccess || !_queueMappedMemory || !_queueMappedMemorySize) {
-             HIDLogError("IOConnectMapMemory (queueSize:%d): 0x%x", queueSize, ret);
+        _sharedMemory = (void *) address;
+        _sharedMemorySize = size;
+        if (ret != kIOReturnSuccess || !_sharedMemory || !_sharedMemorySize) {
+             HIDLogError("IOConnectMapMemory (sharedMemorySize:%d): 0x%x", sharedMemorySize, ret);
             return false;
         }
-        _queueMappedMemory = (IODataQueueMemory *) address;
-        _queueMappedMemorySize = size;
     }
     
     return true;
@@ -352,29 +350,24 @@ IOHIDEventRef IOHIDEventServiceFastPathClass::copyEvent(CFTypeRef copySpec, IOOp
     }
     
     do {
+        if (!_sharedMemory) {
+            HIDLogError("No shared memory");
+            break;
+        }
+        
+        *(uint32_t *)_sharedMemory = 0;
+        
         ret = IOConnectCallMethod(_connect, kIOHIDEventServiceFastPathUserClientCopyEvent, input, 2, inputData, inputDataSize, NULL, NULL, NULL, NULL);
         if ( ret != kIOReturnSuccess ) {
             HIDLogError("IOConnectCallMethod (kIOHIDEventServiceFastPathUserClientCopyEvent): 0x%x (copySpec = %@)", ret, copySpec);
             break;
         }
 
-        IODataQueueEntry *  nextEntry;
-
-        while ((nextEntry = IODataQueuePeek(_queueMappedMemory))) {
-            IOHIDEventRef tmpEvent = IOHIDEventCreateWithBytes(kCFAllocatorDefault, (const UInt8*)&(nextEntry->data), nextEntry->size);
-            if (!tmpEvent) {
-                continue;
-            }
-            if (event) {
-                IOHIDEventAppendEvent (event, tmpEvent, 0);
-                CFRelease(tmpEvent);
-            } else {
-                event = tmpEvent;
-            }
-            uint32_t dataSize = 0;
-            IODataQueueDequeue(_queueMappedMemory, NULL, &dataSize);
+        if (*(uint32_t *)_sharedMemory) {
+            event = IOHIDEventCreateWithBytes(kCFAllocatorDefault, (const UInt8*)_sharedMemory + sizeof(uint32_t), *(uint32_t *)_sharedMemory);
         }
     } while (0);
+   
     
     if (data) {
         CFRelease(data);

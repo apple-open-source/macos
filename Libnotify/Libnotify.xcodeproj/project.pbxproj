@@ -66,6 +66,13 @@
 		3FA21AD8148AAABE00099D2F /* com.apple.notifyd.plist in Install launchd.plist */ = {isa = PBXBuildFile; fileRef = 3FA21A99148AA7FA00099D2F /* com.apple.notifyd.plist */; };
 		3FA21AE6148AAEAC00099D2F /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		3FD0DBAD148AB12000C50811 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3FD0DBAC148AB12000C50811 /* libbsm.dylib */; };
+		94099C762087E7D50004B6BC /* RegisterTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 94099C752087E7D50004B6BC /* RegisterTests.m */; settings = {COMPILER_FLAGS = "-Wno-gnu-statement-expression -fobjc-exceptions"; }; };
+		9456B8522023CAB300CF7D27 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
+		9456B8532023CAB600CF7D27 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B75102CA2E300F90022 /* table.c */; };
+		9487BF2A2089A99A0043BF74 /* notify_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B74102CA2E300F90022 /* notify_client.c */; };
+		9487BF2B2089A9E30043BF74 /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; };
+		9487BF2C2089BAA30043BF74 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B75102CA2E300F90022 /* table.c */; };
+		9487BF2D2089BAB20043BF74 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
 		FC7B7A53155781930064D203 /* notify_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = FC7B7A52155781930064D203 /* notify_internal.h */; };
 /* End PBXBuildFile section */
 
@@ -170,7 +177,6 @@
 		2D312B7C102CA32500F90022 /* notify_keys.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 4; path = notify_keys.h; sourceTree = "<group>"; };
 		2D312B7D102CA32500F90022 /* notify.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify.h; sourceTree = "<group>"; };
 		2D312B81102CA34D00F90022 /* libnotify.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = libnotify.h; sourceTree = "<group>"; };
-		2D312B84102CA36C00F90022 /* notify_ipc_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_ipc_types.h; sourceTree = "<group>"; };
 		2D312B85102CA36C00F90022 /* table.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = table.h; sourceTree = "<group>"; };
 		2D312B88102CA38F00F90022 /* notify_cancel.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify_cancel.3; sourceTree = "<group>"; };
 		2D312B89102CA38F00F90022 /* notify_check.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify_check.3; sourceTree = "<group>"; };
@@ -221,6 +227,11 @@
 		727C90391B9A372700D5B754 /* notify_disable_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_disable_test.c; sourceTree = "<group>"; };
 		727C903A1B9A372700D5B754 /* notify_many_dups.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_many_dups.c; sourceTree = "<group>"; };
 		727C903B1B9A372700D5B754 /* random_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = random_test.c; sourceTree = "<group>"; };
+		94099C732087E7D50004B6BC /* xctests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = xctests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		94099C752087E7D50004B6BC /* RegisterTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RegisterTests.m; sourceTree = "<group>"; };
+		94099C772087E7D50004B6BC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9487BF2820882DAD0043BF74 /* parallel_register_cancel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = parallel_register_cancel.c; sourceTree = "<group>"; };
+		9B71D22F206AB52200BB9574 /* notify_qos.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_qos.c; sourceTree = "<group>"; };
 		FC7B7A52155781930064D203 /* notify_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_internal.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -234,6 +245,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3FA21ABB148AA8F000099D2F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		94099C702087E7D50004B6BC /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -260,8 +278,10 @@
 				3FA21AA7148AA82700099D2F /* notifyutil */,
 				3FA21A98148AA7FA00099D2F /* notifyd */,
 				2DF9EA0A102CF31700DE9E8D /* Additional Files */,
+				94099C742087E7D50004B6BC /* xctests */,
 				3FA21ACE148AAA0D00099D2F /* Products */,
 				727C902F1B9A372700D5B754 /* tests */,
+				94099C732087E7D50004B6BC /* xctests.xctest */,
 			);
 			name = Libnotify;
 			sourceTree = "<group>";
@@ -298,7 +318,6 @@
 			isa = PBXGroup;
 			children = (
 				FC7B7A52155781930064D203 /* notify_internal.h */,
-				2D312B84102CA36C00F90022 /* notify_ipc_types.h */,
 				2D312B85102CA36C00F90022 /* table.h */,
 			);
 			name = "Project Headers";
@@ -416,14 +435,25 @@
 			isa = PBXGroup;
 			children = (
 				727C90341B9A372700D5B754 /* Makefile */,
+				9B71D22F206AB52200BB9574 /* notify_qos.c */,
 				727C90301B9A372700D5B754 /* dispatch_cancel_in_block.c */,
 				727C90371B9A372700D5B754 /* notify_bench.c */,
 				727C90381B9A372700D5B754 /* notify_control.c */,
 				727C90391B9A372700D5B754 /* notify_disable_test.c */,
 				727C903A1B9A372700D5B754 /* notify_many_dups.c */,
 				727C903B1B9A372700D5B754 /* random_test.c */,
+				9487BF2820882DAD0043BF74 /* parallel_register_cancel.c */,
 			);
 			path = tests;
+			sourceTree = "<group>";
+		};
+		94099C742087E7D50004B6BC /* xctests */ = {
+			isa = PBXGroup;
+			children = (
+				94099C752087E7D50004B6BC /* RegisterTests.m */,
+				94099C772087E7D50004B6BC /* Info.plist */,
+			);
+			path = xctests;
 			sourceTree = "<group>";
 		};
 		C6A0FF2B0290797F04C91782 /* Documentation */ = {
@@ -517,6 +547,23 @@
 			productReference = 3FA21ABE148AA8F000099D2F /* notifyutil */;
 			productType = "com.apple.product-type.tool";
 		};
+		94099C722087E7D50004B6BC /* xctests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 94099C792087E7D50004B6BC /* Build configuration list for PBXNativeTarget "xctests" */;
+			buildPhases = (
+				94099C6F2087E7D50004B6BC /* Sources */,
+				94099C702087E7D50004B6BC /* Frameworks */,
+				94099C712087E7D50004B6BC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = xctests;
+			productName = xctests;
+			productReference = 94099C732087E7D50004B6BC /* xctests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		D2AAC045055464E500DB518D /* libnotify */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1DEB91EB08733DB70010E9CD /* Build configuration list for PBXNativeTarget "libnotify" */;
@@ -550,6 +597,9 @@
 					72FA84FB1BD6EAB900A4CC6F = {
 						CreatedOnToolsVersion = 7.1;
 					};
+					94099C722087E7D50004B6BC = {
+						CreatedOnToolsVersion = 10.0;
+					};
 				};
 			};
 			buildConfigurationList = 1DEB91EF08733DB70010E9CD /* Build configuration list for PBXProject "Libnotify" */;
@@ -573,9 +623,20 @@
 				3FA21AC7148AA93000099D2F /* cli_apps */,
 				72FA84F61BD6E9DF00A4CC6F /* darwintests */,
 				72FA84FB1BD6EAB900A4CC6F /* tests */,
+				94099C722087E7D50004B6BC /* xctests */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		94099C712087E7D50004B6BC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		3F947782191C324900A93E8E /* No Simulator Man Pages */ = {
@@ -645,9 +706,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9456B8532023CAB600CF7D27 /* table.c in Sources */,
 				3FA21AE6148AAEAC00099D2F /* notify_ipc.defs in Sources */,
 				3FA21ACF148AAA5000099D2F /* notify_proc.c in Sources */,
 				3FA21AD0148AAA5000099D2F /* notifyd.c in Sources */,
+				9456B8522023CAB300CF7D27 /* libnotify.c in Sources */,
 				3FA21AD1148AAA5000099D2F /* pathwatch.c in Sources */,
 				3FA21AD2148AAA5000099D2F /* service.c in Sources */,
 				3FA21AD3148AAA5000099D2F /* timer.c in Sources */,
@@ -659,6 +722,18 @@
 			buildActionMask = 2147483647;
 			files = (
 				3FA21AD5148AAA6E00099D2F /* notifyutil.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		94099C6F2087E7D50004B6BC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9487BF2C2089BAA30043BF74 /* table.c in Sources */,
+				9487BF2A2089A99A0043BF74 /* notify_client.c in Sources */,
+				94099C762087E7D50004B6BC /* RegisterTests.m in Sources */,
+				9487BF2B2089A9E30043BF74 /* notify_ipc.defs in Sources */,
+				9487BF2D2089BAB20043BF74 /* libnotify.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -716,6 +791,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				SUPPORTED_PLATFORMS = "watchsimulator watchos iphonesimulator iphoneos macosx bridgeos appletvsimulator appletvos";
 			};
 			name = Release;
 		};
@@ -723,6 +799,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F999963185C474E00EAD3A0 /* notifyd.xcconfig */;
 			buildSettings = {
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -749,7 +829,7 @@
 				COPY_PHASE_STRIP = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "iphoneos macosx watchos appletvos";
+				SUPPORTED_PLATFORMS = "iphoneos macosx watchos appletvos bridgeos";
 			};
 			name = Release;
 		};
@@ -761,6 +841,202 @@
 			};
 			name = Release;
 		};
+		94099C782087E7D50004B6BC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INFOPLIST_FILE = xctests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LINK_WITH_STANDARD_LIBRARIES = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DBUILDING_TESTS=1",
+					"-fno-lto",
+				);
+				OTHER_MIGFLAGS = "-DBUILDING_TESTS=1";
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.xctests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		949B783D208BE1F2002AD6AF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLY_RULES_IN_COPY_FILES = "";
+				CLANG_WARN_ASSIGN_ENUM = YES;
+				CLANG_WARN_NULLABLE_TO_NONNULL_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				SUPPORTED_PLATFORMS = "watchsimulator watchos iphonesimulator iphoneos macosx bridgeos appletvsimulator appletvos";
+			};
+			name = Debug;
+		};
+		949B783E208BE1F2002AD6AF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		949B783F208BE1F2002AD6AF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F999963185C474E00EAD3A0 /* notifyd.xcconfig */;
+			buildSettings = {
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		949B7840208BE1F2002AD6AF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		949B7841208BE1F2002AD6AF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F999961185C474E00EAD3A0 /* base.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		949B7842208BE1F2002AD6AF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "iphoneos macosx watchos appletvos bridgeos";
+			};
+			name = Debug;
+		};
+		949B7843208BE1F2002AD6AF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "macosx iphoneos watchos appletvos";
+			};
+			name = Debug;
+		};
+		949B7844208BE1F2002AD6AF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INFOPLIST_FILE = xctests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LINK_WITH_STANDARD_LIBRARIES = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DDEBUG=1",
+					"-O0",
+					"-DBUILDING_TESTS=1",
+					"-fno-lto",
+				);
+				OTHER_MIGFLAGS = "-DBUILDING_TESTS=1";
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.xctests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -768,6 +1044,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB91ED08733DB70010E9CD /* Release */,
+				949B783E208BE1F2002AD6AF /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -776,6 +1053,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB91F108733DB70010E9CD /* Release */,
+				949B783D208BE1F2002AD6AF /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -784,6 +1062,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3FA21AB9148AA8E300099D2F /* Release */,
+				949B783F208BE1F2002AD6AF /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -792,6 +1071,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3FA21AC6148AA8F000099D2F /* Release */,
+				949B7840208BE1F2002AD6AF /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -800,6 +1080,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3FA21AC9148AA93000099D2F /* Release */,
+				949B7841208BE1F2002AD6AF /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -808,6 +1089,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				72FA84F81BD6E9DF00A4CC6F /* Release */,
+				949B7842208BE1F2002AD6AF /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -816,6 +1098,16 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				72FA84FD1BD6EAB900A4CC6F /* Release */,
+				949B7843208BE1F2002AD6AF /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		94099C792087E7D50004B6BC /* Build configuration list for PBXNativeTarget "xctests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				94099C782087E7D50004B6BC /* Release */,
+				949B7844208BE1F2002AD6AF /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

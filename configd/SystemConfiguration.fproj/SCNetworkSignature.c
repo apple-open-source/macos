@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009, 2011-2015, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011-2015, 2017, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,7 +49,11 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <net/if.h>
+#if __has_include(<nw/private.h>)
+#include <nw/private.h>
+#else // __has_include(<nw/private.h>)
 #include <network/conninfo.h>
+#endif // __has_include(<nw/private.h>)
 
 #pragma mark SCNetworkSignature Supporting APIs
 

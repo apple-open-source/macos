@@ -23,8 +23,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)traverse.c	1.7	06/04/20 SMI"
-
 /*
  * Routines used to traverse tdesc trees, invoking user-supplied callbacks
  * as the tree is traversed.

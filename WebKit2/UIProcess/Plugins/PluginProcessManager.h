@@ -51,18 +51,22 @@ enum class WebsiteDataFetchOption;
 
 class PluginProcessManager {
     WTF_MAKE_NONCOPYABLE(PluginProcessManager);
-    friend class NeverDestroyed<PluginProcessManager>;
+    friend NeverDestroyed<PluginProcessManager>;
 public:
     static PluginProcessManager& singleton();
 
     uint64_t pluginProcessToken(const PluginModuleInfo&, PluginProcessType, PluginProcessSandboxPolicy);
 
-    void getPluginProcessConnection(uint64_t pluginProcessToken, Ref<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply>&&);
+    void getPluginProcessConnection(uint64_t pluginProcessToken, Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply&&);
     void removePluginProcessProxy(PluginProcessProxy*);
 
     void fetchWebsiteData(const PluginModuleInfo&, OptionSet<WebsiteDataFetchOption>, WTF::Function<void (Vector<String>)>&& completionHandler);
     void deleteWebsiteData(const PluginModuleInfo&, WallTime modifiedSince, WTF::Function<void ()>&& completionHandler);
     void deleteWebsiteDataForHostNames(const PluginModuleInfo&, const Vector<String>& hostNames, WTF::Function<void ()>&& completionHandler);
+
+#if OS(LINUX)
+    void sendMemoryPressureEvent(bool isCritical);
+#endif
 
 #if PLATFORM(COCOA)
     inline ProcessSuppressionDisabledToken processSuppressionDisabledToken();

@@ -102,7 +102,7 @@ od_passwd(char* uname, char* locn, char* aname)
 		aname = strdup(uname);
 	}
 
-	master_mode = (getuid() == 0);
+	master_mode = (geteuid() == 0);
 	change_pass_on_self = (strcmp(aname, uname) == 0);
 
 	if (locn) {
@@ -150,10 +150,20 @@ od_passwd(char* uname, char* locn, char* aname)
 
 	printf("Changing password for %s.\n", uname);
 
+	bool isSecureToken = false;
+	if (master_mode) {
+		CFArrayRef authorityValues = NULL;
+		authorityValues = ODRecordCopyValues(rec, kODAttributeTypeAuthenticationAuthority, &error);
+		if (authorityValues != NULL) {
+			isSecureToken = CFArrayContainsValue(authorityValues, CFRangeMake(0, CFArrayGetCount(authorityValues)), (const void *)CFSTR(";SecureToken;"));
+			CFRelease(authorityValues);
+		}
+	}
+
 	/*
-	 * Prompt for password if not super-user, or if changing a remote node.
+	 * Prompt for password if not super-user, or if changing a remote node, or if changing a record that uses SecureToken.
 	 */
-	int needs_auth = (!master_mode || CFStringCompareWithOptions(location, CFSTR("/Local/"), CFRangeMake(0, 7), 0) != kCFCompareEqualTo);
+	int needs_auth = (!master_mode || CFStringCompareWithOptions(location, CFSTR("/Local/"), CFRangeMake(0, 7), 0) != kCFCompareEqualTo || isSecureToken);
 
 	if (needs_auth) {
 		char prompt[BUFSIZ];
@@ -166,6 +176,15 @@ od_passwd(char* uname, char* locn, char* aname)
 		if (p) {
 			oldpass = CFStringCreateWithCString(NULL, p, kCFStringEncodingUTF8);
 			memset(p, 0, strlen(p));
+
+			if (!change_pass_on_self) {
+				if (!ODRecordSetNodeCredentials(rec, authname, oldpass, &error)) {
+					show_error(error);
+					exit(1);
+				}
+				CFRelease(oldpass);
+				oldpass = NULL;
+			}
 		}
 	}
 

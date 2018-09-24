@@ -47,6 +47,7 @@ class SVGUseElement;
 void mapAttributeToCSSProperty(HashMap<AtomicStringImpl*, CSSPropertyID>* propertyNameToIdMap, const QualifiedName& attrName);
 
 class SVGElement : public StyledElement, public SVGLangSpace {
+    WTF_MAKE_ISO_ALLOCATED(SVGElement);
 public:
     bool isOutermostSVGSVGElement() const;
 
@@ -171,7 +172,7 @@ protected:
     class InstanceInvalidationGuard;
 
 private:
-    const RenderStyle* computedStyle(PseudoId = NOPSEUDO) final;
+    const RenderStyle* computedStyle(PseudoId = PseudoId::None) final;
 
     virtual void clearTarget() { }
 

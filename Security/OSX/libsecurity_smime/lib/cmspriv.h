@@ -298,7 +298,7 @@ SecCmsSignerInfoGetVersion(SecCmsSignerInfoRef signerinfo);
  * Implemented in siginfoUtils.cpp for access to C++ Dictionary class. 
  */
 extern bool
-SecCmsMsEcdsaCompatMode();
+SecCmsMsEcdsaCompatMode(void);
 
 
 /************************************************************************

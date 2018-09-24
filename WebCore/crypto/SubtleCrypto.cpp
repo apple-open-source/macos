@@ -51,8 +51,7 @@
 #include "JSRsaKeyGenParams.h"
 #include "JSRsaOaepParams.h"
 #include "JSRsaPssParams.h"
-#include <runtime/JSONObject.h>
-
+#include <JavaScriptCore/JSONObject.h>
 
 namespace WebCore {
 using namespace JSC;
@@ -411,25 +410,25 @@ static void rejectWithException(Ref<DeferredPromise>&& passedPromise, ExceptionC
 {
     switch (ec) {
     case NotSupportedError:
-        passedPromise->reject(ec, ASCIILiteral("The algorithm is not supported"));
+        passedPromise->reject(ec, "The algorithm is not supported"_s);
         return;
     case SyntaxError:
-        passedPromise->reject(ec, ASCIILiteral("A required parameter was missing or out-of-range"));
+        passedPromise->reject(ec, "A required parameter was missing or out-of-range"_s);
         return;
     case InvalidStateError:
-        passedPromise->reject(ec, ASCIILiteral("The requested operation is not valid for the current state of the provided key"));
+        passedPromise->reject(ec, "The requested operation is not valid for the current state of the provided key"_s);
         return;
     case InvalidAccessError:
-        passedPromise->reject(ec, ASCIILiteral("The requested operation is not valid for the provided key"));
+        passedPromise->reject(ec, "The requested operation is not valid for the provided key"_s);
         return;
     case UnknownError:
-        passedPromise->reject(ec, ASCIILiteral("The operation failed for an unknown transient reason (e.g. out of memory)"));
+        passedPromise->reject(ec, "The operation failed for an unknown transient reason (e.g. out of memory)"_s);
         return;
     case DataError:
-        passedPromise->reject(ec, ASCIILiteral("Data provided to an operation does not meet requirements"));
+        passedPromise->reject(ec, "Data provided to an operation does not meet requirements"_s);
         return;
     case OperationError:
-        passedPromise->reject(ec, ASCIILiteral("The operation failed for an operation-specific reason"));
+        passedPromise->reject(ec, "The operation failed for an operation-specific reason"_s);
         return;
     default:
         break;
@@ -531,12 +530,12 @@ void SubtleCrypto::encrypt(JSC::ExecState& state, AlgorithmIdentifier&& algorith
     auto data = copyToVector(WTFMove(dataBufferSource));
 
     if (params->identifier != key.algorithmIdentifier()) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't match AlgorithmIdentifier"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't match AlgorithmIdentifier"_s);
         return;
     }
 
     if (!key.allows(CryptoKeyUsageEncrypt)) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't support encryption"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't support encryption"_s);
         return;
     }
 
@@ -544,7 +543,7 @@ void SubtleCrypto::encrypt(JSC::ExecState& state, AlgorithmIdentifier&& algorith
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer](const Vector<uint8_t>& cipherText) mutable {
         if (auto promise = getPromise(index, subtleCryptoWeakPointer))
             fulfillPromiseWithArrayBuffer(promise.releaseNonNull(), cipherText.data(), cipherText.size());
@@ -569,12 +568,12 @@ void SubtleCrypto::decrypt(JSC::ExecState& state, AlgorithmIdentifier&& algorith
     auto data = copyToVector(WTFMove(dataBufferSource));
 
     if (params->identifier != key.algorithmIdentifier()) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't match AlgorithmIdentifier"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't match AlgorithmIdentifier"_s);
         return;
     }
 
     if (!key.allows(CryptoKeyUsageDecrypt)) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't support decryption"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't support decryption"_s);
         return;
     }
 
@@ -582,7 +581,7 @@ void SubtleCrypto::decrypt(JSC::ExecState& state, AlgorithmIdentifier&& algorith
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer](const Vector<uint8_t>& plainText) mutable {
         if (auto promise = getPromise(index, subtleCryptoWeakPointer))
             fulfillPromiseWithArrayBuffer(promise.releaseNonNull(), plainText.data(), plainText.size());
@@ -607,12 +606,12 @@ void SubtleCrypto::sign(JSC::ExecState& state, AlgorithmIdentifier&& algorithmId
     auto data = copyToVector(WTFMove(dataBufferSource));
 
     if (params->identifier != key.algorithmIdentifier()) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't match AlgorithmIdentifier"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't match AlgorithmIdentifier"_s);
         return;
     }
 
     if (!key.allows(CryptoKeyUsageSign)) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't support signing"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't support signing"_s);
         return;
     }
 
@@ -620,7 +619,7 @@ void SubtleCrypto::sign(JSC::ExecState& state, AlgorithmIdentifier&& algorithmId
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer](const Vector<uint8_t>& signature) mutable {
         if (auto promise = getPromise(index, subtleCryptoWeakPointer))
             fulfillPromiseWithArrayBuffer(promise.releaseNonNull(), signature.data(), signature.size());
@@ -646,12 +645,12 @@ void SubtleCrypto::verify(JSC::ExecState& state, AlgorithmIdentifier&& algorithm
     auto data = copyToVector(WTFMove(dataBufferSource));
 
     if (params->identifier != key.algorithmIdentifier()) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't match AlgorithmIdentifier"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't match AlgorithmIdentifier"_s);
         return;
     }
 
     if (!key.allows(CryptoKeyUsageVerify)) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't support verification"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't support verification"_s);
         return;
     }
 
@@ -659,7 +658,7 @@ void SubtleCrypto::verify(JSC::ExecState& state, AlgorithmIdentifier&& algorithm
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer](bool result) mutable {
         if (auto promise = getPromise(index, subtleCryptoWeakPointer))
             promise->resolve<IDLBoolean>(result);
@@ -687,7 +686,7 @@ void SubtleCrypto::digest(JSC::ExecState& state, AlgorithmIdentifier&& algorithm
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer](const Vector<uint8_t>& digest) mutable {
         if (auto promise = getPromise(index, subtleCryptoWeakPointer))
             fulfillPromiseWithArrayBuffer(promise.releaseNonNull(), digest.data(), digest.size());
@@ -715,7 +714,7 @@ void SubtleCrypto::generateKey(JSC::ExecState& state, AlgorithmIdentifier&& algo
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer](KeyOrKeyPair&& keyOrKeyPair) mutable {
         if (auto promise = getPromise(index, subtleCryptoWeakPointer)) {
             WTF::switchOn(keyOrKeyPair,
@@ -773,12 +772,12 @@ void SubtleCrypto::deriveKey(JSC::ExecState& state, AlgorithmIdentifier&& algori
     auto keyUsagesBitmap = toCryptoKeyUsageBitmap(keyUsages);
 
     if (params->identifier != baseKey.algorithmIdentifier()) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't match AlgorithmIdentifier"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't match AlgorithmIdentifier"_s);
         return;
     }
 
     if (!baseKey.allows(CryptoKeyUsageDeriveKey)) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't support CryptoKey derivation"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't support CryptoKey derivation"_s);
         return;
     }
 
@@ -786,7 +785,7 @@ void SubtleCrypto::deriveKey(JSC::ExecState& state, AlgorithmIdentifier&& algori
 
     auto result = getLengthAlgorithm->getKeyLength(*getLengthParams);
     if (result.hasException()) {
-        promise->reject(result.releaseException().code(), ASCIILiteral("Cannot get key length from derivedKeyType"));
+        promise->reject(result.releaseException().code(), "Cannot get key length from derivedKeyType"_s);
         return;
     }
     size_t length = result.releaseReturnValue();
@@ -796,7 +795,7 @@ void SubtleCrypto::deriveKey(JSC::ExecState& state, AlgorithmIdentifier&& algori
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer, importAlgorithm, importParams = WTFMove(importParams), extractable, keyUsagesBitmap](const Vector<uint8_t>& derivedKey) mutable {
         // FIXME: https://bugs.webkit.org/show_bug.cgi?id=169395
         KeyData data = derivedKey;
@@ -834,12 +833,12 @@ void SubtleCrypto::deriveBits(JSC::ExecState& state, AlgorithmIdentifier&& algor
     auto params = paramsOrException.releaseReturnValue();
 
     if (params->identifier != baseKey.algorithmIdentifier()) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't match AlgorithmIdentifier"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't match AlgorithmIdentifier"_s);
         return;
     }
 
     if (!baseKey.allows(CryptoKeyUsageDeriveBits)) {
-        promise->reject(InvalidAccessError, ASCIILiteral("CryptoKey doesn't support bits derivation"));
+        promise->reject(InvalidAccessError, "CryptoKey doesn't support bits derivation"_s);
         return;
     }
 
@@ -847,7 +846,7 @@ void SubtleCrypto::deriveBits(JSC::ExecState& state, AlgorithmIdentifier&& algor
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer](const Vector<uint8_t>& derivedKey) mutable {
         if (auto promise = getPromise(index, subtleCryptoWeakPointer))
             fulfillPromiseWithArrayBuffer(promise.releaseNonNull(), derivedKey.data(), derivedKey.size());
@@ -882,7 +881,7 @@ void SubtleCrypto::importKey(JSC::ExecState& state, KeyFormat format, KeyDataVar
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer](CryptoKey& key) mutable {
         if (auto promise = getPromise(index, subtleCryptoWeakPointer)) {
             if ((key.type() == CryptoKeyType::Private || key.type() == CryptoKeyType::Secret) && !key.usagesBitmap()) {
@@ -911,7 +910,7 @@ void SubtleCrypto::exportKey(KeyFormat format, CryptoKey& key, Ref<DeferredPromi
     }
 
     if (!key.extractable()) {
-        promise->reject(InvalidAccessError, ASCIILiteral("The CryptoKey is nonextractable"));
+        promise->reject(InvalidAccessError, "The CryptoKey is nonextractable"_s);
         return;
     }
 
@@ -919,7 +918,7 @@ void SubtleCrypto::exportKey(KeyFormat format, CryptoKey& key, Ref<DeferredPromi
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer](SubtleCrypto::KeyFormat format, KeyData&& key) mutable {
         if (auto promise = getPromise(index, subtleCryptoWeakPointer)) {
             switch (format) {
@@ -967,12 +966,12 @@ void SubtleCrypto::wrapKey(JSC::ExecState& state, KeyFormat format, CryptoKey& k
     auto wrapParams = wrapParamsOrException.releaseReturnValue();
 
     if (wrapParams->identifier != wrappingKey.algorithmIdentifier()) {
-        promise->reject(InvalidAccessError, ASCIILiteral("Wrapping CryptoKey doesn't match AlgorithmIdentifier"));
+        promise->reject(InvalidAccessError, "Wrapping CryptoKey doesn't match AlgorithmIdentifier"_s);
         return;
     }
 
     if (!wrappingKey.allows(CryptoKeyUsageWrapKey)) {
-        promise->reject(InvalidAccessError, ASCIILiteral("Wrapping CryptoKey doesn't support wrapKey operation"));
+        promise->reject(InvalidAccessError, "Wrapping CryptoKey doesn't support wrapKey operation"_s);
         return;
     }
 
@@ -982,7 +981,7 @@ void SubtleCrypto::wrapKey(JSC::ExecState& state, KeyFormat format, CryptoKey& k
     }
 
     if (!key.extractable()) {
-        promise->reject(InvalidAccessError, ASCIILiteral("The CryptoKey is nonextractable"));
+        promise->reject(InvalidAccessError, "The CryptoKey is nonextractable"_s);
         return;
     }
 
@@ -993,7 +992,7 @@ void SubtleCrypto::wrapKey(JSC::ExecState& state, KeyFormat format, CryptoKey& k
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer, wrapAlgorithm, wrappingKey = makeRef(wrappingKey), wrapParams = WTFMove(wrapParams), isEncryption, context, workQueue = m_workQueue.copyRef()](SubtleCrypto::KeyFormat format, KeyData&& key) mutable {
         if (subtleCryptoWeakPointer) {
             if (auto promise = subtleCryptoWeakPointer->m_pendingPromises.get(index)) {
@@ -1073,12 +1072,12 @@ void SubtleCrypto::unwrapKey(JSC::ExecState& state, KeyFormat format, BufferSour
     auto keyUsagesBitmap = toCryptoKeyUsageBitmap(keyUsages);
 
     if (unwrapParams->identifier != unwrappingKey.algorithmIdentifier()) {
-        promise->reject(InvalidAccessError, ASCIILiteral("Unwrapping CryptoKey doesn't match unwrap AlgorithmIdentifier"));
+        promise->reject(InvalidAccessError, "Unwrapping CryptoKey doesn't match unwrap AlgorithmIdentifier"_s);
         return;
     }
 
     if (!unwrappingKey.allows(CryptoKeyUsageUnwrapKey)) {
-        promise->reject(InvalidAccessError, ASCIILiteral("Unwrapping CryptoKey doesn't support unwrapKey operation"));
+        promise->reject(InvalidAccessError, "Unwrapping CryptoKey doesn't support unwrapKey operation"_s);
         return;
     }
 
@@ -1096,7 +1095,7 @@ void SubtleCrypto::unwrapKey(JSC::ExecState& state, KeyFormat format, BufferSour
 
     auto index = promise.ptr();
     m_pendingPromises.add(index, WTFMove(promise));
-    auto subtleCryptoWeakPointer = m_weakPtrFactory.createWeakPtr(*this);
+    auto subtleCryptoWeakPointer = makeWeakPtr(*this);
     auto callback = [index, subtleCryptoWeakPointer, format, importAlgorithm, unwrappedKeyAlgorithm = WTFMove(unwrappedKeyAlgorithm), extractable, keyUsagesBitmap](const Vector<uint8_t>& bytes) mutable {
         if (subtleCryptoWeakPointer) {
             if (auto promise = subtleCryptoWeakPointer->m_pendingPromises.get(index)) {
@@ -1116,7 +1115,7 @@ void SubtleCrypto::unwrapKey(JSC::ExecState& state, KeyFormat format, BufferSour
                     JSLockHolder locker(vm);
                     auto jwkObject = JSONParse(&state, jwkString);
                     if (!jwkObject) {
-                        promise->reject(DataError, ASCIILiteral("WrappedKey cannot be converted to a JSON object"));
+                        promise->reject(DataError, "WrappedKey cannot be converted to a JSON object"_s);
                         return;
                     }
                     auto jwk = convert<IDLDictionary<JsonWebKey>>(state, jwkObject);

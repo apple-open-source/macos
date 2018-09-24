@@ -26,6 +26,8 @@
 #include "config.h"
 #include "NetworkStateNotifier.h"
 
+#if PLATFORM(MAC)
+
 #include <SystemConfiguration/SystemConfiguration.h>
 
 namespace WebCore {
@@ -59,8 +61,7 @@ void NetworkStateNotifier::updateStateWithoutNotifying()
             continue;
 
         auto key = adoptCF(SCDynamicStoreKeyCreateNetworkInterfaceEntity(0, kSCDynamicStoreDomainState, interfaceName, kSCEntNetIPv4));
-        auto keyList = adoptCF(SCDynamicStoreCopyKeyList(m_store.get(), key.get()));
-        if (keyList && CFArrayGetCount(keyList.get())) {
+        if (auto value = adoptCF(SCDynamicStoreCopyValue(m_store.get(), key.get()))) {
             m_isOnLine = true;
             return;
         }
@@ -96,3 +97,5 @@ void NetworkStateNotifier::startObserving()
 }
     
 }
+
+#endif // PLATFORM(MAC)

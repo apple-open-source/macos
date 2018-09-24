@@ -74,6 +74,7 @@ ExitMode mayExitImpl(Graph& graph, Node* node, StateType& state)
     case KillStack:
     case GetStack:
     case GetCallee:
+    case SetCallee:
     case GetArgumentCountIncludingThis:
     case SetArgumentCountIncludingThis:
     case GetRestLength:
@@ -91,6 +92,7 @@ ExitMode mayExitImpl(Graph& graph, Node* node, StateType& state)
     case ValueRep:
     case ExtractOSREntryLocal:
     case ExtractCatchLocal:
+    case ClearCatchLocals:
     case LogicalNot:
     case NotifyWrite:
     case PutStructure:
@@ -120,8 +122,15 @@ ExitMode mayExitImpl(Graph& graph, Node* node, StateType& state)
     case NewStringObject:
     case NewRegexp:
     case ToNumber:
+    case RegExpExecNonGlobalOrSticky:
+    case RegExpMatchFastGlobal:
         result = ExitsForExceptions;
         break;
+
+    case SetRegExpObjectLastIndex:
+        if (node->ignoreLastIndexIsWritable())
+            break;
+        return Exits;
 
     default:
         // If in doubt, return true.

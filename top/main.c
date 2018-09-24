@@ -182,46 +182,46 @@ int main(int argc, char *argv[]) {
     top_prefs_init();
     top_options_init();
 
-    if(top_options_parse(argc, argv)) {
-	top_options_usage(stderr, argv[0]);
-	return EXIT_FAILURE;
+    if (top_options_parse(argc, argv)) {
+        top_options_usage(stderr, argv[0]);
+        return EXIT_FAILURE;
     }
 
     /* 18007048: If output isn't a tty and -l isn't specified, imply -l 0. */
-    if (!isatty(STDOUT_FILENO) && top_prefs_get_samples() < 0) {
-	top_prefs_set_samples(0);
+    if ((!isatty(STDOUT_FILENO)) && (top_prefs_get_samples() < 0)) {
+        top_prefs_set_samples(0);
     }
 
-    if(top_prefs_get_samples() > -1)
-	top_prefs_set_logging_mode(true);
+    if (top_prefs_get_samples() > -1)
+        top_prefs_set_logging_mode(true);
     
-    if(!top_prefs_get_logging_mode())
-	init();
+    if (!top_prefs_get_logging_mode())
+        init();
 
     top_signal_init();
   
-    if(libtop_init(NULL, NULL)) {
-	endwin();
-	fprintf(stderr, "libtop_init failed!\n");
-	return EXIT_FAILURE;
+    if (libtop_init(NULL, NULL)) {
+        endwin();
+        fprintf(stderr, "libtop_init failed!\n");
+        return EXIT_FAILURE;
     }
 
-    if(top_prefs_get_frameworks()
+    if (top_prefs_get_frameworks()
        && libtop_set_interval(top_prefs_get_frameworks_interval())) {
-	endwin();
-	fprintf(stderr, "error: setting framework update interval.\n");
-	exit(EXIT_FAILURE);
+        endwin();
+        fprintf(stderr, "error: setting framework update interval.\n");
+        exit(EXIT_FAILURE);
     }
 
     tinst = top_create(stdscr);    
 
-    if(!top_prefs_get_logging_mode()) {
-	top_insert(tinst);
-	top_layout(tinst);
-	top_draw(tinst);
-	event_loop(tinst);
+    if (!top_prefs_get_logging_mode()) {
+        top_insert(tinst);
+        top_layout(tinst);
+        top_draw(tinst);
+        event_loop(tinst);
     } else {
-	top_logging_loop(tinst);
+        top_logging_loop(tinst);
     }
 
     return EXIT_SUCCESS;    

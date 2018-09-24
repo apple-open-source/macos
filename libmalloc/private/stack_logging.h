@@ -62,17 +62,20 @@ typedef enum {
 	stack_logging_mode_all,
 	stack_logging_mode_malloc,
 	stack_logging_mode_vm,
-	stack_logging_mode_lite
+	stack_logging_mode_lite,
+	stack_logging_mode_vmlite
 } stack_logging_mode_type;
 
 extern boolean_t turn_on_stack_logging(stack_logging_mode_type mode);
 extern void turn_off_stack_logging();
 
 /* constants for enabling/disabling malloc stack logging via the memorystatus_vm_pressure_send sysctl */
-#define	MEMORYSTATUS_ENABLE_MSL_MALLOC	0x10000000
-#define MEMORYSTATUS_ENABLE_MSL_VM		0x20000000
-#define MEMORYSTATUS_ENABLE_MSL_LITE	0x40000000
-#define MEMORYSTATUS_DISABLE_MSL		0x80000000
+#define	MEMORYSTATUS_ENABLE_MSL_MALLOC		0x10000000
+#define MEMORYSTATUS_ENABLE_MSL_VM			0x20000000
+#define MEMORYSTATUS_ENABLE_MSL_LITE		0x40000000
+#define MEMORYSTATUS_DISABLE_MSL			0x80000000
+#define MEMORYSTATUS_ENABLE_MSL_LITE_FULL	(MEMORYSTATUS_ENABLE_MSL_LITE | MEMORYSTATUS_ENABLE_MSL_VM | MEMORYSTATUS_ENABLE_MSL_MALLOC)
+#define MEMORYSTATUS_ENABLE_MSL_LITE_VM		(MEMORYSTATUS_ENABLE_MSL_LITE | MEMORYSTATUS_ENABLE_MSL_VM)
 
 extern void __disk_stack_logging_log_stack(uint32_t type_flags, uintptr_t zone_ptr, uintptr_t size, uintptr_t ptr_arg, uintptr_t return_val, uint32_t num_hot_to_skip);
 	/* Fits as the malloc_logger; logs malloc/free/realloc events and can log custom events if called directly */

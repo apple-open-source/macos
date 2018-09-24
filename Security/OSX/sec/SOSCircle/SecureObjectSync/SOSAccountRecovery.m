@@ -144,7 +144,7 @@ bool SOSAccountSetRecoveryKey(SOSAccount* account, CFDataRef pubData, CFErrorRef
     CFDataRef oldRecoveryKey = NULL;
     SOSRecoveryKeyBagRef rkbg = NULL;
 
-    require_quiet([account.trust isInCircle:error], exit);
+    require_quiet([account isInCircle:error], exit);
     oldRecoveryKey = SOSAccountCopyRecoveryPublic(kCFAllocatorDefault, account, NULL); // ok to fail here. don't collect error
     require_action_quiet(!CFEqualSafe(pubData, oldRecoveryKey), exit, result = true);
 
@@ -224,22 +224,26 @@ static void sosRecoveryAlertAndNotify(SOSAccount* account, SOSRecoveryKeyBagRef 
 
 void SOSAccountEnsureRecoveryRing(SOSAccount* account) {
     static SOSRecoveryKeyBagRef oldRingRKBG = NULL;
-    bool inCircle = [account.trust isInCircle:NULL];
+
+    if(![account isInCircle:NULL]) {
+        return;
+    }
+
     CFStringRef accountDSID = SOSAccountGetValue(account, kSOSDSIDKey, NULL); // murfxxx this needs to be consulted still
     SOSRecoveryKeyBagRef acctRKBG = SOSAccountCopyRecoveryKeyBagEntry(kCFAllocatorDefault, account, NULL);
     SOSRecoveryKeyBagRef ringRKBG = SOSAccountCopyRecoveryKeyBag(kCFAllocatorDefault, account, NULL);
     if(!SOSRecoveryKeyBagDSIDIs(ringRKBG, accountDSID)) CFReleaseNull(ringRKBG);
     if(!SOSRecoveryKeyBagDSIDIs(acctRKBG, accountDSID)) CFReleaseNull(acctRKBG);
     
-    if(inCircle && acctRKBG == NULL && ringRKBG == NULL) {
+    if(acctRKBG == NULL && ringRKBG == NULL) {
         // Nothing to do at this time - notify if this is a change down below.
-    } else if(inCircle && acctRKBG == NULL) { // then we have a ringRKBG
+    } else if(acctRKBG == NULL) { // then we have a ringRKBG
         secnotice("recovery", "Harvesting account recovery key from ring");
         SOSAccountSetRecoveryKeyBagEntry(kCFAllocatorDefault, account, ringRKBG, NULL);
     } else if(ringRKBG == NULL) {
         // Nothing to do at this time - notify if this is a change down below.
         secnotice("recovery", "Account has a recovery key, but none found in recovery ring");
-    } else if(!CFEqual(acctRKBG, ringRKBG)) {
+    } else if(!CFEqualSafe(acctRKBG, ringRKBG)) {
         secnotice("recovery", "Harvesting account recovery key from ring");
         SOSAccountSetRecoveryKeyBagEntry(kCFAllocatorDefault, account, ringRKBG, NULL);
     }

@@ -31,11 +31,12 @@
 #include "DOMTimer.h"
 #include "SecurityContext.h"
 #include "ServiceWorkerTypes.h"
-#include <heap/HandleTypes.h>
-#include <runtime/ConsoleTypes.h>
+#include <JavaScriptCore/ConsoleTypes.h>
+#include <JavaScriptCore/HandleTypes.h>
 #include <wtf/CrossThreadTask.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
+#include <wtf/ObjectIdentifier.h>
 #include <wtf/text/WTFString.h>
 
 namespace JSC {
@@ -78,6 +79,9 @@ namespace IDBClient {
 class IDBConnectionProxy;
 }
 
+enum ScriptExecutionContextIdentifierType { };
+using ScriptExecutionContextIdentifier = ObjectIdentifier<ScriptExecutionContextIdentifierType>;
+
 class ScriptExecutionContext : public SecurityContext {
 public:
     ScriptExecutionContext();
@@ -105,7 +109,7 @@ public:
 
     virtual String resourceRequestIdentifier() const { return String(); };
 
-    bool sanitizeScriptError(String& errorMessage, int& lineNumber, int& columnNumber, String& sourceURL, JSC::Strong<JSC::Unknown>& error, CachedScript* = nullptr);
+    bool canIncludeErrorDetails(CachedScript*, const String& sourceURL);
     void reportException(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL, JSC::Exception*, RefPtr<Inspector::ScriptCallStack>&&, CachedScript* = nullptr);
     void reportUnhandledPromiseRejection(JSC::ExecState&, JSC::JSPromise&, RefPtr<Inspector::ScriptCallStack>&&);
 
@@ -128,8 +132,8 @@ public:
 
     // Active objects can be asked to suspend even if canSuspendActiveDOMObjectsForDocumentSuspension() returns 'false' -
     // step-by-step JS debugging is one example.
-    virtual void suspendActiveDOMObjects(ActiveDOMObject::ReasonForSuspension);
-    virtual void resumeActiveDOMObjects(ActiveDOMObject::ReasonForSuspension);
+    virtual void suspendActiveDOMObjects(ReasonForSuspension);
+    virtual void resumeActiveDOMObjects(ReasonForSuspension);
     virtual void stopActiveDOMObjects();
 
     bool activeDOMObjectsAreSuspended() const { return m_activeDOMObjectsAreSuspended; }
@@ -253,6 +257,9 @@ public:
 
     WEBCORE_EXPORT static bool postTaskTo(const DocumentOrWorkerIdentifier&, WTF::Function<void(ScriptExecutionContext&)>&&);
 #endif
+    WEBCORE_EXPORT static bool postTaskTo(ScriptExecutionContextIdentifier, Task&&);
+
+    ScriptExecutionContextIdentifier contextIdentifier() const;
 
 protected:
     class AddConsoleMessageTask : public Task {
@@ -272,9 +279,10 @@ protected:
         }
     };
 
-    ActiveDOMObject::ReasonForSuspension reasonForSuspendingActiveDOMObjects() const { return m_reasonForSuspendingActiveDOMObjects; }
+    ReasonForSuspension reasonForSuspendingActiveDOMObjects() const { return m_reasonForSuspendingActiveDOMObjects; }
 
     bool hasPendingActivity() const;
+    void removeFromContextsMap();
 
 private:
     // The following addMessage function is deprecated.
@@ -300,7 +308,7 @@ private:
     std::unique_ptr<Vector<std::unique_ptr<PendingException>>> m_pendingExceptions;
     std::unique_ptr<RejectedPromiseTracker> m_rejectedPromiseTracker;
 
-    ActiveDOMObject::ReasonForSuspension m_reasonForSuspendingActiveDOMObjects { static_cast<ActiveDOMObject::ReasonForSuspension>(-1) };
+    ReasonForSuspension m_reasonForSuspendingActiveDOMObjects { static_cast<ReasonForSuspension>(-1) };
 
     std::unique_ptr<PublicURLManager> m_publicURLManager;
 
@@ -328,6 +336,7 @@ private:
 #endif
 
     String m_domainForCachePartition;
+    mutable ScriptExecutionContextIdentifier m_contextIdentifier;
 };
 
 } // namespace WebCore

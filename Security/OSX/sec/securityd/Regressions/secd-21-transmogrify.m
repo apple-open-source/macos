@@ -45,7 +45,7 @@
 #include "SecdTestKeychainUtilities.h"
 
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
-CFArrayRef SecAccessGroupsGetCurrent();
+CFArrayRef SecAccessGroupsGetCurrent(void);
 
 int
 secd_21_transmogrify(int argc, char *const *argv)

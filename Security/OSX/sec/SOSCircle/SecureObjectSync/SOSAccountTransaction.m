@@ -19,6 +19,7 @@
 #import "Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
 #import "Security/SecureObjectSync/SOSAccountTrustClassic.h"
 #import "Security/SecureObjectSync/SOSTransportMessageKVS.h"
+#import "Security/SecItemBackup.h"
 
 #include <keychain/ckks/CKKS.h>
 
@@ -39,6 +40,8 @@
 @property BOOL              initialTrusted;
 @property NSData*           initialKeyParameters;
 
+@property uint              initialCirclePeerCount;
+
 @property bool              quiet;
 
 @property NSMutableSet<NSString*>* peersToRequestSync;
@@ -50,6 +53,66 @@
 
 
 @implementation SOSAccountTransaction
+
+static void SOSCircleSetCachedStatus(SOSAccount *account) {
+    static SOSCCStatus lastStatus = -2;
+    SOSCCStatus currentStatus = [account getCircleStatus:NULL];
+    
+    if(lastStatus != currentStatus) {
+        lastStatus = currentStatus;
+        account.notifyCircleChangeOnExit = true;
+    }
+    
+    if(account.notifyCircleChangeOnExit) {
+        __block uint64_t circleStatus = [account.trust getCircleStatusOnly:NULL] | CC_STATISVALID;
+        if(account.accountKeyIsTrusted) {
+            circleStatus |= CC_UKEY_TRUSTED;
+            if(account.accountPrivateKey) {
+                circleStatus |= CC_CAN_AUTH;
+            }
+        }
+        // we might be in circle, but invalid - let client see this in bitmask.
+        if([account.trust isInCircleOnly:NULL]) {
+           circleStatus |= CC_PEER_IS_IN;
+        }
+     
+        SOSCachedNotificationOperation(kSOSCCCircleChangedNotification, ^bool(int token, bool gtg) {
+            if(gtg) {
+                uint32_t status = notify_set_state(token, circleStatus);
+                if(status == NOTIFY_STATUS_OK) {
+                    notify_post(kSOSCCCircleChangedNotification);
+                    account.notifyCircleChangeOnExit = false;
+                }
+                return true;
+            }
+            return false;
+        });
+    }
+}
+
+static void SOSViewsSetCachedStatus(SOSAccount *account) {
+    static uint64_t lastViewBitmask = 0;
+    __block uint64_t viewBitMask = ([account getCircleStatus:NULL] == kSOSCCInCircle) ? SOSPeerInfoViewBitMask(account.peerInfo) :0;
+
+    if(viewBitMask != lastViewBitmask) {
+        lastViewBitmask = viewBitMask;
+        account.notifyViewChangeOnExit = true; // this is also set within operations and might want the notification for other reasons.
+    }
+
+    if(account.notifyViewChangeOnExit) {
+        SOSCachedNotificationOperation(kSOSCCViewMembershipChangedNotification, ^bool(int token, bool gtg) {
+            if(gtg) {
+                uint32_t status = notify_set_state(token, viewBitMask);
+                if(status == NOTIFY_STATUS_OK) {
+                    notify_post(kSOSCCViewMembershipChangedNotification);
+                    account.notifyViewChangeOnExit = false;
+                }
+                return true;
+            }
+            return false;
+        });
+    }
+}
 
 - (NSString*) description {
     return [NSString stringWithFormat:@"<SOSAccountTransaction*@%p %ld>",
@@ -66,8 +129,15 @@
 }
 
 - (void) start {
-    self.initialInCircle = [self.account.trust isInCircle:NULL];
+    SOSCircleSetCachedStatus(_account);
+    SOSViewsSetCachedStatus(_account);
+
+    self.initialInCircle = [self.account isInCircle:NULL];
     self.initialTrusted = self.account.accountKeyIsTrusted;
+    self.initialCirclePeerCount = 0;
+    if(self.initialInCircle) {
+        self.initialCirclePeerCount = SOSCircleCountPeers(self.account.trust.trustedCircle);
+    }
 
     if (self.initialInCircle) {
         SOSAccountEnsureSyncChecking(self.account);
@@ -107,7 +177,7 @@
 
     SOSPeerInfoRef mpi = self.account.peerInfo;
 
-    bool isInCircle = [self.account.trust isInCircle:NULL];
+    bool isInCircle = [self.account isInCircle:NULL];
 
     if (isInCircle && self.peersToRequestSync) {
         SOSCCRequestSyncWithPeers((__bridge CFSetRef)(self.peersToRequestSync));
@@ -184,7 +254,16 @@
     [self.account flattenToSaveBlock];
 
     // Refresh isInCircle since we could have changed our mind
-    isInCircle = [self.account.trust isInCircle:NULL];
+    isInCircle = [self.account isInCircle:NULL];
+
+    uint finalCirclePeerCount = 0;
+    if(isInCircle) {
+        finalCirclePeerCount = SOSCircleCountPeers(self.account.trust.trustedCircle);
+    }
+
+    if(isInCircle && (finalCirclePeerCount < self.initialCirclePeerCount)) {
+        (void) SOSAccountCleanupAllKVSKeys(_account, NULL);
+    }
 
     mpi = self.account.peerInfo;
     CFSetRef views = mpi ? SOSPeerInfoCopyEnabledViews(mpi) : NULL;
@@ -242,8 +321,17 @@
         doViewChanged = true;
     }
     
-    if(doCircleChanged)     notify_post(kSOSCCCircleChangedNotification);
-    if(doViewChanged)       notify_post(kSOSCCViewMembershipChangedNotification);
+    if(doCircleChanged) {
+        SOSCircleSetCachedStatus(_account);
+    }
+    if(doViewChanged) {
+        SOSViewsSetCachedStatus(_account);
+    }
+    if(self.account.notifyBackupOnExit) {
+        notify_post(kSecItemBackupNotification);
+        self.account.notifyBackupOnExit = false;
+    }
+
 
     if(do_account_state_at_zero <= 0) {
         SOSAccountLogState(self.account);

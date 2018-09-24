@@ -216,10 +216,11 @@ public:
 #endif
 
     WEBCORE_EXPORT void applyStyle(StyleProperties*, EditAction = EditActionUnspecified);
-    void applyStyle(RefPtr<EditingStyle>&&, EditAction);
+    enum class ColorFilterMode { InvertColor, UseOriginalColor };
+    void applyStyle(RefPtr<EditingStyle>&&, EditAction, ColorFilterMode);
     void applyParagraphStyle(StyleProperties*, EditAction = EditActionUnspecified);
     WEBCORE_EXPORT void applyStyleToSelection(StyleProperties*, EditAction);
-    WEBCORE_EXPORT void applyStyleToSelection(Ref<EditingStyle>&&, EditAction);
+    WEBCORE_EXPORT void applyStyleToSelection(Ref<EditingStyle>&&, EditAction, ColorFilterMode);
     void applyParagraphStyleToSelection(StyleProperties*, EditAction);
 
     // Returns whether or not we should proceed with editing.
@@ -293,7 +294,7 @@ public:
     bool isOverwriteModeEnabled() const { return m_overwriteModeEnabled; }
     WEBCORE_EXPORT void toggleOverwriteModeEnabled();
 
-    void markAllMisspellingsAndBadGrammarInRanges(TextCheckingTypeMask, Range* spellingRange, Range* grammarRange);
+    void markAllMisspellingsAndBadGrammarInRanges(TextCheckingTypeMask, RefPtr<Range>&& spellingRange, RefPtr<Range>&& automaticReplacementRange, RefPtr<Range>&& grammarRange);
 #if PLATFORM(IOS)
     NO_RETURN_DUE_TO_ASSERT
 #endif
@@ -484,6 +485,8 @@ public:
     WEBCORE_EXPORT void replaceSelectionWithAttributedString(NSAttributedString *, MailBlockquoteHandling = MailBlockquoteHandling::RespectBlockquote);
 #endif
 
+    String clientReplacementURLForResource(Ref<SharedBuffer>&& resourceData, const String& mimeType);
+
 #if !PLATFORM(WIN)
     WEBCORE_EXPORT void writeSelectionToPasteboard(Pasteboard&);
     WEBCORE_EXPORT void writeImageToPasteboard(Pasteboard&, Element& imageElement, const URL&, const String& title);
@@ -580,8 +583,6 @@ private:
     const std::unique_ptr<PAL::KillRing> m_killRing;
     const std::unique_ptr<SpellChecker> m_spellChecker;
     const std::unique_ptr<AlternativeTextController> m_alternativeTextController;
-    VisibleSelection m_mark;
-    bool m_areMarkedTextMatchesHighlighted { false };
     EditorParagraphSeparator m_defaultParagraphSeparator { EditorParagraphSeparatorIsDiv };
     bool m_overwriteModeEnabled { false };
 
@@ -589,6 +590,9 @@ private:
     HashSet<String> m_insertedAttachmentIdentifiers;
     HashSet<String> m_removedAttachmentIdentifiers;
 #endif
+
+    VisibleSelection m_mark;
+    bool m_areMarkedTextMatchesHighlighted { false };
 
     VisibleSelection m_oldSelectionForEditorUIUpdate;
     Timer m_editorUIUpdateTimer;

@@ -111,6 +111,7 @@ extern NCURSES_EXPORT(int) has_key (int);		/* do we have given key? */
 
 /* Debugging : use with libncurses_g.a */
 
+#ifdef TRACE
 extern NCURSES_EXPORT(void) _tracef (const char *, ...) GCC_PRINTFLIKE(1,2);
 extern NCURSES_EXPORT(void) _tracedump (const char *, WINDOW *);
 extern NCURSES_EXPORT(char *) _traceattr (attr_t);
@@ -130,6 +131,7 @@ extern NCURSES_EXPORT(char *) _tracecchar_t2 (int, const cchar_t *);
 #endif
 extern NCURSES_EXPORT(char *) _tracemouse (const MEVENT *);
 extern NCURSES_EXPORT(void) trace (const unsigned int);
+#endif
 
 /* trace masks */
 #define TRACE_DISABLE	0x0000	/* turn off tracing */

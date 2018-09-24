@@ -444,7 +444,7 @@ CFSetRef SOSBSKBGetPeers(SOSBackupSliceKeyBagRef backupSliceKeyBag){
 }
 
 int SOSBSKBCountPeers(SOSBackupSliceKeyBagRef backupSliceKeyBag) {
-    return (int) CFSetGetCount(backupSliceKeyBag->peers);
+    return (backupSliceKeyBag->peers) ? (int) CFSetGetCount(backupSliceKeyBag->peers): 0;
 }
 
 bool SOSBSKBPeerIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, SOSPeerInfoRef pi) {
@@ -703,9 +703,10 @@ CFDataRef SOSBSKBCopyRecoveryKey(SOSBackupSliceKeyBagRef bskb) {
 }
 
 bool SOSBSKBHasRecoveryKey(SOSBackupSliceKeyBagRef bskb) {
+    if(!bskb) return false;
     if(SOSBSKBHasPrefixedKey(bskb, bskbRkbgPrefix)) return true;
     // old way for RecoveryKeys
-    int keyCount = (int) CFDictionaryGetCount(bskb->wrapped_keys);
+    int keyCount = (bskb->wrapped_keys != NULL) ? (int) CFDictionaryGetCount(bskb->wrapped_keys): 0;
     int peerCount = SOSBSKBCountPeers(bskb);
     return !SOSBSKBIsDirect(bskb) && ((keyCount - peerCount) > 0);
 }

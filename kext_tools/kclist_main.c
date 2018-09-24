@@ -32,6 +32,43 @@
 #include "kclist_main.h"
 #include "compression.h"
 
+// old SDKs...
+#ifndef kBuiltinInfoSection
+#define kBuiltinInfoSection                "__kmod_info"
+#endif
+#ifndef kBuiltinStartSection
+#define kBuiltinStartSection               "__kmod_start"
+#endif
+
+struct ImageInfo
+{
+    const UInt8 * kcImagePtr;
+    CFIndex       kcImageSize;
+    uint32_t      machoBits;
+
+    void        * builtinInfoSect;
+    const char  * builtinInfoBytes;
+    uint64_t      builtinInfoSize;
+
+    void        * builtinStartSect;
+    const char  * builtinStartBytes;
+    uint64_t      builtinStartSize;
+
+    void        * prelinkInfoSect;
+    const char  * prelinkInfoBytes;
+
+    void        * prelinkTextSect;
+
+    const char  * prelinkTextBytes;
+    uint64_t      prelinkTextSourceAddress;
+    uint64_t      prelinkTextSourceSize;
+
+    void        * textSegment;
+    uint64_t      baseAddress;
+    bool          hasThreadedRebase;
+};
+
+
 /*******************************************************************************
 *******************************************************************************/
 extern void printPList_new(FILE * stream, CFPropertyListRef plist, int style);
@@ -39,15 +76,10 @@ extern void printPList_new(FILE * stream, CFPropertyListRef plist, int style);
 static const char * getSegmentCommandName(uint32_t theSegCommand);
 
 static void createKCMap(const uint8_t *kernelcacheImage, Boolean verbose, struct kcmap **map);
-static void printKernelCacheLayoutMap(KclistArgs *toolArgs, const char *prelinkTextBytes, uint64_t prelinkTextSourceAddress,
-                                      uint64_t prelinkTextSourceSize,struct kcmap *kcmap, CFPropertyListRef kcInfoPlist,
-                                      const UInt8 *kcImagePtr, CFIndex kcImageSize);
-static void printJSON(KclistArgs *toolArgs, const char *prelinkTextBytes, uint64_t prelinkTextSourceAddress,
-                      uint64_t prelinkTextSourceSize, struct kcmap *kcmap, CFPropertyListRef kcInfoPlist,
-                      const UInt8 *kcImagePtr, CFIndex kcImageSize);
+static void printKernelCacheLayoutMap(KclistArgs *toolArgs, struct ImageInfo * ki, struct kcmap *kcmap, CFPropertyListRef kcInfoPlist);
+static void printJSON(KclistArgs *toolArgs, struct ImageInfo * ki, struct kcmap *kcmap, CFPropertyListRef kcInfoPlist);
 static void printJSONSegments(KclistArgs *toolArgs, void *mhpv, bool mh_is_64);
-static off_t getKCFileOffset(struct kcmap *kcmap, uint8_t *kextStart, uint64_t va_ofst, uint64_t fileoff);
-
+static off_t getKCFileOffset(struct kcmap *kcmap, uint64_t va_ofst);
 static void printMachOHeader(const UInt8 *imagePtr, CFIndex imageSize);
 
 /*******************************************************************************
@@ -66,19 +98,15 @@ int main(int argc, char * const argv[])
     struct fat_arch    * fat_arch           = NULL;
     CFDataRef            rawKernelcache     = NULL;  // must release
     CFDataRef            kernelcacheImage   = NULL;  // must release
-    const UInt8        * kernelcacheStart   = NULL;
 
-    void               * prelinkInfoSect = NULL;
-    const char         * prelinkInfoBytes = NULL;
     CFPropertyListRef    prelinkInfoPlist = NULL;  // must release
 
-    void               * prelinkTextSect = NULL;
-    const char         * prelinkTextBytes = NULL;
-    uint64_t             prelinkTextSourceAddress = 0;
-    uint64_t             prelinkTextSourceSize = 0;
     const NXArchInfo *   nextArchInfo       = NULL;
     CFMutableArrayRef    archInfoArray      = NULL;
     Boolean              userProvidedArch   = false;
+
+    struct ImageInfo     _ki;
+    struct ImageInfo   * ki = &_ki;
 
     uint64_t             kextDataGap = 0;
     uint64_t             xnuTextStart = 0;
@@ -178,64 +206,154 @@ int main(int argc, char * const argv[])
         } else {
             kernelcacheImage = CFRetain(rawKernelcache);
         }
-        
-        kernelcacheStart = CFDataGetBytePtr(kernelcacheImage);
-        
-        if (toolArgs.printMachO)
-            printMachOHeader(kernelcacheStart, CFDataGetLength(kernelcacheImage));
 
-        if (ISMACHO64(MAGIC32(kernelcacheStart))) {
-            prelinkInfoSect = (void *)
-            macho_get_section_by_name_64((struct mach_header_64 *)kernelcacheStart,
+        bzero(ki, sizeof(*ki));
+        ki->kcImagePtr  = CFDataGetBytePtr(kernelcacheImage);
+        ki->kcImageSize = CFDataGetLength(kernelcacheImage);
+
+        if (toolArgs.printMachO)
+            printMachOHeader(ki->kcImagePtr, CFDataGetLength(kernelcacheImage));
+
+        if (ISMACHO64(MAGIC32(ki->kcImagePtr))) {
+            ki->machoBits = 64;
+            ki->prelinkInfoSect = (void *)
+            macho_get_section_by_name_64((struct mach_header_64 *)ki->kcImagePtr,
                                          kPrelinkInfoSegment,
                                          kPrelinkInfoSection);
-            prelinkTextSect = (void *)
-            macho_get_section_by_name_64((struct mach_header_64 *)kernelcacheStart,
+            ki->prelinkTextSect = (void *)
+            macho_get_section_by_name_64((struct mach_header_64 *)ki->kcImagePtr,
                                          kPrelinkTextSegment,
                                          kPrelinkTextSection);
+            ki->builtinInfoSect = (void *)
+            macho_get_section_by_name_64((struct mach_header_64 *)ki->kcImagePtr,
+                                         kPrelinkInfoSegment,
+                                         kBuiltinInfoSection);
+            ki->builtinStartSect = (void *)
+            macho_get_section_by_name_64((struct mach_header_64 *)ki->kcImagePtr,
+                                         kPrelinkInfoSegment,
+                                         kBuiltinStartSection);
+            ki->textSegment = (void *)
+            macho_get_segment_by_name_64((struct mach_header_64 *)ki->kcImagePtr,
+                                         "__TEXT");
+            struct section_64 * sect;
+            sect = macho_get_section_by_name_64((struct mach_header_64 *)ki->kcImagePtr,
+                                         "__TEXT",
+                                         "__thread_starts");
+            ki->hasThreadedRebase = (sect && sect->size);
+
         } else {
-            prelinkInfoSect = (void *)
-            macho_get_section_by_name((struct mach_header *)kernelcacheStart,
+            ki->machoBits = 32;
+            ki->prelinkInfoSect = (void *)
+            macho_get_section_by_name((struct mach_header *)ki->kcImagePtr,
                                       kPrelinkInfoSegment,
                                       kPrelinkInfoSection);
-            prelinkTextSect = (void *)
-            macho_get_section_by_name((struct mach_header *)kernelcacheStart,
+            ki->prelinkTextSect = (void *)
+            macho_get_section_by_name((struct mach_header *)ki->kcImagePtr,
                                       kPrelinkTextSegment,
                                       kPrelinkTextSection);
+            ki->builtinInfoSect = (void *)
+            macho_get_section_by_name((struct mach_header *)ki->kcImagePtr,
+                                         kPrelinkInfoSegment,
+                                         kBuiltinInfoSection);
+            ki->builtinStartSect = (void *)
+            macho_get_section_by_name((struct mach_header *)ki->kcImagePtr,
+                                         kPrelinkInfoSegment,
+                                         kBuiltinStartSection);
+            ki->textSegment = (void *)
+            macho_get_segment_by_name((struct mach_header *)ki->kcImagePtr,
+                                      "__TEXT");
+            ki->hasThreadedRebase = false;
         }
         
-        if (!prelinkInfoSect) {
+        if (!ki->prelinkInfoSect) {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                       "Can't find prelink info section.");
             goto finish;
         }
         
-        if (!prelinkTextSect) {
+        if (!ki->prelinkTextSect) {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                       "Can't find prelink text section.");
             goto finish;
         }
         
-        if (ISMACHO64(MAGIC32(kernelcacheStart))) {
-            prelinkInfoBytes = ((char *)kernelcacheStart) +
-            ((struct section_64 *)prelinkInfoSect)->offset;
-            prelinkTextBytes = ((char *)kernelcacheStart) +
-            ((struct section_64 *)prelinkTextSect)->offset;
-            prelinkTextSourceAddress = ((struct section_64 *)prelinkTextSect)->addr;
-            prelinkTextSourceSize = ((struct section_64 *)prelinkTextSect)->size;
+        if (!ki->textSegment) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "Can't find text segment.");
+            goto finish;
+        }
+
+        if (ISMACHO64(MAGIC32(ki->kcImagePtr))) {
+            ki->prelinkInfoBytes = ((char *)ki->kcImagePtr) +
+            ((struct section_64 *)ki->prelinkInfoSect)->offset;
+            ki->prelinkTextBytes = ((char *)ki->kcImagePtr) +
+            ((struct section_64 *)ki->prelinkTextSect)->offset;
+            ki->prelinkTextSourceAddress = ((struct section_64 *)ki->prelinkTextSect)->addr;
+            ki->prelinkTextSourceSize = ((struct section_64 *)ki->prelinkTextSect)->size;
+            if (ki->builtinInfoSect) {
+                ki->builtinInfoBytes = ((char *)ki->kcImagePtr) +
+                                        ((struct section_64 *)ki->builtinInfoSect)->offset;
+                ki->builtinInfoSize = ((struct section_64 *)ki->builtinInfoSect)->size;
+            }
+            if (ki->builtinStartSect) {
+                ki->builtinStartBytes = ((char *)ki->kcImagePtr) +
+                                        ((struct section_64 *)ki->builtinStartSect)->offset;
+                ki->builtinStartSize = ((struct section_64 *)ki->builtinStartSect)->size;
+            }
+            // These conditions are what the linker uses to determine that this was the first
+            // segment in the file, ie, where the mach_header is offset from.
+            if (((struct segment_command_64 *)ki->textSegment)->fileoff != 0) {
+                OSKextLog(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          "Text segment should be first");
+                goto finish;
+            }
+            if (((struct segment_command_64 *)ki->textSegment)->filesize == 0) {
+                OSKextLog(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          "Text segment should have a file size");
+                goto finish;
+            }
+            ki->baseAddress = ((struct segment_command_64 *)ki->textSegment)->vmaddr;
         } else {
-            prelinkInfoBytes = ((char *)kernelcacheStart) +
-            ((struct section *)prelinkInfoSect)->offset;
-            prelinkTextBytes = ((char *)kernelcacheStart) +
-            ((struct section *)prelinkTextSect)->offset;
-            prelinkTextSourceAddress = ((struct section *)prelinkTextSect)->addr;
-            prelinkTextSourceSize = ((struct section *)prelinkTextSect)->size;
+            ki->prelinkInfoBytes = ((char *)ki->kcImagePtr) +
+            ((struct section *)ki->prelinkInfoSect)->offset;
+            ki->prelinkTextBytes = ((char *)ki->kcImagePtr) +
+            ((struct section *)ki->prelinkTextSect)->offset;
+            ki->prelinkTextSourceAddress = ((struct section *)ki->prelinkTextSect)->addr;
+            ki->prelinkTextSourceSize = ((struct section *)ki->prelinkTextSect)->size;
+            if (ki->builtinInfoSect) {
+                ki->builtinInfoBytes = ((char *)ki->kcImagePtr) +
+                                        ((struct section *)ki->builtinInfoSect)->offset;
+                ki->builtinInfoSize = ((struct section *)ki->builtinInfoSect)->size;
+            }
+            if (ki->builtinStartSect) {
+                ki->builtinStartBytes = ((char *)ki->kcImagePtr) +
+                                        ((struct section *)ki->builtinStartSect)->offset;
+                ki->builtinStartSize = ((struct section *)ki->builtinStartSect)->size;
+            }
+            // These conditions are what the linker uses to determine that this was the first
+            // segment in the file, ie, where the mach_header is offset from.
+            if (((struct segment_command *)ki->textSegment)->fileoff != 0) {
+                OSKextLog(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          "Text segment should be first");
+                goto finish;
+            }
+            if (((struct segment_command *)ki->textSegment)->filesize == 0) {
+                OSKextLog(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          "Text segment should have a file size");
+                goto finish;
+            }
+            ki->baseAddress = ((struct segment_command *)ki->textSegment)->vmaddr;
         }
         
         prelinkInfoPlist = (CFPropertyListRef)
-        IOCFUnserialize(prelinkInfoBytes,
+        IOCFUnserialize(ki->prelinkInfoBytes,
                         kCFAllocatorDefault, /* options */ 0,
                         /* errorString */ NULL);
         if (!prelinkInfoPlist) {
@@ -246,27 +364,14 @@ int main(int argc, char * const argv[])
         }
 
         struct kcmap *kcmap = NULL;
-        if (toolArgs.extractedKextPath != NULL)
-            createKCMap(kernelcacheStart, toolArgs.verbose, &kcmap);
+        createKCMap(ki->kcImagePtr, toolArgs.verbose, &kcmap);
 
         if (toolArgs.printMap) {
-            printKernelCacheLayoutMap(&toolArgs, prelinkTextBytes,
-                                      prelinkTextSourceAddress,
-                                      prelinkTextSourceSize, kcmap,
-                                      prelinkInfoPlist,
-                                      kernelcacheStart,
-                                      CFDataGetLength(kernelcacheImage));
+            printKernelCacheLayoutMap(&toolArgs, ki, kcmap, prelinkInfoPlist);
         } else if (toolArgs.printJSON) {
-            printJSON(&toolArgs, prelinkTextBytes,
-                      prelinkTextSourceAddress,
-                      prelinkTextSourceSize, kcmap,
-                      prelinkInfoPlist,
-                      kernelcacheStart,
-                      CFDataGetLength(kernelcacheImage));
+            printJSON(&toolArgs, ki, kcmap, prelinkInfoPlist);
         } else {
-            listPrelinkedKexts(&toolArgs, prelinkInfoPlist, prelinkTextBytes,
-                           prelinkTextSourceAddress, prelinkTextSourceSize,
-                           kcmap, nextArchInfo);
+            listPrelinkedKexts(&toolArgs, ki, kcmap, prelinkInfoPlist, nextArchInfo);
         }
 
         if (kcmap)
@@ -304,6 +409,36 @@ finish:
     }
     return result;
 }
+
+/*******************************************************************************
+ *******************************************************************************/
+uint64_t getRebasedPointerValue(uint64_t rawValue, struct ImageInfo * ki)
+{
+    if (!ki->hasThreadedRebase)
+        return rawValue;
+    bool isRebase = (rawValue & (1ULL << 62)) == 0;
+    if (!isRebase) {
+        fprintf(stderr, "value should be a rebase 0x016%llx\n", rawValue);
+        exit(1);
+    }
+    bool isAuthenticated = (rawValue & (1ULL << 63)) != 0;
+    if (isAuthenticated) {
+        // The new value for a rebase is the low 32-bits of the threaded value plus the slide.
+        // Note there is no slide here as we are offline.
+        uint64_t newValue = (rawValue & 0xFFFFFFFF);
+        // Add in the offset from the mach_header
+        newValue += ki->baseAddress;
+        return (newValue);
+    } else {
+        // Regular pointer which needs to fit in 51-bits of value.
+        // C++ RTTI uses the top bit, so we'll allow the whole top-byte
+        // and the bottom 43-bits to be fit in to 51-bits.
+        uint64_t top8Bits = rawValue & 0x0007F80000000000ULL;
+        uint64_t bottom43Bits = rawValue & 0x000007FFFFFFFFFFULL;
+        uint64_t targetValue = ( top8Bits << 13 ) | (((intptr_t)(bottom43Bits << 21) >> 21) & 0x00FFFFFFFFFFFFFF);
+        return targetValue;
+    }
+};
 
 /*******************************************************************************
 *******************************************************************************/
@@ -468,11 +603,9 @@ finish:
 /*******************************************************************************
 *******************************************************************************/
 void listPrelinkedKexts(KclistArgs * toolArgs,
-                        CFPropertyListRef kcInfoPlist,
-                        const char *prelinkTextBytes,
-                        uint64_t prelinkTextSourceAddress,
-                        uint64_t prelinkTextSourceSize,
+                        struct ImageInfo * ki,
                         struct kcmap *kcmap,
+                        CFPropertyListRef kcInfoPlist,
                         const NXArchInfo * archInfo)
 {
     CFIndex i, count, printed = 0;
@@ -499,27 +632,10 @@ void listPrelinkedKexts(KclistArgs * toolArgs,
     for (i = 0; i < count; i++) {
         CFDictionaryRef kextPlist = (CFDictionaryRef)CFArrayGetValueAtIndex(kextPlistArray, i);
         CFStringRef kextIdentifier = (CFStringRef)CFDictionaryGetValue(kextPlist, kCFBundleIdentifierKey);
-        CFNumberRef kextSourceAddress = (CFNumberRef)CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSourceKey));
-        CFNumberRef kextSourceSize = (CFNumberRef)CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSizeKey));
-        const char *kextTextBytes = NULL;
-        
         if (haveIDs && !CFSetContainsValue(toolArgs->kextIDs, kextIdentifier)) {
             continue;
         }
-
-        if (kextSourceAddress && CFNumberGetTypeID() == CFGetTypeID(kextSourceAddress) &&
-            kextSourceSize && CFNumberGetTypeID() == CFGetTypeID(kextSourceSize)) {
-            uint64_t sourceAddress;
-            uint64_t sourceSize;
-  
-            CFNumberGetValue(kextSourceAddress, kCFNumberSInt64Type, &sourceAddress);
-            CFNumberGetValue(kextSourceSize, kCFNumberSInt64Type, &sourceSize);
-            if ((sourceAddress >= prelinkTextSourceAddress) &&
-                ((sourceAddress+sourceSize) <= (prelinkTextSourceAddress + prelinkTextSourceSize))) {
-                kextTextBytes = prelinkTextBytes + (ptrdiff_t)(sourceAddress - prelinkTextSourceAddress);
-            }
-        }
-        printKextInfo(toolArgs, kextPlist, kextTextBytes, kcmap);
+        printKextInfo(toolArgs, ki, kcmap, kextPlist);
         printed++;
     }
 
@@ -540,8 +656,10 @@ finish:
  * Extract a 64-bit (possibly split) kext from the kernel cache
  *
  */
-static void extractKext(struct kcmap *kcmap,
-                        const char *kextName, const char *kextTextBytes,
+static void extractKext(struct ImageInfo * ki,
+                        struct kcmap *kcmap,
+                        const char *kextName,
+                        uint64_t kextSourceAddress, uint64_t kextLoadAddress,
                         void *mh, Boolean is64Bit,
                         KclistArgs *toolArgs, Boolean isSplitKext)
 {
@@ -596,88 +714,100 @@ static void extractKext(struct kcmap *kcmap,
         struct segment_command    *seg_cmd32 = (struct segment_command *)lcp;
 
         /* 64-bit segments */
-        if (lcp->cmd == LC_SEGMENT_64 && seg_cmd64->filesize > 0) {
-            ssize_t wsize;
-            off_t kcfileoff = (off_t)(seg_cmd64->fileoff);
+        if (lcp->cmd == LC_SEGMENT_64) {
+            if (!seg_cmd64->filesize) {
+                seg_cmd64->fileoff = 0;
+            } else {
+                ssize_t wsize;
+                off_t kcfileoff;
 
-            /* calculate the KC file offset */
-            kcfileoff = getKCFileOffset(kcmap, (uint8_t *)kextTextBytes,
-                                        (uint64_t)seg_cmd64->vmaddr, (uint64_t)seg_cmd64->fileoff);
-            if (beVerbose) {
-                printf("\tcmd[%d]:%16s @%p + %lld (%lld) [%lld bytes] -> %lld\n",
-                       cmd_i, seg_cmd64->segname[0] ? seg_cmd64->segname : "none",
-                       kextTextBytes, (uint64_t)kcfileoff, (uint64_t)seg_cmd64->fileoff,
-                       (uint64_t)seg_cmd64->filesize, (uint64_t)fileoff);
-            }
+                /* calculate the KC file offset */
+                kcfileoff = getKCFileOffset(kcmap, getRebasedPointerValue(seg_cmd64->vmaddr, ki) - kextLoadAddress + kextSourceAddress);
+                if (beVerbose) {
+                    printf("\tcmd[%d]:%16s @0x%qx + %lld (%lld) [%lld bytes] -> %lld\n",
+                           cmd_i, seg_cmd64->segname[0] ? seg_cmd64->segname : "none",
+                           getRebasedPointerValue(seg_cmd64->vmaddr, ki), (uint64_t)kcfileoff, (uint64_t)seg_cmd64->fileoff,
+                           (uint64_t)seg_cmd64->filesize, (uint64_t)fileoff);
+                }
+                if (!kcfileoff) {
+                    my_err = EX_DATAERR;
+                    break;
+                }
 
-            /* write out the segment to disk */
-            wsize = pwrite(fd, kextTextBytes + kcfileoff, (size_t)(seg_cmd64->filesize), fileoff);
-            if (wsize < (ssize_t)(seg_cmd64->filesize)) {
-                OSKextLog(/* kext */ NULL,
-                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                          "[ERROR] unable to write cmd[%d]:%16s (fileoff:%lld = %p) to ofst:%lld in %s: %d (errno=%d)",
-                          cmd_i, seg_cmd64->segname[0] ? seg_cmd64->segname : "none",
-                          (uint64_t)kcfileoff, kextTextBytes + kcfileoff, fileoff, tmpPath, (int)wsize, errno);
-                my_err = EX_OSERR;
-                break;
-            }
+                /* write out the segment to disk */
+                wsize = pwrite(fd, ki->kcImagePtr + kcfileoff, (size_t)(seg_cmd64->filesize), fileoff);
+                if (wsize < (ssize_t)(seg_cmd64->filesize)) {
+                    OSKextLog(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                              "[ERROR] unable to write cmd[%d]:%16s (fileoff:%lld = %p) to ofst:%lld in %s: %d (errno=%d)",
+                              cmd_i, seg_cmd64->segname[0] ? seg_cmd64->segname : "none",
+                              (uint64_t)kcfileoff, ki->kcImagePtr + kcfileoff, fileoff, tmpPath, (int)wsize, errno);
+                    my_err = EX_OSERR;
+                    break;
+                }
 
-            /* reset the segment+section file offsets to the new output file */
-            struct section_64 *sect = (struct section_64 *)(&seg_cmd64[1]);
-            for (u_int j = 0; j < seg_cmd64->nsects; ++j, ++sect) {
-                if (sect->offset > 0)
-                    sect->offset = (uint32_t)(fileoff + (sect->offset - seg_cmd64->fileoff));
+                /* reset the segment+section file offsets to the new output file */
+                struct section_64 *sect = (struct section_64 *)(&seg_cmd64[1]);
+                for (u_int j = 0; j < seg_cmd64->nsects; ++j, ++sect) {
+                    if (sect->offset > 0)
+                        sect->offset = (uint32_t)(fileoff + (sect->offset - seg_cmd64->fileoff));
+                }
+                if (strcmp(seg_cmd64->segname, "__LINKEDIT") == 0) {
+                    linkedit_ofst_kc  = seg_cmd64->fileoff;
+                    linkedit_ofst_new = fileoff;
+                }
+                seg_cmd64->fileoff = fileoff;
+                fileoff += seg_cmd64->filesize;
             }
-            if (strcmp(seg_cmd64->segname, "__LINKEDIT") == 0) {
-                linkedit_ofst_kc  = seg_cmd64->fileoff;
-                linkedit_ofst_new = fileoff;
-            }
-            seg_cmd64->fileoff = fileoff;
-            fileoff += seg_cmd64->filesize;
-
         /* 32-bit segments */
-        } else if (lcp->cmd == LC_SEGMENT && seg_cmd32->filesize > 0) {
-            ssize_t wsize;
-            off_t kcfileoff = (off_t)(seg_cmd32->fileoff);
+        } else if (lcp->cmd == LC_SEGMENT) {
+            if (!seg_cmd32->filesize) {
+                seg_cmd32->fileoff = 0;
+            } else {
+                ssize_t wsize;
+                off_t kcfileoff;
 
-            /* calculate the KC file offset */
-            kcfileoff = getKCFileOffset(kcmap, (uint8_t *)kextTextBytes,
-                                        (uint64_t)seg_cmd32->vmaddr, (uint64_t)seg_cmd32->fileoff);
-            if (beVerbose) {
-                printf("\tcmd[%d]:%16s @%p + %lld (%lld) [%lld bytes] -> %lld\n",
-                       cmd_i, seg_cmd32->segname[0] ? seg_cmd32->segname : "none",
-                       kextTextBytes, (uint64_t)kcfileoff, (uint64_t)seg_cmd32->fileoff,
-                       (uint64_t)seg_cmd32->filesize, (uint64_t)fileoff);
-            }
+                /* calculate the KC file offset */
+                kcfileoff = getKCFileOffset(kcmap, ((uint64_t)seg_cmd32->vmaddr) - kextLoadAddress + kextSourceAddress);
+                if (beVerbose) {
+                    printf("\tcmd[%d]:%16s @0x%x + %lld (%lld) [%lld bytes] -> %lld\n",
+                           cmd_i, seg_cmd32->segname[0] ? seg_cmd32->segname : "none",
+                           seg_cmd32->vmaddr, (uint64_t)kcfileoff, (uint64_t)seg_cmd32->fileoff,
+                           (uint64_t)seg_cmd32->filesize, (uint64_t)fileoff);
+                }
+                if (!kcfileoff) {
+                    my_err = EX_DATAERR;
+                    break;
+                }
 
-            /* write out the segment to disk */
-            wsize = pwrite(fd, kextTextBytes + kcfileoff, (size_t)(seg_cmd32->filesize), fileoff);
-            if (wsize < (ssize_t)(seg_cmd32->filesize)) {
-                OSKextLog(/* kext */ NULL,
-                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                          "[ERROR] unable to write cmd[%d]:%16s (fileoff:%lld = %p) to ofst:%lld in %s: %d (errno=%d)",
-                          cmd_i, seg_cmd32->segname[0] ? seg_cmd32->segname : "none",
-                          (uint64_t)kcfileoff, kextTextBytes + kcfileoff, fileoff, tmpPath, (int)wsize, errno);
-                my_err = EX_OSERR;
-                break;
-            }
+                /* write out the segment to disk */
+                wsize = pwrite(fd, ki->kcImagePtr + kcfileoff, (size_t)(seg_cmd32->filesize), fileoff);
+                if (wsize < (ssize_t)(seg_cmd32->filesize)) {
+                    OSKextLog(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                              "[ERROR] unable to write cmd[%d]:%16s (fileoff:%lld = %p) to ofst:%lld in %s: %d (errno=%d)",
+                              cmd_i, seg_cmd32->segname[0] ? seg_cmd32->segname : "none",
+                              (uint64_t)kcfileoff, ki->kcImagePtr + kcfileoff, fileoff, tmpPath, (int)wsize, errno);
+                    my_err = EX_OSERR;
+                    break;
+                }
 
-            /* reset the segment+section file offsets to the new output file */
-            struct section_64 *sect = (struct section_64 *)(&seg_cmd32[1]);
-            for (u_int j = 0; j < seg_cmd32->nsects; ++j, ++sect) {
-                if (sect->offset > 0)
-                    sect->offset = (uint32_t)(fileoff + (sect->offset - seg_cmd32->fileoff));
+                /* reset the segment+section file offsets to the new output file */
+                struct section_64 *sect = (struct section_64 *)(&seg_cmd32[1]);
+                for (u_int j = 0; j < seg_cmd32->nsects; ++j, ++sect) {
+                    if (sect->offset > 0)
+                        sect->offset = (uint32_t)(fileoff + (sect->offset - seg_cmd32->fileoff));
+                }
+                if (strcmp(seg_cmd32->segname, "__LINKEDIT") == 0) {
+                    linkedit_ofst_kc  = seg_cmd32->fileoff;
+                    linkedit_ofst_new = fileoff;
+                }
+                seg_cmd32->fileoff = (uint32_t)fileoff;
+                fileoff += seg_cmd32->filesize;
             }
-            if (strcmp(seg_cmd32->segname, "__LINKEDIT") == 0) {
-                linkedit_ofst_kc  = seg_cmd32->fileoff;
-                linkedit_ofst_new = fileoff;
-            }
-            seg_cmd32->fileoff = (uint32_t)fileoff;
-            fileoff += seg_cmd32->filesize;
         }
         lcp = (struct load_command *)((uintptr_t)lcp + lcp->cmdsize);
     } /* for each load command */
-
 
     /* helper macro to adjust LINKEDIT commands */
     #define __adj_linkedit(__cmd,__nm) \
@@ -830,13 +960,9 @@ finish:
 #define KCLAYOUTFORMATSTR64 "%-12s 0x%-16llx 0x%-16llx %-38s %s\n"
 
 static void printKernelCacheLayoutMap(KclistArgs *toolArgs,
-                                      const char *prelinkTextBytes,
-                                      uint64_t prelinkTextSourceAddress,
-                                      uint64_t prelinkTextSourceSize,
+                                      struct ImageInfo *ki,
                                       struct kcmap *kcmap,
-                                      CFPropertyListRef kcInfoPlist,
-                                      const UInt8 *kcImagePtr,
-                                      CFIndex kcImageSize)
+                                      CFPropertyListRef kcInfoPlist)
 {
     CFIndex i, count = 0;
     CFArrayRef kextPlistArray = NULL;
@@ -875,36 +1001,18 @@ static void printKernelCacheLayoutMap(KclistArgs *toolArgs,
     count = CFArrayGetCount(kextPlistArray);
     for (i = 0; i < count; i++) {
         CFDictionaryRef kextPlist = (CFDictionaryRef)CFArrayGetValueAtIndex(kextPlistArray, i);
-        CFStringRef kextIdentifier = (CFStringRef)CFDictionaryGetValue(kextPlist, kCFBundleIdentifierKey);
-        CFNumberRef kextSourceAddress = (CFNumberRef)CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSourceKey));
-        CFNumberRef kextSourceSize = (CFNumberRef)CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSizeKey));
-        const char *kextTextBytes = NULL;
-
-        if (kextSourceAddress && CFNumberGetTypeID() == CFGetTypeID(kextSourceAddress) &&
-            kextSourceSize && CFNumberGetTypeID() == CFGetTypeID(kextSourceSize)) {
-            uint64_t sourceAddress;
-            uint64_t sourceSize;
-
-            CFNumberGetValue(kextSourceAddress, kCFNumberSInt64Type, &sourceAddress);
-            CFNumberGetValue(kextSourceSize, kCFNumberSInt64Type, &sourceSize);
-            if ((sourceAddress >= prelinkTextSourceAddress) &&
-                ((sourceAddress+sourceSize) <= (prelinkTextSourceAddress + prelinkTextSourceSize))) {
-                kextTextBytes = prelinkTextBytes + (ptrdiff_t)(sourceAddress - prelinkTextSourceAddress);
-            }
-        }
-
-        printKextInfo(toolArgs, kextPlist, kextTextBytes, kcmap);
+        printKextInfo(toolArgs, ki, kcmap, kextPlist);
     }
 
     /* Print out the map of kernel segments */
 
     /* First look for the kernel UUID */
-    if (ISMACHO64(MAGIC32(kcImagePtr))) {
-        mhp64 = (struct mach_header_64 *)kcImagePtr;
+    if (ISMACHO64(MAGIC32(ki->kcImagePtr))) {
+        mhp64 = (struct mach_header_64 *)ki->kcImagePtr;
         ncmds = mhp64->ncmds;
         lcp = (struct load_command *)(void *)(mhp64 + 1);
     } else {
-        mhp = (struct mach_header *)kcImagePtr;
+        mhp = (struct mach_header *)ki->kcImagePtr;
         ncmds = mhp->ncmds;
         lcp = (struct load_command *)(void *)(mhp + 1);
     }
@@ -922,19 +1030,19 @@ static void printKernelCacheLayoutMap(KclistArgs *toolArgs,
      * Next walk the load commands and print out all except __PLK* and __PRELINK* sections
      * since these are covered by the KEXT map above
      */
-    if (ISMACHO64(MAGIC32(kcImagePtr))) {
+    if (ISMACHO64(MAGIC32(ki->kcImagePtr))) {
         struct mach_header_64 *     kext_header;
         struct segment_command_64 * seg_cmd;
         uintptr_t last_cmd;
 
-        kext_header = (struct mach_header_64 *)kcImagePtr;
+        kext_header = (struct mach_header_64 *)ki->kcImagePtr;
         seg_cmd = (struct segment_command_64 *) ((uintptr_t)kext_header + sizeof(*kext_header));
 
         last_cmd = (uintptr_t)seg_cmd + (kext_header->ncmds * sizeof(*seg_cmd));
-        if (last_cmd > (uintptr_t)kcImagePtr + kcImageSize) {
+        if (last_cmd > (uintptr_t)ki->kcImagePtr + ki->kcImageSize) {
             fprintf(stderr, "[macho] ERROR: header points off the end of the image!\n");
             fprintf(stderr, "[macho] header@%p, sz:%d, ncmds:%d, last_cmd@%p\n",
-                    kext_header, (int)kcImageSize, kext_header->ncmds, (void *)last_cmd);
+                    kext_header, (int)ki->kcImageSize, kext_header->ncmds, (void *)last_cmd);
             return;
         }
 
@@ -954,14 +1062,14 @@ static void printKernelCacheLayoutMap(KclistArgs *toolArgs,
         struct segment_command *seg_cmd;
         uintptr_t last_cmd;
 
-        kext_header = (struct mach_header *)kcImagePtr;
+        kext_header = (struct mach_header *)ki->kcImagePtr;
         seg_cmd = (struct segment_command *)((uintptr_t)kext_header + sizeof(*kext_header));
 
         last_cmd = (uintptr_t)seg_cmd + (kext_header->ncmds * sizeof(*seg_cmd));
-        if (last_cmd > (uintptr_t)kcImagePtr + kcImageSize) {
+        if (last_cmd > (uintptr_t)ki->kcImagePtr + ki->kcImageSize) {
             fprintf(stderr, "[macho] ERROR: header points off the end of the image!\n");
             fprintf(stderr, "[macho] header@%p, sz:%d, ncmds:%d, last_cmd@%p\n",
-                    kext_header, (int)kcImageSize, kext_header->ncmds, (void *)last_cmd);
+                    kext_header, (int)ki->kcImageSize, kext_header->ncmds, (void *)last_cmd);
             return;
         }
 
@@ -1069,13 +1177,9 @@ static void printJSONSegments(KclistArgs *toolArgs, void *mhpv, bool mh_is_64)
 }
 
 static void printJSON(KclistArgs *toolArgs,
-                      const char *prelinkTextBytes,
-                      uint64_t prelinkTextSourceAddress,
-                      uint64_t prelinkTextSourceSize,
+                      struct ImageInfo *ki,
                       struct kcmap *kcmap,
-                      CFPropertyListRef kcInfoPlist,
-                      const UInt8 *kcImagePtr,
-                      CFIndex kcImageSize)
+                      CFPropertyListRef kcInfoPlist)
 {
     CFIndex i, count = 0;
     CFArrayRef kextPlistArray = NULL;
@@ -1084,7 +1188,6 @@ static void printJSON(KclistArgs *toolArgs,
     struct load_command *lcp;
     uint32_t ncmds, cmd_i;
     uuid_string_t uuid_string = {};
-    (void)kcImageSize;
 
     if (CFDictionaryGetTypeID() == CFGetTypeID(kcInfoPlist)){
         kextPlistArray = (CFArrayRef)CFDictionaryGetValue(kcInfoPlist,
@@ -1102,37 +1205,19 @@ static void printJSON(KclistArgs *toolArgs,
     count = CFArrayGetCount(kextPlistArray);
     for (i = 0; i < count; i++) {
         CFDictionaryRef kextPlist = (CFDictionaryRef)CFArrayGetValueAtIndex(kextPlistArray, i);
-        CFStringRef kextIdentifier = (CFStringRef)CFDictionaryGetValue(kextPlist, kCFBundleIdentifierKey);
-        CFNumberRef kextSourceAddress = (CFNumberRef)CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSourceKey));
-        CFNumberRef kextSourceSize = (CFNumberRef)CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSizeKey));
-        const char *kextTextBytes = NULL;
-
-        if (kextSourceAddress && CFNumberGetTypeID() == CFGetTypeID(kextSourceAddress) &&
-            kextSourceSize && CFNumberGetTypeID() == CFGetTypeID(kextSourceSize)) {
-            uint64_t sourceAddress;
-            uint64_t sourceSize;
-
-            CFNumberGetValue(kextSourceAddress, kCFNumberSInt64Type, &sourceAddress);
-            CFNumberGetValue(kextSourceSize, kCFNumberSInt64Type, &sourceSize);
-            if ((sourceAddress >= prelinkTextSourceAddress) &&
-                ((sourceAddress+sourceSize) <= (prelinkTextSourceAddress + prelinkTextSourceSize))) {
-                kextTextBytes = prelinkTextBytes + (ptrdiff_t)(sourceAddress - prelinkTextSourceAddress);
-            }
-        }
-
         if (i != 0) {
             printf(", ");
         }
-        printKextInfo(toolArgs, kextPlist, kextTextBytes, kcmap);
+        printKextInfo(toolArgs, ki, kcmap, kextPlist);
     }
 
     /* First look for the kernel UUID */
-    if (ISMACHO64(MAGIC32(kcImagePtr))) {
-        mhp64 = (struct mach_header_64 *)kcImagePtr;
+    if (ISMACHO64(MAGIC32(ki->kcImagePtr))) {
+        mhp64 = (struct mach_header_64 *)ki->kcImagePtr;
         ncmds = mhp64->ncmds;
         lcp = (struct load_command *)(void *)(mhp64 + 1);
     } else {
-        mhp = (struct mach_header *)kcImagePtr;
+        mhp = (struct mach_header *)ki->kcImagePtr;
         ncmds = mhp->ncmds;
         lcp = (struct load_command *)(void *)(mhp + 1);
     }
@@ -1150,17 +1235,77 @@ static void printJSON(KclistArgs *toolArgs,
     }
 
     printf("\"segments\": [");
-    printJSONSegments(toolArgs, (void *)kcImagePtr, ISMACHO64(MAGIC32(kcImagePtr)));
+    printJSONSegments(toolArgs, (void *)ki->kcImagePtr, ISMACHO64(MAGIC32(ki->kcImagePtr)));
     printf("]}");
     printf("]");
 }
 
 /*******************************************************************************
 *******************************************************************************/
+static const char *
+LocateBuiltinModule(KclistArgs *toolArgs,
+                    struct ImageInfo *ki,
+                    struct kcmap *kcmap,
+                    uint64_t kextModuleIndex)
+{
+    Boolean          beVerbose = toolArgs->verbose;
+    uint64_t         infoCount, startCount;
+    uint64_t         infoAddress, kextAddress, kextLength;
+    off_t            offs;
+    kmod_info_t    * info;
+
+    if (64 == ki->machoBits) {
+        const uint64_t * infoArray  = (typeof(infoArray))  ki->builtinInfoBytes;
+        const uint64_t * startArray = (typeof(startArray)) ki->builtinStartBytes;
+        infoCount  = ki->builtinInfoSize  / sizeof(infoArray[0]);
+        startCount = ki->builtinStartSize / sizeof(startArray[0]);
+        if (!infoArray || !startArray) {
+            return (NULL);
+        }
+        if ((kextModuleIndex >= infoCount) || ((kextModuleIndex + 1) >= startCount)) {
+            return (NULL);
+        }
+        infoAddress = getRebasedPointerValue(infoArray[kextModuleIndex], ki);
+        kextAddress = getRebasedPointerValue(startArray[kextModuleIndex], ki);
+        kextLength = getRebasedPointerValue(startArray[kextModuleIndex + 1], ki) - kextAddress;
+    } else {
+        const uint32_t * infoArray  = (typeof(infoArray))  ki->builtinInfoBytes;
+        const uint32_t * startArray = (typeof(startArray)) ki->builtinStartBytes;
+        infoCount  = ki->builtinInfoSize  / sizeof(infoArray[0]);
+        startCount = ki->builtinStartSize / sizeof(startArray[0]);
+        if (!infoArray || !startArray) {
+            return (NULL);
+        }
+        if ((kextModuleIndex >= infoCount) || ((kextModuleIndex + 1) >= startCount)) {
+            return (NULL);
+        }
+        infoAddress = infoArray[kextModuleIndex];
+        kextAddress = startArray[kextModuleIndex];
+        kextLength  = startArray[kextModuleIndex + 1] - kextAddress;
+    }
+
+    if (beVerbose) {
+        printf("[%qd] infocount %lld, %lld, 0x%qx\n", kextModuleIndex, infoCount, infoCount, infoAddress);
+    }
+    offs = getKCFileOffset(kcmap, infoAddress);
+    info = (typeof(info)) (ki->kcImagePtr + offs);
+
+    offs = getKCFileOffset(kcmap, kextAddress);
+    if (beVerbose) {
+        printf("%-80s 0x%08qx  0x%08qx  %qd\n", info->name, kextAddress, kextLength, offs);
+    }
+    if (!offs) {
+        return (NULL);
+    }
+    return (((const char *)ki->kcImagePtr) + offs);
+}
+
+/*******************************************************************************
+*******************************************************************************/
 void printKextInfo(KclistArgs *toolArgs,
-                   CFDictionaryRef kextPlist,
-                   const char *kextTextBytes,
-                   struct kcmap *kcmap)
+                   struct ImageInfo *ki,
+                   struct kcmap *kcmap,
+                   CFDictionaryRef kextPlist)
 {
     CFStringRef kextIdentifier = (CFStringRef)CFDictionaryGetValue(kextPlist, kCFBundleIdentifierKey);
     CFStringRef kextVersion = (CFStringRef)CFDictionaryGetValue(kextPlist, kCFBundleVersionKey);
@@ -1174,6 +1319,9 @@ void printKextInfo(KclistArgs *toolArgs,
     uint64_t  kextSourceAddress = 0x0;
     uint64_t  kextExecutableSize = 0;
     uint64_t  kextKmodInfoAddress = 0x0;
+    uint64_t  kextModuleIndex = -1ULL;
+
+    const char *kextTextBytes = NULL;
 
     struct mach_header_64 *mhp64 = NULL;
     struct mach_header *mhp = NULL;
@@ -1187,6 +1335,8 @@ void printKextInfo(KclistArgs *toolArgs,
     Boolean layoutMap  = toolArgs->printMap;
     Boolean json = toolArgs->printJSON;
     Boolean shouldExtractKext = toolArgs->extractedKextPath != NULL;
+
+    if (!kextPath) kextPath = CFSTR("(unavailble)");
 
     if (!kextIdentifier || !kextVersion || !kextPath) {
         OSKextLog(/* kext */ NULL,
@@ -1206,6 +1356,18 @@ void printKextInfo(KclistArgs *toolArgs,
         CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextExecutableSize);
     if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkKmodInfoKey))))
         CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextKmodInfoAddress);
+    if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR("ModuleIndex"))))
+        CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextModuleIndex);
+
+    if (kextExecutableSize && kextSourceAddress) {
+        if ((kextSourceAddress >= ki->prelinkTextSourceAddress) &&
+            ((kextSourceAddress+kextExecutableSize) <= (ki->prelinkTextSourceAddress + ki->prelinkTextSourceSize))) {
+            kextTextBytes = ki->prelinkTextBytes + (ptrdiff_t)(kextSourceAddress - ki->prelinkTextSourceAddress);
+        }
+    }
+    else if (-1ULL != kextModuleIndex) {
+        kextTextBytes = LocateBuiltinModule(toolArgs, ki, kcmap, kextModuleIndex);
+    }
 
     if (kextTextBytes) {
         if (ISMACHO64(MAGIC32(kextTextBytes))) {
@@ -1328,7 +1490,7 @@ void printKextInfo(KclistArgs *toolArgs,
                            seg_cmd->segname,
                            seg_cmd->cmdsize,
                            seg_cmd->nsects,
-                           seg_cmd->vmaddr,
+                           getRebasedPointerValue(seg_cmd->vmaddr, ki),
                            seg_cmd->vmsize,
                            seg_cmd->vmsize,
                            seg_cmd->fileoff,
@@ -1347,7 +1509,7 @@ void printKextInfo(KclistArgs *toolArgs,
                                "reloff = 0x%0.4x (%u), "
                                "nreloc = 0x%0.4x (%u)\n",
                                sect->sectname,
-                               sect->addr,
+                               getRebasedPointerValue(sect->addr, ki),
                                sect->size,
                                sect->size,
                                sect->offset,
@@ -1437,8 +1599,8 @@ void printKextInfo(KclistArgs *toolArgs,
     }
 
     /* extract the kext from the kernel cache */
-    if (shouldExtractKext && kextTextBytes && kextExecutableSize != 0) {
-        extractKext(kcmap, idBuffer, kextTextBytes,
+    if (shouldExtractKext && kextTextBytes) {
+        extractKext(ki, kcmap, idBuffer, kextSourceAddress, kextLoadAddress,
                     (mhp64 ? (void *)mhp64 : (void *)mhp),
                     (mhp64 ? true : false), toolArgs, isSplitKext);
     }
@@ -1622,11 +1784,11 @@ static void createKCMap(const uint8_t *kernelcacheImage, Boolean verbose, struct
 }
 
 
-static off_t getKCFileOffset(struct kcmap *kcmap, uint8_t *kextStart, uint64_t va_ofst, uint64_t fileoff)
+static off_t getKCFileOffset(struct kcmap *kcmap, uint64_t va_ofst)
 {
     struct kcmap_entry *entry = NULL;
     if (!kcmap)
-        return fileoff;
+        return 0;
     /*
      * The entries will most likely _not_ be sorted,
      * so we have to do a simple linear search.
@@ -1643,18 +1805,13 @@ static off_t getKCFileOffset(struct kcmap *kcmap, uint8_t *kextStart, uint64_t v
                        getSegmentCommandName(entry->kc_lcp->cmd),
                        entry->va_start, entry->va_end, entry->kc_start, entry->kc_end,
                        (uint64_t)kext_ofst);
-                return fileoff;
+                return 0;
             }
-            /*
-             * We want to return an offset from the start of the kext (which will be used in the macho),
-             * so we need to subtract off the distance from the start of the kernel cache.
-             */
-            off_t seg_ofst = (uintptr_t)kextStart - (uintptr_t)(kcmap->cache_start);
-            return entry->kc_start + kext_ofst - seg_ofst;
+            return entry->kc_start + kext_ofst;
         }
     }
 
-    return fileoff;
+    return 0;
 }
 
 

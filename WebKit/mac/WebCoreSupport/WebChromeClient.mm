@@ -58,6 +58,7 @@
 #import <WebCore/ContextMenu.h>
 #import <WebCore/ContextMenuController.h>
 #import <WebCore/Cursor.h>
+#import <WebCore/DataListSuggestionPicker.h>
 #import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/Element.h>
 #import <WebCore/FileChooser.h>
@@ -79,6 +80,7 @@
 #import <WebCore/Page.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/ResourceRequest.h>
+#import <WebCore/SSLKeyGenerator.h>
 #import <WebCore/SerializedCryptoKeyWrap.h>
 #import <WebCore/Widget.h>
 #import <WebCore/WindowFeatures.h>
@@ -557,9 +559,9 @@ void WebChromeClient::setStatusbarText(const String& status)
 {
     // We want the temporaries allocated here to be released even before returning to the 
     // event loop; see <http://bugs.webkit.org/show_bug.cgi?id=9880>.
-    NSAutoreleasePool* localPool = [[NSAutoreleasePool alloc] init];
-    CallUIDelegate(m_webView, @selector(webView:setStatusText:), (NSString *)status);
-    [localPool drain];
+    @autoreleasepool {
+        CallUIDelegate(m_webView, @selector(webView:setStatusText:), (NSString *)status);
+    }
 }
 
 bool WebChromeClient::supportsImmediateInvalidation()
@@ -720,6 +722,14 @@ std::unique_ptr<ColorChooser> WebChromeClient::createColorChooser(ColorChooserCl
     return nullptr;
 }
 
+#endif
+
+#if ENABLE(DATALIST_ELEMENT)
+std::unique_ptr<DataListSuggestionPicker> WebChromeClient::createDataListSuggestionPicker(DataListSuggestionsClient& client)
+{
+    ASSERT_NOT_REACHED();
+    return nullptr;
+}
 #endif
 
 #if ENABLE(POINTER_LOCK)
@@ -1124,3 +1134,11 @@ void WebChromeClient::setMockMediaPlaybackTargetPickerState(const String& name, 
 }
 
 #endif
+
+String WebChromeClient::signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String& challengeString, const WebCore::URL& url) const
+{
+    SEL selector = @selector(signedPublicKeyAndChallengeStringForWebView:);
+    if ([[m_webView UIDelegate] respondsToSelector:selector])
+        return CallUIDelegate(m_webView, selector);
+    return WebCore::signedPublicKeyAndChallengeString(keySizeIndex, challengeString, url);
+}

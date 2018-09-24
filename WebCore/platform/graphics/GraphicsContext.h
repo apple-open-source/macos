@@ -109,6 +109,14 @@ enum StrokeStyle {
     WavyStroke,
 };
 
+enum class DocumentMarkerLineStyle : uint8_t {
+    TextCheckingDictationPhraseWithAlternatives,
+    Spelling,
+    Grammar,
+    AutocorrectionReplacement,
+    DictationAlternatives
+};
+
 namespace DisplayList {
 class Recorder;
 }
@@ -172,7 +180,7 @@ struct GraphicsContextState {
     Color shadowColor;
 
     StrokeStyle strokeStyle { SolidStroke };
-    WindRule fillRule { RULE_NONZERO };
+    WindRule fillRule { WindRule::NonZero };
 
     float alpha { 1 };
     CompositeOperator compositeOperator { CompositeSourceOver };
@@ -259,17 +267,20 @@ public:
     GraphicsContext() = default;
     WEBCORE_EXPORT ~GraphicsContext();
     
-    enum class NonPaintingReasons {
-        NoReasons,
-        UpdatingControlTints
+    enum class PaintInvalidationReasons : uint8_t {
+        None,
+        InvalidatingControlTints,
+        InvalidatingImagesWithAsyncDecodes
     };
-    GraphicsContext(NonPaintingReasons);
+    GraphicsContext(PaintInvalidationReasons);
 
-    bool hasPlatformContext() const { return m_data; }
+    WEBCORE_EXPORT bool hasPlatformContext() const;
     WEBCORE_EXPORT PlatformGraphicsContext* platformContext() const;
 
     bool paintingDisabled() const { return !m_data && !m_impl; }
-    bool updatingControlTints() const { return m_nonPaintingReasons == NonPaintingReasons::UpdatingControlTints; }
+    bool performingPaintInvalidation() const { return m_paintInvalidationReasons != PaintInvalidationReasons::None; }
+    bool invalidatingControlTints() const { return m_paintInvalidationReasons == PaintInvalidationReasons::InvalidatingControlTints; }
+    bool invalidatingImagesWithAsyncDecodes() const { return m_paintInvalidationReasons == PaintInvalidationReasons::InvalidatingImagesWithAsyncDecodes; }
 
     void setStrokeThickness(float);
     float strokeThickness() const { return m_state.strokeThickness; }
@@ -387,7 +398,7 @@ public:
 
     void clipOut(const FloatRect&);
     void clipOutRoundedRect(const FloatRoundedRect&);
-    void clipPath(const Path&, WindRule = RULE_EVENODD);
+    void clipPath(const Path&, WindRule = WindRule::EvenOdd);
     void clipToImageBuffer(ImageBuffer&, const FloatRect&);
     
     IntRect clipBounds() const;
@@ -396,7 +407,7 @@ public:
     TextDrawingModeFlags textDrawingMode() const { return m_state.textDrawingMode; }
 
     float drawText(const FontCascade&, const TextRun&, const FloatPoint&, unsigned from = 0, std::optional<unsigned> to = std::nullopt);
-    void drawGlyphs(const FontCascade&, const Font&, const GlyphBuffer&, unsigned from, unsigned numGlyphs, const FloatPoint&);
+    void drawGlyphs(const Font&, const GlyphBuffer&, unsigned from, unsigned numGlyphs, const FloatPoint&, FontSmoothingMode);
     void drawEmphasisMarks(const FontCascade&, const TextRun&, const AtomicString& mark, const FloatPoint&, unsigned from = 0, std::optional<unsigned> to = std::nullopt);
     void drawBidiText(const FontCascade&, const TextRun&, const FloatPoint&, FontCascade::CustomFontNotReadyAction = FontCascade::DoNotPaintIfFontNotReady);
 
@@ -411,15 +422,6 @@ public:
     FloatRect computeUnderlineBoundsForText(const FloatPoint&, float width, bool printing);
     WEBCORE_EXPORT void drawLineForText(const FloatPoint&, float width, bool printing, bool doubleLines = false, StrokeStyle = SolidStroke);
     void drawLinesForText(const FloatPoint&, const DashArray& widths, bool printing, bool doubleLines = false, StrokeStyle = SolidStroke);
-    enum DocumentMarkerLineStyle {
-#if PLATFORM(IOS)
-        TextCheckingDictationPhraseWithAlternativesLineStyle,
-#endif
-        DocumentMarkerSpellingLineStyle,
-        DocumentMarkerGrammarLineStyle,
-        DocumentMarkerAutocorrectionReplacementLineStyle,
-        DocumentMarkerDictationAlternativesLineStyle
-    };
     static void updateDocumentMarkerResources();
     void drawLineForDocumentMarker(const FloatPoint&, float width, DocumentMarkerLineStyle);
 
@@ -442,9 +444,8 @@ public:
     void drawFocusRing(const Vector<FloatRect>&, float width, float offset, const Color&);
     void drawFocusRing(const Path&, float width, float offset, const Color&);
 #if PLATFORM(MAC)
-    void drawFocusRing(const Path&, double timeOffset, bool& needsRedraw);
-    void drawFocusRing(const Vector<FloatRect>&, double timeOffset, bool& needsRedraw);
-    static CGColorRef focusRingColor();
+    void drawFocusRing(const Path&, double timeOffset, bool& needsRedraw, const Color&);
+    void drawFocusRing(const Vector<FloatRect>&, double timeOffset, bool& needsRedraw, const Color&);
 #endif
 
     void setLineCap(LineCap);
@@ -465,7 +466,7 @@ public:
     // This clip function is used only by <canvas> code. It allows
     // implementations to handle clipping on the canvas differently since
     // the discipline is different.
-    void canvasClip(const Path&, WindRule = RULE_EVENODD);
+    void canvasClip(const Path&, WindRule = WindRule::EvenOdd);
     void clipOut(const Path&);
 
     void scale(float s)
@@ -497,8 +498,8 @@ public:
     FloatSize scaleFactorForDrawing(const FloatRect& destRect, const FloatRect& srcRect) const;
 
 #if OS(WINDOWS)
-    HDC getWindowsContext(const IntRect&, bool supportAlphaBlend, bool mayCreateBitmap); // The passed in rect is used to create a bitmap for compositing inside transparency layers.
-    void releaseWindowsContext(HDC, const IntRect&, bool supportAlphaBlend, bool mayCreateBitmap); // The passed in HDC should be the one handed back by getWindowsContext.
+    HDC getWindowsContext(const IntRect&, bool supportAlphaBlend); // The passed in rect is used to create a bitmap for compositing inside transparency layers.
+    void releaseWindowsContext(HDC, const IntRect&, bool supportAlphaBlend); // The passed in HDC should be the one handed back by getWindowsContext.
     HDC hdc() const;
 #if PLATFORM(WIN)
 #if USE(WINGDI)
@@ -576,10 +577,6 @@ public:
 #endif // PLATFORM(WIN)
 #endif // OS(WINDOWS)
 
-#if USE(CAIRO)
-    GraphicsContext(cairo_t*);
-#endif
-
     static void adjustLineToPixelBoundaries(FloatPoint& p1, FloatPoint& p2, float strokeWidth, StrokeStyle);
 
     bool supportsInternalLinks() const;
@@ -644,7 +641,7 @@ private:
     GraphicsContextState m_state;
     Vector<GraphicsContextState, 1> m_stack;
 
-    const NonPaintingReasons m_nonPaintingReasons { NonPaintingReasons::NoReasons };
+    const PaintInvalidationReasons m_paintInvalidationReasons { PaintInvalidationReasons::None };
     unsigned m_transparencyCount { 0 };
 };
 

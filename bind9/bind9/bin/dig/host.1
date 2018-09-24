@@ -19,12 +19,12 @@
 .\"     Title: host
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2009-01-20
+.\"      Date: 2018-05-25
 .\"    Manual: BIND9
 .\"    Source: ISC
 .\"  Language: English
 .\"
-.TH "HOST" "1" "2009\-01\-20" "ISC" "BIND9"
+.TH "HOST" "1" "2018\-05\-25" "ISC" "BIND9"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -240,6 +240,16 @@ will wait for 5 seconds for UDP responses and 10 seconds for TCP connections\&.
 See also the
 \fB\-w\fR
 option\&.
+.RE
+.SH "macOS NOTICE"
+.PP
+The
+\fBhost\fR
+command does not use the host name and address resolution or the DNS query routing mechanisms used by other processes running on macOS.
+The results of name or address queries printed by
+\fBhost\fR
+may differ from those found by other processes that use the macOS native name and address resolution mechanisms.
+The results of DNS queries may also differ from queries that use the macOS DNS routing library.
 .RE
 .SH "IDN SUPPORT"
 .PP

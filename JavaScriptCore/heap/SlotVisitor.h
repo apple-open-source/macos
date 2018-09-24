@@ -44,9 +44,7 @@ class HeapSnapshotBuilder;
 class MarkedBlock;
 class MarkingConstraint;
 class MarkingConstraintSolver;
-class UnconditionalFinalizer;
 template<typename T> class Weak;
-class WeakReferenceHarvester;
 template<typename T, typename Traits> class WriteBarrierBase;
 
 typedef uint32_t HeapVersion;
@@ -141,9 +139,6 @@ public:
     void reportExternalMemoryVisited(size_t);
 #endif
     
-    void addWeakReferenceHarvester(WeakReferenceHarvester*);
-    void addUnconditionalFinalizer(UnconditionalFinalizer*);
-
     void dump(PrintStream&) const;
 
     bool isBuildingHeapSnapshot() const { return !!m_heapSnapshotBuilder; }
@@ -239,6 +234,8 @@ private:
     MarkingConstraint* m_currentConstraint { nullptr };
     MarkingConstraintSolver* m_currentSolver { nullptr };
     
+    // Put padding here to mitigate false sharing between multiple SlotVisitors.
+    char padding[64];
 public:
 #if !ASSERT_DISABLED
     bool m_isCheckingForDefaultMarkViolation;

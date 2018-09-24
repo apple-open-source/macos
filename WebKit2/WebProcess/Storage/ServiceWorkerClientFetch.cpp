@@ -32,6 +32,8 @@
 #include "WebSWClientConnection.h"
 #include "WebServiceWorkerProvider.h"
 #include <WebCore/CrossOriginAccessControl.h>
+#include <WebCore/Document.h>
+#include <WebCore/Frame.h>
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/ResourceError.h>
@@ -40,7 +42,7 @@ using namespace WebCore;
 
 namespace WebKit {
 
-Ref<ServiceWorkerClientFetch> ServiceWorkerClientFetch::create(WebServiceWorkerProvider& serviceWorkerProvider, Ref<WebCore::ResourceLoader>&& loader, uint64_t identifier, Ref<WebSWClientConnection>&& connection, bool shouldClearReferrerOnHTTPSToHTTPRedirect, Callback&& callback)
+Ref<ServiceWorkerClientFetch> ServiceWorkerClientFetch::create(WebServiceWorkerProvider& serviceWorkerProvider, Ref<WebCore::ResourceLoader>&& loader, FetchIdentifier identifier, Ref<WebSWClientConnection>&& connection, bool shouldClearReferrerOnHTTPSToHTTPRedirect, Callback&& callback)
 {
     auto fetch = adoptRef(*new ServiceWorkerClientFetch { serviceWorkerProvider, WTFMove(loader), identifier, WTFMove(connection), shouldClearReferrerOnHTTPSToHTTPRedirect, WTFMove(callback) });
     fetch->start();
@@ -51,7 +53,7 @@ ServiceWorkerClientFetch::~ServiceWorkerClientFetch()
 {
 }
 
-ServiceWorkerClientFetch::ServiceWorkerClientFetch(WebServiceWorkerProvider& serviceWorkerProvider, Ref<WebCore::ResourceLoader>&& loader, uint64_t identifier, Ref<WebSWClientConnection>&& connection, bool shouldClearReferrerOnHTTPSToHTTPRedirect, Callback&& callback)
+ServiceWorkerClientFetch::ServiceWorkerClientFetch(WebServiceWorkerProvider& serviceWorkerProvider, Ref<WebCore::ResourceLoader>&& loader, FetchIdentifier identifier, Ref<WebSWClientConnection>&& connection, bool shouldClearReferrerOnHTTPSToHTTPRedirect, Callback&& callback)
     : m_serviceWorkerProvider(serviceWorkerProvider)
     , m_loader(WTFMove(loader))
     , m_identifier(identifier)
@@ -68,11 +70,15 @@ void ServiceWorkerClientFetch::start()
 
     auto referrer = request.httpReferrer();
 
+    m_didFail = false;
+    m_didFinish = false;
+
     // We are intercepting fetch calls after going through the HTTP layer, which may add some specific headers.
     cleanHTTPRequestHeadersForAccessControl(request, options.httpHeadersToKeep);
 
     ASSERT(options.serviceWorkersMode != ServiceWorkersMode::None);
-    m_connection->startFetch(m_loader->identifier(), options.serviceWorkerRegistrationIdentifier.value(), request, options, referrer);
+    m_serviceWorkerRegistrationIdentifier = options.serviceWorkerRegistrationIdentifier.value();
+    m_connection->startFetch(m_identifier, m_serviceWorkerRegistrationIdentifier, request, options, referrer);
 
     m_redirectionStatus = RedirectionStatus::None;
 }
@@ -86,26 +92,31 @@ std::optional<ResourceError> ServiceWorkerClientFetch::validateResponse(const Re
 
     auto& options = m_loader->options();
     if (options.mode != FetchOptions::Mode::NoCors && response.tainting() == ResourceResponse::Tainting::Opaque)
-        return ResourceError { errorDomainWebKitInternal, 0, response.url(), ASCIILiteral("Response served by service worker is opaque"), ResourceError::Type::AccessControl };
+        return ResourceError { errorDomainWebKitInternal, 0, response.url(), "Response served by service worker is opaque"_s, ResourceError::Type::AccessControl };
 
     // Navigate mode induces manual redirect.
     if (options.redirect != FetchOptions::Redirect::Manual && options.mode != FetchOptions::Mode::Navigate && response.tainting() == ResourceResponse::Tainting::Opaqueredirect)
-        return ResourceError { errorDomainWebKitInternal, 0, response.url(), ASCIILiteral("Response served by service worker is opaque redirect"), ResourceError::Type::AccessControl };
+        return ResourceError { errorDomainWebKitInternal, 0, response.url(), "Response served by service worker is opaque redirect"_s, ResourceError::Type::AccessControl };
 
     if ((options.redirect != FetchOptions::Redirect::Follow || options.mode == FetchOptions::Mode::Navigate) && response.isRedirected())
-        return ResourceError { errorDomainWebKitInternal, 0, response.url(), ASCIILiteral("Response served by service worker has redirections"), ResourceError::Type::AccessControl };
+        return ResourceError { errorDomainWebKitInternal, 0, response.url(), "Response served by service worker has redirections"_s, ResourceError::Type::AccessControl };
 
     return std::nullopt;
 }
 
 void ServiceWorkerClientFetch::didReceiveResponse(ResourceResponse&& response)
 {
+    m_isCheckingResponse = true;
     callOnMainThread([this, protectedThis = makeRef(*this), response = WTFMove(response)]() mutable {
-        if (!m_loader)
+        if (!m_loader) {
+            m_isCheckingResponse = false;
             return;
+        }
 
         if (auto error = validateResponse(response)) {
+            m_isCheckingResponse = false;
             m_loader->didFail(error.value());
+            ASSERT(!m_loader);
             if (auto callback = WTFMove(m_callback))
                 callback(Result::Succeeded);
             return;
@@ -113,6 +124,8 @@ void ServiceWorkerClientFetch::didReceiveResponse(ResourceResponse&& response)
         response.setSource(ResourceResponse::Source::ServiceWorker);
 
         if (response.isRedirection() && response.httpHeaderFields().contains(HTTPHeaderName::Location)) {
+            m_isCheckingResponse = false;
+            continueLoadingAfterCheckingResponse();
             m_redirectionStatus = RedirectionStatus::Receiving;
             m_loader->willSendRequest(m_loader->request().redirectedRequest(response, m_shouldClearReferrerOnHTTPSToHTTPRedirect), response, [protectedThis = makeRef(*this), this](ResourceRequest&& request) {
                 if (request.isNull() || !m_callback)
@@ -132,8 +145,8 @@ void ServiceWorkerClientFetch::didReceiveResponse(ResourceResponse&& response)
         // FIXME: We should refine our MIME type sniffing strategy for synthetic responses.
         if (m_loader->originalRequest().requester() == ResourceRequest::Requester::Main) {
             if (response.mimeType() == defaultMIMEType()) {
-                response.setMimeType(ASCIILiteral("text/html"));
-                response.setTextEncodingName(ASCIILiteral("UTF-8"));
+                response.setMimeType("text/html"_s);
+                response.setTextEncodingName("UTF-8"_s);
             }
         }
 
@@ -141,19 +154,35 @@ void ServiceWorkerClientFetch::didReceiveResponse(ResourceResponse&& response)
         if (response.url().isNull())
             response.setURL(m_loader->request().url());
 
-        m_loader->didReceiveResponse(response);
-        if (auto callback = WTFMove(m_callback))
-            callback(Result::Succeeded);
+        m_loader->didReceiveResponse(response, [this, protectedThis = WTFMove(protectedThis)] {
+            m_isCheckingResponse = false;
+            continueLoadingAfterCheckingResponse();
+            if (auto callback = WTFMove(m_callback))
+                callback(Result::Succeeded);
+        });
     });
 }
 
-void ServiceWorkerClientFetch::didReceiveData(const IPC::DataReference& data, int64_t encodedDataLength)
+void ServiceWorkerClientFetch::didReceiveData(const IPC::DataReference& dataReference, int64_t encodedDataLength)
 {
-    callOnMainThread([this, protectedThis = makeRef(*this), data = data.vector(), encodedDataLength] {
-        if (!m_loader)
+    auto* data = reinterpret_cast<const char*>(dataReference.data());
+    if (!m_buffer) {
+        m_buffer = SharedBuffer::create(data, dataReference.size());
+        m_encodedDataLength = encodedDataLength;
+    } else {
+        m_buffer->append(data, dataReference.size());
+        m_encodedDataLength += encodedDataLength;
+    }
+
+    if (m_isCheckingResponse)
+        return;
+
+    callOnMainThread([this, protectedThis = makeRef(*this)] {
+        if (!m_loader || !m_encodedDataLength)
             return;
 
-        m_loader->didReceiveData(reinterpret_cast<const char*>(data.data()), data.size(), encodedDataLength, DataPayloadBytes);
+        m_loader->didReceiveBuffer(m_buffer.releaseNonNull(), m_encodedDataLength, DataPayloadBytes);
+        m_encodedDataLength = 0;
     });
 }
 
@@ -164,6 +193,11 @@ void ServiceWorkerClientFetch::didReceiveFormData(const IPC::FormDataReference&)
 
 void ServiceWorkerClientFetch::didFinish()
 {
+    m_didFinish = true;
+
+    if (m_isCheckingResponse)
+        return;
+
     callOnMainThread([this, protectedThis = makeRef(*this)] {
         if (!m_loader)
             return;
@@ -189,13 +223,26 @@ void ServiceWorkerClientFetch::didFinish()
     });
 }
 
-void ServiceWorkerClientFetch::didFail()
+void ServiceWorkerClientFetch::didFail(ResourceError&& error)
 {
+    m_didFail = true;
+    m_error = WTFMove(error);
+
+    if (m_isCheckingResponse)
+        return;
+
     callOnMainThread([this, protectedThis = makeRef(*this)] {
         if (!m_loader)
             return;
 
-        m_loader->didFail({ ResourceError::Type::General });
+        auto* document = m_loader->frame() ? m_loader->frame()->document() : nullptr;
+        if (document) {
+            document->addConsoleMessage(MessageSource::JS, MessageLevel::Error, m_error.localizedDescription());
+            if (m_loader->options().destination != FetchOptions::Destination::EmptyString)
+                document->addConsoleMessage(MessageSource::JS, MessageLevel::Error, makeString("Cannot load ", m_error.failingURL().string(), "."));
+        }
+
+        m_loader->didFail(m_error);
 
         if (auto callback = WTFMove(m_callback))
             callback(Result::Succeeded);
@@ -206,6 +253,8 @@ void ServiceWorkerClientFetch::didFail()
 
 void ServiceWorkerClientFetch::didNotHandle()
 {
+    ASSERT(!m_isCheckingResponse);
+
     callOnMainThread([this, protectedThis = makeRef(*this)] {
         if (!m_loader)
             return;
@@ -221,7 +270,37 @@ void ServiceWorkerClientFetch::cancel()
 {
     if (auto callback = WTFMove(m_callback))
         callback(Result::Cancelled);
+
+    if (!m_didFinish && !m_didFail) {
+        m_connection->cancelFetch(m_identifier, m_serviceWorkerRegistrationIdentifier);
+
+    }
     m_loader = nullptr;
+    m_buffer = nullptr;
+}
+
+void ServiceWorkerClientFetch::continueLoadingAfterCheckingResponse()
+{
+    ASSERT(!m_isCheckingResponse);
+    if (!m_loader)
+        return;
+
+    if (m_encodedDataLength) {
+        callOnMainThread([this, protectedThis = makeRef(*this)] {
+            if (!m_loader || !m_encodedDataLength)
+                return;
+            m_loader->didReceiveBuffer(m_buffer.releaseNonNull(), m_encodedDataLength, DataPayloadBytes);
+            m_encodedDataLength = 0;
+        });
+    }
+
+    if (m_didFail) {
+        didFail(WTFMove(m_error));
+        return;
+    }
+
+    if (m_didFinish)
+        didFinish();
 }
 
 } // namespace WebKit

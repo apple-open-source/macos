@@ -74,8 +74,9 @@
 //#include "mkext1_file.h"
 #include "compression.h"
 #include "security.h"
-#include "syspolicy.h"
+#include "signposts.h"
 #include "staging.h"
+#include "syspolicy.h"
 
 #if __has_include(<prelink.h>)
 /* take prelink.h from host side tools SDK */
@@ -175,6 +176,8 @@ int main(int argc, char * const * argv)
         OSKextSetLogFilter(kDefaultServiceLogFilter | kOSKextLogKextOrGlobalMask,
             /* kernel? */ true);
         tool_openlog("com.apple.kextcache");
+    } else {
+        tool_initlog();
     }
 
     if (isDebugSetInBootargs()) {
@@ -1029,6 +1032,9 @@ ExitStatus doUpdateVolume(KextcacheArgs *toolArgs)
     int result;                         // errno-type value
     IOReturn pmres = kIOReturnError;    // init against future re-flow
     IOPMAssertionID awakeForUpdate;     // valid if pmres == 0
+    os_signpost_id_t spid = generate_signpost_id();
+
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTCACHE_UPDATE_VOLUME);
 
     // unless -F is passed, keep machine awake for for duration
     // (including waiting for any volume locks with kextd)
@@ -1040,8 +1046,9 @@ ExitStatus doUpdateVolume(KextcacheArgs *toolArgs)
         if (pmres) {
             OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
                       "Warning: couldn't block sleep during cache update");
+        } else {
+            os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_POWER_ASSERTION);
         }
-
     }
 
     result = checkUpdateCachesAndBoots(toolArgs->updateVolumeURL,
@@ -1060,6 +1067,7 @@ ExitStatus doUpdateVolume(KextcacheArgs *toolArgs)
                       "Warning: error re-enabling sleep after cache update");
     }
 
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTCACHE_UPDATE_VOLUME);
     return rval;
 }
 
@@ -1863,7 +1871,10 @@ ExitStatus updateSystemPlistCaches(KextcacheArgs * toolArgs)
     const NXArchInfo * startArch            = OSKextGetArchitecture();
     CFArrayRef         directoryValues      = NULL;   // must release
     CFArrayRef         personalities        = NULL;   // must release
+    os_signpost_id_t   spid                 = generate_signpost_id();
     CFIndex            count, i;
+
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTCACHE_UPDATE_PLISTS);
 
    /* The system plist caches are always operating on the current system volume, so
     * we should ensure that the authentication options are secure, or SIP is disabled.
@@ -1991,6 +2002,7 @@ finish:
 
     OSKextSetArchitecture(startArch);
     toolArgs->authenticationOptions.isCacheLoad = true;
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTCACHE_UPDATE_PLISTS);
 
     return result;
 }
@@ -2566,7 +2578,9 @@ static Boolean isValidKextSigningTargetVolume(CFURLRef theVolRootURL)
         if (postBootPathsDict &&
             CFGetTypeID(postBootPathsDict) == CFDictionaryGetTypeID()) {
             
-            if (CFDictionaryContainsKey(postBootPathsDict, kBCKernelcacheV3Key)) {
+            if (CFDictionaryContainsKey(postBootPathsDict, kBCKernelcacheV4Key)) {
+                myResult = true;
+            } else if (CFDictionaryContainsKey(postBootPathsDict, kBCKernelcacheV3Key)) {
                 myResult = true;
             }
         }
@@ -2694,7 +2708,11 @@ static bool isSystemPLKPath(KextcacheArgs *toolArgs)
         if (postBootPathsDict &&
             CFGetTypeID(postBootPathsDict) == CFDictionaryGetTypeID()) {
             kcDict = (CFDictionaryRef)CFDictionaryGetValue(postBootPathsDict,
-                                                           kBCKernelcacheV3Key);
+                                                           kBCKernelcacheV4Key);
+            if (!kcDict) {
+                kcDict = (CFDictionaryRef)CFDictionaryGetValue(postBootPathsDict,
+                                                               kBCKernelcacheV3Key);
+            }
         }
     }
 
@@ -2836,8 +2854,12 @@ static Boolean wantsFastLibCompressionForTargetVolume(CFURLRef theVolRootURL)
             CFGetTypeID(postBootPathsDict) == CFDictionaryGetTypeID()) {
             
             kernelCacheDict = (CFDictionaryRef)
-                CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV3Key);
-            
+                CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV4Key);
+            if (!kernelCacheDict) {
+                kernelCacheDict = (CFDictionaryRef)
+                    CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV3Key);
+            }
+
             if (kernelCacheDict &&
                 CFGetTypeID(kernelCacheDict) == CFDictionaryGetTypeID()) {
                 CFStringRef     myTempStr;      // do not release
@@ -3034,12 +3056,16 @@ createPrelinkedKernel(
     dev_t               kern_dev_t          = 0;
     bool                created_plk         = false;
     char               *plk_filename        = NULL;
+    os_signpost_id_t    spid                = generate_signpost_id();
 
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTCACHE_BUILD_PRELINKED_KERNEL);
     bzero(&prelinkFileTimes, sizeof(prelinkFileTimes));
 
     plk_filename = toolArgs->prelinkedKernelPath + strnlen(toolArgs->prelinkedKernelDirname, PATH_MAX);
     while (*plk_filename == '/') plk_filename++;
 
+    os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_PRELINKED_KERNEL_PATH,
+                           "%s", toolArgs->prelinkedKernelPath);
     toolArgs->prelinkedKernelDir_fd = open(toolArgs->prelinkedKernelDirname,
                                            O_RDONLY | O_DIRECTORY);
     if (toolArgs->prelinkedKernelDir_fd < 0) {
@@ -3494,6 +3520,8 @@ finish:
     putVolumeForPath(toolArgs->prelinkedKernelPath, result);
 #endif /* !NO_BOOT_ROOT */
 
+    os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_RESULT, "%d", result);
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTCACHE_BUILD_PRELINKED_KERNEL);
     return result;
 }
 

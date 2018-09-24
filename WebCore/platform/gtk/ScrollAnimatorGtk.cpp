@@ -35,7 +35,6 @@
 #include "ScrollAnimationSmooth.h"
 #include "ScrollableArea.h"
 #include "ScrollbarTheme.h"
-#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
@@ -122,7 +121,7 @@ FloatPoint ScrollAnimatorGtk::computeVelocity()
 
     m_scrollHistory.clear();
 
-    return FloatPoint(accumDelta.x() * -1000 / (last - first).value(), accumDelta.y() * -1000 / (last - first).value());
+    return FloatPoint(accumDelta.x() * -1 / (last - first).value(), accumDelta.y() * -1 / (last - first).value());
 }
 
 bool ScrollAnimatorGtk::handleWheelEvent(const PlatformWheelEvent& event)

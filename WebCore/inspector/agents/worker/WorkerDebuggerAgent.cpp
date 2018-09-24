@@ -28,11 +28,11 @@
 
 #include "ScriptState.h"
 #include "WorkerGlobalScope.h"
-#include <inspector/ConsoleMessage.h>
-#include <inspector/InjectedScript.h>
-#include <inspector/InjectedScriptManager.h>
-#include <inspector/ScriptCallStack.h>
-#include <inspector/ScriptCallStackFactory.h>
+#include <JavaScriptCore/ConsoleMessage.h>
+#include <JavaScriptCore/InjectedScript.h>
+#include <JavaScriptCore/InjectedScriptManager.h>
+#include <JavaScriptCore/ScriptCallStack.h>
+#include <JavaScriptCore/ScriptCallStackFactory.h>
 
 namespace WebCore {
 
@@ -56,7 +56,7 @@ void WorkerDebuggerAgent::breakpointActionLog(ExecState& state, const String& me
 InjectedScript WorkerDebuggerAgent::injectedScriptForEval(ErrorString& errorString, const int* executionContextId)
 {
     if (executionContextId) {
-        errorString = ASCIILiteral("Execution context id is not supported for workers as there is only one execution context.");
+        errorString = "Execution context id is not supported for workers as there is only one execution context."_s;
         return InjectedScript();
     }
 

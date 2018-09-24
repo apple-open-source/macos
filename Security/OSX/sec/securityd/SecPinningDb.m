@@ -30,6 +30,7 @@
 #import <Foundation/Foundation.h>
 #import <sys/stat.h>
 #import <notify.h>
+#import <os/lock.h>
 
 #if !TARGET_OS_BRIDGE
 #import <MobileAsset/MAAsset.h>
@@ -75,6 +76,8 @@ const CFStringRef kSecPinningDbKeyRules = CFSTR("PinningRules");
 @property (assign) SecDbRef db;
 @property dispatch_queue_t queue;
 @property NSURL *dbPath;
+@property (assign) os_unfair_lock regexCacheLock;
+@property NSMutableDictionary *regexCache;
 - (instancetype) init;
 - ( NSDictionary * _Nullable ) queryForDomain:(NSString *)domain;
 - ( NSDictionary * _Nullable ) queryForPolicyName:(NSString *)policyName;
@@ -326,6 +329,8 @@ static inline bool isNSDictionary(id nsType) {
         ok &= SecDbPerformWrite(self->_db, &error, ^(SecDbConnectionRef dbconn) {
             ok &= [self updateDb:dbconn error:&error pinningList:pinningList updateSchema:NO updateContent:YES];
         });
+        /* We changed the database, so clear the database cache */
+        [self clearCache];
     });
 
     if (!ok || error) {
@@ -408,7 +413,7 @@ static inline bool isNSDictionary(id nsType) {
 #endif
 
     CFStringRef path = CFStringCreateWithCString(NULL, [_dbPath fileSystemRepresentation], kCFStringEncodingUTF8);
-    SecDbRef result = SecDbCreateWithOptions(path, mode, readWrite, readWrite, false,
+    SecDbRef result = SecDbCreate(path, mode, readWrite, readWrite, false, false, 1,
          ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
              if (!SecOTAPKIIsSystemTrustd()) {
                  /* Non-owner process can't update the db, but it should get a db connection.
@@ -506,6 +511,8 @@ static void verify_create_path(const char *path)
 - (instancetype) init {
     if (self = [super init]) {
         _queue = dispatch_queue_create("Pinning DB Queue", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+        _regexCache = [NSMutableDictionary dictionary];
+        _regexCacheLock = OS_UNFAIR_LOCK_INIT;
         [self initializedDb];
     }
     return self;
@@ -513,6 +520,55 @@ static void verify_create_path(const char *path)
 
 - (void) dealloc {
     CFReleaseNull(_db);
+}
+
+/* MARK: DB Cache
+ * The cache is represented a dictionary defined as { suffix : { regex : resultsDictionary } } */
+- (void) clearCache {
+    os_unfair_lock_lock(&_regexCacheLock);
+    self.regexCache = [NSMutableDictionary dictionary];
+    os_unfair_lock_unlock(&_regexCacheLock);
+}
+
+- (void) addSuffixToCache:(NSString *)suffix entry:(NSDictionary <NSRegularExpression *, NSDictionary *> *)entry {
+    os_unfair_lock_lock(&_regexCacheLock);
+    secinfo("SecPinningDb", "adding %llu entries for %@ to cache", (unsigned long long)[entry count], suffix);
+    self.regexCache[suffix] = entry;
+    os_unfair_lock_unlock(&_regexCacheLock);
+}
+
+/* Because we iterate over all DB entries for a suffix, even if we find a match, we guarantee
+ * that the cache, if the cache has an entry for a suffix, it has all the entries for that suffix */
+- (BOOL) queryCacheForSuffix:(NSString *)suffix firstLabel:(NSString *)firstLabel results:(NSDictionary * __autoreleasing *)results{
+    __block BOOL foundSuffix = NO;
+    os_unfair_lock_lock(&_regexCacheLock);
+    NSDictionary <NSRegularExpression *, NSDictionary *> *cacheEntry;
+    if (NULL != (cacheEntry = self.regexCache[suffix])) {
+        foundSuffix = YES;
+        for (NSRegularExpression *regex in cacheEntry) {
+            NSUInteger numMatches = [regex numberOfMatchesInString:firstLabel
+                                                           options:0
+                                                             range:NSMakeRange(0, [firstLabel length])];
+            if (numMatches == 0) {
+                continue;
+            }
+            secinfo("SecPinningDb", "found matching rule in cache for %@.%@", firstLabel, suffix);
+            NSDictionary *resultDictionary = [cacheEntry objectForKey:regex];
+
+            /* Check the policyName for no-pinning settings */
+            if ([self isPinningDisabled:resultDictionary[(__bridge NSString *)kSecPinningDbKeyPolicyName]]) {
+                continue;
+            }
+
+            /* Return the pinning rules */
+            if (results) {
+                *results = resultDictionary;
+            }
+        }
+    }
+    os_unfair_lock_unlock(&_regexCacheLock);
+
+    return foundSuffix;
 }
 
 - (BOOL) isPinningDisabled:(NSString * _Nullable)policy {
@@ -549,7 +605,7 @@ static void verify_create_path(const char *path)
     return pinningDisabled;
 }
 
-- ( NSDictionary * _Nullable ) queryForDomain:(NSString *)domain {
+- (NSDictionary * _Nullable) queryForDomain:(NSString *)domain {
     if (!_queue) { (void)[self init]; }
     if (!_db) { [self initializedDb]; }
 
@@ -564,49 +620,66 @@ static void verify_create_path(const char *path)
     __block NSString *firstLabel = [domain substringToIndex:firstDot.location];
     __block NSString *suffix = [domain substringFromIndex:(firstDot.location + 1)];
 
-    /* Perform SELECT */
+    /* Search cache */
+    NSDictionary *cacheResult = nil;
+    if ([self queryCacheForSuffix:suffix firstLabel:firstLabel results:&cacheResult]) {
+        return cacheResult;
+    }
+
+    /* Cache miss. Perform SELECT */
     __block bool ok = true;
     __block CFErrorRef error = NULL;
     __block NSMutableArray *resultRules = [NSMutableArray array];
     __block NSString *resultName = nil;
+    __block NSMutableDictionary <NSRegularExpression *, NSDictionary *> *newCacheEntry = [NSMutableDictionary dictionary];
     ok &= SecDbPerformRead(_db, &error, ^(SecDbConnectionRef dbconn) {
         ok &= SecDbWithSQL(dbconn, selectDomainSQL, &error, ^bool(sqlite3_stmt *selectDomain) {
             ok &= SecDbBindText(selectDomain, 1, [suffix UTF8String], [suffix length], SQLITE_TRANSIENT, &error);
             ok &= SecDbStep(dbconn, selectDomain, &error, ^(bool *stop) {
-                /* Match the labelRegex */
-                const uint8_t *regex = sqlite3_column_text(selectDomain, 0);
-                if (!regex) { return; }
-                NSString *regexStr = [NSString stringWithUTF8String:(const char *)regex];
-                if (!regexStr) { return; }
-                NSRegularExpression *regularExpression = [NSRegularExpression regularExpressionWithPattern:regexStr
-                                                                                                  options:NSRegularExpressionCaseInsensitive
-                                                                                                    error:nil];
-                if (!regularExpression) { return; }
-                NSUInteger numMatches = [regularExpression numberOfMatchesInString:firstLabel
-                                                                           options:0
-                                                                             range:NSMakeRange(0, [firstLabel length])];
-                if (numMatches == 0) {
-                    return;
-                }
-                secdebug("SecPinningDb", "found matching rule for %@.%@", firstLabel, suffix);
+                @autoreleasepool {
+                    /* Get the data from the entry */
+                    // First Label Regex
+                    const uint8_t *regex = sqlite3_column_text(selectDomain, 0);
+                    verify_action(regex, return);
+                    NSString *regexStr = [NSString stringWithUTF8String:(const char *)regex];
+                    verify_action(regexStr, return);
+                    NSRegularExpression *regularExpression = [NSRegularExpression regularExpressionWithPattern:regexStr
+                                                                                                       options:NSRegularExpressionCaseInsensitive
+                                                                                                         error:nil];
+                    verify_action(regularExpression, return);
+                    // Policy name
+                    const uint8_t *policyName = sqlite3_column_text(selectDomain, 1);
+                    NSString *policyNameStr = [NSString stringWithUTF8String:(const char *)policyName];
+                    // Policies
+                    NSData *xmlPolicies = [NSData dataWithBytes:sqlite3_column_blob(selectDomain, 2) length:sqlite3_column_bytes(selectDomain, 2)];
+                    verify_action(xmlPolicies, return);
+                    id policies = [NSPropertyListSerialization propertyListWithData:xmlPolicies options:0 format:nil error:nil];
+                    verify_action(isNSArray(policies), return);
 
-                /* Check the policyName for no-pinning settings */
-                const uint8_t *policyName = sqlite3_column_text(selectDomain, 1);
-                NSString *policyNameStr = [NSString stringWithUTF8String:(const char *)policyName];
-                if ([self isPinningDisabled:policyNameStr]) {
-                    return;
-                }
+                    /* Add to cache entry */
+                    [newCacheEntry setObject:@{(__bridge NSString*)kSecPinningDbKeyPolicyName:policyNameStr,
+                                               (__bridge NSString*)kSecPinningDbKeyRules:policies}
+                                      forKey:regularExpression];
 
-                /* Deserialize the policies and return.
-                 * @@@ Assumes there is only one rule with matching suffix/label pairs. */
-                NSData *xmlPolicies = [NSData dataWithBytes:sqlite3_column_blob(selectDomain, 2) length:sqlite3_column_bytes(selectDomain, 2)];
-                if (!xmlPolicies) { return; }
-                id policies = [NSPropertyListSerialization propertyListWithData:xmlPolicies options:0 format:nil error:nil];
-                if (!isNSArray(policies)) {
-                    return;
+                    /* Match the labelRegex */
+                    NSUInteger numMatches = [regularExpression numberOfMatchesInString:firstLabel
+                                                                               options:0
+                                                                                 range:NSMakeRange(0, [firstLabel length])];
+                    if (numMatches == 0) {
+                        return;
+                    }
+                    secinfo("SecPinningDb", "found matching rule in DB for %@.%@", firstLabel, suffix);
+
+                    /* Check the policyName for no-pinning settings */
+                    if ([self isPinningDisabled:policyNameStr]) {
+                        return;
+                    }
+
+                    /* Add return data
+                     * @@@ Assumes there is only one rule with matching suffix/label pairs. */
+                    [resultRules addObjectsFromArray:(NSArray *)policies];
+                    resultName = policyNameStr;
                 }
-                [resultRules addObjectsFromArray:(NSArray *)policies];
-                resultName = policyNameStr;
             });
             return ok;
         });
@@ -623,6 +696,12 @@ static void verify_create_path(const char *path)
         CFReleaseNull(error);
     }
 
+    /* Add new cache entry to cache. */
+    if ([newCacheEntry count] > 0) {
+        [self addSuffixToCache:suffix entry:newCacheEntry];
+    }
+
+    /* Return results if found */
     if ([resultRules count] > 0) {
         NSDictionary *results = @{(__bridge NSString*)kSecPinningDbKeyRules:resultRules,
                                   (__bridge NSString*)kSecPinningDbKeyPolicyName:resultName};
@@ -655,16 +734,18 @@ static void verify_create_path(const char *path)
         ok &= SecDbWithSQL(dbconn, selectPolicyNameSQL, &error, ^bool(sqlite3_stmt *selectPolicyName) {
             ok &= SecDbBindText(selectPolicyName, 1, [policyName UTF8String], [policyName length], SQLITE_TRANSIENT, &error);
             ok &= SecDbStep(dbconn, selectPolicyName, &error, ^(bool *stop) {
-                secdebug("SecPinningDb", "found matching rule for %@ policy", policyName);
+                @autoreleasepool {
+                    secinfo("SecPinningDb", "found matching rule for %@ policy", policyName);
 
-                /* Deserialize the policies and return */
-                NSData *xmlPolicies = [NSData dataWithBytes:sqlite3_column_blob(selectPolicyName, 0) length:sqlite3_column_bytes(selectPolicyName, 0)];
-                if (!xmlPolicies) { return; }
-                id policies = [NSPropertyListSerialization propertyListWithData:xmlPolicies options:0 format:nil error:nil];
-                if (!isNSArray(policies)) {
-                    return;
+                    /* Deserialize the policies and return */
+                    NSData *xmlPolicies = [NSData dataWithBytes:sqlite3_column_blob(selectPolicyName, 0) length:sqlite3_column_bytes(selectPolicyName, 0)];
+                    if (!xmlPolicies) { return; }
+                    id policies = [NSPropertyListSerialization propertyListWithData:xmlPolicies options:0 format:nil error:nil];
+                    if (!isNSArray(policies)) {
+                        return;
+                    }
+                    [resultRules addObjectsFromArray:(NSArray *)policies];
                 }
-                [resultRules addObjectsFromArray:(NSArray *)policies];
             });
             return ok;
         });

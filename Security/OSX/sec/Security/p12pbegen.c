@@ -152,13 +152,25 @@ int p12_pbe_gen(CFStringRef passphrase, uint8_t *salt_ptr, size_t salt_length,
         /* tmp1 = B+1 */
 
         const cc_size tmp_n = ccn_nof_size(A_i_len + 1) > ccn_nof_size(hash_blocksize) ? ccn_nof_size(A_i_len + 1) : ccn_nof_size(hash_blocksize);
-        cc_unit tmp1[tmp_n];
+        cc_unit *tmp1 = (cc_unit *)malloc(tmp_n * sizeof(cc_unit));
+        if (!tmp1) {
+            free(A_i);
+            free(I_data);
+            free(temp_buf);
+            return -1;
+        }
         ccn_read_uint(tmp_n, tmp1, A_i_len, A_i);
         ccn_add1(tmp_n, tmp1, tmp1, 1);
 
         free(A_i);
 
-        cc_unit tmp2[tmp_n];
+        cc_unit *tmp2 = (cc_unit *)malloc(tmp_n * sizeof(cc_unit));
+        if (!tmp2) {
+            free(I_data);
+            free(temp_buf);
+            free(tmp1);
+            return -1;
+        }
         unsigned int j;
         for (j = 0; j < I_length; j+=hash_blocksize) {
             /* tempg = I[j];  */
@@ -182,6 +194,8 @@ int p12_pbe_gen(CFStringRef passphrase, uint8_t *salt_ptr, size_t salt_length,
         }
 
         cursor += hash_outputsize;
+        free(tmp1);
+        free(tmp2);
     }
 
     /*

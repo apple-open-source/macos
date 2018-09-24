@@ -24,8 +24,8 @@
 #include <Security/SecBase.h>
 #include <Security/SecBasePriv.h>
 #include <Security/SecItem.h>
-//#include <Security/SecRSAKey.h>
 #include <Security/SecCertificate.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecPolicy.h>
@@ -227,21 +227,10 @@ OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArray
 
 				// key ID
 				if (!status) {
-					SecKeyRef itemKey = NULL;
-					status = SecCertificateCopyPublicKey(itemCert, &itemKey);
-					if (!status) {
-						const CSSM_KEY *cssmKey;
-						status = SecKeyGetCSSMKey(itemKey, &cssmKey);
-						if (!status) {
-							unsigned char hash[CC_SHA1_DIGEST_LENGTH];
-							CC_SHA1(cssmKey->KeyData.Data, (CC_LONG)cssmKey->KeyData.Length, &hash[0]);
-							CFDataRef digest = CFDataCreate(NULL, (const UInt8 *)hash, CC_SHA1_DIGEST_LENGTH);
-							if (digest) {
-								CFDictionaryAddValue(itemDict, kSecImportItemKeyID, digest);
-								CFRelease(digest);
-							}
-						}
-						CFRelease(itemKey);
+					CFDataRef digest = SecCertificateCopyPublicKeySHA1Digest(itemCert);
+					if (digest) {
+						CFDictionaryAddValue(itemDict, kSecImportItemKeyID, digest);
+						CFRelease(digest);
 					}
 				}
 

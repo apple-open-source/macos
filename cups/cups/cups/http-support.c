@@ -1,7 +1,7 @@
 /*
  * HTTP support routines for CUPS.
  *
- * Copyright 2007-2017 by Apple Inc.
+ * Copyright 2007-2018 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -502,7 +502,6 @@ httpAssembleUUID(const char *server,	/* I - Server name */
 		 size_t     bufsize)	/* I - Size of buffer */
 {
   char			data[1024];	/* Source string for MD5 */
-  _cups_md5_state_t	md5state;	/* MD5 state */
   unsigned char		md5sum[16];	/* MD5 digest/sum */
 
 
@@ -517,9 +516,7 @@ httpAssembleUUID(const char *server,	/* I - Server name */
            port, name ? name : server, number,
 	   (unsigned)CUPS_RAND() & 0xffff, (unsigned)CUPS_RAND() & 0xffff);
 
-  _cupsMD5Init(&md5state);
-  _cupsMD5Append(&md5state, (unsigned char *)data, (int)strlen(data));
-  _cupsMD5Finish(&md5state, md5sum);
+  cupsHashData("md5", (unsigned char *)data, strlen(data), md5sum, sizeof(md5sum));
 
  /*
   * Generate the UUID from the MD5...
@@ -1035,7 +1032,7 @@ httpSeparateURI(
 
     *ptr = '\0';
 
-    if (*uri != ':')
+    if (*uri != ':' || *scheme == '.' || !*scheme)
     {
       *scheme = '\0';
       return (HTTP_URI_STATUS_BAD_SCHEME);
@@ -1359,6 +1356,9 @@ _httpStatus(cups_lang_t   *lang,	/* I - Language */
 	break;
     case HTTP_STATUS_MOVED_PERMANENTLY :
         s = _("Moved Permanently");
+	break;
+    case HTTP_STATUS_FOUND :
+        s = _("Found");
 	break;
     case HTTP_STATUS_SEE_OTHER :
         s = _("See Other");

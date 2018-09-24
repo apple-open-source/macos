@@ -25,8 +25,10 @@
 #define _IOKIT_IOHIDEVENT_H
 
 #include <TargetConditionals.h>
+#if KERNEL
 #include <libkern/c++/OSObject.h>
 #include <libkern/c++/OSArray.h>
+#endif /*KERNEL*/
 #include <IOKit/IOTypes.h>
 #include <IOKit/hid/IOHIDEventTypes.h>
 
@@ -401,11 +403,17 @@ public:
                                         IOFixed                         joystickRz,
                                         IOOptionBits                    options = 0);
 
+    
+    static IOHIDEvent *     orientationEvent(AbsoluteTime timeStamp, UInt32 orientationType, IOOptionBits options = 0);
+
     static IOHIDEvent *     humidityEvent(AbsoluteTime timeStamp, IOFixed rh, UInt32 sequence=0, IOOptionBits options=0);
 
     static IOHIDEvent *     brightnessEvent(AbsoluteTime timeStamp, IOFixed currentBrightness, IOFixed targetBrightness, UInt64 transitionTime, IOOptionBits options = 0);
 
+    static IOHIDEvent *     genericGestureEvent(AbsoluteTime timeStamp, IOHIDGenericGestureType gestureType, IOOptionBits options = 0);
+
     virtual void            appendChild(IOHIDEvent *childEvent);
+    OSArray*                getChildren();
 
     virtual AbsoluteTime    getTimeStamp();
     virtual void            setTimeStamp(AbsoluteTime timeStamp);

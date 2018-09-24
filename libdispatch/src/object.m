@@ -52,7 +52,7 @@ _os_objc_alloc(Class cls, size_t size)
 {
 	id obj;
 	size -= sizeof(((struct _os_object_s *)NULL)->os_obj_isa);
-	while (!fastpath(obj = class_createInstance(cls, size))) {
+	while (unlikely(!(obj = class_createInstance(cls, size)))) {
 		_dispatch_temporary_resource_shortage();
 	}
 	return obj;
@@ -82,7 +82,11 @@ _os_object_init(void)
 	_Block_use_RR2(&callbacks);
 #if DISPATCH_COCOA_COMPAT
 	const char *v = getenv("OBJC_DEBUG_MISSING_POOLS");
-	_os_object_debug_missing_pools = v && !strcmp(v, "YES");
+	if (v) _os_object_debug_missing_pools = _dispatch_parse_bool(v);
+	v = getenv("DISPATCH_DEBUG_MISSING_POOLS");
+	if (v) _os_object_debug_missing_pools = _dispatch_parse_bool(v);
+	v = getenv("LIBDISPATCH_DEBUG_MISSING_POOLS");
+	if (v) _os_object_debug_missing_pools = _dispatch_parse_bool(v);
 #endif
 }
 
@@ -295,11 +299,11 @@ DISPATCH_UNAVAILABLE_INIT()
 	if (dx_vtable(obj)->do_debug) {
 		dx_debug(obj, buf, sizeof(buf));
 	} else {
-		strlcpy(buf, dx_kind(obj), sizeof(buf));
+		strlcpy(buf, object_getClassName(self), sizeof(buf));
 	}
 	NSString *format = [nsstring stringWithUTF8String:"<%s: %s>"];
 	if (!format) return nil;
-	return [nsstring stringWithFormat:format, class_getName([self class]), buf];
+	return [nsstring stringWithFormat:format, object_getClassName(self), buf];
 }
 
 - (void)dealloc DISPATCH_NORETURN {
@@ -318,7 +322,7 @@ DISPATCH_UNAVAILABLE_INIT()
 	if (!nsstring) return nil;
 	NSString *format = [nsstring stringWithUTF8String:"<%s: %s>"];
 	if (!format) return nil;
-	return [nsstring stringWithFormat:format, class_getName([self class]),
+	return [nsstring stringWithFormat:format, object_getClassName(self),
 			dispatch_queue_get_label(self), self];
 }
 
@@ -359,7 +363,7 @@ DISPATCH_UNAVAILABLE_INIT()
 
 - (void)_xref_dispose {
 	_dispatch_queue_xref_dispose((struct dispatch_queue_s *)self);
-	_dispatch_runloop_queue_xref_dispose(self);
+	_dispatch_runloop_queue_xref_dispose((dispatch_lane_t)self);
 	[super _xref_dispose];
 }
 
@@ -376,12 +380,15 @@ DISPATCH_CLASS_IMPL(data)
 #endif
 DISPATCH_CLASS_IMPL(semaphore)
 DISPATCH_CLASS_IMPL(group)
+DISPATCH_CLASS_IMPL(workloop)
 DISPATCH_CLASS_IMPL(queue_serial)
 DISPATCH_CLASS_IMPL(queue_concurrent)
 DISPATCH_CLASS_IMPL(queue_main)
-DISPATCH_CLASS_IMPL(queue_root)
+DISPATCH_CLASS_IMPL(queue_global)
+#if DISPATCH_USE_PTHREAD_ROOT_QUEUES
+DISPATCH_CLASS_IMPL(queue_pthread_root)
+#endif
 DISPATCH_CLASS_IMPL(queue_mgr)
-DISPATCH_CLASS_IMPL(queue_specific_queue)
 DISPATCH_CLASS_IMPL(queue_attr)
 DISPATCH_CLASS_IMPL(mach_msg)
 DISPATCH_CLASS_IMPL(io)
@@ -415,7 +422,7 @@ DISPATCH_OBJC_LOAD()
 	_voucher_debug(self, buf, sizeof(buf));
 	NSString *format = [nsstring stringWithUTF8String:"<%s: %s>"];
 	if (!format) return nil;
-	return [nsstring stringWithFormat:format, class_getName([self class]), buf];
+	return [nsstring stringWithFormat:format, object_getClassName(self), buf];
 }
 
 @end
@@ -445,7 +452,7 @@ DISPATCH_OBJC_LOAD()
 void
 _dispatch_last_resort_autorelease_pool_push(dispatch_invoke_context_t dic)
 {
-	if (!slowpath(_os_object_debug_missing_pools)) {
+	if (likely(!_os_object_debug_missing_pools)) {
 		dic->dic_autorelease_pool = _dispatch_autorelease_pool_push();
 	}
 }
@@ -453,7 +460,7 @@ _dispatch_last_resort_autorelease_pool_push(dispatch_invoke_context_t dic)
 void
 _dispatch_last_resort_autorelease_pool_pop(dispatch_invoke_context_t dic)
 {
-	if (!slowpath(_os_object_debug_missing_pools)) {
+	if (likely(!_os_object_debug_missing_pools)) {
 		_dispatch_autorelease_pool_pop(dic->dic_autorelease_pool);
 		dic->dic_autorelease_pool = NULL;
 	}

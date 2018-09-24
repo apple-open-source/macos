@@ -17,6 +17,7 @@
 #include "unicode/simpletz.h"
 #include "unicode/smpdtfmt.h"
 #include "unicode/strenum.h"
+#include "unicode/localpointer.h"
 #include "cmemory.h"
 #include "caltest.h"
 #include "unicode/localpointer.h"
@@ -91,8 +92,10 @@ CalendarRegressionTest::runIndexedTest( int32_t index, UBool exec, const char* &
         CASE(48,TestT8596);
         CASE(49,Test9019);
         CASE(50,TestT9452);
-        CASE(51,TestPersianCalOverflow);
-        CASE(52,TestIslamicCalOverflow);
+        CASE(51,TestT11632);
+        CASE(52,TestPersianCalOverflow);
+        CASE(53,TestIslamicCalOverflow);
+        CASE(54,TestWeekOfYear13548);
     default: name = ""; break;
     }
 }
@@ -2950,6 +2953,46 @@ void CalendarRegressionTest::TestT9452(void) {
 }
 
 /**
+ * @bug ticket 11632
+ */
+void CalendarRegressionTest::TestT11632(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    GregorianCalendar cal(TimeZone::createTimeZone("Pacific/Apia"), status);
+    if(U_FAILURE(status)) {
+        dataerrln("Error creating Calendar: %s", u_errorName(status));
+        return;
+    }
+    failure(status, "Calendar::createInstance(status)");
+    cal.clear();
+    failure(status, "clear calendar");
+    cal.set(UCAL_HOUR, 597);
+    failure(status, "set hour value in calendar");
+    SimpleDateFormat sdf(UnicodeString("y-MM-dd'T'HH:mm:ss"), status);
+    failure(status, "initializing SimpleDateFormat");
+    sdf.setCalendar(cal);
+    UnicodeString dstr;
+    UDate d = cal.getTime(status);
+    if (!failure(status, "getTime for date")) {
+        sdf.format(d, dstr);
+        std::string utf8;
+        dstr.toUTF8String(utf8);
+        assertEquals("correct datetime displayed for hour value", UnicodeString("1970-01-25T21:00:00"), dstr);
+        cal.clear();
+        failure(status, "clear calendar");
+        cal.set(UCAL_HOUR, 300);
+        failure(status, "set hour value in calendar");
+        sdf.setCalendar(cal);
+        d = cal.getTime(status);
+        if (!failure(status, "getTime for initial date")) {
+            dstr.remove();
+            sdf.format(d, dstr);
+            dstr.toUTF8String(utf8);
+            assertEquals("correct datetime displayed for hour value", UnicodeString("1970-01-13T12:00:00"), dstr);
+        }
+    }
+}
+
+/**
  * @bug ticket 13454
  */
 void CalendarRegressionTest::TestPersianCalOverflow(void) {
@@ -3007,6 +3050,22 @@ void CalendarRegressionTest::TestIslamicCalOverflow(void) {
             }
         }
         delete cal;
+    }
+}
+
+void CalendarRegressionTest::TestWeekOfYear13548(void) {
+    int32_t year = 2000;
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<Calendar> cal(Calendar::createInstance(status));
+    failure(status, "Calendar::createInstance(status)");
+
+    cal->set(UCAL_YEAR, year);
+    cal->set(UCAL_WEEK_OF_YEAR, 4);
+
+    int32_t resultYear = cal->get(UCAL_YEAR, status);
+    failure(status, "get(UCAL_YEAR, status)");
+    if (year != resultYear) {
+        errln((UnicodeString)"Fail: Expected year=" + year + ", actual=" + resultYear);
     }
 }
 

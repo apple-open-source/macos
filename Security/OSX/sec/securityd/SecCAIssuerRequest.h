@@ -26,5 +26,4 @@
 #include <CoreFoundation/CFArray.h>
 #include <dispatch/dispatch.h>
 
-bool SecCAIssuerCopyParents(SecCertificateRef certificate,
-    dispatch_queue_t queue, void *context, void (*callback)(void *, CFArrayRef));
+bool SecCAIssuerCopyParents(SecCertificateRef certificate, void *context, void (*callback)(void *, CFArrayRef));

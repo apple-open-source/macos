@@ -92,9 +92,9 @@ void GraphicsContext::platformInit(HDC hdc, bool hasAlpha)
 
 // FIXME: Is it possible to merge getWindowsContext and createWindowsBitmap into a single API
 // suitable for all clients?
-void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
+void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend)
 {
-    bool createdBitmap = mayCreateBitmap && (!m_data->m_hdc || isInTransparencyLayer());
+    bool createdBitmap = m_impl || !m_data->m_hdc || isInTransparencyLayer();
     if (!createdBitmap) {
         m_data->restore();
         return;
@@ -195,7 +195,7 @@ void GraphicsContext::drawLineForDocumentMarker(const FloatPoint& point, float w
     if (paintingDisabled())
         return;
 
-    if (style != DocumentMarkerSpellingLineStyle && style != DocumentMarkerGrammarLineStyle)
+    if (style != DocumentMarkerLineStyle::Spelling && style != DocumentMarkerLineStyle::Grammar)
         return;
 
     // These are the same for misspelling or bad grammar
@@ -218,7 +218,7 @@ void GraphicsContext::drawLineForDocumentMarker(const FloatPoint& point, float w
     CGContextRef context = platformContext();
     CGContextSaveGState(context);
 
-    const Color& patternColor = style == DocumentMarkerGrammarLineStyle ? grammarPatternColor() : spellingPatternColor();
+    const Color& patternColor = style == DocumentMarkerLineStyle::Grammar ? grammarPatternColor() : spellingPatternColor();
     setCGStrokeColor(context, patternColor);
 
     wkSetPatternPhaseInUserSpace(context, point);

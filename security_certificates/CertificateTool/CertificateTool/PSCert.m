@@ -23,18 +23,12 @@ CFDataRef SecCertificateGetAuthorityKeyID(SecCertificateRef certificate);
 // these functions were exported but not declared prior to 10.12.2,
 // and we need to build on earlier versions.)
 CFDataRef SecCertificateGetNormalizedIssuerContent(SecCertificateRef certificate);
-CFDataRef SecCertificateGetNormalizedSubjectContent(SecCertificateRef certificate);
 CFDataRef SecCertificateGetSubjectKeyID(SecCertificateRef certificate);
 
 
 static CFDataRef GetNormalizedIssuerContent(SecCertificateRef cert)
 {
     return SecCertificateGetNormalizedIssuerContent(cert);
-}
-
-static CFDataRef GetNormalizedSubjectContent(SecCertificateRef cert)
-{
-    return SecCertificateGetNormalizedSubjectContent(cert);
 }
 
 static CFDataRef GetAuthorityKeyID(SecCertificateRef cert)
@@ -288,14 +282,13 @@ extern CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllo
         }
 
         key_data = [NSData dataWithBytes:CFDataGetBytePtr(temp_data) length:CFDataGetLength(temp_data)];
-        //%%% debug-only code to verify output
-        if (false) {
+#if DEBUG
             NSString *str = [[key_data toHexString] uppercaseString];
             CFStringRef name = SecCertificateCopySubjectSummary(cert_ref);
             NSLog(@"AuthKeyID for %@ is %@", name, str);
             if (name) { CFRelease(name); }
         }
-        //%%%
+#endif //DEBUG
         CFRelease(iosCertRef);
     }
 

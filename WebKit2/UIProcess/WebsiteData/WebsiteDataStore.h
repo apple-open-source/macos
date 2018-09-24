@@ -37,6 +37,7 @@
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/WorkQueue.h>
 #include <wtf/text/WTFString.h>
 
@@ -50,6 +51,7 @@ class SecurityOrigin;
 
 namespace WebKit {
 
+class SecKeyProxyStore;
 class StorageManager;
 class WebPageProxy;
 class WebProcessPool;
@@ -60,13 +62,18 @@ struct StorageProcessCreationParameters;
 struct WebsiteDataRecord;
 struct WebsiteDataStoreParameters;
 
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
+enum class StorageAccessStatus;
+enum class StorageAccessPromptStatus;
+#endif
+
 #if ENABLE(NETSCAPE_PLUGIN_API)
 struct PluginModuleInfo;
 #endif
 
 enum class ShouldClearFirst { No, Yes };
 
-class WebsiteDataStore : public RefCounted<WebsiteDataStore>, public WebProcessLifetimeObserver, public Identified<WebsiteDataStore>  {
+class WebsiteDataStore : public RefCounted<WebsiteDataStore>, public WebProcessLifetimeObserver, public Identified<WebsiteDataStore>, public CanMakeWeakPtr<WebsiteDataStore>  {
 public:
     constexpr static uint64_t defaultCacheStoragePerOriginQuota = 50 * 1024 * 1024;
 
@@ -100,6 +107,8 @@ public:
 
     bool resourceLoadStatisticsEnabled() const;
     void setResourceLoadStatisticsEnabled(bool);
+    bool resourceLoadStatisticsDebugMode() const;
+    void setResourceLoadStatisticsDebugMode(bool);
 
     uint64_t cacheStoragePerOriginQuota() const { return m_resolvedConfiguration.cacheStoragePerOriginQuota; }
     void setCacheStoragePerOriginQuota(uint64_t quota) { m_resolvedConfiguration.cacheStoragePerOriginQuota = quota; }
@@ -109,7 +118,7 @@ public:
     void setServiceWorkerRegistrationDirectory(String&& directory) { m_resolvedConfiguration.serviceWorkerRegistrationDirectory = WTFMove(directory); }
 
     WebResourceLoadStatisticsStore* resourceLoadStatistics() const { return m_resourceLoadStatistics.get(); }
-    void clearResourceLoadStatisticsInWebProcesses();
+    void clearResourceLoadStatisticsInWebProcesses(CompletionHandler<void()>&&);
 
     static void cloneSessionData(WebPageProxy& sourcePage, WebPageProxy& newPage);
 
@@ -121,12 +130,15 @@ public:
     void removeDataForTopPrivatelyControlledDomains(OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, const Vector<String>& topPrivatelyControlledDomains, Function<void(HashSet<String>&&)>&& completionHandler);
 
 #if HAVE(CFNETWORK_STORAGE_PARTITIONING)
-    void updatePrevalentDomainsToPartitionOrBlockCookies(const Vector<String>& domainsToPartition, const Vector<String>& domainsToBlock, const Vector<String>& domainsToNeitherPartitionNorBlock, ShouldClearFirst);
-    void hasStorageAccessForFrameHandler(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, WTF::CompletionHandler<void(bool hasAccess)>&& callback);
-    void grantStorageAccessForFrameHandler(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, WTF::CompletionHandler<void(bool wasGranted)>&& callback);
+    void updatePrevalentDomainsToPartitionOrBlockCookies(const Vector<String>& domainsToPartition, const Vector<String>& domainsToBlock, const Vector<String>& domainsToNeitherPartitionNorBlock, ShouldClearFirst, CompletionHandler<void()>&&);
+    void hasStorageAccessForFrameHandler(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, CompletionHandler<void(bool hasAccess)>&&);
+    void getAllStorageAccessEntries(uint64_t pageID, CompletionHandler<void(Vector<String>&& domains)>&&);
+    void grantStorageAccessHandler(const String& resourceDomain, const String& firstPartyDomain, std::optional<uint64_t> frameID, uint64_t pageID, CompletionHandler<void(bool wasGranted)>&&);
+    void removeAllStorageAccessHandler();
     void removePrevalentDomains(const Vector<String>& domains);
-    void hasStorageAccess(String&& subFrameHost, String&& topFrameHost, uint64_t frameID, uint64_t pageID, WTF::CompletionHandler<void (bool)>&& callback);
-    void requestStorageAccess(String&& subFrameHost, String&& topFrameHost, uint64_t frameID, uint64_t pageID, WTF::CompletionHandler<void (bool)>&& callback);
+    void hasStorageAccess(String&& subFrameHost, String&& topFrameHost, uint64_t frameID, uint64_t pageID, CompletionHandler<void(bool)>&&);
+    void requestStorageAccess(String&& subFrameHost, String&& topFrameHost, uint64_t frameID, uint64_t pageID, bool promptEnabled, CompletionHandler<void(StorageAccessStatus)>&&);
+    void grantStorageAccess(String&& subFrameHost, String&& topFrameHost, uint64_t frameID, uint64_t pageID, bool userWasPrompted, CompletionHandler<void(bool)>&&);
 #endif
     void networkProcessDidCrash();
     void resolveDirectoriesIfNecessary();
@@ -138,6 +150,7 @@ public:
     const String& resolvedCookieStorageFile() const { return m_resolvedConfiguration.cookieStorageFile; }
     const String& resolvedIndexedDatabaseDirectory() const { return m_resolvedConfiguration.indexedDBDatabaseDirectory; }
     const String& resolvedServiceWorkerRegistrationDirectory() const { return m_resolvedConfiguration.serviceWorkerRegistrationDirectory; }
+    const String& resolvedResourceLoadStatisticsDirectory() const { return m_resolvedConfiguration.resourceLoadStatisticsDirectory; }
 
     StorageManager* storageManager() { return m_storageManager.get(); }
 
@@ -150,6 +163,7 @@ public:
     Vector<WebCore::Cookie> pendingCookies() const;
     void addPendingCookie(const WebCore::Cookie&);
     void removePendingCookie(const WebCore::Cookie&);
+    void clearPendingCookies();
 
     void enableResourceLoadStatisticsAndSetTestingCallback(Function<void (const String&)>&& callback);
 
@@ -163,7 +177,12 @@ public:
     void setProxyConfiguration(CFDictionaryRef configuration) { m_proxyConfiguration = configuration; }
     CFDictionaryRef proxyConfiguration() { return m_proxyConfiguration.get(); }
 #endif
+    
     static void allowWebsiteDataRecordsForAllOrigins();
+
+#if HAVE(SEC_KEY_PROXY)
+    void addSecKeyProxyStore(Ref<SecKeyProxyStore>&&);
+#endif
 
 private:
     explicit WebsiteDataStore(PAL::SessionID);
@@ -173,7 +192,7 @@ private:
 
     // WebProcessLifetimeObserver.
     void webPageWasAdded(WebPageProxy&) override;
-    void webPageWasRemoved(WebPageProxy&) override;
+    void webPageWasInvalidated(WebPageProxy&) override;
     void webProcessWillOpenConnection(WebProcessProxy&, IPC::Connection&) override;
     void webPageWillOpenConnection(WebPageProxy&, IPC::Connection&) override;
     void webPageDidCloseConnection(WebPageProxy&, IPC::Connection&) override;
@@ -182,6 +201,9 @@ private:
     void platformInitialize();
     void platformDestroy();
     static void platformRemoveRecentSearches(WallTime);
+
+    void registerWebResourceLoadStatisticsStoreAsMessageReceiver();
+    void unregisterWebResourceLoadStatisticsStoreAsMessageReceiver();
 
     HashSet<RefPtr<WebProcessPool>> processPools(size_t count = std::numeric_limits<size_t>::max(), bool ensureAPoolExists = true) const;
 
@@ -203,6 +225,7 @@ private:
 
     const RefPtr<StorageManager> m_storageManager;
     RefPtr<WebResourceLoadStatisticsStore> m_resourceLoadStatistics;
+    bool m_resourceLoadStatisticsDebugMode { false };
 
     Ref<WorkQueue> m_queue;
 
@@ -215,6 +238,10 @@ private:
     
     String m_boundInterfaceIdentifier;
     AllowsCellularAccess m_allowsCellularAccess { AllowsCellularAccess::Yes };
+
+#if HAVE(SEC_KEY_PROXY)
+    Vector<Ref<SecKeyProxyStore>> m_secKeyProxyStores;
+#endif
 };
 
 }

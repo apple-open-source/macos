@@ -190,7 +190,18 @@ string PidDiskRep::mainExecutablePath()
 
         return path;
 }
-                
+
+bool PidDiskRep::appleInternalForcePlatform() const
+{
+	uint32_t flags = 0;
+	int rcent = ::csops(mPid, CS_OPS_STATUS, &flags, sizeof(flags));
+
+	if (rcent != 0) {
+		MacOSError::throwMe(errSecCSNoSuchCode);
+	}
+
+	return (flags & CS_PLATFORM_BINARY) == CS_PLATFORM_BINARY;
+}
                 
 } // end namespace CodeSigning
 } // end namespace Security

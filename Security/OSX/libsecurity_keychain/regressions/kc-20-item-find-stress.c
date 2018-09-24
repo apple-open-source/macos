@@ -55,7 +55,7 @@ static void tests() {
         CFMutableDictionaryRef query = createQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service"), CFSTR("test_service"));
         CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne);
 
-        ok_status(SecItemCopyMatching(query, (CFTypeRef*) &blockItem), "%s: SecItemCopyMatching (%d)", testName, iteration);
+        ok_status(SecItemCopyMatching(query, (CFTypeRef*) &blockItem), "%s: SecItemCopyMatching", testName);
         CFReleaseNull(query);
 
         CFReleaseNull(blockItem);

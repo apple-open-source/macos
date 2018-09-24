@@ -466,16 +466,10 @@ dst_hmac_md5_init()
 }
 
 #else 
+#include "dst_internal.h"
 #define dst_hmac_md5_init res_9_dst_hmac_md5_init
 int
 dst_hmac_md5_init(){
 	return (0);
 }
 #endif
-
-
-
-
-
-
-

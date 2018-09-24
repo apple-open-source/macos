@@ -1435,6 +1435,15 @@ rtProcessMsgOption(routine_t *rt)
   /* other implicit data received by the user will be handled here */
 }
 
+static void
+rtProcessUseSpecialReplyPort(routine_t *rt)
+{
+  if (IsKernelUser || IsKernelServer) {
+    fatal("UseSpecialReplyPort option cannot be used with KernelUser / KernelServer\n");
+  }
+  rt->rtMsgOption->argVarName = strconcat(rt->rtMsgOption->argVarName, "|__MigSpecialReplyPortMsgOption");
+}
+
 /*
  *  Adds a dummy reply port argument to the function.
  */
@@ -1663,6 +1672,7 @@ rtCheckRoutine(register routine_t *rt)
   rt->rtOneWay = (rt->rtKind == rkSimpleRoutine);
   rt->rtServerName = strconcat(ServerPrefix, rt->rtName);
   rt->rtUserName = strconcat(UserPrefix, rt->rtName);
+  rt->rtUseSpecialReplyPort = UseSpecialReplyPort && !rt->rtOneWay;
 
   /* Add implicit arguments. */
 
@@ -1683,6 +1693,9 @@ rtCheckRoutine(register routine_t *rt)
       rtAddDummyReplyPort(rt, itZeroReplyPortType);
     else
       rtAddDummyReplyPort(rt, itRealReplyPortType);
+  } else if (akCheck(rt->rtReplyPort->argKind, akbUserArg)) {
+      /* If an explicit ReplyPort is used, we can't assume it will be the SRP */
+      rt->rtUseSpecialReplyPort = FALSE;
   }
   if (rt->rtMsgOption == argNULL) {
     if (MsgOption == strNULL)
@@ -1753,6 +1766,8 @@ rtCheckRoutine(register routine_t *rt)
   rtProcessNdrCode(rt);
   if (rt->rtUserImpl)
     rtProcessMsgOption(rt);
+  if (rt->rtUseSpecialReplyPort)
+    rtProcessUseSpecialReplyPort(rt);
 
   rt->rtNoReplyArgs = !rtCheckMask(rt->rtArgs, akbReturnSnd);
 

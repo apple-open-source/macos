@@ -45,7 +45,6 @@ struct NetworkSessionCreationParameters {
     static std::optional<NetworkSessionCreationParameters> decode(IPC::Decoder&);
     
     PAL::SessionID sessionID { PAL::SessionID::defaultSessionID() };
-    LegacyCustomProtocolManager* legacyCustomProtocolManager { nullptr };
     String boundInterfaceIdentifier;
     AllowsCellularAccess allowsCellularAccess { AllowsCellularAccess::Yes };
 #if PLATFORM(COCOA)
@@ -84,9 +83,9 @@ inline std::optional<NetworkSessionCreationParameters> NetworkSessionCreationPar
     if (!IPC::decode(decoder, proxyConfiguration))
         return std::nullopt;
 #endif
-
-    return {{ sessionID
-        , nullptr
+    
+    return {{
+        sessionID
         , WTFMove(*boundInterfaceIdentifier)
         , WTFMove(*allowsCellularAccess)
 #if PLATFORM(COCOA)

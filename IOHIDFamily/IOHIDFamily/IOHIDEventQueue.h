@@ -31,9 +31,15 @@
 #include "IOHIDElementPrivate.h"
 #include "IOHIDLibUserClient.h"
 
-#define DEFAULT_HID_ENTRY_SIZE  sizeof(IOHIDElementValue)+ sizeof(void *)
-#define MIN_HID_QUEUE_CAPACITY  16384
-#define MAX_HID_QUEUE_CAPACITY  131072
+enum {
+    kHIDQueueStarted    = 0x01,
+    kHIDQueueDisabled   = 0x02
+};
+
+#define HID_QUEUE_HEADER_SIZE               (sizeof(IOHIDElementValue))  // 24b
+#define HID_QUEUE_CAPACITY_MIN              16384       // 16k
+#define HID_QUEUE_CAPACITY_MAX              131072      // 128k
+#define HID_QUEUE_CAPACITY_MAX_ENTITLED     3145728     // 3mb
 
 //---------------------------------------------------------------------------
 // IOHIDEventQueue class.
@@ -47,67 +53,30 @@ class IOHIDEventQueue: public IOSharedDataQueue
     OSDeclareDefaultStructors( IOHIDEventQueue )
     
 protected:
-    IOOptionBits            _state;
-    
-    IOLock *                _lock;
-        
-    UInt32                  _currentEntrySize;
-    UInt32                  _maxEntrySize;
     UInt32                  _numEntries;
-    
-    OSSet *                 _elementSet;
-
-    IOMemoryDescriptor *    _descriptor;
-    
+    UInt32                  _entrySize;
+    IOOptionBits            _state;
     IOHIDQueueOptionsType   _options;
     UInt64                  _enqueueErrorCount;
 
 public:
-    static IOHIDEventQueue * withCapacity( UInt32 size );
+    static IOHIDEventQueue *withCapacity(UInt32 size);
+    static IOHIDEventQueue *withEntries(UInt32 numEntries, UInt32 entrySize);
     
-    static IOHIDEventQueue * withEntries( UInt32 numEntries,
-                                          UInt32 entrySize);
+    virtual Boolean enqueue(void *data, UInt32 dataSize);
     
-    virtual Boolean initWithEntries(UInt32 numEntries, UInt32 entrySize);
+    inline virtual void setOptions(IOHIDQueueOptionsType flags) { _options = flags; }
+    inline virtual IOHIDQueueOptionsType getOptions() { return _options; }
     
-    virtual void free();
-
-    virtual Boolean enqueue( void * data, UInt32 dataSize );
-
-    virtual void start();
-    virtual void stop();
-    virtual Boolean isStarted();
+    // start/stop are accessible from user space.
+    inline virtual void start() { _state |= kHIDQueueStarted; }
+    inline virtual void stop() { _state &= ~kHIDQueueStarted; }
     
-    virtual void setOptions(IOHIDQueueOptionsType flags);
-    virtual IOHIDQueueOptionsType getOptions();
-
-    virtual void enable();
-    virtual void disable();
+    // enable disable are only accessible from kernel.
+    inline virtual void enable() { _state &= ~kHIDQueueDisabled; }
+    inline virtual void disable() { _state |= kHIDQueueDisabled; }
     
-    virtual void addElement( IOHIDElementPrivate * element );
-    virtual void removeElement( IOHIDElementPrivate * element );
-    
-    virtual UInt32 getEntrySize ();
-
-    virtual IOMemoryDescriptor *getMemoryDescriptor();
     virtual bool serialize(OSSerialize * serializer) const;
-
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  0);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  1);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  2);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  3);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  4);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  5);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  6);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  7);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  8);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  9);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue, 10);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue, 11);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue, 12);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue, 13);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue, 14);
-    OSMetaClassDeclareReservedUnused(IOHIDEventQueue, 15);
 };
 
 #endif /* !_IOKIT_HID_IOHIDEVENTQUEUE_H */

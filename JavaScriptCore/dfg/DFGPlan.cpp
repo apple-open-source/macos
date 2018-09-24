@@ -79,7 +79,6 @@
 #include "ProfilerDatabase.h"
 #include "TrackedReferences.h"
 #include "VMInlines.h"
-#include <wtf/CurrentTime.h>
 
 #if ENABLE(FTL_JIT)
 #include "FTLCapabilities.h"
@@ -92,10 +91,10 @@
 
 namespace JSC {
 
-extern double totalDFGCompileTime;
-extern double totalFTLCompileTime;
-extern double totalFTLDFGCompileTime;
-extern double totalFTLB3CompileTime;
+extern Seconds totalDFGCompileTime;
+extern Seconds totalFTLCompileTime;
+extern Seconds totalFTLDFGCompileTime;
+extern Seconds totalFTLB3CompileTime;
 
 }
 
@@ -149,6 +148,7 @@ Plan::Plan(CodeBlock* passedCodeBlock, CodeBlock* profiledDFGCodeBlock,
     , weakReferences(codeBlock)
     , stage(Preparing)
 {
+    RELEASE_ASSERT(codeBlock->alternative()->jitCode());
 }
 
 Plan::~Plan()
@@ -173,16 +173,16 @@ void Plan::compileInThread(ThreadData* threadData)
 {
     this->threadData = threadData;
     
-    double before = 0;
+    MonotonicTime before { };
     CString codeBlockName;
     if (UNLIKELY(computeCompileTimes()))
-        before = monotonicallyIncreasingTimeMS();
+        before = MonotonicTime::now();
     if (UNLIKELY(reportCompileTimes()))
         codeBlockName = toCString(*codeBlock);
     
     CompilationScope compilationScope;
 
-    if (logCompilationChanges(mode) || Options::reportDFGPhaseTimes())
+    if (logCompilationChanges(mode) || Options::logPhaseTimes())
         dataLog("DFG(Plan) compiling ", *codeBlock, " with ", mode, ", number of instructions = ", codeBlock->instructionCount(), "\n");
 
     CompilationPath path = compileInThreadImpl();
@@ -190,9 +190,9 @@ void Plan::compileInThread(ThreadData* threadData)
     RELEASE_ASSERT(path == CancelPath || finalizer);
     RELEASE_ASSERT((path == CancelPath) == (stage == Cancelled));
     
-    double after = 0;
+    MonotonicTime after { };
     if (UNLIKELY(computeCompileTimes())) {
-        after = monotonicallyIncreasingTimeMS();
+        after = MonotonicTime::now();
     
         if (Options::reportTotalCompileTimes()) {
             if (isFTL(mode)) {
@@ -223,14 +223,14 @@ void Plan::compileInThread(ThreadData* threadData)
     }
     if (codeBlock) { // codeBlock will be null if the compilation was cancelled.
         if (path == FTLPath)
-            CODEBLOCK_LOG_EVENT(codeBlock, "ftlCompile", ("took ", after - before, " ms (DFG: ", m_timeBeforeFTL - before, ", B3: ", after - m_timeBeforeFTL, ") with ", pathName));
+            CODEBLOCK_LOG_EVENT(codeBlock, "ftlCompile", ("took ", (after - before).milliseconds(), " ms (DFG: ", (m_timeBeforeFTL - before).milliseconds(), ", B3: ", (after - m_timeBeforeFTL).milliseconds(), ") with ", pathName));
         else
-            CODEBLOCK_LOG_EVENT(codeBlock, "dfgCompile", ("took ", after - before, " ms with ", pathName));
+            CODEBLOCK_LOG_EVENT(codeBlock, "dfgCompile", ("took ", (after - before).milliseconds(), " ms with ", pathName));
     }
     if (UNLIKELY(reportCompileTimes())) {
-        dataLog("Optimized ", codeBlockName, " using ", mode, " with ", pathName, " into ", finalizer ? finalizer->codeSize() : 0, " bytes in ", after - before, " ms");
+        dataLog("Optimized ", codeBlockName, " using ", mode, " with ", pathName, " into ", finalizer ? finalizer->codeSize() : 0, " bytes in ", (after - before).milliseconds(), " ms");
         if (path == FTLPath)
-            dataLog(" (DFG: ", m_timeBeforeFTL - before, ", B3: ", after - m_timeBeforeFTL, ")");
+            dataLog(" (DFG: ", (m_timeBeforeFTL - before).milliseconds(), ", B3: ", (after - m_timeBeforeFTL).milliseconds(), ")");
         dataLog(".\n");
     }
 }
@@ -491,7 +491,7 @@ Plan::CompilationPath Plan::compileInThreadImpl()
         FTL::lowerDFGToB3(state);
         
         if (UNLIKELY(computeCompileTimes()))
-            m_timeBeforeFTL = monotonicallyIncreasingTimeMS();
+            m_timeBeforeFTL = MonotonicTime::now();
         
         if (Options::b3AlwaysFailsBeforeCompile()) {
             FTL::fail(state);

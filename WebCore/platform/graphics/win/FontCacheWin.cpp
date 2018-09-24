@@ -43,7 +43,6 @@
 #include <wtf/win/GDIObject.h>
 
 #if USE(CG)
-#include <ApplicationServices/ApplicationServices.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 #endif
@@ -511,8 +510,13 @@ static GDIObject<HFONT> createGDIFont(const AtomicString& family, LONG desiredWe
     matchData.m_chosen.lfQuality = DEFAULT_QUALITY;
     matchData.m_chosen.lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
 
-   if (desiredItalic && !matchData.m_chosen.lfItalic && synthesizeItalic)
-       matchData.m_chosen.lfItalic = 1;
+#if USE(CAIRO)
+    if (isGDIFontWeightBold(desiredWeight) && !isGDIFontWeightBold(matchData.m_chosen.lfWeight))
+        matchData.m_chosen.lfWeight = desiredWeight;
+#endif
+
+    if (desiredItalic && !matchData.m_chosen.lfItalic && synthesizeItalic)
+        matchData.m_chosen.lfItalic = 1;
 
     auto chosenFont = adoptGDIObject(::CreateFontIndirect(&matchData.m_chosen));
     if (!chosenFont)

@@ -20,7 +20,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
- 
+
+#include <errno.h>
 #include <libkern/OSByteOrder.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -32,6 +33,7 @@
 
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
+#include <IOKit/IOKitLib.h>
 
 #include "FSFormatName.h"
 
@@ -737,21 +739,72 @@ static int getwrapper(const HFSMasterDirectoryBlock *mdbp, off_t *offset)
 	return (1);
 }
 
-static bool
-IsEncrypted(const char *bsdname)
+/* get the APFS fs index (slice) from a string like "/dev/disk0s1s2" */
+static uint32_t
+fsindex_parse(const char *device)
 {
-	bool retval = false;
-	const char *diskname = bsdname;
-	CFMutableDictionaryRef ioMatch; //IOServiceGetMatchingService() releases:!
-	io_object_t ioObj = IO_OBJECT_NULL;
-	CFBooleanRef	lvfIsEncr = NULL;
+	const char *cp = &device[strlen(device)];
+	int scale = 1, fsindex = 0;
 
+	while (--cp >= device && *cp >= '0' && *cp <= '9') {
+		fsindex += (*cp - '0') * scale;
+		scale *= 10;
+	}
+	return (cp > device && cp[0] == 's' && cp[-1] != '/') ? --fsindex : -1;
+}
+
+// Return whether or not the VEK state of a APFS volume suspected to be encrypted
+// indicates that FileVault is on. If we cannot determine this status, we return true.
+static bool
+IsVEKStateEncrypted(io_object_t apfs_obj, const uint32_t fsindex)
+{
+	OSStatus status;
+	io_connect_t port;
+	volume_vek_state_input io_input = {0};
+	volume_vek_state_output io_output = {0};
+	size_t o_size = sizeof(volume_vek_state_output);
+
+	status = IOServiceOpen(apfs_obj, mach_task_self(), 0, &port);
+	if (status != kIOReturnSuccess) {
+		return true;
+	}
+
+	// We must ask APFS for this information. Because we are a static library, and several of our consumers
+	// (including MediaKit) do not necessarily link the APFS framework, we cannot link directly to the APFS framework.
+	// Instead, we go the back way around through IOKit to get this information.
+	// To call this a hack would be an understatement.
+	io_input.index = fsindex;
+	status = IOConnectCallStructMethod(port, APFS_IOUC_VOLUME_GET_VEK_STATE, &io_input, sizeof(volume_vek_state_input),
+									   &io_output, &o_size);
+	IOServiceClose(port);
+	if (status == kIOReturnSuccess) {
+		if (!(io_output.user_protected && !io_output.sys_protected)) {
+			// Volume is encrypted, but FileVault is not on. Treat as unencrypted.
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/* get an io_object_t for IO Registry lookups - caller must release */
+static errno_t
+get_lookup_io_obj(const char *bsdname, io_object_t *lookup_obj)
+{
+	const char *diskname = bsdname;
+	CFMutableDictionaryRef ioMatch; // IOServiceGetMatchingService() releases!
+
+	if (!bsdname || !lookup_obj)
+		return EINVAL;
+	*lookup_obj = IO_OBJECT_NULL;
+
+	// Get "diskXsY" portion of name.
 	if (strncmp(bsdname, _PATH_DEV, strlen(_PATH_DEV)) == 0) {
 		diskname = bsdname + strlen(_PATH_DEV);
 	}
 
 	if (diskname == NULL)
-		goto finish;
+		return EINVAL;
 
 	if (strncmp(diskname, "rdisk", 5) == 0)
 		diskname++;
@@ -759,36 +812,171 @@ IsEncrypted(const char *bsdname)
 	//look up the IOMedia object
 	ioMatch = IOBSDNameMatching(kIOMasterPortDefault, 0, diskname);
 	if (!ioMatch)
-		goto finish;
+		return ENOENT;
 
 	// Setting this allows a fast-path lookup to happen
 	// see 10248763
 	CFDictionarySetValue(ioMatch, CFSTR(kIOProviderClassKey), CFSTR(kIOMediaClass));
 
-	ioObj = IOServiceGetMatchingService(kIOMasterPortDefault, ioMatch);
-	ioMatch = NULL;
-	//IOServiceGetMatching() released ioMatch
-	if (ioObj == IO_OBJECT_NULL) {
+	*lookup_obj = IOServiceGetMatchingService(kIOMasterPortDefault, ioMatch);
+
+	// Do NOT release lookup_obj - that is our caller's responsibility.
+	return 0;
+}
+
+// Get encryption information for the filesystem at the provided devnode.
+// A filesystem is considered encrypted if there's no error and encryption_status is set to true
+// (encryption_details will hold detailed information on what encryption properties were found).
+errno_t
+GetFSEncryptionStatus(const char *bsdname, bool *encryption_status, bool require_FDE, fs_media_encryption_details_t *encryption_details)
+{
+	bool fs_encrypted = false;
+	io_object_t lookup_obj = IO_OBJECT_NULL, parent_obj = IO_OBJECT_NULL;
+	CFBooleanRef lvfIsEncr = NULL, rolling;
+	errno_t error;
+
+	if (!encryption_status) {
+		return EINVAL;
+	}
+
+	// Get the io_object_t to begin our registry entry search.
+	error = get_lookup_io_obj(bsdname, &lookup_obj);
+	if (error) {
 		goto finish;
 	}
 
-	if (is_apfs((char*)diskname, NULL)) {
-		lvfIsEncr = IORegistryEntryCreateCFProperty(ioObj, CFSTR(kAPFSEncryptedKey), kCFAllocatorDefault, 0);
+	// Initialize our output.
+	if (encryption_details)
+		*encryption_details = 0;
+
+	if (is_apfs((char*)bsdname, NULL)) {
+		lvfIsEncr = IORegistryEntryCreateCFProperty(lookup_obj, CFSTR(kAPFSEncryptedKey), kCFAllocatorDefault, 0);
+		if (lvfIsEncr != NULL && CFBooleanGetValue(lvfIsEncr) == true) {
+			const uint32_t fsindex = fsindex_parse(bsdname);
+
+			// Check for additional properties.
+			if (IORegistryEntryGetParentEntry(lookup_obj, kIOServicePlane, &parent_obj) == 0) {
+				if (IOObjectConformsTo(parent_obj, APFS_CONTAINER_CLASS)) {
+					// As of now we think the volume is encrypted,
+					// but we must check the VEK state to be entirely sure.
+					if (IsVEKStateEncrypted(parent_obj, fsindex)) {
+						fs_encrypted = true;
+
+						if (encryption_details)
+							*encryption_details |= FS_MEDIA_FDE_ENCRYPTED;
+					} else if (!require_FDE) {
+						fs_encrypted = true;
+					}
+				}
+				IOObjectRelease(parent_obj);
+			}
+
+			if (encryption_details) {
+				// Also check for encryption rolling.
+				rolling = IORegistryEntryCreateCFProperty(lookup_obj, CFSTR(kAPFSEncryptionRolling), kCFAllocatorDefault, 0);
+				if (rolling && CFBooleanGetValue(rolling) == true) {
+					*encryption_details |= FS_MEDIA_ENCRYPTION_CONVERTING;
+					CFRelease(rolling);
+				}
+			}
+		}
 	} else {
-		lvfIsEncr = IORegistryEntryCreateCFProperty(ioObj, CFSTR(kCoreStorageIsEncryptedKey), nil, 0);
+		lvfIsEncr = IORegistryEntryCreateCFProperty(lookup_obj, CFSTR(kCoreStorageIsEncryptedKey), nil, 0);
+		if (lvfIsEncr != NULL) {
+			fs_encrypted = CFBooleanGetValue(lvfIsEncr);
+		}
 	}
 
-	if (lvfIsEncr == NULL) {
-		retval = false;
-	} else {
-		retval = CFBooleanGetValue(lvfIsEncr);
-	}
+	*encryption_status = fs_encrypted;
 
 finish:
 	if (lvfIsEncr)
 		CFRelease(lvfIsEncr);
-	if (ioObj != IO_OBJECT_NULL) {
-		IOObjectRelease(ioObj);
+	if (lookup_obj != IO_OBJECT_NULL) {
+		IOObjectRelease(lookup_obj);
 	}
-	return retval;
+
+	return error;
+}
+
+static bool
+IsEncrypted(const char *bsdname)
+{
+	bool fs_encrypted = false;
+
+	// Get our encryption status, requiring FDE, and ignoring any errors.
+	(void)GetFSEncryptionStatus(bsdname, &fs_encrypted, true, NULL);
+	return fs_encrypted;
+}
+
+// Get disk image encryption information for the provided devnode.
+// The devnode is considered encrypted if there's no error and encryption_status is set to true.
+errno_t
+GetDiskImageEncryptionStatus(const char *bsdname, bool *encryption_status)
+{
+	io_object_t lookup_obj = IO_OBJECT_NULL;
+	CFBooleanRef encrypted_property;
+	errno_t error;
+
+	if (!bsdname || !encryption_status) {
+		return EINVAL;
+	}
+
+	// Get the io_object_t to begin our registry entry search.
+	error = get_lookup_io_obj(bsdname, &lookup_obj);
+	if (error) {
+		goto finish;
+	}
+
+	// Search for the image-encrypted property through all our parent entries.
+	encrypted_property = IORegistryEntrySearchCFProperty(lookup_obj,
+														 kIOServicePlane,
+														 CFSTR(kIOHDIXImageEncryptedProperty),
+														 kCFAllocatorDefault,
+														 kIORegistryIterateRecursively | kIORegistryIterateParents);
+	if (encrypted_property) {
+		*encryption_status = (encrypted_property == kCFBooleanTrue);
+		CFRelease(encrypted_property);
+	} else {
+		*encryption_status = false;
+	}
+
+finish:
+	if (lookup_obj != IO_OBJECT_NULL)
+		IOObjectRelease(lookup_obj);
+
+	return error;
+}
+
+errno_t
+_FSGetMediaEncryptionStatus(CFStringRef devnode, bool *encryption_status, fs_media_encryption_details_t *encryption_details)
+{
+	char bsdname[MAXPATHLEN + 1];
+	bool fs_encrypted = false, di_encrypted = false;
+	errno_t error;
+
+	// Check our arguments.
+	if (!CFStringGetCString(devnode, bsdname, MAXPATHLEN + 1, kCFStringEncodingUTF8)) {
+		return EINVAL;
+	} else if (!encryption_status) {
+		return EINVAL;
+	}
+
+	// First, check if the FS is encrypted (ignoring FDE status).
+	error = GetFSEncryptionStatus(bsdname, &fs_encrypted, false, encryption_details);
+	if (error) {
+		return error;
+	}
+
+	if (!fs_encrypted || encryption_details) {
+		// If the result will be visible, also check for disk-image encryption.
+		if (GetDiskImageEncryptionStatus(bsdname, &di_encrypted) == 0) {
+			if (di_encrypted && encryption_details) {
+				*encryption_details |= FS_MEDIA_DEV_ENCRYPTED;
+			}
+		}
+	}
+
+	*encryption_status = (fs_encrypted || di_encrypted);
+	return 0;
 }

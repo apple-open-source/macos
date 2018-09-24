@@ -36,7 +36,7 @@
 @property NSURL* splunkBagURL;
 @property NSString *internalTopicName;
 
-@property NSArray<SFAnalyticsClient *> *topicClients;
+@property NSArray<SFAnalyticsClient*>* topicClients;
 
 // --------------------------------
 // Things below are for unit testing
@@ -45,6 +45,9 @@
 + (NSString*)databasePathForCKKS;
 + (NSString*)databasePathForSOS;
 + (NSString*)databasePathForPCS;
++ (NSString*)databasePathForLocal;
++ (NSString*)databasePathForTrust;
++ (NSString*)databasePathForTrustdHealth;
 + (NSString*)databasePathForTLS;
 @end
 
@@ -68,6 +71,7 @@
 
 // --------------------------------
 // Things below are for unit testing
+extern BOOL runningTests;                // Do not use 'force' when obtaining logging json
 extern BOOL deviceAnalyticsOverride;
 extern BOOL deviceAnalyticsEnabled;
 extern BOOL iCloudAnalyticsOverride;

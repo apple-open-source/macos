@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include <inspector/agents/InspectorHeapAgent.h>
+#include <JavaScriptCore/InspectorHeapAgent.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -45,7 +45,7 @@ public:
 protected:
     void disable(ErrorString&) override;
 
-    void dispatchGarbageCollectedEvent(Inspector::Protocol::Heap::GarbageCollection::Type, double startTime, double endTime) override;
+    void dispatchGarbageCollectedEvent(Inspector::Protocol::Heap::GarbageCollection::Type, Seconds startTime, Seconds endTime) override;
 
     void dispatchGarbageCollectionEventsAfterDelay(Vector<GarbageCollectionData>&& collections);
 

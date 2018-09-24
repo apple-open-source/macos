@@ -23,6 +23,9 @@
 
 #if OCTAGON
 
+#import <CloudKit/CloudKit.h>
+#import <CloudKit/CloudKit_Private.h>
+
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
 #import "keychain/ckks/CKKSKey.h"
@@ -140,7 +143,11 @@
                                                                                           recordIDsToDelete:recordIDsToDelete];
         modifyRecordsOp.atomic = YES;
         modifyRecordsOp.longLived = NO;
-        modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;  // very important: get the TLKShares off-device ASAP
+
+        // very important: get the TLKShares off-device ASAP
+        modifyRecordsOp.configuration.automaticallyRetryNetworkFailures = NO;
+        modifyRecordsOp.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+
         modifyRecordsOp.group = self.ckoperationGroup;
         ckksnotice("ckksshare", ckks, "Operation group is %@", self.ckoperationGroup);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,11 +28,13 @@
 
 #import <crt_externs.h>
 #import <mach-o/dyld.h>
+#import <mach/mach_error.h>
 #import <mach/machine.h>
 #import <pal/spi/cocoa/ServersSPI.h>
 #import <spawn.h>
 #import <sys/param.h>
 #import <sys/stat.h>
+#import <wtf/MachSendRight.h>
 #import <wtf/RunLoop.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/Threading.h>
@@ -51,7 +53,7 @@ static const char* serviceName(const ProcessLauncher::LaunchOptions& launchOptio
 {
     switch (launchOptions.processType) {
     case ProcessLauncher::ProcessType::Web:
-        return "com.apple.WebKit.WebContent";
+        return launchOptions.nonValidInjectedCodeAllowed ? "com.apple.WebKit.WebContent.Development" : "com.apple.WebKit.WebContent";
     case ProcessLauncher::ProcessType::Network:
         return "com.apple.WebKit.Networking";
     case ProcessLauncher::ProcessType::Storage:
@@ -76,11 +78,6 @@ static bool shouldLeakBoost(const ProcessLauncher::LaunchOptions& launchOptions)
     UNUSED_PARAM(launchOptions);
     return true;
 #else
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
-    // Boost the WebContent process if the NSApplication run loop is not used.
-    if (launchOptions.processType == ProcessLauncher::ProcessType::Web)
-        return true;
-#endif
     // On Mac, leak a boost onto the NetworkProcess.
     return launchOptions.processType == ProcessLauncher::ProcessType::Network;
 #endif
@@ -150,15 +147,24 @@ void ProcessLauncher::launchProcess()
     }
     
     // Create the listening port.
-    mach_port_t listeningPort;
-    mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &listeningPort);
-    
+    mach_port_t listeningPort = MACH_PORT_NULL;
+    auto kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &listeningPort);
+    if (kr != KERN_SUCCESS) {
+        LOG_ERROR("Could not allocate mach port, error %x: %s", kr, mach_error_string(kr));
+        CRASH();
+    }
+
     // Insert a send right so we can send to it.
     mach_port_insert_right(mach_task_self(), listeningPort, listeningPort, MACH_MSG_TYPE_MAKE_SEND);
 
-    mach_port_t previousNotificationPort;
-    mach_port_request_notification(mach_task_self(), listeningPort, MACH_NOTIFY_NO_SENDERS, 0, listeningPort, MACH_MSG_TYPE_MAKE_SEND_ONCE, &previousNotificationPort);
+    mach_port_t previousNotificationPort = MACH_PORT_NULL;
+    auto mc = mach_port_request_notification(mach_task_self(), listeningPort, MACH_NOTIFY_NO_SENDERS, 0, listeningPort, MACH_MSG_TYPE_MAKE_SEND_ONCE, &previousNotificationPort);
     ASSERT(!previousNotificationPort);
+    ASSERT(mc == KERN_SUCCESS);
+    if (mc != KERN_SUCCESS) {
+        // If mach_port_request_notification fails, 'previousNotificationPort' will be uninitialized.
+        LOG_ERROR("mach_port_request_notification failed: (%x) %s", mc, mach_error_string(mc));
+    }
 
     String clientIdentifier;
 #if PLATFORM(MAC)
@@ -172,7 +178,6 @@ void ProcessLauncher::launchProcess()
     xpc_dictionary_set_string(bootstrapMessage.get(), "message-name", "bootstrap");
 
     xpc_dictionary_set_mach_send(bootstrapMessage.get(), "server-port", listeningPort);
-    mach_port_deallocate(mach_task_self(), listeningPort);
 
     xpc_dictionary_set_string(bootstrapMessage.get(), "client-identifier", !clientIdentifier.isEmpty() ? clientIdentifier.utf8().data() : *_NSGetProgname());
     xpc_dictionary_set_string(bootstrapMessage.get(), "process-identifier", String::number(m_launchOptions.processIdentifier.toUInt64()).utf8().data());
@@ -191,7 +196,7 @@ void ProcessLauncher::launchProcess()
 
     xpc_dictionary_set_value(bootstrapMessage.get(), "extra-initialization-data", extraInitializationData.get());
 
-    auto weakProcessLauncher = m_weakPtrFactory.createWeakPtr(*this);
+    auto weakProcessLauncher = makeWeakPtr(*this);
     auto errorHandler = [weakProcessLauncher, listeningPort](xpc_object_t event) {
         ASSERT(!event || xpc_get_type(event) == XPC_TYPE_ERROR);
 
@@ -202,8 +207,14 @@ void ProcessLauncher::launchProcess()
         if (!processLauncher->isLaunching())
             return;
 
+#if !ASSERT_DISABLED
+        mach_port_urefs_t sendRightCount = 0;
+        mach_port_get_refs(mach_task_self(), listeningPort, MACH_PORT_RIGHT_SEND, &sendRightCount);
+        ASSERT(sendRightCount >= 1);
+#endif
+
         // We failed to launch. Release the send right.
-        mach_port_deallocate(mach_task_self(), listeningPort);
+        deallocateSendRightSafely(listeningPort);
 
         // And the receive right.
         mach_port_mod_refs(mach_task_self(), listeningPort, MACH_PORT_RIGHT_RECEIVE, -1);
@@ -232,6 +243,14 @@ void ProcessLauncher::launchProcess()
         if (xpc_get_type(reply) != XPC_TYPE_ERROR) {
             ASSERT(xpc_get_type(reply) == XPC_TYPE_DICTIONARY);
             ASSERT(!strcmp(xpc_dictionary_get_string(reply, "message-name"), "process-finished-launching"));
+
+#if !ASSERT_DISABLED
+            mach_port_urefs_t sendRightCount = 0;
+            mach_port_get_refs(mach_task_self(), listeningPort, MACH_PORT_RIGHT_SEND, &sendRightCount);
+            ASSERT(sendRightCount >= 1);
+#endif
+
+            deallocateSendRightSafely(listeningPort);
 
             if (!m_xpcConnection) {
                 // The process was terminated.

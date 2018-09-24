@@ -31,6 +31,7 @@
 0755	root	wheel	private/var/db/ConfigurationProfiles
 0700	root	wheel	private/var/db/ConfigurationProfiles/Store
 0755	root	wheel	private/var/db/ConfigurationProfiles/Settings
+0755	root	wheel	private/var/db/CVMS
 0755	root	wheel	private/var/db/SystemPolicyConfiguration
 0755	root	wheel	private/var/db/caches
 0770	root	wheel	private/var/db/caches/opendirectory

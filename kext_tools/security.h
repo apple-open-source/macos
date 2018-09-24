@@ -2,7 +2,7 @@
  *  security.h
  *  kext_tools
  *
- *  Copyright 20012 Apple Inc. All rights reserved.
+ *  Copyright 2019 Apple Inc. All rights reserved.
  *
  */
 #ifndef _SECURITY_H

@@ -96,9 +96,8 @@ struct WebPageCreationParameters {
 
     Vector<BackForwardListItemState> itemStates;
     PAL::SessionID sessionID;
-    uint64_t highestUsedBackForwardItemID;
 
-    uint64_t userContentControllerID;
+    UserContentControllerIdentifier userContentControllerID;
     uint64_t visitedLinkTableID;
     uint64_t websiteDataStoreID;
     bool canRunBeforeUnloadConfirmPanel;
@@ -113,7 +112,7 @@ struct WebPageCreationParameters {
     WebCore::MediaProducer::MutedStateFlags muted;
     bool mayStartMediaWhenInWindow;
 
-    WebCore::IntSize minimumLayoutSize;
+    WebCore::IntSize viewLayoutSize;
     bool autoSizingShouldExpandToViewHeight;
     std::optional<WebCore::IntSize> viewportSizeForCSSViewportUnits;
     
@@ -138,19 +137,24 @@ struct WebPageCreationParameters {
 
 #if PLATFORM(MAC)
     ColorSpaceData colorSpace;
+    bool useSystemAppearance;
+    bool useDarkAppearance;
 #endif
 #if PLATFORM(IOS)
     WebCore::FloatSize screenSize;
     WebCore::FloatSize availableScreenSize;
+    WebCore::FloatSize overrideScreenSize;
     float textAutosizingWidth;
     bool ignoresViewportScaleLimits;
-    WebCore::FloatSize viewportConfigurationMinimumLayoutSize;
+    WebCore::FloatSize viewportConfigurationViewLayoutSize;
+    WebCore::FloatSize viewportConfigurationViewSize;
     WebCore::FloatSize maximumUnobscuredSize;
 #endif
 #if PLATFORM(COCOA)
     bool smartInsertDeleteEnabled;
 #endif
     bool appleMailPaginationQuirkEnabled;
+    bool appleMailLinesClampEnabled;
     bool shouldScaleViewToFitDocument;
 
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection;

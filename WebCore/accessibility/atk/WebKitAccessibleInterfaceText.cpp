@@ -105,13 +105,13 @@ static AtkAttributeSet* getAttributeSetForAccessibilityObject(const Accessibilit
     int baselinePosition;
     bool includeRise = true;
     switch (style->verticalAlign()) {
-    case SUB:
+    case VerticalAlign::Sub:
         baselinePosition = -1 * baselinePositionForRenderObject(renderer);
         break;
-    case SUPER:
+    case VerticalAlign::Super:
         baselinePosition = baselinePositionForRenderObject(renderer);
         break;
-    case BASELINE:
+    case VerticalAlign::Baseline:
         baselinePosition = 0;
         break;
     default:
@@ -143,32 +143,32 @@ static AtkAttributeSet* getAttributeSetForAccessibilityObject(const Accessibilit
     }
 
     switch (style->textAlign()) {
-    case TASTART:
-    case TAEND:
+    case TextAlignMode::Start:
+    case TextAlignMode::End:
         break;
-    case LEFT:
-    case WEBKIT_LEFT:
+    case TextAlignMode::Left:
+    case TextAlignMode::WebKitLeft:
         result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_JUSTIFICATION), "left");
         break;
-    case RIGHT:
-    case WEBKIT_RIGHT:
+    case TextAlignMode::Right:
+    case TextAlignMode::WebKitRight:
         result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_JUSTIFICATION), "right");
         break;
-    case CENTER:
-    case WEBKIT_CENTER:
+    case TextAlignMode::Center:
+    case TextAlignMode::WebKitCenter:
         result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_JUSTIFICATION), "center");
         break;
-    case JUSTIFY:
+    case TextAlignMode::Justify:
         result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_JUSTIFICATION), "fill");
     }
 
-    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_UNDERLINE), (style->textDecoration() & TextDecorationUnderline) ? "single" : "none");
+    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_UNDERLINE), (style->textDecoration() & TextDecoration::Underline) ? "single" : "none");
 
     result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_STYLE), style->fontCascade().italic() ? "italic" : "normal");
 
-    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_STRIKETHROUGH), (style->textDecoration() & TextDecorationLineThrough) ? "true" : "false");
+    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_STRIKETHROUGH), (style->textDecoration() & TextDecoration::LineThrough) ? "true" : "false");
 
-    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_INVISIBLE), (style->visibility() == HIDDEN) ? "true" : "false");
+    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_INVISIBLE), (style->visibility() == Visibility::Hidden) ? "true" : "false");
 
     result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_EDITABLE), object->canSetValueAttribute() ? "true" : "false");
 
@@ -390,13 +390,6 @@ static void getSelectionOffsetsForObject(AccessibilityObject* coreObject, Visibl
     // We need to limit our search to positions that fall inside the domain of the current object.
     Position firstValidPosition = firstPositionInOrBeforeNode(node->firstDescendant());
     Position lastValidPosition = lastPositionInOrAfterNode(node->lastDescendant());
-
-    // Early return with proper values if the selection falls entirely out of the object.
-    if (!selectionBelongsToObject(coreObject, selection)) {
-        startOffset = comparePositions(selection.start(), firstValidPosition) <= 0 ? 0 : accessibilityObjectLength(coreObject);
-        endOffset = startOffset;
-        return;
-    }
 
     // Find the proper range for the selection that falls inside the object.
     Position nodeRangeStart = selection.start();

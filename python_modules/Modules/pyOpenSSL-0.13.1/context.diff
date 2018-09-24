@@ -1,0 +1,22 @@
+287a288,293
+> #ifdef OPENSSL_NO_SSL3
+> #define SSLv3_METHOD_TEXT ""
+> #else
+> #define SSLv3_METHOD_TEXT "SSLv3_METHOD, "
+> #endif
+> 
+295c301
+< @param method: One of " SSLv2_METHOD_TEXT "SSLv3_METHOD, SSLv23_METHOD, or\n\
+---
+> @param method: One of " SSLv2_METHOD_TEXT SSLv3_METHOD_TEXT "SSLv23_METHOD, or\n\
+299a306
+> #undef SSLv3_METHOD_TEXT
+1207c1214,1219
+<             method = SSLv3_method();
+---
+> #ifdef OPENSSL_NO_SSL3
+>         PyErr_SetString(PyExc_ValueError, "SSLv3_METHOD not supported by this version of OpenSSL");
+>         return NULL;
+> #else
+>         method = SSLv3_method();
+> #endif

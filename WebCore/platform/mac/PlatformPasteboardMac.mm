@@ -26,7 +26,10 @@
 #import "config.h"
 #import "PlatformPasteboard.h"
 
+#if PLATFORM(MAC)
+
 #import "Color.h"
+#import "ColorMac.h"
 #import "LegacyNSPasteboardTypes.h"
 #import "Pasteboard.h"
 #import "URL.h"
@@ -56,20 +59,29 @@ RefPtr<SharedBuffer> PlatformPasteboard::bufferForType(const String& pasteboardT
     NSData *data = [m_pasteboard.get() dataForType:pasteboardType];
     if (!data)
         return nullptr;
-    return SharedBuffer::create([[data copy] autorelease]);
+    return SharedBuffer::create(adoptNS([data copy]).get());
 }
 
 int PlatformPasteboard::numberOfFiles() const
 {
     Vector<String> files;
-    getPathnamesForType(files, String(legacyFilenamesPasteboardType()));
 
-    // FIXME: legacyFilesPromisePasteboardType() contains UTIs, not path names. Also, it's not
-    // guaranteed that the count of UTIs equals the count of files, since some clients only write
-    // unique UTIs.
-    if (!files.size())
+    NSArray *pasteboardTypes = [m_pasteboard types];
+    if ([pasteboardTypes containsObject:legacyFilesPromisePasteboardType()]) {
+        // FIXME: legacyFilesPromisePasteboardType() contains file types, not path names, but in
+        // this case we are only concerned with the count of them. The count of types should equal
+        // the count of files, but this isn't guaranteed as some legacy providers might only write
+        // unique file types.
         getPathnamesForType(files, String(legacyFilesPromisePasteboardType()));
-    return files.size();
+        return files.size();
+    }
+
+    if ([pasteboardTypes containsObject:legacyFilenamesPasteboardType()]) {
+        getPathnamesForType(files, String(legacyFilenamesPasteboardType()));
+        return files.size();
+    }
+
+    return 0;
 }
 
 void PlatformPasteboard::getPathnamesForType(Vector<String>& pathnames, const String& pasteboardType) const
@@ -107,14 +119,14 @@ String PlatformPasteboard::stringForType(const String& pasteboardType) const
 static const char* safeTypeForDOMToReadAndWriteForPlatformType(const String& platformType)
 {
     if (platformType == String(legacyStringPasteboardType()) || platformType == String(NSPasteboardTypeString))
-        return ASCIILiteral("text/plain");
+        return "text/plain"_s;
 
     if (platformType == String(legacyURLPasteboardType()))
-        return ASCIILiteral("text/uri-list");
+        return "text/uri-list"_s;
 
     if (platformType == String(legacyHTMLPasteboardType()) || platformType == String(WebArchivePboardType)
         || platformType == String(legacyRTFDPasteboardType()) || platformType == String(legacyRTFPasteboardType()))
-        return ASCIILiteral("text/html");
+        return "text/html"_s;
 
     return nullptr;
 }
@@ -199,18 +211,7 @@ String PlatformPasteboard::uniqueName()
 
 Color PlatformPasteboard::color()
 {
-    NSColor *color = [NSColor colorFromPasteboard:m_pasteboard.get()];
-
-    // The color may not be in an RGB colorspace. This commonly occurs when a color is
-    // dragged from the NSColorPanel grayscale picker.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    if ([[color colorSpace] colorSpaceModel] != NSRGBColorSpaceModel)
-        color = [color colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
-#pragma clang diagnostic pop
-
-    return makeRGBA((int)([color redComponent] * 255.0 + 0.5), (int)([color greenComponent] * 255.0 + 0.5),
-        (int)([color blueComponent] * 255.0 + 0.5), (int)([color alphaComponent] * 255.0 + 0.5));
+    return colorFromNSColor([NSColor colorFromPasteboard:m_pasteboard.get()]);
 }
 
 URL PlatformPasteboard::url()
@@ -261,14 +262,15 @@ long PlatformPasteboard::setBufferForType(SharedBuffer* buffer, const String& pa
     return changeCount();
 }
 
-long PlatformPasteboard::setPathnamesForType(const Vector<String>& pathnames, const String& pasteboardType)
+long PlatformPasteboard::setURL(const PasteboardURL& pasteboardURL)
 {
-    RetainPtr<NSMutableArray> paths = adoptNS([[NSMutableArray alloc] init]);
-    for (size_t i = 0; i < pathnames.size(); ++i)
-        [paths.get() addObject:[NSArray arrayWithObject:pathnames[i]]];
-    BOOL didWriteData = [m_pasteboard.get() setPropertyList:paths.get() forType:pasteboardType];
+    NSURL *cocoaURL = pasteboardURL.url;
+    NSArray *urlWithTitle = @[ @[ cocoaURL.absoluteString ], @[ pasteboardURL.title ] ];
+    NSString *pasteboardType = [NSString stringWithUTF8String:WebURLsWithTitlesPboardType];
+    BOOL didWriteData = [m_pasteboard.get() setPropertyList:urlWithTitle forType:pasteboardType];
     if (!didWriteData)
         return 0;
+
     return changeCount();
 }
 
@@ -314,3 +316,5 @@ long PlatformPasteboard::setStringForType(const String& string, const String& pa
 }
 
 }
+
+#endif // PLATFORM(MAC)

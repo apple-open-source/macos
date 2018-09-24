@@ -184,6 +184,25 @@ udatpg_getAppendItemName(const UDateTimePatternGenerator *dtpg,
     return result.getBuffer();
 }
 
+U_CAPI int32_t U_EXPORT2
+udatpg_getFieldDisplayName(const UDateTimePatternGenerator *dtpg,
+                           UDateTimePatternField field,
+                           UDateTimePGDisplayWidth width,
+                           UChar *fieldName, int32_t capacity,
+                           UErrorCode *pErrorCode) {
+    if (U_FAILURE(*pErrorCode))
+        return -1;
+    if (fieldName == NULL ? capacity != 0 : capacity < 0) {
+        *pErrorCode = U_ILLEGAL_ARGUMENT_ERROR;
+        return -1;
+    }
+    UnicodeString result = ((const DateTimePatternGenerator *)dtpg)->getFieldDisplayName(field,width);
+    if (fieldName == NULL) {
+        return result.length();
+    }
+    return result.extract(fieldName, capacity, *pErrorCode);
+}
+
 U_CAPI void U_EXPORT2
 udatpg_setDateTimeFormat(const UDateTimePatternGenerator *dtpg,
                          const UChar *dtFormat, int32_t length) {
@@ -288,7 +307,7 @@ _doReplaceAndReturnAdj( UDateTimePatternGenerator *dtpg, uint32_t options, UBool
     if (U_FAILURE(*pErrorCode)) {
         return 0;
     }
-    UnicodeString stringForOrigSkeleton=((DateTimePatternGenerator *)dtpg)->getBestPattern(skeleton, (UDateTimePatternMatchOptions)options, *pErrorCode);
+    UnicodeString stringForOrigSkeleton=((DateTimePatternGenerator *)dtpg)->getBestPattern(skeleton, UDATPG_MATCH_ALL_FIELDS_LENGTH, *pErrorCode); // match orig field lengths
     if (U_SUCCESS(*pErrorCode)) {
         int32_t index = patternString.indexOf(stringForOrigSkeleton);
         if (index >= 0) {

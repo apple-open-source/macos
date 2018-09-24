@@ -51,6 +51,8 @@
 #import "WebUIDelegatePrivate.h"
 #import "WebViewInternal.h"
 #import <Carbon/Carbon.h>
+#import <JavaScriptCore/InitializeThreading.h>
+#import <JavaScriptCore/JSLock.h>
 #import <WebCore/CommonVM.h>
 #import <WebCore/CookieJar.h>
 #import <WebCore/DocumentLoader.h>
@@ -74,8 +76,6 @@
 #import <objc/runtime.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/QuickDrawSPI.h>
-#import <runtime/InitializeThreading.h>
-#import <runtime/JSLock.h>
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
 #import <wtf/RunLoop.h>
@@ -1098,7 +1098,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                 // FIXME: This code can be shared between WebHostedNetscapePluginView and WebNetscapePluginView.
                 // Since this layer isn't going to be inserted into a view, we need to create another layer and flip its geometry
                 // in order to get the coordinate system right.
-                RetainPtr<CALayer> realPluginLayer = adoptNS(_pluginLayer.leakRef());
+                RetainPtr<CALayer> realPluginLayer = WTFMove(_pluginLayer);
                 
                 _pluginLayer = adoptNS([[CALayer alloc] init]);
                 _pluginLayer.get().bounds = realPluginLayer.get().bounds;
@@ -2162,7 +2162,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             if (!URL)
                 break;
 
-            Vector<ProxyServer> proxyServers = proxyServersForURL(URL, 0);
+            Vector<ProxyServer> proxyServers = proxyServersForURL(URL);
             CString proxiesUTF8 = toString(proxyServers).utf8();
             
             *value = static_cast<char*>(NPN_MemAlloc(proxiesUTF8.length()));

@@ -18,6 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
+#define OS_UNFAIR_LOCK_INLINE 1
 #include "lock_internal.h"
 #include "os/internal.h"
 #include "resolver.h"
@@ -78,7 +79,12 @@ OS_ATOMIC_EXPORT bool OSSpinLockTry(volatile OSSpinLock *l);
 OS_ATOMIC_EXPORT int spin_lock_try(volatile OSSpinLock *l);
 OS_ATOMIC_EXPORT void OSSpinLockUnlock(volatile OSSpinLock *l);
 
-static const OSSpinLock _OSSpinLockLocked = TARGET_OS_EMBEDDED ? 1 : -1;
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+static const OSSpinLock _OSSpinLockLocked = 1;
+#else
+static const OSSpinLock _OSSpinLockLocked = -1;
+#endif
+
 
 
 #if OS_ATOMIC_UP
@@ -289,7 +295,7 @@ typedef mach_port_name_t os_lock_owner_t;
 #define OS_LOCK_NO_OWNER MACH_PORT_NULL
 
 
-OS_ALWAYS_INLINE
+OS_ALWAYS_INLINE OS_CONST
 static inline os_lock_owner_t
 _os_lock_owner_get_self(void)
 {
@@ -622,6 +628,111 @@ os_unfair_lock_assert_not_owner(os_unfair_lock_t lock)
 
 
 #pragma mark -
+#pragma mark os_unfair_recursive_lock
+
+OS_ATOMIC_EXPORT
+void os_unfair_recursive_lock_lock_with_options(os_unfair_recursive_lock_t lock,
+		os_unfair_lock_options_t options);
+
+OS_ATOMIC_EXPORT
+bool os_unfair_recursive_lock_trylock(os_unfair_recursive_lock_t lock);
+
+OS_ATOMIC_EXPORT
+void os_unfair_recursive_lock_unlock(os_unfair_recursive_lock_t lock);
+
+OS_ATOMIC_EXPORT
+bool os_unfair_recursive_lock_tryunlock4objc(os_unfair_recursive_lock_t lock);
+
+
+static inline os_lock_owner_t
+_os_unfair_lock_owner(os_unfair_lock_t lock)
+{
+	_os_unfair_lock_t l = (_os_unfair_lock_t)lock;
+	return OS_ULOCK_OWNER(os_atomic_load(&l->oul_value, relaxed));
+}
+
+void
+os_unfair_recursive_lock_lock_with_options(os_unfair_recursive_lock_t lock,
+		os_unfair_lock_options_t options)
+{
+	os_lock_owner_t cur, self = _os_lock_owner_get_self();
+	_os_unfair_lock_t l = (_os_unfair_lock_t)&lock->ourl_lock;
+
+	if (likely(os_atomic_cmpxchgv2o(l, oul_value,
+			OS_LOCK_NO_OWNER, self, &cur, acquire))) {
+		return;
+	}
+
+	if (OS_ULOCK_OWNER(cur) == self) {
+		lock->ourl_count++;
+		return;
+	}
+
+	return _os_unfair_lock_lock_slow(l, self, options);
+}
+
+bool
+os_unfair_recursive_lock_trylock(os_unfair_recursive_lock_t lock)
+{
+	os_lock_owner_t cur, self = _os_lock_owner_get_self();
+	_os_unfair_lock_t l = (_os_unfair_lock_t)&lock->ourl_lock;
+
+	if (likely(os_atomic_cmpxchgv2o(l, oul_value,
+			OS_LOCK_NO_OWNER, self, &cur, acquire))) {
+		return true;
+	}
+
+	if (likely(OS_ULOCK_OWNER(cur) == self)) {
+		lock->ourl_count++;
+		return true;
+	}
+
+	return false;
+}
+
+
+OS_ALWAYS_INLINE
+static inline void
+_os_unfair_recursive_lock_unlock(os_unfair_recursive_lock_t lock,
+		os_lock_owner_t self)
+{
+	if (unlikely(lock->ourl_count)) {
+		os_lock_owner_t cur = _os_unfair_lock_owner(&lock->ourl_lock);
+		if (unlikely(cur != self)) {
+			_os_unfair_lock_unowned_abort(cur);
+		}
+		lock->ourl_count--;
+		return;
+	}
+
+	_os_unfair_lock_t l = (_os_unfair_lock_t)lock;
+	os_ulock_value_t current;
+	current = os_atomic_xchg2o(l, oul_value, OS_LOCK_NO_OWNER, release);
+	if (likely(current == self)) return;
+	return _os_unfair_lock_unlock_slow(l, current, self, 0);
+}
+
+void
+os_unfair_recursive_lock_unlock(os_unfair_recursive_lock_t lock)
+{
+	os_lock_owner_t self = _os_lock_owner_get_self();
+	_os_unfair_recursive_lock_unlock(lock, self);
+}
+
+bool
+os_unfair_recursive_lock_tryunlock4objc(os_unfair_recursive_lock_t lock)
+{
+	os_lock_owner_t cur = _os_unfair_lock_owner(&lock->ourl_lock);
+	os_lock_owner_t self = _os_lock_owner_get_self();
+	if (likely(cur == self)) {
+		_os_unfair_recursive_lock_unlock(lock, self);
+		return true;
+	}
+	return false;
+}
+
+
+#pragma mark -
 #pragma mark _os_lock_unfair_t
 
 OS_LOCK_STRUCT_DECL_INTERNAL(unfair,
@@ -797,12 +908,18 @@ _os_lock_nospin_unlock(_os_lock_nospin_t l)
 typedef struct os_once_gate_s {
 	union {
 		os_ulock_value_t ogo_lock;
-		os_once_t ogo_once;
+		uintptr_t ogo_once;
 	};
 } os_once_gate_s, *os_once_gate_t;
 
-#define OS_ONCE_INIT ((os_once_t)0l)
-#define OS_ONCE_DONE (~(os_once_t)0l)
+#define OS_ONCE_INIT ((uintptr_t)0l)
+#define OS_ONCE_DONE (~(uintptr_t)0l)
+
+#if defined(__i386__) || defined(__x86_64__)
+#define OS_ONCE_USE_QUIESCENT_COUNTER 0
+#else
+#define OS_ONCE_USE_QUIESCENT_COUNTER 1
+#endif
 
 OS_ATOMIC_EXPORT void _os_once(os_once_t *val, void *ctxt, os_function_t func);
 OS_ATOMIC_EXPORT void __os_once_reset(os_once_t *val);
@@ -839,45 +956,52 @@ _os_once_gate_corruption_abort(os_ulock_value_t current)
 }
 
 
-OS_NOINLINE
-static void
-_os_once_gate_wait_slow(os_ulock_value_t *gate, os_lock_owner_t self)
-{
-	os_ulock_value_t tid_old, tid_new;
+#if OS_ONCE_USE_QUIESCENT_COUNTER
+#define OS_ONCE_MAKE_GEN(gen)  (((gen) << 2) + OS_ULOCK_NOWAITERS_BIT)
+#define OS_ONCE_IS_GEN(gen)    (((gen) & 3) == OS_ULOCK_NOWAITERS_BIT)
 
-	for (;;) {
-		os_atomic_rmw_loop(gate, tid_old, tid_new, relaxed, {
-			switch (tid_old) {
-			case (os_ulock_value_t)OS_ONCE_INIT: // raced with __os_once_reset()
-			case (os_ulock_value_t)OS_ONCE_DONE: // raced with _os_once()
-				os_atomic_rmw_loop_give_up(return);
-			}
-			tid_new = tid_old & ~OS_ULOCK_NOWAITERS_BIT;
-			if (tid_new == tid_old) os_atomic_rmw_loop_give_up(break);
-		});
-		if (unlikely(OS_ULOCK_IS_OWNER(tid_old, self, 0))) {
-			return _os_once_gate_recursive_abort(self);
-		}
-		int ret = __ulock_wait(UL_UNFAIR_LOCK | ULF_NO_ERRNO,
-				gate, tid_new, 0);
-		if (unlikely(ret < 0)) {
-			switch (-ret) {
-			case EINTR:
-			case EFAULT:
-				continue;
-			case EOWNERDEAD:
-				_os_once_gate_corruption_abort(tid_old);
-				break;
-			default:
-				__LIBPLATFORM_INTERNAL_CRASH__(-ret, "ulock_wait failure");
-			}
-		}
-	}
+// the _COMM_PAGE_CPU_QUIESCENT_COUNTER value is incremented every time
+// all CPUs have performed a context switch.
+//
+// To make sure all CPUs context switched at least once since `gen`,
+// we need to observe 4 increments, see libdispatch/src/shims/lock.h
+#define OS_ONCE_GEN_SAFE_DELTA  (4 << 2)
+
+OS_ALWAYS_INLINE
+static inline uintptr_t
+_os_once_generation(void)
+{
+	uintptr_t value = *(volatile uintptr_t *)_COMM_PAGE_CPU_QUIESCENT_COUNTER;
+	return OS_ONCE_MAKE_GEN(value);
 }
 
+OS_ALWAYS_INLINE
+static inline uintptr_t
+_os_once_mark_quiescing(os_once_gate_t og)
+{
+	return os_atomic_xchg(&og->ogo_once, _os_once_generation(), release);
+}
+
+OS_ALWAYS_INLINE
+static void
+_os_once_mark_done_if_quiesced(os_once_gate_t og, uintptr_t gen)
+{
+	if (_os_once_generation() - gen >= OS_ONCE_GEN_SAFE_DELTA) {
+		os_atomic_store(&og->ogo_once, OS_ONCE_DONE, relaxed);
+	}
+}
+#else
+OS_ALWAYS_INLINE
+static inline uintptr_t
+_os_once_mark_done(os_once_gate_t og)
+{
+	return os_atomic_xchg(&og->ogo_once, OS_ONCE_DONE, release);
+}
+#endif
+
 OS_NOINLINE
 static void
-_os_once_gate_broadcast_slow(os_ulock_value_t *gate, os_ulock_value_t current,
+_os_once_gate_broadcast(os_once_gate_t og, os_ulock_value_t current,
 		os_lock_owner_t self)
 {
 	if (unlikely(OS_ULOCK_IS_NOT_OWNER(current, self, 0))) {
@@ -888,7 +1012,7 @@ _os_once_gate_broadcast_slow(os_ulock_value_t *gate, os_ulock_value_t current,
 	}
 	for (;;) {
 		int ret = __ulock_wake(UL_UNFAIR_LOCK | ULF_NO_ERRNO | ULF_WAKE_ALL,
-				gate, 0);
+				&og->ogo_lock, 0);
 		if (unlikely(ret < 0)) {
 			switch (-ret) {
 			case EINTR:
@@ -903,45 +1027,113 @@ _os_once_gate_broadcast_slow(os_ulock_value_t *gate, os_ulock_value_t current,
 	}
 }
 
-OS_ALWAYS_INLINE
+OS_NOINLINE
 static void
-_os_once_gate_set_value_and_broadcast(os_once_gate_t og, os_lock_owner_t self,
-		os_once_t value)
+_os_once_callout(os_once_gate_t og, void *ctxt, os_function_t func,
+		os_lock_owner_t self)
 {
-	os_ulock_value_t current;
-#if defined(__i386__) || defined(__x86_64__)
-	// On Intel, any load is a load-acquire, so we don't need to be fancy
-	current = (os_ulock_value_t)os_atomic_xchg(&og->ogo_once, value, release);
+	uintptr_t v;
+
+	func(ctxt);
+
+#if OS_ONCE_USE_QUIESCENT_COUNTER
+	v = _os_once_mark_quiescing(og);
 #else
-#  error os_once algorithm not available for this architecture
+	v = _os_once_mark_done(og);
 #endif
-	if (likely(current == self)) return;
-	_os_once_gate_broadcast_slow(&og->ogo_lock, current, self);
+	if (likely((os_ulock_value_t)v == self)) return;
+	_os_once_gate_broadcast(og, (os_ulock_value_t)v, self);
+}
+
+OS_NOINLINE
+static void
+_os_once_gate_wait(os_once_gate_t og, void *ctxt, os_function_t func,
+		os_lock_owner_t self)
+{
+	uintptr_t old, new;
+
+	for (;;) {
+		os_atomic_rmw_loop(&og->ogo_once, old, new, relaxed, {
+			if (old == OS_ONCE_DONE) {
+				os_atomic_rmw_loop_give_up(return);
+#if OS_ONCE_USE_QUIESCENT_COUNTER
+			} else if (OS_ONCE_IS_GEN(old)) {
+				os_atomic_rmw_loop_give_up({
+					os_atomic_thread_fence(acquire);
+					return _os_once_mark_done_if_quiesced(og, old);
+				});
+#endif
+			} else if (old == OS_ONCE_INIT) {
+				// __os_once_reset was used, try to become the new initializer
+				new = (uintptr_t)self;
+			} else {
+				new = old & ~(uintptr_t)OS_ULOCK_NOWAITERS_BIT;
+				if (new == old) os_atomic_rmw_loop_give_up(break);
+			}
+		});
+		if (old == OS_ONCE_INIT) {
+			// see comment in _os_once, pairs with the release barrier
+			// in __os_once_reset()
+			os_atomic_thread_fence(acquire);
+			return _os_once_callout(og, ctxt, func, self);
+		}
+		if (unlikely(OS_ULOCK_IS_OWNER((os_lock_owner_t)old, self, 0))) {
+			return _os_once_gate_recursive_abort(self);
+		}
+		int ret = __ulock_wait(UL_UNFAIR_LOCK | ULF_NO_ERRNO,
+				&og->ogo_lock, (os_ulock_value_t)new, 0);
+		if (unlikely(ret < 0)) {
+			switch (-ret) {
+			case EINTR:
+			case EFAULT:
+				continue;
+			case EOWNERDEAD:
+				_os_once_gate_corruption_abort((os_lock_owner_t)old);
+				break;
+			default:
+				__LIBPLATFORM_INTERNAL_CRASH__(-ret, "ulock_wait failure");
+			}
+		}
+	}
 }
 
 // Atomically resets the once value to zero and then signals all
-// pending waiters to return from their _os_once_gate_wait_slow()
+// pending waiters to return from their __ulock_wait()
 void
 __os_once_reset(os_once_t *val)
 {
 	os_once_gate_t og = (os_once_gate_t)val;
 	os_lock_owner_t self = _os_lock_owner_get_self();
-	_os_once_gate_set_value_and_broadcast(og, self, OS_ONCE_INIT);
+	uintptr_t v;
+
+	v = os_atomic_xchg(&og->ogo_once, OS_ONCE_INIT, release);
+	if (likely((os_ulock_value_t)v == self)) return;
+	return _os_once_gate_broadcast(og, (os_ulock_value_t)v, self);
 }
 
 void
 _os_once(os_once_t *val, void *ctxt, os_function_t func)
 {
 	os_once_gate_t og = (os_once_gate_t)val;
-	os_lock_owner_t self = _os_lock_owner_get_self();
-	os_once_t v = (os_once_t)self;
+	os_lock_owner_t self;
+	uintptr_t v;
 
-	if (likely(os_atomic_cmpxchg(&og->ogo_once, OS_ONCE_INIT, v, relaxed))) {
-		func(ctxt);
-		_os_once_gate_set_value_and_broadcast(og, self, OS_ONCE_DONE);
-	} else {
-		_os_once_gate_wait_slow(&og->ogo_lock, self);
+#if OS_ONCE_USE_QUIESCENT_COUNTER
+	v = os_atomic_load(&og->ogo_once, acquire);
+	if (likely(OS_ONCE_IS_GEN(v))) {
+		return _os_once_mark_done_if_quiesced(og, v);
 	}
+#endif
+
+	self = _os_lock_owner_get_self();
+	v = (uintptr_t)self;
+
+	// The acquire barrier pairs with the release in __os_once_reset()
+	// for cases when a previous initializer failed.
+	if (likely(os_atomic_cmpxchg(&og->ogo_once, OS_ONCE_INIT, v, acquire))) {
+		return _os_once_callout(og, ctxt, func, self);
+	}
+	return _os_once_gate_wait(og, ctxt, func, self);
 }
 
 

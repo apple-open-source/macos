@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright (c) 1999-2001,2005-2012 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
@@ -27,10 +27,12 @@
 
 #include "tls_handshake_priv.h"
 #include "sslHandshake.h"
+#include "sslHandshake_priv.h"
 #include "sslMemory.h"
 #include "sslDebug.h"
 #include "sslUtils.h"
 #include "sslDigests.h"
+#include "sslBuildFlags.h"
 #include "sslCrypto.h"
 #include "sslCipherSpecs.h"
 

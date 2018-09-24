@@ -162,6 +162,33 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 				prsep = ", ";
 			}
 		}
+		if (ndo->ndo_kflag & PRMD_FLAGS) {
+			if ((pktp_hdr->pth_flags & PTH_FLAG_NEW_FLOW)) {
+				ND_PRINT((ndo, "%s" "nf",
+					  prsep));
+				prsep = ", ";
+			}
+			if ((pktp_hdr->pth_flags & PTH_FLAG_KEEP_ALIVE)) {
+				ND_PRINT((ndo, "%s" "ka",
+					  prsep));
+				prsep = ", ";
+			}
+			if ((pktp_hdr->pth_flags & PTH_FLAG_REXMIT)) {
+				ND_PRINT((ndo, "%s" "re",
+					  prsep));
+				prsep = ", ";
+			}
+			if ((pktp_hdr->pth_flags & PTH_FLAG_SOCKET)) {
+				ND_PRINT((ndo, "%s" "so",
+					  prsep));
+				prsep = ", ";
+			}
+			if ((pktp_hdr->pth_flags & PTH_FLAG_NEXUS_CHAN)) {
+				ND_PRINT((ndo, "%s" "ch",
+					  prsep));
+				prsep = ", ";
+			}
+		}
 		ND_PRINT((ndo, ") "));
 	}
 

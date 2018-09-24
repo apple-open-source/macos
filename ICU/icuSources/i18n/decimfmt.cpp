@@ -39,6 +39,7 @@
 ********************************************************************************
 */
 
+#include <stdio.h>
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_FORMATTING
@@ -905,16 +906,17 @@ CurrencyAmount* DecimalFormat::parseCurrency(const UnicodeString& text,
                                              ParsePosition& pos) const {
     Formattable parseResult;
     int32_t start = pos.getIndex();
-    UChar curbuf[4] = {};
+    UChar curbuf[4] = {0};
     parse(text, parseResult, pos, curbuf);
     if (pos.getIndex() != start) {
-        UErrorCode ec = U_ZERO_ERROR;
-        LocalPointer<CurrencyAmount> currAmt(new CurrencyAmount(parseResult, curbuf, ec), ec);
-        if (U_FAILURE(ec)) {
-            pos.setIndex(start); // indicate failure
-        } else {
-            return currAmt.orphan();
+        if (curbuf[0]!=0) { // Add this for ICU 61 compatibility
+            UErrorCode ec = U_ZERO_ERROR;
+            LocalPointer<CurrencyAmount> currAmt(new CurrencyAmount(parseResult, curbuf, ec), ec);
+            if (U_SUCCESS(ec)) {
+                return currAmt.orphan();
+            }
         }
+        pos.setIndex(start); // indicate failure
     }
     return NULL;
 }
@@ -1423,8 +1425,8 @@ UBool DecimalFormat::subparse(const UnicodeString& text,
 
 
         UBool strictFail = FALSE; // did we exit with a strict parse failure?
-        int32_t lastGroup = -1; // where did we last see a grouping separator?
-        int32_t digitStart = position;
+        int32_t lastGroup = -1; // after which digit index did we last see a grouping separator?
+        int32_t currGroup = -1; // for temporary storage the digit index of the current grouping separator
         int32_t gs2 = fImpl->fEffGrouping.fGrouping2 == 0 ? fImpl->fEffGrouping.fGrouping : fImpl->fEffGrouping.fGrouping2;
 
         const UnicodeString *decimalString;
@@ -1469,6 +1471,7 @@ UBool DecimalFormat::subparse(const UnicodeString& text,
         // pin when the maximum allowable digits is reached.
         int32_t digitCount = 0;
         int32_t integerDigitCount = 0;
+        int32_t allDigitCount = 0; // digits including leading zeros
 
         for (; position < textLength; )
         {
@@ -1514,22 +1517,24 @@ UBool DecimalFormat::subparse(const UnicodeString& text,
                     // before that, the group must == the secondary group
                     // length, else it can be <= the the secondary group
                     // length.
-                    if ((lastGroup != -1 && backup - lastGroup - 1 != gs2) ||
-                        (lastGroup == -1 && position - digitStart - 1 > gs2)) {
+                    if ((lastGroup != -1 && currGroup - lastGroup != gs2) ||
+                        (lastGroup == -1 && allDigitCount - 1 > gs2)) {
                         strictFail = TRUE;
                         break;
                     }
                     
-                    lastGroup = backup;
+                    lastGroup = currGroup;
                 }
                 
                 // Cancel out backup setting (see grouping handler below)
+                currGroup = -1;
                 backup = -1;
                 sawDigit = TRUE;
                 
                 // Note: this will append leading zeros
                 parsedNum.append((char)(digit + '0'), err);
 
+                allDigitCount++;
                 // count any digit that's not a leading zero
                 if (digit > 0 || digitCount > 0 || sawDecimal) {
                     digitCount += 1;
@@ -1570,6 +1575,7 @@ UBool DecimalFormat::subparse(const UnicodeString& text,
                 // Ignore grouping characters, if we are using them, but require
                 // that they be followed by a digit.  Otherwise we backup and
                 // reprocess them.
+                currGroup = allDigitCount;
                 backup = position;
                 position += groupingStringLength;
                 sawGrouping=TRUE;
@@ -1580,7 +1586,7 @@ UBool DecimalFormat::subparse(const UnicodeString& text,
             {
                 if (strictParse) {
                     if (backup != -1 ||
-                        (lastGroup != -1 && position - lastGroup != fImpl->fEffGrouping.fGrouping + 1)) {
+                        (lastGroup != -1 && allDigitCount - lastGroup != fImpl->fEffGrouping.fGrouping)) {
                         strictFail = TRUE;
                         break;
                     }
@@ -1631,7 +1637,7 @@ UBool DecimalFormat::subparse(const UnicodeString& text,
 
                         UBool sawExponentDigit = FALSE;
                         while (pos < textLength) {
-                            ch = text[(int32_t)pos];
+                            ch = text.char32At(pos);
                             digit = ch - zero;
 
                             if (digit < 0 || digit > 9) {
@@ -1643,7 +1649,7 @@ UBool DecimalFormat::subparse(const UnicodeString& text,
                                     parsedNum.append(exponentSign, err);
                                     sawExponentDigit = TRUE;
                                 }
-                                ++pos;
+                                pos += U16_LENGTH(ch);
                                 parsedNum.append((char)(digit + '0'), err);
                             } else {
                                 break;
@@ -1682,7 +1688,7 @@ UBool DecimalFormat::subparse(const UnicodeString& text,
         }
 
         if (strictParse && !sawDecimal) {
-            if (lastGroup != -1 && position - lastGroup != fImpl->fEffGrouping.fGrouping + 1) {
+            if (lastGroup != -1 && allDigitCount - lastGroup != fImpl->fEffGrouping.fGrouping) {
                 strictFail = TRUE;
             }
         }
@@ -2181,7 +2187,8 @@ int32_t DecimalFormat::compareComplexAffix(const UnicodeString& affixPat,
                 UChar curr[4];
                 UErrorCode ec = U_ZERO_ERROR;
                 // Delegate parse of display name => ISO code to Currency
-                uprv_parseCurrency(loc, text, ppos, type, curr, ec);
+                int32_t partialMatchLen = 0; // to match ICU 62 version of the following
+                uprv_parseCurrency(loc, text, ppos, type, &partialMatchLen, curr, ec);
 
                 // If parse succeeds, populate currency[0]
                 if (U_SUCCESS(ec) && ppos.getIndex() != pos) {
@@ -2552,7 +2559,7 @@ UnicodeString DecimalFormat::getPadCharacterString() const {
 }
 
 void DecimalFormat::setPadCharacter(const UnicodeString &padChar) {
-    UChar pad;
+    UChar32 pad;
     if (padChar.length() > 0) {
         pad = padChar.char32At(0);
     }
@@ -2801,7 +2808,7 @@ DecimalFormat::setDecimalSeparatorAlwaysShown(UBool newValue)
 UBool 
 DecimalFormat::isDecimalPatternMatchRequired(void) const
 {
-    return fBoolFlags.contains(UNUM_PARSE_DECIMAL_MARK_REQUIRED);
+    return static_cast<UBool>(fBoolFlags.contains(UNUM_PARSE_DECIMAL_MARK_REQUIRED));
 }
 
 //------------------------------------------------------------------------------
@@ -2862,10 +2869,12 @@ DecimalFormat::applyPattern(const UnicodeString& pattern,
 void
 DecimalFormat::applyLocalizedPattern(const UnicodeString& pattern, UErrorCode& status)
 {
-    if (pattern.indexOf(kCurrencySign) != -1) {
-        handleCurrencySignInPattern(status);
+   if (U_SUCCESS(status)) {
+        if (pattern.indexOf(kCurrencySign) != -1) {
+            handleCurrencySignInPattern(status);
+        }
+        fImpl->applyLocalizedPattern(pattern, status);
     }
-    fImpl->applyLocalizedPattern(pattern, status);
 }
 
 //------------------------------------------------------------------------------
@@ -2969,6 +2978,9 @@ void DecimalFormat::setCurrency(const UChar* theCurrency, UErrorCode& ec) {
 }
 
 void DecimalFormat::setCurrencyUsage(UCurrencyUsage newContext, UErrorCode* ec){
+    if (U_FAILURE(*ec)) {
+        return;
+    }
     fImpl->setCurrencyUsage(newContext, *ec);
 }
 
@@ -3196,6 +3208,10 @@ DecimalFormat& DecimalFormat::setAttribute( UNumberFormatAttribute attr,
         setMinimumGroupingDigits(newValue);
         break;
 
+    case UNUM_FORMAT_WITH_FULL_PRECISION: // Apple-specific
+        fImpl->setFormatFullPrecision(newValue);
+        break;
+
     default:
       status = U_UNSUPPORTED_ERROR;
       break;
@@ -3280,6 +3296,9 @@ int32_t DecimalFormat::getAttribute( UNumberFormatAttribute attr,
 
     case UNUM_MINIMUM_GROUPING_DIGITS:
         return getMinimumGroupingDigits();
+
+    case UNUM_FORMAT_WITH_FULL_PRECISION: // Apple-specific
+        return fImpl->getFormatFullPrecision();
 
     default:
         status = U_UNSUPPORTED_ERROR;

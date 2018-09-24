@@ -43,10 +43,6 @@
 #import <QuartzCore/CALayerPrivate.h>
 #import <QuartzCore/QuartzCorePrivate.h>
 
-#if PLATFORM(IOS)
-#import <QuartzCore/CADisplay.h>
-#endif
-
 #if PLATFORM(MAC)
 #import <QuartzCore/CARenderCG.h>
 #endif
@@ -76,10 +72,13 @@ typedef struct _CARenderContext CARenderContext;
 - (mach_port_t)createFencePort;
 - (void)setFencePort:(mach_port_t)port;
 - (void)setFencePort:(mach_port_t)port commitHandler:(void(^)(void))block;
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
-@property uint32_t commitPriority;
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
++ (void)setAllowsCGSConnections:(BOOL)flag;
 #endif
+
 #if PLATFORM(MAC)
+@property uint32_t commitPriority;
 @property BOOL colorMatchUntaggedContent;
 #endif
 @property (readonly) uint32_t contextId;
@@ -95,21 +94,13 @@ typedef struct _CARenderContext CARenderContext;
 - (void *)regionBeingDrawn;
 - (void)reloadValueForKeyPath:(NSString *)keyPath;
 @property BOOL allowsGroupBlending;
+@property BOOL allowsHitTesting;
 @property BOOL canDrawConcurrently;
 @property BOOL contentsOpaque;
 @property BOOL hitTestsAsOpaque;
 @property BOOL needsLayoutOnGeometryChange;
 @property BOOL shadowPathIsBounds;
 @end
-
-#if PLATFORM(IOS)
-@interface CADisplay : NSObject
-@end
-
-@interface CADisplay ()
-@property (nonatomic, readonly) NSString *name;
-@end
-#endif
 
 #if ENABLE(FILTERS_LEVEL_2)
 @interface CABackdropLayer : CALayer
@@ -172,7 +163,7 @@ WTF_EXTERN_C_BEGIN
 #if !USE(APPLE_INTERNAL_SDK)
 void CARenderServerCaptureLayerWithTransform(mach_port_t, uint32_t clientId, uint64_t layerId, uint32_t slotId, int32_t ox, int32_t oy, const CATransform3D*);
 
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
 void CARenderServerRenderLayerWithTransform(mach_port_t server_port, uint32_t client_id, uint64_t layer_id, IOSurfaceRef, int32_t ox, int32_t oy, const CATransform3D*);
 void CARenderServerRenderDisplayLayerWithTransformAndTimeOffset(mach_port_t, CFStringRef display_name, uint32_t client_id, uint64_t layer_id, IOSurfaceRef, int32_t ox, int32_t oy, const CATransform3D*, CFTimeInterval);
 #else
@@ -187,7 +178,7 @@ size_t CARenderServerGetBufferDataSize(CARenderServerBufferRef);
 
 bool CARenderServerRenderLayerWithTransform(mach_port_t, uint32_t client_id, uint64_t layer_id, CARenderServerBufferRef, int32_t ox, int32_t oy, const CATransform3D*);
 #endif
-#endif
+#endif // USE(APPLE_INTERNAL_SDK)
 
 typedef struct _CAMachPort *CAMachPortRef;
 CAMachPortRef CAMachPortCreate(mach_port_t);
@@ -243,15 +234,6 @@ extern NSString * const kCAContextPortNumber;
 extern NSString * const kCAContentsFormatRGBA10XR;
 #endif
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+#if PLATFORM(MAC)
 extern NSString * const kCAContentsFormatRGBA8ColorRGBA8LinearGlyphMask;
 #endif
-
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED < 101200
-@protocol CALayerDelegate <NSObject>
-@end
-
-@protocol CAAnimationDelegate <NSObject>
-@end
-
-#endif // USE(APPLE_INTERNAL_SDK)

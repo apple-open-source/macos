@@ -28,6 +28,7 @@
 #import "CKKSGroupOperation.h"
 #import "CKKSAnalytics.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #if OCTAGON
 
@@ -301,7 +302,11 @@
             modifyRecordsOp = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave recordIDsToDelete:recordIDsToDelete];
             modifyRecordsOp.atomic = YES;
             modifyRecordsOp.longLived = NO; // The keys are only in memory; mark this explicitly not long-lived
-            modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;  // This needs to happen for CKKS to be usable by PCS/cloudd. Make it happen.
+
+            // This needs to happen for CKKS to be usable by PCS/cloudd. Make it happen.
+            modifyRecordsOp.configuration.automaticallyRetryNetworkFailures = NO;
+            modifyRecordsOp.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+
             modifyRecordsOp.group = self.ckoperationGroup;
             ckksnotice("ckksheal", ckks, "Operation group is %@", self.ckoperationGroup);
 
@@ -371,8 +376,7 @@
                             return false;
                         } else {
                             // Everything is groovy. HOWEVER, we might still not have processed the keys. Ask for that!
-                            [strongCKKS _onqueueKeyStateMachineRequestProcess];
-                            [strongCKKS _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateReady withError: nil];
+                            [strongCKKS _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateProcess withError: nil];
                         }
                     } else {
                         // ERROR. This isn't a total-failure error state, but one that should kick off a healing process.

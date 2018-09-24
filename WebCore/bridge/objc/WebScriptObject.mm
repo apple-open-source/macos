@@ -40,14 +40,14 @@
 #import "runtime_object.h"
 #import "runtime_root.h"
 #import <JavaScriptCore/APICast.h>
+#import <JavaScriptCore/CallFrame.h>
+#import <JavaScriptCore/CatchScope.h>
+#import <JavaScriptCore/Completion.h>
+#import <JavaScriptCore/InitializeThreading.h>
 #import <JavaScriptCore/JSContextInternal.h>
+#import <JavaScriptCore/JSGlobalObject.h>
+#import <JavaScriptCore/JSLock.h>
 #import <JavaScriptCore/JSValueInternal.h>
-#import <interpreter/CallFrame.h>
-#import <runtime/CatchScope.h>
-#import <runtime/Completion.h>
-#import <runtime/InitializeThreading.h>
-#import <runtime/JSGlobalObject.h>
-#import <runtime/JSLock.h>
 #import <wtf/HashMap.h>
 #import <wtf/Lock.h>
 #import <wtf/NeverDestroyed.h>
@@ -71,7 +71,7 @@ using JSC::makeSource;
 
 namespace WebCore {
 
-static StaticLock spinLock;
+static Lock spinLock;
 static CreateWrapperFunction createDOMWrapperFunction;
 static DisconnectWindowWrapperFunction disconnectWindowWrapperFunction;
 
@@ -276,7 +276,9 @@ void disconnectWindowWrapper(WebScriptObject *windowWrapper)
     // It's not actually correct to call shouldAllowAccessToFrame in this way because
     // JSDOMWindowBase* isn't the right object to represent the currently executing
     // JavaScript. Instead, we should use ExecState, like we do elsewhere.
-    JSDOMWindowBase* target = jsCast<JSDOMWindowBase*>(root->globalObject());
+    auto* target = JSC::jsDynamicCast<JSDOMWindowBase*>(root->globalObject()->vm(), root->globalObject());
+    if (!target)
+        return false;
     return BindingSecurity::shouldAllowAccessToDOMWindow(_private->originRootObject->globalObject()->globalExec(), target->wrapped());
 }
 
@@ -346,7 +348,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 
     JSC::JSValue function = [self _imp]->get(exec, Identifier::fromString(exec, String(name)));
     CallData callData;
-    CallType callType = getCallData(function, callData);
+    CallType callType = getCallData(vm, function, callData);
     if (callType == CallType::None)
         return nil;
 
@@ -401,7 +403,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     auto scope = DECLARE_CATCH_SCOPE(vm);
     ExecState* exec = globalObject->globalExec();
 
-    JSObject* object = jsDynamicDowncast<JSObject*>(vm, [self _imp]);
+    JSObject* object = JSC::jsDynamicCast<JSObject*>(vm, [self _imp]);
     PutPropertySlot slot(object);
     object->methodTable(vm)->put(object, exec, Identifier::fromString(exec, String(key)), convertObjcValueToValue(exec, &value, ObjcObjectType, [self _rootObject]), slot);
 
@@ -570,11 +572,11 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
         JSC::VM& vm = rootObject->globalObject()->vm();
         JSLockHolder lock(vm);
 
-        if (object->inherits(vm, JSHTMLElement::info())) {
+        if (object->inherits<JSHTMLElement>(vm)) {
             // Plugin elements cache the instance internally.
             if (ObjcInstance* instance = static_cast<ObjcInstance*>(pluginInstance(jsCast<JSHTMLElement*>(object)->wrapped())))
                 return instance->getObject();
-        } else if (object->inherits(vm, ObjCRuntimeObject::info())) {
+        } else if (object->inherits<ObjCRuntimeObject>(vm)) {
             ObjCRuntimeObject* runtimeObject = static_cast<ObjCRuntimeObject*>(object);
             ObjcInstance* instance = runtimeObject->getInternalObjCInstance();
             if (instance)
@@ -654,10 +656,10 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 {
     UNUSED_PARAM(unusedZone);
 
-    static WebUndefined *sharedUndefined = 0;
-    if (!sharedUndefined)
-        sharedUndefined = [super allocWithZone:NULL];
-    return sharedUndefined;
+    static NeverDestroyed<RetainPtr<WebUndefined>> sharedUndefined;
+    if (!sharedUndefined.get())
+        sharedUndefined.get() = adoptNS([super allocWithZone:nullptr]);
+    return [sharedUndefined.get() retain];
 }
 
 - (NSString *)description
@@ -713,7 +715,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 
 + (WebUndefined *)undefined
 {
-    return [WebUndefined allocWithZone:NULL];
+    return [[WebUndefined allocWithZone:NULL] autorelease];
 }
 
 @end

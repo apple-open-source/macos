@@ -118,6 +118,19 @@ diff -Naur php-5.4.22/ext/mbstring/libmbfl/config.h php/ext/mbstring/libmbfl/con
 diff -Naur php/configure.orig php/configure
 --- php/configure.orig	2014-01-16 15:42:07.000000000 -0800
 +++ php/configure	2014-01-16 15:37:54.000000000 -0800
+@@ -8350,10 +8350,9 @@
+ if ac_fn_c_try_compile "$LINENO"; then :
+ 
+ 
+-$as_echo "#define HAVE_PORT 1" >>confdefs.h
+ 
+-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+-$as_echo "yes" >&6; }
++        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes but overridden to no by patch" >&5
++$as_echo "no" >&6; }
+ 
+ else
+ 
 @@ -39759,7 +39759,7 @@
  
  $as_echo "#define ENABLE_GD_TTF 1" >>confdefs.h

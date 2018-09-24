@@ -43,7 +43,7 @@ typedef struct cssm_kr_name {
     char *Name; /* name string */
 } CSSM_KR_NAME DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_kr_profile {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_kr_profile {
     CSSM_KR_NAME UserName; /* name of the user */
     CSSM_CERTGROUP_PTR UserCertificate; /* public key certificate of the user */
     CSSM_CERTGROUP_PTR KRSCertChain; /* cert chain for the KRSP coordinator */
@@ -58,7 +58,7 @@ typedef struct cssm_kr_profile {
     CSSM_DATA_PTR KRSPExtensions; /* reserved for extensions specific to KRSPs */
 } CSSM_KR_PROFILE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_KR_PROFILE_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_kr_wrappedproductinfo {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_kr_wrappedproductinfo {
     CSSM_VERSION StandardVersion;
     CSSM_STRING StandardDescription;
     CSSM_VERSION ProductVersion;
@@ -67,11 +67,11 @@ typedef struct cssm_kr_wrappedproductinfo {
     uint32 ProductFlags;
 } CSSM_KR_WRAPPEDPRODUCT_INFO DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_KR_WRAPPEDPRODUCT_INFO_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_krsubservice {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_krsubservice {
     uint32 SubServiceId;
     char *Description; /* Description of this sub service */
     CSSM_KR_WRAPPEDPRODUCT_INFO WrappedProduct;
-} CSSM_KRSUBSERVICE, *CSSM_KRSUBSERVICE_PTR;
+} CSSM_KRSUBSERVICE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_KRSUBSERVICE_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef uint32 CSSM_KR_POLICY_TYPE;
 #define CSSM_KR_INDIV_POLICY			(0x00000001)
@@ -89,7 +89,7 @@ typedef uint32 CSSM_KR_POLICY_FLAGS;
 #define CSSM_KR_OPTIMIZE				(0x00000010)
 #define CSSM_KR_DROP_WORKFACTOR			(0x00000020)
 
-typedef struct cssm_kr_policy_list_item {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_kr_policy_list_item {
     struct kr_policy_list_item *next;
     CSSM_ALGORITHMS AlgorithmId;
     CSSM_ENCRYPT_MODE Mode;
@@ -100,7 +100,7 @@ typedef struct cssm_kr_policy_list_item {
     CSSM_CONTEXT_TYPE AlgClass;
 } CSSM_KR_POLICY_LIST_ITEM DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_KR_POLICY_LIST_ITEM_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_kr_policy_info {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_kr_policy_info {
     CSSM_BOOL krbNotAllowed;
     uint32 numberOfEntries;
     CSSM_KR_POLICY_LIST_ITEM *policyEntry;

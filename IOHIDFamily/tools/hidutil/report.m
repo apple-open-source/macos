@@ -12,8 +12,9 @@
 #include "utility.h"
 
 int report(int argc, const char * argv[]);
+static const NSArray *_debugKeys;
 
-static const char MAIN_OPTIONS_SHORT[] = "m:g:s:t:h";
+static const char MAIN_OPTIONS_SHORT[] = "m:g:s:t:hv";
 static const struct option MAIN_OPTIONS[] =
 {
     { "matching",   required_argument,  NULL,   'm' },
@@ -21,17 +22,19 @@ static const struct option MAIN_OPTIONS[] =
     { "set",        required_argument,  NULL,   's' },
     { "type",       required_argument,  NULL,   't' },
     { "help",       0,                  NULL,   'h' },
+    { "verbose",    0,                  NULL,   'v' },
     { NULL,         0,                  NULL,    0  }
 };
 
 const char reportUsage[] =
 "\nMonitor HID device reports\n"
 "\nUsage:\n\n"
-"  hidutil report [--get <reportID> ][ --set <reportID> <bytes> ][ --type <reportType> ][ --matching <matching> ]\n"
+"  hidutil report [--get <reportID> ][ --set <reportID> <bytes> ][ --type <reportType> ][ --matching <matching> ] [ --verbose ]\n"
 "\nFlags:\n\n"
 "  -g  --get...................get report for report ID. Use --type to specify report type\n"
 "  -s  --set...................set report with report ID and data. Use --type to specify report type\n"
 "  -t  --type..................report type (input, output, feature), defaults to feature\n"
+"  -v  --verbose...............print device enumerated/terminated info\n"
 MATCHING_HELP
 "\nExamples:\n\n"
 "  hidutil report\n"
@@ -52,8 +55,9 @@ static void reportCallback(void *context __unused, IOReturn result __unused, voi
     printf("\n");
 }
 
-static void getReport(IOHIDManagerRef manager, uint8_t reportID, IOHIDReportType reportType) {
+static OSStatus getReport(IOHIDManagerRef manager, uint8_t reportID, IOHIDReportType reportType) {
     NSArray *devices = (NSArray *)CFBridgingRelease(IOHIDManagerCopyDevices(manager));
+    OSStatus  ret = EXIT_SUCCESS;
     
     for (id device in devices) {
         IOHIDDeviceRef  deviceRef   = (__bridge IOHIDDeviceRef)device;
@@ -86,7 +90,8 @@ static void getReport(IOHIDManagerRef manager, uint8_t reportID, IOHIDReportType
         result = IOHIDDeviceGetReport(deviceRef, reportType, reportID, report, &reportLength);
         
         if (result != kIOReturnSuccess) {
-            printf("GetReport failed for device 0x%llx: 0x%x\n", regID, result);
+            printf("GetReport failed for device:0x%llx reportid:%d type:%d status:0x%x\n", regID, reportID, reportType, result);
+            ret = EXIT_FAILURE;
         } else {
             printf("GetReport device:0x%llx reportID:%d type:%d length:%ld bytes:", regID, reportID, reportType, reportLength);
             for (unsigned int index=0; index < (unsigned int)reportLength; index++)
@@ -97,10 +102,12 @@ static void getReport(IOHIDManagerRef manager, uint8_t reportID, IOHIDReportType
         IOHIDDeviceClose(deviceRef, 0);
         free(report);
     }
+    return ret;
 }
 
-static void setReport(IOHIDManagerRef manager, uint8_t reportID, IOHIDReportType reportType, uint8_t *report, uint32_t reportLength) {
+static OSStatus setReport(IOHIDManagerRef manager, uint8_t reportID, IOHIDReportType reportType, uint8_t *report, uint32_t reportLength) {
     NSArray *devices = (NSArray *)CFBridgingRelease(IOHIDManagerCopyDevices(manager));
+    OSStatus ret = noErr;
     
     for (id device in devices) {
         IOHIDDeviceRef  deviceRef   = (__bridge IOHIDDeviceRef)device;
@@ -114,7 +121,8 @@ static void setReport(IOHIDManagerRef manager, uint8_t reportID, IOHIDReportType
         result = IOHIDDeviceSetReport(deviceRef, reportType, reportID, report, reportLength);
         
         if (result != kIOReturnSuccess) {
-            printf("SetReport failed for device 0x%llx: 0x%x\n", regID, result);
+            printf("SetReport failed for device:0x%llx reportid:%d type:%d status:0x%x\n", regID, reportID, reportType, result);
+            ret = kCommandErr;
         } else {
             printf("SetReport device:0x%llx reportID:%d type:%d length:%d bytes:", regID, reportID, reportType, reportLength);
             for (unsigned int index=0; index < (unsigned int)reportLength; index++)
@@ -124,6 +132,77 @@ static void setReport(IOHIDManagerRef manager, uint8_t reportID, IOHIDReportType
         
         IOHIDDeviceClose(deviceRef, 0);
     }
+    return ret;
+}
+
+static NSString *_flatten(id object)
+{
+    NSMutableString *result = [NSMutableString new];
+    
+    if ([object isKindOfClass:[NSArray class]]) {
+        NSArray *arr = (NSArray *)object;
+        [result appendString:@"("];
+        for (id objs in arr) {
+            [result appendString:_flatten(objs)];
+            
+            if (objs != arr.lastObject) {
+                [result appendString:@", "];
+            }
+        }
+        [result appendString:@")"];
+    } else if ([object isKindOfClass:[NSDictionary class]]) {
+        [result appendString:@"{"];
+        NSDictionary *dict = (NSDictionary *)object;
+        NSArray *keys = [dict allKeys];
+        
+        for (id key in keys) {
+            [result appendFormat:@"%@:", key];
+            [result appendString:_flatten(dict[key])];
+            
+            if (key != keys.lastObject) {
+                [result appendString:@", "];
+            }
+        }
+        [result appendString:@"}"];
+    } else {
+        [result appendFormat:@"%@", object];
+    }
+    
+    return result;
+}
+
+static void _deviceAddedCallback(void *context __unused,
+                                 IOReturn result __unused,
+                                 void *sender __unused,
+                                 IOHIDDeviceRef device)
+{
+    uint64_t regID;
+    
+    IORegistryEntryGetRegistryEntryID(IOHIDDeviceGetService(device), &regID);
+    
+    printf("device added:0x%llx ", regID);
+    for (NSString *key in _debugKeys) {
+        id val = (__bridge id)IOHIDDeviceGetProperty(device, (__bridge CFStringRef)key);
+        printf("%s ", [[NSString stringWithFormat:@"%@:%@", key, _flatten(val)] UTF8String]);
+    }
+    printf("\n");
+}
+
+static void _deviceRemovedCallback(void *context __unused,
+                                   IOReturn result __unused,
+                                   void *sender __unused,
+                                   IOHIDDeviceRef device)
+{
+    uint64_t regID;
+    
+    IORegistryEntryGetRegistryEntryID(IOHIDDeviceGetService(device), &regID);
+    
+    printf("device removed:0x%llx ", regID);
+    for (NSString *key in _debugKeys) {
+        id val = (__bridge id)IOHIDDeviceGetProperty(device, (__bridge CFStringRef)key);
+        printf("%s ", [[NSString stringWithFormat:@"%@:%@", key, _flatten(val)] UTF8String]);
+    }
+    printf("\n");
 }
 
 int report(int argc __unused, const char * argv[] __unused) {
@@ -136,7 +215,10 @@ int report(int argc __unused, const char * argv[] __unused) {
     uint8_t             *reportData     = NULL;
     uint32_t            reportLength    = 0;
     IOHIDReportType     reportType      = kIOHIDReportTypeFeature;
+    bool                verbose         = false;
     int                 arg, tmpLength;
+    _debugKeys = @[ @kIOClassKey, @kIOHIDPrimaryUsagePageKey, @kIOHIDPrimaryUsageKey, @kIOHIDVendorIDKey, @kIOHIDProductIDKey,
+                     @kIOHIDTransportKey, @kIOHIDLocationIDKey, @kIOHIDProductKey, @kIOHIDManufacturerKey, @kIOHIDDeviceUsagePairsKey ];
     
     while ((arg = getopt_long(argc, (char **) argv, MAIN_OPTIONS_SHORT, MAIN_OPTIONS, NULL)) != -1) {
         switch (arg) {
@@ -147,6 +229,10 @@ int report(int argc __unused, const char * argv[] __unused) {
                 // --matching
             case 'm':
                 matching = optarg;
+                break;
+                // --verbose
+            case 'v':
+                verbose = true;
                 break;
                 // --get
             case 'g':
@@ -168,7 +254,7 @@ int report(int argc __unused, const char * argv[] __unused) {
                 }
                 
                 if (!reportLength) {
-                    status = STATUS_ERROR;
+                    status = kOptionErr;
                     goto exit;
                 }
                 
@@ -189,7 +275,7 @@ int report(int argc __unused, const char * argv[] __unused) {
                     reportType = kIOHIDReportTypeFeature;
                 } else {
                     printf("Unknown report type: %s\n", optarg);
-                    status = STATUS_ERROR;
+                    status = kOptionErr;
                     goto exit;
                 }
                 break;
@@ -216,14 +302,19 @@ int report(int argc __unused, const char * argv[] __unused) {
     
     // get report
     if (get) {
-        getReport(manager, reportID, reportType);
+        status = getReport(manager, reportID, reportType);
         goto exit;
     }
     
     // set report
     if (set) {
-        setReport(manager, reportID, reportType, reportData, reportLength);
+        status = setReport(manager, reportID, reportType, reportData, reportLength);
         goto exit;
+    }
+    
+    if (verbose) {
+        IOHIDManagerRegisterDeviceMatchingCallback(manager, _deviceAddedCallback, 0);
+        IOHIDManagerRegisterDeviceRemovalCallback(manager, _deviceRemovedCallback, 0);
     }
     
     IOHIDManagerRegisterInputReportCallback(manager, reportCallback, NULL);
@@ -236,6 +327,7 @@ int report(int argc __unused, const char * argv[] __unused) {
     IOHIDManagerClose(manager, kIOHIDOptionsTypeNone);
     
 exit:
+    
     if (manager) {
         CFRelease(manager);
     }

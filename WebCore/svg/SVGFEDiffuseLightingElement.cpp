@@ -27,8 +27,11 @@
 #include "SVGFilterBuilder.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(SVGFEDiffuseLightingElement);
 
 // Animated property definitions
 DEFINE_ANIMATED_STRING(SVGFEDiffuseLightingElement, SVGNames::inAttr, In1, in1)
@@ -108,7 +111,8 @@ bool SVGFEDiffuseLightingElement::setFilterEffectAttribute(FilterEffect* effect,
     if (attrName == SVGNames::lighting_colorAttr) {
         RenderObject* renderer = this->renderer();
         ASSERT(renderer);
-        return diffuseLighting->setLightingColor(renderer->style().svgStyle().lightingColor());
+        Color color = renderer->style().colorByApplyingColorFilter(renderer->style().svgStyle().lightingColor());
+        return diffuseLighting->setLightingColor(color);
     }
     if (attrName == SVGNames::surfaceScaleAttr)
         return diffuseLighting->setSurfaceScale(surfaceScale());
@@ -187,7 +191,7 @@ RefPtr<FilterEffect> SVGFEDiffuseLightingElement::build(SVGFilterBuilder* filter
     if (!renderer)
         return nullptr;
 
-    const Color& color = renderer->style().svgStyle().lightingColor();
+    Color color = renderer->style().colorByApplyingColorFilter(renderer->style().svgStyle().lightingColor());
 
     RefPtr<FilterEffect> effect = FEDiffuseLighting::create(filter, color, surfaceScale(), diffuseConstant(), kernelUnitLengthX(), kernelUnitLengthY(), WTFMove(lightSource));
     effect->inputEffects().append(input1);

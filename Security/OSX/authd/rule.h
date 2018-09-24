@@ -41,6 +41,12 @@ enum {
 };
 typedef uint32_t RuleFlags;
 
+typedef enum  {
+    rule_insert,
+    rule_update,
+    rule_delete,
+} RuleOperation;
+    
 AUTH_WARN_RESULT AUTH_MALLOC AUTH_NONNULL_ALL AUTH_RETURNS_RETAINED
 rule_t rule_create_default(void);
 
@@ -75,7 +81,7 @@ AUTH_NONNULL1 AUTH_NONNULL2
 bool rule_sql_commit(rule_t,authdb_connection_t,CFAbsoluteTime,process_t);
 
 AUTH_NONNULL_ALL
-bool rule_sql_remove(rule_t,authdb_connection_t);
+bool rule_sql_remove(rule_t,authdb_connection_t,process_t);
 
 AUTH_NONNULL_ALL
 CFMutableDictionaryRef rule_copy_to_cfobject(rule_t,authdb_connection_t);
@@ -145,6 +151,9 @@ CFDataRef rule_get_requirement_data(rule_t);
 
 AUTH_NONNULL_ALL
 SecRequirementRef rule_get_requirement(rule_t);
+    
+AUTH_NONNULL1 AUTH_NONNULL2
+void rule_log_manipulation(authdb_connection_t dbconn, rule_t rule, RuleOperation operation, process_t source);
     
 #if defined(__cplusplus)
 }

@@ -3,7 +3,7 @@
 tg{
     AuxExemplarCharacters{"[ц щ ы ь]"}
     ExemplarCharacters{"[а б в г ғ д е ё ж з и ӣ й к қ л м н о п р с т у ӯ ф х ҳ ч ҷ ш ъ э ю я]"}
-    ExemplarCharactersIndex{"[А Б В Г Ғ Д Е Ж З И Й К Қ Л М Н О П Р С Т У Ф Х Ҳ Ч Ҷ Ш Ъ Э Ю Я]"}
+    ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     NumberElements{
         default{"latn"}
         latn{
@@ -34,7 +34,7 @@ tg{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.27.40"}
+    Version{"2.1.38.71"}
     calendar{
         generic{
             DateTimePatterns{
@@ -79,13 +79,12 @@ tg{
                 yyyyQQQ{"QQQ y G"}
                 yyyyQQQQ{"QQQQ y G"}
             }
+            intervalFormats{
+                fallback{"{0} – {1}"}
+            }
         }
         gregorian{
             AmPmMarkers{
-                "пе. чо.",
-                "па. чо.",
-            }
-            AmPmMarkersAbbr{
                 "пе. чо.",
                 "па. чо.",
             }
@@ -243,6 +242,9 @@ tg{
                     "CE",
                 }
             }
+            intervalFormats{
+                fallback{"{0} – {1}"}
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -378,9 +380,113 @@ tg{
         }
     }
     delimiters{
-        alternateQuotationEnd{"„"}
+        alternateQuotationEnd{"»"}
         alternateQuotationStart{"«"}
         quotationEnd{"»"}
         quotationStart{"«"}
+    }
+    fields{
+        day{
+            dn{"рӯз"}
+            relative{
+                "-1"{"дирӯз"}
+                "0"{"имрӯз"}
+                "1"{"фардо"}
+            }
+        }
+        day-narrow{
+            dn{"рӯз"}
+        }
+        day-short{
+            dn{"рӯз"}
+        }
+        dayperiod{
+            dn{"пе. чо./па. чо."}
+        }
+        era{
+            dn{"мабдаи таърих"}
+        }
+        hour{
+            dn{"соат"}
+        }
+        hour-narrow{
+            dn{"ст."}
+        }
+        hour-short{
+            dn{"ст."}
+        }
+        minute{
+            dn{"дақиқа"}
+        }
+        minute-narrow{
+            dn{"дақ."}
+        }
+        minute-short{
+            dn{"дақ."}
+        }
+        month{
+            dn{"моҳ"}
+        }
+        month-narrow{
+            dn{"м."}
+        }
+        month-short{
+            dn{"м."}
+        }
+        quarter{
+            dn{"чоряк"}
+        }
+        quarter-narrow{
+            dn{"чр."}
+        }
+        quarter-short{
+            dn{"чр."}
+        }
+        second{
+            dn{"сония"}
+        }
+        second-narrow{
+            dn{"сон."}
+        }
+        second-short{
+            dn{"сон."}
+        }
+        week{
+            dn{"ҳафта"}
+        }
+        week-narrow{
+            dn{"ҳ."}
+        }
+        week-short{
+            dn{"ҳ."}
+        }
+        weekday{
+            dn{"рӯзи ҳафта"}
+        }
+        year{
+            dn{"сол"}
+        }
+        year-narrow{
+            dn{"с."}
+        }
+        year-short{
+            dn{"с."}
+        }
+        zone{
+            dn{"минтақаи вақт"}
+        }
+    }
+    listPattern{
+        standard{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
+    }
+    measurementSystemNames{
+        UK{"БК"}
+        US{"ИМА"}
+        metric{"Метрӣ"}
     }
 }

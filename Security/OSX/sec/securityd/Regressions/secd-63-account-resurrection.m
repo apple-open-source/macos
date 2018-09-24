@@ -56,7 +56,7 @@
 static int kTestTestCount = 107;
 
 typedef void (^stir_block)(int expected_iterations);
-typedef int (^execute_block)();
+typedef int (^execute_block)(void);
 
 static void stirBetween(stir_block stir, ...) {
     va_list va;
@@ -183,7 +183,7 @@ static void tests(void)
         CFReleaseNull(error);
         return 1;
     }, ^{
-        ok(![alice_resurrected.trust isInCircle:&error], "Ressurrected not in circle: %@", error);
+        ok(![alice_resurrected isInCircle:&error], "Ressurrected not in circle: %@", error);
         CFReleaseNull(error);
 
         ok(SOSAccountJoinCircles_wTxn(alice_resurrected, &error), "Risen-alice Applies (%@)", error);

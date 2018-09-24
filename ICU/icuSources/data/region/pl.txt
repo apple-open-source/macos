@@ -31,6 +31,7 @@ pl{
         151{"Europa Wschodnia"}
         154{"Europa Północna"}
         155{"Europa Zachodnia"}
+        202{"Afryka Subsaharyjska"}
         419{"Ameryka Łacińska"}
         AC{"Wyspa Wniebowstąpienia"}
         AD{"Andora"}
@@ -41,7 +42,7 @@ pl{
         AL{"Albania"}
         AM{"Armenia"}
         AO{"Angola"}
-        AQ{"Antarktyka"}
+        AQ{"Antarktyda"}
         AR{"Argentyna"}
         AS{"Samoa Amerykańskie"}
         AT{"Austria"}
@@ -106,6 +107,7 @@ pl{
         ES{"Hiszpania"}
         ET{"Etiopia"}
         EU{"Unia Europejska"}
+        EZ{"strefa euro"}
         FI{"Finlandia"}
         FJ{"Fidżi"}
         FK{"Falklandy"}
@@ -225,7 +227,7 @@ pl{
         PW{"Palau"}
         PY{"Paragwaj"}
         QA{"Katar"}
-        QO{"Oceania inne"}
+        QO{"Oceania — wyspy dalekie"}
         RE{"Reunion"}
         RO{"Rumunia"}
         RS{"Serbia"}
@@ -302,6 +304,7 @@ pl{
         US{"USA"}
     }
     Countries%variant{
+        CD{"Kongo (DRK)"}
         CG{"Republika Konga"}
         CI{"Wybrzeże Kości Słoniowej"}
         CZ{"Republika Czeska"}
@@ -309,5 +312,5 @@ pl{
         MK{"Była Jugosłowiańska Republika Macedonii"}
         TL{"Timor-Leste"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

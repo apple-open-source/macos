@@ -65,7 +65,7 @@
 #define kPMASLSigPlatformActionFailure      "Platform Action Failure"
 #define kPMASLSigPlatformDriverFailure      "Platform Driver Failure"
 #define kPMASLSigCpusFailure                "Cpus Failure"
-#define kPMASLSigPlatformFailure            "Platform Failure"
+#define kPMASLSigEFIFailure                 "EFI/Bootrom Failure after last point of entry to sleep"
 #define kPMASLSigLoginwindowFailure         "Loginwindow Failure"
 #define kPMASLSigResponseTimedOut           "Timed Out"
 #define kPMASLSigResponseCancel             "Cancelled"

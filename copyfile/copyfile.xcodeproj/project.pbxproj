@@ -286,10 +286,11 @@
 					"$(inherited)",
 					"$(SDKROOT)/usr/lib/system",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 			};
 			name = Release;
 		};
@@ -358,6 +359,8 @@
 				);
 				SDKROOT = macosx.internal;
 				"SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wextra",

@@ -38,13 +38,14 @@
 #include "JSRTCSessionDescription.h"
 #include "JSReadableStream.h"
 #include "JSReadableStreamPrivateConstructors.h"
+#include "JSRemoteDOMWindow.h"
 #include "JSWorkerGlobalScope.h"
 #include "RuntimeEnabledFeatures.h"
 #include "StructuredClone.h"
 #include "WebCoreJSClientData.h"
 #include "WorkerGlobalScope.h"
-#include <builtins/BuiltinNames.h>
-#include <bytecode/CodeBlock.h>
+#include <JavaScriptCore/BuiltinNames.h>
+#include <JavaScriptCore/CodeBlock.h>
 
 namespace WebCore {
 using namespace JSC;
@@ -56,9 +57,8 @@ EncodedJSValue JSC_HOST_CALL isReadableByteStreamAPIEnabled(ExecState*);
 
 const ClassInfo JSDOMGlobalObject::s_info = { "DOMGlobalObject", &JSGlobalObject::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSDOMGlobalObject) };
 
-JSDOMGlobalObject::JSDOMGlobalObject(VM& vm, Structure* structure, Ref<DOMWrapperWorld>&& world, const GlobalObjectMethodTable* globalObjectMethodTable, RefPtr<JSC::ThreadLocalCache>&& threadLocalCache)
-    : JSGlobalObject(vm, structure, globalObjectMethodTable, WTFMove(threadLocalCache))
-    , m_currentEvent(0)
+JSDOMGlobalObject::JSDOMGlobalObject(VM& vm, Structure* structure, Ref<DOMWrapperWorld>&& world, const GlobalObjectMethodTable* globalObjectMethodTable)
+    : JSGlobalObject(vm, structure, globalObjectMethodTable)
     , m_world(WTFMove(world))
     , m_worldIsNormal(m_world->isNormal())
     , m_builtinInternalFunctions(vm)
@@ -196,13 +196,15 @@ void JSDOMGlobalObject::finishCreation(VM& vm, JSObject* thisValue)
 
 ScriptExecutionContext* JSDOMGlobalObject::scriptExecutionContext() const
 {
-    if (inherits(vm(), JSDOMWindowBase::info()))
+    if (inherits<JSDOMWindowBase>(vm()))
         return jsCast<const JSDOMWindowBase*>(this)->scriptExecutionContext();
-    if (inherits(vm(), JSWorkerGlobalScopeBase::info()))
+    if (inherits<JSRemoteDOMWindowBase>(vm()))
+        return nullptr;
+    if (inherits<JSWorkerGlobalScopeBase>(vm()))
         return jsCast<const JSWorkerGlobalScopeBase*>(this)->scriptExecutionContext();
     dataLog("Unexpected global object: ", JSValue(this), "\n");
     RELEASE_ASSERT_NOT_REACHED();
-    return 0;
+    return nullptr;
 }
 
 void JSDOMGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
@@ -235,40 +237,6 @@ void JSDOMGlobalObject::setCurrentEvent(Event* currentEvent)
 Event* JSDOMGlobalObject::currentEvent() const
 {
     return m_currentEvent;
-}
-
-JSDOMGlobalObject* toJSDOMGlobalObject(Document* document, JSC::ExecState* exec)
-{
-    return toJSDOMWindow(document->frame(), currentWorld(exec));
-}
-
-JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext* scriptExecutionContext, JSC::ExecState* exec)
-{
-    if (is<Document>(*scriptExecutionContext))
-        return toJSDOMGlobalObject(downcast<Document>(scriptExecutionContext), exec);
-
-    if (is<WorkerGlobalScope>(*scriptExecutionContext))
-        return downcast<WorkerGlobalScope>(*scriptExecutionContext).script()->workerGlobalScopeWrapper();
-
-    ASSERT_NOT_REACHED();
-    return nullptr;
-}
-
-JSDOMGlobalObject* toJSDOMGlobalObject(Document* document, DOMWrapperWorld& world)
-{
-    return toJSDOMWindow(document->frame(), world);
-}
-
-JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext* scriptExecutionContext, DOMWrapperWorld& world)
-{
-    if (is<Document>(*scriptExecutionContext))
-        return toJSDOMGlobalObject(downcast<Document>(scriptExecutionContext), world);
-
-    if (is<WorkerGlobalScope>(*scriptExecutionContext))
-        return downcast<WorkerGlobalScope>(*scriptExecutionContext).script()->workerGlobalScopeWrapper();
-
-    ASSERT_NOT_REACHED();
-    return nullptr;
 }
 
 JSDOMGlobalObject& callerGlobalObject(ExecState& state)
@@ -307,6 +275,18 @@ JSDOMGlobalObject& callerGlobalObject(ExecState& state)
     GetCallerGlobalObjectFunctor iter;
     state.iterate(iter);
     return *jsCast<JSDOMGlobalObject*>(iter.globalObject() ? iter.globalObject() : state.vmEntryGlobalObject());
+}
+
+JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext& context, DOMWrapperWorld& world)
+{
+    if (is<Document>(context))
+        return toJSDOMWindow(downcast<Document>(context).frame(), world);
+
+    if (is<WorkerGlobalScope>(context))
+        return downcast<WorkerGlobalScope>(context).script()->workerGlobalScopeWrapper();
+
+    ASSERT_NOT_REACHED();
+    return nullptr;
 }
 
 } // namespace WebCore

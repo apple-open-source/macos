@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,8 +38,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <TargetConditionals.h>
+#if !TARGET_OS_OSX
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
+#endif
 #if ! TARGET_OS_EMBEDDED
 #include <Security/SecIdentitySearch.h>
 #include <Security/SecKeychain.h>
@@ -73,6 +75,7 @@
 #include "EAPCertificateUtil.h"
 #include "EAPSecurity.h"
 #include "myCFUtil.h"
+#include "EAPKeychainUtil.h"
 
 #define kEAPSecIdentityHandleType	CFSTR("IdentityHandleType")
 #define kEAPSecIdentityHandleTypeCertificateData	CFSTR("CertificateData")
@@ -393,7 +396,7 @@ IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
 static OSStatus
 IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
 {
-    SecKeychainItemRef		cert;
+    EAPSecKeychainItemRef	cert;
     OSStatus			status;
 
     status = SecKeychainItemCopyFromPersistentReference(data, &cert);
@@ -621,7 +624,7 @@ EAPSecIdentityHandleCreate(SecIdentityRef identity)
 		  EAPSecurityErrorString(status), (int)status);
 	return (NULL);
     }
-    status = SecKeychainItemCreatePersistentReference((SecKeychainItemRef)cert,
+    status = SecKeychainItemCreatePersistentReference((EAPSecKeychainItemRef)cert,
 						      &data);
     CFRelease(cert);
     if (status != noErr) {
@@ -993,7 +996,7 @@ copyAllCerts(void)
     SecKeychainAttributeList	attr_list;
     SecCertificateRef		cert = NULL;
     CSSM_DATA			data;
-    SecKeychainItemRef		item = NULL;
+    EAPSecKeychainItemRef		item = NULL;
     SecKeychainSearchRef	search = NULL;
     OSStatus 			status;
 

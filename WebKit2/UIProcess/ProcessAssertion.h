@@ -26,9 +26,12 @@
 #ifndef ProcessAssertion_h
 #define ProcessAssertion_h
 
-#include <unistd.h>
 #include <wtf/Function.h>
 #include <wtf/ProcessID.h>
+
+#if !OS(WINDOWS)
+#include <unistd.h>
+#endif
 
 #if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
 #include <wtf/RetainPtr.h>
@@ -50,7 +53,11 @@ public:
     virtual void assertionWillExpireImminently() = 0;
 };
 
-class ProcessAssertion {
+class ProcessAssertion
+#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+    : public CanMakeWeakPtr<ProcessAssertion>
+#endif
+{
 public:
     ProcessAssertion(ProcessID, AssertionState, Function<void()>&& invalidationCallback = { });
     virtual ~ProcessAssertion();
@@ -69,12 +76,10 @@ protected:
 
 private:
 #if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
-    WeakPtr<ProcessAssertion> createWeakPtr() { return m_weakFactory.createWeakPtr(*this); }
     void markAsInvalidated();
 
     RetainPtr<BKSProcessAssertion> m_assertion;
     Validity m_validity { Validity::Unset };
-    WeakPtrFactory<ProcessAssertion> m_weakFactory;
     Function<void()> m_invalidationCallback;
 #endif
     AssertionState m_assertionState;

@@ -65,12 +65,6 @@ WI.TabContentView = class TabContentView extends WI.ContentView
         return true;
     }
 
-    static isEphemeral()
-    {
-        // Returns true if the tab should not be shown in the new tab content view.
-        return false;
-    }
-
     static shouldSaveTab()
     {
         // Returns false if the tab should not be restored when re-opening the Inspector.
@@ -85,16 +79,6 @@ WI.TabContentView = class TabContentView extends WI.ContentView
         return null;
     }
 
-    get parentTabBrowser()
-    {
-        return this._parentTabBrowser;
-    }
-
-    set parentTabBrowser(tabBrowser)
-    {
-        this._parentTabBrowser = tabBrowser || null;
-    }
-
     get identifier()
     {
         return this._identifier;
@@ -103,6 +87,12 @@ WI.TabContentView = class TabContentView extends WI.ContentView
     get tabBarItem()
     {
         return this._tabBarItem;
+    }
+
+    get managesNavigationSidebarPanel()
+    {
+        // Implemented by subclasses.
+        return false;
     }
 
     get managesDetailsSidebarPanels()

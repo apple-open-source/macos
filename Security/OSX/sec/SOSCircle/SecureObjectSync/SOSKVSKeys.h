@@ -60,7 +60,6 @@ CFStringRef SOSRetirementKeyCreateWithCircleAndPeer(SOSCircleRef circle, CFStrin
 CFStringRef SOSMessageKeyCreateFromTransportToPeer(SOSMessage* transport, CFStringRef myID, CFStringRef peer_name);
 CFStringRef SOSMessageKeyCreateFromPeerToTransport(SOSMessage* transport, CFStringRef myID, CFStringRef peer_name);
 CFStringRef SOSLastKeyParametersPushedKeyCreateWithAccountGestalt(SOSAccount* account);
-CFStringRef SOSMessageKeyCreateWithCircleNameAndTransportType(CFStringRef circleName, CFStringRef transportType);
 
 CFStringRef SOSRingKeyCreateWithRingName(CFStringRef ring_name);
 CFStringRef SOSLastKeyParametersPushedKeyCreateWithPeerID(CFStringRef peerID);

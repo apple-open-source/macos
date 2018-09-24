@@ -61,7 +61,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , scrollSnapArea(StyleScrollSnapArea::create())
 #endif
     , willChange(RenderStyle::initialWillChange())
-    , mask(FillLayer(MaskFillLayer))
+    , mask(FillLayerType::Mask)
     , objectPosition(RenderStyle::initialObjectPosition())
     , shapeOutside(RenderStyle::initialShapeOutside())
     , shapeMargin(RenderStyle::initialShapeMargin())
@@ -73,38 +73,40 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , alignItems(RenderStyle::initialDefaultAlignment())
     , alignSelf(RenderStyle::initialSelfAlignment())
     , justifyContent(RenderStyle::initialContentAlignment())
-    , justifyItems(RenderStyle::initialSelfAlignment())
+    , justifyItems(RenderStyle::initialJustifyItems())
     , justifySelf(RenderStyle::initialSelfAlignment())
 #if ENABLE(TOUCH_EVENTS)
     , touchAction(static_cast<unsigned>(RenderStyle::initialTouchAction()))
 #endif
     , pageSizeType(PAGE_SIZE_AUTO)
-    , transformStyle3D(RenderStyle::initialTransformStyle3D())
-    , backfaceVisibility(RenderStyle::initialBackfaceVisibility())
-    , userDrag(RenderStyle::initialUserDrag())
-    , textOverflow(RenderStyle::initialTextOverflow())
-    , marginBeforeCollapse(MCOLLAPSE)
-    , marginAfterCollapse(MCOLLAPSE)
-    , appearance(RenderStyle::initialAppearance())
-    , borderFit(RenderStyle::initialBorderFit())
-    , textCombine(RenderStyle::initialTextCombine())
-    , textDecorationStyle(RenderStyle::initialTextDecorationStyle())
-    , aspectRatioType(RenderStyle::initialAspectRatioType())
+    , transformStyle3D(static_cast<unsigned>(RenderStyle::initialTransformStyle3D()))
+    , backfaceVisibility(static_cast<unsigned>(RenderStyle::initialBackfaceVisibility()))
+    , userDrag(static_cast<unsigned>(RenderStyle::initialUserDrag()))
+    , textOverflow(static_cast<unsigned>(RenderStyle::initialTextOverflow()))
+    , marginBeforeCollapse(static_cast<unsigned>(MarginCollapse::Collapse))
+    , marginAfterCollapse(static_cast<unsigned>(MarginCollapse::Collapse))
+    , appearance(static_cast<unsigned>(RenderStyle::initialAppearance()))
+    , borderFit(static_cast<unsigned>(RenderStyle::initialBorderFit()))
+    , textCombine(static_cast<unsigned>(RenderStyle::initialTextCombine()))
+    , textDecorationStyle(static_cast<unsigned>(RenderStyle::initialTextDecorationStyle()))
+    , aspectRatioType(static_cast<unsigned>(RenderStyle::initialAspectRatioType()))
 #if ENABLE(CSS_COMPOSITING)
     , effectiveBlendMode(RenderStyle::initialBlendMode())
-    , isolation(RenderStyle::initialIsolation())
+    , isolation(static_cast<unsigned>(RenderStyle::initialIsolation()))
 #endif
 #if ENABLE(APPLE_PAY)
     , applePayButtonStyle(static_cast<unsigned>(RenderStyle::initialApplePayButtonStyle()))
     , applePayButtonType(static_cast<unsigned>(RenderStyle::initialApplePayButtonType()))
 #endif
-    , objectFit(RenderStyle::initialObjectFit())
-    , breakBefore(RenderStyle::initialBreakBetween())
-    , breakAfter(RenderStyle::initialBreakBetween())
-    , breakInside(RenderStyle::initialBreakInside())
-    , resize(RenderStyle::initialResize())
+    , objectFit(static_cast<unsigned>(RenderStyle::initialObjectFit()))
+    , breakBefore(static_cast<unsigned>(RenderStyle::initialBreakBetween()))
+    , breakAfter(static_cast<unsigned>(RenderStyle::initialBreakBetween()))
+    , breakInside(static_cast<unsigned>(RenderStyle::initialBreakInside()))
+    , resize(static_cast<unsigned>(RenderStyle::initialResize()))
     , hasAttrContent(false)
     , isNotFinal(false)
+    , columnGap(RenderStyle::initialColumnGap())
+    , rowGap(RenderStyle::initialRowGap())
 {
     maskBoxImage.setMaskDefaults();
 }
@@ -135,7 +137,7 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , scrollSnapArea(o.scrollSnapArea)
 #endif
     , content(o.content ? o.content->clone() : nullptr)
-    , counterDirectives(o.counterDirectives ? clone(*o.counterDirectives) : nullptr)
+    , counterDirectives(o.counterDirectives ? std::make_unique<CounterDirectiveMap>(*o.counterDirectives) : nullptr)
     , altText(o.altText)
     , boxShadow(o.boxShadow ? std::make_unique<ShadowData>(*o.boxShadow) : nullptr)
     , willChange(o.willChange)
@@ -195,6 +197,8 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , resize(o.resize)
     , hasAttrContent(o.hasAttrContent)
     , isNotFinal(o.isNotFinal)
+    , columnGap(o.columnGap)
+    , rowGap(o.rowGap)
 {
 }
 
@@ -293,7 +297,9 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && breakInside == o.breakInside
         && resize == o.resize
         && hasAttrContent == o.hasAttrContent
-        && isNotFinal == o.isNotFinal;
+        && isNotFinal == o.isNotFinal
+        && columnGap == o.columnGap
+        && rowGap == o.rowGap;
 }
 
 bool StyleRareNonInheritedData::contentDataEquivalent(const StyleRareNonInheritedData& other) const

@@ -29,7 +29,6 @@
 #include "AuthenticationManager.h"
 #include "DataReference.h"
 #include "Download.h"
-#include "DownloadSoupErrors.h"
 #include "NetworkLoad.h"
 #include "NetworkProcess.h"
 #include "NetworkSessionSoup.h"
@@ -43,9 +42,8 @@
 #include <wtf/MainThread.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 static const size_t gDefaultReadBufferSize = 8192;
 
@@ -134,7 +132,7 @@ void NetworkDataTaskSoup::createRequest(ResourceRequest&& request)
     unsigned messageFlags = SOUP_MESSAGE_NO_REDIRECT;
 
     m_currentRequest.updateSoupMessage(soupMessage.get());
-    if (m_shouldContentSniff == DoNotSniffContent)
+    if (m_shouldContentSniff == ContentSniffingPolicy::DoNotSniffContent)
         soup_message_disable_feature(soupMessage.get(), SOUP_TYPE_CONTENT_SNIFFER);
     if (m_user.isEmpty() && m_password.isEmpty() && m_storedCredentialsPolicy == StoredCredentialsPolicy::DoNotUse) {
 #if SOUP_CHECK_VERSION(2, 57, 1)
@@ -165,7 +163,6 @@ void NetworkDataTaskSoup::createRequest(ResourceRequest&& request)
     m_soupRequest = WTFMove(soupRequest);
     m_soupMessage = WTFMove(soupMessage);
 
-    g_signal_connect(m_soupMessage.get(), "notify::tls-errors", G_CALLBACK(tlsErrorsChangedCallback), this);
     g_signal_connect(m_soupMessage.get(), "got-headers", G_CALLBACK(gotHeadersCallback), this);
     g_signal_connect(m_soupMessage.get(), "wrote-body-data", G_CALLBACK(wroteBodyDataCallback), this);
     g_signal_connect(static_cast<NetworkSessionSoup&>(m_session.get()).soupSession(), "authenticate",  G_CALLBACK(authenticateCallback), this);
@@ -322,7 +319,7 @@ void NetworkDataTaskSoup::sendRequestCallback(SoupRequest* soupRequest, GAsyncRe
 void NetworkDataTaskSoup::didSendRequest(GRefPtr<GInputStream>&& inputStream)
 {
     if (m_soupMessage) {
-        if (m_shouldContentSniff == SniffContent && m_soupMessage->status_code != SOUP_STATUS_NOT_MODIFIED)
+        if (m_shouldContentSniff == ContentSniffingPolicy::SniffContent && m_soupMessage->status_code != SOUP_STATUS_NOT_MODIFIED)
             m_response.setSniffedContentType(soup_request_get_content_type(m_soupRequest.get()));
         m_response.updateFromSoupMessage(m_soupMessage.get());
         if (m_response.mimeType().isEmpty() && m_soupMessage->status_code != SOUP_STATUS_NOT_MODIFIED)
@@ -386,6 +383,9 @@ void NetworkDataTaskSoup::dispatchDidReceiveResponse()
                 ASSERT_NOT_REACHED();
 
             break;
+        case PolicyAction::Suspend:
+            LOG_ERROR("PolicyAction::Suspend encountered - Treating as PolicyAction::Ignore for now");
+            FALLTHROUGH;
         case PolicyAction::Ignore:
             clearRequest();
             break;
@@ -404,28 +404,32 @@ void NetworkDataTaskSoup::dispatchDidCompleteWithError(const ResourceError& erro
     m_client->didCompleteWithError(error, m_networkLoadMetrics);
 }
 
-void NetworkDataTaskSoup::tlsErrorsChangedCallback(SoupMessage* soupMessage, GParamSpec*, NetworkDataTaskSoup* task)
+gboolean NetworkDataTaskSoup::tlsConnectionAcceptCertificateCallback(GTlsConnection* connection, GTlsCertificate* certificate, GTlsCertificateFlags errors, NetworkDataTaskSoup* task)
 {
     if (task->state() == State::Canceling || task->state() == State::Completed || !task->m_client) {
         task->clearRequest();
-        return;
+        return FALSE;
     }
 
-    ASSERT(soupMessage == task->m_soupMessage.get());
-    task->tlsErrorsChanged();
+    auto* connectionMessage = g_object_get_data(G_OBJECT(connection), "wk-soup-message");
+    if (connectionMessage != task->m_soupMessage.get())
+        return FALSE;
+
+    return task->tlsConnectionAcceptCertificate(certificate, errors);
 }
 
-void NetworkDataTaskSoup::tlsErrorsChanged()
+bool NetworkDataTaskSoup::tlsConnectionAcceptCertificate(GTlsCertificate* certificate, GTlsCertificateFlags tlsErrors)
 {
     ASSERT(m_soupRequest);
-    SoupNetworkSession::checkTLSErrors(m_soupRequest.get(), m_soupMessage.get(), [this] (const ResourceError& error) {
-        if (error.isNull())
-            return;
+    URL url(soup_request_get_uri(m_soupRequest.get()));
+    auto error = SoupNetworkSession::checkTLSErrors(url, certificate, tlsErrors);
+    if (!error)
+        return true;
 
-        RefPtr<NetworkDataTaskSoup> protectedThis(this);
-        invalidateAndCancel();
-        dispatchDidCompleteWithError(error);
-    });
+    RefPtr<NetworkDataTaskSoup> protectedThis(this);
+    invalidateAndCancel();
+    dispatchDidCompleteWithError(error.value());
+    return false;
 }
 
 void NetworkDataTaskSoup::applyAuthenticationToRequest(ResourceRequest& request)
@@ -500,7 +504,7 @@ void NetworkDataTaskSoup::authenticate(AuthenticationChallenge&& challenge)
     // will become session credentials after the first use.
     if (m_storedCredentialsPolicy == StoredCredentialsPolicy::Use) {
         auto protectionSpace = challenge.protectionSpace();
-        m_session->networkStorageSession().getCredentialFromPersistentStorage(protectionSpace,
+        m_session->networkStorageSession().getCredentialFromPersistentStorage(protectionSpace, m_cancellable.get(),
             [this, protectedThis = makeRef(*this), authChallenge = WTFMove(challenge)] (Credential&& credential) mutable {
                 if (m_state == State::Canceling || m_state == State::Completed || !m_client) {
                     clearRequest();
@@ -516,7 +520,7 @@ void NetworkDataTaskSoup::authenticate(AuthenticationChallenge&& challenge)
 
 void NetworkDataTaskSoup::continueAuthenticate(AuthenticationChallenge&& challenge)
 {
-    m_client->didReceiveChallenge(challenge, [this, protectedThis = makeRef(*this), challenge](AuthenticationChallengeDisposition disposition, const Credential& credential) {
+    m_client->didReceiveChallenge(AuthenticationChallenge(challenge), [this, protectedThis = makeRef(*this), challenge](AuthenticationChallengeDisposition disposition, const Credential& credential) {
         if (m_state == State::Canceling || m_state == State::Completed) {
             clearRequest();
             return;
@@ -1041,16 +1045,16 @@ void NetworkDataTaskSoup::didFail(const ResourceError& error)
     dispatchDidCompleteWithError(error);
 }
 
-void NetworkDataTaskSoup::networkEventCallback(SoupMessage* soupMessage, GSocketClientEvent event, GIOStream*, NetworkDataTaskSoup* task)
+void NetworkDataTaskSoup::networkEventCallback(SoupMessage* soupMessage, GSocketClientEvent event, GIOStream* stream, NetworkDataTaskSoup* task)
 {
     if (task->state() == State::Canceling || task->state() == State::Completed || !task->m_client)
         return;
 
     ASSERT(task->m_soupMessage.get() == soupMessage);
-    task->networkEvent(event);
+    task->networkEvent(event, stream);
 }
 
-void NetworkDataTaskSoup::networkEvent(GSocketClientEvent event)
+void NetworkDataTaskSoup::networkEvent(GSocketClientEvent event, GIOStream* stream)
 {
     Seconds deltaTime = MonotonicTime::now() - m_startTime;
     switch (event) {
@@ -1073,6 +1077,9 @@ void NetworkDataTaskSoup::networkEvent(GSocketClientEvent event)
         break;
     case G_SOCKET_CLIENT_TLS_HANDSHAKING:
         m_networkLoadMetrics.secureConnectionStart = deltaTime;
+        RELEASE_ASSERT(G_IS_TLS_CONNECTION(stream));
+        g_object_set_data(G_OBJECT(stream), "wk-soup-message", m_soupMessage.get());
+        g_signal_connect(stream, "accept-certificate", G_CALLBACK(tlsConnectionAcceptCertificateCallback), this);
         break;
     case G_SOCKET_CLIENT_TLS_HANDSHAKED:
         break;

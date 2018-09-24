@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if USE(NETWORK_SESSION)
-
 #include "DownloadID.h"
 #include "SandboxExtension.h"
 #include <WebCore/Credential.h>
@@ -61,7 +59,7 @@ using ResponseCompletionHandler = CompletionHandler<void(WebCore::PolicyAction)>
 class NetworkDataTaskClient {
 public:
     virtual void willPerformHTTPRedirection(WebCore::ResourceResponse&&, WebCore::ResourceRequest&&, RedirectCompletionHandler&&) = 0;
-    virtual void didReceiveChallenge(const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler&&) = 0;
+    virtual void didReceiveChallenge(WebCore::AuthenticationChallenge&&, ChallengeCompletionHandler&&) = 0;
     virtual void didReceiveResponseNetworkSession(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) = 0;
     virtual void didReceiveData(Ref<WebCore::SharedBuffer>&&) = 0;
     virtual void didCompleteWithError(const WebCore::ResourceError&, const WebCore::NetworkLoadMetrics&) = 0;
@@ -130,6 +128,8 @@ public:
 
     bool isTopLevelNavigation() const { return m_dataTaskIsForMainFrameNavigation; }
 
+    virtual String description() const;
+
 protected:
     NetworkDataTask(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::StoredCredentialsPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation);
 
@@ -163,5 +163,3 @@ protected:
 };
 
 } // namespace WebKit
-
-#endif // USE(NETWORK_SESSION)

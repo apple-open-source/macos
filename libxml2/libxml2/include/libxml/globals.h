@@ -20,6 +20,7 @@
 #include <libxml/SAX.h>
 #include <libxml/SAX2.h>
 #include <libxml/xmlmemory.h>
+#include <libxml/encoding.h>
 
 #ifdef __cplusplus
 extern "C" {

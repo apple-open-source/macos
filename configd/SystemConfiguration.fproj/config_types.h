@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2005, 2007, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2005, 2007, 2013, 2015, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,12 +41,12 @@
 /*
  * Mach server port name
  */
-#if	!TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 #define SCD_SERVER	"com.apple.SystemConfiguration.configd"
-#else	// !TARGET_OS_SIMULATOR
+#else	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 #define SCD_SERVER_HOST	"com.apple.SystemConfiguration.configd"
 #define SCD_SERVER	"com.apple.SystemConfiguration.configd_sim"
-#endif	// !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 
 /*
  * Input arguments: serialized key's, list delimiters, ...
@@ -59,4 +59,4 @@ typedef const char * xmlData_t;
  */
 typedef char * xmlDataOut_t;
 
-#endif /* !_CONFIG_TYPES_H */
+#endif	/* !_CONFIG_TYPES_H */

@@ -34,7 +34,7 @@
 #include <IOKit/graphics/IOFramebufferShared.h>
 
 
-#define IOFRAMEBUFFER_REV           5
+#define IOFRAMEBUFFER_REV           6
 
 
 class IOFramebuffer;
@@ -64,16 +64,16 @@ typedef void (*CursorRemoveProc)(
 typedef void * IOFBCursorRef;
 
 struct IOFBCursorControlCallouts {
-    IOReturn    (*setCursorImage) (void * self, void * ref,
+    IOReturn    (*setCursorImage) (void * target, void * ref,
                                     IOHardwareCursorDescriptor * description, IOFBCursorRef cursorImage);
-    IOReturn    (*setCursorState) (void * self, void * ref,
+    IOReturn    (*setCursorState) (void * target, void * ref,
                                     SInt32 x, SInt32 y, bool visible);
     UInt32      reserved[30];
 };
 typedef struct IOFBCursorControlCallouts IOFBCursorControlCallouts;
 
 struct IOFBCursorControlAttribute {
-    void *                              self;
+    void *                              inst;
     void *                              ref;
     const IOFBCursorControlCallouts *   callouts;
     UInt32                              reserved[29];
@@ -107,7 +107,7 @@ typedef void (*IOFBInterruptProc)( OSObject * target, void * ref );
 
 
 typedef IOReturn (*IOFramebufferNotificationHandler)
-        (OSObject * self, void * ref,
+        (OSObject * obj, void * ref,
         IOFramebuffer * framebuffer, IOIndex event,
         void * info);
 
@@ -342,9 +342,9 @@ protected:
     unsigned int                        opened:1;
     unsigned int                        dead:1;
     unsigned int                        configPending:1;
-    unsigned int                        serverNotified:1;
-    unsigned int                        serverState:1;
-    unsigned int                        serverPendingAck:1;
+    unsigned int                        doNotUseServerNotified:1;  // Deprecated
+    unsigned int                        doNotUseServerState:1;     // Deprecated
+    unsigned int                        doNotUseServerPendingAck:1;// Deprecated
     unsigned int                        isUsable:1;
     unsigned int                        mirrored:1;
     unsigned int                        pendingPowerState:4;
@@ -375,7 +375,7 @@ public:
     @discussion IOFramebuffer subclasses may optionally implement this method to perform I2C bus requests on one of the buses they support. Alternatively they may implement the setDDCClock(), setDDCData(), readDDCClock(), readDDCData() methods and respond from getAttributeForConnection() to the kConnectionSupportsLLDDCSense attribute with success, in which case IOFramebuffer::doI2CRequest() will carry out a software implementation of I2C using the low level routines and conforming to the timing constraints passed in the timing parameter. Subclasses may pass timing parameters tuned for the specific bus, otherwise VESA DDC defaults will apply.
     @timing event Subclasses may pass timing parameters tuned for the specific bus, otherwise if NULL, VESA DDC defaults will apply.
     @param request An IOI2CRequest structure. The request should be carried out synchronously if the completion routine is NULL, otherwise it may optionally be carried out asynchronously. The completion routine should be called if supplied.
-    @result an IOReturn code. If kIOReturnSuccces, the result of the transaction is returned in the requests result field.
+    @result an IOReturn code. If kIOReturnSuccess, the result of the transaction is returned in the requests result field.
 */
     virtual IOReturn doI2CRequest( UInt32 bus, struct IOI2CBusTiming * timing, struct IOI2CRequest * request );
     OSMetaClassDeclareReservedUsed(IOFramebuffer, 0);
@@ -494,7 +494,7 @@ public:
 
     IONotifier * addFramebufferNotification(
             IOFramebufferNotificationHandler handler,
-            OSObject * self, void * ref);
+            OSObject * obj, void * ref);
 
 /*! @function getApertureRange
     @abstract Return reference to IODeviceMemory object representing memory range of framebuffer.

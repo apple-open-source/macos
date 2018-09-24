@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,18 +25,18 @@
 
 #import "config.h"
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(IOSMAC)
 #import "ChildProcess.h"
 
 #import "CodeSigning.h"
-#import "CookieStorageUtilsCF.h"
 #import "QuarantineSPI.h"
 #import "SandboxInitializationParameters.h"
+#import "WKFoundation.h"
+#import "XPCServiceEntryPoint.h"
 #import <WebCore/FileSystem.h>
 #import <WebCore/SystemVersion.h>
 #import <mach/mach.h>
 #import <mach/task.h>
-#import <pal/spi/cf/CFNetworkSPI.h>
 #import <pwd.h>
 #import <stdlib.h>
 #import <sysexits.h>
@@ -67,8 +67,10 @@ static void initializeTimerCoalescingPolicy()
 
 void ChildProcess::setApplicationIsDaemon()
 {
+#if !PLATFORM(IOSMAC)
     OSStatus error = SetApplicationIsDaemon(true);
     ASSERT_UNUSED(error, error == noErr);
+#endif
 
     launchServicesCheckIn();
 }
@@ -87,27 +89,37 @@ void ChildProcess::platformInitialize()
 
 static OSStatus enableSandboxStyleFileQuarantine()
 {
-    int error;
+#if !PLATFORM(IOSMAC)
     qtn_proc_t quarantineProperties = qtn_proc_alloc();
     auto quarantinePropertiesDeleter = makeScopeExit([quarantineProperties]() {
         qtn_proc_free(quarantineProperties);
     });
 
-    if ((error = qtn_proc_init_with_self(quarantineProperties)))
-        return error;
 
-    if ((error = qtn_proc_set_flags(quarantineProperties, QTN_FLAG_SANDBOX)))
+    if (qtn_proc_init_with_self(quarantineProperties)) {
+        // See <rdar://problem/13463752>.
+        qtn_proc_init(quarantineProperties);
+    }
+
+    if (auto error = qtn_proc_set_flags(quarantineProperties, QTN_FLAG_SANDBOX))
         return error;
 
     // QTN_FLAG_SANDBOX is silently ignored if security.mac.qtn.sandbox_enforce sysctl is 0.
     // In that case, quarantine falls back to advisory QTN_FLAG_DOWNLOAD.
     return qtn_proc_apply_to_self(quarantineProperties);
+#else
+    return false;
+#endif
 }
 
 void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters& parameters, SandboxInitializationParameters& sandboxParameters)
 {
-    NSBundle *webkit2Bundle = [NSBundle bundleForClass:NSClassFromString(@"WKView")];
-    String defaultProfilePath = [webkit2Bundle pathForResource:[[NSBundle mainBundle] bundleIdentifier] ofType:@"sb"];
+#if WK_API_ENABLED
+    NSBundle *webKit2Bundle = [NSBundle bundleForClass:NSClassFromString(@"WKWebView")];
+#else
+    NSBundle *webKit2Bundle = [NSBundle bundleForClass:NSClassFromString(@"WKView")];
+#endif
+    String defaultProfilePath = [webKit2Bundle pathForResource:[[NSBundle mainBundle] bundleIdentifier] ofType:@"sb"];
 
     if (sandboxParameters.userDirectorySuffix().isNull()) {
         auto userDirectorySuffix = parameters.extraInitializationData.find("user-directory-suffix");
@@ -141,7 +153,7 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
     }
     setenv("TMPDIR", temporaryDirectory, 1);
 
-    sandboxParameters.addPathParameter("WEBKIT2_FRAMEWORK_DIR", [[webkit2Bundle bundlePath] stringByDeletingLastPathComponent]);
+    sandboxParameters.addPathParameter("WEBKIT2_FRAMEWORK_DIR", [[webKit2Bundle bundlePath] stringByDeletingLastPathComponent]);
     sandboxParameters.addConfDirectoryParameter("DARWIN_USER_TEMP_DIR", _CS_DARWIN_USER_TEMP_DIR);
     sandboxParameters.addConfDirectoryParameter("DARWIN_USER_CACHE_DIR", _CS_DARWIN_USER_CACHE_DIR);
 
@@ -172,7 +184,10 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
         if (!sandboxProfilePath.isEmpty()) {
             CString profilePath = FileSystem::fileSystemRepresentation(sandboxProfilePath);
             char* errorBuf;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             if (sandbox_init_with_parameters(profilePath.data(), SANDBOX_NAMED_EXTERNAL, sandboxParameters.namedParameterArray(), &errorBuf)) {
+#pragma clang diagnostic pop
                 WTFLogAlways("%s: Couldn't initialize sandbox profile [%s], error '%s'\n", getprogname(), profilePath.data(), errorBuf);
                 for (size_t i = 0, count = sandboxParameters.count(); i != count; ++i)
                     WTFLogAlways("%s=%s\n", sandboxParameters.name(i), sandboxParameters.value(i));
@@ -184,7 +199,10 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
     }
     case SandboxInitializationParameters::UseSandboxProfile: {
         char* errorBuf;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         if (sandbox_init_with_parameters(sandboxParameters.sandboxProfile().utf8().data(), 0, sandboxParameters.namedParameterArray(), &errorBuf)) {
+#pragma clang diagnostic pop
             WTFLogAlways("%s: Couldn't initialize sandbox profile, error '%s'\n", getprogname(), errorBuf);
             for (size_t i = 0, count = sandboxParameters.count(); i != count; ++i)
                 WTFLogAlways("%s=%s\n", sandboxParameters.name(i), sandboxParameters.value(i));
@@ -195,17 +213,14 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
     }
     }
 
-    // This will override LSFileQuarantineEnabled from Info.plist unless sandbox quarantine is globally disabled.
-    OSStatus error = enableSandboxStyleFileQuarantine();
-    if (error) {
-        WTFLogAlways("%s: Couldn't enable sandbox style file quarantine: %ld\n", getprogname(), static_cast<long>(error));
-        exit(EX_NOPERM);
+    if (shouldOverrideQuarantine()) {
+        // This will override LSFileQuarantineEnabled from Info.plist unless sandbox quarantine is globally disabled.
+        OSStatus error = enableSandboxStyleFileQuarantine();
+        if (error) {
+            WTFLogAlways("%s: Couldn't enable sandbox style file quarantine: %ld\n", getprogname(), static_cast<long>(error));
+            exit(EX_NOPERM);
+        }
     }
-}
-
-void ChildProcess::setSharedHTTPCookieStorage(const Vector<uint8_t>& identifier)
-{
-    [NSHTTPCookieStorage _setSharedHTTPCookieStorage:adoptNS([[NSHTTPCookieStorage alloc] _initWithCFHTTPCookieStorage:cookieStorageFromIdentifyingData(identifier).get()]).get()];
 }
 
 #if USE(APPKIT)
@@ -216,6 +231,23 @@ void ChildProcess::stopNSAppRunLoop()
 
     NSEvent *event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined location:NSMakePoint(0, 0) modifierFlags:0 timestamp:0.0 windowNumber:0 context:nil subtype:0 data1:0 data2:0];
     [NSApp postEvent:event atStart:true];
+}
+#endif
+
+#if !PLATFORM(IOSMAC) && ENABLE(WEBPROCESS_NSRUNLOOP)
+void ChildProcess::stopNSRunLoop()
+{
+    ASSERT([NSRunLoop mainRunLoop]);
+    [[NSRunLoop mainRunLoop] performBlock:^{
+        exit(0);
+    }];
+}
+#endif
+
+#if PLATFORM(IOSMAC)
+void ChildProcess::platformStopRunLoop()
+{
+    XPCServiceExit(WTFMove(m_priorityBoostMessage));
 }
 #endif
 

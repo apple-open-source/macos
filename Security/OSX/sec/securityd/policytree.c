@@ -123,7 +123,10 @@ policy_tree_t policy_tree_create(const oid_t *p_oid, policy_qualifier_t p_q) {
 /* Walk the nodes in a tree at depth and invoke callback for each one. */
 bool policy_tree_walk_depth(policy_tree_t root, int depth,
     bool(*callback)(policy_tree_t, void *), void *ctx) {
-    policy_tree_t stack[depth + 1];
+    policy_tree_t *stack = (policy_tree_t *)malloc(sizeof(policy_tree_t) * (depth + 1));
+    if (!stack) {
+        return false;
+    }
     int stack_ix = 0;
     stack[stack_ix] = root;
     policy_tree_t node;
@@ -159,6 +162,7 @@ bool policy_tree_walk_depth(policy_tree_t root, int depth,
             }
         }
     }
+    free(stack);
     return match;
 }
 

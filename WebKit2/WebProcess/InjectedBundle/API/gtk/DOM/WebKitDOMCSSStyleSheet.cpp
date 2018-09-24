@@ -34,6 +34,8 @@
 #include <wtf/GetPtr.h>
 #include <wtf/RefPtr.h>
 
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
+
 namespace WebKit {
 
 WebKitDOMCSSStyleSheet* kit(WebCore::CSSStyleSheet* obj)
@@ -57,10 +59,10 @@ WebKitDOMCSSStyleSheet* wrapCSSStyleSheet(WebCore::CSSStyleSheet* coreObject)
 G_DEFINE_TYPE(WebKitDOMCSSStyleSheet, webkit_dom_css_style_sheet, WEBKIT_DOM_TYPE_STYLE_SHEET)
 
 enum {
-    PROP_0,
-    PROP_OWNER_RULE,
-    PROP_CSS_RULES,
-    PROP_RULES,
+    DOM_CSS_STYLE_SHEET_PROP_0,
+    DOM_CSS_STYLE_SHEET_PROP_OWNER_RULE,
+    DOM_CSS_STYLE_SHEET_PROP_CSS_RULES,
+    DOM_CSS_STYLE_SHEET_PROP_RULES,
 };
 
 static void webkit_dom_css_style_sheet_get_property(GObject* object, guint propertyId, GValue* value, GParamSpec* pspec)
@@ -68,13 +70,13 @@ static void webkit_dom_css_style_sheet_get_property(GObject* object, guint prope
     WebKitDOMCSSStyleSheet* self = WEBKIT_DOM_CSS_STYLE_SHEET(object);
 
     switch (propertyId) {
-    case PROP_OWNER_RULE:
+    case DOM_CSS_STYLE_SHEET_PROP_OWNER_RULE:
         g_value_set_object(value, webkit_dom_css_style_sheet_get_owner_rule(self));
         break;
-    case PROP_CSS_RULES:
+    case DOM_CSS_STYLE_SHEET_PROP_CSS_RULES:
         g_value_set_object(value, webkit_dom_css_style_sheet_get_css_rules(self));
         break;
-    case PROP_RULES:
+    case DOM_CSS_STYLE_SHEET_PROP_RULES:
         g_value_set_object(value, webkit_dom_css_style_sheet_get_rules(self));
         break;
     default:
@@ -90,7 +92,7 @@ static void webkit_dom_css_style_sheet_class_init(WebKitDOMCSSStyleSheetClass* r
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_OWNER_RULE,
+        DOM_CSS_STYLE_SHEET_PROP_OWNER_RULE,
         g_param_spec_object(
             "owner-rule",
             "CSSStyleSheet:owner-rule",
@@ -100,7 +102,7 @@ static void webkit_dom_css_style_sheet_class_init(WebKitDOMCSSStyleSheetClass* r
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_CSS_RULES,
+        DOM_CSS_STYLE_SHEET_PROP_CSS_RULES,
         g_param_spec_object(
             "css-rules",
             "CSSStyleSheet:css-rules",
@@ -110,7 +112,7 @@ static void webkit_dom_css_style_sheet_class_init(WebKitDOMCSSStyleSheetClass* r
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_RULES,
+        DOM_CSS_STYLE_SHEET_PROP_RULES,
         g_param_spec_object(
             "rules",
             "CSSStyleSheet:rules",
@@ -214,3 +216,4 @@ WebKitDOMCSSRuleList* webkit_dom_css_style_sheet_get_rules(WebKitDOMCSSStyleShee
     return WebKit::kit(gobjectResult.get());
 }
 
+G_GNUC_END_IGNORE_DEPRECATIONS;

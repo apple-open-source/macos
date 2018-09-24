@@ -24,9 +24,12 @@
 #ifndef _PLATFORM_STRING_H_
 #define _PLATFORM_STRING_H_
 
+#include <_types.h>
 #include <sys/cdefs.h>
 #include <Availability.h>
 #include <TargetConditionals.h>
+#include <sys/_types/_size_t.h>
+#include <sys/_types/_null.h>
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -42,7 +45,14 @@
 #define _PLATFORM_OPTIMIZED_MEMSET_PATTERN16 0
 #define _PLATFORM_OPTIMIZED_STRCHR 0
 #define _PLATFORM_OPTIMIZED_STRCMP 0
+#define _PLATFORM_OPTIMIZED_STRCPY 0
+#define _PLATFORM_OPTIMIZED_STRLCAT 0
+#define _PLATFORM_OPTIMIZED_STRLCPY 0
+#define _PLATFORM_OPTIMIZED_STRLEN 0
 #define _PLATFORM_OPTIMIZED_STRNCMP 0
+#define _PLATFORM_OPTIMIZED_STRNCPY 0
+#define _PLATFORM_OPTIMIZED_STRNLEN 0
+#define _PLATFORM_OPTIMIZED_STRSTR 0
 
 /* Primitives used to implement C memory and string routines */
 
@@ -66,7 +76,7 @@ _platform_memmove(void *dst, const void *src, size_t n);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0)
 void *
-_platform_memccpy(void *restrict dst, const void *restrict src, int c, size_t n);
+_platform_memccpy(void *__restrict dst, const void *__restrict src, int c, size_t n);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0)
 void *
@@ -92,9 +102,37 @@ __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0)
 int
 _platform_strcmp(const char *s1, const char *s2);
 
+__OSX_AVAILABLE(10.14) __IOS_AVAILABLE(12.0) __TVOS_AVAILABLE(12.0) __WATCHOS_AVAILABLE(5.0)
+char *
+_platform_strcpy(char * __restrict dst, const char * __restrict src);
+
+__OSX_AVAILABLE(10.14) __IOS_AVAILABLE(12.0) __TVOS_AVAILABLE(12.0) __WATCHOS_AVAILABLE(5.0)
+size_t
+_platform_strlcat(char * __restrict dst, const char * __restrict src, size_t maxlen);
+
+__OSX_AVAILABLE(10.14) __IOS_AVAILABLE(12.0) __TVOS_AVAILABLE(12.0) __WATCHOS_AVAILABLE(5.0)
+size_t
+_platform_strlcpy(char * __restrict dst, const char * __restrict src, size_t maxlen);
+
+__OSX_AVAILABLE(10.14) __IOS_AVAILABLE(12.0) __TVOS_AVAILABLE(12.0) __WATCHOS_AVAILABLE(5.0)
+size_t
+_platform_strlen(const char *str);
+
 __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0)
 int
 _platform_strncmp(const char *s1, const char *s2, size_t n);
+
+__OSX_AVAILABLE(10.14) __IOS_AVAILABLE(12.0) __TVOS_AVAILABLE(12.0) __WATCHOS_AVAILABLE(5.0)
+char *
+_platform_strncpy(char * __restrict dst, const char * __restrict src, size_t maxlen);
+
+__OSX_AVAILABLE(10.14) __IOS_AVAILABLE(12.0) __TVOS_AVAILABLE(12.0) __WATCHOS_AVAILABLE(5.0)
+size_t
+_platform_strnlen(const char *s, size_t maxlen);
+
+__OSX_AVAILABLE(10.14) __IOS_AVAILABLE(12.0) __TVOS_AVAILABLE(12.0) __WATCHOS_AVAILABLE(5.0)
+char *
+_platform_strstr(const char *s, const char *find);
 
 __END_DECLS
 

@@ -191,10 +191,11 @@ typedef struct {
 
 
 /*!
- * @define kBL_PATH_BRIDGE_VERSION
- * @discussion SecureBoot-related file
+ * @define kBL_PATH_BRIDGE_VERSION_*
+ * @discussion SecureBoot-related files
  */
-#define kBL_PATH_BRIDGE_VERSION "/System/Library/CoreServices/BridgeVersion.bin"
+#define kBL_PATH_BRIDGE_VERSION_BIN         "/System/Library/CoreServices/BridgeVersion.bin"
+#define kBL_PATH_BRIDGE_VERSION_PLIST       "/System/Library/CoreServices/BridgeVersion.plist"
 
 
 /*!

@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2018 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -80,7 +80,6 @@ public:
     friend class JSRopeString;
     friend class MarkStack;
     friend class SlotVisitor;
-    friend struct ThunkHelpers;
 
     typedef JSCell Base;
     static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | StructureIsImmortal | OverridesToThis;
@@ -101,14 +100,12 @@ public:
 private:
     JSString(VM& vm, Ref<StringImpl>&& value)
         : JSCell(vm, vm.stringStructure.get())
-        , m_flags(0)
         , m_value(WTFMove(value))
     {
     }
 
     JSString(VM& vm)
         : JSCell(vm, vm.stringStructure.get())
-        , m_flags(0)
     {
     }
 
@@ -140,7 +137,6 @@ protected:
 public:
     static JSString* create(VM& vm, Ref<StringImpl>&& value)
     {
-        value->assertCaged();
         unsigned length = value->length();
         size_t cost = value->cost();
         JSString* newString = new (NotNull, allocateCell<JSString>(vm.heap)) JSString(vm, WTFMove(value));
@@ -149,7 +145,6 @@ public:
     }
     static JSString* createHasOtherOwner(VM& vm, Ref<StringImpl>&& value)
     {
-        value->assertCaged();
         size_t length = value->length();
         JSString* newString = new (NotNull, allocateCell<JSString>(vm.heap)) JSString(vm, WTFMove(value));
         newString->finishCreation(vm, length);
@@ -190,7 +185,7 @@ public:
     DECLARE_EXPORT_INFO;
 
     static void dumpToStream(const JSCell*, PrintStream&);
-    static size_t estimatedSize(JSCell*);
+    static size_t estimatedSize(JSCell*, VM&);
     static void visitChildren(JSCell*, SlotVisitor&);
 
     enum {
@@ -218,10 +213,12 @@ protected:
     }
 
 private:
-    mutable unsigned m_flags;
-
     // A string is represented either by a String or a rope of fibers.
-    unsigned m_length;
+    unsigned m_length { 0 };
+    mutable uint16_t m_flags { 0 };
+    // The poison is strategically placed and holds a value such that the first
+    // 64 bits of JSString look like a double JSValue.
+    uint16_t m_poison { 1 };
     mutable String m_value;
 
     friend class LLIntOffsetsExtractor;

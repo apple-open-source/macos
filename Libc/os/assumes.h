@@ -37,6 +37,7 @@ __BEGIN_DECLS
 #include <_simple.h>
 #include <errno.h>
 #include <os/base_private.h>
+#include <stdint.h>
 
 #if __GNUC__
 #define os_constant(x) __builtin_constant_p((x))
@@ -97,6 +98,133 @@ __BEGIN_DECLS
 
 extern void
 _os_crash_fmt(os_log_pack_t, size_t);
+
+/*!
+ * @function os_assert_sprintf
+ * A routine to assert the result of a call to snprintf(3) or vsnprintf(3).
+ *
+ * @param ret
+ * The return value from {v}snprintf(3).
+ *
+ * @param buff_size
+ * The size of the buffer given to {v}snprintf(3).
+ *
+ * @discussion
+ * If ret is less than zero or greater than size, the routine will abort the
+ * caller with a message indicating the nature of the failure in the Application
+ * Specific Information section of the resulting crash log.
+ *
+ * This routine is useful for printing paths that are expected to succeed with a
+ * statically-sized buffer.
+ */
+API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
+OS_ALWAYS_INLINE
+static inline void
+os_assert_sprintf(int ret, size_t buff_size)
+{
+	union {
+		size_t size;
+		int ret;
+	} myret = {
+		.ret = ret,
+	};
+
+	if (ret < 0) {
+		os_crash("error printing buffer: %s", strerror(errno));
+	}
+
+	if (myret.size > buff_size) {
+		os_crash("buffer too small: needed = %d, actual = %lu",
+				ret, buff_size);
+	}
+}
+
+/*!
+ * @function os_assert_malloc
+ * A routine to assert the result of allocations which may fail.
+ *
+ * @param desc
+ * A string describing the object whose allocation was attempted.
+ *
+ * @param p
+ * The result of a call to malloc(3), calloc(3), et al.
+ *
+ * @param alloc_size
+ * The size of the attempted allocation.
+ *
+ * @discussion
+ * If {@link p} is NULL, the routine will abort the caller with a message
+ * indicating the nature of the failure in the Application Specific Information
+ * section of the resulting crash log.
+ */
+API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
+OS_ALWAYS_INLINE
+static inline void
+os_assert_malloc(const char *desc, const void *const p, size_t alloc_size)
+{
+	if (!p) {
+		os_crash("allocation failed: obj = %s, size = %lu, error = %s",
+				desc, alloc_size, strerror(errno));
+	}
+}
+
+/*!
+ * @function os_assert_mach
+ * A routine to assert the result of a Mach kernel routine.
+ *
+ * @param op
+ * A human-readable description of the operation.
+ *
+ * @param kr
+ * The return code.
+ *
+ * @discsussion
+ * If {@link kr} is non-zero, this routine will abort the caller with a message
+ * indicating the nature of the failure in the Application Specific Information
+ * section of the resulting crash log.
+ */
+API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
+OS_EXPORT OS_NONNULL1
+void
+os_assert_mach(const char *op, kern_return_t kr);
+
+/*!
+ * @function os_assert_mach_port_status
+ * A routine to assert the status of a Mach port.
+ *
+ * @param desc
+ * A human-readable description of the port's purpose.
+ *
+ * @param p
+ * The port.
+ *
+ * @param expected
+ * A pointer to a mach_port_status_t describing the expected attributes of the
+ * port. If no particular value is expected for a given field in the structure,
+ * a sentinel value may be provided for each expected field to indicate that its
+ * check should be elided. The sentival values are:
+ *
+ * mps_pset => UINT32_MAX
+ * mps_seqno => UINT32_MAX
+ * mps_mscount => UINT32_MAX
+ * mps_qlimit => UINT32_MAX
+ * mps_msgcount => UINT32_MAX
+ * mps_sorights => UINT32_MAX
+ * mps_srights => INT32_MAX
+ * mps_pdrequest => INT32_MAX
+ * mps_nsrequest => INT32_MAX
+ * mps_flags => 0
+ *
+ * @discussion
+ * If there are any mismatches in the expected and actual status of the port,
+ * the implementation will abort the caller. If status cannot be obtained for
+ * the given port, the implementation will abort the caller.
+ */
+API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
+OS_EXPORT
+void
+os_assert_mach_port_status(const char *desc, mach_port_t p,
+		mach_port_status_t *expected);
 
 #else // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
 

@@ -35,7 +35,7 @@
 #ifdef __APPLE__
 #include <Availability.h>
 #else /* !__APPLE__ */
-#define __OSX_AVAILABLE_STARTING(x,y)	/* nothing */
+#define __API_AVAILABLE(...)	/* nothing */
 #endif /* !__APPLE__ */
 
 #ifdef __cplusplus
@@ -660,7 +660,7 @@ ZEXTERN int ZEXPORT deflateSetDictionary OF((z_streamp strm,
 ZEXTERN int ZEXPORT deflateGetDictionary OF((z_streamp strm,
                                              Bytef *dictionary,
                                              uInt  *dictLength))
-                                             __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0);
+                                             __API_AVAILABLE(macos(10.13),ios(11.0));
 /*
      Returns the sliding dictionary being maintained by deflate.  dictLength is
    set to the number of bytes in the dictionary, and that many bytes are copied
@@ -781,7 +781,7 @@ ZEXTERN uLong ZEXPORT deflateBound OF((z_streamp strm,
 ZEXTERN int ZEXPORT deflatePending OF((z_streamp strm,
                                        unsigned *pending,
                                        int *bits))
-                                       __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+                                       __API_AVAILABLE(macos(10.10),ios(8.0));
 /*
      deflatePending() returns the number of bytes and bits of output that have
    been generated, but not yet provided in the available output.  The bytes not
@@ -914,7 +914,7 @@ ZEXTERN int ZEXPORT inflateSetDictionary OF((z_streamp strm,
 ZEXTERN int ZEXPORT inflateGetDictionary OF((z_streamp strm,
                                              Bytef *dictionary,
                                              uInt  *dictLength))
-                                             __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+                                             __API_AVAILABLE(macos(10.10),ios(8.0));
 /*
      Returns the sliding dictionary being maintained by inflate.  dictLength is
    set to the number of bytes in the dictionary, and that many bytes are copied
@@ -974,7 +974,7 @@ ZEXTERN int ZEXPORT inflateReset OF((z_streamp strm));
 
 ZEXTERN int ZEXPORT inflateReset2 OF((z_streamp strm,
                                       int windowBits))
-                                      __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+                                      __API_AVAILABLE(macos(10.7),ios(5.0));
 /*
      This function is the same as inflateReset, but it also permits changing
    the wrap and window size requests.  The windowBits parameter is interpreted
@@ -1009,7 +1009,7 @@ ZEXTERN int ZEXPORT inflatePrime OF((z_streamp strm,
 */
 
 ZEXTERN long ZEXPORT inflateMark OF((z_streamp strm))
-                                     __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+                                     __API_AVAILABLE(macos(10.7),ios(5.0));
 /*
      This function returns two values, one in the lower 16 bits of the return
    value, and the other in the remaining upper bits, obtained by shifting the
@@ -1292,7 +1292,7 @@ ZEXTERN int ZEXPORT uncompress OF((Bytef *dest,   uLongf *destLen,
 
 ZEXTERN int ZEXPORT uncompress2 OF((Bytef *dest,   uLongf *destLen,
                                     const Bytef *source, uLong *sourceLen))
-                                    __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0);
+                                    __API_AVAILABLE(macos(10.13),ios(11.0));
 /*
      Same as uncompress, except that sourceLen is a pointer, where the
    length of the source is *sourceLen.  On return, *sourceLen is the number of
@@ -1372,7 +1372,7 @@ ZEXTERN gzFile ZEXPORT gzdopen OF((int fd, const char *mode));
 */
 
 ZEXTERN int ZEXPORT gzbuffer OF((gzFile file, unsigned size))
-                                 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+                                 __API_AVAILABLE(macos(10.7),ios(5.0));
 /*
      Set the internal buffer size used by this library's functions.  The
    default buffer size is 8192 bytes.  This function must be called after
@@ -1431,7 +1431,7 @@ ZEXTERN int ZEXPORT gzread OF((gzFile file, voidp buf, unsigned len));
 
 ZEXTERN z_size_t ZEXPORT gzfread OF((voidp buf, z_size_t size, z_size_t nitems,
                                      gzFile file))
-                                     __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0);
+                                     __API_AVAILABLE(macos(10.13),ios(11.0));
 /*
      Read up to nitems items of size size from file to buf, otherwise operating
    as gzread() does.  This duplicates the interface of stdio's fread(), with
@@ -1466,7 +1466,7 @@ ZEXTERN int ZEXPORT gzwrite OF((gzFile file,
 
 ZEXTERN z_size_t ZEXPORT gzfwrite OF((voidpc buf, z_size_t size,
                                       z_size_t nitems, gzFile file))
-                                      __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0);
+                                      __API_AVAILABLE(macos(10.13),ios(11.0));
 /*
      gzfwrite() writes nitems items of size size from buf to file, duplicating
    the interface of stdio's fwrite(), with size_t request and return types.  If
@@ -1655,9 +1655,9 @@ ZEXTERN int ZEXPORT    gzclose OF((gzFile file));
 */
 
 ZEXTERN int ZEXPORT gzclose_r OF((gzFile file))
-                                  __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+                                  __API_AVAILABLE(macos(10.7),ios(5.0));
 ZEXTERN int ZEXPORT gzclose_w OF((gzFile file))
-                                  __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+                                  __API_AVAILABLE(macos(10.7),ios(5.0));
 /*
      Same as gzclose(), but gzclose_r() is only for use when reading, and
    gzclose_w() is only for use when writing or appending.  The advantage to
@@ -1726,7 +1726,7 @@ ZEXTERN uLong ZEXPORT adler32 OF((uLong adler, const Bytef *buf, uInt len));
 
 ZEXTERN uLong ZEXPORT adler32_z OF((uLong adler, const Bytef *buf,
                                     z_size_t len))
-                                    __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0);
+                                    __API_AVAILABLE(macos(10.13),ios(11.0));
 /*
      Same as adler32(), but with a size_t length.
 */
@@ -1762,7 +1762,7 @@ ZEXTERN uLong ZEXPORT crc32   OF((uLong crc, const Bytef *buf, uInt len));
 
 ZEXTERN uLong ZEXPORT crc32_z OF((uLong adler, const Bytef *buf,
                                   z_size_t len))
-                                  __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0);
+                                  __API_AVAILABLE(macos(10.13),ios(11.0));
 /*
      Same as crc32(), but with a size_t length.
 */
@@ -1842,7 +1842,7 @@ struct gzFile_s {
     z_off64_t pos;
 };
 ZEXTERN int ZEXPORT gzgetc_ OF((gzFile file))
-                                __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);  /* backward compatibility */
+                                __API_AVAILABLE(macos(10.10),ios(8.0));  /* backward compatibility */
 #ifdef Z_PREFIX_SET
 #  undef z_gzgetc
 #  define z_gzgetc(g) \
@@ -1896,7 +1896,7 @@ ZEXTERN int ZEXPORT gzgetc_ OF((gzFile file))
    ZEXTERN z_off_t ZEXPORT gzseek OF((gzFile, z_off_t, int));
    ZEXTERN z_off_t ZEXPORT gztell OF((gzFile));
    ZEXTERN z_off_t ZEXPORT gzoffset OF((gzFile))
-                                        __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+                                        __API_AVAILABLE(macos(10.7),ios(5.0));
    ZEXTERN uLong ZEXPORT adler32_combine OF((uLong, uLong, z_off_t));
    ZEXTERN uLong ZEXPORT crc32_combine OF((uLong, uLong, z_off_t));
 #endif
@@ -1913,15 +1913,15 @@ ZEXTERN const char   * ZEXPORT zError           OF((int));
 ZEXTERN int            ZEXPORT inflateSyncPoint OF((z_streamp));
 ZEXTERN const z_crc_t FAR * ZEXPORT get_crc_table    OF((void));
 ZEXTERN int            ZEXPORT inflateUndermine OF((z_streamp, int))
-                                                    __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+                                                    __API_AVAILABLE(macos(10.7),ios(5.0));
 ZEXTERN int            ZEXPORT inflateValidate OF((z_streamp, int))
-                                                    __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0);
+                                                    __API_AVAILABLE(macos(10.13),ios(11.0));
 ZEXTERN unsigned long  ZEXPORT inflateCodesUsed OF ((z_streamp))
-                                                    __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0);
+                                                    __API_AVAILABLE(macos(10.13),ios(11.0));
 ZEXTERN int            ZEXPORT inflateResetKeep OF((z_streamp))
-                                                    __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+                                                    __API_AVAILABLE(macos(10.10),ios(8.0));
 ZEXTERN int            ZEXPORT deflateResetKeep OF((z_streamp))
-                                                    __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+                                                    __API_AVAILABLE(macos(10.10),ios(8.0));
 #if (defined(_WIN32) || defined(__CYGWIN__)) && !defined(Z_SOLO)
 ZEXTERN gzFile         ZEXPORT gzopen_w OF((const wchar_t *path,
                                             const char *mode));
@@ -1931,12 +1931,16 @@ ZEXTERN gzFile         ZEXPORT gzopen_w OF((const wchar_t *path,
 ZEXTERN int            ZEXPORTVA gzvprintf Z_ARG((gzFile file,
                                                   const char *format,
                                                   va_list va))
-                                                  __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+                                                  __API_AVAILABLE(macos(10.10),ios(8.0));
 #  endif
 #endif
 
 #ifdef __cplusplus
 }
 #endif
+
+#ifndef __APPLE__
+#undef __API_AVAILABLE
+#endif /* !__APPLE__ */
 
 #endif /* ZLIB_H */

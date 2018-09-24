@@ -138,8 +138,10 @@ CFStringRef __NxEventCreateDescription (NXEvent *event, NXEventExtension *ext) {
                                              CFSTR(
                                              "NXEventExtension\n"
                                              "flags      : 0x%x\n"
+                                             "audit      : 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n"
                                              ),
-                                             (unsigned int)ext->flags
+                                             (unsigned int)ext->flags,
+                                             ext->audit.val[0], ext->audit.val[1], ext->audit.val[2], ext->audit.val[3], ext->audit.val[4], ext->audit.val[5], ext->audit.val[6], ext->audit.val[7]
                                              );
     }
     

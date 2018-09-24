@@ -265,7 +265,12 @@ bool Transform::HasNoOutboundConnections()
 {
 	// make an array big enough to hold all of the attributes
 	CFIndex numAttributes = CFSetGetCount(mAttributes);
-	transform_attribute* attributes[numAttributes];
+	transform_attribute **attributes = (transform_attribute**)malloc(numAttributes*sizeof(transform_attribute));
+	
+	if (attributes == NULL) {
+		// No more memory, we assume it's orphaned
+		return true;
+	}
 	
 	TAGetAll(attributes);
 	
@@ -275,9 +280,12 @@ bool Transform::HasNoOutboundConnections()
 	{
 		if (attributes[i]->connections && CFArrayGetCount(attributes[i]->connections) != 0)
 		{
+			free(attributes);
 			return false;
 		}
 	}
+	
+	free(attributes);
 	
 	return true;
 }
@@ -288,7 +296,12 @@ bool Transform::HasNoInboundConnections()
 {
 	// make an array big enough to hold all of the attributes
 	CFIndex numAttributes = CFSetGetCount(mAttributes);
-	transform_attribute* attributes[numAttributes];
+	transform_attribute **attributes = (transform_attribute**)malloc(numAttributes*sizeof(transform_attribute));
+	
+	if (attributes == NULL) {
+		// No more memory, we assume it's orphaned
+		return true;
+	}
 	
 	TAGetAll(attributes);
 	
@@ -298,9 +311,12 @@ bool Transform::HasNoInboundConnections()
 	{
 		if (attributes[i]->has_incoming_connection)
 		{
+			free(attributes);
 			return false;
 		}
 	}
+	
+	free(attributes);
 	
 	return true;
 }
@@ -413,8 +429,14 @@ void Transform::FinalizePhase2()
 void Transform::FinalizeForClang()
 {
 	CFIndex numAttributes = CFSetGetCount(mAttributes);
-	SecTransformAttributeRef handles[numAttributes];
-	CFSetGetValues(mAttributes, (const void**)&handles);
+	SecTransformAttributeRef *handles = (const void**)malloc(numAttributes*sizeof(SecTransformAttributeRef));
+	
+	if (handles == NULL) {
+		syslog(LOG_ERR, "Unable to allocate SecTransformAttributeRef handles in FinalizeForClang");
+		return;
+	}
+    
+	CFSetGetValues(mAttributes, handles);
 	
 	for(CFIndex i = 0; i < numAttributes; ++i) {
 		SecTransformAttributeRef ah = handles[i];
@@ -431,7 +453,7 @@ void Transform::FinalizeForClang()
 		}
 		dispatch_release(ta->q);
 	}
-	
+    
 	// We might be finalizing a transform as it is being activated, make sure that is complete before we do the rest
     dispatch_group_notify(mActivationPending, mDispatchQueue, ^{
         if (mActivationQueue != NULL) {
@@ -446,6 +468,8 @@ void Transform::FinalizeForClang()
         });
         dispatch_release(mDispatchQueue);
     });
+	
+	free(handles);
 }
 
 void Transform::Finalize()
@@ -1598,9 +1622,17 @@ CFDictionaryRef Transform::GetAHDictForSaveState(SecTransformStringOrAttributeRe
 CFDictionaryRef Transform::CopyState()
 {
 	CFIndex i, j, cnt = CFSetGetCount(mAttributes);
-	transform_attribute *attrs[cnt];
-	CFStringRef names[cnt];
-	CFDictionaryRef values[cnt];
+	transform_attribute **attrs = (transform_attribute**)malloc(cnt*sizeof(transform_attribute));
+	CFStringRef *names = (CFStringRef*)malloc(cnt*sizeof(CFStringRef));
+	CFDictionaryRef *values = (CFDictionaryRef*)malloc(sizeof(CFDictionaryRef) * cnt);
+    
+    if (attrs == NULL || names == NULL || values == NULL) {
+        free(attrs);
+        free(names);
+		free(values);
+        return NULL;
+    }
+
 	TAGetAll(attrs);
 	for(i = j = 0; i < cnt; ++i)
 	{
@@ -1613,7 +1645,9 @@ CFDictionaryRef Transform::CopyState()
 	}
 	
 	CFDictionaryRef result = CFDictionaryCreate(NULL, (const void**)&names, (const void**)&values, j, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	
+    
+    free(names);
+    
 	for(i = j = 0; i < cnt; ++i)
 	{
 		transform_attribute *ta = attrs[i];
@@ -1623,6 +1657,8 @@ CFDictionaryRef Transform::CopyState()
 		}
 	}
 	
+    free(attrs);
+	free(values);
 	return result;
 }
 
@@ -1783,7 +1819,12 @@ CFErrorRef Transform::ProcessExternalize(CFMutableArrayRef transforms, CFMutable
 	
 	// now walk the attribute list
 	CFIndex numAttributes = CFSetGetCount(mAttributes);
-	transform_attribute *attributes[numAttributes];
+	transform_attribute **attributes = (transform_attribute**)malloc(numAttributes*sizeof(transform_attribute));
+	
+	if (attributes == NULL) {
+		return GetNoMemoryErrorAndRetain();
+	}
+	
 	TAGetAll(attributes);
 	
 	CFIndex i;
@@ -1818,6 +1859,8 @@ CFErrorRef Transform::ProcessExternalize(CFMutableArrayRef transforms, CFMutable
 			}
 		}
 	}
+	
+	free(attributes);
 	
 	return NULL;
 }

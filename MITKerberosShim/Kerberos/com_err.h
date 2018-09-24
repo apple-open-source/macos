@@ -95,7 +95,6 @@ void com_err    (const char *progname, errcode_t code, const char *format, ...);
 void com_err_va (const char *progname, errcode_t code, const char *format, va_list args);
 
 const char *error_message (errcode_t code);
-const char *error_manager (errcode_t code);
 
 com_err_handler_t set_com_err_hook(com_err_handler_t handler);
 com_err_handler_t reset_com_err_hook(void);

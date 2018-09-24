@@ -30,20 +30,6 @@
 
 namespace Security {
 
-
-//
-// The null credential constant.
-//
-static const CSSM_ACCESS_CREDENTIALS null_credentials = { "" };	// and more nulls
-#if BUG_GCC
-const AccessCredentials &AccessCredentials::null =
-    *static_cast<const AccessCredentials *>(&null_credentials);
-#else
-const AccessCredentials &AccessCredentials::null =
-    static_cast<const AccessCredentials &>(null_credentials);
-#endif
-
-
 //
 // Scan a SampleGroup for samples with a given CSSM_SAMPLE_TYPE.
 // Collect all matching samples into a list (which is cleared to begin with).
@@ -67,6 +53,12 @@ bool SampleGroup::collect(CSSM_SAMPLE_TYPE sampleType, list<CssmSample> &matches
 //
 // AccessCredentials
 //
+const AccessCredentials& AccessCredentials::null_credential()
+{
+    static const CSSM_ACCESS_CREDENTIALS null_credentials = { "" };    // and more nulls
+    return AccessCredentials::overlay(null_credentials);
+}
+
 void AccessCredentials::tag(const char *tagString)
 {
 	if (tagString == NULL)

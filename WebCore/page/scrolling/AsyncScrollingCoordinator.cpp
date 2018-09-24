@@ -35,7 +35,6 @@
 #include "FrameView.h"
 #include "GraphicsLayer.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PerformanceLoggingClient.h"
 #include "ScrollAnimator.h"
@@ -47,6 +46,7 @@
 #include "ScrollingStateTree.h"
 #include "Settings.h"
 #include "WheelEventTestTrigger.h"
+#include <wtf/ProcessID.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -65,6 +65,7 @@ void AsyncScrollingCoordinator::scrollingStateTreePropertiesChanged()
     scheduleTreeStateCommit();
 }
 
+#if ENABLE(CSS_SCROLL_SNAP)
 static inline void setStateScrollingNodeSnapOffsetsAsFloat(ScrollingStateScrollingNode& node, ScrollEventAxis axis, const Vector<LayoutUnit>* snapOffsets, const Vector<ScrollOffsetRange<LayoutUnit>>* snapOffsetRanges, float deviceScaleFactor)
 {
     // FIXME: Incorporate current page scale factor in snapping to device pixel. Perhaps we should just convert to float here and let UI process do the pixel snapping?
@@ -89,6 +90,7 @@ static inline void setStateScrollingNodeSnapOffsetsAsFloat(ScrollingStateScrolli
         node.setVerticalSnapOffsetRanges(snapOffsetRangesAsFloat);
     }
 }
+#endif
 
 void AsyncScrollingCoordinator::setEventTrackingRegionsDirty()
 {
@@ -123,14 +125,7 @@ void AsyncScrollingCoordinator::frameViewLayoutUpdated(FrameView& frameView)
     if (!m_scrollingStateTree->rootStateNode())
         return;
 
-    // Compute the region of the page that we can't do fast scrolling for. This currently includes
-    // all scrollable areas, such as subframes, overflow divs and list boxes. We need to do this even if the
-    // frame view whose layout was updated is not the main frame.
-    // In the future, we may want to have the ability to set non-fast scrolling regions for more than
-    // just the root node. But right now, this concept only applies to the root.
-    m_scrollingStateTree->rootStateNode()->setEventTrackingRegions(absoluteEventTrackingRegions());
-    m_eventTrackingRegionsDirty = false;
-
+    setEventTrackingRegionsDirty();
     if (!coordinatesScrollingForFrameView(frameView))
         return;
 
@@ -375,7 +370,7 @@ void AsyncScrollingCoordinator::reconcileScrollingState(FrameView& frameView, co
     bool oldProgrammaticScroll = frameView.inProgrammaticScroll();
     frameView.setInProgrammaticScroll(programmaticScroll);
 
-    LOG_WITH_STREAM(Scrolling, stream << getpid() << " AsyncScrollingCoordinator " << this << " reconcileScrollingState scrollPosition " << scrollPosition << " programmaticScroll " << programmaticScroll << " stability " << viewportRectStability << " " << scrollingLayerPositionAction);
+    LOG_WITH_STREAM(Scrolling, stream << getCurrentProcessID() << " AsyncScrollingCoordinator " << this << " reconcileScrollingState scrollPosition " << scrollPosition << " programmaticScroll " << programmaticScroll << " stability " << viewportRectStability << " " << scrollingLayerPositionAction);
 
     std::optional<FloatRect> layoutViewportRect;
 
@@ -498,15 +493,9 @@ void AsyncScrollingCoordinator::reconcileViewportConstrainedLayerPositions(const
     if (!m_scrollingStateTree->rootStateNode())
         return;
 
-    auto children = m_scrollingStateTree->rootStateNode()->children();
-    if (!children)
-        return;
+    LOG_WITH_STREAM(Scrolling, stream << getCurrentProcessID() << " AsyncScrollingCoordinator::reconcileViewportConstrainedLayerPositions for viewport rect " << viewportRect);
 
-    LOG_WITH_STREAM(Scrolling, stream << getpid() << " AsyncScrollingCoordinator::reconcileViewportConstrainedLayerPositions for viewport rect " << viewportRect);
-
-    // FIXME: We'll have to traverse deeper into the tree at some point.
-    for (auto& child : *children)
-        child->reconcileLayerPositionForViewportRect(viewportRect, action);
+    m_scrollingStateTree->rootStateNode()->reconcileLayerPositionForViewportRect(viewportRect, action);
 }
 
 void AsyncScrollingCoordinator::ensureRootStateNodeForFrameView(FrameView& frameView)
@@ -518,7 +507,7 @@ void AsyncScrollingCoordinator::ensureRootStateNodeForFrameView(FrameView& frame
     // For non-main frames, it is only possible to arrive in this function from
     // RenderLayerCompositor::updateBacking where the node has already been created.
     ASSERT(frameView.frame().isMainFrame());
-    attachToStateTree(FrameScrollingNode, frameView.scrollLayerID(), 0);
+    attachToStateTree(MainFrameScrollingNode, frameView.scrollLayerID(), 0);
 }
 
 void AsyncScrollingCoordinator::updateFrameScrollingNode(ScrollingNodeID nodeID, GraphicsLayer* layer, GraphicsLayer* scrolledContentsLayer, GraphicsLayer* counterScrollingLayer, GraphicsLayer* insetClipLayer, const ScrollingGeometry* scrollingGeometry)

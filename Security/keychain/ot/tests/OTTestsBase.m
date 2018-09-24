@@ -140,7 +140,7 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
     [self startCKKSSubsystem];
     
     self.accountStatus = CKAccountStatusAvailable;
-    self.circleStatus = kSOSCCInCircle;
+    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCInCircle error:nil];
     [self.cfu.accountTracker notifyCKAccountStatusChangeAndWaitForSignal];
 
     [self.context.accountTracker notifyCKAccountStatusChangeAndWaitForSignal];

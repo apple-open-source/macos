@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)alist.c	1.4	05/06/08 SMI"
-
 /*
  * Create, manage, and destroy association lists.  alists are arrays with
  * arbitrary index types, and are also commonly known as associative arrays.

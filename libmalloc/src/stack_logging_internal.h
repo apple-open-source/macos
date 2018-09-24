@@ -41,7 +41,7 @@ void __malloc_unlock_stack_logging();
 // support for gdb and others checking for stack_logging locks
 extern boolean_t __stack_logging_locked();
 
-extern boolean_t __prepare_to_log_stacks(boolean_t lite_mode);
+extern boolean_t __prepare_to_log_stacks(boolean_t lite_or_vmlite_mode);
 extern void __prepare_to_log_stacks_stage2();
 
 // support for multi-threaded forks
@@ -55,6 +55,7 @@ void __decrement_table_slot_refcount(uint64_t stackID, size_t size);
 void __delete_uniquing_table_memory_while_locked();
 boolean_t __uniquing_table_memory_was_deleted(void);
 
+// Returns true if the stack logging lite malloc zone is enabled. Does not indicate if VM-only lite mode is enabled.
 boolean_t is_stack_logging_lite_enabled(void);
 
 

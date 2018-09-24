@@ -604,7 +604,7 @@ static OSStatus SecKeychainItemCreatePersistentReferenceFromCertificate(SecCerti
 	}
 
 	CFErrorRef errorRef = NULL;
-	CFDataRef serialData = SecCertificateCopySerialNumber(certItem, &errorRef);
+	CFDataRef serialData = SecCertificateCopySerialNumberData(certItem, &errorRef);
 	if (errorRef) {
 		CFIndex err = CFErrorGetCode(errorRef);
 		CFRelease(errorRef);

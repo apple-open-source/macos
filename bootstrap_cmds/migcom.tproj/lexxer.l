@@ -132,6 +132,7 @@ extern void yyerror();
 <Normal>[Ss][Ii][Mm][Pp][Ll][Ee][Rr][Oo][Uu][Tt][Ii][Nn][Ee] RETURN(sySimpleRoutine);
 <Normal>[Ss][Uu][Bb][Ss][Yy][Ss][Tt][Ee][Mm]	RETURN(sySubsystem);
 <Normal>[Mm][Ss][Gg][Oo][Pp][Tt][Ii][Oo][Nn]	RETURN(syMsgOption);
+<Normal>[Uu][Ss][Ee][Ss][Pp][Ee][Cc][Ii][Aa][Ll][Rr][Ee][Pp][Ll][Yy][Pp][Oo][Rr][Tt]    RETURN(syUseSpecialReplyPort);
 <Normal>[Mm][Ss][Gg][Ss][Ee][Qq][Nn][Oo]	RETURN(syMsgSeqno);
 <Normal>[Ww][Aa][Ii][Tt][Tt][Ii][Mm][Ee]	RETURN(syWaitTime);
 <Normal>[Ss][Ee][Nn][Dd][Tt][Ii][Mm][Ee]	RETURN(sySendTime);

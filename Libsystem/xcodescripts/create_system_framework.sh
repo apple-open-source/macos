@@ -40,10 +40,6 @@ else
 			suffix="_${variant}"
 		fi
 
-		if [[ "${PLATFORM_NAME}" =~ simulator ]] ; then
-			ln -sf "../../../../usr/lib/libSystem${suffix}.dylib" "${DSTROOT}/${FPATH}/System${suffix}" || exit 1
-		else
-			ln -sf "../../../../usr/lib/libSystem.B${suffix}.dylib" "${DSTROOT}/${FPATH}/System${suffix}" || exit 1
-		fi
+		ln -sf "../../../../usr/lib/libSystem.B${suffix}.dylib" "${DSTROOT}/${FPATH}/System${suffix}" || exit 1
 	done
 fi

@@ -27,8 +27,6 @@
 #ifndef	_UTILS_H
 #define	_UTILS_H
 
-#pragma ident	"@(#)utils.h	1.2	05/06/08 SMI"
-
 #include <stdarg.h>
 
 #ifdef	__cplusplus

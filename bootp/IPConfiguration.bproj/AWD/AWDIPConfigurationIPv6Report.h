@@ -46,6 +46,8 @@
     BOOL _routerLifetimeNotMaximum;
     BOOL _routerLifetimeZero;
     BOOL _routerSourceAddressCollision;
+    BOOL _xlat464Enabled;
+    BOOL _xlat464PlatDiscoveryFailed;
     struct {
         int timestamp:1;
         int autoconfAddressAcquisitionSeconds:1;
@@ -77,6 +79,8 @@
         int routerLifetimeNotMaximum:1;
         int routerLifetimeZero:1;
         int routerSourceAddressCollision:1;
+        int xlat464Enabled:1;
+        int xlat464PlatDiscoveryFailed:1;
     } _has;
 }
 
@@ -175,6 +179,12 @@
 
 @property (nonatomic) BOOL hasRouterLifetimeSeconds;
 @property (nonatomic) uint32_t routerLifetimeSeconds;
+
+@property (nonatomic) BOOL hasXlat464Enabled;
+@property (nonatomic) BOOL xlat464Enabled;
+
+@property (nonatomic) BOOL hasXlat464PlatDiscoveryFailed;
+@property (nonatomic) BOOL xlat464PlatDiscoveryFailed;
 
 // Performs a shallow copy into other
 - (void)copyTo:(AWDIPConfigurationIPv6Report *)other;

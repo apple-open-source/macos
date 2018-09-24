@@ -37,16 +37,17 @@
 #include <wayland-server-protocol.h>
 #include <wtf/UUID.h>
 
-#if USE(OPENGL_ES_2)
+#if USE(OPENGL_ES)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <WebCore/Extensions3DOpenGLES.h>
 #else
+#include <WebCore/Extensions3DOpenGL.h>
 #include <WebCore/OpenGLShims.h>
 #endif
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 #if !defined(PFNEGLBINDWAYLANDDISPLAYWL)
 typedef EGLBoolean (*PFNEGLBINDWAYLANDDISPLAYWL) (EGLDisplay, struct wl_display*);
@@ -215,7 +216,7 @@ void WaylandCompositor::Surface::attachBuffer(struct wl_resource* buffer)
 
     if (buffer) {
         auto* compositorBuffer = WaylandCompositor::Buffer::getOrCreate(buffer);
-        m_pendingBuffer = compositorBuffer->createWeakPtr();
+        m_pendingBuffer = makeWeakPtr(*compositorBuffer);
     }
 }
 
@@ -349,6 +350,7 @@ static const struct wl_compositor_interface compositorInterface = {
             wl_resource_set_implementation(surfaceResource, &surfaceInterface, new WaylandCompositor::Surface(),
                 [](struct wl_resource* resource) {
                     auto* surface = static_cast<WaylandCompositor::Surface*>(wl_resource_get_user_data(resource));
+                    WaylandCompositor::singleton().willDestroySurface(surface);
                     delete surface;
                 });
         } else
@@ -373,11 +375,12 @@ static const struct wl_webkitgtk_interface webkitgtkInterface = {
 
 bool WaylandCompositor::initializeEGL()
 {
+    const char* extensions = eglQueryString(PlatformDisplay::sharedDisplay().eglDisplay(), EGL_EXTENSIONS);
+
     if (PlatformDisplay::sharedDisplay().eglCheckVersion(1, 5)) {
         eglCreateImage = reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(eglGetProcAddress("eglCreateImage"));
         eglDestroyImage = reinterpret_cast<PFNEGLDESTROYIMAGEKHRPROC>(eglGetProcAddress("eglDestroyImage"));
     } else {
-        const char* extensions = eglQueryString(PlatformDisplay::sharedDisplay().eglDisplay(), EGL_EXTENSIONS);
         if (GLContext::isExtensionSupported(extensions, "EGL_KHR_image_base")) {
             eglCreateImage = reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(eglGetProcAddress("eglCreateImageKHR"));
             eglDestroyImage = reinterpret_cast<PFNEGLDESTROYIMAGEKHRPROC>(eglGetProcAddress("eglDestroyImageKHR"));
@@ -388,22 +391,13 @@ bool WaylandCompositor::initializeEGL()
         return false;
     }
 
-    glImageTargetTexture2D = reinterpret_cast<PFNGLEGLIMAGETARGETTEXTURE2DOESPROC>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
-    if (!glImageTargetTexture2D) {
-        WTFLogAlways("WaylandCompositor requires glEGLImageTargetTexture2D.");
-        return false;
+    if (GLContext::isExtensionSupported(extensions, "EGL_WL_bind_wayland_display")) {
+        eglBindWaylandDisplay = reinterpret_cast<PFNEGLBINDWAYLANDDISPLAYWL>(eglGetProcAddress("eglBindWaylandDisplayWL"));
+        eglUnbindWaylandDisplay = reinterpret_cast<PFNEGLUNBINDWAYLANDDISPLAYWL>(eglGetProcAddress("eglUnbindWaylandDisplayWL"));
+        eglQueryWaylandBuffer = reinterpret_cast<PFNEGLQUERYWAYLANDBUFFERWL>(eglGetProcAddress("eglQueryWaylandBufferWL"));
     }
-
-    eglQueryWaylandBuffer = reinterpret_cast<PFNEGLQUERYWAYLANDBUFFERWL>(eglGetProcAddress("eglQueryWaylandBufferWL"));
-    if (!eglQueryWaylandBuffer) {
-        WTFLogAlways("WaylandCompositor requires eglQueryWaylandBuffer.");
-        return false;
-    }
-
-    eglBindWaylandDisplay = reinterpret_cast<PFNEGLBINDWAYLANDDISPLAYWL>(eglGetProcAddress("eglBindWaylandDisplayWL"));
-    eglUnbindWaylandDisplay = reinterpret_cast<PFNEGLUNBINDWAYLANDDISPLAYWL>(eglGetProcAddress("eglUnbindWaylandDisplayWL"));
-    if (!eglBindWaylandDisplay || !eglUnbindWaylandDisplay) {
-        WTFLogAlways("WaylandCompositor requires eglBindWaylandDisplayWL and eglUnbindWaylandDisplayWL.");
+    if (!eglBindWaylandDisplay || !eglUnbindWaylandDisplay || !eglQueryWaylandBuffer) {
+        WTFLogAlways("WaylandCompositor requires eglBindWaylandDisplayWL, eglUnbindWaylandDisplayWL and eglQueryWaylandBuffer.");
         return false;
     }
 
@@ -413,6 +407,19 @@ bool WaylandCompositor::initializeEGL()
 
     if (!m_eglContext->makeContextCurrent())
         return false;
+
+#if USE(OPENGL_ES)
+    std::unique_ptr<Extensions3DOpenGLES> glExtensions = std::make_unique<Extensions3DOpenGLES>(nullptr,  false);
+#else
+    std::unique_ptr<Extensions3DOpenGL> glExtensions = std::make_unique<Extensions3DOpenGL>(nullptr, GLContext::current()->version() >= 320);
+#endif
+    if (glExtensions->supports("GL_OES_EGL_image") || glExtensions->supports("GL_OES_EGL_image_external"))
+        glImageTargetTexture2D = reinterpret_cast<PFNGLEGLIMAGETARGETTEXTURE2DOESPROC>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
+
+    if (!glImageTargetTexture2D) {
+        WTFLogAlways("WaylandCompositor requires glEGLImageTargetTexture2D.");
+        return false;
+    }
 
     return true;
 }
@@ -469,7 +476,7 @@ static GRefPtr<GSource> createWaylandLoopSource(struct wl_display* display)
 
 WaylandCompositor::WaylandCompositor()
 {
-    WlUniquePtr<struct wl_display> display(wl_display_create());
+    std::unique_ptr<struct wl_display, DisplayDeleter> display(wl_display_create());
     if (!display) {
         WTFLogAlways("Nested Wayland compositor could not create display object");
         return;
@@ -554,6 +561,16 @@ void WaylandCompositor::unregisterWebPage(WebPageProxy& webPage)
 {
     if (auto* surface = m_pageMap.take(&webPage))
         surface->setWebPage(nullptr);
+}
+
+void WaylandCompositor::willDestroySurface(Surface* surface)
+{
+    for (auto it : m_pageMap) {
+        if (it.value == surface) {
+            it.value = nullptr;
+            return;
+        }
+    }
 }
 
 } // namespace WebKit

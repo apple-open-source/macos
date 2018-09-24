@@ -3,31 +3,12 @@
 
 #import "Security/SecureObjectSync/SOSTransportCircleKVS.h"
 #import "Security/SecureObjectSync/SOSTransportMessageKVS.h"
-#import "Security/SecureObjectSync/SOSTransportMessageIDS.h"
 
 extern CFMutableArrayRef key_transports;
 extern CFMutableArrayRef circle_transports;
 extern CFMutableArrayRef message_transports;
 
 void SOSAccountUpdateTestTransports(SOSAccount* account, CFDictionaryRef gestalt);
-
-@interface SOSMessageIDSTest : SOSMessageIDS
-
-@property (nonatomic) CFMutableDictionaryRef changes;
-@property (nonatomic) CFStringRef   accountName;
-
--(SOSMessageIDSTest*) initWithAccount:(SOSAccount*)acct andAccountName:(CFStringRef) aN andCircleName:(CFStringRef) cN err:(CFErrorRef *)error;
--(CFIndex) SOSTransportMessageGetTransportType;
--(CFStringRef) SOSTransportMessageGetCircleName;
--(CFTypeRef) SOSTransportMessageGetEngine;
--(SOSAccount*) SOSTransportMessageGetAccount;
-void SOSTransportMessageIDSTestSetName(SOSMessageIDSTest* transport, CFStringRef acctName);
--(bool) SOSTransportMessageSendMessages:(SOSMessageIDSTest*) transport pm:(CFDictionaryRef) peer_messages err:(CFErrorRef *)error;
--(bool) SOSTransportMessageIDSGetIDSDeviceID:(SOSAccount*)acct;
--(CFDictionaryRef)CF_RETURNS_RETAINED SOSTransportMessageHandlePeerMessageReturnsHandledCopy:(SOSMessageIDSTest*) transport peerMessages:(CFMutableDictionaryRef)message err:(CFErrorRef *)error;
--(HandleIDSMessageReason) SOSTransportMessageIDSHandleMessage:(SOSAccount*)acct m:(CFDictionaryRef) message err:(CFErrorRef *)error;
-
-@end
 
 @interface CKKeyParameterTest : CKKeyParameter
 
@@ -73,7 +54,6 @@ bool SOSAccountInflateTestTransportsForCircle(SOSAccount* account, CFStringRef c
 -(CFMutableDictionaryRef) SOSTransportCircleTestGetChanges;
 @end
 
-void SOSTransportMessageIDSTestSetName(SOSMessageIDSTest* transport, CFStringRef n);
 void SOSTransportMessageTestClearChanges(SOSMessageKVSTest* transport);
 
 void SOSTransportMessageKVSTestSetName(SOSMessageKVSTest* transport, CFStringRef n);
@@ -86,9 +66,4 @@ void SOSTransportKeyParameterTestSetName(CKKeyParameterTest* transport, CFString
 void SOSTransportKeyParameterTestClearChanges(CKKeyParameterTest* transport);
 SOSAccount* SOSTransportKeyParameterTestGetAccount(CKKeyParameterTest* transport);
 SOSAccount* SOSTransportMessageKVSTestGetAccount(SOSMessageKVSTest* transport);
-void SOSTransportMessageIDSTestClearChanges(SOSMessageIDSTest* transport);
-
-CFMutableDictionaryRef SOSTransportMessageIDSTestGetChanges(SOSMessageIDSTest* transport);
-SOSAccount* SOSTransportMessageIDSTestGetAccount(SOSMessageIDSTest* transport);
-CFStringRef SOSTransportMessageIDSTestGetName(SOSMessageIDSTest* transport);
 #endif

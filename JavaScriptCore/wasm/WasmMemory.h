@@ -34,6 +34,8 @@
 #include <wtf/Function.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
+#include <wtf/WeakPtr.h>
 
 namespace WTF {
 class PrintStream;
@@ -42,6 +44,8 @@ class PrintStream;
 namespace JSC {
 
 namespace Wasm {
+
+class Instance;
 
 class Memory : public RefCounted<Memory> {
     WTF_MAKE_NONCOPYABLE(Memory);
@@ -80,22 +84,20 @@ public:
         OutOfMemory,
     };
     Expected<PageCount, GrowFailReason> grow(PageCount);
+    void registerInstance(Instance*);
 
     void check() {  ASSERT(!deletionHasBegun()); }
 
     static ptrdiff_t offsetOfMemory() { return OBJECT_OFFSETOF(Memory, m_memory); }
     static ptrdiff_t offsetOfSize() { return OBJECT_OFFSETOF(Memory, m_size); }
-    static ptrdiff_t offsetOfIndexingMask() { return OBJECT_OFFSETOF(Memory, m_indexingMask); }
 
 private:
     Memory();
     Memory(void* memory, PageCount initial, PageCount maximum, size_t mappedCapacity, MemoryMode, WTF::Function<void(NotifyPressure)>&& notifyMemoryPressure, WTF::Function<void(SyncTryToReclaim)>&& syncTryToReclaimMemory, WTF::Function<void(GrowSuccess, PageCount, PageCount)>&& growSuccessCallback);
     Memory(PageCount initial, PageCount maximum, WTF::Function<void(NotifyPressure)>&& notifyMemoryPressure, WTF::Function<void(SyncTryToReclaim)>&& syncTryToReclaimMemory, WTF::Function<void(GrowSuccess, PageCount, PageCount)>&& growSuccessCallback);
 
-    // FIXME: we cache these on the instances to avoid a load on instance->instance calls. This will require updating all the instances when grow is called. https://bugs.webkit.org/show_bug.cgi?id=177305
     void* m_memory { nullptr };
     size_t m_size { 0 };
-    size_t m_indexingMask { 0 };
     PageCount m_initial;
     PageCount m_maximum;
     size_t m_mappedCapacity { 0 };
@@ -103,6 +105,7 @@ private:
     WTF::Function<void(NotifyPressure)> m_notifyMemoryPressure;
     WTF::Function<void(SyncTryToReclaim)> m_syncTryToReclaimMemory;
     WTF::Function<void(GrowSuccess, PageCount, PageCount)> m_growSuccessCallback;
+    Vector<WeakPtr<Instance>> m_instances;
 };
 
 } } // namespace JSC::Wasm

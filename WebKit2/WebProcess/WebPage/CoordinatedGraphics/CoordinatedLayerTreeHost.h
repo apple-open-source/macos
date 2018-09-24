@@ -57,11 +57,8 @@ protected:
     void deviceOrPageScaleFactorChanged() override;
     void pageBackgroundTransparencyChanged() override;
 
-    void clearUpdateAtlases() override;
-
-    void setVisibleContentsRect(const WebCore::FloatRect&, const WebCore::FloatPoint&);
+    void setVisibleContentsRect(const WebCore::FloatRect&);
     void renderNextFrame();
-    void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset);
 
     WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
 
@@ -73,13 +70,12 @@ protected:
     void didFlushRootLayer(const WebCore::FloatRect& visibleContentRect) override;
     void notifyFlushRequired() override { scheduleLayerFlush(); };
     void commitSceneState(const WebCore::CoordinatedGraphicsState&) override;
-    void releaseUpdateAtlases(const Vector<uint32_t>&) override { };
 
 private:
     void layerFlushTimerFired();
 
     CompositingCoordinator m_coordinator;
-    bool m_isWaitingForRenderer { true };
+    bool m_isWaitingForRenderer { false };
     bool m_scheduledWhileWaitingForRenderer { false };
     struct {
         OptionalCallbackID callbackID;

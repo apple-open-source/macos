@@ -27,15 +27,19 @@
 #import "CKKS.h"
 #import "SecDbKeychainItemV7.h"
 #import "SecItemPriv.h"
+#import "SecTaskPriv.h"
+#import "server_security_helpers.h"
 #import "SecItemServer.h"
 #import "spi.h"
 #import "SecDbKeychainSerializedItemV7.h"
 #import "SecDbKeychainSerializedMetadata.h"
 #import "SecDbKeychainSerializedSecretData.h"
 #import "SecDbKeychainSerializedAKSWrappedKey.h"
+#import "SecCDKeychain.h"
 #import <utilities/SecCFWrappers.h>
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <SecurityFoundation/SFCryptoServicesErrors.h>
+#import <SecurityFoundation/SFKeychain.h>
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
 
@@ -47,7 +51,75 @@
 
 @end
 
-@implementation KeychainXCTest
+@interface FakeAKSRefKey : NSObject <SecAKSRefKey>
+@end
+
+@implementation FakeAKSRefKey {
+    SFAESKey* _key;
+}
+
+- (instancetype)initWithKeybag:(keybag_handle_t)keybag keyclass:(keyclass_t)keyclass
+{
+    if (self = [super init]) {
+        _key = [[SFAESKey alloc] initRandomKeyWithSpecifier:[[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256] error:nil];
+    }
+
+    return self;
+}
+
+- (instancetype)initWithBlob:(NSData*)blob keybag:(keybag_handle_t)keybag
+{
+    if (self = [super init]) {
+        _key = [[SFAESKey alloc] initWithData:blob specifier:[[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256] error:nil];
+    }
+
+    return self;
+}
+
+- (NSData*)wrappedDataForKey:(SFAESKey*)key
+{
+    SFAuthenticatedEncryptionOperation* encryptionOperation = [[SFAuthenticatedEncryptionOperation alloc] initWithKeySpecifier:[[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256]];
+    return [NSKeyedArchiver archivedDataWithRootObject:[encryptionOperation encrypt:key.keyData withKey:_key error:nil] requiringSecureCoding:YES error:nil];
+}
+
+- (SFAESKey*)keyWithWrappedData:(NSData*)wrappedKeyData
+{
+    SFAESKeySpecifier* keySpecifier = [[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256];
+    SFAuthenticatedEncryptionOperation* encryptionOperation = [[SFAuthenticatedEncryptionOperation alloc] initWithKeySpecifier:keySpecifier];
+    NSData* keyData = [encryptionOperation decrypt:[NSKeyedUnarchiver unarchivedObjectOfClass:[SFAuthenticatedCiphertext class] fromData:wrappedKeyData error:nil] withKey:_key error:nil];
+    return [[SFAESKey alloc] initWithData:keyData specifier:keySpecifier error:nil];
+}
+
+- (NSData*)refKeyBlob
+{
+    return _key.keyData;
+}
+
+@end
+
+@implementation SFKeychainServerFakeConnection {
+    NSArray* _fakeAccessGroups;
+}
+
+- (void)setFakeAccessGroups:(NSArray*)fakeAccessGroups
+{
+    _fakeAccessGroups = fakeAccessGroups.copy;
+}
+
+- (NSArray*)clientAccessGroups
+{
+    return _fakeAccessGroups ?: @[@"com.apple.token"];
+}
+
+@end
+
+@implementation KeychainXCTest {
+    id _keychainPartialMock;
+    CFArrayRef _originalAccessGroups;
+
+}
+
+@synthesize keychainPartialMock = _keychainPartialMock;
 
 + (void)setUp
 {
@@ -71,22 +143,31 @@
     
     self.keySpecifier = [[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256];
     [self setNewFakeAKSKey:[NSData dataWithBytes:"1234567890123456789012" length:32]];
-    
+
     [SecDbKeychainMetadataKeyStore resetSharedStore];
     
     self.mockSecDbKeychainItemV7 = OCMClassMock([SecDbKeychainItemV7 class]);
     [[[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(fakeAKSEncryptWithKeybag:keyclass:keyData:outKeyclass:wrappedKey:error:) onObject:self] ignoringNonObjectArgs] aksEncryptWithKeybag:0 keyclass:0 keyData:[OCMArg any] outKeyclass:NULL wrappedKey:[OCMArg any] error:NULL];
     [[[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(fakeAKSDecryptWithKeybag:keyclass:wrappedKeyData:outKeyclass:unwrappedKey:error:) onObject:self] ignoringNonObjectArgs] aksDecryptWithKeybag:0 keyclass:0 wrappedKeyData:[OCMArg any] outKeyclass:NULL unwrappedKey:[OCMArg any] error:NULL];
     [[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(decryptionOperation) onObject:self] decryptionOperation];
-    [[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(isKeychainUnlocked) onObject:self] isKeychainUnlocked];
-    
+
+    // bring back with <rdar://problem/37523001>
+//    [[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(isKeychainUnlocked) onObject:self] isKeychainUnlocked];
+
+    id refKeyMock = OCMClassMock([SecAKSRefKey class]);
+    [[[refKeyMock stub] andCall:@selector(alloc) onObject:[FakeAKSRefKey class]] alloc];
+
     NSArray* partsOfName = [self.name componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" ]"]];
     secd_test_setup_temp_keychain([partsOfName[1] UTF8String], NULL);
+
+    _originalAccessGroups = SecAccessGroupsGetCurrent();
 }
 
 - (void)tearDown
 {
     [self.mockSecDbKeychainItemV7 stopMocking];
+    SecAccessGroupsSetCurrent(_originalAccessGroups);
+
     [super tearDown];
 }
 
@@ -145,6 +226,8 @@
         
         if (self.simulateRolledAKSKey && outKeyclass) {
             *outKeyclass = keyclass | (key_class_last + 1);
+        } else if (outKeyclass) {
+            *outKeyclass = keyclass;
         }
         
         return true;
@@ -212,6 +295,45 @@
     else {
         return false;
     }
+}
+
+- (NSData*)getDatabaseKeyDataithError:(NSError**)error
+{
+    if (_lockState == LockStateUnlocked) {
+        return [NSData dataWithBytes:"12345678901234567890123456789012" length:32];
+    }
+    else {
+        if (error) {
+            // <rdar://problem/38972671> add SFKeychainErrorDeviceLocked
+            *error = [NSError errorWithDomain:SFKeychainErrorDomain code:SFKeychainErrorFailedToCommunicateWithServer userInfo:nil];
+        }
+        return nil;
+    }
+}
+
+// Mock SecTask entitlement retrieval API, so that we can test access group entitlement parsing code in SecTaskCopyAccessGroups()
+static NSDictionary *currentEntitlements = nil;
+static BOOL currentEntitlementsValidated = false;
+static NSArray *currentAccessGroups = nil;
+
+CFTypeRef SecTaskCopyValueForEntitlement(SecTaskRef task, CFStringRef entitlement, CFErrorRef *error) {
+    id value = currentEntitlements[(__bridge id)entitlement];
+    if (value == nil && error != NULL) {
+        *error = (CFErrorRef)CFBridgingRetain([NSError errorWithDomain:NSPOSIXErrorDomain code:EINVAL userInfo:nil]);
+    }
+    return CFBridgingRetain(value);
+}
+
+Boolean SecTaskEntitlementsValidated(SecTaskRef task) {
+    return currentEntitlementsValidated;
+}
+
+- (void)setEntitlements:(NSDictionary<NSString *, id> *)entitlements validated:(BOOL)validated {
+    currentEntitlements = entitlements;
+    currentEntitlementsValidated = validated;
+    id task = CFBridgingRelease(SecTaskCreateFromSelf(kCFAllocatorDefault));
+    currentAccessGroups = CFBridgingRelease(SecTaskCopyAccessGroups((__bridge SecTaskRef)task));
+    SecAccessGroupsSetCurrent((__bridge CFArrayRef)currentAccessGroups);
 }
 
 @end

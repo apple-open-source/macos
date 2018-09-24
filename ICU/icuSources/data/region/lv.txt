@@ -31,6 +31,7 @@ lv{
         151{"Austrumeiropa"}
         154{"Ziemeļeiropa"}
         155{"Rietumeiropa"}
+        202{"Subsahāras Āfrika"}
         419{"Latīņamerika"}
         AC{"Debesbraukšanas sala"}
         AD{"Andora"}
@@ -106,6 +107,7 @@ lv{
         ES{"Spānija"}
         ET{"Etiopija"}
         EU{"Eiropas Savienība"}
+        EZ{"Eirozona"}
         FI{"Somija"}
         FJ{"Fidži"}
         FK{"Folklenda salas"}
@@ -309,5 +311,5 @@ lv{
         FK{"Folklenda (Malvinu) salas"}
         MK{"bijusī Dienvidslāvijas Maķedonijas Republika"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

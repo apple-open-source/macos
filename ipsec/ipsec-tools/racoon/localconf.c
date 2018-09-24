@@ -62,8 +62,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #if HAVE_SECURITY_FRAMEWORK
 #include <Security/Security.h>
-#else
-typedef void * SecKeychainRef;
 #endif
 
 struct localconf *lcconf;

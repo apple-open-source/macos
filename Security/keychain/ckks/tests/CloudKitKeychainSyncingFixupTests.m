@@ -56,7 +56,7 @@
 
     [self.keychainView waitForKeyHierarchyReadiness];
     [self waitForCKModifications];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [mockFixups verify];
     [mockFixups stopMocking];
@@ -72,14 +72,14 @@
 
     [self.keychainView waitForKeyHierarchyReadiness];
     [self waitForCKModifications];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // Tear down the CKKS object
     [self.keychainView halt];
 
     self.keychainView = [[CKKSViewManager manager] restartZone:self.keychainZoneID.zoneName];
     [self.keychainView waitForKeyHierarchyReadiness];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [mockFixups verify];
     [mockFixups stopMocking];
@@ -95,7 +95,7 @@
 
     [self.keychainView waitForKeyHierarchyReadiness];
     [self waitForCKModifications];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // Add some current item pointers. They don't necessarily need to point to anything...
 
@@ -163,7 +163,7 @@
     [self.keychainView waitForKeyHierarchyReadiness];
 
     [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [self.keychainView dispatchSync: ^bool {
         // The zone state entry should be up the most recent fixup level
@@ -218,7 +218,7 @@
 
     [self.keychainView waitForKeyHierarchyReadiness];
     [self waitForCKModifications];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // Tear down the CKKS object
     [self.keychainView halt];
@@ -254,11 +254,11 @@
 
     self.keychainView = [[CKKSViewManager manager] restartZone:self.keychainZoneID.zoneName];
 
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForFixupOperation] wait:8*NSEC_PER_SEC], "Key state should become waitforfixup");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForFixupOperation] wait:20*NSEC_PER_SEC], "Key state should become waitforfixup");
     [self releaseCloudKitFetchHold];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [self.keychainView.lastFixupOperation waitUntilFinished];
     XCTAssertNil(self.keychainView.lastFixupOperation.error, "Shouldn't have been any error performing fixup");
@@ -280,13 +280,13 @@
     [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
 
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], @"Key state should become 'ready'");
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
     [self addGenericPassword: @"data" account: @"first"];
     [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
     // Add another record to mock up early CKKS record saving
@@ -298,10 +298,10 @@
         [secondRecordIDFilled fulfill];
         return TRUE;
     }];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
     XCTAssertNotNil(secondRecordID, "Should have filled in secondRecordID");
-    XCTAssertEqual(0, [secondRecordIDFilled wait:8*NSEC_PER_SEC], "Should have filled in secondRecordID within enough time");
+    XCTAssertEqual(0, [secondRecordIDFilled wait:20*NSEC_PER_SEC], "Should have filled in secondRecordID within enough time");
 
     // Tear down the CKKS object
     [self.keychainView halt];
@@ -336,9 +336,9 @@
     self.accountStatus = CKAccountStatusAvailable;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
 
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForFixupOperation] wait:8*NSEC_PER_SEC], "Key state should become waitforfixup");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForFixupOperation] wait:20*NSEC_PER_SEC], "Key state should become waitforfixup");
     [self.operationQueue addOperation: self.keychainView.holdFixupOperation];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:8*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
 
     [self.keychainView.lastFixupOperation waitUntilFinished];
     XCTAssertNil(self.keychainView.lastFixupOperation.error, "Shouldn't have been any error performing fixup");

@@ -41,10 +41,10 @@
 #include "Settings.h"
 #include "URL.h"
 #include <CoreMedia/CoreMedia.h>
-#include <heap/HeapInlines.h>
-#include <runtime/DataView.h>
-#include <runtime/TypedArrayInlines.h>
-#include <runtime/Uint16Array.h>
+#include <JavaScriptCore/DataView.h>
+#include <JavaScriptCore/HeapInlines.h>
+#include <JavaScriptCore/TypedArrayInlines.h>
+#include <JavaScriptCore/Uint16Array.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SoftLinking.h>
@@ -799,7 +799,7 @@ void MediaPlayerPrivateAVFoundation::scheduleMainThreadNotification(Notification
     if (delayDispatch && !m_mainThreadCallPending) {
         m_mainThreadCallPending = true;
 
-        callOnMainThread([weakThis = createWeakPtr()] {
+        callOnMainThread([weakThis = makeWeakPtr(*this)] {
             if (!weakThis)
                 return;
 
@@ -832,7 +832,7 @@ void MediaPlayerPrivateAVFoundation::dispatchNotification()
         }
         
         if (!m_queuedNotifications.isEmpty() && !m_mainThreadCallPending) {
-            callOnMainThread([weakThis = createWeakPtr()] {
+            callOnMainThread([weakThis = makeWeakPtr(*this)] {
                 if (!weakThis)
                     return;
 

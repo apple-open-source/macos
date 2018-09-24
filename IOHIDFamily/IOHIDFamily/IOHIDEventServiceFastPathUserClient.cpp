@@ -28,10 +28,13 @@
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
 #include <IOKit/hidsystem/IOHIDShared.h>
+#include <sys/proc.h>
 #include <stdatomic.h>
 
 #define kQueueSizeMin   0
 #define kQueueSizeMax   16384
+
+#define kIOHIDSystemUserAccessFastPathEntitlement   "com.apple.hid.system.user-access-fast-path"
 
 //===========================================================================
 // IOHIDEventServiceFastPathUserClient class
@@ -106,25 +109,26 @@ IOReturn IOHIDEventServiceFastPathUserClient::clientMemoryForTypeGated (IOOption
 {
     IOReturn result = kIOReturnNoMemory;
             
-    if ( _queue ) {
-        IOMemoryDescriptor * memoryToShare = _queue->getMemoryDescriptor();
-    
-        // if we got some memory
-        if (memoryToShare)
-        {
-            // Memory will be released by user client
-            // when last map is destroyed.
-
-            memoryToShare->retain();
-
-            result = kIOReturnSuccess;
+    if (!_buffer) {
+        uint32_t queueSize = getSharedMemorySize ();
+        if (queueSize > sizeof(uint32_t)) {
+            _buffer = IOBufferMemoryDescriptor::withOptions (kIODirectionNone | kIOMemoryKernelUserShared, queueSize);
+            if (_buffer) {
+                setProperty("SharedMemorySize", queueSize, 32);
+            }
+        } else {
+            result = kIOReturnBadArgument;
         }
-        
-        // set the result
-        *options = 0;
-        *memory  = memoryToShare;
     }
-        
+
+    if (_buffer) {
+        _buffer->retain();
+        result = kIOReturnSuccess;
+    }
+    
+    *options = 0;
+    *memory  = _buffer;
+
     return result;
 }
 //==============================================================================
@@ -176,14 +180,31 @@ exit:
 }
 
 //==============================================================================
-// IOHIDEventServiceUserClient::initWithTask
+// IOHIDEventServiceFastPathUserClient::initWithTask
 //==============================================================================
 bool IOHIDEventServiceFastPathUserClient::initWithTask(task_t owningTask __unused, void * security_id __unused, UInt32 type __unused)
 {
-    bool result;
-    
+    OSObject *  entitlement = NULL;
+    bool        result;
+
     result = super::init();
-    
+    require_action(result, exit, HIDLogError("failed"));
+
+    entitlement = copyClientEntitlement(owningTask, kIOHIDSystemUserAccessFastPathEntitlement);
+    if (entitlement == kOSBooleanTrue) {
+        _fastPathEntitlement = true;
+        OSSafeReleaseNULL(entitlement);
+    }
+    else {
+        proc_t process = (proc_t)get_bsdtask_info(owningTask);
+        char name[255];
+        bzero(name, sizeof(name));
+        proc_name(proc_pid(process), name, sizeof(name));
+        HIDLogInfo("%s Does not have fast path entitlement", name);
+    }
+
+exit:
+
     return result;
 }
 
@@ -256,6 +277,8 @@ IOReturn IOHIDEventServiceFastPathUserClient::_open(
                                 void *                                  reference __unused,
                                 IOExternalMethodArguments *             arguments)
 {
+    IOReturn result;
+
     OSObject * object = NULL;
     OSDictionary * property = NULL;
     if (arguments->structureInput && arguments->structureInputSize) {
@@ -267,11 +290,18 @@ IOReturn IOHIDEventServiceFastPathUserClient::_open(
             }
         }
     }
-    
-    IOReturn result = target->open((IOOptionBits)arguments->scalarInput[0], property);
-  
+
+    // Create a property dictionary if one was not passed in.
+    if (property == NULL) {
+        property = OSDictionary::withCapacity(1);
+        require_action(property, exit, result = kIOReturnNoMemory);
+    }
+
+    result = target->open((IOOptionBits)arguments->scalarInput[0], property);
+
+exit:
     OSSafeReleaseNULL(property);
-    
+
     return result;
 }
 
@@ -281,14 +311,14 @@ IOReturn IOHIDEventServiceFastPathUserClient::_open(
 IOReturn IOHIDEventServiceFastPathUserClient::open(IOOptionBits  options, OSDictionary * properties)
 {
     IOReturn result = kIOReturnSuccess;
-    
-    if (!_owner) {
-        return kIOReturnOffline;
-    }
-    
-    if (_opened) {
-        return kIOReturnExclusiveAccess;
-    }
+    bool     good;
+
+    require_action(_owner, exit, result = kIOReturnOffline);
+    require_action(!_opened, exit, result = kIOReturnExclusiveAccess);
+    require_action(properties, exit, result = kIOReturnBadArgument);
+
+    good = properties->setObject(kIOHIDFastPathHasEntitlementKey, (_fastPathEntitlement ? kOSBooleanTrue : kOSBooleanFalse));
+    require_action(good, exit, result = kIOReturnNoMemory);
     
     _options = options;
     
@@ -296,26 +326,9 @@ IOReturn IOHIDEventServiceFastPathUserClient::open(IOOptionBits  options, OSDict
        return kIOReturnExclusiveAccess;
     }
 	
-    uint32_t queueSize = 0;
-    OSObject * value = _owner->copyPropertyForClient(kIOHIDEventServiceQueueSize, _clientContext);
-    if (value) {
-        OSNumber * num = OSDynamicCast(OSNumber, value);
-        if (num) {
-            queueSize = num->unsigned32BitValue();
-            queueSize = min(kQueueSizeMax, queueSize);
-        }
-        OSSafeReleaseNULL(value);
-    }
-    
-    if (queueSize) {
-        _queue = IOHIDEventServiceQueue::withCapacity(queueSize, getRegistryEntryID());
-        if (!_queue) {
-            return kIOReturnNoMemory;
-        }
-    }
-
     _opened = true;
- 
+
+exit:
     return result;
 }
 
@@ -341,9 +354,7 @@ IOReturn IOHIDEventServiceFastPathUserClient::close ()
         IOLockUnlock (_lock);
 
         _owner->closeForClient(this, _clientContext, _options);
-        
-        OSSafeReleaseNULL(_queue);
-	}
+ 	}
     
     return kIOReturnSuccess;
 }
@@ -388,23 +399,42 @@ IOReturn IOHIDEventServiceFastPathUserClient::_copyEvent (
 IOReturn  IOHIDEventServiceFastPathUserClient::copyEvent(OSObject * copySpec, IOOptionBits options)
 {
     
-    IOReturn        ret = kIOReturnNotOpen;
-
+    IOReturn        ret = kIOReturnSuccess;
+    IOHIDEvent *    event = NULL;
+    
     if (isInactive()) {
-        return ret;
+        return kIOReturnOffline;
     }
     
     IOLockLock(_lock);
     
-    if (_opened) {
-        IOHIDEvent * event = _owner->copyEventForClient(copySpec, options, _clientContext);
-        if (event) {
-            if (_queue) {
-                _queue->enqueueEvent(event);
-            }
-            event->release();
+    do {
+        if (!_opened) {
+            ret = kIOReturnNotOpen;
+            break;
         }
-        ret = kIOReturnSuccess;
+        event = _owner->copyEventForClient(copySpec, options, _clientContext);
+        if (!event) {
+            ret = kIOReturnNotFound;
+            break;
+        }
+        if (!_buffer) {
+            ret = kIOReturnNoResources;
+            break;
+        }
+        
+        IOByteCount eventSize = event->getLength();
+        if (eventSize > (_buffer->getCapacity() - sizeof(UInt32))) {
+            ret = kIOReturnNoSpace;
+            break;
+        }
+        *((UInt32 *)_buffer->getBytesNoCopy()) = (UInt32) eventSize;
+        event->readBytes((void *)((UInt8 *)_buffer->getBytesNoCopy() + sizeof(UInt32)), eventSize);
+        
+    } while (false);
+   
+    if (event) {
+        event->release();
     }
     
     IOLockUnlock(_lock);
@@ -429,12 +459,14 @@ bool IOHIDEventServiceFastPathUserClient::didTerminate(IOService *provider, IOOp
 //==============================================================================
 void IOHIDEventServiceFastPathUserClient::free()
 {
-    OSSafeReleaseNULL(_queue);
+    OSSafeReleaseNULL(_buffer);
     OSSafeReleaseNULL(_owner);
     OSSafeReleaseNULL(_commandGate);
+    
     if (_lock) {
         IOLockFree(_lock);
     }
+
     super::free();
 }
 
@@ -507,17 +539,35 @@ bool   IOHIDEventServiceFastPathUserClient::serializeDebugState(void * ref __unu
     OSDictionary  *debugDict = OSDictionary::withCapacity(6);
     
     require(debugDict, exit);
-    
-    if (_queue) {
-        debugDict->setObject("EventQueue", _queue);
-    }
-    
+
+    result = debugDict->setObject(kIOHIDFastPathHasEntitlementKey, (_fastPathEntitlement ? kOSBooleanTrue : kOSBooleanFalse));
+    require(result, exit);
+
     result = debugDict->serialize(serializer);
     debugDict->release();
     
 exit:
     
     return result;
+}
+
+//====================================================================================================
+// IOHIDEventServiceFastPathUserClient::getSharedMemorySize
+//====================================================================================================
+
+uint32_t IOHIDEventServiceFastPathUserClient::getSharedMemorySize ()
+{
+    uint32_t size = 0;
+    OSObject * value = _owner->copyPropertyForClient(kIOHIDEventServiceQueueSize, _clientContext);
+    if (value) {
+        OSNumber * num = OSDynamicCast(OSNumber, value);
+        if (num) {
+            size = num->unsigned32BitValue();
+            size = min(kQueueSizeMax, size);
+        }
+        OSSafeReleaseNULL(value);
+    }
+    return size;
 }
 
 

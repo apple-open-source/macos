@@ -26,8 +26,10 @@
 #include "unicode/stringpiece.h"
 #include "unicode/uidna.h"
 #include "unicode/unistr.h"
-#include "intltest.h"
+#include "charstr.h"
 #include "cmemory.h"
+#include "intltest.h"
+#include "uparse.h"
 
 class UTS46Test : public IntlTest {
 public:
@@ -38,6 +40,13 @@ public:
     void TestAPI();
     void TestNotSTD3();
     void TestSomeCases();
+    void IdnaTest();
+
+    void checkIdnaTestResult(const char *line, const char *type,
+                             const UnicodeString &expected, const UnicodeString &result,
+                             const char *status, const IDNAInfo &info);
+    void idnaTestOneLine(char *fields[][2], UErrorCode &errorCode);
+
 private:
     IDNA *trans, *nontrans;
 };
@@ -64,7 +73,7 @@ void UTS46Test::runIndexedTest(int32_t index, UBool exec, const char *&name, cha
                 commonOptions|
                 UIDNA_NONTRANSITIONAL_TO_ASCII|UIDNA_NONTRANSITIONAL_TO_UNICODE,
                 errorCode);
-            if(errorCode.logDataIfFailureAndReset("createUTS46Instance()")) {
+            if(errorCode.errDataIfFailureAndReset("createUTS46Instance()")) {
                 name="";
                 return;
             }
@@ -74,6 +83,7 @@ void UTS46Test::runIndexedTest(int32_t index, UBool exec, const char *&name, cha
     TESTCASE_AUTO(TestAPI);
     TESTCASE_AUTO(TestNotSTD3);
     TESTCASE_AUTO(TestSomeCases);
+    TESTCASE_AUTO(IdnaTest);
     TESTCASE_AUTO_END;
 }
 
@@ -517,8 +527,11 @@ static const TestCase testCases[]={
     { "\\u05D07\\u05EA", "B", "\\u05D07\\u05EA", 0 },
     { "\\u05D0\\u0667\\u05EA", "B", "\\u05D0\\u0667\\u05EA", 0 },  // Arabic 7 in the middle
     { "a7\\u0667z", "B", "a7\\u0667z", UIDNA_ERROR_BIDI },  // AN digit in LTR
+    { "a7\\u0667", "B", "a7\\u0667", UIDNA_ERROR_BIDI },  // AN digit in LTR
     { "\\u05D07\\u0667\\u05EA", "B",  // mixed EN/AN digits in RTL
       "\\u05D07\\u0667\\u05EA", UIDNA_ERROR_BIDI },
+    { "\\u05D07\\u0667", "B",  // mixed EN/AN digits in RTL
+      "\\u05D07\\u0667", UIDNA_ERROR_BIDI },
     // ZWJ
     { "\\u0BB9\\u0BCD\\u200D", "N", "\\u0BB9\\u0BCD\\u200D", 0 },  // Virama+ZWJ
     { "\\u0BB9\\u200D", "N", "\\u0BB9\\u200D", UIDNA_ERROR_CONTEXTJ },  // no Virama
@@ -598,7 +611,7 @@ void UTS46Test::TestSomeCases() {
         trans->nameToUnicode(input, uT, uTInfo, errorCode);
         nontrans->nameToASCII(input, aN, aNInfo, errorCode);
         nontrans->nameToUnicode(input, uN, uNInfo, errorCode);
-        if(errorCode.logIfFailureAndReset("first-level processing [%d/%s] %s",
+        if(errorCode.errIfFailureAndReset("first-level processing [%d/%s] %s",
                                           (int)i, testCase.o, testCase.s)
         ) {
             continue;
@@ -675,7 +688,7 @@ void UTS46Test::TestSomeCases() {
         nontrans->nameToASCII(uT, uTaN, uTaNInfo, errorCode);
         nontrans->nameToUnicode(aN, aNuN, aNuNInfo, errorCode);
         nontrans->nameToASCII(uN, uNaN, uNaNInfo, errorCode);
-        if(errorCode.logIfFailureAndReset("second-level processing [%d/%s] %s",
+        if(errorCode.errIfFailureAndReset("second-level processing [%d/%s] %s",
                                           (int)i, testCase.o, testCase.s)
         ) {
             continue;
@@ -719,7 +732,7 @@ void UTS46Test::TestSomeCases() {
         trans->labelToUnicode(input, uTL, uTLInfo, errorCode);
         nontrans->labelToASCII(input, aNL, aNLInfo, errorCode);
         nontrans->labelToUnicode(input, uNL, uNLInfo, errorCode);
-        if(errorCode.logIfFailureAndReset("labelToXYZ processing [%d/%s] %s",
+        if(errorCode.errIfFailureAndReset("labelToXYZ processing [%d/%s] %s",
                                           (int)i, testCase.o, testCase.s)
         ) {
             continue;
@@ -839,7 +852,7 @@ void UTS46Test::TestSomeCases() {
         trans->nameToUnicodeUTF8(input8, uT8Sink, uT8Info, errorCode);
         nontrans->nameToASCII_UTF8(input8, aN8Sink, aN8Info, errorCode);
         nontrans->nameToUnicodeUTF8(input8, uN8Sink, uN8Info, errorCode);
-        if(errorCode.logIfFailureAndReset("UTF-8 processing [%d/%s] %s",
+        if(errorCode.errIfFailureAndReset("UTF-8 processing [%d/%s] %s",
                                           (int)i, testCase.o, testCase.s)
         ) {
             continue;
@@ -878,6 +891,156 @@ void UTS46Test::TestSomeCases() {
                   testCase.o, (int)i, testCase.s);
             continue;
         }
+    }
+}
+
+namespace {
+
+const int32_t kNumFields = 7;
+
+void U_CALLCONV
+idnaTestLineFn(void *context,
+               char *fields[][2], int32_t /* fieldCount */,
+               UErrorCode *pErrorCode) {
+    reinterpret_cast<UTS46Test *>(context)->idnaTestOneLine(fields, *pErrorCode);
+}
+
+UnicodeString s16FromField(char *(&field)[2]) {
+    int32_t length = (int32_t)(field[1] - field[0]);
+    return UnicodeString::fromUTF8(StringPiece(field[0], length)).trim().unescape();
+}
+
+std::string statusFromField(char *(&field)[2]) {
+    const char *start = u_skipWhitespace(field[0]);
+    std::string status;
+    if (start != field[1]) {
+        int32_t length = (int32_t)(field[1] - start);
+        while (length > 0 && (start[length - 1] == u' ' || start[length - 1] == u'\t')) {
+            --length;
+        }
+        status.assign(start, length);
+    }
+    return status;
+}
+
+}  // namespace
+
+void UTS46Test::checkIdnaTestResult(const char *line, const char *type,
+                                    const UnicodeString &expected, const UnicodeString &result,
+                                    const char *status, const IDNAInfo &info) {
+    // An error in toUnicode or toASCII is indicated by a value in square brackets,
+    // such as "[B5 B6]".
+    UBool expectedHasErrors = FALSE;
+    if (*status != 0) {
+        if (*status != u'[') {
+            errln("%s  status field does not start with '[': %s\n    %s", type, status, line);
+        }
+        if (strcmp(status, u8"[]") != 0) {
+            expectedHasErrors = TRUE;
+        }
+    }
+    if (expectedHasErrors != info.hasErrors()) {
+        errln("%s  expected errors %s %d != %d = actual has errors: %04lx\n    %s",
+              type, status, expectedHasErrors, info.hasErrors(), (long)info.getErrors(), line);
+    }
+    if (!expectedHasErrors && expected != result) {
+        errln("%s  expected != actual\n    %s", type, line);
+        errln(UnicodeString(u"    ") + expected);
+        errln(UnicodeString(u"    ") + result);
+    }
+}
+
+void UTS46Test::idnaTestOneLine(char *fields[][2], UErrorCode &errorCode) {
+    // IdnaTestV2.txt (since Unicode 11)
+    // Column 1: source
+    // The source string to be tested
+    UnicodeString source = s16FromField(fields[0]);
+
+    // Column 2: toUnicode
+    // The result of applying toUnicode to the source, with Transitional_Processing=false.
+    // A blank value means the same as the source value.
+    UnicodeString toUnicode = s16FromField(fields[1]);
+    if (toUnicode.isEmpty()) {
+        toUnicode = source;
+    }
+
+    // Column 3: toUnicodeStatus
+    // A set of status codes, each corresponding to a particular test.
+    // A blank value means [].
+    std::string toUnicodeStatus = statusFromField(fields[2]);
+
+    // Column 4: toAsciiN
+    // The result of applying toASCII to the source, with Transitional_Processing=false.
+    // A blank value means the same as the toUnicode value.
+    UnicodeString toAsciiN = s16FromField(fields[3]);
+    if (toAsciiN.isEmpty()) {
+        toAsciiN = toUnicode;
+    }
+
+    // Column 5: toAsciiNStatus
+    // A set of status codes, each corresponding to a particular test.
+    // A blank value means the same as the toUnicodeStatus value.
+    std::string toAsciiNStatus = statusFromField(fields[4]);
+    if (toAsciiNStatus.empty()) {
+        toAsciiNStatus = toUnicodeStatus;
+    }
+
+    // Column 6: toAsciiT
+    // The result of applying toASCII to the source, with Transitional_Processing=true.
+    // A blank value means the same as the toAsciiN value.
+    UnicodeString toAsciiT = s16FromField(fields[5]);
+    if (toAsciiT.isEmpty()) {
+        toAsciiT = toAsciiN;
+    }
+
+    // Column 7: toAsciiTStatus
+    // A set of status codes, each corresponding to a particular test.
+    // A blank value means the same as the toAsciiNStatus value.
+    std::string toAsciiTStatus = statusFromField(fields[6]);
+    if (toAsciiTStatus.empty()) {
+        toAsciiTStatus = toAsciiNStatus;
+    }
+
+    // ToASCII/ToUnicode, transitional/nontransitional
+    UnicodeString uN, aN, aT;
+    IDNAInfo uNInfo, aNInfo, aTInfo;
+    nontrans->nameToUnicode(source, uN, uNInfo, errorCode);
+    checkIdnaTestResult(fields[0][0], "toUnicodeNontrans", toUnicode, uN,
+                        toUnicodeStatus.c_str(), uNInfo);
+    nontrans->nameToASCII(source, aN, aNInfo, errorCode);
+    checkIdnaTestResult(fields[0][0], "toASCIINontrans", toAsciiN, aN,
+                        toAsciiNStatus.c_str(), aNInfo);
+    trans->nameToASCII(source, aT, aTInfo, errorCode);
+    checkIdnaTestResult(fields[0][0], "toASCIITrans", toAsciiT, aT,
+                        toAsciiTStatus.c_str(), aTInfo);
+}
+
+// TODO: de-duplicate
+U_DEFINE_LOCAL_OPEN_POINTER(LocalStdioFilePointer, FILE, fclose);
+
+// http://www.unicode.org/Public/idna/latest/IdnaTest.txt
+void UTS46Test::IdnaTest() {
+    IcuTestErrorCode errorCode(*this, "IdnaTest");
+    const char *sourceTestDataPath = getSourceTestData(errorCode);
+    if (errorCode.errIfFailureAndReset("unable to find the source/test/testdata "
+                                       "folder (getSourceTestData())")) {
+        return;
+    }
+    CharString path(sourceTestDataPath, errorCode);
+    path.appendPathPart("IdnaTestV2.txt", errorCode);
+    LocalStdioFilePointer idnaTestFile(fopen(path.data(), "r"));
+    if (idnaTestFile.isNull()) {
+        errln("unable to open %s", path.data());
+        return;
+    }
+
+    // Columns (c1, c2,...) are separated by semicolons.
+    // Leading and trailing spaces and tabs in each column are ignored.
+    // Comments are indicated with hash marks.
+    char *fields[kNumFields][2];
+    u_parseDelimitedFile(path.data(), ';', fields, kNumFields, idnaTestLineFn, this, errorCode);
+    if (errorCode.errIfFailureAndReset("error parsing IdnaTest.txt")) {
+        return;
     }
 }
 

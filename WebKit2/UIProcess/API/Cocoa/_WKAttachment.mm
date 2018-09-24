@@ -69,6 +69,61 @@ using namespace WebKit;
 
 @end
 
+@implementation _WKAttachmentInfo {
+    RetainPtr<NSData> _data;
+    RetainPtr<NSString> _name;
+    RetainPtr<NSString> _filePath;
+    RetainPtr<NSString> _contentType;
+    RetainPtr<NSError> _fileLoadingError;
+}
+
+- (instancetype)initWithInfo:(const WebCore::AttachmentInfo&)info
+{
+    if (!(self = [super init]))
+        return nil;
+
+    _data = info.data ? info.data->createNSData() : nil;
+    _contentType = adoptNS([(NSString *)info.contentType ?: @"" copy]);
+    _name = adoptNS([(NSString *)info.name ?: @"" copy]);
+    _filePath = adoptNS([(NSString *)info.filePath ?: @"" copy]);
+    _fileLoadingError = nil;
+
+    if (!_data && [_filePath length]) {
+        NSError *error = nil;
+        _data = [NSData dataWithContentsOfFile:_filePath.get() options:NSDataReadingMappedIfSafe error:&error];
+        _fileLoadingError = error;
+    }
+
+    return self;
+}
+
+- (NSData *)data
+{
+    return _data.get();
+}
+
+- (NSString *)name
+{
+    return _name.get();
+}
+
+- (NSString *)filePath
+{
+    return _filePath.get();
+}
+
+- (NSString *)contentType
+{
+    return _contentType.get();
+}
+
+- (NSError *)fileLoadingError
+{
+    return _fileLoadingError.get();
+}
+
+@end
+
 @implementation _WKAttachment
 
 - (API::Object&)_apiObject
@@ -81,17 +136,32 @@ using namespace WebKit;
     return [object isKindOfClass:[_WKAttachment class]] && [self.uniqueIdentifier isEqual:[(_WKAttachment *)object uniqueIdentifier]];
 }
 
-- (void)requestData:(void(^)(NSData *, NSError *))completionHandler
+- (void)requestInfo:(void(^)(_WKAttachmentInfo *, NSError *))completionHandler
 {
-    _attachment->requestData([ capturedBlock = makeBlockPtr(completionHandler) ] (RefPtr<WebCore::SharedBuffer> buffer, CallbackBase::Error error) {
+    _attachment->requestInfo([capturedBlock = makeBlockPtr(completionHandler)] (const WebCore::AttachmentInfo& info, CallbackBase::Error error) {
         if (!capturedBlock)
             return;
 
-        if (buffer && error == CallbackBase::Error::None)
-            capturedBlock(buffer->createNSData().autorelease(), nil);
-        else
-            capturedBlock(nil, [NSError errorWithDomain:WKErrorDomain code:1 userInfo:nil]);
+        if (error != CallbackBase::Error::None) {
+            capturedBlock(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorWebViewInvalidated userInfo:nil]);
+            return;
+        }
+
+        auto attachmentInfo = adoptNS([[_WKAttachmentInfo alloc] initWithInfo:info]);
+        if (NSError *fileLoadingError = [attachmentInfo fileLoadingError]) {
+            capturedBlock(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSUnderlyingErrorKey : fileLoadingError }]);
+            return;
+        }
+
+        capturedBlock(attachmentInfo.get(), nil);
     });
+}
+
+- (void)requestData:(void(^)(NSData *, NSError *))completionHandler
+{
+    [self requestInfo:[protectedBlock = makeBlockPtr(completionHandler)] (_WKAttachmentInfo *info, NSError *error) {
+        protectedBlock(info.data, error);
+    }];
 }
 
 - (void)setDisplayOptions:(_WKAttachmentDisplayOptions *)options completion:(void(^)(NSError *))completionHandler

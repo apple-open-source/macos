@@ -27,7 +27,9 @@
 
 #if ENABLE(FULLSCREEN_API)
 
+#include "WebCoreArgumentCoders.h"
 #include <WebCore/IntRect.h>
+#include <WebCore/LengthBox.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
@@ -65,15 +67,22 @@ public:
 
     WebCore::Element* element();
 
+    void videoControlsManagerDidChange();
+
     void close();
 
 protected:
     WebFullScreenManager(WebPage*);
 
+    void setPIPStandbyElement(WebCore::HTMLVideoElement*);
+
     void setAnimatingFullScreen(bool);
     void requestExitFullScreen();
     void saveScrollPosition();
     void restoreScrollPosition();
+    void setFullscreenInsets(const WebCore::FloatBoxExtent&);
+    void setFullscreenAutoHideDuration(Seconds);
+    void setFullscreenControlsHidden(bool);
 
     void didReceiveWebFullScreenManagerMessage(IPC::Connection&, IPC::Decoder&);
 

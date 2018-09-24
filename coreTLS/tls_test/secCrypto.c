@@ -362,7 +362,7 @@ int tls_set_encrypt_pubkey(tls_handshake_t hdsk, const SSLCertificate *certchain
 #else
     algId = SecKeyGetAlgorithmId(pubkey);
 #endif
-
+    
     err = -9809; //errSSLCrypto;
 
     switch(algId) {

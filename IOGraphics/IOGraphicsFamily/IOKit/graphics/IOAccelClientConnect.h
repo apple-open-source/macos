@@ -36,7 +36,7 @@
 */
 enum eIOAcceleratorClientTypes {
         kIOAccelSurfaceClientType,
-        kIOAccelNumClientTypes
+        kIOAccelNumClientTypes,
 };
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2008, 2010, 2011, 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2008, 2010, 2011, 2013, 2015, 2016, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -250,6 +250,7 @@ _SCHelperExecCopyBacktrace()
 }
 
 
+__private_extern__
 Boolean
 _SCHelperExec(mach_port_t port, uint32_t msgID, CFDataRef data, uint32_t *status, CFDataRef *reply)
 {

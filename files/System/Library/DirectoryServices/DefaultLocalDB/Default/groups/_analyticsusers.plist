@@ -27,12 +27,14 @@
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000107</string>
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000018</string>
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000010A</string>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000010D</string>
 	</array>
 	<key>users</key>
 	<array>
 		<string>_analyticsd</string>
 		<string>_networkd</string>
 		<string>_timed</string>
+		<string>_reportmemoryexception</string>
 	</array>
 	<key>nestedgroups</key>
 	<array>

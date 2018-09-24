@@ -30,6 +30,8 @@
 
 #define SSL_SESSION_ID_LEN  16      /* 16 <= SSL_SESSION_ID_LEN <= 32 */
 
+#include <tls_handshake.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

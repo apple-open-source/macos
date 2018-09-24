@@ -53,7 +53,7 @@
 
 namespace WebCore {
 
-static StaticLock threadSetMutex;
+static Lock threadSetMutex;
 
 static HashSet<WorkerThread*>& workerThreads()
 {
@@ -64,7 +64,7 @@ static HashSet<WorkerThread*>& workerThreads()
 
 unsigned WorkerThread::workerThreadCount()
 {
-    std::lock_guard<StaticLock> lock(threadSetMutex);
+    std::lock_guard<Lock> lock(threadSetMutex);
 
     return workerThreads().size();
 }
@@ -75,6 +75,7 @@ public:
     WorkerThreadStartupData(const URL& scriptURL, const String& identifier, const String& userAgent, bool isOnline, const String& sourceCode, WorkerThreadStartMode, const ContentSecurityPolicyResponseHeaders&, bool shouldBypassMainWorldContentSecurityPolicy, const SecurityOrigin& topOrigin, MonotonicTime timeOrigin, PAL::SessionID);
 
     URL m_scriptURL;
+    Ref<SecurityOrigin> m_origin;
     String m_identifier;
     String m_userAgent;
     String m_sourceCode;
@@ -89,6 +90,7 @@ public:
 
 WorkerThreadStartupData::WorkerThreadStartupData(const URL& scriptURL, const String& identifier, const String& userAgent, bool isOnline, const String& sourceCode, WorkerThreadStartMode startMode, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders, bool shouldBypassMainWorldContentSecurityPolicy, const SecurityOrigin& topOrigin, MonotonicTime timeOrigin, PAL::SessionID sessionID)
     : m_scriptURL(scriptURL.isolatedCopy())
+    , m_origin(SecurityOrigin::create(m_scriptURL)->isolatedCopy())
     , m_identifier(identifier.isolatedCopy())
     , m_userAgent(userAgent.isolatedCopy())
     , m_sourceCode(sourceCode.isolatedCopy())
@@ -117,14 +119,14 @@ WorkerThread::WorkerThread(const URL& scriptURL, const String& identifier, const
     UNUSED_PARAM(connectionProxy);
 #endif
 
-    std::lock_guard<StaticLock> lock(threadSetMutex);
+    std::lock_guard<Lock> lock(threadSetMutex);
 
     workerThreads().add(this);
 }
 
 WorkerThread::~WorkerThread()
 {
-    std::lock_guard<StaticLock> lock(threadSetMutex);
+    std::lock_guard<Lock> lock(threadSetMutex);
 
     ASSERT(workerThreads().contains(this));
     workerThreads().remove(this);
@@ -140,7 +142,7 @@ void WorkerThread::start(WTF::Function<void(const String&)>&& evaluateCallback)
 
     m_evaluateCallback = WTFMove(evaluateCallback);
 
-    m_thread = Thread::create("WebCore: Worker", [this] {
+    m_thread = Thread::create(isServiceWorkerThread() ? "WebCore: Service Worker" : "WebCore: Worker", [this] {
         workerThread();
     });
 }
@@ -165,7 +167,7 @@ void WorkerThread::workerThread()
         // while WorkerThread::stop() is accessing it. Note that WorkerThread::stop() can
         // be called before we've finished creating the WorkerGlobalScope.
         LockHolder lock(m_threadCreationAndWorkerGlobalScopeMutex);
-        m_workerGlobalScope = createWorkerGlobalScope(m_startupData->m_scriptURL, m_startupData->m_identifier, m_startupData->m_userAgent, m_startupData->m_isOnline, m_startupData->m_contentSecurityPolicyResponseHeaders, m_startupData->m_shouldBypassMainWorldContentSecurityPolicy, WTFMove(m_startupData->m_topOrigin), m_startupData->m_timeOrigin, m_startupData->m_sessionID);
+        m_workerGlobalScope = createWorkerGlobalScope(m_startupData->m_scriptURL, WTFMove(m_startupData->m_origin), m_startupData->m_identifier, m_startupData->m_userAgent, m_startupData->m_isOnline, m_startupData->m_contentSecurityPolicyResponseHeaders, m_startupData->m_shouldBypassMainWorldContentSecurityPolicy, WTFMove(m_startupData->m_topOrigin), m_startupData->m_timeOrigin, m_startupData->m_sessionID);
 
         scriptController = m_workerGlobalScope->script();
 
@@ -313,7 +315,7 @@ void WorkerThread::stop(WTF::Function<void()>&& stoppedCallback)
 
 void WorkerThread::releaseFastMallocFreeMemoryInAllThreads()
 {
-    std::lock_guard<StaticLock> lock(threadSetMutex);
+    std::lock_guard<Lock> lock(threadSetMutex);
 
     for (auto* workerThread : workerThreads()) {
         workerThread->runLoop().postTask([] (ScriptExecutionContext&) {

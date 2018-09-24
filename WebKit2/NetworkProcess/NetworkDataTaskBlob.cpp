@@ -32,8 +32,6 @@
 #include "config.h"
 #include "NetworkDataTaskBlob.h"
 
-#if USE(NETWORK_SESSION)
-
 #include "DataReference.h"
 #include "Download.h"
 #include "Logging.h"
@@ -319,6 +317,9 @@ void NetworkDataTaskBlob::dispatchDidReceiveResponse(Error errorCode)
             m_buffer.resize(bufferSize);
             read();
             break;
+        case PolicyAction::Suspend:
+            LOG_ERROR("PolicyAction::Suspend encountered - Treating as PolicyAction::Ignore for now");
+            FALLTHROUGH;
         case PolicyAction::Ignore:
             break;
         case PolicyAction::Download:
@@ -457,7 +458,7 @@ String NetworkDataTaskBlob::suggestedFilename() const
     if (!m_suggestedFilename.isEmpty())
         return m_suggestedFilename;
 
-    return ASCIILiteral("unknown");
+    return "unknown"_s;
 }
 
 void NetworkDataTaskBlob::download()
@@ -584,5 +585,3 @@ void NetworkDataTaskBlob::didFinish()
 }
 
 } // namespace WebKit
-
-#endif // USE(NETWORK_SESSION)

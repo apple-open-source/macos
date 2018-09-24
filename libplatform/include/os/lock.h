@@ -142,6 +142,47 @@ OS_UNFAIR_LOCK_AVAILABILITY
 OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
 void os_unfair_lock_unlock(os_unfair_lock_t lock);
 
+/*!
+ * @function os_unfair_lock_assert_owner
+ *
+ * @abstract
+ * Asserts that the calling thread is the current owner of the specified
+ * unfair lock.
+ *
+ * @discussion
+ * If the lock is currently owned by the calling thread, this function returns.
+ *
+ * If the lock is unlocked or owned by a different thread, this function
+ * asserts and terminates the process.
+ *
+ * @param lock
+ * Pointer to an os_unfair_lock.
+ */
+OS_UNFAIR_LOCK_AVAILABILITY
+OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
+void os_unfair_lock_assert_owner(os_unfair_lock_t lock);
+
+/*!
+ * @function os_unfair_lock_assert_not_owner
+ *
+ * @abstract
+ * Asserts that the calling thread is not the current owner of the specified
+ * unfair lock.
+ *
+ * @discussion
+ * If the lock is unlocked or owned by a different thread, this function
+ * returns.
+ *
+ * If the lock is currently owned by the current thread, this function asserts
+ * and terminates the process.
+ *
+ * @param lock
+ * Pointer to an os_unfair_lock.
+ */
+OS_UNFAIR_LOCK_AVAILABILITY
+OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
+void os_unfair_lock_assert_not_owner(os_unfair_lock_t lock);
+
 __END_DECLS
 
 OS_ASSUME_NONNULL_END

@@ -3,34 +3,34 @@
 @@ -62,13 +62,13 @@
   
  .TP
- start
--Start the Apache httpd daemon\&. Gives an error if it is already running\&. This is equivalent to apachectl -k start\&.  
+ \fBstart\fR
+-Start the Apache httpd daemon\&. Gives an error if it is already running\&. This is equivalent to \fBapachectl -k start\fR\&.  
 +Loads the org\&.apache\&.httpd launchd job\&.
  .TP
--stop
--Stops the Apache httpd daemon\&. This is equivalent to apachectl -k stop\&.  
+-\fBstop\fR
+-Stops the Apache httpd daemon\&. This is equivalent to \fBapachectl -k stop\fR\&.  
 +stop, graceful-stop
 +Unloads the org\&.apache\&.httpd launchd job\&.
  .TP
--restart
--Restarts the Apache httpd daemon\&. If the daemon is not running, it is started\&. This command automatically checks the configuration files as in configtest before initiating the restart to make sure the daemon doesn't die\&. This is equivalent to apachectl -k restart\&.  
+-\fBrestart\fR
+-Restarts the Apache httpd daemon\&. If the daemon is not running, it is started\&. This command automatically checks the configuration files as in \fBconfigtest\fR before initiating the restart to make sure the daemon doesn't die\&. This is equivalent to \fBapachectl -k restart\fR\&.  
 +restart, graceful
 +Unloads, then loads the org\&.apache\&.httpd launchd job\&.
  .TP
- fullstatus
- Displays a full status report from mod_status\&. For this to work, you need to have mod_status enabled on your server and a text-based browser such as lynx available on your system\&. The URL used to access the status report can be set by editing the STATUSURL variable in the script\&.  
+ \fBfullstatus\fR
+ Displays a full status report from mod_status\&. For this to work, you need to have mod_status enabled on your server and a text-based browser such as \fBlynx\fR available on your system\&. The URL used to access the status report can be set by editing the \fBSTATUSURL\fR variable in the script\&.  
 @@ -76,12 +76,6 @@
- status
- Displays a brief status report\&. Similar to the fullstatus option, except that the list of requests currently being served is omitted\&.  
+ \fBstatus\fR
+ Displays a brief status report\&. Similar to the \fBfullstatus\fR option, except that the list of requests currently being served is omitted\&.  
  .TP
--graceful
--Gracefully restarts the Apache httpd daemon\&. If the daemon is not running, it is started\&. This differs from a normal restart in that currently open connections are not aborted\&. A side effect is that old log files will not be closed immediately\&. This means that if used in a log rotation script, a substantial delay may be necessary to ensure that the old log files are closed before processing them\&. This command automatically checks the configuration files as in configtest before initiating the restart to make sure Apache doesn't die\&. This is equivalent to apachectl -k graceful\&.  
+-\fBgraceful\fR
+-Gracefully restarts the Apache httpd daemon\&. If the daemon is not running, it is started\&. This differs from a normal restart in that currently open connections are not aborted\&. A side effect is that old log files will not be closed immediately\&. This means that if used in a log rotation script, a substantial delay may be necessary to ensure that the old log files are closed before processing them\&. This command automatically checks the configuration files as in \fBconfigtest\fR before initiating the restart to make sure Apache doesn't die\&. This is equivalent to \fBapachectl -k graceful\fR\&.  
 -.TP
--graceful-stop
--Gracefully stops the Apache httpd daemon\&. This differs from a normal stop in that currently open connections are not aborted\&. A side effect is that old log files will not be closed immediately\&. This is equivalent to apachectl -k graceful-stop\&.  
+-\fBgraceful-stop\fR
+-Gracefully stops the Apache httpd daemon\&. This differs from a normal stop in that currently open connections are not aborted\&. A side effect is that old log files will not be closed immediately\&. This is equivalent to \fBapachectl -k graceful-stop\fR\&.  
 -.TP
- configtest
- Run a configuration file syntax test\&. It parses the configuration files and either reports Syntax Ok or detailed information about the particular syntax error\&. This is equivalent to apachectl -t\&.  
+ \fBconfigtest\fR
+ Run a configuration file syntax test\&. It parses the configuration files and either reports \fBSyntax Ok\fR or detailed information about the particular syntax error\&. This is equivalent to \fBapachectl\fR -t\&.  
   
 --- support/apachectl.in.orig	2012-01-31 19:47:28.000000000 -0800
 +++ support/apachectl.in	2013-11-12 14:00:54.000000000 -0800

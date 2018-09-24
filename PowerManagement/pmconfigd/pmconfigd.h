@@ -132,27 +132,7 @@
  asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: kernel retain = %d, user retain = %d\n", \
  x, IOObjectGetKernelRetainCount(y), IOObjectGetUserRetainCount(y)); } while(0)
  */
-#define kSpindumpOnFullWakeDir      "/Library/Logs/SleepWakeDebug"
 #define kSpindumpIOKitDir      	    "/Library/Logs/IOKit"
-#define kSpindumpNumKinds      	    2
-static int kPMSpindumpDelayOnFullWake = 15; // Take spindump 15secs after fullwake
-
-// Global keys
-static CFStringRef              gTZNotificationNameString           = NULL;
-
-IOPMNotificationHandle          gESPreferences                      = 0;
-
-static io_connect_t             _pm_ack_port                        = 0;
-static io_iterator_t            _ups_added_noteref                  = 0;
-static int                      _alreadyRunningIOUPSD               = 0;
-
-static int                      gCPUPowerNotificationToken          = 0;
-static bool                     gExpectingWakeFromSleepClockResync  = false;
-static CFAbsoluteTime           *gLastWakeTime                      = NULL;
-static CFTimeInterval           *gLastSMCS3S0WakeInterval           = NULL;
-static CFStringRef              gCachedNextSleepWakeUUIDString      = NULL;
-static int                      gLastWakeTimeToken                  = -1;
-static int                      gLastSMCS3S0WakeIntervalToken       = -1;
 
 enum {
     kWranglerPowerStateMin   = 0,
@@ -169,27 +149,13 @@ typedef struct {
     int  pointofnoreturn;
     int  su;
 } LoginWindowNotifyTokens;
-static LoginWindowNotifyTokens  lwNotify = {0,0,0,0,0};
-
-static CFStringRef              gConsoleNotifyKey                   = NULL;
-static bool                     gDisplayIsAsleep = false;
-static struct timeval           gLastSleepTime                      = {0, 0};
-
-static mach_port_t              serverPort                          = MACH_PORT_NULL;
-#ifndef POWERD_TEST
-__private_extern__ CFMachPortRef pmServerMachPort                   = NULL;
-#endif
-static bool                     gSMCSupportsWakeupTimer             = true;
-static int                      _darkWakeThermalEventCount          = 0;
-static dispatch_source_t        gDWTMsgDispatch; /* Darkwake thermal emergency message handler dispatch */
-
 
 // defined by MiG
 extern boolean_t powermanagement_server(mach_msg_header_t *, mach_msg_header_t *);
 extern uint32_t  gDebugFlags;
 
 
-
+bool isDisplayAsleep( );
 
 kern_return_t _io_pm_last_wake_time(
                                     mach_port_t             server,
@@ -208,4 +174,6 @@ __private_extern__ void dynamicStoreNotifyCallBack(
                                                    CFArrayRef          changedKeys,
                                                    void                *info);
 
+__private_extern__ void ioregBatteryProcess(IOPMBattery *changed_batt,
+                                            io_service_t batt);
 #endif /* pmconfigd_h */

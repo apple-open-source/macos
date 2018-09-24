@@ -31,8 +31,8 @@
 
 #include "EventTarget.h"
 #include "InspectorWebAgentBase.h"
-#include <inspector/InspectorBackendDispatchers.h>
-#include <inspector/InspectorFrontendDispatchers.h>
+#include <JavaScriptCore/InspectorBackendDispatchers.h>
+#include <JavaScriptCore/InspectorFrontendDispatchers.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/JSONValues.h>
@@ -176,7 +176,6 @@ public:
     // Callbacks that don't directly correspond to an instrumentation entry point.
     void setDocument(Document*);
     void releaseDanglingNodes();
-    void mainFrameDOMContentLoaded();
 
     void styleAttributeInvalidated(const Vector<Element*>& elements);
 

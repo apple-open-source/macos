@@ -29,12 +29,13 @@
 #include "APIArray.h"
 #include "APIData.h"
 #include "InjectedBundleScriptWorld.h"
+#include "NetworkConnectionToWebProcessMessages.h"
+#include "NetworkProcessConnection.h"
 #include "NetworkSessionCreationParameters.h"
 #include "NotificationPermissionRequestManager.h"
 #include "SessionTracker.h"
 #include "UserData.h"
 #include "WebConnectionToUIProcess.h"
-#include "WebCookieManager.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include "WebFrameNetworkingContext.h"
@@ -54,6 +55,7 @@
 #include <WebCore/ApplicationCache.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/CommonVM.h>
+#include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/GCController.h>
@@ -64,11 +66,9 @@
 #include <WebCore/JSDOMExceptionHandling.h>
 #include <WebCore/JSDOMWindow.h>
 #include <WebCore/JSNotification.h>
-#include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
 #include <WebCore/PrintContext.h>
-#include <WebCore/ResourceHandle.h>
 #include <WebCore/RuntimeEnabledFeatures.h>
 #include <WebCore/SWContextManager.h>
 #include <WebCore/ScriptController.h>
@@ -79,6 +79,7 @@
 #include <WebCore/UserScript.h>
 #include <WebCore/UserStyleSheet.h>
 #include <pal/SessionID.h>
+#include <wtf/ProcessPrivilege.h>
 
 #if ENABLE(NOTIFICATIONS)
 #include "WebNotificationManager.h"
@@ -137,7 +138,8 @@ void InjectedBundle::postSynchronousMessage(const String& messageName, API::Obje
     UserData returnUserData;
 
     auto& webProcess = WebProcess::singleton();
-    if (!webProcess.parentProcessConnection()->sendSync(Messages::WebProcessPool::HandleSynchronousMessage(messageName, UserData(webProcess.transformObjectsToHandles(messageBody))), Messages::WebProcessPool::HandleSynchronousMessage::Reply(returnUserData), 0))
+    if (!webProcess.parentProcessConnection()->sendSync(Messages::WebProcessPool::HandleSynchronousMessage(messageName, UserData(webProcess.transformObjectsToHandles(messageBody))),
+        Messages::WebProcessPool::HandleSynchronousMessage::Reply(returnUserData), 0, Seconds::infinity(), IPC::SendSyncOption::DoNotProcessIncomingMessagesWhenWaitingForSyncReply))
         returnData = nullptr;
     else
         returnData = webProcess.transformHandlesToObjects(returnUserData.object());
@@ -193,6 +195,9 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
     if (preference == "WebKitWebAnimationsEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsEnabled(enabled);
 
+    if (preference == "WebKitWebAnimationsCSSIntegrationEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsCSSIntegrationEnabled(enabled);
+
     if (preference == "WebKitCacheAPIEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setCacheAPIEnabled(enabled);
 
@@ -202,9 +207,6 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
     if (preference == "WebKitWritableStreamAPIEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setWritableStreamAPIEnabled(enabled);
 #endif
-
-    if (preference == "WebKitCSSGridLayoutEnabled")
-        RuntimeEnabledFeatures::sharedFeatures().setCSSGridLayoutEnabled(enabled);
 
     if (preference == "WebKitInteractiveFormValidationEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setInteractiveFormValidationEnabled(enabled);
@@ -239,6 +241,8 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
 #if ENABLE(WEB_RTC)
     if (preference == "WebKitWebRTCLegacyAPIEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setWebRTCLegacyAPIEnabled(enabled);
+    if (preference == "WebKitMDNSICECandidatesEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setMDNSICECandidatesEnabled(enabled);
 #endif
 
     if (preference == "WebKitIsSecureContextAttributeEnabled") {
@@ -329,6 +333,7 @@ void InjectedBundle::setJavaScriptCanAccessClipboard(WebPageGroupProxy* pageGrou
 
 void InjectedBundle::setPrivateBrowsingEnabled(WebPageGroupProxy* pageGroup, bool enabled)
 {
+    ASSERT(!hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
     if (enabled) {
         WebProcess::singleton().ensureLegacyPrivateBrowsingSessionInNetworkProcess();
         WebFrameNetworkingContext::ensureWebsiteDataStoreSession(WebsiteDataStoreParameters::legacyPrivateSessionParameters());
@@ -373,16 +378,20 @@ void InjectedBundle::setSpatialNavigationEnabled(WebPageGroupProxy* pageGroup, b
 void InjectedBundle::addOriginAccessWhitelistEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains)
 {
     SecurityPolicy::addOriginAccessWhitelistEntry(SecurityOrigin::createFromString(sourceOrigin).get(), destinationProtocol, destinationHost, allowDestinationSubdomains);
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::AddOriginAccessWhitelistEntry { sourceOrigin, destinationProtocol, destinationHost, allowDestinationSubdomains }, 0);
+
 }
 
 void InjectedBundle::removeOriginAccessWhitelistEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains)
 {
     SecurityPolicy::removeOriginAccessWhitelistEntry(SecurityOrigin::createFromString(sourceOrigin).get(), destinationProtocol, destinationHost, allowDestinationSubdomains);
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::RemoveOriginAccessWhitelistEntry { sourceOrigin, destinationProtocol, destinationHost, allowDestinationSubdomains }, 0);
 }
 
 void InjectedBundle::resetOriginAccessWhitelists()
 {
     SecurityPolicy::resetOriginAccessWhitelists();
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::ResetOriginAccessWhitelists { }, 0);
 }
 
 void InjectedBundle::setAsynchronousSpellCheckingEnabled(WebPageGroupProxy* pageGroup, bool enabled)
@@ -613,6 +622,11 @@ void InjectedBundle::setCSSAnimationTriggersEnabled(bool enabled)
 void InjectedBundle::setWebAnimationsEnabled(bool enabled)
 {
     RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsEnabled(enabled);
+}
+
+void InjectedBundle::setWebAnimationsCSSIntegrationEnabled(bool enabled)
+{
+    RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsCSSIntegrationEnabled(enabled);
 }
 
 } // namespace WebKit

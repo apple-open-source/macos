@@ -39,31 +39,32 @@ RequirementLexer::RequirementLexer(const antlr::LexerSharedInputState& state)
 
 void RequirementLexer::initLiterals()
 {
-	literals["certificate"] = 25;
+	literals["certificate"] = 26;
 	literals["always"] = 15;
 	literals["host"] = 6;
 	literals["guest"] = 5;
 	literals["cdhash"] = 20;
-	literals["entitlement"] = 29;
+	literals["entitlement"] = 30;
 	literals["library"] = 8;
 	literals["never"] = 17;
-	literals["cert"] = 26;
+	literals["cert"] = 27;
 	literals["plugin"] = 9;
 	literals["or"] = 10;
-	literals["leaf"] = 42;
-	literals["info"] = 28;
+	literals["leaf"] = 43;
+	literals["info"] = 29;
 	literals["designated"] = 7;
-	literals["apple"] = 23;
-	literals["trusted"] = 27;
+	literals["apple"] = 24;
+	literals["trusted"] = 28;
 	literals["true"] = 16;
+	literals["notarized"] = 22;
 	literals["and"] = 11;
-	literals["root"] = 43;
+	literals["root"] = 44;
 	literals["platform"] = 21;
-	literals["anchor"] = 22;
+	literals["anchor"] = 23;
 	literals["false"] = 18;
-	literals["generic"] = 24;
+	literals["generic"] = 25;
 	literals["identifier"] = 19;
-	literals["exists"] = 30;
+	literals["exists"] = 31;
 }
 
 antlr::RefToken RequirementLexer::nextToken()
@@ -1248,22 +1249,22 @@ const antlr::BitSet RequirementLexer::_tokenSet_1(_tokenSet_1_data_,8);
 const unsigned long RequirementLexer::_tokenSet_2_data_[] = { 4294967295UL, 4294967291UL, 4026531839UL, 4294967295UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
-// 0x1f   ! # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 
+// 0x1f   ! # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : 
 const antlr::BitSet RequirementLexer::_tokenSet_2(_tokenSet_2_data_,8);
 const unsigned long RequirementLexer::_tokenSet_3_data_[] = { 4294966271UL, 4294967295UL, 4294967295UL, 4294967295UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xb 0xc 0xd 0xe 0xf 0x10 0x11 
 // 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 0x1f 
-//   ! \" # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 
+//   ! \" # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : 
 const antlr::BitSet RequirementLexer::_tokenSet_3(_tokenSet_3_data_,8);
 const unsigned long RequirementLexer::_tokenSet_4_data_[] = { 4294967295UL, 4294934527UL, 4294967295UL, 4294967295UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
-// 0x1f   ! \" # $ % & \' ( ) * + , - . 0 1 2 3 4 5 6 7 8 9 
+// 0x1f   ! \" # $ % & \' ( ) * + , - . 0 1 2 3 4 5 6 7 8 9 : 
 const antlr::BitSet RequirementLexer::_tokenSet_4(_tokenSet_4_data_,8);
 const unsigned long RequirementLexer::_tokenSet_5_data_[] = { 4294967295UL, 4294966271UL, 4294967295UL, 4294967295UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
-// 0x1f   ! \" # $ % & \' ( ) + , - . / 0 1 2 3 4 5 6 7 8 9 
+// 0x1f   ! \" # $ % & \' ( ) + , - . / 0 1 2 3 4 5 6 7 8 9 : 
 const antlr::BitSet RequirementLexer::_tokenSet_5(_tokenSet_5_data_,8);
 
 ANTLR_END_NAMESPACE

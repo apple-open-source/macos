@@ -74,18 +74,6 @@ static const SSLSymmetricCipher *sslCipherSuiteGetSymmetricCipher(uint16_t selec
     switch(alg) {
         case SSL_CipherAlgorithmNull:
             return &SSLCipherNull;
-#if ENABLE_RC2
-        case SSL_CipherAlgorithmRC2_128:
-            return &SSLCipherRC2_128;
-#endif
-#if ENABLE_RC4
-        case SSL_CipherAlgorithmRC4_128:
-            return &SSLCipherRC4_128;
-#endif
-#if ENABLE_DES
-        case SSL_CipherAlgorithmDES_CBC:
-            return &SSLCipherDES_CBC;
-#endif
         case SSL_CipherAlgorithm3DES_CBC:
             return &SSLCipher3DES_CBC;
         case SSL_CipherAlgorithmAES_128_CBC:
@@ -403,7 +391,7 @@ tls_record_encrypt(tls_record_t ctx,
                           uint8_t contentType,
                           tls_buffer *output)
 {
-    int err;
+    int err = 0;
     tls_buffer inbuf;
     tls_buffer outbuf;
     size_t ilen = input.length;
@@ -468,7 +456,7 @@ tls_record_decrypt(tls_record_t ctx,
     int        err;
     tls_buffer       cipherFragment;
     uint8_t         *charPtr;
-    uint64_t        seqNum;
+    uint64_t        seqNum = 0;
     uint8_t         ct;
     charPtr=input.data;
 

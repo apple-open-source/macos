@@ -3,6 +3,7 @@ set -e -x
 
 # Do nothing for installhdrs
 [ "$ACTION" == "installhdrs" ] && exit 0
+[ "$ACTION" == "installapi" ] && exit 0
 
 mkdir -p "$DSTROOT"/usr/local/OpenSource{Licenses,Versions}
 install -g "$INSTALL_GROUP" -o "$INSTALL_OWNER" -m "$ALTERNATE_MODE" \

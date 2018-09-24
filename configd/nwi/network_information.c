@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -498,12 +498,17 @@ nwi_ifstate_get_flags(nwi_ifstate_t ifstate)
 	flags |= flags_from_af(ifstate->af);
 	if ((ifstate->flags & NWI_IFSTATE_FLAGS_HAS_DNS) != 0) {
 		flags |= NWI_IFSTATE_FLAGS_HAS_DNS;
-
+	}
+	if ((ifstate->flags & NWI_IFSTATE_FLAGS_HAS_CLAT46) != 0) {
+		flags |= NWI_IFSTATE_FLAGS_HAS_CLAT46;
 	}
 	if (alias != NULL) {
 		flags |= flags_from_af(alias->af);
 		if ((alias->flags & NWI_IFSTATE_FLAGS_HAS_DNS) != 0) {
 			flags |= NWI_IFSTATE_FLAGS_HAS_DNS;
+		}
+		if ((alias->flags & NWI_IFSTATE_FLAGS_HAS_CLAT46) != 0) {
+			flags |= NWI_IFSTATE_FLAGS_HAS_CLAT46;
 		}
 	}
 	return flags;
@@ -903,13 +908,15 @@ nwi_ifstate_print(nwi_ifstate_t ifstate)
 						sizeof(vpn_ntopbuf));
 	}
 	diff_str = nwi_ifstate_get_diff_str(ifstate);
-	printf("%s%s%s%s rank 0x%x iaddr %s%s%s reach_flags 0x%x\n",
+	printf("%s%s%s%s%s rank 0x%x iaddr %s%s%s reach_flags 0x%x\n",
 	       ifstate->ifname,
 	       diff_str,
 	       (ifstate->flags & NWI_IFSTATE_FLAGS_HAS_DNS) != 0
-	       ? " dns" : "",
+	       		? " dns" : "",
+	       (ifstate->flags & NWI_IFSTATE_FLAGS_HAS_CLAT46) != 0
+	       		? " clat46" : "",
 	       (ifstate->flags & NWI_IFSTATE_FLAGS_NOT_IN_LIST) != 0
-	       ? " never" : "",
+	       		? " never" : "",
 	       ifstate->rank,
 	       addr_str,
 	       (vpn_addr_str != NULL) ? " vpn_server_addr: " : "",

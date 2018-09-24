@@ -27,7 +27,7 @@
 #include "file.h"
 
 #ifndef lint
-FILE_RCSID("@(#)$File: readelf.c,v 1.136 2017/03/29 19:09:52 christos Exp $")
+FILE_RCSID("@(#)$File: readelf.c,v 1.141 2018/04/12 16:50:52 christos Exp $")
 #endif
 
 #ifdef BUILTIN_ELF
@@ -310,18 +310,19 @@ private const char os_style_names[][8] = {
 	"NetBSD",
 };
 
-#define FLAGS_CORE_STYLE		0x003
+#define FLAGS_CORE_STYLE		0x0003
 
-#define FLAGS_DID_CORE			0x004
-#define FLAGS_DID_OS_NOTE		0x008
-#define FLAGS_DID_BUILD_ID		0x010
-#define FLAGS_DID_CORE_STYLE		0x020
-#define FLAGS_DID_NETBSD_PAX		0x040
-#define FLAGS_DID_NETBSD_MARCH		0x080
-#define FLAGS_DID_NETBSD_CMODEL		0x100
-#define FLAGS_DID_NETBSD_UNKNOWN	0x200
-#define FLAGS_IS_CORE			0x400
-#define FLAGS_DID_AUXV			0x800
+#define FLAGS_DID_CORE			0x0004
+#define FLAGS_DID_OS_NOTE		0x0008
+#define FLAGS_DID_BUILD_ID		0x0010
+#define FLAGS_DID_CORE_STYLE		0x0020
+#define FLAGS_DID_NETBSD_PAX		0x0040
+#define FLAGS_DID_NETBSD_MARCH		0x0080
+#define FLAGS_DID_NETBSD_CMODEL		0x0100
+#define FLAGS_DID_NETBSD_EMULATION	0x0200
+#define FLAGS_DID_NETBSD_UNKNOWN	0x0400
+#define FLAGS_IS_CORE			0x0800
+#define FLAGS_DID_AUXV			0x1000
 
 private int
 dophn_core(struct magic_set *ms, int clazz, int swap, int fd, off_t off,
@@ -511,7 +512,7 @@ do_bid_note(struct magic_set *ms, unsigned char *nbuf, uint32_t type,
     size_t noff, size_t doff, int *flags)
 {
 	if (namesz == 4 && strcmp((char *)&nbuf[noff], "GNU") == 0 &&
-	    type == NT_GNU_BUILD_ID && (descsz >= 4 || descsz <= 20)) {
+	    type == NT_GNU_BUILD_ID && (descsz >= 4 && descsz <= 20)) {
 		uint8_t desc[20];
 		const char *btype;
 		uint32_t i;
@@ -726,11 +727,11 @@ do_core_note(struct magic_set *ms, unsigned char *nbuf, uint32_t type,
 			    "gid=%u, nlwps=%u, lwp=%u (signal %u/code %u)",
 			    file_printable(sbuf, sizeof(sbuf),
 			    CAST(char *, pi.cpi_name)),
-			    elf_getu32(swap, pi.cpi_pid),
+			    elf_getu32(swap, (uint32_t)pi.cpi_pid),
 			    elf_getu32(swap, pi.cpi_euid),
 			    elf_getu32(swap, pi.cpi_egid),
 			    elf_getu32(swap, pi.cpi_nlwps),
-			    elf_getu32(swap, pi.cpi_siglwp),
+			    elf_getu32(swap, (uint32_t)pi.cpi_siglwp),
 			    elf_getu32(swap, pi.cpi_signo),
 			    elf_getu32(swap, pi.cpi_sigcode)) == -1)
 				return 1;
@@ -908,6 +909,7 @@ get_string_on_virtaddr(struct magic_set *ms,
 }
 
 
+/*ARGSUSED*/
 private int
 do_auxv_note(struct magic_set *ms, unsigned char *nbuf, uint32_t type,
     int swap, uint32_t namesz __attribute__((__unused__)),
@@ -1134,6 +1136,14 @@ donote(struct magic_set *ms, void *vbuf, size_t offset, size_t size,
 			    (int)descsz, (const char *)&nbuf[doff]) == -1)
 				return offset;
 			break;
+		case NT_NETBSD_EMULATION:
+			if (*flags & FLAGS_DID_NETBSD_EMULATION)
+				return offset;
+			*flags |= FLAGS_DID_NETBSD_EMULATION;
+			if (file_printf(ms, ", emulation: %.*s",
+			    (int)descsz, (const char *)&nbuf[doff]) == -1)
+				return offset;
+			break;
 		default:
 			if (*flags & FLAGS_DID_NETBSD_UNKNOWN)
 				return offset;
@@ -1209,8 +1219,8 @@ doshn(struct magic_set *ms, int clazz, int swap, int fd, off_t off, int num,
 	size_t nbadcap = 0;
 	void *nbuf;
 	off_t noff, coff, name_off;
-	uint64_t cap_hw1 = 0;	/* SunOS 5.x hardware capabilites */
-	uint64_t cap_sf1 = 0;	/* SunOS 5.x software capabilites */
+	uint64_t cap_hw1 = 0;	/* SunOS 5.x hardware capabilities */
+	uint64_t cap_sf1 = 0;	/* SunOS 5.x software capabilities */
 	char name[50];
 	ssize_t namesize;
 
@@ -1570,9 +1580,11 @@ dophn_exec(struct magic_set *ms, int clazz, int swap, int fd, off_t off,
 
 
 protected int
-file_tryelf(struct magic_set *ms, int fd, const unsigned char *buf,
-    size_t nbytes)
+file_tryelf(struct magic_set *ms, const struct buffer *b)
 {
+	int fd = b->fd;
+	const unsigned char *buf = b->fbuf;
+	size_t nbytes = b->flen;
 	union {
 		int32_t l;
 		char c[sizeof (int32_t)];

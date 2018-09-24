@@ -428,7 +428,7 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     return @{@"UUID": self.uuid, @"ckzone":self.zoneID.zoneName};
 }
 
-- (NSDictionary<NSString*,NSString*>*)sqlValues {
+- (NSDictionary<NSString*,id>*)sqlValues {
     return @{@"UUID": self.uuid,
              @"parentKeyUUID": self.parentKeyUUID,
              @"ckzone":  CKKSNilToNSNull(self.zoneID.zoneName),

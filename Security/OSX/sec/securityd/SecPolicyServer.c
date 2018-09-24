@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,7 +29,6 @@
 #include <Security/SecPolicyInternal.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTask.h>
-#include <securityd/asynchttp.h>
 #include <securityd/policytree.h>
 #include <securityd/nameconstraints.h>
 #include <CoreFoundation/CFTimeZone.h>
@@ -53,8 +52,6 @@
 #include <Security/SecInternal.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecTask.h>
-#include <CFNetwork/CFHTTPMessage.h>
-#include <CFNetwork/CFHTTPStream.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecific.h>
 #include <asl.h>
 #include <securityd/SecTrustServer.h>
@@ -722,12 +719,7 @@ static void SecPolicyCheckBlackListedLeaf(SecPVCRef pvc,
         (0 == memcmp(UTN_USERFirst_Hardware_Normalized_Issuer, CFDataGetBytePtr(issuer),
             UTN_USERFirst_Hardware_Normalized_Issuer_len)))
     {
-    #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
-        CFDataRef serial = SecCertificateCopySerialNumber(cert, NULL);
-    #else
-        CFDataRef serial = SecCertificateCopySerialNumber(cert);
-    #endif
-
+        CFDataRef serial = SecCertificateCopySerialNumberData(cert, NULL);
         if (serial) {
             CFIndex serial_length = CFDataGetLength(serial);
             const uint8_t *serial_ptr = CFDataGetBytePtr(serial);
@@ -1052,10 +1044,6 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
         /* Prepare for Next Cert */
         /* (a) (b) Done by SecCertificatePathVCVerifyPolicyTree */
         /* (c)(d)(e)(f)  Done by SecPathBuilderGetNext and SecCertificatePathVCVerify */
-        //working_issuer_name = SecCertificateGetNormalizedSubjectContent(cert);
-        //working_public_key = SecCertificateCopyPublicKey(cert);
-        //working_public_key_parameters = SecCertificateCopyPublicKeyParameters(cert);
-        //working_public_key_algorithm = SecCertificateCopyPublicKeyAlgorithm(cert);
 #if POLICY_SUBTREES
         /* (g) If a name constraints extension is included in the certificate, modify the permitted_subtrees and excluded_subtrees state variables.
          */
@@ -1116,13 +1104,10 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
     /* Wrap up */
     /* (a) (b) done by SecCertificatePathVCVerifyPolicyTree */
     /* (c) */
-    //working_public_key = SecCertificateCopyPublicKey(cert);
     /* (d) */
     /* If the subjectPublicKeyInfo field of the certificate contains an algorithm field with null parameters or parameters are omitted, compare the certificate subjectPublicKey algorithm to the working_public_key_algorithm. If the certificate subjectPublicKey algorithm and the
 working_public_key_algorithm are different, set the working_public_key_parameters to null. */
-    //working_public_key_parameters = SecCertificateCopyPublicKeyParameters(cert);
     /* (e) */
-    //working_public_key_algorithm = SecCertificateCopyPublicKeyAlgorithm(cert);
     /* (f) Recognize and process any other critical extension present in the certificate n. Process any other recognized non-critical extension present in certificate n that is relevant to path processing. */
     if (SecCertificateHasUnknownCriticalExtension(cert)) {
         /* Certificate contains one or more unknown critical extensions. */
@@ -1607,7 +1592,8 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
     CFDataRef precertEntry = copy_precert_entry_from_chain(pvc);
     CFDataRef x509Entry = copy_x509_entry_from_chain(pvc);
     __block uint32_t trustedSCTCount = 0;
-    __block CFIndex totalSCTSize = 0;
+    __block CFAbsoluteTime issuanceTime = SecPVCGetVerifyTime(pvc);
+    TA_CTFailureReason failureReason = TA_CTNoFailure;
 
     // This eventually contain list of logs who validated the SCT.
     CFMutableDictionaryRef currentLogsValidatingScts = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -1617,9 +1603,22 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
 
     __block bool at_least_one_currently_valid_external = 0;
     __block bool at_least_one_currently_valid_embedded = 0;
+    __block bool unknown_log = 0;
+    __block bool disqualified_log = 0;
 
     require(logsValidatingEmbeddedScts, out);
     require(currentLogsValidatingScts, out);
+
+    /* Skip if there are no SCTs. */
+    require_action((embeddedScts && CFArrayGetCount(embeddedScts) > 0) ||
+                   (builderScts && CFArrayGetCount(builderScts) > 0) ||
+                   (ocspScts && CFArrayGetCount(ocspScts) > 0),
+                   out,
+                   TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(pvc->builder);
+                   if (analytics) {
+                       analytics->ct_failure_reason = TA_CTNoSCTs;
+                   }
+    );
 
     if(trustedLogs) { // Don't bother trying to validate SCTs if we don't have any trusted logs.
         if(embeddedScts && precertEntry) { // Don't bother if we could not get the precert.
@@ -1632,9 +1631,12 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
                         addValidatingLog(currentLogsValidatingScts, log, sct_at);
                         at_least_one_currently_valid_embedded = true;
                         trustedSCTCount++;
+                    } else {
+                        disqualified_log = true;
                     }
+                } else {
+                    unknown_log = true;
                 }
-                totalSCTSize += CFDataGetLength(value);
             });
         }
 
@@ -1646,8 +1648,9 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
                     addValidatingLog(currentLogsValidatingScts, log, sct_at);
                     at_least_one_currently_valid_external = true;
                     trustedSCTCount++;
+                } else {
+                    unknown_log = true;
                 }
-                totalSCTSize += CFDataGetLength(value);
             });
         }
 
@@ -1659,10 +1662,13 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
                     addValidatingLog(currentLogsValidatingScts, log, sct_at);
                     at_least_one_currently_valid_external = true;
                     trustedSCTCount++;
+                } else {
+                    unknown_log = true;
                 }
-                totalSCTSize += CFDataGetLength(value);
             });
         }
+    } else {
+        failureReason = TA_CTMissingLogs;
     }
 
 
@@ -1679,15 +1685,12 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
 
      */
 
-    SecCertificatePathVCSetIsCT(SecPathBuilderGetPath(pvc->builder), false);
+    bool hasValidExternalSCT = (at_least_one_currently_valid_external && CFDictionaryGetCount(currentLogsValidatingScts)>=2);
+    bool hasValidEmbeddedSCT = (at_least_one_currently_valid_embedded);
+    SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
+    SecCertificatePathVCSetIsCT(path, false);
 
-    if(at_least_one_currently_valid_external && CFDictionaryGetCount(currentLogsValidatingScts)>=2) {
-        SecCertificatePathVCSetIsCT(SecPathBuilderGetPath(pvc->builder), true);
-    } else if(at_least_one_currently_valid_embedded) {
-        __block CFAbsoluteTime issuanceTime = SecPVCGetVerifyTime(pvc);
-        __block int lifetime; // in Months
-        __block unsigned once_or_current_qualified_embedded = 0;
-
+    if (hasValidEmbeddedSCT) {
         /* Calculate issuance time based on timestamp of SCTs from current logs */
         CFDictionaryForEach(currentLogsValidatingScts, ^(const void *key, const void *value) {
             CFDictionaryRef log = key;
@@ -1700,8 +1703,19 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
                 }
             }
         });
+        SecCertificatePathVCSetIssuanceTime(path, issuanceTime);
+    }
+    if (hasValidExternalSCT) {
+        /* Note: since external SCT validates this cert, we do not need to
+           override issuance time here. If the cert also has a valid embedded
+           SCT, issuanceTime will be calculated and set in the block above. */
+        SecCertificatePathVCSetIsCT(path, true);
+    } else if (hasValidEmbeddedSCT) {
+        __block int lifetime; // in Months
+        __block unsigned once_or_current_qualified_embedded = 0;
 
         /* Count Logs */
+        __block bool failed_once_check = false;
         CFDictionaryForEach(logsValidatingEmbeddedScts, ^(const void *key, const void *value) {
             CFDictionaryRef log = key;
             CFDateRef ts = value;
@@ -1712,6 +1726,8 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
                        issuanceTime < CFDateGetAbsoluteTime(expiry)) {          // at the time of issuance.)
                 once_or_current_qualified_embedded++;
                 trustedSCTCount++;
+            } else {
+                failed_once_check = true;
             }
         });
 
@@ -1737,7 +1753,32 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
         }
 
         if(once_or_current_qualified_embedded >= requiredEmbeddedSctsCount){
-            SecCertificatePathVCSetIsCT(SecPathBuilderGetPath(pvc->builder), true);
+            SecCertificatePathVCSetIsCT(path, true);
+        } else {
+            /* Not enough "once or currently qualified" SCTs */
+            if (failed_once_check) {
+                failureReason = TA_CTEmbeddedNotEnoughDisqualified;
+            } else if (unknown_log) {
+                failureReason = TA_CTEmbeddedNotEnoughUnknown;
+            } else {
+                failureReason = TA_CTEmbeddedNotEnough;
+            }
+        }
+    } else if (!at_least_one_currently_valid_embedded && !at_least_one_currently_valid_external) {
+        /* No currently valid SCTs */
+        if (disqualified_log) {
+            failureReason = TA_CTNoCurrentSCTsDisqualifiedLog;
+        } else if (unknown_log) {
+            failureReason = TA_CTNoCurrentSCTsUnknownLog;
+        }
+    } else if (at_least_one_currently_valid_external) {
+        /* One presented current SCT but failed total current check */
+        if (disqualified_log) {
+            failureReason = TA_CTPresentedNotEnoughDisqualified;
+        } else if (unknown_log) {
+            failureReason = TA_CTPresentedNotEnoughUnknown;
+        } else {
+            failureReason = TA_CTPresentedNotEnough;
         }
     }
 
@@ -1760,11 +1801,14 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
     }
     /* Report how many of those SCTs were once or currently qualified */
     analytics->number_trusted_scts = trustedSCTCount;
-    /* Report the total number of bytes in the SCTs */
-    analytics->total_sct_size = totalSCTSize;
     /* Report how many SCTs we got */
     analytics->number_scts = sctCount;
-
+    /* Why we failed */
+    analytics->ct_failure_reason = failureReason;
+    /* Only one current SCT -- close to failure */
+    if (CFDictionaryGetCount(currentLogsValidatingScts) == 1) {
+        analytics->ct_one_current = true;
+    }
 out:
     CFReleaseSafe(logsValidatingEmbeddedScts);
     CFReleaseSafe(currentLogsValidatingScts);
@@ -2064,7 +2108,7 @@ __PC_ADD_CHECK_##PATHCHECK(NAME)
  ********************************************************/
 
 void SecPVCInit(SecPVCRef pvc, SecPathBuilderRef builder, CFArrayRef policies) {
-    secdebug("alloc", "%p", pvc);
+    secdebug("alloc", "pvc %p", pvc);
     // Weird logging policies crashes.
     //secdebug("policy", "%@", policies);
 
@@ -2085,7 +2129,7 @@ void SecPVCInit(SecPVCRef pvc, SecPathBuilderRef builder, CFArrayRef policies) {
 }
 
 void SecPVCDelete(SecPVCRef pvc) {
-    secdebug("alloc", "%p", pvc);
+    secdebug("alloc", "delete pvc %p", pvc);
     CFReleaseNull(pvc->policies);
     CFReleaseNull(pvc->details);
     CFReleaseNull(pvc->leafDetails);
@@ -3040,6 +3084,70 @@ static bool SecPVCIsSSLServerAuthenticationPolicy(SecPVCRef pvc) {
     return false;
 }
 
+/* ASSUMPTIONS:
+   1. SecPVCCheckRequireCTConstraints must be called after SecPolicyCheckCT,
+      so earliest issuance time has already been obtained from SCTs.
+   2. If the issuance time value is 0 (i.e. 2001-01-01) or earlier, we
+      assume it was not set, and thus we did not have CT info.
+*/
+static void SecPVCCheckRequireCTConstraints(SecPVCRef pvc) {
+    SecCertificatePathVCRef path = (pvc) ? SecPathBuilderGetPath(pvc->builder) : NULL;
+    if (!path) {
+        return;
+    }
+    /* If we are evaluating for a SSL server authentication policy, make sure
+       SCT issuance time is prior to the earliest not-after date constraint.
+       Note that CT will already be required if there is a not-after date
+       constraint present (set in SecRVCProcessValidDateConstraints).
+    */
+    if (SecPVCIsSSLServerAuthenticationPolicy(pvc)) {
+        CFIndex ix, certCount = SecCertificatePathVCGetCount(path);
+        SecCertificateRef certificate = SecPathBuilderGetCertificateAtIndex(pvc->builder, 0);
+        CFAbsoluteTime earliestNotAfter = 31556908800.0;  /* default: 3001-01-01 00:00:00-0000 */
+        CFAbsoluteTime issuanceTime = SecCertificatePathVCIssuanceTime(path);
+        if (issuanceTime <= 0) {
+            /* if not set (or prior to 2001-01-01), use leaf's not-before time. */
+            issuanceTime = SecCertificateNotValidBefore(certificate);
+        }
+        for (ix = 0; ix < certCount; ix++) {
+            SecRVCRef rvc = SecCertificatePathVCGetRVCAtIndex(path, ix);
+            if (!rvc || !rvc->valid_info || !rvc->valid_info->hasDateConstraints || !rvc->valid_info->notAfterDate) {
+                continue;
+            }
+            /* Found CA certificate with a not-after date constraint. */
+            CFAbsoluteTime caNotAfter = CFDateGetAbsoluteTime(rvc->valid_info->notAfterDate);
+            if (caNotAfter < earliestNotAfter) {
+                earliestNotAfter = caNotAfter;
+            }
+            if (issuanceTime > earliestNotAfter) {
+                /* Issuance time violates the not-after date constraint. */
+                secnotice("rvc", "certificate issuance time (%f) is later than allowed value (%f)",
+                          issuanceTime, earliestNotAfter);
+                SecRVCSetValidDeterminedErrorResult(rvc);
+                break;
+            }
+        }
+    }
+    /* If path is CT validated, nothing further to do here. */
+    if (SecCertificatePathVCIsCT(path)) {
+        return;
+    }
+
+    /* Path is not CT validated, so check if CT was required. */
+    SecPathCTPolicy ctp = SecCertificatePathVCRequiresCT(path);
+    if (ctp <= kSecPathCTNotRequired || !SecPVCIsSSLServerAuthenticationPolicy(pvc)) {
+        return;
+    }
+    /* CT was required. Error is always set on leaf certificate. */
+    SecPVCSetResultForced(pvc, kSecPolicyCheckCTRequired,
+                          0, kCFBooleanFalse, true);
+    if (ctp != kSecPathCTRequiredOverridable) {
+        /* Normally kSecPolicyCheckCTRequired is recoverable,
+           so need to manually change trust result here. */
+        pvc->result = kSecTrustResultFatalTrustFailure;
+    }
+}
+
 /* AUDIT[securityd](done):
    policy->_options is a caller provided dictionary, only its cf type has
    been checked.
@@ -3105,19 +3213,10 @@ void SecPVCPathChecks(SecPVCRef pvc) {
     }
 
     /* Check that this path meets CT constraints. */
-    if (!SecCertificatePathVCIsCT(path)) {
-        SecPathCTPolicy ctp = SecCertificatePathVCRequiresCT(path);
-        if (ctp > kSecPathCTNotRequired && SecPVCIsSSLServerAuthenticationPolicy(pvc)) {
-            /* CT was required. Error is always set on leaf certificate. */
-            SecPVCSetResultForced(pvc, kSecPolicyCheckCTRequired,
-                                  0, kCFBooleanFalse, true);
-            if (ctp != kSecPathCTRequiredOverridable) {
-                /* Normally kSecPolicyCheckCTRequired is recoverable,
-                   so need to manually change trust result here. */
-                pvc->result = kSecTrustResultFatalTrustFailure;
-            }
-        }
-    }
+    SecPVCCheckRequireCTConstraints(pvc);
+
+    /* Check that this path meets known-intermediate constraints. */
+    SecPathBuilderCheckKnownIntermediateConstraints(pvc->builder);
 
     secdebug("policy", "end %strusted path: %@",
         (SecPVCIsOkResult(pvc) ? "" : "not "), SecPathBuilderGetPath(pvc->builder));
@@ -3150,7 +3249,7 @@ void SecPVCPathCheckRevocationResponsesReceived(SecPVCRef pvc) {
             }
             /* Do we have a definitive Valid revocation result for this cert? */
             if (SecRVCHasDefinitiveValidInfo(rvc) && SecRVCHasRevokedValidInfo(rvc)) {
-                SecRVCSetRevokedResult(rvc);
+                SecRVCSetValidDeterminedErrorResult(rvc);
             }
         }
     }

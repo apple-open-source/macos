@@ -16,7 +16,7 @@ PREBINDING = NO;
 // WARNING_CFLAGS = -Wextra -Wcast-qual -Wextra-tokens -Winit-self -Wmissing-noreturn -Wpacked -Wredundant-decls -Wundef;
 WARNING_CFLAGS = -Wall -pedantic -W -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wformat -Wchar-subscripts -Wuninitialized -Wparentheses -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline;
 STRIP_INSTALLED_PRODUCT = YES;
-HEADER_SEARCH_PATHS = /usr/include/libxml2 "Pregenerated Files";
+HEADER_SEARCH_PATHS = /usr/include/libxml2 "Pregenerated Files/include";
 
 DEBUG_DEFINES = $(DEBUG_DEFINES_$(CONFIGURATION));
 DEBUG_DEFINES_Debug = ;

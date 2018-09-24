@@ -1,7 +1,7 @@
 /*
  * PPD cache implementation for CUPS.
  *
- * Copyright 2010-2017 by Apple Inc.
+ * Copyright © 2010-2018 by Apple Inc.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
@@ -2967,6 +2967,8 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 			is_pwg = 0;	/* Does the printer support PWG Raster? */
   pwg_media_t		*pwg;		/* PWG media size */
   int			xres, yres;	/* Resolution values */
+  int                   resolutions[1000];
+                                        /* Array of resolution indices */
   cups_lang_t		*lang = cupsLangDefault();
 					/* Localization info */
   struct lconv		*loc = localeconv();
@@ -3103,8 +3105,8 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   cupsFilePrintf(fp, "*Manufacturer: \"%s\"\n", make);
   cupsFilePrintf(fp, "*ModelName: \"%s\"\n", model);
   cupsFilePrintf(fp, "*Product: \"(%s)\"\n", model);
-  cupsFilePrintf(fp, "*NickName: \"%s\"\n", model);
-  cupsFilePrintf(fp, "*ShortNickName: \"%s\"\n", model);
+  cupsFilePrintf(fp, "*NickName: \"%s - IPP Everywhere\"\n", model);
+  cupsFilePrintf(fp, "*ShortNickName: \"%s - IPP Everywhere\"\n", model);
 
   if ((attr = ippFindAttribute(response, "color-supported", IPP_TAG_BOOLEAN)) != NULL && ippGetBoolean(attr, 0))
     cupsFilePuts(fp, "*ColorDevice: True\n");
@@ -3116,6 +3118,41 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   cupsFilePuts(fp, "*cupsLanguages: \"en\"\n");
 
  /*
+  * Password/PIN printing...
+  */
+
+  if ((attr = ippFindAttribute(response, "job-password-supported", IPP_TAG_INTEGER)) != NULL)
+  {
+    char	pattern[33];		/* Password pattern */
+    int		maxlen = ippGetInteger(attr, 0);
+					/* Maximum length */
+    const char	*repertoire = ippGetString(ippFindAttribute(response, "job-password-repertoire-configured", IPP_TAG_KEYWORD), 0, NULL);
+					/* Type of password */
+
+    if (maxlen > (int)(sizeof(pattern) - 1))
+      maxlen = sizeof(pattern) - 1;
+
+    if (!repertoire || !strcmp(repertoire, "iana_us-ascii_digits"))
+      memset(pattern, '1', maxlen);
+    else if (!strcmp(repertoire, "iana_us-ascii_letters"))
+      memset(pattern, 'A', maxlen);
+    else if (!strcmp(repertoire, "iana_us-ascii_complex"))
+      memset(pattern, 'C', maxlen);
+    else if (!strcmp(repertoire, "iana_us-ascii_any"))
+      memset(pattern, '.', maxlen);
+    else if (!strcmp(repertoire, "iana_utf-8_digits"))
+      memset(pattern, 'N', maxlen);
+    else if (!strcmp(repertoire, "iana_utf-8_letters"))
+      memset(pattern, 'U', maxlen);
+    else
+      memset(pattern, '*', maxlen);
+
+    pattern[maxlen] = '\0';
+
+    cupsFilePrintf(fp, "*cupsPassword: \"%s\"\n", pattern);
+  }
+
+ /*
   * Filters...
   */
 
@@ -3123,24 +3160,18 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   {
     is_apple = ippContainsString(attr, "image/urf");
     is_pdf   = ippContainsString(attr, "application/pdf");
-    is_pwg   = ippContainsString(attr, "image/pwg-raster");
+    is_pwg   = ippContainsString(attr, "image/pwg-raster") && !is_apple;
 
-    for (i = 0, count = ippGetCount(attr); i < count; i ++)
-    {
-      const char *format = ippGetString(attr, i, NULL);
-					/* PDL */
-
-     /*
-      * Write cupsFilter2 lines for supported formats...
-      */
-
-      if (!_cups_strcasecmp(format, "application/pdf"))
-        cupsFilePuts(fp, "*cupsFilter2: \"application/vnd.cups-pdf application/pdf 10 -\"\n");
-      else if (!_cups_strcasecmp(format, "image/jpeg") || !_cups_strcasecmp(format, "image/png"))
-        cupsFilePrintf(fp, "*cupsFilter2: \"%s %s 0 -\"\n", format, format);
-      else if (!_cups_strcasecmp(format, "image/pwg-raster") || !_cups_strcasecmp(format, "image/urf"))
-        cupsFilePrintf(fp, "*cupsFilter2: \"%s %s 100 -\"\n", format, format);
-    }
+    if (ippContainsString(attr, "image/jpeg"))
+      cupsFilePuts(fp, "*cupsFilter2: \"image/jpeg image/jpeg 0 -\"\n");
+    if (ippContainsString(attr, "image/png"))
+      cupsFilePuts(fp, "*cupsFilter2: \"image/png image/png 0 -\"\n");
+    if (is_pdf)
+      cupsFilePuts(fp, "*cupsFilter2: \"application/vnd.cups-pdf application/pdf 10 -\"\n");
+    if (is_apple)
+      cupsFilePuts(fp, "*cupsFilter2: \"image/urf image/urf 100 -\"\n");
+    if (is_pwg)
+      cupsFilePuts(fp, "*cupsFilter2: \"image/pwg-raster image/pwg-raster 100 -\"\n");
   }
 
   if (!is_apple && !is_pdf && !is_pwg)
@@ -3599,8 +3630,8 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   * ColorModel...
   */
 
-  if ((attr = ippFindAttribute(response, "pwg-raster-document-type-supported", IPP_TAG_KEYWORD)) == NULL)
-    if ((attr = ippFindAttribute(response, "urf-supported", IPP_TAG_KEYWORD)) == NULL)
+  if ((attr = ippFindAttribute(response, "urf-supported", IPP_TAG_KEYWORD)) == NULL)
+    if ((attr = ippFindAttribute(response, "pwg-raster-document-type-supported", IPP_TAG_KEYWORD)) == NULL)
       if ((attr = ippFindAttribute(response, "print-color-mode-supported", IPP_TAG_KEYWORD)) == NULL)
         attr = ippFindAttribute(response, "output-mode-supported", IPP_TAG_KEYWORD);
 
@@ -3679,7 +3710,36 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 		       "*Duplex DuplexTumble/%s: \"<</Duplex true/Tumble true>>setpagedevice\"\n"
 		       "*CloseUI: *Duplex\n", _cupsLangString(lang, _("2-Sided Printing")), _cupsLangString(lang, _("Off (1-Sided)")), _cupsLangString(lang, _("Long-Edge (Portrait)")), _cupsLangString(lang, _("Short-Edge (Landscape)")));
 
-    if ((attr = ippFindAttribute(response, "pwg-raster-document-sheet-back", IPP_TAG_KEYWORD)) != NULL)
+    if ((attr = ippFindAttribute(response, "urf-supported", IPP_TAG_KEYWORD)) != NULL)
+    {
+      for (i = 0, count = ippGetCount(attr); i < count; i ++)
+      {
+        const char *dm = ippGetString(attr, i, NULL);
+                                        /* DM value */
+
+        if (!_cups_strcasecmp(dm, "DM1"))
+        {
+          cupsFilePuts(fp, "*cupsBackSide: Normal\n");
+          break;
+        }
+        else if (!_cups_strcasecmp(dm, "DM2"))
+        {
+          cupsFilePuts(fp, "*cupsBackSide: Flipped\n");
+          break;
+        }
+        else if (!_cups_strcasecmp(dm, "DM3"))
+        {
+          cupsFilePuts(fp, "*cupsBackSide: Rotated\n");
+          break;
+        }
+        else if (!_cups_strcasecmp(dm, "DM4"))
+        {
+          cupsFilePuts(fp, "*cupsBackSide: ManualTumble\n");
+          break;
+        }
+      }
+    }
+    else if ((attr = ippFindAttribute(response, "pwg-raster-document-sheet-back", IPP_TAG_KEYWORD)) != NULL)
     {
       const char *keyword = ippGetString(attr, 0, NULL);
 					/* Keyword value */
@@ -3692,35 +3752,6 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
         cupsFilePuts(fp, "*cupsBackSide: Normal\n");
       else
         cupsFilePuts(fp, "*cupsBackSide: Rotated\n");
-    }
-    else if ((attr = ippFindAttribute(response, "urf-supported", IPP_TAG_KEYWORD)) != NULL)
-    {
-      for (i = 0, count = ippGetCount(attr); i < count; i ++)
-      {
-	const char *dm = ippGetString(attr, i, NULL);
-					  /* DM value */
-
-	if (!_cups_strcasecmp(dm, "DM1"))
-	{
-	  cupsFilePuts(fp, "*cupsBackSide: Normal\n");
-	  break;
-	}
-	else if (!_cups_strcasecmp(dm, "DM2"))
-	{
-	  cupsFilePuts(fp, "*cupsBackSide: Flipped\n");
-	  break;
-	}
-	else if (!_cups_strcasecmp(dm, "DM3"))
-	{
-	  cupsFilePuts(fp, "*cupsBackSide: Rotated\n");
-	  break;
-	}
-	else if (!_cups_strcasecmp(dm, "DM4"))
-	{
-	  cupsFilePuts(fp, "*cupsBackSide: ManualTumble\n");
-	  break;
-	}
-      }
     }
   }
 
@@ -3980,42 +4011,14 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 
   quality = ippFindAttribute(response, "print-quality-supported", IPP_TAG_ENUM);
 
-  if ((attr = ippFindAttribute(response, "pwg-raster-document-resolution-supported", IPP_TAG_RESOLUTION)) != NULL)
+  if ((attr = ippFindAttribute(response, "urf-supported", IPP_TAG_KEYWORD)) != NULL)
   {
-    count = ippGetCount(attr);
-
-    pwg_ppdize_resolution(attr, count / 2, &xres, &yres, ppdname, sizeof(ppdname));
-    cupsFilePrintf(fp, "*DefaultResolution: %s\n", ppdname);
-
-    cupsFilePrintf(fp, "*OpenUI *cupsPrintQuality/%s: PickOne\n"
-		       "*OrderDependency: 10 AnySetup *cupsPrintQuality\n"
-		       "*DefaultcupsPrintQuality: Normal\n", _cupsLangString(lang, _("Print Quality")));
-    if (count > 2 || ippContainsInteger(quality, IPP_QUALITY_DRAFT))
-    {
-      pwg_ppdize_resolution(attr, 0, &xres, &yres, NULL, 0);
-      cupsFilePrintf(fp, "*cupsPrintQuality Draft/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("Draft")), xres, yres);
-    }
-    pwg_ppdize_resolution(attr, count / 2, &xres, &yres, NULL, 0);
-    cupsFilePrintf(fp, "*cupsPrintQuality Normal/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("Normal")), xres, yres);
-    if (count > 1 || ippContainsInteger(quality, IPP_QUALITY_HIGH))
-    {
-      if (count > 1)
-        pwg_ppdize_resolution(attr, count - 1, &xres, &yres, NULL, 0);
-      else
-        pwg_ppdize_resolution(attr, 0, &xres, &yres, NULL, 0);
-      cupsFilePrintf(fp, "*cupsPrintQuality High/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("High")), xres, yres);
-    }
-
-    cupsFilePuts(fp, "*CloseUI: *cupsPrintQuality\n");
-  }
-  else if ((attr = ippFindAttribute(response, "urf-supported", IPP_TAG_KEYWORD)) != NULL)
-  {
-    int lowdpi = 0, hidpi = 0;		/* Lower and higher resolution */
+    int lowdpi = 0, hidpi = 0;    /* Lower and higher resolution */
 
     for (i = 0, count = ippGetCount(attr); i < count; i ++)
     {
       const char *rs = ippGetString(attr, i, NULL);
-					/* RS value */
+          /* RS value */
 
       if (_cups_strncasecmp(rs, "RS", 2))
         continue;
@@ -4045,17 +4048,80 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
       cupsFilePrintf(fp, "*DefaultResolution: %ddpi\n", lowdpi);
 
       cupsFilePrintf(fp, "*OpenUI *cupsPrintQuality/%s: PickOne\n"
-			 "*OrderDependency: 10 AnySetup *cupsPrintQuality\n"
-			 "*DefaultcupsPrintQuality: Normal\n", _cupsLangString(lang, _("Print Quality")));
+       "*OrderDependency: 10 AnySetup *cupsPrintQuality\n"
+       "*DefaultcupsPrintQuality: Normal\n", _cupsLangString(lang, _("Print Quality")));
       if ((lowdpi & 1) == 0)
-	cupsFilePrintf(fp, "*cupsPrintQuality Draft/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("Draft")), lowdpi, lowdpi / 2);
+  cupsFilePrintf(fp, "*cupsPrintQuality Draft/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("Draft")), lowdpi, lowdpi / 2);
       else if (ippContainsInteger(quality, IPP_QUALITY_DRAFT))
-	cupsFilePrintf(fp, "*cupsPrintQuality Draft/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("Draft")), lowdpi, lowdpi);
+  cupsFilePrintf(fp, "*cupsPrintQuality Draft/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("Draft")), lowdpi, lowdpi);
       cupsFilePrintf(fp, "*cupsPrintQuality Normal/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("Normal")), lowdpi, lowdpi);
       if (hidpi > lowdpi || ippContainsInteger(quality, IPP_QUALITY_HIGH))
-	cupsFilePrintf(fp, "*cupsPrintQuality High/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("High")), hidpi, hidpi);
+  cupsFilePrintf(fp, "*cupsPrintQuality High/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("High")), hidpi, hidpi);
       cupsFilePuts(fp, "*CloseUI: *cupsPrintQuality\n");
     }
+  }
+  else if ((attr = ippFindAttribute(response, "pwg-raster-document-resolution-supported", IPP_TAG_RESOLUTION)) != NULL)
+  {
+   /*
+    * Make a sorted list of resolutions.
+    */
+
+    count = ippGetCount(attr);
+    if (count > (int)(sizeof(resolutions) / sizeof(resolutions[0])))
+      count = (int)(sizeof(resolutions) / sizeof(resolutions[0]));
+
+    for (i = 0; i < count; i ++)
+      resolutions[i] = i;
+
+    for (i = 0; i < (count - 1); i ++)
+    {
+      for (j = i + 1; j < count; j ++)
+      {
+        int       ix, iy,               /* First X and Y resolution */
+                  jx, jy,               /* Second X and Y resolution */
+                  temp;                 /* Swap variable */
+        ipp_res_t units;                /* Resolution units */
+
+        ix = ippGetResolution(attr, resolutions[i], &iy, &units);
+        jx = ippGetResolution(attr, resolutions[j], &jy, &units);
+
+        if (ix > jx || (ix == jx && iy > jy))
+        {
+         /*
+          * Swap these two resolutions...
+          */
+
+          temp           = resolutions[i];
+          resolutions[i] = resolutions[j];
+          resolutions[j] = temp;
+        }
+      }
+    }
+
+   /*
+    * Generate print quality options...
+    */
+
+    pwg_ppdize_resolution(attr, resolutions[count / 2], &xres, &yres, ppdname, sizeof(ppdname));
+    cupsFilePrintf(fp, "*DefaultResolution: %s\n", ppdname);
+
+    cupsFilePrintf(fp, "*OpenUI *cupsPrintQuality/%s: PickOne\n"
+           "*OrderDependency: 10 AnySetup *cupsPrintQuality\n"
+           "*DefaultcupsPrintQuality: Normal\n", _cupsLangString(lang, _("Print Quality")));
+    if (count > 2 || ippContainsInteger(quality, IPP_QUALITY_DRAFT))
+    {
+      pwg_ppdize_resolution(attr, resolutions[0], &xres, &yres, NULL, 0);
+      cupsFilePrintf(fp, "*cupsPrintQuality Draft/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("Draft")), xres, yres);
+    }
+    pwg_ppdize_resolution(attr, resolutions[count / 2], &xres, &yres, NULL, 0);
+    cupsFilePrintf(fp, "*cupsPrintQuality Normal/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("Normal")), xres, yres);
+    if (count > 1 || ippContainsInteger(quality, IPP_QUALITY_HIGH))
+    {
+      pwg_ppdize_resolution(attr, resolutions[count - 1], &xres, &yres, NULL, 0);
+      cupsFilePrintf(fp, "*cupsPrintQuality High/%s: \"<</HWResolution[%d %d]>>setpagedevice\"\n", _cupsLangString(lang, _("High")), xres, yres);
+    }
+
+    cupsFilePuts(fp, "*CloseUI: *cupsPrintQuality\n");
   }
   else if (is_apple || is_pwg)
     goto bad_ppd;

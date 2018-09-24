@@ -25,7 +25,7 @@
 (deny default (with partial-symbolication))
 (allow system-audit file-read-metadata)
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
 (import "system.sb")
 #else
 ;;;
@@ -78,10 +78,11 @@
        file-ioctl
     (literal "/dev/dtracehelper"))
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
 (allow network-outbound
     (literal "/private/var/run/asl_input")
     (literal "/private/var/run/syslog"))
-
+#endif
 
 ;;; Allow creation of core dumps.
 (allow file-write-create
@@ -106,6 +107,13 @@
     ;; CVMS
     (allow mach-lookup
         (global-name "com.apple.cvmsServ"))
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    ;; Needed by <rdar://problem/40093461>, remove when <rdar://problem/39402555> is fixed.
+    (allow file-read* file-write-unlink
+        (prefix "/private/tmp/cvmsCodeSignObj"))
+    (allow file-read*
+        (prefix "/private/var/db/CVMS/cvmsCodeSignObj"))
+#endif
     ;; OpenCL
     (allow iokit-open
         (iokit-connection "IOAccelerator")
@@ -140,27 +148,6 @@
         (iokit-property "ggcs")
         (iokit-property "bgcs")))))
 
-
-;;; (system-network) - Allow access to the network.
-(define (system-network)
-    (allow file-read*
-        (literal "/Library/Preferences/com.apple.networkd.plist"))
-    (allow mach-lookup
-        (global-name "com.apple.SystemConfiguration.PPPController")
-        (global-name "com.apple.SystemConfiguration.SCNetworkReachability")
-        (global-name "com.apple.nehelper")
-        (global-name "com.apple.networkd")
-        (global-name "com.apple.nsurlstorage-cache")
-        (global-name "com.apple.symptomsd")
-        (global-name "com.apple.usymptomsd"))
-    (allow network-outbound
-        (control-name "com.apple.netsrc")
-        (control-name "com.apple.network.statistics"))
-    (allow system-socket
-        (require-all (socket-domain AF_SYSTEM)
-        (socket-protocol 2)) ; SYSPROTO_CONTROL
-    (socket-domain AF_ROUTE)))
-
 ;;;
 ;;; End rules originally copied from 'system.sb'
 ;;;
@@ -170,9 +157,7 @@
 (deny process-info*)
 (allow process-info-pidinfo)
 (allow process-info-setcontrol (target self))
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
 (allow process-codesigning-status*)
-#endif
 
 (deny sysctl*)
 (allow sysctl-read
@@ -180,7 +165,6 @@
         "hw.byteorder"
         "hw.busfrequency_max"
         "hw.cputype"
-        "hw.l2cachesize"
         "hw.machine"
         "hw.memsize"
         "hw.model"
@@ -191,10 +175,12 @@
         "kern.memorystatus_level"
         "kern.safeboot"
         "kern.version"
+        "machdep.cpu.brand_string"
         "security.mac.sandbox.sentinel"
         "vm.footprint_suspend")
     (sysctl-name-regex #"^hw.(active|avail)cpu")
-    (sysctl-name-regex #"^hw.(busfrequency|cachelinesize|cpufrequency|pagesize|tbfrequency)_compat")
+    (sysctl-name-regex #"^hw.(busfrequency|cachelinesize|cpufrequency(|_max)|pagesize|tbfrequency)(|_compat)")
+    (sysctl-name-regex #"^hw.l.+cachesize")
     (sysctl-name-regex #"^hw.(logical|physical)cpu_max")
     (sysctl-name-regex #"^hw.optional\.")
     (sysctl-name-regex #"^kern.os(release|type|variant_status|version)")
@@ -220,6 +206,7 @@
     (iokit-property "CapsLockDelay")
     (iokit-property "ConfigState")
     (iokit-property "Description")
+    (iokit-property "Development")
     (iokit-property-regex #"^Device( Characteristics|EqID)")
     (iokit-property "DisplayRouting")
     (iokit-property "Driver is Ready")
@@ -242,6 +229,8 @@
     (iokit-property-regex #"^IOAudioEngineNum(ActiveUserClients|SampleFramesPerBuffer)")
     (iokit-property "IOAudioSampleRate")
     (iokit-property "IOAudioStreamSampleFormatByteOrder")
+    (iokit-property-regex #"^IOAV(.*)(De|En)code$")
+    (iokit-property "IOBacklightHandlerID")
     (iokit-property "IOBusyInterest")
     (iokit-property "IOCFPlugInTypes")
     (iokit-property "IOChildIndex")
@@ -272,6 +261,7 @@
     (iokit-property-regex #"^IOName(|Match(|ed))")
     (iokit-property "IOOCDBundleName")
     (iokit-property "IOPCITunnelled")
+    (iokit-property "IOPCITunnelCompatible")
     (iokit-property "IOPMStrictTreeOrder")
     (iokit-property "IOParentMatch")
     (iokit-property-regex #"^IOPCI((Class|Primary|Property|)Match|Express(Capabilities|Link(Status|Capabilities))|MSIMode|Resourced|Tunnelled)")
@@ -312,6 +302,7 @@
     (iokit-property "SampleRates")
     (iokit-property "Serial Number")
     (iokit-property "StartupDisplay")
+    (iokit-property "SurfaceList")
     (iokit-property-regex #"^Support(AudioAUUC|sSilentClick|TapToWake)")
     (iokit-property-regex #"^Sensor (Columns|Rows)")
     (iokit-property-regex #"^Sensor Region (Descriptor|Param|Rows)")
@@ -320,6 +311,7 @@
     (iokit-property "TimeStampFiltering")
     (iokit-property "Transport")
     (iokit-property "UserClientEnabled")
+    (iokit-property "VRAM,totalMB")
     (iokit-property "WANTS_FRAMES_IGNORED")
     (iokit-property-regex #"^acpi-(device|path)")
     (iokit-property "assigned-addresses")
@@ -354,9 +346,28 @@
     (iokit-property "saved-config")
     (iokit-property "startup-timing")
     (iokit-property "touch-size-id")
+#if !PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    (iokit-property "ATY,cbits")
+    (iokit-property "ATY,intrev")
+    (iokit-property "AccelNativeDMARowByteAlignment")
+    (iokit-property "CompactVRAM")
+    (iokit-property "EnableBlitLib")
+    (iokit-property "ForceDisableEDRAM")
+    (iokit-property "GPUConfigurationVariable")
+    (iokit-property "GpuDebugPolicy")
+    (iokit-property "IOKitDebug")
+    (iokit-property "IOPCIMatch")
+    (iokit-property "IOOCDBundleName")
+    (iokit-property "MetalStatisticsScriptName")
+    (iokit-property "MetalCoalesce")
+    (iokit-property "PanicOnGPUHang")
+    (iokit-property "TelemetryDisable")
+    (iokit-property "cail_properties")
+    (iokit-property "dpm")
+#endif
 )
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+#if !PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
 (deny mach-lookup (xpc-service-name-prefix ""))
 (allow mach-lookup
     (xpc-service-name "com.apple.PerformanceAnalysis.animationperfd")
@@ -368,7 +379,6 @@
     (xpc-service-name "com.apple.hiservices-xpcservice")
     (xpc-service-name "com.apple.ist.ds.appleconnect2.HelperService")
     (xpc-service-name "com.apple.print.normalizerd")
-    (xpc-service-name "com.apple.securityd.xpc")
     (xpc-service-name "com.apple.signpost.signpost-notificationd")
 )
 #endif
@@ -445,6 +455,7 @@
     (home-subpath "/Library/Dictionaries"))
 
 (allow file-read-data
+    (literal "/usr/local/lib/log") ; <rdar://problem/36629495>
     ;; Needed for AES3 support
     (subpath "/Library/Audio/Plug-Ins/Components"))
 
@@ -458,8 +469,8 @@
         "com.apple.HIToolbox"
         "com.apple.LaunchServices"
         "com.apple.MultitouchSupport" ;; FIXME: Remove when <rdar://problem/13011633> is fixed.
-        "com.apple.QTKit"
         "com.apple.ServicesMenu.Services" ;; Needed for NSAttributedString <rdar://problem/10844321>
+        "com.apple.ViewBridge" ;; Needed for Input elements.
         "com.apple.WebFoundation"
         "com.apple.avfoundation"
         "com.apple.avfoundation.frecents" ;; <rdar://problem/33137029>
@@ -470,19 +481,23 @@
         "com.apple.driver.AppleBluetoothMultitouch.trackpad"
         "com.apple.driver.AppleHIDMouse"
         "com.apple.lookup.shared"
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101200
-        "com.apple.mediaaccessibility"
-#endif
+        "com.apple.mediaaccessibility" ;; Needed for custom caption styles
         "com.apple.networkConnect"
-        "com.apple.security"
-        "com.apple.security.common"
-        "com.apple.security.revocation"
         "com.apple.speech.voice.prefs"
         "com.apple.systemsound"
         "com.apple.universalaccess"
         "edu.mit.Kerberos"
         "pbs" ;; Needed for NSAttributedString <rdar://problem/10844321>
 ))
+
+; (Temporary) backward compatibility with non-CFPreferences readers.
+(allow file-read*
+    (literal "/Library/Preferences/com.apple.ViewBridge.plist"))
+
+; FIXME: This is needed for some security framework calls (that use non-CFPreferences readers)
+(allow file-read-data
+    (literal "/Library/Preferences/com.apple.security.plist")
+    (home-subpath "/Library/Preferences/com.apple.security.plist"))
 
 ;; On-disk WebKit2 framework location, to account for debug installations outside of /System/Library/Frameworks,
 ;; and to allow issuing extensions.
@@ -511,12 +526,6 @@
 ;; Allow the OpenGL Profiler to attach.
 (if (defined? 'mach-register)
     (allow mach-register (global-name-regex #"^_oglprof_attach_<[0-9]+>$")))
-
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101200
-;; MediaAccessibility
-(allow user-preference-read user-preference-write
-    (preference-domain "com.apple.mediaaccessibility.public"))
-#endif
 
 (if (positive? (string-length (param "DARWIN_USER_CACHE_DIR")))
     (allow-read-write-directory-and-issue-read-write-extensions (param "DARWIN_USER_CACHE_DIR")))
@@ -563,23 +572,22 @@
 (allow mach-lookup
        (global-name "com.apple.FileCoordination")
        (global-name "com.apple.FontObjectsServer")
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101200
-       (global-name "com.apple.FontServer")
-#endif
        (global-name "com.apple.PowerManagement.control")
        (global-name "com.apple.SystemConfiguration.configd")
        (global-name "com.apple.SystemConfiguration.PPPController")
        (global-name "com.apple.audio.SystemSoundServer-OSX")
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+#if !PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
        (global-name "com.apple.analyticsd")
        (global-name "com.apple.audio.AudioComponentRegistrar")
 #endif
+       (global-name "com.apple.assertiond.processassertionconnection")
        (global-name "com.apple.audio.audiohald")
        (global-name "com.apple.audio.coreaudiod")
        (global-name "com.apple.awdd")
        (global-name "com.apple.cfnetwork.AuthBrokerAgent")
        (global-name "com.apple.cfprefsd.agent")
        (global-name "com.apple.cfprefsd.daemon")
+       (global-name "com.apple.cmio.registerassistantservice") ;; Needed by CoreMedia for plugin drivers
        (global-name "com.apple.cookied")
        (global-name "com.apple.coreservices.launchservicesd")
        (global-name "com.apple.diagnosticd")
@@ -588,14 +596,13 @@
        (global-name "com.apple.fonts")
        (global-name "com.apple.iconservices")
        (global-name "com.apple.iconservices.store")
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
        (global-name "com.apple.mediaremoted.xpc")
-#endif
        (global-name "com.apple.logd")
        (global-name "com.apple.logd.events")
        (global-name "com.apple.lsd.mapdb")
        (global-name "com.apple.mobileassetd")
        (global-name "com.apple.nesessionmanager.flow-divert-token")
+       (global-name "com.apple.powerlog.plxpclogger.xpc")
        (global-name "com.apple.speech.speechsynthesisd")
        (global-name "com.apple.speech.synthesis.console")
        (global-name "com.apple.system.DirectoryService.libinfo_v1")
@@ -607,45 +614,32 @@
        (global-name "com.apple.trustd")
        (global-name "com.apple.trustd.agent")
        (global-name "com.apple.window_proxies")
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+       (global-name "com.apple.CARenderServer") ; Needed for [CAContext remoteContextWithOptions]
+#else
        (global-name "com.apple.windowserver.active")
+#endif
        (global-name "com.apple.xpc.activity.unmanaged")
        (global-name "com.apple.xpcd")
 )
 
-;; Security framework
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+(deny mach-lookup (with no-log)
+    (global-name "com.apple.ViewBridgeAuxiliary")
+    (global-name "com.apple.windowserver.active"))
+#endif
+
+
+;; Needed to support encrypted media playback <rdar://problem/40038478>
 (allow mach-lookup
-       (global-name "com.apple.ctkd.token-client")
-       (global-name "com.apple.ocspd")
-       (global-name "com.apple.securityd.xpc") 
-       (global-name "com.apple.CoreAuthentication.agent.libxpc")
-       (global-name "com.apple.SecurityServer"))
-
-;; FIXME: This should be removed when <rdar://problem/10479685> is fixed.
-;; Restrict AppSandboxed processes from creating /Library/Keychains, but allow access to the contents of /Library/Keychains:
-(allow file-read-data file-read-metadata file-write*
-    (subpath "/Library/Keychains"))
-
-;; Do permit creating per-user keychains
-(allow file-read* file-write*
-    (home-subpath "/Library/Keychains"))
-
-;; Except deny access to new-style iOS Keychain folders which are UUIDs.
-(deny file-read* file-write*
-    (regex (string-append "/Library/Keychains/" (uuid-regex-string) "(/|$)"))
-    (home-regex (string-append "/Library/Keychains/" (uuid-regex-string) "(/|$)")))
+    (global-name "com.apple.SecurityServer")
+    (global-name "com.apple.ocspd"))
 
 (allow file-read* file-write* (subpath "/private/var/db/mds/system")) ;; FIXME: This should be removed when <rdar://problem/9538414> is fixed.
 
 (allow file-read*
        (subpath "/private/var/db/mds")
-       (literal "/private/var/db/DetachedSignatures")
-       ; The following are needed until <rdar://problem/11134688> is resolved.
-       (literal "/Library/Preferences/com.apple.security.plist")
-       (literal "/Library/Preferences/com.apple.security.common.plist")
-       (literal "/Library/Preferences/com.apple.security.revocation.plist")
-       (home-literal "/Library/Application Support/SyncServices/Local/ClientsWithChanges/com.apple.Keychain")
-       (home-literal "/Library/Preferences/com.apple.security.plist")
-       (home-literal "/Library/Preferences/com.apple.security.revocation.plist"))
+       (literal "/private/var/db/DetachedSignatures"))
 
 (allow ipc-posix-shm-read* ipc-posix-shm-write-data
        (ipc-posix-name "com.apple.AppleDatabaseChanged"))
@@ -664,25 +658,39 @@
 (system-graphics)
 
 ;; Networking
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
 (system-network)
+#endif
 (allow network-outbound
        ;; Local mDNSResponder for DNS, arbitrary outbound TCP
+       ;; Note: This is needed for some media playback features. <rdar://problem/38191574>
+       ;; Remove this permission when <rdar://problem/38240572> is fixed.
        (literal "/private/var/run/mDNSResponder")
+       ;; ObjC map_images needs to send logging data to syslog. <rdar://problem/39778918>
+       (literal "/private/var/run/syslog")
        (remote tcp))
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+#if !PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
 ;; CFNetwork
 (allow file-read-data (path "/private/var/db/nsurlstoraged/dafsaData.bin"))
 #endif
 
+;; Network Extensions / VPN helper.
+(allow mach-lookup
+    (global-name "com.apple.nehelper")
+    (global-name "com.apple.nesessionmanager"))
+
+#if PLATFORM(MAC)
 ;; FIXME should be removed when <rdar://problem/9347205> + related radar in Safari is fixed
 (allow mach-lookup
        (global-name "org.h5l.kcm")
        (global-name "com.apple.GSSCred")
        (global-name "com.apple.system.logger")
        (global-name "com.apple.system.notification_center"))
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
 (allow network-outbound
        (remote udp))
+#endif
 (allow user-preference-read
     (preference-domain
         "com.apple.Kerberos"
@@ -694,6 +702,7 @@
         (literal "/private/etc/host")
         (subpath "/Library/KerberosPlugins/GSSAPI")
         (subpath "/Library/KerberosPlugins/KerberosFrameworkPlugins"))
+#endif
 
 (if (defined? 'vnode-type)
         (deny file-write-create (vnode-type SYMLINK)))
@@ -717,6 +726,7 @@
        (global-name "com.apple.coreservices.appleevents")
        (global-name "com.apple.pasteboard.1")
        (global-name "com.apple.speech.recognitionserver"))
+#if PLATFORM(MAC)
 ;; Also part of unnecessary NSApplication initialization, but we can't block access to these yet, see <rdar://problem/13869765>.
 (allow file-read*
        (subpath "/Library/Components")
@@ -725,6 +735,7 @@
        (home-subpath "/Library/Components")
        (home-subpath "/Library/Keyboard Layouts")
        (home-subpath "/Library/Input Methods"))
+#endif
 
 ;; AirPlay
 (allow mach-lookup
@@ -735,7 +746,7 @@
     (global-name "com.apple.coremedia.endpointpicker.xpc")
     ; <rdar://problem/35509194>
     (global-name "com.apple.coremedia.endpointremotecontrolsession.xpc")
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+#if !PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     (global-name "com.apple.coremedia.routediscoverer.xpc")
     (global-name "com.apple.coremedia.routingcontext.xpc")
     (global-name "com.apple.coremedia.volumecontroller.xpc")
@@ -745,6 +756,7 @@
 ;; Data Detectors
 (allow file-read* (subpath "/private/var/db/datadetectors/sys"))
 
+#if PLATFORM(MAC)
 ;; Media capture, utilities
 (if (not (defined? 'sbpl-filter?))
   (define (sbpl-filter? x)
@@ -825,3 +837,4 @@
         (iokit-user-client-class "IOUSBDeviceUserClientV2")
         (iokit-user-client-class "IOUSBInterfaceUserClientV2"))
     (allow device-camera))
+#endif // PLATFORM(MAC)

@@ -452,9 +452,10 @@ public:
     // These methods handle both transitions and keyframe animations.
     virtual bool addAnimation(const KeyframeValueList&, const FloatSize& /*boxSize*/, const Animation*, const String& /*animationName*/, double /*timeOffset*/)  { return false; }
     virtual void pauseAnimation(const String& /*animationName*/, double /*timeOffset*/) { }
+    virtual void seekAnimation(const String& /*animationName*/, double /*timeOffset*/) { }
     virtual void removeAnimation(const String& /*animationName*/) { }
 
-    WEBCORE_EXPORT virtual void suspendAnimations(double time);
+    WEBCORE_EXPORT virtual void suspendAnimations(MonotonicTime);
     WEBCORE_EXPORT virtual void resumeAnimations();
 
     // Layer contents
@@ -541,16 +542,17 @@ public:
     WEBCORE_EXPORT String layerTreeAsText(LayerTreeAsTextBehavior = LayerTreeAsTextBehaviorNormal) const;
 
     // For testing.
-    WEBCORE_EXPORT virtual String displayListAsText(DisplayList::AsTextFlags) const { return String(); }
+    virtual String displayListAsText(DisplayList::AsTextFlags) const { return String(); }
 
-    WEBCORE_EXPORT virtual void setIsTrackingDisplayListReplay(bool isTracking) { m_isTrackingDisplayListReplay = isTracking; }
-    WEBCORE_EXPORT virtual bool isTrackingDisplayListReplay() const { return m_isTrackingDisplayListReplay; }
-    WEBCORE_EXPORT virtual String replayDisplayListAsText(DisplayList::AsTextFlags) const { return String(); }
+    virtual void setIsTrackingDisplayListReplay(bool isTracking) { m_isTrackingDisplayListReplay = isTracking; }
+    virtual bool isTrackingDisplayListReplay() const { return m_isTrackingDisplayListReplay; }
+    virtual String replayDisplayListAsText(DisplayList::AsTextFlags) const { return String(); }
 
     // Return an estimate of the backing store memory cost (in bytes). May be incorrect for tiled layers.
     WEBCORE_EXPORT virtual double backingStoreMemoryEstimate() const;
 
     virtual bool backingStoreAttached() const { return true; }
+    virtual bool backingStoreAttachedForTesting() const { return backingStoreAttached(); }
 
     void setCanDetachBackingStore(bool b) { m_canDetachBackingStore = b; }
     bool canDetachBackingStore() const { return m_canDetachBackingStore; }
@@ -689,7 +691,7 @@ protected:
 
 #if USE(CA)
     Path m_shapeLayerPath;
-    WindRule m_shapeLayerWindRule { RULE_NONZERO };
+    WindRule m_shapeLayerWindRule { WindRule::NonZero };
 #endif
 };
 

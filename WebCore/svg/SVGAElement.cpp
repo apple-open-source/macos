@@ -40,8 +40,11 @@
 #include "SVGNames.h"
 #include "SVGSMILElement.h"
 #include "XLinkNames.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(SVGAElement);
 
 // Animated property definitions
 DEFINE_ANIMATED_STRING(SVGAElement, SVGNames::targetAttr, SVGTarget, svgTarget)
@@ -166,14 +169,6 @@ bool SVGAElement::supportsFocus() const
     return isLink() || Element::supportsFocus();
 }
 
-bool SVGAElement::isFocusable() const
-{
-    if (renderer() && renderer()->absoluteClippedOverflowRect().isEmpty())
-        return false;
-    
-    return SVGElement::isFocusable();
-}
-
 bool SVGAElement::isURLAttribute(const Attribute& attribute) const
 {
     return attribute.name().localName() == XLinkNames::hrefAttr || SVGGraphicsElement::isURLAttribute(attribute);
@@ -189,7 +184,7 @@ bool SVGAElement::isMouseFocusable() const
     return SVGElement::isMouseFocusable();
 }
 
-bool SVGAElement::isKeyboardFocusable(KeyboardEvent& event) const
+bool SVGAElement::isKeyboardFocusable(KeyboardEvent* event) const
 {
     if (isFocusable() && Element::supportsFocus())
         return SVGElement::isKeyboardFocusable(event);

@@ -39,9 +39,7 @@
 const SecRandomRef kSecRandomDefault = NULL;
 
 
-int SecRandomCopyBytes(SecRandomRef rnd, size_t count, void *bytes) {
-    if (rnd != kSecRandomDefault)
-        return errSecParam;
+int SecRandomCopyBytes(__unused SecRandomRef rnd, size_t count, void *bytes) {
     return CCRandomCopyBytes(kCCRandomDefault, bytes, count);
 }
 

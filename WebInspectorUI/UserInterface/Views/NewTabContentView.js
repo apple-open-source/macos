@@ -27,16 +27,16 @@ WI.NewTabContentView = class NewTabContentView extends WI.TabContentView
 {
     constructor(identifier)
     {
-        let {image, title} = WI.NewTabContentView.tabInfo();
-        let tabBarItem = new WI.GeneralTabBarItem(image, title);
+        let tabBarItem = WI.GeneralTabBarItem.fromTabInfo(WI.NewTabContentView.tabInfo());
         tabBarItem.isDefaultTab = true;
 
         super(identifier || "new-tab", "new-tab", tabBarItem);
 
-        WI.notifications.addEventListener(WI.Notification.TabTypesChanged, this._updateShownTabs.bind(this));
-
         this._tabElementsByTabClass = new Map;
-        this._updateShownTabs();
+
+        let allTabClasses = Array.from(WI.knownTabClasses());
+        this._shownTabClasses = allTabClasses.filter((tabClass) => tabClass.isTabAllowed() && !tabClass.tabInfo().isEphemeral);
+        this._shownTabClasses.sort((a, b) => a.tabInfo().title.extendedLocaleCompare(b.tabInfo().title));
     }
 
     static tabInfo()
@@ -44,12 +44,8 @@ WI.NewTabContentView = class NewTabContentView extends WI.TabContentView
         return {
             image: "Images/NewTab.svg",
             title: WI.UIString("New Tab"),
+            isEphemeral: true,
         };
-    }
-
-    static isEphemeral()
-    {
-        return true;
     }
 
     static shouldSaveTab()
@@ -66,15 +62,15 @@ WI.NewTabContentView = class NewTabContentView extends WI.TabContentView
 
     shown()
     {
-        WI.tabBrowser.tabBar.addEventListener(WI.TabBar.Event.TabBarItemAdded, this._updateTabItems, this);
-        WI.tabBrowser.tabBar.addEventListener(WI.TabBar.Event.TabBarItemRemoved, this._updateTabItems, this);
+        WI.tabBar.addEventListener(WI.TabBar.Event.TabBarItemAdded, this._updateTabItems, this);
+        WI.tabBar.addEventListener(WI.TabBar.Event.TabBarItemRemoved, this._updateTabItems, this);
 
         this._updateTabItems();
     }
 
     hidden()
     {
-        WI.tabBrowser.tabBar.removeEventListener(null, null, this);
+        WI.tabBar.removeEventListener(null, null, this);
     }
 
     get supportsSplitContentBrowser()
@@ -126,19 +122,6 @@ WI.NewTabContentView = class NewTabContentView extends WI.TabContentView
             shouldShowNewTab: !WI.modifierKeys.metaKey
         };
         WI.createNewTabWithType(tabType, options);
-    }
-
-    _updateShownTabs()
-    {
-        let allTabClasses = Array.from(WI.knownTabClasses());
-        let allowedTabClasses = allTabClasses.filter((tabClass) => tabClass.isTabAllowed() && !tabClass.isEphemeral());
-        allowedTabClasses.sort((a, b) => a.tabInfo().title.extendedLocaleCompare(b.tabInfo().title));
-
-        if (Array.shallowEqual(this._shownTabClasses, allowedTabClasses))
-            return;
-
-        this._shownTabClasses = allowedTabClasses;
-        this.needsLayout();
     }
 
     _allowableTabTypes()

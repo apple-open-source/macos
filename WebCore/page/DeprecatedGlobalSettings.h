@@ -55,13 +55,6 @@ public:
     static bool isAVFoundationNSURLSessionEnabled() { return gAVFoundationNSURLSessionEnabled; }
 #endif
 
-#if PLATFORM(COCOA)
-    WEBCORE_EXPORT static void setQTKitEnabled(bool flag);
-    static bool isQTKitEnabled() { return gQTKitEnabled; }
-#else
-    static bool isQTKitEnabled() { return false; }
-#endif
-
 #if USE(GSTREAMER)
     WEBCORE_EXPORT static void setGStreamerEnabled(bool flag);
     static bool isGStreamerEnabled() { return gGStreamerEnabled; }
@@ -95,6 +88,8 @@ public:
     WEBCORE_EXPORT static void setNetworkInterfaceName(const String&);
     static const String& networkInterfaceName();
 
+    static void setDisableScreenSizeOverride(bool flag) { gDisableScreenSizeOverride = flag; }
+    static bool disableScreenSizeOverride() { return gDisableScreenSizeOverride; }
 #if HAVE(AVKIT)
     static void setAVKitEnabled(bool flag) { gAVKitEnabled = flag; }
 #endif
@@ -126,10 +121,6 @@ private:
     WEBCORE_EXPORT static bool gAVFoundationNSURLSessionEnabled;
 #endif
 
-#if PLATFORM(COCOA)
-    WEBCORE_EXPORT static bool gQTKitEnabled;
-#endif
-
 #if USE(GSTREAMER)
     WEBCORE_EXPORT static bool gGStreamerEnabled;
 #endif
@@ -146,9 +137,9 @@ private:
     static bool gNetworkDataUsageTrackingEnabled;
     WEBCORE_EXPORT static bool gAVKitEnabled;
     WEBCORE_EXPORT static bool gShouldOptOutOfNetworkStateObservation;
+    WEBCORE_EXPORT static bool gDisableScreenSizeOverride;
 #endif
     WEBCORE_EXPORT static bool gManageAudioSession;
-    WEBCORE_EXPORT static bool gCustomPasteboardDataEnabled;
     
 #if ENABLE(MEDIA_STREAM)
     static bool gMockCaptureDevicesEnabled;

@@ -12,5 +12,9 @@
 	<true/>
 	<key>com.apple.private.hid.client.event-filter</key>
 	<true/>
+	<key>com.apple.iohideventsystem.server</key>
+	<true/>
+	<key>com.apple.hid.manager.user-access-device</key>
+	<true/>
 </dict>
 </plist>

@@ -27,13 +27,13 @@
 #include "config.h"
 #include "WebPageProxy.h"
 
-#include "NotImplemented.h"
 #include "PageClientImpl.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebPageMessages.h"
 #include "WebPasteboardProxy.h"
 #include "WebProcessProxy.h"
 #include "WebsiteDataStore.h"
+#include <WebCore/NotImplemented.h>
 #include <WebCore/PlatformDisplay.h>
 #include <WebCore/UserAgent.h>
 #include <gtk/gtkx.h>
@@ -48,11 +48,6 @@ void WebPageProxy::platformInitialize()
 GtkWidget* WebPageProxy::viewWidget()
 {
     return static_cast<PageClientImpl&>(m_pageClient).viewWidget();
-}
-
-JSGlobalContextRef WebPageProxy::javascriptGlobalContext()
-{
-    return m_pageClient.javascriptGlobalContext();
 }
 
 String WebPageProxy::standardUserAgent(const String& applicationNameForUserAgent)

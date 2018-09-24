@@ -237,7 +237,7 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 
 __private_extern__
 void
-pushNotifications()
+pushNotifications(void)
 {
 	CFIndex				notifyCnt;
 	int				server;

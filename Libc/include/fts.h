@@ -65,6 +65,9 @@
 
 #include <Availability.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+
 typedef struct {
 	struct _ftsent *fts_cur;	/* current node */
 	struct _ftsent *fts_child;	/* linked list of children */
@@ -226,4 +229,6 @@ int	 fts_set(FTS *, FTSENT *, int) LIBC_INODE64(fts_set);
 //End-Libc
 __END_DECLS
 
+#pragma clang diagnostic pop
 #endif /* !_FTS_H_ */
+

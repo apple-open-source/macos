@@ -111,7 +111,7 @@ private:
     friend class Holder;
 
     JSValue toJSON(JSValue, const PropertyNameForFunctionCall&);
-    JSValue toJSONImpl(JSValue value, JSValue toJSONFunction, const PropertyNameForFunctionCall&);
+    JSValue toJSONImpl(VM&, JSValue, JSValue toJSONFunction, const PropertyNameForFunctionCall&);
 
     enum StringifyResult { StringifyFailed, StringifySucceeded, StringifyFailedDueToUndefinedOrSymbolValue };
     StringifyResult appendStringifiedValue(StringBuilder&, JSValue, const Holder&, const PropertyNameForFunctionCall&);
@@ -143,11 +143,11 @@ static inline JSValue unwrapBoxedPrimitive(ExecState* exec, JSValue value)
     if (!value.isObject())
         return value;
     JSObject* object = asObject(value);
-    if (object->inherits(vm, NumberObject::info()))
+    if (object->inherits<NumberObject>(vm))
         return jsNumber(object->toNumber(exec));
-    if (object->inherits(vm, StringObject::info()))
+    if (object->inherits<StringObject>(vm))
         return object->toString(exec);
-    if (object->inherits(vm, BooleanObject::info()))
+    if (object->inherits<BooleanObject>(vm))
         return object->toPrimitive(exec);
 
     // Do not unwrap SymbolObject to Symbol. It is not performed in the spec.
@@ -235,7 +235,7 @@ Stringifier::Stringifier(ExecState* exec, JSValue replacer, JSValue space)
         return;
 
     JSObject* replacerObject = asObject(m_replacer);
-    if (replacerObject->inherits(vm, JSArray::info())) {
+    if (replacerObject->inherits<JSArray>(vm)) {
         m_usingArrayReplacer = true;
         JSArray* array = jsCast<JSArray*>(replacerObject);
         unsigned length = array->get(exec, vm.propertyNames->length).toUInt32(exec);
@@ -246,8 +246,8 @@ Stringifier::Stringifier(ExecState* exec, JSValue replacer, JSValue space)
             if (UNLIKELY(scope.exception()))
                 break;
 
-            if (name.isObject()) {
-                if (!asObject(name)->inherits(vm, NumberObject::info()) && !asObject(name)->inherits(vm, StringObject::info()))
+            if (auto* nameObject = jsDynamicCast<JSObject*>(vm, name)) {
+                if (!nameObject->inherits<NumberObject>(vm) && !nameObject->inherits<StringObject>(vm))
                     continue;
             } else if (!name.isNumber() && !name.isString())
                 continue;
@@ -299,14 +299,14 @@ ALWAYS_INLINE JSValue Stringifier::toJSON(JSValue value, const PropertyNameForFu
     JSValue toJSONFunction = slot.getValue(m_exec, vm.propertyNames->toJSON);
     RETURN_IF_EXCEPTION(scope, { });
     scope.release();
-    return toJSONImpl(value, toJSONFunction, propertyName);
+    return toJSONImpl(vm, value, toJSONFunction, propertyName);
 }
 
-JSValue Stringifier::toJSONImpl(JSValue value, JSValue toJSONFunction, const PropertyNameForFunctionCall& propertyName)
+JSValue Stringifier::toJSONImpl(VM& vm, JSValue value, JSValue toJSONFunction, const PropertyNameForFunctionCall& propertyName)
 {
     CallType callType;
     CallData callData;
-    if (!toJSONFunction.isCallable(callType, callData))
+    if (!toJSONFunction.isCallable(vm, callType, callData))
         return value;
 
     MarkedArgumentBuffer args;
@@ -380,9 +380,7 @@ Stringifier::StringifyResult Stringifier::appendStringifiedValue(StringBuilder& 
         return StringifyFailed;
 
     JSObject* object = asObject(value);
-
-    CallData callData;
-    if (object->methodTable(vm)->getCallData(object, callData) != CallType::None) {
+    if (object->isFunction(vm)) {
         if (holder.isArray()) {
             builder.appendLiteral("null");
             return StringifySucceeded;
@@ -393,7 +391,7 @@ Stringifier::StringifyResult Stringifier::appendStringifiedValue(StringBuilder& 
     // Handle cycle detection, and put the holder on the stack.
     for (unsigned i = 0; i < m_holderStack.size(); i++) {
         if (m_holderStack[i].object() == object) {
-            throwTypeError(m_exec, scope, ASCIILiteral("JSON.stringify cannot serialize cyclic structures."));
+            throwTypeError(m_exec, scope, "JSON.stringify cannot serialize cyclic structures."_s);
             return StringifyFailed;
         }
     }
@@ -651,7 +649,7 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
             arrayStartState:
             case ArrayStartState: {
                 ASSERT(inValue.isObject());
-                ASSERT(isJSArray(asObject(inValue)) || asObject(inValue)->inherits(vm, JSArray::info()));
+                ASSERT(asObject(inValue)->inherits<JSArray>(vm));
                 if (markedStack.size() > maximumFilterRecursion)
                     return throwStackOverflowError(m_exec, scope);
 
@@ -706,7 +704,7 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
             objectStartState:
             case ObjectStartState: {
                 ASSERT(inValue.isObject());
-                ASSERT(!isJSArray(asObject(inValue)) && !asObject(inValue)->inherits(vm, JSArray::info()));
+                ASSERT(!asObject(inValue)->inherits<JSArray>(vm));
                 if (markedStack.size() > maximumFilterRecursion)
                     return throwStackOverflowError(m_exec, scope);
 
@@ -767,7 +765,7 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
                     break;
                 }
                 JSObject* object = asObject(inValue);
-                if (isJSArray(object) || object->inherits(vm, JSArray::info()))
+                if (object->inherits<JSArray>(vm))
                     goto arrayStartState;
                 goto objectStartState;
         }
@@ -792,7 +790,7 @@ EncodedJSValue JSC_HOST_CALL JSONProtoFuncParse(ExecState* exec)
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (!exec->argumentCount())
-        return throwVMError(exec, scope, createError(exec, ASCIILiteral("JSON.parse requires at least one parameter")));
+        return throwVMError(exec, scope, createError(exec, "JSON.parse requires at least one parameter"_s));
     auto viewWithString = exec->uncheckedArgument(0).toString(exec)->viewWithUnderlyingString(exec);
     RETURN_IF_EXCEPTION(scope, { });
     StringView view = viewWithString.view;
@@ -821,7 +819,7 @@ EncodedJSValue JSC_HOST_CALL JSONProtoFuncParse(ExecState* exec)
     
     JSValue function = exec->uncheckedArgument(1);
     CallData callData;
-    CallType callType = getCallData(function, callData);
+    CallType callType = getCallData(vm, function, callData);
     if (callType == CallType::None)
         return JSValue::encode(unfiltered);
     scope.release();
@@ -836,7 +834,7 @@ EncodedJSValue JSC_HOST_CALL JSONProtoFuncStringify(ExecState* exec)
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (!exec->argumentCount())
-        return throwVMError(exec, scope, createError(exec, ASCIILiteral("No input to stringify")));
+        return throwVMError(exec, scope, createError(exec, "No input to stringify"_s));
     Stringifier stringifier(exec, exec->argument(1), exec->argument(2));
     RETURN_IF_EXCEPTION(scope, { });
     scope.release();

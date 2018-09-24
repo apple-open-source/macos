@@ -25,29 +25,43 @@
 
 #pragma once
 
+#if ENABLE(WEB_AUTHN)
+
 #include "BasicCredential.h"
 #include "ExceptionOr.h"
-#include <wtf/Vector.h>
+#include "JSDOMPromiseDeferred.h"
+#include <JavaScriptCore/ArrayBuffer.h>
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
-struct CredentialCreationOptions;
-struct CredentialRequestOptions;
+class AuthenticatorResponse;
 
 class PublicKeyCredential final : public BasicCredential {
 public:
-    static Ref<PublicKeyCredential> create(const String& id)
+    static Ref<PublicKeyCredential> create(RefPtr<ArrayBuffer>&& id, RefPtr<AuthenticatorResponse>&& response)
     {
-        return adoptRef(*new PublicKeyCredential(id));
+        return adoptRef(*new PublicKeyCredential(WTFMove(id), WTFMove(response)));
     }
 
-    static Vector<Ref<BasicCredential>> collectFromCredentialStore(CredentialRequestOptions&&, bool);
-    static ExceptionOr<RefPtr<BasicCredential>> discoverFromExternalSource(const CredentialRequestOptions&, bool);
-    static RefPtr<BasicCredential> store(RefPtr<BasicCredential>&&, bool);
-    static ExceptionOr<RefPtr<BasicCredential>> create(const CredentialCreationOptions&, bool);
+    ArrayBuffer* rawId() const { return m_rawId.get(); }
+    AuthenticatorResponse* response() const { return m_response.get(); }
+    // Not support yet. Always throws.
+    ExceptionOr<bool> getClientExtensionResults() const;
+
+    static void isUserVerifyingPlatformAuthenticatorAvailable(DOMPromiseDeferred<IDLBoolean>&&);
 
 private:
-    PublicKeyCredential(const String&);
+    PublicKeyCredential(RefPtr<ArrayBuffer>&& id, RefPtr<AuthenticatorResponse>&&);
+
+    Type credentialType() const final { return Type::PublicKey; }
+
+    RefPtr<ArrayBuffer> m_rawId;
+    RefPtr<AuthenticatorResponse> m_response;
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BASIC_CREDENTIAL(PublicKeyCredential, BasicCredential::Type::PublicKey)
+
+#endif // ENABLE(WEB_AUTHN)

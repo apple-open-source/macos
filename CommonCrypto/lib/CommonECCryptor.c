@@ -173,6 +173,7 @@ CCECCryptorGeneratePair(size_t nbits, CCECCryptorRef *publicKey, CCECCryptorRef 
     
     __Require_Action(ccECpairwiseConsistencyCheck(privateCryptor, publicCryptor) == true, errOut, retval = kCCDecodeError);
     
+    
     *publicKey = publicCryptor;
     *privateKey = privateCryptor;
 
@@ -290,6 +291,7 @@ CCCryptorStatus CCECCryptorImportPublicKey(void *keyPackage, size_t keyPackageLe
 CCCryptorStatus CCECCryptorImportKey(CCECKeyExternalFormat format, void *keyPackage, size_t keyPackageLen, CCECKeyType keyType, CCECCryptorRef *key)
 {
     CCECCryptor *cryptor = NULL;
+    CCECCryptor *pubCryptor = NULL;
     CCCryptorStatus retval = kCCSuccess;
     
     CC_DEBUG_LOG("Entering\n");
@@ -302,12 +304,15 @@ CCCryptorStatus CCECCryptorImportKey(CCECKeyExternalFormat format, void *keyPack
                 if((cryptor = ccMallocECCryptor(nbits, ccECKeyPrivate)) == NULL) return kCCMemoryFailure;
                 ccec_const_cp_t cp = ccec_get_cp(nbits);
                 __Require_Action(ccec_x963_import_priv(cp, keyPackageLen, keyPackage, cryptor->ecKey.private) == 0, errOut, retval = kCCDecodeError);
+                __Require_Action((pubCryptor = CCECCryptorGetPublicKeyFromPrivateKey(cryptor)) != NULL, errOut, retval = kCCInvalidKey);
+                if(pubCryptor) ccECCryptorFree(pubCryptor);
                 cryptor->key_nbits = nbits;
             } else if(keyType == ccECKeyPublic) {
                 size_t nbits = ccec_x963_import_pub_size(keyPackageLen);
                 if((cryptor = ccMallocECCryptor(nbits, ccECKeyPublic)) == NULL) return kCCMemoryFailure;
                 ccec_const_cp_t cp = ccec_get_cp(nbits);
                 __Require_Action(ccec_x963_import_pub(cp, keyPackageLen, keyPackage, cryptor->ecKey.public) == 0, errOut, retval = kCCDecodeError);
+                __Require_Action(ccec_validate_pub(cryptor->ecKey.public), errOut, retval = kCCInvalidKey);
                 cryptor->key_nbits = nbits;
             } else return kCCParamError;
 
@@ -327,6 +332,7 @@ errOut:
     if(retval) {
         *key = NULL;
         if(cryptor) ccECCryptorFree(cryptor);
+        if(pubCryptor) ccECCryptorFree(pubCryptor);
     }
     
     return retval;
@@ -407,7 +413,7 @@ CCECCryptorVerifyHash(CCECCryptorRef publicKey,
     if(publicKey == NULL || hash == NULL || signedData == NULL) return kCCParamError;
     
     if(ccec_verify(publicKey->ecKey.public, hashLen, hash,
-                   signedDataLen, signedData, &stat)) retval = kCCDecodeError;
+                   signedDataLen, signedData, &stat)) retval = kCCNotVerified;
 	*valid = stat;
     return retval;
 }

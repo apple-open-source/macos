@@ -30,7 +30,6 @@
 #include <tuple>
 #include <wtf/Hasher.h>
 #include <wtf/Optional.h>
-#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -103,7 +102,7 @@ constexpr FontSelectionValue FontSelectionValue::minimumValue()
 
 constexpr FontSelectionValue FontSelectionValue::clampFloat(float value)
 {
-    return FontSelectionValue { WTF::max<float>(minimumValue(), WTF::min<float>(value, maximumValue())) };
+    return FontSelectionValue { std::max<float>(minimumValue(), std::min<float>(value, maximumValue())) };
 }
 
 constexpr FontSelectionValue::FontSelectionValue(int rawValue, RawTag)
@@ -337,17 +336,6 @@ struct FontSelectionRequest {
     {
         return WTF::tie(weight, width, slope);
     }
-
-#if !COMPILER_SUPPORTS(NSDMI_FOR_AGGREGATES)
-    FontSelectionRequest() = default;
-
-    constexpr FontSelectionRequest(Value weight, Value width, Value slope)
-        : weight(weight)
-        , width(width)
-        , slope(slope)
-    {
-    }
-#endif
 };
 
 constexpr bool operator==(const FontSelectionRequest& a, const FontSelectionRequest& b)
@@ -385,17 +373,6 @@ struct FontSelectionCapabilities {
     Range weight { normalWeightValue() };
     Range width { normalStretchValue() };
     Range slope { normalItalicValue() };
-
-#if !COMPILER_SUPPORTS(NSDMI_FOR_AGGREGATES)
-    FontSelectionCapabilities() = default;
-
-    constexpr FontSelectionCapabilities(Range weight, Range width, Range slope)
-        : weight(weight)
-        , width(width)
-        , slope(slope)
-    {
-    }
-#endif
 };
 
 constexpr bool operator==(const FontSelectionCapabilities& a, const FontSelectionCapabilities& b)

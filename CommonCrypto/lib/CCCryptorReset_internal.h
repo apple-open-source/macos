@@ -40,16 +40,4 @@
 
 #define ProgramLinkedOnOrAfter_macOS1013_iOS11()  (dyld_get_program_sdk_version() >= CC_DYLOAD_PROGRAM_SDK_VERSION)
 
-/*!
-    @function   CCCryptorReset_binary_compatibility
-    @abstract   Reinitializes an existing CCCryptorRef with a (possibly)
-                new initialization vector. The CCCryptorRef's key is
-                unchanged. Preserves compatibility for SKDs prior to
-                macOS 10.13, iOS 11, watchOS 4 and tvOS 11. It is used
-                internally in CommonCrypto. See CCCryptorReset for more information.
- 
-    @result     The only possible error is kCCParamError.
- 
-*/
-CCCryptorStatus CCCryptorReset_binary_compatibility(CCCryptorRef cryptorRef, const void *iv);
 #endif /* CCCryptorReset_internal_h */

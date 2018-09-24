@@ -24,6 +24,7 @@
 #ifndef _LIBNOTIFY_H_
 #define _LIBNOTIFY_H_
 
+#include <os/lock.h>
 #include <sys/queue.h>
 #include <pthread.h>
 #include <mach/mach.h>
@@ -32,17 +33,15 @@
 
 #include <TargetConditionals.h>
 
-#if TARGET_IPHONE_SIMULATOR
-extern const char *_notify_shm_id();
+extern const char *_notify_shm_id(void);
 #define SHM_ID _notify_shm_id()
-#else
-#define SHM_ID "apple.shm.notification_center"
-#endif
 
 #define NOTIFY_IPC_VERSION_NAME "com.apple.system.notify.ipc_version"
 #define NOTIFY_IPC_VERSION_NAME_LEN 35
 #define NOTIFY_SERVICE_NAME "com.apple.system.notification_center"
 #define NOTIFY_SERVICE_NAME_LEN 36
+#define NOTIFY_IPC_VERSION_MIN_SUPPORTED 3
+#define NOTIFY_IPC_VERSION 3
 
 #define COMMON_PORT_KEY "com.apple.system.notify.common"
 
@@ -120,35 +119,37 @@ extern const char *_notify_shm_id();
 
 typedef struct
 {
+	LIST_HEAD(, client_s) subscriptions;
 	char *name;
+	void *private;
 	uint64_t name_id;
+	uint64_t state;
+	uint64_t state_time;
 	uint32_t uid;
 	uint32_t gid;
 	uint32_t access;
 	uint32_t slot;
 	uint32_t refcount;
 	uint32_t val;
-	uint64_t state;
-	uint64_t state_time;
-	void *private;
-	LIST_HEAD(, client_s) subscriptions;
+	uint32_t postcount;
 } name_info_t;
 
 typedef struct client_s
 {
 	LIST_ENTRY(client_s) client_subscription_entry;
-	uint64_t client_id;
-	uint32_t state;
+	void *private;
 	name_info_t *name_info;
+	uint64_t client_id;
+	mach_port_t port;
+	int fd;
+	uint32_t state;
 	uint32_t suspend_count;
 	uint32_t notify_type;
 	uint32_t lastval;
-	mach_port_t port;
-	int fd;
 	uint32_t send_val;
 	uint32_t pid;
 	uint32_t sig;
-	void *private;
+	uint32_t get_state_count;
 } client_t;
 
 typedef struct
@@ -168,7 +169,7 @@ typedef struct
 	table_t *proc_table;
 	name_info_t **controlled_name;
 	uint32_t controlled_name_count;
-	pthread_mutex_t *lock;
+	os_unfair_lock lock;
 	int sock;
 	uint32_t stat_name_alloc;
 	uint32_t stat_name_free;
@@ -194,13 +195,8 @@ uint32_t _notify_lib_register_signal(notify_state_t *ns, const char *name, pid_t
 uint32_t _notify_lib_register_mach_port(notify_state_t *ns, const char *name, pid_t pid, int token, mach_port_t port, uint32_t uid, uint32_t gid, uint64_t *out_nid);
 uint32_t _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, pid_t pid, int token, int fd, uint32_t uid, uint32_t gid, uint64_t *out_nid);
 
-uint32_t _notify_lib_get_owner(notify_state_t *ns, const char *name, uint32_t *uid, uint32_t *gid);
-uint32_t _notify_lib_get_access(notify_state_t *ns, const char *name, uint32_t *access);
-
 uint32_t _notify_lib_set_owner(notify_state_t *ns, const char *name, uint32_t uid, uint32_t gid);
 uint32_t _notify_lib_set_access(notify_state_t *ns, const char *name, uint32_t access);
-
-uint32_t _notify_lib_release_name(notify_state_t *ns, const char *name, uint32_t uid, uint32_t gid);
 
 void _notify_lib_cancel(notify_state_t *ns, pid_t pid, int token);
 void _notify_lib_suspend(notify_state_t *ns, pid_t pid, int token);

@@ -1,4 +1,5 @@
 0755	root	wheel	Library/Managed Preferences
+0700	267	267	private/var/db/gpsd
 0750	501	501	private/var/mobile
 0755	501	501	private/var/mobile/Applications
 0700	501	501	private/var/mobile/Library

@@ -23,16 +23,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "PlatformSpeechSynthesizer.h"
+#import "config.h"
+#import "PlatformSpeechSynthesizer.h"
 
-#include "PlatformSpeechSynthesisUtterance.h"
-#include "PlatformSpeechSynthesisVoice.h"
-#include <AppKit/NSSpeechSynthesizer.h>
-#include <pal/spi/mac/SpeechSynthesisSPI.h>
-#include <wtf/RetainPtr.h>
+#if ENABLE(SPEECH_SYNTHESIS) && PLATFORM(MAC)
 
-#if ENABLE(SPEECH_SYNTHESIS)
+#import "PlatformSpeechSynthesisUtterance.h"
+#import "PlatformSpeechSynthesisVoice.h"
+#import <AppKit/NSSpeechSynthesizer.h>
+#import <pal/spi/mac/SpeechSynthesisSPI.h>
+#import <wtf/RetainPtr.h>
 
 @interface WebSpeechSynthesisWrapper : NSObject<NSSpeechSynthesizerDelegate>
 {
@@ -219,7 +219,7 @@ static NSArray *speechSynthesisGetVoiceIdentifiers()
     // Get all the voices offered by TTS.
     // By default speech only returns "premium" voices, which does not include all the
     // international voices. This allows us to offer speech synthesis for all supported languages.
-    return [(NSArray *)CopySpeechSynthesisVoicesForMode((CFArrayRef)@[ @"VoiceGroupDefault", @"VoiceGroupCompact" ]) autorelease];
+    return CFBridgingRelease(CopySpeechSynthesisVoicesForMode((__bridge CFArrayRef)@[ @"VoiceGroupDefault", @"VoiceGroupCompact" ]));
 }
 
 static NSString *speechSynthesisGetDefaultVoiceIdentifierForLocale(NSLocale *userLocale)
@@ -227,7 +227,7 @@ static NSString *speechSynthesisGetDefaultVoiceIdentifierForLocale(NSLocale *use
     if (!userLocale)
         return nil;
 
-    return (NSString *)GetIdentifierStringForPreferredVoiceInListWithLocale((CFArrayRef)speechSynthesisGetVoiceIdentifiers(), (CFLocaleRef)userLocale);
+    return (__bridge NSString *)GetIdentifierStringForPreferredVoiceInListWithLocale((__bridge CFArrayRef)speechSynthesisGetVoiceIdentifiers(), (__bridge CFLocaleRef)userLocale);
 }
 
 void PlatformSpeechSynthesizer::initializeVoiceList()
@@ -279,4 +279,4 @@ void PlatformSpeechSynthesizer::cancel()
 
 } // namespace WebCore
 
-#endif // ENABLE(SPEECH_SYNTHESIS)
+#endif // ENABLE(SPEECH_SYNTHESIS) && PLATFORM(MAC)

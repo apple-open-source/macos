@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007, 2010, 2014, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2007, 2010, 2014, 2016-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,7 +31,7 @@
  * - created (for EAP)
  */
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/param.h>
 #include <CoreFoundation/CoreFoundation.h>

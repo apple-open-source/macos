@@ -25,6 +25,13 @@
 
 
 /*
+ * Local functions...
+ */
+
+static int  test_string(cups_lang_t *language, const char *msgid);
+
+
+/*
  * 'main()' - Load the specified language and show the strings for yes and no.
  */
 
@@ -74,8 +81,9 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   printf("Language = \"%s\"\n", language->language);
   printf("Encoding = \"%s\"\n", _cupsEncodingName(language->encoding));
-  printf("No       = \"%s\"\n", _cupsLangString(language, "No"));
-  printf("Yes      = \"%s\"\n", _cupsLangString(language, "Yes"));
+
+  errors += test_string(language, "No");
+  errors += test_string(language, "Yes");
 
   if (language != language2)
   {
@@ -237,5 +245,45 @@ main(int  argc,				/* I - Number of command-line arguments */
   }
 #endif /* __APPLE__ */
 
+  if (errors == 0)
+    puts("ALL TESTS PASSED");
+
   return (errors > 0);
 }
+
+
+/*
+ * 'test_string()' - Test the localization of a string.
+ */
+
+static int                            /* O - 1 on failure, 0 on success */
+test_string(cups_lang_t *language,    /* I - Language */
+            const char  *msgid)       /* I - Message */
+{
+  const char  *msgstr;                /* Localized string */
+
+
+ /*
+  * Get the localized string and then see if we got what we expected.
+  *
+  * For the POSIX locale, the string pointers should be the same.
+  * For any other locale, the string pointers should be different.
+  */
+
+  msgstr = _cupsLangString(language, msgid);
+  if (strcmp(language->language, "C") && msgid == msgstr)
+  {
+    printf("%-8s = \"%s\" (FAIL - no message catalog loaded)\n", msgid, msgstr);
+    return (1);
+  }
+  else if (!strcmp(language->language, "C") && msgid != msgstr)
+  {
+    printf("%-8s = \"%s\" (FAIL - POSIX locale is localized)\n", msgid, msgstr);
+    return (1);
+  }
+
+  printf("%-8s = \"%s\" (PASS)\n", msgid, msgstr);
+
+  return (0);
+}
+

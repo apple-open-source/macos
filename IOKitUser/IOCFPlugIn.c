@@ -23,6 +23,7 @@
 #ifdef HAVE_CFPLUGIN
 
 #include <IOKit/IOCFPlugIn.h>
+#include <IOKit/kext/OSKext.h>
 
 #if 0 // for local logging
 #include <asl.h>
@@ -138,44 +139,24 @@ IOFindPlugIns( io_service_t service,
                 }
             }
         }
-        
-        // no full path to plugin, so let's try /S/L/E/
-        CFStringReplaceAll(pluginPath, CFSTR(""));
-        CFStringAppendCString(pluginPath,
-                              "/System/Library/Extensions/",
-                              kCFStringEncodingMacRoman);
-        CFStringAppend(pluginPath, pluginName);
-        pluginURL = CFURLCreateWithFileSystemPath(NULL,
-                                                  pluginPath,
-                                                  kCFURLPOSIXPathStyle,
-                                                  TRUE);
-        
-        // NOTE - on embedded we have cases where the plugin bundle is cached
-        // so do NOT use _CreateIfReachable.  In the cached case
-        // CFPlugInCreate will actually create the plugin for us.
-        if ( pluginURL ) {
-            onePlugin = CFPlugInCreate(NULL, pluginURL);
-            CFRelease( pluginURL );
-            pluginURL = NULL;
-            if ( onePlugin ) {
-                continue;
+
+        CFArrayRef extensionsFolderURLs = OSKextGetSystemExtensionsFolderURLs();
+        CFIndex count = CFArrayGetCount(extensionsFolderURLs);
+        for (CFIndex i = 0; i < count; i++) {
+            CFURLRef directoryURL = CFArrayGetValueAtIndex(extensionsFolderURLs, i);
+            pluginURL = CFURLCreateCopyAppendingPathComponent(NULL, directoryURL, pluginName, TRUE);
+
+            // NOTE - on embedded we have cases where the plugin bundle is cached
+            // so do NOT use _CreateIfReachable.  In the cached case
+            // CFPlugInCreate will actually create the plugin for us.
+            if (pluginURL) {
+                onePlugin = CFPlugInCreate(NULL, pluginURL);
+                CFRelease(pluginURL);
+                pluginURL = NULL;
+                if (onePlugin) {
+                    break;
+                }
             }
-        }
-        
-        // no full path to plugin or /S/L/E/, so let's try /L/E/
-        CFStringReplaceAll(pluginPath, CFSTR(""));
-        CFStringAppendCString(pluginPath,
-                              "/Library/Extensions/",
-                              kCFStringEncodingMacRoman);
-        CFStringAppend(pluginPath, pluginName);
-        pluginURL = CFURLCreateWithFileSystemPath(NULL,
-                                                  pluginPath,
-                                                  kCFURLPOSIXPathStyle,
-                                                  TRUE);
-        if ( pluginURL ) {
-            onePlugin = CFPlugInCreate(NULL, pluginURL);
-            CFRelease( pluginURL );
-            pluginURL = NULL;
         }
     } while ( FALSE );
 #if 0

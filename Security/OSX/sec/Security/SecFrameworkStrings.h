@@ -239,16 +239,18 @@ __BEGIN_DECLS
 #define SEC_CK_REMINDER_BUTTON_OK		SecStringWithDefaultValue("OK", "CloudKeychain", 0, "OK", "Button label to acknowledge/dismiss reminder alert without further action")
 
 /* Trust errors */
-#define SEC_INVALID_LINKAGE_KEY     SecStringWithDefaultValue("Invalid certificate chain linkage.", "Certificate", 0, "Invalid certificate chain linkage.", "")
-#define SEC_BAD_CRIT_EXTN_KEY       SecStringWithDefaultValue("One or more unsupported critical extensions found.", "Certificate", 0, "One or more unsupported critical extensions found.", "")
-#define SEC_ROOT_UNTRUSTED_KEY      SecStringWithDefaultValue("Root certificate is not trusted.", "Certificate", 0, "Root certificate is not trusted.", "")
-#define SEC_HOSTNAME_MISMATCH_KEY   SecStringWithDefaultValue("Hostname mismatch.", "Certificate", 0, "Hostname mismatch.", "")
-#define SEC_POLICY__REQ_NOT_MET_KEY SecStringWithDefaultValue("Policy requirements not met.", "Certificate", 0, "Policy requirements not met.", "")
-#define SEC_CHAIN_VALIDITY_ERR_KEY  SecStringWithDefaultValue("One or more certificates have expired or are not valid yet.", "Certificate", 0, "One or more certificates have expired or are not valid yet.", "")
-#define SEC_WEAK_KEY_ERR_KEY        SecStringWithDefaultValue("One or more certificates is using a weak key size.", "Certificate", 0, "One or more certificates is using a weak key size.", "")
+#define SEC_INVALID_LINKAGE_KEY         SecStringWithDefaultValue("Invalid certificate chain linkage.", "Certificate", 0, "Invalid certificate chain linkage.", "")
+#define SEC_BAD_CRIT_EXTN_KEY           SecStringWithDefaultValue("One or more unsupported critical extensions found.", "Certificate", 0, "One or more unsupported critical extensions found.", "")
+#define SEC_ROOT_UNTRUSTED_KEY          SecStringWithDefaultValue("Root certificate is not trusted.", "Certificate", 0, "Root certificate is not trusted.", "")
+#define SEC_HOSTNAME_MISMATCH_KEY       SecStringWithDefaultValue("Hostname mismatch.", "Certificate", 0, "Hostname mismatch.", "")
+#define SEC_POLICY__REQ_NOT_MET_KEY     SecStringWithDefaultValue("Policy requirements not met.", "Certificate", 0, "Policy requirements not met.", "")
+#define SEC_CHAIN_VALIDITY_ERR_KEY      SecStringWithDefaultValue("One or more certificates have expired or are not valid yet.", "Certificate", 0, "One or more certificates have expired or are not valid yet.", "")
+#define SEC_WEAK_KEY_ERR_KEY            SecStringWithDefaultValue("One or more certificates is using a weak key size.", "Certificate", 0, "One or more certificates is using a weak key size.", "")
+#define SEC_MISSING_INTERMEDIATE_KEY    SecStringWithDefaultValue("Unable to build chain to root certificate.", "Certificate", 0, "Unable to build chain to root certificate.", "")
 
 #define SEC_TRUST_CERTIFICATE_ERROR         SecStringWithDefaultValue("Certificate %ld “%@” has errors: ", "Trust", 0, "Certificate %ld “%@” has errors: ", "Preface for per-certificate errors")
 
+#define SEC_TRUST_ERROR_SUBTYPE_BLOCKED     SecStringWithDefaultValue("“%@” certificate is blocked", "Trust", 0, "“%@” certificate is blocked", "Error for blocked certificates")
 #define SEC_TRUST_ERROR_SUBTYPE_REVOKED     SecStringWithDefaultValue("“%@” certificate is revoked", "Trust", 0, "“%@” certificate is revoked", "Error for revoked certificates")
 #define SEC_TRUST_ERROR_SUBTYPE_KEYSIZE     SecStringWithDefaultValue("“%@” certificate is using a broken key size", "Trust", 0, "“%@” certificate is using a broken key size", "Error for certificates with weak key sizes")
 #define SEC_TRUST_ERROR_SUBTYPE_WEAKHASH    SecStringWithDefaultValue("“%@” certificate is using a broken signature algorithm", "Trust", 0, "“%@” certificate is using a broken signature algorithm", "Error for certificates with weak signature algorithms")

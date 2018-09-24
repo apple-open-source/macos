@@ -124,7 +124,6 @@ struct _xmlRMutex {
 
 #ifdef HAVE_PTHREAD_H
 static pthread_key_t globalkey;
-static pthread_t mainthread;
 static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 static pthread_once_t once_control_init = PTHREAD_ONCE_INIT;
 static pthread_mutex_t global_init_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -793,7 +792,7 @@ xmlIsMainThread(void)
     xmlGenericError(xmlGenericErrorContext, "xmlIsMainThread()\n");
 #endif
 #ifdef HAVE_PTHREAD_H
-    return (pthread_equal(mainthread,pthread_self()));
+    return (pthread_main_np() == 1);
 #elif defined HAVE_WIN32_THREADS
     return (mainthread == GetCurrentThreadId());
 #elif defined HAVE_BEOS_THREADS
@@ -948,7 +947,6 @@ xmlOnceInit(void)
 {
 #ifdef HAVE_PTHREAD_H
     (void) pthread_key_create(&globalkey, xmlFreeGlobalState);
-    mainthread = pthread_self();
     __xmlInitializeDict();
 #elif defined(HAVE_WIN32_THREADS)
     if (!run_once.done) {

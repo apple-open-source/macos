@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2004-2008, 2011, 2016 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004-2018 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -130,14 +130,16 @@ JSObject* constructDate(ExecState* exec, JSGlobalObject* globalObject, JSValue n
     if (numArgs == 0) // new Date() ECMA 15.9.3.3
         value = jsCurrentTime();
     else if (numArgs == 1) {
-        if (args.at(0).inherits(vm, DateInstance::info()))
-            value = asDateInstance(args.at(0))->internalNumber();
+        JSValue arg0 = args.at(0);
+        if (auto* dateInstance = jsDynamicCast<DateInstance*>(vm, arg0))
+            value = dateInstance->internalNumber();
         else {
-            JSValue primitive = args.at(0).toPrimitive(exec);
+            JSValue primitive = arg0.toPrimitive(exec);
             RETURN_IF_EXCEPTION(scope, nullptr);
-            if (primitive.isString())
-                value = parseDate(vm, asString(primitive)->value(exec));
-            else
+            if (primitive.isString()) {
+                value = parseDate(exec, vm, asString(primitive)->value(exec));
+                RETURN_IF_EXCEPTION(scope, nullptr);
+            } else
                 value = primitive.toNumber(exec);
         }
     } else
@@ -153,7 +155,7 @@ JSObject* constructDate(ExecState* exec, JSGlobalObject* globalObject, JSValue n
 static EncodedJSValue JSC_HOST_CALL constructWithDateConstructor(ExecState* exec)
 {
     ArgList args(exec);
-    return JSValue::encode(constructDate(exec, asInternalFunction(exec->jsCallee())->globalObject(), exec->newTarget(), args));
+    return JSValue::encode(constructDate(exec, jsCast<InternalFunction*>(exec->jsCallee())->globalObject(exec->vm()), exec->newTarget(), args));
 }
 
 // ECMA 15.9.2
@@ -161,7 +163,7 @@ static EncodedJSValue JSC_HOST_CALL callDate(ExecState* exec)
 {
     VM& vm = exec->vm();
     GregorianDateTime ts;
-    msToGregorianDateTime(vm, currentTimeMS(), WTF::LocalTime, ts);
+    msToGregorianDateTime(vm, WallTime::now().secondsSinceEpoch().milliseconds(), WTF::LocalTime, ts);
     return JSValue::encode(jsNontrivialString(&vm, formatDateTime(ts, DateTimeFormatDateAndTime, false)));
 }
 
@@ -171,7 +173,8 @@ EncodedJSValue JSC_HOST_CALL dateParse(ExecState* exec)
     auto scope = DECLARE_THROW_SCOPE(vm);
     String dateStr = exec->argument(0).toWTFString(exec);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    return JSValue::encode(jsNumber(parseDate(vm, dateStr)));
+    scope.release();
+    return JSValue::encode(jsNumber(parseDate(exec, vm, dateStr)));
 }
 
 EncodedJSValue JSC_HOST_CALL dateNow(ExecState*)

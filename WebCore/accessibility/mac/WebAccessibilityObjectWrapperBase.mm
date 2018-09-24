@@ -245,16 +245,15 @@ static NSArray *convertMathPairsToNSArray(const AccessibilityObject::Accessibili
     return array;
 }
 
-
 NSArray *convertToNSArray(const AccessibilityObject::AccessibilityChildrenVector& vector)
 {
     NSMutableArray *array = [NSMutableArray arrayWithCapacity:vector.size()];
     for (const auto& child : vector) {
-        WebAccessibilityObjectWrapper* wrapper = child->wrapper();
+        auto wrapper = (WebAccessibilityObjectWrapperBase *)child->wrapper();
         ASSERT(wrapper);
         if (wrapper) {
-            // we want to return the attachment view instead of the object representing the attachment.
-            // otherwise, we get palindrome errors in the AX hierarchy
+            // We want to return the attachment view instead of the object representing the attachment,
+            // otherwise, we get palindrome errors in the AX hierarchy.
             if (child->isAttachment() && [wrapper attachmentView])
                 [array addObject:[wrapper attachmentView]];
             else
@@ -403,6 +402,25 @@ NSArray *convertToNSArray(const AccessibilityObject::AccessibilityChildrenVector
     return returnText;
 }
 
+- (NSArray<NSString *> *)baseAccessibilitySpeechHint
+{
+    auto speak = m_object->speakAsProperty();
+    NSMutableArray<NSString *> *hints = [NSMutableArray array];
+    if (speak & SpeakAs::SpellOut)
+        [hints addObject:@"spell-out"];
+    else
+        [hints addObject:@"normal"];
+
+    if (speak & SpeakAs::Digits)
+        [hints addObject:@"digits"];
+    if (speak & SpeakAs::LiteralPunctuation)
+        [hints addObject:@"literal-punctuation"];
+    if (speak & SpeakAs::NoPunctuation)
+        [hints addObject:@"no-punctuation"];
+    
+    return hints;
+}
+
 - (NSString *)baseAccessibilityHelpText
 {
     Vector<AccessibilityText> textOrder;
@@ -484,7 +502,8 @@ static void convertPathToScreenSpaceFunction(PathConversionInfo& conversion, con
     path.apply([&conversion](const PathElement& pathElement) {
         convertPathToScreenSpaceFunction(conversion, pathElement);
     });
-    return (CGPathRef)[(id)conversion.path autorelease];
+    CFAutorelease(conversion.path);
+    return conversion.path;
 }
 
 - (CGPoint)convertPointToScreenSpace:(FloatPoint &)point

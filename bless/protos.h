@@ -59,7 +59,7 @@ extern int setefilegacypath(BLContextPtr context, const char * path, int bootNex
                             const char *legacyHint, const char *optionalData);
 
 int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bootEFISourceLocation,
-					   CFDataRef labelData, CFDataRef labelData2);
+					   CFDataRef labelData, CFDataRef labelData2, bool setIDs);
 
 int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labeldata, int doTypeCreator, int scale);
 

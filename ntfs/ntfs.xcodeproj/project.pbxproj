@@ -153,6 +153,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3840A0332062FF12008C2E45 /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		4DDA8CC2150E65F100631F4D /* ntfs.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = ntfs.xcconfig; sourceTree = "<group>"; };
 		4DF954BD1BF12917004AE1B4 /* BootCampFormatter */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = BootCampFormatter; sourceTree = BUILT_PRODUCTS_DIR; };
 		4DF954C41BF12956004AE1B4 /* attrdef.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = attrdef.c; path = newfs/attrdef.c; sourceTree = "<group>"; };
@@ -404,6 +405,7 @@
 		72E410AE091CF9A100674539 /* kext */ = {
 			isa = PBXGroup;
 			children = (
+				3840A0332062FF12008C2E45 /* kext.xcconfig */,
 				BE7EC82A0B85E7C900392660 /* ntfs_bitmap.c */,
 				BE7EC82B0B85E7C900392660 /* ntfs_lcnalloc.c */,
 				BE7EC8260B85E72700392660 /* ntfs_bitmap.h */,
@@ -951,6 +953,7 @@
 		};
 		72E40FEB091CC3AA00674539 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3840A0332062FF12008C2E45 /* kext.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -979,6 +982,7 @@
 		};
 		72E40FEC091CC3AA00674539 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3840A0332062FF12008C2E45 /* kext.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;

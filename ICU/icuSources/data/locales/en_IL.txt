@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 en_IL{
     %%Parent{"en_001"}
-    Version{"2.1.31.33"}
+    Version{"2.1.38.69"}
     calendar{
         generic{
             availableFormats{
@@ -35,6 +35,8 @@ en_IL{
                 H{"H"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
+                Hmsv{"H:mm:ss v"}
+                Hmv{"H:mm v"}
             }
         }
     }

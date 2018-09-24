@@ -27,6 +27,17 @@
 extern "C" {
 #endif
 
+#if defined(_WIN32)
+#define LIBXML2_DOCB_DEPRECATED
+#else
+#include <Availability.h>
+#include <TargetConditionals.h>
+#define LIBXML2_DOCB_DEPRECATED __OSX_DEPRECATED(10.4, 10.4, "Deprecated in libxml2 v2.6.0") \
+                                __IOS_DEPRECATED(2.0, 2.0, "Deprecated in libxml2 v2.6.0") \
+                                __TVOS_DEPRECATED(9.0, 9.0, "Deprecated in libxml2 v2.6.0") \
+                                __WATCHOS_DEPRECATED(1.0, 1.0, "Deprecated in libxml2 v2.6.0")
+#endif
+
 /*
  * Most of the back-end structures from XML and SGML are shared.
  */
@@ -45,47 +56,49 @@ XMLPUBFUN int XMLCALL
 		     docbEncodeEntities(unsigned char *out,
                                         int *outlen,
                                         const unsigned char *in,
-                                        int *inlen, int quoteChar);
+                                        int *inlen, int quoteChar) LIBXML2_DOCB_DEPRECATED;
 
 XMLPUBFUN docbDocPtr XMLCALL
 		     docbSAXParseDoc   (xmlChar *cur,
                                         const char *encoding,
                                         docbSAXHandlerPtr sax,
-                                        void *userData);
+                                        void *userData) LIBXML2_DOCB_DEPRECATED;
 XMLPUBFUN docbDocPtr XMLCALL
 		     docbParseDoc      (xmlChar *cur,
-                                        const char *encoding);
+                                        const char *encoding) LIBXML2_DOCB_DEPRECATED;
 XMLPUBFUN docbDocPtr XMLCALL
 		     docbSAXParseFile  (const char *filename,
                                         const char *encoding,
                                         docbSAXHandlerPtr sax,
-                                        void *userData);
+                                        void *userData) LIBXML2_DOCB_DEPRECATED;
 XMLPUBFUN docbDocPtr XMLCALL
 		     docbParseFile     (const char *filename,
-                                        const char *encoding);
+                                        const char *encoding) LIBXML2_DOCB_DEPRECATED;
 
 /**
  * Interfaces for the Push mode.
  */
 XMLPUBFUN void XMLCALL
-		     docbFreeParserCtxt      (docbParserCtxtPtr ctxt);
+		     docbFreeParserCtxt      (docbParserCtxtPtr ctxt) LIBXML2_DOCB_DEPRECATED;
 XMLPUBFUN docbParserCtxtPtr XMLCALL
 		     docbCreatePushParserCtxt(docbSAXHandlerPtr sax,
                                               void *user_data,
                                               const char *chunk,
                                               int size,
                                               const char *filename,
-                                              xmlCharEncoding enc);
+                                              xmlCharEncoding enc) LIBXML2_DOCB_DEPRECATED;
 XMLPUBFUN int XMLCALL
 		     docbParseChunk          (docbParserCtxtPtr ctxt,
                                               const char *chunk,
                                               int size,
-                                              int terminate);
+                                              int terminate) LIBXML2_DOCB_DEPRECATED;
 XMLPUBFUN docbParserCtxtPtr XMLCALL
 		     docbCreateFileParserCtxt(const char *filename,
-                                              const char *encoding);
+                                              const char *encoding) LIBXML2_DOCB_DEPRECATED;
 XMLPUBFUN int XMLCALL
-		     docbParseDocument       (docbParserCtxtPtr ctxt);
+		     docbParseDocument       (docbParserCtxtPtr ctxt) LIBXML2_DOCB_DEPRECATED;
+
+#undef LIBXML2_DOCB_DEPRECATED
 
 #ifdef __cplusplus
 }

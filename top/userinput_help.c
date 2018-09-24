@@ -78,9 +78,9 @@ static void help_draw_text(void) {
     help_draw_text_line(top_prefs_get_mode_string(), "c<mode>", "Set event counting mode to {a|d|e|n}.");
     help_draw_text_line(top_prefs_get_sort_string(), "o<key>", "Set primary sort key to <key>: [+-]keyname.");
     help_draw_text_line("", "", "Keyname may be:{pid|command|cpu|csw|time|threads|");
-    help_draw_text_line("", "", "ports|mregion|rprvt|rshrd|rsize|vsize|vprvt|pgrp|");
-    help_draw_text_line("", "", "ppid|state|uid|wq|faults|cow|user|msgsent|msgrecv|");
-    help_draw_text_line("", "", "sysbsd|sysmach|pageins}.");
+    help_draw_text_line("", "", "ports|mregion|rprvt|rshrd|rsize|psize|vsize|vprvt|");
+    help_draw_text_line("", "", "pgrp|ppid|state|uid|wq|faults|cow|user|msgsent|");
+    help_draw_text_line("", "", "msgrecv|sysbsd|sysmach|pageins}.");
     help_draw_text_line(top_prefs_get_secondary_sort_string(), "O<skey>", "Set secondary sort key to <skey> (see o<key>).");
     help_draw_text_line("", "q", "Quit top.");
     help_draw_text_line("", "S<sig>\\n<pid>", "Send signal <sig> to pid <pid>.");

@@ -24,6 +24,8 @@
 
 #import <Foundation/Foundation.h>
 #import <Foundation/NSKeyedArchiver_Private.h>
+#import <CloudKit/CloudKit.h>
+#import <CloudKit/CloudKit_Private.h>
 
 #import "keychain/ot/OTCloudStore.h"
 #import "keychain/ot/OTCloudStoreState.h"
@@ -160,10 +162,10 @@ fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
 
         OTCloudStoreState* state = [OTCloudStoreState state: self.zoneName];
 
-        CKFetchRecordZoneChangesOptions* options = [[CKFetchRecordZoneChangesOptions alloc] init];
+        CKFetchRecordZoneChangesConfiguration* options = [[CKFetchRecordZoneChangesConfiguration alloc] init];
         options.previousServerChangeToken = state.changeToken;
 
-        self.fetchRecordZoneChangesOperation = [[[self.fetchRecordZoneChangesOperationClass class] alloc] initWithRecordZoneIDs:@[self.zoneID] optionsByRecordZoneID:@{self.zoneID : options}];
+        self.fetchRecordZoneChangesOperation = [[[self.fetchRecordZoneChangesOperationClass class] alloc] initWithRecordZoneIDs:@[self.zoneID] configurationsByRecordZoneID:@{self.zoneID : options}];
 
         self.fetchRecordZoneChangesOperation.recordChangedBlock = ^(CKRecord *record) {
             secinfo("octagon", "CloudKit notification: record changed(%@): %@", [record recordType], record);
@@ -331,12 +333,12 @@ fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
 
     [op waitUntilFinished];
     if(op.error != nil) {
-        secerror("octagon: failed to fetch changes error:%@", op.error);
-        if(error){
-            *error = op.error;
-        }
-        return nil;
+        secnotice("octagon", "failed to fetch changes error:%@", op.error);
     }
+
+    secnotice("octagon", "checking local store for bottles");
+
+    //check localstore for bottles
     NSArray* localStoreBottledPeerRecords = [self.localStore readAllLocalBottledPeerRecords:&localError];
     if(!localStoreBottledPeerRecords)
     {
@@ -414,7 +416,11 @@ fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
 
         self.modifyRecordsOperation.atomic = YES;
         self.modifyRecordsOperation.longLived = NO; // The keys are only in memory; mark this explicitly not long-lived
-        self.modifyRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated; // Currently done during buddy. User is waiting.
+
+        // Currently done during buddy. User is waiting.
+        self.modifyRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
+        self.modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+
         self.modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
 
         self.modifyRecordsOperation.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {

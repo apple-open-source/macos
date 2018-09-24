@@ -61,6 +61,9 @@ void InteractionInformationAtPosition::encode(IPC::Encoder& encoder) const
     encoder << title;
     encoder << idAttribute;
     encoder << bounds;
+#if PLATFORM(IOSMAC)
+    encoder << caretRect;
+#endif
     encoder << textBefore;
     encoder << textAfter;
     encoder << linkIndicator;
@@ -73,19 +76,10 @@ void InteractionInformationAtPosition::encode(IPC::Encoder& encoder) const
     encoder << isDataDetectorLink;
     if (isDataDetectorLink) {
         encoder << dataDetectorIdentifier;
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
-        RetainPtr<NSMutableData> data = adoptNS([[NSMutableData alloc] init]);
-        auto archiver = secureArchiverFromMutableData(data.get());
-        [archiver encodeObject:dataDetectorResults.get() forKey:@"dataDetectorResults"];
-        [archiver finishEncoding];
-        
-        IPC::encode(encoder, reinterpret_cast<CFDataRef>(data.get()));
-#else
         auto archiver = secureArchiver();
         [archiver encodeObject:dataDetectorResults.get() forKey:@"dataDetectorResults"];
 
         IPC::encode(encoder, reinterpret_cast<CFDataRef>(archiver.get().encodedData));
-#endif
     }
 #endif
 }
@@ -144,6 +138,11 @@ bool InteractionInformationAtPosition::decode(IPC::Decoder& decoder, Interaction
     
     if (!decoder.decode(result.bounds))
         return false;
+    
+#if PLATFORM(IOSMAC)
+    if (!decoder.decode(result.caretRect))
+        return false;
+#endif
 
     if (!decoder.decode(result.textBefore))
         return false;

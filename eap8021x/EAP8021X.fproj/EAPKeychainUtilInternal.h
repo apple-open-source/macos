@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,7 +44,7 @@
 #include <Security/SecAccess.h>
 
 PRIVATE_EXTERN OSStatus
-EAPSecKeychainItemSetAccessForTrustedApplications(SecKeychainItemRef item,
+EAPSecKeychainItemSetAccessForTrustedApplications(EAPSecKeychainItemRef item,
 						  CFArrayRef trusted_apps);
 #endif /* TARGET_OS_EMBEDDED */
 

@@ -30,15 +30,14 @@
 #include "PluginComplexTextInputState.h"
 #include "WKDragDestinationAction.h"
 #include "WKLayoutMode.h"
-#include "WeakObjCPtr.h"
 #include "WebPageProxy.h"
 #include "_WKOverlayScrollbarStyle.h"
-#include <WebCore/PromisedBlobInfo.h>
 #include <WebCore/TextIndicatorWindow.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
 #include <pal/spi/cocoa/AVKitSPI.h>
 #include <wtf/BlockPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/WeakObjCPtr.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -108,6 +107,7 @@ OBJC_CLASS WebPlaybackControlsManager;
 @end
 
 namespace WebCore {
+struct DragItem;
 struct KeyPressCommand;
 }
 
@@ -124,7 +124,7 @@ typedef id <NSValidatedUserInterfaceItem> ValidationItem;
 typedef Vector<RetainPtr<ValidationItem>> ValidationVector;
 typedef HashMap<String, ValidationVector> ValidationMap;
 
-class WebViewImpl {
+class WebViewImpl : public CanMakeWeakPtr<WebViewImpl> {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(WebViewImpl);
 public:
@@ -142,6 +142,8 @@ public:
 
     void setDrawsBackground(bool);
     bool drawsBackground() const;
+    void setBackgroundColor(NSColor *);
+    NSColor *backgroundColor() const;
     bool isOpaque() const;
 
     void setShouldSuppressFirstResponderChanges(bool);
@@ -331,9 +333,7 @@ public:
     void lowercaseWord();
     void capitalizeWord();
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
     void requestCandidatesForSelectionIfNeeded();
-#endif
 
     void preferencesDidChange();
 
@@ -413,7 +413,7 @@ public:
 
     void startWindowDrag();
 
-    void dragImageForView(NSView *, NSImage *, CGPoint clientPoint, bool linkDrag);
+    void startDrag(const WebCore::DragItem&, const ShareableBitmap::Handle& image);
     void setFileAndURLTypes(NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, NSPasteboard *);
     void setPromisedDataForImage(WebCore::Image*, NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, WebCore::SharedBuffer* archiveBuffer, NSString *pasteboardName);
     void pasteboardChangedOwner(NSPasteboard *);
@@ -509,9 +509,7 @@ public:
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection();
     void setUserInterfaceLayoutDirection(NSUserInterfaceLayoutDirection);
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200 
     void handleAcceptedCandidate(NSTextCheckingResult *acceptedCandidate);
-#endif
 
 #if HAVE(TOUCH_BAR)
     NSTouchBar *makeTouchBar();
@@ -535,10 +533,16 @@ public:
     void setIsCustomizingTouchBar(bool isCustomizingTouchBar) { m_isCustomizingTouchBar = isCustomizingTouchBar; };
 #endif // HAVE(TOUCH_BAR)
 
-    void prepareToDragPromisedBlob(const WebCore::PromisedBlobInfo&);
-
     bool beginBackSwipeForTesting();
     bool completeBackSwipeForTesting();
+    
+    void setUseSystemAppearance(bool);
+    bool useSystemAppearance();
+
+    void setUseDarkAppearance(bool);
+
+    void effectiveAppearanceDidChange();
+    bool effectiveAppearanceIsDark();
 
 private:
 #if HAVE(TOUCH_BAR)
@@ -577,8 +581,6 @@ private:
 #endif // ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
 #endif // HAVE(TOUCH_BAR)
 
-    WeakPtr<WebViewImpl> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(*this); }
-
     bool supportsArbitraryLayoutModes() const;
     float intrinsicDeviceScaleFactor() const;
     void dispatchSetTopContentInset();
@@ -606,15 +608,11 @@ private:
     bool mightBeginDragWhileInactive();
     bool mightBeginScrollWhileInactive();
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
     void handleRequestedCandidates(NSInteger sequenceNumber, NSArray<NSTextCheckingResult *> *candidates);
-#endif
 
     WeakObjCPtr<NSView<WebViewImplDelegate>> m_view;
     std::unique_ptr<PageClient> m_pageClient;
     Ref<WebPageProxy> m_page;
-
-    WeakPtrFactory<WebViewImpl> m_weakPtrFactory;
 
     bool m_willBecomeFirstResponderAgain { false };
     bool m_inBecomeFirstResponder { false };
@@ -630,8 +628,8 @@ private:
     bool m_automaticallyAdjustsContentInsets { false };
     CGFloat m_pendingTopContentInset { 0 };
     bool m_didScheduleSetTopContentInset { false };
-
-    CGSize m_resizeScrollOffset { 0, 0 };
+    
+    CGSize m_scrollOffsetAdjustment { 0, 0 };
 
     CGSize m_intrinsicContentSize { 0, 0 };
     CGFloat m_overrideDeviceScaleFactor { 0 };
@@ -669,6 +667,8 @@ private:
 
     RetainPtr<NSColorSpace> m_colorSpace;
 
+    RetainPtr<NSColor> m_backgroundColor;
+
     RetainPtr<NSEvent> m_lastMouseDownEvent;
     RetainPtr<NSEvent> m_lastPressureEvent;
 
@@ -680,7 +680,6 @@ private:
     RetainPtr<NSImmediateActionGestureRecognizer> m_immediateActionGestureRecognizer;
 
     bool m_allowsLinkPreview { true };
-    bool m_didRegisterForLookupPopoverCloseNotifications { false };
 
     RetainPtr<NSTrackingArea> m_primaryTrackingArea;
 
@@ -721,10 +720,8 @@ private:
     RetainPtr<NSEvent> m_keyDownEventBeingResent;
     Vector<WebCore::KeypressCommand>* m_collectedKeypressCommands { nullptr };
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
     String m_lastStringForCandidateRequest;
     NSInteger m_lastCandidateRequestSequenceNumber;
-#endif
     NSRange m_softSpaceRange { NSNotFound, 0 };
     bool m_isHandlingAcceptedCandidate { false };
     bool m_requiresUserActionForEditingControlsManager { false };

@@ -32,9 +32,8 @@
 #include "Logging.h"
 #include "TextTrack.h"
 #include "TextTrackCueList.h"
-#include <runtime/JSCInlines.h>
-#include <runtime/Protect.h>
-
+#include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/Protect.h>
 
 namespace WebCore {
 using namespace JSC;
@@ -195,7 +194,7 @@ String DataCue::toJSONString() const
     TextTrackCue::toJSON(object.get());
 
     if (!m_type.isEmpty())
-        object->setString(ASCIILiteral("type"), m_type);
+        object->setString("type"_s, m_type);
 
     return object->toJSONString();
 }

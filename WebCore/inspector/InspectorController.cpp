@@ -36,6 +36,7 @@
 #include "CommonVM.h"
 #include "DOMWindow.h"
 #include "DOMWrapperWorld.h"
+#include "Frame.h"
 #include "GraphicsContext.h"
 #include "InspectorApplicationCacheAgent.h"
 #include "InspectorCSSAgent.h"
@@ -58,7 +59,6 @@
 #include "JSDOMWindow.h"
 #include "JSDOMWindowCustom.h"
 #include "JSMainThreadExecState.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PageConsoleAgent.h"
 #include "PageDebuggerAgent.h"
@@ -69,14 +69,14 @@
 #include "Settings.h"
 #include "WebInjectedScriptHost.h"
 #include "WebInjectedScriptManager.h"
-#include <inspector/IdentifiersFactory.h>
-#include <inspector/InspectorBackendDispatcher.h>
-#include <inspector/InspectorBackendDispatchers.h>
-#include <inspector/InspectorFrontendDispatchers.h>
-#include <inspector/InspectorFrontendRouter.h>
-#include <inspector/agents/InspectorAgent.h>
-#include <inspector/agents/InspectorScriptProfilerAgent.h>
-#include <runtime/JSLock.h>
+#include <JavaScriptCore/IdentifiersFactory.h>
+#include <JavaScriptCore/InspectorAgent.h>
+#include <JavaScriptCore/InspectorBackendDispatcher.h>
+#include <JavaScriptCore/InspectorBackendDispatchers.h>
+#include <JavaScriptCore/InspectorFrontendDispatchers.h>
+#include <JavaScriptCore/InspectorFrontendRouter.h>
+#include <JavaScriptCore/InspectorScriptProfilerAgent.h>
+#include <JavaScriptCore/JSLock.h>
 #include <wtf/Stopwatch.h>
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -274,6 +274,8 @@ void InspectorController::connectFrontend(Inspector::FrontendChannel* frontendCh
         m_agents.didCreateFrontendAndBackend(&m_frontendRouter.get(), &m_backendDispatcher.get());
     }
 
+    m_inspectorClient->frontendCountChanged(m_frontendRouter->frontendCount());
+
 #if ENABLE(REMOTE_INSPECTOR)
     if (!m_frontendRouter->hasRemoteFrontend())
         m_page.remoteInspectorInformationDidChange();
@@ -301,6 +303,8 @@ void InspectorController::disconnectFrontend(FrontendChannel* frontendChannel)
         // Unplug all instrumentations since they aren't needed now.
         InspectorInstrumentation::unregisterInstrumentingAgents(m_instrumentingAgents.get());
     }
+
+    m_inspectorClient->frontendCountChanged(m_frontendRouter->frontendCount());
 
 #if ENABLE(REMOTE_INSPECTOR)
     if (!m_frontendRouter->hasFrontends())
@@ -338,6 +342,8 @@ void InspectorController::disconnectAllFrontends()
     m_isAutomaticInspection = false;
     m_pauseAfterInitialization = false;
 
+    m_inspectorClient->frontendCountChanged(m_frontendRouter->frontendCount());
+
 #if ENABLE(REMOTE_INSPECTOR)
     m_page.remoteInspectorInformationDidChange();
 #endif
@@ -354,11 +360,6 @@ void InspectorController::show()
         m_inspectorClient->bringFrontendToFront();
     else if (Inspector::FrontendChannel* frontendChannel = m_inspectorClient->openLocalFrontend(this))
         connectFrontend(frontendChannel);
-}
-
-void InspectorController::setProcessId(long processId)
-{
-    IdentifiersFactory::setProcessId(processId);
 }
 
 void InspectorController::setIsUnderTest(bool value)

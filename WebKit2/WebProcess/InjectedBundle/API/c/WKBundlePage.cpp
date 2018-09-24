@@ -59,10 +59,11 @@
 #include <WebCore/AXObjectCache.h>
 #include <WebCore/AccessibilityObject.h>
 #include <WebCore/ApplicationCacheStorage.h>
-#include <WebCore/MainFrame.h>
+#include <WebCore/Frame.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageOverlay.h>
 #include <WebCore/PageOverlayController.h>
+#include <WebCore/RenderLayerCompositor.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/URL.h>
 #include <WebCore/WheelEventTestTrigger.h>
@@ -371,22 +372,22 @@ WKBundleBackForwardListRef WKBundlePageGetBackForwardList(WKBundlePageRef pageRe
 
 void WKBundlePageInstallPageOverlay(WKBundlePageRef pageRef, WKBundlePageOverlayRef pageOverlayRef)
 {
-    toImpl(pageRef)->mainFrame()->pageOverlayController().installPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::DoNotFade);
+    toImpl(pageRef)->corePage()->pageOverlayController().installPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::DoNotFade);
 }
 
 void WKBundlePageUninstallPageOverlay(WKBundlePageRef pageRef, WKBundlePageOverlayRef pageOverlayRef)
 {
-    toImpl(pageRef)->mainFrame()->pageOverlayController().uninstallPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::DoNotFade);
+    toImpl(pageRef)->corePage()->pageOverlayController().uninstallPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::DoNotFade);
 }
 
 void WKBundlePageInstallPageOverlayWithAnimation(WKBundlePageRef pageRef, WKBundlePageOverlayRef pageOverlayRef)
 {
-    toImpl(pageRef)->mainFrame()->pageOverlayController().installPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::Fade);
+    toImpl(pageRef)->corePage()->pageOverlayController().installPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::Fade);
 }
 
 void WKBundlePageUninstallPageOverlayWithAnimation(WKBundlePageRef pageRef, WKBundlePageOverlayRef pageOverlayRef)
 {
-    toImpl(pageRef)->mainFrame()->pageOverlayController().uninstallPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::Fade);
+    toImpl(pageRef)->corePage()->pageOverlayController().uninstallPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::Fade);
 }
 
 void WKBundlePageSetTopOverhangImage(WKBundlePageRef pageRef, WKImageRef imageRef)
@@ -686,14 +687,13 @@ void WKBundlePageResetApplicationCacheOriginQuota(WKBundlePageRef page, WKString
 
 WKArrayRef WKBundlePageCopyOriginsWithApplicationCache(WKBundlePageRef page)
 {
-    HashSet<RefPtr<WebCore::SecurityOrigin>> origins;
-    toImpl(page)->corePage()->applicationCacheStorage().getOriginsWithCache(origins);
+    auto origins = toImpl(page)->corePage()->applicationCacheStorage().originsWithCache();
 
     Vector<RefPtr<API::Object>> originIdentifiers;
     originIdentifiers.reserveInitialCapacity(origins.size());
 
     for (const auto& origin : origins)
-        originIdentifiers.uncheckedAppend(API::String::create(WebCore::SecurityOriginData::fromSecurityOrigin(*origin).databaseIdentifier()));
+        originIdentifiers.uncheckedAppend(API::String::create(origin->data().databaseIdentifier()));
 
     return toAPI(&API::Array::create(WTFMove(originIdentifiers)).leakRef());
 }
@@ -714,3 +714,21 @@ void WKBundlePageSetEventThrottlingBehaviorOverride(WKBundlePageRef page, WKEven
 
     toImpl(page)->corePage()->setEventThrottlingBehaviorOverride(behaviorValue);
 }
+
+void WKBundlePageSetCompositingPolicyOverride(WKBundlePageRef page, WKCompositingPolicy* policy)
+{
+    std::optional<WebCore::CompositingPolicy> policyValue;
+    if (policy) {
+        switch (*policy) {
+        case kWKCompositingPolicyNormal:
+            policyValue = WebCore::CompositingPolicy::Normal;
+            break;
+        case kWKCompositingPolicyConservative:
+            policyValue = WebCore::CompositingPolicy::Conservative;
+            break;
+        }
+    }
+
+    toImpl(page)->corePage()->setCompositingPolicyOverride(policyValue);
+}
+

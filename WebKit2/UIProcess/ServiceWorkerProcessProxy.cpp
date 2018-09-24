@@ -23,8 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "config.h"
+#include "config.h"
 #include "ServiceWorkerProcessProxy.h"
+
+#if ENABLE(SERVICE_WORKER)
 
 #include "AuthenticationChallengeProxy.h"
 #include "WebCredential.h"
@@ -38,15 +40,18 @@
 
 namespace WebKit {
 
-Ref<ServiceWorkerProcessProxy> ServiceWorkerProcessProxy::create(WebProcessPool& pool, WebsiteDataStore& store)
+using namespace WebCore;
+
+Ref<ServiceWorkerProcessProxy> ServiceWorkerProcessProxy::create(WebProcessPool& pool, const SecurityOriginData& securityOrigin, WebsiteDataStore& store)
 {
-    auto proxy = adoptRef(*new ServiceWorkerProcessProxy { pool, store });
+    auto proxy = adoptRef(*new ServiceWorkerProcessProxy { pool, securityOrigin, store });
     proxy->connect();
     return proxy;
 }
 
-ServiceWorkerProcessProxy::ServiceWorkerProcessProxy(WebProcessPool& pool, WebsiteDataStore& store)
-    : WebProcessProxy { pool, store }
+ServiceWorkerProcessProxy::ServiceWorkerProcessProxy(WebProcessPool& pool, const SecurityOriginData& securityOrigin, WebsiteDataStore& store)
+    : WebProcessProxy { pool, store, IsInPrewarmedPool::No }
+    , m_securityOrigin(securityOrigin)
     , m_serviceWorkerPageID(generatePageID())
 {
 }
@@ -65,7 +70,8 @@ void ServiceWorkerProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions&
 {
     WebProcessProxy::getLaunchOptions(launchOptions);
 
-    launchOptions.extraInitializationData.add(ASCIILiteral("service-worker-process"), ASCIILiteral("1"));
+    launchOptions.extraInitializationData.add("service-worker-process"_s, "1"_s);
+    launchOptions.extraInitializationData.add("security-origin"_s, securityOrigin().toString());
 }
 
 void ServiceWorkerProcessProxy::start(const WebPreferencesStore& store, std::optional<PAL::SessionID> initialSessionID)
@@ -91,7 +97,7 @@ void ServiceWorkerProcessProxy::didReceiveAuthenticationChallenge(uint64_t pageI
     // FIXME: Expose an API to delegate the actual decision to the application layer.
     auto& protectionSpace = challenge->core().protectionSpace();
     if (protectionSpace.authenticationScheme() == WebCore::ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested && processPool().allowsAnySSLCertificateForServiceWorker()) {
-        auto credential = WebCore::Credential(ASCIILiteral("accept server trust"), emptyString(), WebCore::CredentialPersistenceNone);
+        auto credential = WebCore::Credential("accept server trust"_s, emptyString(), WebCore::CredentialPersistenceNone);
         challenge->useCredential(WebCredential::create(credential).ptr());
         return;
     }
@@ -99,4 +105,15 @@ void ServiceWorkerProcessProxy::didReceiveAuthenticationChallenge(uint64_t pageI
     challenge->performDefaultHandling();
 }
 
+void ServiceWorkerProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connection::Identifier connectionIdentifier)
+{
+    WebProcessProxy::didFinishLaunching(launcher, connectionIdentifier);
+
+    // Prevent App Nap for Service Worker processes.
+    // FIXME: Ideally, the Service Worker process would app nap when all its clients app nap (http://webkit.org/b/185626).
+    setProcessSuppressionEnabled(false);
+}
+
 } // namespace WebKit
+
+#endif // ENABLE(SERVICE_WORKER)

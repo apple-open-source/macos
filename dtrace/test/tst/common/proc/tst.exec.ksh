@@ -34,45 +34,28 @@
 #
 script()
 {
-if [ -f /usr/lib/dtrace/darwin.d ]; then
 	$dtrace -xstatusrate=200ms -s /dev/stdin <<EOF
+	int pids[int];
+
 	proc:::exec
 	/curpsinfo->pr_ppid == $child && args[0] == "/bin/sleep"/
 	{
-		self->exec = 1;
+		pids[curproc->p_pid] = 1;
+		trace("proc:::exec\n");
 	}
 
 	proc:::exec-success
-	/self->exec/
+	/pids[curproc->p_pid]/
 	{
 		exit(0);
 	}
 EOF
-else
-	$dtrace -s /dev/stdin <<EOF
-	proc:::exec
-	/curpsinfo->pr_ppid == $child && args[0] == "/usr/bin/sleep"/
-	{
-		self->exec = 1;
-	}
-
-	proc:::exec-success
-	/self->exec/
-	{
-		exit(0);
-	}
-EOF
-fi
 }
 
 sleeper()
 {
 	while true; do
-		if [ -f /usr/lib/dtrace/darwin.d ]; then
-			/bin/sleep 1
-		else
-			/usr/bin/sleep 1
-		fi
+		/bin/sleep 1
 	done
 }
 

@@ -340,6 +340,10 @@ enum kqtype {
 	KQTYPE_DYNAMIC
 };
 
+#define POLICY_TIMESHARE        1
+#define POLICY_RR               2
+#define POLICY_FIFO             4
+
 static int
 process_kqueue(int pid, const char *procname, enum kqtype type, uint64_t kqid,
 		struct proc_fdinfo *fdlist, int nfds)
@@ -397,14 +401,32 @@ process_kqueue(int pid, const char *procname, enum kqtype type, uint64_t kqid,
 				printf("%-10s ", " "); // evst
 			} else {
 				printf("%-8s ", " "); // fdtype
-				printf("%-7s ", " "); // fflags
+				char policy_type;
+				switch (kqinfo.kqdi_pol) {
+					case POLICY_RR:
+						policy_type = 'R';
+						break;
+					case POLICY_FIFO:
+						policy_type = 'F';
+					case POLICY_TIMESHARE:
+					case 0:
+					default:
+						policy_type = '-';
+						break;
+				}
+				snprintf(tmpstr, 4, "%c%c%c", (kqinfo.kqdi_pri == 0)?'-':'P', policy_type, (kqinfo.kqdi_cpupercent == 0)?'-':'%');
+				printf("%-7s ", tmpstr); // fflags
 				printf("%-15s ", " "); // flags
 				printf("%-17s ", " "); // evst
 			}
 
-			int qos = MAX(MAX(kqinfo.kqdi_events_qos, kqinfo.kqdi_async_qos),
+			if (!raw && kqinfo.kqdi_pri != 0) {
+				printf("%3d ", kqinfo.kqdi_pri); //qos
+			} else {
+				int qos = MAX(MAX(kqinfo.kqdi_events_qos, kqinfo.kqdi_async_qos),
 					kqinfo.kqdi_sync_waiter_qos);
-			printf("%3s ", thread_qos_name(qos));
+				printf("%3s ", thread_qos_name(qos)); //qos
+			}
 			printf("%-18s ", " "); // data
 			printf("%-18s ", " "); // udata
 			printf("%#18llx ", kqinfo.kqdi_servicer); // ext0

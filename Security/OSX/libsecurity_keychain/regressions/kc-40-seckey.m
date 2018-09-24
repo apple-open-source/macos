@@ -1157,7 +1157,7 @@ static void testcopypubkfromcert() {
                                                            options:NSDataBase64DecodingIgnoreUnknownCharacters];
     SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, (CFDataRef)certData);
     SecKeyRef pubKey = NULL;
-    ok_status(SecCertificateCopyPublicKey(cert, &pubKey), "export public key from certificate");
+    ok(pubKey = SecCertificateCopyKey(cert), "export public key from certificate");
     NSData *pubKeyData = (__bridge_transfer NSData *)SecKeyCopyExternalRepresentation(pubKey, NULL);
     eq_cf( (__bridge CFTypeRef) pubKeyData, (__bridge CFTypeRef) pubKData, "public key exports itself into expected data");
     CFReleaseNull(pubKey);

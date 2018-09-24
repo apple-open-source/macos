@@ -24,6 +24,9 @@
 #ifndef mockaks_h
 #define mockaks_h
 
+#import "SecKeybagSupport.h"
+
+#if USE_KEYSTORE
 #import <libaks.h>
 
 @interface SecMockAKS : NSObject
@@ -31,5 +34,7 @@
 + (bool)isSEPDown;
 + (bool)useGenerationCount;
 @end
+
+#endif /* USE_KEYSTORE */
 
 #endif /* mockaks_h */

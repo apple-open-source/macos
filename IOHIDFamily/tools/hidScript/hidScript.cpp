@@ -38,6 +38,7 @@ void usage ();
 void lua_usleep (int us);
 void lua_StartRunLoop ();
 void lua_StopRunLoop ();
+void lua_TimedRunLoop (double seconds);
 
 
 void lua_report_errors(lua_State *L);
@@ -113,6 +114,15 @@ public:
         IOHIDUserDeviceRegisterGetReportWithReturnLengthCallback (device_, HandleGetReportCallbackStatic, this);
     }
 
+    void scheduleWithRunloop (lua_State* L __unused) {
+        IOHIDUserDeviceScheduleWithRunLoop(device_, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
+    }
+
+    void unscheduleFromRunloop (lua_State* L __unused) {
+        IOHIDUserDeviceUnscheduleFromRunLoop(device_, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
+    }
+
+    
     int sendReport (lua_State* L) {
         if (device_ == NULL) {
             return kIOReturnDeviceError;
@@ -256,9 +266,6 @@ public:
         CFRelease(descriptorData);
         
         device_ = IOHIDUserDeviceCreate(kCFAllocatorDefault, (CFDictionaryRef)propertiesDict);
-        require(device_, finish);
-
-        IOHIDUserDeviceScheduleWithRunLoop(device_, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
 
     finish:
         
@@ -293,6 +300,10 @@ void lua_StartRunLoop () {
 
 void lua_StopRunLoop () {
     CFRunLoopStop(CFRunLoopGetMain());
+}
+
+void lua_TimedRunLoop (double seconds) {
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, seconds, false);
 }
 
 int main(int argc, const char * argv[]) {
@@ -344,12 +355,15 @@ int main(int argc, const char * argv[]) {
           .addFunction ("usleep", lua_usleep)
           .addFunction ("StartRunLoop", lua_StartRunLoop)
           .addFunction ("StopRunLoop", lua_StopRunLoop)
+          .addFunction ("TimedRunLoop", lua_TimedRunLoop)
         .endNamespace()
         .beginClass<HIDUserDevice>("HIDUserDevice")
             .addConstructor<void(*) (lua_State*)>()
             .addFunction("SendReport", &HIDUserDevice::sendReport)
             .addFunction("SetSetReportCallback", &HIDUserDevice::setSetReportCallback)
             .addFunction("SetGetReportCallback", &HIDUserDevice::setGetReportCallback)
+            .addFunction("ScheduleWithRunloop", &HIDUserDevice::scheduleWithRunloop)
+            .addFunction("UnscheduleFromRunloop", &HIDUserDevice::unscheduleFromRunloop)
             .addFunction("WaitForEventService", &HIDUserDevice::waitForEventService)
         .endClass();
 

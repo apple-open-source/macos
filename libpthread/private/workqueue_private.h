@@ -179,6 +179,14 @@ __API_AVAILABLE(macos(10.10.2))
 int
 _pthread_workqueue_asynchronous_override_reset_all_self(void);
 
+__API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
+int
+_pthread_workloop_create(uint64_t workloop_id, uint64_t options, pthread_attr_t *attr);
+
+__API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
+int
+_pthread_workloop_destroy(uint64_t workloop_id);
+
 __END_DECLS
 
 #endif // __PTHREAD_WORKQUEUE_H__

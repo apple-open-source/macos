@@ -1021,7 +1021,7 @@ extern const CFStringRef kSecValuePersistentRef
           keychain operations.
 */
 extern const CFStringRef kSecUseItemList
-    API_AVAILABLE(macos(10.6), ios(2.0));
+    API_AVAILABLE(macos(10.6)) API_UNAVAILABLE(ios, tvos, watchos);
 extern const CFStringRef kSecUseKeychain
     API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecUseOperationPrompt

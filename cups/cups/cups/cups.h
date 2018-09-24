@@ -1,7 +1,7 @@
 /*
  * API definitions for CUPS.
  *
- * Copyright 2007-2017 by Apple Inc.
+ * Copyright 2007-2018 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
@@ -47,10 +47,10 @@ extern "C" {
  * Constants...
  */
 
-#  define CUPS_VERSION			2.0205
+#  define CUPS_VERSION			2.0208
 #  define CUPS_VERSION_MAJOR		2
 #  define CUPS_VERSION_MINOR		2
-#  define CUPS_VERSION_PATCH		5
+#  define CUPS_VERSION_PATCH		8
 
 #  define CUPS_BC_FD			3
 					/* Back-channel file descriptor for
@@ -605,6 +605,9 @@ extern ssize_t		cupsHashData(const char *algorithm, const void *data, size_t dat
 /* New in CUPS 2.2.4 */
 extern int		cupsAddIntegerOption(const char *name, int value, int num_options, cups_option_t **options) _CUPS_API_2_2_4;
 extern int		cupsGetIntegerOption(const char *name, int num_options, cups_option_t *options) _CUPS_API_2_2_4;
+
+/* New in CUPS 2.2.7 */
+extern const char	*cupsHashString(const unsigned char *hash, size_t hashsize, char *buffer, size_t bufsize) _CUPS_API_2_2_7;
 
 #  ifdef __cplusplus
 }

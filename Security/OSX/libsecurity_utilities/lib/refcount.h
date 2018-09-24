@@ -82,9 +82,6 @@ protected:
         RCDEBUG(DOWN, mRefCount - 1);
         return OSAtomicDecrement32(&mRefCount);
     }
-	
-	// if you call this for anything but debug output, you will go to hell (free handbasket included)
-	unsigned int refCountForDebuggingOnly() const { return mRefCount; }
 
 private:
     volatile mutable int32_t mRefCount;

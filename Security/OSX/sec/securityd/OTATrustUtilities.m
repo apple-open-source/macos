@@ -33,6 +33,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <copyfile.h>
 #include <sys/syslimits.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -42,6 +43,7 @@
 #include <pthread.h>
 #include <sys/param.h>
 #include <stdlib.h>
+#include <os/transaction_private.h>
 #include <utilities/SecCFRelease.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
@@ -170,10 +172,12 @@ static CFDataRef SecSystemTrustStoreCopyResourceContents(CFStringRef resourceNam
 static uint64_t GetAssetVersion(void);
 #if !TARGET_OS_BRIDGE
 static BOOL UpdateFromAsset(NSURL *localURL, NSNumber *asset_version);
+static BOOL UpdateOTACheckInDate(void);
 #endif
 
 // MARK: Constants
 NSString *kOTATrustContentVersionKey = @"MobileAssetContentVersion";
+NSString *kOTATrustLastCheckInKey = @"MobileAssetLastCheckIn";
 NSString *kOTATrustContextFilename = @"OTAPKIContext.plist";
 NSString *kOTATrustTrustedCTLogsFilename = @"TrustedCTLogs.plist";
 NSString *kOTATrustAnalyticsSamplingRatesFilename = @"AnalyticsSamplingRates.plist";
@@ -183,6 +187,7 @@ NSString *kOTATrustAppleCertifcateAuthoritiesFilename = @"AppleCertificateAuthor
 const NSString *OTATrustMobileAssetType = @"com.apple.MobileAsset.PKITrustSupplementals";
 #define kOTATrustMobileAssetNotification "com.apple.MobileAsset.PKITrustSupplementals.cached-metadata-updated"
 #define kOTATrustOnDiskAssetNotification "com.apple.trustd.asset-updated"
+#define kOTATrustCheckInNotification "com.apple.trustd.asset-check-in"
 const NSUInteger OTATrustMobileAssetCompatibilityVersion = 1;
 #define kOTATrustDefaultUpdatePeriod 60*60*12 // 12 hours
 #define kOTATrustMinimumUpdatePeriod 60*5     // 5 min
@@ -200,7 +205,7 @@ typedef enum {
     OTATrustLogLevelError,
 } OTATrustLogLevel;
 
-static void MakeOTATrustError(NSError **error, OTATrustLogLevel level, OSStatus errCode, NSString *format,...) NS_FORMAT_FUNCTION(4,5);
+static void MakeOTATrustError(NSError **error, OTATrustLogLevel level, NSErrorDomain errDomain, OSStatus errCode, NSString *format,...) NS_FORMAT_FUNCTION(5,6);
 
 static void LogLocally(OTATrustLogLevel level, NSString *errorString) {
     switch (level) {
@@ -230,26 +235,26 @@ static void LogRemotely(OTATrustLogLevel level, NSError **error) {
 #endif // ENABLE_TRUSTD_ANALYTICS
 }
 
-static void MakeOTATrustError(NSError **error, OTATrustLogLevel level, OSStatus errCode, NSString *format,...) {
+static void MakeOTATrustError(NSError **error, OTATrustLogLevel level, NSErrorDomain errDomain, OSStatus errCode, NSString *format,...) {
     va_list args;
     va_start(args, format);
     NSString *formattedString = nil;
     if (format) {
         formattedString = [[NSString alloc] initWithFormat:format arguments:args];
     }
-    if (error) {
-        NSMutableDictionary *userInfo = [[NSMutableDictionary alloc] init];
-        if (format) {
-            [userInfo setObject:formattedString forKey:NSLocalizedDescriptionKey];
-        }
 
-        *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+    NSError *localError = nil;
+    NSMutableDictionary *userInfo = [[NSMutableDictionary alloc] init];
+    if (format) {
+        [userInfo setObject:formattedString forKey:NSLocalizedDescriptionKey];
+    }
+    localError = [NSError errorWithDomain:errDomain
                                      code:errCode
                                  userInfo:userInfo];
-    }
 
     LogLocally(level, formattedString);
-    LogRemotely(level, error);
+    LogRemotely(level, &localError);
+    if (error) { *error = localError; }
     va_end(args);
 }
 
@@ -330,11 +335,12 @@ static NSURL *GetAssetFileURL(NSString *filename) {
 }
 
 static void DeleteFileWithName(NSString *filename) {
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    NSError *error = nil;
-    [fileManager removeItemAtURL:GetAssetFileURL(filename) error:&error];
-    if (error) {
-        secerror("OTATrust: failed to remove %@: %@", filename, error);
+    NSURL *fileURL = GetAssetFileURL(filename);
+    if (remove([fileURL fileSystemRepresentation]) == -1) {
+        int error = errno;
+        if (error != ENOENT) {
+            secnotice("OTATrust", "failed to remove %@: %s", fileURL, strerror(error));
+        }
     }
 }
 
@@ -347,11 +353,22 @@ static void DeleteAssetFromDisk(void) {
     }
 }
 
-static BOOL WriteAssetVersionToDisk(NSNumber *asset_version) {
+static BOOL UpdateOTAContextOnDisk(NSString *key, id value) {
     if (SecOTAPKIIsSystemTrustd()) {
+        /* Get current context, if applicable, and update/add key/value */
+        NSURL *otaContextFile = GetAssetFileURL(kOTATrustContextFilename);
+        NSDictionary *currentContext = [NSDictionary dictionaryWithContentsOfURL:otaContextFile];
+        NSMutableDictionary *newContext = nil;
+        if (currentContext) {
+            newContext = [currentContext mutableCopy];
+        } else {
+            newContext = [NSMutableDictionary dictionary];
+        }
+        newContext[key] = value;
+
+        /* Write dictionary to disk */
         NSError *error = nil;
-        NSDictionary *version_dict = @{ kOTATrustContentVersionKey : asset_version };
-        [version_dict writeToURL:GetAssetFileURL(kOTATrustContextFilename) error:&error];
+        [newContext writeToURL:otaContextFile error:&error];
         if (error) {
             secerror("OTATrust: unable to write asset version to disk: %@", error);
             LogRemotely(OTATrustLogLevelError, &error);
@@ -362,18 +379,20 @@ static BOOL WriteAssetVersionToDisk(NSNumber *asset_version) {
     return NO;
 }
 
-
 static BOOL CopyFileToDisk(NSString *filename, NSURL *localURL) {
     if (SecOTAPKIIsSystemTrustd()) {
-        NSFileManager * fileManager = [NSFileManager defaultManager];
-        NSError *error = nil;
-        [fileManager copyItemAtURL:localURL toURL:GetAssetFileURL(filename) error:&error];
-        if (error) {
-            secerror("OTATrust: unable to write CT logs to disk: %@", error);
-            LogRemotely(OTATrustLogLevelError, &error);
+        NSURL *toFileURL = GetAssetFileURL(filename);
+        secdebug("OTATrust", "will copy asset file data from \"%@\"", localURL);
+        copyfile_state_t state = copyfile_state_alloc();
+        int retval = copyfile([localURL fileSystemRepresentation], [toFileURL fileSystemRepresentation],
+                              state, COPYFILE_DATA);
+        copyfile_state_free(state);
+        if (retval < 0) {
+            secerror("OTATrust: copyfile error for asset %d", retval);
             return NO;
+        } else {
+            return YES;
         }
-        return YES;
     }
     return NO;
 }
@@ -394,7 +413,7 @@ static NSNumber *UpdateAndPurgeAsset(MAAsset *asset, NSNumber *asset_version, NS
          }];
         return asset_version;
     } else {
-        MakeOTATrustError(error, OTATrustLogLevelError, errSecCallbackFailed,
+        MakeOTATrustError(error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecCallbackFailed,
                           @"Failed to install new asset version %@ from %@", asset_version, [asset getLocalFileUrl]);
         return nil;
     }
@@ -402,7 +421,7 @@ static NSNumber *UpdateAndPurgeAsset(MAAsset *asset, NSNumber *asset_version, NS
 
 static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) {
     if (!CanCheckMobileAsset()) {
-        MakeOTATrustError(error, OTATrustLogLevelNotice, errSecServiceNotAvailable,
+        MakeOTATrustError(error, OTATrustLogLevelNotice, NSOSStatusErrorDomain, errSecServiceNotAvailable,
                          @"MobileAsset disabled, skipping check.");
         return NO;
     }
@@ -412,83 +431,98 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
     __block NSError *ma_error = nil;
     secnotice("OTATrust", "begin MobileAsset query for catalog");
     [MAAsset startCatalogDownload:(NSString *)OTATrustMobileAssetType then:^(MADownLoadResult result) {
-        if (result != MADownloadSucceesful) {
-            MakeOTATrustError(&ma_error, OTATrustLogLevelError, errSecInternal,
-                              @"failed to download catalog: %ld", (long)result);
-            return;
-        }
-        MAAssetQuery *query = [[MAAssetQuery alloc] initWithType:(NSString *)OTATrustMobileAssetType];
-        [query augmentResultsWithState:true];
-
-        secnotice("OTATrust", "begin MobileAsset metadata sync request");
-        MAQueryResult queryResult = [query queryMetaDataSync];
-        if (queryResult != MAQuerySucceesful) {
-            MakeOTATrustError(&ma_error, OTATrustLogLevelError, errSecInternal,
-                              @"failed to query MobileAsset metadata: %ld", (long)queryResult);
-            return;
-        }
-
-        if (!query.results) {
-            MakeOTATrustError(&ma_error, OTATrustLogLevelError, errSecInternal,
-                              @"no results in MobileAsset query");
-            return;
-        }
-
-        bool began_async_job = false;
-        for (MAAsset *asset in query.results) {
-            /* Check Compatibility Version against this software version */
-            NSNumber *compatibilityVersion = [asset assetProperty:@"_CompatibilityVersion"];
-            if (!isNSNumber(compatibilityVersion) ||
-                [compatibilityVersion unsignedIntegerValue] != OTATrustMobileAssetCompatibilityVersion) {
-                MakeOTATrustError(&ma_error, OTATrustLogLevelNotice, errSecIncompatibleVersion,
-                                  @"skipping asset because Compatibility Version doesn't match %@", compatibilityVersion);
-                continue;
+        @autoreleasepool {
+            os_transaction_t transaction = os_transaction_create("com.apple.trustd.PKITrustSupplementals.download");
+            if (result != MADownloadSucceesful) {
+                MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MADownLoadResult", result,
+                                  @"failed to download catalog: %ld", (long)result);
+                return;
             }
-            /* Check Content Version agains the current content version */
-            NSNumber *asset_version = [asset assetProperty:@"_ContentVersion"];
-            if (!ShouldUpdateWithAsset(asset_version)) {
-                MakeOTATrustError(&ma_error, OTATrustLogLevelNotice, errSecDuplicateItem,
-                                  @"skipping asset because we already have _ContentVersion %@ (or newer)", asset_version);
-                continue;
+            MAAssetQuery *query = [[MAAssetQuery alloc] initWithType:(NSString *)OTATrustMobileAssetType];
+            [query augmentResultsWithState:true];
+
+            secnotice("OTATrust", "begin MobileAsset metadata sync request");
+            MAQueryResult queryResult = [query queryMetaDataSync];
+            if (queryResult != MAQuerySucceesful) {
+                MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MAQueryResult", queryResult,
+                                  @"failed to query MobileAsset metadata: %ld", (long)queryResult);
+                return;
             }
 
-            switch (asset.state) {
-                default:
-                    MakeOTATrustError(&ma_error, OTATrustLogLevelError, errSecInternal,
-                                      @"unknown asset state %ld", (long)asset.state);
+            if (!query.results) {
+                MakeOTATrustError(&ma_error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecInternal,
+                                  @"no results in MobileAsset query");
+                return;
+            }
+
+            bool began_async_job = false;
+            for (MAAsset *asset in query.results) {
+                /* Check Compatibility Version against this software version */
+                NSNumber *compatibilityVersion = [asset assetProperty:@"_CompatibilityVersion"];
+                if (!isNSNumber(compatibilityVersion) ||
+                    [compatibilityVersion unsignedIntegerValue] != OTATrustMobileAssetCompatibilityVersion) {
+                    MakeOTATrustError(&ma_error, OTATrustLogLevelNotice, NSOSStatusErrorDomain, errSecIncompatibleVersion,
+                                      @"skipping asset because Compatibility Version doesn't match %@", compatibilityVersion);
                     continue;
-                case MAInstalled:
-                    /* The asset is already in the cache, get it from disk. */
-                    secdebug("OTATrust", "OTATrust asset already installed");
-                    updated_version = UpdateAndPurgeAsset(asset, asset_version, &ma_error);
-                    break;
-                case MAUnknown:
-                    MakeOTATrustError(&ma_error, OTATrustLogLevelError, errSecInternal,
-                                      @"asset is unknown");
+                }
+
+                /* We got an Asset that this device could use; write the last check-in time as now. */
+                (void)UpdateOTACheckInDate();
+
+                /* Check Content Version against the current content version */
+                NSNumber *asset_version = [asset assetProperty:@"_ContentVersion"];
+                if (!ShouldUpdateWithAsset(asset_version)) {
+                    MakeOTATrustError(&ma_error, OTATrustLogLevelNotice, NSOSStatusErrorDomain, errSecDuplicateItem,
+                                      @"skipping asset because we already have _ContentVersion %@ (or newer)", asset_version);
                     continue;
-                case MADownloading:
-                    secnotice("OTATrust", "asset is downloading");
-                    /* fall through */
-                case MANotPresent:
-                    secnotice("OTATrust", "begin download of OTATrust asset");
-                    began_async_job = true;
-                    [asset startDownload:^(MADownLoadResult downloadResult) {
-                        if (downloadResult != MADownloadSucceesful) {
-                            MakeOTATrustError(&ma_error, OTATrustLogLevelError, errSecInternal,
-                                              @"failed to download asset: %ld", (long)downloadResult);
-                            return;
-                        }
+                }
+
+                switch (asset.state) {
+                    default:
+                        MakeOTATrustError(&ma_error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecInternal,
+                                          @"unknown asset state %ld", (long)asset.state);
+                        continue;
+                    case MAInstalled:
+                        /* The asset is already in the cache, get it from disk. */
+                        secdebug("OTATrust", "OTATrust asset already installed");
                         updated_version = UpdateAndPurgeAsset(asset, asset_version, &ma_error);
-                        if (wait) {
-                            dispatch_semaphore_signal(done);
-                        }
-                    }];
-                    break;
-            } /* switch (asset.state) */
-        } /* for (MAAsset.. */
-        if (wait && !began_async_job) {
-            dispatch_semaphore_signal(done);
-        }
+                        break;
+                    case MAUnknown:
+                        MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MAAssetState", asset.state,
+                                          @"asset is unknown");
+                        continue;
+                    case MADownloading:
+                        secnotice("OTATrust", "asset is downloading");
+                        /* fall through */
+                    case MANotPresent:
+                        secnotice("OTATrust", "begin download of OTATrust asset");
+                        began_async_job = true;
+                        [asset startDownload:^(MADownLoadResult downloadResult) {
+                            @autoreleasepool {
+                                os_transaction_t inner_transaction = os_transaction_create("com.apple.trustd.PKITrustSupplementals.downloadAsset");
+                                if (downloadResult != MADownloadSucceesful) {
+                                    MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MADownLoadResult", downloadResult,
+                                                      @"failed to download asset: %ld", (long)downloadResult);
+                                    return;
+                                }
+                                updated_version = UpdateAndPurgeAsset(asset, asset_version, &ma_error);
+                                if (wait) {
+                                    dispatch_semaphore_signal(done);
+                                }
+                                (void)inner_transaction; // dead store
+                                inner_transaction = nil;
+                            }
+                        }];
+                        break;
+                } /* switch (asset.state) */
+            } /* for (MAAsset.. */
+            if (wait && !began_async_job) {
+                dispatch_semaphore_signal(done);
+            }
+            /* Done with the transaction */
+            (void)transaction; // dead store
+            transaction = nil;
+        } /* autoreleasepool */
      }]; /* [MAAsset startCatalogDownload: ] */
 
     /* If the caller is waiting for a response, wait up to one minute for the update to complete.
@@ -500,14 +534,14 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
     BOOL result = NO;
     if (wait) {
         if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
-            MakeOTATrustError(error, OTATrustLogLevelError, errSecNetworkFailure,
+            MakeOTATrustError(error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecNetworkFailure,
                               @"Failed to get asset metadata within 1 minute.");
         } else {
             result = (updated_version != nil);
             if (error && ma_error) {
                 *error = ma_error;
             } else if (!result) {
-                MakeOTATrustError(error, OTATrustLogLevelError, errSecInternalComponent,
+                MakeOTATrustError(error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecInternalComponent,
                                   @"Unknown error occurred.");
             }
         }
@@ -516,7 +550,7 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
 }
 #else /* !TARGET_OS_IPHONE */
 /* <rdar://problem/30879827> MobileAssetV2 fails on macOS, so use V1 */
-static NSNumber *UpdateAndPurgeAsset(ASAsset *asset, NSNumber *asset_version, NSError ** error) {
+static NSNumber *UpdateAndPurgeAsset(ASAsset *asset, NSNumber *asset_version, NSError **error) {
     if (SecPinningDbUpdateFromURL((__bridge CFURLRef)[asset localURL]) &&
         UpdateFromAsset([asset localURL], asset_version)) {
         secnotice("OTATrust", "finished update to version %@ from installed asset. purging asset.", asset_version);
@@ -524,13 +558,13 @@ static NSNumber *UpdateAndPurgeAsset(ASAsset *asset, NSNumber *asset_version, NS
         [[TrustdHealthAnalytics logger] logSuccessForEventNamed:TrustdHealthAnalyticsEventOTAPKIEvent];
 #endif // ENABLE_TRUSTD_ANALYTICS
         [asset purge:^(NSError *ma_error) {
-            if (error) {
+            if (ma_error) {
                 secerror("OTATrust: purge failed %@", ma_error);
             }
         }];
         return asset_version;
     } else {
-        MakeOTATrustError(error, OTATrustLogLevelError, errSecCallbackFailed,
+        MakeOTATrustError(error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecCallbackFailed,
                           @"Failed to install new asset version %@ from %@", asset_version, [asset localURL]);
         return nil;
     }
@@ -538,18 +572,20 @@ static NSNumber *UpdateAndPurgeAsset(ASAsset *asset, NSNumber *asset_version, NS
 
 static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) {
     if (!CanCheckMobileAsset()) {
-        MakeOTATrustError(error, OTATrustLogLevelNotice, errSecServiceNotAvailable,
+        MakeOTATrustError(error, OTATrustLogLevelNotice, NSOSStatusErrorDomain, errSecServiceNotAvailable,
                           @"MobileAsset disabled, skipping check.");
         return NO;
     }
 
+    NSError *localError = nil; // -[ASAssetQuery runQueryAndReturnError:] leaks if you pass null
     ASAssetQuery *query = [[ASAssetQuery alloc] initWithAssetType:(NSString *)OTATrustMobileAssetType];
     [query setQueriesLocalAssetInformationOnly:isLocalOnly]; // Omitting this leads to a notifcation loop.
-    NSArray<ASAsset *>*query_results = [query runQueryAndReturnError:error];
+    NSArray<ASAsset *>*query_results = [query runQueryAndReturnError:&localError];
     if (!query_results) {
-        if (error) {
-            secerror("OTATrust: asset query failed: %@", *error);
-            LogRemotely(OTATrustLogLevelError, error);
+        if (localError) {
+            secerror("OTATrust: asset query failed: %@", localError);
+            LogRemotely(OTATrustLogLevelError, &localError);
+            if (error) { *error = localError; }
         }
         return NO;
     }
@@ -561,17 +597,22 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
     for (ASAsset *asset in query_results) {
         NSDictionary *attributes = [asset attributes];
 
+        /* Check Compatibility Version against this software version */
         NSNumber *compatibilityVersion = [attributes objectForKey:ASAttributeCompatibilityVersion];
         if (!isNSNumber(compatibilityVersion) ||
             [compatibilityVersion unsignedIntegerValue] != OTATrustMobileAssetCompatibilityVersion) {
-            MakeOTATrustError(error, OTATrustLogLevelNotice, errSecIncompatibleVersion,
+            MakeOTATrustError(error, OTATrustLogLevelNotice, NSOSStatusErrorDomain, errSecIncompatibleVersion,
                               @"skipping asset because Compatibility Version doesn't match %@", compatibilityVersion);
             continue;
         }
 
+        /* We got an Asset that this device could use; write the last check-in time as now. */
+        (void)UpdateOTACheckInDate();
+
+        /* Check Content Version against the current content version */
         NSNumber *contentVersion = [attributes objectForKey:ASAttributeContentVersion];
         if (!ShouldUpdateWithAsset(contentVersion)) {
-            MakeOTATrustError(error, OTATrustLogLevelNotice, errSecDuplicateItem,
+            MakeOTATrustError(error, OTATrustLogLevelNotice, NSOSStatusErrorDomain, errSecDuplicateItem,
                               @"skipping asset because we already have _ContentVersion %@ (or newer)", contentVersion);
             continue;
         }
@@ -579,8 +620,9 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
         ASProgressHandler OTATrustHandler = ^(NSDictionary *state, NSError *progressError){
             NSString *operationState = nil;
             if (progressError) {
-                MakeOTATrustError(&handler_error, OTATrustLogLevelError, errSecInternal,
-                                  @"OTATrust: asset download error: %@", progressError);
+                secerror("progress handler failed: %@", progressError);
+                LogRemotely(OTATrustLogLevelError, &progressError);
+                handler_error = [progressError copy];
                 if (wait) {
                     dispatch_semaphore_signal(done);
                 }
@@ -588,7 +630,7 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
             }
 
             if (!state) {
-                MakeOTATrustError(&handler_error, OTATrustLogLevelError, errSecInternal,
+                MakeOTATrustError(&handler_error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecInternal,
                                   @"OTATrust: no asset state in progress handler");
                 if (wait) {
                     dispatch_semaphore_signal(done);
@@ -625,10 +667,11 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
                 secdebug("OTATrust", "OTATrust asset download paused");
                 asset.progressHandler = OTATrustHandler;
                 asset.userInitiatedDownload = YES;
-                if (![asset resumeDownloadAndReturnError:error]) {
-                    if (error) {
-                        secerror("OTATrust: failed to resume download of asset: %@", *error);
-                        LogRemotely(OTATrustLogLevelError, error);
+                if (![asset resumeDownloadAndReturnError:&localError]) {
+                    if (localError) {
+                        secerror("OTATrust: failed to resume download of asset: %@", localError);
+                        LogRemotely(OTATrustLogLevelError, &localError);
+                        if (error) { *error = localError; }
                     }
                 } else {
                     began_async_job = true;
@@ -641,7 +684,7 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
                 began_async_job = true;
                 break;
             default:
-                MakeOTATrustError(error, OTATrustLogLevelError, errSecInternal,
+                MakeOTATrustError(error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecInternal,
                                   @"unhandled asset state %ld", (long)asset.state);
                 continue;
         }
@@ -654,7 +697,7 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
     BOOL result = (updated_version != nil);
     if (wait && began_async_job) {
         if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
-            MakeOTATrustError(error, OTATrustLogLevelError, errSecNetworkFailure,
+            MakeOTATrustError(error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecNetworkFailure,
                               @"Failed to get asset metadata within 1 minute.");
         } else {
             /* finished an async job, update the result */
@@ -667,7 +710,7 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
 
     /* If we failed and don't know why, report an unknown error */
     if (!result && error && (*error == NULL)) {
-        MakeOTATrustError(error, OTATrustLogLevelError, errSecInternalComponent,
+        MakeOTATrustError(error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecInternalComponent,
                           @"Unknown error occurred.");
     }
     return result;
@@ -698,6 +741,11 @@ static void InitializeOTATrustAsset(dispatch_queue_t queue) {
         notify_register_dispatch(kOTATrustOnDiskAssetNotification, &out_token, queue, ^(int __unused token) {
             secnotice("OTATrust", "Got notification about a new PKITrustSupplementals asset from system trustd.");
             UpdateFromAsset(GetAssetFileURL(nil), [NSNumber numberWithUnsignedLongLong:GetAssetVersion()]);
+        });
+        int out_token2 = 0;
+        notify_register_dispatch(kOTATrustCheckInNotification, &out_token2, queue, ^(int __unused token) {
+            secinfo("OTATrust", "Got notification about successful PKITrustSupplementals asset check-in");
+            (void)UpdateOTACheckInDate();
         });
     }
 }
@@ -1231,6 +1279,7 @@ struct _OpaqueSecOTAPKI {
     CFIndex             _validSnapshotVersion;
     CFIndex             _validSnapshotFormat;
     uint64_t            _assetVersion;
+    CFDateRef           _lastAssetCheckIn;
     CFDictionaryRef     _eventSamplingRates;
     CFArrayRef          _appleCAs;
 };
@@ -1258,6 +1307,7 @@ static void SecOTAPKIDestroy(CFTypeRef cf) {
     CFReleaseNull(otapkiref->_pinningList);
     CFReleaseNull(otapkiref->_eventSamplingRates);
     CFReleaseNull(otapkiref->_appleCAs);
+    CFReleaseNull(otapkiref->_lastAssetCheckIn);
 
     if (otapkiref->_anchorTable) {
         free((void *)otapkiref->_anchorTable);
@@ -1297,6 +1347,17 @@ static uint64_t GetAssetVersion(void) {
 #endif
         return version;
     }
+}
+
+static CF_RETURNS_RETAINED CFDateRef InitializeLastAssetCheckIn(void) {
+#if !TARGET_OS_BRIDGE
+    NSDictionary *OTAPKIContext = [NSDictionary dictionaryWithContentsOfURL:GetAssetFileURL(kOTATrustContextFilename)];
+    if (isNSDictionary(OTAPKIContext)) {
+        NSDate *checkIn = OTAPKIContext[kOTATrustLastCheckInKey];
+        return CFRetainSafe((__bridge CFDateRef)checkIn);
+    }
+#endif
+    return NULL;
 }
 
 static SecOTAPKIRef SecOTACreate() {
@@ -1349,6 +1410,7 @@ static SecOTAPKIRef SecOTACreate() {
 
     // Get the asset version (after possible reset due to missing asset date)
     otapkiref->_assetVersion = GetAssetVersion();
+    otapkiref->_lastAssetCheckIn = InitializeLastAssetCheckIn();
 
     // Get the valid update snapshot version and format
     CFIndex update_format = 0;
@@ -1425,6 +1487,23 @@ SecOTAPKIRef SecOTAPKICopyCurrentOTAPKIRef() {
 }
 
 #if !TARGET_OS_BRIDGE
+static BOOL UpdateOTACheckInDate(void) {
+    __block NSDate *checkIn = [NSDate date];
+    dispatch_sync(kOTAQueue, ^{
+        CFRetainAssign(kCurrentOTAPKIRef->_lastAssetCheckIn, (__bridge CFDateRef)checkIn);
+    });
+
+    if (SecOTAPKIIsSystemTrustd()) {
+        /* Let the other trustds know we successfully checked in */
+        notify_post(kOTATrustCheckInNotification);
+
+        /* Update the on-disk check-in date, so when we re-launch we remember */
+        return UpdateOTAContextOnDisk(kOTATrustLastCheckInKey, checkIn);
+    } else {
+        return NO;
+    }
+}
+
 static BOOL UpdateFromAsset(NSURL *localURL, NSNumber *asset_version) {
     if (!localURL || !asset_version) {
         secerror("OTATrust: missing url and version for downloaded asset");
@@ -1473,7 +1552,7 @@ static BOOL UpdateFromAsset(NSURL *localURL, NSNumber *asset_version) {
     if (CopyFileToDisk(kOTATrustTrustedCTLogsFilename, TrustedCTLogsFileLoc) &&
         CopyFileToDisk(kOTATrustAnalyticsSamplingRatesFilename, AnalyticsSamplingRatesFileLoc) &&
         CopyFileToDisk(kOTATrustAppleCertifcateAuthoritiesFilename, AppleCAsFileLoc) &&
-        WriteAssetVersionToDisk(asset_version)) {
+        UpdateOTAContextOnDisk(kOTATrustContentVersionKey, asset_version)) {
         /* If we successfully updated the "asset" on disk, signal the other trustds to pick up the changes */
         notify_post(kOTATrustOnDiskAssetNotification);
     }
@@ -1693,6 +1772,13 @@ uint64_t SecOTAPKIGetAssetVersion(SecOTAPKIRef otapkiRef) {
     }
 
     return otapkiRef->_assetVersion;
+}
+
+CFDateRef SecOTAPKICopyLastAssetCheckInDate(SecOTAPKIRef otapkiRef) {
+    if (NULL == otapkiRef) {
+        return NULL;
+    }
+    return CFRetainSafe(otapkiRef->_lastAssetCheckIn);
 }
 
 NSNumber *SecOTAPKIGetSamplingRateForEvent(SecOTAPKIRef otapkiRef, NSString *eventName) {

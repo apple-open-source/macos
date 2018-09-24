@@ -24,7 +24,7 @@
 #include "JSDOMConvertEnumeration.h"
 #include "JSDOMWrapper.h"
 #include "TestObj.h"
-#include <runtime/CallData.h>
+#include <JavaScriptCore/CallData.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -75,7 +75,7 @@ public:
     static JSC::JSValue testStaticCustomPromiseFunction(JSC::ExecState&, Ref<DeferredPromise>&&);
     JSC::JSValue testCustomReturnsOwnPromiseFunction(JSC::ExecState&);
 public:
-    static const unsigned StructureFlags = JSC::HasStaticPropertyTable | JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetOwnPropertySlot | JSC::OverridesGetPropertyNames | JSC::TypeOfShouldCallGetCallData | Base::StructureFlags;
+    static const unsigned StructureFlags = JSC::HasStaticPropertyTable | JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetCallData | JSC::OverridesGetOwnPropertySlot | JSC::OverridesGetPropertyNames | Base::StructureFlags;
 protected:
     JSTestObj(JSC::Structure*, JSDOMGlobalObject&, Ref<TestObj>&&);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,10 +29,15 @@
 
 #include "AssemblerBuffer.h"
 #include "AssemblerCommon.h"
+#include "JSCPtrTag.h"
 #include <limits.h>
 #include <wtf/Assertions.h>
 #include <wtf/Vector.h>
 #include <stdint.h>
+
+#if OS(FUCHSIA)
+#include <zircon/syscalls.h>
+#endif
 
 #define CHECK_DATASIZE_OF(datasize) ASSERT(datasize == 32 || datasize == 64)
 #define CHECK_MEMOPSIZE_OF(size) ASSERT(size == 8 || size == 16 || size == 32 || size == 64 || size == 128);
@@ -308,7 +313,7 @@ public:
         return nameForRegister[id];
     }
 
-private:
+protected:
     static constexpr bool isSp(RegisterID reg) { return ARM64Registers::isSp(reg); }
     static constexpr bool isZr(RegisterID reg) { return ARM64Registers::isZr(reg); }
 
@@ -515,7 +520,7 @@ public:
         return isValidSignedImm9(offset);
     }
 
-private:
+protected:
     int encodeFPImm(double d)
     {
         ASSERT(canEncodeFPImm(d));
@@ -2856,6 +2861,8 @@ public:
     {
 #if OS(IOS)
         sys_cache_control(kCacheFunctionPrepareForExecution, code, size);
+#elif OS(FUCHSIA)
+        zx_cache_flush(code, size, ZX_CACHE_FLUSH_INSN);
 #elif OS(LINUX)
         size_t page = pageSize();
         uintptr_t current = reinterpret_cast<uintptr_t>(code);
@@ -2989,7 +2996,7 @@ public:
         }
     }
 
-private:
+protected:
     template<Datasize size>
     static bool checkMovk(int insn, int _hw, RegisterID _rd)
     {
@@ -3033,6 +3040,8 @@ private:
         ASSERT_UNUSED(isCall, (link == isCall) || disassembleNop(from));
         ASSERT(!(reinterpret_cast<intptr_t>(from) & 3));
         ASSERT(!(reinterpret_cast<intptr_t>(to) & 3));
+        assertIsNotTagged(to);
+        assertIsNotTagged(fromInstruction);
         intptr_t offset = (reinterpret_cast<intptr_t>(to) - reinterpret_cast<intptr_t>(fromInstruction)) >> 2;
         ASSERT(static_cast<int>(offset) == offset);
 
@@ -3754,6 +3763,9 @@ private:
     Vector<LinkRecord, 0, UnsafeVectorOverflow> m_jumpsToLink;
     int m_indexOfLastWatchpoint;
     int m_indexOfTailOfLastWatchpoint;
+
+public:
+    static constexpr ptrdiff_t MAX_POINTER_BITS = 48;
 };
 
 } // namespace JSC

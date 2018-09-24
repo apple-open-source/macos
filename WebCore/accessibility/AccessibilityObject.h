@@ -82,15 +82,12 @@ class Frame;
 class FrameView;
 class IntPoint;
 class IntSize;
-class MainFrame;
 class Node;
 class Page;
 class RenderObject;
 class ScrollableArea;
 class ScrollView;
 class Widget;
-
-enum class AXPropertyName;
 
 typedef unsigned AXID;
 
@@ -138,6 +135,9 @@ enum class AccessibilityRole {
     Footer,
     Footnote,
     Form,
+    GraphicsDocument,
+    GraphicsObject,
+    GraphicsSymbol,
     Grid,
     GridCell,
     Group,
@@ -252,6 +252,17 @@ enum class AccessibilityTextSource {
     Title,
     Subtitle,
     Action,
+};
+
+enum class AccessibilityEventType {
+    ContextMenu,
+    Click,
+    Decrement,
+    Dismiss,
+    Focus,
+    Increment,
+    ScrollIntoView,
+    Select,
 };
     
 struct AccessibilityText {
@@ -660,6 +671,7 @@ public:
     virtual float stepValueForRange() const { return 0.0f; }
     virtual AccessibilityObject* selectedRadioButton() { return nullptr; }
     virtual AccessibilityObject* selectedTabItem() { return nullptr; }
+    AccessibilityObject* selectedListItem();
     virtual int layoutCount() const { return 0; }
     virtual double estimatedLoadingProgress() const { return 0; }
     static bool isARIAControl(AccessibilityRole);
@@ -696,6 +708,7 @@ public:
     virtual bool canvasHasFallbackContent() const { return false; }
     bool supportsRangeValue() const;
     const AtomicString& identifierAttribute() const;
+    const AtomicString& linkRelValue() const;
     void classList(Vector<String>&) const;
     virtual String roleDescription() const;
     AccessibilityCurrentState currentState() const;
@@ -829,7 +842,7 @@ public:
     virtual Document* document() const;
     virtual FrameView* documentFrameView() const;
     Frame* frame() const;
-    MainFrame* mainFrame() const;
+    Frame* mainFrame() const;
     Document* topDocument() const;
     ScrollView* scrollViewAncestor() const;
     String language() const;
@@ -892,14 +905,11 @@ public:
     bool hasAttribute(const QualifiedName&) const;
     const AtomicString& getAttribute(const QualifiedName&) const;
     bool hasTagName(const QualifiedName&) const;
-
-    bool hasProperty(AXPropertyName) const;
-    const String stringValueForProperty(AXPropertyName) const;
-    std::optional<bool> boolValueForProperty(AXPropertyName) const;
-    int intValueForProperty(AXPropertyName) const;
-    unsigned unsignedValueForProperty(AXPropertyName) const;
-    double doubleValueForProperty(AXPropertyName) const;
-    Element* elementValueForProperty(AXPropertyName) const;
+    
+    bool shouldDispatchAccessibilityEvent() const;
+    bool dispatchAccessibilityEvent(Event&) const;
+    bool dispatchAccessibilityEventWithType(AccessibilityEventType) const;
+    bool dispatchAccessibleSetValueEvent(const String&) const;
 
     virtual VisiblePositionRange visiblePositionRange() const { return VisiblePositionRange(); }
     virtual VisiblePositionRange visiblePositionRangeForLine(unsigned) const { return VisiblePositionRange(); }
@@ -1004,7 +1014,7 @@ public:
     bool supportsARIAAttributes() const;
     
     // CSS3 Speech properties.
-    virtual ESpeak speakProperty() const { return SpeakNormal; }
+    virtual OptionSet<SpeakAs> speakAsProperty() const { return OptionSet<SpeakAs> { }; }
 
     // Make this object visible by scrolling as many nested scrollable views as needed.
     virtual void scrollToMakeVisible() const;
@@ -1114,6 +1124,7 @@ public:
     int accessibilityPasswordFieldLength();
     bool hasTouchEventListener() const;
     bool isInputTypePopupButton() const;
+    bool hasAccessibleDismissEventListener() const;
 #endif
     
     // allows for an AccessibilityObject to update its render tree or perform
@@ -1169,8 +1180,6 @@ protected:
 
     void ariaElementsFromAttribute(AccessibilityChildrenVector&, const QualifiedName&) const;
     void ariaElementsReferencedByAttribute(AccessibilityChildrenVector&, const QualifiedName&) const;
-    void elementsFromProperty(AccessibilityChildrenVector&, AXPropertyName) const;
-    void elementsReferencedByProperty(AccessibilityChildrenVector&, AXPropertyName) const;
 
     AccessibilityObject* radioGroupAncestor() const;
 

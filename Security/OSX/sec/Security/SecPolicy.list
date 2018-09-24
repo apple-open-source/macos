@@ -88,4 +88,8 @@ POLICYMACRO(MobileAssetDevelopment,                 83,  , MobileAsset,         
 POLICYMACRO(BasicAttestationSystem,                 84,  , BAA-SCRT,                              ,  , AppleBasicAttestationSystem)
 POLICYMACRO(BasicAttestationUser,                   85,  , BAA-UCRT,                              ,  , AppleBasicAttestationUser)
 POLICYMACRO(iPhoneVPNApplicationSigning,            86,  , iPhoneVPNApplicationSigning,           , Y, iPhoneVPNApplicationSigning)
+POLICYMACRO(iAPSWAuth,                              87,  , iAPSWAuth,                             , Y, iAPSWAuth)
 POLICYMACRO(DemoDigitalCatalog,                     88,  , DemoCatalog,                           , Y, DemoDigitalCatalogSigning)
+POLICYMACRO(AssetReceipt,                           89,  , AssetReceipt,                          , Y, AppleAssetReceipt)
+POLICYMACRO(DeveloperIDPlusTicket,                  90,  , DeveloperIDPlusTicket,                 , Y, AppleDeveloperIDPlusTicket)
+POLICYMACRO(FDRProvisioning,                        91,  , FDRProvisioning,                       , Y, AppleFDRProvisioning)

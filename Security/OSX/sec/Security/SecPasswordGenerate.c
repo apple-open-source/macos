@@ -870,10 +870,17 @@ fail:
     return false;
 }
 
-static void getPasswordRandomCharacters(CFStringRef *returned, CFDictionaryRef requirements, CFIndex *numberOfRandomCharacters, CFStringRef allowedCharacters)
+static OSStatus getPasswordRandomCharacters(CFStringRef *returned, CFDictionaryRef requirements, CFIndex *numberOfRandomCharacters, CFStringRef allowedCharacters)
 {
-    uint8_t randomNumbers[*numberOfRandomCharacters];
-    unsigned char randomCharacters[*numberOfRandomCharacters];
+    uint8_t *randomNumbers = malloc(*numberOfRandomCharacters);
+    unsigned char *randomCharacters = malloc(*numberOfRandomCharacters);
+    
+    if (randomNumbers == NULL || randomCharacters == NULL) {
+        free(randomNumbers);
+        free(randomCharacters);
+        return errSecMemoryError;
+    }
+    
     getUniformRandomNumbers(randomNumbers, *numberOfRandomCharacters, CFStringGetLength(allowedCharacters));
 
     CFTypeRef prohibitedCharacters = NULL;
@@ -901,6 +908,11 @@ static void getPasswordRandomCharacters(CFStringRef *returned, CFDictionaryRef r
     }
 
     *returned = CFStringCreateWithBytes(kCFAllocatorDefault, randomCharacters, *numberOfRandomCharacters, kCFStringEncodingUTF8, false);
+    
+    free(randomCharacters);
+    free(randomNumbers);
+    
+    return errSecSuccess;
 }
 
 static bool doesPasswordEndWith(CFStringRef password, CFStringRef prohibitedCharacters)
@@ -1527,7 +1539,7 @@ CF_RETURNS_RETAINED CFStringRef SecPasswordGenerate(SecPasswordType type, CFErro
 
     while (true) {
         allowedChars = CFDictionaryGetValue(properlyFormattedRequirements, kSecAllowedCharactersKey);
-        getPasswordRandomCharacters(&randomCharacters, properlyFormattedRequirements, &requiredCharactersSize, allowedChars);
+        require_noerr(getPasswordRandomCharacters(&randomCharacters, properlyFormattedRequirements, &requiredCharactersSize, allowedChars), fail);
 
         if(numberOfGroupsRef && groupSizeRef){
             finalPassword = CFStringCreateMutable(kCFAllocatorDefault, 0);

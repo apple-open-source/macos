@@ -1,0 +1,22 @@
+--- Makefile.PL.orig	2018-07-27 21:27:10.000000000 -0700
++++ Makefile.PL	2018-07-27 21:34:02.000000000 -0700
+@@ -3,8 +3,10 @@ use ExtUtils::MakeMaker;
+ # the contents of the Makefile that is written.
+ 
+ my $KERBEROS_INCLUDE = "/usr/kerberos/include";
++my $OPENSSL_PREFIX = $ENV{OPENSSL_PREFIX};
+ 
+ my $include = -d $KERBEROS_INCLUDE ? "-I${KERBEROS_INCLUDE}" : "";
++$include = $include." -I".$OPENSSL_PREFIX."/include";
+ 
+ WriteMakefile(
+     'NAME'	=> 'Crypt::OpenSSL::RSA',
+@@ -19,7 +21,7 @@ WriteMakefile(
+         'Test' => 0,
+     },
+     'OBJECT' => 'RSA.o',
+-    'LIBS'    => ($^O eq 'MSWin32') ? ['-lssl32 -leay32'] : ['-lssl -lcrypto'],
++    'LIBS'    => ($^O eq 'MSWin32') ? ['-lssl32 -leay32'] : ['-lssl -lcrypto -L'.$OPENSSL_PREFIX.'/lib'],
+     'DEFINE'	=> '-DPERL5 -DOPENSSL_NO_KRB5',
+     # perl-5.8/gcc-3.2 needs -DPERL5, and redhat9 likes -DOPENSSL_NO_KRB5
+     'INC'	=> $include,     # e.g., '-I/usr/include/other'

@@ -130,17 +130,25 @@ errOut:
     return retval;
 };
 
+static SOSCloudTransportRef defaultTransport = NULL;
+
+void
+SOSCloudTransportSetDefaultTransport(SOSCloudTransportRef transport)
+{
+    defaultTransport = transport;
+}
 
 static SOSCloudTransportRef SOSCloudTransportDefaultTransport(void)
 {
     static dispatch_once_t sTransportOnce;
-    static SOSCloudTransportRef sTransport = NULL;
     dispatch_once(&sTransportOnce, ^{
-        sTransport = SOSCloudTransportCreateXPCTransport();
-        // provide state handler to sysdiagnose and logging
-        os_state_add_handler(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), kvsStateBlock);
+        if (defaultTransport == NULL) {
+            defaultTransport = SOSCloudTransportCreateXPCTransport();
+            // provide state handler to sysdiagnose and logging
+            os_state_add_handler(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), kvsStateBlock);
+        }
     });
-    return sTransport;
+    return defaultTransport;
 }
 
 
@@ -199,7 +207,6 @@ struct SOSXPCCloudTransport
 {
     struct SOSCloudTransport transport;
     xpc_connection_t serviceConnection;
-    xpc_connection_t idsProxyServiceConnection;
     dispatch_queue_t xpc_queue;
 };
 
@@ -240,31 +247,6 @@ static bool xpc_event_filter(const xpc_connection_t peer, xpc_object_t event, CF
     return false;
 }
 
-static void setupIDSProxyServiceConnection(SOSXPCCloudTransportRef transport)
-{
-    secnotice(SOSCKCSCOPE, "IDS Transport: setting up xpc connection");
-    transport->idsProxyServiceConnection = xpc_connection_create_mach_service(xpcIDSServiceName, transport->xpc_queue, 0);
-    
-    secdebug(SOSCKCSCOPE, "ids service connection: %p\n", transport->idsProxyServiceConnection);
-    
-    xpc_connection_set_event_handler(transport->idsProxyServiceConnection, ^(xpc_object_t event) {
-        secdebug(SOSCKCSCOPE, "IDS Transport, xpc_connection_set_event_handler\n");
-        if(event == XPC_ERROR_CONNECTION_INVALID){
-            secnotice(SOSCKCSCOPE, "IDS Transport: xpc connection invalid. Oh well.");
-        }
-    });
-    
-    xpc_connection_activate(transport->idsProxyServiceConnection);
-}
-
-static void teardownIDSProxyServiceConnection(SOSXPCCloudTransportRef transport)
-{
-    secnotice(SOSCKCSCOPE, "IDS Transport: tearing down xpc connection");
-    dispatch_assert_queue(transport->xpc_queue);
-    xpc_release(transport->idsProxyServiceConnection);
-    transport->idsProxyServiceConnection = NULL;
-}
-
 static void setupServiceConnection(SOSXPCCloudTransportRef transport)
 {
     secnotice(SOSCKCSCOPE, "CKP Transport: setting up xpc connection");
@@ -297,77 +279,14 @@ static void SOSXPCCloudTransportInit(SOSXPCCloudTransportRef transport)
     transport->xpc_queue = dispatch_queue_create(xpcServiceName, DISPATCH_QUEUE_SERIAL);
     
     setupServiceConnection(transport);
-    setupIDSProxyServiceConnection(transport);
 
     // Any time a new session starts, reestablish the XPC connections.
     int token;
     notify_register_dispatch("com.apple.system.loginwindow.desktopUp", &token, transport->xpc_queue, ^(int token2) {
-        secnotice(SOSCKCSCOPE, "CKP/IDS Transport: desktopUp happened, reestablishing xpc connections");
+        secnotice(SOSCKCSCOPE, "CKP Transport: desktopUp happened, reestablishing xpc connections");
         teardownServiceConnection(transport);
         setupServiceConnection(transport);
-        teardownIDSProxyServiceConnection(transport);
-        setupIDSProxyServiceConnection(transport);
     });
-}
-
-static void talkWithIDS(SOSXPCCloudTransportRef transport, xpc_object_t message, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock)
-{
-    CFErrorRef connectionError = NULL;
-    
-    os_activity_t trace_activity = os_activity_start("talkWithIDS", OS_ACTIVITY_FLAG_DEFAULT);
-    require_action(transport->idsProxyServiceConnection, xit, connectionError = makeError(kSOSConnectionNotOpen));
-    require_action(message, xit, connectionError = makeError(kSOSObjectNotFoundError));
-    dispatch_retain(processQueue);
-    
-    xpc_connection_send_message_with_reply(transport->idsProxyServiceConnection, message, transport->xpc_queue, ^(xpc_object_t reply)
-                                           {
-                                               CFErrorRef serverError = NULL;
-                                               CFTypeRef object = NULL;
-                                               if (xpc_event_filter(transport->idsProxyServiceConnection, reply, &serverError) && reply)
-                                               {
-                                                   if (serverError)
-                                                       secerror("Error from xpc_event_filter: %@", serverError);
-                                                   xpc_object_t xrv = xpc_dictionary_get_value(reply, kMessageKeyValue);
-                                                   if (xrv)
-                                                   {
-                                                       /*
-                                                        * The given XPC object must be one that was previously returned by
-                                                        * _CFXPCCreateXPCMessageWithCFObject().
-                                                        */
-                                                       object = _CFXPCCreateCFObjectFromXPCObject(xrv);   // CF object is retained; release in callback
-                                                       secnotice("talkwithIDS", "converted CF object: %@", object);
-                                                   }
-                                                   else
-                                                       secerror("missing value reply");
-                                                   
-                                                   xpc_object_t xerror = xpc_dictionary_get_value(reply, kMessageKeyError);
-                                                   if (xerror)
-                                                       serverError = SecCreateCFErrorWithXPCObject(xerror);  // use SecCFCreateErrorWithFormat?
-                                               }
-                                               dispatch_async(processQueue, ^{
-                                                   if (replyBlock)
-                                                       replyBlock(object, serverError);
-                                                   CFReleaseSafe(object);
-                                                   if (serverError)
-                                                   {
-                                                       secerror("talkwithIDS callback error: %@", serverError);
-                                                       CFReleaseSafe(serverError);
-                                                   }
-                                                   dispatch_release(processQueue);
-                                               });
-                                           });
-    return;
-    
-xit:
-    secerror("talkWithIDS error: %@", connectionError);
-    dispatch_async(processQueue, ^{
-        if (replyBlock)
-            replyBlock(NULL, connectionError);
-        CFReleaseSafe(connectionError);
-        dispatch_release(processQueue);
-    });
-    
-    os_activity_end(trace_activity);
 }
 
 typedef void (^ProxyReplyBlock)(xpc_object_t reply);
@@ -522,105 +441,6 @@ static void SecXPCDictionarySetCFObject(xpc_object_t xdict, const char *key, CFT
     xpc_object_t xpc_obj = object ? _CFXPCCreateXPCObjectFromCFObject(object) : xpc_null_create();
     xpc_dictionary_set_value(xdict, key, xpc_obj);
     xpc_release(xpc_obj);
-}
-
-static void SOSCloudTransportGetIDSDeviceID(SOSCloudTransportRef transport, CloudKeychainReplyBlock replyBlock)
-{
-    dispatch_queue_t processQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-    
-    SOSXPCCloudTransportRef xpcTransport = (SOSXPCCloudTransportRef)transport;
-    
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_uint64(message, kMessageKeyVersion, kCKDXPCVersion);
-    xpc_dictionary_set_string(message, kMessageKeyOperation, kOperationGetDeviceID);
-    
-    talkWithIDS(xpcTransport, message, processQueue, replyBlock);
-    xpc_release(message);
-}
-
-static void SOSCloudTransportGetPerformanceStats(SOSCloudTransportRef transport, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock)
-{
-    SOSXPCCloudTransportRef xpcTransport = (SOSXPCCloudTransportRef)transport;
-    
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_uint64(message, kMessageKeyVersion, kCKDXPCVersion);
-    xpc_dictionary_set_string(message, kMessageKeyOperation, kOperationGetIDSPerfCounters);
-    
-    talkWithIDS(xpcTransport, message, processQueue, replyBlock);
-    xpc_release(message);
-}
-
-static void SOSCloudTransportSendFragmentedIDSMessage(SOSCloudTransportRef transport, CFDictionaryRef messageData, CFStringRef deviceName, CFStringRef peerID, CFStringRef myDeviceID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock){
-    
-    SOSXPCCloudTransportRef xpcTransport = (SOSXPCCloudTransportRef)transport;
-    xpc_object_t xmessageData = _CFXPCCreateXPCObjectFromCFObject(messageData);
-    
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_uint64(message, kMessageKeyVersion, kCKDXPCVersion);
-    xpc_dictionary_set_string(message, kMessageKeyOperation, kOperationSendFragmentedIDSMessage);
-
-    xpc_dictionary_set_value(message, kMessageKeyValue, xmessageData);
-    SecXPCDictionarySetCFObject(message, kMessageKeyDeviceName, deviceName);
-    SecXPCDictionarySetCFObject(message, kMessageKeyPeerID, peerID);
-    SecXPCDictionarySetCFObject(message, kMessageKeyDeviceID, myDeviceID);
-
-    talkWithIDS(xpcTransport, message, processQueue, replyBlock);
-    
-    xpc_release(xmessageData);
-    xpc_release(message);
-}
-
-static void SOSCloudTransportRetrievePendingMessagesInFlight(SOSCloudTransportRef transport, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock){
-
-    SOSXPCCloudTransportRef xpcTransport = (SOSXPCCloudTransportRef)transport;
-
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_uint64(message, kMessageKeyVersion, kCKDXPCVersion);
-    xpc_dictionary_set_string(message, kMessageKeyOperation, kOperationGetPendingMesages);
-
-    talkWithIDS(xpcTransport, message, processQueue, replyBlock);
-
-    xpc_release(message);
-}
-
-static void SOSCloudTransportCheckIDSDeviceIDAvailability(SOSCloudTransportRef transport, CFArrayRef ids, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock)
-{
-    secdebug(SOSCKCSCOPE, "start");
-    SOSXPCCloudTransportRef xpcTransport = (SOSXPCCloudTransportRef)transport;
-    
-    xpc_object_t xIDSArray = _CFXPCCreateXPCObjectFromCFObject(ids);
-    
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_uint64(message, kMessageKeyVersion, kCKDXPCVersion);
-    xpc_dictionary_set_string(message, kMessageKeyOperation, kOperationSendDeviceList);
-    
-    SecXPCDictionarySetCFObject(message, kMessageKeyPeerID, peerID);
-    xpc_dictionary_set_value(message, kMessageKeyValue, xIDSArray);
-    
-    talkWithIDS(xpcTransport, message, processQueue, replyBlock);
-    
-    xpc_release(xIDSArray);
-    xpc_release(message);
-    
-}
-
-static void SOSCloudTransportSendIDSMessage(SOSCloudTransportRef transport, CFDictionaryRef messageData, CFStringRef deviceName, CFStringRef peerID, CFStringRef myDeviceID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock){
-    
-    SOSXPCCloudTransportRef xpcTransport = (SOSXPCCloudTransportRef)transport;
-    xpc_object_t xmessageData = _CFXPCCreateXPCObjectFromCFObject(messageData);
-    
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_uint64(message, kMessageKeyVersion, kCKDXPCVersion);
-    xpc_dictionary_set_string(message, kMessageKeyOperation, kOperationSendIDSMessage);
-    
-    xpc_dictionary_set_value(message, kMessageKeyValue, xmessageData);
-    SecXPCDictionarySetCFObject(message, kMessageKeyDeviceName, deviceName);
-    SecXPCDictionarySetCFObject(message, kMessageKeyPeerID, peerID);
-    SecXPCDictionarySetCFObject(message, kMessageKeyDeviceID, myDeviceID);
-    talkWithIDS(xpcTransport, message, processQueue, replyBlock);
-    
-    xpc_release(xmessageData);
-    xpc_release(message);
 }
 
 static void SOSCloudTransportUpdateKeys(SOSCloudTransportRef transport,
@@ -833,11 +653,7 @@ static SOSCloudTransportRef SOSCloudTransportCreateXPCTransport(void)
     st = calloc(1, sizeof(*st));
     st->transport.put = SOSCloudTransportPut;
     st->transport.updateKeys = SOSCloudTransportUpdateKeys;
-    st->transport.sendIDSMessage = SOSCloudTransportSendIDSMessage;
-    st->transport.sendFragmentedIDSMessage = SOSCloudTransportSendFragmentedIDSMessage;
-    st->transport.retrieveMessages = SOSCloudTransportRetrievePendingMessagesInFlight;
 
-    st->transport.getDeviceID = SOSCloudTransportGetIDSDeviceID;
     st->transport.get = SOSCloudTransportGet;
     st->transport.getAll = SOSCloudTransportGetAll;
     st->transport.synchronize = SOSCloudTransportSync;
@@ -848,10 +664,8 @@ static SOSCloudTransportRef SOSCloudTransportCreateXPCTransport(void)
     st->transport.hasPendingKey = SOSCloudTransportHasPendingKey;
     st->transport.requestEnsurePeerRegistration = SOSCloudTransportRequestEnsurePeerRegistration;
     st->transport.requestPerfCounters = SOSCloudTransportRequestPerfCounters;
-    st->transport.getIDSDeviceAvailability = SOSCloudTransportCheckIDSDeviceIDAvailability;
     st->transport.flush = SOSCloudTransportFlush;
     st->transport.removeKeys = SOSCloudTransportRemoveKeys;
-    st->transport.counters = SOSCloudTransportGetPerformanceStats;
     st->transport.itemsChangedBlock = Block_copy(^CFArrayRef(CFDictionaryRef changes) {
         secerror("Calling default itemsChangedBlock - fatal: %@", changes);
         assert(false);
@@ -893,47 +707,6 @@ void SOSCloudKeychainRemoveKeys(CFArrayRef keys, CFStringRef accountUUID, dispat
         cTransportRef->removeKeys(cTransportRef, keys, accountUUID, processQueue, replyBlock);
 }
 
-void SOSCloudKeychainSendIDSMessage(CFDictionaryRef message, CFStringRef deviceName, CFStringRef peerID, CFStringRef myDeviceID, dispatch_queue_t processQueue, CFBooleanRef fragmentation, CloudKeychainReplyBlock replyBlock)
-{
-    SOSCloudTransportRef cTransportRef = SOSCloudTransportDefaultTransport();
-   
-    if(cTransportRef && fragmentation == kCFBooleanTrue)
-        cTransportRef->sendFragmentedIDSMessage(cTransportRef, message, deviceName, peerID, myDeviceID, processQueue, replyBlock);
-    else if(cTransportRef)
-        cTransportRef->sendIDSMessage(cTransportRef, message, deviceName, peerID, myDeviceID, processQueue, replyBlock);
-
-}
-
-void SOSCloudKeychainRetrievePendingMessageFromProxy(dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock)
-{
-    SOSCloudTransportRef cTransportRef = SOSCloudTransportDefaultTransport();
-
-    if(cTransportRef)
-        cTransportRef->retrieveMessages(cTransportRef, processQueue, replyBlock);
-
-}
-void SOSCloudKeychainRetrieveCountersFromIDSProxy(dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock)
-{
-    SOSCloudTransportRef cTransportRef = SOSCloudTransportDefaultTransport();
-    
-    if(cTransportRef)
-        cTransportRef->counters(cTransportRef, processQueue, replyBlock);
-    
-}
-void SOSCloudKeychainGetIDSDeviceID(CloudKeychainReplyBlock replyBlock)
-{
-    SOSCloudTransportRef cTransportRef = SOSCloudTransportDefaultTransport();
-    if (cTransportRef)
-         cTransportRef->getDeviceID(cTransportRef, replyBlock);
-    
-}
-void SOSCloudKeychainGetIDSDeviceAvailability(CFArrayRef ids, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock){
-    
-    SOSCloudTransportRef cTransportRef = SOSCloudTransportDefaultTransport();
-    
-    if (cTransportRef)
-        cTransportRef->getIDSDeviceAvailability(cTransportRef, ids, peerID, processQueue, replyBlock);
-}
 CF_RETURNS_RETAINED CFArrayRef SOSCloudKeychainHandleUpdateMessage(CFDictionaryRef updates)
 {
     CFArrayRef result = NULL;

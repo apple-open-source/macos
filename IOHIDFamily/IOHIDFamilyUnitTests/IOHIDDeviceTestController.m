@@ -12,12 +12,21 @@
 static void HIDManagerDeviceAddedCallback ( void * _Nullable context, IOReturn  result, void * _Nullable  sender, IOHIDDeviceRef device);
 static void HIDManagerDeviceRemovedCallback ( void * _Nullable context, IOReturn  result, void * _Nullable  sender, IOHIDDeviceRef device);
 static void HIDDeviceValueCallback (void * _Nullable  context, IOReturn result, void * _Nullable  sender, IOHIDValueRef value);
+static void HIDDeviceReportCallback (void * _Nullable        context,
+                                     IOReturn                result,
+                                     void * _Nullable        sender,
+                                     IOHIDReportType         type,
+                                     uint32_t                reportID,
+                                     uint8_t *               report,
+                                     CFIndex                 reportLength);
+
 
 
 @implementation IOHIDDeviceTestController {
     CFRunLoopRef            runloop;
     id                      deviceUniqueID;
     dispatch_semaphore_t    sema;
+    uint8_t                 _report[0xffff];
 }
 
 -(nullable instancetype) initWithDeviceUniqueID: (nonnull id) deviceID :(nonnull CFRunLoopRef) runLoop {
@@ -43,6 +52,7 @@ static void HIDDeviceValueCallback (void * _Nullable  context, IOReturn result, 
     self->runloop = runLoop;
     
     self.values = [[NSMutableArray alloc] init];
+    self.reports = [[NSMutableArray alloc] init];
 
     self->sema = dispatch_semaphore_create(0);
 
@@ -88,6 +98,7 @@ static void HIDDeviceValueCallback (void * _Nullable  context, IOReturn result, 
         self->_device = (IOHIDDeviceRef) CFRetain(device);
         TestLog("ManagerDeviceAdded: %@\n", self.device);
         IOHIDDeviceRegisterInputValueCallback (self.device, HIDDeviceValueCallback, (__bridge void * _Nullable)(self));
+        IOHIDDeviceRegisterInputReportCallback(self.device, _report, sizeof(_report), HIDDeviceReportCallback, (__bridge void * _Nullable)(self));
         IOHIDDeviceOpen(self.device, 0);
         dispatch_semaphore_signal (self->sema);
     }
@@ -110,11 +121,24 @@ static void HIDDeviceValueCallback (void * _Nullable  context, IOReturn result, 
     }
     IOHIDElementRef element = IOHIDValueGetElement(value);
     valueDict [@"element"]    = (__bridge id _Nullable)(element);
-    @synchronized (self.values) {
+    @synchronized (self) {
         [self.values addObject:valueDict];
     }
     TestLog("DeviceValueCallback: %@\n", valueDict);
 }
+
+-(void)DeviceReportCallback: (IOHIDReportType) type :(uint32_t)reportID :(uint8_t *)report :(CFIndex)reportLength {
+    NSMutableDictionary *reportDict = [[NSMutableDictionary alloc] initWithCapacity:2];
+    reportDict[@"type"] = @(type);
+    reportDict[@"reportID"] = @(reportID);
+    reportDict[@"data"] = [NSData dataWithBytes:report length:reportLength];
+    @synchronized (self) {
+        [self.reports addObject:reportDict];
+    }
+    TestLog("DeviceReportCallback: %@\n", reportDict);
+}
+
+
 
 -(void)invalidate {
     if (self->runloop) {
@@ -160,4 +184,20 @@ void HIDDeviceValueCallback (void * _Nullable  context, IOReturn result, void * 
         TestLog("HIDDeviceValueCallback: result:0x%x\n", result);
     }
     [self DeviceValueCallback : value];
+}
+
+void HIDDeviceReportCallback (void * _Nullable        context,
+                              IOReturn                result,
+                              void * _Nullable        sender __unused,
+                              IOHIDReportType         type,
+                              uint32_t                reportID,
+                              uint8_t *               report,
+                              CFIndex                 reportLength) {
+
+    IOHIDDeviceTestController *self = (__bridge IOHIDDeviceTestController *)context;
+    if (result) {
+        TestLog("HIDDeviceReportCallback: result:0x%x\n", result);
+        return;
+    }
+    [self DeviceReportCallback :type :reportID :report :reportLength];
 }

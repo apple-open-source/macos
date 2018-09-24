@@ -43,7 +43,7 @@
 @class WebView;
 @class WebEditorUndoTarget;
 
-class WebEditorClient final : public WebCore::EditorClient, public WebCore::TextCheckerClient {
+class WebEditorClient final : public WebCore::EditorClient, public WebCore::TextCheckerClient, public CanMakeWeakPtr<WebEditorClient> {
 public:
     WebEditorClient(WebView *);
     virtual ~WebEditorClient();
@@ -78,6 +78,7 @@ private:
     void willWriteSelectionToPasteboard(WebCore::Range*) final;
     void didWriteSelectionToPasteboard() final;
     void getClientPasteboardDataForRange(WebCore::Range*, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer>>& pasteboardData) final;
+    String replacementURLForResource(Ref<WebCore::SharedBuffer>&& resourceData, const String& mimeType) final;
 
     void setInsertionPasteboard(const String&) final;
 
@@ -192,8 +193,6 @@ private:
 
     enum class EditorStateIsContentEditable { No, Yes, Unset };
     EditorStateIsContentEditable m_lastEditorStateWasContentEditable { EditorStateIsContentEditable::Unset };
-
-    WeakPtrFactory<WebEditorClient> m_weakPtrFactory;
 };
 
 inline NSSelectionAffinity kit(WebCore::EAffinity affinity)

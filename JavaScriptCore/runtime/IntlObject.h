@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Andy VanWagoner (thetalecrafter@gmail.com)
+ * Copyright (C) 2015 Andy VanWagoner (andy@vanwagoner.family)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,8 +38,10 @@ class IntlDateTimeFormatConstructor;
 class IntlDateTimeFormatPrototype;
 class IntlNumberFormatConstructor;
 class IntlNumberFormatPrototype;
+class IntlPluralRulesConstructor;
+class IntlPluralRulesPrototype;
 
-class IntlObject : public JSNonFinalObject {
+class IntlObject final : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
     static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot;

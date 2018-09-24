@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,7 @@
 #import "StringUtilities.h"
 #import "WebPopupItem.h"
 #import <pal/system/mac/PopupMenu.h>
+#import <wtf/ProcessPrivilege.h>
 
 using namespace WebCore;
 
@@ -98,9 +99,10 @@ void WebPopupMenuProxyMac::populate(const Vector<WebPopupItem>& items, NSFont *f
 
 void WebPopupMenuProxyMac::showPopupMenu(const IntRect& rect, TextDirection textDirection, double pageScaleFactor, const Vector<WebPopupItem>& items, const PlatformPopupMenuData& data, int32_t selectedIndex)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     NSFont *font;
     if (data.fontInfo.fontAttributeDictionary) {
-        NSFontDescriptor *fontDescriptor = [NSFontDescriptor fontDescriptorWithFontAttributes:(NSDictionary *)data.fontInfo.fontAttributeDictionary.get()];
+        NSFontDescriptor *fontDescriptor = [NSFontDescriptor fontDescriptorWithFontAttributes:(__bridge NSDictionary *)data.fontInfo.fontAttributeDictionary.get()];
         font = [NSFont fontWithDescriptor:fontDescriptor size:((pageScaleFactor != 1) ? [fontDescriptor pointSize] * pageScaleFactor : 0)];
     } else
         font = [NSFont menuFontOfSize:0];
@@ -127,24 +129,15 @@ void WebPopupMenuProxyMac::showPopupMenu(const IntRect& rect, TextDirection text
         if (titleFrame.size.width <= 0 || titleFrame.size.height <= 0)
             titleFrame = rect;
         float verticalOffset = roundf((NSMaxY(rect) - NSMaxY(titleFrame)) + NSHeight(titleFrame)) + 1;
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
         if (textDirection == LTR)
             location = NSMakePoint(NSMinX(rect) + popOverHorizontalAdjust, NSMaxY(rect) - verticalOffset);
         else
             location = NSMakePoint(NSMaxX(rect) - popOverHorizontalAdjust, NSMaxY(rect) - verticalOffset);
-#else
-        location = NSMakePoint(NSMinX(rect) + popOverHorizontalAdjust, NSMaxY(rect) - verticalOffset);
-#endif
-
     } else {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
         if (textDirection == LTR)
             location = NSMakePoint(NSMinX(rect) + popUnderHorizontalAdjust, NSMaxY(rect) + popUnderVerticalAdjust);
         else
             location = NSMakePoint(NSMaxX(rect) - popUnderHorizontalAdjust, NSMaxY(rect) + popUnderVerticalAdjust);
-#else
-        location = NSMakePoint(NSMinX(rect) + popUnderHorizontalAdjust, NSMaxY(rect) + popUnderVerticalAdjust);
-#endif
     }
     RetainPtr<NSView> dummyView = adoptNS([[NSView alloc] initWithFrame:rect]);
     [dummyView.get() setUserInterfaceLayoutDirection:textDirection == LTR ? NSUserInterfaceLayoutDirectionLeftToRight : NSUserInterfaceLayoutDirectionRightToLeft];

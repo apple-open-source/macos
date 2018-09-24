@@ -27,6 +27,7 @@
 				596ED75B0FD5A86300CCB493 /* SysLibLD rsync.plist */,
 				2B4EC75D1ED372B100EA5042 /* enable all interfaces & ipv6 on bridgeOS */,
 				596ED7740FD5A9AB00CCB493 /* plutil & chmod */,
+				DAC128BF209D2F610098AD54 /* install debug config */,
 			);
 			dependencies = (
 			);
@@ -757,6 +758,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "cd ${PROJECT_TEMP_DIR}\nln -fs ${BUILT_PRODUCTS_DIR}/* .\nln -fs ${SRCROOT}/shconfig .\nprintf \"[TEST] rsync\\n\"\nsrcdir=${SRCROOT}/rsync rsync_bin=${BUILT_PRODUCTS_DIR}/rsync ${SRCROOT}/rsync/runtests.sh | sed -E -e 's:(PASS|FAIL):[\\1]:' -e 's:SKIP:[WARN]:'\nrc=$?\nprintf \"[SUMMARY] rsync\\n\"\nexit $rc";
+			showEnvVarsInLog = 0;
+		};
+		DAC128BF209D2F610098AD54 /* install debug config */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "install debug config";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"${SRCROOT}/xcscripts/install-debug-config.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

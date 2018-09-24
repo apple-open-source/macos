@@ -74,9 +74,6 @@
 
 #define MAXPACKET 1024
 
-extern void res_client_close(res_state res);
-extern int __res_nquery(res_state statp, const char *name, int class, int type, u_char *answer, int anslen);
-extern int dns_res_send(res_state statp, const u_char *buf, int buflen, u_char *ans, int *anssiz, struct sockaddr *from, int *fromlen);
 extern void _check_cache(sdns_handle_t *sdns);
 extern int _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type, uint32_t fqdn, uint32_t recurse, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen, int *min);
 extern int _pdns_search(sdns_handle_t *sdns, pdns_handle_t *pdns, const char *name, uint32_t class, uint32_t type, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen);
@@ -316,6 +313,7 @@ _dns_parse_domain_name(const char *p, char **x, int32_t *remaining)
 	return name;
 }
 
+static
 dns_resource_record_t *
 _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 {
@@ -742,6 +740,7 @@ dns_parse_resource_record(const char *buf, uint32_t len)
 	return _dns_parse_resource_record_internal(buf, &x, &remaining);
 }
 
+static
 dns_question_t *
 _dns_parse_question_internal(const char *p, char **x, int32_t *remaining)
 {
@@ -1159,55 +1158,6 @@ _dns_append_resource_record(dns_resource_record_t *r, char **s, uint16_t *l)
 	}
 }
 
-char *
-dns_build_reply(dns_reply_t *dnsr, uint16_t *rl)
-{
-	uint16_t i, len;
-	dns_header_t *h;
-	char *s, *x;
-
-	if (dnsr == NULL) return NULL;
-
-	len = NS_HFIXEDSZ;
-
-	s = malloc(len);
-	x = s + len;
-
-	memset(s, 0, len);
-	*rl = len;
-
-	h = (dns_header_t *)s;
-
-	h->xid = htons(dnsr->header->xid);
-	h->flags = htons(dnsr->header->flags);
-	h->qdcount = htons(dnsr->header->qdcount);
-	h->ancount = htons(dnsr->header->ancount);
-	h->nscount = htons(dnsr->header->nscount);
-	h->arcount = htons(dnsr->header->arcount);
-
-	for (i = 0; i < dnsr->header->qdcount; i++)
-	{
-		_dns_append_question(dnsr->question[i], &s, rl);
-	}
-
-	for (i = 0; i < dnsr->header->ancount; i++)
-	{
-		_dns_append_resource_record(dnsr->answer[i], &s, rl);
-	}
-
-	for (i = 0; i < dnsr->header->nscount; i++)
-	{
-		_dns_append_resource_record(dnsr->authority[i], &s, rl);
-	}
-
-	for (i = 0; i < dnsr->header->arcount; i++)
-	{
-		_dns_append_resource_record(dnsr->additional[i], &s, rl);
-	}
-
-	return s;
-}
-
 void
 dns_free_question(dns_question_t *q)
 {
@@ -1247,6 +1197,7 @@ dns_get_buffer_size(dns_handle_t d)
 	return dns->recvsize;
 }
 
+static
 dns_reply_t *
 dns_lookup_soa_min(dns_handle_t d, const char *name, uint32_t class, uint32_t type, int *min)
 {

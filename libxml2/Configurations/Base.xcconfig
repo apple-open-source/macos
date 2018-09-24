@@ -41,7 +41,10 @@ PREBINDING = NO;
 // WARNING_CFLAGS = -Wall -Wextra -Wcast-qual -Wchar-subscripts -Wextra-tokens -Wformat=2 -Winit-self -Wmissing-noreturn -Wpacked -Wpointer-arith -Wredundant-decls -Wundef -Wwrite-strings;
 WARNING_CFLAGS = -Wformat=2 -Wformat-security -Wmissing-format-attribute;
 STRIP_INSTALLED_PRODUCT = YES;
-HEADER_SEARCH_PATHS = libxml2/include "Pregenerated Files/include";
+HEADER_SEARCH_PATHS = $(LIBXML2_HEADER_PATH);
+LIBXML2_HEADER_PATH = $(LIBXML2_HEADER_PATH_$(DEPLOYMENT_LOCATION));
+LIBXML2_HEADER_PATH_NO = $(SYMROOT)/$(CONFIGURATION)/usr/include/libxml2;
+LIBXML2_HEADER_PATH_YES = $(DSTROOT)/usr/include/libxml2;
 
 DEBUG_DEFINES = $(DEBUG_DEFINES_$(CONFIGURATION));
 DEBUG_DEFINES_Debug = ;

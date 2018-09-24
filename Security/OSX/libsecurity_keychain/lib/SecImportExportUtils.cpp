@@ -760,6 +760,7 @@ static CSSM_RETURN impExpCreatePassKey(
 		&ccHand);
 	if(crtn) {
 		SecImpExpDbg("impExpCreatePassKey: CSSM_CSP_CreateKeyGenContext error");
+		free(ourKey);
 		return crtn;
 	}
 	/* subsequent errors to errOut: */

@@ -48,7 +48,7 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
 
     [self startCKKSSubsystem];
-    OCMVerifyAllWithDelay(self.mockDatabase, 4);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testCoalesceAddModifyModifyItem {
@@ -64,7 +64,7 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
 
     [self startCKKSSubsystem];
-    OCMVerifyAllWithDelay(self.mockDatabase, 4);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testCoalesceAddModifyDeleteItem {
@@ -79,7 +79,7 @@
     // We expect no uploads.
     [self startCKKSSubsystem];
     [self.keychainView waitUntilAllOperationsAreFinished];
-    OCMVerifyAllWithDelay(self.mockDatabase, 4);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testCoalesceDeleteAddItem {
@@ -92,7 +92,7 @@
     // We expect a single record to be uploaded.
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
-    OCMVerifyAllWithDelay(self.mockDatabase, 4);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
     // Okay, now the delete/add. Note that this is not a coalescing operation, since the new item
@@ -112,7 +112,7 @@
             checkModifiedRecord:nil
            runAfterModification:nil];
     self.keychainView.operationQueue.suspended = NO;
-    OCMVerifyAllWithDelay(self.mockDatabase, 4);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 @end

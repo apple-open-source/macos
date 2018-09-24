@@ -40,6 +40,7 @@
 #import "CKKSItemEncrypter.h"
 #import "CKKSKey.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 
 @implementation CKKSOutgoingQueueEntry

@@ -67,6 +67,8 @@ void IPv6AWDReportSetDHCPv6AddressAcquired(IPv6AWDReportRef report);
 void IPv6AWDReportSetDHCPv6DNSServers(IPv6AWDReportRef report);
 void IPv6AWDReportSetDHCPv6DNSDomainList(IPv6AWDReportRef report);
 void IPv6AWDReportSetManualAddressConfigured(IPv6AWDReportRef report);
+void IPv6AWDReportSetXLAT464Enabled(IPv6AWDReportRef report);
+void IPv6AWDReportSetXLAT464PLATDiscoveryFailed(IPv6AWDReportRef report);
 void IPv6AWDReportSetPrefixPreferredLifetime(IPv6AWDReportRef report,
 					     uint32_t lifetime);
 void IPv6AWDReportSetPrefixValidLifetime(IPv6AWDReportRef report,

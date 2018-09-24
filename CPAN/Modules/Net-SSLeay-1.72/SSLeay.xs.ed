@@ -1,0 +1,4 @@
+/#undef BLOCK/a
+#define OPENSSL_NO_SSL_INTERN 1
+.
+w

@@ -614,16 +614,21 @@ static inline CFMutableArrayRef CFArrayCreateDifference(CFAllocatorRef alloc, CF
 //
 static inline CFArrayRef CFArrayCreateCountedForVC(CFAllocatorRef allocator, const CFArrayCallBacks *cbs, CFIndex entries, va_list args)
 {
-    const void *values[entries ? entries : 1];
-    for (CFIndex currentValue = 0; currentValue < entries; ++currentValue)
-    {
-        values[currentValue] = va_arg(args, void*);
-        
-        if (values[currentValue] == NULL)
-            values[currentValue] = kCFNull;
+    CFMutableArrayRef array = CFArrayCreateMutable(allocator, entries, cbs);
+    if (array == NULL) {
+        return NULL;
+    }
+    for (CFIndex currentValue = 0; currentValue < entries; ++currentValue) {
+        const void * value = va_arg(args, const void *);
+        if (value == NULL) {
+            value = kCFNull;
+        }
+        CFArrayAppendValue(array, value);
     }
 
-    return CFArrayCreate(allocator, values, entries, cbs);
+    CFArrayRef constArray = CFArrayCreateCopy(allocator, array);
+    CFRelease(array);
+    return constArray;
 }
 
 static inline CFArrayRef CFArrayCreateForVC(CFAllocatorRef allocator, const CFArrayCallBacks *cbs, va_list args)
@@ -637,7 +642,6 @@ static inline CFArrayRef CFArrayCreateForVC(CFAllocatorRef allocator, const CFAr
     }
 
     return CFArrayCreateCountedForVC(allocator, cbs, entries, args);
-    
 }
 
 
@@ -722,20 +726,25 @@ static void CFDictionarySetIfNonNull(CFMutableDictionaryRef dictionary, const vo
 
 static inline CFDictionaryRef CFDictionaryCreateCountedForCFTypesV(CFAllocatorRef allocator, CFIndex entries, va_list args)
 {
-    const void *keys[entries];
-    const void *values[entries];
-    
-    for(CFIndex currentValue = 0; currentValue < entries; ++currentValue)
-    {
-        keys[currentValue] = va_arg(args, void*);
-        values[currentValue] = va_arg(args, void*);
-        
-        if (values[currentValue] == NULL)
-            values[currentValue] = kCFNull;
+    CFMutableDictionaryRef dictionary = CFDictionaryCreateMutable(allocator, entries,
+                                                                  &kCFTypeDictionaryKeyCallBacks,
+                                                                  &kCFTypeDictionaryValueCallBacks);
+    if (dictionary == NULL) {
+        return NULL;
+    }
+
+    for(CFIndex currentValue = 0; currentValue < entries; ++currentValue) {
+        CFTypeRef key = va_arg(args, CFTypeRef);
+        CFTypeRef value = va_arg(args, CFTypeRef);
+        if (value == NULL) {
+            value = kCFNull;
+        }
+        CFDictionarySetValue(dictionary, key, value);
     }
     
-    return CFDictionaryCreate(allocator, keys, values, entries,
-                              &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionaryRef constDictionary = CFDictionaryCreateCopy(allocator, dictionary);
+    CFRelease(dictionary);
+    return constDictionary;
 }
 
 static inline CFDictionaryRef SECWRAPPER_SENTINEL CFDictionaryCreateForCFTypes(CFAllocatorRef allocator, ...)
@@ -905,8 +914,8 @@ static inline void CFSetTransferObject(CFTypeRef object, CFMutableSetRef from, C
 // MARK: CFStringXxx Helpers
 //
 
-void CFStringArrayPerfromWithDelimeterWithDescription(CFArrayRef strings, CFStringRef start, CFStringRef end, void (^action)(CFStringRef description));
-void CFStringArrayPerfromWithDescription(CFArrayRef strings, void (^action)(CFStringRef description));
+void CFStringArrayPerformWithDelimiterWithDescription(CFArrayRef strings, CFStringRef start, CFStringRef end, void (^action)(CFStringRef description));
+void CFStringArrayPerformWithDescription(CFArrayRef strings, void (^action)(CFStringRef description));
 void CFStringSetPerformWithDescription(CFSetRef set, void (^action)(CFStringRef description));
 
 //

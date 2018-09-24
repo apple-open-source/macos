@@ -308,7 +308,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         sscanf(sb.f_mntfromname + 5, "disk%d", &unit);
         snprintf(wholeDiskBSD, sizeof wholeDiskBSD, "disk%d", unit);
         if (!actargs[kapfsdriver].present) {
-            snprintf(pathBuf, sizeof pathBuf, "%s/%s", actargs[kmount].argument, kBL_PATH_I386_APFS_EFI);
+            snprintf(pathBuf, sizeof pathBuf, "%s%s", actargs[kmount].argument, kBL_PATH_I386_APFS_EFI);
             ret = BLLoadFile(context, pathBuf, 0, &apfsDriverData);
         } else {
             ret = BLLoadFile(context, actargs[kapfsdriver].argument, 0, &apfsDriverData);
@@ -696,7 +696,8 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
             }
             
             bootEFISource = (shouldBless && actargs[kbootefi].present) ? actargs[kbootefi].argument : NULL;
-            ret = BlessPrebootVolume(context, sb.f_mntfromname + 5, bootEFISource, labeldata, labeldata2);
+            ret = BlessPrebootVolume(context, sb.f_mntfromname + 5, bootEFISource, labeldata, labeldata2,
+                                     actargs[knextonly].present == 0);
             if (ret) {
                 blesscontextprintf(context, kBLLogLevelError,  "Couldn't bless the APFS preboot volume for volume mounted at %s: %s\n",
                                    actargs[kmount].argument, strerror(errno));

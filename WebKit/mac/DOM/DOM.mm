@@ -530,7 +530,7 @@ id <DOMEventTarget> kit(EventTarget* target)
 + (id)_nodeFromJSWrapper:(JSObjectRef)jsWrapper
 {
     JSObject* object = toJS(jsWrapper);
-    if (!object->inherits(*object->vm(), JSNode::info()))
+    if (!object->inherits<JSNode>(*object->vm()))
         return nil;
     return kit(&jsCast<JSNode*>(object)->wrapped());
 }
@@ -751,7 +751,7 @@ id <DOMEventTarget> kit(EventTarget* target)
         return true;
 
     Document& document = link.document();
-    auto mediaQuerySet = MediaQuerySet::create(media);
+    auto mediaQuerySet = MediaQuerySet::create(media, MediaQueryParserContext(document));
     return MediaQueryEvaluator { "screen", document, document.renderView() ? &document.renderView()->style() : nullptr }.evaluate(mediaQuerySet.get());
 }
 

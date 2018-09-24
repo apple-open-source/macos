@@ -279,6 +279,13 @@ typedef enum {
 } BRBlessStyle;
 typedef uint32_t BRCopyFilesOpts;
 #define  kBROptsNone        0x0
+// Return EX_OSFILE if boot files were not up-to-date (0 if they were).
+// There are several side effects of this flag, including skipping unnecessary
+// actions like regenerating disk labels.
+#define  kBRUExpectUpToDate  0x8
+// Do not attempt to copy or generate the FDE resources in the event the volume
+// is CSFDE.
+#define  kBROptsNoFDEResCopy 0x10
 #define  kBRAnyBootStamps   0x10000   // any bootstamps written to top level
 // Use the designated staging directory. Requires targetDir == NULL.
 // Clients using this flag are responsible for unmounting the target volume.

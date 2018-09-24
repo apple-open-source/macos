@@ -192,7 +192,7 @@ fi
  inline int FILTER 	= '$filter';
  inline int PID 	= '$pid';
  inline string DEVICE 	= "'$device'";
- inline string FILENAME = "'$filename'";
+ inline string FILENAME = "'"$filename"'";
  inline string MOUNT 	= "'$mount'";
  inline string NAME 	= "'$pname'";
  

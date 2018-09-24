@@ -93,7 +93,7 @@ CFStringRef kSOSFullPeerInfoSignatureKey = CFSTR("SOSFullPeerInfoSignature");
 CFStringRef kSOSFullPeerInfoNameKey = CFSTR("SOSFullPeerInfoName");
 
 
-static bool SOSFullPeerInfoUpdate(SOSFullPeerInfoRef fullPeerInfo, CFErrorRef *error, SOSPeerInfoRef (^create_modification)(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error)) {
+bool SOSFullPeerInfoUpdate(SOSFullPeerInfoRef fullPeerInfo, CFErrorRef *error, SOSPeerInfoRef (^create_modification)(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error)) {
     bool result = false;
     
     SOSPeerInfoRef newPeer = NULL;
@@ -180,37 +180,6 @@ SOSFullPeerInfoRef SOSFullPeerInfoCopyFullPeerInfo(SOSFullPeerInfoRef toCopy) {
 errOut:
     CFReleaseNull(fpi);
     return retval;
-}
-
-bool SOSFullPeerInfoUpdateTransportType(SOSFullPeerInfoRef peer, CFStringRef transportType, CFErrorRef* error)
-{
-    return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
-        return SOSPeerInfoSetTransportType(kCFAllocatorDefault, peer, transportType, key, error);
-    });
-}
-
-bool SOSFullPeerInfoUpdateDeviceID(SOSFullPeerInfoRef peer, CFStringRef deviceID, CFErrorRef* error){
-    return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
-        return SOSPeerInfoSetDeviceID(kCFAllocatorDefault, peer, deviceID, key, error);
-    });
-}
-
-bool SOSFullPeerInfoUpdateTransportPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error){
-    return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
-        return SOSPeerInfoSetIDSPreference(kCFAllocatorDefault, peer, preference, key, error);
-    });
-}
-
-bool SOSFullPeerInfoUpdateTransportFragmentationPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error){
-    return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
-        return SOSPeerInfoSetIDSFragmentationPreference(kCFAllocatorDefault, peer, preference, key, error);
-    });
-}
-
-bool SOSFullPeerInfoUpdateTransportAckModelPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error){
-    return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
-        return SOSPeerInfoSetIDSACKModelPreference(kCFAllocatorDefault, peer, preference, key, error);
-    });
 }
 
 bool SOSFullPeerInfoUpdateOctagonSigningKey(SOSFullPeerInfoRef peer, SecKeyRef octagonSigningKey, CFErrorRef* error){
@@ -434,11 +403,6 @@ static bool sosFullPeerInfoRequiresUpdate(SOSFullPeerInfoRef peer, CFSetRef mini
     
     if(!SOSPeerInfoVersionIsCurrent(peer->peer_info)) return true;
     if(!SOSPeerInfoSerialNumberIsSet(peer->peer_info)) return true;
-    if(!(SOSPeerInfoV2DictionaryHasString(peer->peer_info, sDeviceID)))return true;
-    if(!(SOSPeerInfoV2DictionaryHasString(peer->peer_info, sTransportType))) return true;
-    if(!(SOSPeerInfoV2DictionaryHasBoolean(peer->peer_info, sPreferIDS))) return true;
-    if(!(SOSPeerInfoV2DictionaryHasBoolean(peer->peer_info, sPreferIDSFragmentation))) return true;
-    if(!(SOSPeerInfoV2DictionaryHasBoolean(peer->peer_info, sPreferIDSACKModel))) return true;
     if(SOSFullPeerInfoNeedsViewUpdate(peer, minimumViews, excludedViews)) return true;
 
     return false;
@@ -485,35 +449,6 @@ SOSViewResultCode SOSFullPeerInfoViewStatus(SOSFullPeerInfoRef peer, CFStringRef
     if(!pi) return kSOSCCGeneralViewError;
     return SOSPeerInfoViewStatus(pi, viewname, error);
 }
-
-
-SOSSecurityPropertyResultCode SOSFullPeerInfoUpdateSecurityProperty(SOSFullPeerInfoRef peer, SOSViewActionCode action, CFStringRef property, CFErrorRef* error)
-{
-    SOSSecurityPropertyResultCode retval = kSOSCCGeneralSecurityPropertyError;
-    SecKeyRef device_key = SOSFullPeerInfoCopyDeviceKey(peer, error);
-    require_quiet(device_key, fail);
-    
-    SOSPeerInfoRef newPeer = SOSPeerInfoCopyWithSecurityPropertyChange(kCFAllocatorDefault, peer->peer_info, action, property, &retval, device_key, error);
-    
-    require_quiet(newPeer, fail);
-    
-    CFReleaseNull(peer->peer_info);
-    peer->peer_info = newPeer;
-    newPeer = NULL;
-    
-fail:
-    CFReleaseNull(device_key);
-    return retval;
-}
-
-SOSSecurityPropertyResultCode SOSFullPeerInfoSecurityPropertyStatus(SOSFullPeerInfoRef peer, CFStringRef property, CFErrorRef *error)
-{
-    SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(peer);
-    secnotice("secprop", "have pi %s", (pi)? "true": "false");
-    if(!pi) return kSOSCCGeneralSecurityPropertyError;
-    return SOSPeerInfoSecurityPropertyStatus(pi, property, error);
-}
-
 
 SOSPeerInfoRef SOSFullPeerInfoGetPeerInfo(SOSFullPeerInfoRef fullPeer) {
     return fullPeer?fullPeer->peer_info:NULL;

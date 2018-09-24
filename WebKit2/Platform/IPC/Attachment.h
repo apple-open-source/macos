@@ -31,6 +31,10 @@
 #include <mach/mach_traps.h>
 #endif
 
+#if OS(WINDOWS)
+#include <windows.h>
+#endif
+
 namespace IPC {
 
 class Decoder;
@@ -78,7 +82,7 @@ public:
     mach_port_name_t port() const { return m_port; }
     mach_msg_type_name_t disposition() const { return m_disposition; }
 #elif OS(WINDOWS)
-    HANDLE handle() { return m_handle; }
+    HANDLE handle() const { return m_handle; }
 #endif
 
     void encode(Encoder&) const;
@@ -94,7 +98,7 @@ private:
     mach_port_name_t m_port;
     mach_msg_type_name_t m_disposition;
 #elif OS(WINDOWS)
-    HANDLE m_handle;
+    HANDLE m_handle { INVALID_HANDLE_VALUE };
 #endif
 };
 

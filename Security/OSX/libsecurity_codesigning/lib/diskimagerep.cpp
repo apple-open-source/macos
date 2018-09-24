@@ -25,6 +25,7 @@
 // diskimagerep - DiskRep representing a single read-only compressed disk image file
 //
 #include "diskimagerep.h"
+#include "notarization.h"
 #include "sigblob.h"
 #include "CodeSigner.h"
 #include <security_utilities/endian.h>
@@ -233,6 +234,15 @@ void DiskImageRep::Writer::flush()
 //
 void DiskImageRep::Writer::addDiscretionary(CodeDirectory::Builder &builder)
 {
+}
+
+void DiskImageRep::registerStapledTicket()
+{
+	CFRef<CFDataRef> data = NULL;
+	if (mSigningData) {
+		data.take(mSigningData->component(cdTicketSlot));
+		registerStapledTicketInDMG(data);
+	}
 }
 
 

@@ -32,7 +32,7 @@
 #include "Utilities.h"
 #include "misc.h"
 
-static const CFStringRef kSecCustom = CFSTR("CustomTransform");
+const CFStringRef kSecCustom = CFSTR("CustomTransform");
 const CFStringRef kSecTransformPreviousErrorKey = CFSTR("PreviousError");
 const CFStringRef kSecTransformAbortOriginatorKey = CFSTR("Originating Transform");
 const CFStringRef kSecTransformActionCanExecute = CFSTR("CanExecute");
@@ -303,14 +303,14 @@ public:
 };
 
 
-static SecTransformActionBlock default_can_run = ^{ return (CFTypeRef)NULL; };
-static SecTransformActionBlock default_execute_starting = default_can_run;
-static SecTransformActionBlock default_finalize = default_execute_starting;
-static SecTransformActionBlock default_externalize_data = default_finalize;
+static const SecTransformActionBlock default_can_run = ^{ return (CFTypeRef)NULL; };
+static const SecTransformActionBlock default_execute_starting = default_can_run;
+static const SecTransformActionBlock default_finalize = default_execute_starting;
+static const SecTransformActionBlock default_externalize_data = default_finalize;
 
-static SecTransformDataBlock default_process_data = ^(CFTypeRef value) { return value; };
+static const SecTransformDataBlock default_process_data = ^(CFTypeRef value) { return value; };
 //static SecTransformDataBlock default_validate = ^(CFTypeRef value) { return (CFTypeRef)NULL; };
-static SecTransformAttributeActionBlock default_generic_attribute_set_notification = 
+static const SecTransformAttributeActionBlock default_generic_attribute_set_notification =
 	^(SecTransformAttributeRef ah, CFTypeRef value) { return value; };
 
 static SecTransformAttributeActionBlock default_generic_attribute_validation = 

@@ -24,6 +24,7 @@
  */
 
 #include <CoreFoundation/CoreFoundation.h>
+#import <Foundation/Foundation.h>
 
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
@@ -39,11 +40,14 @@
 #include <Security/SecAccessControl.h>
 #include <Security/SecAccessControlPriv.h>
 
+#import <SecurityFoundation/SFKeychain.h>
+
 //
 // Craptastic hacks.
-
+#ifndef _SECURITY_SECKEYCHAIN_H_
 typedef uint32_t SecProtocolType;
 typedef uint32_t SecAuthenticationType;
+#endif
 
 
 static CFMutableDictionaryRef
@@ -193,6 +197,10 @@ do_keychain_find_or_delete_internet_password(Boolean do_delete,
     const void *keys[11], *values[11];
     CFIndex ix = 0;
 
+    if (do_delete && !serverName && !securityDomain && !accountName && !path && !port && !protocol && !authenticationType) {
+        return SHOW_USAGE_MESSAGE;
+    }
+
     keys[ix] = kSecClass;
     values[ix++] = kSecClassInternetPassword;
 	if (serverName) {
@@ -339,6 +347,10 @@ do_keychain_find_or_delete_generic_password(Boolean do_delete,
     const void *keys[6], *values[6];
     CFIndex ix = 0;
 
+    if (do_delete && !serviceName && !accountName) {
+        return SHOW_USAGE_MESSAGE;
+    }
+
     keys[ix] = kSecClass;
     values[ix++] = kSecClassGenericPassword;
 	if (serviceName) {
@@ -374,8 +386,111 @@ do_keychain_find_or_delete_generic_password(Boolean do_delete,
 	return result;
 }
 
+static SFServiceIdentifier* serviceIdentifierInQuery(NSDictionary* query)
+{
+    NSString* domain = query[@"domain"];
+    NSString* bundleID = query[@"bundleID"];
+    NSString* accessGroup = query[@"accessGroup"];
+    NSString* customServiceID = query[@"customServiceID"];
+
+    SFServiceIdentifier* serviceIdentifier = nil;
+    if (domain) {
+        serviceIdentifier = [[SFServiceIdentifier alloc] initWithServiceID:domain forType:SFServiceIdentifierTypeDomain];
+    }
+    else if (bundleID) {
+        serviceIdentifier = [[SFServiceIdentifier alloc] initWithServiceID:bundleID forType:SFServiceIdentifierTypeBundleID];
+    }
+    else if (accessGroup) {
+        serviceIdentifier = [[SFServiceIdentifier alloc] initWithServiceID:accessGroup forType:SFServiceIdentifierTypeAccessGroup];
+    }
+    else if (customServiceID) {
+        serviceIdentifier = [[SFServiceIdentifier alloc] initWithServiceID:customServiceID forType:SFServiceIdentifierTypeCustom];
+    }
+    if (!serviceIdentifier) {
+        sec_error("need service identifier");
+    }
+
+    return serviceIdentifier;
+}
+
+static SFPasswordCredential* lookupCredential(SFServiceIdentifier* serviceIdentifier, NSString* username)
+{
+    __block SFPasswordCredential* result = nil;
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    [[SFCredentialStore defaultCredentialStore] lookupCredentialsForServiceIdentifiers:@[serviceIdentifier] withResultHandler:^(NSArray<SFCredential*>* results, NSError* error) {
+        if (error) {
+            sec_error("error looking up credentials: %s", error.description.UTF8String);
+        }
+        else {
+            bool foundCredential = false;
+            for (SFPasswordCredential* credential in results) {
+                if ([credential.username isEqualToString:username]) {
+                    result = credential;
+                     dispatch_semaphore_signal(semaphore);
+                    return;
+                }
+            }
+
+            if (!foundCredential) {
+                sec_error("did not find credential");
+            }
+        }
+
+        dispatch_semaphore_signal(semaphore);
+    }];
+    if (dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC))) {
+        sec_error("timed out trying to communicate with credential store");
+    }
+
+    return result;
+}
+
+static SFPasswordCredential* credentialFromQuery(NSDictionary* query)
+{
+    NSString* username = query[@"username"];
+    NSData* passwordData = query[(__bridge id)kSecValueData];
+    NSString* password = [[NSString alloc] initWithData:passwordData encoding:NSUTF8StringEncoding];
+    if (!username) {
+        sec_error("need username");
+        return nil;
+    }
+    if (!password) {
+        sec_error("need password");
+        return nil;
+    }
+
+    SFServiceIdentifier* serviceIdentifier = serviceIdentifierInQuery(query);
+
+    if (username && password && serviceIdentifier) {
+       return [[SFPasswordCredential alloc] initWithUsername:username password:password primaryServiceIdentifier:serviceIdentifier];
+    }
+    else {
+        return nil;
+    }
+}
+
+static SFAccessPolicy* accessPolicyInQuery(NSDictionary* query)
+{
+    CFStringRef accessibility = (__bridge CFStringRef)query[(__bridge id)kSecAttrAccessible];
+    if (!accessibility) {
+        accessibility = kSecAttrAccessibleWhenUnlocked;
+    }
+
+    SFAccessPolicy* accessPolicy = [SFAccessPolicy accessPolicyWithSecAccessibility:accessibility error:nil];
+    NSNumber* synchronizableValue = query[(__bridge id)kSecAttrSynchronizable];
+    if (accessPolicy.sharingPolicy == SFSharingPolicyWithTrustedDevices && synchronizableValue && synchronizableValue.boolValue == NO) {
+        accessPolicy.sharingPolicy = SFSharingPolicyWithBackup;
+    }
+    if (!accessPolicy) {
+        sec_error("need access policy");
+    }
+
+    return accessPolicy;
+}
+
 int keychain_item(int argc, char * const *argv) {
-	int ch, result = 0;
+    int ch = 0;
+    __block int result = 0;
     CFMutableDictionaryRef query, update = NULL;
 	bool get_password = false;
     bool do_delete = false;
@@ -490,28 +605,116 @@ int keychain_item(int argc, char * const *argv) {
         CFShow(query);
 
     OSStatus error;
+    bool useCredentialStore = [(__bridge id)CFDictionaryGetValue(query, kSecClass) isEqual:@"credential"];
     if (do_add) {
-        error = SecItemAdd(query, NULL);
-        if (error) {
-            sec_perror("SecItemAdd", error);
-            result = 1;
+        if (useCredentialStore) {
+            SFPasswordCredential* credential = credentialFromQuery((__bridge NSDictionary*)query);
+            SFAccessPolicy* accessPolicy = accessPolicyInQuery((__bridge NSDictionary*)query);
+            if (credential && accessPolicy) {
+                dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+                [[SFCredentialStore defaultCredentialStore] addCredential:credential withAccessPolicy:accessPolicy resultHandler:^(NSString* persistentIdentifier, NSError* error) {
+                    if (error) {
+                        sec_error("error adding credential to credential store: %s", error.description.UTF8String);
+                        result = 1;
+                    }
+                    dispatch_semaphore_signal(semaphore);
+                }];
+                if (dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC))) {
+                    sec_error("timed out waiting for response from credential store");
+                    result = 1;
+                }
+            }
+            else {
+                sec_error("need username, password, service identiifer, and access policy to create a credential");
+                result = 1;
+            }
+        }
+        else {
+            error = SecItemAdd(query, NULL);
+            if (error) {
+                sec_perror("SecItemAdd", error);
+                result = 1;
+            }
         }
     } else if (update) {
-        error = SecItemUpdate(query, update);
-        if (error) {
-            sec_perror("SecItemUpdate", error);
-            result = 1;
+        if (useCredentialStore) {
+            NSString* username = (__bridge NSString*)CFDictionaryGetValue(query, CFSTR("username"));
+            SFServiceIdentifier* serviceIdentifier = serviceIdentifierInQuery((__bridge NSDictionary*)query);
+            SFPasswordCredential* credential = lookupCredential(serviceIdentifier, username);
+            if (credential) {
+                SFPasswordCredential* updatedCredential = credentialFromQuery((__bridge NSDictionary*)update);
+                dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+                [[SFCredentialStore defaultCredentialStore] replaceOldCredential:credential withNewCredential:updatedCredential resultHandler:^(NSString* newPersistentIdentifier, NSError* error) {
+                    if (error) {
+                        sec_error("error updating credential: %s", error.description.UTF8String);
+                        result = 1;
+                    }
+                    dispatch_semaphore_signal(semaphore);
+                }];
+                if (dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC))) {
+                    sec_error("timed out trying to communicate with credential store");
+                    result = 1;
+                }
+            }
+            else {
+                result = 1;
+            }
+        }
+        else {
+            error = SecItemUpdate(query, update);
+            if (error) {
+                sec_perror("SecItemUpdate", error);
+                result = 1;
+            }
         }
     } else if (do_delete) {
-        error = SecItemDelete(query);
-        if (error) {
-            sec_perror("SecItemDelete", error);
-            result = 1;
+        if (useCredentialStore) {
+            NSString* username = (__bridge NSString*)CFDictionaryGetValue(query, CFSTR("username"));
+            SFServiceIdentifier* serviceIdentifier = serviceIdentifierInQuery((__bridge NSDictionary*)query);
+            SFPasswordCredential* credential = lookupCredential(serviceIdentifier, username);
+            if (credential) {
+                dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+                [[SFCredentialStore defaultCredentialStore] removeCredentialWithPersistentIdentifier:credential.persistentIdentifier withResultHandler:^(BOOL success, NSError* error) {
+                    if (!success) {
+                        sec_error("failed to remove credential with error: %s", error.description.UTF8String);
+                        result = 1;
+                    }
+                    dispatch_semaphore_signal(semaphore);
+                }];
+                if (dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC))) {
+                    sec_error("timed out trying to communicate with credential store");
+                    result = 1;
+                }
+            }
+            else {
+                result = 1;
+            }
+        }
+        else {
+            error = SecItemDelete(query);
+            if (error) {
+                sec_perror("SecItemDelete", error);
+                result = 1;
+            }
         }
     } else {
-        if (!do_delete && CFDictionaryGetValue(query, kSecUseAuthenticationUI) == NULL)
-            CFDictionarySetValue(query, kSecUseAuthenticationUI, kSecUseAuthenticationUISkip);
-        do_find_or_delete(query, do_delete);
+        if (useCredentialStore) {
+            NSString* username = (__bridge NSString*)CFDictionaryGetValue(query, CFSTR("username"));
+            SFServiceIdentifier* serviceIdentifier = serviceIdentifierInQuery((__bridge NSDictionary*)query);
+            SFPasswordCredential* credential = lookupCredential(serviceIdentifier, username);
+            if (credential) {
+                CFStringWriteToFileWithNewline((__bridge CFStringRef)credential.description, stdout);
+            }
+            else {
+                result = 1;
+            }
+        }
+        else {
+            if (!do_delete && CFDictionaryGetValue(query, kSecUseAuthenticationUI) == NULL) {
+                CFDictionarySetValue(query, kSecUseAuthenticationUI, kSecUseAuthenticationUISkip);
+            }
+            do_find_or_delete(query, do_delete);
+        }
     }
 
 out:

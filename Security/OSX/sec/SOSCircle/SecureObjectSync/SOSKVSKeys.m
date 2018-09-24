@@ -261,12 +261,6 @@ CFStringRef SOSMessageKeyCreateWithCircleNameAndPeerNames(CFStringRef circleName
                                     circleName, sCircleSeparator, from_peer_name, sFromToSeparator, to_peer_name);
 }
 
-CFStringRef SOSMessageKeyCreateWithCircleNameAndTransportType(CFStringRef circleName, CFStringRef transportType)
-{
-    return CFStringCreateWithFormat(NULL, NULL, CFSTR("%@%@%@%@%@"),
-                                    circleName, sCircleSeparator, transportType, sFromToSeparator, SOSTransportMessageTypeIDSV2);
-}
-
 CFStringRef SOSMessageKeyCreateWithCircleAndPeerNames(SOSCircleRef circle, CFStringRef from_peer_name, CFStringRef to_peer_name)
 {
     return SOSMessageKeyCreateWithCircleNameAndPeerNames(SOSCircleGetName(circle), from_peer_name, to_peer_name);

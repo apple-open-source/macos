@@ -121,7 +121,7 @@ private:
             return;
         }
 
-        *exception = toRef(JSC::createTypeError(toJS(contextRef), ASCIILiteral("Argument does not match Objective-C Class")));
+        *exception = toRef(JSC::createTypeError(toJS(contextRef), "Argument does not match Objective-C Class"_s));
     }
 
     RetainPtr<Class> m_class;
@@ -458,7 +458,7 @@ static JSValueRef objCCallbackFunctionCallAsFunction(JSContextRef callerContext,
 
     if (impl->type() == CallbackInitMethod) {
         JSGlobalContextRef contextRef = [context JSGlobalContextRef];
-        *exception = toRef(JSC::createTypeError(toJS(contextRef), ASCIILiteral("Cannot call a class constructor without |new|")));
+        *exception = toRef(JSC::createTypeError(toJS(contextRef), "Cannot call a class constructor without |new|"_s));
         return JSValueMakeUndefined(contextRef);
     }
 
@@ -497,7 +497,7 @@ static JSObjectRef objCCallbackFunctionCallAsConstructor(JSContextRef callerCont
         return nullptr;
 
     if (!JSValueIsObject(contextRef, result)) {
-        *exception = toRef(JSC::createTypeError(toJS(contextRef), ASCIILiteral("Objective-C blocks called as constructors must return an object.")));
+        *exception = toRef(JSC::createTypeError(toJS(contextRef), "Objective-C blocks called as constructors must return an object."_s));
         return nullptr;
     }
     return const_cast<JSObjectRef>(result);
@@ -548,7 +548,7 @@ JSValueRef ObjCCallbackFunctionImpl::call(JSContext *context, JSObjectRef thisOb
         RELEASE_ASSERT(!thisObject);
         target = [m_instanceClass alloc];
         if (!target || ![target isKindOfClass:m_instanceClass.get()]) {
-            *exception = toRef(JSC::createTypeError(toJS(contextRef), ASCIILiteral("self type check failed for Objective-C instance method")));
+            *exception = toRef(JSC::createTypeError(toJS(contextRef), "self type check failed for Objective-C instance method"_s));
             return JSValueMakeUndefined(contextRef);
         }
         [m_invocation setTarget:target];
@@ -558,7 +558,7 @@ JSValueRef ObjCCallbackFunctionImpl::call(JSContext *context, JSObjectRef thisOb
     case CallbackInstanceMethod: {
         target = tryUnwrapObjcObject(contextRef, thisObject);
         if (!target || ![target isKindOfClass:m_instanceClass.get()]) {
-            *exception = toRef(JSC::createTypeError(toJS(contextRef), ASCIILiteral("self type check failed for Objective-C instance method")));
+            *exception = toRef(JSC::createTypeError(toJS(contextRef), "self type check failed for Objective-C instance method"_s));
             return JSValueMakeUndefined(contextRef);
         }
         [m_invocation setTarget:target];
@@ -603,7 +603,7 @@ static bool blockSignatureContainsClass()
 {
     static bool containsClass = ^{
         id block = ^(NSString *string){ return string; };
-        return _Block_has_signature(block) && strstr(_Block_signature(block), "NSString");
+        return _Block_has_signature((__bridge void*)block) && strstr(_Block_signature((__bridge void*)block), "NSString");
     }();
     return containsClass;
 }
@@ -677,18 +677,20 @@ JSObjectRef objCCallbackFunctionForMethod(JSContext *context, Class cls, Protoco
 {
     NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:[NSMethodSignature signatureWithObjCTypes:types]];
     [invocation setSelector:sel];
-    // We need to retain the target Class because m_invocation doesn't retain it by default (and we don't want it to).
-    // FIXME: What releases it?
-    if (!isInstanceMethod)
-        [invocation setTarget:[cls retain]];
+    if (!isInstanceMethod) {
+        [invocation setTarget:cls];
+        // We need to retain the target Class because m_invocation doesn't retain it by default (and we don't want it to).
+        // FIXME: What releases it?
+        CFRetain((__bridge CFTypeRef)cls);
+    }
     return objCCallbackFunctionForInvocation(context, invocation, isInstanceMethod ? CallbackInstanceMethod : CallbackClassMethod, isInstanceMethod ? cls : nil, _protocol_getMethodTypeEncoding(protocol, sel, YES, isInstanceMethod));
 }
 
 JSObjectRef objCCallbackFunctionForBlock(JSContext *context, id target)
 {
-    if (!_Block_has_signature(target))
+    if (!_Block_has_signature((__bridge void*)target))
         return nullptr;
-    const char* signature = _Block_signature(target);
+    const char* signature = _Block_signature((__bridge void*)target);
     NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:[NSMethodSignature signatureWithObjCTypes:signature]];
 
     // We don't want to use -retainArguments because that leaks memory. Arguments 
@@ -702,7 +704,7 @@ JSObjectRef objCCallbackFunctionForBlock(JSContext *context, id target)
 
 id tryUnwrapConstructor(JSC::VM* vm, JSObjectRef object)
 {
-    if (!toJS(object)->inherits(*vm, JSC::ObjCCallbackFunction::info()))
+    if (!toJS(object)->inherits<JSC::ObjCCallbackFunction>(*vm))
         return nil;
     JSC::ObjCCallbackFunctionImpl* impl = static_cast<JSC::ObjCCallbackFunction*>(toJS(object))->impl();
     if (!impl->isConstructible())

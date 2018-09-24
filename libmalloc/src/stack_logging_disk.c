@@ -27,15 +27,15 @@
 #pragma mark -
 #pragma mark Defines
 
-#if TARGET_OS_EMBEDDED || TARGET_IPHONE_SIMULATOR
-// _malloc_printf(ASL_LEVEL_INFO...) on iOS doesn't show up in the Xcode Console log of the device,
+#if TARGET_OS_IPHONE
+// malloc_report(ASL_LEVEL_INFO...) on iOS doesn't show up in the Xcode Console log of the device,
 // but ASL_LEVEL_NOTICE does.  So raising the log level is helpful.
 #undef ASL_LEVEL_INFO
 #define ASL_LEVEL_INFO ASL_LEVEL_NOTICE
-#endif
+#endif // TARGET_OS_IPHONE
 
 #ifdef TEST_DISK_STACK_LOGGING
-#define _malloc_printf fprintf
+#define malloc_report fprintf
 #undef ASL_LEVEL_INFO
 #define ASL_LEVEL_INFO stderr
 #endif
@@ -173,7 +173,7 @@ typedef struct {
 	task_t remote_task;
 	pid_t remote_pid;
 	int32_t task_is_64_bit;
-	boolean_t task_uses_lite_mode;
+	boolean_t task_uses_lite_or_vmlite_mode;
 	int32_t in_use_count;
 	FILE *index_file_stream;
 	uint64_t remote_stack_buffer_shared_memory_address;
@@ -206,7 +206,7 @@ typedef struct {
 	};
 	
 } table_slot_t;
-#pragma pop
+#pragma pack(pop)
 
 _Static_assert(sizeof(table_slot_t) == 16, "table_slot_t must be 128 bits");
 
@@ -277,7 +277,7 @@ sld_allocate_pages(uint64_t memSize)
 	mach_vm_address_t allocatedMem = 0ull;
 	if (mach_vm_allocate(mach_task_self(), &allocatedMem, memSize, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_ANALYSIS_TOOL)) !=
 			KERN_SUCCESS) {
-		malloc_printf("allocate_pages(): virtual memory exhausted!\n");
+		malloc_report(ASL_LEVEL_ERR, "allocate_pages(): virtual memory exhausted!\n");
 	}
 	return (void *)(uintptr_t)allocatedMem;
 }
@@ -292,7 +292,7 @@ static const uint64_t max_table_size_lite = UINT32_MAX;
 static const uint64_t max_table_size_normal = UINT64_MAX;
 
 static backtrace_uniquing_table *
-__create_uniquing_table(boolean_t lite_mode)
+__create_uniquing_table(boolean_t lite_or_vmlite_mode)
 {
 	backtrace_uniquing_table *uniquing_table =
 			(backtrace_uniquing_table *)sld_allocate_pages((uint64_t)round_page(sizeof(backtrace_uniquing_table)));
@@ -307,15 +307,15 @@ __create_uniquing_table(boolean_t lite_mode)
 	uniquing_table->table_address = (uintptr_t)uniquing_table->u.table;
 	uniquing_table->max_collide = INITIAL_MAX_COLLIDE;
 	uniquing_table->untouchableNodes = 0;
-	uniquing_table->max_table_size = (lite_mode) ? max_table_size_lite : max_table_size_normal;
-	uniquing_table->nodes_use_refcount = lite_mode;
+	uniquing_table->max_table_size = (lite_or_vmlite_mode) ? max_table_size_lite : max_table_size_normal;
+	uniquing_table->nodes_use_refcount = lite_or_vmlite_mode;
 	uniquing_table->in_client_process = 0;
 
 #if BACKTRACE_UNIQUING_DEBUG
-	malloc_printf("create_uniquing_table(): creating. size: %lldKB == %lldMB, numnodes: %lld (%lld untouchable)\n",
+	malloc_report(ASL_LEVEL_INFO, "create_uniquing_table(): creating. size: %lldKB == %lldMB, numnodes: %lld (%lld untouchable)\n",
 			uniquing_table->tableSize >> 10, uniquing_table->tableSize >> 20, uniquing_table->numNodes,
 			uniquing_table->untouchableNodes);
-	malloc_printf("create_uniquing_table(): table: %p; end: %p\n", uniquing_table->u.table,
+	malloc_report(ASL_LEVEL_INFO, "create_uniquing_table(): table: %p; end: %p\n", uniquing_table->u.table,
 			(void *)((uintptr_t)uniquing_table->u.table + (uintptr_t)uniquing_table->tableSize));
 #endif
 	return uniquing_table;
@@ -340,7 +340,7 @@ __expand_uniquing_table(backtrace_uniquing_table *uniquing_table)
 	uint64_t newsize = (uniquing_table->numPages << EXPAND_FACTOR) * vm_page_size;
 	
 	if (newsize > uniquing_table->max_table_size) {
-		malloc_printf("no more space in uniquing table\n");
+		malloc_report(ASL_LEVEL_ERR, "no more space in uniquing table\n");
 		return false;
 	}
 	
@@ -355,24 +355,24 @@ __expand_uniquing_table(backtrace_uniquing_table *uniquing_table)
 
 	if (mach_vm_copy(mach_task_self(), (mach_vm_address_t)(uintptr_t)oldTable, oldsize, (mach_vm_address_t)(uintptr_t)newTable) !=
 			KERN_SUCCESS) {
-		malloc_printf("expandUniquingTable(): VMCopyFailed\n");
+		malloc_report(ASL_LEVEL_ERR, "expandUniquingTable(): VMCopyFailed\n");
 	}
 	uniquing_table->untouchableNodes = oldnumnodes;
 
 #if BACKTRACE_UNIQUING_DEBUG
-	malloc_printf(
+	malloc_report(ASL_LEVEL_INFO,
 			"expandUniquingTable(): expanded from nodes full: %lld of: %lld (~%2d%%); to nodes: %lld (inactive = %lld); unique "
 			"bts: %lld\n",
 			uniquing_table->nodesFull, oldnumnodes, (int)(((uniquing_table->nodesFull * 100.0) / (double)oldnumnodes) + 0.5),
 			uniquing_table->numNodes, uniquing_table->untouchableNodes, uniquing_table->backtracesContained);
-	malloc_printf("expandUniquingTable(): allocate: %p; end: %p\n", newTable,
+	malloc_report(ASL_LEVEL_INFO, "expandUniquingTable(): allocate: %p; end: %p\n", newTable,
 			(void *)((uintptr_t)newTable + (uintptr_t)(uniquing_table->tableSize)));
-	malloc_printf("expandUniquingTable(): deallocate: %p; end: %p\n", oldTable, (void *)((uintptr_t)oldTable + (uintptr_t)oldsize));
-	malloc_printf("expandUniquingTable(): new size = %llu\n", newsize);
+	malloc_report(ASL_LEVEL_INFO, "expandUniquingTable(): deallocate: %p; end: %p\n", oldTable, (void *)((uintptr_t)oldTable + (uintptr_t)oldsize));
+	malloc_report(ASL_LEVEL_INFO, "expandUniquingTable(): new size = %llu\n", newsize);
 #endif
 
 	if (sld_deallocate_pages(oldTable, oldsize) != KERN_SUCCESS) {
-		malloc_printf("expandUniquingTable(): mach_vm_deallocate failed. [%p]\n", uniquing_table->u.table);
+		malloc_report(ASL_LEVEL_ERR, "expandUniquingTable(): mach_vm_deallocate failed. [%p]\n", uniquing_table->u.table);
 	}
 	
 	return true;
@@ -512,7 +512,7 @@ append_int(char *filename, uint64_t inputValue, unsigned base, size_t maxLength)
 static void
 postpone_stack_logging(void)
 {
-	_malloc_printf(ASL_LEVEL_INFO, "stack logging postponed until after initialization.\n");
+	malloc_report(ASL_LEVEL_INFO, "stack logging postponed until after initialization.\n");
 	stack_logging_postponed = 1;
 }
 
@@ -544,7 +544,7 @@ get_writeable_logging_directory(char *target)
 			strlcpy(target, evn_log_directory, (size_t)PATH_MAX);
 			return true;
 		} else {
-			_malloc_printf(ASL_LEVEL_INFO, "MallocStackLoggingDirectory env var set to unwritable path '%s'\n", evn_log_directory);
+			malloc_report(ASL_LEVEL_INFO, "MallocStackLoggingDirectory env var set to unwritable path '%s'\n", evn_log_directory);
 		}
 	}
 
@@ -650,14 +650,14 @@ create_log_file()
 		// On first use, allocate space directly from the OS without using malloc
 		__stack_log_file_path__ = sld_allocate_pages((uint64_t)round_page(PATH_MAX));
 		if (__stack_log_file_path__ == NULL) {
-			_malloc_printf(ASL_LEVEL_INFO, "unable to allocate memory for stack log file path\n");
+			malloc_report(ASL_LEVEL_INFO, "unable to allocate memory for stack log file path\n");
 			return NULL;
 		}
 	}
 
 	if (!get_writeable_logging_directory(__stack_log_file_path__)) {
 		if (!stack_logging_postponed) {
-			_malloc_printf(ASL_LEVEL_INFO, "No writeable tmp dir\n");
+			malloc_report(ASL_LEVEL_INFO, "No writeable tmp dir\n");
 		}
 		return NULL;
 	}
@@ -694,10 +694,10 @@ create_log_file()
 	
 	// Securely create the log file.
 	if ((index_file_descriptor = my_mkstemps(__stack_log_file_path__, (int)strlen(stack_log_file_suffix))) != -1) {
-		_malloc_printf(ASL_LEVEL_INFO, "stack logs being written into %s\n", __stack_log_file_path__);
+		malloc_report(ASL_LEVEL_INFO, "stack logs being written into %s\n", __stack_log_file_path__);
 		created_log_location = __stack_log_file_path__;
 	} else {
-		_malloc_printf(ASL_LEVEL_INFO, "unable to create stack logs at %s\n", __stack_log_file_path__);
+		malloc_report(ASL_LEVEL_INFO, "unable to create stack logs at %s\n", __stack_log_file_path__);
 		__stack_log_file_path__[0] = '\0';
 		created_log_location = NULL;
 	}
@@ -728,10 +728,10 @@ delete_log_files(void)
 {
 	if (__stack_log_file_path__ && __stack_log_file_path__[0]) {
 		if (delete_logging_file(__stack_log_file_path__) == 0) {
-			_malloc_printf(ASL_LEVEL_INFO, "stack logs deleted from %s\n", __stack_log_file_path__);
+			malloc_report(ASL_LEVEL_INFO, "stack logs deleted from %s\n", __stack_log_file_path__);
 			__stack_log_file_path__[0] = '\0';
 		} else {
-			_malloc_printf(ASL_LEVEL_INFO, "unable to delete stack logs from %s\n", __stack_log_file_path__);
+			malloc_report(ASL_LEVEL_INFO, "unable to delete stack logs from %s\n", __stack_log_file_path__);
 		}
 	}
 }
@@ -772,7 +772,7 @@ reap_orphaned_log_files_in_hierarchy(char *directory, char *remaining_path_forma
 
 	// Ensure that we can access this directory - permissions or sandbox'ing might prevent it.
 	if (access(directory, R_OK | W_OK | X_OK) == -1 || (dp = opendir(directory)) == NULL) {
-		//_malloc_printf(ASL_LEVEL_INFO, "reaping: no access to %s\n", directory);
+		//malloc_report(ASL_LEVEL_INFO, "reaping: no access to %s\n", directory);
 		return;
 	}
 
@@ -810,7 +810,7 @@ reap_orphaned_log_files_in_hierarchy(char *directory, char *remaining_path_forma
 	// OK, we found a lowest-level directory matching <remaining_path_format>, and we have access to it.
 	// Reap any unnecessary stack log files in here.
 
-	//_malloc_printf(ASL_LEVEL_INFO, "reaping: looking in %s\n", directory);
+	//malloc_report(ASL_LEVEL_INFO, "reaping: looking in %s\n", directory);
 
 	// __stack_log_file_path__ may be NULL if this code is running in an analysis tool client process that is not
 	// itself running with MallocStackLogging set.
@@ -831,9 +831,9 @@ reap_orphaned_log_files_in_hierarchy(char *directory, char *remaining_path_forma
 				strlcpy(suffix, entry->d_name, (size_t)PATH_MAX - pathname_len);
 				if (delete_logging_file(pathname) == 0) {
 					if (pid == curpid) {
-						_malloc_printf(ASL_LEVEL_INFO, "stack logs deleted from %s\n", pathname);
+						malloc_report(ASL_LEVEL_INFO, "stack logs deleted from %s\n", pathname);
 					} else {
-						_malloc_printf(ASL_LEVEL_INFO, "process %ld no longer exists, stack logs deleted from %s\n", pid, pathname);
+						malloc_report(ASL_LEVEL_INFO, "process %ld no longer exists, stack logs deleted from %s\n", pid, pathname);
 					}
 				}
 			}
@@ -858,14 +858,14 @@ reap_orphaned_log_files(pid_t target_pid, remote_task_file_streams *streams)
 	
 	// Now reap files left over in any other accessible app-specific temp directories.
 	// These could be from sandbox'ed apps.
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 	char *root_of_temp_directories = "/private/var/mobile/Containers/Data/Application"; // ugh - hard-coding to user name "mobile".
 	// Works for all iOS's up to now.
 	char *temp_directories_path_format = "<application-UUID>/tmp";
-#else
+#else // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 	char *root_of_temp_directories = "/private/var/folders";
 	char *temp_directories_path_format = "<xx>/<random>/T";
-#endif
+#endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 	reap_orphaned_log_files_in_hierarchy(root_of_temp_directories, temp_directories_path_format, target_pid, streams);
 }
 
@@ -876,7 +876,7 @@ reap_orphaned_log_files(pid_t target_pid, remote_task_file_streams *streams)
 static void
 disable_stack_logging(void)
 {
-	_malloc_printf(ASL_LEVEL_INFO, "stack logging disabled due to previous errors.\n");
+	malloc_report(ASL_LEVEL_INFO, "stack logging disabled due to previous errors.\n");
 	stack_logging_enable_logging = 0;
 	malloc_logger = NULL;
 	__syscall_logger = NULL;
@@ -925,7 +925,7 @@ robust_write(int fd, const void *buf, size_t nbyte)
 			fd_to_reset = &index_file_descriptor;
 		} else {
 			// We don't know about this file. Return (and abort()).
-			_malloc_printf(ASL_LEVEL_INFO, "Unknown file descriptor; expecting stack logging index file\n");
+			malloc_report(ASL_LEVEL_INFO, "Unknown file descriptor; expecting stack logging index file\n");
 			return -1;
 		}
 
@@ -937,7 +937,7 @@ robust_write(int fd, const void *buf, size_t nbyte)
 			int fds_to_close[3] = {0};
 			while (fd < 3) {
 				if (fd == -1) {
-					_malloc_printf(ASL_LEVEL_INFO, "unable to re-open stack logging file %s\n", file_to_reopen);
+					malloc_report(ASL_LEVEL_INFO, "unable to re-open stack logging file %s\n", file_to_reopen);
 					delete_log_files();
 					return -1;
 				}
@@ -982,7 +982,7 @@ flush_data(void)
 	while (remaining > 0) {
 		written = robust_write(index_file_descriptor, p, remaining);
 		if (written == -1) {
-			_malloc_printf(
+			malloc_report(
 					ASL_LEVEL_INFO, "Unable to write to stack logging file %s (%s)\n", __stack_log_file_path__, strerror(errno));
 			disable_stack_logging();
 			return;
@@ -996,7 +996,7 @@ flush_data(void)
 }
 
 __attribute__((visibility("hidden"))) boolean_t
-__prepare_to_log_stacks(boolean_t lite_mode)
+__prepare_to_log_stacks(boolean_t lite_or_vmlite_mode)
 {
 	if (!pre_write_buffers) {
 		last_logged_malloc_address = 0ul;
@@ -1015,7 +1015,7 @@ __prepare_to_log_stacks(boolean_t lite_mode)
 		pre_write_buffers = mmap(
 				0, full_shared_mem_size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, VM_MAKE_TAG(VM_MEMORY_ANALYSIS_TOOL), 0);
 		if (MAP_FAILED == pre_write_buffers) {
-			_malloc_printf(ASL_LEVEL_INFO, "error creating VM region for stack logging output buffers\n");
+			malloc_report(ASL_LEVEL_INFO, "error creating VM region for stack logging output buffers\n");
 			disable_stack_logging();
 			return false;
 		}
@@ -1025,9 +1025,9 @@ __prepare_to_log_stacks(boolean_t lite_mode)
 		pre_write_buffers->next_free_index_buffer_offset = 0;
 
 		// create the backtrace uniquing table
-		pre_write_buffers->uniquing_table = __create_uniquing_table(lite_mode);
+		pre_write_buffers->uniquing_table = __create_uniquing_table(lite_or_vmlite_mode);
 		if (!pre_write_buffers->uniquing_table) {
-			_malloc_printf(ASL_LEVEL_INFO, "error while allocating stack uniquing table\n");
+			malloc_report(ASL_LEVEL_INFO, "error while allocating stack uniquing table\n");
 			disable_stack_logging();
 			return false;
 		}
@@ -1037,13 +1037,13 @@ __prepare_to_log_stacks(boolean_t lite_mode)
 		uint64_t stack_buffer_sz = (uint64_t)round_page(sizeof(vm_address_t) * STACK_LOGGING_MAX_STACK_SIZE);
 		stack_buffer = (vm_address_t *)sld_allocate_pages(stack_buffer_sz);
 		if (!stack_buffer) {
-			_malloc_printf(ASL_LEVEL_INFO, "error while allocating stack trace buffer\n");
+			malloc_report(ASL_LEVEL_INFO, "error while allocating stack trace buffer\n");
 			disable_stack_logging();
 			return false;
 		}
 
 		// lite_mode doesn't use a file
-		if (lite_mode) {
+		if (lite_or_vmlite_mode) {
 			__mach_stack_logging_shared_memory_address = (uint64_t) pre_write_buffers;
 		} else {
 			// this call ensures that the log files exist; analyzing processes will rely on this assumption.
@@ -1200,7 +1200,7 @@ __decrement_table_slot_refcount(uint64_t stack_id, size_t ptr_size)
 	
 	do {
 		if (parent == prev_parent) {
-			malloc_printf("circular parent reference in __decrement_table_slot_refcount\n");
+			malloc_report(ASL_LEVEL_ERR, "circular parent reference in __decrement_table_slot_refcount\n");
 			break;
 		}
 		
@@ -1226,9 +1226,11 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 	if (!stack_logging_enable_logging || stack_logging_postponed) {
 		return;
 	}
+	
+	bool stack_logging_mode_lite_or_vmlite = stack_logging_mode == stack_logging_mode_lite || stack_logging_mode == stack_logging_mode_vmlite;
 
-	if (stack_logging_mode == stack_logging_mode_lite &&
-		!((type_flags & stack_logging_type_vm_allocate) ||(type_flags & stack_logging_type_vm_deallocate))) {
+	if (stack_logging_mode_lite_or_vmlite &&
+		!((type_flags & stack_logging_type_vm_allocate) || (type_flags & stack_logging_type_vm_deallocate))) {
 		return;
 	}
 
@@ -1239,9 +1241,6 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 	if (type_flags & stack_logging_type_alloc && type_flags & stack_logging_type_dealloc) {
 		size = arg3;
 		ptr_arg = arg2; // the original pointer
-		if (ptr_arg == return_val) {
-			return; // realloc had no effect, skipping
-		}
 		if (ptr_arg == 0) { // realloc(NULL, size) same as malloc(size)
 			type_flags ^= stack_logging_type_dealloc;
 		} else {
@@ -1298,7 +1297,7 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 
 	thread_doing_logging = self_thread; // for preventing deadlock'ing on stack logging on a single thread
 
-	if (stack_logging_mode == stack_logging_mode_lite && (type_flags & stack_logging_type_vm_deallocate)) {
+	if (stack_logging_mode_lite_or_vmlite && (type_flags & stack_logging_type_vm_deallocate)) {
 		if (pre_write_buffers && pre_write_buffers->vm_stackid_table) {
 			radix_tree_delete(&pre_write_buffers->vm_stackid_table,
 							  trunc_page(ptr_arg), round_page(ptr_arg + size) - trunc_page(ptr_arg));
@@ -1331,7 +1330,7 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 	}
 
 	uint64_t uniqueStackIdentifier;
-	if (stack_logging_mode == stack_logging_mode_lite) {
+	if (stack_logging_mode_lite_or_vmlite) {
 		uniqueStackIdentifier = __enter_stack_into_table_while_locked(self_thread, num_hot_to_skip, false, 1);
 	} else {
 		uniqueStackIdentifier = __enter_stack_into_table_while_locked(self_thread, num_hot_to_skip, true, 0);
@@ -1341,7 +1340,7 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 		goto out;
 	}
 
-	if (stack_logging_mode == stack_logging_mode_lite && (type_flags & stack_logging_type_vm_allocate)) {
+	if (stack_logging_mode_lite_or_vmlite && (type_flags & stack_logging_type_vm_allocate)) {
 		if (pre_write_buffers) {
 			if (!pre_write_buffers->vm_stackid_table) {
 				pre_write_buffers->vm_stackid_table	= radix_tree_create();
@@ -1373,7 +1372,7 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 	current_index.offset_and_flags = STACK_LOGGING_OFFSET_AND_FLAGS(uniqueStackIdentifier, type_flags);
 
 	//	the following line is a good debugging tool for logging each allocation event as it happens.
-	//	malloc_printf("{0x%lx, %lld}\n", STACK_LOGGING_DISGUISE(current_index.address), uniqueStackIdentifier);
+	//	malloc_report(ASL_LEVEL_INFO, "{0x%lx, %lld}\n", STACK_LOGGING_DISGUISE(current_index.address), uniqueStackIdentifier);
 
 	// flush the data buffer to disk if necessary
 	if (pre_write_buffers->next_free_index_buffer_offset + sizeof(stack_logging_index_event) >= STACK_LOGGING_BLOCK_WRITING_SIZE) {
@@ -1692,16 +1691,16 @@ insert_node(remote_index_cache *cache, uint64_t address, uint64_t index_file_off
 static mach_vm_address_t
 map_shared_memory_from_task(task_t sourceTask, mach_vm_address_t sourceAddress, mach_vm_size_t sourceSize)
 {
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 	int mapRequestFlags = VM_FLAGS_ANYWHERE | VM_FLAGS_RETURN_DATA_ADDR;
 	mach_vm_address_t mapRequestAddress = sourceAddress;
 	mach_vm_size_t mapRequestSize = sourceSize;
-#else
+#else // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 	// Sadly, VM_FLAGS_RETURN_DATA_ADDR isn't available to us; align everything manually.
 	int mapRequestFlags = VM_FLAGS_ANYWHERE;
 	mach_vm_address_t mapRequestAddress = trunc_page(sourceAddress);
 	mach_vm_size_t mapRequestSize = round_page(sourceAddress + sourceSize) - mapRequestAddress;
-#endif
+#endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 	mach_vm_address_t mappedAddress = 0;
 	vm_prot_t outCurrentProt = VM_PROT_NONE;
 	vm_prot_t outMaxProt = VM_PROT_NONE;
@@ -1731,17 +1730,17 @@ update_cache_for_file_streams(remote_task_file_streams *descriptors)
 				descriptors->remote_stack_buffer_shared_memory_address, sizeof(stack_buffer_shared_memory));
 		if (!cache->shmem) {
 			// failed to connect to the shared memory region; warn and continue.
-			_malloc_printf(ASL_LEVEL_INFO,
+			malloc_report(ASL_LEVEL_INFO,
 					"warning: unable to map shared memory from %llx in target process %d; no stack backtraces will be available.\n",
 					descriptors->remote_stack_buffer_shared_memory_address, descriptors->remote_pid);
 		}
-		cache->lite_mode = descriptors->task_uses_lite_mode;
+		cache->lite_mode = descriptors->task_uses_lite_or_vmlite_mode;
 
 		if (cache->shmem && cache->shmem->vm_stackid_table) {
 			cache->vm_stackid_table = (struct radix_tree *)map_shared_memory_from_task(
 				descriptors->remote_task, (mach_vm_address_t) cache->shmem->vm_stackid_table, cache->shmem->vm_stackid_table_size);
 			if (!cache->vm_stackid_table) {
-				_malloc_printf(ASL_LEVEL_INFO,
+				malloc_report(ASL_LEVEL_INFO,
 							   "warning: unable to map vm_stackid table from %llx in target process %d; no VM stack backtraces will be available.\n",
 							   (mach_vm_address_t) cache->shmem->vm_stackid_table, descriptors->remote_pid);
 			}
@@ -1791,7 +1790,7 @@ update_cache_for_file_streams(remote_task_file_streams *descriptors)
 	}
 
 	// need to update the snapshot if in lite mode and haven't yet read the uniquing table
-	if (descriptors->task_uses_lite_mode && cache->uniquing_table_snapshot.numPages == 0) {
+	if (descriptors->task_uses_lite_or_vmlite_mode && cache->uniquing_table_snapshot.numPages == 0) {
 		update_snapshot = true;
 	}
 	
@@ -2072,7 +2071,7 @@ getenv_from_process(pid_t pid, char *env_var_name, char *env_var_value_buf, size
 		if (strncmp(p, env_var_name, env_var_name_length) == 0 && p[env_var_name_length] == '=') {
 			p += env_var_name_length + 1;
 			strlcpy(env_var_value_buf, p, buf_length);
-			//_malloc_printf(ASL_LEVEL_INFO, "found env var %s='%s'\n", env_var_name, env_var_value_buf);
+			//malloc_report(ASL_LEVEL_INFO, "found env var %s='%s'\n", env_var_name, env_var_value_buf);
 			return true;
 		}
 		while (p < endp && *p != '\0')
@@ -2164,7 +2163,7 @@ retain_file_streams_for_task(task_t task, vm_address_t shared_memory_address)
 
 	if (shared_memory_address != 0) {
 		this_task_streams->remote_stack_buffer_shared_memory_address = shared_memory_address;
-		this_task_streams->task_uses_lite_mode = true;
+		this_task_streams->task_uses_lite_or_vmlite_mode = true;
 	} else {
 		open_log_file(pid, this_task_streams);
 		
@@ -2225,7 +2224,7 @@ __mach_stack_logging_start_reading(task_t task, vm_address_t shared_memory_addre
 		return KERN_FAILURE;
 	}
 	
-	*uses_lite_mode = remote_fd->task_uses_lite_mode;
+	*uses_lite_mode = remote_fd->task_uses_lite_or_vmlite_mode;
 	
 	return KERN_SUCCESS;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Apple Inc.
+ * Copyright (c) 2014, 2018 Apple Inc.
  * All rights reserved.
  */
 #include <syslog.h>
@@ -13,6 +13,7 @@
 #include <xpc/private.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SNHelperPrivate.h>
+#include <SystemConfiguration/SCPrivate.h>
 
 #include "ne_sm_bridge_private.h"
 
@@ -309,6 +310,18 @@ bridge_create(ne_sm_bridge_type_t type, CFStringRef serviceID, void *info)
 	new_bridge->serv.initialized = TRUE;
 
 	return new_bridge;
+}
+
+static void
+bridge_set_initial_values(ne_sm_bridge_t bridge, CFDictionaryRef initialValues)
+{
+	if (!isA_CFDictionary(initialValues)) {
+		return;
+	}
+
+	if (bridge->type == NESMBridgeTypeIPSec) {
+		ipsec_set_initial_values(&bridge->serv, initialValues);
+	}
 }
 
 static void
@@ -699,6 +712,7 @@ ne_sm_bridge_copy_functions(struct ne_sm_bridge_callbacks *callbacks, CFBundleRe
 			functions->handle_user_switch = bridge_handle_user_switch;
 			functions->handle_device_lock = bridge_handle_device_lock;
 			functions->handle_device_unlock = bridge_handle_device_unlock;
+			functions->set_initial_values = bridge_set_initial_values;
 
 			g_callbacks = (struct ne_sm_bridge_callbacks *)malloc(sizeof(*g_callbacks));
 			memcpy(g_callbacks, callbacks, sizeof(*g_callbacks));

@@ -82,7 +82,6 @@ private:
     void executeUndoRedo(WebPageProxy::UndoOrRedo) override;
     void accessibilityWebProcessTokenReceived(const IPC::DataReference&) override;
     bool executeSavedCommandBySelector(const String& selector) override;
-    void setDragImage(const WebCore::IntPoint& clientPosition, Ref<ShareableBitmap>&& dragImage, WebCore::DragSourceAction) override;
     void updateSecureInputState() override;
     void resetSecureInputState() override;
     void notifyInputContextAboutDiscardedComposition() override;
@@ -121,7 +120,6 @@ private:
     void didCommitLayerTree(const RemoteLayerTreeTransaction&) override;
     void layerTreeCommitComplete() override;
 
-    void dynamicViewportUpdateChangedTarget(double newScale, const WebCore::FloatPoint& newScrollPosition, uint64_t transactionID) override;
     void couldNotRestorePageState() override;
     void restorePageState(std::optional<WebCore::FloatPoint>, const WebCore::FloatPoint&, const WebCore::FloatBoxExtent&, double) override;
     void restorePageCenterAndScale(std::optional<WebCore::FloatPoint>, double) override;
@@ -133,9 +131,6 @@ private:
     bool interpretKeyEvent(const NativeWebKeyboardEvent&, bool isCharEvent) override;
     void positionInformationDidChange(const InteractionInformationAtPosition&) override;
     void saveImageToLibrary(Ref<WebCore::SharedBuffer>&&) override;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-    void didUpdateBlockSelectionWithTouch(uint32_t touch, uint32_t flags, float growThreshold, float shrinkThreshold) override;
-#endif
     void showPlaybackTargetPicker(bool hasVideo, const WebCore::IntRect& elementRect, WebCore::RouteSharingPolicy, const String&) override;
 
     bool handleRunOpenPanel(WebPageProxy*, WebFrameProxy*, API::OpenPanelParameters*, WebOpenPanelResultListenerProxy*) override;
@@ -191,6 +186,7 @@ private:
     void didCompleteSyntheticClick() override;
 
     void didChangeBackgroundColor() override;
+    void videoControlsManagerDidChange() override;
 
     void refView() override;
     void derefView() override;
@@ -211,8 +207,6 @@ private:
     void didConcludeEditDataInteraction(std::optional<WebCore::TextIndicatorData>) override;
     void didChangeDataInteractionCaretRect(const WebCore::IntRect& previousCaretRect, const WebCore::IntRect& caretRect) override;
 #endif
-
-    void prepareToDragPromisedBlob(const WebCore::PromisedBlobInfo&) final;
 
     WKContentView *m_contentView;
     RetainPtr<WKEditorUndoTargetObjC> m_undoTarget;

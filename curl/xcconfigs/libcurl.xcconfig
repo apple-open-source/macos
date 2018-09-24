@@ -14,3 +14,11 @@ OTHER_LDFLAGS[sdk=macosx*] = $(inherited) -weak-lcrypto -weak-lssl -weak_framewo
 USER_HEADER_SEARCH_PATHS = $(PROJECT_DIR)/curl/lib
 USER_HEADER_SEARCH_PATHS[sdk=iphone*] = $(inherited) $(PROJECT_DIR)/config_iphone
 USER_HEADER_SEARCH_PATHS[sdk=macosx*] = $(inherited) $(PROJECT_DIR)/config_mac
+
+IS_ZIPPERED = YES
+
+SUPPORTS_TEXT_BASED_API = YES
+TAPI_VERIFY_MODE = Pedantic
+OTHER_TAPI_FLAGS = -UBUILDING_LIBCURL
+
+INSTALLHDRS_SCRIPT_PHASE = YES

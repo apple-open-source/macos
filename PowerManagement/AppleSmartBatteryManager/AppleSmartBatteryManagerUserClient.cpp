@@ -79,8 +79,11 @@ bool AppleSmartBatteryManagerUserClient::initWithTask(task_t owningTask,
 
 bool AppleSmartBatteryManagerUserClient::start( IOService * provider )
 {
-    fOwner = (AppleSmartBatteryManager *)provider;
-    
+    fOwner = OSDynamicCast(AppleSmartBatteryManager, provider);
+    if (!fOwner) {
+        return false;
+    }
+
     /*
      * exclusive access user client?
      * shut up the AppleSmartBattery from doing ongoing polls

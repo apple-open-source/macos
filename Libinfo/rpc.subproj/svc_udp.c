@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,6 +64,8 @@ static char *rcsid = "$Id: svc_udp.c,v 1.5 2004/10/13 00:24:07 jkh Exp $";
  * Copyright (C) 1984, Sun Microsystems, Inc.
  */
 
+#include "libinfo_common.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -125,6 +127,7 @@ struct svcudp_data {
  * see (svc.h, xprt_register).
  * The routines returns NULL if a problem occurred.
  */
+LIBINFO_EXPORT
 SVCXPRT *
 svcudp_bufcreate(sock, sendsz, recvsz)
 	register int sock;
@@ -185,6 +188,7 @@ svcudp_bufcreate(sock, sendsz, recvsz)
 	return (xprt);
 }
 
+LIBINFO_EXPORT
 SVCXPRT *
 svcudp_create(sock)
 	int sock;

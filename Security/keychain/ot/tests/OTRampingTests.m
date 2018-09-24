@@ -350,7 +350,7 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 
     [self setUpRampRecordsInCloudKitWithFeatureOn];
 
-    XCTAssertTrue([self.cfu checkRampState:&retryAfterInSeconds qos:NSQualityOfServiceUserInitiated error:&localError], @"should be true");
+    XCTAssertTrue([self.cfu checkRampState:&retryAfterInSeconds networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&localError], @"should be true");
 }
 
 -(void)testCFUWithRampOff
@@ -359,7 +359,7 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
     NSInteger retryAfterInSeconds = 0;
     [self setUpRampRecordsInCloudKitWithFeatureOff];
 
-    XCTAssertTrue(![self.cfu checkRampState:&retryAfterInSeconds qos:NSQualityOfServiceUserInitiated error:&localError], @"should be false");
+    XCTAssertTrue(![self.cfu checkRampState:&retryAfterInSeconds networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&localError], @"should be false");
 
     XCTAssertTrue(retryAfterInSeconds != 0, @"should be asked to retry later");
 }
@@ -368,7 +368,7 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 {
     NSError* localError = nil;
     NSInteger retryAfterInSeconds = 0;
-    XCTAssertTrue(![self.cfu checkRampState:&retryAfterInSeconds qos:NSQualityOfServiceUserInitiated error:&localError], @"should be false");
+    XCTAssertTrue(![self.cfu checkRampState:&retryAfterInSeconds networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&localError], @"should be false");
 }
 
 @end

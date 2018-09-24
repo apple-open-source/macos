@@ -77,7 +77,7 @@ PCSCMonitor *gPCSC;
 int main(int argc, char *argv[])
 {
 	// clear the umask - we know what we're doing
-	secnotice("SS", "starting umask was 0%o", ::umask(0));
+	secnotice("SecServer", "starting umask was 0%o", ::umask(0));
 	::umask(0);
 
 	// tell the keychain (client) layer to turn off the server interface
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 	
 	// check for the Installation-DVD environment and modify some default arguments if found
 	if (access("/etc/rc.cdrom", F_OK) == 0) {	// /etc/rc.cdrom exists
-        secnotice("SS", "starting in installmode");
+        secnotice("SecServer", "starting in installmode");
 		smartCardOptions = "off";	// needs writable directories that aren't
 	}
 
@@ -280,7 +280,7 @@ int main(int argc, char *argv[])
 	
 
 	// okay, we're ready to roll
-    secnotice("SS", "Entering service as %s", (char*)bootstrapName);
+    secnotice("SecServer", "Entering service as %s", (char*)bootstrapName);
 	Syslog::notice("Entering service");
     
 	// go

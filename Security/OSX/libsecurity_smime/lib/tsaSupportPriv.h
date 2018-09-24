@@ -42,7 +42,8 @@ extern const CFStringRef kTSADebugContextKeyBadNonce;     // CFBooleanRef
 OSStatus SecTSAResponseCopyDEREncoding(SecAsn1CoderRef coder, const CSSM_DATA *tsaResponse, SecAsn1TimeStampRespDER *respDER);
 OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR inData, CSSM_DATA_PTR encDigest, uint64_t expectedNonce);
 OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRef timeStampPolicy, CSSM_DATA_PTR inData, CSSM_DATA_PTR encDigest, uint64_t expectedNonce);
-OSStatus createTSAMessageImprint(SecCmsSignedDataRef signedData, CSSM_DATA_PTR encDigest, SecAsn1TSAMessageImprint *messageImprint);
+OSStatus createTSAMessageImprint(SecCmsSignerInfoRef signerInfo, SECAlgorithmID *digestAlg,
+                                 CSSM_DATA_PTR encDigest, SecAsn1TSAMessageImprint *messageImprint);
 
 #ifndef NDEBUG
 int tsaWriteFileX(const char *fileName, const unsigned char *bytes, size_t numBytes);

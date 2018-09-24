@@ -29,20 +29,17 @@
 #include "HTTPHeaderNames.h"
 #include "PublicSuffix.h"
 #include "ResourceRequest.h"
+#include "SecurityPolicy.h"
 #include <wtf/PointerComparison.h>
 
 namespace WebCore {
 
-#if !USE(SOUP) && (!PLATFORM(MAC) || USE(CFURLCONNECTION))
+#if PLATFORM(IOS) || USE(CFURLCONNECTION)
 double ResourceRequestBase::s_defaultTimeoutInterval = INT_MAX;
 #else
 // Will use NSURLRequest default timeout unless set to a non-zero value with setDefaultTimeoutInterval().
 // For libsoup the timeout enabled with integer milliseconds. We set 0 as the default value to avoid integer overflow.
 double ResourceRequestBase::s_defaultTimeoutInterval = 0;
-#endif
-
-#if PLATFORM(IOS)
-bool ResourceRequestBase::s_defaultAllowCookies = true;
 #endif
 
 inline const ResourceRequest& ResourceRequestBase::asResourceRequest() const
@@ -68,6 +65,11 @@ void ResourceRequestBase::setAsIsolatedCopy(const ResourceRequest& other)
     setRequester(other.requester());
     setInitiatorIdentifier(other.initiatorIdentifier().isolatedCopy());
     setCachePartition(other.cachePartition().isolatedCopy());
+
+    if (!other.isSameSiteUnspecified()) {
+        setIsSameSite(other.isSameSite());
+        setIsTopSite(other.isTopSite());
+    }
 
     updateResourceRequest();
     m_httpHeaderFields = other.httpHeaderFields().isolatedCopy();
@@ -139,7 +141,7 @@ ResourceRequest ResourceRequestBase::redirectedRequest(const ResourceResponse& r
     request.setURL(location.isEmpty() ? URL { } : URL { redirectResponse.url(), location });
 
     if (shouldUseGet(*this, redirectResponse)) {
-        request.setHTTPMethod(ASCIILiteral("GET"));
+        request.setHTTPMethod("GET"_s);
         request.setHTTPBody(nullptr);
         request.clearHTTPContentType();
         request.m_httpHeaderFields.remove(HTTPHeaderName::ContentLength);
@@ -223,6 +225,45 @@ void ResourceRequestBase::setFirstPartyForCookies(const URL& firstPartyForCookie
 
     m_firstPartyForCookies = firstPartyForCookies;
     
+    m_platformRequestUpdated = false;
+}
+
+bool ResourceRequestBase::isSameSite() const
+{
+    updateResourceRequest();
+
+    return m_sameSiteDisposition == SameSiteDisposition::SameSite;
+}
+
+void ResourceRequestBase::setIsSameSite(bool isSameSite)
+{
+    updateResourceRequest();
+
+    SameSiteDisposition newDisposition = isSameSite ? SameSiteDisposition::SameSite : SameSiteDisposition::CrossSite;
+    if (m_sameSiteDisposition == newDisposition)
+        return;
+
+    m_sameSiteDisposition = newDisposition;
+
+    m_platformRequestUpdated = false;
+}
+
+bool ResourceRequestBase::isTopSite() const
+{
+    updateResourceRequest();
+
+    return m_isTopSite;
+}
+
+void ResourceRequestBase::setIsTopSite(bool isTopSite)
+{
+    updateResourceRequest();
+
+    if (m_isTopSite == isTopSite)
+        return;
+
+    m_isTopSite = isTopSite;
+
     m_platformRequestUpdated = false;
 }
 
@@ -328,6 +369,14 @@ void ResourceRequestBase::setHTTPReferrer(const String& httpReferrer)
     setHTTPHeaderField(HTTPHeaderName::Referer, httpReferrer);
 }
 
+void ResourceRequestBase::setExistingHTTPReferrerToOriginString()
+{
+    if (!hasHTTPReferrer())
+        return;
+
+    setHTTPHeaderField(HTTPHeaderName::Referer, SecurityPolicy::referrerToOriginString(httpReferrer()));
+}
+    
 void ResourceRequestBase::clearHTTPReferrer()
 {
     updateResourceRequest(); 
@@ -431,7 +480,7 @@ void ResourceRequestBase::setResponseContentDispositionEncodingFallbackArray(con
 
 FormData* ResourceRequestBase::httpBody() const
 {
-    updateResourceRequest(UpdateHTTPBody);
+    updateResourceRequest(HTTPBodyUpdatePolicy::UpdateHTTPBody);
 
     return m_httpBody.get();
 }
@@ -527,6 +576,28 @@ void ResourceRequestBase::setHTTPHeaderFields(HTTPHeaderMap headerFields)
     m_platformRequestUpdated = false;
 }
 
+#if USE(SYSTEM_PREVIEW)
+bool ResourceRequestBase::isSystemPreview() const
+{
+    return m_isSystemPreview;
+}
+
+void ResourceRequestBase::setSystemPreview(bool s)
+{
+    m_isSystemPreview = s;
+}
+
+const IntRect& ResourceRequestBase::systemPreviewRect() const
+{
+    return m_systemPreviewRect;
+}
+
+void ResourceRequestBase::setSystemPreviewRect(const IntRect& rect)
+{
+    m_systemPreviewRect = rect;
+}
+#endif
+
 bool equalIgnoringHeaderFields(const ResourceRequestBase& a, const ResourceRequestBase& b)
 {
     if (a.url() != b.url())
@@ -539,6 +610,12 @@ bool equalIgnoringHeaderFields(const ResourceRequestBase& a, const ResourceReque
         return false;
     
     if (a.firstPartyForCookies() != b.firstPartyForCookies())
+        return false;
+
+    if (a.isSameSite() != b.isSameSite())
+        return false;
+
+    if (a.isTopSite() != b.isTopSite())
         return false;
     
     if (a.httpMethod() != b.httpMethod())
@@ -613,7 +690,7 @@ void ResourceRequestBase::updatePlatformRequest(HTTPBodyUpdatePolicy bodyPolicy)
         m_platformRequestUpdated = true;
     }
 
-    if (!m_platformRequestBodyUpdated && bodyPolicy == UpdateHTTPBody) {
+    if (!m_platformRequestBodyUpdated && bodyPolicy == HTTPBodyUpdatePolicy::UpdateHTTPBody) {
         ASSERT(m_resourceRequestBodyUpdated);
         const_cast<ResourceRequest&>(asResourceRequest()).doUpdatePlatformHTTPBody();
         m_platformRequestBodyUpdated = true;
@@ -628,7 +705,7 @@ void ResourceRequestBase::updateResourceRequest(HTTPBodyUpdatePolicy bodyPolicy)
         m_resourceRequestUpdated = true;
     }
 
-    if (!m_resourceRequestBodyUpdated && bodyPolicy == UpdateHTTPBody) {
+    if (!m_resourceRequestBodyUpdated && bodyPolicy == HTTPBodyUpdatePolicy::UpdateHTTPBody) {
         ASSERT(m_platformRequestBodyUpdated);
         const_cast<ResourceRequest&>(asResourceRequest()).doUpdateResourceHTTPBody();
         m_resourceRequestBodyUpdated = true;
@@ -641,18 +718,6 @@ unsigned initializeMaximumHTTPConnectionCountPerHost()
     // This is used by the loader to control the number of issued parallel load requests. 
     // Four seems to be a common default in HTTP frameworks.
     return 4;
-}
-#endif
-
-#if PLATFORM(IOS)
-void ResourceRequestBase::setDefaultAllowCookies(bool allowCookies)
-{
-    s_defaultAllowCookies = allowCookies;
-}
-
-bool ResourceRequestBase::defaultAllowCookies()
-{
-    return s_defaultAllowCookies;
 }
 #endif
 

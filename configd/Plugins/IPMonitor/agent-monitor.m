@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,7 +24,7 @@
 #import "controller.h"
 
 void
-process_AgentMonitor()
+process_AgentMonitor(void)
 {
 	SC_log(LOG_DEBUG, "Triggering AgentMonitor");
 	@autoreleasepool {
@@ -44,7 +44,7 @@ process_AgentMonitor()
 }
 
 void
-process_AgentMonitor_DNS()
+process_AgentMonitor_DNS(void)
 {
 	SC_log(LOG_DEBUG, "Triggering AgentMonitor for DNS");
 	@autoreleasepool {
@@ -63,7 +63,7 @@ process_AgentMonitor_DNS()
 }
 
 void
-process_AgentMonitor_Proxy()
+process_AgentMonitor_Proxy(void)
 {
 	SC_log(LOG_DEBUG, "Triggering AgentMonitor for Proxy");
 	@autoreleasepool {

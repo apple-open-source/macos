@@ -30,6 +30,7 @@
 #import "keychain/ckks/CKKSNotifier.h"
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import "keychain/ot/OTDefines.h"
 
@@ -127,6 +128,10 @@
         _lockStateTracker = [[CKKSLockStateTracker alloc] init];
         [_lockStateTracker addLockStateObserver:self];
         _reachabilityTracker = [[CKKSReachabilityTracker alloc] init];
+
+        _zoneChangeFetcher = [[CKKSZoneChangeFetcher alloc] initWithContainer:_container
+                                                                   fetchClass:fetchRecordZoneChangesOperationClass
+                                                          reachabilityTracker:_reachabilityTracker];
 
         _operationQueue = [[NSOperationQueue alloc] init];
 
@@ -234,8 +239,9 @@
             [values setValue:@(fuzzyDaysSinceKSR) forKey:[NSString stringWithFormat:@"%@-daysSinceLastKeystateReady", viewName]];
 
             BOOL hasTLKs = [view.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateReady] || [view.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateReadyPendingUnlock];
-            BOOL syncedClassARecently = fuzzyDaysSinceClassASync < 7;
-            BOOL syncedClassCRecently = fuzzyDaysSinceClassCSync < 7;
+            /* only synced recently if between [0...7, ie withing 7 days */
+            BOOL syncedClassARecently = fuzzyDaysSinceClassASync >= 0 && fuzzyDaysSinceClassASync < 7;
+            BOOL syncedClassCRecently = fuzzyDaysSinceClassCSync >= 0 && fuzzyDaysSinceClassCSync < 7;
             BOOL incomingQueueIsErrorFree = view.lastIncomingQueueOperation.error == nil;
             BOOL outgoingQueueIsErrorFree = view.lastOutgoingQueueOperation.error == nil;
 
@@ -370,6 +376,7 @@ dispatch_once_t globalZoneStateQueueOnce;
                                                             accountTracker: self.accountTracker
                                                           lockStateTracker: self.lockStateTracker
                                                        reachabilityTracker: self.reachabilityTracker
+                                                             changeFetcher:self.zoneChangeFetcher
                                                           savedTLKNotifier: self.savedTLKNotifier
                                                               peerProvider:self
                                       fetchRecordZoneChangesOperationClass: self.fetchRecordZoneChangesOperationClass
@@ -480,10 +487,12 @@ dispatch_once_t globalZoneStateQueueOnce;
         CKKSKeychainView* view = [self findView: keyViewName];
 
         if(!SecCKKSTestDisableKeyNotifications()) {
-            ckksnotice("ckks", view, "Potential new key material from %@ (source %lu)", keyViewName, txionSource);
+            ckksnotice("ckks", view, "Potential new key material from %@ (source %lu)",
+                       keyViewName, (unsigned long)txionSource);
             [view keyStateMachineRequestProcess];
         } else {
-            ckksnotice("ckks", view, "Ignoring potential new key material from %@ (source %lu)", keyViewName, txionSource);
+            ckksnotice("ckks", view, "Ignoring potential new key material from %@ (source %lu)",
+                       keyViewName, (unsigned long)txionSource);
         }
         return;
     }
@@ -667,6 +676,7 @@ dispatch_once_t globalZoneStateQueueOnce;
             secnotice("ckks", "Received a %@ request for all zones: %@", opName, actualViews);
         }
     }
+    actualViews = [actualViews sortedArrayUsingDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"zoneName" ascending:YES]]];
     return actualViews;
 }
 
@@ -697,7 +707,14 @@ dispatch_once_t globalZoneStateQueueOnce;
     [self.operationQueue addOperation: op];
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 - (void)rpcResetCloudKit:(NSString*)viewName reply: (void(^)(NSError* result)) reply {
+    [self rpcResetCloudKit:viewName reason:@"unknown" reply:reply];
+}
+#pragma clang diagnostic pop
+
+- (void)rpcResetCloudKit:(NSString*)viewName reason:(NSString *)reason reply:(void(^)(NSError* result)) reply {
     NSError* localError = nil;
     NSArray* actualViews = [self views:viewName operation:@"CloudKit reset" error:&localError];
     if(localError) {
@@ -716,8 +733,9 @@ dispatch_once_t globalZoneStateQueueOnce;
     }];
 
     for(CKKSKeychainView* view in actualViews) {
-        ckksnotice("ckksreset", view, "Beginning CloudKit reset for %@", view);
-        [op addSuccessDependency:[view resetCloudKitZone:[CKOperationGroup CKKSGroupWithName:@"api-reset"]]];
+        NSString *operationGroupName = [NSString stringWithFormat:@"api-reset-%@", reason];
+        ckksnotice("ckksreset", view, "Beginning CloudKit reset for %@: %@", view, reason);
+        [op addSuccessDependency:[view resetCloudKitZone:[CKOperationGroup CKKSGroupWithName:operationGroupName]]];
     }
 
     [op timeout:120*NSEC_PER_SEC];

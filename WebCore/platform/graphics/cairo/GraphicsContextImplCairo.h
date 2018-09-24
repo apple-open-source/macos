@@ -38,8 +38,15 @@ class PlatformContextCairo;
 
 class GraphicsContextImplCairo final : public GraphicsContextImpl {
 public:
+    WEBCORE_EXPORT static GraphicsContext::GraphicsContextImplFactory createFactory(PlatformContextCairo&);
+    WEBCORE_EXPORT static GraphicsContext::GraphicsContextImplFactory createFactory(cairo_t*);
+
     GraphicsContextImplCairo(GraphicsContext&, PlatformContextCairo&);
+    GraphicsContextImplCairo(GraphicsContext&, cairo_t*);
     virtual ~GraphicsContextImplCairo();
+
+    bool hasPlatformContext() const override;
+    PlatformContextCairo* platformContext() const override;
 
     void updateState(const GraphicsContextState&, GraphicsContextState::StateChangeFlags) override;
     void clearShadow() override;
@@ -64,16 +71,16 @@ public:
 
     void drawGlyphs(const Font&, const GlyphBuffer&, unsigned, unsigned, const FloatPoint&, FontSmoothingMode) override;
 
-    void drawImage(Image&, const FloatRect&, const FloatRect&, const ImagePaintingOptions&) override;
-    void drawTiledImage(Image&, const FloatRect&, const FloatPoint&, const FloatSize&, const FloatSize&, const ImagePaintingOptions&) override;
-    void drawTiledImage(Image&, const FloatRect&, const FloatRect&, const FloatSize&, Image::TileRule, Image::TileRule, const ImagePaintingOptions&) override;
+    ImageDrawResult drawImage(Image&, const FloatRect&, const FloatRect&, const ImagePaintingOptions&) override;
+    ImageDrawResult drawTiledImage(Image&, const FloatRect&, const FloatPoint&, const FloatSize&, const FloatSize&, const ImagePaintingOptions&) override;
+    ImageDrawResult drawTiledImage(Image&, const FloatRect&, const FloatRect&, const FloatSize&, Image::TileRule, Image::TileRule, const ImagePaintingOptions&) override;
     void drawNativeImage(const NativeImagePtr&, const FloatSize&, const FloatRect&, const FloatRect&, CompositeOperator, BlendMode, ImageOrientation) override;
     void drawPattern(Image&, const FloatRect&, const FloatRect&, const AffineTransform&, const FloatPoint&, const FloatSize&, CompositeOperator, BlendMode = BlendModeNormal) override;
 
     void drawRect(const FloatRect&, float) override;
     void drawLine(const FloatPoint&, const FloatPoint&) override;
     void drawLinesForText(const FloatPoint&, const DashArray&, bool, bool, float) override;
-    void drawLineForDocumentMarker(const FloatPoint&, float, GraphicsContext::DocumentMarkerLineStyle) override;
+    void drawLineForDocumentMarker(const FloatPoint&, float, DocumentMarkerLineStyle) override;
     void drawEllipse(const FloatRect&) override;
     void drawPath(const Path&) override;
 
@@ -87,6 +94,8 @@ public:
     void rotate(float) override;
     void scale(const FloatSize&) override;
     void concatCTM(const AffineTransform&) override;
+    void setCTM(const AffineTransform&) override;
+    AffineTransform getCTM(GraphicsContext::IncludeDeviceScale) override;
 
     void beginTransparencyLayer(float) override;
     void endTransparencyLayer() override;
@@ -95,11 +104,18 @@ public:
     void clipOut(const FloatRect&) override;
     void clipOut(const Path&) override;
     void clipPath(const Path&, WindRule) override;
+    IntRect clipBounds() override;
+    void clipToImageBuffer(ImageBuffer&, const FloatRect&) override;
     
     void applyDeviceScaleFactor(float) override;
 
+    FloatRect roundToDevicePixels(const FloatRect&, GraphicsContext::RoundingMode) override;
+
 private:
+    std::unique_ptr<PlatformContextCairo> m_ownedPlatformContext;
     PlatformContextCairo& m_platformContext;
+
+    std::unique_ptr<GraphicsContextPlatformPrivate> m_private;
 };
 
 } // namespace WebCore

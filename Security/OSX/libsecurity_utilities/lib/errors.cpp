@@ -32,6 +32,7 @@
 #include <typeinfo>
 #include <stdio.h>
 #include <Security/SecBase.h>
+#include <Security/CSCommon.h>
 #include <execinfo.h>
 #include <cxxabi.h>
 
@@ -164,8 +165,14 @@ MacOSError::MacOSError(int err) : error(err)
     SECURITY_EXCEPTION_THROW_OSSTATUS(this, err);
 
     snprintf(whatBuffer, whatBufferSize, "MacOS error: %d", this->error);
-    secnotice("security_exception", "%s", what());
-    LogBacktrace();
+    switch (err) {
+        case errSecCSReqFailed:
+            // This 'error' isn't an actual error and doesn't warrant being logged.
+            break;
+        default:
+            secnotice("security_exception", "%s", what());
+            LogBacktrace();
+    }
 }
 
 const char *MacOSError::what() const throw ()

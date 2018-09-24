@@ -6,7 +6,6 @@
 #include <Security/SecureObjectSync/SOSTransportKeyParameter.h>
 #include <Security/SecureObjectSync/SOSTransportCircleKVS.h>
 #include <Security/SecureObjectSync/SOSTransportMessageKVS.h>
-#include <Security/SecureObjectSync/SOSTransportMessageIDS.h>
 #include <Security/SecureObjectSync/SOSTransportMessage.h>
 #include <Security/SecureObjectSync/SOSRing.h>
 

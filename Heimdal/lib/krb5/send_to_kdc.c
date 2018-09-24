@@ -418,7 +418,7 @@ debug_hostv(krb5_context context, int level, struct host *host, const char *fmt,
 
     if (host->ai == NULL ||
 	getnameinfo(host->ai->ai_addr, host->ai->ai_addrlen,
-		    name, sizeof(name), port, sizeof(port), NI_NUMERICHOST) != 0)
+		    name, sizeof(name), port, sizeof(port), NI_NUMERICHOST | NI_NUMERICSERV) != 0)
     {
 	name[0] = '\0';
 	port[0] = '\0';

@@ -33,11 +33,15 @@
 #include "OrientationNotifier.h"
 #include "PageConsoleClient.h"
 #include "RealtimeMediaSource.h"
-#include <runtime/Float32Array.h>
+#include <JavaScriptCore/Float32Array.h>
 #include <wtf/Optional.h>
 
 #if ENABLE(MEDIA_SESSION)
 #include "MediaSessionInterruptionProvider.h"
+#endif
+
+#if ENABLE(VIDEO)
+#include "MediaElementSession.h"
 #endif
 
 namespace WebCore {
@@ -56,10 +60,12 @@ class FetchResponse;
 class File;
 class Frame;
 class GCObservation;
+class HTMLAnchorElement;
 class HTMLImageElement;
 class HTMLInputElement;
 class HTMLLinkElement;
 class HTMLMediaElement;
+class HTMLPictureElement;
 class HTMLSelectElement;
 class ImageData;
 class InspectorStubFrontend;
@@ -71,6 +77,7 @@ class MediaStreamTrack;
 class MemoryInfo;
 class MockCDMFactory;
 class MockContentFilterSettings;
+class MockCredentialsMessenger;
 class MockPageOverlay;
 class MockPaymentCoordinator;
 class NodeList;
@@ -192,6 +199,9 @@ public:
     ExceptionOr<bool> pauseTransitionAtTimeOnElement(const String& propertyName, double pauseTime, Element&);
     ExceptionOr<bool> pauseTransitionAtTimeOnPseudoElement(const String& property, double pauseTime, Element&, const String& pseudoId);
 
+    // For animations testing, we need a way to get at pseudo elements.
+    ExceptionOr<RefPtr<Element>> pseudoElement(Element&, const String&);
+
     Node* treeScopeRootNode(Node&);
     Node* parentTreeScope(Node&);
 
@@ -235,7 +245,7 @@ public:
     bool elementShouldAutoComplete(HTMLInputElement&);
     void setEditingValue(HTMLInputElement&, const String&);
     void setAutofilled(HTMLInputElement&, bool enabled);
-    enum class AutoFillButtonType { None, Contacts, Credentials, StrongPassword, StrongConfirmationPassword };
+    enum class AutoFillButtonType { None, Contacts, Credentials, StrongPassword };
     void setShowAutoFillButton(HTMLInputElement&, AutoFillButtonType);
     AutoFillButtonType autoFillButtonType(const HTMLInputElement&);
     AutoFillButtonType lastAutoFillButtonType(const HTMLInputElement&);
@@ -243,7 +253,7 @@ public:
 
     ExceptionOr<String> autofillFieldName(Element&);
 
-    ExceptionOr<void> paintControlTints();
+    ExceptionOr<void> invalidateControlTints();
 
     RefPtr<Range> rangeFromLocationAndLength(Element& scope, int rangeLocation, int rangeLength);
     unsigned locationFromRange(Element& scope, const Range&);
@@ -276,6 +286,14 @@ public:
 
     void updateEditorUINowIfScheduled();
 
+    bool sentenceRetroCorrectionEnabled() const
+    {
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+        return true;
+#else
+        return false;
+#endif
+    }
     bool hasSpellingMarker(int from, int length);
     bool hasGrammarMarker(int from, int length);
     bool hasAutocorrectedMarker(int from, int length);
@@ -346,7 +364,10 @@ public:
     unsigned numberOfLiveDocuments() const;
     unsigned referencingNodeCount(const Document&) const;
 
-    RefPtr<DOMWindow> openDummyInspectorFrontend(const String& url);
+    uint64_t documentIdentifier(const Document&) const;
+    bool isDocumentAlive(uint64_t documentIdentifier) const;
+
+    RefPtr<WindowProxy> openDummyInspectorFrontend(const String& url);
     void closeDummyInspectorFrontend();
     ExceptionOr<void> setInspectorIsUnderTest(bool);
 
@@ -380,7 +401,18 @@ public:
     void webkitDidEnterFullScreenForElement(Element&);
     void webkitWillExitFullScreenForElement(Element&);
     void webkitDidExitFullScreenForElement(Element&);
+    bool isAnimatingFullScreen() const;
 #endif
+
+    struct FullscreenInsets {
+        float top { 0 };
+        float left { 0 };
+        float bottom { 0 };
+        float right { 0 };
+    };
+    void setFullscreenInsets(FullscreenInsets);
+    void setFullscreenAutoHideDuration(double);
+    void setFullscreenControlsHidden(bool);
 
     WEBCORE_TESTSUPPORT_EXPORT void setApplicationCacheOriginQuota(unsigned long long);
 
@@ -407,6 +439,10 @@ public:
 
     ExceptionOr<void> startTrackingCompositingUpdates();
     ExceptionOr<unsigned> compositingUpdateCount();
+
+    enum CompositingPolicy { Normal, Conservative };
+    ExceptionOr<void> setCompositingPolicyOverride(std::optional<CompositingPolicy>);
+    ExceptionOr<std::optional<CompositingPolicy>> compositingPolicyOverride() const;
 
     ExceptionOr<void> updateLayoutIgnorePendingStylesheetsAndRunPostLayoutTasks(Node*);
     unsigned layoutCount() const;
@@ -462,6 +498,10 @@ public:
     Vector<String> mediaResponseContentRanges(HTMLMediaElement&);
     void simulateAudioInterruption(HTMLMediaElement&);
     ExceptionOr<bool> mediaElementHasCharacteristic(HTMLMediaElement&, const String&);
+    void beginSimulatedHDCPError(HTMLMediaElement&);
+    void endSimulatedHDCPError(HTMLMediaElement&);
+
+    bool elementShouldBufferData(HTMLMediaElement&);
 #endif
 
     bool isSelectPopupVisible(HTMLSelectElement&);
@@ -479,6 +519,7 @@ public:
     ExceptionOr<Ref<DOMRect>> selectionBounds();
 
     ExceptionOr<bool> isPluginUnavailabilityIndicatorObscured(Element&);
+    ExceptionOr<String> unavailablePluginReplacementText(Element&);
     bool isPluginSnapshotted(Element&);
 
 #if ENABLE(MEDIA_SOURCE)
@@ -615,6 +656,7 @@ public:
     void setMediaStreamTrackMuted(MediaStreamTrack&, bool);
     void removeMediaStreamTrack(MediaStream&, MediaStreamTrack&);
     void simulateMediaStreamTrackCaptureSourceFailure(MediaStreamTrack&);
+    void setMediaStreamTrackIdentifier(MediaStreamTrack&, String&& id);
 #endif
 
     String audioSessionCategory() const;
@@ -643,6 +685,45 @@ public:
 
     void testIncomingSyncIPCMessageWhileWaitingForSyncReply();
 
+#if ENABLE(WEB_AUTHN)
+    MockCredentialsMessenger& mockCredentialsMessenger() const;
+#endif
+
+    String systemPreviewRelType();
+    bool isSystemPreviewLink(Element&) const;
+    bool isSystemPreviewImage(Element&) const;
+
+    bool usingAppleInternalSDK() const;
+
+    struct NowPlayingState {
+        String title;
+        double duration;
+        double elapsedTime;
+        uint64_t uniqueIdentifier;
+        bool hasActiveSession;
+        bool registeredAsNowPlayingApplication;
+    };
+    ExceptionOr<NowPlayingState> nowPlayingState() const;
+
+#if ENABLE(VIDEO)
+    using PlaybackControlsPurpose = MediaElementSession::PlaybackControlsPurpose;
+    RefPtr<HTMLMediaElement> bestMediaElementForShowingPlaybackControlsManager(PlaybackControlsPurpose);
+
+    using MediaSessionState = PlatformMediaSession::State;
+    MediaSessionState mediaSessionState(HTMLMediaElement&);
+#endif
+
+    void setCaptureExtraNetworkLoadMetricsEnabled(bool);
+    String ongoingLoadsDescriptions() const;
+
+    void reloadWithoutContentExtensions();
+
+    void setUseSystemAppearance(bool);
+
+    size_t pluginCount();
+
+    void notifyResourceLoadObserver();
+
 private:
     explicit Internals(Document&);
     Document* contextDocument() const;
@@ -667,6 +748,10 @@ private:
 
 #if ENABLE(APPLE_PAY)
     MockPaymentCoordinator* m_mockPaymentCoordinator { nullptr };
+#endif
+
+#if ENABLE(WEB_AUTHN)
+    std::unique_ptr<MockCredentialsMessenger> m_mockCredentialsMessenger;
 #endif
 };
 

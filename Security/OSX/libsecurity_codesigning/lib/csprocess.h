@@ -80,7 +80,7 @@ public:
         void validateComponent(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
 private:
         ProcessCode *mGuest;
-
+        CFRef<CFDictionaryRef> mEmptyInfoDict;
 };
 
 } // end namespace CodeSigning

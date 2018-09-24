@@ -25,7 +25,7 @@
 #include <Foundation/Foundation.h>
 #include "SecPLWrappers.h"
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_EMBEDDED && !TARGET_OS_BRIDGE
 #include <PowerLog/PowerLog.h>
 
 static typeof(PLShouldLogRegisteredEvent) *soft_PLShouldLogRegisteredEvent = NULL;
@@ -68,7 +68,7 @@ setup(void)
 
 bool SecPLShouldLogRegisteredEvent(NSString *event)
 {
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_EMBEDDED && !TARGET_OS_BRIDGE
     if (setup())
         return soft_PLShouldLogRegisteredEvent(PLClientIDSecurity, (__bridge CFStringRef)event);
 #endif
@@ -77,7 +77,7 @@ bool SecPLShouldLogRegisteredEvent(NSString *event)
 
 void SecPLLogRegisteredEvent(NSString *eventName, NSDictionary *eventDictionary)
 {
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_EMBEDDED && !TARGET_OS_BRIDGE
     if (setup())
         soft_PLLogRegisteredEvent(PLClientIDSecurity,
                                   (__bridge CFStringRef)eventName,
@@ -88,7 +88,7 @@ void SecPLLogRegisteredEvent(NSString *eventName, NSDictionary *eventDictionary)
 
 void SecPLLogTimeSensitiveRegisteredEvent(NSString *eventName, NSDictionary *eventDictionary)
 {
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_EMBEDDED && !TARGET_OS_BRIDGE
     if (setup())
         soft_PLLogTimeSensitiveRegisteredEvent(PLClientIDSecurity,
                                                (__bridge CFStringRef)eventName,

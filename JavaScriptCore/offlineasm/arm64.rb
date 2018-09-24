@@ -1,4 +1,4 @@
-# Copyright (C) 2011, 2012, 2014-2016 Apple Inc. All rights reserved.
+# Copyright (C) 2011-2018 Apple Inc. All rights reserved.
 # Copyright (C) 2014 University of Szeged. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -275,13 +275,6 @@ def arm64LowerLabelReferences(list)
                 else
                     newList << node
                 end
-            when "leai", "leap", "leaq"
-                labelRef = node.operands[0]
-                if labelRef.is_a? LabelReference
-                    newList << Instruction.new(codeOrigin, "globaladdr", [LabelReference.new(node.codeOrigin, labelRef.label), node.operands[1]])
-                else
-                    newList << node
-                end
             else
                 newList << node
             end
@@ -511,10 +504,6 @@ end
 
 class Instruction
     def lowerARM64
-        $asm.comment codeOriginString
-        $asm.annotation annotation if $enableInstrAnnotations
-        $asm.debugAnnotation codeOrigin.debugDirective if $enableDebugAnnotations
-
         case opcode
         when 'addi'
             emitARM64Add("add", operands, :int)

@@ -101,8 +101,8 @@ static const char rcsid[] = "$Id: res_query.c,v 1.1 2006/03/01 19:01:38 majka Ex
 #endif
 
 /* interrupt mechanism is implemented in res_send.c */
-__private_extern__ int interrupt_pipe_enabled;
-__private_extern__ pthread_key_t interrupt_pipe_key;
+extern int interrupt_pipe_enabled;
+extern pthread_key_t interrupt_pipe_key;
 
 /* Options.  Leave them on. */
 #define DEBUG
@@ -584,7 +584,7 @@ res_soa_minimum(const u_char *msg, int len)
  *
  * Caller must parse answer and determine whether it answers the question.
  */
-__private_extern__ int
+__attribute__((__visibility__("hidden"))) int
 res_nquery_soa_min(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, int *fromlen, int *min)
 {
 	u_char buf[MAXPACKET];
@@ -676,6 +676,7 @@ again:
 	return (n);
 }
 
+__attribute__((__visibility__("hidden")))
 int
 res_nquery_2(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, int *fromlen)
 {
@@ -699,6 +700,7 @@ res_nquery(res_state statp, const char *name, int class, int type, u_char *answe
  * Perform a call on res_query on the concatenation of name and domain,
  * removing a trailing dot from name if domain is NULL.
  */
+__attribute__((__visibility__("hidden")))
 int
 res_nquerydomain_2(res_state statp, const char *name, const char *domain, int class, int type, u_char *answer, int anslen, struct sockaddr *from, int *fromlen)
 {
@@ -766,6 +768,7 @@ res_nquerydomain(res_state statp, const char *name, const char *domain, int clas
  * If enabled, implement search rules until answer or unrecoverable failure
  * is detected.  Error code, if any, is left in H_ERRNO.
  */
+__attribute__((__visibility__("hidden")))
 int
 res_nsearch_2(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, int *fromlen)
 {
@@ -897,6 +900,7 @@ res_nsearch_2(res_state statp, const char *name, int class, int type, u_char *an
 	return (-1);
 }
 
+__attribute__((__visibility__("hidden")))
 int
 __res_nsearch_list_2(res_state statp, const char *name,	int class, int type, u_char *answer, int anslen, struct sockaddr *from, int *fromlen, int nsearch, char **search)
 {

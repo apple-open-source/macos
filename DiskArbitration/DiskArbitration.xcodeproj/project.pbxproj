@@ -203,6 +203,7 @@
 		12EFD4EB038AE27403A87B01 /* DALog.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DALog.h; path = diskarbitrationd/DALog.h; sourceTree = "<group>"; };
 		12EFD4EC038AE27403A87B01 /* DALog.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DALog.c; path = diskarbitrationd/DALog.c; sourceTree = "<group>"; };
 		2AE465A21CAB11830049D02E /* DiskArbitration.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = DiskArbitration.modulemap; sourceTree = "<group>"; };
+		30B32ACA20EEF86A00D71734 /* DAServer.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = DAServer.entitlements; path = diskarbitrationd/DAServer.entitlements; sourceTree = "<group>"; };
 		60077B8112E630AF00D4AE4F /* DiskArbitrationAgent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = DiskArbitrationAgent; sourceTree = BUILT_PRODUCTS_DIR; };
 		60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = DiskArbitrationAgent.m; path = DiskArbitrationAgent/DiskArbitrationAgent.m; sourceTree = "<group>"; };
 		60077BD012E6403F00D4AE4F /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
@@ -418,6 +419,7 @@
 		124AF905030AE18503A87B01 /* diskarbitrationd */ = {
 			isa = PBXGroup;
 			children = (
+				30B32ACA20EEF86A00D71734 /* DAServer.entitlements */,
 				6D312A16046302EC00A87B01 /* com.apple.diskarbitrationd.plist */,
 				12363823031AA75703A87B01 /* diskarbitrationd.8 */,
 				6D676E9D0406DCE100A87B01 /* DAServer.defs */,
@@ -900,6 +902,8 @@
 		603C87F808EC8117004474CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = diskarbitrationd/DAServer.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/libexec;
@@ -910,6 +914,8 @@
 		603C87F908EC8117004474CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = diskarbitrationd/DAServer.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = diskarbitrationd;

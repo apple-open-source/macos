@@ -89,8 +89,8 @@
 #include "buf.h"
 #include "enc.h"
 
-LIBXML_INTERNAL const int xmlEntityDecodingDepthMax = 40;
-LIBXML_INTERNAL const int xmlEntityDecodingDepthHugeMax = 1024;
+const int xmlEntityDecodingDepthMax = 40;
+const int xmlEntityDecodingDepthHugeMax = 1024;
 
 static void
 xmlFatalErr(xmlParserCtxtPtr ctxt, xmlParserErrors error, const char *info);

@@ -12,6 +12,7 @@ tk{
     }
     ExemplarCharacters{"[a b ç d e ä f g h i j ž k l m n ň o ö p r s ş t u ü w y ý z]"}
     ExemplarCharactersIndex{"[A B Ç D E Ä F G H I J Ž K L M N Ň O Ö P R S Ş T U Ü W Y Ý Z]"}
+    ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{"[\\- – — , ; \\: ! ? . … \u0022 “ ” ( ) \\[ \\] \\{ \\} § @ * #]"}
     MoreInformation{"?"}
     NumberElements{
@@ -200,7 +201,7 @@ tk{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.31.86"}
+    Version{"2.1.37.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -219,7 +220,21 @@ tk{
                 "{1} {0}",
             }
             availableFormats{
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
                 Ed{"d E"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"G y"}
+                GyMMM{"MMM y G"}
+                GyMMMEd{"d MMM y G, E"}
+                GyMMMd{"d MMM y G"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -232,18 +247,21 @@ tk{
                 MMMd{"d MMM"}
                 Md{"dd.MM"}
                 d{"d"}
+                h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
                 mmss{"mm:ss"}
                 ms{"mm:ss"}
-                y{"y G"}
-                yM{"MM.y GGGGG"}
-                yMEd{"dd.MM.y GGGGG E"}
-                yMMM{"MMM y G"}
-                yMMMEd{"d MMM y G E"}
-                yMMMM{"MMMM y G"}
-                yMMMd{"d MMM y G"}
-                yMd{"dd.MM.y GGGGG"}
+                yyyy{"y G"}
+                yyyyM{"MM.y GGGGG"}
+                yyyyMEd{"dd.MM.y GGGGG, E"}
+                yyyyMMM{"MMM y G"}
+                yyyyMMMEd{"d MMM y G, E"}
+                yyyyMMMM{"MMMM y G"}
+                yyyyMMMd{"d MMM y G"}
+                yyyyMd{"dd.MM.y GGGGG"}
+                yyyyQQQ{"G y QQQ"}
+                yyyyQQQQ{"G y QQQQ"}
             }
             intervalFormats{
                 H{
@@ -305,43 +323,55 @@ tk{
                     h{"h–h a v"}
                 }
                 y{
-                    y{"y–y G"}
+                    y{"y–y"}
                 }
                 yM{
-                    M{"MM.y – MM.y GGGGG"}
-                    y{"MM.y – MM.y GGGGG"}
+                    M{"MM.y – MM.y"}
+                    y{"MM.y – MM.y"}
                 }
                 yMEd{
-                    M{"GGGGG dd.MM.y E – dd.MM.y E"}
-                    d{"GGGGG dd.MM.y E – dd.MM.y E"}
-                    y{"GGGGG dd.MM.y E – dd.MM.y E"}
+                    M{"dd.MM.y E – dd.MM.y E"}
+                    d{"dd.MM.y E – dd.MM.y E"}
+                    y{"dd.MM.y E – dd.MM.y E"}
                 }
                 yMMM{
-                    M{"MMM–MMM y G"}
-                    y{"MMM y – MMM y G"}
+                    M{"MMM–MMM y"}
+                    y{"MMM y – MMM y"}
                 }
                 yMMMEd{
-                    M{"G d MMM y E – d MMM y E"}
-                    d{"G d MMM y E – d MMM y E"}
-                    y{"G d MMM y E – d MMM y E"}
+                    M{"d MMM y E – d MMM y E"}
+                    d{"d MMM y E – d MMM y E"}
+                    y{"d MMM y E – d MMM y E"}
                 }
                 yMMMM{
-                    M{"MMMM–MMMM y G"}
-                    y{"MMMM y – MMMM y G"}
+                    M{"MMMM–MMMM y"}
+                    y{"MMMM y – MMMM y"}
                 }
                 yMMMd{
-                    M{"d MMM – d MMM y G"}
-                    d{"d – d MMM y G"}
-                    y{"d MMM y – d MMM y G"}
+                    M{"d MMM – d MMM y"}
+                    d{"d – d MMM y"}
+                    y{"d MMM y – d MMM y"}
                 }
                 yMd{
-                    M{"dd.MM.y – dd.MM.y GGGGG"}
-                    d{"dd.MM.y – dd.MM.y GGGGG"}
-                    y{"dd.MM.y – dd.MM.y GGGGG"}
+                    M{"dd.MM.y – dd.MM.y"}
+                    d{"dd.MM.y – dd.MM.y"}
+                    y{"dd.MM.y – dd.MM.y"}
                 }
             }
         }
         gregorian{
+            AmPmMarkers{
+                "günortadan öň",
+                "günortadan soň",
+            }
+            AmPmMarkersAbbr{
+                "go.öň",
+                "go.soň",
+            }
+            AmPmMarkersNarrow{
+                "öň",
+                "soň",
+            }
             DateTimePatterns{
                 "HH:mm:ss zzzz",
                 "HH:mm:ss z",
@@ -357,22 +387,48 @@ tk{
                 "{1} {0}",
                 "{1} {0}",
             }
+            appendItems{
+                Timezone{"{0} {1}"}
+            }
             availableFormats{
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
                 Ed{"d E"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"y G"}
+                GyMMM{"MMM y G"}
+                GyMMMEd{"d MMM y G, E"}
+                GyMMMd{"d MMM y G"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
+                Hmsv{"HH:mm:ss v"}
+                Hmv{"HH:mm v"}
                 M{"L"}
                 MEd{"dd.MM E"}
                 MMM{"LLL"}
                 MMMEd{"d MMM E"}
                 MMMMEd{"d MMMM E"}
+                MMMMW{
+                    one{"'hepde' W, MMMM"}
+                    other{"'hepde' W, MMMM"}
+                }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 Md{"dd.MM"}
                 d{"d"}
+                h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
                 mmss{"mm:ss"}
                 ms{"mm:ss"}
                 y{"y"}
@@ -383,10 +439,34 @@ tk{
                 yMMMM{"MMMM y"}
                 yMMMd{"d MMM y"}
                 yMd{"dd.MM.y"}
+                yQQQ{"y QQQ"}
+                yQQQQ{"y QQQQ"}
+                yw{
+                    one{"'hepde' w, Y"}
+                    other{"'hepde' w, Y"}
+                }
             }
             dayNames{
                 format{
                     abbreviated{
+                        "ýek",
+                        "duş",
+                        "siş",
+                        "çar",
+                        "pen",
+                        "ann",
+                        "şen",
+                    }
+                    narrow{
+                        "Ý",
+                        "D",
+                        "S",
+                        "Ç",
+                        "P",
+                        "A",
+                        "Ş",
+                    }
+                    short{
                         "ýb",
                         "db",
                         "sb",
@@ -406,6 +486,15 @@ tk{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "Ýek",
+                        "Duş",
+                        "Siş",
+                        "Çar",
+                        "Pen",
+                        "Ann",
+                        "Şen",
+                    }
                     narrow{
                         "Ý",
                         "D",
@@ -415,6 +504,58 @@ tk{
                         "A",
                         "Ş",
                     }
+                    short{
+                        "Ýb",
+                        "Db",
+                        "Sb",
+                        "Çb",
+                        "Pb",
+                        "An",
+                        "Şb",
+                    }
+                    wide{
+                        "Ýekşenbe",
+                        "Duşenbe",
+                        "Sişenbe",
+                        "Çarşenbe",
+                        "Penşenbe",
+                        "Anna",
+                        "Şenbe",
+                    }
+                }
+            }
+            dayPeriod{
+                stand-alone{
+                    abbreviated{
+                        am{"g.öň"}
+                        pm{"g.soň"}
+                    }
+                    narrow{
+                        am{"öň"}
+                        pm{"soň"}
+                    }
+                    wide{
+                        am{"günortadan öň"}
+                        pm{"günortadan soň"}
+                    }
+                }
+            }
+            eras{
+                abbreviated{
+                    "B.e.öň",
+                    "B.e.",
+                }
+                abbreviated%variant{
+                    "b.e.öň",
+                    "b.e.",
+                }
+                wide{
+                    "Isadan öň",
+                    "Isadan soň",
+                }
+                wide%variant{
+                    "Biziň eramyzdan öň",
+                    "Biziň eramyz",
                 }
             }
             intervalFormats{
@@ -528,6 +669,20 @@ tk{
                         "noý",
                         "dek",
                     }
+                    narrow{
+                        "Ý",
+                        "F",
+                        "M",
+                        "A",
+                        "M",
+                        "I",
+                        "I",
+                        "A",
+                        "S",
+                        "O",
+                        "N",
+                        "D",
+                    }
                     wide{
                         "ýanwar",
                         "fewral",
@@ -544,6 +699,20 @@ tk{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "Ýan",
+                        "Few",
+                        "Mart",
+                        "Apr",
+                        "Maý",
+                        "Iýun",
+                        "Iýul",
+                        "Awg",
+                        "Sen",
+                        "Okt",
+                        "Noý",
+                        "Dek",
+                    }
                     narrow{
                         "Ý",
                         "F",
@@ -558,9 +727,153 @@ tk{
                         "N",
                         "D",
                     }
+                    wide{
+                        "Ýanwar",
+                        "Fewral",
+                        "Mart",
+                        "Aprel",
+                        "Maý",
+                        "Iýun",
+                        "Iýul",
+                        "Awgust",
+                        "Sentýabr",
+                        "Oktýabr",
+                        "Noýabr",
+                        "Dekabr",
+                    }
+                }
+            }
+            quarters{
+                format{
+                    abbreviated{
+                        "1Ç",
+                        "2Ç",
+                        "3Ç",
+                        "4Ç",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
+                    wide{
+                        "1-nji çärýek",
+                        "2-nji çärýek",
+                        "3-nji çärýek",
+                        "4-nji çärýek",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "1Ç",
+                        "2Ç",
+                        "3Ç",
+                        "Q4",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
+                    wide{
+                        "1-nji çärýek",
+                        "2-nji çärýek",
+                        "3-nji çärýek",
+                        "4-nji çärýek",
+                    }
                 }
             }
         }
+    }
+    characterLabel{
+        activities{"işjeňlik"}
+        african_scripts{"Afrika elipbiýi"}
+        american_scripts{"Amerikan elipbiýi"}
+        animal{"haýwan"}
+        animals_nature{"haýwan ýa-da tebigat"}
+        arrows{"ok"}
+        body{"göwre"}
+        box_drawing{"guty çyzuwy"}
+        braille{"Braýl"}
+        building{"bina"}
+        bullets_stars{"ok ýa-da ýyldyz"}
+        consonantal_jamo{"çekimsizli jamo"}
+        currency_symbols{"pul birliginiň nyşany"}
+        dash_connector{"kese çyzyk ýa-da baglaýjy"}
+        digits{"san"}
+        dingbats{"dingbat"}
+        divination_symbols{"bilgiçlik nyşany"}
+        downwards_arrows{"aşaklygyna ok"}
+        downwards_upwards_arrows{"aşak-ýokary ok"}
+        east_asian_scripts{"Gündogar Aziýa elipbiýi"}
+        emoji{"emoji"}
+        european_scripts{"Ýewropa elipbiýi"}
+        female{"zenan"}
+        flag{"baýdak"}
+        flags{"baýdaklar"}
+        food_drink{"iýmit we içgiler"}
+        format{"format"}
+        format_whitespace{"format we boşluk"}
+        full_width_form_variant{"doly giňlik warianty"}
+        geometric_shapes{"geometriki şekil"}
+        half_width_form_variant{"ýarym giňlik warianty"}
+        han_characters{"Han elipbiýiniň harpy"}
+        han_radicals{"Han harpynyň köki"}
+        hanja{"hanja"}
+        hanzi_simplified{"Hanzi (ýönekeýleşdirilen)"}
+        hanzi_traditional{"Hanzi (adaty)"}
+        heart{"ýürek"}
+        historic_scripts{"taryhy elipbiý"}
+        ideographic_desc_characters{"ideografik düşündiriş harpy"}
+        japanese_kana{"ýapon kana"}
+        kanbun{"kanbun"}
+        kanji{"kandzi"}
+        keycap{"klawiş gapagy"}
+        leftwards_arrows{"çepe ok"}
+        leftwards_rightwards_arrows{"çepe-saga ok"}
+        letterlike_symbols{"harpa meňzeş nyşan"}
+        limited_use{"çäkli ulanyş"}
+        male{"erkek"}
+        math_symbols{"matematika nyşany"}
+        middle_eastern_scripts{"Ýakyn Gündogar elipbiýi"}
+        miscellaneous{"dürli"}
+        modern_scripts{"häzirki zaman elipbiýi"}
+        modifier{"modifikator"}
+        musical_symbols{"aýdym-saz nyşany"}
+        nature{"tebigat"}
+        nonspacing{"aralyksyz"}
+        numbers{"sanlar"}
+        objects{"obýekt"}
+        other{"başga"}
+        paired{"jübütlenen"}
+        person{"şahys"}
+        phonetic_alphabet{"fonetik elipbiý"}
+        pictographs{"piktograf"}
+        place{"ýer"}
+        plant{"ösümlik"}
+        punctuation{"dyngy"}
+        rightwards_arrows{"saga ok"}
+        sign_standard_symbols{"belgi ýa-da nyşan"}
+        small_form_variant{"kiçi wariantlar"}
+        smiley{"ýylgyryş"}
+        smileys_people{"ýylgyryş ýa-da şahys"}
+        south_asian_scripts{"Günorta Aziýa elipbiýi"}
+        southeast_asian_scripts{"Günorta-gündogar Aziýa elipbiýi"}
+        spacing{"aralykly"}
+        sport{"sport"}
+        symbols{"nyşan"}
+        technical_symbols{"tehniki nyşan"}
+        tone_marks{"äheň belgisi"}
+        travel{"syýahat"}
+        travel_places{"syýahat ýa-da ýer"}
+        upwards_arrows{"ýokarlygyna ok"}
+        variant_forms{"wariant"}
+        vocalic_jamo{"çekimli jamo"}
+        weather{"howa"}
+        western_asian_scripts{"Günbatar Aziýa elipbiýi"}
+        whitespace{"boşluk"}
     }
     delimiters{
         alternateQuotationEnd{"”"}
@@ -613,14 +926,89 @@ tk{
                 }
             }
         }
+        dayOfYear{
+            dn{"ýylyň güni"}
+        }
+        dayOfYear-narrow{
+            dn{"ý. güni"}
+        }
+        dayOfYear-short{
+            dn{"ý. güni"}
+        }
         dayperiod{
-            dn{"güniň dowamy"}
+            dn{"öýländen öň/öýländen soň"}
+        }
+        dayperiod-narrow{
+            dn{"öýländen öň/öýländen soň"}
+        }
+        dayperiod-short{
+            dn{"öýländen öň/öýländen soň"}
         }
         era{
-            dn{"döwür"}
+            dn{"era"}
+        }
+        era-narrow{
+            dn{"era"}
+        }
+        era-short{
+            dn{"era"}
+        }
+        fri{
+            relative{
+                "-1"{"geçen anna"}
+                "0"{"şu anna"}
+                "1"{"indiki anna"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} annadan"}
+                    other{"{0} annadan"}
+                }
+                past{
+                    one{"{0} anna öň"}
+                    other{"{0} anna öň"}
+                }
+            }
+        }
+        fri-narrow{
+            relative{
+                "-1"{"geçen an"}
+                "0"{"şu an"}
+                "1"{"indiki an"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} an-dan"}
+                    other{"{0} an-dan"}
+                }
+                past{
+                    one{"{0} an öň"}
+                    other{"{0} an öň"}
+                }
+            }
+        }
+        fri-short{
+            relative{
+                "-1"{"geçen an."}
+                "0"{"şu an."}
+                "1"{"indiki an."}
+            }
+            relativeTime{
+                future{
+                    one{"{0} an.-dan"}
+                    other{"{0} an.-dan."}
+                }
+                past{
+                    one{"{0} an. öň"}
+                    other{"{0} an. öň"}
+                }
+            }
         }
         hour{
             dn{"sagat"}
+            relative{
+                "0"{"şu sagat"}
+            }
             relativeTime{
                 future{
                     one{"{0} sagatdan"}
@@ -660,6 +1048,9 @@ tk{
         }
         minute{
             dn{"minut"}
+            relative{
+                "0"{"şu minut"}
+            }
             relativeTime{
                 future{
                     one{"{0} minutdan"}
@@ -694,6 +1085,57 @@ tk{
                 past{
                     one{"{0} min. öň"}
                     other{"{0} min. öň"}
+                }
+            }
+        }
+        mon{
+            relative{
+                "-1"{"geçen duşenbe"}
+                "0"{"şu duşenbe"}
+                "1"{"indiki duşenbe"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} duşenbeden"}
+                    other{"{0} duşenbeden"}
+                }
+                past{
+                    one{"{0} duşenbe öň"}
+                    other{"{0} duşenbe öň"}
+                }
+            }
+        }
+        mon-narrow{
+            relative{
+                "-1"{"geçen db"}
+                "0"{"şu db"}
+                "1"{"indiki db"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} db.-den"}
+                    other{"{0} db.-den"}
+                }
+                past{
+                    one{"{0} db öň"}
+                    other{"{0} db öň"}
+                }
+            }
+        }
+        mon-short{
+            relative{
+                "-1"{"geçen duş."}
+                "0"{"şu duş."}
+                "1"{"indiki duş."}
+            }
+            relativeTime{
+                future{
+                    one{"{0} duş.-den"}
+                    other{"{0} duş.-den"}
+                }
+                past{
+                    one{"{0} duş. öň"}
+                    other{"{0} duş. öň"}
                 }
             }
         }
@@ -743,6 +1185,11 @@ tk{
         }
         quarter{
             dn{"çarýek"}
+            relative{
+                "-1"{"geçen çärýek"}
+                "0"{"şu çärýek"}
+                "1"{"indiki çärýek"}
+            }
             relativeTime{
                 future{
                     one{"{0} çärýekden"}
@@ -758,8 +1205,8 @@ tk{
             dn{"çär."}
             relativeTime{
                 future{
-                    one{"{0} ç-den"}
-                    other{"{0} ç-den"}
+                    one{"{0} ç.-den"}
+                    other{"{0} ç.-den"}
                 }
                 past{
                     one{"{0} ç. öň"}
@@ -771,8 +1218,8 @@ tk{
             dn{"çär."}
             relativeTime{
                 future{
-                    one{"{0} çär-den"}
-                    other{"{0} çär-den"}
+                    one{"{0} çär.-den"}
+                    other{"{0} çär.-den"}
                 }
                 past{
                     one{"{0} çär. öň"}
@@ -780,8 +1227,62 @@ tk{
                 }
             }
         }
+        sat{
+            relative{
+                "-1"{"geçen şenbe"}
+                "0"{"şu şenbe"}
+                "1"{"indiki şenbe"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} şenbeden"}
+                    other{"{0} şenbeden"}
+                }
+                past{
+                    one{"{0} şenbe öň"}
+                    other{"{0} şenbe öň"}
+                }
+            }
+        }
+        sat-narrow{
+            relative{
+                "-1"{"geçen şb"}
+                "0"{"şu şb"}
+                "1"{"indiki şb"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} şb.-den"}
+                    other{"{0} şb.-den"}
+                }
+                past{
+                    one{"{0} şb öň"}
+                    other{"{0} şb öň"}
+                }
+            }
+        }
+        sat-short{
+            relative{
+                "-1"{"geçen şen."}
+                "0"{"şu şen."}
+                "1"{"indiki şen."}
+            }
+            relativeTime{
+                future{
+                    one{"{0} şen.-den"}
+                    other{"{0} şen.-den"}
+                }
+                past{
+                    one{"{0} şen. öň"}
+                    other{"{0} şen. öň"}
+                }
+            }
+        }
         second{
             dn{"sekunt"}
+            relative{
+                "0"{"häzir"}
+            }
             relativeTime{
                 future{
                     one{"{0} sekuntdan"}
@@ -819,6 +1320,210 @@ tk{
                 }
             }
         }
+        sun{
+            relative{
+                "-1"{"geçen ýekşenbe"}
+                "0"{"şu ýekşenbe"}
+                "1"{"indiki çekşenbe"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} ýekşenbeden"}
+                    other{"{0} ýekşenbe"}
+                }
+                past{
+                    one{"{0} ýekşenbe öň"}
+                    other{"{0} ýekşenbe öň"}
+                }
+            }
+        }
+        sun-narrow{
+            relative{
+                "-1"{"geçen ýb"}
+                "0"{"şu ýb"}
+                "1"{"indiki ýb"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} ýb.-den"}
+                    other{"{0} ýb.-den"}
+                }
+                past{
+                    one{"{0} ýb öň"}
+                    other{"{0} ýb öň"}
+                }
+            }
+        }
+        sun-short{
+            relative{
+                "-1"{"geçen ýek."}
+                "0"{"şu ýek."}
+                "1"{"indiki ýek."}
+            }
+            relativeTime{
+                future{
+                    one{"{0} ýek.-den"}
+                    other{"{0} ýek.-den"}
+                }
+                past{
+                    one{"{0} ýek. öň"}
+                    other{"{0} ýek. öň"}
+                }
+            }
+        }
+        thu{
+            relative{
+                "-1"{"geçen penşenbe"}
+                "0"{"şu penşenbe"}
+                "1"{"indiki penşenbe"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} penşenbeden"}
+                    other{"{0} penşenbeden"}
+                }
+                past{
+                    one{"{0} penşenbe öň"}
+                    other{"{0} penşenbe öň"}
+                }
+            }
+        }
+        thu-narrow{
+            relative{
+                "-1"{"geçen pb"}
+                "0"{"şu pb"}
+                "1"{"indiki pb"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} pb.-den"}
+                    other{"{0} pb.-den"}
+                }
+                past{
+                    one{"{0} pb öň"}
+                    other{"{0} pb öň"}
+                }
+            }
+        }
+        thu-short{
+            relative{
+                "-1"{"geçen pen."}
+                "0"{"şu pen."}
+                "1"{"indiki pen."}
+            }
+            relativeTime{
+                future{
+                    one{"{0} pen.-den"}
+                    other{"{0} pen.-den"}
+                }
+                past{
+                    one{"{0} pen. öň"}
+                    other{"{0} pen. öň"}
+                }
+            }
+        }
+        tue{
+            relative{
+                "-1"{"geçen sişenbe"}
+                "0"{"şu sişenbe"}
+                "1"{"indiki sişenbe"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} sişenbeden"}
+                    other{"{0} sişenbeden"}
+                }
+                past{
+                    one{"{0} sişenbe öň"}
+                    other{"{0} sişenbe öň"}
+                }
+            }
+        }
+        tue-narrow{
+            relative{
+                "-1"{"geçen sb"}
+                "0"{"şu sb"}
+                "1"{"indiki sb"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} sb.-den"}
+                    other{"{0} sb.-den"}
+                }
+                past{
+                    one{"{0} sb öň"}
+                    other{"{0} sb öň"}
+                }
+            }
+        }
+        tue-short{
+            relative{
+                "-1"{"geçen siş."}
+                "0"{"şu siş."}
+                "1"{"indiki siş."}
+            }
+            relativeTime{
+                future{
+                    one{"{0} siş.-den"}
+                    other{"{0} siş.-den"}
+                }
+                past{
+                    one{"{0} siş. öň"}
+                    other{"{0} siş. öň"}
+                }
+            }
+        }
+        wed{
+            relative{
+                "-1"{"geçen çarşenbe"}
+                "0"{"şu çarşenbe"}
+                "1"{"indiki çarşenbe"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} çarşenbeden"}
+                    other{"{0} çarşenbeden"}
+                }
+                past{
+                    one{"{0} çarşenbe öň"}
+                    other{"{0} çarşenbe öň"}
+                }
+            }
+        }
+        wed-narrow{
+            relative{
+                "-1"{"geçen çb"}
+                "0"{"şu çb"}
+                "1"{"indiki çb"}
+            }
+            relativeTime{
+                future{
+                    one{"{0} çb.-den"}
+                    other{"{0} çb.-den"}
+                }
+                past{
+                    one{"{0} çb öň"}
+                    other{"{0} çb öň"}
+                }
+            }
+        }
+        wed-short{
+            relative{
+                "-1"{"geçen çar."}
+                "0"{"şu çar."}
+                "1"{"indiki çar."}
+            }
+            relativeTime{
+                future{
+                    one{"{0} çar.-den"}
+                    other{"{0} çar.-den"}
+                }
+                past{
+                    one{"{0} çar. öň"}
+                    other{"{0} çar. öň"}
+                }
+            }
+        }
         week{
             dn{"hepde"}
             relative{
@@ -826,6 +1531,7 @@ tk{
                 "0"{"şu hepde"}
                 "1"{"indiki hepde"}
             }
+            relativePeriod{"{0} hepdesi"}
             relativeTime{
                 future{
                     one{"{0} hepdeden"}
@@ -839,6 +1545,7 @@ tk{
         }
         week-narrow{
             dn{"hep."}
+            relativePeriod{"{0} hepdesi"}
             relativeTime{
                 future{
                     one{"{0} h-den"}
@@ -852,6 +1559,7 @@ tk{
         }
         week-short{
             dn{"hep."}
+            relativePeriod{"{0} hepdesi"}
             relativeTime{
                 future{
                     one{"{0} hep-den"}
@@ -863,8 +1571,32 @@ tk{
                 }
             }
         }
+        weekOfMonth{
+            dn{"aýyň hepdesi"}
+        }
+        weekOfMonth-narrow{
+            dn{"hep./aý"}
+        }
+        weekOfMonth-short{
+            dn{"hep./aý"}
+        }
         weekday{
             dn{"hepdäniň güni"}
+        }
+        weekday-narrow{
+            dn{"hep. güni"}
+        }
+        weekday-short{
+            dn{"hep. güni"}
+        }
+        weekdayOfMonth{
+            dn{"aýda hepdäň güni"}
+        }
+        weekdayOfMonth-narrow{
+            dn{"aýda hep. güni"}
+        }
+        weekdayOfMonth-short{
+            dn{"aýda hep. güni"}
         }
         year{
             dn{"ýyl"}
@@ -913,9 +1645,27 @@ tk{
         zone{
             dn{"sagat guşaklygy"}
         }
+        zone-narrow{
+            dn{"guşaklyk"}
+        }
+        zone-short{
+            dn{"guşaklyk"}
+        }
     }
     listPattern{
+        or{
+            2{"{0} ýa-da {1}"}
+            end{"{0} ýa-da {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
         standard{
+            2{"{0} we {1}"}
+            end{"{0} we {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
+        standard-short{
             2{"{0} we {1}"}
             end{"{0} we {1}"}
             middle{"{0}, {1}"}
@@ -923,7 +1673,7 @@ tk{
         }
         unit{
             2{"{0} we {1}"}
-            end{"{0} we {1}"}
+            end{"{0}, {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
@@ -935,13 +1685,13 @@ tk{
         }
         unit-short{
             2{"{0}, {1}"}
-            end{"{0} we {1}"}
+            end{"{0}, {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
     }
     measurementSystemNames{
-        UK{"BK"}
+        UK{"Birleşen Patyşalyk"}
         US{"ABŞ"}
         metric{"Metrik"}
     }

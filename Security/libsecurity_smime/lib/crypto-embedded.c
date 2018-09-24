@@ -211,7 +211,7 @@ CFArrayRef CERT_DupCertList(CFArrayRef oldList)
 // Extract a public key object from a SubjectPublicKeyInfo
 SecPublicKeyRef CERT_ExtractPublicKey(SecCertificateRef cert)
 {
-    return SecCertificateCopyPublicKey(cert);
+    return SecCertificateCopyKey(cert);
 }
 
 // Extract the issuer and serial number from a certificate
@@ -225,7 +225,7 @@ SecCmsIssuerAndSN *CERT_GetCertIssuerAndSN(PRArenaPool *pl, SecCertificateRef ce
     CFDataRef issuer_data = SecCertificateCopyIssuerSequence(cert);
     if (!issuer_data)
         goto loser;
-    serial_data = SecCertificateCopySerialNumber(cert);
+    serial_data = SecCertificateCopySerialNumberData(cert, NULL);
     if (!serial_data)
         goto loser;
     
@@ -433,20 +433,24 @@ WRAP_PubWrapSymKey(SecPublicKeyRef publickey,
                         encKey->Data, &encKey->Length);
 }
 
+#define MAX_KEY_SIZE 8192/8
 SecSymmetricKeyRef
 WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, const SecAsn1Item *encKey, SECOidTag bulkalgtag)
 {
     size_t bulkkey_size = encKey->Length;
-    if (bulkkey_size > 16384) {
+    if (bulkkey_size > MAX_KEY_SIZE) {
         return NULL;
     }
 
-    uint8_t bulkkey_buffer[bulkkey_size];
-    if (SecKeyDecrypt(privkey, kSecPaddingPKCS1, 
-        encKey->Data, encKey->Length, bulkkey_buffer, &bulkkey_size))
-            return NULL;
+    uint8_t *bulkkey_buffer = (uint8_t *)malloc(bulkkey_size);
+    if (!bulkkey_buffer) {
+        return NULL;
+    }
+    if (SecKeyDecrypt(privkey, kSecPaddingPKCS1, encKey->Data, encKey->Length, bulkkey_buffer, &bulkkey_size)) {
+        return NULL;
+    }
 
-    CFDataRef bulkkey = CFDataCreate(kCFAllocatorDefault, bulkkey_buffer, bulkkey_size);
+    CFDataRef bulkkey = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, bulkkey_buffer, bulkkey_size, kCFAllocatorMalloc);
     return (SecSymmetricKeyRef)bulkkey;
 }
 
@@ -464,7 +468,7 @@ CERT_CheckIssuerAndSerial(SecCertificateRef cert, SecAsn1Item *issuer, SecAsn1It
                 break;
             }
         CFRelease(cert_issuer);
-        CFDataRef cert_serial = SecCertificateCopySerialNumber(cert);
+        CFDataRef cert_serial = SecCertificateCopySerialNumberData(cert, NULL);
         if (!cert_serial)
             break;
         if ((serial->Length != (size_t)CFDataGetLength(cert_serial)) ||

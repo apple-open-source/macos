@@ -27,6 +27,8 @@
 
 #include "ThemeCocoa.h"
 
+#if PLATFORM(MAC)
+
 namespace WebCore {
 
 class ThemeMac final : public ThemeCocoa {
@@ -51,10 +53,12 @@ private:
 
     bool controlRequiresPreWhiteSpace(ControlPart part) const final { return part == PushButtonPart; }
 
-    void paint(ControlPart, ControlStates&, GraphicsContext&, const FloatRect&, float zoomFactor, ScrollView*, float deviceScaleFactor, float pageScaleFactor) final;
+    void paint(ControlPart, ControlStates&, GraphicsContext&, const FloatRect&, float zoomFactor, ScrollView*, float deviceScaleFactor, float pageScaleFactor, bool useSystemAppearance, bool useDarkAppearance) final;
     void inflateControlPaintRect(ControlPart, const ControlStates&, FloatRect&, float zoomFactor) const final;
 
     bool userPrefersReducedMotion() const final;
 };
 
 } // namespace WebCore
+
+#endif // PLATFORM(MAC)

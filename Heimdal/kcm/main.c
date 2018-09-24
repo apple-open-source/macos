@@ -35,6 +35,8 @@
 
 #ifdef __APPLE__
 #include <sandbox.h>
+#include <os/log.h>
+#include <os/log_private.h>
 #endif
 
 sig_atomic_t exit_flag = 0;
@@ -73,6 +75,11 @@ main(int argc, char **argv)
 {
     krb5_error_code ret;
     setprogname(argv[0]);
+
+#ifdef __APPLE__
+    /* Tell logd we're special */
+    os_log_set_client_type(OS_LOG_CLIENT_TYPE_LOGD_DEPENDENCY, 0);
+#endif
 
     ret = krb5_init_context(&kcm_context);
     if (ret) {

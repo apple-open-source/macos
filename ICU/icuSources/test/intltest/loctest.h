@@ -105,6 +105,8 @@ public:
     void TestGetVariantWithKeywords(void);
     void TestIsRightToLeft();
     void TestBug11421();
+    void TestBug13277();
+    void TestBug13554();
 
 private:
     void _checklocs(const char* label,

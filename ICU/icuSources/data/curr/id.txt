@@ -258,6 +258,10 @@ id{
             "CLP",
             "Peso Cile",
         }
+        CNH{
+            "CNH",
+            "Yuan Tiongkok (luar negeri)",
+        }
         CNY{
             "CN¥",
             "Yuan Tiongkok",
@@ -672,6 +676,10 @@ id{
         }
         MRO{
             "MRO",
+            "Ouguiya Mauritania (1973–2017)",
+        }
+        MRU{
+            "MRU",
             "Ouguiya Mauritania",
         }
         MTL{
@@ -904,6 +912,10 @@ id{
         }
         STD{
             "STD",
+            "Dobra Sao Tome dan Principe (1977–2017)",
+        }
+        STN{
+            "STN",
             "Dobra Sao Tome dan Principe",
         }
         SUR{
@@ -1250,6 +1262,7 @@ id{
         PKR{"Rs"}
         PLN{"zł"}
         PYG{"₲"}
+        RON{"lei"}
         RUB{"₽"}
         RWF{"RF"}
         SBD{"$"}
@@ -1258,7 +1271,7 @@ id{
         SHP{"£"}
         SRD{"$"}
         SSP{"£"}
-        STD{"Db"}
+        STN{"Db"}
         SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
@@ -1424,6 +1437,9 @@ id{
         }
         CLP{
             other{"Peso Cile"}
+        }
+        CNH{
+            other{"Yuan Tiongkok (luar negeri)"}
         }
         CNY{
             other{"Yuan Tiongkok"}
@@ -1633,6 +1649,9 @@ id{
             other{"Pataca Makau"}
         }
         MRO{
+            other{"Ouguiya Mauritania (1973–2017)"}
+        }
+        MRU{
             other{"Ouguiya Mauritania"}
         }
         MUR{
@@ -1774,6 +1793,9 @@ id{
             other{"Pound Sudan Selatan"}
         }
         STD{
+            other{"Dobra Sao Tome dan Principe (1977–2017)"}
+        }
+        STN{
             other{"Dobra Sao Tome dan Principe"}
         }
         SYP{
@@ -1906,5 +1928,5 @@ id{
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

@@ -58,6 +58,8 @@ public:
 	
 		void setCredentials(const CodeDirectory* cd);
 
+		bool appleInternalForcePlatform() const;
+
 private:
         const BlobCore *blob() { return (const BlobCore *)mBuffer; }
         void fetchData(void);

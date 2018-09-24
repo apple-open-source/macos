@@ -16,12 +16,7 @@
 // The following includes utypes.h, uobject.h and unistr.h
 #include "unicode/fmtable.h"
 #include "unicode/testlog.h"
-
-
-#if U_NO_DEFAULT_INCLUDE_UTF_HEADERS
-/* deprecated  - make tests pass with U_NO_DEFAULT_INCLUDE_UTF_HEADERS */
-#include "unicode/utf_old.h"
-#endif
+#include "unicode/uniset.h"
 
 U_NAMESPACE_USE
 
@@ -36,6 +31,7 @@ U_NAMESPACE_USE
 //string-concatenation operator (moved from findword test by rtg)
 UnicodeString UCharToUnicodeString(UChar c);
 UnicodeString Int64ToUnicodeString(int64_t num);
+UnicodeString DoubleToUnicodeString(double num);
 //UnicodeString operator+(const UnicodeString& left, int64_t num); // Some compilers don't allow this because of the long type.
 UnicodeString operator+(const UnicodeString& left, long num);
 UnicodeString operator+(const UnicodeString& left, unsigned long num);
@@ -284,10 +280,9 @@ public:
     virtual void setProperty(const char* propline);
     virtual const char* getProperty(const char* prop);
 
-protected:
     /* JUnit-like assertions. Each returns TRUE if it succeeds. */
     UBool assertTrue(const char* message, UBool condition, UBool quiet=FALSE, UBool possibleDataError=FALSE, const char *file=NULL, int line=0);
-    UBool assertFalse(const char* message, UBool condition, UBool quiet=FALSE);
+    UBool assertFalse(const char* message, UBool condition, UBool quiet=FALSE, UBool possibleDataError=FALSE);
     /**
      * @param possibleDataError - if TRUE, use dataerrln instead of errcheckln on failure
      * @return TRUE on success, FALSE on failure.
@@ -295,29 +290,31 @@ protected:
     UBool assertSuccess(const char* message, UErrorCode ec, UBool possibleDataError=FALSE, const char *file=NULL, int line=0);
     UBool assertEquals(const char* message, const UnicodeString& expected,
                        const UnicodeString& actual, UBool possibleDataError=FALSE);
-    UBool assertEquals(const char* message, const char* expected,
-                       const char* actual);
-    UBool assertEquals(const char* message, UBool expected,
-                       UBool actual);
+    UBool assertEquals(const char* message, const char* expected, const char* actual);
+    UBool assertEquals(const char* message, UBool expected, UBool actual);
     UBool assertEquals(const char* message, int32_t expected, int32_t actual);
     UBool assertEquals(const char* message, int64_t expected, int64_t actual);
     UBool assertEquals(const char* message, double expected, double actual);
+    UBool assertEquals(const char* message, UErrorCode expected, UErrorCode actual);
+    UBool assertEquals(const char* message, const UnicodeSet& expected, const UnicodeSet& actual);
 #if !UCONFIG_NO_FORMATTING
     UBool assertEquals(const char* message, const Formattable& expected,
                        const Formattable& actual, UBool possibleDataError=FALSE);
     UBool assertEquals(const UnicodeString& message, const Formattable& expected,
                        const Formattable& actual);
 #endif
-    UBool assertTrue(const UnicodeString& message, UBool condition, UBool quiet=FALSE);
-    UBool assertFalse(const UnicodeString& message, UBool condition, UBool quiet=FALSE);
+    UBool assertTrue(const UnicodeString& message, UBool condition, UBool quiet=FALSE, UBool possibleDataError=FALSE);
+    UBool assertFalse(const UnicodeString& message, UBool condition, UBool quiet=FALSE, UBool possibleDataError=FALSE);
     UBool assertSuccess(const UnicodeString& message, UErrorCode ec);
     UBool assertEquals(const UnicodeString& message, const UnicodeString& expected,
                        const UnicodeString& actual, UBool possibleDataError=FALSE);
-    UBool assertEquals(const UnicodeString& message, const char* expected,
-                       const char* actual);
+    UBool assertEquals(const UnicodeString& message, const char* expected, const char* actual);
     UBool assertEquals(const UnicodeString& message, UBool expected, UBool actual);
     UBool assertEquals(const UnicodeString& message, int32_t expected, int32_t actual);
     UBool assertEquals(const UnicodeString& message, int64_t expected, int64_t actual);
+    UBool assertEquals(const UnicodeString& message, double expected, double actual);
+    UBool assertEquals(const UnicodeString& message, UErrorCode expected, UErrorCode actual);
+    UBool assertEquals(const UnicodeString& message, const UnicodeSet& expected, const UnicodeSet& actual);
 
     virtual void runIndexedTest( int32_t index, UBool exec, const char* &name, char* par = NULL ); // overide !
 

@@ -26,7 +26,7 @@
 #import "config.h"
 #import "AXObjectCache.h"
 
-#if HAVE(ACCESSIBILITY)
+#if HAVE(ACCESSIBILITY) && PLATFORM(MAC)
 
 #import "AccessibilityObject.h"
 #import "AccessibilityTable.h"
@@ -271,13 +271,13 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
     switch (notification) {
         case AXActiveDescendantChanged:
             // An active descendant change for trees means a selected rows change.
-            if (obj->isTree())
+            if (obj->isTree() || obj->isTable())
                 macNotification = NSAccessibilitySelectedRowsChangedNotification;
             
             // When a combobox uses active descendant, it means the selected item in its associated
             // list has changed. In these cases we should use selected children changed, because
             // we don't want the focus to change away from the combobox where the user is typing.
-            else if (obj->isComboBox())
+            else if (obj->isComboBox() || obj->isList() || obj->isListBox())
                 macNotification = NSAccessibilitySelectedChildrenChangedNotification;
             else
                 macNotification = NSAccessibilityFocusedUIElementChangedNotification;                
@@ -521,4 +521,4 @@ void AXObjectCache::handleScrolledToAnchor(const Node*)
 
 }
 
-#endif // HAVE(ACCESSIBILITY)
+#endif // HAVE(ACCESSIBILITY) && PLATFORM(MAC)

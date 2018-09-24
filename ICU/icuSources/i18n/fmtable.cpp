@@ -31,6 +31,7 @@
 #include "decNumber.h"
 #include "digitlst.h"
 #include "fmtableimp.h"
+#include "number_decimalquantity.h"
 
 // *****************************************************************************
 // class Formattable
@@ -39,6 +40,8 @@
 U_NAMESPACE_BEGIN
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(Formattable)
+
+using number::impl::DecimalQuantity;
 
 
 //-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
@@ -104,6 +107,7 @@ void  Formattable::init() {
     fType = kLong;
     fDecimalStr = NULL;
     fDecimalNum = NULL;
+    fDecimalQuantity = NULL;
     fBogus.setToBogus(); 
 }
 
@@ -260,6 +264,9 @@ Formattable::operator=(const Formattable& source)
         if (source.fDecimalNum != NULL) {
           fDecimalNum = new DigitList(*source.fDecimalNum); // TODO: use internal digit list
         }
+        if (source.fDecimalQuantity != NULL) {
+          fDecimalQuantity = new DecimalQuantity(*source.fDecimalQuantity);
+        }
         if (source.fDecimalStr != NULL) {
             fDecimalStr = new CharString(*source.fDecimalStr, status);
             if (U_FAILURE(status)) {
@@ -364,6 +371,9 @@ void Formattable::dispose()
       fDecimalNum->~DigitList(); // destruct, don't deallocate
     }
     fDecimalNum = NULL;
+
+    delete fDecimalQuantity;
+    fDecimalQuantity = NULL;
 }
 
 Formattable *
@@ -743,6 +753,15 @@ CharString *Formattable::internalGetCharString(UErrorCode &status) {
         }
       }
 
+      if (fDecimalQuantity == NULL) {
+        // No decimal number for the formattable yet...
+        LocalPointer<DecimalQuantity> dq(new DecimalQuantity(), status);
+        if (U_FAILURE(status)) { return nullptr; }
+        populateDecimalQuantity(*dq, status);
+        if (U_FAILURE(status)) { return nullptr; }
+        fDecimalQuantity = dq.orphan();
+      }
+
       fDecimalStr = new CharString;
       if (fDecimalStr == NULL) {
         status = U_MEMORY_ALLOCATION_ERROR;
@@ -753,6 +772,29 @@ CharString *Formattable::internalGetCharString(UErrorCode &status) {
     return fDecimalStr;
 }
 
+void
+Formattable::populateDecimalQuantity(number::impl::DecimalQuantity& output, UErrorCode& status) const {
+    if (fDecimalQuantity != nullptr) {
+        output = *fDecimalQuantity;
+        return;
+    }
+
+    switch (fType) {
+        case kDouble:
+            output.setToDouble(this->getDouble());
+            output.roundToInfinity();
+            break;
+        case kLong:
+            output.setToInt(this->getLong());
+            break;
+        case kInt64:
+            output.setToLong(this->getInt64());
+            break;
+        default:
+            // The formattable's value is not a numeric type.
+            status = U_INVALID_STATE_ERROR;
+    }
+}
 
 DigitList *
 Formattable::getInternalDigitList() {
@@ -795,6 +837,32 @@ Formattable::adoptDigitList(DigitList *dl) {
     }
 }
 
+// ---------------------------------------
+void
+Formattable::adoptDecimalQuantity(DecimalQuantity *dq) {
+    if (fDecimalQuantity != NULL) {
+        delete fDecimalQuantity;
+    }
+    fDecimalQuantity = dq;
+    if (dq == NULL) { // allow adoptDigitList(NULL) to clear
+        return;
+    }
+
+    // Set the value into the Union of simple type values.
+    // Cannot use the set() functions because they would delete the fDecimalNum value.
+    if (fDecimalQuantity->fitsInLong()) {
+        fValue.fInt64 = fDecimalQuantity->toLong();
+        if (fValue.fInt64 <= INT32_MAX && fValue.fInt64 >= INT32_MIN) {
+            fType = kLong;
+        } else {
+            fType = kInt64;
+        }
+    } else {
+        fType = kDouble;
+        fValue.fDouble = fDecimalQuantity->toDouble();
+    }
+}
+
 
 // ---------------------------------------
 void
@@ -819,6 +887,10 @@ Formattable::setDecimalNumber(StringPiece numberString, UErrorCode &status) {
         return;   // String didn't contain a decimal number.
     }
     adoptDigitList(dnum);
+
+    auto* dq = new DecimalQuantity();
+    dq->setToDecNumber(numberString, status);
+    adoptDecimalQuantity(dq);
 
     // Note that we do not hang on to the caller's input string.
     // If we are asked for the string, we will regenerate one from fDecimalNum.

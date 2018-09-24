@@ -3,7 +3,7 @@
 # Copyright (c) 2012-2017 Apple Inc. All rights reserved.
 #
 
-ZONE_SOURCE_LOCAL = iu.txt ms_Arab.txt tg.txt tk.txt\
+ZONE_SOURCE_LOCAL = iu.txt ms_Arab.txt tk.txt\
 	en_AD.txt en_AL.txt en_BA.txt en_BD.txt en_BG.txt\
 	en_CN.txt en_CZ.txt en_EE.txt en_ES.txt en_FR.txt en_GR.txt\
 	en_HR.txt en_HU.txt en_ID.txt en_IS.txt en_IT.txt\
@@ -18,3 +18,5 @@ ZONE_SOURCE_LOCAL = iu.txt ms_Arab.txt tg.txt tk.txt\
 	es_SX.txt es_TC.txt es_TT.txt es_VC.txt es_VG.txt\
 	es_VI.txt\
 	pt_FR.txt
+
+ZONE_ALIAS_SOURCE_LOCAL = wuu.txt

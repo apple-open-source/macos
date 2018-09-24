@@ -224,6 +224,7 @@ CFDictionaryRef IOPSCopyExternalPowerAdapterDetails(void)
     xpc_object_t        connection = NULL;
     xpc_object_t        msg = NULL;
     xpc_object_t        respData = NULL;
+    xpc_object_t        reply = NULL;
     CFDictionaryRef     ret_dict = NULL;
     dispatch_queue_t    pmQueue = getPMQueue();
 
@@ -248,7 +249,7 @@ CFDictionaryRef IOPSCopyExternalPowerAdapterDetails(void)
     }
 
     xpc_dictionary_set_string(msg, kPSAdapterDetails, "true");
-    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(connection, msg);
+    reply = xpc_connection_send_message_with_reply_sync(connection, msg);
 
     if ((xpc_get_type(reply) == XPC_TYPE_DICTIONARY) &&
             (respData = xpc_dictionary_get_value(reply, kPSAdapterDetails))) {

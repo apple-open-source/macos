@@ -237,7 +237,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "sh \"$PROJECT_DIR\"/xcodescripts/headers.sh\nsh \"$PROJECT_DIR\"/xcodescripts/manpages.sh\nsh \"$PROJECT_DIR\"/xcodescripts/links.sh";
-			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 

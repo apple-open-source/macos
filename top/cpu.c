@@ -114,7 +114,7 @@ static bool cpu_me_insert_cell(struct statistic *s, const void *sample) {
 
 	if(0 == psamp->p_seq) {
 
-		if(-1 == snprintf(buf, sizeof(buf), "%7.5f", 0))
+		if(-1 == snprintf(buf, sizeof(buf), "%7.5f", 0.0))
 			return true;
 
 		return generic_insert_cell(s, buf);
@@ -180,7 +180,7 @@ static bool cpu_others_insert_cell(struct statistic *s, const void *sample) {
 
 	if(0 == psamp->p_seq) {
 
-		if(-1 == snprintf(buf, sizeof(buf), "%7.5f", 0))
+		if(-1 == snprintf(buf, sizeof(buf), "%7.5f", 0.0))
 			return true;
 
 		return generic_insert_cell(s, buf);
@@ -285,7 +285,7 @@ static bool instrs_insert_cell(struct statistic *s, const void *sample) {
 	uint64_t value;
 
 	if (psamp->p_seq == 0) {
-		if (snprintf(buf, sizeof(buf), "%" PRIu64, 0) == -1) {
+		if (snprintf(buf, sizeof(buf), "%" PRIu64, (uint64_t) 0) == -1) {
 			return true;
 		}
 

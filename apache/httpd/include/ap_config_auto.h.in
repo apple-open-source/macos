@@ -24,11 +24,17 @@
 /* SuExec log file */
 #undef AP_LOG_EXEC
 
+/* SuExec log to syslog */
+#undef AP_LOG_SYSLOG
+
 /* Listening sockets are non-blocking when there are more than 1 */
 #undef AP_NONBLOCK_WHEN_MULTI_LISTEN
 
 /* safe shell path for SuExec */
 #undef AP_SAFE_PATH
+
+/* Enable if suexec is installed with Linux capabilities, not setuid */
+#undef AP_SUEXEC_CAPABILITIES
 
 /* umask for suexec'd process */
 #undef AP_SUEXEC_UMASK
@@ -237,6 +243,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the `vsyslog' function. */
+#undef HAVE_VSYSLOG
 
 /* Root directory of the Apache install area */
 #undef HTTPD_ROOT

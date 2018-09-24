@@ -163,7 +163,7 @@ private:
             IODisplayModeID mode, IOOptionBits options,
             void * description, IOByteCount descripSize );
     virtual void getCurrentConfiguration( void );
-    static const IOTVector * _undefinedSymbolHandler( void * self, 
+    static const IOTVector * _undefinedSymbolHandler( void * obj,
                             const char * libraryName, const char * symbolName );
     static bool _videoJackStateChangeHandler( void * target, void * ref,
                             IOService * newService, IONotifier * notifier );
@@ -172,15 +172,15 @@ private:
     IOReturn ndrvSetPowerState( UInt32 newState );
     IOReturn ndrvUpdatePowerState( void );
     IOReturn ndrvSetDisplayPowerState( UInt32 newState );
-    static IOReturn _probeAction( IONDRVFramebuffer * self, IOOptionBits options );
+    static IOReturn _probeAction( IONDRVFramebuffer * fb, IOOptionBits options );
     bool searchOfflineMode( IODisplayModeID * offlineMode );
     IOReturn processConnectChange( uintptr_t * value );
     IOReturn setMirror( IONDRVFramebuffer * other );
     IOReturn setConnectionFlags( void );
     bool getOnlineState( void );
     IOReturn ndrvGetSetFeature( UInt32 feature, uintptr_t newValue, uintptr_t * currentValue );
-    static IOReturn _doControl( IONDRVFramebuffer * self, UInt32 code, void * params );
-    static IOReturn _doStatus( IONDRVFramebuffer * self, UInt32 code, void * params );
+    static IOReturn _doControl( IONDRVFramebuffer * fb, UInt32 code, void * params );
+    static IOReturn _doStatus( IONDRVFramebuffer * fb, UInt32 code, void * params );
     static IOReturn extControl( OSObject * owner, void * code, void * params );
     static IOReturn extStatus( OSObject * owner, void * code, void * params );
     IOReturn createI2C( void );

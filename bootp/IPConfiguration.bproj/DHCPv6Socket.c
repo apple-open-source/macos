@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -150,6 +150,16 @@ open_dhcpv6_socket(uint16_t client_port)
 	       strerror(errno));
     }
 #endif /* SO_TRAFFIC_CLASS */
+
+#if defined(SO_DEFUNCTOK)
+    opt = 0;
+    /* ensure that our socket can't be defunct'd */
+    if (setsockopt(sockfd, SOL_SOCKET, SO_DEFUNCTOK, &opt,
+		   sizeof(opt)) < 0) {
+	my_log(LOG_ERR, "setsockopt(SO_DEFUNCTOK) failed, %s",
+	       strerror(errno));
+    }
+#endif /* SO_DEFUNCTOK */
 
     return (sockfd);
 

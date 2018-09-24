@@ -37,6 +37,8 @@ typedef struct _WebKitDOMCSSValuePrivate {
     RefPtr<WebCore::DeprecatedCSSOMValue> coreObject;
 } WebKitDOMCSSValuePrivate;
 
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
+
 namespace WebKit {
 
 WebKitDOMCSSValue* kit(WebCore::DeprecatedCSSOMValue* obj)
@@ -66,9 +68,9 @@ WebKitDOMCSSValue* wrapCSSValue(WebCore::DeprecatedCSSOMValue* coreObject)
 G_DEFINE_TYPE(WebKitDOMCSSValue, webkit_dom_css_value, WEBKIT_DOM_TYPE_OBJECT)
 
 enum {
-    PROP_0,
-    PROP_CSS_TEXT,
-    PROP_CSS_VALUE_TYPE,
+    DOM_CSS_VALUE_PROP_0,
+    DOM_CSS_VALUE_PROP_CSS_TEXT,
+    DOM_CSS_VALUE_PROP_CSS_VALUE_TYPE,
 };
 
 static void webkit_dom_css_value_finalize(GObject* object)
@@ -86,7 +88,7 @@ static void webkit_dom_css_value_set_property(GObject* object, guint propertyId,
     WebKitDOMCSSValue* self = WEBKIT_DOM_CSS_VALUE(object);
 
     switch (propertyId) {
-    case PROP_CSS_TEXT:
+    case DOM_CSS_VALUE_PROP_CSS_TEXT:
         webkit_dom_css_value_set_css_text(self, g_value_get_string(value), nullptr);
         break;
     default:
@@ -100,10 +102,10 @@ static void webkit_dom_css_value_get_property(GObject* object, guint propertyId,
     WebKitDOMCSSValue* self = WEBKIT_DOM_CSS_VALUE(object);
 
     switch (propertyId) {
-    case PROP_CSS_TEXT:
+    case DOM_CSS_VALUE_PROP_CSS_TEXT:
         g_value_take_string(value, webkit_dom_css_value_get_css_text(self));
         break;
-    case PROP_CSS_VALUE_TYPE:
+    case DOM_CSS_VALUE_PROP_CSS_VALUE_TYPE:
         g_value_set_uint(value, webkit_dom_css_value_get_css_value_type(self));
         break;
     default:
@@ -134,7 +136,7 @@ static void webkit_dom_css_value_class_init(WebKitDOMCSSValueClass* requestClass
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_CSS_TEXT,
+        DOM_CSS_VALUE_PROP_CSS_TEXT,
         g_param_spec_string(
             "css-text",
             "CSSValue:css-text",
@@ -144,7 +146,7 @@ static void webkit_dom_css_value_class_init(WebKitDOMCSSValueClass* requestClass
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_CSS_VALUE_TYPE,
+        DOM_CSS_VALUE_PROP_CSS_VALUE_TYPE,
         g_param_spec_uint(
             "css-value-type",
             "CSSValue:css-value-type",
@@ -193,3 +195,4 @@ gushort webkit_dom_css_value_get_css_value_type(WebKitDOMCSSValue* self)
     return result;
 }
 
+G_GNUC_END_IGNORE_DEPRECATIONS;

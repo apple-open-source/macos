@@ -23,6 +23,8 @@ void IntlTestDecimalFormatSymbols::runIndexedTest( int32_t index, UBool exec, co
     TESTCASE_AUTO_BEGIN;
     TESTCASE_AUTO(testSymbols);
     TESTCASE_AUTO(testLastResortData);
+    TESTCASE_AUTO(testDigitSymbols);
+    TESTCASE_AUTO(testNumberingSystem);
     TESTCASE_AUTO_END;
 }
 
@@ -199,15 +201,15 @@ void IntlTestDecimalFormatSymbols::testSymbols(/* char *par */)
     DecimalFormatSymbols sym(Locale::getUS(), status);
 
     UnicodeString customDecSeperator("S");
-    Verify(34.5, (UnicodeString)"00.00", sym, (UnicodeString)"34.50");
+    Verify(34.5, u"00.00", sym, u"34.50");
     sym.setSymbol(DecimalFormatSymbols::kDecimalSeparatorSymbol, customDecSeperator);
-    Verify(34.5, (UnicodeString)"00.00", sym, (UnicodeString)"34S50");
-    sym.setSymbol(DecimalFormatSymbols::kPercentSymbol, (UnicodeString)"P");
-    Verify(34.5, (UnicodeString)"00 %", sym, (UnicodeString)"3450 P");
-    sym.setSymbol(DecimalFormatSymbols::kCurrencySymbol, (UnicodeString)"D");
-    Verify(34.5, CharsToUnicodeString("\\u00a4##.##"), sym, (UnicodeString)"D34.5");
-    sym.setSymbol(DecimalFormatSymbols::kGroupingSeparatorSymbol, (UnicodeString)"|");
-    Verify(3456.5, (UnicodeString)"0,000.##", sym, (UnicodeString)"3|456S5");
+    Verify(34.5, u"00.00", sym, u"34S50");
+    sym.setSymbol(DecimalFormatSymbols::kPercentSymbol, u"P");
+    Verify(34.5, u"00 %", sym, u"3450 P");
+    sym.setSymbol(DecimalFormatSymbols::kCurrencySymbol, u"D");
+    Verify(34.5, u"\u00a4##.##", sym, u"D34.5"); // match ICU 61 behavior
+    sym.setSymbol(DecimalFormatSymbols::kGroupingSeparatorSymbol, u"|");
+    Verify(3456.5, u"0,000.##", sym, u"3|456S5");
 
 }
 
@@ -215,11 +217,11 @@ void IntlTestDecimalFormatSymbols::testLastResortData() {
     IcuTestErrorCode errorCode(*this, "testLastResortData");
     LocalPointer<DecimalFormatSymbols> lastResort(
         DecimalFormatSymbols::createWithLastResortData(errorCode));
-    if(errorCode.logIfFailureAndReset("DecimalFormatSymbols::createWithLastResortData() failed")) {
+    if(errorCode.errIfFailureAndReset("DecimalFormatSymbols::createWithLastResortData() failed")) {
         return;
     }
     DecimalFormatSymbols root(Locale::getRoot(), errorCode);
-    if(errorCode.logDataIfFailureAndReset("DecimalFormatSymbols(root) failed")) {
+    if(errorCode.errDataIfFailureAndReset("DecimalFormatSymbols(root) failed")) {
         return;
     }
     // Note: It is not necessary that the last resort data matches the root locale,
@@ -246,6 +248,146 @@ void IntlTestDecimalFormatSymbols::testLastResortData() {
     // Also, the CurrencySpacing patterns are empty in the last resort instance,
     // but not in root.
     Verify(1234567.25, "#,##0.##", *lastResort, "1,234,567.25");
+}
+
+void IntlTestDecimalFormatSymbols::testDigitSymbols() {
+    // This test does more in ICU4J than in ICU4C right now.
+    // In ICU4C, it is basically just a test for codePointZero and getConstDigitSymbol.
+    UChar defZero = u'0';
+    UChar32 osmanyaZero = U'\U000104A0';
+    static const UChar* osmanyaDigitStrings[] = {
+        u"\U000104A0", u"\U000104A1", u"\U000104A2", u"\U000104A3", u"\U000104A4",
+        u"\U000104A5", u"\U000104A6", u"\U000104A7", u"\U000104A8", u"\U000104A9"
+    };
+
+    IcuTestErrorCode status(*this, "testDigitSymbols()");
+    DecimalFormatSymbols symbols(Locale("en"), status);
+
+    if (defZero != symbols.getCodePointZero()) {
+        errln("ERROR: Code point zero be ASCII 0");
+    }
+    for (int32_t i=0; i<=9; i++) {
+        assertEquals(UnicodeString("i. ASCII Digit at index ") + Int64ToUnicodeString(i),
+            UnicodeString(u'0' + i),
+            symbols.getConstDigitSymbol(i));
+    }
+
+    for (int32_t i=0; i<=9; i++) {
+        DecimalFormatSymbols::ENumberFormatSymbol key =
+            i == 0
+            ? DecimalFormatSymbols::kZeroDigitSymbol
+            : static_cast<DecimalFormatSymbols::ENumberFormatSymbol>
+                (DecimalFormatSymbols::kOneDigitSymbol + i - 1);
+        symbols.setSymbol(key, UnicodeString(osmanyaDigitStrings[i]), FALSE);
+    }
+    // NOTE: in ICU4J, the calculation of codePointZero is smarter;
+    // in ICU4C, it is more conservative and is only set if propogateDigits is true.
+    if (-1 != symbols.getCodePointZero()) {
+        errln("ERROR: Code point zero be invalid");
+    }
+    for (int32_t i=0; i<=9; i++) {
+        assertEquals(UnicodeString("ii. Osmanya digit at index ") + Int64ToUnicodeString(i),
+            UnicodeString(osmanyaDigitStrings[i]),
+            symbols.getConstDigitSymbol(i));
+    }
+
+    // Check Osmanya codePointZero
+    symbols.setSymbol(
+        DecimalFormatSymbols::kZeroDigitSymbol,
+        UnicodeString(osmanyaDigitStrings[0]), TRUE);
+    if (osmanyaZero != symbols.getCodePointZero()) {
+        errln("ERROR: Code point zero be Osmanya code point zero");
+    }
+    for (int32_t i=0; i<=9; i++) {
+        assertEquals(UnicodeString("iii. Osmanya digit at index ") + Int64ToUnicodeString(i),
+            UnicodeString(osmanyaDigitStrings[i]),
+            symbols.getConstDigitSymbol(i));
+    }
+
+    // Check after copy
+    DecimalFormatSymbols copy(symbols);
+    if (osmanyaZero != copy.getCodePointZero()) {
+        errln("ERROR: Code point zero be Osmanya code point zero");
+    }
+    for (int32_t i=0; i<=9; i++) {
+        assertEquals(UnicodeString("iv. After copy at index ") + Int64ToUnicodeString(i),
+            UnicodeString(osmanyaDigitStrings[i]),
+            copy.getConstDigitSymbol(i));
+    }
+
+    // Check when loaded from resource bundle
+    DecimalFormatSymbols fromData(Locale("en@numbers=osma"), status);
+    if (osmanyaZero != fromData.getCodePointZero()) {
+        errln("ERROR: Code point zero be Osmanya code point zero");
+    }
+    for (int32_t i=0; i<=9; i++) {
+        assertEquals(UnicodeString("v. Resource bundle at index ") + Int64ToUnicodeString(i),
+            UnicodeString(osmanyaDigitStrings[i]),
+            fromData.getConstDigitSymbol(i));
+    }
+
+    // Setting a digit somewhere in the middle should invalidate codePointZero
+    symbols.setSymbol(DecimalFormatSymbols::kOneDigitSymbol, u"foo", FALSE);
+    if (-1 != symbols.getCodePointZero()) {
+        errln("ERROR: Code point zero be invalid");
+    }
+
+    // Reset digits to Latin
+    symbols.setSymbol(
+        DecimalFormatSymbols::kZeroDigitSymbol,
+        UnicodeString(defZero));
+    if (defZero != symbols.getCodePointZero()) {
+        errln("ERROR: Code point zero be ASCII 0");
+    }
+    for (int32_t i=0; i<=9; i++) {
+        assertEquals(UnicodeString("vi. ASCII Digit at index ") + Int64ToUnicodeString(i),
+            UnicodeString(u'0' + i),
+            symbols.getConstDigitSymbol(i));
+    }
+}
+
+void IntlTestDecimalFormatSymbols::testNumberingSystem() {
+    IcuTestErrorCode errorCode(*this, "testNumberingSystem");
+    struct testcase {
+        const char* locid;
+        const char* nsname;
+        const char16_t* expected1; // Expected number format string
+        const char16_t* expected2; // Expected pattern separator
+    };
+    static const testcase cases[] = {
+            {"en", "latn", u"1,234.56", u"%"},
+            {"en", "arab", u"١٬٢٣٤٫٥٦", u"٪\u061C"},
+            {"en", "mathsanb", u"𝟭,𝟮𝟯𝟰.𝟱𝟲", u"%"},
+            {"en", "mymr", u"၁,၂၃၄.၅၆", u"%"},
+            {"my", "latn", u"1,234.56", u"%"},
+            {"my", "arab", u"١٬٢٣٤٫٥٦", u"٪\u061C"},
+            {"my", "mathsanb", u"𝟭,𝟮𝟯𝟰.𝟱𝟲", u"%"},
+            {"my", "mymr", u"၁,၂၃၄.၅၆", u"%"},
+            {"ar", "latn", u"1,234.56", u"\u200E%\u200E"},
+            {"ar", "arab", u"١٬٢٣٤٫٥٦", u"٪\u061C"},
+            {"en@numbers=thai", "mymr", u"၁,၂၃၄.၅၆", u"%"}, // conflicting numbering system
+    };
+
+    for (int i=0; i<8; i++) {
+        testcase cas = cases[i];
+        Locale loc(cas.locid);
+        LocalPointer<NumberingSystem> ns(NumberingSystem::createInstanceByName(cas.nsname, errorCode));
+        if (errorCode.errDataIfFailureAndReset("NumberingSystem failed")) {
+            return;
+        }
+        UnicodeString expected1(cas.expected1);
+        UnicodeString expected2(cas.expected2);
+        DecimalFormatSymbols dfs(loc, *ns, errorCode);
+        if (errorCode.errDataIfFailureAndReset("DecimalFormatSymbols failed")) {
+            return;
+        }
+        Verify(1234.56, "#,##0.##", dfs, expected1);
+        // The percent sign differs by numbering system.
+        UnicodeString actual2 = dfs.getSymbol(DecimalFormatSymbols::kPercentSymbol);
+        assertEquals((UnicodeString) "Percent sign with " + cas.locid + " and " + cas.nsname,
+            expected2,
+            actual2);
+    }
 }
 
 void IntlTestDecimalFormatSymbols::Verify(double value, const UnicodeString& pattern,

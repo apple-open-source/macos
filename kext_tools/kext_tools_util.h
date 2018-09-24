@@ -14,6 +14,7 @@
 #include <mach/mach_error.h>
 
 #include <getopt.h>
+#include <os/log.h>
 #include <sysexits.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -199,7 +200,9 @@ void beQuiet(void);
 
 FILE *  g_log_stream;
 // tool_openlog(), tool_log() copied to bootroot.h for libBootRoot clients
+void tool_initlog();
 void tool_openlog(const char * name);
+os_log_t get_signpost_log(void);
 void tool_log(
     OSKextRef aKext,
     OSKextLogSpec logSpec,

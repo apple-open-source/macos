@@ -29,7 +29,7 @@
 #include <os/transaction_private.h>
 
 #if OCTAGON
-#include "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 #include <CloudKit/CloudKit_Private.h>
 // If your callbacks might pass back a CK error, you should use the XPCSanitizeError() spi on all branches at this layer.
 // Otherwise, XPC might crash on the other side if they haven't linked CloudKit.framework.

@@ -48,7 +48,7 @@ struct WebSelectionData;
 
 class WebPasteboardProxy : public IPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(WebPasteboardProxy);
-    friend class LazyNeverDestroyed<WebPasteboardProxy>;
+    friend LazyNeverDestroyed<WebPasteboardProxy>;
 public:
     static WebPasteboardProxy& singleton();
 
@@ -78,6 +78,7 @@ private:
     void readURLFromPasteboard(uint64_t index, const String& pasteboardType, const String& pasteboardName, String& url, String& title);
     void readBufferFromPasteboard(uint64_t index, const String& pasteboardType, const String& pasteboardName, SharedMemory::Handle&, uint64_t& size);
     void getPasteboardItemsCount(const String& pasteboardName, uint64_t& itemsCount);
+    void allPasteboardItemInfo(const String& pasteboardName, Vector<WebCore::PasteboardItemInfo>&);
     void informationForItemAtIndex(int index, const String& pasteboardName, WebCore::PasteboardItemInfo& filename);
     void updateSupportedTypeIdentifiers(const Vector<String>& identifiers, const String& pasteboardName);
 #endif
@@ -94,7 +95,7 @@ private:
     void getPasteboardURL(const String& pasteboardName, WTF::String&);
     void addPasteboardTypes(const String& pasteboardName, const Vector<String>& pasteboardTypes, uint64_t& newChangeCount);
     void setPasteboardTypes(const String& pasteboardName, const Vector<String>& pasteboardTypes, uint64_t& newChangeCount);
-    void setPasteboardPathnamesForType(IPC::Connection&, const String& pasteboardName, const String& pasteboardType, const Vector<String>& pathnames, uint64_t& newChangeCount);
+    void setPasteboardURL(IPC::Connection&, const WebCore::PasteboardURL&, const String& pasteboardName, uint64_t& newChangeCount);
     void setPasteboardStringForType(const String& pasteboardName, const String& pasteboardType, const String&, uint64_t& newChangeCount);
     void setPasteboardBufferForType(const String& pasteboardName, const String& pasteboardType, const SharedMemory::Handle&, uint64_t size, uint64_t& newChangeCount);
 #endif

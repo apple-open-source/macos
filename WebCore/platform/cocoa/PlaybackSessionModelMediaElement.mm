@@ -61,11 +61,20 @@ void PlaybackSessionModelMediaElement::setMediaElement(HTMLMediaElement* mediaEl
     if (m_mediaElement == mediaElement)
         return;
 
+    auto& events = eventNames();
+
     if (m_mediaElement && m_isListening) {
         for (auto& eventName : observedEventNames())
             m_mediaElement->removeEventListener(eventName, *this, false);
-        m_mediaElement->audioTracks().removeEventListener(eventNames().changeEvent, *this, false);
-        m_mediaElement->textTracks().removeEventListener(eventNames().changeEvent, *this, false);
+        auto& audioTracks = m_mediaElement->audioTracks();
+        audioTracks.removeEventListener(events.addtrackEvent, *this, false);
+        audioTracks.removeEventListener(events.changeEvent, *this, false);
+        audioTracks.removeEventListener(events.removetrackEvent, *this, false);
+
+        auto& textTracks = m_mediaElement->audioTracks();
+        textTracks.removeEventListener(events.addtrackEvent, *this, false);
+        textTracks.removeEventListener(events.changeEvent, *this, false);
+        textTracks.removeEventListener(events.removetrackEvent, *this, false);
     }
     m_isListening = false;
 
@@ -77,9 +86,16 @@ void PlaybackSessionModelMediaElement::setMediaElement(HTMLMediaElement* mediaEl
     if (m_mediaElement) {
         for (auto& eventName : observedEventNames())
             m_mediaElement->addEventListener(eventName, *this, false);
-        m_mediaElement->audioTracks().addEventListener(eventNames().changeEvent, *this, false);
-        m_mediaElement->textTracks().addEventListener(eventNames().changeEvent, *this, false);
-        m_isListening = true;
+
+        auto& audioTracks = m_mediaElement->audioTracks();
+        audioTracks.addEventListener(events.addtrackEvent, *this, false);
+        audioTracks.addEventListener(events.changeEvent, *this, false);
+        audioTracks.addEventListener(events.removetrackEvent, *this, false);
+
+        auto& textTracks = m_mediaElement->audioTracks();
+        textTracks.addEventListener(events.addtrackEvent, *this, false);
+        textTracks.addEventListener(events.changeEvent, *this, false);
+        textTracks.addEventListener(events.removetrackEvent, *this, false);
     }
 
     updateForEventName(eventNameAll());
@@ -165,6 +181,15 @@ void PlaybackSessionModelMediaElement::updateForEventName(const WTF::AtomicStrin
         }
     }
 
+    if (all
+        || eventName == eventNames().webkitpresentationmodechangedEvent) {
+        bool isPictureInPictureActive = this->isPictureInPictureActive();
+
+        for (auto client : m_clients)
+            client->pictureInPictureActiveChanged(isPictureInPictureActive);
+    }
+
+
     // We don't call updateMediaSelectionIndices() in the all case, since
     // updateMediaSelectionOptions() will also update the selection indices.
     if (eventName == eventNames().changeEvent)
@@ -172,8 +197,10 @@ void PlaybackSessionModelMediaElement::updateForEventName(const WTF::AtomicStrin
 
     if (all
         || eventName == eventNames().volumechangeEvent) {
-        for (auto client : m_clients)
+        for (auto client : m_clients) {
             client->mutedChanged(isMuted());
+            client->volumeChanged(volume());
+        }
     }
 }
 void PlaybackSessionModelMediaElement::addClient(PlaybackSessionModelClient& client)
@@ -290,6 +317,12 @@ void PlaybackSessionModelMediaElement::setMuted(bool muted)
         m_mediaElement->setMuted(muted);
 }
 
+void PlaybackSessionModelMediaElement::setVolume(double volume)
+{
+    if (m_mediaElement)
+        m_mediaElement->setVolume(volume);
+}
+
 void PlaybackSessionModelMediaElement::updateMediaSelectionOptions()
 {
     if (!m_mediaElement)
@@ -351,8 +384,6 @@ const Vector<AtomicString>& PlaybackSessionModelMediaElement::observedEventNames
         eventNames().ratechangeEvent,
         eventNames().timeupdateEvent,
         eventNames().progressEvent,
-        eventNames().addtrackEvent,
-        eventNames().removetrackEvent,
         eventNames().volumechangeEvent,
         eventNames().webkitcurrentplaybacktargetiswirelesschangedEvent,
     });
@@ -521,12 +552,25 @@ String PlaybackSessionModelMediaElement::externalPlaybackLocalizedDeviceName() c
 
 bool PlaybackSessionModelMediaElement::wirelessVideoPlaybackDisabled() const
 {
-    return m_mediaElement && m_mediaElement->mediaSession().wirelessVideoPlaybackDisabled(*m_mediaElement);
+    return m_mediaElement && m_mediaElement->mediaSession().wirelessVideoPlaybackDisabled();
 }
 
 bool PlaybackSessionModelMediaElement::isMuted() const
 {
     return m_mediaElement ? m_mediaElement->muted() : false;
+}
+
+double PlaybackSessionModelMediaElement::volume() const
+{
+    return m_mediaElement ? m_mediaElement->volume() : 0;
+}
+
+bool PlaybackSessionModelMediaElement::isPictureInPictureActive() const
+{
+    if (!m_mediaElement)
+        return false;
+
+    return (m_mediaElement->fullscreenMode() & HTMLMediaElementEnums::VideoFullscreenModePictureInPicture) == HTMLMediaElementEnums::VideoFullscreenModePictureInPicture;
 }
 
 }

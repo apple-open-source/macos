@@ -51,16 +51,6 @@ typedef struct SecTrustCheckExceptionContext {
 	bool exceptionNotFound;
 } SecTrustCheckExceptionContext;
 
-// public trust result constants
-const CFStringRef kSecTrustEvaluationDate           = CFSTR("TrustEvaluationDate");
-const CFStringRef kSecTrustExtendedValidation       = CFSTR("TrustExtendedValidation");
-const CFStringRef kSecTrustOrganizationName         = CFSTR("Organization");
-const CFStringRef kSecTrustResultValue              = CFSTR("TrustResultValue");
-const CFStringRef kSecTrustRevocationChecked        = CFSTR("TrustRevocationChecked");
-const CFStringRef kSecTrustRevocationReason         = CFSTR("TrustRevocationReason");
-const CFStringRef kSecTrustRevocationValidUntilDate = CFSTR("TrustExpirationDate");
-const CFStringRef kSecTrustResultDetails            = CFSTR("TrustResultDetails");
-
 //
 // Sec* API bridge functions
 //
@@ -350,9 +340,9 @@ OSStatus SecTrustCopyAnchorCertificates(CFArrayRef *anchorCertificates)
     /* Go through outArray and do a SecTrustEvaluate */
     CFIndex i;
     SecPolicyRef policy = SecPolicyCreateBasicX509();
+    SecTrustRef trust = NULL;
     CFMutableArrayRef trustedCertArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     for (i = 0; i < count ; i++) {
-        SecTrustRef trust;
         SecTrustResultType result;
         SecCertificateRef certificate = (SecCertificateRef) CFArrayGetValueAtIndex(outArray, i);
         status = SecTrustCreateWithCertificates(certificate, policy, &trust);
@@ -368,6 +358,7 @@ OSStatus SecTrustCopyAnchorCertificates(CFArrayRef *anchorCertificates)
         if (result != kSecTrustResultFatalTrustFailure) {
             CFArrayAppendValue(trustedCertArray, certificate);
         }
+        CFReleaseNull(trust);
     }
     if (CFArrayGetCount(trustedCertArray) == 0) {
     	status = errSecNoTrustSettings;
@@ -378,6 +369,7 @@ OSStatus SecTrustCopyAnchorCertificates(CFArrayRef *anchorCertificates)
 out:
 	CFReleaseSafe(outArray);
     CFReleaseSafe(policy);
+    CFReleaseSafe(trust);
     return status;
 	END_SECAPI
 }
@@ -388,7 +380,10 @@ SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
 {
 	SecKeyRef pubKey = NULL;
 	SecCertificateRef certificate = SecTrustGetCertificateAtIndex(trust, 0);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	(void) SecCertificateCopyPublicKey(certificate, &pubKey);
+#pragma clang diagnostic pop
 	return pubKey;
 }
 

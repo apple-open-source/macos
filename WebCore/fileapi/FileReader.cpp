@@ -36,8 +36,7 @@
 #include "Logging.h"
 #include "ProgressEvent.h"
 #include "ScriptExecutionContext.h"
-#include <runtime/ArrayBuffer.h>
-#include <wtf/CurrentTime.h>
+#include <JavaScriptCore/ArrayBuffer.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {

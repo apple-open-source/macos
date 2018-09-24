@@ -33,6 +33,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 // MARK: ----- OCSP Request -----
 
 /*
@@ -329,6 +332,8 @@ typedef struct {
 
 extern const SecAsn1Template kSecAsn1OCSPDReplyTemplate[];
 extern const SecAsn1Template kSecAsn1OCSPDRepliesTemplate[];
+
+#pragma clang diagnostic pop
 
 #ifdef  __cplusplus
 }

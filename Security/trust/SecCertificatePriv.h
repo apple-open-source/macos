@@ -389,6 +389,18 @@ CFDataRef SecCertificateGetSubjectKeyID(SecCertificateRef certificate)
 CFArrayRef SecCertificateCopyiPhoneDeviceCAChain(void)
     __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
 
+typedef CF_ENUM(uint32_t, SeciAPSWAuthCapabilitiesType) {
+    kSeciAPSWAuthGeneralCapabilities = 0,
+    kSeciAPSWAuthAirPlayCapabilities = 1,
+    kSeciAPSWAuthHomeKitCapabilities = 2,
+} __OSX_AVAILABLE_STARTING(__MAC_10_13_4, __IPHONE_11_3);
+
+/* Return the iAP SW Auth capabilities bitmask from the specificed
+ * SeciAPSWAuthCapabilitiesType type marker extensions. */
+CF_RETURNS_RETAINED
+CFDataRef SecCertificateCopyiAPSWAuthCapabilities(SecCertificateRef certificate,
+                                                  SeciAPSWAuthCapabilitiesType type)
+    __OSX_AVAILABLE_STARTING(__MAC_10_13_4, __IPHONE_11_3);
 
 /*!
  @function SecCertificateCopyExtensionValue
@@ -406,11 +418,6 @@ CF_RETURNS_RETAINED
 CFDataRef SecCertificateCopyExtensionValue(SecCertificateRef certificate,
                                            CFTypeRef extensionOID, bool *isCritical)
     __OSX_AVAILABLE_STARTING(__MAC_10_13_4, __IPHONE_11_3);
-
-/* Return a (modern) SecKeyRef for the public key embedded in the cert. */
-#if TARGET_OS_OSX
-    SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certificate);
-#endif
 
 /*
  * Legacy functions (OS X only)

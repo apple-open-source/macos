@@ -27,9 +27,10 @@
 #include "JSDOMConvertStrings.h"
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMWrapperCache.h"
-#include <runtime/FunctionPrototype.h>
-#include <runtime/JSCInlines.h>
+#include <JavaScriptCore/FunctionPrototype.h>
+#include <JavaScriptCore/JSCInlines.h>
 #include <wtf/GetPtr.h>
+#include <wtf/PointerPreparations.h>
 
 
 namespace WebCore {
@@ -77,7 +78,7 @@ template<> JSValue JSTestInterfaceLeadingUnderscoreConstructor::prototypeForStru
 template<> void JSTestInterfaceLeadingUnderscoreConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestInterfaceLeadingUnderscore::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String(ASCIILiteral("TestInterfaceLeadingUnderscore"))), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String("TestInterfaceLeadingUnderscore"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -136,14 +137,14 @@ void JSTestInterfaceLeadingUnderscore::destroy(JSC::JSCell* cell)
 
 template<> inline JSTestInterfaceLeadingUnderscore* IDLAttribute<JSTestInterfaceLeadingUnderscore>::cast(ExecState& state, EncodedJSValue thisValue)
 {
-    return jsDynamicDowncast<JSTestInterfaceLeadingUnderscore*>(state.vm(), JSValue::decode(thisValue));
+    return jsDynamicCast<JSTestInterfaceLeadingUnderscore*>(state.vm(), JSValue::decode(thisValue));
 }
 
 EncodedJSValue jsTestInterfaceLeadingUnderscoreConstructor(ExecState* state, EncodedJSValue thisValue, PropertyName)
 {
     VM& vm = state->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicDowncast<JSTestInterfaceLeadingUnderscorePrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSTestInterfaceLeadingUnderscorePrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
         return throwVMTypeError(state, throwScope);
     return JSValue::encode(JSTestInterfaceLeadingUnderscore::getConstructor(state->vm(), prototype->globalObject()));
@@ -153,7 +154,7 @@ bool setJSTestInterfaceLeadingUnderscoreConstructor(ExecState* state, EncodedJSV
 {
     VM& vm = state->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicDowncast<JSTestInterfaceLeadingUnderscorePrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSTestInterfaceLeadingUnderscorePrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype)) {
         throwVMTypeError(state, throwScope);
         return false;
@@ -207,7 +208,7 @@ JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestIn
 
 TestInterfaceLeadingUnderscore* JSTestInterfaceLeadingUnderscore::toWrapped(JSC::VM& vm, JSC::JSValue value)
 {
-    if (auto* wrapper = jsDynamicDowncast<JSTestInterfaceLeadingUnderscore*>(vm, value))
+    if (auto* wrapper = jsDynamicCast<JSTestInterfaceLeadingUnderscore*>(vm, value))
         return &wrapper->wrapped();
     return nullptr;
 }

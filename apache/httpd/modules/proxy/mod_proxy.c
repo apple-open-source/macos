@@ -68,6 +68,7 @@ proxy_wstat_t PROXY_DECLARE_DATA proxy_wstat_tbl[] = {
     {PROXY_WORKER_STOPPED,       PROXY_WORKER_STOPPED_FLAG,       "Stop "},
     {PROXY_WORKER_IN_ERROR,      PROXY_WORKER_IN_ERROR_FLAG,      "Err "},
     {PROXY_WORKER_HOT_STANDBY,   PROXY_WORKER_HOT_STANDBY_FLAG,   "Stby "},
+    {PROXY_WORKER_HOT_SPARE,     PROXY_WORKER_HOT_SPARE_FLAG,     "Spar "},
     {PROXY_WORKER_FREE,          PROXY_WORKER_FREE_FLAG,          "Free "},
     {PROXY_WORKER_HC_FAIL,       PROXY_WORKER_HC_FAIL_FLAG,       "HcFl "},
     {0x0, '\0', NULL}
@@ -317,6 +318,14 @@ static const char *set_worker_param(apr_pool_t *p,
             return apr_psprintf(p, "upgrade protocol length must be < %d characters",
                                 (int)sizeof(worker->s->upgrade));
         }
+    }
+    else if (!strcasecmp(key, "responsefieldsize")) {
+        long s = atol(val);
+        if (s < 0) {
+            return "ResponseFieldSize must be greater than 0 bytes, or 0 for system default.";
+        }
+        worker->s->response_field_size = (s ? s : HUGE_STRING_LEN);
+        worker->s->response_field_size_set = 1;
     }
     else {
         if (set_worker_hc_param_f) {

@@ -29,6 +29,7 @@
 #include "sslDebug.h"
 #include "sslCipherSpecs.h"
 #include "sslAlertMessage.h"
+#include "sslHandshake_priv.h"
 
 #include <assert.h>
 #include <string.h>

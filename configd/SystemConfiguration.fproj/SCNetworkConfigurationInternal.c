@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009, 2010-2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009, 2010-2013, 2015-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,6 +29,7 @@
  */
 
 
+#include "SCPreferencesInternal.h"
 #include "SCNetworkConfigurationInternal.h"
 
 #include <sys/ioctl.h>
@@ -36,7 +37,7 @@
 
 
 __private_extern__ os_log_t
-__log_SCNetworkConfiguration()
+__log_SCNetworkConfiguration(void)
 {
 	static os_log_t	log	= NULL;
 
@@ -200,11 +201,11 @@ __setPrefsEnabled(SCPreferencesRef      prefs,
 	return ok;
 }
 
-#if !TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 #define SYSTEMCONFIGURATION_RESOURCES_PATH	SYSTEMCONFIGURATION_FRAMEWORK_PATH "/Resources"
 #else
 #define SYSTEMCONFIGURATION_RESOURCES_PATH	SYSTEMCONFIGURATION_FRAMEWORK_PATH
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_OSX
 
 #define NETWORKCONFIGURATION_RESOURCE_FILE	"NetworkConfiguration.plist"
 

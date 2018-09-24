@@ -146,7 +146,7 @@ if sudo -n true ; then
 
     trap "sudo launchctl load /System/Library/LaunchDaemons/com.apple.Kerberos.kdc.plist" SIGINT EXIT
 
-    for a in check-apple-lkdc check-apple-hodadmin check-server-hodadmin check-apple-od check-apple-no-home-directory ; do
+    for a in check-apple-lkdc check-apple-hodadmin check-server-hodadmin check-apple-od ; do
 	run_test $a sudo /usr/local/libexec/heimdal/tests/apple/$a
     done
 

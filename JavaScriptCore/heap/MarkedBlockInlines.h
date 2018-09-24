@@ -26,7 +26,7 @@
 #pragma once
 
 #include "BlockDirectory.h"
-#include "JSCell.h"
+#include "JSCast.h"
 #include "MarkedBlock.h"
 #include "MarkedSpace.h"
 #include "Operations.h"
@@ -201,6 +201,11 @@ inline bool MarkedBlock::Handle::isLive(const HeapCell* cell)
 inline bool MarkedBlock::Handle::isLiveCell(const void* p)
 {
     return isLiveCell(space()->markingVersion(), space()->newlyAllocatedVersion(), space()->isMarking(), p);
+}
+
+inline bool MarkedBlock::Handle::areMarksStaleForSweep()
+{
+    return marksMode() == MarksStale;
 }
 
 // The following has to be true for specialization to kick in:
@@ -388,6 +393,7 @@ void MarkedBlock::Handle::finishSweepKnowingHeapCellType(FreeList* freeList, con
                     specializedSweep<true, IsEmpty, SweepOnly, BlockHasDestructors, DontScribble, DoesNotHaveNewlyAllocated, MarksStale>(freeList, IsEmpty, SweepOnly, BlockHasDestructors, DontScribble, DoesNotHaveNewlyAllocated, MarksStale, destroyFunc);
                     return true;
                 }
+                RELEASE_ASSERT_NOT_REACHED();
             case SweepToFreeList:
                 switch (marksMode) {
                 case MarksNotStale:
@@ -398,6 +404,7 @@ void MarkedBlock::Handle::finishSweepKnowingHeapCellType(FreeList* freeList, con
                     return true;
                 }
             }
+            RELEASE_ASSERT_NOT_REACHED();
         case NotEmpty:
             switch (sweepMode) {
             case SweepOnly:
@@ -409,6 +416,7 @@ void MarkedBlock::Handle::finishSweepKnowingHeapCellType(FreeList* freeList, con
                     specializedSweep<true, NotEmpty, SweepOnly, BlockHasDestructors, DontScribble, DoesNotHaveNewlyAllocated, MarksStale>(freeList, NotEmpty, SweepOnly, BlockHasDestructors, DontScribble, DoesNotHaveNewlyAllocated, MarksStale, destroyFunc);
                     return true;
                 }
+                RELEASE_ASSERT_NOT_REACHED();
             case SweepToFreeList:
                 switch (marksMode) {
                 case MarksNotStale:

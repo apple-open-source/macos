@@ -1225,17 +1225,19 @@ spécifié dans le certificat en cours de vérification.</p>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Active la validation OCSP de la chaîne de certificats du
 client</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>SSLOCSPEnable on|off</code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>SSLOCSPEnable on|leaf|off</code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>SSLOCSPEnable off</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur, serveur virtuel</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Le mode <em>leaf</em> est disponible à partir de la version
+2.4.34 du serveur HTTP Apache</td></tr>
 </table>
 <p>Cette directive permet d'activer la validation OCSP de la chaîne de
 certificats du client. Si elle est activée, les certificats de la chaîne
 de certificats du client seront validés auprès d'un répondeur OCSP, une
 fois la vérification normale effectuée (vérification des CRLs
-incluse).</p>
+incluse). En mode 'leaf', seul le certificat du client sera validé.</p>
 
 <p>Le répondeur OCSP utilisé est soit extrait du certificat lui-même,
 soit spécifié dans la configuration ; voir les directives <code class="directive"><a href="#sslocspdefaultresponder">SSLOCSPDefaultResponder</a></code> et <code class="directive"><a href="#sslocspoverrideresponder">SSLOCSPOverrideResponder</a></code>.</p>
@@ -2188,17 +2190,15 @@ le PRNG est un service global.</p>
 Les différentes valeurs de <em>source</em> disponibles sont :</p>
 <ul>
 <li><code>builtin</code>
-    <p>Cette source de déclenchement intégrée est toujours disponible.
-    Son utilisation consomme un minimum de cycles CPU en cours
-    d'exécution, et son utilisation ne présente de ce fait aucun
-    problème. La source utilisée pour déclencher le PRNG contient la
-    date courante, l'identifiant du processus courant et (si disponible)
-    un extrait de 1Ko aléatoirement choisi de la structure d'Apache pour
-    les échanges inter-processus. Ceci présente un inconvénient car le
-    caractère aléatoire de cette source n'est pas vraiment fort, et au
-    démarrage (lorsque la structure d'échanges n'est pas encore
-    disponible), cette source ne produit que quelques octets d'entropie.
-    Vous devez donc toujours utiliser une source de déclenchement
+    <p>Cette source de déclenchement intégrée est toujours disponible.  Son
+    utilisation consomme un minimum de cycles CPU en cours d'exécution, et son
+    utilisation ne présente de ce fait aucun problème. La source utilisée pour
+    déclencher le PRNG contient la date courante, l'identifiant du processus
+    courant et un extrait de 128 octets aléatoirement choisi dans la pile. Ceci
+    présente un inconvénient car le caractère aléatoire de cette source n'est
+    pas vraiment fort, et au démarrage (lorsque la structure d'échanges n'est
+    pas encore disponible), cette source ne produit que quelques octets
+    d'entropie.  Vous devez donc toujours utiliser une source de déclenchement
     additionnelle, au moins pour le démarrage.</p></li>
 <li><code>file:/chemin/vers/source</code>
     <p>

@@ -138,7 +138,7 @@ fi
  inline int OPT_timestr	= '$opt_timestr';
  inline int FILTER 	= '$filter';
  inline int PID		= '$pid';
- inline string NAME 	= "'$pname'";
+ inline string NAME 	= "'"$pname"'";
  
  #pragma D option quiet
  #pragma D option switchrate=10hz

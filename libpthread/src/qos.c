@@ -35,8 +35,6 @@
 #include "workqueue_private.h"
 #include "qos_private.h"
 
-static pthread_priority_t _main_qos = QOS_CLASS_UNSPECIFIED;
-
 #define PTHREAD_OVERRIDE_SIGNATURE	(0x6f766572)
 #define PTHREAD_OVERRIDE_SIG_DEAD	(0x7265766f)
 
@@ -49,172 +47,145 @@ struct pthread_override_s
 	bool malloced;
 };
 
+thread_qos_t
+_pthread_qos_class_to_thread_qos(qos_class_t qos)
+{
+	switch (qos) {
+	case QOS_CLASS_USER_INTERACTIVE: return THREAD_QOS_USER_INTERACTIVE;
+	case QOS_CLASS_USER_INITIATED: return THREAD_QOS_USER_INITIATED;
+	case QOS_CLASS_DEFAULT: return THREAD_QOS_LEGACY;
+	case QOS_CLASS_UTILITY: return THREAD_QOS_UTILITY;
+	case QOS_CLASS_BACKGROUND: return THREAD_QOS_BACKGROUND;
+	case QOS_CLASS_MAINTENANCE: return THREAD_QOS_MAINTENANCE;
+	default: return THREAD_QOS_UNSPECIFIED;
+	}
+}
+
+static inline qos_class_t
+_pthread_qos_class_from_thread_qos(thread_qos_t tqos)
+{
+	static const qos_class_t thread_qos_to_qos_class[THREAD_QOS_LAST] = {
+		[THREAD_QOS_UNSPECIFIED]      = QOS_CLASS_UNSPECIFIED,
+		[THREAD_QOS_MAINTENANCE]      = QOS_CLASS_MAINTENANCE,
+		[THREAD_QOS_BACKGROUND]       = QOS_CLASS_BACKGROUND,
+		[THREAD_QOS_UTILITY]          = QOS_CLASS_UTILITY,
+		[THREAD_QOS_LEGACY]           = QOS_CLASS_DEFAULT,
+		[THREAD_QOS_USER_INITIATED]   = QOS_CLASS_USER_INITIATED,
+		[THREAD_QOS_USER_INTERACTIVE] = QOS_CLASS_USER_INTERACTIVE,
+	};
+	if (os_unlikely(tqos >= THREAD_QOS_LAST)) return QOS_CLASS_UNSPECIFIED;
+	return thread_qos_to_qos_class[tqos];
+}
+
+static inline thread_qos_t
+_pthread_validate_qos_class_and_relpri(qos_class_t qc, int relpri)
+{
+	if (relpri > 0 || relpri < QOS_MIN_RELATIVE_PRIORITY) {
+		return THREAD_QOS_UNSPECIFIED;
+	}
+	return _pthread_qos_class_to_thread_qos(qc);
+}
+
+static inline void
+_pthread_priority_split(pthread_priority_t pp, qos_class_t *qc, int *relpri)
+{
+	thread_qos_t qos = _pthread_priority_thread_qos(pp);
+	if (qc) *qc = _pthread_qos_class_from_thread_qos(qos);
+	if (relpri) *relpri = _pthread_priority_relpri(pp);
+}
+
 void
 _pthread_set_main_qos(pthread_priority_t qos)
 {
-	_main_qos = qos;
+	_main_qos = (uint32_t)qos;
 }
 
 int
-pthread_attr_set_qos_class_np(pthread_attr_t *__attr,
-							  qos_class_t __qos_class,
-							  int __relative_priority)
+pthread_attr_set_qos_class_np(pthread_attr_t *attr, qos_class_t qc, int relpri)
 {
-	if (!(__pthread_supported_features & PTHREAD_FEATURE_BSDTHREADCTL)) {
-		return ENOTSUP;
-	}
-
-	if (__relative_priority > 0 || __relative_priority < QOS_MIN_RELATIVE_PRIORITY) {
+	thread_qos_t qos = _pthread_validate_qos_class_and_relpri(qc, relpri);
+	if (attr->sig != _PTHREAD_ATTR_SIG || attr->schedset) {
 		return EINVAL;
 	}
 
-	int ret = EINVAL;
-	if (__attr->sig == _PTHREAD_ATTR_SIG) {
-		if (!__attr->schedset) {
-			__attr->qosclass = _pthread_priority_make_newest(__qos_class, __relative_priority, 0);
-			__attr->qosset = 1;
-			ret = 0;
-		}
-	}
-
-	return ret;
+	attr->qosclass = _pthread_priority_make_from_thread_qos(qos, relpri, 0);
+	attr->qosset = 1;
+	attr->schedset = 0;
+	return 0;
 }
 
 int
-pthread_attr_get_qos_class_np(pthread_attr_t * __restrict __attr,
-							  qos_class_t * __restrict __qos_class,
-							  int * __restrict __relative_priority)
+pthread_attr_get_qos_class_np(pthread_attr_t *attr, qos_class_t *qc, int *relpri)
 {
-	if (!(__pthread_supported_features & PTHREAD_FEATURE_BSDTHREADCTL)) {
-		return ENOTSUP;
-	}
-
-	int ret = EINVAL;
-	if (__attr->sig == _PTHREAD_ATTR_SIG) {
-		if (__attr->qosset) {
-			qos_class_t qos; int relpri;
-			_pthread_priority_split_newest(__attr->qosclass, qos, relpri);
-
-			if (__qos_class) { *__qos_class = qos; }
-			if (__relative_priority) { *__relative_priority = relpri; }
-		} else {
-			if (__qos_class) { *__qos_class = 0; }
-			if (__relative_priority) { *__relative_priority = 0; }
-		}
-		ret = 0;
-	}
-
-	return ret;
-}
-
-int
-pthread_set_qos_class_self_np(qos_class_t __qos_class,
-							  int __relative_priority)
-{
-	if (!(__pthread_supported_features & PTHREAD_FEATURE_BSDTHREADCTL)) {
-		return ENOTSUP;
-	}
-
-	if (__relative_priority > 0 || __relative_priority < QOS_MIN_RELATIVE_PRIORITY) {
+	if (attr->sig != _PTHREAD_ATTR_SIG) {
 		return EINVAL;
 	}
 
-	pthread_priority_t priority = _pthread_priority_make_newest(__qos_class, __relative_priority, 0);
-
-	if (__pthread_supported_features & PTHREAD_FEATURE_SETSELF) {
-		return _pthread_set_properties_self(_PTHREAD_SET_SELF_QOS_FLAG, priority, 0);
-	} else {
-		/* We set the thread QoS class in the TSD and then call into the kernel to
-		 * read the value out of it and set the QoS class.
-		 */
-		_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS, priority);
-		mach_port_t kport = _pthread_kernel_thread(pthread_self());
-		int res = __bsdthread_ctl(BSDTHREAD_CTL_SET_QOS, kport, &pthread_self()->tsd[_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS], 0);
-
-		if (res == -1) {
-			res = errno;
-		}
-
-		return res;
-	}
+	_pthread_priority_split(attr->qosset ? attr->qosclass : 0, qc, relpri);
+	return 0;
 }
 
 int
-pthread_set_qos_class_np(pthread_t __pthread,
-						 qos_class_t __qos_class,
-						 int __relative_priority)
+pthread_set_qos_class_self_np(qos_class_t qc, int relpri)
 {
-	if (__pthread != pthread_self()) {
+	thread_qos_t qos = _pthread_validate_qos_class_and_relpri(qc, relpri);
+	if (!qos) {
+		return EINVAL;
+	}
+
+	pthread_priority_t pp = _pthread_priority_make_from_thread_qos(qos, relpri, 0);
+	return _pthread_set_properties_self(_PTHREAD_SET_SELF_QOS_FLAG, pp, 0);
+}
+
+int
+pthread_set_qos_class_np(pthread_t thread, qos_class_t qc, int relpri)
+{
+	if (thread != pthread_self()) {
 		/* The kext now enforces this anyway, if we check here too, it allows us to call
 		 * _pthread_set_properties_self later if we can.
 		 */
 		return EPERM;
 	}
-
-	return pthread_set_qos_class_self_np(__qos_class, __relative_priority);
+	return pthread_set_qos_class_self_np(qc, relpri);
 }
 
 int
-pthread_get_qos_class_np(pthread_t __pthread,
-						 qos_class_t * __restrict __qos_class,
-						 int * __restrict __relative_priority)
+pthread_get_qos_class_np(pthread_t thread, qos_class_t *qc, int *relpri)
 {
-	if (!(__pthread_supported_features & PTHREAD_FEATURE_BSDTHREADCTL)) {
-		return ENOTSUP;
-	}
-
-	pthread_priority_t priority;
-
-	if (__pthread == pthread_self()) {
-		priority = _pthread_getspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS);
-	} else {
-		priority = __pthread->tsd[_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS];
-	}
-
-	qos_class_t qos; int relpri;
-	_pthread_priority_split_newest(priority, qos, relpri);
-
-	if (__qos_class) { *__qos_class = qos; }
-	if (__relative_priority) { *__relative_priority = relpri; }
-
+	pthread_priority_t pp = thread->tsd[_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS];
+	_pthread_priority_split(pp, qc, relpri);
 	return 0;
 }
 
 qos_class_t
 qos_class_self(void)
 {
-	if (!(__pthread_supported_features & PTHREAD_FEATURE_BSDTHREADCTL)) {
-		return QOS_CLASS_UNSPECIFIED;
-	}
-
-	pthread_priority_t p = _pthread_getspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS);
-	qos_class_t c = _pthread_priority_get_qos_newest(p);
-
-	return c;
+	pthread_priority_t pp;
+	pp = _pthread_getspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS);
+	return _pthread_qos_class_from_thread_qos(_pthread_priority_thread_qos(pp));
 }
 
 qos_class_t
 qos_class_main(void)
 {
-	return _pthread_priority_get_qos_newest(_main_qos);
+	pthread_priority_t pp = _main_qos;
+	return _pthread_qos_class_from_thread_qos(_pthread_priority_thread_qos(pp));
 }
 
 pthread_priority_t
-_pthread_qos_class_encode(qos_class_t qos_class, int relative_priority, unsigned long flags)
+_pthread_qos_class_encode(qos_class_t qc, int relpri, unsigned long flags)
 {
-	return _pthread_priority_make_newest(qos_class, relative_priority, flags);
+	thread_qos_t qos = _pthread_qos_class_to_thread_qos(qc);
+	return _pthread_priority_make_from_thread_qos(qos, relpri, flags);
 }
 
 qos_class_t
-_pthread_qos_class_decode(pthread_priority_t priority, int *relative_priority, unsigned long *flags)
+_pthread_qos_class_decode(pthread_priority_t pp, int *relpri, unsigned long *flags)
 {
-	qos_class_t qos; int relpri;
-
-	_pthread_priority_split_newest(priority, qos, relpri);
-
-	if (relative_priority) { *relative_priority = relpri; }
-	if (flags) { *flags = _pthread_priority_get_flags(priority); }
-	return qos;
+	qos_class_t qc;
+	_pthread_priority_split(pp, &qc, relpri);
+	if (flags) *flags = (pp & _PTHREAD_PRIORITY_FLAGS_MASK);
+	return qc;
 }
 
 // Encode a legacy workqueue API priority into a pthread_priority_t. This API
@@ -222,35 +193,48 @@ _pthread_qos_class_decode(pthread_priority_t priority, int *relative_priority, u
 pthread_priority_t
 _pthread_qos_class_encode_workqueue(int queue_priority, unsigned long flags)
 {
+	thread_qos_t qos;
 	switch (queue_priority) {
-	case WORKQ_HIGH_PRIOQUEUE:
-		return _pthread_priority_make_newest(QOS_CLASS_USER_INITIATED, 0, flags);
-	case WORKQ_DEFAULT_PRIOQUEUE:
-		return _pthread_priority_make_newest(QOS_CLASS_DEFAULT, 0, flags);
-	case WORKQ_LOW_PRIOQUEUE:
+	case WORKQ_HIGH_PRIOQUEUE:      qos = THREAD_QOS_USER_INTERACTIVE; break;
+	case WORKQ_DEFAULT_PRIOQUEUE:   qos = THREAD_QOS_LEGACY; break;
 	case WORKQ_NON_INTERACTIVE_PRIOQUEUE:
-		return _pthread_priority_make_newest(QOS_CLASS_UTILITY, 0, flags);
-	case WORKQ_BG_PRIOQUEUE:
-		return _pthread_priority_make_newest(QOS_CLASS_BACKGROUND, 0, flags);
-	/* Legacy dispatch does not use QOS_CLASS_MAINTENANCE, so no need to handle it here */
+	case WORKQ_LOW_PRIOQUEUE:       qos = THREAD_QOS_UTILITY; break;
+	case WORKQ_BG_PRIOQUEUE:        qos = THREAD_QOS_BACKGROUND; break;
 	default:
 		__pthread_abort();
 	}
+	return _pthread_priority_make_from_thread_qos(qos, 0, flags);
 }
 
+#define _PTHREAD_SET_SELF_OUTSIDE_QOS_SKIP \
+		(_PTHREAD_SET_SELF_QOS_FLAG | _PTHREAD_SET_SELF_FIXEDPRIORITY_FLAG | \
+		 _PTHREAD_SET_SELF_TIMESHARE_FLAG)
+
 int
-_pthread_set_properties_self(_pthread_set_flags_t flags, pthread_priority_t priority, mach_port_t voucher)
+_pthread_set_properties_self(_pthread_set_flags_t flags,
+		pthread_priority_t priority, mach_port_t voucher)
 {
-	if (!(__pthread_supported_features & PTHREAD_FEATURE_SETSELF)) {
-		return ENOTSUP;
+	pthread_t self = pthread_self();
+	_pthread_set_flags_t kflags = flags;
+	int rv = 0;
+
+	if (self->wqoutsideqos && (flags & _PTHREAD_SET_SELF_OUTSIDE_QOS_SKIP)) {
+		// A number of properties cannot be altered if we are a workloop
+		// thread that has outside of QoS properties applied to it.
+		kflags &= ~_PTHREAD_SET_SELF_OUTSIDE_QOS_SKIP;
+		if (kflags == 0) goto skip;
 	}
 
-	int rv = __bsdthread_ctl(BSDTHREAD_CTL_SET_SELF, priority, voucher, flags);
+	rv = __bsdthread_ctl(BSDTHREAD_CTL_SET_SELF, priority, voucher, kflags);
 
-	/* Set QoS TSD if we succeeded or only failed the voucher half. */
+skip:
+	 // Set QoS TSD if we succeeded, or only failed the voucher portion of the
+	 // call. Additionally, if we skipped setting QoS because of outside-of-QoS
+	 // attributes then we still want to set the TSD in userspace.
 	if ((flags & _PTHREAD_SET_SELF_QOS_FLAG) != 0) {
 		if (rv == 0 || errno == ENOENT) {
-			_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS, priority);
+			_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS, 
+					priority);
 		}
 	}
 
@@ -263,37 +247,21 @@ _pthread_set_properties_self(_pthread_set_flags_t flags, pthread_priority_t prio
 int
 pthread_set_fixedpriority_self(void)
 {
-	if (!(__pthread_supported_features & PTHREAD_FEATURE_BSDTHREADCTL)) {
-		return ENOTSUP;
-	}
-
-	if (__pthread_supported_features & PTHREAD_FEATURE_SETSELF) {
-		return _pthread_set_properties_self(_PTHREAD_SET_SELF_FIXEDPRIORITY_FLAG, 0, 0);
-	} else {
-		return ENOTSUP;
-	}
+	return _pthread_set_properties_self(_PTHREAD_SET_SELF_FIXEDPRIORITY_FLAG, 0, 0);
 }
 
 int
 pthread_set_timeshare_self(void)
 {
-	if (!(__pthread_supported_features & PTHREAD_FEATURE_BSDTHREADCTL)) {
-		return ENOTSUP;
-	}
-
-	if (__pthread_supported_features & PTHREAD_FEATURE_SETSELF) {
-		return _pthread_set_properties_self(_PTHREAD_SET_SELF_TIMESHARE_FLAG, 0, 0);
-	} else {
-		return ENOTSUP;
-	}
+	return _pthread_set_properties_self(_PTHREAD_SET_SELF_TIMESHARE_FLAG, 0, 0);
 }
 
-
 pthread_override_t
-pthread_override_qos_class_start_np(pthread_t __pthread,  qos_class_t __qos_class, int __relative_priority)
+pthread_override_qos_class_start_np(pthread_t thread,  qos_class_t qc, int relpri)
 {
 	pthread_override_t rv;
 	kern_return_t kr;
+	thread_qos_t qos;
 	int res = 0;
 
 	/* For now, we don't have access to malloc. So we'll have to vm_allocate this, which means the tiny struct is going
@@ -301,23 +269,30 @@ pthread_override_qos_class_start_np(pthread_t __pthread,  qos_class_t __qos_clas
 	 */
 	bool did_malloc = true;
 
+	qos = _pthread_validate_qos_class_and_relpri(qc, relpri);
+	if (qos == THREAD_QOS_UNSPECIFIED) {
+		return (_Nonnull pthread_override_t)NULL;
+	}
+
 	mach_vm_address_t vm_addr = malloc(sizeof(struct pthread_override_s));
 	if (!vm_addr) {
 		vm_addr = vm_page_size;
 		did_malloc = false;
 
-		kr = mach_vm_allocate(mach_task_self(), &vm_addr, round_page(sizeof(struct pthread_override_s)), VM_MAKE_TAG(VM_MEMORY_LIBDISPATCH) | VM_FLAGS_ANYWHERE);
+		kr = mach_vm_allocate(mach_task_self(), &vm_addr,
+				round_page(sizeof(struct pthread_override_s)),
+				VM_MAKE_TAG(VM_MEMORY_LIBDISPATCH) | VM_FLAGS_ANYWHERE);
 		if (kr != KERN_SUCCESS) {
 			errno = ENOMEM;
-			return (_Nonnull pthread_override_t) NULL;
+			return (_Nonnull pthread_override_t)NULL;
 		}
 	}
 
 	rv = (pthread_override_t)vm_addr;
 	rv->sig = PTHREAD_OVERRIDE_SIGNATURE;
-	rv->pthread = __pthread;
-	rv->kthread = pthread_mach_thread_np(__pthread);
-	rv->priority = _pthread_priority_make_newest(__qos_class, __relative_priority, 0);
+	rv->pthread = thread;
+	rv->kthread = pthread_mach_thread_np(thread);
+	rv->priority = _pthread_priority_make_from_thread_qos(qos, relpri, 0);
 	rv->malloced = did_malloc;
 
 	/* To ensure that the kernel port that we keep stays valid, we retain it here. */
@@ -342,7 +317,7 @@ pthread_override_qos_class_start_np(pthread_t __pthread,  qos_class_t __qos_clas
 		}
 		rv = NULL;
 	}
-	return (_Nonnull pthread_override_t) rv;
+	return (_Nonnull pthread_override_t)rv;
 }
 
 int
@@ -523,7 +498,11 @@ _pthread_workqueue_parallelism_for_priority(int qos, unsigned long flags)
 int
 pthread_qos_max_parallelism(qos_class_t qos, unsigned long flags)
 {
-	int thread_qos = _pthread_qos_class_to_thread_qos(qos);
+	thread_qos_t thread_qos;
+	if (qos == QOS_CLASS_UNSPECIFIED) {
+		qos = QOS_CLASS_DEFAULT; // <rdar://problem/35080198>
+	}
+	thread_qos = _pthread_qos_class_to_thread_qos(qos);
 	if (thread_qos == THREAD_QOS_UNSPECIFIED) {
 		errno = EINVAL;
 		return -1;

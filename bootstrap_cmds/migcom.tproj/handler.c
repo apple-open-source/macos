@@ -153,12 +153,12 @@ WriteEpilog(FILE *file, statement_t *stats)
 
   fprintf(file, "{\n");
   fprintf(file, "\tchar OutBuf[%d];\n", MaxReply);
-  fprintf(file, "\tregister msg_header_t *InP =  InHeadP;\n");
+  fprintf(file, "\tmsg_header_t *InP =  InHeadP;\n");
 
   if (IsCamelot)
-    fprintf(file, "\tregister camelot_death_pill_t *OutP = (camelot_death_pill_t *) OutBuf;\n");
+    fprintf(file, "\tcamelot_death_pill_t *OutP = (camelot_death_pill_t *) OutBuf;\n");
   else
-    fprintf(file, "\tregister death_pill_t *OutP = (death_pill_t *) OutBuf;\n");
+    fprintf(file, "\tdeath_pill_t *OutP = (death_pill_t *) OutBuf;\n");
 
   fprintf(file, "\n");
 
@@ -279,10 +279,10 @@ WriteVarDecls(FILE *file, routine_t *rt)
 {
   int i;
 
-  fprintf(file, "\tregister Request *In0P = (Request *) InHeadP;\n");
+  fprintf(file, "\tRequest *In0P = (Request *) InHeadP;\n");
   for (i = 1; i <= rt->rtMaxRequestPos; i++)
-    fprintf(file, "\tregister Request *In%dP;\n", i);
-  fprintf(file, "\tregister Reply *OutP = (Reply *) OutHeadP;\n");
+    fprintf(file, "\tRequest *In%dP;\n", i);
+  fprintf(file, "\tReply *OutP = (Reply *) OutHeadP;\n");
   fprintf(file, "\n");
 
   fprintf(file, "#if\t__MigTypeCheck\n");

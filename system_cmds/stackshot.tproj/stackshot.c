@@ -35,7 +35,6 @@ static void usage(char **argv)
     fprintf (stderr, "    -b      : get bootprofile\n");
     fprintf (stderr, "    -c      : get coalition data\n");
     fprintf (stderr, "    -i      : get instructions and cycles\n");
-    fprintf (stderr, "    -t      : enable tailspin mode\n");
     fprintf (stderr, "    -g      : get thread group data\n");
     fprintf (stderr, "    -s      : fork a sleep process\n");
     fprintf (stderr, "    -L      : disable loadinfo\n");
@@ -66,7 +65,6 @@ int main(int argc, char **argv) {
 
     uint32_t iostats = 0;
     uint32_t active_kernel_threads_only = 0;
-    uint32_t tailspin = 0;
     uint32_t bootprofile = 0;
     uint32_t thread_group = 0;
     uint32_t coalition = 0;
@@ -102,9 +100,6 @@ int main(int argc, char **argv) {
             break;
         case 'g':
             thread_group |= STACKSHOT_THREAD_GROUP;
-            break;
-        case 't':
-            tailspin |= STACKSHOT_TAILSPIN;
             break;
         case 'd':
             delta = TRUE;
@@ -146,8 +141,8 @@ top:
         perror("stackshot_config_create");
         return 1;
     }
-    flags =  flags | loadinfo | STACKSHOT_SAVE_IMP_DONATION_PIDS | STACKSHOT_GET_DQ | STACKSHOT_KCDATA_FORMAT |
-        tailspin | bootprofile | active_kernel_threads_only | iostats | thread_group | coalition | instrs_cycles;
+    flags =  flags | loadinfo | STACKSHOT_SAVE_IMP_DONATION_PIDS | STACKSHOT_GET_DQ | STACKSHOT_KCDATA_FORMAT | STACKSHOT_THREAD_WAITINFO |
+        bootprofile | active_kernel_threads_only | iostats | thread_group | coalition | instrs_cycles;
 
     int err = stackshot_config_set_flags(config, flags);
     if (err != 0) {

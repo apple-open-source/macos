@@ -249,6 +249,7 @@ CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage, Bo
     SecTrustRef trust = NULL;
     CFMutableArrayRef certs = NULL;
     OSStatus status = 0;
+    SecTrustResultType trustResult = kSecTrustResultInvalid;
 
     if (!cert)
 	goto loser;
@@ -264,7 +265,7 @@ CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage, Bo
 
     /* SecTrustEvaluate will build us the best chain available using its heuristics.
      * We'll ignore the trust result. */
-    status = SecTrustEvaluate(trust, NULL);
+    status = SecTrustEvaluate(trust, &trustResult);
     if (status)
 	goto loser;
     CFIndex idx, count = SecTrustGetCertificateCount(trust);
@@ -318,9 +319,7 @@ CFArrayRef CERT_DupCertList(CFArrayRef oldList)
 // Extract a public key object from a SubjectPublicKeyInfo
 SecPublicKeyRef CERT_ExtractPublicKey(SecCertificateRef cert)
 {
-    SecPublicKeyRef keyRef = NULL;
-    SecCertificateCopyPublicKey(cert,&keyRef);
-    return keyRef;
+    return SecCertificateCopyKey(cert);
 }
 
 SECStatus CERT_CheckCertUsage (SecCertificateRef cert,unsigned char usage)
@@ -357,9 +356,7 @@ SecCertificateRef CERT_FindCertByDERCert(SecKeychainRef keychainOrArray, const S
     return cert;
 }
 
-static int compareCssmData(
-    const CSSM_DATA *d1,
-    const CSSM_DATA *d2)
+int CERT_CompareCssmData(const CSSM_DATA *d1, const CSSM_DATA *d2)
 {
     if((d1 == NULL) || (d2 == NULL)) {
 	return 0;
@@ -398,11 +395,11 @@ SecCertificateRef CERT_FindCertByIssuerAndSN (CFTypeRef keychainOrArray,
 	    CFRelease(certificate);
 	    continue;
 	}
-	if(!compareCssmData(&isn->derIssuer, &issuerAndSN->derIssuer)) {
+	if(!CERT_CompareCssmData(&isn->derIssuer, &issuerAndSN->derIssuer)) {
 	    CFRelease(certificate);
 	    continue;
 	}
-	if(!compareCssmData(&isn->serialNumber, &issuerAndSN->serialNumber)) {
+	if(!CERT_CompareCssmData(&isn->serialNumber, &issuerAndSN->serialNumber)) {
 	    CFRelease(certificate);
 	    continue;
 	}
@@ -420,10 +417,10 @@ SecCertificateRef CERT_FindCertByIssuerAndSN (CFTypeRef keychainOrArray,
             if(isn == NULL) {
                 continue;
             }
-            if(!compareCssmData(&isn->derIssuer, &issuerAndSN->derIssuer)) {
+            if(!CERT_CompareCssmData(&isn->derIssuer, &issuerAndSN->derIssuer)) {
                 continue;
             }
-            if(!compareCssmData(&isn->serialNumber, &issuerAndSN->serialNumber)) {
+            if(!CERT_CompareCssmData(&isn->serialNumber, &issuerAndSN->serialNumber)) {
                 continue;
             }
             certificate = cert;
@@ -469,7 +466,7 @@ SecCertificateRef CERT_FindCertBySubjectKeyID (CFTypeRef keychainOrArray,
 	    /* not present */
 	    continue;
 	}
-	match = compareCssmData(subjKeyID, &skid);
+	match = CERT_CompareCssmData(subjKeyID, &skid);
 	SECITEM_FreeItem(&skid, PR_FALSE);
 	if(match) {
 	    /* got it */

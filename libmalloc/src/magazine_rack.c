@@ -56,7 +56,7 @@ rack_init(rack_t *rack, rack_type_t type, uint32_t num_magazines, uint32_t debug
 		size_t magsize = round_page_quanta(sizeof(magazine_t) * (num_magazines + 1));
 		magazine_t *magazines = mvm_allocate_pages(magsize, 0, MALLOC_ADD_GUARD_PAGES, VM_MEMORY_MALLOC);
 		if (!magazines) {
-			MALLOC_PRINTF_FATAL_ERROR(0, "unable to allocate magazine array");
+			MALLOC_REPORT_FATAL_ERROR(0, "unable to allocate magazine array");
 		}
 
 		rack->magazines = &magazines[1];

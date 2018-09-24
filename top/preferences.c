@@ -116,8 +116,9 @@ static struct {
     {"mregs", STATISTIC_MREGION},
     {"reg", STATISTIC_MREGION},
 #ifdef TOP_ANONYMOUS_MEMORY
-    {"mem", STATISTIC_RMEM},
-    {"rsize", STATISTIC_RMEM}, /* alias */
+    {"mem", STATISTIC_PMEM},
+    {"rsize", STATISTIC_PMEM}, /* alias */
+    {"psize", STATISTIC_PMEM}, /* alias */
     {"rprvt", STATISTIC_RPRVT},
     {"purg", STATISTIC_PURG},
     {"compress", STATISTIC_COMPRESSED},
@@ -223,7 +224,7 @@ void top_prefs_init(void) {
 #endif
     SPREF(STATISTIC_PORTS);
 #ifdef TOP_ANONYMOUS_MEMORY
-    SPREF(STATISTIC_RMEM);
+    SPREF(STATISTIC_PMEM);
     SPREF(STATISTIC_PURG);
     SPREF(STATISTIC_COMPRESSED);
 #else

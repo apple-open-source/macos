@@ -48,7 +48,6 @@
 #import "HitTestRequest.h"
 #import "HitTestResult.h"
 #import "Logging.h"
-#import "MainFrame.h"
 #import "NodeRenderStyle.h"
 #import "NodeTraversal.h"
 #import "Page.h"
@@ -66,7 +65,7 @@
 #import "VisiblePosition.h"
 #import "VisibleUnits.h"
 #import "WAKWindow.h"
-#import <runtime/JSLock.h>
+#import <JavaScriptCore/JSLock.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/text/TextStream.h>
 
@@ -419,7 +418,7 @@ Node* Frame::nodeRespondingToClickEvents(const FloatPoint& viewportLocation, Flo
                 pointerCursorStillValid = false;
 
             // If we haven't reached the body, and we are still paying attention to pointer cursors, and the node has a pointer cursor...
-            if (pointerCursorStillValid && node->renderStyle() && node->renderStyle()->cursor() == CursorPointer)
+            if (pointerCursorStillValid && node->renderStyle() && node->renderStyle()->cursor() == CursorType::Pointer)
                 pointerCursorNode = node;
             // We want the lowest unbroken chain of pointer cursors.
             else if (pointerCursorNode)
@@ -469,8 +468,8 @@ Node* Frame::nodeRespondingToScrollWheelEvents(const FloatPoint& viewportLocatio
             auto& style = renderer->style();
 
             if (renderer->hasOverflowClip()
-                && (style.overflowY() == OAUTO || style.overflowY() == OSCROLL || style.overflowY() == OOVERLAY
-                || style.overflowX() == OAUTO || style.overflowX() == OSCROLL || style.overflowX() == OOVERLAY)) {
+                && (style.overflowY() == Overflow::Auto || style.overflowY() == Overflow::Scroll || style.overflowY() == Overflow::Overlay
+                || style.overflowX() == Overflow::Auto || style.overflowX() == Overflow::Scroll || style.overflowX() == Overflow::Overlay)) {
                 scrollingAncestor = node;
             }
         }
@@ -751,4 +750,5 @@ void Frame::resetAllGeolocationPermission()
 }
 
 } // namespace WebCore
+
 #endif // PLATFORM(IOS)

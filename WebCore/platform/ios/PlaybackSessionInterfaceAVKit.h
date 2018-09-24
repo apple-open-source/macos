@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,7 @@
 #include "Timer.h"
 #include <functional>
 #include <objc/objc.h>
+#include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
@@ -44,10 +45,6 @@ OBJC_CLASS AVPlayerViewController;
 OBJC_CLASS UIViewController;
 OBJC_CLASS UIWindow;
 OBJC_CLASS UIView;
-
-namespace WTF {
-class String;
-}
 
 namespace WebCore {
 class IntRect;
@@ -82,6 +79,7 @@ public:
     WEBCORE_EXPORT void externalPlaybackChanged(bool enabled, PlaybackSessionModel::ExternalPlaybackTargetType, const String& localizedDeviceName) override;
     WEBCORE_EXPORT void wirelessVideoPlaybackDisabledChanged(bool) override;
     WEBCORE_EXPORT void mutedChanged(bool) override;
+    WEBCORE_EXPORT void volumeChanged(double) override;
 
     WEBCORE_EXPORT virtual void invalidate();
 

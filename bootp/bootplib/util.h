@@ -124,6 +124,13 @@ prefix_to_mask32(unsigned int prefix_length)
     return (0xffffffff << (32 - prefix_length));
 }
 
+/*
+ * IPv4 Service Continuity Prefix (RFC 7335)
+ * 192.0.0.0/29
+ */
+#define IN_SERVICE_CONTINUITY		((u_int32_t)0xc0000000)
+#define IN_SERVICE_CONTINUITY_NET	((u_int32_t)0xfffffff8)
+
 
 int	nbits_host(struct in_addr mask);
 

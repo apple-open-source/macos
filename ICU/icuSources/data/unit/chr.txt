@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 chr{
-    Version{"2.1.31.74"}
+    Version{"2.1.41.97"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -147,10 +147,10 @@ chr{
             }
         }
         coordinate{
-            east{"{0}Ꮧ"}
-            north{"{0}ᏧᏴ"}
-            south{"{0}ᏧᎦ"}
-            west{"{0}Ꮽ"}
+            east{"{0} ᏗᎧᎸᎬ"}
+            north{"{0} ᏧᏴᏢ"}
+            south{"{0} ᏧᎦᏄᏮ"}
+            west{"{0} ᏭᏕᎵᎬ"}
         }
         digital{
             bit{
@@ -429,6 +429,11 @@ chr{
                 dnam{"ᏇᎪ ᎢᏯᎦᎨᎵᏁᎢ ᏗᏟᎶᏍᏗ"}
                 one{"{0} ᏇᎪ ᎢᏯᎦᎨᎵᏁᎢ ᎠᏟᎶᏍᏗ"}
                 other{"{0} ᏇᎪ ᎢᏯᎦᎨᎵᏁᎢ ᏗᏟᎶᏍᏗ"}
+            }
+            point{
+                dnam{"ᏧᏓᏓᏟ"}
+                one{"{0} ᎤᏓᏓᏟ"}
+                other{"{0} ᏧᏓᏓᏟ"}
             }
             yard{
                 dnam{"ᎢᏯᏯᏗ"}
@@ -989,10 +994,10 @@ chr{
             }
         }
         coordinate{
-            east{"{0}Ꮧ"}
-            north{"{0}ᏧᏴ"}
-            south{"{0}ᏧᎦ"}
-            west{"{0}Ꮽ"}
+            east{"{0} Ꮧ"}
+            north{"{0} ᏧᏴ"}
+            south{"{0} ᏧᎦ"}
+            west{"{0} Ꮽ"}
         }
         digital{
             bit{
@@ -1271,6 +1276,11 @@ chr{
                 dnam{"pm"}
                 one{"{0} pm"}
                 other{"{0} pm"}
+            }
+            point{
+                dnam{"ᏧᏓᏓᏟ"}
+                one{"{0} ᏧᏓ"}
+                other{"{0} ᏧᏓ"}
             }
             yard{
                 dnam{"ᎢᏯᏯᏗ"}

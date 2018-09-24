@@ -29,8 +29,6 @@
 #import "keychain/ckks/CKKSLockStateTracker.h"
 #import "keychain/ckks/NSOperationCategories.h"
 #include <Security/SecureObjectSync/SOSAccount.h>
-#import <WirelessDiagnostics/WirelessDiagnostics.h>
-#import "keychain/analytics/awd/AWDMetricIds_Keychain.h"
 
 static NSOperationQueue *backupOperationQueue;
 static CKKSLockStateTracker *lockStateTracker;
@@ -66,7 +64,6 @@ void SOSEnsureBackupWhileUnlocked(void) {
             }];
             [backupOperation addNullableDependency:lockStateTracker.unlockDependency];
             [backupOperationQueue addOperation:backupOperation];
-            AWDPostSimpleMetric(AWDMetricId_Keychain_SOSKeychainBackupFailed);
         }
     }
 }

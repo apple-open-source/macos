@@ -27,6 +27,7 @@
 #include "ResourceLoadStatisticsPersistentStorage.h"
 
 #include "Logging.h"
+#include "ResourceLoadStatisticsMemoryStore.h"
 #include "WebResourceLoadStatisticsStore.h"
 #include <WebCore/FileMonitor.h>
 #include <WebCore/FileSystem.h>
@@ -34,7 +35,6 @@
 #include <WebCore/SharedBuffer.h>
 #include <wtf/RunLoop.h>
 #include <wtf/WorkQueue.h>
-#include <wtf/threads/BinarySemaphore.h>
 
 namespace WebKit {
 
@@ -82,24 +82,25 @@ static std::unique_ptr<KeyedDecoder> createDecoderForFile(const String& path)
     return KeyedDecoder::decoder(reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
 }
 
-ResourceLoadStatisticsPersistentStorage::ResourceLoadStatisticsPersistentStorage(WebResourceLoadStatisticsStore& store, const String& storageDirectoryPath, IsReadOnly isReadOnly)
-    : m_memoryStore(store)
+ResourceLoadStatisticsPersistentStorage::ResourceLoadStatisticsPersistentStorage(ResourceLoadStatisticsMemoryStore& memoryStore, WorkQueue& workQueue, const String& storageDirectoryPath)
+    : m_memoryStore(memoryStore)
+    , m_workQueue(workQueue)
     , m_storageDirectoryPath(storageDirectoryPath)
-    , m_asyncWriteTimer(RunLoop::main(), this, &ResourceLoadStatisticsPersistentStorage::asyncWriteTimerFired)
-    , m_isReadOnly(isReadOnly)
-{
-}
-
-void ResourceLoadStatisticsPersistentStorage::initialize()
 {
     ASSERT(!RunLoop::isMain());
+
+    m_memoryStore.setPersistentStorage(*this);
+
     populateMemoryStoreFromDisk();
     startMonitoringDisk();
 }
 
 ResourceLoadStatisticsPersistentStorage::~ResourceLoadStatisticsPersistentStorage()
 {
-    ASSERT(!m_hasPendingWrite);
+    ASSERT(!RunLoop::isMain());
+
+    if (m_hasPendingWrite)
+        writeMemoryStoreToDisk();
 }
 
 String ResourceLoadStatisticsPersistentStorage::storageDirectoryPath() const
@@ -126,14 +127,17 @@ void ResourceLoadStatisticsPersistentStorage::startMonitoringDisk()
     if (resourceLogPath.isEmpty())
         return;
 
-    m_fileMonitor = std::make_unique<FileMonitor>(resourceLogPath, m_memoryStore.statisticsQueue(), [this] (FileMonitor::FileChangeType type) {
+    m_fileMonitor = std::make_unique<FileMonitor>(resourceLogPath, m_workQueue.copyRef(), [this, weakThis = makeWeakPtr(*this)] (FileMonitor::FileChangeType type) {
         ASSERT(!RunLoop::isMain());
+        if (!weakThis)
+            return;
+
         switch (type) {
         case FileMonitor::FileChangeType::Modification:
             refreshMemoryStoreFromDisk();
             break;
         case FileMonitor::FileChangeType::Removal:
-            m_memoryStore.clearInMemory();
+            m_memoryStore.clear();
             m_fileMonitor = nullptr;
             monitorDirectoryForNewStatistics();
             break;
@@ -143,6 +147,8 @@ void ResourceLoadStatisticsPersistentStorage::startMonitoringDisk()
 
 void ResourceLoadStatisticsPersistentStorage::monitorDirectoryForNewStatistics()
 {
+    ASSERT(!RunLoop::isMain());
+
     String storagePath = storageDirectoryPath();
     ASSERT(!storagePath.isEmpty());
 
@@ -153,7 +159,7 @@ void ResourceLoadStatisticsPersistentStorage::monitorDirectoryForNewStatistics()
         }
     }
 
-    m_fileMonitor = std::make_unique<FileMonitor>(storagePath, m_memoryStore.statisticsQueue(), [this] (FileMonitor::FileChangeType type) {
+    m_fileMonitor = std::make_unique<FileMonitor>(storagePath, m_workQueue.copyRef(), [this] (FileMonitor::FileChangeType type) {
         ASSERT(!RunLoop::isMain());
         if (type == FileMonitor::FileChangeType::Removal) {
             // Directory was removed!
@@ -211,7 +217,7 @@ void ResourceLoadStatisticsPersistentStorage::populateMemoryStoreFromDisk()
 
     String filePath = resourceLogFilePath();
     if (filePath.isEmpty() || !FileSystem::fileExists(filePath)) {
-        m_memoryStore.grandfatherExistingWebsiteData();
+        m_memoryStore.grandfatherExistingWebsiteData([]() { });
         monitorDirectoryForNewStatistics();
         return;
     }
@@ -225,7 +231,7 @@ void ResourceLoadStatisticsPersistentStorage::populateMemoryStoreFromDisk()
 
     auto decoder = createDecoderForFile(filePath);
     if (!decoder) {
-        m_memoryStore.grandfatherExistingWebsiteData();
+        m_memoryStore.grandfatherExistingWebsiteData([]() { });
         return;
     }
 
@@ -234,22 +240,12 @@ void ResourceLoadStatisticsPersistentStorage::populateMemoryStoreFromDisk()
 
     m_lastStatisticsFileSyncTime = readTime;
 
-    m_memoryStore.logTestingEvent(ASCIILiteral("PopulatedWithoutGrandfathering"));
-}
-
-void ResourceLoadStatisticsPersistentStorage::asyncWriteTimerFired()
-{
-    ASSERT(RunLoop::isMain());
-    RELEASE_ASSERT(m_isReadOnly != IsReadOnly::Yes);
-    m_memoryStore.statisticsQueue().dispatch([this] () mutable {
-        writeMemoryStoreToDisk();
-    });
+    m_memoryStore.logTestingEvent("PopulatedWithoutGrandfathering"_s);
 }
 
 void ResourceLoadStatisticsPersistentStorage::writeMemoryStoreToDisk()
 {
     ASSERT(!RunLoop::isMain());
-    RELEASE_ASSERT(m_isReadOnly != IsReadOnly::Yes);
 
     m_hasPendingWrite = false;
     stopMonitoringDisk();
@@ -284,16 +280,15 @@ void ResourceLoadStatisticsPersistentStorage::writeMemoryStoreToDisk()
 void ResourceLoadStatisticsPersistentStorage::scheduleOrWriteMemoryStore(ForceImmediateWrite forceImmediateWrite)
 {
     ASSERT(!RunLoop::isMain());
-    if (m_isReadOnly == IsReadOnly::Yes)
-        return;
 
     auto timeSinceLastWrite = MonotonicTime::now() - m_lastStatisticsWriteTime;
     if (forceImmediateWrite != ForceImmediateWrite::Yes && timeSinceLastWrite < minimumWriteInterval) {
         if (!m_hasPendingWrite) {
             m_hasPendingWrite = true;
             Seconds delay = minimumWriteInterval - timeSinceLastWrite + 1_s;
-            RunLoop::main().dispatch([this, protectedThis = makeRef(*this), delay] {
-                m_asyncWriteTimer.startOneShot(delay);
+            m_workQueue->dispatchAfter(delay, [weakThis = makeWeakPtr(*this)] {
+                if (weakThis)
+                    weakThis->writeMemoryStoreToDisk();
             });
         }
         return;
@@ -313,36 +308,6 @@ void ResourceLoadStatisticsPersistentStorage::clear()
 
     if (!FileSystem::deleteFile(filePath))
         RELEASE_LOG_ERROR(ResourceLoadStatistics, "ResourceLoadStatisticsPersistentStorage: Unable to delete statistics file: %s", filePath.utf8().data());
-}
-
-void ResourceLoadStatisticsPersistentStorage::finishAllPendingWorkSynchronously()
-{
-    if (m_isReadOnly == IsReadOnly::Yes) {
-        RELEASE_ASSERT(!m_asyncWriteTimer.isActive());
-        return;
-    }
-
-    m_asyncWriteTimer.stop();
-
-    BinarySemaphore semaphore;
-    // Make sure any pending work in our queue is finished before we terminate.
-    m_memoryStore.statisticsQueue().dispatch([&semaphore, this] {
-        // Write final file state to disk.
-        if (m_hasPendingWrite)
-            writeMemoryStoreToDisk();
-        semaphore.signal();
-    });
-    semaphore.wait(WallTime::infinity());
-}
-
-void ResourceLoadStatisticsPersistentStorage::ref()
-{
-    m_memoryStore.ref();
-}
-
-void ResourceLoadStatisticsPersistentStorage::deref()
-{
-    m_memoryStore.deref();
 }
 
 #if !PLATFORM(IOS)

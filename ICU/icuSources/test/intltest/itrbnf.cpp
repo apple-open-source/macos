@@ -75,6 +75,8 @@ void IntlTestRBNF::runIndexedTest(int32_t index, UBool exec, const char* &name, 
         TESTCASE(23, TestVariableDecimalPoint);
         TESTCASE(24, TestLargeNumbers);
         TESTCASE(25, TestCompactDecimalFormatStyle);
+        TESTCASE(26, TestParseFailure);
+        TESTCASE(27, TestMinMaxIntegerDigitsIgnored);
 #else
         TESTCASE(0, TestRBNFDisabled);
 #endif
@@ -2323,6 +2325,41 @@ void IntlTestRBNF::TestCompactDecimalFormatStyle() {
             { NULL, NULL }
     };
     doTest(&rbnf, enTestFullData, false);
+}
+
+void IntlTestRBNF::TestParseFailure() {
+    UErrorCode status = U_ZERO_ERROR;
+    RuleBasedNumberFormat rbnf(URBNF_SPELLOUT, Locale::getJapanese(), status);
+    static const UChar* testData[] = {
+        u"・・・・・・・・・・・・・・・・・・・・・・・・"
+    };
+    if (assertSuccess("", status, true, __FILE__, __LINE__)) {
+        for (int i = 0; i < UPRV_LENGTHOF(testData); ++i) {
+            UnicodeString spelledNumberString(testData[i]);
+            Formattable actualNumber;
+            rbnf.parse(spelledNumberString, actualNumber, status);
+            if (status != U_INVALID_FORMAT_ERROR) { // I would have expected U_PARSE_ERROR, but NumberFormat::parse gives U_INVALID_FORMAT_ERROR
+                errln("FAIL: string should be unparseable index=%d %s", i, u_errorName(status));
+            }
+        }
+    }
+}
+
+void IntlTestRBNF::TestMinMaxIntegerDigitsIgnored() {
+    IcuTestErrorCode status(*this, "TestMinMaxIntegerDigitsIgnored");
+
+    // NOTE: SimpleDateFormat has an optimization that depends on the fact that min/max integer digits
+    // do not affect RBNF (see SimpleDateFormat#zeroPaddingNumber).
+    RuleBasedNumberFormat rbnf(URBNF_SPELLOUT, "en", status);
+    if (status.isSuccess()) {
+        rbnf.setMinimumIntegerDigits(2);
+        rbnf.setMaximumIntegerDigits(3);
+        UnicodeString result;
+        rbnf.format(3, result.remove(), status);
+        assertEquals("Min integer digits are ignored", u"three", result);
+        rbnf.format(1012, result.remove(), status);
+        assertEquals("Max integer digits are ignored", u"one thousand twelve", result);
+    }
 }
 
 void 

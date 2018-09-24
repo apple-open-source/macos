@@ -29,7 +29,7 @@ static void basic_tests(void)
 {
     SecTrustRef trust = NULL;
     CFArrayRef _anchors = NULL, certs = NULL, anchors = NULL, replacementPolicies;
-	SecCertificateRef cert0 = NULL, cert1 = NULL, _root = NULL, cert_xedge2 = NULL, garthc2 = NULL;
+	SecCertificateRef cert0 = NULL, cert1 = NULL, _anchor = NULL, cert_google = NULL, garthc2 = NULL;
     SecPolicyRef policy = NULL, replacementPolicy = NULL, replacementPolicy2 = NULL;
     CFDateRef date = NULL;
     CFDataRef c0_serial = NULL, serial = NULL;
@@ -97,13 +97,9 @@ SKIP: {
 
     if (!cert0) { goto errOut; }
     c0_serial = CFDataCreate(NULL, _c0_serial, sizeof(_c0_serial));
-#if TARGET_OS_IPHONE
-	ok(serial = SecCertificateCopySerialNumber(cert0), "copy cert0 serial");
-#else
     CFErrorRef error = NULL;
-    ok(serial = SecCertificateCopySerialNumber(cert0, &error), "copy cert0 serial");
+    ok(serial = SecCertificateCopySerialNumberData(cert0, &error), "copy cert0 serial");
     CFReleaseNull(error);
-#endif
 	ok(CFEqual(c0_serial, serial), "serial matches");
     CFReleaseNull(serial);
     CFReleaseNull(c0_serial);
@@ -157,59 +153,56 @@ SKIP: {
               "trust is kSecTrustResultUnspecified");
 	is(SecTrustGetCertificateCount(trust), 3, "cert count is 3");
 
-    /* Set certs to be the xedge2 leaf. */
+    /* Set certs to be the www.google.com leaf. */
 	CFReleaseNull(certs);
-	isnt(cert_xedge2 = SecCertificateCreateWithBytes(NULL, xedge2_certificate,
-        sizeof(xedge2_certificate)), NULL, "create cert_xedge2");
-    certs = CFArrayCreate(NULL, (const void **)&cert_xedge2, 1, &kCFTypeArrayCallBacks);
+	isnt(cert_google = SecCertificateCreateWithBytes(NULL, google_certificate,
+        sizeof(google_certificate)), NULL, "create cert_google");
+    certs = CFArrayCreate(NULL, (const void **)&cert_google, 1, &kCFTypeArrayCallBacks);
 
 	CFReleaseNull(trust);
 	CFReleaseNull(policy);
 	CFReleaseNull(date);
     bool server = true;
-    policy = SecPolicyCreateSSL(server, CFSTR("xedge2.apple.com"));
+    policy = SecPolicyCreateSSL(server, CFSTR("www.google.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
-        "create trust for ssl server xedge2.apple.com");
+        "create trust for ssl server www.google.com");
 
-    /* This test uses a cert whose root is no longer in our trust store,
-     * so we need to explicitly set it as a trusted anchor
-     */
-    isnt(_root = SecCertificateCreateWithBytes(NULL, entrust1024RootCA, sizeof(entrust1024RootCA)),
+    isnt(_anchor = SecCertificateCreateWithBytes(NULL, googleInternetAuthoritySubCA, sizeof(googleInternetAuthoritySubCA)),
          NULL, "create root");
-    const void *v_roots[] = { _root };
-    isnt(_anchors = CFArrayCreate(NULL, v_roots, array_size(v_roots), &kCFTypeArrayCallBacks),
+    const void *v_anchors[] = { _anchor };
+    isnt(_anchors = CFArrayCreate(NULL, v_anchors, array_size(v_anchors), &kCFTypeArrayCallBacks),
          NULL, "create anchors");
     if (!_anchors) { goto errOut; }
     ok_status(SecTrustSetAnchorCertificates(trust, _anchors), "set anchors");
 
-    /* Jan 1st 2009. */
-    date = CFDateCreate(NULL, 252288000.0);
-    ok_status(SecTrustSetVerifyDate(trust, date), "set xedge2 trust date to Jan 1st 2009");
-    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate xedge2 trust");
+    /* May 23, 2018. */
+    date = CFDateCreate(NULL, 548800000.0);
+    ok_status(SecTrustSetVerifyDate(trust, date), "set www.google.com trust date to May 23, 2018");
+    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate www.google.com trust");
     is_status(trustResult, kSecTrustResultUnspecified,
 		"trust is kSecTrustResultUnspecified");
 
 	CFReleaseNull(trust);
 	CFReleaseNull(policy);
     server = false;
-    policy = SecPolicyCreateSSL(server, CFSTR("xedge2.apple.com"));
+    policy = SecPolicyCreateSSL(server, CFSTR("www.google.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
-        "create trust for ssl client xedge2.apple.com");
+        "create trust for ssl client www.google.com");
     ok_status(SecTrustSetAnchorCertificates(trust, _anchors), "set anchors");
-    ok_status(SecTrustSetVerifyDate(trust, date), "set xedge2 trust date to Jan 1st 2009");
-    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate xedge2 trust");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set google trust date to May 23, 2018");
+    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate google trust");
     is_status(trustResult, kSecTrustResultRecoverableTrustFailure,
 		"trust is kSecTrustResultRecoverableTrustFailure");
 
 	CFReleaseNull(trust);
 	CFReleaseNull(policy);
     server = true;
-    policy = SecPolicyCreateIPSec(server, CFSTR("xedge2.apple.com"));
+    policy = SecPolicyCreateIPSec(server, CFSTR("www.google.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
-        "create trust for ip server xedge2.apple.com");
+        "create trust for ip server www.google.com");
     ok_status(SecTrustSetAnchorCertificates(trust, _anchors), "set anchors");
-    ok_status(SecTrustSetVerifyDate(trust, date), "set xedge2 trust date to Jan 1st 2009");
-    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate xedge2 trust");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set www.apple.com trust date to May 23, 2018");
+    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate www.google.com trust");
 #if 0
     /* Although this shouldn't be a valid ipsec cert, since we no longer
        check for ekus in the ipsec policy it is. */
@@ -226,12 +219,12 @@ SKIP: {
     policy = SecPolicyCreateSSL(server, CFSTR("nowhere.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
         "create trust for ssl server nowhere.com");
-    replacementPolicy = SecPolicyCreateSSL(server, CFSTR("xedge2.apple.com"));
+    replacementPolicy = SecPolicyCreateSSL(server, CFSTR("www.google.com"));
     SecTrustSetPolicies(trust, replacementPolicy);
     CFReleaseNull(replacementPolicy);
     ok_status(SecTrustSetAnchorCertificates(trust, _anchors), "set anchors");
-    ok_status(SecTrustSetVerifyDate(trust, date), "set xedge2 trust date to Jan 1st 2009");
-    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate xedge2 trust");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set www.google.com trust date to May 23, 2018");
+    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate www.google.com trust");
     is_status(trustResult, kSecTrustResultUnspecified,
 		"trust is kSecTrustResultUnspecified");
 
@@ -241,14 +234,14 @@ SKIP: {
     policy = SecPolicyCreateSSL(server, CFSTR("nowhere.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
         "create trust for ssl server nowhere.com");
-    replacementPolicy2 = SecPolicyCreateSSL(server, CFSTR("xedge2.apple.com"));
+    replacementPolicy2 = SecPolicyCreateSSL(server, CFSTR("www.google.com"));
     replacementPolicies = CFArrayCreate(kCFAllocatorDefault, (CFTypeRef*)&replacementPolicy2, 1, &kCFTypeArrayCallBacks);
     SecTrustSetPolicies(trust, replacementPolicies);
     CFReleaseNull(replacementPolicy2);
     CFReleaseNull(replacementPolicies);
     ok_status(SecTrustSetAnchorCertificates(trust, _anchors), "set anchors");
-    ok_status(SecTrustSetVerifyDate(trust, date), "set xedge2 trust date to Jan 1st 2009");
-    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate xedge2 trust");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set www.google.com trust date to May 23, 2018");
+    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate www.google.com trust");
     is_status(trustResult, kSecTrustResultUnspecified,
 		"trust is kSecTrustResultUnspecified");
 
@@ -261,7 +254,7 @@ SKIP: {
 	isnt(garthc2 = SecCertificateCreateWithBytes(NULL, garthc2_certificate,
         sizeof(garthc2_certificate)), NULL, "create garthc2");
     certs = CFArrayCreate(NULL, (const void **)&garthc2, 1, &kCFTypeArrayCallBacks);
-    policy = SecPolicyCreateSSL(server, CFSTR("garthc2.apple.com"));
+    policy = SecPolicyCreateSSL(server, NULL);
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
         "create trust for ip server garthc2.apple.com");
     date = CFDateCreate(NULL, 269568000.0);
@@ -277,7 +270,7 @@ SKIP: {
 
 errOut:
     CFReleaseSafe(garthc2);
-    CFReleaseSafe(cert_xedge2);
+    CFReleaseSafe(cert_google);
     CFReleaseSafe(anchors);
     CFReleaseSafe(trust);
     CFReleaseSafe(serial);
@@ -288,7 +281,7 @@ errOut:
     CFReleaseSafe(cert1);
     CFReleaseSafe(date);
 
-    CFReleaseSafe(_root);
+    CFReleaseSafe(_anchor);
     CFReleaseSafe(_anchors);
 }
 
@@ -336,7 +329,7 @@ static void rsa8k_tests(void)
     CFArrayRef certs = NULL;
     isnt(certs = CFArrayCreate(NULL, &prt_forest_fi, 1, &kCFTypeArrayCallBacks), NULL, "failed to create cert array");
     SecPolicyRef policy = NULL;
-    isnt(policy = SecPolicyCreateSSL(false, CFSTR("owa.prt-forest.fi")), NULL, "failed to create policy");
+    isnt(policy = SecPolicyCreateSSL(true, CFSTR("owa.prt-forest.fi")), NULL, "failed to create policy");
     SecTrustRef trust = NULL;
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
               "create trust for ip client owa.prt-forest.fi");
@@ -893,14 +886,86 @@ static void test_tls_analytics_report(void)
     CFErrorRef error = NULL;
     bool reported = SecTrustReportTLSAnalytics(CFSTR("TLSConnectionEvent"), metric, &error);
     ok(reported, "Failed to report analytics with error %@", error);
+    xpc_release(metric);
+}
+
+static void test_weak_signature(void) {
+    SecCertificateRef md5_root = NULL, md5_leaf = NULL, sha256_root = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    CFArrayRef certs = NULL, anchors = NULL;
+    CFDateRef verifyDate = NULL;
+    CFErrorRef error = NULL;
+
+    require_action(md5_root = SecCertificateCreateWithBytes(NULL, _md5_root, sizeof(_md5_root)), errOut,
+                   fail("failed to create md5 root cert"));
+    require_action(md5_leaf = SecCertificateCreateWithBytes(NULL, _md5_leaf, sizeof(_md5_leaf)), errOut,
+                   fail("failed to create md5 leaf cert"));
+    require_action(sha256_root = SecCertificateCreateWithBytes(NULL, _sha256_root, sizeof(_sha256_root)), errOut,
+                   fail("failed to create sha256 root cert"));
+
+    require_action(certs = CFArrayCreate(NULL, (const void **)&md5_root, 1, &kCFTypeArrayCallBacks), errOut,
+                   fail("failed to create certs array"));
+    require_action(anchors = CFArrayCreate(NULL, (const void **)&md5_root, 1, &kCFTypeArrayCallBacks), errOut,
+                   fail("failed to create anchors array"));
+    require_action(policy = SecPolicyCreateBasicX509(), errOut, fail("failed to make policy"));
+    require_action(verifyDate = CFDateCreate(NULL, 550600000), errOut, fail("failed to make verification date")); // June 13, 2018
+
+    /* Test self-signed MD5 cert. Should work since cert is a trusted anchor - rdar://39152516 */
+    require_noerr_action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut,
+                         fail("failed to create trust object"));
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+                         fail("faild to set anchors"));
+    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut,
+                         fail("failed to set verify date"));
+    ok(SecTrustEvaluateWithError(trust, &error), "self-signed MD5 cert failed");
+    is(error, NULL, "got a trust error for self-signed MD5 cert: %@", error);
+
+    /* clean up and set up for next test */
+    CFReleaseNull(error);
+    CFReleaseNull(trust);
+    CFReleaseNull(anchors);
+    CFReleaseNull(certs);
+
+    require_action(certs = CFArrayCreate(NULL, (const void **)&md5_leaf, 1, &kCFTypeArrayCallBacks), errOut,
+                   fail("failed to create certs array"));
+    require_action(anchors = CFArrayCreate(NULL, (const void **)&sha256_root, 1, &kCFTypeArrayCallBacks), errOut,
+                   fail("failed to create anchors array"));
+
+
+    /* Test non-self-signed MD5 cert. Should fail. */
+    require_noerr_action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut,
+                         fail("failed to create trust object"));
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+                         fail("faild to set anchors"));
+    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut,
+                         fail("failed to set verify date"));
+    is(SecTrustEvaluateWithError(trust, &error), false, "non-self-signed MD5 cert succeeded");
+    if (error) {
+        is(CFErrorGetCode(error), errSecInvalidDigestAlgorithm, "got wrong error code for MD5 leaf cert, got %ld, expected %d",
+           (long)CFErrorGetCode(error), errSecInvalidDigestAlgorithm);
+    } else {
+        fail("expected trust evaluation to fail and it did not.");
+    }
+
+errOut:
+    CFReleaseNull(md5_root);
+    CFReleaseNull(md5_leaf);
+    CFReleaseNull(sha256_root);
+    CFReleaseNull(certs);
+    CFReleaseNull(anchors);
+    CFReleaseNull(policy);
+    CFReleaseNull(verifyDate);
+    CFReleaseNull(trust);
+    CFReleaseNull(error);
 }
 
 int si_20_sectrust(int argc, char *const *argv)
 {
 #if TARGET_OS_IPHONE
-    plan_tests(101+9+(8*13)+9+1+2+17+2+9+2);
+    plan_tests(101+9+(8*13)+9+1+2+17+2+9+2+4);
 #else
-    plan_tests(97+9+(8*13)+9+1+2+2+17+2+9+2);
+    plan_tests(97+9+(8*13)+9+1+2+2+17+2+9+2+4);
 #endif
 
     basic_tests();
@@ -916,6 +981,7 @@ int si_20_sectrust(int argc, char *const *argv)
     test_optional_policy_check();
     test_serialization();
     test_tls_analytics_report();
+    test_weak_signature();
 
     return 0;
 }

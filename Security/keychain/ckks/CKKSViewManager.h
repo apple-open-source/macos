@@ -38,6 +38,7 @@
 #import "keychain/ckks/CKKSPeer.h"
 #import "keychain/ckks/CKKSRateLimiter.h"
 #import "keychain/ckks/CloudKitDependencies.h"
+#import "keychain/ckks/CKKSZoneChangeFetcher.h"
 #import "keychain/ot/OTDefines.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -50,6 +51,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSCKAccountStateTracker* accountTracker;
 @property CKKSLockStateTracker* lockStateTracker;
 @property CKKSReachabilityTracker *reachabilityTracker;
+@property CKKSZoneChangeFetcher* zoneChangeFetcher;
 @property bool initializeNewZones;
 
 // Signaled when SecCKKSInitialize is complete, as it's async and likes to fire after tests are complete

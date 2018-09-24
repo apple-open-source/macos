@@ -104,6 +104,12 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		3FB35B98206F82620097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
+		3FB35B9A206F82710097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
+		3FB35B9C206F82950097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
+		3FB35B9E206F829F0097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
+		3FB35BA0206F82A70097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
+		3FB35BA2206F82B10097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
 		4C00665A103F5982008F286F /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
 		4C00665B103F598D008F286F /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
 		4C00665C103F59B5008F286F /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
@@ -136,7 +142,6 @@
 		4C29FC59102257C6001D8279 /* free_ttype.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089430FFC2BB200CE4372 /* free_ttype.c */; };
 		4C29FC6E102257C6001D8279 /* getenv_num.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089440FFC2BB200CE4372 /* getenv_num.c */; };
 		4C29FC6F102257C6001D8279 /* hardscroll.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0897A0FFC2BB200CE4372 /* hardscroll.c */; };
-		4C29FC70102257C6001D8279 /* hashed_db.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089450FFC2BB200CE4372 /* hashed_db.c */; };
 		4C29FC71102257C6001D8279 /* hashmap.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0897B0FFC2BB200CE4372 /* hashmap.c */; };
 		4C29FC72102257C6001D8279 /* home_terminfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089460FFC2BB200CE4372 /* home_terminfo.c */; };
 		4C29FC73102257C6001D8279 /* init_keytry.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089470FFC2BB200CE4372 /* init_keytry.c */; };
@@ -256,7 +261,6 @@
 		4C29FCE6102257C6001D8279 /* lib_winch.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0891B0FFC2BB100CE4372 /* lib_winch.c */; };
 		4C29FCE7102257C6001D8279 /* lib_window.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0891C0FFC2BB100CE4372 /* lib_window.c */; };
 		4C29FCE8102257C6001D8279 /* lib_wunctrl.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089980FFC2BB200CE4372 /* lib_wunctrl.c */; };
-		4C29FD04102257C7001D8279 /* memmove.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0891D0FFC2BB100CE4372 /* memmove.c */; };
 		4C29FD05102257C7001D8279 /* name_match.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089620FFC2BB200CE4372 /* name_match.c */; };
 		4C29FD06102257C7001D8279 /* names.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C609E4E101652A300971540 /* names.c */; };
 		4C29FD07102257C7001D8279 /* nc_panel.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089210FFC2BB100CE4372 /* nc_panel.c */; };
@@ -273,10 +277,8 @@
 		4C29FD21102257C7001D8279 /* unctrl.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C29FB271021124D001D8279 /* unctrl.c */; };
 		4C29FD22102257C7001D8279 /* use_screen.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0896A0FFC2BB200CE4372 /* use_screen.c */; };
 		4C29FD23102257C7001D8279 /* use_window.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089270FFC2BB100CE4372 /* use_window.c */; };
-		4C29FD24102257C7001D8279 /* varargs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089770FFC2BB200CE4372 /* varargs.c */; };
 		4C29FD25102257C7001D8279 /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089280FFC2BB100CE4372 /* version.c */; };
 		4C29FD26102257C7001D8279 /* visbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089780FFC2BB200CE4372 /* visbuf.c */; };
-		4C29FD27102257C7001D8279 /* vsscanf.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF089290FFC2BB100CE4372 /* vsscanf.c */; };
 		4C29FD28102257C7001D8279 /* wresize.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0892A0FFC2BB100CE4372 /* wresize.c */; };
 		4C29FD29102257C7001D8279 /* write_entry.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0896B0FFC2BB200CE4372 /* write_entry.c */; };
 		4C609E4110163BA900971540 /* make_keys.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CF0895B0FFC2BB200CE4372 /* make_keys.c */; };
@@ -1663,6 +1665,54 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		3FB35B96206F82580097BE22 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3FB35B98206F82620097BE22 /* libncurses.5.4.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3FB35B99206F826A0097BE22 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3FB35B9A206F82710097BE22 /* libncurses.5.4.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3FB35B9B206F828F0097BE22 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3FB35B9C206F82950097BE22 /* libncurses.5.4.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3FB35B9D206F82990097BE22 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3FB35B9E206F829F0097BE22 /* libncurses.5.4.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3FB35B9F206F82A30097BE22 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3FB35BA0206F82A70097BE22 /* libncurses.5.4.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3FB35BA1206F82AC0097BE22 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3FB35BA2206F82B10097BE22 /* libncurses.5.4.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4CD04FFD103F1BEB001C87D5 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1707,6 +1757,7 @@
 				4CC76F6B1027919500C87ED0 /* Open Source */,
 				FCD5D3E014E4A88D00752D20 /* Derived Sources */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
+				3FB35B97206F82620097BE22 /* Frameworks */,
 			);
 			name = ncurses;
 			sourceTree = "<group>";
@@ -1729,6 +1780,13 @@
 				4CD05208103F1C12001C87D5 /* libpanel.5.4.dylib */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		3FB35B97206F82620097BE22 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		4CC76F6B1027919500C87ED0 /* Open Source */ = {
@@ -3047,6 +3105,7 @@
 			buildConfigurationList = 4C29FA6B1020E64A001D8279 /* Build configuration list for PBXNativeTarget "clear" */;
 			buildPhases = (
 				4C29FA641020E62B001D8279 /* Sources */,
+				3FB35B96206F82580097BE22 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -3063,6 +3122,7 @@
 			buildConfigurationList = 4C29FA7D1020E977001D8279 /* Build configuration list for PBXNativeTarget "infocmp" */;
 			buildPhases = (
 				4C29FA761020E959001D8279 /* Sources */,
+				3FB35B99206F826A0097BE22 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -3079,6 +3139,7 @@
 			buildConfigurationList = 4C29FA841020EB4A001D8279 /* Build configuration list for PBXNativeTarget "tput" */;
 			buildPhases = (
 				4C29FA811020EB4A001D8279 /* Sources */,
+				3FB35B9F206F82A30097BE22 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -3095,6 +3156,7 @@
 			buildConfigurationList = 4C29FA8D1020EB4E001D8279 /* Build configuration list for PBXNativeTarget "tset" */;
 			buildPhases = (
 				4C29FA8A1020EB4E001D8279 /* Sources */,
+				3FB35BA1206F82AC0097BE22 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -3111,6 +3173,7 @@
 			buildConfigurationList = 4C29FA961020EB52001D8279 /* Build configuration list for PBXNativeTarget "toe" */;
 			buildPhases = (
 				4C29FA931020EB52001D8279 /* Sources */,
+				3FB35B9D206F82990097BE22 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -3127,6 +3190,7 @@
 			buildConfigurationList = 4C29FAA61020EBED001D8279 /* Build configuration list for PBXNativeTarget "tic" */;
 			buildPhases = (
 				4C29FAA31020EBED001D8279 /* Sources */,
+				3FB35B9B206F828F0097BE22 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -3521,7 +3585,6 @@
 				4C29FC59102257C6001D8279 /* free_ttype.c in Sources */,
 				4C29FC6E102257C6001D8279 /* getenv_num.c in Sources */,
 				4C29FC6F102257C6001D8279 /* hardscroll.c in Sources */,
-				4C29FC70102257C6001D8279 /* hashed_db.c in Sources */,
 				4C29FC71102257C6001D8279 /* hashmap.c in Sources */,
 				4C29FC72102257C6001D8279 /* home_terminfo.c in Sources */,
 				4C29FC73102257C6001D8279 /* init_keytry.c in Sources */,
@@ -3641,7 +3704,6 @@
 				4C29FCE6102257C6001D8279 /* lib_winch.c in Sources */,
 				4C29FCE7102257C6001D8279 /* lib_window.c in Sources */,
 				4C29FCE8102257C6001D8279 /* lib_wunctrl.c in Sources */,
-				4C29FD04102257C7001D8279 /* memmove.c in Sources */,
 				4C29FD05102257C7001D8279 /* name_match.c in Sources */,
 				4C29FD06102257C7001D8279 /* names.c in Sources */,
 				4C29FD07102257C7001D8279 /* nc_panel.c in Sources */,
@@ -3658,10 +3720,8 @@
 				4C29FD21102257C7001D8279 /* unctrl.c in Sources */,
 				4C29FD22102257C7001D8279 /* use_screen.c in Sources */,
 				4C29FD23102257C7001D8279 /* use_window.c in Sources */,
-				4C29FD24102257C7001D8279 /* varargs.c in Sources */,
 				4C29FD25102257C7001D8279 /* version.c in Sources */,
 				4C29FD26102257C7001D8279 /* visbuf.c in Sources */,
-				4C29FD27102257C7001D8279 /* vsscanf.c in Sources */,
 				4C29FD28102257C7001D8279 /* wresize.c in Sources */,
 				4C29FD29102257C7001D8279 /* write_entry.c in Sources */,
 				4CCA0C13102386830073B661 /* lib_keyname.c in Sources */,
@@ -3971,6 +4031,7 @@
 /* Begin XCBuildConfiguration section */
 		1DEB928B08733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2EF185E8D3F00B94A94 /* base.xcconfig */;
 			buildSettings = {
 				ALTERNATE_MODE = "go-w,a+rX";
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
@@ -4069,6 +4130,7 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
+				OTHER_TAPI_FLAGS = "-Xparser -include -Xparser $(SRCROOT)/ncurses/include/ncurses_cfg.h -extra-public-header $(BUILT_PRODUCTS_DIR)/curses.h -extra-public-header $(BUILT_PRODUCTS_DIR)/term.h -extra-public-header $(SRCROOT)/ncurses/include/nc_alloc.h -extra-public-header $(SRCROOT)/ncurses/include/termcap.h -extra-public-header $(SRCROOT)/ncurses/include/term_entry.h -extra-public-header $(SRCROOT)/ncurses/include/nc_panel.h -extra-public-header $(SRCROOT)/ncurses/include/tic.h -extra-public-header $(SRCROOT)/ncurses/include/unctrl.h -extra-private-header $(SRCROOT)/ncurses/ncurses/curses.priv.h";
 				PRODUCT_NAME = ncurses.5.4;
 			};
 			name = Release;
@@ -4104,6 +4166,7 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
+				OTHER_TAPI_FLAGS = "-I$(SRCROOT)/ncurses/menu -extra-public-header $(SRCROOT)/ncurses/form/form.h -extra-private-header $(SRCROOT)/ncurses/form/form.priv.h";
 				PRODUCT_NAME = form.5.4;
 			};
 			name = Release;
@@ -4124,6 +4187,7 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
+				OTHER_TAPI_FLAGS = "-extra-public-header $(SRCROOT)/ncurses/panel/panel.h";
 				PRODUCT_NAME = panel.5.4;
 			};
 			name = Release;

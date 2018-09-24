@@ -53,7 +53,7 @@ OSStatus SecCertificateBundleImport(
         const CSSM_CERT_BUNDLE* bundle,
         CSSM_CERT_BUNDLE_TYPE type,
         CSSM_CERT_BUNDLE_ENCODING encodingType,
-        CFArrayRef keychainListToSkipDuplicates);
+        CFArrayRef keychainListToSkipDuplicates) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
         
 /*!
 	@function SecCertificateBundleExport
@@ -68,7 +68,7 @@ OSStatus SecCertificateBundleExport(
         CFArrayRef certificates,
         CSSM_CERT_BUNDLE_TYPE type,
         CSSM_CERT_BUNDLE_ENCODING encodingType,
-        CSSM_DATA* data);
+        CSSM_DATA* data) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #if defined(__cplusplus)
 }

@@ -1,6 +1,6 @@
 #include "pthread.xcconfig"
 
-SUPPORTED_PLATFORMS = iphoneos appletvos watchos
+SUPPORTED_PLATFORMS = iphoneos
 PRODUCT_NAME = pthread_$(RESOLVED_VARIANT)
 OTHER_LDFLAGS =
 SKIP_INSTALL = YES

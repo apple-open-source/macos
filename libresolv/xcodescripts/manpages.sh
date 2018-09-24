@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e -x
 
-# don't install man pages for installhdrs or iOS builds
+# don't install man pages for installhdrs, installapi, or iOS builds
+if [ "$ACTION" = installapi ]; then exit 0; fi
 if [ "$ACTION" = installhdrs ]; then exit 0; fi
 if [ "${PLATFORM_NAME}" != "macosx" ]; then exit 0; fi
 

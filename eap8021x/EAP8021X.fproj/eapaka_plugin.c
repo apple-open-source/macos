@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -121,6 +121,7 @@ typedef struct {
 /**
  ** Identity routines
  **/
+#if TARGET_OS_EMBEDDED
 STATIC CFStringRef
 copy_imsi_identity(CFStringRef imsi, CFStringRef realm)
 {
@@ -149,6 +150,7 @@ copy_static_realm(CFDictionaryRef properties)
     }
     return (realm);
 }
+#endif /* TARGET_OS_EMBEDDED */
 
 STATIC CFStringRef
 copy_static_imsi(CFDictionaryRef properties)
@@ -185,6 +187,7 @@ S_get_identity_type(CFDictionaryRef dict)
 	return (EAPSIMAKAIdentityTypeGetAttributeType(identity_type_str));
 }
 
+#if TARGET_OS_EMBEDDED
 static int
 S_get_plist_int(CFDictionaryRef plist, CFStringRef key, int def)
 {
@@ -213,7 +216,6 @@ S_get_plist_bool(CFDictionaryRef plist, CFStringRef key, bool def)
 	return (ret);
 }
 
-#if TARGET_OS_EMBEDDED
 STATIC CFStringRef
 copy_pseudonym_identity(CFStringRef pseudonym, CFStringRef realm)
 {
@@ -325,7 +327,7 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
     }
     realm = copy_static_realm(properties);
     if (realm == NULL) {
-	realm = SIMCopyRealm();
+	realm = SIMCopyRealm(properties);
     }
     ret_identity = create_identity(persist, properties, identity_type, realm,
 				   is_reauth_id_p, client_status);
@@ -346,17 +348,6 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
 	*is_reauth_id_p = FALSE;
     }
     return (NULL);
-}
-
-STATIC CFStringRef
-copy_pseudonym_identity(CFStringRef pseudonym, CFStringRef realm)
-{
-    if (realm != NULL) {
-	return (CFStringCreateWithFormat(NULL, NULL,
-					 CFSTR("%@" "@" "%@"),
-					 pseudonym, realm));
-    }
-    return (CFRetain(pseudonym));
 }
 
 #endif /* TARGET_OS_EMBEDDED */
@@ -725,7 +716,7 @@ eapaka_authenticate(EAPAKAContextRef context,
 	success = TRUE;
     }
     else {
-	success = SIMAuthenticateAKA(rand, autn, results);
+	success = SIMAuthenticateAKA(context->plugin->properties, rand, autn, results);
     }
     return (success);
 
@@ -1453,7 +1444,7 @@ eapaka_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
     }
     else {
 	/* check for a SIM module */
-	imsi = SIMCopyIMSI();
+	imsi = SIMCopyIMSI(plugin->properties);
 	if (imsi == NULL) {
 	    EAPLOG(LOG_NOTICE, "EAP-AKA: no SIM available");
 	    return (kEAPClientStatusResourceUnavailable);
@@ -1484,7 +1475,7 @@ eapaka_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
     }
     if (plugin->encryptedEAPIdentity == NULL) {
 	context->encrypted_identity_info
-	= EAPSIMAKAInitEncryptedIdentityInfo(plugin->properties, (context->static_keys.ck != NULL));
+	= EAPSIMAKAInitEncryptedIdentityInfo(kEAPTypeEAPAKA, plugin->properties, (context->static_keys.ck != NULL));
     }
     context->plugin = plugin;
     plugin->private = context;
@@ -1605,13 +1596,13 @@ eapaka_user_name_copy(CFDictionaryRef properties)
 
     imsi = copy_static_imsi(properties);
     if (imsi == NULL) {
-	imsi = SIMCopyIMSI();
+	imsi = SIMCopyIMSI(properties);
 	if (imsi == NULL) {
 	    goto done;
 	}
 	static_config = false;
     }
-    encrypted_identity_info = EAPSIMAKAInitEncryptedIdentityInfo(properties, static_config);
+    encrypted_identity_info = EAPSIMAKAInitEncryptedIdentityInfo(kEAPTypeEAPAKA, properties, static_config);
     identity_type = S_get_identity_type(properties);
     persist = EAPSIMAKAPersistentStateCreate(kEAPTypeEAPAKA,
 					     CC_SHA1_DIGEST_LENGTH,

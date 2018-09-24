@@ -1,6 +1,8 @@
-#!/bin/sh
+#!/bin/bash -e -x
 
-set -ex
+# Do nothing for installhdrs
+[ "$ACTION" == "installhdrs" ] && exit 0
+[ "$ACTION" == "installapi" ] && exit 0
 
 ln -s bzip2.1 ${DSTROOT}/usr/share/man/man1/bunzip2.1
 ln -s bzip2.1 ${DSTROOT}/usr/share/man/man1/bzcat.1

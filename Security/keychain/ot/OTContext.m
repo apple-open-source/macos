@@ -32,8 +32,6 @@
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSAnalytics.h"
 
-#import "CoreCDP/CDPFollowUpController.h"
-#import "CoreCDP/CDPFollowUpContext.h"
 #import <CoreCDP/CDPAccount.h>
 
 NSString* OTCKContainerName = @"com.apple.security.keychain";
@@ -527,31 +525,6 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     return bottleStatus;
 }
-
--(void) postFollowUp
-{
-    NSError* error = nil;
-
-    CKKSAnalytics* logger = [CKKSAnalytics logger];
-    SFAnalyticsActivityTracker *tracker = [logger logSystemMetricsForActivityNamed:CKKSActivityBottleCheck withAction:nil];
-
-    [tracker start];
-    CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
-    CDPFollowUpContext *context = [CDPFollowUpContext contextForOfflinePasscodeChange];
-
-    [cdpd postFollowUpWithContext:context error:&error];
-    if(error){
-        [logger logUnrecoverableError:error forEvent:OctagonEventCoreFollowUp withAttributes:@{
-                                                                                              OctagonEventAttributeFailureReason : @"core follow up failed"}];
-
-        secerror("request to CoreCDP to follow up failed: %@", error);
-    }
-    else{
-        [logger logSuccessForEventNamed:OctagonEventCoreFollowUp];
-    }
-    [tracker stop];
-}
-
 
 @end
 #endif

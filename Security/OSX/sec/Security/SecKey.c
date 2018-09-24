@@ -37,14 +37,15 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/array_size.h>
 
+#include "SecKeyPriv.h"
 #include "SecRSAKeyPriv.h"
 #include "SecECKeyPriv.h"
 #include "SecCTKKeyPriv.h"
 #include "SecBasePriv.h"
-#include <Security/SecKeyPriv.h>
 
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFPriv.h>
 #include <pthread.h>
 #include <string.h>
 #include <AssertMacros.h>
@@ -165,7 +166,7 @@ static CFStringRef SecKeyCopyDescription(CFTypeRef cf) {
 
 static void SecKeyDestroy(CFTypeRef cf) {
     SecKeyRef key = (SecKeyRef)cf;
-#if !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
     CFReleaseNull(key->cdsaKey);
 #endif
     if (key->key_class->destroy)
@@ -257,7 +258,7 @@ static CF_RETURNS_RETAINED CFMutableDictionaryRef merge_params(CFDictionaryRef d
 	return result;
 }
 
-CFIndex SecKeyGetAlgorithmIdentifier(SecKeyRef key) {
+CFIndex SecKeyGetAlgorithmId(SecKeyRef key) {
     if (!key || !key->key_class)  {
     // TBD: somehow, a key can be created with a NULL key_class in the
     // SecCertificateCopyPublicKey -> SecKeyCreatePublicFromDER code path
@@ -498,10 +499,10 @@ CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key)
     memset(&spki, 0, sizeof(spki));
 
     /* encode the public key. */
-    require_noerr(SecKeyCopyPublicBytes(key, &publicKey), errOut);
+    require_noerr_quiet(SecKeyCopyPublicBytes(key, &publicKey), errOut);
     require_quiet(publicKey, errOut);
 
-    require(CFDataGetLength(publicKey) != 0, errOut);
+    require_quiet(CFDataGetLength(publicKey) != 0, errOut);
 
     // Add prefix 00 is needed to avoid creating negative bit strings
     if (((uint8_t *)CFDataGetBytePtr(publicKey))[0] & 0x80)
@@ -521,7 +522,7 @@ CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key)
     spki.pubKey.length = CFDataGetLength(publicKey);
 
     // Encode algId according to algorithm used.
-    CFIndex algorithm = SecKeyGetAlgorithmIdentifier(key);
+    CFIndex algorithm = SecKeyGetAlgorithmId(key);
     if (algorithm == kSecRSAAlgorithmID) {
         spki.algId.data = (DERByte *)oidRSA;
         spki.algId.length = sizeof(oidRSA);
@@ -556,7 +557,7 @@ CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key)
                              DERNumSubjPubKeyInfoItemSpecs,
                              DERSubjPubKeyInfoItemSpecs,
                              CFDataGetMutableBytePtr(data), &size);
-    require(drtn == DR_Success, errOut);
+    require_quiet(drtn == DR_Success, errOut);
     CFDataSetLength(data, size);
 
     dataret = CFRetain(data);
@@ -597,41 +598,53 @@ SecKeyRef SecKeyCreate(CFAllocatorRef allocator,
 }
 
 static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding(SecKeyRef key, SecPadding padding) {
-    switch (SecKeyGetAlgorithmIdentifier(key)) {
-        case kSecRSAAlgorithmID:
-            switch (padding) {
-                case kSecPaddingNone:
-                    return kSecKeyAlgorithmRSASignatureRaw;
-                case kSecPaddingPKCS1:
-                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw;
-#if TARGET_OS_IPHONE
-                case kSecPaddingPKCS1SHA1:
-                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1;
-                case kSecPaddingPKCS1SHA224:
-                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA224;
-                case kSecPaddingPKCS1SHA256:
-                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256;
-                case kSecPaddingPKCS1SHA384:
-                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384;
-                case kSecPaddingPKCS1SHA512:
-                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512;
-#else
-                    // On CSSM-based implementation, these functions actually did hash its input,
-                    // so keep doing that for backward compatibility.
-                case kSecPaddingPKCS1SHA1:
-                    return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1;
-                case kSecPaddingPKCS1SHA224:
-                    return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA224;
-                case kSecPaddingPKCS1SHA256:
-                    return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256;
-                case kSecPaddingPKCS1SHA384:
-                    return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384;
-                case kSecPaddingPKCS1SHA512:
-                    return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512;
+    switch (SecKeyGetAlgorithmId(key)) {
+        case kSecRSAAlgorithmID: {
+#if TARGET_OS_OSX
+            if (!_CFMZEnabled()) {
+                // On CSSM-based implementation, these functions actually did hash its input,
+                // so keep doing that for backward compatibility.
+                switch (padding) {
+                    case kSecPaddingNone:
+                        return kSecKeyAlgorithmRSASignatureRaw;
+                    case kSecPaddingPKCS1:
+                        return kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw;
+                    case kSecPaddingPKCS1SHA1:
+                        return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1;
+                    case kSecPaddingPKCS1SHA224:
+                        return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA224;
+                    case kSecPaddingPKCS1SHA256:
+                        return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256;
+                    case kSecPaddingPKCS1SHA384:
+                        return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384;
+                    case kSecPaddingPKCS1SHA512:
+                        return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512;
+                    default:
+                        return NULL;
+                }
+            } else
 #endif
-                default:
-                    return NULL;
+            {
+                switch (padding) {
+                    case kSecPaddingNone:
+                        return kSecKeyAlgorithmRSASignatureRaw;
+                    case kSecPaddingPKCS1:
+                        return kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw;
+                    case kSecPaddingPKCS1SHA1:
+                        return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1;
+                    case kSecPaddingPKCS1SHA224:
+                        return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA224;
+                    case kSecPaddingPKCS1SHA256:
+                        return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256;
+                    case kSecPaddingPKCS1SHA384:
+                        return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384;
+                    case kSecPaddingPKCS1SHA512:
+                        return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512;
+                    default:
+                        return NULL;
+                }
             }
+        }
         case kSecECDSAAlgorithmID:
             switch (padding) {
                 case kSecPaddingSigRaw:
@@ -723,7 +736,7 @@ OSStatus SecKeyRawVerify(
 }
 
 static SecKeyAlgorithm SecKeyGetEncryptionAlgorithmForPadding(SecKeyRef key, SecPadding padding) {
-    switch (SecKeyGetAlgorithmIdentifier(key)) {
+    switch (SecKeyGetAlgorithmId(key)) {
         case kSecRSAAlgorithmID:
             switch (padding) {
                 case kSecPaddingNone:
@@ -841,6 +854,10 @@ static SecKeyAlgorithm SecKeyGetAlgorithmForSecAsn1AlgId(SecKeyRef key, const Se
             [false] = &kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5,
             [true] = &kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5,
         } },
+        { &CSSMOID_MD5WithRSA, NULL, {
+            [false] = &kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5,
+            [true] = &kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5,
+        } },
         { NULL },
     }, translationTableECDSA[] = {
         { &CSSMOID_ECDSA_WithSHA1, &CSSMOID_SHA1, {
@@ -867,7 +884,7 @@ static SecKeyAlgorithm SecKeyGetAlgorithmForSecAsn1AlgId(SecKeyRef key, const Se
     };
 
     const struct TableItem *table;
-    switch (SecKeyGetAlgorithmIdentifier(key)) {
+    switch (SecKeyGetAlgorithmId(key)) {
         case kSecRSAAlgorithmID:
             table = translationTableRSA;
             break;
@@ -962,18 +979,17 @@ OSStatus SecKeySignDigest(
                                         });
 }
 
-CFIndex SecKeyGetAlgorithmId(SecKeyRef key) {
-	return SecKeyGetAlgorithmIdentifier(key);
-}
-
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR))
+#if TARGET_OS_OSX
 /* On OS X, SecKeyGetAlgorithmID has a different function signature (two arguments,
    with output in the second argument). Therefore, avoid implementing this function here
    if compiling for OS X.
  */
 #else
+// Export original SecKeyGetAlgorithmID symbol for backward binary compatibility.
+#undef SecKeyGetAlgorithmID
+CFIndex SecKeyGetAlgorithmID(SecKeyRef key);
 CFIndex SecKeyGetAlgorithmID(SecKeyRef key) {
-	return SecKeyGetAlgorithmIdentifier(key);
+	return SecKeyGetAlgorithmId(key);
 }
 #endif
 
@@ -1011,7 +1027,13 @@ size_t SecKeyGetSize(SecKeyRef key, SecKeySize whichSize)
 {
     size_t result = SecKeyGetBlockSize(key);
 
-    if (kSecECDSAAlgorithmID == SecKeyGetAlgorithmIdentifier(key)) {
+    if (whichSize == 0 || whichSize == 10) {
+        // kSecKeyKeySizeInBits is declared as 0 on iOS (SPI) and 10 on macOS (API). Unified implementation
+        // here deals with both values.
+        whichSize = kSecKeyKeySizeInBits;
+    }
+
+    if (kSecECDSAAlgorithmID == SecKeyGetAlgorithmId(key)) {
         switch (whichSize) {
             case kSecKeyEncryptedDataSize:
                 result = 0;
@@ -1292,7 +1314,7 @@ CFDictionaryRef SecKeyCopyAttributes(SecKeyRef key) {
             CFRelease(blockSizeRef);
         }
 
-        switch (SecKeyGetAlgorithmIdentifier(key)) {
+        switch (SecKeyGetAlgorithmId(key)) {
             case kSecRSAAlgorithmID:
                 CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeRSA);
                 break;
@@ -1325,7 +1347,7 @@ SecKeyRef SecKeyCopyPublicKey(SecKeyRef key) {
     require_noerr_quiet(SecKeyCopyPublicBytes(key, &serializedPublic), fail);
     require_quiet(serializedPublic, fail);
 
-    result = SecKeyCreateFromPublicData(kCFAllocatorDefault, SecKeyGetAlgorithmIdentifier(key), serializedPublic);
+    result = SecKeyCreateFromPublicData(kCFAllocatorDefault, SecKeyGetAlgorithmId(key), serializedPublic);
 
 fail:
     CFReleaseSafe(serializedPublic);
@@ -1393,7 +1415,7 @@ static CFTypeRef SecKeyCopyBackendOperationResult(SecKeyOperationContext *contex
         { &kSecKeyAlgorithmRSAEncryptionOAEPSHA1, kSecRSAAlgorithmID, kSecPaddingOAEP },
     };
     SecPadding padding = (SecPadding)-1;
-    CFIndex keyAlg = SecKeyGetAlgorithmIdentifier(context->key);
+    CFIndex keyAlg = SecKeyGetAlgorithmId(context->key);
     for (size_t i = 0; i < array_size(paddingMap); ++i) {
         if (keyAlg == paddingMap[i].keyAlg && CFEqual(algorithm, *paddingMap[i].algorithm)) {
             padding = paddingMap[i].padding;

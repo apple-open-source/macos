@@ -21,9 +21,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#import "SecKeybagSupport.h"
+
+#if USE_KEYSTORE
 #import <libaks.h>
 #import <libaks_ref_key.h>
 #import <MobileKeyBag/MobileKeyBag.h>
+#endif
+
 #import <CryptoTokenKit/CryptoTokenKit.h>
 #import <ctkclient.h>
 #import <coreauthd_spi.h>
@@ -33,6 +38,8 @@
 #import <LocalAuthentication/LACFSupport.h>
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import "mockaks.h"
+
+#if USE_KEYSTORE
 
 @implementation SecMockAKS
 
@@ -148,7 +155,10 @@ aks_unwrap_key(const void * wrapped_key, int wrapped_key_size, keyclass_t key_cl
 int
 aks_ref_key_create(keybag_handle_t handle, keyclass_t cls, aks_key_type_t type, const uint8_t *params, size_t params_len, aks_ref_key_t *ot)
 {
-    return -1;
+    SFAESKeySpecifier* keySpecifier = [[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256];
+    SFAESKey* key = [[SFAESKey alloc] initRandomKeyWithSpecifier:keySpecifier error:nil];
+    *ot = (__bridge_retained aks_ref_key_t)key;
+    return kAKSReturnSuccess;
 }
 
 int
@@ -181,9 +191,9 @@ aks_operation_optional_params(const uint8_t * access_groups, size_t access_group
     return -1;
 }
 
-int aks_ref_key_create_with_blob(keybag_handle_t refkey, const uint8_t *ref_key_blob, size_t ref_key_blob_len, aks_ref_key_t* handle)
+int aks_ref_key_create_with_blob(keybag_handle_t keybag, const uint8_t *ref_key_blob, size_t ref_key_blob_len, aks_ref_key_t* handle)
 {
-    *handle = NULL;
+    aks_ref_key_create(keybag, 0, 0, NULL, 0, handle);
     return 0;
 }
 
@@ -241,6 +251,10 @@ aks_get_lock_state(keybag_handle_t handle, keybag_state_t *state)
     return 0;
 }
 
+CFStringRef kMKBDeviceModeMultiUser = CFSTR("kMKBDeviceModeMultiUser");
+CFStringRef kMKBDeviceModeSingleUser = CFSTR("kMKBDeviceModeSingleUser");
+CFStringRef kMKBDeviceModeKey = CFSTR("kMKBDeviceModeKey");
+
 static CFStringRef staticKeybagHandle = CFSTR("keybagHandle");
 
 int
@@ -268,7 +282,27 @@ int MKBKeyBagGetAKSHandle(MKBKeyBagHandleRef keybag, int32_t *handle)
     return 0;
 }
 
+int MKBGetDeviceLockState(CFDictionaryRef options)
+{
+    if ([SecMockAKS isLocked:key_class_ak] )
+        return kMobileKeyBagDeviceIsLocked;
+    return kMobileKeyBagDeviceIsUnlocked;
+}
 
+CF_RETURNS_RETAINED CFDictionaryRef
+MKBUserTypeDeviceMode(CFDictionaryRef options, CFErrorRef * error)
+{
+    return CFBridgingRetain(@{
+        (__bridge NSString *)kMKBDeviceModeKey : (__bridge NSString *)kMKBDeviceModeSingleUser,
+    });
+}
+
+int MKBForegroundUserSessionID( CFErrorRef * error)
+{
+    return 0;
+}
+
+#endif /* USE_KEYSTORE */
 
 const CFTypeRef kAKSKeyAcl = (CFTypeRef)CFSTR("kAKSKeyAcl");
 const CFTypeRef kAKSKeyAclParamRequirePasscode = (CFTypeRef)CFSTR("kAKSKeyAclParamRequirePasscode");

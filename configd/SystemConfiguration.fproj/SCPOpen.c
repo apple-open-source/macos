@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright(c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,7 +34,7 @@
  * - initial revision
  */
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -54,7 +54,7 @@ const AuthorizationRef	kSCPreferencesUseEntitlementAuthorization	= (Authorizatio
 
 
 __private_extern__ os_log_t
-__log_SCPreferences()
+__log_SCPreferences(void)
 {
 	static os_log_t	log	= NULL;
 
@@ -82,9 +82,10 @@ __SCPreferencesCopyDescription(CFTypeRef cf) {
 	result = CFStringCreateMutable(allocator, 0);
 	CFStringAppendFormat(result, NULL, CFSTR("<SCPreferences %p [%p]> {"), cf, allocator);
 	CFStringAppendFormat(result, NULL, CFSTR("name = %@"), prefsPrivate->name);
-	CFStringAppendFormat(result, NULL, CFSTR(", id = %@"), prefsPrivate->prefsID);
+	CFStringAppendFormat(result, NULL, CFSTR(", id = %@"),
+			     prefsPrivate->prefsID != NULL ? prefsPrivate->prefsID : CFSTR("[default]"));
 	CFStringAppendFormat(result, NULL, CFSTR(", path = %s"),
-			     prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+			     prefsPrivate->newPath != NULL ? prefsPrivate->newPath : prefsPrivate->path);
 	if (prefsPrivate->accessed) {
 		CFStringAppendFormat(result, NULL, CFSTR(", accessed"));
 	}
@@ -683,7 +684,7 @@ SCPreferencesCreateWithOptions(CFAllocatorRef	allocator,
 					     data);
 			CFRelease(data);
 		}
-#endif
+#endif	// !TARGET_OS_IPHONE
 
 		/* get the application/executable/bundle name */
 		bundle = CFBundleGetMainBundle();
@@ -780,13 +781,19 @@ prefsNotify(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 		CFStringRef     key;
 
 		key = CFArrayGetValueAtIndex(changedKeys, i);
+
+		// check if "commit"
 		if (CFEqual(key, prefsPrivate->sessionKeyCommit)) {
 			// if preferences have been saved
 			notify |= kSCPreferencesNotificationCommit;
+			continue;
 		}
+
+		// check if "apply"
 		if (CFEqual(key, prefsPrivate->sessionKeyApply)) {
 			// if stored preferences should be applied to current configuration
 			notify |= kSCPreferencesNotificationApply;
+			continue;
 		}
 	}
 
@@ -813,7 +820,7 @@ prefsNotify(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 		SC_log(LOG_DEBUG, "exec SCPreferences callout: %s%s%s",
 		       ((notify & kSCPreferencesNotificationCommit) != 0) ? "commit" : "",
 		       (((notify & kSCPreferencesNotificationCommit) != 0) &&
-		        ((notify & kSCPreferencesNotificationApply ) != 0)) ? ", " : "",
+			((notify & kSCPreferencesNotificationApply ) != 0)) ? ", " : "",
 		       ((notify & kSCPreferencesNotificationApply)  != 0) ? "apply"  : "");
 		(*rlsFunction)(prefs, notify, context_info);
 	}

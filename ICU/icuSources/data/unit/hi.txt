@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 hi{
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -119,6 +119,7 @@ hi{
                 other{"{0} मिलीमोल प्रति लीटर"}
             }
             part-per-million{
+                dnam{"ppm"}
                 one{"{0} ppm"}
                 other{"{0} हिस्सा प्रति दस लाख"}
             }
@@ -140,9 +141,9 @@ hi{
                 other{"{0} मील प्रति गैलन"}
             }
             mile-per-gallon-imperial{
-                dnam{"mpg Imp."}
-                one{"{0} mpg Imp."}
-                other{"{0} mpg Imp."}
+                dnam{"मील प्रति इंपीरियल गैलन"}
+                one{"{0} मील प्रति इंपीरियल गैलन"}
+                other{"{0} मील प्रति इंपीरियल गैलन"}
             }
         }
         coordinate{
@@ -1089,14 +1090,14 @@ hi{
                 other{"{0} kt"}
             }
             milligram-per-deciliter{
-                dnam{"मि.ग्रा./डे.ली."}
-                one{"{0} मि.ग्रा./डे.ली."}
-                other{"{0} मि.ग्रा./डे.ली."}
+                dnam{"मि॰ग्रा॰/डे॰ली॰"}
+                one{"{0} मि॰ग्रा॰/डे॰ली॰"}
+                other{"{0} मि॰ग्रा॰/डे॰ली॰"}
             }
             millimole-per-liter{
                 dnam{"मिलीमोल/लीटर"}
-                one{"{0} मिलीमोल/ली."}
-                other{"{0} मिलीमोल/ली."}
+                one{"{0} मिलीमोल/ली॰"}
+                other{"{0} मिलीमोल/ली॰"}
             }
             part-per-million{
                 dnam{"ppm"}
@@ -1106,9 +1107,9 @@ hi{
         }
         consumption{
             liter-per-100kilometers{
-                dnam{"ली./100 कि.मी."}
-                one{"{0} ली./100 कि.मी."}
-                other{"{0} ली./100 कि.मी."}
+                dnam{"ली॰/100 कि॰मी॰"}
+                one{"{0} ली॰/100 कि॰मी॰"}
+                other{"{0} ली॰/100 कि॰मी॰"}
             }
             liter-per-kilometer{
                 dnam{"लीटर/कि॰मी॰"}
@@ -1121,9 +1122,9 @@ hi{
                 other{"{0} mpg"}
             }
             mile-per-gallon-imperial{
-                dnam{"mpg Imp."}
-                one{"{0} mpg Imp."}
-                other{"{0} mpg Imp."}
+                dnam{"mpg इंपीरियल"}
+                one{"{0} mpg इंपीरियल"}
+                other{"{0} mpg इंपीरियल"}
             }
         }
         coordinate{
@@ -1200,7 +1201,7 @@ hi{
                 dnam{"घंटे"}
                 one{"{0} घं॰"}
                 other{"{0} घं॰"}
-                per{"{0} प्रति घं॰"}
+                per{"{0}/घं॰"}
             }
             microsecond{
                 dnam{"मा॰से॰"}
@@ -1233,7 +1234,7 @@ hi{
                 dnam{"सेकंड"}
                 one{"{0} से॰"}
                 other{"{0} से॰"}
-                per{"{0} प्रति से॰"}
+                per{"{0}/से॰"}
             }
             week{
                 dnam{"सप्ताह"}
@@ -1662,10 +1663,10 @@ hi{
                 per{"{0}/गैलन"}
             }
             gallon-imperial{
-                dnam{"इम्पी. गैलन"}
-                one{"{0} इम्पी. गैलन"}
-                other{"{0} इम्पी. गैलन"}
-                per{"{0}/इम्पी. गैलन"}
+                dnam{"इम्पी॰ गैलन"}
+                one{"{0} इम्पी॰ गैलन"}
+                other{"{0} इम्पी॰ गैलन"}
+                per{"{0}/इम्पी॰ गैलन"}
             }
             hectoliter{
                 dnam{"हे॰ली॰"}

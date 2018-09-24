@@ -35,6 +35,7 @@
 #include "RenderSVGResource.h"
 #include "RenderSVGResourceContainer.h"
 #include "RenderSVGResourceFilter.h"
+#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "SVGImage.h"
 #include "SVGRenderingContext.h"
@@ -163,7 +164,7 @@ void RenderSVGRoot::layout()
         // Invalidate resource clients, which may mark some nodes for layout.
         for (auto& resource :  m_resourcesNeedingToInvalidateClients) {
             resource->removeAllClientsFromCache();
-            SVGResourcesCache::clientStyleChanged(*resource, StyleDifferenceLayout, resource->style());
+            SVGResourcesCache::clientStyleChanged(*resource, StyleDifference::Layout, resource->style());
         }
 
         m_isLayoutSizeChanged = false;
@@ -198,9 +199,9 @@ bool RenderSVGRoot::shouldApplyViewportClip() const
     // the outermost svg is clipped if auto, and svg document roots are always clipped
     // When the svg is stand-alone (isDocumentElement() == true) the viewport clipping should always
     // be applied, noting that the window scrollbars should be hidden if overflow=hidden.
-    return style().overflowX() == OHIDDEN
-        || style().overflowX() == OAUTO
-        || style().overflowX() == OSCROLL
+    return style().overflowX() == Overflow::Hidden
+        || style().overflowX() == Overflow::Auto
+        || style().overflowX() == Overflow::Scroll
         || this->isDocumentElementRenderer();
 }
 
@@ -291,28 +292,15 @@ void RenderSVGRoot::willBeRemovedFromTree()
 
 void RenderSVGRoot::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
-    if (diff == StyleDifferenceLayout)
+    if (diff == StyleDifference::Layout)
         setNeedsBoundariesUpdate();
 
     // Box decorations may have appeared/disappeared - recompute status.
-    if (diff == StyleDifferenceRepaint)
+    if (diff == StyleDifference::Repaint)
         m_hasBoxDecorations = hasVisibleBoxDecorationStyle();
 
     RenderReplaced::styleDidChange(diff, oldStyle);
     SVGResourcesCache::clientStyleChanged(*this, diff, style());
-}
-
-void RenderSVGRoot::addChild(RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
-{
-    auto& child = *newChild;
-    RenderReplaced::addChild(WTFMove(newChild), beforeChild);
-    SVGResourcesCache::clientWasAddedToTree(child);
-}
-
-RenderPtr<RenderObject> RenderSVGRoot::takeChild(RenderObject& child)
-{
-    SVGResourcesCache::clientWillBeRemovedFromTree(child);
-    return RenderReplaced::takeChild(child);
 }
 
 // RenderBox methods will expect coordinates w/o any transforms in coordinates
@@ -341,7 +329,7 @@ const AffineTransform& RenderSVGRoot::localToParentTransform() const
 
 LayoutRect RenderSVGRoot::clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const
 {
-    if (style().visibility() != VISIBLE && !enclosingLayer()->hasVisibleContent())
+    if (style().visibility() != Visibility::Visible && !enclosingLayer()->hasVisibleContent())
         return LayoutRect();
 
     FloatRect contentRepaintRect = m_localToBorderBoxTransform.mapRect(repaintRectInLocalCoordinates());

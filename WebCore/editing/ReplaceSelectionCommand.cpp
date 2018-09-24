@@ -345,8 +345,17 @@ inline void ReplaceSelectionCommand::InsertedNodes::willRemoveNodePreservingChil
 {
     if (m_firstNodeInserted == node)
         m_firstNodeInserted = NodeTraversal::next(*node);
-    if (m_lastNodeInserted == node)
+    if (m_lastNodeInserted == node) {
         m_lastNodeInserted = node->lastChild() ? node->lastChild() : NodeTraversal::nextSkippingChildren(*node);
+        if (!m_lastNodeInserted) {
+            // If the last inserted node is at the end of the document and doesn't have any children, look backwards for the
+            // previous node as the last inserted node, clamping to the first inserted node if needed to ensure that the
+            // document position of the last inserted node is not behind the first inserted node.
+            auto* previousNode = NodeTraversal::previousSkippingChildren(*node);
+            ASSERT(previousNode);
+            m_lastNodeInserted = m_firstNodeInserted->compareDocumentPosition(*previousNode) & Node::DOCUMENT_POSITION_FOLLOWING ? previousNode : m_firstNodeInserted;
+        }
+    }
 }
 
 inline void ReplaceSelectionCommand::InsertedNodes::willRemoveNode(Node* node)
@@ -935,8 +944,8 @@ void ReplaceSelectionCommand::doApply()
         return;
     
     // We can skip matching the style if the selection is plain text.
-    if ((selection.start().deprecatedNode()->renderer() && selection.start().deprecatedNode()->renderer()->style().userModify() == READ_WRITE_PLAINTEXT_ONLY)
-        && (selection.end().deprecatedNode()->renderer() && selection.end().deprecatedNode()->renderer()->style().userModify() == READ_WRITE_PLAINTEXT_ONLY))
+    if ((selection.start().deprecatedNode()->renderer() && selection.start().deprecatedNode()->renderer()->style().userModify() == UserModify::ReadWritePlaintextOnly)
+        && (selection.end().deprecatedNode()->renderer() && selection.end().deprecatedNode()->renderer()->style().userModify() == UserModify::ReadWritePlaintextOnly))
         m_matchStyle = false;
     
     if (m_matchStyle) {
@@ -1142,13 +1151,17 @@ void ReplaceSelectionCommand::doApply()
         node = next;
     }
 
+    if (insertedNodes.isEmpty())
+        return;
     removeUnrenderedTextNodesAtEnds(insertedNodes);
 
     if (!handledStyleSpans)
         handleStyleSpans(insertedNodes);
 
     // Mutation events (bug 20161) may have already removed the inserted content
-    if (!insertedNodes.firstNodeInserted() || !insertedNodes.firstNodeInserted()->isConnected())
+    if (insertedNodes.isEmpty())
+        return;
+    if (!insertedNodes.firstNodeInserted()->isConnected())
         return;
 
     VisiblePosition startOfInsertedContent = firstPositionInOrBeforeNode(insertedNodes.firstNodeInserted());
@@ -1169,8 +1182,12 @@ void ReplaceSelectionCommand::doApply()
     }
     
     makeInsertedContentRoundTrippableWithHTMLTreeBuilder(insertedNodes);
+    if (insertedNodes.isEmpty())
+        return;
 
     removeRedundantStylesAndKeepStyleSpanInline(insertedNodes);
+    if (insertedNodes.isEmpty())
+        return;
 
     if (m_sanitizeFragment)
         applyCommandToComposite(SimplifyMarkupCommand::create(document(), insertedNodes.firstNodeInserted(), insertedNodes.pastLastLeaf()));

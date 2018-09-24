@@ -2,6 +2,9 @@
 #include <unistd.h>
 #include <signal.h>
 #include <setjmp.h>
+#if __has_feature(ptrauth_calls) && !defined(__OPEN_SOURCE)
+#include <ptrauth.h>
+#endif
 
 #include <darwintest.h>
 
@@ -35,6 +38,9 @@ T_DECL(nxheap, "Non-executable heap", T_META_CHECK_LEAKS(false), T_META_ASROOT(t
 	T_QUIET; T_ASSERT_NOTNULL((heap = malloc(1)), NULL);
 
 	*heap = (char)0xc3; // retq
+#if __has_feature(ptrauth_calls) && !defined(__OPEN_SOURCE)
+	heap = ptrauth_sign_unauthenticated(heap, ptrauth_key_function_pointer, 0);
+#endif
 	((void (*)(void))heap)(); // call *%eax
 
 	T_FAIL("SIGBUS");

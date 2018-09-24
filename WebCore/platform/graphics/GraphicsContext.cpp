@@ -326,8 +326,8 @@ TextStream& operator<<(TextStream& ts, const GraphicsContextStateChange& stateCh
     return ts;
 }
 
-GraphicsContext::GraphicsContext(NonPaintingReasons nonPaintingReasons)
-    : m_nonPaintingReasons(nonPaintingReasons)
+GraphicsContext::GraphicsContext(PaintInvalidationReasons paintInvalidationReasons)
+    : m_paintInvalidationReasons(paintInvalidationReasons)
 {
 }
 
@@ -346,6 +346,13 @@ GraphicsContext::~GraphicsContext()
     ASSERT(m_stack.isEmpty());
     ASSERT(!m_transparencyCount);
     platformDestroy();
+}
+
+bool GraphicsContext::hasPlatformContext() const
+{
+    if (m_impl)
+        return m_impl->hasPlatformContext();
+    return !!m_data;
 }
 
 void GraphicsContext::save()
@@ -633,17 +640,17 @@ float GraphicsContext::drawText(const FontCascade& font, const TextRun& run, con
     return font.drawText(*this, run, point, from, to);
 }
 
-void GraphicsContext::drawGlyphs(const FontCascade& fontCascade, const Font& font, const GlyphBuffer& buffer, unsigned from, unsigned numGlyphs, const FloatPoint& point)
+void GraphicsContext::drawGlyphs(const Font& font, const GlyphBuffer& buffer, unsigned from, unsigned numGlyphs, const FloatPoint& point, FontSmoothingMode fontSmoothingMode)
 {
     if (paintingDisabled())
         return;
 
     if (m_impl) {
-        m_impl->drawGlyphs(font, buffer, from, numGlyphs, point, fontCascade.fontDescription().fontSmoothing());
+        m_impl->drawGlyphs(font, buffer, from, numGlyphs, point, fontSmoothingMode);
         return;
     }
 
-    fontCascade.drawGlyphs(*this, font, buffer, from, numGlyphs, point, fontCascade.fontDescription().fontSmoothing());
+    FontCascade::drawGlyphs(*this, font, buffer, from, numGlyphs, point, fontSmoothingMode);
 }
 
 void GraphicsContext::drawEmphasisMarks(const FontCascade& font, const TextRun& run, const AtomicString& mark, const FloatPoint& point, unsigned from, std::optional<unsigned> to)
@@ -709,10 +716,8 @@ ImageDrawResult GraphicsContext::drawImage(Image& image, const FloatRect& destin
     if (paintingDisabled())
         return ImageDrawResult::DidNothing;
 
-    if (m_impl) {
-        m_impl->drawImage(image, destination, source, imagePaintingOptions);
-        return ImageDrawResult::DidRecord;
-    }
+    if (m_impl)
+        return m_impl->drawImage(image, destination, source, imagePaintingOptions);
 
     InterpolationQualityMaintainer interpolationQualityForThisScope(*this, imagePaintingOptions.m_interpolationQuality);
     return image.draw(*this, destination, source, imagePaintingOptions.m_compositeOperator, imagePaintingOptions.m_blendMode, imagePaintingOptions.m_decodingMode, imagePaintingOptions.m_orientationDescription);
@@ -723,10 +728,8 @@ ImageDrawResult GraphicsContext::drawTiledImage(Image& image, const FloatRect& d
     if (paintingDisabled())
         return ImageDrawResult::DidNothing;
 
-    if (m_impl) {
-        m_impl->drawTiledImage(image, destination, source, tileSize, spacing, imagePaintingOptions);
-        return ImageDrawResult::DidRecord;
-    }
+    if (m_impl)
+        return m_impl->drawTiledImage(image, destination, source, tileSize, spacing, imagePaintingOptions);
 
     InterpolationQualityMaintainer interpolationQualityForThisScope(*this, imagePaintingOptions.m_interpolationQuality);
     return image.drawTiled(*this, destination, source, tileSize, spacing, imagePaintingOptions.m_compositeOperator, imagePaintingOptions.m_blendMode, imagePaintingOptions.m_decodingMode);
@@ -738,10 +741,8 @@ ImageDrawResult GraphicsContext::drawTiledImage(Image& image, const FloatRect& d
     if (paintingDisabled())
         return ImageDrawResult::DidNothing;
 
-    if (m_impl) {
-        m_impl->drawTiledImage(image, destination, source, tileScaleFactor, hRule, vRule, imagePaintingOptions);
-        return ImageDrawResult::DidRecord;
-    }
+    if (m_impl)
+        return m_impl->drawTiledImage(image, destination, source, tileScaleFactor, hRule, vRule, imagePaintingOptions);
 
     if (hRule == Image::StretchTile && vRule == Image::StretchTile) {
         // Just do a scale.
@@ -906,7 +907,7 @@ void GraphicsContext::fillRectWithRoundedHole(const IntRect& rect, const FloatRo
     WindRule oldFillRule = fillRule();
     Color oldFillColor = fillColor();
     
-    setFillRule(RULE_EVENODD);
+    setFillRule(WindRule::EvenOdd);
     setFillColor(color);
 
     fillPath(path);

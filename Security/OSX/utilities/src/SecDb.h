@@ -102,9 +102,10 @@ typedef void (^SecDBNotifyBlock)(SecDbConnectionRef dbconn, SecDbTransactionPhas
 CFTypeID SecDbGetTypeID(void);
 
 // Database creation
-SecDbRef SecDbCreateWithOptions(CFStringRef dbName, mode_t mode, bool readWrite, bool allowRepair, bool useWAL, bool (^opened)(SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error));
-
-SecDbRef SecDbCreate(CFStringRef dbName, bool (^opened)(SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error));
+SecDbRef
+SecDbCreate(CFStringRef dbName, mode_t mode,
+            bool readWrite, bool allowRepair, bool useWAL, bool useRobotVacuum, uint8_t maxIdleHandles,
+            bool (^opened)(SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error));
 
 void SecDbAddNotifyPhaseBlock(SecDbRef db, SecDBNotifyBlock notifyPhase);
 void SecDbSetCorruptionReset(SecDbRef db, void (^corruptionReset)(void));
@@ -123,7 +124,6 @@ bool SecDbPerformWrite(SecDbRef db, CFErrorRef *error, void (^perform)(SecDbConn
 // TODO: DEBUG only -> Private header
 CFIndex SecDbIdleConnectionCount(SecDbRef db);
 void SecDbReleaseAllConnections(SecDbRef db);
-bool SecDbReplace(SecDbRef db, CFStringRef newDbPath, CFErrorRef *error);
 
 CFStringRef SecDbGetPath(SecDbRef db);
 
@@ -149,6 +149,7 @@ sqlite3 *SecDbHandle(SecDbConnectionRef dbconn);
 void SecDbRecordChange(SecDbConnectionRef dbconn, CFTypeRef deleted, CFTypeRef inserted);
 
 void SecDbPerformOnCommitQueue(SecDbConnectionRef dbconn, bool barrier, dispatch_block_t perform);
+void SecDBManagementTasks(SecDbConnectionRef dbconn);
 
 // MARK: -
 // MARK: Bind helpers

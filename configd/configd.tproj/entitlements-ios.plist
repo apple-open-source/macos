@@ -48,5 +48,11 @@
 	<true/>
 	<key>com.apple.private.usbdevice.setdescription</key>
 	<true/>
+	<key>com.apple.carousel.modalappservice</key>
+	<true/>
+	<key>com.apple.private.lockdown.finegrained-get</key>
+	<array>
+		<string>NULL/TrustedHostAttached</string>
+	</array>
 </dict>
 </plist>

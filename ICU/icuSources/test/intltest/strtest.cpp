@@ -144,24 +144,22 @@ StringTest::Test_UNICODE_STRING_SIMPLE() {
 
 void
 StringTest::Test_UTF8_COUNT_TRAIL_BYTES() {
+#if !U_HIDE_OBSOLETE_UTF_OLD_H
     if(UTF8_COUNT_TRAIL_BYTES(0x7F) != 0
-        || UTF8_COUNT_TRAIL_BYTES(0xC0) != 1
-        || UTF8_COUNT_TRAIL_BYTES(0xE0) != 2
-        || UTF8_COUNT_TRAIL_BYTES(0xF0) != 3)
-    {
-        errln("Test_UTF8_COUNT_TRAIL_BYTES: UTF8_COUNT_TRAIL_BYTES does not work right! "
-              "See utf_old.h.");
+            || UTF8_COUNT_TRAIL_BYTES(0xC2) != 1
+            || UTF8_COUNT_TRAIL_BYTES(0xE0) != 2
+            || UTF8_COUNT_TRAIL_BYTES(0xF0) != 3) {
+        errln("UTF8_COUNT_TRAIL_BYTES does not work right! See utf_old.h.");
     }
-	// Note: U8_COUNT_TRAIL_BYTES (current) and UTF8_COUNT_TRAIL_BYTES (deprecated)
-	//       have completely different implementations.
-	if (U8_COUNT_TRAIL_BYTES(0x7F) != 0
-		|| U8_COUNT_TRAIL_BYTES(0xC0) != 1
-		|| U8_COUNT_TRAIL_BYTES(0xE0) != 2
-		|| U8_COUNT_TRAIL_BYTES(0xF0) != 3)
-	{
-		errln("Test_UTF8_COUNT_TRAIL_BYTES: U8_COUNT_TRAIL_BYTES does not work right! "
-			"See utf8.h.");
-	}
+#endif
+    // Note: U8_COUNT_TRAIL_BYTES (current) and UTF8_COUNT_TRAIL_BYTES (deprecated)
+    //       have completely different implementations.
+    if (U8_COUNT_TRAIL_BYTES(0x7F) != 0
+            || U8_COUNT_TRAIL_BYTES(0xC2) != 1
+            || U8_COUNT_TRAIL_BYTES(0xE0) != 2
+            || U8_COUNT_TRAIL_BYTES(0xF0) != 3) {
+        errln("U8_COUNT_TRAIL_BYTES does not work right! See utf8.h.");
+    }
 }
 
 void StringTest::runIndexedTest(int32_t index, UBool exec, const char *&name, char * /*par*/) {
@@ -461,12 +459,21 @@ StringTest::TestCheckedArrayByteSink() {
 
 void
 StringTest::TestStringByteSink() {
-    // Not much to test because only the constructor and Append()
+    // Not much to test because only the constructors and Append()
     // are implemented, and trivially so.
     std::string result("abc");  // std::string
     StringByteSink<std::string> sink(&result);
     sink.Append("def", 3);
     if(result != "abcdef") {
+        errln("StringByteSink did not Append() as expected");
+    }
+    StringByteSink<std::string> sink2(&result, 20);
+    if(result.capacity() < (result.length() + 20)) {
+        errln("StringByteSink should have 20 append capacity, has only %d",
+              (int)(result.capacity() - result.length()));
+    }
+    sink.Append("ghi", 3);
+    if(result != "abcdefghi") {
         errln("StringByteSink did not Append() as expected");
     }
 }
@@ -543,6 +550,28 @@ StringTest::TestCharString() {
     }
     if (chStr.length() != 0) {
         errln("%s:%d expected length() = 0, got %d", __FILE__, __LINE__, chStr.length());
+    }
+
+    {
+        CharString s1("Short string", errorCode);
+        CharString s2(std::move(s1));
+        assertEquals("s2 should have content of s1", "Short string", s2.data());
+        CharString s3("Dummy", errorCode);
+        s3 = std::move(s2);
+        assertEquals("s3 should have content of s2", "Short string", s3.data());
+    }
+
+    {
+        CharString s1("Long string over 40 characters to trigger heap allocation", errorCode);
+        CharString s2(std::move(s1));
+        assertEquals("s2 should have content of s1",
+                "Long string over 40 characters to trigger heap allocation",
+                s2.data());
+        CharString s3("Dummy string with over 40 characters to trigger heap allocation", errorCode);
+        s3 = std::move(s2);
+        assertEquals("s3 should have content of s2",
+                "Long string over 40 characters to trigger heap allocation",
+                s3.data());
     }
 }
 

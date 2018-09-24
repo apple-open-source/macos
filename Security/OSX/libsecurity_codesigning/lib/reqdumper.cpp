@@ -236,6 +236,9 @@ void Dumper::expr(SyntaxLevel level)
 	case opPlatform:
 		print("platform = %d", get<int32_t>());
 		break;
+	case opNotarized:
+		print("notarized");
+		break;
 	default:
 		if (op & opGenericFalse) {
 			print(" false /* opcode %d */", op & ~opFlagMask);

@@ -206,7 +206,7 @@ static
 void
 usage(void)
 {
-    fprintf(stderr, "usage: %s <verb> <policy> <uuid>\n", getprogname());
+    fprintf(stderr, "usage: %s <verb> <policy> <uuid | path>\n", getprogname());
     fprintf(stderr, "Verbs:\n");
     fprintf(stderr, "\tclear\tClear all policies for a given UUID\n");
     fprintf(stderr, "\tadd\tAdd a specific policy\n");

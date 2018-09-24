@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -19,6 +19,8 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#include "libinfo_common.h"
 
 #include <stdlib.h>
 #include <sys/errno.h>
@@ -231,6 +233,7 @@ compatibility_name_for_uuid(const uuid_t uu, char **result, int *rec_type)
 }
 #endif
 
+LIBINFO_EXPORT
 int
 mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_size, int target_type, void **result, int *rec_type)
 {
@@ -401,18 +404,21 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 	return rc;
 }
 
+LIBINFO_EXPORT
 int
 mbr_uid_to_uuid(uid_t id, uuid_t uu)
 {
 	return mbr_identifier_to_uuid(ID_TYPE_UID, &id, sizeof(id), uu);
 }
 
+LIBINFO_EXPORT
 int
 mbr_gid_to_uuid(gid_t id, uuid_t uu)
 {
 	return mbr_identifier_to_uuid(ID_TYPE_GID, &id, sizeof(id), uu);
 }
 
+LIBINFO_EXPORT
 int
 mbr_uuid_to_id(const uuid_t uu, uid_t *id, int *id_type)
 {
@@ -443,6 +449,7 @@ mbr_uuid_to_id(const uuid_t uu, uid_t *id, int *id_type)
 	return rc;
 }
 
+LIBINFO_EXPORT
 int
 mbr_sid_to_uuid(const nt_sid_t *sid, uuid_t uu)
 {
@@ -453,6 +460,7 @@ mbr_sid_to_uuid(const nt_sid_t *sid, uuid_t uu)
 #endif
 }
 
+LIBINFO_EXPORT
 int
 mbr_identifier_to_uuid(int id_type, const void *identifier, size_t identifier_size, uuid_t uu)
 {
@@ -499,6 +507,7 @@ mbr_identifier_to_uuid(int id_type, const void *identifier, size_t identifier_si
 	return rc;
 }
 
+LIBINFO_EXPORT
 int
 mbr_uuid_to_sid_type(const uuid_t uu, nt_sid_t *sid, int *id_type)
 {
@@ -535,6 +544,7 @@ mbr_uuid_to_sid_type(const uuid_t uu, nt_sid_t *sid, int *id_type)
 #endif
 }
 
+LIBINFO_EXPORT
 int
 mbr_uuid_to_sid(const uuid_t uu, nt_sid_t *sid)
 {
@@ -552,18 +562,21 @@ mbr_uuid_to_sid(const uuid_t uu, nt_sid_t *sid)
 #endif
 }
 
+LIBINFO_EXPORT
 int
 mbr_check_membership(const uuid_t user, const uuid_t group, int *ismember)
 {
 	return mbr_check_membership_ext(ID_TYPE_UUID, user, sizeof(uuid_t), ID_TYPE_UUID, group, 0, ismember);
 }
 
+LIBINFO_EXPORT
 int
 mbr_check_membership_refresh(const uuid_t user, uuid_t group, int *ismember)
 {
 	return mbr_check_membership_ext(ID_TYPE_UUID, user, sizeof(uuid_t), ID_TYPE_UUID, group, 1, ismember);
 }
 
+LIBINFO_EXPORT
 int
 mbr_check_membership_ext(int userid_type, const void *userid, size_t userid_size, int groupid_type, const void *groupid, int refresh, int *isMember)
 {
@@ -622,12 +635,14 @@ mbr_check_membership_ext(int userid_type, const void *userid, size_t userid_size
 #endif
 }
 
+LIBINFO_EXPORT
 int
 mbr_check_membership_by_id(uuid_t user, gid_t group, int *ismember)
 {
 	return mbr_check_membership_ext(ID_TYPE_UUID, user, sizeof(uuid_t), ID_TYPE_GID, &group, 0, ismember);
 }
 
+LIBINFO_EXPORT
 int
 mbr_reset_cache()
 {
@@ -640,18 +655,21 @@ mbr_reset_cache()
 #endif
 }
 
+LIBINFO_EXPORT
 int
 mbr_user_name_to_uuid(const char *name, uuid_t uu)
 {
 	return mbr_identifier_to_uuid(ID_TYPE_USERNAME, name, -1, uu);
 }
 
+LIBINFO_EXPORT
 int
 mbr_group_name_to_uuid(const char *name, uuid_t uu)
 {
 	return mbr_identifier_to_uuid(ID_TYPE_GROUPNAME, name, -1, uu);
 }
 
+LIBINFO_EXPORT
 int
 mbr_check_service_membership(const uuid_t user, const char *servicename, int *ismember)
 {
@@ -711,6 +729,7 @@ ConvertBytesToDecimal(char *buffer, unsigned long long value)
 }
 #endif
 
+LIBINFO_EXPORT
 int
 mbr_sid_to_string(const nt_sid_t *sid, char *string)
 {
@@ -748,6 +767,7 @@ mbr_sid_to_string(const nt_sid_t *sid, char *string)
 #endif
 }
 
+LIBINFO_EXPORT
 int
 mbr_string_to_sid(const char *string, nt_sid_t *sid)
 {
@@ -804,6 +824,7 @@ mbr_string_to_uuid(const char *string, uuid_t uu)
 	return uuid_parse(string, uu);
 }
 
+LIBINFO_EXPORT
 int 
 mbr_set_identifier_ttl(int id_type, const void *identifier, size_t identifier_size, unsigned int seconds)
 {

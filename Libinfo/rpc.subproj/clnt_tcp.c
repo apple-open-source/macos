@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,6 +74,8 @@ static char *rcsid = "$Id: clnt_tcp.c,v 1.4 2002/03/15 22:07:48 majka Exp $";
  *
  * Now go hang yourself.
  */
+
+#include "libinfo_common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -264,6 +266,7 @@ fooy:
 	return NULL;
 }
 
+LIBINFO_EXPORT
 CLIENT *
 clnttcp_create(raddr, prog, vers, sockp, sendsz, recvsz)
 #ifdef __LP64__

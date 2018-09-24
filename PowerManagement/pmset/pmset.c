@@ -83,7 +83,8 @@
 // Settings options
 #define ARG_DIM             "dim"
 #define ARG_DISPLAYSLEEP    "displaysleep"
-#define ARG_ADAPTIVEDISPLAY "adaptivedisplay"
+#define ARG_PROXIMITYWAKE   "proximitywake"
+#define ARG_PROXIMITYDISPLAY   "proximitydisplay"
 #define ARG_ADAPTIVESTANDBY "adaptivestandby"
 #define ARG_SLEEP           "sleep"
 #define ARG_SPINDOWN        "spindown"
@@ -111,6 +112,8 @@
 #define ARG_NETAVAILABLE    "networkoversleep"
 #define ARG_DEEPSLEEP       "standby"
 #define ARG_DEEPSLEEPDELAY  "standbydelay"
+#define ARG_DEEPSLEEPDELAYLOW  "standbydelaylow"
+#define ARG_DEEPSLEEPDELAYHIGH "standbydelayhigh"
 #define ARG_DARKWAKES       "darkwakes"
 #define ARG_POWERNAP        "powernap"
 #define ARG_RESTOREDEFAULTS "restoredefaults"
@@ -291,14 +294,16 @@ PMFeature all_features[] =
     { kIOPMMobileMotionModuleKey,   ARG_MOTIONSENSOR },
     { kIOPMGPUSwitchKey,            ARG_GPU },
     { kIOPMDeepSleepEnabledKey,     ARG_DEEPSLEEP },
-    { kIOPMDeepSleepDelayKey,       ARG_DEEPSLEEPDELAY },
+    { kIOPMDeepSleepDelayHighKey,   ARG_DEEPSLEEPDELAYHIGH },
+    { kIOPMDeepSleepDelayKey,       ARG_DEEPSLEEPDELAYLOW },
     { kIOPMDarkWakeBackgroundTaskKey, ARG_POWERNAP },
     { kIOPMTTYSPreventSleepKey,     ARG_TTYKEEPAWAKE },
     { kIOHibernateModeKey,          ARG_HIBERNATEMODE },
     { kIOHibernateFileKey,          ARG_HIBERNATEFILE },
     { kIOPMAutoPowerOffEnabledKey,  ARG_AUTOPOWEROFF },
     { kIOPMTCPKeepAlivePrefKey,     ARG_TCPKEEPALIVE },
-    { kIOPMAutoPowerOffDelayKey,    ARG_AUTOPOWEROFFDELAY }     
+    { kIOPMAutoPowerOffDelayKey,    ARG_AUTOPOWEROFFDELAY },
+    { kIOPMProximityDarkWakeKey,    ARG_PROXIMITYWAKE },
 };
 
 #define kNUM_PM_FEATURES    (sizeof(all_features)/sizeof(PMFeature))
@@ -5197,6 +5202,18 @@ static int parseArgs(int argc,
                 }
                 modified |= kModSettings;
                 i+=2;
+            } else if(0 == strncmp(argv[i], ARG_PROXIMITYWAKE, kMaxArgStringLength))
+            {
+                if(-1 == checkAndSetIntValue( argv[i+1],
+                                                CFSTR(kIOPMProximityDarkWakeKey),
+                                                apply, false, kNoMultiplier,
+                                                ac, battery, ups))
+                {
+                    ret = kParseBadArgs;
+                    goto exit;
+                }
+                modified |= kModSettings;
+                i+=2;
             } else if( (0 == strncmp(argv[i], ARG_SPINDOWN, kMaxArgStringLength)) ||
                        (0 == strncmp(argv[i], ARG_DISKSLEEP, kMaxArgStringLength)))
             {
@@ -5389,7 +5406,9 @@ static int parseArgs(int argc,
                     CFDictionarySetValue( local_system_power_settings, 
                                           CFSTR(kIOPMDestroyFVKeyOnStandbyKey), 
                                           val ? kCFBooleanTrue : kCFBooleanFalse );
-    
+                    if (val != 0) {
+                        printf("Setting %s to True. When system enters standby with this key set all maintenance wakes and powernap activities are disabled\n",ARG_DISABLEFDEKEYSTORE);
+                    }
                     modified |= kModSystemSettings;
                 }
                 i+=2;
@@ -5510,7 +5529,32 @@ static int parseArgs(int argc,
                 i+=2;
             } else if(0 == strncmp(argv[i], ARG_DEEPSLEEPDELAY, kMaxArgStringLength))
             {
-                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMDeepSleepDelayKey), 
+                if((-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMDeepSleepDelayKey),
+                                              apply, false, kNoMultiplier,
+                                              ac, battery, ups)) ||
+                    (-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMDeepSleepDelayHighKey),
+                                               apply, false, kNoMultiplier,
+                                               ac, battery, ups)))
+                {
+                    ret = kParseBadArgs;
+                    goto exit;
+                }
+                modified |= kModSettings;
+                i+=2;
+            } else if(0 == strncmp(argv[i], ARG_DEEPSLEEPDELAYHIGH, kMaxArgStringLength))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMDeepSleepDelayHighKey),
+                                             apply, false, kNoMultiplier,
+                                             ac, battery, ups))
+                {
+                    ret = kParseBadArgs;
+                    goto exit;
+                }
+                modified |= kModSettings;
+                i+=2;
+            } else if(0 == strncmp(argv[i], ARG_DEEPSLEEPDELAYLOW, kMaxArgStringLength))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMDeepSleepDelayKey),
                                              apply, false, kNoMultiplier,
                                              ac, battery, ups))
                 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,17 +35,21 @@
 #include <WebCore/MediaSelectionOption.h>
 #include <WebCore/NetworkLoadMetrics.h>
 #include <WebCore/NotificationDirection.h>
-#include <WebCore/PaymentHeaders.h>
 #include <WebCore/RealtimeMediaSource.h>
 #include <WebCore/ScrollSnapOffsetsInfo.h>
 #include <WebCore/ServiceWorkerTypes.h>
 #include <WebCore/StoredCredentialsPolicy.h>
 #include <WebCore/WorkerType.h>
 
+#if ENABLE(APPLE_PAY)
+#include <WebCore/PaymentHeaders.h>
+#endif
+
+#if PLATFORM(COCOA)
 namespace WTF {
-class MonotonicTime;
-class Seconds;
+class MachSendRight;
 }
+#endif
 
 namespace WebCore {
 class AffineTransform;
@@ -81,14 +85,17 @@ class Region;
 class ResourceError;
 class ResourceRequest;
 class ResourceResponse;
+class SecurityOrigin;
 class SpringTimingFunction;
 class StepsTimingFunction;
+class FramesTimingFunction;
 class StickyPositionViewportConstraints;
 class TextCheckingRequestData;
 class TransformationMatrix;
 class UserStyleSheet;
 class URL;
 
+struct AttachmentInfo;
 struct CacheQueryOptions;
 struct CompositionUnderline;
 struct DictationAlternative;
@@ -116,7 +123,6 @@ template <typename> class RectEdges;
 using FloatBoxExtent = RectEdges<float>;
 
 #if PLATFORM(COCOA)
-class MachSendRight;
 struct KeypressCommand;
 #endif
 
@@ -159,16 +165,6 @@ using IDBKeyPath = Variant<String, Vector<String>>;
 }
 
 namespace IPC {
-
-template<> struct ArgumentCoder<WTF::MonotonicTime> {
-    static void encode(Encoder&, const WTF::MonotonicTime&);
-    static bool decode(Decoder&, WTF::MonotonicTime&);
-};
-
-template<> struct ArgumentCoder<WTF::Seconds> {
-    static void encode(Encoder&, const WTF::Seconds&);
-    static bool decode(Decoder&, WTF::Seconds&);
-};
 
 template<> struct ArgumentCoder<WebCore::AffineTransform> {
     static void encode(Encoder&, const WebCore::AffineTransform&);
@@ -213,6 +209,11 @@ template<> struct ArgumentCoder<WebCore::CubicBezierTimingFunction> {
 template<> struct ArgumentCoder<WebCore::StepsTimingFunction> {
     static void encode(Encoder&, const WebCore::StepsTimingFunction&);
     static bool decode(Decoder&, WebCore::StepsTimingFunction&);
+};
+
+template<> struct ArgumentCoder<WebCore::FramesTimingFunction> {
+    static void encode(Encoder&, const WebCore::FramesTimingFunction&);
+    static bool decode(Decoder&, WebCore::FramesTimingFunction&);
 };
 
 template<> struct ArgumentCoder<WebCore::SpringTimingFunction> {
@@ -266,6 +267,7 @@ template<> struct ArgumentCoder<WebCore::FloatQuad> {
 template<> struct ArgumentCoder<WebCore::ViewportArguments> {
     static void encode(Encoder&, const WebCore::ViewportArguments&);
     static bool decode(Decoder&, WebCore::ViewportArguments&);
+    static std::optional<WebCore::ViewportArguments> decode(Decoder&);
 };
 #endif // PLATFORM(IOS)
 
@@ -383,10 +385,10 @@ template<> struct ArgumentCoder<WebCore::DragData> {
 #endif
 
 #if PLATFORM(COCOA)
-template<> struct ArgumentCoder<WebCore::MachSendRight> {
-    static void encode(Encoder&, const WebCore::MachSendRight&);
-    static void encode(Encoder&, WebCore::MachSendRight&&);
-    static bool decode(Decoder&, WebCore::MachSendRight&);
+template<> struct ArgumentCoder<WTF::MachSendRight> {
+    static void encode(Encoder&, const WTF::MachSendRight&);
+    static void encode(Encoder&, WTF::MachSendRight&&);
+    static bool decode(Decoder&, WTF::MachSendRight&);
 };
 
 template<> struct ArgumentCoder<WebCore::KeypressCommand> {
@@ -411,11 +413,6 @@ template<> struct ArgumentCoder<WebCore::PasteboardWebContent> {
     static bool decode(Decoder&, WebCore::PasteboardWebContent&);
 };
 
-template<> struct ArgumentCoder<WebCore::PasteboardURL> {
-    static void encode(Encoder&, const WebCore::PasteboardURL&);
-    static bool decode(Decoder&, WebCore::PasteboardURL&);
-};
-
 template<> struct ArgumentCoder<WebCore::PasteboardImage> {
     static void encode(Encoder&, const WebCore::PasteboardImage&);
     static bool decode(Decoder&, WebCore::PasteboardImage&);
@@ -425,6 +422,11 @@ template<> struct ArgumentCoder<WebCore::PasteboardImage> {
 template<> struct ArgumentCoder<WebCore::PasteboardCustomData> {
     static void encode(Encoder&, const WebCore::PasteboardCustomData&);
     static bool decode(Decoder&, WebCore::PasteboardCustomData&);
+};
+
+template<> struct ArgumentCoder<WebCore::PasteboardURL> {
+    static void encode(Encoder&, const WebCore::PasteboardURL&);
+    static bool decode(Decoder&, WebCore::PasteboardURL&);
 };
 
 #if USE(SOUP)
@@ -687,6 +689,20 @@ template<> struct ArgumentCoder<WebCore::MediaSelectionOption> {
 template<> struct ArgumentCoder<WebCore::PromisedBlobInfo> {
     static void encode(Encoder&, const WebCore::PromisedBlobInfo&);
     static bool decode(Decoder&, WebCore::PromisedBlobInfo&);
+};
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+
+template<> struct ArgumentCoder<WebCore::AttachmentInfo> {
+    static void encode(Encoder&, const WebCore::AttachmentInfo&);
+    static bool decode(Decoder&, WebCore::AttachmentInfo&);
+};
+
+#endif
+
+template<> struct ArgumentCoder<Vector<RefPtr<WebCore::SecurityOrigin>>> {
+    static void encode(Encoder&, const Vector<RefPtr<WebCore::SecurityOrigin>>&);
+    static bool decode(Decoder&, Vector<RefPtr<WebCore::SecurityOrigin>>&);
 };
 
 } // namespace IPC

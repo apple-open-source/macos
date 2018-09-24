@@ -77,7 +77,7 @@
     // Spin up CKKS subsystem.
     [self startCKKSSubsystem];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [self waitForCKModifications];
     XCTAssertEqualObjects(newClassAKey, self.keychainZone.currentDatabase[self.keychainZoneKeys.currentClassAPointer.storedCKRecord.recordID][SecCKRecordParentKeyRefKey], "CKKS should have fixed up the broken class A key reference");
@@ -110,7 +110,7 @@
     // Spin up CKKS subsystem.
     [self startCKKSSubsystem];
 
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [self waitForCKModifications];
     XCTAssertEqualObjects(newClassCKey, self.keychainZone.currentDatabase[self.keychainZoneKeys.currentClassCPointer.storedCKRecord.recordID][SecCKRecordParentKeyRefKey], "CKKS should have fixed up the broken class C key reference");
@@ -133,7 +133,7 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
                           checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
     [self addGenericPassword: @"data" account: @"account-delete-me"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // Break the key hierarchy
     [self rollFakeKeyHierarchyInCloudKit:self.keychainZoneID];
@@ -148,13 +148,13 @@
     // CKKS should then fix the pointers and give itself a new TLK share record, but not update any keys
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:1 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self.keychainView notifyZoneChange:nil];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // And then upload the item as usual
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
                           checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
     [self addGenericPassword: @"data" account: @"account-delete-me-2"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [self waitForCKModifications];
     XCTAssertEqualObjects(newClassCKey, self.keychainZone.currentDatabase[self.keychainZoneKeys.currentClassCPointer.storedCKRecord.recordID][SecCKRecordParentKeyRefKey], "CKKS should have fixed up the broken class C key reference");
@@ -179,11 +179,13 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
                           checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
     [self addGenericPassword: @"data" account: @"account-delete-me"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-    // Break the key hierarchy
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    [self waitForCKModifications];
+
+    // Break the key hierarchy. The TLK will arrive via SOS later in this test.
     [self rollFakeKeyHierarchyInCloudKit:self.keychainZoneID];
-    [self saveTLKMaterialToKeychain:self.keychainZoneID];
 
     CKReference* newClassCKey = self.keychainZone.currentDatabase[classCPointerRecordID][SecCKRecordParentKeyRefKey];
     CKRecord* classCPointer = self.keychainZone.currentDatabase[classCPointerRecordID];
@@ -206,14 +208,16 @@
     // It should not try to modify the pointers again, but it should give itself the new TLK
     [self expectCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID];
     [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
     [self.keychainView notifyZoneChange:nil];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // And then use the 'new' key as it should
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
                           checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
     [self addGenericPassword: @"data" account: @"account-delete-me-2"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [self waitForCKModifications];
     XCTAssertEqualObjects(newClassCKey, self.keychainZone.currentDatabase[classCPointerRecordID][SecCKRecordParentKeyRefKey], "CKKS should have fixed up the broken class C key reference");
@@ -240,7 +244,7 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
                           checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
     [self addGenericPassword: @"data" account: @"account-delete-me"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
     // Now, break the class C pointer, but don't tell CKKS
@@ -261,7 +265,7 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
                           checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
     [self addGenericPassword: @"data" account: @"account-delete-me-2"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [self waitForCKModifications];
     XCTAssertEqualObjects(newClassCKey, self.keychainZone.currentDatabase[classCPointerRecordID][SecCKRecordParentKeyRefKey], "CKKS should have fixed up the broken class C key reference");

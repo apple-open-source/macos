@@ -30,12 +30,15 @@
 
 #include "CompositingRunLoop.h"
 #include "ThreadedCompositor.h"
+
+#if USE(GLIB_EVENT_LOOP)
 #include <wtf/glib/RunLoopSourcePriority.h>
+#endif
 
 namespace WebKit {
 
-ThreadedDisplayRefreshMonitor::ThreadedDisplayRefreshMonitor(ThreadedCompositor& compositor)
-    : WebCore::DisplayRefreshMonitor(0)
+ThreadedDisplayRefreshMonitor::ThreadedDisplayRefreshMonitor(WebCore::PlatformDisplayID displayID, ThreadedCompositor& compositor)
+    : WebCore::DisplayRefreshMonitor(displayID)
     , m_displayRefreshTimer(RunLoop::main(), this, &ThreadedDisplayRefreshMonitor::displayRefreshCallback)
     , m_compositor(&compositor)
 {
@@ -76,7 +79,7 @@ void ThreadedDisplayRefreshMonitor::dispatchDisplayRefreshCallback()
 {
     if (!m_compositor)
         return;
-    m_displayRefreshTimer.startOneShot(0);
+    m_displayRefreshTimer.startOneShot(0_s);
 }
 
 void ThreadedDisplayRefreshMonitor::invalidate()

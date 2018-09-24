@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,15 +30,18 @@
 
 #include "ArgumentCoders.h"
 #include "Attachment.h"
+#include "ChildProcessMessages.h"
 #include "NetscapePlugin.h"
 #include "NetscapePluginModule.h"
 #include "PluginProcessConnectionMessages.h"
 #include "PluginProcessCreationParameters.h"
 #include "PluginProcessProxyMessages.h"
 #include "WebProcessConnection.h"
+#include <WebCore/NetworkStorageSession.h>
 #include <WebCore/NotImplemented.h>
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/ProcessPrivilege.h>
 #include <wtf/RunLoop.h>
 
 #if PLATFORM(MAC)
@@ -69,6 +72,8 @@ PluginProcess::~PluginProcess()
 
 void PluginProcess::initializeProcess(const ChildProcessInitializationParameters& parameters)
 {
+    WTF::setProcessPrivileges(allPrivileges());
+    WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
     m_pluginPath = parameters.extraInitializationData.get("plugin-path");
     platformInitializeProcess(parameters);
 }
@@ -112,14 +117,14 @@ bool PluginProcess::shouldTerminate()
 
 void PluginProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    didReceivePluginProcessMessage(connection, decoder);
-}
+#if OS(LINUX)
+    if (decoder.messageReceiverName() == Messages::ChildProcess::messageReceiverName()) {
+        ChildProcess::didReceiveMessage(connection, decoder);
+        return;
+    }
+#endif
 
-void PluginProcess::didClose(IPC::Connection&)
-{
-    // The UI process has crashed, just quit.
-    // FIXME: If the plug-in is spinning in the main loop, we'll never get this message.
-    stopRunLoop();
+    didReceivePluginProcessMessage(connection, decoder);
 }
 
 void PluginProcess::initializePluginProcess(PluginProcessCreationParameters&& parameters)
@@ -127,10 +132,6 @@ void PluginProcess::initializePluginProcess(PluginProcessCreationParameters&& pa
     ASSERT(!m_pluginModule);
 
     auto& memoryPressureHandler = MemoryPressureHandler::singleton();
-#if OS(LINUX)
-    if (parameters.memoryPressureMonitorHandle.fileDescriptor() != -1)
-        memoryPressureHandler.setMemoryPressureMonitorHandle(parameters.memoryPressureMonitorHandle.releaseFileDescriptor());
-#endif
     memoryPressureHandler.setLowMemoryHandler([this] (Critical, Synchronous) {
         if (shouldTerminate())
             terminate();
@@ -158,8 +159,12 @@ void PluginProcess::createWebProcessConnection()
     parentProcessConnection()->send(Messages::PluginProcessProxy::DidCreateWebProcessConnection(clientSocket, m_supportsAsynchronousPluginInitialization), 0);
 #elif OS(DARWIN)
     // Create the listening port.
-    mach_port_t listeningPort;
-    mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &listeningPort);
+    mach_port_t listeningPort = MACH_PORT_NULL;
+    auto kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &listeningPort);
+    if (kr != KERN_SUCCESS) {
+        LOG_ERROR("Could not allocate mach port, error %x", kr);
+        CRASH();
+    }
 
     // Create a listening connection.
     auto connection = WebProcessConnection::create(IPC::Connection::Identifier(listeningPort));

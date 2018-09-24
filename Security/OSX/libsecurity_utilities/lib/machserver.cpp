@@ -237,6 +237,9 @@ void MachServer::runServerThread(bool doTimeout)
 				continue;
 			}
 			
+			// reset the buffer each time, handlers don't consistently set out params
+			bufReply.clearBuffer();
+
 			// process received message
 			if (bufRequest.msgId() >= MACH_NOTIFY_FIRST &&
 				bufRequest.msgId() <= MACH_NOTIFY_LAST) {
@@ -546,52 +549,57 @@ void MachServer::clearTimer(Timer *timer)
 //
 // Notification hooks and shims. Defaults do nothing.
 //
-void cdsa_mach_notify_dead_name(mach_port_t, mach_port_name_t port)
+kern_return_t cdsa_mach_notify_dead_name(mach_port_t, mach_port_name_t port)
 {
 	try {
 		MachServer::active().notifyDeadName(port);
 	} catch (...) {
 	}
+	return KERN_SUCCESS;
 }
 
 void MachServer::notifyDeadName(Port) { }
 
-void cdsa_mach_notify_port_deleted(mach_port_t, mach_port_name_t port)
+kern_return_t cdsa_mach_notify_port_deleted(mach_port_t, mach_port_name_t port)
 {
 	try {
 		MachServer::active().notifyPortDeleted(port);
 	} catch (...) {
 	}
+	return KERN_SUCCESS;
 }
 
 void MachServer::notifyPortDeleted(Port) { }
 
-void cdsa_mach_notify_port_destroyed(mach_port_t, mach_port_name_t port)
+kern_return_t cdsa_mach_notify_port_destroyed(mach_port_t, mach_port_name_t port)
 {
 	try {
 		MachServer::active().notifyPortDestroyed(port);
 	} catch (...) {
 	}
+	return KERN_SUCCESS;
 }
 
 void MachServer::notifyPortDestroyed(Port) { }
 
-void cdsa_mach_notify_send_once(mach_port_t port)
+kern_return_t cdsa_mach_notify_send_once(mach_port_t port)
 {
 	try {
 		MachServer::active().notifySendOnce(port);
 	} catch (...) {
 	}
+	return KERN_SUCCESS;
 }
 
 void MachServer::notifySendOnce(Port) { }
 
-void cdsa_mach_notify_no_senders(mach_port_t port, mach_port_mscount_t count)
+kern_return_t cdsa_mach_notify_no_senders(mach_port_t port, mach_port_mscount_t count)
 {
 	try {
 		MachServer::active().notifyNoSenders(port, count);
 	} catch (...) {
 	}
+	return KERN_SUCCESS;
 }
 
 void MachServer::notifyNoSenders(Port, mach_port_mscount_t) { }

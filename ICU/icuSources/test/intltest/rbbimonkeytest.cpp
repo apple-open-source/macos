@@ -74,7 +74,7 @@ BreakRules::BreakRules(RBBIMonkeyImpl *monkeyImpl, UErrorCode &status)  :
     fCharClassList.adoptInstead(new UVector(status));
 
     fSetRefsMatcher.adoptInstead(new RegexMatcher(UnicodeString(
-             "(?!(?:\\{|=|\\[:)[ \\t]{0,4})"              // Negative lookbehind for '{' or '=' or '[:'
+             "(?!(?:\\{|=|\\[:)[ \\t]{0,4})"              // Negative look behind for '{' or '=' or '[:'
                                                           //   (the identifier is a unicode property name or value)
              "(?<ClassName>[A-Za-z_][A-Za-z0-9_]*)"),     // The char class name
         0, status));
@@ -87,7 +87,7 @@ BreakRules::BreakRules(RBBIMonkeyImpl *monkeyImpl, UErrorCode &status)  :
                 "\\R$"                          //   new-line at end of line.
             ), 0, status));
 
-    // Match (initial parse) of a character class defintion line.
+    // Match (initial parse) of a character class definition line.
     fClassDefMatcher.adoptInstead(new RegexMatcher(UnicodeString(
                 "[ \\t]*"                                // leading white space
                 "(?<ClassName>[A-Za-z_][A-Za-z0-9_]*)"   // The char class name
@@ -130,7 +130,7 @@ CharClass *BreakRules::addCharClass(const UnicodeString &name, const UnicodeStri
     }
     fSetRefsMatcher->appendTail(expandedDef);
 
-    // Verify that the expanded set defintion is valid.
+    // Verify that the expanded set definition is valid.
 
     if (fMonkeyImpl->fDumpExpansions) {
         printf("epandedDef: %s\n", CStr(expandedDef)());
@@ -150,7 +150,7 @@ CharClass *BreakRules::addCharClass(const UnicodeString &name, const UnicodeStri
 
     if (previousClass != NULL) {
         // Duplicate class def.
-        // These are legitimate, they are adustments of an existing class.
+        // These are legitimate, they are adjustments of an existing class.
         // TODO: will need to keep the old around when we handle tailorings.
         IntlTest::gTest->logln("Redefinition of character class %s\n", CStr(cclass->fName)());
         delete previousClass;
@@ -671,6 +671,7 @@ void RBBIMonkeyImpl::runTest() {
         testFollowing(status);
         testPreceding(status);
         testIsBoundary(status);
+        testIsBoundaryRandom(status);
 
         if (fLoopCount < 0 && loopCount % 100 == 0) {
             fprintf(stderr, ".");
@@ -806,6 +807,29 @@ void RBBIMonkeyImpl::testIsBoundary(UErrorCode &status) {
     checkResults("testForwards", FORWARD, status);
 }
 
+void RBBIMonkeyImpl::testIsBoundaryRandom(UErrorCode &status) {
+    if (U_FAILURE(status)) {
+        return;
+    }
+    fBI->setText(fTestData->fString);
+    
+    int stringLen = fTestData->fString.length();
+    for (int i=stringLen; i>=0; --i) {
+        int strIdx = fRandomGenerator() % stringLen;
+        if (fTestData->fExpectedBreaks.charAt(strIdx) != fBI->isBoundary(strIdx)) {
+            IntlTest::gTest->errln("%s:%d testIsBoundaryRandom failure at index %d. Parameters to reproduce: @rules=%s,seed=%u,loop=1,verbose ",
+                    __FILE__, __LINE__, strIdx, fRuleFileName, fTestData->fRandomSeed);
+            if (fVerbose) {
+                fTestData->dump(i);
+            }
+            status = U_INVALID_STATE_ERROR;
+            break;
+        }
+    }
+}
+        
+
+
 void RBBIMonkeyImpl::checkResults(const char *msg, CheckDirection direction, UErrorCode &status) {
     if (U_FAILURE(status)) {
         return;
@@ -925,9 +949,9 @@ void RBBIMonkeyTest::testMonkey() {
     int32_t i;
     for (i=0; tests[i] != NULL; ++i) {
         logln("beginning testing of %s", tests[i]);
-        RBBIMonkeyImpl *test = new RBBIMonkeyImpl(status);
+        LocalPointer<RBBIMonkeyImpl> test(new RBBIMonkeyImpl(status));
         if (U_FAILURE(status)) {
-            errln("%s:%d: error %s while starting test %s.", __FILE__, __LINE__, u_errorName(status), tests[i]);
+            dataerrln("%s:%d: error %s while starting test %s.", __FILE__, __LINE__, u_errorName(status), tests[i]);
             break;
         }
         test->fDumpExpansions = dumpExpansions;
@@ -936,11 +960,11 @@ void RBBIMonkeyTest::testMonkey() {
         test->fLoopCount = loopCount;
         test->setup(tests[i], status);
         if (U_FAILURE(status)) {
-            errln("%s:%d: error %s while starting test %s.", __FILE__, __LINE__, u_errorName(status), tests[i]);
+            dataerrln("%s:%d: error %s while starting test %s.", __FILE__, __LINE__, u_errorName(status), tests[i]);
             break;
         }
         test->startTest();
-        startedTests.addElement(test, status);
+        startedTests.addElement(test.orphan(), status);
         if (U_FAILURE(status)) {
             errln("%s:%d: error %s while starting test %s.", __FILE__, __LINE__, u_errorName(status), tests[i]);
             break;

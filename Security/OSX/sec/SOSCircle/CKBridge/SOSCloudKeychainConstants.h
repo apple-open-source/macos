@@ -31,7 +31,6 @@
 __BEGIN_DECLS
 
 extern const char *xpcServiceName;
-extern const char *xpcIDSServiceName;;
 
 extern const char *kMessageKeyOperation;
 extern const char *kMessageKeyKey;
@@ -45,16 +44,9 @@ extern const char *kMessageKeyKeysRequiresUnlocked;
 extern const char *kMessageOperationItemChanged;
 extern const char *kMessageKeyNotificationFlags;
 extern const char *kMessageKeyPeerIDList;
-extern const char *kMesssgeKeyBackupPeerIDList;
-extern const char *kMessageKeyIDS;
-extern const char *kMessageKeyDeviceName;
-extern const char *kMessageKeyIDSDataMessage;
-extern const char *kMessageKeyDeviceID;
 extern const char *kMessageKeyPeerID;
-extern const char *kMessageKeySendersPeerID;
+extern const char *kMesssgeKeyBackupPeerIDList;
 extern const char *kMessageKeyAccountUUID;
-extern const char *kOperationSendDeviceList;
-extern const char *kMessageKeySenderDeviceID;
 
 extern const char *kMessageContext;
 extern const char *kMessageKeyParameter;
@@ -75,9 +67,7 @@ extern const char *kOperationGETv2;
 extern const char *kOperationRegisterKeys;
 extern const char *kOperationRemoveKeys;
 
-extern const char *kOperationGetDeviceID;
 extern const char *kOperationHasPendingKey;
-extern const char *kOperationGetIDSPerfCounters;
 
 extern const uint64_t kCKDXPCVersion;
 
@@ -89,9 +79,7 @@ extern const char *kOperationRequestSyncWithPeers;
 extern const char *kOperationHasPendingSyncWithPeer;
 
 extern const char *kOperationRequestEnsurePeerRegistration;
-extern const char *kOperationSendIDSMessage;
 
-extern const char *kOperationSendFragmentedIDSMessage;
 extern const char *kOperationGetPendingMesages;
 
 

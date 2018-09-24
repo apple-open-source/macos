@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,8 +20,18 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+#include "internal.h"
+
+#pragma mark API
+void
+__os_temporary_resource_shortage(void)
+{
+	(void)sleep(1);
+	_os_avoid_tail_call();
+}
 
 void
 __libdarwin_init(void)
 {
+	
 }

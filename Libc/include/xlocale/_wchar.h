@@ -26,6 +26,7 @@
 
 #include <_stdio.h>
 #include <_xlocale.h>
+#include <sys/_types/_mbstate_t.h>
 
 /* Initially added in Issue 4 */
 __BEGIN_DECLS

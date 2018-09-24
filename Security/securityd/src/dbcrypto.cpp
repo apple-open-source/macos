@@ -140,8 +140,9 @@ void DatabaseCryptoCore::setup(const DbBlob *blob, const CssmData &passphrase, b
             mBlobVersion = blob->version();
         }
         memcpy(mSalt, blob->salt, sizeof(mSalt));
-    } else
+    } else {
 		Server::active().random(mSalt);
+    }
     mMasterKey = deriveDbMasterKey(passphrase);
 	mHaveMaster = true;
 }
@@ -167,8 +168,9 @@ void DatabaseCryptoCore::setup(const DbBlob *blob, CssmClient::Key master, bool 
             mBlobVersion = blob->version();
         }
         memcpy(mSalt, blob->salt, sizeof(mSalt));
-    } else
+    } else {
 		Server::active().random(mSalt);
+    }
 	mMasterKey = master;
 	mHaveMaster = true;
 }

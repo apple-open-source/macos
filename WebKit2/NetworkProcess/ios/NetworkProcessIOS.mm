@@ -26,7 +26,7 @@
 #import "config.h"
 #import "NetworkProcess.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) && !PLATFORM(IOSMAC)
 
 #import "NetworkCache.h"
 #import "NetworkProcessCreationParameters.h"
@@ -85,6 +85,7 @@ void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
 void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreationParameters& parameters)
 {
 #if ENABLE(SEC_ITEM_SHIM)
+    // SecItemShim is needed for CFNetwork APIs that query Keychains beneath us.
     initializeSecItemShim(*this);
 #endif
     platformInitializeNetworkProcessCocoa(parameters);

@@ -1,0 +1,14 @@
+_BZ2_blockSort
+_BZ2_bsInitWrite
+_BZ2_bz__AssertH__fail
+_BZ2_compressBlock
+_BZ2_crc32Table
+_BZ2_decompress
+_BZ2_hbAssignCodes
+_BZ2_hbCreateDecodeTables
+_BZ2_hbMakeCodeLengths
+_BZ2_indexIntoF
+_BZ2_rNums
+___bz2_1_0VersionNumber
+___bz2_1_0VersionString
+_crc32_vec

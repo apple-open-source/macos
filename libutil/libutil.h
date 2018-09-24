@@ -50,6 +50,8 @@ struct pidfh {
 	dev_t	pf_dev;
 	ino_t	pf_ino;
 };
+#else
+struct pidfh;
 #endif
 
 struct in_addr;
@@ -63,12 +65,10 @@ int	realhostname(char *host, size_t hsize, const struct in_addr *ip);
 int	realhostname_sa(char *host, size_t hsize, struct sockaddr *addr,
 			     int addrlen);
 
-#ifdef _SYS_PARAM_H_
 struct pidfh *pidfile_open(const char *path, mode_t mode, pid_t *pidptr);
 int pidfile_write(struct pidfh *pfh);
 int pidfile_close(struct pidfh *pfh);
 int pidfile_remove(struct pidfh *pfh);
-#endif
 
 int reexec_to_match_kernel(void);
 int reexec_to_match_lp64ness(bool isLP64);

@@ -19,9 +19,10 @@
 #pragma mark - IOG_KTRACE
 #if GTRACE_REVISION >= 0x1
 class GTrace;
-extern GTrace *     gGTrace;
+extern GTrace * gGTrace;
 extern GMetricsRecorder * gGMetrics;
 
+#define _IOG_FT(_f_, _t_) (((_f_) & 0x03FF) | (((_t_) & 0x3) << 10))
 #ifndef IOG_KTRACE
     #define IOG_KTRACE(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_) \
         do{\
@@ -32,6 +33,22 @@ extern GMetricsRecorder * gGMetrics;
         }while(0)
 #endif /*IOG_KTRACE*/
 
+#ifndef IOG_KTRACE_DEFER_START
+    #define IOG_KTRACE_DEFER_START(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_, _ts_) \
+        GTRACE_DEFER_START((_f_ & 0x03FF)|((_t_ & 0x3) << 10), _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_, _ts_)
+#endif /*IOG_KTRACE_DEFER_START*/
+
+#ifndef IOG_KTRACE_DEFER_END
+    #define IOG_KTRACE_DEFER_END(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_, _th_, _ts_) \
+        GTRACE_DEFER_END((_f_ & 0x03FF)|((_t_ & 0x3) << 10), _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_, _th_, _ts_)
+#endif /*IOG_KTRACE_DEFER_END*/
+
+#ifndef IOG_KTRACE_LOG_SYNCH
+    #define IOG_KTRACE_LOG_SYNCH(_f_) do { \
+        GTRACE_LOG_SYNCH(_IOG_FT(_f_, DBG_FUNC_NONE)); \
+    } while(0)
+#endif // !IOG_KTRACE_LOG_SYNCH
+
 #else /*GTRACE_REVISION*/
 
 #warning "**GTrace Disabled**"
@@ -40,6 +57,11 @@ extern GMetricsRecorder * gGMetrics;
     #define IOG_KTRACE(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_) \
         KERNEL_DEBUG_CONSTANT_RELEASE(IOKDBG_CODE(DBG_IOGRAPHICS, _f_) | _t_, \
                                       _a1_, _a2_, _a3_, _a4_, 0);
+
+#define IOG_KTRACE_DEFER_START(args...)
+#define IOG_KTRACE_DEFER_END(args...)
+#define IOG_KTRACE_LOG_SYNCH(args...)
+
 #endif /*IOG_KTRACE*/
 
 #endif /*GTRACE_REVISION*/
@@ -353,7 +375,7 @@ extern uint32_t gIOGATFlags;
 #define IOFB_FID_pmSettingsChange                       78
 #define IOFB_FID_systemWork                             79
 #define IOFB_FID_copyDisplayConfig                      80
-#define IOFB_FID_serverAckTimeout                       81
+#define IOFB_FID_serverPowerTimeout                     81
 #define IOFB_FID_StdFBRemoveCursor32                    82
 #define IOFB_FID_isWakingFromHibernateGfxOn             83
 #define IOFB_FID_checkPowerWork                         84

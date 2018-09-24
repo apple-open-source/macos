@@ -1,7 +1,136 @@
-CHANGES - 2.2.5 - 2017-07-23
+CHANGES - 2.2.9 - 2018-07-18
 ============================
 
-CHANGES IN CUPS V2.2.5
+
+Changes in CUPS v2.2.9
+----------------------
+
+- Localization changes (Issue #5348)
+- The lpadmin command would create a non-working printer in some error cases
+  (Issue #5305)
+- The scheduler would crash if an empty `AccessLog` directive was specified
+  (Issue #5309)
+- Fixed a regression in the changes to ippValidateAttribute (Issue #5322,
+  Issue #5330)
+- Fixed a crash bug in the Epson dot matrix driver (Issue #5323)
+- Automatic debug logging of job errors did not work with systemd (Issue #5337)
+- The web interface did not list the IPP Everywhere "driver" (Issue #5338)
+- Fixed some typos in the label printer drivers (Issue #5350)
+- The scheduler was being backgrounded on macOS, causing applications to spin
+  (rdar://40436080)
+- Authentication in the web interface did not work on macOS (rdar://41444473)
+- Dropped non-working RSS subscriptions UI from web interface templates.
+- Fixed a memory leak for some IPP (extension) syntaxes.
+
+
+Changes in CUPS v2.2.8
+----------------------
+
+- Additional changes for the scheduler to substitute default values for invalid
+  job attributes when running in "relaxed conformance" mode (Issue #5229)
+- The `ipptool` program no longer checks for duplicate attributes when running
+  in list or CSV mode (Issue #5278)
+- Fixed builds without PAM (Issue #5283)
+- Fixed `lpoptions` man page (Issue #5286)
+- The `cupsCreateJob`, `cupsPrintFile2`, and `cupsPrintFiles2` APIs did not use
+  the supplied HTTP connection (Issue #5288)
+- Fixed another crash in the scheduler when adding an IPP Everywhere printer
+  (Issue #5290)
+- Added a workaround for certain web browsers that do not support multiple
+  authentication schemes in a single response header (Issue #5289)
+- Fixed policy limits containing the `All` operation (Issue #5296)
+- The scheduler was always restarted after idle-exit with systemd (Issue #5297)
+- Added a USB quirks rule for the HP LaserJet P1102 (Issue #5310)
+- The mailto notifier did not wait for the welcome message (Issue #5312)
+- Fixed a parsing bug in the pstops filter (Issue #5321)
+- Documentation updates (Issue #5299, Issue #5301, Issue #5306)
+- Localization updates (Issue #5317)
+- The scheduler allowed environment variables to be specified in the
+  `cupsd.conf` file (rdar://37836779, rdar://37836995, rdar://37837252,
+  rdar://37837581)
+- Fax queues did not support pause (p) or wait-for-dialtone (w) characters
+  (rdar://39212256)
+- The scheduler did not validate notify-recipient-uri values properly
+  (rdar://40068936)
+- The IPP parser allowed invalid group tags (rdar://40442124)
+- Fixed a parsing bug in the new authentication code.
+
+
+Changes in CUPS v2.2.7
+----------------------
+
+- NOTICE: Raw print queues are now deprecated (Issue #5269)
+- Fixed an Avahi crash bug in the scheduler (Issue #5268)
+- The IPP Everywhere PPD generator did not include the `cupsJobPassword`
+  keyword, when supported (Issue #5265)
+- Systemd did not restart cupsd when configuration changes were made that
+  required a restart (Issue #5263)
+- The Lexmark Optra E310 printer needs the "no-reattach" USB quirk rule
+  (Issue #5259)
+- The scheduler could crash while adding an IPP Everywhere printer (Issue #5258)
+- Label printers supported by the rastertolabel driver don't support SNMP, so
+  don't delay printing to test it (Issue #5256)
+- Fixed a compile issue when PAM is not available (Issue #5253)
+- Documentation fixes (Issue #5252)
+- Star Micronics printers need the "unidir" USB quirk rule (Issue #5251)
+- The scheduler now supports using temporary print queues for older IPP/1.1
+  print queues like those shared by CUPS 1.3 and earlier (Issue #5241)
+- Fixed printing to some IPP Everywhere printers (Issue #5238)
+- Kerberized printing to another CUPS server did not work correctly
+  (Issue #5233)
+- The `cupsRasterWritePixels` function did not correctly swap bytes for some
+  formats (Issue #5225)
+- Added a USB quirk rule for Canon MP280 series printers (Issue #5221)
+- The `ppdInstallableConflict` tested too many constraints (Issue #5213)
+- More fixes for printing to old CUPS servers (Issue #5211)
+- The `cupsCopyDest` function now correctly copies the `is_default` value
+  (Issue #5208)
+- The scheduler did not work with older versions of uClibc (Issue #5188)
+- The scheduler now substitutes default values for invalid job attributes when
+  running in "relaxed conformance" mode (Issue #5186)
+- Fixed PAM module detection and added support for the common PAM definitions
+  (Issue #5185)
+- Fixed a journald support bug in the scheduler (Issue #5181)
+- The cups-driverd program incorrectly stopped scanning PPDs as soon as a loop
+  was seen (Issue #5170)
+- Fixed group validation on OpenBSD (Issue #5166)
+- Fixed the `ippserver` sample code when threading is disabled or unavailable
+  (Issue #5154)
+- The `cupsEnumDests` function did not include options from the lpoptions files
+  (Issue #5144)
+- The `SSLOptions` directive now supports `MinTLS` and `MaxTLS` options to
+  control the minimum and maximum TLS versions that will be allowed,
+  respectively (Issue #5119)
+- The scheduler did not write out dirty configuration and state files if there
+  were open client connections (Issue #5118)
+- The `lpadmin` command now provides a better error message when an unsupported
+  System V interface script is used (Issue #5111)
+- The `lp` and `lpr` commands now provide better error messages when the default
+  printer cannot be found (Issue #5096)
+- No longer support backslash, question mark, or quotes in printer names
+  (Issue #4966)
+- The CUPS library now supports the latest HTTP Digest authentication
+  specification including support for SHA-256 (Issue #4862)
+- The `lpstat` command now reports when new jobs are being held (Issue #4761)
+- The `lpoptions` command incorrectly saved default options (Issue #4717)
+- The `ppdLocalizeIPPReason` function incorrectly returned a localized version
+  of "none" (rdar://36566269)
+- TLS connections now properly timeout (rdar://34938533)
+- The IPP backend did not properly detect failed PDF prints (rdar://34055474)
+- Temporary files are now placed in the correct directory for sandboxed
+  applications on macOS (rdar://problem/37789645)
+
+
+Changes in CUPS v2.2.6
+----------------------
+
+- DBUS notifications could crash the scheduler (Issue #5143)
+- Added USB quirks rules for Canon MP540 and Samsung ML-2160 (Issue #5148)
+- Fixed TLS cipher suite selection with GNU TLS (Issue #5145, Issue #5150)
+- Localization updates (Issue #5152)
+
+
+Changes in CUPS v2.2.5
 ----------------------
 
 - The scheduler's `-t` option did not force all errors to the standard error
@@ -21,6 +150,36 @@ CHANGES IN CUPS V2.2.5
   but doesn't document or check for it (Issue #5062)
 - Fixed the `SSLOptions DenyCBC` option when using GNU TLS (Issue #5065)
 - Fixed the `ServerTokens None` option (Issue #5065)
+- Fixed the default `ServerAlias` value from `ServerName` (Issue #5072)
+- Fixed the adminurl field in the TXT record for fully-qualified `ServerName`
+  values (Issue #5074)
+- The scheduler now creates a PID file when not running on demand with a modern
+  service launcher (Issue #5080)
+- The web interface did not support newer language identifiers used by Microsoft
+  web browsers (Issue #5803)
+- Updated the cups-files.conf and cupsd.conf file documentation for missing
+  directives (Issue #5084)
+- Fixed an Avahi-related crash bug in the scheduler (Issue #5085, Issue #5086)
+- Fixed the interactions between the "print-quality" and "cupsPrintQuality"
+  options (Issue #5090)
+- The IPP Everywhere PPD generator now sorts the supported resolutions before
+  choosing them for draft, normal, and best quality modes (Issue #5091)
+- Fixed the localization unit test on Linux (Issue #5097)
+- The CUPS library did not reuse domain sockets (Issue #5098)
+- Fixed the "make check" target for some environments (Issue #5099)
+- The scheduler woke up once per second to remove old temporary queues
+  (Issue #5100)
+- Added USB quirk rule for Kyocera printer (Issue #5102, Issue #5103)
+- Re-documented the limits of `file:///...` device URIs and moved the FileDevice
+  directive in `cups-files.conf` to the list of deprecated configuration
+  directives (Issue #5117)
+- Added USB quirk rule for HP LaserJet 1160 printer (Issue #5121)
+- Fixed the script interpreter detection in the configure script (Issue #5122)
+- The network backends now retry on more error conditions (Issue #5123)
+- Added a French translation of the web interface (Issue #5134)
+- `cupsGetDests2` was not using the supplied HTTP connection (Issue #5135)
+- `httpAddrConnect` leaked sockets in certain circumstances, causing some
+  printers to hang (rdar://31965686)
 - Fixed an issue with Chinese localizations on macOS (rdar://32419311)
 - The IPP backend now always sends the "finishings" attribute for printers that
   support it because otherwise the client cannot override printer defaults
@@ -31,9 +190,19 @@ CHANGES IN CUPS V2.2.5
   printers (rdar://33250434)
 - Fixed the `cups.strings` file that is used on macOS (rdar://33287650)
 - CUPS now sends the `Date` HTTP header in IPP requests (rdar://33302034)
+- The `ippCopyAttribute` function did not copy out-of-band values correctly
+  (rdar://33688003)
+- Fixed the localization fallback code on macOS (rdar://33583699)
+- The scheduler did not run with a high enough priority, causing problems on
+  busy systems (rdar://33789342)
+- Added support for Japanese Kaku 1 envelope size (rdar://34774110)
+- The `ipptool` program's `-P` option did not work correctly.
+- The `ipptool` program did not compare URI scheme or hostname components
+  correctly for the WITH-ALL-HOSTNAMES, WITH-ALL-SCHEMES, WITH-HOSTNAME, or
+  WITH-SCHEME predicates.
 
 
-CHANGES IN CUPS V2.2.4
+Changes in CUPS v2.2.4
 ----------------------
 
 - The scheduler did not remove old job files (Issue #4987)
@@ -71,7 +240,7 @@ CHANGES IN CUPS V2.2.4
   `DenyCBC` and `DenyTLS1.0` options (Issue #5037)
 
 
-CHANGES IN CUPS V2.2.3
+Changes in CUPS v2.2.3
 ----------------------
 
 - The IPP backend could get into an infinite loop for certain errors, causing a
@@ -99,7 +268,7 @@ CHANGES IN CUPS V2.2.3
 - Fixed some localization issues on macOS (<rdar://problem/27245567>)
 
 
-CHANGES IN CUPS V2.2.2
+Changes in CUPS v2.2.2
 ----------------------
 
 - Fixed some issues with the Zebra ZPL printer driver (Issue #4898)
@@ -129,7 +298,7 @@ CHANGES IN CUPS V2.2.2
 - Updated packaging files (Issue #4940)
 
 
-CHANGES IN CUPS V2.2.1
+Changes in CUPS v2.2.1
 ----------------------
 
 - Added "CreateSelfSignedCerts" directive for cups-files.conf to control whether
@@ -143,7 +312,7 @@ CHANGES IN CUPS V2.2.1
 - Updated localizations (PR #4877, PR #4886)
 
 
-CHANGES IN CUPS V2.2.0
+Changes in CUPS v2.2.0
 ----------------------
 
 - Normalized the TLS certificate validation code and added additional error
@@ -154,7 +323,7 @@ CHANGES IN CUPS V2.2.0
 - http*Connect did not return early when all addresses failed (Issue #4870)
 
 
-CHANGES IN CUPS V2.2rc1
+Changes in CUPS v2.2rc1
 -----------------------
 
 - Updated the list of supported IPP Everywhere media types.
@@ -167,14 +336,14 @@ CHANGES IN CUPS V2.2rc1
 - Updated localizations (Issue #4846, PR #4858)
 
 
-CHANGES IN CUPS V2.2b2
+Changes in CUPS v2.2b2
 ----------------------
 
 - Added Upstart support (PR #4825)
 - CUPS now supports Let's Encrypt certificates on Linux.
 
 
-CHANGES IN CUPS V2.2b1
+Changes in CUPS v2.2b1
 ----------------------
 
 - All CUPS commands now support POSIX options (Issue #4813)

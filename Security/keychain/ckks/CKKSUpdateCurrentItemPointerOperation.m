@@ -30,6 +30,7 @@
 #import "keychain/ckks/CKKSUpdateCurrentItemPointerOperation.h"
 #import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #include <securityd/SecItemServer.h>
 #include <securityd/SecItemSchema.h>
@@ -274,7 +275,10 @@
 
         self.modifyRecordsOperation = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave.allValues recordIDsToDelete:nil];
         self.modifyRecordsOperation.atomic = TRUE;
-        self.modifyRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated; // We're likely rolling a PCS identity, or creating a new one. User cares.
+        // We're likely rolling a PCS identity, or creating a new one. User cares.
+        self.modifyRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
+        self.modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+
         self.modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
         self.modifyRecordsOperation.group = self.ckoperationGroup;
 

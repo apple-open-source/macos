@@ -36,7 +36,6 @@
 #include "LocalizedStrings.h"
 #include <limits>
 #include <windows.h>
-#include <wtf/CurrentTime.h>
 #include <wtf/DateMath.h>
 #include <wtf/HashMap.h>
 #include <wtf/Language.h>
@@ -57,7 +56,7 @@ static String extractLanguageCode(const String& locale)
     return locale.left(dashPosition);
 }
 
-static LCID LCIDFromLocaleInternal(LCID userDefaultLCID, const String& userDefaultLanguageCode, String& locale)
+static LCID LCIDFromLocaleInternal(LCID userDefaultLCID, const String& userDefaultLanguageCode, const String& locale)
 {
     if (equalIgnoringASCIICase(extractLanguageCode(locale), userDefaultLanguageCode))
         return userDefaultLCID;
@@ -96,7 +95,7 @@ String LocaleWin::getLocaleInfoString(LCTYPE type)
     int bufferSizeWithNUL = ::GetLocaleInfo(m_lcid, type, 0, 0);
     if (bufferSizeWithNUL <= 0)
         return String();
-    StringVector<UChar> buffer(bufferSizeWithNUL);
+    Vector<UChar> buffer(bufferSizeWithNUL);
     ::GetLocaleInfo(m_lcid, type, buffer.data(), bufferSizeWithNUL);
     buffer.shrink(bufferSizeWithNUL - 1);
     return String::adopt(WTFMove(buffer));

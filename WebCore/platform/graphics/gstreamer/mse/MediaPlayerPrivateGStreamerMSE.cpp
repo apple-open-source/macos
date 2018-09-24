@@ -30,12 +30,13 @@
 
 #include "AppendPipeline.h"
 #include "AudioTrackPrivateGStreamer.h"
-#include "GStreamerUtilities.h"
+#include "GStreamerCommon.h"
 #include "InbandTextTrackPrivateGStreamer.h"
 #include "MIMETypeRegistry.h"
 #include "MediaDescription.h"
 #include "MediaPlayer.h"
 #include "NotImplemented.h"
+#include "PlaybackPipeline.h"
 #include "SourceBufferPrivateGStreamer.h"
 #include "TimeRanges.h"
 #include "URL.h"
@@ -86,9 +87,6 @@ void MediaPlayerPrivateGStreamerMSE::registerMediaEngine(MediaEngineRegistrar re
 
 bool initializeGStreamerAndRegisterWebKitMSEElement()
 {
-    if (UNLIKELY(!initializeGStreamer()))
-        return false;
-
     registerWebKitGStreamerElements();
 
     GST_DEBUG_CATEGORY_INIT(webkit_mse_debug, "webkitmse", 0, "WebKit MSE media player");
@@ -486,10 +484,9 @@ std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateGStreamerMSE::buffered() c
     return m_mediaSource ? m_mediaSource->buffered() : std::make_unique<PlatformTimeRanges>();
 }
 
-void MediaPlayerPrivateGStreamerMSE::sourceChanged()
+void MediaPlayerPrivateGStreamerMSE::sourceSetup(GstElement* sourceElement)
 {
-    m_source = nullptr;
-    g_object_get(m_pipeline.get(), "source", &m_source.outPtr(), nullptr);
+    m_source = sourceElement;
 
     ASSERT(WEBKIT_IS_MEDIA_SRC(m_source.get()));
 
@@ -739,23 +736,16 @@ void MediaPlayerPrivateGStreamerMSE::trackDetected(RefPtr<AppendPipeline> append
     ASSERT(caps);
     GST_DEBUG("track ID: %s, caps: %" GST_PTR_FORMAT, newTrack->id().string().latin1().data(), caps);
 
-    GstStructure* structure = gst_caps_get_structure(caps, 0);
-    const gchar* mediaType = gst_structure_get_name(structure);
-    GstVideoInfo info;
-
-    if (g_str_has_prefix(mediaType, "video/") && gst_video_info_from_caps(&info, caps)) {
-        float width, height;
-
-        width = info.width;
-        height = info.height * ((float) info.par_d / (float) info.par_n);
-        m_videoSize.setWidth(width);
-        m_videoSize.setHeight(height);
+    if (doCapsHaveType(caps, GST_VIDEO_CAPS_TYPE_PREFIX)) {
+        std::optional<FloatSize> size = getVideoResolutionFromCaps(caps);
+        if (size.has_value())
+            m_videoSize = size.value();
     }
 
     if (firstTrackDetected)
-        m_playbackPipeline->attachTrack(appendPipeline->sourceBufferPrivate(), newTrack, structure, caps);
+        m_playbackPipeline->attachTrack(appendPipeline->sourceBufferPrivate(), newTrack, caps);
     else
-        m_playbackPipeline->reattachTrack(appendPipeline->sourceBufferPrivate(), newTrack, mediaType);
+        m_playbackPipeline->reattachTrack(appendPipeline->sourceBufferPrivate(), newTrack, caps);
 }
 
 const static HashSet<AtomicString>& codecSet()
@@ -966,8 +956,7 @@ void MediaPlayerPrivateGStreamerMSE::attemptToDecryptWithInstance(CDMInstance& i
         gst_structure_set_value(structure.get(), "key-ids", &keyIDList);
         gst_structure_set_value(structure.get(), "key-values", &keyValueList);
 
-        for (auto it : m_appendPipelinesMap)
-            it.value->dispatchDecryptionStructure(GUniquePtr<GstStructure>(gst_structure_copy(structure.get())));
+        gst_element_send_event(m_playbackPipeline->pipeline(), gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure.release()));
     }
 }
 #endif

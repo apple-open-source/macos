@@ -26,6 +26,9 @@
 
 #pragma once
 
+#if ENABLE(WEB_AUTHN)
+
+#include "PublicKeyCredentialRequestOptions.h"
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -37,7 +40,9 @@ struct CredentialRequestOptions {
 
     MediationRequirement mediation;
     RefPtr<AbortSignal> signal;
-    std::optional<bool> publicKey;
+    std::optional<PublicKeyCredentialRequestOptions> publicKey;
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_AUTHN)

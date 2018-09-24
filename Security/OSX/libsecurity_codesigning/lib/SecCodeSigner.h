@@ -164,6 +164,7 @@ extern const CFStringRef kSecCodeSignerPreserveMetadata;
 extern const CFStringRef kSecCodeSignerTeamIdentifier;
 extern const CFStringRef kSecCodeSignerPlatformIdentifier;
 extern const CFStringRef kSecCodeSignerRuntimeVersion;
+extern const CFStringRef kSecCodeSignerPreserveAFSC;
 
 enum {
     kSecCodeSignerPreserveIdentifier = 1 << 0,		// preserve signing identifier

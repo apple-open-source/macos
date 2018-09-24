@@ -98,7 +98,7 @@ static const SingleUnitFormat en_singFmt[] = {
     { UAMEASUNIT_DURATION_WEEK,             5.25,  "5.25 weeks",                "5 weeks",                "5.25 wks",         "5.2 wks",        "5w",          "5w",        0,1,    0,1   },
     { UAMEASUNIT_DURATION_CENTURY,         37.203, "37.20 centuries",           "37 centuries",           "37.203 c",         "37.2 c",         "37 c",        "37 c",      0,2,    0,2   },
     { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37.20 centimeters",         "37 centimeters",         "37.203 cm",        "37.2 cm",        "37cm",        "37cm",      0,2,    0,2   },
-    { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR, 37.203, "37.20 kilometers per hour", "37 kilometers per hour", "37.203 kph",       "37.2 kph",       "37kph",       "37kph",     0,2,    0,2   },
+    { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR, 37.203, "37.20 kilometers per hour", "37 kilometers per hour", "37.203 km/h",      "37.2 km/h",      "37km/h",      "37km/h",    0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37.20 degrees Celsius",     "37 degrees Celsius",     "37.203\\u00B0C",   "37.2\\u00B0C",   "37\\u00B0C",  "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37.20 degrees Fahrenheit",  "37 degrees Fahrenheit",  "37.203\\u00B0F",   "37.2\\u00B0F",   "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37.20 degrees",             "37 degrees",             "37.203\\u00B0",    "37.2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },

@@ -95,12 +95,10 @@ objects created with
 .Fn CCCryptorCreate
 or
 .Fn CCCryptorCreateFromData
-*may* be disposed of
+must be disposed of
 via
 .Fn CCCRyptorRelease
-; that call is not strictly necessary, but
-if it's not performed, good security practice dictates that the
-caller should zero the memory provided to create the
+; which clears sensitive data and deallocates the
 .Ft CCCryptorRef
 when the caller is finished using the
 .Ft CCCryptorRef.

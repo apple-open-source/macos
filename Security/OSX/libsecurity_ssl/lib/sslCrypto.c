@@ -53,11 +53,7 @@
  */
 CFIndex sslPubKeyGetAlgorithmID(SecKeyRef pubKey)
 {
-#if TARGET_OS_IPHONE
-	return SecKeyGetAlgorithmID(pubKey);
-#else
 	return SecKeyGetAlgorithmId(pubKey);
-#endif
 }
 
 /*
@@ -65,11 +61,7 @@ CFIndex sslPubKeyGetAlgorithmID(SecKeyRef pubKey)
  */
 CFIndex sslPrivKeyGetAlgorithmID(SecKeyRef privKey)
 {
-#if TARGET_OS_IPHONE
-	return SecKeyGetAlgorithmID(privKey);
-#else
 	return SecKeyGetAlgorithmId(privKey);
-#endif
 }
 
 

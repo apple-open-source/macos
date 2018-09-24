@@ -550,6 +550,7 @@ static void recv_buffer_cleanup(h2_bucket_beam *beam, h2_beam_lock *bl)
         apr_brigade_destroy(bb);
         if (bl) enter_yellow(beam, bl);
         
+        apr_thread_cond_broadcast(beam->change);
         if (beam->cons_ev_cb) { 
             beam->cons_ev_cb(beam->cons_ctx, beam);
         }
@@ -707,12 +708,10 @@ void h2_beam_abort(h2_bucket_beam *beam)
     h2_beam_lock bl;
     
     if (beam && enter_yellow(beam, &bl) == APR_SUCCESS) {
-        if (!beam->aborted) {
-            beam->aborted = 1;
-            r_purge_sent(beam);
-            h2_blist_cleanup(&beam->send_list);
-            report_consumption(beam, &bl);
-        }
+        beam->aborted = 1;
+        r_purge_sent(beam);
+        h2_blist_cleanup(&beam->send_list);
+        report_consumption(beam, &bl);
         apr_thread_cond_broadcast(beam->change);
         leave_yellow(beam, &bl);
     }
@@ -924,6 +923,7 @@ apr_status_t h2_beam_send(h2_bucket_beam *beam,
             while (!APR_BRIGADE_EMPTY(sender_bb) && APR_SUCCESS == rv) {
                 if (space_left <= 0) {
                     report_prod_io(beam, force_report, &bl);
+                    r_purge_sent(beam);
                     rv = wait_not_full(beam, block, &space_left, &bl);
                     if (APR_SUCCESS != rv) {
                         break;

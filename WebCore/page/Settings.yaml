@@ -101,8 +101,12 @@ allowFileAccessFromFileURLs:
   initial: true
 allowSettingAnyXHRHeaderFromFileURLs:
   initial: false
+allowCrossOriginSubresourcesToAskForCredentials:
+  initial: false
 needsStorageAccessFromFileURLsQuirk:
   initial: true
+needsFrameNameFallbackToIdQuirk:
+  initial: false
 useAnonymousModeWhenFetchingMaskImages:
   initial: true
 javaScriptCanOpenWindowsAutomatically:
@@ -148,6 +152,8 @@ resourceUsageOverlayVisible:
   initial: false
   onChange: resourceUsageOverlayVisibleChanged
   condition: RESOURCE_USAGE
+disableScreenSizeOverride:
+  initial: false
 
 # This is a quirk we are pro-actively applying to old applications. It changes keyboard event dispatching,
 # making keyIdentifier available on keypress events, making charCode available on keydown/keyup events,
@@ -204,7 +210,7 @@ javaScriptRuntimeFlags:
 # FIXME: This should really be disabled by default as it makes platforms that don't support the feature download files
 # they can't use by. Leaving enabled for now to not change existing behavior.
 downloadableBinaryFontsEnabled:
-  initial: true
+  initial: defaultDownloadableBinaryFontsEnabled()
 
 xssAuditorEnabled:
   initial: false
@@ -328,7 +334,7 @@ requestAnimationFrameEnabled:
 cookieEnabled:
   initial: true
 mediaEnabled:
-  initial: true
+  initial: defaultMediaEnabled
 DOMPasteAllowed:
   initial: false
 
@@ -356,8 +362,10 @@ maximumPlugInSnapshotAttempts:
 frameFlattening:
   type: FrameFlattening
   initial: FrameFlattening::Disabled
+  onChange: setNeedsRelayoutAllFrames
 asyncFrameScrollingEnabled:
   initial: false
+  onChange: setNeedsRelayoutAllFrames
 
 webSecurityEnabled:
   initial: true
@@ -513,14 +521,28 @@ shouldConvertInvalidURLsToBlank:
 
 springTimingFunctionEnabled:
   initial: false
+
 conicGradientsEnabled:
   initial: false
+
+colorFilterEnabled:
+  initial: false
+  onChange: setNeedsRecalcStyleInAllFrames
+
+punchOutWhiteBackgroundsInDarkMode:
+  initial: false
+  onChange: setNeedsRecalcStyleInAllFrames
 
 treatIPAddressAsDomain:
   initial: false
 
 mediaPreloadingEnabled:
   initial: false
+
+layoutViewportHeightExpansionFactor:
+  type: double
+  initial: 0
+  onChange: setNeedsRecalcStyleInAllFrames
 
 # Runtime-enabled features
 visualViewportEnabled:
@@ -708,9 +730,31 @@ touchEventEmulationEnabled:
   getter: isTouchEventEmulationEnabled
   conditional: TOUCH_EVENTS
 
+shouldEnableTextAutosizingBoost:
+  type: bool
+  initial: false
+  conditional: TEXT_AUTOSIZING
+  onChange: shouldEnableTextAutosizingBoostChanged
+
 mediaCapabilitiesEnabled:
+  initial: false
+
+resourceLoadStatisticsDebugMode:
   initial: false
 
 clientCoordinatesRelativeToLayoutViewport:
   initial: false
   onChange: setNeedsRecalcStyleInAllFrames
+
+crossOriginWindowPolicySupportEnabled:
+  initial: false
+
+accessibilityEventsEnabled:
+  initial: true
+  conditional: ACCESSIBILITY_EVENTS
+
+incompleteImageBorderEnabled:
+  initial: false
+
+shouldDeferAsynchronousScriptsUntilAfterDocumentLoad:
+  initial: false

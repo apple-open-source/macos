@@ -311,12 +311,6 @@ cc_free_NC_info (apiCB    *in_context,
                  infoNC ***io_info)
 CCAPI_DEPRECATED;
 
-CCACHE_API cc_int32 
-cc_lock_request (apiCB          *in_context,
-                 const ccache_p *in_ccache,
-                 const cc_int32  in_lock_type)
-CCAPI_DEPRECATED;
-
 #if TARGET_OS_MAC
 #pragma pack(pop)
 #endif

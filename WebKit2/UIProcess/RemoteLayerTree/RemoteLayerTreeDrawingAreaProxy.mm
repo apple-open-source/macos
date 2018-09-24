@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,8 +36,8 @@
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/IOSurfacePool.h>
-#import <WebCore/MachSendRight.h>
 #import <WebCore/WebActionDisablingCALayerDelegate.h>
+#import <wtf/MachSendRight.h>
 #import <wtf/SystemTracing.h>
 
 using namespace IPC;
@@ -110,7 +110,7 @@ RemoteLayerTreeDrawingAreaProxy::RemoteLayerTreeDrawingAreaProxy(WebPageProxy& w
     : DrawingAreaProxy(DrawingAreaTypeRemoteLayerTree, webPageProxy)
     , m_remoteLayerTreeHost(*this)
 {
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
     // We don't want to pool surfaces in the UI process.
     // FIXME: We should do this somewhere else.
     IOSurfacePool::sharedPool().setPoolSize(0);
@@ -172,7 +172,7 @@ void RemoteLayerTreeDrawingAreaProxy::didUpdateGeometry()
 void RemoteLayerTreeDrawingAreaProxy::sendUpdateGeometry()
 {
     m_lastSentSize = m_size;
-    m_webPageProxy.process().send(Messages::DrawingArea::UpdateGeometry(m_size, IntSize(), false, MachSendRight()), m_webPageProxy.pageID());
+    m_webPageProxy.process().send(Messages::DrawingArea::UpdateGeometry(m_size, false /* flushSynchronously */, MachSendRight()), m_webPageProxy.pageID());
     m_isWaitingForDidUpdateGeometry = true;
 }
 
@@ -190,6 +190,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(const RemoteLayerTreeTrans
 
     ASSERT(layerTreeTransaction.transactionID() == m_lastVisibleTransactionID + 1);
     m_transactionIDForPendingCACommit = layerTreeTransaction.transactionID();
+    m_activityStateChangeID = layerTreeTransaction.activityStateChangeID();
 
     if (layerTreeTransaction.hasEditorState())
         m_webPageProxy.editorStateChanged(layerTreeTransaction.editorState());
@@ -254,7 +255,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(const RemoteLayerTreeTrans
     }
 }
 
-void RemoteLayerTreeDrawingAreaProxy::acceleratedAnimationDidStart(uint64_t layerID, const String& key, double startTime)
+void RemoteLayerTreeDrawingAreaProxy::acceleratedAnimationDidStart(uint64_t layerID, const String& key, MonotonicTime startTime)
 {
     m_webPageProxy.process().send(Messages::DrawingArea::AcceleratedAnimationDidStart(layerID, key, startTime), m_webPageProxy.pageID());
 }
@@ -429,8 +430,10 @@ void RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay()
     m_webPageProxy.didUpdateActivityState();
 }
 
-void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateActivityState()
+void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStateChangeID activityStateChangeID)
 {
+    ASSERT(activityStateChangeID != ActivityStateChangeAsynchronous);
+
     // We must send the didUpdate message before blocking on the next commit, otherwise
     // we can be guaranteed that the next commit won't come until after the waitForAndDispatchImmediately times out.
     if (m_didUpdateMessageState != DoesNotNeedDidUpdate)
@@ -446,7 +449,12 @@ void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateActivityState()
         return Seconds::fromMilliseconds(250);
 #endif
     }();
-    m_webPageProxy.process().connection()->waitForAndDispatchImmediately<Messages::RemoteLayerTreeDrawingAreaProxy::CommitLayerTree>(m_webPageProxy.pageID(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
+
+    auto startTime = MonotonicTime::now();
+    while (m_webPageProxy.process().connection()->waitForAndDispatchImmediately<Messages::RemoteLayerTreeDrawingAreaProxy::CommitLayerTree>(m_webPageProxy.pageID(), activityStateUpdateTimeout - (MonotonicTime::now() - startTime), IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives)) {
+        if (activityStateChangeID == ActivityStateChangeAsynchronous || activityStateChangeID <= m_activityStateChangeID)
+            return;
+    }
 }
 
 void RemoteLayerTreeDrawingAreaProxy::dispatchAfterEnsuringDrawing(WTF::Function<void (CallbackBase::Error)>&& callbackFunction)
@@ -456,7 +464,7 @@ void RemoteLayerTreeDrawingAreaProxy::dispatchAfterEnsuringDrawing(WTF::Function
         return;
     }
 
-    m_webPageProxy.process().send(Messages::DrawingArea::AddTransactionCallbackID(m_callbacks.put(WTFMove(callbackFunction), nullptr)), m_webPageProxy.pageID());
+    m_webPageProxy.process().send(Messages::DrawingArea::AddTransactionCallbackID(m_callbacks.put(WTFMove(callbackFunction), m_webPageProxy.process().throttler().backgroundActivityToken())), m_webPageProxy.pageID());
 }
 
 void RemoteLayerTreeDrawingAreaProxy::hideContentUntilPendingUpdate()

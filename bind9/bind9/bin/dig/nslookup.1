@@ -18,12 +18,12 @@
 .\"     Title: nslookup
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2014-01-24
+.\"      Date: 2018-05-25
 .\"    Manual: BIND9
 .\"    Source: ISC
 .\"  Language: English
 .\"
-.TH "NSLOOKUP" "1" "2014\-01\-24" "ISC" "BIND9"
+.TH "NSLOOKUP" "1" "2018\-05\-25" "ISC" "BIND9"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -285,6 +285,17 @@ Try the next nameserver if a nameserver responds with SERVFAIL or a referral (no
 .PP
 \fBnslookup\fR
 returns with an exit status of 1 if any query failed, and 0 otherwise\&.
+.RE
+.SH "macOS NOTICE"
+.PP
+The
+\fBnslookup\fR
+command does not use the host name and address resolution or the DNS query routing mechanisms used by other processes running on macOS.
+The results of name or address queries printed by
+\fBnslookup\fR
+may differ from those found by other processes that use the macOS native name and address resolution mechanisms.
+The results of DNS queries may also differ from queries that use the macOS DNS routing library.
+.RE
 .SH "FILES"
 .PP
 /etc/resolv\&.conf

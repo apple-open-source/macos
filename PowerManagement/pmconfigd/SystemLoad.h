@@ -179,4 +179,9 @@ __private_extern__ void registerUserActivityClient(xpc_object_t peer, xpc_object
 __private_extern__ void updateUserActivityTimeout(xpc_object_t connection, xpc_object_t msg);
 __private_extern__ void deRegisterUserActivityClient(xpc_object_t peer);
 
+#ifdef XCTEST
+void xctSetUserActiveRootDomain(bool active);
+
+#endif
+
 #endif

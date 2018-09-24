@@ -32,6 +32,7 @@
 #include "BackForwardClient.h"
 #include "ColorChooser.h"
 #include "ContextMenuClient.h"
+#include "DataListSuggestionPicker.h"
 #include "DatabaseProvider.h"
 #include "DiagnosticLoggingClient.h"
 #include "DocumentFragment.h"
@@ -62,7 +63,7 @@
 #include "ThreadableWebSocketChannel.h"
 #include "UserContentProvider.h"
 #include "VisitedLinkStore.h"
-#include <heap/HeapInlines.h>
+#include <JavaScriptCore/HeapInlines.h>
 #include <wtf/NeverDestroyed.h>
 
 #if ENABLE(CONTENT_EXTENSIONS)
@@ -134,7 +135,6 @@ class EmptyDragClient final : public DragClient {
     DragSourceAction dragSourceActionMaskForPoint(const IntPoint&) final { return DragSourceActionNone; }
     void startDrag(DragItem, DataTransfer&, Frame&) final { }
     void dragControllerDestroyed() final { }
-    void prepareToDragPromisedBlob(const PromisedBlobInfo&) final { }
 };
 
 #endif // ENABLE(DRAG_SUPPORT)
@@ -177,6 +177,7 @@ private:
     void willWriteSelectionToPasteboard(Range*) final { }
     void didWriteSelectionToPasteboard() final { }
     void getClientPasteboardDataForRange(Range*, Vector<String>&, Vector<RefPtr<SharedBuffer>>&) final { }
+    String replacementURLForResource(Ref<SharedBuffer>&&, const String&) final { return { }; }
     void requestCandidatesForSelection(const VisibleSelection&) final { }
     void handleAcceptedCandidateWithSoftSpaces(TextCheckingResult) final { }
 
@@ -325,8 +326,8 @@ class EmptyPaymentCoordinatorClient final : public PaymentCoordinatorClient {
 
 class EmptyPluginInfoProvider final : public PluginInfoProvider {
     void refreshPlugins() final { };
-    void getPluginInfo(Page&, Vector<PluginInfo>&) final { }
-    void getWebVisiblePluginInfo(Page&, Vector<PluginInfo>&) final { }
+    Vector<PluginInfo> pluginInfo(Page&, std::optional<Vector<SupportedPluginIdentifier>>&) final { return { }; }
+    Vector<PluginInfo> webVisiblePluginInfo(Page&, const URL&) final { return { }; }
 };
 
 class EmptyPopupMenu : public PopupMenu {
@@ -374,7 +375,7 @@ class EmptyStorageNamespaceProvider final : public StorageNamespaceProvider {
         bool contains(const String&) final { return false; }
         StorageType storageType() const final { return StorageType::Local; }
         size_t memoryBytesUsedByCache() final { return 0; }
-        SecurityOriginData securityOrigin() const final { return { }; }
+        const SecurityOriginData& securityOrigin() const final { static NeverDestroyed<SecurityOriginData> origin; return origin.get(); }
     };
 
     struct EmptyStorageNamespace final : public StorageNamespace {
@@ -423,6 +424,15 @@ std::unique_ptr<ColorChooser> EmptyChromeClient::createColorChooser(ColorChooser
 
 #endif
 
+#if ENABLE(DATALIST_ELEMENT)
+
+std::unique_ptr<DataListSuggestionPicker> EmptyChromeClient::createDataListSuggestionPicker(DataListSuggestionsClient&)
+{
+    return nullptr;
+}
+
+#endif
+
 void EmptyChromeClient::runOpenPanel(Frame&, FileChooser&)
 {
 }
@@ -436,7 +446,7 @@ void EmptyFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Naviga
 {
 }
 
-void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, bool, FormState*, FramePolicyFunction&&)
+void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse&, FormState*, PolicyDecisionMode, FramePolicyFunction&&)
 {
 }
 

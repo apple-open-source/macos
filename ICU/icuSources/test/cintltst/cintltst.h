@@ -25,11 +25,6 @@ The main root for C API tests
 #include "unicode/putil.h"
 #include "unicode/ctest.h"
 
-#if U_NO_DEFAULT_INCLUDE_UTF_HEADERS
-/* deprecated  - make tests pass with U_NO_DEFAULT_INCLUDE_UTF_HEADERS */
-#include "unicode/utf_old.h" 
-#endif
-
 #include <stdlib.h>
 
 #ifndef U_USE_DEPRECATED_API
@@ -139,6 +134,18 @@ U_CFUNC UBool assertTrue(const char* msg, int condition);
  */
 U_CFUNC UBool assertEquals(const char* msg, const char* expectedString,
                            const char* actualString);
+
+/**
+ * Assert that the actualString equals the expectedString, and return
+ * TRUE if it does.
+ */
+U_CFUNC UBool assertUEquals(const char* msg, const UChar* expectedString,
+                            const UChar* actualString);
+
+/**
+ * Assert that two 64-bit integers are equal, returning TRUE if they do.
+ */
+U_CFUNC UBool assertIntEquals(const char* msg, int64_t expected, int64_t actual);
 
 /*
  * note - isICUVersionBefore and isICUVersionAtLeast have been removed.

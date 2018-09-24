@@ -110,6 +110,18 @@ extern const char *kSecXPCKeyBackupKeybagPath;
 #define SECURITYD_XPC(sdp, wrapper, ...) ((gSecurityd && gSecurityd->sdp) ? gSecurityd->sdp(__VA_ARGS__) : wrapper(sdp ## _id, __VA_ARGS__))
 #define TRUSTD_XPC(sdp, wrapper, ...) ((gTrustd && gTrustd->sdp) ? gTrustd->sdp(__VA_ARGS__) : wrapper(sdp ## _id, __VA_ARGS__))
 
+#define TRUSTD_XPC_ASYNC(sdp, wrapper, q, h, ...) do {							\
+	if (gTrustd != NULL && gTrustd->sdp != NULL) {								\
+		dispatch_async(q, ^{													\
+			CFErrorRef _error = NULL;											\
+			SecTrustResultType _tr = gTrustd->sdp(__VA_ARGS__, &_error);		\
+			h(_tr, _error);														\
+		});																		\
+	} else {																	\
+		wrapper(q, h, sdp ## _id, __VA_ARGS__);									\
+	}																			\
+} while (0)
+
 //
 // MARK: Object to XPC format conversion.
 //
@@ -138,11 +150,8 @@ extern const char *kSecXPCPublicPeerId; // Public peer id
 extern const char *kSecXPCOTRSession; // OTR session bytes
 extern const char *kSecXPCData; // Data to process
 extern const char *kSecXPCOTRReady; // OTR ready for messages
-extern const char *kSecXPCKeyDeviceID;
-extern const char *kSecXPCKeyIDSMessage;
 extern const char *kSecXPCKeyViewName;
 extern const char *kSecXPCKeyViewActionCode;
-extern const char *kSecXPCKeySendIDSMessage;
 extern const char *kSecXPCKeyHSA2AutoAcceptInfo;
 extern const char *kSecXPCKeyEscrowLabel;
 extern const char *kSecXPCKeyTriesLabel;
@@ -151,7 +160,7 @@ extern const char *kSecXPCKeyArray;
 extern const char *kSecXPCKeySet;
 extern const char *kSecXPCKeySet2;
 extern const char *kSecXPCVersion;
-
+extern const char *kSecXPCKeySignInAnalytics;
 extern const char *kSecXPCKeyReason;
 
 //
@@ -213,18 +222,24 @@ enum SecXPCOperation {
     kSecXPCOpTryUserCredentials,
     kSecXPCOpSetUserCredentials,
     kSecXPCOpSetUserCredentialsAndDSID,
+    kSecXPCOpSetUserCredentialsAndDSIDWithAnalytics,
     kSecXPCOpCanAuthenticate,
     kSecXPCOpPurgeUserCredentials,
     kSecXPCOpDeviceInCircle,
     kSecXPCOpRequestToJoin,
+    kSecXPCOpRequestToJoinWithAnalytics,
     kSecXPCOpRequestToJoinAfterRestore,
+    kSecXPCOpRequestToJoinAfterRestoreWithAnalytics,
     kSecXPCOpResetToOffering,
     kSecXPCOpResetToEmpty,
+    kSecXPCOpResetToEmptyWithAnalytics,
     kSecXPCOpView,
     kSecXPCOpViewSet,
-    kSecXPCOpSecurityProperty,
+    kSecXPCOpViewSetWithAnalytics,
     kSecXPCOpRemoveThisDeviceFromCircle,
+    kSecXPCOpRemoveThisDeviceFromCircleWithAnalytics,
     kSecXPCOpRemovePeersFromCircle,
+    kSecXPCOpRemovePeersFromCircleWithAnalytics,
     kSecXPCOpLoggedOutOfAccount,
     kSecXPCOpBailFromCircle,
     kSecXPCOpAcceptApplicants,
@@ -247,6 +262,7 @@ enum SecXPCOperation {
     kSecXPCOpSetNewPublicBackupKey,
     kSecXPCOpSetBagForAllSlices,
     kSecXPCOpWaitForInitialSync,
+    kSecXPCOpWaitForInitialSyncWithAnalytics,
     kSecXPCOpCopyYetToSyncViews,
     kSecXPCOpSetEscrowRecord,
     kSecXPCOpGetEscrowRecord,
@@ -288,6 +304,7 @@ enum SecXPCOperation {
     sec_item_certificate_exists_id,
     kSecXPCOpBackupKeybagAdd,
     kSecXPCOpBackupKeybagDelete,
+    kSecXPCOpSFKeychainEndpoint,
     kSecXPCOpKeychainControlEndpoint,
     kSecXPCOpTLSAnaltyicsReport,
 };
@@ -340,34 +357,34 @@ struct securityd {
     bool (*soscc_TryUserCredentials)(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
     bool (*soscc_SetUserCredentials)(CFStringRef user_label, CFDataRef user_password, CFErrorRef *error);
     bool (*soscc_SetUserCredentialsAndDSID)(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
+     bool (*soscc_SetUserCredentialsAndDSIDWithAnalytics)(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFDataRef parentEvent, CFErrorRef *error);
     bool (*soscc_CanAuthenticate)(CFErrorRef *error);
     bool (*soscc_PurgeUserCredentials)(CFErrorRef *error);
     SOSCCStatus (*soscc_ThisDeviceIsInCircle)(CFErrorRef* error);
     bool (*soscc_RequestToJoinCircle)(CFErrorRef* error);
+    bool (*soscc_RequestToJoinCircleWithAnalytics)(CFDataRef parentEvent, CFErrorRef* error);
     bool (*soscc_RequestToJoinCircleAfterRestore)(CFErrorRef* error);
+    bool (*soscc_RequestToJoinCircleAfterRestoreWithAnalytics)(CFDataRef parentEvent, CFErrorRef* error);
     bool (*soscc_RequestEnsureFreshParameters)(CFErrorRef* error);
     CFStringRef (*soscc_GetAllTheRings)(CFErrorRef *error);
     bool (*soscc_ApplyToARing)(CFStringRef ringName, CFErrorRef* error);
     bool (*soscc_WithdrawlFromARing)(CFStringRef ringName, CFErrorRef* error);
     bool (*soscc_EnableRing)(CFStringRef ringName, CFErrorRef* error);
     SOSRingStatus (*soscc_RingStatus)(CFStringRef ringName, CFErrorRef* error);
-    CFStringRef (*soscc_CopyDeviceID)(CFErrorRef* error);
-    bool (*soscc_SetDeviceID)(CFStringRef IDS, CFErrorRef *error);
-    HandleIDSMessageReason (*soscc_HandleIDSMessage)(CFDictionaryRef IDS, CFErrorRef *error);
-    bool (*soscc_CheckIDSRegistration)(CFStringRef message, CFErrorRef *error);
-    bool (*soscc_PingTest)(CFStringRef message, CFErrorRef *error);
-    bool (*soscc_GetIDSIDFromIDS)(CFErrorRef *error);
     bool (*soscc_SetToNew)(CFErrorRef *error);
     bool (*soscc_ResetToOffering)(CFErrorRef* error);
     bool (*soscc_ResetToEmpty)(CFErrorRef* error);
+    bool (*soscc_ResetToEmptyWithAnalytics)(CFDataRef parentEvent, CFErrorRef* error);
     SOSViewResultCode (*soscc_View)(CFStringRef view, SOSViewActionCode action, CFErrorRef *error);
     bool (*soscc_ViewSet)(CFSetRef enabledViews, CFSetRef disabledViews);
-    SOSSecurityPropertyResultCode (*soscc_SecurityProperty)(CFStringRef property, SOSSecurityPropertyActionCode action, CFErrorRef *error);
+    bool (*soscc_ViewSetWithAnalytics)(CFSetRef enabledViews, CFSetRef disabledViews, CFDataRef parentEvent);
     bool (*soscc_RegisterSingleRecoverySecret)(CFDataRef backupSlice, bool forV0Only, CFErrorRef *error);
     bool (*soscc_RegisterRecoveryPublicKey)(CFDataRef recovery_key, CFErrorRef *error);
     CFDataRef (*soscc_CopyRecoveryPublicKey)(CFErrorRef *error);
     bool (*soscc_RemoveThisDeviceFromCircle)(CFErrorRef* error);
+    bool (*soscc_RemoveThisDeviceFromCircleWithAnalytics)(CFDataRef parentEvent, CFErrorRef* error);
     bool (*soscc_RemovePeersFromCircle)(CFArrayRef peers, CFErrorRef* error);
+    bool (*soscc_RemovePeersFromCircleWithAnalytics)(CFArrayRef peers, CFDataRef parentEvent, CFErrorRef* error);
     bool (*soscc_LoggedOutOfAccount)(CFErrorRef* error);
     bool (*soscc_BailFromCircle)(uint64_t limit_in_seconds, CFErrorRef* error);
     bool (*soscc_AcceptApplicants)(CFArrayRef applicants, CFErrorRef* error);
@@ -397,6 +414,7 @@ struct securityd {
     bool   (*sec_set_circle_log_settings)(CFTypeRef type, CFErrorRef* error);
     SOSPeerInfoRef (*soscc_CopyMyPeerInfo)(CFErrorRef*);
     bool (*soscc_WaitForInitialSync)(CFErrorRef*);
+    bool (*soscc_WaitForInitialSyncWithAnalytics)(CFDataRef parentEvent, CFErrorRef *error);
     CFArrayRef (*soscc_CopyYetToSyncViewsList)(CFErrorRef*);
     bool (*soscc_SetEscrowRecords)(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error);
     CFDictionaryRef (*soscc_CopyEscrowRecords)(CFErrorRef *error);
@@ -419,10 +437,8 @@ struct securityd {
     bool (*sec_delete_items_with_access_groups)(CFArrayRef bundleIDs, SecurityClient *client, CFErrorRef *error);
     bool (*soscc_IsThisDeviceLastBackup)(CFErrorRef *error);
     bool (*soscc_requestSyncWithPeerOverKVS)(CFStringRef peerID, CFDataRef message, CFErrorRef *error);
-    bool (*soscc_requestSyncWithPeerOverIDS)(CFStringRef peerID, CFErrorRef *error);
     CFBooleanRef (*soscc_SOSCCPeersHaveViewsEnabled)(CFArrayRef views, CFErrorRef *error);
     bool (*socc_clearPeerMessageKeyInKVS)(CFStringRef peerID, CFErrorRef *error);
-    bool (*soscc_requestSyncWithPeerOverKVSIDOnly)(CFStringRef peerID, CFErrorRef *error);
     bool (*soscc_SOSCCMessageFromPeerIsPending)(SOSPeerInfoRef peer, CFErrorRef* error);
     bool (*soscc_SOSCCSendToPeerIsPending)(SOSPeerInfoRef peer, CFErrorRef* error);
     CFTypeRef (*soscc_status)(void);
@@ -454,6 +470,9 @@ CFArrayRef SecAccessGroupsGetCurrent(void);
 // TODO Rename me
 CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op);
 XPC_RETURNS_RETAINED xpc_object_t securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error);
+typedef void (^securityd_handler_t)(xpc_object_t reply, CFErrorRef error);
+void securityd_message_with_reply_async(xpc_object_t message, dispatch_queue_t replyq,
+										securityd_handler_t handler);
 XPC_RETURNS_RETAINED xpc_object_t securityd_create_message(enum SecXPCOperation op, CFErrorRef *error);
 bool securityd_message_no_error(xpc_object_t message, CFErrorRef *error);
 
@@ -461,6 +480,10 @@ bool securityd_message_no_error(xpc_object_t message, CFErrorRef *error);
 bool securityd_send_sync_and_do(enum SecXPCOperation op, CFErrorRef *error,
                                 bool (^add_to_message)(xpc_object_t message, CFErrorRef* error),
                                 bool (^handle_response)(xpc_object_t response, CFErrorRef* error));
+
+void securityd_send_async_and_do(enum SecXPCOperation op, dispatch_queue_t replyq,
+								 bool (^add_to_message)(xpc_object_t message, CFErrorRef* error),
+								 securityd_handler_t handler);
 
 // For testing only, never call this in a threaded program!
 void SecServerSetTrustdMachServiceName(const char *name);

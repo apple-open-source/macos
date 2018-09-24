@@ -114,7 +114,7 @@ static std::unique_ptr<RuleSet> makeRuleSet(const Vector<RuleFeature>& rules)
         return nullptr;
     auto ruleSet = std::make_unique<RuleSet>();
     for (size_t i = 0; i < size; ++i)
-        ruleSet->addRule(rules[i].rule, rules[i].selectorIndex);
+        ruleSet->addRule(rules[i].rule, rules[i].selectorIndex, rules[i].selectorListIndex);
     ruleSet->shrinkToFit();
     return ruleSet;
 }
@@ -167,36 +167,67 @@ void DocumentRuleSets::collectFeatures() const
     m_siblingRuleSet = makeRuleSet(m_features.siblingRules);
     m_uncommonAttributeRuleSet = makeRuleSet(m_features.uncommonAttributeRules);
 
-    m_ancestorClassRuleSets.clear();
-    m_ancestorAttributeRuleSetsForHTML.clear();
+    m_classInvalidationRuleSets.clear();
+    m_attributeInvalidationRuleSets.clear();
+    m_cachedHasComplexSelectorsForStyleAttribute = std::nullopt;
 
     m_features.shrinkToFit();
 }
 
-RuleSet* DocumentRuleSets::ancestorClassRules(const AtomicString& className) const
+static Vector<InvalidationRuleSet>* ensureInvalidationRuleSets(const AtomicString& key, HashMap<AtomicString, std::unique_ptr<Vector<InvalidationRuleSet>>>& ruleSetMap, const HashMap<AtomicString, std::unique_ptr<Vector<RuleFeature>>>& ruleFeatures)
 {
-    auto addResult = m_ancestorClassRuleSets.add(className, nullptr);
-    if (addResult.isNewEntry) {
-        if (auto* rules = m_features.ancestorClassRules.get(className))
-            addResult.iterator->value = makeRuleSet(*rules);
-    }
-    return addResult.iterator->value.get();
+    return ruleSetMap.ensure(key, [&] () -> std::unique_ptr<Vector<InvalidationRuleSet>> {
+        auto* features = ruleFeatures.get(key);
+        if (!features)
+            return nullptr;
+
+        std::array<std::unique_ptr<RuleSet>, matchElementCount> matchElementArray;
+        std::array<Vector<const CSSSelector*>, matchElementCount> invalidationSelectorArray;
+        for (auto& feature : *features) {
+            auto arrayIndex = static_cast<unsigned>(*feature.matchElement);
+            auto& ruleSet = matchElementArray[arrayIndex];
+            if (!ruleSet)
+                ruleSet = std::make_unique<RuleSet>();
+            ruleSet->addRule(feature.rule, feature.selectorIndex, feature.selectorListIndex);
+            if (feature.invalidationSelector)
+                invalidationSelectorArray[arrayIndex].append(feature.invalidationSelector);
+        }
+        auto invalidationRuleSets = std::make_unique<Vector<InvalidationRuleSet>>();
+        for (unsigned i = 0; i < matchElementArray.size(); ++i) {
+            if (matchElementArray[i])
+                invalidationRuleSets->append({ static_cast<MatchElement>(i), WTFMove(matchElementArray[i]), WTFMove(invalidationSelectorArray[i]) });
+        }
+        return invalidationRuleSets;
+    }).iterator->value.get();
 }
 
-const DocumentRuleSets::AttributeRules* DocumentRuleSets::ancestorAttributeRulesForHTML(const AtomicString& attributeName) const
+const Vector<InvalidationRuleSet>* DocumentRuleSets::classInvalidationRuleSets(const AtomicString& className) const
 {
-    auto addResult = m_ancestorAttributeRuleSetsForHTML.add(attributeName, nullptr);
-    auto& value = addResult.iterator->value;
-    if (addResult.isNewEntry) {
-        if (auto* rules = m_features.ancestorAttributeRulesForHTML.get(attributeName)) {
-            value = std::make_unique<AttributeRules>();
-            value->attributeSelectors.reserveCapacity(rules->selectors.size());
-            for (auto* selector : rules->selectors.values())
-                value->attributeSelectors.uncheckedAppend(selector);
-            value->ruleSet = makeRuleSet(rules->features);
+    return ensureInvalidationRuleSets(className, m_classInvalidationRuleSets, m_features.classRules);
+}
+
+const Vector<InvalidationRuleSet>* DocumentRuleSets::attributeInvalidationRuleSets(const AtomicString& attributeName) const
+{
+    return ensureInvalidationRuleSets(attributeName, m_attributeInvalidationRuleSets, m_features.attributeRules);
+}
+
+bool DocumentRuleSets::hasComplexSelectorsForStyleAttribute() const
+{
+    auto compute = [&] {
+        auto* ruleSets = attributeInvalidationRuleSets(HTMLNames::styleAttr->localName());
+        if (!ruleSets)
+            return false;
+        for (auto& ruleSet : *ruleSets) {
+            if (ruleSet.matchElement != MatchElement::Subject)
+                return true;
         }
-    }
-    return value.get();
+        return false;
+    };
+
+    if (!m_cachedHasComplexSelectorsForStyleAttribute)
+        m_cachedHasComplexSelectorsForStyleAttribute = compute();
+
+    return *m_cachedHasComplexSelectorsForStyleAttribute;
 }
 
 } // namespace WebCore

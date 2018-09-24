@@ -44,6 +44,7 @@ extern const CFStringRef kSecCodeInfoCodeDirectory;			/* Internal */
 extern const CFStringRef kSecCodeInfoCodeOffset;			/* Internal */
 extern const CFStringRef kSecCodeInfoDiskRepInfo;           /* Internal */
 extern const CFStringRef kSecCodeInfoResourceDirectory;		/* Internal */
+extern const CFStringRef kSecCodeInfoNotarizationDate;      /* Internal */
 
 extern const CFStringRef kSecCodeInfoDiskRepVersionPlatform;     /* Number */
 extern const CFStringRef kSecCodeInfoDiskRepVersionMin;          /* Number */

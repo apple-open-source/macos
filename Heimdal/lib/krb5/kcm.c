@@ -1576,9 +1576,14 @@ krb5_kcm_get_principal_list(krb5_context context)
     if (ret)
 	return NULL;
 
+    krb5_data_zero(&response_data);
+
     ret = krb5_kcm_call(context, request, &response, &response_data);
     if (ret) {
 	krb5_storage_free(request);
+	if (response)
+	    krb5_storage_free(response);
+	krb5_data_free(&response_data);
 	return NULL;
     }
 

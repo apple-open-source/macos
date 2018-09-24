@@ -149,7 +149,7 @@ fi
  inline int FILTER 	= '$filter';
  inline int TOP 	= '$top';
  inline int PID		= '$pid';
- inline string NAME 	= "'$pname'";
+ inline string NAME 	= "'"$pname"'";
  inline string CLEAR 	= "'$clearstr'";
  
  #pragma D option quiet

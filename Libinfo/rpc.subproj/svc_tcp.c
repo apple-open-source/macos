@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,8 @@ static char *rcsid = "$Id: svc_tcp.c,v 1.6 2004/06/11 16:28:07 majka Exp $";
  * a tcp rendezvouser (a listner and connection establisher)
  * and a record/tcp stream.
  */
+
+#include "libinfo_common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -152,6 +154,7 @@ struct tcp_conn {  /* kept in xprt->xp_p1 */
  * how big the send and receive buffers are via the second and third parms;
  * 0 => use the system default.
  */
+LIBINFO_EXPORT
 SVCXPRT *
 svctcp_create(sock, sendsize, recvsize)
 	register int sock;
@@ -211,6 +214,7 @@ svctcp_create(sock, sendsize, recvsize)
  * Like svtcp_create(), except the routine takes any *open* UNIX file
  * descriptor as its first input.
  */
+LIBINFO_EXPORT
 SVCXPRT *
 svcfd_create(fd, sendsize, recvsize)
 	int fd;

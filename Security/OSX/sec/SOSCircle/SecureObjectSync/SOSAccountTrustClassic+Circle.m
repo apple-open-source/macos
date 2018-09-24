@@ -18,9 +18,9 @@
 
 @implementation SOSAccountTrustClassic (Circle)
 
--(bool) isInCircle:(CFErrorRef *)error
+-(bool) isInCircleOnly:(CFErrorRef *)error
 {
-    SOSCCStatus result = [self getCircleStatus:error];
+    SOSCCStatus result = [self getCircleStatusOnly:error];
     
     if (result != kSOSCCInCircle) {
         SOSErrorCreate(kSOSErrorNoCircle, error, NULL, CFSTR("Not in circle"));
@@ -60,7 +60,7 @@
     
     return kSOSCCNotInCircle;
 }
--(SOSCCStatus) getCircleStatus:(CFErrorRef*) error
+-(SOSCCStatus) getCircleStatusOnly:(CFErrorRef*) error
 {
     return [self thisDeviceStatusInCircle:self.trustedCircle peer:self.peerInfo];
 }
@@ -220,6 +220,415 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
     });
 
     return hasUpdated;
+}
+
+-(bool) handleUpdateCircleWithAnalytics:(SOSCircleRef) prospective_circle transport:(SOSCircleStorageTransport*)circleTransport update:(bool) writeUpdate parentEvent:(NSData*)parentEvent err:(CFErrorRef*)error
+{
+    bool success = true;
+    bool haveOldCircle = true;
+    const char *local_remote = writeUpdate ? "local": "remote";
+
+    NSError* localError = nil;
+    SFSignInAnalytics* parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentEvent error:&localError];
+
+    SOSAccount* account = [circleTransport getAccount];
+
+    secnotice("signing", "start:[%s]", local_remote);
+    if (!account.accountKey || !account.accountKeyIsTrusted) {
+        SOSCreateError(kSOSErrorPublicKeyAbsent, CFSTR("Can't handle updates with no trusted public key here"), NULL, error);
+        return false;
+    }
+
+    if (!prospective_circle) {
+        secerror("##### Can't update to a NULL circle ######");
+        return false; // Can't update one we don't have.
+    }
+
+    // If this is a remote circle, check to see if this is our first opportunity to trust a circle where we
+    // sponsored the only signer.
+    if(!writeUpdate && [ self checkForSponsorshipTrust: prospective_circle ]){
+        SOSCCEnsurePeerRegistration();
+        secnotice("circleop", "Setting key_interests_need_updating to true in handleUpdateCircle");
+        account.key_interests_need_updating = true;
+        return true;
+
+    }
+
+    CFStringRef newCircleName = SOSCircleGetName(prospective_circle);
+
+    SOSCircleRef oldCircle = self.trustedCircle;
+    SOSCircleRef emptyCircle = NULL;
+
+    if(oldCircle == NULL) {
+        SOSCreateErrorWithFormat(kSOSErrorIncompatibleCircle, NULL, error, NULL, CFSTR("Current Entry is NULL; rejecting %@"), prospective_circle);
+        secerror("##### Can't replace circle - we don't care about it ######");
+        return false;
+    }
+    if (CFGetTypeID(oldCircle) != SOSCircleGetTypeID()) {
+        secdebug("signing", ">>>>>>>>>>>>>>>  Non-Circle Circle found <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+        // We don't know what is in our table, likely it was kCFNull indicating we didn't
+        // understand a circle that came by. We seem to like this one lets make our entry be empty circle
+        emptyCircle = SOSCircleCreate(kCFAllocatorDefault, newCircleName, NULL);
+        oldCircle = emptyCircle;
+        haveOldCircle = false;
+        // And we're paranoid, drop our old peer info if for some reason we didn't before.
+        // SOSAccountDestroyCirclePeerInfo(account, oldCircle, NULL);
+    }
+
+    CFErrorRef retiredError = NULL;
+    SFSignInAnalytics *scanForRetiredEvent = [parent newSubTaskForEvent:@"scanForRetiredEvent"];
+    SOSAccountScanForRetired(account, prospective_circle, &retiredError);
+    if(retiredError){
+        [scanForRetiredEvent logRecoverableError:(__bridge NSError*)retiredError];
+        secerror("scan for retired error: %@", retiredError);
+        if(error){
+            *error = retiredError;
+        }else{
+            CFReleaseNull(retiredError);
+        }
+    }
+    [scanForRetiredEvent stopWithAttributes:nil];
+
+    SOSCircleRef newCircle = SOSAccountCloneCircleWithRetirement(account, prospective_circle, error);
+    if(!newCircle) return false;
+
+    SFSignInAnalytics *ghostBustingEvent = [parent newSubTaskForEvent:@"ghostBustingEvent"];
+    if([self ghostBustingOK: oldCircle updatingTo:newCircle]) {
+        SOSCircleRef ghostCleaned = SOSAccountCloneCircleWithoutMyGhosts(account, newCircle);
+        if(ghostCleaned) {
+            CFRetainAssign(newCircle, ghostCleaned);
+            writeUpdate = true;
+        }
+    }
+    [ghostBustingEvent stopWithAttributes:nil];
+
+    SOSFullPeerInfoRef me_full = self.fullPeerInfo;
+    SOSPeerInfoRef     me = SOSFullPeerInfoGetPeerInfo(me_full);
+    CFStringRef        myPeerID = SOSPeerInfoGetPeerID(me);
+    myPeerID = (myPeerID) ? myPeerID: CFSTR("No Peer");
+
+    if (me && SOSCircleUpdatePeerInfo(newCircle, me)) {
+        writeUpdate = true; // If we update our peer in the new circle we should write it if we accept it.
+    }
+
+    typedef enum {
+        accept,
+        countersign,
+        leave,
+        revert,
+        ignore
+    } circle_action_t;
+
+    static const char *actionstring[] = {
+        "accept", "countersign", "leave", "revert", "ignore",
+    };
+
+    circle_action_t circle_action = ignore;
+    enum DepartureReason leave_reason = kSOSNeverLeftCircle;
+
+    SecKeyRef old_circle_key = NULL;
+
+    CFErrorRef verifyCircleError = NULL;
+    SFSignInAnalytics *verifyCircleEvent = [parent newSubTaskForEvent:@"verifyCircleEvent"];
+    if(SOSCircleVerify(oldCircle, account.accountKey, &verifyCircleError)){
+        old_circle_key = account.accountKey;
+    }
+    else if(account.previousAccountKey && SOSCircleVerify(oldCircle, account.previousAccountKey, &verifyCircleError)){
+        old_circle_key = account.previousAccountKey;
+    }
+    if(verifyCircleError){
+        [verifyCircleEvent logRecoverableError:(__bridge NSError*)verifyCircleError];
+        secerror("verifyCircle error: %@", verifyCircleError);
+        if(error){
+            *error = verifyCircleError;
+        }else{
+            CFReleaseNull(verifyCircleError);
+        }
+    }
+    [verifyCircleEvent stopWithAttributes:nil];
+
+    bool userTrustedOldCircle = (old_circle_key != NULL) && haveOldCircle;
+
+    SFSignInAnalytics *concordanceTrustEvent = [parent newSubTaskForEvent:@"concordanceTrustEvent"];
+    CFErrorRef concordanceError = NULL;
+    SOSConcordanceStatus concstat =
+    SOSCircleConcordanceTrust(oldCircle, newCircle,
+                              old_circle_key, account.accountKey,
+                              me, &concordanceError);
+    if(concordanceError){
+        [concordanceTrustEvent logRecoverableError:(__bridge NSError*)concordanceError];
+        secerror("concordance trust error: %@", concordanceError);
+        if(error){
+            *error = concordanceError;
+        }else{
+            CFReleaseNull(concordanceError);
+        }
+    }
+    [concordanceTrustEvent stopWithAttributes:nil];
+
+    CFStringRef concStr = NULL;
+    switch(concstat) {
+        case kSOSConcordanceTrusted:
+            circle_action = countersign;
+            concStr = CFSTR("Trusted");
+            break;
+        case kSOSConcordanceGenOld:
+            circle_action = userTrustedOldCircle ? revert : ignore;
+            concStr = CFSTR("Generation Old");
+            break;
+        case kSOSConcordanceBadUserSig:
+        case kSOSConcordanceBadPeerSig:
+            circle_action = userTrustedOldCircle ? revert : accept;
+            concStr = CFSTR("Bad Signature");
+            break;
+        case kSOSConcordanceNoUserSig:
+            circle_action = userTrustedOldCircle ? revert : accept;
+            concStr = CFSTR("No User Signature");
+            break;
+        case kSOSConcordanceNoPeerSig:
+            circle_action = accept; // We might like this one eventually but don't countersign.
+            concStr = CFSTR("No trusted peer signature");
+            secnotice("signing", "##### No trusted peer signature found, accepting hoping for concordance later");
+            break;
+        case kSOSConcordanceNoPeer:
+            circle_action = leave;
+            leave_reason = kSOSLeftUntrustedCircle;
+            concStr = CFSTR("No trusted peer left");
+            break;
+        case kSOSConcordanceNoUserKey:
+            secerror("##### No User Public Key Available, this shouldn't ever happen!!!");
+            abort();
+            break;
+        default:
+            secerror("##### Bad Error Return from ConcordanceTrust");
+            abort();
+            break;
+    }
+
+    secnotice("signing", "Decided on action [%s] based on concordance state [%@] and [%s] circle.  My PeerID is %@", actionstring[circle_action], concStr, userTrustedOldCircle ? "trusted" : "untrusted", myPeerID);
+
+    SOSCircleRef circleToPush = NULL;
+
+    if (circle_action == leave) {
+        circle_action = ignore; (void) circle_action; // Acknowledge this is a dead store.
+
+        if (me && SOSCircleHasPeer(oldCircle, me, NULL)) {
+            secnotice("account", "Leaving circle with peer %@", me);
+            debugDumpCircle(CFSTR("oldCircle"), oldCircle);
+            debugDumpCircle(CFSTR("newCircle"), newCircle);
+            debugDumpCircle(CFSTR("prospective_circle"), prospective_circle);
+            secnotice("account", "Key state: accountKey %@, previousAccountKey %@, old_circle_key %@",
+                      account.accountKey, account.previousAccountKey, old_circle_key);
+
+            if (sosAccountLeaveCircleWithAnalytics(account, newCircle, parentEvent, error)) {
+                secnotice("circleOps", "Leaving circle by newcircle state");
+                circleToPush = newCircle;
+            } else {
+                secnotice("signing", "Can't leave circle, but dumping identities");
+                success = false;
+            }
+            self.departureCode = leave_reason;
+            circle_action = accept;
+            me = NULL;
+            me_full = NULL;
+        } else {
+            // We are not in this circle, but we need to update account with it, since we got it from cloud
+            secnotice("signing", "We are not in this circle, but we need to update account with it");
+            debugDumpCircle(CFSTR("oldCircle"), oldCircle);
+            debugDumpCircle(CFSTR("newCircle"), newCircle);
+            debugDumpCircle(CFSTR("prospective_circle"), prospective_circle);
+            circle_action = accept;
+        }
+    }
+
+    if (circle_action == countersign) {
+        if (me && SOSCircleHasPeer(newCircle, me, NULL)) {
+            SFSignInAnalytics *verifyPeerSignedEvent = [parent newSubTaskForEvent:@"verifyPeerSignedEvent"];
+            CFErrorRef verifyPeerSignedError = NULL;
+            if (SOSCircleVerifyPeerSigned(newCircle, me, &verifyPeerSignedError)) {
+                secnotice("signing", "Already concur with the new circle");
+            } else {
+                CFErrorRef signing_error = NULL;
+                SFSignInAnalytics *circleConcordanceSignEvent = [parent newSubTaskForEvent:@"circleConcordanceSignEvent"];
+                if (me_full && SOSCircleConcordanceSign(newCircle, me_full, &signing_error)) {
+                    circleToPush = newCircle;
+                    secnotice("signing", "Concurred with new circle");
+                } else {
+                    secerror("Failed to concurrence sign, error: %@", signing_error);
+                    success = false;
+                }
+                if(signing_error){
+                    [circleConcordanceSignEvent logRecoverableError:(__bridge NSError*)signing_error];
+                    secerror("circle concordance sign error: %@", signing_error);
+                    if(error){
+                        *error = signing_error;
+                    }else{
+                        CFReleaseNull(signing_error);
+                    }
+                }
+                [circleConcordanceSignEvent stopWithAttributes:nil];
+                CFReleaseSafe(signing_error);
+            }
+            if(verifyPeerSignedError){
+                [verifyPeerSignedEvent logRecoverableError:(__bridge NSError*)verifyPeerSignedError];
+                secerror("verify peer signed error: %@", verifyPeerSignedError);
+                if(error){
+                    *error = verifyPeerSignedError;
+                }else{
+                    CFReleaseNull(verifyPeerSignedError);
+                }
+            }
+            [verifyPeerSignedEvent stopWithAttributes:nil];
+        } else {
+            secnotice("signing", "Not countersigning, not in new circle");
+        }
+        circle_action = accept;
+    }
+
+    if (circle_action == accept) {
+        if(SOSCircleHasUpdatedPeerInfoWithOctagonKey(oldCircle, newCircle)){
+            notify_post(kSOSCCCircleOctagonKeysChangedNotification);
+        }
+        if (me && SOSCircleHasActivePeer(oldCircle, me, NULL) && !SOSCircleHasPeer(newCircle, me, NULL)) {
+            //  Don't destroy evidence of other code determining reason for leaving.
+            if(![self hasLeft]) self.departureCode = kSOSMembershipRevoked;
+            secnotice("circleOps", "Member of old circle but not of new circle (%d)", self.departureCode);
+            debugDumpCircle(CFSTR("oldCircle"), oldCircle);
+            debugDumpCircle(CFSTR("newCircle"), newCircle);
+        }
+
+        if (me
+            && SOSCircleHasActivePeer(oldCircle, me, NULL)
+            && !(SOSCircleCountPeers(oldCircle) == 1 && SOSCircleHasPeer(oldCircle, me, NULL)) // If it was our offering, don't change ID to avoid ghosts
+            && !SOSCircleHasPeer(newCircle, me, NULL) && !SOSCircleHasApplicant(newCircle, me, NULL)) {
+            secnotice("circle", "Purging my peer (ID: %@) for circle '%@'!!!", SOSPeerInfoGetPeerID(me), SOSCircleGetName(oldCircle));
+            if (self.fullPeerInfo)
+                SOSFullPeerInfoPurgePersistentKey(self.fullPeerInfo, NULL);
+            me = NULL;
+            me_full = NULL;
+        }
+
+        if (me && SOSCircleHasRejectedApplicant(newCircle, me, NULL)) {
+            SOSPeerInfoRef  reject = SOSCircleCopyRejectedApplicant(newCircle, me, NULL);
+            if(CFEqualSafe(reject, me) && SOSPeerInfoApplicationVerify(me, account.accountKey, NULL)) {
+                secnotice("circle", "Rejected, Purging my applicant peer (ID: %@) for circle '%@'", SOSPeerInfoGetPeerID(me), SOSCircleGetName(oldCircle));
+                debugDumpCircle(CFSTR("oldCircle"), oldCircle);
+                debugDumpCircle(CFSTR("newCircle"), newCircle);
+                if (self.fullPeerInfo)
+                    SOSFullPeerInfoPurgePersistentKey(self.fullPeerInfo, NULL);
+                me = NULL;
+                me_full = NULL;
+            } else {
+                secnotice("circle", "Rejected, Reapplying (ID: %@) for circle '%@'", SOSPeerInfoGetPeerID(me), SOSCircleGetName(oldCircle));
+                debugDumpCircle(CFSTR("oldCircle"), oldCircle);
+                debugDumpCircle(CFSTR("newCircle"), newCircle);
+                SOSCircleRequestReadmission(newCircle, account.accountKey, me, NULL);
+                writeUpdate = true;
+            }
+            CFReleaseNull(reject);
+        }
+
+        CFRetainSafe(oldCircle);
+        account.previousAccountKey = account.accountKey;
+
+        secnotice("signing", "%@, Accepting new circle", concStr);
+        if (circle_action == accept) {
+            [self setTrustedCircle:newCircle];
+        }
+
+        if (me && account.accountKeyIsTrusted
+            && SOSCircleHasApplicant(oldCircle, me, NULL)
+            && SOSCircleCountPeers(newCircle) > 0
+            && !SOSCircleHasPeer(newCircle, me, NULL) && !SOSCircleHasApplicant(newCircle, me, NULL)) {
+            // We weren't rejected (above would have set me to NULL.
+            // We were applying and we weren't accepted.
+            // Our application is declared lost, let us reapply.
+
+            secnotice("signing", "requesting readmission to new circle");
+            if (SOSCircleRequestReadmission(newCircle, account.accountKey, me, NULL))
+                writeUpdate = true;
+        }
+
+        if (me && SOSCircleHasActivePeer(oldCircle, me, NULL)) {
+            SFSignInAnalytics *cleanupRetirementTicketsEvent = [parent newSubTaskForEvent:@"cleanupRetirementTicketsEvent"];
+            CFErrorRef cleanupError = NULL;
+            [account.trust cleanupRetirementTickets:account circle:oldCircle time:RETIREMENT_FINALIZATION_SECONDS err:&cleanupError];
+            if(cleanupError){
+                [cleanupRetirementTicketsEvent logRecoverableError:(__bridge NSError*)cleanupError];
+                secerror("cleanup retirement tickets error: %@", cleanupError);
+                if(error){
+                    *error = cleanupError;
+                }else{
+                    CFReleaseNull(cleanupError);
+                }
+            }
+            [cleanupRetirementTicketsEvent stopWithAttributes:nil];
+        }
+
+        SFSignInAnalytics *notifyOfChangeEvent = [parent newSubTaskForEvent:@"notifyOfChangeEvent"];
+        SOSAccountNotifyOfChange(account, oldCircle, newCircle);
+        [notifyOfChangeEvent stopWithAttributes:nil];
+
+        CFReleaseNull(oldCircle);
+
+        if (writeUpdate)
+            circleToPush = newCircle;
+        secnotice("circleop", "Setting key_interests_need_updating to true in handleUpdateCircle");
+        account.key_interests_need_updating = true;
+    }
+
+    /*
+     * In the revert section we'll guard the KVS idea of circles by rejecting "bad" new circles
+     * and pushing our current view of the circle (oldCircle).  We'll only do this if we actually
+     * are a member of oldCircle - never for an empty circle.
+     */
+
+    if (circle_action == revert) {
+        if(haveOldCircle && me && SOSCircleHasActivePeer(oldCircle, me, NULL)) {
+            secnotice("signing", "%@, Rejecting new circle, re-publishing old circle", concStr);
+            circleToPush = oldCircle;
+            [self setTrustedCircle:oldCircle];
+        } else {
+            secnotice("canary", "%@, Rejecting: new circle Have no old circle - would reset", concStr);
+        }
+    }
+
+    if (circleToPush != NULL) {
+        secnotice("signing", "Pushing:[%s]", local_remote);
+        CFDataRef circle_data = SOSCircleCopyEncodedData(circleToPush, kCFAllocatorDefault, error);
+
+        if (circle_data) {
+            // Ensure we flush changes
+            account.circle_rings_retirements_need_attention = true;
+
+            //posting new circle to peers
+            SFSignInAnalytics *postCircleEvent = [parent newSubTaskForEvent:@"postCircleEvent"];
+            CFErrorRef postCircleError = NULL;
+            success &= [circleTransport postCircle:SOSCircleGetName(circleToPush) circleData:circle_data err:&postCircleError];
+            if(postCircleError){
+                [postCircleEvent logRecoverableError:(__bridge NSError*)postCircleError];
+                secerror("posting  circle failed: %@", postCircleError);
+                if(error){
+                    *error = postCircleError;
+                }else{
+                    CFReleaseNull(postCircleError);
+                }
+            }
+            [postCircleEvent stopWithAttributes:nil];
+        } else {
+            success = false;
+        }
+        CFReleaseNull(circle_data);
+    }
+    CFReleaseSafe(newCircle);
+    CFReleaseNull(emptyCircle);
+
+    // There are errors collected above that are soft (worked around)
+    if(success && error && *error) {
+        CFReleaseNull(*error);
+    }
+
+    return success;
 }
 
 -(bool) handleUpdateCircle:(SOSCircleRef) prospective_circle transport:(SOSKVSCircleStorageTransport*)circleTransport update:(bool) writeUpdate err:(CFErrorRef*)error
@@ -416,7 +825,6 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
             }
         } else {
             secnotice("signing", "Not countersigning, not in new circle");
-            debugDumpCircle(CFSTR("circle to countersign"), newCircle);
         }
         circle_action = accept;
     }
@@ -508,8 +916,6 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
     if (circle_action == revert) {
         if(haveOldCircle && me && SOSCircleHasActivePeer(oldCircle, me, NULL)) {
             secnotice("signing", "%@, Rejecting new circle, re-publishing old circle", concStr);
-            debugDumpCircle(CFSTR("oldCircle"), oldCircle);
-            debugDumpCircle(CFSTR("newCircle"), newCircle);
             circleToPush = oldCircle;
             [self setTrustedCircle:oldCircle];
         } else {
@@ -528,8 +934,6 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
             
             //posting new circle to peers
             success &= [circleTransport postCircle:SOSCircleGetName(circleToPush) circleData:circle_data err:error];
-            //cleanup old KVS keys
-            (void) SOSAccountCleanupAllKVSKeys(account, NULL);
         } else {
             success = false;
         }
@@ -554,6 +958,30 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
 -(bool) updateCircle:(SOSKVSCircleStorageTransport*)circleTransport newCircle:(SOSCircleRef) newCircle err:(CFErrorRef*)error
 {
     return [self handleUpdateCircle:newCircle transport:circleTransport update:true err:error];
+}
+
+-(bool) updateCircleWithAnalytics:(SOSKVSCircleStorageTransport*)circleTransport newCircle:(SOSCircleRef) newCircle parentEvent:(NSData*)parentEvent err:(CFErrorRef*)error
+{
+    return [self handleUpdateCircle:newCircle transport:circleTransport update:true err:error];
+}
+
+-(bool) modifyCircleWithAnalytics:(SOSKVSCircleStorageTransport*)circleTransport parentEvent:(NSData*)parentEvent err:(CFErrorRef*)error action:(SOSModifyCircleBlock)block
+{
+    bool success = false;
+    SOSCircleRef circleCopy = NULL;
+    require_action_quiet(self.trustedCircle, fail, SOSErrorCreate(kSOSErrorNoCircle, error, NULL, CFSTR("No circle to get peer key from")));
+
+    circleCopy = SOSCircleCopyCircle(kCFAllocatorDefault, self.trustedCircle, error);
+    require_quiet(circleCopy, fail);
+
+    success = true;
+    require_quiet(block(circleCopy), fail);
+
+    success = [self updateCircleWithAnalytics:circleTransport newCircle:circleCopy parentEvent:parentEvent err:error];
+
+fail:
+    CFReleaseSafe(circleCopy);
+    return success;
 }
 
 -(bool) modifyCircle:(SOSKVSCircleStorageTransport*)circleTransport err:(CFErrorRef*)error action:(SOSModifyCircleBlock)block
@@ -592,7 +1020,11 @@ fail:
                 SOSFullPeerInfoRef icfpi = SOSCircleCopyiCloudFullPeerInfoRef(circle, NULL);
                 if(!icfpi) {
                     SOSAccountRemoveIncompleteiCloudIdentities(account, circle, privKey, NULL);
-                    change |= [self addiCloudIdentity:circle key:privKey err:NULL];
+                    bool identityAdded = [self addiCloudIdentity:circle key:privKey err:NULL];
+                    if(identityAdded) {
+                        account.notifyBackupOnExit = true;
+                    }
+                    change |= identityAdded;
                 } else {
                     CFReleaseNull(icfpi);
                 }
@@ -615,6 +1047,20 @@ fail:
         });
     }
 }
+
+-(bool) leaveCircleWithAccount:(SOSAccount*)account withAnalytics:(NSData*)parentEvent err:(CFErrorRef*) error
+{
+    bool result = true;
+    secnotice("circleOps", "leaveCircleWithAccount: Leaving circle by client request");
+    result &= [self modifyCircle:account.circle_transport err:error action:^(SOSCircleRef circle) {
+        return sosAccountLeaveCircleWithAnalytics(account, circle, parentEvent, error);
+    }];
+
+    self.departureCode = kSOSWithdrewMembership;
+
+    return result;
+}
+
 -(bool) leaveCircle:(SOSAccount*)account err:(CFErrorRef*) error
 {
     bool result = true;
@@ -666,7 +1112,8 @@ fail:
         require_quiet([self addiCloudIdentity:circle key:user_key err:error], err_out);
         result = true;
         SOSAccountPublishCloudParameters(account, NULL);
-        
+        account.notifyBackupOnExit = true;
+
     err_out:
         if (result == false)
             secerror("error resetting circle (%@) to offering: %@", circle, localError);

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)list.c	1.5	05/06/08 SMI"
-
 /*
  * Routines for manipulating linked lists
  */

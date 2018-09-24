@@ -40,7 +40,7 @@ extern "C" {
 extern const CFStringRef kTSAContextKeyURL;         // CFURLRef
 extern const CFStringRef kTSAContextKeyNoCerts;     // CFBooleanRef
 
-OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void  *messageImprint, uint64_t nonce, CSSM_DATA *signedDERBlob);
+OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void  *messageImprint, uint64_t nonce, CSSM_DATA *signedDERBlob) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 CFMutableDictionaryRef SecCmsTSAGetDefaultContext(CFErrorRef *error);
 void SecCmsMessageSetTSAContext(SecCmsMessageRef cmsg, CFTypeRef tsaContext);

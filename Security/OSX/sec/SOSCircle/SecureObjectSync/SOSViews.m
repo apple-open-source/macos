@@ -220,6 +220,73 @@ CFSetRef SOSViewsGetAllCurrent(void) {
     return allViews;
 }
 
+static CFDictionaryRef SOSViewsGetBitmasks(void) {
+    static dispatch_once_t once;
+    static CFMutableDictionaryRef masks = NULL;
+
+    dispatch_once(&once, ^{
+        CFSetRef views = SOSViewsGetAllCurrent();
+        CFMutableArrayRef viewArray = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+        CFSetForEach(views, ^(const void *value) {
+            CFStringRef viewName = (CFStringRef) value;
+            CFArrayAppendValue(viewArray, viewName);
+        });
+        CFIndex viewCount = CFArrayGetCount(viewArray);
+        if(viewCount > 32) {
+            secnotice("views", "Too many views defined, can't make bitmask (%d)", (int) viewCount);
+        } else {
+            __block uint32_t maskValue = 1;
+            CFRange all = CFRangeMake(0, viewCount);
+            CFArraySortValues(viewArray, all, (CFComparatorFunction)CFStringCompare, NULL);
+            masks = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFCopyStringDictionaryKeyCallBacks, NULL);
+            CFArrayForEach(viewArray, ^(const void *value) {
+                CFDictionaryAddValue(masks, value, (const void *) (uintptr_t) maskValue);
+                maskValue <<= 1;
+            });
+        }
+        CFReleaseNull(viewArray);
+    });
+    return masks;
+}
+
+static uint64_t SOSViewBitmaskFromSet(CFSetRef views) {
+    __block uint64_t retval = 0;
+    CFDictionaryRef masks = SOSViewsGetBitmasks();
+    if(masks) {
+        CFSetForEach(views, ^(const void *viewName) {
+            uint64_t viewMask = (uint64_t) CFDictionaryGetValue(masks, viewName);
+            retval |= viewMask;
+        });
+    }
+    return retval;
+}
+
+uint64_t SOSPeerInfoViewBitMask(SOSPeerInfoRef pi) {
+    __block uint64_t retval = 0;
+    CFSetRef views = SOSPeerInfoCopyEnabledViews(pi);
+    if(views) {
+        retval = SOSViewBitmaskFromSet(views);
+        CFReleaseNull(views);
+    }
+    return retval;
+}
+
+CFSetRef SOSViewCreateSetFromBitmask(uint64_t bitmask) {
+    CFMutableSetRef retval = NULL;
+    CFDictionaryRef masks = SOSViewsGetBitmasks();
+    if(masks) {
+        retval = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
+        CFDictionaryForEach(masks, ^(const void *key, const void *value) {
+            CFStringRef viewName = (CFStringRef) key;
+            uint64_t viewMask = (uint64_t) value;
+            if(bitmask & viewMask) {
+                CFSetAddValue(retval, viewName);
+            }
+        });
+    }
+    return retval;
+}
+
 const char *SOSViewsXlateAction(SOSViewActionCode action) {
     switch(action) {
         case kSOSCCViewEnable: return "kSOSCCViewEnable";

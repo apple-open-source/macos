@@ -1,8 +1,3 @@
-/* return.c, created from return.def. */
-#line 23 "return.def"
-
-#line 31 "return.def"
-
 #include <config.h>
 
 #if defined (HAVE_UNISTD_H)

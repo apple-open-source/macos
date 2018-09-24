@@ -281,7 +281,7 @@ EAPSIMAKAAttributeType
 EAPSIMAKAIdentityTypeGetAttributeType(CFStringRef string);
 
 EAPSIMAKAEncryptedIdentityInfoRef
-EAPSIMAKAInitEncryptedIdentityInfo(CFDictionaryRef properties, bool static_config);
+EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, bool static_config);
 
 void
 EAPSIMAKAClearEncryptedIdentityInfo(EAPSIMAKAEncryptedIdentityInfoRef info);

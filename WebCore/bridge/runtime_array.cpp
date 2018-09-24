@@ -26,10 +26,10 @@
 #include "config.h"
 #include "runtime_array.h"
 
-#include <runtime/ArrayPrototype.h>
-#include <runtime/Error.h>
-#include <runtime/PropertyNameArray.h>
 #include "JSDOMBinding.h"
+#include <JavaScriptCore/ArrayPrototype.h>
+#include <JavaScriptCore/Error.h>
+#include <JavaScriptCore/PropertyNameArray.h>
 
 using namespace WebCore;
 
@@ -65,7 +65,7 @@ EncodedJSValue RuntimeArray::lengthGetter(ExecState* exec, EncodedJSValue thisVa
     VM& vm = exec->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    RuntimeArray* thisObject = jsDynamicDowncast<RuntimeArray*>(vm, JSValue::decode(thisValue));
+    RuntimeArray* thisObject = jsDynamicCast<RuntimeArray*>(vm, JSValue::decode(thisValue));
     if (!thisObject)
         return throwVMTypeError(exec, scope);
     return JSValue::encode(jsNumber(thisObject->getLength()));

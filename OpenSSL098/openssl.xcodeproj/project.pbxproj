@@ -7657,6 +7657,7 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 0.9.8;
 				DYLIB_CURRENT_VERSION = 0.9.8;
+				EXCLUDED_INSTALLSRC_SUBDIRECTORY_PATTERNS = ".rnd OpenSSL.mcp.hqx OpenSSL.mcp openssl-0.9.8zd.tar.gz openssl-0.9.8zf.tar.gz openssl-0.9.8zg.tar.gz";
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_PREPROCESSOR_DEFINITIONS = "";

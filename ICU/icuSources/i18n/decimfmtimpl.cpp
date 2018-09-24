@@ -112,7 +112,8 @@ DecimalFormatImpl::DecimalFormatImpl(
           fEffGrouping(other.fEffGrouping),
           fOptions(other.fOptions),
           fFormatter(other.fFormatter),
-          fAffixes(other.fAffixes) {
+          fAffixes(other.fAffixes),
+          fFormatFullPrecision(other.fFormatFullPrecision) {
     fSymbols = new DecimalFormatSymbols(*fSymbols);
     if (fSymbols == NULL && U_SUCCESS(status)) {
         status = U_MEMORY_ALLOCATION_ERROR;
@@ -153,6 +154,7 @@ DecimalFormatImpl::assign(const DecimalFormatImpl &other, UErrorCode &status) {
     fOptions = other.fOptions;
     fFormatter = other.fFormatter;
     fAffixes = other.fAffixes;
+    fFormatFullPrecision = other.fFormatFullPrecision;
     *fSymbols = *other.fSymbols;
     if (fRules != NULL && other.fRules != NULL) {
         *fRules = *other.fRules;
@@ -199,7 +201,8 @@ DecimalFormatImpl::operator==(const DecimalFormatImpl &other) const {
             && ((fRules == other.fRules) || (
                     (fRules != NULL) && (other.fRules != NULL)
                     && (*fRules == *other.fRules)))
-            && (fMonetary == other.fMonetary);
+            && (fMonetary == other.fMonetary)
+            && (fFormatFullPrecision == other.fFormatFullPrecision);
 }
 
 DecimalFormatImpl::~DecimalFormatImpl() {
@@ -299,6 +302,10 @@ UBool DecimalFormatImpl::maybeInitVisibleDigitsFromDigitList(
         T number,
         VisibleDigitsWithExponent &visibleDigits,
         UErrorCode &status) const {
+
+    // for <rdar://problem/39240173>, don't need to do the following
+    // below since we don't take those paths; should we anyway?
+    //  digits.fFormatFullPrecision = fFormatFullPrecision;
     if (!fMultiplier.isZero()) {
         DigitList digits;
         digits.set(number);
@@ -521,11 +528,12 @@ static FixedDecimal &initFixedDecimal(
         const VisibleDigits &digits, FixedDecimal &result) {
     result.source = 0.0;
     result.isNegative = digits.isNegative();
-    result.isNanOrInfinity = digits.isNaNOrInfinity();
+    result._isNaN = digits.isNaN();
+    result._isInfinite = digits.isInfinite();
     digits.getFixedDecimal(
             result.source, result.intValue, result.decimalDigits,
             result.decimalDigitsWithoutTrailingZeros,
-            result.visibleDecimalDigitCount, result.hasIntegerValue);
+            result.visibleDecimalDigitCount, result._hasIntegerValue);
     return result;
 }
 
@@ -582,6 +590,7 @@ DecimalFormatImpl::initVisibleDigitsWithExponent(
         fEffPrecision.initVisibleDigitsWithExponent(
                 number, digits, status);
     } else {
+        digits.setFormatFullPrecision(fFormatFullPrecision); // Apple
         fEffPrecision.fMantissa.initVisibleDigitsWithExponent(
                 number, digits, status);
     }
@@ -1309,6 +1318,7 @@ DecimalFormatImpl::updateAll(
     updateFormatting(
             formattingFlags, updatePrecisionBasedOnCurrency, status);
     setMultiplierScale(getPatternScale());
+    fFormatFullPrecision = FALSE;
 }
 
 
@@ -1382,8 +1392,8 @@ DecimalFormatImpl::toNumberPattern(
     DigitInterval maxInterval;
 
     // Only for significant digits
-    int32_t sigMin;
-    int32_t sigMax;
+    int32_t sigMin = 0; /* initialize to avoid compiler warning */
+    int32_t sigMax = 0; /* initialize to avoid compiler warning */
 
     // These are all the digits to be displayed. For significant digits,
     // this interval always starts at the 1's place an extends left.

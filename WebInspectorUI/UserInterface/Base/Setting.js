@@ -103,10 +103,6 @@ WI.Setting.Event = {
 };
 
 WI.settings = {
-    autoLogProtocolMessages: new WI.Setting("auto-collect-protocol-messages", false),
-    autoLogTimeStats: new WI.Setting("auto-collect-time-stats", false),
-    enableUncaughtExceptionReporter: new WI.Setting("enable-uncaught-exception-reporter", true),
-    enableLayoutFlashing: new WI.Setting("enable-layout-flashing", false),
     enableLineWrapping: new WI.Setting("enable-line-wrapping", false),
     indentUnit: new WI.Setting("indent-unit", 4),
     tabSize: new WI.Setting("tab-size", 4),
@@ -116,14 +112,26 @@ WI.settings = {
     clearLogOnNavigate: new WI.Setting("clear-log-on-navigate", true),
     clearNetworkOnNavigate: new WI.Setting("clear-network-on-navigate", true),
     zoomFactor: new WI.Setting("zoom-factor", 1),
-    layoutDirection: new WI.Setting("layout-direction-override", "system"),
     showScopeChainOnPause: new WI.Setting("show-scope-chain-sidebar", true),
     showImageGrid: new WI.Setting("show-image-grid", false),
     showCanvasPath: new WI.Setting("show-canvas-path", false),
     selectedNetworkDetailContentViewIdentifier: new WI.Setting("network-detail-content-view-identifier", "preview"),
+    showRulers: new WI.Setting("show-rulers", false),
 
     // Experimental
     experimentalEnableLayersTab: new WI.Setting("experimental-enable-layers-tab", false),
+    experimentalEnableSourcesTab: new WI.Setting("experimental-enable-sources-bar", false),
     experimentalLegacyStyleEditor: new WI.Setting("experimental-legacy-style-editor", false),
     experimentalLegacyVisualSidebar: new WI.Setting("experimental-legacy-visual-sidebar", false),
+    experimentalEnableNewTabBar: new WI.Setting("experimental-enable-new-tab-bar", false),
+    experimentalEnableAccessibilityAuditTab: new WI.Setting("experimental-enable-accessibility-audit-tab", false),
+    experimentalRecordingHasVisualEffect: new WI.Setting("experimental-recording-has-visual-effect", false),
+
+    // DebugUI
+    autoLogProtocolMessages: new WI.Setting("auto-collect-protocol-messages", false),
+    autoLogTimeStats: new WI.Setting("auto-collect-time-stats", false),
+    enableUncaughtExceptionReporter: new WI.Setting("enable-uncaught-exception-reporter", true),
+    enableLayoutFlashing: new WI.Setting("enable-layout-flashing", false),
+    layoutDirection: new WI.Setting("layout-direction-override", "system"),
+    pauseForInternalScripts: new WI.Setting("pause-for-internal-scripts", false),
 };

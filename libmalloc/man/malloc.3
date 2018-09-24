@@ -183,10 +183,13 @@ The recognized environment variables and their meanings are documented below.
 The following environment variables change the behavior of the
 allocation-related functions.
 .Bl -tag -width ".Ev MallocStackLoggingNoCompact"
-.It Ev MallocLogFile <f>
-Create/append messages to the given file path
-.Fa <f>
-instead of writing to the standard error.
+.It Ev MallocDebugReport
+If set, specifies where messages are written. Set to "stderr" to write messages
+to the standard error stream, "none" to discard all messages and "crash" to
+write messages to standard error only for a condition that is about to cause a
+crash. When not set, message are written to the standard error stream if it
+appears to be a terminal (that is, if isatty(STDERR_FILENO) returns a non-zero
+value) and are otherwise discarded.
 .It Ev MallocGuardEdges
 If set, add a guard page before and after each large block.
 .It Ev MallocDoNotProtectPrelude
@@ -227,7 +230,9 @@ This increases the likelihood that a program making assumptions about the conten
 freshly allocated memory will fail.
 Also if set, fill memory that has been deallocated with 0x55 bytes.
 This increases the likelihood that a program will fail due to accessing memory
-that is no longer allocated.
+that is no longer allocated. Note that due to the way in which freed memory is
+managed internally, the 0x55 pattern may not appear in some parts of a
+deallocated memory block.
 .It Ev MallocCheckHeapStart <s>
 If set, specifies the number of allocations
 .Fa <s>

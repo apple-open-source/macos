@@ -20,11 +20,11 @@ typedef void *tls_stream_parser_ctx_t;
 typedef int
 (*tls_stream_parser_process_callback_t) (tls_stream_parser_ctx_t ctx, tls_buffer record);
 
-tls_stream_parser_t
+CORETLS_EXTERN tls_stream_parser_t
 tls_stream_parser_create(tls_stream_parser_ctx_t ctx,
                          tls_stream_parser_process_callback_t process);
 
-void
+CORETLS_EXTERN void
 tls_stream_parser_destroy(tls_stream_parser_t parser);
 
 /* For TLS Only:
@@ -32,7 +32,7 @@ tls_stream_parser_destroy(tls_stream_parser_t parser);
  - call the process callback for every record.
  - buffer the remainder if any.
  */
-int
+CORETLS_EXTERN int
 tls_stream_parser_parse(tls_stream_parser_t parser,
                         tls_buffer data);
 

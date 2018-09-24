@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dump.c	1.12	05/06/08 SMI"
-
 #if !defined(__APPLE__)
 #include <sys/types.h>
 #include <sys/sysmacros.h>

@@ -122,6 +122,10 @@ eu{
             "CLP",
             "Txileko pesoa",
         }
+        CNH{
+            "CNH",
+            "yuan txinatar (itsasoz haraindikoa)",
+        }
         CNY{
             "CN¥",
             "Txinako yuana",
@@ -385,6 +389,10 @@ eu{
         }
         MRO{
             "MRO",
+            "Mauritaniako ouguiya (1973–2017)",
+        }
+        MRU{
+            "MRU",
             "Mauritaniako ouguiya",
         }
         MUR{
@@ -533,6 +541,10 @@ eu{
         }
         STD{
             "STD",
+            "Sao Tomeko eta Principeko dobra (1977–2017)",
+        }
+        STN{
+            "STN",
             "Sao Tomeko eta Principeko dobra",
         }
         SYP{
@@ -731,7 +743,7 @@ eu{
         SHP{"£"}
         SRD{"$"}
         SSP{"£"}
-        STD{"Db"}
+        STN{"Db"}
         SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
@@ -870,6 +882,10 @@ eu{
         CLP{
             one{"Txileko peso"}
             other{"Txileko peso"}
+        }
+        CNH{
+            one{"yuan txinatar (itsasoz haraindikoa)"}
+            other{"yuan txinatar (itsasoz haraindikoa)"}
         }
         CNY{
             one{"Txinako yuan"}
@@ -1120,6 +1136,10 @@ eu{
             other{"Macanako pataca"}
         }
         MRO{
+            one{"Mauritaniako ouguiya (1973–2017)"}
+            other{"Mauritaniako ouguiya (1973–2017)"}
+        }
+        MRU{
             one{"Mauritaniako ouguiya"}
             other{"Mauritaniako ouguiya"}
         }
@@ -1268,6 +1288,10 @@ eu{
             other{"Hego Sudango libera"}
         }
         STD{
+            one{"Sao Tomeko eta Principeko dobra (1977–2017)"}
+            other{"Sao Tomeko eta Principeko dobra (1977–2017)"}
+        }
+        STN{
             one{"Sao Tomeko eta Principeko dobra"}
             other{"Sao Tomeko eta Principeko dobra"}
         }
@@ -1388,5 +1412,5 @@ eu{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

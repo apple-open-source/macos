@@ -244,7 +244,7 @@ static void __DAMain( void )
      * Initialize log.
      */
 
-    DALogOpen( gDAProcessName, __gDAOptionDebug, TRUE, TRUE );
+    DALogOpen( gDAProcessName, __gDAOptionDebug, TRUE );
 
     /*
      * Initialize process ID.

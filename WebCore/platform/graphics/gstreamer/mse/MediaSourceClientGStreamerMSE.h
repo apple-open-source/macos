@@ -22,7 +22,7 @@
 
 #if ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(MEDIA_SOURCE)
 
-#include "GRefPtrGStreamer.h"
+#include "GStreamerCommon.h"
 #include "MediaSourcePrivate.h"
 #include "MediaSourcePrivateClient.h"
 #include "WebKitMediaSourceGStreamer.h"
@@ -52,6 +52,7 @@ public:
     void removedFromMediaSource(RefPtr<SourceBufferPrivateGStreamer>);
     void flush(AtomicString);
     void enqueueSample(Ref<MediaSample>&&);
+    void allSamplesInTrackEnqueued(const AtomicString&);
 
     void clearPlayerPrivate();
 

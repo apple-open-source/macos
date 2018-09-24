@@ -64,21 +64,6 @@ RenderFragmentedFlow::RenderFragmentedFlow(Document& document, RenderStyle&& sty
     setIsRenderFragmentedFlow(true);
 }
 
-RenderStyle RenderFragmentedFlow::createFragmentedFlowStyle(const RenderStyle* parentStyle)
-{
-    auto newStyle = RenderStyle::create();
-    newStyle.inheritFrom(*parentStyle);
-    newStyle.setDisplay(BLOCK);
-    newStyle.setPosition(AbsolutePosition);
-    newStyle.setZIndex(0);
-    newStyle.setLeft(Length(0, Fixed));
-    newStyle.setTop(Length(0, Fixed));
-    newStyle.setWidth(Length(100, Percent));
-    newStyle.setHeight(Length(100, Percent));
-    newStyle.fontCascade().update(nullptr);
-    return newStyle;
-}
-
 void RenderFragmentedFlow::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderBlockFlow::styleDidChange(diff, oldStyle);
@@ -806,7 +791,7 @@ void RenderFragmentedFlow::updateFragmentsFragmentedFlowPortionRect()
 
         fragment->setFragmentedFlowPortionRect(isHorizontalWritingMode() ? fragmentRect : fragmentRect.transposedRect());
 
-        m_fragmentIntervalTree.add(FragmentIntervalTree::createInterval(logicalHeight, logicalHeight + fragmentLogicalHeight, fragment));
+        m_fragmentIntervalTree.add(FragmentIntervalTree::createInterval(logicalHeight, logicalHeight + fragmentLogicalHeight, makeWeakPtr(fragment)));
 
         logicalHeight += fragmentLogicalHeight;
     }

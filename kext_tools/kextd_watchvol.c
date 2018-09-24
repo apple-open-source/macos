@@ -105,10 +105,12 @@ extern uint32_t notify_get_event(int token, int *ev, char *buf, int *len);
 #include "kextd_watchvol.h"             // kextd_watch_volumes
 #include "kextd_globals.h"              // gClientUID
 #include "kextd_usernotification.h"     // kextd_raise_notification
+#include "kext_tools_util.h"            // logging helpers
 #include "bootcaches.h"                 // struct bootCaches
 #include "bootroot.h"                   // BRBLLogFunc (only, for now)
 #include "kextmanager_async.h"          // lock_*_reply()
 #include "safecalls.h"                  // sdeepunlink
+#include "signposts.h"                  // signpost helpers
 
 
 // constants
@@ -507,10 +509,30 @@ cleanupPort(CFMachPortRef *port)
 {
     mach_port_t lport;
 
-    if (sReplyPorts)
-        CFDictionaryRemoveValue(sReplyPorts, *port); // stop tracking replyPort
-    CFMachPortSetInvalidationCallBack(*port, NULL);  // else port_died called
     lport = CFMachPortGetPort(*port);
+
+    /*
+     * invalidate the port and cancel the dead name notification
+     * NOTE: all these operations are synchronized by the main runloop.
+     */
+    if (CFMachPortIsValid(*port)) {
+        /* don't recursively call port_died()! */
+        CFMachPortSetInvalidationCallBack(*port, NULL);
+        CFMachPortInvalidate(*port);
+    }
+
+    if (sReplyPorts) {
+        mach_port_t replyPort;
+        // The dictionary value associated with '*port' is actually a send-once
+        // right that we need to release on a dead name notification
+        replyPort = (mach_port_t)(intptr_t)CFDictionaryGetValue(sReplyPorts, *port);
+        if (replyPort != MACH_PORT_NULL) {
+            // just consume the right - the client has died anyways.
+            mach_port_deallocate(mach_task_self(), replyPort);
+        }
+        CFDictionaryRemoveValue(sReplyPorts, *port);
+    }
+
     CFRelease(*port);
     *port = NULL;
 
@@ -581,8 +603,8 @@ static void handleWatchedHandoff(struct watchedVol *watched)
     if (watched->lock)
         cleanupPort(&watched->lock);
 
+retry:
     // see if we have any waiters
-    // XX should have a loop that can try multiple waiters
     if (watched->waiters && CFArrayGetCount(watched->waiters)) {
         waiter = (CFMachPortRef)CFArrayGetValueAtIndex(watched->waiters, 0);
 
@@ -595,8 +617,9 @@ static void handleWatchedHandoff(struct watchedVol *watched)
 
         // signal the waiter, cleaning up on failure
         if (signalWaiter(waiter, KERN_SUCCESS)) {
-            // XX should loop back to try next waiter if this one failed
+            // loop back to try next waiter if this one failed
             cleanupPort(&watched->lock);    // deallocates former waiter
+            goto retry;
         }
     }
 }
@@ -808,11 +831,13 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
     CFUUIDRef volUUID;
     struct watchedVol *watched = NULL;
     Boolean launched = false;
+    os_signpost_id_t spid = generate_signpost_id();
 
     struct bootCaches *caches;
     int i;
     char path[PATH_MAX];
 
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_VOLUME_APPEARED);
     OSKextLogCFString(NULL, kOSKextLogDebugLevel | kOSKextLogIPCFlag,
                       CFSTR("%s(%@)"), __FUNCTION__, disk);
 
@@ -843,6 +868,7 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
 
     // XX when DA calls vol_appeared(), the volume will always be unmounted ??
     volURL = CFDictionaryGetValue(ddesc, kDADiskDescriptionVolumePathKey);
+    os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_VOLUME_URL, "%@", volURL);
     if (!volURL)        goto finish;    // ignore unmounted volumes
 
     // 7628429: ignore read-only filesystems (which might be on writable media)
@@ -950,7 +976,7 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
 
 finish:
     if (ddesc)   CFRelease(ddesc);
-
+    os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_VOLUME_WATCHED, "%d", watched != NULL);
     if (result) {
         if (watched) {
             OSKextLog(/* kext */ NULL,
@@ -960,7 +986,7 @@ finish:
             destroy_watchedVol(watched);
         }
     }
-
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_VOLUME_APPEARED);
     return;
 }
 
@@ -1058,8 +1084,11 @@ static void vol_changed(DADiskRef disk, CFArrayRef keys, void* ctx)
     CFIndex i = CFArrayGetCount(keys);
     CFDictionaryRef ddesc = NULL;
     CFUUIDRef volUUID;
+    CFURLRef volURL = NULL;
     struct watchedVol *watched;
+    os_signpost_id_t spid = generate_signpost_id();
 
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_VOLUME_CHANGED);
     OSKextLogCFString(NULL, kOSKextLogDebugLevel | kOSKextLogIPCFlag,
                       CFSTR("%s(%@, keys[0] = %@)"), __FUNCTION__, disk,
                       CFArrayGetValueAtIndex(keys,0));
@@ -1067,6 +1096,9 @@ static void vol_changed(DADiskRef disk, CFArrayRef keys, void* ctx)
     if (!disk)     goto finish;
     ddesc = DADiskCopyDescription(disk);
     if (!ddesc)     goto finish;
+
+    volURL = CFDictionaryGetValue(ddesc, kDADiskDescriptionVolumePathKey);
+    os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_VOLUME_URL, "%@", volURL);
 
     // if it doesn't have a UUID, we can't have or set up a watch for it
     volUUID = CFDictionaryGetValue(ddesc, kDADiskDescriptionVolumeUUIDKey);
@@ -1109,6 +1141,7 @@ static void vol_changed(DADiskRef disk, CFArrayRef keys, void* ctx)
 
 finish:
     if (ddesc)  CFRelease(ddesc);
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_VOLUME_CHANGED);
 }
 
 /******************************************************************************
@@ -1121,8 +1154,11 @@ static void vol_disappeared(DADiskRef disk, void* ctx)
     // we used to report errors, but we got weird requests (4528851)
     CFDictionaryRef ddesc = NULL;
     CFUUIDRef volUUID;
+    CFURLRef volURL = NULL;
     struct watchedVol *watched;
+    os_signpost_id_t spid = generate_signpost_id();
 
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_VOLUME_DISAPPEARED);
     OSKextLogCFString(NULL, kOSKextLogDebugLevel | kOSKextLogIPCFlag,
                       CFSTR("%s(%@)"), __FUNCTION__, disk);
 
@@ -1130,6 +1166,8 @@ static void vol_disappeared(DADiskRef disk, void* ctx)
     if (!disk)      goto finish;
     ddesc = DADiskCopyDescription(disk);
     if (!ddesc)     goto finish;
+    volURL = CFDictionaryGetValue(ddesc, kDADiskDescriptionVolumePathKey);
+    os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_VOLUME_URL, "%@", volURL);
     volUUID = CFDictionaryGetValue(ddesc, kDADiskDescriptionVolumeUUIDKey);
     if (!volUUID)   goto finish;
     watched = (void*)CFDictionaryGetValue(sFsysWatchDict, volUUID);
@@ -1179,7 +1217,7 @@ static void vol_disappeared(DADiskRef disk, void* ctx)
 
 finish:
     if (ddesc)  CFRelease(ddesc);
-
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_VOLUME_DISAPPEARED);
     return;
 }
 
@@ -1201,6 +1239,15 @@ is_dadisk_busy(DADiskRef disk, void *ctx)
     // XX change to kOSKextLogDetailLevel
     OSKextLogCFString(NULL, kOSKextLogDebugLevel | kOSKextLogIPCFlag,
                       CFSTR("%s(%@)"), __FUNCTION__, disk);
+
+    // 37135736 - don't dissent any mounts while in the install environment
+    // booted into the BaseSystem
+    if (getenv("__OSINSTALL_ENVIRONMENT") != NULL) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogWarningLevel | kOSKextLogIPCFlag,
+            "is_dadisk_busy won't dissent an unmount in the install environment");
+        goto finish;
+    }
 
     if (!disk)      goto finish;
     ddesc = DADiskCopyDescription(disk);
@@ -1518,6 +1565,9 @@ static Boolean check_rebuild(struct watchedVol *watched)
     char *  suffixPtr           = NULL; // must free
     char *  tmpKernelPath       = NULL; // must free
 #endif
+    os_signpost_id_t spid       = generate_signpost_id();
+
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_CHECK_REBUILD);
 
     // if we came in some other way and there's a timer pending, cancel it
     if (watched->delayer) {
@@ -1629,6 +1679,7 @@ finish:
     SAFE_FREE(tmpKernelPath);
     SAFE_FREE(suffixPtr);
 #endif
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_CHECK_REBUILD);
     return launched;
 }
 
@@ -1653,33 +1704,43 @@ static void check_locked(const void *key, const void *val, void *ctx)
     }
 }
 
-// create a CFMachPort with invalidation -> port_died
+static void watchedPortInvalidate_cb(CFMachPortRef port_ref, void *info)
+{
+    /*
+     * When a dead name notification is received, this callback will happen on
+     * the main thread, *not* on the special mach port queue setup by the
+     * CFMachPort* APIs. This synchronizes the port_died() operation with
+     * another call to cleanupPort() by setting the invalidation callback to
+     * NULL in cleanupPort (called from port_died).
+     */
+    port_died(port_ref, info);
+}
+
+// create a CFMachPort with dead name notifications that call port_died
 static CFMachPortRef
 createWatchedPort(mach_port_t mport, void *ctx)
 {
-    CFMachPortRef rval = NULL;
+    CFMachPortRef port_ref = NULL;
     int result = ELAST + 1;
-    CFRunLoopSourceRef invalidator;
-    CFMachPortContext mp_ctx = { 0, ctx, 0, };
-    CFRunLoopRef rl = CFRunLoopGetCurrent();
+    CFMachPortContext mp_ctx = {};
 
-    if (!(rval = CFMachPortCreateWithPort(nil, mport, NULL, &mp_ctx, false)))
+    mp_ctx.info = ctx;
+    port_ref = CFMachPortCreateWithPort(nil, mport, NULL, &mp_ctx, false);
+    if (!port_ref) {
         goto finish;
-    invalidator = CFMachPortCreateRunLoopSource(nil, rval, 0);
-    if (!invalidator)       goto finish;
-    CFMachPortSetInvalidationCallBack(rval, port_died);
-    CFRunLoopAddSource(rl, invalidator, kCFRunLoopDefaultMode);
-    CFRelease(invalidator); // owned by the runloop now
+    }
+
+    CFMachPortSetInvalidationCallBack(port_ref, watchedPortInvalidate_cb);
 
     result = 0;
 
 finish:
-    if (result && rval) {
-        CFRelease(rval);
-        rval = NULL;
+    if (result && port_ref) {
+        CFRelease(port_ref);
+        port_ref = NULL;
     }
 
-    return rval;
+    return port_ref;
 }
 
 static Boolean
@@ -1807,7 +1868,7 @@ kern_return_t _kextmanager_lock_volume(mach_port_t p, mach_port_t replyPort,
     mach_port_t client, uuid_t vol_uuid, int waitForLock, int *lockStatus)
 {
     kern_return_t rval = KERN_FAILURE;
-    int result;
+    int result = EINVAL;
     CFUUIDBytes uuidBytes;
     CFUUIDRef volUUID;
     struct watchedVol *watched = NULL;
@@ -2076,13 +2137,20 @@ mach_port_get_refs(mach_task_self(), client, MACH_PORT_RIGHT_SEND, &refs),refs);
 #endif
 
 /******************************************************************************
-* port_died() tells us when a tracked send right goes away.
+* port_died() tells us when a tracked send right goes away. It is called
+* from a dispatch event handler for DEAD_NAME notifications. When this
+* function is called, it assumes that the dead name notification has added an
+* extra send right to the mach port passed in.
+*
 * We track send rights (on the client ports passed to us) as long as we
 * have resources allocated to those clients.  If they die, we get notified
 * that the send right went away and then we clean up the associated resource.
 *
+* NOTE:
 * This function should only be called when shutdown/reboot exits before kextd
-* or when a kextcache process is terminated against its will.
+* or when a kextcache process is terminated against its will. It should also
+* only be called in the context of a DEAD_NAME notification. Please do not
+* call this function from any other context!
 *
 * If the client explicitly deallocates its *receive* right / port while we are
 * tracking the corresponding send right, port_died() is also called, though
@@ -2189,6 +2257,11 @@ static void port_died(CFMachPortRef cfport, void *info)
     }
 
 finish:
+    if (mport != MACH_PORT_NULL) {
+        /* the DEAD_NAME notification comes with an extra send right */
+        mach_port_deallocate(mach_task_self(), mport);
+    }
+
     return;
 }
 

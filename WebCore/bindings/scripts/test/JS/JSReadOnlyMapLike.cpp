@@ -30,10 +30,11 @@
 #include "JSDOMMapLike.h"
 #include "JSDOMOperation.h"
 #include "JSDOMWrapperCache.h"
-#include <builtins/BuiltinNames.h>
-#include <runtime/FunctionPrototype.h>
-#include <runtime/JSCInlines.h>
+#include <JavaScriptCore/BuiltinNames.h>
+#include <JavaScriptCore/FunctionPrototype.h>
+#include <JavaScriptCore/JSCInlines.h>
 #include <wtf/GetPtr.h>
+#include <wtf/PointerPreparations.h>
 
 
 namespace WebCore {
@@ -90,7 +91,7 @@ template<> JSValue JSReadOnlyMapLikeConstructor::prototypeForStructure(JSC::VM& 
 template<> void JSReadOnlyMapLikeConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSReadOnlyMapLike::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String(ASCIILiteral("ReadOnlyMapLike"))), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String("ReadOnlyMapLike"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -102,12 +103,12 @@ static const HashTableValue JSReadOnlyMapLikePrototypeTableValues[] =
 {
     { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsReadOnlyMapLikeConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSReadOnlyMapLikeConstructor) } },
     { "size", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsReadOnlyMapLikeSize), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
-    { "get", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsReadOnlyMapLikePrototypeFunctionGet), (intptr_t) (1) } },
-    { "has", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsReadOnlyMapLikePrototypeFunctionHas), (intptr_t) (1) } },
-    { "entries", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsReadOnlyMapLikePrototypeFunctionEntries), (intptr_t) (0) } },
-    { "keys", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsReadOnlyMapLikePrototypeFunctionKeys), (intptr_t) (0) } },
-    { "values", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsReadOnlyMapLikePrototypeFunctionValues), (intptr_t) (0) } },
-    { "forEach", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsReadOnlyMapLikePrototypeFunctionForEach), (intptr_t) (1) } },
+    { "get", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsReadOnlyMapLikePrototypeFunctionGet), (intptr_t) (1) } },
+    { "has", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsReadOnlyMapLikePrototypeFunctionHas), (intptr_t) (1) } },
+    { "entries", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsReadOnlyMapLikePrototypeFunctionEntries), (intptr_t) (0) } },
+    { "keys", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsReadOnlyMapLikePrototypeFunctionKeys), (intptr_t) (0) } },
+    { "values", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsReadOnlyMapLikePrototypeFunctionValues), (intptr_t) (0) } },
+    { "forEach", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsReadOnlyMapLikePrototypeFunctionForEach), (intptr_t) (1) } },
 };
 
 const ClassInfo JSReadOnlyMapLikePrototype::s_info = { "ReadOnlyMapLikePrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSReadOnlyMapLikePrototype) };
@@ -157,19 +158,19 @@ void JSReadOnlyMapLike::destroy(JSC::JSCell* cell)
 
 template<> inline JSReadOnlyMapLike* IDLAttribute<JSReadOnlyMapLike>::cast(ExecState& state, EncodedJSValue thisValue)
 {
-    return jsDynamicDowncast<JSReadOnlyMapLike*>(state.vm(), JSValue::decode(thisValue));
+    return jsDynamicCast<JSReadOnlyMapLike*>(state.vm(), JSValue::decode(thisValue));
 }
 
 template<> inline JSReadOnlyMapLike* IDLOperation<JSReadOnlyMapLike>::cast(ExecState& state)
 {
-    return jsDynamicDowncast<JSReadOnlyMapLike*>(state.vm(), state.thisValue());
+    return jsDynamicCast<JSReadOnlyMapLike*>(state.vm(), state.thisValue());
 }
 
 EncodedJSValue jsReadOnlyMapLikeConstructor(ExecState* state, EncodedJSValue thisValue, PropertyName)
 {
     VM& vm = state->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicDowncast<JSReadOnlyMapLikePrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSReadOnlyMapLikePrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
         return throwVMTypeError(state, throwScope);
     return JSValue::encode(JSReadOnlyMapLike::getConstructor(state->vm(), prototype->globalObject()));
@@ -179,7 +180,7 @@ bool setJSReadOnlyMapLikeConstructor(ExecState* state, EncodedJSValue thisValue,
 {
     VM& vm = state->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicDowncast<JSReadOnlyMapLikePrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSReadOnlyMapLikePrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype)) {
         throwVMTypeError(state, throwScope);
         return false;
@@ -314,9 +315,9 @@ JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, 
 #if ENABLE(BINDING_INTEGRITY)
     void* actualVTablePointer = *(reinterpret_cast<void**>(impl.ptr()));
 #if PLATFORM(WIN)
-    void* expectedVTablePointer = reinterpret_cast<void*>(__identifier("??_7ReadOnlyMapLike@WebCore@@6B@"));
+    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(__identifier("??_7ReadOnlyMapLike@WebCore@@6B@"));
 #else
-    void* expectedVTablePointer = &_ZTVN7WebCore15ReadOnlyMapLikeE[2];
+    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(&_ZTVN7WebCore15ReadOnlyMapLikeE[2]);
 #endif
 
     // If this fails ReadOnlyMapLike does not have a vtable, so you need to add the
@@ -339,7 +340,7 @@ JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, ReadOn
 
 ReadOnlyMapLike* JSReadOnlyMapLike::toWrapped(JSC::VM& vm, JSC::JSValue value)
 {
-    if (auto* wrapper = jsDynamicDowncast<JSReadOnlyMapLike*>(vm, value))
+    if (auto* wrapper = jsDynamicCast<JSReadOnlyMapLike*>(vm, value))
         return &wrapper->wrapped();
     return nullptr;
 }

@@ -68,7 +68,7 @@ public:
 	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags);
 	
 	void flush();		// flush cache
-	
+
 	static bool candidate(UnixPlusPlus::FileDesc &fd);
 	
 public:

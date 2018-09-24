@@ -69,6 +69,8 @@ extern boolean_t IsVoucherCodeAllowed;
 
 extern boolean_t IsKernelUser;
 extern boolean_t IsKernelServer;
+extern boolean_t UseSpecialReplyPort;
+extern boolean_t HasUseSpecialReplyPort; /* whether UseSpecialReplyPort has ever been set to TRUE */
 
 extern string_t RCSId;
 

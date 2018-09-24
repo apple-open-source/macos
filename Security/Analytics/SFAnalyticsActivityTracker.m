@@ -45,7 +45,7 @@
     }
 
     if (self = [super init]) {
-        _queue = dispatch_queue_create("SFAnalyticsActivityTracker queue", DISPATCH_QUEUE_SERIAL);
+        _queue = dispatch_queue_create("SFAnalyticsActivityTracker queue", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _name = name;
         _clientClass = className;
         _measurement = nil;
@@ -57,15 +57,18 @@
 
 - (void)performAction:(void (^)(void))action
 {
-    _start = mach_absolute_time();
-    action();
+    [self start];
+    dispatch_sync(_queue, ^{
+        action();
+    });
     [self stop];
 }
 
 - (void)start
 {
-    if (_canceled)
+    if (_canceled) {
         return;
+    }
     NSAssert(_start == 0, @"SFAnalyticsActivityTracker user called start twice");
     _start = mach_absolute_time();
 }
@@ -73,14 +76,17 @@
 - (void)stop
 {
     uint64_t end = mach_absolute_time();
+
+    if (_canceled) {
+        _start = 0;
+        return;
+    }
+    NSAssert(_start != 0, @"SFAnalyticsActivityTracker user called stop w/o calling start");
+    
     static mach_timebase_info_data_t sTimebaseInfo;
     if ( sTimebaseInfo.denom == 0 ) {
         (void)mach_timebase_info(&sTimebaseInfo);
     }
-    if (_canceled)
-        return;
-
-    NSAssert(_start != 0, @"SFAnalyticsActivityTracker user called stop w/o calling start");
 
     _measurement = @([_measurement doubleValue] + (1.0f * (end - _start) * (1.0f * sTimebaseInfo.numer / sTimebaseInfo.denom)));
     _start = 0;
@@ -93,6 +99,9 @@
 
 - (void)dealloc
 {
+    if (_start != 0) {
+        [self stop];
+    }
     if (!_canceled && _measurement != nil) {
         [[_clientClass logger] logMetric:_measurement withName:_name];
     }

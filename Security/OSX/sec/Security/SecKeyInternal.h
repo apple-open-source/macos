@@ -36,7 +36,6 @@
 __BEGIN_DECLS
 
 extern struct ccrng_state *ccrng_seckey;
-CFIndex SecKeyGetAlgorithmIdentifier(SecKeyRef key);
 
 enum {
     // Keep in sync with SecKeyOperationType enum in SecKey.h

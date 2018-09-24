@@ -58,7 +58,7 @@ public:
     void setIsSimulated(bool value) { m_isSimulated = value; }
     int pageX() const final;
     int pageY() const final;
-    WEBCORE_EXPORT FloatPoint locationInRootViewCoordinates() const;
+    FloatPoint locationInRootViewCoordinates() const;
     virtual const LayoutPoint& pageLocation() const;
     WEBCORE_EXPORT int x() const;
     WEBCORE_EXPORT int y() const;
@@ -67,14 +67,14 @@ public:
     // usable with RenderObject::absoluteToLocal).
     const LayoutPoint& absoluteLocation() const { return m_absoluteLocation; }
     
-    static FrameView* frameViewFromDOMWindow(DOMWindow*);
+    static FrameView* frameViewFromWindowProxy(WindowProxy*);
 
     static LayoutPoint pagePointToClientPoint(LayoutPoint pagePoint, FrameView*);
     static LayoutPoint pagePointToAbsolutePoint(LayoutPoint pagePoint, FrameView*);
 
 protected:
     MouseRelatedEvent() = default;
-    MouseRelatedEvent(const AtomicString& type, bool canBubble, bool cancelable, MonotonicTime timestamp, DOMWindow*,
+    MouseRelatedEvent(const AtomicString& type, bool canBubble, bool cancelable, MonotonicTime timestamp, RefPtr<WindowProxy>&&,
         int detail, const IntPoint& screenLocation, const IntPoint& windowLocation,
 #if ENABLE(POINTER_LOCK)
         const IntPoint& movementDelta,

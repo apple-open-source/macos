@@ -106,7 +106,7 @@ public:
 	static SecStaticCode *requiredStatic(SecStaticCodeRef ref);	// convert SecCodeRef
 	static SecCode *optionalDynamic(SecStaticCodeRef ref); // extract SecCodeRef or NULL if static
 
-	SecStaticCode(DiskRep *rep);
+	SecStaticCode(DiskRep *rep, uint32_t flags = 0);
     virtual ~SecStaticCode() throw();
 
     void initializeFromParent(const SecStaticCode& parent);
@@ -227,6 +227,7 @@ protected:
 private:
 	void validateOtherVersions(CFURLRef path, SecCSFlags flags, SecRequirementRef req, SecStaticCode *code);
 	bool checkfix30814861(string path, bool addition);
+	bool checkfix41082220(OSStatus result);
 
 	ResourceBuilder *mCheckfix30814861builder1;
 	dispatch_once_t mCheckfix30814861builder1_once;
@@ -290,6 +291,11 @@ private:
 	SecCodeCallback mMonitor;			// registered monitor callback
 
 	LimitedAsync *mLimitedAsync;		// limited async workers for verification
+
+	uint32_t mFlags;					// flags from creation
+	bool mNotarizationChecked;			// ensure notarization check only performed once
+	bool mStaplingChecked;				// ensure stapling check only performed once
+	double mNotarizationDate;			// the notarization ticket's date, if online check failed
 
 	// signature verification outcome (mTrust == NULL => not done yet)
 	CFRef<SecTrustRef> mTrust;			// outcome of crypto validation (valid or not)

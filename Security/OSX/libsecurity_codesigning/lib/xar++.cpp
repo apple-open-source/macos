@@ -25,6 +25,7 @@
 // xar++ - interface to XAR-format archive files
 //
 #include "xar++.h"
+#include "notarization.h"
 #include <security_utilities/cfutilities.h>
 #include <Security/Security.h>
 
@@ -46,6 +47,8 @@ void Xar::open(const char *path)
 {
 	if ((mXar = ::xar_open(path, READ)) == NULL)
 	    return;
+
+	mPath = std::string(path);
     
 	xar_signature_t sig = ::xar_signature_first(mXar);
 	// read signatures until we find a CMS signature
@@ -91,6 +94,67 @@ CFArrayRef Xar::copyCertChain()
 	return NULL;
 }
 
+void Xar::registerStapledNotarization()
+{
+	registerStapledTicketInPackage(mPath);
+}
+
+CFDataRef Xar::createPackageChecksum()
+{
+	xar_signature_t sig = NULL;
+
+	// Always prefer a CMS signature to a class signature and return early
+	// if no appropriate signature has been found.
+	if (mSigCMS) {
+		sig = mSigCMS;
+	} else if (mSigClassic) {
+		sig = mSigClassic;
+	} else {
+		return NULL;
+	}
+
+	// Extract the signed data from the xar, which is actually just the checksum
+	// we use as an identifying hash.
+	uint8_t *data = NULL;
+	uint32_t length;
+	if (xar_signature_copy_signed_data(sig, &data, &length, NULL, NULL, NULL) != 0) {
+		secerror("Unable to extract package hash for package: %s", mPath.c_str());
+		return NULL;
+	}
+
+	return makeCFData(data, length);
+}
+
+SecCSDigestAlgorithm Xar::checksumDigestAlgorithm()
+{
+	int32_t error = 0;
+	const char* value = NULL;
+	unsigned long size = 0;
+
+	if (mXar == NULL) {
+		secerror("Evaluating checksum digest on bad xar: %s", mPath.c_str());
+		return kSecCodeSignatureNoHash;
+	}
+
+	error = xar_prop_get((xar_file_t)mXar, "checksum/size", &value);
+	if (error == -1) {
+		secerror("Unable to extract package checksum size: %s", mPath.c_str());
+		return kSecCodeSignatureNoHash;
+	}
+
+	size = strtoul(value, NULL, 10);
+	switch (size) {
+		case CC_SHA1_DIGEST_LENGTH:
+			return kSecCodeSignatureHashSHA1;
+		case CC_SHA256_DIGEST_LENGTH:
+			return kSecCodeSignatureHashSHA256;
+		case CC_SHA512_DIGEST_LENGTH:
+			return kSecCodeSignatureHashSHA512;
+		case CC_MD5_DIGEST_LENGTH:
+		default:
+			return kSecCodeSignatureNoHash;
+	}
+}
 
 } // end namespace CodeSigning
 } // end namespace Security

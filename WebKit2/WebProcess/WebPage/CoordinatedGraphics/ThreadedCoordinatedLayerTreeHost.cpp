@@ -33,12 +33,18 @@
 
 #include "AcceleratedSurface.h"
 #include "WebPage.h"
+#include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
-#include <WebCore/MainFrame.h>
-
-using namespace WebCore;
 
 namespace WebKit {
+using namespace WebCore;
+
+static const PlatformDisplayID primaryDisplayID = 0;
+#if PLATFORM(GTK)
+static const PlatformDisplayID compositingDisplayID = 1;
+#else
+static const PlatformDisplayID compositingDisplayID = primaryDisplayID;
+#endif
 
 Ref<ThreadedCoordinatedLayerTreeHost> ThreadedCoordinatedLayerTreeHost::create(WebPage& webPage)
 {
@@ -71,10 +77,12 @@ ThreadedCoordinatedLayerTreeHost::ThreadedCoordinatedLayerTreeHost(WebPage& webP
         if (m_surface->shouldPaintMirrored())
             paintFlags |= TextureMapper::PaintingMirrored;
 
-        m_compositor = ThreadedCompositor::create(m_compositorClient, webPage, scaledSize, scaleFactor, ThreadedCompositor::ShouldDoFrameSync::Yes, paintFlags);
+        m_compositor = ThreadedCompositor::create(m_compositorClient, compositingDisplayID, scaledSize, scaleFactor, ThreadedCompositor::ShouldDoFrameSync::Yes, paintFlags);
         m_layerTreeContext.contextID = m_surface->surfaceID();
     } else
-        m_compositor = ThreadedCompositor::create(m_compositorClient, webPage, scaledSize, scaleFactor);
+        m_compositor = ThreadedCompositor::create(m_compositorClient, compositingDisplayID, scaledSize, scaleFactor);
+
+    m_webPage.windowScreenDidChange(compositingDisplayID);
 
     didChangeViewport();
 }
@@ -225,7 +233,7 @@ void ThreadedCoordinatedLayerTreeHost::didChangeViewport()
     if (scrollbar && !scrollbar->isOverlayScrollbar())
         visibleRect.expand(0, scrollbar->height());
 
-    CoordinatedLayerTreeHost::setVisibleContentsRect(visibleRect, FloatPoint::zero());
+    CoordinatedLayerTreeHost::setVisibleContentsRect(visibleRect);
 
     float pageScale = m_viewportController.pageScaleFactor();
     IntPoint scrollPosition = roundedIntPoint(visibleRect.location());
@@ -249,18 +257,15 @@ void ThreadedCoordinatedLayerTreeHost::commitSceneState(const CoordinatedGraphic
     m_compositor->updateSceneState(state);
 }
 
-void ThreadedCoordinatedLayerTreeHost::releaseUpdateAtlases(const Vector<uint32_t>& atlasesToRemove)
-{
-    m_compositor->releaseUpdateAtlases(atlasesToRemove);
-}
-
 void ThreadedCoordinatedLayerTreeHost::setIsDiscardable(bool discardable)
 {
     m_isDiscardable = discardable;
     if (m_isDiscardable) {
         m_discardableSyncActions = OptionSet<DiscardableSyncActions>();
+        m_webPage.windowScreenDidChange(primaryDisplayID);
         return;
     }
+    m_webPage.windowScreenDidChange(compositingDisplayID);
 
     if (m_discardableSyncActions.isEmpty())
         return;

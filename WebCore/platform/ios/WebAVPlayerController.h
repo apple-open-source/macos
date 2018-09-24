@@ -71,6 +71,8 @@ class PlaybackSessionInterfaceAVKit;
 @property (retain) AVValueTiming *timing;
 @property (retain) NSArray *seekableTimeRanges;
 @property (getter=isMuted) BOOL muted;
+@property double volume;
+- (void)volumeChanged:(double)volume;
 
 @property (readonly) BOOL hasMediaSelectionOptions;
 @property (readonly) BOOL hasAudioMediaSelectionOptions;
@@ -81,7 +83,7 @@ class PlaybackSessionInterfaceAVKit;
 @property (retain) WebAVMediaSelectionOption *currentLegibleMediaSelectionOption;
 
 @property (readonly, getter=isPlayingOnExternalScreen) BOOL playingOnExternalScreen;
-@property (readonly, getter=isPlayingOnSecondScreen) BOOL playingOnSecondScreen;
+@property (nonatomic, getter=isPlayingOnSecondScreen) BOOL playingOnSecondScreen;
 @property (getter=isExternalPlaybackActive) BOOL externalPlaybackActive;
 @property AVPlayerControllerExternalPlaybackType externalPlaybackType;
 @property (retain) NSString *externalPlaybackAirPlayDeviceLocalizedName;

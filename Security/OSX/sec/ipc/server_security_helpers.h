@@ -34,5 +34,6 @@ void SecCreateSecuritydXPCServer(void);
 
 void fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t auditToken);
 CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task);
+void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
 
 #endif /* server_security_helpers_h */

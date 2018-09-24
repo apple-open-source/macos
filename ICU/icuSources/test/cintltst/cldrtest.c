@@ -14,6 +14,7 @@
 #include "unicode/udat.h"
 #include "unicode/uscript.h"
 #include "unicode/ulocdata.h"
+#include "unicode/utf16.h"
 #include "cmemory.h"
 #include "cstring.h"
 #include "locmap.h"
@@ -563,7 +564,7 @@ TestLocaleStructure(void) {
                 currLoc);
         }
         resolvedLoc = ures_getLocaleByType(currentLocale, ULOC_ACTUAL_LOCALE, &errorCode);
-        if (strcmp(resolvedLoc, currLoc) != 0 && strcmp(currLoc, "ars") != 0) { /* ars IS an aliased locale */
+        if (strcmp(resolvedLoc, currLoc) != 0 && strcmp(currLoc, "ars") != 0 && strcmp(currLoc, "wuu") != 0) { /* ars,wuu are aliased locales */
             /* All locales have at least a Version resource.
                If it's absolutely empty, then the previous test will fail too.*/
             log_err("Locale resolves to different locale. Is %s an alias of %s?\n",
@@ -743,7 +744,7 @@ TestConsistentCountryInfo(void) {
 static int32_t
 findStringSetMismatch(const char *currLoc, const UChar *string, int32_t langSize,
                       USet * mergedExemplarSet,
-                      UBool ignoreNumbers, UChar* badCharPtr) {
+                      UBool ignoreNumbers, UChar32* badCharPtr) {
     UErrorCode errorCode = U_ZERO_ERROR;
     USet *exemplarSet;
     int32_t strIdx;
@@ -756,14 +757,16 @@ findStringSetMismatch(const char *currLoc, const UChar *string, int32_t langSize
         return -1;
     }
 
-    for (strIdx = 0; strIdx < langSize; strIdx++) {
-        if (!uset_contains(exemplarSet, string[strIdx])
-            && string[strIdx] != 0x0020 && string[strIdx] != 0x00A0 && string[strIdx] != 0x002e && string[strIdx] != 0x002c && string[strIdx] != 0x002d && string[strIdx] != 0x0027 && string[strIdx] != 0x005B && string[strIdx] != 0x005D && string[strIdx] != 0x2019 && string[strIdx] != 0x0f0b
-            && string[strIdx] != 0x200C && string[strIdx] != 0x200D) {
-            if (!ignoreNumbers || (ignoreNumbers && (string[strIdx] < 0x30 || string[strIdx] > 0x39))) {
+    for (strIdx = 0; strIdx < langSize;) {
+        UChar32 testChar;
+        U16_NEXT(string, strIdx, langSize, testChar);
+        if (!uset_contains(exemplarSet, testChar)
+            && testChar != 0x0020 && testChar != 0x00A0 && testChar != 0x002e && testChar != 0x002c && testChar != 0x002d && testChar != 0x0027
+            && testChar != 0x005B && testChar != 0x005D && testChar != 0x2019 && testChar != 0x0f0b && testChar != 0x200C && testChar != 0x200D) {
+            if (!ignoreNumbers || (ignoreNumbers && (testChar < 0x30 || testChar > 0x39))) {
                 uset_close(exemplarSet);
                 if (badCharPtr) {
-                    *badCharPtr = string[strIdx];
+                    *badCharPtr = testChar;
                 }
                 return strIdx;
             }
@@ -958,7 +961,7 @@ static void VerifyTranslation(void) {
             UChar langBuffer[128];
             int32_t langSize;
             int32_t strIdx;
-            UChar badChar;
+            UChar32 badChar;
             langSize = uloc_getDisplayLanguage(currLoc, currLoc, langBuffer, UPRV_LENGTHOF(langBuffer), &errorCode);
             if (U_FAILURE(errorCode)) {
                 log_err("error uloc_getDisplayLanguage returned %s\n", u_errorName(errorCode));
@@ -1514,6 +1517,56 @@ static void TestAvailableIsoCodes(void){
 #endif
 }
 
+// Apple-specific
+typedef struct {
+    const char* locale;
+    const UChar* quoteStart;
+    const UChar* quoteEnd;
+    const UChar* altQuoteStart;
+    const UChar* altQuoteEnd;
+} DelimItem;
+static const DelimItem delimItems[] = {
+    { "en",    u"“", u"”", u"‘", u"’"},
+    { "es",    u"«", u"»", u"“", u"”"},
+    { "es_MX", u"“", u"”", u"‘", u"’"},
+    { "ja",    u"「", u"」", u"『", u"』"},
+    { NULL,NULL,NULL,NULL,NULL }
+};
+enum {kMaxDelimLen = 8};
+
+static void TestDelimiters(void){
+    const DelimItem* itemPtr;
+    for (itemPtr = delimItems; itemPtr->locale != NULL; itemPtr++) {
+        UErrorCode status = U_ZERO_ERROR;
+        ULocaleData* uldat = ulocdata_open(itemPtr->locale, &status);
+        if (U_FAILURE(status)) {
+            log_data_err("FAIL: ulocdata_open fails for locale %s: %s\n", itemPtr->locale, u_errorName(status));
+        } else {
+            UChar quoteStart[kMaxDelimLen+1];
+            UChar quoteEnd[kMaxDelimLen+1];
+            UChar altQuoteStart[kMaxDelimLen+1];
+            UChar altQuoteEnd[kMaxDelimLen+1];
+
+            ulocdata_getDelimiter(uldat, ULOCDATA_QUOTATION_START, quoteStart, kMaxDelimLen, &status);
+            quoteStart[kMaxDelimLen] = 0;
+            ulocdata_getDelimiter(uldat, ULOCDATA_QUOTATION_END, quoteEnd, kMaxDelimLen, &status);
+            quoteEnd[kMaxDelimLen] = 0;
+            ulocdata_getDelimiter(uldat, ULOCDATA_ALT_QUOTATION_START, altQuoteStart, kMaxDelimLen, &status);
+            altQuoteStart[kMaxDelimLen] = 0;
+            ulocdata_getDelimiter(uldat, ULOCDATA_ALT_QUOTATION_END, altQuoteEnd, kMaxDelimLen, &status);
+            altQuoteEnd[kMaxDelimLen] = 0;
+            if (U_FAILURE(status)) {
+                log_err("FAIL: ulocdata_getDelimiter fails for locale %s: %s\n", itemPtr->locale, u_errorName(status));
+            } else if (u_strcmp(quoteStart, itemPtr->quoteStart) != 0 || u_strcmp(quoteEnd, itemPtr->quoteEnd) != 0 ||
+                       u_strcmp(altQuoteStart, itemPtr->altQuoteStart) != 0 || u_strcmp(altQuoteEnd, itemPtr->altQuoteEnd) != 0) {
+                log_err("FAIL: ulocdata_getDelimiter error for locale %s, one or more delimiters not as expected\n", itemPtr->locale);
+            }
+            ulocdata_close(uldat);
+        }
+    }
+}
+
+
 #define TESTCASE(name) addTest(root, &name, "tsutil/cldrtest/" #name)
 
 void addCLDRTest(TestNode** root);
@@ -1531,5 +1584,6 @@ void addCLDRTest(TestNode** root)
     TESTCASE(TestCoverage);
     TESTCASE(TestIndexChars);
     TESTCASE(TestAvailableIsoCodes);
+    TESTCASE(TestDelimiters);
 }
 

@@ -198,6 +198,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3840A0312062FED4008C2E45 /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		4D027E2513B91F1400B48B76 /* libutil1.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil1.0.dylib; path = ../../../../usr/lib/libutil1.0.dylib; sourceTree = "<group>"; };
 		4D0C4AC51406BD9C002BFD22 /* copy_kext.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = copy_kext.sh; sourceTree = "<group>"; };
 		4D10326E0CD7C42C00952DEB /* msdosfs.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = msdosfs.py; sourceTree = "<group>"; tabWidth = 4; };
@@ -317,6 +318,7 @@
 		4D3DCC0808E0B48600C78A0B /* msdosfs.kext */ = {
 			isa = PBXGroup;
 			children = (
+				3840A0312062FED4008C2E45 /* kext.xcconfig */,
 				4D3DCC0908E0B48600C78A0B /* bootsect.h */,
 				4D3DCC0A08E0B48600C78A0B /* bpb.h */,
 				4D3DCC0B08E0B48600C78A0B /* denode.h */,
@@ -979,6 +981,7 @@
 		};
 		4D3DCB4208E084D300C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3840A0312062FED4008C2E45 /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
@@ -1016,6 +1019,7 @@
 		};
 		4D3DCB4308E084D300C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3840A0312062FED4008C2E45 /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;

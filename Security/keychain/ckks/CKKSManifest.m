@@ -699,7 +699,7 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
     return sqlValues;
 }
 
-- (NSDictionary<NSString*, NSString*>*)whereClauseToFindSelf
+- (NSDictionary<NSString*, id>*)whereClauseToFindSelf
 {
     return @{ @"ckzone" : CKKSNilToNSNull(_zoneName),
               @"gencount" : [NSNumber numberWithUnsignedInteger:_generationCount],

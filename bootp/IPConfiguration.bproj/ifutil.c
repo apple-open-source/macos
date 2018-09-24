@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,7 @@
  */
 
 
+#define INET6	1
 #include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
@@ -108,6 +109,50 @@ siocsifmtu(int s, const char * name, int mtu)
     strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
     ifr.ifr_mtu = mtu;
     return (ioctl(s, SIOCSIFMTU, (caddr_t)&ifr));
+}
+
+STATIC int
+siocgifeflags(int sockfd, struct ifreq * ifr, const char * name)
+{
+    (void)memset(ifr, 0, sizeof(*ifr));
+    (void)strlcpy(ifr->ifr_name, name, sizeof(ifr->ifr_name));
+    return (ioctl(sockfd, SIOCGIFEFLAGS, (caddr_t)ifr));
+}
+
+STATIC uint64_t
+S_get_eflags(int sockfd, const char * name)
+{
+    uint64_t		eflags = 0;
+    struct ifreq	ifr;
+
+    if (siocgifeflags(sockfd, &ifr, name) == -1) {
+	if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
+	    my_log(LOG_NOTICE,
+		   "%s: SIOCGIFEFLAGS failed status, %s",
+		   name, strerror(errno));
+	}
+    }
+    else {
+	eflags = ifr.ifr_eflags;
+    }
+    return (eflags);
+}
+
+STATIC uint64_t
+get_eflags(const char * name)
+{
+    uint64_t	eflags;
+    int		sockfd;
+
+    sockfd = inet_dgram_socket();
+    if (sockfd >= 0) {
+	eflags = S_get_eflags(sockfd, name);
+	close(sockfd);
+    }
+    else {
+	eflags = 0;
+    }
+    return (eflags);
 }
 
 STATIC int
@@ -298,6 +343,92 @@ inet_aifaddr(int s, const char * name, struct in_addr addr,
     return (ioctl(s, SIOCAIFADDR, &ifra));
 }
 
+STATIC int
+siocgifprotolist(int s, const char * ifname,
+		 u_int32_t * ret_list, u_int32_t * ret_list_count)
+{
+    struct if_protolistreq	ifpl;
+
+    bzero(&ifpl, sizeof(ifpl));
+    strlcpy(ifpl.ifpl_name, ifname, sizeof(ifpl.ifpl_name));
+    if (ret_list != NULL) {
+	ifpl.ifpl_count = *ret_list_count;
+	ifpl.ifpl_list = ret_list;
+    }
+    if (ioctl(s, SIOCGIFPROTOLIST, &ifpl) < 0) {
+	return (-1);
+    }
+    *ret_list_count = ifpl.ifpl_count;
+    return (0);
+}
+
+STATIC u_int32_t *
+protolist_copy(const char * ifname, u_int32_t * ret_count)
+{
+    u_int32_t *	protolist;
+    u_int32_t	protolist_count;
+    int		s;
+
+    protolist = NULL;
+    protolist_count = 0;
+    s = inet_dgram_socket();
+    if (s < 0) {
+	my_log(LOG_ERR,
+	       "protolist_copy: socket failed, %s (%d)",
+	       strerror(errno), errno);
+	goto failed;
+    }
+    if (siocgifprotolist(s, ifname, protolist, &protolist_count) != 0) {
+	protolist_count = 0;
+	my_log(LOG_ERR,
+	       "SIOCGIFPROTOLIST failed: %s (%d)",
+	       strerror(errno), errno);
+	goto failed;
+    }
+    if (protolist_count != 0) {
+	protolist = (u_int32_t *)malloc(protolist_count * sizeof(*protolist));
+	if (siocgifprotolist(s, ifname, protolist, &protolist_count) != 0) {
+	    protolist_count = 0;
+	    my_log(LOG_ERR,
+		   "SIOCGIFPROTOLIST failed#2: %s (%d)",
+		   strerror(errno), errno);
+	    goto failed;
+	}
+    }
+
+ failed:
+    if (s >= 0) {
+	close(s);
+    }
+    if (protolist_count == 0 && protolist != NULL) {
+	free(protolist);
+	protolist = NULL;
+    }
+    *ret_count = protolist_count;
+    return (protolist);
+}
+
+STATIC boolean_t
+proto_is_attached(const char * ifname, u_int32_t protocol)
+{
+    boolean_t		found = FALSE;
+    u_int32_t *		protolist;
+    u_int32_t		protolist_count;
+
+    protolist = protolist_copy(ifname, &protolist_count);
+    if (protolist != NULL) {
+	for (u_int32_t i = 0; i < protolist_count; i++) {
+	    if (protolist[i] == protocol) {
+		found = TRUE;
+		break;
+	    }
+	}
+	free(protolist);
+    }
+    return (found);
+}
+
+
 #include <netinet6/in6_var.h>
 #include <netinet6/nd6.h>
 
@@ -375,6 +506,44 @@ siocprotodetach_in6(int s, const char * name)
 }
 
 STATIC int
+clat46_start(int s, const char * name)
+{
+    int			ret = 0;
+#ifdef SIOCCLAT46_START
+    struct in6_ifreq	ifr6;
+
+    my_log(LOG_INFO, "ioctl(%s, SIOCCLAT46_START)", name);
+    bzero(&ifr6, sizeof(ifr6));
+    strlcpy(ifr6.ifr_name, name, sizeof(ifr6.ifr_name));
+    if (ioctl(s, SIOCCLAT46_START, &ifr6) < 0) {
+	my_log(LOG_INFO, "ioctl(%s, SIOCCLAT46_START), failed, %s (%d)",
+	       name, strerror(errno), errno);
+	ret = errno;
+    }
+#endif /* SIOCCLAT46_START */
+    return (ret);
+}
+
+STATIC int
+clat46_stop(int s, const char * name)
+{
+    int			ret = 0;
+#ifdef SIOCCLAT46_STOP
+    struct in6_ifreq	ifr6;
+
+    my_log(LOG_INFO, "ioctl(%s, SIOCCLAT46_STOP)", name);
+    bzero(&ifr6, sizeof(ifr6));
+    strlcpy(ifr6.ifr_name, name, sizeof(ifr6.ifr_name));
+    if (ioctl(s, SIOCCLAT46_STOP, &ifr6) < 0) {
+	my_log(LOG_INFO, "ioctl(%s, SIOCCLAT46_STOP), failed, %s (%d)",
+	       name, strerror(errno), errno);
+	ret = errno;
+    }
+#endif /* SIOCCLAT46_STOP */
+    return (ret);
+}
+
+STATIC int
 siocll_start(int s, const char * name, const struct in6_addr * v6_ll)
 {
     struct in6_aliasreq		ifra_in6;
@@ -398,20 +567,38 @@ siocll_start(int s, const char * name, const struct in6_addr * v6_ll)
 
 STATIC int
 ll_start(int s, const char * name, const struct in6_addr * v6_ll,
-	 boolean_t use_cga)
+	 boolean_t use_cga, boolean_t enable_clat46)
 {
-    struct in6_cgareq	req;
+    int 		error = 0;
+
+    if (enable_clat46) {
+	(void)clat46_start(s, name);
+    }
+    else if ((get_eflags(name) & IFEF_CLAT46) != 0) {
+	(void)clat46_stop(s, name);
+    }
 
     if (v6_ll != NULL || use_cga == FALSE || !CGAIsEnabled()) {
-	return (siocll_start(s, name, v6_ll));
+	/* don't use CGA */
+	error = siocll_start(s, name, v6_ll);
     }
-    bzero(&req, sizeof(req));
-    strncpy(req.cgar_name, name, sizeof(req.cgar_name));
-    CGAPrepareSetForInterfaceLinkLocal(name, &req.cgar_cgaprep);
-    req.cgar_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
-    req.cgar_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-    my_log(LOG_INFO, "ioctl(%s, SIOCLL_CGASTART)", name);
-    return (ioctl(s, SIOCLL_CGASTART, &req));
+    else {
+	struct in6_cgareq	req;
+
+	/* use CGA */
+	bzero(&req, sizeof(req));
+	strncpy(req.cgar_name, name, sizeof(req.cgar_name));
+	CGAPrepareSetForInterfaceLinkLocal(name, &req.cgar_cgaprep);
+	req.cgar_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
+	req.cgar_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
+	my_log(LOG_INFO, "ioctl(%s, SIOCLL_CGASTART)", name);
+	error = ioctl(s, SIOCLL_CGASTART, &req);
+    }
+
+    if (error != 0 && enable_clat46) {
+	(void)clat46_stop(s, name);
+    }
+    return (error);
 }
 
 STATIC int
@@ -422,6 +609,9 @@ siocll_stop(int s, const char * name)
     bzero(&ifr, sizeof(ifr));
     strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
     my_log(LOG_INFO, "ioctl(%s, SIOCLL_STOP)", name);
+    if ((get_eflags(name) & IFEF_CLAT46) != 0) {
+	(void)clat46_stop(s, name);
+    }
     return (ioctl(s, SIOCLL_STOP, &ifr));
 }
 
@@ -549,6 +739,12 @@ inet6_detach_interface(const char * ifname)
     return (ret);
 }
 
+PRIVATE_EXTERN boolean_t
+inet6_is_attached(const char * ifname)
+{
+    return (proto_is_attached(ifname, PF_INET6));
+}
+
 STATIC boolean_t
 nd_flags_set_with_socket(int s, const char * if_name, 
 			 uint32_t set_flags, uint32_t clear_flags)
@@ -586,7 +782,8 @@ inet6_linklocal_start(const char * ifname,
 		      const struct in6_addr * v6_ll,
 		      boolean_t perform_nud,
 		      boolean_t use_cga,
-		      boolean_t enable_dad)
+		      boolean_t enable_dad,
+		      boolean_t enable_clat46)
 {
     uint32_t	clear_flags;
     int 	ret = 0;
@@ -625,7 +822,7 @@ inet6_linklocal_start(const char * ifname,
     nd_flags_set_with_socket(s, ifname, set_flags, clear_flags);
 
     /* start IPv6 link-local */
-    if (ll_start(s, ifname, v6_ll, use_cga) < 0) {
+    if (ll_start(s, ifname, v6_ll, use_cga, enable_clat46) < 0) {
 	ret = errno;
 	if (errno != ENXIO) {
 	    my_log(LOG_ERR, "siocll_start(%s) failed, %s (%d)",
@@ -736,6 +933,27 @@ inet6_rtadv_disable(const char * if_name)
 	   "rtadv_disable(%s)", if_name);
  done:
     return (ret);
+}
+
+PRIVATE_EXTERN boolean_t
+inet6_has_nat64_prefixlist(const char * if_name)
+{
+    struct if_nat64req	ifr;
+    int			ret;
+    int			s = inet6_dgram_socket();
+
+    if (s < 0) {
+	ret = errno;
+	my_log(LOG_ERR,
+	       "inet6_has_nat64_prefixlist(%s): socket() failed, %s (%d)",
+	       if_name, strerror(ret), ret);
+	return FALSE;
+    }
+    bzero(&ifr, sizeof(ifr));
+    strncpy(ifr.ifnat64_name, if_name, sizeof(ifr.ifnat64_name));
+    ret = ioctl(s, SIOCGIFNAT64PREFIX, &ifr);
+    close(s);
+    return ((ret == 0) && (ifr.ifnat64_prefixes[0].prefix_len > 0));
 }
 
 PRIVATE_EXTERN int
@@ -1569,3 +1787,101 @@ main(int argc, char * argv[])
     return(0);
 }
 #endif /* TEST_IPV6_ROUTER_PREFIX_COUNT */
+
+#if TEST_PROTOLIST
+#ifndef PF_BRIDGE
+#define	PF_BRIDGE	((uint32_t)0x62726467)	/* 'brdg' */
+#endif
+
+#define PF_EAPOL	((uint32_t)0x8021ec)
+
+STATIC const char *
+get_protocol_name(u_int32_t proto)
+{
+    const char *	str = NULL;
+
+    switch (proto) {
+    case PF_INET:
+	str = "INET";
+	break;
+    case PF_INET6:
+	str = "INET6";
+	break;
+    case PF_BRIDGE:
+	str = "BRIDGE";
+	break;
+    case PF_VLAN:
+	str = "VLAN";
+	break;
+    case PF_BOND:
+	str = "BOND";
+	break;
+    case PF_EAPOL:
+	str = "EAPOL";
+	break;
+    case PF_NDRV:
+	str = "NDRV";
+	break;
+    default:
+	break;
+    }
+    return (str);
+}
+
+STATIC void
+show_protocols(u_int32_t * list, u_int32_t count)
+{
+    printf("Protocol count %d:\n", count);
+    for (u_int32_t i = 0; i < count; i++) {
+	union {
+	    u_int32_t	i;
+	    char	c[5];
+	} bytes;
+	u_int32_t	proto;
+	const char *	proto_name;
+
+	proto = list[i];
+	proto_name = get_protocol_name(proto);
+	if (proto_name == NULL) {
+	    bytes.i = htonl(proto);
+	    bytes.c[4] = '\0';
+	    proto_name = bytes.c;
+	    for (u_int32_t j = 0; j < 4; j++) {
+		if (!isprint(bytes.c[j])) {
+		    bytes.c[j] = '?';
+		}
+	    }
+	}
+	printf("%d. %u (0x%x) (%s)\n", i, proto, proto, proto_name);
+    }
+}
+
+boolean_t G_is_netboot;
+
+int
+main(int argc, char * argv[])
+{
+    const char *	ifname;
+    u_int32_t *		protolist;
+    u_int32_t		protolist_count;
+
+    if (argc < 2) {
+	fprintf(stderr, "you must specify the interface\n");
+	exit(1);
+    }
+    ifname = argv[1];
+    protolist = protolist_copy(ifname, &protolist_count);
+    if (protolist != NULL) {
+	show_protocols(protolist, protolist_count);
+	free(protolist);
+    }
+    else {
+	printf("No protocols attached\n");
+    }
+    printf("IPv6 is %sattached to %s\n",
+	   inet6_is_attached(ifname) ? "" : "not ", ifname);
+    exit(0);
+    return (0);
+}
+
+#endif /* TEST_PROTOLIST */

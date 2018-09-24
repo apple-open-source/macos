@@ -75,8 +75,9 @@ extern "C" {
 OSStatus SecKeychainItemSetExtendedAttribute(
 	SecKeychainItemRef			itemRef,
 	CFStringRef					attrName,		/* identifies the attribute */ 
-	CFDataRef					attrValue);		/* value to set; NULL means delete the 
+	CFDataRef					attrValue)		/* value to set; NULL means delete the
 												 *    attribute */
+    API_UNAVAILABLE(ios);
 	
 /* 
  * SecKeychainItemCopyExtendedAttribute() -  Obtain the value of an an extended attribute. 
@@ -90,7 +91,7 @@ OSStatus SecKeychainItemSetExtendedAttribute(
 OSStatus SecKeychainItemCopyExtendedAttribute(
 	SecKeychainItemRef			itemRef,
 	CFStringRef					attrName,
-	CFDataRef					*attrValue);		/* RETURNED */
+	CFDataRef					*attrValue) API_UNAVAILABLE(ios);		/* RETURNED */
 	
 /*
  * SecKeychainItemCopyAllExtendedAttributes() - obtain all of an item's extended attributes. 
@@ -116,8 +117,9 @@ OSStatus SecKeychainItemCopyExtendedAttribute(
 OSStatus SecKeychainItemCopyAllExtendedAttributes(
 	SecKeychainItemRef			itemRef,
 	CFArrayRef					*attrNames,			/* RETURNED, each element is a CFStringRef */
-	CFArrayRef					*attrValues);		/* optional, RETURNED, each element is a 
+	CFArrayRef					*attrValues)		/* optional, RETURNED, each element is a
 													 *   CFDataRef */
+    API_UNAVAILABLE(ios);
 #if defined(__cplusplus)
 }
 #endif

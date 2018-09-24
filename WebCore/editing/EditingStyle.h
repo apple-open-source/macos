@@ -168,6 +168,8 @@ public:
     WEBCORE_EXPORT static RefPtr<EditingStyle> styleAtSelectionStart(const VisibleSelection&, bool shouldUseBackgroundColorInEffect = false);
     static WritingDirection textDirectionForSelection(const VisibleSelection&, EditingStyle* typingStyle, bool& hasNestedOrMultipleEmbeddings);
 
+    Ref<EditingStyle> inverseTransformColorIfNeeded(Element&);
+
 private:
     EditingStyle();
     EditingStyle(Node*, PropertiesToInclude);

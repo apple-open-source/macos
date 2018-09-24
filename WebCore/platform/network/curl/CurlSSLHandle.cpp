@@ -37,21 +37,28 @@
 #include <wtf/RetainPtr.h>
 #endif
 
+#if NEED_OPENSSL_THREAD_SUPPORT && OS(WINDOWS)
+#include <wtf/Threading.h>
+#endif
+
 namespace WebCore {
 
 CurlSSLHandle::CurlSSLHandle()
-    : m_caCertPath(getCACertPathEnv())
 {
-    char* ignoreSSLErrors = getenv("WEBKIT_IGNORE_SSL_ERRORS");
-    if (ignoreSSLErrors)
-        m_ignoreSSLErrors = true;
+    auto caCertPath = getCACertPathEnv();
+    if (!caCertPath.isEmpty())
+        setCACertPath(WTFMove(caCertPath));
+
+#if NEED_OPENSSL_THREAD_SUPPORT
+    ThreadSupport::setup();
+#endif
 }
 
-CString CurlSSLHandle::getCACertPathEnv()
+String CurlSSLHandle::getCACertPathEnv()
 {
     char* envPath = getenv("CURL_CA_BUNDLE_PATH");
     if (envPath)
-        return envPath;
+        return String(envPath);
 
 #if USE(CF)
     CFBundleRef webKitBundleRef = webKitBundle();
@@ -59,21 +66,37 @@ CString CurlSSLHandle::getCACertPathEnv()
         RetainPtr<CFURLRef> certURLRef = adoptCF(CFBundleCopyResourceURL(webKitBundleRef, CFSTR("cacert"), CFSTR("pem"), CFSTR("certificates")));
         if (certURLRef) {
             char path[MAX_PATH];
-            CFURLGetFileSystemRepresentation(certURLRef.get(), false, reinterpret_cast<UInt8*>(path), MAX_PATH);
-            return path;
+            if (CFURLGetFileSystemRepresentation(certURLRef.get(), false, reinterpret_cast<UInt8*>(path), MAX_PATH) && *path)
+                return String(path);
         }
     }
 #endif
 
-    return CString();
+    return String();
+}
+
+void CurlSSLHandle::setCACertPath(String&& caCertPath)
+{
+    RELEASE_ASSERT(!caCertPath.isEmpty());
+    m_caCertInfo = WTFMove(caCertPath);
+}
+
+void CurlSSLHandle::setCACertData(CertificateInfo::Certificate&& caCertData)
+{
+    RELEASE_ASSERT(!caCertData.isEmpty());
+    m_caCertInfo = WTFMove(caCertData);
+}
+
+void CurlSSLHandle::clearCACertInfo()
+{
+    m_caCertInfo = WTF::Monostate { };
 }
 
 void CurlSSLHandle::setHostAllowsAnyHTTPSCertificate(const String& hostName)
 {
     LockHolder mutex(m_mutex);
 
-    ListHashSet<String> certificates;
-    m_allowedHosts.set(hostName, certificates);
+    m_allowedHosts.set(hostName, Vector<CertificateInfo::Certificate> { });
 }
 
 bool CurlSSLHandle::isAllowedHTTPSCertificateHost(const String& hostName)
@@ -84,7 +107,7 @@ bool CurlSSLHandle::isAllowedHTTPSCertificateHost(const String& hostName)
     return (it != m_allowedHosts.end());
 }
 
-bool CurlSSLHandle::canIgnoredHTTPSCertificate(const String& hostName, const ListHashSet<String>& certificates)
+bool CurlSSLHandle::canIgnoredHTTPSCertificate(const String& hostName, const Vector<CertificateInfo::Certificate>& certificates)
 {
     LockHolder mutex(m_mutex);
 
@@ -105,8 +128,7 @@ void CurlSSLHandle::setClientCertificateInfo(const String& hostName, const Strin
 {
     LockHolder mutex(m_mutex);
 
-    ClientCertificate clientInfo(certificate, key);
-    m_allowedClientHosts.set(hostName, clientInfo);
+    m_allowedClientHosts.set(hostName, ClientCertificate { certificate, key });
 }
 
 std::optional<CurlSSLHandle::ClientCertificate> CurlSSLHandle::getSSLClientCertificate(const String& hostName)
@@ -119,6 +141,46 @@ std::optional<CurlSSLHandle::ClientCertificate> CurlSSLHandle::getSSLClientCerti
 
     return it->value;
 }
+
+#if NEED_OPENSSL_THREAD_SUPPORT
+
+void CurlSSLHandle::ThreadSupport::setup()
+{
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [] {
+        singleton();
+    });
+}
+
+CurlSSLHandle::ThreadSupport::ThreadSupport()
+{
+    CRYPTO_set_locking_callback(lockingCallback);
+#if OS(WINDOWS)
+    CRYPTO_THREADID_set_callback(threadIdCallback);
+#endif
+}
+
+void CurlSSLHandle::ThreadSupport::lockingCallback(int mode, int type, const char*, int)
+{
+    RELEASE_ASSERT(type >= 0 && type < CRYPTO_NUM_LOCKS);
+    auto& locker = ThreadSupport::singleton();
+
+    if (mode & CRYPTO_LOCK)
+        locker.lock(type);
+    else
+        locker.unlock(type);
+}
+
+#if OS(WINDOWS)
+
+void CurlSSLHandle::ThreadSupport::threadIdCallback(CRYPTO_THREADID* threadId)
+{
+    CRYPTO_THREADID_set_numeric(threadId, static_cast<unsigned long>(Thread::currentID()));
+}
+
+#endif
+
+#endif
 
 }
 

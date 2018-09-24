@@ -60,6 +60,9 @@
 #include "ustrenum.h"
 #include "uresimp.h"
 #include "ucln_in.h"
+#if U_PLATFORM_IS_DARWIN_BASED
+#include <os/log.h>
+#endif
 
 static icu::Locale* availableLocaleList = NULL;
 static int32_t  availableLocaleListCount;
@@ -448,6 +451,20 @@ Collator* U_EXPORT2 Collator::createInstance(const Locale& desiredLocale,
 #endif
     {
         coll = makeInstance(desiredLocale, status);
+    }
+    // makeInstance either returns NULL with U_FAILURE(status), or non-NULL with U_SUCCESS(status).
+    // The *coll in setAttributesFromKeywords causes the NULL check to be optimized out of the delete
+    // even though setAttributesFromKeywords returns immediately if U_FAILURE(status), so we add a
+    // check here and also log the locale name for failures. <rdar://problem/40930320>
+    if (U_FAILURE(status)) {
+#if U_PLATFORM_IS_DARWIN_BASED
+#if 0
+        // logging disabled for shipping system, can enable for internal debugging
+        const char* locname = desiredLocale.getName();
+        os_log(OS_LOG_DEFAULT, "Collator::createInstance fails with locale: %{public}s", locname? locname: "(NULL)");
+#endif
+#endif
+        return NULL;
     }
     setAttributesFromKeywords(desiredLocale, *coll, status);
     if (U_FAILURE(status)) {

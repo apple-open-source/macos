@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@
 
 #import <pal/cf/CoreMediaSoftLink.h>
 
-SOFT_LINK_FRAMEWORK_OPTIONAL(AVKit)
+SOFTLINK_AVKIT_FRAMEWORK()
 SOFT_LINK_CLASS_OPTIONAL(AVKit, AVPlayerController)
 SOFT_LINK_CLASS_OPTIONAL(AVKit, AVValueTiming)
 
@@ -90,6 +90,8 @@ static double WebAVPlayerControllerLiveStreamSeekableTimeRangeMinimumDuration = 
     [_currentAudioMediaSelectionOption release];
     [_currentLegibleMediaSelectionOption release];
     [_externalPlaybackAirPlayDeviceLocalizedName release];
+    [_minTiming release];
+    [_maxTiming release];
     [super dealloc];
 }
 
@@ -511,6 +513,24 @@ static double WebAVPlayerControllerLiveStreamSeekableTimeRangeMinimumDuration = 
         self.delegate->toggleMuted();
 }
 
+- (double)volume
+{
+    return self.delegate ? self.delegate->volume() : 0;
+}
+
+- (void)setVolume:(double)volume
+{
+    if (self.delegate)
+        self.delegate->setVolume(volume);
+}
+
+- (void)volumeChanged:(double)volume
+{
+    UNUSED_PARAM(volume);
+    [self willChangeValueForKey:@"volume"];
+    [self didChangeValueForKey:@"volume"];
+}
+
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
 {
     using namespace PAL;
@@ -616,6 +636,7 @@ static double WebAVPlayerControllerLiveStreamSeekableTimeRangeMinimumDuration = 
     self.maxTiming = nil;
     self.timing = nil;
     self.rate = 0;
+    self.volume = 0;
 
     self.seekableTimeRanges = [NSMutableArray array];
 

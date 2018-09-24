@@ -97,6 +97,9 @@ public:
     static IOReturn getFlagsForDisplayMode(
                 IOFramebuffer * fb,
                 IODisplayModeID mode, UInt32 * flags );
+
+    void forceIdleImpl();
+    static void forceIdle();
 };
 
 void IODisplayUpdateNVRAM( IOService * entry, OSData * property );

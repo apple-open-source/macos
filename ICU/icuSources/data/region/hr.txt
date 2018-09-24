@@ -31,6 +31,7 @@ hr{
         151{"Istočna Europa"}
         154{"Sjeverna Europa"}
         155{"Zapadna Europa"}
+        202{"Subsaharska Afrika"}
         419{"Latinska Amerika"}
         AC{"Otok Ascension"}
         AD{"Andora"}
@@ -106,6 +107,7 @@ hr{
         ES{"Španjolska"}
         ET{"Etiopija"}
         EU{"Europska unija"}
+        EZ{"eurozona"}
         FI{"Finska"}
         FJ{"Fidži"}
         FK{"Falklandski otoci"}
@@ -217,10 +219,10 @@ hr{
         PH{"Filipini"}
         PK{"Pakistan"}
         PL{"Poljska"}
-        PM{"Saint-Pierre-et-Miquelon"}
+        PM{"Sveti Petar i Mikelon"}
         PN{"Otoci Pitcairn"}
         PR{"Portoriko"}
-        PS{"Palestinsko Područje"}
+        PS{"Palestinsko područje"}
         PT{"Portugal"}
         PW{"Palau"}
         PY{"Paragvaj"}
@@ -310,5 +312,5 @@ hr{
         MK{"Makedonija (BJRM)"}
         TL{"Istočni Timor"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

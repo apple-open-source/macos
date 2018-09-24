@@ -196,6 +196,11 @@ session_credentials_iterate(session_t session, credential_iterator_t iter)
     
     dispatch_sync(session->dispatch_queue, ^{
         CFIndex count = CFSetGetCount(session->credentials);
+        if (count > 128) { // <rdar://problem/38179345> Variable Length Arrays; AuthD
+            // session usually contains 0 or 1 credential
+            count = 128;
+        }
+
         CFTypeRef values[count];
         CFSetGetValues(session->credentials, values);
         for (CFIndex i = 0; i < count; i++) {

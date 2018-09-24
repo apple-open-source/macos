@@ -1501,6 +1501,7 @@ private:
 
 private:
     friend class RBBIRuleScanner;
+    friend class RBBIRuleScanner57;
 
     //----------------------------------------------------------------
     // Implementation: Clone as thawed (see ICU4J Freezable)
@@ -1522,6 +1523,7 @@ private:
                       UnicodeString& rebuiltPat,
                       uint32_t options,
                       UnicodeSet& (UnicodeSet::*caseClosure)(int32_t attribute),
+                      int32_t depth,
                       UErrorCode& ec);
 
     //----------------------------------------------------------------

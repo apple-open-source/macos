@@ -127,18 +127,7 @@ apr_status_t h2_conn_child_init(apr_pool_t *pool, server_rec *s)
 
     h2_config_init(pool);
     
-    minw = h2_config_geti(config, H2_CONF_MIN_WORKERS);
-    maxw = h2_config_geti(config, H2_CONF_MAX_WORKERS);    
-    if (minw <= 0) {
-        minw = max_threads_per_child;
-    }
-    if (maxw <= 0) {
-        /* As a default, this seems to work quite well under mpm_event. 
-         * For people enabling http2 under mpm_prefork, start 4 threads unless 
-         * configured otherwise. People get unhappy if their http2 requests are 
-         * blocking each other. */
-        maxw = H2MAX(3 * minw / 2, 4);
-    }
+    h2_get_num_workers(s, &minw, &maxw);
     
     idle_secs = h2_config_geti(config, H2_CONF_MAX_WORKER_IDLE_SECS);
     ap_log_error(APLOG_MARK, APLOG_TRACE3, 0, s,
@@ -240,7 +229,19 @@ apr_status_t h2_conn_run(struct h2_ctx *ctx, conn_rec *c)
              && mpm_state != AP_MPMQ_STOPPING);
 
     if (c->cs) {
-        c->cs->state = CONN_STATE_LINGER;
+        switch (session->state) {
+            case H2_SESSION_ST_INIT:
+            case H2_SESSION_ST_IDLE:
+            case H2_SESSION_ST_BUSY:
+            case H2_SESSION_ST_WAIT:
+                c->cs->state = CONN_STATE_WRITE_COMPLETION;
+                break;
+            case H2_SESSION_ST_CLEANUP:
+            case H2_SESSION_ST_DONE:
+            default:
+                c->cs->state = CONN_STATE_LINGER;
+            break;
+        }
     }
 
     return APR_SUCCESS;
@@ -313,8 +314,6 @@ conn_rec *h2_slave_create(conn_rec *master, int slave_id, apr_pool_t *parent)
     c->log                    = NULL;
     c->log_id                 = apr_psprintf(pool, "%ld-%d", 
                                              master->id, slave_id);
-    /* Simulate that we had already a request on this connection. */
-    c->keepalives             = 1;
     c->aborted                = 0;
     /* We cannot install the master connection socket on the slaves, as
      * modules mess with timeouts/blocking of the socket, with
@@ -349,6 +348,14 @@ void h2_slave_destroy(conn_rec *slave)
 
 apr_status_t h2_slave_run_pre_connection(conn_rec *slave, apr_socket_t *csd)
 {
-    return ap_run_pre_connection(slave, csd);
+    if (slave->keepalives == 0) {
+        /* Simulate that we had already a request on this connection. Some
+         * hooks trigger special behaviour when keepalives is 0. 
+         * (Not necessarily in pre_connection, but later. Set it here, so it
+         * is in place.) */
+        slave->keepalives = 1;
+        return ap_run_pre_connection(slave, csd);
+    }
+    return APR_SUCCESS;
 }
 

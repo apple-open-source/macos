@@ -29,14 +29,14 @@
 
 #import "NetscapePluginHostProxy.h"
 #import "ProxyRuntimeObject.h"
+#import <JavaScriptCore/Error.h>
+#import <JavaScriptCore/FunctionPrototype.h>
+#import <JavaScriptCore/PropertyNameArray.h>
 #import <WebCore/CommonVM.h>
 #import <WebCore/IdentifierRep.h>
 #import <WebCore/JSDOMWindow.h>
 #import <WebCore/npruntime_impl.h>
 #import <WebCore/runtime_method.h>
-#import <runtime/Error.h>
-#import <runtime/FunctionPrototype.h>
-#import <runtime/PropertyNameArray.h>
 #import <wtf/NeverDestroyed.h>
 
 extern "C" {
@@ -223,8 +223,8 @@ JSValue ProxyInstance::invokeMethod(ExecState* exec, JSC::RuntimeMethod* runtime
     VM& vm = exec->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (!asObject(runtimeMethod)->inherits(vm, ProxyRuntimeMethod::info()))
-        return throwTypeError(exec, scope, ASCIILiteral("Attempt to invoke non-plug-in method on plug-in object."));
+    if (!asObject(runtimeMethod)->inherits<ProxyRuntimeMethod>(vm))
+        return throwTypeError(exec, scope, "Attempt to invoke non-plug-in method on plug-in object."_s);
 
     ProxyMethod* method = static_cast<ProxyMethod*>(runtimeMethod->method());
     ASSERT(method);

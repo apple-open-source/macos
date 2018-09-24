@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,6 +67,12 @@
  * - a string with one of "All", "Cellular", or "None"
  */
 #define kAWDReportInterfaceTypes	CFSTR("AWDReportInterfaceTypes") /* string */
+
+/*
+ * kCellularCLAT46AutoEnable
+ * - indicates whether CLAT46 should be auto-enabled for cellular interfaces
+ */
+#define kCellularCLAT46AutoEnable	CFSTR("CellularCLAT46AutoEnable")	/* boolean */
 
 STATIC SCPreferencesRef				S_prefs;
 STATIC IPConfigurationControlPrefsCallBack	S_callback;
@@ -336,6 +342,19 @@ IPConfigurationControlPrefsGetAWDReportInterfaceTypes(void)
     return (IPConfigurationInterfaceTypesFromString(types));
 }
 
+Boolean
+IPConfigurationControlPrefsGetCellularCLAT46AutoEnable(void)
+{
+	Boolean		enabled = FALSE;
+	CFBooleanRef	val;
+
+	val = prefs_get_boolean(kCellularCLAT46AutoEnable);
+	if (val != NULL) {
+		enabled = CFBooleanGetValue(val);
+	}
+	return (enabled);
+}
+
 /**
  ** Set
  **/
@@ -360,4 +379,16 @@ IPConfigurationControlPrefsSetAWDReportInterfaceTypes(IPConfigurationInterfaceTy
     str = IPConfigurationInterfaceTypesToString(types);
     prefs_set_string(kAWDReportInterfaceTypes, str);
     return (IPConfigurationControlPrefsSave());
+}
+
+Boolean
+IPConfigurationControlPrefsSetCellularCLAT46AutoEnable(Boolean enable)
+{
+	if (enable == FALSE) {
+		prefs_set_boolean(kCellularCLAT46AutoEnable, NULL);
+	}
+	else {
+		prefs_set_boolean(kCellularCLAT46AutoEnable, kCFBooleanTrue);
+	}
+	return (IPConfigurationControlPrefsSave());
 }

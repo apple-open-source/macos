@@ -144,7 +144,7 @@ keychain_upgrade(bool musr, const char *dbname)
 }
 
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
-CFArrayRef SecAccessGroupsGetCurrent();
+CFArrayRef SecAccessGroupsGetCurrent(void);
 
 int
 secd_20_keychain_upgrade(int argc, char *const *argv)

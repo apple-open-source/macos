@@ -55,37 +55,40 @@
 
 /* Begin PBXBuildFile section */
 		44258B5E1E241DA500DEB7B7 /* Libxml2XCTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 44258B5D1E241DA500DEB7B7 /* Libxml2XCTests.m */; };
-		44258B601E241DA500DEB7B7 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		442840BC2005CF1E003C405B /* module.modulemap in Install module map */ = {isa = PBXBuildFile; fileRef = 442840BA2005CE80003C405B /* module.modulemap */; };
-		442F40651E09F166004826DD /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		442F406D1E09F172004826DD /* runtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 442F40601E09EC71004826DD /* runtest.c */; };
 		443AB8FB1E31678A005C2ED8 /* runtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 442F40601E09EC71004826DD /* runtest.c */; };
-		443AB8FC1E31678F005C2ED8 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		443AB8FF1E3167B0005C2ED8 /* libxml2_runtest.dylib in Resources */ = {isa = PBXBuildFile; fileRef = 443AB8F41E316782005C2ED8 /* libxml2_runtest.dylib */; };
 		443AB91B1E316A1D005C2ED8 /* runxmlconf.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F281E0B133E00521AF3 /* runxmlconf.c */; };
-		443AB91C1E316A22005C2ED8 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		443AB91F1E316A3B005C2ED8 /* libxml2_runxmlconf.dylib in Resources */ = {isa = PBXBuildFile; fileRef = 443AB9141E316A15005C2ED8 /* libxml2_runxmlconf.dylib */; };
 		443AB92B1E316A9C005C2ED8 /* testapi.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F291E0B133E00521AF3 /* testapi.c */; };
-		443AB92C1E316AA1005C2ED8 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		443AB92F1E316AB9005C2ED8 /* libxml2_testapi.dylib in Resources */ = {isa = PBXBuildFile; fileRef = 443AB9241E316A94005C2ED8 /* libxml2_testapi.dylib */; };
 		443AB93B1E316B1D005C2ED8 /* testchar.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F2A1E0B133E00521AF3 /* testchar.c */; };
-		443AB93C1E316B23005C2ED8 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		443AB93F1E316B36005C2ED8 /* libxml2_testchar.dylib in Resources */ = {isa = PBXBuildFile; fileRef = 443AB9341E316B13005C2ED8 /* libxml2_testchar.dylib */; };
 		443AB94B1E316B4F005C2ED8 /* testdict.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F2B1E0B133E00521AF3 /* testdict.c */; };
-		443AB94C1E316B54005C2ED8 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		443AB94F1E316B65005C2ED8 /* libxml2_testdict.dylib in Resources */ = {isa = PBXBuildFile; fileRef = 443AB9441E316B44005C2ED8 /* libxml2_testdict.dylib */; };
 		443AB95B1E316B81005C2ED8 /* testrecurse.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F2C1E0B133E00521AF3 /* testrecurse.c */; };
-		443AB95C1E316B86005C2ED8 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		443AB95F1E316B98005C2ED8 /* libxml2_testrecurse.dylib in Resources */ = {isa = PBXBuildFile; fileRef = 443AB9541E316B7A005C2ED8 /* libxml2_testrecurse.dylib */; };
-		444A7F311E0B134F00521AF3 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		444709A120605ECA00907EAB /* empty.c in Sources */ = {isa = PBXBuildFile; fileRef = 448D7E421EA5CC4100ECC756 /* empty.c */; };
+		444709A320605ECA00907EAB /* libicucore.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58B06414F824A500BE69D8 /* libicucore.dylib */; };
+		444709A420605ECA00907EAB /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58B06614F824C400BE69D8 /* libz.dylib */; };
+		444709A820605EF800907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709AB20605F0900907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709AE20605F3C00907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709B120605F4900907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709B420605F5500907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709B720605F5E00907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709BA20605FFD00907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709BB206061B500907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709BE206061C100907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709C3206061D200907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709C6206061DB00907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709C9206061EB00907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
+		444709CC206061FA00907EAB /* libxml2_test.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4447099520605C4200907EAB /* libxml2_test.dylib */; };
 		444A7F371E0B135C00521AF3 /* runxmlconf.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F281E0B133E00521AF3 /* runxmlconf.c */; };
-		444A7F3C1E0B138400521AF3 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		444A7F421E0B138F00521AF3 /* testapi.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F291E0B133E00521AF3 /* testapi.c */; };
-		444A7F471E0B139600521AF3 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		444A7F4D1E0B139E00521AF3 /* testchar.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F2A1E0B133E00521AF3 /* testchar.c */; };
-		444A7F521E0B13AF00521AF3 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		444A7F581E0B13B700521AF3 /* testdict.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F2B1E0B133E00521AF3 /* testdict.c */; };
-		444A7F5D1E0B13BC00521AF3 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		444A7F631E0B13C400521AF3 /* testrecurse.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F2C1E0B133E00521AF3 /* testrecurse.c */; };
 		44877C981EADB7A100B105D1 /* libxml2_xml_read_memory_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44F286B41EADB25600BA8B08 /* libxml2_xml_read_memory_fuzzer.cc */; };
 		44877CA81EADB96400B105D1 /* libxml2_xml_regexp_compile_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44F286B51EADB25600BA8B08 /* libxml2_xml_regexp_compile_fuzzer.cc */; };
@@ -96,7 +99,6 @@
 		44D951471E24A47C00CC54CE /* test in Resources */ = {isa = PBXBuildFile; fileRef = 44D951451E24A47C00CC54CE /* test */; };
 		44EBC8611C4EDE4900D4BD8E /* xzlib.h in Headers */ = {isa = PBXBuildFile; fileRef = 44B1E3291C4EDAD10064124E /* xzlib.h */; };
 		44EBC8621C4EDE5C00D4BD8E /* xzlib.c in Sources */ = {isa = PBXBuildFile; fileRef = 44B1E3281C4EDAA40064124E /* xzlib.c */; };
-		44EE463C1EAD9CB7002DBC74 /* libxml2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 448D7E2C1EA5BF8000ECC756 /* libxml2.a */; };
 		44F286C31EADB32500BA8B08 /* libxml2_xml_pushparser_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44F286B31EADB25600BA8B08 /* libxml2_xml_pushparser_fuzzer.cc */; };
 		5D0359B91677F7FC00B6692E /* buf.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D0359B81677F7FC00B6692E /* buf.c */; };
 		5D58B01614F81A8D00BE69D8 /* c14n.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFCE14F81A8D00BE69D8 /* c14n.c */; };
@@ -206,13 +208,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		44258B611E241DA500DEB7B7 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
-		};
 		4431E4E61E37F2160041D690 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
@@ -262,26 +257,12 @@
 			remoteGlobalIDString = 44258B5A1E241DA500DEB7B7;
 			remoteInfo = Libxml2XCTests;
 		};
-		443AB8F91E316786005C2ED8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
-		};
 		443AB8FD1E31679A005C2ED8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 443AB8F31E316782005C2ED8;
 			remoteInfo = xml2_runtest;
-		};
-		443AB9191E316A1A005C2ED8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
 		};
 		443AB91D1E316A2E005C2ED8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -290,26 +271,12 @@
 			remoteGlobalIDString = 443AB9131E316A15005C2ED8;
 			remoteInfo = xml2_runxmlconf;
 		};
-		443AB9291E316A99005C2ED8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
-		};
 		443AB92D1E316AA9005C2ED8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 443AB9231E316A94005C2ED8;
 			remoteInfo = xml2_testapi;
-		};
-		443AB9391E316B1A005C2ED8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
 		};
 		443AB93D1E316B2A005C2ED8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -318,13 +285,6 @@
 			remoteGlobalIDString = 443AB9331E316B13005C2ED8;
 			remoteInfo = xml2_testchar;
 		};
-		443AB9491E316B4C005C2ED8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
-		};
 		443AB94D1E316B5C005C2ED8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
@@ -332,19 +292,110 @@
 			remoteGlobalIDString = 443AB9431E316B44005C2ED8;
 			remoteInfo = xml2_testdict;
 		};
-		443AB9591E316B7E005C2ED8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
-		};
 		443AB95D1E316B8E005C2ED8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 443AB9531E316B7A005C2ED8;
 			remoteInfo = xml2_testrecurse;
+		};
+		4447099A20605C6D00907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 448D7E2B1EA5BF8000ECC756;
+			remoteInfo = xml2;
+		};
+		444709A520605ED900907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = xml2_test;
+		};
+		444709A920605EFF00907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = xml2_test;
+		};
+		444709AC20605F3700907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = libxml2_test;
+		};
+		444709AF20605F4400907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = libxml2_test;
+		};
+		444709B220605F5100907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = libxml2_test;
+		};
+		444709B520605F5A00907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = libxml2_test;
+		};
+		444709B820605FD900907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = libxml2_test;
+		};
+		444709BC206061BB00907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = libxml2_test;
+		};
+		444709BF206061C500907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = libxml2_test;
+		};
+		444709C1206061CA00907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = libxml2_test;
+		};
+		444709C4206061D800907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = libxml2_test;
+		};
+		444709C7206061E100907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = libxml2_test;
+		};
+		444709CA206061F500907EAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4447099420605C4200907EAB;
+			remoteInfo = libxml2_test;
 		};
 		44877C8D1EADB79900B105D1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -396,48 +447,6 @@
 			remoteInfo = libxml2;
 		};
 		448A9E761E2653C60029A3FD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
-		};
-		448A9E781E2653CA0029A3FD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
-		};
-		448A9E7A1E2653CC0029A3FD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
-		};
-		448A9E7C1E2653CF0029A3FD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
-		};
-		448A9E7E1E2653D10029A3FD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
-		};
-		448A9E801E2653D40029A3FD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
-			remoteInfo = libxml2;
-		};
-		448A9E821E2653D70029A3FD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
 			proxyType = 1;
@@ -616,6 +625,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		44083DB62009516B0037BECF /* libxml2.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = libxml2.exp; sourceTree = "<group>"; };
 		44258B5B1E241DA500DEB7B7 /* Libxml2XCTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Libxml2XCTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		44258B5D1E241DA500DEB7B7 /* Libxml2XCTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Libxml2XCTests.m; sourceTree = "<group>"; };
 		44258B5F1E241DA500DEB7B7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -630,6 +640,8 @@
 		443AB9341E316B13005C2ED8 /* libxml2_testchar.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxml2_testchar.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		443AB9441E316B44005C2ED8 /* libxml2_testdict.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxml2_testdict.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		443AB9541E316B7A005C2ED8 /* libxml2_testrecurse.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxml2_testrecurse.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		4447099020605C0000907EAB /* libxml2_test.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libxml2_test.xcconfig; sourceTree = "<group>"; };
+		4447099520605C4200907EAB /* libxml2_test.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxml2_test.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		444A7F281E0B133E00521AF3 /* runxmlconf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = runxmlconf.c; sourceTree = "<group>"; };
 		444A7F291E0B133E00521AF3 /* testapi.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = testapi.c; sourceTree = "<group>"; };
 		444A7F2A1E0B133E00521AF3 /* testchar.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = testchar.c; sourceTree = "<group>"; };
@@ -777,7 +789,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				44258B601E241DA500DEB7B7 /* libxml2.2.dylib in Frameworks */,
+				444709BA20605FFD00907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -785,7 +797,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				442F40651E09F166004826DD /* libxml2.2.dylib in Frameworks */,
+				444709BB206061B500907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -793,7 +805,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				443AB8FC1E31678F005C2ED8 /* libxml2.2.dylib in Frameworks */,
+				444709A820605EF800907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -801,7 +813,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				443AB91C1E316A22005C2ED8 /* libxml2.2.dylib in Frameworks */,
+				444709AB20605F0900907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -809,7 +821,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				443AB92C1E316AA1005C2ED8 /* libxml2.2.dylib in Frameworks */,
+				444709AE20605F3C00907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -817,7 +829,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				443AB93C1E316B23005C2ED8 /* libxml2.2.dylib in Frameworks */,
+				444709B120605F4900907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -825,7 +837,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				443AB94C1E316B54005C2ED8 /* libxml2.2.dylib in Frameworks */,
+				444709B420605F5500907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -833,7 +845,16 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				443AB95C1E316B86005C2ED8 /* libxml2.2.dylib in Frameworks */,
+				444709B720605F5E00907EAB /* libxml2_test.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4447099220605C4200907EAB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				444709A320605ECA00907EAB /* libicucore.dylib in Frameworks */,
+				444709A420605ECA00907EAB /* libz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -841,7 +862,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				444A7F311E0B134F00521AF3 /* libxml2.2.dylib in Frameworks */,
+				444709BE206061C100907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -849,7 +870,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				444A7F3C1E0B138400521AF3 /* libxml2.2.dylib in Frameworks */,
+				444709C3206061D200907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -857,7 +878,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				444A7F471E0B139600521AF3 /* libxml2.2.dylib in Frameworks */,
+				444709C6206061DB00907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -865,7 +886,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				444A7F521E0B13AF00521AF3 /* libxml2.2.dylib in Frameworks */,
+				444709C9206061EB00907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -873,7 +894,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				444A7F5D1E0B13BC00521AF3 /* libxml2.2.dylib in Frameworks */,
+				444709CC206061FA00907EAB /* libxml2_test.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -916,7 +937,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				44EE463C1EAD9CB7002DBC74 /* libxml2.a in Frameworks */,
 				5D58B06514F824A500BE69D8 /* libicucore.dylib in Frameworks */,
 				5D58B06714F824C400BE69D8 /* libz.dylib in Frameworks */,
 			);
@@ -966,6 +986,13 @@
 			path = libxml2;
 			sourceTree = "<group>";
 		};
+		4447099D20605C9F00907EAB /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		44F286B21EADB20E00BA8B08 /* Fuzzers */ = {
 			isa = PBXGroup;
 			children = (
@@ -1012,6 +1039,7 @@
 				5D58AF6914F816BC00BE69D8 /* Configurations */,
 				5D58B06314F8247700BE69D8 /* Linked Libraries */,
 				5D58AF5D14F815F500BE69D8 /* Products */,
+				4447099D20605C9F00907EAB /* Frameworks */,
 			);
 			sourceTree = "<group>";
 			tabWidth = 8;
@@ -1032,6 +1060,7 @@
 				44258B5B1E241DA500DEB7B7 /* Libxml2XCTests.xctest */,
 				443AB8F41E316782005C2ED8 /* libxml2_runtest.dylib */,
 				443AB9141E316A15005C2ED8 /* libxml2_runxmlconf.dylib */,
+				4447099520605C4200907EAB /* libxml2_test.dylib */,
 				443AB9241E316A94005C2ED8 /* libxml2_testapi.dylib */,
 				443AB9341E316B13005C2ED8 /* libxml2_testchar.dylib */,
 				443AB9441E316B44005C2ED8 /* libxml2_testdict.dylib */,
@@ -1053,6 +1082,7 @@
 				44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */,
 				448D7E351EA5C3B700ECC756 /* libxml2.a.xcconfig */,
 				5D58AF6B14F816DF00BE69D8 /* libxml2.xcconfig */,
+				4447099020605C0000907EAB /* libxml2_test.xcconfig */,
 				446C9ABA1E25B40B008D92EA /* Libxml2XCTests.xcconfig */,
 				442F40741E09F284004826DD /* ToolExecutable.xcconfig */,
 				4431E4F41E37F96A0041D690 /* ToolLibrary.xcconfig */,
@@ -1120,6 +1150,7 @@
 			children = (
 				5D58B05E14F81AF200BE69D8 /* config.h */,
 				448D7E421EA5CC4100ECC756 /* empty.c */,
+				44083DB62009516B0037BECF /* libxml2.exp */,
 				442840BA2005CE80003C405B /* module.modulemap */,
 				5DB38B2914F886A10060A507 /* xml2-config */,
 				5D58B06114F81D2D00BE69D8 /* xmlversion.h */,
@@ -1251,13 +1282,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5D58AF5A14F815F500BE69D8 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 				5D58B05F14F81AF200BE69D8 /* config.h in Headers */,
 				5D58B06214F81D2D00BE69D8 /* xmlversion.h in Headers */,
 				5D58B09A14F8261200BE69D8 /* c14n.h in Headers */,
@@ -1326,7 +1350,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				44258B621E241DA500DEB7B7 /* PBXTargetDependency */,
+				444709B920605FD900907EAB /* PBXTargetDependency */,
 				443AB8FE1E31679A005C2ED8 /* PBXTargetDependency */,
 				443AB91E1E316A2E005C2ED8 /* PBXTargetDependency */,
 				443AB92E1E316AA9005C2ED8 /* PBXTargetDependency */,
@@ -1349,7 +1373,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				448A9E791E2653CA0029A3FD /* PBXTargetDependency */,
+				444709BD206061BB00907EAB /* PBXTargetDependency */,
 			);
 			name = runtest;
 			productName = runtest;
@@ -1367,7 +1391,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				443AB8FA1E316786005C2ED8 /* PBXTargetDependency */,
+				444709A620605ED900907EAB /* PBXTargetDependency */,
 			);
 			name = xml2_runtest;
 			productName = xml2_runtest;
@@ -1385,7 +1409,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				443AB91A1E316A1A005C2ED8 /* PBXTargetDependency */,
+				444709AA20605EFF00907EAB /* PBXTargetDependency */,
 			);
 			name = xml2_runxmlconf;
 			productName = xml2_runxmlconf;
@@ -1403,7 +1427,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				443AB92A1E316A99005C2ED8 /* PBXTargetDependency */,
+				444709AD20605F3700907EAB /* PBXTargetDependency */,
 			);
 			name = xml2_testapi;
 			productName = xml2_testapi;
@@ -1421,7 +1445,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				443AB93A1E316B1A005C2ED8 /* PBXTargetDependency */,
+				444709B020605F4400907EAB /* PBXTargetDependency */,
 			);
 			name = xml2_testchar;
 			productName = xml2_testchar;
@@ -1439,7 +1463,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				443AB94A1E316B4C005C2ED8 /* PBXTargetDependency */,
+				444709B320605F5100907EAB /* PBXTargetDependency */,
 			);
 			name = xml2_testdict;
 			productName = xml2_testdict;
@@ -1457,11 +1481,28 @@
 			buildRules = (
 			);
 			dependencies = (
-				443AB95A1E316B7E005C2ED8 /* PBXTargetDependency */,
+				444709B620605F5A00907EAB /* PBXTargetDependency */,
 			);
 			name = xml2_testrecurse;
 			productName = xml2_testrecurse;
 			productReference = 443AB9541E316B7A005C2ED8 /* libxml2_testrecurse.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		4447099420605C4200907EAB /* libxml2_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4447099620605C4200907EAB /* Build configuration list for PBXNativeTarget "libxml2_test" */;
+			buildPhases = (
+				4447099120605C4200907EAB /* Sources */,
+				4447099220605C4200907EAB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4447099B20605C6D00907EAB /* PBXTargetDependency */,
+			);
+			name = libxml2_test;
+			productName = libxml2_test;
+			productReference = 4447099520605C4200907EAB /* libxml2_test.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
 		444A7F2D1E0B134F00521AF3 /* runxmlconf */ = {
@@ -1474,7 +1515,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				448A9E7B1E2653CC0029A3FD /* PBXTargetDependency */,
+				444709C0206061C500907EAB /* PBXTargetDependency */,
 			);
 			name = runxmlconf;
 			productName = runxmlconf;
@@ -1491,7 +1532,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				448A9E7D1E2653CF0029A3FD /* PBXTargetDependency */,
+				444709C2206061CA00907EAB /* PBXTargetDependency */,
 			);
 			name = testapi;
 			productName = testapi;
@@ -1508,7 +1549,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				448A9E7F1E2653D10029A3FD /* PBXTargetDependency */,
+				444709C5206061D800907EAB /* PBXTargetDependency */,
 			);
 			name = testchar;
 			productName = testchar;
@@ -1525,7 +1566,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				448A9E811E2653D40029A3FD /* PBXTargetDependency */,
+				444709C8206061E100907EAB /* PBXTargetDependency */,
 			);
 			name = testdict;
 			productName = testdict;
@@ -1542,7 +1583,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				448A9E831E2653D70029A3FD /* PBXTargetDependency */,
+				444709CB206061F500907EAB /* PBXTargetDependency */,
 			);
 			name = testrecurse;
 			productName = testrecurse;
@@ -1607,9 +1648,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 448D7E2D1EA5BF8000ECC756 /* Build configuration list for PBXNativeTarget "xml2" */;
 			buildPhases = (
+				448D7E2A1EA5BF8000ECC756 /* Headers */,
 				448D7E281EA5BF8000ECC756 /* Sources */,
 				448D7E291EA5BF8000ECC756 /* Frameworks */,
-				448D7E2A1EA5BF8000ECC756 /* Headers */,
 			);
 			buildRules = (
 			);
@@ -1642,7 +1683,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5D58AF6014F815F500BE69D8 /* Build configuration list for PBXNativeTarget "libxml2" */;
 			buildPhases = (
-				5D58AF5A14F815F500BE69D8 /* Headers */,
 				5D58AF5814F815F500BE69D8 /* Sources */,
 				5D58AF5914F815F500BE69D8 /* Frameworks */,
 				5DB38AF914F87C9F0060A507 /* Create libxml2.dylib Symlink */,
@@ -1736,6 +1776,10 @@
 						CreatedOnToolsVersion = 8.3;
 						ProvisioningStyle = Automatic;
 					};
+					4447099420605C4200907EAB = {
+						CreatedOnToolsVersion = 9.3;
+						ProvisioningStyle = Automatic;
+					};
 					448D7E2B1EA5BF8000ECC756 = {
 						CreatedOnToolsVersion = 8.3;
 						ProvisioningStyle = Automatic;
@@ -1765,10 +1809,11 @@
 				5DB38AEE14F87BDD0060A507 /* All */,
 				448D7E2B1EA5BF8000ECC756 /* xml2 */,
 				5D58AF5B14F815F500BE69D8 /* libxml2 */,
-				5DB38AE014F87AE80060A507 /* xmllint */,
 				5DB38B0814F880AA0060A507 /* xmlcatalog */,
+				5DB38AE014F87AE80060A507 /* xmllint */,
 				4431E4DB1E37F1FE0041D690 /* Test */,
 				44258B5A1E241DA500DEB7B7 /* Libxml2XCTests */,
+				4447099420605C4200907EAB /* libxml2_test */,
 				443AB8F31E316782005C2ED8 /* xml2_runtest */,
 				443AB9131E316A15005C2ED8 /* xml2_runxmlconf */,
 				443AB9231E316A94005C2ED8 /* xml2_testapi */,
@@ -1834,10 +1879,11 @@
 			name = "Create libxml2.dylib Symlink";
 			outputPaths = (
 				"$(BUILT_PRODUCTS_DIR)/libxml2.dylib",
+				"$(BUILT_PRODUCTS_DIR)/libxml2.tbd",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "ln -sf libxml2.2.dylib \"${BUILT_PRODUCTS_DIR}/libxml2.dylib\"\n\nif [[ \"${ACTION}\" == \"install\" ]]; then\n    ln -sf libxml2.2.dylib \"${DSTROOT}${INSTALL_PATH}/libxml2.dylib\";\nfi;\n";
+			shellScript = "ln -sf libxml2.2.dylib \"${BUILT_PRODUCTS_DIR}/libxml2.dylib\"\nln -sf libxml2.2.tbd \"${BUILT_PRODUCTS_DIR}/libxml2.tbd\"\n\nif [[ \"${ACTION}\" == \"install\" ]]; then\n    ln -sf libxml2.2.dylib \"${DSTROOT}${INSTALL_PATH}/libxml2.dylib\";\n    ln -sf libxml2.2.tbd \"${DSTROOT}${INSTALL_PATH}/libxml2.tbd\";\nfi;\n";
 		};
 		5DB38B2314F883700060A507 /* Rename License File */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1919,6 +1965,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				443AB95B1E316B81005C2ED8 /* testrecurse.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4447099120605C4200907EAB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				444709A120605ECA00907EAB /* empty.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2073,11 +2127,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		44258B621E241DA500DEB7B7 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 44258B611E241DA500DEB7B7 /* PBXContainerItemProxy */;
-		};
 		4431E4E71E37F2160041D690 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 442F40611E09F166004826DD /* runtest */;
@@ -2113,65 +2162,105 @@
 			target = 44258B5A1E241DA500DEB7B7 /* Libxml2XCTests */;
 			targetProxy = 4431E4F21E37F2270041D690 /* PBXContainerItemProxy */;
 		};
-		443AB8FA1E316786005C2ED8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 443AB8F91E316786005C2ED8 /* PBXContainerItemProxy */;
-		};
 		443AB8FE1E31679A005C2ED8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 443AB8F31E316782005C2ED8 /* xml2_runtest */;
 			targetProxy = 443AB8FD1E31679A005C2ED8 /* PBXContainerItemProxy */;
-		};
-		443AB91A1E316A1A005C2ED8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 443AB9191E316A1A005C2ED8 /* PBXContainerItemProxy */;
 		};
 		443AB91E1E316A2E005C2ED8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 443AB9131E316A15005C2ED8 /* xml2_runxmlconf */;
 			targetProxy = 443AB91D1E316A2E005C2ED8 /* PBXContainerItemProxy */;
 		};
-		443AB92A1E316A99005C2ED8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 443AB9291E316A99005C2ED8 /* PBXContainerItemProxy */;
-		};
 		443AB92E1E316AA9005C2ED8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 443AB9231E316A94005C2ED8 /* xml2_testapi */;
 			targetProxy = 443AB92D1E316AA9005C2ED8 /* PBXContainerItemProxy */;
-		};
-		443AB93A1E316B1A005C2ED8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 443AB9391E316B1A005C2ED8 /* PBXContainerItemProxy */;
 		};
 		443AB93E1E316B2A005C2ED8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 443AB9331E316B13005C2ED8 /* xml2_testchar */;
 			targetProxy = 443AB93D1E316B2A005C2ED8 /* PBXContainerItemProxy */;
 		};
-		443AB94A1E316B4C005C2ED8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 443AB9491E316B4C005C2ED8 /* PBXContainerItemProxy */;
-		};
 		443AB94E1E316B5C005C2ED8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 443AB9431E316B44005C2ED8 /* xml2_testdict */;
 			targetProxy = 443AB94D1E316B5C005C2ED8 /* PBXContainerItemProxy */;
 		};
-		443AB95A1E316B7E005C2ED8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 443AB9591E316B7E005C2ED8 /* PBXContainerItemProxy */;
-		};
 		443AB95E1E316B8E005C2ED8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 443AB9531E316B7A005C2ED8 /* xml2_testrecurse */;
 			targetProxy = 443AB95D1E316B8E005C2ED8 /* PBXContainerItemProxy */;
+		};
+		4447099B20605C6D00907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 448D7E2B1EA5BF8000ECC756 /* xml2 */;
+			targetProxy = 4447099A20605C6D00907EAB /* PBXContainerItemProxy */;
+		};
+		444709A620605ED900907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709A520605ED900907EAB /* PBXContainerItemProxy */;
+		};
+		444709AA20605EFF00907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709A920605EFF00907EAB /* PBXContainerItemProxy */;
+		};
+		444709AD20605F3700907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709AC20605F3700907EAB /* PBXContainerItemProxy */;
+		};
+		444709B020605F4400907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709AF20605F4400907EAB /* PBXContainerItemProxy */;
+		};
+		444709B320605F5100907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709B220605F5100907EAB /* PBXContainerItemProxy */;
+		};
+		444709B620605F5A00907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709B520605F5A00907EAB /* PBXContainerItemProxy */;
+		};
+		444709B920605FD900907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709B820605FD900907EAB /* PBXContainerItemProxy */;
+		};
+		444709BD206061BB00907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709BC206061BB00907EAB /* PBXContainerItemProxy */;
+		};
+		444709C0206061C500907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709BF206061C500907EAB /* PBXContainerItemProxy */;
+		};
+		444709C2206061CA00907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709C1206061CA00907EAB /* PBXContainerItemProxy */;
+		};
+		444709C5206061D800907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709C4206061D800907EAB /* PBXContainerItemProxy */;
+		};
+		444709C8206061E100907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709C7206061E100907EAB /* PBXContainerItemProxy */;
+		};
+		444709CB206061F500907EAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4447099420605C4200907EAB /* libxml2_test */;
+			targetProxy = 444709CA206061F500907EAB /* PBXContainerItemProxy */;
 		};
 		44877C8C1EADB79900B105D1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2212,36 +2301,6 @@
 			isa = PBXTargetDependency;
 			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
 			targetProxy = 448A9E761E2653C60029A3FD /* PBXContainerItemProxy */;
-		};
-		448A9E791E2653CA0029A3FD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 448A9E781E2653CA0029A3FD /* PBXContainerItemProxy */;
-		};
-		448A9E7B1E2653CC0029A3FD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 448A9E7A1E2653CC0029A3FD /* PBXContainerItemProxy */;
-		};
-		448A9E7D1E2653CF0029A3FD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 448A9E7C1E2653CF0029A3FD /* PBXContainerItemProxy */;
-		};
-		448A9E7F1E2653D10029A3FD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 448A9E7E1E2653D10029A3FD /* PBXContainerItemProxy */;
-		};
-		448A9E811E2653D40029A3FD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 448A9E801E2653D40029A3FD /* PBXContainerItemProxy */;
-		};
-		448A9E831E2653D70029A3FD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
-			targetProxy = 448A9E821E2653D70029A3FD /* PBXContainerItemProxy */;
 		};
 		448D7E331EA5BFB100ECC756 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2492,6 +2551,30 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 4431E4F41E37F96A0041D690 /* ToolLibrary.xcconfig */;
 			buildSettings = {
+			};
+			name = Production;
+		};
+		4447099720605C4200907EAB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4447099020605C0000907EAB /* libxml2_test.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		4447099820605C4200907EAB /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4447099020605C0000907EAB /* libxml2_test.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		4447099920605C4200907EAB /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4447099020605C0000907EAB /* libxml2_test.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Production;
 		};
@@ -2947,6 +3030,16 @@
 				443AB9561E316B7A005C2ED8 /* Debug */,
 				443AB9571E316B7A005C2ED8 /* Release */,
 				443AB9581E316B7A005C2ED8 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		4447099620605C4200907EAB /* Build configuration list for PBXNativeTarget "libxml2_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4447099720605C4200907EAB /* Debug */,
+				4447099820605C4200907EAB /* Release */,
+				4447099920605C4200907EAB /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;

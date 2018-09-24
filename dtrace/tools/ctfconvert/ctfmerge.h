@@ -26,8 +26,6 @@
 #ifndef _CTFMERGE_H
 #define	_CTFMERGE_H
 
-#pragma ident	"@(#)ctfmerge.h	1.4	08/06/20 SMI"
-
 /*
  * Merging structures used in ctfmerge.  See ctfmerge.c for locking semantics.
  */

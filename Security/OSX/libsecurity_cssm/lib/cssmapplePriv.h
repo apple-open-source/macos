@@ -26,6 +26,10 @@
 #ifndef _CSSMAPPLE_PRIV_H_
 #define _CSSMAPPLE_PRIV_H_  1
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_OSX
+
 #include <Security/cssmtype.h>
 #include <Security/cssmapple.h>
 
@@ -131,40 +135,40 @@ enum
 };
 
 /* AppleCSPDL passthrough parameters */
-typedef struct cssm_applecspdl_db_recode_parameters
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_applecspdl_db_recode_parameters
 {
 	CSSM_DATA dbBlob;
 	CSSM_DATA extraData;
-} CSSM_APPLECSPDL_RECODE_PARAMETERS, *CSSM_APPLECSPDL_RECODE_PARAMETERS_PTR;
+} CSSM_APPLECSPDL_RECODE_PARAMETERS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_APPLECSPDL_RECODE_PARAMETERS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_applecspdl_db_copy_blob_parameters
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_applecspdl_db_copy_blob_parameters
 {
 	CSSM_DATA blob;
-} CSSM_APPLECSPDL_DB_COPY_BLOB_PARAMETERS;
+} CSSM_APPLECSPDL_DB_COPY_BLOB_PARAMETERS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_applecspdl_db_insert_without_encryption_parameters
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_applecspdl_db_insert_without_encryption_parameters
 {
 	CSSM_DB_RECORDTYPE recordType;
 	CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes;
 	CSSM_DATA data;
-} CSSM_APPLECSPDL_DB_INSERT_WITHOUT_ENCRYPTION_PARAMETERS;
+} CSSM_APPLECSPDL_DB_INSERT_WITHOUT_ENCRYPTION_PARAMETERS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_applecspdl_db_modify_without_encryption_parameters
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_applecspdl_db_modify_without_encryption_parameters
 {
 	CSSM_DB_RECORDTYPE recordType;
 	CSSM_DB_UNIQUE_RECORD_PTR uniqueID;
 	CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes;
 	CSSM_DATA *data;
 	CSSM_DB_MODIFY_MODE modifyMode;
-} CSSM_APPLECSPDL_DB_MODIFY_WITHOUT_ENCRYPTION_PARAMETERS;
+} CSSM_APPLECSPDL_DB_MODIFY_WITHOUT_ENCRYPTION_PARAMETERS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_applecspdl_db_get_without_encryption_parameters
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_applecspdl_db_get_without_encryption_parameters
 {
 	CSSM_DB_UNIQUE_RECORD_PTR uniqueID;
 	CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes;
-} CSSM_APPLECSPDL_DB_GET_WITHOUT_ENCRYPTION_PARAMETERS;
+} CSSM_APPLECSPDL_DB_GET_WITHOUT_ENCRYPTION_PARAMETERS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_applecspdl_db_create_with_blob_parameters
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_applecspdl_db_create_with_blob_parameters
 {
 	const char *dbName;
 	const CSSM_NET_ADDRESS *dbLocation;
@@ -173,10 +177,12 @@ typedef struct cssm_applecspdl_db_create_with_blob_parameters
 	const CSSM_RESOURCE_CONTROL_CONTEXT *credAndAclEntry;
 	const void *openParameters;
 	const CSSM_DATA *blob;
-} CSSM_APPLE_CSPDL_DB_CREATE_WITH_BLOB_PARAMETERS;
+} CSSM_APPLE_CSPDL_DB_CREATE_WITH_BLOB_PARAMETERS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* TARGET_OS_OSX */
 
 #endif	/* _CSSMAPPLE_PRIV_H_ */

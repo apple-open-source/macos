@@ -27,8 +27,11 @@
 #include "RenderSVGResource.h"
 #include "SVGLengthValue.h"
 #include "SVGNames.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(SVGRectElement);
 
 // Animated property definitions
 DEFINE_ANIMATED_LENGTH(SVGRectElement, SVGNames::xAttr, X, x)
@@ -47,11 +50,11 @@ BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGRectElement)
     REGISTER_LOCAL_ANIMATED_PROPERTY(rx)
     REGISTER_LOCAL_ANIMATED_PROPERTY(ry)
     REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
-    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGGraphicsElement)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGGeometryElement)
 END_REGISTER_ANIMATED_PROPERTIES
 
 inline SVGRectElement::SVGRectElement(const QualifiedName& tagName, Document& document)
-    : SVGGraphicsElement(tagName, document)
+    : SVGGeometryElement(tagName, document)
     , m_x(LengthModeWidth)
     , m_y(LengthModeHeight)
     , m_width(LengthModeWidth)

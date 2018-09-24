@@ -147,7 +147,7 @@ void xpcEngineAssess(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef co
 	precheckAccess(path, context);
 	Message msg("assess");
 	xpc_dictionary_set_string(msg, "path", cfString(path).c_str());
-	xpc_dictionary_set_int64(msg, "flags", flags);
+	xpc_dictionary_set_uint64(msg, "flags", flags);
 	CFRef<CFMutableDictionaryRef> ctx = makeCFMutableDictionary();
 	if (context)
 		CFDictionaryApplyFunction(context, copyCFDictionary, ctx);
@@ -205,7 +205,7 @@ CFDictionaryRef xpcEngineUpdate(CFTypeRef target, SecAssessmentFlags flags, CFDi
 		} else
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
 	}
-	xpc_dictionary_set_int64(msg, "flags", flags);
+	xpc_dictionary_set_uint64(msg, "flags", flags);
 	CFRef<CFMutableDictionaryRef> ctx = makeCFMutableDictionary();
 	if (context)
 		CFDictionaryApplyFunction(context, copyCFDictionary, ctx);
@@ -262,6 +262,50 @@ void xpcEngineCheckDevID(CFBooleanRef* result)
     }
 
     *result = xpc_dictionary_get_bool(msg,"result") ? kCFBooleanTrue : kCFBooleanFalse;
+}
+
+void xpcEngineCheckNotarized(CFBooleanRef* result)
+{
+	Message msg("check-notarized");
+
+	msg.send();
+
+	if (int64_t error = xpc_dictionary_get_int64(msg, "error")) {
+		MacOSError::throwMe((int)error);
+	}
+
+	*result = xpc_dictionary_get_bool(msg,"result") ? kCFBooleanTrue : kCFBooleanFalse;
+}
+
+void xpcEngineTicketRegister(CFDataRef ticketData)
+{
+	Message msg("ticket-register");
+	xpc_dictionary_set_data(msg, "ticketData", CFDataGetBytePtr(ticketData), CFDataGetLength(ticketData));
+
+	msg.send();
+
+	if (int64_t error = xpc_dictionary_get_int64(msg, "error")) {
+		MacOSError::throwMe((int)error);
+	}
+}
+
+void xpcEngineTicketLookup(CFDataRef hashData, SecCSDigestAlgorithm hashType, SecAssessmentTicketFlags flags, double *date)
+{
+	Message msg("ticket-lookup");
+	xpc_dictionary_set_data(msg, "hashData", CFDataGetBytePtr(hashData), CFDataGetLength(hashData));
+	xpc_dictionary_set_uint64(msg, "hashType", hashType);
+	xpc_dictionary_set_uint64(msg, "flags", flags);
+
+	msg.send();
+
+	if (int64_t error = xpc_dictionary_get_int64(msg, "error")) {
+		MacOSError::throwMe((int)error);
+	}
+
+	double local_date = xpc_dictionary_get_double(msg, "date");
+	if (date && !isnan(local_date)) {
+		*date = local_date;
+	}
 }
 
 

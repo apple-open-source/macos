@@ -41,6 +41,18 @@
 @synthesize modifyRecordZonesCompletionBlock = _modifyRecordZonesCompletionBlock;
 @synthesize group = _group;
 
+- (CKOperationConfiguration*)configuration {
+    return _configuration;
+}
+
+- (void)setConfiguration:(CKOperationConfiguration*)configuration {
+    if(configuration) {
+        _configuration = configuration;
+    } else {
+        _configuration = [[CKOperationConfiguration alloc] init];
+    }
+}
+
 - (instancetype)initWithRecordZonesToSave:(nullable NSArray<CKRecordZone *> *)recordZonesToSave recordZoneIDsToDelete:(nullable NSArray<CKRecordZoneID *> *)recordZoneIDsToDelete {
     if(self = [super init]) {
         _recordZonesToSave = recordZonesToSave;
@@ -154,6 +166,18 @@
 @synthesize subscriptionIDsToDelete = _subscriptionIDsToDelete;
 @synthesize modifySubscriptionsCompletionBlock = _modifySubscriptionsCompletionBlock;
 
+- (CKOperationConfiguration*)configuration {
+    return _configuration;
+}
+
+- (void)setConfiguration:(CKOperationConfiguration*)configuration {
+    if(configuration) {
+        _configuration = configuration;
+    } else {
+        _configuration = [[CKOperationConfiguration alloc] init];
+    }
+}
+
 - (instancetype)initWithSubscriptionsToSave:(nullable NSArray<CKSubscription *> *)subscriptionsToSave subscriptionIDsToDelete:(nullable NSArray<NSString *> *)subscriptionIDsToDelete {
     if(self = [super init]) {
         _subscriptionsToSave = subscriptionsToSave;
@@ -224,8 +248,9 @@
 @end
 
 @implementation FakeCKFetchRecordZoneChangesOperation
+@synthesize database = _database;
 @synthesize recordZoneIDs = _recordZoneIDs;
-@synthesize optionsByRecordZoneID = _optionsByRecordZoneID;
+@synthesize configurationsByRecordZoneID = _configurationsByRecordZoneID;
 
 @synthesize fetchAllChanges = _fetchAllChanges;
 @synthesize recordChangedBlock = _recordChangedBlock;
@@ -235,12 +260,28 @@
 @synthesize recordZoneFetchCompletionBlock = _recordZoneFetchCompletionBlock;
 @synthesize fetchRecordZoneChangesCompletionBlock = _fetchRecordZoneChangesCompletionBlock;
 
+@synthesize operationID = _operationID;
+@synthesize resolvedConfiguration = _resolvedConfiguration;
 @synthesize group = _group;
 
-- (instancetype)initWithRecordZoneIDs:(NSArray<CKRecordZoneID *> *)recordZoneIDs optionsByRecordZoneID:(nullable NSDictionary<CKRecordZoneID *, CKFetchRecordZoneChangesOptions *> *)optionsByRecordZoneID {
+- (CKOperationConfiguration*)configuration {
+    return _configuration;
+}
+
+- (void)setConfiguration:(CKOperationConfiguration*)configuration {
+    if(configuration) {
+        _configuration = configuration;
+    } else {
+        _configuration = [[CKOperationConfiguration alloc] init];
+    }
+}
+
+- (instancetype)initWithRecordZoneIDs:(NSArray<CKRecordZoneID *> *)recordZoneIDs configurationsByRecordZoneID:(nullable NSDictionary<CKRecordZoneID *, CKFetchRecordZoneChangesConfiguration *> *)configurationsByRecordZoneID {
     if(self = [super init]) {
         _recordZoneIDs = recordZoneIDs;
-        _optionsByRecordZoneID = optionsByRecordZoneID;
+        _configurationsByRecordZoneID = configurationsByRecordZoneID;
+
+        _operationID = @"fake-operation-ID";
     }
     return self;
 }
@@ -248,6 +289,9 @@
 - (void)main {
     // iterate through database, and return items that aren't in lastDatabase
     FakeCKDatabase* ckdb = [FakeCKFetchRecordZoneChangesOperation ckdb];
+    if(self.recordZoneIDs.count == 0) {
+        secerror("fakeck: No zones to fetch. Likely a bug?");
+    }
 
     for(CKRecordZoneID* zoneID in self.recordZoneIDs) {
         FakeCKZone* zone = ckdb[zoneID];
@@ -280,17 +324,26 @@
         }
 
         // Extract the database at the last time they asked
-        CKServerChangeToken* token = self.optionsByRecordZoneID[zoneID].previousServerChangeToken;
-        NSMutableDictionary<CKRecordID*, CKRecord*>* lastDatabase = token ? zone.pastDatabases[token] : nil;
+        CKServerChangeToken* fetchToken = self.configurationsByRecordZoneID[zoneID].previousServerChangeToken;
+        __block NSMutableDictionary<CKRecordID*, CKRecord*>* lastDatabase = nil;
+        __block NSDictionary<CKRecordID*, CKRecord*>* currentDatabase = nil;
+        __block CKServerChangeToken* currentChangeToken = nil;
 
-        // You can fetch with the current change token; that's fine
-        if([token isEqual:zone.currentChangeToken]) {
-            lastDatabase = zone.currentDatabase;
-        }
+        dispatch_sync(zone.queue, ^{
+            lastDatabase = fetchToken ? zone.pastDatabases[fetchToken] : nil;
 
-        ckksnotice("fakeck", zone.zoneID, "FakeCKFetchRecordZoneChangesOperation(%@): database is currently %@ change token %@ database then: %@", zone.zoneID, zone.currentDatabase, token, lastDatabase);
+            // You can fetch with the current change token; that's fine
+            if([fetchToken isEqual:zone.currentChangeToken]) {
+                lastDatabase = zone.currentDatabase;
+            }
 
-        if(!lastDatabase && token) {
+            currentDatabase = zone.currentDatabase;
+            currentChangeToken = zone.currentChangeToken;
+        });
+
+        ckksnotice("fakeck", zone.zoneID, "FakeCKFetchRecordZoneChangesOperation(%@): database is currently %@ change token %@ database then: %@", zone.zoneID, currentDatabase, fetchToken, lastDatabase);
+
+        if(!lastDatabase && fetchToken) {
             ckksnotice("fakeck", zone.zoneID, "no database for this change token: failing fetch with 'CKErrorChangeTokenExpired'");
             self.fetchRecordZoneChangesCompletionBlock([[CKPrettyError alloc]
                                                         initWithDomain:CKErrorDomain
@@ -300,8 +353,7 @@
             return;
         }
 
-        [zone.currentDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
-
+        [currentDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
             id last = [lastDatabase objectForKey: recordID];
             if(!last || ![record isEqual:last]) {
                 self.recordChangedBlock(record);
@@ -311,21 +363,22 @@
         // iterate through lastDatabase, and delete items that aren't in database
         [lastDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
 
-            id current = [zone.currentDatabase objectForKey: recordID];
+            id current = [currentDatabase objectForKey: recordID];
             if(current == nil) {
                 self.recordWithIDWasDeletedBlock(recordID, [record recordType]);
             }
         }];
 
-        self.recordZoneChangeTokensUpdatedBlock(zoneID, zone.currentChangeToken, nil);
-        self.recordZoneFetchCompletionBlock(zoneID, zone.currentChangeToken, nil, NO, nil);
+        self.recordZoneChangeTokensUpdatedBlock(zoneID, currentChangeToken, nil);
+        self.recordZoneFetchCompletionBlock(zoneID, currentChangeToken, nil, NO, nil);
 
         if(self.blockAfterFetch) {
             self.blockAfterFetch();
         }
 
-        self.fetchRecordZoneChangesCompletionBlock(nil);
     }
+
+    self.fetchRecordZoneChangesCompletionBlock(nil);
 }
 
 +(FakeCKDatabase*) ckdb {
@@ -337,6 +390,7 @@
 @end
 
 @implementation FakeCKFetchRecordsOperation
+@synthesize database = _database;
 @synthesize recordIDs = _recordIDs;
 @synthesize desiredKeys = _desiredKeys;
 @synthesize configuration = _configuration;
@@ -527,29 +581,51 @@
 
         _fetchErrors = [[NSMutableArray alloc] init];
 
-        [self rollChangeToken];
+        _queue = dispatch_queue_create("fake-ckzone", DISPATCH_QUEUE_SERIAL);
+
+        dispatch_sync(_queue, ^{
+            [self _onqueueRollChangeToken];
+        });
     }
     return self;
 }
 
-- (void)rollChangeToken {
+- (void)_onqueueRollChangeToken {
+    dispatch_assert_queue(self.queue);
+
     NSData* changeToken = [[[NSUUID UUID] UUIDString] dataUsingEncoding:NSUTF8StringEncoding];
     self.currentChangeToken = [[CKServerChangeToken alloc] initWithData: changeToken];
 }
 
 - (void)addToZone: (CKKSCKRecordHolder*) item zoneID: (CKRecordZoneID*) zoneID {
+    dispatch_sync(self.queue, ^{
+        [self _onqueueAddToZone:item zoneID:zoneID];
+    });
+}
+
+- (void)_onqueueAddToZone:(CKKSCKRecordHolder*)item zoneID:(CKRecordZoneID*)zoneID {
+    dispatch_assert_queue(self.queue);
+
     CKRecord* record = [item CKRecordWithZoneID: zoneID];
-    [self addToZone: record];
+    [self _onqueueAddToZone: record];
 
     // Save off the etag
     item.storedCKRecord = record;
 }
 
 - (void)addToZone: (CKRecord*) record {
+    dispatch_sync(self.queue, ^{
+        [self _onqueueAddToZone:record];
+    });
+}
+
+- (void)_onqueueAddToZone:(CKRecord*)record {
+    dispatch_assert_queue(self.queue);
+
     // Save off this current databse
     self.pastDatabases[self.currentChangeToken] = [self.currentDatabase mutableCopy];
 
-    [self rollChangeToken];
+    [self _onqueueRollChangeToken];
 
     record.etag = [self.currentChangeToken description];
     ckksnotice("fakeck", self.zoneID, "change tag: %@ %@", record.recordChangeTag, record.recordID);
@@ -594,11 +670,12 @@
 
 - (NSError*)deleteCKRecordIDFromZone:(CKRecordID*) recordID {
     // todo: fail somehow
+    dispatch_sync(self.queue, ^{
+        self.pastDatabases[self.currentChangeToken] = [self.currentDatabase mutableCopy];
+        [self _onqueueRollChangeToken];
 
-    self.pastDatabases[self.currentChangeToken] = [self.currentDatabase mutableCopy];
-    [self rollChangeToken];
-
-    [self.currentDatabase removeObjectForKey: recordID];
+        [self.currentDatabase removeObjectForKey: recordID];
+    });
     return nil;
 }
 

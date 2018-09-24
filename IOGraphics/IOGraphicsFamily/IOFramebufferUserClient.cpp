@@ -39,6 +39,7 @@
 
 #define COUNT_OF(x) \
     ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+#define IOUCACTION(f) static_cast<IOExternalMethodAction>(f)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -150,10 +151,10 @@ bool IOFramebufferUserClient::start( IOService * _owner )
     return (false);
 }
 
-IOReturn IOFramebufferUserClient::registerNotificationPort(
-                                                           mach_port_t         port,
-                                                           UInt32              type,
-                                                           UInt32              refCon )
+IOReturn IOFramebufferUserClient::
+registerNotificationPort(mach_port_t         port,
+                         UInt32              type,
+                         UInt32              refCon )
 {
     IOFBUC_START(registerNotificationPort,port,type,0);
     DEBG(fName, "\n");
@@ -468,19 +469,19 @@ OSDefineMetaClassAndStructors(IOFramebufferSharedUserClient, IOUserClient)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-IOFramebufferSharedUserClient * IOFramebufferSharedUserClient::withTask(
-                                                                        task_t owningTask )
+IOFramebufferSharedUserClient *
+IOFramebufferSharedUserClient::withTask(task_t /* owningTask */)
 {
     IOFBSUC_START(withTask,0,0,0);
     IOFramebufferSharedUserClient   * inst = NULL;
 
-    DEBG("IOGUC", "\n");
+    DEBG("IOGSUC", "\n");
 
     inst = new IOFramebufferSharedUserClient;
 
     if (inst && !inst->init())
     {
-        DEBG("IOGUC", " init failed\n");
+        DEBG("IOGSUC", " init failed\n");
         OSSafeReleaseNULL(inst);
     }
 
@@ -812,10 +813,13 @@ externalMethod(uint32_t selector, IOExternalMethodArguments *args,
     };
 
     IOFBDUC_START(externalMethod,selector,0,0);
-    IOReturn ret = kIOReturnBadArgument;
+    IOReturn ret = kIOReturnSuccess;
 
-    DEBG(fName, " selector: %u\n", selector);
-    if (selector < COUNT_OF(methodTemplate)) {
+    const auto& method = methodTemplate[selector]; // alias
+    if (selector >= COUNT_OF(methodTemplate)
+    ||  !static_cast<bool>(method.function))
+        ret = kIOReturnBadArgument;
+    else {
         // Due to the architecture of shared user clients and specifically
         // their lifetime, Admin priviledge determination only works on the
         // first instance, first call.  Local works every time, but limits tool
@@ -835,7 +839,7 @@ externalMethod(uint32_t selector, IOExternalMethodArguments *args,
         ret = super::externalMethod(selector, args, dispatch, fOwner, NULL);
     }
 
-    DEBG(fName, " ret: %#x\n", ret);
+    DEBG(fName, "(selector %u) -> ret %x\n", selector, ret);
     IOFBDUC_END(externalMethod,ret,0,0);
     return (ret);
 }

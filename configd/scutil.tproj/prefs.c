@@ -146,9 +146,7 @@ __private_extern__
 Boolean
 _prefs_open(CFStringRef name, CFStringRef prefsID)
 {
-#if	TARGET_OS_EMBEDDED
 	char			*env		= NULL;
-#endif	// TARGET_OS_EMBEDDED
 	CFMutableDictionaryRef	options		= NULL;
 	Boolean			useHelper	= FALSE;
 	Boolean			useOptions	= FALSE;
@@ -177,7 +175,6 @@ _prefs_open(CFStringRef name, CFStringRef prefsID)
 		CFDictionarySetValue(options, kSCPreferencesOptionRemoveWhenEmpty, kCFBooleanTrue);
 	}
 
-#if	TARGET_OS_EMBEDDED
 	env = getenv("SCPREFERENCES_PROTECTION_CLASS");
 	if (env != NULL) {
 		CFStringRef	str;
@@ -193,7 +190,6 @@ _prefs_open(CFStringRef name, CFStringRef prefsID)
 		CFDictionarySetValue(options, kSCPreferencesOptionProtectionClass, str);
 		CFRelease(str);
 	}
-#endif	// TARGET_OS_EMBEDDED
 
 	if (!useHelper && !useOptions) {
 		// if no helper/options needed

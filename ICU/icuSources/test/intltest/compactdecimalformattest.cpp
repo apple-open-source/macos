@@ -167,6 +167,58 @@ static ExpectedResult kSwahiliShortNegative[] = {
 static ExpectedResult kArabicLong[] = {
   {-5300.0, "\\u061C-\\u0665\\u066B\\u0663 \\u0623\\u0644\\u0641"}};
 
+static ExpectedResult kChineseCurrencyTestData[] = {
+        {1.0, "\\uFFE51"},
+        {12.0, "\\uFFE512"},
+        {123.0, "\\uFFE5120"},
+        {1234.0, "\\uFFE51200"},
+        {12345.0, "\\uFFE51.2\\u4E07"},
+        {123456.0, "\\uFFE512\\u4E07"},
+        {1234567.0, "\\uFFE5120\\u4E07"},
+        {12345678.0, "\\uFFE51200\\u4E07"},
+        {123456789.0, "\\uFFE51.2\\u4EBF"},
+        {1234567890.0, "\\uFFE512\\u4EBF"},
+        {12345678901.0, "\\uFFE5120\\u4EBF"},
+        {123456789012.0, "\\uFFE51200\\u4EBF"},
+        {1234567890123.0, "\\uFFE51.2\\u5146"},
+        {12345678901234.0, "\\uFFE512\\u5146"},
+        {123456789012345.0, "\\uFFE5120\\u5146"},
+};
+static ExpectedResult kGermanCurrencyTestData[] = {
+        {1.0, u8"1\\u00A0\\u20AC"},
+        {12.0, u8"12\\u00A0\\u20AC"},
+        {123.0, u8"120\\u00A0\\u20AC"},
+        {1234.0, u8"1200\\u00A0\\u20AC"},
+        {12345.0, u8"12.000\\u00A0\\u20AC"},
+        {123456.0, u8"120.000\\u00A0\\u20AC"},
+        {1234567.0, u8"1,2\\u00A0Mio.\\u00A0\\u20AC"},
+        {12345678.0, u8"12\\u00A0Mio.\\u00A0\\u20AC"},
+        {123456789.0, u8"120\\u00A0Mio.\\u00A0\\u20AC"},
+        {1234567890.0, u8"1,2\\u00A0Mrd.\\u00A0\\u20AC"},
+        {12345678901.0, u8"12\\u00A0Mrd.\\u00A0\\u20AC"},
+        {123456789012.0, u8"120\\u00A0Mrd.\\u00A0\\u20AC"},
+        {1234567890123.0, u8"1,2\\u00A0Bio.\\u00A0\\u20AC"},
+        {12345678901234.0, u8"12\\u00A0Bio.\\u00A0\\u20AC"},
+        {123456789012345.0, u8"120\\u00A0Bio.\\u00A0\\u20AC"},
+};
+static ExpectedResult kEnglishCurrencyTestData[] = {
+        {1.0, u8"$1"},
+        {12.0, u8"$12"},
+        {123.0, u8"$120"},
+        {1234.0, u8"$1.2K"},
+        {12345.0, u8"$12K"},
+        {123456.0, u8"$120K"},
+        {1234567.0, u8"$1.2M"},
+        {12345678.0, u8"$12M"},
+        {123456789.0, u8"$120M"},
+        {1234567890.0, u8"$1.2B"},
+        {12345678901.0, u8"$12B"},
+        {123456789012.0, u8"$120B"},
+        {1234567890123.0, u8"$1.2T"},
+        {12345678901234.0, u8"$12T"},
+        {123456789012345.0, u8"$120T"},
+};
+
 
 class CompactDecimalFormatTest : public IntlTest {
 public:
@@ -184,13 +236,20 @@ private:
     void TestCsShort();
     void TestSkLong();
     void TestSwahiliShortNegative();
+    void TestEnglishCurrency();
+    void TestGermanCurrency();
+    void TestChineseCurrency();
     void TestArabicLong();
     void TestFieldPosition();
-    void TestSignificantDigits();
+    void TestDefaultSignificantDigits();
     void TestAPIVariants();
+    void TestBug12975();
+    
     void CheckLocale(
         const Locale& locale, UNumberCompactStyle style,
-        const ExpectedResult* expectedResult, int32_t expectedResultLength);
+        const ExpectedResult* expectedResults, int32_t expectedResultLength);
+    void CheckLocaleWithCurrency(const Locale& locale, UNumberCompactStyle style, const UChar* currency,
+                                 const ExpectedResult* expectedResults, int32_t expectedResultLength);
     void CheckExpectedResult(
         const CompactDecimalFormat* cdf, const ExpectedResult* expectedResult,
         const char* description);
@@ -210,13 +269,17 @@ void CompactDecimalFormatTest::runIndexedTest(
   TESTCASE_AUTO(TestSerbianLongNegative);
   TESTCASE_AUTO(TestJapaneseShort);
   TESTCASE_AUTO(TestSwahiliShort);
+  //TESTCASE_AUTO(TestEnglishCurrency);
+  //TESTCASE_AUTO(TestGermanCurrency);
+  //TESTCASE_AUTO(TestChineseCurrency);
   TESTCASE_AUTO(TestCsShort);
   TESTCASE_AUTO(TestSkLong);
   TESTCASE_AUTO(TestSwahiliShortNegative);
   TESTCASE_AUTO(TestArabicLong);
   TESTCASE_AUTO(TestFieldPosition);
-  TESTCASE_AUTO(TestSignificantDigits);
+  TESTCASE_AUTO(TestDefaultSignificantDigits);
   TESTCASE_AUTO(TestAPIVariants);
+  //TESTCASE_AUTO(TestBug12975);
   TESTCASE_AUTO_END;
 }
 
@@ -242,6 +305,21 @@ void CompactDecimalFormatTest::TestJapaneseShort() {
 
 void CompactDecimalFormatTest::TestSwahiliShort() {
   CheckLocale("sw", UNUM_SHORT, kSwahiliShort, UPRV_LENGTHOF(kSwahiliShort));
+}
+
+void CompactDecimalFormatTest::TestEnglishCurrency() {
+    CheckLocaleWithCurrency(
+            "en", UNUM_SHORT, u"USD", kEnglishCurrencyTestData, UPRV_LENGTHOF(kEnglishCurrencyTestData));
+}
+
+void CompactDecimalFormatTest::TestGermanCurrency() {
+    CheckLocaleWithCurrency(
+            "de", UNUM_SHORT, u"EUR", kGermanCurrencyTestData, UPRV_LENGTHOF(kGermanCurrencyTestData));
+}
+
+void CompactDecimalFormatTest::TestChineseCurrency() {
+    CheckLocaleWithCurrency(
+            "zh", UNUM_SHORT, u"CNY", kChineseCurrencyTestData, UPRV_LENGTHOF(kChineseCurrencyTestData));
 }
 
 void CompactDecimalFormatTest::TestFieldPosition() {
@@ -279,23 +357,22 @@ void CompactDecimalFormatTest::TestSwahiliShortNegative() {
 }
 
 void CompactDecimalFormatTest::TestArabicLong() {
-  CheckLocale("ar", UNUM_LONG, kArabicLong, UPRV_LENGTHOF(kArabicLong));
+  CheckLocale("ar-EG", UNUM_LONG, kArabicLong, UPRV_LENGTHOF(kArabicLong));
 }
 
-void CompactDecimalFormatTest::TestSignificantDigits() {
+void CompactDecimalFormatTest::TestDefaultSignificantDigits() {
   UErrorCode status = U_ZERO_ERROR;
   LocalPointer<CompactDecimalFormat> cdf(CompactDecimalFormat::createInstance("en", UNUM_SHORT, status));
   if (U_FAILURE(status)) {
     dataerrln("Unable to create format object - %s", u_errorName(status));
     return;
   }
+  // We expect 3 significant digits by default (ICU 61 behavior)
   UnicodeString actual;
-  cdf->format(123456.0, actual);
-  // We expect 3 significant digits by default
-  UnicodeString expected("123K", -1, US_INV);
-  if (actual != expected) {
-    errln(UnicodeString("Fail: Expected: ") + expected + UnicodeString(" Got: ") + actual);
-  }
+  assertEquals("Default significant digits", u"123K", cdf->format(123456, actual.remove()));
+  assertEquals("Default significant digits", u"12.3K", cdf->format(12345, actual.remove()));
+  assertEquals("Default significant digits", u"1.23K", cdf->format(1234, actual.remove()));
+  assertEquals("Default significant digits", u"123", cdf->format(123, actual.remove()));
 }
 
 void CompactDecimalFormatTest::TestAPIVariants() {
@@ -331,6 +408,8 @@ void CompactDecimalFormatTest::TestAPIVariants() {
   }
   
   actual.remove();
+  pos.setBeginIndex(0);
+  pos.setEndIndex(0);
   status = U_ZERO_ERROR;
   cdf->format((double)123456.0, actual, &posIter, status);
   if (status != U_UNSUPPORTED_ERROR) {
@@ -358,6 +437,8 @@ void CompactDecimalFormatTest::TestAPIVariants() {
   }
   
   actual.remove();
+  pos.setBeginIndex(0);
+  pos.setEndIndex(0);
   status = U_ZERO_ERROR;
   cdf->format((int32_t)123456, actual, &posIter, status);
   if (status != U_UNSUPPORTED_ERROR) {
@@ -385,6 +466,8 @@ void CompactDecimalFormatTest::TestAPIVariants() {
   }
   
   actual.remove();
+  pos.setBeginIndex(0);
+  pos.setEndIndex(0);
   status = U_ZERO_ERROR;
   cdf->format((int64_t)123456, actual, &posIter, status);
   if (status != U_UNSUPPORTED_ERROR) {
@@ -393,6 +476,24 @@ void CompactDecimalFormatTest::TestAPIVariants() {
   }
 
 }
+
+void CompactDecimalFormatTest::TestBug12975() {
+	IcuTestErrorCode status(*this, "TestBug12975");
+    Locale locale("it");
+    LocalPointer<CompactDecimalFormat> cdf(CompactDecimalFormat::createInstance(locale, UNUM_SHORT, status));
+    if (assertSuccess("", status, true, __FILE__, __LINE__)) {
+        UnicodeString resultCdf;
+        cdf->format(120000, resultCdf);
+        LocalPointer<DecimalFormat> df((DecimalFormat*) DecimalFormat::createInstance(locale, status));
+        UnicodeString resultDefault;
+        df->format(120000, resultDefault);
+        assertEquals("CompactDecimalFormat should use default pattern when compact pattern is unavailable",
+                     resultDefault, resultCdf);
+    }
+}
+
+
+// End test cases. Helpers:
 
 void CompactDecimalFormatTest::CheckLocale(const Locale& locale, UNumberCompactStyle style, const ExpectedResult* expectedResults, int32_t expectedResultLength) {
   UErrorCode status = U_ZERO_ERROR;
@@ -406,6 +507,25 @@ void CompactDecimalFormatTest::CheckLocale(const Locale& locale, UNumberCompactS
   for (int32_t i = 0; i < expectedResultLength; i++) {
     CheckExpectedResult(cdf.getAlias(), &expectedResults[i], description);
   }
+}
+
+void CompactDecimalFormatTest::CheckLocaleWithCurrency(const Locale& locale, UNumberCompactStyle style,
+                                                       const UChar* currency,
+                                                       const ExpectedResult* expectedResults,
+                                                       int32_t expectedResultLength) {
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<CompactDecimalFormat> cdf(createCDFInstance(locale, style, status));
+    if (U_FAILURE(status)) {
+        dataerrln("Unable to create format object - %s", u_errorName(status));
+        return;
+    }
+    cdf->setCurrency(currency, status);
+    assertSuccess("Failed to set currency", status);
+    char description[256];
+    sprintf(description,"%s - %s", locale.getName(), StyleStr(style));
+    for (int32_t i = 0; i < expectedResultLength; i++) {
+        CheckExpectedResult(cdf.getAlias(), &expectedResults[i], description);
+    }
 }
 
 void CompactDecimalFormatTest::CheckExpectedResult(

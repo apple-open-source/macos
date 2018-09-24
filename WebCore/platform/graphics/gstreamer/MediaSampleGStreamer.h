@@ -23,7 +23,7 @@
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "FloatSize.h"
-#include "GRefPtrGStreamer.h"
+#include "GStreamerCommon.h"
 #include "MediaSample.h"
 #include <wtf/text/AtomicString.h>
 
@@ -53,7 +53,7 @@ public:
     Ref<MediaSample> createNonDisplayingCopy() const override;
     SampleFlags flags() const override { return m_flags; }
     PlatformSample platformSample() override;
-    void dump(PrintStream&) const override { }
+    void dump(PrintStream&) const override;
 
 private:
     MediaSampleGStreamer(GRefPtr<GstSample>&&, const FloatSize& presentationSize, const AtomicString& trackId);

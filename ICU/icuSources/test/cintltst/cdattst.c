@@ -2310,6 +2310,10 @@ static const RemapPatternTestItem remapPatItems[] = {
     { "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_24_HOUR_CYCLE },
     { "EEE, d MMM y 'aha' H'h'mm'm'ss",     REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_12_HOUR_CYCLE },
     { "EEE, d MMM y 'aha' H'h'mm'm'ss",     REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_24_HOUR_CYCLE },
+
+    // special cases per bugs
+    { "uuuu-MM-dd HH:mm:ss '+0000'",        REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_12_HOUR_CYCLE }, // <rdar://problem/38826484> 
+
     { NULL,                                 (RemapTesttype)0,          0                           }
 };
 
@@ -2370,6 +2374,9 @@ static const char * remapResults_root[] = {
     "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
     "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
     "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd h:mm:ss a '+0000'",       //
+
     NULL
 };
 
@@ -2430,6 +2437,9 @@ static const char * remapResults_en[] = {
     "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
     "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
     "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd h:mm:ss a '+0000'",       //
+
     NULL
 };
 
@@ -2490,6 +2500,9 @@ static const char * remapResults_ja[] = {
     "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
     "EEE, d MMM y 'aha' aK'h'mm'm'ss",    // "EEE, d MMM y 'aha' H'h'mm'm'ss"
     "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd aK:mm:ss '+0000'",       //
+
     NULL
 };
 
@@ -2550,6 +2563,9 @@ static const char * remapResults_ko[] = {
     "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
     "EEE, d MMM y 'aha' a h'h'mm'm'ss",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
     "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd a h:mm:ss '+0000'",       //
+
     NULL
 };
 
@@ -2610,6 +2626,9 @@ static const char * remapResults_th[] = {
     "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
     "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
     "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd h:mm:ss a '+0000'",       //
+
     NULL
 };
 
@@ -2670,6 +2689,9 @@ static const char * remapResults_hi[] = {
     "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
     "EEE, d MMM y 'aha' a h'h'mm'm'ss",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
     "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd a h:mm:ss '+0000'",       //
+
     NULL
 };
 
@@ -2730,6 +2752,72 @@ static const char * remapResults_ar[] = {
     "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
     "EEE, d MMM y 'aha' h'h'mm'm'ssa",    // "EEE, d MMM y 'aha' H'h'mm'm'ss" (should there be \\u00A0 before a?)
     "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd h:mm:ss\\u00A0a '+0000'", //
+
+    NULL
+};
+
+static const char * remapResults_en_IL[] = {
+    "H:mm:ss zzzz",   // full
+    "H:mm:ss zzzz",   //   force24
+    "h:mm:ss a zzzz", //   force12
+    "H:mm:ss z",      // long
+    "H:mm:ss z",      //   force24
+    "h:mm:ss a z",    //   force12
+    "H:mm:ss",        // medium
+    "H:mm:ss",        //   force24
+    "h:mm:ss a",      //   force12
+    "H:mm",           // short
+    "H:mm",           //   force24
+    "h:mm a",         //   force12
+    "EEEE, d MMMM y 'at' H:mm:ss z",     // long_df
+    "EEEE, d MMMM y 'at' H:mm:ss z",     //   force24
+    "EEEE, d MMMM y 'at' h:mm:ss a z",   //   force12
+    "dd/MM/y, H:mm",   // short_ds
+    "dd/MM/y, H:mm",   //   force24
+    "dd/MM/y, h:mm a", //   force12
+
+    "H:mm:ss",        // jmmss
+    "H:mm:ss",        //   force24
+    "h:mm:ss a",      //   force12
+    "H:mm:ss",        // jjmmss
+    "H:mm:ss",        //   force24
+    "HH:mm:ss",       //   force24 | match hour field length
+    "h:mm:ss a",      //   force12
+    "hh:mm:ss a",     //   force12 | match hour field length
+    "H:mm",           // Jmm
+    "H:mm",           //   force24
+    "h:mm",           //   force12
+    "H:mm:ss v",      // jmsv
+    "H:mm:ss v",      //   force24
+    "h:mm:ss a v",    //   force12
+    "H:mm:ss z",      // jmsz
+    "H:mm:ss z",      //   force24
+    "h:mm:ss a z",    //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss"
+    "H:mm:ss",                            //
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' H:mm:ss",         //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss"
+    "yyMMddHHmmss",                       //
+
+    "h:mm:ss a",                          // "H:mm:ss"
+    "H:mm:ss",                            //
+    "h:mm:ss a d MMM y",                  // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd h:mm:ss a '+0000'",       //
+
     NULL
 };
 
@@ -2746,6 +2834,7 @@ static const RemapPatternLocaleResults remapLocResults[] = {
     { "th",     remapResults_th   },
     { "hi",     remapResults_hi   },
     { "ar",     remapResults_ar   },
+    { "en_IL",  remapResults_en_IL },
     { NULL,     NULL }
 };
 

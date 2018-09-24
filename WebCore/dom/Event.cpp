@@ -31,7 +31,6 @@
 #include "Performance.h"
 #include "UserGestureIndicator.h"
 #include "WorkerGlobalScope.h"
-#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
@@ -74,6 +73,21 @@ Event::Event(const AtomicString& eventType, const EventInit& initializer, IsTrus
 
 Event::~Event() = default;
 
+Ref<Event> Event::create(const AtomicString& type, bool canBubble, bool cancelable)
+{
+    return adoptRef(*new Event(type, canBubble, cancelable));
+}
+
+Ref<Event> Event::createForBindings()
+{
+    return adoptRef(*new Event);
+}
+
+Ref<Event> Event::create(const AtomicString& type, const EventInit& initializer, IsTrusted isTrusted)
+{
+    return adoptRef(*new Event(type, initializer, isTrusted));
+}
+
 void Event::initEvent(const AtomicString& eventTypeArg, bool canBubbleArg, bool cancelableArg)
 {
     if (isBeingDispatched())
@@ -82,10 +96,9 @@ void Event::initEvent(const AtomicString& eventTypeArg, bool canBubbleArg, bool 
     m_isInitialized = true;
     m_propagationStopped = false;
     m_immediatePropagationStopped = false;
-    m_defaultPrevented = false;
+    m_wasCanceled = false;
     m_isTrusted = false;
     m_target = nullptr;
-
     m_type = eventTypeArg;
     m_canBubble = canBubbleArg;
     m_cancelable = cancelableArg;
@@ -157,7 +170,12 @@ DOMHighResTimeStamp Event::timeStampForBindings(ScriptExecutionContext& context)
     if (!performance)
         return 0;
 
-    return performance->relativeTimeFromTimeOriginInReducedResolution(m_createTime);
+    return std::max(performance->relativeTimeFromTimeOriginInReducedResolution(m_createTime), 0.);
+}
+
+void Event::resetBeforeDispatch()
+{
+    m_defaultHandled = false;
 }
 
 void Event::resetAfterDispatch()

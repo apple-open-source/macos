@@ -34,6 +34,8 @@
 #define DISPLAY_ON_ASSERTION_LOG_DELAY         (60LL)
 #define DISPLAY_OFF_ASSERTION_LOG_DELAY        (10LL)
 
+#define PERIODIC_LOG_INTERVAL                  (15*60)  // 15min
+
 #define AA_MAX_ENTRIES             512
 
 extern os_log_t    assertions_log;
@@ -216,6 +218,44 @@ __private_extern__ void logASLAssertionTypeSummary( kerAssertionType type)
                              });
 }
 
+static void printAssertionQualifiersToBuf(assertion_t *assertion, char *aBuf, int bufsize)
+{
+    if ((assertion->audioin || assertion->audioout || assertion->gps || assertion->baseband
+            || assertion->bluetooth || assertion->allowsDeviceRestart || assertion->budgetedActivity) == 0) {
+        return;
+    }
+    snprintf(aBuf, bufsize, "[Qualifiers:");
+
+    if (assertion->audioin) {
+        strlcat(aBuf, " AudioIn", bufsize);
+    }
+    if (assertion->audioout) {
+        strlcat(aBuf, " AudioOut", bufsize);
+    }
+    if (assertion->gps) {
+        strlcat(aBuf, " GPS", bufsize);
+    }
+
+    if (assertion->baseband) {
+        strlcat(aBuf, " Baseband", bufsize);
+    }
+
+    if (assertion->bluetooth) {
+        strlcat(aBuf, " Bluetooth", bufsize);
+    }
+
+    if (assertion->allowsDeviceRestart) {
+        strlcat(aBuf, " AllowsDeviceRestart", bufsize);
+    }
+
+    if (assertion->budgetedActivity) {
+        strlcat(aBuf, " BudgetedActivity", bufsize);
+    }
+
+    strlcat(aBuf, "]", bufsize);
+}
+
+
 static void printAggregateAssertionsToBuf(char *aBuf, int bufsize, uint32_t kbits)
 {
     size_t printed = 0;
@@ -291,6 +331,7 @@ static void logAssertionToASL(assertLogAction  action,
     char            aslMessageString[kLongStringLen];
     char            assertionsBuf[kLongStringLen];
     char            aslAssertionId[kLongStringLen];
+    char            assertionQualifierBuf[kLongStringLen];
     CFMutableDictionaryRef assertionDictionary;
     char            *assertionAction = NULL;
     assertionType_t         *assertType = NULL;
@@ -411,11 +452,12 @@ static void logAssertionToASL(assertLogAction  action,
         }
     }
     printAggregateAssertionsToBuf(assertionsBuf, sizeof(assertionsBuf), getKerAssertionBits());
-
-
     snprintf(aslMessageString, sizeof(aslMessageString), "%s", assertionsBuf);
 
     snprintf(aslAssertionId, sizeof(aslAssertionId), "0x%llx", (((uint64_t)assertion->kassert) << 32) | (assertion->assertionId));
+
+    assertionQualifierBuf[0] = 0;
+    printAssertionQualifiersToBuf(assertion, assertionQualifierBuf, sizeof(assertionQualifierBuf));
 
     if (gDebugFlags & kIOPMDebugAssertionASLLog) {
         char  pid_buf[kShortStringLen];
@@ -447,9 +489,9 @@ static void logAssertionToASL(assertLogAction  action,
     }
 
     if (gDebugFlags & kIOPMDebugLogAssertionActivity) {
-        INFO_LOG("Process %{public}@.%d %{public}s %{public}@ \"%{public}@\" age:%{public}s id:%lld %{public}s",
+        INFO_LOG("Process %{public}@.%d %{public}s %{public}@ \"%{public}@\" age:%{public}s id:%lld %{public}s %{public}s",
                 procName, assertion->pinfo->pid, assertionAction, foundAssertionType, foundAssertionName, ageString,
-                (((uint64_t)assertion->kassert) << 32) | (assertion->assertionId), assertionsBuf);
+                (((uint64_t)assertion->kassert) << 32) | (assertion->assertionId), assertionsBuf, assertionQualifierBuf);
     }
 
     if (isA_installEnvironment()) {
@@ -511,12 +553,29 @@ void logASLAssertionsAggregate( )
 
 void logASLAllAssertions( )
 {
+    static dispatch_source_t periodicLogger = 0;
+
+    if (periodicLogger == 0) {
+
+        periodicLogger = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+        dispatch_source_set_event_handler(periodicLogger, ^{
+            logASLAllAssertions();
+        });
+
+        dispatch_source_set_timer(periodicLogger, dispatch_time(DISPATCH_TIME_NOW, PERIODIC_LOG_INTERVAL * NSEC_PER_SEC),
+                DISPATCH_TIME_FOREVER, 0);
+        dispatch_resume(periodicLogger);
+    }
+
     for (int i=0; i<kIOPMNumAssertionTypes; i++) {
         if (i == kEnableIdleType) {
             continue;
         }
         logASLAssertionTypeSummary(gAssertionTypes[i].kassert);
     }
+
+    dispatch_source_set_timer(periodicLogger, dispatch_time(DISPATCH_TIME_NOW, PERIODIC_LOG_INTERVAL * NSEC_PER_SEC),
+            DISPATCH_TIME_FOREVER, 0);
 }
 
 

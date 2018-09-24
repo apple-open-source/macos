@@ -31,6 +31,7 @@
 #include "LayoutState.h"
 #include "PaintInfo.h"
 #include "RenderTableCell.h"
+#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "StyleInheritedData.h"
 #include <wtf/IsoMallocInlines.h>
@@ -73,7 +74,7 @@ static bool borderWidthChanged(const RenderStyle* oldStyle, const RenderStyle* n
 
 void RenderTableRow::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
-    ASSERT(style().display() == TABLE_ROW);
+    ASSERT(style().display() == DisplayType::TableRow);
 
     RenderBox::styleDidChange(diff, oldStyle);
     propagateStyleToAnonymousChildren(PropagateToAllChildren);
@@ -86,7 +87,7 @@ void RenderTableRow::styleDidChange(StyleDifference diff, const RenderStyle* old
         if (oldStyle && oldStyle->border() != style().border())
             table->invalidateCollapsedBorders();
 
-        if (oldStyle && diff == StyleDifferenceLayout && needsLayout() && table->collapseBorders() && borderWidthChanged(oldStyle, &style())) {
+        if (oldStyle && diff == StyleDifference::Layout && needsLayout() && table->collapseBorders() && borderWidthChanged(oldStyle, &style())) {
             // If the border width changes on a row, we need to make sure the cells in the row know to lay out again.
             // This only happens when borders are collapsed, since they end up affecting the border sides of the cell
             // itself.
@@ -110,67 +111,15 @@ const BorderValue& RenderTableRow::borderAdjoiningEndCell(const RenderTableCell&
     return style().borderEnd();
 }
 
-void RenderTableRow::addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild)
+void RenderTableRow::didInsertTableCell(RenderTableCell& child, RenderObject* beforeChild)
 {
-    if (!is<RenderTableCell>(*child)) {
-        RenderObject* last = beforeChild;
-        if (!last)
-            last = lastCell();
-        if (last && last->isAnonymous() && is<RenderTableCell>(*last) && !last->isBeforeOrAfterContent()) {
-            RenderTableCell& cell = downcast<RenderTableCell>(*last);
-            if (beforeChild == &cell)
-                beforeChild = cell.firstChild();
-            cell.addChild(WTFMove(child), beforeChild);
-            return;
-        }
-
-        if (beforeChild && !beforeChild->isAnonymous() && beforeChild->parent() == this) {
-            RenderObject* cell = beforeChild->previousSibling();
-            if (is<RenderTableCell>(cell) && cell->isAnonymous()) {
-                downcast<RenderTableCell>(*cell).addChild(WTFMove(child));
-                return;
-            }
-        }
-
-        // Try to find an anonymous container for the child.
-        if (last && last->parent() && last->parent()->isAnonymous() && !last->parent()->isBeforeOrAfterContent()) {
-            // If beforeChild is inside an anonymous cell, insert into the cell.
-            if (!is<RenderTableCell>(*last)) {
-                last->parent()->addChild(WTFMove(child), beforeChild);
-                return;
-            }
-            // If beforeChild is inside an anonymous row, insert into the row.
-            auto& parent = *last->parent();
-            if (is<RenderTableRow>(parent)) {
-                auto newCell = RenderTableCell::createAnonymousWithParentRenderer(*this);
-                auto& cell = *newCell;
-                parent.addChild(WTFMove(newCell), beforeChild);
-                cell.addChild(WTFMove(child));
-                return;
-            }
-        }
-        auto newCell = RenderTableCell::createAnonymousWithParentRenderer(*this);
-        auto& cell = *newCell;
-        addChild(WTFMove(newCell), beforeChild);
-        cell.addChild(WTFMove(child));
-        return;
-    } 
-
-    if (beforeChild && beforeChild->parent() != this)
-        beforeChild = splitAnonymousBoxesAroundChild(beforeChild);    
-
-    RenderTableCell& cell = downcast<RenderTableCell>(*child);
-
     // Generated content can result in us having a null section so make sure to null check our parent.
-    if (RenderTableSection* section = this->section())
-        section->addCell(&cell, this);
-
-    ASSERT(!beforeChild || is<RenderTableCell>(*beforeChild));
-    RenderBox::addChild(WTFMove(child), beforeChild);
-
-    if (beforeChild || nextRow())
-        section()->setNeedsCellRecalc();
-    if (RenderTable* table = this->table())
+    if (auto* section = this->section()) {
+        section->addCell(&child, this);
+        if (beforeChild || nextRow())
+            section->setNeedsCellRecalc();
+    }
+    if (auto* table = this->table())
         table->invalidateCollapsedBorders();
 }
 
@@ -252,7 +201,7 @@ void RenderTableRow::paintOutlineForRowIfNeeded(PaintInfo& paintInfo, const Layo
 {
     LayoutPoint adjustedPaintOffset = paintOffset + location();
     PaintPhase paintPhase = paintInfo.phase;
-    if ((paintPhase == PaintPhaseOutline || paintPhase == PaintPhaseSelfOutline) && style().visibility() == VISIBLE)
+    if ((paintPhase == PaintPhaseOutline || paintPhase == PaintPhaseSelfOutline) && style().visibility() == Visibility::Visible)
         paintOutline(paintInfo, LayoutRect(adjustedPaintOffset, size()));
 }
 
@@ -278,7 +227,7 @@ void RenderTableRow::imageChanged(WrappedImagePtr, const IntRect*)
 
 RenderPtr<RenderTableRow> RenderTableRow::createTableRowWithStyle(Document& document, const RenderStyle& style)
 {
-    auto row = createRenderer<RenderTableRow>(document, RenderStyle::createAnonymousStyleWithDisplay(style, TABLE_ROW));
+    auto row = createRenderer<RenderTableRow>(document, RenderStyle::createAnonymousStyleWithDisplay(style, DisplayType::TableRow));
     row->initializeStyle();
     return row;
 }
@@ -286,40 +235,6 @@ RenderPtr<RenderTableRow> RenderTableRow::createTableRowWithStyle(Document& docu
 RenderPtr<RenderTableRow> RenderTableRow::createAnonymousWithParentRenderer(const RenderTableSection& parent)
 {
     return RenderTableRow::createTableRowWithStyle(parent.document(), parent.style());
-}
-
-void RenderTableRow::collapseAndDestroyAnonymousSiblingRows()
-{
-    auto* section = this->section();
-    if (!section)
-        return;
-
-    // All siblings generated?
-    for (auto* current = section->firstRow(); current; current = current->nextRow()) {
-        if (current == this)
-            continue;
-        if (!current->isAnonymous())
-            return;
-    }
-
-    RenderTableRow* rowToInsertInto = nullptr;
-    auto* currentRow = section->firstRow();
-    while (currentRow) {
-        if (currentRow == this) {
-            currentRow = currentRow->nextRow();
-            continue;
-        }
-        if (!rowToInsertInto) {
-            rowToInsertInto = currentRow;
-            currentRow = currentRow->nextRow();
-            continue;
-        }
-        currentRow->moveAllChildrenTo(rowToInsertInto, RenderBoxModelObject::NormalizeAfterInsertion::No);
-        auto toDestroy = section->takeChild(*currentRow);
-        currentRow = currentRow->nextRow();
-    }
-    if (rowToInsertInto)
-        rowToInsertInto->setNeedsLayout();
 }
 
 } // namespace WebCore

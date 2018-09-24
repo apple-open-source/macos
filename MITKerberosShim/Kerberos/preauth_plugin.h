@@ -478,30 +478,4 @@ typedef struct krb5plugin_preauth_server_ftable_v1 {
 
 } krb5plugin_preauth_server_ftable_v1;
 
-
-/*
- * This function allows a preauth plugin to obtain preauth
- * options.  The preauth_data returned from this function
- * should be freed by calling krb5_get_init_creds_opt_free_pa().
- *
- * The 'opt' pointer supplied to this function must have been
- * obtained using krb5_get_init_creds_opt_alloc()
- */
-krb5_error_code KRB5_CALLCONV
-krb5_get_init_creds_opt_get_pa
-		(krb5_context context,
-		krb5_get_init_creds_opt *opt,
-		int *num_preauth_data,
-		krb5_gic_opt_pa_data **preauth_data);
-
-/*
- * This function frees the preauth_data that was returned by
- * krb5_get_init_creds_opt_get_pa().
- */
-void KRB5_CALLCONV
-krb5_get_init_creds_opt_free_pa
-		(krb5_context context,
-		 int num_preauth_data,
-		 krb5_gic_opt_pa_data *preauth_data);
-
 #endif /* KRB5_PREAUTH_PLUGIN_H_INCLUDED */

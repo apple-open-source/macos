@@ -16,7 +16,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: CUPS 2.2\n"
 "Report-Msgid-Bugs-To: https://github.com/apple/cups/issues\n"
-"POT-Creation-Date: 2017-07-19 13:46-0400\n"
+"POT-Creation-Date: 2018-06-05 11:58-0400\n"
 "PO-Revision-Date: 2016-06-26 21:17+0100\n"
 "Last-Translator: Juan Pablo González Riopedre <jpgriopedre@yahoo.es>\n"
 "Language-Team: Spanish\n"
@@ -1184,6 +1184,9 @@ msgstr "  -f nombre_archivo       Establece nombre de archivo predeterminado."
 msgid "  -h                      Show this usage message."
 msgstr "  -h                      Muestra este mensaje de uso."
 
+msgid "  -h                      Validate HTTP response headers."
+msgstr ""
+
 msgid "  -h regex                Match hostname to regular expression."
 msgstr ""
 "  -h regex                Hacer coincidir el nombre del equipo con la "
@@ -1502,6 +1505,12 @@ msgid ""
 msgstr ""
 
 #, c-format
+msgid ""
+"\"%s\": Bad name value \"%s\" - bad control character (PWG 5100.14 section "
+"8.1)."
+msgstr ""
+
+#, c-format
 msgid "\"%s\": Bad name value \"%s\" - bad length %d (RFC 8011 section 5.1.3)."
 msgstr ""
 
@@ -1552,6 +1561,12 @@ msgid ""
 msgstr ""
 
 #, c-format
+msgid ""
+"\"%s\": Bad text value \"%s\" - bad control character (PWG 5100.14 section "
+"8.3)."
+msgstr ""
+
+#, c-format
 msgid "\"%s\": Bad text value \"%s\" - bad length %d (RFC 8011 section 5.1.2)."
 msgstr ""
 
@@ -1563,6 +1578,12 @@ msgstr ""
 #, c-format
 msgid ""
 "\"%s\": Bad uriScheme value \"%s\" - bad length %d (RFC 8011 section 5.1.7)."
+msgstr ""
+
+msgid "\"requesting-user-name\" attribute in wrong group."
+msgstr ""
+
+msgid "\"requesting-user-name\" attribute with wrong syntax."
 msgstr ""
 
 #, c-format
@@ -1665,6 +1686,10 @@ msgstr "%s: Versión %s incorrecta para \"-V\"."
 #, c-format
 msgid "%s: Don't know what to do."
 msgstr "%s: No sé que hay que hacer."
+
+#, c-format
+msgid "%s: Error - %s"
+msgstr ""
 
 #, c-format
 msgid ""
@@ -2824,6 +2849,10 @@ msgid "Back Print Film"
 msgstr ""
 
 #, c-format
+msgid "Bad '%s' value."
+msgstr ""
+
+#, c-format
 msgid "Bad 'document-format' value \"%s\"."
 msgstr "Valor 'document-format' \"%s\" incorrecto."
 
@@ -2917,6 +2946,10 @@ msgstr "notify-pull-method \"%s\" incorrecto."
 #, c-format
 msgid "Bad notify-recipient-uri \"%s\"."
 msgstr "notify-recipient-uri \"%s\" incorrecto."
+
+#, c-format
+msgid "Bad notify-user-data \"%s\"."
+msgstr ""
 
 #, c-format
 msgid "Bad number-up value %d."
@@ -3487,6 +3520,12 @@ msgstr "Error enviando trama de datos (raster)."
 msgid "Error: need hostname after \"-h\" option."
 msgstr "Error: se necesita un nombre de equipo tras la opción \"-h\"."
 
+msgid "European Fanfold"
+msgstr ""
+
+msgid "European Fanfold Legal"
+msgstr ""
+
 msgid "Every 10 Labels"
 msgstr "Cada 10 etiquetas"
 
@@ -3549,15 +3588,6 @@ msgstr ""
 
 msgid "Face Up"
 msgstr ""
-
-msgid "FanFold German"
-msgstr "FanFold alemán"
-
-msgid "FanFold Legal German"
-msgstr "FanFold Legal alemán"
-
-msgid "Fanfold US"
-msgstr "FanFold de EE.UU"
 
 msgid "Fast Grayscale"
 msgstr "Escala de grises rápida"
@@ -3623,6 +3653,9 @@ msgstr "Folio"
 
 msgid "Forbidden"
 msgstr "Prohibido"
+
+msgid "Found"
+msgstr ""
 
 msgid "Full Cut Tabs"
 msgstr ""
@@ -3854,6 +3887,9 @@ msgstr "Correo por Internet Parte-3"
 
 msgid "Internet Printing Protocol"
 msgstr "Protocolo de Impresión de Internet IPP"
+
+msgid "Invalid group tag."
+msgstr ""
 
 msgid "Invalid media name arguments."
 msgstr "Argumentos del nombre del papel no válidos."
@@ -5416,6 +5452,9 @@ msgstr "URI demasiado largo"
 msgid "URI too large"
 msgstr "URI demasiado grande"
 
+msgid "US Fanfold"
+msgstr ""
+
 msgid "US Ledger"
 msgstr "Libro Mayor, 17 x 11 pulg."
 
@@ -5830,6 +5869,9 @@ msgstr "Valor 'compression' \"%s\" no implementado."
 msgid "Unsupported 'document-format' value \"%s\"."
 msgstr "Valor 'document-format' \"%s\" no implementado."
 
+msgid "Unsupported 'job-hold-until' value."
+msgstr ""
+
 msgid "Unsupported 'job-name' value."
 msgstr "Valor 'job-name' no implementado."
 
@@ -6058,6 +6100,9 @@ msgstr "Nm"
 msgid "accuracy-units.um"
 msgstr "Um"
 
+msgid "baling"
+msgstr "Bale Output"
+
 msgid "baling-type"
 msgstr "Baling Type"
 
@@ -6078,6 +6123,9 @@ msgstr "After Job"
 
 msgid "baling-when.after-sets"
 msgstr "After Sets"
+
+msgid "binding"
+msgstr "Bind Output"
 
 msgid "binding-reference-edge"
 msgstr "Binding Reference Edge"
@@ -6127,6 +6175,9 @@ msgstr "cancelado"
 msgid "charge-info-message"
 msgstr "Charge Info Message"
 
+msgid "coating"
+msgstr "Coat Sheets"
+
 msgid "coating-sides"
 msgstr "Coating Sides"
 
@@ -6174,24 +6225,6 @@ msgstr "Translucent"
 
 msgid "completed"
 msgstr "completado"
-
-msgid "compression"
-msgstr "Compression"
-
-msgid "compression-accepted"
-msgstr "Compression Accepted"
-
-msgid "compression.compress"
-msgstr "Compress"
-
-msgid "compression.deflate"
-msgstr "Deflate"
-
-msgid "compression.gzip"
-msgstr "Gzip"
-
-msgid "compression.none"
-msgstr "None"
 
 msgid "confirmation-sheet-print"
 msgstr "Confirmation Sheet Print"
@@ -6246,6 +6279,9 @@ msgstr "Print Front"
 
 msgid "cover-type.print-none"
 msgstr "Print None"
+
+msgid "covering"
+msgstr "Cover Output"
 
 msgid "covering-name"
 msgstr "Covering Name"
@@ -6336,15 +6372,6 @@ msgstr "cupstestppd: La opción -q es incompatible con la opción -v."
 msgid "cupstestppd: The -v option is incompatible with the -q option."
 msgstr "cupstestppd: La opción -v es incompatible con la opción -q."
 
-msgid "destination-accesses"
-msgstr "Destination Accesses"
-
-msgid "destination-statuses"
-msgstr "Destination Statuses"
-
-msgid "destination-uris"
-msgstr "Destination Uris"
-
 msgid "detailed-status-message"
 msgstr "Detailed Status Message"
 
@@ -6356,35 +6383,8 @@ msgstr "dispositivo para %s/%s: %s"
 msgid "device for %s: %s"
 msgstr "dispositivo para %s: %s"
 
-msgid "document-access"
-msgstr "Document Access"
-
-msgid "document-data-get-interval"
-msgstr "Document Data Get Interval"
-
-msgid "document-data-wait"
-msgstr "Document Data Wait"
-
-msgid "document-format-accepted"
-msgstr "Document Format Accepted"
-
-msgid "document-message"
-msgstr "Document Message"
-
-msgid "document-metadata"
-msgstr "Document Metadata"
-
-msgid "document-name"
-msgstr "Document Name"
-
-msgid "document-number"
-msgstr "Document Number"
-
-msgid "document-password"
-msgstr "Document Password"
-
-msgid "document-preprocessed"
-msgstr "Document Preprocessed"
+msgid "document-copies"
+msgstr "Copies"
 
 msgid "document-state"
 msgstr "Document State"
@@ -6535,9 +6535,6 @@ msgstr "Short Edge First"
 
 msgid "fetch-status-code"
 msgstr "Fetch Status Code"
-
-msgid "fetch-status-message"
-msgstr "Fetch Status Message"
 
 msgid "finishing-template"
 msgstr "Finishing Template"
@@ -7232,6 +7229,9 @@ msgstr "Fold Poster"
 msgid "finishings.99"
 msgstr "Fold Right Gate"
 
+msgid "folding"
+msgstr "Fold"
+
 msgid "folding-direction"
 msgstr "Folding Direction"
 
@@ -7240,6 +7240,9 @@ msgstr "Inward"
 
 msgid "folding-direction.outward"
 msgstr "Outward"
+
+msgid "folding-offset"
+msgstr "Fold Position"
 
 msgid "folding-reference-edge"
 msgstr "Folding Reference Edge"
@@ -7265,26 +7268,14 @@ msgstr "Font Size"
 msgid "force-front-side"
 msgstr "Force Front Side"
 
+msgid "from-name"
+msgstr "From Name"
+
 msgid "held"
 msgstr "retenido"
 
 msgid "help\t\tGet help on commands."
 msgstr "help\t\tProporciona ayuda sobre los comandos."
-
-msgid "identify-actions"
-msgstr "Identify Actions"
-
-msgid "identify-actions.display"
-msgstr "Display"
-
-msgid "identify-actions.flash"
-msgstr "Flash"
-
-msgid "identify-actions.sound"
-msgstr "Sound"
-
-msgid "identify-actions.speak"
-msgstr "Speak"
 
 msgid "idle"
 msgstr "inactiva"
@@ -7300,6 +7291,15 @@ msgstr "Signature"
 
 msgid "input-attributes"
 msgstr "Input Attributes"
+
+msgid "input-auto-scaling"
+msgstr "Scan Auto Scaling"
+
+msgid "input-auto-skew-correction"
+msgstr "Scan Auto Skew Correction"
+
+msgid "input-brightness"
+msgstr "Scan Brightness"
 
 msgid "input-color-mode"
 msgstr "Input Color Mode"
@@ -7367,6 +7367,9 @@ msgstr "Text"
 msgid "input-content-type.text-and-photo"
 msgstr "Text And Photo"
 
+msgid "input-contrast"
+msgstr "Scan Contrast"
+
 msgid "input-film-scan-mode"
 msgstr "Input Film Scan Mode"
 
@@ -7382,6 +7385,9 @@ msgstr "Color Slide Film"
 msgid "input-film-scan-mode.not-applicable"
 msgstr "Not Applicable"
 
+msgid "input-images-to-transfer"
+msgstr "Scan Images To Transfer"
+
 msgid "input-media"
 msgstr "Input Media"
 
@@ -7393,6 +7399,21 @@ msgstr "Input Orientation"
 
 msgid "input-quality"
 msgstr "Input Quality"
+
+msgid "input-resolution"
+msgstr "Scan Resolution"
+
+msgid "input-scaling-height"
+msgstr "Scan Scaling Height"
+
+msgid "input-scaling-width"
+msgstr "Scan Scaling Width"
+
+msgid "input-scan-regions"
+msgstr "Scan Regions"
+
+msgid "input-sharpness"
+msgstr "Scan Sharpness"
 
 msgid "input-sides"
 msgstr "Input Sides"
@@ -7409,11 +7430,14 @@ msgstr "Film Reader"
 msgid "input-source.platen"
 msgstr "Platen"
 
+msgid "insert-after-page-number"
+msgstr "Insert Page Number"
+
+msgid "insert-count"
+msgstr "Insert Count"
+
 msgid "insert-sheet"
 msgstr "Insert Sheet"
-
-msgid "ipp-attribute-fidelity"
-msgstr "Attribute Fidelity"
 
 #, c-format
 msgid "ippfind: Bad regular expression: %s"
@@ -7453,6 +7477,10 @@ msgstr "ippfind: Falta una expresión antes de \"--or\"."
 #, c-format
 msgid "ippfind: Missing key name after %s."
 msgstr "ippfind: Falta un nombre de clave tras %s."
+
+#, c-format
+msgid "ippfind: Missing name after %s."
+msgstr ""
 
 msgid "ippfind: Missing open parenthesis."
 msgstr "ippfind: Falta el paréntesis de apertura."
@@ -7556,9 +7584,6 @@ msgstr "Standard"
 msgid "job-accounting-user-id"
 msgstr "Job Accounting User ID"
 
-msgid "job-authorization-uri"
-msgstr "Job Authorization URI"
-
 msgid "job-collation-type"
 msgstr "Job Collation Type"
 
@@ -7610,15 +7635,6 @@ msgstr "Third Shift"
 msgid "job-delay-output-until.weekend"
 msgstr "Weekend"
 
-msgid "job-destination-spooling-supported.automatic"
-msgstr "Automatic"
-
-msgid "job-destination-spooling-supported.spool"
-msgstr "Spool"
-
-msgid "job-destination-spooling-supported.stream"
-msgstr "Stream"
-
 msgid "job-error-action"
 msgstr "Job Error Action"
 
@@ -7655,6 +7671,9 @@ msgstr "Always"
 msgid "job-error-sheet-when.on-error"
 msgstr "On Error"
 
+msgid "job-finishings"
+msgstr "Job Finishings"
+
 msgid "job-hold-until"
 msgstr "Hold Until"
 
@@ -7685,47 +7704,11 @@ msgstr "Third Shift"
 msgid "job-hold-until.weekend"
 msgstr "Weekend"
 
-msgid "job-impressions-col"
-msgstr "Job Impressions"
-
-msgid "job-impressions-estimated"
-msgstr "Job Impressions Estimated"
-
-msgid "job-media-sheets-col"
-msgstr "Job Media Sheets"
+msgid "job-mandatory-attributes"
+msgstr "Job Mandatory Attributes"
 
 msgid "job-name"
 msgstr "Job Name"
-
-msgid "job-pages-per-set"
-msgstr "Job Pages Per Set"
-
-msgid "job-password"
-msgstr "Job Password"
-
-msgid "job-password-repertoire-configured"
-msgstr "Job Password Repertoire Configured"
-
-msgid "job-password-repertoire-supported.iana_us-ascii_any"
-msgstr "Iana Us Ascii Any"
-
-msgid "job-password-repertoire-supported.iana_us-ascii_complex"
-msgstr "Iana Us Ascii Complex"
-
-msgid "job-password-repertoire-supported.iana_us-ascii_digits"
-msgstr "Iana Us Ascii Digits"
-
-msgid "job-password-repertoire-supported.iana_us-ascii_letters"
-msgstr "Iana Us Ascii Letters"
-
-msgid "job-password-repertoire-supported.iana_utf-8_any"
-msgstr "Iana Utf 8 Any"
-
-msgid "job-password-repertoire-supported.iana_utf-8_digits"
-msgstr "Iana Utf 8 Digits"
-
-msgid "job-password-repertoire-supported.iana_utf-8_letters"
-msgstr "Iana Utf 8 Letters"
 
 msgid "job-phone-number"
 msgstr "Job Phone Number"
@@ -7741,12 +7724,6 @@ msgstr "Job Recipient Name"
 
 msgid "job-save-disposition"
 msgstr "Job Save Disposition"
-
-msgid "job-settable-attributes-supported.job-name"
-msgstr "Job Name"
-
-msgid "job-settable-attributes-supported.none"
-msgstr "None"
 
 msgid "job-sheet-message"
 msgstr "Job Sheet Message"
@@ -8018,29 +7995,8 @@ msgstr "Aborted"
 msgid "job-state.9"
 msgstr "Completed"
 
-msgid "jpeg-features-supported.arithmetic"
-msgstr "Arithmetic"
-
-msgid "jpeg-features-supported.cmyk"
-msgstr "Cmyk"
-
-msgid "jpeg-features-supported.deep"
-msgstr "Deep"
-
-msgid "jpeg-features-supported.hierarchical"
-msgstr "Hierarchical"
-
-msgid "jpeg-features-supported.icc"
-msgstr "Icc"
-
-msgid "jpeg-features-supported.lossless"
-msgstr "Lossless"
-
-msgid "jpeg-features-supported.none"
-msgstr "None"
-
-msgid "jpeg-features-supported.progressive"
-msgstr "Progressive"
+msgid "laminating"
+msgstr "Laminate Pages"
 
 msgid "laminating-sides"
 msgstr "Laminating Sides"
@@ -8074,6 +8030,9 @@ msgstr "Semi-Gloss"
 
 msgid "laminating-type.translucent"
 msgstr "Translucent"
+
+msgid "logo"
+msgstr "Logo"
 
 msgid "lpadmin: Class name can only contain printable characters."
 msgstr ""
@@ -8142,6 +8101,16 @@ msgstr ""
 "imprimibles."
 
 msgid ""
+"lpadmin: Raw queues are deprecated and will stop working in a future version "
+"of CUPS."
+msgstr ""
+
+msgid ""
+"lpadmin: System V interface scripts are no longer supported for security "
+"reasons."
+msgstr ""
+
+msgid ""
 "lpadmin: Unable to add a printer to the class:\n"
 "         You must specify a printer name first."
 msgstr ""
@@ -8196,6 +8165,9 @@ msgstr "lpadmin: Argumento \"%s\" desconocido."
 #, c-format
 msgid "lpadmin: Unknown option \"%c\"."
 msgstr "lpadmin: Opción \"%c\" desconocida."
+
+msgid "lpadmin: Use the 'everywhere' model for shared printers."
+msgstr ""
 
 msgid "lpadmin: Warning - content type list ignored."
 msgstr "lpadmin: Advertencia - lista de tipo de contenido no tenida en cuenta."
@@ -8259,6 +8231,9 @@ msgstr ""
 "lpstat: error - Los nombre de variable de entorno %s no existen en el "
 "destino \"%s\"."
 
+msgid "material-amount"
+msgstr "Amount of Material"
+
 msgid "material-amount-units"
 msgstr "Material Amount Units"
 
@@ -8283,6 +8258,18 @@ msgstr "Mm"
 msgid "material-color"
 msgstr "Material Color"
 
+msgid "material-diameter"
+msgstr "Material Diameter"
+
+msgid "material-diameter-tolerance"
+msgstr "Material Diameter Tolerance"
+
+msgid "material-fill-density"
+msgstr "Material Fill Density"
+
+msgid "material-name"
+msgstr "Material Name"
+
 msgid "material-purpose"
 msgstr "Material Purpose"
 
@@ -8301,6 +8288,9 @@ msgstr "Shell"
 msgid "material-purpose.support"
 msgstr "Support"
 
+msgid "material-rate"
+msgstr "Feed Rate"
+
 msgid "material-rate-units"
 msgstr "Material Rate Units"
 
@@ -8312,6 +8302,12 @@ msgstr "Ml Second"
 
 msgid "material-rate-units.mm_second"
 msgstr "Mm Second"
+
+msgid "material-shell-thickness"
+msgstr "Material Shell Thickness"
+
+msgid "material-temperature"
+msgstr "Material Temperature"
 
 msgid "material-type"
 msgstr "Material Type"
@@ -8346,9 +8342,6 @@ msgstr "Pla"
 msgid "material-type.pla-conductive"
 msgstr "Pla Conductive"
 
-msgid "material-type.pla-dissolvable"
-msgstr "Pla Dissolvable"
-
 msgid "material-type.pla-flexible"
 msgstr "Pla Flexible"
 
@@ -8366,6 +8359,9 @@ msgstr "Pla Wood"
 
 msgid "material-type.polycarbonate"
 msgstr "Polycarbonate"
+
+msgid "material-type.pva-dissolvable"
+msgstr "Dissolvable PVA"
 
 msgid "material-type.silver"
 msgstr "Silver"
@@ -8402,6 +8398,9 @@ msgstr "Satin"
 
 msgid "media-back-coating.semi-gloss"
 msgstr "Semi-Gloss"
+
+msgid "media-bottom-margin"
+msgstr "Media Bottom Margin"
 
 msgid "media-col"
 msgstr "Media"
@@ -8661,8 +8660,17 @@ msgstr "Cross-Feed Direction"
 msgid "media-grain.y-direction"
 msgstr "Feed Direction"
 
+msgid "media-hole-count"
+msgstr "Media Hole Count"
+
+msgid "media-info"
+msgstr "Media Info"
+
 msgid "media-input-tray-check"
 msgstr "Media Input Tray Check"
+
+msgid "media-left-margin"
+msgstr "Media Left Margin"
 
 msgid "media-pre-printed"
 msgstr "Media Preprinted"
@@ -8684,6 +8692,15 @@ msgstr "None"
 
 msgid "media-recycled.standard"
 msgstr "Standard"
+
+msgid "media-right-margin"
+msgstr "Media Right Margin"
+
+msgid "media-size"
+msgstr "Media Dimensions"
+
+msgid "media-size-name"
+msgstr "Media Name"
 
 msgid "media-source"
 msgstr "Media Source"
@@ -8838,6 +8855,9 @@ msgstr "Tray 8"
 msgid "media-source.tray-9"
 msgstr "Tray 9"
 
+msgid "media-thickness"
+msgstr "Media Thickness"
+
 msgid "media-tooth"
 msgstr "Media Tooth"
 
@@ -8871,6 +8891,9 @@ msgstr "Uncalendared"
 msgid "media-tooth.vellum"
 msgstr "Vellum"
 
+msgid "media-top-margin"
+msgstr "Media Top Margin"
+
 msgid "media-type"
 msgstr "Media Type"
 
@@ -8891,6 +8914,45 @@ msgstr "Cardstock"
 
 msgid "media-type.cd"
 msgstr "CD"
+
+msgid "media-type.com.hp.advanced-photo"
+msgstr "Advanced Photo Paper"
+
+msgid "media-type.com.hp.brochure-glossy"
+msgstr "Glossy Brochure Paper"
+
+msgid "media-type.com.hp.brochure-matte"
+msgstr "Matte Brochure Paper"
+
+msgid "media-type.com.hp.cover-matte"
+msgstr "Matte Cover Paper"
+
+msgid "media-type.com.hp.ecosmart-lite"
+msgstr "Office Recycled Paper"
+
+msgid "media-type.com.hp.everyday-glossy"
+msgstr "Everyday Glossy Photo Paper"
+
+msgid "media-type.com.hp.everyday-matte"
+msgstr "Everyday Matte Paper"
+
+msgid "media-type.com.hp.extra-heavy"
+msgstr "Extra Heavyweight Paper"
+
+msgid "media-type.com.hp.intermediate"
+msgstr "Multipurpose Paper"
+
+msgid "media-type.com.hp.mid-weight"
+msgstr "Mid-Weight Paper"
+
+msgid "media-type.com.hp.premium-inkjet"
+msgstr "Premium Inkjet Paper"
+
+msgid "media-type.com.hp.premium-photo"
+msgstr "Premium Photo Glossy Paper"
+
+msgid "media-type.com.hp.premium-presentation-matte"
+msgstr "Premium Presentation Matte Paper"
 
 msgid "media-type.continuous"
 msgstr "Continuous"
@@ -9035,6 +9097,18 @@ msgstr "Image Setter Paper"
 
 msgid "media-type.imaging-cylinder"
 msgstr "Imaging Cylinder"
+
+msgid "media-type.jp.co.canon-photo-paper-plus-glossy-ii"
+msgstr "Photo Paper Plus Glossy II"
+
+msgid "media-type.jp.co.canon-photo-paper-pro-platinum"
+msgstr "Photo Paper Pro Platinum"
+
+msgid "media-type.jp.co.canon_photo-paper-plus-glossy-ii"
+msgstr "Photo Paper Plus Glossy II"
+
+msgid "media-type.jp.co.canon_photo-paper-pro-platinum"
+msgstr "Photo Paper Pro Platinum"
 
 msgid "media-type.labels"
 msgstr "Labels"
@@ -9242,6 +9316,9 @@ msgstr "Triple Wall"
 
 msgid "media-type.wet-film"
 msgstr "Wet Film"
+
+msgid "media-weight-metric"
+msgstr "Media Weight (grams per m²)"
 
 msgid "media.asme_f_28x40in"
 msgstr "28 x 40\""
@@ -9865,6 +9942,15 @@ msgstr "no hay entradas"
 msgid "no system default destination"
 msgstr "no hay un destino predeterminado del sistema"
 
+msgid "noise-removal"
+msgstr "Noise Removal"
+
+msgid "notify-attributes"
+msgstr "Notify Attributes"
+
+msgid "notify-charset"
+msgstr "Notify Charset"
+
 msgid "notify-events"
 msgstr "Notify Events"
 
@@ -9946,6 +10032,9 @@ msgstr "Notify Lease Duration"
 msgid "notify-natural-language"
 msgstr "Notify Natural Language"
 
+msgid "notify-pull-method"
+msgstr "Notify Pull Method"
+
 msgid "notify-recipient-uri"
 msgstr "Notify Recipient"
 
@@ -9959,9 +10048,6 @@ msgstr "El URI notify-recipient-uri \"%s\" usa un esquema desconocido."
 
 msgid "notify-sequence-numbers"
 msgstr "Notify Sequence Numbers"
-
-msgid "notify-subscribed-event"
-msgstr "Notify Event"
 
 msgid "notify-subscription-ids"
 msgstr "Notify Subscription Ids"
@@ -9981,203 +10067,14 @@ msgstr "Number Of Retries"
 msgid "number-up"
 msgstr "Number-Up"
 
-msgid "operations-supported.10"
-msgstr "Get-Jobs"
+msgid "object-offset"
+msgstr "Object Offset"
 
-msgid "operations-supported.11"
-msgstr "Get-Printer-Attributes"
+msgid "object-size"
+msgstr "Object Size"
 
-msgid "operations-supported.12"
-msgstr "Hold-Job"
-
-msgid "operations-supported.13"
-msgstr "Release-Job"
-
-msgid "operations-supported.14"
-msgstr "Restart-Job"
-
-msgid "operations-supported.16"
-msgstr "Pause-Printer"
-
-msgid "operations-supported.17"
-msgstr "Resume-Printer"
-
-msgid "operations-supported.18"
-msgstr "Purge-Jobs"
-
-msgid "operations-supported.19"
-msgstr "Set-Printer-Attributes"
-
-msgid "operations-supported.2"
-msgstr "Print-Job"
-
-msgid "operations-supported.20"
-msgstr "Set-Job-Attributes"
-
-msgid "operations-supported.21"
-msgstr "Get-Printer-Supported-Values"
-
-msgid "operations-supported.22"
-msgstr "Create-Printer-Subscriptions"
-
-msgid "operations-supported.23"
-msgstr "Create-Job-Subscriptions"
-
-msgid "operations-supported.24"
-msgstr "Get-Subscription-Attributes"
-
-msgid "operations-supported.25"
-msgstr "Get-Subscriptions"
-
-msgid "operations-supported.26"
-msgstr "Renew-Subscription"
-
-msgid "operations-supported.27"
-msgstr "Cancel-Subscription"
-
-msgid "operations-supported.28"
-msgstr "Get-Notifications"
-
-msgid "operations-supported.3"
-msgstr "Print-URI"
-
-msgid "operations-supported.34"
-msgstr "Enable-Printer"
-
-msgid "operations-supported.35"
-msgstr "Disable-Printer"
-
-msgid "operations-supported.36"
-msgstr "Pause-Printer-After-Current-Job"
-
-msgid "operations-supported.37"
-msgstr "Hold-New-Jobs"
-
-msgid "operations-supported.38"
-msgstr "Release-Held-New-Jobs"
-
-msgid "operations-supported.39"
-msgstr "Deactivate-Printer"
-
-msgid "operations-supported.4"
-msgstr "Validate-Job"
-
-msgid "operations-supported.40"
-msgstr "Activate-Printer"
-
-msgid "operations-supported.41"
-msgstr "Restart-Printer"
-
-msgid "operations-supported.42"
-msgstr "Shutdown-Printer"
-
-msgid "operations-supported.43"
-msgstr "Startup-Printer"
-
-msgid "operations-supported.44"
-msgstr "Reprocess-Job"
-
-msgid "operations-supported.45"
-msgstr "Cancel-Current-Job"
-
-msgid "operations-supported.46"
-msgstr "Suspend-Current-Job"
-
-msgid "operations-supported.47"
-msgstr "Resume-Job"
-
-msgid "operations-supported.48"
-msgstr "Promote-Job"
-
-msgid "operations-supported.49"
-msgstr "Schedule-Job-After"
-
-msgid "operations-supported.5"
-msgstr "Create-Job"
-
-msgid "operations-supported.51"
-msgstr "Cancel-Document"
-
-msgid "operations-supported.52"
-msgstr "Get-Document-Attributes"
-
-msgid "operations-supported.53"
-msgstr "Get-Documents"
-
-msgid "operations-supported.54"
-msgstr "Delete-Document"
-
-msgid "operations-supported.55"
-msgstr "Set-Document-Attributes"
-
-msgid "operations-supported.56"
-msgstr "Cancel-Jobs"
-
-msgid "operations-supported.57"
-msgstr "Cancel-My-Jobs"
-
-msgid "operations-supported.58"
-msgstr "Resubmit-Job"
-
-msgid "operations-supported.59"
-msgstr "Close-Job"
-
-msgid "operations-supported.6"
-msgstr "Send-Document"
-
-msgid "operations-supported.60"
-msgstr "Identify-Printer"
-
-msgid "operations-supported.61"
-msgstr "Validate-Document"
-
-msgid "operations-supported.62"
-msgstr "Add-Document-Images"
-
-msgid "operations-supported.63"
-msgstr "Acknowledge-Document"
-
-msgid "operations-supported.64"
-msgstr "Acknowledge-Identify-Printer"
-
-msgid "operations-supported.65"
-msgstr "Acknowledge-Job"
-
-msgid "operations-supported.66"
-msgstr "Fetch-Document"
-
-msgid "operations-supported.67"
-msgstr "Fetch-Job"
-
-msgid "operations-supported.68"
-msgstr "Get-Output-Device-Attributes"
-
-msgid "operations-supported.69"
-msgstr "Update-Active-Jobs"
-
-msgid "operations-supported.7"
-msgstr "Send-URI"
-
-msgid "operations-supported.70"
-msgstr "Deregister-Output-Device"
-
-msgid "operations-supported.71"
-msgstr "Update-Document-Status"
-
-msgid "operations-supported.72"
-msgstr "Update-Job-Status"
-
-msgid "operations-supported.73"
-msgstr "Update-Output-Device-Attributes"
-
-msgid "operations-supported.74"
-msgstr "Get-Next-Document-Data"
-
-msgid "operations-supported.8"
-msgstr "Cancel-Job"
-
-msgid "operations-supported.9"
-msgstr "Get-Job-Attributes"
+msgid "organization-name"
+msgstr "Organization Name"
 
 msgid "orientation-requested"
 msgstr "Orientation"
@@ -10332,14 +10229,8 @@ msgstr "Tray 8"
 msgid "output-bin.tray-9"
 msgstr "Tray 9"
 
-msgid "output-device"
-msgstr "Output Device"
-
-msgid "output-device-job-states"
-msgstr "Output Device Job States"
-
-msgid "output-device-uuid"
-msgstr "Output Device Uuid"
+msgid "output-compression-quality-factor"
+msgstr "Scanned Image Quality"
 
 msgid "page-delivery"
 msgstr "Page Delivery"
@@ -10371,71 +10262,29 @@ msgstr "N To 1 Order"
 msgid "page-ranges"
 msgstr "Page Ranges"
 
+msgid "pages"
+msgstr "Pages"
+
 msgid "pages-per-subset"
 msgstr "Pages Per Subset"
-
-msgid "pdf-features-supported.prc"
-msgstr "Prc"
-
-msgid "pdf-features-supported.u3d"
-msgstr "U3d"
-
-msgid "pdf-versions-supported.adobe-1.3"
-msgstr "Adobe 1.3"
-
-msgid "pdf-versions-supported.adobe-1.4"
-msgstr "Adobe 1.4"
-
-msgid "pdf-versions-supported.adobe-1.5"
-msgstr "Adobe 1.5"
-
-msgid "pdf-versions-supported.adobe-1.6"
-msgstr "Adobe 1.6"
-
-msgid "pdf-versions-supported.iso-15930-1_2001"
-msgstr "ISO 15930-1:2001"
-
-msgid "pdf-versions-supported.iso-15930-3_2002"
-msgstr "ISO 15930-3:2002"
-
-msgid "pdf-versions-supported.iso-15930-4_2003"
-msgstr "ISO 15930-4:2003"
-
-msgid "pdf-versions-supported.iso-15930-6_2003"
-msgstr "ISO 15930-6:2003"
-
-msgid "pdf-versions-supported.iso-15930-7_2010"
-msgstr "ISO 15930-7:2010"
-
-msgid "pdf-versions-supported.iso-15930-8_2010"
-msgstr "ISO 15930-8:2010"
-
-msgid "pdf-versions-supported.iso-16612-2_2010"
-msgstr "ISO 16612-2:2010"
-
-msgid "pdf-versions-supported.iso-19005-1_2005"
-msgstr "ISO 19005-1:2005"
-
-msgid "pdf-versions-supported.iso-19005-2_2011"
-msgstr "ISO 19005-2:2011"
-
-msgid "pdf-versions-supported.iso-19005-3_2012"
-msgstr "ISO 19005-3:2012"
-
-msgid "pdf-versions-supported.iso-32000-1_2008"
-msgstr "ISO 32000-1:2008"
-
-msgid "pdf-versions-supported.none"
-msgstr "None"
-
-msgid "pdf-versions-supported.pwg-5102.3"
-msgstr "PWG 5102.3"
 
 msgid "pending"
 msgstr "pendiente"
 
+msgid "platform-shape"
+msgstr "Platform Shape"
+
+msgid "platform-shape.ellipse"
+msgstr "Round"
+
+msgid "platform-shape.rectangle"
+msgstr "Rectangle"
+
 msgid "platform-temperature"
 msgstr "Platform Temperature"
+
+msgid "post-dial-string"
+msgstr "Post-dial String"
 
 #, c-format
 msgid "ppdc: Adding include directory \"%s\"."
@@ -10845,8 +10694,8 @@ msgstr "ppdmerge: Ignorando archivo PPD %s."
 msgid "ppdmerge: Unable to backup %s to %s - %s"
 msgstr "ppdmerge: No se ha podido hacer copia de respaldo de %s a %s - %s"
 
-msgid "preferred-attributes"
-msgstr "Preferred Attributes"
+msgid "pre-dial-string"
+msgstr "Pre-dial String"
 
 msgid "presentation-direction-number-up"
 msgstr "Number-Up Layout"
@@ -11027,9 +10876,6 @@ msgstr "la impresora %s/%s está inactiva.  activada desde %s"
 #, c-format
 msgid "printer %s/%s now printing %s-%d.  enabled since %s"
 msgstr "la impresora %s/%s está ahora imprimiendo %s-%d.  activada desde %s"
-
-msgid "printer-mandatory-job-attributes"
-msgstr "Printer Mandatory Job Attributes"
 
 msgid "printer-message-from-operator"
 msgstr "Printer Message From Operator"
@@ -13299,11 +13145,20 @@ msgstr "Printer Uptime"
 msgid "processing"
 msgstr "en proceso"
 
-msgid "profile-uri-actual"
-msgstr "Actual Profile URI"
-
 msgid "proof-print"
 msgstr "Proof Print"
+
+msgid "proof-print-copies"
+msgstr "Proof Print Copies"
+
+msgid "punching"
+msgstr "Punching"
+
+msgid "punching-locations"
+msgstr "Punching Locations"
+
+msgid "punching-offset"
+msgstr "Punching Offset"
 
 msgid "punching-reference-edge"
 msgstr "Punching Reference Edge"
@@ -13330,39 +13185,6 @@ msgstr "request-id usa una longitud indefinida"
 msgid "requested-attributes"
 msgstr "Requested Attributes"
 
-msgid "requested-attributes.all"
-msgstr "All"
-
-msgid "requested-attributes.document-description"
-msgstr "Document Description"
-
-msgid "requested-attributes.document-template"
-msgstr "Document Template"
-
-msgid "requested-attributes.job-actuals"
-msgstr "Job Actuals"
-
-msgid "requested-attributes.job-description"
-msgstr "Job Description"
-
-msgid "requested-attributes.job-template"
-msgstr "Job Template"
-
-msgid "requested-attributes.printer-description"
-msgstr "Printer Description"
-
-msgid "requested-attributes.subscription-description"
-msgstr "Subscription Description"
-
-msgid "requested-attributes.subscription-template"
-msgstr "Subscription Template"
-
-msgid "requesting-user-name"
-msgstr "Requesting User Name"
-
-msgid "requesting-user-uri"
-msgstr "Requesting User URI"
-
 msgid "retry-interval"
 msgstr "Retry Interval"
 
@@ -13380,6 +13202,18 @@ msgstr "Print Save"
 
 msgid "save-disposition.save-only"
 msgstr "Save Only"
+
+msgid "save-document-format"
+msgstr "Save Document Format"
+
+msgid "save-info"
+msgstr "Save Info"
+
+msgid "save-location"
+msgstr "Save Location"
+
+msgid "save-name"
+msgstr "Save Name"
 
 msgid "scheduler is not running"
 msgstr "el planificador de tareas no se está ejecutando"
@@ -13439,6 +13273,15 @@ msgstr "status\t\tMuestra el estado del demonio (daemon) y la cola."
 msgid "status-message"
 msgstr "Status Message"
 
+msgid "stitching"
+msgstr "Staple"
+
+msgid "stitching-angle"
+msgstr "Stitching Angle"
+
+msgid "stitching-locations"
+msgstr "Stitching Locations"
+
 msgid "stitching-method"
 msgstr "Stitching Method"
 
@@ -13450,6 +13293,9 @@ msgstr "Crimp"
 
 msgid "stitching-method.wire"
 msgstr "Wire"
+
+msgid "stitching-offset"
+msgstr "Stitching Offset"
 
 msgid "stitching-reference-edge"
 msgstr "Stitching Reference Edge"
@@ -13469,6 +13315,9 @@ msgstr "Top"
 msgid "stopped"
 msgstr "parada"
 
+msgid "subject"
+msgstr "Subject"
+
 #, c-format
 msgid "system default destination: %s"
 msgstr "destino predeterminado del sistema: %s"
@@ -13476,6 +13325,12 @@ msgstr "destino predeterminado del sistema: %s"
 #, c-format
 msgid "system default destination: %s/%s"
 msgstr "destino predeterminado del sistema: %s/%s"
+
+msgid "t33-subaddress"
+msgstr "T33 Subaddress"
+
+msgid "to-name"
+msgstr "To Name"
 
 msgid "transmission-status"
 msgstr "Transmission Status"
@@ -13497,6 +13352,12 @@ msgstr "Aborted"
 
 msgid "transmission-status.9"
 msgstr "Completed"
+
+msgid "trimming"
+msgstr "Cut"
+
+msgid "trimming-offset"
+msgstr "Cut Position"
 
 msgid "trimming-reference-edge"
 msgstr "Trimming Reference Edge"
@@ -13558,53 +13419,38 @@ msgstr "sin título"
 msgid "variable-bindings uses indefinite length"
 msgstr "variable-bindings usa una longitud indefinida"
 
-msgid "x-image-position"
-msgstr "X Image Position"
+msgid "x-accuracy"
+msgstr "X Accuracy"
 
-msgid "x-image-position.center"
-msgstr "Center"
+msgid "x-dimension"
+msgstr "X Dimension"
 
-msgid "x-image-position.left"
-msgstr "Left"
+msgid "x-offset"
+msgstr "X Offset"
 
-msgid "x-image-position.none"
-msgstr "None"
+msgid "x-origin"
+msgstr "X Origin"
 
-msgid "x-image-position.right"
-msgstr "Right"
+msgid "y-accuracy"
+msgstr "Y Accuracy"
 
-msgid "x-image-shift"
-msgstr "X Image Shift"
+msgid "y-dimension"
+msgstr "Y Dimension"
 
-msgid "x-side1-image-shift"
-msgstr "X Front Side Image Shift"
+msgid "y-offset"
+msgstr "Y Offset"
 
-msgid "x-side2-image-shift"
-msgstr "X Back Side Image Shift"
+msgid "y-origin"
+msgstr "Y Origin"
 
-msgid "y-image-position"
-msgstr "Y Image Position"
+msgid "z-accuracy"
+msgstr "Z Accuracy"
 
-msgid "y-image-position.bottom"
-msgstr "Bottom"
+msgid "z-dimension"
+msgstr "Z Dimension"
 
-msgid "y-image-position.center"
-msgstr "Center"
-
-msgid "y-image-position.none"
-msgstr "None"
-
-msgid "y-image-position.top"
-msgstr "Top"
-
-msgid "y-image-shift"
-msgstr "Y Image Shift"
-
-msgid "y-side1-image-shift"
-msgstr "Y Front Side Image Shift"
-
-msgid "y-side2-image-shift"
-msgstr "Y Back Side Image Shift"
+msgid "z-offset"
+msgstr "Z Offset"
 
 #~ msgid "  -E                      Test with HTTP Upgrade to TLS."
 #~ msgstr "  -E                      Prueba con actualización HTTP a TLS."
@@ -13805,6 +13651,15 @@ msgstr "Y Back Side Image Shift"
 #~ msgid "CD/DVD/Bluray"
 #~ msgstr "CD/DVD/Bluray"
 
+#~ msgid "FanFold German"
+#~ msgstr "FanFold alemán"
+
+#~ msgid "FanFold Legal German"
+#~ msgstr "FanFold Legal alemán"
+
+#~ msgid "Fanfold US"
+#~ msgstr "FanFold de EE.UU"
+
 #~ msgid "Finishing"
 #~ msgstr "Terminando"
 
@@ -13831,3 +13686,525 @@ msgstr "Y Back Side Image Shift"
 
 #~ msgid "Semi-Gloss Photo"
 #~ msgstr "Foto semi brillante"
+
+#~ msgid "compression"
+#~ msgstr "Compression"
+
+#~ msgid "compression-accepted"
+#~ msgstr "Compression Accepted"
+
+#~ msgid "compression.compress"
+#~ msgstr "Compress"
+
+#~ msgid "compression.deflate"
+#~ msgstr "Deflate"
+
+#~ msgid "compression.gzip"
+#~ msgstr "Gzip"
+
+#~ msgid "compression.none"
+#~ msgstr "None"
+
+#~ msgid "destination-accesses"
+#~ msgstr "Destination Accesses"
+
+#~ msgid "destination-statuses"
+#~ msgstr "Destination Statuses"
+
+#~ msgid "destination-uris"
+#~ msgstr "Destination Uris"
+
+#~ msgid "document-access"
+#~ msgstr "Document Access"
+
+#~ msgid "document-data-get-interval"
+#~ msgstr "Document Data Get Interval"
+
+#~ msgid "document-data-wait"
+#~ msgstr "Document Data Wait"
+
+#~ msgid "document-format-accepted"
+#~ msgstr "Document Format Accepted"
+
+#~ msgid "document-message"
+#~ msgstr "Document Message"
+
+#~ msgid "document-metadata"
+#~ msgstr "Document Metadata"
+
+#~ msgid "document-name"
+#~ msgstr "Document Name"
+
+#~ msgid "document-number"
+#~ msgstr "Document Number"
+
+#~ msgid "document-password"
+#~ msgstr "Document Password"
+
+#~ msgid "document-preprocessed"
+#~ msgstr "Document Preprocessed"
+
+#~ msgid "fetch-status-message"
+#~ msgstr "Fetch Status Message"
+
+#~ msgid "identify-actions"
+#~ msgstr "Identify Actions"
+
+#~ msgid "identify-actions.display"
+#~ msgstr "Display"
+
+#~ msgid "identify-actions.flash"
+#~ msgstr "Flash"
+
+#~ msgid "identify-actions.sound"
+#~ msgstr "Sound"
+
+#~ msgid "identify-actions.speak"
+#~ msgstr "Speak"
+
+#~ msgid "ipp-attribute-fidelity"
+#~ msgstr "Attribute Fidelity"
+
+#~ msgid "job-authorization-uri"
+#~ msgstr "Job Authorization URI"
+
+#~ msgid "job-destination-spooling-supported.automatic"
+#~ msgstr "Automatic"
+
+#~ msgid "job-destination-spooling-supported.spool"
+#~ msgstr "Spool"
+
+#~ msgid "job-destination-spooling-supported.stream"
+#~ msgstr "Stream"
+
+#~ msgid "job-impressions-col"
+#~ msgstr "Job Impressions"
+
+#~ msgid "job-impressions-estimated"
+#~ msgstr "Job Impressions Estimated"
+
+#~ msgid "job-media-sheets-col"
+#~ msgstr "Job Media Sheets"
+
+#~ msgid "job-pages-per-set"
+#~ msgstr "Job Pages Per Set"
+
+#~ msgid "job-password"
+#~ msgstr "Job Password"
+
+#~ msgid "job-password-repertoire-configured"
+#~ msgstr "Job Password Repertoire Configured"
+
+#~ msgid "job-password-repertoire-supported.iana_us-ascii_any"
+#~ msgstr "Iana Us Ascii Any"
+
+#~ msgid "job-password-repertoire-supported.iana_us-ascii_complex"
+#~ msgstr "Iana Us Ascii Complex"
+
+#~ msgid "job-password-repertoire-supported.iana_us-ascii_digits"
+#~ msgstr "Iana Us Ascii Digits"
+
+#~ msgid "job-password-repertoire-supported.iana_us-ascii_letters"
+#~ msgstr "Iana Us Ascii Letters"
+
+#~ msgid "job-password-repertoire-supported.iana_utf-8_any"
+#~ msgstr "Iana Utf 8 Any"
+
+#~ msgid "job-password-repertoire-supported.iana_utf-8_digits"
+#~ msgstr "Iana Utf 8 Digits"
+
+#~ msgid "job-password-repertoire-supported.iana_utf-8_letters"
+#~ msgstr "Iana Utf 8 Letters"
+
+#~ msgid "job-settable-attributes-supported.job-name"
+#~ msgstr "Job Name"
+
+#~ msgid "job-settable-attributes-supported.none"
+#~ msgstr "None"
+
+#~ msgid "jpeg-features-supported.arithmetic"
+#~ msgstr "Arithmetic"
+
+#~ msgid "jpeg-features-supported.cmyk"
+#~ msgstr "Cmyk"
+
+#~ msgid "jpeg-features-supported.deep"
+#~ msgstr "Deep"
+
+#~ msgid "jpeg-features-supported.hierarchical"
+#~ msgstr "Hierarchical"
+
+#~ msgid "jpeg-features-supported.icc"
+#~ msgstr "Icc"
+
+#~ msgid "jpeg-features-supported.lossless"
+#~ msgstr "Lossless"
+
+#~ msgid "jpeg-features-supported.none"
+#~ msgstr "None"
+
+#~ msgid "jpeg-features-supported.progressive"
+#~ msgstr "Progressive"
+
+#~ msgid "material-type.pla-dissolvable"
+#~ msgstr "Pla Dissolvable"
+
+#~ msgid "media.om_large-photo_200x300mm"
+#~ msgstr "200 x 300mm"
+
+#~ msgid "notify-subscribed-event"
+#~ msgstr "Notify Event"
+
+#~ msgid "operations-supported.10"
+#~ msgstr "Get-Jobs"
+
+#~ msgid "operations-supported.11"
+#~ msgstr "Get-Printer-Attributes"
+
+#~ msgid "operations-supported.12"
+#~ msgstr "Hold-Job"
+
+#~ msgid "operations-supported.13"
+#~ msgstr "Release-Job"
+
+#~ msgid "operations-supported.14"
+#~ msgstr "Restart-Job"
+
+#~ msgid "operations-supported.16"
+#~ msgstr "Pause-Printer"
+
+#~ msgid "operations-supported.17"
+#~ msgstr "Resume-Printer"
+
+#~ msgid "operations-supported.18"
+#~ msgstr "Purge-Jobs"
+
+#~ msgid "operations-supported.19"
+#~ msgstr "Set-Printer-Attributes"
+
+#~ msgid "operations-supported.2"
+#~ msgstr "Print-Job"
+
+#~ msgid "operations-supported.20"
+#~ msgstr "Set-Job-Attributes"
+
+#~ msgid "operations-supported.21"
+#~ msgstr "Get-Printer-Supported-Values"
+
+#~ msgid "operations-supported.22"
+#~ msgstr "Create-Printer-Subscriptions"
+
+#~ msgid "operations-supported.23"
+#~ msgstr "Create-Job-Subscriptions"
+
+#~ msgid "operations-supported.24"
+#~ msgstr "Get-Subscription-Attributes"
+
+#~ msgid "operations-supported.25"
+#~ msgstr "Get-Subscriptions"
+
+#~ msgid "operations-supported.26"
+#~ msgstr "Renew-Subscription"
+
+#~ msgid "operations-supported.27"
+#~ msgstr "Cancel-Subscription"
+
+#~ msgid "operations-supported.28"
+#~ msgstr "Get-Notifications"
+
+#~ msgid "operations-supported.3"
+#~ msgstr "Print-URI"
+
+#~ msgid "operations-supported.34"
+#~ msgstr "Enable-Printer"
+
+#~ msgid "operations-supported.35"
+#~ msgstr "Disable-Printer"
+
+#~ msgid "operations-supported.36"
+#~ msgstr "Pause-Printer-After-Current-Job"
+
+#~ msgid "operations-supported.37"
+#~ msgstr "Hold-New-Jobs"
+
+#~ msgid "operations-supported.38"
+#~ msgstr "Release-Held-New-Jobs"
+
+#~ msgid "operations-supported.39"
+#~ msgstr "Deactivate-Printer"
+
+#~ msgid "operations-supported.4"
+#~ msgstr "Validate-Job"
+
+#~ msgid "operations-supported.40"
+#~ msgstr "Activate-Printer"
+
+#~ msgid "operations-supported.41"
+#~ msgstr "Restart-Printer"
+
+#~ msgid "operations-supported.42"
+#~ msgstr "Shutdown-Printer"
+
+#~ msgid "operations-supported.43"
+#~ msgstr "Startup-Printer"
+
+#~ msgid "operations-supported.44"
+#~ msgstr "Reprocess-Job"
+
+#~ msgid "operations-supported.45"
+#~ msgstr "Cancel-Current-Job"
+
+#~ msgid "operations-supported.46"
+#~ msgstr "Suspend-Current-Job"
+
+#~ msgid "operations-supported.47"
+#~ msgstr "Resume-Job"
+
+#~ msgid "operations-supported.48"
+#~ msgstr "Promote-Job"
+
+#~ msgid "operations-supported.49"
+#~ msgstr "Schedule-Job-After"
+
+#~ msgid "operations-supported.5"
+#~ msgstr "Create-Job"
+
+#~ msgid "operations-supported.51"
+#~ msgstr "Cancel-Document"
+
+#~ msgid "operations-supported.52"
+#~ msgstr "Get-Document-Attributes"
+
+#~ msgid "operations-supported.53"
+#~ msgstr "Get-Documents"
+
+#~ msgid "operations-supported.54"
+#~ msgstr "Delete-Document"
+
+#~ msgid "operations-supported.55"
+#~ msgstr "Set-Document-Attributes"
+
+#~ msgid "operations-supported.56"
+#~ msgstr "Cancel-Jobs"
+
+#~ msgid "operations-supported.57"
+#~ msgstr "Cancel-My-Jobs"
+
+#~ msgid "operations-supported.58"
+#~ msgstr "Resubmit-Job"
+
+#~ msgid "operations-supported.59"
+#~ msgstr "Close-Job"
+
+#~ msgid "operations-supported.6"
+#~ msgstr "Send-Document"
+
+#~ msgid "operations-supported.60"
+#~ msgstr "Identify-Printer"
+
+#~ msgid "operations-supported.61"
+#~ msgstr "Validate-Document"
+
+#~ msgid "operations-supported.62"
+#~ msgstr "Add-Document-Images"
+
+#~ msgid "operations-supported.63"
+#~ msgstr "Acknowledge-Document"
+
+#~ msgid "operations-supported.64"
+#~ msgstr "Acknowledge-Identify-Printer"
+
+#~ msgid "operations-supported.65"
+#~ msgstr "Acknowledge-Job"
+
+#~ msgid "operations-supported.66"
+#~ msgstr "Fetch-Document"
+
+#~ msgid "operations-supported.67"
+#~ msgstr "Fetch-Job"
+
+#~ msgid "operations-supported.68"
+#~ msgstr "Get-Output-Device-Attributes"
+
+#~ msgid "operations-supported.69"
+#~ msgstr "Update-Active-Jobs"
+
+#~ msgid "operations-supported.7"
+#~ msgstr "Send-URI"
+
+#~ msgid "operations-supported.70"
+#~ msgstr "Deregister-Output-Device"
+
+#~ msgid "operations-supported.71"
+#~ msgstr "Update-Document-Status"
+
+#~ msgid "operations-supported.72"
+#~ msgstr "Update-Job-Status"
+
+#~ msgid "operations-supported.73"
+#~ msgstr "Update-Output-Device-Attributes"
+
+#~ msgid "operations-supported.74"
+#~ msgstr "Get-Next-Document-Data"
+
+#~ msgid "operations-supported.8"
+#~ msgstr "Cancel-Job"
+
+#~ msgid "operations-supported.9"
+#~ msgstr "Get-Job-Attributes"
+
+#~ msgid "output-device"
+#~ msgstr "Output Device"
+
+#~ msgid "output-device-job-states"
+#~ msgstr "Output Device Job States"
+
+#~ msgid "output-device-uuid"
+#~ msgstr "Output Device Uuid"
+
+#~ msgid "pdf-features-supported.prc"
+#~ msgstr "Prc"
+
+#~ msgid "pdf-features-supported.u3d"
+#~ msgstr "U3d"
+
+#~ msgid "pdf-versions-supported.adobe-1.3"
+#~ msgstr "Adobe 1.3"
+
+#~ msgid "pdf-versions-supported.adobe-1.4"
+#~ msgstr "Adobe 1.4"
+
+#~ msgid "pdf-versions-supported.adobe-1.5"
+#~ msgstr "Adobe 1.5"
+
+#~ msgid "pdf-versions-supported.adobe-1.6"
+#~ msgstr "Adobe 1.6"
+
+#~ msgid "pdf-versions-supported.iso-15930-1_2001"
+#~ msgstr "ISO 15930-1:2001"
+
+#~ msgid "pdf-versions-supported.iso-15930-3_2002"
+#~ msgstr "ISO 15930-3:2002"
+
+#~ msgid "pdf-versions-supported.iso-15930-4_2003"
+#~ msgstr "ISO 15930-4:2003"
+
+#~ msgid "pdf-versions-supported.iso-15930-6_2003"
+#~ msgstr "ISO 15930-6:2003"
+
+#~ msgid "pdf-versions-supported.iso-15930-7_2010"
+#~ msgstr "ISO 15930-7:2010"
+
+#~ msgid "pdf-versions-supported.iso-15930-8_2010"
+#~ msgstr "ISO 15930-8:2010"
+
+#~ msgid "pdf-versions-supported.iso-16612-2_2010"
+#~ msgstr "ISO 16612-2:2010"
+
+#~ msgid "pdf-versions-supported.iso-19005-1_2005"
+#~ msgstr "ISO 19005-1:2005"
+
+#~ msgid "pdf-versions-supported.iso-19005-2_2011"
+#~ msgstr "ISO 19005-2:2011"
+
+#~ msgid "pdf-versions-supported.iso-19005-3_2012"
+#~ msgstr "ISO 19005-3:2012"
+
+#~ msgid "pdf-versions-supported.iso-32000-1_2008"
+#~ msgstr "ISO 32000-1:2008"
+
+#~ msgid "pdf-versions-supported.none"
+#~ msgstr "None"
+
+#~ msgid "pdf-versions-supported.pwg-5102.3"
+#~ msgstr "PWG 5102.3"
+
+#~ msgid "preferred-attributes"
+#~ msgstr "Preferred Attributes"
+
+#~ msgid "printer-mandatory-job-attributes"
+#~ msgstr "Printer Mandatory Job Attributes"
+
+#~ msgid "profile-uri-actual"
+#~ msgstr "Actual Profile URI"
+
+#~ msgid "requested-attributes.all"
+#~ msgstr "All"
+
+#~ msgid "requested-attributes.document-description"
+#~ msgstr "Document Description"
+
+#~ msgid "requested-attributes.document-template"
+#~ msgstr "Document Template"
+
+#~ msgid "requested-attributes.job-actuals"
+#~ msgstr "Job Actuals"
+
+#~ msgid "requested-attributes.job-description"
+#~ msgstr "Job Description"
+
+#~ msgid "requested-attributes.job-template"
+#~ msgstr "Job Template"
+
+#~ msgid "requested-attributes.printer-description"
+#~ msgstr "Printer Description"
+
+#~ msgid "requested-attributes.subscription-description"
+#~ msgstr "Subscription Description"
+
+#~ msgid "requested-attributes.subscription-template"
+#~ msgstr "Subscription Template"
+
+#~ msgid "requesting-user-name"
+#~ msgstr "Requesting User Name"
+
+#~ msgid "requesting-user-uri"
+#~ msgstr "Requesting User URI"
+
+#~ msgid "x-image-position"
+#~ msgstr "X Image Position"
+
+#~ msgid "x-image-position.center"
+#~ msgstr "Center"
+
+#~ msgid "x-image-position.left"
+#~ msgstr "Left"
+
+#~ msgid "x-image-position.none"
+#~ msgstr "None"
+
+#~ msgid "x-image-position.right"
+#~ msgstr "Right"
+
+#~ msgid "x-image-shift"
+#~ msgstr "X Image Shift"
+
+#~ msgid "x-side1-image-shift"
+#~ msgstr "X Front Side Image Shift"
+
+#~ msgid "x-side2-image-shift"
+#~ msgstr "X Back Side Image Shift"
+
+#~ msgid "y-image-position"
+#~ msgstr "Y Image Position"
+
+#~ msgid "y-image-position.bottom"
+#~ msgstr "Bottom"
+
+#~ msgid "y-image-position.center"
+#~ msgstr "Center"
+
+#~ msgid "y-image-position.none"
+#~ msgstr "None"
+
+#~ msgid "y-image-position.top"
+#~ msgstr "Top"
+
+#~ msgid "y-image-shift"
+#~ msgstr "Y Image Shift"
+
+#~ msgid "y-side1-image-shift"
+#~ msgstr "Y Front Side Image Shift"
+
+#~ msgid "y-side2-image-shift"
+#~ msgstr "Y Back Side Image Shift"

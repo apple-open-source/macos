@@ -14,7 +14,7 @@ GnuAfterInstall	= install-plist
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 # Specify the configure flags to use...
-Configure_Flags = --with-cups-build="cups-462.2.4" \
+Configure_Flags = --with-cups-build="cups-462.9" \
 		  --with-archflags="$(RC_CFLAGS)" \
 		  --with-ldarchflags="`$(SRCROOT)/getldarchflags.sh $(RC_CFLAGS)` $(PPC_FLAGS)" \
 		  --with-adminkey="system.print.admin" \
@@ -89,3 +89,45 @@ install-plist:
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/LICENSE.txt $(OSL)/$(Project).txt
+
+
+# InstallAPI stuff...
+SUPPORTS_TEXT_BASED_API ?= YES
+$(info SUPPORTS_TEXT_BASED_API=$(SUPPORTS_TEXT_BASED_API))
+
+ifeq ($(SUPPORTS_TEXT_BASED_API),YES)
+install-libs: installapi-verify
+endif
+
+installapi: configure
+	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(BuildDirectory) $(Environment) $(Install_Flags) libs
+	@echo
+	@echo ++++++++++++++++++++++
+	@echo + Running InstallAPI +
+	@echo ++++++++++++++++++++++
+	@echo
+
+	@if [ "$(SUPPORTS_TEXT_BASED_API)" != "YES" ]; then \
+		echo "installapi was requested, but SUPPORTS_TEXT_BASED_API has been disabled."; \
+		exit 1; \
+	fi
+
+	xcrun tapi stubify --set-installapi-flag $(OBJROOT)/cups/libcups.2.dylib
+	xcrun tapi stubify --set-installapi-flag $(OBJROOT)/cgi-bin/libcupscgi.1.dylib
+	xcrun tapi stubify --set-installapi-flag $(OBJROOT)/filter/libcupsimage.2.dylib
+	xcrun tapi stubify --set-installapi-flag $(OBJROOT)/scheduler/libcupsmime.1.dylib
+	xcrun tapi stubify --set-installapi-flag $(OBJROOT)/ppdc/libcupsppdc.1.dylib
+
+	$(INSTALL) -d -m 0755 $(DSTROOT)/usr/lib
+	$(INSTALL) -c -m 0755 $(OBJROOT)/cups/libcups.2.tbd $(DSTROOT)/usr/lib
+	ln -s libcups.2.tbd $(DSTROOT)/usr/lib/libcups.tbd
+	$(INSTALL) -c -m 0755 $(OBJROOT)/cgi-bin/libcupscgi.1.tbd $(DSTROOT)/usr/lib
+	ln -s libcupscgi.1.tbd $(DSTROOT)/usr/lib/libcupscgi.tbd
+	$(INSTALL) -c -m 0755 $(OBJROOT)/filter/libcupsimage.2.tbd $(DSTROOT)/usr/lib
+	ln -s libcupsimage.2.tbd $(DSTROOT)/usr/lib/libcupsimage.tbd
+	$(INSTALL) -c -m 0755 $(OBJROOT)/scheduler/libcupsmime.1.tbd $(DSTROOT)/usr/lib
+	ln -s libcupsmime.1.tbd $(DSTROOT)/usr/lib/libcupsmime.tbd
+	$(INSTALL) -c -m 0755 $(OBJROOT)/ppdc/libcupsppdc.1.tbd $(DSTROOT)/usr/lib
+	ln -s libcupsppdc.1.tbd $(DSTROOT)/usr/lib/libcupsppdc.tbd
+
+installapi-verify: installapi

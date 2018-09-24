@@ -156,6 +156,8 @@ static String unavailablePluginReplacementText(RenderEmbeddedObject::PluginUnava
         return blockedPluginByContentSecurityPolicyText();
     case RenderEmbeddedObject::InsecurePluginVersion:
         return insecurePluginVersionText();
+    case RenderEmbeddedObject::UnsupportedPlugin:
+        return unsupportedPluginText();
     }
 
     ASSERT_NOT_REACHED();
@@ -376,7 +378,7 @@ void RenderEmbeddedObject::getReplacementTextGeometry(const LayoutPoint& accumul
     fontDescription.setWeight(boldWeightValue());
     fontDescription.setRenderingMode(settings().fontRenderingMode());
     fontDescription.setComputedSize(12);
-    font = FontCascade(fontDescription, 0, 0);
+    font = FontCascade(WTFMove(fontDescription), 0, 0);
     font.update(0);
 
     run = TextRun(m_unavailablePluginReplacementText);

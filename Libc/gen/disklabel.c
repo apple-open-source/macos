@@ -70,6 +70,9 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcomma"
+
 #ifdef unused
 static int	error(int);
 #endif // unused
@@ -211,3 +214,5 @@ error(err)
 	(void)write(STDERR_FILENO, "\n", 1);
 }
 #endif // unused
+#pragma clang diagnostic pop
+

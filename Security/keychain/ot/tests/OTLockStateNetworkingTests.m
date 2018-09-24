@@ -590,7 +590,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
 
     [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
 
-    [self.enroll checkRampState:&retryAfter qos:NSQualityOfServiceUserInitiated error:&error];
+    [self.enroll checkRampState:&retryAfter networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&error];
 
     XCTAssertTrue(error.code == OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
 
@@ -611,7 +611,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
     self.reachabilityFlags = 0;
     [self.reachabilityTracker recheck];
 
-    [self.enroll checkRampState:&retryAfter qos:NSQualityOfServiceUserInitiated error:&error];
+    [self.enroll checkRampState:&retryAfter networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&error];
 
     XCTAssertTrue(error.code == OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
 }
@@ -626,7 +626,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
     self.aksLockState = true;
     [self.lockStateTracker recheck];
 
-    [self.enroll checkRampState:&retryAfter qos:NSQualityOfServiceUserInitiated error:&error];
+    [self.enroll checkRampState:&retryAfter networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&error];
 
     XCTAssertTrue(error.code == errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
 }

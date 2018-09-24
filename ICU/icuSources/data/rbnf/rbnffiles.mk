@@ -1,6 +1,6 @@
 # © 2016 and later: Unicode, Inc. and others.
 # License & terms of use: http://www.unicode.org/copyright.html#License
-RBNF_CLDR_VERSION = 32
+RBNF_CLDR_VERSION = 33.1
 # A list of txt's to build
 # Note:
 #
@@ -29,7 +29,7 @@ RBNF_CLDR_VERSION = 32
 RBNF_SYNTHETIC_ALIAS = ars.txt es_DO.txt es_GT.txt es_HN.txt\
  es_MX.txt es_NI.txt es_PA.txt es_PR.txt es_SV.txt\
  es_US.txt in.txt iw.txt no.txt sh.txt\
- yue_CN.txt zh_HK.txt zh_Hant_HK.txt zh_MO.txt zh_TW.txt
+ zh_HK.txt zh_Hant_HK.txt zh_MO.txt zh_TW.txt
 
 
 # All aliases (to not be included under 'installed'), but not including root.
@@ -37,19 +37,21 @@ RBNF_ALIAS_SOURCE = $(RBNF_SYNTHETIC_ALIAS)
 
 
 # Ordinary resources
-RBNF_SOURCE = af.txt am.txt ar.txt az.txt\
- be.txt bg.txt bs.txt ca.txt cs.txt\
- cy.txt da.txt de.txt de_CH.txt ee.txt\
- el.txt en.txt eo.txt es.txt es_419.txt\
- et.txt fa.txt fa_AF.txt fi.txt fil.txt\
- fo.txt fr.txt fr_BE.txt fr_CH.txt ga.txt\
- he.txt hi.txt hr.txt hu.txt hy.txt\
- id.txt is.txt it.txt ja.txt ka.txt\
- kl.txt km.txt ko.txt ky.txt lo.txt\
- lt.txt lv.txt mk.txt ms.txt mt.txt\
- my.txt nb.txt nl.txt nn.txt pl.txt\
- pt.txt pt_PT.txt ro.txt ru.txt se.txt\
- sk.txt sl.txt sq.txt sr.txt sr_Latn.txt\
- sv.txt ta.txt th.txt tr.txt uk.txt\
+RBNF_SOURCE = af.txt ak.txt am.txt ar.txt\
+ az.txt be.txt bg.txt bs.txt ca.txt\
+ ccp.txt chr.txt cs.txt cy.txt da.txt\
+ de.txt de_CH.txt ee.txt el.txt en.txt\
+ en_001.txt en_IN.txt eo.txt es.txt es_419.txt\
+ et.txt fa.txt fa_AF.txt ff.txt fi.txt\
+ fil.txt fo.txt fr.txt fr_BE.txt fr_CH.txt\
+ ga.txt he.txt hi.txt hr.txt hu.txt\
+ hy.txt id.txt is.txt it.txt ja.txt\
+ ka.txt kl.txt km.txt ko.txt ky.txt\
+ lb.txt lo.txt lrc.txt lt.txt lv.txt\
+ mk.txt ms.txt mt.txt my.txt nb.txt\
+ nl.txt nn.txt pl.txt pt.txt pt_PT.txt\
+ qu.txt ro.txt ru.txt se.txt sk.txt\
+ sl.txt sq.txt sr.txt sr_Latn.txt sv.txt\
+ sw.txt ta.txt th.txt tr.txt uk.txt\
  vi.txt yue.txt yue_Hans.txt zh.txt zh_Hant.txt
 

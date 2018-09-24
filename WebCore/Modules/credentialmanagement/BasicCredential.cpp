@@ -26,6 +26,8 @@
 #include "config.h"
 #include "BasicCredential.h"
 
+#if ENABLE(WEB_AUTHN)
+
 namespace WebCore {
 
 BasicCredential::BasicCredential(const String& id, Type type, Discovery discovery)
@@ -41,7 +43,7 @@ String BasicCredential::type() const
 {
     switch (m_type) {
     case Type::PublicKey:
-        return ASCIILiteral("public-key");
+        return "public-key"_s;
     }
 
     ASSERT_NOT_REACHED();
@@ -49,3 +51,5 @@ String BasicCredential::type() const
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_AUTHN)

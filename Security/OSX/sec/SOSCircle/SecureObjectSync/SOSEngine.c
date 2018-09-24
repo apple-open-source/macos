@@ -545,6 +545,8 @@ static CFDataRef SOSEngineCopyCoders(SOSEngineRef engine, CFErrorRef *error) {
     return der;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic fatal "-Wshadow"
 static bool SOSEngineSaveCoders(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error) {
     // MUST hold engine lock
     // Device must be unlocked for this to succeed
@@ -556,7 +558,7 @@ static bool SOSEngineSaveCoders(SOSEngineRef engine, SOSTransactionRef txn, CFEr
     bool ok = true;
     if (engine->codersNeedSaving) {
         CFDataRef derCoders = SOSEngineCopyCoders(engine, error);
-        bool ok = derCoders && SOSDataSourceSetStateWithKey(engine->dataSource, txn, kSOSEngineCoders,
+        ok = derCoders && SOSDataSourceSetStateWithKey(engine->dataSource, txn, kSOSEngineCoders,
                                                             kSOSEngineProtectionDomainClassA, derCoders, error);
         if (ok) {
             engine->codersNeedSaving = false;
@@ -566,6 +568,7 @@ static bool SOSEngineSaveCoders(SOSEngineRef engine, SOSTransactionRef txn, CFEr
     }
     return ok;
 }
+#pragma clang diagnostic pop
 
 bool SOSTestEngineSaveCoders(CFTypeRef engine, SOSTransactionRef txn, CFErrorRef *error){
     return SOSEngineSaveCoders((SOSEngineRef)engine, txn, error);
@@ -1461,7 +1464,7 @@ static void SOSEngineReferenceTrustedPeer(SOSEngineRef engine, SOSPeerMetaRef pe
     }
 }
 
-static CFDataRef SOSEngineLoadV0KeyBag(SOSEngineRef engine, CFErrorRef *error) {
+static CFDataRef SOSEngineCopyV0KeyBag(SOSEngineRef engine, CFErrorRef *error) {
     // Return the keybag for the given peerID.
     /*
      Values for V0 are:
@@ -1489,15 +1492,17 @@ static void SOSEngineReferenceBackupV0Peer(SOSEngineRef engine, CFMutableDiction
     SOSPeerRef backupPeer = (SOSPeerRef)CFDictionaryGetValue(engine->peerMap, kSOSViewKeychainV0_tomb);
     CFDataRef bag = NULL;
     if (backupPeer && CFGetTypeID(backupPeer) == SOSPeerGetTypeID()) {
-        bag = SOSPeerGetKeyBag(backupPeer);
+        bag = CFRetainSafe(SOSPeerGetKeyBag(backupPeer));
     } else {
         CFErrorRef localError = NULL;
-        if (!(bag = SOSEngineLoadV0KeyBag(engine, &localError))) {
+        bag = SOSEngineCopyV0KeyBag(engine, &localError);
+        if (!bag) {
             secnotice("engine", "No keybag found for v0 backup peer: %@", localError);
             CFReleaseSafe(localError);
         }
     }
     SOSEngineReferenceBackupPeer(engine, kSOSViewKeychainV0_tomb, SOSViewsGetV0BackupViewSet(), bag, newViewNameSet2ChangeTracker, newPeerMap);
+    CFReleaseNull(bag);
 }
 
 static void SOSEngineReferenceTrustedPeers(SOSEngineRef engine, CFMutableDictionaryRef newViewNameSet2ChangeTracker, CFMutableDictionaryRef newPeerMap, CFMutableArrayRef newPeerIDs, CFArrayRef trustedPeerMetas, CFMutableStringRef desc) {

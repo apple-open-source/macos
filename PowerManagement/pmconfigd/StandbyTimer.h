@@ -30,6 +30,9 @@ __private_extern__ void setStandbyTimer();
 __private_extern__ void standbyTimer_prime( );
 __private_extern__ CFAbsoluteTime getWakeFromStandbyTime();
 __private_extern__ void setInactivityWindow(xpc_object_t remoteConnection, xpc_object_t msg);
+__private_extern__ int64_t getDeltaToStandby();
+__private_extern__ void resetDeltaToStandby();
+__private_extern__ void refreshStandbyInactivityPrediction();
 
 
 

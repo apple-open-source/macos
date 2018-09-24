@@ -127,6 +127,7 @@ typedef struct
 	time_t last_send;
 	time_t last_oq_msg;
 	uint32_t quota;
+	dispatch_once_t port_lookup_once;
 	mach_port_t server_port;
 	char *sender;
 	pthread_mutex_t lock;
@@ -135,7 +136,7 @@ typedef struct
 	asl_client_t *asl;
 } _asl_global_t;
 
-__private_extern__ _asl_global_t _asl_global = {0, -1, -1, -1, 0LL, 0LL, 0LL, 0LL, 0, MACH_PORT_NULL, NULL, PTHREAD_MUTEX_INITIALIZER, 0, NULL, NULL};
+__private_extern__ _asl_global_t _asl_global = {0, -1, -1, -1, 0LL, 0LL, 0LL, 0LL, 0, 0, MACH_PORT_NULL, NULL, PTHREAD_MUTEX_INITIALIZER, 0, NULL, NULL};
 
 static const char *level_to_number_string[] = {"0", "1", "2", "3", "4", "5", "6", "7"};
 
@@ -158,6 +159,7 @@ _asl_fork_child()
 	_asl_global.last_send = 0;
 	_asl_global.last_oq_msg = 0;
 
+	_asl_global.port_lookup_once = 0;
 	_asl_global.server_port = MACH_PORT_NULL;
 
 	pthread_mutex_init(&(_asl_global.lock), NULL);
@@ -252,9 +254,22 @@ _asl_notify_close()
 #endif
 
 static void
-_asl_global_init(int reset)
+_asl_global_init()
 {
-	_asl_global.server_port = asl_core_get_service_port(reset);
+	dispatch_once(&_asl_global.port_lookup_once, ^{
+		char *str = getenv("ASL_DISABLE");
+		if ((str == NULL) || strcmp(str, "1"))
+		{
+			bootstrap_look_up2(bootstrap_port, ASL_SERVICE_NAME, &_asl_global.server_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
+		}
+	});
+}
+
+mach_port_t
+asl_core_get_service_port(__unused int reset)
+{
+	_asl_global_init();
+	return _asl_global.server_port;
 }
 
 #pragma mark -
@@ -266,7 +281,7 @@ asl_open(const char *ident, const char *facility, uint32_t opts)
 	asl_client_t *asl = asl_client_open(ident, facility, opts);
 	if (asl == NULL) return NULL;
 
-	_asl_global_init(0);
+	_asl_global_init();
 	if (!(opts & ASL_OPT_NO_REMOTE)) _asl_notify_open(1);
 
 	return (asl_object_t)asl;
@@ -1358,7 +1373,7 @@ _asl_send_message(asl_object_t obj, uint32_t eval, asl_msg_t *msg, const char *m
 		return outstatus;
 	}
 
-	_asl_global_init(0);
+	_asl_global_init();
 	outstatus = 0;
 
 	/*
@@ -1512,14 +1527,8 @@ _asl_send_message(asl_object_t obj, uint32_t eval, asl_msg_t *msg, const char *m
 			kstatus = _asl_server_message(_asl_global.server_port, (caddr_t)str, len);
 			if (kstatus != KERN_SUCCESS)
 			{
-				/* retry once if the call failed */
-				_asl_global_init(1);
-				kstatus = _asl_server_message(_asl_global.server_port, (caddr_t)str, len);
-				if (kstatus != KERN_SUCCESS)
-				{
-					vm_deallocate(mach_task_self(), (vm_address_t)str, vmsize);
-					outstatus = -1;
-				}
+				vm_deallocate(mach_task_self(), (vm_address_t)str, vmsize);
+				outstatus = -1;
 			}
 		}
 		else if (vmsize >0) vm_deallocate(mach_task_self(), (vm_address_t)str, vmsize);
@@ -1730,7 +1739,7 @@ _asl_auxiliary(asl_msg_t *msg, const char *title, const char *uti, const char *u
 		return ASL_STATUS_OK;
 	}
 
-	_asl_global_init(0);
+	_asl_global_init();
 	if (_asl_global.server_port == MACH_PORT_NULL) return ASL_STATUS_FAILED;
 
 	send_str = asl_msg_to_string_raw(ASL_STRING_MIG, aux, "raw");
@@ -1752,15 +1761,9 @@ _asl_auxiliary(asl_msg_t *msg, const char *title, const char *uti, const char *u
 	kstatus = _asl_server_create_aux_link(_asl_global.server_port, (caddr_t)str, len, &fileport, &newurl, &newurllen, &status);
 	if (kstatus != KERN_SUCCESS)
 	{
-		/* retry once if the call failed */
-		_asl_global_init(1);
-		kstatus = _asl_server_create_aux_link(_asl_global.server_port, (caddr_t)str, len, &fileport, &newurl, &newurllen, &status);
-		if (kstatus != KERN_SUCCESS)
-		{
-			vm_deallocate(mach_task_self(), (vm_address_t)str, vmsize);
-			asl_msg_release(aux);
-			return ASL_STATUS_FAILED;
-		}
+		vm_deallocate(mach_task_self(), (vm_address_t)str, vmsize);
+		asl_msg_release(aux);
+		return ASL_STATUS_FAILED;
 	}
 
 	if (status != 0)
@@ -1913,7 +1916,7 @@ _asl_server_control_query(void)
 	asl_msg_t *m = NULL;
 	static const char ctlstr[] = "1\nQ [= ASLOption control]\n";
 
-	_asl_global_init(0);
+	_asl_global_init();
 	if (_asl_global.server_port == MACH_PORT_NULL) return NULL;
 
 	len = strlen(ctlstr) + 1;
@@ -1930,12 +1933,7 @@ _asl_server_control_query(void)
 
 	status = 0;
 	kstatus = _asl_server_query_2(_asl_global.server_port, vmstr, len, qmin, FETCH_BATCH, 0, (caddr_t *)&res, &reslen, &cmax, (int *)&status);
-	if (kstatus != KERN_SUCCESS)
-	{
-		/* retry once if the call failed */
-		_asl_global_init(1);
-		kstatus = _asl_server_query_2(_asl_global.server_port, vmstr, len, qmin, FETCH_BATCH, 0, (caddr_t *)&res, &reslen, &cmax, (int *)&status);
-	}
+	if (kstatus != KERN_SUCCESS) return NULL;
 
 	list = asl_msg_list_from_string(res);
 	vm_deallocate(mach_task_self(), (vm_address_t)res, reslen);
@@ -1957,7 +1955,7 @@ asl_store_location()
 	uint32_t reslen, status;
 	uint64_t cmax;
 
-	_asl_global_init(0);
+	_asl_global_init();
 	if (_asl_global.server_port == MACH_PORT_NULL) return ASL_STORE_LOCATION_FILE;
 
 	res = NULL;
@@ -1966,17 +1964,11 @@ asl_store_location()
 	status = ASL_STATUS_OK;
 
 	kstatus = _asl_server_query_2(_asl_global.server_port, NULL, 0, 0, -1, 0, (caddr_t *)&res, &reslen, &cmax, (int *)&status);
-	if (kstatus != KERN_SUCCESS)
-	{
-		/* retry once if the call failed */
-		_asl_global_init(1);
-		kstatus = _asl_server_query_2(_asl_global.server_port, NULL, 0, 0, -1, 0, (caddr_t *)&res, &reslen, &cmax, (int *)&status);
-	}
+	if (kstatus != KERN_SUCCESS) return ASL_STORE_LOCATION_FILE;
 
 	/* res should never be returned, but just to be certain we don't leak VM ... */
 	if (res != NULL) vm_deallocate(mach_task_self(), (vm_address_t)res, reslen);
 
-	if (kstatus != KERN_SUCCESS) return ASL_STORE_LOCATION_FILE;
 	if (status == ASL_STATUS_OK) return ASL_STORE_LOCATION_MEMORY;
 	return ASL_STORE_LOCATION_FILE;
 }

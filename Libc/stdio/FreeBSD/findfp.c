@@ -30,6 +30,9 @@
  * SUCH DAMAGE.
  */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcomma"
+
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)findfp.c	8.2 (Berkeley) 1/4/94";
 #endif /* LIBC_SCCS and not lint */
@@ -292,3 +295,4 @@ __sinit(void)
 	}
 #endif
 }
+#pragma clang diagnostic pop

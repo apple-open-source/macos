@@ -223,7 +223,7 @@ SecCmsSignedDataEncodeBeforeData(SecCmsSignedDataRef sigd)
 
 extern const SecAsn1Template kSecAsn1TSATSTInfoTemplate;
 
-OSStatus createTSAMessageImprint(SecCmsSignedDataRef signedData, CSSM_DATA_PTR encDigest, 
+OSStatus createTSAMessageImprint(SecCmsSignerInfoRef signerInfo, SECAlgorithmID *digestAlg, CSSM_DATA_PTR encDigest,
     SecAsn1TSAMessageImprint *messageImprint)
 {
     // Calculate hash of encDigest and put in messageImprint.hashedMessage
@@ -231,21 +231,17 @@ OSStatus createTSAMessageImprint(SecCmsSignedDataRef signedData, CSSM_DATA_PTR e
     
     OSStatus status = SECFailure;
     
-    require(signedData && messageImprint, xit);
-	
-    SECAlgorithmID **digestAlgorithms = SecCmsSignedDataGetDigestAlgs(signedData);
-    require(digestAlgorithms, xit);
+    require(signerInfo && digestAlg && messageImprint, xit);
 
-    SecCmsDigestContextRef digcx = SecCmsDigestContextStartMultiple(digestAlgorithms);
+    SecCmsDigestContextRef digcx = SecCmsDigestContextStartSingle(digestAlg);
     require(digcx, xit);
     require(encDigest, xit);
     
-    SecCmsSignerInfoRef signerinfo = SecCmsSignedDataGetSignerInfo(signedData, 0);  // NB - assume 1 signer only!
-    messageImprint->hashAlgorithm = signerinfo->digestAlg;
+    messageImprint->hashAlgorithm = *digestAlg;
 
     SecCmsDigestContextUpdate(digcx, encDigest->Data, encDigest->Length);
     
-    require_noerr(SecCmsDigestContextFinishSingle(digcx, (SecArenaPoolRef)signedData->cmsg->poolp,
+    require_noerr(SecCmsDigestContextFinishSingle(digcx, (SecArenaPoolRef)signerInfo->cmsg->poolp,
         &messageImprint->hashedMessage), xit);
     
     status = SECSuccess;
@@ -354,7 +350,8 @@ static OSStatus validateTSAResponseAndAddTimeStamp(SecCmsSignerInfoRef signerinf
         The code for this is essentially the same code taht is done during a timestamp
         verify, except that we also need to check the nonce.
     */
-    require_noerr(status = decodeTimeStampToken(signerinfo, &respDER.timeStampTokenDER, NULL, expectedNonce), xit);
+    CSSM_DATA *encDigest = SecCmsSignerInfoGetEncDigest(signerinfo);
+    require_noerr(status = decodeTimeStampToken(signerinfo, &respDER.timeStampTokenDER, encDigest, expectedNonce), xit);
 
     status = SecCmsSignerInfoAddTimeStamp(signerinfo, &respDER.timeStampTokenDER);
 
@@ -500,7 +497,7 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
         // Calculate hash of encDigest and put in messageImprint.hashedMessage
         SecCmsSignerInfoRef signerinfo = SecCmsSignedDataGetSignerInfo(sigd, 0);    // NB - assume 1 signer only!
         CSSM_DATA *encDigest = SecCmsSignerInfoGetEncDigest(signerinfo);
-        require_noerr(createTSAMessageImprint(sigd, encDigest, &messageImprint), tsxit);
+        require_noerr(createTSAMessageImprint(signerinfo, &signerinfo->digestAlg, encDigest, &messageImprint), tsxit);
         
         // Callback to fire up XPC service to talk to TimeStamping server, etc.
         require_noerr(rv =(*sigd->cmsg->tsaCallback)(sigd->cmsg->tsaContext, &messageImprint,

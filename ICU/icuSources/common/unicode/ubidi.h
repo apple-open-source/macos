@@ -692,7 +692,7 @@ typedef enum UBiDiReorderingMode {
       * @stable ICU 3.6 */
     UBIDI_REORDER_DEFAULT = 0,
     /** Logical to Visual algorithm which handles numbers in a way which
-      * mimicks the behavior of Windows XP.
+      * mimics the behavior of Windows XP.
       * @stable ICU 3.6 */
     UBIDI_REORDER_NUMBERS_SPECIAL,
     /** Logical to Visual algorithm grouping numbers with adjacent R characters

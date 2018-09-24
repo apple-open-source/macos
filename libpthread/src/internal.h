@@ -70,6 +70,8 @@ typedef struct _pthread_attr_t pthread_attr_t;
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <sys/queue.h>
+#include <pthread/bsdthread_private.h>
+#include <pthread/workqueue_syscalls.h>
 
 #define __OS_EXPOSE_INTERNALS__ 1
 #include <os/internal/internal_shared.h>
@@ -125,19 +127,24 @@ typedef os_unfair_lock _pthread_lock;
 #define _PTHREAD_UNLOCK(lock) os_unfair_lock_unlock_inline(&(lock))
 #define _PTHREAD_UNLOCK_FROM_MACH_THREAD(lock) os_unfair_lock_unlock_inline_no_tsd_4libpthread(&(lock))
 
-// List of all pthreads in the process.
-TAILQ_HEAD(__pthread_list, _pthread);
-extern struct __pthread_list __pthread_head;
-
-// Lock protects access to above list.
-extern _pthread_lock _pthread_list_lock;
+#define _PTHREAD_POLICY_IS_FIXEDPRI(x) ((x) == SCHED_RR || (x) == SCHED_FIFO)
 
 extern int __is_threaded;
+extern int __unix_conforming;
+
+// List of all pthreads in the process.
+TAILQ_HEAD(__pthread_list, _pthread);
+PTHREAD_NOEXPORT extern struct __pthread_list __pthread_head;
+
+// Lock protects access to above list.
+PTHREAD_NOEXPORT extern _pthread_lock _pthread_list_lock;
+
+PTHREAD_NOEXPORT extern uint32_t _main_qos;
 
 #if PTHREAD_DEBUG_LOG
 #include <mach/mach_time.h>
-extern int _pthread_debuglog;
-extern uint64_t _pthread_debugstart;
+PTHREAD_NOEXPORT extern int _pthread_debuglog;
+PTHREAD_NOEXPORT extern uint64_t _pthread_debugstart;
 #endif
 
 /*
@@ -153,6 +160,8 @@ extern uint64_t _pthread_debugstart;
 #define _INTERNAL_POSIX_THREAD_KEYS_END 768
 #endif
 
+#define PTHREAD_T_OFFSET 0
+
 #define MAXTHREADNAMESIZE	64
 #define _PTHREAD_T
 typedef struct _pthread {
@@ -165,52 +174,56 @@ typedef struct _pthread {
 	//
 	// SPI - These fields are private.
 	//
-	// these fields are globally protected by _pthread_list_lock:
-	uint32_t childrun:1,
-			parentcheck:1,
-			childexit:1,
-			pad3:29;
 
-	_pthread_lock lock; // protect access to everything below
-	uint32_t detached:8,
-			inherit:8,
-			policy:8,
+	//
+	// Fields protected by _pthread_list_lock
+	//
+
+	TAILQ_ENTRY(_pthread) tl_plist;	// global thread list [aligned]
+	struct pthread_join_context_s *tl_join_ctx;
+	void *tl_exit_value;
+	uint32_t tl_policy:8,
+			tl_joinable:1,
+			tl_joiner_cleans_up:1,
+			tl_has_custom_stack:1,
+			__tl_pad:21;
+	// MACH_PORT_NULL if no joiner
+	// tsd[_PTHREAD_TSD_SLOT_MACH_THREAD_SELF] when has a joiner
+	// MACH_PORT_DEAD if the thread exited
+	uint32_t tl_exit_gate;
+	struct sched_param tl_param;
+
+	//
+	// Fields protected by pthread_t::lock
+	//
+
+	_pthread_lock lock;
+	uint16_t max_tsd_key;
+	uint16_t inherit:8,
 			kernalloc:1,
 			schedset:1,
 			wqthread:1,
 			wqkillset:1,
-			pad:4;
-
-#if defined(__LP64__)
-	uint32_t pad0;
-#endif
-
-	void *(*fun)(void*);	// thread start routine
-	void *arg;		// thread start routine argument
-	void *exit_value;	// thread exit value storage
-
-	semaphore_t joiner_notify;	// pthread_join notification
-
-	int max_tsd_key;
-	int cancel_state;	// whether the thread can be cancelled
-	int cancel_error;
-
-	int err_no;		// thread-local errno
-
-	struct _pthread *joiner;
-
-	struct sched_param param;	// [aligned]
-
-	TAILQ_ENTRY(_pthread) plist;	// global thread list [aligned]
+			wqoutsideqos:1,
+			__flags_pad:3;
 
 	char pthread_name[MAXTHREADNAMESIZE];	// includes NUL [aligned]
 
-	void *stackaddr;	// base of the stack (page aligned)
-	size_t stacksize;	// size of stack (page multiple and >= PTHREAD_STACK_MIN)
+	void *(*fun)(void *);	// thread start routine
+	void *wq_kqid_ptr;		// wqthreads (workloop)
+	void *arg;				// thread start routine argument
+	int   wq_nevents;		// wqthreads (workloop / kevent)
+	uint16_t wq_retop;		// wqthreads
+	uint8_t cancel_state;	// whether the thread can be canceled [atomic]
+	uint8_t canceled;		// 4597450 set if conformant cancelation happened
+	errno_t cancel_error;
+	errno_t err_no;			// thread-local errno
 
-	void* freeaddr;		// stack/thread allocation base address
-	size_t freesize;	// stack/thread allocation size
-	size_t guardsize;	// guard page size in bytes
+	void *stackaddr;		// base of the stack (page aligned)
+	void *stackbottom;		// stackaddr - stacksize
+	void *freeaddr;			// stack/thread allocation base address
+	size_t freesize;		// stack/thread allocation size
+	size_t guardsize;		// guard page size in bytes
 
 	// tsd-base relative accessed elements
 	__attribute__((aligned(8)))
@@ -228,39 +241,39 @@ typedef struct _pthread {
 	void *tsd[_EXTERNAL_POSIX_THREAD_KEYS_MAX + _INTERNAL_POSIX_THREAD_KEYS_MAX];
 } *pthread_t;
 
-
+#define _PTHREAD_ATTR_REFILLMS_MAX ((2<<24) - 1)
 struct _pthread_attr_t {
-	long sig;
-	_pthread_lock lock;
-	uint32_t detached:8,
+	long   sig;
+	size_t guardsize; // size in bytes of stack overflow guard area
+	void  *stackaddr; // stack base; vm_page_size aligned
+	size_t stacksize; // stack size; multiple of vm_page_size and >= PTHREAD_STACK_MIN
+	union {
+		struct sched_param param; // [aligned]
+		unsigned long qosclass; // pthread_priority_t
+	};
+	uint32_t
+		detached:8,
 		inherit:8,
 		policy:8,
-		fastpath:1,
 		schedset:1,
 		qosset:1,
-		unused:5;
-	struct sched_param param; // [aligned]
-	void *stackaddr; // stack base; vm_page_size aligned
-	size_t stacksize; // stack size; multiple of vm_page_size and >= PTHREAD_STACK_MIN
-	size_t guardsize; // size in bytes of stack overflow guard area
-	unsigned long qosclass;
+		policyset:1,
+		cpupercentset:1,
+		defaultguardpage:1,
+		unused:3;
+	uint32_t
+		cpupercent:8,
+		refillms:24;
 #if defined(__LP64__)
-	uint32_t _reserved[2];
+	uint32_t _reserved[4];
 #else
-	uint32_t _reserved[1];
+	uint32_t _reserved[2];
 #endif
 };
 
 /*
  * Mutex attributes
  */
-#define _PTHREAD_MUTEX_POLICY_NONE		0
-#define _PTHREAD_MUTEX_POLICY_FAIRSHARE		1
-#define _PTHREAD_MUTEX_POLICY_FIRSTFIT		2
-#define _PTHREAD_MUTEX_POLICY_REALTIME		3
-#define _PTHREAD_MUTEX_POLICY_ADAPTIVE		4
-#define _PTHREAD_MUTEX_POLICY_PRIPROTECT	5
-#define _PTHREAD_MUTEX_POLICY_PRIINHERIT	6
 
 #define _PTHREAD_MUTEXATTR_T
 typedef struct {
@@ -269,7 +282,7 @@ typedef struct {
 	uint32_t protocol:2,
 		type:2,
 		pshared:2,
-		policy:3,
+		opt:3,
 		unused:23;
 } pthread_mutexattr_t;
 
@@ -285,6 +298,21 @@ struct _pthread_mutex_options {
 		unused:2,
 		lock_count:16;
 };
+//
+#define _PTHREAD_MUTEX_POLICY_LAST		(PTHREAD_MUTEX_POLICY_FIRSTFIT_NP + 1)
+#define _PTHREAD_MTX_OPT_POLICY_FAIRSHARE 1
+#define _PTHREAD_MTX_OPT_POLICY_FIRSTFIT 2
+#define _PTHREAD_MTX_OPT_POLICY_DEFAULT _PTHREAD_MTX_OPT_POLICY_FIRSTFIT
+// The following _pthread_mutex_options defintions exist in synch_internal.h
+// such that the kernel extension can test for flags. They must be kept in
+// sync with the bit values in the struct above.
+// _PTHREAD_MTX_OPT_PSHARED 0x010
+// _PTHREAD_MTX_OPT_NOTIFY 0x1000
+// _PTHREAD_MTX_OPT_MUTEX 0x2000
+
+// The fixed mask is used to mask out portions of the mutex options that
+// change on a regular basis (notify, lock_count).
+#define _PTHREAD_MTX_OPT_FIXED_MASK	0x27ff
 
 typedef struct {
 	long sig;
@@ -429,12 +457,6 @@ _pthread_selfid_direct(void)
 #define _PTHREAD_KERN_MUTEX_SIG		0x34567812  /*  */
 #define _PTHREAD_KERN_RWLOCK_SIG	0x56781234  /*  */
 
-#define _PTHREAD_CREATE_PARENT		4
-#define _PTHREAD_EXITED			8
-// 4597450: begin
-#define _PTHREAD_WASCANCEL		0x10
-// 4597450: end
-
 #if defined(DEBUG)
 #define _PTHREAD_MUTEX_OWNER_SELF	pthread_self()
 #else
@@ -454,11 +476,6 @@ extern boolean_t swtch_pri(int);
 /* Prototypes. */
 
 /* Internal globals. */
-PTHREAD_NOEXPORT extern int __pthread_supported_features;
-
-/* Functions defined in machine-dependent files. */
-PTHREAD_NOEXPORT void _pthread_setup(pthread_t th, void (*f)(pthread_t), void *sp, int suspended, int needresume);
-
 PTHREAD_NOEXPORT void _pthread_tsd_cleanup(pthread_t self);
 
 PTHREAD_NOEXPORT int _pthread_mutex_droplock(_pthread_mutex *mutex, uint32_t * flagp, uint32_t ** pmtxp, uint32_t * mgenp, uint32_t * ugenp);
@@ -468,8 +485,8 @@ PTHREAD_NOEXPORT void* malloc(size_t);
 PTHREAD_NOEXPORT void free(void*);
 
 /* syscall interfaces */
-extern uint32_t __psynch_mutexwait(pthread_mutex_t * mutex,  uint32_t mgen, uint32_t  ugen, uint64_t tid, uint32_t flags);
-extern uint32_t __psynch_mutexdrop(pthread_mutex_t * mutex,  uint32_t mgen, uint32_t  ugen, uint64_t tid, uint32_t flags);
+extern uint32_t __psynch_mutexwait(_pthread_mutex * mutex,  uint32_t mgen, uint32_t  ugen, uint64_t tid, uint32_t flags);
+extern uint32_t __psynch_mutexdrop(_pthread_mutex * mutex,  uint32_t mgen, uint32_t  ugen, uint64_t tid, uint32_t flags);
 
 extern uint32_t __psynch_cvbroad(pthread_cond_t * cv, uint64_t cvlsgen, uint64_t cvudgen, uint32_t flags, pthread_mutex_t * mutex,  uint64_t mugen, uint64_t tid);
 extern uint32_t __psynch_cvsignal(pthread_cond_t * cv, uint64_t cvlsgen, uint32_t cvugen, int thread_port, pthread_mutex_t * mutex,  uint64_t mugen, uint64_t tid, uint32_t flags);
@@ -489,7 +506,9 @@ PTHREAD_EXTERN
 int
 __proc_info(int callnum, int pid, int flavor, uint64_t arg, void * buffer, int buffersize);
 
-PTHREAD_NOEXPORT int _pthread_join_cleanup(pthread_t thread, void ** value_ptr, int conforming);
+PTHREAD_NOEXPORT
+void
+_pthread_deallocate(pthread_t t, bool from_mach_thread);
 
 PTHREAD_NORETURN PTHREAD_NOEXPORT
 void
@@ -498,6 +517,10 @@ __pthread_abort(void);
 PTHREAD_NORETURN PTHREAD_NOEXPORT
 void
 __pthread_abort_reason(const char *fmt, ...) __printflike(1,2);
+
+PTHREAD_NOEXPORT
+thread_qos_t
+_pthread_qos_class_to_thread_qos(qos_class_t qos);
 
 PTHREAD_NOEXPORT
 void
@@ -515,7 +538,7 @@ PTHREAD_EXPORT
 void
 _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * funarg, size_t stacksize, unsigned int flags);
 
-PTHREAD_EXPORT
+PTHREAD_NORETURN PTHREAD_EXPORT
 void
 _pthread_wqthread(pthread_t self, mach_port_t kport, void *stackaddr, void *keventlist, int flags, int nkevents);
 
@@ -531,9 +554,13 @@ PTHREAD_NOEXPORT_VARIANT
 void
 _pthread_clear_qos_tsd(mach_port_t thread_port);
 
+#define PTHREAD_CONFORM_DARWIN_LEGACY     0
+#define PTHREAD_CONFORM_UNIX03_NOCANCEL   1
+#define PTHREAD_CONFORM_UNIX03_CANCELABLE 2
+
 PTHREAD_NOEXPORT_VARIANT
 void
-_pthread_testcancel(pthread_t thread, int isconforming);
+_pthread_testcancel(int conforming);
 
 PTHREAD_EXPORT
 void
@@ -545,11 +572,11 @@ _pthread_markcancel_if_canceled(pthread_t thread, mach_port_t kport);
 
 PTHREAD_NOEXPORT
 void
-_pthread_setcancelstate_exit(pthread_t self, void *value_ptr, int conforming);
+_pthread_setcancelstate_exit(pthread_t self, void *value_ptr);
 
 PTHREAD_NOEXPORT
-void *
-_pthread_get_exit_value(pthread_t t, int conforming);
+semaphore_t
+_pthread_joiner_prepost_wake(pthread_t thread);
 
 PTHREAD_ALWAYS_INLINE
 static inline mach_port_t
@@ -647,60 +674,54 @@ _pthread_rwlock_check_signature_init(_pthread_rwlock *rwlock)
 	return (rwlock->sig == _PTHREAD_RWLOCK_SIG_init);
 }
 
-/* ALWAYS called with list lock and return with list lock */
+/*
+ * ALWAYS called without list lock and return with list lock held on success
+ *
+ * This weird calling convention exists because this function will sometimes
+ * drop the lock, and it's best callers don't have to remember this.
+ */
 PTHREAD_ALWAYS_INLINE
 static inline bool
-_pthread_is_valid_locked(pthread_t thread)
+_pthread_validate_thread_and_list_lock(pthread_t thread)
 {
 	pthread_t p;
+	if (thread == NULL) return false;
 loop:
-	TAILQ_FOREACH(p, &__pthread_head, plist) {
-		if (p == thread) {
-			int state = os_atomic_load(&p->cancel_state, relaxed);
-			if (state & _PTHREAD_CANCEL_INITIALIZED) {
-				return true;
+	_PTHREAD_LOCK(_pthread_list_lock);
+	TAILQ_FOREACH(p, &__pthread_head, tl_plist) {
+		if (p != thread) continue;
+		int state = os_atomic_load(&p->cancel_state, relaxed);
+		if (os_likely(state & _PTHREAD_CANCEL_INITIALIZED)) {
+			if (os_unlikely(p->sig != _PTHREAD_SIG)) {
+				PTHREAD_CLIENT_CRASH(0, "pthread_t was corrupted");
 			}
-			_PTHREAD_UNLOCK(_pthread_list_lock);
-			thread_switch(_pthread_kernel_thread(p),
-					SWITCH_OPTION_OSLOCK_DEPRESS, 1);
-			_PTHREAD_LOCK(_pthread_list_lock);
-			goto loop;
+			return true;
 		}
+		_PTHREAD_UNLOCK(_pthread_list_lock);
+		thread_switch(_pthread_kernel_thread(p),
+					  SWITCH_OPTION_OSLOCK_DEPRESS, 1);
+		goto loop;
 	}
+	_PTHREAD_UNLOCK(_pthread_list_lock);
 
 	return false;
 }
 
-#define PTHREAD_IS_VALID_LOCK_THREAD 0x1
-
 PTHREAD_ALWAYS_INLINE
 static inline bool
-_pthread_is_valid(pthread_t thread, int flags, mach_port_t *portp)
+_pthread_is_valid(pthread_t thread, mach_port_t *portp)
 {
 	mach_port_t kport = MACH_PORT_NULL;
 	bool valid;
 
-	if (thread == NULL) {
-		return false;
-	}
-
 	if (thread == pthread_self()) {
 		valid = true;
 		kport = _pthread_kernel_thread(thread);
-		if (flags & PTHREAD_IS_VALID_LOCK_THREAD) {
-			_PTHREAD_LOCK(thread->lock);
-		}
+	} else if (!_pthread_validate_thread_and_list_lock(thread)) {
+		valid = false;
 	} else {
-		_PTHREAD_LOCK(_pthread_list_lock);
-		if (_pthread_is_valid_locked(thread)) {
-			kport = _pthread_kernel_thread(thread);
-			valid = true;
-			if (flags & PTHREAD_IS_VALID_LOCK_THREAD) {
-				_PTHREAD_LOCK(thread->lock);
-			}
-		} else {
-			valid = false;
-		}
+		kport = _pthread_kernel_thread(thread);
+		valid = true;
 		_PTHREAD_UNLOCK(_pthread_list_lock);
 	}
 

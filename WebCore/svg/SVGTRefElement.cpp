@@ -36,8 +36,11 @@
 #include "StyleInheritedData.h"
 #include "Text.h"
 #include "XLinkNames.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(SVGTRefElement);
 
 // Animated property definitions
 DEFINE_ANIMATED_STRING(SVGTRefElement, XLinkNames::hrefAttr, Href, href)
@@ -117,7 +120,8 @@ bool SVGTRefTargetEventListener::operator==(const EventListener& listener) const
 
 void SVGTRefTargetEventListener::handleEvent(ScriptExecutionContext&, Event& event)
 {
-    ASSERT(isAttached());
+    if (!isAttached())
+        return;
 
     if (event.type() == eventNames().DOMSubtreeModifiedEvent && &m_trefElement != event.target())
         m_trefElement.updateReferencedText(m_target.get());

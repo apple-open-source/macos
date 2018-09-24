@@ -156,6 +156,7 @@ enum
 #define kIORequestIdleKey               "IORequestIdle"
 #endif
 
+
 enum {
     kIOAccelSpecificID          = 0x00000002
 };
@@ -313,7 +314,7 @@ enum
 #define DBG_IOG_SET_POWER_ATTRIBUTE         19	// 0x13 0x532004C: arg1 regID, arg2 power ordinal
 #define DBG_IOG_ALLOW_POWER_CHANGE          20  // 0x14 0x5320050:
 #define DBG_IOG_MUX_ALLOW_POWER_CHANGE      21  // 0x15 0x5320054:
-#define DBG_IOG_SERVER_TIMEOUT              22  // 0x16 0x5320058: arg1 regID
+#define DBG_IOG_SERVER_TIMEOUT              22  // 0x16 0x5320058: arg1 regID, arg2 source, arg3 sentID << 32 | ackedID, arg4 serverMsgCount
 #define DBG_IOG_NOTIFY_CALLOUT              23  // 0x17 0x532005C: arg1 regID, arg2/3/4 - Hex-i-fied OSMetaClass::name
 #define DBG_IOG_MUX_POWER_MESSAGE           24  // 0x18 0x5320060: arg1 messageType/error, arg2 0/-1 (success early exit 1),-2 (success early exit 2), 0 (final exit)
 #define DBG_IOG_FB_POWER_CHANGE             25  // 0x19 0x5320064: arg1 regID, arg2 powerOrdinal
@@ -332,7 +333,16 @@ enum
 #define DBG_IOG_VRAM_CONFIG                 39  // 0x27 0x532009c: arg1 regID, arg2 height, arg3 rowBytes, arg4 len
 #define DBG_IOG_SET_GAMMA_TABLE             40  // 0x28 0x53200A0: arg1 regID, arg2 DBG_IOG_SOURCE_xxx (below), arg3 exit-error
 #define DBG_IOG_NEW_USER_CLIENT             41  // 0x29 0x53200a4: arg1 regID, arg2 type, arg3  exit-error, arg4 0->normal, 1->diagnostic, 2->waitQuiet
-#define DBG_IOG_FB_CLOSE                    42  // 0x2A 0x53200a8: arg1 regID, arg2 sys
+#define DBG_IOG_FB_CLOSE                    42  // 0x2A 0x53200A8: arg1 regID, arg2 sys
+#define DBG_IOG_NOTIFY_CALLOUT_TIMEOUT      43  // 0x2B 0x53200AC: arg1 regID, arg2/3/4 - Hex-i-fied OSMetaClass::name, exit-event, return code
+#define DBG_IOG_CONNECTION_ENABLE           44  // 0x2C 0x53200B0: arg1 regID, arg2 enable, arg3 return code
+#define DBG_IOG_CONNECTION_ENABLE_CHECK     45  // 0x2D 0x53200B4: arg1 DBG_IOG_SOURCE_xxx (below), arg2 regID, arg3 enable, arg4 return code
+#define DBG_IOG_PROCESS_CONNECT_CHANGE      46  // 0x2E 0x53200B8: arg1 regID, arg2 mode, exit-regID, exit point, online state
+#define DBG_IOG_CONNECT_CHANGE_INTERRUPT    47  // 0x2F 0x53200BC: arg1 regID, arg2 last processed, arg3 last finished & messaged, arg4 changed & last forced
+#define DBG_IOG_DELIVER_NOTIFY              48  // 0x30 0x53200C0: arg1 regID, arg2 event, arg3 return code
+#define DBG_IOG_AGC_MSG                     49  // 0x31 0x53200C4: arg1 switchState
+#define DBG_IOG_AGC_MUTE                    50  // 0x32 0x53200C8: arg1 regID, arg2 newState, arg3 oldState
+
 
 // Multiple sources
 #define DBG_IOG_SET_DISPLAY_MODE            100 // 0x64 0x5320190: arg1 DBG_IOG_SOURCE_xxx (below), arg2 regID, arg3 entry-modeID/exit-error, arg4 entry-depth/exit-0.
@@ -371,6 +381,10 @@ enum
 #define DBG_IOG_SOURCE_SYSWORK_ENABLECLAMSHELL      30
 #define DBG_IOG_SOURCE_SYSWORK_PROBECLAMSHELL       31
 #define DBG_IOG_SOURCE_CLAMSHELL_OFFLINE_CHANGE     32
+#define DBG_IOG_SOURCE_UPDATE_ONLINE                33
+#define DBG_IOG_SOURCE_GLOBAL_CONNECTION_COUNT      34
+#define DBG_IOG_SOURCE_SERVER_ACK_TIMEOUT           35  // Power events
+#define DBG_IOG_SOURCE_DIM_DISPLAY_TIMEOUT          36
 
 // IOGraphics receive power notification event types
 #define DBG_IOG_PWR_EVENT_DESKTOPMODE               1
@@ -382,6 +396,7 @@ enum
 #define DBG_IOG_CLAMSHELL_STATE_CLOSED              1
 #define DBG_IOG_CLAMSHELL_STATE_OPEN                2
 
+#define kNOTIFY_TIMEOUT_NS                          (16.6 * 6 * 1000 * 1000)
 
 /* Values for IOFramebuffer::message().
    Follows mach/error.h layout.

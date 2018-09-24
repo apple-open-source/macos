@@ -124,6 +124,37 @@ extern "C" {
                                                                 }\
                                                             }while(0)
 
+#define GTRACE_DEFER_START(tag0, arg0, tag1, arg1, tag2, arg2, tag3, arg3, _ts_) \
+do{ \
+const uint64_t __gtrace_defer_start_ts__ = _ts_;\
+const uint64_t __gtrace_defer_start_line__ = __LINE__;\
+const uint16_t __gtrace_defer_start_tag0__ = MAKEGTRACETAG(tag0);\
+const uint16_t __gtrace_defer_start_tag1__ = MAKEGTRACETAG(tag1);\
+const uint16_t __gtrace_defer_start_tag2__ = MAKEGTRACETAG(tag2);\
+const uint16_t __gtrace_defer_start_tag3__ = MAKEGTRACETAG(tag3);\
+const uint64_t __gtrace_defer_start_arg0__ = static_cast<uint64_t>(arg0);\
+const uint64_t __gtrace_defer_start_arg1__ = static_cast<uint64_t>(arg1);\
+const uint64_t __gtrace_defer_start_arg2__ = static_cast<uint64_t>(arg2);\
+const uint64_t __gtrace_defer_start_arg3__ = static_cast<uint64_t>(arg3);
+
+#define GTRACE_DEFER_END(tag0, arg0, tag1, arg1, tag2, arg2, tag3, arg3, threshold, _ts_) \
+    if(GTRACEOBJ){\
+        if((_ts_) - __gtrace_defer_start_ts__ > (threshold)){ \
+            GTRACERECORDTOKEN(__gtrace_defer_start_line__,\
+            __gtrace_defer_start_tag0__,__gtrace_defer_start_arg0__,\
+            __gtrace_defer_start_tag1__,__gtrace_defer_start_arg1__,\
+            __gtrace_defer_start_tag2__,__gtrace_defer_start_arg2__,\
+            __gtrace_defer_start_tag3__,__gtrace_defer_start_arg3__,\
+            __gtrace_defer_start_ts__);\
+            GTRACERECORDTOKEN(__LINE__,\
+            MAKEGTRACETAG(tag0),static_cast<uint64_t>(arg0),\
+            MAKEGTRACETAG(tag1),static_cast<uint64_t>(arg1),\
+            MAKEGTRACETAG(tag2),static_cast<uint64_t>(arg2),\
+            MAKEGTRACETAG(tag3),static_cast<uint64_t>(arg3),\
+            _ts_);\
+        }\
+    }\
+}while(0)
 
 #if defined(_KERNEL_) || defined (KERNEL)
 
@@ -138,6 +169,16 @@ extern "C" {
 #define GTRACE_RELEASE                                      release()
 #define GTRACE_PRINTF                                       kprintf
 
+#define GTRACE_LOG_SYNCH(tag0) do {\
+    if (GTRACEOBJ) {\
+        const uint32_t __gtrace_log_sync_ind__ = GTRACEOBJ->synchIndex();\
+        GTRACERECORDTOKEN(__LINE__,\
+            MAKEGTRACETAG(tag0),static_cast<uint64_t>(__gtrace_log_sync_ind__),\
+            0, 0, 0, 0, 0, 0);\
+        IOLog("GTrace synchronization point %x\n", __gtrace_log_sync_ind__);\
+    }\
+}while(0)
+
 #else /*defined(_KERNEL_) || defined (KERNEL)*/
 
 #define GTRACE_USING_SUPER
@@ -151,6 +192,9 @@ extern "C" {
 #define GTRACE_RETAIN                                       GTRACE_RAII_LOCK(fInUseLock)
 #define GTRACE_RELEASE                                      
 #define GTRACE_PRINTF                                       printf
+
+// TODO(gvdl): IOLog is kernel only, os_log() perhaps
+#define GTRACE_LOG_SYNCH(args...)
 
 #endif /*defined(_KERNEL_) || defined (KERNEL)*/
 
@@ -199,12 +243,14 @@ public:
      @param arg2 Component/implementation specific value.
      @param arg3 Component/implementation specific value.
      @param arg4 Component/implementation specific value.
+     @param timestamp Supplied timestamp or current MCT
      */
     void recordToken(const uint16_t line,
                      const uint16_t tag1, const uint64_t arg1,
                      const uint16_t tag2, const uint64_t arg2,
                      const uint16_t tag3, const uint64_t arg3,
-                     const uint16_t tag4, const uint64_t arg4);
+                     const uint16_t tag4, const uint64_t arg4,
+                     const uint64_t timestamp = mach_continuous_time());
 
     /*! @function publishTokens
      @abstract Publish token data to provider registry.
@@ -241,6 +287,14 @@ public:
      @param bufferSize Length of buffer provided.
      */
     IOReturn setTokens( const uintptr_t * buffer, const uint32_t bufferSize );
+
+    /*! @function synchIndex
+     @abstract Publishes the current gtrace token index.
+     @discussion  Used by Decode to synchronize between os_log and GTrace. I
+                  have chosen to share the atomic next index operation though
+                  it may cause decode ambiguity. It is very light weight.
+     */
+    inline uint32_t synchIndex() { return fNextLine; }
 
 private:
     /*! @function getLine
@@ -305,7 +359,6 @@ private:
 #endif /*defined(_KERNEL_) || defined (KERNEL)*/
         return (ret);
     }
-
 #if defined(_KERNEL_) || defined (KERNEL)
     struct GTraceLock
     {

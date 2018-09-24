@@ -1,5 +1,5 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
-// Copyright (C) 2016 Apple Inc. All rights reserved.
+// Copyright (C) 2016-2018 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -47,8 +47,6 @@ static inline bool isSimpleLengthPropertyID(CSSPropertyID propertyId, bool& acce
 {
     switch (propertyId) {
     case CSSPropertyFontSize:
-    case CSSPropertyGridColumnGap:
-    case CSSPropertyGridRowGap:
     case CSSPropertyHeight:
     case CSSPropertyWidth:
     case CSSPropertyMinHeight:
@@ -570,8 +568,7 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
         // table-column-group | table-column | table-cell | table-caption | -webkit-box | -webkit-inline-box | none
         // flex | inline-flex | -webkit-flex | -webkit-inline-flex | grid | inline-grid
         return (valueID >= CSSValueInline && valueID <= CSSValueContents) || valueID == CSSValueNone
-            || (RuntimeEnabledFeatures::sharedFeatures().isCSSGridLayoutEnabled() && (valueID == CSSValueGrid || valueID == CSSValueInlineGrid))
-        ;
+            || valueID == CSSValueGrid || valueID == CSSValueInlineGrid;
     case CSSPropertyDominantBaseline:
         // auto | use-script | no-change | reset-size | ideographic |
         // alphabetic | hanging | mathematical | central | middle |
@@ -630,8 +627,6 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
     //   return valueID == CSSValueAuto || valueID == CSSValueSmooth;
     case CSSPropertyShapeRendering:
         return valueID == CSSValueAuto || valueID == CSSValueOptimizeSpeed || valueID == CSSValueCrispedges || valueID == CSSValueGeometricPrecision;
-    case CSSPropertySpeak: // none | normal | spell-out | digits | literal-punctuation | no-punctuation
-        return valueID == CSSValueNone || valueID == CSSValueNormal || valueID == CSSValueSpellOut || valueID == CSSValueDigits || valueID == CSSValueLiteralPunctuation || valueID == CSSValueNoPunctuation;
     case CSSPropertyStrokeLinejoin:
         return valueID == CSSValueMiter || valueID == CSSValueRound || valueID == CSSValueBevel;
     case CSSPropertyStrokeLinecap:
@@ -711,24 +706,12 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
         return valueID == CSSValueHorizontal || valueID == CSSValueVertical || valueID == CSSValueAuto;
     case CSSPropertyWebkitColumnProgression:
         return valueID == CSSValueNormal || valueID == CSSValueReverse;
-    case CSSPropertyAlignContent:
-        // FIXME: Per CSS alignment, this property should accept an optional <overflow-position>. We should share this parsing code with 'justify-self'.
-        return valueID == CSSValueFlexStart || valueID == CSSValueFlexEnd || valueID == CSSValueCenter || valueID == CSSValueSpaceBetween || valueID == CSSValueSpaceAround || valueID == CSSValueStretch;
-    case CSSPropertyAlignItems:
-        // FIXME: Per CSS alignment, this property should accept the same arguments as 'justify-self' so we should share its parsing code.
-        return valueID == CSSValueFlexStart || valueID == CSSValueFlexEnd || valueID == CSSValueCenter || valueID == CSSValueBaseline || valueID == CSSValueStretch;
-    case CSSPropertyAlignSelf:
-        // FIXME: Per CSS alignment, this property should accept the same arguments as 'justify-self' so we should share its parsing code.
-        return valueID == CSSValueAuto || valueID == CSSValueFlexStart || valueID == CSSValueFlexEnd || valueID == CSSValueCenter || valueID == CSSValueBaseline || valueID == CSSValueStretch;
     case CSSPropertyFlexDirection:
         return valueID == CSSValueRow || valueID == CSSValueRowReverse || valueID == CSSValueColumn || valueID == CSSValueColumnReverse;
     case CSSPropertyFlexWrap:
         return valueID == CSSValueNowrap || valueID == CSSValueWrap || valueID == CSSValueWrapReverse;
     case CSSPropertyWebkitHyphens:
         return valueID == CSSValueAuto || valueID == CSSValueNone || valueID == CSSValueManual;
-    case CSSPropertyJustifyContent:
-        // FIXME: Per CSS alignment, this property should accept an optional <overflow-position>. We should share this parsing code with 'justify-self'.
-        return valueID == CSSValueFlexStart || valueID == CSSValueFlexEnd || valueID == CSSValueCenter || valueID == CSSValueSpaceBetween || valueID == CSSValueSpaceAround;
     case CSSPropertyWebkitFontKerning:
         return valueID == CSSValueAuto || valueID == CSSValueNormal || valueID == CSSValueNone;
     case CSSPropertyWebkitFontSmoothing:
@@ -861,7 +844,6 @@ bool CSSParserFastPaths::isKeywordPropertyID(CSSPropertyID propertyId)
     case CSSPropertyPointerEvents:
     case CSSPropertyPosition:
     case CSSPropertyResize:
-    case CSSPropertySpeak:
     case CSSPropertyTableLayout:
     case CSSPropertyTextAlign:
     case CSSPropertyTextOverflow:
@@ -981,11 +963,6 @@ bool CSSParserFastPaths::isKeywordPropertyID(CSSPropertyID propertyId)
     case CSSPropertyFontOpticalSizing:
 #endif
         return true;
-    case CSSPropertyJustifyContent:
-    case CSSPropertyAlignContent:
-    case CSSPropertyAlignItems:
-    case CSSPropertyAlignSelf:
-        return !RuntimeEnabledFeatures::sharedFeatures().isCSSGridLayoutEnabled();
     default:
         return false;
     }
@@ -1295,7 +1272,6 @@ static RefPtr<CSSValueList> parseSimpleTransformList(const CharType* chars, unsi
 static RefPtr<CSSValue> parseSimpleTransform(CSSPropertyID propertyID, const String& string)
 {
     ASSERT(!string.isEmpty());
-
     if (propertyID != CSSPropertyTransform)
         return nullptr;
     if (string.is8Bit())
@@ -1314,20 +1290,15 @@ static RefPtr<CSSValue> parseCaretColor(const String& string, CSSParserMode pars
 
 RefPtr<CSSValue> CSSParserFastPaths::maybeParseValue(CSSPropertyID propertyID, const String& string, CSSParserMode parserMode)
 {
-    RefPtr<CSSValue> result = parseSimpleLengthValue(propertyID, string, parserMode);
-    if (result)
+    if (auto result = parseSimpleLengthValue(propertyID, string, parserMode))
         return result;
     if (propertyID == CSSPropertyCaretColor)
         return parseCaretColor(string, parserMode);
     if (isColorPropertyID(propertyID))
         return parseColor(string, parserMode);
-    result = parseKeywordValue(propertyID, string, parserMode);
-    if (result)
+    if (auto result = parseKeywordValue(propertyID, string, parserMode))
         return result;
-    result = parseSimpleTransform(propertyID, string);
-    if (result)
-        return result;
-    return nullptr;
+    return parseSimpleTransform(propertyID, string);
 }
 
 } // namespace WebCore

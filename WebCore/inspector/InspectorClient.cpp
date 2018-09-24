@@ -31,13 +31,12 @@
 #include "config.h"
 #include "InspectorClient.h"
 
+#include "Frame.h"
 #include "InspectorController.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
-#include <interpreter/FrameTracers.h>
-
+#include <JavaScriptCore/FrameTracers.h>
 
 namespace WebCore {
 using namespace JSC;

@@ -596,21 +596,29 @@ OSStatus SecIdentitySetPreference(
 	const char *templateStr = "%s [key usage 0x%X]";
 	const int keyUsageMaxStrLen = 8;
 	accountUTF8Len += strlen(templateStr) + keyUsageMaxStrLen;
-	char accountUTF8[accountUTF8Len];
+	char *accountUTF8 = (char *)malloc(accountUTF8Len);
+	if (!accountUTF8) {
+		MacOSError::throwMe(errSecMemoryError);
+	}
     if (!CFStringGetCString(labelStr, accountUTF8, accountUTF8Len-1, kCFStringEncodingUTF8))
 		accountUTF8[0] = (char)'\0';
 	if (keyUsage)
 		snprintf(accountUTF8, accountUTF8Len-1, templateStr, accountUTF8, keyUsage);
 	snprintf(accountUTF8, accountUTF8Len-1, "%s ", accountUTF8);
-    CssmData account(const_cast<char *>(accountUTF8), strlen(accountUTF8));
+    CssmDataContainer account(const_cast<char *>(accountUTF8), strlen(accountUTF8));
+    free(accountUTF8);
     CFRelease(labelStr);
 
 	// service attribute (name provided by the caller)
 	CFIndex serviceUTF8Len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(name), kCFStringEncodingUTF8) + 1;;
-	char serviceUTF8[serviceUTF8Len];
+	char *serviceUTF8 = (char *)malloc(serviceUTF8Len);
+	if (!serviceUTF8) {
+		MacOSError::throwMe(errSecMemoryError);
+	}
     if (!CFStringGetCString(name, serviceUTF8, serviceUTF8Len-1, kCFStringEncodingUTF8))
         serviceUTF8[0] = (char)'\0';
-    CssmData service(const_cast<char *>(serviceUTF8), strlen(serviceUTF8));
+    CssmDataContainer service(const_cast<char *>(serviceUTF8), strlen(serviceUTF8));
+    free(serviceUTF8);
 
     // look for existing identity preference item, in case this is an update
 	StorageManager::KeychainList keychains;
@@ -820,21 +828,29 @@ OSStatus _SecIdentityAddPreferenceItemWithName(
 	const char *templateStr = "%s [key usage 0x%X]";
 	const int keyUsageMaxStrLen = 8;
 	accountUTF8Len += strlen(templateStr) + keyUsageMaxStrLen;
-	char accountUTF8[accountUTF8Len];
+	char *accountUTF8 = (char *)malloc(accountUTF8Len);
+	if (!accountUTF8) {
+		MacOSError::throwMe(errSecMemoryError);
+	}
     if (!CFStringGetCString(labelStr, accountUTF8, accountUTF8Len-1, kCFStringEncodingUTF8))
 		accountUTF8[0] = (char)'\0';
 	if (keyUsage)
 		snprintf(accountUTF8, accountUTF8Len-1, templateStr, accountUTF8, keyUsage);
 	snprintf(accountUTF8, accountUTF8Len-1, "%s ", accountUTF8);
-    CssmData account(const_cast<char *>(accountUTF8), strlen(accountUTF8));
+    CssmDataContainer account(const_cast<char *>(accountUTF8), strlen(accountUTF8));
+    free(accountUTF8);
     CFRelease(labelStr);
 
 	// service attribute (name provided by the caller)
 	CFIndex serviceUTF8Len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(idString), kCFStringEncodingUTF8) + 1;;
-	char serviceUTF8[serviceUTF8Len];
+	char *serviceUTF8 = (char *)malloc(serviceUTF8Len);
+	if (!serviceUTF8) {
+		MacOSError::throwMe(errSecMemoryError);
+	}
     if (!CFStringGetCString(idString, serviceUTF8, serviceUTF8Len-1, kCFStringEncodingUTF8))
         serviceUTF8[0] = (char)'\0';
-    CssmData service(const_cast<char *>(serviceUTF8), strlen(serviceUTF8));
+    CssmDataContainer service(const_cast<char *>(serviceUTF8), strlen(serviceUTF8));
+    free(serviceUTF8);
 
 	// set item attribute values
 	item->setAttribute(Schema::attributeInfo(kSecServiceItemAttr), service);
@@ -992,15 +1008,19 @@ OSStatus SecIdentityUpdatePreferenceItem(
 	const char *templateStr = "%s [key usage 0x%X]";
 	const int keyUsageMaxStrLen = 8;
 	accountUTF8Len += strlen(templateStr) + keyUsageMaxStrLen;
-	char accountUTF8[accountUTF8Len];
-    if (!CFStringGetCString(labelStr, accountUTF8, accountUTF8Len-1, kCFStringEncodingUTF8))
+	char *accountUTF8 = (char *)malloc(accountUTF8Len);
+	if (!accountUTF8) {
+		MacOSError::throwMe(errSecMemoryError);
+	}
+	if (!CFStringGetCString(labelStr, accountUTF8, accountUTF8Len-1, kCFStringEncodingUTF8))
 		accountUTF8[0] = (char)'\0';
 	if (keyUsage)
 		snprintf(accountUTF8, accountUTF8Len-1, templateStr, accountUTF8, keyUsage);
 	snprintf(accountUTF8, accountUTF8Len-1, "%s ", accountUTF8);
-    CssmData account(const_cast<char *>(accountUTF8), strlen(accountUTF8));
+	CssmDataContainer account(const_cast<char *>(accountUTF8), strlen(accountUTF8));
 	prefItem->setAttribute(Schema::attributeInfo(kSecAccountItemAttr), account);
-    CFRelease(labelStr);
+	free(accountUTF8);
+	CFRelease(labelStr);
 
 	// generic attribute (store persistent certificate reference)
 	CFDataRef pItemRef = nil;

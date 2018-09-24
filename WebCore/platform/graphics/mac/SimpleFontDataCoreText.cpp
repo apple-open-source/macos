@@ -27,11 +27,7 @@
 #include "config.h"
 #include "Font.h"
 
-#if !PLATFORM(IOS)
-#include <ApplicationServices/ApplicationServices.h>
-#else
 #include <CoreText/CoreText.h>
-#endif
 
 namespace WebCore {
 
@@ -51,7 +47,7 @@ CFDictionaryRef Font::getCFStringAttributes(bool enableKerning, FontOrientation 
         CFDictionarySetValue(attributesDictionary.get(), kCTKernAttributeName, zeroKerningValue);
     }
 
-    if (orientation == Vertical)
+    if (orientation == FontOrientation::Vertical)
         CFDictionarySetValue(attributesDictionary.get(), kCTVerticalFormsAttributeName, kCFBooleanTrue);
 
     return attributesDictionary.get();

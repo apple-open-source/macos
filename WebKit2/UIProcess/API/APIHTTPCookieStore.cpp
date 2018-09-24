@@ -40,6 +40,8 @@ namespace API {
 HTTPCookieStore::HTTPCookieStore(WebsiteDataStore& websiteDataStore)
     : m_owningDataStore(websiteDataStore.websiteDataStore())
 {
+    if (!m_owningDataStore->processPoolForCookieStorageOperations())
+        registerForNewProcessPoolNotifications();
 }
 
 HTTPCookieStore::~HTTPCookieStore()
@@ -52,15 +54,14 @@ HTTPCookieStore::~HTTPCookieStore()
     unregisterForNewProcessPoolNotifications();
 }
 
-void HTTPCookieStore::cookies(Function<void (const Vector<WebCore::Cookie>&)>&& completionHandler)
+void HTTPCookieStore::cookies(Function<void(const Vector<WebCore::Cookie>&)>&& completionHandler)
 {
     auto* pool = m_owningDataStore->processPoolForCookieStorageOperations();
     if (!pool) {
         Vector<WebCore::Cookie> allCookies;
         if (m_owningDataStore->sessionID() == PAL::SessionID::defaultSessionID())
             allCookies = WebCore::NetworkStorageSession::defaultStorageSession().getAllCookies();
-        else
-            allCookies = m_owningDataStore->pendingCookies();
+        allCookies.appendVector(m_owningDataStore->pendingCookies());
 
         callOnMainThread([completionHandler = WTFMove(completionHandler), allCookies]() {
             completionHandler(allCookies);
@@ -78,7 +79,8 @@ void HTTPCookieStore::setCookie(const WebCore::Cookie& cookie, Function<void ()>
 {
     auto* pool = m_owningDataStore->processPoolForCookieStorageOperations();
     if (!pool) {
-        if (m_owningDataStore->sessionID() == PAL::SessionID::defaultSessionID())
+        // FIXME: pendingCookies used for defaultSession because session cookies cannot be propagated to Network Process with uiProcessCookieStorageIdentifier.
+        if (m_owningDataStore->sessionID() == PAL::SessionID::defaultSessionID() && !cookie.session)
             WebCore::NetworkStorageSession::defaultStorageSession().setCookie(cookie);
         else
             m_owningDataStore->addPendingCookie(cookie);
@@ -99,10 +101,11 @@ void HTTPCookieStore::deleteCookie(const WebCore::Cookie& cookie, Function<void 
 {
     auto* pool = m_owningDataStore->processPoolForCookieStorageOperations();
     if (!pool) {
-        if (m_owningDataStore->sessionID() == PAL::SessionID::defaultSessionID())
+        if (m_owningDataStore->sessionID() == PAL::SessionID::defaultSessionID() && !cookie.session)
             WebCore::NetworkStorageSession::defaultStorageSession().deleteCookie(cookie);
         else
             m_owningDataStore->removePendingCookie(cookie);
+
         callOnMainThread([completionHandler = WTFMove(completionHandler)]() {
             completionHandler();
         });
@@ -150,7 +153,6 @@ void HTTPCookieStore::registerObserver(Observer& observer)
     auto* pool = m_owningDataStore->processPoolForCookieStorageOperations();
 
     if (!pool) {
-        registerForNewProcessPoolNotifications();
         ASSERT(!m_observingUIProcessCookies);
 
         // Listen for cookie notifications in the UIProcess in the meantime.
@@ -202,10 +204,8 @@ void HTTPCookieStore::cookieManagerDestroyed()
 
     auto* pool = m_owningDataStore->processPoolForCookieStorageOperations();
 
-    if (!pool) {
-        registerForNewProcessPoolNotifications();
+    if (!pool)
         return;
-    }
 
     m_observedCookieManagerProxy = pool->supplement<WebKit::WebCookieManagerProxy>();
     m_observedCookieManagerProxy->registerObserver(m_owningDataStore->sessionID(), *m_cookieManagerProxyObserver);
@@ -216,8 +216,6 @@ void HTTPCookieStore::registerForNewProcessPoolNotifications()
     ASSERT(!m_processPoolCreationListenerIdentifier);
 
     m_processPoolCreationListenerIdentifier = WebProcessPool::registerProcessPoolCreationListener([this](WebProcessPool& newProcessPool) {
-        ASSERT(m_cookieManagerProxyObserver);
-
         if (!m_owningDataStore->isAssociatedProcessPool(newProcessPool))
             return;
 
@@ -226,9 +224,10 @@ void HTTPCookieStore::registerForNewProcessPoolNotifications()
         WebCore::NetworkStorageSession::defaultStorageSession().flushCookieStore();
         newProcessPool.ensureNetworkProcess();
 
-
-        m_observedCookieManagerProxy = newProcessPool.supplement<WebKit::WebCookieManagerProxy>();
-        m_observedCookieManagerProxy->registerObserver(m_owningDataStore->sessionID(), *m_cookieManagerProxyObserver);
+        if (m_cookieManagerProxyObserver) {
+            m_observedCookieManagerProxy = newProcessPool.supplement<WebKit::WebCookieManagerProxy>();
+            m_observedCookieManagerProxy->registerObserver(m_owningDataStore->sessionID(), *m_cookieManagerProxyObserver);
+        }
         unregisterForNewProcessPoolNotifications();
     });
 }

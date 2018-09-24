@@ -38,9 +38,11 @@ MALLOC_EXPORT
 boolean_t
 scalable_zone_statistics(malloc_zone_t *zone, malloc_statistics_t *stats, unsigned subzone);
 
-MALLOC_NOINLINE __printflike(5, 6)
-void
-szone_error(uint32_t debug_flags, int is_corruption, const char *msg, const void *ptr, const char *fmt, ...);
+MALLOC_NOEXPORT
+extern int max_magazines;
+
+MALLOC_NOEXPORT
+extern int recirc_retained_regions;
 
 // MARK: magazine_malloc utility functions
 
@@ -85,6 +87,10 @@ size_t
 szone_pressure_relief(szone_t *szone, size_t goal);
 
 MALLOC_NOEXPORT
+boolean_t
+szone_claimed_address(szone_t *szone, void *ptr);
+
+MALLOC_NOEXPORT
 void *
 szone_realloc(szone_t *szone, void *ptr, size_t new_size);
 
@@ -104,7 +110,8 @@ szone_valloc(szone_t *szone, size_t size);
 
 MALLOC_NOEXPORT
 boolean_t
-tiny_check_region(rack_t *rack, region_t region);
+tiny_check_region(rack_t *rack, region_t region, size_t region_index,
+		unsigned counter);
 
 MALLOC_NOEXPORT
 void
@@ -116,7 +123,7 @@ tiny_free_detach_region(rack_t *rack, magazine_t *tiny_mag_ptr, region_t r);
 
 MALLOC_NOEXPORT
 boolean_t
-tiny_free_list_check(rack_t *rack, grain_t slot);
+tiny_free_list_check(rack_t *rack, grain_t slot, unsigned counter);
 
 MALLOC_NOEXPORT
 boolean_t
@@ -148,6 +155,10 @@ void *
 tiny_memalign(szone_t *szone, size_t alignment, size_t size, size_t span);
 
 MALLOC_NOEXPORT
+boolean_t
+tiny_claimed_address(rack_t *rack, void *ptr);
+
+MALLOC_NOEXPORT
 void *
 tiny_try_shrink_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_good_size);
 
@@ -164,6 +175,14 @@ size_t
 tiny_size(rack_t *rack, const void *ptr);
 
 MALLOC_NOEXPORT
+unsigned
+tiny_batch_malloc(szone_t *szone, size_t size, void **results, unsigned count);
+
+MALLOC_NOEXPORT
+void
+tiny_batch_free(szone_t *szone, void **to_be_freed, unsigned count);
+
+MALLOC_NOEXPORT
 void
 print_tiny_free_list(rack_t *rack);
 
@@ -175,7 +194,8 @@ print_tiny_region(boolean_t verbose, region_t region, size_t bytes_at_start, siz
 
 MALLOC_NOEXPORT
 boolean_t
-small_check_region(rack_t *rack, region_t region);
+small_check_region(rack_t *rack, region_t region, size_t region_index,
+		unsigned counter);
 
 MALLOC_NOEXPORT
 void
@@ -187,7 +207,7 @@ small_free_detach_region(rack_t *rack, magazine_t *small_mag_ptr, region_t r);
 
 MALLOC_NOEXPORT
 boolean_t
-small_free_list_check(rack_t *rack, grain_t slot);
+small_free_list_check(rack_t *rack, grain_t slot, unsigned counter);
 
 MALLOC_NOEXPORT
 size_t
@@ -209,6 +229,10 @@ small_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_request
 MALLOC_NOEXPORT
 void *
 small_memalign(szone_t *szone, size_t alignment, size_t size, size_t span);
+
+MALLOC_NOEXPORT
+boolean_t
+small_claimed_address(rack_t *rack, void *ptr);
 
 MALLOC_NOEXPORT
 void *
@@ -266,6 +290,10 @@ void *
 large_malloc(szone_t *szone, size_t num_kernel_pages, unsigned char alignment, boolean_t cleared_requested);
 
 MALLOC_NOEXPORT
+boolean_t
+large_claimed_address(szone_t *szone, void *ptr);
+
+MALLOC_NOEXPORT
 void *
 szone_malloc_should_clear(szone_t *szone, size_t size, boolean_t cleared_requested);
 
@@ -273,6 +301,7 @@ szone_malloc_should_clear(szone_t *szone, size_t size, boolean_t cleared_request
 
 #define MALLOC_STOCK_LOGGING_LITE_ZONE_NAME "MallocStackLoggingLiteZone"
 
+// These enable/disable stack logging lite for malloc allocations, not VM-only lite mode
 MALLOC_NOEXPORT
 void
 enable_stack_logging_lite();

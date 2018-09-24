@@ -71,7 +71,7 @@ SecCmsDecoderCreate(SecArenaPoolRef arena,
                    PK11PasswordFunc pwfn, void *pwfn_arg,
                    SecCmsGetDecryptKeyCallback decrypt_key_cb, void
                    *decrypt_key_cb_arg,
-                   SecCmsDecoderRef *outDecoder);
+                   SecCmsDecoderRef *outDecoder) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
@@ -133,7 +133,7 @@ SecCmsMessageDecode(const CSSM_DATA *encodedMessage,
                     SecCmsContentCallback cb, void *cb_arg,
                     PK11PasswordFunc pwfn, void *pwfn_arg,
                     SecCmsGetDecryptKeyCallback decrypt_key_cb, void *decrypt_key_cb_arg,
-                    SecCmsMessageRef *outMessage);
+                    SecCmsMessageRef *outMessage) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 
 #if defined(__cplusplus)

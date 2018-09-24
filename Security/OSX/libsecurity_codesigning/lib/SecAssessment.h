@@ -24,6 +24,7 @@
 #define _H_SECASSESSMENT
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <Security/CSCommon.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -156,6 +157,7 @@ extern CFStringRef kSecAssessmentAssessmentAuthorityRow; // (internal)
 extern CFStringRef kSecAssessmentAssessmentAuthorityOverride; // (internal)
 extern CFStringRef kSecAssessmentAssessmentAuthorityOriginalVerdict; // (internal)
 extern CFStringRef kSecAssessmentAssessmentAuthorityFlags; // (internal)
+extern CFStringRef kSecAssessmentAssessmentNotarizationDate; // (internal)
 
 extern CFStringRef kDisabledOverride;					// AuthorityOverride value for "Gatekeeper is disabled"
 
@@ -312,6 +314,16 @@ Boolean SecAssessmentUpdate(CFTypeRef target,
  */
 Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *errors);
 
+/*
+ * SecAssessmentTicket SPI
+ */
+typedef uint64_t SecAssessmentTicketFlags;
+enum {
+	kSecAssessmentTicketFlagDefault = 0,				// default behavior, offline check
+	kSecAssessmentTicketFlagForceOnlineCheck = 1 << 0,	// force an online check
+};
+Boolean SecAssessmentTicketRegister(CFDataRef ticketData, CFErrorRef *errors);
+Boolean SecAssessmentTicketLookup(CFDataRef hash, SecCSDigestAlgorithm hashType, SecAssessmentTicketFlags flags, double *date, CFErrorRef *errors);
 
 #ifdef __cplusplus
 }

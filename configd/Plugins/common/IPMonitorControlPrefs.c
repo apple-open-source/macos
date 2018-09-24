@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,7 +39,7 @@
 #include <SystemConfiguration/scprefs_observer.h>
 #include "IPMonitorControlPrefs.h"
 
-os_log_t	__log_IPMonitor();
+os_log_t	__log_IPMonitor(void);
 
 /*
  * kIPMonitorControlPrefsID

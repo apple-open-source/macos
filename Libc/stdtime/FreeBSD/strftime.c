@@ -15,6 +15,9 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunreachable-code"
+
 #if 0
 static const char	elsieid[] = "@(#)strftime.3	8.3";
 /*
@@ -657,3 +660,4 @@ locale_t		loc;
 	return pt;
 }
 #endif /* !BUILDING_VARIANT */
+#pragma clang diagnostic pop

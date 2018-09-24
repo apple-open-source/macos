@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,6 +20,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#include "libinfo_common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -88,6 +90,7 @@ padsize(size_t curr, size_t item, const uint32_t *align)
  *	@	length (4 bytes) and buffer (requires two parameters)
  *
  */
+LIBINFO_EXPORT
 void *
 LI_ils_create(char *fmt, ...)
 {

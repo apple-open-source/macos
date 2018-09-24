@@ -3,6 +3,7 @@ parseerr.h
 platform.h
 ptypes.h
 putil.h
+stringoptions.h
 uchar.h
 uconfig.h
 uiter.h

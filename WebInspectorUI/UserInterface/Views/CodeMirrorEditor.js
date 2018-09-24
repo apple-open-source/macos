@@ -27,9 +27,6 @@ WI.CodeMirrorEditor = class CodeMirrorEditor
 {
     static create(element, options)
     {
-        if (options.lineSeparator === undefined)
-            options.lineSeparator = "\n";
-
         // CodeMirror's manual scrollbar positioning results in double scrollbars,
         // nor does it handle braces and brackets well, so default to using LTR.
         // Clients can override this if custom layout for RTL is available.

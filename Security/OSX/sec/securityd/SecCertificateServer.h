@@ -124,6 +124,7 @@ void SecCertificatePathVCSetScore(SecCertificatePathVCRef certificatePath, CFInd
 void SecCertificatePathVCResetScore(SecCertificatePathVCRef certificatePath); // reset score to 0
 
 /* Revocation */
+void SecCertificatePathVCDeleteRVCs(SecCertificatePathVCRef path);
 bool SecCertificatePathVCIsRevocationDone(SecCertificatePathVCRef certificatePath);
 void SecCertificatePathVCAllocateRVCs(SecCertificatePathVCRef certificatePath, CFIndex certCount);
 CFAbsoluteTime SecCertificatePathVCGetEarliestNextUpdate(SecCertificatePathVCRef path);
@@ -132,6 +133,11 @@ bool SecCertificatePathVCIsRevocationRequiredForCertificateAtIndex(SecCertificat
                                                                    CFIndex ix);
 void SecCertificatePathVCSetRevocationRequiredForCertificateAtIndex(SecCertificatePathVCRef certificatePath,
                                                                     CFIndex ix);
+
+bool SecCertificatePathVCCheckedIssuers(SecCertificatePathVCRef certificatePath);
+void SecCertificatePathVCSetCheckedIssuers(SecCertificatePathVCRef certificatePath, bool checked);
+CFIndex SecCertificatePathVCUnknownCAIndex(SecCertificatePathVCRef certificatePath);
+void SecCertificatePathVCSetUnknownCAIndex(SecCertificatePathVCRef certificatePath, CFIndex index);
 
 /* Did we already validate this path (setting EV, CT, RVC, etc.) */
 bool SecCertificatePathVCIsPathValidated(SecCertificatePathVCRef certificatePath);
@@ -153,6 +159,8 @@ bool SecCertificatePathVCIsCT(SecCertificatePathVCRef certificatePath);
 void SecCertificatePathVCSetIsCT(SecCertificatePathVCRef certificatePath, bool isCT);
 SecPathCTPolicy SecCertificatePathVCRequiresCT(SecCertificatePathVCRef certificatePath);
 void SecCertificatePathVCSetRequiresCT(SecCertificatePathVCRef certificatePath, SecPathCTPolicy requiresCT);
+CFAbsoluteTime SecCertificatePathVCIssuanceTime(SecCertificatePathVCRef certificatePath);
+void SecCertificatePathVCSetIssuanceTime(SecCertificatePathVCRef certificatePath, CFAbsoluteTime issuanceTime);
 
 /* Allowlist */
 bool SecCertificatePathVCIsAllowlisted(SecCertificatePathVCRef certificatePath);

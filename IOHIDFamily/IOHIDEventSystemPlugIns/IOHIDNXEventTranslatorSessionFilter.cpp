@@ -445,6 +445,22 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::filter(IOHIDServiceRef sender
         return event;
     }
     
+
+    bool doUpdateModifiers = false;
+
+    // handles modifier updates, for syntetic CapsLock onoff with setting kIOHIDServiceCapsLockStateKey
+    if (IOHIDEventConformsTo(event, kIOHIDEventTypeVendorDefined)) {
+        IOHIDEventRef ev = IOHIDEventGetEvent(event, kIOHIDEventTypeVendorDefined);
+        if (IOHIDEventGetIntegerValue(ev, kIOHIDEventFieldVendorDefinedUsage) == kHIDUsage_AppleVendor_NXEvent_Translated) {
+            NXEventExt  *nxEvent = NULL;
+            CFIndex     nxEventLength = 0;
+            IOHIDEventGetVendorDefinedData(ev, (uint8_t**)&nxEvent, &nxEventLength);
+            if (nxEvent && nxEventLength >= sizeof (NXEventExt) && nxEvent->payload.type == NX_FLAGSCHANGED) {
+                doUpdateModifiers = true;
+            }
+        }
+    }
+
     if (IOHIDEventConformsTo(event, kIOHIDEventTypeKeyboard) && _modifiers.ContainKey(sender)) {
         CFArrayRefWrap childrens (IOHIDEventGetChildren(event));
         if (childrens.Reference()) {
@@ -470,7 +486,10 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::filter(IOHIDServiceRef sender
                 }
             }
         }
-        
+        doUpdateModifiers = true;
+    }
+    
+    if (doUpdateModifiers) {
         CFNumberRefWrap currentServiceModifiers ((CFNumberRef)IOHIDServiceCopyProperty (sender, CFSTR(kHIDEventTranslationModifierFlags)), true);
         CFNumberRefWrap cachedServiceModifiers ((CFNumberRef)_modifiers[sender]);
         if (currentServiceModifiers && cachedServiceModifiers && currentServiceModifiers != cachedServiceModifiers) {
@@ -485,6 +504,7 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::filter(IOHIDServiceRef sender
          (IOHIDEventGetType(event) == kIOHIDEventTypeVendorDefined &&
           IOHIDEventGetIntegerValue(event, kIOHIDEventFieldVendorDefinedUsage) == kHIDUsage_AppleVendor_NXEvent
           ))) {
+             
         CFArrayRef collection = IOHIDPointerEventTranslatorCreateEventCollection (_translator, event, sender, _globalModifiers, 0);
         if (collection) {
             for (CFIndex index = 0; index < CFArrayGetCount(collection); index++) {
@@ -768,7 +788,7 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServ
     if (declareActivity) {
         // Log display wakes
         if (_displayState < kPMDisplayDim) {
-            updateDisplayLog(senderID, policy, eventType);
+            updateDisplayLog(senderID, policy, eventType, eventTime);
         }
         dispatch_async(dispatch_get_main_queue(), ^() {
             CFStringRefWrap activityString (std::string(kIOHIDEventSystemServerName) + std::string(".queue.tickle.") +
@@ -810,13 +830,14 @@ boolean_t IOHIDNXEventTranslatorSessionFilter::shouldCancelEvent (IOHIDEventRef 
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilter::updateDisplayLog
 //------------------------------------------------------------------------------
-void IOHIDNXEventTranslatorSessionFilter::updateDisplayLog (IOHIDEventSenderID serviceID, IOHIDEventPolicyValue policy, IOHIDEventType eventType) {
+void IOHIDNXEventTranslatorSessionFilter::updateDisplayLog (IOHIDEventSenderID serviceID, IOHIDEventPolicyValue policy, IOHIDEventType eventType, uint64_t timestamp) {
     LogEntry entry;
     
     gettimeofday(&entry.time, NULL);
     entry.serviceID     = serviceID;
     entry.policy        = policy;
     entry.eventType     = eventType;
+    entry.timestamp     = timestamp;
     
     if (_displayLog == NULL) {
         _displayLog = _IOHIDSimpleQueueCreate(kCFAllocatorDefault, sizeof(LogEntry), LOG_MAX_ENTRIES);
@@ -930,6 +951,7 @@ void IOHIDNXEventTranslatorSessionFilter::serialize (CFMutableDictionaryRef dict
                 _IOHIDDictionaryAddSInt64(entryDict, CFSTR("ServiceID"), entryData->serviceID);
                 _IOHIDDictionaryAddSInt64(entryDict, CFSTR("Policy"), entryData->policy);
                 _IOHIDDictionaryAddSInt32(entryDict, CFSTR("EventType"), entryData->eventType);
+                _IOHIDDictionaryAddSInt64(entryDict, CFSTR("timestamp"), entryData->timestamp);
                 
                 CFStringRef time = _IOHIDCreateTimeString(kCFAllocatorDefault, &entryData->time);
                 if (time) {

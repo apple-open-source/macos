@@ -49,12 +49,12 @@ private:
     void willSendRequestAsync(ResourceHandle*, ResourceRequest&&, ResourceResponse&&, CompletionHandler<void(ResourceRequest&&)>&&) override;
     bool shouldUseCredentialStorage(ResourceHandle*) override;
     void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge&) override;
-    void didReceiveResponseAsync(ResourceHandle*, ResourceResponse&&) override;
+    void didReceiveResponseAsync(ResourceHandle*, ResourceResponse&&, CompletionHandler<void()>&&) override;
     void didReceiveData(ResourceHandle*, const char*, unsigned, int /*encodedDataLength*/) override;
     void didFinishLoading(ResourceHandle*) override;
     void didFail(ResourceHandle*, const ResourceError&) override;
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-    void canAuthenticateAgainstProtectionSpaceAsync(ResourceHandle*, const ProtectionSpace&) override;
+    void canAuthenticateAgainstProtectionSpaceAsync(ResourceHandle*, const ProtectionSpace&, CompletionHandler<void(bool)>&&) override;
 #endif
 
     bool m_allowStoredCredentials { false };

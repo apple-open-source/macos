@@ -37,9 +37,11 @@
 
 #endif
 
+#if HAVE(APP_LINKS)
 @class LSAppLink;
 typedef void (^LSAppLinkCompletionHandler)(LSAppLink *appLink, NSError *error);
 typedef void (^LSAppLinkOpenCompletionHandler)(BOOL success, NSError *error);
+#endif
 
 #if !USE(APPLE_INTERNAL_SDK)
 
@@ -49,6 +51,7 @@ typedef void (^LSAppLinkOpenCompletionHandler)(BOOL success, NSError *error);
 @interface LSBundleProxy : LSResourceProxy <NSSecureCoding>
 @end
 
+#if HAVE(APP_LINKS)
 @interface LSApplicationProxy : LSBundleProxy <NSSecureCoding>
 - (NSString *)localizedNameForContext:(NSString *)context;
 @end
@@ -62,6 +65,7 @@ typedef void (^LSAppLinkOpenCompletionHandler)(BOOL success, NSError *error);
 - (void)openInWebBrowser:(BOOL)inWebBrowser setAppropriateOpenStrategyAndWebBrowserState:(NSDictionary<NSString *, id> *)state completionHandler:(LSAppLinkOpenCompletionHandler)completionHandler;
 @property (readonly, strong) LSApplicationProxy *targetApplicationProxy;
 @end
+#endif
 
 #if PLATFORM(MAC)
 enum LSSessionID {

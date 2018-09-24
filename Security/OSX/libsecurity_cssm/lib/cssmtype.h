@@ -141,7 +141,7 @@ enum {
 
 typedef CSSM_SERVICE_MASK CSSM_SERVICE_TYPE;
 
-typedef struct cssm_subservice_uid {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_subservice_uid {
     CSSM_GUID Guid;
     CSSM_VERSION Version;
     uint32 SubserviceId;
@@ -160,7 +160,7 @@ typedef CSSM_RETURN (CSSMAPI *CSSM_API_ModuleEventHandler)
      void* AppNotifyCallbackCtx,
      uint32 SubserviceId,
      CSSM_SERVICE_TYPE ServiceType,
-     CSSM_MODULE_EVENT EventType);
+     CSSM_MODULE_EVENT EventType) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef uint32 CSSM_ATTACH_FLAGS;
 enum {
@@ -195,7 +195,7 @@ enum {
     CSSM_ADDR_NAME =					4 /* char* - qualified by access method */
 };
 
-typedef struct cssm_net_address {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_net_address {
     CSSM_NET_ADDRESS_TYPE AddressType;
     CSSM_DATA Address;
 } CSSM_NET_ADDRESS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_NET_ADDRESS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -217,9 +217,9 @@ enum {
 };
 
 typedef CSSM_RETURN (CSSMAPI *CSSM_CALLBACK)
-    (CSSM_DATA_PTR OutData, void *CallerCtx);
+    (CSSM_DATA_PTR OutData, void *CallerCtx) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_crypto_data {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_crypto_data {
     CSSM_DATA Param;
     CSSM_CALLBACK Callback;
     void *CallerCtx;
@@ -386,7 +386,7 @@ typedef struct cssm_list {
     CSSM_LIST_ELEMENT_PTR Tail;	/* tail of the list */
 } CSSM_LIST DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_LIST_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_list_element {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_list_element {
     struct cssm_list_element *NextElement;	/* next list element */
 	CSSM_WORDID_TYPE WordID;	/* integer identifier associated */
 								/* with a Word value */
@@ -395,9 +395,9 @@ typedef struct cssm_list_element {
         CSSM_LIST Sublist;		/* sublist */
         CSSM_DATA Word;		/* a byte-string */
     } Element;
-} CSSM_LIST_ELEMENT;
+} CSSM_LIST_ELEMENT DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct {				/* 5-tuple definition */
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {				/* 5-tuple definition */
 	CSSM_LIST Issuer;			/* issuer, or empty if ACL */
 	CSSM_LIST Subject;			/* subject */
 	CSSM_BOOL Delegate;			/* permission to delegate */
@@ -405,7 +405,7 @@ typedef struct {				/* 5-tuple definition */
 	CSSM_LIST ValidityPeriod;	/* validity information (dates) */
 } CSSM_TUPLE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_TUPLE_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_tuplegroup {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tuplegroup {
     uint32 NumberOfTuples;
     CSSM_TUPLE_PTR Tuples;
 } CSSM_TUPLEGROUP DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_TUPLEGROUP_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -424,12 +424,12 @@ enum {
 	CSSM_SAMPLE_TYPE_THRESHOLD =			CSSM_WORDID_THRESHOLD
 };
 
-typedef struct cssm_sample {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_sample {
     CSSM_LIST TypedSample;
     const CSSM_SUBSERVICE_UID *Verifier;
 } CSSM_SAMPLE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_SAMPLE_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_samplegroup {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_samplegroup {
     uint32 NumberOfSamples;
     const CSSM_SAMPLE *Samples;
 } CSSM_SAMPLEGROUP DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_SAMPLEGROUP_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -460,14 +460,14 @@ typedef struct cssm_memory_funcs {
     void *AllocRef;
 } CSSM_MEMORY_FUNCS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_MEMORY_FUNCS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef CSSM_MEMORY_FUNCS CSSM_API_MEMORY_FUNCS;
-typedef CSSM_API_MEMORY_FUNCS *CSSM_API_MEMORY_FUNCS_PTR;
+typedef CSSM_MEMORY_FUNCS CSSM_API_MEMORY_FUNCS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+typedef CSSM_API_MEMORY_FUNCS *CSSM_API_MEMORY_FUNCS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef CSSM_RETURN (CSSMAPI * CSSM_CHALLENGE_CALLBACK)
     (const CSSM_LIST *Challenge,
      CSSM_SAMPLEGROUP_PTR Response,
      void *CallerCtx,
-     const CSSM_MEMORY_FUNCS *MemFuncs);
+     const CSSM_MEMORY_FUNCS *MemFuncs) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef uint32 CSSM_CERT_TYPE, *CSSM_CERT_TYPE_PTR;
 enum {
@@ -508,7 +508,7 @@ enum {
 	CSSM_CL_CUSTOM_CERT_ENCODING =		0x8000
 };
 
-typedef struct cssm_encoded_cert {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_encoded_cert {
     CSSM_CERT_TYPE CertType;			/* type of certificate */
     CSSM_CERT_ENCODING CertEncoding;	/* encoding for this packed cert */
     CSSM_DATA CertBlob;					/* packed cert */
@@ -540,7 +540,7 @@ typedef struct cssm_parsed_cert {
     void *ParsedCert; /* parsed cert (to be typecast) */
 } CSSM_PARSED_CERT DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_PARSED_CERT_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_cert_pair {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_cert_pair {
     CSSM_ENCODED_CERT EncodedCert; /* an encoded certificate blob */
     CSSM_PARSED_CERT ParsedCert; /* equivalent parsed certificate */
 } CSSM_CERT_PAIR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_CERT_PAIR_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -553,7 +553,7 @@ enum {
 	CSSM_CERTGROUP_CERT_PAIR =			0x03
 };
 
-typedef struct cssm_certgroup {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_certgroup {
     CSSM_CERT_TYPE CertType;
     CSSM_CERT_ENCODING CertEncoding;
     uint32 NumCerts; /* # of certificates in this list */
@@ -569,15 +569,15 @@ typedef struct cssm_certgroup {
     CSSM_CERTGROUP_TYPE CertGroupType;
     /* type of structure in the GroupList */
     void *Reserved; /* reserved for implementation dependent use */
-} CSSM_CERTGROUP, *CSSM_CERTGROUP_PTR;
+} CSSM_CERTGROUP DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_CERTGROUP_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_base_certs {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_base_certs {
     CSSM_TP_HANDLE TPHandle;
     CSSM_CL_HANDLE CLHandle;
     CSSM_CERTGROUP Certs;
 } CSSM_BASE_CERTS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_BASE_CERTS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_access_credentials {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_access_credentials {
     CSSM_STRING EntryTag;
     CSSM_BASE_CERTS BaseCerts;
     CSSM_SAMPLEGROUP Samples;
@@ -637,12 +637,12 @@ typedef struct cssm_authorizationgroup {
     CSSM_ACL_AUTHORIZATION_TAG *AuthTags;
 } CSSM_AUTHORIZATIONGROUP DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_AUTHORIZATIONGROUP_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_acl_validity_period {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_acl_validity_period {
     CSSM_DATA StartDate;
     CSSM_DATA EndDate;
 } CSSM_ACL_VALIDITY_PERIOD DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_ACL_VALIDITY_PERIOD_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_acl_entry_prototype {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_acl_entry_prototype {
     CSSM_LIST TypedSubject;
     CSSM_BOOL Delegate;
     CSSM_AUTHORIZATIONGROUP Authorization;
@@ -650,7 +650,7 @@ typedef struct cssm_acl_entry_prototype {
     CSSM_STRING EntryTag;
 } CSSM_ACL_ENTRY_PROTOTYPE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_ACL_ENTRY_PROTOTYPE_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_acl_owner_prototype {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_acl_owner_prototype {
     CSSM_LIST TypedSubject;
     CSSM_BOOL Delegate;
 } CSSM_ACL_OWNER_PROTOTYPE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_ACL_OWNER_PROTOTYPE_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -659,22 +659,22 @@ typedef CSSM_RETURN (CSSMAPI * CSSM_ACL_SUBJECT_CALLBACK)
     (const CSSM_LIST *SubjectRequest,
      CSSM_LIST_PTR SubjectResponse,
      void *CallerContext,
-     const CSSM_MEMORY_FUNCS *MemFuncs);
+     const CSSM_MEMORY_FUNCS *MemFuncs) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_acl_entry_input {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_acl_entry_input {
     CSSM_ACL_ENTRY_PROTOTYPE Prototype;
     CSSM_ACL_SUBJECT_CALLBACK Callback;
     void *CallerContext;
 } CSSM_ACL_ENTRY_INPUT DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_ACL_ENTRY_INPUT_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_resource_control_context {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_resource_control_context {
     CSSM_ACCESS_CREDENTIALS_PTR AccessCred;
     CSSM_ACL_ENTRY_INPUT InitialAclEntry;
 } CSSM_RESOURCE_CONTROL_CONTEXT DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_RESOURCE_CONTROL_CONTEXT_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef CSSM_HANDLE CSSM_ACL_HANDLE;
 
-typedef struct cssm_acl_entry_info {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_acl_entry_info {
     CSSM_ACL_ENTRY_PROTOTYPE EntryPublicInfo;
     CSSM_ACL_HANDLE EntryHandle;
 } CSSM_ACL_ENTRY_INFO DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_ACL_ENTRY_INFO_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -686,7 +686,7 @@ enum {
 	CSSM_ACL_EDIT_MODE_REPLACE =		3
 };
 
-typedef struct cssm_acl_edit {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_acl_edit {
     CSSM_ACL_EDIT_MODE EditMode;
     CSSM_ACL_HANDLE OldEntryHandle;
     const CSSM_ACL_ENTRY_INPUT *NewEntry;
@@ -985,7 +985,7 @@ enum {
 	CSSM_ALGMODE_VENDOR_DEFINED =		CSSM_ALGMODE_NONE + 0x80000000
 };
 
-typedef struct cssm_keyheader {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_keyheader {
     CSSM_HEADERVERSION HeaderVersion; /* Key header version */
     CSSM_GUID CspId; /* GUID of CSP generating the key */
     CSSM_KEYBLOB_TYPE BlobType; /* See BlobType enum */
@@ -1002,12 +1002,12 @@ typedef struct cssm_keyheader {
     uint32 Reserved;
 } CSSM_KEYHEADER DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_KEYHEADER_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_key {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_key {
     CSSM_KEYHEADER KeyHeader; /* Fixed length key header */
     CSSM_DATA KeyData; /* Variable length key data */
 } CSSM_KEY DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_KEY_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef CSSM_KEY CSSM_WRAP_KEY, *CSSM_WRAP_KEY_PTR;
+typedef CSSM_KEY CSSM_WRAP_KEY DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_WRAP_KEY_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef uint32 CSSM_CSPTYPE;
 enum {
@@ -1121,10 +1121,10 @@ enum {
 
 typedef CSSM_ALGORITHMS CSSM_KEY_TYPE;
 
-typedef struct cssm_context_attribute {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_context_attribute {
     CSSM_ATTRIBUTE_TYPE AttributeType;
     uint32 AttributeLength;
-    union cssm_context_attribute_value {
+    union DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_context_attribute_value {
         char *String;
         uint32 Uint32;
         CSSM_ACCESS_CREDENTIALS_PTR AccessCredentials;
@@ -1138,9 +1138,9 @@ typedef struct cssm_context_attribute {
         CSSM_DL_DB_HANDLE_PTR DLDBHandle;
         struct cssm_kr_profile *KRProfile;
     } Attribute;
-} CSSM_CONTEXT_ATTRIBUTE, *CSSM_CONTEXT_ATTRIBUTE_PTR;
+} CSSM_CONTEXT_ATTRIBUTE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_CONTEXT_ATTRIBUTE_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_context {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_context {
     CSSM_CONTEXT_TYPE ContextType;
     CSSM_ALGORITHMS AlgorithmType;
     uint32 NumberOfAttributes;
@@ -1198,7 +1198,7 @@ enum {
 	CSSM_PKCS_OAEP_PSOURCE_Pspecified =		CSSM_PKCS_OAEP_PSOURCE_NONE + 1
 };
 
-typedef struct cssm_pkcs1_oaep_params {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_pkcs1_oaep_params {
     uint32 HashAlgorithm;
     CSSM_DATA HashParams;
     CSSM_PKCS_OAEP_MGF MGF;
@@ -1227,7 +1227,7 @@ enum {
 	CSSM_VALUE_NOT_AVAILABLE =		-1
 };
 
-typedef struct cssm_pkcs5_pbkdf1_params {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_pkcs5_pbkdf1_params {
     CSSM_DATA Passphrase;
     CSSM_DATA InitVector;
 } CSSM_PKCS5_PBKDF1_PARAMS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_PKCS5_PBKDF1_PARAMS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -1237,12 +1237,12 @@ enum {
 	CSSM_PKCS5_PBKDF2_PRF_HMAC_SHA1 =	0
 };
 
-typedef struct cssm_pkcs5_pbkdf2_params {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_pkcs5_pbkdf2_params {
 	CSSM_DATA Passphrase;
 	CSSM_PKCS5_PBKDF2_PRF PseudoRandomFunction;
 } CSSM_PKCS5_PBKDF2_PARAMS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_PKCS5_PBKDF2_PARAMS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_kea_derive_params {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_kea_derive_params {
     CSSM_DATA Rb;
     CSSM_DATA Yb;
 } CSSM_KEA_DERIVE_PARAMS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_KEA_DERIVE_PARAMS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -1250,7 +1250,7 @@ typedef struct cssm_kea_derive_params {
 
 /* Data Types for Trust Policy Services  */
 
-typedef struct cssm_tp_authority_id {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_authority_id {
     CSSM_DATA *AuthorityCert;
     CSSM_NET_ADDRESS_PTR AuthorityLocation;
 } CSSM_TP_AUTHORITY_ID DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_TP_AUTHORITY_ID_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -1270,18 +1270,18 @@ enum {
 typedef CSSM_RETURN (CSSMAPI * CSSM_TP_VERIFICATION_RESULTS_CALLBACK)
 	(CSSM_MODULE_HANDLE ModuleHandle,
 	 void *CallerCtx,
-	 CSSM_DATA_PTR VerifiedCert);
+	 CSSM_DATA_PTR VerifiedCert) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /* From CL */
-typedef CSSM_DATA CSSM_OID, *CSSM_OID_PTR;
+typedef CSSM_DATA CSSM_OID DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_OID_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_field {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_field {
     CSSM_OID FieldOid;
     CSSM_DATA FieldValue;
 } CSSM_FIELD DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_FIELD_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /* TP Again. */
-typedef struct cssm_tp_policyinfo {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_policyinfo {
     uint32 NumberOfPolicyIds;
     CSSM_FIELD_PTR PolicyIds;
     void *PolicyControl;
@@ -1313,13 +1313,13 @@ enum {
 typedef char *CSSM_TIMESTRING;
 
 /* From DL. */
-typedef struct cssm_dl_db_list {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_dl_db_list {
     uint32 NumHandles;
     CSSM_DL_DB_HANDLE_PTR DLDBHandle;
 } CSSM_DL_DB_LIST DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_DL_DB_LIST_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /* TP Again. */
-typedef struct cssm_tp_callerauth_context {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_callerauth_context {
     CSSM_TP_POLICYINFO Policy;
     CSSM_TIMESTRING VerifyTime;
     CSSM_TP_STOP_ON VerificationAbortOn;
@@ -1367,7 +1367,7 @@ enum {
     CSSM_CRL_ENCODING_MULTIPLE =		0x7FFE
 };
 
-typedef struct cssm_encoded_crl {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_encoded_crl {
     CSSM_CRL_TYPE CrlType; /* type of CRL */
     CSSM_CRL_ENCODING CrlEncoding; /* encoding for this packed CRL */
     CSSM_DATA CrlBlob; /* packed CRL */
@@ -1381,7 +1381,7 @@ typedef struct cssm_parsed_crl {
     void *ParsedCrl; /* parsed CRL (to be typecast) */
 } CSSM_PARSED_CRL DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_PARSED_CRL_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_crl_pair {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_crl_pair {
     CSSM_ENCODED_CRL EncodedCrl; /* an encoded CRL blob */
     CSSM_PARSED_CRL ParsedCrl; /* equivalent parsed CRL */
 } CSSM_CRL_PAIR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_CRL_PAIR_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -1394,7 +1394,7 @@ enum {
 	CSSM_CRLGROUP_CRL_PAIR =		0x03
 };
 
-typedef struct cssm_crlgroup {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_crlgroup {
     CSSM_CRL_TYPE CrlType;
     CSSM_CRL_ENCODING CrlEncoding;
     uint32 NumberOfCrls;
@@ -1405,9 +1405,9 @@ typedef struct cssm_crlgroup {
         CSSM_CRL_PAIR_PTR PairCrlList;
     } GroupCrlList;
     CSSM_CRLGROUP_TYPE CrlGroupType;
-} CSSM_CRLGROUP, *CSSM_CRLGROUP_PTR;
+} CSSM_CRLGROUP DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_CRLGROUP_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_fieldgroup {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_fieldgroup {
     int NumberOfFields;		/* number of fields in the array */
     CSSM_FIELD_PTR Fields;	/* array of fields */
 } CSSM_FIELDGROUP DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_FIELDGROUP_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -1426,24 +1426,24 @@ enum {
 	CSSM_EVIDENCE_FORM_TUPLEGROUP =		0x9
 };
 
-typedef struct cssm_evidence {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_evidence {
     CSSM_EVIDENCE_FORM EvidenceForm;
     void *Evidence; /* Evidence content */
 } CSSM_EVIDENCE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_EVIDENCE_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_tp_verify_context {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_verify_context {
     CSSM_TP_ACTION Action;
     CSSM_DATA ActionData;
     CSSM_CRLGROUP Crls;
     CSSM_TP_CALLERAUTH_CONTEXT_PTR Cred;
 } CSSM_TP_VERIFY_CONTEXT DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_TP_VERIFY_CONTEXT_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_tp_verify_context_result {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_verify_context_result {
     uint32 NumberOfEvidences;
     CSSM_EVIDENCE_PTR Evidence;
 } CSSM_TP_VERIFY_CONTEXT_RESULT DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_TP_VERIFY_CONTEXT_RESULT_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_tp_request_set {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_request_set {
     uint32 NumberOfRequests;
     void *Requests;
 } CSSM_TP_REQUEST_SET DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_TP_REQUEST_SET_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -1465,7 +1465,7 @@ enum {
 	   submit-retrieve function pair */
 };
 
-typedef struct cssm_tp_confirm_response {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_confirm_response {
     uint32 NumberOfResponses;
     CSSM_TP_CONFIRM_STATUS_PTR Responses;
 } CSSM_TP_CONFIRM_RESPONSE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_TP_CONFIRM_RESPONSE_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -1479,7 +1479,7 @@ enum {
 	CSSM_ELAPSED_TIME_COMPLETE =		-2
 };
 
-typedef struct cssm_tp_certissue_input {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_certissue_input {
     CSSM_SUBSERVICE_UID CSPSubserviceUid;
     CSSM_CL_HANDLE CLHandle;
     uint32 NumberOfTemplateFields;
@@ -1514,7 +1514,7 @@ enum {
 	   a revocation of the certificate */
 };
 
-typedef struct cssm_tp_certissue_output {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_certissue_output {
     CSSM_TP_CERTISSUE_STATUS IssueStatus;
     CSSM_CERTGROUP_PTR CertGroup;
     CSSM_TP_SERVICES PerformedServiceRequests;
@@ -1571,7 +1571,7 @@ enum {
 	   jurisdiction of this certificate */
 };
 
-typedef struct cssm_tp_certchange_input {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_certchange_input {
     CSSM_TP_CERTCHANGE_ACTION Action;
     CSSM_TP_CERTCHANGE_REASON Reason;
     CSSM_CL_HANDLE CLHandle;
@@ -1604,12 +1604,12 @@ enum {
 	   the cert state */
 };
 
-typedef struct cssm_tp_certchange_output {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_certchange_output {
     CSSM_TP_CERTCHANGE_STATUS ActionStatus;
     CSSM_FIELD RevokeInfo;
 } CSSM_TP_CERTCHANGE_OUTPUT DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_TP_CERTCHANGE_OUTPUT_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_tp_certverify_input {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_certverify_input {
     CSSM_CL_HANDLE CLHandle;
     CSSM_DATA_PTR Cert;
     CSSM_TP_VERIFY_CONTEXT_PTR VerifyContext;
@@ -1636,13 +1636,13 @@ enum {
 	CSSM_TP_CERTVERIFY_UNKNOWN_CRITICAL_EXT =		0x10
 };
 
-typedef struct cssm_tp_certverify_output {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_certverify_output {
     CSSM_TP_CERTVERIFY_STATUS VerifyStatus;
     uint32 NumberOfEvidence;
     CSSM_EVIDENCE_PTR Evidence;
 } CSSM_TP_CERTVERIFY_OUTPUT DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_TP_CERTVERIFY_OUTPUT_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_tp_certnotarize_input {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_certnotarize_input {
     CSSM_CL_HANDLE CLHandle;
     uint32 NumberOfFields;
     CSSM_FIELD_PTR MoreFields;
@@ -1678,13 +1678,13 @@ enum {
 	   not authorized */
 };
 
-typedef struct cssm_tp_certnotarize_output {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_certnotarize_output {
     CSSM_TP_CERTNOTARIZE_STATUS NotarizeStatus;
     CSSM_CERTGROUP_PTR NotarizedCertGroup;
     CSSM_TP_SERVICES PerformedServiceRequests;
 } CSSM_TP_CERTNOTARIZE_OUTPUT DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_TP_CERTNOTARIZE_OUTPUT_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_tp_certreclaim_input {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_certreclaim_input {
     CSSM_CL_HANDLE CLHandle;
     uint32 NumberOfSelectionFields;
     CSSM_FIELD_PTR SelectionFields;
@@ -1712,13 +1712,13 @@ enum {
 	   authorized */
 };
 
-typedef struct cssm_tp_certreclaim_output {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_certreclaim_output {
     CSSM_TP_CERTRECLAIM_STATUS ReclaimStatus;
     CSSM_CERTGROUP_PTR ReclaimedCertGroup;
     CSSM_LONG_HANDLE KeyCacheHandle;
 } CSSM_TP_CERTRECLAIM_OUTPUT DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_TP_CERTRECLAIM_OUTPUT_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_tp_crlissue_input {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_crlissue_input {
     CSSM_CL_HANDLE CLHandle;
     uint32 CrlIdentifier;
     CSSM_TIMESTRING CrlThisTime;
@@ -1760,7 +1760,7 @@ enum {
 	   next CRL has been returned. */
 };
 
-typedef struct cssm_tp_crlissue_output {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_tp_crlissue_output {
     CSSM_TP_CRLISSUE_STATUS IssueStatus;
     CSSM_ENCODED_CRL_PTR Crl;
     CSSM_TIMESTRING CrlNextTime;
@@ -1810,12 +1810,12 @@ enum {
     CSSM_CERT_BUNDLE_ENCODING_PGP =				0x05
 };
 
-typedef struct cssm_cert_bundle_header {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_cert_bundle_header {
     CSSM_CERT_BUNDLE_TYPE BundleType;
     CSSM_CERT_BUNDLE_ENCODING BundleEncoding;
 } CSSM_CERT_BUNDLE_HEADER DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_CERT_BUNDLE_HEADER_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_cert_bundle {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_cert_bundle {
     CSSM_CERT_BUNDLE_HEADER BundleHeader;
     CSSM_DATA Bundle;
 } CSSM_CERT_BUNDLE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_CERT_BUNDLE_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -1846,17 +1846,17 @@ enum {
     CSSM_DB_ATTRIBUTE_FORMAT_COMPLEX =			8
 };
 
-typedef struct cssm_db_attribute_info {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_db_attribute_info {
     CSSM_DB_ATTRIBUTE_NAME_FORMAT AttributeNameFormat;
-    union cssm_db_attribute_label {
+    union DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_db_attribute_label {
         char *AttributeName;		/* e.g., "record label" */
         CSSM_OID AttributeOID;		/* e.g., CSSMOID_RECORDLABEL */
         uint32 AttributeID;			/* e.g., FOUR_CHAR_CODE('recl') */
     } Label;
     CSSM_DB_ATTRIBUTE_FORMAT AttributeFormat;
-} CSSM_DB_ATTRIBUTE_INFO, *CSSM_DB_ATTRIBUTE_INFO_PTR;
+} CSSM_DB_ATTRIBUTE_INFO DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_DB_ATTRIBUTE_INFO_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_db_attribute_data {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_db_attribute_data {
     CSSM_DB_ATTRIBUTE_INFO Info;
     uint32 NumberOfValues;
     CSSM_DATA_PTR Value;
@@ -1899,20 +1899,20 @@ enum {
 	CSSM_DB_CERT_USE_PRIVACY =			0x00000020	/* use cert for confidentiality only */
 };
 
-typedef struct cssm_db_record_attribute_info {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_db_record_attribute_info {
     CSSM_DB_RECORDTYPE DataRecordType;
     uint32 NumberOfAttributes;
     CSSM_DB_ATTRIBUTE_INFO_PTR AttributeInfo;
 } CSSM_DB_RECORD_ATTRIBUTE_INFO DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_DB_RECORD_ATTRIBUTE_INFO_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_db_record_attribute_data {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_db_record_attribute_data {
     CSSM_DB_RECORDTYPE DataRecordType;
     uint32 SemanticInformation;
     uint32 NumberOfAttributes;
     CSSM_DB_ATTRIBUTE_DATA_PTR AttributeData;
 } CSSM_DB_RECORD_ATTRIBUTE_DATA DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_db_parsing_module_info {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_db_parsing_module_info {
     CSSM_DB_RECORDTYPE RecordType;
     CSSM_SUBSERVICE_UID ModuleSubserviceUid;
 } CSSM_DB_PARSING_MODULE_INFO DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_DB_PARSING_MODULE_INFO_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -1930,18 +1930,18 @@ enum {
     CSSM_DB_INDEX_ON_RECORD =			2
 };
 
-typedef struct cssm_db_index_info {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_db_index_info {
     CSSM_DB_INDEX_TYPE IndexType;
     CSSM_DB_INDEXED_DATA_LOCATION IndexedDataLocation;
     CSSM_DB_ATTRIBUTE_INFO Info;
 } CSSM_DB_INDEX_INFO DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_DB_INDEX_INFO_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_db_unique_record {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_db_unique_record {
     CSSM_DB_INDEX_INFO RecordLocator;
     CSSM_DATA RecordIdentifier;
 } CSSM_DB_UNIQUE_RECORD DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_DB_UNIQUE_RECORD_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct cssm_db_record_index_info {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_db_record_index_info {
     CSSM_DB_RECORDTYPE DataRecordType;
     uint32 NumberOfIndexes;
     CSSM_DB_INDEX_INFO_PTR IndexInfo;
@@ -1962,7 +1962,7 @@ enum {
 	CSSM_DB_MODIFY_ATTRIBUTE_REPLACE =	CSSM_DB_MODIFY_ATTRIBUTE_NONE + 3
 };
 
-typedef struct cssm_dbinfo {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_dbinfo {
     /* meta information about each record type stored in this
     data store including meta information about record
     attributes and indexes */
@@ -1994,7 +1994,7 @@ enum {
     CSSM_DB_OR =						2
 };
 
-typedef struct cssm_selection_predicate {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_selection_predicate {
     CSSM_DB_OPERATOR DbOperator;
     CSSM_DB_ATTRIBUTE_DATA Attribute;
 } CSSM_SELECTION_PREDICATE DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_SELECTION_PREDICATE_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -2007,7 +2007,7 @@ enum {
 	CSSM_QUERY_SIZELIMIT_NONE =			0
 };
 
-typedef struct cssm_query_limits {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_query_limits {
     uint32 TimeLimit; /* in seconds */
     uint32 SizeLimit; /* max. number of records to return */
 } CSSM_QUERY_LIMITS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_QUERY_LIMITS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
@@ -2017,7 +2017,7 @@ enum {
 	CSSM_QUERY_RETURN_DATA =			0x01
 };
 
-typedef struct cssm_query {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_query {
     CSSM_DB_RECORDTYPE RecordType;
     CSSM_DB_CONJUNCTIVE Conjunctive;
     uint32 NumSelectionPredicates;
@@ -2062,7 +2062,7 @@ enum {
 	CSSM_DB_FILESYSTEMSCAN_MODE =		1
 };
 
-typedef struct cssm_db_schema_attribute_info {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_db_schema_attribute_info {
     uint32 AttributeId;
     char *AttributeName;
     CSSM_OID AttributeNameID;

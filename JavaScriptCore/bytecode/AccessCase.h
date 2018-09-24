@@ -99,6 +99,9 @@ public:
         DirectArgumentsLength,
         ScopedArgumentsLength,
         ModuleNamespaceLoad,
+        InstanceOfHit,
+        InstanceOfMiss,
+        InstanceOfGeneric
     };
 
     enum State : uint8_t {
@@ -126,7 +129,7 @@ public:
     // This create method should be used for transitions.
     static std::unique_ptr<AccessCase> create(VM&, JSCell* owner, PropertyOffset, Structure* oldStructure,
         Structure* newStructure, const ObjectPropertyConditionSet&, std::unique_ptr<PolyProtoAccessChain>);
-
+    
     static std::unique_ptr<AccessCase> fromStructureStubInfo(VM&, JSCell* owner, StructureStubInfo&);
 
     AccessType type() const { return m_type; }
@@ -149,9 +152,11 @@ public:
 
     ObjectPropertyConditionSet conditionSet() const { return m_conditionSet; }
 
-    virtual JSObject* alternateBase() const { return conditionSet().slotBaseCondition().object(); }
+    virtual bool hasAlternateBase() const;
+    virtual JSObject* alternateBase() const;
+    
     virtual WatchpointSet* additionalSet() const { return nullptr; }
-    virtual bool viaProxy() const { return false; }
+    bool viaProxy() const { return m_viaProxy; }
 
     // If you supply the optional vector, this will append the set of cells that this will need to keep alive
     // past the call.
@@ -191,13 +196,14 @@ public:
     {
         return !!m_polyProtoAccessChain;
     }
-
+    
 protected:
     AccessCase(VM&, JSCell* owner, AccessType, PropertyOffset, Structure*, const ObjectPropertyConditionSet&, std::unique_ptr<PolyProtoAccessChain>);
     AccessCase(AccessCase&&) = default;
     AccessCase(const AccessCase& other)
         : m_type(other.m_type)
         , m_state(other.m_state)
+        , m_viaProxy(other.m_viaProxy)
         , m_offset(other.m_offset)
         , m_structure(other.m_structure)
         , m_conditionSet(other.m_conditionSet)
@@ -236,6 +242,12 @@ private:
 
     AccessType m_type;
     State m_state { Primordial };
+protected:
+    // m_viaProxy is true only if the instance inherits (or it is) ProxyableAccessCase.
+    // We put this value here instead of ProxyableAccessCase to reduce the size of ProxyableAccessCase and its
+    // derived classes, which are super frequently allocated.
+    bool m_viaProxy { false };
+private:
     PropertyOffset m_offset;
 
     // Usually this is the structure that we expect the base object to have. But, this is the *new*

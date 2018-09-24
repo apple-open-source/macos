@@ -52,8 +52,7 @@ CF_IMPLICIT_BRIDGING_ENABLED
         shared password. You use this key to get a value of type CFStringRef
         that contains a password.
 */
-extern const CFStringRef kSecSharedPassword
-    __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_8_0) __WATCHOS_UNAVAILABLE __TVOS_UNAVAILABLE;
+extern const CFStringRef kSecSharedPassword API_AVAILABLE(ios(8.0)) API_UNAVAILABLE(macos, iosmac, tvos, watchos);
 
 /*!
  @function SecAddSharedWebCredential
@@ -67,8 +66,7 @@ extern const CFStringRef kSecSharedPassword
  Note: since a request involving shared web credentials may potentially require user interaction or other verification to be approved, this function is dispatched asynchronously; your code provides a completion handler that will be called once the results (if any) are available.
  */
 void SecAddSharedWebCredential(CFStringRef fqdn, CFStringRef account, CFStringRef __nullable password,
-    void (^completionHandler)(CFErrorRef __nullable error))
-    __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_8_0) __WATCHOS_UNAVAILABLE __TVOS_UNAVAILABLE;
+    void (^completionHandler)(CFErrorRef __nullable error)) API_AVAILABLE(ios(8.0)) API_UNAVAILABLE(macos, iosmac, tvos, watchos);
 
 /*!
  @function SecRequestSharedWebCredential
@@ -89,8 +87,7 @@ void SecAddSharedWebCredential(CFStringRef fqdn, CFStringRef account, CFStringRe
  Note: since a request involving shared web credentials may potentially require user interaction or other verification to be approved, this function is dispatched asynchronously; your code provides a completion handler that will be called once the results (if any) are available.
  */
 void SecRequestSharedWebCredential(CFStringRef __nullable fqdn, CFStringRef __nullable account,
-    void (^completionHandler)(CFArrayRef __nullable credentials, CFErrorRef __nullable error))
-    __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_8_0) __WATCHOS_UNAVAILABLE __TVOS_UNAVAILABLE;
+    void (^completionHandler)(CFArrayRef __nullable credentials, CFErrorRef __nullable error)) API_AVAILABLE(ios(8.0)) API_UNAVAILABLE(macos, iosmac, tvos, watchos);
 
 /*!
  @function SecCreateSharedWebCredentialPassword
@@ -98,8 +95,7 @@ void SecRequestSharedWebCredential(CFStringRef __nullable fqdn, CFStringRef __nu
  @return CFStringRef password in the form xxx-xxx-xxx-xxx where x is taken from the sets "abcdefghkmnopqrstuvwxy", "ABCDEFGHJKLMNPQRSTUVWXYZ", "3456789" with at least one character from each set being present.
 */
 __nullable
-CFStringRef SecCreateSharedWebCredentialPassword(void)
-    __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_8_0) __WATCHOS_UNAVAILABLE __TVOS_UNAVAILABLE;
+CFStringRef SecCreateSharedWebCredentialPassword(void) API_AVAILABLE(ios(8.0)) API_UNAVAILABLE(macos, iosmac, tvos, watchos);
 
 
 #endif /* __BLOCKS__ */

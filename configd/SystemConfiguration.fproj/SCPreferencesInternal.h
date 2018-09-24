@@ -133,7 +133,7 @@ typedef struct {
 __BEGIN_DECLS
 
 os_log_t
-__log_SCPreferences			();
+__log_SCPreferences			(void);
 
 Boolean
 __SCPreferencesCreate_helper		(SCPreferencesRef	prefs);

@@ -110,13 +110,13 @@ int list (int argc, const char * argv[]) {
     
     client = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
     if (!client) {
-        status = STATUS_ERROR;
+        status = kUnknownErr;
         goto exit;
     }
     
     manager = IOHIDManagerCreate(kCFAllocatorDefault, 0);
     if (!manager) {
-        status = STATUS_ERROR;
+        status = kUnknownErr;
         goto exit;
     }
     

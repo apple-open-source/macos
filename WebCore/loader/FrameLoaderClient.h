@@ -34,6 +34,7 @@
 #include "LinkIcon.h"
 #include <functional>
 #include <wtf/Forward.h>
+#include <wtf/WallTime.h>
 #include <wtf/text/WTFString.h>
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -70,6 +71,7 @@ class AuthenticationChallenge;
 class CachedFrame;
 class CachedResourceRequest;
 class Color;
+class DOMWindow;
 class DOMWindowExtension;
 class DOMWrapperWorld;
 class DocumentLoader;
@@ -101,6 +103,7 @@ class SubstituteData;
 class URL;
 class Widget;
 
+enum class PolicyDecisionMode;
 struct StringWithDirection;
 
 typedef WTF::Function<void (PolicyAction)> FramePolicyFunction;
@@ -109,7 +112,7 @@ class WEBCORE_EXPORT FrameLoaderClient {
 public:
     // An inline function cannot be the first non-abstract virtual function declared
     // in the class as it results in the vtable being generated as a weak symbol.
-    // This hurts performance (in Mac OS X at least, when loadig frameworks), so we
+    // This hurts performance (in Mac OS X at least, when loading frameworks), so we
     // don't want to do it in WebKit.
     virtual bool hasHTMLView() const;
 
@@ -159,7 +162,7 @@ public:
     virtual void dispatchDidReceiveServerRedirectForProvisionalLoad() = 0;
     virtual void dispatchDidChangeProvisionalURL() { }
     virtual void dispatchDidCancelClientRedirect() = 0;
-    virtual void dispatchWillPerformClientRedirect(const URL&, double interval, double fireDate) = 0;
+    virtual void dispatchWillPerformClientRedirect(const URL&, double interval, WallTime fireDate) = 0;
     virtual void dispatchDidChangeMainDocument() { }
     virtual void dispatchWillChangeDocument() { }
     virtual void dispatchDidNavigateWithinPage() { }
@@ -188,7 +191,7 @@ public:
 
     virtual void dispatchDecidePolicyForResponse(const ResourceResponse&, const ResourceRequest&, FramePolicyFunction&&) = 0;
     virtual void dispatchDecidePolicyForNewWindowAction(const NavigationAction&, const ResourceRequest&, FormState*, const String& frameName, FramePolicyFunction&&) = 0;
-    virtual void dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, bool didReceiveRedirectResponse, FormState*, FramePolicyFunction&&) = 0;
+    virtual void dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse& redirectResponse, FormState*, PolicyDecisionMode, FramePolicyFunction&&) = 0;
     virtual void cancelPolicyCheck() = 0;
 
     virtual void dispatchUnableToImplementPolicy(const ResourceError&) = 0;
@@ -301,7 +304,7 @@ public:
 #if PLATFORM(COCOA)
     // Allow an accessibility object to retrieve a Frame parent if there's no PlatformWidget.
     virtual RemoteAXObjectRef accessibilityRemoteObject() = 0;
-    virtual NSCachedURLResponse* willCacheResponse(DocumentLoader*, unsigned long identifier, NSCachedURLResponse*) const = 0;
+    virtual void willCacheResponse(DocumentLoader*, unsigned long identifier, NSCachedURLResponse*, CompletionHandler<void(NSCachedURLResponse *)>&&) const = 0;
     virtual NSDictionary *dataDetectionContext() { return nullptr; }
 #endif
 
@@ -328,6 +331,8 @@ public:
     virtual void dispatchWillDisconnectDOMWindowExtensionFromGlobalObject(DOMWindowExtension*) { }
     virtual void dispatchDidReconnectDOMWindowExtensionToGlobalObject(DOMWindowExtension*) { }
     virtual void dispatchWillDestroyGlobalObjectForDOMWindowExtension(DOMWindowExtension*) { }
+
+    virtual void willInjectUserScript(DOMWrapperWorld&) { }
 
 #if ENABLE(WEB_RTC)
     virtual void dispatchWillStartUsingPeerConnectionHandler(RTCPeerConnectionHandler*) { }
@@ -361,6 +366,8 @@ public:
 
     virtual void getLoadDecisionForIcons(const Vector<std::pair<WebCore::LinkIcon&, uint64_t>>&) { }
     virtual void finishedLoadingIcon(uint64_t, SharedBuffer*) { }
+
+    virtual void didCreateWindow(DOMWindow&) { }
 
 #if ENABLE(APPLICATION_MANIFEST)
     virtual void finishedLoadingApplicationManifest(uint64_t, const std::optional<ApplicationManifest>&) { }

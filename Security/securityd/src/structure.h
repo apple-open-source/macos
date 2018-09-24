@@ -107,8 +107,6 @@ private:
 	typedef set<RefPointer<NodeCore> > ReferenceSet;
 	ReferenceSet mReferences;
 	
-	IFDEBUG(bool hasReference(NodeCore &p));
-	
 #if defined(DEBUGDUMP)
 public: // dump support
 	NodeCore();						// dump-only constructor (registers node)

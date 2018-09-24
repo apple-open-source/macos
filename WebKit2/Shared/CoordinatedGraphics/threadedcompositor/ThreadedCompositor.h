@@ -47,7 +47,6 @@ namespace WebKit {
 class CoordinatedGraphicsScene;
 class CoordinatedGraphicsSceneClient;
 class ThreadedDisplayRefreshMonitor;
-class WebPage;
 
 class ThreadedCompositor : public CoordinatedGraphicsSceneClient, public ThreadSafeRefCounted<ThreadedCompositor> {
     WTF_MAKE_NONCOPYABLE(ThreadedCompositor);
@@ -56,7 +55,6 @@ public:
     class Client {
     public:
         virtual void renderNextFrame() = 0;
-        virtual void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset) = 0;
 
         virtual uint64_t nativeSurfaceHandleForCompositing() = 0;
         virtual void didDestroyGLContext() = 0;
@@ -67,7 +65,7 @@ public:
 
     enum class ShouldDoFrameSync { No, Yes };
 
-    static Ref<ThreadedCompositor> create(Client&, WebPage&, const WebCore::IntSize&, float scaleFactor, ShouldDoFrameSync = ShouldDoFrameSync::Yes, WebCore::TextureMapper::PaintFlags = 0);
+    static Ref<ThreadedCompositor> create(Client&, WebCore::PlatformDisplayID, const WebCore::IntSize&, float scaleFactor, ShouldDoFrameSync = ShouldDoFrameSync::Yes, WebCore::TextureMapper::PaintFlags = 0);
     virtual ~ThreadedCompositor();
 
     void setNativeSurfaceHandleForCompositing(uint64_t);
@@ -77,7 +75,6 @@ public:
     void setDrawsBackground(bool);
 
     void updateSceneState(const WebCore::CoordinatedGraphicsState&);
-    void releaseUpdateAtlases(const Vector<uint32_t>&);
 
     void invalidate();
 
@@ -92,12 +89,10 @@ public:
     void frameComplete();
 
 private:
-    ThreadedCompositor(Client&, WebPage&, const WebCore::IntSize&, float scaleFactor, ShouldDoFrameSync, WebCore::TextureMapper::PaintFlags);
+    ThreadedCompositor(Client&, WebCore::PlatformDisplayID, const WebCore::IntSize&, float scaleFactor, ShouldDoFrameSync, WebCore::TextureMapper::PaintFlags);
 
     // CoordinatedGraphicsSceneClient
-    void renderNextFrame() override;
     void updateViewport() override;
-    void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset) override;
 
     void renderLayerTree();
     void sceneUpdateFinished();
@@ -124,7 +119,6 @@ private:
         bool needsResize { false };
 
         Vector<WebCore::CoordinatedGraphicsState> states;
-        Vector<uint32_t> atlasesToRemove;
 
         bool clientRendersNextFrame { false };
         bool coordinateUpdateCompletionWithClient { false };

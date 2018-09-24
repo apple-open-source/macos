@@ -127,6 +127,15 @@ Ref<ProcessPoolConfiguration> ProcessPoolConfiguration::copy()
     copy->m_ctDataConnectionServiceType = this->m_ctDataConnectionServiceType;
 #endif
     copy->m_presentingApplicationPID = this->m_presentingApplicationPID;
+    copy->m_processSwapsOnNavigation = this->m_processSwapsOnNavigation;
+    copy->m_alwaysKeepAndReuseSwappedProcesses = this->m_alwaysKeepAndReuseSwappedProcesses;
+    copy->m_processSwapsOnWindowOpenWithOpener = this->m_processSwapsOnWindowOpenWithOpener;
+#if ENABLE(WIFI_ASSERTIONS)
+    copy->m_wirelessContextIdentifier = this->m_wirelessContextIdentifier;
+#endif
+#if PLATFORM(COCOA)
+    copy->m_suppressesConnectionTerminationOnSystemChange = this->m_suppressesConnectionTerminationOnSystemChange;
+#endif
 
     return copy;
 }

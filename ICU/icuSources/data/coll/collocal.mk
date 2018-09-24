@@ -5,5 +5,5 @@
 
 COLLATION_SOURCE_LOCAL = tk.txt
 
-COLLATION_ALIAS_SOURCE_LOCAL = yue.txt yue_CN.txt yue_HK.txt\
- yue_Hans.txt yue_Hans_CN.txt yue_Hant.txt yue_Hant_HK.txt
+COLLATION_ALIAS_SOURCE_LOCAL = wuu.txt yue_HK.txt\
+ yue_Hans_CN.txt yue_Hant.txt yue_Hant_HK.txt

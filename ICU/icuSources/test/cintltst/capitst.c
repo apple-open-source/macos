@@ -306,7 +306,7 @@ void TestProperty()
       log_err("Testing ucol_getVersion() - unexpected result: %02x.%02x.%02x.%02x\n",
               versionArray[0], versionArray[1], versionArray[2], versionArray[3]);
     } else {
-      log_verbose("ucol_getVersion() result: %02x.%02x.%02x.%02x\n",
+      log_info("ucol_getVersion() en_US result: %02x.%02x.%02x.%02x\n",
                   versionArray[0], versionArray[1], versionArray[2], versionArray[3]);
     }
 

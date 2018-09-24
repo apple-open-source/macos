@@ -42,3 +42,9 @@ endif
 	plutil -convert binary1 "$(DSTROOT)/System/Library/LaunchDaemons/$(LAUNCHD_PLISTS)"
 endif
 	/usr/bin/codesign --force --sign - --entitlements entitlements.plist $(DSTROOT)$(Install_Dir)/$(Project)
+
+# Install a special launchd plist for the DebugDiskImage (38885624)
+ifeq "$(RC_TARGET_CONFIG)" "iPhone"
+	plutil -replace ProgramArguments -json '["/var/personalized_debug/usr/libexec/telnetd","-p","/var/personalized_debug/usr/bin/login"]' -o "$(DSTROOT)/System/Library/LaunchDaemons/telnet.debug.plist" "$(DSTROOT)/System/Library/LaunchDaemons/telnet.plist"
+	plutil -replace Label -string com.apple.telnetd.debug "$(DSTROOT)/System/Library/LaunchDaemons/telnet.debug.plist"
+endif

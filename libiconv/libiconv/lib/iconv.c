@@ -718,7 +718,8 @@ strong_alias (libiconv_open, iconv_open)
 strong_alias (libiconv, iconv)
 strong_alias (libiconv_close, iconv_close)
 #elif defined __APPLE__
-#if defined(__ppc__) || defined(__i386__)
+#include <iconv_tiger.h>
+#if TARGET_OS_OSX && (defined(__ppc__) || defined(__i386__))
 /* backward compatibility */
 iconv_t
 libiconv_open(const char *tocode, const char *fromcode)
@@ -727,11 +728,11 @@ libiconv_open(const char *tocode, const char *fromcode)
 }
 
 size_t
-libiconv(iconv_t cd, const char ** inbuf,
+libiconv(iconv_t cd, char ** inbuf,
 	size_t * inbytesleft, char ** outbuf,
 	size_t * outbytesleft)
 {
-	return iconv(cd, (char **)inbuf, inbytesleft, outbuf, outbytesleft);
+	return iconv(cd, inbuf, inbytesleft, outbuf, outbytesleft);
 }
 
 int

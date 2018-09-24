@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2011, 2016-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,7 +24,7 @@
 #ifndef _SCD_H
 #define _SCD_H
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <SystemConfiguration/SCDynamicStore.h>
@@ -93,4 +93,4 @@ _SC_cfstring_to_cstring_ext		(CFStringRef		cfstr,
 
 __END_DECLS
 
-#endif /* _SCD_H */
+#endif	/* _SCD_H */

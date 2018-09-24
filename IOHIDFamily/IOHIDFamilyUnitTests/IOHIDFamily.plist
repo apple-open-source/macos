@@ -127,6 +127,10 @@
 			<string>TestHIDEventDriver</string>
 		</dict>
 		<dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/.*Test.*</string>
+			</array>
 			<key>AsRoot</key>
 			<true/>
 			<key>Command</key>
@@ -151,6 +155,10 @@
 			<string>TestHIDEvents</string>
 		</dict>
 		<dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/.*Test.*</string>
+			</array>
 			<key>AsRoot</key>
 			<true/>
 			<key>Command</key>
@@ -173,6 +181,54 @@
 			</array>
 			<key>TestName</key>
 			<string>TestHIDActivity</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestIOHIDPostEvent&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestIOHIDPostEvent</string>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>TestIOHIDEventSerialization</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestIOHIDEventSerialization&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>TestSensorProperty</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestSensorProperty&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>TestIOHIDConnectionFilterPlugIn</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestIOHIDConnectionFilterPlugIn&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
 		</dict>
 	</array>
 </dict>

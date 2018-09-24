@@ -4,6 +4,8 @@
 #include <sys/time.h>
 #include <stdint.h>
 
+#pragma GCC visibility push(hidden)
+
 /*
  * status codes from dns_res_xxx SPIs
  * positive numbers are ns_rcode values.
@@ -106,5 +108,11 @@ void res_interrupt_requests_disable(void);
 void res_interrupt_request(void *token);
 void *res_init_interrupt_token(void);
 void res_delete_interrupt_token(void *token);
+
+extern void res_client_close(res_state res);
+extern int __res_nquery(res_state statp, const char *name, int class, int type, u_char *answer, int anslen);
+extern int dns_res_send(res_state statp, const u_char *buf, int buflen, u_char *ans, int *anssiz, struct sockaddr *from, int *fromlen);
+
+#pragma GCC visibility pop
 
 #endif

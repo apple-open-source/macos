@@ -31,19 +31,20 @@
 #include <MacTypes.h>
 #include "sslMemory.h"
 #include "tls_digest.h"
+#include "tls_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern int CloneHashState(
+CORETLS_EXTERN int CloneHashState(
 	const HashReference *ref,
 	const tls_buffer *state,
 	tls_buffer *newState);
-extern int ReadyHash(
+CORETLS_EXTERN int ReadyHash(
 	const HashReference *ref, 
 	tls_buffer *state);
-extern int CloseHash(
+CORETLS_EXTERN int CloseHash(
 	const HashReference *ref, 
 	tls_buffer *state);
 

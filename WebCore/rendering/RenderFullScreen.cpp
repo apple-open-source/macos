@@ -31,23 +31,22 @@
 #include "RenderBlockFlow.h"
 #include "RenderLayer.h"
 #include "RenderLayerCompositor.h"
+#include "RenderTreeBuilder.h"
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderFullScreen);
 
-class RenderFullScreenPlaceholder final : public RenderBlockFlow {
-    WTF_MAKE_ISO_ALLOCATED(RenderFullScreenPlaceholder);
-public:
-    RenderFullScreenPlaceholder(Document& document, RenderStyle&& style)
-        : RenderBlockFlow(document, WTFMove(style))
-    {
-    }
+RenderFullScreenPlaceholder::RenderFullScreenPlaceholder(Document& document, RenderStyle&& style)
+    : RenderBlockFlow(document, WTFMove(style))
+{
+}
 
-private:
-    bool isRenderFullScreenPlaceholder() const override { return true; }
-};
+bool RenderFullScreenPlaceholder::isRenderFullScreenPlaceholder() const
+{
+    return true;
+}
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderFullScreenPlaceholder);
 
@@ -57,14 +56,9 @@ RenderFullScreen::RenderFullScreen(Document& document, RenderStyle&& style)
     setReplaced(false); 
 }
 
-void RenderFullScreen::willBeDestroyed()
+RenderFullScreen::~RenderFullScreen()
 {
-    if (m_placeholder) {
-        m_placeholder->removeFromParentAndDestroy();
-        ASSERT(!m_placeholder);
-    }
-
-    RenderFlexibleBox::willBeDestroyed();
+    ASSERT(!m_placeholder);
 }
 
 static RenderStyle createFullScreenStyle()
@@ -77,12 +71,12 @@ static RenderStyle createFullScreenStyle()
     fullscreenStyle.setFontDescription({ });
     fullscreenStyle.fontCascade().update(nullptr);
 
-    fullscreenStyle.setDisplay(FLEX);
-    fullscreenStyle.setJustifyContentPosition(ContentPositionCenter);
-    fullscreenStyle.setAlignItemsPosition(ItemPositionCenter);
-    fullscreenStyle.setFlexDirection(FlowColumn);
+    fullscreenStyle.setDisplay(DisplayType::Flex);
+    fullscreenStyle.setJustifyContentPosition(ContentPosition::Center);
+    fullscreenStyle.setAlignItemsPosition(ItemPosition::Center);
+    fullscreenStyle.setFlexDirection(FlexDirection::Column);
     
-    fullscreenStyle.setPosition(FixedPosition);
+    fullscreenStyle.setPosition(PositionType::Fixed);
     fullscreenStyle.setWidth(Length(100.0, Percent));
     fullscreenStyle.setHeight(Length(100.0, Percent));
     fullscreenStyle.setLeft(Length(0, WebCore::Fixed));
@@ -93,7 +87,7 @@ static RenderStyle createFullScreenStyle()
     return fullscreenStyle;
 }
 
-RenderPtr<RenderFullScreen> RenderFullScreen::wrapNewRenderer(RenderPtr<RenderElement> renderer, RenderElement& parent, Document& document)
+RenderPtr<RenderFullScreen> RenderFullScreen::wrapNewRenderer(RenderTreeBuilder& builder, RenderPtr<RenderElement> renderer, RenderElement& parent, Document& document)
 {
     auto newFullscreenRenderer = createRenderer<RenderFullScreen>(document, createFullScreenStyle());
     newFullscreenRenderer->initializeStyle();
@@ -102,16 +96,19 @@ RenderPtr<RenderFullScreen> RenderFullScreen::wrapNewRenderer(RenderPtr<RenderEl
     if (!parent.isChildAllowed(fullscreenRenderer, fullscreenRenderer.style()))
         return nullptr;
 
-    fullscreenRenderer.addChild(WTFMove(renderer));
+    builder.attach(fullscreenRenderer, WTFMove(renderer));
     fullscreenRenderer.setNeedsLayoutAndPrefWidthsRecalc();
 
-    document.setFullScreenRenderer(&fullscreenRenderer);
+    document.setFullScreenRenderer(builder, fullscreenRenderer);
 
     return newFullscreenRenderer;
 }
 
 void RenderFullScreen::wrapExistingRenderer(RenderElement& renderer, Document& document)
 {
+    // FIXME: This should be done by RenderTreeUpdater.
+    RenderTreeBuilder builder(*document.renderView());
+
     auto newFullscreenRenderer = createRenderer<RenderFullScreen>(document, createFullScreenStyle());
     newFullscreenRenderer->initializeStyle();
 
@@ -126,9 +123,9 @@ void RenderFullScreen::wrapExistingRenderer(RenderElement& renderer, Document& d
     // the line box tree underneath our |containingBlock| is not longer valid.
     containingBlock->deleteLines();
 
-    parent.addChild(WTFMove(newFullscreenRenderer), &renderer);
+    builder.attach(parent, WTFMove(newFullscreenRenderer), &renderer);
 
-    auto toMove = parent.takeChild(renderer);
+    auto toMove = builder.detach(parent, renderer);
 
     // Always just do a full layout to ensure that line boxes get deleted properly.
     // Because objects moved from |parent| to |fullscreenRenderer|, we want to
@@ -136,14 +133,16 @@ void RenderFullScreen::wrapExistingRenderer(RenderElement& renderer, Document& d
     parent.setNeedsLayoutAndPrefWidthsRecalc();
     containingBlock->setNeedsLayoutAndPrefWidthsRecalc();
 
-    fullscreenRenderer.addChild(WTFMove(toMove));
+    builder.attach(fullscreenRenderer, WTFMove(toMove));
     fullscreenRenderer.setNeedsLayoutAndPrefWidthsRecalc();
 
-    document.setFullScreenRenderer(&fullscreenRenderer);
+    document.setFullScreenRenderer(builder, fullscreenRenderer);
 }
 
 void RenderFullScreen::unwrapRenderer(bool& requiresRenderTreeRebuild)
 {
+    RenderTreeBuilder builder(view());
+
     requiresRenderTreeRebuild = false;
     if (parent()) {
         auto* child = firstChild();
@@ -163,7 +162,7 @@ void RenderFullScreen::unwrapRenderer(bool& requiresRenderTreeRebuild)
                 if (auto* nonAnonymousChild = downcast<RenderBlock>(*child).firstChild())
                     child = nonAnonymousChild;
                 else {
-                    child->removeFromParentAndDestroy();
+                    builder.destroy(*child);
                     continue;
                 }
             }
@@ -171,41 +170,17 @@ void RenderFullScreen::unwrapRenderer(bool& requiresRenderTreeRebuild)
             // may have set one on the child, and we don't want to leave that
             // lying around on the child.
             if (is<RenderBox>(*child))
-                downcast<RenderBox>(*child).clearOverrideSize();
-            auto childToMove = child->parent()->takeChild(*child);
-            parent()->addChild(WTFMove(childToMove), this);
+                downcast<RenderBox>(*child).clearOverrideContentSize();
+            auto childToMove = builder.detach(*child->parent(), *child);
+            builder.attach(*parent(), WTFMove(childToMove), this);
             parent()->setNeedsLayoutAndPrefWidthsRecalc();
         }
     }
     if (placeholder())
-        placeholder()->removeFromParentAndDestroy();
+        builder.destroy(*placeholder());
     ASSERT(!placeholder());
 
-    removeFromParentAndDestroy();
-}
-
-void RenderFullScreen::createPlaceholder(std::unique_ptr<RenderStyle> style, const LayoutRect& frameRect)
-{
-    if (style->width().isAuto())
-        style->setWidth(Length(frameRect.width(), Fixed));
-    if (style->height().isAuto())
-        style->setHeight(Length(frameRect.height(), Fixed));
-
-    if (m_placeholder) {
-        m_placeholder->setStyle(WTFMove(*style));
-        return;
-    }
-
-    if (!parent())
-        return;
-
-    auto newPlaceholder = createRenderer<RenderFullScreenPlaceholder>(document(), WTFMove(*style));
-    newPlaceholder->initializeStyle();
-
-    m_placeholder = makeWeakPtr(*newPlaceholder);
-
-    parent()->addChild(WTFMove(newPlaceholder), this);
-    parent()->setNeedsLayoutAndPrefWidthsRecalc();
+    builder.destroy(*this);
 }
 
 }

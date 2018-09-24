@@ -35,5 +35,6 @@ typedef void(^KCPairingChannelCompletion)(BOOL complete, NSData *packet, NSError
 
 /* for tests cases only */
 - (void)setXPCConnectionObject:(NSXPCConnection *)connection;
++ (bool)isSupportedPlatform;
 @end
 

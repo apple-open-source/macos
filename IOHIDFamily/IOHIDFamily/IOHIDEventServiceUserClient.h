@@ -69,7 +69,7 @@ private:
     uint32_t                    _droppedEventCount;
     uint64_t                    _lastDroppedEventTime;
     uint64_t                    _eventCount;
-  
+    mach_port_t                 _port;
   
     void eventServiceCallback(  IOHIDEventService *             sender,
                                 void *                          context,
@@ -110,6 +110,10 @@ protected:
                                 UInt32                          type, 
                                 UInt32                          refCon );
 
+    IOReturn registerNotificationPortGated(mach_port_t          port,
+                                           UInt32               type,
+                                           UInt32               refCon);
+    
     virtual IOReturn clientMemoryForType(
                                 UInt32                          type,
                                 IOOptionBits *                  options,

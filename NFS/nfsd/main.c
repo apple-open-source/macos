@@ -441,14 +441,6 @@ main(int argc, char *argv[], __unused char *envp[])
 	/* quick config sanity check */
 	config_sanity_check(&config);
 
-	/* we really shouldn't be running if there's no exports file */
-	if (stat(exportsfilepath, &st)) {
-		/* exports file doesn't exist, so just unload ourselves */
-		log(LOG_WARNING, "no exports file, unloading nfsd service");
-		rv = nfsd_unload();
-		exit(rv);
-	}
-
 	/* claim PID files */
 	nfsd_pfh = pidfile_open(_PATH_NFSD_PID, 0644, &pid);
 	if (nfsd_pfh == NULL) {
@@ -658,6 +650,7 @@ config_loop(void)
 	struct nfs_conf_server newconf;
 	struct stat st, stnew;
 	struct timespec ts = { 10, 0 };
+	int exports_fd = -1;
 
 	/* set up mount/unmount kqueue */
 	if ((kq = kqueue()) < 0) {
@@ -673,7 +666,19 @@ config_loop(void)
 
 	/* get baseline stat values for exports file */
 	bzero(&st, sizeof(struct stat));
-	if (stat(exportsfilepath, &st)) {
+	if ((exports_fd = open(exportsfilepath, O_RDONLY)) == -1) {
+		log(LOG_ERR, "open(%s): %s (%d)", exportsfilepath,
+		    strerror(errno), errno);
+		exit(1);
+	}
+	EV_SET(&ke, exports_fd, EVFILT_VNODE, EV_ADD|EV_ONESHOT, NOTE_DELETE, 0, 0);
+	rv = kevent(kq, &ke, 1, NULL, 0, NULL);
+	if (rv < 0) {
+		log(LOG_ERR, "kevent(EVFILT_VNODE): %s (%d)", strerror(errno), errno);
+		exit(1);
+	}
+
+	if (fstat(exports_fd, &st)) {
 		log(LOG_INFO, "can't stat %s %s (%d)", exportsfilepath, strerror(errno), errno);
 	}
 
@@ -681,7 +686,35 @@ config_loop(void)
 
 		DEBUG(1, "config_loop: waiting...");
 		rv = kevent(kq, NULL, 0, &ke, 1, (recheckexports ? &ts : NULL));
-		if ((rv > 0) && !(ke.flags & EV_ERROR) && (ke.fflags & (VQ_MOUNT|VQ_UNMOUNT))) {
+		if (rv > 0 && ke.filter == EVFILT_VNODE) {
+			/*
+			 * This is our exports file trigger-- if we can't
+			 * re-open it, then it's been deleted and we need
+			 * to exit.
+			 */
+			if (exports_fd != -1) {
+				(void) close(exports_fd);
+				exports_fd = -1;
+			}
+			if ((exports_fd = open(exportsfilepath,
+					       O_RDONLY)) == -1) {
+				log(LOG_INFO,
+				    "Exports file was deleted; exiting...");
+				gotterm = 1;
+			} else {
+				EV_SET(&ke, exports_fd, EVFILT_VNODE,
+				       EV_ADD|EV_ONESHOT, NOTE_DELETE, 0, 0);
+				rv = kevent(kq, &ke, 1, NULL, 0, NULL);
+				if (rv < 0) {
+					log(LOG_ERR,
+					    "kevent(EVFILT_VNODE): %s (%d)",
+					    strerror(errno), errno);
+					break;
+				}
+			}
+		} else if (rv > 0 && ke.filter == EVFILT_FS &&
+			   !(ke.flags & EV_ERROR) &&
+			   (ke.fflags & (VQ_MOUNT|VQ_UNMOUNT))) {
 			log(LOG_INFO, "mount list changed: 0x%x", ke.fflags);
 			gotmount = check_for_mount_changes();
 		}
@@ -734,7 +767,11 @@ config_loop(void)
 
 			/* check if it looks like the exports file changed */
 			if (stat(exportsfilepath, &stnew)) {
-				exports_changed = 0;
+				/* Exit if the exports file is gone. */
+				log(LOG_INFO,
+				    "Exports file was deleted (HUP); exiting...");
+				gotterm = 1;
+				break;
 			} else {
 				exports_changed =
 					(stnew.st_dev != st.st_dev) || (stnew.st_ino != st.st_ino) ||

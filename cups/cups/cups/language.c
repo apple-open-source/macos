@@ -263,7 +263,7 @@ _cupsAppleLocale(CFStringRef languageName,	/* I - Apple language ID */
   if (!CFStringGetCString(languageName, temp, (CFIndex)sizeof(temp), kCFStringEncodingASCII))
     temp[0] = '\0';
 
-  DEBUG_printf(("_cupsAppleLocale(languageName=%p(%s), locale=%p, localsize=%d)", languageName, temp, locale, (int)localesize));
+  DEBUG_printf(("_cupsAppleLocale(languageName=%p(%s), locale=%p, localsize=%d)", (void *)languageName, temp, (void *)locale, (int)localesize));
 #endif /* DEBUG */
 
   localeName = CFLocaleCreateCanonicalLocaleIdentifierFromString(kCFAllocatorDefault, languageName);
@@ -692,6 +692,15 @@ cupsLangGet(const char *language)	/* I - Language or locale */
           *ptr++ = (char)toupper(*language & 255);
 
       *ptr = '\0';
+
+     /*
+      * Map Chinese region codes to legacy country codes.
+      */
+
+      if (!strcmp(language, "zh") && !strcmp(country, "HANS"))
+        strlcpy(country, "CN", sizeof(country));
+      if (!strcmp(language, "zh") && !strcmp(country, "HANT"))
+        strlcpy(country, "TW", sizeof(country));
     }
 
     if (*language == '.' && !charset[0])
@@ -1468,8 +1477,8 @@ appleMessageLoad(const char *locale)	/* I - Locale ID */
       */
 
       strlcpy(baselang, locale, sizeof(baselang));
-      if (baselang[3] == '-' || baselang[3] == '_')
-        baselang[3] = '\0';
+      if (baselang[2] == '-' || baselang[2] == '_')
+        baselang[2] = '\0';
 
       locale = baselang;
     }

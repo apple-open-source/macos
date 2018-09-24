@@ -38,13 +38,14 @@
 #import "Frame.h"
 #import "FrameLoader.h"
 #import "FrameLoaderClient.h"
+#import "HTMLAnchorElement.h"
 #import "HTMLAttachmentElement.h"
+#import "HTMLBRElement.h"
 #import "HTMLBodyElement.h"
 #import "HTMLIFrameElement.h"
 #import "HTMLImageElement.h"
 #import "HTMLObjectElement.h"
 #import "LegacyWebArchive.h"
-#import "MainFrame.h"
 #import "Page.h"
 #import "PublicURLManager.h"
 #import "RuntimeEnabledFeatures.h"
@@ -52,13 +53,13 @@
 #import "SocketProvider.h"
 #import "TypedElementDescendantIterator.h"
 #import "URLParser.h"
+#import "UTIUtilities.h"
 #import "WebArchiveResourceFromNSAttributedString.h"
 #import "WebArchiveResourceWebResourceHandler.h"
 #import "WebNSAttributedStringExtras.h"
 #import "markup.h"
 #import <pal/spi/cocoa/NSAttributedStringSPI.h>
 #import <wtf/SoftLinking.h>
-#import <wtf/UUID.h>
 
 #if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300)
 @interface NSAttributedString ()
@@ -193,7 +194,6 @@ static Ref<DocumentFragment> createFragmentForImageAttachment(Document& document
 {
 #if ENABLE(ATTACHMENT_ELEMENT)
     auto attachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, document);
-    attachment->setUniqueIdentifier(createCanonicalUUIDString());
     attachment->setFile(File::create(blob, AtomicString("image")), HTMLAttachmentElement::UpdateDisplayAttributes::Yes);
     attachment->updateDisplayMode(AttachmentDisplayMode::InPlace);
 
@@ -274,7 +274,6 @@ static void replaceRichContentWithAttachments(DocumentFragment& fragment, const 
             continue;
 
         auto attachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, fragment.document());
-        attachment->setUniqueIdentifier(createCanonicalUUIDString());
         attachment->setFile(WTFMove(file), HTMLAttachmentElement::UpdateDisplayAttributes::Yes);
         attachment->updateDisplayMode(info.displayMode);
         parent->replaceChild(attachment, elementToReplace);
@@ -288,6 +287,30 @@ static void replaceRichContentWithAttachments(DocumentFragment& fragment, const 
 #endif
 }
 
+static void replaceSubresourceURLsWithURLsFromClient(DocumentFragment& fragment, const Vector<Ref<ArchiveResource>>& subresources, Vector<Ref<ArchiveResource>>& outUnreplacedResources)
+{
+    ASSERT(fragment.document().frame());
+    auto& frame = *fragment.document().frame();
+    HashMap<AtomicString, AtomicString> subresourceURLToClientURLMap;
+    for (auto& subresource : subresources) {
+        auto& originalURL = subresource->url();
+        if (!shouldReplaceSubresourceURL(originalURL)) {
+            outUnreplacedResources.append(subresource.copyRef());
+            continue;
+        }
+
+        auto replacementURL = frame.editor().clientReplacementURLForResource(subresource->data(), subresource->mimeType());
+        if (replacementURL.isEmpty()) {
+            outUnreplacedResources.append(subresource.copyRef());
+            continue;
+        }
+
+        subresourceURLToClientURLMap.set(originalURL.string(), replacementURL);
+    }
+
+    if (!subresourceURLToClientURLMap.isEmpty())
+        replaceSubresourceURLs(fragment, WTFMove(subresourceURLToClientURLMap));
+}
 
 RefPtr<DocumentFragment> createFragmentAndAddResources(Frame& frame, NSAttributedString *string)
 {
@@ -311,13 +334,16 @@ RefPtr<DocumentFragment> createFragmentAndAddResources(Frame& frame, NSAttribute
         return WTFMove(fragmentAndResources.fragment);
     }
 
+    Vector<Ref<ArchiveResource>> unreplacedResources;
+    replaceSubresourceURLsWithURLsFromClient(*fragmentAndResources.fragment, fragmentAndResources.resources, unreplacedResources);
+
     if (shouldReplaceRichContentWithAttachments()) {
-        replaceRichContentWithAttachments(*fragmentAndResources.fragment, fragmentAndResources.resources);
+        replaceRichContentWithAttachments(*fragmentAndResources.fragment, unreplacedResources);
         return WTFMove(fragmentAndResources.fragment);
     }
 
     HashMap<AtomicString, AtomicString> blobURLMap;
-    for (const Ref<ArchiveResource>& subresource : fragmentAndResources.resources) {
+    for (const Ref<ArchiveResource>& subresource : unreplacedResources) {
         auto blob = Blob::create(subresource->data(), subresource->mimeType());
         String blobURL = DOMURL::createObjectURL(document, blob);
         blobURLMap.set(subresource->url().string(), blobURL);
@@ -357,13 +383,16 @@ static String sanitizeMarkupWithArchive(Document& destinationDocument, MarkupAnd
     ASSERT(stagingDocument);
     auto fragment = createFragmentFromMarkup(*stagingDocument, markupAndArchive.markup, markupAndArchive.mainResource->url(), DisallowScriptingAndPluginContent);
 
+    Vector<Ref<ArchiveResource>> unreplacedResources;
+    replaceSubresourceURLsWithURLsFromClient(fragment, markupAndArchive.archive->subresources(), unreplacedResources);
+
     if (shouldReplaceRichContentWithAttachments()) {
-        replaceRichContentWithAttachments(fragment, markupAndArchive.archive->subresources());
+        replaceRichContentWithAttachments(fragment, unreplacedResources);
         return sanitizedMarkupForFragmentInDocument(WTFMove(fragment), *stagingDocument, msoListQuirks, markupAndArchive.markup);
     }
 
     HashMap<AtomicString, AtomicString> blobURLMap;
-    for (const Ref<ArchiveResource>& subresource : markupAndArchive.archive->subresources()) {
+    for (const Ref<ArchiveResource>& subresource : unreplacedResources) {
         auto& subresourceURL = subresource->url();
         if (!shouldReplaceSubresourceURL(subresourceURL))
             continue;
@@ -586,10 +615,16 @@ bool WebContentReader::readPlainText(const String& text)
 
 bool WebContentReader::readImage(Ref<SharedBuffer>&& buffer, const String& type)
 {
-    auto blob = Blob::create(buffer.get(), type);
     ASSERT(frame.document());
     auto& document = *frame.document();
 
+    auto replacementURL = frame.editor().clientReplacementURLForResource(buffer.copyRef(), isDeclaredUTI(type) ? MIMETypeFromUTI(type) : type);
+    if (!replacementURL.isEmpty()) {
+        addFragment(createFragmentForImageAndURL(document, replacementURL));
+        return true;
+    }
+
+    auto blob = Blob::create(buffer.get(), type);
     if (shouldReplaceRichContentWithAttachments())
         addFragment(createFragmentForImageAttachment(document, WTFMove(blob)));
     else
@@ -611,13 +646,43 @@ bool WebContentReader::readFilePaths(const Vector<String>& paths)
     if (RuntimeEnabledFeatures::sharedFeatures().attachmentElementEnabled()) {
         for (auto& path : paths) {
             auto attachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, document);
-            attachment->setUniqueIdentifier(createCanonicalUUIDString());
             attachment->setFile(File::create(path), HTMLAttachmentElement::UpdateDisplayAttributes::Yes);
             fragment->appendChild(attachment);
         }
     }
 #endif
 
+    return true;
+}
+
+bool WebContentReader::readURL(const URL& url, const String& title)
+{
+    if (url.isEmpty())
+        return false;
+
+#if PLATFORM(IOS)
+    // FIXME: This code shouldn't be accessing selection and changing the behavior.
+    if (!frame.editor().client()->hasRichlyEditableSelection()) {
+        if (readPlainText([(NSURL *)url absoluteString]))
+            return true;
+    }
+
+    if ([(NSURL *)url isFileURL])
+        return false;
+#endif // PLATFORM(IOS)
+
+    auto document = makeRef(*frame.document());
+    auto anchor = HTMLAnchorElement::create(document.get());
+    anchor->setAttributeWithoutSynchronization(HTMLNames::hrefAttr, url.string());
+
+    NSString *linkText = title.isEmpty() ? [(NSURL *)url absoluteString] : (NSString *)title;
+    anchor->appendChild(document->createTextNode([linkText precomposedStringWithCanonicalMapping]));
+
+    auto newFragment = document->createDocumentFragment();
+    if (fragment)
+        newFragment->appendChild(HTMLBRElement::create(document.get()));
+    newFragment->appendChild(anchor);
+    addFragment(WTFMove(newFragment));
     return true;
 }
 

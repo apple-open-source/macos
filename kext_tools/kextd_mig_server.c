@@ -131,10 +131,19 @@ void kextd_mach_port_callback(
     void *info)
 {
     mig_reply_error_t * bufRequest = msg;
-    mig_reply_error_t * bufReply = CFAllocatorAllocate(
-        NULL, _kextmanager_subsystem.maxsize, 0);
+    mig_reply_error_t * bufReply = (mig_reply_error_t *)malloc(_kextmanager_subsystem.maxsize);
     mach_msg_return_t   mr;
     int                 options;
+
+    if (!bufReply) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+                  "No memory for mach_msg reply!");
+        return;
+    }
+
+    memset(bufReply, 0, _kextmanager_subsystem.maxsize);
+    bufReply->RetCode = MIG_BAD_ID;
 
     /* we have a request message */
     (void) kextd_demux(&bufRequest->Head, &bufReply->Head);
@@ -149,7 +158,7 @@ void kextd_mach_port_callback(
              * error would not normally get returned either to the local
              * user or the remote one, we pretend it's ok.
              */
-            CFAllocatorDeallocate(NULL, bufReply);
+            free(bufReply);
             return;
         }
 
@@ -166,7 +175,7 @@ void kextd_mach_port_callback(
         if (bufReply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX) {
             mach_msg_destroy(&bufReply->Head);
         }
-        CFAllocatorDeallocate(NULL, bufReply);
+        free(bufReply);
         return;
     }
 
@@ -208,5 +217,5 @@ void kextd_mach_port_callback(
             break;
     }
 
-    CFAllocatorDeallocate(NULL, bufReply);
+    free(bufReply);
 }

@@ -131,8 +131,8 @@
                                                  OSObject *val, uintptr_t refcon);
 
     static void systemWork(OSObject * owner,
-                                        IOInterruptEventSource * evtSrc, int intCount);
-	static void serverAckTimeout(OSObject * owner, IOTimerEventSource * sender);
+                           IOInterruptEventSource * evtSrc, int intCount);
+    static void serverPowerTimeout(OSObject *, IOTimerEventSource *);
 
     IOOptionBits checkPowerWork(IOOptionBits state);
 
@@ -141,7 +141,9 @@
     void checkDeferredCLUTSet( void );
     void updateCursorForCLUTSet( void );
     IOReturn updateGammaTable(  UInt32 channelCount, UInt32 dataCount,
-                                UInt32 dataWidth, const void * data, SInt32 syncType, bool immediate = false );
+                                UInt32 dataWidth, const void * data,
+                              SInt32 syncType, bool immediate,
+                              bool ignoreTransactionActive );
 
     static void dpInterruptProc(OSObject * target, void * ref);
     static void dpInterrupt(OSObject * owner, IOTimerEventSource * sender);
@@ -165,7 +167,7 @@
     void setCaptured( bool isCaptured );
     void setDimDisable( bool dimDisable );
     bool getDimDisable( void );
-    IOReturn notifyServer( UInt8 state );
+    IOReturn notifyServer(const uint8_t state);
     IOReturn _extEntry(bool system, bool allowOffline, uint32_t apibit, const char * where);
     void     _extExit(bool system, IOReturn result, uint32_t apibit, const char * where);
     bool getIsUsable(void);
@@ -250,8 +252,9 @@
     static IOReturn extGetAttribute(OSObject * target, void * reference, IOExternalMethodArguments * args);
     IOReturn extSetMirrorOne(uint32_t value, IOFramebuffer * other);
     static IOReturn extValidateDetailedTiming(OSObject * target, void * reference, IOExternalMethodArguments * args);
-	void serverAcknowledgeNotification(void);
+	void serverAcknowledgeNotification(integer_t msgh_id);
     static IOReturn extAcknowledgeNotification(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    IOReturn extAcknowledgeNotificationImpl(IOExternalMethodArguments * args);
     IOReturn extCopySharedCursor(IOMemoryDescriptor **cursorH);
     IOReturn newDiagnosticUserClient(IOUserClient **clientH);
     static IOReturn extSetHibernateGammaTable(OSObject * target, void * reference, IOExternalMethodArguments * args);
@@ -283,6 +286,7 @@ private:
 
     void setLimitState(const uint64_t limit);
     uint64_t getLimitState(void) const;
+
 
 protected:
     // --
@@ -324,6 +328,7 @@ public:
 
     IOReturn waitQuietController(void);
     void closeNoSys(void);
+
 
 protected:
 

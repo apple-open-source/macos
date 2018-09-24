@@ -26,8 +26,6 @@
 #include "config.h"
 #include "NetworkSession.h"
 
-#if USE(NETWORK_SESSION)
-
 #include "NetworkDataTask.h"
 #include <WebCore/NetworkStorageSession.h>
 #include <wtf/MainThread.h>
@@ -38,6 +36,9 @@
 #endif
 #if USE(SOUP)
 #include "NetworkSessionSoup.h"
+#endif
+#if USE(CURL)
+#include "NetworkSessionCurl.h"
 #endif
 
 
@@ -52,6 +53,9 @@ Ref<NetworkSession> NetworkSession::create(NetworkSessionCreationParameters&& pa
 #endif
 #if USE(SOUP)
     return NetworkSessionSoup::create(WTFMove(parameters));
+#endif
+#if USE(CURL)
+    return NetworkSessionCurl::create(WTFMove(parameters));
 #endif
 }
 
@@ -87,5 +91,3 @@ bool NetworkSession::allowsSpecificHTTPSCertificateForHost(const WebCore::Authen
 }
 
 } // namespace WebKit
-
-#endif // USE(NETWORK_SESSION)

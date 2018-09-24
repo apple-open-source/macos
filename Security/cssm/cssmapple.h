@@ -1080,7 +1080,7 @@ enum
 	CSSM_CERT_STATUS_TRUST_SETTINGS_IGNORED_ERROR	= 0x00000800
 };
 
-typedef struct {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
 	CSSM_TP_APPLE_CERT_STATUS	StatusBits;
 	uint32 						NumStatusCodes;
 	CSSM_RETURN 				*StatusCodes;
@@ -1096,7 +1096,7 @@ typedef struct {
     /* CRLReason code if cert is revoked */
     sint32                      CrlReason;
 #endif /* SEC_OS_IPHONE */
-} CSSM_TP_APPLE_EVIDENCE_INFO;
+} CSSM_TP_APPLE_EVIDENCE_INFO DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #if SEC_OS_OSX
 

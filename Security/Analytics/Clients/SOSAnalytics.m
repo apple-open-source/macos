@@ -54,16 +54,7 @@ CKDKVSPerformanceCounter* const CKDKVSPerfCounterSynchronizeFailures = (CKDKVSPe
             remove(filename);
         });
     });
-    WithPathInKeychainDirectory(CFSTR("Analytics"), ^(const char *path) {
-#if TARGET_OS_IPHONE
-        mode_t permissions = 0775;
-#else
-        mode_t permissions = 0700;
-#endif // TARGET_OS_IPHONE
-        mkpath_np(path, permissions);
-        chmod(path, permissions);
-    });
-    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)@"Analytics/sos_analytics.db") path];
+    return [SOSAnalytics defaultAnalyticsDatabasePath:@"sos_analytics"];
 }
 
 + (instancetype)logger

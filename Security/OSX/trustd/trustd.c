@@ -348,9 +348,7 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
 
     secdebug("serverxpc", "entering");
     if (type == XPC_TYPE_DICTIONARY) {
-        // TODO: Find out what we're dispatching.
         replyMessage = xpc_dictionary_create_reply(event);
-
 
         uint64_t operation = xpc_dictionary_get_uint64(event, kSecXPCKeyOperation);
 
@@ -409,39 +407,7 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                     } else {
                         secdebug("ipc", "%@ %@ responding %@", client.task, SOSCCGetOperationDescription((enum SecXPCOperation)operation), asyncReply);
                     }
-#if TARGET_OS_IPHONE
-                    // Ensure that we remain dirty for two seconds after ending the client's transaction to avoid jetsam loops.
-                    // Refer to rdar://problem/38044831 for more details.
-                    static dispatch_queue_t dirty_timer_queue = NULL;
-                    static dispatch_source_t dirty_timer = NULL;
-                    static bool has_transcation = false;
-                    static dispatch_once_t onceToken;
-                    dispatch_once(&onceToken, ^{
-                        dirty_timer_queue = dispatch_queue_create("dirty timer queue", DISPATCH_QUEUE_SERIAL);
-                        dirty_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dirty_timer_queue);
-                        dispatch_source_set_event_handler(dirty_timer, ^{
-                            /* timer fired, end the transaction */
-                            os_assumes(has_transcation);
-                            xpc_transaction_end();
-                            has_transcation = false;
-                        });
-                    });
 
-                    dispatch_sync(dirty_timer_queue, ^{
-                        /* reset the timer for 2 seconds from now */
-                        dispatch_source_set_timer(dirty_timer, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC),
-                                                  DISPATCH_TIME_FOREVER, 100 * NSEC_PER_MSEC);
-                        if (!has_transcation) {
-                            /* timer is not running/not holding a transaction, start transaction */
-                            xpc_transaction_begin();
-                            has_transcation = true;
-                        }
-                        static dispatch_once_t onceToken2;
-                        dispatch_once(&onceToken2, ^{
-                            dispatch_resume(dirty_timer);
-                        });
-                    });
-#endif
                     xpc_connection_send_message(connection, asyncReply);
                     xpc_release(asyncReply);
                     xpc_release(connection);
@@ -552,13 +518,7 @@ static void trustd_xpc_init(const char *service_name)
         if (xpc_get_type(connection) == XPC_TYPE_CONNECTION) {
             xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
                 if (xpc_get_type(event) == XPC_TYPE_DICTIONARY) {
-                    xpc_retain(connection);
-                    xpc_retain(event);
-                    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                        trustd_xpc_dictionary_handler(connection, event);
-                        xpc_release(event);
-                        xpc_release(connection);
-                    });
+                    trustd_xpc_dictionary_handler(connection, event);
                 }
             });
             xpc_connection_resume(connection);
@@ -691,13 +651,6 @@ static void trustd_sandbox(void) {
 }
 #endif
 
-static void trustd_cfstream_init() {
-    CFReadStreamRef rs = CFReadStreamCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8*) "", 0, kCFAllocatorNull);
-    CFReadStreamSetDispatchQueue(rs, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
-    CFReadStreamSetDispatchQueue(rs, NULL);
-    CFRelease(rs);
-}
-
 int main(int argc, char *argv[])
 {
     char *wait4debugger = getenv("WAIT4DEBUGGER");
@@ -743,9 +696,6 @@ int main(int argc, char *argv[])
 
     /* set up SQLite before some other component has a chance to create a database connection */
     _SecDbServerSetup();
-
-    /* <rdar://problem/33635964> Force legacy CFStream run loop initialization before any NSURLSession usage */
-    trustd_cfstream_init();
 
     gTrustd = &trustd_spi;
 

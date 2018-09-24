@@ -115,6 +115,7 @@ IOReturn IOAccelCreateAccelID(IOOptionBits options, IOAccelID * identifier)
         {
             err = IOServiceOpen(service, mach_task_self(), 0, &idConnect);
             IOObjectRelease(service);
+            if (kIOReturnSuccess != err) idConnect = MACH_PORT_NULL;
         }
     }
 

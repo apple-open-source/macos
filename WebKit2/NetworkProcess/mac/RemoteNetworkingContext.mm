@@ -36,50 +36,12 @@
 #import "WebsiteDataStoreParameters.h"
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/ResourceError.h>
+#import <pal/SessionID.h>
 #import <wtf/MainThread.h>
 
 using namespace WebCore;
 
 namespace WebKit {
-
-
-RemoteNetworkingContext::~RemoteNetworkingContext()
-{
-}
-
-bool RemoteNetworkingContext::isValid() const
-{
-    return true;
-}
-
-bool RemoteNetworkingContext::localFileContentSniffingEnabled() const
-{
-    return m_localFileContentSniffingEnabled;
-}
-
-NetworkStorageSession& RemoteNetworkingContext::storageSession() const
-{
-    if (auto session = NetworkStorageSession::storageSession(m_sessionID))
-        return *session;
-    // Some requests may still be coming shortly after NetworkProcess was told to destroy its session.
-    LOG_ERROR("Invalid session ID. Please file a bug unless you just disabled private browsing, in which case it's an expected race.");
-    return NetworkStorageSession::defaultStorageSession();
-}
-
-RetainPtr<CFDataRef> RemoteNetworkingContext::sourceApplicationAuditData() const
-{
-    return NetworkProcess::singleton().sourceApplicationAuditData();
-}
-
-String RemoteNetworkingContext::sourceApplicationIdentifier() const
-{
-    return SessionTracker::getIdentifierBase();
-}
-
-ResourceError RemoteNetworkingContext::blockedError(const ResourceRequest& request) const
-{
-    return WebKit::blockedError(request);
-}
 
 void RemoteNetworkingContext::ensureWebsiteDataStoreSession(WebsiteDataStoreParameters&& parameters)
 {
@@ -106,16 +68,7 @@ void RemoteNetworkingContext::ensureWebsiteDataStoreSession(WebsiteDataStorePara
     for (const auto& cookie : parameters.pendingCookies)
         session->setCookie(cookie);
 
-    if (!sessionID.isEphemeral() && !parameters.cacheStorageDirectory.isNull()) {
-        SandboxExtension::consumePermanently(parameters.cacheStorageDirectoryExtensionHandle);
-        session->setCacheStorageDirectory(WTFMove(parameters.cacheStorageDirectory));
-        session->setCacheStoragePerOriginQuota(parameters.cacheStoragePerOriginQuota);
-    }
-
-#if USE(NETWORK_SESSION)
-    parameters.networkSessionParameters.legacyCustomProtocolManager = NetworkProcess::singleton().supplement<LegacyCustomProtocolManager>();
     SessionTracker::setSession(sessionID, NetworkSession::create(WTFMove(parameters.networkSessionParameters)));
-#endif
 }
 
 }

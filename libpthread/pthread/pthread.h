@@ -172,6 +172,12 @@ __BEGIN_DECLS
 #define PTHREAD_MUTEX_DEFAULT		PTHREAD_MUTEX_NORMAL
 
 /*
+ * Mutex policy attributes
+ */
+#define PTHREAD_MUTEX_POLICY_FAIRSHARE_NP   1
+#define PTHREAD_MUTEX_POLICY_FIRSTFIT_NP    3
+
+/*
  * RWLock variables
  */
 #define PTHREAD_RWLOCK_INITIALIZER {_PTHREAD_RWLOCK_SIG_init, {0}}
@@ -405,6 +411,10 @@ __API_AVAILABLE(macos(10.4), ios(2.0))
 int pthread_mutexattr_gettype(const pthread_mutexattr_t * __restrict,
 		int * __restrict);
 
+__API_AVAILABLE(macos(10.13.4), ios(11.3), watchos(4.3), tvos(11.3))
+int pthread_mutexattr_getpolicy_np(const pthread_mutexattr_t * __restrict,
+		int * __restrict);
+
 __API_AVAILABLE(macos(10.4), ios(2.0))
 int pthread_mutexattr_init(pthread_mutexattr_t *);
 
@@ -419,6 +429,9 @@ int pthread_mutexattr_setpshared(pthread_mutexattr_t *, int);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
 int pthread_mutexattr_settype(pthread_mutexattr_t *, int);
+
+__API_AVAILABLE(macos(10.7), ios(5.0))
+int pthread_mutexattr_setpolicy_np(pthread_mutexattr_t *, int);
 
 __SWIFT_UNAVAILABLE_MSG("Use lazily initialized globals instead")
 __API_AVAILABLE(macos(10.4), ios(2.0))

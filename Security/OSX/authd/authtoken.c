@@ -394,6 +394,10 @@ auth_token_credentials_iterate(auth_token_t auth, credential_iterator_t iter)
     
     dispatch_sync(auth->dispatch_queue, ^{
         CFIndex count = CFSetGetCount(auth->credentials);
+        if (count > 128) { // <rdar://problem/38179345> Variable Length Arrays; AuthD
+                           // auth_token usually contains 0 or 1 credential
+            count = 128;
+        }
         CFTypeRef values[count];
         CFSetGetValues(auth->credentials, values);
         for (CFIndex i = 0; i < count; i++) {
@@ -414,27 +418,6 @@ auth_token_set_right(auth_token_t auth, credential_t right)
     dispatch_sync(auth->dispatch_queue, ^{
         CFSetSetValue(auth->authorized_rights, right);
     });
-}
-
-bool
-auth_token_rights_iterate(auth_token_t auth, credential_iterator_t iter)
-{
-    __block bool result = false;
-    
-    dispatch_sync(auth->dispatch_queue, ^{
-        CFIndex count = CFSetGetCount(auth->authorized_rights);
-        CFTypeRef values[count];
-        CFSetGetValues(auth->authorized_rights, values);
-        for (CFIndex i = 0; i < count; i++) {
-            credential_t right = (credential_t)values[i];
-            result = iter(right);
-            if (!result) {
-                break;
-            }
-        }
-    });
-    
-    return result;
 }
 
 CFTypeRef

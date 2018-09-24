@@ -25,18 +25,32 @@
 #include <sys/uio.h>
 
 #include <dlfcn.h>
+#include <errno.h>
+#include <mach-o/dyld_priv.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <uuid/uuid.h>
 
 #include "stack_logging.h"
 #include "execinfo.h"
 
+extern void _thread_stack_pcs(vm_address_t *buffer, unsigned max,
+		unsigned *nb, unsigned skip, void *startfp);
+
 int backtrace(void** buffer, int size) {
-	extern void _thread_stack_pcs(vm_address_t *buffer, unsigned max, unsigned *nb, unsigned skip);
 	unsigned int num_frames;
-	_thread_stack_pcs((vm_address_t*)buffer, size, &num_frames, 1);
+	_thread_stack_pcs((vm_address_t*)buffer, size, &num_frames, 1, NULL);
+	while (num_frames >= 1 && buffer[num_frames-1] == NULL) num_frames -= 1;
+	return num_frames;
+}
+
+int
+backtrace_from_fp(void *startfp, void **buffer, int size)
+{
+	unsigned int num_frames;
+	_thread_stack_pcs((vm_address_t*)buffer, size, &num_frames, 1, startfp);
 	while (num_frames >= 1 && buffer[num_frames-1] == NULL) num_frames -= 1;
 	return num_frames;
 }
@@ -166,7 +180,19 @@ void backtrace_symbols_fd(void* const* buffer, int size, int fd) {
 		dladdr(buffer[i], &info);
 
 		iov[0].iov_len = _backtrace_snprintf(buf, sizeof(buf), i, buffer[i], &info);
-		
+
 		writev(fd, iov, 2);
 	}
+}
+
+void
+backtrace_image_offsets(void* const* buffer, struct image_offset *imgoffs, int size)
+{
+	struct dyld_image_uuid_offset infos[size];
+	_dyld_images_for_addresses(size, (const void **)buffer, infos);
+
+	for (int i = 0; i < size; i++) {
+		uuid_copy(imgoffs[i].uuid, infos[i].uuid);
+		imgoffs[i].offset = infos[i].offsetInImage;
+	};
 }

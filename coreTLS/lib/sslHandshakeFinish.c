@@ -29,6 +29,7 @@
 #include "tls_handshake_priv.h"
 
 #include "sslHandshake.h"
+#include "sslHandshake_priv.h"
 #include "sslMemory.h"
 #include "sslDebug.h"
 #include "sslUtils.h"

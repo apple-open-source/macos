@@ -1067,6 +1067,18 @@ ProxyPass "/mirror/foo" "http://backend.example.com"</pre>
     <code>backend.example.com</code> <em>except</em> requests made to
     <code>/mirror/foo/i</code>.</p>
 
+    <p>Mixing ProxyPass settings in different contexts does not work:</p>
+    <pre class="prettyprint lang-config">ProxyPass "/mirror/foo/i" "!"
+&lt;Location "/mirror/foo/"&gt;
+    ProxyPass "http://backend.example.com/"
+&lt;/Location&gt;</pre>
+
+    <p>In this case, a request to <code>/mirror/foo/i</code> will get proxied,
+       because the <code class="directive">ProxyPass</code> directive in the Location block will be evaluated
+       first. The fact that <code class="directive">ProxyPass</code> supports both server and directory contexts
+       does not mean that their scope and position in the configuration file will
+       guarantee any ordering or override.</p>
+
     <div class="warning"><h3>Ordering ProxyPass Directives</h3>
       <p>The configured <code class="directive"><a href="#proxypass">ProxyPass</a></code>
       and <code class="directive"><a href="#proxypassmatch">ProxyPassMatch</a></code>
@@ -1075,12 +1087,15 @@ ProxyPass "/mirror/foo" "http://backend.example.com"</pre>
       <code class="directive"><a href="#proxypass">ProxyPass</a></code> rules starting with the
       longest URLs first. Otherwise, later rules for longer URLS will be hidden
       by any earlier rule which uses a leading substring of the URL. Note that
-      there is some relation with worker sharing. In contrast, only one
-      <code class="directive"><a href="#proxypass">ProxyPass</a></code> directive can be placed
-      in a <code class="directive"><a href="../mod/core.html#location">Location</a></code> block, and the most
-      specific location will take precedence.</p>
-
-      <p>For the same reasons, exclusions must come <em>before</em> the
+      there is some relation with worker sharing.</p>
+    </div>
+    <div class="warning"><h3>Ordering ProxyPass Directives in Locations</h3>
+      <p>Only one <code class="directive"><a href="#proxypass">ProxyPass</a></code> directive
+      can be placed in a <code class="directive"><a href="../mod/core.html#location">Location</a></code> block,
+      and the most specific location will take precedence.</p>
+    </div>
+    <div class="warning"><h3>Exclusions and the no-proxy environment variable</h3>
+      <p>Exclusions must come <em>before</em> the
       general <code class="directive">ProxyPass</code> directives. In 2.4.26 and later, the "no-proxy"
       environment variable is an alternative to exclusions, and is the only
       way to configure an exclusion of a <code class="directive">ProxyPass</code>
@@ -1203,6 +1218,14 @@ ProxyPass "/mirror/foo" "http://backend.example.com"</pre>
         to override the <code class="directive">ProxyIOBufferSize</code> for a specific worker.
         This must be at least 512 or set to 0 for the system default of 8192.
     </td></tr>
+    <tr><td>responsefieldsize</td>
+        <td>8192</td>
+        <td>Adjust the size of the proxy response field buffer. The buffer size
+            should be at least the size of the largest expected header size from
+            a proxied response. Setting the value to 0 will use the system
+            default of 8192 bytes.<br />
+        Available in Apache HTTP Server 2.4.34 and later.
+    </td></tr>
     <tr><td>keepalive</td>
         <td>Off</td>
         <td><p>This parameter should be used when you have a firewall between your
@@ -1270,7 +1293,7 @@ ProxyPass "/mirror/foo" "http://backend.example.com"</pre>
         <td>Route of the worker when used inside load balancer.
         The route is a value appended to session id.
     </td></tr>
-    <tr><td>status</td>
+    <tr><td><a name="status_table">status</a></td>
         <td>-</td>
         <td>Single letter value defining the initial status of
         this worker.
@@ -1278,8 +1301,12 @@ ProxyPass "/mirror/foo" "http://backend.example.com"</pre>
          <tr><td>D: Worker is disabled and will not accept any requests.</td></tr>
          <tr><td>S: Worker is administratively stopped.</td></tr>
          <tr><td>I: Worker is in ignore-errors mode and will always be considered available.</td></tr>
+         <tr><td>R: Worker is a hot spare. For each worker in a given lbset that is unusable
+                    (draining, stopped, in error, etc.), a usable hot spare with the same lbset will be used in
+                    its place. Hot spares can help ensure that a specific number of workers are always available
+                    for use by a balancer.</td></tr>
          <tr><td>H: Worker is in hot-standby mode and will only be used if no other
-                    viable workers are available.</td></tr>
+                    viable workers or spares are available in the balancer set.</td></tr>
          <tr><td>E: Worker is in an error state.</td></tr>
          <tr><td>N: Worker is in drain mode and will only accept existing sticky sessions
                     destined for itself and ignore all other requests.</td></tr>
@@ -1433,8 +1460,23 @@ ProxyPass "/" "balancer://mycluster/" stickysession=JSESSIONID|jsessionid nofail
 &lt;/Proxy&gt;</pre>
 
 
+    <p>Configuring hot spares can help ensure that a certain number of
+    workers are always available for use per load balancer set:</p>
+    <pre class="prettyprint lang-config">ProxyPass "/" "balancer://sparecluster/"
+&lt;Proxy balancer://sparecluster&gt;
+    BalancerMember ajp://1.2.3.4:8009
+    BalancerMember ajp://1.2.3.5:8009
+    # The servers below are hot spares. For each server above that is unusable
+    # (draining, stopped, unreachable, in error state, etc.), one of these spares
+    # will be used in its place. Two servers will always be available for a request
+    # unless one or more of the spares is also unusable.
+    BalancerMember ajp://1.2.3.6:8009 status=+R
+    BalancerMember ajp://1.2.3.7:8009 status=+R
+&lt;/Proxy&gt;</pre>
+
+
     <p>Setting up a hot-standby that will only be used if no other
-     members are available:</p>
+    members (or spares) are available in the load balancer set:</p>
     <pre class="prettyprint lang-config">ProxyPass "/" "balancer://hotcluster/"
 &lt;Proxy "balancer://hotcluster"&gt;
     BalancerMember "ajp://1.2.3.4:8009" loadfactor=1
@@ -1461,15 +1503,18 @@ ProxyPass "/" "balancer://mycluster/" stickysession=JSESSIONID|jsessionid nofail
     httpd 2.4.1 and later) prevents this.</p>
 
     <p>The optional <var>interpolate</var> keyword, in combination with
-    <code class="directive">ProxyPassInterpolateEnv</code>, causes the ProxyPass
+    <code class="directive"><a href="#proxypassinterpolateenv">ProxyPassInterpolateEnv</a></code>, causes the ProxyPass
     to interpolate environment variables, using the syntax
     <var>${VARNAME}</var>.  Note that many of the standard CGI-derived
     environment variables will not exist when this interpolation happens,
     so you may still have to resort to <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>
-    for complex rules.  Also note that interpolation is not supported
-    within the scheme portion of a URL.  Dynamic determination of the
-    scheme can be accomplished with <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> as in the
-    following example.</p>
+    for complex rules. Also note that interpolation is supported
+    within the scheme/hostname/port portion of a URL only for variables that
+    are available when the directive is parsed 
+    (like <code class="directive"><a href="../mod/core.html#define">Define</a></code>). Dynamic determination of
+    those fields can be accomplished with <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>.
+    The following example describes how to use <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>
+    to dynamically set the scheme to http or https:</p>
 
     <pre class="prettyprint lang-config">RewriteEngine On
 
@@ -1530,7 +1575,17 @@ ProxyPassReverse  "/mirror/foo/" "https://backend.example.com/"</pre>
     and causes them to substitute the value of an environment
     variable <code>varname</code> for the string <code>${varname}</code>
     in configuration directives if the <var>interpolate</var> option is set.</p>
-    <p>Keep this turned off (for server performance) unless you need it!</p>
+    <p>The scheme/hostname/port portion of <code class="directive">ProxyPass</code> may
+    contain variables, but only the ones available when the directive is parsed
+    (for example, using <code class="directive"><a href="../mod/core.html#define">Define</a></code>).
+    For all the other use cases, please consider using
+    <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> instead.</p>
+    <div class="warning"><h3>Performance warning</h3>
+    <p>Keep this turned off unless you need it!
+    Adding variables to <code class="directive">ProxyPass</code> for example may lead to
+    the use of the default mod_proxy's workers configured (that don't allow any fine
+    tuning like connections reuse, etc..).</p>
+    </div>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1858,7 +1913,7 @@ expressions</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Set various Proxy balancer or member parameters</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>ProxySet <var>url</var> <var>key=value [key=value ...]</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory</td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>ProxySet is only available in Apache HTTP Server 2.2

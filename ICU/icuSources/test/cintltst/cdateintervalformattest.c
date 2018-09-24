@@ -19,6 +19,7 @@
 
 static void TestDateIntervalFormat(void);
 static void TestFPos_SkelWithSeconds(void);
+static void TestOpen(void);
 
 void addDateIntervalFormatTest(TestNode** root);
 
@@ -28,6 +29,7 @@ void addDateIntervalFormatTest(TestNode** root)
 {
     TESTCASE(TestDateIntervalFormat);
     TESTCASE(TestFPos_SkelWithSeconds);
+    TESTCASE(TestOpen);
 }
 
 static const char tzUSPacific[] = "US/Pacific";
@@ -366,6 +368,119 @@ static void TestFPos_SkelWithSeconds()
 			}
 	        udtitvfmt_close(udifmt);
 	    }
+    }
+}
+
+static const char* openLocales[] = {
+    "en",
+    "en@calendar=japanese",
+    "en@calendar=coptic",
+    "en@calendar=chinese",
+    "en_001",
+    "en_001@calendar=japanese",
+    "en_001@calendar=coptic",
+    "en_001@calendar=chinese",
+    "en_AU",
+    "en_AU@calendar=japanese", // had problems
+    "en_AU@calendar=coptic", // had problems
+    "en_AU@calendar=chinese",
+    "en_CA",
+    "en_CA@calendar=japanese", // had problems
+    "en_CA@calendar=coptic", // had problems
+    "en_CA@calendar=chinese",
+    "en_CN",
+    "en_CN@calendar=japanese", // had problems
+    "en_CN@calendar=coptic", // had problems
+    "en_CN@calendar=chinese",
+    "en_DE@calendar=japanese", // had problems
+    "en_DE@calendar=coptic", // had problems
+    "en_GB",
+    "en_GB@calendar=japanese", // had problems
+    "en_GB@calendar=coptic", // had problems
+    "en_GB@calendar=chinese",
+    "en_HK@calendar=japanese", // had problems
+    "en_HK@calendar=coptic", // had problems
+    "en_IE@calendar=japanese", // had problems
+    "en_IE@calendar=coptic", // had problems
+    "en_IN@calendar=japanese", // had problems
+    "en_IN@calendar=coptic", // had problems
+    "en_JP",
+    "en_JP@calendar=japanese",
+    "en_JP@calendar=coptic",
+    "en_JP@calendar=chinese",
+    "en_NZ",
+    "en_NZ@calendar=japanese", // had problems
+    "en_NZ@calendar=coptic", // had problems
+    "en_NZ@calendar=chinese",
+    "en_SG@calendar=japanese", // had problems
+    "en_SG@calendar=coptic", // had problems
+    "es",
+    "es@calendar=japanese",
+    "es@calendar=coptic",
+    "es@calendar=chinese",
+    "es_419",
+    "es_419@calendar=japanese", // had problems
+    "es_419@calendar=coptic", // had problems
+    "es_419@calendar=chinese",
+    "es_MX",
+    "es_MX@calendar=japanese",
+    "es_MX@calendar=coptic",
+    "es_MX@calendar=chinese",
+    "es_US",
+    "es_US@calendar=japanese",
+    "es_US@calendar=coptic",
+    "es_US@calendar=chinese",
+    "fr",
+    "fr@calendar=japanese",
+    "fr@calendar=coptic",
+    "fr@calendar=chinese",
+    "fr_CA",
+    "fr_CA@calendar=japanese", // had problems
+    "fr_CA@calendar=coptic", // had problems
+    "fr_CA@calendar=chinese",
+    "fr_CH",
+    "fr_CH@calendar=japanese",
+    "fr_CH@calendar=coptic",
+    "fr_CH@calendar=chinese",
+    "fr_BE",
+    "fr_BE@calendar=japanese",
+    "fr_BE@calendar=coptic",
+    "fr_BE@calendar=chinese",
+    "nl_BE@calendar=japanese", // had problems
+    "nl_BE@calendar=coptic", // had problems
+    "pt",
+    "pt@calendar=japanese",
+    "pt@calendar=coptic",
+    "pt@calendar=chinese",
+    "pt_PT",
+    "pt_PT@calendar=japanese", // had problems
+    "pt_PT@calendar=coptic", // had problems
+    "pt_PT@calendar=chinese",
+    "zh_Hant",
+    "zh_Hant@calendar=japanese",
+    "zh_Hant@calendar=coptic",
+    "zh_Hant@calendar=chinese",
+    "zh_Hant_HK",
+    "zh_Hant_HK@calendar=japanese", // had problems
+    "zh_Hant_HK@calendar=coptic", // had problems
+    "zh_Hant_HK@calendar=chinese",
+    NULL
+};
+static const UChar* openSkeleton = u"zzzzyMMMMEEEEdhmmss";
+static const UChar* openZone = u"America/Vancouver";
+
+static void TestOpen()
+{
+    const char* locale;
+    const char** localesPtr = openLocales;
+    while ((locale = *localesPtr++) != NULL) {
+        UErrorCode status = U_ZERO_ERROR;
+        UDateIntervalFormat* udatintv = udtitvfmt_open(locale, openSkeleton, -1, openZone, -1, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("FAIL: udtitvfmt_open for locale %s: %s\n", locale, u_errorName(status));
+        } else {
+            udtitvfmt_close(udatintv);
+        }
     }
 }
 

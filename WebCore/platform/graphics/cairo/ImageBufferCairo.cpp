@@ -35,14 +35,15 @@
 #include "CairoUtilities.h"
 #include "Color.h"
 #include "GraphicsContext.h"
+#include "GraphicsContextImplCairo.h"
 #include "MIMETypeRegistry.h"
 #include "NotImplemented.h"
 #include "Pattern.h"
 #include "PlatformContextCairo.h"
 #include "RefPtrCairo.h"
+#include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/TypedArrayInlines.h>
 #include <cairo.h>
-#include <runtime/JSCInlines.h>
-#include <runtime/TypedArrayInlines.h>
 #include <wtf/Vector.h>
 #include <wtf/text/Base64.h>
 #include <wtf/text/WTFString.h>
@@ -51,12 +52,18 @@
 #include "GLContext.h"
 #include "TextureMapperGL.h"
 
-#if USE(EGL) && USE(LIBEPOXY)
+#if USE(EGL)
+#if USE(LIBEPOXY)
 #include "EpoxyEGL.h"
+#else
+#include <EGL/egl.h>
+#endif
 #endif
 #include <cairo-gl.h>
 
-#if USE(OPENGL_ES_2)
+#if USE(LIBEPOXY)
+#include <epoxy/gl.h>
+#elif USE(OPENGL_ES)
 #include <GLES2/gl2.h>
 #else
 #include "OpenGLShims.h"
@@ -197,7 +204,42 @@ void ImageBufferData::createCairoGLSurface()
 }
 #endif
 
-ImageBuffer::ImageBuffer(const FloatSize& size, float resolutionScale, ColorSpace, RenderingMode renderingMode, bool& success)
+static RefPtr<cairo_surface_t>
+cairoSurfaceCoerceToImage(cairo_surface_t* surface)
+{
+    if (cairo_surface_get_type(surface) == CAIRO_SURFACE_TYPE_IMAGE
+        && cairo_surface_get_content(surface) == CAIRO_CONTENT_COLOR_ALPHA)
+        return surface;
+
+    auto copy = adoptRef(cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+        cairo_image_surface_get_width(surface),
+        cairo_image_surface_get_height(surface)));
+
+    auto cr = adoptRef(cairo_create(copy.get()));
+    cairo_set_operator(cr.get(), CAIRO_OPERATOR_SOURCE);
+    cairo_set_source_surface(cr.get(), surface, 0, 0);
+    cairo_paint(cr.get());
+
+    return copy;
+}
+
+Vector<uint8_t> ImageBuffer::toBGRAData() const
+{
+    auto surface = cairoSurfaceCoerceToImage(m_data.m_surface.get());
+    cairo_surface_flush(surface.get());
+
+    Vector<uint8_t> imageData;
+    if (cairo_surface_status(surface.get()))
+        return imageData;
+
+    auto pixels = cairo_image_surface_get_data(surface.get());
+    imageData.append(pixels, cairo_image_surface_get_stride(surface.get()) *
+        cairo_image_surface_get_height(surface.get()));
+
+    return imageData;
+}
+
+ImageBuffer::ImageBuffer(const FloatSize& size, float resolutionScale, ColorSpace, RenderingMode renderingMode, const HostWindow*, bool& success)
     : m_data(IntSize(size), renderingMode)
     , m_logicalSize(size)
     , m_resolutionScale(resolutionScale)
@@ -246,7 +288,7 @@ ImageBuffer::ImageBuffer(const FloatSize& size, float resolutionScale, ColorSpac
 
     RefPtr<cairo_t> cr = adoptRef(cairo_create(m_data.m_surface.get()));
     m_data.m_platformContext.setCr(cr.get());
-    m_data.m_context = std::make_unique<GraphicsContext>(&m_data.m_platformContext);
+    m_data.m_context = std::make_unique<GraphicsContext>(GraphicsContextImplCairo::createFactory(m_data.m_platformContext));
     success = true;
 }
 
@@ -342,11 +384,28 @@ RefPtr<cairo_surface_t> copySurfaceToImageAndAdjustRect(cairo_surface_t* surface
 template <AlphaPremultiplication premultiplied>
 RefPtr<Uint8ClampedArray> getImageData(const IntRect& rect, const IntRect& logicalRect, const ImageBufferData& data, const IntSize& size, const IntSize& logicalSize, float resolutionScale)
 {
-    auto result = Uint8ClampedArray::createUninitialized(rect.width() * rect.height() * 4);
+    // The area can overflow if the rect is too big.
+    Checked<unsigned, RecordOverflow> area = 4;
+    area *= rect.width();
+    area *= rect.height();
+    if (area.hasOverflowed())
+        return nullptr;
+
+    auto result = Uint8ClampedArray::createUninitialized(area.unsafeGet());
     if (!result)
         return nullptr;
 
-    if (rect.x() < 0 || rect.y() < 0 || (rect.x() + rect.width()) > size.width() || (rect.y() + rect.height()) > size.height())
+    // Can overflow, as we are adding 2 ints.
+    int endx = 0;
+    if (!WTF::safeAdd(rect.x(), rect.width(), endx))
+        return nullptr;
+
+    // Can overflow, as we are adding 2 ints.
+    int endy = 0;
+    if (!WTF::safeAdd(rect.y(), rect.height(), endy))
+        return nullptr;
+
+    if (rect.x() < 0 || rect.y() < 0 || endx > size.width() || endy > size.height())
         result->zeroFill();
 
     int originx = rect.x();
@@ -355,7 +414,7 @@ RefPtr<Uint8ClampedArray> getImageData(const IntRect& rect, const IntRect& logic
         destx = -originx;
         originx = 0;
     }
-    int endx = rect.maxX();
+
     if (endx > size.width())
         endx = size.width();
     int numColumns = endx - originx;
@@ -366,10 +425,14 @@ RefPtr<Uint8ClampedArray> getImageData(const IntRect& rect, const IntRect& logic
         desty = -originy;
         originy = 0;
     }
-    int endy = rect.maxY();
+
     if (endy > size.height())
         endy = size.height();
     int numRows = endy - originy;
+
+    // Nothing will be copied, so just return the result.
+    if (numColumns <= 0 || numRows <= 0)
+        return result;
 
     // The size of the derived surface is in BackingStoreCoordinateSystem.
     // We need to set the device scale for the derived surface from this ImageBuffer.

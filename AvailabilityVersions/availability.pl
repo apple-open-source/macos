@@ -3,112 +3,134 @@
 use strict;
 use warnings;
 use Getopt::Long;
+use List::Util qw(pairs);
+use List::Util qw(pairgrep);
+use List::Util qw(pairvalues);
 
-my @macosx_versions = (
-    "10.0",
-    "10.1",
-    "10.2",
-    "10.3",
-    "10.4",
-    "10.5",
-    "10.6",
-    "10.7",
-    "10.8",
-    "10.9",
-    "10.10",
-    "10.10.2",
-    "10.10.3",
-    "10.11",
-    "10.11.2",
-    "10.11.3",
-    "10.11.4",
-    "10.12",
-    "10.12.1",
-    "10.12.2",
-    "10.12.4",
-    "10.13",
-    "10.13.1",
-    "10.13.2",
-    "10.13.4",
+my @versions = (
+    "macos",    "10.0",
+    "macos",    "10.1",
+    "macos",    "10.2",
+    "macos",    "10.3",
+    "macos",    "10.4",
+    "macos",    "10.5",
+    "macos",    "10.6",
+    "macos",    "10.7",
+    "macos",    "10.8",
+    "macos",    "10.9",
+    "macos",    "10.10",
+    "macos",    "10.10.2",
+    "macos",    "10.10.3",
+    "macos",    "10.11",
+    "macos",    "10.11.2",
+    "macos",    "10.11.3",
+    "macos",    "10.11.4",
+    "macos",    "10.12",
+    "macos",    "10.12.1",
+    "macos",    "10.12.2",
+    "macos",    "10.12.4",
+    "macos",    "10.13",
+    "macos",    "10.13.1",
+    "macos",    "10.13.2",
+    "macos",    "10.13.4",
+    "ios",      "2.0",
+    "ios",      "2.1",
+    "ios",      "2.2",
+    "ios",      "3.0",
+    "ios",      "3.1",
+    "ios",      "3.2",
+    "ios",      "4.0",
+    "ios",      "4.1",
+    "ios",      "4.2",
+    "ios",      "4.3",
+    "ios",      "5.0",
+    "ios",      "5.1",
+    "ios",      "6.0",
+    "ios",      "6.1",
+    "ios",      "7.0",
+    "ios",      "7.1",
+    "ios",      "8.0",
+    "ios",      "8.1",
+    "ios",      "8.2",
+    "ios",      "8.3",
+    "ios",      "8.4",
+    "ios",      "9.0",
+    "ios",      "9.1",
+    "ios",      "9.2",
+    "ios",      "9.3",
+    "ios",      "10.0",
+    "ios",      "10.1",
+    "ios",      "10.2",
+    "ios",      "10.3",
+    "ios",      "11.0",
+    "ios",      "11.1",
+    "ios",      "11.2",
+    "ios",      "11.3",
+    "ios",      "11.4",
+    "tvos",     "9.0",
+    "tvos",     "9.1",
+    "tvos",     "9.2",
+    "tvos",     "10.0",
+    "tvos",     "10.0.1",
+    "tvos",     "10.1",
+    "tvos",     "10.2",
+    "tvos",     "11.0",
+    "tvos",     "11.1",
+    "tvos",     "11.2",
+    "tvos",     "11.3",
+    "tvos",     "11.4",
+    "watchos",  "1.0",
+    "watchos",  "2.0",
+    "watchos",  "2.1",
+    "watchos",  "2.2",
+    "watchos",  "3.0",
+    "watchos",  "3.1",
+    "watchos",  "3.1.1",
+    "watchos",  "3.2",
+    "watchos",  "4.0",
+    "watchos",  "4.1",
+    "watchos",  "4.2",
+    "watchos",  "4.3",
+    "bridgeos", "2.0",
+    "os_set",   "fall_2017",
+    "macos",    "10.14",
+    "ios",      "12.0",
+    "tvos",     "12.0",
+    "watchos",  "5.0",
+    "bridgeos", "3.0",
+    "os_set",   "fall_2018",
 );
 
-my @ios_versions = (
-    "2.0",
-    "2.1",
-    "2.2",
-    "3.0",
-    "3.1",
-    "3.2",
-    "4.0",
-    "4.1",
-    "4.2",
-    "4.3",
-    "5.0",
-    "5.1",
-    "6.0",
-    "6.1",
-    "7.0",
-    "7.1",
-    "8.0",
-    "8.1",
-    "8.2",
-    "8.3",
-    "8.4",
-    "9.0",
-    "9.1",
-    "9.2",
-    "9.3",
-    "10.0",
-    "10.1",
-    "10.2",
-    "10.3",
-    "11.0",
-    "11.1",
-    "11.2",
-    "11.3",
-    "11.4",
-);
-
-my @appletvos_versions = (
-    "9.0",
-    "9.1",
-    "9.2",
-    "10.0",
-    "10.0.1",
-    "10.1",
-    "10.2",
-    "11.0",
-    "11.1",
-    "11.2",
-    "11.3",
-    "11.4",
-);
-
-my @watchos_versions = (
-    "1.0",
-    "2.0",
-    "2.1",
-    "2.2",
-    "3.0",
-    "3.1",
-    "3.1.1",
-    "3.2",
-    "4.0",
-    "4.1",
-    "4.2",
-    "4.3",
-);
-
-my @bridgeos_versions = (
-    "2.0",
-);
+my @macosx_versions = pairvalues pairgrep { $a eq "macos" } @versions;
+my @ios_versions = pairvalues pairgrep { $a eq "ios" } @versions;
+my @appletvos_versions = pairvalues pairgrep { $a eq "tvos" } @versions;
+my @watchos_versions = pairvalues pairgrep { $a eq "watchos" } @versions;
+my @bridgeos_versions = pairvalues pairgrep { $a eq "bridgeos" } @versions;
 
 my $m;
 my $i;
 my $a;
 my $w;
 my $b;
-GetOptions('macosx' => \$m, 'osx' => \$m, 'ios' => \$i, 'appletvos' => \$a, 'watchos' => \$w, 'bridgeos' => \$b);
+my $s;
+GetOptions('macosx' => \$m, 'osx' => \$m, 'ios' => \$i, 'appletvos' => \$a, 'watchos' => \$w, 'bridgeos' => \$b, 'sets' => \$s);
+
+sub print_sets {
+    my @version_pairs = pairs @versions;
+    my %oses;
+    print "---\n";
+    foreach my $version (@version_pairs) {
+        if ($version->[0] eq "os_set") {
+            print $version->[1] . ":\n";
+            keys %oses;
+            while(my($k, $v) = each %oses) {
+                printf "\  " . $k . ":\  " . $v . "\n";
+            }
+        } else {
+            $oses{$version->[0]} = $version->[1];
+        }
+    }
+}
 
 if ($m) {
   print join(" ", @macosx_versions) . "\n";
@@ -120,7 +142,9 @@ if ($m) {
   print join(" ", @watchos_versions) . "\n";
 } elsif ($b) {
   print join(" ", @bridgeos_versions) . "\n";
+} elsif ($s) {
+    print_sets();
 } else {
-  print "usage: $0 --macosx|--osx|--ios|--appletvos|--watchos|--bridgeos\n";
+  print "usage: $0 --macosx|--osx|--ios|--appletvos|--watchos|--bridgeos|--sets\n";
 }
 

@@ -100,8 +100,10 @@ Connection &Server::connection(bool tolerant)
 
 void Server::requestComplete(CSSM_RETURN &rcode)
 {
+    Server &server = active();
+    StLock<Mutex> lock(server);
 	// note: there may not be an active connection if connection setup failed
-	if (RefPointer<Connection> &conn = active().mCurrentConnection()) {
+	if (RefPointer<Connection> &conn = server.mCurrentConnection()) {
 		conn->endWork(rcode);
 		conn = NULL;
 	}
@@ -271,7 +273,7 @@ void Server::notifyDeadName(Port port)
     // is it a connection?
     PortMap<Connection>::iterator conIt = mConnections.find(port);
     if (conIt != mConnections.end()) {
-        secinfo("SS", "%p dead connection %d", this, port.port());
+        secinfo("SecServer", "%p dead connection %d", this, port.port());
         RefPointer<Connection> con = conIt->second;
 		mConnections.erase(conIt);
         serverLock.unlock();
@@ -282,7 +284,7 @@ void Server::notifyDeadName(Port port)
     // is it a process?
     PortMap<Process>::iterator procIt = mProcesses.find(port);
     if (procIt != mProcesses.end()) {
-        secinfo("SS", "%p dead process %d", this, port.port());
+        secinfo("SecServer", "%p dead process %d", this, port.port());
         RefPointer<Process> proc = procIt->second;
 		mPids.erase(proc->pid());
 		mProcesses.erase(procIt);
@@ -305,7 +307,7 @@ void Server::notifyDeadName(Port port)
 //
 void Server::notifyNoSenders(Port port, mach_port_mscount_t)
 {
-    secinfo("SS", "%p dead session %d", this, port.port());
+    secinfo("SecServer", "%p dead session %d", this, port.port());
 }
 
 
@@ -318,7 +320,7 @@ kern_return_t self_server_handleSignal(mach_port_t sport,
 	mach_port_t taskPort, int sig)
 {
     try {
-        secnotice("SS", "signal handled %d", sig);
+        secnotice("SecServer", "signal handled %d", sig);
         if (taskPort != mach_task_self()) {
             Syslog::error("handleSignal: received from someone other than myself");
 			return KERN_SUCCESS;
@@ -328,7 +330,7 @@ kern_return_t self_server_handleSignal(mach_port_t sport,
 			ServerChild::checkChildren();
 			break;
 		case SIGINT:
-            secnotice("SS", "shutdown due to SIGINT");
+            secnotice("SecServer", "shutdown due to SIGINT");
 			Syslog::notice("securityd terminated due to SIGINT");
 			_exit(0);
 		case SIGTERM:
@@ -355,7 +357,7 @@ kern_return_t self_server_handleSignal(mach_port_t sport,
 			assert(false);
         }
     } catch(...) {
-		secnotice("SS", "exception handling a signal (ignored)");
+		secnotice("SecServer", "exception handling a signal (ignored)");
 	}
     mach_port_deallocate(mach_task_self(), taskPort);
     return KERN_SUCCESS;
@@ -368,12 +370,13 @@ kern_return_t self_server_handleSession(mach_port_t sport,
     try {
         if (taskPort != mach_task_self()) {
             Syslog::error("handleSession: received from someone other than myself");
+            mach_port_deallocate(mach_task_self(), taskPort);
 			return KERN_SUCCESS;
 		}
 		if (event == AUE_SESSION_END)
             Session::destroy(int_cast<uint64_t, Session::SessionId>(ident));
     } catch(...) {
-		secnotice("SS", "exception handling a signal (ignored)");
+		secnotice("SecServer", "exception handling a signal (ignored)");
 	}
     mach_port_deallocate(mach_task_self(), taskPort);
     return KERN_SUCCESS;
@@ -385,7 +388,7 @@ kern_return_t self_server_handleSession(mach_port_t sport,
 //
 void Server::SleepWatcher::systemWillSleep()
 {
-    secnotice("SS", "%p will sleep", this);
+    secnotice("SecServer", "%p will sleep", this);
     Session::processSystemSleep();
 	for (set<PowerWatcher *>::const_iterator it = mPowerClients.begin(); it != mPowerClients.end(); it++)
 		(*it)->systemWillSleep();
@@ -393,14 +396,14 @@ void Server::SleepWatcher::systemWillSleep()
 
 void Server::SleepWatcher::systemIsWaking()
 {
-    secnotice("SS", "%p is waking", this);
+    secnotice("SecServer", "%p is waking", this);
 	for (set<PowerWatcher *>::const_iterator it = mPowerClients.begin(); it != mPowerClients.end(); it++)
 		(*it)->systemIsWaking();
 }
 
 void Server::SleepWatcher::systemWillPowerOn()
 {
-    secnotice("SS", "%p will power on", this);
+    secnotice("SecServer", "%p will power on", this);
 	Server::active().longTermActivity();
 	for (set<PowerWatcher *>::const_iterator it = mPowerClients.begin(); it != mPowerClients.end(); it++)
 		(*it)->systemWillPowerOn();
@@ -449,13 +452,13 @@ void Server::beginShutdown()
 {
 	StLock<Mutex> _(*this);
 	if (!mWaitForClients) {
-        secnotice("SS", "%p shutting down now", this);
+        secnotice("SecServer", "%p shutting down now", this);
 		_exit(0);
 	} else {
 		if (!mShuttingDown) {
 			mShuttingDown = true;
             Session::invalidateAuthHosts();
-            secnotice("SS", "%p beginning shutdown", this);
+            secnotice("SecServer", "%p beginning shutdown", this);
 			if (verbosity() >= 2) {
 				reportFile = fopen("/var/log/securityd-shutdown.log", "w");
 				shutdownSnitch();
@@ -473,11 +476,10 @@ void Server::beginShutdown()
 //
 void Server::eventDone()
 {
+    StLock<Mutex> lock(*this);
 	if (this->shuttingDown()) {
-		StLock<Mutex> lazy(*this, false);	// lazy lock acquisition
 		if (verbosity() >= 2) {
-			lazy.lock();
-            secnotice("SS", "shutting down with %ld processes and %ld transactions", mProcesses.size(), VProc::Transaction::debugCount());
+            secnotice("SecServer", "shutting down with %ld processes and %ld transactions", mProcesses.size(), VProc::Transaction::debugCount());
 			shutdownSnitch();
 		}
 		IFDUMPING("shutdown", NodeCore::dumpAll());
@@ -516,14 +518,14 @@ void Server::loadCssm(bool mdsIsInstalled)
 		VProc::Transaction xact;
 		if (!mCssm->isActive()) {
             if (!mdsIsInstalled) {  // non-system securityd instance should not reinitialize MDS
-                secnotice("SS", "Installing MDS");
+                secnotice("SecServer", "Installing MDS");
                 IFDEBUG(if (geteuid() == 0))
 				MDSClient::mds().install();
             }
-			secnotice("SS", "CSSM initializing");
+			secnotice("SecServer", "CSSM initializing");
 			mCssm->init();
 			mCSP->attach();
-			secnotice("SS", "CSSM ready with CSP %s", mCSP->guid().toString().c_str());
+			secnotice("SecServer", "CSSM ready with CSP %s", mCSP->guid().toString().c_str());
 		}
 	}
 }

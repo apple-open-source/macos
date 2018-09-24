@@ -229,6 +229,7 @@ keyTypeData:table(nofallback){
             cle{""}
             clf{""}
             clp{""}
+            cnh{""}
             cnx{""}
             cny{""}
             cop{""}
@@ -334,6 +335,7 @@ keyTypeData:table(nofallback){
             mnt{""}
             mop{""}
             mro{""}
+            mru{""}
             mtl{""}
             mtp{""}
             mur{""}
@@ -392,6 +394,7 @@ keyTypeData:table(nofallback){
             srg{""}
             ssp{""}
             std{""}
+            stn{""}
             sur{""}
             svc{""}
             syp{""}
@@ -608,6 +611,8 @@ keyTypeData:table(nofallback){
             finance{""}
             fullwide{""}
             geor{""}
+            gong{""}
+            gonm{""}
             grek{""}
             greklow{""}
             gujr{""}
@@ -651,6 +656,7 @@ keyTypeData:table(nofallback){
             olck{""}
             orya{""}
             osma{""}
+            rohg{""}
             roman{""}
             romanlow{""}
             saur{""}

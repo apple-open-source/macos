@@ -54,17 +54,29 @@
 #include "WorkerGlobalScope.h"
 #include "WorkerNavigator.h"
 #include "WorkerThread.h"
-#include <heap/StrongInlines.h>
-#include <inspector/ScriptCallStack.h>
-#include <runtime/CatchScope.h>
-#include <runtime/Exception.h>
-#include <runtime/JSPromise.h>
+#include <JavaScriptCore/CatchScope.h>
+#include <JavaScriptCore/Exception.h>
+#include <JavaScriptCore/JSPromise.h>
+#include <JavaScriptCore/ScriptCallStack.h>
+#include <JavaScriptCore/StrongInlines.h>
 #include <wtf/MainThread.h>
 #include <wtf/Ref.h>
 
-
 namespace WebCore {
 using namespace Inspector;
+
+static Lock& allScriptExecutionContextsMapLock()
+{
+    static NeverDestroyed<Lock> lock;
+    return lock;
+}
+
+static HashMap<ScriptExecutionContextIdentifier, ScriptExecutionContext*>& allScriptExecutionContextsMap()
+{
+    static NeverDestroyed<HashMap<ScriptExecutionContextIdentifier, ScriptExecutionContext*>> contexts;
+    ASSERT(allScriptExecutionContextsMapLock().isLocked());
+    return contexts;
+}
 
 struct ScriptExecutionContext::PendingException {
     WTF_MAKE_FAST_ALLOCATED;
@@ -86,6 +98,29 @@ public:
 
 ScriptExecutionContext::ScriptExecutionContext()
 {
+}
+
+ScriptExecutionContextIdentifier ScriptExecutionContext::contextIdentifier() const
+{
+    ASSERT(isContextThread());
+    if (!m_contextIdentifier) {
+        Locker<Lock> locker(allScriptExecutionContextsMapLock());
+
+        m_contextIdentifier = generateObjectIdentifier<ScriptExecutionContextIdentifierType>();
+
+        ASSERT(!allScriptExecutionContextsMap().contains(m_contextIdentifier));
+        allScriptExecutionContextsMap().add(m_contextIdentifier, const_cast<ScriptExecutionContext*>(this));
+    }
+    return m_contextIdentifier;
+}
+
+void ScriptExecutionContext::removeFromContextsMap()
+{
+    if (m_contextIdentifier) {
+        Locker<Lock> locker(allScriptExecutionContextsMapLock());
+        ASSERT(allScriptExecutionContextsMap().contains(m_contextIdentifier));
+        allScriptExecutionContextsMap().remove(m_contextIdentifier);
+    }
 }
 
 #if ASSERT_DISABLED
@@ -117,6 +152,12 @@ ScriptExecutionContext::~ScriptExecutionContext()
     checkConsistency();
 
 #if !ASSERT_DISABLED
+    if (m_contextIdentifier) {
+        Locker<Lock> locker(allScriptExecutionContextsMapLock());
+        ASSERT_WITH_MESSAGE(!allScriptExecutionContextsMap().contains(m_contextIdentifier),
+            "A ScriptExecutionContext subclass instance implementing postTask should have already removed itself from the map");
+    }
+
     m_inScriptExecutionContextDestructor = true;
 #endif
 
@@ -215,7 +256,7 @@ bool ScriptExecutionContext::canSuspendActiveDOMObjectsForDocumentSuspension(Vec
     return canSuspend;
 }
 
-void ScriptExecutionContext::suspendActiveDOMObjects(ActiveDOMObject::ReasonForSuspension why)
+void ScriptExecutionContext::suspendActiveDOMObjects(ReasonForSuspension why)
 {
     checkConsistency();
 
@@ -223,7 +264,7 @@ void ScriptExecutionContext::suspendActiveDOMObjects(ActiveDOMObject::ReasonForS
         // A page may subsequently suspend DOM objects, say as part of entering the page cache, after the embedding
         // client requested the page be suspended. We ignore such requests so long as the embedding client requested
         // the suspension first. See <rdar://problem/13754896> for more details.
-        ASSERT(m_reasonForSuspendingActiveDOMObjects == ActiveDOMObject::PageWillBeSuspended);
+        ASSERT(m_reasonForSuspendingActiveDOMObjects == ReasonForSuspension::PageWillBeSuspended);
         return;
     }
 
@@ -250,7 +291,7 @@ void ScriptExecutionContext::suspendActiveDOMObjects(ActiveDOMObject::ReasonForS
     m_reasonForSuspendingActiveDOMObjects = why;
 }
 
-void ScriptExecutionContext::resumeActiveDOMObjects(ActiveDOMObject::ReasonForSuspension why)
+void ScriptExecutionContext::resumeActiveDOMObjects(ReasonForSuspension why)
 {
     checkConsistency();
 
@@ -345,23 +386,16 @@ void ScriptExecutionContext::willDestroyDestructionObserver(ContextDestructionOb
     m_destructionObservers.remove(&observer);
 }
 
-bool ScriptExecutionContext::sanitizeScriptError(String& errorMessage, int& lineNumber, int& columnNumber, String& sourceURL, JSC::Strong<JSC::Unknown>& error, CachedScript* cachedScript)
+// FIXME: Should this function be in SecurityContext or SecurityOrigin instead?
+bool ScriptExecutionContext::canIncludeErrorDetails(CachedScript* script, const String& sourceURL)
 {
     ASSERT(securityOrigin());
-    if (cachedScript) {
-        ASSERT(cachedScript->origin());
-        ASSERT(securityOrigin()->toString() == cachedScript->origin()->toString());
-        if (cachedScript->isCORSSameOrigin())
-            return false;
-    } else if (securityOrigin()->canRequest(completeURL(sourceURL)))
-        return false;
-
-    errorMessage = ASCIILiteral { "Script error." };
-    sourceURL = { };
-    lineNumber = 0;
-    columnNumber = 0;
-    error = { };
-    return true;
+    if (script) {
+        ASSERT(script->origin());
+        ASSERT(securityOrigin()->toString() == script->origin()->toString());
+        return script->isCORSSameOrigin();
+    }
+    return securityOrigin()->canRequest(completeURL(sourceURL));
 }
 
 void ScriptExecutionContext::reportException(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL, JSC::Exception* exception, RefPtr<ScriptCallStack>&& callStack, CachedScript* cachedScript)
@@ -415,21 +449,19 @@ void ScriptExecutionContext::addConsoleMessage(MessageSource source, MessageLeve
 
 bool ScriptExecutionContext::dispatchErrorEvent(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL, JSC::Exception* exception, CachedScript* cachedScript)
 {
-    EventTarget* target = errorEventTarget();
+    auto* target = errorEventTarget();
     if (!target)
         return false;
 
-    String message = errorMessage;
-    int line = lineNumber;
-    int column = columnNumber;
-    String sourceName = sourceURL;
-    JSC::Strong<JSC::Unknown> error = exception && exception->value() ? JSC::Strong<JSC::Unknown>(vm(), exception->value()) : JSC::Strong<JSC::Unknown>();
-    sanitizeScriptError(message, line, column, sourceName, error, cachedScript);
+    RefPtr<ErrorEvent> errorEvent;
+    if (canIncludeErrorDetails(cachedScript, sourceURL))
+        errorEvent = ErrorEvent::create(errorMessage, sourceURL, lineNumber, columnNumber, { vm(), exception ? exception->value() : JSC::jsNull() });
+    else
+        errorEvent = ErrorEvent::create("Script error."_s, { }, 0, 0, { });
 
     ASSERT(!m_inDispatchErrorEvent);
     m_inDispatchErrorEvent = true;
-    Ref<ErrorEvent> errorEvent = ErrorEvent::create(message, sourceName, line, column, error);
-    target->dispatchEvent(errorEvent);
+    target->dispatchEvent(*errorEvent);
     m_inDispatchErrorEvent = false;
     return errorEvent->defaultPrevented();
 }
@@ -590,6 +622,19 @@ bool ScriptExecutionContext::postTaskTo(const DocumentOrWorkerIdentifier& contex
     });
     return wasPosted;
 }
+
 #endif
+
+bool ScriptExecutionContext::postTaskTo(ScriptExecutionContextIdentifier identifier, Task&& task)
+{
+    Locker<Lock> locker(allScriptExecutionContextsMapLock());
+    auto* context = allScriptExecutionContextsMap().get(identifier);
+
+    if (!context)
+        return false;
+
+    context->postTask(WTFMove(task));
+    return true;
+}
 
 } // namespace WebCore

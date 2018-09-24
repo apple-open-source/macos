@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2016, 2018 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,6 +46,12 @@
 // IORegistry "quiet" (and timeout)
 #define	kInterfaceNamerKey_Quiet			CFSTR("*QUIET*")
 #define	kInterfaceNamerKey_Timeout			CFSTR("*TIMEOUT*")
+
+// Configuration excluded network interfaces
+#define	kInterfaceNamerKey_ExcludedInterfaces		CFSTR("_Excluded_")
+
+// Network interfaces that have not yet been made available because the console is "locked"
+#define	kInterfaceNamerKey_LockedInterfaces		CFSTR("_Locked_")
 
 // [Apple] pre-configured network interfaces
 #define	kInterfaceNamerKey_PreConfiguredInterfaces	CFSTR("_PreConfigured_")

@@ -80,59 +80,72 @@ typedef struct oidmap_entry_s oidmap_entry_t;
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_APPLEID_SHARING),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_TIMESTAMPING),
 */
-const oidmap_entry_t oidmap[] = {
-	{ kSecPolicyAppleX509Basic, &CSSMOID_APPLE_X509_BASIC },
-	{ kSecPolicyAppleSSL, &CSSMOID_APPLE_TP_SSL },
-	{ kSecPolicyAppleSMIME, &CSSMOID_APPLE_TP_SMIME },
-	{ kSecPolicyAppleEAP, &CSSMOID_APPLE_TP_EAP },
-	{ kSecPolicyAppleSWUpdateSigning, &CSSMOID_APPLE_TP_SW_UPDATE_SIGNING },
-	{ kSecPolicyAppleIPsec, &CSSMOID_APPLE_TP_IP_SEC },
-	{ kSecPolicyAppleiChat, &CSSMOID_APPLE_TP_ICHAT },
-	{ kSecPolicyApplePKINITClient, &CSSMOID_APPLE_TP_PKINIT_CLIENT },
-	{ kSecPolicyApplePKINITServer, &CSSMOID_APPLE_TP_PKINIT_SERVER },
-	{ kSecPolicyAppleCodeSigning, &CSSMOID_APPLE_TP_CODE_SIGNING },
-	{ kSecPolicyApplePackageSigning, &CSSMOID_APPLE_TP_PACKAGE_SIGNING },
-	{ kSecPolicyAppleIDValidation, &CSSMOID_APPLE_TP_APPLEID_SHARING },
-	{ kSecPolicyMacAppStoreReceipt, &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT },
-	{ kSecPolicyAppleTimeStamping, &CSSMOID_APPLE_TP_TIMESTAMPING },
-	{ kSecPolicyAppleRevocation, &CSSMOID_APPLE_TP_REVOCATION },
-	{ kSecPolicyAppleRevocation, &CSSMOID_APPLE_TP_REVOCATION_OCSP },
-	{ kSecPolicyAppleRevocation, &CSSMOID_APPLE_TP_REVOCATION_CRL },
-	{ kSecPolicyApplePassbookSigning, &CSSMOID_APPLE_TP_PASSBOOK_SIGNING },
-	{ kSecPolicyAppleMobileStore, &CSSMOID_APPLE_TP_MOBILE_STORE },
-	{ kSecPolicyAppleEscrowService, &CSSMOID_APPLE_TP_ESCROW_SERVICE },
-	{ kSecPolicyAppleProfileSigner, &CSSMOID_APPLE_TP_PROFILE_SIGNING },
-	{ kSecPolicyAppleQAProfileSigner, &CSSMOID_APPLE_TP_QA_PROFILE_SIGNING },
-	{ kSecPolicyAppleTestMobileStore, &CSSMOID_APPLE_TP_TEST_MOBILE_STORE },
-	{ kSecPolicyApplePCSEscrowService, &CSSMOID_APPLE_TP_PCS_ESCROW_SERVICE },
-	{ kSecPolicyAppleOSXProvisioningProfileSigning, &CSSMOID_APPLE_TP_PROVISIONING_PROFILE_SIGNING },
+
+static const size_t OIDMAP_LENGTH = 25;
+static const oidmap_entry_t* oidmap_f() {
+    static const oidmap_entry_t oidmap_array[] = {
+        { kSecPolicyAppleX509Basic, &CSSMOID_APPLE_X509_BASIC },
+        { kSecPolicyAppleSSL, &CSSMOID_APPLE_TP_SSL },
+        { kSecPolicyAppleSMIME, &CSSMOID_APPLE_TP_SMIME },
+        { kSecPolicyAppleEAP, &CSSMOID_APPLE_TP_EAP },
+        { kSecPolicyAppleSWUpdateSigning, &CSSMOID_APPLE_TP_SW_UPDATE_SIGNING },
+        { kSecPolicyAppleIPsec, &CSSMOID_APPLE_TP_IP_SEC },
+        { kSecPolicyAppleiChat, &CSSMOID_APPLE_TP_ICHAT },
+        { kSecPolicyApplePKINITClient, &CSSMOID_APPLE_TP_PKINIT_CLIENT },
+        { kSecPolicyApplePKINITServer, &CSSMOID_APPLE_TP_PKINIT_SERVER },
+        { kSecPolicyAppleCodeSigning, &CSSMOID_APPLE_TP_CODE_SIGNING },
+        { kSecPolicyApplePackageSigning, &CSSMOID_APPLE_TP_PACKAGE_SIGNING },
+        { kSecPolicyAppleIDValidation, &CSSMOID_APPLE_TP_APPLEID_SHARING },
+        { kSecPolicyMacAppStoreReceipt, &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT },
+        { kSecPolicyAppleTimeStamping, &CSSMOID_APPLE_TP_TIMESTAMPING },
+        { kSecPolicyAppleRevocation, &CSSMOID_APPLE_TP_REVOCATION },
+        { kSecPolicyAppleRevocation, &CSSMOID_APPLE_TP_REVOCATION_OCSP },
+        { kSecPolicyAppleRevocation, &CSSMOID_APPLE_TP_REVOCATION_CRL },
+        { kSecPolicyApplePassbookSigning, &CSSMOID_APPLE_TP_PASSBOOK_SIGNING },
+        { kSecPolicyAppleMobileStore, &CSSMOID_APPLE_TP_MOBILE_STORE },
+        { kSecPolicyAppleEscrowService, &CSSMOID_APPLE_TP_ESCROW_SERVICE },
+        { kSecPolicyAppleProfileSigner, &CSSMOID_APPLE_TP_PROFILE_SIGNING },
+        { kSecPolicyAppleQAProfileSigner, &CSSMOID_APPLE_TP_QA_PROFILE_SIGNING },
+        { kSecPolicyAppleTestMobileStore, &CSSMOID_APPLE_TP_TEST_MOBILE_STORE },
+        { kSecPolicyApplePCSEscrowService, &CSSMOID_APPLE_TP_PCS_ESCROW_SERVICE },
+        { kSecPolicyAppleOSXProvisioningProfileSigning, &CSSMOID_APPLE_TP_PROVISIONING_PROFILE_SIGNING },
+    };
+    static_assert(OIDMAP_LENGTH == (sizeof(oidmap_array)/sizeof(oidmap_entry_t)), "OIDMAP_LENGTH is incorrect; must match oidmap_array");
+
+    return oidmap_array;
 };
 
-const oidmap_entry_t oidmap_priv[] = {
-    { CFSTR("basicX509"), &CSSMOID_APPLE_X509_BASIC },
-    { CFSTR("sslServer"), &CSSMOID_APPLE_TP_SSL },
-    { CFSTR("sslClient"), &CSSMOID_APPLE_TP_SSL },
-    { CFSTR("SMIME"), &CSSMOID_APPLE_TP_SMIME },
-    { CFSTR("eapServer"), &CSSMOID_APPLE_TP_EAP },
-    { CFSTR("eapClient"), &CSSMOID_APPLE_TP_EAP },
-    { CFSTR("AppleSWUpdateSigning"), &CSSMOID_APPLE_TP_SW_UPDATE_SIGNING },
-    { CFSTR("ipsecServer"), &CSSMOID_APPLE_TP_IP_SEC },
-    { CFSTR("ipsecClient"), &CSSMOID_APPLE_TP_IP_SEC },
-    { CFSTR("CodeSigning"), &CSSMOID_APPLE_TP_CODE_SIGNING },
-    { CFSTR("PackageSigning"), &CSSMOID_APPLE_TP_PACKAGE_SIGNING },
-    { CFSTR("AppleIDAuthority"), &CSSMOID_APPLE_TP_APPLEID_SHARING },
-    { CFSTR("MacAppStoreReceipt"), &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT },
-    { CFSTR("AppleTimeStamping"), &CSSMOID_APPLE_TP_TIMESTAMPING },
-    { CFSTR("revocation"), &CSSMOID_APPLE_TP_REVOCATION },
-    { CFSTR("ApplePassbook"), &CSSMOID_APPLE_TP_PASSBOOK_SIGNING },
-    { CFSTR("AppleMobileStore"), &CSSMOID_APPLE_TP_MOBILE_STORE },
-    { CFSTR("AppleEscrowService"), &CSSMOID_APPLE_TP_ESCROW_SERVICE },
-    { CFSTR("AppleProfileSigner"), &CSSMOID_APPLE_TP_PROFILE_SIGNING },
-    { CFSTR("AppleQAProfileSigner"), &CSSMOID_APPLE_TP_QA_PROFILE_SIGNING },
-    { CFSTR("AppleTestMobileStore"), &CSSMOID_APPLE_TP_TEST_MOBILE_STORE },
-    { CFSTR("ApplePCSEscrowService"), &CSSMOID_APPLE_TP_PCS_ESCROW_SERVICE },
-    { CFSTR("AppleOSXProvisioningProfileSigning"), &CSSMOID_APPLE_TP_PROVISIONING_PROFILE_SIGNING },
-};
+static const size_t OIDMAP_PRIV_LENGTH = 23;
+static const oidmap_entry_t* oidmap_priv_f() {
+    static const oidmap_entry_t oidmap_priv_array[] = {
+        { CFSTR("basicX509"), &CSSMOID_APPLE_X509_BASIC },
+        { CFSTR("sslServer"), &CSSMOID_APPLE_TP_SSL },
+        { CFSTR("sslClient"), &CSSMOID_APPLE_TP_SSL },
+        { CFSTR("SMIME"), &CSSMOID_APPLE_TP_SMIME },
+        { CFSTR("eapServer"), &CSSMOID_APPLE_TP_EAP },
+        { CFSTR("eapClient"), &CSSMOID_APPLE_TP_EAP },
+        { CFSTR("AppleSWUpdateSigning"), &CSSMOID_APPLE_TP_SW_UPDATE_SIGNING },
+        { CFSTR("ipsecServer"), &CSSMOID_APPLE_TP_IP_SEC },
+        { CFSTR("ipsecClient"), &CSSMOID_APPLE_TP_IP_SEC },
+        { CFSTR("CodeSigning"), &CSSMOID_APPLE_TP_CODE_SIGNING },
+        { CFSTR("PackageSigning"), &CSSMOID_APPLE_TP_PACKAGE_SIGNING },
+        { CFSTR("AppleIDAuthority"), &CSSMOID_APPLE_TP_APPLEID_SHARING },
+        { CFSTR("MacAppStoreReceipt"), &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT },
+        { CFSTR("AppleTimeStamping"), &CSSMOID_APPLE_TP_TIMESTAMPING },
+        { CFSTR("revocation"), &CSSMOID_APPLE_TP_REVOCATION },
+        { CFSTR("ApplePassbook"), &CSSMOID_APPLE_TP_PASSBOOK_SIGNING },
+        { CFSTR("AppleMobileStore"), &CSSMOID_APPLE_TP_MOBILE_STORE },
+        { CFSTR("AppleEscrowService"), &CSSMOID_APPLE_TP_ESCROW_SERVICE },
+        { CFSTR("AppleProfileSigner"), &CSSMOID_APPLE_TP_PROFILE_SIGNING },
+        { CFSTR("AppleQAProfileSigner"), &CSSMOID_APPLE_TP_QA_PROFILE_SIGNING },
+        { CFSTR("AppleTestMobileStore"), &CSSMOID_APPLE_TP_TEST_MOBILE_STORE },
+        { CFSTR("ApplePCSEscrowService"), &CSSMOID_APPLE_TP_PCS_ESCROW_SERVICE },
+        { CFSTR("AppleOSXProvisioningProfileSigning"), &CSSMOID_APPLE_TP_PROVISIONING_PROFILE_SIGNING },
+    };
+    static_assert(OIDMAP_PRIV_LENGTH == (sizeof(oidmap_priv_array)/sizeof(oidmap_entry_t)), "OIDMAP_PRIV_LENGTH is incorrect; must match oidmap_priv_array");
+
+    return oidmap_priv_array;
+}
 
 //
 // Sec API bridge functions
@@ -150,21 +163,21 @@ SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID* oid)
 		return errSecParam; // bad policy ref?
 	}
 	CSSM_OID *oidptr = NULL;
-	unsigned int i, oidmaplen = sizeof(oidmap) / sizeof(oidmap_entry_t);
-	for (i=0; i<oidmaplen; i++) {
-		CFStringRef str = (CFStringRef) oidmap[i].oidstr;
+    unsigned int i;
+	for (i=0; i<OIDMAP_LENGTH; i++) {
+		CFStringRef str = (CFStringRef) oidmap_f()[i].oidstr;
 		if (CFStringCompare(str, oidStr, 0) == kCFCompareEqualTo) {
-			oidptr = (CSSM_OID*)oidmap[i].oidptr;
+			oidptr = (CSSM_OID*)oidmap_f()[i].oidptr;
 			break;
 		}
 	}
 	if (!oidptr) {
 		// Check private iOS policy names.
-		oidmaplen = sizeof(oidmap_priv) / sizeof(oidmap_entry_t);
-		for (i=0; i<oidmaplen; i++) {
-			CFStringRef str = (CFStringRef) oidmap_priv[i].oidstr;
+
+		for (i=0; i<OIDMAP_PRIV_LENGTH; i++) {
+			CFStringRef str = (CFStringRef) oidmap_priv_f()[i].oidstr;
 			if (CFStringCompare(str, oidStr, 0) == kCFCompareEqualTo) {
-				oidptr = (CSSM_OID*)oidmap_priv[i].oidptr;
+				oidptr = (CSSM_OID*)oidmap_priv_f()[i].oidptr;
 				break;
 			}
 		}
@@ -205,11 +218,11 @@ CFStringRef SecPolicyGetStringForOID(CSSM_OID* oid)
 		return NULL;
 	}
 	// given a CSSM_OID pointer, return corresponding string in oidmap
-	unsigned int i, oidmaplen = sizeof(oidmap) / sizeof(oidmap_entry_t);
-	for (i=0; i<oidmaplen; i++) {
-		CSSM_OID* oidptr = (CSSM_OID*)oidmap[i].oidptr;
+    unsigned int i;
+	for (i=0; i<OIDMAP_LENGTH; i++) {
+		CSSM_OID* oidptr = (CSSM_OID*)oidmap_f()[i].oidptr;
 		if (compareOids(oid, oidptr)) {
-			return (CFStringRef) oidmap[i].oidstr;
+			return (CFStringRef) oidmap_f()[i].oidstr;
 		}
 	}
 	return NULL;
@@ -529,11 +542,11 @@ _SecPolicyCreateWithOID(CFTypeRef policyOID)
 	if (!oidStr) {
 		return policy;
 	}
-	unsigned int i, oidmaplen = sizeof(oidmap) / sizeof(oidmap_entry_t);
-	for (i=0; i<oidmaplen; i++) {
-		CFStringRef str = (CFStringRef) oidmap[i].oidstr;
+    unsigned int i;
+	for (i=0; i<OIDMAP_LENGTH; i++) {
+		CFStringRef str = (CFStringRef) oidmap_f()[i].oidstr;
 		if (CFStringCompare(str, oidStr, 0) == kCFCompareEqualTo) {
-			oidPtr = (CSSM_OID*)oidmap[i].oidptr;
+			oidPtr = (CSSM_OID*)oidmap_f()[i].oidptr;
 			break;
 		}
 	}

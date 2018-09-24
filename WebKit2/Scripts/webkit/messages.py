@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2018 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,7 +31,7 @@ LEGACY_RECEIVER_ATTRIBUTE = 'LegacyReceiver'
 DELAYED_ATTRIBUTE = 'Delayed'
 
 _license_header = """/*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -118,16 +118,14 @@ def message_to_struct_declaration(message):
     if message.reply_parameters != None:
         if message.has_attribute(DELAYED_ATTRIBUTE):
             send_parameters = [(function_parameter_type(x.type, x.kind), x.name) for x in message.reply_parameters]
-            result.append('    struct DelayedReply : public ThreadSafeRefCounted<DelayedReply> {\n')
-            result.append('        DelayedReply(Ref<IPC::Connection>&&, std::unique_ptr<IPC::Encoder>);\n')
-            result.append('        ~DelayedReply();\n')
-            result.append('\n')
-            result.append('        bool send(%s);\n' % ', '.join([' '.join(x) for x in send_parameters]))
-            result.append('\n')
-            result.append('    private:\n')
-            result.append('        RefPtr<IPC::Connection> m_connection;\n')
-            result.append('        std::unique_ptr<IPC::Encoder> m_encoder;\n')
-            result.append('    };\n\n')
+            result.append('    using DelayedReply = CompletionHandler<void(')
+            if len(send_parameters):
+                result.append('%s' % ', '.join([' '.join(x) for x in send_parameters]))
+            result.append(')>;\n')
+            result.append('    static void send(std::unique_ptr<IPC::Encoder>&&, IPC::Connection&')
+            if len(send_parameters):
+                result.append(', %s' % ', '.join([' '.join(x) for x in send_parameters]))
+            result.append(');\n')
 
         result.append('    typedef %s Reply;\n' % reply_type(message))
 
@@ -172,9 +170,11 @@ def forward_declarations_and_headers(receiver):
 
     headers = set([
         '"ArgumentCoders.h"',
+        '<wtf/Forward.h>',
     ])
 
     non_template_wtf_types = frozenset([
+        'MachSendRight',
         'String',
     ])
 
@@ -184,13 +184,20 @@ def forward_declarations_and_headers(receiver):
             types_by_namespace['IPC'].update([('class', 'Connection')])
 
     no_forward_declaration_types = frozenset([
+        'MachSendRight',
+        'MessageLevel',
+        'MessageSource',
+        'String',
         'WebCore::DocumentIdentifier',
+        'WebCore::FetchIdentifier',
         'WebCore::ServiceWorkerIdentifier',
         'WebCore::ServiceWorkerJobIdentifier',
         'WebCore::ServiceWorkerOrClientData',
         'WebCore::ServiceWorkerOrClientIdentifier',
         'WebCore::ServiceWorkerRegistrationIdentifier',
         'WebCore::SWServerConnectionIdentifier',
+        'WebKit::ActivityStateChangeID',
+        'WebKit::UserContentControllerIdentifier',
     ])
 
     for parameter in receiver.iterparameters():
@@ -362,21 +369,27 @@ def headers_for_type(type):
     header_infos_and_types = class_template_headers(type)
 
     special_cases = {
+        'MachSendRight': ['<wtf/MachSendRight.h>'],
+        'MessageLevel': ['<JavaScriptCore/ConsoleTypes.h>'],
+        'MessageSource': ['<JavaScriptCore/ConsoleTypes.h>'],
         'MonotonicTime': ['<wtf/MonotonicTime.h>'],
         'Seconds': ['<wtf/Seconds.h>'],
         'WallTime': ['<wtf/WallTime.h>'],
         'String': ['<wtf/text/WTFString.h>'],
         'PAL::SessionID': ['<pal/SessionID.h>'],
         'WebCore::AttachmentDisplayOptions': ['<WebCore/AttachmentTypes.h>'],
+        'WebCore::AttachmentInfo': ['<WebCore/AttachmentTypes.h>'],
         'WebCore::AutoplayEventFlags': ['<WebCore/AutoplayEvent.h>'],
         'WebCore::ExceptionDetails': ['<WebCore/JSDOMExceptionHandling.h>'],
         'WebCore::FileChooserSettings': ['<WebCore/FileChooser.h>'],
+        'WebCore::FrameLoadType': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::GrammarDetail': ['<WebCore/TextCheckerClient.h>'],
         'WebCore::HasInsecureContent': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::Highlight': ['<WebCore/InspectorOverlay.h>'],
         'WebCore::IncludeSecureCookies': ['<WebCore/CookiesStrategy.h>'],
         'WebCore::KeyframeValueList': ['<WebCore/GraphicsLayer.h>'],
         'WebCore::KeypressCommand': ['<WebCore/KeyboardEvent.h>'],
+        'WebCore::NetworkTransactionInformation': ['<WebCore/NetworkLoadInformation.h>'],
         'WebCore::PasteboardCustomData': ['<WebCore/Pasteboard.h>'],
         'WebCore::PasteboardImage': ['<WebCore/Pasteboard.h>'],
         'WebCore::PasteboardURL': ['<WebCore/Pasteboard.h>'],
@@ -398,12 +411,13 @@ def headers_for_type(type):
         'WebCore::ShippingMethodUpdate': ['<WebCore/ApplePaySessionPaymentRequest.h>'],
         'WebCore::ShouldNotifyWhenResolved': ['<WebCore/ServiceWorkerTypes.h>'],
         'WebCore::ShouldSample': ['<WebCore/DiagnosticLoggingClient.h>'],
+        'WebCore::SupportedPluginIdentifier': ['<WebCore/PluginData.h>'],
         'WebCore::TextCheckingRequestData': ['<WebCore/TextChecking.h>'],
         'WebCore::TextCheckingResult': ['<WebCore/TextCheckerClient.h>'],
         'WebCore::TextIndicatorData': ['<WebCore/TextIndicator.h>'],
-        'WebCore::TextureMapperAnimations': ['<WebCore/TextureMapperAnimation.h>'],
         'WebCore::ViewportAttributes': ['<WebCore/ViewportArguments.h>'],
         'WebCore::SelectionRect': ['"EditorState.h"'],
+        'WebKit::ActivityStateChangeID': ['"DrawingAreaInfo.h"'],
         'WebKit::BackForwardListItemState': ['"SessionState.h"'],
         'WebKit::LayerHostingMode': ['"LayerTreeContext.h"'],
         'WebKit::PageState': ['"SessionState.h"'],
@@ -523,24 +537,12 @@ def generate_message_handler(file):
             if message.condition:
                 result.append('#if %s\n\n' % message.condition)
 
-            result.append('%s::DelayedReply::DelayedReply(Ref<IPC::Connection>&& connection, std::unique_ptr<IPC::Encoder> encoder)\n' % message.name)
-            result.append('    : m_connection(WTFMove(connection))\n')
-            result.append('    , m_encoder(WTFMove(encoder))\n')
-            result.append('{\n')
-            result.append('}\n')
-            result.append('\n')
-            result.append('%s::DelayedReply::~DelayedReply()\n' % message.name)
-            result.append('{\n')
-            result.append('    ASSERT(!m_connection);\n')
-            result.append('}\n')
-            result.append('\n')
-            result.append('bool %s::DelayedReply::send(%s)\n' % (message.name, ', '.join([' '.join(x) for x in send_parameters])))
-            result.append('{\n')
-            result.append('    ASSERT(m_encoder);\n')
-            result += ['    *m_encoder << %s;\n' % x.name for x in message.reply_parameters]
-            result.append('    bool _result = m_connection->sendSyncReply(WTFMove(m_encoder));\n')
-            result.append('    m_connection = nullptr;\n')
-            result.append('    return _result;\n')
+            result.append('void %s::send(std::unique_ptr<IPC::Encoder>&& encoder, IPC::Connection& connection' % (message.name))
+            if len(send_parameters):
+                result.append(', %s' % ', '.join([' '.join(x) for x in send_parameters]))
+            result.append(')\n{\n')
+            result += ['    *encoder << %s;\n' % x.name for x in message.reply_parameters]
+            result.append('    connection.sendSyncReply(WTFMove(encoder));\n')
             result.append('}\n')
             result.append('\n')
 

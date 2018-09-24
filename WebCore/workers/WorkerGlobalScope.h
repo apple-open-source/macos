@@ -36,7 +36,7 @@
 #include "WorkerCacheStorageConnection.h"
 #include "WorkerEventQueue.h"
 #include "WorkerScriptController.h"
-#include <inspector/ConsoleMessage.h>
+#include <JavaScriptCore/ConsoleMessage.h>
 #include <memory>
 #include <pal/SessionID.h>
 
@@ -122,7 +122,7 @@ public:
     unsigned long createUniqueIdentifier() { return m_uniqueIdentifier++; }
 
 protected:
-    WorkerGlobalScope(const URL&, const String& identifier, const String& userAgent, bool isOnline, WorkerThread&, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*, PAL::SessionID);
+    WorkerGlobalScope(const URL&, Ref<SecurityOrigin>&&, const String& identifier, const String& userAgent, bool isOnline, WorkerThread&, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*, PAL::SessionID);
 
     void applyContentSecurityPolicyResponseHeaders(const ContentSecurityPolicyResponseHeaders&);
 

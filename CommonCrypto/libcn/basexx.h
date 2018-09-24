@@ -50,12 +50,19 @@ typedef struct baseEncoder_t {
 typedef BaseEncoder *BaseEncoderRefCustom;
 typedef const BaseEncoder *BaseEncoderRef;
 
+#define CC_BASE_REVERSE_MAP_SIZE 256
 // This manages a global context for encoders.
 typedef struct coderFrame_t {
-    dispatch_once_t	encoderInit;
-    uint8_t *reverseMap;
+    uint8_t reverseMap[CC_BASE_REVERSE_MAP_SIZE];
     BaseEncoderRef encoderRef;
 } BaseEncoderFrame, *CoderFrame;
+
+extern const BaseEncoder defaultBase64;
+extern const BaseEncoder defaultBase32; // RFC 4678 Base32Alphabet
+extern const BaseEncoder recoveryBase32;
+extern const BaseEncoder hexBase32;
+extern const BaseEncoder defaultBase16;
+void setReverseMap(CoderFrame frame);
 
 
 #endif

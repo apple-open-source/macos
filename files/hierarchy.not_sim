@@ -29,6 +29,7 @@
 0755	249	249	private/var/db/ondemand
 0755	254	254	private/var/db/findmydevice
 0711	257	257	private/var/db/datadetectors
+0750	269	269	private/var/db/reportmemoryexception
 0750	266	266	private/var/db/timed
 0755	root	sys	private/var/empty
 0755	root	wheel	private/var/folders

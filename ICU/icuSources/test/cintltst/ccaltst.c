@@ -117,7 +117,7 @@ static void TestCalendar()
     UDateFormat *datdef = 0;
     UChar *result = 0;
     int32_t resultlength, resultlengthneeded;
-    char tempMsgBuf[256];
+    char tempMsgBuf[1024];  // u_austrcpy() of some formatted dates & times.
     UChar zone1[32], zone2[32];
     const char *tzver = 0;
     UChar canonicalID[64];
@@ -1971,7 +1971,7 @@ void TestAmbiguousWallTime() {
     UDate t, expected;
 
     u_uastrcpy(tzID, "America/New_York");
-    ucal = ucal_open(tzID, -1, NULL, UCAL_DEFAULT, &status);
+    ucal = ucal_open(tzID, -1, "en_US", UCAL_DEFAULT, &status);
     if (U_FAILURE(status)) {
         log_err("FAIL: Failed to create a calendar");
         return;

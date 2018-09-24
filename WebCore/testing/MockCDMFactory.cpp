@@ -29,7 +29,7 @@
 #if ENABLE(ENCRYPTED_MEDIA)
 
 #include "InitDataRegistry.h"
-#include <runtime/ArrayBuffer.h>
+#include <JavaScriptCore/ArrayBuffer.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/UUID.h>
 #include <wtf/text/StringHash.h>
@@ -81,12 +81,12 @@ Vector<Ref<SharedBuffer>> MockCDMFactory::removeKeysFromSessionWithID(const Stri
     return WTFMove(it->value);
 }
 
-std::optional<const Vector<Ref<SharedBuffer>>&> MockCDMFactory::keysForSessionWithID(const String& id) const
+const Vector<Ref<SharedBuffer>>* MockCDMFactory::keysForSessionWithID(const String& id) const
 {
     auto it = m_sessions.find(id);
     if (it == m_sessions.end())
-        return std::nullopt;
-    return it->value;
+        return nullptr;
+    return &it->value;
 }
 
 void MockCDMFactory::setSupportedDataTypes(Vector<String>&& types)
@@ -98,7 +98,7 @@ void MockCDMFactory::setSupportedDataTypes(Vector<String>&& types)
 
 std::unique_ptr<CDMPrivate> MockCDMFactory::createCDM(const String&)
 {
-    return std::make_unique<MockCDM>(m_weakPtrFactory.createWeakPtr(*this));
+    return std::make_unique<MockCDM>(makeWeakPtr(*this));
 }
 
 MockCDM::MockCDM(WeakPtr<MockCDMFactory> factory)
@@ -166,7 +166,7 @@ RefPtr<CDMInstance> MockCDM::createInstance()
 {
     if (m_factory && !m_factory->canCreateInstances())
         return nullptr;
-    return adoptRef(new MockCDMInstance(m_weakPtrFactory.createWeakPtr(*this)));
+    return adoptRef(new MockCDMInstance(makeWeakPtr(*this)));
 }
 
 void MockCDM::loadAndInitialize()
@@ -199,9 +199,9 @@ RefPtr<SharedBuffer> MockCDM::sanitizeResponse(const SharedBuffer& response) con
         return nullptr;
 
     Vector<String> responseArray;
-    String(response.data(), response.size()).split(ASCIILiteral(" "), responseArray);
+    String(response.data(), response.size()).split(" "_s, responseArray);
 
-    if (!responseArray.contains(String(ASCIILiteral("valid-response"))))
+    if (!responseArray.contains(String("valid-response"_s)))
         return nullptr;
 
     return response.copy();
@@ -305,16 +305,16 @@ void MockCDMInstance::updateLicense(const String& sessionID, LicenseType, const 
     }
 
     Vector<String> responseVector;
-    String(response.data(), response.size()).split(ASCIILiteral(" "), responseVector);
+    String(response.data(), response.size()).split(" "_s, responseVector);
 
-    if (responseVector.contains(String(ASCIILiteral("invalid-format")))) {
+    if (responseVector.contains(String("invalid-format"_s))) {
         callback(false, std::nullopt, std::nullopt, std::nullopt, SuccessValue::Failed);
         return;
     }
 
     std::optional<KeyStatusVector> changedKeys;
-    if (responseVector.contains(String(ASCIILiteral("keys-changed")))) {
-        std::optional<const Vector<Ref<SharedBuffer>>&> keys = factory->keysForSessionWithID(sessionID);
+    if (responseVector.contains(String("keys-changed"_s))) {
+        const auto* keys = factory->keysForSessionWithID(sessionID);
         if (keys) {
             KeyStatusVector keyStatusVector;
             keyStatusVector.reserveInitialCapacity(keys->size());

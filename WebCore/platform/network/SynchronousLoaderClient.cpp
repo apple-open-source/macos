@@ -55,17 +55,17 @@ bool SynchronousLoaderClient::shouldUseCredentialStorage(ResourceHandle*)
 }
 
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-void SynchronousLoaderClient::canAuthenticateAgainstProtectionSpaceAsync(ResourceHandle* handle, const ProtectionSpace&)
+void SynchronousLoaderClient::canAuthenticateAgainstProtectionSpaceAsync(ResourceHandle*, const ProtectionSpace&, CompletionHandler<void(bool)>&& completionHandler)
 {
     // FIXME: We should ask FrameLoaderClient. <http://webkit.org/b/65196>
-    handle->continueCanAuthenticateAgainstProtectionSpace(true);
+    completionHandler(true);
 }
 #endif
 
-void SynchronousLoaderClient::didReceiveResponseAsync(ResourceHandle* handle, ResourceResponse&& response)
+void SynchronousLoaderClient::didReceiveResponseAsync(ResourceHandle*, ResourceResponse&& response, CompletionHandler<void()>&& completionHandler)
 {
     m_response = WTFMove(response);
-    handle->continueDidReceiveResponse();
+    completionHandler();
 }
 
 void SynchronousLoaderClient::didReceiveData(ResourceHandle*, const char* data, unsigned length, int /*encodedDataLength*/)

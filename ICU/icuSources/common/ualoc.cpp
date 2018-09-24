@@ -748,8 +748,8 @@ static void ualoc_normalize(const char *locale, char *normalized, int32_t normal
     // uloc_minimizeSubtags(locale, normalized, normalizedCapacity, status);
 
     const char *replacement =  NULL;
-    if (gMapDataState > 0) {
-        replacement = (const char *)uhash_get(gAliasMap, locale);
+    if (icu::gMapDataState > 0) {
+        replacement = (const char *)uhash_get(icu::gAliasMap, locale);
     }
     if (replacement == NULL) {
         replacement = locale;
@@ -767,8 +767,8 @@ static void ualoc_getParent(const char *locale, char *parent, int32_t parentCapa
     if (U_FAILURE(*status)) {
         return;
     }
-    if (gMapDataState > 0) {
-        const char *replacement = (const char *)uhash_get(gParentMap, locale);
+    if (icu::gMapDataState > 0) {
+        const char *replacement = (const char *)uhash_get(icu::gParentMap, locale);
         if (replacement) {
             int32_t len = uprv_strlen(replacement);
             if (len < parentCapacity) { // allow for 0 termination
@@ -793,8 +793,8 @@ static const char * getLocParent(const char *locale, int32_t* distance)
             return locParentMap[locParentIndex].parent;
         }
     }
-    if (gMapDataState > 0) {
-        const char *replacement = (const char *)uhash_get(gParentMap, locale);
+    if (icu::gMapDataState > 0) {
+        const char *replacement = (const char *)uhash_get(icu::gParentMap, locale);
         if (replacement) {
             *distance = 1;
             return replacement;
@@ -834,8 +834,8 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
         return -1;
     }
     // get resource data, need to protect with mutex
-    if (gMapDataState == 0) {
-        umtx_initOnce(gUALocaleCacheInitOnce, initializeMapData);
+    if (icu::gMapDataState == 0) {
+        umtx_initOnce(icu::gUALocaleCacheInitOnce, initializeMapData);
     }
     int32_t locsToUseCount = 0;
     int32_t prefLangIndex, availLocIndex = 0;

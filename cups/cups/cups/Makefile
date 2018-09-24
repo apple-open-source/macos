@@ -1,8 +1,8 @@
 #
-# API library Makefile for CUPS.
+# Library Makefile for CUPS.
 #
-# Copyright 2007-2016 by Apple Inc.
-# Copyright 1997-2006 by Easy Software Products, all rights reserved.
+# Copyright © 2007-2018 by Apple Inc.
+# Copyright © 1997-2006 by Easy Software Products, all rights reserved.
 #
 # These coded instructions, statements, and computer programs are the
 # property of Apple Inc. and are protected by Federal copyright
@@ -331,7 +331,7 @@ libcups.2.dylib:	$(LIBOBJS) $(LIBCUPSORDER)
 	echo Linking $@...
 	$(DSO) $(ARCHFLAGS) $(DSOFLAGS) -o $@ \
 		-install_name $(libdir)/$@ \
-		-current_version 2.12.0 \
+		-current_version 2.13.0 \
 		-compatibility_version 2.0.0 \
 		-exported_symbols_list t.exp \
 		$(LIBOBJS) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
@@ -347,7 +347,7 @@ libcups.2.dylib:	$(LIBOBJS) $(LIBCUPSORDER)
 libcups.la:    $(LIBOBJS)
 	echo Linking $@...
 	$(LD_CC) $(ARCHFLAGS) $(DSOFLAGS) -o $@ $(LIBOBJS:.o=.lo) \
-		-rpath $(LIBDIR) -version-info 2:12 $(LIBGSSAPI) $(SSLLIBS) \
+		-rpath $(LIBDIR) -version-info 2:13 $(LIBGSSAPI) $(SSLLIBS) \
 		$(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 
 
@@ -369,7 +369,7 @@ libcups.a:	$(LIBOBJS)
 libcups2.def: $(LIBOBJS) Makefile
 	echo Generating $@...
 	echo "LIBRARY libcups2" >libcups2.def
-	echo "VERSION 2.12" >>libcups2.def
+	echo "VERSION 2.13" >>libcups2.def
 	echo "EXPORTS" >>libcups2.def
 	(nm $(LIBOBJS) 2>/dev/null | grep "T _" | awk '{print $$3}'; \
 	 echo __cups_strcpy; echo __cups_strlcat; echo __cups_strlcpy) | \
@@ -517,8 +517,20 @@ testlang:	testlang.o $(LIBCUPSSTATIC)
 	echo Linking $@...
 	$(LD_CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ testlang.o $(LIBCUPSSTATIC) \
 		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
+	echo Creating locale directory structure...
+	$(RM) -r locale
+	$(MKDIR) locale/en
+	echo 'msgid "No"' > locale/en/cups_en.po
+	echo 'msgstr "No"' >> locale/en/cups_en.po
+	echo 'msgid "Yes"' >> locale/en/cups_en.po
+	echo 'msgstr "Yes"' >> locale/en/cups_en.po
+	for po in ../locale/cups_*.po; do \
+		lang=`basename $$po .po | sed -e '1,$$s/^cups_//'`; \
+		$(MKDIR) locale/$$lang; \
+		$(LN) ../../$$po locale/$$lang; \
+	done
 	echo Running language API tests...
-	./testlang
+	LOCALEDIR=locale ./testlang
 
 
 #

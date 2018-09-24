@@ -23,8 +23,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)iidesc.c	1.6	06/08/22 SMI"
-
 /*
  * Routines for manipulating iidesc_t structures
  */

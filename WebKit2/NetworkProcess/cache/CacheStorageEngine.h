@@ -30,7 +30,8 @@
 #include "WebsiteData.h"
 #include <WebCore/ClientOrigin.h>
 #include <wtf/HashMap.h>
-#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/RefCounted.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/WorkQueue.h>
 
 namespace IPC {
@@ -52,21 +53,53 @@ namespace CacheStorage {
 using CacheIdentifier = uint64_t;
 using LockCount = uint64_t;
 
-class Engine : public ThreadSafeRefCounted<Engine> {
+class Engine : public RefCounted<Engine>, public CanMakeWeakPtr<Engine> {
 public:
     ~Engine();
 
-    static Engine& from(PAL::SessionID);
+    static void from(PAL::SessionID, Function<void(Engine&)>&&);
     static void destroyEngine(PAL::SessionID);
     static void fetchEntries(PAL::SessionID, bool shouldComputeSize, WTF::CompletionHandler<void(Vector<WebsiteData::Entry>)>&&);
 
-    static Ref<Engine> create(String&& rootPath) { return adoptRef(*new Engine(WTFMove(rootPath))); }
+    static void open(PAL::SessionID, WebCore::ClientOrigin&&, String&& cacheName, WebCore::DOMCacheEngine::CacheIdentifierCallback&&);
+    static void remove(PAL::SessionID, uint64_t cacheIdentifier, WebCore::DOMCacheEngine::CacheIdentifierCallback&&);
+    static void retrieveCaches(PAL::SessionID, WebCore::ClientOrigin&&, uint64_t updateCounter, WebCore::DOMCacheEngine::CacheInfosCallback&&);
+
+    static void retrieveRecords(PAL::SessionID, uint64_t cacheIdentifier, WebCore::URL&&, WebCore::DOMCacheEngine::RecordsCallback&&);
+    static void putRecords(PAL::SessionID, uint64_t cacheIdentifier, Vector<WebCore::DOMCacheEngine::Record>&&, WebCore::DOMCacheEngine::RecordIdentifiersCallback&&);
+    static void deleteMatchingRecords(PAL::SessionID, uint64_t cacheIdentifier, WebCore::ResourceRequest&&, WebCore::CacheQueryOptions&&, WebCore::DOMCacheEngine::RecordIdentifiersCallback&&);
+
+    static void lock(PAL::SessionID, uint64_t cacheIdentifier);
+    static void unlock(PAL::SessionID, uint64_t cacheIdentifier);
+
+    static void clearMemoryRepresentation(PAL::SessionID, WebCore::ClientOrigin&&, WebCore::DOMCacheEngine::CompletionCallback&&);
+    static void representation(PAL::SessionID, CompletionHandler<void(String&&)>&&);
+
+    static void clearAllCaches(PAL::SessionID, Ref<WTF::CallbackAggregator>&&);
+    static void clearCachesForOrigin(PAL::SessionID, WebCore::SecurityOriginData&&, Ref<WTF::CallbackAggregator>&&);
 
     bool shouldPersist() const { return !!m_ioQueue;}
+
+    void writeFile(const String& filename, NetworkCache::Data&&, WebCore::DOMCacheEngine::CompletionCallback&&);
+    void readFile(const String& filename, CompletionHandler<void(const NetworkCache::Data&, int error)>&&);
+    void removeFile(const String& filename);
+
+    const String& rootPath() const { return m_rootPath; }
+    const NetworkCache::Salt& salt() const { return m_salt.value(); }
+    uint64_t nextCacheIdentifier() { return ++m_nextCacheIdentifier; }
+
+private:
+    Engine(String&& rootPath, uint64_t quota);
 
     void open(const WebCore::ClientOrigin&, const String& cacheName, WebCore::DOMCacheEngine::CacheIdentifierCallback&&);
     void remove(uint64_t cacheIdentifier, WebCore::DOMCacheEngine::CacheIdentifierCallback&&);
     void retrieveCaches(const WebCore::ClientOrigin&, uint64_t updateCounter, WebCore::DOMCacheEngine::CacheInfosCallback&&);
+
+    void clearAllCaches(WTF::CallbackAggregator&);
+    void clearCachesForOrigin(const WebCore::SecurityOriginData&, WTF::CallbackAggregator&);
+
+    void clearMemoryRepresentation(const WebCore::ClientOrigin&, WebCore::DOMCacheEngine::CompletionCallback&&);
+    String representation();
 
     void retrieveRecords(uint64_t cacheIdentifier, WebCore::URL&&, WebCore::DOMCacheEngine::RecordsCallback&&);
     void putRecords(uint64_t cacheIdentifier, Vector<WebCore::DOMCacheEngine::Record>&&, WebCore::DOMCacheEngine::RecordIdentifiersCallback&&);
@@ -75,29 +108,11 @@ public:
     void lock(uint64_t cacheIdentifier);
     void unlock(uint64_t cacheIdentifier);
 
-    void writeFile(const String& filename, NetworkCache::Data&&, WebCore::DOMCacheEngine::CompletionCallback&&);
-    void readFile(const String& filename, WTF::Function<void(const NetworkCache::Data&, int error)>&&);
-    void removeFile(const String& filename);
-
-    const String& rootPath() const { return m_rootPath; }
-    const NetworkCache::Salt& salt() const { return m_salt.value(); }
-    uint64_t nextCacheIdentifier() { return ++m_nextCacheIdentifier; }
-
-    void clearMemoryRepresentation(const WebCore::ClientOrigin&, WebCore::DOMCacheEngine::CompletionCallback&&);
-    String representation();
-
-    void clearAllCaches(WTF::CallbackAggregator&);
-    void clearCachesForOrigin(const WebCore::SecurityOriginData&, WTF::CallbackAggregator&);
-
-private:
-    static Engine& defaultEngine();
-    explicit Engine(String&& rootPath);
-
     String cachesRootPath(const WebCore::ClientOrigin&);
 
     void fetchEntries(bool /* shouldComputeSize */, WTF::CompletionHandler<void(Vector<WebsiteData::Entry>)>&&);
 
-    void initialize(WTF::Function<void(std::optional<WebCore::DOMCacheEngine::Error>&&)>&&);
+    void initialize(WebCore::DOMCacheEngine::CompletionCallback&&);
 
     using CachesOrError = Expected<std::reference_wrapper<Caches>, WebCore::DOMCacheEngine::Error>;
     using CachesCallback = WTF::Function<void(CachesOrError&&)>;
@@ -112,9 +127,14 @@ private:
     HashMap<WebCore::ClientOrigin, RefPtr<Caches>> m_caches;
     uint64_t m_nextCacheIdentifier { 0 };
     String m_rootPath;
+    uint64_t m_quota { 0 };
     RefPtr<WorkQueue> m_ioQueue;
     std::optional<NetworkCache::Salt> m_salt;
     HashMap<CacheIdentifier, LockCount> m_cacheLocks;
+    Vector<WebCore::DOMCacheEngine::CompletionCallback> m_initializationCallbacks;
+    HashMap<uint64_t, WebCore::DOMCacheEngine::CompletionCallback> m_pendingWriteCallbacks;
+    HashMap<uint64_t, CompletionHandler<void(const NetworkCache::Data&, int error)>> m_pendingReadCallbacks;
+    uint64_t m_pendingCallbacksCounter { 0 };
 };
 
 } // namespace CacheStorage

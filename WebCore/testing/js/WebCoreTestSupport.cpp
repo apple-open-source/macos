@@ -42,9 +42,9 @@
 #include "URLParser.h"
 #include "WheelEventTestTrigger.h"
 #include <JavaScriptCore/APICast.h>
+#include <JavaScriptCore/CallFrame.h>
+#include <JavaScriptCore/IdentifierInlines.h>
 #include <JavaScriptCore/JSValueRef.h>
-#include <interpreter/CallFrame.h>
-#include <runtime/IdentifierInlines.h>
 
 using namespace WebCore;
 
@@ -57,8 +57,11 @@ void injectInternalsObject(JSContextRef context)
     JSLockHolder lock(exec);
     JSDOMGlobalObject* globalObject = jsCast<JSDOMGlobalObject*>(exec->lexicalGlobalObject());
     ScriptExecutionContext* scriptContext = globalObject->scriptExecutionContext();
-    if (is<Document>(*scriptContext))
-        globalObject->putDirect(exec->vm(), Identifier::fromString(exec, Internals::internalsId), toJS(exec, globalObject, Internals::create(downcast<Document>(*scriptContext))));
+    if (is<Document>(*scriptContext)) {
+        VM& vm = exec->vm();
+        globalObject->putDirect(vm, Identifier::fromString(&vm, Internals::internalsId), toJS(exec, globalObject, Internals::create(downcast<Document>(*scriptContext))));
+        globalObject->exposeDollarVM(vm);
+    }
 }
 
 void resetInternalsObject(JSContextRef context)
@@ -198,6 +201,8 @@ void setupNewlyCreatedServiceWorker(uint64_t serviceWorkerIdentifier)
         auto* contextWrapper = script->workerGlobalScopeWrapper();
         contextWrapper->putDirect(state.vm(), Identifier::fromString(&state, Internals::internalsId), toJS(&state, contextWrapper, ServiceWorkerInternals::create(identifier)));
     });
+#else
+    UNUSED_PARAM(serviceWorkerIdentifier);
 #endif
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -76,6 +76,8 @@ static const CPUTypes knownArchs[] = {
 #if defined(__i386__) || defined(__x86_64__)
     {"i386", CPU_TYPE_I386},
     {"x86_64", CPU_TYPE_X86_64},
+#elif defined(__arm64__)
+    {"arm64", CPU_TYPE_ARM64},
 #elif defined(__arm__)
     {"arm", CPU_TYPE_ARM},
 #else
@@ -97,14 +99,18 @@ extern char **environ;
  * the arch command is running.  NULL means unsupported.
  */
 #if defined(__i386__) || defined(__x86_64__)
-#define NATIVE_32	"i386"
-#define NATIVE_64	"x86_64"
+    #define NATIVE_32	"i386"
+    #define NATIVE_64	"x86_64"
+#elif defined(__arm64__)
+        #define NATIVE_64	"arm64"
+        #define NATIVE_32	NULL
 #elif defined(__arm__)
-#define NATIVE_32	"arm"
-#define NATIVE_64	NULL
+    #define NATIVE_32	"arm"
+    #define NATIVE_64	NULL
 #else
-#error "Unsupported architecture"
+    #error "Unsupported architecture"
 #endif
+
 bool unrecognizednative32seen = false;
 bool unrecognizednative64seen = false;
 

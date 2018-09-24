@@ -37,6 +37,7 @@ API/JSStringRef.cpp
 API/JSValueRef.cpp
 API/JSWeakObjectMapRefPrivate.cpp
 API/JSWeakPrivate.cpp
+API/JSWeakValue.cpp
 API/OpaqueJSString.cpp
 
 assembler/ARMAssembler.cpp
@@ -158,7 +159,6 @@ b3/B3StackmapValue.cpp
 b3/B3StackSlot.cpp
 b3/B3SwitchCase.cpp
 b3/B3SwitchValue.cpp
-b3/B3TimingScope.cpp
 b3/B3Type.cpp
 b3/B3UpsilonValue.cpp
 b3/B3UseCounts.cpp
@@ -178,6 +178,7 @@ bindings/ScriptObject.cpp
 bindings/ScriptValue.cpp
 
 builtins/BuiltinExecutables.cpp
+builtins/BuiltinExecutableCreator.cpp
 builtins/BuiltinNames.cpp
 
 bytecode/AccessCase.cpp
@@ -218,9 +219,14 @@ bytecode/FunctionCodeBlock.cpp
 bytecode/GetByIdStatus.cpp
 bytecode/GetByIdVariant.cpp
 bytecode/GetterSetterAccessCase.cpp
+bytecode/InByIdStatus.cpp
+bytecode/InByIdVariant.cpp
 bytecode/InlineAccess.cpp
 bytecode/InlineCallFrame.cpp
 bytecode/InlineCallFrameSet.cpp
+bytecode/InstanceOfAccessCase.cpp
+bytecode/InstanceOfStatus.cpp
+bytecode/InstanceOfVariant.cpp
 bytecode/IntrinsicGetterAccessCase.cpp
 bytecode/JumpTable.cpp
 bytecode/LLIntPrototypeLoadAdaptiveStructureWatchpoint.cpp
@@ -231,6 +237,7 @@ bytecode/ModuleProgramCodeBlock.cpp
 bytecode/ObjectPropertyCondition.cpp
 bytecode/ObjectPropertyConditionSet.cpp
 bytecode/Opcode.cpp
+bytecode/ParseHash.cpp
 bytecode/PolyProtoAccessChain.cpp
 bytecode/PolymorphicAccess.cpp
 bytecode/PreciseJumpTargets.cpp
@@ -273,6 +280,7 @@ debugger/DebuggerScope.cpp
 dfg/DFGAbstractHeap.cpp
 dfg/DFGAbstractInterpreterClobberState.cpp
 dfg/DFGAbstractValue.cpp
+dfg/DFGAbstractValueClobberEpoch.cpp
 dfg/DFGAdaptiveInferredPropertyValueWatchpoint.cpp
 dfg/DFGAdaptiveStructureWatchpoint.cpp
 dfg/DFGArgumentsEliminationPhase.cpp
@@ -409,15 +417,12 @@ dfg/DFGWatchpointCollectionPhase.cpp
 dfg/DFGWorklist.cpp
 
 disassembler/ARM64Disassembler.cpp
-disassembler/ARMLLVMDisassembler.cpp
-disassembler/ARMv7Disassembler.cpp
+disassembler/CapstoneDisassembler.cpp
 disassembler/Disassembler.cpp
 disassembler/UDis86Disassembler.cpp
 disassembler/X86Disassembler.cpp
 
 disassembler/ARM64/A64DOpcode.cpp
-
-disassembler/ARMv7/ARMv7DOpcode.cpp
 
 disassembler/udis86/udis86.c
 disassembler/udis86/udis86_decode.c
@@ -499,6 +504,7 @@ heap/IncrementalSweeper.cpp
 heap/IsoAlignedMemoryAllocator.cpp
 heap/IsoCellSet.cpp
 heap/IsoSubspace.cpp
+heap/IsoSubspacePerVM.cpp
 heap/JITStubRoutineSet.cpp
 heap/LargeAllocation.cpp
 heap/LocalAllocator.cpp
@@ -512,7 +518,6 @@ heap/MarkingConstraintSet.cpp
 heap/MarkingConstraintSolver.cpp
 heap/MutatorScheduler.cpp
 heap/MutatorState.cpp
-heap/SecurityOriginToken.cpp
 heap/SimpleMarkingConstraint.cpp
 heap/SlotVisitor.cpp
 heap/SpaceTimeMutatorScheduler.cpp
@@ -521,8 +526,6 @@ heap/StopIfNecessaryTimer.cpp
 heap/Subspace.cpp
 heap/SynchronousStopTheWorldMutatorScheduler.cpp
 heap/Synchronousness.cpp
-heap/ThreadLocalCache.cpp
-heap/ThreadLocalCacheLayout.cpp
 heap/VisitRaceKey.cpp
 heap/Weak.cpp
 heap/WeakBlock.cpp
@@ -651,7 +654,6 @@ parser/Nodes.cpp
 parser/NodesAnalyzeModule.cpp
 parser/Parser.cpp
 parser/ParserArena.cpp
-parser/ParserError.cpp
 parser/SourceProvider.cpp
 parser/SourceProviderCache.cpp
 parser/UnlinkedSourceCode.cpp
@@ -707,6 +709,7 @@ runtime/CommonIdentifiers.cpp
 runtime/CommonSlowPaths.cpp
 runtime/CommonSlowPathsExceptions.cpp
 runtime/CompilationResult.cpp
+tools/CompilerTimingScope.cpp
 runtime/Completion.cpp
 runtime/ConfigFile.cpp
 runtime/ConsoleClient.cpp
@@ -772,6 +775,9 @@ runtime/IntlNumberFormat.cpp
 runtime/IntlNumberFormatConstructor.cpp
 runtime/IntlNumberFormatPrototype.cpp
 runtime/IntlObject.cpp
+runtime/IntlPluralRules.cpp
+runtime/IntlPluralRulesConstructor.cpp
+runtime/IntlPluralRulesPrototype.cpp
 runtime/IteratorOperations.cpp
 runtime/IteratorPrototype.cpp
 runtime/JSAPIValueWrapper.cpp
@@ -800,6 +806,7 @@ runtime/JSGlobalLexicalEnvironment.cpp
 runtime/JSGlobalObject.cpp
 runtime/JSGlobalObjectDebuggable.cpp
 runtime/JSGlobalObjectFunctions.cpp
+runtime/JSImmutableButterfly.cpp
 runtime/JSInternalPromise.cpp
 runtime/JSInternalPromiseConstructor.cpp
 runtime/JSInternalPromiseDeferred.cpp
@@ -836,7 +843,7 @@ runtime/JSStringIterator.cpp
 runtime/JSStringJoiner.cpp
 runtime/JSStringHeapCellType.cpp
 runtime/JSSymbolTableObject.cpp
-runtime/JSTemplateRegistryKey.cpp
+runtime/JSTemplateObjectDescriptor.cpp
 runtime/JSTypedArrayConstructors.cpp
 runtime/JSTypedArrayPrototypes.cpp
 runtime/JSTypedArrayViewConstructor.cpp
@@ -856,7 +863,6 @@ runtime/MatchResult.cpp
 runtime/MathCommon.cpp
 runtime/MathObject.cpp
 runtime/MemoryStatistics.cpp
-runtime/ModuleLoaderPrototype.cpp
 runtime/ModuleProgramExecutable.cpp
 runtime/NativeErrorConstructor.cpp
 runtime/NativeErrorPrototype.cpp
@@ -918,9 +924,7 @@ runtime/SymbolConstructor.cpp
 runtime/SymbolObject.cpp
 runtime/SymbolPrototype.cpp
 runtime/SymbolTable.cpp
-runtime/TemplateRegistry.cpp
-runtime/TemplateRegistryKey.cpp
-runtime/TemplateRegistryKeyTable.cpp
+runtime/TemplateObjectDescriptor.cpp
 runtime/TestRunnerUtils.cpp
 runtime/ThrowScope.cpp
 runtime/TypeLocationCache.cpp

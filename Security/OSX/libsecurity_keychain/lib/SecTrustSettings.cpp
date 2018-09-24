@@ -846,6 +846,7 @@ OSStatus SecTrustSettingsCopyCertificates(
 	OSStatus status;
 	TrustSettings* ts;
 	CFMutableArrayRef trustedCertArray = NULL;
+    SecTrustRef trust = NULL;
 
 	status = TrustSettings::CreateTrustSettings(domain, CREATE_NO, TRIM_NO, ts);
 	if (status != errSecSuccess) {
@@ -892,7 +893,6 @@ OSStatus SecTrustSettingsCopyCertificates(
         SecPolicyRef policy = SecPolicyCreateBasicX509();
 	    trustedCertArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
         for (i = 0; i < count ; i++) {
-            SecTrustRef trust;
             SecTrustResultType result;
             SecCertificateRef certificate = (SecCertificateRef) CFArrayGetValueAtIndex(outArray, i);
             status = SecTrustCreateWithCertificates(certificate, policy, &trust);
@@ -908,6 +908,7 @@ OSStatus SecTrustSettingsCopyCertificates(
             if (result != kSecTrustResultFatalTrustFailure) {
                 CFArrayAppendValue(trustedCertArray, certificate);
             }
+            CFReleaseNull(trust);
         }
 		tsAddConditionalCerts(trustedCertArray);
         if (CFArrayGetCount(trustedCertArray) == 0) {
@@ -925,16 +926,17 @@ out:
         CFReleaseSafe(outArray);
 		CFReleaseSafe(trustedCertArray);
      }
+    CFReleaseNull(trust);
     return status;
 	END_RCSAPI
 }
 
 static CFArrayRef gUserAdminCerts = NULL;
 static bool gUserAdminCertsCacheBuilt = false;
-static ReadWriteLock gUserAdminCertsLock;
+static ModuleNexus<ReadWriteLock> gUserAdminCertsLock;
 
 void SecTrustSettingsPurgeUserAdminCertsCache(void) {
-    StReadWriteLock _(gUserAdminCertsLock, StReadWriteLock::Write);
+    StReadWriteLock _(gUserAdminCertsLock(), StReadWriteLock::Write);
     CFReleaseNull(gUserAdminCerts);
     gUserAdminCertsCacheBuilt = false;
 }
@@ -946,7 +948,7 @@ OSStatus SecTrustSettingsCopyCertificatesForUserAdminDomains(
     OSStatus result = errSecSuccess;
 
     { /* Hold the read lock for the check */
-        StReadWriteLock _(gUserAdminCertsLock, StReadWriteLock::Read);
+        StReadWriteLock _(gUserAdminCertsLock(), StReadWriteLock::Read);
         if (gUserAdminCertsCacheBuilt) {
             if (gUserAdminCerts) {
                 *certArray = (CFArrayRef)CFRetain(gUserAdminCerts);
@@ -991,7 +993,7 @@ OSStatus SecTrustSettingsCopyCertificatesForUserAdminDomains(
 
     /* For valid results, update the global cache */
     if (result == errSecSuccess || result == errSecNoTrustSettings) {
-        StReadWriteLock _(gUserAdminCertsLock, StReadWriteLock::Write);
+        StReadWriteLock _(gUserAdminCertsLock(), StReadWriteLock::Write);
         CFReleaseNull(gUserAdminCerts);
         gUserAdminCerts = (CFArrayRef)CFRetainSafe(outArray);
         gUserAdminCertsCacheBuilt = true;

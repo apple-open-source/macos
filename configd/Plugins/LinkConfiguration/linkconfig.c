@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2011, 2013, 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011, 2013, 2015-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -55,7 +55,7 @@ static CFMutableDictionaryRef	wantSettings		= NULL;
 
 
 static os_log_t
-__log_LinkConfiguration()
+__log_LinkConfiguration(void)
 {
 	static os_log_t	log	= NULL;
 
@@ -780,6 +780,7 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 	CFArrayAppendValue(patterns, key);
 	CFRelease(key);
 
+#if	TARGET_OS_OSX
 	/* ...watch for (per-interface) FireWire configuration changes */
 	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 							    kSCDynamicStoreDomainSetup,
@@ -787,6 +788,7 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 							    kSCEntNetFireWire);
 	CFArrayAppendValue(patterns, key);
 	CFRelease(key);
+#endif	// TARGET_OS_OSX
 
 	/* register the keys/patterns */
 	ok = SCDynamicStoreSetNotificationKeys(store, keys, patterns);

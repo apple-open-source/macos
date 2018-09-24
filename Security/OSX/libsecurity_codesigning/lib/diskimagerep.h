@@ -52,7 +52,8 @@ public:
 	void prepareForSigning(SigningContext& state);
 	
 	static bool candidate(UnixPlusPlus::FileDesc &fd);
-	
+	void registerStapledTicket();
+
 public:
 	static CFDataRef identificationFor(MachO *macho);
 	

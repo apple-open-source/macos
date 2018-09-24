@@ -1,4 +1,4 @@
-import os, sys, getopt, re, subprocess, random, time, json
+import os, sys, getopt, re, subprocess, random, time, json, plistlib
 from collections import OrderedDict
 
 
@@ -179,6 +179,7 @@ def GenEventStructDef(event):
     typename = "IOHID%sEventData" % (event['name'])
     print "typedef struct {"
     indent = 4
+    #    print "    IOHIDEventDataCommon common;"
     print "    %s base;" % (typename)
     if 'fields' in event.keys():
         GenEventFieldTypeDefs(indent, event, 'fields')
@@ -188,7 +189,7 @@ def GenEventStructDef(event):
 # Generate event data structs
 #
 def GenStructs(events):
-    for event in events:
+    for eventName,event in events.items():
         if hasDeclaration(event):
             continue
         GenBaseEventStructDef(event)
@@ -211,7 +212,7 @@ def GetTypeInfo(type):
 # Generate field definitons
 #
 def GenFieldsDefs(events):
-    for event in events:
+    for eventName,event in events.items():
         if hasDeclaration(event):
             continue
 
@@ -232,14 +233,11 @@ def GenFieldsDefs(events):
             fieldDict[filedNameString] = field['field_number']
 
         if fieldDict:
-            print "#define kIOHIDEventField%sBase IOHIDEventFieldBase(kIOHIDEventType%s)" % (
-                event['name'], event['name'])
+            print "#define kIOHIDEventField%sBase IOHIDEventFieldBase(kIOHIDEventType%s)" % (event['name'], event['name'])
                 
                 #print "typedef IOHID_ENUM (IOHIDEventField, IOHIDEvent%sFieldType) {" % (event['name'])
             for filedNameString in fieldDict.keys():
-                print "static const IOHIDEventField %-58s        =  (kIOHIDEventField%sBase | %d);" % (
-                    filedNameString, event['name'], fieldDict[filedNameString])
-            #print "};"
+                print "static const IOHIDEventField %-58s        =  (kIOHIDEventField%sBase | %d);" % (filedNameString, event['name'], fieldDict[filedNameString])
             print ""
 
 
@@ -247,7 +245,7 @@ def GenFieldsDefs(events):
 # Link fileds hierarchy in lists so each child has reference to parent
 #
 def ProcessEvents(events):
-    for event in events:
+    for eventName,event in events.items():
         ProcessEventData(event, 'base_fields', True)
         ProcessEventData(event, 'fields', False)
 
@@ -260,7 +258,7 @@ def ProcessEventData(object, fieldType='fields', isBase = True):
             child['parent'] = object
             child['base'] = isBase
             if 'fields' in child.keys():
-                ProcessEventData(child)
+                ProcessEventData(child, 'fields', isBase)
 
 
 #
@@ -268,7 +266,7 @@ def ProcessEventData(object, fieldType='fields', isBase = True):
 #
 def GenAccessMacro(events):
     valueTypes = ["CFIndex", "double", "IOFixed", "data"]
-    for event in events:
+    for eventName,event in events.items():
         if hasDeclaration(event) or event['name'] == "":
             continue
         for valueType in valueTypes:
@@ -276,7 +274,7 @@ def GenAccessMacro(events):
             GenEventAccessMacro(event, valueType, "getter")
     print ""
     for valueType in valueTypes:
-        for event in events:
+        for eventName,event in events.items():
             if hasDeclaration(event):
                 continue
             print "#ifndef _IOHID%sGetSynthesizedFieldsAs%sMacro" % (
@@ -291,83 +289,79 @@ def GenAccessMacro(events):
             print "#endif"
     print ""
     for valueType in valueTypes:
-        print "#define IOHIDEventSet%sFieldsMacro(event, field) \\" % (
-            GetTypeInfo(valueType).title())
+        print "#define IOHIDEventSet%sFieldsMacro(event, field) \\" % (GetTypeInfo(valueType).title())
         macroString = ""
-        for event in events:
+        for eventName,event in events.items():
             if hasDeclaration(event) or event['name'] == "":
                 continue
             if macroString != "":
-                macroString = macroString + "\\\n"
-            macroString = macroString + "     _IOHID%sSetFieldsAs%sMacro(event, field)" % (
-                GetEventTypeName(event), GetTypeInfo(valueType).title())
-        print macroString + "\n"
+                macroString = macroString + "\n"
+            macroString = macroString + "     _IOHID%sSetFieldsAs%sMacro(event, field)" % (GetEventTypeName(event), GetTypeInfo(valueType).title())
+        print macroString.replace("\n", "\\\n") + "\n"
     print ""
     for valueType in valueTypes:
         print "#define IOHIDEventGet%sFieldsMacro(event, field) \\" % (
             GetTypeInfo(valueType).title())
         macroString = ""
-        for event in events:
+        for eventName,event in events.items():
             if hasDeclaration(event) or event['name'] == "":
                 continue
             if macroString != "":
-                macroString = macroString + "\\\n"
-            macroString = macroString + "    _IOHID%sGetFieldsAs%sMacro(event, field) " % (
-                GetEventTypeName(event), GetTypeInfo(valueType).title())
-        print macroString + "\n"
+                macroString = macroString + "\n"
+            macroString = macroString + "    _IOHID%sGetFieldsAs%sMacro(event, field) " % (GetEventTypeName(event), GetTypeInfo(valueType).title())
+        print macroString.replace("\n", "\\\n") + "\n"
 
-    macroString = "#define IOHIDEventGetBaseSize(type, size) \\\n"
-    macroString += "    switch(type) {\\\n"
-    for event in events:
+    macroString = "#define IOHIDEventGetBaseSize(type, size)\n"
+    macroString += "    switch(type) {\n"
+    for eventName,event in events.items():
         if hasDeclaration(event) or event['name'] == "":
             continue
         typename = "IOHID%sEventData" % (event['name'])
-        macroString += "      case kIOHIDEventType%s:\\\n" % (
-            GetEventTypeName(event))
-        macroString += "          size = sizeof (%s);\\\n" % (typename)
-        macroString += "          break; \\\n"
-    macroString += "      default:\\\n"
-    macroString += "          size = 0;\\\n"
+        macroString += "      case kIOHIDEventType%s:\n" % (GetEventTypeName(event))
+        macroString += "          size = sizeof (%s);\n" % (typename)
+        macroString += "          break;\n"
+    macroString += "      default:\n"
+    macroString += "          size = 0;\n"
     macroString += "    }\n"
-    print macroString + "\n"
+    print macroString.replace("\n", "\\\n") + "\n"
 
-    macroString = "#define IOHIDEventGetSize(type, size) \\\n"
-    macroString += "    switch(type) {\\\n"
-    for event in events:
+    macroString = "#define IOHIDEventGetSize(type, size) \n"
+    macroString += "    switch(type) {\n"
+    for eventName,event in events.items():
         if hasDeclaration(event) or event['name'] == "":
             continue
         typename = "IOHID%sEventData" % (event['name'])
-        macroString += "      case kIOHIDEventType%s:\\\n" % (
+        macroString += "      case kIOHIDEventType%s:\n" % (
             GetEventTypeName(event))
-        macroString += "          size = sizeof (__%s);\\\n" % (typename)
-        macroString += "          break; \\\n"
-    macroString += "      default:\\\n"
-    macroString += "          size = 0;\\\n"
+        macroString += "          size = sizeof (__%s);\n" % (typename)
+        macroString += "          break; \n"
+    macroString += "      default:\n"
+    macroString += "          size = 0;\n"
     macroString += "    }\n"
-    print macroString + "\n"
+    print macroString.replace("\n", "\\\n") + "\n"
 
 def GenEventFieldAccessSetMacro(event, field, valueType, indent):
     fieldMacroString = ''
     fieldName = GetEventFieldNameString(field)
     fieldAccess = GetEventFieldAccessString(field)
     fieldTypeCast = GetEventTypecastValueToFieldMacroString(field, valueType)
-    fieldMacroString += "%scase %s: \\\n" % (indent * ' ', fieldName)
+    fieldMacroString += "%scase %s: \n" % (indent * ' ', fieldName)
 
     eventTypeName = "IOHID%sEventData" % (event['name'])
     if field['base'] == False:
         eventTypeName = "__" + eventTypeName
 
     if 'length' in field.keys() and field['length'] == 1:
-        fieldMacroString += "%s    ((%s*)event)->%s = value ? 1 : 0; \\\n" % (
+        fieldMacroString += "%s    ((%s*)event)->%s = value ? 1 : 0; \n" % (
             indent * ' ', eventTypeName, fieldAccess)
     elif field['kind'] == 'array':
-        fieldMacroString += "%s    *(typeof(value)*)(((%s*)event)->%s) = value; \\\n" % (
+        fieldMacroString += "%s    *(typeof(value)*)(((%s*)event)->%s) = value; \n" % (
             indent * ' ', eventTypeName, fieldAccess)
     else:
-        fieldMacroString += "%s    ((%s*)event)->%s = (typeof(((%s*)event)->%s)) %s(value); \\\n" % (
+        fieldMacroString += "%s    ((%s*)event)->%s = (typeof(((%s*)event)->%s)) %s(value); \n" % (
             indent * ' ', eventTypeName, fieldAccess, eventTypeName,
             fieldAccess, fieldTypeCast)
-    fieldMacroString = fieldMacroString + "%s    break; \\\n" % (indent * ' ')
+    fieldMacroString = fieldMacroString + "%s    break; \n" % (indent * ' ')
     return fieldMacroString
 
 
@@ -376,40 +370,27 @@ def GenEventFieldAccessGetMacro(event, field, valueType, indent):
     fieldName = GetEventFieldNameString(field)
     fieldAccess = GetEventFieldAccessString(field)
     fieldTypeCast = GetEventTypecastFieldToTypeMacroString(field, valueType)
-    fieldMacroString += "%scase %s: \\\n" % (indent * ' ', fieldName)
+    fieldMacroString += "%scase %s: \n" % (indent * ' ', fieldName)
     eventTypeName = "IOHID%sEventData" % (event['name'])
     if field['base'] == False:
         eventTypeName = "__" + eventTypeName
     
     if field['kind'] == 'array':
-        fieldMacroString += "%s    value = *(typeof(value)*)((%s*)event)->%s; \\\n" % (
-            indent * ' ', eventTypeName, fieldAccess)
+        fieldMacroString += "%s    value = *(typeof(value)*)((%s*)event)->%s; \n" % (indent * ' ', eventTypeName, fieldAccess)
     else:
-        fieldMacroString += "%s    value = (typeof(value))%s(((%s*)event)->%s); \\\n" % (
-            indent * ' ', fieldTypeCast, eventTypeName, fieldAccess)
-    fieldMacroString += "%s    break; \\\n" % (indent * ' ')
+        fieldMacroString += "%s    value = (typeof(value))%s(((%s*)event)->%s); \n" % (indent * ' ', fieldTypeCast, eventTypeName, fieldAccess)
+    fieldMacroString += "%s    break; \n" % (indent * ' ')
     return fieldMacroString
 
-
-def GenEventDataAccessMacro(event, valueType, macroType):
+def GenEventDataFieldSwitchStatment(event, valueType, macroType):
     valid = False
     fields = []
-    fieldsWithSelector = {}
     GetEventFieldsList(event, fields)
     fieldMacroString = ""
     indent = 8
-    if macroType == "setter":
-        fieldMacroString += "#define _IOHID%sSetFieldsAs%sMacro(event, field) \\\n" % (
-            GetEventTypeName(event), GetTypeInfo(valueType).title())
-    else:
-        fieldMacroString += "#define _IOHID%sGetFieldsAs%sMacro(event, field) \\\n" % (
-            GetEventTypeName(event), GetTypeInfo(valueType).title())
 
-    fieldMacroString += "case kIOHIDEventType%s:\\\n" % (
-        GetEventTypeName(event))
-    fieldMacroString += "{\\\n"
-    fieldMacroString += "    switch (field)\\\n"
-    fieldMacroString += "    {\\\n"
+    fieldMacroString += "    switch (field)\n"
+    fieldMacroString += "    {\n"
     for field in fields:
         if hasDefinition(field):
             continue
@@ -419,51 +400,55 @@ def GenEventDataAccessMacro(event, valueType, macroType):
 
         fieldName = GetEventFieldNameString(field)
         fieldAccess = GetEventFieldAccessString(field)
-        fieldMacroString += "%scase %s: \\\n" % (indent * ' ', fieldName)
-        fieldMacroString += "%s    value = (typeof(value))(((IOHID%sEventData*)event)->%s); \\\n" % (
-            indent * ' ', event['name'], fieldAccess)
+        fieldMacroString += "%scase %s: \n" % (indent * ' ', fieldName)
+        fieldMacroString += "%s    value = (typeof(value))(((IOHID%sEventData*)event)->%s); \n" % (indent * ' ', event['name'], fieldAccess)
+        fieldMacroString += "%s    break;\n" % (indent * ' ')
         valid = True
 
     if macroType == "setter":
-        fieldMacroString += "        _IOHID%sSetSynthesizedFieldsAs%sMacro(event,field) \\\n" % (
-            GetEventTypeName(event), GetTypeInfo(valueType).title())
+        fieldMacroString += "        _IOHID%sSetSynthesizedFieldsAs%sMacro(event,field) \n" % (GetEventTypeName(event), GetTypeInfo(valueType).title())
     else:
-        fieldMacroString += "        _IOHID%sGetSynthesizedFieldsAs%sMacro(event,field) \\\n" % (
-            GetEventTypeName(event), GetTypeInfo(valueType).title())
+        fieldMacroString += "        _IOHID%sGetSynthesizedFieldsAs%sMacro(event,field) \n" % (GetEventTypeName(event), GetTypeInfo(valueType).title())
 
-    fieldMacroString += "    }\\\n"
-    fieldMacroString += "    break;\\\n"
+    fieldMacroString += "    }\n"
+    return fieldMacroString, valid
+
+
+
+
+def GenEventDataAccessMacro(event, valueType, macroType):
+    valid = False
+    fields = []
+    GetEventFieldsList(event, fields)
+    fieldMacroString = ""
+    indent = 8
+    if macroType == "setter":
+        fieldMacroString += "#define _IOHID%sSetFieldsAs%sMacro(event, field) \n" % (GetEventTypeName(event), GetTypeInfo(valueType).title())
+    else:
+        fieldMacroString += "#define _IOHID%sGetFieldsAs%sMacro(event, field) \n" % (GetEventTypeName(event), GetTypeInfo(valueType).title())
+
+    fieldMacroString += "case kIOHIDEventType%s:\n" % (GetEventTypeName(event))
+    fieldMacroString += "{\n"
+    switchStr,valid = GenEventDataFieldSwitchStatment (event, valueType, macroType);
+    fieldMacroString += switchStr
+    fieldMacroString += "    break;\n"
     fieldMacroString += "}\n"
 
     if not valid:
         if macroType == "setter":
-            fieldMacroString = "#define _IOHID%sSetFieldsAs%sMacro(event, field) \\\n" % (
-                GetEventTypeName(event), GetTypeInfo(valueType).title())
+            fieldMacroString = "#define _IOHID%sSetFieldsAs%sMacro(event, field) \n" % (GetEventTypeName(event), GetTypeInfo(valueType).title())
         else:
-            fieldMacroString = "#define _IOHID%sGetFieldsAs%sMacro(event, field) \\\n" % (
-                GetEventTypeName(event), GetTypeInfo(valueType).title())
+            fieldMacroString = "#define _IOHID%sGetFieldsAs%sMacro(event, field) \n" % (GetEventTypeName(event), GetTypeInfo(valueType).title())
 
-    return fieldMacroString
+    return fieldMacroString.replace ("\n", "\\\n")
 
 
-def GenEventValueAccessMacro(event, valueType, macroType):
+def GenEventFieldSwitchStatment(event, valueType, macroType):
     fields = []
     fieldsWithSelector = {}
     GetEventFieldsList(event, fields)
-    fieldMacroString = ""
-
-    if macroType == "setter":
-        fieldMacroString += "#define _IOHID%sSetFieldsAs%sMacro(event, field) \\\n" % (
-            GetEventTypeName(event), GetTypeInfo(valueType).title())
-    else:
-        fieldMacroString += "#define _IOHID%sGetFieldsAs%sMacro(event, field) \\\n" % (
-            GetEventTypeName(event), GetTypeInfo(valueType).title())
-
-    fieldMacroString += "case kIOHIDEventType%s:\\\n" % (
-        GetEventTypeName(event))
-    fieldMacroString += "{\\\n"
-    fieldMacroString += "    switch (field)\\\n"
-    fieldMacroString += "    {\\\n"
+    fieldMacroString  = "    switch (field)\n"
+    fieldMacroString += "    {\n"
 
     for field in fields:
         if hasDefinition(field):
@@ -488,11 +473,9 @@ def GenEventValueAccessMacro(event, valueType, macroType):
             continue
 
         if macroType == "setter":
-            fieldMacroString += GenEventFieldAccessSetMacro(event, field,
-                                                            valueType, 8)
+            fieldMacroString += GenEventFieldAccessSetMacro(event, field, valueType, 8)
         else:
-            fieldMacroString += GenEventFieldAccessGetMacro(event, field,
-                                                            valueType, 8)
+            fieldMacroString += GenEventFieldAccessGetMacro(event, field, valueType, 8)
 
     for selectorName in fieldsWithSelector.keys():
         fieldNameSet = set()
@@ -502,39 +485,61 @@ def GenEventValueAccessMacro(event, valueType, macroType):
                 fieldNameSet.add(fieldName)
 
         for fieldName in fieldNameSet:
-            fieldMacroString += "%scase %s: \\\n" % (8 * ' ', fieldName)
+            fieldMacroString += "%scase %s: \n" % (8 * ' ', fieldName)
 
         ind = 12 * ' '
         for selectorValue in fieldsWithSelector[selectorName].keys():
-            selector = GetEventFieldSelector(
-                fieldsWithSelector[selectorName][selectorValue][0])
+            selector = GetEventFieldSelector(fieldsWithSelector[selectorName][selectorValue][0])
             selectorAccess = GetEventFieldAccessString(selector)
-            fieldMacroString += ind + "if (((IOHID%sEventData*)event)->%s == %s) {\\\n" % (
-                event['name'], selectorAccess, selectorValue)
-            fieldMacroString += ind + "    switch (field) \\\n"
-            fieldMacroString += ind + "    {\\\n"
+            
+            eventTypeName = "IOHID%sEventData" % (event['name'])
+            if selector['base'] == False:
+                eventTypeName = "__" + eventTypeName
+
+            fieldMacroString += ind + "if (((%s*)event)->%s == %s) {\n" % (eventTypeName, selectorAccess, selectorValue)
+            fieldMacroString += ind + "    switch (field) \n"
+            fieldMacroString += ind + "    {\n"
+
             for field in fieldsWithSelector[selectorName][selectorValue]:
                 if macroType == "setter":
-                    fieldMacroString += GenEventFieldAccessSetMacro(
-                        event, field, valueType, 20)
+                    fieldMacroString += GenEventFieldAccessSetMacro(event, field, valueType, 20)
                 else:
-                    fieldMacroString += GenEventFieldAccessGetMacro(
-                        event, field, valueType, 20)
-            fieldMacroString += ind + "    }\\\n"
-            fieldMacroString += ind + "    break;\\\n"
-            fieldMacroString += ind + "}\\\n"
-        fieldMacroString += ind + 'break;\\\n'
+                    fieldMacroString += GenEventFieldAccessGetMacro(event, field, valueType, 20)
+            
+            fieldMacroString += ind + "    }\n"
+            fieldMacroString += ind + "    break;\n"
+            fieldMacroString += ind + "}\n"
+        fieldMacroString += ind + 'break;\n'
 
     if macroType == "setter":
-        fieldMacroString += "        _IOHID%sSetSynthesizedFieldsAs%sMacro(event,field) \\\n" % (
-            GetEventTypeName(event), GetTypeInfo(valueType).title())
+        fieldMacroString += "        _IOHID%sSetSynthesizedFieldsAs%sMacro(event,field) \n" % (GetEventTypeName(event), GetTypeInfo(valueType).title())
     else:
-        fieldMacroString += "        _IOHID%sGetSynthesizedFieldsAs%sMacro(event,field) \\\n" % (
-            GetEventTypeName(event), GetTypeInfo(valueType).title())
+        fieldMacroString += "        _IOHID%sGetSynthesizedFieldsAs%sMacro(event,field) \n" % (GetEventTypeName(event), GetTypeInfo(valueType).title())
 
-    fieldMacroString += "    }\\\n"
-    fieldMacroString += "    break;\\\n"
+    fieldMacroString += "    }\n"
+    return fieldMacroString
+
+def GenEventValueSwitchStatment(event, valueType, macroType):
+    fieldMacroString = ""
+    fieldMacroString += "case kIOHIDEventType%s:\n" % (GetEventTypeName(event))
+    fieldMacroString += "{\n"
+
+    fieldMacroString += GenEventFieldSwitchStatment (event,valueType, macroType)
+
+    fieldMacroString += "    break;\n"
     fieldMacroString += "}\n"
+    return fieldMacroString
+
+
+def GenEventValueAccessMacro(event, valueType, macroType):
+    fieldMacroString = ""
+
+    if macroType == "setter":
+        fieldMacroString += "#define _IOHID%sSetFieldsAs%sMacro(event, field) \\\n" % (GetEventTypeName(event), GetTypeInfo(valueType).title())
+    else:
+        fieldMacroString += "#define _IOHID%sGetFieldsAs%sMacro(event, field) \\\n" % (GetEventTypeName(event), GetTypeInfo(valueType).title())
+
+    fieldMacroString += GenEventValueSwitchStatment (event, valueType, macroType).replace("\n","\\\n") 
     return fieldMacroString
 
 
@@ -546,6 +551,7 @@ def GenEventAccessMacro(event, valueType, macroType):
         fieldMacroString = GenEventDataAccessMacro(event, valueType, macroType)
 
     print fieldMacroString
+
 
 
 def GetSimpleTypeString(type):
@@ -582,7 +588,7 @@ def GetEventTypecastValueToFieldMacroString(field, valueType):
 
 
 def GetEventForName(events, name):
-    for event in events:
+    for eventName,event in events.items():
         if event['name'] == name:
             return event
     return None
@@ -639,7 +645,109 @@ def GenHeader(fieldDict, eventName):
     
     print "\n@end\n\n"
 
-def GenObject(fieldDict, eventName):
+def GenObjectDescription(event):
+    fields = []
+    fieldsWithSelector = {}
+    GetEventFieldsList(event, fields)
+    formatStr   = ""
+    argumentStr = "" 
+    descriptionString  = "- (NSString *)description {\n"
+    descriptionString += "    NSString * desc;\n"
+
+    for field in fields:
+        if hasDefinition(field):
+            continue
+
+        if hasSelector(field):
+            selector = field['selector']
+            selectorName = selector['name']
+            selectorValue = selector['value']
+            if selectorName not in fieldsWithSelector.keys():
+                fieldsWithSelector[selectorName] = {}
+            if selectorValue not in fieldsWithSelector[selectorName].keys():
+                fieldsWithSelector[selectorName][selectorValue] = []
+            fieldsWithSelector[selectorName][selectorValue].append(field)
+            continue
+
+        fieldName   = GetEventFieldNameString(field)
+        varName     = GetVarName(field, fieldName, event['name'])
+        if field['kind'] == "array":
+            varName += 'str'
+        formatStr   += " %s:%%@" % varName
+        argumentStr += ", self.%s" % varName
+
+    ind = 4 * ' '    
+    descriptionString += ind + 'desc = [NSString stringWithFormat:@"%s %s", [super description]%s];\n' % ("%@", formatStr.lstrip(), argumentStr)
+    
+    for selectorName in fieldsWithSelector.keys():
+        fieldNameSet = set()
+        for selectorValue in fieldsWithSelector[selectorName].keys():
+            for field in fieldsWithSelector[selectorName][selectorValue]:
+                fieldName = GetEventFieldNameString(field)
+                fieldNameSet.add(fieldName)
+
+        # for fieldName in fieldNameSet:
+        #     fieldMacroString += "%scase %s: \n" % (8 * ' ', fieldName)
+
+        for selectorValue in fieldsWithSelector[selectorName].keys():
+            selector = GetEventFieldSelector(fieldsWithSelector[selectorName][selectorValue][0])
+            selectorAccess = GetEventFieldAccessString(selector)
+            
+            eventTypeName = "IOHID%sEventData" % (event['name'])
+            if selector['base'] == False:
+                eventTypeName = "__" + eventTypeName
+
+            filedNameString = GetEventFieldNameString(selector)    
+            descriptionString += ind + "if (IOHIDEventGetIntegerValue(self->eventRef, %s) == %s) {\n" % (filedNameString, selectorValue)
+            formatStr = ""
+            argumentStr = ""
+            for field in fieldsWithSelector[selectorName][selectorValue]:
+                fieldName   = GetEventFieldNameString(field)
+                varName     = GetVarName(field, fieldName, event['name'])
+                if field['kind'] == "array":
+                    varName += 'str'
+                formatStr += " %s:%%@" % varName
+                argumentStr += ", self.%s" % varName
+
+            descriptionString += ind + '    desc = [NSString stringWithFormat:@"%s %s", desc%s];\n' % ("%@", formatStr.lstrip(), argumentStr) 
+            descriptionString += ind + "}\n"
+
+    descriptionString += "    return desc;\n" 
+    descriptionString += "}\n" 
+    descriptionString += "@end\n" 
+
+    print descriptionString 
+             
+
+    # print "- (NSString *)description {"
+    # print '    return [NSString stringWithFormat:@"%@ ',
+    # for fieldName in fieldDict.keys():
+    #     varName         = fieldDict[fieldName]['var_name']
+        
+    #     if fieldName == fieldDict.keys()[-1]:
+    #         sys.stdout.write("%s:%%@" % (varName))
+    #     else:
+    #         sys.stdout.write("%s:%%@ " % (varName))
+
+    # print '", [super description], ',
+    # for fieldName in fieldDict.keys():
+    #     varName         = fieldDict[fieldName]['var_name']
+    #     nsSubType       = fieldDict[fieldName]['ns_subtype']
+    #     arrayStr        = ''
+        
+    #     if nsSubType == "Array":
+    #         arrayStr = "str"
+        
+    #     if fieldName == fieldDict.keys()[-1]:
+    #         sys.stdout.write("self.%s%s" % (varName, arrayStr))
+    #     else:
+    #         sys.stdout.write("self.%s%s, " % (varName, arrayStr))
+    
+    # print "];\n}\n\n@end\n\n"
+
+
+def GenObject(fieldDict, event):
+    eventName = event['name']
     print "@implementation HID%sEvent\n" % (eventName)
 	
     for fieldName in fieldDict.keys():
@@ -678,31 +786,7 @@ def GenObject(fieldDict, eventName):
                 nsSubType, fieldName, varName, numType)
             print "}\n"
     
-    print "- (NSString *)description {"
-    print '    return [NSString stringWithFormat:@"%@ ',
-    for fieldName in fieldDict.keys():
-        varName         = fieldDict[fieldName]['var_name']
-        
-        if fieldName == fieldDict.keys()[-1]:
-            sys.stdout.write("%s:%%@" % (varName))
-        else:
-            sys.stdout.write("%s:%%@ " % (varName))
-
-    print '", [super description], ',
-    for fieldName in fieldDict.keys():
-        varName         = fieldDict[fieldName]['var_name']
-        nsSubType       = fieldDict[fieldName]['ns_subtype']
-        arrayStr        = ''
-        
-        if nsSubType == "Array":
-            arrayStr = "str"
-        
-        if fieldName == fieldDict.keys()[-1]:
-            sys.stdout.write("self.%s%s" % (varName, arrayStr))
-        else:
-            sys.stdout.write("self.%s%s, " % (varName, arrayStr))
-    
-    print "];\n}\n\n@end\n\n"
+    GenObjectDescription(event)
 
 def GenObjectData(event):
     fieldDict = {}
@@ -734,16 +818,16 @@ def GenObjectData(event):
     return fieldDict
 
 def GenHeaders(events):
-    for event in events:
+    for eventName,event in events.items():
         objData = GenObjectData(event)
         if objData:
             GenHeader(objData, event['name'])
 
 def GenObjects(events):
-    for event in events:
+    for eventName,event in events.items():
         objData = GenObjectData(event)
         if objData:
-            GenObject(objData, event['name'])
+            GenObject(objData, event)
 
 def main(argv):
     file = None
@@ -760,10 +844,11 @@ def main(argv):
             name = arg
 
     if file:
-        f = open(file, 'r')
-        j = f.read()
- 
-        events = json.loads(j, object_pairs_hook=OrderedDict)
+        #f = open(file, 'r')
+        #j = f.read()
+        
+        events  = plistlib.readPlist(file)
+        #events = json.loads(j, object_pairs_hook=OrderedDict)
         ProcessEvents(events)
 
         if name:

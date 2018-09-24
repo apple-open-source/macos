@@ -1,4 +1,4 @@
-﻿# Copyright (C) 2016 and later: Unicode, Inc. and others.
+# Copyright (C) 2016 and later: Unicode, Inc. and others.
 # License & terms of use: http://www.unicode.org/copyright.html
 # Copyright (c) 2002-2016  International Business Machines Corporation and
 # others. All Rights Reserved.
@@ -7,11 +7,8 @@
 #
 #         Line Breaking Rules
 #         Implement default line breaking as defined by
-#         Unicode Standard Annex #14 Revision 37 for Unicode 9.0
+#         Unicode Standard Annex #14 Revision 40 for Unicode 11.0
 #         http://www.unicode.org/reports/tr14/
-#
-#         Includes extensions to the handling of emoji ZWJ sequences from
-#         https://goo.gl/cluFCn
 #
 #         tailored as noted in 2nd paragraph below.
 #
@@ -30,6 +27,7 @@
 #
 
 !!chain;
+!!quoted_literals_only;
 
 $AI = [:LineBreak =  Ambiguous:];
 $AL = [:LineBreak =  Alphabetic:];
@@ -78,10 +76,6 @@ $XX = [:LineBreak =  Unknown:];
 $ZW = [:LineBreak =  ZWSpace:];
 $ZWJ = [:LineBreak = ZWJ:];
 
-$EmojiNRK = [[\p{Emoji}] - [$RI \u002a\u00230-9©®™〰〽]];
-# Data for Extended Pictographic scraped from CLDR common/properties/ExtendedPictographic.txt, r13267
-$Extended_Pict = [\U0001F774-\U0001F77F\U00002700-\U00002701\U00002703-\U00002704\U0000270E\U00002710-\U00002711\U00002765-\U00002767\U0001F030-\U0001F093\U0001F094-\U0001F09F\U0001F10D-\U0001F10F\U0001F12F\U0001F16C-\U0001F16F\U0001F1AD-\U0001F1E5\U0001F260-\U0001F265\U0001F203-\U0001F20F\U0001F23C-\U0001F23F\U0001F249-\U0001F24F\U0001F252-\U0001F25F\U0001F266-\U0001F2FF\U0001F7D5-\U0001F7FF\U0001F000-\U0001F003\U0001F005-\U0001F02B\U0001F02C-\U0001F02F\U0001F322-\U0001F323\U0001F394-\U0001F395\U0001F398\U0001F39C-\U0001F39D\U0001F3F1-\U0001F3F2\U0001F3F6\U0001F4FE\U0001F53E-\U0001F548\U0001F54F\U0001F568-\U0001F56E\U0001F571-\U0001F572\U0001F57B-\U0001F586\U0001F588-\U0001F589\U0001F58E-\U0001F58F\U0001F591-\U0001F594\U0001F597-\U0001F5A3\U0001F5A6-\U0001F5A7\U0001F5A9-\U0001F5B0\U0001F5B3-\U0001F5BB\U0001F5BD-\U0001F5C1\U0001F5C5-\U0001F5D0\U0001F5D4-\U0001F5DB\U0001F5DF-\U0001F5E0\U0001F5E2\U0001F5E4-\U0001F5E7\U0001F5E9-\U0001F5EE\U0001F5F0-\U0001F5F2\U0001F5F4-\U0001F5F9\U00002605\U00002607-\U0000260D\U0000260F-\U00002610\U00002612\U00002616-\U00002617\U00002619-\U0000261C\U0000261E-\U0000261F\U00002621\U00002624-\U00002625\U00002627-\U00002629\U0000262B-\U0000262D\U00002630-\U00002637\U0000263B-\U00002647\U00002654-\U0000265F\U00002661-\U00002662\U00002664\U00002667\U00002669-\U0000267A\U0000267C-\U0000267E\U00002680-\U00002691\U00002695\U00002698\U0000269A\U0000269D-\U0000269F\U000026A2-\U000026A9\U000026AC-\U000026AF\U000026B2-\U000026BC\U000026BF-\U000026C3\U000026C6-\U000026C7\U000026C9-\U000026CD\U000026D0\U000026D2\U000026D5-\U000026E8\U000026EB-\U000026EF\U000026F6\U000026FB-\U000026FC\U000026FE-\U000026FF\U00002388\U0001FA00-\U0001FFFD\U0001F0A0-\U0001F0AE\U0001F0B1-\U0001F0BF\U0001F0C1-\U0001F0CF\U0001F0D1-\U0001F0F5\U0001F0AF-\U0001F0B0\U0001F0C0\U0001F0D0\U0001F0F6-\U0001F0FF\U0001F80C-\U0001F80F\U0001F848-\U0001F84F\U0001F85A-\U0001F85F\U0001F888-\U0001F88F\U0001F8AE-\U0001F8FF\U0001F900-\U0001F90B\U0001F91F\U0001F928-\U0001F92F\U0001F931-\U0001F932\U0001F94C\U0001F95F-\U0001F96B\U0001F992-\U0001F997\U0001F9D0-\U0001F9E6\U0001F90C-\U0001F90F\U0001F93F\U0001F94D-\U0001F94F\U0001F96C-\U0001F97F\U0001F998-\U0001F9BF\U0001F9C1-\U0001F9CF\U0001F9E7-\U0001F9FF\U0001F6C6-\U0001F6CA\U0001F6D3-\U0001F6D4\U0001F6E6-\U0001F6E8\U0001F6EA\U0001F6F1-\U0001F6F2\U0001F6F7-\U0001F6F8\U0001F6D5-\U0001F6DF\U0001F6ED-\U0001F6EF\U0001F6F9-\U0001F6FF];
-
 # By LB9, a ZWJ also behaves as a CM. Including it in the definition of CM avoids having to explicitly
 #         list it in the numerous rules that use CM.
 # By LB1, SA characters with general categor of Mn or Mc also resolve to CM.
@@ -104,8 +98,6 @@ $ALPlus = [$AL $AI $SG $XX [$SA-[[:Mn:][:Mc:]]]];
 
 
 ## -------------------------------------------------
-
-!!forward;
 
 #
 # CAN_CM  is the set of characters that may combine with CM combining chars.
@@ -154,9 +146,9 @@ $CAN_CM $CM*  [$SP $ZW];
 $LB8Breaks    = [$LB4Breaks $ZW];
 $LB8NonBreaks = [[$LB4NonBreaks] - [$ZW]];
 
-# LB 8a        ZWJ x (ID | Extended_Pict | EmojiNRK)   Emoji ZWJ sequences.
+# LB 8a        ZWJ x            Do not break Emoji ZWJ sequences.
 #
-$ZWJ ($ID | $Extended_Pict | $EmojiNRK);
+$ZWJ [^$CM];
 
 # LB 9     Combining marks.      X   $CM needs to behave like X, where X is not $SP, $BK $CR $LF $NL
 #                                $CM not covered by the above needs to behave like $AL
@@ -333,269 +325,17 @@ $IS $CM* ($ALPlus | $HL);
 $CP $CM* ($ALPlus | $HL | $NU);
 
 # LB 30a  Do not break between regional indicators. Break after pairs of them.
-#         Tricky interaction with LB8a: ZWJ x ID
-$RI $CM* $RI                / [[^$BK $CR $LF $NL $SP $ZW $WJ $CL $CP $EX $IS $SY $GL $QU $BA $HY $NS $CM] {eof}];
-$RI $CM* $RI $CM*  $ZWJ     / [[^$BK $CR $LF $NL $SP $ZW $WJ $CL $CP $EX $IS $SY $GL $QU $BA $HY $NS $CM $ID $Extended_Pict $EmojiNRK] {eof}];
-$RI $CM* $RI $CM* [$CM-$ZWJ] / [[^$BK $CR $LF $NL $SP $ZW $WJ $CL $CP $EX $IS $SY $GL $QU $BA $HY $NS $CM] {eof}];
-
-$RI $CM* $RI $CM* [$BK $CR $LF $NL $SP $ZW $WJ $CL $CP $EX $IS $SY $GL $QU $BA $HY $NS {eof}];
-$RI $CM* $RI $CM* $ZWJ ($ID | $Extended_Pict | $EmojiNRK);
+#         Tricky interaction with LB8a: ZWJ x .   together with ZWJ acting like a CM.
+$RI $CM* $RI                 / [[^$BK $CR $LF $NL $SP $ZW $WJ $CL $CP $EX $IS $SY $GL $QU $BA $HY $NS $CM]];
+$RI $CM* $RI $CM* [$CM-$ZWJ] / [[^$BK $CR $LF $NL $SP $ZW $WJ $CL $CP $EX $IS $SY $GL $QU $BA $HY $NS $CM]];
+$RI $CM* $RI $CM* [$BK $CR $LF $NL $SP $ZW $WJ $CL $CP $EX $IS $SY $GL $QU $BA $HY $NS $ZWJ {eof}];
+# note: the preceding rule includes {eof} rather than having the last [set] term qualified with '?'
+#       because of the chain-out behavior difference. The rule must chain out only from the [set characters],
+#       not from the preceding $RI or $CM, which it would be able to do if the set were optional.
 
 # LB 30b Do not break between an Emoji Base and an Emoji Modifier
 $EB $CM* $EM;
 
-#
-#  Reverse Rules.
-#
-## -------------------------------------------------
-
-!!reverse;
-
-#  LB 9 Combining Marks.
-#  Stick together any combining sequences that don't match other rules.
-
-^$CM+ $CAN_CM?;
-
-#
-#  Sequences of the form  (shown forwards)
-#      [CANT_CM]  <break>  [CM]  [whatever]
-#  The CM needs to behave as an AL
-#
-$AL_FOLLOW $CM+ / (
-          [$BK $CR $LF $NL $ZW {eof}] |
-          $SP+ $CM+ $SP |
-          $SP+ $CM* ([^$OP $CM $SP] | [$AL {eof}]));   # if LB 14 will match, need to surpress this break.
-                                               #  LB14 says    OP SP* x .
-                                               #    becomes    OP SP* x AL
-                                               #    becomes    OP SP* x CM+ AL_FOLLOW
-                                               #
-                                               # Further note:  the $AL in [$AL {eof}] is only to work around
-                                               #                a rule compiler bug which complains about
-                                               #                empty sets otherwise.
-
-
-# LB 4, 5, 6
-
-$LB4Breaks [$LB4NonBreaks-$CM];
-$LB4Breaks $CM+ $CAN_CM;
-$LF $CR;
-
-
-# LB 7         x SP
-#              x ZW
-[$SP $ZW] [$LB4NonBreaks-$CM];
-[$SP $ZW] $CM+ $CAN_CM;
-
-# LB 8 ZW SP* <break>
-#     TODO: to implement this, we need more than one look-ahead hard break in play at a time.
-#           Requires an engine enhancement.
-#   / $SP* $ZW
-
-# LB 8a        ZWJ x (ID | Extended_Pict | EmojiNRK)
-#
-($ID | $Extended_Pict | $EmojiNRK) $ZWJ $CM* $CAN_CM?;
-
-
-# LB 9,10  Combining marks.
-#    X   $CM needs to behave like X, where X is not $SP or controls.
-#    $CM not covered by the above needs to behave like $AL
-# Stick together any combining sequences that don't match other rules.
-^$CM+ $CAN_CM;
-
-
-# LB 11
-#
-$WJ $CM* $CAN_CM;
-$WJ      [$LB8NonBreaks-$CM];
-
-     $CANT_CM $CM* $WJ;
-$CAN_CM  $CM* $WJ;
-
-# LB 12a
-#      [^SP BA HY] x GL
-#
-$GL $CM* [$LB8NonBreaks-[$CM $SP $BA $BAX $HY]];
-
-# LB 12
-#     GL  x
-#
-$CANT_CM $CM* $GL;
-$CAN_CM $CM* $GL;
-
-
-# LB 13
-$CL $CM+ $CAN_CM;
-$CP $CM+ $CAN_CM;
-$EX $CM+ $CAN_CM;
-$IS $CM+ $CAN_CM;
-$SY $CM+ $CAN_CM;
-
-$CL [$LB8NonBreaks-$CM];
-$CP [$LB8NonBreaks-$CM];
-$EX [$LB8NonBreaks-$CM];
-$IS [$LB8NonBreaks-$CM];
-$SY [$LB8NonBreaks-$CM];
-
-
-# LB 14    OP SP* x
-#
-.   $SP* $CM* $OP;
-$AL_FOLLOW? $CM+ $SP+ $CM* $OP;     #  by LB 10, behaves like $AL_FOLLOW? $AL $SP+ $CM* $OP
-
-
-# LB 15
-$OP $SP* $CM* $QU;
-
-# LB 16
-# Don't include $NSX here
-$NS $SP* $CM* ($CL | $CP);
-
-# LB 17
-$B2 $SP* $CM* $B2;
-
-# LB 18  break after spaces
-#        Nothing explicit needed here.
-
-
-#
-# LB 19
-#
-$QU $CM* $CAN_CM;                                #   . x QU
-$QU      $LB18NonBreaks;
-
-
-$CAN_CM  $CM* $QU;                               #   QU x .
-     $CANT_CM $CM* $QU;
-
-#
-#  LB 20  Break before and after CB.
-#         nothing needed here.
-#
-
-# LB 21
-# Don't include $BAX or $NSX here
-($BA | $HY | $NS) $CM* [$LB20NonBreaks-$CM];     #  . x (BA | HY | NS)
-
-[$LB20NonBreaks-$CM] $CM* $BB;                   #  BB x .
-[^$CB] $CM* $BB;                                      #
-
-# LB21a  Don't break after Hebrew + Hyphen.
-([^$CB] $CM*)? ($HY | $BA | $BAX) $CM* $HL;
-
-# LB21b (reverse)
-$HL $CM* $SY;
-
-# LB 22
-$IN $CM* ($ALPlus | $HL);
-$IN $CM* $EX;
-$IN $CM* ($ID | $EB | $EM);
-$IN $CM* $IN;
-$IN $CM* $NU;
-
-# LB 23
-$NU $CM* ($ALPlus | $HL);
-($ALPlus | $HL) $CM* $NU;
-
-# LB23a
-($ID | $EB | $EM) $CM* $PR;
-$PO $CM* ($ID | $EB | $EM);
-
-# LB 24
-($ALPlus | $HL) $CM* ($PR | $PO);
-($PR | $PO) $CM* ($ALPlus | $HL);
-
-
-# LB 25
-($CM* ($PR | $PO))? ($CM* ($CL | $CP))? ($CM* ($NU | $IS | $SY))* $CM* $NU ($CM* ($OP | $HY))? ($CM* ($PR | $PO))?;
-
-# LB 26
-($H3 | $H2 | $JV | $JL) $CM* $JL;
-($JT | $JV) $CM* ($H2 | $JV);
-$JT $CM* ($H3 | $JT);
-
-# LB 27
-$IN $CM* ($H3 | $H2 | $JT | $JV | $JL);
-$PO $CM* ($H3 | $H2 | $JT | $JV | $JL);
- ($H3 | $H2 | $JT | $JV | $JL) $CM* $PR;
-
-# LB 28
-($ALPlus | $HL) $CM* ($ALPlus | $HL);
-
-
-# LB 29
-($ALPlus | $HL) $CM* $IS;
-
-# LB 30
-$OP $CM* ($ALPlus | $HL | $NU);
-($ALPlus | $HL | $NU) $CM* $CP;
-
-# LB 30a
-#    Pairs of Regional Indicators.
-#    The following two rules are nearly identical. The first matches only sequences with an odd number of adjacent RIs,
-#    the second with an even number. Stripping away the cruft they look like
-#         [^RI] RI / (RI RI)+ ^RI;
-#         [^RI] RI RI / (RI RI)+ ^RI;
-#
-[{bof} $NS $HY $BA $QU $CL $CP $EX $IS $SY $WJ $GL $ZW $SP $BK $CR $LF $NL $ZWJ] $CM* $RI / ($CM* $RI $CM* $RI)+ $CM* [{eof}[^$RI $CM]];
-[{bof} $NS $HY $BA $QU $CL $CP $EX $IS $SY $WJ $GL $ZW $SP $BK $CR $LF $NL $ZWJ] $CM* $RI $CM* $RI / ($CM* $RI $CM* $RI)+ $CM* [{eof}[^$RI $CM]];
-
-# In general, adjacent RIs stay together. The hard-break rules, above, overide this, forcing in the boundaries between pairs.
-$RI $CM* $RI;
-
-#    WJ, GL, QU, etc. are classes with rules like "WJ x "   which includes "WJ x RI".
-$RI $CM* ([$WJ $GL $QU $BB] |  (($HY | $BA)$CM* $HL));
-
-
-# LB 30b Do not break between an Emoji Base and an Emoji Modifier
-$EM $CM* $EB;
-
-
-## -------------------------------------------------
-
-!!safe_reverse;
-
-# LB 9
-^$CM+ [^$CM $BK $CR $LF $NL $ZW $SP];
-^$CM+ $SP / .;
-
-# LB 14
-$SP+ $CM* $OP;
-
-# LB 15
-$SP+ $CM* $QU;
-
-# LB 16
-$SP+ $CM* ($CL | $CP);
-
-# LB 17
-$SP+ $CM* $B2;
-
-# LB 21
-$CM* ($HY | $BA | $BAX) $CM* $HL;
-
-# LB 25
-($CM* ($IS | $SY))+ $CM* $NU;
-($CL | $CP) $CM* ($NU | $IS | $SY);
-
-#  LB 30
-($CM* $RI)+;
-
-# For dictionary-based break
-$dictionary $dictionary;
-
-## -------------------------------------------------
-
-!!safe_forward;
-
-# Skip forward over all character classes that are involved in
-#   rules containing patterns with possibly more than one char
-#   of context.
-#
-#  It might be slightly more efficient to have specific rules
-#  instead of one generic one, but only if we could
-#  turn off rule chaining.  We don't want to move more
-#  than necessary.
-#
-^[$CM $OP $QU $CL $CP $B2 $PR $HY $BA $BAX $SP $RI $ZWJ $dictionary]+ [^$CM $OP $QU $CL $CP $B2 $PR $HY $BA $BAX $RI $ZWJ $dictionary];
-$dictionary $dictionary;
-
+# LB 31 Break everywhere else.
+#       Match a single code point if no other rule applies.
+.;

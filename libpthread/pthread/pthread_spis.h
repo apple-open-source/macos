@@ -63,19 +63,13 @@ __BEGIN_DECLS
 #if (!defined(_POSIX_C_SOURCE) && !defined(_XOPEN_SOURCE)) || defined(_DARWIN_C_SOURCE)
 /* firstfit */
 #define PTHREAD_FIRSTFIT_MUTEX_INITIALIZER {_PTHREAD_FIRSTFIT_MUTEX_SIG_init, {0}}
+
 /*
  * Mutex attributes
  */
-#define _PTHREAD_MUTEX_POLICY_NONE		0
-#define _PTHREAD_MUTEX_POLICY_FAIRSHARE		1
-#define _PTHREAD_MUTEX_POLICY_FIRSTFIT		2
-
-/* manipulate the mutex policy attributes */
-__API_AVAILABLE(macos(10.7), ios(5.0))
-int pthread_mutexattr_setpolicy_np(pthread_mutexattr_t *, int );
-
-__API_AVAILABLE(macos(10.13.4), ios(11.3))
-int pthread_mutexattr_getpolicy_np(const pthread_mutexattr_t *, int * );
+#define _PTHREAD_MUTEX_POLICY_NONE			PTHREAD_MUTEX_POLICY_NONE
+#define _PTHREAD_MUTEX_POLICY_FAIRSHARE		PTHREAD_MUTEX_POLICY_FAIRSHARE_NP
+#define _PTHREAD_MUTEX_POLICY_FIRSTFIT		PTHREAD_MUTEX_POLICY_FIRSTFIT_NP
 
 #endif /* (!_POSIX_C_SOURCE && !_XOPEN_SOURCE) || _DARWIN_C_SOURCE */
 

@@ -214,8 +214,6 @@ private:
 
     bool isScrollableOrRubberbandableBox() const override;
 
-    void willBeDestroyed() override;
-
 private:
     FrameView& m_frameView;
 

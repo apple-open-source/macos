@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "GeolocationPosition.h"
+#import "config.h"
+#import "GeolocationPosition.h"
 
 #if PLATFORM(IOS)
 
@@ -46,10 +46,12 @@ GeolocationPosition::GeolocationPosition(CLLocation* location)
         speed = location.speed;
     if (location.course >= 0.0)
         heading = location.course;
+#if !PLATFORM(IOSMAC)
     if (location.floor)
         floorLevel = location.floor.level;
-}
-
-}
-
 #endif
+}
+
+}
+
+#endif // PLATFORM(IOS)

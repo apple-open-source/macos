@@ -47,9 +47,6 @@ AUTH_WARN_RESULT AUTH_NONNULL_ALL
 size_t auth_items_get_count(auth_items_t);
 
 AUTH_WARN_RESULT AUTH_NONNULL_ALL
-AuthorizationItemSet * auth_items_get_item_set(auth_items_t);
-
-AUTH_WARN_RESULT AUTH_NONNULL_ALL
 xpc_object_t auth_items_export_xpc(auth_items_t);
 
 AUTH_NONNULL_ALL

@@ -302,7 +302,7 @@ static void tests(void)
 		cert0,
 		cert1
 	};
-	SecPolicyRef policy = SecPolicyCreateSSL(false, CFSTR("store.apple.com"));
+	SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("store.apple.com"));
 	CFArrayRef certs = CFArrayCreate(NULL, v_certs,
 			array_size(v_certs), NULL);
 	ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust");
@@ -322,7 +322,7 @@ static void tests(void)
 
 	CFReleaseNull(trust);
 	CFReleaseNull(policy);
-	policy = SecPolicyCreateSSL(false, CFSTR("badstore.apple.com"));
+	policy = SecPolicyCreateSSL(true, CFSTR("badstore.apple.com"));
 	ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust with hostname mismatch");
 	ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 	ok(SecTrustSetExceptions(trust, exceptions), "set old exceptions");
@@ -368,7 +368,7 @@ static void tests(void)
 
 	CFReleaseNull(trust);
 	CFReleaseNull(policy);
-	policy = SecPolicyCreateSSL(false, CFSTR("self-signed.ssltest.apple.com"));
+	policy = SecPolicyCreateSSL(true, CFSTR("self-signed.ssltest.apple.com"));
 	ok_status(SecTrustCreateWithCertificates(sscert0, policy, &trust), "create trust");
 	ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
 	is_status(trustResult, kSecTrustResultRecoverableTrustFailure, "trust is kSecTrustResultRecoverableTrustFailure");

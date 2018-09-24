@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,17 +26,11 @@
 #include "config.h"
 #include "PingLoad.h"
 
-#if USE(NETWORK_SESSION)
-
 #include "AuthenticationManager.h"
 #include "Logging.h"
-#include "NetworkCORSPreflightChecker.h"
+#include "NetworkLoadChecker.h"
 #include "SessionTracker.h"
-#include "WebCompiledContentRuleList.h"
 #include "WebErrors.h"
-#include <WebCore/ContentSecurityPolicy.h>
-#include <WebCore/CrossOriginAccessControl.h>
-#include <WebCore/CrossOriginPreflightResultCache.h>
 
 #define RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(m_parameters.sessionID.isAlwaysOnLoggingAllowed(), Network, "%p - PingLoad::" fmt, this, ##__VA_ARGS__)
 
@@ -44,32 +38,34 @@ namespace WebKit {
 
 using namespace WebCore;
 
-PingLoad::PingLoad(NetworkResourceLoadParameters&& parameters, HTTPHeaderMap&& originalRequestHeaders, WTF::CompletionHandler<void(const ResourceError&, const ResourceResponse&)>&& completionHandler)
+PingLoad::PingLoad(NetworkResourceLoadParameters&& parameters, WTF::CompletionHandler<void(const ResourceError&, const ResourceResponse&)>&& completionHandler)
     : m_parameters(WTFMove(parameters))
-    , m_originalRequestHeaders(WTFMove(originalRequestHeaders))
     , m_completionHandler(WTFMove(completionHandler))
     , m_timeoutTimer(*this, &PingLoad::timeoutTimerFired)
-    , m_isSameOriginRequest(securityOrigin().canRequest(m_parameters.request.url()))
+    , m_networkLoadChecker(makeUniqueRef<NetworkLoadChecker>(FetchOptions { m_parameters.options}, m_parameters.sessionID, m_parameters.webPageID, m_parameters.webFrameID, WTFMove(m_parameters.originalRequestHeaders), URL { m_parameters.request.url() }, m_parameters.sourceOrigin.copyRef(), m_parameters.preflightPolicy, m_parameters.request.httpReferrer()))
 {
-    ASSERT(m_parameters.sourceOrigin);
+    m_networkLoadChecker->enableContentExtensionsCheck();
+    if (m_parameters.cspResponseHeaders)
+        m_networkLoadChecker->setCSPResponseHeaders(WTFMove(m_parameters.cspResponseHeaders.value()));
+#if ENABLE(CONTENT_EXTENSIONS)
+    m_networkLoadChecker->setContentExtensionController(WTFMove(m_parameters.mainDocumentURL), m_parameters.userContentControllerIdentifier);
+#endif
 
     // If the server never responds, this object will hang around forever.
     // Set a very generous timeout, just in case.
     m_timeoutTimer.startOneShot(60000_s);
 
-    if (m_isSameOriginRequest || m_parameters.mode == FetchOptions::Mode::NoCors) {
-        loadRequest(ResourceRequest { m_parameters.request });
-        return;
-    }
-
-    makeCrossOriginAccessRequest(ResourceRequest { m_parameters.request });
+    m_networkLoadChecker->check(ResourceRequest { m_parameters.request }, nullptr, [this] (auto&& result) {
+        if (!result.has_value()) {
+            this->didFinish(result.error());
+            return;
+        }
+        this->loadRequest(WTFMove(result.value()));
+    });
 }
 
 PingLoad::~PingLoad()
 {
-    if (m_redirectHandler)
-        m_redirectHandler({ });
-
     if (m_task) {
         ASSERT(m_task->client() == this);
         m_task->clearClient();
@@ -89,93 +85,49 @@ void PingLoad::loadRequest(ResourceRequest&& request)
     if (auto* networkSession = SessionTracker::networkSession(m_parameters.sessionID)) {
         auto loadParameters = m_parameters;
         loadParameters.request = WTFMove(request);
-        loadParameters.isMainFrameNavigation = m_parameters.mode == FetchOptions::Mode::Navigate;
         m_task = NetworkDataTask::create(*networkSession, *this, WTFMove(loadParameters));
         m_task->resume();
     } else
         ASSERT_NOT_REACHED();
 }
 
-SecurityOrigin& PingLoad::securityOrigin() const
-{
-    return m_origin ? *m_origin : *m_parameters.sourceOrigin;
-}
-
 void PingLoad::willPerformHTTPRedirection(ResourceResponse&& redirectResponse, ResourceRequest&& request, RedirectCompletionHandler&& completionHandler)
 {
-    RELEASE_LOG_IF_ALLOWED("willPerformHTTPRedirection - shouldFollowRedirects? %d", m_parameters.shouldFollowRedirects);
-    if (!m_parameters.shouldFollowRedirects) {
-        completionHandler({ });
-        didFinish(ResourceError { String(), 0, currentRequest().url(), ASCIILiteral("Not allowed to follow redirects"), ResourceError::Type::AccessControl });
-        return;
-    }
-
-#if ENABLE(CONTENT_EXTENSIONS)
-    if (processContentExtensionRulesForLoad(request).blockedLoad) {
-        RELEASE_LOG_IF_ALLOWED("willPerformHTTPRedirection - Redirect was blocked by content extensions");
-        m_lastRedirectionRequest = request;
-        completionHandler({ });
-        didFinish(ResourceError { String(), 0, currentRequest().url(), ASCIILiteral("Blocked by content extension"), ResourceError::Type::AccessControl });
-        return;
-    }
-#endif
-
-    m_lastRedirectionRequest = request;
-
-    if (auto* contentSecurityPolicy = this->contentSecurityPolicy()) {
-        if (!contentSecurityPolicy->allowConnectToSource(request.url(), redirectResponse.isNull() ? ContentSecurityPolicy::RedirectResponseReceived::No : ContentSecurityPolicy::RedirectResponseReceived::Yes)) {
-            RELEASE_LOG_IF_ALLOWED("willPerformHTTPRedirection - Redirect was blocked by CSP");
+    m_networkLoadChecker->checkRedirection(ResourceRequest { }, WTFMove(request), WTFMove(redirectResponse), nullptr, [this, completionHandler = WTFMove(completionHandler)](auto&& result) {
+        if (!result.has_value()) {
             completionHandler({ });
-            didFinish(ResourceError { String(), 0, currentRequest().url(), ASCIILiteral("Blocked by Content Security Policy"), ResourceError::Type::AccessControl });
+            this->didFinish(result.error());
             return;
         }
-    }
+        auto request = WTFMove(result->redirectRequest);
+        m_networkLoadChecker->prepareRedirectedRequest(request);
 
-    // FIXME: We should ensure the number of redirects does not exceed 20.
+        if (!request.url().protocolIsInHTTPFamily()) {
+            this->didFinish(ResourceError { String { }, 0, request.url(), "Redirection to URL with a scheme that is not HTTP(S)"_s, ResourceError::Type::AccessControl });
+            return;
+        }
 
-    if (isAllowedRedirect(request.url())) {
         completionHandler(WTFMove(request));
-        return;
-    }
-    RELEASE_LOG_IF_ALLOWED("willPerformHTTPRedirection - Redirect requires a CORS preflight");
-
-    // Force any subsequent request to use these checks.
-    m_isSameOriginRequest = false;
-
-    // Use a unique origin for subsequent loads if needed.
-    // https://fetch.spec.whatwg.org/#concept-http-redirect-fetch (Step 10).
-    ASSERT(m_parameters.mode == FetchOptions::Mode::Cors);
-    if (!securityOrigin().canRequest(redirectResponse.url()) && !protocolHostAndPortAreEqual(redirectResponse.url(), request.url())) {
-        if (!m_origin || !m_origin->isUnique())
-            m_origin = SecurityOrigin::createUnique();
-    }
-
-    // Except in case where preflight is needed, loading should be able to continue on its own.
-    if (m_isSimpleRequest && isSimpleCrossOriginAccessRequest(request.httpMethod(), m_originalRequestHeaders)) {
-        completionHandler(WTFMove(request));
-        return;
-    }
-
-    m_parameters.storedCredentialsPolicy = StoredCredentialsPolicy::DoNotUse;
-    m_redirectHandler = WTFMove(completionHandler);
-
-    // Let's fetch the request with the original headers (equivalent to request cloning specified by fetch algorithm).
-    request.setHTTPHeaderFields(m_parameters.request.httpHeaderFields());
-
-    makeCrossOriginAccessRequest(WTFMove(request));
+    });
 }
 
-void PingLoad::didReceiveChallenge(const AuthenticationChallenge&, ChallengeCompletionHandler&& completionHandler)
+void PingLoad::didReceiveChallenge(AuthenticationChallenge&&, ChallengeCompletionHandler&& completionHandler)
 {
     RELEASE_LOG_IF_ALLOWED("didReceiveChallenge");
+    auto weakThis = makeWeakPtr(*this);
     completionHandler(AuthenticationChallengeDisposition::Cancel, { });
-    didFinish(ResourceError { String(), 0, currentRequest().url(), ASCIILiteral("Failed HTTP authentication"), ResourceError::Type::AccessControl });
+    if (!weakThis)
+        return;
+    didFinish(ResourceError { String(), 0, currentURL(), "Failed HTTP authentication"_s, ResourceError::Type::AccessControl });
 }
 
 void PingLoad::didReceiveResponseNetworkSession(ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
 {
     RELEASE_LOG_IF_ALLOWED("didReceiveResponseNetworkSession - httpStatusCode: %d", response.httpStatusCode());
+    auto weakThis = makeWeakPtr(*this);
     completionHandler(PolicyAction::Ignore);
+    if (!weakThis)
+        return;
     didFinish({ }, response);
 }
 
@@ -202,134 +154,24 @@ void PingLoad::didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedT
 void PingLoad::wasBlocked()
 {
     RELEASE_LOG_IF_ALLOWED("wasBlocked");
-    didFinish(blockedError(currentRequest()));
+    didFinish(blockedError(ResourceRequest { currentURL() }));
 }
 
 void PingLoad::cannotShowURL()
 {
     RELEASE_LOG_IF_ALLOWED("cannotShowURL");
-    didFinish(cannotShowURLError(currentRequest()));
+    didFinish(cannotShowURLError(ResourceRequest { currentURL() }));
 }
 
 void PingLoad::timeoutTimerFired()
 {
     RELEASE_LOG_IF_ALLOWED("timeoutTimerFired");
-    didFinish(ResourceError { String(), 0, currentRequest().url(), ASCIILiteral("Load timed out"), ResourceError::Type::Timeout });
+    didFinish(ResourceError { String(), 0, currentURL(), "Load timed out"_s, ResourceError::Type::Timeout });
 }
 
-const ResourceRequest& PingLoad::currentRequest() const
+const URL& PingLoad::currentURL() const
 {
-    if (m_lastRedirectionRequest)
-        return *m_lastRedirectionRequest;
-
-    return m_parameters.request;
+    return m_networkLoadChecker->url();
 }
-
-bool PingLoad::isAllowedRedirect(const URL& url) const
-{
-    if (m_parameters.mode == FetchOptions::Mode::NoCors)
-        return true;
-
-    return m_isSameOriginRequest && securityOrigin().canRequest(url);
-}
-
-ContentSecurityPolicy* PingLoad::contentSecurityPolicy() const
-{
-    if (!m_contentSecurityPolicy && m_parameters.cspResponseHeaders) {
-        m_contentSecurityPolicy = std::make_unique<ContentSecurityPolicy>(*m_parameters.sourceOrigin);
-        m_contentSecurityPolicy->didReceiveHeaders(*m_parameters.cspResponseHeaders, ContentSecurityPolicy::ReportParsingErrors::No);
-    }
-    return m_contentSecurityPolicy.get();
-}
-
-void PingLoad::makeCrossOriginAccessRequest(ResourceRequest&& request)
-{
-    ASSERT(m_parameters.mode == FetchOptions::Mode::Cors);
-    RELEASE_LOG_IF_ALLOWED("makeCrossOriginAccessRequest");
-
-    if (isSimpleCrossOriginAccessRequest(request.httpMethod(), m_originalRequestHeaders)) {
-        makeSimpleCrossOriginAccessRequest(WTFMove(request));
-        return;
-    }
-
-    m_isSimpleRequest = false;
-    if (CrossOriginPreflightResultCache::singleton().canSkipPreflight(securityOrigin().toString(), request.url(), m_parameters.storedCredentialsPolicy, request.httpMethod(), m_originalRequestHeaders)) {
-        RELEASE_LOG_IF_ALLOWED("makeCrossOriginAccessRequest - preflight can be skipped thanks to cached result");
-        preflightSuccess(WTFMove(request));
-    } else
-        makeCrossOriginAccessRequestWithPreflight(WTFMove(request));
-}
-
-void PingLoad::makeSimpleCrossOriginAccessRequest(ResourceRequest&& request)
-{
-    ASSERT(isSimpleCrossOriginAccessRequest(request.httpMethod(), m_originalRequestHeaders));
-    RELEASE_LOG_IF_ALLOWED("makeSimpleCrossOriginAccessRequest");
-
-    if (!request.url().protocolIsInHTTPFamily()) {
-        RELEASE_LOG_IF_ALLOWED("makeSimpleCrossOriginAccessRequest: Cross origin requests are only supported for HTTP.");
-        return;
-    }
-
-    updateRequestForAccessControl(request, securityOrigin(), m_parameters.storedCredentialsPolicy);
-    loadRequest(WTFMove(request));
-}
-
-void PingLoad::makeCrossOriginAccessRequestWithPreflight(ResourceRequest&& request)
-{
-    RELEASE_LOG_IF_ALLOWED("makeCrossOriginAccessRequestWithPreflight");
-    ASSERT(!m_corsPreflightChecker);
-
-    NetworkCORSPreflightChecker::Parameters parameters = {
-        WTFMove(request),
-        securityOrigin(),
-        m_parameters.sessionID,
-        m_parameters.storedCredentialsPolicy
-    };
-    m_corsPreflightChecker = std::make_unique<NetworkCORSPreflightChecker>(WTFMove(parameters), [this](NetworkCORSPreflightChecker::Result result) {
-        RELEASE_LOG_IF_ALLOWED("makeCrossOriginAccessRequestWithPreflight preflight complete, success: %d forRedirect? %d", result == NetworkCORSPreflightChecker::Result::Success, !!m_redirectHandler);
-        auto corsPreflightChecker = WTFMove(m_corsPreflightChecker);
-        if (result == NetworkCORSPreflightChecker::Result::Success)
-            preflightSuccess(ResourceRequest { corsPreflightChecker->originalRequest() });
-        else
-            didFinish(ResourceError { String(), 0, corsPreflightChecker->originalRequest().url(), ASCIILiteral("CORS preflight failed"), ResourceError::Type::AccessControl });
-    });
-    m_corsPreflightChecker->startPreflight();
-}
-
-void PingLoad::preflightSuccess(ResourceRequest&& request)
-{
-    RELEASE_LOG_IF_ALLOWED("preflightSuccess");
-
-    ResourceRequest actualRequest = WTFMove(request);
-    updateRequestForAccessControl(actualRequest, securityOrigin(), m_parameters.storedCredentialsPolicy);
-
-    if (auto redirectHandler = std::exchange(m_redirectHandler, nullptr))
-        redirectHandler(WTFMove(actualRequest));
-    else
-        loadRequest(WTFMove(actualRequest));
-}
-
-#if ENABLE(CONTENT_EXTENSIONS)
-
-ContentExtensions::ContentExtensionsBackend& PingLoad::contentExtensionsBackend()
-{
-    if (!m_contentExtensionsBackend) {
-        m_contentExtensionsBackend = std::make_unique<ContentExtensions::ContentExtensionsBackend>();
-        for (auto& pair : m_parameters.contentRuleLists)
-            m_contentExtensionsBackend->addContentExtension(pair.first, WebCompiledContentRuleList::create(WTFMove(pair.second)));
-    }
-    return *m_contentExtensionsBackend;
-}
-
-ContentExtensions::BlockedStatus PingLoad::processContentExtensionRulesForLoad(ResourceRequest& request)
-{
-    auto status = contentExtensionsBackend().processContentExtensionRulesForPingLoad(request.url(), m_parameters.mainDocumentURL);
-    applyBlockedStatusToRequest(status, nullptr, request);
-    return status;
-}
-
-#endif // ENABLE(CONTENT_EXTENSIONS)
 
 } // namespace WebKit
-
-#endif // USE(NETWORK_SESSION)

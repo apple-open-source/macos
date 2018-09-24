@@ -124,12 +124,12 @@ File.foreach "config.status" do |line|
     when /^prefix$/
       val = "(TOPDIR || DESTDIR + #{val})"
     when /^ARCH_FLAG$/
-      val = "arch_flag || #{val}" if universal
+      val = "arch_flag" if universal
     when /^UNIVERSAL_ARCHNAMES$/
       universal, val = val, 'universal' if universal
     when /^includedir$/
       val = "(ENV['SDKROOT'] || (File.exist?(File.join(CONFIG['prefix'],'include')) ? '' : %x(xcode-select --print-path >/dev/null 2>&1 && xcrun --sdk macosx --show-sdk-path 2>/dev/null).chomp)) + #{val}"
-    when /^(CXXFLAGS|LDFLAGS|CFLAGS|LDSHARED|LIBRUBY_LDSHARED)$/
+    when /^(CXXFLAGS|CFLAGS|LDSHARED|LIBRUBY_LDSHARED)$/
       if universal
         # configure didn't strip -arch nor -m32/64 from CXXFLAGS
         # replace the first with ARCH_FLAG and delete the rest
@@ -137,6 +137,8 @@ File.foreach "config.status" do |line|
           val.gsub!(/\s*-(arch\s*\w+|m(32|64))/, '')
         end
       end
+    when /^LDFLAGS$/
+      val = '"-L."'
     when /^CC$/
       val = '"xcrun clang"'
     when /^CXX$/
@@ -194,7 +196,7 @@ module RbConfig
 print "  TOPDIR = File.dirname(__FILE__).chomp!(#{relative_archdir.dump})\n"
 print "  DESTDIR = ", (drive ? "TOPDIR && TOPDIR[/\\A[a-z]:/i] || " : ""), "'' unless defined? DESTDIR\n"
 print <<'ARCH' if universal
-  arch_flag = ENV['ARCHFLAGS'] || ((e = ENV['RC_ARCHS']) && e.split.uniq.map {|a| "-arch #{a}"}.join(' '))
+  arch_flag = ENV['ARCHFLAGS'] || ""
 ARCH
 print "  universal = #{universal}\n" if universal
 print "  CONFIG = {}\n"

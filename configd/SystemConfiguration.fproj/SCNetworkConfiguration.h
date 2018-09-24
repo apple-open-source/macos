@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2011, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011, 2015, 2016, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,17 +17,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #ifndef _SCNETWORKCONFIGURATION_H
-#ifdef	USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS
-#include <SystemConfiguration/_SCNetworkConfiguration.h>
-#else	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #define _SCNETWORKCONFIGURATION_H
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -68,84 +65,101 @@ typedef const struct CF_BRIDGED_TYPE(id) __SCNetworkInterface * SCNetworkInterfa
 /*!
 	@const kSCNetworkInterfaceType6to4
  */
-extern const CFStringRef kSCNetworkInterfaceType6to4						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceType6to4						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypeBluetooth
  */
-extern const CFStringRef kSCNetworkInterfaceTypeBluetooth					__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeBluetooth					API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypeBond
  */
-extern const CFStringRef kSCNetworkInterfaceTypeBond						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_4_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeBond						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypeEthernet
  */
-extern const CFStringRef kSCNetworkInterfaceTypeEthernet					__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeEthernet					API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypeFireWire
  */
-extern const CFStringRef kSCNetworkInterfaceTypeFireWire					__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeFireWire					API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypeIEEE80211
  */
-extern const CFStringRef kSCNetworkInterfaceTypeIEEE80211					__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);	// IEEE 802.11, AirPort
+extern const CFStringRef kSCNetworkInterfaceTypeIEEE80211					API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));	// IEEE 802.11, AirPort
 
 /*!
 	@const kSCNetworkInterfaceTypeIPSec
  */
-extern const CFStringRef kSCNetworkInterfaceTypeIPSec						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeIPSec						API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypeIrDA
  */
-extern const CFStringRef kSCNetworkInterfaceTypeIrDA						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeIrDA						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypeL2TP
  */
-extern const CFStringRef kSCNetworkInterfaceTypeL2TP						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeL2TP						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypeModem
  */
-extern const CFStringRef kSCNetworkInterfaceTypeModem						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeModem						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypePPP
  */
-extern const CFStringRef kSCNetworkInterfaceTypePPP						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypePPP						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypePPTP
  */
-extern const CFStringRef kSCNetworkInterfaceTypePPTP						__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4,__MAC_10_12,__IPHONE_2_0/*SPI*/,__IPHONE_10_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypePPTP						API_DEPRECATED("No longer supported", macos(10.4,10.12))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+
 
 /*!
 	@const kSCNetworkInterfaceTypeSerial
  */
-extern const CFStringRef kSCNetworkInterfaceTypeSerial						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeSerial						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypeVLAN
  */
-extern const CFStringRef kSCNetworkInterfaceTypeVLAN						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_4_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeVLAN						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceTypeWWAN
  */
-extern const CFStringRef kSCNetworkInterfaceTypeWWAN						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeWWAN						API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /* special network interfaces (and types) */
 
 /*!
 	@const kSCNetworkInterfaceTypeIPv4
  */
-extern const CFStringRef kSCNetworkInterfaceTypeIPv4						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkInterfaceTypeIPv4						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkInterfaceIPv4
@@ -153,7 +167,8 @@ extern const CFStringRef kSCNetworkInterfaceTypeIPv4						__OSX_AVAILABLE_STARTI
 		interfaces (e.g. 6to4, IPSec, PPTP, L2TP) over an existing
 		IPv4 network.
  */
-extern const SCNetworkInterfaceRef kSCNetworkInterfaceIPv4					__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const SCNetworkInterfaceRef kSCNetworkInterfaceIPv4					API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@group Interface configuration (Bond)
@@ -195,17 +210,17 @@ enum {
 /*!
 	@const kSCBondStatusDeviceAggregationStatus
  */
-extern const CFStringRef kSCBondStatusDeviceAggregationStatus	/* CFNumber */			__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_4_0/*SPI*/);
+extern const CFStringRef kSCBondStatusDeviceAggregationStatus	/* CFNumber */			API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@const kSCBondStatusDeviceCollecting
  */
-extern const CFStringRef kSCBondStatusDeviceCollecting		/* CFNumber (0 or 1) */		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_4_0/*SPI*/);
+extern const CFStringRef kSCBondStatusDeviceCollecting		/* CFNumber (0 or 1) */		API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@const kSCBondStatusDeviceDistributing
  */
-extern const CFStringRef kSCBondStatusDeviceDistributing	/* CFNumber (0 or 1) */		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_4_0/*SPI*/);
+extern const CFStringRef kSCBondStatusDeviceDistributing	/* CFNumber (0 or 1) */		API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@group Interface configuration (VLAN)
@@ -240,27 +255,31 @@ typedef const struct CF_BRIDGED_TYPE(id) __SCNetworkProtocol * SCNetworkProtocol
 /*!
 	@const kSCNetworkProtocolTypeDNS
  */
-extern const CFStringRef kSCNetworkProtocolTypeDNS						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkProtocolTypeDNS						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkProtocolTypeIPv4
  */
-extern const CFStringRef kSCNetworkProtocolTypeIPv4						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkProtocolTypeIPv4						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkProtocolTypeIPv6
  */
-extern const CFStringRef kSCNetworkProtocolTypeIPv6						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkProtocolTypeIPv6						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkProtocolTypeProxies
  */
-extern const CFStringRef kSCNetworkProtocolTypeProxies						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCNetworkProtocolTypeProxies						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@const kSCNetworkProtocolTypeSMB
  */
-extern const CFStringRef kSCNetworkProtocolTypeSMB						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+extern const CFStringRef kSCNetworkProtocolTypeSMB						API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@group Service configuration
@@ -311,7 +330,8 @@ __BEGIN_DECLS
 	@discussion Returns the type identifier of all SCNetworkInterface instances.
  */
 CFTypeID
-SCNetworkInterfaceGetTypeID			(void)						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceGetTypeID			(void)						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceCopyAll
@@ -320,7 +340,8 @@ SCNetworkInterfaceGetTypeID			(void)						__OSX_AVAILABLE_STARTING(__MAC_10_4,__
 		You must release the returned value.
  */
 CFArrayRef /* of SCNetworkInterfaceRef's */
-SCNetworkInterfaceCopyAll			(void)						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceCopyAll			(void)						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceGetSupportedInterfaceTypes
@@ -331,7 +352,8 @@ SCNetworkInterfaceCopyAll			(void)						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IP
 		NULL if no interface types are supported.
  */
 CFArrayRef /* of kSCNetworkInterfaceTypeXXX CFStringRef's */ __nullable
-SCNetworkInterfaceGetSupportedInterfaceTypes	(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceGetSupportedInterfaceTypes	(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceGetSupportedProtocolTypes
@@ -342,7 +364,8 @@ SCNetworkInterfaceGetSupportedInterfaceTypes	(SCNetworkInterfaceRef		interface)	
 		NULL if no protocol types are supported.
  */
 CFArrayRef /* of kSCNetworkProtocolTypeXXX CFStringRef's */ __nullable
-SCNetworkInterfaceGetSupportedProtocolTypes	(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceGetSupportedProtocolTypes	(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceCreateWithInterface
@@ -357,7 +380,8 @@ SCNetworkInterfaceGetSupportedProtocolTypes	(SCNetworkInterfaceRef		interface)	_
  */
 SCNetworkInterfaceRef __nullable
 SCNetworkInterfaceCreateWithInterface		(SCNetworkInterfaceRef		interface,
-						 CFStringRef			interfaceType)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 CFStringRef			interfaceType)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceGetBSDName
@@ -368,7 +392,8 @@ SCNetworkInterfaceCreateWithInterface		(SCNetworkInterfaceRef		interface,
 		NULL if no BSD name is available.
  */
 CFStringRef __nullable
-SCNetworkInterfaceGetBSDName			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceGetBSDName			(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceGetConfiguration
@@ -379,7 +404,8 @@ SCNetworkInterfaceGetBSDName			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABL
 		or an error was encountered.
  */
 CFDictionaryRef __nullable
-SCNetworkInterfaceGetConfiguration		(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceGetConfiguration		(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceGetExtendedConfiguration
@@ -392,7 +418,8 @@ SCNetworkInterfaceGetConfiguration		(SCNetworkInterfaceRef		interface)	__OSX_AVA
  */
 CFDictionaryRef __nullable
 SCNetworkInterfaceGetExtendedConfiguration	(SCNetworkInterfaceRef		interface,
-						 CFStringRef			extendedType)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+						 CFStringRef			extendedType)	API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceGetHardwareAddressString
@@ -401,7 +428,8 @@ SCNetworkInterfaceGetExtendedConfiguration	(SCNetworkInterfaceRef		interface,
 	@result A string representing the hardware (MAC) address for the interface.
  */
 CFStringRef __nullable
-SCNetworkInterfaceGetHardwareAddressString	(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceGetHardwareAddressString	(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceGetInterface
@@ -411,7 +439,8 @@ SCNetworkInterfaceGetHardwareAddressString	(SCNetworkInterfaceRef		interface)	__
 		NULL if this is a leaf interface.
  */
 SCNetworkInterfaceRef __nullable
-SCNetworkInterfaceGetInterface			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceGetInterface			(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceGetInterfaceType
@@ -420,7 +449,8 @@ SCNetworkInterfaceGetInterface			(SCNetworkInterfaceRef		interface)	__OSX_AVAILA
 	@result The interface type.
  */
 CFStringRef __nullable
-SCNetworkInterfaceGetInterfaceType		(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceGetInterfaceType		(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceGetLocalizedDisplayName
@@ -431,7 +461,8 @@ SCNetworkInterfaceGetInterfaceType		(SCNetworkInterfaceRef		interface)	__OSX_AVA
 		NULL if no name is available.
  */
 CFStringRef __nullable
-SCNetworkInterfaceGetLocalizedDisplayName	(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceGetLocalizedDisplayName	(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceSetConfiguration
@@ -442,7 +473,8 @@ SCNetworkInterfaceGetLocalizedDisplayName	(SCNetworkInterfaceRef		interface)	__O
  */
 Boolean
 SCNetworkInterfaceSetConfiguration		(SCNetworkInterfaceRef		interface,
-						 CFDictionaryRef __nullable	config)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 CFDictionaryRef __nullable	config)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceSetExtendedConfiguration
@@ -454,7 +486,8 @@ SCNetworkInterfaceSetConfiguration		(SCNetworkInterfaceRef		interface,
 Boolean
 SCNetworkInterfaceSetExtendedConfiguration	(SCNetworkInterfaceRef		interface,
 						 CFStringRef			extendedType,
-						 CFDictionaryRef __nullable	config)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+						 CFDictionaryRef __nullable	config)		API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 #pragma mark -
 
@@ -483,7 +516,8 @@ SCNetworkInterfaceCopyMediaOptions		(SCNetworkInterfaceRef						interface,
 						 CFDictionaryRef		__nullable	* __nullable	current,
 						 CFDictionaryRef		__nullable	* __nullable	active,
 						 CFArrayRef			__nullable	* __nullable	available,
-						 Boolean					filter)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+						 Boolean					filter)		API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceCopyMediaSubTypes
@@ -495,7 +529,8 @@ SCNetworkInterfaceCopyMediaOptions		(SCNetworkInterfaceRef						interface,
 		100baseTX, etc).  NULL if no subtypes are available.
  */
 CFArrayRef __nullable
-SCNetworkInterfaceCopyMediaSubTypes		(CFArrayRef			available)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceCopyMediaSubTypes		(CFArrayRef			available)	API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceCopyMediaSubTypeOptions
@@ -510,7 +545,8 @@ SCNetworkInterfaceCopyMediaSubTypes		(CFArrayRef			available)	__OSX_AVAILABLE_ST
  */
 CFArrayRef __nullable
 SCNetworkInterfaceCopyMediaSubTypeOptions	(CFArrayRef			available,
-						 CFStringRef			subType)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+						 CFStringRef			subType)	API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceCopyMTU
@@ -529,10 +565,11 @@ SCNetworkInterfaceCopyMediaSubTypeOptions	(CFArrayRef			available,
 	@result TRUE if requested information has been returned.
  */
 Boolean
-SCNetworkInterfaceCopyMTU			(SCNetworkInterfaceRef				interface,
-						 int				* __nullable	mtu_cur,
-						 int				* __nullable	mtu_min,
-						 int				* __nullable	mtu_max)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceCopyMTU			(SCNetworkInterfaceRef			interface,
+						 int			* __nullable	mtu_cur,
+						 int			* __nullable	mtu_min,
+						 int			* __nullable	mtu_max)	API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceSetMediaOptions
@@ -546,7 +583,8 @@ SCNetworkInterfaceCopyMTU			(SCNetworkInterfaceRef				interface,
 Boolean
 SCNetworkInterfaceSetMediaOptions		(SCNetworkInterfaceRef		interface,
 						 CFStringRef			subtype,
-						 CFArrayRef			options)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+						 CFArrayRef			options)	API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceSetMTU
@@ -558,7 +596,8 @@ SCNetworkInterfaceSetMediaOptions		(SCNetworkInterfaceRef		interface,
  */
 Boolean
 SCNetworkInterfaceSetMTU			(SCNetworkInterfaceRef		interface,
-						 int				mtu)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+						 int				mtu)		API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkInterfaceForceConfigurationRefresh
@@ -581,7 +620,8 @@ SCNetworkInterfaceSetMTU			(SCNetworkInterfaceRef		interface,
 	@result Returns TRUE if the notification was sent; FALSE otherwise.
  */
 Boolean
-SCNetworkInterfaceForceConfigurationRefresh	(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+SCNetworkInterfaceForceConfigurationRefresh	(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@group Interface configuration (Bond)
@@ -598,7 +638,7 @@ SCNetworkInterfaceForceConfigurationRefresh	(SCNetworkInterfaceRef		interface)	_
 		You must release the returned value.
  */
 CFArrayRef /* of SCBondInterfaceRef's */
-SCBondInterfaceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCBondInterfaceCopyAll				(SCPreferencesRef		prefs)		API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@function SCBondInterfaceCopyAvailableMemberInterfaces
@@ -609,7 +649,7 @@ SCBondInterfaceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__
 		You must release the returned value.
  */
 CFArrayRef /* of SCNetworkInterfaceRef's */
-SCBondInterfaceCopyAvailableMemberInterfaces	(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCBondInterfaceCopyAvailableMemberInterfaces	(SCPreferencesRef		prefs)		API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@function SCBondInterfaceCreate
@@ -619,7 +659,7 @@ SCBondInterfaceCopyAvailableMemberInterfaces	(SCPreferencesRef		prefs)		__OSX_AV
 		You must release the returned value.
  */
 SCBondInterfaceRef __nullable
-SCBondInterfaceCreate				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCBondInterfaceCreate				(SCPreferencesRef		prefs)		API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@function SCBondInterfaceRemove
@@ -628,7 +668,7 @@ SCBondInterfaceCreate				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__M
 	@result TRUE if the interface was removed; FALSE if an error was encountered.
  */
 Boolean
-SCBondInterfaceRemove				(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCBondInterfaceRemove				(SCBondInterfaceRef		bond)		API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@function SCBondInterfaceGetMemberInterfaces
@@ -637,7 +677,7 @@ SCBondInterfaceRemove				(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING(__
 	@result The list of interfaces.
  */
 CFArrayRef /* of SCNetworkInterfaceRef's */ __nullable
-SCBondInterfaceGetMemberInterfaces		(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCBondInterfaceGetMemberInterfaces		(SCBondInterfaceRef		bond)		API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@function SCBondInterfaceGetOptions
@@ -647,7 +687,7 @@ SCBondInterfaceGetMemberInterfaces		(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_
 		NULL if no changes to the default configuration have been saved.
  */
 CFDictionaryRef __nullable
-SCBondInterfaceGetOptions			(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCBondInterfaceGetOptions			(SCBondInterfaceRef		bond)		API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@function SCBondInterfaceSetMemberInterfaces
@@ -659,7 +699,7 @@ SCBondInterfaceGetOptions			(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING
 Boolean
 SCBondInterfaceSetMemberInterfaces		(SCBondInterfaceRef		bond,
 						 CFArrayRef			members) /* of SCNetworkInterfaceRef's */
-												__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+												API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@function SCBondInterfaceSetLocalizedDisplayName
@@ -670,7 +710,7 @@ SCBondInterfaceSetMemberInterfaces		(SCBondInterfaceRef		bond,
  */
 Boolean
 SCBondInterfaceSetLocalizedDisplayName		(SCBondInterfaceRef		bond,
-						 CFStringRef			newName)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+						 CFStringRef			newName)	API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@function SCBondInterfaceSetOptions
@@ -681,7 +721,7 @@ SCBondInterfaceSetLocalizedDisplayName		(SCBondInterfaceRef		bond,
  */
 Boolean
 SCBondInterfaceSetOptions			(SCBondInterfaceRef		bond,
-						 CFDictionaryRef		newOptions)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+						 CFDictionaryRef		newOptions)	API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 #pragma mark -
 
@@ -693,14 +733,14 @@ SCBondInterfaceSetOptions			(SCBondInterfaceRef		bond,
 		You must release the returned value.
  */
 SCBondStatusRef __nullable
-SCBondInterfaceCopyStatus			(SCBondInterfaceRef	bond)			__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCBondInterfaceCopyStatus			(SCBondInterfaceRef	bond)			API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@function SCBondStatusGetTypeID
 	@discussion Returns the type identifier of all SCBondStatus instances.
  */
 CFTypeID
-SCBondStatusGetTypeID				(void)						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCBondStatusGetTypeID				(void)						API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@function SCBondStatusGetMemberInterfaces
@@ -710,7 +750,7 @@ SCBondStatusGetTypeID				(void)						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHON
 	@result The list of interfaces.
  */
 CFArrayRef __nullable /* of SCNetworkInterfaceRef's */
-SCBondStatusGetMemberInterfaces			(SCBondStatusRef	bondStatus)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCBondStatusGetMemberInterfaces			(SCBondStatusRef	bondStatus)		API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@function SCBondStatusGetInterfaceStatus
@@ -727,7 +767,7 @@ SCBondStatusGetMemberInterfaces			(SCBondStatusRef	bondStatus)		__OSX_AVAILABLE_
  */
 CFDictionaryRef __nullable
 SCBondStatusGetInterfaceStatus			(SCBondStatusRef			bondStatus,
-						 SCNetworkInterfaceRef	__nullable	interface)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+						 SCNetworkInterfaceRef	__nullable	interface)	API_AVAILABLE(macos(10.5)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@group Interface configuration (VLAN)
@@ -743,7 +783,8 @@ SCBondStatusGetInterfaceStatus			(SCBondStatusRef			bondStatus,
 		You must release the returned value.
  */
 CFArrayRef /* of SCVLANInterfaceRef's */
-SCVLANInterfaceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCVLANInterfaceCopyAll				(SCPreferencesRef		prefs)		API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCVLANInterfaceCopyAvailablePhysicalInterfaces
@@ -753,7 +794,8 @@ SCVLANInterfaceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__
 		You must release the returned value.
  */
 CFArrayRef /* of SCNetworkInterfaceRef's */
-SCVLANInterfaceCopyAvailablePhysicalInterfaces	(void)						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCVLANInterfaceCopyAvailablePhysicalInterfaces	(void)						API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCVLANInterfaceCreate
@@ -769,7 +811,8 @@ SCVLANInterfaceCopyAvailablePhysicalInterfaces	(void)						__OSX_AVAILABLE_START
 SCVLANInterfaceRef __nullable
 SCVLANInterfaceCreate				(SCPreferencesRef		prefs,
 						 SCNetworkInterfaceRef		physical,
-						 CFNumberRef			tag)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+						 CFNumberRef			tag)		API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCVLANInterfaceRemove
@@ -778,7 +821,8 @@ SCVLANInterfaceCreate				(SCPreferencesRef		prefs,
 	@result TRUE if the interface was removed; FALSE if an error was encountered.
  */
 Boolean
-SCVLANInterfaceRemove				(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCVLANInterfaceRemove				(SCVLANInterfaceRef		vlan)		API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCVLANInterfaceGetPhysicalInterface
@@ -787,7 +831,8 @@ SCVLANInterfaceRemove				(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__
 	@result The list of interfaces.
  */
 SCNetworkInterfaceRef __nullable
-SCVLANInterfaceGetPhysicalInterface		(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCVLANInterfaceGetPhysicalInterface		(SCVLANInterfaceRef		vlan)		API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCVLANInterfaceGetTag
@@ -796,7 +841,8 @@ SCVLANInterfaceGetPhysicalInterface		(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE
 	@result The tag.
  */
 CFNumberRef __nullable
-SCVLANInterfaceGetTag				(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCVLANInterfaceGetTag				(SCVLANInterfaceRef		vlan)		API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCVLANInterfaceGetOptions
@@ -806,7 +852,8 @@ SCVLANInterfaceGetTag				(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__
 		NULL if no changes to the default configuration have been saved.
  */
 CFDictionaryRef __nullable
-SCVLANInterfaceGetOptions			(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+SCVLANInterfaceGetOptions			(SCVLANInterfaceRef		vlan)		API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCVLANInterfaceSetPhysicalInterfaceAndTag
@@ -821,7 +868,8 @@ SCVLANInterfaceGetOptions			(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING
 Boolean
 SCVLANInterfaceSetPhysicalInterfaceAndTag	(SCVLANInterfaceRef		vlan,
 						 SCNetworkInterfaceRef		physical,
-						 CFNumberRef			tag)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+						 CFNumberRef			tag)		API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCVLANInterfaceSetLocalizedDisplayName
@@ -832,7 +880,8 @@ SCVLANInterfaceSetPhysicalInterfaceAndTag	(SCVLANInterfaceRef		vlan,
  */
 Boolean
 SCVLANInterfaceSetLocalizedDisplayName		(SCVLANInterfaceRef		vlan,
-						 CFStringRef			newName)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+						 CFStringRef			newName)	API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCVLANInterfaceSetOptions
@@ -843,7 +892,8 @@ SCVLANInterfaceSetLocalizedDisplayName		(SCVLANInterfaceRef		vlan,
  */
 Boolean
 SCVLANInterfaceSetOptions			(SCVLANInterfaceRef		vlan,
-						 CFDictionaryRef		newOptions)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
+						 CFDictionaryRef		newOptions)	API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 
 /* --------------------------------------------------------------------------------
@@ -862,7 +912,8 @@ SCVLANInterfaceSetOptions			(SCVLANInterfaceRef		vlan,
 	@discussion Returns the type identifier of all SCNetworkProtocol instances.
  */
 CFTypeID
-SCNetworkProtocolGetTypeID			(void)						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkProtocolGetTypeID			(void)						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkProtocolGetConfiguration
@@ -873,7 +924,8 @@ SCNetworkProtocolGetTypeID			(void)						__OSX_AVAILABLE_STARTING(__MAC_10_4,__I
 		or an error was encountered.
  */
 CFDictionaryRef __nullable
-SCNetworkProtocolGetConfiguration		(SCNetworkProtocolRef		protocol)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkProtocolGetConfiguration		(SCNetworkProtocolRef		protocol)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkProtocolGetEnabled
@@ -882,7 +934,8 @@ SCNetworkProtocolGetConfiguration		(SCNetworkProtocolRef		protocol)	__OSX_AVAILA
 	@result TRUE if the protocol is enabled.
  */
 Boolean
-SCNetworkProtocolGetEnabled			(SCNetworkProtocolRef		protocol)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkProtocolGetEnabled			(SCNetworkProtocolRef		protocol)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkProtocolGetProtocolType
@@ -891,7 +944,8 @@ SCNetworkProtocolGetEnabled			(SCNetworkProtocolRef		protocol)	__OSX_AVAILABLE_S
 	@result The protocol type.
  */
 CFStringRef __nullable
-SCNetworkProtocolGetProtocolType		(SCNetworkProtocolRef		protocol)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkProtocolGetProtocolType		(SCNetworkProtocolRef		protocol)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkProtocolSetConfiguration
@@ -902,7 +956,8 @@ SCNetworkProtocolGetProtocolType		(SCNetworkProtocolRef		protocol)	__OSX_AVAILAB
  */
 Boolean
 SCNetworkProtocolSetConfiguration		(SCNetworkProtocolRef		protocol,
-						 CFDictionaryRef __nullable	config)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 CFDictionaryRef __nullable	config)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkProtocolSetEnabled
@@ -913,7 +968,8 @@ SCNetworkProtocolSetConfiguration		(SCNetworkProtocolRef		protocol,
  */
 Boolean
 SCNetworkProtocolSetEnabled			(SCNetworkProtocolRef		protocol,
-						 Boolean			enabled)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 Boolean			enabled)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /* --------------------------------------------------------------------------------
  * SERVICES
@@ -931,7 +987,8 @@ SCNetworkProtocolSetEnabled			(SCNetworkProtocolRef		protocol,
 	@discussion Returns the type identifier of all SCNetworkService instances.
  */
 CFTypeID
-SCNetworkServiceGetTypeID			(void)						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkServiceGetTypeID			(void)						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceAddProtocolType
@@ -946,7 +1003,8 @@ SCNetworkServiceGetTypeID			(void)						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IP
  */
 Boolean
 SCNetworkServiceAddProtocolType			(SCNetworkServiceRef		service,
-						 CFStringRef			protocolType)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 CFStringRef			protocolType)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceCopyAll
@@ -956,7 +1014,8 @@ SCNetworkServiceAddProtocolType			(SCNetworkServiceRef		service,
 		You must release the returned value.
  */
 CFArrayRef /* of SCNetworkServiceRef's */ __nullable
-SCNetworkServiceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkServiceCopyAll				(SCPreferencesRef		prefs)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceCopyProtocols
@@ -966,7 +1025,8 @@ SCNetworkServiceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(_
 		You must release the returned value.
  */
 CFArrayRef /* of SCNetworkProtocolRef's */ __nullable
-SCNetworkServiceCopyProtocols			(SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkServiceCopyProtocols			(SCNetworkServiceRef		service)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceCreate
@@ -978,7 +1038,8 @@ SCNetworkServiceCopyProtocols			(SCNetworkServiceRef		service)	__OSX_AVAILABLE_S
  */
 SCNetworkServiceRef __nullable
 SCNetworkServiceCreate				(SCPreferencesRef		prefs,
-						 SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceCopy
@@ -992,7 +1053,8 @@ SCNetworkServiceCreate				(SCPreferencesRef		prefs,
  */
 SCNetworkServiceRef __nullable
 SCNetworkServiceCopy				(SCPreferencesRef		prefs,
-						 CFStringRef			serviceID)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 CFStringRef			serviceID)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceEstablishDefaultConfiguration
@@ -1004,7 +1066,8 @@ SCNetworkServiceCopy				(SCPreferencesRef		prefs,
 	@result TRUE if the configuration was updated; FALSE if an error was encountered.
 */
 Boolean
-SCNetworkServiceEstablishDefaultConfiguration	(SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+SCNetworkServiceEstablishDefaultConfiguration	(SCNetworkServiceRef		service)	API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceGetEnabled
@@ -1013,7 +1076,8 @@ SCNetworkServiceEstablishDefaultConfiguration	(SCNetworkServiceRef		service)	__O
 	@result TRUE if the service is enabled.
  */
 Boolean
-SCNetworkServiceGetEnabled			(SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkServiceGetEnabled			(SCNetworkServiceRef		service)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceGetInterface
@@ -1023,7 +1087,8 @@ SCNetworkServiceGetEnabled			(SCNetworkServiceRef		service)	__OSX_AVAILABLE_STAR
 		NULL if an error was encountered.
  */
 SCNetworkInterfaceRef __nullable
-SCNetworkServiceGetInterface			(SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkServiceGetInterface			(SCNetworkServiceRef		service)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceGetName
@@ -1032,7 +1097,8 @@ SCNetworkServiceGetInterface			(SCNetworkServiceRef		service)	__OSX_AVAILABLE_ST
 	@result The [user specified] name.
  */
 CFStringRef __nullable
-SCNetworkServiceGetName				(SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkServiceGetName				(SCNetworkServiceRef		service)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceCopyProtocol
@@ -1045,7 +1111,8 @@ SCNetworkServiceGetName				(SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTI
  */
 SCNetworkProtocolRef __nullable
 SCNetworkServiceCopyProtocol			(SCNetworkServiceRef		service,
-						 CFStringRef			protocolType)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 CFStringRef			protocolType)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceGetServiceID
@@ -1054,7 +1121,8 @@ SCNetworkServiceCopyProtocol			(SCNetworkServiceRef		service,
 	@result The service identifier.
  */
 CFStringRef __nullable
-SCNetworkServiceGetServiceID			(SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkServiceGetServiceID			(SCNetworkServiceRef		service)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceRemove
@@ -1063,7 +1131,8 @@ SCNetworkServiceGetServiceID			(SCNetworkServiceRef		service)	__OSX_AVAILABLE_ST
 	@result TRUE if the service was removed; FALSE if an error was encountered.
  */
 Boolean
-SCNetworkServiceRemove				(SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkServiceRemove				(SCNetworkServiceRef		service)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceRemoveProtocolType
@@ -1075,7 +1144,8 @@ SCNetworkServiceRemove				(SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTIN
  */
 Boolean
 SCNetworkServiceRemoveProtocolType		(SCNetworkServiceRef		service,
-						 CFStringRef			protocolType)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 CFStringRef			protocolType)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceSetEnabled
@@ -1086,7 +1156,8 @@ SCNetworkServiceRemoveProtocolType		(SCNetworkServiceRef		service,
  */
 Boolean
 SCNetworkServiceSetEnabled			(SCNetworkServiceRef		service,
-						 Boolean			enabled)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 Boolean			enabled)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkServiceSetName
@@ -1102,7 +1173,8 @@ SCNetworkServiceSetEnabled			(SCNetworkServiceRef		service,
  */
 Boolean
 SCNetworkServiceSetName				(SCNetworkServiceRef		service,
-						 CFStringRef __nullable		name)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 CFStringRef __nullable		name)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 
 /* --------------------------------------------------------------------------------
@@ -1121,7 +1193,8 @@ SCNetworkServiceSetName				(SCNetworkServiceRef		service,
 	@discussion Returns the type identifier of all SCNetworkSet instances.
  */
 CFTypeID
-SCNetworkSetGetTypeID				(void)						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkSetGetTypeID				(void)						API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetAddService
@@ -1138,7 +1211,8 @@ SCNetworkSetGetTypeID				(void)						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHON
  */
 Boolean
 SCNetworkSetAddService				(SCNetworkSetRef		set,
-						 SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 SCNetworkServiceRef		service)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetContainsInterface
@@ -1150,7 +1224,8 @@ SCNetworkSetAddService				(SCNetworkSetRef		set,
  */
 Boolean
 SCNetworkSetContainsInterface			(SCNetworkSetRef		set,
-						 SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+						 SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.5))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetCopyAll
@@ -1160,7 +1235,8 @@ SCNetworkSetContainsInterface			(SCNetworkSetRef		set,
 		You must release the returned value.
  */
 CFArrayRef /* of SCNetworkSetRef's */ __nullable
-SCNetworkSetCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkSetCopyAll				(SCPreferencesRef		prefs)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetCopyCurrent
@@ -1169,7 +1245,8 @@ SCNetworkSetCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC
 	@result The current set; NULL if no current set has been defined.
  */
 SCNetworkSetRef __nullable
-SCNetworkSetCopyCurrent				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkSetCopyCurrent				(SCPreferencesRef		prefs)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetCopyServices
@@ -1179,7 +1256,8 @@ SCNetworkSetCopyCurrent				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(_
 		You must release the returned value.
  */
 CFArrayRef /* of SCNetworkServiceRef's */ __nullable
-SCNetworkSetCopyServices			(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkSetCopyServices			(SCNetworkSetRef		set)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetCreate
@@ -1189,7 +1267,8 @@ SCNetworkSetCopyServices			(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MA
 		You must release the returned value.
  */
 SCNetworkSetRef __nullable
-SCNetworkSetCreate				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkSetCreate				(SCPreferencesRef		prefs)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetCopy
@@ -1203,7 +1282,8 @@ SCNetworkSetCreate				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_
  */
 SCNetworkSetRef __nullable
 SCNetworkSetCopy				(SCPreferencesRef		prefs,
-						 CFStringRef			setID)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 CFStringRef			setID)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetGetName
@@ -1212,7 +1292,8 @@ SCNetworkSetCopy				(SCPreferencesRef		prefs,
 	@result The [user specified] name.
  */
 CFStringRef __nullable
-SCNetworkSetGetName				(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkSetGetName				(SCNetworkSetRef		set)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetGetSetID
@@ -1221,7 +1302,8 @@ SCNetworkSetGetName				(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC_10
 	@result The set identifier.
  */
 CFStringRef __nullable
-SCNetworkSetGetSetID				(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkSetGetSetID				(SCNetworkSetRef		set)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetGetServiceOrder
@@ -1234,7 +1316,8 @@ SCNetworkSetGetSetID				(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC_1
 		was encountered.
  */
 CFArrayRef /* of serviceID CFStringRef's */ __nullable
-SCNetworkSetGetServiceOrder			(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkSetGetServiceOrder			(SCNetworkSetRef		set)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetRemove
@@ -1243,7 +1326,8 @@ SCNetworkSetGetServiceOrder			(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(_
 	@result TRUE if the set was removed; FALSE if an error was encountered.
  */
 Boolean
-SCNetworkSetRemove				(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkSetRemove				(SCNetworkSetRef		set)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetRemoveService
@@ -1255,7 +1339,8 @@ SCNetworkSetRemove				(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC_10_
  */
 Boolean
 SCNetworkSetRemoveService			(SCNetworkSetRef		set,
-						 SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 SCNetworkServiceRef		service)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetSetCurrent
@@ -1265,7 +1350,8 @@ SCNetworkSetRemoveService			(SCNetworkSetRef		set,
 		FALSE if an error was encountered.
  */
 Boolean
-SCNetworkSetSetCurrent				(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+SCNetworkSetSetCurrent				(SCNetworkSetRef		set)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetSetName
@@ -1280,7 +1366,8 @@ SCNetworkSetSetCurrent				(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC
  */
 Boolean
 SCNetworkSetSetName				(SCNetworkSetRef		set,
-						 CFStringRef __nullable		name)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+						 CFStringRef __nullable		name)		API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCNetworkSetSetServiceOrder
@@ -1291,7 +1378,8 @@ SCNetworkSetSetName				(SCNetworkSetRef		set,
  */
 Boolean
 SCNetworkSetSetServiceOrder			(SCNetworkSetRef		set,
-						 CFArrayRef			newOrder)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);	/* serviceID CFStringRef's */
+						 CFArrayRef			newOrder)	API_AVAILABLE(macos(10.4))
+												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));	/* serviceID CFStringRef's */
 
 
 __END_DECLS
@@ -1299,5 +1387,4 @@ __END_DECLS
 CF_ASSUME_NONNULL_END
 CF_IMPLICIT_BRIDGING_DISABLED
 
-#endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #endif	/* _SCNETWORKCONFIGURATION_H */

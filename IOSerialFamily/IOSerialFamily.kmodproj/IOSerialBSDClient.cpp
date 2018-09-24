@@ -1456,24 +1456,32 @@ iossioctl(dev_t dev, u_long cmd, caddr_t data, int fflag,				// XXX64
     case TIOCGETA_32:
     {
         debug(CONTROL,"TIOCGETA_32");
+
+        tty_lock(tp);
+        me->convertFlowCtrl(sp, &tp->t_termios);
+        tty_unlock(tp);
+
 #ifdef __LP64__
         termios64to32((struct user_termios *)&tp->t_termios, (struct termios32 *)data);
 #else
         bcopy(&tp->t_termios, data, sizeof(struct termios));
 #endif
-        me->convertFlowCtrl(sp, (struct termios *) data);
         error = 0;
         goto exitIoctl;
     }
     case TIOCGETA_64:
     {
         debug(CONTROL,"TIOCGETA_64");
+
+        tty_lock(tp);
+        me->convertFlowCtrl(sp, &tp->t_termios);
+        tty_unlock(tp);
+
 #ifdef __LP64__
 		bcopy(&tp->t_termios, data, sizeof(struct termios));
 #else
 		termios32to64((struct termios32 *)&tp->t_termios, (struct user_termios *)data);
 #endif
-        me->convertFlowCtrl(sp, (struct termios *) data);
         error = 0;
         goto exitIoctl;
     }

@@ -33,13 +33,18 @@
 #include "WebImage.h"
 #include "WebKitConsoleMessagePrivate.h"
 #include "WebKitContextMenuPrivate.h"
+#include "WebKitDOMDocumentPrivate.h"
+#include "WebKitDOMElementPrivate.h"
+#include "WebKitDOMNodePrivate.h"
 #include "WebKitFramePrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitScriptWorldPrivate.h"
 #include "WebKitURIRequestPrivate.h"
 #include "WebKitURIResponsePrivate.h"
 #include "WebKitWebEditorPrivate.h"
+#include "WebKitWebHitTestResultPrivate.h"
 #include "WebKitWebPagePrivate.h"
+#include "WebKitWebProcessEnumTypes.h"
 #include "WebProcess.h"
 #include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
@@ -47,20 +52,12 @@
 #include <WebCore/FrameDestructionObserver.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameView.h>
-#include <WebCore/MainFrame.h>
+#include <WebCore/HTMLFormElement.h>
 #include <glib/gi18n-lib.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/glib/WTFGType.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
-
-#if PLATFORM(GTK)
-#include "WebKitDOMDocumentPrivate.h"
-#include "WebKitDOMElementPrivate.h"
-#include "WebKitDOMHTMLFormElementPrivate.h"
-#include "WebKitWebHitTestResultPrivate.h"
-#include "WebKitWebProcessEnumTypes.h"
-#endif
 
 using namespace WebKit;
 using namespace WebCore;
@@ -68,14 +65,10 @@ using namespace WebCore;
 enum {
     DOCUMENT_LOADED,
     SEND_REQUEST,
-#if PLATFORM(GTK)
     CONTEXT_MENU,
-#endif
     CONSOLE_MESSAGE_SENT,
-#if PLATFORM(GTK)
     FORM_CONTROLS_ASSOCIATED,
     WILL_SUBMIT_FORM,
-#endif
 
     LAST_SIGNAL
 };
@@ -335,7 +328,6 @@ public:
 private:
     bool getCustomMenuFromDefaultItems(WebPage&, const WebCore::HitTestResult& hitTestResult, const Vector<WebCore::ContextMenuItem>& defaultMenu, Vector<WebContextMenuItemData>& newMenu, RefPtr<API::Object>& userData) override
     {
-#if PLATFORM(GTK)
         GRefPtr<WebKitContextMenu> contextMenu = adoptGRef(webkitContextMenuCreate(kitItems(defaultMenu)));
         GRefPtr<WebKitWebHitTestResult> webHitTestResult = adoptGRef(webkitWebHitTestResultCreate(hitTestResult));
         gboolean returnValue;
@@ -350,10 +342,6 @@ private:
 
         webkitContextMenuPopulate(contextMenu.get(), newMenu);
         return true;
-#elif PLATFORM(WPE)
-        // FIXME: use a shared WebKitHitTestResult in WPE.
-        return false;
-#endif
     }
 
     WebKitWebPage* m_webPage;
@@ -375,7 +363,6 @@ private:
     WebKitWebPage* m_webPage;
 };
 
-#if PLATFORM(GTK)
 class PageFormClient final : public API::InjectedBundle::FormClient {
 public:
     explicit PageFormClient(WebKitWebPage* webPage)
@@ -417,12 +404,11 @@ private:
             g_ptr_array_add(textFieldValues.get(), g_strdup(pair.second.utf8().data()));
         }
 
-        g_signal_emit(m_webPage, signals[WILL_SUBMIT_FORM], 0, WebKit::kit(formElement), step, webkitSourceFrame, webkitTargetFrame, textFieldNames.get(), textFieldValues.get());
+        g_signal_emit(m_webPage, signals[WILL_SUBMIT_FORM], 0, WEBKIT_DOM_ELEMENT(WebKit::kit(static_cast<Node*>(formElement))), step, webkitSourceFrame, webkitTargetFrame, textFieldNames.get(), textFieldValues.get());
     }
 
     WebKitWebPage* m_webPage;
 };
-#endif
 
 static void webkitWebPageGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
 {
@@ -507,7 +493,6 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
         WEBKIT_TYPE_URI_REQUEST,
         WEBKIT_TYPE_URI_RESPONSE);
 
-#if PLATFORM(GTK)
     /**
      * WebKitWebPage::context-menu:
      * @web_page: the #WebKitWebPage on which the signal is emitted
@@ -537,7 +522,6 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
         G_TYPE_BOOLEAN, 2,
         WEBKIT_TYPE_CONTEXT_MENU,
         WEBKIT_TYPE_WEB_HIT_TEST_RESULT);
-#endif
 
     /**
      * WebKitWebPage::console-message-sent:
@@ -560,7 +544,6 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
         G_TYPE_NONE, 1,
         WEBKIT_TYPE_CONSOLE_MESSAGE | G_SIGNAL_TYPE_STATIC_SCOPE);
 
-#if PLATFORM(GTK)
     /**
      * WebKitWebPage::form-controls-associated:
      * @web_page: the #WebKitWebPage on which the signal is emitted
@@ -591,7 +574,7 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
     /**
      * WebKitWebPage::will-submit-form:
      * @web_page: the #WebKitWebPage on which the signal is emitted
-     * @form: the #WebKitDOMHTMLFormElement to be submitted
+     * @form: the #WebKitDOMElement to be submitted, which will always correspond to an HTMLFormElement
      * @step: a #WebKitFormSubmissionEventType indicating the current
      * stage of form submission
      * @source_frame: the #WebKitFrame containing the form to be
@@ -640,13 +623,12 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
         0, 0, nullptr,
         g_cclosure_marshal_generic,
         G_TYPE_NONE, 6,
-        WEBKIT_DOM_TYPE_HTML_FORM_ELEMENT,
+        WEBKIT_DOM_TYPE_ELEMENT,
         WEBKIT_TYPE_FORM_SUBMISSION_STEP,
         WEBKIT_TYPE_FRAME,
         WEBKIT_TYPE_FRAME,
         G_TYPE_PTR_ARRAY,
         G_TYPE_PTR_ARRAY);
-#endif
 }
 
 WebPage* webkitWebPageGetPage(WebKitWebPage *webPage)
@@ -663,9 +645,7 @@ WebKitWebPage* webkitWebPageCreate(WebPage* webPage)
     webPage->setInjectedBundlePageLoaderClient(std::make_unique<PageLoaderClient>(page));
     webPage->setInjectedBundleContextMenuClient(std::make_unique<PageContextMenuClient>(page));
     webPage->setInjectedBundleUIClient(std::make_unique<PageUIClient>(page));
-#if PLATFORM(GTK)
     webPage->setInjectedBundleFormClient(std::make_unique<PageFormClient>(page));
-#endif
 
     return page;
 }
@@ -715,7 +695,6 @@ void webkitWebPageDidReceiveMessage(WebKitWebPage* page, const String& messageNa
         ASSERT_NOT_REACHED();
 }
 
-#if PLATFORM(GTK)
 /**
  * webkit_web_page_get_dom_document:
  * @web_page: a #WebKitWebPage
@@ -727,15 +706,13 @@ void webkitWebPageDidReceiveMessage(WebKitWebPage* page, const String& messageNa
  */
 WebKitDOMDocument* webkit_web_page_get_dom_document(WebKitWebPage* webPage)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_PAGE(webPage), 0);
+    g_return_val_if_fail(WEBKIT_IS_WEB_PAGE(webPage), nullptr);
 
-    MainFrame* coreFrame = webPage->priv->webPage->mainFrame();
-    if (!coreFrame)
-        return 0;
+    if (auto* coreFrame = webPage->priv->webPage->mainFrame())
+        return kit(coreFrame->document());
 
-    return kit(coreFrame->document());
+    return nullptr;
 }
-#endif
 
 /**
  * webkit_web_page_get_id:

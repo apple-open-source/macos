@@ -111,9 +111,10 @@ SecPVCRef SecPathBuilderGetResultPVC(SecPathBuilderRef builder);
 void SecPathBuilderSetResultInPVCs(SecPathBuilderRef builder, CFStringRef key,
                                    CFIndex ix, CFTypeRef result, bool force);
 
-/* This is a pre-decrement operation */
+/* This is an atomic pre-decrement operation */
 unsigned int SecPathBuilderDecrementAsyncJobCount(SecPathBuilderRef builder);
 void SecPathBuilderSetAsyncJobCount(SecPathBuilderRef builder, unsigned int jobCount);
+unsigned int SecPathBuilderGetAsyncJobCount(SecPathBuilderRef builder);
 
 CFMutableDictionaryRef SecPathBuilderGetInfo(SecPathBuilderRef builder);
 
@@ -155,6 +156,20 @@ typedef CF_OPTIONS(uint8_t, TA_SCTSource) {
     TA_SCT_TLS      = 1 << 2,
 };
 
+typedef CF_ENUM(uint8_t, TA_CTFailureReason) {
+    TA_CTNoFailure = 0,
+    TA_CTNoSCTs = 1,
+    TA_CTMissingLogs = 2,
+    TA_CTNoCurrentSCTsUnknownLog = 3,
+    TA_CTNoCurrentSCTsDisqualifiedLog = 4,
+    TA_CTPresentedNotEnoughUnknown = 5,
+    TA_CTPresentedNotEnoughDisqualified = 6,
+    TA_CTPresentedNotEnough = 7,
+    TA_CTEmbeddedNotEnoughUnknown = 8,
+    TA_CTEmbeddedNotEnoughDisqualified = 9,
+    TA_CTEmbeddedNotEnough = 10,
+};
+
 typedef CF_OPTIONS(uint8_t, TAValidStatus) {
     TAValidDefinitelyOK          = 1 << 0,
     TAValidProbablyOK            = 1 << 1,
@@ -170,7 +185,8 @@ typedef struct {
     TA_SCTSource sct_sources;
     uint32_t number_scts;
     uint32_t number_trusted_scts;
-    size_t total_sct_size;
+    TA_CTFailureReason ct_failure_reason;
+    bool ct_one_current;
     // CAIssuer
     bool ca_issuer_cache_hit;
     bool ca_issuer_network;
@@ -199,6 +215,8 @@ typedef struct {
     TAValidStatus valid_status;
     bool valid_trigger_ocsp;
     bool valid_require_ct;
+    bool valid_known_intermediates_only;
+    bool valid_unknown_intermediate;
 } TrustAnalyticsBuilder;
 
 TrustAnalyticsBuilder *SecPathBuilderGetAnalyticsData(SecPathBuilderRef builder);

@@ -13,13 +13,19 @@ es_AR{
                 group{"."}
             }
         }
-        minimumGroupingDigits{"2"}
     }
-    Version{"2.1.31.33"}
+    Version{"2.1.38.39"}
     calendar{
         generic{
             availableFormats{
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
                 MEd{"E d-M"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
                 yyyyM{"M-y G"}
             }
         }
@@ -168,6 +174,24 @@ es_AR{
                     y{"dd/MM/y – dd/MM/y"}
                 }
             }
+            quarters{
+                format{
+                    wide{
+                        "1.er trimestre",
+                        "2.º trimestre",
+                        "3.er trimestre",
+                        "4.º trimestre",
+                    }
+                }
+                stand-alone{
+                    wide{
+                        "1.er trimestre",
+                        "2.º trimestre",
+                        "3.er trimestre",
+                        "4.º trimestre",
+                    }
+                }
+            }
         }
     }
     fields{
@@ -223,9 +247,6 @@ es_AR{
                     other{"hace {0} seg."}
                 }
             }
-        }
-        zone{
-            dn{"zona horaria"}
         }
     }
 }

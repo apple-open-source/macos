@@ -44,9 +44,9 @@ struct SVGPropertyTraits<SVGStitchOptions> {
         case SVG_STITCHTYPE_UNKNOWN:
             return emptyString();
         case SVG_STITCHTYPE_STITCH:
-            return ASCIILiteral("stitch");
+            return "stitch"_s;
         case SVG_STITCHTYPE_NOSTITCH:
-            return ASCIILiteral("noStitch");
+            return "noStitch"_s;
         }
 
         ASSERT_NOT_REACHED();
@@ -73,9 +73,9 @@ struct SVGPropertyTraits<TurbulenceType> {
         case TurbulenceType::Unknown:
             return emptyString();
         case TurbulenceType::FractalNoise:
-            return ASCIILiteral("fractalNoise");
+            return "fractalNoise"_s;
         case TurbulenceType::Turbulence:
-            return ASCIILiteral("turbulence");
+            return "turbulence"_s;
         }
 
         ASSERT_NOT_REACHED();
@@ -93,6 +93,7 @@ struct SVGPropertyTraits<TurbulenceType> {
 };
 
 class SVGFETurbulenceElement final : public SVGFilterPrimitiveStandardAttributes {
+    WTF_MAKE_ISO_ALLOCATED(SVGFETurbulenceElement);
 public:
     static Ref<SVGFETurbulenceElement> create(const QualifiedName&, Document&);
 

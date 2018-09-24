@@ -46,7 +46,6 @@ class Color;
 class FloatRect;
 class FloatRoundedRect;
 class FloatSize;
-class GraphicsContext;
 class Path;
 class PlatformContextCairo;
 
@@ -59,16 +58,11 @@ namespace State {
 void setStrokeThickness(PlatformContextCairo&, float);
 void setStrokeStyle(PlatformContextCairo&, StrokeStyle);
 
-void setGlobalAlpha(PlatformContextCairo&, float);
 void setCompositeOperation(PlatformContextCairo&, CompositeOperator, BlendMode);
 void setShouldAntialias(PlatformContextCairo&, bool);
-void setImageInterpolationQuality(PlatformContextCairo&, InterpolationQuality);
 
 void setCTM(PlatformContextCairo&, const AffineTransform&);
 AffineTransform getCTM(PlatformContextCairo&);
-
-void setShadowValues(PlatformContextCairo&, const FloatSize&, const FloatSize&, const Color&, bool);
-void clearShadow(PlatformContextCairo&);
 
 IntRect getClipBounds(PlatformContextCairo&);
 FloatRect roundToDevicePixels(PlatformContextCairo&, const FloatRect&);
@@ -81,6 +75,7 @@ struct FillSource {
     FillSource() = default;
     explicit FillSource(const GraphicsContextState&);
 
+    float globalAlpha { 0 };
     struct {
         RefPtr<cairo_pattern_t> object;
         FloatSize size;
@@ -94,13 +89,14 @@ struct FillSource {
     } gradient;
     Color color;
 
-    WindRule fillRule;
+    WindRule fillRule { WindRule::NonZero };
 };
 
 struct StrokeSource {
     StrokeSource() = default;
     explicit StrokeSource(const GraphicsContextState&);
 
+    float globalAlpha { 0 };
     RefPtr<cairo_pattern_t> pattern;
     struct {
         RefPtr<cairo_pattern_t> base;
@@ -109,14 +105,20 @@ struct StrokeSource {
     Color color;
 };
 
-struct ShadowBlurUsage {
-    explicit ShadowBlurUsage(const GraphicsContextState&);
+struct ShadowState {
+    ShadowState() = default;
+    WEBCORE_EXPORT explicit ShadowState(const GraphicsContextState&);
 
-    bool required(PlatformContextCairo&) const;
+    bool isVisible() const;
+    bool isRequired(PlatformContextCairo&) const;
 
-    Color shadowColor;
-    float shadowBlur { 0 };
-    bool shadowsIgnoreTransforms { false };
+    FloatSize offset;
+    float blur { 0 };
+    Color color;
+    bool ignoreTransforms { false };
+
+    float globalAlpha { 1.0 };
+    CompositeOperator globalCompositeOperator { CompositeSourceOver };
 };
 
 void setLineCap(PlatformContextCairo&, LineCap);
@@ -124,26 +126,27 @@ void setLineDash(PlatformContextCairo&, const DashArray&, float);
 void setLineJoin(PlatformContextCairo&, LineJoin);
 void setMiterLimit(PlatformContextCairo&, float);
 
-void fillRect(PlatformContextCairo&, const FloatRect&, const FillSource&, GraphicsContext&);
-void fillRect(PlatformContextCairo&, const FloatRect&, const Color&, bool, GraphicsContext&);
+void fillRect(PlatformContextCairo&, const FloatRect&, const FillSource&, const ShadowState&);
+void fillRect(PlatformContextCairo&, const FloatRect&, const Color&, const ShadowState&);
 void fillRect(PlatformContextCairo&, const FloatRect&, cairo_pattern_t*);
-void fillRoundedRect(PlatformContextCairo&, const FloatRoundedRect&, const Color&, bool, GraphicsContext&);
-void fillRectWithRoundedHole(PlatformContextCairo&, const FloatRect&, const FloatRoundedRect&, const FillSource&, const ShadowBlurUsage&, GraphicsContext&);
-void fillPath(PlatformContextCairo&, const Path&, const FillSource&, GraphicsContext&);
-void strokeRect(PlatformContextCairo&, const FloatRect&, float, const StrokeSource&, GraphicsContext&);
-void strokePath(PlatformContextCairo&, const Path&, const StrokeSource&, GraphicsContext&);
+void fillRoundedRect(PlatformContextCairo&, const FloatRoundedRect&, const Color&, const ShadowState&);
+void fillRectWithRoundedHole(PlatformContextCairo&, const FloatRect&, const FloatRoundedRect&, const FillSource&, const ShadowState&);
+void fillPath(PlatformContextCairo&, const Path&, const FillSource&, const ShadowState&);
+void strokeRect(PlatformContextCairo&, const FloatRect&, float, const StrokeSource&, const ShadowState&);
+void strokePath(PlatformContextCairo&, const Path&, const StrokeSource&, const ShadowState&);
 void clearRect(PlatformContextCairo&, const FloatRect&);
 
-void drawGlyphs(PlatformContextCairo&, const GraphicsContextState&, const FillSource&, const StrokeSource&, const ShadowBlurUsage&, const FloatPoint&, cairo_scaled_font_t*, double, const Vector<cairo_glyph_t>&, float, GraphicsContext&);
+void drawGlyphs(PlatformContextCairo&, const FillSource&, const StrokeSource&, const ShadowState&, const FloatPoint&, cairo_scaled_font_t*, double, const Vector<cairo_glyph_t>&, float, TextDrawingModeFlags, float, const FloatSize&, const Color&);
 
-void drawNativeImage(PlatformContextCairo&, cairo_surface_t*, const FloatRect&, const FloatRect&, CompositeOperator, BlendMode, ImageOrientation, GraphicsContext&);
+void drawNativeImage(PlatformContextCairo&, cairo_surface_t*, const FloatRect&, const FloatRect&, CompositeOperator, BlendMode, ImageOrientation, InterpolationQuality, float, const ShadowState&);
 void drawPattern(PlatformContextCairo&, cairo_surface_t*, const IntSize&, const FloatRect&, const FloatRect&, const AffineTransform&, const FloatPoint&, CompositeOperator, BlendMode);
+WEBCORE_EXPORT void drawSurface(PlatformContextCairo&, cairo_surface_t*, const FloatRect&, const FloatRect&, InterpolationQuality, float, const ShadowState&);
 
-void drawRect(PlatformContextCairo&, const FloatRect&, float, const GraphicsContextState&);
-void drawLine(PlatformContextCairo&, const FloatPoint&, const FloatPoint&, const GraphicsContextState&);
+void drawRect(PlatformContextCairo&, const FloatRect&, float, const Color&, StrokeStyle, const Color&);
+void drawLine(PlatformContextCairo&, const FloatPoint&, const FloatPoint&, StrokeStyle, const Color&, float, bool);
 void drawLinesForText(PlatformContextCairo&, const FloatPoint&, const DashArray&, bool, bool, const Color&, float);
-void drawLineForDocumentMarker(PlatformContextCairo&, const FloatPoint&, float, GraphicsContext::DocumentMarkerLineStyle);
-void drawEllipse(PlatformContextCairo&, const FloatRect&, const GraphicsContextState&);
+void drawLineForDocumentMarker(PlatformContextCairo&, const FloatPoint&, float, DocumentMarkerLineStyle);
+void drawEllipse(PlatformContextCairo&, const FloatRect&, const Color&, StrokeStyle, const Color&, float);
 
 void drawFocusRing(PlatformContextCairo&, const Path&, float, const Color&);
 void drawFocusRing(PlatformContextCairo&, const Vector<FloatRect>&, float, const Color&);

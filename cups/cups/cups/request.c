@@ -131,13 +131,12 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
   * Get the default connection as needed...
   */
 
-  if (!http)
-    if ((http = _cupsConnect()) == NULL)
-    {
-      ippDelete(request);
+  if (!http && (http = _cupsConnect()) == NULL)
+  {
+    ippDelete(request);
 
-      return (NULL);
-    }
+    return (NULL);
+  }
 
  /*
   * See if we have a file to send...
@@ -151,9 +150,7 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       * Can't get file information!
       */
 
-      _cupsSetError(errno == EBADF ? IPP_STATUS_ERROR_NOT_FOUND : IPP_STATUS_ERROR_NOT_AUTHORIZED,
-                    NULL, 0);
-
+      _cupsSetError(errno == EBADF ? IPP_STATUS_ERROR_NOT_FOUND : IPP_STATUS_ERROR_NOT_AUTHORIZED, NULL, 0);
       ippDelete(request);
 
       return (NULL);
@@ -169,9 +166,8 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       * Can't send a directory...
       */
 
-      ippDelete(request);
-
       _cupsSetError(IPP_STATUS_ERROR_NOT_POSSIBLE, strerror(EISDIR), 0);
+      ippDelete(request);
 
       return (NULL);
     }
@@ -186,8 +182,7 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
   else
     length = ippLength(request);
 
-  DEBUG_printf(("2cupsDoIORequest: Request length=%ld, total length=%ld",
-                (long)ippLength(request), (long)length));
+  DEBUG_printf(("2cupsDoIORequest: Request length=%ld, total length=%ld", (long)ippLength(request), (long)length));
 
  /*
   * Clear any "Local" authentication data since it is probably stale...
@@ -616,9 +611,8 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
   * Get the default connection as needed...
   */
 
-  if (!http)
-    if ((http = _cupsConnect()) == NULL)
-      return (HTTP_STATUS_SERVICE_UNAVAILABLE);
+  if (!http && (http = _cupsConnect()) == NULL)
+    return (HTTP_STATUS_SERVICE_UNAVAILABLE);
 
  /*
   * If the prior request was not flushed out, do so now...
@@ -998,7 +992,11 @@ _cupsConnect(void)
     */
 
     if (strcmp(cg->http->hostname, cg->server) ||
+#ifdef AF_LOCAL
+        (httpAddrFamily(cg->http->hostaddr) != AF_LOCAL && cg->ipp_port != httpAddrPort(cg->http->hostaddr)) ||
+#else
         cg->ipp_port != httpAddrPort(cg->http->hostaddr) ||
+#endif /* AF_LOCAL */
         (cg->http->encryption != cg->encryption &&
 	 cg->http->encryption == HTTP_ENCRYPTION_NEVER))
     {

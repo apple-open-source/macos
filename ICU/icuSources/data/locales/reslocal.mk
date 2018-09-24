@@ -5,7 +5,7 @@
 
 GENRB_SOURCE_LOCAL = iu.txt iu_CA.txt\
 	ms_Arab.txt ms_Arab_BN.txt ms_Arab_MY.txt\
-	tg.txt tg_TJ.txt tk.txt tk_TM.txt\
+	tk.txt tk_TM.txt\
 	en_AD.txt en_AL.txt en_AR.txt en_BA.txt en_BD.txt\
 	en_BG.txt\
 	en_BR.txt en_CN.txt en_CZ.txt en_EE.txt en_ES.txt\
@@ -22,3 +22,5 @@ GENRB_SOURCE_LOCAL = iu.txt iu_CA.txt\
 	es_SX.txt es_TC.txt en_TH.txt es_TT.txt es_VC.txt es_VG.txt\
 	es_VI.txt\
 	pt_FR.txt
+
+GENRB_ALIAS_SOURCE_LOCAL = wuu.txt

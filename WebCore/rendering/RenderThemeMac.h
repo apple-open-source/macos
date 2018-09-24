@@ -23,8 +23,6 @@
 #if PLATFORM(MAC)
 
 #import "RenderThemeCocoa.h"
-#import <wtf/RetainPtr.h>
-#import <wtf/HashMap.h>
 
 #if ENABLE(SERVICE_CONTROLS)
 OBJC_CLASS NSServicesRolloverButtonCell;
@@ -53,13 +51,20 @@ public:
 
     bool isControlStyled(const RenderStyle&, const BorderData&, const FillLayer&, const Color& backgroundColor) const final;
 
-    Color platformActiveSelectionBackgroundColor() const final;
-    Color platformInactiveSelectionBackgroundColor() const final;
-    Color platformActiveListBoxSelectionBackgroundColor() const final;
-    Color platformActiveListBoxSelectionForegroundColor() const final;
-    Color platformInactiveListBoxSelectionBackgroundColor() const final;
-    Color platformInactiveListBoxSelectionForegroundColor() const final;
-    Color platformFocusRingColor() const final;
+    bool supportsSelectionForegroundColors(OptionSet<StyleColor::Options>) const final;
+
+    Color platformActiveSelectionBackgroundColor(OptionSet<StyleColor::Options>) const final;
+    Color platformActiveSelectionForegroundColor(OptionSet<StyleColor::Options>) const final;
+    Color transformSelectionBackgroundColor(const Color&, OptionSet<StyleColor::Options>) const final;
+    Color platformInactiveSelectionBackgroundColor(OptionSet<StyleColor::Options>) const final;
+    Color platformInactiveSelectionForegroundColor(OptionSet<StyleColor::Options>) const final;
+    Color platformActiveListBoxSelectionBackgroundColor(OptionSet<StyleColor::Options>) const final;
+    Color platformActiveListBoxSelectionForegroundColor(OptionSet<StyleColor::Options>) const final;
+    Color platformInactiveListBoxSelectionBackgroundColor(OptionSet<StyleColor::Options>) const final;
+    Color platformInactiveListBoxSelectionForegroundColor(OptionSet<StyleColor::Options>) const final;
+    Color platformFocusRingColor(OptionSet<StyleColor::Options>) const final;
+    Color platformActiveTextSearchHighlightColor(OptionSet<StyleColor::Options>) const final;
+    Color platformInactiveTextSearchHighlightColor(OptionSet<StyleColor::Options>) const final;
 
     ScrollbarControlSize scrollbarControlSizeForPart(ControlPart) final { return SmallScrollbar; }
 
@@ -88,7 +93,7 @@ public:
     // Returns the repeat interval of the animation for the progress bar.
     Seconds animationRepeatIntervalForProgressBar(RenderProgress&) const final;
     // Returns the duration of the animation for the progress bar.
-    double animationDurationForProgressBar(RenderProgress&) const final;
+    Seconds animationDurationForProgressBar(RenderProgress&) const final;
     IntRect progressBarRectForBounds(const RenderObject&, const IntRect&) const final;
 
     // Controls color values returned from platformFocusRingColor(). systemColor() will be used when false.
@@ -113,8 +118,6 @@ private:
 #if ENABLE(SERVICE_CONTROLS)
     String imageControlsStyleSheet() const final;
 #endif
-
-    bool supportsSelectionForegroundColors() const final { return false; }
 
     bool paintTextField(const RenderObject&, const PaintInfo&, const FloatRect&) final;
     void adjustTextFieldStyle(StyleResolver&, RenderStyle&, const Element*) const final;
@@ -166,10 +169,16 @@ private:
     bool paintAttachment(const RenderObject&, const PaintInfo&, const IntRect&) final;
 #endif
 
+    void drawLineForDocumentMarker(const RenderText&, GraphicsContext&, const FloatPoint& origin, float width, DocumentMarkerLineStyle) final;
+
+    bool usingDarkAppearance(const RenderObject&) const final;
+
 private:
     String fileListNameForWidth(const FileList*, const FontCascade&, int width, bool multipleFilesAllowed) const final;
 
-    Color systemColor(CSSValueID) const final;
+    Color systemColor(CSSValueID, OptionSet<StyleColor::Options>) const final;
+
+    ColorCache& colorCache(OptionSet<StyleColor::Options>) const final;
 
     void purgeCaches() final;
 
@@ -242,7 +251,7 @@ private:
     bool m_isSliderThumbHorizontalPressed { false };
     bool m_isSliderThumbVerticalPressed { false };
 
-    mutable HashMap<int, Color> m_systemColorCache;
+    mutable ColorCache m_darkColorCache;
 
     RetainPtr<WebCoreRenderThemeNotificationObserver> m_notificationObserver;
 

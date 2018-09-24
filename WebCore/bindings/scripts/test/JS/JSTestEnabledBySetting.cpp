@@ -31,9 +31,10 @@
 #include "JSTestSubObj.h"
 #include "Settings.h"
 #include "WebCoreJSClientData.h"
-#include <runtime/FunctionPrototype.h>
-#include <runtime/JSCInlines.h>
+#include <JavaScriptCore/FunctionPrototype.h>
+#include <JavaScriptCore/JSCInlines.h>
 #include <wtf/GetPtr.h>
+#include <wtf/PointerPreparations.h>
 
 #if ENABLE(TEST_FEATURE)
 #include "JSDOMConvertStrings.h"
@@ -96,7 +97,7 @@ template<> JSValue JSTestEnabledBySettingConstructor::prototypeForStructure(JSC:
 template<> void JSTestEnabledBySettingConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestEnabledBySetting::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String(ASCIILiteral("TestEnabledBySetting"))), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String("TestEnabledBySetting"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -113,7 +114,7 @@ static const HashTableValue JSTestEnabledBySettingPrototypeTableValues[] =
     { 0, 0, NoIntrinsic, { 0, 0 } },
 #endif
 #if ENABLE(TEST_FEATURE)
-    { "enabledBySettingOperation", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsTestEnabledBySettingPrototypeFunctionEnabledBySettingOperation), (intptr_t) (1) } },
+    { "enabledBySettingOperation", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestEnabledBySettingPrototypeFunctionEnabledBySettingOperation), (intptr_t) (1) } },
 #else
     { 0, 0, NoIntrinsic, { 0, 0 } },
 #endif
@@ -180,19 +181,19 @@ void JSTestEnabledBySetting::destroy(JSC::JSCell* cell)
 
 template<> inline JSTestEnabledBySetting* IDLAttribute<JSTestEnabledBySetting>::cast(ExecState& state, EncodedJSValue thisValue)
 {
-    return jsDynamicDowncast<JSTestEnabledBySetting*>(state.vm(), JSValue::decode(thisValue));
+    return jsDynamicCast<JSTestEnabledBySetting*>(state.vm(), JSValue::decode(thisValue));
 }
 
 template<> inline JSTestEnabledBySetting* IDLOperation<JSTestEnabledBySetting>::cast(ExecState& state)
 {
-    return jsDynamicDowncast<JSTestEnabledBySetting*>(state.vm(), state.thisValue());
+    return jsDynamicCast<JSTestEnabledBySetting*>(state.vm(), state.thisValue());
 }
 
 EncodedJSValue jsTestEnabledBySettingConstructor(ExecState* state, EncodedJSValue thisValue, PropertyName)
 {
     VM& vm = state->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicDowncast<JSTestEnabledBySettingPrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSTestEnabledBySettingPrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
         return throwVMTypeError(state, throwScope);
     return JSValue::encode(JSTestEnabledBySetting::getConstructor(state->vm(), prototype->globalObject()));
@@ -202,7 +203,7 @@ bool setJSTestEnabledBySettingConstructor(ExecState* state, EncodedJSValue thisV
 {
     VM& vm = state->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicDowncast<JSTestEnabledBySettingPrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSTestEnabledBySettingPrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype)) {
         throwVMTypeError(state, throwScope);
         return false;
@@ -322,9 +323,9 @@ JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, 
 #if ENABLE(BINDING_INTEGRITY)
     void* actualVTablePointer = *(reinterpret_cast<void**>(impl.ptr()));
 #if PLATFORM(WIN)
-    void* expectedVTablePointer = reinterpret_cast<void*>(__identifier("??_7TestEnabledBySetting@WebCore@@6B@"));
+    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(__identifier("??_7TestEnabledBySetting@WebCore@@6B@"));
 #else
-    void* expectedVTablePointer = &_ZTVN7WebCore20TestEnabledBySettingE[2];
+    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(&_ZTVN7WebCore20TestEnabledBySettingE[2]);
 #endif
 
     // If this fails TestEnabledBySetting does not have a vtable, so you need to add the
@@ -347,7 +348,7 @@ JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestEn
 
 TestEnabledBySetting* JSTestEnabledBySetting::toWrapped(JSC::VM& vm, JSC::JSValue value)
 {
-    if (auto* wrapper = jsDynamicDowncast<JSTestEnabledBySetting*>(vm, value))
+    if (auto* wrapper = jsDynamicCast<JSTestEnabledBySetting*>(vm, value))
         return &wrapper->wrapped();
     return nullptr;
 }

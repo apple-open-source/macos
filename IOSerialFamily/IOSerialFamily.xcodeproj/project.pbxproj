@@ -311,6 +311,7 @@
 		021C9E3C000BD0CF11CA285C /* IOModemSerialStreamSync.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOModemSerialStreamSync.h; path = IOSerialFamily.kmodproj/IOModemSerialStreamSync.h; sourceTree = "<group>"; };
 		2D5B7F6908F71A610031C32D /* IOSerialFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOSerialFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D5B7F6A08F71A610031C32D /* IOSerialFamily-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "IOSerialFamily-Info.plist"; path = "IOSerialFamily.kmodproj/IOSerialFamily-Info.plist"; sourceTree = "<group>"; };
+		4B88DEA0207C2695008E1509 /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		69BD17100E1C31E40070DD84 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 		721D4D0A1641EFA300C4FA5A /* InstallHeaders */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = InstallHeaders; sourceTree = BUILT_PRODUCTS_DIR; };
 		7225C73B1B3B6F08005C7B4C /* test_tty_read_close */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_tty_read_close; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -406,6 +407,7 @@
 		021C9E2C000BD0CF11CA285C /* IOSerialFamily */ = {
 			isa = PBXGroup;
 			children = (
+				4B88DEA0207C2695008E1509 /* kext.xcconfig */,
 				72A37B1718EE064C00B4811F /* tests */,
 				A0147846011B0EC802CA285C /* ioss.h */,
 				021C9E33000BD0CF11CA285C /* IOSerialBSDClient.cpp */,
@@ -907,6 +909,7 @@
 		};
 		2D5B7F6C08F71A610031C32D /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4B88DEA0207C2695008E1509 /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -929,6 +932,7 @@
 		};
 		2D5B7F6D08F71A610031C32D /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4B88DEA0207C2695008E1509 /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -2150,6 +2154,7 @@
 		};
 		C6FCFEAF0E8D5BDC00B002E3 /* Embedded */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4B88DEA0207C2695008E1509 /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
@@ -2208,6 +2213,7 @@
 				7225C7411B3B6F08005C7B4C /* Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
 		};
 		729CF49319AE8818008F4051 /* Build configuration list for PBXNativeTarget "test_tty_close_reenumerate" */ = {
 			isa = XCConfigurationList;

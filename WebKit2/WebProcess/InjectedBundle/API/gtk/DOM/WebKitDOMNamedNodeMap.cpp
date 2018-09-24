@@ -39,6 +39,8 @@ typedef struct _WebKitDOMNamedNodeMapPrivate {
     RefPtr<WebCore::NamedNodeMap> coreObject;
 } WebKitDOMNamedNodeMapPrivate;
 
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
+
 namespace WebKit {
 
 WebKitDOMNamedNodeMap* kit(WebCore::NamedNodeMap* obj)
@@ -68,8 +70,8 @@ WebKitDOMNamedNodeMap* wrapNamedNodeMap(WebCore::NamedNodeMap* coreObject)
 G_DEFINE_TYPE(WebKitDOMNamedNodeMap, webkit_dom_named_node_map, WEBKIT_DOM_TYPE_OBJECT)
 
 enum {
-    PROP_0,
-    PROP_LENGTH,
+    DOM_NAMED_NODE_MAP_PROP_0,
+    DOM_NAMED_NODE_MAP_PROP_LENGTH,
 };
 
 static void webkit_dom_named_node_map_finalize(GObject* object)
@@ -87,7 +89,7 @@ static void webkit_dom_named_node_map_get_property(GObject* object, guint proper
     WebKitDOMNamedNodeMap* self = WEBKIT_DOM_NAMED_NODE_MAP(object);
 
     switch (propertyId) {
-    case PROP_LENGTH:
+    case DOM_NAMED_NODE_MAP_PROP_LENGTH:
         g_value_set_ulong(value, webkit_dom_named_node_map_get_length(self));
         break;
     default:
@@ -117,7 +119,7 @@ static void webkit_dom_named_node_map_class_init(WebKitDOMNamedNodeMapClass* req
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_LENGTH,
+        DOM_NAMED_NODE_MAP_PROP_LENGTH,
         g_param_spec_ulong(
             "length",
             "NamedNodeMap:length",
@@ -238,3 +240,4 @@ gulong webkit_dom_named_node_map_get_length(WebKitDOMNamedNodeMap* self)
     return result;
 }
 
+G_GNUC_END_IGNORE_DEPRECATIONS;

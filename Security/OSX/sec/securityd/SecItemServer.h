@@ -59,7 +59,6 @@ bool _SecServerBackupKeybagDelete(CFDictionaryRef attributes, bool deleteAll, CF
 bool _SecItemUpdateTokenItems(CFStringRef tokenID, CFArrayRef items, SecurityClient *client, CFErrorRef *error);
 
 CF_RETURNS_RETAINED CFArrayRef _SecServerKeychainSyncUpdateMessage(CFDictionaryRef updates, CFErrorRef *error);
-bool _SecServerKeychainSyncUpdateIDSMessage(CFDictionaryRef updates, CFErrorRef *error);
 CF_RETURNS_RETAINED CFDictionaryRef _SecServerBackupSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error);
 
 int SecServerKeychainTakeOverBackupFD(CFStringRef backupName, CFErrorRef *error);
@@ -86,7 +85,6 @@ SecDbRef SecKeychainDbInitialize(SecDbRef db);
 bool kc_with_dbt(bool writeAndRead, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
 bool kc_with_dbt_non_item_tables(bool writeAndRead, CFErrorRef* error, bool (^perform)(SecDbConnectionRef dbt)); // can be used when only tables which don't store 'items' are accessed - avoids invoking SecItemDataSourceFactoryGetDefault()
 bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef db, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
-bool kc_is_unlocked(void);
 
 
 /* For whitebox testing only */
@@ -136,8 +134,6 @@ bool match_item(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFDic
 bool accessGroupsAllows(CFArrayRef accessGroups, CFStringRef accessGroup, SecurityClient* client);
 bool itemInAccessGroup(CFDictionaryRef item, CFArrayRef accessGroups);
 void SecKeychainChanged(void);
-
-extern void (*SecTaskDiagnoseEntitlements)(CFArrayRef accessGroups);
 
 __END_DECLS
 

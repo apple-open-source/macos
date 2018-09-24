@@ -948,6 +948,9 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     case AccessibilityRole::Footer:
     case AccessibilityRole::Footnote:
     case AccessibilityRole::Form:
+    case AccessibilityRole::GraphicsDocument:
+    case AccessibilityRole::GraphicsObject:
+    case AccessibilityRole::GraphicsSymbol:
     case AccessibilityRole::Grid:
     case AccessibilityRole::GridCell:
     case AccessibilityRole::GrowArea:
@@ -1079,6 +1082,17 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
         return NO;
 
     return m_object->isValueAutofilled();
+}
+
+- (BOOL)_accessibilityIsStrongPasswordField
+{
+    if (![self _prepareAccessibilityCall])
+        return NO;
+    
+    if (!m_object->isPasswordField())
+        return NO;
+    
+    return m_object->valueAutofillButtonType() == AutoFillButtonType::StrongPassword;
 }
 
 - (CGFloat)_accessibilityMinValue
@@ -1405,7 +1419,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
         return [NSString stringWithFormat:@"%d", 1];
 
     // rdar://8131388 WebKit should expose the same info as UIKit for its password fields.
-    if (m_object->isPasswordField()) {
+    if (m_object->isPasswordField() && ![self _accessibilityIsStrongPasswordField]) {
         int passwordLength = m_object->accessibilityPasswordFieldLength();
         NSMutableString* string = [NSMutableString string];
         for (int k = 0; k < passwordLength; ++k)
@@ -1483,6 +1497,17 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     
     FloatPoint floatPoint = FloatPoint(point);
     return [self convertPointToScreenSpace:floatPoint];
+}
+
+- (BOOL)accessibilityPerformEscape
+{
+    if (![self _prepareAccessibilityCall])
+        return NO;
+    
+    m_object->dispatchAccessibilityEventWithType(AccessibilityEventType::Dismiss);
+    
+    // Return whether a listener received this event so it prevents other callers up the hierarchy chain.
+    return m_object->shouldDispatchAccessibilityEvent() && m_object->hasAccessibleDismissEventListener();
 }
 
 - (BOOL)_accessibilityScrollToVisible
@@ -1640,6 +1665,18 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     return CGRectMake(rect.x(), rect.y(), rect.width(), rect.height());
 }
 
+- (CGRect)accessibilityVisibleContentRect
+{
+    if (![self _prepareAccessibilityCall])
+        return CGRectZero;
+    
+    Document* document = m_object->document();
+    if (!document || !document->view())
+        return CGRectZero;
+    IntRect rect = snappedIntRect(document->view()->unobscuredContentRect());
+    return [self convertRectToScreenSpace:rect];
+}
+
 // The "center point" is where VoiceOver will "press" an object. This may not be the actual
 // center of the accessibilityFrame
 - (CGPoint)accessibilityActivationPoint
@@ -1783,6 +1820,14 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
         return NO;
     
     return m_object->canSetValueAttribute();
+}
+
+- (NSString *)accessibilityLinkRelationshipType
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+    
+    return m_object->linkRelValue();
 }
 
 - (BOOL)accessibilityRequired
@@ -2017,26 +2062,7 @@ static RenderObject* rendererForView(WAKView* view)
     if (![self _prepareAccessibilityCall])
         return;
     
-    // The focused VoiceOver element might be the text inside a link.
-    // In those cases we should focus on the link itself.
-    for (AccessibilityObject* object = m_object; object != nil; object = object->parentObject()) {
-        if (object->roleValue() == AccessibilityRole::WebArea)
-            break;
-
-        if (object->canSetFocusAttribute()) {
-            // webkit.org/b/162041 Taking focus onto elements inside a details node will cause VO focusing onto random items.
-            if ([self detailParentForObject:object])
-                break;
-            
-            // webkit.org/b/162322 When a dialog is focusable, allowing focusing onto the dialog node will cause VO cursor jumping
-            // back and forward while navigating its children.
-            if ([object->wrapper() accessibilityIsDialog])
-                break;
-            
-            object->setFocused(true);
-            break;
-        }
-    }
+    m_object->dispatchAccessibilityEventWithType(AccessibilityEventType::Focus);
 }
 
 - (void)accessibilityModifySelection:(TextGranularity)granularity increase:(BOOL)increase
@@ -2227,8 +2253,8 @@ static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, Ren
     // set basic font info
     AXAttributeStringSetFont(attrString, style.fontCascade().primaryFont().getCTFont(), range);
                 
-    int decor = style.textDecorationsInEffect();
-    if (decor & TextDecorationUnderline)
+    auto decor = style.textDecorationsInEffect();
+    if (decor & TextDecoration::Underline)
         AXAttributeStringSetNumber(attrString, UIAccessibilityTokenUnderline, @YES, range);
 }
 
@@ -2843,28 +2869,12 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     return m_object->getAttribute(HTMLNames::idAttr);
 }
 
-- (NSString *)accessibilitySpeechHint
+- (NSArray<NSString *> *)accessibilitySpeechHint
 {
     if (![self _prepareAccessibilityCall])
         return nil;
 
-    switch (m_object->speakProperty()) {
-    default:
-    case SpeakNormal:
-        return @"normal";
-    case SpeakNone:
-        return @"none";
-    case SpeakSpellOut:
-        return @"spell-out";
-    case SpeakDigits:
-        return @"digits";
-    case SpeakLiteralPunctuation:
-        return @"literal-punctuation";
-    case SpeakNoPunctuation:
-        return @"no-punctuation";
-    }
-    
-    return nil;
+    return [self baseAccessibilitySpeechHint];
 }
 
 - (BOOL)accessibilityARIAIsBusy

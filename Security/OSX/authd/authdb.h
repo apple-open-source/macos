@@ -44,7 +44,7 @@ int32_t authdb_exec(authdb_connection_t, const char *);
 AUTH_NONNULL_ALL    
 bool authdb_transaction(authdb_connection_t, AuthDBTransactionType, bool (^t)(void));
     
-AUTH_NONNULL1 AUTH_NONNULL2 AUTH_NONNULL3
+AUTH_NONNULL1 AUTH_NONNULL2
 bool authdb_step(authdb_connection_t, const char * sql, void (^bind_stmt)(sqlite3_stmt* stmt), authdb_iterator_t iter);
 
 AUTH_NONNULL_ALL    
@@ -56,9 +56,9 @@ int32_t authdb_set_key_value(authdb_connection_t, const char * table, auth_items
 AUTH_NONNULL_ALL
 void authdb_checkpoint(authdb_connection_t);
 
-AUTH_NONNULL_ALL
-bool authdb_import_plist(authdb_connection_t,CFDictionaryRef,bool);
-    
+AUTH_NONNULL1 AUTH_NONNULL2
+bool authdb_import_plist(authdb_connection_t, CFDictionaryRef, bool, const char * name);
+
 #pragma mark -
 #pragma mark authdb_connection_t
     

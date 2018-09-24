@@ -139,10 +139,10 @@ uint32_t show_recipe_detail(mach_voucher_attr_recipe_t recipe, char *voucher_out
     JSON_OBJECT_BEGIN(json);
 
     uint32_t len = 0;
-    len += safesize(snprintf(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX "Key: %u, ", recipe->key));
-    len += safesize(snprintf(&voucher_outstr[len], maxlen - len, "Command: %u, ", recipe->command));
-    len += safesize(snprintf(&voucher_outstr[len], maxlen - len, "Previous voucher: 0x%x, ", recipe->previous_voucher));
-    len += safesize(snprintf(&voucher_outstr[len], maxlen - len, "Content size: %u\n", recipe->content_size));
+    len += snprintf(&voucher_outstr[len], safesize(maxlen - len), VOUCHER_DETAIL_PREFIX "Key: %u, ", recipe->key);
+    len += snprintf(&voucher_outstr[len], safesize(maxlen - len), "Command: %u, ", recipe->command);
+    len += snprintf(&voucher_outstr[len], safesize(maxlen - len), "Previous voucher: 0x%x, ", recipe->previous_voucher);
+    len += snprintf(&voucher_outstr[len], safesize(maxlen - len), "Content size: %u\n", recipe->content_size);
 
     JSON_OBJECT_SET(json, key, %u, recipe->key);
     JSON_OBJECT_SET(json, command, %u, recipe->command);
@@ -152,20 +152,20 @@ uint32_t show_recipe_detail(mach_voucher_attr_recipe_t recipe, char *voucher_out
     switch (recipe->key) {
         case MACH_VOUCHER_ATTR_KEY_ATM:
             JSON_OBJECT_SET(json, ATM_ID, %llu, *(uint64_t *)(uintptr_t)recipe->content);
-            len += safesize(snprintf(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX "ATM ID: %llu", *(uint64_t *)(uintptr_t)recipe->content));
+            len += snprintf(&voucher_outstr[len], safesize(maxlen - len), VOUCHER_DETAIL_PREFIX "ATM ID: %llu", *(uint64_t *)(uintptr_t)recipe->content);
             break;
         case MACH_VOUCHER_ATTR_KEY_IMPORTANCE:
             // content may not be valid JSON, exclude
             // JSON_OBJECT_SET(json, importance_info, "%s", (char *)recipe->content);
-            len += safesize(snprintf(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX "IMPORTANCE INFO: %s", (char *)recipe->content));
+            len += snprintf(&voucher_outstr[len], safesize(maxlen - len), VOUCHER_DETAIL_PREFIX "IMPORTANCE INFO: %s", (char *)recipe->content);
             break;
         case MACH_VOUCHER_ATTR_KEY_BANK:
             // content may not be valid JSON, exclude
             // JSON_OBJECT_SET(json, resource_accounting_info, "%s", (char *)recipe->content);
-            len += safesize(snprintf(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX "RESOURCE ACCOUNTING INFO: %s", (char *)recipe->content));
+            len += snprintf(&voucher_outstr[len], safesize(maxlen - len), VOUCHER_DETAIL_PREFIX "RESOURCE ACCOUNTING INFO: %s", (char *)recipe->content);
             break;
         default:
-            len += print_hex_data(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX, "Recipe Contents", (void *)recipe->content, MIN(recipe->content_size, lsmp_config.voucher_detail_length));
+            len += print_hex_data(&voucher_outstr[len], safesize(maxlen - len), VOUCHER_DETAIL_PREFIX, "Recipe Contents", (void *)recipe->content, MIN(recipe->content_size, lsmp_config.voucher_detail_length));
             break;
     }
 
@@ -198,27 +198,27 @@ char * copy_voucher_detail(mach_port_t task, mach_port_name_t voucher, JSON_t js
                                      (mach_voucher_attr_raw_recipe_array_t)&voucher_contents[0],
                                      &recipe_size);
         if (kr != KERN_SUCCESS && kr != KERN_NOT_SUPPORTED) {
-            plen += safesize(snprintf(&voucher_outstr[plen], detail_maxlen - plen, VOUCHER_DETAIL_PREFIX "Voucher: 0x%x Failed to get contents %s\n", v_kobject, mach_error_string(kr)));
+            plen += snprintf(&voucher_outstr[plen], safesize(detail_maxlen - plen), VOUCHER_DETAIL_PREFIX "Voucher: 0x%x Failed to get contents %s\n", v_kobject, mach_error_string(kr));
             return voucher_outstr;
         }
 
         if (recipe_size == 0) {
-            plen += safesize(snprintf(&voucher_outstr[plen], detail_maxlen - plen, VOUCHER_DETAIL_PREFIX "Voucher: 0x%x has no contents\n", v_kobject));
+            plen += snprintf(&voucher_outstr[plen], safesize(detail_maxlen - plen), VOUCHER_DETAIL_PREFIX "Voucher: 0x%x has no contents\n", v_kobject);
             return voucher_outstr;
         }
 
-        plen += safesize(snprintf(&voucher_outstr[plen], detail_maxlen - plen, VOUCHER_DETAIL_PREFIX "Voucher: 0x%x\n", v_kobject));
+        plen += snprintf(&voucher_outstr[plen], safesize(detail_maxlen - plen), VOUCHER_DETAIL_PREFIX "Voucher: 0x%x\n", v_kobject);
         unsigned int used_size = 0;
         mach_voucher_attr_recipe_t recipe = NULL;
         while (recipe_size > used_size) {
             recipe = (mach_voucher_attr_recipe_t)&voucher_contents[used_size];
             if (recipe->key) {
-                plen += show_recipe_detail(recipe, &voucher_outstr[plen], detail_maxlen - plen, json);
+                plen += show_recipe_detail(recipe, &voucher_outstr[plen], safesize(detail_maxlen - plen), json);
             }
             used_size += sizeof(mach_voucher_attr_recipe_data_t) + recipe->content_size;
         }
     } else {
-        plen += safesize(snprintf(&voucher_outstr[plen], detail_maxlen - plen, VOUCHER_DETAIL_PREFIX "Invalid voucher: 0x%x\n", voucher));
+        plen += snprintf(&voucher_outstr[plen], safesize(detail_maxlen - plen), VOUCHER_DETAIL_PREFIX "Invalid voucher: 0x%x\n", voucher);
     }
 
     return voucher_outstr;
@@ -303,7 +303,6 @@ static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *ta
     int j, k, port_status_flag_idx;
     kern_return_t ret;
     boolean_t send = FALSE;
-    boolean_t sendonce = FALSE;
     boolean_t dnreq = FALSE;
     int sendrights = 0;
     unsigned int kotype = 0;
@@ -547,7 +546,7 @@ static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *ta
                            allTaskInfos[j].processName);
                 }
 
-                k2nnode = k2n_table_lookup_next(k2nnode, k2nnode->info_name->iin_name);
+                k2nnode = k2n_table_lookup_next(k2nnode, entry->iin_object);
             }
         }
         return;
@@ -570,7 +569,6 @@ static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *ta
     }
 
     if (entry->iin_type & MACH_PORT_TYPE_SEND_ONCE) {
-        sendonce = TRUE;
         counts->sendoncecount++;
     }
 
@@ -684,25 +682,25 @@ static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *ta
     JSON_OBJECT_END(json); // non-kobject
 }
 
-uint32_t print_hex_data(char *outstr, size_t maxlen, char *prefix, char *desc, void *addr, int len) {
+uint32_t print_hex_data(char *outstr, uint32_t maxlen, char *prefix, char *desc, void *addr, int len) {
     int i;
     unsigned char buff[17];
     unsigned char *pc = addr;
     uint32_t plen = 0;
 
     if (desc != NULL)
-        plen += safesize(snprintf(&outstr[len], maxlen - plen, "%s%s:\n", prefix, desc));
+        plen += snprintf(&outstr[plen], safesize(maxlen - plen), "%s%s:\n", prefix, desc);
 
     for (i = 0; i < len; i++) {
 
         if ((i % 16) == 0) {
             if (i != 0)
-                plen += safesize(snprintf(&outstr[len], maxlen - plen, "  %s\n", buff));
+                plen += snprintf(&outstr[plen], safesize(maxlen - plen), "  %s\n", buff);
 
-            plen += safesize(snprintf(&outstr[len], maxlen - plen, "%s  %04x ", prefix, i));
+            plen += snprintf(&outstr[plen], safesize(maxlen - plen), "%s  %04x ", prefix, i);
         }
 
-        plen += safesize(snprintf(&outstr[len], maxlen - plen, " %02x", pc[i]));
+        plen += snprintf(&outstr[plen], safesize(maxlen - plen), " %02x", pc[i]);
 
         if ((pc[i] < 0x20) || (pc[i] > 0x7e))
             buff[i % 16] = '.';
@@ -712,11 +710,11 @@ uint32_t print_hex_data(char *outstr, size_t maxlen, char *prefix, char *desc, v
     }
 
     while ((i % 16) != 0) {
-        plen += safesize(snprintf(&outstr[len], maxlen - plen, "   "));
+        plen += snprintf(&outstr[plen], safesize(maxlen - plen), "   ");
         i++;
     }
 
-    plen += safesize(snprintf(&outstr[len], maxlen - plen, "  %s\n", buff));
+    plen += snprintf(&outstr[plen], safesize(maxlen - plen), "  %s\n", buff);
 
     return plen;
 }

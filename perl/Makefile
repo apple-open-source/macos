@@ -94,6 +94,7 @@ build::
 		RC_ARCHS='$(MY_ARCHS)' \
 		RC_CFLAGS='$(MY_CFLAGS)' \
 		PERLVERSION=$$vers >> "$(SYMROOT)/$$vers/LOG" 2>&1 && \
+		sed -i '' "s:$(ARCHFLAGS)::g" $(OBJROOT)/$$vers/DSTROOT/System/Library/Perl/$$vers/darwin-thread-multi-2level/Config_heavy.pl && \
 		touch "$(OBJROOT)/$$vers/.ok" && \
 		echo "######## Finished $$vers:" `date` '########' >> "$(SYMROOT)/$$vers/LOG" 2>&1 \
 	    ) & \

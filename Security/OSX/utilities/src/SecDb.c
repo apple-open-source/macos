@@ -37,6 +37,7 @@
 #include "SecIOFormat.h"
 #include <stdio.h>
 #include "Security/SecBase.h"
+#include "SecAutorelease.h"
 
 
 //
@@ -46,8 +47,6 @@
 //
 #include <Security/SecureObjectSync/SOSDigestVector.h>
 #include <Security/SecureObjectSync/SOSManifest.h>
-
-#define HAVE_UNLOCK_NOTIFY  0
 
 struct __OpaqueSecDbStatement {
     CFRuntimeBase _base;
@@ -91,10 +90,12 @@ struct __OpaqueSecDb {
     bool (^opened)(SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error);
     bool callOpenedHandlerForNextConnection;
     CFMutableArrayRef notifyPhase; /* array of SecDBNotifyBlock */
-    mode_t mode; /* database file permissions, default 0600 */
-    bool readWrite; /* open database read-write, default true */
-    bool allowRepair; /* allow database repair, default true */
-    bool useWAL; /* use WAL mode, default true */
+    mode_t mode; /* database file permissions */
+    bool readWrite; /* open database read-write */
+    bool allowRepair; /* allow database repair */
+    bool useWAL; /* use WAL mode */
+    bool useRobotVacuum; /* use if SecDB should manage vacuum behind your back */
+    uint8_t maxIdleHandles;
     void (^corruptionReset)(void);
 };
 
@@ -231,7 +232,7 @@ SecDbDestroy(CFTypeRef value)
 CFGiblisFor(SecDb)
 
 SecDbRef
-SecDbCreateWithOptions(CFStringRef dbName, mode_t mode, bool readWrite, bool allowRepair, bool useWAL,
+SecDbCreate(CFStringRef dbName, mode_t mode, bool readWrite, bool allowRepair, bool useWAL, bool useRobotVacuum, uint8_t maxIdleHandles,
                        bool (^opened)(SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error))
 {
     SecDbRef db = NULL;
@@ -263,17 +264,12 @@ SecDbCreateWithOptions(CFStringRef dbName, mode_t mode, bool readWrite, bool all
     db->readWrite = readWrite;
     db->allowRepair = allowRepair;
     db->useWAL = useWAL;
+    db->useRobotVacuum = useRobotVacuum;
+    db->maxIdleHandles = maxIdleHandles;
     db->corruptionReset = NULL;
 
 done:
     return db;
-}
-
-SecDbRef
-SecDbCreate(CFStringRef dbName,
-            bool (^opened)(SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error))
-{
-    return SecDbCreateWithOptions(dbName, 0600, true, true, true, opened);
 }
 
 CFIndex
@@ -312,7 +308,7 @@ static void SecDbNotifyPhase(SecDbConnectionRef dbconn, SecDbTransactionPhase ph
     }
 }
 
-static void SecDbOnNotify(SecDbConnectionRef dbconn, void (^perform)()) {
+static void SecDbOnNotify(SecDbConnectionRef dbconn, void (^perform)(void)) {
     perform();
 }
 
@@ -486,51 +482,24 @@ static bool SecDbConnectionCheckCode(SecDbConnectionRef dbconn, int code, CFErro
     return false;
 }
 
-#if HAVE_UNLOCK_NOTIFY
-
-static void SecDbUnlockNotify(void **apArg, int nArg) {
-    int i;
-    for(i=0; i<nArg; i++) {
-        dispatch_semaphore_t dsema = (dispatch_semaphore_t)apArg[i];
-        dispatch_semaphore_signal(dsema);
-    }
-}
-
-static bool SecDbWaitForUnlockNotify(SecDbConnectionRef dbconn, sqlite3_stmt *stmt, CFErrorRef *error) {
-    int rc;
-    dispatch_semaphore_t dsema = dispatch_semaphore_create(0);
-    rc = sqlite3_unlock_notify(dbconn->handle, SecDbUnlockNotify, dsema);
-    assert(rc == SQLITE_LOCKED || rc == SQLITE_OK);
-    if (rc == SQLITE_OK) {
-        dispatch_semaphore_wait(dsema, DISPATCH_TIME_FOREVER);
-    }
-    dispatch_release(dsema);
-    return (rc == SQLITE_OK
-            ? true
-            : (stmt
-               ? SecDbErrorWithStmt(rc, stmt, error, CFSTR("sqlite3_unlock_notify"))
-               : SecDbErrorWithDb(rc, dbconn->handle, error, CFSTR("sqlite3_unlock_notify"))));
-}
-
-#endif
-
 #define BUSY_TIMEOUT_MS (5 * 60 * 1000)  /* 5 minutes */
-
-static bool SecDbBusyHandler(SecDbConnectionRef dbconn, CFErrorRef *error) {
-    return SecDbErrorWithDb(sqlite3_busy_timeout(dbconn->handle, BUSY_TIMEOUT_MS), dbconn->handle, error, CFSTR("busy_handler"));
-}
 
 static int sleepBackoff[] = { 10, 20, 50, 100, 250 };
 static int sumBackoff[]   = { 10, 30, 80, 180, 430 };
 static int NumberOfSleepBackoff = sizeof(sleepBackoff)/sizeof(sleepBackoff[0]);
 
+// Use these as silly hacks to encode the SQLite return code in the backtrace, for hang debugging purposes
+static void __attribute__((noinline)) SecDbLockSleep(int ms) {
+    sqlite3_sleep(ms);
+}
+
+static void __attribute__((noinline)) SecDbBusySleep(int ms) {
+    sqlite3_sleep(ms);
+}
+
 // Return true causes the operation to be tried again.
+// Note that we set sqlite3_busy_timeout on the connection, so anytime you're in here, it's likely due to SQLITE_LOCKED.
 static bool SecDbWaitIfNeeded(SecDbConnectionRef dbconn, int s3e, sqlite3_stmt *stmt, CFStringRef desc, int nTries, CFErrorRef *error) {
-#if HAVE_UNLOCK_NOTIFY
-    if (s3e == SQLITE_LOCKED) { // Optionally check for extended code being SQLITE_LOCKED_SHAREDCACHE
-        return SecDbWaitForUnlockNotify(dbconn, stmt, error))
-    }
-#endif
     if (((0xFF & s3e) == SQLITE_BUSY) || ((0xFF & s3e) == SQLITE_LOCKED)) {
         int totaltimeout, timeout;
 
@@ -546,7 +515,11 @@ static bool SecDbWaitIfNeeded(SecDbConnectionRef dbconn, int s3e, sqlite3_stmt *
         }
         if (totaltimeout < BUSY_TIMEOUT_MS) {
             secinfo("#SecDB", "sqlite busy/locked: %d ntries: %d totaltimeout: %d", s3e, nTries, totaltimeout);
-            sqlite3_sleep(timeout);
+            if(((0xFF & s3e) == SQLITE_LOCKED)) {
+                SecDbLockSleep(timeout);
+            } else {
+                SecDbBusySleep(timeout);
+            }
             return true;
         } else {
             secinfo("#SecDB", "sqlite busy/locked: too long: %d ms, giving up", totaltimeout);
@@ -614,6 +587,61 @@ SecDbExec(SecDbConnectionRef dbconn, CFStringRef sql, CFErrorRef *error)
     return ok;
 }
 
+static int SecDBGetInteger(SecDbConnectionRef dbconn, CFStringRef sql)
+{
+    __block int number = -1;
+    __block CFErrorRef error = NULL;
+
+    (void)SecDbWithSQL(dbconn, sql, &error, ^bool(sqlite3_stmt *sqlStmt) {
+        (void)SecDbStep(dbconn, sqlStmt, &error, ^(bool *stop) {
+            number = sqlite3_column_int(sqlStmt, 0);
+            *stop = true;
+        });
+        return true;
+    });
+    CFReleaseNull(error);
+    return number;
+}
+
+
+void SecDBManagementTasks(SecDbConnectionRef dbconn)
+{
+    int64_t page_count = SecDBGetInteger(dbconn, CFSTR("pragma page_count"));
+    if (page_count <= 0) {
+        return;
+    }
+    int64_t free_count = SecDBGetInteger(dbconn, CFSTR("pragma freelist_count"));
+    if (free_count < 0) {
+        return;
+    }
+
+    int64_t max_free = 8192;
+
+    int64_t pages_in_use = page_count - free_count;
+    double loadFactor = ((double)pages_in_use/(double)page_count);
+    if (0.85 < loadFactor && free_count < max_free) {
+        /* no work yet */
+    } else {
+        int64_t pages_to_free = (int64_t)(0.2 * free_count);
+        if (0.4 > loadFactor) {
+            pages_to_free = free_count;
+        }
+
+        char *formatString = NULL;
+        asprintf(&formatString, "pragma incremental_vacuum(%d)", (int)pages_to_free);
+        if (formatString) {
+            char *sqlerror = NULL;
+            int rc = sqlite3_exec(dbconn->handle, formatString, NULL, NULL, &sqlerror);
+            if (rc) {
+                secerror("incremental_vacuum failed with: (%d) %{public}s", rc, sqlerror);
+            }
+            sqlite3_free(sqlerror);
+            free(formatString);
+        }
+    }
+}
+
+
 static bool SecDbBeginTransaction(SecDbConnectionRef dbconn, SecDbTransactionType type, CFErrorRef *error)
 {
     bool ok = true;
@@ -677,6 +705,10 @@ static bool SecDbEndTransaction(SecDbConnectionRef dbconn, bool commit, CFErrorR
         SecDbNotifyPhase(dbconn, commited ? kSecDbTransactionDidCommit : kSecDbTransactionDidRollback);
         secdebug("db", "SecDbEndTransaction %s %p", commited ? "kSecDbTransactionDidCommit" : "kSecDbTransactionDidRollback", dbconn);
         dbconn->source = kSecDbAPITransaction;
+
+        if (commit && dbconn->db->useRobotVacuum) {
+            SecDBManagementTasks(dbconn);
+        }
     };
 
     SecDbPerformOnCommitQueue(dbconn, true, notifyAndExec);
@@ -719,8 +751,10 @@ bool SecDbStep(SecDbConnectionRef dbconn, sqlite3_stmt *stmt, CFErrorRef *error,
             case kSecDbRowStep:
                 secdebug("db", "kSecDbRowStep %@", error?*error:NULL);
                 if (row) {
-                    bool stop = false;
-                    row(&stop);
+                    __block bool stop = false;
+                    SecAutoreleaseInvokeWithPool(^{
+                        row(&stop);
+                    });
                     if (stop)
                         return true;
                     break;
@@ -743,10 +777,11 @@ static bool SecDbFileControl(SecDbConnectionRef dbconn, int op, void *arg, CFErr
     return SecDbConnectionCheckCode(dbconn, sqlite3_file_control(dbconn->handle, NULL, op, arg), error, CFSTR("file_control"));
 }
 
-static sqlite3 *_SecDbOpenV2(const char *path, int flags, CFErrorRef *error) {
-#if HAVE_UNLOCK_NOTIFY
-    flags |= SQLITE_OPEN_SHAREDCACHE;
-#endif
+static sqlite3 *_SecDbOpenV2(const char *path,
+                             int flags,
+                             int useWAL,
+                             int useRobotVacuum,
+                             CFErrorRef *error) {
     sqlite3 *handle = NULL;
     int s3e = sqlite3_open_v2(path, &handle, flags, NULL);
     if (s3e) {
@@ -757,12 +792,44 @@ static sqlite3 *_SecDbOpenV2(const char *path, int flags, CFErrorRef *error) {
         } else {
             SecDbError(s3e, error, CFSTR("open_v2 \"%s\" 0x%X"), path, flags);
         }
+    } else if (SQLITE_OPEN_READWRITE == (flags & SQLITE_OPEN_READWRITE)) {
+        if (useRobotVacuum) {
+#define SECDB_SQLITE_AUTO_VACUUM_INCREMENTAL 2
+            sqlite3_stmt *stmt;
+            int vacuumMode = -1;
+
+            /*
+             * Setting auto_vacuum = incremental on a database that is not empty requires
+             * a VACCUUM, so check if the vacuum mode is not INCREMENTAL, and if its not,
+             * set it to incremental and vacuum.
+             */
+
+            int s3e = sqlite3_prepare_v2(handle, "PRAGMA auto_vacuum", -1, &stmt, NULL);
+            if (s3e == 0) {
+                s3e = sqlite3_step(stmt);
+                if (s3e == SQLITE_ROW) {
+                    vacuumMode = sqlite3_column_int(stmt, 0);
+                }
+                sqlite3_reset(stmt);
+            }
+
+            if (vacuumMode != SECDB_SQLITE_AUTO_VACUUM_INCREMENTAL) {
+                (void)sqlite3_exec(handle, "PRAGMA auto_vacuum = incremental", NULL, NULL, NULL);
+                (void)sqlite3_exec(handle, "VACUUM", NULL, NULL, NULL);
+            }
+        }
+        if (useWAL) {
+            (void)sqlite3_exec(handle, "PRAGMA journal_mode = WAL", NULL, NULL, NULL);
+        }
+
+        // Let SQLite handle timeouts.
+        sqlite3_busy_timeout(handle, 5*1000);
     }
     return handle;
 }
 
 static bool SecDbOpenV2(SecDbConnectionRef dbconn, const char *path, int flags, CFErrorRef *error) {
-    return (dbconn->handle = _SecDbOpenV2(path, flags, error)) != NULL;
+    return (dbconn->handle = _SecDbOpenV2(path, flags, dbconn->db->useWAL, dbconn->db->useRobotVacuum, error)) != NULL;
 }
 
 static bool SecDbTruncate(SecDbConnectionRef dbconn, CFErrorRef *error)
@@ -806,7 +873,7 @@ static bool SecDbHandleCorrupt(SecDbConnectionRef dbconn, int rc, CFErrorRef *er
         sqlite3 *corrupt_db = NULL;
         char buf[PATH_MAX+1];
         snprintf(buf, sizeof(buf), "%s-corrupt", db_path);
-        if (dbconn->handle && (corrupt_db = _SecDbOpenV2(buf, SQLITE_OPEN_READWRITE, error))) {
+        if (dbconn->handle && (corrupt_db = _SecDbOpenV2(buf, SQLITE_OPEN_READWRITE, dbconn->db->useWAL, dbconn->db->useRobotVacuum, error))) {
             int on = 1;
             didRename =  SecDbErrorWithDb(sqlite3_file_control(corrupt_db, NULL, SQLITE_FCNTL_PERSIST_WAL, &on), corrupt_db, error, CFSTR("persist wal"));
             didRename &=  SecDbErrorWithDb(sqlite3_file_control(corrupt_db, NULL, SQLITE_REPLACE_DATABASE, (void *)dbconn->handle), corrupt_db, error, CFSTR("replace database"));
@@ -994,8 +1061,6 @@ static bool SecDbOpenHandle(SecDbConnectionRef dbconn, bool *created, CFErrorRef
                                        dbconn);
             }
         }
-
-        ok = ok && SecDbBusyHandler(dbconn, error);
     });
 
     return ok;
@@ -1156,7 +1221,7 @@ void SecDbConnectionRelease(SecDbConnectionRef dbconn) {
             // Add back possible writable dbconn to the pool.
             CFArrayInsertValueAtIndex(db->connections, readOnly ? count : 0, dbconn);
             // Remove the last (probably read-only) dbconn from the pool.
-            if (count >= kSecDbMaxIdleHandles) {
+            if (count >= db->maxIdleHandles) {
                 CFArrayRemoveValueAtIndex(db->connections, count);
             }
         }
@@ -1178,65 +1243,6 @@ void SecDbReleaseAllConnections(SecDbRef db) {
         dispatch_semaphore_signal(db->write_semaphore);
         dispatch_semaphore_signal(db->read_semaphore);
     });
-}
-
-bool SecDbReplace(SecDbRef db, CFStringRef newDbPath, CFErrorRef *error) {
-    // Replace the given database with the contents of the database
-    // at newDbPath, as an atomic operation on db->queue.
-
-    __block bool result = false;
-    if (!db || !newDbPath) {
-        secerror("called with NULL argument");
-        return result;
-    }
-    dispatch_sync(db->queue, ^{
-        // Explicitly close all database connections
-        CFIndex idx, count = (db->connections) ? CFArrayGetCount(db->connections) : 0;
-        for (idx = 0; idx < count; idx++) {
-            SecDbConnectionRef dbconn = (SecDbConnectionRef) CFArrayGetValueAtIndex(db->connections, idx);
-            if (dbconn->handle) {
-                sqlite3_close(dbconn->handle);
-                dbconn->handle = NULL;
-            }
-        }
-        CFArrayRemoveAllValues(db->connections);
-
-        __block sqlite3 *old_db = NULL;
-        __block sqlite3 *new_db = NULL;
-        CFStringPerformWithCString(db->db_path, ^(const char *db_path) {
-            int s3e = sqlite3_open_v2(db_path, &old_db, SQLITE_OPEN_READWRITE, NULL);
-            if (SQLITE_OK != s3e) {
-                secerror("Unable to open db for writing: %s (error %d)", db_path, s3e);
-            }
-        });
-        CFStringPerformWithCString(newDbPath, ^(const char *new_db_path) {
-            int s3e = sqlite3_open_v2(new_db_path, &new_db, SQLITE_OPEN_READONLY, NULL);
-            if (SQLITE_OK != s3e) {
-                secerror("Unable to open db for reading: %s (error %d)", new_db_path, s3e);
-            }
-        });
-        if (old_db && new_db) {
-            // Replace old_db with contents of new_db
-            int s3e = sqlite3_file_control(old_db, NULL, SQLITE_FCNTL_REPLACE_DATABASE, new_db);
-            if (SQLITE_OK != s3e) {
-                secerror("Unable to replace db: %@ (error %d)", db->db_path, s3e);
-            } else {
-                result = true;
-            }
-        }
-        if (old_db) {
-            sqlite3_close(old_db);
-        }
-        if (new_db) {
-            sqlite3_close(new_db);
-        }
-
-        // Signal that connections are available again.
-        dispatch_semaphore_signal(db->write_semaphore);
-        dispatch_semaphore_signal(db->read_semaphore);
-    });
-
-    return result;
 }
 
 bool SecDbPerformRead(SecDbRef db, CFErrorRef *error, void (^perform)(SecDbConnectionRef dbconn)) {

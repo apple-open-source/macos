@@ -46,7 +46,6 @@
 #include "PerformanceUserTiming.h"
 #include "ResourceResponse.h"
 #include "ScriptExecutionContext.h"
-#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
@@ -186,7 +185,7 @@ void Performance::addResourceTiming(ResourceTiming&& resourceTiming)
     }
 
     if (m_resourceTimingBufferFullFlag) {
-        // We fired resourcetimingbufferfull evnet but the author script didn't clear the buffer.
+        // We fired resourcetimingbufferfull event but the author script didn't clear the buffer.
         // Notify performance observers but don't add it to the buffer.
         queueEntry(entry.get());
         return;

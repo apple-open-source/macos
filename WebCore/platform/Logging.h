@@ -61,6 +61,7 @@ namespace WebCore {
     M(IndexedDBOperations) \
     M(Layers) \
     M(Layout) \
+    M(FormattingContextLayout) \
     M(Loading) \
     M(Media) \
     M(MediaCaptureSamples) \
@@ -79,6 +80,7 @@ namespace WebCore {
     M(PopupBlocking) \
     M(Progress) \
     M(RemoteInspector) \
+    M(RequestAnimationFrame) \
     M(ResourceLoading) \
     M(ResourceLoadObserver) \
     M(ResourceLoadStatistics) \

@@ -29,11 +29,15 @@
 #include <sys/errno.h>
 #include <sys/sysctl.h>
 #include <net/content_filter.h>
+#include <libproc.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <err.h>
 #include <unistd.h>
 #include <string.h>
+
+#define IPPROTOCOL_TCP        6
+#define IPPROTOCOL_UDP        17
 
 void
 print_filter_list()
@@ -112,31 +116,38 @@ print_socket_list()
 		struct cfil_sock_stat *sock_stat;
 		char opass[32];
 		char ipass[32];
-		
+		char namebuffer[256];
+		char *procName = "<not found>";
+
 		sock_stat = (struct cfil_sock_stat *)ptr;
 		
 		if (curr_len + sock_stat->cfs_len > total_len ||
 		    sock_stat->cfs_len < sizeof(struct cfil_sock_stat))
 			break;
 
+		if (proc_name(sock_stat->cfs_e_pid, namebuffer, sizeof(namebuffer)) > 0) {
+			procName = namebuffer;
+		}
+
 		sprint_offset(opass, 32, "%8llu", sock_stat->cfs_snd.cbs_pass_offset);
 		sprint_offset(ipass, 32, "%8llu", sock_stat->cfs_rcv.cbs_pass_offset);
 
-		printf("%18s %10s "
+		printf("%16s %5s %10s "
 		       "%8s %8s %8s %8s %8s %8s %8s "
 		       "%8s %8s %8s %8s %8s %8s %8s "
-		       "%8s %8s\n",
-		       "sockid", "flags",
+		       "%8s %8s %15s\n",
+		       "sockid", "proto", "flags",
 		       "ofirst", "olast", "oqlen", " ", "opass", " ", " ",
 		       "ifirst", "ilast", "iqlen", " ", "ipass", " ", " ",
-		       "pid", "epid");
+		       "pid", "epid", "eprocname");
 
-		printf("0x%016llx 0x%08llx "
+		printf("%016llu %5s 0x%08llx "
 		       "%8llu %8llu %8llu %8s %8s %8s %8s "
 		       "%8llu %8llu %8llu %8s %8s %8s %8s "
-		       "%8u %8u\n",
+		       "%8u %8u %15s\n",
 		       
 		       sock_stat->cfs_sock_id,
+		       sock_stat->cfs_sock_protocol == IPPROTOCOL_TCP ? "TCP" : "UDP",
 		       sock_stat->cfs_flags,
 		       
 		       sock_stat->cfs_snd.cbs_pending_first,
@@ -155,7 +166,9 @@ print_socket_list()
 		       " ",
 		       " ",
 		       sock_stat->cfs_pid,
-		       sock_stat->cfs_e_pid);
+		       sock_stat->cfs_e_pid,
+		       procName);
+
 		
 		printf("%7s %10s %10s "
 		       "%8s %8s %8s %8s %8s %8s %8s "

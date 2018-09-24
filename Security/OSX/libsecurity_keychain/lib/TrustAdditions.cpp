@@ -416,7 +416,6 @@ static SecCertificateRef _rootCertificateWithSubjectOfCertificate(SecCertificate
     SecKeyRef keyRef = NULL;
     SecCertificateRef resultCert = NULL;
 	// note: Sec* APIs are not re-entrant due to the API lock
-	// status = SecCertificateCopyPublicKey(certificate, &keyRef);
 	BEGIN_SECAPI_INTERNAL_CALL
 	keyRef = Certificate::required(certificate)->publicKey()->handle();
 	END_SECAPI_INTERNAL_CALL

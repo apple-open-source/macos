@@ -238,7 +238,9 @@ public:
         OP_SH_CODE = 16,
         OP_SH_FD = 6,
         OP_SH_FS = 11,
-        OP_SH_FT = 16
+        OP_SH_FT = 16,
+        OP_SH_MSB = 11,
+        OP_SH_LSB = 6
     };
 
     // FCSR Bits
@@ -317,6 +319,17 @@ public:
             if (imm & 0xffff)
                 ori(dest, dest, imm);
         }
+    }
+
+    void ext(RegisterID rt, RegisterID rs, int pos, int size)
+    {
+        int msb = size - 1;
+        emitInst(0x7c000000 | (rt << OP_SH_RT) | (rs << OP_SH_RS) | (pos << OP_SH_LSB) | (msb << OP_SH_MSB));
+    }
+
+    void mfhc1(RegisterID rt, FPRegisterID fs)
+    {
+        emitInst(0x4460000 | (rt << OP_SH_RT) | (fs << OP_SH_FS));
     }
 
     void lui(RegisterID rt, int imm)
@@ -417,6 +430,11 @@ public:
     void sltu(RegisterID rd, RegisterID rs, RegisterID rt)
     {
         emitInst(0x0000002b | (rd << OP_SH_RD) | (rs << OP_SH_RS) | (rt << OP_SH_RT));
+    }
+
+    void slti(RegisterID rt, RegisterID rs, int imm)
+    {
+        emitInst(0x28000000 | (rt << OP_SH_RT) | (rs << OP_SH_RS) | (imm & 0xffff));
     }
 
     void sltiu(RegisterID rt, RegisterID rs, int imm)
@@ -939,8 +957,7 @@ public:
         insn++;
         ASSERT((*insn & 0xfc000000) == 0x34000000); // ori
         *insn = (*insn & 0xffff0000) | (to & 0xffff);
-        insn--;
-        cacheFlush(insn, 2 * sizeof(MIPSWord));
+        cacheFlush(from, 2 * sizeof(MIPSWord));
     }
 
     static int32_t readInt32(void* from)
@@ -1013,7 +1030,7 @@ public:
             *insn = 0x00000000;
             codeSize += sizeof(MIPSWord);
         }
-        cacheFlush(insn, codeSize);
+        cacheFlush(instructionStart, codeSize);
     }
 
     static void replaceWithJump(void* instructionStart, void* to)

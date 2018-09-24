@@ -30,10 +30,12 @@
         (global-name "com.apple.system.opendirectoryd.api")
         (global-name "com.apple.SystemConfiguration.configd")
         (global-name "com.apple.security.cloudkeychainproxy3")
-        (global-name "com.apple.security.keychainsyncingoveridsproxy")
+        (global-name "com.apple.accountsd.accountmanager")
+        (global-name "com.apple.ak.auth.xpc")
         (global-name "com.apple.cdp.daemon")
         (global-name "com.apple.cloudd")
         (global-name "com.apple.apsd")
+        (global-name "com.apple.ak.anisette.xpc")
         (global-name "com.apple.windowserver.active"))
 
 ;; Used to send logs for MoiC.

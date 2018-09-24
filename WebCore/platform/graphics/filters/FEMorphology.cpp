@@ -4,7 +4,7 @@
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
- * Copyright (C) Apple Inc. 2017. All rights reserved.
+ * Copyright (C) Apple Inc. 2017-2018 All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,7 +27,7 @@
 
 #include "ColorUtilities.h"
 #include "Filter.h"
-#include <runtime/Uint8ClampedArray.h>
+#include <JavaScriptCore/Uint8ClampedArray.h>
 #include <wtf/ParallelJobs.h>
 #include <wtf/Vector.h>
 #include <wtf/text/TextStream.h>
@@ -75,8 +75,7 @@ void FEMorphology::determineAbsolutePaintRect()
 {
     FloatRect paintRect = inputEffect(0)->absolutePaintRect();
     Filter& filter = this->filter();
-    paintRect.inflateX(filter.applyHorizontalScale(m_radiusX));
-    paintRect.inflateY(filter.applyVerticalScale(m_radiusY));
+    paintRect.inflate(filter.scaledByFilterResolution({ m_radiusX, m_radiusY }));
     if (clipsToBounds())
         paintRect.intersect(maxEffectRect());
     else
@@ -140,6 +139,8 @@ ALWAYS_INLINE ColorComponents kernelExtremum(const ColumnExtrema& kernel, Morpho
 
 void FEMorphology::platformApplyGeneric(const PaintingData& paintingData, int startY, int endY)
 {
+    ASSERT(endY > startY);
+
     const auto& srcPixelArray = *paintingData.srcPixelArray;
     auto& dstPixelArray = *paintingData.dstPixelArray;
 
@@ -189,16 +190,17 @@ void FEMorphology::platformApply(const PaintingData& paintingData)
     float kernelFactor = sqrt(paintingData.radiusX * paintingData.radiusY) * 0.65;
 
     static const int minimalArea = (160 * 160); // Empirical data limit for parallel jobs
-    int optimalThreadNumber = (paintingData.width * paintingData.height * kernelFactor) / minimalArea;
-
+    
+    unsigned maxNumThreads = paintingData.height / 8;
+    unsigned optimalThreadNumber = std::min<unsigned>((paintingData.width * paintingData.height * kernelFactor) / minimalArea, maxNumThreads);
     if (optimalThreadNumber > 1) {
-        ParallelJobs<PlatformApplyParameters> parallelJobs(&WebCore::FEMorphology::platformApplyWorker, optimalThreadNumber);
-        int numOfThreads = parallelJobs.numberOfJobs();
+        WTF::ParallelJobs<PlatformApplyParameters> parallelJobs(&WebCore::FEMorphology::platformApplyWorker, optimalThreadNumber);
+        auto numOfThreads = parallelJobs.numberOfJobs();
         if (numOfThreads > 1) {
             // Split the job into "jobSize"-sized jobs but there a few jobs that need to be slightly larger since
             // jobSize * jobs < total size. These extras are handled by the remainder "jobsWithExtra".
-            const int jobSize = paintingData.height / numOfThreads;
-            const int jobsWithExtra = paintingData.height % numOfThreads;
+            int jobSize = paintingData.height / numOfThreads;
+            int jobsWithExtra = paintingData.height % numOfThreads;
             int currentY = 0;
             for (int job = numOfThreads - 1; job >= 0; --job) {
                 PlatformApplyParameters& param = parallelJobs.parameter(job);
@@ -219,14 +221,7 @@ void FEMorphology::platformApply(const PaintingData& paintingData)
 
 bool FEMorphology::platformApplyDegenerate(Uint8ClampedArray& dstPixelArray, const IntRect& imageRect, int radiusX, int radiusY)
 {
-    // Input radius is less than zero or an overflow happens when scaling it.
-    if (radiusX < 0 || radiusY < 0) {
-        dstPixelArray.zeroFill();
-        return true;
-    }
-
-    // Input radius is equal to zero or the scaled radius is less than one.
-    if (!m_radiusX || !m_radiusY) {
+    if (radiusX < 0 || radiusY < 0 || (!radiusX && !radiusY)) {
         FilterEffect* in = inputEffect(0);
         in->copyPremultipliedResult(dstPixelArray, imageRect);
         return true;
@@ -246,7 +241,9 @@ void FEMorphology::platformApplySoftware()
     setIsAlphaImage(in->isAlphaImage());
 
     IntRect effectDrawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
-    if (platformApplyDegenerate(*dstPixelArray, effectDrawingRect, m_radiusX, m_radiusY))
+
+    IntSize radius = flooredIntSize(FloatSize(m_radiusX, m_radiusY));
+    if (platformApplyDegenerate(*dstPixelArray, effectDrawingRect, radius.width(), radius.height()))
         return;
 
     Filter& filter = this->filter();
@@ -254,10 +251,9 @@ void FEMorphology::platformApplySoftware()
     if (!srcPixelArray)
         return;
 
-    int radiusX = static_cast<int>(floorf(filter.applyHorizontalScale(m_radiusX)));
-    int radiusY = static_cast<int>(floorf(filter.applyVerticalScale(m_radiusY)));
-    radiusX = std::min(effectDrawingRect.width() - 1, radiusX);
-    radiusY = std::min(effectDrawingRect.height() - 1, radiusY);
+    radius = flooredIntSize(filter.scaledByFilterResolution({ m_radiusX, m_radiusY }));
+    int radiusX = std::min(effectDrawingRect.width() - 1, radius.width());
+    int radiusY = std::min(effectDrawingRect.height() - 1, radius.height());
 
     if (platformApplyDegenerate(*dstPixelArray, effectDrawingRect, radiusX, radiusY))
         return;

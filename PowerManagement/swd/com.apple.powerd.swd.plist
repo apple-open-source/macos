@@ -1,24 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>ThrottleInterval</key>
-    <integer>30</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
 	<key>Label</key>
 	<string>com.apple.powerd.swd</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/System/Library/CoreServices/powerd.bundle/swd</string>
 	</array>
-    <key>KeepAlive</key>                                                                                                
-    <dict>                                                                                                              
-        <key>PathState</key>                                                                                            
-        <dict>                                                                                                          
-            <key>/var/log/SleepWakeLog.dump</key>
-            <true/>
-            <key>/var/log/AppleOSXWatchdogLog.dump</key>
-            <true/>
-        </dict>                                                                                                         
-    </dict>           
+	<key>KeepAlive</key>
+	<dict>
+		<key>PathState</key>
+		<dict>
+			<key>/var/log/OSWatchdogFailureString.txt</key>
+			<true/>
+			<key>/var/log/OSXWatchdogStacks.gz</key>
+			<true/>
+			<key>/var/log/SleepWakeFailureString.txt</key>
+			<true/>
+			<key>/var/log/SleepWakeStacks.gz</key>
+			<true/>
+		</dict>
+	</dict>
 </dict>
 </plist>

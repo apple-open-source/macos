@@ -34,9 +34,9 @@
 
 #include "InspectorWebAgentBase.h"
 #include "LayoutRect.h"
-#include <inspector/InspectorBackendDispatchers.h>
-#include <inspector/InspectorFrontendDispatchers.h>
-#include <inspector/ScriptDebugListener.h>
+#include <JavaScriptCore/InspectorBackendDispatchers.h>
+#include <JavaScriptCore/InspectorFrontendDispatchers.h>
+#include <JavaScriptCore/ScriptDebugListener.h>
 #include <wtf/JSONValues.h>
 #include <wtf/Vector.h>
 
@@ -98,7 +98,7 @@ public:
     void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) final;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) final;
 
-    void start(ErrorString&, const int* const maxCallStackDepth = nullptr) final;
+    void start(ErrorString&, const int* maxCallStackDepth = nullptr) final;
     void stop(ErrorString&) final;
     void setAutoCaptureEnabled(ErrorString&, bool) final;
     void setInstruments(ErrorString&, const JSON::Array&) final;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,12 +44,15 @@
 #include "ShadowRoot.h"
 #include "SharedBuffer.h"
 #include <pal/FileSizeFormatter.h>
+#include <wtf/IsoMallocInlines.h>
 
 #if PLATFORM(COCOA)
 #include "UTIUtilities.h"
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLAttachmentElement);
 
 using namespace HTMLNames;
 
@@ -182,16 +185,6 @@ void HTMLAttachmentElement::parseAttribute(const QualifiedName& name, const Atom
     HTMLElement::parseAttribute(name, value);
 }
 
-String HTMLAttachmentElement::uniqueIdentifier() const
-{
-    return attributeWithoutSynchronization(HTMLNames::webkitattachmentidAttr);
-}
-
-void HTMLAttachmentElement::setUniqueIdentifier(const String& identifier)
-{
-    setAttributeWithoutSynchronization(HTMLNames::webkitattachmentidAttr, identifier);
-}
-
 String HTMLAttachmentElement::attachmentTitle() const
 {
     auto& title = attributeWithoutSynchronization(titleAttr);
@@ -293,7 +286,9 @@ void HTMLAttachmentElement::populateShadowRootIfNecessary()
         auto image = ensureInnerImage();
         if (image->attributeWithoutSynchronization(srcAttr).isEmpty()) {
             image->setAttributeWithoutSynchronization(srcAttr, DOMURL::createObjectURL(document(), *m_file));
+            image->setAttributeWithoutSynchronization(draggableAttr, AtomicString("false"));
             image->setInlineStyleProperty(CSSPropertyDisplay, CSSValueInline, true);
+            image->setInlineStyleProperty(CSSPropertyMaxWidth, 100, CSSPrimitiveValue::UnitType::CSS_PERCENTAGE, true);
         }
 
     } else if (MIMETypeRegistry::isSupportedMediaMIMEType(mimeType)) {
@@ -302,16 +297,27 @@ void HTMLAttachmentElement::populateShadowRootIfNecessary()
             video->setAttributeWithoutSynchronization(srcAttr, DOMURL::createObjectURL(document(), *m_file));
             video->setAttributeWithoutSynchronization(controlsAttr, emptyString());
             video->setInlineStyleProperty(CSSPropertyDisplay, CSSValueInline, true);
+            video->setInlineStyleProperty(CSSPropertyMaxWidth, 100, CSSPrimitiveValue::UnitType::CSS_PERCENTAGE, true);
         }
     }
 }
 
-void HTMLAttachmentElement::requestData(Function<void(RefPtr<SharedBuffer>&&)>&& callback)
+void HTMLAttachmentElement::requestInfo(Function<void(const AttachmentInfo&)>&& callback)
 {
-    if (m_file)
-        m_attachmentReaders.append(AttachmentDataReader::create(*this, WTFMove(callback)));
-    else
-        callback(nullptr);
+    if (!m_file) {
+        callback({ });
+        return;
+    }
+
+    AttachmentInfo infoWithoutData { m_file->type(), m_file->name(), m_file->path(), nullptr };
+    if (!m_file->path().isEmpty()) {
+        callback(infoWithoutData);
+        return;
+    }
+
+    m_attachmentReaders.append(AttachmentDataReader::create(*this, [infoWithoutData = WTFMove(infoWithoutData), protectedFile = makeRef(*m_file), callback = WTFMove(callback)] (RefPtr<SharedBuffer>&& data) {
+        callback({ infoWithoutData.contentType, infoWithoutData.name, infoWithoutData.filePath, WTFMove(data) });
+    }));
 }
 
 void HTMLAttachmentElement::destroyReader(AttachmentDataReader& finishedReader)

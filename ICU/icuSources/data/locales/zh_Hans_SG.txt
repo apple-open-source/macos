@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 zh_Hans_SG{
-    Version{"2.1.31.33"}
+    Version{"2.1.38.39"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -26,9 +26,9 @@ zh_Hans_SG{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年MM月d日EEEE",
-                "Gy年MM月d日",
-                "Gy年MM月d日",
+                "Gy年M月d日EEEE",
+                "Gy年M月d日",
+                "Gy年M月d日",
                 "dd/MM/yyGGGGG",
                 "{1} {0}",
                 "{1} {0}",
@@ -37,10 +37,17 @@ zh_Hans_SG{
                 "{1} {0}",
             }
             availableFormats{
+                H{"H时"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
                 MEd{"M-dE"}
                 MMMMdd{"M月d日"}
                 MMdd{"MM-dd"}
                 Md{"M-d"}
+                h{"ah时"}
+                hm{"ah:mm"}
+                hms{"ah:mm:ss"}
+                ms{"mm:ss"}
                 yyyyMEd{"Gy年M月d日，E"}
                 yyyyMd{"Gy年M月d日"}
             }

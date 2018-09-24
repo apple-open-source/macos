@@ -54,7 +54,7 @@ public:
     ~WebContextMenuProxyMac();
 
     void contextMenuItemSelected(const WebContextMenuItemData&);
-    void showContextMenuWithItems(Vector<WebContextMenuItemData>&&) override;
+    void showContextMenuWithItems(Vector<Ref<WebContextMenuItem>>&&) override;
 
 #if ENABLE(SERVICE_CONTROLS)
     void clearServicesMenu();

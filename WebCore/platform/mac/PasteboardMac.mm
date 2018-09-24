@@ -26,6 +26,8 @@
 #import "config.h"
 #import "Pasteboard.h"
 
+#if PLATFORM(MAC)
+
 #import "DragData.h"
 #import "Image.h"
 #import "LegacyNSPasteboardTypes.h"
@@ -40,6 +42,7 @@
 #import "WebNSAttributedStringExtras.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/HIServicesSPI.h>
+#import <wtf/ProcessPrivilege.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/text/StringBuilder.h>
@@ -194,10 +197,8 @@ static long writeURLForTypes(const Vector<String>& types, const String& pasteboa
     }
 
     if (types.contains(WebURLsWithTitlesPboardType)) {
-        Vector<String> paths;
-        paths.append([cocoaURL absoluteString]);
-        paths.append(pasteboardURL.title.stripWhiteSpace());
-        newChangeCount = platformStrategies()->pasteboardStrategy()->setPathnamesForType(paths, WebURLsWithTitlesPboardType, pasteboardName);
+        PasteboardURL url = { pasteboardURL.url, String(title).stripWhiteSpace(), emptyString() };
+        newChangeCount = platformStrategies()->pasteboardStrategy()->setURL(url, pasteboardName);
     }
     if (types.contains(String(legacyURLPasteboardType())))
         newChangeCount = platformStrategies()->pasteboardStrategy()->setStringForType([cocoaURL absoluteString], legacyURLPasteboardType(), pasteboardName);
@@ -218,9 +219,8 @@ void Pasteboard::write(const PasteboardURL& pasteboardURL)
 
 void Pasteboard::writeTrustworthyWebURLsPboardType(const PasteboardURL& pasteboardURL)
 {
-    NSURL *cocoaURL = pasteboardURL.url;
-    Vector<String> paths = { [cocoaURL absoluteString], pasteboardURL.title.stripWhiteSpace() };
-    m_changeCount = platformStrategies()->pasteboardStrategy()->setPathnamesForType(paths, WebURLsWithTitlesPboardType, m_pasteboardName);
+    PasteboardURL url = { pasteboardURL.url, pasteboardURL.title.stripWhiteSpace(), emptyString() };
+    m_changeCount = platformStrategies()->pasteboardStrategy()->setURL(url, m_pasteboardName);
 }
 
 static NSFileWrapper* fileWrapper(const PasteboardImage& pasteboardImage)
@@ -327,16 +327,16 @@ void Pasteboard::read(PasteboardPlainText& text)
         }
     }
 
-    if (types.contains(String(legacyFilenamesPasteboardType()))) {
-        Vector<String> pathnames;
-        strategy.getPathnamesForType(pathnames, legacyFilenamesPasteboardType(), m_pasteboardName);
-        text.text = joinPathnames(pathnames);
+    if (types.contains(String(legacyFilesPromisePasteboardType()))) {
+        text.text = joinPathnames(m_promisedFilePaths);
         text.isURL = false;
         return;
     }
 
-    if (types.contains(String(legacyFilesPromisePasteboardType()))) {
-        text.text = joinPathnames(m_promisedFilePaths);
+    if (types.contains(String(legacyFilenamesPasteboardType()))) {
+        Vector<String> pathnames;
+        strategy.getPathnamesForType(pathnames, legacyFilenamesPasteboardType(), m_pasteboardName);
+        text.text = joinPathnames(pathnames);
         text.isURL = false;
         return;
     }
@@ -362,15 +362,15 @@ void Pasteboard::read(PasteboardWebContentReader& reader, WebContentReadingPolic
         }
     }
 
+    if (policy == WebContentReadingPolicy::AnyType && types.contains(String(legacyFilesPromisePasteboardType()))) {
+        if (m_changeCount != changeCount() || reader.readFilePaths(m_promisedFilePaths))
+            return;
+    }
+
     if (policy == WebContentReadingPolicy::AnyType && types.contains(String(legacyFilenamesPasteboardType()))) {
         Vector<String> paths;
         strategy.getPathnamesForType(paths, legacyFilenamesPasteboardType(), m_pasteboardName);
         if (m_changeCount != changeCount() || reader.readFilePaths(paths))
-            return;
-    }
-
-    if (policy == WebContentReadingPolicy::AnyType && types.contains(String(legacyFilesPromisePasteboardType()))) {
-        if (m_changeCount != changeCount() || reader.readFilePaths(m_promisedFilePaths))
             return;
     }
 
@@ -399,28 +399,28 @@ void Pasteboard::read(PasteboardWebContentReader& reader, WebContentReadingPolic
 
     if (types.contains(String(legacyTIFFPasteboardType()))) {
         if (RefPtr<SharedBuffer> buffer = strategy.bufferForType(legacyTIFFPasteboardType(), m_pasteboardName)) {
-            if (m_changeCount != changeCount() || reader.readImage(buffer.releaseNonNull(), ASCIILiteral("image/tiff")))
+            if (m_changeCount != changeCount() || reader.readImage(buffer.releaseNonNull(), "image/tiff"_s))
                 return;
         }
     }
 
     if (types.contains(String(legacyPDFPasteboardType()))) {
         if (RefPtr<SharedBuffer> buffer = strategy.bufferForType(legacyPDFPasteboardType(), m_pasteboardName)) {
-            if (m_changeCount != changeCount() || reader.readImage(buffer.releaseNonNull(), ASCIILiteral("application/pdf")))
+            if (m_changeCount != changeCount() || reader.readImage(buffer.releaseNonNull(), "application/pdf"_s))
                 return;
         }
     }
 
     if (types.contains(String(kUTTypePNG))) {
         if (RefPtr<SharedBuffer> buffer = strategy.bufferForType(kUTTypePNG, m_pasteboardName)) {
-            if (m_changeCount != changeCount() || reader.readImage(buffer.releaseNonNull(), ASCIILiteral("image/png")))
+            if (m_changeCount != changeCount() || reader.readImage(buffer.releaseNonNull(), "image/png"_s))
                 return;
         }
     }
 
     if (types.contains(String(kUTTypeJPEG))) {
         if (RefPtr<SharedBuffer> buffer = strategy.bufferForType(kUTTypeJPEG, m_pasteboardName)) {
-            if (m_changeCount != changeCount() || reader.readImage(buffer.releaseNonNull(), ASCIILiteral("image/jpeg")))
+            if (m_changeCount != changeCount() || reader.readImage(buffer.releaseNonNull(), "image/jpeg"_s))
                 return;
         }
     }
@@ -515,11 +515,11 @@ void Pasteboard::addHTMLClipboardTypesForCocoaType(ListHashSet<String>& resultTy
 
     // UTI may not do these right, so make sure we get the right, predictable result
     if (cocoaType == String(legacyStringPasteboardType()) || cocoaType == String(NSPasteboardTypeString)) {
-        resultTypes.add(ASCIILiteral("text/plain"));
+        resultTypes.add("text/plain"_s);
         return;
     }
     if (cocoaType == String(legacyURLPasteboardType())) {
-        resultTypes.add(ASCIILiteral("text/uri-list"));
+        resultTypes.add("text/uri-list"_s);
         return;
     }
     if (cocoaType == String(legacyFilenamesPasteboardType()) || Pasteboard::shouldTreatCocoaTypeAsFile(cocoaType))
@@ -567,15 +567,15 @@ Vector<String> Pasteboard::readFilePaths()
     Vector<String> types;
     strategy.getTypes(types, m_pasteboardName);
 
+    if (types.contains(String(legacyFilesPromisePasteboardType())))
+        return m_promisedFilePaths;
+
     if (types.contains(String(legacyFilenamesPasteboardType()))) {
         Vector<String> filePaths;
         strategy.getPathnamesForType(filePaths, legacyFilenamesPasteboardType(), m_pasteboardName);
         return filePaths;
     }
 
-    if (types.contains(String(legacyFilesPromisePasteboardType())))
-        return m_promisedFilePaths;
-    
     return { };
 }
 
@@ -669,11 +669,18 @@ void Pasteboard::setDragImage(DragImage image, const IntPoint& location)
 
     // Hack: We must post an event to wake up the NSDragManager, which is sitting in a nextEvent call
     // up the stack from us because the CoreFoundation drag manager does not use the run loop by itself.
-    // This is the most innocuous event to use, per Kristen Forster.
-    NSEvent* event = [NSEvent mouseEventWithType:NSEventTypeMouseMoved location:NSZeroPoint
-        modifierFlags:0 timestamp:0 windowNumber:0 context:nil eventNumber:0 clickCount:0 pressure:0];
-    [NSApp postEvent:event atStart:YES];
+    // This is the most innocuous event to use, per Kristin Forster.
+    // This is only relevant in WK1. Do not execute in the WebContent process, since it is now using
+    // NSRunLoop, and not the NSApplication run loop.
+    if ([NSApp isRunning]) {
+        ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
+        NSEvent* event = [NSEvent mouseEventWithType:NSEventTypeMouseMoved location:NSZeroPoint
+            modifierFlags:0 timestamp:0 windowNumber:0 context:nil eventNumber:0 clickCount:0 pressure:0];
+        [NSApp postEvent:event atStart:YES];
+    }
 }
 #endif
 
 }
+
+#endif // PLATFORM(MAC)

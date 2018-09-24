@@ -26,6 +26,7 @@
 
 #include "CharacterProperties.h"
 #include "ComplexTextController.h"
+#include "DisplayListRecorder.h"
 #include "FloatRect.h"
 #include "FontCache.h"
 #include "GlyphBuffer.h"
@@ -39,6 +40,10 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/AtomicStringHash.h>
 #include <wtf/text/StringBuilder.h>
+
+#if PLATFORM(WIN)
+#include "UniscribeController.h"
+#endif
 
 namespace WebCore {
 using namespace WTF;
@@ -76,11 +81,11 @@ FontCascade::FontCascade()
 {
 }
 
-FontCascade::FontCascade(const FontCascadeDescription& fd, float letterSpacing, float wordSpacing)
-    : m_fontDescription(fd)
+FontCascade::FontCascade(FontCascadeDescription&& fd, float letterSpacing, float wordSpacing)
+    : m_fontDescription(WTFMove(fd))
     , m_letterSpacing(letterSpacing)
     , m_wordSpacing(wordSpacing)
-    , m_useBackslashAsYenSymbol(useBackslashAsYenSignForFamily(fd.firstFamily()))
+    , m_useBackslashAsYenSymbol(useBackslashAsYenSignForFamily(m_fontDescription.firstFamily()))
     , m_enableKerning(computeEnableKerning())
     , m_requiresShaping(computeRequiresShaping())
 {
@@ -305,6 +310,32 @@ void FontCascade::drawEmphasisMarks(GraphicsContext& context, const TextRun& run
         drawEmphasisMarksForComplexText(context, run, mark, point, from, destination);
 }
 
+std::unique_ptr<DisplayList::DisplayList> FontCascade::displayListForTextRun(GraphicsContext& context, const TextRun& run, unsigned from, std::optional<unsigned> to, CustomFontNotReadyAction customFontNotReadyAction) const
+{
+    ASSERT(!context.paintingDisabled());
+    unsigned destination = to.value_or(run.length());
+    
+    // FIXME: Use the fast code path once it handles partial runs with kerning and ligatures. See http://webkit.org/b/100050
+    CodePath codePathToUse = codePath(run);
+    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || destination != run.length()))
+        codePathToUse = Complex;
+    
+    GlyphBuffer glyphBuffer;
+    float startX = glyphBufferForTextRun(codePathToUse, run, from, destination, glyphBuffer);
+    // We couldn't generate any glyphs for the run. Give up.
+    if (glyphBuffer.isEmpty())
+        return nullptr;
+    
+    std::unique_ptr<DisplayList::DisplayList> displayList = std::make_unique<DisplayList::DisplayList>();
+    GraphicsContext recordingContext([&](GraphicsContext& displayListContext) {
+        return std::make_unique<DisplayList::Recorder>(displayListContext, *displayList, context.state(), FloatRect(), AffineTransform());
+    });
+    
+    FloatPoint startPoint(startX, 0);
+    drawGlyphBuffer(recordingContext, glyphBuffer, startPoint, customFontNotReadyAction);
+    return displayList;
+}
+    
 float FontCascade::widthOfTextRange(const TextRun& run, unsigned from, unsigned to, HashSet<const Font*>* fallbackFonts, float* outWidthBeforeRange, float* outWidthAfterRange) const
 {
     ASSERT(from <= to);
@@ -316,6 +347,15 @@ float FontCascade::widthOfTextRange(const TextRun& run, unsigned from, unsigned 
 
     auto codePathToUse = codePath(run);
     if (codePathToUse == Complex) {
+#if PLATFORM(WIN)
+        UniscribeController it(this, run);
+        it.advance(from);
+        offsetBeforeRange = it.runWidthSoFar();
+        it.advance(to);
+        offsetAfterRange = it.runWidthSoFar();
+        it.advance(to);
+        totalWidth = it.runWidthSoFar();
+#else
         ComplexTextController complexIterator(*this, run, false, fallbackFonts);
         complexIterator.advance(from, nullptr, IncludePartialGlyphs, fallbackFonts);
         offsetBeforeRange = complexIterator.runWidthSoFar();
@@ -323,6 +363,7 @@ float FontCascade::widthOfTextRange(const TextRun& run, unsigned from, unsigned 
         offsetAfterRange = complexIterator.runWidthSoFar();
         complexIterator.advance(run.length(), nullptr, IncludePartialGlyphs, fallbackFonts);
         totalWidth = complexIterator.runWidthSoFar();
+#endif
     } else {
         WidthIterator simpleIterator(this, run, fallbackFonts);
         simpleIterator.advance(from, nullptr);
@@ -1391,7 +1432,7 @@ void FontCascade::drawGlyphBuffer(GraphicsContext& context, const GlyphBuffer& g
 {
     // Draw each contiguous run of glyphs that use the same font data.
     const Font* fontData = glyphBuffer.fontAt(0);
-    FloatSize offset = glyphBuffer.offsetAt(0);
+    // FIXME: Why do we subtract the initial advance's height but not its width???
     FloatPoint startPoint(point.x(), point.y() - glyphBuffer.initialAdvance().height());
     float nextX = startPoint.x() + glyphBuffer.advanceAt(0).width();
     float nextY = startPoint.y() + glyphBuffer.advanceAt(0).height();
@@ -1399,15 +1440,13 @@ void FontCascade::drawGlyphBuffer(GraphicsContext& context, const GlyphBuffer& g
     unsigned nextGlyph = 1;
     while (nextGlyph < glyphBuffer.size()) {
         const Font* nextFontData = glyphBuffer.fontAt(nextGlyph);
-        FloatSize nextOffset = glyphBuffer.offsetAt(nextGlyph);
 
-        if (nextFontData != fontData || nextOffset != offset) {
+        if (nextFontData != fontData) {
             if (shouldDrawIfLoading(*fontData, customFontNotReadyAction))
-                context.drawGlyphs(*this, *fontData, glyphBuffer, lastFrom, nextGlyph - lastFrom, startPoint);
+                context.drawGlyphs(*fontData, glyphBuffer, lastFrom, nextGlyph - lastFrom, startPoint, m_fontDescription.fontSmoothing());
 
             lastFrom = nextGlyph;
             fontData = nextFontData;
-            offset = nextOffset;
             startPoint.setX(nextX);
             startPoint.setY(nextY);
         }
@@ -1417,13 +1456,13 @@ void FontCascade::drawGlyphBuffer(GraphicsContext& context, const GlyphBuffer& g
     }
 
     if (shouldDrawIfLoading(*fontData, customFontNotReadyAction))
-        context.drawGlyphs(*this, *fontData, glyphBuffer, lastFrom, nextGlyph - lastFrom, startPoint);
+        context.drawGlyphs(*fontData, glyphBuffer, lastFrom, nextGlyph - lastFrom, startPoint, m_fontDescription.fontSmoothing());
     point.setX(nextX);
 }
 
 inline static float offsetToMiddleOfGlyph(const Font* fontData, Glyph glyph)
 {
-    if (fontData->platformData().orientation() == Horizontal) {
+    if (fontData->platformData().orientation() == FontOrientation::Horizontal) {
         FloatRect bounds = fontData->boundsForGlyph(glyph);
         return bounds.x() + bounds.width() / 2;
     }

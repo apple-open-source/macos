@@ -27,8 +27,7 @@ WI.LayersTabContentView = class LayersTabContentView extends WI.ContentBrowserTa
 {
     constructor()
     {
-        let {image, title} = WI.LayersTabContentView.tabInfo();
-        let tabBarItem = new WI.GeneralTabBarItem(image, title);
+        let tabBarItem = WI.GeneralTabBarItem.fromTabInfo(WI.LayersTabContentView.tabInfo());
 
         const navigationSidebarPanelConstructor = null;
         const detailsSidebarPanelConstructors = [WI.LayerDetailsSidebarPanel];
@@ -61,6 +60,11 @@ WI.LayersTabContentView = class LayersTabContentView extends WI.ContentBrowserTa
 
     get type() { return WI.LayersTabContentView.Type; }
     get supportsSplitContentBrowser() { return false; }
+
+    selectLayerForNode(node)
+    {
+        this._layers3DContentView.selectLayerForNode(node);
+    }
 
     shown()
     {

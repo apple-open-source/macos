@@ -54,10 +54,6 @@
 
 #pragma D option bufresize=auto
 
-#ifdef __SUNW_D_64
-#pragma D option bufsize=100t
-#endif
-
 BEGIN
 {
 	exit(0);

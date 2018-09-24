@@ -638,6 +638,33 @@ DHCPLeaseListFindLeaseWithSSID(DHCPLeaseListRef list_p, CFStringRef ssid)
 }
 
 /*
+ * Function: DHCPLeaseListRemoveLeaseWithSSID
+ * Purpose:
+ *   Find all leases with the given SSID, and remove them.
+ */
+void
+DHCPLeaseListRemoveLeaseWithSSID(DHCPLeaseListRef list_p, CFStringRef ssid)
+{
+    while (1) {
+	DHCPLeaseRef	lease_p;
+	int		where;
+
+	where = DHCPLeaseListFindLeaseWithSSID(list_p, ssid);
+	if (where == DHCP_LEASE_NOT_FOUND) {
+	    break;
+	}
+	lease_p = dynarray_element(list_p, where);
+	my_log(LOG_NOTICE, "Removing Lease SSID %@ "
+	       IP_FORMAT " Router " IP_FORMAT,
+	       ssid,
+	       IP_LIST(&lease_p->our_ip),
+	       IP_LIST(&lease_p->router_ip));
+	dynarray_free_element(list_p, where);
+    }
+    return;
+}
+
+/*
  * Function: DHCPLeaseShouldBeRemoved
  * Purpose:
  *   Given an existing lease entry 'existing_p' and the one to be added 'new_p',

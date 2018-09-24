@@ -24,16 +24,11 @@
 
 /* Begin PBXBuildFile section */
 		720C345D13441CDA00304FF8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72565F281331B3C8008CA43A /* CoreFoundation.framework */; };
-		721C4960134D6EF800F70C2B /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 721C495F134D6EF800F70C2B /* IOKit.framework */; };
 		7220D94B126FF071009A4724 /* libBootCache.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B84538126FE81E009E3486 /* libBootCache.a */; };
 		7220D9C31270B271009A4724 /* BootCache_private.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache_private.h */; };
 		7223F8DC13AA82C3006C4DB0 /* RootExtra.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7223F8DA13AA82A8006C4DB0 /* RootExtra.logical_playlist */; };
 		7246077413A9820F00DDF965 /* Root.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7246077213A9818100DDF965 /* Root.logical_playlist */; };
 		7246077513A9821200DDF965 /* Login.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7246076F13A9812600DDF965 /* Login.logical_playlist */; };
-		72A2930714C8FFF50080F826 /* DiskManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A2930614C8FFF50080F826 /* DiskManagement.framework */; };
-		72A2930A14C9000C0080F826 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A2930914C9000C0080F826 /* DiskArbitration.framework */; };
-		72A2930C14C9001B0080F826 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A2930B14C9001B0080F826 /* Foundation.framework */; };
-		72A7851314D8ACFD00157467 /* libCoreStorage.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A7851214D8ACFD00157467 /* libCoreStorage.dylib */; };
 		72B0D74D1166A66F00EAA900 /* BootCacheControl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72B0D72D11669ED300EAA900 /* BootCacheControl.8 */; };
 		72B8453E126FEBD0009E3486 /* BootCache_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72B8453F126FEBD4009E3486 /* library.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F47C34001F78EE30ECA2C3D /* library.c */; };
@@ -42,7 +37,9 @@
 		89F255830DAABEAD00CA7984 /* kext_glue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9FF22D1E026652BA0ECA2C3D /* kext_glue.cpp */; };
 		89F255930DAABEAD00CA7984 /* BootCache_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache_private.h */; };
 		89F255950DAABEAD00CA7984 /* control.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F67ED4101B842340ECA2C3D /* control.c */; };
-		D3C0387F1E899E4F007533A8 /* bc_apfs_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3C0387E1E899E4F007533A8 /* bc_apfs_utils.cpp */; };
+		D30AF03620F5382C00C099E9 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D30AF03520F5382C00C099E9 /* IOKit.framework */; };
+		D3C0387F1E899E4F007533A8 /* bc_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3C0387E1E899E4F007533A8 /* bc_utils.cpp */; };
+		D3F66DDE1F9132590024CC3E /* BootCache_debug.h in Headers */ = {isa = PBXBuildFile; fileRef = D3F66DDD1F9132590024CC3E /* BootCache_debug.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -126,8 +123,9 @@
 		9F47C34001F78EE30ECA2C3D /* library.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = library.c; sourceTree = "<group>"; };
 		9F67ED4101B842340ECA2C3D /* control.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = control.c; sourceTree = "<group>"; };
 		9FF22D1E026652BA0ECA2C3D /* kext_glue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = kext_glue.cpp; sourceTree = "<group>"; };
-		D3C0387E1E899E4F007533A8 /* bc_apfs_utils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bc_apfs_utils.cpp; sourceTree = "<group>"; };
-		D3C038801E89A0D1007533A8 /* bc_apfs_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bc_apfs_utils.h; sourceTree = "<group>"; };
+		D30AF03520F5382C00C099E9 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		D3C0387E1E899E4F007533A8 /* bc_utils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bc_utils.cpp; sourceTree = "<group>"; };
+		D3C038801E89A0D1007533A8 /* bc_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bc_utils.h; sourceTree = "<group>"; };
 		D3F66DDD1F9132590024CC3E /* BootCache_debug.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BootCache_debug.h; sourceTree = "<group>"; };
 		D3F66E541F9FE76D0024CC3E /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -151,13 +149,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72A7851314D8ACFD00157467 /* libCoreStorage.dylib in Frameworks */,
-				72A2930C14C9001B0080F826 /* Foundation.framework in Frameworks */,
-				72A2930A14C9000C0080F826 /* DiskArbitration.framework in Frameworks */,
-				72A2930714C8FFF50080F826 /* DiskManagement.framework in Frameworks */,
+				D30AF03620F5382C00C099E9 /* IOKit.framework in Frameworks */,
 				7220D94B126FF071009A4724 /* libBootCache.a in Frameworks */,
 				720C345D13441CDA00304FF8 /* CoreFoundation.framework in Frameworks */,
-				721C4960134D6EF800F70C2B /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -172,6 +166,7 @@
 				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				72565F271331B395008CA43A /* Libraries */,
+				D30AF03420F5382B00C099E9 /* Frameworks */,
 			);
 			name = SmartReadahead;
 			sourceTree = "<group>";
@@ -206,9 +201,10 @@
 			isa = PBXGroup;
 			children = (
 				9F30F63B01B745E90ECA2C3D /* BootCache_private.h */,
+				D3F66DDD1F9132590024CC3E /* BootCache_debug.h */,
 				9F30F63A01B745E90ECA2C3D /* kext.c */,
-				D3C038801E89A0D1007533A8 /* bc_apfs_utils.h */,
-				D3C0387E1E899E4F007533A8 /* bc_apfs_utils.cpp */,
+				D3C038801E89A0D1007533A8 /* bc_utils.h */,
+				D3C0387E1E899E4F007533A8 /* bc_utils.cpp */,
 				9F67ED4101B842340ECA2C3D /* control.c */,
 				9F47C34001F78EE30ECA2C3D /* library.c */,
 			);
@@ -236,6 +232,14 @@
 			name = Classes;
 			sourceTree = "<group>";
 		};
+		D30AF03420F5382B00C099E9 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D30AF03520F5382C00C099E9 /* IOKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -252,6 +256,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				89F2557E0DAABEAD00CA7984 /* BootCache_private.h in Headers */,
+				D3F66DDE1F9132590024CC3E /* BootCache_debug.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -335,7 +340,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0900;
+				LastUpgradeCheck = 0910;
 			};
 			buildConfigurationList = 42F550340A77D4BD00672F71 /* Build configuration list for PBXProject "BootCache" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -449,7 +454,7 @@
 			files = (
 				89F255820DAABEAD00CA7984 /* kext.c in Sources */,
 				89F255830DAABEAD00CA7984 /* kext_glue.cpp in Sources */,
-				D3C0387F1E899E4F007533A8 /* bc_apfs_utils.cpp in Sources */,
+				D3C0387F1E899E4F007533A8 /* bc_utils.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -486,17 +491,23 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 130;
+				CURRENT_PROJECT_VERSION = 141;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_MODEL_TUNING = "";
@@ -505,6 +516,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
@@ -515,6 +527,8 @@
 				OTHER_CFLAGS = "-DBC_DEBUG";
 				SDKROOT = macosx.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -529,21 +543,28 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 130;
+				CURRENT_PROJECT_VERSION = 141;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
@@ -552,6 +573,8 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -566,10 +589,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
 				INSTALL_PATH = /usr/local/lib;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCache;
@@ -580,10 +599,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib;
 				OTHER_REZFLAGS = "";
@@ -618,15 +633,11 @@
 			baseConfigurationReference = D3F66E541F9FE76D0024CC3E /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 130;
+				MODULE_VERSION = 141;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
@@ -639,15 +650,11 @@
 			baseConfigurationReference = D3F66E541F9FE76D0024CC3E /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 130;
+				MODULE_VERSION = 141;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
@@ -658,10 +665,6 @@
 		89F2559A0DAABEAD00CA7984 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
 				INSTALL_PATH = /usr/sbin;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCacheControl;
@@ -672,10 +675,6 @@
 		89F2559F0DAABEAD00CA7984 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
 				INSTALL_PATH = /usr/sbin;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCacheControl;

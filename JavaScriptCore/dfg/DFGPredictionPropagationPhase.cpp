@@ -245,6 +245,7 @@ private:
             break;
         }
 
+        case ValueNegate:
         case ArithNegate: {
             SpeculatedType prediction = node->child1()->prediction();
             if (prediction) {
@@ -256,6 +257,11 @@ private:
                     changed |= mergePrediction(speculatedDoubleTypeForPrediction(node->child1()->prediction()));
                 else {
                     changed |= mergePrediction(SpecInt32Only);
+                    if (node->op() == ValueNegate && node->mayHaveNonNumberResult()) {
+                        // FIXME: We should add support to BigInt into speculatio
+                        // https://bugs.webkit.org/show_bug.cgi?id=182470
+                        changed |= mergePrediction(SpecBigInt);
+                    }
                     if (node->mayHaveDoubleResult())
                         changed |= mergePrediction(SpecBytecodeDouble);
                 }
@@ -422,6 +428,11 @@ private:
 
                 if (node->child1()->shouldSpeculateSymbol()) {
                     changed |= mergePrediction(SpecSymbol);
+                    break;
+                }
+                
+                if (node->child1()->shouldSpeculateBigInt()) {
+                    changed |= mergePrediction(SpecBigInt);
                     break;
                 }
 
@@ -696,7 +707,10 @@ private:
         case ArrayPop:
         case ArrayPush:
         case RegExpExec:
+        case RegExpExecNonGlobalOrSticky:
         case RegExpTest:
+        case RegExpMatchFast:
+        case RegExpMatchFastGlobal:
         case StringReplace:
         case StringReplaceRegExp:
         case GetById:
@@ -768,6 +782,7 @@ private:
             break;
         }
 
+        case SetCallee:
         case SetArgumentCountIncludingThis:
             break;
 
@@ -842,6 +857,7 @@ private:
         case CompareEq:
         case CompareStrictEq:
         case CompareEqPtr:
+        case SameValue:
         case OverridesHasInstance:
         case InstanceOf:
         case InstanceOfCustom:
@@ -849,11 +865,13 @@ private:
         case IsUndefined:
         case IsBoolean:
         case IsNumber:
+        case NumberIsInteger:
         case IsObject:
         case IsObjectOrNull:
         case IsFunction:
         case IsCellWithType:
-        case IsTypedArrayView: {
+        case IsTypedArrayView:
+        case MatchStructure: {
             setPrediction(SpecBoolean);
             break;
         }
@@ -888,6 +906,7 @@ private:
             break;
         }
             
+        case ObjectCreate:
         case CreateThis:
         case NewObject: {
             setPrediction(SpecFinalObject);
@@ -969,7 +988,8 @@ private:
             setPrediction(SpecObjectOther);
             break;
 
-        case In:
+        case InByVal:
+        case InById:
             setPrediction(SpecBoolean);
             break;
 
@@ -1025,6 +1045,7 @@ private:
         case GetLocal:
         case SetLocal:
         case UInt32ToNumber:
+        case ValueNegate:
         case ValueAdd:
         case ArithAdd:
         case ArithSub:
@@ -1065,7 +1086,6 @@ private:
             break;
         }
 
-        case GetArrayMask:
         case PutByValAlias:
         case DoubleAsInt32:
         case CheckArray:
@@ -1096,6 +1116,7 @@ private:
         case PhantomNewArrayWithSpread:
         case PhantomNewArrayBuffer:
         case PhantomClonedArguments:
+        case PhantomNewRegexp:
         case GetMyArgumentByVal:
         case GetMyArgumentByValOutOfBounds:
         case PutHint:
@@ -1191,6 +1212,9 @@ private:
         case PutDynamicVar:
         case NukeStructureAndSetButterfly:
         case InitializeEntrypointArguments:
+        case WeakSetAdd:
+        case WeakMapSet:
+        case ClearCatchLocals:
             break;
             
         // This gets ignored because it only pretends to produce a value.

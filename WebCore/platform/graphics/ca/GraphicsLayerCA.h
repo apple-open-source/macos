@@ -125,11 +125,12 @@ public:
     WEBCORE_EXPORT void setShapeLayerPath(const Path&) override;
     WEBCORE_EXPORT void setShapeLayerWindRule(WindRule) override;
 
-    WEBCORE_EXPORT void suspendAnimations(double time) override;
+    WEBCORE_EXPORT void suspendAnimations(MonotonicTime) override;
     WEBCORE_EXPORT void resumeAnimations() override;
 
     WEBCORE_EXPORT bool addAnimation(const KeyframeValueList&, const FloatSize& boxSize, const Animation*, const String& animationName, double timeOffset) override;
     WEBCORE_EXPORT void pauseAnimation(const String& animationName, double timeOffset) override;
+    WEBCORE_EXPORT void seekAnimation(const String& animationName, double timeOffset) override;
     WEBCORE_EXPORT void removeAnimation(const String& animationName) override;
 
     WEBCORE_EXPORT void setContentsToImage(Image*) override;
@@ -186,7 +187,7 @@ private:
     bool platformCALayerRespondsToLayoutChanges() const override { return false; }
     WEBCORE_EXPORT void platformCALayerCustomSublayersChanged(PlatformCALayer*) override;
 
-    WEBCORE_EXPORT void platformCALayerAnimationStarted(const String& animationKey, CFTimeInterval beginTime) override;
+    WEBCORE_EXPORT void platformCALayerAnimationStarted(const String& animationKey, MonotonicTime beginTime) override;
     WEBCORE_EXPORT void platformCALayerAnimationEnded(const String& animationKey) override;
     CompositingCoordinatesOrientation platformCALayerContentsOrientation() const override { return contentsOrientation(); }
     WEBCORE_EXPORT void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect& clip, GraphicsLayerPaintBehavior) override;
@@ -239,9 +240,9 @@ private:
     LayerMap* primaryLayerClones() const { return m_structuralLayer.get() ? m_structuralLayerClones.get() : m_layerClones.get(); }
     LayerMap* animatedLayerClones(AnimatedPropertyID) const;
 
-    bool createAnimationFromKeyframes(const KeyframeValueList&, const Animation*, const String& animationName, double timeOffset);
-    bool createTransformAnimationsFromKeyframes(const KeyframeValueList&, const Animation*, const String& animationName, double timeOffset, const FloatSize& boxSize);
-    bool createFilterAnimationsFromKeyframes(const KeyframeValueList&, const Animation*, const String& animationName, double timeOffset);
+    bool createAnimationFromKeyframes(const KeyframeValueList&, const Animation*, const String& animationName, Seconds timeOffset);
+    bool createTransformAnimationsFromKeyframes(const KeyframeValueList&, const Animation*, const String& animationName, Seconds timeOffset, const FloatSize& boxSize);
+    bool createFilterAnimationsFromKeyframes(const KeyframeValueList&, const Animation*, const String& animationName, Seconds timeOffset);
 
     // Return autoreleased animation (use RetainPtr?)
     Ref<PlatformCAAnimation> createBasicAnimation(const Animation*, const String& keyPath, bool additive);
@@ -263,6 +264,7 @@ private:
     bool isRunningTransformAnimation() const;
 
     WEBCORE_EXPORT bool backingStoreAttached() const override;
+    WEBCORE_EXPORT bool backingStoreAttachedForTesting() const override;
 
     bool animationIsRunning(const String& animationName) const
     {
@@ -440,9 +442,10 @@ private:
     void ensureStructuralLayer(StructuralLayerPurpose);
     StructuralLayerPurpose structuralLayerPurpose() const;
 
-    void setAnimationOnLayer(PlatformCAAnimation&, AnimatedPropertyID, const String& animationName, int index, int subIndex, double timeOffset);
+    void setAnimationOnLayer(PlatformCAAnimation&, AnimatedPropertyID, const String& animationName, int index, int subIndex, Seconds timeOffset);
     bool removeCAAnimationFromLayer(AnimatedPropertyID, const String& animationName, int index, int subINdex);
-    void pauseCAAnimationOnLayer(AnimatedPropertyID, const String& animationName, int index, int subIndex, double timeOffset);
+    void pauseCAAnimationOnLayer(AnimatedPropertyID, const String& animationName, int index, int subIndex, Seconds timeOffset);
+    void seekCAAnimationOnLayer(AnimatedPropertyID, const String& animationName, int index, int subIndex, Seconds timeOffset);
 
     enum MoveOrCopy { Move, Copy };
     static void moveOrCopyLayerAnimation(MoveOrCopy, const String& animationIdentifier, PlatformCALayer *fromLayer, PlatformCALayer *toLayer);
@@ -457,8 +460,29 @@ private:
         moveOrCopyAnimations(Copy, fromLayer, toLayer);
     }
 
-    bool appendToUncommittedAnimations(const KeyframeValueList&, const TransformOperations*, const Animation*, const String& animationName, const FloatSize& boxSize, int animationIndex, double timeOffset, bool isMatrixAnimation);
-    bool appendToUncommittedAnimations(const KeyframeValueList&, const FilterOperation*, const Animation*, const String& animationName, int animationIndex, double timeOffset);
+    // This represents the animation of a single property. There may be multiple transform animations for
+    // a single transition or keyframe animation, so index is used to distinguish these.
+    struct LayerPropertyAnimation {
+        LayerPropertyAnimation(Ref<PlatformCAAnimation>&& caAnimation, const String& animationName, AnimatedPropertyID property, int index, int subIndex, Seconds timeOffset)
+            : m_animation(WTFMove(caAnimation))
+            , m_name(animationName)
+            , m_property(property)
+            , m_index(index)
+            , m_subIndex(subIndex)
+            , m_timeOffset(timeOffset)
+        { }
+
+        RefPtr<PlatformCAAnimation> m_animation;
+        String m_name;
+        AnimatedPropertyID m_property;
+        int m_index;
+        int m_subIndex;
+        Seconds m_timeOffset;
+    };
+
+    bool appendToUncommittedAnimations(const KeyframeValueList&, const TransformOperations*, const Animation*, const String& animationName, const FloatSize& boxSize, int animationIndex, Seconds timeOffset, bool isMatrixAnimation);
+    bool appendToUncommittedAnimations(const KeyframeValueList&, const FilterOperation*, const Animation*, const String& animationName, int animationIndex, Seconds timeOffset);
+    void appendToUncommittedAnimations(LayerPropertyAnimation&&);
 
     enum LayerChange : uint64_t {
         NoChange                                = 0,
@@ -518,6 +542,18 @@ private:
 
     void repaintLayerDirtyRects();
 
+    enum Action { Remove, Pause, Seek };
+    struct AnimationProcessingAction {
+        AnimationProcessingAction(Action action = Remove, Seconds timeOffset = 0_s)
+            : action(action)
+            , timeOffset(timeOffset)
+        {
+        }
+        Action action;
+        Seconds timeOffset; // Only used for pause.
+    };
+    void addProcessingActionForAnimation(const String&, AnimationProcessingAction);
+
     RefPtr<PlatformCALayer> m_layer; // The main layer
     RefPtr<PlatformCALayer> m_structuralLayer; // A layer used for structural reasons, like preserves-3d or replica-flattening. Is the parent of m_layer.
     RefPtr<PlatformCALayer> m_contentsClippingLayer; // A layer used to clip inner content
@@ -558,40 +594,10 @@ private:
     RetainPtr<CGImageRef> m_uncorrectedContentsImage;
     RetainPtr<CGImageRef> m_pendingContentsImage;
     
-    // This represents the animation of a single property. There may be multiple transform animations for
-    // a single transition or keyframe animation, so index is used to distinguish these.
-    struct LayerPropertyAnimation {
-        LayerPropertyAnimation(Ref<PlatformCAAnimation>&& caAnimation, const String& animationName, AnimatedPropertyID property, int index, int subIndex, double timeOffset)
-            : m_animation(WTFMove(caAnimation))
-            , m_name(animationName)
-            , m_property(property)
-            , m_index(index)
-            , m_subIndex(subIndex)
-            , m_timeOffset(timeOffset)
-        { }
-
-        RefPtr<PlatformCAAnimation> m_animation;
-        String m_name;
-        AnimatedPropertyID m_property;
-        int m_index;
-        int m_subIndex;
-        double m_timeOffset;
-    };
-    
     // Uncommitted transitions and animations.
     Vector<LayerPropertyAnimation> m_uncomittedAnimations;
     
-    enum Action { Remove, Pause };
-    struct AnimationProcessingAction {
-        AnimationProcessingAction(Action action = Remove, double timeOffset = 0)
-            : action(action)
-            , timeOffset(timeOffset)
-        {
-        }
-        Action action;
-        double timeOffset; // only used for pause
-    };
-    typedef HashMap<String, AnimationProcessingAction> AnimationsToProcessMap;
+    typedef HashMap<String, Vector<AnimationProcessingAction>> AnimationsToProcessMap;
     AnimationsToProcessMap m_animationsToProcess;
 
     // Map of animation names to their associated lists of property animations, so we can remove/pause them.

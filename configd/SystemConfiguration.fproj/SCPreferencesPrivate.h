@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2007-2009, 2011, 2012, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2007-2009, 2011, 2012, 2017, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,7 +25,7 @@
 #define _SCPREFERENCESPRIVATE_H
 
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -43,14 +43,12 @@
  */
 #define kSCPreferencesOptionChangeNetworkSet	CFSTR("change-network-set")	// CFBooleanRef
 
-#if	TARGET_OS_EMBEDDED
 /*!
 	@defined kSCPreferencesOptionProtectionClass
 	@abstract The SCPreferences "option" used to indicate the file
 		 protection class of the .plist.
  */
 #define kSCPreferencesOptionProtectionClass	CFSTR("ProtectionClass")	// CFStringRef["A"-"F"]
-#endif	// TARGET_OS_EMBEDDED
 
 /*!
 	@defined kSCPreferencesOptionRemoveWhenEmpty
@@ -122,7 +120,7 @@ SCDynamicStoreKeyCreatePreferences	(
 					CFAllocatorRef		allocator,
 					CFStringRef		prefsID,
 					SCPreferencesKeyType	keyType
-					)	__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_2_0,__IPHONE_2_0);
+					)	API_DEPRECATED("No longer supported", macos(10.1,10.4), ios(2.0,2.0));
 
 /*!
 	@function SCPreferencesCreateWithOptions
@@ -154,7 +152,7 @@ SCPreferencesCreateWithOptions		(
 					 CFStringRef		prefsID,
 					 AuthorizationRef	authorization,
 					 CFDictionaryRef	options
-					 )			__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
+					 )			API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCPreferencesRemoveAllValues
@@ -170,8 +168,8 @@ SCPreferencesCreateWithOptions		(
 Boolean
 SCPreferencesRemoveAllValues		(
 					 SCPreferencesRef	prefs
-					 )			__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
+					 )			API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 __END_DECLS
 
-#endif /* _SCPREFERENCESPRIVATE_H */
+#endif	/* _SCPREFERENCESPRIVATE_H */

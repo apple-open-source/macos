@@ -22,7 +22,7 @@
 
 #include "JSDOMWrapper.h"
 #include "TestPluginInterface.h"
-#include <runtime/CallData.h>
+#include <JavaScriptCore/CallData.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -57,7 +57,7 @@ public:
 
     static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
 public:
-    static const unsigned StructureFlags = JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetOwnPropertySlot | JSC::TypeOfShouldCallGetCallData | Base::StructureFlags;
+    static const unsigned StructureFlags = JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetCallData | JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 protected:
     JSTestPluginInterface(JSC::Structure*, JSDOMGlobalObject&, Ref<TestPluginInterface>&&);
 

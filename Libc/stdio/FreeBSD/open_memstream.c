@@ -31,12 +31,14 @@ __FBSDID("$FreeBSD$");
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
+#include <os/overflow.h>
 #ifdef DEBUG
 #include <stdint.h>
 #endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/param.h>
 #include <wchar.h>
 
 /* XXX: There is no FPOS_MAX.  This assumes fpos_t is an off_t. */
@@ -60,6 +62,18 @@ memstream_grow(struct memstream *ms, fpos_t newoff)
 	else
 		newsize = newoff;
 	if (newsize > ms->len) {
+		/*
+		 * Grow by 1.5x (15 / 10).
+		 */
+		ssize_t growsize;
+		bool ovf = os_mul_overflow(ms->len, 15, &growsize);
+		if (ovf) {
+			growsize = SSIZE_MAX - 1;
+		} else {
+			growsize /= 10;
+		}
+		newsize = MAX(growsize, newsize);
+
 		buf = realloc(*ms->bufp, newsize + 1);
 		if (buf != NULL) {
 #ifdef DEBUG
@@ -79,7 +93,6 @@ memstream_grow(struct memstream *ms, fpos_t newoff)
 static void
 memstream_update(struct memstream *ms)
 {
-
 	assert(ms->len >= 0 && ms->offset >= 0);
 	*ms->sizep = ms->len < ms->offset ? ms->len : ms->offset;
 }

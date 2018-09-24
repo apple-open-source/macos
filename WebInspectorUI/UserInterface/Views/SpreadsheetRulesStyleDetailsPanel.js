@@ -43,6 +43,7 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
         this._ruleMediaAndInherticanceList = [];
         this._propertyToSelectAndHighlight = null;
         this._filterText = null;
+        this._shouldRefreshSubviews = false;
 
         this._emptyFilterResultsElement = WI.createMessageTextView(WI.UIString("No Results Found"));
     }
@@ -53,10 +54,162 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
     {
         // We only need to do a rebuild on significant changes. Other changes are handled
         // by the sections and text editors themselves.
-        if (!significantChange) {
-            super.refresh(significantChange);
+        if (significantChange) {
+            this._shouldRefreshSubviews = true;
+            this.needsLayout();
+        }
+
+        super.refresh(significantChange);
+    }
+
+    hidden()
+    {
+        for (let section of this._sections)
+            section.hidden();
+
+        super.hidden();
+    }
+
+    scrollToSectionAndHighlightProperty(property)
+    {
+        if (!this._visible) {
+            this._propertyToSelectAndHighlight = property;
             return;
         }
+
+        for (let section of this._sections) {
+            if (section.highlightProperty(property))
+                return;
+        }
+    }
+
+    nodeStylesRefreshed(event)
+    {
+        super.nodeStylesRefreshed(event);
+
+        if (this._propertyToSelectAndHighlight) {
+            this.scrollToSectionAndHighlightProperty(this._propertyToSelectAndHighlight);
+            this._propertyToSelectAndHighlight = null;
+        }
+    }
+
+    newRuleButtonClicked()
+    {
+        if (this.nodeStyles.node.isInUserAgentShadowTree())
+            return;
+
+        this._addNewRule();
+    }
+
+    newRuleButtonContextMenu(event)
+    {
+        if (this.nodeStyles.node.isInUserAgentShadowTree())
+            return;
+
+        let styleSheets = WI.cssStyleManager.styleSheets.filter(styleSheet => styleSheet.hasInfo() && !styleSheet.isInlineStyleTag() && !styleSheet.isInlineStyleAttributeStyleSheet());
+        if (!styleSheets.length)
+            return;
+
+        let contextMenu = WI.ContextMenu.createFromEvent(event);
+
+        const handler = null;
+        const disabled = true;
+        contextMenu.appendItem(WI.UIString("Available Style Sheets"), handler, disabled);
+
+        let [inspectorStyleSheets, regularStyleSheets] = styleSheets.partition(styleSheet => styleSheet.isInspectorStyleSheet());
+        console.assert(inspectorStyleSheets.length <= 1, "There should never be more than one inspector style sheet");
+
+        contextMenu.appendItem(WI.UIString("Inspector Style Sheet"), () => {
+            this._addNewRule(inspectorStyleSheets.length ? inspectorStyleSheets[0].id : null);
+        });
+
+        for (let styleSheet of regularStyleSheets) {
+            contextMenu.appendItem(styleSheet.displayName, () => {
+                this._addNewRule(styleSheet.id);
+            });
+        }
+    }
+
+    applyFilter(filterText)
+    {
+        this._filterText = filterText;
+
+        if (!this.didInitialLayout)
+            return;
+
+        if (this._filterText)
+            this.element.classList.add("filter-non-matching");
+
+        for (let header of this._headerMap.values())
+            header.classList.add(WI.GeneralStyleDetailsSidebarPanel.NoFilterMatchInSectionClassName);
+
+        for (let section of this._sections)
+            section.applyFilter(this._filterText);
+    }
+
+    focusFirstSection()
+    {
+        this.spreadsheetCSSStyleDeclarationSectionStartEditingAdjacentRule(null, 1);
+    }
+
+    focusLastSection()
+    {
+        this.spreadsheetCSSStyleDeclarationSectionStartEditingAdjacentRule(null, -1);
+    }
+
+    // SpreadsheetCSSStyleDeclarationSection delegate
+
+    spreadsheetCSSStyleDeclarationSectionStartEditingAdjacentRule(currentSection, delta)
+    {
+        console.assert(delta !== 0);
+
+        let index = this._sections.indexOf(currentSection);
+        if (index < 0) {
+            if (delta < 0)
+                index = this._sections.length;
+            else if (delta > 0)
+                index = -1;
+        }
+        index += delta;
+
+        while (this._sections[index] !== currentSection) {
+            if (index < 0) {
+                if (this._delegate && this._delegate.styleDetailsPanelFocusLastPseudoClassCheckbox) {
+                    this._delegate.styleDetailsPanelFocusLastPseudoClassCheckbox(this);
+                    break;
+                }
+
+                index = this._sections.length - 1;
+            } else if (index >= this._sections.length) {
+                if (this._delegate && this._delegate.styleDetailsPanelFocusFilterBar) {
+                    this._delegate.styleDetailsPanelFocusFilterBar(this);
+                    break;
+                }
+
+                index = 0;
+            }
+
+            let section = this._sections[index];
+            if (section.editable) {
+                if (delta < 0)
+                    section._propertiesEditor.startEditingLastProperty();
+                else
+                    section.startEditingRuleSelector();
+                break;
+            }
+
+            index += delta;
+        }
+    }
+
+    // Protected
+
+    layout()
+    {
+        if (!this._shouldRefreshSubviews)
+            return;
+
+        this._shouldRefreshSubviews = false;
 
         this.removeAllSubviews();
 
@@ -143,113 +296,7 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
 
         if (this._filterText)
             this.applyFilter(this._filterText);
-
-        super.refresh(significantChange);
     }
-
-    scrollToSectionAndHighlightProperty(property)
-    {
-        if (!this._visible) {
-            this._propertyToSelectAndHighlight = property;
-            return;
-        }
-
-        for (let section of this._sections) {
-            if (section.highlightProperty(property))
-                return;
-        }
-    }
-
-    nodeStylesRefreshed(event)
-    {
-        super.nodeStylesRefreshed(event);
-
-        if (this._propertyToSelectAndHighlight) {
-            this.scrollToSectionAndHighlightProperty(this._propertyToSelectAndHighlight);
-            this._propertyToSelectAndHighlight = null;
-        }
-    }
-
-    newRuleButtonClicked()
-    {
-        if (this.nodeStyles.node.isInUserAgentShadowTree())
-            return;
-
-        this._addNewRule();
-    }
-
-    newRuleButtonContextMenu(event)
-    {
-        if (this.nodeStyles.node.isInUserAgentShadowTree())
-            return;
-
-        let styleSheets = WI.cssStyleManager.styleSheets.filter(styleSheet => styleSheet.hasInfo() && !styleSheet.isInlineStyleTag() && !styleSheet.isInlineStyleAttributeStyleSheet());
-        if (!styleSheets.length)
-            return;
-
-        let contextMenu = WI.ContextMenu.createFromEvent(event);
-
-        const handler = null;
-        const disabled = true;
-        contextMenu.appendItem(WI.UIString("Available Style Sheets"), handler, disabled);
-
-        let [inspectorStyleSheets, regularStyleSheets] = styleSheets.partition(styleSheet => styleSheet.isInspectorStyleSheet());
-        console.assert(inspectorStyleSheets.length <= 1, "There should never be more than one inspector style sheet");
-
-        contextMenu.appendItem(WI.UIString("Inspector Style Sheet"), () => {
-            this._addNewRule(inspectorStyleSheets.length ? inspectorStyleSheets[0].id : null);
-        });
-
-        for (let styleSheet of regularStyleSheets) {
-            contextMenu.appendItem(styleSheet.displayName, () => {
-                this._addNewRule(styleSheet.id);
-            });
-        }
-    }
-
-    cssStyleDeclarationSectionStartEditingNextRule(currentSection)
-    {
-        let currentIndex = this._sections.indexOf(currentSection);
-        let index = currentIndex < this._sections.length - 1 ? currentIndex + 1 : 0;
-        this._sections[index].startEditingRuleSelector();
-    }
-
-    cssStyleDeclarationSectionStartEditingPreviousRule(currentSection)
-    {
-        let index = this._sections.indexOf(currentSection);
-        console.assert(index > -1);
-
-        while (true) {
-            index--;
-            if (index < 0)
-                break;
-
-            let section = this._sections[index];
-            if (section.editable) {
-                section._propertiesEditor.startEditingLastProperty();
-                break;
-            }
-        }
-    }
-
-    applyFilter(filterText)
-    {
-        this._filterText = filterText;
-
-        if (!this.didInitialLayout)
-            return;
-
-        if (this._filterText)
-            this.element.classList.add("filter-non-matching");
-
-        for (let header of this._headerMap.values())
-            header.classList.add(WI.GeneralStyleDetailsSidebarPanel.NoFilterMatchInSectionClassName);
-
-        for (let section of this._sections)
-            section.applyFilter(this._filterText);
-    }
-
-    // Protected
 
     filterDidChange(filterBar)
     {

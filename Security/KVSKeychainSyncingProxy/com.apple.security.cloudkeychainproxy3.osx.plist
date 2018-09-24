@@ -4,8 +4,6 @@
 <dict>
 	<key>ProcessType</key>
 	<string>Adaptive</string>
-	<key>LimitLoadToSessionType</key>
-	<string>Background</string>
 	<key>EnablePressuredExit</key>
 	<true/>
 	<key>ProgramArguments</key>

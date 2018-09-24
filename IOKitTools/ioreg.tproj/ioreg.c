@@ -32,7 +32,8 @@
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#define assertion(e, message) ((void) (__builtin_expect(!(e), 0) ? fprintf(stderr, "ioreg: error: %s.\n", message), exit(1) : 0))
+#define assertion_fatal(e, message) ((void) (__builtin_expect(!(e), 0) ? fprintf(stderr, "ioreg: error: %s.\n", message), exit(1) : 0))
+#define assertion(e, message, fail) ((void) (__builtin_expect(!(e), 0) ? fprintf(stderr, "ioreg: error: %s.\n", message), (fail) : 0))
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -250,7 +251,7 @@ int main(int argc, char ** argv)
     // Obtain the I/O Kit root service.
 
     service = IORegistryGetRootEntry(kIOMasterPortDefault);
-    assertion(service, "can't obtain I/O Kit's root service");
+    assertion_fatal(service, "can't obtain I/O Kit's root service");
 
     // Traverse over all the I/O Kit services.
 
@@ -277,13 +278,13 @@ int main(int argc, char ** argv)
                                                   /* filePath    */ CFSTR("/dev/stdout"),
                                                   /* pathStyle   */ kCFURLPOSIXPathStyle,
                                                   /* isDirectory */ FALSE );
-            assertion(path != NULL, "can't create path");
+            assertion_fatal(path != NULL, "can't create path");
 
             file = CFWriteStreamCreateWithFile(kCFAllocatorDefault, path);
-            assertion(file != NULL, "can't create file");
+            assertion_fatal(file != NULL, "can't create file");
 
             success = CFWriteStreamOpen(file);
-            assertion(success, "can't open file");
+            assertion_fatal(success, "can't open file");
 
             CFPropertyListWrite( /* propertyList */ object,
                                  /* stream       */ file,
@@ -353,24 +354,24 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
                                                     &dictionary,
                                                     kCFAllocatorDefault,
                                                     kNilOptions );
-        assertion(status == KERN_SUCCESS, "can't obtain properties");
+        assertion(status == KERN_SUCCESS, "can't obtain properties", dictionary = NULL);
     }
-    else
+    if (!dictionary)
     {
         dictionary = CFDictionaryCreateMutable( kCFAllocatorDefault,
                                                 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks );
-        assertion(dictionary != NULL, "can't create dictionary");
+        assertion_fatal(dictionary != NULL, "can't create dictionary");
     }
 
     // Obtain the name of the service.
 
     status = IORegistryEntryGetNameInPlane(service, options.plane, name);
-    assertion(status == KERN_SUCCESS, "can't obtain name");
+    assertion(status == KERN_SUCCESS, "can't obtain name", strcpy(name, "<name error>"));
 
     object = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8);
-    assertion(object != NULL, "can't create name");
+    assertion_fatal(object != NULL, "can't create name");
 
     CFDictionarySetValue(dictionary, CFSTR("IORegistryEntryName"), object);
     CFRelease(object);
@@ -381,7 +382,7 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
     if (status == KERN_SUCCESS)
     {
         object = CFStringCreateWithCString(kCFAllocatorDefault, location, kCFStringEncodingUTF8);
-        assertion(object != NULL, "can't create location");
+        assertion_fatal(object != NULL, "can't create location");
 
         CFDictionarySetValue(dictionary, CFSTR("IORegistryEntryLocation"), object);
         CFRelease(object);
@@ -390,10 +391,10 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
     // Obtain the ID of the service.
 
     status = IORegistryEntryGetRegistryEntryID(service, &identifier);
-    assertion(status == KERN_SUCCESS, "can't obtain identifier");
+    assertion(status == KERN_SUCCESS, "can't obtain identifier", identifier = UINT64_MAX);
 
     object = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &identifier);
-    assertion(object != NULL, "can't create identifier");
+    assertion_fatal(object != NULL, "can't create identifier");
 
     CFDictionarySetValue(dictionary, CFSTR("IORegistryEntryID"), object);
     CFRelease(object);
@@ -401,10 +402,10 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
     // Obtain the class of the service.
 
     status = _IOObjectGetClass(service, kIOClassNameOverrideNone, class);
-    assertion(status == KERN_SUCCESS, "can't obtain class");
+    assertion(status == KERN_SUCCESS, "can't obtain class", strcpy(class, "<class error>"));
 
-    object = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8);
-    assertion(object != NULL, "can't create class");
+    object = CFStringCreateWithCString(kCFAllocatorDefault, class, kCFStringEncodingUTF8);
+    assertion_fatal(object != NULL, "can't create class");
 
     CFDictionarySetValue(dictionary, CFSTR("IOObjectClass"), object);
     CFRelease(object);
@@ -414,7 +415,7 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
     count = IOObjectGetKernelRetainCount(service);
 
     object = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &count);
-    assertion(object != NULL, "can't create retain count");
+    assertion_fatal(object != NULL, "can't create retain count");
 
     CFDictionarySetValue(dictionary, CFSTR("IOObjectRetainCount"), object);
     CFRelease(object);
@@ -424,22 +425,22 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
     if (_IOObjectConformsTo(service, "IOService", kIOClassNameOverrideNone))
     {
         status = IOServiceGetBusyStateAndTime(service, &state, &count, &time);
-        assertion(status == KERN_SUCCESS, "can't obtain state");
+        assertion(status == KERN_SUCCESS, "can't obtain state", time = state = count = 0);
 
         object = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &state);
-        assertion(object != NULL, "can't create state");
+        assertion_fatal(object != NULL, "can't create state");
 
         CFDictionarySetValue(dictionary, CFSTR("IOServiceState"), object);
         CFRelease(object);
 
         object = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &count);
-        assertion(object != NULL, "can't create busy state");
+        assertion_fatal(object != NULL, "can't create busy state");
 
         CFDictionarySetValue(dictionary, CFSTR("IOServiceBusyState"), object);
         CFRelease(object);
 
         object = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &time);
-        assertion(object != NULL, "can't create busy time");
+        assertion_fatal(object != NULL, "can't create busy time");
 
         CFDictionarySetValue(dictionary, CFSTR("IOServiceBusyTime"), object);
         CFRelease(object);
@@ -480,7 +481,7 @@ static CFMutableDictionaryRef archive_scan( io_registry_entry_t service,
             if (childUpNext)
             {
                 array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-                assertion(array != NULL, "can't create array");
+                assertion_fatal(array != NULL, "can't create array");
 
                 while (childUpNext)
                 {
@@ -490,7 +491,7 @@ static CFMutableDictionaryRef archive_scan( io_registry_entry_t service,
                     object = archive_scan( /* service      */ child,
                                            /* serviceDepth */ serviceDepth + 1,
                                            /* options      */ options );
-                    assertion(object != NULL, "can't obtain child");
+                    assertion_fatal(object != NULL, "can't obtain child");
 
                     CFArrayAppendValue(array, object);
                     CFRelease(object);
@@ -553,7 +554,7 @@ static CFMutableArrayRef archive_search( io_registry_entry_t service,
             for (index = serviceDepth; index > 0; index--)
             {
                 dictionary2 = archive(stackOfObjects[index - 1], options);
-                assertion(dictionary2 != NULL, "can't obtain parent");
+                assertion_fatal(dictionary2 != NULL, "can't obtain parent");
 
                 CFDictionarySetValue(dictionary2, CFSTR("IORegistryEntryChildren"), dictionary);
                 CFRelease(dictionary);
@@ -569,7 +570,7 @@ static CFMutableArrayRef archive_search( io_registry_entry_t service,
         }
 
         array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-        assertion(array != NULL, "can't create array");
+        assertion_fatal(array != NULL, "can't create array");
 
         CFArrayAppendValue(array, dictionary);
         CFRelease(dictionary);
@@ -651,7 +652,7 @@ static Boolean compare( io_registry_entry_t service,
         key = CFStringCreateWithCString( kCFAllocatorDefault,
                                          options.key,
                                          kCFStringEncodingUTF8 );
-        assertion(key != NULL, "can't create key");
+        assertion_fatal(key != NULL, "can't create key");
 
         value = IORegistryEntryCreateCFProperty( service,
                                                  key,
@@ -677,7 +678,7 @@ static Boolean compare( io_registry_entry_t service,
         // Obtain the name of the service.
 
         status = IORegistryEntryGetNameInPlane(service, options.plane, name);
-        assertion(status == KERN_SUCCESS, "can't obtain name");
+        assertion(status == KERN_SUCCESS, "can't obtain name", strcpy(name, "<name error>"));
 
         if (strchr(options.name, '@'))
         {
@@ -871,7 +872,7 @@ static void show( io_registry_entry_t service,
     // Print out the name of the service.
 
     status = IORegistryEntryGetNameInPlane(service, options.plane, name);
-    assertion(status == KERN_SUCCESS, "can't obtain name");
+    assertion(status == KERN_SUCCESS, "can't obtain name", strcpy(name, "<name error>"));
 
     indent(TRUE, serviceDepth, stackOfBits);
 
@@ -913,7 +914,7 @@ static void show( io_registry_entry_t service,
     else
     {
         status = _IOObjectGetClass(service, kIOClassNameOverrideNone, class);
-        assertion(status == KERN_SUCCESS, "can't obtain class");
+        assertion(status == KERN_SUCCESS, "can't obtain class", strcpy(class, "<class error>"));
 
         print("%s", class);
     }
@@ -933,7 +934,7 @@ static void show( io_registry_entry_t service,
     if (_IOObjectConformsTo(service, "IOService", kIOClassNameOverrideNone))
     {
         status = IOServiceGetBusyStateAndTime(service, &state, &integer, &accumulated_busy_time);
-        assertion(status == KERN_SUCCESS, "can't obtain state");
+        assertion(status == KERN_SUCCESS, "can't obtain state", accumulated_busy_time = integer = state = 0);
 
         print( ", %sregistered, %smatched, %sactive",
                state & kIOServiceRegisteredState ? "" : "!",
@@ -971,7 +972,16 @@ static void show( io_registry_entry_t service,
                                                     &properties,
                                                     kCFAllocatorDefault,
                                                     kNilOptions );
-        assertion(status == KERN_SUCCESS, "can't obtain properties");
+        assertion(status == KERN_SUCCESS, "can't obtain properties", properties = NULL);
+
+        if (!properties)
+        {
+            properties = CFDictionaryCreateMutable( kCFAllocatorDefault,
+                                                    0,
+                                                    &kCFTypeDictionaryKeyCallBacks,
+                                                    &kCFTypeDictionaryValueCallBacks );
+            assertion_fatal(properties != NULL, "can't create dictionary");
+        }
 
         // Print out the service's properties.
 
@@ -1086,7 +1096,7 @@ static void boldinit()
             termcapstr_boldon  = tgetstr("md", &termcapbufptr);
             termcapstr_boldoff = tgetstr("me", &termcapbufptr);
 
-            assertion(termcapbufptr - termcapbuf <= sizeof(termcapbuf), "can't obtain terminfo");
+            assertion_fatal(termcapbufptr - termcapbuf <= sizeof(termcapbuf), "can't obtain terminfo");
         }
     }
 
@@ -1119,7 +1129,7 @@ static void printinit(int width)
         printbufleft = width;
         printbufsize = width;
 
-        assertion(printbuf != NULL, "can't allocate buffer");
+        assertion_fatal(printbuf != NULL, "can't allocate buffer");
     }
 }
 
@@ -1464,7 +1474,7 @@ static void printProp(CFStringRef key, CFTypeRef value, struct context * context
             status = IORegistryEntryGetNameInPlane( parentObj,
                                                     kIODeviceTreePlane,
                                                     parentName );
-            assertion(status == KERN_SUCCESS, "could not get name of parent");
+            assertion(status == KERN_SUCCESS, "could not get name of parent", strcpy(parentName, "<name error>"));
             
             IOObjectRelease(parentObj);
             
@@ -1584,11 +1594,12 @@ getRecursivePropValue( io_registry_entry_t thisRegEntry, CFStringRef propertyNam
                                           propertyNameToLookFor,
                                           kCFAllocatorDefault,
                                           kIORegistryIterateParents | kIORegistryIterateRecursively);
-    assertion( ptr != NULL, "unable to get properties" );
-
-	returnValue = *(SInt32 *)CFDataGetBytePtr( (CFDataRef) ptr );
-
-	CFRelease( ptr );
+    assertion( ptr != NULL, "unable to get properties", returnValue = 0 );
+    if (ptr)
+    {
+        returnValue = *(SInt32 *)CFDataGetBytePtr( (CFDataRef) ptr );
+        CFRelease( ptr );
+    }
 	return( returnValue );
 }
 
@@ -1611,7 +1622,7 @@ static void printPhysAddr(CFTypeRef value, struct context * context)
 
     // Ensure that the object passed in is in fact a CFData object.
 
-    assertion(CFGetTypeID(value) == CFDataGetTypeID(), "invalid phys addr");
+    assertion_fatal(CFGetTypeID(value) == CFDataGetTypeID(), "invalid phys addr");
 
     // Make sure there is actually data in the object.
     length = CFDataGetLength((CFDataRef)value);
@@ -1688,7 +1699,7 @@ static void printSlotNames(CFTypeRef value, struct context * context)
     
     // Ensure that the object passed in is in fact a CFData object.
 
-    assertion(CFGetTypeID(value) == CFDataGetTypeID(), "invalid phys addr");
+    assertion_fatal(CFGetTypeID(value) == CFDataGetTypeID(), "invalid phys addr");
 
     // Make sure there is actually data in the object.
     
@@ -1738,7 +1749,7 @@ static void printPCIRanges(CFTypeRef value, struct context * context)
     const char			   *titles[] = {"-child--", "-parent-", "-size---"};
     
     // Ensure that the object passed in is in fact a CFData object.
-    assertion(CFGetTypeID(value) == CFDataGetTypeID(), "invalid ranges");
+    assertion_fatal(CFGetTypeID(value) == CFDataGetTypeID(), "invalid ranges");
 
     // Make sure there is actually data in the object.
     length = CFDataGetLength((CFDataRef)value);
@@ -1753,7 +1764,7 @@ static void printPCIRanges(CFTypeRef value, struct context * context)
 
     // Get #address-cells of device-tree parent
     status = IORegistryEntryGetParentEntry( context->service, kIODeviceTreePlane, &parentObj );
-    assertion(status == KERN_SUCCESS, "unable to get device tree parent");
+    assertion(status == KERN_SUCCESS, "unable to get device tree parent", parentObj = MACH_PORT_NULL);
 
 	parentACells = getRecursivePropValue( parentObj, CFSTR( "#address-cells" ) );
 
@@ -1812,7 +1823,7 @@ static void makepath(io_registry_entry_t target, io_string_t path)
     kern_return_t status = KERN_SUCCESS;
     
     status = IORegistryEntryGetPath(target, kIODeviceTreePlane, path);
-    assertion(status == KERN_SUCCESS, "unable to get path");
+    assertion(status == KERN_SUCCESS, "unable to get path", strcpy(path, "<path error"));
 
     memmove(path, strchr(path, ':') + 1, strlen(strchr(path, ':') + 1) + 1);
 }
@@ -1888,7 +1899,7 @@ static void printInterruptMap(CFTypeRef value, struct context * context)
         println("");
 
         // Lookup the phandle and retreive needed info.
-        assertion( lookupPHandle(*position, &intParent), "error looking up phandle" );
+        assertion( lookupPHandle(*position, &intParent), "error looking up phandle", intParent = MACH_PORT_NULL );
 
 		parentCells = getRecursivePropValue( intParent, CFSTR( "#address-cells"   ) )
 					+ getRecursivePropValue( intParent, CFSTR( "#interrupt-cells" ) );

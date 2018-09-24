@@ -35,7 +35,7 @@ extern "C" {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-typedef struct cssm_spi_ac_funcs {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_spi_ac_funcs {
     CSSM_RETURN (CSSMACI *AuthCompute)
         (CSSM_AC_HANDLE ACHandle,
          const CSSM_TUPLEGROUP *BaseAuthorizations,

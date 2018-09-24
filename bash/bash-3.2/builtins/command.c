@@ -1,8 +1,3 @@
-/* command.c, created from command.def. */
-#line 23 "command.def"
-
-#line 34 "command.def"
-
 #include <config.h>
 
 #if defined (HAVE_UNISTD_H)

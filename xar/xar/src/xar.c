@@ -635,7 +635,7 @@ static int dump_header(const char *filename) {
 	printf("Uncompressed TOC length: %" PRId64 "\n", xar_ntoh64(xh.toc_length_uncompressed));
 	printf("Checksum algorithm:     %d ", ntohl(xh.cksum_alg));
 	switch( ntohl(xh.cksum_alg) ) {
-	case XAR_CKSUM_NONE: printf("(none)\n");
+	case XAR_CKSUM_NONE: printf("(unsupported (none))\n");
 	                     break;
 	case XAR_CKSUM_SHA1: printf("(SHA1)\n");
 	                     break;
@@ -725,17 +725,17 @@ static void usage(const char *prog) {
 	fprintf(stderr, "\t--toc-cksum      Specifies the hashing algorithm to use for\n");
 	fprintf(stderr, "\t                      xml header verification.\n");
 #ifdef XAR_SUPPORT_MD5
-	fprintf(stderr, "\t                      Valid values: none, md5, sha1, sha256, and sha512\n");
+	fprintf(stderr, "\t                      Valid values: md5, sha1, sha256, and sha512\n");
 #else
-	fprintf(stderr, "\t                      Valid values: none, sha1, sha256, and sha512\n");
+	fprintf(stderr, "\t                      Valid values: sha1, sha256, and sha512\n");
 #endif // XAR_SUPPORT_MD5
 	fprintf(stderr, "\t                      Default: sha1\n");
 	fprintf(stderr, "\t--file-cksum     Specifies the hashing algorithm to use for\n");
 	fprintf(stderr, "\t                      file content verification.\n");
 #ifdef XAR_SUPPORT_MD5
-	fprintf(stderr, "\t                      Valid values: none, md5, sha1, sha256, and sha512\n");
+	fprintf(stderr, "\t                      Valid values: md5, sha1, sha256, and sha512\n");
 #else
-	fprintf(stderr, "\t                      Valid values: none, sha1, sha256, and sha512\n");
+	fprintf(stderr, "\t                      Valid values: sha1, sha256, and sha512\n");
 #endif
 	fprintf(stderr, "\t                      Default: sha1\n");
 	fprintf(stderr, "\t--dump-toc=<filename> Has xar dump the xml header into the\n");

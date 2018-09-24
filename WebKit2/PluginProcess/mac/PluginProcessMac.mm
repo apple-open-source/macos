@@ -31,6 +31,7 @@
 
 #import "ArgumentCoders.h"
 #import "NetscapePlugin.h"
+#import "PluginInfoStore.h"
 #import "PluginProcessCreationParameters.h"
 #import "PluginProcessProxyMessages.h"
 #import "PluginProcessShim.h"
@@ -48,6 +49,7 @@
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <pal/spi/mac/HIToolboxSPI.h>
+#import <pal/spi/mac/NSApplicationSPI.h>
 #import <pal/spi/mac/NSWindowSPI.h>
 #import <sysexits.h>
 #import <wtf/HashSet.h>
@@ -518,6 +520,11 @@ void PluginProcess::platformInitializePluginProcess(PluginProcessCreationParamet
         initWithMemoryCapacity:pluginMemoryCacheSize
         diskCapacity:pluginDiskCacheSize
         diskPath:m_nsurlCacheDirectory]).get()];
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    // Disable Dark Mode in the plugin process to avoid rendering issues.
+    [NSApp setAppearance:[NSAppearance appearanceNamed:NSAppearanceNameAqua]];
+#endif
 }
 
 void PluginProcess::platformInitializeProcess(const ChildProcessInitializationParameters& parameters)
@@ -632,6 +639,21 @@ void PluginProcess::initializeSandbox(const ChildProcessInitializationParameters
         return;
     }
 
+    char cacheDirectory[PATH_MAX];
+    if (!confstr(_CS_DARWIN_USER_CACHE_DIR, cacheDirectory, sizeof(cacheDirectory))) {
+        WTFLogAlways("PluginProcess: couldn't retrieve system cache directory path: %d\n", errno);
+        exit(EX_OSERR);
+    }
+
+    m_nsurlCacheDirectory = [[[NSFileManager defaultManager] stringWithFileSystemRepresentation:cacheDirectory length:strlen(cacheDirectory)] stringByAppendingPathComponent:[[NSBundle mainBundle] bundleIdentifier]];
+    if (![[NSFileManager defaultManager] createDirectoryAtURL:[NSURL fileURLWithPath:m_nsurlCacheDirectory isDirectory:YES] withIntermediateDirectories:YES attributes:nil error:nil]) {
+        WTFLogAlways("PluginProcess: couldn't create NSURL cache directory '%s'\n", cacheDirectory);
+        exit(EX_OSERR);
+    }
+
+    if (PluginInfoStore::shouldAllowPluginToRunUnsandboxed(m_pluginBundleIdentifier))
+        return;
+
     bool parentIsSandboxed = parameters.connectionIdentifier.xpcConnection && connectedProcessIsSandboxed(parameters.connectionIdentifier.xpcConnection.get());
 
     if (parameters.extraInitializationData.get("disable-sandbox") == "1") {
@@ -659,18 +681,6 @@ void PluginProcess::initializeSandbox(const ChildProcessInitializationParameters
         exit(EX_OSERR);
     }
 
-    char cacheDirectory[PATH_MAX];
-    if (!confstr(_CS_DARWIN_USER_CACHE_DIR, cacheDirectory, sizeof(cacheDirectory))) {
-        WTFLogAlways("PluginProcess: couldn't retrieve system cache directory path: %d\n", errno);
-        exit(EX_OSERR);
-    }
-
-    m_nsurlCacheDirectory = [[[NSFileManager defaultManager] stringWithFileSystemRepresentation:cacheDirectory length:strlen(temporaryDirectory)] stringByAppendingPathComponent:[[NSBundle mainBundle] bundleIdentifier]];
-    if (![[NSFileManager defaultManager] createDirectoryAtURL:[NSURL fileURLWithPath:m_nsurlCacheDirectory isDirectory:YES] withIntermediateDirectories:YES attributes:nil error:nil]) {
-        WTFLogAlways("PluginProcess: couldn't create NSURL cache directory '%s'\n", temporaryDirectory);
-        exit(EX_OSERR);
-    }
-
     if (strlcpy(temporaryDirectory, [[[[NSFileManager defaultManager] stringWithFileSystemRepresentation:temporaryDirectory length:strlen(temporaryDirectory)] stringByAppendingPathComponent:@"WebKitPlugin-XXXXXX"] fileSystemRepresentation], sizeof(temporaryDirectory)) >= sizeof(temporaryDirectory)
         || !mkdtemp(temporaryDirectory)) {
         WTFLogAlways("PluginProcess: couldn't create private temporary directory '%s'\n", temporaryDirectory);
@@ -687,6 +697,10 @@ void PluginProcess::initializeSandbox(const ChildProcessInitializationParameters
     ChildProcess::initializeSandbox(parameters, sandboxParameters);
 }
 
+bool PluginProcess::shouldOverrideQuarantine()
+{
+    return m_pluginBundleIdentifier != "com.cisco.webex.plugin.gpc64";
+}
 
 void PluginProcess::stopRunLoop()
 {

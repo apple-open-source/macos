@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 vi{
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -666,8 +666,8 @@ vi{
                 other{"{0}g"}
             }
             millisecond{
-                dnam{"ms"}
-                other{"{0}ms"}
+                dnam{"mili giây"}
+                other{"{0}miligiây"}
             }
             minute{
                 dnam{"phút"}
@@ -966,8 +966,8 @@ vi{
         }
         duration{
             century{
-                dnam{"c"}
-                other{"{0} c"}
+                dnam{"thế kỷ"}
+                other{"{0} thế kỷ"}
             }
             day{
                 dnam{"ngày"}
@@ -984,8 +984,8 @@ vi{
                 other{"{0} μs"}
             }
             millisecond{
-                dnam{"ms"}
-                other{"{0} ms"}
+                dnam{"mili giây"}
+                other{"{0} mili giây"}
             }
             minute{
                 dnam{"phút"}
@@ -998,8 +998,8 @@ vi{
                 per{"{0}/tháng"}
             }
             nanosecond{
-                dnam{"ns"}
-                other{"{0} ns"}
+                dnam{"nano giây"}
+                other{"{0} nano giây"}
             }
             second{
                 dnam{"giây"}

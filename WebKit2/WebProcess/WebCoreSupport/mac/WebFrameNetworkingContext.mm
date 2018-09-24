@@ -26,10 +26,8 @@
 #include "config.h"
 #include "WebFrameNetworkingContext.h"
 
-#include "CookieStorageUtilsCF.h"
 #include "NetworkSession.h"
 #include "SessionTracker.h"
-#include "WebCookieManager.h"
 #include "WebPage.h"
 #include "WebProcess.h"
 #include "WebsiteDataStoreParameters.h"
@@ -40,7 +38,7 @@
 #include <WebCore/Page.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/Settings.h>
-#include <pal/spi/cf/CFNetworkSPI.h>
+#include <wtf/ProcessPrivilege.h>
 
 using namespace WebCore;
 
@@ -48,6 +46,7 @@ namespace WebKit {
 
 void WebFrameNetworkingContext::ensureWebsiteDataStoreSession(WebsiteDataStoreParameters&& parameters)
 {
+    ASSERT(!hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
     auto sessionID = parameters.networkSessionParameters.sessionID;
     if (NetworkStorageSession::storageSession(sessionID))
         return;
@@ -58,30 +57,9 @@ void WebFrameNetworkingContext::ensureWebsiteDataStoreSession(WebsiteDataStorePa
     else
         base = SessionTracker::getIdentifierBase();
 
-    if (!sessionID.isEphemeral())
-        SandboxExtension::consumePermanently(parameters.cookieStoragePathExtensionHandle);
-
-    RetainPtr<CFHTTPCookieStorageRef> uiProcessCookieStorage;
-    if (!sessionID.isEphemeral() && !parameters.uiProcessCookieStorageIdentifier.isEmpty())
-        uiProcessCookieStorage = cookieStorageFromIdentifyingData(parameters.uiProcessCookieStorageIdentifier);
-
-    NetworkStorageSession::ensureSession(sessionID, base + '.' + String::number(sessionID.sessionID()), WTFMove(uiProcessCookieStorage));
-
-#if USE(NETWORK_SESSION)
-    SessionTracker::setSession(sessionID, NetworkSession::create(WTFMove(parameters.networkSessionParameters)));
-#endif
+    NetworkStorageSession::ensureSession(sessionID, base + '.' + String::number(sessionID.sessionID()));
 }
 
-void WebFrameNetworkingContext::setCookieAcceptPolicyForAllContexts(HTTPCookieAcceptPolicy policy)
-{
-    [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookieAcceptPolicy:static_cast<NSHTTPCookieAcceptPolicy>(policy)];
-
-    NetworkStorageSession::forEach([&] (const NetworkStorageSession& networkStorageSession) {
-        if (auto cookieStorage = networkStorageSession.cookieStorage())
-            CFHTTPCookieStorageSetCookieAcceptPolicy(cookieStorage.get(), policy);
-    });
-}
-    
 bool WebFrameNetworkingContext::localFileContentSniffingEnabled() const
 {
     return frame() && frame()->settings().localFileContentSniffingEnabled();
@@ -112,6 +90,7 @@ ResourceError WebFrameNetworkingContext::blockedError(const ResourceRequest& req
 NetworkStorageSession& WebFrameNetworkingContext::storageSession() const
 {
     ASSERT(RunLoop::isMain());
+    ASSERT(!hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
     if (frame()) {
         if (auto* storageSession = WebCore::NetworkStorageSession::storageSession(frame()->page()->sessionID()))
             return *storageSession;
@@ -124,7 +103,7 @@ NetworkStorageSession& WebFrameNetworkingContext::storageSession() const
 WebFrameLoaderClient* WebFrameNetworkingContext::webFrameLoaderClient() const
 {
     if (!frame())
-        return 0;
+        return nullptr;
 
     return toWebFrameLoaderClient(frame()->loader().client());
 }

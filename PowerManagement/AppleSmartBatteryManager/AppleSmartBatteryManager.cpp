@@ -25,7 +25,6 @@
 #include <sys/sysctl.h>
 
 #include <IOKit/pwr_mgt/RootDomain.h>
-#include <IOKit/smc/AppleSMCFamily.h>
 #include "AppleSmartBatteryManager.h"
 #include "AppleSmartBattery.h"
 #include "SmbusHandler.h"
@@ -320,7 +319,7 @@ IOReturn AppleSmartBatteryManager::message(
 
 void AppleSmartBatteryManager::handleBatteryInserted(void)
 {
-    BM_LOG1("SmartBattery: battery inserted!\n");
+    BM_LOG2("SmartBattery: battery inserted!\n");
     fInacessible = false;
     if (fBattery) {
         fBattery->handleBatteryInserted();

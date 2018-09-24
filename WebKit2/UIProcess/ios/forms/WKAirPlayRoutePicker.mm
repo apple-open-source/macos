@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WKAirPlayRoutePicker.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) && ENABLE(AIRPLAY_PICKER)
 
 #import "UIKitSPI.h"
 #import <WebCore/AudioSession.h>
@@ -220,4 +220,4 @@ typedef NSInteger WKAirPlayRoutePickerRouteSharingPolicy;
 
 #endif
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS) && ENABLE(AIRPLAY_PICKER)

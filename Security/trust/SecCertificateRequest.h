@@ -119,7 +119,7 @@ typedef SecATV *SecRDN;
     @abstract Return a newly generated CSR for subject and keypair.
     @param subject  RDNs in the subject
     @param paramters    Parameters for the CSR generation. See above.
-    @param publicKey    Public key (NOTE: This is unused)
+    @param publicKey    Public key
     @param privateKey   Private key
     @result On success, a newly allocated CSR, otherwise NULL
 
@@ -138,7 +138,7 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN _Nonnull * _Nonnull
  @abstract Return a newly generated CSR for subject and keypair.
  @param subject  RDNs in the subject in array format
  @param paramters    Parameters for the CSR generation. See above.
- @param publicKey    Public key (NOTE: This is unused)
+ @param publicKey    Public key
  @param privateKey   Private key
  @result On success, a newly allocated CSR, otherwise NULL
  @discussion The subject array contains an array of the RDNS. Each RDN is

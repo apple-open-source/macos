@@ -51,7 +51,6 @@
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 #import <wtf/BlockObjCExceptions.h>
-#import <wtf/CurrentTime.h>
 #import <wtf/RetainPtr.h>
 
 #if PLATFORM(IOS)
@@ -76,7 +75,7 @@ Ref<PlatformCALayer> PlatformCALayerCocoa::create(LayerType layerType, PlatformC
 
 Ref<PlatformCALayer> PlatformCALayerCocoa::create(void* platformLayer, PlatformCALayerClient* owner)
 {
-    return adoptRef(*new PlatformCALayerCocoa(static_cast<PlatformLayer*>(platformLayer), owner));
+    return adoptRef(*new PlatformCALayerCocoa((__bridge CALayer *)platformLayer, owner));
 }
 
 static NSString * const platformCALayerPointer = @"WKPlatformCALayer";
@@ -88,14 +87,14 @@ PlatformCALayer* PlatformCALayer::platformCALayer(void* platformLayer)
     // Pointer to PlatformCALayer is kept in a key of the CALayer
     PlatformCALayer* platformCALayer = nil;
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    platformCALayer = static_cast<PlatformCALayer*>([[static_cast<CALayer*>(platformLayer) valueForKey:platformCALayerPointer] pointerValue]);
+    platformCALayer = static_cast<PlatformCALayer*>([[(__bridge CALayer *)platformLayer valueForKey:platformCALayerPointer] pointerValue]);
     END_BLOCK_OBJC_EXCEPTIONS
     return platformCALayer;
 }
 
-static double mediaTimeToCurrentTime(CFTimeInterval t)
+static MonotonicTime mediaTimeToCurrentTime(CFTimeInterval t)
 {
-    return monotonicallyIncreasingTime() + t - CACurrentMediaTime();
+    return MonotonicTime::now() + Seconds(t - CACurrentMediaTime());
 }
 
 // Delegate for animationDidStart callback
@@ -118,7 +117,7 @@ static double mediaTimeToCurrentTime(CFTimeInterval t)
     if (!m_owner)
         return;
 
-    CFTimeInterval startTime;
+    MonotonicTime startTime;
     if (hasExplicitBeginTime(animation)) {
         // We don't know what time CA used to commit the animation, so just use the current time
         // (even though this will be slightly off).
@@ -378,7 +377,7 @@ PlatformCALayerCocoa::~PlatformCALayerCocoa()
         [static_cast<WebTiledBackingLayer *>(m_layer.get()) invalidate];
 }
 
-void PlatformCALayerCocoa::animationStarted(const String& animationKey, CFTimeInterval beginTime)
+void PlatformCALayerCocoa::animationStarted(const String& animationKey, MonotonicTime beginTime)
 {
     if (m_owner)
         m_owner->platformCALayerAnimationStarted(animationKey, beginTime);
@@ -392,6 +391,9 @@ void PlatformCALayerCocoa::animationEnded(const String& animationKey)
 
 void PlatformCALayerCocoa::setNeedsDisplay()
 {
+    if (!m_backingStoreAttached)
+        return;
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_layer setNeedsDisplay];
     END_BLOCK_OBJC_EXCEPTIONS
@@ -399,6 +401,9 @@ void PlatformCALayerCocoa::setNeedsDisplay()
 
 void PlatformCALayerCocoa::setNeedsDisplayInRect(const FloatRect& dirtyRect)
 {
+    if (!m_backingStoreAttached)
+        return;
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_layer setNeedsDisplayInRect:dirtyRect];
     END_BLOCK_OBJC_EXCEPTIONS
@@ -417,7 +422,7 @@ void PlatformCALayerCocoa::copyContentsFromLayer(PlatformCALayer* layer)
 
 PlatformCALayer* PlatformCALayerCocoa::superlayer() const
 {
-    return platformCALayer([m_layer superlayer]);
+    return platformCALayer((__bridge void*)[m_layer superlayer]);
 }
 
 void PlatformCALayerCocoa::removeFromSuperlayer()
@@ -639,6 +644,7 @@ void PlatformCALayerCocoa::setBackingStoreAttached(bool attached)
 {
     if (attached == m_backingStoreAttached)
         return;
+
     m_backingStoreAttached = attached;
 
     if (attached)
@@ -740,15 +746,20 @@ void PlatformCALayerCocoa::setSupportsSubpixelAntialiasedText(bool supportsSubpi
     updateContentsFormat();
 }
 
-CFTypeRef PlatformCALayerCocoa::contents() const
+bool PlatformCALayerCocoa::hasContents() const
 {
     return [m_layer contents];
+}
+
+CFTypeRef PlatformCALayerCocoa::contents() const
+{
+    return (__bridge CFTypeRef)[m_layer contents];
 }
 
 void PlatformCALayerCocoa::setContents(CFTypeRef value)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [m_layer setContents:static_cast<id>(const_cast<void*>(value))];
+    [m_layer setContents:(__bridge id)value];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -942,9 +953,9 @@ WindRule PlatformCALayerCocoa::shapeWindRule() const
 
     NSString *fillRule = [(CAShapeLayer *)m_layer fillRule];
     if ([fillRule isEqualToString:@"even-odd"])
-        return RULE_EVENODD;
+        return WindRule::EvenOdd;
 
-    return RULE_NONZERO;
+    return WindRule::NonZero;
 }
 
 void PlatformCALayerCocoa::setShapeWindRule(WindRule windRule)
@@ -952,10 +963,10 @@ void PlatformCALayerCocoa::setShapeWindRule(WindRule windRule)
     ASSERT(m_layerType == LayerTypeShapeLayer);
 
     switch (windRule) {
-    case RULE_NONZERO:
+    case WindRule::NonZero:
         [(CAShapeLayer *)m_layer setFillRule:@"non-zero"];
         break;
-    case RULE_EVENODD:
+    case WindRule::EvenOdd:
         [(CAShapeLayer *)m_layer setFillRule:@"even-odd"];
         break;
     }
@@ -1009,7 +1020,6 @@ void PlatformCALayerCocoa::updateCustomAppearance(GraphicsLayer::CustomAppearanc
 #endif
 }
 
-#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
 static NSString *layerContentsFormat(bool acceleratesDrawing, bool wantsDeepColor, bool supportsSubpixelAntialiasedFonts)
 {
 #if PLATFORM(IOS)
@@ -1019,7 +1029,7 @@ static NSString *layerContentsFormat(bool acceleratesDrawing, bool wantsDeepColo
     UNUSED_PARAM(wantsDeepColor);
 #endif
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+#if PLATFORM(MAC)
     if (supportsSubpixelAntialiasedFonts && acceleratesDrawing)
         return kCAContentsFormatRGBA8ColorRGBA8LinearGlyphMask;
 #else
@@ -1029,16 +1039,13 @@ static NSString *layerContentsFormat(bool acceleratesDrawing, bool wantsDeepColo
 
     return nil;
 }
-#endif
 
 void PlatformCALayerCocoa::updateContentsFormat()
 {
     if (m_layerType == LayerTypeWebLayer || m_layerType == LayerTypeTiledBackingTileLayer) {
         BEGIN_BLOCK_OBJC_EXCEPTIONS
-#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
         if (NSString *formatString = layerContentsFormat(acceleratesDrawing(), wantsDeepColorBackingStore(), supportsSubpixelAntialiasedText()))
             [m_layer setContentsFormat:formatString];
-#endif
         END_BLOCK_OBJC_EXCEPTIONS
     }
 }
@@ -1234,7 +1241,7 @@ unsigned PlatformCALayerCocoa::backingStoreBytesPerPixel() const
         return isOpaque() ? 4 : 5;
 #endif
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+#if PLATFORM(MAC)
     if (!isOpaque() && supportsSubpixelAntialiasedText())
         return 8;
 #endif

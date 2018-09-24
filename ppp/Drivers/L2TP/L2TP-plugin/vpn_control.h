@@ -56,7 +56,11 @@
 
 #include "algorithm_types.h"
 #include <net/if.h>
+#if __has_include(<nw/private.h>)
+#include <nw/private.h>
+#else // __has_include(<nw/private.h>)
 #include <network/nat64.h>
+#endif // __has_include(<nw/private.h>)
 
 #define VPNCONTROLSOCK_PATH ADMINPORTDIR "/vpncontrol.sock"
 

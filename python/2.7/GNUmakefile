@@ -94,6 +94,7 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Lib/distutils/ccompiler.py < $(FIX)/ccompiler.py.ed && \
 	ed - $(PROJECT)/Lib/distutils/unixccompiler.py < $(FIX)/unixccompiler.py.ed && \
 	ed - $(PROJECT)/Lib/logging/handlers.py < $(FIX)/Lib_logging_handlers.py.ed && \
+	patch $(PROJECT)/Lib/_osx_support.py $(FIX)/Lib__osx_support.py.patch && \
 	ed - $(PROJECT)/Lib/plat-mac/bundlebuilder.py < $(FIX)/bundlebuilder.py.ed && \
 	ed - $(PROJECT)/Lib/platform.py < $(FIX)/Lib_platform.py.ed && \
 	ed - $(PROJECT)/Lib/pydoc.py < $(FIX)/pydoc.py.ed && \
@@ -101,7 +102,9 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Lib/test/test__locale.py < $(FIX)/Lib_test_test__locale.py.ed && \
 	ed - $(PROJECT)/Lib/test/test_httpservers.py < $(FIX)/Lib_test_test_httpservers.py.ed && \
 	patch $(PROJECT)/Mac/Modules/cf/_CFmodule.c $(FIX)/_CFmodule.c.patch && \
+	patch $(PROJECT)/Mac/Resources/app/Info.plist.in $(FIX)/Mac_Resources_app_Info.plist.in.patch && \
 	ed - $(PROJECT)/Makefile.pre.in < $(FIX)/Makefile.pre.in.ed && \
+	patch $(PROJECT)/Misc/python-config.in $(FIX)/Misc_python-config.in.patch && \
 	patch $(PROJECT)/Misc/python.man $(FIX)/python.man.patch && \
 	ed - $(PROJECT)/Modules/_ctypes/ctypes.h < $(FIX)/ctypes.h.ed && \
 	ed - $(PROJECT)/Modules/_cursesmodule.c < $(FIX)/_cursesmodule.c.ed && \

@@ -1,4 +1,7 @@
 /*
+ * Copyright (c) 2018 Apple Inc. All rights reserved.
+ */
+/*
  * Copyright (c) 1995, 1999
  *	Berkeley Software Design, Inc.  All rights reserved.
  *
@@ -26,6 +29,8 @@
  * NOTE: SIOCGIFCONF case is not LP64 friendly.  it also does not perform
  * try-and-error for region size.
  */
+#include "libinfo_common.h"
+
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -86,6 +91,7 @@
 #define MEMORY_MIN 2048
 #define MEMORY_MAX 16777216
 
+LIBINFO_EXPORT
 int
 getifaddrs(struct ifaddrs **pif)
 {
@@ -425,6 +431,7 @@ getifaddrs(struct ifaddrs **pif)
 	return (0);
 }
 
+LIBINFO_EXPORT
 void
 freeifaddrs(struct ifaddrs *ifp)
 {

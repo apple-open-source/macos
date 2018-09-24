@@ -38,6 +38,7 @@
 #include "Database.h"
 #include "DocumentLoader.h"
 #include "Event.h"
+#include "Frame.h"
 #include "InspectorApplicationCacheAgent.h"
 #include "InspectorCSSAgent.h"
 #include "InspectorCanvasAgent.h"
@@ -53,7 +54,6 @@
 #include "InspectorWorkerAgent.h"
 #include "InstrumentingAgents.h"
 #include "LoaderStrategy.h"
-#include "MainFrame.h"
 #include "PageDebuggerAgent.h"
 #include "PageHeapAgent.h"
 #include "PageRuntimeAgent.h"
@@ -65,13 +65,12 @@
 #include "WebConsoleAgent.h"
 #include "WebGLRenderingContextBase.h"
 #include "WebSocketFrame.h"
-#include <inspector/ConsoleMessage.h>
-#include <inspector/ScriptArguments.h>
-#include <inspector/ScriptCallStack.h>
-#include <inspector/agents/InspectorDebuggerAgent.h>
-#include <runtime/ConsoleTypes.h>
+#include <JavaScriptCore/ConsoleMessage.h>
+#include <JavaScriptCore/ConsoleTypes.h>
+#include <JavaScriptCore/InspectorDebuggerAgent.h>
+#include <JavaScriptCore/ScriptArguments.h>
+#include <JavaScriptCore/ScriptCallStack.h>
 #include <wtf/StdLibExtras.h>
-
 
 namespace WebCore {
 
@@ -314,10 +313,10 @@ void InspectorInstrumentation::didRemoveTimerImpl(InstrumentingAgents& instrumen
         timelineAgent->didRemoveTimer(timerId, frameForScriptExecutionContext(context));
 }
 
-void InspectorInstrumentation::didAddEventListenerImpl(InstrumentingAgents& instrumentingAgents, EventTarget& target, const AtomicString& eventType)
+void InspectorInstrumentation::didAddEventListenerImpl(InstrumentingAgents& instrumentingAgents, EventTarget& target, const AtomicString& eventType, EventListener& listener, bool capture)
 {
     if (PageDebuggerAgent* pageDebuggerAgent = instrumentingAgents.pageDebuggerAgent())
-        pageDebuggerAgent->didAddEventListener(target, eventType);
+        pageDebuggerAgent->didAddEventListener(target, eventType, listener, capture);
     if (InspectorDOMAgent* domAgent = instrumentingAgents.inspectorDOMAgent())
         domAgent->didAddEventListener(target);
 }
@@ -573,9 +572,6 @@ void InspectorInstrumentation::willSendRequestOfTypeImpl(InstrumentingAgents& in
 
 void InspectorInstrumentation::didLoadResourceFromMemoryCacheImpl(InstrumentingAgents& instrumentingAgents, DocumentLoader* loader, CachedResource* cachedResource)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled())
-        return;
-    
     if (!loader || !cachedResource)
         return;
 
@@ -652,12 +648,6 @@ void InspectorInstrumentation::domContentLoadedEventFiredImpl(InstrumentingAgent
     if (!frame.isMainFrame())
         return;
 
-    if (InspectorDOMAgent* domAgent = instrumentingAgents.inspectorDOMAgent())
-        domAgent->mainFrameDOMContentLoaded();
-
-    if (InspectorDOMDebuggerAgent* domDebuggerAgent = instrumentingAgents.inspectorDOMDebuggerAgent())
-        domDebuggerAgent->mainFrameDOMContentLoaded();
-
     if (InspectorPageAgent* pageAgent = instrumentingAgents.inspectorPageAgent())
         pageAgent->domContentEventFired();
 }
@@ -733,10 +723,11 @@ void InspectorInstrumentation::didCommitLoadImpl(InstrumentingAgents& instrument
 
 void InspectorInstrumentation::frameDocumentUpdatedImpl(InstrumentingAgents& instrumentingAgents, Frame& frame)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled())
-        return;
     if (InspectorDOMAgent* domAgent = instrumentingAgents.inspectorDOMAgent())
         domAgent->frameDocumentUpdated(frame);
+
+    if (InspectorDOMDebuggerAgent* domDebuggerAgent = instrumentingAgents.inspectorDOMDebuggerAgent())
+        domDebuggerAgent->frameDocumentUpdated(frame);
 }
 
 void InspectorInstrumentation::loaderDetachedFromFrameImpl(InstrumentingAgents& instrumentingAgents, DocumentLoader& loader)
@@ -915,9 +906,6 @@ void InspectorInstrumentation::workerTerminatedImpl(InstrumentingAgents& instrum
 
 void InspectorInstrumentation::didCreateWebSocketImpl(InstrumentingAgents& instrumentingAgents, unsigned long identifier, const URL& requestURL)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled())
-        return;
-
     if (InspectorNetworkAgent* networkAgent = instrumentingAgents.inspectorNetworkAgent())
         networkAgent->didCreateWebSocket(identifier, requestURL);
 }
@@ -1011,6 +999,13 @@ bool InspectorInstrumentation::isShaderProgramDisabledImpl(InstrumentingAgents& 
 {
     if (InspectorCanvasAgent* canvasAgent = instrumentingAgents.inspectorCanvasAgent())
         return canvasAgent->isShaderProgramDisabled(program);
+    return false;
+}
+
+bool InspectorInstrumentation::isShaderProgramHighlightedImpl(InstrumentingAgents& instrumentingAgents, WebGLProgram& program)
+{
+    if (InspectorCanvasAgent* canvasAgent = instrumentingAgents.inspectorCanvasAgent())
+        return canvasAgent->isShaderProgramHighlighted(program);
     return false;
 }
 #endif

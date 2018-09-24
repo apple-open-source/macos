@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2006, 2007, 2011, 2013, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2006, 2007, 2011, 2013, 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -59,7 +59,7 @@ extern CFMutableSetRef	_plugins_verbose;		/* bundle identifiers to enable verbos
 __BEGIN_DECLS
 
 os_log_t
-__configd_SCDynamicStore	();
+__configd_SCDynamicStore	(void);
 
 __END_DECLS
 

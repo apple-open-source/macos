@@ -34,8 +34,8 @@
 
 #include "ScriptState.h"
 #include "WorkerGlobalScope.h"
-#include <inspector/InjectedScript.h>
-#include <inspector/InjectedScriptManager.h>
+#include <JavaScriptCore/InjectedScript.h>
+#include <JavaScriptCore/InjectedScriptManager.h>
 
 namespace WebCore {
 
@@ -61,7 +61,7 @@ void WorkerRuntimeAgent::willDestroyFrontendAndBackend(DisconnectReason reason)
 InjectedScript WorkerRuntimeAgent::injectedScriptForEval(ErrorString& errorString, const int* executionContextId)
 {
     if (executionContextId) {
-        errorString = ASCIILiteral("Execution context id is not supported for workers as there is only one execution context.");
+        errorString = "Execution context id is not supported for workers as there is only one execution context."_s;
         return InjectedScript();
     }
 

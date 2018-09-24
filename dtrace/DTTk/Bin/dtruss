@@ -169,7 +169,7 @@ dtrace='
  inline int OPT_trace     = '$opt_trace';
  inline int OPT_stack     = '$opt_stack';
  inline int PID           = '$pid';
- inline string NAME       = "'$pname'";
+ inline string NAME       = "'"$pname"'";
  inline string TRACE      = "'$trace'";
 
  dtrace:::BEGIN 

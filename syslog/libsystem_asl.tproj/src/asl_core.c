@@ -73,44 +73,6 @@ static pthread_mutex_t core_lock = PTHREAD_MUTEX_INITIALIZER;
 }
 
 /*
- * Get ASL server mach port.
- * reset != 0 flushes cached port.
- * reset < 0 returns MACH_PORT_NULL
- */
-mach_port_t
-asl_core_get_service_port(int reset)
-{
-	static mach_port_t server_port = MACH_PORT_NULL;
-	mach_port_t tmp;
-	kern_return_t kstatus;
-
-	if ((reset != 0) && (server_port != MACH_PORT_NULL))
-	{
-		mach_port_t tmp = server_port;
-		server_port = MACH_PORT_NULL;
-		mach_port_deallocate(mach_task_self(), tmp);
-	}
-
-	if (reset < 0) return MACH_PORT_NULL;
-
-	if (server_port != MACH_PORT_NULL) return server_port;
-
-	tmp = MACH_PORT_NULL;
-	char *str = getenv("ASL_DISABLE");
-	if ((str != NULL) && (!strcmp(str, "1"))) return MACH_PORT_NULL;
-
-	kstatus = bootstrap_look_up2(bootstrap_port, ASL_SERVICE_NAME, &tmp, 0, BOOTSTRAP_PRIVILEGED_SERVER);
-	if ((kstatus != KERN_SUCCESS) || (tmp == MACH_PORT_NULL)) return MACH_PORT_NULL;
-
-	if (!OSAtomicCompareAndSwap32Barrier(MACH_PORT_NULL, tmp, (int32_t *)&server_port))
-	{
-		mach_port_deallocate(mach_task_self(), tmp);
-	}
-
-	return server_port;
-}
-
-/*
  * Hash is used to improve string search.
  */
 uint32_t

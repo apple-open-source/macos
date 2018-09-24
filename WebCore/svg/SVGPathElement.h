@@ -24,7 +24,7 @@
 #include "SVGAnimatedBoolean.h"
 #include "SVGAnimatedNumber.h"
 #include "SVGExternalResourcesRequired.h"
-#include "SVGGraphicsElement.h"
+#include "SVGGeometryElement.h"
 #include "SVGNames.h"
 #include "SVGPathByteStream.h"
 #include "SVGPathSegListValues.h"
@@ -53,12 +53,13 @@ class SVGPathSegCurvetoQuadraticSmoothRel;
 class SVGPathSegList;
 class SVGPoint;
 
-class SVGPathElement final : public SVGGraphicsElement, public SVGExternalResourcesRequired {
+class SVGPathElement final : public SVGGeometryElement, public SVGExternalResourcesRequired, public CanMakeWeakPtr<SVGPathElement> {
+    WTF_MAKE_ISO_ALLOCATED(SVGPathElement);
 public:
     static Ref<SVGPathElement> create(const QualifiedName&, Document&);
     
-    float getTotalLength() const;
-    Ref<SVGPoint> getPointAtLength(float distance) const;
+    float getTotalLength() const final;
+    Ref<SVGPoint> getPointAtLength(float distance) const final;
     unsigned getPathSegAtLength(float distance) const;
 
     Ref<SVGPathSegClosePath> createSVGPathSegClosePath(SVGPathSegRole = PathSegUndefinedRole);
@@ -98,8 +99,6 @@ public:
 
     bool isAnimValObserved() const { return m_isAnimValObserved; }
 
-    WeakPtr<SVGPathElement> createWeakPtr() const { return m_weakPtrFactory.createWeakPtr(*const_cast<SVGPathElement*>(this)); }
-
     void animatedPropertyWillBeDeleted();
 
     size_t approximateMemoryCost() const final;
@@ -134,7 +133,6 @@ private:
     SVGPathByteStream m_pathByteStream;
     mutable std::optional<Path> m_cachedPath;
     mutable SVGSynchronizableAnimatedProperty<SVGPathSegListValues> m_pathSegList;
-    WeakPtrFactory<SVGPathElement> m_weakPtrFactory;
     bool m_isAnimValObserved;
 };
 

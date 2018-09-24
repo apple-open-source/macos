@@ -133,7 +133,7 @@ again:
 
 	for (int i = 0; i < attempts; i++) {
 		char *t;
-		asprintf(&t, "%s/%zd", tmp, i);
+		asprintf(&t, "%s/%d", tmp, i);
 		T_QUIET; T_ASSERT_POSIX_SUCCESS(mkdir(t, 0700), "mkdir");
 		setenv("BATS_TMP_DIR", t, 1); // hack to workaround rdar://33443485
 		free(t);
@@ -144,7 +144,7 @@ again:
 				T_QUIET; T_FAIL("Helper should complete in <.1s");
 				goto timeout;
 			}
-			usleep(1000);
+			usleep(1000 * 100);
 		} while (shmem->done <= i);
 	}
 	setenv("BATS_TMP_DIR", tmpdir, 1);

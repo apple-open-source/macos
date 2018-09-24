@@ -87,7 +87,7 @@ public:
     // FIXME: These functions should not be part of this client.
     virtual void processDidBecomeUnresponsive(WebKit::WebPageProxy&) { }
     virtual void processDidBecomeResponsive(WebKit::WebPageProxy&) { }
-    virtual void processDidCrash(WebKit::WebPageProxy&) { }
+    virtual bool processDidCrash(WebKit::WebPageProxy&) { return false; }
 
     virtual void didChangeBackForwardList(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem*, Vector<Ref<WebKit::WebBackForwardListItem>>&&) { }
     virtual bool shouldKeepCurrentBackForwardListItemInList(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem&) { return true; }
@@ -103,9 +103,9 @@ public:
     virtual void navigationGestureDidEnd(WebKit::WebPageProxy&, bool willNavigate, WebKit::WebBackForwardListItem&) { }
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    virtual WebKit::PluginModuleLoadPolicy pluginLoadPolicy(WebKit::WebPageProxy&, WebKit::PluginModuleLoadPolicy currentPluginLoadPolicy, API::Dictionary*, WTF::String& /* unavailabilityDescription */) { return currentPluginLoadPolicy; }
+    virtual WebKit::PluginModuleLoadPolicy pluginLoadPolicy(WebKit::WebPageProxy&, WebKit::PluginModuleLoadPolicy currentPluginLoadPolicy, API::Dictionary&, WTF::String& /* unavailabilityDescription */) { return currentPluginLoadPolicy; }
     virtual void didFailToInitializePlugin(WebKit::WebPageProxy&, API::Dictionary&) { }
-    virtual void didBlockInsecurePluginVersion(WebKit::WebPageProxy&, API::Dictionary*) { }
+    virtual void didBlockInsecurePluginVersion(WebKit::WebPageProxy&, API::Dictionary&) { }
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 #if ENABLE(WEBGL)

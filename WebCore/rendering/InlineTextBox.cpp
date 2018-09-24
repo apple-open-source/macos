@@ -34,7 +34,7 @@
 #include "HitTestResult.h"
 #include "ImageBuffer.h"
 #include "InlineTextBoxStyle.h"
-#include "MarkerSubrange.h"
+#include "MarkedText.h"
 #include "Page.h"
 #include "PaintInfo.h"
 #include "RenderBlock.h"
@@ -73,6 +73,7 @@ InlineTextBox::~InlineTextBox()
 {
     if (!knownToHaveNoOverflow() && gTextBoxesWithOverflow)
         gTextBoxesWithOverflow->remove(this);
+    TextPainter::removeGlyphDisplayList(*this);
 }
 
 void InlineTextBox::markDirty(bool dirty)
@@ -188,7 +189,7 @@ inline const FontCascade& InlineTextBox::lineFont() const
     return combinedText() ? combinedText()->textCombineFont() : lineStyle().fontCascade();
 }
 
-// FIXME: Share more code with paintTextSubrangeBackground().
+// FIXME: Share more code with paintMarkedTextBackground().
 LayoutRect InlineTextBox::localSelectionRect(unsigned startPos, unsigned endPos) const
 {
     unsigned sPos = clampedOffset(startPos);
@@ -200,15 +201,14 @@ LayoutRect InlineTextBox::localSelectionRect(unsigned startPos, unsigned endPos)
     LayoutUnit selectionTop = this->selectionTop();
     LayoutUnit selectionHeight = this->selectionHeight();
 
-    auto text = this->text();
-    TextRun textRun = createTextRun(text);
+    TextRun textRun = createTextRun();
 
-    LayoutRect selectionRect = LayoutRect(LayoutPoint(logicalLeft(), selectionTop), LayoutSize(m_logicalWidth, selectionHeight));
+    LayoutRect selectionRect = LayoutRect(LayoutPoint(logicalLeft(), selectionTop), LayoutSize(logicalWidth(), selectionHeight));
     // Avoid measuring the text when the entire line box is selected as an optimization.
     if (sPos || ePos != textRun.length())
         lineFont().adjustSelectionRectForText(textRun, selectionRect, sPos, ePos);
     // FIXME: The computation of the snapped selection rect differs from the computation of this rect
-    // in paintTextSubrangeBackground(). See <https://bugs.webkit.org/show_bug.cgi?id=138913>.
+    // in paintMarkedTextBackground(). See <https://bugs.webkit.org/show_bug.cgi?id=138913>.
     IntRect snappedSelectionRect = enclosingIntRect(selectionRect);
     LayoutUnit logicalWidth = snappedSelectionRect.width();
     if (snappedSelectionRect.x() > logicalRight())
@@ -353,90 +353,90 @@ bool InlineTextBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
     return false;
 }
 
-static inline bool emphasisPositionHasNeitherLeftNorRight(TextEmphasisPosition emphasisPosition)
-{
-    return !(emphasisPosition & TextEmphasisPositionLeft) && !(emphasisPosition & TextEmphasisPositionRight);
-}
-
-bool InlineTextBox::emphasisMarkExistsAndIsAbove(const RenderStyle& style, bool& above) const
+std::optional<bool> InlineTextBox::emphasisMarkExistsAndIsAbove(const RenderStyle& style) const
 {
     // This function returns true if there are text emphasis marks and they are suppressed by ruby text.
-    if (style.textEmphasisMark() == TextEmphasisMarkNone)
-        return false;
+    if (style.textEmphasisMark() == TextEmphasisMark::None)
+        return std::nullopt;
 
-    TextEmphasisPosition emphasisPosition = style.textEmphasisPosition();
-    ASSERT(!((emphasisPosition & TextEmphasisPositionOver) && (emphasisPosition & TextEmphasisPositionUnder)));
-    ASSERT(!((emphasisPosition & TextEmphasisPositionLeft) && (emphasisPosition & TextEmphasisPositionRight)));
-    
-    if (emphasisPositionHasNeitherLeftNorRight(emphasisPosition))
-        above = emphasisPosition & TextEmphasisPositionOver;
+    const OptionSet<TextEmphasisPosition> horizontalMask { TextEmphasisPosition::Left, TextEmphasisPosition::Right };
+
+    auto emphasisPosition = style.textEmphasisPosition();
+    auto emphasisPositionHorizontalValue = emphasisPosition & horizontalMask;
+    ASSERT(!((emphasisPosition & TextEmphasisPosition::Over) && (emphasisPosition & TextEmphasisPosition::Under)));
+    ASSERT(emphasisPositionHorizontalValue != horizontalMask);
+
+    bool isAbove = false;
+    if (!emphasisPositionHorizontalValue)
+        isAbove = emphasisPosition.contains(TextEmphasisPosition::Over);
     else if (style.isHorizontalWritingMode())
-        above = emphasisPosition & TextEmphasisPositionOver;
+        isAbove = emphasisPosition.contains(TextEmphasisPosition::Over);
     else
-        above = emphasisPosition & TextEmphasisPositionRight;
-    
-    if ((style.isHorizontalWritingMode() && (emphasisPosition & TextEmphasisPositionUnder))
-        || (!style.isHorizontalWritingMode() && (emphasisPosition & TextEmphasisPositionLeft)))
-        return true; // Ruby text is always over, so it cannot suppress emphasis marks under.
+        isAbove = emphasisPositionHorizontalValue == TextEmphasisPosition::Right;
+
+    if ((style.isHorizontalWritingMode() && (emphasisPosition & TextEmphasisPosition::Under))
+        || (!style.isHorizontalWritingMode() && (emphasisPosition & TextEmphasisPosition::Left)))
+        return isAbove; // Ruby text is always over, so it cannot suppress emphasis marks under.
 
     RenderBlock* containingBlock = renderer().containingBlock();
     if (!containingBlock->isRubyBase())
-        return true; // This text is not inside a ruby base, so it does not have ruby text over it.
+        return isAbove; // This text is not inside a ruby base, so it does not have ruby text over it.
 
     if (!is<RenderRubyRun>(*containingBlock->parent()))
-        return true; // Cannot get the ruby text.
+        return isAbove; // Cannot get the ruby text.
 
     RenderRubyText* rubyText = downcast<RenderRubyRun>(*containingBlock->parent()).rubyText();
 
     // The emphasis marks over are suppressed only if there is a ruby text box and it not empty.
-    return !rubyText || !rubyText->hasLines();
+    if (rubyText && rubyText->hasLines())
+        return std::nullopt;
+
+    return isAbove;
 }
 
-struct InlineTextBox::MarkerSubrangeStyle {
-    bool operator==(const MarkerSubrangeStyle& other) const = delete;
-    bool operator!=(const MarkerSubrangeStyle& other) const = delete;
-    static bool areBackgroundMarkerSubrangeStylesEqual(const MarkerSubrangeStyle& a, const MarkerSubrangeStyle& b)
+struct InlineTextBox::MarkedTextStyle {
+    static bool areBackgroundMarkedTextStylesEqual(const MarkedTextStyle& a, const MarkedTextStyle& b)
     {
         return a.backgroundColor == b.backgroundColor;
     }
-    static bool areForegroundMarkerSubrangeStylesEqual(const MarkerSubrangeStyle& a, const MarkerSubrangeStyle& b)
+    static bool areForegroundMarkedTextStylesEqual(const MarkedTextStyle& a, const MarkedTextStyle& b)
     {
         return a.textStyles == b.textStyles && a.textShadow == b.textShadow && a.alpha == b.alpha;
     }
-    static bool areDecorationMarkerSubrangeStylesEqual(const MarkerSubrangeStyle& a, const MarkerSubrangeStyle& b)
+    static bool areDecorationMarkedTextStylesEqual(const MarkedTextStyle& a, const MarkedTextStyle& b)
     {
-        return a.textDecorationStyles == b.textDecorationStyles && a.textShadow == b.textShadow;
+        return a.textDecorationStyles == b.textDecorationStyles && a.textShadow == b.textShadow && a.alpha == b.alpha;
     }
 
     Color backgroundColor;
     TextPaintStyle textStyles;
     TextDecorationPainter::Styles textDecorationStyles;
-    const ShadowData* textShadow;
+    std::optional<ShadowData> textShadow;
     float alpha;
 };
 
-struct InlineTextBox::StyledMarkerSubrange : MarkerSubrange {
-    StyledMarkerSubrange(const MarkerSubrange& marker)
-        : MarkerSubrange { marker }
+struct InlineTextBox::StyledMarkedText : MarkedText {
+    StyledMarkedText(const MarkedText& marker)
+        : MarkedText { marker }
     {
     }
 
-    MarkerSubrangeStyle style;
+    MarkedTextStyle style;
 };
 
-static MarkerSubrange createMarkerSubrangeFromSelectionInBox(const InlineTextBox& box)
+static MarkedText createMarkedTextFromSelectionInBox(const InlineTextBox& box)
 {
     unsigned selectionStart;
     unsigned selectionEnd;
     std::tie(selectionStart, selectionEnd) = box.selectionStartEnd();
     if (selectionStart < selectionEnd)
-        return { selectionStart, selectionEnd, MarkerSubrange::Selection };
+        return { selectionStart, selectionEnd, MarkedText::Selection };
     return { };
 }
 
 void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, LayoutUnit /*lineTop*/, LayoutUnit /*lineBottom*/)
 {
-    if (isLineBreak() || !paintInfo.shouldPaintWithinRoot(renderer()) || renderer().style().visibility() != VISIBLE
+    if (isLineBreak() || !paintInfo.shouldPaintWithinRoot(renderer()) || renderer().style().visibility() != Visibility::Visible
         || m_truncation == cFullTruncation || paintInfo.phase == PaintPhaseOutline || !m_len)
         return;
 
@@ -474,7 +474,7 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
             // NOTE: WebKit's behavior differs from that of IE which appears to just overlay the ellipsis on top of the
             // truncated string i.e.  |Hello|CBA| -> |...lo|CBA|
             LayoutUnit widthOfVisibleText = renderer().width(m_start, m_truncation, textPos(), isFirstLine());
-            LayoutUnit widthOfHiddenText = m_logicalWidth - widthOfVisibleText;
+            LayoutUnit widthOfHiddenText = logicalWidth() - widthOfVisibleText;
             LayoutSize truncationOffset(isLeftToRightDirection() ? widthOfHiddenText : -widthOfHiddenText, 0);
             localPaintOffset.move(isHorizontal() ? truncationOffset : truncationOffset.transposedSize());
         }
@@ -500,28 +500,28 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
     bool containsComposition = renderer().textNode() && renderer().frame().editor().compositionNode() == renderer().textNode();
     bool useCustomUnderlines = containsComposition && renderer().frame().editor().compositionUsesCustomUnderlines();
 
-    MarkerSubrangeStyle unmarkedStyle = computeStyleForUnmarkedMarkerSubrange(paintInfo);
+    MarkedTextStyle unmarkedStyle = computeStyleForUnmarkedMarkedText(paintInfo);
 
     // 1. Paint backgrounds behind text if needed. Examples of such backgrounds include selection
     // and composition underlines.
     if (paintInfo.phase != PaintPhaseSelection && paintInfo.phase != PaintPhaseTextClip && !isPrinting) {
         if (containsComposition && !useCustomUnderlines)
-            paintCompositionBackground(context, boxOrigin);
+            paintCompositionBackground(paintInfo, boxOrigin);
 
-        Vector<MarkerSubrange> subranges = collectSubrangesForDocumentMarkers(TextPaintPhase::Background);
+        Vector<MarkedText> markedTexts = collectMarkedTextsForDocumentMarkers(TextPaintPhase::Background);
 #if ENABLE(TEXT_SELECTION)
         if (haveSelection && !useCustomUnderlines && !context.paintingDisabled()) {
-            auto selectionSubrange = createMarkerSubrangeFromSelectionInBox(*this);
-            if (!selectionSubrange.isEmpty())
-                subranges.append(WTFMove(selectionSubrange));
+            auto selectionMarkedText = createMarkedTextFromSelectionInBox(*this);
+            if (!selectionMarkedText.isEmpty())
+                markedTexts.append(WTFMove(selectionMarkedText));
         }
 #endif
-        auto styledSubranges = subdivideAndResolveStyle(subranges, unmarkedStyle, paintInfo);
+        auto styledMarkedTexts = subdivideAndResolveStyle(markedTexts, unmarkedStyle, paintInfo);
 
-        // Coalesce styles of adjacent subranges to minimize the number of drawing commands.
-        auto coalescedStyledSubranges = coalesceAdjacentSubranges(styledSubranges, &MarkerSubrangeStyle::areBackgroundMarkerSubrangeStylesEqual);
+        // Coalesce styles of adjacent marked texts to minimize the number of drawing commands.
+        auto coalescedStyledMarkedTexts = coalesceAdjacentMarkedTexts(styledMarkedTexts, &MarkedTextStyle::areBackgroundMarkedTextStylesEqual);
 
-        paintMarkerSubranges(context, TextPaintPhase::Background, boxRect, coalescedStyledSubranges);
+        paintMarkedTexts(paintInfo, TextPaintPhase::Background, boxRect, coalescedStyledMarkedTexts);
     }
 
     // FIXME: Right now, InlineTextBoxes never call addRelevantUnpaintedObject() even though they might
@@ -533,47 +533,46 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
 
     // 2. Now paint the foreground, including text and decorations like underline/overline (in quirks mode only).
     bool shouldPaintSelectionForeground = haveSelection && !useCustomUnderlines;
-    Vector<MarkerSubrange> subranges;
+    Vector<MarkedText> markedTexts;
     if (paintInfo.phase != PaintPhaseSelection) {
-        // The subranges for the gaps between document markers and selection are implicitly created by subdividing the entire line.
-        subranges.append({ clampedOffset(m_start), clampedOffset(end() + 1), MarkerSubrange::Unmarked });
+        // The marked texts for the gaps between document markers and selection are implicitly created by subdividing the entire line.
+        markedTexts.append({ clampedOffset(m_start), clampedOffset(end() + 1), MarkedText::Unmarked });
         if (!isPrinting) {
-            subranges.appendVector(collectSubrangesForDocumentMarkers(TextPaintPhase::Foreground));
+            markedTexts.appendVector(collectMarkedTextsForDocumentMarkers(TextPaintPhase::Foreground));
 
             bool shouldPaintDraggedContent = !(paintInfo.paintBehavior & PaintBehaviorExcludeSelection);
             if (shouldPaintDraggedContent) {
-                auto subrangesForDraggedContent = collectSubrangesForDraggedContent();
-                if (!subrangesForDraggedContent.isEmpty()) {
+                auto markedTextsForDraggedContent = collectMarkedTextsForDraggedContent();
+                if (!markedTextsForDraggedContent.isEmpty()) {
                     shouldPaintSelectionForeground = false;
-                    subranges.appendVector(subrangesForDraggedContent);
+                    markedTexts.appendVector(markedTextsForDraggedContent);
                 }
             }
         }
     }
-    // The selection subrange acts as a placeholder when computing the subranges for the gaps...
+    // The selection marked text acts as a placeholder when computing the marked texts for the gaps...
     if (shouldPaintSelectionForeground) {
         ASSERT(!isPrinting);
-        auto selectionSubrange = createMarkerSubrangeFromSelectionInBox(*this);
-        if (!selectionSubrange.isEmpty())
-            subranges.append(WTFMove(selectionSubrange));
+        auto selectionMarkedText = createMarkedTextFromSelectionInBox(*this);
+        if (!selectionMarkedText.isEmpty())
+            markedTexts.append(WTFMove(selectionMarkedText));
     }
 
-    auto styledSubranges = subdivideAndResolveStyle(subranges, unmarkedStyle, paintInfo);
+    auto styledMarkedTexts = subdivideAndResolveStyle(markedTexts, unmarkedStyle, paintInfo);
 
-    // ... now remove the selection subrange if we are excluding selection.
+    // ... now remove the selection marked text if we are excluding selection.
     if (!isPrinting && paintInfo.paintBehavior & PaintBehaviorExcludeSelection)
-        styledSubranges.removeAllMatching([] (const StyledMarkerSubrange& subrange) { return subrange.type == MarkerSubrange::Selection; });
+        styledMarkedTexts.removeAllMatching([] (const StyledMarkedText& markedText) { return markedText.type == MarkedText::Selection; });
 
-    // Coalesce styles of adjacent subranges to minimize the number of drawing commands.
-    auto coalescedStyledSubranges = coalesceAdjacentSubranges(styledSubranges, &MarkerSubrangeStyle::areForegroundMarkerSubrangeStylesEqual);
+    // Coalesce styles of adjacent marked texts to minimize the number of drawing commands.
+    auto coalescedStyledMarkedTexts = coalesceAdjacentMarkedTexts(styledMarkedTexts, &MarkedTextStyle::areForegroundMarkedTextStylesEqual);
 
-    paintMarkerSubranges(context, TextPaintPhase::Foreground, boxRect, coalescedStyledSubranges);
+    paintMarkedTexts(paintInfo, TextPaintPhase::Foreground, boxRect, coalescedStyledMarkedTexts);
 
     // Paint decorations
-    TextDecoration textDecorations = lineStyle.textDecorationsInEffect();
-    if (textDecorations != TextDecorationNone && paintInfo.phase != PaintPhaseSelection) {
-        auto text = this->text();
-        TextRun textRun = createTextRun(text);
+    auto textDecorations = lineStyle.textDecorationsInEffect();
+    if (!textDecorations.isEmpty() && paintInfo.phase != PaintPhaseSelection) {
+        TextRun textRun = createTextRun();
         unsigned length = textRun.length();
         if (m_truncation != cNoTruncation)
             length = m_truncation;
@@ -602,10 +601,10 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
             }
         }
 
-        // Coalesce styles of adjacent subranges to minimize the number of drawing commands.
-        auto coalescedStyledSubranges = coalesceAdjacentSubranges(styledSubranges, &MarkerSubrangeStyle::areDecorationMarkerSubrangeStylesEqual);
+        // Coalesce styles of adjacent marked texts to minimize the number of drawing commands.
+        auto coalescedStyledMarkedTexts = coalesceAdjacentMarkedTexts(styledMarkedTexts, &MarkedTextStyle::areDecorationMarkedTextStylesEqual);
 
-        paintMarkerSubranges(context, TextPaintPhase::Decoration, boxRect, coalescedStyledSubranges, textDecorationSelectionClipOutRect);
+        paintMarkedTexts(paintInfo, TextPaintPhase::Decoration, boxRect, coalescedStyledMarkedTexts, textDecorationSelectionClipOutRect);
     }
 
     // 3. Paint fancy decorations, including composition underlines and platform-specific underlines for spelling errors, grammar errors, et cetera.
@@ -613,7 +612,7 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
         paintPlatformDocumentMarkers(context, boxOrigin);
 
         if (useCustomUnderlines)
-            paintCompositionUnderlines(context, boxOrigin);
+            paintCompositionUnderlines(paintInfo, boxOrigin);
     }
     
     if (shouldRotate)
@@ -656,11 +655,11 @@ std::pair<unsigned, unsigned> InlineTextBox::selectionStartEnd() const
 
 void InlineTextBox::paintPlatformDocumentMarkers(GraphicsContext& context, const FloatPoint& boxOrigin)
 {
-    for (auto& subrange : subdivide(collectSubrangesForDocumentMarkers(TextPaintPhase::Foreground), OverlapStrategy::Frontmost))
-        paintPlatformDocumentMarker(context, boxOrigin, subrange);
+    for (auto& markedText : subdivide(collectMarkedTextsForDocumentMarkers(TextPaintPhase::Decoration), OverlapStrategy::Frontmost))
+        paintPlatformDocumentMarker(context, boxOrigin, markedText);
 }
 
-void InlineTextBox::paintPlatformDocumentMarker(GraphicsContext& context, const FloatPoint& boxOrigin, const MarkerSubrange& subrange)
+void InlineTextBox::paintPlatformDocumentMarker(GraphicsContext& context, const FloatPoint& boxOrigin, const MarkedText& markedText)
 {
     // Never print spelling/grammar markers (5327887)
     if (renderer().document().printing())
@@ -670,42 +669,41 @@ void InlineTextBox::paintPlatformDocumentMarker(GraphicsContext& context, const 
         return;
 
     float start = 0; // start of line to draw, relative to tx
-    float width = m_logicalWidth; // how much line to draw
+    float width = logicalWidth(); // how much line to draw
 
     // Avoid measuring the text when the entire line box is selected as an optimization.
-    if (subrange.startOffset || subrange.endOffset != clampedOffset(end() + 1)) {
+    if (markedText.startOffset || markedText.endOffset != clampedOffset(end() + 1)) {
         // Calculate start & width
         int deltaY = renderer().style().isFlippedLinesWritingMode() ? selectionBottom() - logicalBottom() : logicalTop() - selectionTop();
         int selHeight = selectionHeight();
         FloatPoint startPoint(boxOrigin.x(), boxOrigin.y() - deltaY);
-        auto text = this->text();
-        TextRun run = createTextRun(text);
+        TextRun run = createTextRun();
 
         LayoutRect selectionRect = LayoutRect(startPoint, FloatSize(0, selHeight));
-        lineFont().adjustSelectionRectForText(run, selectionRect, subrange.startOffset, subrange.endOffset);
+        lineFont().adjustSelectionRectForText(run, selectionRect, markedText.startOffset, markedText.endOffset);
         IntRect markerRect = enclosingIntRect(selectionRect);
         start = markerRect.x() - startPoint.x();
         width = markerRect.width();
     }
 
-    auto lineStyleForSubrangeType = [] (MarkerSubrange::Type type) {
+    auto lineStyleForMarkedTextType = [] (MarkedText::Type type) {
         switch (type) {
-        case MarkerSubrange::SpellingError:
-            return GraphicsContext::DocumentMarkerSpellingLineStyle;
-        case MarkerSubrange::GrammarError:
-            return GraphicsContext::DocumentMarkerGrammarLineStyle;
-        case MarkerSubrange::Correction:
-            return GraphicsContext::DocumentMarkerAutocorrectionReplacementLineStyle;
-        case MarkerSubrange::DictationAlternatives:
-            return GraphicsContext::DocumentMarkerDictationAlternativesLineStyle;
+        case MarkedText::SpellingError:
+            return DocumentMarkerLineStyle::Spelling;
+        case MarkedText::GrammarError:
+            return DocumentMarkerLineStyle::Grammar;
+        case MarkedText::Correction:
+            return DocumentMarkerLineStyle::AutocorrectionReplacement;
+        case MarkedText::DictationAlternatives:
+            return DocumentMarkerLineStyle::DictationAlternatives;
 #if PLATFORM(IOS)
-        case MarkerSubrange::DictationPhraseWithAlternatives:
-            // FIXME: Rename TextCheckingDictationPhraseWithAlternativesLineStyle and remove the PLATFORM(IOS)-guard.
-            return GraphicsContext::TextCheckingDictationPhraseWithAlternativesLineStyle;
+        case MarkedText::DictationPhraseWithAlternatives:
+            // FIXME: Rename DocumentMarkerLineStyle::TextCheckingDictationPhraseWithAlternatives and remove the PLATFORM(IOS)-guard.
+            return DocumentMarkerLineStyle::TextCheckingDictationPhraseWithAlternatives;
 #endif
         default:
             ASSERT_NOT_REACHED();
-            return GraphicsContext::DocumentMarkerSpellingLineStyle;
+            return DocumentMarkerLineStyle::Spelling;
         }
     };
 
@@ -726,42 +724,45 @@ void InlineTextBox::paintPlatformDocumentMarker(GraphicsContext& context, const 
         // In larger fonts, though, place the underline up near the baseline to prevent a big gap.
         underlineOffset = baseline + 2;
     }
-    context.drawLineForDocumentMarker(FloatPoint(boxOrigin.x() + start, boxOrigin.y() + underlineOffset), width, lineStyleForSubrangeType(subrange.type));
+
+#if PLATFORM(MAC)
+    RenderTheme::singleton().drawLineForDocumentMarker(renderer(), context, FloatPoint(boxOrigin.x() + start, boxOrigin.y() + underlineOffset), width, lineStyleForMarkedTextType(markedText.type));
+#else
+    context.drawLineForDocumentMarker(FloatPoint(boxOrigin.x() + start, boxOrigin.y() + underlineOffset), width, lineStyleForMarkedTextType(markedText.type));
+#endif
 }
 
-auto InlineTextBox::computeStyleForUnmarkedMarkerSubrange(const PaintInfo& paintInfo) const -> MarkerSubrangeStyle
+auto InlineTextBox::computeStyleForUnmarkedMarkedText(const PaintInfo& paintInfo) const -> MarkedTextStyle
 {
     auto& lineStyle = this->lineStyle();
 
-    MarkerSubrangeStyle style;
+    MarkedTextStyle style;
     style.textDecorationStyles = TextDecorationPainter::stylesForRenderer(renderer(), lineStyle.textDecorationsInEffect(), isFirstLine());
     style.textStyles = computeTextPaintStyle(renderer().frame(), lineStyle, paintInfo);
-    style.textShadow = paintInfo.forceTextColor() ? nullptr : lineStyle.textShadow();
+    style.textShadow = ShadowData::clone(paintInfo.forceTextColor() ? nullptr : lineStyle.textShadow());
     style.alpha = 1;
     return style;
 }
 
-auto InlineTextBox::resolveStyleForSubrange(const MarkerSubrange& subrange, const MarkerSubrangeStyle& baseStyle, const PaintInfo& paintInfo) -> StyledMarkerSubrange
+auto InlineTextBox::resolveStyleForMarkedText(const MarkedText& markedText, const MarkedTextStyle& baseStyle, const PaintInfo& paintInfo) -> StyledMarkedText
 {
-    MarkerSubrangeStyle style = baseStyle;
-    switch (subrange.type) {
-    case MarkerSubrange::Correction:
-    case MarkerSubrange::DictationAlternatives:
+    MarkedTextStyle style = baseStyle;
+    switch (markedText.type) {
+    case MarkedText::Correction:
+    case MarkedText::DictationAlternatives:
 #if PLATFORM(IOS)
     // FIXME: See <rdar://problem/8933352>. Also, remove the PLATFORM(IOS)-guard.
-    case MarkerSubrange::DictationPhraseWithAlternatives:
+    case MarkedText::DictationPhraseWithAlternatives:
 #endif
-    case MarkerSubrange::GrammarError:
-    case MarkerSubrange::SpellingError:
-    case MarkerSubrange::Unmarked:
+    case MarkedText::GrammarError:
+    case MarkedText::SpellingError:
+    case MarkedText::Unmarked:
         break;
-    case MarkerSubrange::DraggedContent:
+    case MarkedText::DraggedContent:
         style.alpha = 0.25;
         break;
-    case MarkerSubrange::Selection: {
-        const ShadowData* selectionShadow = nullptr;
-        style.textStyles = computeTextSelectionPaintStyle(style.textStyles, renderer(), lineStyle(), paintInfo, selectionShadow);
-        style.textShadow = selectionShadow;
+    case MarkedText::Selection: {
+        style.textStyles = computeTextSelectionPaintStyle(style.textStyles, renderer(), lineStyle(), paintInfo, style.textShadow);
 
         Color selectionBackgroundColor = renderer().selectionBackgroundColor();
         style.backgroundColor = selectionBackgroundColor;
@@ -769,104 +770,111 @@ auto InlineTextBox::resolveStyleForSubrange(const MarkerSubrange& subrange, cons
             style.backgroundColor = { 0xff - selectionBackgroundColor.red(), 0xff - selectionBackgroundColor.green(), 0xff - selectionBackgroundColor.blue() };
         break;
     }
-    case MarkerSubrange::TextMatch:
-        style.backgroundColor = subrange.marker->isActiveMatch() ? renderer().theme().platformActiveTextSearchHighlightColor() : renderer().theme().platformInactiveTextSearchHighlightColor();
+    case MarkedText::TextMatch: {
+        // Text matches always use the light system appearance.
+        OptionSet<StyleColor::Options> styleColorOptions = { StyleColor::Options::UseSystemAppearance };
+#if PLATFORM(MAC)
+        style.textStyles.fillColor = renderer().theme().systemColor(CSSValueAppleSystemLabel, styleColorOptions);
+#endif
+        style.backgroundColor = markedText.marker->isActiveMatch() ? renderer().theme().activeTextSearchHighlightColor(styleColorOptions) : renderer().theme().inactiveTextSearchHighlightColor(styleColorOptions);
         break;
     }
-    StyledMarkerSubrange styledSubrange = subrange;
-    styledSubrange.style = WTFMove(style);
-    return styledSubrange;
+    }
+    StyledMarkedText styledMarkedText = markedText;
+    styledMarkedText.style = WTFMove(style);
+    return styledMarkedText;
 }
 
-auto InlineTextBox::subdivideAndResolveStyle(const Vector<MarkerSubrange>& subrangesToSubdivide, const MarkerSubrangeStyle& baseStyle, const PaintInfo& paintInfo) -> Vector<StyledMarkerSubrange>
+auto InlineTextBox::subdivideAndResolveStyle(const Vector<MarkedText>& textsToSubdivide, const MarkedTextStyle& baseStyle, const PaintInfo& paintInfo) -> Vector<StyledMarkedText>
 {
-    if (subrangesToSubdivide.isEmpty())
+    if (textsToSubdivide.isEmpty())
         return { };
 
-    auto subranges = subdivide(subrangesToSubdivide);
+    auto markedTexts = subdivide(textsToSubdivide);
 
-    // Compute frontmost overlapping styled subranges.
-    Vector<StyledMarkerSubrange> frontmostSubranges;
-    frontmostSubranges.reserveInitialCapacity(subranges.size());
-    frontmostSubranges.uncheckedAppend(resolveStyleForSubrange(subranges[0], baseStyle, paintInfo));
-    for (auto it = subranges.begin() + 1, end = subranges.end(); it != end; ++it) {
-        StyledMarkerSubrange& previousStyledSubrange = frontmostSubranges.last();
-        if (previousStyledSubrange.startOffset == it->startOffset && previousStyledSubrange.endOffset == it->endOffset) {
-            // Subranges completely cover each other.
-            previousStyledSubrange = resolveStyleForSubrange(*it, previousStyledSubrange.style, paintInfo);
+    // Compute frontmost overlapping styled marked texts.
+    Vector<StyledMarkedText> frontmostMarkedTexts;
+    frontmostMarkedTexts.reserveInitialCapacity(markedTexts.size());
+    frontmostMarkedTexts.uncheckedAppend(resolveStyleForMarkedText(markedTexts[0], baseStyle, paintInfo));
+    for (auto it = markedTexts.begin() + 1, end = markedTexts.end(); it != end; ++it) {
+        StyledMarkedText& previousStyledMarkedText = frontmostMarkedTexts.last();
+        if (previousStyledMarkedText.startOffset == it->startOffset && previousStyledMarkedText.endOffset == it->endOffset) {
+            // Marked texts completely cover each other.
+            previousStyledMarkedText = resolveStyleForMarkedText(*it, previousStyledMarkedText.style, paintInfo);
             continue;
         }
-        frontmostSubranges.uncheckedAppend(resolveStyleForSubrange(*it, baseStyle, paintInfo));
+        frontmostMarkedTexts.uncheckedAppend(resolveStyleForMarkedText(*it, baseStyle, paintInfo));
     }
 
-    return frontmostSubranges;
+    return frontmostMarkedTexts;
 }
 
-auto InlineTextBox::coalesceAdjacentSubranges(const Vector<StyledMarkerSubrange>& subrangesToCoalesce, MarkerSubrangeStylesEqualityFunction areMarkerSubrangeStylesEqual) -> Vector<StyledMarkerSubrange>
+auto InlineTextBox::coalesceAdjacentMarkedTexts(const Vector<StyledMarkedText>& textsToCoalesce, MarkedTextStylesEqualityFunction areMarkedTextStylesEqual) -> Vector<StyledMarkedText>
 {
-    if (subrangesToCoalesce.isEmpty())
+    if (textsToCoalesce.isEmpty())
         return { };
 
-    auto areAdjacentSubrangesWithSameStyle = [&] (const StyledMarkerSubrange& a, const StyledMarkerSubrange& b) {
-        return a.endOffset == b.startOffset && areMarkerSubrangeStylesEqual(a.style, b.style);
+    auto areAdjacentMarkedTextsWithSameStyle = [&] (const StyledMarkedText& a, const StyledMarkedText& b) {
+        return a.endOffset == b.startOffset && areMarkedTextStylesEqual(a.style, b.style);
     };
 
-    Vector<StyledMarkerSubrange> styledSubranges;
-    styledSubranges.reserveInitialCapacity(subrangesToCoalesce.size());
-    styledSubranges.uncheckedAppend(subrangesToCoalesce[0]);
-    for (auto it = subrangesToCoalesce.begin() + 1, end = subrangesToCoalesce.end(); it != end; ++it) {
-        StyledMarkerSubrange& previousStyledSubrange = styledSubranges.last();
-        if (areAdjacentSubrangesWithSameStyle(previousStyledSubrange, *it)) {
-            previousStyledSubrange.endOffset = it->endOffset;
+    Vector<StyledMarkedText> styledMarkedTexts;
+    styledMarkedTexts.reserveInitialCapacity(textsToCoalesce.size());
+    styledMarkedTexts.uncheckedAppend(textsToCoalesce[0]);
+    for (auto it = textsToCoalesce.begin() + 1, end = textsToCoalesce.end(); it != end; ++it) {
+        StyledMarkedText& previousStyledMarkedText = styledMarkedTexts.last();
+        if (areAdjacentMarkedTextsWithSameStyle(previousStyledMarkedText, *it)) {
+            previousStyledMarkedText.endOffset = it->endOffset;
             continue;
         }
-        styledSubranges.uncheckedAppend(*it);
+        styledMarkedTexts.uncheckedAppend(*it);
     }
 
-    return styledSubranges;
+    return styledMarkedTexts;
 }
 
-Vector<MarkerSubrange> InlineTextBox::collectSubrangesForDraggedContent()
+Vector<MarkedText> InlineTextBox::collectMarkedTextsForDraggedContent()
 {
     using DraggendContentRange = std::pair<unsigned, unsigned>;
     auto draggedContentRanges = renderer().draggedContentRangesBetweenOffsets(m_start, m_start + m_len);
-    Vector<MarkerSubrange> result = draggedContentRanges.map([this] (const DraggendContentRange& range) -> MarkerSubrange {
-        return { clampedOffset(range.first), clampedOffset(range.second), MarkerSubrange::DraggedContent };
+    Vector<MarkedText> result = draggedContentRanges.map([this] (const DraggendContentRange& range) -> MarkedText {
+        return { clampedOffset(range.first), clampedOffset(range.second), MarkedText::DraggedContent };
     });
     return result;
 }
 
-Vector<MarkerSubrange> InlineTextBox::collectSubrangesForDocumentMarkers(TextPaintPhase phase)
+Vector<MarkedText> InlineTextBox::collectMarkedTextsForDocumentMarkers(TextPaintPhase phase)
 {
-    ASSERT(phase == TextPaintPhase::Background || phase == TextPaintPhase::Foreground);
+    ASSERT_ARG(phase, phase == TextPaintPhase::Background || phase == TextPaintPhase::Foreground || phase == TextPaintPhase::Decoration);
+
     if (!renderer().textNode())
         return { };
 
     Vector<RenderedDocumentMarker*> markers = renderer().document().markers().markersFor(renderer().textNode());
 
-    auto markerTypeForSubrangeType = [] (DocumentMarker::MarkerType type) {
+    auto markedTextTypeForMarkerType = [] (DocumentMarker::MarkerType type) {
         switch (type) {
         case DocumentMarker::Spelling:
-            return MarkerSubrange::SpellingError;
+            return MarkedText::SpellingError;
         case DocumentMarker::Grammar:
-            return MarkerSubrange::GrammarError;
+            return MarkedText::GrammarError;
         case DocumentMarker::CorrectionIndicator:
-            return MarkerSubrange::Correction;
+            return MarkedText::Correction;
         case DocumentMarker::TextMatch:
-            return MarkerSubrange::TextMatch;
+            return MarkedText::TextMatch;
         case DocumentMarker::DictationAlternatives:
-            return MarkerSubrange::DictationAlternatives;
+            return MarkedText::DictationAlternatives;
 #if PLATFORM(IOS)
         case DocumentMarker::DictationPhraseWithAlternatives:
-            return MarkerSubrange::DictationPhraseWithAlternatives;
+            return MarkedText::DictationPhraseWithAlternatives;
 #endif
         default:
-            return MarkerSubrange::Unmarked;
+            return MarkedText::Unmarked;
         }
     };
 
-    Vector<MarkerSubrange> subranges;
-    subranges.reserveInitialCapacity(markers.size());
+    Vector<MarkedText> markedTexts;
+    markedTexts.reserveInitialCapacity(markers.size());
 
     // Give any document markers that touch this run a chance to draw before the text has been drawn.
     // Note end() points at the last char, not one past it like endOffset and ranges do.
@@ -882,19 +890,23 @@ Vector<MarkerSubrange> InlineTextBox::collectSubrangesForDocumentMarkers(TextPai
         // FIXME: Remove the PLATFORM(IOS)-guard.
         case DocumentMarker::DictationPhraseWithAlternatives:
 #endif
-            if (phase == TextPaintPhase::Background)
+            if (phase != TextPaintPhase::Decoration)
                 continue;
             break;
         case DocumentMarker::TextMatch:
             if (!renderer().frame().editor().markedTextMatchesAreHighlighted())
                 continue;
-#if ENABLE(TELEPHONE_NUMBER_DETECTION)
-            FALLTHROUGH;
-        case DocumentMarker::TelephoneNumber:
-#endif
-            if (phase == TextPaintPhase::Foreground)
+            if (phase == TextPaintPhase::Decoration)
                 continue;
             break;
+#if ENABLE(TELEPHONE_NUMBER_DETECTION)
+        case DocumentMarker::TelephoneNumber:
+            if (!renderer().frame().editor().markedTextMatchesAreHighlighted())
+                continue;
+            if (phase != TextPaintPhase::Background)
+                continue;
+            break;
+#endif
         default:
             continue;
         }
@@ -921,7 +933,7 @@ Vector<MarkerSubrange> InlineTextBox::collectSubrangesForDocumentMarkers(TextPai
         case DocumentMarker::DictationPhraseWithAlternatives:
 #endif
         case DocumentMarker::TextMatch:
-            subranges.uncheckedAppend({ clampedOffset(marker->startOffset()), clampedOffset(marker->endOffset()), markerTypeForSubrangeType(marker->type()), marker });
+            markedTexts.uncheckedAppend({ clampedOffset(marker->startOffset()), clampedOffset(marker->endOffset()), markedTextTypeForMarkerType(marker->type()), marker });
             break;
         case DocumentMarker::Replacement:
             break;
@@ -933,7 +945,7 @@ Vector<MarkerSubrange> InlineTextBox::collectSubrangesForDocumentMarkers(TextPai
             ASSERT_NOT_REACHED();
         }
     }
-    return subranges;
+    return markedTexts;
 }
 
 FloatPoint InlineTextBox::textOriginFromBoxRect(const FloatRect& boxRect) const
@@ -950,36 +962,36 @@ FloatPoint InlineTextBox::textOriginFromBoxRect(const FloatRect& boxRect) const
     return textOrigin;
 }
 
-void InlineTextBox::paintMarkerSubranges(GraphicsContext& context, TextPaintPhase phase, const FloatRect& boxRect, const Vector<StyledMarkerSubrange>& subranges, const FloatRect& decorationClipOutRect)
+void InlineTextBox::paintMarkedTexts(PaintInfo& paintInfo, TextPaintPhase phase, const FloatRect& boxRect, const Vector<StyledMarkedText>& markedTexts, const FloatRect& decorationClipOutRect)
 {
     switch (phase) {
     case TextPaintPhase::Background:
-        for (auto& subrange : subranges)
-            paintTextSubrangeBackground(context, boxRect.location(), subrange.style.backgroundColor, subrange.startOffset, subrange.endOffset);
+        for (auto& markedText : markedTexts)
+            paintMarkedTextBackground(paintInfo, boxRect.location(), markedText.style.backgroundColor, markedText.startOffset, markedText.endOffset);
         return;
     case TextPaintPhase::Foreground:
-        for (auto& subrange : subranges)
-            paintTextSubrangeForeground(context, boxRect, subrange);
+        for (auto& markedText : markedTexts)
+            paintMarkedTextForeground(paintInfo, boxRect, markedText);
         return;
     case TextPaintPhase::Decoration:
-        for (auto& subrange : subranges)
-            paintTextSubrangeDecoration(context, boxRect, decorationClipOutRect, subrange);
+        for (auto& markedText : markedTexts)
+            paintMarkedTextDecoration(paintInfo, boxRect, decorationClipOutRect, markedText);
         return;
     }
 }
 
-void InlineTextBox::paintTextSubrangeBackground(GraphicsContext& context, const FloatPoint& boxOrigin, const Color& color, unsigned clampedStartOffset, unsigned clampedEndOffset)
+void InlineTextBox::paintMarkedTextBackground(PaintInfo& paintInfo, const FloatPoint& boxOrigin, const Color& color, unsigned clampedStartOffset, unsigned clampedEndOffset)
 {
     if (clampedStartOffset >= clampedEndOffset)
         return;
 
+    GraphicsContext& context = paintInfo.context();
     GraphicsContextStateSaver stateSaver { context };
     updateGraphicsContext(context, TextPaintStyle { color }); // Don't draw text at all!
 
     // Note that if the text is truncated, we let the thing being painted in the truncation
     // draw its own highlight.
-    auto text = this->text();
-    TextRun textRun = createTextRun(text);
+    TextRun textRun = createTextRun();
 
     const RootInlineBox& rootBox = root();
     LayoutUnit selectionBottom = rootBox.selectionBottom();
@@ -990,66 +1002,72 @@ void InlineTextBox::paintTextSubrangeBackground(GraphicsContext& context, const 
     LayoutUnit deltaY = renderer().style().isFlippedLinesWritingMode() ? selectionBottom - logicalBottom() : logicalTop() - selectionTop;
     LayoutUnit selectionHeight = std::max<LayoutUnit>(0, selectionBottom - selectionTop);
 
-    LayoutRect selectionRect = LayoutRect(boxOrigin.x(), boxOrigin.y() - deltaY, m_logicalWidth, selectionHeight);
+    LayoutRect selectionRect = LayoutRect(boxOrigin.x(), boxOrigin.y() - deltaY, logicalWidth(), selectionHeight);
     lineFont().adjustSelectionRectForText(textRun, selectionRect, clampedStartOffset, clampedEndOffset);
 
     // FIXME: Support painting combined text. See <https://bugs.webkit.org/show_bug.cgi?id=180993>.
     context.fillRect(snapRectToDevicePixelsWithWritingDirection(selectionRect, renderer().document().deviceScaleFactor(), textRun.ltr()), color);
 }
 
-void InlineTextBox::paintTextSubrangeForeground(GraphicsContext& context, const FloatRect& boxRect, const StyledMarkerSubrange& subrange)
+void InlineTextBox::paintMarkedTextForeground(PaintInfo& paintInfo, const FloatRect& boxRect, const StyledMarkedText& markedText)
 {
-    if (subrange.startOffset >= subrange.endOffset)
+    if (markedText.startOffset >= markedText.endOffset)
         return;
 
+    GraphicsContext& context = paintInfo.context();
     const FontCascade& font = lineFont();
     const RenderStyle& lineStyle = this->lineStyle();
 
     float emphasisMarkOffset = 0;
-    bool emphasisMarkAbove;
-    bool hasTextEmphasis = emphasisMarkExistsAndIsAbove(lineStyle, emphasisMarkAbove);
-    const AtomicString& emphasisMark = hasTextEmphasis ? lineStyle.textEmphasisMarkString() : nullAtom();
+    std::optional<bool> markExistsAndIsAbove = emphasisMarkExistsAndIsAbove(lineStyle);
+    const AtomicString& emphasisMark = markExistsAndIsAbove ? lineStyle.textEmphasisMarkString() : nullAtom();
     if (!emphasisMark.isEmpty())
-        emphasisMarkOffset = emphasisMarkAbove ? -font.fontMetrics().ascent() - font.emphasisMarkDescent(emphasisMark) : font.fontMetrics().descent() + font.emphasisMarkAscent(emphasisMark);
+        emphasisMarkOffset = *markExistsAndIsAbove ? -font.fontMetrics().ascent() - font.emphasisMarkDescent(emphasisMark) : font.fontMetrics().descent() + font.emphasisMarkAscent(emphasisMark);
 
     TextPainter textPainter { context };
     textPainter.setFont(font);
-    textPainter.setStyle(subrange.style.textStyles);
+    textPainter.setStyle(markedText.style.textStyles);
     textPainter.setIsHorizontal(isHorizontal());
-    textPainter.setShadow(subrange.style.textShadow);
+    if (markedText.style.textShadow) {
+        textPainter.setShadow(&markedText.style.textShadow.value());
+        if (lineStyle.hasAppleColorFilter())
+            textPainter.setShadowColorFilter(&lineStyle.appleColorFilter());
+    }
     textPainter.setEmphasisMark(emphasisMark, emphasisMarkOffset, combinedText());
 
+    TextRun textRun = createTextRun();
+    textPainter.setGlyphDisplayListIfNeeded(*this, paintInfo, font, context, textRun);
+
     GraphicsContextStateSaver stateSaver { context, false };
-    if (subrange.type == MarkerSubrange::DraggedContent) {
+    if (markedText.type == MarkedText::DraggedContent) {
         stateSaver.save();
-        context.setAlpha(subrange.style.alpha);
+        context.setAlpha(markedText.style.alpha);
     }
     // TextPainter wants the box rectangle and text origin of the entire line box.
-    auto text = this->text();
-    textPainter.paintRange(createTextRun(text), boxRect, textOriginFromBoxRect(boxRect), subrange.startOffset, subrange.endOffset);
+    textPainter.paintRange(textRun, boxRect, textOriginFromBoxRect(boxRect), markedText.startOffset, markedText.endOffset);
 }
 
-void InlineTextBox::paintTextSubrangeDecoration(GraphicsContext& context, const FloatRect& boxRect, const FloatRect& clipOutRect, const StyledMarkerSubrange& subrange)
+void InlineTextBox::paintMarkedTextDecoration(PaintInfo& paintInfo, const FloatRect& boxRect, const FloatRect& clipOutRect, const StyledMarkedText& markedText)
 {
     if (m_truncation == cFullTruncation)
         return;
 
-    updateGraphicsContext(context, subrange.style.textStyles);
+    GraphicsContext& context = paintInfo.context();
+    updateGraphicsContext(context, markedText.style.textStyles);
 
     bool isCombinedText = combinedText();
     if (isCombinedText)
         context.concatCTM(rotation(boxRect, Clockwise));
 
     // 1. Compute text selection
-    unsigned startOffset = subrange.startOffset;
-    unsigned endOffset = subrange.endOffset;
+    unsigned startOffset = markedText.startOffset;
+    unsigned endOffset = markedText.endOffset;
     if (startOffset >= endOffset)
         return;
 
     // Note that if the text is truncated, we let the thing being painted in the truncation
     // draw its own decoration.
-    auto text = this->text();
-    TextRun textRun = createTextRun(text);
+    TextRun textRun = createTextRun();
 
     // Avoid measuring the text when the entire line box is selected as an optimization.
     FloatRect snappedSelectionRect = boxRect;
@@ -1060,19 +1078,27 @@ void InlineTextBox::paintTextSubrangeDecoration(GraphicsContext& context, const 
     }
 
     // 2. Paint
-    TextDecorationPainter decorationPainter { context, static_cast<unsigned>(lineStyle().textDecorationsInEffect()), renderer(), isFirstLine(), subrange.style.textDecorationStyles };
+    TextDecorationPainter decorationPainter { context, lineStyle().textDecorationsInEffect(), renderer(), isFirstLine(), markedText.style.textDecorationStyles };
     decorationPainter.setInlineTextBox(this);
     decorationPainter.setFont(lineFont());
     decorationPainter.setWidth(snappedSelectionRect.width());
     decorationPainter.setBaseline(lineStyle().fontMetrics().ascent());
     decorationPainter.setIsHorizontal(isHorizontal());
-    decorationPainter.addTextShadow(subrange.style.textShadow);
+    if (markedText.style.textShadow) {
+        decorationPainter.setTextShadow(&markedText.style.textShadow.value());
+        if (lineStyle().hasAppleColorFilter())
+            decorationPainter.setShadowColorFilter(&lineStyle().appleColorFilter());
+    }
 
     {
         GraphicsContextStateSaver stateSaver { context, false };
-        if (!clipOutRect.isEmpty()) {
+        bool isDraggedContent = markedText.type == MarkedText::DraggedContent;
+        if (isDraggedContent || !clipOutRect.isEmpty()) {
             stateSaver.save();
-            context.clipOut(clipOutRect);
+            if (isDraggedContent)
+                context.setAlpha(markedText.style.alpha);
+            if (!clipOutRect.isEmpty())
+                context.clipOut(clipOutRect);
         }
         decorationPainter.paintTextDecoration(textRun.subRun(startOffset, endOffset - startOffset), textOriginFromBoxRect(snappedSelectionRect), snappedSelectionRect.location());
     }
@@ -1081,12 +1107,12 @@ void InlineTextBox::paintTextSubrangeDecoration(GraphicsContext& context, const 
         context.concatCTM(rotation(boxRect, Counterclockwise));
 }
 
-void InlineTextBox::paintCompositionBackground(GraphicsContext& context, const FloatPoint& boxOrigin)
+void InlineTextBox::paintCompositionBackground(PaintInfo& paintInfo, const FloatPoint& boxOrigin)
 {
-    paintTextSubrangeBackground(context, boxOrigin, Color::compositionFill, clampedOffset(renderer().frame().editor().compositionStart()), clampedOffset(renderer().frame().editor().compositionEnd()));
+    paintMarkedTextBackground(paintInfo, boxOrigin, Color::compositionFill, clampedOffset(renderer().frame().editor().compositionStart()), clampedOffset(renderer().frame().editor().compositionEnd()));
 }
 
-void InlineTextBox::paintCompositionUnderlines(GraphicsContext& context, const FloatPoint& boxOrigin) const
+void InlineTextBox::paintCompositionUnderlines(PaintInfo& paintInfo, const FloatPoint& boxOrigin) const
 {
     if (m_truncation == cFullTruncation)
         return;
@@ -1103,7 +1129,7 @@ void InlineTextBox::paintCompositionUnderlines(GraphicsContext& context, const F
             break; // Underline is completely after this run, bail. A later run will paint it.
 
         // Underline intersects this run. Paint it.
-        paintCompositionUnderline(context, boxOrigin, underline);
+        paintCompositionUnderline(paintInfo, boxOrigin, underline);
 
         if (underline.endOffset > end() + 1)
             break; // Underline also runs into the next run. Bail now, no more marker advancement.
@@ -1117,13 +1143,13 @@ static inline void mirrorRTLSegment(float logicalWidth, TextDirection direction,
     start = logicalWidth - width - start;
 }
 
-void InlineTextBox::paintCompositionUnderline(GraphicsContext& context, const FloatPoint& boxOrigin, const CompositionUnderline& underline) const
+void InlineTextBox::paintCompositionUnderline(PaintInfo& paintInfo, const FloatPoint& boxOrigin, const CompositionUnderline& underline) const
 {
     if (m_truncation == cFullTruncation)
         return;
     
     float start = 0; // start of line to draw, relative to tx
-    float width = m_logicalWidth; // how much line to draw
+    float width = logicalWidth(); // how much line to draw
     bool useWholeWidth = true;
     unsigned paintStart = m_start;
     unsigned paintEnd = end() + 1; // end points at the last char, not past it
@@ -1142,7 +1168,7 @@ void InlineTextBox::paintCompositionUnderline(GraphicsContext& context, const Fl
     }
     if (!useWholeWidth) {
         width = renderer().width(paintStart, paintEnd - paintStart, textPos() + start, isFirstLine());
-        mirrorRTLSegment(m_logicalWidth, direction(), start, width);
+        mirrorRTLSegment(logicalWidth(), direction(), start, width);
     }
 
     // Thick marked text underlines are 2px thick as long as there is room for the 2px line under the baseline.
@@ -1158,7 +1184,9 @@ void InlineTextBox::paintCompositionUnderline(GraphicsContext& context, const Fl
     start += 1;
     width -= 2;
 
-    context.setStrokeColor(underline.compositionUnderlineColor == CompositionUnderlineColor::TextColor ? renderer().style().visitedDependentColor(CSSPropertyWebkitTextFillColor) : underline.color);
+    GraphicsContext& context = paintInfo.context();
+    Color underlineColor = underline.compositionUnderlineColor == CompositionUnderlineColor::TextColor ? renderer().style().visitedDependentColorWithColorFilter(CSSPropertyWebkitTextFillColor) : renderer().style().colorByApplyingColorFilter(underline.color);
+    context.setStrokeColor(underlineColor);
     context.setStrokeThickness(lineThickness);
     context.drawLineForText(FloatPoint(boxOrigin.x() + start, boxOrigin.y() + logicalHeight() - lineThickness), width, renderer().document().printing());
 }
@@ -1192,8 +1220,7 @@ int InlineTextBox::offsetForPosition(float lineOffset, bool includePartialGlyphs
         return isLeftToRightDirection() ? 0 : len();
     bool ignoreCombinedText = true;
     bool ignoreHyphen = true;
-    auto text = this->text(ignoreCombinedText, ignoreHyphen);
-    return lineFont().offsetForPosition(createTextRun(text), lineOffset - logicalLeft(), includePartialGlyphs);
+    return lineFont().offsetForPosition(createTextRun(ignoreCombinedText, ignoreHyphen), lineOffset - logicalLeft(), includePartialGlyphs);
 }
 
 float InlineTextBox::positionForOffset(unsigned offset) const
@@ -1218,16 +1245,15 @@ float InlineTextBox::positionForOffset(unsigned offset) const
     LayoutRect selectionRect = LayoutRect(logicalLeft(), 0, 0, 0);
     bool ignoreCombinedText = true;
     bool ignoreHyphen = true;
-    auto text = this->text(ignoreCombinedText, ignoreHyphen);
-    TextRun textRun = createTextRun(text);
+    TextRun textRun = createTextRun(ignoreCombinedText, ignoreHyphen);
     lineFont().adjustSelectionRectForText(textRun, selectionRect, startOffset, endOffset);
     return snapRectToDevicePixelsWithWritingDirection(selectionRect, renderer().document().deviceScaleFactor(), textRun.ltr()).maxX();
 }
 
-TextRun InlineTextBox::createTextRun(String& string) const
+TextRun InlineTextBox::createTextRun(bool ignoreCombinedText, bool ignoreHyphen) const
 {
     const auto& style = lineStyle();
-    TextRun textRun { string, textPos(), expansion(), expansionBehavior(), direction(), dirOverride() || style.rtlOrdering() == VisualOrder, !renderer().canUseSimpleFontCodePath() };
+    TextRun textRun { text(ignoreCombinedText, ignoreHyphen), textPos(), expansion(), expansionBehavior(), direction(), dirOverride() || style.rtlOrdering() == Order::Visual, !renderer().canUseSimpleFontCodePath() };
     textRun.setTabSize(!style.collapseWhiteSpace(), style.tabSize());
     return textRun;
 }

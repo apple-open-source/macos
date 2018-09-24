@@ -47,12 +47,10 @@
 #import <AVFoundation/AVAssetTrack.h>
 #import <AVFoundation/AVTime.h>
 #import <VideoToolbox/VTUtilities.h>
-#import <map>
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <wtf/MainThread.h>
 #import <wtf/MediaTime.h>
 #import <wtf/NeverDestroyed.h>
-#import <wtf/OSObjectPtr.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/Vector.h>
 
@@ -204,7 +202,7 @@ SOFT_LINK_POINTER_OPTIONAL(AVFoundation, AVURLAssetUsesNoPersistentCacheKey, NSS
     if ([self canFulfillRequest:loadingRequest]) {
         [self fulfillRequest:loadingRequest];
         if (loadingRequest.finished)
-            return NO;
+            return YES;
     }
 
     [self enqueueRequest:loadingRequest];
@@ -320,7 +318,7 @@ ImageDecoderAVFObjCSample* toSample(Iterator iter)
 RefPtr<ImageDecoderAVFObjC> ImageDecoderAVFObjC::create(SharedBuffer& data, const String& mimeType, AlphaOption alphaOption, GammaAndColorProfileOption gammaAndColorProfileOption)
 {
     // AVFoundation may not be available at runtime.
-    if (!getAVURLAssetClass())
+    if (!AVFoundationMIMETypeCache::singleton().isAvailable())
         return nullptr;
 
     if (!canLoad_VideoToolbox_VTCreateCGImageFromCVPixelBuffer())
@@ -351,24 +349,17 @@ ImageDecoderAVFObjC::~ImageDecoderAVFObjC() = default;
 
 bool ImageDecoderAVFObjC::supportsMediaType(MediaType type)
 {
-    if (type == MediaType::Video)
-        return getAVURLAssetClass() && canLoad_VideoToolbox_VTCreateCGImageFromCVPixelBuffer();
-    return false;
+    return type == MediaType::Video && AVFoundationMIMETypeCache::singleton().isAvailable();
 }
 
 bool ImageDecoderAVFObjC::supportsContentType(const ContentType& type)
 {
-    if (getAVURLAssetClass() && canLoad_VideoToolbox_VTCreateCGImageFromCVPixelBuffer())
-        return AVFoundationMIMETypeCache::singleton().types().contains(type.containerType());
-    return false;
+    return AVFoundationMIMETypeCache::singleton().supportsContentType(type);
 }
 
 bool ImageDecoderAVFObjC::canDecodeType(const String& mimeType)
 {
-    if (!supportsMediaType(MediaType::Video))
-        return nullptr;
-
-    return [getAVURLAssetClass() isPlayableExtendedMIMEType:mimeType];
+    return AVFoundationMIMETypeCache::singleton().canDecodeType(mimeType);
 }
 
 AVAssetTrack *ImageDecoderAVFObjC::firstEnabledTrack()
@@ -448,14 +439,14 @@ bool ImageDecoderAVFObjC::storeSampleBuffer(CMSampleBufferRef sampleBuffer)
         }
 
         if (!m_rotationPool) {
-            auto pixelAttributes = (CFDictionaryRef)@{
-                (NSString *)kCVPixelBufferWidthKey: @(m_size.value().width()),
-                (NSString *)kCVPixelBufferHeightKey: @(m_size.value().height()),
-                (NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA),
-                (NSString *)kCVPixelBufferCGImageCompatibilityKey: @YES,
+            auto pixelAttributes = @{
+                (__bridge NSString *)kCVPixelBufferWidthKey: @(m_size.value().width()),
+                (__bridge NSString *)kCVPixelBufferHeightKey: @(m_size.value().height()),
+                (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA),
+                (__bridge NSString *)kCVPixelBufferCGImageCompatibilityKey: @YES,
             };
             CVPixelBufferPoolRef rawPool = nullptr;
-            CVPixelBufferPoolCreate(kCFAllocatorDefault, nullptr, pixelAttributes, &rawPool);
+            CVPixelBufferPoolCreate(kCFAllocatorDefault, nullptr, (__bridge CFDictionaryRef)pixelAttributes, &rawPool);
             m_rotationPool = adoptCF(rawPool);
         }
 
@@ -671,7 +662,7 @@ void ImageDecoderAVFObjC::clearFrameBufferCache(size_t index)
 
 const ImageDecoderAVFObjCSample* ImageDecoderAVFObjC::sampleAtIndex(size_t index) const
 {
-    if (index >= m_sampleData.size())
+    if (index >= m_sampleData.presentationOrder().size())
         return nullptr;
 
     // FIXME: std::map is not random-accessible; this can get expensive if callers repeatedly call
@@ -680,7 +671,7 @@ const ImageDecoderAVFObjCSample* ImageDecoderAVFObjC::sampleAtIndex(size_t index
     auto iter = m_sampleData.presentationOrder().begin();
     for (size_t i = 0; i != index; ++i)
         ++iter;
-    
+
     return toSample(iter);
 }
 

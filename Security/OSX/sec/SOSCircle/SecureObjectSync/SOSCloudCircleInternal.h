@@ -59,14 +59,6 @@ bool SOSCCAccountHasPublicKey(CFErrorRef *error);
 bool SOSCCAccountIsNew(CFErrorRef *error);
 
 /*!
- @function SOSCCHandleIDSMessage
- @abstract Handles an IDS message from KeychainSyncingOverIDSProxy
- @param IDS The incoming IDS message
- @param error What went wrong if we returned false
- */
-HandleIDSMessageReason SOSCCHandleIDSMessage(CFDictionaryRef IDS, CFErrorRef* error);
-
-/*!
  @function SOSCCProcessSyncWithPeers
  @abstract Returns the peers for whom we handled syncing from the list send to us.
  @param peers Set of peerIDs to sync with
@@ -102,29 +94,6 @@ bool SOSCCCleanupKVSKeys(CFErrorRef *error);
 SOSPeerInfoRef SOSCCCopyMyPeerInfo(CFErrorRef *error);
 
 /*!
- @function SOSCCIDSServiceRegistrationTest
- @abstract Attempts to send a message over IDS to test IDS service set up
- @param message The message to send over IDS
- @param error What went wrong if we returned false
- */
-bool SOSCCIDSServiceRegistrationTest(CFStringRef message, CFErrorRef *error);
-
-/*!
- @function SOSCCIDSPingTest
- @abstract Attempts to ping devices within an IDS Account, check device availability
- @param message The message to send over IDS
- @param error What went wrong if we returned false
- */
-bool SOSCCIDSPingTest(CFStringRef message, CFErrorRef *error);
-
-/*!
- @function SOSCCIDSDeviceIDIsAvailableTest
- @abstract Attempts to communicate with KeychainSyncingOverIDSProxy to retrieve the device ID using IDS framework
- @param error What went wrong if we returned false
- */
-bool SOSCCIDSDeviceIDIsAvailableTest(CFErrorRef *error);
-
-/*!
  @function SOSWrapToBackupSliceKeyBagForView
  @abstract Encrypts the given plaintext, and wraps the encryption key to the backup slice keybag for this view
  @param viewName The view to wrap to
@@ -142,11 +111,8 @@ CFDataRef SOSCCCopyAccountState(CFErrorRef* error);
 bool SOSCCDeleteAccountState(CFErrorRef *error);
 CFDataRef SOSCCCopyEngineData(CFErrorRef* error);
 bool SOSCCDeleteEngineState(CFErrorRef *error);
-bool SOSCCRequestSyncWithPeerOverKVS( CFStringRef peerID, CFDataRef message, CFErrorRef *error);
-bool SOSCCClearPeerMessageKeyInKVS(CFStringRef peerID, CFErrorRef *error);
 CFDataRef SOSCCCopyRecoveryPublicKey(CFErrorRef *error);
 CFDictionaryRef SOSCCCopyBackupInformation(CFErrorRef *error);
-bool SOSCCRequestSyncWithPeerOverKVSUsingIDOnly(CFStringRef peerID, CFErrorRef *error);
 bool SOSCCTestPopulateKVSWithBadKeys(CFErrorRef *error);
 CFDataRef SOSCCCopyInitialSyncData(CFErrorRef *error);
 

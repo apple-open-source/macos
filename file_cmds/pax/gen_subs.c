@@ -147,10 +147,20 @@ ls_list(ARCHD *arcn, time_t now, FILE *fp)
 #		endif
 		    (unsigned long)MINOR(sbp->st_rdev));
 	else {
+		/*
+		 * UNIX compliance fix: printing filename length for soft links
+		 * from arcn->ln_nlen instead of sbp->st_size, which is 0.
+		 */
+		off_t nlen;
+		if (arcn->type == PAX_SLK) {
+			nlen = arcn->ln_nlen;
+		} else {
+			nlen = sbp->st_size;
+		}
 #		ifdef LONG_OFF_T
-		(void)fprintf(fp, "%9lu ", sbp->st_size);
+		(void)fprintf(fp, "%9lu ", nlen);
 #		else
-		(void)fprintf(fp, "%9qu ", sbp->st_size);
+		(void)fprintf(fp, "%9qu ", nlen);
 #		endif
 	}
 

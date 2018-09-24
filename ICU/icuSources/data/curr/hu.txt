@@ -226,6 +226,10 @@ hu{
             "CLP",
             "chilei peso",
         }
+        CNH{
+            "CNH",
+            "kínai jüan (offshore)",
+        }
         CNY{
             "CNY",
             "kínai jüan",
@@ -612,6 +616,10 @@ hu{
         }
         MRO{
             "MRO",
+            "mauritániai ouguiya (1973–2017)",
+        }
+        MRU{
+            "MRU",
             "mauritániai ouguiya",
         }
         MTL{
@@ -840,6 +848,10 @@ hu{
         }
         STD{
             "STD",
+            "São Tomé és Príncipe-i dobra (1977–2017)",
+        }
+        STN{
+            "STN",
             "São Tomé és Príncipe-i dobra",
         }
         SUR{
@@ -1178,6 +1190,7 @@ hu{
         PKR{"Rs"}
         PLN{"zł"}
         PYG{"₲"}
+        RON{"lei"}
         RUB{"₽"}
         RWF{"RF"}
         SBD{"$"}
@@ -1186,7 +1199,7 @@ hu{
         SHP{"£"}
         SRD{"$"}
         SSP{"£"}
-        STD{"Db"}
+        STN{"Db"}
         SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
@@ -1410,6 +1423,10 @@ hu{
         CLP{
             one{"chilei peso"}
             other{"chilei peso"}
+        }
+        CNH{
+            one{"kínai jüan (offshore)"}
+            other{"kínai jüan (offshore)"}
         }
         CNY{
             one{"kínai jüan"}
@@ -1664,6 +1681,10 @@ hu{
             other{"makaói pataca"}
         }
         MRO{
+            one{"mauritániai ouguiya (1973–2017)"}
+            other{"mauritániai ouguiya (1973–2017)"}
+        }
+        MRU{
             one{"mauritániai ouguiya"}
             other{"mauritániai ouguiya"}
         }
@@ -1832,6 +1853,10 @@ hu{
             other{"dél-szudáni font"}
         }
         STD{
+            one{"São Tomé és Príncipe-i dobra (1977–2017)"}
+            other{"São Tomé és Príncipe-i dobra (1977–2017)"}
+        }
+        STN{
             one{"São Tomé és Príncipe-i dobra"}
             other{"São Tomé és Príncipe-i dobra"}
         }
@@ -2012,5 +2037,5 @@ hu{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

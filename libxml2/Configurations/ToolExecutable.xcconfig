@@ -1,6 +1,9 @@
 PRODUCT_NAME = $(TARGET_NAME);
 INSTALL_PATH = /usr/local/libexec/libxml2;
 
+// Override HEADER_SEARCH_PATHS from Base.xcconfig for test tool executables.
+HEADER_SEARCH_PATHS = "$(SRCROOT)/Pregenerated Files/include" $(SRCROOT)/libxml2/include;
+
 // Export 'main' for Libxml2XCTests.xctest.
 GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 OTHER_LDFLAGS = $(inherited) -Xlinker -exported_symbol -Xlinker _main;

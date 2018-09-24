@@ -35,8 +35,7 @@
 #include "NativeWebWheelEvent.h"
 #include "WebPageGroup.h"
 #include "WebProcessPool.h"
-#include <JavaScriptCore/JSBase.h>
-#include <wpe/view-backend.h>
+#include <wpe/wpe.h>
 
 using namespace WebKit;
 
@@ -88,7 +87,12 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
         {
             auto& view = *reinterpret_cast<View*>(data);
             view.frameDisplayed();
-        }
+        },
+        // padding
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
     };
     wpe_view_backend_set_backend_client(m_backend, &s_backendClient, this);
 
@@ -125,6 +129,11 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
             auto& page = reinterpret_cast<View*>(data)->page();
             page.handleTouchEvent(WebKit::NativeWebTouchEvent(event, page.deviceScaleFactor()));
         },
+        // padding
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
     };
     wpe_view_backend_set_input_client(m_backend, &s_inputClient, this);
 
@@ -156,16 +165,11 @@ void View::handleDownloadRequest(DownloadProxy& download)
     m_client->handleDownloadRequest(*this, download);
 }
 
-JSGlobalContextRef View::javascriptGlobalContext()
-{
-    return m_client->javascriptGlobalContext();
-}
-
 void View::setSize(const WebCore::IntSize& size)
 {
     m_size = size;
     if (m_pageProxy->drawingArea())
-        m_pageProxy->drawingArea()->setSize(size, WebCore::IntSize(), WebCore::IntSize());
+        m_pageProxy->drawingArea()->setSize(size);
 }
 
 void View::setViewState(WebCore::ActivityState::Flags flags)

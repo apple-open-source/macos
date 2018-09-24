@@ -49,7 +49,6 @@ DISABLED_ONE_TEST(si_77_SecAccessControl)
 ONE_TEST(si_78_query_attrs)
 ONE_TEST(si_80_empty_data)
 ONE_TEST(si_82_token_ag)
-ONE_TEST(si_89_cms_hash_agility)
 ONE_TEST(si_90_emcs)
 ONE_TEST(si_95_cms_basic)
 

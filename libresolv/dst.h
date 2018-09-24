@@ -1,6 +1,8 @@
 #ifndef DST_H
 #define DST_H
 
+#pragma GCC visibility push(hidden)
+
 #ifndef HAS_DST_KEY
 #define DST_KEY RES_9_DST_KEY
 typedef struct dst_key {
@@ -152,5 +154,7 @@ u_int16_t dst_s_id_calc(const u_char *key_data, const int key_len);
 #define VERIFY_FINAL_FAILURE	(-28)
 #define MISSING_KEY_OR_SIGNATURE (-30)
 #define UNSUPPORTED_KEYALG	(-31)
+
+#pragma GCC visibility pop
 
 #endif /* DST_H */

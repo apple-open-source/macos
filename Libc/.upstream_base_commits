@@ -37,6 +37,8 @@ stdio/FreeBSD/fmemopen.c	freebsd	lib/libc/stdio/fmemopen.c	89c1fcc0d088065021703
 stdio/FreeBSD/open_memstream.3	freebsd	lib/libc/stdio/open_memstream.3	89c1fcc0d088065021703b658ef547f46b5481f0
 stdio/FreeBSD/open_memstream.c	freebsd	lib/libc/stdio/open_memstream.c	89c1fcc0d088065021703b658ef547f46b5481f0
 stdio/FreeBSD/open_wmemstream.c	freebsd	lib/libc/stdio/open_wmemstream.c	89c1fcc0d088065021703b658ef547f46b5481f0
+stdio/FreeBSD/makebuf.c	freebsd	lib/libc/stdio/makebuf.c	c956a7530cd8282a920a11e1088adbb250169c06
+stdio/FreeBSD/makebuf.c	netbsd	lib/libc/stdio/makebuf.c	72b46443582ea9efbf25ede3b8f56c6646478d71
 stdio/FreeBSD/mktemp.3	freebsd	lib/libc/stdio/mktemp.3	2895e1352cf3788606924d800c3a5c589520ea00
 stdio/FreeBSD/mktemp.c	freebsd	lib/libc/stdio/mktemp.c	2895e1352cf3788606924d800c3a5c589520ea00
 stdio/FreeBSD/printf.3	freebsd	lib/libc/stdio/printf.3	cfc3df2b8f708ce8494d9d556e3472a5c8c21b8a

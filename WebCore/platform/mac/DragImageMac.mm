@@ -29,6 +29,7 @@
 #if ENABLE(DRAG_SUPPORT) && PLATFORM(MAC)
 
 #import "BitmapImage.h"
+#import "ColorMac.h"
 #import "Element.h"
 #import "FloatRoundedRect.h"
 #import "FontCascade.h"
@@ -36,15 +37,18 @@
 #import "FontSelector.h"
 #import "GraphicsContext.h"
 #import "Image.h"
+#import "LocalDefaultSystemAppearance.h"
+#import "Page.h"
 #import "StringTruncator.h"
 #import "TextIndicator.h"
 #import "URL.h"
+#import "WebKitNSImageExtras.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/CoreTextSPI.h>
-#import <pal/spi/cocoa/LinkPresentationSPI.h>
+#import <pal/spi/cocoa/URLFormattingSPI.h>
 #import <wtf/SoftLinking.h>
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+#if !HAVE(URL_FORMATTING) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
 SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(LinkPresentation)
 #endif
 
@@ -199,7 +203,9 @@ LinkImageLayout::LinkImageLayout(URL& url, const String& titleString)
     NSString *absoluteURLString = [cocoaURL absoluteString];
 
     NSString *domain = absoluteURLString;
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+#if HAVE(URL_FORMATTING)
+    domain = [cocoaURL _lp_simplifiedDisplayString];
+#elif __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     if (LinkPresentationLibrary())
         domain = [cocoaURL _lp_simplifiedDisplayString];
 #endif
@@ -291,16 +297,20 @@ LinkImageLayout::LinkImageLayout(URL& url, const String& titleString)
     boundingRect.setHeight((static_cast<int>(boundingRect.height() / 2) * 2));
 }
 
-DragImageRef createDragImageForLink(Element&, URL& url, const String& title, TextIndicatorData&, FontRenderingMode, float)
+DragImageRef createDragImageForLink(Element& element, URL& url, const String& title, TextIndicatorData&, FontRenderingMode, float deviceScaleFactor)
 {
     LinkImageLayout layout(url, title);
+
+    Page* page = element.document().page();
+
+    LocalDefaultSystemAppearance localAppearance(true, page ? page->useDarkAppearance() : false);
 
     auto imageSize = layout.boundingRect.size();
 #if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
     imageSize.expand(2 * linkImageShadowRadius, 2 * linkImageShadowRadius - linkImageShadowOffsetY);
 #endif
     RetainPtr<NSImage> dragImage = adoptNS([[NSImage alloc] initWithSize:imageSize]);
-    [dragImage lockFocus];
+    [dragImage _web_lockFocusWithDeviceScaleFactor:deviceScaleFactor];
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -311,7 +321,7 @@ DragImageRef createDragImageForLink(Element&, URL& url, const String& title, Tex
     context.translate(linkImageShadowRadius, linkImageShadowRadius - linkImageShadowOffsetY);
     context.setShadow({ 0, linkImageShadowOffsetY }, linkImageShadowRadius, { 0.f, 0.f, 0.f, .25 });
 #endif
-    context.fillRoundedRect(FloatRoundedRect(layout.boundingRect, FloatRoundedRect::Radii(linkImageCornerRadius)), Color::white);
+    context.fillRoundedRect(FloatRoundedRect(layout.boundingRect, FloatRoundedRect::Radii(linkImageCornerRadius)), colorFromNSColor([NSColor controlBackgroundColor]));
 #if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
     context.clearShadow();
 #endif

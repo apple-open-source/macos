@@ -238,9 +238,12 @@ SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
 #else
     {
         size_t keysize = (cinfo->keysize + 7)/8;
-        uint8_t key_material[keysize];
+        uint8_t *key_material = (uint8_t *)malloc(keysize);
+        if (!key_material) {
+            goto loser;
+        }
         require_noerr(SecRandomCopyBytes(kSecRandomDefault, keysize, key_material), loser);
-        bulkkey = (SecSymmetricKeyRef)CFDataCreate(kCFAllocatorDefault, key_material, keysize);
+        bulkkey = (SecSymmetricKeyRef)CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, key_material, keysize, kCFAllocatorMalloc);
     }
 #endif
 

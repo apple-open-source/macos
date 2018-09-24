@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -872,7 +872,7 @@ dict_add_tlv_as_string(CFMutableDictionaryRef dict, CFStringRef key, TLVRef tlv)
 STATIC OSStatus
 pac_keychain_init_items(bool system_mode,
 			const uint8_t * initiator, int initiator_length,
-			CFDataRef * initiator_p, SecAccessRef * access_p,
+			CFDataRef * initiator_p, EAPSecAccessRef * access_p,
 			CFDataRef * descr_p, CFDataRef * label_p)
 {
     OSStatus		status = noErr;
@@ -926,9 +926,9 @@ pac_keychain_item_create(bool system_mode,
 			 const uint8_t * password, int password_length,
 			 const uint8_t * initiator, int initiator_length)
 {
-    SecAccessRef	access = NULL;
+    EAPSecAccessRef	access = NULL;
     CFDataRef		descr = NULL;
-    SecKeychainRef	keychain = NULL;
+    EAPSecKeychainRef	keychain = NULL;
     CFDataRef		label = NULL;
     CFDataRef		initiator_cf = NULL;
     CFDataRef		password_cf = NULL;
@@ -983,9 +983,9 @@ pac_keychain_item_recreate(bool system_mode,
 			   CFDataRef password_cf,
 			   const uint8_t * initiator, int initiator_length)
 {
-    SecAccessRef	access = NULL;
+    EAPSecAccessRef	access = NULL;
     CFDataRef		descr = NULL;
-    SecKeychainRef	keychain = NULL;
+    EAPSecKeychainRef	keychain = NULL;
     CFDataRef		label = NULL;
     CFDataRef		initiator_cf = NULL;
     OSStatus		status;

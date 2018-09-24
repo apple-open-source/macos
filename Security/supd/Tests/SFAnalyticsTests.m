@@ -22,8 +22,10 @@
  */
 
 #import <XCTest/XCTest.h>
-#import "SFAnalytics.h"
+#import <Security/SFAnalytics.h>
 #import "SFAnalyticsDefines.h"
+#import "SFAnalyticsSQLiteStore.h"
+#import "SFSQLite.h"
 #import <Prequelite/Prequelite.h>
 #import <CoreFoundation/CFPriv.h>
 #import <notify.h>
@@ -241,6 +243,22 @@ static NSString* product = NULL;
 - (void)testDbIsEmptyAtStartup
 {
     [self assertNoEventsAnywhere];
+}
+
+- (void)testDontCrashWithEmptyDBPath
+{
+    NSString* schema = @"CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY AUTOINCREMENT,data BLOB);";
+    NSString* path = [NSString stringWithFormat:@"%@/empty", _path];
+
+    XCTAssertNil([SFAnalyticsSQLiteStore storeWithPath:nil schema:schema]);
+    XCTAssertNil([SFAnalyticsSQLiteStore storeWithPath:@"" schema:schema]);
+    XCTAssertNil([SFAnalyticsSQLiteStore storeWithPath:path schema:nil]);
+    XCTAssertNil([SFAnalyticsSQLiteStore storeWithPath:path schema:@""]);
+
+    XCTAssertNil([[SFSQLite alloc] initWithPath:nil schema:schema]);
+    XCTAssertNil([[SFSQLite alloc] initWithPath:@"" schema:schema]);
+    XCTAssertNil([[SFSQLite alloc] initWithPath:path schema:nil]);
+    XCTAssertNil([[SFSQLite alloc] initWithPath:path schema:@""]);
 }
 
 - (void)testAddingEventsWithNilName
@@ -626,7 +644,7 @@ static NSString* product = NULL;
     }
 
 
-    [self checkSamples:@[@(0.3f * NSEC_PER_SEC)] name:trackerName totalSamples:1 accuracy:(0.01f * NSEC_PER_SEC)];
+    [self checkSamples:@[@(0.3f * NSEC_PER_SEC)] name:trackerName totalSamples:1 accuracy:(0.05f * NSEC_PER_SEC)];
 }
 
 - (void)testTrackerMultipleBlocks
@@ -670,8 +688,6 @@ static NSString* product = NULL;
 
     [self checkSamples:@[@(0.2f * NSEC_PER_SEC)] name:trackerName totalSamples:1 accuracy:(0.1f * NSEC_PER_SEC)];
 }
-
-
 
 - (void)testTrackerCancel
 {

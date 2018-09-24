@@ -47,6 +47,7 @@
 
 #include <libkern/OSTypes.h>
 #include <IOKit/hidsystem/IOHIDTypes.h>
+#include <mach/mach_types.h>
 
 #ifdef EVENT_H		/* Interlock with dpsclient/event.h */
 #if !defined(_NXSIZE_)	/* Work around patch for old event.h in Phase 3 projs*/
@@ -569,9 +570,11 @@ typedef struct _NXEvent {
 #define  NX_EVENT_EXTENSION_LOCATION_TYPE_FLOAT         0x2
 #define  NX_EVENT_EXTENSION_LOCATION_DEVICE_SCALED      0x4
 #define  NX_EVENT_EXTENSION_MOUSE_DELTA_TYPE_FLOAT      0x8
+#define  NX_EVENT_EXTENSION_AUDIT_TOKEN                 0x10
 
 typedef struct _NXEventExtension {
     UInt32              flags;
+    audit_token_t       audit;
 } NXEventExtension;
 
 typedef struct _NXEventExt {

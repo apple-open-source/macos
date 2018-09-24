@@ -103,9 +103,6 @@ private:
     const char* renderName() const override;
     void addFragmentToThread(RenderFragmentContainer*) override;
     void willBeRemovedFromTree() override;
-    RenderObject* resolveMovedChild(RenderObject* child) const override;
-    void fragmentedFlowDescendantInserted(RenderObject&) override;
-    void fragmentedFlowRelativeWillBeRemoved(RenderObject&) override;
     void fragmentedFlowDescendantBoxLaidOut(RenderBox*) override;
     LogicalExtentComputedValues computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const override;
     LayoutUnit initialLogicalWidth() const override;
@@ -115,9 +112,6 @@ private:
     void setFragmentRangeForBox(const RenderBox&, RenderFragmentContainer*, RenderFragmentContainer*) override;
     bool addForcedFragmentBreak(const RenderBlock*, LayoutUnit, RenderBox* breakChild, bool isBefore, LayoutUnit* offsetBreakAdjustment = 0) override;
     bool isPageLogicalHeightKnown() const override;
-
-    void handleSpannerRemoval(RenderObject& spanner);
-    RenderObject* processPossibleSpannerDescendant(RenderObject*& subtreeRoot, RenderObject& descendant);
 
 private:
     std::unique_ptr<SpannerMap> m_spannerMap;
@@ -137,8 +131,6 @@ private:
     
     bool m_progressionIsInline;
     bool m_progressionIsReversed;
-    
-    static bool gShiftingSpanner;
 };
 
 } // namespace WebCore

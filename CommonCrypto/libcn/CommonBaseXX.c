@@ -25,8 +25,8 @@
 #include <CommonNumerics/CommonBaseXX.h>
 #include "ccMemory.h"
 #include "CommonBufferingPriv.h"
-#include "../lib/ccGlobals.h"
-#include "../lib/cc_macros_priv.h"
+#include "ccGlobals.h"
+#include "cc_macros_priv.h"
 
 const static encoderConstants encoderValue[] = {
     { 16, 4, 1, 2, 0x0f }, // Base16
@@ -47,7 +47,7 @@ typedef struct _CNEncoder {
 
 #define DEFAULTPAD		'='
 
-const static BaseEncoder defaultBase64 = {
+const BaseEncoder defaultBase64 = {
     .name = "Base64",
     .encoding = kCNEncodingBase64,
     .baseNum = 64,
@@ -57,7 +57,7 @@ const static BaseEncoder defaultBase64 = {
 };
 
 // RFC 4678 Base32Alphabet
-const static BaseEncoder defaultBase32 = {
+const BaseEncoder defaultBase32 = {
     .name = "Base32",
     .encoding = kCNEncodingBase32,
     .baseNum = 32,
@@ -66,7 +66,7 @@ const static BaseEncoder defaultBase32 = {
     .values = &encoderValue[1]
 };
 
-const static BaseEncoder recoveryBase32 = {
+const BaseEncoder recoveryBase32 = {
     .name = "RecoveryBase32",
     .encoding = kCNEncodingBase32Recovery,
     .baseNum = 32,
@@ -75,7 +75,7 @@ const static BaseEncoder recoveryBase32 = {
     .values = &encoderValue[1]
 };
 
-const static BaseEncoder hexBase32 = {
+const BaseEncoder hexBase32 = {
     .name = "Base32Hex",
     .encoding = kCNEncodingBase32HEX,
     .baseNum = 32,
@@ -85,7 +85,7 @@ const static BaseEncoder hexBase32 = {
 };
 
 
-const static BaseEncoder defaultBase16 = {
+const BaseEncoder defaultBase16 = {
     .name = "Base16",
     .encoding = kCNEncodingBase16,
     .baseNum = 16,
@@ -247,49 +247,12 @@ enCode(void *ctx, const void *in, size_t srcLen, void *out, size_t *destLen)
     return 0;
 }
 
-static void setReverseMap(CoderFrame frame)
-{
-    int i;
-    CC_XMEMSET(frame->reverseMap, 0x80, 256);
-    for(i=0; i<frame->encoderRef->baseNum; i++) {
-        int idx;
-        idx = frame->encoderRef->charMap[i];
-        frame->reverseMap[idx] = (uint8_t)i;
-    }
-}
-
-static void init_globals(__unused void *e){
-    cc_globals_t globals = _cc_globals();
-    
-    for(int i=0; i<CN_STANDARD_BASE_ENCODERS; i++)
-        globals->encoderTab[i].encoderRef = NULL;
-    
-    globals->encoderTab[kCNEncodingBase64].encoderRef = &defaultBase64;
-    globals->encoderTab[kCNEncodingBase32].encoderRef = &defaultBase32;
-    globals->encoderTab[kCNEncodingBase32Recovery].encoderRef = &recoveryBase32;
-    globals->encoderTab[kCNEncodingBase32HEX].encoderRef = &hexBase32;
-    globals->encoderTab[kCNEncodingBase16].encoderRef = &defaultBase16;
-}
-
-static void init_globals_malloc(void *e)
-{
-    cc_globals_t globals = _cc_globals();
-    CNEncodings encoding = *(CNEncodings *)e;
-    
-    globals->encoderTab[encoding].reverseMap = CC_XMALLOC(256);
-    if(globals->encoderTab[encoding].reverseMap)
-        setReverseMap(&globals->encoderTab[encoding]);
-}
-
 static CoderFrame
 getCodeFrame(CNEncodings encoding)
 {
-    cc_globals_t globals = _cc_globals();
     if(encoding >= CN_STANDARD_BASE_ENCODERS) return NULL;
-    cc_dispatch_once(&globals->basexx_init, &encoding, init_globals);
-    cc_dispatch_once(&globals->encoderTab[encoding].encoderInit, &encoding, init_globals_malloc);
-    if(NULL == globals->encoderTab[encoding].reverseMap) return NULL;
     
+    cc_globals_t globals = _cc_globals();
     return &globals->encoderTab[encoding];
 }
 
@@ -333,8 +296,18 @@ CNStatus CNEncoderCreate(CNEncodings encoding,
 }
 
 
-CNStatus CNEncoderCreateCustom(
-                               const void *name,
+void setReverseMap(CoderFrame frame)
+{
+    int i;
+    CC_XMEMSET(frame->reverseMap, 0x80, CC_BASE_REVERSE_MAP_SIZE);
+    for(i=0; i<frame->encoderRef->baseNum; i++) {
+        int idx;
+        idx = (unsigned char)frame->encoderRef->charMap[i];
+        frame->reverseMap[idx] = (uint8_t)i;
+    }
+}
+
+CNStatus CNEncoderCreateCustom(const void *name,
                                const uint8_t baseNum,
                                const void *charMap,
                                const char padChar,
@@ -349,7 +322,7 @@ CNStatus CNEncoderCreateCustom(
     CoderFrame codeFrame = CC_XMALLOC(sizeof(BaseEncoderFrame));
     BaseEncoderRefCustom customEncoder = CC_XMALLOC(sizeof(BaseEncoder));
     CNEncoder *coderRef = CC_XMALLOC(sizeof(CNEncoder));
-    if(codeFrame) codeFrame->reverseMap = CC_XMALLOC(256);
+
     if(coderRef) {
         coderRef->base256buffer = NULL;
         coderRef->baseXXbuffer = NULL;
@@ -357,7 +330,6 @@ CNStatus CNEncoderCreateCustom(
     
     CNStatus retval = kCNMemoryFailure;
     if(!codeFrame || !customEncoder || !coderRef) goto errOut;
-    if(!codeFrame->reverseMap) goto errOut;
     
     customEncoder->baseNum = baseNum;
     customEncoder->values = &encoderValue[baseNum/32];
@@ -379,14 +351,8 @@ CNStatus CNEncoderCreateCustom(
     return kCNSuccess;
     
 errOut:
-    if(codeFrame) {
-        if(codeFrame->reverseMap) CC_XFREE(codeFrame->reverseMap, 256);
-        CC_XFREE(codeFrame, sizeof(BaseEncoderFrame));
-    }
-    
-    if(customEncoder) {
-        CC_XFREE(customEncoder, sizeof(BaseEncoder));
-    }
+    CC_XFREE(codeFrame, sizeof(BaseEncoderFrame));
+    CC_XFREE(customEncoder, sizeof(BaseEncoder));
     
     if(coderRef) {
         if(coderRef->base256buffer) CNBufferRelease(&coderRef->base256buffer);
@@ -404,7 +370,6 @@ CNStatus CNEncoderRelease(CNEncoderRef *encoderRef)
     if(coderRef) {
         CoderFrame codeFrame = coderRef->coderFrame;
         if(codeFrame->encoderRef && kCNEncodingCustom == codeFrame->encoderRef->encoding) {
-            CC_XFREE(codeFrame->reverseMap, 256);
             BaseEncoderRefCustom customRef = (BaseEncoderRefCustom) codeFrame->encoderRef;
             CC_XFREE((void *) customRef, sizeof(BaseEncoder));
         }

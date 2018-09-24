@@ -50,9 +50,17 @@
 #import "VisibleUnits.h"
 #import <pal/spi/ios/DataDetectorsUISPI.h>
 #import <pal/spi/mac/DataDetectorsSPI.h>
+#import <wtf/cf/TypeCastsCF.h>
 #import <wtf/text/StringBuilder.h>
 
 #import "DataDetectorsCoreSoftLink.h"
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+template <>
+struct WTF::CFTypeTrait<DDResultRef> {
+    static inline CFTypeID typeID(void) { return DDResultGetCFTypeID(); }
+};
+#endif
 
 namespace WebCore {
 
@@ -78,8 +86,11 @@ static RetainPtr<DDActionContext> detectItemAtPositionWithRange(VisiblePosition 
     RefPtr<Range> mainResultRange;
     CFIndex resultCount = CFArrayGetCount(results.get());
     for (CFIndex i = 0; i < resultCount; i++) {
-        // FIXME: <rdar://problem/36241894> Implement checked cast for DDResultRef once DDResultGetTypeID() is available
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+        DDResultRef result = checked_cf_cast<DDResultRef>(CFArrayGetValueAtIndex(results.get(), i));
+#else
         DDResultRef result = static_cast<DDResultRef>(const_cast<CF_BRIDGED_TYPE(id) void*>(CFArrayGetValueAtIndex(results.get(), i)));
+#endif
         CFRange resultRangeInContext = DDResultGetRange(result);
         if (hitLocation >= resultRangeInContext.location && (hitLocation - resultRangeInContext.location) < resultRangeInContext.length) {
             mainResult = result;
@@ -92,7 +103,7 @@ static RetainPtr<DDActionContext> detectItemAtPositionWithRange(VisiblePosition 
         return nullptr;
 
     RetainPtr<DDActionContext> actionContext = adoptNS([allocDDActionContextInstance() init]);
-    [actionContext setAllResults:@[ (id)mainResult ]];
+    [actionContext setAllResults:@[ (__bridge id)mainResult ]];
     [actionContext setMainResult:mainResult];
 
     Vector<FloatQuad> quads;
@@ -238,7 +249,7 @@ static NSString *constructURLStringForResult(DDResultRef currentResult, NSString
 
 static void removeResultLinksFromAnchor(Element& element)
 {
-    // Perform a depth-first search for anchor nodes, which have the DDURLScheme attribute set to true,
+    // Perform a depth-first search for anchor nodes, which have the data detectors attribute set to true,
     // take their children and insert them before the anchor, and then remove the anchor.
 
     // Note that this is not using ElementChildIterator because we potentially prepend children as we iterate over them.

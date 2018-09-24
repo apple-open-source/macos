@@ -2,6 +2,7 @@ perf/perf.launchtime.ksh
 perf/perf.fbt_probes.ksh
 perf/perf.overhead.exe
 perf/perf.probes.ksh
+perf/perf.usdt_overhead.exe
 aggs/err.D_AGG_FUNC.bad.d
 aggs/err.D_AGG_MDIM.bad.d
 aggs/err.D_AGG_NULL.bad.d
@@ -533,6 +534,7 @@ multiaggs/tst.tuplecompat.d
 multiaggs/tst.zero.d
 multiaggs/tst.zero2.d
 multiaggs/tst.zero3.d
+objc/tst.TrampolineBlacklist.ksh
 offsetof/err.D_OFFSETOF_BITFIELD.bitfield.d
 offsetof/err.D_OFFSETOF_TYPE.badtype.d
 offsetof/err.D_OFFSETOF_TYPE.notsou.d

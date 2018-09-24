@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1999, 2012-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include "libinfo_common.h"
+
 #include <dns_sd.h>
 #include <errno.h>
 
@@ -42,8 +44,10 @@ extern int h_errno;
 #else
 #define RES_9_STATE_SIZE 512
 #endif
+LIBINFO_EXPORT
 char _res[RES_9_STATE_SIZE] = {0};
 
+LIBINFO_EXPORT
 int
 res_init(void)
 {
@@ -124,12 +128,14 @@ _mdns_query(int call, const char *name, int class, int type, u_char *answer, int
 	return res;
 }
 
+LIBINFO_EXPORT
 int
 res_query(const char *name, int class, int type, u_char *answer, int anslen)
 {
 	return _mdns_query(SI_CALL_DNS_QUERY, name, class, type, answer, anslen);
 }
 
+LIBINFO_EXPORT
 int
 res_search(const char *name, int class, int type, u_char *answer, int anslen)
 {

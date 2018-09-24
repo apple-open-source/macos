@@ -47,6 +47,7 @@ struct __res_9_state _res_9;
 
 extern int __res_vinit(res_state, int);
 
+__attribute__((__visibility__("hidden")))
 const char *__res_opcodes[] = {
 	"QUERY",
 	"IQUERY",

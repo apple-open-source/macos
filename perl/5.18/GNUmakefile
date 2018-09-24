@@ -219,6 +219,7 @@ $(OBJROOT)/$(PROJECT)::
 	patch -p0 -F0 $(PROJECT)/regcomp.c fix/CVE-2018-6797.diff && \
 	(cd $(PROJECT) ; patch -p1 -F0 < $(SRCROOT)/fix/CVE-2018-6913.diff) && \
 	patch -p0 -F0 $(PROJECT)/config_h.SH fix/CORE-config.h.diff && \
+	(cd $(PROJECT) ; patch -p1 -F0 < $(SRCROOT)/fix/perl_inc.diff) && \
 	sed -e 's/@VERSION@/$(VERSION)/g' \
 	    -e 's/@VERSION_DEFAULT@/$(ENV_PERL_BASE_VERSION)/g' \
 	    -e 's/@VERSION_ALT@/$(ENV_VERSION_ALT)/g' \

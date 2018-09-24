@@ -79,6 +79,7 @@ struct IOPCIDeviceExpansionData
     uint8_t  configProt;
     uint8_t  pmActive;
     uint8_t  pmeUpdate;
+    uint8_t  updateWakeReason;
     uint8_t  pmWait;
     uint8_t  pmState;
 	uint8_t  pciPMState;
@@ -323,6 +324,7 @@ extern uint64_t IOPCISetAPICInterrupt(uint64_t entry);
 #endif
 
 extern IOReturn IOPCIRegisterPowerDriver(IOService * service, bool hostbridge);
+extern IOService * IOPCIDeviceDMAOriginator(IOPCIDevice * device);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

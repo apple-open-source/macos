@@ -31,7 +31,7 @@
 #include "HeapProfiler.h"
 #include "HeapSnapshot.h"
 #include "JSCInlines.h"
-#include "JSCell.h"
+#include "JSCast.h"
 #include "PreventCollectionScope.h"
 #include "VM.h"
 #include <wtf/text/StringBuilder.h>
@@ -240,7 +240,7 @@ String HeapSnapshotBuilder::json(std::function<bool (const HeapSnapshotNode&)> a
         json.append(',');
         json.appendNumber(node.identifier);
         json.append(',');
-        json.appendNumber(node.cell->estimatedSizeInBytes());
+        json.appendNumber(node.cell->estimatedSizeInBytes(vm));
         json.append(',');
         json.appendNumber(classNameIndex);
         json.append(',');

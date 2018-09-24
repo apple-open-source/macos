@@ -104,7 +104,7 @@ void RenderReplaced::layout()
 
     // Now that we've calculated our preferred layout, we check to see
     // if we should further constrain sizing to the intrinsic aspect ratio.
-    if (style().aspectRatioType() == AspectRatioFromIntrinsic && !m_intrinsicSize.isEmpty()) {
+    if (style().aspectRatioType() == AspectRatioType::FromIntrinsic && !m_intrinsicSize.isEmpty()) {
         float aspectRatio = m_intrinsicSize.aspectRatio();
         LayoutSize frameSize = size();
         float frameAspectRatio = frameSize.aspectRatio();
@@ -242,7 +242,7 @@ bool RenderReplaced::shouldPaint(PaintInfo& paintInfo, const LayoutPoint& paintO
         return false;
         
     // if we're invisible or haven't received a layout yet, then just bail.
-    if (style().visibility() != VISIBLE)
+    if (style().visibility() != Visibility::Visible)
         return false;
     
     LayoutPoint adjustedPaintOffset = paintOffset + location();
@@ -328,7 +328,7 @@ bool RenderReplaced::setNeedsLayoutIfNeededAfterIntrinsicSizeChange()
         || style().logicalMaxWidth().isPercentOrCalculated()
         || style().logicalMinWidth().isPercentOrCalculated();
     
-    bool layoutSizeDependsOnIntrinsicSize = style().aspectRatioType() == AspectRatioFromIntrinsic;
+    bool layoutSizeDependsOnIntrinsicSize = style().aspectRatioType() == AspectRatioType::FromIntrinsic;
     
     if (!imageSizeIsConstrained || containingBlockNeedsToRecomputePreferredSize || layoutSizeDependsOnIntrinsicSize) {
         setNeedsLayout();
@@ -392,17 +392,17 @@ LayoutRect RenderReplaced::replacedContentRect(const LayoutSize& intrinsicSize) 
 
     LayoutRect finalRect = contentRect;
     switch (objectFit) {
-    case ObjectFitContain:
-    case ObjectFitScaleDown:
-    case ObjectFitCover:
-        finalRect.setSize(finalRect.size().fitToAspectRatio(intrinsicSize, objectFit == ObjectFitCover ? AspectRatioFitGrow : AspectRatioFitShrink));
-        if (objectFit != ObjectFitScaleDown || finalRect.width() <= intrinsicSize.width())
+    case ObjectFit::Contain:
+    case ObjectFit::ScaleDown:
+    case ObjectFit::Cover:
+        finalRect.setSize(finalRect.size().fitToAspectRatio(intrinsicSize, objectFit == ObjectFit::Cover ? AspectRatioFitGrow : AspectRatioFitShrink));
+        if (objectFit != ObjectFit::ScaleDown || finalRect.width() <= intrinsicSize.width())
             break;
         FALLTHROUGH;
-    case ObjectFitNone:
+    case ObjectFit::None:
         finalRect.setSize(intrinsicSize);
         break;
-    case ObjectFitFill:
+    case ObjectFit::Fill:
         break;
     }
 
@@ -667,7 +667,7 @@ bool RenderReplaced::isSelected() const
 
 LayoutRect RenderReplaced::clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const
 {
-    if (style().visibility() != VISIBLE && !enclosingLayer()->hasVisibleContent())
+    if (style().visibility() != Visibility::Visible && !enclosingLayer()->hasVisibleContent())
         return LayoutRect();
 
     // The selectionRect can project outside of the overflowRect, so take their union

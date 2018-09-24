@@ -30,8 +30,11 @@
 #include "SVGParserUtilities.h"
 #include "SVGPoint.h"
 #include "SVGPointList.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(SVGPolyElement);
 
 // Define custom animated property 'points'.
 const SVGPropertyInfo* SVGPolyElement::pointsPropertyInfo()
@@ -54,11 +57,11 @@ DEFINE_ANIMATED_BOOLEAN(SVGPolyElement, SVGNames::externalResourcesRequiredAttr,
 BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGPolyElement)
     REGISTER_LOCAL_ANIMATED_PROPERTY(points)
     REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
-    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGGraphicsElement)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGGeometryElement)
 END_REGISTER_ANIMATED_PROPERTIES
 
 SVGPolyElement::SVGPolyElement(const QualifiedName& tagName, Document& document)
-    : SVGGraphicsElement(tagName, document)
+    : SVGGeometryElement(tagName, document)
 {
     registerAnimatedPropertiesForSVGPolyElement();    
 }
@@ -73,7 +76,7 @@ void SVGPolyElement::parseAttribute(const QualifiedName& name, const AtomicStrin
         if (auto wrapper = SVGAnimatedProperty::lookupWrapper<SVGPolyElement, SVGAnimatedPointList>(this, pointsPropertyInfo()))
             static_pointer_cast<SVGAnimatedPointList>(wrapper)->detachListWrappers(newList.size());
 
-        m_points.value = newList;
+        m_points.value = WTFMove(newList);
         return;
     }
 

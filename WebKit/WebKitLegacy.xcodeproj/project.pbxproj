@@ -11,8 +11,6 @@
 		065AD5A40B0C32C7005A2B1D /* WebContextMenuClient.mm in Sources */ = {isa = PBXBuildFile; fileRef = 065AD5A20B0C32C7005A2B1D /* WebContextMenuClient.mm */; };
 		06693DDC0BFBA85200216072 /* WebInspectorClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 06693DDA0BFBA85200216072 /* WebInspectorClient.h */; };
 		06693DDD0BFBA85200216072 /* WebInspectorClient.mm in Sources */ = {isa = PBXBuildFile; fileRef = 06693DDB0BFBA85200216072 /* WebInspectorClient.mm */; };
-		070F549B17F1E42B00169E04 /* WebUserMediaClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 070F549917F1E42B00169E04 /* WebUserMediaClient.h */; };
-		070F549C17F1E42B00169E04 /* WebUserMediaClient.mm in Sources */ = {isa = PBXBuildFile; fileRef = 070F549A17F1E42B00169E04 /* WebUserMediaClient.mm */; };
 		072E5F451ABF88750003B164 /* WebMediaPlaybackTargetPicker.h in Headers */ = {isa = PBXBuildFile; fileRef = 072E5F431ABF88750003B164 /* WebMediaPlaybackTargetPicker.h */; };
 		072E5F461ABF88750003B164 /* WebMediaPlaybackTargetPicker.mm in Sources */ = {isa = PBXBuildFile; fileRef = 072E5F441ABF88750003B164 /* WebMediaPlaybackTargetPicker.mm */; };
 		1430C12C1B2C5DF700DEA01D /* WebViewGroup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1430C12A1B2C5DF700DEA01D /* WebViewGroup.cpp */; };
@@ -149,6 +147,7 @@
 		598AD9281201CF3200ABAE4E /* WebDeviceOrientationProviderMock.mm in Sources */ = {isa = PBXBuildFile; fileRef = 598AD9271201CF3200ABAE4E /* WebDeviceOrientationProviderMock.mm */; };
 		598AD92A1201CF3B00ABAE4E /* WebDeviceOrientationProviderMockInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 598AD9291201CF3B00ABAE4E /* WebDeviceOrientationProviderMockInternal.h */; };
 		598ADA461202275000ABAE4E /* WebDeviceOrientationProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 598ADA451202275000ABAE4E /* WebDeviceOrientationProvider.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		5CE44F4A206D70EA003EFD01 /* PingHandle.h in Headers */ = {isa = PBXBuildFile; fileRef = 5CE44F49206D70E9003EFD01 /* PingHandle.h */; };
 		5D7BF8140C2A1D90008CE06D /* WebInspector.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D7BF8120C2A1D90008CE06D /* WebInspector.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5D7BF8150C2A1D90008CE06D /* WebInspector.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5D7BF8130C2A1D90008CE06D /* WebInspector.mm */; };
 		5DE83A7A0D0F7F9400CAD12A /* WebJavaScriptTextInputPanel.nib in Resources */ = {isa = PBXBuildFile; fileRef = 5DE83A740D0F7F9400CAD12A /* WebJavaScriptTextInputPanel.nib */; };
@@ -774,6 +773,9 @@
 		C0B88E8B10A08F3D00FBB3F5 /* WebFrameLoadDelegatePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = C0B88E8A10A08F3D00FBB3F5 /* WebFrameLoadDelegatePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C0C5B3EE1177A4A0002B0AEF /* WebUserContentURLPattern.h in Headers */ = {isa = PBXBuildFile; fileRef = C0C5B3EC1177A4A0002B0AEF /* WebUserContentURLPattern.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C0C5B3EF1177A4A0002B0AEF /* WebUserContentURLPattern.mm in Sources */ = {isa = PBXBuildFile; fileRef = C0C5B3ED1177A4A0002B0AEF /* WebUserContentURLPattern.mm */; };
+		C1D81128202CD80000EE74F9 /* WebVideoFullscreenController.mm in Sources */ = {isa = PBXBuildFile; fileRef = C1D81127202CD80000EE74F9 /* WebVideoFullscreenController.mm */; };
+		C1D8112B202CDCC400EE74F9 /* WebVideoFullscreenHUDWindowController.mm in Sources */ = {isa = PBXBuildFile; fileRef = C1D81129202CDCC200EE74F9 /* WebVideoFullscreenHUDWindowController.mm */; };
+		C1D8112E202CED0800EE74F9 /* WebWindowAnimation.mm in Sources */ = {isa = PBXBuildFile; fileRef = C1D8112D202CED0700EE74F9 /* WebWindowAnimation.mm */; };
 		CD8BFCE715531224005AFB25 /* WebKitFullScreenListener.mm in Sources */ = {isa = PBXBuildFile; fileRef = CD8BFCE515531224005AFB25 /* WebKitFullScreenListener.mm */; };
 		CD8BFCE815531224005AFB25 /* WebKitFullScreenListener.h in Headers */ = {isa = PBXBuildFile; fileRef = CD8BFCE615531224005AFB25 /* WebKitFullScreenListener.h */; };
 		CDA62AE2125F87C2007FD118 /* WebFullScreenController.h in Headers */ = {isa = PBXBuildFile; fileRef = CDA62AE0125F87C2007FD118 /* WebFullScreenController.h */; };
@@ -802,8 +804,6 @@
 		065AD5A20B0C32C7005A2B1D /* WebContextMenuClient.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = WebContextMenuClient.mm; sourceTree = "<group>"; };
 		06693DDA0BFBA85200216072 /* WebInspectorClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = WebInspectorClient.h; sourceTree = "<group>"; };
 		06693DDB0BFBA85200216072 /* WebInspectorClient.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebInspectorClient.mm; sourceTree = "<group>"; };
-		070F549917F1E42B00169E04 /* WebUserMediaClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebUserMediaClient.h; sourceTree = "<group>"; };
-		070F549A17F1E42B00169E04 /* WebUserMediaClient.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebUserMediaClient.mm; sourceTree = "<group>"; };
 		072E5F431ABF88750003B164 /* WebMediaPlaybackTargetPicker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebMediaPlaybackTargetPicker.h; sourceTree = "<group>"; };
 		072E5F441ABF88750003B164 /* WebMediaPlaybackTargetPicker.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebMediaPlaybackTargetPicker.mm; sourceTree = "<group>"; };
 		1430C12A1B2C5DF700DEA01D /* WebViewGroup.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; name = WebViewGroup.cpp; path = WebCoreSupport/WebViewGroup.cpp; sourceTree = SOURCE_ROOT; };
@@ -910,6 +910,7 @@
 		35081D9502B6D4D80ACA2ACA /* WebHTMLView.mm */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebHTMLView.mm; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
 		35081D9602B6D4D80ACA2ACA /* WebHTMLViewPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = WebHTMLViewPrivate.h; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
 		35081DAE02B6D4F50ACA2ACA /* WebDocument.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = WebDocument.h; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
+		37119A7B20CCB62D002C6DC9 /* WebKitTargetConditionals.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = WebKitTargetConditionals.xcconfig; sourceTree = "<group>"; };
 		37A4533A1899EC880034DC25 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		37A4533C1899EE710034DC25 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		37B6FB4C1063530C000FDB3B /* WebPDFDocumentExtras.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebPDFDocumentExtras.h; sourceTree = "<group>"; };
@@ -985,6 +986,7 @@
 		598AD9271201CF3200ABAE4E /* WebDeviceOrientationProviderMock.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebDeviceOrientationProviderMock.mm; sourceTree = "<group>"; };
 		598AD9291201CF3B00ABAE4E /* WebDeviceOrientationProviderMockInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebDeviceOrientationProviderMockInternal.h; sourceTree = "<group>"; };
 		598ADA451202275000ABAE4E /* WebDeviceOrientationProvider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebDeviceOrientationProvider.h; sourceTree = "<group>"; };
+		5CE44F49206D70E9003EFD01 /* PingHandle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PingHandle.h; path = WebCoreSupport/PingHandle.h; sourceTree = SOURCE_ROOT; };
 		5D7BF8120C2A1D90008CE06D /* WebInspector.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = WebInspector.h; sourceTree = "<group>"; };
 		5D7BF8130C2A1D90008CE06D /* WebInspector.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = WebInspector.mm; sourceTree = "<group>"; };
 		5DE83A750D0F7F9400CAD12A /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/WebJavaScriptTextInputPanel.nib; sourceTree = SOURCE_ROOT; };
@@ -1525,6 +1527,12 @@
 		C0B88E8A10A08F3D00FBB3F5 /* WebFrameLoadDelegatePrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebFrameLoadDelegatePrivate.h; sourceTree = "<group>"; };
 		C0C5B3EC1177A4A0002B0AEF /* WebUserContentURLPattern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebUserContentURLPattern.h; sourceTree = "<group>"; };
 		C0C5B3ED1177A4A0002B0AEF /* WebUserContentURLPattern.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebUserContentURLPattern.mm; sourceTree = "<group>"; };
+		C1D81126202CD7FE00EE74F9 /* WebVideoFullscreenController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebVideoFullscreenController.h; sourceTree = "<group>"; };
+		C1D81127202CD80000EE74F9 /* WebVideoFullscreenController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebVideoFullscreenController.mm; sourceTree = "<group>"; };
+		C1D81129202CDCC200EE74F9 /* WebVideoFullscreenHUDWindowController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebVideoFullscreenHUDWindowController.mm; sourceTree = "<group>"; };
+		C1D8112A202CDCC300EE74F9 /* WebVideoFullscreenHUDWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebVideoFullscreenHUDWindowController.h; sourceTree = "<group>"; };
+		C1D8112C202CED0600EE74F9 /* WebWindowAnimation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebWindowAnimation.h; sourceTree = "<group>"; };
+		C1D8112D202CED0700EE74F9 /* WebWindowAnimation.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebWindowAnimation.mm; sourceTree = "<group>"; };
 		CD8BFCE515531224005AFB25 /* WebKitFullScreenListener.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebKitFullScreenListener.mm; sourceTree = "<group>"; };
 		CD8BFCE615531224005AFB25 /* WebKitFullScreenListener.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebKitFullScreenListener.h; sourceTree = "<group>"; };
 		CDA62AE0125F87C2007FD118 /* WebFullScreenController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebFullScreenController.h; sourceTree = "<group>"; };
@@ -1751,6 +1759,7 @@
 				449098B90F8F82DF0076A327 /* FeatureDefines.xcconfig */,
 				1C904FD30BA9DD0F0081E9D0 /* Version.xcconfig */,
 				1C904FD20BA9DD0F0081E9D0 /* WebKitLegacy.xcconfig */,
+				37119A7B20CCB62D002C6DC9 /* WebKitTargetConditionals.xcconfig */,
 			);
 			name = Configurations;
 			path = mac/Configurations;
@@ -2070,12 +2079,18 @@
 				F834AAD60E64B1C700E2737C /* WebTextIterator.mm */,
 				515E27CC0458C86500CA2D3A /* WebUIDelegate.h */,
 				65A7D44A0568AB2600E70EF6 /* WebUIDelegatePrivate.h */,
+				C1D81126202CD7FE00EE74F9 /* WebVideoFullscreenController.h */,
+				C1D81127202CD80000EE74F9 /* WebVideoFullscreenController.mm */,
+				C1D8112A202CDCC300EE74F9 /* WebVideoFullscreenHUDWindowController.h */,
+				C1D81129202CDCC200EE74F9 /* WebVideoFullscreenHUDWindowController.mm */,
 				51A8B579042834F700CA2D3A /* WebView.h */,
 				51A8B57A042834F700CA2D3A /* WebView.mm */,
 				BC2E464B0FD8A96800A9D9DE /* WebViewData.h */,
 				BC2E464C0FD8A96800A9D9DE /* WebViewData.mm */,
 				930D02BB06275F640076701E /* WebViewInternal.h */,
 				51A8B57D0428353A00CA2D3A /* WebViewPrivate.h */,
+				C1D8112C202CED0600EE74F9 /* WebWindowAnimation.h */,
+				C1D8112D202CED0700EE74F9 /* WebWindowAnimation.mm */,
 			);
 			name = WebView;
 			path = mac/WebView;
@@ -2545,6 +2560,7 @@
 				A10C1D4418202FFB0036883A /* ios */,
 				B82958D1132707D0000D0E79 /* CorrectionPanel.h */,
 				B82958D2132707D0000D0E79 /* CorrectionPanel.mm */,
+				5CE44F49206D70E9003EFD01 /* PingHandle.h */,
 				7C01CB81173435C900C5D807 /* PopupMenuMac.h */,
 				7C01CB82173435C900C5D807 /* PopupMenuMac.mm */,
 				7C01CB83173435C900C5D807 /* SearchPopupMenuMac.h */,
@@ -2600,8 +2616,6 @@
 				A5DEFC0911D5331C00885273 /* WebSecurityOriginPrivate.h */,
 				2DD632C019E5D1F0002E9C7B /* WebSelectionServiceController.h */,
 				2DD632C119E5D1F0002E9C7B /* WebSelectionServiceController.mm */,
-				070F549917F1E42B00169E04 /* WebUserMediaClient.h */,
-				070F549A17F1E42B00169E04 /* WebUserMediaClient.mm */,
 				4618DFF61DEF760A0033C3AA /* WebValidationMessageClient.h */,
 				4618DFF71DEF760A0033C3AA /* WebValidationMessageClient.mm */,
 				1430C12A1B2C5DF700DEA01D /* WebViewGroup.cpp */,
@@ -2923,6 +2937,7 @@
 				1AAF5CEE0EDDE1FE008D883D /* NetscapePluginInstanceProxy.h in Headers */,
 				93D4379B1D57ABEF00AB85EA /* ObjCEventListener.h in Headers */,
 				93D4379D1D57ABEF00AB85EA /* ObjCNodeFilterCondition.h in Headers */,
+				5CE44F4A206D70EA003EFD01 /* PingHandle.h in Headers */,
 				A10C1D5F1820300E0036883A /* PopupMenuIOS.h in Headers */,
 				7C01CB85173435C900C5D807 /* PopupMenuMac.h in Headers */,
 				1A2DBE9F0F251E3A0036F8A6 /* ProxyInstance.h in Headers */,
@@ -3156,7 +3171,6 @@
 				A10C1D3D18202FC50036883A /* WebUIKitSupport.h in Headers */,
 				939810150824BF01008DF038 /* WebURLsWithTitles.h in Headers */,
 				C0C5B3EE1177A4A0002B0AEF /* WebUserContentURLPattern.h in Headers */,
-				070F549B17F1E42B00169E04 /* WebUserMediaClient.h in Headers */,
 				4618DFF81DEF760A0033C3AA /* WebValidationMessageClient.h in Headers */,
 				939810700824BF01008DF038 /* WebView.h in Headers */,
 				BC2E464D0FD8A96800A9D9DE /* WebViewData.h in Headers */,
@@ -3257,7 +3271,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [[ ${PLATFORM_NAME} != \"macosx\" ]]; then\n    exit 0\nfi\n\n[[ -h \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginHost.app\" ]] || ln -s Versions/Current/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginHost.app\"\n[[ -h \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginAgent\" ]] || ln -s Versions/Current/WebKitPluginAgent \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginAgent\"\n\nif [[ \"${CONFIGURATION}\" != \"Production\" && ${ACTION} == \"build\"  && ! -e \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\" ]]; then\n    if [[ -e \"/System/Library/Frameworks/WebKit.framework/WebKitPluginHost.app\" ]]; then\n        ln -s /System/Library/Frameworks/WebKit.framework/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\"\n    else\n        ln -s /System/Library/Frameworks/WebKit.framework/Versions/A/Frameworks/WebKitLegacy.framework/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\"\n    fi\nfi\n";
+			shellScript = "if [[ ${WK_PLATFORM_NAME} != \"macosx\" ]]; then\n    exit 0\nfi\n\n[[ -h \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginHost.app\" ]] || ln -s Versions/Current/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginHost.app\"\n[[ -h \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginAgent\" ]] || ln -s Versions/Current/WebKitPluginAgent \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginAgent\"\n\nif [[ \"${CONFIGURATION}\" != \"Production\" && ${ACTION} == \"build\"  && ! -e \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\" ]]; then\n    if [[ -e \"/System/Library/Frameworks/WebKit.framework/WebKitPluginHost.app\" ]]; then\n        ln -s /System/Library/Frameworks/WebKit.framework/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\"\n    else\n        ln -s /System/Library/Frameworks/WebKit.framework/Versions/A/Frameworks/WebKitLegacy.framework/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\"\n    fi\nfi\n";
 		};
 		1C395DE20C6BE8E0000D1E52 /* Generate Export Files */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3278,7 +3292,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "mkdir -p \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy\"\n\nif [[ \"${PLATFORM_NAME}\" != \"macosx\" ]]; then\n    cat \"${PROJECT_DIR}/mac/WebKit.exp\" \"${PROJECT_DIR}/ios/WebKit.iOS.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nelse\n    cat \"${PROJECT_DIR}/mac/WebKit.exp\" \"${PROJECT_DIR}/mac/WebKit.mac.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nfi\n\nif [ -f \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/ReexportedWebCoreSymbols_${CURRENT_ARCH}.exp\" ]; then\n    cat \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/ReexportedWebCoreSymbols_${CURRENT_ARCH}.exp\" >> \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nfi\n\n# exclude Carbon functions on 64-bit\nsed -e s/^_HIWebViewCreate$// -e s/^_HIWebViewGetWebView$// -e s/^_WebConvertNSImageToCGImageRef$// -e s/^_WebInitForCarbon$// \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.LP64.exp\"\n\n# exclude OBJC_IVAR for i386\ngrep -v \"_OBJC_IVAR\" \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.i386.exp\"";
+			shellScript = "mkdir -p \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy\"\n\nif [[ \"${WK_PLATFORM_NAME}\" != \"macosx\" ]]; then\n    cat \"${PROJECT_DIR}/mac/WebKit.exp\" \"${PROJECT_DIR}/ios/WebKit.iOS.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nelse\n    cat \"${PROJECT_DIR}/mac/WebKit.exp\" \"${PROJECT_DIR}/mac/WebKit.mac.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nfi\n\nif [ -f \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/ReexportedWebCoreSymbols_${CURRENT_ARCH}.exp\" ]; then\n    cat \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/ReexportedWebCoreSymbols_${CURRENT_ARCH}.exp\" >> \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nfi\n\n# exclude Carbon functions on 64-bit\nsed -e s/^_HIWebViewCreate$// -e s/^_HIWebViewGetWebView$// -e s/^_WebConvertNSImageToCGImageRef$// -e s/^_WebInitForCarbon$// \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.LP64.exp\"\n\n# exclude OBJC_IVAR for i386\ngrep -v \"_OBJC_IVAR\" \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.i386.exp\"";
 		};
 		1C6CB0510AA63EB000D23BFD /* Migrate Headers */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3670,13 +3684,15 @@
 				A10C1D3E18202FC50036883A /* WebUIKitSupport.mm in Sources */,
 				939810BE0824BF01008DF038 /* WebURLsWithTitles.m in Sources */,
 				C0C5B3EF1177A4A0002B0AEF /* WebUserContentURLPattern.mm in Sources */,
-				070F549C17F1E42B00169E04 /* WebUserMediaClient.mm in Sources */,
 				4618DFF91DEF760A0033C3AA /* WebValidationMessageClient.mm in Sources */,
+				C1D81128202CD80000EE74F9 /* WebVideoFullscreenController.mm in Sources */,
+				C1D8112B202CDCC400EE74F9 /* WebVideoFullscreenHUDWindowController.mm in Sources */,
 				939811070824BF01008DF038 /* WebView.mm in Sources */,
 				BC2E464E0FD8A96800A9D9DE /* WebViewData.mm in Sources */,
 				1430C12C1B2C5DF700DEA01D /* WebViewGroup.cpp in Sources */,
 				A10C1D771820300E0036883A /* WebVisiblePosition.mm in Sources */,
 				1AC7176E1A26568A002E3115 /* WebVisitedLinkStore.mm in Sources */,
+				C1D8112E202CED0800EE74F9 /* WebWindowAnimation.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3709,9 +3725,7 @@
 			baseConfigurationReference = 1C904FD20BA9DD0F0081E9D0 /* WebKitLegacy.xcconfig */;
 			buildSettings = {
 				DEBUG_DEFINES = "$(DEBUG_DEFINES_debug) ENABLE_WEBKIT_UNSET_DYLD_FRAMEWORK_PATH";
-				OTHER_LDFLAGS = (
-					"$(OTHER_LDFLAGS)",
-				);
+				OTHER_LDFLAGS = "$(OTHER_LDFLAGS)";
 			};
 			name = Debug;
 		};
@@ -3720,9 +3734,7 @@
 			baseConfigurationReference = 1C904FD20BA9DD0F0081E9D0 /* WebKitLegacy.xcconfig */;
 			buildSettings = {
 				DEBUG_DEFINES = "$(DEBUG_DEFINES_$(CURRENT_VARIANT)) ENABLE_WEBKIT_UNSET_DYLD_FRAMEWORK_PATH";
-				OTHER_LDFLAGS = (
-					"$(OTHER_LDFLAGS)",
-				);
+				OTHER_LDFLAGS = "$(OTHER_LDFLAGS)";
 			};
 			name = Release;
 		};
@@ -3731,9 +3743,7 @@
 			baseConfigurationReference = 1C904FD20BA9DD0F0081E9D0 /* WebKitLegacy.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				OTHER_LDFLAGS = (
-					"$(OTHER_LDFLAGS)",
-				);
+				OTHER_LDFLAGS = "$(OTHER_LDFLAGS)";
 			};
 			name = Production;
 		};

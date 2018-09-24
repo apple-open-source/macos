@@ -251,16 +251,6 @@
             CFReleaseNull(pendingDefaultViews);
             
             [self setValueInExpansion:kSOSUnsyncedViewsKey value:kCFBooleanTrue err:NULL];
-            
-            if (!self.fullPeerInfo) {
-                secerror("Can't make FullPeerInfo for %@-%@ (%@) - is AKS ok?", SOSPeerGestaltGetName(gestalt), SOSCircleGetName(self.trustedCircle), error ? (void*)*error : (void*)CFSTR("-"));
-            }
-            else{
-                secnotice("fpi", "alert KeychainSyncingOverIDSProxy the fpi is available");
-                notify_post(kSecServerPeerInfoAvailable);
-                if(deviceID)
-                    SOSFullPeerInfoUpdateDeviceID(self.fullPeerInfo, deviceID, error);
-            }
         }
         else {
             secerror("No full_key: %@:", error ? *error : NULL);

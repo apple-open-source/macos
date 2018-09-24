@@ -47,12 +47,15 @@
 #error VERSION_MAJOR
 #endif
 
+//#define PROT_DEVICE     "XGBE"
+
 enum
 {
     // reserved->pmSleepEnabled
-    kPMEnable           = 0x01,
-    kPMEOption          = 0x02,
-    kPMEOptionS3Disable = 0x04
+    kPMEnable            = 0x01,
+    kPMEOption           = 0x02,
+    kPMEOptionS3Disable  = 0x04,
+    kPMEOptionWakeReason = 0x08,
 };
 
 #if !DEVELOPMENT && !defined(__x86_64__)
@@ -70,6 +73,17 @@ enum
     } while(0)
 
 #endif	/* !DEVELOPMENT && !defined(__x86_64__) */
+
+#ifdef PROT_DEVICE
+extern "C"
+kern_return_t
+mach_vm_protect(
+	vm_map_t		map,
+	mach_vm_offset_t	start,
+	mach_vm_size_t	size,
+	boolean_t		set_maximum,
+	vm_prot_t		new_protection);
+#endif /* PROT_DEVICE */
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -145,6 +159,43 @@ IOPCIDevice::powerStateForDomainState ( IOPMPowerFlags domainState )
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOService *
+IOPCIDeviceDMAOriginator(IOPCIDevice * device)
+{
+    IOService       * dmaOriginator = device;
+    IORegistryEntry * parent        = 0;
+    IORegistryEntry * child         = 0;
+    IOPCIDevice     * funcZero;
+    OSObject        * prop          = 0;
+    OSData          * data;
+    uint32_t          value         = 0;
+
+    if (device->space.s.functionNum) do
+    {
+        parent = device->copyParentEntry(gIODTPlane);
+        if (!parent)   break;
+        child = parent->copyChildEntry(gIODTPlane);
+        if (!child)    break;
+        funcZero = OSDynamicCast(IOPCIDevice, child);
+        if (!funcZero) break;
+        prop = funcZero->copyProperty(kIOPCIFunctionsDependentKey);
+        if ((data = OSDynamicCast(OSData, prop)))
+        {
+            value = ((uint32_t *) data->getBytesNoCopy())[0];
+        }
+        if (value) dmaOriginator = funcZero;
+    }
+    while (false);
+
+    OSSafeReleaseNULL(prop);
+    OSSafeReleaseNULL(child);
+    OSSafeReleaseNULL(parent);
+
+    return (dmaOriginator);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // attach
 //
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -208,40 +259,9 @@ bool IOPCIDevice::attach( IOService * provider )
 	reserved->pmState  = kIOPCIDeviceOnState;
 	reserved->pmActive = true;
 
-    IOService       * powerProvider = provider;
-    IORegistryEntry * parent        = 0;
-    IORegistryEntry * child         = 0;
-    IOPCIDevice     * funcZero;
-    OSObject        * prop          = 0;
-    OSData          * data;
-    uint32_t          value         = 0;
-    if (space.s.functionNum) do
-    {
-        parent = copyParentEntry(gIODTPlane);
-        if (!parent)   break;
-        child = parent->copyChildEntry(gIODTPlane);
-        if (!child)    break;
-        funcZero = OSDynamicCast(IOPCIDevice, child);
-        if (!funcZero) break;
-        prop = funcZero->copyProperty(kIOPCIFunctionsDependentKey);
-        if (!prop && !strcmp("ANS2", funcZero->getName()))
-        {
-            value = true;
-			funcZero->setProperty(kIOPCIFunctionsDependentKey, &value, sizeof(value));
-        }
-        else if ((data = OSDynamicCast(OSData, prop)))
-        {
-            value = ((uint32_t *) data->getBytesNoCopy())[0];
-        }
-        if (value) powerProvider = funcZero;
-    }
-    while (false);
-
+    IOService * originator = IOPCIDeviceDMAOriginator(this);
+    IOService * powerProvider = (originator == this) ? provider : originator;
     powerProvider->joinPMtree( this);
-
-    OSSafeReleaseNULL(prop);
-    OSSafeReleaseNULL(child);
-    OSSafeReleaseNULL(parent);
 
 	return (true);
 }
@@ -367,6 +387,7 @@ IOReturn IOPCIDevice::powerStateWillChangeTo (IOPMPowerFlags  capabilities,
                 DLOG("%s[%p]::powerStateWillChangeTo(OFF) - PMCS has PME clear(0x%x) - not touching\n", getName(), this, pmcsr);
             }
         }
+        reserved->updateWakeReason = true;
     }
     else if ((stateNumber == kIOPCIDeviceOnState) && reserved->pmSleepEnabled && reserved->pmControlStatus && reserved->sleepControlBits)
     {
@@ -510,12 +531,14 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 		}
 	}
 
-	if ((kIOPCIDeviceOnState == powerState)
-	  && reserved->pmeUpdate
-	  && !(kMachineRestoreDehibernate & options))
+	if (kIOPCIDeviceOnState == powerState)
     {
-        reserved->pmeUpdate = false;
-        updateWakeReason(reserved->pmLastWakeBits);
+        if (reserved->pmeUpdate && !(kMachineRestoreDehibernate & options))
+        {
+            reserved->pmeUpdate = false;
+            updateWakeReason(reserved->pmLastWakeBits);
+        }
+        reserved->updateWakeReason = false;
     }
 
     return (kIOReturnSuccess);
@@ -525,15 +548,22 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 
 void IOPCIDevice::updateWakeReason(uint16_t pmeState)
 {
-    enum { kDidWake = kPCIPMCSPMEStatus | kPCIPMCSPMEEnable };
     OSNumber * num;
 
     if (0xFFFF == pmeState) removeProperty(kIOPCIPMCSStateKey);
     else
     {
-        if (kDidWake == (kDidWake & pmeState))
+        if (reserved->updateWakeReason)
         {
-            parent->updateWakeReason(this);
+            uint32_t mask;
+            if (kPMEOptionWakeReason & reserved->pmSleepEnabled) mask = kPCIPMCSPMEStatus;
+            else                                                 mask = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable);
+
+            if (mask == (mask & pmeState))
+            {
+                parent->updateWakeReason(this);
+                reserved->updateWakeReason = false;
+            }
         }
         num = OSNumber::withNumber(pmeState, 16);
         if (num)
@@ -568,6 +598,20 @@ IOReturn IOPCIDevice::setPowerState( unsigned long newState,
     ret = parent->setDevicePowerState(this, kIOPCIConfigShadowVolatile,
     								  prevState, newState);
     reserved->pmState = newState;
+
+#ifdef PROT_DEVICE
+    if (!strcmp(PROT_DEVICE, getName()))
+    {
+        IOMemoryMap * map;
+        kern_return_t kr;
+        map = mapDeviceMemoryWithIndex(0);
+        kr = mach_vm_protect(kernel_map, map->getAddress(), map->getLength(), false,
+                                (kIOPCIDeviceOnState == newState) ? VM_PROT_READ | VM_PROT_WRITE : VM_PROT_NONE);
+        kprintf("%s mach_vm_protect %d\n", getName(), kr);
+        map->release();
+    }
+#endif /* PROT_DEVICE */
+
 	return (ret);
 }	
 
@@ -593,12 +637,34 @@ IOReturn IOPCIDevice::restoreDeviceState( IOOptionBits options )
 
 bool IOPCIDevice::matchPropertyTable( OSDictionary * table, SInt32 * score )
 {
-    return (parent->matchNubWithPropertyTable(this, table, score));
+    bool result     = false;
+    IORegistryEntry * regEntry;
+    IOPCIBridge     * bridge;
+
+    regEntry = copyParentEntry(gIOServicePlane);
+    bridge   = OSDynamicCast(IOPCIBridge, regEntry);
+
+    if (bridge) result = bridge->matchNubWithPropertyTable(this, table, score);
+
+    OSSafeReleaseNULL(regEntry);
+
+    return (result);
 }
 
 bool IOPCIDevice::compareName( OSString * name, OSString ** matched ) const
 {
-    return (parent->compareNubName(this, name, matched));
+    bool result     = false;
+    IORegistryEntry * regEntry;
+    IOPCIBridge     * bridge;
+
+    regEntry = copyParentEntry(gIOServicePlane);
+    bridge   = OSDynamicCast(IOPCIBridge, regEntry);
+
+    if (bridge) result = bridge->compareNubName(this, name, matched);
+
+    OSSafeReleaseNULL(regEntry);
+
+    return (result);
 }
 
 IOReturn IOPCIDevice::getResources( void )
@@ -972,6 +1038,7 @@ IOReturn IOPCIDevice::enablePCIPowerManagement(IOOptionBits state)
             DLOG("%s[%p] - enablePCIPwrMgmt, enabling\n", getName(), this);
             reserved->pmSleepEnabled = kPMEnable | kPMEOption;
 			if (kPCIPMCSPMEDisableInS3 & state) reserved->pmSleepEnabled |= kPMEOptionS3Disable;
+			if (kPCIPMCSPMEWakeReason & state)  reserved->pmSleepEnabled |= kPMEOptionWakeReason;
         }
     }
     return ret;

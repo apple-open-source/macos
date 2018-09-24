@@ -44,6 +44,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/cssmtype.h>
 #include <stdint.h>
+#include <Availability.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -170,8 +171,7 @@ OSStatus CMSEncoderGetHasDetachedContent(
 OSStatus CMSEncoderSetEncapsulatedContentType(
 	CMSEncoderRef		cmsEncoder,
 	const CSSM_OID	*eContentType)
-	/* DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER; */
-    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+    API_DEPRECATED_WITH_REPLACEMENT("CMSEncoderSetEncapsulatedContentTypeOID", macos(10.5, 10.7)) API_UNAVAILABLE(ios);
 
 /*
  * Optionally specify an eContentType OID for the inner EncapsulatedData for
@@ -268,6 +268,10 @@ typedef CF_OPTIONS(uint32_t, CMSSignedAttributes) {
      */
     kCMSAttrAppleCodesigningHashAgility = 0x0010,
     kCMSAttrAppleCodesigningHashAgilityV2 = 0x0020,
+    /*
+     * Include the expiration time.
+     */
+    kCMSAttrAppleExpirationTime         = 0x0040,
 };
 
 /*
@@ -366,8 +370,7 @@ OSStatus CMSEncode(
 	const void *                content,
 	size_t                      contentLen,
 	CFDataRef * __nonnull CF_RETURNS_RETAINED encodedContentOut)	/* RETURNED */
-	/* DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER; */
-    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+    API_DEPRECATED_WITH_REPLACEMENT("CMSEncodeContent", macos(10.5, 10.7)) API_UNAVAILABLE(ios);
 
 
 /*

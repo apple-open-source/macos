@@ -150,7 +150,7 @@ static void tests(void)
     is(trustResult, kSecTrustResultUnspecified, "accept test: app-trusted SHA-1 SSL server");
 
     /* SHA1 cert from system root passes SSL client */
-    clientPolicy = SecPolicyCreateSSL(false, CFSTR("www.badssl.com"));
+    clientPolicy = SecPolicyCreateSSL(false, NULL);
     setTrust(&trust, sha1_certs, clientPolicy);
     require_noerr_string(SecTrustEvaluate(trust, &trustResult), cleanup, "failed to evaluate trust");
     is(trustResult, kSecTrustResultUnspecified, "accept test: system-trusted SHA-1 SSL client");

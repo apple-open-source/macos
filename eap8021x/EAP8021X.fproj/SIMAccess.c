@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2012-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
 
 
 #include "SIMAccess.h"
+#include "SIMAccessPrivate.h"
 #include <TargetConditionals.h>
 #include <dispatch/dispatch.h>
 #include <strings.h>
@@ -46,26 +47,26 @@
 
 #if ! TARGET_OS_EMBEDDED
 PRIVATE_EXTERN CFStringRef
-SIMCopyIMSI(void)
+SIMCopyIMSI(__unused CFDictionaryRef properties)
 {
     return (NULL);
 }
 
 CFStringRef
-SIMCopyRealm(void)
+SIMCopyRealm(__unused CFDictionaryRef properties)
 {
     return (NULL);
 }
 
 PRIVATE_EXTERN bool
-SIMAuthenticateGSM(const uint8_t * rand_p, int count,
+SIMAuthenticateGSM(CFDictionaryRef properties, const uint8_t * rand_p, int count,
 		   uint8_t * kc_p, uint8_t * sres_p)
 {
     return (false);
 }
 
 PRIVATE_EXTERN bool
-SIMAuthenticateAKA(CFDataRef rand, CFDataRef autn, AKAAuthResultsRef results)
+SIMAuthenticateAKA(CFDictionaryRef properties, CFDataRef rand, CFDataRef autn, AKAAuthResultsRef results)
 {
     AKAAuthResultsInit(results);
     return (false);
@@ -78,53 +79,6 @@ SIMReportDecryptionError(CFDataRef encryptedIdentity)
 }
 
 #endif /* ! TARGET_OS_EMBEDDED */
-
-
-PRIVATE_EXTERN void
-AKAAuthResultsSetCK(AKAAuthResultsRef results, CFDataRef ck)
-{
-    my_FieldSetRetainedCFType(&results->ck, ck);
-    return;
-}
-
-PRIVATE_EXTERN void
-AKAAuthResultsSetIK(AKAAuthResultsRef results, CFDataRef ik)
-{
-    my_FieldSetRetainedCFType(&results->ik, ik);
-    return;
-}
-
-PRIVATE_EXTERN void
-AKAAuthResultsSetRES(AKAAuthResultsRef results, CFDataRef res)
-{
-    my_FieldSetRetainedCFType(&results->res, res);
-    return;
-}
-
-PRIVATE_EXTERN void
-AKAAuthResultsSetAUTS(AKAAuthResultsRef results, CFDataRef auts)
-{
-    my_FieldSetRetainedCFType(&results->auts, auts);
-    return;
-}
-
-PRIVATE_EXTERN void
-AKAAuthResultsInit(AKAAuthResultsRef results)
-{
-    bzero(results, sizeof(*results));
-    return;
-}
-
-PRIVATE_EXTERN void
-AKAAuthResultsRelease(AKAAuthResultsRef results)
-{
-    AKAAuthResultsSetCK(results, NULL);
-    AKAAuthResultsSetIK(results, NULL);
-    AKAAuthResultsSetRES(results, NULL);
-    AKAAuthResultsSetAUTS(results, NULL);
-    return;
-}
-
 
 #ifdef TEST_SIMACCESS
 #define USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS 1
@@ -169,7 +123,7 @@ main(int argc, char * argv[])
 	uint8_t		kc[SIM_KC_SIZE * N_TRIPLETS];
 	uint8_t		sres[SIM_SRES_SIZE * N_TRIPLETS];
 
-	if (SIMAuthenticateGSM(rand, N_TRIPLETS, kc, sres) == false) {
+	if (SIMAuthenticateGSM(NULL, rand, N_TRIPLETS, kc, sres) == false) {
 	    fprintf(stderr, "SIMProcessRAND failed\n");
 	    exit(1);
 	}
@@ -187,7 +141,7 @@ main(int argc, char * argv[])
 
 	autn_data = CFDataCreate(NULL, rand + SIM_RAND_SIZE, SIM_RAND_SIZE);
 	rand_data = CFDataCreate(NULL, rand, SIM_RAND_SIZE);
-	auth_success = SIMAuthenticateAKA(rand_data, autn_data, &results);
+	auth_success = SIMAuthenticateAKA(NULL, rand_data, autn_data, &results);
 	CFRelease(rand_data);
 	CFRelease(autn_data);
 	if (auth_success) {

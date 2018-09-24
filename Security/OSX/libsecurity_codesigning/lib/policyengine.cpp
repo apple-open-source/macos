@@ -38,6 +38,7 @@
 #include "diskrep.h"
 #include "codedirectory.h"
 #include "csutilities.h"
+#include "notarization.h"
 #include "StaticCode.h"
 
 #include <CoreServices/CoreServicesPriv.h>
@@ -182,8 +183,8 @@ void PolicyEngine::evaluateCodeItem(SecStaticCodeRef code, CFURLRef path, Author
 		SQLite3::int64 disabled = query[6];
 //		const char *filter = query[7];
 //		const char *remarks = query[8];
-		
-        secdebug("gk", "considering rule %d(%s) requirement %s", int(id), label ? label : "UNLABELED", reqString);
+
+		secdebug("gk", "considering rule %d(%s) requirement %s", int(id), label ? label : "UNLABELED", reqString);
 		CFRef<SecRequirementRef> requirement;
 		MacOSError::check(SecRequirementCreateWithString(CFTempString(reqString), kSecCSDefaultFlags, &requirement.aref()));
 		switch (OSStatus rc = SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly | kSecCSCheckGatekeeperArchitectures, requirement)) {
@@ -197,13 +198,17 @@ void PolicyEngine::evaluateCodeItem(SecStaticCodeRef code, CFURLRef path, Author
 			MacOSError::throwMe(rc);	// general error; pass to caller
 		}
 		
-		// if this rule is disabled, skip it but record the first matching one for posterity
-		if (disabled && latentID == 0) {
-			latentID = id;
-			latentLabel = label ? label : "";
+		// If this rule is disabled, do not continue any further and just continue iterating
+		// until we find one that is enabled.
+		if (disabled) {
+			// ...but always record the first matching rule for informational purposes.
+			if (latentID == 0) {
+				latentID = id;
+				latentLabel = label ? label : "";
+			}
 			continue;
 		}
-		
+
 		// current rule is first rule (in priority order) that matched. Apply it
         secnotice("gk", "rule %d applies - allow=%d", int(id), allow);
 		if (nested && allow)			// success, nothing to record
@@ -388,7 +393,7 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	}
 	
 	CFCopyRef<SecStaticCodeRef> code;
-	MacOSError::check(SecStaticCodeCreateWithPath(path, kSecCSDefaultFlags, &code.aref()));
+	MacOSError::check(SecStaticCodeCreateWithPath(path, kSecCSDefaultFlags | kSecCSForceOnlineNotarizationCheck, &code.aref()));
 	
 	SecCSFlags validationFlags = kSecCSEnforceRevocationChecks | kSecCSCheckAllArchitectures;
 	if (!(flags & kSecAssessmentFlagAllowWeak))
@@ -449,7 +454,7 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 		}
 		return NULL;
 	}));
-	
+
 	// go for it!
 	SecCSFlags topFlags = validationFlags | kSecCSCheckNestedCode | kSecCSRestrictSymlinks | kSecCSReportProgress;
 	if (type == kAuthorityExecute && !appOk)
@@ -505,6 +510,18 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	}
 	default:
 		MacOSError::throwMe(rc);
+	}
+
+	// Copy notarization date, if present, from code signing information
+	CFRef<CFDictionaryRef> info;
+	OSStatus status = SecCodeCopySigningInformation(code, kSecCSInternalInformation, &info.aref());
+	if (status == 0 && info) {
+		CFDateRef date = (CFDateRef)CFDictionaryGetValue(info, kSecCodeInfoNotarizationDate);
+		if (date) {
+			cfadd(result, "{%O=%O}", kSecAssessmentAssessmentNotarizationDate, date);
+		}
+	} else {
+		secerror("Unable to copy signing information: %d", (int)status);
 	}
 	
 	if (nestedFailure && CFEqual(CFDictionaryGetValue(result, kSecAssessmentAssessmentVerdict), kCFBooleanTrue)) {
@@ -568,6 +585,8 @@ void PolicyEngine::evaluateInstall(CFURLRef path, SecAssessmentFlags flags, CFDi
 	if (CFRef<CFArrayRef> certs = xar.copyCertChain()) {
 		CFRef<CFTypeRef> policy = installerPolicy();
 		CFRef<SecTrustRef> trust;
+		CFRef<CFDataRef> checksum;
+		CFRef<CFMutableDictionaryRef> requirementContext = makeCFMutableDictionary();
 		MacOSError::check(SecTrustCreateWithCertificates(certs, policy, &trust.aref()));
 //		MacOSError::check(SecTrustSetAnchorCertificates(trust, cfEmptyArray())); // no anchors
 		MacOSError::check(SecTrustSetOptions(trust, kSecTrustOptionAllowExpired | kSecTrustOptionImplicitAnchors));
@@ -593,6 +612,30 @@ void PolicyEngine::evaluateInstall(CFURLRef path, SecAssessmentFlags flags, CFDi
 			}
 		}
 
+		xar.registerStapledNotarization();
+		checksum.take(xar.createPackageChecksum());
+		if (checksum) {
+			double notarizationDate = NAN;
+
+			// Force a single online check for the checksum, which is always SHA1.
+			bool is_revoked = checkNotarizationServiceForRevocation(checksum, kSecCodeSignatureHashSHA1, &notarizationDate);
+			if (is_revoked) {
+				MacOSError::throwMe(errSecCSRevokedNotarization);
+			}
+
+			// Create the appropriate requirement context entry to allow notarized requirement check.
+			CFRef<CFNumberRef> algorithm = makeCFNumber((uint32_t)xar.checksumDigestAlgorithm());
+			cfadd(requirementContext, "{%O=%O}", kSecRequirementKeyPackageChecksum, checksum.get());
+			cfadd(requirementContext, "{%O=%O}", kSecRequirementKeyChecksumAlgorithm, algorithm.get());
+
+			if (!isnan(notarizationDate)) {
+				CFRef<CFDateRef> date = CFDateCreate(NULL, notarizationDate);
+				if (date) {
+					cfadd(result, "{%O=%O}", kSecAssessmentAssessmentNotarizationDate, date.get());
+				}
+			}
+		}
+
 		SQLite::Statement query(*this,
 			"SELECT allow, requirement, id, label, flags, disabled FROM scan_authority"
 			" WHERE type = :type"
@@ -605,10 +648,10 @@ void PolicyEngine::evaluateInstall(CFURLRef path, SecAssessmentFlags flags, CFDi
 			const char *label = query[3];
 			//sqlite_uint64 ruleFlags = query[4];
 			SQLite3::int64 disabled = query[5];
-	
+
 			CFRef<SecRequirementRef> requirement;
 			MacOSError::check(SecRequirementCreateWithString(CFTempString(reqString), kSecCSDefaultFlags, &requirement.aref()));
-			switch (OSStatus rc = SecRequirementEvaluate(requirement, chain, NULL, kSecCSDefaultFlags)) {
+			switch (OSStatus rc = SecRequirementEvaluate(requirement, chain, requirementContext.get(), kSecCSDefaultFlags)) {
 			case errSecSuccess: // success
 				break;
 			case errSecCSReqFailed: // requirement missed, but otherwise okay

@@ -29,6 +29,9 @@
 
 #include "Security_regressions.h"
 
+static int dummy;
+static SecRandomRef kSecRandomNotDefault = (SecRandomRef)&dummy;
+
 /* Test basic add delete update copy matching stuff. */
 static void tests(void)
 {
@@ -36,11 +39,12 @@ static void tests(void)
 	CFIndex size = 42;
 	UInt8 *p = bytes + 23;
 	ok_status(SecRandomCopyBytes(kSecRandomDefault, size, p), "generate some random bytes");
+    ok_status(SecRandomCopyBytes(kSecRandomNotDefault, size, p), "ignore random implementation specifier");
 }
 
 int si_50_secrandom(int argc, char *const *argv)
 {
-	plan_tests(1);
+	plan_tests(2);
 
 
 	tests();

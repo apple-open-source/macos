@@ -52,7 +52,6 @@ public:
     class Compositor {
     public:
         virtual void onNewBufferAvailable() = 0;
-        virtual TextureMapperGL* texmapGL() = 0;
     };
 
     TextureMapperPlatformLayerProxy();
@@ -66,10 +65,10 @@ public:
     void pushNextBuffer(std::unique_ptr<TextureMapperPlatformLayerBuffer>);
     bool isActive();
 
-    void activateOnCompositingThread(Compositor*, TextureMapperLayer*);
-    void invalidate();
+    WEBCORE_EXPORT void activateOnCompositingThread(Compositor*, TextureMapperLayer*);
+    WEBCORE_EXPORT void invalidate();
 
-    void swapBuffer();
+    WEBCORE_EXPORT void swapBuffer();
     void dropCurrentBufferWhilePreservingTexture();
 
     bool scheduleUpdateOnCompositorThread(Function<void()>&&);

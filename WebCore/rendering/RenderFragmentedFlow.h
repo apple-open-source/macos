@@ -83,19 +83,9 @@ public:
     void validateFragments();
     void invalidateFragments(MarkingBehavior = MarkContainingBlockChain);
     bool hasValidFragmentInfo() const { return !m_fragmentsInvalidated && !m_fragmentList.isEmpty(); }
-
-    // Some renderers (column spanners) are moved out of the flow thread to live among column
-    // sets. If |child| is such a renderer, resolve it to the placeholder that lives at the original
-    // location in the tree.
-    virtual RenderObject* resolveMovedChild(RenderObject* child) const { return child; }
-    // Called when a descendant of the flow thread has been inserted.
-    virtual void fragmentedFlowDescendantInserted(RenderObject&) { }
-    // Called when a sibling or descendant of the flow thread is about to be removed.
-    virtual void fragmentedFlowRelativeWillBeRemoved(RenderObject&) { }
+    
     // Called when a descendant box's layout is finished and it has been positioned within its container.
     virtual void fragmentedFlowDescendantBoxLaidOut(RenderBox*) { }
-
-    static RenderStyle createFragmentedFlowStyle(const RenderStyle* parentStyle);
 
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
@@ -240,14 +230,13 @@ protected:
         bool m_rangeInvalidated;
     };
 
-    typedef PODInterval<LayoutUnit, RenderFragmentContainer*> FragmentInterval;
-    typedef PODIntervalTree<LayoutUnit, RenderFragmentContainer*> FragmentIntervalTree;
+    typedef PODInterval<LayoutUnit, WeakPtr<RenderFragmentContainer>> FragmentInterval;
+    typedef PODIntervalTree<LayoutUnit, WeakPtr<RenderFragmentContainer>> FragmentIntervalTree;
 
     class FragmentSearchAdapter {
     public:
         FragmentSearchAdapter(LayoutUnit offset)
             : m_offset(offset)
-            , m_result(nullptr)
         {
         }
         
@@ -255,11 +244,11 @@ protected:
         const LayoutUnit& highValue() const { return m_offset; }
         void collectIfNeeded(const FragmentInterval&);
 
-        RenderFragmentContainer* result() const { return m_result; }
+        RenderFragmentContainer* result() const { return m_result.get(); }
 
     private:
         LayoutUnit m_offset;
-        RenderFragmentContainer* m_result;
+        WeakPtr<RenderFragmentContainer> m_result;
     };
 
     // Map a line to its containing fragment.
@@ -292,6 +281,10 @@ namespace WTF {
 
 template <> struct ValueToString<WebCore::RenderFragmentContainer*> {
     static String string(const WebCore::RenderFragmentContainer* value) { return String::format("%p", value); }
+};
+
+template <> struct ValueToString<WeakPtr<WebCore::RenderFragmentContainer>> {
+    static String string(const WeakPtr<WebCore::RenderFragmentContainer> value) { return value.get() ? ValueToString<WebCore::RenderFragmentContainer*>::string(value.get()) : String(); }
 };
 
 } // namespace WTF

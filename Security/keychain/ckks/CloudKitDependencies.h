@@ -42,6 +42,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSOperationQueuePriority queuePriority;
 @property NSQualityOfService qualityOfService;
 @property (nonatomic, strong, nullable) CKOperationGroup* group;
+@property (nonatomic, copy, null_resettable) CKOperationConfiguration *configuration;
 
 @property (nonatomic, copy, nullable) void (^modifyRecordZonesCompletionBlock)
     (NSArray<CKRecordZone*>* _Nullable savedRecordZones, NSArray<CKRecordZoneID*>* _Nullable deletedRecordZoneIDs, NSError* _Nullable operationError);
@@ -64,6 +65,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSOperationQueuePriority queuePriority;
 @property NSQualityOfService qualityOfService;
 @property (nonatomic, strong, nullable) CKOperationGroup* group;
+@property (nonatomic, copy, null_resettable) CKOperationConfiguration *configuration;
 
 @property (nonatomic, copy, nullable) void (^modifySubscriptionsCompletionBlock)
     (NSArray<CKSubscription*>* _Nullable savedSubscriptions, NSArray<NSString*>* _Nullable deletedSubscriptionIDs, NSError* _Nullable operationError);
@@ -77,10 +79,11 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol CKKSFetchRecordZoneChangesOperation <NSObject>
 + (instancetype)alloc;
 - (instancetype)initWithRecordZoneIDs:(NSArray<CKRecordZoneID*>*)recordZoneIDs
-                optionsByRecordZoneID:(nullable NSDictionary<CKRecordZoneID*, CKFetchRecordZoneChangesOptions*>*)optionsByRecordZoneID;
+                configurationsByRecordZoneID:(nullable NSDictionary<CKRecordZoneID*, CKFetchRecordZoneChangesConfiguration*>*)configurationsByRecordZoneID;
 
+@property (nonatomic, strong, nullable) CKDatabase *database;
 @property (nonatomic, copy, nullable) NSArray<CKRecordZoneID*>* recordZoneIDs;
-@property (nonatomic, copy, nullable) NSDictionary<CKRecordZoneID*, CKFetchRecordZoneChangesOptions*>* optionsByRecordZoneID;
+@property (nonatomic, copy, nullable) NSDictionary<CKRecordZoneID*, CKFetchRecordZoneChangesConfiguration*>* configurationsByRecordZoneID;
 
 @property (nonatomic, assign) BOOL fetchAllChanges;
 @property (nonatomic, copy, nullable) void (^recordChangedBlock)(CKRecord* record);
@@ -95,10 +98,13 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) void (^fetchRecordZoneChangesCompletionBlock)(NSError* _Nullable operationError);
 
 @property (nonatomic, strong, nullable) CKOperationGroup* group;
+@property (nonatomic, copy, null_resettable) CKOperationConfiguration *configuration;
+
+@property (nonatomic, copy) NSString *operationID;
+@property (nonatomic, readonly, strong, nullable) CKOperationConfiguration *resolvedConfiguration;
 @end
 
 @interface CKFetchRecordZoneChangesOperation () <CKKSFetchRecordZoneChangesOperation>
-;
 @end
 
 /* CKFetchRecordsOperation */
@@ -107,6 +113,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)init;
 - (instancetype)initWithRecordIDs:(NSArray<CKRecordID*>*)recordIDs;
 
+@property (nonatomic, strong, nullable) CKDatabase *database;
 @property (nonatomic, copy, nullable) NSArray<CKRecordID*>* recordIDs;
 @property (nonatomic, copy, nullable) NSArray<NSString*>* desiredKeys;
 @property (nonatomic, copy, nullable) CKOperationConfiguration* configuration;

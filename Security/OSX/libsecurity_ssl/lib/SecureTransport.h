@@ -191,6 +191,18 @@ typedef CF_ENUM(int, SSLClientCertificateState) {
 };
 
 /*
+ * Convenience ciphersuite groups that collate ciphersuites of comparable security
+ * properties into a single alias.
+ */
+typedef CF_ENUM(int, SSLCiphersuiteGroup) {
+    kSSLCiphersuiteGroupDefault,
+    kSSLCiphersuiteGroupCompatibility,
+    kSSLCiphersuiteGroupLegacy,
+    kSSLCiphersuiteGroupATS,
+    kSSLCiphersuiteGroupATSCompatibility,
+};
+
+/*
  * R/W functions. The application using this library provides
  * these functions via SSLSetIOFuncs().
  *

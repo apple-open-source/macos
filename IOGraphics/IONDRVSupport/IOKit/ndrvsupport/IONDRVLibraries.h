@@ -300,8 +300,6 @@ enum {
     #define nil NULL
 #endif
 
-typedef ResType                         VSLGestaltType;
-
 enum {
   clutType                      = 0,    /*0 if lookup table*/
   fixedType                     = 1,    /*1 if fixed table*/
@@ -333,10 +331,6 @@ enum {
 enum {
     kVSLClamshellStateGestaltType = 'clam',
 };
-
-OSStatus
-VSLGestalt( VSLGestaltType selector, UInt32 * response )
-__OSX_DEPRECATED(10.0, 10.13, "Use IOFramebuffer::getAttribute(kIOClamshellStateAttribute)");
 
 OSErr
 VSLNewInterruptService(

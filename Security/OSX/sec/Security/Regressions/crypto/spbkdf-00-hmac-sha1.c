@@ -13,7 +13,7 @@
 
 #include "Security_regressions.h"
 
-static int kTestTestCount = 8;
+static int kTestTestCount = 16;
 
 static void tests(void)
 {
@@ -31,9 +31,9 @@ static void tests(void)
 
         uint8_t actual[resultSize];
 
-        pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
+        is(pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-1");
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-1");
+        is(memcmp(expected, actual, resultSize), 0, "pbkdf-sha-1: P-'password' S-'salt' I-1");
     }
 
     {
@@ -50,9 +50,9 @@ static void tests(void)
 
         uint8_t actual[resultSize];
 
-        pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
+        is(pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-2");
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-2");
+        is(memcmp(expected, actual, resultSize), 0, "pbkdf-sha-1: P-'password' S-'salt' I-2");
     }
 
     {
@@ -69,9 +69,9 @@ static void tests(void)
 
         uint8_t actual[resultSize];
 
-        pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
+        is(pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-4096");
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-4096");
+        is(memcmp(expected, actual, resultSize), 0, "pbkdf-sha-1: P-'password' S-'salt' I-4096");
     }
 
     SKIP: {
@@ -90,9 +90,9 @@ static void tests(void)
 
         uint8_t actual[resultSize];
 
-        pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
+        is(pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-16777216");
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-16777216");
+        is(memcmp(expected, actual, resultSize), 0, "pbkdf-sha-1: P-'password' S-'salt' I-16777216");
     }
 
 
@@ -115,9 +115,9 @@ static void tests(void)
         CFMutableDataRef resultData = CFDataCreateMutable(NULL, resultSize);
         CFDataIncreaseLength(resultData, resultSize);
 
-        SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData);
+        is(SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-1");
 
-        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-1");
+        is(memcmp(expected, CFDataGetBytePtr(resultData), resultSize), 0, "pbkdf-sha-1: P-'password' S-'salt' I-1");
 
         CFReleaseSafe(password);
         CFReleaseSafe(salt);
@@ -145,9 +145,9 @@ static void tests(void)
         CFMutableDataRef resultData = CFDataCreateMutable(NULL, resultSize);
         CFDataIncreaseLength(resultData, resultSize);
 
-        SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData);
+        is(SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-2");
 
-        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-2");
+        is(memcmp(expected, CFDataGetBytePtr(resultData), resultSize), 0, "pbkdf-sha-1: P-'password' S-'salt' I-2");
 
         CFReleaseSafe(password);
         CFReleaseSafe(salt);
@@ -176,9 +176,9 @@ static void tests(void)
         CFMutableDataRef resultData = CFDataCreateMutable(NULL, resultSize);
         CFDataIncreaseLength(resultData, resultSize);
 
-        SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData);
+        is(SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-4096");
 
-        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-4096");
+        is(memcmp(expected, CFDataGetBytePtr(resultData), resultSize), 0, "pbkdf-sha-1: P-'password' S-'salt' I-4096");
 
         CFReleaseSafe(password);
         CFReleaseSafe(salt);
@@ -188,7 +188,7 @@ static void tests(void)
     }
 
     SKIP: {
-        skip("16777216 iterations is too slow", 1, 0);
+        skip("16777216 iterations is too slow", 2, 0);
 
         CFStringRef password    = CFStringCreateWithCString(NULL, "password", kCFStringEncodingUTF8);
         CFStringRef salt        = CFStringCreateWithCString(NULL, "salt", kCFStringEncodingUTF8);
@@ -209,9 +209,9 @@ static void tests(void)
         CFMutableDataRef resultData = CFDataCreateMutable(NULL, resultSize);
         CFDataIncreaseLength(resultData, resultSize);
 
-        SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData);
+        is(SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-16777216");
 
-        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-16777216");
+        is(memcmp(expected, CFDataGetBytePtr(resultData), resultSize), 0, "pbkdf-sha-1: P-'password' S-'salt' I-16777216");
 
         CFReleaseSafe(password);
         CFReleaseSafe(salt);

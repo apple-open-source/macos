@@ -122,6 +122,10 @@ fil{
             "CLP",
             "Piso ng Chile",
         }
+        CNH{
+            "CNH",
+            "CNH",
+        }
         CNY{
             "CN¥",
             "Chinese Yuan",
@@ -388,6 +392,10 @@ fil{
         }
         MRO{
             "MRO",
+            "Mauritanian Ouguiya (1973–2017)",
+        }
+        MRU{
+            "MRU",
             "Mauritanian Ouguiya",
         }
         MUR{
@@ -544,6 +552,10 @@ fil{
         }
         STD{
             "STD",
+            "São Tomé & Príncipe Dobra (1977–2017)",
+        }
+        STN{
+            "STN",
             "São Tomé & Príncipe Dobra",
         }
         SYP{
@@ -738,6 +750,7 @@ fil{
         PKR{"Rs"}
         PLN{"zł"}
         PYG{"₲"}
+        RON{"lei"}
         RUB{"₽"}
         RWF{"RF"}
         SBD{"$"}
@@ -746,7 +759,7 @@ fil{
         SHP{"£"}
         SRD{"$"}
         SSP{"£"}
-        STD{"Db"}
+        STN{"Db"}
         SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
@@ -886,6 +899,10 @@ fil{
         CLP{
             one{"piso ng Chile"}
             other{"piso ng Chile"}
+        }
+        CNH{
+            one{"CNH"}
+            other{"CNH"}
         }
         CNY{
             one{"Chinese yuan"}
@@ -1136,6 +1153,10 @@ fil{
             other{"Macanese patacas"}
         }
         MRO{
+            one{"Mauritanian ouguiya (1973–2017)"}
+            other{"Mauritanian ouguiyas (1973–2017)"}
+        }
+        MRU{
             one{"Mauritanian ouguiya"}
             other{"Mauritanian ouguiyas"}
         }
@@ -1284,6 +1305,10 @@ fil{
             other{"pounds ng Timog Sudan"}
         }
         STD{
+            one{"São Tomé & Príncipe dobra (1977–2017)"}
+            other{"São Tomé & Príncipe dobras (1977–2017)"}
+        }
+        STN{
             one{"São Tomé & Príncipe dobra"}
             other{"São Tomé & Príncipe dobras"}
         }
@@ -1404,5 +1429,5 @@ fil{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.31.86"}
+    Version{"2.1.41.97"}
 }

@@ -61,7 +61,7 @@ static const bool kTestCustomKeybag = false;
 static const bool kTestLocalKeybag = false;
 
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
-CFArrayRef SecAccessGroupsGetCurrent();
+CFArrayRef SecAccessGroupsGetCurrent(void);
 
 #define kSecdTestCreateCustomKeybagTestCount 6
 #define kSecdTestLocalKeybagTestCount 1

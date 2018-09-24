@@ -38,19 +38,6 @@
     already exists at install time.
 */
 
-std::string SharedMemoryCommon::SharedMemoryFilePath(const char *segmentName, uid_t uid) {
-    std::string path;
-    uid = SharedMemoryCommon::fixUID(uid);
-    path = SharedMemoryCommon::kMDSMessagesDirectory;   // i.e. /private/var/db/mds/messages/
-    if (uid != 0) {
-        path += std::to_string(uid) + "/";              // e.g. /private/var/db/mds/messages/501/
-    }
-
-    path += SharedMemoryCommon::kUserPrefix;            // e.g. /var/db/mds/messages/se_
-    path += segmentName;                                // e.g. /var/db/mds/messages/501/se_SecurityMessages
-    return path;
-}
-
 static bool makedir(const char *path, mode_t mode) {
     // Returns true on success. Primarily to centralize logging
     if (::mkdir(path, mode)==0 || errno==EEXIST) {

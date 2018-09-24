@@ -45,19 +45,11 @@
 #include <Security/SecBase.h>
 #include <inttypes.h>
 
-#if !(TARGET_IPHONE_SIMULATOR && defined(IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED) && IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED < 1090)
-#include <sys/guarded.h>
-#define USE_GUARDED_OPEN 1
-#else
-#define USE_GUARDED_OPEN 0
-#endif
-
-
 /* Security.framework's bundle id. */
 #if TARGET_OS_IPHONE
-static CFStringRef kSecFrameworkBundleID = CFSTR("com.apple.Security");
+CFStringRef kSecFrameworkBundleID = CFSTR("com.apple.Security");
 #else
-static CFStringRef kSecFrameworkBundleID = CFSTR("com.apple.security");
+CFStringRef kSecFrameworkBundleID = CFSTR("com.apple.security");
 #endif
 
 CFGiblisGetSingleton(CFBundleRef, SecFrameworkGetBundle, bundle,  ^{
@@ -104,68 +96,4 @@ CFDataRef SecFrameworkCopyResourceContents(CFStringRef resourceName,
     }
 
 	return data;
-}
-
-static CFStringRef copyErrorMessageFromBundle(OSStatus status, CFStringRef tableName);
-
-// caller MUST release the string, since it is gotten with "CFCopyLocalizedStringFromTableInBundle"
-// intended use of reserved param is to pass in CFStringRef with name of the Table for lookup
-// Will look by default in "SecErrorMessages.strings" in the resources of Security.framework.
-
-
-CFStringRef
-SecCopyErrorMessageString(OSStatus status, void *reserved)
-{
-    CFStringRef result = copyErrorMessageFromBundle(status, CFSTR("SecErrorMessages"));
-    if (!result)
-        result = copyErrorMessageFromBundle(status, CFSTR("SecDebugErrorMessages"));
-
-    if (!result)
-    {
-        // no error message found, so format a faked-up error message from the status
-        result = CFStringCreateWithFormat(NULL, NULL, CFSTR("OSStatus %d"), (int)status);
-    }
-
-    return result;
-}
-
-CFStringRef
-copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName)
-{
-
-    CFStringRef errorString = nil;
-    CFStringRef keyString = nil;
-    CFBundleRef secBundle = NULL;
-
-    // Make a bundle instance using the URLRef.
-    secBundle = CFBundleGetBundleWithIdentifier(kSecFrameworkBundleID);
-    if (!secBundle)
-        goto exit;
-
-    // Convert status to Int32 string representation, e.g. "-25924"
-    keyString = CFStringCreateWithFormat (kCFAllocatorDefault, NULL, CFSTR("%d"), (int)status);
-    if (!keyString)
-        goto exit;
-
-    errorString = CFCopyLocalizedStringFromTableInBundle(keyString, tableName, secBundle, NULL);
-    if (CFStringCompare(errorString, keyString, 0) == kCFCompareEqualTo)    // no real error message
-    {
-        if (errorString)
-            CFRelease(errorString);
-        errorString = nil;
-    }
-exit:
-    if (keyString)
-        CFRelease(keyString);
-
-    return errorString;
-}
-
-
-const SecRandomRef kSecRandomDefault = NULL;
-
-int SecRandomCopyBytes(SecRandomRef rnd, size_t count, void *bytes) {
-    if (rnd != kSecRandomDefault)
-        return errSecParam;
-    return CCRandomCopyBytes(kCCRandomDefault, bytes, count);
 }

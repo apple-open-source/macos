@@ -33,8 +33,8 @@
 
 #include "InspectorOverlay.h"
 #include "PageScriptDebugServer.h"
-#include <inspector/InspectorAgentRegistry.h>
-#include <inspector/InspectorEnvironment.h>
+#include <JavaScriptCore/InspectorAgentRegistry.h>
+#include <JavaScriptCore/InspectorEnvironment.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/text/WTFString.h>
@@ -94,7 +94,6 @@ public:
     WEBCORE_EXPORT void connectFrontend(Inspector::FrontendChannel*, bool isAutomaticInspection = false, bool immediatelyPause = false);
     WEBCORE_EXPORT void disconnectFrontend(Inspector::FrontendChannel*);
     WEBCORE_EXPORT void disconnectAllFrontends();
-    void setProcessId(long);
 
     void inspect(Node*);
     WEBCORE_EXPORT void drawHighlight(GraphicsContext&) const;

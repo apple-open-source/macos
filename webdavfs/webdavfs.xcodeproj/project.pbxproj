@@ -409,6 +409,7 @@
 		DD6612FA09C88572009325F2 /* LogMessage.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = LogMessage.c; path = mount.tproj/LogMessage.c; sourceTree = "<group>"; };
 		DD6612FC09C8857E009325F2 /* LogMessage.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = LogMessage.h; path = mount.tproj/LogMessage.h; sourceTree = "<group>"; };
 		E23E05091475FEF600FA999A /* webdav_agent.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = webdav_agent.sb; path = mount.tproj/webdav_agent.sb; sourceTree = "<group>"; };
+		F991F3CB207830EE00FF1521 /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -535,6 +536,7 @@
 		0352AA240043263F11CA2A40 /* webdavfs_kext */ = {
 			isa = PBXGroup;
 			children = (
+				F991F3CB207830EE00FF1521 /* kext.xcconfig */,
 				0352AA2C0043263F11CA2A40 /* Headers */,
 				0352AA2F0043263F11CA2A40 /* Sources */,
 			);
@@ -1331,7 +1333,7 @@
 		};
 		72B01E7C0BC48C5500C182DA /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
+			baseConfigurationReference = F991F3CB207830EE00FF1521 /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COMBINE_HIDPI_IMAGES = YES;
@@ -1377,7 +1379,7 @@
 		};
 		72B01E7D0BC48C5500C182DA /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
+			baseConfigurationReference = F991F3CB207830EE00FF1521 /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COMBINE_HIDPI_IMAGES = YES;

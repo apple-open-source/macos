@@ -33,11 +33,19 @@
 // somehow deducible from the build configuration.
 #define __GBM__ 1
 #include "EpoxyEGL.h"
-#include <wpe/renderer-backend-egl.h>
+#include <wpe/wpe-egl.h>
 
 namespace WebCore {
 
-PlatformDisplayWPE::PlatformDisplayWPE() = default;
+std::unique_ptr<PlatformDisplayWPE> PlatformDisplayWPE::create()
+{
+    return std::unique_ptr<PlatformDisplayWPE>(new PlatformDisplayWPE());
+}
+
+PlatformDisplayWPE::PlatformDisplayWPE()
+    : PlatformDisplay(NativeDisplayOwned::No)
+{
+}
 
 PlatformDisplayWPE::~PlatformDisplayWPE()
 {

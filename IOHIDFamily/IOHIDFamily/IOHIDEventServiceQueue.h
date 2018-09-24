@@ -40,16 +40,18 @@ class IOHIDEventServiceQueue: public IOSharedDataQueue
 protected:
     IOMemoryDescriptor *    _descriptor;
     Boolean                 _state;
-    uint64_t                _owner;
+    OSObject                *_owner;
 
 public:
     static IOHIDEventServiceQueue *withCapacity(UInt32 size);
-    static IOHIDEventServiceQueue *withCapacity(UInt32 size, uint64_t owner);
+    static IOHIDEventServiceQueue *withCapacity(OSObject *owner, UInt32 size);
     
     virtual void free();
     
     inline Boolean getState() { return _state; }
     inline void setState(Boolean state) { _state = state; }
+    
+    inline OSObject *getOwner() { return _owner; }
 
     virtual Boolean enqueueEvent(IOHIDEvent * event);
 

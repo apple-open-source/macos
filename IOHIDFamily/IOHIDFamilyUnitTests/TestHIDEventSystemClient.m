@@ -19,10 +19,6 @@ static boolean_t EventSystemEventFilterCallback (void * _Nullable target, void *
 
 static void EventSystemResetCallback(void * _Nullable target, void * _Nullable context __unused);
 
-//static void EventSystemServiceRemovedCallback (void *target, void *refcon __unused, IOHIDServiceClientRef service);
-
-//static void EventSystemServiceAddedCallback  (void *target, void *refcon __unused, IOHIDServiceClientRef service);
-
 static void EventSystemEventCallback (void * _Nullable target, void * _Nullable refcon __unused, void * _Nullable sender, IOHIDEventRef event);
 
 static void EventSystemPropertyChangedCallback (void * _Nullable target, void * _Nullable context, CFStringRef property, CFTypeRef value);
@@ -43,11 +39,10 @@ static uint8_t descriptor[] = {
 @property IOHIDEventSystemClientRef         eventSystemClient;
 @property IOHIDEventSystemClientRef         testEventSystemClient;
 
-@property NSInteger                         eventCount;
-@property NSInteger                         filterCount;
+@property NSMutableArray *                  events;
+@property NSMutableArray *                  filteredEvents;
+
 @property NSInteger                         resetCount;
-@property NSInteger                         serviceAddedCount;
-@property NSInteger                         serviceRemovedCount;
 @property NSInteger                         propertyCount;
 
 @property NSString*                         uniqueID;
@@ -67,6 +62,10 @@ static uint8_t descriptor[] = {
     NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
     self.uniqueID = [[[NSUUID alloc] init] UUIDString];
   
+    self.events = [[NSMutableArray alloc] init];
+
+    self.filteredEvents = [[NSMutableArray alloc] init];
+
     self.sourceController = [[IOHIDUserDeviceTestController alloc] initWithDescriptor:descriptorData DeviceUniqueID:self.uniqueID andQueue:nil];
     HIDXCTAssertAndThrowTrue(EVAL(self.sourceController != nil));
 
@@ -84,6 +83,8 @@ static uint8_t descriptor[] = {
     IOHIDEventSystemClientRegisterResetCallback(self.eventSystemClient, EventSystemResetCallback, (__bridge void * _Nullable)(self), NULL);
     dispatch_sync (self.clientQueue, ^{
         IOHIDEventSystemClientScheduleWithDispatchQueue(self.eventSystemClient, self.clientQueue);
+        // this is barrier that guaranteed that IOHIDEventSystemClientScheduleWithDispatchQueue completed
+        IOHIDEventSystemClientCopyProperty(self.eventSystemClient, CFSTR (kIOHIDEventSystemClientIsUnresponsive));
     });
   
 }
@@ -172,7 +173,7 @@ static uint8_t descriptor[] = {
     HIDVendorMessage32BitDescriptorInputReport report;
     
     IOHIDEventBlock handler =  ^(void * __unused _Nullable target, void * __unused _Nullable refcon, void * __unused _Nullable sender, IOHIDEventRef __unused event) {
-        ++self.eventCount;
+        [self.events addObject:(__bridge id) event];
     };
     
     dispatch_sync (self.clientQueue, ^{
@@ -181,8 +182,6 @@ static uint8_t descriptor[] = {
     
     sleep (kServiceMatchingTimeout);
     
-    self.eventCount  = 0;
-    
     report.VEN_VendorDefined0023 = 1;
     status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
@@ -195,14 +194,13 @@ static uint8_t descriptor[] = {
     
     // Allow event to be dispatched
     usleep(kDefaultReportDispatchCompletionTime);
-    
-    XCTAssertTrue(self.eventCount == 3, "eventCount:%d", (int) self.eventCount);
+    XCTAssertTrue(self.events.count == 3, "events:%@", self.events);
     
     dispatch_sync (self.clientQueue, ^{
         IOHIDEventSystemClientUnregisterEventBlock (self.eventSystemClient, handler, (__bridge void * _Nullable)(self), NULL);
     });
 
-    self.eventCount  = 0;
+    [self.events removeAllObjects];
     
     report.VEN_VendorDefined0023 = 1;
     status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
@@ -217,7 +215,7 @@ static uint8_t descriptor[] = {
     // Allow event to be dispatched
     usleep(kDefaultReportDispatchCompletionTime);
     
-    XCTAssertTrue(self.eventCount == 0, "eventCount:%d", (int) self.eventCount);
+     XCTAssertTrue(self.events.count == 0, "events:%@", self.events);
 }
 
 
@@ -228,7 +226,7 @@ static uint8_t descriptor[] = {
     HIDVendorMessage32BitDescriptorInputReport report;
     
     IOHIDEventBlock handler =  ^(void * __unused _Nullable target, void * __unused _Nullable refcon, void *  __unused _Nullable sender, __unused IOHIDEventRef event) {
-        ++self.eventCount;
+        [self.events addObject:(__bridge id) event];
     };
     
     dispatch_sync (self.clientQueue, ^{
@@ -243,12 +241,11 @@ static uint8_t descriptor[] = {
         IOHIDEventSystemClientUnregisterEventBlock (self.eventSystemClient, handler, (__bridge void * _Nullable)(self), NULL);
         IOHIDEventSystemClientRegisterEventBlock (self.eventSystemClient, handler, (__bridge void * _Nullable)(self), NULL);
         IOHIDEventSystemClientScheduleWithRunLoop (self.eventSystemClient, runLoop, kCFRunLoopDefaultMode);
+        IOHIDEventSystemClientCopyProperty(self.eventSystemClient, CFSTR (kIOHIDEventSystemClientIsUnresponsive));
     });
     CFRunLoopWakeUp(runLoop);
 
-   sleep (kServiceMatchingTimeout);
-    
-    self.eventCount  = 0;
+    sleep (kServiceMatchingTimeout);
     
     report.VEN_VendorDefined0023 = 1;
     status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
@@ -263,7 +260,7 @@ static uint8_t descriptor[] = {
     // Allow event to be dispatched
     usleep(kDefaultReportDispatchCompletionTime);
     
-    XCTAssertTrue(self.eventCount == 3, "eventCount:%d", (int) self.eventCount);
+    XCTAssertTrue(self.events.count == 3, "events:%@", self.events);
 
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
     CFRunLoopPerformBlock(runLoop, kCFRunLoopDefaultMode, ^{
@@ -290,16 +287,14 @@ static uint8_t descriptor[] = {
     
     sleep (kServiceMatchingTimeout);
     
-    self.eventCount  = 0;
-
     report.VEN_VendorDefined0023 = 1;
     status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
 
     // Allow event to be dispatched
     usleep(kDefaultReportDispatchCompletionTime);
-    
-    XCTAssertTrue(self.eventCount == 1, "eventCount:%d", (int) self.eventCount);
+
+    XCTAssertTrue(self.events.count == 1, "events:%@", self.events);
     
     dispatch_sync (self.clientQueue, ^{
         NSArray * eventFilterMask = @[];
@@ -314,8 +309,8 @@ static uint8_t descriptor[] = {
     // Allow event to be dispatched
     usleep(kDefaultReportDispatchCompletionTime);
     
-    XCTAssertTrue(self.eventCount == 1, "eventCount:%d", (int) self.eventCount);
-    
+    XCTAssertTrue(self.events.count == 1, "events:%@", self.events);
+
 
     dispatch_sync (self.clientQueue, ^{
         NSArray * eventFilterMask = @[@(kIOHIDEventTypeVendorDefined)];
@@ -329,7 +324,7 @@ static uint8_t descriptor[] = {
     // Allow event to be dispatched
     usleep(kDefaultReportDispatchCompletionTime);
     
-    XCTAssertTrue(self.eventCount == 2, "eventCount:%d", (int) self.eventCount);
+    XCTAssertTrue(self.events.count == 2, "events:%@", self.events);
 
 }
 
@@ -346,8 +341,6 @@ static uint8_t descriptor[] = {
 
     sleep (kServiceMatchingTimeout);
 
-    self.filterCount = 0;
-    self.eventCount  = 0;
     
     report.VEN_VendorDefined0023 = 1;
     status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
@@ -361,17 +354,18 @@ static uint8_t descriptor[] = {
   
      // Allow event to be dispatched
     usleep(kDefaultReportDispatchCompletionTime);
-  
-    XCTAssertTrue(self.filterCount == 1 && self.eventCount == 2, "filterCount:%d eventCount:%d", (int)self.filterCount, (int) self.eventCount);
+
+    XCTAssertTrue(self.filteredEvents.count == 1 && self.events.count == 2, "filteredEventd:%@ eventCount:%@", self.filteredEvents, self.events);
 
     dispatch_sync (self.clientQueue, ^{
         IOHIDEventSystemClientUnregisterEventCallback (self.eventSystemClient, EventSystemEventCallback, (__bridge void * _Nullable)(self), NULL);
         IOHIDEventSystemClientUnregisterEventFilterCallback (self.eventSystemClient, EventSystemEventFilterCallback, (__bridge void * _Nullable)(self), NULL);
     });
 
-    self.filterCount = 0;
-    self.eventCount  = 0;
+    [self.filteredEvents removeAllObjects];
+    [self.events removeAllObjects];
 
+  
     report.VEN_VendorDefined0023 = 1;
     status = [self.sourceController handleReport: (uint8_t*)&report Length:sizeof(report) andInterval:2000];
     XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
@@ -384,8 +378,8 @@ static uint8_t descriptor[] = {
     
     // Allow event to be dispatched
     usleep(kDefaultReportDispatchCompletionTime);
-    
-    XCTAssert(self.filterCount == 0 && self.eventCount == 0);
+  
+    XCTAssertTrue(self.filteredEvents.count == 0 && self.events.count == 0, "filteredEventd:%@ eventCount:%@", self.filteredEvents, self.events);
 
     XCTAssert(self.resetCount == 0);
 }
@@ -432,26 +426,39 @@ static uint8_t descriptor[] = {
 
 - (void)testClientEventDispatch {
     
-    self.eventCount = 0;
-    
     UInt32 value = 0x55555555;
     
-    IOHIDEventRef event = IOHIDEventCreateVendorDefinedEvent(
-                                                             kCFAllocatorDefault,
-                                                             mach_absolute_time(),
-                                                             kHIDPage_AppleVendor,
-                                                             kHIDUsage_AppleVendor_Message,
-                                                             0,
-                                                             (uint8_t*)&value,
-                                                             sizeof(value),
-                                                             0);
+    IOHIDEventRef event;
+    event = IOHIDEventCreateVendorDefinedEvent(kCFAllocatorDefault,
+                                               mach_absolute_time(),
+                                               kHIDPage_AppleVendor,
+                                               kHIDUsage_AppleVendor_Message,
+                                               0,
+                                               (uint8_t*)&value,
+                                               sizeof(value),
+                                               0);
     
+    TestLog("IOHIDEventSystemClientDispatchEvent:%@", event);
     IOHIDEventSystemClientDispatchEvent(self.testEventSystemClient, event);
+    CFRelease(event);
+    
+    event = IOHIDEventCreateVendorDefinedEvent(kCFAllocatorDefault,
+                                               mach_absolute_time(),
+                                               kHIDPage_AppleVendor,
+                                               kHIDUsage_AppleVendor_Message,
+                                               0,
+                                               (uint8_t*)&value,
+                                               sizeof(value),
+                                               0);
+    
+    TestLog("IOHIDEventSystemClientDispatchEvent:%@", event);
+    IOHIDEventSystemClientDispatchEvent(self.testEventSystemClient, event);
+    CFRelease(event);
     
     // Allow event to be dispatched
     usleep(kDefaultReportDispatchCompletionTime);
-  
-    XCTAssert(self.eventCount == 1);
+    
+    XCTAssert(self.events.count == 2, "events:%@", self.events);
 }
 
 
@@ -470,36 +477,28 @@ static uint8_t descriptor[] = {
 }
 
 
--(void) PropertyChangeCallback: (nonnull __unused CFStringRef) property And: (nullable __unused CFTypeRef) value {
+-(void) propertyChangeCallback: (nonnull __unused CFStringRef) property And: (nullable __unused CFTypeRef) value {
     ++self.propertyCount;
 }
 
--(void) EventCallback: (nonnull __unused IOHIDEventRef) event  For: (nullable __unused IOHIDServiceClientRef) service  {
-    ++self.eventCount;
+-(void) eventCallback: (nonnull __unused IOHIDEventRef) event  For: (nullable __unused IOHIDServiceClientRef) service  {
+   [self.events addObject:(__bridge id) event];
 }
 
--(BOOL) FilterCallback: (nonnull __unused IOHIDEventRef) event  For: (nullable __unused IOHIDServiceClientRef) service  {
+-(BOOL) filterCallback: (nonnull __unused IOHIDEventRef) event  For: (nullable __unused IOHIDServiceClientRef) service  {
     if (IOHIDEventConformsTo(event, kIOHIDEventTypeVendorDefined)) {
         uint8_t *payload  = NULL;
         CFIndex  lenght   = 0;
         IOHIDEventGetVendorDefinedData (event, &payload, &lenght);
         if (*payload == 2) {
-            ++self.filterCount;
+            [self.filteredEvents addObject:(__bridge id) event];
             return YES;
         }
     }
     return NO;
 }
 
--(void) ServiceAddedCallback: (__unused IOHIDServiceClientRef) service {
-    ++self.serviceAddedCount;
-}
-
--(void) ServiceRemovedCallback: (__unused IOHIDServiceClientRef) service {
-    ++self.serviceRemovedCount;
-}
-
--(void) ResetCallback {
+-(void) resetCallback {
     ++self.resetCount;
 }
 
@@ -508,30 +507,20 @@ static uint8_t descriptor[] = {
 
 boolean_t EventSystemEventFilterCallback (void * _Nullable target, void * _Nullable refcon __unused, void * _Nullable sender, IOHIDEventRef event) {
     TestEventSystemClient *self = (__bridge TestEventSystemClient *)target;
-    return [self FilterCallback : event For:(IOHIDServiceClientRef)sender];
+    return [self filterCallback : event For:(IOHIDServiceClientRef)sender];
 }
 
 void EventSystemResetCallback(void * _Nullable target, void * _Nullable context __unused) {
     TestEventSystemClient *self = (__bridge TestEventSystemClient *)target;
-    [self ResetCallback];
+    [self resetCallback];
 }
-
-//void EventSystemServiceRemovedCallback (void *target, void *refcon __unused, IOHIDServiceClientRef service) {
-//    TestEventSystemClient *self = (__bridge TestEventSystemClient *)target;
-//    [self ServiceRemovedCallback: service];
-//}
-
-//void EventSystemServiceAddedCallback  (void *target, void *refcon __unused, IOHIDServiceClientRef service) {
-//    TestEventSystemClient *self = (__bridge TestEventSystemClient *)target;
-//    [self ServiceAddedCallback: service];
-//}
 
 void EventSystemEventCallback (void * _Nullable target, void * _Nullable refcon __unused, void * _Nullable sender, IOHIDEventRef event) {
     TestEventSystemClient *self = (__bridge TestEventSystemClient *)target;
-    [self EventCallback : event For:(IOHIDServiceClientRef)sender];
+    [self eventCallback : event For:(IOHIDServiceClientRef)sender];
 }
 
 void EventSystemPropertyChangedCallback (void * _Nullable target, void * _Nullable __unused context, CFStringRef property, CFTypeRef value) {
     TestEventSystemClient *self = (__bridge TestEventSystemClient *)target;
-    [self PropertyChangeCallback : property And:value];
+    [self propertyChangeCallback : property And:value];
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,13 +40,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFRunLoop.h>
 #include "EAPSIMAKA.h"
 
 CFStringRef
-SIMCopyIMSI(void);
+SIMCopyIMSI(CFDictionaryRef properties);
 
 CFStringRef
-SIMCopyRealm(void);
+SIMCopyRealm(CFDictionaryRef properties);
 
 CFDictionaryRef
 SIMCopyEncryptedIMSIInfo(EAPType type);
@@ -72,7 +73,7 @@ SIMReportDecryptionError(CFDataRef encryptedIdentity);
  *   FALSE on failure.
  */
 bool
-SIMAuthenticateGSM(const uint8_t * rand_p, int count,
+SIMAuthenticateGSM(CFDictionaryRef properties, const uint8_t * rand_p, int count,
 		   uint8_t * kc_p, uint8_t * sres_p);
 
 typedef struct {
@@ -116,7 +117,7 @@ AKAAuthResultsRelease(AKAAuthResultsRef results);
  *   - otherwise, there was an auth reject.
  */
 bool
-SIMAuthenticateAKA(CFDataRef rand, CFDataRef autn, AKAAuthResultsRef results);
+SIMAuthenticateAKA(CFDictionaryRef properties, CFDataRef rand, CFDataRef autn, AKAAuthResultsRef results);
 
 #endif /* _EAP8021X_SIMACCESS_H */
 

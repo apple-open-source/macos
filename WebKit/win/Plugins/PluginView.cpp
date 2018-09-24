@@ -25,13 +25,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "PluginView.h"
 
 #include "PluginDatabase.h"
 #include "PluginDebug.h"
 #include "PluginPackage.h"
 #include "WebFrameLoaderClient.h"
+#include <JavaScriptCore/JSCJSValue.h>
+#include <JavaScriptCore/JSLock.h>
 #include <WebCore/BridgeJSC.h>
 #include <WebCore/Chrome.h>
 #include <WebCore/CommonVM.h>
@@ -72,9 +73,6 @@
 #include <WebCore/c_instance.h>
 #include <WebCore/npruntime_impl.h>
 #include <WebCore/runtime_root.h>
-#include <bindings/ScriptValue.h>
-#include <runtime/JSCJSValue.h>
-#include <runtime/JSLock.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/text/WTFString.h>
 
@@ -1298,10 +1296,7 @@ NPError PluginView::getValueForURL(NPNURLVariable variable, const char* url, cha
     case NPNURLVProxy: {
         URL u(m_parentFrame->document()->baseURL(), url);
         if (u.isValid()) {
-            Frame* frame = getFrame(parentFrame(), m_element);
-            const FrameLoader* frameLoader = frame ? &frame->loader() : 0;
-            const NetworkingContext* context = frameLoader ? frameLoader->networkingContext() : 0;
-            const CString proxyStr = toString(proxyServersForURL(u, context)).utf8();
+            const CString proxyStr = toString(proxyServersForURL(u)).utf8();
             if (!proxyStr.isNull()) {
                 const int size = proxyStr.length();
                 *value = static_cast<char*>(NPN_MemAlloc(size+1));

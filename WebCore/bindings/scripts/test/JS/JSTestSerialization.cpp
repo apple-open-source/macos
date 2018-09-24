@@ -35,10 +35,11 @@
 #include "JSTestException.h"
 #include "JSTestSerializationIndirectInheritance.h"
 #include "JSTestSerializationInheritFinal.h"
-#include <runtime/FunctionPrototype.h>
-#include <runtime/JSCInlines.h>
-#include <runtime/ObjectConstructor.h>
+#include <JavaScriptCore/FunctionPrototype.h>
+#include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/ObjectConstructor.h>
 #include <wtf/GetPtr.h>
+#include <wtf/PointerPreparations.h>
 
 
 namespace WebCore {
@@ -107,7 +108,7 @@ template<> JSValue JSTestSerializationConstructor::prototypeForStructure(JSC::VM
 template<> void JSTestSerializationConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestSerialization::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String(ASCIILiteral("TestSerialization"))), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String("TestSerialization"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -127,7 +128,7 @@ static const HashTableValue JSTestSerializationPrototypeTableValues[] =
     { "seventhDirectlySerializableAttribute", static_cast<unsigned>(JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestSerializationSeventhDirectlySerializableAttribute), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestSerializationSeventhDirectlySerializableAttribute) } },
     { "eighthIndirectlyAttribute", static_cast<unsigned>(JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestSerializationEighthIndirectlyAttribute), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestSerializationEighthIndirectlyAttribute) } },
     { "ninthOptionalDirectlySerializableAttribute", static_cast<unsigned>(JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestSerializationNinthOptionalDirectlySerializableAttribute), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestSerializationNinthOptionalDirectlySerializableAttribute) } },
-    { "toJSON", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsTestSerializationPrototypeFunctionToJSON), (intptr_t) (0) } },
+    { "toJSON", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestSerializationPrototypeFunctionToJSON), (intptr_t) (0) } },
 };
 
 const ClassInfo JSTestSerializationPrototype::s_info = { "TestSerializationPrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestSerializationPrototype) };
@@ -175,19 +176,19 @@ void JSTestSerialization::destroy(JSC::JSCell* cell)
 
 template<> inline JSTestSerialization* IDLAttribute<JSTestSerialization>::cast(ExecState& state, EncodedJSValue thisValue)
 {
-    return jsDynamicDowncast<JSTestSerialization*>(state.vm(), JSValue::decode(thisValue));
+    return jsDynamicCast<JSTestSerialization*>(state.vm(), JSValue::decode(thisValue));
 }
 
 template<> inline JSTestSerialization* IDLOperation<JSTestSerialization>::cast(ExecState& state)
 {
-    return jsDynamicDowncast<JSTestSerialization*>(state.vm(), state.thisValue());
+    return jsDynamicCast<JSTestSerialization*>(state.vm(), state.thisValue());
 }
 
 EncodedJSValue jsTestSerializationConstructor(ExecState* state, EncodedJSValue thisValue, PropertyName)
 {
     VM& vm = state->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicDowncast<JSTestSerializationPrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSTestSerializationPrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
         return throwVMTypeError(state, throwScope);
     return JSValue::encode(JSTestSerialization::getConstructor(state->vm(), prototype->globalObject()));
@@ -197,7 +198,7 @@ bool setJSTestSerializationConstructor(ExecState* state, EncodedJSValue thisValu
 {
     VM& vm = state->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicDowncast<JSTestSerializationPrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSTestSerializationPrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype)) {
         throwVMTypeError(state, throwScope);
         return false;
@@ -570,9 +571,9 @@ JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, 
 #if ENABLE(BINDING_INTEGRITY)
     void* actualVTablePointer = *(reinterpret_cast<void**>(impl.ptr()));
 #if PLATFORM(WIN)
-    void* expectedVTablePointer = reinterpret_cast<void*>(__identifier("??_7TestSerialization@WebCore@@6B@"));
+    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(__identifier("??_7TestSerialization@WebCore@@6B@"));
 #else
-    void* expectedVTablePointer = &_ZTVN7WebCore17TestSerializationE[2];
+    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(&_ZTVN7WebCore17TestSerializationE[2]);
 #endif
 
     // If this fails TestSerialization does not have a vtable, so you need to add the
@@ -595,7 +596,7 @@ JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestSe
 
 TestSerialization* JSTestSerialization::toWrapped(JSC::VM& vm, JSC::JSValue value)
 {
-    if (auto* wrapper = jsDynamicDowncast<JSTestSerialization*>(vm, value))
+    if (auto* wrapper = jsDynamicCast<JSTestSerialization*>(vm, value))
         return &wrapper->wrapped();
     return nullptr;
 }

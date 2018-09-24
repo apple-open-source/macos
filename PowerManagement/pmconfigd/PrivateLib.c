@@ -47,6 +47,7 @@
 #include <pthread.h>
 #include <dispatch/dispatch.h>
 #include <notify.h>
+#include <xpc/private.h>
 
 #include "Platform.h"
 #include "PrivateLib.h"
@@ -54,7 +55,7 @@
 #include "PMAssertions.h"
 #include "PMSettings.h"
 #include "PMAssertions.h"
-
+#include "adaptiveDisplay.h"
 
 #define kIntegerStringLen               15
 extern os_log_t    sleepwake_log;
@@ -127,6 +128,9 @@ static bool                 cachedHasLowCap = false;
 static uint64_t nextFDREventDue = 0;
 static void logASLMessageHibernateStatistics(void);
 
+static void logASLAppWakeReason(const char * ident, const char * reason);
+
+
 typedef struct {
     CFStringRef     sleepReason;
     CFStringRef     platformWakeReason;
@@ -134,12 +138,14 @@ typedef struct {
     CFArrayRef      claimedWakeEventsArray;
     CFStringRef     claimedWake;
     CFStringRef     interpretedWake;
+    CFMutableArrayRef      appWakeReasonArray;
 } PowerEventReasons;
 
 static PowerEventReasons     reasons = {
         CFSTR(""),
         CFSTR(""),
         CFSTR(""),
+        NULL,
         NULL,
         NULL,
         NULL
@@ -192,6 +198,22 @@ static PowerEventReasons     reasons = {
 extern SCDynamicStoreRef                gSCDynamicStore;
 
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
+
+#ifdef XCTEST
+
+PowerSources xctPowerSource = kACPowered;
+uint32_t xctCapacity = 80;
+
+void xctSetPowerSource(PowerSources src) {
+    xctPowerSource = src;
+}
+
+void xctSetCapacity(uint32_t capacity) {
+    xctCapacity = capacity;
+}
+
+#endif
 
 __private_extern__ SCDynamicStoreRef _getSharedPMDynamicStore(void)
 {
@@ -437,12 +459,14 @@ __private_extern__ void _resetWakeReason( )
     if (reasons.platformWakeType)           CFRelease(reasons.platformWakeType);
     if (reasons.claimedWake)        CFRelease(reasons.claimedWake);
     if (isA_CFArray(reasons.claimedWakeEventsArray))   CFRelease(reasons.claimedWakeEventsArray);
+    if (reasons.appWakeReasonArray)     CFRelease(reasons.appWakeReasonArray);
 
     reasons.interpretedWake         = NULL;
     reasons.claimedWake             = NULL;
     reasons.claimedWakeEventsArray  = NULL;
     reasons.platformWakeReason              = CFSTR("");
     reasons.platformWakeType                = CFSTR("");
+    reasons.appWakeReasonArray              = NULL;
 }
 
 #ifndef  kIOPMDriverWakeEventsKey
@@ -489,7 +513,22 @@ static CFStringRef claimedReasonFromEventsArray(CFArrayRef wakeEvents)
 __private_extern__ void _updateWakeReason
     (CFStringRef *wakeReason, CFStringRef *wakeType)
 {
-    _resetWakeReason();
+    if (reasons.platformWakeReason) {
+        CFRelease(reasons.platformWakeReason);
+        reasons.platformWakeReason = CFSTR("");
+    }
+    if (reasons.platformWakeType) {
+        CFRelease(reasons.platformWakeType);
+        reasons.platformWakeType = CFSTR("");
+    }
+    if (reasons.claimedWakeEventsArray) {
+        CFRelease(reasons.claimedWakeEventsArray);
+        reasons.claimedWakeEventsArray = NULL;
+    }
+    if (reasons.claimedWake) {
+        CFRelease(reasons.claimedWake);
+        reasons.claimedWake = NULL;
+    }
 
     // This property may not exist on all platforms.
     reasons.platformWakeReason = _copyRootDomainProperty(CFSTR(kIOPMRootDomainWakeReasonKey));
@@ -513,6 +552,89 @@ __private_extern__ void _updateWakeReason
 
     getPlatformWakeReason(wakeReason, wakeType);
     return ;
+}
+
+// Checks if the specified wakeReason exists in the current claimed app wake reasons
+bool checkForAppWakeReason(CFStringRef wakeReason)
+{
+    CFIndex count;
+
+    if (!isA_CFArray(reasons.appWakeReasonArray) || !isA_CFString(wakeReason)) {
+        return false;
+    }
+    count = CFArrayGetCount(reasons.appWakeReasonArray);
+
+    for (CFIndex i = 0; i < count; i++) {
+        CFTypeRef value = CFArrayGetValueAtIndex(reasons.appWakeReasonArray, i);
+
+        if (isA_CFString(value) && (CFStringCompare(wakeReason, value, 0) == kCFCompareEqualTo)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+STATIC void setAppWakeReason(CFStringRef reasonStr)
+{
+    if (reasons.appWakeReasonArray == NULL) {
+        reasons.appWakeReasonArray = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+    }
+    if (!reasons.appWakeReasonArray) {
+        ERROR_LOG("Failed to create array to hold app wake reasons\n");
+        return;
+    }
+
+    CFArrayAppendValue(reasons.appWakeReasonArray, reasonStr);
+
+}
+__private_extern__ void appClaimWakeReason(xpc_connection_t peer, xpc_object_t claim)
+{
+    const char              *id;
+    const char              *reason;
+    SecTaskRef secTask = NULL;
+    CFTypeRef  entitled_DarkWakeControl = NULL;
+    audit_token_t token;
+    pid_t   pid;
+    CFStringRef reasonStr = NULL;
+
+    if (!claim || !peer) {
+        return;
+    }
+    xpc_connection_get_audit_token(peer, &token);
+    pid = xpc_connection_get_pid(peer);
+    secTask = SecTaskCreateWithAuditToken(kCFAllocatorDefault, token);
+    if (secTask) {
+        entitled_DarkWakeControl = SecTaskCopyValueForEntitlement(secTask, kIOPMDarkWakeControlEntitlement, NULL);
+    }
+
+    if (!entitled_DarkWakeControl) {
+        ERROR_LOG("PID %d is not entitled to set wake reason\n", pid);
+        goto exit;
+    }
+
+    id = xpc_dictionary_get_string(claim, "identity");
+    reason = xpc_dictionary_get_string(claim, "reason");
+
+    logASLAppWakeReason(id, reason);
+    INFO_LOG("Wake reason: \"%s\"  identity: \"%s\" \n", reason, id);
+
+    reasonStr = CFStringCreateWithCString(NULL, reason, kCFStringEncodingUTF8);
+    if (!reasonStr) {
+        ERROR_LOG("Failed to create string to hold app wake reason\n");
+        goto exit;
+    }
+    setAppWakeReason(reasonStr);
+
+exit:
+    if (secTask) {
+        CFRelease(secTask);
+    }
+    if (entitled_DarkWakeControl) {
+        CFRelease(entitled_DarkWakeControl);
+    }
+    if (reasonStr) {
+        CFRelease(reasonStr);
+    }
 }
 
 __private_extern__ void getPlatformWakeReason
@@ -1027,6 +1149,12 @@ __private_extern__ bool getPowerState(PowerSources *source, uint32_t *percentage
     int                                         validBattCount = 0;
     bool                                        ret = false;
 
+#ifdef XCTEST
+    *source = xctPowerSource;
+    *percentage = xctCapacity;
+    return true;
+#endif
+
     *source = kACPowered;
     batteryCount = _batteryCount();
     if (0 < batteryCount) {
@@ -1493,6 +1621,59 @@ __private_extern__ void logASLDisplayStateChange()
     }
 
 }
+
+
+__private_extern__ void logASLInactivityWindow(inactivityWindowType type, CFDateRef start, CFDateRef end)
+{
+
+    aslmsg m;
+    char buf[128];
+    char startCStr[32], endCStr[32];
+    CFStringRef startStr, endStr;
+
+    startCStr[0] = endCStr[0] = 0;
+    startStr = endStr = NULL;
+    CFDateFormatterRef date_format = CFDateFormatterCreate (NULL, NULL, kCFDateFormatterNoStyle, kCFDateFormatterNoStyle);
+    if (date_format) {
+        CFDateFormatterSetFormat(date_format, CFSTR("yyyy-MM-dd HH:mm:ss ZZZ"));
+        startStr = CFDateFormatterCreateStringWithDate(kCFAllocatorDefault, date_format, start);
+        if (startStr) {
+            CFStringGetCString(startStr, startCStr, sizeof(startCStr), kCFStringEncodingMacRoman);
+        }
+        endStr = CFDateFormatterCreateStringWithDate(kCFAllocatorDefault, date_format, end);
+        if (endStr) {
+            CFStringGetCString(endStr, endCStr, sizeof(endCStr), kCFStringEncodingMacRoman);
+        }
+        CFRelease(date_format);
+    }
+
+    m = new_msg_pmset_log();
+    asl_set(m, kPMASLDomainKey, kPMASLDomainAppNotify);
+
+    // UUID
+    if (_getUUIDString(buf, sizeof(buf))) {
+        asl_set(m, kPMASLUUIDKey, buf);
+    }
+
+
+    snprintf(buf, sizeof(buf), "Next %s inactivity window start:\'%s\' end:\'%s\'\n",
+             (type == kImmediateInactivityWindow) ? "immediate" : "largest", startCStr, endCStr);
+
+    INFO_LOG("%{public}s\n", buf);
+    asl_set(m, ASL_KEY_MSG, buf);
+    asl_send(NULL, m);
+    asl_release(m);
+
+    if (startStr) {
+        CFRelease(startStr);
+    }
+    if (endStr) {
+        CFRelease(endStr);
+    }
+}
+
+
+
 
 __private_extern__ void logASLPerforamceState(int perfState)
 {
@@ -3071,6 +3252,10 @@ __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
 __private_extern__ PowerSources _getPowerSource(void)
 {
    IOPMBattery      **batteries;
+
+#ifdef XCTEST
+    return xctPowerSource;
+#endif
 
    if (_batteryCount() && (batteries = _batteries())
             && (!batteries[0]->externalConnected) )

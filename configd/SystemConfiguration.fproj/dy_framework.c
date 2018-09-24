@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008, 2010-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010-2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -425,7 +425,7 @@ __loadSecurity(void) {
 
 #define	SECURITY_FRAMEWORK_EXTERN(t, s)				\
 	__private_extern__ t					\
-	_ ## s()						\
+	_ ## s(void)						\
 	{							\
 		static t	*dysym = NULL;			\
 		if (!dysym) {					\

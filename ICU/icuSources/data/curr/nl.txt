@@ -188,7 +188,7 @@ nl{
         }
         BRN{
             "BRN",
-            "Braziliaanse cruzado novo",
+            "Braziliaanse nieuwe cruzado (1989–1990)",
         }
         BRR{
             "BRR",
@@ -262,13 +262,17 @@ nl{
             "CLP",
             "Chileense peso",
         }
+        CNH{
+            "CNH",
+            "Chinese renminbi (offshore)",
+        }
         CNX{
             "CNX",
             "dollar van de Chinese Volksbank",
         }
         CNY{
             "CN¥",
-            "Chinese renminbi",
+            "Chinese yuan",
         }
         COP{
             "COP",
@@ -680,6 +684,10 @@ nl{
         }
         MRO{
             "MRO",
+            "Mauritaanse ouguiya (1973–2017)",
+        }
+        MRU{
+            "MRU",
             "Mauritaanse ouguiya",
         }
         MTL{
@@ -912,6 +920,10 @@ nl{
         }
         STD{
             "STD",
+            "Santomese dobra (1977–2017)",
+        }
+        STN{
+            "STN",
             "Santomese dobra",
         }
         SUR{
@@ -1267,6 +1279,7 @@ nl{
         PKR{"Rs"}
         PLN{"zł"}
         PYG{"₲"}
+        RON{"lei"}
         RUB{"₽"}
         RUR{"р."}
         RWF{"RF"}
@@ -1276,7 +1289,7 @@ nl{
         SHP{"£"}
         SRD{"$"}
         SSP{"£"}
-        STD{"Db"}
+        STN{"Db"}
         SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
@@ -1556,6 +1569,10 @@ nl{
         CLP{
             one{"Chileense peso"}
             other{"Chileense peso"}
+        }
+        CNH{
+            one{"Chinese yuan (offshore)"}
+            other{"Chinese yuan (offshore)"}
         }
         CNX{
             one{"dollar van de Chinese Volksbank"}
@@ -1974,6 +1991,10 @@ nl{
             other{"Macause pataca"}
         }
         MRO{
+            one{"Mauritaanse ouguiya (1973–2017)"}
+            other{"Mauritaanse ouguiya (1973–2017)"}
+        }
+        MRU{
             one{"Mauritaanse ouguiya"}
             other{"Mauritaanse ouguiya"}
         }
@@ -2206,6 +2227,10 @@ nl{
             other{"Zuid-Soedanees pond"}
         }
         STD{
+            one{"Santomese dobra (1977–2017)"}
+            other{"Santomese dobra (1977–2017)"}
+        }
+        STN{
             one{"Santomese dobra"}
             other{"Santomese dobra"}
         }
@@ -2494,5 +2519,5 @@ nl{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

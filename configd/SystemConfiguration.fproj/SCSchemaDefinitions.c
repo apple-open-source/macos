@@ -3,7 +3,7 @@
  * DO NOT EDIT!
  */
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <CoreFoundation/CFString.h>
 
@@ -74,6 +74,7 @@ const CFStringRef kSCEntNetIPv6RouterExpired                       = CFSTR("IPv6
 const CFStringRef kSCEntNetLinkIssues                              = CFSTR("LinkIssues");
 const CFStringRef kSCEntNetLinkQuality                             = CFSTR("LinkQuality");
 const CFStringRef kSCEntNetLoopback                                = CFSTR("Loopback");
+const CFStringRef kSCEntNetNAT64                                   = CFSTR("NAT64");
 const CFStringRef kSCEntNetNAT64PrefixRequest                      = CFSTR("NAT64PrefixRequest");
 const CFStringRef kSCEntNetOnDemand                                = CFSTR("OnDemand");
 const CFStringRef kSCEntNetQoSMarkingPolicy                        = CFSTR("QoSMarkingPolicy");
@@ -194,6 +195,7 @@ const CFStringRef kSCValNetIPv4ConfigMethodLinkLocal               = CFSTR("Link
 const CFStringRef kSCValNetIPv4ConfigMethodManual                  = CFSTR("Manual");
 const CFStringRef kSCValNetIPv4ConfigMethodPPP                     = CFSTR("PPP");
 const CFStringRef kSCPropNetIPv4AdditionalRoutes                   = CFSTR("AdditionalRoutes");
+const CFStringRef kSCPropNetIPv4CLAT46                             = CFSTR("CLAT46");
 const CFStringRef kSCPropNetIPv4ExcludedRoutes                     = CFSTR("ExcludedRoutes");
 const CFStringRef kSCPropNetIPv4IncludedRoutes                     = CFSTR("IncludedRoutes");
 const CFStringRef kSCValNetIPv4ConfigMethodFailover                = CFSTR("Failover");
@@ -218,6 +220,7 @@ const CFStringRef kSCPropNetIPv6AdditionalRoutes                   = CFSTR("Addi
 const CFStringRef kSCPropNetIPv6EnableCGA                          = CFSTR("EnableCGA");
 const CFStringRef kSCPropNetIPv6ExcludedRoutes                     = CFSTR("ExcludedRoutes");
 const CFStringRef kSCPropNetIPv6IncludedRoutes                     = CFSTR("IncludedRoutes");
+const CFStringRef kSCPropNetIPv6PerformPLATDiscovery               = CFSTR("PerformPLATDiscovery");
 const CFStringRef kSCPropNetIPv6RouteDestinationAddress            = CFSTR("DestinationAddress");
 const CFStringRef kSCPropNetIPv6RoutePrefixLength                  = CFSTR("PrefixLength");
 const CFStringRef kSCPropNetIPv6RouteGatewayAddress                = CFSTR("GatewayAddress");
@@ -332,6 +335,9 @@ const CFStringRef kSCPropNetL2TPTransport                          = CFSTR("Tran
 const CFStringRef kSCValNetL2TPIPSecSharedSecretEncryptionKeychain = CFSTR("Keychain");
 const CFStringRef kSCValNetL2TPTransportIP                         = CFSTR("IP");
 const CFStringRef kSCValNetL2TPTransportIPSec                      = CFSTR("IPSec");
+const CFStringRef kSCPropNetNAT64PrefixList                        = CFSTR("PrefixList");
+const CFStringRef kSCPropNetNAT64PLATDiscoveryStartTime            = CFSTR("PLATDiscoveryStartTime");
+const CFStringRef kSCPropNetNAT64PLATDiscoveryCompletionTime       = CFSTR("PLATDiscoveryCompletionTime");
 const CFStringRef kSCPropNetProxiesExceptionsList                  = CFSTR("ExceptionsList");
 const CFStringRef kSCPropNetProxiesExcludeSimpleHostnames          = CFSTR("ExcludeSimpleHostnames");
 const CFStringRef kSCPropNetProxiesFTPEnable                       = CFSTR("FTPEnable");

@@ -29,6 +29,7 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
 namespace IPC {
@@ -86,8 +87,7 @@ public:
        
     private:
 #if ENABLE(SANDBOX_EXTENSIONS)
-        std::unique_ptr<Handle[]> m_data;
-        size_t m_size { 0 };
+        Vector<Handle> m_data;
 #else
         Handle m_emptyHandle;
 #endif
@@ -120,7 +120,7 @@ private:
 inline SandboxExtension::Handle::Handle() { }
 inline SandboxExtension::Handle::~Handle() { }
 inline void SandboxExtension::Handle::encode(IPC::Encoder&) const { }
-inline std::optional<SandboxExtension::Handle> SandboxExtension::Handle::decode(IPC::Decoder&) { return {{ }}; }
+inline std::optional<SandboxExtension::Handle> SandboxExtension::Handle::decode(IPC::Decoder&) { return SandboxExtension::Handle { }; }
 inline SandboxExtension::HandleArray::HandleArray() { }
 inline SandboxExtension::HandleArray::~HandleArray() { }
 inline void SandboxExtension::HandleArray::allocate(size_t) { }

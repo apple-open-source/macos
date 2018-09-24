@@ -303,7 +303,7 @@ union res_sockaddr_union {
 /*			0x00010000	*/
 
 /* Things involving an internal (static) resolver context. */
-#ifndef __BIND_NOSTATIC
+#if !defined(__BIND_NOSTATIC) && !defined(__BIND_INSTALLAPI)
 extern struct __res_state _res;
 #endif
 
@@ -351,17 +351,8 @@ __END_DECLS
  *
  */
 #define res_sym res_9_sym
-#define __p_key_syms __res_9_p_key_syms
-#define __p_cert_syms __res_9_p_cert_syms
-#define __p_class_syms __res_9_p_class_syms
 #define __p_type_syms __res_9_p_type_syms
-#define __p_rcode_syms __res_9_p_rcode_syms
-
-extern const struct res_sym __p_key_syms[];
-extern const struct res_sym __p_cert_syms[];
-extern const struct res_sym __p_class_syms[];
 extern const struct res_sym __p_type_syms[];
-extern const struct res_sym __p_rcode_syms[];
 #endif /* SHARED_LIBBIND */
 
 #define b64_ntop					res_9_b64_ntop
@@ -472,8 +463,6 @@ int		res_findzonecut __P((res_state, const char *, ns_class, int, char *, size_t
 int		res_findzonecut2 __P((res_state, const char *, ns_class, int, char *, size_t, union res_sockaddr_union *, int));
 void		res_nclose __P((res_state));
 int		res_nopt __P((res_state, int, u_char *, int, int));
-void		res_send_setqhook __P((res_send_qhook hook));
-void		res_send_setrhook __P((res_send_rhook hook));
 int		__res_vinit __P((res_state, int));
 void		res_destroyservicelist __P((void));
 const char *	res_servicename __P((u_int16_t port, const char *proto));

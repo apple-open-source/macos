@@ -1,6 +1,13 @@
 /*
 ***************************************************************************
-* Copyright (C) 2006-2008 Apple Inc. All Rights Reserved.                 *
+* Copyright (C) 2006-2008, 2018 Apple Inc. All Rights Reserved.                 *
+***************************************************************************
+*
+***************************************************************************
+* This uses the ICU 57 legacy version of RuleBasedBreakIterator for
+* performanc reasons, does not support the RuleBasedBreakIterator rule
+* syntax updates from ICU 60 and later, and requires both forward and
+* reverse rules (as in ICU 57).
 ***************************************************************************
 */
 
@@ -17,25 +24,26 @@
 #if !UCONFIG_NO_BREAK_ITERATION
 
 #include "unicode/urbtok.h"
-#include "unicode/rbbi.h"
 #include "unicode/parseerr.h"
+#include "rbbidata57.h"
+#include "rbbi57.h"
 
 
 U_NAMESPACE_BEGIN
 
 /** @internal */
-struct RBBIDataHeader;
+struct RBBIDataHeader57;
 struct RBBIStateTableRow;
 
 
 /**
  *
- * A subclass of RuleBasedBreakIterator that adds tokenization functionality.
+ * A subclass of RuleBasedBreakIterator57 that adds tokenization functionality.
 
- * <p>This class is for internal use only by Apple Computer, Inc.</p>
+ * <p>This class is for internal use only by Apple Inc.</p>
  *
  */
-class U_COMMON_API RuleBasedTokenizer : public RuleBasedBreakIterator {
+class U_COMMON_API RuleBasedTokenizer : public RuleBasedBreakIterator57 {
 
 private:
     /**
@@ -63,7 +71,7 @@ public:
      * @param parseError  In the event of a syntax error in the rules, provides the location
      *                    within the rules of the problem.
      * @param status Information on any errors encountered.
-     * @internal
+     * @internal, used by urbtok57.cpp
      */
     RuleBasedTokenizer(const UnicodeString &rules, UParseError &parseErr, UErrorCode &status);
 
@@ -75,7 +83,7 @@ public:
      *
      *             The break iterator adopts the memory, and will
      *             free it when done.
-     * @internal
+     * @internal, used by urbtok57.cpp
      */
     RuleBasedTokenizer(uint8_t *data, UErrorCode &status);
 
@@ -85,7 +93,7 @@ public:
        *
      *             This version does not adopt the memory, and does not
      *             free it when done.
-     * @internal
+     * @internal, used by urbtok57.cpp
      */
     enum EDontAdopt {
         kDontAdopt
@@ -103,7 +111,7 @@ public:
      * @param maxTokens The maximum number of tokens to return.
      * @param outTokenRanges Pointer to output array of token ranges.
      * @param outTokenFlags (optional) pointer to output array of token flags.
-     * @internal
+     * @internal, used by urbtok57.cpp
      */
     int32_t tokenize(int32_t maxTokens, RuleBasedTokenRange *outTokenRanges, unsigned long *outTokenFlags);
 

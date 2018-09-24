@@ -283,11 +283,11 @@ IOHIDElementPrivate::valueElement( IOHIDDevice *     owner,
   
     element->_currentReportSizeBits = element->_reportBits *  element->_reportCount;
   
-    if (element->getUsagePage() == kHIDPage_AppleVendor &&
-       (element->getUsage() == kHIDUsage_AppleVendor_Message ||
-        element->getUsage() == kHIDUsage_AppleVendor_Payload))
+    if (parent && parent->getUsagePage() == kHIDPage_AppleVendor &&
+       (parent->getUsage() == kHIDUsage_AppleVendor_Message ||
+        parent->getUsage() == kHIDUsage_AppleVendor_Payload))
     {
-        element->_variableSize = true;
+        element->_variableSize |= kIOHIDElementVariableSizeElement;
     }
     // Register with owner and parent, then spawn sub-elements.
 
@@ -772,7 +772,18 @@ OSDictionary* IOHIDElementPrivate::createProperties() const
     SET_NUMBER(kIOHIDElementScaledMinKey, _physicalMin);
     SET_NUMBER(kIOHIDElementUnitKey, _units);
     SET_NUMBER(kIOHIDElementUnitExponentKey, _unitExponent);
-  
+
+#if 0
+    
+    SET_NUMBER(kIOHIDElementCalibrationMinKey, _calibration.min);
+    SET_NUMBER(kIOHIDElementCalibrationMaxKey, _calibration.max);
+    SET_NUMBER(kIOHIDElementCalibrationSaturationMinKey, _calibration.satMin);
+    SET_NUMBER(kIOHIDElementCalibrationSaturationMaxKey, _calibration.satMax);
+    SET_NUMBER(kIOHIDElementCalibrationDeadZoneMinKey, _calibration.dzMin);
+    SET_NUMBER(kIOHIDElementCalibrationDeadZoneMaxKey, _calibration.dzMax);
+    SET_NUMBER(kIOHIDElementCalibrationGranularityKey, _calibration.gran);
+    
+#endif
   
     if ( IsDuplicateElement(this) && !IsDuplicateReportHandler(this)) {
         SET_NUMBER(kIOHIDElementDuplicateIndexKey, _rangeIndex);
@@ -1087,8 +1098,8 @@ bool IOHIDElementPrivate::processReport(
         }
 
         // Verify incoming report size.
-      
-        if (!(options & kIOHIDReportOptionVariableSize) && (_reportSize && ( reportBits < _reportSize )))
+ 
+        if (!_variableSize && _reportSize && (reportBits < _reportSize))
         {
             *next = 0;
             return false;
@@ -1106,13 +1117,13 @@ bool IOHIDElementPrivate::processReport(
         }
         
     }
-
+    
     do {
         // Ignore report that does not match our report ID.
         if ( _reportID != reportID )
             break;
       
-        if (_variableSize) {
+        if (_variableSize & kIOHIDElementVariableSizeElement) {
             if (_reportStartBit >= reportBits) {
                 break;
             }
@@ -1143,7 +1154,7 @@ bool IOHIDElementPrivate::processReport(
 		
         // Get the element value from the report.
         uint32_t readSize = _reportBits * _reportCount;
-        if (_variableSize) {
+        if (_variableSize & kIOHIDElementVariableSizeElement) {
           uint32_t remainingBitSize = reportBits - _reportStartBit;
           readSize = (remainingBitSize < readSize) ? remainingBitSize : readSize;
         }
@@ -1176,6 +1187,7 @@ bool IOHIDElementPrivate::processReport(
                 
             for ( UInt32 i = 0; (queue = (IOHIDEventQueue *) _queueArray->getObject(i)); i++ )
             {
+                
                 //Pass actual element size. (different fotr variable lenght reports)
                 _elementValue->totalSize = (_currentReportSizeBits + 7) / 8 + sizeof(*_elementValue) - sizeof(_elementValue->value);
                 //enqueueSize dword aligned
@@ -1398,8 +1410,6 @@ bool IOHIDElementPrivate::addEventQueue( IOHIDEventQueue * queue )
     if ( hasEventQueue(queue) == true )
         return false;
 
-    queue->addElement( this );
-
     return _queueArray ? _queueArray->setObject( queue ) : false;
 }
 
@@ -1412,8 +1422,6 @@ bool IOHIDElementPrivate::removeEventQueue( IOHIDEventQueue * queue )
     
     if ( !queue )
         return false;
-        
-    queue->removeElement( this );
 
     for ( UInt32 i = 0;
           _queueArray && (obj = _queueArray->getObject(i)); i++ )
@@ -2069,94 +2077,72 @@ IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type)
     SInt64  logicalMin      = (SInt32)getLogicalMin();
     SInt64  logicalMax      = (SInt32)getLogicalMax();
     SInt64  logicalRange    = 0;
-    IOFixed scaledMin       = 0;
-    IOFixed scaledMax       = 0;
-    IOFixed scaledRange     = 0;
+    SInt64  physicalMin     = (SInt32)getPhysicalMin();
+    SInt64  physicalMax     = (SInt32)getPhysicalMax();
     IOFixed returnValue     = 0;
     
     if ( type == kIOHIDValueScaleTypeCalibrated ){
         
         if ( _calibration.min != _calibration.max ) {
-            scaledMin = _calibration.min << 16;
-            scaledMax = _calibration.max << 16;
+            physicalMin = _calibration.min;
+            physicalMax = _calibration.max;
         } else {
-            scaledMin = (-1u)<<16;
-            scaledMax = 1<<16;
+            physicalMin = -1;
+            physicalMax =  1;
         }
         
         // check saturation first
         if ( _calibration.satMin != _calibration.satMax ) {
             if ( logicalValue <= _calibration.satMin )
-                return scaledMin;
+                return (IOFixed) (physicalMin << 16);
             if ( logicalValue >= _calibration.satMax )
-                return scaledMax;
+                return (IOFixed) (physicalMax << 16);
             
-            logicalMin      = _calibration.satMin;
-            logicalMax      = _calibration.satMax;
+            logicalMin = _calibration.satMin;
+            logicalMax = _calibration.satMax;
         }
         
         // now check the dead zone
         if (_calibration.dzMin != _calibration.dzMax) {
-            
-            IOFixed scaledMid = scaledMin + ((scaledMax - scaledMin) / 2);
+            SInt64  physicalMid = physicalMin + ((physicalMax - physicalMin) / 2);
             if (logicalValue < _calibration.dzMin) {
                 logicalMax = _calibration.dzMin;
-                scaledMax = scaledMid;
+                physicalMax = physicalMid;
             } else if ( logicalValue > _calibration.dzMax) {
                 logicalMin = _calibration.dzMax;
-                scaledMin = scaledMid;
+                physicalMin = physicalMid;
             } else {
-                return scaledMid;
+                return (IOFixed) (physicalMid << 16);
             }
         }
         
-    } else if ( type == kIOHIDValueScaleTypeExponent ) {
-        SInt32 resExponent  = _unitExponent & 0x0F;
-        scaledMin           = getPhysicalMin();
-        scaledMax           = getPhysicalMax();
-        
-        logicalRange    = logicalMax - logicalMin;
-        scaledRange     = scaledMax - scaledMin;
-        
-        if (resExponent < 8)
-        {
-            for (int i = resExponent; i > 0; i--)
-            {
-                scaledRange *=  10;
-            }
-        }
-        else
-        {
-            for (int i = 0x10 - resExponent; i > 0; i--)
-            {
-                logicalRange *= 10;
-            }
-        }
-        
-        scaledRange     <<= 16;
-        returnValue     = (IOFixed)((logicalValue - logicalMin)<<16);
-        
-        if (logicalRange) {
-            returnValue = (IOFixedMultiply(returnValue, scaledRange) / logicalRange) + scaledMin;
-        }
-        
-        return returnValue;
-    } else { // kIOHIDValueScaleTypePhysical
-        scaledMin = getPhysicalMin()<<16;
-        scaledMax = getPhysicalMax()<<16;
     }
-    
-    logicalRange    = logicalMax - logicalMin;
-    scaledRange     = scaledMax - scaledMin;
-    returnValue     = (IOFixed)((logicalValue - logicalMin)<<16);
-    
-    if (logicalRange) {
-        returnValue = (IOFixedMultiply(returnValue, scaledRange) / logicalRange) + scaledMin;
-    } else {
-        // lMin = lMax, return physical value
-        returnValue = scaledMax;
+    SInt64 physicalRange = physicalMax - physicalMin;
+
+    logicalRange  = logicalMax - logicalMin;
+    if (!logicalRange) {
+        logicalRange = 1;
     }
+
     
+    SInt64 num = (logicalValue - logicalMin) * physicalRange + physicalMin * logicalRange;
+    SInt64 denom = logicalRange;
+
+    if (type == kIOHIDValueScaleTypeExponent) {
+        int resExponent  = _unitExponent & 0x0F;
+        
+        if (resExponent < 8) {
+            for (int i = resExponent; i > 0; i--) {
+                num *=  10;
+            }
+        } else {
+            for (int i = 0x10 - resExponent; i > 0; i--) {
+                denom *= 10;
+            }
+        }
+    }
+    returnValue = (IOFixed)((num << 16) / denom);
+ 
     return returnValue;
 }
 

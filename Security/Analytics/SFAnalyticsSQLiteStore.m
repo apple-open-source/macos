@@ -36,6 +36,15 @@ NSString* const SFAnalyticsUploadDate = @"upload_date";
 
 + (instancetype)storeWithPath:(NSString*)path schema:(NSString*)schema
 {
+    if (![path length]) {
+        seccritical("Cannot init db with empty path");
+        return nil;
+    }
+    if (![schema length]) {
+        seccritical("Cannot init db without schema");
+        return nil;
+    }
+
     SFAnalyticsSQLiteStore* store = nil;
     @synchronized([SFAnalyticsSQLiteStore class]) {
         static NSMutableDictionary* loggingStores = nil;

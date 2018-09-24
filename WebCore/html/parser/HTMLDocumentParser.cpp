@@ -148,6 +148,16 @@ inline bool HTMLDocumentParser::shouldDelayEnd() const
     return inPumpSession() || isWaitingForScripts() || isScheduledForResume() || isExecutingScript();
 }
 
+void HTMLDocumentParser::didBeginYieldingParser()
+{
+    m_parserScheduler->didBeginYieldingParser();
+}
+
+void HTMLDocumentParser::didEndYieldingParser()
+{
+    m_parserScheduler->didEndYieldingParser();
+}
+
 bool HTMLDocumentParser::isParsingFragment() const
 {
     return m_treeBuilder->isParsingFragment();
@@ -200,7 +210,7 @@ void HTMLDocumentParser::runScriptsForPausedTreeBuilder()
         // https://html.spec.whatwg.org/#create-an-element-for-the-token
         auto& elementInterface = constructionData->elementInterface.get();
         auto newElement = elementInterface.constructElementWithFallback(*document(), constructionData->name);
-        m_treeBuilder->didCreateCustomOrCallbackElement(WTFMove(newElement), *constructionData);
+        m_treeBuilder->didCreateCustomOrFallbackElement(WTFMove(newElement), *constructionData);
         return;
     }
 

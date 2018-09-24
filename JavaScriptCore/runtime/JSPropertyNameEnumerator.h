@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "JSCell.h"
+#include "JSCast.h"
 #include "Operations.h"
 #include "PropertyNameArray.h"
 #include "Structure.h"
@@ -122,14 +122,13 @@ inline JSPropertyNameEnumerator* propertyNameEnumerator(ExecState* exec, JSObjec
         numberStructureProperties = propertyNames.size();
 
         base->methodTable(vm)->getGenericPropertyNames(base, exec, propertyNames, EnumerationMode());
-        scope.assertNoException();
     } else {
         // Generic property names vector contains all indexed property names.
         // So disable indexed property enumeration phase by setting |indexedLength| to 0.
         indexedLength = 0;
         base->methodTable(vm)->getPropertyNames(base, exec, propertyNames, EnumerationMode());
-        RETURN_IF_EXCEPTION(scope, nullptr);
     }
+    RETURN_IF_EXCEPTION(scope, nullptr);
 
     ASSERT(propertyNames.size() < UINT32_MAX);
 

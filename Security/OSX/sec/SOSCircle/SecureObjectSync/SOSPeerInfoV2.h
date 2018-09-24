@@ -18,7 +18,7 @@
 extern CFStringRef sV2DictionaryKey;            // CFData wrapper for V2 extensions
 extern CFStringRef sViewsKey;                   // Set of Views
 extern CFStringRef sSerialNumberKey;            // Device Serial Number
-extern CFStringRef sSecurityPropertiesKey;      // Set of Security Properties
+extern CFStringRef sMachineIDKey;               // Account MID
 extern CFStringRef kSOSHsaCrKeyDictionary;      // HSA Challenge-Response area
 extern CFStringRef sPreferIDS;                    // Whether or not a peer requires to speak over IDS or KVS
 extern CFStringRef sPreferIDSFragmentation;     // Whether or not a peer requires to speak over fragmented IDS or not

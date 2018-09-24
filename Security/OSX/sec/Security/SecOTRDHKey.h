@@ -37,7 +37,7 @@ typedef struct _SecOTRPublicDHKey* SecOTRPublicDHKeyRef;
 SecOTRFullDHKeyRef SecOTRFullDHKCreate(CFAllocatorRef allocator);
 SecOTRFullDHKeyRef SecOTRFullDHKCreateFromBytes(CFAllocatorRef allocator, const uint8_t**bytes, size_t*size);
 
-void SecFDHKNewKey(SecOTRFullDHKeyRef key);
+OSStatus SecFDHKNewKey(SecOTRFullDHKeyRef key);
 void SecFDHKAppendSerialization(SecOTRFullDHKeyRef fullKey, CFMutableDataRef appendTo);
 void SecFDHKAppendPublicSerialization(SecOTRFullDHKeyRef fullKey, CFMutableDataRef appendTo);
 void SecFDHKAppendCompactPublicSerialization(SecOTRFullDHKeyRef fullKey, CFMutableDataRef appendTo);

@@ -187,6 +187,6 @@ kern_return_t get_taskinfo_of_receiver_by_send_right(ipc_info_name_t *sendright,
 kern_return_t get_ipc_info_from_lsmp_spaceinfo(mach_port_t port_name, ipc_info_name_t *out_sendright);
 
 /* basic util functions */
-uint32_t print_hex_data(char *outstr, size_t maxlen, char *prefix, char *desc, void *addr, int len);
+uint32_t print_hex_data(char *outstr, uint32_t maxlen, char *prefix, char *desc, void *addr, int len);
 
 #endif

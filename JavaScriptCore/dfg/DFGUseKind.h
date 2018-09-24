@@ -65,6 +65,7 @@ enum UseKind {
     KnownStringUse,
     KnownPrimitiveUse, // This bizarre type arises for op_strcat, which has a bytecode guarantee that it will only see primitives (i.e. not objects).
     SymbolUse,
+    BigIntUse,
     MapObjectUse,
     SetObjectUse,
     WeakMapObjectUse,
@@ -148,6 +149,8 @@ inline SpeculatedType typeFilterFor(UseKind useKind)
         return SpecHeapTop & ~SpecObject;
     case SymbolUse:
         return SpecSymbol;
+    case BigIntUse:
+        return SpecBigInt;
     case MapObjectUse:
         return SpecMapObject;
     case SetObjectUse:
@@ -246,6 +249,7 @@ inline bool isCell(UseKind kind)
     case StringUse:
     case KnownStringUse:
     case SymbolUse:
+    case BigIntUse:
     case StringObjectUse:
     case StringOrStringObjectUse:
     case MapObjectUse:
@@ -293,6 +297,33 @@ inline UseKind useKindForResult(NodeFlags result)
     default:
         return UntypedUse;
     }
+}
+
+inline bool checkMayCrashIfInputIsEmpty(UseKind kind)
+{
+#if USE(JSVALUE64)
+    switch (kind) {
+    case UntypedUse:
+    case Int32Use:
+    case KnownInt32Use:
+    case AnyIntUse:
+    case NumberUse:
+    case BooleanUse:
+    case KnownBooleanUse:
+    case CellUse:
+    case KnownCellUse:
+    case CellOrOtherUse:
+    case OtherUse:
+    case MiscUse:
+    case NotCellUse:
+        return false;
+    default:
+        return true;
+    }
+#else
+    UNUSED_PARAM(kind);
+    return true;
+#endif
 }
 
 } } // namespace JSC::DFG

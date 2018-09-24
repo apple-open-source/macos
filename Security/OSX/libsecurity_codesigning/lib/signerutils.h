@@ -38,6 +38,14 @@
 #include <security_utilities/unix++.h>
 #include <security_utilities/unixchild.h>
 
+#include <sys/cdefs.h>
+
+#if TARGET_OS_OSX
+__BEGIN_DECLS
+#include <AppleFSCompression/AppleFSCompression.h>
+__END_DECLS
+#endif
+
 namespace Security {
 namespace CodeSigning {
 

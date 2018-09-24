@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2018 Apple Inc. All rights reserved.
  * Copyright (C) 2006 David Smith (catfish.man@gmail.com)
  * Copyright (C) 2010 Igalia S.L
  *
@@ -110,14 +110,19 @@
 #import "WebTextIterator.h"
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
-#import "WebUserMediaClient.h"
 #import "WebValidationMessageClient.h"
 #import "WebViewGroup.h"
 #import "WebVisitedLinkStore.h"
 #import <CoreFoundation/CFSet.h>
 #import <Foundation/NSURLConnection.h>
 #import <JavaScriptCore/APICast.h>
+#import <JavaScriptCore/ArrayPrototype.h>
+#import <JavaScriptCore/CatchScope.h>
+#import <JavaScriptCore/DateInstance.h>
 #import <JavaScriptCore/Exception.h>
+#import <JavaScriptCore/InitializeThreading.h>
+#import <JavaScriptCore/JSCJSValue.h>
+#import <JavaScriptCore/JSLock.h>
 #import <JavaScriptCore/JSValueRef.h>
 #import <WebCore/AlternativeTextUIController.h>
 #import <WebCore/ApplicationCacheStorage.h>
@@ -138,8 +143,10 @@
 #import <WebCore/Editor.h>
 #import <WebCore/Event.h>
 #import <WebCore/EventHandler.h>
+#import <WebCore/FileSystem.h>
 #import <WebCore/FocusController.h>
 #import <WebCore/FontCache.h>
+#import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameSelection.h>
 #import <WebCore/FrameTree.h>
@@ -164,7 +171,6 @@
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/LogInitialization.h>
 #import <WebCore/MIMETypeRegistry.h>
-#import <WebCore/MainFrame.h>
 #import <WebCore/MemoryCache.h>
 #import <WebCore/MemoryRelease.h>
 #import <WebCore/NetworkStorageSession.h>
@@ -178,6 +184,7 @@
 #import <WebCore/PathUtilities.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/ProgressTracker.h>
+#import <WebCore/RenderTheme.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/ResourceHandle.h>
@@ -190,6 +197,7 @@
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/SecurityPolicy.h>
 #import <WebCore/Settings.h>
+#import <WebCore/ShouldTreatAsContinuingLoad.h>
 #import <WebCore/SocketProvider.h>
 #import <WebCore/StyleProperties.h>
 #import <WebCore/TextResourceDecoder.h>
@@ -206,7 +214,6 @@
 #import <WebKitLegacy/DOM.h>
 #import <WebKitLegacy/DOMExtensions.h>
 #import <WebKitLegacy/DOMPrivate.h>
-#import <bindings/ScriptValue.h>
 #import <mach-o/dyld.h>
 #import <objc/runtime.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
@@ -216,16 +223,11 @@
 #import <pal/spi/mac/NSResponderSPI.h>
 #import <pal/spi/mac/NSSpellCheckerSPI.h>
 #import <pal/spi/mac/NSWindowSPI.h>
-#import <runtime/ArrayPrototype.h>
-#import <runtime/CatchScope.h>
-#import <runtime/DateInstance.h>
-#import <runtime/InitializeThreading.h>
-#import <runtime/JSCJSValue.h>
-#import <runtime/JSLock.h>
 #import <wtf/Assertions.h>
 #import <wtf/HashTraits.h>
 #import <wtf/MainThread.h>
 #import <wtf/ObjcRuntimeExtras.h>
+#import <wtf/ProcessPrivilege.h>
 #import <wtf/RAMSize.h>
 #import <wtf/RefCountedLeakCounter.h>
 #import <wtf/RefPtr.h>
@@ -245,9 +247,9 @@
 #import "WebNSPasteboardExtras.h"
 #import "WebNSPrintOperationExtras.h"
 #import "WebPDFView.h"
+#import "WebVideoFullscreenController.h"
 #import <WebCore/TextIndicator.h>
 #import <WebCore/TextIndicatorWindow.h>
-#import <WebCore/WebVideoFullscreenController.h>
 #import <pal/spi/cocoa/AVKitSPI.h>
 #import <pal/spi/mac/LookupSPI.h>
 #import <pal/spi/mac/NSImmediateActionGestureRecognizerSPI.h>
@@ -658,6 +660,18 @@ private:
 @synthesize contentImage=_contentImage;
 @synthesize estimatedBackgroundColor=_estimatedBackgroundColor;
 
+- (void)dealloc
+{
+    [_dataInteractionImage release];
+    [_textRectsInBoundingRectCoordinates release];
+    [_contentImageWithHighlight release];
+    [_contentImageWithoutSelection release];
+    [_contentImage release];
+    [_estimatedBackgroundColor release];
+
+    [super dealloc];
+}
+
 @end
 
 @implementation WebUITextIndicatorData (WebUITextIndicatorInternal)
@@ -703,18 +717,6 @@ private:
     _dataInteractionImage = [allocUIImageInstance() initWithCGImage:image scale:scale orientation:UIImageOrientationDownMirrored];
     
     return self;
-}
-
-- (void)dealloc
-{
-    [_dataInteractionImage release];
-    [_textRectsInBoundingRectCoordinates release];
-    [_contentImageWithHighlight release];
-    [_contentImageWithoutSelection release];
-    [_contentImage release];
-    [_estimatedBackgroundColor release];
-    
-    [super dealloc];
 }
 
 @end
@@ -1469,9 +1471,6 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     WebCore::provideDeviceOrientationTo(_private->page, new WebDeviceOrientationClient(self));
 #endif
 #endif
-#if ENABLE(MEDIA_STREAM)
-    WebCore::provideUserMediaTo(_private->page, new WebUserMediaClient(self));
-#endif
 
 #if ENABLE(REMOTE_INSPECTOR)
     _private->page->setRemoteInspectionAllowed(true);
@@ -1574,6 +1573,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         ResourceHandle::forceContentSniffing();
 
     _private->page->setDeviceScaleFactor([self _deviceScaleFactor]);
+    _private->page->setUseDarkAppearance(self._effectiveAppearanceIsDark);
 #endif
 
     _private->page->settings().setContentDispositionAttachmentSandboxEnabled(true);
@@ -1803,7 +1803,9 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 }
 #endif
 
-#if ENABLE(DRAG_SUPPORT) && PLATFORM(IOS)
+#if PLATFORM(IOS)
+
+#if ENABLE(DRAG_SUPPORT)
 
 - (BOOL)_requestStartDataInteraction:(CGPoint)clientPosition globalPosition:(CGPoint)globalPosition
 {
@@ -1935,7 +1937,77 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     }
 }
 
-#endif // ENABLE(DRAG_SUPPORT) && PLATFORM(IOS)
+#elif __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+
+- (BOOL)_requestStartDataInteraction:(CGPoint)clientPosition globalPosition:(CGPoint)globalPosition
+{
+    return NO;
+}
+
+- (WebUITextIndicatorData *)_getDataInteractionData
+{
+    return nil;
+}
+
+- (WebUITextIndicatorData *)_dataOperationTextIndicator
+{
+    return nil;
+}
+
+- (NSUInteger)_dragSourceAction
+{
+    return 0;
+}
+
+- (NSString *)_draggedLinkTitle
+{
+    return nil;
+}
+
+- (NSURL *)_draggedLinkURL
+{
+    return nil;
+}
+
+- (CGRect)_draggedElementBounds
+{
+    return CGRectNull;
+}
+
+- (uint64_t)_enteredDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
+{
+    return 0;
+}
+
+- (uint64_t)_updatedDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
+{
+    return 0;
+}
+
+- (void)_exitedDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
+{
+}
+
+- (void)_performDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
+{
+}
+
+- (BOOL)_tryToPerformDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
+{
+    return NO;
+}
+
+- (void)_endedDataInteraction:(CGPoint)clientPosition global:(CGPoint)globalPosition
+{
+}
+
+- (CGRect)_dataInteractionCaretRect
+{
+    return CGRectNull;
+}
+
+#endif
+#endif // PLATFORM(IOS)
 
 static NSMutableSet *knownPluginMIMETypes()
 {
@@ -2154,16 +2226,6 @@ static NSMutableSet *knownPluginMIMETypes()
         webResourceLoadScheduler().suspendPendingRequests();
     else
         webResourceLoadScheduler().resumePendingRequests();
-}
-
-+ (void)_setAllowCookies:(BOOL)allow
-{
-    ResourceRequestBase::setDefaultAllowCookies(allow);
-}
-
-+ (BOOL)_allowCookies
-{
-    return ResourceRequestBase::defaultAllowCookies();
 }
 
 + (BOOL)_isUnderMemoryPressure
@@ -2574,7 +2636,7 @@ static bool fastDocumentTeardownEnabled()
     }
 
     ASSERT(newItemToGoTo);
-    _private->page->goToItem(*newItemToGoTo, FrameLoadType::IndexedBackForward);
+    _private->page->goToItem(*newItemToGoTo, FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No);
 }
 
 - (void)_setFormDelegate: (id<WebFormDelegate>)delegate
@@ -2638,6 +2700,12 @@ static bool fastDocumentTeardownEnabled()
 {
     static BOOL needsQuirk = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITHOUT_LINK_ELEMENT_TEXT_CSS_QUIRK)
         && _CFAppVersionCheckLessThan(CFSTR("com.e-frontier.shade10"), -1, 10.6);
+    return needsQuirk;
+}
+
+- (BOOL)_needsFrameNameFallbackToIdQuirk
+{
+    static BOOL needsQuirk = _CFAppVersionCheckLessThan(CFSTR("info.colloquy"), -1, 2.5);
     return needsQuirk;
 }
 
@@ -2771,6 +2839,7 @@ static bool needsSelfRetainWhileLoadingQuirk()
     settings.setWebSecurityEnabled([preferences isWebSecurityEnabled]);
     settings.setAllowUniversalAccessFromFileURLs([preferences allowUniversalAccessFromFileURLs]);
     settings.setAllowFileAccessFromFileURLs([preferences allowFileAccessFromFileURLs]);
+    settings.setAllowCrossOriginSubresourcesToAskForCredentials([preferences allowCrossOriginSubresourcesToAskForCredentials]);
     settings.setNeedsStorageAccessFromFileURLsQuirk([preferences needsStorageAccessFromFileURLsQuirk]);
     settings.setMinimumFontSize([preferences minimumFontSize]);
     settings.setMinimumLogicalFontSize([preferences minimumLogicalFontSize]);
@@ -2888,6 +2957,8 @@ static bool needsSelfRetainWhileLoadingQuirk()
 
     settings.setPlugInSnapshottingEnabled([preferences plugInSnapshottingEnabled]);
     settings.setHttpEquivEnabled([preferences httpEquivEnabled]);
+    settings.setColorFilterEnabled([preferences colorFilterEnabled]);
+    settings.setPunchOutWhiteBackgroundsInDarkMode([preferences punchOutWhiteBackgroundsInDarkMode]);
 
 #if PLATFORM(MAC)
     settings.setAcceleratedCompositingForFixedPositionEnabled(true);
@@ -2928,6 +2999,7 @@ static bool needsSelfRetainWhileLoadingQuirk()
 #endif // PLATFORM(IOS)
 
 #if PLATFORM(MAC)
+    // This parses the user stylesheet synchronously so anything that may affect it should be done first.
     if ([preferences userStyleSheetEnabled]) {
         NSString* location = [[preferences userStyleSheetLocation] _web_originalDataAsString];
         if ([location isEqualToString:@"apple-dashboard://stylesheet"])
@@ -2938,6 +3010,7 @@ static bool needsSelfRetainWhileLoadingQuirk()
 
     settings.setNeedsAdobeFrameReloadingQuirk([self _needsAdobeFrameReloadingQuirk]);
     settings.setTreatsAnyTextCSSLinkAsStylesheet([self _needsLinkElementTextCSSQuirk]);
+    settings.setNeedsFrameNameFallbackToIdQuirk([self _needsFrameNameFallbackToIdQuirk]);
     settings.setNeedsKeyboardEventDisambiguationQuirks([self _needsKeyboardEventDisambiguationQuirks]);
     settings.setEnforceCSSMIMETypeInNoQuirksMode(!_CFAppVersionCheckLessThan(CFSTR("com.apple.iWeb"), -1, 2.1));
     settings.setNeedsIsLoadingInAPISenseQuirk([self _needsIsLoadingInAPISenseQuirk]);
@@ -2945,7 +3018,6 @@ static bool needsSelfRetainWhileLoadingQuirk()
     settings.setExperimentalNotificationsEnabled([preferences experimentalNotificationsEnabled]);
     settings.setShowsURLsInToolTips([preferences showsURLsInToolTips]);
     settings.setShowsToolTipOverTruncatedText([preferences showsToolTipOverTruncatedText]);
-    DeprecatedGlobalSettings::setQTKitEnabled([preferences isQTKitEnabled]);
 #endif // PLATFORM(MAC)
 
     DatabaseManager::singleton().setIsAvailable([preferences databasesEnabled]);
@@ -2971,10 +3043,10 @@ static bool needsSelfRetainWhileLoadingQuirk()
 #endif
 
 #if ENABLE(MEDIA_STREAM)
-    DeprecatedGlobalSettings::setMockCaptureDevicesEnabled([preferences mockCaptureDevicesEnabled]);
-    DeprecatedGlobalSettings::setMediaCaptureRequiresSecureConnection([preferences mediaCaptureRequiresSecureConnection]);
-    RuntimeEnabledFeatures::sharedFeatures().setMediaStreamEnabled([preferences mediaStreamEnabled]);
-    RuntimeEnabledFeatures::sharedFeatures().setMediaDevicesEnabled([preferences mediaDevicesEnabled]);
+    DeprecatedGlobalSettings::setMockCaptureDevicesEnabled(false);
+    DeprecatedGlobalSettings::setMediaCaptureRequiresSecureConnection(true);
+    RuntimeEnabledFeatures::sharedFeatures().setMediaStreamEnabled(false);
+    RuntimeEnabledFeatures::sharedFeatures().setMediaDevicesEnabled(false);
 #endif
 
 #if ENABLE(WEB_RTC)
@@ -2998,6 +3070,7 @@ static bool needsSelfRetainWhileLoadingQuirk()
 
     settings.setViewportFitEnabled([preferences viewportFitEnabled]);
     settings.setConstantPropertiesEnabled([preferences constantPropertiesEnabled]);
+    settings.setCrossOriginWindowPolicySupportEnabled([preferences crossOriginWindowPolicySupportEnabled]);
 
 #if ENABLE(GAMEPAD)
     RuntimeEnabledFeatures::sharedFeatures().setGamepadsEnabled([preferences gamepadsEnabled]);
@@ -3014,6 +3087,7 @@ static bool needsSelfRetainWhileLoadingQuirk()
 
     RuntimeEnabledFeatures::sharedFeatures().setInteractiveFormValidationEnabled([self interactiveFormValidationEnabled]);
     RuntimeEnabledFeatures::sharedFeatures().setModernMediaControlsEnabled([preferences modernMediaControlsEnabled]);
+    RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsCSSIntegrationEnabled([preferences webAnimationsCSSIntegrationEnabled]);
 
     RuntimeEnabledFeatures::sharedFeatures().setCacheAPIEnabled([preferences cacheAPIEnabled]);
     RuntimeEnabledFeatures::sharedFeatures().setFetchAPIEnabled([preferences fetchAPIEnabled]);
@@ -3034,8 +3108,6 @@ static bool needsSelfRetainWhileLoadingQuirk()
 #if ENABLE(DOWNLOAD_ATTRIBUTE)
     RuntimeEnabledFeatures::sharedFeatures().setDownloadAttributeEnabled([preferences downloadAttributeEnabled]);
 #endif
-
-    RuntimeEnabledFeatures::sharedFeatures().setCSSGridLayoutEnabled([preferences isCSSGridLayoutEnabled]);
 
     RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsEnabled([preferences webAnimationsEnabled]);
 
@@ -3098,6 +3170,8 @@ static bool needsSelfRetainWhileLoadingQuirk()
 
     settings.setLargeImageAsyncDecodingEnabled([preferences largeImageAsyncDecodingEnabled]);
     settings.setAnimatedImageAsyncDecodingEnabled([preferences animatedImageAsyncDecodingEnabled]);
+
+    RuntimeEnabledFeatures::sharedFeatures().setServerTimingEnabled([preferences serverTimingEnabled]);
 }
 
 static inline IMP getMethod(id o, SEL s)
@@ -5201,6 +5275,40 @@ static Vector<String> toStringVector(NSArray* patterns)
     return insets;
 }
 
+- (bool)_effectiveAppearanceIsDark
+{
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    NSAppearanceName appearance = [[self effectiveAppearance] bestMatchFromAppearancesWithNames:@[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ]];
+    return [appearance isEqualToString:NSAppearanceNameDarkAqua];
+#else
+    return false;
+#endif
+}
+
+- (void)_setUseSystemAppearance:(BOOL)useSystemAppearance
+{
+    if (_private && _private->page)
+        _private->page->setUseSystemAppearance(useSystemAppearance);
+}
+
+- (BOOL)_useSystemAppearance
+{
+    if (!_private->page)
+        return NO;
+
+    return _private->page->useSystemAppearance();
+}
+
+- (void)viewDidChangeEffectiveAppearance
+{
+    // This can be called during [super initWithCoder:] and [super initWithFrame:].
+    // That is before _private is ready to be used, so check. <rdar://problem/39611236>
+    if (!_private || !_private->page)
+        return;
+
+    _private->page->setUseDarkAppearance(self._effectiveAppearanceIsDark);
+}
+
 - (void)_setSourceApplicationAuditData:(NSData *)sourceApplicationAuditData
 {
     if (_private->sourceApplicationAuditData == sourceApplicationAuditData)
@@ -5390,6 +5498,9 @@ static Vector<String> toStringVector(NSArray* patterns)
     WTF::initializeMainThreadToProcessMainThread();
     RunLoop::initializeMainRunLoop();
 #endif
+
+    WTF::setProcessPrivileges(allPrivileges());
+    WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
 
 #if !PLATFORM(IOS)
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationWillTerminate) name:NSApplicationWillTerminateNotification object:NSApp];
@@ -6340,7 +6451,7 @@ static NSString * const backingPropertyOldScaleFactorKey = @"NSBackingPropertyOl
         return NO;
 
     ASSERT(item);
-    _private->page->goToItem(*core(item), FrameLoadType::IndexedBackForward);
+    _private->page->goToItem(*core(item), FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No);
     return YES;
 }
 
@@ -6725,7 +6836,7 @@ static NSString * const backingPropertyOldScaleFactorKey = @"NSBackingPropertyOl
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
     NSArray* types = draggingInfo.draggingPasteboard.types;
-    if (![types containsObject:WebArchivePboardType] && ![types containsObject:legacyFilenamesPasteboardType()] && [types containsObject:legacyFilesPromisePasteboardType()]) {
+    if (![types containsObject:WebArchivePboardType] && [types containsObject:legacyFilesPromisePasteboardType()]) {
         
         // FIXME: legacyFilesPromisePasteboardType() contains UTIs, not path names. Also, it's not
         // guaranteed that the count of UTIs equals the count of files, since some clients only write
@@ -6735,15 +6846,22 @@ static NSString * const backingPropertyOldScaleFactorKey = @"NSBackingPropertyOl
             delete dragData;
             return false;
         }
+
+        NSString *dropDestinationPath = WebCore::FileSystem::createTemporaryDirectory(@"WebKitDropDestination");
+        if (!dropDestinationPath) {
+            delete dragData;
+            return false;
+        }
+
         size_t fileCount = files.count;
         Vector<String> *fileNames = new Vector<String>;
-        NSURL *dropLocation = [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES];
+        NSURL *dropDestination = [NSURL fileURLWithPath:dropDestinationPath isDirectory:YES];
         [draggingInfo enumerateDraggingItemsWithOptions:0 forView:self classes:@[[NSFilePromiseReceiver class]] searchOptions:@{ } usingBlock:^(NSDraggingItem * __nonnull draggingItem, NSInteger idx, BOOL * __nonnull stop) {
             NSFilePromiseReceiver *item = draggingItem.item;
             NSDictionary *options = @{ };
 
             RetainPtr<NSOperationQueue> queue = adoptNS([NSOperationQueue new]);
-            [item receivePromisedFilesAtDestination:dropLocation options:options operationQueue:queue.get() reader:^(NSURL * _Nonnull fileURL, NSError * _Nullable errorOrNil) {
+            [item receivePromisedFilesAtDestination:dropDestination options:options operationQueue:queue.get() reader:^(NSURL * _Nonnull fileURL, NSError * _Nullable errorOrNil) {
                 if (errorOrNil)
                     return;
 
@@ -6976,7 +7094,7 @@ static WebFrame *incrementFrame(WebFrame *frame, WebFindOptions options = 0)
 
     NSURL *url;
     if ([URLString hasPrefix:@"/"])
-        url = [NSURL fileURLWithPath:URLString];
+        url = [NSURL fileURLWithPath:URLString isDirectory:NO];
     else
         url = [NSURL _web_URLWithDataAsString:URLString];
 
@@ -7648,7 +7766,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSC::JSValue j
     }
     if (jsValue.isObject()) {
         JSObject* object = jsValue.getObject();
-        if (object->inherits(vm, DateInstance::info())) {
+        if (object->inherits<DateInstance>(vm)) {
             DateInstance* date = static_cast<DateInstance*>(object);
             double ms = date->internalNumber();
             if (!std::isnan(ms)) {
@@ -7657,7 +7775,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSC::JSValue j
                 if (noErr == UCConvertCFAbsoluteTimeToLongDateTime(utcSeconds, &ldt))
                     return [NSAppleEventDescriptor descriptorWithDescriptorType:typeLongDateTime bytes:&ldt length:sizeof(ldt)];
             }
-        } else if (object->inherits(vm, JSArray::info())) {
+        } else if (object->inherits<JSArray>(vm)) {
             static NeverDestroyed<HashSet<JSObject*>> visitedElems;
             if (visitedElems.get().add(object).isNewEntry) {
                 JSArray* array = static_cast<JSArray*>(object);
@@ -7773,28 +7891,21 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSC::JSValue j
         if ([view conformsToProtocol:@protocol(WebMultipleTextMatches)]) {
             NSView <WebMultipleTextMatches> *documentView = (NSView <WebMultipleTextMatches> *)view;
             NSRect documentViewVisibleRect = [documentView visibleRect];
-            NSArray *originalRects = [documentView rectsForTextMatches];
-            unsigned rectCount = [originalRects count];
-            unsigned rectIndex;
-            NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-            for (rectIndex = 0; rectIndex < rectCount; ++rectIndex) {
-                NSRect r = [[originalRects objectAtIndex:rectIndex] rectValue];
+            for (NSValue *rect in [documentView rectsForTextMatches]) {
+                NSRect r = [rect rectValue];
                 // Clip rect to document view's visible rect so rect is confined to subframe
                 r = NSIntersectionRect(r, documentViewVisibleRect);
                 if (NSIsEmptyRect(r))
                     continue;
-                
-                // Convert rect to our coordinate system
-                r = [documentView convertRect:r toView:self];
-                [result addObject:[NSValue valueWithRect:r]];
-                if (rectIndex % 10 == 0) {
-                    [pool drain];
-                    pool = [[NSAutoreleasePool alloc] init];
+
+                @autoreleasepool {
+                    // Convert rect to our coordinate system
+                    r = [documentView convertRect:r toView:self];
+                    [result addObject:[NSValue valueWithRect:r]];
                 }
             }
-            [pool drain];
         }
-        
+
         frame = incrementFrame(frame);
     } while (frame);
     
@@ -9682,25 +9793,25 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const RenderStyle* style)
 {
     NSTextAlignment textAlignment;
     switch (style->textAlign()) {
-    case RIGHT:
-    case WEBKIT_RIGHT:
+    case TextAlignMode::Right:
+    case TextAlignMode::WebKitRight:
         textAlignment = NSTextAlignmentRight;
         break;
-    case LEFT:
-    case WEBKIT_LEFT:
+    case TextAlignMode::Left:
+    case TextAlignMode::WebKitLeft:
         textAlignment = NSTextAlignmentLeft;
         break;
-    case CENTER:
-    case WEBKIT_CENTER:
+    case TextAlignMode::Center:
+    case TextAlignMode::WebKitCenter:
         textAlignment = NSTextAlignmentCenter;
         break;
-    case JUSTIFY:
+    case TextAlignMode::Justify:
         textAlignment = NSTextAlignmentJustified;
         break;
-    case TASTART:
+    case TextAlignMode::Start:
         textAlignment = style->isLeftToRightDirection() ? NSTextAlignmentLeft : NSTextAlignmentRight;
         break;
-    case TAEND:
+    case TextAlignMode::End:
         textAlignment = style->isLeftToRightDirection() ? NSTextAlignmentRight : NSTextAlignmentLeft;
         break;
     default:
@@ -9803,10 +9914,11 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const RenderStyle* style)
                     String value = typingStyle->style()->getPropertyValue(CSSPropertyWebkitTextDecorationsInEffect);
                     [_private->_textTouchBarItemController setTextIsUnderlined:value.contains("underline")];
                 } else
-                    [_private->_textTouchBarItemController setTextIsUnderlined:(style->textDecorationsInEffect() & TextDecorationUnderline)];
+                    [_private->_textTouchBarItemController setTextIsUnderlined:style->textDecorationsInEffect().contains(TextDecoration::Underline)];
 
-                if (style->visitedDependentColor(CSSPropertyColor).isValid())
-                    [_private->_textTouchBarItemController setTextColor:nsColor(style->visitedDependentColor(CSSPropertyColor))];
+                Color textColor = style->visitedDependentColor(CSSPropertyColor);
+                if (textColor.isValid())
+                    [_private->_textTouchBarItemController setTextColor:nsColor(textColor)];
 
                 [_private->_textTouchBarItemController setCurrentTextAlignment:nsTextAlignmentFromRenderStyle(style)];
 
@@ -9960,24 +10072,6 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const RenderStyle* style)
 }
 
 @end
-
-#if ENABLE(MEDIA_STREAM)
-@implementation WebView (WebViewUserMedia)
-
-- (void)_setUserMediaClient:(id<WebUserMediaClient>)userMediaClient
-{
-    if (_private)
-        _private->m_userMediaClient = userMediaClient;
-}
-
-- (id<WebUserMediaClient>)_userMediaClient
-{
-    if (_private)
-        return _private->m_userMediaClient;
-    return nil;
-}
-@end
-#endif
 
 @implementation WebView (WebViewGeolocation)
 

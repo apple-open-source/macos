@@ -1538,6 +1538,36 @@ WritingDirection EditingStyle::textDirectionForSelection(const VisibleSelection&
     return foundDirection;
 }
 
+Ref<EditingStyle> EditingStyle::inverseTransformColorIfNeeded(Element& element)
+{
+    auto* renderer = element.renderer();
+    if (!m_mutableStyle || !renderer || !renderer->style().hasAppleColorFilter())
+        return *this;
+
+    bool hasColor = m_mutableStyle->getPropertyCSSValue(CSSPropertyColor);
+    bool hasBackgroundColor = m_mutableStyle->getPropertyCSSValue(CSSPropertyBackgroundColor);
+    if (!hasColor && !hasBackgroundColor)
+        return *this;
+
+    auto styleWithInvertedColors = copy();
+    ASSERT(styleWithInvertedColors->m_mutableStyle);
+
+    const auto& colorFilter = renderer->style().appleColorFilter();
+    auto invertedColor = [&](CSSPropertyID propertyID) {
+        Color newColor = cssValueToColor(extractPropertyValue(*m_mutableStyle, propertyID).get());
+        colorFilter.inverseTransformColor(newColor);
+        styleWithInvertedColors->m_mutableStyle->setProperty(propertyID, newColor.cssText());
+    };
+
+    if (hasColor)
+        invertedColor(CSSPropertyColor);
+
+    if (hasBackgroundColor)
+        invertedColor(CSSPropertyBackgroundColor);
+
+    return styleWithInvertedColors;
+}
+
 static void reconcileTextDecorationProperties(MutableStyleProperties* style)
 {    
     RefPtr<CSSValue> textDecorationsInEffect = style->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect);

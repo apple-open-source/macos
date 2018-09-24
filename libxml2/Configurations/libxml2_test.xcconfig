@@ -1,0 +1,8 @@
+PRODUCT_NAME = libxml2_test;
+INSTALL_PATH = /usr/local/lib;
+
+OTHER_LDFLAGS = $(inherited) -Wl,-force_load,"$(BUILT_PRODUCTS_DIR)/libxml2.a";
+
+GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+SECTORDER_FLAGS = $(SECTORDER_FLAGS_$(CONFIGURATION));
+SECTORDER_FLAGS_Production[sdk=iphoneos*] = -Wl,-order_file,$(SDKROOT)/AppleInternal/OrderFiles/libxml2.order;

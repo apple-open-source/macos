@@ -140,7 +140,7 @@ namespace IOFireWireLib {
 		}
 		
 		uint32_t outputCnt = 0;
-		const uint64_t inputs[6] = {(const uint64_t)mKernUnitDirRef, key, (const uint64_t)buffer,len, (const uint64_t)descCString, descLen};
+		const uint64_t inputs[6] = {(const uint64_t)mKernUnitDirRef, (const uint64_t)key, (const uint64_t)buffer,len, (const uint64_t)descCString, descLen};
 		return IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), kLocalConfigDirectory_AddEntry_Buffer,
 										 inputs,6,
 										 NULL,&outputCnt);
@@ -161,7 +161,7 @@ namespace IOFireWireLib {
 		}
 		
 		uint32_t outputCnt = 0;
-		const uint64_t inputs[5] = {(const uint64_t)mKernUnitDirRef, key, value, (const uint64_t)descCString, descLen};
+		const uint64_t inputs[5] = {(const uint64_t)mKernUnitDirRef, (const uint64_t)key, value, (const uint64_t)descCString, descLen};
 		IOReturn err = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), kLocalConfigDirectory_AddEntry_UInt32,
 												 inputs,5,
 												 NULL,&outputCnt);
@@ -198,7 +198,7 @@ namespace IOFireWireLib {
 #endif		
 		uint32_t outputCnt = 0;
 		size_t outputStructSize =  0 ;
-		const uint64_t inputs[4] = {(const uint64_t)mKernUnitDirRef, key, (const uint64_t)descCString,descLen};
+		const uint64_t inputs[4] = {(const uint64_t)mKernUnitDirRef, (const uint64_t)key, (const uint64_t)descCString,descLen};
 		return IOConnectCallMethod(mUserClient.GetUserClientConnection(), 
 								   kLocalConfigDirectory_AddEntry_FWAddr,
 								   inputs,4,

@@ -43,7 +43,7 @@
 		09F36E9F1D8CC5F90044E1A1 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		09F36EA11D8CC5FD0044E1A1 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		A979227C076FA9E50006C07C /* FSFormatName.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FSFormatName.h; sourceTree = "<group>"; };
-		A9A1F2DC0754F05D008B2629 /* FSFormatName.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = FSFormatName.c; sourceTree = "<group>"; usesTabs = 1; };
+		A9A1F2DC0754F05D008B2629 /* FSFormatName.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = FSFormatName.c; sourceTree = SOURCE_ROOT; usesTabs = 1; };
 		A9A1F2DD0754F05E008B2629 /* FSPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FSPrivate.h; sourceTree = "<group>"; };
 		A9DD4A2C076FB7750075BCC0 /* bootsect.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bootsect.h; sourceTree = "<group>"; };
 		A9F3306D076FD15200026204 /* bpb.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bpb.h; sourceTree = "<group>"; };

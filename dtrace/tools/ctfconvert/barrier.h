@@ -27,8 +27,6 @@
 #ifndef _BARRIER_H
 #define	_BARRIER_H
 
-#pragma ident	"@(#)barrier.h	1.2	05/06/08 SMI"
-
 #if !defined(__APPLE__)
 /*
  * APIs for the barrier synchronization primitive.

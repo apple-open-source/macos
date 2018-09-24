@@ -36,20 +36,20 @@
 #include "Document.h"
 #include "EventListener.h"
 #include "EventTarget.h"
+#include "Frame.h"
 #include "InspectorOverlay.h"
 #include "InspectorPageAgent.h"
 #include "InstrumentingAgents.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PageConsoleClient.h"
 #include "PageScriptDebugServer.h"
 #include "ScriptExecutionContext.h"
 #include "ScriptState.h"
 #include "Timer.h"
-#include <inspector/InjectedScript.h>
-#include <inspector/InjectedScriptManager.h>
-#include <inspector/ScriptCallStack.h>
-#include <inspector/ScriptCallStackFactory.h>
+#include <JavaScriptCore/InjectedScript.h>
+#include <JavaScriptCore/InjectedScriptManager.h>
+#include <JavaScriptCore/ScriptCallStack.h>
+#include <JavaScriptCore/ScriptCallStackFactory.h>
 #include <wtf/NeverDestroyed.h>
 
 
@@ -130,7 +130,7 @@ InjectedScript PageDebuggerAgent::injectedScriptForEval(ErrorString& errorString
 
     InjectedScript injectedScript = injectedScriptManager().injectedScriptForId(*executionContextId);
     if (injectedScript.hasNoValue())
-        errorString = ASCIILiteral("Execution context with given id not found.");
+        errorString = "Execution context with given id not found."_s;
 
     return injectedScript;
 }
@@ -164,14 +164,20 @@ void PageDebuggerAgent::mainFrameNavigated()
     setSuppressAllPauses(false);
 }
 
-void PageDebuggerAgent::didAddEventListener(EventTarget& target, const AtomicString& eventType)
+void PageDebuggerAgent::didAddEventListener(EventTarget& target, const AtomicString& eventType, EventListener& listener, bool capture)
 {
     if (!breakpointsActive())
         return;
 
     auto& eventListeners = target.eventListeners(eventType);
-    const RefPtr<RegisteredEventListener>& listener = eventListeners.last();
-    if (m_registeredEventListeners.contains(listener.get())) {
+    auto position = eventListeners.findMatching([&](auto& registeredListener) {
+        return &registeredListener->callback() == &listener && registeredListener->useCapture() == capture;
+    });
+    if (position == notFound)
+        return;
+
+    auto& registeredListener = eventListeners.at(position);
+    if (m_registeredEventListeners.contains(registeredListener.get())) {
         ASSERT_NOT_REACHED();
         return;
     }
@@ -181,9 +187,9 @@ void PageDebuggerAgent::didAddEventListener(EventTarget& target, const AtomicStr
         return;
 
     int identifier = m_nextEventListenerIdentifier++;
-    m_registeredEventListeners.set(listener.get(), identifier);
+    m_registeredEventListeners.set(registeredListener.get(), identifier);
 
-    didScheduleAsyncCall(scriptState, InspectorDebuggerAgent::AsyncCallType::EventListener, identifier, listener->isOnce());
+    didScheduleAsyncCall(scriptState, InspectorDebuggerAgent::AsyncCallType::EventListener, identifier, registeredListener->isOnce());
 }
 
 void PageDebuggerAgent::willRemoveEventListener(EventTarget& target, const AtomicString& eventType, EventListener& listener, bool capture)

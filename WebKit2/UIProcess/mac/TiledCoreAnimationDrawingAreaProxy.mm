@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,9 +34,9 @@
 #import "LayerTreeContext.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
-#import <WebCore/MachSendRight.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/MachSendRight.h>
 
 using namespace IPC;
 using namespace WebCore;
@@ -77,7 +77,7 @@ void TiledCoreAnimationDrawingAreaProxy::colorSpaceDidChange()
     m_webPageProxy.process().send(Messages::DrawingArea::SetColorSpace(m_webPageProxy.colorSpace()), m_webPageProxy.pageID());
 }
 
-void TiledCoreAnimationDrawingAreaProxy::minimumLayoutSizeDidChange()
+void TiledCoreAnimationDrawingAreaProxy::viewLayoutSizeDidChange()
 {
     if (!m_webPageProxy.isValid())
         return;
@@ -112,15 +112,15 @@ void TiledCoreAnimationDrawingAreaProxy::didUpdateGeometry()
 
     m_isWaitingForDidUpdateGeometry = false;
 
-    IntSize minimumLayoutSize = m_webPageProxy.minimumLayoutSize();
+    IntSize viewLayoutSize = m_webPageProxy.viewLayoutSize();
 
     // If the WKView was resized while we were waiting for a DidUpdateGeometry reply from the web process,
     // we need to resend the new size here.
-    if (m_lastSentSize != m_size || m_lastSentMinimumLayoutSize != minimumLayoutSize)
+    if (m_lastSentSize != m_size || m_lastSentViewLayoutSize != viewLayoutSize)
         sendUpdateGeometry();
 }
 
-void TiledCoreAnimationDrawingAreaProxy::waitForDidUpdateActivityState()
+void TiledCoreAnimationDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStateChangeID)
 {
     Seconds activityStateUpdateTimeout = Seconds::fromMilliseconds(250);
     m_webPageProxy.process().connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DidUpdateActivityState>(m_webPageProxy.pageID(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
@@ -128,13 +128,13 @@ void TiledCoreAnimationDrawingAreaProxy::waitForDidUpdateActivityState()
 
 void TiledCoreAnimationDrawingAreaProxy::intrinsicContentSizeDidChange(const IntSize& newIntrinsicContentSize)
 {
-    if (m_webPageProxy.minimumLayoutSize().width() > 0)
+    if (m_webPageProxy.viewLayoutSize().width() > 0)
         m_webPageProxy.intrinsicContentSizeDidChange(newIntrinsicContentSize);
 }
 
 void TiledCoreAnimationDrawingAreaProxy::willSendUpdateGeometry()
 {
-    m_lastSentMinimumLayoutSize = m_webPageProxy.minimumLayoutSize();
+    m_lastSentViewLayoutSize = m_webPageProxy.viewLayoutSize();
     m_lastSentSize = m_size;
     m_isWaitingForDidUpdateGeometry = true;
 }
@@ -183,7 +183,7 @@ void TiledCoreAnimationDrawingAreaProxy::sendUpdateGeometry()
     ASSERT(!m_isWaitingForDidUpdateGeometry);
 
     willSendUpdateGeometry();
-    m_webPageProxy.process().send(Messages::DrawingArea::UpdateGeometry(m_size, m_layerPosition, true, createFence()), m_webPageProxy.pageID());
+    m_webPageProxy.process().send(Messages::DrawingArea::UpdateGeometry(m_size, true /* flushSynchronously */, createFence()), m_webPageProxy.pageID());
 }
 
 void TiledCoreAnimationDrawingAreaProxy::adjustTransientZoom(double scale, FloatPoint origin)

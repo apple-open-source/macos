@@ -39,16 +39,13 @@
 __BEGIN_DECLS
 
 
-void SecCAIssuerCacheAddCertificate(SecCertificateRef certificate,
+void SecCAIssuerCacheAddCertificates(CFArrayRef certificates,
                                     CFURLRef uri, CFAbsoluteTime expires);
 
-SecCertificateRef SecCAIssuerCacheCopyMatching(CFURLRef uri);
+CFArrayRef SecCAIssuerCacheCopyMatching(CFURLRef uri);
 
 /* This should be called on a normal non emergency exit. */
 void SecCAIssuerCacheGC(void);
-
-/* Call this periodically or perhaps when we are exiting due to low memory. */
-void SecCAIssuerCacheFlush(void);
 
 __END_DECLS
 

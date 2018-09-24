@@ -55,18 +55,18 @@ extern CSSM_BOOL srCompareCssmData(
 void srPrintError(const char *op, CSSM_RETURN err);
 
 /* Init CSSM; returns CSSM_FALSE on error. Reusable. */
-extern CSSM_BOOL srCssmStartup();
+extern CSSM_BOOL srCssmStartup(void);
 
 /* Attach to CSP. Returns zero on error. */
 extern CSSM_CSP_HANDLE srCspStartup(
 	CSSM_BOOL bareCsp);					// true ==> CSP, false ==> CSP/DL
 
 /* Attach to DL side of CSPDL. */
-extern CSSM_DL_HANDLE srDlStartup();
+extern CSSM_DL_HANDLE srDlStartup(void);
 
 /* Attach to CL, TP */
-extern CSSM_CL_HANDLE srClStartup();
-extern CSSM_TP_HANDLE srTpStartup();
+extern CSSM_CL_HANDLE srClStartup(void);
+extern CSSM_TP_HANDLE srTpStartup(void);
 
 /*
  * Derive symmetric key using PBE.

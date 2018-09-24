@@ -198,10 +198,7 @@
 {
     complete(@{});
 }
-- (void)idsPerformanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))complete
-{
-    complete(@{});
-}
+
 - (void)rateLimitingPerformanceCounters:(void(^)(NSDictionary <NSString *, NSString *> *))complete
 {
     complete(@{});
@@ -353,6 +350,10 @@
 
 - (void)testSecPairBasicTest
 {
+    if (![KCPairingChannel isSupportedPlatform]) {
+        return;
+    }
+
     bool sp1compete = false, sp2compete = false;
     NSData *sp1data = NULL;
     NSData *sp2data = NULL;

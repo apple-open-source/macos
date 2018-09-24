@@ -152,7 +152,7 @@ dtrace='
  inline int OPT_counts    = '$opt_counts';
  inline int OPT_pid       = '$opt_pid';
  inline int PID           = '$pid';
- inline string NAME       = "'$pname'";
+ inline string NAME       = "'"$pname"'";
 
  dtrace:::BEGIN 
  {

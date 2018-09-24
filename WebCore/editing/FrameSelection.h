@@ -125,8 +125,9 @@ public:
         SpellCorrectionTriggered = 1 << 3,
         DoNotSetFocus = 1 << 4,
         DictationTriggered = 1 << 5,
-        RevealSelection = 1 << 6,
-        IsUserTriggered = 1 << 7,
+        IsUserTriggered = 1 << 6,
+        RevealSelection = 1 << 7,
+        RevealSelectionUpToMainFrame = 1 << 8,
     };
     typedef unsigned SetSelectionOptions; // Union of values in SetSelectionOption and EUserTriggered
     static inline SetSelectionOptions defaultSetSelectionOptions(EUserTriggered userTriggered = NotUserTriggered)
@@ -143,7 +144,7 @@ public:
     WEBCORE_EXPORT void moveTo(const VisiblePosition&, const VisiblePosition&, EUserTriggered = NotUserTriggered);
     void moveTo(const Position&, EAffinity, EUserTriggered = NotUserTriggered);
     void moveTo(const Position&, const Position&, EAffinity, EUserTriggered = NotUserTriggered);
-    void moveWithoutValidationTo(const Position&, const Position&, bool selectionHasDirection, bool shouldSetFocus, const AXTextStateChangeIntent& = AXTextStateChangeIntent());
+    void moveWithoutValidationTo(const Position&, const Position&, bool selectionHasDirection, bool shouldSetFocus, SelectionRevealMode, const AXTextStateChangeIntent& = AXTextStateChangeIntent());
 
     const VisibleSelection& selection() const { return m_selection; }
     WEBCORE_EXPORT void setSelection(const VisibleSelection&, SetSelectionOptions = defaultSetSelectionOptions(), AXTextStateChangeIntent = AXTextStateChangeIntent(), CursorAlignOnScroll = AlignCursorOnScrollIfNeeded, TextGranularity = CharacterGranularity);
@@ -167,8 +168,8 @@ public:
     void setStart(const VisiblePosition &, EUserTriggered = NotUserTriggered);
     void setEnd(const VisiblePosition &, EUserTriggered = NotUserTriggered);
     
-    void setBase(const VisiblePosition&, EUserTriggered = NotUserTriggered);
-    void setBase(const Position&, EAffinity, EUserTriggered = NotUserTriggered);
+    WEBCORE_EXPORT void setBase(const VisiblePosition&, EUserTriggered = NotUserTriggered);
+    WEBCORE_EXPORT void setBase(const Position&, EAffinity, EUserTriggered = NotUserTriggered);
     void setExtent(const VisiblePosition&, EUserTriggered = NotUserTriggered);
     void setExtent(const Position&, EAffinity, EUserTriggered = NotUserTriggered);
 
@@ -322,7 +323,7 @@ private:
     void updateAppearanceAfterLayoutOrStyleChange();
     void appearanceUpdateTimerFired();
 
-    void setCaretVisibility(CaretVisibility);
+    WEBCORE_EXPORT void setCaretVisibility(CaretVisibility);
     bool recomputeCaretRect();
     void invalidateCaretRect();
 
@@ -340,10 +341,16 @@ private:
 
     RefPtr<EditingStyle> m_typingStyle;
 
+#if ENABLE(TEXT_CARET)
     Timer m_caretBlinkTimer;
+#endif
     Timer m_appearanceUpdateTimer;
     // The painted bounds of the caret in absolute coordinates
     IntRect m_absCaretBounds;
+
+    SelectionRevealMode m_selectionRevealMode { SelectionRevealMode::DoNotReveal };
+    AXTextStateChangeIntent m_selectionRevealIntent;
+
     bool m_caretInsidePositionFixed : 1;
     bool m_absCaretBoundsDirty : 1;
     bool m_caretPaint : 1;
@@ -351,7 +358,6 @@ private:
     bool m_focused : 1;
     bool m_shouldShowBlockCursor : 1;
     bool m_pendingSelectionUpdate : 1;
-    bool m_shouldRevealSelection : 1;
     bool m_alwaysAlignCursorOnScrollWhenRevealingSelection : 1;
 
 #if PLATFORM(IOS)

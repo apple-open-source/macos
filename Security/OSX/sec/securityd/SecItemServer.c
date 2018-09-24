@@ -83,6 +83,8 @@
 #include <SharedWebCredentials/SharedWebCredentials.h>
 #endif
 
+#include "Analytics/Clients/LocalKeychainAnalytics.h"
+
 /* Changed the name of the keychain changed notification, for testing */
 static const char *g_keychain_changed_notification = kSecServerKeychainChangedNotification;
 
@@ -123,7 +125,7 @@ bool SecKeychainDbGetVersion(SecDbConnectionRef dbt, int *version, CFErrorRef *e
     ok &= SecDbPrepare(dbt, CFSTR("SELECT name FROM sqlite_master WHERE type='table' AND name='tversion'"), &localError, ^(sqlite3_stmt *stmt) {
         ok = SecDbStep(dbt, stmt, NULL, ^(bool *stop) {
             found = true;
-            *stop = 1;
+            *stop = true;
         });
     });
     require_action(ok, out, SecDbError(SQLITE_CORRUPT, error, CFSTR("Failed to read sqlite_master table: %@"), localError));
@@ -245,11 +247,19 @@ static bool ShouldRenameTable(const SecDbClass* class1, const SecDbClass* class2
     return oldTableVersion < 10 || !DBClassesAreEqual(class1, class2);
 }
 
+#define SCHEMA_VERSION(schema) ((((schema)->minorVersion) << 8) | ((schema)->majorVersion))
+#define VERSION_MAJOR(version)  ((version)        & 0xff)
+#define VERSION_MINOR(version) (((version) >>  8) & 0xff)
+#define VERSION_NEW(version)    ((version)        & 0xffff)
+#define VERSION_OLD(version)   (((version) >> 16) & 0xffff)
+
 // Goes through all tables represented by old_schema and tries to migrate all items from them into new (current version) tables.
 static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSchema, CFErrorRef *error)
 {
-    __block bool ok = true;
+    int oldVersion = SCHEMA_VERSION(oldSchema);
     const SecDbSchema *newSchema = current_schema();
+    int newVersion = SCHEMA_VERSION(newSchema);
+    __block bool ok = true;
     SecDbClass const *const *oldClass;
     SecDbClass const *const *newClass;
     SecDbQueryRef query = NULL;
@@ -291,22 +301,28 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
     }
 
     if(CFStringGetLength(sql) > 0) {
-        require_quiet(ok &= SecDbExec(dbt, sql, error), out);
+        require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
+                             LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1AlterTables, error ? *error : NULL));
     }
     CFReleaseNull(sql);
 
     // Drop indices that that new schemas will use
     sql = CFStringCreateMutable(NULL, 0);
     for (newClass = newSchema->classes; *newClass != NULL; newClass++) {
-        SecDbForEachAttrWithMask((*newClass),desc, kSecDbIndexFlag | kSecDbInFlag) {
+        SecDbForEachAttrWithMask((*newClass), desc, kSecDbIndexFlag | kSecDbInFlag) {
             CFStringAppendFormat(sql, 0, CFSTR("DROP INDEX IF EXISTS %@%@;"), (*newClass)->name, desc->name);
+            if (desc->kind == kSecDbSyncAttr) {
+                CFStringAppendFormat(sql, 0, CFSTR("DROP INDEX IF EXISTS %@%@0;"), (*newClass)->name, desc->name);
+            }
         }
     }
-    require_quiet(ok &= SecDbExec(dbt, sql, error), out);
+    require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
+                         LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1DropIndices, error ? *error : NULL));
     CFReleaseNull(sql);
 
     // Create tables for new schema.
-    require_quiet(ok &= SecItemDbCreateSchema(dbt, newSchema, classIndexesForNewTables, false, error), out);
+    require_action_quiet(ok &= SecItemDbCreateSchema(dbt, newSchema, classIndexesForNewTables, false, error), out,
+                         LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1CreateSchema, error ? *error : NULL));
     // Go through all classes of current schema to transfer all items to new tables.
     for (oldClass = oldSchema->classes, newClass = newSchema->classes;
          *oldClass != NULL && *newClass != NULL; oldClass++, newClass++) {
@@ -413,9 +429,11 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
                 }
 
                 *stop = !ok;
+
             });
 
-            require_quiet(ok, out);
+            require_action_quiet(ok, out,
+                                 LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1Items, error ? *error : NULL));
         } else {
             // This table does not contain secdb items, and must be transferred without using SecDbItemSelect.
             // For now, this code does not support removing or renaming any columns, or adding any new non-null columns.
@@ -436,7 +454,8 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
             CFStringAppendFormat(sql, NULL, CFSTR("INSERT OR REPLACE INTO %@ (%@) SELECT %@ FROM %@;"), (*newClass)->name, columns, columns, renamedOldClass->name);
 
             CFReleaseNull(columns);
-            require_quiet(ok &= SecDbExec(dbt, sql, error), out);
+            require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
+                                 LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1NonItems, error ? *error : NULL));
         }
     }
 
@@ -453,7 +472,8 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
     }
 
     if(CFStringGetLength(sql) > 0) {
-        require_quiet(ok &= SecDbExec(dbt, sql, error), out);
+        require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
+                             LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1DropOld, error ? *error : NULL));
     }
 out:
 #if TARGET_OS_EMBEDDED
@@ -473,10 +493,9 @@ out:
 }
 
 __thread SecDbConnectionRef dbt = NULL;
-__thread bool isUnlocked = false;
 
 // Goes through all tables represented by old_schema and tries to migrate all items from them into new (current version) tables.
-static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *error) {
+static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int oldVersion, CFErrorRef *error) {
     SecDbConnectionRef oldDbt = dbt;
     dbt = inDbt;
     __block bool ok = true;
@@ -490,6 +509,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, CFErro
 
     // Go through all classes in new schema
     const SecDbSchema *newSchema = current_schema();
+    int newVersion = SCHEMA_VERSION(newSchema);
     for (const SecDbClass *const *class = newSchema->classes; *class != NULL && !*inProgress; class++) {
         if(!((*class)->itemclass)) {
             //Don't try to decrypt non-item 'classes'
@@ -564,6 +584,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, CFErro
                         // remember that DB still needs phase2 migration to be run next time a connection is made.  Also
                         // stop iterating next items, it would be just waste of time because the whole iteration will be run
                         // next time when this phase2 will be rerun.
+                        LKAReportKeychainUpgradeOutcome(oldVersion, newVersion, LKAKeychainUpgradeOutcomeLocked);
                         *inProgress = true;
                         *stop = true;
                         ok = true;
@@ -605,7 +626,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, CFErro
             *stop = *stop || !ok;
 
         });
-        require(ok, out);
+        require_action(ok, out, LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase2, error ? *error : NULL));
     }
 
 #if TARGET_OS_EMBEDDED
@@ -620,12 +641,6 @@ out:
     return ok;
 }
 
-#define SCHEMA_VERSION(schema) ((((schema)->minorVersion) << 8) | ((schema)->majorVersion))
-#define VERSION_MAJOR(version)  ((version)        & 0xff)
-#define VERSION_MINOR(version) (((version) >>  8) & 0xff)
-#define VERSION_NEW(version)    ((version)        & 0xffff)
-#define VERSION_OLD(version)   (((version) >> 16) & 0xffff)
-
 static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version, bool *inProgress, CFErrorRef *error) {
     __block bool didPhase2 = false;
     __block bool ok = true;
@@ -635,9 +650,11 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
         *error = NULL;
 
     const SecDbSchema *newSchema = current_schema();
+    int newVersion = SCHEMA_VERSION(newSchema);
+    bool skipped_upgrade = false;
 
     // If DB schema is the one we want, we are done.
-    require_quiet(SCHEMA_VERSION(newSchema) != version, out);
+    require_action_quiet(SCHEMA_VERSION(newSchema) != version, out, skipped_upgrade = true);
 
     // Check if the schema of the database on disk is the same major, but newer version then what we have
     // in code, lets just skip this since a newer version of the OS have upgrade it. Since its the same
@@ -645,15 +662,6 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
     if (newSchema->majorVersion == VERSION_MAJOR(version) && newSchema->minorVersion < VERSION_MINOR(version)) {
         secnotice("upgr", "skipping upgrade since minor is newer");
         goto out;
-    }
-
-    if (VERSION_MAJOR(version) < 6) {
-        // Pre v6 keychains need to have WAL enabled, since SecDb only does this at db creation time.
-        // NOTE: This has to be run outside of a transaction.
-        require_action_quiet(ok = (SecDbExec(dbt, CFSTR("PRAGMA auto_vacuum = FULL"), &localError) &&
-                                   SecDbExec(dbt, CFSTR("PRAGMA journal_mode = WAL"), &localError)),
-                             out, secerror("upgrade: unable to enable WAL or auto vacuum, marking DB as corrupt: %@",
-                                           localError));
     }
 
     ok &= SecDbTransaction(dbt, kSecDbExclusiveTransactionType, &localError, ^(bool *commit) {
@@ -669,7 +677,8 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
         require_quiet(SCHEMA_VERSION(newSchema) != version2, out);
 
         // If this is empty database, just create table according to schema and be done with it.
-        require_action_quiet(version2 != 0, out, ok = SecItemDbCreateSchema(dbt, newSchema, NULL, true, &localError));
+        require_action_quiet(version2 != 0, out, ok = SecItemDbCreateSchema(dbt, newSchema, NULL, true, &localError);
+                             LKAReportKeychainUpgradeOutcomeWithError(version2, newVersion, LKAKeychainUpgradeOutcomeNewDb, localError));
 
         int oldVersion = VERSION_OLD(version2);
         version2 = VERSION_NEW(version2);
@@ -677,7 +686,8 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
         require_action_quiet(version2 == SCHEMA_VERSION(newSchema) || oldVersion == 0, out,
                              ok = SecDbError(SQLITE_CORRUPT, &localError,
                                              CFSTR("Half migrated but obsolete DB found: found 0x%x(0x%x) but 0x%x is needed"),
-                                             version2, oldVersion, SCHEMA_VERSION(newSchema)));
+                                             version2, oldVersion, SCHEMA_VERSION(newSchema));
+                             LKAReportKeychainUpgradeOutcome(version2, newVersion, LKAKeychainUpgradeOutcomeObsoleteDb));
 
         // Check whether we have both old and new tables in the DB.
         if (oldVersion == 0) {
@@ -697,11 +707,11 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
             // If we are attempting to upgrade from a version for which we have no schema, fail.
             require_action_quiet(oldSchema != NULL, out,
                                  ok = SecDbError(SQLITE_CORRUPT, &localError, CFSTR("no schema for version: 0x%x"), oldVersion);
-                                 secerror("no schema for version 0x%x", oldVersion));
+                                 secerror("no schema for version 0x%x", oldVersion);
+                                 LKAReportKeychainUpgradeOutcome(version2, newVersion, LKAKeychainUpgradeOutcomeNoSchema));
 
             secnotice("upgr", "Upgrading from version 0x%x to 0x%x", oldVersion, SCHEMA_VERSION(newSchema));
             SecSignpostStart(SecSignpostUpgradePhase1);
-
             require_action(ok = UpgradeSchemaPhase1(dbt, oldSchema, &localError), out, secerror("upgrade: Upgrade phase1 failed: %@", localError));
             SecSignpostStop(SecSignpostUpgradePhase1);
 
@@ -716,7 +726,7 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
             // Lets try to go through non-D-class items in new tables and apply decode/encode on them
             // If this fails the error will be ignored after doing a phase1 since but not in the second
             // time when we are doing phase2.
-            ok = UpgradeItemPhase2(dbt, inProgress, &phase2Error);
+            ok = UpgradeItemPhase2(dbt, inProgress, version2, &phase2Error);
             if (!ok) {
                 if (didPhase1) {
                     *inProgress = true;
@@ -802,6 +812,38 @@ out:
 #if TARGET_OS_EMBEDDED
             SecADSetValueForScalarKey(CFSTR("com.apple.keychain.migration-failure"), 1);
 #endif
+        }
+    } else {
+        // Things seemed to go okay!
+        if (didPhase2) {
+            LKAReportKeychainUpgradeOutcome(version, newVersion, LKAKeychainUpgradeOutcomeSuccess);
+        }
+
+        //If we're done here, we should opportunistically re-add all indices (just in case)
+        if(skipped_upgrade || didPhase2) {
+            // Create indices, ignoring all errors
+            for (SecDbClass const* const* newClass = newSchema->classes; *newClass; ++newClass) {
+                SecDbForEachAttrWithMask((*newClass), desc, kSecDbIndexFlag | kSecDbInFlag) {
+                    CFStringRef sql = NULL;
+                    CFErrorRef localError = NULL;
+                    bool localOk = true;
+
+                    if (desc->kind == kSecDbSyncAttr) {
+                        // Replace the complete sync index with a partial index for sync=0. Most items are sync=1, so the complete index isn't helpful for sync=1 queries.
+                        sql = CFStringCreateWithFormat(NULL, NULL, CFSTR("DROP INDEX IF EXISTS %@%@; CREATE INDEX IF NOT EXISTS %@%@0 on %@(%@) WHERE %@=0;"),
+                            (*newClass)->name, desc->name, (*newClass)->name, desc->name, (*newClass)->name, desc->name, desc->name);
+                    } else {
+                        sql = CFStringCreateWithFormat(NULL, NULL, CFSTR("CREATE INDEX IF NOT EXISTS %@%@ ON %@(%@);"), (*newClass)->name, desc->name, (*newClass)->name, desc->name);
+                    }
+                    localOk &= SecDbExec(dbt, sql, &localError);
+                    CFReleaseNull(sql);
+
+                    if(!localOk) {
+                        secerror("upgrade: unable to opportunistically create index (%@,%@): %@", (*newClass)->name, desc->name, localError);
+                    }
+                    CFReleaseNull(localError);
+                }
+            }
         }
     }
     if (localError) {
@@ -1041,7 +1083,9 @@ CFStringRef __SecKeychainCopyPath(void) {
 SecDbRef SecKeychainDbCreate(CFStringRef path, CFErrorRef* error) {
     __block CFErrorRef localerror = NULL;
 
-    SecDbRef kc = SecDbCreate(path, ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
+    SecDbRef kc = SecDbCreate(path, 0600, true, true, true, true, kSecDbMaxIdleHandles,
+        ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error)
+    {
         // Upgrade from version 0 means create the schema in empty db.
         int version = 0;
         bool ok = true;
@@ -1145,19 +1189,6 @@ void SecKeychainDbReset(dispatch_block_t inbetween)
     });
 }
 
-static bool checkIsUnlocked()
-{
-    CFErrorRef aksError = NULL;
-    bool locked = true;
-
-    if(!SecAKSGetIsLocked(&locked, &aksError)) {
-        secerror("error querying lock state: %@", aksError);
-        CFReleaseNull(aksError);
-    }
-
-    return !locked;
-}
-
 static bool kc_acquire_dbt(bool writeAndRead, SecDbConnectionRef* dbconn, CFErrorRef *error) {
     SecDbRef db = kc_dbhandle(error);
     if (db == NULL) {
@@ -1210,19 +1241,12 @@ bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef db, CFEr
     }
 
     bool ok = false;
-    if (kc_acquire_dbt(writeAndRead, &dbt, error)) {        
-        isUnlocked = checkIsUnlocked();
+    if (kc_acquire_dbt(writeAndRead, &dbt, error)) {
         ok = perform(dbt);
         SecDbConnectionRelease(dbt);
         dbt = NULL;
-        isUnlocked = false;
     }
     return ok;
-}
-
-bool kc_is_unlocked()
-{
-    return isUnlocked || checkIsUnlocked();
 }
 
 static bool
@@ -1471,8 +1495,6 @@ out:
  **************** Beginning of Externally Callable Interface ****************
  ****************************************************************************/
 
-void (*SecTaskDiagnoseEntitlements)(CFArrayRef accessGroups) = NULL;
-
 static bool SecEntitlementError(OSStatus status, CFErrorRef *error)
 {
 #if TARGET_OS_OSX
@@ -1526,8 +1548,6 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
 
     CFIndex ag_count;
     if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
-        if (SecTaskDiagnoseEntitlements)
-            SecTaskDiagnoseEntitlements(accessGroups);
         return SecEntitlementError(errSecMissingEntitlement, error);
     }
 
@@ -1639,6 +1659,21 @@ SecItemSynchronizable(CFDictionaryRef query)
 }
 #endif
 
+static CFArrayRef
+SecurityClientCopyWritableAccessGroups(SecurityClient *client) {
+    if (client == NULL || client->accessGroups == NULL) {
+        return NULL;
+    }
+    CFIndex count = CFArrayGetCount(client->accessGroups);
+    if (CFArrayContainsValue(client->accessGroups, CFRangeMake(0, count), kSecAttrAccessGroupToken)) {
+        CFMutableArrayRef writableGroups = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, client->accessGroups);
+        CFArrayRemoveAllValue(writableGroups, kSecAttrAccessGroupToken);
+        return writableGroups;
+    } else {
+        return CFRetainSafe(client->accessGroups);
+    }
+}
+
 
 /* AUDIT[securityd](done):
    attributes (ok) is a caller provided dictionary, only its cf type has
@@ -1647,13 +1682,12 @@ SecItemSynchronizable(CFDictionaryRef query)
 bool
 _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *result, CFErrorRef *error)
 {
-    CFArrayRef accessGroups = client->accessGroups;
+    CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
     bool ok = true;
     CFIndex ag_count;
     if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
-        if (SecTaskDiagnoseEntitlements)
-            SecTaskDiagnoseEntitlements(accessGroups);
+        CFReleaseNull(accessGroups);
         return SecEntitlementError(errSecMissingEntitlement, error);
     }
 
@@ -1667,7 +1701,7 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
 
         /* Having the special accessGroup "*" allows access to all accessGroups. */
         if (CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), CFSTR("*")))
-            accessGroups = NULL;
+            CFReleaseNull(accessGroups);
 
         if (agrp) {
             /* The user specified an explicit access group, validate it. */
@@ -1680,10 +1714,6 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
             /* We are using an implicit access group, add it as if the user
                specified it as an attribute. */
             query_add_attribute(kSecAttrAccessGroup, agrp, q);
-        }
-
-        if (CFEqual(agrp, kSecAttrAccessGroupToken)) {
-            ok = SecError(errSecParam, error, CFSTR("storing items into kSecAttrAccessGroupToken is not allowed"));
         }
 
         if (SecPLShouldLogRegisteredEvent(CFSTR("SecItem"))) {
@@ -1741,6 +1771,7 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
 
     SecSignpostStop(SecSignpostSecItemAdd);
 
+    CFReleaseNull(accessGroups);
     return ok;
 }
 
@@ -1752,12 +1783,11 @@ bool
 _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
                SecurityClient *client, CFErrorRef *error)
 {
-    CFArrayRef accessGroups = client->accessGroups;
+    CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
     CFIndex ag_count;
     if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
-        if (SecTaskDiagnoseEntitlements)
-            SecTaskDiagnoseEntitlements(accessGroups);
+        CFReleaseNull(accessGroups);
         return SecEntitlementError(errSecMissingEntitlement, error);
     }
 
@@ -1774,7 +1804,7 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
 
     if (CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), CFSTR("*"))) {
         /* Having the special accessGroup "*" allows access to all accessGroups. */
-        accessGroups = NULL;
+        CFReleaseNull(accessGroups);
     }
 
     bool ok = true;
@@ -1820,9 +1850,6 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
             if (agrp) {
                 /* The user is attempting to modify the access group column,
                    validate it to make sure the new value is allowable. */
-                if (CFEqual(agrp, kSecAttrAccessGroupToken)) {
-                    ok = SecError(errSecParam, error, CFSTR("storing items into kSecAttrAccessGroupToken is not allowed"));
-                }
                 if (!accessGroupsAllows(accessGroups, agrp, client)) {
                     ok = SecError(errSecNoAccessForItem, error, CFSTR("accessGroup %@ not in %@"), agrp, accessGroups);
                 }
@@ -1842,6 +1869,7 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
 
     SecSignpostStop(SecSignpostSecItemUpdate);
 
+    CFReleaseNull(accessGroups);
     return ok;
 }
 
@@ -1852,12 +1880,11 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
 bool
 _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
 {
-    CFArrayRef accessGroups = client->accessGroups;
+    CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
     CFIndex ag_count;
     if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
-        if (SecTaskDiagnoseEntitlements)
-            SecTaskDiagnoseEntitlements(accessGroups);
+        CFReleaseNull(accessGroups);
         return SecEntitlementError(errSecMissingEntitlement, error);
     }
 
@@ -1874,7 +1901,7 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
 
     if (CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), CFSTR("*"))) {
         /* Having the special accessGroup "*" allows access to all accessGroups. */
-        accessGroups = NULL;
+        CFReleaseNull(accessGroups);
     }
 
     Query *q = query_create_with_limit(query, client->musr, kSecMatchUnlimited, error);
@@ -1919,6 +1946,7 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
 
     SecSignpostStop(SecSignpostSecItemDelete);
 
+    CFReleaseNull(accessGroups);
     return ok;
 }
 
@@ -1973,8 +2001,6 @@ bool _SecItemUpdateTokenItems(CFStringRef tokenID, CFArrayRef items, SecurityCli
     CFArrayRef accessGroups = client->accessGroups;
     CFIndex ag_count;
     if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
-        if (SecTaskDiagnoseEntitlements)
-            SecTaskDiagnoseEntitlements(accessGroups);
         return SecEntitlementError(errSecMissingEntitlement, error);
     }
 
@@ -2486,14 +2512,12 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
         if (creator) {
             CFDictionarySetValue(query, kSecAttrCreator, creator);
             CFReleaseSafe(creator);
-            ok = true;
         }
-        else {
-            // confirm the add
-            // (per rdar://16680019, we won't prompt here in the normal case)
-            ok = /*approved ||*/ swca_confirm_operation(swca_add_request_id, clientAuditToken, query, error,
-                ^void (CFStringRef fqdn) { _SecAddNegativeWebCredential(client, fqdn, appID, false); });
-        }
+
+        // confirm the add
+        ok = swca_confirm_operation(swca_add_request_id, clientAuditToken, query, error, ^void (CFStringRef fqdn) {
+            _SecAddNegativeWebCredential(client, fqdn, appID, false);
+        });
     }
     if (ok) {
         ok = _SecItemAdd(query, &swcclient, result, error);
@@ -3227,6 +3251,8 @@ _SecServerCopyInitialSyncCredentials(uint32_t flags, CFErrorRef *error)
     if (flags & SecServerInitialSyncCredentialFlagBluetoothMigration) {
         require_action(InitialSyncItems(items, false, CFSTR("com.apple.nanoregistry.migration"), NULL, genp_class(), error), fail,
                        secerror("failed to collect com.apple.nanoregistry.migration-genp item: %@", error ? *error : NULL));
+        require_action(InitialSyncItems(items, false, CFSTR("com.apple.nanoregistry.migration2"), NULL, genp_class(), error), fail,
+                       secerror("failed to collect com.apple.nanoregistry.migration2-genp item: %@", error ? *error : NULL));
         require_action(InitialSyncItems(items, false, CFSTR("com.apple.bluetooth"), CFSTR("BluetoothLESync"), genp_class(), error), fail,
                        secerror("failed to collect com.apple.bluetooth-genp item: %@", error ? *error : NULL));
 

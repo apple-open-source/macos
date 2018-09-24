@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,5 +73,11 @@ IPConfigurationControlPrefsSetAWDReportInterfaceTypes(IPConfigurationInterfaceTy
 
 IPConfigurationInterfaceTypes
 IPConfigurationControlPrefsGetAWDReportInterfaceTypes(void);
+
+Boolean
+IPConfigurationControlPrefsGetCellularCLAT46AutoEnable(void);
+
+Boolean
+IPConfigurationControlPrefsSetCellularCLAT46AutoEnable(Boolean enable);
 
 #endif /* _S_IPCONFIGURATIONCONTROLPREFS_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple, Inc. All rights reserved.
+ * Copyright (C) 2006-2018 Apple, Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  * Copyright (C) 2012 Samsung Electronics. All rights reserved.
  *
@@ -25,6 +25,7 @@
 #include "AutoplayEvent.h"
 #include "Cursor.h"
 #include "DatabaseDetails.h"
+#include "DisabledAdaptations.h"
 #include "DisplayRefreshMonitor.h"
 #include "FocusDirection.h"
 #include "FrameLoader.h"
@@ -41,7 +42,7 @@
 #include "ScrollingCoordinator.h"
 #include "SearchPopupMenu.h"
 #include "WebCoreKeyboardUIMode.h"
-#include <runtime/ConsoleTypes.h>
+#include <JavaScriptCore/ConsoleTypes.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
 #include <wtf/Seconds.h>
@@ -67,6 +68,8 @@ namespace WebCore {
 class AccessibilityObject;
 class ColorChooser;
 class ColorChooserClient;
+class DataListSuggestionPicker;
+class DataListSuggestionsClient;
 class DateTimeChooser;
 class DateTimeChooserClient;
 class Element;
@@ -166,11 +169,6 @@ public:
     virtual void invalidateContentsForSlowScroll(const IntRect&) = 0;
     virtual void scroll(const IntSize&, const IntRect&, const IntRect&) = 0;
 
-#if USE(COORDINATED_GRAPHICS)
-    virtual void delegatedScrollRequested(const IntPoint&) = 0;
-    virtual void resetUpdateAtlasForTesting() = 0;
-#endif
-
     virtual IntPoint screenToRootView(const IntPoint&) const = 0;
     virtual IntRect rootViewToScreen(const IntRect&) const = 0;
 
@@ -188,7 +186,9 @@ public:
 
     virtual FloatSize screenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
     virtual FloatSize availableScreenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
+    virtual FloatSize overrideScreenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
 
+    virtual void dispatchDisabledAdaptationsDidChange(const OptionSet<DisabledAdaptations>&) const { }
     virtual void dispatchViewportPropertiesDidChange(const ViewportArguments&) const { }
 
     virtual void contentsSizeChanged(Frame&, const IntSize&) const = 0;
@@ -275,6 +275,10 @@ public:
 
 #if ENABLE(INPUT_TYPE_COLOR)
     virtual std::unique_ptr<ColorChooser> createColorChooser(ColorChooserClient&, const Color&) = 0;
+#endif
+
+#if ENABLE(DATALIST_ELEMENT)
+    virtual std::unique_ptr<DataListSuggestionPicker> createDataListSuggestionPicker(DataListSuggestionsClient&) = 0;
 #endif
 
     virtual void runOpenPanel(Frame&, FileChooser&) = 0;
@@ -449,6 +453,8 @@ public:
 
     virtual void handleAutoFillButtonClick(HTMLInputElement&) { }
 
+    virtual void inputElementDidResignStrongPasswordAppearance(HTMLInputElement&) { };
+
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     virtual void addPlaybackTargetPickerClient(uint64_t /*contextId*/) { }
     virtual void removePlaybackTargetPickerClient(uint64_t /*contextId*/) { }
@@ -478,6 +484,10 @@ public:
     virtual void didRemoveMenuItemElement(HTMLMenuItemElement&) { }
 
     virtual void testIncomingSyncIPCMessageWhileWaitingForSyncReply() { }
+
+    virtual String signedPublicKeyAndChallengeString(unsigned, const String&, const URL&) const { return emptyString(); }
+
+    virtual bool isViewVisible() { return true; }
 
 protected:
     virtual ~ChromeClient() = default;

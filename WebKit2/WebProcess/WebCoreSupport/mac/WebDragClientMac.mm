@@ -43,12 +43,10 @@
 #import <WebCore/FrameView.h>
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/LegacyWebArchive.h>
-#import <WebCore/MainFrame.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/Page.h>
 #import <WebCore/Pasteboard.h>
 #import <WebCore/RenderImage.h>
-#import <WebCore/ResourceHandle.h>
 #import <WebCore/StringTruncator.h>
 #import <WebCore/WebCoreNSURLExtras.h>
 #import <wtf/StdLibExtras.h>
@@ -156,7 +154,7 @@ void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Eleme
     SharedMemory::Handle archiveHandle;
     size_t archiveSize = 0;
     if (data) {
-        RefPtr<SharedBuffer> archiveBuffer = SharedBuffer::create((NSData *)data.get());
+        auto archiveBuffer = SharedBuffer::create((__bridge NSData *)data.get());
         RefPtr<SharedMemory> archiveSharedMemoryBuffer = SharedMemory::allocate(archiveBuffer->size());
         if (!archiveSharedMemoryBuffer)
             return;

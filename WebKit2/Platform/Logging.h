@@ -40,6 +40,7 @@ extern "C" {
 #endif
 
 #define WEBKIT2_LOG_CHANNELS(M) \
+    M(BackForward) \
     M(CacheStorage) \
     M(ContextMenu) \
     M(DragAndDrop) \
@@ -50,6 +51,9 @@ extern "C" {
     M(IPC) \
     M(KeyHandling) \
     M(Layers) \
+    M(Loading) \
+    M(LocalStorageDatabaseTracker) \
+    M(MouseHandling) \
     M(Network) \
     M(NetworkCache) \
     M(NetworkCacheSpeculativePreloading) \
@@ -59,10 +63,13 @@ extern "C" {
     M(PerformanceLogging) \
     M(Plugins) \
     M(Printing) \
+    M(Process) \
     M(ProcessSuspension) \
+    M(ProcessSwapping) \
     M(RemoteLayerTree) \
     M(Resize) \
     M(ResourceLoadStatistics) \
+    M(ResourceLoadStatisticsDebug) \
     M(Selection) \
     M(ServiceWorker) \
     M(SessionState) \
@@ -73,6 +80,7 @@ extern "C" {
     M(VirtualMemory) \
     M(VisibleRects) \
     M(WebRTC) \
+    M(WiFiAssertions) \
 
 WEBKIT2_LOG_CHANNELS(DECLARE_LOG_CHANNEL)
 

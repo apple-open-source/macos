@@ -5,7 +5,7 @@
 ifeq ($(PLATFORM),iphoneos)
 # iOS internal SDK
 CORETELEPHONY=-framework CoreTelephony
-ARCHS=armv7
+ARCHS=arm64
 endif
 
 ifeq ($(PLATFORM),macosx)
@@ -36,7 +36,7 @@ SYSTEM_PRIVATE = -I$(SYSROOT)/System/Library/Frameworks/System.framework/Private
 SC_PRIV = -DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS
 
 BLIB = ../bootplib
-ARPTEST_BOOTPLIB_CFILES = $(BLIB)/dynarray.c $(BLIB)/ptrlist.c $(BLIB)/interfaces.c $(BLIB)/bpflib.c $(BLIB)/ioregpath.c $(BLIB)/IPConfigurationLog.c $(BLIB)/util.c
+ARPTEST_BOOTPLIB_CFILES = $(BLIB)/dynarray.c $(BLIB)/ptrlist.c $(BLIB)/interfaces.c $(BLIB)/bpflib.c $(BLIB)/ioregpath.c $(BLIB)/IPConfigurationLog.c $(BLIB)/util.c $(BLIB)/cfutil.c
 
 arptest: arp_session.c arp_session.h
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSTEM_PRIVATE) -g  -Wall -DTEST_ARP_SESSION $(SC_PRIV) -I../bootplib timer.c FDSet.c $(ARPTEST_BOOTPLIB_CFILES) -framework CoreFoundation -framework IOKit -framework SystemConfiguration arp_session.c -o $@
@@ -51,7 +51,7 @@ inet6_addrs: $(IFUTIL_FILES) rtutil.c ../bootplib/arp.c
 	cc -DTEST_INET6_ADDRLIST -DCONFIGURE_IPV6 -I../bootplib $(SYSTEM_PRIVATE) -framework SystemConfiguration -framework CoreFoundation -g -o $@ $^
 
 dhcpv6: DHCPv6Client.c ifutil.c cga.c rsakey.c FDSet.c timer.c HostUUID.c IPv6Socket.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ../bootplib/interfaces.c ../bootplib/DHCPv6.c ../bootplib/DHCPv6Options.c ../bootplib/DHCPDUID.c DHCPv6Socket.c DHCPDUIDIAID.c ../bootplib/DNSNameList.c ../bootplib/cfutil.c ../bootplib/util.c
-	cc -D__APPLE_USE_RFC_3542 -DTEST_DHCPV6_CLIENT -g -Wall -I../bootplib -framework CoreFoundation -framework SystemConfiguration $(SYSTEM_PRIVATE) -o $@ $^
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -DSC_LOG_HANDLE=IPConfigLogGetHandle -D__APPLE_USE_RFC_3542 -DTEST_DHCPV6_CLIENT -g -Wall -I../bootplib -framework CoreFoundation -framework SystemConfiguration $(SYSTEM_PRIVATE) -o $@ $^
 
 dhcpduid: DHCPDUIDIAID.c ../bootplib/util.c ../bootplib/DHCPDUID.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/cfutil.c HostUUID.c ../bootplib/IPConfigurationLog.c
 	cc -DTEST_DHCPDUIDIAID -I$(BLIB) -g -Wall -framework CoreFoundation -framework SystemConfiguration -o $@ $^
@@ -79,6 +79,9 @@ ipv6lladdr: $(IFUTIL_FILES)
 
 ipv6defpfx: $(IFUTIL_FILES)
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_IPV6_ROUTER_PREFIX_COUNT -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) -I../bootplib -o $@ $^
+
+protolist: $(IFUTIL_FILES)
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_PROTOLIST -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) -I../bootplib -o $@ $^
 
 clean:
 	rm -f arptest arp_session.o inet6_addrs dhcpv6 dhcpduid cga rsakey ipv6ll ipv6defpfx ipv6lladdr IPv6AWDReportTest

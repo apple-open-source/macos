@@ -29,6 +29,7 @@
 #import "keychain/ckks/CKKSMirrorEntry.h"
 #import "keychain/ckks/CKKSIncomingQueueEntry.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #if OCTAGON
 

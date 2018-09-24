@@ -152,7 +152,7 @@ public:
     }
 
 #if OS(WINDOWS)
-    Call callWithSlowPathReturnType()
+    Call callWithSlowPathReturnType(PtrTag)
     {
         // On Win64, when the return type is larger than 8 bytes, we need to allocate space on the stack for the return value.
         // On entry, rcx should contain a pointer to this stack space. The other parameters are shifted to the right,
@@ -176,7 +176,7 @@ public:
         move(X86Registers::esp, X86Registers::ecx);
         add64(TrustedImm32(4 * sizeof(int64_t)), X86Registers::ecx);
 
-        DataLabelPtr label = moveWithPatch(TrustedImmPtr(0), scratchRegister());
+        DataLabelPtr label = moveWithPatch(TrustedImmPtr(nullptr), scratchRegister());
         Call result = Call(m_assembler.call(scratchRegister()), Call::Linkable);
 
         add64(TrustedImm32(8 * sizeof(int64_t)), X86Registers::esp);
@@ -190,7 +190,7 @@ public:
     }
 #endif
 
-    Call call()
+    Call call(PtrTag)
     {
 #if OS(WINDOWS)
         // JIT relies on the CallerFrame (frame pointer) being put on the stack,
@@ -214,7 +214,7 @@ public:
         // In addition, we need to allocate 16 bytes for two more parameters, since the call can have up to 6 parameters.
         sub64(TrustedImm32(8 * sizeof(int64_t)), X86Registers::esp);
 #endif
-        DataLabelPtr label = moveWithPatch(TrustedImmPtr(0), scratchRegister());
+        DataLabelPtr label = moveWithPatch(TrustedImmPtr(nullptr), scratchRegister());
         Call result = Call(m_assembler.call(scratchRegister()), Call::Linkable);
 #if OS(WINDOWS)
         add64(TrustedImm32(8 * sizeof(int64_t)), X86Registers::esp);
@@ -223,16 +223,20 @@ public:
         return result;
     }
 
+    ALWAYS_INLINE Call call(RegisterID callTag) { return UNUSED_PARAM(callTag), call(NoPtrTag); }
+
     // Address is a memory location containing the address to jump to
-    void jump(AbsoluteAddress address)
+    void jump(AbsoluteAddress address, PtrTag tag)
     {
         move(TrustedImmPtr(address.m_ptr), scratchRegister());
-        jump(Address(scratchRegister()));
+        jump(Address(scratchRegister()), tag);
     }
+
+    ALWAYS_INLINE void jump(AbsoluteAddress address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(address, NoPtrTag); }
 
     Call tailRecursiveCall()
     {
-        DataLabelPtr label = moveWithPatch(TrustedImmPtr(0), scratchRegister());
+        DataLabelPtr label = moveWithPatch(TrustedImmPtr(nullptr), scratchRegister());
         Jump newJump = Jump(m_assembler.jmp_r(scratchRegister()));
         ASSERT_UNUSED(label, differenceBetween(label, newJump) == REPATCH_OFFSET_CALL_R11);
         return Call::fromTailJump(newJump);
@@ -241,7 +245,7 @@ public:
     Call makeTailRecursiveCall(Jump oldJump)
     {
         oldJump.link(this);
-        DataLabelPtr label = moveWithPatch(TrustedImmPtr(0), scratchRegister());
+        DataLabelPtr label = moveWithPatch(TrustedImmPtr(nullptr), scratchRegister());
         Jump newJump = Jump(m_assembler.jmp_r(scratchRegister()));
         ASSERT_UNUSED(label, differenceBetween(label, newJump) == REPATCH_OFFSET_CALL_R11);
         return Call::fromTailJump(newJump);
@@ -466,6 +470,18 @@ public:
         }
         m_assembler.bsfq_rr(src, dst);
         ctzAfterBsf<64>(dst);
+    }
+
+    void countPopulation64(RegisterID src, RegisterID dst)
+    {
+        ASSERT(supportsCountPopulation());
+        m_assembler.popcntq_rr(src, dst);
+    }
+
+    void countPopulation64(Address src, RegisterID dst)
+    {
+        ASSERT(supportsCountPopulation());
+        m_assembler.popcntq_mr(src.offset, src.base, dst);
     }
 
     void lshift64(TrustedImm32 imm, RegisterID dest)
@@ -967,40 +983,6 @@ public:
         set32(x86Condition(cond), dest);
     }
 
-    void compareDouble(DoubleCondition cond, FPRegisterID left, FPRegisterID right, RegisterID dest)
-    {
-        if (cond & DoubleConditionBitInvert)
-            m_assembler.ucomisd_rr(left, right);
-        else
-            m_assembler.ucomisd_rr(right, left);
-
-        if (cond == DoubleEqual) {
-            if (left == right) {
-                m_assembler.setnp_r(dest);
-                return;
-            }
-
-            Jump isUnordered(m_assembler.jp());
-            m_assembler.sete_r(dest);
-            isUnordered.link(this);
-            return;
-        }
-
-        if (cond == DoubleNotEqualOrUnordered) {
-            if (left == right) {
-                m_assembler.setp_r(dest);
-                return;
-            }
-
-            m_assembler.setp_r(dest);
-            m_assembler.setne_r(dest);
-            return;
-        }
-
-        ASSERT(!(cond & DoubleConditionBitSpecial));
-        m_assembler.setCC_r(static_cast<X86Assembler::Condition>(cond & ~DoubleConditionBits), dest);
-    }
-
     Jump branch64(RelationalCondition cond, RegisterID left, RegisterID right)
     {
         m_assembler.cmpq_rr(right, left);
@@ -1414,13 +1396,13 @@ public:
         return DataLabelPtr(this);
     }
 
-    Jump branchPtrWithPatch(RelationalCondition cond, RegisterID left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(0))
+    Jump branchPtrWithPatch(RelationalCondition cond, RegisterID left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(nullptr))
     {
         dataLabel = moveWithPatch(initialRightValue, scratchRegister());
         return branch64(cond, left, scratchRegister());
     }
 
-    Jump branchPtrWithPatch(RelationalCondition cond, Address left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(0))
+    Jump branchPtrWithPatch(RelationalCondition cond, Address left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(nullptr))
     {
         dataLabel = moveWithPatch(initialRightValue, scratchRegister());
         return branch64(cond, left, scratchRegister());
@@ -1868,9 +1850,10 @@ public:
     static bool supportsFloatingPointSqrt() { return true; }
     static bool supportsFloatingPointAbs() { return true; }
     
-    static FunctionPtr readCallTarget(CodeLocationCall call)
+    template<PtrTag resultTag, PtrTag locationTag>
+    static FunctionPtr<resultTag> readCallTarget(CodeLocationCall<locationTag> call)
     {
-        return FunctionPtr(X86Assembler::readPointer(call.dataLabelPtrAtOffset(-REPATCH_OFFSET_CALL_R11).dataLocation()));
+        return FunctionPtr<resultTag>(X86Assembler::readPointer(call.dataLabelPtrAtOffset(-REPATCH_OFFSET_CALL_R11).dataLocation()));
     }
 
     bool haveScratchRegisterForBlinding() { return m_allowScratchRegister; }
@@ -1878,8 +1861,9 @@ public:
 
     static bool canJumpReplacePatchableBranchPtrWithPatch() { return true; }
     static bool canJumpReplacePatchableBranch32WithPatch() { return true; }
-    
-    static CodeLocationLabel startOfBranchPtrWithPatchOnRegister(CodeLocationDataLabelPtr label)
+
+    template<PtrTag tag>
+    static CodeLocationLabel<tag> startOfBranchPtrWithPatchOnRegister(CodeLocationDataLabelPtr<tag> label)
     {
         const int rexBytes = 1;
         const int opcodeBytes = 1;
@@ -1888,8 +1872,9 @@ public:
         ASSERT(totalBytes >= maxJumpReplacementSize());
         return label.labelAtOffset(-totalBytes);
     }
-    
-    static CodeLocationLabel startOfBranch32WithPatchOnRegister(CodeLocationDataLabel32 label)
+
+    template<PtrTag tag>
+    static CodeLocationLabel<tag> startOfBranch32WithPatchOnRegister(CodeLocationDataLabel32<tag> label)
     {
         const int rexBytes = 1;
         const int opcodeBytes = 1;
@@ -1898,38 +1883,45 @@ public:
         ASSERT(totalBytes >= maxJumpReplacementSize());
         return label.labelAtOffset(-totalBytes);
     }
-    
-    static CodeLocationLabel startOfPatchableBranchPtrWithPatchOnAddress(CodeLocationDataLabelPtr label)
+
+    template<PtrTag tag>
+    static CodeLocationLabel<tag> startOfPatchableBranchPtrWithPatchOnAddress(CodeLocationDataLabelPtr<tag> label)
     {
         return startOfBranchPtrWithPatchOnRegister(label);
     }
 
-    static CodeLocationLabel startOfPatchableBranch32WithPatchOnAddress(CodeLocationDataLabel32 label)
+    template<PtrTag tag>
+    static CodeLocationLabel<tag> startOfPatchableBranch32WithPatchOnAddress(CodeLocationDataLabel32<tag> label)
     {
         return startOfBranch32WithPatchOnRegister(label);
     }
-    
-    static void revertJumpReplacementToPatchableBranchPtrWithPatch(CodeLocationLabel instructionStart, Address, void* initialValue)
+
+    template<PtrTag tag>
+    static void revertJumpReplacementToPatchableBranchPtrWithPatch(CodeLocationLabel<tag> instructionStart, Address, void* initialValue)
     {
         X86Assembler::revertJumpTo_movq_i64r(instructionStart.executableAddress(), reinterpret_cast<intptr_t>(initialValue), s_scratchRegister);
     }
 
-    static void revertJumpReplacementToPatchableBranch32WithPatch(CodeLocationLabel instructionStart, Address, int32_t initialValue)
+    template<PtrTag tag>
+    static void revertJumpReplacementToPatchableBranch32WithPatch(CodeLocationLabel<tag> instructionStart, Address, int32_t initialValue)
     {
         X86Assembler::revertJumpTo_movl_i32r(instructionStart.executableAddress(), initialValue, s_scratchRegister);
     }
 
-    static void revertJumpReplacementToBranchPtrWithPatch(CodeLocationLabel instructionStart, RegisterID, void* initialValue)
+    template<PtrTag tag>
+    static void revertJumpReplacementToBranchPtrWithPatch(CodeLocationLabel<tag> instructionStart, RegisterID, void* initialValue)
     {
         X86Assembler::revertJumpTo_movq_i64r(instructionStart.executableAddress(), reinterpret_cast<intptr_t>(initialValue), s_scratchRegister);
     }
 
-    static void repatchCall(CodeLocationCall call, CodeLocationLabel destination)
+    template<PtrTag callTag, PtrTag destTag>
+    static void repatchCall(CodeLocationCall<callTag> call, CodeLocationLabel<destTag> destination)
     {
         X86Assembler::repatchPointer(call.dataLabelPtrAtOffset(-REPATCH_OFFSET_CALL_R11).dataLocation(), destination.executableAddress());
     }
 
-    static void repatchCall(CodeLocationCall call, FunctionPtr destination)
+    template<PtrTag callTag, PtrTag destTag>
+    static void repatchCall(CodeLocationCall<callTag> call, FunctionPtr<destTag> destination)
     {
         X86Assembler::repatchPointer(call.dataLabelPtrAtOffset(-REPATCH_OFFSET_CALL_R11).dataLocation(), destination.executableAddress());
     }
@@ -1950,14 +1942,15 @@ private:
 
     friend class LinkBuffer;
 
-    static void linkCall(void* code, Call call, FunctionPtr function)
+    template<PtrTag tag>
+    static void linkCall(void* code, Call call, FunctionPtr<tag> function)
     {
         if (!call.isFlagSet(Call::Near))
-            X86Assembler::linkPointer(code, call.m_label.labelAtOffset(-REPATCH_OFFSET_CALL_R11), function.value());
+            X86Assembler::linkPointer(code, call.m_label.labelAtOffset(-REPATCH_OFFSET_CALL_R11), function.executableAddress());
         else if (call.isFlagSet(Call::Tail))
-            X86Assembler::linkJump(code, call.m_label, function.value());
+            X86Assembler::linkJump(code, call.m_label, function.executableAddress());
         else
-            X86Assembler::linkCall(code, call.m_label, function.value());
+            X86Assembler::linkCall(code, call.m_label, function.executableAddress());
     }
 };
 

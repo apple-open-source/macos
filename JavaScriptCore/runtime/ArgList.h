@@ -110,6 +110,13 @@ public:
         ASSERT(m_size);
         return JSValue::decode(slotFor(m_size - 1));
     }
+
+    JSValue takeLast()
+    {
+        JSValue result = last();
+        removeLast();
+        return result;
+    }
         
     static void markLists(SlotVisitor&, ListSet&);
 
@@ -165,6 +172,7 @@ private:
 };
 
 class ArgList {
+    WTF_MAKE_FAST_ALLOCATED;
     friend class Interpreter;
     friend class JIT;
 public:

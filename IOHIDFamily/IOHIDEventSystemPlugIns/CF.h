@@ -117,8 +117,11 @@ class CFBooleanRefWrap : public CFRefWrap<CFBooleanRef> {
 
 public:
   
-  CFBooleanRefWrap (CFTypeRef value, bool own = false):CFRefWrap((CFBooleanRef)value, own) {
+  CFBooleanRefWrap (CFTypeRef value, bool own = false):CFRefWrap((value && CFGetTypeID(value) == CFBooleanGetTypeID()) ? (CFBooleanRef)value : NULL, own) {
     
+  }
+  CFBooleanRefWrap (CFBooleanRef value, bool own = false):CFRefWrap((value && CFGetTypeID(value) == CFBooleanGetTypeID()) ? value : NULL, own) {
+
   }
   explicit operator bool() const {
       return (Reference() && CFGetTypeID(Reference()) == CFBooleanGetTypeID() && CFBooleanGetValue(Reference()))  ? true : false;
@@ -144,10 +147,10 @@ public:
     Set(CFNumberCreate (kCFAllocatorDefault, (CFNumberType)TypeToNumber<T>::type, &value));
   }
 
-  CFNumberRefWrap (CFTypeRef value, bool own = false):CFRefWrap((CFNumberRef)value, own) {
+  CFNumberRefWrap (CFTypeRef value, bool own = false):CFRefWrap((value && CFGetTypeID(value) == CFNumberGetTypeID()) ? (CFNumberRef)value : NULL, own) {
   }
   
-  CFNumberRefWrap (CFNumberRef value, bool own = false):CFRefWrap(value, own) {
+  CFNumberRefWrap (CFNumberRef value, bool own = false):CFRefWrap((value && CFGetTypeID(value) == CFNumberGetTypeID()) ? value : NULL, own) {
   }
 
   CFNumberRefWrap (const CFNumberRefWrap &value) : CFRefWrap(value) {
@@ -178,7 +181,9 @@ public:
 class CFStringRefWrap : public CFRefWrap<CFStringRef> {
   
 public:
-  CFStringRefWrap (CFStringRef str, bool own = false) : CFRefWrap (str, own) {
+  CFStringRefWrap (CFStringRef str, bool own = false) : CFRefWrap ((str && CFGetTypeID(str) == CFStringGetTypeID()) ? str : NULL, own) {
+  }
+  CFStringRefWrap (CFTypeRef str, bool own = false) : CFRefWrap ((str && CFGetTypeID(str) == CFStringGetTypeID()) ? (CFStringRef)str : NULL, own) {
   }
   CFStringRefWrap (const char* str) : CFRefWrap () {
     Set(CFStringCreateWithCString(NULL , str, kCFStringEncodingMacRoman));
@@ -199,7 +204,7 @@ class _CFDictionaryRefWrap : public CFRefWrap<T> {
 public:
   _CFDictionaryRefWrap ():  CFRefWrap<T> () {
   }
-  _CFDictionaryRefWrap (T value, bool own = false):  CFRefWrap<T> (value, own) {
+  _CFDictionaryRefWrap (T value, bool own = false):  CFRefWrap<T> ((value && CFGetTypeID(value) == CFDictionaryGetTypeID()) ? value : NULL, own) {
   }
   CFTypeRef operator[] (CFTypeRef key) const {
     return CFDictionaryGetValue(CFRefWrap<T>::Reference(), key);
@@ -313,7 +318,7 @@ public:
 template <typename T>
 class _CFArrayRefWrap : public CFRefWrap<T> {
 public:
-  _CFArrayRefWrap (T value, bool own = false):  CFRefWrap<T> (value, own) {
+  _CFArrayRefWrap (T value, bool own = false):  CFRefWrap<T> ((value && CFGetTypeID(value) == CFArrayGetTypeID()) ? value : NULL, own) {
   }
   CFTypeRef operator[] (CFIndex index) {
     return CFArrayGetValueAtIndex (CFRefWrap<T>::Reference(), index);
@@ -369,7 +374,7 @@ public:
 template <typename T>
 class _CFSetRefWrap : public CFRefWrap<T> {
 public:
-  _CFSetRefWrap (T value, bool own = false):  CFRefWrap<T> (value, own) {
+  _CFSetRefWrap (T value, bool own = false):  CFRefWrap<T> ((value && CFGetTypeID(value) == CFSetGetTypeID()) ? value : NULL, own) {
   }
   CFTypeRef operator[] (CFTypeRef value) {
     return CFSetGetValue (CFRefWrap<T>::Reference(), value);

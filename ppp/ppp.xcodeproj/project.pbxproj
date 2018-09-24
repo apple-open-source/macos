@@ -1533,6 +1533,7 @@
 		C43B7267192EA7ED00F07EE6 /* PPPController-Info-ios.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "PPPController-Info-ios.plist"; sourceTree = "<group>"; };
 		C447EC8D160283EB00CF047A /* flow_divert_controller.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = flow_divert_controller.c; path = Controller/flow_divert_controller.c; sourceTree = "<group>"; };
 		C447EC901602840200CF047A /* flow_divert_controller.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = flow_divert_controller.h; sourceTree = "<group>"; };
+		C453EECF2086960E00BF504E /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		C4D868D816C06D1200ECF818 /* reachability.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = reachability.c; path = Controller/reachability.c; sourceTree = "<group>"; };
 		C4D868DB16C06D3900ECF818 /* reachability.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = reachability.h; sourceTree = "<group>"; };
 		F50592A103DDFFB301CA2DE3 /* vpnd.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = vpnd.8; path = vpnd/vpnd.8; sourceTree = "<group>"; };
@@ -2255,6 +2256,7 @@
 		7129A432FFF956F311CA2CDC /* ppp */ = {
 			isa = PBXGroup;
 			children = (
+				C453EECF2086960E00BF504E /* kext.xcconfig */,
 				72519CA117678B4F002BBB0E /* Foundation.framework */,
 				72584E1F1726019800C7EBE8 /* AggregateDictionary.framework */,
 				BA8B563B14E089FB00697D55 /* Security.framework */,
@@ -6009,6 +6011,7 @@
 					"-bundle_loader",
 					"$(CONFIGURATION_BUILD_DIR)/pppd",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -6051,6 +6054,7 @@
 					"-bundle_loader",
 					"$(CONFIGURATION_BUILD_DIR)/pppd",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
@@ -6089,6 +6093,7 @@
 					"-bundle_loader",
 					"$(CONFIGURATION_BUILD_DIR)/pppd",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
@@ -6140,6 +6145,7 @@
 					"-bundle",
 					"-lbsm",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -6189,6 +6195,7 @@
 					"-bundle",
 					"-lbsm",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPController;
@@ -6234,6 +6241,7 @@
 					"-bundle",
 					"-lbsm",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPController;
@@ -7333,6 +7341,7 @@
 					"-bundle",
 					"-lbsm",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -7380,6 +7389,7 @@
 					"-bundle",
 					"-lbsm",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPController;
@@ -7423,6 +7433,7 @@
 					"-bundle",
 					"-lbsm",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPController;
@@ -7438,6 +7449,7 @@
 		};
 		72DD7989091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
@@ -7480,6 +7492,7 @@
 		};
 		72DD798A091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
@@ -7518,6 +7531,7 @@
 		};
 		72DD798B091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -7744,6 +7758,7 @@
 		};
 		72DD7995091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
@@ -7786,6 +7801,7 @@
 		};
 		72DD7996091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
@@ -7824,6 +7840,7 @@
 		};
 		72DD7997091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -7954,6 +7971,7 @@
 		};
 		72DD799D091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
@@ -7994,6 +8012,7 @@
 		};
 		72DD799E091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
@@ -8030,6 +8049,7 @@
 		};
 		72DD799F091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -8257,6 +8277,7 @@
 		};
 		72DD79A9091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				BUNDLE_LOADER = "";
@@ -8299,6 +8320,7 @@
 		};
 		72DD79AA091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
@@ -8336,6 +8358,7 @@
 		};
 		72DD79AB091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -8494,6 +8517,7 @@
 					"-bundle_loader",
 					"$(CONFIGURATION_BUILD_DIR)/pppd",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -8535,6 +8559,7 @@
 					"-bundle_loader",
 					"$(CONFIGURATION_BUILD_DIR)/pppd",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
@@ -8572,6 +8597,7 @@
 					"-bundle_loader",
 					"$(CONFIGURATION_BUILD_DIR)/pppd",
 					"-lipsec",
+					"-lnetwork",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
@@ -9599,6 +9625,7 @@
 		};
 		72FDE4910D4124C4007C4F13 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -9642,6 +9669,7 @@
 		};
 		72FDE4920D4124C4007C4F13 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -9681,6 +9709,7 @@
 		};
 		72FDE4930D4124C4007C4F13 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
@@ -9716,6 +9745,7 @@
 		};
 		72FDE4BF0D41251B007C4F13 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "";
 				COPY_PHASE_STRIP = NO;
@@ -9759,6 +9789,7 @@
 		};
 		72FDE4C00D41251B007C4F13 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -9797,6 +9828,7 @@
 		};
 		72FDE4C10D41251B007C4F13 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
@@ -9831,6 +9863,7 @@
 		};
 		72FDE4E10D412522007C4F13 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -9872,6 +9905,7 @@
 		};
 		72FDE4E20D412522007C4F13 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -9909,6 +9943,7 @@
 		};
 		72FDE4E30D412522007C4F13 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C453EECF2086960E00BF504E /* kext.xcconfig */;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";

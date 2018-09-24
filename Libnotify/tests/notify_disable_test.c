@@ -28,7 +28,7 @@ T_DECL(notify_disable_test,
 	state = 0;
 	status = notify_get_state(token1, &state);
     T_EXPECT_EQ(status, NOTIFY_STATUS_OK, "notify_get_state %d == NOTIFY_STATUS_OK", status);
-    T_EXPECT_EQ(state, 123454321, "notify_get_state %llu == 123454321", state);
+    T_EXPECT_EQ(state, 123454321ULL, "notify_get_state %llu == 123454321", state);
 
     // Disable
     T_LOG("notify_set_options(NOTIFY_OPT_DISABLE)");
@@ -48,7 +48,7 @@ T_DECL(notify_disable_test,
 	state = 0;
 	status = notify_get_state(token1, &state);
     T_EXPECT_EQ(status, NOTIFY_STATUS_OK, "notify_get_state %d ==  NOTIFY_STATUS_OK", status);
-    T_EXPECT_EQ(state, 123454321, "notify_get_state %llu == 123454321", state);
+    T_EXPECT_EQ(state, 123454321ULL, "notify_get_state %llu == 123454321", state);
 
     T_LOG("checking token validity");
     status = notify_is_valid_token(token1);

@@ -30,6 +30,8 @@
 #include "WebPageProxy.h"
 #include <WebCore/ResourceRequest.h>
 
+using namespace WebCore;
+
 namespace WebKit {
 
 WebNavigationState::WebNavigationState()
@@ -40,18 +42,18 @@ WebNavigationState::~WebNavigationState()
 {
 }
 
-Ref<API::Navigation> WebNavigationState::createLoadRequestNavigation(WebCore::ResourceRequest&& request)
+Ref<API::Navigation> WebNavigationState::createLoadRequestNavigation(ResourceRequest&& request, WebBackForwardListItem* currentItem)
 {
-    auto navigation = API::Navigation::create(*this, WTFMove(request));
+    auto navigation = API::Navigation::create(*this, WTFMove(request), currentItem);
 
     m_navigations.set(navigation->navigationID(), navigation.ptr());
 
     return navigation;
 }
 
-Ref<API::Navigation> WebNavigationState::createBackForwardNavigation()
+Ref<API::Navigation> WebNavigationState::createBackForwardNavigation(WebBackForwardListItem& targetItem, WebBackForwardListItem* currentItem, FrameLoadType frameLoadType)
 {
-    auto navigation = API::Navigation::create(*this);
+    auto navigation = API::Navigation::create(*this, targetItem, currentItem, frameLoadType);
 
     m_navigations.set(navigation->navigationID(), navigation.ptr());
 
@@ -79,13 +81,15 @@ Ref<API::Navigation> WebNavigationState::createLoadDataNavigation()
 API::Navigation& WebNavigationState::navigation(uint64_t navigationID)
 {
     ASSERT(navigationID);
-    
+    ASSERT(m_navigations.contains(navigationID));
+
     return *m_navigations.get(navigationID);
 }
 
 Ref<API::Navigation> WebNavigationState::takeNavigation(uint64_t navigationID)
 {
     ASSERT(navigationID);
+    ASSERT(m_navigations.contains(navigationID));
     
     return m_navigations.take(navigationID).releaseNonNull();
 }

@@ -894,8 +894,13 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  */
 #define kIOPMLastWakeTimeSMCDataString                      "com.apple.powermanagement.lastwaketimesmcdata"
 
-
-
+/*!
+ * @constant        kIOPMAssertForUserProximityString
+ * @discussion      Assertion notify(3) string
+ *                  Notification posted when assertion is created/released for user proximity.
+ *                  State is set to 1 when sleep is prevented for user proximity. Otherwise, it is set to 0.
+ */
+#define kIOPMAssertForUserProximityString                   "com.apple.system.powermanagement.assertuserproximity"
 
 
 /*! 
@@ -1353,7 +1358,6 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 /*
  * Deprecated assertion constants
  */
-#if TARGET_OS_IPHONE
     // RY: Look's like some embedded clients are still dependent on the following
     #define kIOPMPreventIdleSleepAssertion              kIOPMAssertionTypeNoIdleSleep
     #define kIOPMEnableIdleSleepAssertion               kIOPMAssertionTypeEnableIdleSleep
@@ -1363,7 +1367,6 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
         kIOPMAssertionIDInvalid                         = kIOPMNullAssertionID
      };
     #define kIOPMAssertionValueKey                      kIOPMAssertionLevelKey
-#endif /* TARGET_OS_IPHONE */
 
 /**************************************************
 *
@@ -1416,7 +1419,8 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 #define kIOPMUnifiedSleepSliderPrefKey                  "UnifiedSleepSliderPref"
 // units - CFNumber 0/1
 #define kIOPMTCPKeepAlivePrefKey                        "TCPKeepAlivePref"
-
+// units - CFNumber 0/1
+#define kIOPMProximityDarkWakeKey                       "ProximityDarkWake"
 
 #define kIOPMUpdateDarkWakeBGSettingKey                 "Update DarkWakeBG Setting"
 #define kIOPMDarkWakeLingerDurationKey                  "DarkWake Linger Duration"

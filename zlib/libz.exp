@@ -76,3 +76,4 @@ _gzfread
 _gzfwrite
 _uncompress2
 _inflateValidate
+_inflateCodesUsed

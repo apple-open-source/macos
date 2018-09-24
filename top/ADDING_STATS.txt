@@ -20,3 +20,5 @@ Steps to add a statistic
     You could start by copying user.c and user.h.
 
 9. Add a test for the statistic to the stats_option test in tests/test_top.c.
+10. Update userinput_help.c if your change affects a runtime option.
+

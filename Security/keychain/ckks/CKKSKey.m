@@ -27,7 +27,7 @@
 #import "CKKSKeychainView.h"
 #import "CKKSCurrentKeyPointer.h"
 #import "CKKSKey.h"
-#import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 #include <securityd/SecItemSchema.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>

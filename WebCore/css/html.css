@@ -384,7 +384,12 @@ input[type="range"],
 input,
 input:matches([type="password"], [type="search"]) {
     -webkit-appearance: textfield;
+#if defined(WTF_PLATFORM_MAC) && WTF_PLATFORM_MAC
+    color: text;
+    background-color: -apple-system-control-background;
+#else
     background-color: white;
+#endif
 #if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
     border-radius: 5px;
     font: 11px Helvetica, -webkit-pictograph;
@@ -398,6 +403,15 @@ input:matches([type="password"], [type="search"]) {
     -webkit-user-select: text;
     cursor: auto;
 }
+
+#if defined(WTF_PLATFORM_MAC) && WTF_PLATFORM_MAC
+@media (prefers-dark-interface) {
+    input,
+    input:matches([type="password"], [type="search"]) {
+        background-color: transparent;
+    }
+}
+#endif
 
 input[type="search"] {
     -webkit-appearance: searchfield;
@@ -543,14 +557,15 @@ input::-webkit-inner-spin-button {
 }
 
 input::-webkit-strong-password-auto-fill-button {
-    flex: none !important;
+    flex-shrink: 1 !important;
     font-family: -apple-system !important;
     -webkit-text-security: none !important;
     -webkit-user-select: none !important;
     pointer-events: none !important;
     text-align: right !important;
-    color: black !important;
+    color: rgba(0, 0, 0, 0.8) !important;
     padding-left: 6px !important;
+    white-space: nowrap !important;
 }
 
 input::-webkit-credentials-auto-fill-button {
@@ -612,7 +627,12 @@ keygen::-webkit-keygen-select {
 textarea {
     -webkit-appearance: textarea;
 #if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
+#if defined(WTF_PLATFORM_MAC) && WTF_PLATFORM_MAC
+    color: text;
+    background-color: -apple-system-control-background;
+#else
     background-color: white;
+#endif
     border: 1px solid;
     -webkit-rtl-ordering: logical;
     -webkit-user-select: text;
@@ -665,11 +685,7 @@ input:-webkit-autofill-strong-password {
 }
 
 input:-webkit-autofill, input:-webkit-autofill-strong-password {
-#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
-    background-color: #F7EC87 !important;
-#else
     background-color: #FAFFBD !important;
-#endif
     background-image: none !important;
     color: #000000 !important;
 }
@@ -902,8 +918,13 @@ select {
 #else
     -webkit-appearance: menulist;
     border: 1px solid;
+#if defined(WTF_PLATFORM_MAC) && WTF_PLATFORM_MAC
+    color: text;
+    background-color: -apple-system-control-background;
+#else
     color: black;
     background-color: white;
+#endif
 #endif
     align-items: center;
     white-space: pre;

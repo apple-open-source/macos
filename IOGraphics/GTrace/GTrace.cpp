@@ -156,7 +156,7 @@ IOReturn GTrace::initWithDeviceCountAndID( GTRACE_SERVICE * provider, const uint
 
     fObjectID = static_cast<uint32_t>(fProvider->getRegistryEntryID() & kGTRACE_REGISTRYID_MASK);
 #else /*defined(_KERNEL_) || defined (KERNEL)*/
-    fObjectID = static_cast<uint64_t>(static_cast<uint32_t>((mach_absolute_time() & 0x0000000000FFFFFF) |
+    fObjectID = static_cast<uint64_t>(static_cast<uint32_t>((mach_continuous_time() & 0x0000000000FFFFFF) |
                                                             ((componentID & kGTRACE_COMPONENT_MASK) << 24)));
 #endif /*defined(_KERNEL_) || defined (KERNEL)*/
 
@@ -178,14 +178,15 @@ void GTrace::recordToken(const uint16_t line,
                          const uint16_t tag1, const uint64_t arg1,
                          const uint16_t tag2, const uint64_t arg2,
                          const uint16_t tag3, const uint64_t arg3,
-                         const uint16_t tag4, const uint64_t arg4)
+                         const uint16_t tag4, const uint64_t arg4,
+                         const uint64_t timestamp)
 {
     if (fInitialized)
     {
         GTRACE_RETAIN;
 
         sGTrace * const buffer = &(fBuffer[getLine()]);
-        buffer->traceEntry.timestamp = mach_continuous_time();
+        buffer->traceEntry.timestamp = timestamp;
         buffer->traceEntry.traceID.ID.line = line;
         buffer->traceEntry.traceID.ID.component = fComponentID;
 #if defined(_KERNEL_) || defined (KERNEL)

@@ -27,6 +27,7 @@
 #include <security_utilities/threading.h>
 #include <utilities/SecCFRelease.h>
 #include "SecBridge.h"
+#include "SecFramework.h"
 
 static CFStringRef copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName);
 

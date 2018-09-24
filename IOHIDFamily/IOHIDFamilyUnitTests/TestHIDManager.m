@@ -105,6 +105,7 @@ static uint8_t descriptorForDigitizer[] = {
     HIDXCTAssertAndThrowTrue(device != nil);
     self.deviceDict [self.digitizerID] = device;
     
+    sleep(kDeviceMatchingTimeout);
 }
 
 - (void)tearDown {
@@ -174,7 +175,9 @@ static uint8_t descriptorForDigitizer[] = {
     IOHIDManagerSetDeviceMatchingMultiple(self.deviceManager, (CFArrayRef)matchingMultiple);
     
     devices = CFBridgingRelease(IOHIDManagerCopyDevices (self.deviceManager));
-    HIDXCTAssertAndThrowTrue(devices != nil && devices.count == 3, "Devices: %@", devices);
+    
+    // 35266200
+    HIDXCTAssertWithLogs(devices != nil && devices.count == 3, "Devices: %@", devices);
     
     IOHIDManagerSetProperty(self.deviceManager, CFSTR("TestKey"), CFSTR("TestValue"));
     

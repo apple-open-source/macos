@@ -33,8 +33,8 @@
 #include "EventNames.h"
 #include "ExtendableMessageEvent.h"
 #include "JSDOMPromise.h"
-#include "Logging.h"
-#include "NetworkStateNotifier.h"
+#include "LoaderStrategy.h"
+#include "PlatformStrategies.h"
 #include "SecurityOrigin.h"
 #include "ServiceWorkerFetch.h"
 #include "ServiceWorkerGlobalScope.h"
@@ -42,9 +42,9 @@
 #include "WorkerDebuggerProxy.h"
 #include "WorkerLoaderProxy.h"
 #include "WorkerObjectProxy.h"
-#include <inspector/IdentifiersFactory.h>
+#include <JavaScriptCore/IdentifiersFactory.h>
+#include <JavaScriptCore/RuntimeFlags.h>
 #include <pal/SessionID.h>
-#include <runtime/RuntimeFlags.h>
 #include <wtf/NeverDestroyed.h>
 
 using namespace PAL;
@@ -72,7 +72,7 @@ private:
 // FIXME: Use valid runtime flags
 
 ServiceWorkerThread::ServiceWorkerThread(const ServiceWorkerContextData& data, PAL::SessionID, String&& userAgent, WorkerLoaderProxy& loaderProxy, WorkerDebuggerProxy& debuggerProxy, IDBClient::IDBConnectionProxy* idbConnectionProxy, SocketProvider* socketProvider)
-    : WorkerThread(data.scriptURL, "serviceworker:" + Inspector::IdentifiersFactory::createIdentifier(), WTFMove(userAgent), NetworkStateNotifier::singleton().onLine(), data.script, loaderProxy, debuggerProxy, DummyServiceWorkerThreadProxy::shared(), WorkerThreadStartMode::Normal, data.contentSecurityPolicy, false, data.registration.key.topOrigin().securityOrigin().get(), MonotonicTime::now(), idbConnectionProxy, socketProvider, JSC::RuntimeFlags::createAllEnabled(), data.sessionID)
+    : WorkerThread(data.scriptURL, "serviceworker:" + Inspector::IdentifiersFactory::createIdentifier(), WTFMove(userAgent), platformStrategies()->loaderStrategy()->isOnLine(), data.script, loaderProxy, debuggerProxy, DummyServiceWorkerThreadProxy::shared(), WorkerThreadStartMode::Normal, data.contentSecurityPolicy, false, data.registration.key.topOrigin().securityOrigin().get(), MonotonicTime::now(), idbConnectionProxy, socketProvider, JSC::RuntimeFlags::createAllEnabled(), data.sessionID)
     , m_data(data.isolatedCopy())
     , m_workerObjectProxy(DummyServiceWorkerThreadProxy::shared())
 {
@@ -81,9 +81,9 @@ ServiceWorkerThread::ServiceWorkerThread(const ServiceWorkerContextData& data, P
 
 ServiceWorkerThread::~ServiceWorkerThread() = default;
 
-Ref<WorkerGlobalScope> ServiceWorkerThread::createWorkerGlobalScope(const URL& url, const String& identifier, const String& userAgent, bool isOnline, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicy, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, PAL::SessionID sessionID)
+Ref<WorkerGlobalScope> ServiceWorkerThread::createWorkerGlobalScope(const URL& url, Ref<SecurityOrigin>&& origin, const String& identifier, const String& userAgent, bool isOnline, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicy, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, PAL::SessionID sessionID)
 {
-    return ServiceWorkerGlobalScope::create(m_data, url, identifier, userAgent, isOnline, *this, contentSecurityPolicy, shouldBypassMainWorldContentSecurityPolicy, WTFMove(topOrigin), timeOrigin, idbConnectionProxy(), socketProvider(), sessionID);
+    return ServiceWorkerGlobalScope::create(m_data, url, WTFMove(origin), identifier, userAgent, isOnline, *this, contentSecurityPolicy, shouldBypassMainWorldContentSecurityPolicy, WTFMove(topOrigin), timeOrigin, idbConnectionProxy(), socketProvider(), sessionID);
 }
 
 void ServiceWorkerThread::runEventLoop()
@@ -103,10 +103,10 @@ void ServiceWorkerThread::postFetchTask(Ref<ServiceWorkerFetch::Client>&& client
     }, WorkerRunLoop::defaultMode());
 }
 
-static void fireMessageEvent(ServiceWorkerGlobalScope& scope, MessageWithMessagePorts&& message, ExtendableMessageEventSource&& source, Ref<SecurityOrigin>&& sourceOrigin)
+static void fireMessageEvent(ServiceWorkerGlobalScope& scope, MessageWithMessagePorts&& message, ExtendableMessageEventSource&& source, const URL& sourceURL)
 {
     auto ports = MessagePort::entanglePorts(scope, WTFMove(message.transferredPorts));
-    auto messageEvent = ExtendableMessageEvent::create(WTFMove(ports), WTFMove(message.message), sourceOrigin->toString(), { }, source);
+    auto messageEvent = ExtendableMessageEvent::create(WTFMove(ports), WTFMove(message.message), SecurityOriginData::fromURL(sourceURL).toString(), { }, source);
     scope.dispatchEvent(messageEvent);
     scope.thread().workerObjectProxy().confirmMessageFromWorkerObject(scope.hasPendingActivity());
     scope.updateExtendedEventsSet(messageEvent.ptr());
@@ -116,32 +116,24 @@ void ServiceWorkerThread::postMessageToServiceWorker(MessageWithMessagePorts&& m
 {
     runLoop().postTask([message = WTFMove(message), sourceData = WTFMove(sourceData)] (auto& context) mutable {
         auto& serviceWorkerGlobalScope = downcast<ServiceWorkerGlobalScope>(context);
-        RefPtr<SecurityOrigin> sourceOrigin;
+        URL sourceURL;
         ExtendableMessageEventSource source;
         if (WTF::holds_alternative<ServiceWorkerClientData>(sourceData)) {
             RefPtr<ServiceWorkerClient> sourceClient = ServiceWorkerClient::getOrCreate(serviceWorkerGlobalScope, WTFMove(WTF::get<ServiceWorkerClientData>(sourceData)));
 
-            if (sourceClient->url().protocolIsInHTTPFamily() && serviceWorkerGlobalScope.url().protocolIsInHTTPFamily() && !protocolHostAndPortAreEqual(serviceWorkerGlobalScope.url(), sourceClient->url())) {
-                RELEASE_LOG_ERROR_IF(!context.sessionID().isEphemeral(), ServiceWorker, "ServiceWorkerThread::postMessageToServiceWorker - Received message from invalid service worker client due to origin - context is %p\n", &context);
-                ASSERT_NOT_REACHED();
-                return;
-            }
+            RELEASE_ASSERT(!sourceClient->url().protocolIsInHTTPFamily() || !serviceWorkerGlobalScope.url().protocolIsInHTTPFamily() || protocolHostAndPortAreEqual(serviceWorkerGlobalScope.url(), sourceClient->url()));
 
-            sourceOrigin = SecurityOrigin::create(sourceClient->url());
+            sourceURL = sourceClient->url();
             source = WTFMove(sourceClient);
         } else {
             RefPtr<ServiceWorker> sourceWorker = ServiceWorker::getOrCreate(serviceWorkerGlobalScope, WTFMove(WTF::get<ServiceWorkerData>(sourceData)));
 
-            if (sourceWorker->scriptURL().protocolIsInHTTPFamily() && serviceWorkerGlobalScope.url().protocolIsInHTTPFamily() && !protocolHostAndPortAreEqual(serviceWorkerGlobalScope.url(), sourceWorker->scriptURL())) {
-                RELEASE_LOG_ERROR_IF(!context.sessionID().isEphemeral(), ServiceWorker, "ServiceWorkerThread::postMessageToServiceWorker - Received message from invalid service worker due to origin - context is %p\n", &context);
-                ASSERT_NOT_REACHED();
-                return;
-            }
+            RELEASE_ASSERT(!sourceWorker->scriptURL().protocolIsInHTTPFamily() || !serviceWorkerGlobalScope.url().protocolIsInHTTPFamily() || protocolHostAndPortAreEqual(serviceWorkerGlobalScope.url(), sourceWorker->scriptURL()));
 
-            sourceOrigin = SecurityOrigin::create(sourceWorker->scriptURL());
+            sourceURL = sourceWorker->scriptURL();
             source = WTFMove(sourceWorker);
         }
-        fireMessageEvent(serviceWorkerGlobalScope, WTFMove(message), ExtendableMessageEventSource { source }, sourceOrigin.releaseNonNull());
+        fireMessageEvent(serviceWorkerGlobalScope, WTFMove(message), ExtendableMessageEventSource { source }, sourceURL);
     });
 }
 

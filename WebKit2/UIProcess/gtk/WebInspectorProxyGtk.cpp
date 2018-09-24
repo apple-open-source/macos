@@ -338,17 +338,17 @@ void WebInspectorProxy::platformInspectedURLChanged(const String& url)
 
 String WebInspectorProxy::inspectorPageURL()
 {
-    return String("resource:///org/webkitgtk/inspector/UserInterface/Main.html");
+    return String("resource:///org/webkit/inspector/UserInterface/Main.html");
 }
 
 String WebInspectorProxy::inspectorTestPageURL()
 {
-    return String("resource:///org/webkitgtk/inspector/UserInterface/Test.html");
+    return String("resource:///org/webkit/inspector/UserInterface/Test.html");
 }
 
 String WebInspectorProxy::inspectorBaseURL()
 {
-    return String("resource:///org/webkitgtk/inspector/UserInterface/");
+    return String("resource:///org/webkit/inspector/UserInterface/");
 }
 
 unsigned WebInspectorProxy::platformInspectedWindowHeight()
@@ -396,7 +396,7 @@ void WebInspectorProxy::platformDetach()
         return;
 
     GRefPtr<GtkWidget> inspectorView = m_inspectorView;
-    if (m_client && !m_client->detach(*this)) {
+    if (!m_client || !m_client->detach(*this)) {
         // Detach is called when m_isAttached is true, but it could called before
         // the inspector is opened if the inspector is shown/closed quickly. So,
         // we might not have a parent yet.

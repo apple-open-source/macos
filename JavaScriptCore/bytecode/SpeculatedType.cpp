@@ -31,6 +31,8 @@
 
 #include "DirectArguments.h"
 #include "JSArray.h"
+#include "JSBigInt.h"
+#include "JSBoundFunction.h"
 #include "JSCInlines.h"
 #include "JSFunction.h"
 #include "JSMap.h"
@@ -221,6 +223,11 @@ void dumpSpeculation(PrintStream& outStream, SpeculatedType value)
             strOut.print("Symbol");
         else
             isTop = false;
+
+        if (value & SpecBigInt)
+            strOut.print("BigInt");
+        else
+            isTop = false;
     }
     
     if (value == SpecInt32Only)
@@ -389,6 +396,9 @@ SpeculatedType speculationFromClassInfo(const ClassInfo* classInfo)
 
     if (classInfo == Symbol::info())
         return SpecSymbol;
+    
+    if (classInfo == JSBigInt::info())
+        return SpecBigInt;
 
     if (classInfo == JSFinalObject::info())
         return SpecFinalObject;
@@ -423,8 +433,11 @@ SpeculatedType speculationFromClassInfo(const ClassInfo* classInfo)
     if (classInfo == ProxyObject::info())
         return SpecProxyObject;
     
-    if (classInfo->isSubClassOf(JSFunction::info()))
-        return SpecFunction;
+    if (classInfo->isSubClassOf(JSFunction::info())) {
+        if (classInfo == JSBoundFunction::info())
+            return SpecFunctionWithNonDefaultHasInstance;
+        return SpecFunctionWithDefaultHasInstance;
+    }
     
     if (isTypedView(classInfo->typedArrayStorageType))
         return speculationFromTypedArrayType(classInfo->typedArrayStorageType);
@@ -444,6 +457,8 @@ SpeculatedType speculationFromStructure(Structure* structure)
         return SpecString;
     if (structure->typeInfo().type() == SymbolType)
         return SpecSymbol;
+    if (structure->typeInfo().type() == BigIntType)
+        return SpecBigInt;
     if (structure->typeInfo().type() == DerivedArrayType)
         return SpecDerivedArray;
     return speculationFromClassInfo(structure->classInfo());
@@ -526,6 +541,8 @@ SpeculatedType speculationFromJSType(JSType type)
         return SpecString;
     case SymbolType:
         return SpecSymbol;
+    case BigIntType:
+        return SpecBigInt;
     case ArrayType:
         return SpecArray;
     case DerivedArrayType:
@@ -550,8 +567,10 @@ SpeculatedType speculationFromJSType(JSType type)
 
 SpeculatedType leastUpperBoundOfStrictlyEquivalentSpeculations(SpeculatedType type)
 {
-    if (type & (SpecAnyInt | SpecAnyIntAsDouble))
-        type |= (SpecAnyInt | SpecAnyIntAsDouble);
+    // SpecNonIntAsDouble includes negative zero (-0.0), which can be equal to 0 and 0.0 in the context of == and ===.
+    if (type & (SpecAnyInt | SpecAnyIntAsDouble | SpecNonIntAsDouble))
+        type |= (SpecAnyInt | SpecAnyIntAsDouble | SpecNonIntAsDouble);
+
     if (type & SpecString)
         type |= SpecString;
     return type;
@@ -743,6 +762,8 @@ SpeculatedType speculationFromString(const char* speculation)
         return SpecString;
     if (!strncmp(speculation, "SpecSymbol", strlen("SpecSymbol")))
         return SpecSymbol;
+    if (!strncmp(speculation, "SpecBigInt", strlen("SpecBigInt")))
+        return SpecBigInt;
     if (!strncmp(speculation, "SpecCellOther", strlen("SpecCellOther")))
         return SpecCellOther;
     if (!strncmp(speculation, "SpecCell", strlen("SpecCell")))

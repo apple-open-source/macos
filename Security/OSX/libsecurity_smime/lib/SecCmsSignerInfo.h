@@ -55,7 +55,7 @@ SecCmsSignerInfoCreate(SecCmsMessageRef cmsg, SecIdentityRef identity, SECOidTag
     @function
  */
 extern SecCmsSignerInfoRef
-SecCmsSignerInfoCreateWithSubjKeyID(SecCmsMessageRef cmsg, CSSM_DATA_PTR subjKeyID, SecPublicKeyRef pubKey, SecPrivateKeyRef signingKey, SECOidTag digestalgtag);
+SecCmsSignerInfoCreateWithSubjKeyID(SecCmsMessageRef cmsg, CSSM_DATA_PTR subjKeyID, SecPublicKeyRef pubKey, SecPrivateKeyRef signingKey, SECOidTag digestalgtag) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
@@ -86,7 +86,7 @@ SecCmsSignerInfoVerifyUnAuthAttrsWithPolicy(SecCmsSignerInfoRef signerinfo,CFTyp
     @function
  */
 extern CSSM_DATA *
-SecCmsSignerInfoGetEncDigest(SecCmsSignerInfoRef signerinfo);
+SecCmsSignerInfoGetEncDigest(SecCmsSignerInfoRef signerinfo) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
@@ -170,6 +170,16 @@ extern OSStatus
 SecCmsSignerInfoGetAppleCodesigningHashAgilityV2(SecCmsSignerInfoRef sinfo, CFDictionaryRef *sdict);
 
 /*!
+     @function SecCmsSignerInfoGetAppleExpirationTime
+     @abstract Return the expriation time, in CFAbsoluteTime, of a CMS signerInfo.
+     @param sinfo SignerInfo data for this signer.
+     @discussion Returns a CFAbsoluteTime
+     @result A return value of SECFailure is an error.
+ */
+extern OSStatus
+SecCmsSignerInfoGetAppleExpirationTime(SecCmsSignerInfoRef sinfo, CFAbsoluteTime *etime);
+
+/*!
     @function
     @abstract Return the signing cert of a CMS signerInfo.
     @discussion The certs in the enclosing SignedData must have been imported already.
@@ -241,7 +251,7 @@ SecCmsSignerInfoAddMSSMIMEEncKeyPrefs(SecCmsSignerInfoRef signerinfo, SecCertifi
     @abstract Create a timestamp unsigned attribute with a TimeStampToken.
  */
 OSStatus
-SecCmsSignerInfoAddTimeStamp(SecCmsSignerInfoRef signerinfo, CSSM_DATA *tstoken);
+SecCmsSignerInfoAddTimeStamp(SecCmsSignerInfoRef signerinfo, CSSM_DATA *tstoken) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function
@@ -268,6 +278,16 @@ SecCmsSignerInfoAddCounterSignature(SecCmsSignerInfoRef signerinfo,
  */
 OSStatus
 SecCmsSignerInfoAddAppleCodesigningHashAgilityV2(SecCmsSignerInfoRef signerinfo, CFDictionaryRef attrValues);
+
+/*!
+     @function SecCmsSignerInfoAddAppleExpirationTime
+     @abstract Add the expiration time to the authenticated (i.e. signed) attributes of "signerinfo".
+     @discussion This is expected to be included in outgoing signed messages for Asset Receipts but is likely
+     useful in other situations. This should only be added once; a second call will do nothing.
+     @result A result of SECFailure indicates an error adding the attribute.
+ */
+extern OSStatus
+SecCmsSignerInfoAddAppleExpirationTime(SecCmsSignerInfoRef signerinfo, CFAbsoluteTime t);
 
 /*!
     @function

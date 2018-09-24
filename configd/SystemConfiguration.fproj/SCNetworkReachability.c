@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,7 +34,7 @@
  * - add advanced reachability APIs
  */
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <dispatch/dispatch.h>
@@ -69,7 +69,11 @@
 
 
 
+#if __has_include(<nw/private.h>)
+#include <nw/private.h>
+#else // __has_include(<nw/private.h>)
 #include <network/private.h>
+#endif // __has_include(<nw/private.h>)
 
 #define	DEBUG_REACHABILITY_TYPE_NAME			"create w/name"
 #define	DEBUG_REACHABILITY_TYPE_NAME_OPTIONS		"    + options"
@@ -159,7 +163,7 @@ _callback_queue()
 }
 
 static os_log_t
-__log_SCNetworkReachability()
+__log_SCNetworkReachability(void)
 {
 	static os_log_t	log	= NULL;
 
@@ -181,7 +185,7 @@ isA_SCNetworkReachability(CFTypeRef obj)
 	return (isA_CFType(obj, SCNetworkReachabilityGetTypeID()));
 }
 
-CFStringRef
+static CFStringRef
 _SCNetworkReachabilityCopyTargetDescription(SCNetworkReachabilityRef target)
 {
 	CFAllocatorRef			allocator	= CFGetAllocator(target);
@@ -237,8 +241,8 @@ _SCNetworkReachabilityCopyTargetDescription(SCNetworkReachabilityRef target)
 }
 
 
-CFStringRef
-_SCNetworkReachabilityCopyTargetFlags(SCNetworkReachabilityRef target)
+static CFStringRef
+__SCNetworkReachabilityCopyTargetFlags(SCNetworkReachabilityRef target)
 {
 	CFAllocatorRef			allocator	= CFGetAllocator(target);
 	CFStringRef			str;
@@ -314,7 +318,7 @@ __SCNetworkReachabilityCopyDescription(CFTypeRef cf)
 
 	// add flags
 	if (targetPrivate->scheduled) {
-		str = _SCNetworkReachabilityCopyTargetFlags(target);
+		str = __SCNetworkReachabilityCopyTargetFlags(target);
 		CFStringAppendFormat(result, NULL, CFSTR(", %@"), str);
 		CFRelease(str);
 	}
@@ -1100,12 +1104,12 @@ __SCNetworkReachabilityGetFlagsFromPath(nw_path_t			path,
 			__block bool checkDNSFlags = TRUE;
 			flags = kSCNetworkReachabilityFlagsReachable;
 			why = "nw_path_status_satisfied";
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+#if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 			if (nw_path_uses_interface_type(path, nw_interface_type_cellular)) {
 				flags |= (kSCNetworkReachabilityFlagsTransientConnection | kSCNetworkReachabilityFlagsIsWWAN);
 				why = "nw_path_status_satisfied, cellular";
 			}
-#endif
+#endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 			xpc_object_t agent_dictionary = nw_path_copy_netagent_dictionary(path);
 			if (agent_dictionary != NULL) {
 				if (xpc_dictionary_get_count(agent_dictionary) > 0) {
@@ -1159,12 +1163,12 @@ __SCNetworkReachabilityGetFlagsFromPath(nw_path_t			path,
 		} else if (status == nw_path_status_unsatisfied) {
 			flags = 0;
 			why = "nw_path_status_unsatisfied";
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+#if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 			if (nw_path_uses_interface_type(path, nw_interface_type_cellular)) {
 				flags |= kSCNetworkReachabilityFlagsIsWWAN;
 				why = "nw_path_status_unsatisfied, WWAN";
 			}
-#endif
+#endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 		} else if (status == nw_path_status_satisfiable) {
 			flags = (kSCNetworkReachabilityFlagsReachable | kSCNetworkReachabilityFlagsConnectionRequired | kSCNetworkReachabilityFlagsTransientConnection);
 			why = "nw_path_status_satisfiable";
@@ -1173,12 +1177,12 @@ __SCNetworkReachabilityGetFlagsFromPath(nw_path_t			path,
 				flags |= kSCNetworkReachabilityFlagsConnectionOnDemand;
 				why = "nw_path_status_satisfiable, OnDemand";
 			}
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+#if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 			else if (nw_path_uses_interface_type(path, nw_interface_type_cellular)) {
 				flags |= kSCNetworkReachabilityFlagsIsWWAN;
 				why = "nw_path_status_satisfiable, WWAN";
 			}
-#endif
+#endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 		}
 	}
 	SC_log(LOG_DEBUG, "__SCNetworkReachabilityGetFlagsFromPath, flags = 0x%08x, %s", flags, why);
@@ -1270,7 +1274,11 @@ __SCNetworkReachabilityCreateCrazyIvan46Path(nw_path_t path, nw_endpoint_t endpo
 			struct sockaddr_in6 synthesizedAddress = {
 				.sin6_len = sizeof(struct sockaddr_in6),
 				.sin6_family = AF_INET6,
+#if defined(NW_PORT_HOST_BYTE_ORDER) && NW_PORT_HOST_BYTE_ORDER
+                .sin6_port = htons(nw_endpoint_get_port(endpoint)),
+#else
 				.sin6_port = nw_endpoint_get_port(endpoint),
+#endif
 				.sin6_flowinfo = 0,
 				.sin6_scope_id = 0
 			};

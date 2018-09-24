@@ -55,6 +55,17 @@ enum {
     kCTRunStatusHasOrigins = (1 << 4),
 };
 
+typedef CF_OPTIONS(CFOptionFlags, CTFontFallbackOption) {
+    kCTFontFallbackOptionNone = 0,
+    kCTFontFallbackOptionSystem = 1 << 0,
+    kCTFontFallbackOptionUserInstalled = 1 << 1,
+    kCTFontFallbackOptionDefault = kCTFontFallbackOptionSystem | kCTFontFallbackOptionUserInstalled,
+};
+
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED == 101400) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED == 120000)
+extern const CFStringRef kCTTypesetterOptionAllowUnboundedLayout;
+#endif
+
 #endif
 
 WTF_EXTERN_C_BEGIN
@@ -66,6 +77,7 @@ extern const CFStringRef kCTFontReferenceURLAttribute;
 extern const CFStringRef kCTFontOpticalSizeAttribute;
 extern const CFStringRef kCTFontPostScriptNameAttribute;
 extern const CFStringRef kCTFontUserInstalledAttribute;
+extern const CFStringRef kCTFontFallbackOptionAttribute;
 
 bool CTFontTransformGlyphs(CTFontRef, CGGlyph glyphs[], CGSize advances[], CFIndex count, CTFontTransformOptions);
 
@@ -83,6 +95,8 @@ CFBitVectorRef CTFontCopyGlyphCoverageForFeature(CTFontRef, CFDictionaryRef feat
 
 CTFontDescriptorRef CTFontDescriptorCreateWithAttributesAndOptions(CFDictionaryRef attributes, CTFontDescriptorOptions);
 CTFontDescriptorRef CTFontDescriptorCreateLastResort();
+
+CFArrayRef CTFontManagerCreateFontDescriptorsFromData(CFDataRef);
 
 extern const CFStringRef kCTFontCSSWeightAttribute;
 extern const CFStringRef kCTFontCSSWidthAttribute;

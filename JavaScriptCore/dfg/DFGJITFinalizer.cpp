@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,7 +37,7 @@
 
 namespace JSC { namespace DFG {
 
-JITFinalizer::JITFinalizer(Plan& plan, Ref<JITCode>&& jitCode, std::unique_ptr<LinkBuffer> linkBuffer, MacroAssemblerCodePtr withArityCheck)
+JITFinalizer::JITFinalizer(Plan& plan, Ref<JITCode>&& jitCode, std::unique_ptr<LinkBuffer> linkBuffer, MacroAssemblerCodePtr<JSEntryPtrTag> withArityCheck)
     : Finalizer(plan)
     , m_jitCode(WTFMove(jitCode))
     , m_linkBuffer(WTFMove(linkBuffer))
@@ -56,9 +56,8 @@ size_t JITFinalizer::codeSize()
 
 bool JITFinalizer::finalize()
 {
-    m_jitCode->initializeCodeRef(
-        FINALIZE_DFG_CODE(*m_linkBuffer, ("DFG JIT code for %s", toCString(CodeBlockWithJITType(m_plan.codeBlock, JITCode::DFGJIT)).data())),
-        MacroAssemblerCodePtr());
+    MacroAssemblerCodeRef<JSEntryPtrTag> codeRef = FINALIZE_DFG_CODE(*m_linkBuffer, JSEntryPtrTag, "DFG JIT code for %s", toCString(CodeBlockWithJITType(m_plan.codeBlock, JITCode::DFGJIT)).data());
+    m_jitCode->initializeCodeRef(codeRef, codeRef.code());
     
     m_plan.codeBlock->setJITCode(m_jitCode.copyRef());
     
@@ -71,7 +70,7 @@ bool JITFinalizer::finalizeFunction()
 {
     RELEASE_ASSERT(!m_withArityCheck.isEmptyValue());
     m_jitCode->initializeCodeRef(
-        FINALIZE_DFG_CODE(*m_linkBuffer, ("DFG JIT code for %s", toCString(CodeBlockWithJITType(m_plan.codeBlock, JITCode::DFGJIT)).data())),
+        FINALIZE_DFG_CODE(*m_linkBuffer, JSEntryPtrTag, "DFG JIT code for %s", toCString(CodeBlockWithJITType(m_plan.codeBlock, JITCode::DFGJIT)).data()),
         m_withArityCheck);
     m_plan.codeBlock->setJITCode(m_jitCode.copyRef());
     

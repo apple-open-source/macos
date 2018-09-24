@@ -14,9 +14,9 @@
 #define kSCPrefsFile  "/Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist"
 #define kCFPrefsFile  "/Library/Preferences/com.apple.PowerManagement.plist"
 
-@import SystemMigrationUtils.Private;
+@import SystemMigrationUtils_Private;
 
-@import SystemMigration.Private.ConfMigrator;
+@import SystemMigration_Private;
 
 @interface EnergyPrefsMigratorPlugin : SMConfMigratorPlugin
 

@@ -351,7 +351,7 @@ typedef struct tiny_region {
 /*
  * Convert between byte and msize units.
  */
-#define SMALL_BYTES_FOR_MSIZE(_m) ((_m) << SHIFT_SMALL_QUANTUM)
+#define SMALL_BYTES_FOR_MSIZE(_m) ((uint32_t)(_m) << SHIFT_SMALL_QUANTUM)
 #define SMALL_MSIZE_FOR_BYTES(_b) ((_b) >> SHIFT_SMALL_QUANTUM)
 
 #define SMALL_PREVIOUS_MSIZE(ptr) (*SMALL_METADATA_FOR_PTR(ptr - 1) & ~SMALL_IS_FREE)
@@ -360,9 +360,12 @@ typedef struct tiny_region {
  * Convert from msize unit to free list slot.
  */
 #define SMALL_FREE_SLOT_COUNT(_r) \
-		(((_r)->debug_flags & MALLOC_EXTENDED_SMALL_SLOTS) ? NUM_SMALL_SLOTS_LARGEMEM : NUM_SMALL_SLOTS)
+		(((_r)->debug_flags & MALLOC_EXTENDED_SMALL_SLOTS) ? \
+				NUM_SMALL_SLOTS_LARGEMEM + 1 : NUM_SMALL_SLOTS + 1)
 #define SMALL_FREE_SLOT_FOR_MSIZE(_r, _m) \
 		(((_m) <= SMALL_FREE_SLOT_COUNT(_r)) ? ((_m) - 1) : (SMALL_FREE_SLOT_COUNT(_r) - 1))
+/* compare with MAGAZINE_FREELIST_BITMAP_WORDS */
+#define SMALL_FREELIST_BITMAP_WORDS(_r) ((SMALL_FREE_SLOT_COUNT(_r) + 31) >> 5)
 
 /*
  * Offset back to an szone_t given prior knowledge that this rack_t
@@ -458,11 +461,15 @@ typedef struct magazine_s { // vm_allocate()'d, so the array of magazines is pag
 	volatile boolean_t alloc_underway;
 
 	// One element deep "death row", optimizes malloc/free/malloc for identical size.
-	void *mag_last_free;		// low SHIFT_{TINY,SMALL}_QUANTUM bits indicate the msize
+	void *mag_last_free;
+	msize_t mag_last_free_msize;	// msize for mag_last_free
+#if MALLOC_TARGET_64BIT
+	uint32_t _pad;
+#endif
 	region_t mag_last_free_rgn; // holds the region for mag_last_free
 
-	free_list_t mag_free_list[256]; // assert( 256 >= MAX( NUM_TINY_SLOTS, NUM_SMALL_SLOTS_LARGEMEM ))
-	unsigned mag_bitmap[8];			 // assert( sizeof(mag_bitmap) << 3 >= sizeof(mag_free_list)/sizeof(free_list_t) )
+	free_list_t mag_free_list[MAGAZINE_FREELIST_SLOTS];
+	uint32_t mag_bitmap[MAGAZINE_FREELIST_BITMAP_WORDS];
 
 	// the first and last free region in the last block are treated as big blocks in use that are not accounted for
 	size_t mag_bytes_free_at_end;
@@ -470,9 +477,9 @@ typedef struct magazine_s { // vm_allocate()'d, so the array of magazines is pag
 	region_t mag_last_region; // Valid iff mag_bytes_free_at_end || mag_bytes_free_at_start > 0
 
 	// bean counting ...
-	unsigned mag_num_objects;
 	size_t mag_num_bytes_in_objects;
 	size_t num_bytes_in_magazine;
+	unsigned mag_num_objects;
 
 	// recirculation list -- invariant: all regions owned by this magazine that meet the emptiness criteria
 	// are located nearer to the head of the list than any region that doesn't satisfy that criteria.
@@ -481,7 +488,14 @@ typedef struct magazine_s { // vm_allocate()'d, so the array of magazines is pag
 	region_trailer_t *firstNode;
 	region_trailer_t *lastNode;
 
-	uintptr_t pad[50 - MALLOC_CACHE_LINE / sizeof(uintptr_t)];
+#if MALLOC_TARGET_64BIT
+	uintptr_t pad[320 - 14 - MAGAZINE_FREELIST_SLOTS -
+			(MAGAZINE_FREELIST_BITMAP_WORDS + 1) / 2];
+#else
+	uintptr_t pad[320 - 16 - MAGAZINE_FREELIST_SLOTS -
+			MAGAZINE_FREELIST_BITMAP_WORDS];
+#endif
+
 } magazine_t;
 
 #if MALLOC_TARGET_64BIT
@@ -490,12 +504,12 @@ MALLOC_STATIC_ASSERT(sizeof(magazine_t) == 2560, "Incorrect padding in magazine_
 MALLOC_STATIC_ASSERT(sizeof(magazine_t) == 1280, "Incorrect padding in magazine_t");
 #endif
 
-#define TINY_MAX_MAGAZINES 32 /* MUST BE A POWER OF 2! */
+#define TINY_MAX_MAGAZINES 64 /* MUST BE A POWER OF 2! */
 #define TINY_MAGAZINE_PAGED_SIZE                                                   \
 	(((sizeof(magazine_t) * (TINY_MAX_MAGAZINES + 1)) + vm_page_quanta_size - 1) & \
 	~(vm_page_quanta_size - 1)) /* + 1 for the Depot */
 
-#define SMALL_MAX_MAGAZINES 32 /* MUST BE A POWER OF 2! */
+#define SMALL_MAX_MAGAZINES 64 /* MUST BE A POWER OF 2! */
 #define SMALL_MAGAZINE_PAGED_SIZE                                                   \
 	(((sizeof(magazine_t) * (SMALL_MAX_MAGAZINES + 1)) + vm_page_quanta_size - 1) & \
 	~(vm_page_quanta_size - 1)) /* + 1 for the Depot */

@@ -98,6 +98,7 @@
 
     [super setUp];
     self.ckksZones = [NSMutableSet set];
+    self.ckksViews = [NSMutableSet set];
     self.keys = [[NSMutableDictionary alloc] init];
 
     // Fake out whether class A keys can be loaded from the keychain.
@@ -147,6 +148,11 @@
     [self.mockCKKSKey stopMocking];
     self.mockCKKSKey = nil;
 
+    // Make sure the key state machine won't be poked after teardown
+    for(CKKSKeychainView* view in self.ckksViews) {
+        [view.pokeKeyStateMachineScheduler cancel];
+    }
+
     [super tearDown];
     self.keys = nil;
 
@@ -192,7 +198,7 @@
                              zoneID:zoneID
                           checkItem:[self checkClassCBlock:zoneID message:@"Object was encrypted under class C key in hierarchy"]];
     [self addGenericPassword: @"data" account: account];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)createClassAItemAndWaitForUpload:(CKRecordZoneID*)zoneID account:(NSString*)account {
@@ -206,7 +212,7 @@
                       access:(id)kSecAttrAccessibleWhenUnlocked
                    expecting:errSecSuccess
                      message:@"Adding class A item"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 // Helpers to handle 'locked' keychain loading and saving
@@ -335,17 +341,21 @@
 - (void)putFakeKeyHierarchyInCloudKit: (CKRecordZoneID*)zoneID {
     ZoneKeys* zonekeys = [self createFakeKeyHierarchy: zoneID oldTLK:nil];
 
-    [self.zones[zoneID] addToZone: zonekeys.tlk    zoneID: zoneID];
-    [self.zones[zoneID] addToZone: zonekeys.classA zoneID: zoneID];
-    [self.zones[zoneID] addToZone: zonekeys.classC zoneID: zoneID];
+    FakeCKZone* zone = self.zones[zoneID];
 
-    [self.zones[zoneID] addToZone: zonekeys.currentTLKPointer    zoneID: zoneID];
-    [self.zones[zoneID] addToZone: zonekeys.currentClassAPointer zoneID: zoneID];
-    [self.zones[zoneID] addToZone: zonekeys.currentClassCPointer zoneID: zoneID];
+    dispatch_sync(zone.queue, ^{
+        [zone _onqueueAddToZone:zonekeys.tlk    zoneID:zoneID];
+        [zone _onqueueAddToZone:zonekeys.classA zoneID:zoneID];
+        [zone _onqueueAddToZone:zonekeys.classC zoneID:zoneID];
 
-    if(zonekeys.rolledTLK) {
-        [self.zones[zoneID] addToZone: zonekeys.rolledTLK zoneID: zoneID];
-    }
+        [zone _onqueueAddToZone:zonekeys.currentTLKPointer    zoneID:zoneID];
+        [zone _onqueueAddToZone:zonekeys.currentClassAPointer zoneID:zoneID];
+        [zone _onqueueAddToZone:zonekeys.currentClassCPointer zoneID:zoneID];
+
+        if(zonekeys.rolledTLK) {
+            [zone _onqueueAddToZone:zonekeys.rolledTLK zoneID:zoneID];
+        }
+    });
 }
 
 - (void)rollFakeKeyHierarchyInCloudKit: (CKRecordZoneID*)zoneID {
@@ -572,10 +582,10 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
       deletedRecordTypeCounts:(NSDictionary<NSString*, NSNumber*>*)expectedDeletedRecordTypeCounts
                        zoneID:(CKRecordZoneID*)zoneID
           checkModifiedRecord:(BOOL (^)(CKRecord*))checkRecord
-         runAfterModification:(void (^) ())afterModification
+         runAfterModification:(void (^) (void))afterModification
 {
 
-    void (^newAfterModification)() = afterModification;
+    void (^newAfterModification)(void) = afterModification;
     if([self.ckksZones containsObject:zoneID]) {
         __weak __typeof(self) weakSelf = self;
         newAfterModification = ^{
@@ -1044,7 +1054,7 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
         XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &result), "Should have found TLKs");
         NSArray* items = (NSArray*) CFBridgingRelease(result);
 
-        XCTAssertEqual(items.count, n, "Should have received %lu items", n);
+        XCTAssertEqual(items.count, n, "Should have received %lu items", (unsigned long)n);
     }
 }
 

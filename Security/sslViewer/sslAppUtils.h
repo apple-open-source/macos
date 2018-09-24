@@ -16,10 +16,6 @@
 extern "C" {
 #endif
 
-#if ! SEC_OS_OSX_INCLUDES
-typedef struct OpaqueSecKeychainRef *SecKeychainRef;
-#endif
-
 /* disable some Panther-only features */
 #define JAGUAR_BUILD	0
 
@@ -76,7 +72,7 @@ OSStatus sslAddTrustedRoots(
 	SecKeychainRef	keychain,
 	bool			*foundOne);
 
-void sslOutputDot();
+void sslOutputDot(void);
 
 /*
  * Lists of SSLCipherSuites used in sslSetCipherRestrictions. 

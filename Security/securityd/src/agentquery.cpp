@@ -490,13 +490,13 @@ QueryKeychainUse::QueryKeychainUse(bool needPass, const Database *db)
 	// if passphrase checking requested, save KeychainDatabase reference
 	// (will quietly disable check if db isn't a keychain)
 
-    // Always require password, <rdar://problem/34677969> Always require the user's password on keychain approval dialogs
-	// if (needPass)
-		mPassphraseCheck = dynamic_cast<const KeychainDatabase *>(db);
+    // Always require password due to <rdar://problem/34677969>
+    mPassphraseCheck = dynamic_cast<const KeychainDatabase *>(db);
 
     setTerminateOnSleep(true);
 }
 
+// Callers to this function must hold the common lock
 Reason QueryKeychainUse::queryUser (const char *database, const char *description, AclAuthorization action)
 {
     Reason reason = SecurityAgent::noReason;
@@ -537,7 +537,12 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
             hints.erase(retryHint); hints.insert(retryHint); // replace
 
             setInput(hints, context);
-			invoke();
+
+            {
+                // Must drop the common lock while showing UI.
+                StSyncLock<Mutex, Mutex> syncLock(const_cast<KeychainDatabase*>(mPassphraseCheck)->common().uiLock(), const_cast<KeychainDatabase*>(mPassphraseCheck)->common());
+                invoke();
+            }
 
             if (retryCount > kMaximumAuthorizationTries)
 			{
@@ -552,11 +557,7 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
 
 			passwordItem->getCssmData(data);
 
-            {
-                // Must hold the 'common' lock to call decode; otherwise there's a data corruption issue
-                StLock<Mutex> _(const_cast<KeychainDatabase*>(mPassphraseCheck)->common());
-                reason = (const_cast<KeychainDatabase*>(mPassphraseCheck)->decode(data) ? SecurityAgent::noReason : SecurityAgent::invalidPassphrase);
-            }
+            reason = (const_cast<KeychainDatabase*>(mPassphraseCheck)->decode(data) ? SecurityAgent::noReason : SecurityAgent::invalidPassphrase);
 		}
         while (reason != SecurityAgent::noReason);
         

@@ -26,7 +26,7 @@
 #pragma once
 
 #include "WebEvent.h"
-#include <runtime/ConsoleTypes.h>
+#include <JavaScriptCore/ConsoleTypes.h>
 
 namespace WebCore {
 class HitTestResult;
@@ -88,6 +88,8 @@ public:
     virtual WTF::String plugInExtraScript() const { return emptyString(); }
 
     virtual void didClickAutoFillButton(WebKit::WebPage&, WebKit::InjectedBundleNodeHandle&, RefPtr<API::Object>&) { }
+
+    virtual void didResignInputElementStrongPasswordAppearance(WebKit::WebPage&, WebKit::InjectedBundleNodeHandle&, RefPtr<API::Object>&) { };
 };
 
 } // namespace InjectedBundle

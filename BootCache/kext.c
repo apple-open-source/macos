@@ -34,12 +34,6 @@
  */
 
 /*
- * Build options. 
- */
-/*#define BC_DEBUG defined automatically in project debug build */
-/*#define BC_EXTRA_DEBUG*/
-
-/*
  * Emulate readahead, don't actually perform it.
  */
 /*#define EMULATE_ONLY*/
@@ -59,6 +53,11 @@
  * Only cache for the volumes on the root disk
  */
 #define ROOT_DISK_ONLY
+
+/*
+ * Don't cache pure SSD volumes
+ */
+#define BC_HDD_AND_FUSION_ONLY
 
 /*
  * Keep a log of read history to aid in debugging.
@@ -122,32 +121,7 @@ static int BC_chit_prelogin_timeout_seconds = 3600;
  */
 static int BC_history_timeout = 240 * 100;
 
-static int dbg_tag_count = 0;
-
-#ifdef BC_DEBUG
-# define MACH_DEBUG
-# define MACH_ASSERT 1
-# define message(fmt, args...)	\
-do { \
-	microtime(&debug_currenttime); \
-	timersub(&debug_currenttime, &debug_starttime, &debug_currenttime); \
-	lck_mtx_lock(&debug_printlock); \
-	printf("BootCache: %5d.%03d %24s[%4d]: " fmt "\n", (u_int)(debug_currenttime.tv_sec), (u_int)(debug_currenttime.tv_usec / 1000), __FUNCTION__, __LINE__, ##args); \
-	lck_mtx_unlock(&debug_printlock); \
-} while (0)
-
-# define debug(fmt, args...)	message("*** " fmt, ##args)
-extern void Debugger(const char *);
-#else
-# define debug(fmt, args...)	do {} while (0)
-# define message(fmt, args...)	printf("BootCache: " fmt "\n" , ##args)
-#endif
-
-#ifdef BC_EXTRA_DEBUG
-# define xdebug(fmt, args...)	message("+++ " fmt, ##args)
-#else
-# define xdebug(fmt, args...)	do {} while (0)
-#endif
+static int tag_batch_num = 0;
 
 #include <sys/buf.h>
 #include <sys/conf.h>
@@ -187,7 +161,8 @@ extern void Debugger(const char *);
 #include <pexpert/pexpert.h>
 
 #include "BootCache_private.h"
-#include "bc_apfs_utils.h"
+#include "bc_utils.h"
+#include "BootCache_debug.h"
 
 /*
  * Trace macros
@@ -205,13 +180,21 @@ extern void Debugger(const char *);
 #define DBG_BC_IO_MISS_CUT_THROUGH	(1 << 5)
 #define DBG_BC_PLAYBACK_IO			(1 << 6)
 
+#define DBG_BC_RECORDING_START		(1 << 7)
+#define DBG_BC_RECORDING_END		(1 << 8)
+
 #ifdef BC_DEBUG
-static struct timeval debug_starttime;
-static struct timeval debug_currenttime;
-static lck_mtx_t debug_printlock;
+struct timeval debug_starttime;
+struct timeval debug_currenttime;
+lck_mtx_t debug_printlock;
 #endif
 
 #define BC_MALLOC(_size, _type, _flags) ((ssize_t)(_size) < 0) ? NULL : _MALLOC((_size), (_type), (_flags))
+
+/* Copied from APFS headers to keep track of optimization statistics */
+#ifndef FUSION_TIER2_DEVICE_BYTE_ADDR
+#define FUSION_TIER2_DEVICE_BYTE_ADDR 0x4000000000000000ULL
+#endif
 
 /**************************************
  * Structures for the readahead cache *
@@ -375,10 +358,11 @@ struct BC_cache_control {
 	 * Each extent refers to one of the mounts, above, by index into c_mounts
 	 */
 	int                      c_nextentlists; /* number of extent lists we have */
-	int                     *c_nextents;     /* number of extents in a given extent list */
+	u_int64_t               *c_nextents;     /* number of extents in a given extent list */
 	struct BC_cache_extent **c_extentlists;      /* an array of extent lists in the cache */
 	
-	int         c_batch_count;		/* number of extent batches */
+	int         c_batch_count;		/* number of extent batches there have ever been */
+	int         c_batch_offset_for_new_playlists;		/* number of batches we've already done via previous playlists */
 	vnode_t     c_vp;
 	uint32_t    c_vid;
 	/* rw lock protects the above fields through c_nmounts, but not their contents.
@@ -393,20 +377,21 @@ struct BC_cache_control {
 	int                              c_history_num_clusters;
 	struct BC_history_entry_cluster *c_history;
 	struct BC_history_mount_device  *c_history_mounts;
-	uint64_t                         c_history_size;
+	u_int64_t                         c_history_size;
 	/* lock protects the above history fields and their contents */
 	lck_rw_t   c_history_lock;
 	
 	/* fields below are accessed atomically */
 	
 	/* flags */
-	UInt32		c_flags;
+	u_int		c_flags;
 #define	BC_FLAG_SETUP			(1 << 0)	/* cache setup properly during mount */
 #define	BC_FLAG_CACHEACTIVE		(1 << 1)	/* cache is active, owns memory */
 #define	BC_FLAG_HISTORYACTIVE	(1 << 2)	/* currently recording history */
 #define	BC_FLAG_HTRUNCATED		(1 << 3)	/* history list truncated */
 #define	BC_FLAG_SHUTDOWN		(1 << 4)	/* readahead shut down */
-	SInt32		c_strategycalls;	/* count of busy strategy calls in the cache */
+#define	BC_FLAG_OPTIMIZATION_COMPLETE (1 << 5)	/* APFS optimization based on BootCache data has completed */
+	u_int		c_strategycalls;	/* count of busy strategy calls in the cache */
 	
 	uint32_t  c_readahead_throttles_cutthroughs;
 	
@@ -531,30 +516,17 @@ p = NULL;					\
 #define LOCK_CACHE_W_TO_R()		lck_rw_lock_exclusive_to_shared(&BC_cache->c_cache_lock)
 #define LOCK_CACHE_R_TO_W()		lck_rw_lock_shared_to_exclusive(&BC_cache->c_cache_lock)
 
-#define BC_ADD_NON_SHARED_CACHE_STAT64(stat, inc)	OSAddAtomic64((inc), ((SInt64 *)&BC_cache->c_stats.ss_nonsharedcache.ss_##stat))
-#define BC_ADD_SHARED_CACHE_STAT64(stat, inc)	OSAddAtomic64((inc), ((SInt64 *)&BC_cache->c_stats.ss_sharedcache.ss_##stat))
-#define BC_ADD_UNKNOWN_STAT64(stat, inc)	OSAddAtomic64((inc), ((SInt64 *)&BC_cache->c_stats.ss_##stat))
-
-#define BC_ADD_STAT64(shared, stat, inc) \
-do { \
-if (shared) { \
-BC_ADD_SHARED_CACHE_STAT64(stat, inc); \
-} else { \
-BC_ADD_NON_SHARED_CACHE_STAT64(stat, inc); \
-} \
-} while (0)
-
-#define BC_ADD_NON_SHARED_CACHE_STAT(stat, inc)	OSAddAtomic((inc), ((SInt32 *)&BC_cache->c_stats.ss_nonsharedcache.ss_##stat))
-#define BC_ADD_SHARED_CACHE_STAT(stat, inc)	OSAddAtomic((inc), ((SInt32 *)&BC_cache->c_stats.ss_sharedcache.ss_##stat))
-#define BC_ADD_UNKNOWN_STAT(stat, inc)	OSAddAtomic((inc), ((SInt32 *)&BC_cache->c_stats.ss_##stat))
+#define BC_ADD_NON_SHARED_CACHE_STAT(stat, inc)	OSAddAtomic64((inc), ((SInt64 *)&BC_cache->c_stats.ss_nonsharedcache.ss_##stat))
+#define BC_ADD_SHARED_CACHE_STAT(stat, inc)	OSAddAtomic64((inc), ((SInt64 *)&BC_cache->c_stats.ss_sharedcache.ss_##stat))
+#define BC_ADD_UNKNOWN_STAT(stat, inc)	OSAddAtomic64((inc), ((SInt64 *)&BC_cache->c_stats.ss_##stat))
 
 #define BC_ADD_STAT(shared, stat, inc) \
 do { \
-	if (shared) { \
-		BC_ADD_SHARED_CACHE_STAT(stat, inc); \
-	} else { \
-		BC_ADD_NON_SHARED_CACHE_STAT(stat, inc); \
-	} \
+if (shared) { \
+BC_ADD_SHARED_CACHE_STAT(stat, inc); \
+} else { \
+BC_ADD_NON_SHARED_CACHE_STAT(stat, inc); \
+} \
 } while (0)
 
 /*
@@ -566,9 +538,9 @@ static struct BC_cache_control *BC_cache = &BC_cache_softc;
 static int	BC_check_intersection(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length);
 static int	BC_find_cache_mount(dev_t dev);
 static struct BC_cache_extent**	BC_find_extent(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length, u_int64_t crypto_offset, int require_crypto_match, int* failed_due_to_crypto_mismatch, int contained, int* failed_with_intersection, int* pnum_extents);
-static int	BC_discard_bytes(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length);
-static int	BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length, int data_is_overwritten, int* unread_discards, int is_shared);
-static int	BC_blocks_present(struct BC_cache_extent *ce, int base, int nblk);
+static u_int64_t BC_discard_bytes(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length);
+static u_int64_t BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length, int data_is_overwritten, u_int64_t* unread_discards, int is_shared);
+static int	BC_blocks_present(struct BC_cache_extent *ce, u_int64_t base, u_int64_t nblk);
 static void	BC_reader_thread(void *param0, wait_result_t param1);
 static int	BC_strategy(struct buf *bp);
 static int	BC_close(dev_t dev, int flags, int devtype, struct proc *p);
@@ -577,23 +549,23 @@ static int	BC_terminate_cache(void);
 static int	BC_terminate_history(void);
 static void	BC_terminate_cache_async(void);
 static void	BC_check_handlers(void);
-static void	BC_next_valid_range(struct BC_cache_mount *cm, struct BC_cache_extent *ce, uint32_t from, 
-								uint32_t *nextpage, uint32_t *nextoffset, uint32_t *nextlength);
+static void	BC_next_valid_range(struct BC_cache_mount *cm, struct BC_cache_extent *ce, u_int64_t fromoffset,
+								u_int64_t *nextpage, u_int64_t *nextoffset, u_int64_t *nextlength);
 static int	BC_setup_disk(struct BC_cache_disk *cd, u_int64_t disk_id, int is_ssd);
 static void	BC_teardown_disk(struct BC_cache_disk *cd);
 static void	BC_mount_available(struct BC_cache_mount *cm);
 static int	BC_setup_mount(struct BC_cache_mount *cm, struct BC_playlist_mount* pm);
-static int	BC_fill_in_cache_mount(struct BC_cache_mount *cm, mount_t mount);
+static int	BC_fill_in_cache_mount(struct BC_cache_mount *cm, mount_t mount, dev_t dev, vnode_t devvp, uint32_t fs_flags);
 static int	BC_fill_in_cache_mount_ex(struct BC_cache_mount *cm, dev_t dev, vnode_t devvp, u_int64_t throttle_mask, uint32_t fs_flags);
 static void	BC_teardown_mount(struct BC_cache_mount *ce);
-static int	BC_setup_extent(struct BC_cache_extent *ce, const struct BC_playlist_entry *pe, int batch_adjustment, int cache_mount_idx);
+static int	BC_setup_extent(struct BC_cache_extent *ce, const struct BC_playlist_entry *pe, int batch_adjustment, u_int cache_mount_idx);
 static void	BC_teardown_extent(struct BC_cache_extent *ce);
 static int	BC_copyin_playlist(size_t mounts_size, user_addr_t mounts, size_t entries_size, user_addr_t entries);
 static int	BC_init_cache(size_t mounts_size, user_addr_t mounts, size_t entries_size, user_addr_t entries, int record_history);
 static int BC_update_mounts(void);
 static void	BC_timeout_history(void *);
 static struct BC_history_mount_device * BC_get_history_mount_device(dev_t dev, int* pindex);
-static int	BC_add_history(daddr64_t blkno, u_int64_t length, int pid, int hit, int write, int tag, int shared, u_int64_t crypto_offset, dev_t dev);
+static int	BC_add_history(u_int64_t inode, daddr64_t blkno, u_int64_t length, int pid, int hit, int write, int tag, int shared, u_int64_t crypto_offset, dev_t dev);
 static int	BC_size_history_mounts(void);
 static int	BC_size_history_entries(void);
 static int	BC_copyout_history_mounts(user_addr_t uptr);
@@ -606,12 +578,6 @@ static int	check_for_new_mount_itr(mount_t mount, void* arg);
 static int	extents_status(struct BC_cache_extent **pce, int nextents) ;
 static void	wait_for_extent(struct BC_cache_extent *ce, struct timeval starttime) ;
 	
-#ifndef BOOTCACHE_ENTRIES_SORTED_BY_DISK_OFFSET
-static int  compare_cache_extents(const void *vfirst, const void *vsecond);
-//FIXME: qsort not available in kexts
-extern void qsort(void *a, size_t n, size_t es, int (*cmp)(const void *, const void *));
-#endif
-
 /*
  * Sysctl interface.
  */
@@ -638,9 +604,9 @@ extern void (* unmountroot_pre_hook)(void);
 /*
  * Mach VM-specific functions.
  */
-static int	BC_alloc_pagebuffer();
-static void	BC_free_pagebuffer();
-static void	BC_free_page(struct BC_cache_extent *ce, int page);
+static int	BC_alloc_pagebuffer(void);
+static void	BC_free_pagebuffer(void);
+static void	BC_free_page(struct BC_cache_extent *ce, u_int64_t page);
 
 /* Functions not prototyped elsewhere */
 int     	ubc_range_op(vnode_t, off_t, off_t, int, int *); /* in sys/ubc_internal.h */
@@ -679,10 +645,10 @@ static inline const char* uuid_string(uuid_t uuid)
 	static uuid_string_t uuidString[4];
 	static int index = 0;
 
-	index = (index + 1) % 4;
+	int i = OSIncrementAtomic(&index) % 4;
 	
-	uuid_unparse(uuid, uuidString[index]);
-	return (char*)uuidString[index];
+	uuid_unparse(uuid, uuidString[i]);
+	return (char*)uuidString[i];
 }
 
 /*
@@ -930,7 +896,7 @@ BC_find_extent(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length, u_
 					 next <= last;
 					 next++) {
 					
-					/* extents should never overlap */
+					/* extents within a mount should never overlap */
 					assert(((*prev)->ce_diskoffset + (*prev)->ce_length) <= (*next)->ce_diskoffset);
 
 					if ((require_crypto_match) &&
@@ -991,7 +957,7 @@ BC_find_extent(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length, u_
 					 prev >= base;
 					 prev--) {
 					
-					/* extents should never overlap */
+					/* extents within a mount should never overlap */
 					assert(((*prev)->ce_diskoffset + (*prev)->ce_length) <= (*next)->ce_diskoffset);
 					
 					if ((require_crypto_match) &&
@@ -1067,7 +1033,7 @@ BC_find_extent(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length, u_
  *
  * Called with extent lock held.
  */
-static int
+static u_int64_t
 BC_discard_bytes(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length)
 {
 	struct BC_cache_mount *cm;
@@ -1139,7 +1105,7 @@ BC_discard_bytes(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length)
 			
 			page = CB_BLOCK_TO_PAGE(cm, base + i);
 			if (CB_PAGE_VACANT(cm, ce, page))
-				BC_free_page(ce, (int) page);
+				BC_free_page(ce, page);
 		}
 	}
 	return(discarded * cm->cm_blocksize);
@@ -1166,10 +1132,10 @@ BC_discard_bytes(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length)
  * Called with the extent lock held
  */
 static void 
-BC_next_valid_range(struct BC_cache_mount *cm, struct BC_cache_extent *ce, uint32_t fromoffset, 
-					uint32_t *nextpage, uint32_t *nextoffset, uint32_t *nextlength)
+BC_next_valid_range(struct BC_cache_mount *cm, struct BC_cache_extent *ce, u_int64_t fromoffset,
+					u_int64_t *nextpage, u_int64_t *nextoffset, u_int64_t *nextlength)
 {
-	int maxblks, i, nextblk = 0;
+	u_int64_t maxblks, i, nextblk = 0;
 	int found = 0;
 	
 	maxblks = howmany(ce->ce_length, cm->cm_blocksize);
@@ -1205,7 +1171,7 @@ BC_next_valid_range(struct BC_cache_mount *cm, struct BC_cache_extent *ce, uint3
  * Called with the extent lock held.
  */
 static int
-BC_blocks_present(struct BC_cache_extent *ce, int base, int nblk)
+BC_blocks_present(struct BC_cache_extent *ce, u_int64_t base, u_int64_t nblk)
 {
 	int	blk;
 	
@@ -1230,7 +1196,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 	struct BC_cache_disk *cd = NULL;
 	struct BC_cache_mount *cm = NULL;
 	struct BC_cache_extent *ce = NULL;
-	int count, num_mounts, ce_idx, cel_idx;
+	u_int64_t count, num_mounts, ce_idx, cel_idx;
 	upl_t	upl;
 	kern_return_t kret;
 	int error = 0;
@@ -1251,13 +1217,16 @@ BC_reader_thread(void *param0, wait_result_t param1)
 				
 		if (issuing_lowpriority_extents) {
 			debug("disk %d starting low priority batch", cd->cd_disk_num);
+			KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_BATCH) |
+								  DBG_FUNC_START,
+								  ULONG_MAX, cd->cd_disk_num, 0, 0, 0);
 		} else {
 			debug("disk %d starting batch %d", cd->cd_disk_num, cd->cd_batch);
 			KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_BATCH) | 
 								  DBG_FUNC_START,
 								  cd->cd_batch, cd->cd_disk_num, 0, 0, 0);
 		}
-		uint64_t batchstart = mach_absolute_time();
+		u_int64_t batchstart = mach_absolute_time();
 		
 		LOCK_CACHE_R();
 		for (cel_idx = 0;
@@ -1316,7 +1285,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 				}
 				
 				/* loop reading to fill this extent */
-				uint32_t fromoffset = 0;
+				u_int64_t fromoffset = 0;
 				
 				LOCK_MOUNT_R(cm);
 				
@@ -1327,12 +1296,12 @@ BC_reader_thread(void *param0, wait_result_t param1)
 					continue;
 				}
 				
-				uint64_t io_start_time = mach_absolute_time();
+				u_int64_t io_start_time = mach_absolute_time();
 				
 				for (;;) {
-					uint32_t nextpage;
-					uint32_t nextoffset;
-					uint32_t nextlength;
+					u_int64_t nextpage;
+					u_int64_t nextoffset;
+					u_int64_t nextlength;
 					
 					/* requested shutdown */
 					if (BC_cache->c_flags & BC_FLAG_SHUTDOWN) {
@@ -1384,7 +1353,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 					buf_setresid(cm->cm_bp, buf_count(cm->cm_bp));	/* ask for residual indication */
 					buf_reset(cm->cm_bp, B_READ);
 
-					if (cm->cm_fs_flags & BC_FS_ENCRYPTED) {
+					if (cm->cm_fs_flags & BC_FS_APFS_ENCRYPTED) {
 						/* set bufattr crypto_offset */
 						bufattr_setcpoff(buf_attr(cm->cm_bp), ce->ce_crypto_offset + nextoffset + nextpage * PAGE_SIZE);
 					}
@@ -1439,7 +1408,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 							  buf_flags(cm->cm_bp));
 						
 						count = BC_discard_bytes(ce, ce->ce_diskoffset + nextoffset, nextlength);
-						debug("read error: discarded %d bytes", count);
+						debug("read error: discarded %llu bytes", count);
 						BC_ADD_STAT(is_shared, read_errors, 1);
 						BC_ADD_STAT(is_shared, read_errors_bytes, count);
 					}
@@ -1464,11 +1433,11 @@ BC_reader_thread(void *param0, wait_result_t param1)
 				}
 				
 				/* update stats */
-				uint64_t io_duration = mach_absolute_time() - io_start_time;
-				if (issuing_lowpriority_extents) {
-					BC_ADD_STAT64(is_shared, batch_time_lowpri[cd->cd_disk_num], io_duration);
+				u_int64_t io_duration = mach_absolute_time() - io_start_time;
+				if (ce->ce_flags & CE_LOWPRI) {
+					BC_ADD_STAT(is_shared, batch_time_lowpri[cd->cd_disk_num], io_duration);
 				} else {
-					BC_ADD_STAT64(is_shared, batch_time[cd->cd_disk_num][MIN(cd->cd_batch, STAT_BATCHMAX)], io_duration);
+					BC_ADD_STAT(is_shared, batch_time[cd->cd_disk_num][MIN(cd->cd_batch, STAT_BATCHMAX)], io_duration);
 				}
 				BC_ADD_STAT(is_shared, read_blocks, (u_int) CB_BYTE_TO_BLOCK(cm, ce->ce_length));
 				BC_ADD_STAT(is_shared, read_bytes,  (u_int) ce->ce_length);
@@ -1526,17 +1495,20 @@ BC_reader_thread(void *param0, wait_result_t param1)
 		}
 		UNLOCK_CACHE_R();
 		
-		uint64_t batchduration = mach_absolute_time() - batchstart;
+		u_int64_t batchduration = mach_absolute_time() - batchstart;
 		if (cd->cd_disk_num < STAT_DISKMAX) {
 			if (issuing_lowpriority_extents) {
-				BC_ADD_UNKNOWN_STAT64(batch_time_lowpri[cd->cd_disk_num], batchduration);
+				BC_ADD_UNKNOWN_STAT(batch_time_lowpri[cd->cd_disk_num], batchduration);
 			} else {
 				/* Measure times for the first several batches separately */
-				BC_ADD_UNKNOWN_STAT64(batch_time[cd->cd_disk_num][MIN(cd->cd_batch, STAT_BATCHMAX)], batchduration);
+				BC_ADD_UNKNOWN_STAT(batch_time[cd->cd_disk_num][MIN(cd->cd_batch, STAT_BATCHMAX)], batchduration);
 			}
 		}
 		if (issuing_lowpriority_extents) {
 			// debug("disk %d low priority batch done", cd->cd_disk_num);
+			KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_BATCH) |
+								  DBG_FUNC_END,
+								  ULONG_MAX, cd->cd_disk_num, 0, 0, 0);
 		} else {
 			// debug("disk %d batch %d done", cd->cd_disk_num, cd->cd_batch);
 			KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_BATCH) | 
@@ -1581,7 +1553,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 		num_mounts = cd->cd_nmounts;
 		UNLOCK_DISK(cd);
 	}
-	
+
 out:
 	/*
 	 * If ce != NULL we have bailed out, but we cannot free memory beyond
@@ -1619,7 +1591,7 @@ out:
 				if (!(ce->ce_flags & CE_IODONE)) {
 					if (!(ce->ce_flags & CE_ABORTED)) {
 						if (ce->ce_blockmap != NULL) {
-							int numdiscards = BC_discard_bytes(ce, ce->ce_diskoffset, ce->ce_length);
+							u_int64_t numdiscards = BC_discard_bytes(ce, ce->ce_diskoffset, ce->ce_length);
 							if (ce->ce_flags & CE_SHARED) {
 								shared_discards += numdiscards;
 							} else {
@@ -1697,7 +1669,7 @@ BC_close(dev_t dev, int flags, int devtype, struct proc *p)
 				for (i = 0; i < cm->cm_nextents; i++) {
 					LOCK_EXTENT(cm->cm_pextents[i]);
 					if (! (cm->cm_pextents[i]->ce_flags & CE_ABORTED)) {
-						int num_bytes = 0;
+						u_int64_t num_bytes = 0;
 						if (cm->cm_pextents[i]->ce_blockmap != NULL) {
 							num_bytes = BC_discard_bytes(cm->cm_pextents[i], cm->cm_pextents[i]->ce_diskoffset, cm->cm_pextents[i]->ce_length);
 						} else {
@@ -1823,8 +1795,9 @@ BC_strategy(struct buf *bp)
 	struct BC_cache_extent *ce = NULL, **pce, **pcontaining_extents = NULL;
 	int num_extents;
 	uio_t uio = NULL;
-	int nbytes, resid, discards = 0;
+	u_int64_t nbytes, discards = 0;
 	struct timeval blocked_start_time, blocked_end_time;
+	u_int64_t inode = 0;
 	daddr64_t blkno;
 	caddr_t buf_map_p, buf_extent_p;
 	off_t disk_offset;
@@ -1834,7 +1807,7 @@ BC_strategy(struct buf *bp)
 	int32_t bufflags;
 	int during_cache = 0, during_io = 0, take_detailed_stats = 0, cache_hit = 0;
 	int cache_miss_due_to_crypto_mismatch = 0, cache_miss_with_intersection = 0;
-	int is_root_disk, did_block, status;
+	int is_rejected, did_block, status;
 	int is_shared = 0, is_swap = 0;
 	int should_throttle = 0;
 	int is_ssd = 0;
@@ -1857,6 +1830,11 @@ BC_strategy(struct buf *bp)
 	dev = buf_device(bp);
 	vp = buf_vnode(bp);
 
+	enum vtype vtype = vnode_vtype(vp);
+	if (vtype == VREG) {
+		inode = apfs_get_inode(vp, blkno, nbytes, vfs_context_current());
+	}
+	
 	if (vp && vnode_isdyldsharedcache(vp)) {
 		is_shared = 1;
 	}
@@ -1912,7 +1890,7 @@ BC_strategy(struct buf *bp)
 	
 	if (cm_idx != -1) {
 		disk_offset = CB_BLOCK_TO_BYTE(BC_cache->c_mounts + cm_idx, blkno);
-		is_encrypted = (BC_cache->c_mounts[cm_idx].cm_fs_flags & BC_FS_ENCRYPTED);
+		is_encrypted = (BC_cache->c_mounts[cm_idx].cm_fs_flags & BC_FS_APFS_ENCRYPTED);
 		if (!is_encrypted) {
 			// Ignore crypto offsets for non-encrypted volumes. Don't assert because the value may not be zero'ed out properly, but it is unused
 			crypto_offset = 0;
@@ -1988,7 +1966,7 @@ BC_strategy(struct buf *bp)
 	}	
 	
 	if ((nbytes % BC_cache->c_mounts[cm_idx].cm_blocksize) != 0) {
-		debug("IO with non-blocksize multiple bytes (%#x %% %#llx = %#llx)", nbytes, BC_cache->c_mounts[cm_idx].cm_blocksize, (nbytes % BC_cache->c_mounts[cm_idx].cm_blocksize));
+		debug("IO with non-blocksize multiple bytes (%#llx %% %#llx = %#llx)", nbytes, BC_cache->c_mounts[cm_idx].cm_blocksize, (nbytes % BC_cache->c_mounts[cm_idx].cm_blocksize));
 		UNLOCK_MOUNT_R(BC_cache->c_mounts + cm_idx);
 		if (take_detailed_stats)
 			BC_ADD_STAT(is_shared, strategy_nonblocksize, 1);
@@ -2168,7 +2146,7 @@ BC_strategy(struct buf *bp)
 			timersub(&blocked_end_time,
 					 &blocked_start_time,
 					 &blocked_end_time);
-			int ms_blocked = (blocked_end_time.tv_sec * 1000) + (blocked_end_time.tv_usec / (1000));
+			u_int64_t ms_blocked = (blocked_end_time.tv_sec * 1000) + (blocked_end_time.tv_usec / (1000));
 #ifdef BC_DEBUG
 			char procname[128];
 			proc_selfname(procname, sizeof(procname));
@@ -2279,7 +2257,7 @@ BC_strategy(struct buf *bp)
 			goto bypass;
 		}
 		
-		resid = nbytes_thisextent;
+		int resid = (int)nbytes_thisextent;
 		uio = uio_create(1, cacheoffset_thisextent, UIO_SYSSPACE, UIO_READ);
 		if (uio == NULL) {
 			debug("couldn't allocate uio");
@@ -2348,7 +2326,6 @@ BC_strategy(struct buf *bp)
 #else //ifndef EMULATE_ONLY
 	(void) kret;
 	(void) p;
-	(void) resid;
 	
 	/* discard blocks we have touched */
 	for (ce_idx = 0;
@@ -2389,7 +2366,7 @@ BC_strategy(struct buf *bp)
 
 	if (! dont_cache) {
 		/* record successful fulfilment (may block) */
-		BC_add_history(blkno, nbytes, pid, 1, 0, 0, is_shared, crypto_offset, dev);
+		BC_add_history(inode, blkno, nbytes, pid, 1, 0, 0, is_shared, crypto_offset, dev);
 	}
 	
 	/*
@@ -2423,7 +2400,7 @@ bypass:
 	
 	/* not really "bypassed" if the cache is not active */
 	if (during_cache) {
-		int unread = 0;
+		u_int64_t unread = 0;
 		if (cm_idx != -1) {
 			LOCK_MOUNT_R(BC_cache->c_mounts + cm_idx);
 			if (BC_cache->c_mounts[cm_idx].cm_state == CM_READY) {
@@ -2490,9 +2467,9 @@ bypass:
 	
 	if (! is_swap) {
 		if (! dont_cache) {
-			is_root_disk = BC_add_history(blkno, nbytes, pid, 0, ((bufflags & B_READ) ? 0 : 1), 0, is_shared, crypto_offset, dev);
+			is_rejected = BC_add_history(inode, blkno, nbytes, pid, 0, ((bufflags & B_READ) ? 0 : 1), 0, is_shared, crypto_offset, dev);
 			
-			if (take_detailed_stats && during_io && is_root_disk) {
+			if (take_detailed_stats && during_io && !is_rejected) {
 				if (cache_hit) {
 					if (unfilled) {
 						BC_ADD_STAT(is_shared, strategy_bypass_duringio_unfilled, 1);
@@ -2539,27 +2516,34 @@ bypass:
 		} else if ((bufflags & B_READ) &&
 				   !(throttle_tier)) {
 			
-			struct timeval current_time;
-			if (BC_cache->c_stats.ss_history_num_recordings < 2) {
-				microtime(&current_time);
-				timersub(&current_time,
-						 &BC_cache->c_loadtime,
-						 &current_time);
-			}
-			/* Don't start counting misses until we've started login or hit our prelogin timeout */
-			if (BC_cache->c_stats.ss_history_num_recordings >= 2 || current_time.tv_sec > BC_chit_prelogin_timeout_seconds) {
+			// <rdar://problem/39985442> Ignore cache misses from warmd for jettison tracking
+			char procname[MAXCOMLEN+1];
+			proc_selfname(procname, sizeof(procname));
+			if ((0 != strncmp(procname, "warmd", strlen("warmd")))) {
 				
-				/* increase number of IOs since last hit */
-				OSAddAtomic(1, &BC_cache->c_num_ios_since_last_hit);
 				
-				if (BC_cache->c_num_ios_since_last_hit >= BC_chit_max_num_IOs_since_last_hit) {
-					/*
-					 * The hit rate is poor, shut the cache down.
-					 */
-					debug("hit rate below threshold (0 hits in the last %u lookups), jettisoning cache",
-						  BC_cache->c_num_ios_since_last_hit);
-					//rdar://9858070 Do this asynchronously to avoid deadlocks
-					BC_terminate_cache_async();
+				struct timeval current_time;
+				if (BC_cache->c_stats.ss_history_num_recordings < 2) {
+					microtime(&current_time);
+					timersub(&current_time,
+							 &BC_cache->c_loadtime,
+							 &current_time);
+				}
+				/* Don't start counting misses until we've started login or hit our prelogin timeout */
+				if (BC_cache->c_stats.ss_history_num_recordings >= 2 || current_time.tv_sec > BC_chit_prelogin_timeout_seconds) {
+					
+					/* increase number of IOs since last hit */
+					OSAddAtomic(1, &BC_cache->c_num_ios_since_last_hit);
+					
+					if (BC_cache->c_num_ios_since_last_hit >= BC_chit_max_num_IOs_since_last_hit) {
+						/*
+						 * The hit rate is poor, shut the cache down.
+						 */
+						debug("hit rate below threshold (0 hits in the last %u lookups), jettisoning cache",
+							  BC_cache->c_num_ios_since_last_hit);
+						//rdar://9858070 Do this asynchronously to avoid deadlocks
+						BC_terminate_cache_async();
+					}
 				}
 			}
 		}
@@ -2608,15 +2592,15 @@ bypass:
  * Returns the number of bytes discarded (that were read in already)
  * *unread_discards will be set to the number of bytes discarded that were unread
  */
-static int
-BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length, int data_is_overwritten, int* unread_out, int is_shared)
+static u_int64_t
+BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length, int data_is_overwritten, u_int64_t* unread_out, int is_shared)
 {
 	struct BC_cache_extent **pce, **p;
-	int count;
+	u_int64_t count;
 	boolean_t locked;
 	
-	int discards = 0;
-	int unread = 0;
+	u_int64_t discards = 0;
+	u_int64_t unread = 0;
 	
 	int try_lock_failed = 0; /* Only count this IO once even if we fail to grab the lock for multiple extents */
 	
@@ -2847,7 +2831,7 @@ BC_terminate_cache(void)
 		debug("cannot terminate cache when not active");
 		UNLOCK_HANDLERS();
 		UNLOCK_CACHE_R();
-		return(ENXIO);
+		return(EALREADY);
 	}
 	
 	bootcache_contains_block = NULL;
@@ -2928,8 +2912,8 @@ BC_terminate_cache(void)
 	while (BC_cache->c_strategycalls > 0) {
 		tsleep(BC_cache, PRIBIO, "BC_terminate_cache", 10);
 		if (retry++ > 50) {
-			message("could not terminate cache, timed out with %d caller%s in BC_strategy",
-					(int) BC_cache->c_strategycalls,
+			message("could not terminate cache, timed out with %u caller%s in BC_strategy",
+					BC_cache->c_strategycalls,
 					BC_cache->c_strategycalls == 1 ? "" : "s");
 			UNLOCK_CACHE_R();
 			return(EBUSY);	/* again really EWEDGED */
@@ -2942,7 +2926,7 @@ BC_terminate_cache(void)
 		 * but we check for exclusivity by clearing BC_FLAG_CACHEACTIVE.
 		 */
 		message("Unable to upgrade cache lock to free resources");
-		return ENXIO;
+		return(EBUSY);
 	}
 	
 	for (cm_idx = 0; cm_idx < BC_cache->c_nmounts; cm_idx++) {
@@ -2983,6 +2967,8 @@ BC_terminate_cache(void)
 	_FREE_ZERO(BC_cache->c_mounts, M_TEMP);
 	BC_cache->c_nmounts = 0;
 	
+	BC_cache->c_batch_offset_for_new_playlists = BC_cache->c_batch_count;
+	
 	UNLOCK_CACHE_W();
 	
 	/* record stop time */
@@ -2993,6 +2979,46 @@ BC_terminate_cache(void)
 			 &endtime);
 	BC_cache->c_stats.ss_cache_time += (u_int) endtime.tv_sec * 1000 + (u_int) endtime.tv_usec / 1000;
 	return(0);
+}
+
+/*
+ * Reset the cache.
+ *
+ * This stops any playback and recording, clears any history, and returns the BootCache back to the state it was in after loading at boot
+ */
+static int
+BC_reset_cache(void)
+{
+	int error = 0;
+	
+	/*
+	 * If the cache is running, stop it.  If it's already stopped
+	 * (it may have stopped itself), that's OK.
+	 */
+	
+	error = BC_terminate_history();
+	if (error != 0 && error != EALREADY) {
+		message("Unable to terminate history: %d", error);
+		return error;
+	}
+	BC_cache->c_stats.ss_history_num_recordings = 0;
+	
+	error = BC_terminate_cache();
+	if (error != 0 && error != EALREADY) {
+		message("Unable to terminate cache: %d", error);
+		return error;
+	}
+	
+	LOCK_HISTORY_W();
+	BC_discard_history();
+	UNLOCK_HISTORY_W();
+	
+	BC_cache->c_num_ios_since_last_hit = 0;
+	BC_cache->c_stats.ss_bc_start_timestamp = 0;
+	BC_cache->c_stats.ss_start_timestamp = 0;
+	BC_clear_flag(BC_FLAG_SHUTDOWN);
+	
+	return (0);
 }
 
 /*
@@ -3009,11 +3035,12 @@ BC_terminate_history(void)
 		/* can't shut down if we're not active */
 		debug("cannot terminate history when not active");
 		UNLOCK_HANDLERS();
-		return(ENXIO);
+		return(EALREADY);
 	}
 	
 	debug("terminating history collection...");
-	
+	KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_RECORDING_END), 0, 0, 0, 0, 0);
+
 	/* if the cache is no longer active also, disconnect our strategy routine */
 	BC_check_handlers();
 	UNLOCK_HANDLERS();
@@ -3101,7 +3128,7 @@ BC_check_handlers(void)
  * Returns 0 on success
  */
 static int 
-BC_setup_extent(struct BC_cache_extent *ce, const struct BC_playlist_entry *pe, int batch_adjustment, int cache_mount_idx)
+BC_setup_extent(struct BC_cache_extent *ce, const struct BC_playlist_entry *pe, int batch_adjustment, u_int cache_mount_idx)
 {	
 	lck_mtx_init(&ce->ce_lock, BC_cache->c_lckgrp,
 				 LCK_ATTR_NULL);
@@ -3159,7 +3186,7 @@ BC_setup_extent(struct BC_cache_extent *ce, const struct BC_playlist_entry *pe, 
 static int 
 BC_fill_in_extent(struct BC_cache_extent *ce)
 {
-	int numblocks, roundsize, i;
+	u_int64_t numblocks, roundsize, i;
 	u_int64_t end;
 	
 	if ((ce->ce_flags & CE_ABORTED) ||
@@ -3169,7 +3196,7 @@ BC_fill_in_extent(struct BC_cache_extent *ce)
 	
 	struct BC_cache_mount *cm = BC_cache->c_mounts + ce->ce_mount_idx;
 	
-	int blocksize = cm->cm_blocksize;
+	u_int64_t blocksize = cm->cm_blocksize;
 	
 	if (0 == blocksize) {
 		return 1;
@@ -3194,7 +3221,7 @@ BC_fill_in_extent(struct BC_cache_extent *ce)
 	ce->ce_blockmap = BC_MALLOC(howmany(numblocks, CB_MAPFIELDBITS) * CB_MAPFIELDBYTES, // Make sure allocation is a multiple of ce->ce_blockmap's size
 							  M_TEMP, M_WAITOK | M_ZERO);
 	if (!ce->ce_blockmap) {
-		message("can't allocate extent blockmap for %d blocks of %d bytes", numblocks, howmany(numblocks, (CB_MAPFIELDBITS / CB_MAPFIELDBYTES)));
+		message("can't allocate extent blockmap for %llu blocks of %llu bytes", numblocks, howmany(numblocks, (CB_MAPFIELDBITS / CB_MAPFIELDBYTES)));
 		return 1;
 	}
 	
@@ -3225,7 +3252,7 @@ BC_setup_disk(struct BC_cache_disk *cd, u_int64_t disk_id, int is_ssd)
 	cd->cd_disk_num = next_disk_num++;
 	cd->cd_flags = 0;
 	cd->cd_nmounts = 0;
-	cd->cd_batch = 0;
+	cd->cd_batch = BC_cache->c_batch_offset_for_new_playlists;
 
 	if (is_ssd) {
 		cd->cd_flags |= CD_IS_SSD;
@@ -3317,7 +3344,7 @@ BC_mount_available(struct BC_cache_mount *cm)
 		LOCK_EXTENT(cm->cm_pextents[i]);
 		if (! (cm->cm_pextents[i]->ce_flags & CE_ABORTED)) {
 			if (cm->cm_pextents[i]->ce_blockmap != NULL) {
-				int count = BC_discard_bytes(cm->cm_pextents[i], cm->cm_pextents[i]->ce_diskoffset, cm->cm_pextents[i]->ce_length);
+				u_int64_t count = BC_discard_bytes(cm->cm_pextents[i], cm->cm_pextents[i]->ce_diskoffset, cm->cm_pextents[i]->ce_length);
 				if (cm->cm_pextents[i]->ce_flags & CE_SHARED) {
 					shared_unread += count;
 				} else {
@@ -3431,19 +3458,6 @@ int BC_get_dev(mount_t mount, dev_t *dev_out, vnode_t *devvp_out) {
 	return 0;
 }
 
-uint32_t BC_get_mount_flags(mount_t mount, dev_t dev)
-{
-	char name[MFSNAMELEN] = "";
-	vfs_name(mount, name);
-
-	if (0 == strncmp(name, "apfs", sizeof("apfs")+1)) {
-		// With APFS, additional attributes need be configured base on file system settings
-		return (BC_FS_APFS | apfs_get_fs_flags(dev));
-	}
-
-	return 0;
-}
-
 struct discards {
 	int shared_discards;
 	int nonshared_discards;
@@ -3470,7 +3484,7 @@ static struct discards BC_teardown_mount_and_extents(struct BC_cache_mount *cm) 
 	for (int i = 0; i < cm->cm_nextents; i++) {
 		LOCK_EXTENT(cm->cm_pextents[i]);
 		if (! (cm->cm_pextents[i]->ce_flags & CE_ABORTED)) {
-			int count;
+			u_int64_t count;
 			if (cm->cm_pextents[i]->ce_blockmap != NULL) {
 					 count = BC_discard_bytes(cm->cm_pextents[i], cm->cm_pextents[i]->ce_diskoffset, cm->cm_pextents[i]->ce_length);
 			} else {
@@ -3505,7 +3519,7 @@ static struct discards BC_teardown_mount_and_extents(struct BC_cache_mount *cm) 
  *   If return value is non-0 and non-EAGAIN, the mount and all its extents will have been torn down and it will be CM_ABORTED
  */
 static int
-BC_fill_in_cache_mount(struct BC_cache_mount *cm, mount_t mount)
+BC_fill_in_cache_mount(struct BC_cache_mount *cm, mount_t mount, dev_t dev, vnode_t devvp, uint32_t fs_flags)
 {
 	if (CM_SETUP != cm->cm_state) {
 		return EINVAL;
@@ -3513,7 +3527,6 @@ BC_fill_in_cache_mount(struct BC_cache_mount *cm, mount_t mount)
 
 	u_int64_t throttle_mask = vfs_throttle_mask(mount);
 	u_int64_t disk_id = throttle_mask;
-	int error = 0;
 	
 #ifdef ROOT_DISK_ONLY
 	// Use vfs_devvp to check against rootvp (rather than BC_get_dev)
@@ -3552,34 +3565,16 @@ BC_fill_in_cache_mount(struct BC_cache_mount *cm, mount_t mount)
 	}
 #endif
 
-	dev_t dev = nulldev();
-	vnode_t devvp = NULLVP;
-	
-	// lookup dev and devvp from mount
-	error = BC_get_dev(mount, &dev, &devvp);
-	if (error != 0) {
-		message("mount %s failed to get dev: %d", uuid_string(cm->cm_uuid), error);
-		struct discards discards = BC_teardown_mount_and_extents(cm);
-		BC_ADD_SHARED_CACHE_STAT(mounterror_unread, discards.shared_discards);
-		BC_ADD_NON_SHARED_CACHE_STAT(mounterror_unread, discards.nonshared_discards);
-		return error;
-	}
-	
-	uint32_t fs_flags = BC_get_mount_flags(mount, dev);
-	if (fs_flags & BC_FS_ENC_ROLLING) {
+	if (fs_flags & BC_FS_APFS_ENCRYPTION_ROLLING) {
 		// <rdar://problem/32395140> Bootcache needs to be disabled for APFS volumes rolling encryption (and their container)
 		message("apfs mount %s has encryption rolling in-progress, skipping.", uuid_string(cm->cm_uuid));
 		struct discards discards = BC_teardown_mount_and_extents(cm);
 		BC_ADD_SHARED_CACHE_STAT(unsupported_unread, discards.shared_discards);
 		BC_ADD_NON_SHARED_CACHE_STAT(unsupported_unread, discards.nonshared_discards);
-		vnode_put(devvp);
 		return ENOTSUP;
 	}
 
-	error = BC_fill_in_cache_mount_ex(cm, dev, devvp, throttle_mask, fs_flags);
-	vnode_put(devvp);
-
-	return error;
+	return BC_fill_in_cache_mount_ex(cm, dev, devvp, throttle_mask, fs_flags);
 }
 
 /*
@@ -3593,7 +3588,7 @@ BC_fill_in_cache_mount(struct BC_cache_mount *cm, mount_t mount)
 static int
 BC_fill_in_cache_mount_ex(struct BC_cache_mount *cm, dev_t dev, vnode_t devvp, u_int64_t throttle_mask, uint32_t fs_flags)
 {
-	uint64_t blkcount, max_byte_count, max_segment_count, max_segment_byte_count, max_block_count;
+	u_int64_t blkcount, max_byte_count, max_segment_count, max_segment_byte_count, max_block_count;
 	uint32_t blksize, is_ssd;
 	int error = 0, mount_idx, i;
 	u_int64_t disk_id;
@@ -3612,8 +3607,8 @@ BC_fill_in_cache_mount_ex(struct BC_cache_mount *cm, dev_t dev, vnode_t devvp, u
 
 	
 	// Check for mismatch in flags
-	if ((fs_flags & BC_FS_ENCRYPTED) != (cm->cm_fs_flags & BC_FS_ENCRYPTED)) {
-		if (fs_flags & BC_FS_ENCRYPTED) {
+	if ((fs_flags & BC_FS_APFS_ENCRYPTED) != (cm->cm_fs_flags & BC_FS_APFS_ENCRYPTED)) {
+		if (fs_flags & BC_FS_APFS_ENCRYPTED) {
 			message("mount %s is encrypted when it wasn't before", uuid_string(cm->cm_uuid));
 		} else {
 			message("mount %s is not encrypted when it was before", uuid_string(cm->cm_uuid));
@@ -3675,6 +3670,17 @@ BC_fill_in_cache_mount_ex(struct BC_cache_mount *cm, dev_t dev, vnode_t devvp, u
 		}
 		cm->cm_disk = cd;
 	}
+	
+	
+#ifdef BC_HDD_AND_FUSION_ONLY
+	if ((cm->cm_disk->cd_flags & CD_IS_SSD) &&
+		!(cm->cm_fs_flags & BC_FS_APFS_FUSION) &&
+		!(cm->cm_fs_flags & BC_FS_CS_FUSION)) {
+		debug("BootCache not caching mount %s (SSD)", uuid_string(cm->cm_uuid));
+		error = EINVAL;
+		goto out;
+	}
+#endif
 	
 	
 	if (VNOP_IOCTL(devvp,
@@ -3895,12 +3901,29 @@ static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
 				if (match) {
 					/* Found a matching mount */
 					
+					// lookup dev and devvp from mount
+					dev_t dev = nulldev();
+					vnode_t devvp = NULLVP;
+					error = BC_get_dev(mount, &dev, &devvp);
+					if (error != 0) {
+						continue;
+					}
+
+					uint32_t fs_flags = 0;
+					dev_t container_dev = nulldev();
+					uuid_t container_uuid = {0};
+					bool container_has_encrypted_volumes = true;
+					bool container_has_rolling_volumes = true;
+					bc_get_volume_info(dev, &fs_flags, &container_dev, container_uuid, &container_has_encrypted_volumes, &container_has_rolling_volumes);
+
 					/* Locking here isn't necessary since we're only called while holding the cache write lock
 					 * and no one holds the mount locks without also holding the cache lock
 					 */
-					if (BC_fill_in_cache_mount(cm, mount) == EAGAIN) {
+					if (BC_fill_in_cache_mount(cm, mount, dev, devvp, fs_flags) == EAGAIN) {
 						*go_again = 1;
 					}
+					vnode_put(devvp);
+					devvp = NULLVP;
 					
 					if (cm->cm_state == CM_READY &&
 						(cm->cm_fs_flags & BC_FS_APFS)) {
@@ -3912,17 +3935,12 @@ static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
 						//
 						// We track apfs volumes, but there is still some I/O directly to the container, so we need to track the container as well as the volume
 
-						dev_t container_dev;
-						uuid_t container_uuid = {0};
-						int container_has_encrypted_volumes = TRUE;
-						int container_has_rolling_volumes = TRUE;
-						container_dev = apfs_container_devno(cm->cm_dev, container_uuid, &container_has_encrypted_volumes, &container_has_rolling_volumes);
 						if (container_dev == nulldev() || uuid_is_null(container_uuid)) {
 							message("mount %s has no container", uuid_string(cm->cm_uuid));
 							break;
 						}
-						debug("mount %s has container %s dev 0x%x", uuid_string(cm->cm_uuid), uuid_string(container_uuid), container_dev);
-
+						debug("mount %s has container %s dev 0x%x (%sfusion)", uuid_string(cm->cm_uuid), uuid_string(container_uuid), container_dev, (fs_flags & BC_FS_APFS_FUSION) ? "" : "not ");
+						
 						for (mount_idx = 0; mount_idx < BC_cache->c_nmounts; mount_idx++) {
 							struct BC_cache_mount *container_cm = BC_cache->c_mounts + mount_idx;
 							if (CM_SETUP == container_cm->cm_state) {
@@ -3959,7 +3977,9 @@ static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
 										break;
 									}
 									
-									BC_fill_in_cache_mount_ex(container_cm, container_dev, container_devvp, cm->cm_throttle_mask, BC_FS_APFS | BC_FS_APFS_CONTAINER);
+									uint32_t flags = BC_FS_APFS | BC_FS_APFS_CONTAINER | (fs_flags & BC_FS_APFS_FUSION);
+									
+									BC_fill_in_cache_mount_ex(container_cm, container_dev, container_devvp, cm->cm_throttle_mask, flags);
 									vnode_put(container_devvp);
 									break;
 								}
@@ -3984,6 +4004,86 @@ static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
 			}
 		}
 	} 
+
+	/* Check to see if we have any containers to fill in (this case handles containers without any volumes in the playlist) */
+	for (i = 0; i < BC_cache->c_nmounts; i++) {
+		struct BC_cache_mount *container_cm = BC_cache->c_mounts + i;
+		if (CM_SETUP == BC_cache->c_mounts[i].cm_state &&
+			(BC_cache->c_mounts[i].cm_fs_flags & BC_FS_APFS_CONTAINER)) {
+			
+			// lookup dev and devvp from mount
+			dev_t dev = nulldev();
+			vnode_t devvp = NULLVP;
+			error = BC_get_dev(mount, &dev, &devvp);
+			if (error != 0) {
+				continue;
+			}
+			vnode_put(devvp);
+			devvp = NULLVP;
+
+			uint32_t fs_flags = 0;
+			dev_t container_dev = nulldev();
+			uuid_t container_uuid = {0};
+			bool container_has_encrypted_volumes = true;
+			bool container_has_rolling_volumes = true;
+			bc_get_volume_info(dev, &fs_flags, &container_dev, container_uuid, &container_has_encrypted_volumes, &container_has_rolling_volumes);
+			
+			if (!(fs_flags & BC_FS_APFS)) {
+				debug("volume %s not apfs", uuid_string(attr.f_uuid));
+				continue;
+			}
+
+			if (container_dev == nulldev() || uuid_is_null(container_uuid)) {
+				message("apfs volume %s has no container", uuid_string(attr.f_uuid));
+				break;
+			}
+			debug("volume %s has container %s dev 0x%x (%sfusion)", uuid_string(attr.f_uuid), uuid_string(container_uuid), container_dev, (fs_flags & BC_FS_APFS_FUSION) ? "" : "not ");
+
+			if (0 == uuid_compare(container_cm->cm_uuid, container_uuid)) {
+				
+				if (container_has_rolling_volumes) {
+					// <rdar://problem/32395140> Bootcache needs to be disabled for APFS volumes rolling encryption (and their container)
+					message("Not caching apfs container %s that contains rolling volumes", uuid_string(container_uuid));
+					struct discards discards = BC_teardown_mount_and_extents(container_cm);
+					BC_ADD_SHARED_CACHE_STAT(unsupported_unread, discards.shared_discards);
+					BC_ADD_NON_SHARED_CACHE_STAT(unsupported_unread, discards.nonshared_discards);
+					break;
+				}
+				
+				// Get vnode_t for the container
+				char apfsdevpath[64] = "";
+				lookup_dev_name(container_dev, apfsdevpath, sizeof(apfsdevpath));
+				if (apfsdevpath[0] == '\0') {
+					message("unable to get apfs dev path for container %s", uuid_string(container_uuid));
+					struct discards discards = BC_teardown_mount_and_extents(container_cm);
+					BC_ADD_SHARED_CACHE_STAT(mounterror_unread, discards.shared_discards);
+					BC_ADD_NON_SHARED_CACHE_STAT(mounterror_unread, discards.nonshared_discards);
+					break;
+				}
+				debug("apfs container %s dev path is %s", uuid_string(container_uuid), apfsdevpath);
+				
+				vnode_t container_devvp = NULLVP;
+				errno_t err = vnode_lookup(apfsdevpath, 0, &container_devvp, vfs_context_current());
+				if (err != 0 || container_devvp == NULLVP) {
+					message("unable to get open apfs container %s dev path %s: %d", uuid_string(container_uuid), apfsdevpath, err);
+					struct discards discards = BC_teardown_mount_and_extents(container_cm);
+					BC_ADD_SHARED_CACHE_STAT(mounterror_unread, discards.shared_discards);
+					BC_ADD_NON_SHARED_CACHE_STAT(mounterror_unread, discards.nonshared_discards);
+					break;
+				}
+				
+				uint32_t flags = BC_FS_APFS | BC_FS_APFS_CONTAINER | (fs_flags & BC_FS_APFS_FUSION);
+				
+				u_int64_t throttle_mask = vfs_throttle_mask(mount);
+
+				BC_fill_in_cache_mount_ex(container_cm, container_dev, container_devvp, throttle_mask, flags);
+				vnode_put(container_devvp);
+				break;
+			}
+
+		}
+	}
+
 	
 	/* Check to see if we have any more mounts to fill in */
 	for (i = 0; i < BC_cache->c_nmounts; i++) {
@@ -3998,29 +4098,6 @@ static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
 	
 }
 
-#ifndef BOOTCACHE_ENTRIES_SORTED_BY_DISK_OFFSET
-/*
- * Sort the extent list.
- */
-static int
-compare_cache_extents(const void *vfirst, const void *vsecond)
-{
-	const struct BC_cache_extent *first, *second;
-	
-	first  = (const struct BC_cache_extent *)vfirst;
-	second = (const struct BC_cache_extent *)vsecond;
-	
-	// Sort by volume first, then by logical block address
-	int mount_comparison = first->ce_mount_idx - second->ce_mount_idx;
-	if (mount_comparison != 0)
-		return((mount_comparison < 0) ? -1 : 1);
-	
-	if (first->ce_diskoffset == second->ce_diskoffset)
-		return(0);
-	return((first->ce_diskoffset < second->ce_diskoffset) ? -1 : 1);
-}
-#endif
-
 /*
  * Fetch the playlist from userspace.
  * Add it to the cache and readahead in batches after
@@ -4033,36 +4110,46 @@ compare_cache_extents(const void *vfirst, const void *vsecond)
 static int
 BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_size, user_addr_t entries_buf)
 {
-	int nplaylist_mounts, nplaylist_entries;
+	u_int64_t nplaylist_entries;
+	u_int nplaylist_mounts;
 	struct BC_playlist_mount *playlist_mounts = NULL, *pm;
 	struct BC_playlist_entry *playlist_entries = NULL, *pe;
 	struct BC_cache_mount  *cm, *old_cm;
 	struct BC_cache_extent *ce;
 	
-	int ncache_mounts = 0, ncache_extents = 0, nnew_mounts = 0;
+	u_int ncache_mounts = 0, nnew_mounts = 0;
+	u_int64_t ncache_extents = 0;
 	struct BC_cache_mount  *cache_mounts = NULL;
 	struct BC_cache_extent *cache_extents = NULL;
 	int *pmidx_to_cmidx = NULL;
-	int *next_old_extent_idx = NULL;
+	u_int64_t *next_old_extent_idx = NULL;
 	
-	int *cache_nextents = NULL;
+	u_int64_t *cache_nextents = NULL;
 	struct BC_cache_extent **cache_extents_list = NULL;
 	
-	int nexents_shared = 0;
-	int nextents_nonshared = 0;
+	u_int64_t nexents_shared = 0;
+	u_int64_t nextents_nonshared = 0;
 	
 	int old_batch_count;
 	u_int64_t old_cache_size;
 
-	int error, pm_idx, cm_idx, pe_idx, ce_idx, cel_idx, pm_idx2, max_entries;
+	int error;
+	u_int pm_idx, cm_idx, pm_idx2;
+	u_int64_t pe_idx, ce_idx, max_entries;
 	off_t p;
 	u_int64_t size, num_shared_bytes, num_nonshared_bytes;
-	int actual, remaining_entries;
+	u_int64_t actual, remaining_entries;
 	
 	int clipped_extents = 0, enveloped_extents = 0; 
 	
 	playlist_mounts = NULL;
 	playlist_entries = NULL;
+	
+	if (BC_cache->c_nmounts > 0) {
+		// BootCache doesn't support adding additional playlists when a cache is already in progress
+		// TODO: Update cache construction code below to remove parts that handle additional playlists
+		return EBUSY;
+	}
 	
 #ifdef BC_DEBUG
 	struct timeval start_time;
@@ -4072,13 +4159,13 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	old_batch_count = BC_cache->c_batch_count;
 	old_cache_size = BC_cache->c_cachesize;
 	
-	nplaylist_mounts = (int) mounts_size / sizeof(*playlist_mounts);
-	nplaylist_entries = (int) entries_size / sizeof(*playlist_entries);
+	nplaylist_mounts = (u_int) (mounts_size / sizeof(*playlist_mounts));
+	nplaylist_entries = entries_size / sizeof(*playlist_entries);
 
 	if (BC_cache->c_stats.ss_sharedcache.ss_total_extents + BC_cache->c_stats.ss_nonsharedcache.ss_total_extents > 0) {
-		debug("adding %u extents to existing cache of %u extents", nplaylist_entries, BC_cache->c_stats.ss_sharedcache.ss_total_extents + BC_cache->c_stats.ss_nonsharedcache.ss_total_extents);
+		debug("adding %llu extents to existing cache of %llu extents", nplaylist_entries, BC_cache->c_stats.ss_sharedcache.ss_total_extents + BC_cache->c_stats.ss_nonsharedcache.ss_total_extents);
 	} else {
-		debug("setting up first cache of %d extents", nplaylist_entries);
+		debug("setting up first cache of %llu extents", nplaylist_entries);
 	}
 	
 	// We hold the write lock to the cache during this function, so BC_cache->c_nmounts won't be modified, but using a local variable - old_ncache_mounts - makes the static analyzer happy
@@ -4104,7 +4191,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	/* map from the playlist mount index to the corresponding cache mount index */
 	pmidx_to_cmidx = BC_MALLOC(nplaylist_mounts * sizeof(*pmidx_to_cmidx), M_TEMP, M_WAITOK);
 	if (pmidx_to_cmidx == NULL) {
-		message("can't allocate playlist index to cache index reference array for %d mounts", nplaylist_mounts);
+		message("can't allocate playlist index to cache index reference array for %u mounts", nplaylist_mounts);
 		error = ENOMEM;
 		goto out;
 	}
@@ -4154,7 +4241,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	/* cache_mounts is the array of mounts that will replace the one currently in the cache */
 	cache_mounts = BC_MALLOC((old_ncache_mounts + nnew_mounts) * sizeof(*cache_mounts), M_TEMP, M_WAITOK | M_ZERO);
 	if (cache_mounts == NULL) {
-		message("can't allocate memory for %d mounts", (old_ncache_mounts + nnew_mounts));
+		message("can't allocate memory for %u mounts", (old_ncache_mounts + nnew_mounts));
 		error = ENOMEM;
 		goto out;
 	}
@@ -4214,7 +4301,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	/* cache_nextents is an array of ints, each indicating the number of extents in the list in cache_extents_list at the same index */
 	cache_nextents = BC_MALLOC((BC_cache->c_nextentlists + 1) * sizeof(*BC_cache->c_nextents), M_TEMP, M_WAITOK | M_ZERO);
 	if (cache_nextents == NULL) {
-		message("can't allocate memory for %d extent list sizes", nplaylist_entries);
+		message("can't allocate memory for %llu extent list sizes", nplaylist_entries);
 		error = ENOMEM;
 		goto out;
 	}
@@ -4223,7 +4310,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	/* cache_extents_list is the array of extent lists. The extent list at the last index is for the new playlist's cache */
 	cache_extents_list  = BC_MALLOC((BC_cache->c_nextentlists + 1) * sizeof(*BC_cache->c_extentlists),  M_TEMP, M_WAITOK | M_ZERO);
 	if (cache_extents_list == NULL) {
-		message("can't allocate memory for %d extent lists", nplaylist_entries);
+		message("can't allocate memory for %llu extent lists", nplaylist_entries);
 		error = ENOMEM;
 		goto out;
 	}
@@ -4232,7 +4319,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	/* The extent list for this new playlist's cache */
 	cache_extents = BC_MALLOC(nplaylist_entries * sizeof(*cache_extents), M_TEMP, M_WAITOK | M_ZERO);
 	if (cache_extents == NULL) {
-		message("can't allocate memory for %d extents", nplaylist_entries);
+		message("can't allocate memory for %llu extents", nplaylist_entries);
 		error = ENOMEM;
 		goto out;
 	}
@@ -4282,7 +4369,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	remaining_entries = nplaylist_entries;
 	while (remaining_entries > 0) {
 		
-		actual = min(remaining_entries, BC_PLC_CHUNK);
+		actual = MIN(remaining_entries, BC_PLC_CHUNK);
 		if ((error = copyin(entries_buf, playlist_entries,
 							actual * sizeof(struct BC_playlist_entry))) != 0) {
 			message("copyin from 0x%llx to %p failed", entries_buf, playlist_entries);
@@ -4293,14 +4380,14 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 		for (pe_idx = 0; pe_idx < actual; pe_idx++) {
 			pe = playlist_entries + pe_idx;
 			if (pe->pe_length == 0) {
-				debug("Bad Playlist: entry %d has 0 length", (nplaylist_entries - remaining_entries) + pe_idx);
+				debug("Bad Playlist: entry %llu has 0 length", (nplaylist_entries - remaining_entries) + pe_idx);
 				error = EINVAL;
 				goto out;
 			}
 			pm_idx = pe->pe_mount_idx;
 			
-			if (pm_idx >= nplaylist_mounts || pm_idx < 0) {
-				message("Bad playlist: entry %d referenced non-existent mount index %d", (nplaylist_entries - remaining_entries) + pe_idx, pm_idx);
+			if (pm_idx >= nplaylist_mounts) {
+				message("Bad playlist: entry %llu referenced non-existent mount index %u", (nplaylist_entries - remaining_entries) + pe_idx, pm_idx);
 				error = EINVAL;
 				goto out;
 			}
@@ -4329,7 +4416,6 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 			}
 			
 			/* Merge the new extent with the old extents for this mount. The new extent may get clipped. */
-#ifdef BOOTCACHE_ENTRIES_SORTED_BY_DISK_OFFSET
 			if (cm_idx < old_ncache_mounts) {
 				old_cm = BC_cache->c_mounts + cm_idx;
 				/* Copy any lower or equal extents from the existing playlist down to the low end of the array */
@@ -4345,7 +4431,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 					
 					/* FIXME: rdar://9153031 If the new extent extends past the end of the old extent, we're losing caching! */
 					if (ce->ce_diskoffset + ce->ce_length > (old_cm->cm_pextents[next_old_extent_idx[cm_idx]]->ce_diskoffset + old_cm->cm_pextents[next_old_extent_idx[cm_idx]]->ce_length)) {
-						debug("!!! Entry %d (0x%llx:%#llx) is getting clipped too much because of previous entry for mount %s (0x%llx:%#llx)", pe_idx, ce->ce_diskoffset, ce->ce_length, uuid_string(cm->cm_uuid), old_cm->cm_pextents[next_old_extent_idx[cm_idx]]->ce_diskoffset, old_cm->cm_pextents[next_old_extent_idx[cm_idx]]->ce_length);
+						debug("!!! Entry %llu (0x%llx:%#llx) is getting clipped too much because of previous entry for mount %s (0x%llx:%#llx)", pe_idx, ce->ce_diskoffset, ce->ce_length, uuid_string(cm->cm_uuid), old_cm->cm_pextents[next_old_extent_idx[cm_idx]]->ce_diskoffset, old_cm->cm_pextents[next_old_extent_idx[cm_idx]]->ce_length);
 					}
 					
 					u_int64_t max_offset = old_cm->cm_pextents[next_old_extent_idx[cm_idx]]->ce_diskoffset;
@@ -4367,7 +4453,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 					/* Check if this extent is overlapping with an extent from the same playlist */
 					if (cm->cm_pextents[cm->cm_nextents - 1] >= cache_extents &&
 						cm->cm_pextents[cm->cm_nextents - 1] < cache_extents + ncache_extents) {
-						message("Bad playlist: entry %d (0x%llx:%#llx) overlapped with previous entry for mount %s (0x%llx:%#llx)", pe_idx, ce->ce_diskoffset, ce->ce_length, uuid_string(cm->cm_uuid), cm->cm_pextents[cm->cm_nextents - 1]->ce_diskoffset, cm->cm_pextents[cm->cm_nextents - 1]->ce_length);
+						message("Bad playlist: entry %llu (0x%llx:%#llx) overlapped with previous entry for mount %s (0x%llx:%#llx)", pe_idx, ce->ce_diskoffset, ce->ce_length, uuid_string(cm->cm_uuid), cm->cm_pextents[cm->cm_nextents - 1]->ce_diskoffset, cm->cm_pextents[cm->cm_nextents - 1]->ce_length);
 						error = EINVAL;
 						goto out;
 					}
@@ -4401,7 +4487,6 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 			} else {
 				num_nonshared_bytes += ce->ce_length;
 			}
-#endif			
 			
 			cm->cm_pextents[cm->cm_nextents] = ce;
 			cm->cm_nextents++;
@@ -4432,96 +4517,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 		}
 		
 	}
-	
-#ifndef BOOTCACHE_ENTRIES_SORTED_BY_DISK_OFFSET
-	/* We need an ordered list of extents for each mount, but we were given
-	 * the extents in a different ordering, so we need to sort the mount's
-	 * extent list here
-	 */
-	for (cm_idx = 0; cm_idx < ncache_mounts; cm_idx++) {
-		cm = cache_mounts + cm_idx;
 		
-		/* If this is a new mount or a mount with a new extent list, it needs sorting */
-		if (cm_idx >= old_ncache_mounts ||
-			cm->cm_pextents != BC_cache->c_mounts[cm_idx].cm_pextents) {
-			
-			qsort(cm->cm_pextents,
-				  cm->cm_nextents,
-				  sizeof(*cm->cm_pextents),
-				  compare_cache_extents);
-			
-			/* Clip the new extents of overlap with the old extents */
-			for (ce_idx = 0; ce_idx < cm->cm_nextents; ce_idx++) {
-				
-				/* Only look at new extents, old extents were already clipped when they were added and can't be clipped further */
-				if (cm->cm_pextents[ce_idx] >= cache_extents &&
-					cm->cm_pextents[ce_idx] < cache_extents + ncache_extents) {
-
-					u_int64_t old_length = ce->ce_length;
-
-					/* Compare against the previous (lower) extent */
-					if (ce_idx > 0) {
-						u_int64_t min_offset = cm->cm_pextents[ce_idx - 1]->ce_diskoffset + cm->cm_pextents[ce_idx - 1]->ce_length;
-						if (min_offset > ce->ce_diskoffset) {
-							if (min_offset >= ce->ce_diskoffset + ce->ce_length) {
-								ce->ce_length = 0;
-							} else {
-								ce->ce_length -= (min_offset - ce->ce_diskoffset);
-								ce->ce_diskoffset = min_offset;
-							}
-						}
-					}
-					
-					/* Compare against the next (higher) extent */
-					if (ce_idx < cm_nextents - 1) {
-						u_int64_t max_offset = cm->cm_pextents[ce_idx + 1]->ce_diskoffset;
-						if (max_offset < ce->ce_diskoffset + ce->ce_length) {
-							
-							/* Check if this extent is overlapping with an extent from the same playlist */
-							if (cm->cm_pextents[ce_idx + 1] >= cache_extents &&
-								cm->cm_pextents[ce_idx + 1] < cache_extents + ncache_extents) {
-								message("Bad playlist: entry %d (0x%llx:%#llx) overlapped with previous entry for mount %s (0x%llx:%#llx)", pe_idx, ce->ce_diskoffset, ce->ce_length, uuid_string(cm->cm_uuid), cm->cm_pextents[ce_idx + 1]->ce_diskoffset, cm->cm_pextents[ce_idx + 1]->ce_length);
-								error = EINVAL;
-								goto out;
-							}
-							
-							if (max_offset <= ce->ce_diskoffset) {
-								ce->ce_length = 0;
-							} else {
-								ce->ce_length = (max_offset - ce->ce_diskoffset);
-							}
-						}
-					}
-					
-					if (ce->ce_length != old_length) {
-						clipped_extents++;
-						if (ce->ce_length == 0) {
-							/* extent was enveloped, remove this extent from the mount's extent list */
-							if ((ce_idx + 1) < cm->cm_nextents) {
-								memmove(cm->cm_pextents + ce_idx, cm->cm_pextents + (ce_idx + 1), cm->cm_nextents - (ce_idx + 1));
-							}
-							cm->cm_nextents--;
-							ce_idx--;
-							enveloped_extents++;
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Stats for non-BOOTCACHE_ENTRIES_SORTED_BY_DISK_OFFSET
-	for (ce_idx = 0; ce_idx < ncache_extents; ce_idx++) {
-		size += roundup(cache_extents[ce_idx].ce_length, PAGE_SIZE);
-		if (cache_extents[ce_idx].ce_flags & CE_SHARED) {
-			num_shared_bytes += cache_extents[ce_idx].ce_length;
-		} else {
-			num_nonshared_bytes += cache_extents[ce_idx].ce_length;
-		}
-	}
-	
-#endif
-	
 	if (clipped_extents > 0) {
 		debug("%d extents were clipped, %d of which were completely enveloped", clipped_extents, enveloped_extents);
 	}
@@ -4531,12 +4527,12 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 		error = EALREADY;
 		goto out;
 	}
-		
+
 	_FREE_ZERO(playlist_entries, M_TEMP);
 	_FREE_ZERO(playlist_mounts, M_TEMP);
 	
 	if (ncache_extents < nplaylist_entries) {
-		debug("%d extents added out of %d", ncache_extents, nplaylist_entries);
+		debug("%llu extents added out of %llu", ncache_extents, nplaylist_entries);
 	}
 	for (cm_idx = 0; cm_idx < ncache_mounts; cm_idx++) {
 		debug("Mount %s now has %d extents", uuid_string(cache_mounts[cm_idx].cm_uuid), cache_mounts[cm_idx].cm_nextents);
@@ -4584,7 +4580,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	p = 0;
 	if (BC_cache->c_nextentlists > 0) {
 		/* start at the offset of the end of the previous cache list */
-		for (cel_idx = BC_cache->c_nextentlists - 1; cel_idx >= 0; cel_idx--) {
+		for (int64_t cel_idx = BC_cache->c_nextentlists - 1; cel_idx >= 0; cel_idx--) {
 			if (BC_cache->c_nextents[cel_idx] > 0) {
 				struct BC_cache_extent *last_ce = BC_cache->c_extentlists[cel_idx] + BC_cache->c_nextents[cel_idx] - 1;
 				p = last_ce->ce_cacheoffset + roundup(last_ce->ce_length, PAGE_SIZE);
@@ -4788,7 +4784,7 @@ BC_init_cache(size_t mounts_size, user_addr_t mounts, size_t entries_size, user_
 	}
 		
 	microtime(&current_time);
-	uint64_t current_machabs_time = mach_absolute_time();
+	u_int64_t current_machabs_time = mach_absolute_time();
 
 	/*
 	 * Start recording history.
@@ -4803,7 +4799,9 @@ BC_init_cache(size_t mounts_size, user_addr_t mounts, size_t entries_size, user_
 			UNLOCK_HANDLERS();
 		} else {
 			debug("starting history recording");
-			
+			KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_RECORDING_START), 0, 0, 0, 0, 0);
+			tag_batch_num = 0;
+
 			/* start the timeout handler */
 			timeout(BC_timeout_history, NULL, BC_history_timeout);
 
@@ -4832,6 +4830,7 @@ BC_init_cache(size_t mounts_size, user_addr_t mounts, size_t entries_size, user_
 			if ((BC_cache->c_history = BC_MALLOC(BC_HISTORY_ALLOC, M_TEMP, M_WAITOK)) == NULL) {
 				message("can't allocate %d bytes for static history buffer", BC_HISTORY_ALLOC);
 				BC_clear_flag(BC_FLAG_HISTORYACTIVE);
+				KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_RECORDING_END), 0, 0, 0, 0, 0);
 				error = ENOMEM;
 				goto out;
 			}
@@ -4992,8 +4991,14 @@ static int check_for_new_mount_itr(mount_t mount, void* arg) {
 		return VFS_RETURNED;
 	}
 	
-	uint32_t fs_flags = BC_get_mount_flags(mount, dev);
-	if (fs_flags & BC_FS_ENC_ROLLING) {
+	uint32_t fs_flags = 0;
+	dev_t container_dev = nulldev();
+	uuid_t container_uuid = {0};
+	bool container_has_encrypted_volumes = true;
+	bool container_has_rolling_volumes = true;
+	bc_get_volume_info(dev, &fs_flags, &container_dev, container_uuid, &container_has_encrypted_volumes, &container_has_rolling_volumes);
+	
+	if (fs_flags & BC_FS_APFS_ENCRYPTION_ROLLING) {
 		// <rdar://problem/32395140> Bootcache needs to be disabled for APFS volumes rolling encryption (and their container)
 		message("historic apfs mount %s has encryption rolling in-progress, skipping.", name);
 		UNLOCK_HISTORY_R();
@@ -5049,26 +5054,23 @@ static int check_for_new_mount_itr(mount_t mount, void* arg) {
 		debug("can't determine if physical disk for history mount 0x%llx is an ssd", hmd->hmd_disk_id);
 		hmd->hmd_is_ssd = 0;
 	}
-	vnode_put(devvp);
-	devvp = NULLVP;
 	
 #ifdef ROOT_DISK_ONLY
-	// Use vfs_devvp to compare against rootvp (rather than BC_get_dev)
-	vnode_t rootdevvp = vfs_devvp(mount);
-	if (rootdevvp != NULLVP) {
-		// Unused, so make sure we dont forget to put it
-		vnode_put(rootdevvp);
-	}
-	if (rootdevvp == rootvp) {
-		if (BC_cache->c_root_disk_id == 0) {
+	// Determine root disk
+	if (BC_cache->c_root_disk_id == 0) {
+		// Use vfs_devvp to compare against rootvp (rather than BC_get_dev)
+		vnode_t rootdevvp = vfs_devvp(mount);
+		if (rootdevvp != NULLVP) {
+			// Unused, so make sure we dont forget to put it
+			vnode_put(rootdevvp);
+		}
+		if (rootdevvp == rootvp) {
 			BC_cache->c_root_disk_id = hmd->hmd_disk_id;
 			if (BC_cache->c_root_disk_id == 0) {
 				message("Root disk is 0");
 			} else {
 				debug("Root disk (via history) is 0x%llx", BC_cache->c_root_disk_id);
 			}
-		} else if (BC_cache->c_root_disk_id != hmd->hmd_disk_id) {
-			debug("Root disk 0x%llx doesn't match that found by history 0x%llx", BC_cache->c_root_disk_id, hmd->hmd_disk_id);
 		}
 	}
 #endif
@@ -5076,17 +5078,18 @@ static int check_for_new_mount_itr(mount_t mount, void* arg) {
 	
 	/* Found info for our mount */
 	hmd->hmd_mount.hm_nentries = 0;
-	hmd->hmd_mount.hm_fs_flags = BC_get_mount_flags(mount, hmd->hmd_dev);
+	hmd->hmd_mount.hm_fs_flags = fs_flags;
 	uuid_copy(hmd->hmd_mount.hm_uuid, attr.f_uuid);
 
-	debug("Found new historic mount after %d IOs: %s, dev 0x%x, disk 0x%llx, blk %d%s, flags 0x%x",
+	debug("Found new historic mount after %d IOs: %s, dev 0x%x, disk 0x%llx, blk %d%s, flags 0x%x %son root disk",
 		  hmd->hmd_mount.hm_nentries,
 		  uuid_string(hmd->hmd_mount.hm_uuid),
 		  hmd->hmd_dev,
 		  hmd->hmd_disk_id,
 		  hmd->hmd_blocksize,
 		  hmd->hmd_is_ssd ? ", ssd" : "",
-		  hmd->hmd_mount.hm_fs_flags);
+		  hmd->hmd_mount.hm_fs_flags,
+		  (BC_cache->c_root_disk_id == hmd->hmd_disk_id) ? "" :"not ");
 
 	
 	
@@ -5098,10 +5101,6 @@ static int check_for_new_mount_itr(mount_t mount, void* arg) {
 	//
 	// We track apfs volumes, but there is still some I/O directly to the container, so we need to track the container as well as the volume
 
-	dev_t container_dev = nulldev();
-	uuid_t container_uuid = {0};
-	int container_has_encrypted_volumes = TRUE;
-	int container_has_rolling_volumes = TRUE;
 	struct BC_history_mount_device *container_hmd = NULL;
 	
 	if (! (hmd->hmd_mount.hm_fs_flags & BC_FS_APFS)) {
@@ -5109,14 +5108,16 @@ static int check_for_new_mount_itr(mount_t mount, void* arg) {
 		goto check_cache_mounts;
 	}
 	
-	container_dev = apfs_container_devno(dev, container_uuid, &container_has_encrypted_volumes, &container_has_rolling_volumes);
 	if (container_dev == nulldev() || uuid_is_null(container_uuid)) {
 		message("mount %s has no container", uuid_string(attr.f_uuid));
 		UNLOCK_HISTORY_R();
 		goto check_cache_mounts;
 	}
-	debug("mount %s has container %s dev 0x%x", uuid_string(hmd->hmd_mount.hm_uuid), uuid_string(container_uuid), container_dev);
+	debug("mount %s has container %s dev 0x%x (%sfusion)", uuid_string(hmd->hmd_mount.hm_uuid), uuid_string(container_uuid), container_dev, (fs_flags & BC_FS_APFS_FUSION) ? "" : "not ");
 	
+	// Make sure this mount is grouped with everything in this container when sorting the playlist later
+	uuid_copy(hmd->hmd_mount.hm_group_uuid, container_uuid);
+
 	if (container_has_rolling_volumes) {
 		// <rdar://problem/32395140> Bootcache needs to be disabled for APFS volumes rolling encryption (and their container)
 		message("Not recording apfs container %s that contains rolling volumes", uuid_string(container_uuid));
@@ -5138,17 +5139,19 @@ static int check_for_new_mount_itr(mount_t mount, void* arg) {
 	container_hmd->hmd_disk_id   = hmd->hmd_disk_id;
 	container_hmd->hmd_is_ssd    = hmd->hmd_is_ssd;
 	
-	container_hmd->hmd_mount.hm_fs_flags = BC_FS_APFS | BC_FS_APFS_CONTAINER;
+	container_hmd->hmd_mount.hm_fs_flags = BC_FS_APFS | BC_FS_APFS_CONTAINER | (fs_flags & BC_FS_APFS_FUSION);
 	uuid_copy(container_hmd->hmd_mount.hm_uuid, container_uuid);
+	uuid_copy(container_hmd->hmd_mount.hm_group_uuid, container_uuid);
 
-	debug("Found new historic container mount after %d IOs: %s, dev 0x%x, disk 0x%llx, blk %d%s, flags 0x%x",
+	debug("Found new historic container mount after %d IOs: %s, dev 0x%x, disk 0x%llx, blk %d%s, flags 0x%x %son root disk",
 		  container_hmd->hmd_mount.hm_nentries,
 		  uuid_string(container_hmd->hmd_mount.hm_uuid),
 		  container_hmd->hmd_dev,
 		  container_hmd->hmd_disk_id,
 		  container_hmd->hmd_blocksize,
 		  container_hmd->hmd_is_ssd ? ", ssd" : "",
-		  container_hmd->hmd_mount.hm_fs_flags);
+		  container_hmd->hmd_mount.hm_fs_flags,
+		  (BC_cache->c_root_disk_id == container_hmd->hmd_disk_id) ? "" :"not ");
 
 	UNLOCK_HISTORY_R();
 
@@ -5167,7 +5170,7 @@ check_cache_mounts:
 					/* Found a matching unfilled mount */
 					
 					LOCK_MOUNT_W(cm);
-					if ((error = BC_fill_in_cache_mount(cm, mount)) == 0) {
+					if ((error = BC_fill_in_cache_mount(cm, mount, dev, devvp, fs_flags)) == 0) {
 						LOCK_MOUNT_W_TO_R(cm);
 						/* Kick off another reader thread if this is a new physical disk */
 						BC_mount_available(cm);
@@ -5216,9 +5219,11 @@ check_cache_mounts:
 						break;
 					}
 					
+					uint32_t flags = BC_FS_APFS | BC_FS_APFS_CONTAINER | (fs_flags & BC_FS_APFS_FUSION);
+					
 					LOCK_MOUNT_W(cm);
 					 // I/O direct to containers is never encrypted
-					if ((error = BC_fill_in_cache_mount_ex(cm, container_dev, container_devvp, throttle_mask, BC_FS_APFS | BC_FS_APFS_CONTAINER)) == 0) {
+					if ((error = BC_fill_in_cache_mount_ex(cm, container_dev, container_devvp, throttle_mask, flags)) == 0) {
 						LOCK_MOUNT_W_TO_R(cm);
 						/* Kick off another reader thread if this is a new physical disk */
 						BC_mount_available(cm);
@@ -5237,6 +5242,7 @@ check_cache_mounts:
 		UNLOCK_CACHE_R();
 	}
 	
+	vnode_put(devvp);
 	return VFS_RETURNED;
 }
 
@@ -5288,6 +5294,7 @@ static struct BC_history_mount_device * BC_get_history_mount_device(dev_t dev, i
 				tmphmd->hmd_next = NULL;
 				tmphmd->hmd_mount.hm_nentries = 0;
 				uuid_clear(tmphmd->hmd_mount.hm_uuid);
+				uuid_clear(tmphmd->hmd_mount.hm_group_uuid);
 				tmphmd->hmd_disk_id = 0;
 				tmphmd->hmd_blocksize = 0;
 				tmphmd->hmd_dev = dev;
@@ -5321,19 +5328,19 @@ out:
 /*
  * Record an incoming IO in the history list.
  *
- * Returns non-0 if this IO was on the root disk.
+ * Returns non-0 if this IO was rejected (e.g. due to being non-root or pure SSD)
  *
  * Note that this function is not reentrant.
  */
 static int
-BC_add_history(daddr64_t blkno, u_int64_t length, int pid, int hit, int write, int tag, int shared, uint64_t crypto_offset,  dev_t dev)
+BC_add_history(u_int64_t inode, daddr64_t blkno, u_int64_t length, int pid, int hit, int write, int tag, int shared, u_int64_t crypto_offset,  dev_t dev)
 {	
 	u_int64_t offset;
 	struct BC_history_entry_cluster *hec, *tmphec = NULL;
 	struct BC_history_mount_device *hmd = NULL;
 	struct BC_history_entry *he;
 	int mount_idx, entry_idx;
-	int is_root_disk = 0;
+	int is_rejected = 0;
 	
 	/* don't do anything if we've stopped recording history */
 	if (! (BC_cache->c_flags & BC_FLAG_HISTORYACTIVE))
@@ -5389,7 +5396,7 @@ BC_add_history(daddr64_t blkno, u_int64_t length, int pid, int hit, int write, i
 		hmd = BC_get_history_mount_device(dev, &mount_idx);
 		if (hmd == NULL) goto out;
 		
-		if (! (hmd->hmd_mount.hm_fs_flags & BC_FS_ENCRYPTED)) {
+		if (! (hmd->hmd_mount.hm_fs_flags & BC_FS_APFS_ENCRYPTED)) {
 			if (crypto_offset != 0) {
 				// Ignore crypto offsets for non-encrypted volumes. Don't assert because the value may not be zero'ed out properly, but it is unused
 				crypto_offset = 0;
@@ -5436,13 +5443,23 @@ BC_add_history(daddr64_t blkno, u_int64_t length, int pid, int hit, int write, i
 		 * to be contested enough to make a cache worthwhile
 		 */
 		
-		if (hmd->hmd_disk_id != BC_cache->c_root_disk_id) {
 #ifdef ROOT_DISK_ONLY
+		if (hmd->hmd_disk_id != BC_cache->c_root_disk_id) {
+			is_rejected = 1;
 			goto out;
-#endif
-		} else {
-			is_root_disk = 1;
 		}
+#endif
+
+#ifdef BC_HDD_AND_FUSION_ONLY
+		if (hmd->hmd_is_ssd &&
+			!(hmd->hmd_mount.hm_fs_flags & BC_FS_APFS_FUSION) &&
+			!(hmd->hmd_mount.hm_fs_flags & BC_FS_CS_FUSION)) {
+			
+			is_rejected = 1;
+			goto out;
+		}
+#endif
+
 		
 	}
 	
@@ -5497,6 +5514,7 @@ BC_add_history(daddr64_t blkno, u_int64_t length, int pid, int hit, int write, i
 	he = &(hec->hec_data[entry_idx]);
 	assert(he >= &hec->hec_data[0]);
 	assert(he < &hec->hec_data[BC_HISTORY_ENTRIES]);
+	he->he_inode     = inode;
 	he->he_offset    = offset;
 	he->he_length    = length;
 	he->he_pid       = pid;
@@ -5510,16 +5528,22 @@ BC_add_history(daddr64_t blkno, u_int64_t length, int pid, int hit, int write, i
 	if (hmd)
 		OSIncrementAtomic(&hmd->hmd_mount.hm_nentries);
 	
-	if (!write) {
+	if (!write && !tag) {
 		OSAddAtomic64(length, &BC_cache->c_history_size);
 		if (BC_cache->c_take_detailed_stats) {
 			BC_ADD_STAT(shared, history_bytes, length);
+			if (hmd && (hmd->hmd_mount.hm_fs_flags & BC_FS_APFS_FUSION)) {
+				if (!(he->he_offset & FUSION_TIER2_DEVICE_BYTE_ADDR)) {
+					BC_ADD_STAT(shared, history_optimized_reads, 1);
+					BC_ADD_STAT(shared, history_optimized_bytes, length);
+				}
+			}
 			BC_ADD_STAT(shared, history_entries, 1);
 		}
 	}
 out:
 	UNLOCK_HISTORY_R();
-	return is_root_disk;
+	return is_rejected;
 }
 
 /*
@@ -5678,8 +5702,8 @@ BC_setup(void)
 	 * the problem.
 	 */
 	if ((max_mem / (1024 * 1024)) < BC_minimum_mem_size) {
-		debug("insufficient physical memory (%dMB < %dMB required)",
-			  (int) (max_mem / (1024 * 1024)), BC_minimum_mem_size);
+		debug("insufficient physical memory (%lluMB < %dMB required)",
+			  (max_mem / (1024 * 1024)), BC_minimum_mem_size);
 		return(ENOMEM);
 	}
 	
@@ -5695,8 +5719,35 @@ BC_setup(void)
 	if (netboot_root() && 
 		(!PE_parse_boot_argn("BootCacheOverride", &boot_arg, sizeof(boot_arg)) ||
 		 (boot_arg != 1))) {                          /* not interesting */
-			return(ENXIO);
+			
+		return(ENXIO);
+	}
+	
+#ifdef BC_HDD_AND_FUSION_ONLY
+#ifdef ROOT_DISK_ONLY
+	uint32_t root_disk_is_ssd = false;
+	if (VNOP_IOCTL(rootvp,       /* vnode */
+				   DKIOCISSOLIDSTATE,    /* cmd */
+				   (caddr_t)&root_disk_is_ssd, /* data */
+				   0,
+				   vfs_context_current()))           /* context */
+	{
+		message("can't determine if root disk is an SSD");
+		root_disk_is_ssd = false; // Assume false on failure
+	}
+	if (root_disk_is_ssd) {
+		// Fusion drives are considered SSD by the DKIOCISSOLIDSTATE check above, need to differentiate
+		uint32_t root_mount_flags = 0;
+		bc_get_volume_info(rootdev, &root_mount_flags, NULL, NULL, NULL, NULL);
+		if (!(root_mount_flags & BC_FS_APFS_FUSION) &&
+			!(root_mount_flags & BC_FS_CS_FUSION)) {
+			
+			message("Root disk is an SSD, not caching");
+			return(ENOTSUP);
 		}
+	}
+#endif
+#endif
 	
 	debug("Major of rootdev is %d", major(rootdev));
 	
@@ -5766,9 +5817,10 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 	}
 	
 	switch (bc.bc_opcode) {
+		case BC_OP_START_NORECORDING:
 		case BC_OP_START:
-			debug("BC_OP_START(%d mounts, %d extents) by %s [%d]", (int)(bc.bc_data1_size / sizeof(struct BC_playlist_mount)), (int)(bc.bc_data2_size / sizeof(struct BC_playlist_entry)), procname, proc_selfppid());
-			error = BC_init_cache(bc.bc_data1_size, (user_addr_t)bc.bc_data1, bc.bc_data2_size, (user_addr_t)bc.bc_data2, 1 /* record history */);
+			debug("BC_OP_START(%lu mounts, %lu extents) by %s [%d]", (bc.bc_data1_size / sizeof(struct BC_playlist_mount)), (bc.bc_data2_size / sizeof(struct BC_playlist_entry)), procname, proc_selfppid());
+			error = BC_init_cache(bc.bc_data1_size, (user_addr_t)bc.bc_data1, bc.bc_data2_size, (user_addr_t)bc.bc_data2, (bc.bc_opcode == BC_OP_START));
 			if (error != 0) {
 				message("cache init failed");
 			}
@@ -5838,6 +5890,15 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 			BC_terminate_cache();
 			break;
 			
+		case BC_OP_RESET:
+			debug("BC_OP_RESET by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
+			
+			/*
+			 * Reset the cache to a clean state, ready for a playlist
+			 */
+			error = BC_reset_cache();
+			break;
+			
 		case BC_OP_STATS:
 			debug("BC_OP_STATS by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
 			/* check buffer size and copy out */
@@ -5851,25 +5912,54 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 			}
 			break;
 			
-		case BC_OP_SET_USER_STATS:
-			debug("BC_OP_SET_USER_STATS by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
+		case BC_OP_SET_USER_TIMESTAMPS:
+			debug("BC_OP_SET_USER_TIMESTAMPS by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
 			/* check buffer size and copy in */
-			if (bc.bc_data1_size != sizeof(BC_cache->c_stats.userspace_statistics)) {
+			if (bc.bc_data1_size != sizeof(BC_cache->c_stats.userspace_timestamps)) {
 				debug("userspace stats structure wrong size");
 				error = ENOMEM;
 			} else {
-				if ((error = copyin(bc.bc_data1, &BC_cache->c_stats.userspace_statistics, bc.bc_data1_size)) != 0)
+				if ((error = copyin(bc.bc_data1, &BC_cache->c_stats.userspace_timestamps, bc.bc_data1_size)) != 0)
 					debug("could not copy in user statistics");
 			}
 			break;
 			
+		case BC_OP_ADD_USER_OPTIMIZATIONS:
+			debug("BC_OP_ADD_USER_OPTIMIZATIONS by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
+			/* check buffer size and copy in */
+			if (bc.bc_data1_size != sizeof(BC_cache->c_stats.userspace_optimizations)) {
+				debug("userspace stats structure wrong size");
+				error = ENOMEM;
+			} else {
+				BC_set_flag(BC_FLAG_OPTIMIZATION_COMPLETE);
+				
+				struct BC_userspace_optimizations userspace_optimizations = {0};
+				if ((error = copyin(bc.bc_data1, &userspace_optimizations, bc.bc_data1_size)) != 0) {
+					debug("could not copy in user statistics");
+				} else {
+					BC_cache->c_stats.userspace_optimizations.ssup_fusion_num_inodes_optimized += userspace_optimizations.ssup_fusion_num_inodes_optimized;
+					BC_cache->c_stats.userspace_optimizations.ssup_fusion_bytes_optimized += userspace_optimizations.ssup_fusion_bytes_optimized;
+					BC_cache->c_stats.userspace_optimizations.ssup_hdd_num_reads_already_optimized += userspace_optimizations.ssup_hdd_num_reads_already_optimized;
+					BC_cache->c_stats.userspace_optimizations.ssup_hdd_bytes_already_optimized += userspace_optimizations.ssup_hdd_bytes_already_optimized;
+					BC_cache->c_stats.userspace_optimizations.ssup_hdd_optimization_range_length += userspace_optimizations.ssup_hdd_optimization_range_length;
+				}
+			}
+			
+			break;
+			
 		case BC_OP_TAG:
 			debug("BC_OP_TAG by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
-			KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_TAG) | 
-								  DBG_FUNC_NONE, proc_selfppid(), dbg_tag_count, 
+			KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_TAG) |
+								  DBG_FUNC_NONE, proc_selfppid(), tag_batch_num,
 								  0, 0, 0);
-			BC_add_history(0, 0, 0, 0, 0, 1, 0, 0, 0);
-			dbg_tag_count++;
+			BC_add_history(0, 0, 0, 0, 0, 0, 1, 0, 0, 0);
+			tag_batch_num++;
+			
+			if (bc.bc_data1_size == sizeof(tag_batch_num)) {
+				if ((error = copyout(&tag_batch_num, bc.bc_data1, bc.bc_data1_size)) != 0)
+					debug("could not copy out batch number");
+			}
+
 			break;
 			
 		case BC_OP_TEST:
@@ -5972,7 +6062,7 @@ BC_free_pagebuffer(void)
  * Release one page from the pagebuffer.
  */
 static void
-BC_free_page(struct BC_cache_extent *ce, int page)
+BC_free_page(struct BC_cache_extent *ce, u_int64_t page)
 {
 	off_t vpoffset;
 	kern_return_t kret;
@@ -6050,7 +6140,7 @@ BC_unload(void)
 	 */
 	BC_terminate_history();
 	if ((error = BC_terminate_cache()) != 0) {
-		if (error != ENXIO)
+		if (error != EALREADY)
 			goto out;
 	}
 	LOCK_HISTORY_W();

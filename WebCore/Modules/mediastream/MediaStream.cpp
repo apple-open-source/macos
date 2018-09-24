@@ -47,7 +47,7 @@ namespace WebCore {
 
 Ref<MediaStream> MediaStream::create(ScriptExecutionContext& context)
 {
-    return MediaStream::create(context, MediaStreamPrivate::create(Vector<RefPtr<MediaStreamTrackPrivate>>()));
+    return MediaStream::create(context, MediaStreamPrivate::create({ }));
 }
 
 Ref<MediaStream> MediaStream::create(ScriptExecutionContext& context, MediaStream& stream)
@@ -336,7 +336,6 @@ void MediaStream::statusDidChange()
     if (Document* document = this->document()) {
         if (!m_isActive)
             return;
-        document->setHasActiveMediaStreamTrack();
         document->updateIsPlayingMedia();
     }
 }

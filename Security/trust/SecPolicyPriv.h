@@ -64,7 +64,7 @@ extern const CFStringRef kSecPolicyAppleOTAPKISigner
 extern const CFStringRef kSecPolicyAppleTestOTAPKISigner
     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_12, __MAC_10_13_4, __IPHONE_7_0, __IPHONE_11_3);
 extern const CFStringRef kSecPolicyAppleIDValidationRecordSigningPolicy
-    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_NA, __MAC_NA, __IPHONE_7_0, __IPHONE_10_0);
+    API_DEPRECATED_WITH_REPLACEMENT("kSecPolicyAppleIDValidationRecordSigning", ios(7.0,10.0), macos(10.9,10.12));
 extern const CFStringRef kSecPolicyAppleIDValidationRecordSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 extern const CFStringRef kSecPolicyAppleSMPEncryption
@@ -173,6 +173,14 @@ extern const CFStringRef kSecPolicyAppleBasicAttestationUser
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 extern const CFStringRef kSecPolicyAppleiPhoneVPNApplicationSigning
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyAppleiAPSWAuth
+    API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
+extern const CFStringRef kSecPolicyAppleDemoDigitalCatalog
+    API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
+extern const CFStringRef kSecPolicyAppleAssetReceipt
+    API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
+extern const CFStringRef kSecPolicyAppleDeveloperIDPlusTicket
+    API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
 
 /*!
 	@enum Policy Name Constants (Private)
@@ -686,7 +694,7 @@ SecPolicyRef SecPolicyCreateCodeSigning(void);
 /*!
  @function SecPolicyCreateLockdownPairing
  @abstract basic x509 policy for checking lockdown pairing certificate chains.
- @disucssion This policy checks some of the Basic X.509 policy options with no
+ @discussion This policy checks some of the Basic X.509 policy options with no
  validity check. It explicitly allows for empty subjects.
  @result A policy object. The caller is responsible for calling CFRelease
  on this when it is no longer needed.
@@ -1649,6 +1657,22 @@ SecPolicyRef SecPolicyCreateAppleBasicAttestationUser(CFDataRef __nullable testR
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
 /*!
+ @function SecPolicyCreateiAPSWAuth
+ @abstract Returns a policy object for verifying iAP Software Auth certificates
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check
+ and pinning options:
+     * There are exactly 2 certs in the chain.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.59.1
+ The intended use of this policy is that the caller pass in the
+ SW Auth root to SecTrustSetAnchorCertificates().
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateiAPSWAuth(void)
+    __OSX_AVAILABLE(10.13.4) __IOS_AVAILABLE(11.3) __TVOS_AVAILABLE(11.3) __WATCHOS_AVAILABLE(4.3);
+
+/*!
  @function SecPolicyCreateDemoDigitalCatalog
  @abstract  Returns a policy object for evaluating certificate chains for signing Digital
  Catalog manifests for Demo units.
@@ -1663,6 +1687,69 @@ SecPolicyRef SecPolicyCreateAppleBasicAttestationUser(CFDataRef __nullable testR
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateDemoDigitalCatalogSigning(void)
     __OSX_AVAILABLE(10.13.4) __IOS_AVAILABLE(11.3) __TVOS_AVAILABLE(11.3) __WATCHOS_AVAILABLE(4.3);
+
+/*!
+ @function SecPolicyCreateAppleAssetReceipt
+ @abstract  Returns a policy object for evaluating certificate chains for signing Asset Receipts
+ @discussion This policy uses the Basic X.509 policy with no validity check
+ and pinning options:
+     * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+     the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.10.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.61.
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleAssetReceipt(void)
+    API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
+
+/*!
+ @function SecPolicyCreateAppleDeveloperIDPlustTicket
+ @abstract  Returns a policy object for evaluating certificate chains for signing Developer ID+ Tickets
+ @discussion This policy uses the Basic X.509 policy with no validity check
+ and pinning options:
+     * The chain is anchored to any of the production Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.17.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.1.30.
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleDeveloperIDPlusTicket(void)
+    API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
+
+/*!
+ @function SecPolicyCreateiAPSWAuthWithExpiration
+ @abstract Returns a policy object for verifying iAP Software Auth certificates
+ @param checkExpiration Determines whether the policy checks expiration on the certificates
+ @discussion The resulting policy uses the Basic X.509 policy and pinning options:
+    * There are exactly 2 certs in the chain.
+    * The leaf has a marker extension with OID 1.2.840.113635.100.6.59.1
+ The intended use of this policy is that the caller pass in the
+ SW Auth root to SecTrustSetAnchorCertificates().
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateiAPSWAuthWithExpiration(bool checkExpiration)
+    API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
+
+/*!
+ @function SecPolicyCreateAppleFDRProvisioning
+ @abstract Returns a policy object for verifying FDR Provisioning certificates
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check.
+ The intended use of this policy is that the caller pass in the FDR root to SecTrustSetAnchorCertificates().
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleFDRProvisioning(void)
+    API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
 
 /*
  *  Legacy functions (OS X only)
@@ -1707,7 +1794,8 @@ SecPolicyRef SecPolicyCreateItemImplInstance(SecPolicyRef policy);
  to SecPolicyCreateWithProperties. The return value can be NULL
  if no supported policy was found for the OID argument. */
 __nullable
-CFStringRef SecPolicyGetStringForOID(CSSM_OID* oid);
+CFStringRef SecPolicyGetStringForOID(CSSM_OID* oid)
+    API_DEPRECATED("No longer supported", macos(10.5,10.14));
 
 /*!
  @function SecPolicyCreateAppleTimeStampingAndRevocationPolicies

@@ -34,6 +34,7 @@ struct LogEntry {
     IOHIDEventSenderID      serviceID;
     IOHIDEventPolicyValue   policy;
     IOHIDEventType          eventType;
+    uint64_t                timestamp;
 };
 
 class IOHIDNXEventTranslatorSessionFilter
@@ -115,7 +116,7 @@ private:
     void updateModifiers();
     void updateButtons();
     void updateActivity (bool active);
-    void updateDisplayLog(IOHIDEventSenderID serviceID, IOHIDEventPolicyValue policy, IOHIDEventType eventType);
+    void updateDisplayLog(IOHIDEventSenderID serviceID, IOHIDEventPolicyValue policy, IOHIDEventType eventType, uint64_t timestamp);
     
     IOHIDServiceRef getCompanionService(IOHIDServiceRef service);
     

@@ -172,41 +172,56 @@ static uint8_t descriptor[] = {
     
     IOReturn status;
     
-    REPORT_WITH_ID report;
+    REPORT_WITH_ID vendorPayloadReport;
 
-    for (NSUInteger length = 1; length < sizeof(report.data); length++) {
-        report.id = kVendorPayloadReportID;
+    for (NSUInteger length = 1; length < sizeof(vendorPayloadReport.data); length++) {
+        vendorPayloadReport.id = kVendorPayloadReportID;
         for (uint8_t i = 0; i < length; i++) {
-          report.data[i] = length;
+          vendorPayloadReport.data[i] = length;
         }
-        NSData * reportData =  [[NSData alloc] initWithBytes:&report length: (sizeof(report.data) + 1)];
+        NSData * reportData =  [[NSData alloc] initWithBytes:&vendorPayloadReport length: (length + 1)];  // create report of variable size
         status = [self.sourceController handleReport:reportData withInterval:0];
         XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-
     }
   
     // Allow elements value to be dispatched
     usleep(kDefaultReportDispatchCompletionTime);
   
     // Make copy
-    NSArray *values = nil;
-    @synchronized (self.deviceController.values) {
-        values = [self.deviceController.values copy];
+    NSArray *values  = nil;
+    NSArray *reports = nil;
+
+    @synchronized (self.deviceController) {
+        values  = [self.deviceController.values copy];
+        reports = [self.deviceController.reports copy];
     }
 
     // Check values
-    XCTAssertTrue(values && values.count == (sizeof(report.data) - 1),
-        "values count:%lu expected:%lu", (unsigned long)values.count, sizeof(report.data) - 1
-        );
-  
+    XCTAssert(values && values.count == (sizeof(vendorPayloadReport.data) - 1),
+                  "values count:%lu expected:%lu values:%@", (unsigned long)values.count, sizeof(vendorPayloadReport.data) - 1, values
+                  );
+
+    // Check values
+    XCTAssert(reports && reports.count == (sizeof(vendorPayloadReport.data) - 1),
+                  "reports count:%lu expected:%lu reports:%@", (unsigned long)reports.count, sizeof(vendorPayloadReport.data) - 1, reports
+                  );
+
     for (NSUInteger index = 0; index < values.count; ++index) {
         NSDictionary *value = values[index];
         NSData *data = value[@"data"];
-        XCTAssertTrue (data && data.length == sizeof(report.data), "Data %@, Length:%lu", data, (unsigned long)data.length);
+        XCTAssertTrue (data && data.length == (index + 1), "Element data %@, Length:%lu", data, (unsigned long)data.length);
         IOHIDElementRef element = (__bridge IOHIDElementRef)value[@"element"];
         XCTAssertTrue (element && IOHIDElementGetUsagePage (element) == kHIDPage_AppleVendor && IOHIDElementGetUsage (element) == kHIDUsage_AppleVendor_Payload);
     }
 
+    for (NSUInteger index = 0; index < reports.count; ++index) {
+        NSDictionary *report = reports[index];
+        NSData *data = report[@"data"];
+        XCTAssertTrue (data && data.length == (index + 1 + 1), "Report data %@, Length:%lu", data, (unsigned long)data.length);
+    }
+
+    
+    
 }
 
 @end

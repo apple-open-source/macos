@@ -8,10 +8,17 @@
 #   delay-close   Delay close/reset of selected interface
 #   no-reattach   Do no re-attach usblp kernel module after printing.
 #   soft-reset    Do a soft reset after printing for cleanup.
-#   unidir        Only supported unidirectional I/O
+#   unidir        Only supports unidirectional I/O
 #   usb-init      Needs vendor USB initialization string.
 #   vendor-class  Uses vendor-specific class or subclass.
 #   whitelist     The printer is functional with the USB backend.
+#
+# To get the USB vendor and product IDs for a given printer, run the "lsusb"
+# command, which will show something like the following:
+#
+#   Bus 002 Device 003: ID ab21:34dc Acme Example Printer
+#
+# The "ab21:34dc" is the vendor and product ID, separated by a colon.
 
 # HP DeskJet 895C
 0x03f0 0x0004 unidir
@@ -76,6 +83,9 @@
 # Canon, Inc. MP510 Printer (https://bugs.launchpad.net/bugs/1050009)
 0x04a9 0x1717 unidir
 
+# Canon, Inc. MP540 Printer, https://bugzilla.redhat.com/967873
+0x04a9 0x1730 unidir
+
 # Canon, Inc. MP550 Printer (Issue #4155)
 0x04a9 0x173d unidir
 
@@ -126,6 +136,9 @@
 
 # All Samsung devices (https://bugs.launchpad.net/bugs/1032456)
 0x04e8 soft-reset
+
+# Samsung ML-2160 Series (https://bugzilla.redhat.com/show_bug.cgi?id=873123)
+0x04e8 0x330f unidir
 
 # All Zebra devices (https://bugs.launchpad.net/bugs/1001028)
 0x0a5f unidir
@@ -251,5 +264,23 @@
 # Kyocera Ecosys P6026cdn (Issue #4900)
 0x0482 0x063f no-reattach
 
+# Kyocera Ecosys P6130cdn (Issue #5102)
+0x0482 0x0677 no-reattach
+
 # Lexmark E260dn (Issue #4994)
 0x043d 0x0123 no-reattach
+
+# HP LaserJet 1160 (Issue #5121)
+0x03f0 0x1e17 delay-close
+
+# Canon, Inc. MP280 series (Issue #5221)
+0x04a9 0x1746 unidir
+
+# Star Micronics printers (Issue #5251)
+0x0519 unidir
+
+# Lexmark Optra E310 (Issue #5259)
+0x043d 0x000c no-reattach
+
+# HP LaserJet P1102 (Issue #5310)
+0x03F0 0x002A no-reattach

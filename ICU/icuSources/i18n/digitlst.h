@@ -464,6 +464,8 @@ private:
 
 public:
     decContext    fContext;   // public access to status flags.  
+    // Flag to cap double conversion precision at DBL_DIG digits (Apple specific)
+    UBool fFormatFullPrecision;
 
 private:
     decNumber     *fDecNumber;

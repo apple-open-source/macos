@@ -108,7 +108,7 @@
 
 "system.preferences" = "__APPNAME__ is trying to modify your system settings.";
 
-"com.apple.SoftwareUpdate.modify-settings" = "__APPNAME__ is trying to unlock the App Store preferences.";
+"com.apple.SoftwareUpdate.modify-settings" = "__APPNAME__ is trying to unlock the Software Update preferences.";
 
 "com.apple.uninstalld.uninstall" = "__APPNAME__ is trying to delete an application.";
 
@@ -124,7 +124,7 @@
 
 "com.apple.server.admin.streaming" = "__APPNAME__ is trying to modify the QuickTime Streaming Server settings.";
 
-"system.preferences.softwareupdate" = "__APPNAME__ is trying to unlock the App Store preferences.";
+"system.preferences.softwareupdate" = "__APPNAME__ is trying to unlock the Software Update preferences.";
 
 "system.keychain.modify" = "__APPNAME__ is trying to modify the system keychain.";
 
@@ -161,3 +161,9 @@
 "com.apple.security.sudo" = "__APPNAME__ is trying to execute a command as administrator.";
 
 "com.apple.configurationprofiles.userprofile.trustcert" = "__APPNAME__ is trying to trust a certificate from a user configuration profile.";
+
+"com.apple.app-sandbox.create-symlink" = "__APPNAME__ wants to install a symlink into /usr/local/bin.";
+
+"com.apple.app-sandbox.set-attributes" = "__APPNAME__ wants to change permissions of a privileged file.";
+
+"com.apple.app-sandbox.replace-file" = "__APPNAME__ wants to save a file in a privileged location.";

@@ -51,6 +51,7 @@ bool doesGC(Graph& graph, Node* node)
     case Identity:
     case IdentityWithProfile:
     case GetCallee:
+    case SetCallee:
     case GetArgumentCountIncludingThis:
     case SetArgumentCountIncludingThis:
     case GetRestLength:
@@ -96,6 +97,7 @@ bool doesGC(Graph& graph, Node* node)
     case ArithFRound:
     case ArithUnary:
     case ValueAdd:
+    case ValueNegate:
     case TryGetById:
     case GetById:
     case GetByIdFlush:
@@ -140,7 +142,10 @@ bool doesGC(Graph& graph, Node* node)
     case AssertNotEmpty:
     case CheckStringIdent:
     case RegExpExec:
+    case RegExpExecNonGlobalOrSticky:
     case RegExpTest:
+    case RegExpMatchFast:
+    case RegExpMatchFastGlobal:
     case CompareLess:
     case CompareLessEq:
     case CompareGreater:
@@ -150,6 +155,7 @@ bool doesGC(Graph& graph, Node* node)
     case CompareEq:
     case CompareStrictEq:
     case CompareEqPtr:
+    case SameValue:
     case Call:
     case DirectCall:
     case TailCallInlinedCaller:
@@ -174,6 +180,7 @@ bool doesGC(Graph& graph, Node* node)
     case IsUndefined:
     case IsBoolean:
     case IsNumber:
+    case NumberIsInteger:
     case IsObject:
     case IsObjectOrNull:
     case IsFunction:
@@ -187,7 +194,8 @@ bool doesGC(Graph& graph, Node* node)
     case CallStringConstructor:
     case NumberToStringWithRadix:
     case NumberToStringWithValidRadixConstant:
-    case In:
+    case InByVal:
+    case InById:
     case HasOwnProperty:
     case Jump:
     case Branch:
@@ -205,7 +213,6 @@ bool doesGC(Graph& graph, Node* node)
     case CPUIntrinsic:
     case CheckTraps:
     case StringFromCharCode:
-    case MapHash:
     case NormalizeMapKey:
     case GetMapBucket:
     case GetMapBucketHead:
@@ -214,9 +221,12 @@ bool doesGC(Graph& graph, Node* node)
     case LoadValueFromMapBucket:
     case ExtractValueFromWeakMapGet:
     case WeakMapGet:
+    case WeakSetAdd:
+    case WeakMapSet:
     case Unreachable:
-    case ExtractCatchLocal:
     case ExtractOSREntryLocal:
+    case ExtractCatchLocal:
+    case ClearCatchLocals:
     case CheckTierUpInLoop:
     case CheckTierUpAtReturn:
     case CheckTierUpAndOSREnter:
@@ -240,7 +250,6 @@ bool doesGC(Graph& graph, Node* node)
     case GetByValWithThis:
     case GetIndexedPropertyStorage:
     case GetArrayLength:
-    case GetArrayMask:
     case GetVectorLength:
     case ArrayPush:
     case ArrayPop:
@@ -276,6 +285,7 @@ bool doesGC(Graph& graph, Node* node)
     case PhantomNewArrayBuffer:
     case PhantomSpread:
     case PhantomClonedArguments:
+    case PhantomNewRegexp:
     case GetMyArgumentByVal:
     case GetMyArgumentByValOutOfBounds:
     case ForwardVarargs:
@@ -303,6 +313,7 @@ bool doesGC(Graph& graph, Node* node)
     case AtomicsSub:
     case AtomicsXor:
     case AtomicsIsLockFree:
+    case MatchStructure:
         return false;
 
     case PushWithScope:
@@ -314,6 +325,7 @@ bool doesGC(Graph& graph, Node* node)
     case ToObject:
     case ToThis:
     case CreateThis:
+    case ObjectCreate:
     case AllocatePropertyStorage:
     case ReallocatePropertyStorage:
     case Arrayify:
@@ -354,6 +366,18 @@ bool doesGC(Graph& graph, Node* node)
     case SetAdd:
     case MapSet:
         return true;
+
+    case MapHash:
+        switch (node->child1().useKind()) {
+        case BooleanUse:
+        case Int32Use:
+        case SymbolUse:
+        case ObjectUse:
+            return false;
+        default:
+            // We might resolve a rope.
+            return true;
+        }
         
     case MultiPutByOffset:
         return node->multiPutByOffsetData().reallocatesStorage();

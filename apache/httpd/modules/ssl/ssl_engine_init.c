@@ -261,7 +261,8 @@ apr_status_t ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
          * the protocol is https. */
         if (ap_get_server_protocol(s) 
             && strcmp("https", ap_get_server_protocol(s)) == 0
-            && sc->enabled == SSL_ENABLED_UNSET) {
+            && sc->enabled == SSL_ENABLED_UNSET
+            && (!apr_is_empty_array(sc->server->pks->cert_files))) {
             sc->enabled = SSL_ENABLED_TRUE;
         }
 
@@ -912,6 +913,10 @@ static apr_status_t ssl_init_ctx_crl(server_rec *s,
     char *cfgp = mctx->pkp ? "SSLProxy" : "SSL";
     int crl_check_mode;
 
+    if (mctx->ocsp_mask == UNSET) {
+        mctx->ocsp_mask = SSL_OCSPCHECK_NONE;
+    }
+
     if (mctx->crl_check_mask == UNSET) {
         mctx->crl_check_mask = SSL_CRLCHECK_NONE;
     }
@@ -1350,8 +1355,8 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
 #if defined(SSL_CTX_set_ecdh_auto)
         SSL_CTX_set_ecdh_auto(mctx->ssl_ctx, 1);
 #else
-        SSL_CTX_set_tmp_ecdh(mctx->ssl_ctx,
-                             EC_KEY_new_by_curve_name(NID_X9_62_prime256v1));
+        eckey = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+        SSL_CTX_set_tmp_ecdh(mctx->ssl_ctx, eckey);
 #endif
     }
 #endif

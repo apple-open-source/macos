@@ -85,11 +85,6 @@ private:
             m_layerTreeHost.renderNextFrame();
         }
 
-        void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset) override
-        {
-            m_layerTreeHost.commitScrollOffset(layerID, offset);
-        }
-
         uint64_t nativeSurfaceHandleForCompositing() override
         {
             return m_layerTreeHost.nativeSurfaceHandleForCompositing();
@@ -118,7 +113,6 @@ private:
     // CompositingCoordinator::Client
     void didFlushRootLayer(const WebCore::FloatRect&) override { }
     void commitSceneState(const WebCore::CoordinatedGraphicsState&) override;
-    void releaseUpdateAtlases(const Vector<uint32_t>&) override;
 
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) override;

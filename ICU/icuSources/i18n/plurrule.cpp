@@ -268,7 +268,7 @@ PluralRules::select(const Formattable& obj, const NumberFormat& fmt, UErrorCode&
 }
 
 UnicodeString
-PluralRules::select(const FixedDecimal &number) const {
+PluralRules::select(const IFixedDecimal &number) const {
     if (mRules == NULL) {
         return UnicodeString(TRUE, PLURAL_DEFAULT_RULE, -1);
     }
@@ -312,7 +312,7 @@ PluralRules::getAllKeywordValues(const UnicodeString & /* keyword */, double * /
     return 0;
 }
 
-    
+
 static double scaleForInt(double d) {
     double scale = 1.0;
     while (d != floor(d)) {
@@ -347,7 +347,7 @@ getSamplesFromString(const UnicodeString &samples, double *dest,
                 dest[sampleCount++] = sampleValue;
             }
         } else {
-            
+
             FixedDecimal fixedLo(sampleRange.tempSubStringBetween(0, tildeIndex), status);
             FixedDecimal fixedHi(sampleRange.tempSubStringBetween(tildeIndex+1), status);
             double rangeLo = fixedLo.source;
@@ -363,7 +363,7 @@ getSamplesFromString(const UnicodeString &samples, double *dest,
             // For ranges of samples with fraction decimal digits, scale the number up so that we
             //   are adding one in the units place. Avoids roundoffs from repetitive adds of tenths.
 
-            double scale = scaleForInt(rangeLo); 
+            double scale = scaleForInt(rangeLo);
             double t = scaleForInt(rangeHi);
             if (t > scale) {
                 scale = t;
@@ -399,12 +399,12 @@ PluralRules::getSamples(const UnicodeString &keyword, double *dest,
         return 0;
     }
     int32_t numSamples = getSamplesFromString(rc->fIntegerSamples, dest, destCapacity, status);
-    if (numSamples == 0) { 
+    if (numSamples == 0) {
         numSamples = getSamplesFromString(rc->fDecimalSamples, dest, destCapacity, status);
     }
     return numSamples;
 }
-    
+
 
 RuleChain *PluralRules::rulesForKeyword(const UnicodeString &keyword) const {
     RuleChain *rc;
@@ -546,7 +546,7 @@ PluralRuleParser::parse(const UnicodeString& ruleData, PluralRules *prules, UErr
                     }
                     else {
                         curAndConstraint->rangeList->setElementAt(getNumberValue(token), rangeHiIdx);
-                        if (curAndConstraint->rangeList->elementAti(rangeLowIdx) > 
+                        if (curAndConstraint->rangeList->elementAti(rangeLowIdx) >
                                 curAndConstraint->rangeList->elementAti(rangeHiIdx)) {
                             // Range Lower bound > Range Upper bound.
                             // U_UNEXPECTED_TOKEN seems a little funny, but it is consistently
@@ -597,7 +597,7 @@ PluralRuleParser::parse(const UnicodeString& ruleData, PluralRules *prules, UErr
                 // The new rule chain goes at the end of the linked list of rule chains,
                 //   unless there is an "other" keyword & chain. "other" must remain last.
                 RuleChain *insertAfter = prules->mRules;
-                while (insertAfter->fNext!=NULL && 
+                while (insertAfter->fNext!=NULL &&
                        insertAfter->fNext->fKeyword.compare(PLURAL_KEYWORD_OTHER, 5) != 0 ){
                     insertAfter=insertAfter->fNext;
                 }
@@ -638,7 +638,7 @@ PluralRuleParser::parse(const UnicodeString& ruleData, PluralRules *prules, UErr
                 currentChain->fDecimalSamples.append(token);
             }
             break;
-                
+
         default:
             break;
         }
@@ -783,15 +783,17 @@ AndConstraint::~AndConstraint() {
 
 
 UBool
-AndConstraint::isFulfilled(const FixedDecimal &number) {
+AndConstraint::isFulfilled(const IFixedDecimal &number) {
     UBool result = TRUE;
     if (digitsType == none) {
         // An empty AndConstraint, created by a rule with a keyword but no following expression.
         return TRUE;
     }
-    double n = number.get(digitsType);  // pulls n | i | v | f value for the number.
-                                        // Will always be positive.
-                                        // May be non-integer (n option only)
+
+    PluralOperand operand = tokenTypeToPluralOperand(digitsType);
+    double n = number.getPluralOperand(operand);     // pulls n | i | v | f value for the number.
+                                                     // Will always be positive.
+                                                     // May be non-integer (n option only)
     do {
         if (integerOnly && n != uprv_floor(n)) {
             result = FALSE;
@@ -873,7 +875,7 @@ OrConstraint::add()
 }
 
 UBool
-OrConstraint::isFulfilled(const FixedDecimal &number) {
+OrConstraint::isFulfilled(const IFixedDecimal &number) {
     OrConstraint* orRule=this;
     UBool result=FALSE;
 
@@ -891,13 +893,13 @@ OrConstraint::isFulfilled(const FixedDecimal &number) {
 }
 
 
-RuleChain::RuleChain(): fKeyword(), fNext(NULL), ruleHeader(NULL), fDecimalSamples(), fIntegerSamples(), 
+RuleChain::RuleChain(): fKeyword(), fNext(NULL), ruleHeader(NULL), fDecimalSamples(), fIntegerSamples(),
                         fDecimalSamplesUnbounded(FALSE), fIntegerSamplesUnbounded(FALSE) {
 }
 
-RuleChain::RuleChain(const RuleChain& other) : 
+RuleChain::RuleChain(const RuleChain& other) :
         fKeyword(other.fKeyword), fNext(NULL), ruleHeader(NULL), fDecimalSamples(other.fDecimalSamples),
-        fIntegerSamples(other.fIntegerSamples), fDecimalSamplesUnbounded(other.fDecimalSamplesUnbounded), 
+        fIntegerSamples(other.fIntegerSamples), fDecimalSamplesUnbounded(other.fDecimalSamplesUnbounded),
         fIntegerSamplesUnbounded(other.fIntegerSamplesUnbounded) {
     if (other.ruleHeader != NULL) {
         this->ruleHeader = new OrConstraint(*(other.ruleHeader));
@@ -914,8 +916,8 @@ RuleChain::~RuleChain() {
 
 
 UnicodeString
-RuleChain::select(const FixedDecimal &number) const {
-    if (!number.isNanOrInfinity) {
+RuleChain::select(const IFixedDecimal &number) const {
+    if (!number.isNaN() && !number.isInfinite()) {
         for (const RuleChain *rules = this; rules != NULL; rules = rules->fNext) {
              if (rules->ruleHeader->isFulfilled(number)) {
                  return rules->fKeyword;
@@ -1066,9 +1068,9 @@ RuleChain::isKeyword(const UnicodeString& keywordParam) const {
 }
 
 
-PluralRuleParser::PluralRuleParser() : 
-        ruleIndex(0), token(), type(none), prevType(none), 
-        curAndConstraint(NULL), currentChain(NULL), rangeLowIdx(-1), rangeHiIdx(-1)  
+PluralRuleParser::PluralRuleParser() :
+        ruleIndex(0), token(), type(none), prevType(none),
+        curAndConstraint(NULL), currentChain(NULL), rangeLowIdx(-1), rangeHiIdx(-1)
 {
 }
 
@@ -1169,8 +1171,8 @@ PluralRuleParser::checkSyntax(UErrorCode &status)
         break;
     case tNumber:
         if (type != tDot2  && type != tSemiColon && type != tIs       && type != tNot    &&
-            type != tIn    && type != tEqual     && type != tNotEqual && type != tWithin && 
-            type != tAnd   && type != tOr        && type != tComma    && type != tAt     && 
+            type != tIn    && type != tEqual     && type != tNotEqual && type != tWithin &&
+            type != tAnd   && type != tOr        && type != tComma    && type != tAt     &&
             type != tEOF)
         {
             status = U_UNEXPECTED_TOKEN;
@@ -1215,7 +1217,7 @@ PluralRuleParser::getNextToken(UErrorCode &status)
         return;
     }
     int32_t curIndex= ruleIndex;
-        
+
     switch (type) {
       case tColon:
       case tSemiColon:
@@ -1320,7 +1322,7 @@ PluralRuleParser::charType(UChar ch) {
 
 //  Set token type for reserved words in the Plural Rule syntax.
 
-tokenType 
+tokenType
 PluralRuleParser::getKeyType(const UnicodeString &token, tokenType keyType)
 {
     if (keyType != tKeyword) {
@@ -1405,13 +1407,35 @@ PluralKeywordEnumeration::count(UErrorCode& /*status*/) const {
 PluralKeywordEnumeration::~PluralKeywordEnumeration() {
 }
 
+PluralOperand tokenTypeToPluralOperand(tokenType tt) {
+    switch(tt) {
+    case tVariableN:
+        return PLURAL_OPERAND_N;
+    case tVariableI:
+        return PLURAL_OPERAND_I;
+    case tVariableF:
+        return PLURAL_OPERAND_F;
+    case tVariableV:
+        return PLURAL_OPERAND_V;
+    case tVariableT:
+        return PLURAL_OPERAND_T;
+    default:
+        U_ASSERT(FALSE);  // unexpected.
+        return PLURAL_OPERAND_N;
+    }
+}
+
+//now in number_decimalquantity.cpp
+//IFixedDecimal::~IFixedDecimal() = default;
+
 FixedDecimal::FixedDecimal(const VisibleDigits &digits) {
     digits.getFixedDecimal(
             source, intValue, decimalDigits,
             decimalDigitsWithoutTrailingZeros,
-            visibleDecimalDigitCount, hasIntegerValue);
+            visibleDecimalDigitCount, _hasIntegerValue);
     isNegative = digits.isNegative();
-    isNanOrInfinity = digits.isNaNOrInfinity();
+    _isNaN = digits.isNaN();
+    _isInfinite = digits.isInfinite();
 }
 
 FixedDecimal::FixedDecimal(double n, int32_t v, int64_t f) {
@@ -1474,10 +1498,13 @@ FixedDecimal::FixedDecimal(const FixedDecimal &other) {
     decimalDigits = other.decimalDigits;
     decimalDigitsWithoutTrailingZeros = other.decimalDigitsWithoutTrailingZeros;
     intValue = other.intValue;
-    hasIntegerValue = other.hasIntegerValue;
+    _hasIntegerValue = other._hasIntegerValue;
     isNegative = other.isNegative;
-    isNanOrInfinity = other.isNanOrInfinity;
+    _isNaN = other._isNaN;
+    _isInfinite = other._isInfinite;
 }
+
+FixedDecimal::~FixedDecimal() = default;
 
 
 void FixedDecimal::init(double n) {
@@ -1489,15 +1516,16 @@ void FixedDecimal::init(double n) {
 void FixedDecimal::init(double n, int32_t v, int64_t f) {
     isNegative = n < 0.0;
     source = fabs(n);
-    isNanOrInfinity = uprv_isNaN(source) || uprv_isPositiveInfinity(source);
-    if (isNanOrInfinity) {
+    _isNaN = uprv_isNaN(source);
+    _isInfinite = uprv_isInfinite(source);
+    if (_isNaN || _isInfinite) {
         v = 0;
         f = 0;
         intValue = 0;
-        hasIntegerValue = FALSE;
+        _hasIntegerValue = FALSE;
     } else {
         intValue = (int64_t)source;
-        hasIntegerValue = (source == intValue);
+        _hasIntegerValue = (source == intValue);
     }
 
     visibleDecimalDigitCount = v;
@@ -1559,7 +1587,7 @@ int32_t FixedDecimal::decimals(double n) {
         if (buf[i] != '0') {
             break;
         }
-        --numFractionDigits; 
+        --numFractionDigits;
     }
     numFractionDigits -= exponent;   // Fraction part of fixed point representation.
     return numFractionDigits;
@@ -1608,19 +1636,35 @@ void FixedDecimal::adjustForMinFractionDigits(int32_t minFractionDigits) {
         visibleDecimalDigitCount += numTrailingFractionZeros;
     }
 }
-        
 
-double FixedDecimal::get(tokenType operand) const {
+
+double FixedDecimal::getPluralOperand(PluralOperand operand) const {
     switch(operand) {
-        case tVariableN: return source;
-        case tVariableI: return (double)intValue;
-        case tVariableF: return (double)decimalDigits;
-        case tVariableT: return (double)decimalDigitsWithoutTrailingZeros; 
-        case tVariableV: return visibleDecimalDigitCount;
+        case PLURAL_OPERAND_N: return source;
+        case PLURAL_OPERAND_I: return static_cast<double>(intValue);
+        case PLURAL_OPERAND_F: return static_cast<double>(decimalDigits);
+        case PLURAL_OPERAND_T: return static_cast<double>(decimalDigitsWithoutTrailingZeros);
+        case PLURAL_OPERAND_V: return visibleDecimalDigitCount;
         default:
              U_ASSERT(FALSE);  // unexpected.
              return source;
     }
+}
+
+bool FixedDecimal::isNaN() const {
+    return _isNaN;
+}
+
+bool FixedDecimal::isInfinite() const {
+    return _isInfinite;
+}
+
+bool FixedDecimal::hasIntegerValue() const {
+    return _hasIntegerValue;
+}
+
+bool FixedDecimal::isNanOrInfinity() const {
+    return _isNaN || _isInfinite;
 }
 
 int32_t FixedDecimal::getVisibleFractionDigitCount() const {
@@ -1665,7 +1709,7 @@ const char *PluralAvailableLocalesEnumeration::next(int32_t *resultLength, UErro
     }
     const char *result = ures_getKey(fRes);
     if (resultLength != NULL) {
-        *resultLength = uprv_strlen(result);
+        *resultLength = static_cast<int32_t>(uprv_strlen(result));
     }
     return result;
 }

@@ -41,7 +41,6 @@ const uint64_t kCKDXPCVersion = 1;
 
 // seems like launchd looks for the BundleIdentifier, not the name
 const char *xpcServiceName = "com.apple.security.cloudkeychainproxy3";   //"CloudKeychainProxy";
-const char *xpcIDSServiceName = "com.apple.security.keychainsyncingoveridsproxy";
 
 const char *kMessageKeyOperation = "operation";
 const char *kMessageKeyKey = "key";
@@ -55,7 +54,6 @@ const char *kMessageKeyKeysRequiresUnlocked = "KeysRequiresUnlocked";
 const char *kMessageKeyNotificationFlags = "NotificationFlags";
 const char *kMessageKeyPeerIDList = "peerIDList";
 const char *kMesssgeKeyBackupPeerIDList = "backupPeerIDList";
-const char *kOperationSendDeviceList = "IDSDeviceList";
 
 /* parameters within the dictionary */
 const char *kMessageAlwaysKeys = "AlwaysKeys";
@@ -68,12 +66,9 @@ const char *kMessageKeyParameter = "KeyParameter";
 const char *kMessageCircle = "Circle";
 const char *kMessageMessage = "Message";
 const char *kMessageKeyDeviceName = "deviceName";
-const char *kMessageKeyIDSDataMessage = "idsDataMessage";
-const char *kMessageKeyDeviceID = "deviceID";
 const char *kMessageKeyPeerID = "peerID";
 const char *kMessageKeySendersPeerID = "sendersPeerID";
 const char *kMessageKeyAccountUUID = "AcctUUID";
-const char *kMessageKeySenderDeviceID = "SendersDeviceID";
 
 const char *kMessageOperationItemChanged = "ItemChanged";
 
@@ -91,14 +86,7 @@ const char *kOperationGETv2 = "GETv2";
 const char *kOperationRegisterKeys = "RegisterKeys";
 const char *kOperationRemoveKeys = "RemoveKeys";
 
-const char *kOperationGetDeviceID = "DeviceID";
-const char *kOperationGetIDSPerfCounters = "IDSPerf";
-
 const char *kOperationHasPendingKey = "hasPendingKey";
-
-const char *kOperationSendIDSMessage = "IDSMessage";
-const char *kOperationSendFragmentedIDSMessage = "IDSMessageFragmented";
-const char *kOperationGetPendingMesages = "IDSPendingMessages";
 
 const char *kOperationRequestSyncWithPeers = "requestSyncWithPeers";
 const char *kOperationHasPendingSyncWithPeer = "hasPendingSyncWithPeer";

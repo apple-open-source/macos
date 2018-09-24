@@ -242,7 +242,7 @@ private:
 private:
     typedef map<CSSM_ACL_SUBJECT_TYPE, AclSubject::Maker *> MakerMap;
     static ModuleNexus<MakerMap> makers;	// registered subject Makers
-    static NormalMutex makersMutex;
+    static ModuleNexus<NormalMutex> makersMutex;
 
     static AclSubject::Maker &makerFor(CSSM_ACL_SUBJECT_TYPE type);
 };

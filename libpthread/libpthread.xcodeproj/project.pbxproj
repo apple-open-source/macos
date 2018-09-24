@@ -62,6 +62,20 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		6E2A3BBE2101222F0003B53B /* stack_np.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E2A3BBD210122230003B53B /* stack_np.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		6E2A3BBF210122300003B53B /* stack_np.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E2A3BBD210122230003B53B /* stack_np.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		6E2A3BC0210122340003B53B /* stack_np.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E2A3BBD210122230003B53B /* stack_np.h */; };
+		6E5869C720C9040A00F1CB75 /* dependency_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E5869C620C8FE8300F1CB75 /* dependency_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		6E5869C820C9040B00F1CB75 /* dependency_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E5869C620C8FE8300F1CB75 /* dependency_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		6E5869C920C9040C00F1CB75 /* dependency_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E5869C620C8FE8300F1CB75 /* dependency_private.h */; };
+		6E5869CB20C9043200F1CB75 /* pthread_dependency.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E5869CA20C9043200F1CB75 /* pthread_dependency.c */; };
+		6E5869CC20C9043B00F1CB75 /* pthread_dependency.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E5869CA20C9043200F1CB75 /* pthread_dependency.c */; };
+		6E5869CD20C9043B00F1CB75 /* pthread_dependency.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E5869CA20C9043200F1CB75 /* pthread_dependency.c */; };
+		6E5869CE20C9043C00F1CB75 /* pthread_dependency.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E5869CA20C9043200F1CB75 /* pthread_dependency.c */; };
+		6E5869CF20C9043C00F1CB75 /* pthread_dependency.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E5869CA20C9043200F1CB75 /* pthread_dependency.c */; };
+		6E5869D020C9043D00F1CB75 /* pthread_dependency.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E5869CA20C9043200F1CB75 /* pthread_dependency.c */; };
+		6E5869D120C9043D00F1CB75 /* pthread_dependency.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E5869CA20C9043200F1CB75 /* pthread_dependency.c */; };
+		6E5869D220C9043E00F1CB75 /* pthread_dependency.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E5869CA20C9043200F1CB75 /* pthread_dependency.c */; };
 		6E8C16541B14F08A00C8987C /* resolver.c in Sources */ = {isa = PBXBuildFile; fileRef = 6EB232C91B0EB29D005915CE /* resolver.c */; };
 		6E8C16551B14F08A00C8987C /* pthread.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A325FA15B7513200270056 /* pthread.c */; };
 		6E8C16561B14F08A00C8987C /* pthread_cancelable.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A325F115B7513200270056 /* pthread_cancelable.c */; };
@@ -166,7 +180,6 @@
 		C9A1BF5015C9A59B006BB313 /* sched.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A3260115B7513700270056 /* sched.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C9A1BF5315C9A9F5006BB313 /* pthread_cancelable_cancel.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A1BF5215C9A9F5006BB313 /* pthread_cancelable_cancel.c */; };
 		C9A1BF5515C9CB9D006BB313 /* pthread_cancelable_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A1BF5415C9CB9D006BB313 /* pthread_cancelable_legacy.c */; };
-		C9A960B0183EB42700AE10C8 /* kern_policy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A960AF183EB42700AE10C8 /* kern_policy.c */; };
 		C9BB478B15E6ABD900F135B7 /* workqueue_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F915B7513200270056 /* workqueue_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C9BB478D15E6ADF700F135B7 /* tsd_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F415B7513200270056 /* tsd_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C9CCFB9D18B6D0910060CAAE /* qos_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C99B17DA189C2E1B00991D38 /* qos_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -334,11 +347,15 @@
 			containerPortal = C9A325D915B7347000270056 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = E4F4498C1E82C1F000A7FB9A;
-			remoteInfo = "libpthread alt resolved";
+			remoteInfo = "libpthread armv81 resolved";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		6E2A3BBD210122230003B53B /* stack_np.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stack_np.h; sourceTree = "<group>"; };
+		6E514A0220B67C0900844EE1 /* offsets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = offsets.h; sourceTree = "<group>"; };
+		6E5869C620C8FE8300F1CB75 /* dependency_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dependency_private.h; sourceTree = "<group>"; };
+		6E5869CA20C9043200F1CB75 /* pthread_dependency.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pthread_dependency.c; sourceTree = "<group>"; };
 		6E8C16801B14F08A00C8987C /* libsystem_pthread.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_pthread.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		6E8C16851B14F14000C8987C /* pthread_introspection.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = pthread_introspection.xcconfig; sourceTree = "<group>"; };
 		6EB232C91B0EB29D005915CE /* resolver.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = resolver.c; sourceTree = "<group>"; };
@@ -444,7 +461,6 @@
 		C9A3260015B7513700270056 /* pthread_spis.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pthread_spis.h; sourceTree = "<group>"; };
 		C9A3260115B7513700270056 /* sched.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sched.h; sourceTree = "<group>"; };
 		C9A3260C15B759B600270056 /* pthread.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = pthread.xcconfig; sourceTree = "<group>"; };
-		C9A960AF183EB42700AE10C8 /* kern_policy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kern_policy.c; sourceTree = "<group>"; };
 		C9A960B318452B2F00AE10C8 /* pthread.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = pthread.py; sourceTree = "<group>"; };
 		C9A960B618452CDD00AE10C8 /* install-lldbmacros.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "install-lldbmacros.sh"; sourceTree = "<group>"; };
 		C9C2212D15FA978D00447568 /* pthread.aliases */ = {isa = PBXFileReference; lastKnownFileType = text; path = pthread.aliases; sourceTree = "<group>"; };
@@ -460,7 +476,7 @@
 		E4943AA71E80BD8400D2A961 /* resolver_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = resolver_internal.h; sourceTree = "<group>"; };
 		E4D962F919086AD600E8A9F2 /* qos.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = qos.h; sourceTree = "<group>"; };
 		E4D962FC19086C5700E8A9F2 /* install-sys-headers.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "install-sys-headers.sh"; sourceTree = "<group>"; };
-		E4F449A01E82C1F000A7FB9A /* libpthread_alt.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libpthread_alt.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		E4F449A01E82C1F000A7FB9A /* libpthread_armv81.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libpthread_armv81.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E4F449A31E82CF0100A7FB9A /* resolver.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = resolver.xcconfig; sourceTree = "<group>"; };
 		E4F449D41E82D03500A7FB9A /* libsystem_pthread.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_pthread.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC30E28D16A747AD00A25B5F /* synch_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = synch_internal.h; sourceTree = "<group>"; };
@@ -547,7 +563,6 @@
 				C9D9E8FE1626248800448CED /* pthread-Info.plist */,
 				C9C533841607C928009988FA /* kern_internal.h */,
 				C9169DDF1603DF9B005A2F8C /* kern_init.c */,
-				C9A960AF183EB42700AE10C8 /* kern_policy.c */,
 				C9169DDB1603DE84005A2F8C /* kern_synch.c */,
 				C9169DDC1603DE84005A2F8C /* kern_support.c */,
 				C979E9FB18A1BC2A000951E5 /* kern_trace.h */,
@@ -656,7 +671,7 @@
 				6E8C16801B14F08A00C8987C /* libsystem_pthread.dylib */,
 				C04545B81C584F4A006A53B3 /* libpthread.a */,
 				E41505E71E818BEB00F243FB /* libpthread_mp.a */,
-				E4F449A01E82C1F000A7FB9A /* libpthread_alt.a */,
+				E4F449A01E82C1F000A7FB9A /* libpthread_armv81.a */,
 				E4F449D41E82D03500A7FB9A /* libsystem_pthread.dylib */,
 			);
 			name = Products;
@@ -665,6 +680,7 @@
 		C9A325ED15B74FB600270056 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				6E514A0220B67C0900844EE1 /* offsets.h */,
 				C9A325F315B7513200270056 /* internal.h */,
 				C9A325EF15B7513200270056 /* plockstat.d */,
 				C9A325FA15B7513200270056 /* pthread.c */,
@@ -674,6 +690,7 @@
 				C9A325F215B7513200270056 /* pthread_cond.c */,
 				924D8EDE1C11832A002AC2BC /* pthread_cwd.c */,
 				C9A325F515B7513200270056 /* pthread_mutex.c */,
+				6E5869CA20C9043200F1CB75 /* pthread_dependency.c */,
 				C9A325F615B7513200270056 /* pthread_rwlock.c */,
 				C975D5DC15C9D16B0098ECD8 /* pthread_support.c */,
 				C9A325F815B7513200270056 /* pthread_tsd.c */,
@@ -694,6 +711,7 @@
 				C9A3260015B7513700270056 /* pthread_spis.h */,
 				C9A3260115B7513700270056 /* sched.h */,
 				C98C95D818FF1F4E005654FB /* spawn.h */,
+				6E2A3BBD210122230003B53B /* stack_np.h */,
 				C9244C1A185FCFED00075748 /* qos.h */,
 			);
 			path = pthread;
@@ -756,6 +774,7 @@
 				E4657D4017284F7B007D1847 /* introspection_private.h */,
 				C99B17DA189C2E1B00991D38 /* qos_private.h */,
 				E4063CF21906B4FB000202F9 /* qos.h */,
+				6E5869C620C8FE8300F1CB75 /* dependency_private.h */,
 			);
 			path = private;
 			sourceTree = "<group>";
@@ -805,6 +824,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6E2A3BC0210122340003B53B /* stack_np.h in Headers */,
 				6E8C16711B14F08A00C8987C /* posix_sched.h in Headers */,
 				6E8C166F1B14F08A00C8987C /* introspection_private.h in Headers */,
 				E41A64AE1E83C470009479A9 /* introspection.h in Headers */,
@@ -819,6 +839,7 @@
 				6E8C166B1B14F08A00C8987C /* pthread_impl.h in Headers */,
 				6E8C166D1B14F08A00C8987C /* pthread_spis.h in Headers */,
 				6E8C166E1B14F08A00C8987C /* sched.h in Headers */,
+				6E5869C920C9040C00F1CB75 /* dependency_private.h in Headers */,
 				6E8C16751B14F08A00C8987C /* spawn.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -848,6 +869,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6E2A3BBE2101222F0003B53B /* stack_np.h in Headers */,
 				C9244C1B185FD33000075748 /* qos.h in Headers */,
 				C9A1BF4D15C9A58E006BB313 /* pthread.h in Headers */,
 				C9A1BF4E15C9A594006BB313 /* pthread_impl.h in Headers */,
@@ -862,6 +884,7 @@
 				C98C95D918FF1F4E005654FB /* spawn.h in Headers */,
 				C99AD87C15DEC5290009A6F8 /* spinlock_private.h in Headers */,
 				C9BB478B15E6ABD900F135B7 /* workqueue_private.h in Headers */,
+				6E5869C720C9040A00F1CB75 /* dependency_private.h in Headers */,
 				C9153096167ACC2B006BB094 /* private.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -877,6 +900,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6E2A3BBF210122300003B53B /* stack_np.h in Headers */,
 				E4F449BE1E82D03500A7FB9A /* qos.h in Headers */,
 				E4F449BF1E82D03500A7FB9A /* pthread.h in Headers */,
 				E4F449C01E82D03500A7FB9A /* pthread_impl.h in Headers */,
@@ -891,6 +915,7 @@
 				E4F449C91E82D03500A7FB9A /* spawn.h in Headers */,
 				E4F449CA1E82D03500A7FB9A /* spinlock_private.h in Headers */,
 				E4F449CB1E82D03500A7FB9A /* workqueue_private.h in Headers */,
+				6E5869C820C9040B00F1CB75 /* dependency_private.h in Headers */,
 				E4F449CC1E82D03500A7FB9A /* private.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1044,9 +1069,9 @@
 			productReference = E41505E71E818BEB00F243FB /* libpthread_mp.a */;
 			productType = "com.apple.product-type.library.static";
 		};
-		E4F4498C1E82C1F000A7FB9A /* libpthread alt resolved */ = {
+		E4F4498C1E82C1F000A7FB9A /* libpthread armv81 resolved */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E4F4499D1E82C1F000A7FB9A /* Build configuration list for PBXNativeTarget "libpthread alt resolved" */;
+			buildConfigurationList = E4F4499D1E82C1F000A7FB9A /* Build configuration list for PBXNativeTarget "libpthread armv81 resolved" */;
 			buildPhases = (
 				E4F4498D1E82C1F000A7FB9A /* Sources */,
 				E4F4499C1E82C1F000A7FB9A /* Symlink normal variant */,
@@ -1055,9 +1080,9 @@
 			);
 			dependencies = (
 			);
-			name = "libpthread alt resolved";
-			productName = libpthread_alt.a;
-			productReference = E4F449A01E82C1F000A7FB9A /* libpthread_alt.a */;
+			name = "libpthread armv81 resolved";
+			productName = libpthread_armv81.a;
+			productReference = E4F449A01E82C1F000A7FB9A /* libpthread_armv81.a */;
 			productType = "com.apple.product-type.library.static";
 		};
 		E4F449A41E82D03500A7FB9A /* libsystem_pthread noresolver */ = {
@@ -1118,7 +1143,7 @@
 				E4F449A41E82D03500A7FB9A /* libsystem_pthread noresolver */,
 				6E8C16511B14F08A00C8987C /* libsystem_pthread introspection */,
 				E41505D01E818BEB00F243FB /* libpthread mp resolved */,
-				E4F4498C1E82C1F000A7FB9A /* libpthread alt resolved */,
+				E4F4498C1E82C1F000A7FB9A /* libpthread armv81 resolved */,
 				C04545A21C584F4A006A53B3 /* libpthread generic */,
 				C90E7A9E15DC3C3800A06D48 /* libpthread dyld */,
 				74E594911613AAF4006C417B /* libpthread eOS */,
@@ -1389,6 +1414,7 @@
 				6E8C16631B14F08A00C8987C /* pthread_support.c in Sources */,
 				6E8C16641B14F08A00C8987C /* thread_setup.c in Sources */,
 				6E8C16651B14F08A00C8987C /* pthread_atfork.c in Sources */,
+				6E5869CD20C9043B00F1CB75 /* pthread_dependency.c in Sources */,
 				6E8C16661B14F08A00C8987C /* pthread_asm.s in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1400,6 +1426,7 @@
 				6EB232D01B0EB325005915CE /* resolver.c in Sources */,
 				74E594931613AAF4006C417B /* pthread.c in Sources */,
 				74E594941613AAF4006C417B /* pthread_cancelable.c in Sources */,
+				6E5869D220C9043E00F1CB75 /* pthread_dependency.c in Sources */,
 				74E594A61613AB10006C417B /* pthread_cancelable_cancel.c in Sources */,
 				74E594951613AAF4006C417B /* pthread_cond.c in Sources */,
 				74E594961613AAF4006C417B /* pthread_mutex.c in Sources */,
@@ -1421,6 +1448,7 @@
 				C04545A41C584F4A006A53B3 /* resolver.c in Sources */,
 				C04545A51C584F4A006A53B3 /* pthread.c in Sources */,
 				C04545A61C584F4A006A53B3 /* pthread_cancelable.c in Sources */,
+				6E5869D020C9043D00F1CB75 /* pthread_dependency.c in Sources */,
 				C04545A71C584F4A006A53B3 /* pthread_cancelable_cancel.c in Sources */,
 				C04545A81C584F4A006A53B3 /* pthread_cond.c in Sources */,
 				C04545A91C584F4A006A53B3 /* pthread_mutex.c in Sources */,
@@ -1445,6 +1473,7 @@
 				C90E7AA515DC3C9D00A06D48 /* pthread_cancelable.c in Sources */,
 				C90E7AA615DC3C9D00A06D48 /* pthread_cond.c in Sources */,
 				C90E7AA715DC3C9D00A06D48 /* pthread_mutex.c in Sources */,
+				6E5869D120C9043D00F1CB75 /* pthread_dependency.c in Sources */,
 				C90E7AA815DC3C9D00A06D48 /* pthread_rwlock.c in Sources */,
 				C90E7AA915DC3C9D00A06D48 /* pthread_support.c in Sources */,
 				C90E7AAA15DC3C9D00A06D48 /* pthread_tsd.c in Sources */,
@@ -1476,6 +1505,7 @@
 				C975D5DD15C9D16B0098ECD8 /* pthread_support.c in Sources */,
 				C948FCF715D1D1E100180BF5 /* thread_setup.c in Sources */,
 				C90E7AB815DC40D900A06D48 /* pthread_atfork.c in Sources */,
+				6E5869CB20C9043200F1CB75 /* pthread_dependency.c in Sources */,
 				C99AD88015E2D8B50009A6F8 /* pthread_asm.s in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1485,7 +1515,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				C9169DDE1603DE84005A2F8C /* kern_support.c in Sources */,
-				C9A960B0183EB42700AE10C8 /* kern_policy.c in Sources */,
 				C9169DE01603DF9B005A2F8C /* kern_init.c in Sources */,
 				C9D75E4216127B3900C2FB26 /* kern_synch.c in Sources */,
 			);
@@ -1498,6 +1527,7 @@
 				E41505D21E818BEB00F243FB /* resolver.c in Sources */,
 				E41505D31E818BEB00F243FB /* pthread.c in Sources */,
 				E41505D41E818BEB00F243FB /* pthread_cancelable.c in Sources */,
+				6E5869CE20C9043C00F1CB75 /* pthread_dependency.c in Sources */,
 				E41505D51E818BEB00F243FB /* pthread_cancelable_cancel.c in Sources */,
 				E41505D61E818BEB00F243FB /* pthread_cond.c in Sources */,
 				E41505D71E818BEB00F243FB /* pthread_mutex.c in Sources */,
@@ -1519,6 +1549,7 @@
 				E4F4498E1E82C1F000A7FB9A /* resolver.c in Sources */,
 				E4F4498F1E82C1F000A7FB9A /* pthread.c in Sources */,
 				E4F449901E82C1F000A7FB9A /* pthread_cancelable.c in Sources */,
+				6E5869CF20C9043C00F1CB75 /* pthread_dependency.c in Sources */,
 				E4F449911E82C1F000A7FB9A /* pthread_cancelable_cancel.c in Sources */,
 				E4F449921E82C1F000A7FB9A /* pthread_cond.c in Sources */,
 				E4F449931E82C1F000A7FB9A /* pthread_mutex.c in Sources */,
@@ -1554,6 +1585,7 @@
 				E4F449B81E82D03500A7FB9A /* pthread_support.c in Sources */,
 				E4F449B91E82D03500A7FB9A /* thread_setup.c in Sources */,
 				E4F449BA1E82D03500A7FB9A /* pthread_atfork.c in Sources */,
+				6E5869CC20C9043B00F1CB75 /* pthread_dependency.c in Sources */,
 				E4F449BB1E82D03500A7FB9A /* pthread_asm.s in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1628,7 +1660,7 @@
 		};
 		E4F449A21E82C5A400A7FB9A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = E4F4498C1E82C1F000A7FB9A /* libpthread alt resolved */;
+			target = E4F4498C1E82C1F000A7FB9A /* libpthread armv81 resolved */;
 			targetProxy = E4F449A11E82C5A400A7FB9A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -1832,7 +1864,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = E41505E81E818D4D00F243FB /* resolved.xcconfig */;
 			buildSettings = {
-				RESOLVED_VARIANT = alt;
+				RESOLVED_VARIANT = armv81;
 			};
 			name = Release;
 		};
@@ -1840,7 +1872,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = E41505E81E818D4D00F243FB /* resolved.xcconfig */;
 			buildSettings = {
-				RESOLVED_VARIANT = alt;
+				RESOLVED_VARIANT = armv81;
 			};
 			name = Debug;
 		};
@@ -1987,7 +2019,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E4F4499D1E82C1F000A7FB9A /* Build configuration list for PBXNativeTarget "libpthread alt resolved" */ = {
+		E4F4499D1E82C1F000A7FB9A /* Build configuration list for PBXNativeTarget "libpthread armv81 resolved" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				E4F4499E1E82C1F000A7FB9A /* Release */,

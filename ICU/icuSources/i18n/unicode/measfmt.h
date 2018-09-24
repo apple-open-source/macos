@@ -24,7 +24,7 @@
 
 /**
  * \file 
- * \brief C++ API: Formatter for measure objects.
+ * \brief C++ API: Compatibility APIs for measure formatting.
  */
 
 /**
@@ -100,8 +100,9 @@ class DateFormat;
 class FieldPositionHandler;
 
 /**
- * 
- * A formatter for measure objects.
+ * <p><strong>IMPORTANT:</strong> New users are strongly encouraged to see if
+ * numberformatter.h fits their use case.  Although not deprecated, this header
+ * is provided for backwards compatibility only.
  *
  * @see Format
  * @author Alan Liu
@@ -114,6 +115,9 @@ class U_I18N_API MeasureFormat : public Format {
 
     /**
      * Constructor.
+     * <p>
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
      * @stable ICU 53
      */
     MeasureFormat(
@@ -121,6 +125,9 @@ class U_I18N_API MeasureFormat : public Format {
 
     /**
      * Constructor.
+     * <p>
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
      * @stable ICU 53
      */
     MeasureFormat(
@@ -256,7 +263,6 @@ class U_I18N_API MeasureFormat : public Format {
             FieldPosition &pos,
             UErrorCode &status) const;
 
-#ifndef U_HIDE_DRAFT_API
     /**
      * Gets the display name of the specified {@link MeasureUnit} corresponding to the current
      * locale and format width.
@@ -266,15 +272,17 @@ class U_I18N_API MeasureFormat : public Format {
      *          {@link MeasureFormat#getInstance}, or null if there is no display name available
      *          for the specified unit.
      *
-     * @draft ICU 58
+     * @stable ICU 58
      */
     UnicodeString getUnitDisplayName(const MeasureUnit& unit, UErrorCode &status) const;
-#endif /* U_HIDE_DRAFT_API */
 
 
     /**
      * Return a formatter for CurrencyAmount objects in the given
      * locale.
+     * <p>
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
      * @param locale desired locale
      * @param ec input-output error code
      * @return a formatter object, or NULL upon error
@@ -286,6 +294,9 @@ class U_I18N_API MeasureFormat : public Format {
     /**
      * Return a formatter for CurrencyAmount objects in the default
      * locale.
+     * <p>
+     * <strong>NOTE:</strong> New users are strongly encouraged to use
+     * {@link NumberFormatter} instead of NumberFormat.
      * @param ec input-output error code
      * @return a formatter object, or NULL upon error
      * @stable ICU 3.0

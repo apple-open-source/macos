@@ -65,7 +65,11 @@
 
 #include "atomicio.h"
 
+#if __has_include(<nw/private.h>)
+#include <nw/private.h>
+#else // __has_include(<nw/private.h>)
 #include <network/conninfo.h>
+#endif // __has_include(<nw/private.h>)
 
 static int str2sotc(const char *);
 static int str2netservicetype(const char *);

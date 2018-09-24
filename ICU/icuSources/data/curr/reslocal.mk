@@ -4,7 +4,7 @@
 #
 
 CURR_SOURCE_LOCAL = iu.txt ms_Arab.txt ms_Arab_BN.txt\
-	tg.txt tk.txt\
+	tk.txt\
 	en_AD.txt en_AL.txt en_BA.txt en_BD.txt en_BG.txt\
 	en_BR.txt en_CN.txt en_CZ.txt en_EE.txt en_ES.txt en_FR.txt\
 	en_GR.txt en_HR.txt en_HU.txt en_ID.txt en_IS.txt\
@@ -19,3 +19,5 @@ CURR_SOURCE_LOCAL = iu.txt ms_Arab.txt ms_Arab_BN.txt\
 	es_SX.txt es_TC.txt es_TT.txt es_VC.txt es_VG.txt\
 	es_VI.txt\
 	pt_FR.txt
+
+CURR_ALIAS_SOURCE_LOCAL = wuu.txt

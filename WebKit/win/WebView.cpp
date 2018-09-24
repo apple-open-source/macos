@@ -34,14 +34,10 @@
 #include "MarshallingHelpers.h"
 #include "PluginDatabase.h"
 #include "PluginView.h"
-#include "SocketProvider.h"
-#include "SubframeLoader.h"
-#include "TextIterator.h"
 #include "WebApplicationCache.h"
 #include "WebBackForwardList.h"
 #include "WebChromeClient.h"
 #include "WebContextMenuClient.h"
-#include "WebCoreTextRenderer.h"
 #include "WebDatabaseManager.h"
 #include "WebDatabaseProvider.h"
 #include "WebDocumentLoader.h"
@@ -102,6 +98,7 @@
 #include <WebCore/FloatQuad.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/Font.h>
+#include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameSelection.h>
 #include <WebCore/FrameTree.h>
@@ -127,9 +124,9 @@
 #include <WebCore/LogInitialization.h>
 #include <WebCore/Logging.h>
 #include <WebCore/MIMETypeRegistry.h>
-#include <WebCore/MainFrame.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/MemoryRelease.h>
+#include <WebCore/NetworkStorageSession.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageCache.h>
@@ -159,16 +156,21 @@
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityPolicy.h>
 #include <WebCore/Settings.h>
+#include <WebCore/ShouldTreatAsContinuingLoad.h>
+#include <WebCore/SocketProvider.h>
+#include <WebCore/SubframeLoader.h>
 #include <WebCore/SystemInfo.h>
+#include <WebCore/TextIterator.h>
 #include <WebCore/UserContentController.h>
 #include <WebCore/UserScript.h>
 #include <WebCore/UserStyleSheet.h>
+#include <WebCore/WebCoreTextRenderer.h>
 #include <WebCore/WindowMessageBroadcaster.h>
 #include <WebCore/WindowsTouch.h>
-#include <bindings/ScriptValue.h>
 #include <comdef.h>
 #include <d2d1.h>
 #include <wtf/MainThread.h>
+#include <wtf/ProcessPrivilege.h>
 #include <wtf/RAMSize.h>
 #include <wtf/SoftLinking.h>
 #include <wtf/UniqueRef.h>
@@ -412,6 +414,8 @@ WebView::WebView()
 {
     JSC::initializeThreading();
     RunLoop::initializeMainRunLoop();
+    WTF::setProcessPrivileges(allPrivileges());
+    WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
 
     m_backingStoreSize.cx = m_backingStoreSize.cy = 0;
 
@@ -1785,8 +1789,8 @@ void WebView::onMenuCommand(WPARAM wParam, LPARAM lParam)
     menuItemInfo.fMask = MIIM_STRING;
     ::GetMenuItemInfo(hMenu, index, true, &menuItemInfo);
 
-    auto buffer = std::make_unique<WCHAR[]>(menuItemInfo.cch + 1);
-    menuItemInfo.dwTypeData = buffer.get();
+    Vector<WCHAR> buffer(menuItemInfo.cch + 1);
+    menuItemInfo.dwTypeData = buffer.data();
     menuItemInfo.cch++;
     menuItemInfo.fMask |= MIIM_ID;
 
@@ -1795,7 +1799,7 @@ void WebView::onMenuCommand(WPARAM wParam, LPARAM lParam)
     ::DestroyMenu(m_currentContextMenu);
     m_currentContextMenu = nullptr;
 
-    String title(buffer.get(), menuItemInfo.cch);
+    String title(buffer.data(), menuItemInfo.cch);
     ContextMenuAction action = static_cast<ContextMenuAction>(menuItemInfo.wID);
 
     if (action >= ContextMenuItemBaseApplicationTag) {
@@ -2345,11 +2349,11 @@ bool WebView::handleEditingKeyboardEvent(KeyboardEvent* evt)
     auto* frame = downcast<Node>(evt->target())->document().frame();
     ASSERT(frame);
 
-    const PlatformKeyboardEvent* keyEvent = evt->keyEvent();
+    auto* keyEvent = evt->underlyingPlatformEvent();
     if (!keyEvent || keyEvent->isSystemKey())  // do not treat this as text input if it's a system key event
         return false;
 
-    Editor::Command command = frame->editor().command(interpretKeyEvent(evt));
+    auto command = frame->editor().command(interpretKeyEvent(evt));
 
     if (keyEvent->type() == PlatformEvent::RawKeyDown) {
         // WebKit doesn't have enough information about mode to decide how commands that just insert text if executed via Editor should be treated,
@@ -2358,14 +2362,14 @@ bool WebView::handleEditingKeyboardEvent(KeyboardEvent* evt)
         return !command.isTextInsertion() && command.execute(evt);
     }
 
-     if (command.execute(evt))
+    if (command.execute(evt))
         return true;
 
     // Don't insert null or control characters as they can result in unexpected behaviour
     if (evt->charCode() < ' ')
         return false;
 
-    return frame->editor().insertText(evt->keyEvent()->text(), evt);
+    return frame->editor().insertText(keyEvent->text(), evt);
 }
 
 bool WebView::keyDown(WPARAM virtualKeyCode, LPARAM keyData, bool systemKeyDown)
@@ -2550,11 +2554,13 @@ LRESULT CALLBACK WebView::WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam,
     // they are delivered. We repost paint messages so that we eventually get
     // a chance to paint once the modal loop has exited, but other messages
     // aren't safe to repost, so we just drop them.
+#if ENABLE(NETSCAPE_PLUGIN_API)
     if (PluginView::isCallingPlugin()) {
         if (message == WM_PAINT)
             PostMessage(hWnd, message, wParam, lParam);
         return 0;
     }
+#endif
 
     bool handled = true;
 
@@ -3432,7 +3438,7 @@ HRESULT WebView::goToBackForwardItem(_In_opt_ IWebHistoryItem* item, _Out_ BOOL*
     if (FAILED(hr))
         return hr;
 
-    m_page->goToItem(*webHistoryItem->historyItem(), FrameLoadType::IndexedBackForward);
+    m_page->goToItem(*webHistoryItem->historyItem(), FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No);
     *succeeded = TRUE;
 
     return S_OK;
@@ -5144,7 +5150,7 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     settings.setShouldDisplayTextDescriptions(enabled);
 #endif
 
-    COMPtr<IWebPreferencesPrivate6> prefsPrivate { Query, preferences };
+    COMPtr<IWebPreferencesPrivate7> prefsPrivate { Query, preferences };
     if (prefsPrivate) {
         hr = prefsPrivate->localStorageDatabasePath(&str);
         if (FAILED(hr))
@@ -5208,6 +5214,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     RuntimeEnabledFeatures::sharedFeatures().setCustomElementsEnabled(!!enabled);
 
+    hr = prefsPrivate->menuItemElementEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    RuntimeEnabledFeatures::sharedFeatures().setMenuItemElementEnabled(!!enabled);
+
     hr = prefsPrivate->modernMediaControlsEnabled(&enabled);
     if (FAILED(hr))
         return hr;
@@ -5217,6 +5228,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     if (FAILED(hr))
         return hr;
     RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsEnabled(!!enabled);
+
+    hr = prefsPrivate->webAnimationsCSSIntegrationEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsCSSIntegrationEnabled(!!enabled);
 
     hr = prefsPrivate->userTimingEnabled(&enabled);
     if (FAILED(hr))
@@ -5262,6 +5278,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     if (FAILED(hr))
         return hr;
     settings.setVisualViewportAPIEnabled(!!enabled);
+
+    hr = prefsPrivate->crossOriginWindowPolicySupportEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings.setCrossOriginWindowPolicySupportEnabled(!!enabled);
 
     hr = preferences->privateBrowsingEnabled(&enabled);
     if (FAILED(hr))
@@ -5475,6 +5496,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     settings.setWebGLEnabled(true);
 #endif // ENABLE(WEBGL)
 
+    hr = prefsPrivate->spatialNavigationEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings.setSpatialNavigationEnabled(!!enabled);
+
     hr = prefsPrivate->isDNSPrefetchingEnabled(&enabled);
     if (FAILED(hr))
         return hr;
@@ -5551,6 +5577,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     if (FAILED(hr))
         return hr;
     settings.setJavaScriptRuntimeFlags(JSC::RuntimeFlags(javaScriptRuntimeFlags));
+
+    hr = prefsPrivate->serverTimingEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    RuntimeEnabledFeatures::sharedFeatures().setServerTimingEnabled(!!enabled);
 
     return S_OK;
 }
@@ -5944,7 +5975,7 @@ HRESULT WebView::loadBackForwardListFromOtherView(_In_opt_ IWebView* otherView)
     }
     
     ASSERT(newItemToGoTo);
-    m_page->goToItem(*newItemToGoTo, FrameLoadType::IndexedBackForward);
+    m_page->goToItem(*newItemToGoTo, FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No);
     return S_OK;
 }
 
@@ -7306,7 +7337,7 @@ HRESULT WebView::nextDisplayIsSynchronous()
     return S_OK;
 }
 
-void WebView::notifyAnimationStarted(const GraphicsLayer*, const String&, double)
+void WebView::notifyAnimationStarted(const GraphicsLayer*, const String&, MonotonicTime)
 {
     // We never set any animations on our backing layer.
     ASSERT_NOT_REACHED();

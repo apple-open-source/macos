@@ -180,6 +180,7 @@ typedef struct {
 #endif
 #endif
 
+WTF_EXPORT_PRIVATE void WTFReportNotImplementedYet(const char* file, int line, const char* function);
 WTF_EXPORT_PRIVATE void WTFReportAssertionFailure(const char* file, int line, const char* function, const char* assertion);
 WTF_EXPORT_PRIVATE void WTFReportAssertionFailureWithMessage(const char* file, int line, const char* function, const char* assertion, const char* format, ...) WTF_ATTRIBUTE_PRINTF(5, 6);
 WTF_EXPORT_PRIVATE void WTFReportArgumentAssertionFailure(const char* file, int line, const char* function, const char* argName, const char* assertion);
@@ -199,23 +200,30 @@ WTF_EXPORT_PRIVATE bool WTFWillLogWithLevel(WTFLogChannel*, WTFLogLevel);
 WTF_EXPORT_PRIVATE void WTFGetBacktrace(void** stack, int* size);
 WTF_EXPORT_PRIVATE void WTFReportBacktrace(void);
 WTF_EXPORT_PRIVATE void WTFPrintBacktrace(void** stack, int size);
-
-typedef void (*WTFCrashHookFunction)(void);
-WTF_EXPORT_PRIVATE void WTFSetCrashHook(WTFCrashHookFunction);
-WTF_EXPORT_PRIVATE void WTFInstallReportBacktraceOnCrashHook(void);
+#if !RELEASE_LOG_DISABLED
+WTF_EXPORT_PRIVATE void WTFReleaseLogStackTrace(WTFLogChannel*);
+#endif
 
 WTF_EXPORT_PRIVATE bool WTFIsDebuggerAttached(void);
 
-#if ASAN_ENABLED
+#if COMPILER(MSVC)
+#define WTFBreakpointTrap()  __debugbreak()
+#elif ASAN_ENABLED
 #define WTFBreakpointTrap()  __builtin_trap()
 #elif CPU(X86_64) || CPU(X86)
-#define WTFBreakpointTrap()  __asm__ volatile ("int3")
+#define WTFBreakpointTrap()  asm volatile ("int3")
 #elif CPU(ARM_THUMB2)
-#define WTFBreakpointTrap()  __asm__ volatile ("bkpt #0")
+#define WTFBreakpointTrap()  asm volatile ("bkpt #0")
 #elif CPU(ARM64)
-#define WTFBreakpointTrap()  __asm__ volatile ("brk #0")
+#define WTFBreakpointTrap()  asm volatile ("brk #0")
 #else
 #define WTFBreakpointTrap() WTFCrash() // Not implemented.
+#endif
+
+#if COMPILER(MSVC)
+#define WTFBreakpointTrapUnderConstexprContext() __debugbreak()
+#else
+#define WTFBreakpointTrapUnderConstexprContext() __builtin_trap()
 #endif
 
 #ifndef CRASH
@@ -228,8 +236,13 @@ WTF_EXPORT_PRIVATE bool WTFIsDebuggerAttached(void);
     WTFBreakpointTrap(); \
     __builtin_unreachable(); \
 } while (0)
+#define CRASH_UNDER_CONSTEXPR_CONTEXT() do { \
+    WTFBreakpointTrapUnderConstexprContext(); \
+    __builtin_unreachable(); \
+} while (0)
 #else
 #define CRASH() WTFCrash()
+#define CRASH_UNDER_CONSTEXPR_CONTEXT() WTFCrash()
 #endif
 
 #endif // !defined(CRASH)
@@ -277,8 +290,10 @@ WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH void WTFCrashWithSecurityImplication(v
 #if ASSERT_DISABLED
 
 #define ASSERT(assertion) ((void)0)
+#define ASSERT_UNDER_CONSTEXPR_CONTEXT(assertion) ((void)0)
 #define ASSERT_AT(assertion, file, line, function) ((void)0)
 #define ASSERT_NOT_REACHED() ((void)0)
+#define ASSERT_NOT_IMPLEMENTED_YET() ((void)0)
 #define ASSERT_IMPLIES(condition, assertion) ((void)0)
 #define NO_RETURN_DUE_TO_ASSERT
 
@@ -306,6 +321,13 @@ WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH void WTFCrashWithSecurityImplication(v
     } \
 } while (0)
 
+#define ASSERT_UNDER_CONSTEXPR_CONTEXT(assertion) do { \
+    if (!(assertion)) { \
+        WTFReportAssertionFailure(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, #assertion); \
+        CRASH_UNDER_CONSTEXPR_CONTEXT(); \
+    } \
+} while (0)
+
 #define ASSERT_AT(assertion, file, line, function) do { \
     if (!(assertion)) { \
         WTFReportAssertionFailure(file, line, function, #assertion); \
@@ -315,6 +337,11 @@ WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH void WTFCrashWithSecurityImplication(v
 
 #define ASSERT_NOT_REACHED() do { \
     WTFReportAssertionFailure(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, 0); \
+    CRASH(); \
+} while (0)
+
+#define ASSERT_NOT_IMPLEMENTED_YET() do { \
+    WTFReportNotImplementedYet(__FILE__, __LINE__, WTF_PRETTY_FUNCTION); \
     CRASH(); \
 } while (0)
 
@@ -445,30 +472,38 @@ WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH void WTFCrashWithSecurityImplication(v
 /* RELEASE_LOG */
 
 #if RELEASE_LOG_DISABLED
-#define RELEASE_LOG(      channel, format, ...) ((void)0)
-#define RELEASE_LOG_ERROR(channel, format, ...) LOG_ERROR(format, ##__VA_ARGS__)
+#define RELEASE_LOG(channel, ...) ((void)0)
+#define RELEASE_LOG_ERROR(channel, ...) LOG_ERROR(__VA_ARGS__)
+#define RELEASE_LOG_FAULT(channel, ...) LOG_ERROR(__VA_ARGS__)
 
-#define RELEASE_LOG_IF(      isAllowed, channel, format, ...) ((void)0)
-#define RELEASE_LOG_ERROR_IF(isAllowed, channel, format, ...) do { if (isAllowed) RELEASE_LOG_ERROR(channel, format, ##__VA_ARGS__); } while (0)
+#define RELEASE_LOG_IF(isAllowed, channel, ...) ((void)0)
+#define RELEASE_LOG_ERROR_IF(isAllowed, channel, ...) do { if (isAllowed) RELEASE_LOG_ERROR(channel, __VA_ARGS__); } while (0)
 
-#define RELEASE_LOG_WITH_LEVEL(              channel, level, format, ...) ((void)0)
-#define RELEASE_LOG_WITH_LEVEL_IF(isAllowed, channel, level, format, ...) do { if (isAllowed) RELEASE_LOG_WITH_LEVEL(channel, level, format, ##__VA_ARGS__); } while (0)
+#define RELEASE_LOG_WITH_LEVEL(channel, level, ...) ((void)0)
+#define RELEASE_LOG_WITH_LEVEL_IF(isAllowed, channel, level, ...) do { if (isAllowed) RELEASE_LOG_WITH_LEVEL(channel, level, __VA_ARGS__); } while (0)
+
+#define RELEASE_LOG_STACKTRACE(channel) ((void)0)
 #else
-#define RELEASE_LOG(      channel, format, ...) os_log(      LOG_CHANNEL(channel).osLogChannel, format, ##__VA_ARGS__)
-#define RELEASE_LOG_ERROR(channel, format, ...) os_log_error(LOG_CHANNEL(channel).osLogChannel, format, ##__VA_ARGS__)
+#define RELEASE_LOG(channel, ...) os_log(LOG_CHANNEL(channel).osLogChannel, __VA_ARGS__)
+#define RELEASE_LOG_ERROR(channel, ...) os_log_error(LOG_CHANNEL(channel).osLogChannel, __VA_ARGS__)
+#define RELEASE_LOG_FAULT(channel, ...) os_log_fault(LOG_CHANNEL(channel).osLogChannel, __VA_ARGS__)
+#define RELEASE_LOG_INFO(channel, ...) os_log_info(LOG_CHANNEL(channel).osLogChannel, __VA_ARGS__)
 
-#define RELEASE_LOG_IF(      isAllowed, channel, format, ...) do { if (isAllowed) RELEASE_LOG(      channel, format, ##__VA_ARGS__); } while (0)
-#define RELEASE_LOG_ERROR_IF(isAllowed, channel, format, ...) do { if (isAllowed) RELEASE_LOG_ERROR(channel, format, ##__VA_ARGS__); } while (0)
+#define RELEASE_LOG_IF(isAllowed, channel, ...) do { if (isAllowed) RELEASE_LOG(      channel, __VA_ARGS__); } while (0)
+#define RELEASE_LOG_ERROR_IF(isAllowed, channel, ...) do { if (isAllowed) RELEASE_LOG_ERROR(channel, __VA_ARGS__); } while (0)
+#define RELEASE_LOG_INFO_IF(isAllowed, channel, ...) do { if (isAllowed) RELEASE_LOG_INFO(channel, __VA_ARGS__); } while (0)
 
-#define RELEASE_LOG_WITH_LEVEL(channel, logLevel, format, ...) do { \
+#define RELEASE_LOG_WITH_LEVEL(channel, logLevel, ...) do { \
     if (LOG_CHANNEL(channel).level >= (logLevel)) \
-        os_log(LOG_CHANNEL(channel).osLogChannel, format, ##__VA_ARGS__); \
+        os_log(LOG_CHANNEL(channel).osLogChannel, __VA_ARGS__); \
 } while (0)
 
-#define RELEASE_LOG_WITH_LEVEL_IF(isAllowed, channel, logLevel, format, ...) do { \
+#define RELEASE_LOG_WITH_LEVEL_IF(isAllowed, channel, logLevel, ...) do { \
     if ((isAllowed) && LOG_CHANNEL(channel).level >= (logLevel)) \
-        os_log(LOG_CHANNEL(channel).osLogChannel, format, ##__VA_ARGS__); \
+        os_log(LOG_CHANNEL(channel).osLogChannel, __VA_ARGS__); \
 } while (0)
+
+#define RELEASE_LOG_STACKTRACE(channel) WTFReleaseLogStackTrace(&LOG_CHANNEL(channel))
 #endif
 
 

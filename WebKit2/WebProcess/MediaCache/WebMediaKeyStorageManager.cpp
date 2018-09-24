@@ -32,9 +32,8 @@
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/URL.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 void WebMediaKeyStorageManager::initialize(const WebProcessCreationParameters &parameters)
 {
@@ -65,7 +64,7 @@ Vector<SecurityOriginData> WebMediaKeyStorageManager::getMediaKeyOrigins()
     Vector<String> originPaths = FileSystem::listDirectory(m_mediaKeyStorageDirectory, "*");
     for (const auto& originPath : originPaths) {
         URL url;
-        url.setProtocol(ASCIILiteral("file"));
+        url.setProtocol("file"_s);
         url.setPath(originPath);
 
         String mediaKeyIdentifier = url.lastPathComponent();

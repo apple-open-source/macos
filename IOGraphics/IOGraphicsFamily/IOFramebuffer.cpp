@@ -96,7 +96,6 @@
 enum { kIOFBVRAMCompressSpeed = 0 };
 enum { kVBLThrottleTimeMS     = 5000 };
 enum { kInitFBTimeoutNS = 1000000000ULL };
-
 enum { k2xDPI = (150*10) };
 
 //#define AUTO_COLOR_MODE		kIODisplayColorModeRGB
@@ -161,8 +160,9 @@ enum
     kIOFBEventProbeAll			 = 0x00000020,
     kIOFBEventDisplaysPowerState = 0x00000040,
     kIOFBEventSystemPowerOn      = 0x00000080,
-    kIOFBEventVBLMultiplier      = 0x00000100
+    kIOFBEventVBLMultiplier      = 0x00000100,
 };
+
 
 enum
 {
@@ -221,22 +221,23 @@ static IONotifier *         gIOFBClamshellNotify;
 static IONotifier *         gIOFBGCNotifier;
 static IOInterruptEventSource * gIOFBWorkES;
 static volatile UInt32      gIOFBGlobalEvents;
-static IORegistryEntry *    gChosenEntry;
+static IORegistryEntry *    gChosenEntry;  // For kIOScreenLockStateKey property
 static IOService *          gIOFBSystemPowerAckTo;
 static void *               gIOFBSystemPowerAckRef;
 static IOService *          gIOFBSystemPowerMuxAckTo;
 static uint32_t             gIOFBSystemPowerMuxAckRef;
 static UInt32               gIOFBLastMuxMessage = kIOMessageSystemHasPoweredOn;
-static bool					gIOFBSwitching;
+static bool					gIOFBIsMuxSwitching;
 bool                        gIOFBSystemPower = true;
 bool						gIOFBSystemDark;
 static bool					gIOFBServerInit;
-static bool					gIOFBWSState = true;
+static bool					gIOFBCurrentWSPowerOn = true;
 static bool					gIOFBPostWakeNeeded;
 static bool					gIOFBProbeCaptured;
 static uint32_t             gIOFBCaptureState;
 bool                        gIOGraphicsSystemPower = true;
 static thread_call_t        gIOFBClamshellCallout;
+
 
 /*! External display count. */
 static SInt32               gIOFBDisplayCount;
@@ -576,7 +577,7 @@ struct IOFramebufferPrivate
     UInt8                       cursorSlept;
     UInt8                       cursorPanning;
     UInt8                       pendingSpeedChange;
-    UInt8                       pendingUsable;
+    bool                        pendingUsable;
 
     UInt8                       lli2c;
     UInt8                       cursorClutDependent;
@@ -590,7 +591,7 @@ struct IOFramebufferPrivate
     UInt8                       bClamshellOffline;
 	UInt8						displaysOnline;
     UInt8                       lastNotifyOnline;
-    UInt8						modeUpdate;
+    UInt8						_reserved;
     UInt8                       dpInterrupts;
     SInt8                       dpSupported;
     UInt8                       dpDongle;
@@ -644,6 +645,16 @@ struct IOFramebufferPrivate
     uint32_t                    hibernateGammaDataWidth;
 
     uint64_t                    hdcpLimitState;
+
+    bool                        fDeferDozeUntilAck;
+    bool                        transactionsEnabled;
+
+    // fServerUsesModernAcks is true if RegisterNotificationPort
+    //     type >= kServerAckProtocolGraphicsTypesRev.
+    bool                        fServerUsesModernAcks;
+    uint16_t                    fServerMsgCount;     // Current sent server msg
+    integer_t                   fServerMsgIDSentPower;
+    integer_t                   fServerMsgIDAckedPower;
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -960,7 +971,7 @@ void IOGraphicsWorkLoop::closeGate()
 			absolutetime_to_nanoseconds(endTime, &nsec);
 			nsec /= 1000000ULL;
 			if (nsec >= 50)
-				OSReportWithBacktrace("wsloow %qd ms\n", nsec);
+				OSReportWithBacktrace("wslow %qd ms\n", nsec);
 #endif
         assert (gateThread == 0);
         assert (gateCount == 0);
@@ -1106,6 +1117,8 @@ static void TIMELOCK(IOGraphicsWorkLoop * wl, const char * name, const char * fn
     AbsoluteTime startTime, endTime;
     uint64_t nsec;
 
+    if (!wl) panic(__FUNCTION__ " wl not initialized!");
+
 	AbsoluteTime_to_scalar(&startTime) = mach_absolute_time();
 
     wl->closeGate();
@@ -1115,7 +1128,7 @@ static void TIMELOCK(IOGraphicsWorkLoop * wl, const char * name, const char * fn
     absolutetime_to_nanoseconds(endTime, &nsec);
     nsec /= 1000000ULL;
     if (nsec >= 5)
-        D(TIME, name, " %s: sloow %qd ms\n", fn, nsec);
+        D(TIME, name, " %s: slow %qd ms\n", fn, nsec);
 }
 #define FBLOCK(fb) TIMELOCK(FBWL(fb), fb->thisName, __FUNCTION__)
 
@@ -1270,17 +1283,17 @@ public:
 
 // IOFBController computed states
 enum {
-    kIOFBDidWork 			= 0x00000001,
-    kIOFBWorking  			= 0x00000002,
-    kIOFBPaging   			= 0x00000004,
-    kIOFBWsWait   			= 0x00000008,
-    kIOFBDimmed   			= 0x00000010,
-    kIOFBServerSlept 		= 0x00000020,	// any fb ws notified asleep
-    kIOFBServerUp           = 0x00000040,	// any fb ws state awake
-    kIOFBServerDown			= 0x00000080,	// any fb ws state asleep
-    kIOFBCaptured 			= 0x00000100,
-    kIOFBDimDisable 		= 0x00000200,
-    kIOFBDisplaysChanging 	= 0x00001000,
+    kIOFBDidWork 			 = 0x00000001,
+    kIOFBWorking  			 = 0x00000002,
+    kIOFBPaging   			 = 0x00000004,
+    kIOFBWsWait   			 = 0x00000008,
+    kIOFBDimmed   			 = 0x00000010,
+    kIOFBServerSentPowerOff  = 0x00000020,	// any fb ws notified asleep
+    kIOFBServerAckedPowerOn  = 0x00000040,	// any fb ws state awake
+    kIOFBServerAckedPowerOff = 0x00000080,	// any fb ws state asleep
+    kIOFBCaptured 			 = 0x00000100,
+    kIOFBDimDisable 		 = 0x00000200,
+    kIOFBDisplaysChanging 	 = 0x00001000,
 };
 
 // IOFBController work states for fDidWork and fAsyncWork
@@ -1518,7 +1531,7 @@ IOFBController *IOFBController::alias(const char * fn)
             break;
 
     if ((NULL == ret) && (fAliasID)) {
-        panic("%s: alias lookup failed!\n", fn);
+        IOLog("IOG::%s WARNING: Unable to find alias.\n", fn );
     }
 
     IOFBC_END(alias,0,0,0);
@@ -1572,6 +1585,7 @@ uint32_t IOFBController::computeState()
                 if (fOnlineMask) 				// bgOn
                 {
                     IOFBController *oldController = alias(__FUNCTION__);
+                    if (oldController)
                     {
                         IOGraphicsWorkLoop::GateGuard oldctrlgated(oldController->fWl);
                         if (oldController->fLastFinishedChange
@@ -1591,18 +1605,22 @@ uint32_t IOFBController::computeState()
 
         FOREACH_FRAMEBUFFER(fb)
         {
+            // Alias for readability
+            const auto& sentPower  = fb->__private->fServerMsgIDSentPower;
+            const auto& ackedPower = fb->__private->fServerMsgIDAckedPower;
+
             if (fb->pagingState)
                 state |= kIOFBPaging;
             if (fb->messaged)
                 state |= kIOFBDisplaysChanging;
             if (!fb->getIsUsable())
                 state |= kIOFBDimmed;
-            if (!fb->serverNotified)
-                state |= kIOFBServerSlept;
-            if (fb->serverState)
-                state |= kIOFBServerUp;
+            if ((sentPower  & kIOFBNS_MessageMask) != kIOFBNS_Wake)
+                state |= kIOFBServerSentPowerOff;
+            if ((ackedPower & kIOFBNS_MessageMask) == kIOFBNS_Wake)
+                state |= kIOFBServerAckedPowerOn;
             else
-                state |= kIOFBServerDown;
+                state |= kIOFBServerAckedPowerOff;
             if (fb->captured)
                 state |= kIOFBCaptured;
             if (fb->getDimDisable())
@@ -1841,19 +1859,21 @@ IOOptionBits IOFBController::checkConnectionWork(IOOptionBits state)
              && fConnectChange != fPostWakeChange)
         {
             // bgOn
-             IOFBController *oldController = alias(__FUNCTION__);
-
-            DEBG1(fName, " copy from %s\n", oldController->fName);
-
-            IOGraphicsWorkLoop::GateGuard oldctrlgated(oldController->fWl);
-
-            FOREACH_FRAMEBUFFER(fb)
+            IOFBController *oldController = alias(__FUNCTION__);
+            if (oldController)
             {
-                IOFramebuffer *oldfb = oldController->fFbs[i];
-                if (!oldfb || !fb->copyDisplayConfig(oldfb))
-                    break;
+                DEBG1(fName, " copy from %s\n", oldController->fName);
+            
+                IOGraphicsWorkLoop::GateGuard oldctrlgated(oldController->fWl);
+            
+                FOREACH_FRAMEBUFFER(fb)
+                {
+                    IOFramebuffer *oldfb = oldController->fFbs[i];
+                    if (!oldfb || !fb->copyDisplayConfig(oldfb))
+                        break;
+                }
+                needAsync = true;
             }
-            needAsync = true;
         }
 
         if (needAsync)
@@ -1885,6 +1905,8 @@ void IOFBController::messageConnectionChange()
 
     if (fLastMessagedChange != fConnectChange && !fFbs[0]->messaged && !fWsWait)
     {
+        IOG_KTRACE_LOG_SYNCH(DBG_IOG_LOG_SYNCH);
+
         fLastMessagedChange = fConnectChange;
         if (gIOGraphicsControl)
         {
@@ -1905,9 +1927,12 @@ void IOFBController::messageConnectionChange()
         }
         else
         {
-            DEBG1(fName, " messaged\n");
+            uint64_t args[2];
+            args[0] = fFbs[0]->getRegistryEntryID();
+            args[1] = fConnectChange;
+            DEBG1(fName, " messaged RegID:%#llx CC:%#llx\n", args[0], args[1]);
             fFbs[0]->messaged = true;
-            fFbs[0]->messageClients(kIOMessageServiceIsSuspended, (void *) true);
+            fFbs[0]->messageClients(kIOMessageServiceIsSuspended, args, sizeof(args));
         }
     }
     IOFBC_END(messageConnectionChange,0,0,0);
@@ -1955,7 +1980,7 @@ __private_extern__ "C" kern_return_t IOGraphicsFamilyModuleStart(kmod_info_t *ki
     PE_parse_boot_argn("iogdebg", &gIOGraphicsDebugCategories,
                        sizeof(gIOGraphicsDebugCategories));
     sysctl_register_oid(&sysctl__debug_iogdebg);
-    D(GENERAL, "IOGraphics", " iogdebg=%#llx builtin=%#llx\n",
+    D(GENERAL, "IOG", " iogdebg=%#llx builtin=%#llx\n",
       gIOGraphicsDebugCategories, static_cast<uint64_t>(DEBG_CATEGORIES_BUILD));
 #endif
 
@@ -1986,7 +2011,7 @@ __private_extern__ "C" kern_return_t IOGraphicsFamilyModuleStart(kmod_info_t *ki
         gIOGATLines = 0;
     }
 
-    IOLog("IOGraphics flags 0x%x (0x%x)\n", gIOGDebugFlags, gIOGATFlags);
+    IOLog("IOG flags 0x%x (0x%x)\n", gIOGDebugFlags, gIOGATFlags);
 
     gIOFBLidOpenMode = (0 != (kIOGDbgLidOpen     & gIOGDebugFlags));
     gIOFBVBLThrottle = (0 != (kIOGDbgVBLThrottle & gIOGDebugFlags));
@@ -1998,7 +2023,8 @@ __private_extern__ "C" kern_return_t IOGraphicsFamilyModuleStart(kmod_info_t *ki
     {
         gIOGNotifyTO = kSystemWillSleepTimeout;
     }
-    DEBG1("IOGraphics", " notify timeout %ds\n", gIOGNotifyTO);
+    DEBG1("IOG", " notify timeout %ds\n", gIOGNotifyTO);
+
 
     return (kIOReturnSuccess);
 }
@@ -3190,7 +3216,13 @@ IOReturn IOFramebuffer::extSetGammaTable(
         				 inst->__private->rawGammaDataWidth, 
         				 inst->__private->rawGammaData);
 #endif
-            err = inst->updateGammaTable(channelCount, dataCount, dataWidth, inst->__private->rawGammaData, syncType, bImmediate);
+            err = inst->updateGammaTable(channelCount,
+                                         dataCount,
+                                         dataWidth,
+                                         inst->__private->rawGammaData,
+                                         syncType,
+                                         bImmediate,
+                                         true /*ignoreTransactionActive*/ );
         }
     }
 #if 0
@@ -3215,7 +3247,8 @@ DEBG1(inst->thisName, " extSetGammaTable(%x) online %d %ld %ld data %x\n",
 IOReturn IOFramebuffer::updateGammaTable(
     UInt32 channelCount, UInt32 srcDataCount,
     UInt32 dataWidth, const void * data,
-    SInt32 syncType, bool immediate)
+    SInt32 syncType, bool immediate,
+    bool ignoreTransactionActive)
 {
     IOFB_START(updateGammaTable,channelCount,syncType,immediate);
     IOReturn    err = kIOReturnBadArgument;
@@ -3233,6 +3266,8 @@ IOReturn IOFramebuffer::updateGammaTable(
     const uint32_t * adjustNext   = NULL;
     uint32_t         gammaThresh;
     uint32_t         gammaAdjust;
+    const bool  dropGammaSet = ((!ignoreTransactionActive) &&
+                                __private->transactionsEnabled);
 
     if (GAMMA_ADJ && gIOGraphicsControl && (__private->desiredGammaDataWidth <= 8))
     {
@@ -3409,7 +3444,7 @@ IOReturn IOFramebuffer::updateGammaTable(
         }
 #endif
 
-        if (!__private->gammaNeedSet)
+        if (!__private->gammaNeedSet && !dropGammaSet)
         {
             // If CD sent us a sync request, try with new, else fallback.
             if (kIOFBSetGammaSyncNotSpecified != __private->gammaSyncType)
@@ -3583,23 +3618,23 @@ void IOFramebuffer::deferredCLUTSetInterrupt( OSObject * owner,
                                               IOInterruptEventSource * evtSrc, int intCount )
 {
     IOFB_START(deferredCLUTSetInterrupt,intCount,0,0);
-    IOFramebuffer * self = (IOFramebuffer *) owner;
+    IOFramebuffer * fb = (IOFramebuffer *) owner;
 
-    if (self->__private->waitVBLEvent)
+    if (fb->__private->waitVBLEvent)
     {
-        FBWL(self)->wakeupGate(self->__private->waitVBLEvent, kOneThreadWakeup);
-        self->__private->waitVBLEvent = 0;
+        FBWL(fb)->wakeupGate(fb->__private->waitVBLEvent, true);
+        fb->__private->waitVBLEvent = 0;
     }
 
-    self->checkDeferredCLUTSet();
+    fb->checkDeferredCLUTSet();
     IOFB_END(deferredCLUTSetInterrupt,0,0,0);
 }
 
 void IOFramebuffer::deferredCLUTSetTimer(OSObject * owner, IOTimerEventSource * source)
 {
     IOFB_START(deferredCLUTSetTimer,0,0,0);
-    IOFramebuffer * self = (IOFramebuffer *) owner;
-    self->checkDeferredCLUTSet();
+    IOFramebuffer * fb = (IOFramebuffer *) owner;
+    fb->checkDeferredCLUTSet();
     IOFB_END(deferredCLUTSetTimer,0,0,0);
 }
 
@@ -4478,7 +4513,7 @@ void IOFramebuffer::free()
     }
     OSSafeReleaseNULL(userAccessRanges);
     if (serverMsg) {
-        IOFree(serverMsg, sizeof(mach_msg_header_t));
+        IODelete(serverMsg, mach_msg_header_t, 1);
         serverMsg = NULL;
     }
     if (__private)
@@ -4527,13 +4562,15 @@ IOReturn IOFramebuffer::probeAccelerator()
 
     IOFB_START(probeAccelerator,0,0,0);
 
-    // Only probe once per controller.
-    if (kIOFBAccelProbed & __private->controller->fState)
-    {
-        IOFB_END(probeAccelerator,0,__LINE__,0);
-        return kIOReturnSuccess;
+    if (__private && __private->controller) {
+        // Only probe once per controller.
+        if (kIOFBAccelProbed & __private->controller->fState)
+        {
+            IOFB_END(probeAccelerator,0,__LINE__,0);
+            return kIOReturnSuccess;
+        }
+        __private->controller->setState(kIOFBAccelProbed);
     }
-    __private->controller->setState(kIOFBAccelProbed);
 
     IOService *pci = this;
     while ((pci = pci->getProvider()))
@@ -4634,10 +4671,11 @@ void IOFramebuffer::initialize()
 	if (gIOFBDelayedPrefsEvent)
 		gIOFBSystemWorkLoop->addEventSource(gIOFBDelayedPrefsEvent);
 
-	gIOFBServerAckTimer = IOTimerEventSource::timerEventSource(
-											gAllFramebuffers, &serverAckTimeout);
+	gIOFBServerAckTimer = IOTimerEventSource::
+            timerEventSource(gAllFramebuffers, &serverPowerTimeout);
 	if (gIOFBServerAckTimer)
 		gIOFBSystemWorkLoop->addEventSource(gIOFBServerAckTimer);
+
 
     // <rdar://problem/30812452> IOGraphics: Publish hibernate images memory descriptor on MUX systems
     // Default to always setting the preview image and only disable if legacy MUX behavior is desired via
@@ -4717,12 +4755,17 @@ bool IOFramebuffer::start( IOService * provider )
     IOFB_START(start,0,0,0);
 
     IOGraphicsDelayKnob("fbstart");
+    IOG_KTRACE_LOG_SYNCH(DBG_IOG_LOG_SYNCH);
 
     if (!super::start(provider))
     {
         IOFB_END(start,false,__LINE__,0);
         return (false);
     }
+
+    // Cache the 'chosen' RegistryEntry in the DeviceTree plane
+    if (!gChosenEntry)
+        gChosenEntry = IORegistryEntry::fromPath("/chosen", gIODTPlane);
 
     if (!__private)
     {
@@ -4743,13 +4786,13 @@ bool IOFramebuffer::start( IOService * provider )
             return (false);
         }
 
-        serverMsg = IOMalloc( sizeof (mach_msg_header_t) );
+        serverMsg = IONew(mach_msg_header_t, 1);
         if (!serverMsg)
         {
             IOFB_END(start,false,__LINE__,0);
             return (false);
         }
-        bzero( serverMsg, sizeof (mach_msg_header_t));
+        bzero(serverMsg, sizeof(mach_msg_header_t));
 
         // Grab the gate before we try to find a controller
         IOGraphicsWorkLoop::GateGuard sysgated(gIOFBSystemWorkLoop);
@@ -4918,12 +4961,12 @@ void IOFramebuffer::cursorWork( OSObject * p0, IOInterruptEventSource * evtSrc, 
             desc.supportedSpecialEncodings = kTransparentEncodedPixel;
 
             ret = (*cursorControl->callouts->setCursorImage) (
-                      cursorControl->self, cursorControl->ref,
+                      cursorControl->inst, cursorControl->ref,
                       &desc, (void *)(uintptr_t) __private->framePending );
         }
         if (1 & todo)
             ret = (*cursorControl->callouts->setCursorState) (
-                      cursorControl->self, cursorControl->ref,
+                      cursorControl->inst, cursorControl->ref,
                       __private->xPending, __private->yPending, __private->visiblePending );
 
         todo = __private->cursorToDo & ~todo;
@@ -6417,7 +6460,8 @@ IOReturn IOFramebuffer::restoreFramebuffer(IOIndex event)
 	{
 		if (__private->gammaDataLen && __private->gammaData 
 		  && !__private->scaledMode
-		  && !__private->wakingFromHibernateGfxOn)
+		  && !__private->wakingFromHibernateGfxOn
+          && !__private->transactionsEnabled)
 		{
 			DEBG1(thisName, " set gamma\n");
             FB_START(setGammaTable,0,__LINE__,0);
@@ -6524,71 +6568,126 @@ IOReturn IOFramebuffer::handleEvent( IOIndex event, void * info )
     return (ret);
 }
 
-IOReturn IOFramebuffer::notifyServer( UInt8 state )
+IOReturn IOFramebuffer::notifyServer(const uint8_t state)
 {
+    SYSASSERTGATED();
+
     IOFB_START(notifyServer,state,0,0);
-    mach_msg_header_t * msgh = (mach_msg_header_t *) serverMsg;
+
+    // Prefer to use gate guard, but we need timing locks.
+    FBLOCK(this);
+
+    // Convenience aliases to save typing and line-length
+    auto& aliasSentPower  = __private->fServerMsgIDSentPower;
+    auto& aliasAckedPower = __private->fServerMsgIDAckedPower;
+
     IOReturn            err = kIOReturnSuccess;
+    mach_msg_header_t * msgh = (mach_msg_header_t *) serverMsg;
+    msgh->msgh_id = state;
 
-    if (serverNotified != state)
-    {
-		if (!gChosenEntry) gChosenEntry = IORegistryEntry::fromPath("/chosen", gIODTPlane);
-		if (gChosenEntry && !state) gChosenEntry->removeProperty(kIOScreenLockStateKey);
-		if (state)
-		{
-            if ((this == gIOFBConsoleFramebuffer) || (true == gIOFBSetPreviewImage))
+    bool sendMessage = false;
+
+    const bool isPower = (state == kIOFBNS_Sleep || state == kIOFBNS_Wake
+                      ||  state == kIOFBNS_Doze);
+    if (isPower) {
+        if ((aliasSentPower & kIOFBNS_MessageMask) != state)
+        {
+            if (!gChosenEntry)
+                gChosenEntry = IORegistryEntry::fromPath("/chosen", gIODTPlane);
+            if (gChosenEntry && !state)
+                gChosenEntry->removeProperty(kIOScreenLockStateKey);
+            if (state)
             {
-				getPMRootDomain()->removeProperty(kIOHibernatePreviewBufferKey);
-				getProvider()->removeProperty(kIOHibernatePreviewActiveKey);
-			}
-			if (__private->saveFramebuffer && __private->saveLength)
-			{
-				IOFreePageable( __private->saveFramebuffer, __private->saveLength );
-			}
-			__private->saveFramebuffer = 0;
-			__private->saveLength      = 0;
-			setProperty(kIOScreenRestoreStateKey, 
-						&__private->restoreType, sizeof(__private->restoreType));
-			DEBG1(thisName, " kIOScreenRestoreStateKey %d\n", __private->restoreType);
-			__private->restoreType      = kIOScreenRestoreStateNone;
-			__private->needGammaRestore = false;
-		}
+                if ((this == gIOFBConsoleFramebuffer) || (true == gIOFBSetPreviewImage))
+                {
+                    getPMRootDomain()->removeProperty(kIOHibernatePreviewBufferKey);
+                    getProvider()->removeProperty(kIOHibernatePreviewActiveKey);
+                }
+                if (__private->saveFramebuffer && __private->saveLength)
+                {
+                    IOFreePageable( __private->saveFramebuffer, __private->saveLength );
+                }
+                __private->saveFramebuffer = 0;
+                __private->saveLength      = 0;
+                setProperty(kIOScreenRestoreStateKey,
+                            &__private->restoreType, sizeof(__private->restoreType));
+                DEBG1(thisName, " kIOScreenRestoreStateKey %d\n", __private->restoreType);
+                __private->restoreType      = kIOScreenRestoreStateNone;
+                __private->needGammaRestore = false;
+            }
 
-        serverNotified = state;
+            IOG_KTRACE(DBG_IOG_NOTIFY_SERVER,
+                       DBG_FUNC_NONE,
+                       kGMETRICS_DOMAIN_FRAMEBUFFER
+                           | (state == 0 ? kGMETRICS_DOMAIN_SLEEP :
+                              state == 1 ? kGMETRICS_DOMAIN_WAKE :
+                                           kGMETRICS_DOMAIN_NONE),
+                       __private->regID,
+                       0, state,
+                       0, 0,
+                       0, 0);
 
-        DEBG1(thisName, "(%p, wait %d, %d->%d)\n", msgh->msgh_remote_port,
-             __private->controller->fWsWait, serverState, serverNotified);
-
-        IOG_KTRACE(DBG_IOG_NOTIFY_SERVER,
-                   DBG_FUNC_NONE,
-                   kGMETRICS_DOMAIN_FRAMEBUFFER
-                       | (state == 0 ? kGMETRICS_DOMAIN_SLEEP :
-                          state == 1 ? kGMETRICS_DOMAIN_WAKE :
-                                       kGMETRICS_DOMAIN_NONE),
-                   __private->regID,
-                   0, state,
-                   0, 0,
-                   0, 0);
-
-        msgh->msgh_id = state;
-        if ((MACH_PORT_NULL == msgh->msgh_remote_port)
-                || (KERN_SUCCESS != mach_msg_send_from_kernel(msgh, msgh->msgh_size)))
-        {
-			// failed to send
-            serverState = serverNotified;
-        }
-        else
-        {
-			// start ack timeout
-			gIOFBServerAckTimer->setTimeoutMS(kServerAckTimeout * 1000);
+            // Retrieve Encode the display state before sending message
+            uintptr_t dispState = 0;
+            if (__private->fServerUsesModernAcks && kIOFBNS_Wake == state) {
+                FB_START(getAttribute,kIOFBDisplayState,__LINE__,0);
+                const IOReturn e = getAttribute(kIOFBDisplayState, &dispState);
+                FB_END(getAttribute,e,__LINE__,0);
+                if (!e) {
+                    // TODO(gvdl): Log any error
+                    dispState <<= kIOFBNS_DisplayStateShift;
+                    dispState &= kIOFBNS_DisplayStateMask;
+                }
+                msgh->msgh_id |= static_cast<integer_t>(dispState);
+            }
+            sendMessage = true;
         }
     }
 
-    if (serverNotified)
-	{
-		// wakeup is not gate specific
+
+    if (sendMessage) {
+        if (__private->fServerUsesModernAcks) {
+            // Add generation count
+            const uint32_t msgGen
+                = (++__private->fServerMsgCount << kIOFBNS_GenerationShift)
+                & kIOFBNS_GenerationMask;
+            msgh->msgh_id |= msgGen;
+            DEBG1(thisName, " sending modern notification %x\n", msgh->msgh_id);
+        }
+
+        if ((MACH_PORT_NULL == msgh->msgh_remote_port)
+        ||  (KERN_SUCCESS != mach_msg_send_from_kernel(msgh, msgh->msgh_size)))
+            err = kIOReturnIPCError;
+
+        if (isPower) {
+            aliasSentPower = msgh->msgh_id;
+            if (err) {
+                // failed to send, fake an ack
+                aliasAckedPower = aliasSentPower;
+                __private->fDeferDozeUntilAck = false;
+            }
+            else {
+                // start ack timeout
+                __private->fDeferDozeUntilAck
+                    = ((state == kIOFBNS_Sleep) && __private->online);
+                gIOFBServerAckTimer->
+                    setTimeout(kServerAckTimeout, kSecondScale);
+            }
+            err = kIOReturnSuccess;
+            DEBG1(thisName, "(power %p, wait %d, %x->%x)\n",
+                    msgh->msgh_remote_port, __private->controller->fWsWait,
+                    aliasAckedPower, aliasSentPower);
+        }
+        else
+            assert(false);  // Should never happen, internal error
+    }
+
+    if (state == kIOFBNS_Wake) {
+        // wakeup is not gate specific
         FBWL(this)->wakeupGate(&fServerConnect, kManyThreadWakeup);
-	}
+    }
+
+    FBUNLOCK(this);
 
     IOFB_END(notifyServer,err,0,0);
     return (err);
@@ -6710,16 +6809,16 @@ void IOFramebuffer::systemWork(OSObject * owner,
 
 				state |= controller->checkPowerWork(state);
 			
-				if (kIOFBServerSlept & state)
+				if (kIOFBServerSentPowerOff & state)
 				{
 					if ((controller->fLastFinishedChange != controller->fConnectChange)
 							 && !controller->fFbs[0]->messaged
-							 && gIOFBSwitching)
+							 && gIOFBIsMuxSwitching)
 					{
 						IODisplayWrangler::activityChange(controller->fFbs[0]);
 					}
 				}
-				else if (!(kIOFBServerDown & state))
+				else if (!(kIOFBServerAckedPowerOff & state))
 				{
 					state |= controller->checkConnectionWork(state);
 					controller->fNeedsWork = false;
@@ -6736,34 +6835,39 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		return;
     }
 
-	bool wsState = ((gIOFBSystemPower || gIOFBSwitching) && !(kIOFBDimmed & allState));
-	if (wsState != gIOFBWSState)
+	const bool nextWSPowerOn = (gIOFBSystemPower || gIOFBIsMuxSwitching)
+                            && !(kIOFBDimmed & allState);
+	if (nextWSPowerOn != gIOFBCurrentWSPowerOn)
 	{
-		if (wsState || !(kIOFBWsWait & allState))
+        // Always try to notify a power up, or if the WS has checked in then
+        // send notifications for power downs too.
+		if (nextWSPowerOn || !(kIOFBWsWait & allState))
 		{
-			if (wsState && (kIOFBServerUp & allState))
+			if (nextWSPowerOn && (kIOFBServerAckedPowerOn & allState))
 			{
+                // Server already knows we are power on, wierd log
 				DEBG1("S", " notifyServer wait ack\n");
 			}
 			else
 			{
-				DEBG1("S", " notifyServer(%d)\n", wsState);
-				gIOFBWSState = wsState;
-				if (wsState)
+				DEBG1("S", " notifyServer(%d)\n", nextWSPowerOn);
+
+
+                // Update our internal state
+				gIOFBCurrentWSPowerOn = nextWSPowerOn;
+				if (nextWSPowerOn)
 					gIOFBPostWakeNeeded = true;
+                const uint8_t fbnsState
+                    = (nextWSPowerOn) ? kIOFBNS_Wake : kIOFBNS_Sleep;
                 FORALL_FRAMEBUFFERS(fb, /* in */ gAllFramebuffers)
-				{
-					FBLOCK(fb);
-					fb->notifyServer(wsState);
-					FBUNLOCK(fb);
-				}
+					fb->notifyServer(fbnsState);
 			}
 		}
 	}
 
-	if (!(kIOFBServerUp & allState) && gIOFBSystemPowerAckTo
+	if (!(kIOFBServerAckedPowerOn & allState) && gIOFBSystemPowerAckTo
 		&& !(kIOFBDisplaysChanging & allState)
-		&& !gIOFBSwitching) 
+		&& !gIOFBIsMuxSwitching)
 	{
 		uintptr_t notiArg;
 		// tell accelerators to disable, then protect HW
@@ -6801,7 +6905,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		DEBG("S", " did allowPowerChange()\n");
 	}
 
-	if (!(kIOFBServerDown & allState) && gIOFBPostWakeNeeded)
+	if (!(kIOFBServerAckedPowerOff & allState) && gIOFBPostWakeNeeded)
 	{
 		gIOFBPostWakeNeeded = false;
         FORALL_FRAMEBUFFERS(fb, /* in */ gAllFramebuffers)
@@ -6872,7 +6976,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 	}
 
 	if ((kIOFBEventReadClamshell & events) 
-    && !gIOFBSwitching && !(kIOFBWsWait & allState))
+    && !gIOFBIsMuxSwitching && !(kIOFBWsWait & allState))
 	{
 		OSObject * clamshellProperty;
 
@@ -7017,7 +7121,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 	{
 		unsigned long state = IODisplayWrangler::getDisplaysPowerState();
 
-		if (gIOFBSwitching && (state < kIODisplayNumPowerStates))
+		if (gIOFBIsMuxSwitching && (state < kIODisplayNumPowerStates))
 		{
 			state = kIODisplayNumPowerStates;
 		}
@@ -7078,6 +7182,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 			FBUNLOCK(fb);
 		}
 	}
+
     IOFB_END(systemWork,0,0,0);
 }
 
@@ -7104,7 +7209,7 @@ bool IOFramebuffer::copyDisplayConfig(IOFramebuffer *from)
     // the future supports differing sizes, handle this now.
     if (from->__private->hibernateGammaDataLen != __private->hibernateGammaDataLen)
     {
-        if (NULL == __private->hibernateGammaDataLen)
+        if (__private->hibernateGammaDataLen)
         {
             IODelete(__private->hibernateGammaData, uint8_t, __private->hibernateGammaDataLen);
         }
@@ -7151,29 +7256,38 @@ bool IOFramebuffer::copyDisplayConfig(IOFramebuffer *from)
     return true;
 }
 
-void IOFramebuffer::serverAckTimeout(OSObject * null, IOTimerEventSource * sender)
+void IOFramebuffer::
+serverPowerTimeout(OSObject * /* target */, IOTimerEventSource * /* sender */)
 {
-    IOFB_START(serverAckTimeout,0,0,0);
-    IOFramebuffer *     fb;
+    IOFB_START(serverPowerTimeout,0,0,0);
+    SYSASSERTGATED();  // Run from syswork timer event source
 
+    IOFramebuffer * fb;
     FORALL_FRAMEBUFFERS(fb, /* in */ gAllFramebuffers)
 	{
 		FBLOCK(fb);
-		if (fb->serverState != fb->serverNotified)
+        // Alias for readability
+        const auto& sentServerPower = fb->__private->fServerMsgIDSentPower;
+        const auto& serverAckedPower = fb->__private->fServerMsgIDAckedPower;
+		if (serverAckedPower != sentServerPower)
 		{
-			DEBG1(fb->thisName, " (%d->%d) server ack timeout\n", fb->serverState, fb->serverNotified);
+			DEBG1(fb->thisName, " (%x->%x) server ack timeout\n",
+                  serverAckedPower, sentServerPower);
 
+            const uint64_t powerState =
+                static_cast<uint64_t>(sentServerPower) << 32 | serverAckedPower;
+            (void) powerState;
             IOG_KTRACE(DBG_IOG_SERVER_TIMEOUT,
                        DBG_FUNC_NONE,
                        0, fb->__private->regID,
-                       0, 0,
-                       0, 0,
-                       0, 0);
-			fb->serverAcknowledgeNotification();
+                       0, DBG_IOG_SOURCE_SERVER_ACK_TIMEOUT,
+                       0, powerState,
+                       0, fb->__private->fServerMsgCount);
+			fb->serverAcknowledgeNotification(sentServerPower);
 		}
 		FBUNLOCK(fb);
 	}
-    IOFB_END(serverAckTimeout,0,0,0);
+    IOFB_END(serverPowerTimeout,0,0,0);
 }
 
 void IOFramebuffer::startThread(bool highPri)
@@ -7201,7 +7315,7 @@ IOOptionBits IOFramebuffer::checkPowerWork(IOOptionBits state)
 	IOService *  device = 0;
     OSData *     stateData = 0;
 
-	if (pendingPowerChange)
+	if (pendingPowerChange && !__private->fDeferDozeUntilAck)
 	{
 		uintptr_t newState = pendingPowerState;
 
@@ -7474,7 +7588,14 @@ IOReturn IOFramebuffer::processConnectChange(IOOptionBits mode)
     IOReturn  err;
     uintptr_t unused;
     bool      nowOnline;
-    
+
+    IOG_KTRACE(DBG_IOG_PROCESS_CONNECT_CHANGE,
+               DBG_FUNC_START,
+               0, __private->regID,
+               0, mode,
+               0, 0,
+               0, 0);
+
     DEBG1(thisName, " (%d==%s) curr %d\n", 
     		(uint32_t) mode, processConnectChangeModeNames[mode], __private->lastProcessedChange);
 
@@ -7483,11 +7604,25 @@ IOReturn IOFramebuffer::processConnectChange(IOOptionBits mode)
 		displaysOnline(false);
         __private->online = false;
         IOFB_END(processConnectChange,kIOReturnSuccess,__LINE__,0);
+
+        IOG_KTRACE(DBG_IOG_PROCESS_CONNECT_CHANGE,
+                   DBG_FUNC_END,
+                   0, __private->regID,
+                   0, 1,
+                   0, __private->online,
+                   0, 0);
         return (kIOReturnSuccess);
     }
     if (__private->lastProcessedChange == __private->controller->fConnectChange)
     {
         IOFB_END(processConnectChange,kIOReturnSuccess,__LINE__,0);
+
+        IOG_KTRACE(DBG_IOG_PROCESS_CONNECT_CHANGE,
+                   DBG_FUNC_END,
+                   0, __private->regID,
+                   0, 2,
+                   0, __private->online,
+                   0, 0);
         return (kIOReturnSuccess);
     }
     
@@ -7588,6 +7723,14 @@ IOReturn IOFramebuffer::processConnectChange(IOOptionBits mode)
 	}
 
     err = kIOReturnSuccess;
+
+    IOG_KTRACE(DBG_IOG_PROCESS_CONNECT_CHANGE,
+               DBG_FUNC_END,
+               0, __private->regID,
+               0, 0,
+               0, __private->online,
+               0, 0);
+
     IOFB_END(processConnectChange,err,0,0);
     return (err);
 }
@@ -7605,6 +7748,12 @@ bool IOFramebuffer::updateOnline(void)
     TIMESTART();
     FB_START(getAttributeForConnection,kConnectionCheckEnable,__LINE__,0);
     err = getAttributeForConnection(0, kConnectionCheckEnable, &connectEnabled);
+    IOG_KTRACE(DBG_IOG_CONNECTION_ENABLE_CHECK,
+               DBG_FUNC_NONE,
+               0, DBG_IOG_SOURCE_UPDATE_ONLINE,
+               0, __private->regID,
+               0, connectEnabled,
+               0, err);
     FB_END(getAttributeForConnection,err,__LINE__,connectEnabled);
     TIMEEND(thisName, "kConnectionCheckEnable == %ld, status: %#x, time: %qd ms\n", connectEnabled, err);
 
@@ -7802,12 +7951,13 @@ IOReturn IOFramebuffer::matchFramebuffer(void)
 		if (__private->rawGammaData)
 		{
 			TIMESTART();
-			updateGammaTable(__private->rawGammaChannelCount, 
-									__private->rawGammaDataCount, 
-									__private->rawGammaDataWidth, 
-									__private->rawGammaData,
-                                    kIOFBSetGammaSyncNotSpecified,
-									true);
+            updateGammaTable(__private->rawGammaChannelCount,
+                             __private->rawGammaDataCount,
+                             __private->rawGammaDataWidth,
+                             __private->rawGammaData,
+                             kIOFBSetGammaSyncNotSpecified,
+                             false, /*immediate*/
+                             true /*ignoreTransactionActive*/);
 			TIMEEND(thisName, "match updateGammaTable time: %qd ms\n");
 		}
 	}
@@ -7844,8 +7994,12 @@ IOReturn IOFramebuffer::setPowerState( unsigned long powerStateOrdinal,
     DEBG1(thisName, " (%ld) isMuted %d, now %d\n", powerStateOrdinal,
           __private->controller->isMuted(), (int) getPowerState());
 
-	if (gIOFBSystemPowerAckTo && !powerStateOrdinal)
-		IOLog("graphics notify timeout (%d, %d)", serverState, serverNotified);
+	if (gIOFBSystemPowerAckTo && !powerStateOrdinal) {
+        // Alias for readability
+        const auto& sentPower  = __private->fServerMsgIDSentPower;
+        const auto& ackedPower = __private->fServerMsgIDAckedPower;
+		IOLog("graphics notify timeout (%x, %x)", ackedPower, sentPower);
+    }
 
     FBLOCK(this);
     if (!__private->closed)
@@ -7916,6 +8070,7 @@ IOReturn IOFramebuffer::powerStateDidChangeTo( IOPMPowerFlags flags,
     return (kIOReturnSuccess);
 }
 
+
 void IOFramebuffer::updateDisplaysPowerState(void)
 {
     IOFB_START(updateDisplaysPowerState,0,0,0);
@@ -7974,23 +8129,40 @@ void IOFramebuffer::displayOnline(IODisplay * display, SInt32 delta, uint32_t op
     IOFB_END(displayOnline,0,0,0);
 }
 
+enum
+{
+    gMux_Message                = 'gMUX',
+    gMux_WillSwitch             = 0,
+    gMux_DidSwitch              = 1,
+    gMux_DidNotSwitch           = 2,
+};
+
+#if DEBG_CATEGORIES_BUILD
+static const char * const
+muxSwitchStateStr(uintptr_t msg)
+{
+    switch (msg) {
+#define CASE(x) case gMux_ ## x: return #x
+        CASE(WillSwitch);
+        CASE(DidSwitch);
+        CASE(DidNotSwitch);
+        default: return "Unknown";
+#undef CASE
+    }
+}
+#endif // DEBG_CATEGORIES_BUILD
+
+/* static */
 IOReturn IOFramebuffer::agcMessage( void * target, void * refCon,
         UInt32 messageType, IOService * service,
         void * messageArgument, vm_size_t argSize )
 {
     IOFB_START(agcMessage,messageType,argSize,0);
     IOReturn ret = kIOReturnSuccess;
-	enum
-	{
-		gMux_Message      = 'gMUX',
-		gMux_WillSwitch   = 0,
-		gMux_DidSwitch    = 1,
-		gMux_DidNotSwitch = 2,
-	};
 
-	IOService * ackTo  = NULL;
-	uint32_t    ackRef = NULL;
-	uintptr_t   param  = (uintptr_t) messageArgument;
+	IOService *       ackTo  = NULL;
+	uint32_t          ackRef = NULL;
+	const uintptr_t   switchState = (uintptr_t) messageArgument;
 
     if (gMux_Message != messageType)
     {
@@ -7998,19 +8170,25 @@ IOReturn IOFramebuffer::agcMessage( void * target, void * refCon,
 		return (ret);
     }
 
-	DEBG1("AGC", " %p\n", OBFUSCATE(messageArgument));
+	D(MUX, "MUX", " %s (%#lx)\n", muxSwitchStateStr(switchState), switchState);
+    IOG_KTRACE(DBG_IOG_AGC_MSG,
+               DBG_FUNC_NONE,
+               0, switchState,
+               0, 0,
+               0, 0,
+               0, 0);
 
     {
         IOGraphicsWorkLoop::GateGuard sysgated(gIOFBSystemWorkLoop);
 
-        if (gMux_WillSwitch == param)
+        if (gMux_WillSwitch == switchState)
         {
-            gIOFBSwitching = true;
+            gIOFBIsMuxSwitching = true;
         }
-        else if (gIOFBSwitching && ((gMux_DidSwitch == param)
-             || (gMux_DidNotSwitch == param)))
+        else if (gIOFBIsMuxSwitching && ((gMux_DidSwitch == switchState)
+             || (gMux_DidNotSwitch == switchState)))
         {
-            gIOFBSwitching = false;
+            gIOFBIsMuxSwitching = false;
 
             ackTo  = gIOFBSystemPowerMuxAckTo;
             ackRef = gIOFBSystemPowerMuxAckRef;
@@ -8022,8 +8200,7 @@ IOReturn IOFramebuffer::agcMessage( void * target, void * refCon,
 
 	if (ackTo)
 	{
-		DEBG("S", " mux allowPowerChange()\n");
-
+        D(MUX, "MUX", " allowPowerChange\n");
         IOG_KTRACE(DBG_IOG_MUX_ALLOW_POWER_CHANGE,
                    DBG_FUNC_NONE,
                    0, 0,
@@ -8134,6 +8311,8 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
     IOFB_START(systemPowerChange,messageType,argSize,0);
     IOReturn ret = kIOReturnSuccess;
 
+    IOG_KTRACE_LOG_SYNCH(DBG_IOG_LOG_SYNCH);
+
     // In the corresponding DBG_FUNC_END trace, we set the same broad set of
     // domains instead of more accurate ones so we don't get in a situation
     // where we record the START event but not the END one.
@@ -8152,6 +8331,7 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 
     DEBG1("PWR", "(%08x)\n", (uint32_t) messageType);
 
+    // Let AGC know we have observed a system power change.
 	if (gIOGraphicsControl) switch (messageType)
 	{
 #if VERSION_MAJOR >= 11
@@ -8190,7 +8370,7 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 				{
                     IOGraphicsWorkLoop::GateGuard sysgated(gIOFBSystemWorkLoop);
 
-					gIOFBSwitching = true;
+					gIOFBIsMuxSwitching = true;
 					gIOFBSystemPowerMuxAckRef = params->notifyRef;
 					gIOFBSystemPowerMuxAckTo  = service;
 					params->maxWaitForReply = gIOGNotifyTO * 1000 * 1000;
@@ -8302,8 +8482,8 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 			gIOFBSystemPower       = false;
 			gIOFBSystemPowerAckRef = params->powerRef;
 			gIOFBSystemPowerAckTo  = service;
-			gIOFBSwitching = (kIOReturnNotReady == ret);
-			if (gIOFBSwitching)
+			gIOFBIsMuxSwitching = (kIOReturnNotReady == ret);
+			if (gIOFBIsMuxSwitching)
 			{
 				DEBG1("PWR", " agc not ready\n");
 			}
@@ -8467,16 +8647,16 @@ void IOFramebuffer::deferredSpeedChangeEvent( OSObject * owner,
                                               IOInterruptEventSource * evtSrc, int intCount )
 {
     IOFB_START(deferredSpeedChangeEvent,intCount,0,0);
-    IOFramebuffer *self = (IOFramebuffer *) owner;
+    IOFramebuffer *fb = (IOFramebuffer *) owner;
 
-    if (self->__private->pendingSpeedChange)
+    if (fb->__private->pendingSpeedChange)
     {
-        thread_t saveThread = self->__private->controller->setPowerThread();
-        self->__private->pendingSpeedChange = false;
-        FB_START(setAttribute,kIOFBSpeedAttribute,__LINE__,self->__private->reducedSpeed);
-        self->setAttribute(kIOFBSpeedAttribute, self->__private->reducedSpeed);
+        thread_t saveThread = fb->__private->controller->setPowerThread();
+        fb->__private->pendingSpeedChange = false;
+        FB_START(setAttribute,kIOFBSpeedAttribute,__LINE__,fb->__private->reducedSpeed);
+        fb->setAttribute(kIOFBSpeedAttribute, fb->__private->reducedSpeed);
         FB_END(setAttribute,0,__LINE__,0);
-        self->__private->controller->setPowerThread(saveThread);
+        fb->__private->controller->setPowerThread(saveThread);
     }
     IOFB_END(deferredSpeedChangeEvent,0,0,0);
 }
@@ -8529,39 +8709,95 @@ IOFramebuffer::getAggressiveness( unsigned long type, unsigned long * currentLev
 }
 
 void
-IOFramebuffer::serverAcknowledgeNotification(void)
+IOFramebuffer::serverAcknowledgeNotification(integer_t msgh_id)
 {
-    IOFB_START(serverAcknowledgeNotification,0,0,0);
-    bool  nowOn;
+    IOFB_START(serverAcknowledgeNotification,msgh_id,0,0);
 
-    nowOn = (serverNotified && (serverState != serverNotified));
-    serverState = serverNotified;
+    const bool& isModernServer = __private->fServerUsesModernAcks;
+    if (!isModernServer && !msgh_id)
+        msgh_id = __private->fServerMsgIDSentPower; // Emulate relection ack
 
-    if (serverState && __private->cursorSlept)
-    {
-        resetCursor();
-        __private->cursorSlept = false;
+    // TODO(gvdl) GTrace rendezvous, not acked I think, ask ericd
+    // const bool isRendezvous = msgh_id == kIOFBNS_Rendezvous;
+    const auto messageType = msgh_id & kIOFBNS_MessageMask;
+
+    const bool isPower = !isModernServer
+        || (kIOFBNS_Sleep <= messageType && messageType <= kIOFBNS_Doze);
+
+    if (isPower) {
+        auto& aliasAckedPower = __private->fServerMsgIDAckedPower;
+        aliasAckedPower /* serverState */ = msgh_id;
+        if (messageType == kIOFBNS_Wake && __private->cursorSlept) {
+            resetCursor();
+            __private->cursorSlept = false;
+        } else if (messageType != kIOFBNS_Wake && !__private->cursorSlept) {
+            hideCursor();
+            __private->cursorSlept = true;
+        }
+
+        const uint64_t metricsDomain
+            = kGMETRICS_DOMAIN_FRAMEBUFFER | kGMETRICS_DOMAIN_POWER
+            | (kIOFBNS_Sleep == aliasAckedPower ? kGMETRICS_DOMAIN_SLEEP : 0)
+            | (kIOFBNS_Wake  == aliasAckedPower ? kGMETRICS_DOMAIN_WAKE : 0);
+        (void) metricsDomain;
+        IOG_KTRACE(DBG_IOG_SERVER_ACK, DBG_FUNC_NONE,
+                   metricsDomain, __private->regID,
+                   0, msgh_id,
+                   0, 0,
+                   0, 0);
+
+        __private->fDeferDozeUntilAck = false;
+        __private->controller->didWork(kWorkStateChange);
     }
-    else if (!serverState && !__private->cursorSlept)
-    {
-        hideCursor();
-        __private->cursorSlept = true;
+
+
+    IOFB_END(serverAcknowledgeNotification,msgh_id,0,0);
+}
+
+IOReturn IOFramebuffer::
+extAcknowledgeNotificationImpl(IOExternalMethodArguments * args)
+{
+    const bool& hasModernAcks = __private->fServerUsesModernAcks;
+    const int maxInputs = 2 * kIOPreviewImageCount + hasModernAcks;
+    // Round to even number if server isn't using modern acks or we ignore them
+    const int numInputs = args->scalarInputCount & ~(!hasModernAcks);
+    if (numInputs > maxInputs) {
+        DEBG1(thisName, " Bad scalar argument list %d\n", numInputs);
+        return kIOReturnBadArgument;
     }
 
-    IOG_KTRACE(DBG_IOG_SERVER_ACK,
-               DBG_FUNC_NONE,
-               kGMETRICS_DOMAIN_FRAMEBUFFER
-                   | kGMETRICS_DOMAIN_POWER
-                   | (serverState == 0 ? kGMETRICS_DOMAIN_SLEEP :
-                      serverState == 1 ? kGMETRICS_DOMAIN_WAKE :
-                                         kGMETRICS_DOMAIN_NONE),
-               __private->regID,
-               0, serverState,
-               0, 0,
-               0, 0);
+    auto* const scalars = &args->scalarInput[0];
+    const int numImages = (numInputs - hasModernAcks) / 2;
 
-    __private->controller->didWork(kWorkStateChange);
-    IOFB_END(serverAcknowledgeNotification,0,0,0);
+	for (int addrIdx = 0; addrIdx < kIOPreviewImageCount; addrIdx++) {
+		const mach_vm_address_t address = scalars[addrIdx];
+		const mach_vm_size_t   length   = scalars[numImages + addrIdx];
+
+        OSSafeReleaseNULL(__private->saveBitsMD[addrIdx]);
+		if (addrIdx < numImages && address && length) {
+			__private->saveBitsMD[addrIdx]
+                = IOMemoryDescriptor::withAddressRange(
+                        // TODO(gvdl), why kIOMemoryPersistent not prepare()?
+                        address, length, kIODirectionOut | kIOMemoryPersistent,
+                        current_task());
+
+            // Log using aliases for readability
+            const auto& sentPower  = __private->fServerMsgIDSentPower;
+            const auto& ackedPower = __private->fServerMsgIDAckedPower;
+            (void) sentPower, (void) ackedPower; // 'Use' variables
+			DEBG1(thisName,
+                  " (%x->%x) save bits [0x%llx, 0x%llx] md %p\n",
+				  ackedPower, sentPower, address, length,
+				  __private->saveBitsMD[addrIdx]);
+		}
+	}
+
+    // Grab reflected msgh_id when provided by WS/CD
+    const int ackMsghID = (__private->fServerUsesModernAcks)
+                        ? static_cast<int>(scalars[numInputs - 1]) : 0;
+	serverAcknowledgeNotification(ackMsghID);
+
+    return kIOReturnSuccess;
 }
 
 IOReturn IOFramebuffer::extAcknowledgeNotification(
@@ -8569,45 +8805,21 @@ IOReturn IOFramebuffer::extAcknowledgeNotification(
 {
     IOFB_START(extAcknowledgeNotification,0,0,0);
     IOFramebuffer * inst = (IOFramebuffer *) target;
-    IOReturn err;
-	uint32_t idx;
-	uint32_t countIn;
+    uintptr_t errLine = 0;
 
-    if ((err = inst->extEntry(true, kIOGReportAPIState_AcknowledgeNotification)))
-    {
-        IOFB_END(extAcknowledgeNotification,err,__LINE__,0);
-        return (err);
+    IOReturn err
+        = inst->extEntry(true, kIOGReportAPIState_AcknowledgeNotification);
+    if (err)
+        errLine = __LINE__;
+    else {
+        err = inst->extAcknowledgeNotificationImpl(args);
+        if (err)
+            errLine = __LINE__;
     }
-
-	countIn = args->scalarInputCount / 2;
-	for (idx = 0; (idx < kIOPreviewImageCount); idx++)
-	{
-		mach_vm_address_t address;
-		mach_vm_size_t    length;
-		if (inst->__private->saveBitsMD[idx])
-		{
-			inst->__private->saveBitsMD[idx]->release();
-			inst->__private->saveBitsMD[idx] = 0;
-		}
-		if ((idx < countIn)
-			&& (address = args->scalarInput[idx]) 
-			&& (length  = args->scalarInput[countIn + idx]))
-		{
-			inst->__private->saveBitsMD[idx] = IOMemoryDescriptor::withAddressRange(
-												address, length,
-												kIODirectionOut | kIOMemoryPersistent, current_task());
-			DEBG1(inst->thisName, " (%d->%d) save bits [0x%llx, 0x%llx] md %p\n",
-				 inst->serverState, inst->serverNotified,
-				 address, length,
-				 inst->__private->saveBitsMD[idx]);
-		}
-	}
-
-	inst->serverAcknowledgeNotification();
 
     inst->extExit(err, kIOGReportAPIState_AcknowledgeNotification);
 
-    IOFB_END(extAcknowledgeNotification,err,0,0);
+    IOFB_END(extAcknowledgeNotification,err,errLine,0);
     return (err);
 }
 
@@ -8617,26 +8829,40 @@ IOReturn IOFramebuffer::extRegisterNotificationPort(
     UInt32              refCon )
 {
     IOFB_START(extRegisterNotificationPort,port,type,0);
-    mach_msg_header_t * msgh;
-    UInt8               currentState;
+    IOReturn            err;
 
-    FBLOCK(this);
+    // Must hold system loop to issue a notifyServer
+    if ((err = extEntrySys(/* allowOffline */ true,
+                           kIOGReportAPIState_SetNotificationPort)))
+    {
+        IOFB_END(extRegisterNotificationPort,err,__LINE__,0);
+        return (err);
+    }
 
-    msgh = (mach_msg_header_t *) serverMsg;
-    bzero( msgh, sizeof(mach_msg_header_t) );
+    __private->fServerUsesModernAcks =
+        (type >= kServerAckProtocolGraphicsTypesRev);
+
+
+    mach_msg_header_t *msgh = static_cast<mach_msg_header_t*>(serverMsg);
+    bzero(msgh, sizeof(*msgh));
 
     msgh->msgh_bits        = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
     msgh->msgh_size        = sizeof(mach_msg_header_t);
     msgh->msgh_remote_port = port;
 
-    msgh->msgh_id = 0x87654321;
-    mach_msg_send_from_kernel( msgh, msgh->msgh_size );
+    // Can't use notifyServer, kIOFBNS_Rendezvous is 32 bit not uint8_t
+    msgh->msgh_id = kIOFBNS_Rendezvous;
+    (void) mach_msg_send_from_kernel(msgh, msgh->msgh_size);
+    // Now send the negated version of IOGraphicsFamily
+    msgh->msgh_id = -IOGRAPHICSTYPES_REV;
+    (void) mach_msg_send_from_kernel(msgh, msgh->msgh_size);
 
-    currentState     = serverNotified;
-    serverNotified   = true;                    // server assumes so at startup
-    notifyServer( currentState );
+    // server assumes so at startup
+    uint8_t currentState = __private->fServerMsgIDSentPower;
+    __private->fServerMsgIDSentPower = kIOFBNS_Wake;
+    notifyServer(currentState);
 
-    FBUNLOCK(this);
+    extExitSys(err, kIOGReportAPIState_SetNotificationPort);
 
     IOFB_END(extRegisterNotificationPort,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
@@ -8679,6 +8905,22 @@ void IOFramebuffer::connectChangeInterrupt( IOFramebuffer * inst, void * delay )
 {
     IOFB_START(connectChangeInterrupt,inst->__private->regID,0,0);
     OSIncrementAtomic( &inst->__private->controller->fConnectChange);
+
+    const uint64_t lastFinished = static_cast<uint64_t>(inst->__private->controller->fLastFinishedChange);
+    const uint64_t lastMessaged = static_cast<uint64_t>(inst->__private->controller->fLastMessagedChange) &
+                                0x00000000FFFFFFFF;
+    const uint64_t lastForced   = static_cast<uint64_t>(inst->__private->controller->fLastForceRetrain);
+    const uint64_t changed      = static_cast<uint64_t>(inst->__private->controller->fConnectChange) &
+                                0x00000000FFFFFFFF;
+    const uint64_t ctlState0 = (lastFinished << 32) | lastMessaged;
+    const uint64_t ctlState1 = (lastForced << 32) | changed;
+    IOG_KTRACE(DBG_IOG_CONNECT_CHANGE_INTERRUPT,
+               DBG_FUNC_NONE,
+               0, inst->__private->regID,
+               0, inst->__private->lastProcessedChange,
+               0, ctlState0,
+               0, ctlState1);
+
     DEBG1(inst->thisName, "(%d)\n", inst->__private->controller->fConnectChange);
     startThread(false);
     IOFB_END(connectChangeInterrupt,0,0,0);
@@ -8818,8 +9060,9 @@ IOReturn IOFramebuffer::open( void )
         }
         while (false);
 
-        serverNotified   = true;
-        serverState      = true;
+        __private->fServerMsgCount  = 0;
+        __private->fServerMsgIDSentPower  = kIOFBNS_Wake;
+        __private->fServerMsgIDAckedPower = kIOFBNS_Wake;
         
         if (!__private->controller)
         {
@@ -9262,6 +9505,12 @@ uint32_t IOFramebuffer::globalConnectionCount()
         FBLOCK(fb);
         FB_START(getAttributeForConnection,kConnectionCheckEnable,__LINE__,0);
         err = fb->getAttributeForConnection(0, kConnectionCheckEnable, &connectEnabled);
+        IOG_KTRACE(DBG_IOG_CONNECTION_ENABLE_CHECK,
+                   DBG_FUNC_NONE,
+                   0, DBG_IOG_SOURCE_GLOBAL_CONNECTION_COUNT,
+                   0, __private->regID,
+                   0, connectEnabled,
+                   0, err);
         FB_END(getAttributeForConnection,err,__LINE__,connectEnabled);
         FBUNLOCK(fb);
         if (!err && connectEnabled) count++;
@@ -9566,7 +9815,16 @@ void IOFramebuffer::initFB(void)
 		}
 		DEBG1(thisName, " initFB: done\n");
 		bool bootGamma = getProperty(kIOFBBootGammaRestoredKey, gIOServicePlane);
-		if (logo && !bootGamma && !gIOFBBlackBootTheme) updateGammaTable(3, 256, 16, NULL, kIOFBSetGammaSyncNotSpecified, false);
+		if (logo && !bootGamma && !gIOFBBlackBootTheme)
+        {
+            updateGammaTable(3,
+                             256,
+                             16,
+                             NULL,
+                             kIOFBSetGammaSyncNotSpecified,
+                             false, /*immediate*/
+                             false /*ignoreTransactionActive*/);
+        }
 		__private->needsInit = false;
 		setProperty(kIOFBNeedsRefreshKey, (0 == logo));
 		setProperty(kIOFBBootGammaRestoredKey, bootGamma ? gIOFBOne32Data : gIOFBZero32Data);
@@ -9629,7 +9887,7 @@ IOReturn IOFramebuffer::postOpen( void )
         desc.supportedSpecialEncodings = kTransparentEncodedPixel;
 
         (*__private->cursorControl.callouts->setCursorImage) (
-            __private->cursorControl.self, __private->cursorControl.ref,
+            __private->cursorControl.inst, __private->cursorControl.ref,
             &desc, (void *) 0 );
 
         if (__private->controller->fWl)
@@ -9744,14 +10002,13 @@ IOReturn IOFramebuffer::message(UInt32 type, IOService *provider, void *argument
         }
         case kIOMessageGraphicsProbeAccelerator: {
             IOGraphicsWorkLoop::GateGuard sysgated(gIOFBSystemWorkLoop);
-            if (!__private || !__private->controller) {
-                // In some cases, controller isn't created in start().
-                // E.g., rdar://31639119
-                status = kIOReturnNotReady;
-                break;
+            if (__private && __private->controller) {
+                IOGraphicsWorkLoop::GateGuard ctrlgated(FBWL(this));
+                status = probeAccelerator();
+            } else {
+                // rdar://36053553
+                status = probeAccelerator();
             }
-            IOGraphicsWorkLoop::GateGuard ctrlgated(FBWL(this));
-            status = probeAccelerator();
             break;
         }
     }
@@ -10062,7 +10319,7 @@ void IOFramebuffer::close( void )
     // Only send the WSAA close event for managed FBs, else IOAF/drivers get confused.
     if (kIOWSAA_DriverOpen != __private->wsaaState)
     {
-        setWSAAAttribute(kIOWindowServerActiveAttribute, (uintptr_t)(kIOWSAA_Unaccelerated | (__private->wsaaState & kIOWSAA_NonConsoleDevice)));
+        setWSAAAttribute(kIOWindowServerActiveAttribute, kIOWSAA_Unaccelerated | (__private->wsaaState & kIOWSAA_NonConsoleDevice));
         __private->wsaaState = kIOWSAA_DriverOpen;
     }
     // <rdar://problem/32880536> Intel: (J45G/IG) Flash of color logging out or rebooting
@@ -10188,6 +10445,7 @@ void IOFramebuffer::closeNoSys(void)
 
     __private->controller->fWsWait |= (1 << __private->controllerIndex);
     fServerConnect = NULL;
+    __private->fServerUsesModernAcks = false;
     captured = false;
     setProperty(kIOFBNeedsRefreshKey, true);
 
@@ -10700,7 +10958,6 @@ bool IOFramebuffer::suspend(bool now)
 		TIMEEND(thisName, "exit suspend setupForCurrentConfig time: %qd ms\n");
 
         suspended = false;
-        __private->modeUpdate = false;
     }
 
     IOFB_END(suspend,false,0,0);
@@ -10757,7 +11014,6 @@ IOReturn IOFramebuffer::doSetDisplayMode(
 
         DEBG(thisName, " nop set mode\n");
 		__private->aliasMode = displayMode & ~kIODisplayModeIDAliasBase;
-		__private->modeUpdate = false;
 		extExit(err, kIOGReportAPIState_SetDisplayMode);
 
         IOFB_END(doSetDisplayMode,kIOReturnSuccess,__LINE__,0);
@@ -10770,8 +11026,7 @@ IOReturn IOFramebuffer::doSetDisplayMode(
         return (err);
     }
 
-   	if ((kIODisplayModeIDCurrent == displayMode)
-   		&& __private->modeUpdate)
+   	if (kIODisplayModeIDCurrent == displayMode)
 	{
         FB_START(getCurrentDisplayMode,0,__LINE__,0);
         err = getCurrentDisplayMode(&displayMode, &depth);
@@ -10931,6 +11186,13 @@ IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
     {
         case kIOWSAA_To_Accelerated:
         case kIOWSAA_From_Accelerated:
+        {
+            if (kIOWSAA_Transactional & value)
+            {
+                __private->transactionsEnabled = true;
+            }
+            // Fallthru
+        }
         case kIOWSAA_Sleep:
             /* case kIOWSAA_Hibernate: */
         {
@@ -10973,18 +11235,32 @@ IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
                     kGMETRICS_EVENT_END,
                     GMETRIC_DATA_FROM_FUNC(DBG_IOG_SET_ATTRIBUTE_EXT));
             FB_END(setAttribute,err,__LINE__,0);
+
             // Only save the state if the vendor responded favorably to the attribute.
             if (kIOReturnSuccess == err)
             {
                 __private->wsaaState = value;
+            }
+            else
+            {
+                __private->transactionsEnabled = false;
             }
 
             deliverFramebufferNotification(kIOFBNotifyWSAADidEnterDefer, reinterpret_cast<void *>(static_cast<uintptr_t>(value & (~kIOWSAA_Reserved))));
             break;
         }
         case kIOWSAA_Unaccelerated:
+        {
+            __private->transactionsEnabled = false;
+            // Fallthru
+        }
         case kIOWSAA_Accelerated:
         {
+            if (kIOWSAA_Transactional & value)
+            {
+                __private->transactionsEnabled = true;
+            }
+
             // <rdar://problem/31336033> Intel Logout Shows Apple Logo followed by Black Screen with CD pax which removes CPU Blit
             // Send notifications first, then attribute for defer exit cases.
             IOG_KTRACE(DBG_IOG_WSAA_DEFER_EXIT,
@@ -11025,10 +11301,15 @@ IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
                     kGMETRICS_EVENT_END,
                     GMETRIC_DATA_FROM_FUNC(DBG_IOG_SET_ATTRIBUTE_EXT));
             FB_END(setAttribute,err,__LINE__,0);
+
             // Only save the state if the vendor responded favorably to the attribute.
             if (kIOReturnSuccess == err)
             {
                 __private->wsaaState = value;
+            }
+            else
+            {
+                __private->transactionsEnabled = false;
             }
 
             deliverFramebufferNotification(kIOFBNotifyWSAADidExitDefer, reinterpret_cast<void *>(static_cast<uintptr_t>(value & (~kIOWSAA_Reserved))));
@@ -11236,6 +11517,17 @@ IOReturn IOFramebuffer::extGetAttribute(
             {
                 err = kIOReturnNotReadable;
             }
+            break;
+        }
+        case kConnectionStartOfFrameTime:
+        {
+            uintptr_t result = 0;
+
+            FB_START(getAttribute,attribute,__LINE__,0);
+            err = inst->getAttribute( attribute, &result );
+            FB_END(getAttribute,err,__LINE__,0);
+            if (kIOReturnSuccess == err) *value = result;
+
             break;
         }
         default:
@@ -11461,12 +11753,8 @@ IOReturn IOFramebuffer::setDisplayAttributes(OSObject * obj)
                 continue;
         }
         FB_START(setAttributeForConnection,attr,__LINE__,attrValue);
-        r = setAttributeForConnection(0, attr, attrValue);
+        ret = setAttributeForConnection(0, attr, attrValue);
         FB_END(setAttributeForConnection,r,__LINE__,0);
-        if (kIOReturnSuccess == r)
-            __private->modeUpdate |= updatesMode;
-        else
-            ret = r;
     }
     
     IOFB_END(setDisplayAttributes,ret,0,0);
@@ -11524,12 +11812,14 @@ IOReturn IOFramebuffer::extSetProperties( OSDictionary * props )
     while (false);
 
 	setDisplayAttributes(props->getObject(kIODisplayAttributesKey));
-    
+
 	extExit(err, kIOGReportAPIState_SetProperties);
 
     IOFB_END(extSetProperties,err,0,0);
     return (err);
 }
+
+
 
 //// Controller attributes
 
@@ -11672,17 +11962,6 @@ IOReturn getHardwareClamshellState(IOOptionBits *resultP)
     return kIOReturnSuccess;
 }
 }; // namespace
-
-extern "C" IOReturn
-IOGetHardwareClamshellState(IOOptionBits *resultP)
-{
-    // External API called
-    bool err = getHardwareClamshellState(resultP);
-    IOG_KTRACE(DBG_IOG_CLAMSHELL, DBG_FUNC_NONE,
-               0, DBG_IOG_SOURCE_IOGETHWCLAMSHELL,
-               0, err, 0, *resultP, 0, 0);
-    return err;
-}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -12257,6 +12536,38 @@ IOReturn IOFramebuffer::deliverFramebufferNotification( IOIndex event, void * in
 #endif /* RLOG1 */
 
     __private->fNotificationActive = 0;
+
+    switch (event)
+    {
+        // Too chatty or tracked via other traces
+        case kIOFBNotifyDisplayDimsChange:
+        case kIOFBNotifyWSAAWillEnterDefer:
+        case kIOFBNotifyWSAAWillExitDefer:
+        case kIOFBNotifyWSAADidEnterDefer:
+        case kIOFBNotifyWSAADidExitDefer:
+        case kIOFBNotifyWillChangeSpeed:
+        case kIOFBNotifyDidChangeSpeed:
+        case kIOFBNotifyWillSleep:
+        case kIOFBNotifyDidWake:
+        case kIOFBNotifyDidPowerOff:
+        case kIOFBNotifyWillPowerOn:
+        case kIOFBNotifyWillPowerOff:
+        case kIOFBNotifyDidPowerOn:
+        {
+            break;
+        }
+        default:
+        {
+            IOG_KTRACE(DBG_IOG_DELIVER_NOTIFY,
+                       DBG_FUNC_NONE,
+                       0, __private->regID,
+                       0, event,
+                       0, ret,
+                       0, 0);
+            break;
+        }
+    }
+
     UNLOCKNOTIFY();
 
     IOFB_END(deliverFramebufferNotification,ret,0,0);
@@ -12498,7 +12809,7 @@ void IOFramebuffer::deliverGroupNotification( int32_t targetIndex, IOSelect even
                 {
                     D(NOTIFICATIONS, thisName, " notify: %p, %#x, %d, %#x\n", notify, notify->fGroup, notify->fGroupPriority, notify->fEvents);
 
-                    notify->fStampStart = mach_absolute_time();
+                    notify->fStampStart = mach_continuous_time();
 
                     IOFramebufferNotificationNotify hook;
                     hook.event = event;
@@ -12522,19 +12833,22 @@ void IOFramebuffer::deliverGroupNotification( int32_t targetIndex, IOSelect even
 
                         // Now the interested event.
                         IOFB_START(deliverFramebufferNotificationCallout,*partA,*partB,*partC);
-                        IOG_KTRACE(DBG_IOG_NOTIFY_CALLOUT,
-                                   DBG_FUNC_START,
-                                   0, __private->regID,
-                                   kGTRACE_ARGUMENT_STRING, *partA,
-                                   kGTRACE_ARGUMENT_STRING, *partB,
-                                   kGTRACE_ARGUMENT_STRING, *partC);
+                        IOG_KTRACE_DEFER_START(DBG_IOG_NOTIFY_CALLOUT_TIMEOUT,
+                                               DBG_FUNC_START,
+                                               0, __private->regID,
+                                               kGTRACE_ARGUMENT_STRING, *partA,
+                                               kGTRACE_ARGUMENT_STRING, *partB,
+                                               kGTRACE_ARGUMENT_STRING, *partC,
+                                               mach_continuous_time())
                         r = (*notify->fHandler)(notify->fTarget, notify->fRef, this, event, info );
-                        IOG_KTRACE(DBG_IOG_NOTIFY_CALLOUT,
-                                   DBG_FUNC_END,
-                                   0, __private->regID,
-                                   0, r,
-                                   0, 0,
-                                   0, 0);
+                        IOG_KTRACE_DEFER_END(DBG_IOG_NOTIFY_CALLOUT_TIMEOUT,
+                                             DBG_FUNC_END,
+                                             0, event,
+                                             0, r,
+                                             0, 0,
+                                             0, 0,
+                                             kNOTIFY_TIMEOUT_NS,
+                                             mach_continuous_time());
                         IOFB_END(deliverFramebufferNotificationCallout,r,0,0);
                         notify->fLastEvent = event;
 
@@ -12547,24 +12861,27 @@ void IOFramebuffer::deliverGroupNotification( int32_t targetIndex, IOSelect even
                     else
                     {
                         IOFB_START(deliverFramebufferNotificationCallout,*partA,*partB,*partC);
-                        IOG_KTRACE(DBG_IOG_NOTIFY_CALLOUT,
-                                   DBG_FUNC_START,
-                                   0, __private->regID,
-                                   kGTRACE_ARGUMENT_STRING, *partA,
-                                   kGTRACE_ARGUMENT_STRING, *partB,
-                                   kGTRACE_ARGUMENT_STRING, *partC);
+                        IOG_KTRACE_DEFER_START(DBG_IOG_NOTIFY_CALLOUT_TIMEOUT,
+                                               DBG_FUNC_START,
+                                               0, __private->regID,
+                                               kGTRACE_ARGUMENT_STRING, *partA,
+                                               kGTRACE_ARGUMENT_STRING, *partB,
+                                               kGTRACE_ARGUMENT_STRING, *partC,
+                                               mach_continuous_time())
                         r = (*notify->fHandler)(notify->fTarget, notify->fRef, this, event, info );
-                        IOG_KTRACE(DBG_IOG_NOTIFY_CALLOUT,
-                                   DBG_FUNC_END,
-                                   0, __private->regID,
-                                   0, r,
-                                   0, 0,
-                                   0, 0);
+                        IOG_KTRACE_DEFER_END(DBG_IOG_NOTIFY_CALLOUT_TIMEOUT,
+                                             DBG_FUNC_END,
+                                             0, event,
+                                             0, r,
+                                             0, 0,
+                                             0, 0,
+                                             kNOTIFY_TIMEOUT_NS,
+                                             mach_continuous_time());
                         IOFB_END(deliverFramebufferNotificationCallout,r,0,0);
                         notify->fLastEvent = event;
                     }
 
-                    notify->fStampEnd = mach_absolute_time();
+                    notify->fStampEnd = mach_continuous_time();
 
                     if (kIOFBNotifyTerminated == event)
                     {
@@ -12820,10 +13137,14 @@ IOReturn IOFramebuffer::setAttributeForConnectionExt( IOIndex connectIndex,
     }
 
     FBLOCK(this);
-    // TODO(gvdl): Check with Dave Redman, this attribute does not have any
-    // current clownfish uses.
 	if ('\0igr' == attribute)
 	{
+        IOG_KTRACE(DBG_IOG_AGC_MUTE,
+            DBG_FUNC_NONE,
+            0, __private->regID,
+            0, value,
+            0, static_cast<bool>(kIOFBMuted & __private->controller->fState),
+            0, 0);
 		DEBG1(thisName, " 0igr ->0x%lx, gated %d, thread %d\n", value,
                 gIOFBSystemWorkLoop->inGate(), gIOFBSystemWorkLoop->onThread());
         if (value & (1 << 31))
@@ -12961,9 +13282,13 @@ IOReturn IOFramebuffer::setAttributeForConnection( IOIndex connectIndex,
 			if (__private->gammaScaleChange)
 			{
 				__private->gammaScaleChange = false;
-				updateGammaTable(__private->rawGammaChannelCount, __private->rawGammaDataCount, 
-								 __private->rawGammaDataWidth, __private->rawGammaData,
-                                 kIOFBSetGammaSyncNotSpecified);
+                updateGammaTable(__private->rawGammaChannelCount,
+                                 __private->rawGammaDataCount,
+                                 __private->rawGammaDataWidth,
+                                 __private->rawGammaData,
+                                 kIOFBSetGammaSyncNotSpecified,
+                                 false, /*immediate*/
+                                 false /*ignoreTransactionActive*/);
 			}
             err = kIOReturnSuccess;
             break;
@@ -13093,6 +13418,12 @@ IOReturn IOFramebuffer::getAttributeForConnection( IOIndex connectIndex,
         case kConnectionCheckEnable:
             FB_START(getAttributeForConnection,kConnectionEnable,__LINE__,0);
             err = getAttributeForConnection(connectIndex, kConnectionEnable, value);
+            IOG_KTRACE(DBG_IOG_CONNECTION_ENABLE,
+                       DBG_FUNC_NONE,
+                       0, __private->regID,
+                       0, *value,
+                       0, err,
+                       0, 0);
             FB_END(getAttributeForConnection,err,__LINE__,0);
             break;
 
@@ -13161,18 +13492,20 @@ IOReturn IOFramebuffer::registerForInterruptType( IOSelect interruptType,
 IOReturn IOFramebuffer::unregisterInterrupt(void * interruptRef)
 {
     IOFB_START(unregisterInterrupt,0,0,0);
-	uintptr_t index;
-    IOReturn  err;
+    IOReturn  err = kIOReturnBadArgument;
 
-	index = ((IOFBInterruptRegister *) interruptRef) - &__private->interruptRegisters[0];
-    if (interruptRef == &__private->interruptRegisters[index])
+    const auto intRef = static_cast<IOFBInterruptRegister *>(interruptRef);
+    if (NULL != intRef)
     {
-        __private->interruptRegisters[index].handler = 0;
-        err = kIOReturnSuccess;
-    }
-    else
-    {
-        err = kIOReturnUnsupported;
+        if (intRef == &__private->interruptRegisters[kIOFBMCCSInterruptRegister])
+        {
+            __private->interruptRegisters[kIOFBMCCSInterruptRegister].handler = 0;
+            err = kIOReturnSuccess;
+        }
+        else
+        {
+            err = kIOReturnUnsupported;
+        }
     }
 
     IOFB_END(unregisterInterrupt,err,0,0);
@@ -13182,18 +13515,20 @@ IOReturn IOFramebuffer::unregisterInterrupt(void * interruptRef)
 IOReturn IOFramebuffer::setInterruptState(void * interruptRef, UInt32 state)
 {
     IOFB_START(setInterruptState,state,0,0);
-	uintptr_t index;
-    IOReturn  err;
+    IOReturn  err = kIOReturnBadArgument;
 
-	index = ((IOFBInterruptRegister *) interruptRef) - &__private->interruptRegisters[0];
-    if (interruptRef == &__private->interruptRegisters[index])
+    const auto intRef = static_cast<IOFBInterruptRegister *>(interruptRef);
+    if (NULL != intRef)
     {
-        __private->interruptRegisters[index].state = state;
-        err = kIOReturnSuccess;
-    }
-    else
-    {
-        err = kIOReturnUnsupported;
+        if (intRef == &__private->interruptRegisters[kIOFBMCCSInterruptRegister])
+        {
+            __private->interruptRegisters[kIOFBMCCSInterruptRegister].state = state;
+            err = kIOReturnSuccess;
+        }
+        else
+        {
+            err = kIOReturnUnsupported;
+        }
     }
 
     IOFB_END(setInterruptState,err,0,0);
@@ -14750,6 +15085,7 @@ IOReturn IOFramebuffer::__Report( uintptr_t * r )
                 fbState->stateBits |= gIOFBLastClamshellState ? kIOGReportState_ClamshellLast : 0;
                 fbState->stateBits |= gIOFBSystemDark ? kIOGReportState_SystemDark : 0;
                 fbState->stateBits |= gIOFBSystemPowerAckTo ? kIOGReportState_SystemPowerAckTo : 0;
+                fbState->stateBits |= gIOFBIsMuxSwitching ? kIOGReportState_IsMuxSwitching : 0;
 
                 if (NULL != gIOFBSystemWorkLoop)
                 {
@@ -14775,9 +15111,14 @@ IOReturn IOFramebuffer::__Report( uintptr_t * r )
                 fbState->stateBits |= fb->isUsable ? kIOGReportState_Usable : 0;
                 fbState->stateBits |= fb->pagingState ? kIOGReportState_Paging : 0;
                 fbState->stateBits |= fb->mirrored ? kIOGReportState_Mirrored : 0;
-                fbState->stateBits |= fb->serverNotified ? kIOGReportState_ServerNotified : 0;
-                fbState->stateBits |= fb->serverState ? kIOGReportState_ServerState : 0;
-                fbState->stateBits |= fb->serverPendingAck ? kIOGReportState_ServerPendingAck : 0;
+                // Alias for readability
+                const auto& sentPower  = fb->__private->fServerMsgIDSentPower;
+                const auto& ackedPower = fb->__private->fServerMsgIDAckedPower;
+                if ((sentPower  & kIOFBNS_MessageMask) != kIOFBNS_Sleep)
+                    fbState->stateBits |= kIOGReportState_ServerNotified;
+                if ((ackedPower & kIOFBNS_MessageMask) != kIOFBNS_Sleep)
+                    fbState->stateBits |= kIOGReportState_ServerState;
+
                 fbState->pendingPowerState = (uint32_t)fb->pendingPowerState;
                 fbState->stateBits |= fb->pendingPowerChange ? kIOGReportState_PowerPendingChange : 0;
 
@@ -14801,11 +15142,15 @@ IOReturn IOFramebuffer::__Report( uintptr_t * r )
                     fbState->stateBits |= fb->__private->fNotificationActive ? kIOGReportState_NotificationActive : 0;
                     fbState->notificationGroup = fb->__private->fNotificationGroup;
                     fbState->lastSuccessfulMode = static_cast<uint32_t>(fb->__private->lastSuccessfulMode);
+                    fbState->stateBits |= fb->__private->online ? kIOGReportState_Online : 0;
+                    fbState->stateBits |= fb->__private->bClamshellOffline ? kIOGReportState_ClamshellOffline : 0;
 
                     // Controller state
                     if (NULL != fb->__private->controller)
                     {
                         fbState->stateBits |= fb->__private->controller->fPendingMuxPowerChange ? kIOGReportState_PowerPendingMuxChange : 0;
+                        fbState->stateBits |= fb->__private->controller->isMuted() ? kIOGReportState_Muted : 0;
+                        fbState->aliasID = fb->__private->controller->fAliasID;
 
                         if (NULL != fb->__private->controller->fName)
                         {
@@ -14921,19 +15266,19 @@ IOReturn IOFramebuffer::__Report( uintptr_t * r )
 void IOFramebuffer::dpInterruptProc(OSObject * target, void * ref)
 {
     IOFB_START(dpInterruptProc,0,0,0);
-    IOFramebuffer * self = (IOFramebuffer *) target;
+    IOFramebuffer * fb = (IOFramebuffer *) target;
     uintptr_t       delay = (uintptr_t) ref;
 
-    if (delay && self->__private->dpInterruptES)
-        self->__private->dpInterruptES->setTimeoutMS(static_cast<UInt32>(delay));
+    if (delay && fb->__private->dpInterruptES)
+        fb->__private->dpInterruptES->setTimeoutMS(static_cast<UInt32>(delay));
     IOFB_END(dpInterruptProc,0,0,0);
 }
 
 void IOFramebuffer::dpInterrupt(OSObject * owner, IOTimerEventSource * sender)
 {
     IOFB_START(dpInterrupt,0,0,0);
-    IOFramebuffer * self = (IOFramebuffer *) owner;
-    self->dpProcessInterrupt();
+    IOFramebuffer * fb = (IOFramebuffer *) owner;
+    fb->dpProcessInterrupt();
     IOFB_END(dpInterrupt,0,0,0);
 }
 

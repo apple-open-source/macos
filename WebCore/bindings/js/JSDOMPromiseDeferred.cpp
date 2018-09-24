@@ -27,12 +27,12 @@
 #include "JSDOMPromiseDeferred.h"
 
 #include "DOMWindow.h"
+#include "JSDOMPromise.h"
 #include "JSDOMWindow.h"
-#include <builtins/BuiltinNames.h>
-#include <runtime/Exception.h>
-#include <runtime/JSONObject.h>
-#include <runtime/JSPromiseConstructor.h>
-
+#include <JavaScriptCore/BuiltinNames.h>
+#include <JavaScriptCore/Exception.h>
+#include <JavaScriptCore/JSONObject.h>
+#include <JavaScriptCore/JSPromiseConstructor.h>
 
 namespace WebCore {
 using namespace JSC;
@@ -52,7 +52,7 @@ void DeferredPromise::callFunction(ExecState& exec, JSValue function, JSValue re
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     CallData callData;
-    CallType callType = getCallData(function, callData);
+    CallType callType = getCallData(vm, function, callData);
     ASSERT(callType != CallType::None);
 
     MarkedArgumentBuffer arguments;
@@ -67,6 +67,11 @@ void DeferredPromise::callFunction(ExecState& exec, JSValue function, JSValue re
 
     if (m_mode == Mode::ClearPromiseOnResolve)
         clear();
+}
+
+void DeferredPromise::whenSettled(std::function<void()>&& callback)
+{
+    DOMPromise::whenPromiseIsSettled(globalObject(), deferred()->promise(), WTFMove(callback));
 }
 
 void DeferredPromise::reject()
@@ -202,7 +207,7 @@ JSC::EncodedJSValue createRejectedPromiseWithTypeError(JSC::ExecState& state, co
     auto rejectionValue = createTypeError(&state, errorMessage);
 
     CallData callData;
-    auto callType = getCallData(rejectFunction, callData);
+    auto callType = getCallData(state.vm(), rejectFunction, callData);
     ASSERT(callType != CallType::None);
 
     MarkedArgumentBuffer arguments;

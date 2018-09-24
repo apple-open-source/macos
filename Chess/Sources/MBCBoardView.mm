@@ -201,8 +201,11 @@ void MBCColor::SetColor(NSColor * newColor)
 	fSelectedPieceDrawStyle	= [[MBCDrawStyle alloc] init];
 	fBoardAttr 			= nil;
 	fPieceAttr			= nil;
-	fBoardStyle			= nil;
-	fPieceStyle			= nil;
+    
+    // Default texture folder path for board and pieces
+    NSString *defaultMaterialStyle = [NSString stringWithFormat:@"%@/%@", @"Styles", @"Wood"];
+    fBoardStyle         = [defaultMaterialStyle retain];
+    fPieceStyle         = [defaultMaterialStyle retain];
 	fNeedStaticModels	= true;
 
 	fElevation			=  60.0f;

@@ -34,6 +34,14 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#ifndef CORETLS_EXTERN
+#   ifdef __cplusplus
+#       define CORETLS_EXTERN extern "C" __attribute__((visibility ("default")))
+#   else
+#       define CORETLS_EXTERN extern __attribute__((visibility ("default")))
+#   endif
+#endif
+
 #define CORETLS_MAX_VERSION 0x0304
 
 typedef enum
@@ -47,6 +55,7 @@ typedef enum
     tls_protocol_version_TLS_1_2 = 0x0303,
     tls_protocol_version_TLS_1_3 = 0x0304,
     tls_protocol_version_TLS_1_3_DRAFT = 0x7f12, /* Temporary version number used during pre-standard testing */
+    tls_protocol_version_DTLS_1_2 = 0xfefd,
     tls_protocol_version_DTLS_1_0 = 0xfeff,
 } tls_protocol_version;
 

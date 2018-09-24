@@ -116,7 +116,8 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
     }
     if (IOObjectConformsTo(devMediaObj, "AppleAPFSVolume")) {
         // This is an APFS volume.  We need to mess with the preboot volume.
-        ret = BlessPrebootVolume(context, actargs[kdevice].argument + strlen(_PATH_DEV), NULL, NULL, NULL);
+        ret = BlessPrebootVolume(context, actargs[kdevice].argument + strlen(_PATH_DEV), NULL, NULL, NULL,
+                                 actargs[knextonly].present == 0);
     }
     IOObjectRelease(devMediaObj);
     if (ret) {

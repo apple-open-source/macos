@@ -31,5 +31,5 @@ clean:
 stage: asset
 	echo "PKItrustSupplementals staging"
 	rm -rf staged
-	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) stage -p . -s staged -v 1
-	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) sign -C -s staged
+	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) stage -p . -s staged -v 2
+	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) sign -s staged

@@ -65,6 +65,8 @@
 #define kAggregateDictionaryCoverHESToggled100to250ms           "com.apple.iokit.hid.hes.toggled100to250ms"
 #define kAggregateDictionaryCoverHESToggled250to500ms           "com.apple.iokit.hid.hes.toggled250to500ms"
 #define kAggregateDictionaryCoverHESToggled500to1000ms          "com.apple.iokit.hid.hes.toggled500to1000ms"
+#define kAggregateDictionaryCoverHESUnknownStateEnterCount      "com.apple.iokit.hid.hes.unknownStateEnterCount"
+#define kAggregateDictionaryCoverHESUnknownStateExitCount       "com.apple.iokit.hid.hes.unknownStateExitCount"
 
 #define kAppleVendorID 1452
 
@@ -445,6 +447,8 @@ void IOHIDEventSystemStatistics::handlePendingStats()
     adclientKeys.SetValueForKey(CFSTR(kAggregateDictionaryCoverHESToggled100to250ms), hesStats.toggled_100_250ms);
     adclientKeys.SetValueForKey(CFSTR(kAggregateDictionaryCoverHESToggled250to500ms), hesStats.toggled_250_500ms);
     adclientKeys.SetValueForKey(CFSTR(kAggregateDictionaryCoverHESToggled500to1000ms), hesStats.toggled_500_1000ms);
+    adclientKeys.SetValueForKey(CFSTR(kAggregateDictionaryCoverHESUnknownStateEnterCount), hesStats.unknownStateEnter);
+    adclientKeys.SetValueForKey(CFSTR(kAggregateDictionaryCoverHESUnknownStateExitCount), hesStats.unknownStateExit);
     
     ADClientBatchKeys(adclientKeys.Reference(), NULL);
 }
@@ -582,10 +586,13 @@ bool IOHIDEventSystemStatistics::collectHESStats(IOHIDServiceRef sender, IOHIDEv
         }
         AWDPostMetric (AWDMetricId_IOHIDFamily_CoverHESTEvents, metric);
     } else if ( usage == kHIDUsage_AppleVendorSmartCover_StateUnknown) {
+        result = true;
         if (down) {
+            HIDLogDebug("Cover HES unknown state enter");
             _pending_hesstats.unknownStateEnter++;
             metric.unknownStateEnter(_pending_hesstats.unknownStateEnter);
         } else {
+            HIDLogDebug("Cover HES unknown state exit");
             _pending_hesstats.unknownStateExit++;
             metric.unknownStateExit(_pending_hesstats.unknownStateExit);
         }

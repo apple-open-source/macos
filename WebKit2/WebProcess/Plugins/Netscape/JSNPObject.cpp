@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,8 @@
 #include <JavaScriptCore/AuxiliaryBarrierInlines.h>
 #include <JavaScriptCore/Error.h>
 #include <JavaScriptCore/IdentifierInlines.h>
+#include <JavaScriptCore/IsoSubspacePerVM.h>
+#include <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
 #include <JavaScriptCore/JSGlobalObject.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/ObjectPrototype.h>
@@ -241,7 +243,7 @@ JSValue JSNPObject::callConstructor(ExecState* exec)
 static EncodedJSValue JSC_HOST_CALL callNPJSObject(ExecState* exec)
 {
     JSObject* object = exec->jsCallee();
-    ASSERT(object->inherits(exec->vm(), JSNPObject::info()));
+    ASSERT(object->inherits<JSNPObject>(exec->vm()));
 
     return JSValue::encode(jsCast<JSNPObject*>(object)->callObject(exec));
 }
@@ -260,7 +262,7 @@ JSC::CallType JSNPObject::getCallData(JSC::JSCell* cell, JSC::CallData& callData
 static EncodedJSValue JSC_HOST_CALL constructWithConstructor(ExecState* exec)
 {
     JSObject* constructor = exec->jsCallee();
-    ASSERT(constructor->inherits(exec->vm(), JSNPObject::info()));
+    ASSERT(constructor->inherits<JSNPObject>(exec->vm()));
 
     return JSValue::encode(jsCast<JSNPObject*>(constructor)->callConstructor(exec));
 }
@@ -525,6 +527,12 @@ EncodedJSValue JSNPObject::methodGetter(ExecState* exec, EncodedJSValue thisValu
 JSObject* JSNPObject::throwInvalidAccessError(ExecState* exec, ThrowScope& scope)
 {
     return throwException(exec, scope, createReferenceError(exec, "Trying to access object from destroyed plug-in."));
+}
+
+IsoSubspace* JSNPObject::subspaceForImpl(VM& vm)
+{
+    static NeverDestroyed<IsoSubspacePerVM> perVM([] (VM& vm) { return ISO_SUBSPACE_PARAMETERS(vm.destructibleObjectHeapCellType.get(), JSNPObject); });
+    return &perVM.get().forVM(vm);
 }
 
 } // namespace WebKit

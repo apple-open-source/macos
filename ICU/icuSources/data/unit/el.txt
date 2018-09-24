@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 el{
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -431,7 +431,7 @@ el{
                 other{"{0} πικόμετρα"}
             }
             point{
-                dnam{"στιγμές"}
+                dnam{"στιγμή"}
                 one{"{0} στιγμή"}
                 other{"{0} στιγμές"}
             }
@@ -1407,8 +1407,8 @@ el{
             }
             point{
                 dnam{"στιγμές"}
-                one{"{0} στγμ"}
-                other{"{0} στγμ"}
+                one{"{0} στ."}
+                other{"{0} στ."}
             }
             yard{
                 dnam{"γιάρδες"}
@@ -1442,9 +1442,9 @@ el{
                 per{"{0}/κιλό"}
             }
             metric-ton{
-                dnam{"mt"}
-                one{"{0} mt"}
-                other{"{0} mt"}
+                dnam{"μ.τ."}
+                one{"{0} μ.τ."}
+                other{"{0} μ.τ."}
             }
             microgram{
                 dnam{"µg"}

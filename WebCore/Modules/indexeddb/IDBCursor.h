@@ -31,7 +31,7 @@
 #include "ExceptionOr.h"
 #include "IDBCursorDirection.h"
 #include "IDBCursorInfo.h"
-#include <heap/Strong.h>
+#include <JavaScriptCore/Strong.h>
 #include <wtf/Variant.h>
 
 namespace WebCore {
@@ -105,6 +105,8 @@ private:
     IDBKeyData m_currentKeyData;
     IDBKeyData m_currentPrimaryKeyData;
 
+    // FIXME: The following uses of JSC::Strong are incorrect and can lead to storage leaks
+    // due to reference cycles; we should use JSValueInWrappedObject instead.
     JSC::Strong<JSC::Unknown> m_currentKey;
     JSC::Strong<JSC::Unknown> m_currentPrimaryKey;
     JSC::Strong<JSC::Unknown> m_currentValue;

@@ -22,13 +22,15 @@
 CFStringRef sV2DictionaryKey            = CFSTR("V2DictionaryData");        // CFData wrapper for V2 extensions
 CFStringRef sViewsKey                   = CFSTR("Views");                   // Array of View labels
 CFStringRef sSerialNumberKey            = CFSTR("SerialNumber");
+CFStringRef sMachineIDKey               = CFSTR("MachineIDKey");
 CFStringRef sViewsPending               = CFSTR("ViewsPending");            // Array of View labels (pending)
 
-CFStringRef sSecurityPropertiesKey      = CFSTR("SecurityProperties");
 CFStringRef kSOSHsaCrKeyDictionary      = CFSTR("HSADictionary");
 CFStringRef sRingState                  = CFSTR("RingState");
 CFStringRef sBackupKeyKey               = CFSTR("BackupKey");
 CFStringRef sEscrowRecord               = CFSTR("EscrowRecord");
+
+CFStringRef SOSGestaltSerial = NULL;
 
 #if TARGET_OS_IPHONE
 
@@ -37,6 +39,9 @@ CFStringRef sEscrowRecord               = CFSTR("EscrowRecord");
 #include <MobileGestalt.h>
 
 static CFStringRef SOSCopySerialNumberAsString(CFErrorRef *error) {
+    if (SOSGestaltSerial)
+        return CFRetain(SOSGestaltSerial);
+
     CFTypeRef iosAnswer = (CFStringRef) MGCopyAnswer(kMGQSerialNumber, NULL);
     if(!iosAnswer) {
         SOSCreateError(kSOSErrorAllocationFailure,  CFSTR("No Memory"), NULL, error);
@@ -50,6 +55,8 @@ static CFStringRef SOSCopySerialNumberAsString(CFErrorRef *error) {
 #include <IOKit/IOKitLib.h>
 
 static CFStringRef SOSCopySerialNumberAsString(CFErrorRef *error) {
+    if (SOSGestaltSerial)
+        return CFRetain(SOSGestaltSerial);
     CFStringRef serialNumber = NULL;
     CFStringRef retval = NULL;
 
@@ -176,13 +183,6 @@ bool SOSPeerInfoUpdateToV2(SOSPeerInfoRef pi, CFErrorRef *error) {
     CFMutableSetRef views = SOSViewCopyViewSet(kViewSetDefault);
     CFMutableSetRef secproperties = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
     CFDictionaryAddValue(v2Dictionary, sViewsKey, views);
-    CFDictionaryAddValue(v2Dictionary, sSecurityPropertiesKey, secproperties);
-    
-    CFDictionaryAddValue(v2Dictionary, sDeviceID, CFSTR(""));
-    CFDictionaryAddValue(v2Dictionary, sTransportType, SOSTransportMessageTypeKVS);
-    CFDictionaryAddValue(v2Dictionary, sPreferIDS, kCFBooleanFalse);
-    CFDictionaryAddValue(v2Dictionary, sPreferIDSFragmentation, kCFBooleanTrue);
-    CFDictionaryAddValue(v2Dictionary, sPreferIDSACKModel, kCFBooleanTrue);
     
     require_action_quiet((v2data = SOSCreateDERFromDictionary(v2Dictionary, error)), out, SOSCreateError(kSOSErrorAllocationFailure, CFSTR("No Memory"), NULL, error));
     CFDictionaryAddValue(pi->description, sV2DictionaryKey, v2data);

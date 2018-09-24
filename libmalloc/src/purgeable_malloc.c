@@ -48,27 +48,10 @@ purgeable_malloc(szone_t *szone, size_t size)
 static void *
 purgeable_calloc(szone_t *szone, size_t num_items, size_t size)
 {
-	size_t total_bytes = num_items * size;
+	size_t total_bytes;
 
-	// Check for overflow of integer multiplication
-	if (num_items > 1) {
-#if __LP64__ /* size_t is uint64_t */
-		if ((num_items | size) & 0xffffffff00000000ul) {
-			// num_items or size equals or exceeds sqrt(2^64) == 2^32, appeal to wider arithmetic
-			__uint128_t product = ((__uint128_t)num_items) * ((__uint128_t)size);
-			if ((uint64_t)(product >> 64)) { // compiles to test on upper register of register pair
-				return NULL;
-			}
-		}
-#else /* size_t is uint32_t */
-		if ((num_items | size) & 0xffff0000ul) {
-			// num_items or size equals or exceeds sqrt(2^32) == 2^16, appeal to wider arithmetic
-			uint64_t product = ((uint64_t)num_items) * ((uint64_t)size);
-			if ((uint32_t)(product >> 32)) { // compiles to test on upper register of register pair
-				return NULL;
-			}
-		}
-#endif
+	if (calloc_get_size(num_items, size, 0, &total_bytes)) {
+		return NULL;
 	}
 
 	if (total_bytes <= szone->large_threshold) {
@@ -135,7 +118,7 @@ purgeable_realloc(szone_t *szone, void *ptr, size_t new_size)
 	}
 
 	if (!old_size) {
-		szone_error(szone->debug_flags, 1, "pointer being reallocated was not allocated", ptr, NULL);
+		malloc_zone_error(szone->debug_flags, true, "pointer %p being reallocated was not allocated\n", ptr);
 		return NULL;
 	}
 
@@ -264,8 +247,8 @@ purgeable_check(szone_t *szone)
 static void
 purgeable_print(szone_t *szone, boolean_t verbose)
 {
-	_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX, "Scalable zone %p: inUse=%u(%y) flags=%d\n", szone,
-				   szone->num_large_objects_in_use, szone->num_bytes_in_large_objects, szone->debug_flags);
+	malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "Scalable zone %p: inUse=%u(%y) flags=%d\n", szone,
+				   szone->num_large_objects_in_use, (int)szone->num_bytes_in_large_objects, szone->debug_flags);
 }
 
 static void
@@ -327,6 +310,13 @@ static const struct malloc_introspection_t purgeable_introspect = {
 	(void *)purgeable_reinit_lock, // reinit_lock version 9 and foward
 }; // marked as const to spare the DATA section
 
+
+static boolean_t
+purgeable_claimed_address(szone_t *szone, void *ptr)
+{
+	return szone_claimed_address(szone->helper_zone, ptr);
+}
+
 malloc_zone_t *
 create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, unsigned debug_flags)
 {
@@ -374,7 +364,7 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
 	}
 #endif
 
-	szone->basic_zone.version = 9;
+	szone->basic_zone.version = 10;
 	szone->basic_zone.size = (void *)purgeable_size;
 	szone->basic_zone.malloc = (void *)purgeable_malloc;
 	szone->basic_zone.calloc = (void *)purgeable_calloc;
@@ -388,6 +378,7 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
 	szone->basic_zone.memalign = (void *)purgeable_memalign;
 	szone->basic_zone.free_definite_size = (void *)purgeable_free_definite_size;
 	szone->basic_zone.pressure_relief = (void *)purgeable_pressure_relief;
+	szone->basic_zone.claimed_address = (void *)purgeable_claimed_address;
 
 	szone->basic_zone.reserved1 = 0;					   /* Set to zero once and for all as required by CFAllocator. */
 	szone->basic_zone.reserved2 = 0;					   /* Set to zero once and for all as required by CFAllocator. */
@@ -397,7 +388,7 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
 
 	/* Purgeable zone does not support MALLOC_ADD_GUARD_PAGES. */
 	if (szone->debug_flags & MALLOC_ADD_GUARD_PAGES) {
-		_malloc_printf(ASL_LEVEL_INFO, "purgeable zone does not support guard pages\n");
+		malloc_report(ASL_LEVEL_INFO, "purgeable zone does not support guard pages\n");
 		szone->debug_flags &= ~MALLOC_ADD_GUARD_PAGES;
 	}
 

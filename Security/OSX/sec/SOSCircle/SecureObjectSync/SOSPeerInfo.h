@@ -86,10 +86,6 @@ SOSPeerInfoRef SOSPeerInfoCopyWithViewsChange(CFAllocatorRef allocator, SOSPeerI
                                               SecKeyRef signingKey, CFErrorRef* error);
 SOSPeerInfoRef SOSPeerInfoCopyAsApplication(SOSPeerInfoRef pi, SecKeyRef userkey, SecKeyRef peerkey, CFErrorRef *error);
 
-SOSPeerInfoRef SOSPeerInfoCopyWithSecurityPropertyChange(CFAllocatorRef allocator, SOSPeerInfoRef toCopy,
-                                                        SOSSecurityPropertyActionCode action, CFStringRef property, SOSSecurityPropertyResultCode *retval,
-                                                        SecKeyRef signingKey, CFErrorRef* error);
-
 SOSPeerInfoRef SOSPeerInfoCopyWithPing(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, SecKeyRef signingKey, CFErrorRef* error);
 SOSPeerInfoRef SOSPeerInfoCopyAsApplication(SOSPeerInfoRef pi, SecKeyRef userkey, SecKeyRef peerkey, CFErrorRef *error);
 
@@ -201,27 +197,11 @@ CFSetRef SOSPeerInfoGetPermittedViews(SOSPeerInfoRef peer);
 bool SOSPeerInfoIsEnabledView(SOSPeerInfoRef peer, CFStringRef viewName);
 CFMutableSetRef SOSPeerInfoCopyEnabledViews(SOSPeerInfoRef peer);
 void SOSPeerInfoWithEnabledViewSet(SOSPeerInfoRef pi, void (^operation)(CFSetRef enabled));
+uint64_t SOSPeerInfoViewBitMask(SOSPeerInfoRef pi);
 
-SOSSecurityPropertyResultCode SOSPeerInfoSecurityPropertyStatus(SOSPeerInfoRef pi, CFStringRef property, CFErrorRef *error);
-
-//Transport
-CFBooleanRef SOSPeerInfoCopyIDSPreference(SOSPeerInfoRef peer);
-SOSPeerInfoRef SOSPeerInfoSetIDSPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error);
-
-CFBooleanRef SOSPeerInfoCopyIDSFragmentationPreference(SOSPeerInfoRef peer);
-CFBooleanRef SOSPeerInfoCopyIDSACKModelPreference(SOSPeerInfoRef peer);
-SOSPeerInfoRef SOSPeerInfoSetIDSFragmentationPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error);
-SOSPeerInfoRef CF_RETURNS_RETAINED SOSPeerInfoSetIDSACKModelPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error);
-
-CFStringRef SOSPeerInfoCopyTransportType(SOSPeerInfoRef peer);
-bool SOSPeerInfoTransportTypeIs(SOSPeerInfoRef pi, CFStringRef transportType);
-SOSPeerInfoRef SOSPeerInfoSetTransportType(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFStringRef transportType, SecKeyRef signingKey, CFErrorRef *error);
 bool SOSPeerInfoKVSOnly(SOSPeerInfoRef pi);
-
-// IDSs device ID
-bool SOSPeerInfoHasDeviceID(SOSPeerInfoRef peer);
+CFStringRef SOSPeerInfoCopyTransportType(SOSPeerInfoRef peer);
 CFStringRef SOSPeerInfoCopyDeviceID(SOSPeerInfoRef peer);
-SOSPeerInfoRef SOSPeerInfoSetDeviceID(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFStringRef IDS, SecKeyRef signingKey, CFErrorRef *error);
 
 /* octagon keys */
 SOSPeerInfoRef CF_RETURNS_RETAINED
@@ -241,11 +221,6 @@ SOSPeerInfoSetOctagonEncryptionKey(CFAllocatorRef allocator,
 
 CFStringRef SOSPeerInfoCopySerialNumber(SOSPeerInfoRef pi);
 CFStringRef SOSPeerInfoCopyOSVersion(SOSPeerInfoRef pi);
-
-
-bool SOSPeerInfoShouldUseIDSTransport(SOSPeerInfoRef myPeer, SOSPeerInfoRef theirPeer);
-bool SOSPeerInfoShouldUseIDSMessageFragmentation(SOSPeerInfoRef myPeer, SOSPeerInfoRef theirPeer);
-bool SOSPeerInfoShouldUseACKModel(SOSPeerInfoRef myPeer, SOSPeerInfoRef theirPeer);
 
 void SOSPeerInfoLogState(char *category, SOSPeerInfoRef pi, SecKeyRef pubKey, CFStringRef myPID, char sigchr);
 

@@ -47,8 +47,6 @@
 #import <Security/SecureObjectSync/SOSCircleDer.h>
 #import "Security/SecureObjectSync/SOSAccountTrustClassic.h"
 
-#define kSecServerPeerInfoAvailable "com.apple.security.fpiAvailable"
-
 @implementation SOSAccount (Persistence)
 
 
@@ -441,16 +439,10 @@ static SOSAccount* SOSAccountCreateFromDER(CFAllocatorRef allocator,
         {
             SOSUnregisterTransportKeyParameter(account.key_transport);
             SOSUnregisterTransportCircle((SOSCircleStorageTransport*)account.circle_transport);
-            SOSUnregisterTransportMessage((SOSMessage*)account.ids_message_transport);
             SOSUnregisterTransportMessage(account.kvs_message_transport);
 
             secnotice("account", "No private key associated with my_identity, resetting");
             return nil;
-        }
-        notify_post(kSecServerPeerInfoAvailable);
-        if(account.deviceID && [account.deviceID length] != 0){
-            SOSFullPeerInfoUpdateDeviceID(identity, (__bridge CFStringRef)(account.deviceID), error);
-            account.trust.fullPeerInfo = identity;
         }
     }
 
@@ -462,15 +454,6 @@ static SOSAccount* SOSAccountCreateFromDER(CFAllocatorRef allocator,
     SOSPeerInfoRef oldPI = CFRetainSafe(account.peerInfo);
     if (oldPI) {
         SOSAccountCheckForAlwaysOnViews(account);
-        // if UpdateFullPeerInfo did something - we need to make sure we have the right Ref
-        SOSPeerInfoRef myPI = account.peerInfo;
-        CFStringRef transportTypeInflatedFromDER = SOSPeerInfoCopyTransportType(myPI);
-
-        if(CFStringCompare(transportTypeInflatedFromDER, CFSTR("KVS"), 0) != 0){
-            SOSFullPeerInfoUpdateTransportType(identity, SOSTransportMessageTypeKVS, NULL);
-        }
-
-        CFReleaseNull(transportTypeInflatedFromDER);
     }
     CFReleaseNull(oldPI);
 

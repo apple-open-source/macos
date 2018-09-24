@@ -470,6 +470,33 @@
     [self waitForExpectations: @[first] timeout:0.5];
 }
 
+- (void)testChangeDelay {
+    XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
+    first.assertForOverFulfill = NO;
+
+    XCTestExpectation *second = [self expectationWithDescription:@"FutureScheduler fired (two)"];
+    second.expectedFulfillmentCount = 2;
+    second.assertForOverFulfill = YES;
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay: 10*NSEC_PER_SEC keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
+                                                                                     [first fulfill];
+                                                                                     [second fulfill];
+                                                                                 }];
+
+    [scheduler changeDelays:100*NSEC_PER_MSEC continuingDelay:100*NSEC_PER_MSEC];
+    [scheduler trigger];
+
+    [self waitForExpectations: @[first] timeout:0.4];
+
+    [scheduler trigger];
+    [scheduler trigger];
+    [scheduler trigger];
+
+    [self waitForExpectations: @[second] timeout:0.4];
+}
+
 @end
 
 #endif /* OCTAGON */

@@ -25,6 +25,7 @@
 #import "BitmapImage.h"
 #import "CSSValueKeywords.h"
 #import "CSSValueList.h"
+#import "Color.h"
 #import "ColorMac.h"
 #import "Document.h"
 #import "Element.h"
@@ -35,6 +36,7 @@
 #import "FrameSelection.h"
 #import "FrameView.h"
 #import "GeometryUtilities.h"
+#import "GraphicsContext.h"
 #import "GraphicsContextCG.h"
 #import "HTMLAttachmentElement.h"
 #import "HTMLInputElement.h"
@@ -45,6 +47,7 @@
 #import "Image.h"
 #import "ImageBuffer.h"
 #import "LocalCurrentGraphicsContext.h"
+#import "LocalDefaultSystemAppearance.h"
 #import "LocalizedStrings.h"
 #import "MediaControlElements.h"
 #import "Page.h"
@@ -114,6 +117,7 @@
 // FIXME: This should go into an SPI.h file in the spi directory.
 @interface NSTextFieldCell ()
 - (CFDictionaryRef)_coreUIDrawOptionsWithFrame:(NSRect)cellFrame inView:(NSView *)controlView includeFocus:(BOOL)includeFocus;
+- (CFDictionaryRef)_coreUIDrawOptionsWithFrame:(NSRect)cellFrame inView:(NSView *)controlView includeFocus:(BOOL)includeFocus maskOnly:(BOOL)maskOnly;
 @end
 
 // FIXME: This should go into an SPI.h file in the spi directory.
@@ -134,14 +138,19 @@ static const double progressAnimationNumFrames = 256;
     self = [super init];
     if (!self)
         return nil;
+
     [[NSNotificationCenter defaultCenter] addObserver:self
         selector:@selector(systemColorsDidChange:) name:NSSystemColorsDidChangeNotification object:nil];
+
+    [[[NSWorkspace sharedWorkspace] notificationCenter] addObserver:self
+        selector:@selector(systemColorsDidChange:) name:NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification object:nil];
+
     return self;
 }
 
-- (void)systemColorsDidChange:(NSNotification *)unusedNotification
+- (void)systemColorsDidChange:(NSNotification *)notification
 {
-    ASSERT_UNUSED(unusedNotification, [[unusedNotification name] isEqualToString:NSSystemColorsDidChangeNotification]);
+    UNUSED_PARAM(notification);
     WebCore::RenderTheme::singleton().platformColorsDidChange();
 }
 
@@ -152,13 +161,32 @@ static const double progressAnimationNumFrames = 256;
 
 @implementation WebCoreTextFieldCell
 
-- (CFDictionaryRef)_coreUIDrawOptionsWithFrame:(NSRect)cellFrame inView:(NSView *)controlView includeFocus:(BOOL)includeFocus
+- (CFDictionaryRef)_adjustedCoreUIDrawOptionsForDrawingBordersOnly:(CFDictionaryRef)defaultOptions
 {
-    // FIXME: This is a workaround for <rdar://problem/11385461>. When that bug is resolved, we should remove this code.
-    CFMutableDictionaryRef coreUIDrawOptions = CFDictionaryCreateMutableCopy(NULL, 0, [super _coreUIDrawOptionsWithFrame:cellFrame inView:controlView includeFocus:includeFocus]);
-    CFDictionarySetValue(coreUIDrawOptions, @"borders only", kCFBooleanTrue);
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    // Dark mode controls don't have borders, just a semi-transparent background of shadows.
+    // In the dark mode case we can't disable borders, or we will not paint anything for the control.
+    NSAppearanceName appearance = [self.controlView.effectiveAppearance bestMatchFromAppearancesWithNames:@[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ]];
+    if ([appearance isEqualToString:NSAppearanceNameDarkAqua])
+        return defaultOptions;
+#endif
+
+    // FIXME: This is a workaround for <rdar://problem/11385461>. When that bug is resolved, we should remove this code,
+    // as well as the internal method overrides below.
+    CFMutableDictionaryRef coreUIDrawOptions = CFDictionaryCreateMutableCopy(NULL, 0, defaultOptions);
+    CFDictionarySetValue(coreUIDrawOptions, CFSTR("borders only"), kCFBooleanTrue);
     CFAutorelease(coreUIDrawOptions);
     return coreUIDrawOptions;
+}
+
+- (CFDictionaryRef)_coreUIDrawOptionsWithFrame:(NSRect)cellFrame inView:(NSView *)controlView includeFocus:(BOOL)includeFocus
+{
+    return [self _adjustedCoreUIDrawOptionsForDrawingBordersOnly:[super _coreUIDrawOptionsWithFrame:cellFrame inView:controlView includeFocus:includeFocus]];
+}
+
+- (CFDictionaryRef)_coreUIDrawOptionsWithFrame:(NSRect)cellFrame inView:(NSView *)controlView includeFocus:(BOOL)includeFocus maskOnly:(BOOL)maskOnly
+{
+    return [self _adjustedCoreUIDrawOptionsForDrawingBordersOnly:[super _coreUIDrawOptionsWithFrame:cellFrame inView:controlView includeFocus:includeFocus maskOnly:maskOnly]];
 }
 
 @end
@@ -200,6 +228,7 @@ RenderThemeMac::RenderThemeMac()
 
 NSView *RenderThemeMac::documentViewFor(const RenderObject& o) const
 {
+    LocalDefaultSystemAppearance localAppearance(o.page().useSystemAppearance(), o.page().useDarkAppearance());
     ControlStates states(extractControlStatesForRenderer(o));
     return ThemeMac::ensuredView(&o.view().frameView(), states);
 }
@@ -237,6 +266,9 @@ void RenderThemeMac::purgeCaches()
     m_mediaControlsScript.clearImplIfNotShared();
     m_legacyMediaControlsStyleSheet.clearImplIfNotShared();
     m_mediaControlsStyleSheet.clearImplIfNotShared();
+    m_darkColorCache = ColorCache();
+
+    RenderTheme::purgeCaches();
 }
 
 String RenderThemeMac::mediaControlsScript()
@@ -289,54 +321,124 @@ String RenderThemeMac::imageControlsStyleSheet() const
 
 #endif
 
-Color RenderThemeMac::platformActiveSelectionBackgroundColor() const
+Color RenderThemeMac::platformActiveSelectionBackgroundColor(OptionSet<StyleColor::Options> options) const
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    NSColor* color = [[NSColor selectedTextBackgroundColor] colorUsingColorSpaceName:NSDeviceRGBColorSpace];
-#pragma clang diagnostic pop
-    return Color(static_cast<int>(255.0 * [color redComponent]), static_cast<int>(255.0 * [color greenComponent]), static_cast<int>(255.0 * [color blueComponent]));
+    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseSystemAppearance), options.contains(StyleColor::Options::UseDarkAppearance));
+    return colorFromNSColor([NSColor selectedTextBackgroundColor]);
 }
 
-Color RenderThemeMac::platformInactiveSelectionBackgroundColor() const
+Color RenderThemeMac::platformInactiveSelectionBackgroundColor(OptionSet<StyleColor::Options> options) const
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    NSColor* color = [[NSColor secondarySelectedControlColor] colorUsingColorSpaceName:NSDeviceRGBColorSpace];
-#pragma clang diagnostic pop
-    return Color(static_cast<int>(255.0 * [color redComponent]), static_cast<int>(255.0 * [color greenComponent]), static_cast<int>(255.0 * [color blueComponent]));
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseSystemAppearance), options.contains(StyleColor::Options::UseDarkAppearance));
+    return colorFromNSColor([NSColor unemphasizedSelectedTextBackgroundColor]);
+#else
+    UNUSED_PARAM(options);
+    return colorFromNSColor([NSColor secondarySelectedControlColor]);
+#endif
 }
 
-Color RenderThemeMac::platformActiveListBoxSelectionBackgroundColor() const
+Color RenderThemeMac::transformSelectionBackgroundColor(const Color& color, OptionSet<StyleColor::Options> options) const
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    NSColor* color = [[NSColor alternateSelectedControlColor] colorUsingColorSpaceName:NSDeviceRGBColorSpace];
-#pragma clang diagnostic pop
-    return Color(static_cast<int>(255.0 * [color redComponent]), static_cast<int>(255.0 * [color greenComponent]), static_cast<int>(255.0 * [color blueComponent]));
+    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseSystemAppearance), options.contains(StyleColor::Options::UseDarkAppearance));
+    if (localAppearance.usingDarkAppearance()) {
+        // Use an alpha value that is similar to results from blendWithWhite() on light colors.
+        static const float darkAppearanceAlpha = 0.8;
+        return !color.isOpaque() ? color : color.colorWithAlpha(darkAppearanceAlpha);
+    }
+
+    return RenderTheme::transformSelectionBackgroundColor(color, options);
 }
 
-Color RenderThemeMac::platformActiveListBoxSelectionForegroundColor() const
+bool RenderThemeMac::supportsSelectionForegroundColors(OptionSet<StyleColor::Options> options) const
 {
-    return Color::white;
+    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseSystemAppearance), options.contains(StyleColor::Options::UseDarkAppearance));
+    return localAppearance.usingDarkAppearance();
 }
 
-Color RenderThemeMac::platformInactiveListBoxSelectionForegroundColor() const
+Color RenderThemeMac::platformActiveSelectionForegroundColor(OptionSet<StyleColor::Options> options) const
 {
-    return Color::black;
+    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseSystemAppearance), options.contains(StyleColor::Options::UseDarkAppearance));
+    if (localAppearance.usingDarkAppearance())
+        return colorFromNSColor([NSColor selectedTextColor]);
+    return { };
 }
 
-Color RenderThemeMac::platformFocusRingColor() const
+Color RenderThemeMac::platformInactiveSelectionForegroundColor(OptionSet<StyleColor::Options> options) const
+{
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseSystemAppearance), options.contains(StyleColor::Options::UseDarkAppearance));
+    if (localAppearance.usingDarkAppearance())
+        return colorFromNSColor([NSColor unemphasizedSelectedTextColor]);
+    return { };
+#else
+    UNUSED_PARAM(options);
+    return { };
+#endif
+}
+
+Color RenderThemeMac::platformActiveListBoxSelectionBackgroundColor(OptionSet<StyleColor::Options> options) const
+{
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseSystemAppearance), options.contains(StyleColor::Options::UseDarkAppearance));
+    return colorFromNSColor([NSColor selectedContentBackgroundColor]);
+#else
+    UNUSED_PARAM(options);
+    return colorFromNSColor([NSColor alternateSelectedControlColor]);
+#endif
+}
+
+Color RenderThemeMac::platformInactiveListBoxSelectionBackgroundColor(OptionSet<StyleColor::Options> options) const
+{
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseSystemAppearance), options.contains(StyleColor::Options::UseDarkAppearance));
+    return colorFromNSColor([NSColor unemphasizedSelectedContentBackgroundColor]);
+#else
+    UNUSED_PARAM(options);
+    return colorFromNSColor([NSColor secondarySelectedControlColor]);
+#endif
+}
+
+Color RenderThemeMac::platformActiveListBoxSelectionForegroundColor(OptionSet<StyleColor::Options> options) const
+{
+    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseSystemAppearance), options.contains(StyleColor::Options::UseDarkAppearance));
+    return colorFromNSColor([NSColor alternateSelectedControlTextColor]);
+}
+
+Color RenderThemeMac::platformInactiveListBoxSelectionForegroundColor(OptionSet<StyleColor::Options> options) const
+{
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseSystemAppearance), options.contains(StyleColor::Options::UseDarkAppearance));
+    return colorFromNSColor([NSColor unemphasizedSelectedTextColor]);
+#else
+    UNUSED_PARAM(options);
+    return colorFromNSColor([NSColor selectedControlTextColor]);
+#endif
+}
+
+Color RenderThemeMac::platformFocusRingColor(OptionSet<StyleColor::Options> options) const
 {
     if (usesTestModeFocusRingColor())
         return oldAquaFocusRingColor();
-
-    return systemColor(CSSValueWebkitFocusRingColor);
+    return systemColor(CSSValueWebkitFocusRingColor, options);
 }
 
-Color RenderThemeMac::platformInactiveListBoxSelectionBackgroundColor() const
+Color RenderThemeMac::platformActiveTextSearchHighlightColor(OptionSet<StyleColor::Options> options) const
 {
-    return platformInactiveSelectionBackgroundColor();
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseSystemAppearance), options.contains(StyleColor::Options::UseDarkAppearance));
+    return colorFromNSColor([NSColor findHighlightColor]);
+#else
+    UNUSED_PARAM(options);
+    return Color(255, 255, 0); // Yellow.
+#endif
+}
+
+Color RenderThemeMac::platformInactiveTextSearchHighlightColor(OptionSet<StyleColor::Options> options) const
+{
+    // The inactive color is normally used, since no legacy WebKit client marks a text match as active.
+    // So just return the same color for both states.
+    return platformActiveTextSearchHighlightColor(options);
 }
 
 static FontSelectionValue toFontWeight(NSInteger appKitFontWeight)
@@ -412,93 +514,110 @@ void RenderThemeMac::updateCachedSystemFontDescription(CSSValueID cssValueId, Fo
     fontDescription.setIsItalic([fontManager traitsOfFont:font] & NSItalicFontMask);
 }
 
-static RGBA32 convertNSColorToColor(NSColor *color)
-{
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    NSColor *colorInColorSpace = [color colorUsingColorSpaceName:NSDeviceRGBColorSpace];
-#pragma clang diagnostic pop
-    if (colorInColorSpace) {
-        static const double scaleFactor = nextafter(256.0, 0.0);
-        return makeRGB(static_cast<int>(scaleFactor * [colorInColorSpace redComponent]),
-            static_cast<int>(scaleFactor * [colorInColorSpace greenComponent]),
-            static_cast<int>(scaleFactor * [colorInColorSpace blueComponent]));
-    }
-
-    // This conversion above can fail if the NSColor in question is an NSPatternColor
-    // (as many system colors are). These colors are actually a repeating pattern
-    // not just a solid color. To work around this we simply draw a 1x1 image of
-    // the color and use that pixel's color. It might be better to use an average of
-    // the colors in the pattern instead.
-    NSBitmapImageRep *offscreenRep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nil
-                                                                             pixelsWide:1
-                                                                             pixelsHigh:1
-                                                                          bitsPerSample:8
-                                                                        samplesPerPixel:4
-                                                                               hasAlpha:YES
-                                                                               isPlanar:NO
-                                                                         colorSpaceName:NSDeviceRGBColorSpace
-                                                                            bytesPerRow:4
-                                                                           bitsPerPixel:32];
-
-    [NSGraphicsContext saveGraphicsState];
-    [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithBitmapImageRep:offscreenRep]];
-    NSEraseRect(NSMakeRect(0, 0, 1, 1));
-    [color drawSwatchInRect:NSMakeRect(0, 0, 1, 1)];
-    [NSGraphicsContext restoreGraphicsState];
-
-    NSUInteger pixel[4];
-    [offscreenRep getPixel:pixel atX:0 y:0];
-
-    [offscreenRep release];
-
-    return makeRGB(pixel[0], pixel[1], pixel[2]);
-}
-
 static RGBA32 menuBackgroundColor()
 {
-    NSBitmapImageRep *offscreenRep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nil
-                                                                             pixelsWide:1
-                                                                             pixelsHigh:1
-                                                                          bitsPerSample:8
-                                                                        samplesPerPixel:4
-                                                                               hasAlpha:YES
-                                                                               isPlanar:NO
-                                                                         colorSpaceName:NSDeviceRGBColorSpace
-                                                                            bytesPerRow:4
-                                                                           bitsPerPixel:32];
+    RetainPtr<NSBitmapImageRep> offscreenRep = adoptNS([[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nil pixelsWide:1 pixelsHigh:1
+        bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:4 bitsPerPixel:32]);
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext graphicsContextWithBitmapImageRep:offscreenRep] graphicsPort]);
-#pragma clang diagnostic pop
-    CGRect rect = CGRectMake(0, 0, 1, 1);
+    CGContextRef bitmapContext = [NSGraphicsContext graphicsContextWithBitmapImageRep:offscreenRep.get()].CGContext;
+    const CGRect rect = CGRectMake(0, 0, 1, 1);
+
     HIThemeMenuDrawInfo drawInfo;
     drawInfo.version =  0;
     drawInfo.menuType = kThemeMenuTypePopUp;
-    HIThemeDrawMenuBackground(&rect, &drawInfo, context, kHIThemeOrientationInverted);
+
+    HIThemeDrawMenuBackground(&rect, &drawInfo, bitmapContext, kHIThemeOrientationInverted);
 
     NSUInteger pixel[4];
     [offscreenRep getPixel:pixel atX:0 y:0];
 
-    [offscreenRep release];
-
-    return makeRGB(pixel[0], pixel[1], pixel[2]);
+    return makeRGBA(pixel[0], pixel[1], pixel[2], pixel[3]);
 }
 
 void RenderThemeMac::platformColorsDidChange()
 {
-    m_systemColorCache.clear();
+    m_darkColorCache = ColorCache();
+
     RenderTheme::platformColorsDidChange();
 }
 
-Color RenderThemeMac::systemColor(CSSValueID cssValueID) const
+auto RenderThemeMac::colorCache(OptionSet<StyleColor::Options> options) const -> ColorCache&
 {
-    return m_systemColorCache.ensure(cssValueID, [this, cssValueID] () -> Color {
+    const bool useSystemAppearance = options.contains(StyleColor::Options::UseSystemAppearance);
+    const bool useDarkAppearance = options.contains(StyleColor::Options::UseDarkAppearance);
+    LocalDefaultSystemAppearance localAppearance(useSystemAppearance, useDarkAppearance);
+    if (localAppearance.usingDarkAppearance())
+        return m_darkColorCache;
+    return RenderTheme::colorCache(options);
+}
+
+Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::Options> options) const
+{
+    const bool useSystemAppearance = options.contains(StyleColor::Options::UseSystemAppearance);
+    const bool useDarkAppearance = options.contains(StyleColor::Options::UseDarkAppearance);
+    const bool forVisitedLink = options.contains(StyleColor::Options::ForVisitedLink);
+
+    LocalDefaultSystemAppearance localAppearance(useSystemAppearance, useDarkAppearance);
+
+    auto& cache = colorCache(options);
+
+    if (useSystemAppearance) {
+        // Special handling for links and other system colors when the system appearance is desired.
+        auto systemAppearanceColor = [] (Color& color, SEL selector) -> Color {
+            if (!color.isValid()) {
+                auto systemColor = wtfObjcMsgSend<NSColor *>([NSColor class], selector);
+                color = semanticColorFromNSColor(systemColor);
+            }
+
+            return color;
+        };
+
+        switch (cssValueID) {
+        // Web views that want system appearance get the system version of link colors, which differ from the HTML spec.
+        case CSSValueWebkitLink:
+            if (forVisitedLink)
+                return systemAppearanceColor(cache.systemVisitedLinkColor, @selector(systemPurpleColor));
+            return systemAppearanceColor(cache.systemLinkColor, @selector(linkColor));
+
+        case CSSValueWebkitActivelink:
+            // FIXME: Use a semantic system color for this, instead of systemRedColor. <rdar://problem/39256684>
+            return systemAppearanceColor(cache.systemActiveLinkColor, @selector(systemRedColor));
+
+        // The following colors would expose user appearance preferences to the web, and could be used for fingerprinting.
+        // These should only be available when the web view is wanting the system appearance.
+        case CSSValueWebkitFocusRingColor:
+        case CSSValueActiveborder:
+            return systemAppearanceColor(cache.systemFocusRingColor, @selector(keyboardFocusIndicatorColor));
+
+        case CSSValueAppleSystemControlAccent:
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+            return systemAppearanceColor(cache.systemControlAccentColor, @selector(controlAccentColor));
+#else
+            return systemAppearanceColor(cache.systemControlAccentColor, @selector(alternateSelectedControlColor));
+#endif
+
+        case CSSValueAppleSystemSelectedContentBackground:
+            return activeListBoxSelectionBackgroundColor(options);
+
+        case CSSValueAppleSystemSelectedTextBackground:
+        case CSSValueHighlight:
+            return activeSelectionBackgroundColor(options);
+
+        default:
+            // Handle other system colors below, that don't need special system appearance handling.
+            break;
+        }
+    } else if (forVisitedLink && cssValueID == CSSValueWebkitLink) {
+        // The system color cache below can't handle visited links. The only color value
+        // that cares about visited links is CSSValueWebkitLink, so handle it here.
+        return RenderTheme::systemColor(cssValueID, options);
+    }
+
+    ASSERT(!forVisitedLink);
+
+    return cache.systemStyleColors.ensure(cssValueID, [this, cssValueID, options, &localAppearance] () -> Color {
         auto selectCocoaColor = [cssValueID] () -> SEL {
             switch (cssValueID) {
-            case CSSValueActiveborder:
-                return @selector(keyboardFocusIndicatorColor);
             case CSSValueActivecaption:
                 return @selector(windowFrameTextColor);
             case CSSValueAppworkspace:
@@ -513,8 +632,6 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID) const
                 return @selector(textColor);
             case CSSValueGraytext:
                 return @selector(disabledControlTextColor);
-            case CSSValueHighlight:
-                return @selector(selectedTextBackgroundColor);
             case CSSValueHighlighttext:
                 return @selector(selectedTextColor);
             case CSSValueInactiveborder:
@@ -539,14 +656,65 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID) const
                 return @selector(highlightColor);
             case CSSValueThreedlightshadow:
                 return @selector(controlLightHighlightColor);
-            case CSSValueWebkitFocusRingColor:
-                return @selector(keyboardFocusIndicatorColor);
             case CSSValueWindow:
                 return @selector(windowBackgroundColor);
             case CSSValueWindowframe:
                 return @selector(windowFrameColor);
             case CSSValueWindowtext:
                 return @selector(windowFrameTextColor);
+            case CSSValueAppleSystemHeaderText:
+                return @selector(headerTextColor);
+            case CSSValueAppleSystemTextBackground:
+                return @selector(textBackgroundColor);
+            case CSSValueAppleSystemControlBackground:
+                return @selector(controlBackgroundColor);
+            case CSSValueAppleSystemAlternateSelectedText:
+                return @selector(alternateSelectedControlTextColor);
+            case CSSValueAppleSystemUnemphasizedSelectedContentBackground:
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+                return @selector(unemphasizedSelectedContentBackgroundColor);
+#else
+                return @selector(secondarySelectedControlColor);
+#endif
+            case CSSValueAppleSystemSelectedText:
+                return @selector(selectedTextColor);
+            case CSSValueAppleSystemUnemphasizedSelectedText:
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+                return @selector(unemphasizedSelectedTextColor);
+#else
+                return @selector(textColor);
+#endif
+            case CSSValueAppleSystemUnemphasizedSelectedTextBackground:
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+                return @selector(unemphasizedSelectedTextBackgroundColor);
+#else
+                return @selector(secondarySelectedControlColor);
+#endif
+            case CSSValueAppleSystemPlaceholderText:
+                return @selector(placeholderTextColor);
+            case CSSValueAppleSystemFindHighlightBackground:
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+                return @selector(findHighlightColor);
+#else
+                // Handled below.
+                return nullptr;
+#endif
+            case CSSValueAppleSystemLabel:
+                return @selector(labelColor);
+            case CSSValueAppleSystemSecondaryLabel:
+                return @selector(secondaryLabelColor);
+            case CSSValueAppleSystemTertiaryLabel:
+                return @selector(tertiaryLabelColor);
+            case CSSValueAppleSystemQuaternaryLabel:
+                return @selector(quaternaryLabelColor);
+            case CSSValueAppleSystemGrid:
+                return @selector(gridColor);
+            case CSSValueAppleSystemSeparator:
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+                return @selector(separatorColor);
+#else
+                return @selector(gridColor);
+#endif
             case CSSValueAppleWirelessPlaybackTargetActive:
                 return @selector(systemBlueColor);
             case CSSValueAppleSystemBlue:
@@ -571,29 +739,86 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID) const
                 return nullptr;
             }
         };
+
         if (auto selector = selectCocoaColor()) {
             if (auto color = wtfObjcMsgSend<NSColor *>([NSColor class], selector))
-                return convertNSColorToColor(color);
+                return semanticColorFromNSColor(color);
         }
+
         switch (cssValueID) {
         case CSSValueActivebuttontext:
             // No corresponding NSColor for this so we use a hard coded value.
             return Color::white;
+
         case CSSValueButtonface:
         case CSSValueThreedface:
             // We selected this value instead of [NSColor controlColor] to avoid website incompatibilities.
             // We may want to consider changing to [NSColor controlColor] some day.
             return 0xFFC0C0C0;
+
         case CSSValueInfobackground:
             // No corresponding NSColor for this so we use a hard coded value.
             return 0xFFFBFCC5;
+
         case CSSValueMenu:
             return menuBackgroundColor();
+
+        case CSSValueWebkitFocusRingColor:
+        case CSSValueActiveborder:
+            // Hardcoded to avoid exposing a user appearance preference to the web for fingerprinting.
+            if (localAppearance.usingDarkAppearance())
+                return Color(0x4C1AA9FF, Color::Semantic);
+            return Color(0x3F0067F4, Color::Semantic);
+
+        case CSSValueAppleSystemControlAccent:
+            // Hardcoded to avoid exposing a user appearance preference to the web for fingerprinting.
+            // Same color in light and dark appearances.
+            return Color(0xFF007AFF, Color::Semantic);
+
+        case CSSValueAppleSystemSelectedContentBackground:
+            // Hardcoded to avoid exposing a user appearance preference to the web for fingerprinting.
+            if (localAppearance.usingDarkAppearance())
+                return Color(0xFF0058D0, Color::Semantic);
+            return Color(0xFF0063E1, Color::Semantic);
+
+        case CSSValueHighlight:
+        case CSSValueAppleSystemSelectedTextBackground:
+            // Hardcoded to avoid exposing a user appearance preference to the web for fingerprinting.
+            if (localAppearance.usingDarkAppearance())
+                return Color(0xCC3F638B, Color::Semantic);
+            return Color(0x9980BCFE, Color::Semantic);
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
+        case CSSValueAppleSystemFindHighlightBackground:
+            return platformActiveTextSearchHighlightColor(options);
+#endif
+
+        case CSSValueAppleSystemEvenAlternatingContentBackground: {
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+            NSArray<NSColor *> *alternateColors = [NSColor alternatingContentBackgroundColors];
+#else
+            NSArray<NSColor *> *alternateColors = [NSColor controlAlternatingRowBackgroundColors];
+#endif
+            ASSERT(alternateColors.count >= 2);
+            return semanticColorFromNSColor(alternateColors[0]);
+        }
+
+        case CSSValueAppleSystemOddAlternatingContentBackground: {
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+            NSArray<NSColor *> *alternateColors = [NSColor alternatingContentBackgroundColors];
+#else
+            NSArray<NSColor *> *alternateColors = [NSColor controlAlternatingRowBackgroundColors];
+#endif
+            ASSERT(alternateColors.count >= 2);
+            return semanticColorFromNSColor(alternateColors[1]);
+        }
+
         case CSSValueBackground:
             // Use platform-independent value returned by base class.
             FALLTHROUGH;
+
         default:
-            return RenderTheme::systemColor(cssValueID);
+            return RenderTheme::systemColor(cssValueID, options);
         }
     }).iterator->value;
 }
@@ -704,7 +929,7 @@ void RenderThemeMac::updateEnabledState(NSCell* cell, const RenderObject& o)
 void RenderThemeMac::updateFocusedState(NSCell* cell, const RenderObject& o)
 {
     bool oldFocused = [cell showsFirstResponder];
-    bool focused = isFocused(o) && o.style().outlineStyleIsAuto();
+    bool focused = isFocused(o) && o.style().outlineStyleIsAuto() == OutlineIsAuto::On;
     if (focused != oldFocused)
         [cell setShowsFirstResponder:focused];
 }
@@ -806,7 +1031,7 @@ void RenderThemeMac::setFontFromControlSize(StyleResolver&, RenderStyle& style, 
     // Reset line height
     style.setLineHeight(RenderStyle::initialLineHeight());
 
-    if (style.setFontDescription(fontDescription))
+    if (style.setFontDescription(WTFMove(fontDescription)))
         style.fontCascade().update(0);
 }
 
@@ -830,7 +1055,12 @@ bool RenderThemeMac::paintTextField(const RenderObject& o, const PaintInfo& pain
     AffineTransform transform = paintInfo.context().getCTM();
     if (transform.xScale() > 1 || transform.yScale() > 1) {
         adjustedPaintRect.inflateX(1 / transform.xScale());
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+        adjustedPaintRect.inflateY(2 / transform.yScale());
+        adjustedPaintRect.move(0, -1 / transform.yScale());
+#else
         adjustedPaintRect.inflateY(1 / transform.yScale());
+#endif
     }
     NSTextFieldCell *textField = this->textField();
 
@@ -1078,9 +1308,9 @@ Seconds RenderThemeMac::animationRepeatIntervalForProgressBar(RenderProgress&) c
     return progressAnimationFrameRate;
 }
 
-double RenderThemeMac::animationDurationForProgressBar(RenderProgress&) const
+Seconds RenderThemeMac::animationDurationForProgressBar(RenderProgress&) const
 {
-    return progressAnimationNumFrames * progressAnimationFrameRate.value();
+    return progressAnimationFrameRate * progressAnimationNumFrames;
 }
 
 void RenderThemeMac::adjustProgressBarStyle(StyleResolver&, RenderStyle&, const Element*) const
@@ -1339,11 +1569,15 @@ void RenderThemeMac::adjustMenuListStyle(StyleResolver& styleResolver, RenderSty
     style.setHeight(Length(Auto));
 
     // White-space is locked to pre
-    style.setWhiteSpace(PRE);
+    style.setWhiteSpace(WhiteSpace::Pre);
 
     // Set the foreground color to black or gray when we have the aqua look.
-    // Cast to RGB32 is to work around a compiler bug.
-    style.setColor(e && !e->isDisabledFormControl() ? static_cast<RGBA32>(Color::black) : Color::darkGray);
+    Color c = Color::darkGray;
+    if (e) {
+        OptionSet<StyleColor::Options> options = e->document().styleColorOptions();
+        c = !e->isDisabledFormControl() ? systemColor(CSSValueButtontext, options) : systemColor(CSSValueGraytext, options);
+    }
+    style.setColor(c);
 
     // Set the button's vertical size.
     setSizeFromFont(style, menuListButtonSizes());
@@ -1427,7 +1661,8 @@ void RenderThemeMac::setPopupButtonCellState(const RenderObject& o, const IntSiz
 
 void RenderThemeMac::paintCellAndSetFocusedElementNeedsRepaintIfNecessary(NSCell* cell, const RenderObject& renderer, const PaintInfo& paintInfo, const FloatRect& rect)
 {
-    bool shouldDrawFocusRing = isFocused(renderer) && renderer.style().outlineStyleIsAuto();
+    LocalDefaultSystemAppearance localAppearance(renderer.page().useSystemAppearance(), renderer.page().useDarkAppearance());
+    bool shouldDrawFocusRing = isFocused(renderer) && renderer.style().outlineStyleIsAuto() == OutlineIsAuto::On;
     bool shouldUseImageBuffer = renderer.style().effectiveZoom() != 1 || renderer.page().pageScaleFactor() != 1;
     bool shouldDrawCell = true;
     if (ThemeMac::drawCellOrFocusRingWithViewIntoContext(cell, paintInfo.context(), rect, documentViewFor(renderer), shouldDrawCell, shouldDrawFocusRing, shouldUseImageBuffer, renderer.page().deviceScaleFactor()))
@@ -1507,6 +1742,8 @@ bool RenderThemeMac::paintSliderThumb(const RenderObject& o, const PaintInfo& pa
     NSSliderCell* sliderThumbCell = o.style().appearance() == SliderThumbVerticalPart
         ? sliderThumbVertical()
         : sliderThumbHorizontal();
+
+    LocalDefaultSystemAppearance localAppearance(o.page().useSystemAppearance(), o.page().useDarkAppearance());
 
     LocalCurrentGraphicsContext localContext(paintInfo.context());
 
@@ -1628,13 +1865,13 @@ void RenderThemeMac::adjustSearchFieldStyle(StyleResolver& styleResolver, Render
     style.resetBorder();
     const short borderWidth = 2 * style.effectiveZoom();
     style.setBorderLeftWidth(borderWidth);
-    style.setBorderLeftStyle(INSET);
+    style.setBorderLeftStyle(BorderStyle::Inset);
     style.setBorderRightWidth(borderWidth);
-    style.setBorderRightStyle(INSET);
+    style.setBorderRightStyle(BorderStyle::Inset);
     style.setBorderBottomWidth(borderWidth);
-    style.setBorderBottomStyle(INSET);
+    style.setBorderBottomStyle(BorderStyle::Inset);
     style.setBorderTopWidth(borderWidth);
-    style.setBorderTopStyle(INSET);
+    style.setBorderTopStyle(BorderStyle::Inset);
 
     // Override height.
     style.setHeight(Length(Auto));
@@ -2179,15 +2416,18 @@ private:
     void addTitleLine(CTLineRef, CGFloat& yOffset, Vector<CGPoint> origins, CFIndex lineIndex, const RenderAttachment&);
 };
 
-static NSColor *titleTextColorForAttachment(const RenderAttachment& attachment)
+static Color titleTextColorForAttachment(const RenderAttachment& attachment)
 {
+    Color result = Color::black;
+    
     if (attachment.selectionState() != RenderObject::SelectionNone) {
         if (attachment.frame().selection().isFocusedAndActive())
-            return [NSColor alternateSelectedControlTextColor];    
-        return (NSColor *)cachedCGColor(attachmentTitleInactiveTextColor());
+            result = colorFromNSColor([NSColor alternateSelectedControlTextColor]);
+        else
+            result = attachmentTitleInactiveTextColor();
     }
 
-    return [NSColor blackColor];
+    return attachment.style().colorByApplyingColorFilter(result);
 }
 
 void AttachmentLayout::addTitleLine(CTLineRef line, CGFloat& yOffset, Vector<CGPoint> origins, CFIndex lineIndex, const RenderAttachment& attachment)
@@ -2235,8 +2475,8 @@ void AttachmentLayout::layOutTitle(const RenderAttachment& attachment)
         return;
 
     NSDictionary *textAttributes = @{
-        (id)kCTFontAttributeName: (id)font.get(),
-        (id)kCTForegroundColorAttributeName: titleTextColorForAttachment(attachment)
+        (__bridge id)kCTFontAttributeName: (__bridge id)font.get(),
+        (__bridge id)kCTForegroundColorAttributeName: (__bridge NSColor *)cachedCGColor(titleTextColorForAttachment(attachment))
     };
     RetainPtr<NSAttributedString> attributedTitle = adoptNS([[NSAttributedString alloc] initWithString:title attributes:textAttributes]);
     RetainPtr<CTFramesetterRef> titleFramesetter = adoptCF(CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attributedTitle.get()));
@@ -2289,11 +2529,12 @@ void AttachmentLayout::layOutSubtitle(const RenderAttachment& attachment)
     if (subtitleText.isEmpty())
         return;
 
+    Color subtitleColor = attachment.style().colorByApplyingColorFilter(attachmentSubtitleTextColor());
     CFStringRef language = 0; // By not specifying a language we use the system language.
     RetainPtr<CTFontRef> font = adoptCF(CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, attachmentSubtitleFontSize, language));
     NSDictionary *textAttributes = @{
-        (id)kCTFontAttributeName: (id)font.get(),
-        (id)kCTForegroundColorAttributeName: (NSColor *)cachedCGColor(attachmentSubtitleTextColor())
+        (__bridge id)kCTFontAttributeName: (__bridge id)font.get(),
+        (__bridge id)kCTForegroundColorAttributeName: (__bridge NSColor *)cachedCGColor(subtitleColor)
     };
     RetainPtr<NSAttributedString> attributedSubtitleText = adoptNS([[NSAttributedString alloc] initWithString:subtitleText attributes:textAttributes]);
     subtitleLine = adoptCF(CTLineCreateWithAttributedString((CFAttributedStringRef)attributedSubtitleText.get()));
@@ -2348,7 +2589,7 @@ int RenderThemeMac::attachmentBaseline(const RenderAttachment& attachment) const
     return layout.baseline;
 }
 
-static void paintAttachmentIconBackground(const RenderAttachment&, GraphicsContext& context, AttachmentLayout& layout)
+static void paintAttachmentIconBackground(const RenderAttachment& attachment, GraphicsContext& context, AttachmentLayout& layout)
 {
     // FIXME: Finder has a discontinuous behavior here when you have a background color other than white,
     // where it switches into 'bordered mode' and the border pops in on top of the background.
@@ -2358,7 +2599,8 @@ static void paintAttachmentIconBackground(const RenderAttachment&, GraphicsConte
     if (paintBorder)
         backgroundRect.inflate(-attachmentIconSelectionBorderThickness);
 
-    context.fillRoundedRect(FloatRoundedRect(backgroundRect, FloatRoundedRect::Radii(attachmentIconBackgroundRadius)), attachmentIconBackgroundColor());
+    Color backgroundColor = attachment.style().colorByApplyingColorFilter(attachmentIconBackgroundColor());
+    context.fillRoundedRect(FloatRoundedRect(backgroundRect, FloatRoundedRect::Radii(attachmentIconBackgroundRadius)), backgroundColor);
 
     if (paintBorder) {
         FloatRect borderRect = layout.iconBackgroundRect;
@@ -2367,7 +2609,9 @@ static void paintAttachmentIconBackground(const RenderAttachment&, GraphicsConte
         FloatSize iconBackgroundRadiusSize(attachmentIconBackgroundRadius, attachmentIconBackgroundRadius);
         Path borderPath;
         borderPath.addRoundedRect(borderRect, iconBackgroundRadiusSize);
-        context.setStrokeColor(attachmentIconBorderColor());
+
+        Color borderColor = attachment.style().colorByApplyingColorFilter(attachmentIconBorderColor());
+        context.setStrokeColor(borderColor);
         context.setStrokeThickness(attachmentIconSelectionBorderThickness);
         context.strokePath(borderPath);
     }
@@ -2445,10 +2689,11 @@ static void paintAttachmentTitleBackground(const RenderAttachment& attachment, G
 
     Color backgroundColor;
     if (attachment.frame().selection().isFocusedAndActive())
-        backgroundColor = convertNSColorToColor([NSColor alternateSelectedControlColor]);
+        backgroundColor = colorFromNSColor([NSColor alternateSelectedControlColor]);
     else
         backgroundColor = attachmentTitleInactiveBackgroundColor();
 
+    backgroundColor = attachment.style().colorByApplyingColorFilter(backgroundColor);
     context.setFillColor(backgroundColor);
 
     Path backgroundPath = PathUtilities::pathWithShrinkWrappedRects(backgroundRects, attachmentTitleBackgroundRadius);
@@ -2512,11 +2757,13 @@ static void paintAttachmentProgress(const RenderAttachment& attachment, Graphics
     context.strokePath(borderPath);
 }
 
-static void paintAttachmentPlaceholderBorder(const RenderAttachment&, GraphicsContext& context, AttachmentLayout& layout)
+static void paintAttachmentPlaceholderBorder(const RenderAttachment& attachment, GraphicsContext& context, AttachmentLayout& layout)
 {
     Path borderPath;
     borderPath.addRoundedRect(layout.attachmentRect, FloatSize(attachmentPlaceholderBorderRadius, attachmentPlaceholderBorderRadius));
-    context.setStrokeColor(attachmentPlaceholderBorderColor());
+
+    Color placeholderBorderColor = attachment.style().colorByApplyingColorFilter(attachmentPlaceholderBorderColor());
+    context.setStrokeColor(placeholderBorderColor);
     context.setStrokeThickness(attachmentPlaceholderBorderWidth);
     context.setStrokeStyle(DashedStroke);
     context.setLineDash({attachmentPlaceholderBorderDashLength}, 0);
@@ -2570,6 +2817,60 @@ bool RenderThemeMac::paintAttachment(const RenderObject& renderer, const PaintIn
 }
 
 #endif // ENABLE(ATTACHMENT_ELEMENT)
+
+static CGColorRef colorForStyle(DocumentMarkerLineStyle style, bool useDarkMode)
+{
+    switch (style) {
+    // Red.
+    case DocumentMarkerLineStyle::Spelling:
+        return cachedCGColor(useDarkMode ? Color { 255, 140, 140, 217 } : Color { 255, 59, 48, 191 });
+    // Blue.
+    case DocumentMarkerLineStyle::DictationAlternatives:
+    case DocumentMarkerLineStyle::TextCheckingDictationPhraseWithAlternatives:
+    case DocumentMarkerLineStyle::AutocorrectionReplacement:
+        return cachedCGColor(useDarkMode ? Color { 40, 145, 255, 217 } : Color { 0, 122, 255, 191 });
+    // Green.
+    case DocumentMarkerLineStyle::Grammar:
+        return cachedCGColor(useDarkMode ? Color { 50, 215, 75, 217 } : Color { 25, 175, 50, 191 });
+    }
+}
+
+void RenderThemeMac::drawLineForDocumentMarker(const RenderText& renderer, GraphicsContext& context, const FloatPoint& origin, float width, DocumentMarkerLineStyle style)
+{
+    if (context.paintingDisabled())
+        return;
+
+    auto circleColor = colorForStyle(style, renderer.page().useSystemAppearance() && renderer.page().useDarkAppearance());
+
+    // Center the underline and ensure we only draw entires dots.
+    FloatPoint offsetPoint = origin;
+    float widthMod = fmodf(width, cMisspellingLinePatternWidth);
+    if (cMisspellingLinePatternWidth - widthMod > cMisspellingLinePatternGapWidth) {
+        float gapIncludeWidth = 0;
+        if (width > cMisspellingLinePatternWidth)
+            gapIncludeWidth = cMisspellingLinePatternGapWidth;
+        offsetPoint.move(floor((widthMod + gapIncludeWidth) / 2), 0);
+        width -= widthMod;
+    }
+
+    CGContextRef ctx = context.platformContext();
+    CGContextStateSaver stateSaver { ctx };
+    CGContextSetFillColorWithColor(ctx, circleColor);
+    for (int x = 0; x < width; x += cMisspellingLinePatternWidth)
+        CGContextAddEllipseInRect(ctx, CGRectMake(offsetPoint.x() + x, offsetPoint.y(), cMisspellingLineThickness, cMisspellingLineThickness));
+    CGContextSetCompositeOperation(ctx, kCGCompositeSover);
+    CGContextFillPath(ctx);
+}
+
+bool RenderThemeMac::usingDarkAppearance(const RenderObject& o) const
+{
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    return o.page().useSystemAppearance() && o.page().useDarkAppearance();
+#else
+    UNUSED_PARAM(o);
+    return false;
+#endif
+}
 
 } // namespace WebCore
 

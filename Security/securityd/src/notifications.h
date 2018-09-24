@@ -143,6 +143,8 @@ protected:
     
 	bool mActive;
 
+    Mutex mMutex;
+
 public:
 	SharedMemoryListener (const char* serverName, u_int32_t serverSize, uid_t uid = 0, gid_t gid = 0);
 	virtual ~SharedMemoryListener ();

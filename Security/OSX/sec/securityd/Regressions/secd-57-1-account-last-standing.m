@@ -107,7 +107,7 @@ static void tests(void)
     
     is(ProcessChangesUntilNoChange(changes, alice_account, NULL), 1, "updates");
     
-    ok([alice_account.trust isInCircle:&error], "Alice is back in the circle (%@)", error);
+    ok([alice_account isInCircle:&error], "Alice is back in the circle (%@)", error);
     CFReleaseNull(error);
 
     is(countActivePeers(alice_account), 2, "Alice sees 2 active peers");

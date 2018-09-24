@@ -37,24 +37,36 @@ NS_ASSUME_NONNULL_BEGIN
 typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 
 
-@interface FakeCKModifyRecordZonesOperation : NSBlockOperation <CKKSModifyRecordZonesOperation>
+@interface FakeCKModifyRecordZonesOperation : NSBlockOperation <CKKSModifyRecordZonesOperation> {
+    CKOperationConfiguration* _configuration;
+}
 @property (nullable) NSError* creationError;
 @property (nonatomic, nullable) NSMutableArray<CKRecordZone*>* recordZonesSaved;
 @property (nonatomic, nullable) NSMutableArray<CKRecordZoneID*>* recordZoneIDsDeleted;
+@property (nonatomic, copy, null_resettable) CKOperationConfiguration *configuration;
+
 + (FakeCKDatabase*)ckdb;
 +(void)ensureZoneDeletionAllowed:(FakeCKZone*)zone;
 @end
 
-@interface FakeCKModifySubscriptionsOperation : NSBlockOperation <CKKSModifySubscriptionsOperation>
+@interface FakeCKModifySubscriptionsOperation : NSBlockOperation <CKKSModifySubscriptionsOperation> {
+    CKOperationConfiguration* _configuration;
+}
 @property (nullable) NSError* subscriptionError;
 @property (nonatomic, nullable) NSMutableArray<CKSubscription*>* subscriptionsSaved;
 @property (nonatomic, nullable) NSMutableArray<NSString*>* subscriptionIDsDeleted;
+@property (nonatomic, copy, null_resettable) CKOperationConfiguration *configuration;
 + (FakeCKDatabase*)ckdb;
 @end
 
-@interface FakeCKFetchRecordZoneChangesOperation : NSOperation <CKKSFetchRecordZoneChangesOperation>
+@interface FakeCKFetchRecordZoneChangesOperation : NSOperation <CKKSFetchRecordZoneChangesOperation> {
+    CKOperationConfiguration* _configuration;
+}
+
 + (FakeCKDatabase*)ckdb;
-@property (nullable) void (^blockAfterFetch)();
+@property (nonatomic, copy) NSString *operationID;
+@property (nonatomic, readonly, strong, nullable) CKOperationConfiguration *resolvedConfiguration;
+@property (nullable) void (^blockAfterFetch)(void);
 @end
 
 @interface FakeCKFetchRecordsOperation : NSBlockOperation <CKKSFetchRecordsOperation>
@@ -90,13 +102,18 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 // Usually nil. If set, trying to subscribe to this zone should fail.
 @property (nullable) NSError* subscriptionError;
 
-- (instancetype)initZone:(CKRecordZoneID*)zoneID;
+// Serial queue. Use this for transactionality.
+@property dispatch_queue_t queue;
 
-- (void)rollChangeToken;
+- (instancetype)initZone:(CKRecordZoneID*)zoneID;
 
 // Always Succeed
 - (void)addToZone:(CKKSCKRecordHolder*)item zoneID:(CKRecordZoneID*)zoneID;
 - (void)addToZone:(CKRecord*)record;
+
+// If you want a transaction of adding, use these
+- (void)_onqueueAddToZone:(CKKSCKRecordHolder*)item zoneID:(CKRecordZoneID*)zoneID;
+- (void)_onqueueAddToZone:(CKRecord*)record;
 
 // Removes this record from all versions of the CK database, without changing the change tag
 - (void)deleteFromHistory:(CKRecordID*)recordID;

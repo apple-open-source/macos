@@ -16,7 +16,7 @@
 
 static void print_usage()
 {
-    printf("usage: mslutil pid [--disable] | [--enable malloc | vm | full | lite]\n");
+    printf("usage: mslutil pid [--disable] | [--enable malloc | vm | full | lite | vmlite]\n");
 }
 
 static int send_msl_command(uint64_t pid, uint64_t flavor)
@@ -68,7 +68,9 @@ int main(int argc, const char * argv[])
         } else if (strcmp(argv[3], "vm") == 0) {
             flavor = MEMORYSTATUS_ENABLE_MSL_VM;
         } else if (strcmp(argv[3], "lite") == 0) {
-            flavor = MEMORYSTATUS_ENABLE_MSL_LITE;
+            flavor = MEMORYSTATUS_ENABLE_MSL_LITE_FULL;
+        } else if (strcmp(argv[3], "vmlite") == 0) {
+            flavor = MEMORYSTATUS_ENABLE_MSL_LITE_VM;
         }
         
         if (flavor == 0) {

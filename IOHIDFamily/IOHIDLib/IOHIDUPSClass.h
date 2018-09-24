@@ -46,6 +46,8 @@ struct UPSHIDElement {
     IOHIDElementType	type;
     IOHIDElementCookie	cookie;
     IOReturn    lastReturn;
+    UInt32      longValueSize;
+    void *      longValue;
 };
 
 #define kIOHIDUnitVolt		0xf0d121
@@ -197,7 +199,9 @@ public:
                             
     virtual void sendCommandProcess(
                             UPSHIDElement * 		elementRef, 
-                            SInt32 			value);
+                            SInt32 			value,
+                            const UInt8 * 		longValue,
+                            UInt32 			longValueSize);
 
     virtual IOReturn createAsyncEventSource(
                             CFTypeRef *       eventSource);

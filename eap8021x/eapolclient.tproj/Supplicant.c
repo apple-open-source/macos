@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -2954,7 +2954,7 @@ static char *
 S_copy_password_from_keychain(bool use_system_keychain,
 			      CFStringRef unique_id_str)
 {
-    SecKeychainRef 	keychain = NULL;
+    EAPSecKeychainRef 	keychain = NULL;
     char *		password = NULL;
     CFDataRef		password_data = NULL;
     OSStatus		status;

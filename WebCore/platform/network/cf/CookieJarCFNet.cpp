@@ -29,6 +29,7 @@
 #if USE(CFURLCONNECTION)
 
 #include "Cookie.h"
+#include "CookieRequestHeaderFieldProxy.h"
 #include "CookiesStrategy.h"
 #include "NetworkStorageSession.h"
 #include "NotImplemented.h"
@@ -167,7 +168,7 @@ static CFArrayRef createCookies(CFDictionaryRef headerFields, CFURLRef url)
     return parsedCookies;
 }
 
-void setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, const String& value)
+void setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, const String& value)
 {
     UNUSED_PARAM(frameID);
     UNUSED_PARAM(pageID);
@@ -203,7 +204,7 @@ static bool containsSecureCookies(CFArrayRef cookies)
     return false;
 }
 
-std::pair<String, bool> cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeSecureCookies includeSecureCookies)
+std::pair<String, bool> cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeSecureCookies includeSecureCookies)
 {
     UNUSED_PARAM(frameID);
     UNUSED_PARAM(pageID);
@@ -218,7 +219,7 @@ std::pair<String, bool> cookiesForDOM(const NetworkStorageSession& session, cons
     return { cookieString, didAccessSecureCookies };
 }
 
-std::pair<String, bool> cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeSecureCookies includeSecureCookies)
+std::pair<String, bool> cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeSecureCookies includeSecureCookies)
 {
     UNUSED_PARAM(frameID);
     UNUSED_PARAM(pageID);
@@ -231,13 +232,18 @@ std::pair<String, bool> cookieRequestHeaderFieldValue(const NetworkStorageSessio
     return { cookieString, didAccessSecureCookies };
 }
 
+std::pair<String, bool> cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const CookieRequestHeaderFieldProxy& headerFieldProxy)
+{
+    return cookieRequestHeaderFieldValue(session, headerFieldProxy.firstParty, headerFieldProxy.sameSiteInfo, headerFieldProxy.url, headerFieldProxy.frameID, headerFieldProxy.pageID, headerFieldProxy.includeSecureCookies);
+}
+
 bool cookiesEnabled(const NetworkStorageSession& session)
 {
     CFHTTPCookieStorageAcceptPolicy policy = CFHTTPCookieStorageGetCookieAcceptPolicy(session.cookieStorage().get());
     return policy == CFHTTPCookieStorageAcceptPolicyOnlyFromMainDocumentDomain || policy == CFHTTPCookieStorageAcceptPolicyExclusivelyFromMainDocumentDomain || policy == CFHTTPCookieStorageAcceptPolicyAlways;
 }
 
-bool getRawCookies(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, Vector<Cookie>& rawCookies)
+bool getRawCookies(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, Vector<Cookie>& rawCookies)
 {
     UNUSED_PARAM(frameID);
     UNUSED_PARAM(pageID);
@@ -251,24 +257,18 @@ bool getRawCookies(const NetworkStorageSession& session, const URL& firstParty, 
     rawCookies.reserveCapacity(count);
 
     for (CFIndex i = 0; i < count; i++) {
-        CFHTTPCookieRef cookie = checked_cf_cast<CFHTTPCookieRef>(CFArrayGetValueAtIndex(cookiesCF.get(), i));
-        String name = cookieName(cookie).get();
-        String value = cookieValue(cookie).get();
-        String domain = cookieDomain(cookie).get();
-        String path = cookiePath(cookie).get();
-
-        double created = cookieCreatedTime(cookie);
-        double expires = cookieExpirationTime(cookie);
-
-        bool httpOnly = CFHTTPCookieIsHTTPOnly(cookie);
-        bool secure = CFHTTPCookieIsSecure(cookie);
-        bool session = false; // FIXME: Need API for if a cookie is a session cookie.
-
-        String comment;
-        URL commentURL;
-        Vector<uint16_t> ports;
-
-        rawCookies.uncheckedAppend(Cookie(name, value, domain, path, created, expires, httpOnly, secure, session, comment, commentURL, ports));
+        CFHTTPCookieRef cfCookie = checked_cf_cast<CFHTTPCookieRef>(CFArrayGetValueAtIndex(cookiesCF.get(), i));
+        Cookie cookie;
+        cookie.name = cookieName(cfCookie).get();
+        cookie.value = cookieValue(cfCookie).get();
+        cookie.domain = cookieDomain(cfCookie).get();
+        cookie.path = cookiePath(cfCookie).get();
+        cookie.created = cookieCreatedTime(cfCookie);
+        cookie.expires = cookieExpirationTime(cfCookie);
+        cookie.httpOnly = CFHTTPCookieIsHTTPOnly(cfCookie);
+        cookie.secure = CFHTTPCookieIsSecure(cfCookie);
+        cookie.session = false; // FIXME: Need API for if a cookie is a session cookie.
+        rawCookies.uncheckedAppend(WTFMove(cookie));
     }
 
     return true;

@@ -3,6 +3,9 @@
 ** 1996-06-05 by Arthur David Olson.
 */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunreachable-code"
+
 #include <sys/cdefs.h>
 #ifndef lint
 #ifndef NOID
@@ -184,6 +187,7 @@ struct rule {
 typedef struct {
 	int token;
 	int is_set;
+	int null_bootstrap;
 } notify_tz_t;
 
 #define NOTIFY_TZ_NAME		"com.apple.system.timezone"
@@ -378,8 +382,8 @@ __private_extern__ long		__darwin_altzone = 0;
 }
 #endif /* NOTIFY_TZ_LOG */
 
-static notify_tz_t	gmt_notify = {-1, 0};
-static notify_tz_t	lcl_notify = {-1, 0};
+static notify_tz_t	gmt_notify = {-1, 0, 0};
+static notify_tz_t	lcl_notify = {-1, 0, 0};
 static const char notify_tz_name[] = NOTIFY_TZ_NAME;
 #endif /* NOTIFY_TZ */
 
@@ -515,6 +519,34 @@ settzname(void)
 }
 
 #ifdef NOTIFY_TZ
+static int
+do_null_bootstrap_check(notify_tz_t *p)
+{
+	/*
+	 * If we're running in a null bootstrap context (e.g. the bootstrap server),
+	 * we will not be able to contact the notify server. In this case we want to
+	 * avoid opening /etc/localtime every time the process does a asctime_r(3)
+	 * or similar. But we have to do this once to get the right time zone.
+	 *
+	 * So first time through, we set a bit to indicate that we're in the null
+	 * bootstrap context. The second time through, we force the "set" bit in the
+	 * notify_tz_t structure to -1 and avoid the path where it can be set to
+	 * zero (which would trigger opening and reloading the timezone file).
+	 */
+	if (bootstrap_port != MACH_PORT_NULL) {
+		return -1;
+	}
+
+	if (!p->null_bootstrap) {
+		p->null_bootstrap = 1;
+		p->is_set = 0;
+		return -1;
+	}
+
+	p->is_set = -1;
+	return 0;
+}
+
 static void
 notify_check_tz(notify_tz_t *p)
 {
@@ -523,6 +555,9 @@ notify_check_tz(notify_tz_t *p)
 
 	if (p->token < 0)
 		return;
+	if (do_null_bootstrap_check(p) == 0) {
+		return;
+	}
 	nstat = notify_check(p->token, &ncheck);
 	if (nstat || ncheck) {
 		p->is_set = 0;
@@ -543,6 +578,10 @@ notify_register_tz(char *file, notify_tz_t *p)
 	char *name;
 	unsigned int nstat;
 	int ncheck;
+
+	if (do_null_bootstrap_check(p) == 0) {
+		return;
+	}
 
 	/*----------------------------------------------------------------
 	 * Since we don't record the last time zone filename, just cancel
@@ -2774,3 +2813,4 @@ posix2time(time_t t)
 
 #endif /* defined STD_INSPIRED */
 #endif /* !BUILDING_VARIANT */
+#pragma clang diagnostic pop

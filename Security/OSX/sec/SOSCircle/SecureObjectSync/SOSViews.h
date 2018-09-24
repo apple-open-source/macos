@@ -87,6 +87,8 @@ SOSViewResultCode SOSViewsQuery(SOSPeerInfoRef pi, CFStringRef viewname, CFError
 CFSetRef SOSViewsGetAllCurrent(void);
 void SOSViewsForEachDefaultEnabledViewName(void (^operation)(CFStringRef viewName));
 
+CFSetRef SOSViewCreateSetFromBitmask(uint64_t bitmask);
+
 // Test constraints
 void SOSViewsSetTestViewsSet(CFSetRef testViewNames);
 

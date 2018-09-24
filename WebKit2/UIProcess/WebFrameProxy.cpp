@@ -133,23 +133,16 @@ bool WebFrameProxy::isDisplayingPDFDocument() const
 
 void WebFrameProxy::didStartProvisionalLoad(const URL& url)
 {
-    m_provisionalLoadRedirectChain = { url };
-
     m_frameLoadState.didStartProvisionalLoad(url);
 }
 
 void WebFrameProxy::didReceiveServerRedirectForProvisionalLoad(const URL& url)
 {
-    // didReceiveServerRedirectForProvisionalLoad() often gets called twice for the same redirect.
-    if (m_provisionalLoadRedirectChain.isEmpty() || m_provisionalLoadRedirectChain.last() != url)
-        m_provisionalLoadRedirectChain.append(url);
-
     m_frameLoadState.didReceiveServerRedirectForProvisionalLoad(url);
 }
 
 void WebFrameProxy::didFailProvisionalLoad()
 {
-    m_provisionalLoadRedirectChain.clear();
     m_frameLoadState.didFailProvisionalLoad();
 }
 
@@ -166,13 +159,11 @@ void WebFrameProxy::didCommitLoad(const String& contentType, WebCertificateInfo&
 
 void WebFrameProxy::didFinishLoad()
 {
-    m_provisionalLoadRedirectChain.clear();
     m_frameLoadState.didFinishLoad();
 }
 
 void WebFrameProxy::didFailLoad()
 {
-    m_provisionalLoadRedirectChain.clear();
     m_frameLoadState.didFailLoad();
 }
 
@@ -196,12 +187,20 @@ void WebFrameProxy::receivedPolicyDecision(PolicyAction action, uint64_t listene
     m_page->receivedPolicyDecision(action, *this, listenerID, navigation, WTFMove(data));
 }
 
-WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(uint64_t listenerID)
+WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(uint64_t listenerID, PolicyListenerType policyListenerType)
 {
     if (m_activeListener)
         m_activeListener->invalidate();
-    m_activeListener = WebFramePolicyListenerProxy::create(this, listenerID);
+    m_activeListener = WebFramePolicyListenerProxy::create(this, listenerID, policyListenerType);
     return *static_cast<WebFramePolicyListenerProxy*>(m_activeListener.get());
+}
+
+WebFramePolicyListenerProxy* WebFrameProxy::activePolicyListenerProxy()
+{
+    if (!m_activeListener || m_activeListener->type() != WebFramePolicyListenerProxy::APIType)
+        return nullptr;
+
+    return static_cast<WebFramePolicyListenerProxy*>(m_activeListener.get());
 }
 
 void WebFrameProxy::changeWebsiteDataStore(WebsiteDataStore& websiteDataStore)

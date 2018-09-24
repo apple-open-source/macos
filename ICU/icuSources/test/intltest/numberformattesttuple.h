@@ -13,7 +13,6 @@
 
 #if !UCONFIG_NO_FORMATTING
 
-#include "decimalformatpattern.h"
 #include "unicode/decimfmt.h"
 #include "unicode/ucurr.h"
 
@@ -55,6 +54,7 @@ enum ENumberFormatTestTupleField {
     kPositiveSuffix,
     kNegativePrefix,
     kNegativeSuffix,
+    kSignAlwaysShown,
     kLocalizedPattern,
     kToPattern,
     kToLocalizedPattern,
@@ -64,6 +64,7 @@ enum ENumberFormatTestTupleField {
     kPlural,
     kParseIntegerOnly,
     kDecimalPatternMatchRequired,
+    kParseCaseSensitive,
     kParseNoExponent,
     kOutputCurrency,
     kNumberFormatTestTupleFieldCount
@@ -117,6 +118,7 @@ public:
     UnicodeString positiveSuffix;
     UnicodeString negativePrefix;
     UnicodeString negativeSuffix;
+    int32_t signAlwaysShown;
     UnicodeString localizedPattern;
     UnicodeString toPattern;
     UnicodeString toLocalizedPattern;
@@ -127,6 +129,7 @@ public:
     int32_t parseIntegerOnly;
     int32_t decimalPatternMatchRequired;
     int32_t parseNoExponent;
+    int32_t parseCaseSensitive;
     UnicodeString outputCurrency;
 
     UBool localeFlag;
@@ -162,6 +165,7 @@ public:
     UBool positiveSuffixFlag;
     UBool negativePrefixFlag;
     UBool negativeSuffixFlag;
+    UBool signAlwaysShownFlag;
     UBool localizedPatternFlag;
     UBool toPatternFlag;
     UBool toLocalizedPatternFlag;
@@ -172,6 +176,7 @@ public:
     UBool parseIntegerOnlyFlag;
     UBool decimalPatternMatchRequiredFlag;
     UBool parseNoExponentFlag;
+    UBool parseCaseSensitiveFlag;
     UBool outputCurrencyFlag;
 
     NumberFormatTestTuple() {

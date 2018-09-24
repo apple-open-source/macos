@@ -119,7 +119,7 @@ ALWAYS_INLINE PropertyOffset Structure::get(VM& vm, PropertyName propertyName, u
 ALWAYS_INLINE PropertyOffset Structure::get(VM& vm, PropertyName propertyName, unsigned& attributes, bool& hasInferredType)
 {
     ASSERT(!isCompilationThread());
-    ASSERT(structure()->classInfo() == info());
+    ASSERT(structure(vm)->classInfo() == info());
 
     PropertyTable* propertyTable = ensurePropertyTableIfNotEmpty(vm);
     if (!propertyTable)
@@ -160,6 +160,17 @@ void Structure::forEachPropertyConcurrently(const Functor& functor)
         
         if (!functor(PropertyMapEntry(structure->m_nameInPrevious.get(), structure->m_offset, structure->attributesInPrevious())))
             return;
+    }
+}
+
+template<typename Functor>
+void Structure::forEachProperty(VM& vm, const Functor& functor)
+{
+    if (PropertyTable* table = ensurePropertyTableIfNotEmpty(vm)) {
+        for (auto& entry : *table) {
+            if (!functor(entry))
+                return;
+        }
     }
 }
 
@@ -376,6 +387,8 @@ inline PropertyOffset Structure::add(VM& vm, PropertyName propertyName, unsigned
     checkConsistency();
     if (attributes & PropertyAttribute::DontEnum || propertyName.isSymbol())
         setIsQuickPropertyAccessAllowedForEnumeration(false);
+    if (propertyName == vm.propertyNames->underscoreProto)
+        setHasUnderscoreProtoPropertyExcludingOriginalProto(true);
 
     auto rep = propertyName.uid();
 
@@ -510,5 +523,24 @@ ALWAYS_INLINE bool Structure::shouldConvertToPolyProto(const Structure* a, const
 
     return !aObj && !bObj;
 }
-    
+
+inline Structure* Structure::nonPropertyTransition(VM& vm, Structure* structure, NonPropertyTransition transitionKind)
+{
+    IndexingType indexingModeIncludingHistory = newIndexingType(structure->indexingModeIncludingHistory(), transitionKind);
+
+    if (changesIndexingType(transitionKind)) {
+        if (JSGlobalObject* globalObject = structure->m_globalObject.get()) {
+            if (globalObject->isOriginalArrayStructure(structure)) {
+                Structure* result = globalObject->originalArrayStructureForIndexingType(indexingModeIncludingHistory);
+                if (result->indexingModeIncludingHistory() == indexingModeIncludingHistory) {
+                    structure->didTransitionFromThisStructure();
+                    return result;
+                }
+            }
+        }
+    }
+
+    return nonPropertyTransitionSlow(vm, structure, transitionKind);
+}
+
 } // namespace JSC

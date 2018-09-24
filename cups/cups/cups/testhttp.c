@@ -1,8 +1,8 @@
 /*
  * HTTP test program for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
- * Copyright 1997-2006 by Easy Software Products.
+ * Copyright © 2007-2018 by Apple Inc.
+ * Copyright © 1997-2006 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
@@ -120,6 +120,9 @@ static uri_test_t	uri_tests[] =	/* URI test data */
 			  { HTTP_URI_STATUS_OK, "ipp://%22%23%2F%3A%3C%3E%3F%40%5B%5C%5D%5E%60%7B%7C%7D/",
 			    "ipp", "", "\"#/:<>?@[\\]^`{|}", "/", 631, 0,
 			    HTTP_URI_CODING_MOST  },
+			  { HTTP_URI_STATUS_UNKNOWN_SCHEME, "smb://server/Some%20Printer",
+			    "smb", "", "server", "/Some Printer", 0, 0,
+			    HTTP_URI_CODING_ALL },
 
 			  /* Missing scheme */
 			  { HTTP_URI_STATUS_MISSING_SCHEME, "/path/to/file/index.html",
@@ -148,6 +151,9 @@ static uri_test_t	uri_tests[] =	/* URI test data */
 			    HTTP_URI_CODING_MOST  },
 
 			  /* Bad scheme */
+			  { HTTP_URI_STATUS_BAD_SCHEME, "://server/ipp",
+			    "", "", "", "", 0, 0,
+			    HTTP_URI_CODING_MOST  },
 			  { HTTP_URI_STATUS_BAD_SCHEME, "bad_scheme://server/resource",
 			    "", "", "", "", 0, 0,
 			    HTTP_URI_CODING_MOST  },
@@ -180,6 +186,9 @@ static uri_test_t	uri_tests[] =	/* URI test data */
 			    HTTP_URI_CODING_MOST  },
 
 			  /* Bad resource */
+			  { HTTP_URI_STATUS_BAD_RESOURCE, "mailto:\r\nbla",
+			    "mailto", "", "", "", 0, 0,
+			    HTTP_URI_CODING_MOST  },
 			  { HTTP_URI_STATUS_BAD_RESOURCE, "http://server/index.html%",
 			    "http", "", "server", "", 80, 0,
 			    HTTP_URI_CODING_MOST  },

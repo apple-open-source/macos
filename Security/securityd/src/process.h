@@ -96,8 +96,9 @@ public:
 
 	// aclSequence is taken to serialize ACL validations to pick up mutual changes
 	Mutex aclSequence;
-	
-	IFDUMP(void dumpNode());
+
+    // Dumping is buggy and only hurts debugging. It's dead Jim.
+	//IFDUMP(void dumpNode());
 	
 private:
 	void setup(const ClientSetupInfo *info);

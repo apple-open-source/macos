@@ -1095,16 +1095,18 @@ the certificate being verified.</p>
 <div class="directive-section"><h2><a name="SSLOCSPEnable" id="SSLOCSPEnable">SSLOCSPEnable</a> <a name="sslocspenable" id="sslocspenable">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Enable OCSP validation of the client certificate chain</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLOCSPEnable on|off</code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLOCSPEnable on|leaf|off</code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>SSLOCSPEnable off</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Mode <em>leaf</em> available in httpd 2.4.34 and later</td></tr>
 </table>
 <p>This option enables OCSP validation of the client certificate
 chain.  If this option is enabled, certificates in the client's
 certificate chain will be validated against an OCSP responder after
-normal verification (including CRL checks) have taken place.</p>
+normal verification (including CRL checks) have taken place. In 
+mode 'leaf', only the client certificate itself will be validated.</p>
 
 <p>The OCSP responder used is either extracted from the certificate
 itself, or derived by configuration; see the
@@ -1981,8 +1983,8 @@ The following <em>source</em> variants are available:</p>
     <p> This is the always available builtin seeding source. Its usage
     consumes minimum CPU cycles under runtime and hence can be always used
     without drawbacks. The source used for seeding the PRNG contains of the
-    current time, the current process id and (when applicable) a randomly
-    chosen 1KB extract of the inter-process scoreboard structure of Apache.
+    current time, the current process id and a randomly
+    chosen 128 bytes extract of the stack.
     The drawback is that this is not really a strong source and at startup
     time (where the scoreboard is still not available) this source just
     produces a few bytes of entropy. So you should always, at least for the

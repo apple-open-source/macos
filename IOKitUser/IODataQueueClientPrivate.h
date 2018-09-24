@@ -33,8 +33,16 @@ __BEGIN_DECLS
 typedef uint32_t (*IODataQueueClientEnqueueReadBytesCallback)(void * refcon, void *data, uint32_t dataSize);
 
 IOReturn
-_IODataQueueEnqueueWithReadCallback(IODataQueueMemory *dataQueue, uint32_t dataSize, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon);
+_IODataQueueEnqueueWithReadCallback(IODataQueueMemory *dataQueue, uint64_t queueSize, mach_msg_header_t *msgh, uint32_t dataSize, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon);
 
+/*
+ * Internal Peek and Dequeue functions. These functions allow us to pass in the
+ * queue size, since queue size is part of shared memory and may be modified by
+ * a bad client. See rdar://42664354&42630424&42679853
+ */
+IODataQueueEntry *_IODataQueuePeek(IODataQueueMemory *dataQueue, uint64_t queueSize);
+
+IOReturn _IODataQueueDequeue(IODataQueueMemory *dataQueue, uint64_t queueSize, void *data, uint32_t *dataSize);
 
 __END_DECLS
 

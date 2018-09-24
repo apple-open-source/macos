@@ -2,14 +2,14 @@
  * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,15 +17,17 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #include "DALog.h"
 
 #include "DABase.h"
+#include "DAInternal.h"
 
-#include <asl.h>
+
+#include <os/log.h>
 #include <syslog.h>
 
 static Boolean __gDALogDebug            = FALSE;
@@ -34,7 +36,8 @@ static char *  __gDALogDebugHeaderLast  = NULL;
 static char *  __gDALogDebugHeaderNext  = NULL;
 static Boolean __gDALogDebugHeaderReset = FALSE;
 static Boolean __gDALogError            = FALSE;
-static Boolean __gDALogVerbose          = FALSE;
+static os_log_t __gDALog                   = NULL;
+
 
 static void __DALog( int level, const char * format, va_list arguments )
 {
@@ -57,6 +60,9 @@ static void __DALog( int level, const char * format, va_list arguments )
             {
                 if ( __gDALogDebug )
                 {
+
+
+                     /* Remove in next version */
                     if ( __gDALogDebugFile )
                     {
                         time_t clock = time( NULL );
@@ -71,7 +77,12 @@ static void __DALog( int level, const char * format, va_list arguments )
                         fprintf( __gDALogDebugFile, "\n" );
                         fflush( __gDALogDebugFile );
                     }
+
+
+
                 }
+
+                os_log(__gDALog ,"%s" , message);
 
                 break;
             }
@@ -79,23 +90,27 @@ static void __DALog( int level, const char * format, va_list arguments )
             {
                 if ( __gDALogError )
                 {
+                    /* Remove in next version */
                     syslog( level, "%s", message );
+                }
 
-                    break;
-                }
-            }
-            case LOG_INFO:
-            {
-                if ( __gDALogVerbose )
-                {
-                    syslog( level, "%s", message );
-                }
+                os_log_error(__gDALog, "%s", message );
 
                 break;
             }
+
+            case LOG_INFO:
+            {
+               //For info we use the default case
+            }
+
             default:
             {
+
+                /* Remove in next version */
                 syslog( level, "%s", message );
+
+                os_log(__gDALog ,"%s" , message);
 
                 break;
             }
@@ -116,11 +131,12 @@ void DALog( const char * format, ... )
     va_end( arguments );
 }
 
+  /* Remove in next version */
 void DALogClose( void )
 {
     __gDALogDebug   = FALSE;
     __gDALogError   = FALSE;
-    __gDALogVerbose = FALSE;
+
 
     if ( __gDALogDebugFile )
     {
@@ -223,10 +239,12 @@ void DALogError( const char * format, ... )
     va_end( arguments );
 }
 
-void DALogOpen( char * name, Boolean debug, Boolean error, Boolean verbose )
-{
-    asl_set_filter( NULL, ASL_FILTER_MASK_UPTO( ASL_LEVEL_DEBUG ) );
 
+void DALogOpen( char * name, Boolean debug, Boolean error )
+{
+
+    __gDALog = os_log_create(_kDADaemonName, "default");
+    /* Remove in next version */
     openlog( name, LOG_PID, LOG_DAEMON );
 
     if ( debug )
@@ -245,16 +263,6 @@ void DALogOpen( char * name, Boolean debug, Boolean error, Boolean verbose )
 
     __gDALogDebug   = debug;
     __gDALogError   = error;
-    __gDALogVerbose = verbose;
+
 }
 
-void DALogVerbose( const char * format, ... )
-{
-    va_list arguments;
-
-    va_start( arguments, format );
-
-    __DALog( LOG_INFO, format, arguments );
-
-    va_end( arguments );
-}

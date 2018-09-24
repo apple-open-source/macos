@@ -26,12 +26,12 @@
 #ifndef JSCallbackConstructor_h
 #define JSCallbackConstructor_h
 
+#include "JSDestructibleObject.h"
 #include "JSObjectRef.h"
-#include "runtime/JSDestructibleObject.h"
 
 namespace JSC {
 
-class JSCallbackConstructor : public JSDestructibleObject {
+class JSCallbackConstructor final : public JSDestructibleObject {
 public:
     typedef JSDestructibleObject Base;
     static const unsigned StructureFlags = Base::StructureFlags | ImplementsHasInstance | ImplementsDefaultHasInstance;

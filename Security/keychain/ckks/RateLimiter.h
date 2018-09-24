@@ -92,9 +92,6 @@ NS_ASSUME_NONNULL_END
         <!-- Load config stored in this MobileAsset (ignored if inited with config or plist directly) -->
         <key>MAType</key>
         <string></string>
-        <!-- Use this property for AWD's topWriters metric -->
-        <key>topOffendersPropertyIndex</key>
-        <integer></integer>
     </dict>
     <!-- Each property you want to ratelimit on must have its own group dictionary -->
     <key>groups</key>

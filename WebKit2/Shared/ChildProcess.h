@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -91,30 +91,37 @@ protected:
     virtual void initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&);
     virtual void initializeConnection(IPC::Connection*);
 
-#if PLATFORM(MAC)
-    static void setSharedHTTPCookieStorage(const Vector<uint8_t>& identifier);
-#endif
-
     virtual bool shouldTerminate() = 0;
     virtual void terminate();
 
+    virtual bool shouldCallExitWhenConnectionIsClosed() const { return true; }
     virtual void stopRunLoop();
 
 #if USE(APPKIT)
     static void stopNSAppRunLoop();
 #endif
+    
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_NSRUNLOOP)
+    static void stopNSRunLoop();
+#endif
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     void registerURLSchemeServiceWorkersCanHandle(const String&) const;
+#if OS(LINUX)
+    void didReceiveMemoryPressureEvent(bool isCritical);
+#endif
 
 private:
+    virtual bool shouldOverrideQuarantine() { return true; }
+
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() override;
     uint64_t messageSenderDestinationID() override;
 
     // IPC::Connection::Client.
     void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) final;
+    void didClose(IPC::Connection&) override;
 
     void shutDown();
 

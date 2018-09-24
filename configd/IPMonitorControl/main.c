@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -41,7 +41,7 @@
 #include "IPMonitorControlServer.h"
 #include "symbol_scope.h"
 
-STATIC void 
+STATIC void
 AssertionsChanged(void * info)
 {
     CFDictionaryRef 	assertions = NULL;
@@ -130,7 +130,7 @@ main(int argc, char * argv[])
 	CFRunLoopSourceRef	rls;
 	STATIC Boolean		verbose = TRUE;
 
-	bzero(&context, sizeof(context));
+	memset(&context, 0, sizeof(context));
 	context.info = (void *)NULL;
 	context.perform = AssertionsChanged;
 	rls = CFRunLoopSourceCreate(NULL, 0, &context);

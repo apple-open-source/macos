@@ -24,7 +24,7 @@ void post_notification(char * msg, int should_handle) {
 
     // Post notification
     handled = 0;
-    T_LOG(msg);
+    T_LOG("%s", msg);
     notify_post(KEY);
 
     for(i=0; i < loops; i++) {

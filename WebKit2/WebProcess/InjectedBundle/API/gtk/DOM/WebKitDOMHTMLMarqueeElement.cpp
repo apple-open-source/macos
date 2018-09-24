@@ -36,6 +36,8 @@
 #include <wtf/GetPtr.h>
 #include <wtf/RefPtr.h>
 
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
+
 namespace WebKit {
 
 WebKitDOMHTMLMarqueeElement* kit(WebCore::HTMLMarqueeElement* obj)
@@ -84,14 +86,14 @@ static gboolean webkit_dom_html_marquee_element_remove_event_listener(WebKitDOME
     return WebKit::GObjectEventListener::removeEventListener(G_OBJECT(target), coreTarget, eventName, handler, useCapture);
 }
 
-static void webkit_dom_event_target_init(WebKitDOMEventTargetIface* iface)
+static void webkit_dom_html_marquee_element_dom_event_target_init(WebKitDOMEventTargetIface* iface)
 {
     iface->dispatch_event = webkit_dom_html_marquee_element_dispatch_event;
     iface->add_event_listener = webkit_dom_html_marquee_element_add_event_listener;
     iface->remove_event_listener = webkit_dom_html_marquee_element_remove_event_listener;
 }
 
-G_DEFINE_TYPE_WITH_CODE(WebKitDOMHTMLMarqueeElement, webkit_dom_html_marquee_element, WEBKIT_DOM_TYPE_HTML_ELEMENT, G_IMPLEMENT_INTERFACE(WEBKIT_DOM_TYPE_EVENT_TARGET, webkit_dom_event_target_init))
+G_DEFINE_TYPE_WITH_CODE(WebKitDOMHTMLMarqueeElement, webkit_dom_html_marquee_element, WEBKIT_DOM_TYPE_HTML_ELEMENT, G_IMPLEMENT_INTERFACE(WEBKIT_DOM_TYPE_EVENT_TARGET, webkit_dom_html_marquee_element_dom_event_target_init))
 
 static void webkit_dom_html_marquee_element_class_init(WebKitDOMHTMLMarqueeElementClass* requestClass)
 {
@@ -117,3 +119,4 @@ void webkit_dom_html_marquee_element_stop(WebKitDOMHTMLMarqueeElement* self)
     WebCore::HTMLMarqueeElement* item = WebKit::core(self);
     item->stop();
 }
+G_GNUC_END_IGNORE_DEPRECATIONS;

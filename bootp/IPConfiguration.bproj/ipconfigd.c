@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -307,6 +307,9 @@ struct IFState {
     uint32_t			wake_generation;
     boolean_t			disable_perform_nud;
     boolean_t			disable_dad;
+    boolean_t			enable_clat46;
+    boolean_t			nat64_prefix_available;
+    boolean_t			plat_discovery_complete;
     struct in6_addr		ipv6_linklocal;
     boolean_t			disable_cga;
     boolean_t			link_timer_suppressed;
@@ -321,6 +324,8 @@ struct IFState {
 
 typedef dynarray_t	IFStateList_t;
 
+typedef void (^ServiceInitHandler)(ServiceRef service);
+
 #define IS_IPV4		TRUE
 #define IS_IPV6		FALSE
 
@@ -331,6 +336,10 @@ typedef dynarray_t	IFStateList_t;
 #ifndef kSCEntNetIPv4ARPCollision
 #define kSCEntNetIPv4ARPCollision	CFSTR("IPv4ARPCollision")
 #endif /* kSCEntNetIPv4ARPCollision */
+
+#ifndef kSCEntNetNAT64
+#define kSCEntNetNAT64			CFSTR("NAT64")
+#endif /* kSCEntNetNAT64 */
 
 #ifndef kSCEntNetDHCPv6
 #define kSCEntNetDHCPv6			CFSTR("DHCPv6")
@@ -371,6 +380,20 @@ static const CFStringRef kSCPropNetIPv6EnableCGA = CFSTR("EnableCGA");
 static const CFStringRef kSCPropNetIPv6LinkLocalAddress = CFSTR("LinkLocalAddress");
 #define kSCPropNetIPv6LinkLocalAddress	kSCPropNetIPv6LinkLocalAddress
 #endif /* kSCPropNetIPv6LinkLocalAddress */
+
+#ifndef kSCPropNetIPv6PerformPLATDiscovery
+static const CFStringRef kSCPropNetIPv6PerformPLATDiscovery = CFSTR("PerformPLATDiscovery");
+#define kSCPropNetIPv6PerformPLATDiscovery	kSCPropNetIPv6PerformPLATDiscovery
+#endif /* kSCPropNetIPv6PerformPLATDiscovery */
+
+#ifndef kSCPropNetNAT64PLATDiscoveryCompletionTime
+static const CFStringRef kSCPropNetNAT64PLATDiscoveryCompletionTime = CFSTR("PLATDiscoveryCompletionTime");
+#endif /* kSCPropNetNAT64PLATDiscoveryCompletionTime */
+
+#ifndef kSCPropNetIPv4CLAT46
+static const CFStringRef kSCPropNetIPv4CLAT46 = CFSTR("CLAT46");
+#define kSCPropNetIPv4CLAT46	kSCPropNetIPv4CLAT46
+#endif /* kSCPropNetIPv4CLAT46 */
 
 #ifndef kSCEntNetInterfaceActiveDuringSleepRequested
 #define kSCEntNetInterfaceActiveDuringSleepRequested	CFSTR("ActiveDuringSleepRequested")
@@ -566,6 +589,8 @@ static boolean_t		S_configure_ipv6 = TRUE;
 STATIC boolean_t		S_active_during_sleep_needs_attention;
 STATIC boolean_t		S_disable_until_needed_needs_attention;
 STATIC boolean_t		S_disable_unneeded_interfaces = TRUE;
+
+static boolean_t		S_cellular_clat46_autoenable = FALSE;
 
 #define PROP_SERVICEID		CFSTR("ServiceID")
 
@@ -1593,7 +1618,9 @@ ServiceFree(void * arg)
 static ServiceRef
 ServiceCreate(IFStateRef ifstate, CFStringRef serviceID,
 	      ipconfig_method_info_t info,
-	      ServiceRef parent_service_p, ipconfig_status_t * status_p)
+	      ServiceRef parent_service_p,
+	      ServiceInitHandler init_handler,
+	      ipconfig_status_t * status_p)
 {
     ipconfig_method_t	method = info->method;
     ServiceRef		service_p;
@@ -1626,6 +1653,9 @@ ServiceCreate(IFStateRef ifstate, CFStringRef serviceID,
     if (parent_service_p != NULL) {
 	service_p->parent_serviceID 
 	    = (void *)CFRetain(parent_service_p->serviceID);
+    }
+    if (init_handler != NULL) {
+	(init_handler)(service_p);
     }
     status = config_method_start(service_p, info);
     if (status != ipconfig_status_success_e) {
@@ -2017,7 +2047,9 @@ IFStateFreeService(IFStateRef ifstate, ServiceRef service_p)
 static ipconfig_status_t
 IFState_service_add(IFStateRef ifstate, CFStringRef serviceID, 
 		    ipconfig_method_info_t info,
-		    ServiceRef parent_service_p, ServiceRef * ret_service_p)
+		    ServiceRef parent_service_p,
+		    ServiceInitHandler init_handler,
+		    ServiceRef * ret_service_p)
 {
     interface_t *	if_p = ifstate->if_p;
     ipconfig_method_t	method = info->method;
@@ -2069,7 +2101,7 @@ IFState_service_add(IFStateRef ifstate, CFStringRef serviceID,
 
     /* try to configure the service */
     service_p = ServiceCreate(ifstate, serviceID, info,
-			      parent_service_p, &status);
+			      parent_service_p, init_handler, &status);
     if (service_p == NULL) {
 	my_log(LOG_INFO, "status from %s was %s",
 	       ipconfig_method_string(method),
@@ -2294,7 +2326,8 @@ IFState_attach_IPv6(IFStateRef ifstate)
 	    (void)inet6_linklocal_start(if_name(if_p), ipv6_ll,
 					!ifstate->disable_perform_nud,
 					use_cga,
-					!ifstate->disable_dad);
+					!ifstate->disable_dad,
+					ifstate->enable_clat46);
 	    started = TRUE;
 	}
     }
@@ -2727,6 +2760,10 @@ service_publish_clear(ServiceRef service_p)
 	entity_count = 0;
 	set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 			 kSCEntNetIPv6, NULL, &entity_count);
+	if (service_p->no_publish) {
+	    set_entity_value(entities, values, N_PUBLISH_ENTITIES,
+			     kSCEntNetIPv4, NULL, &entity_count);
+	}
 	set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 			 kSCEntNetDHCPv6, NULL, &entity_count);
 	dns_dict = ServiceIPv6CopyMergedDNS(service_p, NULL);
@@ -2975,6 +3012,19 @@ service_scrub_old_ipv4_addresses(ServiceRef service_p)
     }
 }
 
+static void
+my_CFDictionarySetIPAddressAsString(CFMutableDictionaryRef dict,
+				    CFStringRef prop,
+				    struct in_addr ip_addr)
+{
+    CFStringRef		str;
+
+    str = my_CFStringCreateWithIPAddress(ip_addr);
+    CFDictionarySetValue(dict, prop, str);
+    CFRelease(str);
+    return;
+}
+
 PRIVATE_EXTERN void
 ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
 {
@@ -3101,12 +3151,11 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
 	/* set the router */
 	if (router != NULL) {
 	    struct in_addr	ip;
-	    CFStringRef		str;
 
 	    memcpy(&ip, router, sizeof(ip)); 	/* avoid alignment issues */
-	    str = my_CFStringCreateWithIPAddress(ip);
-	    CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Router, str);
-	    CFRelease(str);
+	    my_CFDictionarySetIPAddressAsString(ipv4_dict,
+						kSCPropNetIPv4Router,
+						ip);
 	}
     }
 
@@ -3399,6 +3448,32 @@ ServiceIPv6CopyMergedDNS(ServiceRef service_p, dhcpv6_info_t * info_v6_p)
     return (DNSEntityCreateWithDHCPv4AndDHCPv6Info(&info, info_v6_p));
 }
 
+STATIC CFDictionaryRef
+IPv4CLAT46DictionaryCopy(IFStateRef ifstate, struct in_addr clat46_address)
+{
+    CFMutableDictionaryRef	ipv4_dict = NULL;
+
+    ipv4_dict = CFDictionaryCreateMutable(NULL, 0,
+					  &kCFTypeDictionaryKeyCallBacks,
+					  &kCFTypeDictionaryValueCallBacks);
+    /* Addresses */
+    my_CFDictionarySetIPAddressAsArrayValue(ipv4_dict,
+					    kSCPropNetIPv4Addresses,
+					    clat46_address);
+    /* Router */
+    my_CFDictionarySetIPAddressAsString(ipv4_dict,
+					kSCPropNetIPv4Router,
+					clat46_address);
+
+    /* InterfaceName */
+    CFDictionarySetValue(ipv4_dict, kSCPropInterfaceName, ifstate->ifname);
+
+    /* CLAT46 */
+    CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4CLAT46, kCFBooleanTrue);
+
+    return (ipv4_dict);
+}
+
 PRIVATE_EXTERN void
 ServicePublishSuccessIPv6(ServiceRef service_p,
 			  inet6_addrinfo_t * addresses, int addresses_count,
@@ -3408,10 +3483,12 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 {
     CFStringRef			entities[N_PUBLISH_ENTITIES];
     int				entity_count;
+    boolean_t			clat46_active = FALSE;
     CFDictionaryRef		dhcp_dict = NULL;
     CFDictionaryRef		dns_dict = NULL;
     interface_t *		if_p = service_interface(service_p);
     IFStateRef			ifstate = service_ifstate(service_p);
+    CFDictionaryRef		ipv4_dict = NULL;
     CFMutableDictionaryRef	ipv6_dict = NULL;
     DHCPv6OptionListRef		options = NULL;
     CFDictionaryRef		values[N_PUBLISH_ENTITIES];
@@ -3471,6 +3548,34 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 	dhcp_dict = DHCPv6InfoDictionaryCreate(options);
     }
 
+    /* CLAT46 */
+    if (ifstate->enable_clat46) {
+	/* PLAT discovery */
+	if (ipconfig_method_routable(service_p->method)) {
+	    CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6PerformPLATDiscovery,
+				 kCFBooleanTrue);
+	}
+	else {
+	    my_log(LOG_NOTICE,
+		   "%s %s: CLAT46 enabled but not routable",
+		   ipconfig_method_string(service_p->method),
+		   if_name(ifstate->if_p));
+	}
+
+	/* IPv4 */
+	if (dhcp_info_p != NULL
+	    && dhcp_info_p->clat46_address.s_addr != 0) {
+	    my_log(LOG_NOTICE,
+		   "%s %s: CLAT46 address " IP_FORMAT,
+		   ipconfig_method_string(service_p->method),
+		   if_name(ifstate->if_p),
+		   IP_LIST(&dhcp_info_p->clat46_address));
+	    ipv4_dict = IPv4CLAT46DictionaryCopy(ifstate,
+						 dhcp_info_p->clat46_address);
+	    clat46_active = TRUE;
+	}
+    }
+
     /*
      * Entity values can be NULL or not NULL.  The values are accumulated in
      * the "values" array.
@@ -3478,7 +3583,11 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
     entity_count = 0;
     set_entity_value(entities, values, N_PUBLISH_ENTITIES, 
 		     kSCEntNetIPv6, ipv6_dict, &entity_count);
-    set_entity_value(entities, values, N_PUBLISH_ENTITIES, 
+    if (ipv4_dict != NULL) {
+	set_entity_value(entities, values, N_PUBLISH_ENTITIES,
+			 kSCEntNetIPv4, ipv4_dict, &entity_count);
+    }
+    set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 		     kSCEntNetDNS, dns_dict, &entity_count);
     set_entity_value(entities, values, N_PUBLISH_ENTITIES, 
 		     kSCEntNetDHCPv6, dhcp_dict, &entity_count);
@@ -3487,6 +3596,7 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 				entities, values, entity_count,
 				service_p->no_publish);
     my_CFRelease(&ipv6_dict);
+    my_CFRelease(&ipv4_dict);
     my_CFRelease(&dns_dict);
     my_CFRelease(&dhcp_dict);
     setDisableUntilNeededNeedsAttention();
@@ -3500,9 +3610,10 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 	       if_name(ifstate->if_p));
     }
     my_log(LOG_NOTICE,
-	   "%s %s: publish success",
+	   "%s %s: publish success%s",
 	   ipconfig_method_string(service_p->method),
-	   if_name(ifstate->if_p));
+	   if_name(ifstate->if_p),
+	   clat46_active ? " w/clat46" : "");
     return;
 }
 
@@ -3820,7 +3931,7 @@ S_linklocal_start(ServiceRef parent_service_p, boolean_t allocate)
     info.method = ipconfig_method_linklocal_e;
     info.method_data.linklocal.allocate = allocate;
     status = IFState_service_add(ifstate, NULL, &info, parent_service_p,
-				 &service_p);
+				 NULL, &service_p);
     if (status != ipconfig_status_success_e) {
 	my_log(LOG_NOTICE,
 	       "IPConfiguration: failed to start link-local service on %s, %s",
@@ -4020,7 +4131,7 @@ S_remove_ip_address(const char * ifname, struct in_addr this_ip)
     return (ret);
 }
 
-int
+PRIVATE_EXTERN int
 service_remove_address(ServiceRef service_p)
 {
     interface_t *	if_p = service_interface(service_p);
@@ -4051,6 +4162,109 @@ service_remove_address(ServiceRef service_p)
 		     saved_info.addr, saved_info.broadcast);
     }
     linklocal_set_needs_attention();
+    return (ret);
+}
+
+PRIVATE_EXTERN boolean_t
+service_clat46_is_enabled(ServiceRef service_p)
+{
+    IFStateRef		ifstate;
+
+    ifstate = service_ifstate(service_p);
+    return (ifstate->enable_clat46);
+}
+
+PRIVATE_EXTERN boolean_t
+service_nat64_prefix_available(ServiceRef service_p)
+{
+    IFStateRef		ifstate;
+
+    ifstate = service_ifstate(service_p);
+    return (ifstate->nat64_prefix_available);
+}
+
+PRIVATE_EXTERN boolean_t
+service_plat_discovery_failed(ServiceRef service_p)
+{
+    IFStateRef		ifstate;
+
+    ifstate = service_ifstate(service_p);
+    return (ifstate->plat_discovery_complete
+	    && !ifstate->nat64_prefix_available);
+}
+
+PRIVATE_EXTERN int
+service_clat46_set_address(ServiceRef service_p, struct in_addr addr)
+{
+    struct in_addr	dest;
+    interface_t *	if_p = service_interface(service_p);
+    struct in_addr	mask;
+    int			ret = 0;
+    int 		s = inet_dgram_socket();
+
+    dest.s_addr = addr.s_addr;
+    mask.s_addr = INADDR_BROADCAST;
+
+    my_log(LOG_NOTICE,
+	   "%s %s: setting " IP_FORMAT " dest " IP_FORMAT,
+	   ServiceGetMethodString(service_p),
+	   if_name(if_p),
+	   IP_LIST(&addr), IP_LIST(&dest));
+    if (s < 0) {
+	ret = errno;
+	my_log(LOG_ERR,
+	       "service_clat46_set_address(%s): socket() failed, %s (%d)",
+	       if_name(if_p), strerror(errno), errno);
+    }
+    else {
+	ret = inet_aifaddr(s, if_name(if_p), addr, &mask, &dest);
+	if (ret < 0) {
+	    ret = errno;
+	    my_log(LOG_NOTICE, "service_clat46_set_address(%s) "
+		   IP_FORMAT " inet_aifaddr() failed, %s (%d)",
+		   if_name(if_p),
+		   IP_LIST(&addr), strerror(errno), errno);
+	}
+	close(s);
+    }
+
+    flush_routes(if_link_index(if_p), G_ip_zeroes, dest);
+    return (ret);
+}
+
+PRIVATE_EXTERN int
+service_clat46_remove_address(ServiceRef service_p, struct in_addr addr)
+{
+    interface_t *	if_p = service_interface(service_p);
+    int			ret = 0;
+
+    if (addr.s_addr != 0) {
+	int	s;
+
+	my_log(LOG_NOTICE,
+	       "%s %s: removing " IP_FORMAT " dest " IP_FORMAT,
+	       ServiceGetMethodString(service_p),
+	       if_name(if_p),
+	       IP_LIST(&addr), IP_LIST(&addr));
+
+	s = inet_dgram_socket();
+	if (s < 0) {
+	    ret = errno;
+	    my_log(LOG_ERR,
+		   "service_clat46_remove_address(%s) socket() failed, %s (%d)",
+		   if_name(if_p), strerror(errno), errno);
+	}
+	else {
+	    if (inet_difaddr(s, if_name(if_p), addr) < 0) {
+		ret = errno;
+		my_log(LOG_NOTICE,
+		       "%s: failed to remove IP address " IP_FORMAT ", %s (%d)",
+		       if_name(if_p), IP_LIST(&addr), strerror(errno), errno);
+	    }
+	    close(s);
+	    flush_routes(if_link_index(if_p), addr, G_ip_zeroes);
+	}
+    }
     return (ret);
 }
 
@@ -5042,6 +5256,13 @@ service_list_first_routable_service(dynarray_t * list)
 }
 
 static void
+IFState_all_services_event(IFStateRef ifstate, IFEventID_t event, void * evdata)
+{
+    service_list_event(&ifstate->services, event, evdata);
+    service_list_event(&ifstate->services_v6, event, evdata);
+}
+
+static void
 IFStateList_all_services_event(IFStateList_t * list, 
 			       IFEventID_t event, void * evdata)
 {
@@ -5051,8 +5272,7 @@ IFStateList_all_services_event(IFStateList_t * list,
     for (i = 0; i < if_count; i++) {
 	IFStateRef		ifstate = dynarray_element(list, i);
 
-	service_list_event(&ifstate->services, event, evdata);
-	service_list_event(&ifstate->services_v6, event, evdata);
+	IFState_all_services_event(ifstate, event, evdata);
     }
     return;
 }
@@ -5066,12 +5286,7 @@ IFStateList_all_services_sleep(IFStateList_t * list)
     for (i = 0; i < if_count; i++) {
 	IFStateRef	ifstate = dynarray_element(list, i);
 
-	/* v4 services */
-	service_list_event(&ifstate->services, IFEventID_sleep_e, NULL);
-
-	/* v6 services */
-	service_list_event(&ifstate->services_v6, IFEventID_sleep_e, NULL);
-
+	IFState_all_services_event(ifstate, IFEventID_sleep_e, NULL);
 	my_CFRelease(&ifstate->neighbor_advert_list);
     }
     return;
@@ -5111,7 +5326,7 @@ set_if(const char * name, ipconfig_method_info_t info)
     }
 
     /* add a new service */
-    return (IFState_service_add(ifstate, NULL, info, NULL, NULL));
+    return (IFState_service_add(ifstate, NULL, info, NULL, NULL, NULL));
 }
 
 static ipconfig_status_t
@@ -5123,9 +5338,11 @@ add_or_set_service(const char * name, ipconfig_method_info_t info,
     CFStringRef		apn_name = NULL;
     boolean_t		clear_state = FALSE;
     boolean_t		enable_dad = TRUE;
+    boolean_t		enable_clat46 = FALSE;
     interface_t * 	if_p = ifl_find_name(S_interfaces, name);
     IFStateRef   	ifstate;
     unsigned int	in_length;
+    ServiceInitHandler	init_handler;
     ipconfig_method_t	method = info->method;
     pid_t		monitor_pid = -1;
     int			mtu = -1;
@@ -5196,6 +5413,10 @@ add_or_set_service(const char * name, ipconfig_method_info_t info,
 		= S_get_plist_boolean_quiet(options_dict,
 					    _kIPConfigurationServiceOptionEnableDAD,
 					    TRUE);
+	    enable_clat46
+		= S_get_plist_boolean_quiet(options_dict,
+					    _kIPConfigurationServiceOptionEnableCLAT46,
+					    FALSE);
 	    prop_serviceID
 		= CFDictionaryGetValue(options_dict,
 				       _kIPConfigurationServiceOptionServiceID);
@@ -5211,6 +5432,13 @@ add_or_set_service(const char * name, ipconfig_method_info_t info,
 				       _kIPConfigurationServiceOptionAPNName);
 	    apn_name = isA_CFString(apn_name);
 	}
+    }
+
+    if (S_cellular_clat46_autoenable
+	&& (if_ift_type(if_p) == IFT_CELLULAR)
+	&& no_publish) {
+	my_log(LOG_INFO, "[DEBUG] auto-enabling clat46 on %s", name);
+	enable_clat46 = TRUE;
     }
 
     if (serviceID == NULL) {
@@ -5230,20 +5458,26 @@ add_or_set_service(const char * name, ipconfig_method_info_t info,
     }
     ifstate->disable_perform_nud = !perform_nud;
     ifstate->disable_dad = !enable_dad;
+    ifstate->enable_clat46 = enable_clat46;
+    ifstate->nat64_prefix_available = FALSE;
+    ifstate->plat_discovery_complete = FALSE;
     if (clear_state) {
 	if (ipconfig_method_is_v6(method)) {
 	    IFState_detach_IPv6(ifstate);
 	}
     }
-    status = IFState_service_add(ifstate, serviceID, info, NULL, &service_p);
+    init_handler = ^(ServiceRef service_p) {
+	service_p->no_publish = no_publish;
+	service_p->is_dynamic = TRUE;
+    };
+    status = IFState_service_add(ifstate, serviceID, info, NULL,
+				 init_handler, &service_p);
     if (status == ipconfig_status_success_e) {
 	CFIndex		len;
 
 	if (apn_name != NULL) {
 	    service_set_apn_name(service_p, apn_name);
 	}
-	service_p->is_dynamic = TRUE;
-	service_p->no_publish = no_publish;
 	if (monitor_pid != -1) {
 	    ServiceMonitorPID(service_p, monitor_pid);
 	}
@@ -5456,6 +5690,26 @@ refresh_service(const char * ifname,
     return (status);
 }
 
+PRIVATE_EXTERN ipconfig_status_t
+forget_network(const char * name, CFStringRef ssid)
+{
+    IFStateRef		ifstate;
+
+    if (ssid == NULL) {
+	return (ipconfig_status_invalid_parameter_e);
+    }
+    ifstate = IFStateList_ifstate_with_name(&S_ifstate_list, name, NULL);
+    if (ifstate == NULL) {
+	return (ipconfig_status_interface_does_not_exist_e);
+    }
+    if (!if_is_wireless(ifstate->if_p)) {
+	/* not wireless */
+	return (ipconfig_status_invalid_parameter_e);
+    }
+    IFState_all_services_event(ifstate, IFEventID_forget_ssid_e, (void *)ssid);
+    return (ipconfig_status_success_e);
+}
+
 static boolean_t
 ipconfig_method_from_cfstring(CFStringRef m, ipconfig_method_t * method)
 {
@@ -5527,6 +5781,12 @@ method_info_from_dict(CFDictionaryRef dict,
 	if (my_CFStringToIPAddress(address_cf, &address) == FALSE) {
 	    my_log(LOG_NOTICE,
 		   "IPConfiguration: %s Addresses invalid",
+		   ipconfig_method_string(info->method));
+	    goto done;
+	}
+	if (address.s_addr == 0) {
+	    my_log(LOG_NOTICE,
+		   "IPConfiguration: %s 0.0.0.0 is not a valid address",
 		   ipconfig_method_string(info->method));
 	    goto done;
 	}
@@ -6504,7 +6764,7 @@ S_set_service(IFStateRef ifstate, ServiceConfigRef config, boolean_t is_ipv4)
 	}
     }
     return (IFState_service_add(ifstate, serviceID, &config->info,
-				NULL, NULL));
+				NULL, NULL, NULL));
 }
 
 static void
@@ -6696,6 +6956,14 @@ notifier_init(SCDynamicStoreRef session)
 							kSCDynamicStoreDomainState,
 							kSCCompAnyRegex,
 							kSCEntNetAirPort);
+    CFArrayAppendValue(patterns, key);
+    CFRelease(key);
+
+    /* notify when the NAT64 [prefix] key of any interface changes */
+    key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							kSCDynamicStoreDomainState,
+							kSCCompAnyRegex,
+							kSCEntNetNAT64);
     CFArrayAppendValue(patterns, key);
     CFRelease(key);
 
@@ -6953,7 +7221,9 @@ S_ifstate_process_wake(IFStateRef ifstate)
 	}
 	if (dynarray_count(&ifstate->services_v6) > 0) {
 	    /* attach IPv6 in case the interface went away during sleep */
-	    IFState_attach_IPv6(ifstate);
+	    if (!inet6_is_attached(if_name(if_p))) {
+		IFState_attach_IPv6(ifstate);
+	    }
 
 	    /* update our neighbor advert list */
 	    if (ifstate->neighbor_advert_list != NULL) {
@@ -7312,6 +7582,58 @@ ipv6_router_expired(SCDynamicStoreRef session, CFStringRef cache_key)
     return;
 }
 
+static boolean_t
+plat_discovery_is_complete(SCDynamicStoreRef session, CFStringRef cache_key)
+{
+    boolean_t		complete = FALSE;
+    CFDictionaryRef	dict;
+
+    dict = my_SCDynamicStoreCopyDictionary(session, cache_key);
+    if (dict != NULL) {
+	complete
+	    = CFDictionaryContainsKey(dict,
+				      kSCPropNetNAT64PLATDiscoveryCompletionTime);
+	CFRelease(dict);
+    }
+    return (complete);
+}
+
+static void
+process_plat_discovery_complete(SCDynamicStoreRef session,
+				CFStringRef cache_key)
+{
+    CFStringRef		ifn_cf;
+    IFStateRef   	ifstate;
+
+    if (CFStringHasPrefix(cache_key, S_state_interface_prefix) == FALSE) {
+	return;
+    }
+
+    /* figure out which interface this belongs to and deliver the event */
+
+    /* State:/Network/Interface/<ifname>/NAT64 */
+    ifn_cf = my_CFStringCopyComponent(cache_key, CFSTR("/"), 3);
+    if (ifn_cf == NULL) {
+	return;
+    }
+    ifstate = IFStateListGetIFState(&S_ifstate_list, ifn_cf, NULL);
+    if (ifstate != NULL && ifstate->enable_clat46) {
+	boolean_t	success;
+
+	/* we're successful if the interface has prefixes */
+	success = inet6_has_nat64_prefixlist(if_name(ifstate->if_p));
+	ifstate->nat64_prefix_available = success;
+	if (success || plat_discovery_is_complete(session, cache_key)) {
+	    ifstate->plat_discovery_complete = TRUE;
+	}
+	service_list_event(&ifstate->services_v6,
+			   IFEventID_plat_discovery_complete_e,
+			   &success);
+    }
+    my_CFRelease(&ifn_cf);
+    return;
+}
+
 #include "my_darwin.h"
 
 #ifndef NO_WIRELESS
@@ -7389,10 +7711,8 @@ process_link_timer_expired(IFStateRef ifstate)
 {
     my_log(LOG_NOTICE, "%s: link inactive timer fired",
 	   if_name(ifstate->if_p));
-    service_list_event(&ifstate->services,
-		       IFEventID_link_timer_expired_e, NULL);
-    service_list_event(&ifstate->services_v6,
-		       IFEventID_link_timer_expired_e, NULL);
+
+    IFState_all_services_event(ifstate, IFEventID_link_timer_expired_e, NULL);
     if (dynarray_count(&ifstate->services_v6) != 0) {
 	(void)inet6_linklocal_stop(if_name(ifstate->if_p));
     }
@@ -7762,6 +8082,9 @@ handle_change(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
 	}
 	else if (CFStringHasSuffix(cache_key, kSCEntNetIPv6)) {
 	    ipv6_interface_address_changed(session, cache_key);
+	}
+	else if (CFStringHasSuffix(cache_key, kSCEntNetNAT64)) {
+	    process_plat_discovery_complete(session, cache_key);
 	}
 	else if (CFStringHasSuffix(cache_key,
 				   kSCEntNetInterfaceActiveDuringSleepRequested)) {
@@ -8414,6 +8737,7 @@ S_add_dhcp_parameters(SCPreferencesRef prefs)
 STATIC void
 check_prefs(SCPreferencesRef prefs)
 {
+    Boolean				cellular_clat46_auto_enable;
     Boolean				verbose;
     IPConfigurationInterfaceTypes	if_types;
 
@@ -8438,6 +8762,13 @@ check_prefs(SCPreferencesRef prefs)
 	my_log(LOG_NOTICE, "IPConfiguration: AWD interface types %@",
 	       IPConfigurationInterfaceTypesToString(if_types));
 	G_awd_interface_types = if_types;
+    }
+    cellular_clat46_auto_enable
+	= IPConfigurationControlPrefsGetCellularCLAT46AutoEnable();
+    if (S_cellular_clat46_autoenable != cellular_clat46_auto_enable) {
+	my_log(LOG_NOTICE, "IPConfiguration: cellular CLAT46 %sauto-enabled",
+	       cellular_clat46_auto_enable ? "" : "not ");
+	S_cellular_clat46_autoenable = cellular_clat46_auto_enable;
     }
     IPConfigurationControlPrefsSynchronize();
     return;

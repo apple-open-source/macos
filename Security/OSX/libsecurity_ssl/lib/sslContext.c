@@ -1195,12 +1195,12 @@ SSLSetProtocolVersionMax  (SSLContextRef      ctx,
         if (version > MINIMUM_DATAGRAM_VERSION ||
             version < MAXIMUM_DATAGRAM_VERSION)
             return errSSLIllegalParam;
-        if (version > ctx->minProtocolVersion)
+        if (version > (SSLProtocolVersion)ctx->minProtocolVersion)
             ctx->minProtocolVersion = version;
     } else {
         if (version < MINIMUM_STREAM_VERSION || version > MAXIMUM_STREAM_VERSION)
             return errSSLIllegalParam;
-        if (version < ctx->minProtocolVersion)
+        if (version < (SSLProtocolVersion)ctx->minProtocolVersion)
             ctx->minProtocolVersion = version;
     }
     ctx->maxProtocolVersion = version;
@@ -1289,12 +1289,12 @@ SSLSetProtocolVersionEnabled(SSLContextRef     ctx,
 			if (version < MINIMUM_STREAM_VERSION || version > MAXIMUM_STREAM_VERSION) {
 				return errSecParam;
 			}
-            if (version > ctx->maxProtocolVersion) {
+            if (version > (SSLProtocolVersion)ctx->maxProtocolVersion) {
                 ctx->maxProtocolVersion = version;
                 if (ctx->minProtocolVersion == SSL_Version_Undetermined)
                     ctx->minProtocolVersion = version;
             }
-            if (version < ctx->minProtocolVersion) {
+            if (version < (SSLProtocolVersion)ctx->minProtocolVersion) {
                 ctx->minProtocolVersion = version;
             }
         } else {
@@ -1324,7 +1324,7 @@ SSLSetProtocolVersionEnabled(SSLContextRef     ctx,
 					nextVersion = SSL_Version_Undetermined;
 					break;
 			}
-			ctx->minProtocolVersion = max(ctx->minProtocolVersion, nextVersion);
+			ctx->minProtocolVersion = (tls_protocol_version)max((SSLProtocolVersion)ctx->minProtocolVersion, nextVersion);
 			if (ctx->minProtocolVersion > ctx->maxProtocolVersion) {
 				ctx->minProtocolVersion = SSL_Version_Undetermined;
 				ctx->maxProtocolVersion = SSL_Version_Undetermined;
@@ -1358,8 +1358,8 @@ SSLGetProtocolVersionEnabled(SSLContextRef 		ctx,
         case kTLSProtocol12:
         {
             SSLProtocolVersion version = SSLProtocolToProtocolVersion(protocol);
-			*enable = (ctx->minProtocolVersion <= version
-                       && ctx->maxProtocolVersion >= version);
+			*enable = ((SSLProtocolVersion)ctx->minProtocolVersion <= version
+                       && (SSLProtocolVersion)ctx->maxProtocolVersion >= version);
 			break;
         }
 		case kSSLProtocolAll:

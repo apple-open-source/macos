@@ -46,6 +46,7 @@
 #include <utilities/der_plist_internal.h>
 #include <utilities/SecCFCCWrappers.h>
 #import "SecDbKeychainItemV7.h"
+#import "sec_action.h"
 
 #if USE_KEYSTORE
 #include <LocalAuthentication/LAPublicDefines.h>
@@ -286,6 +287,21 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
     return ok;
 }
 
+static void
+ks_warn_non_device_keybag(void)
+{
+    static dispatch_once_t once;
+    static sec_action_t action;
+
+    dispatch_once(&once, ^{
+        action = sec_action_create("non-device keybag", 2);
+        sec_action_set_handler(action, ^{
+            secwarning("ks_encrypt_data: called with non-device keybag - call should be rerouted to ks_encrypt_data_legacy");
+        });
+    });
+    sec_action_perform(action);
+}
+
 bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
                      CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV, CFErrorRef *error) {
     if (CFDictionaryGetCount(secretData) == 0) {
@@ -293,7 +309,7 @@ bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef access_control,
     }
 
     if (keybag != KEYBAG_DEVICE) {
-        secwarning("ks_encrypt_data: called with non-device keybag - call should be rerouted to ks_encrypt_data_legacy");
+        ks_warn_non_device_keybag();
 
         CFMutableDictionaryRef allAttributes = CFDictionaryCreateMutableCopy(NULL, CFDictionaryGetCount(secretData) + CFDictionaryGetCount(attributes), attributes);
         CFDictionaryForEach(secretData, ^(const void *key, const void *value) {

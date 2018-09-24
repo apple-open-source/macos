@@ -321,7 +321,7 @@ int ssl_hook_ReadReq(request_rec *r)
              * )
              */
             if (!r->hostname) {
-                ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, APLOGNO(02031)
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02031)
                             "Hostname %s provided via SNI, but no hostname"
                             " provided in HTTP request", servername);
                 return HTTP_BAD_REQUEST;
@@ -333,7 +333,7 @@ int ssl_hook_ReadReq(request_rec *r)
                  * selected by the SNI and its SSL parameters are different
                  */
                 
-                ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, APLOGNO(02032)
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02032)
                              "Hostname %s provided via SNI and hostname %s provided"
                              " via HTTP have no compatible SSL setup",
                              servername, r->hostname);
@@ -350,7 +350,7 @@ int ssl_hook_ReadReq(request_rec *r)
              * server config we used for handshaking or in our current server.
              * This should avoid insecure configuration by accident.
              */
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, APLOGNO(02033)
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02033)
                          "No hostname was provided via SNI for a name based"
                          " virtual host");
             apr_table_setn(r->notes, "error-notes",
@@ -1578,7 +1578,6 @@ int ssl_callback_SSLVerify(int ok, X509_STORE_CTX *ctx)
     int errdepth = X509_STORE_CTX_get_error_depth(ctx);
     int depth, verify;
 
-
     /*
      * Log verification information
      */
@@ -1678,7 +1677,8 @@ int ssl_callback_SSLVerify(int ok, X509_STORE_CTX *ctx)
     /*
      * Perform OCSP-based revocation checks
      */
-    if (ok && sc->server->ocsp_enabled) {
+    if (ok && ((sc->server->ocsp_mask & SSL_OCSPCHECK_CHAIN) ||
+         (errdepth == 0 && (sc->server->ocsp_mask & SSL_OCSPCHECK_LEAF)))) {     
         /* If there was an optional verification error, it's not
          * possible to perform OCSP validation since the issuer may be
          * missing/untrusted.  Fail in that case. */
@@ -2418,7 +2418,7 @@ int ssl_callback_alpn_select(SSL *ssl,
                              void *arg)
 {
     conn_rec *c = (conn_rec*)SSL_get_app_data(ssl);
-    SSLConnRec *sslconn = myConnConfig(c);
+    SSLConnRec *sslconn;
     apr_array_header_t *client_protos;
     const char *proposed;
     size_t len;
@@ -2429,6 +2429,7 @@ int ssl_callback_alpn_select(SSL *ssl,
     if (c == NULL) {
         return SSL_TLSEXT_ERR_OK;
     }
+    sslconn = myConnConfig(c);
 
     if (inlen == 0) {
         /* someone tries to trick us? */

@@ -9,8 +9,8 @@ ms_Arab{
         medial{"{0}…{1}"}
     }
     ExemplarCharacters{
-        "[ء آ أ ؤ إ ئ ا ب ة ت ث ج چ ح خ د ذ ر ز س ش ص ض ط ظ ع غ ڠ ف ڤ ق ك ݢ ل م ن ڽ ه"
-        " و ۏ ى ي]"
+        "[ء آ أ ؤ إ ئ ا ب ة ت ث ج چ ح خ د ذ ر ز س ش ص ض ط ظ ع غ ڠ ف ڤ ق ك ک ݢ ل م ن ڽ"
+        " ه و ۏ ى ي]"
     }
     MoreInformation{"؟"}
     NumberElements{
@@ -76,7 +76,7 @@ ms_Arab{
             }
         }
     }
-    Version{"2.1.27.40"}
+    Version{"2.1.35.71"}
     calendar{
         buddhist{
             DateTimePatterns{

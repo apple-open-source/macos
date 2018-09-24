@@ -112,6 +112,7 @@ _CCECCryptorCreateFromData
 _CCECCryptorExportKey
 _CCECCryptorExportPublicKey
 _CCECCryptorGeneratePair
+_CCECCryptorGetPublicKeyFromPrivateKey
 _CCECCryptorGetKeyComponents
 _CCECCryptorImportKey
 _CCECCryptorImportPublicKey
@@ -220,5 +221,3 @@ _CNEncoderUpdate
 _CNEncoderFinal
 _CNEncoderBlocksize
 _CNEncoderBlocksizeFromRef
-
-

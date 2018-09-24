@@ -168,8 +168,11 @@ enum
     
     kPCIPMCSDefaultEnableBits           = (~(IOOptionBits)0),
 
-	kPCIPMCSPMEDisableInS3              = 0x00010000
+	kPCIPMCSPMEDisableInS3              = 0x00010000,
+	kPCIPMCSPMEWakeReason               = 0x00020000
+
 #define IOPCIPMCSPMEDISABLEINS3_DEFINED	1
+#define IOPCIPMCSPMEWAKEREASON_DEFINED	1
 };
 
 union IOPCIAddressSpace {
@@ -399,12 +402,12 @@ private:
     IOPCIEvent *      fEvents;
 
 public: 
-    virtual void enable();
-    virtual void disable();
+    virtual void enable( void ) APPLE_KEXT_OVERRIDE;
+    virtual void disable( void ) APPLE_KEXT_OVERRIDE;
 
 protected:
-    virtual void free(void);
-    virtual bool checkForWork(void);
+    virtual void free( void ) APPLE_KEXT_OVERRIDE;
+    virtual bool checkForWork( void ) APPLE_KEXT_OVERRIDE;
 };
 
 
@@ -498,44 +501,44 @@ public:
 public:
     /* IOService/IORegistryEntry methods */
 
-    virtual bool init( OSDictionary *  propTable );
+    virtual bool init( OSDictionary *  propTable ) APPLE_KEXT_OVERRIDE;
     virtual bool init( IORegistryEntry * from,
-                                const IORegistryPlane * inPlane );
-    virtual void free();
-    virtual bool attach( IOService * provider );
-    virtual void detach( IOService * provider );
-	virtual void detachAbove(const IORegistryPlane *);
+                                const IORegistryPlane * inPlane ) APPLE_KEXT_OVERRIDE;
+    virtual void free( void ) APPLE_KEXT_OVERRIDE;
+    virtual bool attach( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual void detach( IOService * provider ) APPLE_KEXT_OVERRIDE;
+	virtual void detachAbove(const IORegistryPlane *) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn newUserClient( task_t owningTask, void * securityID,
                                     UInt32 type,  OSDictionary * properties,
-                                    IOUserClient ** handler );
+                                    IOUserClient ** handler ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn requestProbe( IOOptionBits options );
+    virtual IOReturn requestProbe( IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn powerStateWillChangeTo (IOPMPowerFlags  capabilities, 
                                              unsigned long   stateNumber, 
-                                             IOService*      whatDevice);
-    virtual IOReturn setPowerState( unsigned long, IOService * );
+                                             IOService*      whatDevice) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setPowerState( unsigned long, IOService * ) APPLE_KEXT_OVERRIDE;
 
-	virtual unsigned long maxCapabilityForDomainState ( IOPMPowerFlags domainState );
-	virtual unsigned long initialPowerStateForDomainState ( IOPMPowerFlags domainState );
-	virtual unsigned long powerStateForDomainState ( IOPMPowerFlags domainState );
+	virtual unsigned long maxCapabilityForDomainState ( IOPMPowerFlags domainState ) APPLE_KEXT_OVERRIDE;
+	virtual unsigned long initialPowerStateForDomainState ( IOPMPowerFlags domainState ) APPLE_KEXT_OVERRIDE;
+	virtual unsigned long powerStateForDomainState ( IOPMPowerFlags domainState ) APPLE_KEXT_OVERRIDE;
 
-    virtual bool compareName( OSString * name, OSString ** matched = 0 ) const;
+    virtual bool compareName( OSString * name, OSString ** matched = 0 ) const APPLE_KEXT_OVERRIDE;
     virtual bool matchPropertyTable( OSDictionary *     table,
-                                     SInt32       *     score );
-    virtual IOService * matchLocation( IOService * client );
-    virtual IOReturn getResources( void );
-    virtual IOReturn setProperties(OSObject * properties);
+                                     SInt32       *     score ) APPLE_KEXT_OVERRIDE;
+    virtual IOService * matchLocation( IOService * client ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn getResources( void ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setProperties(OSObject * properties) APPLE_KEXT_OVERRIDE;
     virtual IOReturn callPlatformFunction(const OSSymbol * functionName,
                                           bool waitForFunction,
                                           void * p1, void * p2,
-                                          void * p3, void * p4);
+                                          void * p3, void * p4) APPLE_KEXT_OVERRIDE;
     virtual IOReturn callPlatformFunction(const char * functionName,
                                           bool waitForFunction,
                                           void * p1, void * p2,
-                                          void * p3, void * p4);
-    virtual IODeviceMemory * getDeviceMemoryWithIndex(unsigned int index);
+                                          void * p3, void * p4) APPLE_KEXT_OVERRIDE;
+    virtual IODeviceMemory * getDeviceMemoryWithIndex(unsigned int index) APPLE_KEXT_OVERRIDE;
 
 private:
 	bool configAccess(bool write);

@@ -6,5 +6,7 @@ PUBLIC_HEADERS_FOLDER_PATH = /usr/include
 PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include
 
 BUILD_VARIANTS = normal debug
+VERSION_INFO_PREFIX = __attribute__((visibility("hidden")))
+IS_ZIPPERED = YES
 
 PRODUCT_NAME = copyfile

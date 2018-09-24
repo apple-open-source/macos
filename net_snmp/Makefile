@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 159
+Submission	= 161
 
 
 #
@@ -168,6 +168,21 @@ AEP_ConfigFiles	= snmpd.conf
 # Local targets that must be defined before including the following
 # files to get the dependency order correct
 .PHONY: $(GnuAfterInstall)
+
+# added for rdar://problem/40039320
+# if AEP_Version above is changed, update the tarfile names in the code below as well
+installsrc: 
+	# open up the archive
+	$(_v) $(TAR) xzf  $(SRCROOT)/net-snmp-5.6.2.1.tar.gz -C $(SRCROOT)
+	$(_v) $(MV) $(SRCROOT)/net-snmp-5.6.2.1.tar.gz $(SRCROOT)/net-snmp-5.6.2.1.tar.gz.old
+	# trim the archive to remove the forbidden files
+	$(_v) $(RM) $(SRCROOT)/net-snmp-5.6.2.1/perl/TrapReceiver/README
+	$(_v) $(RM) $(SRCROOT)/net-snmp-5.6.2.1/snmplib/MSG00001.bin
+	# close it back up	
+	$(_v) $(TAR) czf  $(SRCROOT)/net-snmp-5.6.2.1.tar.gz -C $(SRCROOT) ./net-snmp-5.6.2.1 
+	# cleanup
+	$(_v) $(RM) -rf $(SRCROOT)/net-snmp-5.6.2.1
+	$(_v) $(RM) $(SRCROOT)/net-snmp-5.6.2.1.tar.gz.old
 
 install::
 

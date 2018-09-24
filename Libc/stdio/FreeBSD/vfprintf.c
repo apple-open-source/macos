@@ -30,6 +30,9 @@
  * SUCH DAMAGE.
  */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wint-conversion"
+
 #define OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE 1
 
 #if defined(LIBC_SCCS) && !defined(lint)
@@ -1448,4 +1451,4 @@ error:
 	return (ret < 0 || ret >= INT_MAX) ? -1 : (int)ret;
 	/* NOTREACHED */
 }
-
+#pragma clang diagnostic pop

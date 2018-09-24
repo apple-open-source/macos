@@ -215,6 +215,9 @@ typedef uint32_t IOHIDGameControllerType;
 #define kIOHIDGameControllerFormFittingKey "GameControllerFormFitting"
 
 
+#define kIOHIDFastPathHasEntitlementKey    "FastPathHasEntitlement"
+
+
 
 
 __END_DECLS

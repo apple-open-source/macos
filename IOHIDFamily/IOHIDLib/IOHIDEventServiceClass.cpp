@@ -653,7 +653,9 @@ CFTypeRef IOHIDEventServiceClass::copyProperty(CFStringRef key)
             // Push back to cache if applicable for property
             //
             if (propertyInfo && propertyInfo->flags & kPropertyInfoCache) {
-                CFDictionarySetValue(_serviceProperties, key, value);
+                // It's unsafe to cache the key that was passed in. Cache our copy.
+                // <rdar://problem/42592555>
+                CFDictionarySetValue(_serviceProperties, propertyInfo->key, value);
             }
             
         }
@@ -719,7 +721,9 @@ boolean_t IOHIDEventServiceClass::setProperty(CFStringRef key, CFTypeRef propert
         return true;
     }
     if ( propertyInfo && (propertyInfo->flags & kPropertyInfoCache)) {
-      CFDictionarySetValue(_serviceProperties, key, property);
+        // It's unsafe to cache the key that was passed in. Cache our copy.
+        // <rdar://problem/42592555>
+        CFDictionarySetValue(_serviceProperties, propertyInfo->key, property);
     }
 #if TARGET_OS_EMBEDDED // {
     // RY: Convert these floating point properties to IOFixed. Limiting to accel shake but can get apply to others as well

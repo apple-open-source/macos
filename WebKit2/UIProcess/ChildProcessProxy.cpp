@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,10 +52,10 @@ void ChildProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchO
     launchOptions.processIdentifier = m_processIdentifier;
 
     if (const char* userDirectorySuffix = getenv("DIRHELPER_USER_DIR_SUFFIX"))
-        launchOptions.extraInitializationData.add(ASCIILiteral("user-directory-suffix"), userDirectorySuffix);
+        launchOptions.extraInitializationData.add("user-directory-suffix"_s, userDirectorySuffix);
 
     if (m_alwaysRunsAtBackgroundPriority)
-        launchOptions.extraInitializationData.add(ASCIILiteral("always-runs-at-background-priority"), "true");
+        launchOptions.extraInitializationData.add("always-runs-at-background-priority"_s, "true");
 
 #if ENABLE(DEVELOPER_MODE) && (PLATFORM(GTK) || PLATFORM(WPE))
     const char* varname;
@@ -165,7 +165,7 @@ void ChildProcessProxy::didFinishLaunching(ProcessLauncher*, IPC::Connection::Id
 {
     ASSERT(!m_connection);
 
-    if (IPC::Connection::identifierIsNull(connectionIdentifier))
+    if (!IPC::Connection::identifierIsValid(connectionIdentifier))
         return;
 
     m_connection = IPC::Connection::createServerConnection(connectionIdentifier, *this);
@@ -211,6 +211,18 @@ void ChildProcessProxy::shutDownProcess()
 
     m_connection->invalidate();
     m_connection = nullptr;
+}
+
+void ChildProcessProxy::setProcessSuppressionEnabled(bool processSuppressionEnabled)
+{
+#if PLATFORM(COCOA)
+    if (state() != State::Running)
+        return;
+
+    connection()->send(Messages::ChildProcess::SetProcessSuppressionEnabled(processSuppressionEnabled), 0);
+#else
+    UNUSED_PARAM(processSuppressionEnabled);
+#endif
 }
 
 void ChildProcessProxy::connectionWillOpen(IPC::Connection&)

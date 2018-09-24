@@ -79,6 +79,8 @@
 #endif
 #include <resolv.h>
 
+#pragma GCC visibility push(hidden)
+
 /*
  * This RR-like structure is particular to UPDATE.
  */
@@ -113,5 +115,7 @@ ns_updrec *	res_mkupdrec __P((int, const char *, u_int, u_int, u_long));
 void		res_freeupdrec __P((ns_updrec *));
 int		res_nmkupdate __P((res_state, ns_updrec *, u_char *, int));
 int		res_nupdate __P((res_state, ns_updrec *, ns_tsig_key *));
+
+#pragma GCC visibility pop
 
 #endif /*_RES_UPDATE_H_*/

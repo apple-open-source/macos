@@ -135,7 +135,8 @@ static int	Cancel = 0,		/* Cancel test? */
 		IgnoreErrors = 0,	/* Ignore errors? */
 		StopAfterIncludeError = 0,
 					/* Stop after include errors? */
-		Verbosity = 0,		/* Show all attributes? */
+		ValidateHeaders = 0,    /* Validate HTTP headers in response? */
+                Verbosity = 0,          /* Show all attributes? */
 		Version = 11,		/* Default IPP version */
 		XMLHeader = 0,		/* 1 if header is written */
 		TestCount = 0,		/* Number of tests run */
@@ -179,6 +180,7 @@ static void	sigterm_handler(int sig);
 static int	timeout_cb(http_t *http, void *user_data);
 static void	usage(void) __attribute__((noreturn));
 static int	validate_attr(cups_file_t *outfile, cups_array_t *errors, ipp_attribute_t *attr);
+static const char *with_flags_string(int flags);
 static int      with_value(cups_file_t *outfile, cups_array_t *errors, char *value, int flags, ipp_attribute_t *attr, char *matchbuf, size_t matchlen);
 static int      with_value_from(cups_array_t *errors, ipp_attribute_t *fromattr, ipp_attribute_t *attr, char *matchbuf, size_t matchlen);
 
@@ -509,6 +511,10 @@ main(int  argc,				/* I - Number of command-line args */
 		set_variable(outfile, &vars, "filetype", "application/octet-stream");
               }
 	      break;
+
+          case 'h' : /* Validate response headers */
+              ValidateHeaders = 1;
+              break;
 
           case 'i' : /* Test every N seconds */
 	      i ++;
@@ -1714,7 +1720,7 @@ do_tests(cups_file_t  *outfile,		/* I - Output file */
 
 	expand_variables(vars, token, temp, sizeof(token));
 
-	if ((dval = _cupsStrScand(token, &tokenptr, localeconv())) <= 0.0 || (*tokenptr && *tokenptr != ','))
+	if ((dval = _cupsStrScand(token, &tokenptr, localeconv())) < 0.0 || (*tokenptr && *tokenptr != ','))
 	{
 	  print_fatal_error(outfile, "Bad DELAY value \"%s\" on line %d.", token,
 	                    linenum);
@@ -2810,6 +2816,17 @@ do_tests(cups_file_t  *outfile,		/* I - Output file */
 	add_stringf(errors, "Bad HTTP version (%d.%d)", http->version / 100,
 		    http->version % 100);
 
+      if (ValidateHeaders)
+      {
+        const char *header;               /* HTTP header value */
+
+        if ((header = httpGetField(http, HTTP_FIELD_CONTENT_TYPE)) == NULL || _cups_strcasecmp(header, "application/ipp"))
+          add_stringf(errors, "Bad HTTP Content-Type in response (%s)", header && *header ? header : "<missing>");
+
+        if ((header = httpGetField(http, HTTP_FIELD_DATE)) != NULL && *header && httpGetDateTime(header) == 0)
+          add_stringf(errors, "Bad HTTP Date in response (%s)", header);
+      }
+
       if (!response)
       {
        /*
@@ -3027,7 +3044,7 @@ do_tests(cups_file_t  *outfile,		/* I - Output file */
 
           if (attrptr->name)
           {
-            if (cupsArrayFind(a, attrptr->name))
+            if (cupsArrayFind(a, attrptr->name) && Output < _CUPS_OUTPUT_LIST)
               add_stringf(errors, "Duplicate \"%s\" attribute in %s group",
 			  attrptr->name, ippTagString(group));
 
@@ -3173,20 +3190,11 @@ do_tests(cups_file_t  *outfile,		/* I - Output file */
 		       !expect->repeat_match && (!expect->repeat_no_match || repeat_count >= expect->repeat_limit))
 	      {
 		if (expect->with_flags & _CUPS_WITH_REGEX)
-		  add_stringf(errors, "EXPECTED: %s %s /%s/",
-			      expect->name,
-			      (expect->with_flags & _CUPS_WITH_ALL) ?
-				  "WITH-ALL-VALUES" : "WITH-VALUE",
-			      expect->with_value);
+		  add_stringf(errors, "EXPECTED: %s %s /%s/", expect->name, with_flags_string(expect->with_flags), expect->with_value);
 		else
-		  add_stringf(errors, "EXPECTED: %s %s \"%s\"",
-			      expect->name,
-			      (expect->with_flags & _CUPS_WITH_ALL) ?
-				  "WITH-ALL-VALUES" : "WITH-VALUE",
-			      expect->with_value);
+		  add_stringf(errors, "EXPECTED: %s %s \"%s\"", expect->name, with_flags_string(expect->with_flags), expect->with_value);
 
-		with_value(outfile, errors, expect->with_value, expect->with_flags, found,
-			   buffer, sizeof(buffer));
+		with_value(outfile, errors, expect->with_value, expect->with_flags, found, buffer, sizeof(buffer));
 	      }
 
 	      if (expect->repeat_no_match &&
@@ -3315,8 +3323,7 @@ do_tests(cups_file_t  *outfile,		/* I - Output file */
       }
 
      /*
-      * If we are going to repeat this test, sleep 1 second so we don't flood
-      * the printer with requests...
+      * If we are going to repeat this test, display intermediate results...
       */
 
       if (repeat_test)
@@ -3349,6 +3356,9 @@ do_tests(cups_file_t  *outfile,		/* I - Output file */
 	{
 	  cupsFilePrintf(cupsFileStdout(), "    %-68.68s [", name);
 	}
+
+        ippDelete(response);
+        response = NULL;
       }
     }
     while (repeat_test);
@@ -4850,13 +4860,13 @@ print_xml_string(cups_file_t *outfile,	/* I - Output file */
 
       if ((s[1] & 0xc0) != 0x80)
       {
-        cupsFilePutChar(cupsFileStdout(), '?');
+        cupsFilePutChar(outfile, '?');
         s ++;
       }
       else
       {
-        cupsFilePutChar(cupsFileStdout(), *s++);
-        cupsFilePutChar(cupsFileStdout(), *s);
+        cupsFilePutChar(outfile, *s++);
+        cupsFilePutChar(outfile, *s);
       }
     }
     else if ((*s & 0xf0) == 0xe0)
@@ -4867,14 +4877,14 @@ print_xml_string(cups_file_t *outfile,	/* I - Output file */
 
       if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80)
       {
-        cupsFilePutChar(cupsFileStdout(), '?');
+        cupsFilePutChar(outfile, '?');
         s += 2;
       }
       else
       {
-        cupsFilePutChar(cupsFileStdout(), *s++);
-        cupsFilePutChar(cupsFileStdout(), *s++);
-        cupsFilePutChar(cupsFileStdout(), *s);
+        cupsFilePutChar(outfile, *s++);
+        cupsFilePutChar(outfile, *s++);
+        cupsFilePutChar(outfile, *s);
       }
     }
     else if ((*s & 0xf8) == 0xf0)
@@ -4886,15 +4896,15 @@ print_xml_string(cups_file_t *outfile,	/* I - Output file */
       if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 ||
           (s[3] & 0xc0) != 0x80)
       {
-        cupsFilePutChar(cupsFileStdout(), '?');
+        cupsFilePutChar(outfile, '?');
         s += 3;
       }
       else
       {
-        cupsFilePutChar(cupsFileStdout(), *s++);
-        cupsFilePutChar(cupsFileStdout(), *s++);
-        cupsFilePutChar(cupsFileStdout(), *s++);
-        cupsFilePutChar(cupsFileStdout(), *s);
+        cupsFilePutChar(outfile, *s++);
+        cupsFilePutChar(outfile, *s++);
+        cupsFilePutChar(outfile, *s++);
+        cupsFilePutChar(outfile, *s);
       }
     }
     else if ((*s & 0x80) || (*s < ' ' && !isspace(*s & 255)))
@@ -4903,10 +4913,10 @@ print_xml_string(cups_file_t *outfile,	/* I - Output file */
       * Invalid control character...
       */
 
-      cupsFilePutChar(cupsFileStdout(), '?');
+      cupsFilePutChar(outfile, '?');
     }
     else
-      cupsFilePutChar(cupsFileStdout(), *s);
+      cupsFilePutChar(outfile, *s);
 
     s ++;
   }
@@ -5070,6 +5080,7 @@ usage(void)
   _cupsLangPuts(stderr, _("  -c                      Produce CSV output."));
   _cupsLangPuts(stderr, _("  -d name=value           Set named variable to value."));
   _cupsLangPuts(stderr, _("  -f filename             Set default request filename."));
+  _cupsLangPuts(stderr, _("  -h                      Validate HTTP response headers."));
   _cupsLangPuts(stderr, _("  -i seconds              Repeat the last file with the given time interval."));
   _cupsLangPuts(stderr, _("  -l                      Produce plain text output."));
   _cupsLangPuts(stderr, _("  -n count                Repeat the last file the given number of times."));
@@ -5743,6 +5754,36 @@ validate_attr(cups_file_t     *outfile,	/* I - Output file */
 
 
 /*
+ * 'with_flags_string()' - Return the "WITH-xxx" predicate that corresponds to
+                           the flags.
+ */
+
+static const char *                     /* O - WITH-xxx string */
+with_flags_string(int flags)            /* I - WITH flags */
+{
+  if (flags & _CUPS_WITH_ALL)
+  {
+    if (flags & _CUPS_WITH_HOSTNAME)
+      return ("WITH-ALL-HOSTNAMES");
+    else if (flags & _CUPS_WITH_RESOURCE)
+      return ("WITH-ALL-RESOURCES");
+    else if (flags & _CUPS_WITH_SCHEME)
+      return ("WITH-ALL-SCHEMES");
+    else
+      return ("WITH-ALL-VALUES");
+  }
+  else if (flags & _CUPS_WITH_HOSTNAME)
+    return ("WITH-HOSTNAME");
+  else if (flags & _CUPS_WITH_RESOURCE)
+    return ("WITH-RESOURCE");
+  else if (flags & _CUPS_WITH_SCHEME)
+    return ("WITH-SCHEME");
+  else
+    return ("WITH-VALUE");
+}
+
+
+/*
  * 'with_value()' - Test a WITH-VALUE predicate.
  */
 
@@ -6058,7 +6099,7 @@ with_value(cups_file_t     *outfile,	/* I - Output file */
 
 	  regfree(&re);
 	}
-	else if (ippGetValueTag(attr) == IPP_TAG_URI)
+	else if (ippGetValueTag(attr) == IPP_TAG_URI && !(flags & (_CUPS_WITH_SCHEME | _CUPS_WITH_HOSTNAME | _CUPS_WITH_RESOURCE)))
 	{
 	 /*
 	  * Value is a literal URI string, see if the value(s) match...
@@ -6094,7 +6135,46 @@ with_value(cups_file_t     *outfile,	/* I - Output file */
 
 	  for (i = 0; i < attr->num_values; i ++)
 	  {
-	    if (!strcmp(value, get_string(attr, i, flags, temp, sizeof(temp))))
+	    int result;
+
+            switch (ippGetValueTag(attr))
+            {
+              case IPP_TAG_URI :
+                 /*
+                  * Some URI components are case-sensitive, some not...
+                  */
+
+                  if (flags & (_CUPS_WITH_SCHEME | _CUPS_WITH_HOSTNAME))
+                    result = _cups_strcasecmp(value, get_string(attr, i, flags, temp, sizeof(temp)));
+                  else
+                    result = strcmp(value, get_string(attr, i, flags, temp, sizeof(temp)));
+                  break;
+
+              case IPP_TAG_MIMETYPE :
+              case IPP_TAG_NAME :
+              case IPP_TAG_NAMELANG :
+              case IPP_TAG_TEXT :
+              case IPP_TAG_TEXTLANG :
+                 /*
+                  * mimeMediaType, nameWithoutLanguage, nameWithLanguage,
+                  * textWithoutLanguage, and textWithLanguage are defined to
+                  * be case-insensitive strings...
+                  */
+
+                  result = _cups_strcasecmp(value, get_string(attr, i, flags, temp, sizeof(temp)));
+                  break;
+
+              default :
+                 /*
+                  * Other string syntaxes are defined as lowercased so we use
+                  * case-sensitive comparisons to catch problems...
+                  */
+
+                  result = strcmp(value, get_string(attr, i, flags, temp, sizeof(temp)));
+                  break;
+            }
+
+            if (!result)
 	    {
 	      if (!matchbuf[0])
 		strlcpy(matchbuf,
@@ -6255,7 +6335,6 @@ with_value_from(
     case IPP_TAG_NAMELANG :
     case IPP_TAG_TEXT :
     case IPP_TAG_TEXTLANG :
-    case IPP_TAG_URI :
     case IPP_TAG_URISCHEME :
 	for (i = 0; i < count; i ++)
 	{
@@ -6268,6 +6347,31 @@ with_value_from(
 	      strlcpy(matchbuf, value, matchlen);
 	  }
 	  else
+	  {
+	    add_stringf(errors, "GOT: %s='%s'", ippGetName(attr), value);
+	    match = 0;
+	  }
+	}
+	break;
+
+    case IPP_TAG_URI :
+	for (i = 0; i < count; i ++)
+	{
+	  const char *value = ippGetString(attr, i, NULL);
+					/* Current string value */
+          int fromcount = ippGetCount(fromattr);
+
+          for (j = 0; j < fromcount; j ++)
+          {
+            if (!compare_uris(value, ippGetString(fromattr, j, NULL)))
+            {
+              if (!matchbuf[0])
+                strlcpy(matchbuf, value, matchlen);
+              break;
+            }
+          }
+
+	  if (j >= fromcount)
 	  {
 	    add_stringf(errors, "GOT: %s='%s'", ippGetName(attr), value);
 	    match = 0;

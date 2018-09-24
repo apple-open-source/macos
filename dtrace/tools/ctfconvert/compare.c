@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)compare.c	1.6	05/06/08 SMI"
-
 /*
  * This is a test program designed to catch mismerges and mistranslations from
  * stabs to CTF.

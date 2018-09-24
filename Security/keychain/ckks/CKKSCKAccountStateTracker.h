@@ -51,6 +51,12 @@ typedef NS_ENUM(NSInteger, CKKSAccountStatus) {
     CKKSAccountStatusNoAccount = 3,
 };
 
+@interface SOSAccountStatus : NSObject
+@property SOSCCStatus status;
+@property (nullable) NSError* error;
+- (instancetype)init:(SOSCCStatus)status error:error;
+@end
+
 @protocol CKKSAccountStateListener <NSObject>
 - (void)ckAccountStatusChange:(CKKSAccountStatus)oldStatus to:(CKKSAccountStatus)currentStatus;
 @end
@@ -60,7 +66,7 @@ typedef NS_ENUM(NSInteger, CKKSAccountStatus) {
 
 // If you use these, please be aware they could change out from under you at any time
 @property (nullable) CKAccountInfo* currentCKAccountInfo;
-@property SOSCCStatus currentCircleStatus;
+@property (nullable) SOSAccountStatus* currentCircleStatus;
 
 @property (readonly,atomic) CKKSAccountStatus currentComputedAccountStatus;
 @property (nullable,readonly,atomic) NSError* currentAccountError;
@@ -88,7 +94,7 @@ typedef NS_ENUM(NSInteger, CKKSAccountStatus) {
 
 - (dispatch_group_t _Nullable)checkForAllDeliveries;
 
-+ (SOSCCStatus)getCircleStatus;
++ (SOSAccountStatus*)getCircleStatus;
 + (void)fetchCirclePeerID:(void (^)(NSString* _Nullable peerID, NSError* _Nullable error))callback;
 + (NSString*)stringFromAccountStatus:(CKKSAccountStatus)status;
 

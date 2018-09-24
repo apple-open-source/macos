@@ -1,6 +1,5 @@
 #include <Security/SecureObjectSync/SOSTransport.h>
 #include <Security/SecureObjectSync/SOSTransportMessage.h>
-#include <Security/SecureObjectSync/SOSTransportMessageIDS.h>
 #include <Security/SecureObjectSync/SOSKVSKeys.h>
 #include <Security/SecureObjectSync/SOSPeerCoder.h>
 #include <Security/SecureObjectSync/SOSEngine.h>

@@ -37,7 +37,7 @@ legacy_valloc(szone_t *szone, size_t size)
 	ptr = large_malloc(szone, num_kernel_pages, 0, TRUE);
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("legacy_valloc returned %p\n", ptr);
+		malloc_report(ASL_LEVEL_INFO, "legacy_valloc returned %p\n", ptr);
 	}
 #endif
 	return ptr;
@@ -55,8 +55,8 @@ create_legacy_scalable_zone(size_t initial_size, unsigned debug_flags)
 	}
 
 	szone->is_largemem = 0;
-	szone->large_threshold = LARGE_THRESHOLD;
-	szone->vm_copy_threshold = VM_COPY_THRESHOLD;
+	szone->large_threshold = (15 * 1024);
+	szone->vm_copy_threshold = (40 * 1024);
 
 	mprotect(szone, sizeof(szone->basic_zone), PROT_READ | PROT_WRITE);
 	szone->basic_zone.valloc = (void *)legacy_valloc;

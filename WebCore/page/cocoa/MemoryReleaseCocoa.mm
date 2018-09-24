@@ -42,7 +42,7 @@ namespace WebCore {
 
 void platformReleaseMemory(Critical)
 {
-#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR) && !PLATFORM(IOSMAC)
     // FIXME: Remove this call to GSFontInitialize() once <rdar://problem/32886715> is fixed.
     GSFontInitialize();
     GSFontPurgeFontCache();
@@ -56,7 +56,7 @@ void platformReleaseMemory(Critical)
     tileControllerMemoryHandler().trimUnparentedTilesToTarget(0);
 #endif
 
-#if USE(IOSURFACE)
+#if HAVE(IOSURFACE)
     IOSurfacePool::sharedPool().discardAllSurfaces();
 #endif
 }

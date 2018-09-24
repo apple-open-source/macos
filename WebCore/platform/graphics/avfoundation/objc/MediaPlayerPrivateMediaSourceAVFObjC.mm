@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,6 +41,7 @@
 #import "PixelBufferConformerCV.h"
 #import "TextTrackRepresentation.h"
 #import "TextureCacheCV.h"
+#import "VideoFullscreenLayerManagerObjC.h"
 #import "VideoTextureCopierCV.h"
 #import "WebCoreDecompressionSession.h"
 #import <AVFoundation/AVAsset.h>
@@ -52,10 +53,6 @@
 #import <wtf/Deque.h>
 #import <wtf/MainThread.h>
 #import <wtf/NeverDestroyed.h>
-
-#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
-#import "VideoFullscreenLayerManager.h"
-#endif
 
 #pragma mark - Soft Linking
 
@@ -134,9 +131,7 @@ MediaPlayerPrivateMediaSourceAVFObjC::MediaPlayerPrivateMediaSourceAVFObjC(Media
     , m_playing(0)
     , m_seeking(false)
     , m_loadingProgressed(false)
-#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
-    , m_videoFullscreenLayerManager(VideoFullscreenLayerManager::create())
-#endif
+    , m_videoFullscreenLayerManager(std::make_unique<VideoFullscreenLayerManagerObjC>())
 {
     CMTimebaseRef timebase = [m_synchronizer timebase];
     CMNotificationCenterRef nc = CMNotificationCenterGetDefaultLocalCenter();
@@ -196,7 +191,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::registerMediaEngine(MediaEngineRegist
 
     registrar([](MediaPlayer* player) { return std::make_unique<MediaPlayerPrivateMediaSourceAVFObjC>(player); },
         getSupportedTypes, supportsType, 0, 0, 0, 0);
-    AVFoundationMIMETypeCache::singleton().loadTypes();
+    ASSERT(AVFoundationMIMETypeCache::singleton().isAvailable());
 }
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::isAvailable()
@@ -224,7 +219,7 @@ MediaPlayer::SupportsType MediaPlayerPrivateMediaSourceAVFObjC::supportsType(con
         return MediaPlayer::IsNotSupported;
 #endif
 
-    if (parameters.type.isEmpty() || !AVFoundationMIMETypeCache::singleton().types().contains(parameters.type.containerType()))
+    if (parameters.type.isEmpty() || !AVFoundationMIMETypeCache::singleton().canDecodeType(parameters.type.containerType()))
         return MediaPlayer::IsNotSupported;
 
     // The spec says:
@@ -280,21 +275,9 @@ void MediaPlayerPrivateMediaSourceAVFObjC::prepareToPlay()
 {
 }
 
-PlatformMedia MediaPlayerPrivateMediaSourceAVFObjC::platformMedia() const
-{
-    PlatformMedia pm;
-    pm.type = PlatformMedia::AVFoundationAssetType;
-    pm.media.avfAsset = m_asset.get();
-    return pm;
-}
-
 PlatformLayer* MediaPlayerPrivateMediaSourceAVFObjC::platformLayer() const
 {
-#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
     return m_videoFullscreenLayerManager->videoInlineLayer();
-#else
-    return m_sampleBufferDisplayLayer.get();
-#endif
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::play()
@@ -568,8 +551,8 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::updateLastImage()
     ASSERT(m_lastPixelBuffer);
 
     if (!m_rgbConformer) {
-        NSDictionary *attributes = @{ (NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) };
-        m_rgbConformer = std::make_unique<PixelBufferConformerCV>((CFDictionaryRef)attributes);
+        auto attributes = @{ (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) };
+        m_rgbConformer = std::make_unique<PixelBufferConformerCV>((__bridge CFDictionaryRef)attributes);
     }
 
     m_lastImage = m_rgbConformer->createImageFromPixelBuffer(m_lastPixelBuffer.get());
@@ -674,27 +657,27 @@ size_t MediaPlayerPrivateMediaSourceAVFObjC::extraMemoryCost() const
     return 0;
 }
 
-std::optional<PlatformVideoPlaybackQualityMetrics> MediaPlayerPrivateMediaSourceAVFObjC::videoPlaybackQualityMetrics()
+std::optional<VideoPlaybackQualityMetrics> MediaPlayerPrivateMediaSourceAVFObjC::videoPlaybackQualityMetrics()
 {
     if (m_decompressionSession) {
-        return PlatformVideoPlaybackQualityMetrics(
+        return VideoPlaybackQualityMetrics {
             m_decompressionSession->totalVideoFrames(),
             m_decompressionSession->droppedVideoFrames(),
             m_decompressionSession->corruptedVideoFrames(),
             m_decompressionSession->totalFrameDelay().toDouble()
-        );
+        };
     }
 
     auto metrics = [m_sampleBufferDisplayLayer videoPerformanceMetrics];
     if (!metrics)
         return std::nullopt;
 
-    return PlatformVideoPlaybackQualityMetrics(
-        [metrics totalNumberOfVideoFrames],
-        [metrics numberOfDroppedVideoFrames],
-        [metrics numberOfCorruptedVideoFrames],
+    return VideoPlaybackQualityMetrics {
+        static_cast<unsigned>([metrics totalNumberOfVideoFrames]),
+        static_cast<unsigned>([metrics numberOfDroppedVideoFrames]),
+        static_cast<unsigned>([metrics numberOfCorruptedVideoFrames]),
         [metrics totalFrameDelay]
-    );
+    };
 }
 
 #pragma mark -
@@ -713,9 +696,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::ensureLayer()
     [m_synchronizer addRenderer:m_sampleBufferDisplayLayer.get()];
     if (m_mediaSourcePrivate)
         m_mediaSourcePrivate->setVideoLayer(m_sampleBufferDisplayLayer.get());
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     m_videoFullscreenLayerManager->setVideoLayer(m_sampleBufferDisplayLayer.get(), snappedIntRect(m_player->client().mediaPlayerContentBoxRect()).size());
-#endif
     m_player->client().mediaPlayerRenderingModeChanged(m_player);
 }
 
@@ -731,9 +712,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::destroyLayer()
 
     if (m_mediaSourcePrivate)
         m_mediaSourcePrivate->setVideoLayer(nullptr);
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     m_videoFullscreenLayerManager->didDestroyVideoLayer();
-#endif
     m_sampleBufferDisplayLayer = nullptr;
     setHasAvailableVideoFrame(false);
     m_player->client().mediaPlayerRenderingModeChanged(m_player);
@@ -956,6 +935,16 @@ void MediaPlayerPrivateMediaSourceAVFObjC::keyNeeded(Uint8Array* initData)
 {
     m_player->keyNeeded(initData);
 }
+
+void MediaPlayerPrivateMediaSourceAVFObjC::outputObscuredDueToInsufficientExternalProtectionChanged(bool obscured)
+{
+#if ENABLE(ENCRYPTED_MEDIA)
+    if (m_cdmInstance)
+        m_cdmInstance->setHDCPStatus(obscured ? CDMInstance::HDCPStatus::OutputRestricted : CDMInstance::HDCPStatus::Valid);
+#else
+    UNUSED_PARAM(obscured);
+#endif
+}
 #endif
 
 #if ENABLE(ENCRYPTED_MEDIA)
@@ -1069,90 +1058,31 @@ void MediaPlayerPrivateMediaSourceAVFObjC::characteristicsChanged()
     m_player->characteristicChanged();
 }
 
-#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
 void MediaPlayerPrivateMediaSourceAVFObjC::setVideoFullscreenLayer(PlatformLayer *videoFullscreenLayer, WTF::Function<void()>&& completionHandler)
 {
-    if (m_videoFullscreenLayerManager->videoFullscreenLayer() == videoFullscreenLayer) {
-        completionHandler();
-        return;
-    }
-
-    [CATransaction begin];
-    [CATransaction setDisableActions:YES];
-
-    m_videoFullscreenLayerManager->setVideoFullscreenLayer(videoFullscreenLayer, WTFMove(completionHandler));
-    
-    if (m_videoFullscreenLayerManager->videoFullscreenLayer() && m_textTrackRepresentationLayer) {
-        syncTextTrackBounds();
-        [m_videoFullscreenLayerManager->videoFullscreenLayer() addSublayer:m_textTrackRepresentationLayer.get()];
-    }
-
-    [CATransaction commit];
+    updateLastImage();
+    m_videoFullscreenLayerManager->setVideoFullscreenLayer(videoFullscreenLayer, WTFMove(completionHandler), m_lastImage);
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::setVideoFullscreenFrame(FloatRect frame)
 {
     m_videoFullscreenLayerManager->setVideoFullscreenFrame(frame);
-    syncTextTrackBounds();
 }
-#endif
-    
+
 bool MediaPlayerPrivateMediaSourceAVFObjC::requiresTextTrackRepresentation() const
 {
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
-    if (m_videoFullscreenLayerManager->videoFullscreenLayer())
-        return true;
-#endif
-    return false;
+    return m_videoFullscreenLayerManager->videoFullscreenLayer();
 }
     
 void MediaPlayerPrivateMediaSourceAVFObjC::syncTextTrackBounds()
 {
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
-    if (!m_videoFullscreenLayerManager->videoFullscreenLayer() || !m_textTrackRepresentationLayer)
-        return;
-
-    [CATransaction begin];
-    [CATransaction setDisableActions:YES];
-
-    auto videoFullscreenFrame = m_videoFullscreenLayerManager->videoFullscreenFrame();
-    auto videoRect = [m_sampleBufferDisplayLayer bounds];
-    auto textFrame = m_sampleBufferDisplayLayer ? videoRect : CGRectMake(0, 0, videoFullscreenFrame.width(), videoFullscreenFrame.height());
-    [m_textTrackRepresentationLayer setFrame:textFrame];
-
-    [CATransaction commit];
-#endif
+    m_videoFullscreenLayerManager->syncTextTrackBounds();
 }
     
 void MediaPlayerPrivateMediaSourceAVFObjC::setTextTrackRepresentation(TextTrackRepresentation* representation)
 {
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
-    PlatformLayer* representationLayer = representation ? representation->platformLayer() : nil;
-    if (representationLayer == m_textTrackRepresentationLayer) {
-        syncTextTrackBounds();
-        return;
-    }
-
-    [CATransaction begin];
-    [CATransaction setDisableActions:YES];
-
-    if (m_textTrackRepresentationLayer)
-        [m_textTrackRepresentationLayer removeFromSuperlayer];
-    
-    m_textTrackRepresentationLayer = representationLayer;
-    
-    if (m_videoFullscreenLayerManager->videoFullscreenLayer() && m_textTrackRepresentationLayer) {
-        syncTextTrackBounds();
-        [m_videoFullscreenLayerManager->videoFullscreenLayer() addSublayer:m_textTrackRepresentationLayer.get()];
-    }
-
-    [CATransaction commit];
-    
-#else
-    UNUSED_PARAM(representation);
-#endif
+    m_videoFullscreenLayerManager->setTextTrackRepresentation(representation);
 }
-    
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 void MediaPlayerPrivateMediaSourceAVFObjC::setWirelessPlaybackTarget(Ref<MediaPlaybackTarget>&& target)

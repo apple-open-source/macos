@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -120,7 +120,7 @@ namespace JSC {
         NEVER_INLINE HandlerInfo* unwind(VM&, CallFrame*&, Exception*, UnwindStart);
         void notifyDebuggerOfExceptionToBeThrown(VM&, CallFrame*, Exception*);
         NEVER_INLINE void debug(CallFrame*, DebugHookType);
-        static JSString* stackTraceAsString(VM&, const Vector<StackFrame>&);
+        static String stackTraceAsString(VM&, const Vector<StackFrame>&);
 
         static EncodedJSValue JSC_HOST_CALL constructWithErrorConstructor(ExecState*);
         static EncodedJSValue JSC_HOST_CALL callErrorConstructor(ExecState*);
@@ -133,6 +133,18 @@ namespace JSC {
 
     private:
         enum ExecutionFlag { Normal, InitializeAndReturn };
+        
+        static JSValue checkedReturn(JSValue returnValue)
+        {
+            ASSERT(returnValue);
+            return returnValue;
+        }
+        
+        static JSObject* checkedReturn(JSObject* returnValue)
+        {
+            ASSERT(returnValue);
+            return returnValue;
+        }
 
         CallFrameClosure prepareForRepeatCall(FunctionExecutable*, CallFrame*, ProtoCallFrame*, JSFunction*, int argumentCountIncludingThis, JSScope*, const ArgList&);
 

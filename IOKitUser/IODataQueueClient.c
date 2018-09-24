@@ -32,14 +32,14 @@
 #include <libkern/OSAtomic.h>
 
 
-static IOReturn _IODataQueueSendDataAvailableNotification(IODataQueueMemory *dataQueue);
+static IOReturn _IODataQueueSendDataAvailableNotification(IODataQueueMemory *dataQueue, mach_msg_header_t *msgh);
 
 Boolean IODataQueueDataAvailable(IODataQueueMemory *dataQueue)
 {
     return (dataQueue && (dataQueue->head != dataQueue->tail));
 }
 
-IODataQueueEntry *IODataQueuePeek(IODataQueueMemory *dataQueue)
+IODataQueueEntry *__IODataQueuePeek(IODataQueueMemory *dataQueue, uint64_t qSize)
 {
     IODataQueueEntry *entry = 0;
     UInt32            headOffset;
@@ -56,7 +56,7 @@ IODataQueueEntry *IODataQueuePeek(IODataQueueMemory *dataQueue)
     if (headOffset != tailOffset) {
         IODataQueueEntry *  head        = 0;
         UInt32              headSize    = 0;
-        UInt32              queueSize   = dataQueue->queueSize;
+        UInt32              queueSize   = qSize ? qSize : dataQueue->queueSize;
         
         if (headOffset > queueSize) {
             return NULL;
@@ -85,8 +85,18 @@ IODataQueueEntry *IODataQueuePeek(IODataQueueMemory *dataQueue)
     return entry;
 }
 
+IODataQueueEntry *IODataQueuePeek(IODataQueueMemory *dataQueue)
+{
+    return __IODataQueuePeek(dataQueue, 0);
+}
+
+IODataQueueEntry *_IODataQueuePeek(IODataQueueMemory *dataQueue, uint64_t queueSize)
+{
+    return __IODataQueuePeek(dataQueue, queueSize);
+}
+
 IOReturn
-IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize)
+__IODataQueueDequeue(IODataQueueMemory *dataQueue, uint64_t qSize, void *data, uint32_t *dataSize)
 {
     IOReturn            retVal          = kIOReturnSuccess;
     IODataQueueEntry *  entry           = 0;
@@ -103,7 +113,7 @@ IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize)
         if (headOffset != tailOffset) {
             IODataQueueEntry *  head        = 0;
             UInt32              headSize    = 0;
-            UInt32              queueSize   = dataQueue->queueSize;
+            UInt32              queueSize   = qSize ? qSize : dataQueue->queueSize;
             
             head         = (IODataQueueEntry *)((char *)dataQueue->queue + headOffset);
             headSize     = head->size;
@@ -168,13 +178,24 @@ IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize)
     return retVal;
 }
 
+IOReturn
+IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize)
+{
+    return __IODataQueueDequeue(dataQueue, 0, data, dataSize);
+}
+
+IOReturn _IODataQueueDequeue(IODataQueueMemory *dataQueue, uint64_t queueSize, void *data, uint32_t *dataSize)
+{
+    return __IODataQueueDequeue(dataQueue, queueSize, data, dataSize);
+}
+
 static IOReturn
-__IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint32_t dataSize, void *data, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon)
+__IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint64_t qSize, mach_msg_header_t *msgh, uint32_t dataSize, void *data, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon)
 {
     UInt32              head;
     UInt32              tail;
     UInt32              newTail;
-    UInt32              queueSize   = dataQueue->queueSize;
+    UInt32              queueSize   = qSize ? qSize : dataQueue->queueSize;
     UInt32              entrySize   = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
     IOReturn            retVal      = kIOReturnSuccess;
     IODataQueueEntry *  entry;
@@ -276,12 +297,12 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint32_t dataSize, void *data
         if ( ( head == tail )                                                           /* queue was empty prior to enqueue() */
         ||   ( tail == __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_ACQUIRE) ) )  /* queue was emptied during enqueue() */
         {
-            retVal = _IODataQueueSendDataAvailableNotification(dataQueue);
+            retVal = _IODataQueueSendDataAvailableNotification(dataQueue, msgh);
         }
 #if TARGET_IPHONE_SIMULATOR
         else
         {
-            retVal = _IODataQueueSendDataAvailableNotification(dataQueue);
+            retVal = _IODataQueueSendDataAvailableNotification(dataQueue, msgh);
         }
 #endif
     }
@@ -289,7 +310,7 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint32_t dataSize, void *data
     else if ( retVal == kIOReturnOverrun ) {
         // Send extra data available notification, this will fail and we will
         // get a send possible notification when the client starts responding
-        (void) _IODataQueueSendDataAvailableNotification(dataQueue);
+        (void) _IODataQueueSendDataAvailableNotification(dataQueue, msgh);
     }
 
     return retVal;
@@ -298,14 +319,14 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint32_t dataSize, void *data
 IOReturn
 IODataQueueEnqueue(IODataQueueMemory *dataQueue, void *data, uint32_t dataSize)
 {
-    return __IODataQueueEnqueue(dataQueue, dataSize, data, NULL, NULL);
+    return __IODataQueueEnqueue(dataQueue, 0, NULL, dataSize, data, NULL, NULL);
 }
 
 
 IOReturn
-_IODataQueueEnqueueWithReadCallback(IODataQueueMemory *dataQueue, uint32_t dataSize, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon)
+_IODataQueueEnqueueWithReadCallback(IODataQueueMemory *dataQueue, uint64_t queueSize, mach_msg_header_t *msgh, uint32_t dataSize, IODataQueueClientEnqueueReadBytesCallback callback, void * refcon)
 {
-    return __IODataQueueEnqueue(dataQueue, dataSize, NULL, callback, refcon);
+    return __IODataQueueEnqueue(dataQueue, queueSize, msgh, dataSize, NULL, callback, refcon);
 }
 
 
@@ -332,24 +353,35 @@ mach_port_t IODataQueueAllocateNotificationPort()
     mach_port_t        port = MACH_PORT_NULL;
     mach_port_limits_t    limits;
     mach_msg_type_number_t    info_cnt;
+    kern_return_t             kr;
 
-    mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
+    kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
+    if (kr != KERN_SUCCESS)
+        return MACH_PORT_NULL;
 
     info_cnt = MACH_PORT_LIMITS_INFO_COUNT;
 
-    mach_port_get_attributes(mach_task_self(),
-                                port,
-                                MACH_PORT_LIMITS_INFO,
-                                (mach_port_info_t)&limits,
-                                &info_cnt);
+    kr = mach_port_get_attributes(mach_task_self(),
+                                  port,
+                                  MACH_PORT_LIMITS_INFO,
+                                  (mach_port_info_t)&limits,
+                                  &info_cnt);
+    if (kr != KERN_SUCCESS) {
+        mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
+        return MACH_PORT_NULL;
+    }
 
     limits.mpl_qlimit = 1;    // Set queue to only 1 message
 
-    mach_port_set_attributes(mach_task_self(),
-                                port,
-                                MACH_PORT_LIMITS_INFO,
-                                (mach_port_info_t)&limits,
-                                MACH_PORT_LIMITS_INFO_COUNT);
+    kr = mach_port_set_attributes(mach_task_self(),
+                                  port,
+                                  MACH_PORT_LIMITS_INFO,
+                                  (mach_port_info_t)&limits,
+                                  MACH_PORT_LIMITS_INFO_COUNT);
+    if (kr != KERN_SUCCESS) {
+        mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
+        return MACH_PORT_NULL;
+    }
 
     return port;
 }
@@ -375,22 +407,25 @@ IOReturn IODataQueueSetNotificationPort(IODataQueueMemory *dataQueue, mach_port_
     return kIOReturnSuccess;
 }
 
-IOReturn _IODataQueueSendDataAvailableNotification(IODataQueueMemory *dataQueue)
+IOReturn _IODataQueueSendDataAvailableNotification(IODataQueueMemory *dataQueue, mach_msg_header_t *msgh)
 {
-    IODataQueueAppendix *   appendix    = NULL;
-    UInt32                  queueSize   = 0;
-            
-    queueSize = dataQueue->queueSize;
+    kern_return_t kr;
+    mach_msg_header_t header;
     
-    appendix = (IODataQueueAppendix *)((UInt8 *)dataQueue + queueSize + DATA_QUEUE_MEMORY_HEADER_SIZE);
-
-    if ( appendix->msgh.msgh_remote_port == MACH_PORT_NULL )
-        return kIOReturnSuccess;  // return success if no port is declared
-    
-    kern_return_t        kr;
-    mach_msg_header_t   msgh = appendix->msgh;
+    if (!msgh) {
+        IODataQueueAppendix *appendix = NULL;
         
-    kr = mach_msg(&msgh, MACH_SEND_MSG | MACH_SEND_TIMEOUT, msgh.msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+        appendix = (IODataQueueAppendix *)((UInt8 *)dataQueue + dataQueue->queueSize + DATA_QUEUE_MEMORY_HEADER_SIZE);
+        
+        if ( appendix->msgh.msgh_remote_port == MACH_PORT_NULL )
+            return kIOReturnSuccess;  // return success if no port is declared
+        
+        header = appendix->msgh;
+    } else {
+        header = *msgh;
+    }
+    
+    kr = mach_msg(&header, MACH_SEND_MSG | MACH_SEND_TIMEOUT, header.msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
     switch(kr) {
         case MACH_SEND_TIMED_OUT:    // Notification already sent
         case MACH_MSG_SUCCESS:

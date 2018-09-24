@@ -32,6 +32,8 @@
 #import "NetscapePluginModule.h"
 #import "SandboxUtilities.h"
 #import <WebCore/PluginBlacklist.h>
+#import <WebCore/RuntimeEnabledFeatures.h>
+#import <pwd.h>
 #import <wtf/HashSet.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/text/CString.h>
@@ -43,9 +45,13 @@ namespace WebKit {
 Vector<String> PluginInfoStore::pluginsDirectories()
 {
     Vector<String> pluginsDirectories;
+    pluginsDirectories.reserveInitialCapacity(2);
 
-    pluginsDirectories.append([NSHomeDirectory() stringByAppendingPathComponent:@"Library/Internet Plug-Ins"]);
-    pluginsDirectories.append("/Library/Internet Plug-Ins");
+    ASCIILiteral pluginPath { "/Library/Internet Plug-Ins"_s };
+
+    if (auto* pw = getpwuid(getuid()))
+        pluginsDirectories.uncheckedAppend(makeString(pw->pw_dir, pluginPath));
+    pluginsDirectories.uncheckedAppend(pluginPath);
     
     return pluginsDirectories;
 }
@@ -55,9 +61,9 @@ Vector<String> PluginInfoStore::pluginPathsInDirectory(const String& directory)
     Vector<String> pluginPaths;
 
     RetainPtr<CFStringRef> directoryCFString = directory.createCFString();
-    NSArray *filenames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:(NSString *)directoryCFString.get() error:nil];
+    NSArray *filenames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:(__bridge NSString *)directoryCFString.get() error:nil];
     for (NSString *filename in filenames)
-        pluginPaths.append([(NSString *)directoryCFString.get() stringByAppendingPathComponent:filename]);
+        pluginPaths.append([(__bridge NSString *)directoryCFString.get() stringByAppendingPathComponent:filename]);
     
     return pluginPaths;
 }
@@ -76,6 +82,19 @@ static bool shouldBlockPlugin(const PluginModuleInfo& plugin)
 {
     PluginModuleLoadPolicy loadPolicy = PluginInfoStore::defaultLoadPolicyForPlugin(plugin);
     return loadPolicy == PluginModuleBlockedForSecurity || loadPolicy == PluginModuleBlockedForCompatibility;
+}
+
+bool PluginInfoStore::shouldAllowPluginToRunUnsandboxed(const String& pluginBundleIdentifier)
+{
+    if (RuntimeEnabledFeatures::sharedFeatures().experimentalPlugInSandboxProfilesEnabled())
+        return false;
+
+    return pluginBundleIdentifier == "com.cisco.webex.plugin.gpc64"_s
+        || pluginBundleIdentifier == "com.google.googletalkbrowserplugin"_s
+        || pluginBundleIdentifier == "com.google.o1dbrowserplugin"_s
+        || pluginBundleIdentifier == "com.apple.NPSafeInput"_s
+        || pluginBundleIdentifier == "com.apple.BocomSubmitCtrl"_s
+        || pluginBundleIdentifier == "com.ftsafe.NPAPI-Core-Safe-SoftKeybaord.plugin.rfc1034identifier"_s;
 }
 
 bool PluginInfoStore::shouldUsePlugin(Vector<PluginModuleInfo>& alreadyLoadedPlugins, const PluginModuleInfo& plugin)
@@ -99,7 +118,7 @@ bool PluginInfoStore::shouldUsePlugin(Vector<PluginModuleInfo>& alreadyLoadedPlu
         return false;
     }
 
-    if (currentProcessIsSandboxed() && !plugin.hasSandboxProfile) {
+    if (currentProcessIsSandboxed() && !plugin.hasSandboxProfile && !shouldAllowPluginToRunUnsandboxed(plugin.bundleIdentifier)) {
         LOG(Plugins, "Ignoring unsandboxed plug-in %s", plugin.bundleIdentifier.utf8().data());
         return false;
     }

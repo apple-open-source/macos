@@ -728,7 +728,7 @@ _pdns_check_search_list(pdns_handle_t *pdns)
 	}
 }
 
-__private_extern__ void
+__attribute__((__visibility__("hidden"))) void
 _check_cache(sdns_handle_t *sdns)
 {
 	int i, n, status, refresh, sc_dns_count;
@@ -1405,7 +1405,7 @@ _pdns_query(sdns_handle_t *sdns, pdns_handle_t *pdns, const char *name, uint32_t
 	return res_nquery_soa_min(pdns->res, name, class, type, (u_char *)buf, len, from, (int32_t *)fromlen, min);
 }
 
-__private_extern__ int
+__attribute__((__visibility__("hidden"))) int
 _pdns_search(sdns_handle_t *sdns, pdns_handle_t *pdns, const char *name, uint32_t class, uint32_t type, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen)
 {
 	char *dot, *qname;
@@ -1520,7 +1520,7 @@ _sdns_send(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type,
 	return n;
 }
 
-__private_extern__ int
+__attribute__((__visibility__("hidden"))) int
 _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type, uint32_t fqdn, uint32_t recurse, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen, int *min)
 {
 	pdns_handle_t *primary, **pdns;

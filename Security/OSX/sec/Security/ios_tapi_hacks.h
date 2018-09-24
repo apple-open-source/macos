@@ -60,6 +60,10 @@ extern SecurityClient * SecSecurityClientGet(void);
 bool securityd_send_sync_and_do(enum SecXPCOperation op, CFErrorRef *error,
                                 bool (^add_to_message)(xpc_object_t message, CFErrorRef* error),
                                 bool (^handle_response)(xpc_object_t response, CFErrorRef* error));
+typedef void (^securityd_handler_t)(xpc_object_t reply, CFErrorRef error);
+void securityd_send_async_and_do(enum SecXPCOperation op, dispatch_queue_t replyq,
+								 bool (^add_to_message)(xpc_object_t message, CFErrorRef* error),
+								 securityd_handler_t handler);
 XPC_RETURNS_RETAINED xpc_object_t securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error);
 XPC_RETURNS_RETAINED xpc_object_t securityd_create_message(enum SecXPCOperation op, CFErrorRef *error);
 bool securityd_message_no_error(xpc_object_t message, CFErrorRef *error);

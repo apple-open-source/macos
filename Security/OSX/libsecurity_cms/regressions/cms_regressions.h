@@ -25,5 +25,4 @@
 
 #include <regressions/test/testmore.h>
 
-ONE_TEST(cms_hash_agility_test)
 ONE_TEST(cms_trust_settings_test)

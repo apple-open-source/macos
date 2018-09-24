@@ -3161,7 +3161,8 @@ execute_builtin (builtin, words, flags, subshell)
      If a variable assignment list preceded the command, and the shell is
      running in POSIX mode, we need to merge that into the shell_variables
      table, since `return' is a POSIX special builtin. */
-  if (posixly_correct && subshell == 0 && builtin == return_builtin && temporary_env)
+  if (posixly_correct && subshell == 0 &&  ((flags & CMD_NO_FUNCTIONS) == 0) &&
+          builtin == return_builtin && temporary_env)
     {
       begin_unwind_frame ("return_temp_env");
       add_unwind_protect (merge_temporary_env, (char *)NULL);

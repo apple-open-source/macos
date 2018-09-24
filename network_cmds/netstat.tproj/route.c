@@ -186,8 +186,24 @@ pr_rthdr(int af)
 
 	if (Aflag)
 		printf("%-8.8s ","Address");
-	if (af == AF_INET || lflag)
-		if (lflag)
+	if (af == AF_INET || lflag) {
+		if (lflag > 2)
+			printf("%-*.*s %-*.*s %-10.10s %6.6s %8.8s %6.6s %*.*s %6s "
+			       "%10s %10s %8s %8s %8s\n",
+			       WID_DST(af), WID_DST(af), "Destination",
+			       WID_GW(af), WID_GW(af), "Gateway",
+			       "Flags", "Refs", "Use", "Mtu",
+			       WID_IF(af), WID_IF(af), "Netif", "Expire",
+			       "rtt(ns)", "rttvar(ns)", "recvpipe", "sendpipe", "ssthresh");
+		else if (lflag > 1)
+			printf("%-*.*s %-*.*s %-10.10s %6.6s %8.8s %6.6s %*.*s %6s "
+			       "%10s %10s\n",
+			       WID_DST(af), WID_DST(af), "Destination",
+			       WID_GW(af), WID_GW(af), "Gateway",
+			       "Flags", "Refs", "Use", "Mtu",
+			       WID_IF(af), WID_IF(af), "Netif", "Expire",
+			       "rtt(ns)", "rttvar(ns)");
+		else if (lflag == 1)
 			printf("%-*.*s %-*.*s %-10.10s %6.6s %8.8s %6.6s %*.*s %6s\n",
 				WID_DST(af), WID_DST(af), "Destination",
 				WID_GW(af), WID_GW(af), "Gateway",
@@ -199,11 +215,12 @@ pr_rthdr(int af)
 				WID_GW(af), WID_GW(af), "Gateway",
 				"Flags", "Refs", "Use",
 				WID_IF(af), WID_IF(af), "Netif", "Expire");
-	else
+	} else {
 		printf("%-*.*s %-*.*s %-10.10s %8.8s %6s\n",
 			WID_DST(af), WID_DST(af), "Destination",
 			WID_GW(af), WID_GW(af), "Gateway",
 			"Flags", "Netif", "Expire");
+}
 }
 
 /*
@@ -277,6 +294,8 @@ np_rtentry(struct rt_msghdr2 *rtm)
 			return;
 	}
 
+	if (lflag > 1 && zflag != 0 && rtm->rtm_rmx.rmx_rtt == 0 && rtm->rtm_rmx.rmx_rttvar == 0)
+		return;
 	fam = sa->sa_family;
 	if (af != AF_UNSPEC && af != fam)
 		return;
@@ -322,6 +341,36 @@ np_rtentry(struct rt_msghdr2 *rtm)
 		if ((expire_time =
 			rtm->rtm_rmx.rmx_expire - time((time_t *)0)) > 0)
 			printf(" %6d", (int)expire_time);
+		else
+			printf(" %6s", "!");
+	} else {
+		printf(" %6s", "");
+	}
+	if (lflag > 1) {
+		if (rtm->rtm_rmx.rmx_rtt != 0)
+			printf(" %6u.%03u", rtm->rtm_rmx.rmx_rtt / 1000,
+			       rtm->rtm_rmx.rmx_rtt % 1000);
+		else
+			printf(" %10s", "");
+		if (rtm->rtm_rmx.rmx_rttvar != 0)
+			printf(" %6u.%03u", rtm->rtm_rmx.rmx_rttvar / 1000,
+			       rtm->rtm_rmx.rmx_rttvar % 1000);
+		else
+			printf(" %10s", "");
+		if (lflag > 2) {
+			if (rtm->rtm_rmx.rmx_recvpipe != 0)
+				printf(" %8u", rtm->rtm_rmx.rmx_recvpipe);
+			else
+				printf(" %8s", "");
+			if (rtm->rtm_rmx.rmx_sendpipe != 0)
+				printf(" %8u", rtm->rtm_rmx.rmx_sendpipe);
+			else
+				printf(" %8s", "");
+			if (rtm->rtm_rmx.rmx_ssthresh != 0)
+				printf(" %8u", rtm->rtm_rmx.rmx_ssthresh);
+			else
+				printf(" %8s", "");
+		}
 	}
 	putchar('\n');
 }

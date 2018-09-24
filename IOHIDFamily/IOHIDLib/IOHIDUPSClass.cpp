@@ -236,7 +236,7 @@ void IOHIDUPSClass::storeUPSElement(CFStringRef psKey, UPSHIDElement * newElemen
     
     // Now add the data object to the _hidElements dictionary
     // The cookie will be used as a key.  We should also
-    // remove and replaced data objects.
+    // remove any replaced data objects.
     if ( added && newElementRef )
     {
         CFNumberRef cookieNumber = NULL;
@@ -256,7 +256,16 @@ void IOHIDUPSClass::storeUPSElement(CFStringRef psKey, UPSHIDElement * newElemen
                 CFDictionaryRemoveValue(_hidElements, cookieNumber);
                 CFRelease(cookieNumber);
             }
+
+            if ( oldElementRef->longValue )
+            {
+                free(oldElementRef->longValue);
+            }
         }
+    }
+    else if ( !added && newElementRef && (newElementRef->longValue != NULL) )
+    {
+        free(newElementRef->longValue);
     }
     CFRelease(newData);
 }
@@ -330,6 +339,41 @@ IOHIDUPSClass::~IOHIDUPSClass()
     }
 
     if (_upsElements) {
+        // Need to check all _upsElements for non-NULL longValues to be freed
+        CFIndex count = CFDictionaryGetCount(_upsElements);
+        if (count > 0) {
+            CFStringRef *keys = (CFStringRef *) malloc(sizeof(CFStringRef) * count);
+            CFTypeRef *values = (CFTypeRef *) malloc(sizeof(CFTypeRef) * count);
+            CFDictionaryGetKeysAndValues(_upsElements, (const void **)keys, (const void **)values);
+
+            for (int i = 0; i < count; i++) {
+                if (!keys[i] || !values[i])
+                    continue;
+
+                CFMutableDataRef data;
+                UPSHIDElement *element = NULL;
+                if (CFGetTypeID(values[i]) == CFDataGetTypeID()) {
+                    data = (CFMutableDataRef) values[i];
+                    element = (UPSHIDElement *) CFDataGetMutableBytePtr(data);
+                    if (element != NULL && element->longValue != NULL) {
+                        free(element->longValue);
+                        element->longValue = NULL;
+                    }
+                } else if (CFGetTypeID(values[i]) == CFArrayGetTypeID()) {
+                    for (int j = 0; j < CFArrayGetCount((CFArrayRef)values[i]); j++) {
+                        data = (CFMutableDataRef) CFArrayGetValueAtIndex((CFArrayRef) values[i], j);
+                        element = (UPSHIDElement *) CFDataGetMutableBytePtr(data);
+                        if (element != NULL && element->longValue != NULL) {
+                            free(element->longValue);
+                            element->longValue = NULL;
+                        }
+                    }
+                }
+            }
+
+            free(keys);
+            free(values);
+        }
         CFRelease(_upsElements);
         _upsElements = NULL;
     }
@@ -744,8 +788,10 @@ IOReturn IOHIDUPSClass::setEventCallback(
 // sendCommandProcess
 //---------------------------------------------------------------------------
 void IOHIDUPSClass::sendCommandProcess(
-                            UPSHIDElement * 			elementRef, 
-                            SInt32 				value)
+                            UPSHIDElement * 			elementRef,
+                            SInt32 				value,
+                            const UInt8 * 			longValue,
+                            UInt32 				longValueSize)
 {
     IOHIDEventStruct	event;
     IOReturn		ret;
@@ -763,10 +809,22 @@ void IOHIDUPSClass::sendCommandProcess(
     
     bzero(&event, sizeof(IOHIDEventStruct));
     elementRef->currentValue = event.value = value;
+    if (longValue != NULL && longValueSize != 0) {
+        event.longValue = malloc(longValueSize);
+        memcpy(event.longValue, longValue, longValueSize);
+        event.longValueSize = longValueSize;
+
+        if (elementRef->longValue != NULL) free(elementRef->longValue);
+        elementRef->longValue = malloc(longValueSize);
+        memcpy(elementRef->longValue, longValue, longValueSize);
+        elementRef->longValueSize = longValueSize;
+    }
     
     (*_hidTransactionInterface)->setElementValue(_hidTransactionInterface, 
                                     elementRef->cookie,
                                     &event);
+
+    if (event.longValue != NULL) free(event.longValue);
 }
 
 //---------------------------------------------------------------------------
@@ -780,6 +838,8 @@ IOReturn IOHIDUPSClass::sendCommand(CFDictionaryRef command)
     CFMutableDataRef	data		= NULL;
     CFTypeRef		type		= NULL;
     SInt32		value           = 0;
+    const UInt8	*	longValue	= NULL;
+    UInt32		longValueSize	= 0;
     IOReturn		ret 		= kIOReturnSuccess;
     
     if ( !command || (((count = CFDictionaryGetCount(command)) <= 0)))
@@ -830,18 +890,25 @@ IOReturn IOHIDUPSClass::sendCommand(CFDictionaryRef command)
         {
             CFNumberGetValue((CFNumberRef)values[i], kCFNumberSInt32Type, &value);
         }
+        else if (CFEqual(CFSTR(kIOPSAppleBatteryCaseCommandSetAddress), keys[i]))
+        {
+            longValueSize = (UInt32) CFDataGetLength((CFDataRef)values[i]);
+            longValue = CFDataGetBytePtr((CFDataRef)values[i]);
+        }
         
         if ( CFGetTypeID(type) == CFDataGetTypeID() )
         {
             data = (CFMutableDataRef)type;
-            sendCommandProcess((UPSHIDElement *)CFDataGetMutableBytePtr(data), value);
+            sendCommandProcess((UPSHIDElement *)CFDataGetMutableBytePtr(data), value,
+                               longValue, longValueSize);
         }
         else if ( CFGetTypeID(type) == CFArrayGetTypeID() )
         {
             for (int j=0; j<CFArrayGetCount((CFArrayRef)type); j++)
             {
                 data = (CFMutableDataRef)CFArrayGetValueAtIndex((CFArrayRef)type, j);
-                sendCommandProcess((UPSHIDElement *)CFDataGetMutableBytePtr(data), value);
+                sendCommandProcess((UPSHIDElement *)CFDataGetMutableBytePtr(data), value,
+                                   longValue, longValueSize);
             }
         }
     }
@@ -966,7 +1033,7 @@ bool IOHIDUPSClass::findElements()
             continue;
     
         psKey = NULL;
-        bzero(&newElement, sizeof(UPSHIDElement));
+        bzero(&newElement, sizeof(UPSHIDElement)); // Sets currentValue, longValueSize, and longValue all to 0/NULL
         
         number = (CFNumberRef)CFDictionaryGetValue(element, CFSTR(kIOHIDElementUsagePageKey));
         if ( !number ) continue;
@@ -1189,6 +1256,26 @@ bool IOHIDUPSClass::findElements()
                     // Cumulative current is given in Amp-seconds, but should
                     // NOT be converted to mAh like the other values above.
                     psKey = CFSTR(kIOPSAppleBatteryCaseCumulativeCurrentKey);
+                    break;
+                case kHIDUsage_AppleVendorBattery_AdapterFamily:
+                    // This is a 32-bit constant value defined in <IOKit/pwr_mgt/IOPM.h>
+                    psKey = CFSTR(kIOPMPSAdapterDetailsFamilyKey);
+                    break;
+                case kHIDUsage_AppleVendorBattery_Address:
+                    // If the element is an output report, it is for assigning
+                    // a 6-byte address to the battery case.
+                    if ( newElement.type == kIOHIDElementTypeOutput )
+                    {
+                        newElement.isDesiredType = true;
+                        psKey                   = CFSTR(kIOPSAppleBatteryCaseCommandSetAddress);
+                        newElement.shouldPoll   = false;
+                        newElement.isCommand    = true;
+                    }
+                    else
+                    {
+                        // 6-byte address
+                        psKey = CFSTR(kIOPSAppleBatteryCaseAddress);
+                    }
                     break;
             }
         }
@@ -1537,6 +1624,25 @@ PROCESS_EVENT_UPDATE_AC:
                 value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier);
                 update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSAppleBatteryCaseCumulativeCurrentKey), value);
                 break;
+            case kHIDUsage_AppleVendorBattery_AdapterFamily:
+                value = hidElement->currentValue;
+                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPMPSAdapterDetailsFamilyKey), value);
+                break;
+            case kHIDUsage_AppleVendorBattery_Address:
+                // Address must be stored in the longValue field since it's 6 bytes.
+                // Log a warning and bail out if there's no longValue or the size is incorrect.
+                if (hidElement->longValue == NULL || hidElement->longValueSize != (sizeof(UInt8) * 6)) {
+                    UPSLog("kHIDUsage_AppleVendorBattery_Address processed with invalid value (value=%p, size=%d)\n",
+                           hidElement->longValue, hidElement->longValueSize);
+                    break;
+                }
+                CFDataRef addressRef = CFDataCreate(kCFAllocatorDefault,
+                                                    (UInt8 *) hidElement->longValue,
+                                                    hidElement->longValueSize);
+                CFDictionarySetValue(_upsEvent, CFSTR(kIOPSAppleBatteryCaseAddress), addressRef);
+                CFRelease(addressRef);
+                update = true;
+                break;
         }
     }
     
@@ -1584,8 +1690,28 @@ bool IOHIDUPSClass::updateElementValue(UPSHIDElement *	tempHIDElement, IOReturn 
 
     if ((valueEvent.longValueSize != 0) && (valueEvent.longValue != NULL))
     {
+        // If size has changed for any reason, print a warning and clear the old value
+        if ((tempHIDElement->longValueSize != 0) &&
+            (tempHIDElement->longValueSize != valueEvent.longValueSize)) {
+            UPSLog("IOHIDUPSClass::updateElementValue: usagePage=0x%2.2x usage=0x%2.2x Long Value Size changed (was %d, now %d)\n",
+                   tempHIDElement->usagePage, tempHIDElement->usage, tempHIDElement->longValueSize, valueEvent.longValueSize);
+            if (tempHIDElement->longValue != NULL) {
+                free(tempHIDElement->longValue);
+                tempHIDElement = NULL;
+            }
+        }
+
+        // If we don't yet have a buffer for the longValue, create one
+        if (tempHIDElement->longValue == NULL) {
+            tempHIDElement->longValueSize = valueEvent.longValueSize;
+            tempHIDElement->longValue = malloc(tempHIDElement->longValueSize);
+        }
+
+        // Copy in the new longValue
+        memcpy(tempHIDElement->longValue, valueEvent.longValue, tempHIDElement->longValueSize);
+
         free(valueEvent.longValue);
-        return updated;
+        updated = true;
     }
 
     if (tempHIDElement->currentValue != valueEvent.value)

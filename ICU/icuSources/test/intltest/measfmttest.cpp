@@ -1039,6 +1039,9 @@ void MeasureFormatTest::TestCompatible59() {
     assertSuccess("", status);
 }
 
+// Note that TestCompatible60(), TestCompatible61(), TestCompatible62()
+// would be the same as TestCompatible59(), no need to add them.
+
 void MeasureFormatTest::TestBasic() {
     UErrorCode status = U_ZERO_ERROR;
     MeasureUnit *ptr1 = MeasureUnit::createArcMinute(status);
@@ -1743,11 +1746,11 @@ void MeasureFormatTest::helperTestSimplePer(
 void MeasureFormatTest::TestMultiples() {
     Locale ru("ru");
     Locale en("en");
-    helperTestMultiples(en, UMEASFMT_WIDTH_WIDE, "2 miles, 1 foot, 2.3 inches");
-    helperTestMultiples(en, UMEASFMT_WIDTH_SHORT, "2 mi, 1 ft, 2.3 in");
+    helperTestMultiples(en, UMEASFMT_WIDTH_WIDE,   "2 miles, 1 foot, 2.3 inches");
+    helperTestMultiples(en, UMEASFMT_WIDTH_SHORT,  "2 mi, 1 ft, 2.3 in");
     helperTestMultiples(en, UMEASFMT_WIDTH_NARROW, "2mi 1\\u2032 2.3\\u2033");
-    helperTestMultiples(ru, UMEASFMT_WIDTH_WIDE, "2 \\u043C\\u0438\\u043B\\u0438, 1 \\u0444\\u0443\\u0442, 2,3 \\u0434\\u044E\\u0439\\u043C\\u0430");
-    helperTestMultiples(ru, UMEASFMT_WIDTH_SHORT, "2 \\u043C\\u0438\\u043B\\u0438, 1 \\u0444\\u0442., 2,3 \\u0434\\u044E\\u0439\\u043C.");
+    helperTestMultiples(ru, UMEASFMT_WIDTH_WIDE,   "2 \\u043C\\u0438\\u043B\\u0438, 1 \\u0444\\u0443\\u0442, 2,3 \\u0434\\u044E\\u0439\\u043C\\u0430");
+    helperTestMultiples(ru, UMEASFMT_WIDTH_SHORT,  "2 \\u043C\\u0438\\u043B\\u0438, 1 \\u0444\\u0442., 2,3 \\u0434\\u044E\\u0439\\u043C.");
     helperTestMultiples(ru, UMEASFMT_WIDTH_NARROW, "2 \\u043C\\u0438\\u043B\\u044C 1 \\u0444\\u0442. 2,3 \\u0434\\u044E\\u0439\\u043C\\u0430");
 }
 
@@ -1797,16 +1800,16 @@ void MeasureFormatTest::TestManyLocaleDurations() {
     helperTestManyLocaleDurations("fi", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5t 37min");
     helperTestManyLocaleDurations("fi", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5.37");
     helperTestManyLocaleDurations("fr", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5h 37mn");
-    helperTestManyLocaleDurations("fr", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "05:37");
+    helperTestManyLocaleDurations("fr", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
     helperTestManyLocaleDurations("is", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5 klst. og 37 m\\u00EDn.");
     helperTestManyLocaleDurations("is", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
-    helperTestManyLocaleDurations("ja", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5h37m");
+    helperTestManyLocaleDurations("ja", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5\\u6642\\u959337\\u5206");
     helperTestManyLocaleDurations("ja", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
     helperTestManyLocaleDurations("nb", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5t, 37m");
     helperTestManyLocaleDurations("nb", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
     helperTestManyLocaleDurations("nl", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5 u, 37 m");
     helperTestManyLocaleDurations("nl", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
-    helperTestManyLocaleDurations("nn", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5 h og 37 min");
+    helperTestManyLocaleDurations("nn", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5t og 37m");
     helperTestManyLocaleDurations("nn", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
     helperTestManyLocaleDurations("sv", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5h 37m");
     helperTestManyLocaleDurations("sv", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
@@ -1876,7 +1879,7 @@ void MeasureFormatTest::TestCurrencies() {
     if (!assertSuccess("Error creating format object", status)) {
         return;
     }
-    verifyFormat("TestCurrenciesShort", fmt, &USD_NEG_1, 1, "-USD1.00");
+    verifyFormat("TestCurrenciesShort", fmt, &USD_NEG_1, 1, "-USD1.00"); // ICU 61 behavior
     verifyFormat("TestCurrenciesShort", fmt, &USD_1, 1, "USD1.00");
     verifyFormat("TestCurrenciesShort", fmt, &USD_2, 1, "USD2.00");
     fmt = MeasureFormat(en, UMEASFMT_WIDTH_NARROW, status);
@@ -1916,7 +1919,7 @@ void MeasureFormatTest::TestDisplayNames() {
     helperTestDisplayName( MeasureUnit::createSecond(status), "pt-PT", UMEASFMT_WIDTH_SHORT, "s" );
     helperTestDisplayName( MeasureUnit::createSecond(status), "pt-PT", UMEASFMT_WIDTH_WIDE, "segundos" );
     helperTestDisplayName( MeasureUnit::createSecond(status), "pt", UMEASFMT_WIDTH_NARROW, "seg" );
-    helperTestDisplayName( MeasureUnit::createSecond(status), "pt", UMEASFMT_WIDTH_SHORT, "segs" );
+    helperTestDisplayName( MeasureUnit::createSecond(status), "pt", UMEASFMT_WIDTH_SHORT, "seg" );
     helperTestDisplayName( MeasureUnit::createSecond(status), "pt", UMEASFMT_WIDTH_WIDE, "segundos" );
     assertSuccess("Error creating measure units", status);
 }
@@ -2099,7 +2102,7 @@ void MeasureFormatTest::TestGroupingSeparator() {
             "grouping separator",
             "2,147,483,647 yrs, -2,147,483,648 mths, -987 days, 1,362 hr, 987 min",
             appendTo);
-    assertEquals("begin index", 9, pos.getBeginIndex());
+    assertEquals("begin index", 9, pos.getBeginIndex()); // ICU 61 behavior
     assertEquals("end index", 10, pos.getEndIndex());
 }
 

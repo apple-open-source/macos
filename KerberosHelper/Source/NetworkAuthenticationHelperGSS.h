@@ -1,4 +1,5 @@
 
+#import <KerberosHelper/NetworkAuthenticationHelper.h>
 #import <GSS/gssapi.h>
 
 /*

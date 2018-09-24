@@ -62,7 +62,7 @@ class RealtimeMediaSourceSettings;
 
 struct CaptureSourceOrError;
 
-class WEBCORE_EXPORT RealtimeMediaSource : public ThreadSafeRefCounted<RealtimeMediaSource> {
+class WEBCORE_EXPORT RealtimeMediaSource : public ThreadSafeRefCounted<RealtimeMediaSource>, public CanMakeWeakPtr<RealtimeMediaSource> {
 public:
     class Observer {
     public:
@@ -205,8 +205,8 @@ public:
     virtual void applyConstraints(const MediaConstraints&, SuccessHandler&&, FailureHandler&&);
     std::optional<std::pair<String, String>> applyConstraints(const MediaConstraints&);
 
-    virtual bool supportsConstraints(const MediaConstraints&, String&);
-    virtual bool supportsConstraint(const MediaConstraint&) const;
+    bool supportsConstraints(const MediaConstraints&, String&);
+    bool supportsConstraint(const MediaConstraint&) const;
 
     virtual void settingsDidChange();
 
@@ -216,10 +216,10 @@ public:
 
     virtual void monitorOrientation(OrientationNotifier&) { }
 
-    void captureFailed();
+    virtual void captureFailed();
 
     // Testing only
-    virtual void delaySamples(float) { };
+    virtual void delaySamples(Seconds) { };
 
 protected:
     RealtimeMediaSource(const String& id, Type, const String& name);
@@ -231,11 +231,12 @@ protected:
 
     enum class SelectType { ForApplyConstraints, ForSupportsConstraints };
     bool selectSettings(const MediaConstraints&, FlattenedConstraint&, String&, SelectType);
-    virtual double fitnessDistance(const MediaConstraint&);
-    virtual bool supportsSizeAndFrameRate(std::optional<IntConstraint> width, std::optional<IntConstraint> height, std::optional<DoubleConstraint>, String&, double& fitnessDistance);
+    double fitnessDistance(const MediaConstraint&);
+    void applyConstraint(const MediaConstraint&);
+    void applyConstraints(const FlattenedConstraint&);
+    bool supportsSizeAndFrameRate(std::optional<IntConstraint> width, std::optional<IntConstraint> height, std::optional<DoubleConstraint>, String&, double& fitnessDistance);
+
     virtual bool supportsSizeAndFrameRate(std::optional<int> width, std::optional<int> height, std::optional<double>);
-    virtual void applyConstraint(const MediaConstraint&);
-    virtual void applyConstraints(const FlattenedConstraint&);
     virtual void applySizeAndFrameRate(std::optional<int> width, std::optional<int> height, std::optional<double>);
 
     void notifyMutedObservers() const;
@@ -248,15 +249,12 @@ protected:
     void videoSampleAvailable(MediaSample&);
     void audioSamplesAvailable(const MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t);
 
-    WeakPtr<RealtimeMediaSource> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(*this); }
-
 private:
     virtual void startProducingData() { }
     virtual void stopProducingData() { }
 
     bool m_muted { false };
 
-    WeakPtrFactory<RealtimeMediaSource> m_weakPtrFactory;
     String m_id;
     String m_persistentID;
     Type m_type;

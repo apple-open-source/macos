@@ -40,9 +40,10 @@
 #include "JSDOMWrapperCache.h"
 #include "JSElement.h"
 #include "JSNodeList.h"
-#include <interpreter/FrameTracers.h>
-#include <runtime/JSCInlines.h>
+#include <JavaScriptCore/FrameTracers.h>
+#include <JavaScriptCore/JSCInlines.h>
 #include <wtf/GetPtr.h>
+#include <wtf/PointerPreparations.h>
 
 
 namespace WebCore {
@@ -496,7 +497,7 @@ template<> JSValue JSTestDOMJITConstructor::prototypeForStructure(JSC::VM& vm, c
 template<> void JSTestDOMJITConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestDOMJIT::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String(ASCIILiteral("TestDOMJIT"))), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String("TestDOMJIT"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -542,11 +543,11 @@ static const HashTableValue JSTestDOMJITPrototypeTableValues[] =
     { "byteStringNullableAttr", static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMJITAttribute), NoIntrinsic, { (intptr_t)static_cast<const JSC::DOMJIT::GetterSetter*>(&DOMJITAttributeForTestDOMJITByteStringNullableAttr), (intptr_t) (0) } },
     { "usvStringNullableAttr", static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMJITAttribute), NoIntrinsic, { (intptr_t)static_cast<const JSC::DOMJIT::GetterSetter*>(&DOMJITAttributeForTestDOMJITUsvStringNullableAttr), (intptr_t) (0) } },
     { "nodeNullableAttr", static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMJITAttribute), NoIntrinsic, { (intptr_t)static_cast<const JSC::DOMJIT::GetterSetter*>(&DOMJITAttributeForTestDOMJITNodeNullableAttr), (intptr_t) (0) } },
-    { "getAttribute", static_cast<unsigned>(JSC::PropertyAttribute::Function | JSC::PropertyAttribute::DOMJITFunction), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsTestDOMJITPrototypeFunctionGetAttribute), (intptr_t) static_cast<const JSC::DOMJIT::Signature*>(&DOMJITSignatureForTestDOMJITGetAttribute) } },
-    { "item", static_cast<unsigned>(JSC::PropertyAttribute::Function | JSC::PropertyAttribute::DOMJITFunction), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsTestDOMJITPrototypeFunctionItem), (intptr_t) static_cast<const JSC::DOMJIT::Signature*>(&DOMJITSignatureForTestDOMJITItem) } },
-    { "hasAttribute", static_cast<unsigned>(JSC::PropertyAttribute::Function | JSC::PropertyAttribute::DOMJITFunction), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsTestDOMJITPrototypeFunctionHasAttribute), (intptr_t) static_cast<const JSC::DOMJIT::Signature*>(&DOMJITSignatureForTestDOMJITHasAttribute) } },
-    { "getElementById", static_cast<unsigned>(JSC::PropertyAttribute::Function | JSC::PropertyAttribute::DOMJITFunction), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsTestDOMJITPrototypeFunctionGetElementById), (intptr_t) static_cast<const JSC::DOMJIT::Signature*>(&DOMJITSignatureForTestDOMJITGetElementById) } },
-    { "getElementsByName", static_cast<unsigned>(JSC::PropertyAttribute::Function | JSC::PropertyAttribute::DOMJITFunction), NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsTestDOMJITPrototypeFunctionGetElementsByName), (intptr_t) static_cast<const JSC::DOMJIT::Signature*>(&DOMJITSignatureForTestDOMJITGetElementsByName) } },
+    { "getAttribute", static_cast<unsigned>(JSC::PropertyAttribute::Function | JSC::PropertyAttribute::DOMJITFunction), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestDOMJITPrototypeFunctionGetAttribute), (intptr_t) static_cast<const JSC::DOMJIT::Signature*>(&DOMJITSignatureForTestDOMJITGetAttribute) } },
+    { "item", static_cast<unsigned>(JSC::PropertyAttribute::Function | JSC::PropertyAttribute::DOMJITFunction), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestDOMJITPrototypeFunctionItem), (intptr_t) static_cast<const JSC::DOMJIT::Signature*>(&DOMJITSignatureForTestDOMJITItem) } },
+    { "hasAttribute", static_cast<unsigned>(JSC::PropertyAttribute::Function | JSC::PropertyAttribute::DOMJITFunction), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestDOMJITPrototypeFunctionHasAttribute), (intptr_t) static_cast<const JSC::DOMJIT::Signature*>(&DOMJITSignatureForTestDOMJITHasAttribute) } },
+    { "getElementById", static_cast<unsigned>(JSC::PropertyAttribute::Function | JSC::PropertyAttribute::DOMJITFunction), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestDOMJITPrototypeFunctionGetElementById), (intptr_t) static_cast<const JSC::DOMJIT::Signature*>(&DOMJITSignatureForTestDOMJITGetElementById) } },
+    { "getElementsByName", static_cast<unsigned>(JSC::PropertyAttribute::Function | JSC::PropertyAttribute::DOMJITFunction), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestDOMJITPrototypeFunctionGetElementsByName), (intptr_t) static_cast<const JSC::DOMJIT::Signature*>(&DOMJITSignatureForTestDOMJITGetElementsByName) } },
 };
 
 const ClassInfo JSTestDOMJITPrototype::s_info = { "TestDOMJITPrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestDOMJITPrototype) };
@@ -588,19 +589,19 @@ JSValue JSTestDOMJIT::getConstructor(VM& vm, const JSGlobalObject* globalObject)
 
 template<> inline JSTestDOMJIT* IDLAttribute<JSTestDOMJIT>::cast(ExecState& state, EncodedJSValue thisValue)
 {
-    return jsDynamicDowncast<JSTestDOMJIT*>(state.vm(), JSValue::decode(thisValue));
+    return jsDynamicCast<JSTestDOMJIT*>(state.vm(), JSValue::decode(thisValue));
 }
 
 template<> inline JSTestDOMJIT* IDLOperation<JSTestDOMJIT>::cast(ExecState& state)
 {
-    return jsDynamicDowncast<JSTestDOMJIT*>(state.vm(), state.thisValue());
+    return jsDynamicCast<JSTestDOMJIT*>(state.vm(), state.thisValue());
 }
 
 EncodedJSValue jsTestDOMJITConstructor(ExecState* state, EncodedJSValue thisValue, PropertyName)
 {
     VM& vm = state->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicDowncast<JSTestDOMJITPrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSTestDOMJITPrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
         return throwVMTypeError(state, throwScope);
     return JSValue::encode(JSTestDOMJIT::getConstructor(state->vm(), prototype->globalObject()));
@@ -610,7 +611,7 @@ bool setJSTestDOMJITConstructor(ExecState* state, EncodedJSValue thisValue, Enco
 {
     VM& vm = state->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicDowncast<JSTestDOMJITPrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSTestDOMJITPrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype)) {
         throwVMTypeError(state, throwScope);
         return false;

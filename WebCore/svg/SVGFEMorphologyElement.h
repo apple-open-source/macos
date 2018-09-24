@@ -36,9 +36,9 @@ struct SVGPropertyTraits<MorphologyOperatorType> {
         case FEMORPHOLOGY_OPERATOR_UNKNOWN:
             return emptyString();
         case FEMORPHOLOGY_OPERATOR_ERODE:
-            return ASCIILiteral("erode");
+            return "erode"_s;
         case FEMORPHOLOGY_OPERATOR_DILATE:
-            return ASCIILiteral("dilate");
+            return "dilate"_s;
         }
 
         ASSERT_NOT_REACHED();
@@ -56,6 +56,7 @@ struct SVGPropertyTraits<MorphologyOperatorType> {
 };
 
 class SVGFEMorphologyElement final : public SVGFilterPrimitiveStandardAttributes {
+    WTF_MAKE_ISO_ALLOCATED(SVGFEMorphologyElement);
 public:
     static Ref<SVGFEMorphologyElement> create(const QualifiedName&, Document&);
 

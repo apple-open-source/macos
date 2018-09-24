@@ -18,31 +18,7 @@
 #include <utilities/SecCFRelease.h>
 #endif
 #import "utilities/debugging.h"
-
-#if OCTAGON
-
-static bool SecOTIsEnabled(void)
-{
-    bool userDefaultsShouldBottledPeer = true;
-    CFBooleanRef enabled = (CFBooleanRef)CFPreferencesCopyValue(CFSTR("EnableOTRestore"),
-                                                                CFSTR("com.apple.security"),
-                                                                kCFPreferencesAnyUser, kCFPreferencesAnyHost);
-    if(enabled && CFGetTypeID(enabled) == CFBooleanGetTypeID()){
-        if(enabled == kCFBooleanFalse){
-            secnotice("octagon", "Octagon Restore Disabled");
-            userDefaultsShouldBottledPeer = false;
-        }
-        if(enabled == kCFBooleanTrue){
-            secnotice("octagon", "Octagon Restore Enabled");
-            userDefaultsShouldBottledPeer = true;
-        }
-    }
-    
-    CFReleaseNull(enabled);
-    return userDefaultsShouldBottledPeer;
-}
-
-#endif
+#import "OT.h"
 
 @implementation KeychainSyncAccountNotification
 
@@ -55,10 +31,12 @@ static bool SecOTIsEnabled(void)
 #endif
 }
 
+// this is where we initialize SOS and OT for account sign-in
+// the complement to this logic where we turn off SOS and OT is in KeychainDataclassOwner
+// in the future we may bring this logic over there and delete KeychainSyncAccountNotification, but accounts people say that's a change that today would require coordination across multiple teams
+// was asked to file this radar for accounts: <rdar://problem/40176124> Invoke DataclassOwner when enabling or signing into an account
 - (BOOL)account:(ACAccount *)account willChangeWithType:(ACAccountChangeType)changeType inStore:(ACDAccountStore *)store oldAccount:(ACAccount *)oldAccount {
-    NSString* oldAccountIdentifier = oldAccount.identifier;
-    NSString* accountIdentifier = account.identifier;
-    
+
     if((changeType == kACAccountChangeTypeAdded) &&
        [account.accountType.identifier isEqualToString: ACAccountTypeIdentifierAppleAccount] &&
        [self accountIsPrimary:account]) {
@@ -92,51 +70,26 @@ static bool SecOTIsEnabled(void)
         }
 #endif
     }
+
     if ((changeType == kACAccountChangeTypeDeleted) && [oldAccount.accountType.identifier isEqualToString:ACAccountTypeIdentifierAppleAccount]) {
-        if(oldAccountIdentifier != NULL && oldAccount.username !=NULL) {
+
+        NSString *accountIdentifier = oldAccount.identifier;
+        NSString *username = oldAccount.username;
+
+        if(accountIdentifier != NULL && username !=NULL) {
             if ([self accountIsPrimary:oldAccount]) {
                 CFErrorRef removalError = NULL;
-                
-                secinfo("accounts", "Performing SOS circle credential removal for account %@: %@", oldAccountIdentifier, oldAccount.username);
-                
+
+                secinfo("accounts", "Performing SOS circle credential removal for account %@: %@", accountIdentifier, username);
+
                 if (!SOSCCLoggedOutOfAccount(&removalError)) {
-                    secerror("Account %@ could not leave the SOS circle: %@", oldAccountIdentifier, removalError);
+                    secerror("Account %@ could not leave the SOS circle: %@", accountIdentifier, removalError);
                 }
-#if OCTAGON
-                if(SecOTIsEnabled()){
-                    __block NSError* error = nil;
-                    OTControl* otcontrol = [OTControl controlObject:&error];
-                   
-                    if (nil == otcontrol) {
-                        secerror("octagon: Failed to get OTControl: %@", error.localizedDescription);
-                    } else {
-                        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-                        
-                        [otcontrol signOut:^(BOOL result, NSError * _Nullable signedOutError) {
-                            if(!result || signedOutError){
-                                secerror("octagon: error signing out: %s", [[signedOutError description] UTF8String]);
-                            }
-                            else{
-                                secnotice("octagon", "signed out of octagon trust");
-                            }
-                            dispatch_semaphore_signal(sema);
-                        }];
-                        if (0 != dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60 * 5))) {
-                            secerror("octagon: Timed out signing out");
-                        }
-                    }
-                }
-                else{
-                    secerror("Octagon not enabled!");
-                }
-#endif
-            } else {
-                secinfo("accounts", "NOT performing SOS circle credential removal for secondary account %@: %@", accountIdentifier, account.username);
+
             }
-        } else{
-            secinfo("accounts", "Already logged out of account");
         }
     }
+
     
     return YES;
 }

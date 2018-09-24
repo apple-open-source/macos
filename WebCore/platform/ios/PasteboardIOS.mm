@@ -25,6 +25,8 @@
 #import "config.h"
 #import "Pasteboard.h"
 
+#if PLATFORM(IOS)
+
 #import "DragData.h"
 #import "Image.h"
 #import "NotImplemented.h"
@@ -405,15 +407,15 @@ void Pasteboard::addHTMLClipboardTypesForCocoaType(ListHashSet<String>& resultTy
     if ([cocoaType isEqualToString:(NSString *)kUTTypePlainText]
         || [cocoaType isEqualToString:(NSString *)kUTTypeUTF8PlainText]
         || [cocoaType isEqualToString:(NSString *)kUTTypeUTF16PlainText]) {
-        resultTypes.add(ASCIILiteral("text/plain"));
+        resultTypes.add("text/plain"_s);
         return;
     }
     if ([cocoaType isEqualToString:(NSString *)kUTTypeURL]) {
-        resultTypes.add(ASCIILiteral("text/uri-list"));
+        resultTypes.add("text/uri-list"_s);
         return;
     }
     if ([cocoaType isEqualToString:(NSString *)kUTTypeHTML]) {
-        resultTypes.add(ASCIILiteral("text/html"));
+        resultTypes.add("text/html"_s);
         // We don't return here for App compatibility.
     }
     if (Pasteboard::shouldTreatCocoaTypeAsFile(cocoaType))
@@ -450,3 +452,5 @@ Vector<String> Pasteboard::readFilePaths()
 }
 
 }
+
+#endif // PLATFORM(IOS)

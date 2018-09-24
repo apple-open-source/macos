@@ -36,6 +36,7 @@
 #if ENABLE(MEDIA_STREAM)
 #include "RealtimeMediaSource.h"
 
+#include "Logging.h"
 #include "MediaConstraints.h"
 #include "NotImplemented.h"
 #include "RealtimeMediaSourceCapabilities.h"
@@ -187,6 +188,8 @@ void RealtimeMediaSource::requestStop(Observer* callingObserver)
 
 void RealtimeMediaSource::captureFailed()
 {
+    RELEASE_LOG_ERROR(MediaStream, "RealtimeMediaSource::captureFailed");
+
     m_isProducingData = false;
     m_captureDidFailed = true;
 
@@ -799,7 +802,7 @@ std::optional<std::pair<String, String>> RealtimeMediaSource::applyConstraints(c
     FlattenedConstraint candidates;
     String failedConstraint;
     if (!selectSettings(constraints, candidates, failedConstraint, SelectType::ForApplyConstraints))
-        return { { failedConstraint, ASCIILiteral("Constraint not supported") } };
+        return { { failedConstraint, "Constraint not supported"_s } };
 
     applyConstraints(candidates);
     return std::nullopt;
@@ -913,7 +916,7 @@ void RealtimeMediaSource::setEchoCancellation(bool echoCancellation)
 void RealtimeMediaSource::scheduleDeferredTask(WTF::Function<void()>&& function)
 {
     ASSERT(function);
-    callOnMainThread([weakThis = createWeakPtr(), function = WTFMove(function)] {
+    callOnMainThread([weakThis = makeWeakPtr(*this), function = WTFMove(function)] {
         if (!weakThis)
             return;
 

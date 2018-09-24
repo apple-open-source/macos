@@ -55,6 +55,7 @@
 %token	syKernelServer
 
 %token	syMsgOption
+%token	syUseSpecialReplyPort
 %token	syMsgSeqno
 %token	syWaitTime
 %token	sySendTime
@@ -201,6 +202,7 @@ Statement		:	Subsystem sySemi
 			|	WaitTime sySemi
 			|	SendTime sySemi
 			|	MsgOption sySemi
+			|	UseSpecialReplyPort sySemi
                         |       UserTypeLimit sySemi
                         |       OnStackLimit sySemi
 			|	Error sySemi
@@ -292,6 +294,13 @@ MsgOption		:	LookString syMsgOption syString
     }
 }
 			;
+
+UseSpecialReplyPort		:		syUseSpecialReplyPort syNumber
+{
+    UseSpecialReplyPort = ($2 != 0);
+    HasUseSpecialReplyPort |= UseSpecialReplyPort;
+}
+						;
 
 UserTypeLimit           :       syUserTypeLimit syNumber
 				{UserTypeLimit = $2; }

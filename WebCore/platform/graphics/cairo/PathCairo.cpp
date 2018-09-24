@@ -30,7 +30,7 @@
 
 #include "CairoUtilities.h"
 #include "FloatRect.h"
-#include "GraphicsContext.h"
+#include "GraphicsContextImplCairo.h"
 #include "PlatformPathCairo.h"
 #include "StrokeStyleApplier.h"
 #include <math.h>
@@ -373,7 +373,7 @@ FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const
 
     cairo_t* cr = platformPath()->context();
     if (applier) {
-        GraphicsContext gc(cr);
+        GraphicsContext gc(GraphicsContextImplCairo::createFactory(cr));
         applier->strokeStyle(&gc);
     }
 
@@ -388,7 +388,7 @@ bool Path::contains(const FloatPoint& point, WindRule rule) const
         return false;
     cairo_t* cr = platformPath()->context();
     cairo_fill_rule_t cur = cairo_get_fill_rule(cr);
-    cairo_set_fill_rule(cr, rule == RULE_EVENODD ? CAIRO_FILL_RULE_EVEN_ODD : CAIRO_FILL_RULE_WINDING);
+    cairo_set_fill_rule(cr, rule == WindRule::EvenOdd ? CAIRO_FILL_RULE_EVEN_ODD : CAIRO_FILL_RULE_WINDING);
     bool contains = cairo_in_fill(cr, point.x(), point.y());
     cairo_set_fill_rule(cr, cur);
     return contains;
@@ -401,8 +401,10 @@ bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) 
 
     ASSERT(applier);
     cairo_t* cr = platformPath()->context();
-    GraphicsContext gc(cr);
-    applier->strokeStyle(&gc);
+    {
+        GraphicsContext gc(GraphicsContextImplCairo::createFactory(cr));
+        applier->strokeStyle(&gc);
+    }
 
     return cairo_in_stroke(cr, point.x(), point.y());
 }

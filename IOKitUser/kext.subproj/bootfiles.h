@@ -102,6 +102,8 @@
 */
 #define kRecoveryBootModeFDERecovery        "fde-recovery"      // help!
 
+#define kRecoveryBootModeActivationLock        "activation-lock"
+
 /* A generic mode is defined, but has not yet been meaningfully used. */
 // #define kRecoveryBootModeGeneric     "generic"
 #define kRcevoeryBootModeRecovery       "unused"

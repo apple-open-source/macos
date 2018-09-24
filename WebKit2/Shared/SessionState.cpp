@@ -27,6 +27,9 @@
 #include "SessionState.h"
 
 #include "WebCoreArgumentCoders.h"
+#include <WebCore/BackForwardItemIdentifier.h>
+
+using namespace WebCore;
 
 namespace WebKit {
 
@@ -184,8 +187,11 @@ std::optional<FrameState> FrameState::decode(IPC::Decoder& decoder)
 
 void PageState::encode(IPC::Encoder& encoder) const
 {
-    encoder << title;
-    encoder << mainFrameState;
+    encoder << title << mainFrameState << !!sessionStateObject;
+
+    if (sessionStateObject)
+        encoder << sessionStateObject->toWireBytes();
+
     encoder.encodeEnum(shouldOpenExternalURLsPolicy);
 }
 
@@ -198,6 +204,19 @@ bool PageState::decode(IPC::Decoder& decoder, PageState& result)
     if (!mainFrameState)
         return false;
     result.mainFrameState = WTFMove(*mainFrameState);
+
+    bool hasSessionState;
+    if (!decoder.decode(hasSessionState))
+        return false;
+
+    if (hasSessionState) {
+        Vector<uint8_t> wireBytes;
+        if (!decoder.decode(wireBytes))
+            return false;
+
+        result.sessionStateObject = SerializedScriptValue::createFromWireBytes(WTFMove(wireBytes));
+    }
+
     if (!decoder.decodeEnum(result.shouldOpenExternalURLsPolicy) || !isValidEnum(result.shouldOpenExternalURLsPolicy))
         return false;
 
@@ -214,8 +233,10 @@ std::optional<BackForwardListItemState> BackForwardListItemState::decode(IPC::De
 {
     BackForwardListItemState result;
 
-    if (!decoder.decode(result.identifier))
+    auto identifier = BackForwardItemIdentifier::decode(decoder);
+    if (!identifier)
         return std::nullopt;
+    result.identifier = *identifier;
 
     if (!decoder.decode(result.pageState))
         return std::nullopt;

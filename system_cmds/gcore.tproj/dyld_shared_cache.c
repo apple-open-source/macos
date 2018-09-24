@@ -24,6 +24,7 @@ static const size_t dyld_cache_header_size = sizeof (struct copied_dyld_cache_he
 /*
  * The shared cache must both contain the magic ID and
  * match the uuid we discovered via dyld's information.
+ * Assumes that the dyld_cache_header grows in a binary compatible fashion.
  */
 bool
 get_uuid_from_shared_cache_mapping(const void *addr, size_t size, uuid_t out)
@@ -31,7 +32,7 @@ get_uuid_from_shared_cache_mapping(const void *addr, size_t size, uuid_t out)
     const struct copied_dyld_cache_header *ch = addr;
     if (size < sizeof (*ch))
         return false;
-    static const char prefix[] = "dyld_v1 ";
+    static const char prefix[] = "dyld_v";
     if (strncmp(ch->magic, prefix, strlen(prefix)) != 0)
         return false;
     uuid_copy(out, ch->uuid);

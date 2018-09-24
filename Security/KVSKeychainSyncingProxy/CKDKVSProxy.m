@@ -38,6 +38,7 @@
 #import "NSURL+SOSPlistStore.h"
 
 #include <Security/SecureObjectSync/SOSARCDefines.h>
+#include <Security/SecureObjectSync/SOSKVSKeys.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecPLWrappers.h>
 
@@ -48,9 +49,6 @@
 #include <utilities/SecNSAdditions.h>
 #import "XPCNotificationDispatcher.h"
 
-
-CFStringRef const CKDAggdIncreaseThrottlingKey = CFSTR("com.apple.cloudkeychainproxy.backoff.increase");
-CFStringRef const CKDAggdDecreaseThrottlingKey = CFSTR("com.apple.cloudkeychainproxy.backoff.decrease");
 
 @interface NSSet (CKDLogging)
 - (NSString*) logKeys;
@@ -112,11 +110,6 @@ static NSString *kMonitorThirdMinute = @"CThirdMinute";
 static NSString *kMonitorFourthMinute = @"DFourthMinute";
 static NSString *kMonitorFifthMinute = @"EFifthMinute";
 static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
-const CFStringRef kSOSKVSKeyParametersKey = CFSTR(">KeyParameters");
-const CFStringRef kSOSKVSInitialSyncKey = CFSTR("^InitialSync");
-const CFStringRef kSOSKVSAccountChangedKey = CFSTR("^AccountChanged");
-const CFStringRef kSOSKVSRequiredKey = CFSTR("^Required");
-const CFStringRef kSOSKVSOfficialDSIDKey = CFSTR("^OfficialDSID");
 
 #define kSecServerKeychainChangedNotification "com.apple.security.keychainchanged"
 

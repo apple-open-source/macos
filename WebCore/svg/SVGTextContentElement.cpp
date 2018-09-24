@@ -23,6 +23,7 @@
 
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
+#include "DOMPoint.h"
 #include "Frame.h"
 #include "FrameSelection.h"
 #include "RenderObject.h"
@@ -34,9 +35,12 @@
 #include "SVGRect.h"
 #include "SVGTextQuery.h"
 #include "XMLNames.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(SVGTextContentElement);
  
 // Define custom animated property 'textLength'.
 const SVGPropertyInfo* SVGTextContentElement::textLengthPropertyInfo()
@@ -155,10 +159,11 @@ ExceptionOr<float> SVGTextContentElement::getRotationOfChar(unsigned charnum)
     return SVGTextQuery(renderer()).rotationOfCharacter(charnum);
 }
 
-int SVGTextContentElement::getCharNumAtPosition(SVGPoint& point)
+int SVGTextContentElement::getCharNumAtPosition(DOMPointInit&& pointInit)
 {
     document().updateLayoutIgnorePendingStylesheets();
-    return SVGTextQuery(renderer()).characterNumberAtPosition(point.propertyReference());
+    FloatPoint transformPoint {static_cast<float>(pointInit.x), static_cast<float>(pointInit.y)};
+    return SVGTextQuery(renderer()).characterNumberAtPosition(transformPoint);
 }
 
 ExceptionOr<void> SVGTextContentElement::selectSubString(unsigned charnum, unsigned nchars)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -108,6 +108,7 @@ static const struct option longopts[] = {
 	{ "password",		required_argument,	NULL,	0	},
 	{ "secret",		required_argument,	NULL,	0	},
 	{ "log",		required_argument,	NULL,	0	},
+	{ "advisory",		required_argument,	NULL,	0	},
 #if	!TARGET_OS_IPHONE
 	{ "allow-new-interfaces", no_argument,		NULL,	0	},
 #endif	// !TARGET_OS_IPHONE
@@ -407,6 +408,8 @@ main(int argc, char * const argv[])
 	Boolean			allowNewInterfaces	= FALSE;
 #endif	// !TARGET_OS_IPHONE
 	Boolean			disableUntilNeeded	= FALSE;
+	const char *		advisoryInterface	= NULL;
+	Boolean			doAdvisory		= FALSE;
 	Boolean			doDNS			= FALSE;
 	Boolean			doNet			= FALSE;
 	Boolean			doNWI			= FALSE;
@@ -513,6 +516,10 @@ main(int argc, char * const argv[])
 				password = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
 			} else if (strcmp(longopts[opti].name, "secret") == 0) {
 				sharedsecret = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
+			} else if (strcmp(longopts[opti].name, "advisory") == 0) {
+				doAdvisory = TRUE;
+				advisoryInterface = optarg;
+				xStore++;
 			}
 			break;
 		case '?':
@@ -575,6 +582,11 @@ main(int argc, char * const argv[])
 		do_open(0, NULL);	/* open the dynamic store */
 		do_snapshot(argc, (char**)argv);
 		exit(0);
+	}
+
+	if (doAdvisory) {
+		do_advisory(advisoryInterface, watch, argc, (char**)argv);
+		/* NOT REACHED */
 	}
 
 	/* are we translating error #'s to descriptive text */

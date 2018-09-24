@@ -191,7 +191,7 @@ static void print_entry(id k, id v, int ind)
     printf("Beginning CloudKit reset for %s...\n", view ? [[view description] UTF8String] : "all zones");
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [self.control rpcResetCloudKit:view reply:^(NSError* error){
+    [self.control rpcResetCloudKit:view reason:@"ckksctl" reply:^(NSError* error){
         if(error == NULL) {
             printf("CloudKit Reset complete.\n");
             ret = 0;
@@ -347,7 +347,6 @@ static void print_entry(id k, id v, int ind)
             NSString* lastIncomingQueueOperation          = pop(status,@"lastIncomingQueueOperation");
             NSString* lastNewTLKOperation                 = pop(status,@"lastNewTLKOperation");
             NSString* lastOutgoingQueueOperation          = pop(status,@"lastOutgoingQueueOperation");
-            NSString* lastRecordZoneChangesOperation      = pop(status,@"lastRecordZoneChangesOperation");
             NSString* lastProcessReceivedKeysOperation    = pop(status,@"lastProcessReceivedKeysOperation");
             NSString* lastReencryptOutgoingItemsOperation = pop(status,@"lastReencryptOutgoingItemsOperation");
             NSString* lastScanLocalItemsOperation         = pop(status,@"lastScanLocalItemsOperation");
@@ -405,7 +404,6 @@ static void print_entry(id k, id v, int ind)
             printf("lastIncomingQueueOperation:          %s\n", [lastIncomingQueueOperation          isEqual: [NSNull null]] ? "never" : [lastIncomingQueueOperation          UTF8String]);
             printf("lastNewTLKOperation:                 %s\n", [lastNewTLKOperation                 isEqual: [NSNull null]] ? "never" : [lastNewTLKOperation                 UTF8String]);
             printf("lastOutgoingQueueOperation:          %s\n", [lastOutgoingQueueOperation          isEqual: [NSNull null]] ? "never" : [lastOutgoingQueueOperation          UTF8String]);
-            printf("lastRecordZoneChangesOperation:      %s\n", [lastRecordZoneChangesOperation      isEqual: [NSNull null]] ? "never" : [lastRecordZoneChangesOperation      UTF8String]);
             printf("lastProcessReceivedKeysOperation:    %s\n", [lastProcessReceivedKeysOperation    isEqual: [NSNull null]] ? "never" : [lastProcessReceivedKeysOperation    UTF8String]);
             printf("lastReencryptOutgoingItemsOperation: %s\n", [lastReencryptOutgoingItemsOperation isEqual: [NSNull null]] ? "never" : [lastReencryptOutgoingItemsOperation UTF8String]);
             printf("lastScanLocalItemsOperation:         %s\n", [lastScanLocalItemsOperation         isEqual: [NSNull null]] ? "never" : [lastScanLocalItemsOperation         UTF8String]);

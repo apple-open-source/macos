@@ -452,6 +452,34 @@
 {
     return _has.routerLifetimeSeconds;
 }
+@synthesize xlat464Enabled = _xlat464Enabled;
+- (void)setXlat464Enabled:(BOOL)v
+{
+    _has.xlat464Enabled = YES;
+    _xlat464Enabled = v;
+}
+- (void)setHasXlat464Enabled:(BOOL)f
+{
+    _has.xlat464Enabled = f;
+}
+- (BOOL)hasXlat464Enabled
+{
+    return _has.xlat464Enabled;
+}
+@synthesize xlat464PlatDiscoveryFailed = _xlat464PlatDiscoveryFailed;
+- (void)setXlat464PlatDiscoveryFailed:(BOOL)v
+{
+    _has.xlat464PlatDiscoveryFailed = YES;
+    _xlat464PlatDiscoveryFailed = v;
+}
+- (void)setHasXlat464PlatDiscoveryFailed:(BOOL)f
+{
+    _has.xlat464PlatDiscoveryFailed = f;
+}
+- (BOOL)hasXlat464PlatDiscoveryFailed
+{
+    return _has.xlat464PlatDiscoveryFailed;
+}
 
 - (NSString *)description
 {
@@ -584,6 +612,14 @@
     if (self->_has.routerLifetimeSeconds)
     {
         [dict setObject:[NSNumber numberWithUnsignedInt:self->_routerLifetimeSeconds] forKey:@"router_lifetime_seconds"];
+    }
+    if (self->_has.xlat464Enabled)
+    {
+        [dict setObject:[NSNumber numberWithBool:self->_xlat464Enabled] forKey:@"xlat464_enabled"];
+    }
+    if (self->_has.xlat464PlatDiscoveryFailed)
+    {
+        [dict setObject:[NSNumber numberWithBool:self->_xlat464PlatDiscoveryFailed] forKey:@"xlat464_plat_discovery_failed"];
     }
     return dict;
 }
@@ -789,6 +825,18 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
             {
                 self->_has.routerLifetimeSeconds = YES;
                 self->_routerLifetimeSeconds = PBReaderReadUint32(reader);
+            }
+            break;
+            case 32 /* xlat464Enabled */:
+            {
+                self->_has.xlat464Enabled = YES;
+                self->_xlat464Enabled = PBReaderReadBOOL(reader);
+            }
+            break;
+            case 33 /* xlat464PlatDiscoveryFailed */:
+            {
+                self->_has.xlat464PlatDiscoveryFailed = YES;
+                self->_xlat464PlatDiscoveryFailed = PBReaderReadBOOL(reader);
             }
             break;
             default:
@@ -1023,6 +1071,20 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
             PBDataWriterWriteUint32Field(writer, self->_routerLifetimeSeconds, 31);
         }
     }
+    /* xlat464Enabled */
+    {
+        if (self->_has.xlat464Enabled)
+        {
+            PBDataWriterWriteBOOLField(writer, self->_xlat464Enabled, 32);
+        }
+    }
+    /* xlat464PlatDiscoveryFailed */
+    {
+        if (self->_has.xlat464PlatDiscoveryFailed)
+        {
+            PBDataWriterWriteBOOLField(writer, self->_xlat464PlatDiscoveryFailed, 33);
+        }
+    }
 }
 
 - (void)copyTo:(AWDIPConfigurationIPv6Report *)other
@@ -1181,6 +1243,16 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
         other->_routerLifetimeSeconds = _routerLifetimeSeconds;
         other->_has.routerLifetimeSeconds = YES;
     }
+    if (self->_has.xlat464Enabled)
+    {
+        other->_xlat464Enabled = _xlat464Enabled;
+        other->_has.xlat464Enabled = YES;
+    }
+    if (self->_has.xlat464PlatDiscoveryFailed)
+    {
+        other->_xlat464PlatDiscoveryFailed = _xlat464PlatDiscoveryFailed;
+        other->_has.xlat464PlatDiscoveryFailed = YES;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -1338,6 +1410,16 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
         copy->_routerLifetimeSeconds = _routerLifetimeSeconds;
         copy->_has.routerLifetimeSeconds = YES;
     }
+    if (self->_has.xlat464Enabled)
+    {
+        copy->_xlat464Enabled = _xlat464Enabled;
+        copy->_has.xlat464Enabled = YES;
+    }
+    if (self->_has.xlat464PlatDiscoveryFailed)
+    {
+        copy->_xlat464PlatDiscoveryFailed = _xlat464PlatDiscoveryFailed;
+        copy->_has.xlat464PlatDiscoveryFailed = YES;
+    }
     return copy;
 }
 
@@ -1407,6 +1489,10 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
     ((self->_has.prefixValidLifetimeSeconds && other->_has.prefixValidLifetimeSeconds && self->_prefixValidLifetimeSeconds == other->_prefixValidLifetimeSeconds) || (!self->_has.prefixValidLifetimeSeconds && !other->_has.prefixValidLifetimeSeconds))
     &&
     ((self->_has.routerLifetimeSeconds && other->_has.routerLifetimeSeconds && self->_routerLifetimeSeconds == other->_routerLifetimeSeconds) || (!self->_has.routerLifetimeSeconds && !other->_has.routerLifetimeSeconds))
+    &&
+    ((self->_has.xlat464Enabled && other->_has.xlat464Enabled && ((self->_xlat464Enabled && other->_xlat464Enabled) || (!self->_xlat464Enabled && !other->_xlat464Enabled))) || (!self->_has.xlat464Enabled && !other->_has.xlat464Enabled))
+    &&
+    ((self->_has.xlat464PlatDiscoveryFailed && other->_has.xlat464PlatDiscoveryFailed && ((self->_xlat464PlatDiscoveryFailed && other->_xlat464PlatDiscoveryFailed) || (!self->_xlat464PlatDiscoveryFailed && !other->_xlat464PlatDiscoveryFailed))) || (!self->_has.xlat464PlatDiscoveryFailed && !other->_has.xlat464PlatDiscoveryFailed))
     ;
 }
 
@@ -1475,6 +1561,10 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
     (self->_has.prefixValidLifetimeSeconds ? PBHashInt((NSUInteger)self->_prefixValidLifetimeSeconds) : 0)
     ^
     (self->_has.routerLifetimeSeconds ? PBHashInt((NSUInteger)self->_routerLifetimeSeconds) : 0)
+    ^
+    (self->_has.xlat464Enabled ? PBHashInt((NSUInteger)self->_xlat464Enabled) : 0)
+    ^
+    (self->_has.xlat464PlatDiscoveryFailed ? PBHashInt((NSUInteger)self->_xlat464PlatDiscoveryFailed) : 0)
     ;
 }
 
@@ -1633,6 +1723,16 @@ BOOL AWDIPConfigurationIPv6ReportReadFrom(AWDIPConfigurationIPv6Report *self, PB
     {
         self->_routerLifetimeSeconds = other->_routerLifetimeSeconds;
         self->_has.routerLifetimeSeconds = YES;
+    }
+    if (other->_has.xlat464Enabled)
+    {
+        self->_xlat464Enabled = other->_xlat464Enabled;
+        self->_has.xlat464Enabled = YES;
+    }
+    if (other->_has.xlat464PlatDiscoveryFailed)
+    {
+        self->_xlat464PlatDiscoveryFailed = other->_xlat464PlatDiscoveryFailed;
+        self->_has.xlat464PlatDiscoveryFailed = YES;
     }
 }
 

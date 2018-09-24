@@ -40,6 +40,11 @@ __BEGIN_DECLS
 #define ENABLE_IDS 0
 
 #define kSOSPeerIDLengthMax (26)
+#define CC_STATISVALID      0x8000000000000000
+#define CC_UKEY_TRUSTED     0x4000000000000000
+#define CC_CAN_AUTH         0x2000000000000000
+#define CC_PEER_IS_IN       0x1000000000000000
+#define CC_MASK             0x0fffffffffffffff
 
 enum {
     // Public errors are first (See SOSCloudCircle)
@@ -76,20 +81,10 @@ enum {
     kSOSErrorNotInCircle        = 1046,
 };
 
-typedef enum {
-    kSecIDSErrorNoDeviceID = -1, //default case
-    kSecIDSErrorNotRegistered = -2,
-    kSecIDSErrorFailedToSend=-3,
-    kSecIDSErrorCouldNotFindMatchingAuthToken = -4,
-    kSecIDSErrorDeviceIsLocked = -5,
-    kSecIDSErrorNoPeersAvailable = -6
-
-} idsError;
-
-
 extern const CFStringRef SOSTransportMessageTypeIDSV2;
 extern const CFStringRef SOSTransportMessageTypeKVS;
 extern const CFStringRef kSOSDSIDKey;
+extern const SOSCCStatus kSOSNoCachedValue;
 
 // Returns false unless errorCode is 0.
 bool SOSErrorCreate(CFIndex errorCode, CFErrorRef *error, CFDictionaryRef formatOptions, CFStringRef descriptionString, ...);
@@ -142,6 +137,7 @@ OSStatus GeneratePermanentECPair(int keySize, SecKeyRef* public, SecKeyRef *full
 
 CFStringRef SOSItemsChangedCopyDescription(CFDictionaryRef changes, bool is_sender);
 
+CFStringRef SOSCopyHashBufAsString(uint8_t *digest, size_t len);
 CFStringRef SOSCopyIDOfDataBuffer(CFDataRef data, CFErrorRef *error);
 CFStringRef SOSCopyIDOfDataBufferWithLength(CFDataRef data, CFIndex len, CFErrorRef *error);
 
@@ -161,14 +157,22 @@ CFDataRef SOSDateCreate(void);
 
 CFDataRef CFDataCreateWithDER(CFAllocatorRef allocator, CFIndex size, uint8_t*(^operation)(size_t size, uint8_t *buffer));
 
-extern const CFStringRef kSecIDSErrorDomain;
-extern const CFStringRef kIDSOperationType;
-extern const CFStringRef kIDSMessageToSendKey;
-extern const CFStringRef kIDSMessageUniqueID;
-extern const CFStringRef kIDSMessageRecipientPeerID;
-extern const CFStringRef kIDSMessageRecipientDeviceID;
-extern const CFStringRef kIDSMessageUsesAckModel;
-extern const CFStringRef kIDSMessageSenderDeviceID;
+
+// Expanded notification utilities
+#if __OBJC__
+@interface SOSCachedNotification : NSObject
+- (instancetype)init NS_UNAVAILABLE;
++ (NSString *)notificationName:(const char *)notificationString;
+@end
+#endif
+
+bool SOSCachedNotificationOperation(const char *notificationString, bool (^operation) (int token, bool gtg));
+uint64_t SOSGetCachedCircleBitmask(void);
+SOSCCStatus SOSGetCachedCircleStatus(CFErrorRef *error);
+uint64_t SOSCachedViewBitmask(void);
+CFSetRef SOSCreateCachedViewStatus(void);
+
+
 
 __END_DECLS
 

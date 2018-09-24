@@ -34,8 +34,17 @@ public:
     String valueAsString() const;
 };
 
-template<> struct SVGPropertyTraits<SVGPointListValues> {
+template<>
+struct SVGPropertyTraits<SVGPointListValues> {
     static SVGPointListValues initialValue() { return { }; }
+    static SVGPointListValues fromString(const String& string)
+    {
+        SVGPointListValues list;
+        pointsListFromSVGData(list, string);
+        return list;
+    }
+    static std::optional<SVGPointListValues> parse(const QualifiedName&, const String&) { ASSERT_NOT_REACHED(); return { }; }
+    static String toString(const SVGPointListValues&) { ASSERT_NOT_REACHED(); return emptyString(); }
 
     using ListItemType = FloatPoint;
     using ListItemTearOff = SVGPoint;

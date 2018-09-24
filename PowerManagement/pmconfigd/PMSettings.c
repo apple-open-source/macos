@@ -48,6 +48,7 @@
 #include "PMAssertions.h"
 #include "PMConnection.h"
 #include "StandbyTimer.h"
+#include "adaptiveDisplay.h"
 
 
 #define kIOPMSCPrefsPath    CFSTR("com.apple.PowerManagement.xml")
@@ -128,6 +129,19 @@ __private_extern__ void overrideSetting
     }
 }
 
+__private_extern__ bool GetSystemPowerSettingBool(CFStringRef which)
+{
+    CFDictionaryRef system_power_settings = NULL;
+    CFBooleanRef value = kCFBooleanFalse;
+    system_power_settings = IOPMCopySystemPowerSettings();
+    if (!system_power_settings || !which)
+        return false;
+    if (system_power_settings) {
+        value = CFDictionaryGetValue(system_power_settings, which);
+        CFRelease(system_power_settings);
+    }
+    return (value == kCFBooleanTrue) ? true : false;
+}
 
 __private_extern__ bool
 GetPMSettingBool(CFStringRef which)
@@ -398,6 +412,34 @@ __private_extern__ bool _DWBT_enabled(void)
     return false;
 }
 
+#ifdef XCTEST
+bool xctAllowOnAC;
+bool xctAllowOnBatt;
+
+void xctSetPowerNapState(bool allowOnAC, bool allowOnBatt) {
+    xctAllowOnAC =  allowOnAC;
+    xctAllowOnBatt = allowOnBatt;
+}
+bool _DWBT_allowed(void) {
+    if (_getPowerSource() == kACPowered)
+        return xctAllowOnAC;
+    return false;
+}
+bool _SS_allowed(void) {
+    if (_DWBT_allowed()) {
+        return true;
+    }
+    return (xctAllowOnBatt && (_getPowerSource() == kBatteryPowered));
+}
+
+void xctSetEnergySettings(CFDictionaryRef settings) {
+    if (energySettings) {
+        CFRelease(energySettings);
+    }
+    energySettings = CFRetain(settings);
+}
+
+#else
 /* _DWBT_allowed() tells if a DWBT wake can be scheduled at this moment */
 __private_extern__ bool
 _DWBT_allowed(void)
@@ -407,7 +449,7 @@ _DWBT_allowed(void)
 
 }
 
-/* Is Sleep Services allowed */
+/* Is Sleep Services(aka PowerNap) allowed */
 __private_extern__ bool _SS_allowed(void)
 {
     if (_DWBT_allowed())
@@ -417,7 +459,7 @@ __private_extern__ bool _SS_allowed(void)
              (kBatteryPowered == _getPowerSource()) );
 
 }
-
+#endif
 /* getAggressivenessValue
  *
  * returns true if the setting existed in the dictionary

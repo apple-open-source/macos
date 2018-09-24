@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2017, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,7 +44,11 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
+#if __has_include(<nw/private.h>)
+#include <nw/private.h>
+#else // __has_include(<nw/private.h>)
 #include <network/nat64.h>
+#endif // __has_include(<nw/private.h>)
 
 
 static CFMutableSetRef	nat64_prefix_requests	= NULL;
@@ -64,16 +68,16 @@ nat64_dispatch_queue()
 }
 
 
-static __inline__ void
-_nat64_prefix_request_complete(const char		*if_name,
-			       int32_t			num_prefixes,
-			       nw_nat64_prefix_t	*prefixes)
+static Boolean
+_nat64_prefix_set(const char		*if_name,
+		  int32_t		num_prefixes,
+		  nw_nat64_prefix_t	*prefixes)
 {
 	struct if_nat64req	req;
 	int			ret;
 	int			s;
 
-	SC_log(LOG_DEBUG, "%s: _nat64_prefix_request_complete", if_name);
+	SC_log(LOG_DEBUG, "%s: _nat64_prefix_set", if_name);
 
 	// pass NAT64 prefixes to the kernel
 	bzero(&req, sizeof(req));
@@ -100,7 +104,7 @@ _nat64_prefix_request_complete(const char		*if_name,
 	s = socket(AF_INET, SOCK_DGRAM, 0);
 	if (s == -1) {
 		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
-		return;
+		return (FALSE);
 	}
 	ret = ioctl(s, SIOCSIFNAT64PREFIX, &req);
 	close(s);
@@ -108,10 +112,73 @@ _nat64_prefix_request_complete(const char		*if_name,
 		if ((errno != ENOENT) || (num_prefixes != 0)) {
 			SC_log(LOG_ERR, "%s: ioctl(SIOCSIFNAT64PREFIX) failed: %s", if_name, strerror(errno));
 		}
-		return;
+		return (FALSE);
 	}
 
 	SC_log(LOG_INFO, "%s: nat64 prefix%s updated", if_name, (num_prefixes != 1) ? "es" : "");
+	return (TRUE);
+}
+
+
+static void
+_nat64_prefix_post(CFStringRef		interface,
+		   int32_t		num_prefixes,
+		   nw_nat64_prefix_t	*prefixes,
+		   CFAbsoluteTime	start_time)
+{
+	CFStringRef	key;
+
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainState,
+							    interface,
+							    kSCEntNetNAT64);
+	if (num_prefixes >= 0) {
+		CFDateRef		date;
+		CFMutableDictionaryRef	plat_dict;
+
+		plat_dict = CFDictionaryCreateMutable(NULL,
+						      0,
+						      &kCFTypeDictionaryKeyCallBacks,
+						      &kCFTypeDictionaryValueCallBacks);
+		/* prefixes (if available) */
+		if (num_prefixes > 0) {
+			CFMutableArrayRef	prefix_array;
+
+			prefix_array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+			for (int32_t i = 0; i < num_prefixes; i++) {
+				char		prefix_str[NW_NAT64_PREFIX_STR_LENGTH]	= {0};
+				CFStringRef	str;
+
+				nw_nat64_write_prefix_to_string(&prefixes[i], prefix_str, sizeof(prefix_str));
+				str = CFStringCreateWithCString(NULL, prefix_str, kCFStringEncodingASCII);
+				CFArrayAppendValue(prefix_array, str);
+				CFRelease(str);
+			}
+			CFDictionarySetValue(plat_dict, kSCPropNetNAT64PrefixList, prefix_array);
+			CFRelease(prefix_array);
+		}
+		/* start time */
+		date = CFDateCreate(NULL, start_time);
+		CFDictionarySetValue(plat_dict,
+				     kSCPropNetNAT64PLATDiscoveryStartTime,
+				     date);
+		CFRelease(date);
+
+		/* completion time */
+		date = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+		CFDictionarySetValue(plat_dict,
+				     kSCPropNetNAT64PLATDiscoveryCompletionTime,
+				     date);
+		CFRelease(date);
+
+		(void)SCDynamicStoreSetValue(NULL, key, plat_dict);
+		SC_log(LOG_INFO, "%@: PLAT discovery complete %@",
+		       interface, plat_dict);
+		CFRelease(plat_dict);
+	} else {
+		(void)SCDynamicStoreRemoveValue(NULL, key);
+	}
+	CFRelease(key);
 	return;
 }
 
@@ -123,6 +190,7 @@ _nat64_prefix_request_start(const void *value)
 	char		*if_name;
 	CFStringRef	interface	= (CFStringRef)value;
 	bool		ok;
+	CFAbsoluteTime	start_time;
 
 	SC_log(LOG_DEBUG, "%@: _nat64_prefix_request_start", interface);
 
@@ -143,12 +211,15 @@ _nat64_prefix_request_start(const void *value)
 	CFSetAddValue(nat64_prefix_requests, interface);
 
 	CFRetain(interface);
+	start_time = CFAbsoluteTimeGetCurrent();
 	ok = nw_nat64_copy_prefixes_async(&if_index,
 					  nat64_dispatch_queue(),
 					  ^(int32_t num_prefixes, nw_nat64_prefix_t *prefixes) {
 						  if (num_prefixes >= 0) {
 							  // update interface
-							  _nat64_prefix_request_complete(if_name, num_prefixes, prefixes);
+							  if (!_nat64_prefix_set(if_name, num_prefixes, prefixes)) {
+								  num_prefixes = -1;
+							  }
 						  } else {
 							  SC_log(LOG_ERR,
 								 "%s: nw_nat64_copy_prefixes_async() num_prefixes(%d) < 0",
@@ -160,6 +231,8 @@ _nat64_prefix_request_start(const void *value)
 							  // remove from active list
 							  CFSetRemoveValue(nat64_prefix_requests, interface);
 						  }
+
+						  _nat64_prefix_post(interface, num_prefixes, prefixes, start_time);
 
 						  // cleanup
 						  CFRelease(interface);

@@ -147,6 +147,7 @@ CFStringRef kSecAssessmentAssessmentAuthorityFlags = CFSTR("assessment:authority
 CFStringRef kSecAssessmentAssessmentFromCache = CFSTR("assessment:authority:cached");
 CFStringRef kSecAssessmentAssessmentWeakSignature = CFSTR("assessment:authority:weak");
 CFStringRef kSecAssessmentAssessmentCodeSigningError = CFSTR("assessment:cserror");
+CFStringRef kSecAssessmentAssessmentNotarizationDate = CFSTR("assessment:notarization-date");
 
 CFStringRef kDisabledOverride = CFSTR("security disabled");
 
@@ -466,6 +467,14 @@ CFDictionaryRef SecAssessmentCopyUpdate(CFTypeRef target,
 	END_CSAPI_ERRORS1(NULL)
 }
 
+static void
+updateAuthority(const char *authority, bool enable, CFErrorRef *errors)
+{
+	CFStringRef updateValue = enable ? kSecAssessmentUpdateOperationEnable : kSecAssessmentUpdateOperationDisable;
+	CFTemp<CFDictionaryRef> ctx("{%O=%s, %O=%O}", kSecAssessmentUpdateKeyLabel, authority, kSecAssessmentContextKeyUpdate, updateValue);
+	SecAssessmentUpdate(NULL, kSecCSDefaultFlags, ctx, errors);
+}
+
 
 //
 // The fcntl of System Policies.
@@ -496,14 +505,13 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
 			result = kCFBooleanTrue;
 		return true;
 	} else if (CFEqual(control, CFSTR("ui-enable-devid"))) {
-		CFTemp<CFDictionaryRef> ctx("{%O=%s, %O=%O}", kSecAssessmentUpdateKeyLabel, "Developer ID", kSecAssessmentContextKeyUpdate, kSecAssessmentUpdateOperationEnable);
-        SecAssessmentUpdate(NULL, kSecCSDefaultFlags, ctx, errors);
+		updateAuthority("Developer ID", true, errors);
+		updateAuthority("Notarized Developer ID", true, errors);
 		MessageTrace trace("com.apple.security.assessment.state", "enable-devid");
 		trace.send("enable Developer ID approval");
 		return true;
 	} else if (CFEqual(control, CFSTR("ui-disable-devid"))) {
-        CFTemp<CFDictionaryRef> ctx("{%O=%s, %O=%O}", kSecAssessmentUpdateKeyLabel, "Developer ID", kSecAssessmentContextKeyUpdate, kSecAssessmentUpdateOperationDisable);
-        SecAssessmentUpdate(NULL, kSecCSDefaultFlags, ctx, errors);
+		updateAuthority("Developer ID", false, errors);
 		MessageTrace trace("com.apple.security.assessment.state", "disable-devid");
 		trace.send("disable Developer ID approval");
 		return true;
@@ -513,6 +521,26 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
     } else if (CFEqual(control, CFSTR("ui-get-devid-local"))) {
 		CFBooleanRef &result = *(CFBooleanRef*)(arguments);
 		if (gEngine().value<int>("SELECT disabled FROM authority WHERE label = 'Developer ID';", true))
+			result = kCFBooleanFalse;
+		else
+			result = kCFBooleanTrue;
+		return true;
+	} else if (CFEqual(control, CFSTR("ui-enable-notarized"))) {
+		updateAuthority("Notarized Developer ID", true, errors);
+		MessageTrace trace("com.apple.security.assessment.state", "enable-notarized");
+		trace.send("enable Notarized Developer ID approval");
+		return true;
+	} else if (CFEqual(control, CFSTR("ui-disable-notarized"))) {
+		updateAuthority("Notarized Developer ID", false, errors);
+		MessageTrace trace("com.apple.security.assessment.state", "disable-notarized");
+		trace.send("disable Notarized Developer ID approval");
+		return true;
+	} else if (CFEqual(control, CFSTR("ui-get-notarized"))) {
+		xpcEngineCheckNotarized((CFBooleanRef*)(arguments));
+		return true;
+	} else if (CFEqual(control, CFSTR("ui-get-notarized-local"))) {
+		CFBooleanRef &result = *(CFBooleanRef*)(arguments);
+		if (gEngine().value<int>("SELECT disabled FROM authority WHERE label = 'Notarized Developer ID';", true))
 			result = kCFBooleanFalse;
 		else
 			result = kCFBooleanTrue;
@@ -544,3 +572,24 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
 
 	END_CSAPI_ERRORS1(false)
 }
+
+Boolean SecAssessmentTicketRegister(CFDataRef ticketData, CFErrorRef *errors)
+{
+	BEGIN_CSAPI
+
+	xpcEngineTicketRegister(ticketData);
+	return true;
+
+	END_CSAPI_ERRORS1(false)
+}
+
+Boolean SecAssessmentTicketLookup(CFDataRef hash, SecCSDigestAlgorithm hashType, SecAssessmentTicketFlags flags, double *date, CFErrorRef *errors)
+{
+	BEGIN_CSAPI
+
+	xpcEngineTicketLookup(hash, hashType, flags, date);
+	return true;
+
+	END_CSAPI_ERRORS1(false)
+}
+

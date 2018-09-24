@@ -51,10 +51,11 @@ enum AdjustPixelValuesForComputedStyle { AdjustPixelValues, DoNotAdjustPixelValu
 
 class ComputedStyleExtractor {
 public:
-    ComputedStyleExtractor(Node*, bool allowVisitedStyle = false, PseudoId = NOPSEUDO);
-    ComputedStyleExtractor(Element*, bool allowVisitedStyle = false, PseudoId = NOPSEUDO);
+    ComputedStyleExtractor(Node*, bool allowVisitedStyle = false, PseudoId = PseudoId::None);
+    ComputedStyleExtractor(Element*, bool allowVisitedStyle = false, PseudoId = PseudoId::None);
 
     RefPtr<CSSValue> propertyValue(CSSPropertyID, EUpdateLayout = UpdateLayout);
+    RefPtr<CSSValue> valueForPropertyinStyle(const RenderStyle&, CSSPropertyID, RenderElement* = nullptr);
     String customPropertyText(const String& propertyName);
     RefPtr<CSSValue> customPropertyValue(const String& propertyName);
 

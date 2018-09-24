@@ -194,6 +194,16 @@ bool WKPreferencesGetJavaScriptCanOpenWindowsAutomatically(WKPreferencesRef pref
     return toImpl(preferencesRef)->javaScriptCanOpenWindowsAutomatically();
 }
 
+void WKPreferencesSetStorageAccessPromptsEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setStorageAccessPromptsEnabled(enabled);
+}
+
+bool WKPreferencesGetStorageAccessPromptsEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->storageAccessPromptsEnabled();
+}
+
 void WKPreferencesSetHyperlinkAuditingEnabled(WKPreferencesRef preferencesRef, bool hyperlinkAuditingEnabled)
 {
     toImpl(preferencesRef)->setHyperlinkAuditingEnabled(hyperlinkAuditingEnabled);
@@ -515,6 +525,16 @@ bool WKPreferencesGetWebAnimationsEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->webAnimationsEnabled();
 }
 
+void WKPreferencesSetWebAnimationsCSSIntegrationEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setWebAnimationsCSSIntegrationEnabled(flag);
+}
+
+bool WKPreferencesGetWebAnimationsCSSIntegrationEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->webAnimationsCSSIntegrationEnabled();
+}
+
 void WKPreferencesSetNeedsSiteSpecificQuirks(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setNeedsSiteSpecificQuirks(flag);
@@ -826,18 +846,12 @@ bool WKPreferencesGetInlineMediaPlaybackRequiresPlaysInlineAttribute(WKPreferenc
 
 void WKPreferencesSetBeaconAPIEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
-#if ENABLE(BEACON_API)
     toImpl(preferencesRef)->setBeaconAPIEnabled(flag);
-#endif
 }
 
 bool WKPreferencesGetBeaconAPIEnabled(WKPreferencesRef preferencesRef)
 {
-#if ENABLE(BEACON_API)
     return toImpl(preferencesRef)->beaconAPIEnabled();
-#else
-    return false;
-#endif
 }
 
 void WKPreferencesSetDirectoryUploadEnabled(WKPreferencesRef preferencesRef, bool flag)
@@ -1209,16 +1223,6 @@ bool WKPreferencesGetAggressiveTileRetentionEnabled(WKPreferencesRef preferences
     return toImpl(preferencesRef)->aggressiveTileRetentionEnabled();
 }
 
-void WKPreferencesSetQTKitEnabled(WKPreferencesRef preferencesRef, bool enabled)
-{
-    toImpl(preferencesRef)->setQTKitEnabled(enabled);
-}
-
-bool WKPreferencesGetQTKitEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->isQTKitEnabled();
-}
-
 void WKPreferencesSetLogsPageMessagesToSystemConsoleEnabled(WKPreferencesRef preferencesRef, bool enabled)
 {
     toImpl(preferencesRef)->setLogsPageMessagesToSystemConsoleEnabled(enabled);
@@ -1418,6 +1422,16 @@ void WKPreferencesSetWebRTCLegacyAPIEnabled(WKPreferencesRef preferencesRef, boo
 bool WKPreferencesGetWebRTCLegacyAPIEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->webRTCLegacyAPIEnabled();
+}
+
+void WKPreferencesSetWebRTCMDNSICECandidatesEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setMDNSICECandidatesEnabled(enabled);
+}
+
+bool WKPreferencesGetWebRTCMDNSICECandidatesEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->mDNSICECandidatesEnabled();
 }
 
 void WKPreferencesSetSpatialNavigationEnabled(WKPreferencesRef preferencesRef, bool enabled)
@@ -1950,3 +1964,82 @@ bool WKPreferencesGetMediaCapabilitiesEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->mediaCapabilitiesEnabled();
 }
 
+void WKPreferencesSetAllowCrossOriginSubresourcesToAskForCredentials(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setAllowCrossOriginSubresourcesToAskForCredentials(flag);
+}
+
+bool WKPreferencesGetAllowCrossOriginSubresourcesToAskForCredentials(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->allowCrossOriginSubresourcesToAskForCredentials();
+}
+
+void WKPreferencesSetCrossOriginResourcePolicyEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setCrossOriginResourcePolicyEnabled(flag);
+}
+
+bool WKPreferencesGetCrossOriginResourcePolicyEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->crossOriginResourcePolicyEnabled();
+}
+
+void WKPreferencesSetCrossOriginWindowPolicyEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setCrossOriginWindowPolicySupportEnabled(enabled);
+}
+
+bool WKPreferencesGetCrossOriginWindowPolicyEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->crossOriginWindowPolicySupportEnabled();
+}
+
+void WKPreferencesSetRestrictedHTTPResponseAccess(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setRestrictedHTTPResponseAccess(flag);
+}
+
+bool WKPreferencesGetRestrictedHTTPResponseAccess(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->restrictedHTTPResponseAccess();
+}
+
+void WKPreferencesSetServerTimingEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setServerTimingEnabled(flag);
+}
+
+bool WKPreferencesGetServerTimingEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->serverTimingEnabled();
+}
+
+void WKPreferencesSetColorFilterEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setColorFilterEnabled(flag);
+}
+
+bool WKPreferencesGetColorFilterEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->colorFilterEnabled();
+}
+
+void WKPreferencesSetProcessSwapOnNavigationEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setProcessSwapOnNavigationEnabled(flag);
+}
+
+bool WKPreferencesGetProcessSwapOnNavigationEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->processSwapOnNavigationEnabled();
+}
+
+void WKPreferencesSetPunchOutWhiteBackgroundsInDarkMode(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setPunchOutWhiteBackgroundsInDarkMode(flag);
+}
+
+bool WKPreferencesGetPunchOutWhiteBackgroundsInDarkMode(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->punchOutWhiteBackgroundsInDarkMode();
+}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,6 +29,7 @@
  */
 
 
+#include <TargetConditionals.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -37,6 +38,8 @@
 #include <dns_sd_private.h>
 
 #include "cache.h"
+
+#if	TARGET_OS_SIMULATOR && !TARGET_OS_IOSMAC
 
 
 static CFMutableArrayRef	mirror_keys	= NULL;
@@ -53,7 +56,7 @@ static SCDynamicStoreRef	store_sim	= NULL;
  * Logging
  */
 __private_extern__ os_log_t
-__log_SimulatorSupport()
+__log_SimulatorSupport(void)
 {
 	static os_log_t	log = NULL;
 
@@ -321,3 +324,5 @@ main(int argc, char **argv)
 	return 0;
 }
 #endif
+
+#endif	// TARGET_OS_SIMULATOR && !TARGET_OS_IOSMAC

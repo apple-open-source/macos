@@ -494,11 +494,6 @@ krb5_error_code KRB5_CALLCONV
 		    size_t *blocksize) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-    krb5_c_keylengths
-    (krb5_context context, krb5_enctype enctype,
-		    size_t *keybytes, size_t *keylength) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
-
-krb5_error_code KRB5_CALLCONV
 	krb5_c_init_state
 (krb5_context context,
 const krb5_keyblock *key, krb5_keyusage usage,
@@ -509,21 +504,9 @@ krb5_error_code KRB5_CALLCONV
 (krb5_context context, const krb5_keyblock *key, krb5_data *state) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-    krb5_c_prf (krb5_context, const krb5_keyblock *,
-		krb5_data *in, krb5_data *out) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
-
-krb5_error_code KRB5_CALLCONV
-    krb5_c_prf_length (krb5_context, krb5_enctype, size_t *outlen) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
-
-krb5_error_code KRB5_CALLCONV
     krb5_c_make_random_key
     (krb5_context context, krb5_enctype enctype,
 		    krb5_keyblock *k5_random_key) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
-
-krb5_error_code KRB5_CALLCONV
-    krb5_c_random_to_key
-    (krb5_context context, krb5_enctype enctype,
-		    krb5_data *random_data, krb5_keyblock *k5_random_key) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /* Register a new entropy sample  with the PRNG. may cause
 * the PRNG to be reseeded, although this is not guaranteed.  See previous randsource definitions
@@ -1328,9 +1311,6 @@ krb5_cc_remove_cred (krb5_context context, krb5_ccache cache, krb5_flags flags,
 krb5_error_code KRB5_CALLCONV
 krb5_cc_set_flags (krb5_context context, krb5_ccache cache, krb5_flags flags) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
-krb5_error_code KRB5_CALLCONV
-krb5_cc_get_flags (krb5_context context, krb5_ccache cache, krb5_flags *flags) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
-
 const char * KRB5_CALLCONV
 krb5_cc_get_type (krb5_context context, krb5_ccache cache) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
@@ -2119,10 +2099,6 @@ krb5_error_code KRB5_CALLCONV krb5_get_host_realm
 	(krb5_context,
 		const char *,
 		char *** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
-krb5_error_code KRB5_CALLCONV krb5_get_fallback_host_realm
-	(krb5_context,
-		krb5_data *,
-		char *** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_free_host_realm
 	(krb5_context,
 		char * const * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
@@ -2722,8 +2698,6 @@ KRB5INT_END_DECLS
 #define KRB5_PLUGIN_OP_NOTSUPP                   (-1765328134L)
 #define ERROR_TABLE_BASE_krb5 (-1765328384L)
 
-extern const struct error_table et_krb5_error_table;
-
 #if !defined(_WIN32)
 /* for compatibility with older versions... */
 extern void initialize_krb5_error_table (void) /*@modifies internalState@*/;
@@ -2783,15 +2757,6 @@ extern void initialize_krb5_error_table (void) /*@modifies internalState@*/;
 #define KRB5_LOG_CORRUPT                         (-1780008410L)
 #define KRB5_LOG_ERROR                           (-1780008409L)
 #define ERROR_TABLE_BASE_kdb5 (-1780008448L)
-
-extern const struct error_table et_kdb5_error_table;
-
-#if !defined(_WIN32)
-/* for compatibility with older versions... */
-extern void initialize_kdb5_error_table (void) /*@modifies internalState@*/;
-#else
-#define initialize_kdb5_error_table()
-#endif
 
 #if !defined(_WIN32)
 #define init_kdb5_err_tbl initialize_kdb5_error_table
@@ -2863,15 +2828,6 @@ extern void initialize_kdb5_error_table (void) /*@modifies internalState@*/;
 #define KV5M_GSS_QUEUE                           (-1760647368L)
 #define ERROR_TABLE_BASE_kv5m (-1760647424L)
 
-extern const struct error_table et_kv5m_error_table;
-
-#if !defined(_WIN32)
-/* for compatibility with older versions... */
-extern void initialize_kv5m_error_table (void) /*@modifies internalState@*/;
-#else
-#define initialize_kv5m_error_table()
-#endif
-
 #if !defined(_WIN32)
 #define init_kv5m_err_tbl initialize_kv5m_error_table
 #define kv5m_err_base ERROR_TABLE_BASE_kv5m
@@ -2893,8 +2849,6 @@ extern void initialize_kv5m_error_table (void) /*@modifies internalState@*/;
 #define KRB524_NOTRESP                           (-1750206201L)
 #define KRB524_KRB4_DISABLED                     (-1750206200L)
 #define ERROR_TABLE_BASE_k524 (-1750206208L)
-
-extern const struct error_table et_k524_error_table;
 
 #if !defined(_WIN32)
 /* for compatibility with older versions... */
@@ -2928,8 +2882,6 @@ extern void initialize_k524_error_table (void) /*@modifies internalState@*/;
 #define ASN1_MISMATCH_INDEF                      (1859794443L)
 #define ASN1_MISSING_EOC                         (1859794444L)
 #define ERROR_TABLE_BASE_asn1 (1859794432L)
-
-extern const struct error_table et_asn1_error_table;
 
 #if !defined(_WIN32)
 /* for compatibility with older versions... */

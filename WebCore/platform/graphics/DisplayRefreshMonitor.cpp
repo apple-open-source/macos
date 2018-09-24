@@ -35,6 +35,8 @@
 #include "DisplayRefreshMonitorIOS.h"
 #elif PLATFORM(MAC)
 #include "DisplayRefreshMonitorMac.h"
+#elif PLATFORM(GTK)
+#include "DisplayRefreshMonitorGtk.h"
 #endif
 
 namespace WebCore {
@@ -46,6 +48,9 @@ RefPtr<DisplayRefreshMonitor> DisplayRefreshMonitor::createDefaultDisplayRefresh
 #endif
 #if PLATFORM(IOS)
     return DisplayRefreshMonitorIOS::create(displayID);
+#endif
+#if PLATFORM(GTK)
+    return DisplayRefreshMonitorGtk::create(displayID);
 #endif
     UNUSED_PARAM(displayID);
     return nullptr;
@@ -85,6 +90,7 @@ void DisplayRefreshMonitor::displayDidRefresh()
 {
     {
         LockHolder lock(m_mutex);
+        LOG(RequestAnimationFrame, "DisplayRefreshMonitor::displayDidRefresh(%p) - m_scheduled(%d), m_unscheduledFireCount(%d)", this, m_scheduled, m_unscheduledFireCount);
         if (!m_scheduled)
             ++m_unscheduledFireCount;
         else

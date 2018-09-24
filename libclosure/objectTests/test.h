@@ -26,14 +26,14 @@
 #include <objc/objc-internal.h>
 #include <TargetConditionals.h>
 
-#if TARGET_OS_EMBEDDED  ||  TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_OSX
 static OBJC_INLINE malloc_zone_t *objc_collectableZone(void) { return nil; }
 #endif
 
 
 // Configuration macros
 
-#if !(__ARM_ARCH_7K__ >= 2 && TARGET_OS_EMBEDDED) && (!__LP64__ || TARGET_OS_WIN32 || TARGET_IPHONE_SIMULATOR)
+#if !(__ARM_ARCH_7K__ >= 2) && (!__LP64__ || TARGET_OS_WIN32 || TARGET_OS_SIMULATOR)
 #   define SUPPORT_NONPOINTER_ISA 0
 #elif __x86_64__
 #   define SUPPORT_NONPOINTER_ISA 1
@@ -407,7 +407,7 @@ static inline BOOL stret_equal(struct stret a, struct stret b)
 static struct stret STRET_RESULT __attribute__((used)) = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 // Force cwd to executable's directory during launch.
 // sim used to do this but simctl does not.
 #include <crt_externs.h>

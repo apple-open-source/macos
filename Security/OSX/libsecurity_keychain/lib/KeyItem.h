@@ -170,6 +170,7 @@ struct OpaqueSecKeyRef {
     SecKeyRef cdsaKey;
     Security::KeychainCore::KeyItem *key;
     SecCredentialType credentialType;
+    Mutex *cdsaKeyMutex;
 };
 
 #endif // !_SECURITY_KEYITEM_H_

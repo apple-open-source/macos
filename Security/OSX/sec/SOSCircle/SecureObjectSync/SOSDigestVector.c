@@ -104,11 +104,14 @@ static void SOSDigestVectorUnique(struct SOSDigestVector *dv) {
             dest += prev - source;
             // 2) Skip remaining dupes
             if (cur < end) {
-                while (cur += SOSDigestSize, cur < end) {
+                cur += SOSDigestSize;
+                while (cur < end) {
                     int delta = SOSDigestCompare(prev, cur);
                     assert(delta <= 0);
-                    if (delta != 0)
+                    if (delta != 0) {
                         break;
+                    }
+                    cur += SOSDigestSize;
                 }
             }
             // cur now points to the first new element that hasn't yet been copied

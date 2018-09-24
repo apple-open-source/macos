@@ -764,7 +764,6 @@ static int addPreferredSystemPartitionInfo(BLContextPtr context,
                 }
             }
             if (bsdName) CFRelease(bsdName);            
-            IOObjectRelease(service);
         }
         IOObjectRelease(service);
     }

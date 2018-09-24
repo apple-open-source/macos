@@ -56,6 +56,8 @@
  * SUCH DAMAGE.
  */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
 
 #include <sys/cdefs.h>
 #include <unistd.h>
@@ -1044,3 +1046,5 @@ prtab(s, t, num_rows)
 }
 #endif
 #endif /* BUILDING_VARIANT */
+
+#pragma clang diagnostic pop

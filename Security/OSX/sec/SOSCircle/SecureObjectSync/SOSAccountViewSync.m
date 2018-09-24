@@ -313,7 +313,7 @@ void SOSAccountPeerGotInSync(SOSAccountTransaction* aTxn, CFStringRef peerID, CF
     SOSCircleRef circle = NULL;
     SOSAccountTrustClassic* trust = account.trust;
     circle = trust.trustedCircle;
-    if (circle && [account.trust isInCircle:NULL] && SOSCircleHasActivePeerWithID(circle, peerID, NULL)) {
+    if (circle && [account isInCircle:NULL] && SOSCircleHasActivePeerWithID(circle, peerID, NULL)) {
         SOSAccountUpdateOutOfSyncViews(aTxn, views);
     }
 }
@@ -356,7 +356,7 @@ bool SOSAccountCheckForAlwaysOnViews(SOSAccount* account) {
     bool changed = false;
     SOSPeerInfoRef myPI = account.peerInfo;
     require_quiet(myPI, done);
-    require_quiet([account.trust isInCircle:NULL], done);
+    require_quiet([account isInCircle:NULL], done);
     require_quiet(SOSAccountHasCompletedInitialSync(account), done);
     CFMutableSetRef viewsToEnsure = SOSViewCopyViewSet(kViewSetAlwaysOn);
     // Previous version PeerInfo if we were syncing legacy keychain, ensure we include those legacy views.

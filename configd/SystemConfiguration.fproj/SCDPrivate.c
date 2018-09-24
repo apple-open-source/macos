@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,9 +31,6 @@
  * - initial revision
  */
 
-//#define DO_NOT_CRASH
-//#define DO_NOT_INFORM
-
 #define SC_LOG_HANDLE	_SC_LOG_DEFAULT()
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -60,9 +57,12 @@
 #include <dlfcn.h>
 
 
-#if	TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
+#if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !defined(DO_NOT_INFORM)
 #include <CoreFoundation/CFUserNotification.h>
-#endif	// TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
+#endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !defined(DO_NOT_INFORM)
+
+/* CrashReporter "Application Specific Information" */
+#include <CrashReporterClient.h>
 
 #define	N_QUICK	32
 
@@ -1522,22 +1522,13 @@ _SC_copyBacktrace()
 }
 
 
-/* CrashReporter info */
-#if	!TARGET_OS_IPHONE
-#include <CrashReporterClient.h>
-#else	// !TARGET_OS_IPHONE
-const char *__crashreporter_info__ = NULL;
-asm(".desc ___crashreporter_info__, 0x10");
-#endif	// !TARGET_OS_IPHONE
-
-
 static Boolean
 _SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMessage)
 {
-#if	!TARGET_OS_EMBEDDED || defined(DO_NOT_INFORM)
+#if	!defined(DO_NOT_INFORM)
 #pragma unused(notifyHeader)
 #pragma unused(notifyMessage)
-#endif	// !TARGET_OS_EMBEDDED || defined(DO_NOT_INFORM)
+#endif	// !defined(DO_NOT_INFORM)
 #if	TARGET_OS_SIMULATOR
 #pragma unused(crash_info)
 #endif	// TARGET_OS_SIMULATOR
@@ -1563,7 +1554,7 @@ _SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef 
 		CFRelease(str);
 	}
 
-#if	TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
+#if	!defined(DO_NOT_INFORM)
 	if (ok && (notifyHeader != NULL) && (notifyMessage != NULL)) {
 		static Boolean	warned	= FALSE;
 
@@ -1586,7 +1577,7 @@ _SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef 
 			warned = TRUE;
 		}
 	}
-#endif	// TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
+#endif	// !defined(DO_NOT_INFORM)
 #endif	// !TARGET_OS_SIMULATOR
 
 	return ok;
@@ -1599,12 +1590,7 @@ _SC_crash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMe
 	Boolean	ok	= FALSE;
 
 	if (crash_info != NULL) {
-#if	!TARGET_OS_IPHONE
 		CRSetCrashLogMessage(crash_info);
-#else	// !TARGET_OS_IPHONE
-		__crashreporter_info__ = crash_info;
-#endif	// !TARGET_OS_IPHONE
-
 		SC_log(LOG_NOTICE, "%s", crash_info);
 	}
 
@@ -1619,11 +1605,7 @@ _SC_crash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMe
 #endif	// DO_NOT_CRASH
 	}
 
-#if	!TARGET_OS_IPHONE
 	CRSetCrashLogMessage(NULL);
-#else	// !TARGET_OS_IPHONE
-	__crashreporter_info__ = NULL;
-#endif	// !TARGET_OS_IPHONE
 	return;
 }
 

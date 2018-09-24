@@ -44,6 +44,7 @@
 #include <WebCore/EventHandler.h>
 #include <WebCore/EventNames.h>
 #include <WebCore/FocusController.h>
+#include <WebCore/Frame.h>
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameLoaderClient.h>
@@ -54,10 +55,8 @@
 #include <WebCore/HTTPHeaderNames.h>
 #include <WebCore/HostWindow.h>
 #include <WebCore/MIMETypeRegistry.h>
-#include <WebCore/MainFrame.h>
 #include <WebCore/MouseEvent.h>
 #include <WebCore/NetscapePlugInStreamLoader.h>
-#include <WebCore/NetworkingContext.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformMouseEvent.h>
 #include <WebCore/ProtectionSpace.h>
@@ -69,7 +68,6 @@
 #include <WebCore/SecurityPolicy.h>
 #include <WebCore/Settings.h>
 #include <WebCore/UserGestureIndicator.h>
-#include <bindings/ScriptValue.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -319,7 +317,7 @@ PluginView::~PluginView()
     if (m_webPage)
         m_webPage->removePluginView(this);
 
-    ASSERT(!m_isBeingDestroyed);
+    ASSERT(!m_plugin || !m_plugin->isBeingDestroyed());
 
     if (m_isWaitingUntilMediaCanStart)
         m_pluginElement->document().removeMediaCanStartListener(this);
@@ -340,9 +338,7 @@ void PluginView::destroyPluginAndReset()
         it->key->setLoadListener(0);
 
     if (m_plugin) {
-        m_isBeingDestroyed = true;
         m_plugin->destroyPlugin();
-        m_isBeingDestroyed = false;
 
         m_pendingURLRequests.clear();
         m_pendingURLRequestsTimer.stop();
@@ -373,7 +369,6 @@ void PluginView::recreateAndInitialize(Ref<Plugin>&& plugin)
     m_isInitialized = false;
     m_isWaitingForSynchronousInitialization = false;
     m_isWaitingUntilMediaCanStart = false;
-    m_isBeingDestroyed = false;
     m_manualStreamState = ManualStreamState::Initial;
     m_transientPaintingSnapshot = nullptr;
 
@@ -793,7 +788,7 @@ void PluginView::paint(GraphicsContext& context, const IntRect& /*dirtyRect*/, W
         return;
 
     if (context.paintingDisabled()) {
-        if (context.updatingControlTints())
+        if (context.invalidatingControlTints())
             m_plugin->updateControlTints(context);
         return;
     }
@@ -992,12 +987,12 @@ bool PluginView::shouldNotAddLayer() const
     return m_pluginElement->displayState() < HTMLPlugInElement::Restarting && !m_plugin->supportsSnapshotting();
 }
 
-void PluginView::willDetatchRenderer()
+void PluginView::willDetachRenderer()
 {
     if (!m_isInitialized || !m_plugin)
         return;
 
-    m_plugin->willDetatchRenderer();
+    m_plugin->willDetachRenderer();
 }
 
 RefPtr<SharedBuffer> PluginView::liveResourceData() const
@@ -1446,14 +1441,14 @@ void PluginView::cancelManualStreamLoad()
 NPObject* PluginView::windowScriptNPObject()
 {
     if (!frame())
-        return 0;
+        return nullptr;
 
     if (!frame()->script().canExecuteScripts(NotAboutToExecuteScript)) {
         // FIXME: Investigate if other browsers allow plug-ins to access JavaScript objects even if JavaScript is disabled.
-        return 0;
+        return nullptr;
     }
 
-    return m_npRuntimeObjectMap.getOrCreateNPObject(pluginWorld().vm(), frame()->script().windowProxy(pluginWorld())->window());
+    return m_npRuntimeObjectMap.getOrCreateNPObject(pluginWorld().vm(), frame()->windowProxy().jsWindowProxy(pluginWorld())->window());
 }
 
 NPObject* PluginView::pluginElementNPObject()
@@ -1576,9 +1571,7 @@ float PluginView::contentsScaleFactor()
     
 String PluginView::proxiesForURL(const String& urlString)
 {
-    const FrameLoader* frameLoader = frame() ? &frame()->loader() : 0;
-    const NetworkingContext* context = frameLoader ? frameLoader->networkingContext() : 0;
-    Vector<ProxyServer> proxyServers = proxyServersForURL(URL(URL(), urlString), context);
+    Vector<ProxyServer> proxyServers = proxyServersForURL(URL(URL(), urlString));
     return toString(proxyServers);
 }
 
@@ -1641,13 +1634,13 @@ bool PluginView::artificialPluginInitializationDelayEnabled() const
 
 void PluginView::protectPluginFromDestruction()
 {
-    if (!m_isBeingDestroyed)
+    if (m_plugin && !m_plugin->isBeingDestroyed())
         ref();
 }
 
 void PluginView::unprotectPluginFromDestruction()
 {
-    if (m_isBeingDestroyed)
+    if (!m_plugin || m_plugin->isBeingDestroyed())
         return;
 
     // A plug-in may ask us to evaluate JavaScript that removes the plug-in from the
@@ -1838,8 +1831,8 @@ void PluginView::pluginDidReceiveUserInteraction()
     m_didReceiveUserInteraction = true;
 
     HTMLPlugInImageElement& plugInImageElement = downcast<HTMLPlugInImageElement>(*m_pluginElement);
-    String pageOrigin = plugInImageElement.document().page()->mainFrame().document()->baseURL().host();
-    String pluginOrigin = plugInImageElement.loadedUrl().host();
+    String pageOrigin = plugInImageElement.document().page()->mainFrame().document()->baseURL().host().toString();
+    String pluginOrigin = plugInImageElement.loadedUrl().host().toString();
     String mimeType = plugInImageElement.serviceType();
 
     WebProcess::singleton().plugInDidReceiveUserInteraction(pageOrigin, pluginOrigin, mimeType, plugInImageElement.document().page()->sessionID());

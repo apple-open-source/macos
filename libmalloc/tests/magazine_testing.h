@@ -32,8 +32,22 @@
 boolean_t
 malloc_tracing_enabled = 0;
 
-// Stub out cross-file depedencies so that they just assert.
-void _malloc_printf(int flags, const char *fmt, ...)
+int
+recirc_retained_regions = DEFAULT_RECIRC_RETAINED_REGIONS;
+
+// Stub out cross-file dependencies so that they just assert.
+void malloc_report(uint32_t flags, const char *fmt, ...)
+{
+	__builtin_trap();
+}
+
+void
+malloc_zone_error(uint32_t flags, bool is_corruption, const char *fmt, ...)
+{
+	__builtin_trap();
+}
+void
+malloc_zone_check_fail(const char *msg, const char *fmt, ...)
 {
 	__builtin_trap();
 }

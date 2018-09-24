@@ -2917,11 +2917,14 @@
 		4DFD951C1537402A0039B6BA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APPLY_RULES_IN_COPY_FILES = YES;
 				COPY_PHASE_STRIP = NO;
 				INFOPLIST_FILE = fs/Info.plist;
+				INFOPLIST_OUTPUT_FORMAT = binary;
 				INSTALL_PATH = /System/Library/Filesystems;
+				PLIST_FILE_OUTPUT_FORMAT = binary;
 				PRODUCT_NAME = hfs;
-				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
+				STRINGS_FILE_OUTPUT_ENCODING = binary;
 				WRAPPER_EXTENSION = fs;
 			};
 			name = Release;
@@ -3897,11 +3900,14 @@
 		FBD5C7DB1B1D591800B4620E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APPLY_RULES_IN_COPY_FILES = YES;
 				COPY_PHASE_STRIP = NO;
 				INFOPLIST_FILE = fs/Info.plist;
+				INFOPLIST_OUTPUT_FORMAT = binary;
 				INSTALL_PATH = /System/Library/Filesystems;
+				PLIST_FILE_OUTPUT_FORMAT = binary;
 				PRODUCT_NAME = hfs;
-				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
+				STRINGS_FILE_OUTPUT_ENCODING = binary;
 				WRAPPER_EXTENSION = fs;
 			};
 			name = Debug;
@@ -4141,11 +4147,14 @@
 		FBD69B1A1B94E9990022ECAD /* Coverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APPLY_RULES_IN_COPY_FILES = YES;
 				COPY_PHASE_STRIP = NO;
 				INFOPLIST_FILE = fs/Info.plist;
+				INFOPLIST_OUTPUT_FORMAT = binary;
 				INSTALL_PATH = /System/Library/Filesystems;
+				PLIST_FILE_OUTPUT_FORMAT = binary;
 				PRODUCT_NAME = hfs;
-				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
+				STRINGS_FILE_OUTPUT_ENCODING = binary;
 				WRAPPER_EXTENSION = fs;
 			};
 			name = Coverage;

@@ -26,6 +26,8 @@
 #import "config.h"
 #import "Cursor.h"
 
+#if PLATFORM(MAC)
+
 #import <objc/runtime.h>
 #import <pal/spi/mac/HIServicesSPI.h>
 #import <wtf/BlockObjCExceptions.h>
@@ -123,7 +125,7 @@ static Class coreCursorClass()
 
 static NSCursor *cursor(const char *name)
 {
-    NSCursor **slot = 0;
+    __strong NSCursor **slot = nullptr;
     
     if (!strcmp(name, "BusyButClickable"))
         slot = &busyButClickableNSCursor;
@@ -382,3 +384,5 @@ NSCursor *Cursor::platformCursor() const
 }
 
 } // namespace WebCore
+
+#endif // PLATFORM(MAC)

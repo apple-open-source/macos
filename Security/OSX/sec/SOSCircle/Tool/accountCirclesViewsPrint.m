@@ -29,8 +29,8 @@
 
 #include <Security/SecItem.h>
 
-#include <CoreFoundation/CFNumber.h>
-#include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFPriv.h>
 
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
@@ -54,14 +54,6 @@
 
 
 #include <Security/SecPasswordGenerate.h>
-
-/* Copied from CFPriv.h */
-// #include <CoreFoundation/CFPriv.h>
-
-CF_EXPORT CFDictionaryRef _CFCopySystemVersionDictionary(void);
-CF_EXPORT const CFStringRef _kCFSystemVersionProductNameKey;
-CF_EXPORT const CFStringRef _kCFSystemVersionProductVersionKey;
-CF_EXPORT const CFStringRef _kCFSystemVersionBuildVersionKey;
 
 #define MAXKVSKEYTYPE kUnknownKey
 #define DATE_LENGTH 18
@@ -110,46 +102,55 @@ static void printPeerInfos(char *label, CFArrayRef (^getArray)(CFErrorRef *error
     CFArrayRef ppi = getArray(&error);
     SOSPeerInfoRef me = SOSCCCopyMyPeerInfo(NULL);
     CFStringRef mypeerID = SOSPeerInfoGetPeerID(me);
-    
+
     if(ppi) {
         printmsg(CFSTR("%s count: %ld\n"), label, (long)CFArrayGetCount(ppi));
         CFArrayForEach(ppi, ^(const void *value) {
             char buf[160];
             SOSPeerInfoRef peer = (SOSPeerInfoRef)value;
+            if(!peer) { return; }
             CFIndex version = SOSPeerInfoGetVersion(peer);
             CFStringRef peerName = SOSPeerInfoGetPeerName(peer);
             CFStringRef devtype = SOSPeerInfoGetPeerDeviceType(peer);
             CFStringRef peerID = SOSPeerInfoGetPeerID(peer);
             CFStringRef transportType = CFSTR("KVS");
             CFStringRef deviceID = CFSTR("");
+            CFStringRef machineID = CFSTR("");
             CFDictionaryRef gestalt = SOSPeerInfoCopyPeerGestalt(peer);
-            CFStringRef osVersion = CFDictionaryGetValue(gestalt, CFSTR("OSVersion"));
-            
-            
+            CFStringRef osVersion = CFSTR("Unknown");
+            if(gestalt) {
+                osVersion = CFDictionaryGetValue(gestalt, CFSTR("OSVersion"));
+            }
+
             if(version >= 2){
                 CFDictionaryRef v2Dictionary = peer->v2Dictionary;
-                transportType = CFDictionaryGetValue(v2Dictionary, sTransportType);
-                deviceID = CFDictionaryGetValue(v2Dictionary, sDeviceID);
+                if(v2Dictionary) {
+                    transportType = CFDictionaryGetValue(v2Dictionary, CFSTR("TransportType"));
+                    deviceID = CFDictionaryGetValue(v2Dictionary, CFSTR("DeviceID"));
+                    machineID = CFDictionaryGetValue(v2Dictionary, CFSTR("MachineIDKey"));
+                }
             }
             char *pname = CFStringToCString(peerName);
             char *dname = CFStringToCString(devtype);
-            char *tname = CFStringToCString(transportType);
+            char *tname = transportType ? CFStringToCString(transportType) : CFStringToCString(CFSTR("KVS"));
             char *iname = CFStringToCString(deviceID);
+            char *mname = CFStringToCString(machineID);
             const char *me = CFEqualSafe(mypeerID, peerID) ? "me>" : "   ";
-            
-            
-            snprintf(buf, 160, "%s %s: %-16s %-16s %-16s %-36s", me, label, pname, dname, tname, iname);
-            
+
+
+            snprintf(buf, 160, "%s %s: %-16s dev:%-16s trn:%-16s devid:%-36s mid: %-36s", me, label, pname, dname, tname, iname, mname);
+
             free(pname);
             free(dname);
             free(tname);
             free(iname);
+            free(mname);
 
             // %s in (Core)Foundation format strings treats the string as MacRoman, need to do this to guarantee UTF8 handling
             CFStringRef bufstr = CFStringCreateWithCString(NULL, buf, kCFStringEncodingUTF8);
             CFStringRef pid = SOSPeerInfoGetPeerID(peer);
             CFIndex vers = SOSPeerInfoGetVersion(peer);
-            printmsg(CFSTR("%@ %@ V%d OS:%@\n"), bufstr, pid, vers, osVersion ?: CFSTR(""));
+            printmsg(CFSTR("%@ pid:%@ V%d OS:%@\n"), bufstr, pid, vers, osVersion ?: CFSTR(""));
             CFRelease(bufstr);
 
             CFReleaseNull(gestalt);

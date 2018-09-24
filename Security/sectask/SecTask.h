@@ -29,9 +29,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach/message.h>
 
-#if SEC_OS_IPHONE_INCLUDES
 #include <sys/cdefs.h>
-#endif
 
 #if SEC_OS_OSX
 #include <Security/SecCode.h>

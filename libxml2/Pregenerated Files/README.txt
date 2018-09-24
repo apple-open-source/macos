@@ -40,11 +40,27 @@ Steps to rebuild files:
    cp -p config.h "../Pregenerated Files/include/"
    cp -p include/libxml/xmlversion.h "../Pregenerated Files/include/libxml/"
    cp -p xml2-config "../Pregenerated Files/"
-7. Run git-add on changed files (including those in libxml2), and check them in.
+7. Apply patch to "./Pregenerated Files/include/libxml/"
+diff --git a/Pregenerated Files/include/libxml/xmlversion.h b/Pregenerated Files/include/libxml/xmlversion.h
+index c4bf45a0..c7992c7a 100644
+--- a/Pregenerated Files/include/libxml/xmlversion.h	
++++ b/Pregenerated Files/include/libxml/xmlversion.h	
+@@ -91,11 +91,7 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
+  * Whether the thread support is configured in
+  */
+ #if 1
+-#if defined(_REENTRANT) || defined(__MT__) || \
+-    (defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE - 0 >= 199506L))
+ #define LIBXML_THREAD_ENABLED
+-#endif
+ #endif
+ 
+ /**
+8. Run git-add on changed files (including those in libxml2), and check them in.
    cd ..
    git add "Pregenerated Files/include/config.h" "Pregenerated Files/include/libxml/xmlversion.h" "Pregenerated Files/xml2-config"
-8. Update libxml2.plist with libxml2 version, md5 hash, radars to upstream as needed.
-9. Run git-commit to commit the updated files.
-10. Clean up the files generated from Step 3.
+9. Update libxml2.plist with libxml2 version, md5 hash, radars to upstream as needed.
+10. Run git-commit to commit the updated files.
+11. Clean up the files generated from Step 3.
    git status --ignored
    git clean --force -d -x

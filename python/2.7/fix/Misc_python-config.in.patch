@@ -1,0 +1,13 @@
+--- Python-2.7.10.orig/Misc/python-config.in	2015-05-23 09:09:16.000000000 -0700
++++ Python-2.7.10/Misc/python-config.in	2018-05-08 23:49:51.000000000 -0700
+@@ -37,8 +37,8 @@
+         print sysconfig.EXEC_PREFIX
+ 
+     elif opt in ('--includes', '--cflags'):
+-        flags = ['-I' + sysconfig.get_python_inc(),
+-                 '-I' + sysconfig.get_python_inc(plat_specific=True)]
++        flags = ['-iwithsysroot ' + sysconfig.get_python_inc(),
++                 '-iwithsysroot ' + sysconfig.get_python_inc(plat_specific=True)]
+         if opt == '--cflags':
+             flags.extend(getvar('CFLAGS').split())
+         print ' '.join(flags)

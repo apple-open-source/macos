@@ -33,6 +33,7 @@
 #include "Logging.h"
 
 #include <pal/cf/CoreMediaSoftLink.h>
+#include <pal/spi/cocoa/AudioToolboxSPI.h>
 
 #if ENABLE(VIDEO_TRACK) && ENABLE(MEDIA_STREAM)
 
@@ -169,6 +170,7 @@ void AudioTrackPrivateMediaStreamCocoa::audioSamplesAvailable(const MediaTime& s
     // This function is called on a background thread. The following protectedThis object ensures the object is not
     // destroyed on the main thread before this function exits.
     Ref<AudioTrackPrivateMediaStreamCocoa> protectedThis { *this };
+
     ASSERT(description.platformDescription().type == PlatformDescription::CAAudioStreamBasicType);
 
     if (!m_inputDescription || *m_inputDescription != description) {
@@ -192,11 +194,16 @@ void AudioTrackPrivateMediaStreamCocoa::audioSamplesAvailable(const MediaTime& s
         m_inputDescription = std::make_unique<CAAudioStreamDescription>(inputDescription);
         m_outputDescription = std::make_unique<CAAudioStreamDescription>(outputDescription);
 
-        if (!m_dataSource)
-            m_dataSource = AudioSampleDataSource::create(description.sampleRate() * 2);
+        m_dataSource = AudioSampleDataSource::create(description.sampleRate() * 2);
 
         if (m_dataSource->setInputFormat(inputDescription) || m_dataSource->setOutputFormat(outputDescription)) {
             AudioComponentInstanceDispose(remoteIOUnit);
+            return;
+        }
+
+        if (m_isPlaying && AudioOutputUnitStart(remoteIOUnit)) {
+            AudioComponentInstanceDispose(remoteIOUnit);
+            m_inputDescription = nullptr;
             return;
         }
 

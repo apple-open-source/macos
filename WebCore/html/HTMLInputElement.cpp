@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
  * Copyright (C) 2010 Google Inc. All rights reserved.
@@ -34,6 +34,8 @@
 #include "CSSGradientValue.h"
 #include "CSSPropertyNames.h"
 #include "CSSValuePool.h"
+#include "Chrome.h"
+#include "ChromeClient.h"
 #include "DateTimeChooser.h"
 #include "Document.h"
 #include "Editor.h"
@@ -53,6 +55,7 @@
 #include "KeyboardEvent.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
+#include "Page.h"
 #include "PlatformMouseEvent.h"
 #include "RenderTextControlSingleLine.h"
 #include "RenderTheme.h"
@@ -61,6 +64,7 @@
 #include "Settings.h"
 #include "StyleResolver.h"
 #include "TextControlInnerElements.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/Language.h>
 #include <wtf/MathExtras.h>
 #include <wtf/Ref.h>
@@ -70,6 +74,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLInputElement);
 
 using namespace HTMLNames;
 
@@ -417,7 +423,7 @@ bool HTMLInputElement::hasCustomFocusLogic() const
     return m_inputType->hasCustomFocusLogic();
 }
 
-bool HTMLInputElement::isKeyboardFocusable(KeyboardEvent& event) const
+bool HTMLInputElement::isKeyboardFocusable(KeyboardEvent* event) const
 {
     return m_inputType->isKeyboardFocusable(event);
 }
@@ -432,7 +438,7 @@ bool HTMLInputElement::isTextFormControlFocusable() const
     return HTMLTextFormControlElement::isFocusable();
 }
 
-bool HTMLInputElement::isTextFormControlKeyboardFocusable(KeyboardEvent& event) const
+bool HTMLInputElement::isTextFormControlKeyboardFocusable(KeyboardEvent* event) const
 {
     return HTMLTextFormControlElement::isKeyboardFocusable(event);
 }
@@ -446,11 +452,9 @@ void HTMLInputElement::updateFocusAppearance(SelectionRestorationMode restoratio
 {
     if (isTextField()) {
         if (restorationMode == SelectionRestorationMode::SetDefault || !hasCachedSelection())
-            select(Element::defaultFocusTextStateChangeIntent());
+            select(revealMode, Element::defaultFocusTextStateChangeIntent());
         else
-            restoreCachedSelection();
-        if (document().frame())
-            document().frame()->selection().revealSelection(revealMode);
+            restoreCachedSelection(revealMode);
     } else
         HTMLTextFormControlElement::updateFocusAppearance(restorationMode, revealMode);
 }
@@ -484,6 +488,16 @@ void HTMLInputElement::setType(const AtomicString& type)
     setAttributeWithoutSynchronization(typeAttr, type);
 }
 
+void HTMLInputElement::resignStrongPasswordAppearance()
+{
+    if (!hasAutoFillStrongPasswordButton())
+        return;
+    setAutoFilled(false);
+    setShowAutoFillButton(AutoFillButtonType::None);
+    if (auto* page = document().page())
+        page->chrome().client().inputElementDidResignStrongPasswordAppearance(*this);
+}
+
 void HTMLInputElement::updateType()
 {
     ASSERT(m_inputType);
@@ -493,11 +507,18 @@ void HTMLInputElement::updateType()
         return;
 
     removeFromRadioButtonGroup();
+    resignStrongPasswordAppearance();
 
     bool didStoreValue = m_inputType->storesValueSeparateFromAttribute();
+    bool willStoreValue = newType->storesValueSeparateFromAttribute();
     bool neededSuspensionCallback = needsSuspensionCallback();
     bool didRespectHeightAndWidth = m_inputType->shouldRespectHeightAndWidthAttributes();
     bool wasSuccessfulSubmitButtonCandidate = m_inputType->canBeSuccessfulSubmitButton();
+
+    if (didStoreValue && !willStoreValue && hasDirtyValue()) {
+        setAttributeWithoutSynchronization(valueAttr, m_valueIfDirty);
+        m_valueIfDirty = String();
+    }
 
     m_inputType->destroyShadowSubtree();
 
@@ -507,12 +528,6 @@ void HTMLInputElement::updateType()
 
     setNeedsWillValidateCheck();
 
-    bool willStoreValue = m_inputType->storesValueSeparateFromAttribute();
-
-    if (didStoreValue && !willStoreValue && hasDirtyValue()) {
-        setAttributeWithoutSynchronization(valueAttr, m_valueIfDirty);
-        m_valueIfDirty = String();
-    }
     if (!didStoreValue && willStoreValue)
         m_valueIfDirty = sanitizeValue(attributeWithoutSynchronization(valueAttr));
     else
@@ -734,42 +749,12 @@ void HTMLInputElement::parseAttribute(const QualifiedName& name, const AtomicStr
         m_size = limitToOnlyHTMLNonNegativeNumbersGreaterThanZero(value, defaultSize);
         if (m_size != oldSize && renderer())
             renderer()->setNeedsLayoutAndPrefWidthsRecalc();
-    } else if (name == altAttr)
-        m_inputType->altAttributeChanged();
-    else if (name == srcAttr)
-        m_inputType->srcAttributeChanged();
-    else if (name == usemapAttr || name == accesskeyAttr) {
-        // FIXME: ignore for the moment
-    } else if (name == resultsAttr) {
+    } else if (name == resultsAttr)
         m_maxResults = !value.isNull() ? std::min(value.toInt(), maxSavedResults) : -1;
-        m_inputType->maxResultsAttributeChanged();
-    } else if (name == autosaveAttr) {
+    else if (name == autosaveAttr || name == incrementalAttr)
         invalidateStyleForSubtree();
-    } else if (name == incrementalAttr) {
-        invalidateStyleForSubtree();
-    } else if (name == minAttr) {
-        m_inputType->minOrMaxAttributeChanged();
+    else if (name == maxAttr || name == minAttr || name == multipleAttr || name == patternAttr || name == precisionAttr || name == stepAttr)
         updateValidity();
-    } else if (name == maxAttr) {
-        m_inputType->minOrMaxAttributeChanged();
-        updateValidity();
-    } else if (name == multipleAttr) {
-        m_inputType->multipleAttributeChanged();
-        updateValidity();
-    } else if (name == stepAttr) {
-        m_inputType->stepAttributeChanged();
-        updateValidity();
-    } else if (name == patternAttr) {
-        updateValidity();
-    } else if (name == precisionAttr) {
-        updateValidity();
-    } else if (name == disabledAttr) {
-        HTMLTextFormControlElement::parseAttribute(name, value);
-        m_inputType->disabledAttributeChanged();
-    } else if (name == readonlyAttr) {
-        HTMLTextFormControlElement::parseAttribute(name, value);
-        m_inputType->readonlyAttributeChanged();
-    }
 #if ENABLE(DATALIST_ELEMENT)
     else if (name == listAttr) {
         m_hasNonEmptyList = !value.isEmpty();
@@ -783,6 +768,18 @@ void HTMLInputElement::parseAttribute(const QualifiedName& name, const AtomicStr
         HTMLTextFormControlElement::parseAttribute(name, value);
 
     m_inputType->attributeChanged(name);
+}
+
+void HTMLInputElement::disabledStateChanged()
+{
+    HTMLTextFormControlElement::disabledStateChanged();
+    m_inputType->disabledStateChanged();
+}
+
+void HTMLInputElement::readOnlyStateChanged()
+{
+    HTMLTextFormControlElement::readOnlyStateChanged();
+    m_inputType->readOnlyStateChanged();
 }
 
 void HTMLInputElement::parserDidSetAttributes()
@@ -1053,6 +1050,10 @@ ExceptionOr<void> HTMLInputElement::setValue(const String& value, TextFieldEvent
     setLastChangeWasNotUserEdit();
     setFormControlValueMatchesRenderer(false);
     m_inputType->setValue(sanitizedValue, valueChanged, eventBehavior);
+
+    bool wasModifiedProgrammatically = eventBehavior == DispatchNoEvent;
+    if (wasModifiedProgrammatically)
+        resignStrongPasswordAppearance();
     return { };
 }
 
@@ -1576,12 +1577,12 @@ bool HTMLInputElement::computeWillValidate() const
     return m_inputType->supportsValidation() && HTMLTextFormControlElement::computeWillValidate();
 }
 
-void HTMLInputElement::requiredAttributeChanged()
+void HTMLInputElement::requiredStateChanged()
 {
-    HTMLTextFormControlElement::requiredAttributeChanged();
-    if (RadioButtonGroups* buttons = radioButtonGroups())
-        buttons->requiredAttributeChanged(this);
-    m_inputType->requiredAttributeChanged();
+    HTMLTextFormControlElement::requiredStateChanged();
+    if (auto* buttons = radioButtonGroups())
+        buttons->requiredStateChanged(*this);
+    m_inputType->requiredStateChanged();
 }
 
 Color HTMLInputElement::valueAsColor() const
@@ -1955,7 +1956,7 @@ bool HTMLInputElement::shouldTruncateText(const RenderStyle& style) const
 {
     if (!isTextField())
         return false;
-    return document().focusedElement() != this && style.textOverflow() == TextOverflowEllipsis;
+    return document().focusedElement() != this && style.textOverflow() == TextOverflow::Ellipsis;
 }
 
 ExceptionOr<int> HTMLInputElement::selectionStartForBindings() const
@@ -2022,11 +2023,11 @@ static Ref<CSSLinearGradientValue> autoFillStrongPasswordMaskImage()
 {
     CSSGradientColorStop firstStop;
     firstStop.m_color = CSSValuePool::singleton().createColorValue(Color::black);
-    firstStop.m_position = CSSValuePool::singleton().createValue(3, CSSPrimitiveValue::UnitType::CSS_EMS);
+    firstStop.m_position = CSSValuePool::singleton().createValue(50, CSSPrimitiveValue::UnitType::CSS_PERCENTAGE);
 
     CSSGradientColorStop secondStop;
     secondStop.m_color = CSSValuePool::singleton().createColorValue(Color::transparent);
-    secondStop.m_position = CSSValuePool::singleton().createValue(7, CSSPrimitiveValue::UnitType::CSS_EMS);
+    secondStop.m_position = CSSValuePool::singleton().createValue(100, CSSPrimitiveValue::UnitType::CSS_PERCENTAGE);
 
     auto gradient = CSSLinearGradientValue::create(CSSGradientRepeat::NonRepeating, CSSGradientType::CSSLinearGradient);
     gradient->setAngle(CSSValuePool::singleton().createValue(90, CSSPrimitiveValue::UnitType::CSS_DEG));
@@ -2041,17 +2042,19 @@ RenderStyle HTMLInputElement::createInnerTextStyle(const RenderStyle& style)
     textBlockStyle.inheritFrom(style);
     adjustInnerTextStyle(style, textBlockStyle);
 
-    textBlockStyle.setWhiteSpace(PRE);
-    textBlockStyle.setOverflowWrap(NormalOverflowWrap);
-    textBlockStyle.setOverflowX(OHIDDEN);
-    textBlockStyle.setOverflowY(OHIDDEN);
-    textBlockStyle.setTextOverflow(shouldTruncateText(style) ? TextOverflowEllipsis : TextOverflowClip);
+    textBlockStyle.setWhiteSpace(WhiteSpace::Pre);
+    textBlockStyle.setOverflowWrap(OverflowWrap::Normal);
+    textBlockStyle.setOverflowX(Overflow::Hidden);
+    textBlockStyle.setOverflowY(Overflow::Hidden);
+    textBlockStyle.setTextOverflow(shouldTruncateText(style) ? TextOverflow::Ellipsis : TextOverflow::Clip);
 
-    textBlockStyle.setDisplay(BLOCK);
+    textBlockStyle.setDisplay(DisplayType::Block);
 
-    if (hasAutoFillStrongPasswordButton()) {
+    if (hasAutoFillStrongPasswordButton() && !isDisabledOrReadOnly()) {
+        textBlockStyle.setDisplay(DisplayType::InlineBlock);
+        textBlockStyle.setMaxWidth(Length { 100, Percent });
         textBlockStyle.setColor({ 0.0f, 0.0f, 0.0f, 0.6f });
-        textBlockStyle.setTextOverflow(TextOverflowClip);
+        textBlockStyle.setTextOverflow(TextOverflow::Clip);
         textBlockStyle.setMaskImage(styleResolver().styleImage(autoFillStrongPasswordMaskImage()));
         // A stacking context is needed for the mask.
         if (textBlockStyle.hasAutoZIndex())

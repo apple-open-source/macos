@@ -382,7 +382,7 @@ bool IOMedia::handleOpen(IOService *  client,
             goto handleOpenErr;
         }
 
-        if ( driver->terminate( kIOServiceSynchronous ) == false )
+        if ( driver->terminate( ) == false )
         {
             goto handleOpenErr;
         }

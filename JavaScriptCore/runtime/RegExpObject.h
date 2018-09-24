@@ -27,15 +27,22 @@
 
 namespace JSC {
     
-class RegExpObject : public JSNonFinalObject {
+class RegExpObject final : public JSNonFinalObject {
 public:
-    typedef JSNonFinalObject Base;
+    using Base = JSNonFinalObject;
     static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetPropertyNames;
 
     static RegExpObject* create(VM& vm, Structure* structure, RegExp* regExp)
     {
         RegExpObject* object = new (NotNull, allocateCell<RegExpObject>(vm.heap)) RegExpObject(vm, structure, regExp);
         object->finishCreation(vm);
+        return object;
+    }
+
+    static RegExpObject* create(VM& vm, Structure* structure, RegExp* regExp, JSValue lastIndex)
+    {
+        auto* object = create(vm, structure, regExp);
+        object->m_lastIndex.set(vm, object, lastIndex);
         return object;
     }
 
@@ -51,7 +58,7 @@ public:
             m_lastIndex.setWithoutWriteBarrier(jsNumber(lastIndex));
             return true;
         }
-        throwTypeError(exec, scope, ASCIILiteral(ReadonlyPropertyWriteError));
+        throwTypeError(exec, scope, ReadonlyPropertyWriteError);
         return false;
     }
     bool setLastIndex(ExecState* exec, JSValue lastIndex, bool shouldThrow)
@@ -64,7 +71,7 @@ public:
             return true;
         }
 
-        return typeError(exec, scope, shouldThrow, ASCIILiteral(ReadonlyPropertyWriteError));
+        return typeError(exec, scope, shouldThrow, ReadonlyPropertyWriteError);
     }
     JSValue getLastIndex() const
     {
@@ -109,8 +116,6 @@ public:
         return sizeof(RegExpObject);
     }
 
-    static unsigned advanceStringUnicode(String, unsigned length, unsigned currentIndex);
-
 protected:
     JS_EXPORT_PRIVATE RegExpObject(VM&, Structure*, RegExp*);
     JS_EXPORT_PRIVATE void finishCreation(VM&);
@@ -130,13 +135,5 @@ private:
     WriteBarrier<Unknown> m_lastIndex;
     uint8_t m_lastIndexIsWritable;
 };
-
-RegExpObject* asRegExpObject(JSValue);
-
-inline RegExpObject* asRegExpObject(JSValue value)
-{
-    ASSERT(asObject(value)->inherits(*value.getObject()->vm(), RegExpObject::info()));
-    return static_cast<RegExpObject*>(asObject(value));
-}
 
 } // namespace JSC

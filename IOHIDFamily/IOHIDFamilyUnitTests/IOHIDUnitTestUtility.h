@@ -17,7 +17,7 @@
 #include <IOKit/hid/IOHIDKeys.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/hid/AppleHIDUsageTables.h>
-
+#import <Foundation/Foundation.h>
 
 #define _EVAL(x) #x
 #define EVAL(x) _EVAL (x)
@@ -83,6 +83,34 @@ void IOHIDUnitTestDestroyRunLoop (CFRunLoopRef runloop);
         [NSException raise:@"HIDXCTAssertAndThrowTrue" format:@"%s:%d", __PRETTY_FUNCTION__, __LINE__]; \
     }                                                                                                   \
 }
+
+#define kLogDestinationDir "/var/tmp/hidxctest"
+
+void IOHIDUnitTestRunPosixCommand(char *const argv[], NSString *stdoutFile);
+
+extern char *const hidutil[];
+extern char *const spindump[];
+extern char *const logcollect[];
+extern char *const ioreg[];
+
+#define HIDXCTAssertWithLogs(expression, ...) \
+do { \
+    _XCTPrimitiveAssertTrue(self, expression, @#expression, __VA_ARGS__); \
+    BOOL expressionValue = !!(expression); \
+    if (!expressionValue) { \
+        NSMutableString *dir = [NSMutableString stringWithFormat:@"%s/%s_%d_", kLogDestinationDir, __FUNCTION__, __LINE__]; \
+        char *mkdircmd[] = { \
+            "/bin/mkdir", \
+            kLogDestinationDir, \
+            NULL \
+        }; \
+        IOHIDUnitTestRunPosixCommand(mkdircmd, NULL); \
+        IOHIDUnitTestRunPosixCommand(hidutil, [dir stringByAppendingFormat:@"%s", "hidutil.plist"]); \
+        IOHIDUnitTestRunPosixCommand(spindump, [dir stringByAppendingFormat:@"%s", "spindump.txt"]); \
+        IOHIDUnitTestRunPosixCommand(logcollect, [dir stringByAppendingFormat:@"%s", "logdump.txt"]); \
+        IOHIDUnitTestRunPosixCommand(ioreg, [dir stringByAppendingFormat:@"%s", "ioreg.txt"]); \
+    } \
+} while (0);
 
 #undef check_compile_time
 #if( !defined( check_compile_time ) )

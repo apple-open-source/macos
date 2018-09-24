@@ -21,6 +21,7 @@
 #include "WebKitUserContentManager.h"
 
 #include "APISerializedScriptValue.h"
+#include "InjectUserScriptImmediately.h"
 #include "WebKitJavascriptResultPrivate.h"
 #include "WebKitUserContentManagerPrivate.h"
 #include "WebKitUserContentPrivate.h"
@@ -163,7 +164,7 @@ void webkit_user_content_manager_add_script(WebKitUserContentManager* manager, W
 {
     g_return_if_fail(WEBKIT_IS_USER_CONTENT_MANAGER(manager));
     g_return_if_fail(script);
-    manager->priv->userContentController->addUserScript(webkitUserScriptGetUserScript(script));
+    manager->priv->userContentController->addUserScript(webkitUserScriptGetUserScript(script), InjectUserScriptImmediately::No);
 }
 
 /**
@@ -188,9 +189,9 @@ public:
     {
     }
 
-    void didPostMessage(WebPageProxy& page, const FrameInfoData&, WebCore::SerializedScriptValue& serializedScriptValue) override
+    void didPostMessage(WebPageProxy&, const FrameInfoData&, WebCore::SerializedScriptValue& serializedScriptValue) override
     {
-        WebKitJavascriptResult* jsResult = webkitJavascriptResultCreate(page.javascriptGlobalContext(), serializedScriptValue);
+        WebKitJavascriptResult* jsResult = webkitJavascriptResultCreate(serializedScriptValue);
         g_signal_emit(m_manager, signals[SCRIPT_MESSAGE_RECEIVED], m_handlerName, jsResult);
         webkit_javascript_result_unref(jsResult);
     }

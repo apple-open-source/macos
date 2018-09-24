@@ -12,7 +12,7 @@
  
  static int decl_die(int status, const char *phase, request_rec *r)
  {
-@@ -1581,6 +1586,72 @@
+@@ -1581,6 +1586,70 @@
      return OK;
  }
  
@@ -55,10 +55,8 @@
 +            goto cleanup;
 +        }
 +        
-+        CFLocaleRef locale = CFLocaleCopyCurrent();
-+        CFStringLowercase(str1, locale);
-+        CFStringLowercase(str2, locale);
-+        CFRelease(locale);
++        CFStringLowercase(str1, NULL);
++        CFStringLowercase(str2, NULL);
 +        
 +        if (!CFStringGetFileSystemRepresentation(str1, str1_fsr, str1_fsr_len)) {
 +            goto cleanup;
@@ -85,7 +83,7 @@
  AP_DECLARE(int) ap_file_walk(request_rec *r)
  {
      ap_conf_vector_t *now_merged = NULL;
-@@ -1590,6 +1663,7 @@
+@@ -1590,6 +1661,7 @@
      walk_cache_t *cache;
      const char *test_file;
      int cached;

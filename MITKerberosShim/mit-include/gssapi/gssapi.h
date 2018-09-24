@@ -638,14 +638,6 @@ gss_wrap_size_limit(
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
-gss_import_name_object(
-    OM_uint32 *,        /* minor_status */
-    void *,             /* input_name */
-    gss_OID,            /* input_name_type */
-    gss_name_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* output_name */
-
-/* New for V2 */
-OM_uint32 KRB5_CALLCONV
 gss_export_name_object(
     OM_uint32 *,        /* minor_status */
     gss_name_t,         /* input_name */

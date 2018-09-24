@@ -9,6 +9,8 @@
 #import "FakeXCTest.h"
 #import "XCTestCase+GSS.h"
 
+#if 0 // disabled since we no longer have a test account in UAT
+
 @interface AC_UAT : XCTestCase
 
 @end
@@ -17,3 +19,5 @@
 
 
 @end
+
+#endif

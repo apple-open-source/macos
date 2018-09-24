@@ -459,7 +459,7 @@ void IDBServer::performGetAllDatabaseNames(uint64_t serverConnectionIdentifier, 
 {
     String directory = IDBDatabaseIdentifier::databaseDirectoryRelativeToRoot(mainFrameOrigin, openingOrigin, m_databaseDirectoryPath);
 
-    Vector<String> entries = FileSystem::listDirectory(directory, ASCIILiteral("*"));
+    Vector<String> entries = FileSystem::listDirectory(directory, "*"_s);
     Vector<String> databases;
     databases.reserveInitialCapacity(entries.size());
     for (auto& entry : entries) {
@@ -543,11 +543,14 @@ void IDBServer::closeAndDeleteDatabasesForOrigins(const Vector<SecurityOriginDat
 
 static void removeAllDatabasesForOriginPath(const String& originPath, WallTime modifiedSince)
 {
+    LOG(IndexedDB, "removeAllDatabasesForOriginPath with originPath %s", originPath.utf8().data());
     Vector<String> databasePaths = FileSystem::listDirectory(originPath, "*");
 
     for (auto& databasePath : databasePaths) {
-        String databaseFile = FileSystem::pathByAppendingComponent(databasePath, "IndexedDB.sqlite3");
+        if (FileSystem::fileIsDirectory(databasePath, FileSystem::ShouldFollowSymbolicLinks::No))
+            removeAllDatabasesForOriginPath(databasePath, modifiedSince);
 
+        String databaseFile = FileSystem::pathByAppendingComponent(databasePath, "IndexedDB.sqlite3");
         if (modifiedSince > -WallTime::infinity() && FileSystem::fileExists(databaseFile)) {
             auto modificationTime = FileSystem::getFileModificationTime(databaseFile);
             if (!modificationTime)
@@ -623,6 +626,11 @@ void IDBServer::performCloseAndDeleteDatabasesForOrigins(const Vector<SecurityOr
         for (const auto& origin : origins) {
             String originPath = FileSystem::pathByAppendingComponent(m_databaseDirectoryPath, origin.databaseIdentifier());
             removeAllDatabasesForOriginPath(originPath, -WallTime::infinity());
+
+            for (const auto& topOriginPath : FileSystem::listDirectory(m_databaseDirectoryPath, "*")) {
+                originPath = FileSystem::pathByAppendingComponent(topOriginPath, origin.databaseIdentifier());
+                removeAllDatabasesForOriginPath(originPath, -WallTime::infinity());
+            }
         }
     }
 

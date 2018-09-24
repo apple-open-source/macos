@@ -1960,11 +1960,6 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		 IP_LIST(&dhcp->saved.our_ip),
 		 EA_LIST(arpc->hwaddr),
 		 IP_LIST(&dhcp->saved.server_ip));
-	  if (dhcp->state != dhcp_cstate_init_reboot_e) {
-	      /* don't bother reporting it */
-	      ServiceReportIPv4AddressConflict(service_p,
-					       dhcp->saved.our_ip);
-	  }
 	  _dhcp_lease_clear(service_p, FALSE);
 	  service_publish_failure(service_p, 
 				  ipconfig_status_address_in_use_e);
@@ -2130,6 +2125,23 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  dhcp_handle_active_during_sleep(service_p, 
 					  (active_during_sleep_t *)event_data);
 	  break;
+      case IFEventID_forget_ssid_e: {
+	  CFStringRef	ssid = (CFStringRef)event_data;
+
+	  my_log(LOG_NOTICE, "DHCP %s: ForgetSSID %@", if_name(if_p), ssid);
+	  DHCPLeaseListRemoveLeaseWithSSID(&dhcp->lease_list, ssid);
+	  if (dhcp->lease.ssid != NULL && CFEqual(dhcp->lease.ssid, ssid)) {
+	      /* if the lease is current, give it up, and try again */
+	      (void)dhcp_release(service_p);
+	      service_remove_address(service_p);
+	      service_publish_failure(service_p,
+				      ipconfig_status_lease_terminated_e);
+	      dhcpol_free(&dhcp->saved.options);
+	      dhcp_lease_set_ssid(dhcp, NULL);
+	      dhcp_check_link(service_p, event_id);
+	  }
+	  break;
+      }
       default:
 	  break;
     } /* switch (event_id) */

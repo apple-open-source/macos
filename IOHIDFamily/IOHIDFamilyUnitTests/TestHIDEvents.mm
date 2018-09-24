@@ -279,4 +279,74 @@ namespace base {
 - (void)testEventCompatibility {
     #include "TestHIDEventCompatibility.h"
 }
+
+- (void)testOrientationEvent {
+    CFIndex value;
+    IOHIDEventRef polarEvent = IOHIDEventCreatePolarOrientationEvent (kCFAllocatorDefault, mach_absolute_time(), 1, 2, 3, 0);
+    HIDXCTAssertAndThrowTrue (polarEvent != NULL);
+
+    value = IOHIDEventGetIntegerValue (polarEvent, kIOHIDEventFieldOrientationOrientationType);
+    XCTAssert (value == kIOHIDOrientationTypePolar);
+    
+    value = IOHIDEventGetIntegerValue (polarEvent, kIOHIDEventFieldOrientationAltitude);
+    XCTAssert (value == 3);
+
+    value = IOHIDEventGetIntegerValue (polarEvent, kIOHIDEventFieldOrientationAzimuth);
+    XCTAssert (value == 2);
+
+    value = IOHIDEventGetIntegerValue (polarEvent, kIOHIDEventFieldOrientationRadius);
+    XCTAssert (value == 1);
+
+    CFRelease (polarEvent);
+
+    IOHIDEventRef usageEvent = IOHIDEventCreateDeviceOrientationEventWithUsage (kCFAllocatorDefault, mach_absolute_time(), kHIDUsage_AppleVendorMotion_DeviceOrientationTypePortrait, 0);
+    HIDXCTAssertAndThrowTrue (usageEvent != NULL);
+    
+    value = IOHIDEventGetIntegerValue (usageEvent, kIOHIDEventFieldOrientationOrientationType);
+    XCTAssert (value == kIOHIDOrientationTypeCMUsage);
+
+    value = IOHIDEventGetIntegerValue (usageEvent, kIOHIDEventFieldOrientationDeviceOrientationUsage);
+    XCTAssert (value == kHIDUsage_AppleVendorMotion_DeviceOrientationTypePortrait);
+
+    CFRelease (usageEvent);
+    
+}
+
+- (void)testGenericGestureEvent {
+    CFIndex     value;
+    IOHIDFloat  floatValue;
+    
+    IOHIDEventRef tapEvent = IOHIDEventCreateGenericGestureEvent (kCFAllocatorDefault, mach_absolute_time(), kIOHIDGenericGestureTypeTap, 0);
+    HIDXCTAssertAndThrowTrue (tapEvent != NULL);
+    
+    value = IOHIDEventGetIntegerValue (tapEvent, kIOHIDEventFieldGenericGestureType);
+    XCTAssert (value == kIOHIDGenericGestureTypeTap);
+    
+    IOHIDEventSetIntegerValue (tapEvent, kIOHIDEventFieldGenericGestureTypeTapCount, 2);
+    value = IOHIDEventGetIntegerValue (tapEvent, kIOHIDEventFieldGenericGestureTypeTapCount);
+    XCTAssert (value == 2);
+
+    CFRelease(tapEvent);
+    
+    IOHIDEventRef swipeEvent = IOHIDEventCreateGenericGestureEvent (kCFAllocatorDefault, mach_absolute_time(), kIOHIDGenericGestureTypeSwipe, 0);
+    HIDXCTAssertAndThrowTrue (swipeEvent != NULL);
+    
+    value = IOHIDEventGetIntegerValue (swipeEvent, kIOHIDEventFieldGenericGestureType);
+    XCTAssert (value == kIOHIDGenericGestureTypeSwipe);
+    
+    IOHIDEventSetFloatValue (swipeEvent, kIOHIDEventFieldGenericGestureTypeSwipeProgress, 0.5);
+    floatValue = IOHIDEventGetFloatValue (swipeEvent, kIOHIDEventFieldGenericGestureTypeSwipeProgress);
+    XCTAssert (floatValue == 0.5, "kIOHIDEventFieldGenericGestureTypeSwipeProgress:%f", floatValue);
+
+    
+    IOHIDEventSetFloatValue (swipeEvent, kIOHIDEventFieldGenericGestureTypeSwipeProgress, 1.0);
+    floatValue = IOHIDEventGetFloatValue (swipeEvent, kIOHIDEventFieldGenericGestureTypeSwipeProgress);
+    XCTAssert (floatValue == 1.0, "kIOHIDEventFieldGenericGestureTypeSwipeProgress:%f", floatValue);
+
+    CFRelease(swipeEvent);
+    
+}
+
+
+
 @end

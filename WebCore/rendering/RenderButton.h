@@ -41,9 +41,6 @@ public:
 
     bool canBeSelectionLeaf() const override;
 
-    void addChild(RenderPtr<RenderObject> newChild, RenderObject *beforeChild = 0) override;
-    RenderPtr<RenderObject> takeChild(RenderObject&) override;
-    void removeLeftoverAnonymousBlock(RenderBlock*) override { }
     bool createsAnonymousWrapper() const override { return true; }
 
     void updateFromElement() override;
@@ -52,7 +49,7 @@ public:
     bool hasControlClip() const override { return true; }
     LayoutRect controlClipRect(const LayoutPoint&) const override;
 
-    void updateAnonymousChildStyle(const RenderObject& anonymousChild, RenderStyle&) const override;
+    void updateAnonymousChildStyle(RenderStyle&) const override;
 
     void setText(const String&);
     String text() const;
@@ -60,6 +57,9 @@ public:
 #if PLATFORM(IOS)
     void layout() override;
 #endif
+
+    RenderBlock* innerRenderer() const { return m_inner.get(); }
+    void setInnerRenderer(RenderBlock&);
 
 private:
     void element() const = delete;

@@ -276,10 +276,19 @@ struct SecCertificatePathVC {
 
     bool                pathValidated;
 
+    /* If checkedIssuers is true, then the value of unknownCAIndex contains
+     * the index of the first CA which violates known-only constraints, or
+     * -1 if all CA certificates are either known or not constrained. */
+    bool                checkedIssuers;
+    CFIndex             unknownCAIndex;
+
     /* Enumerated value to determine whether CT is required for the leaf
      * certificate (because a CA in the path has a require-ct constraint).
      * If non-zero, CT is required; value indicates overridable status. */
     SecPathCTPolicy     requiresCT;
+
+    /* Issuance time, as determined by earliest SCT timestamp for leaf. */
+    CFAbsoluteTime      issuanceTime;
 
     SecCertificateVCRef certificates[];
 };
@@ -291,7 +300,7 @@ static void SecCertificatePathVCPrunePolicyTree(SecCertificatePathVCRef certific
     }
 }
 
-static void SecCertificatePathVCDeleteRVCs(SecCertificatePathVCRef path) {
+void SecCertificatePathVCDeleteRVCs(SecCertificatePathVCRef path) {
     if (path->rvcs) {
         CFIndex certIX, certCount = path->rvcCount;
         for (certIX = 0; certIX < certCount; ++certIX) {
@@ -648,11 +657,7 @@ SecKeyRef SecCertificatePathVCCopyPublicKeyAtIndex(
                                                  SecCertificatePathVCRef certificatePath, CFIndex ix) {
     SecCertificateRef certificate =
     SecCertificatePathVCGetCertificateAtIndex(certificatePath, ix);
-#if TARGET_OS_OSX
-    return SecCertificateCopyPublicKey_ios(certificate);
-#else
-    return SecCertificateCopyPublicKey(certificate);
-#endif
+    return SecCertificateCopyKey(certificate);
 }
 
 CFArrayRef SecCertificatePathVCGetUsageConstraintsAtIndex(
@@ -924,6 +929,22 @@ void SecCertificatePathVCSetRevocationRequiredForCertificateAtIndex(SecCertifica
     cvc->require_revocation_response = true;
 }
 
+bool SecCertificatePathVCCheckedIssuers(SecCertificatePathVCRef certificatePath) {
+    return certificatePath->checkedIssuers;
+}
+
+void SecCertificatePathVCSetCheckedIssuers(SecCertificatePathVCRef certificatePath, bool checked) {
+    certificatePath->checkedIssuers = checked;
+}
+
+CFIndex SecCertificatePathVCUnknownCAIndex(SecCertificatePathVCRef certificatePath) {
+    return certificatePath->unknownCAIndex;
+}
+
+void SecCertificatePathVCSetUnknownCAIndex(SecCertificatePathVCRef certificatePath, CFIndex index) {
+    certificatePath->unknownCAIndex = index;
+}
+
 bool SecCertificatePathVCIsPathValidated(SecCertificatePathVCRef certificatePath) {
     if (!certificatePath) { return false; }
     return certificatePath->pathValidated;
@@ -966,6 +987,15 @@ void SecCertificatePathVCSetRequiresCT(SecCertificatePathVCRef certificatePath, 
         return; /* once set, CT policy may be only be changed to a more strict value */
     }
     certificatePath->requiresCT = requiresCT;
+}
+
+CFAbsoluteTime SecCertificatePathVCIssuanceTime(SecCertificatePathVCRef certificatePath) {
+    if (!certificatePath) { return 0; }
+    return certificatePath->issuanceTime;
+}
+
+void SecCertificatePathVCSetIssuanceTime(SecCertificatePathVCRef certificatePath, CFAbsoluteTime issuanceTime) {
+    certificatePath->issuanceTime = issuanceTime;
 }
 
 bool SecCertificatePathVCIsAllowlisted(SecCertificatePathVCRef certificatePath) {

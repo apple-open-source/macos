@@ -218,7 +218,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		3F09C378186D1F73007AF93C /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcconfigs/base.xcconfig; sourceTree = "<group>"; };
+		3F09C378186D1F73007AF93C /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		3F7A5E8820510D34007087AF /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
 		BA79F9A313BB70FF006A292D /* ExtentManager.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ExtentManager.cpp; sourceTree = "<group>"; };
 		BA79F9A413BB70FF006A292D /* ExtentManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ExtentManager.h; sourceTree = "<group>"; };
 		BA79F9A513BB70FF006A292D /* getmntopts.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = getmntopts.3; sourceTree = "<group>"; };
@@ -293,7 +294,6 @@
 		BA79F99513BB70D7006A292D = {
 			isa = PBXGroup;
 			children = (
-				3F09C378186D1F73007AF93C /* base.xcconfig */,
 				BA79F9A313BB70FF006A292D /* ExtentManager.cpp */,
 				BA79F9A413BB70FF006A292D /* ExtentManager.h */,
 				BA79F9A513BB70FF006A292D /* getmntopts.3 */,
@@ -360,6 +360,8 @@
 		FDBC270C1741B66500CA4B2B /* xcconfigs */ = {
 			isa = PBXGroup;
 			children = (
+				3F09C378186D1F73007AF93C /* base.xcconfig */,
+				3F7A5E8820510D34007087AF /* lib.xcconfig */,
 				FDA4991D199D6CB800A32E83 /* test.xcconfig */,
 				FDBC270D1741B66500CA4B2B /* tzlinkd.xcconfig */,
 			);
@@ -623,6 +625,7 @@
 		};
 		BA79F9C813BB718B006A292D /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F7A5E8820510D34007087AF /* lib.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				DYLIB_COMPATIBILITY_VERSION = 1.0;
@@ -641,12 +644,15 @@
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
 				INSTALL_PATH = /usr/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Debug;
 		};
 		BA79F9C913BB718B006A292D /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F7A5E8820510D34007087AF /* lib.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				DYLIB_COMPATIBILITY_VERSION = 1.0;
@@ -660,6 +666,8 @@
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
 				INSTALL_PATH = /usr/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;

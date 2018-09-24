@@ -29,7 +29,7 @@
 #if ENABLE(VIDEO) && ENABLE(MEDIA_SOURCE) && USE(GSTREAMER)
 
 #include "AudioTrackPrivateGStreamer.h"
-#include "GStreamerUtilities.h"
+#include "GStreamerCommon.h"
 #include "MediaDescription.h"
 #include "MediaPlayerPrivateGStreamerMSE.h"
 #include "MediaSample.h"
@@ -48,8 +48,6 @@
 #include <gst/video/video.h>
 #include <wtf/Condition.h>
 #include <wtf/MainThread.h>
-#include <wtf/glib/GMutexLocker.h>
-#include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
 
 GST_DEBUG_CATEGORY_STATIC(webkit_media_src_debug);
@@ -250,6 +248,13 @@ static void webkit_media_src_class_init(WebKitMediaSrcClass* klass)
     g_type_class_add_private(klass, sizeof(WebKitMediaSrcPrivate));
 }
 
+static GstFlowReturn webkitMediaSrcChain(GstPad* pad, GstObject* parent, GstBuffer* buffer)
+{
+    GRefPtr<WebKitMediaSrc> self = adoptGRef(WEBKIT_MEDIA_SRC(gst_object_get_parent(parent)));
+
+    return gst_flow_combiner_update_pad_flow(self->priv->flowCombiner.get(), pad, gst_proxy_pad_chain_default(pad, GST_OBJECT(self.get()), buffer));
+}
+
 static void webkit_media_src_init(WebKitMediaSrc* source)
 {
     source->priv = WEBKIT_MEDIA_SRC_GET_PRIVATE(source);
@@ -258,6 +263,7 @@ static void webkit_media_src_init(WebKitMediaSrc* source)
     source->priv->appsrcSeekDataCount = 0;
     source->priv->appsrcNeedDataCount = 0;
     source->priv->appsrcSeekDataNextAction = Nothing;
+    source->priv->flowCombiner = GUniquePtr<GstFlowCombiner>(gst_flow_combiner_new());
 
     // No need to reset Stream.appsrcNeedDataFlag because there are no Streams at this point yet.
 }
@@ -452,18 +458,13 @@ gboolean webKitMediaSrcQueryWithParent(GstPad* pad, GstObject* parent, GstQuery*
 
 void webKitMediaSrcUpdatePresentationSize(GstCaps* caps, Stream* stream)
 {
-    GstStructure* structure = gst_caps_get_structure(caps, 0);
-    const gchar* structureName = gst_structure_get_name(structure);
-    GstVideoInfo info;
-
     GST_OBJECT_LOCK(stream->parent);
-    if (g_str_has_prefix(structureName, "video/") && gst_video_info_from_caps(&info, caps)) {
-        float width, height;
-
-        // FIXME: Correct?.
-        width = info.width;
-        height = info.height * ((float) info.par_d / (float) info.par_n);
-        stream->presentationSize = WebCore::FloatSize(width, height);
+    if (WebCore::doCapsHaveType(caps, GST_VIDEO_CAPS_TYPE_PREFIX)) {
+        std::optional<WebCore::FloatSize> size = WebCore::getVideoResolutionFromCaps(caps);
+        if (size.has_value())
+            stream->presentationSize = size.value();
+        else
+            stream->presentationSize = WebCore::FloatSize();
     } else
         stream->presentationSize = WebCore::FloatSize();
 
@@ -480,18 +481,13 @@ void webKitMediaSrcLinkStreamToSrcPad(GstPad* sourcePad, Stream* stream)
     GUniquePtr<gchar> padName(g_strdup_printf("src_%u", padId));
     GstPad* ghostpad = WebCore::webkitGstGhostPadFromStaticTemplate(&srcTemplate, padName.get(), sourcePad);
 
+    auto proxypad = adoptGRef(GST_PAD(gst_proxy_pad_get_internal(GST_PROXY_PAD(ghostpad))));
+    gst_flow_combiner_add_pad(stream->parent->priv->flowCombiner.get(), proxypad.get());
+    gst_pad_set_chain_function(proxypad.get(), static_cast<GstPadChainFunction>(webkitMediaSrcChain));
     gst_pad_set_query_function(ghostpad, webKitMediaSrcQueryWithParent);
 
     gst_pad_set_active(ghostpad, TRUE);
     gst_element_add_pad(GST_ELEMENT(stream->parent), ghostpad);
-
-    if (stream->decodebinSinkPad) {
-        GST_DEBUG_OBJECT(stream->parent, "A decodebin was previously used for this source, trying to reuse it.");
-        // FIXME: error checking here. Not sure what to do if linking
-        // fails though, because decodebin is out of this source
-        // element's scope, in theory.
-        gst_pad_link(ghostpad, stream->decodebinSinkPad);
-    }
 }
 
 void webKitMediaSrcLinkParser(GstPad* sourcePad, GstCaps* caps, Stream* stream)
@@ -520,6 +516,22 @@ void webKitMediaSrcFreeStream(WebKitMediaSrc* source, Stream* stream)
         gst_app_src_set_callbacks(GST_APP_SRC(stream->appsrc), &disabledAppsrcCallbacks, nullptr, nullptr);
         gst_app_src_end_of_stream(GST_APP_SRC(stream->appsrc));
     }
+
+    GST_OBJECT_LOCK(source);
+    switch (stream->type) {
+    case WebCore::Audio:
+        source->priv->numberOfAudioStreams--;
+        break;
+    case WebCore::Video:
+        source->priv->numberOfVideoStreams--;
+        break;
+    case WebCore::Text:
+        source->priv->numberOfTextStreams--;
+        break;
+    default:
+        break;
+    }
+    GST_OBJECT_UNLOCK(source);
 
     if (stream->type != WebCore::Invalid) {
         GST_DEBUG("Freeing track-related info on stream %p", stream);

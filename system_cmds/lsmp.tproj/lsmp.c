@@ -202,8 +202,6 @@ int main(int argc, char *argv[]) {
 
         if (psettaskinfo[i].pid == lsmp_config.pid)
             taskinfo = &psettaskinfo[i];
-
-        ret = KERN_SUCCESS;
     }
 
     JSON_OBJECT_BEGIN(lsmp_config.json_output);

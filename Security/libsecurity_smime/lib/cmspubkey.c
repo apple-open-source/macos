@@ -67,12 +67,7 @@ SecCmsUtilEncryptSymKeyRSA(PLArenaPool *poolp, SecCertificateRef cert,
                               SecAsn1Item * encKey)
 {
     OSStatus rv;
-    SecPublicKeyRef publickey;
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
-    rv = SecCertificateCopyPublicKey(cert,&publickey);
-#else
-    publickey = SecCertificateCopyPublicKey(cert);
-#endif
+    SecPublicKeyRef publickey = SecCertificateCopyKey(cert);
     if (publickey == NULL)
 	return SECFailure;
 
@@ -776,11 +771,7 @@ SecCmsUtilEncryptSymKeyECDH(
     encKey->Length = 0;
 
     /* Copy the recipient's static public ECDH key */
-#if TARGET_OS_IPHONE
-    theirPubKey = SecCertificateCopyPublicKey(cert);
-#else
-    rv = SecCertificateCopyPublicKey(cert, &theirPubKey);
-#endif
+    theirPubKey = SecCertificateCopyKey(cert);
     if (rv || !theirPubKey) {
         dprintf("SecCmsUtilEncryptSymKeyECDH: failed to get public key from cert, %d\n", (int)rv);
         goto out;

@@ -44,7 +44,7 @@ typedef enum {
 
     kBRUCachesOnly         = 1 << 1,    // -caches-only: don't update helpers
     kBRUHelpersOptional    = 1 << 2,    // -Installer: helper updates !req'd
-    kBRUExpectUpToDate     = 1 << 3,    // -U: successful updates -> EX_OSFILE
+    // kBRUExpectUpToDate     = 1 << 3,    // -U: successful updates -> EX_OSFILE (in bootroot.h)
     kBRUEarlyBoot          = 1 << 4,    // -Boot: launch* calling us
 
     kBRUInvalidateKextcache = 1 << 5,   // -i: mimic sudo touch /S/L/Extensions

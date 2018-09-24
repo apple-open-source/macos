@@ -686,6 +686,7 @@ EXTRA_CPPFLAGS
 AP_CLEAN_SRCLIB_DIRS
 AP_BUILD_SRCLIB_DIRS
 AP_LIBS
+INSTALL_SUEXEC
 shared_build
 POST_SHARED_CMDS
 PRE_SHARED_CMDS
@@ -1149,8 +1150,10 @@ with_suexec_docroot
 with_suexec_uidmin
 with_suexec_gidmin
 with_suexec_logfile
+with_suexec_syslog
 with_suexec_safepath
 with_suexec_umask
+enable_suexec_capabilities
 enable_v4_mapped
 '
       ac_precious_vars='build_alias
@@ -2011,6 +2014,8 @@ Optional Features:
   --enable-userdir        mapping of requests to user-specific directories
   --disable-alias         mapping of requests to different filesystem parts
   --enable-rewrite        rule based URL manipulation
+  --enable-suexec-capabilities
+                          Use Linux capability bits not setuid root suexec
   --enable-v4-mapped      Allow IPv6 sockets to handle IPv4 connections
 
 Optional Packages:
@@ -2048,6 +2053,7 @@ Optional Packages:
   --with-suexec-uidmin    Minimal allowed UID
   --with-suexec-gidmin    Minimal allowed GID
   --with-suexec-logfile   Set the logfile
+  --with-suexec-syslog    Use syslog for suexec logging
   --with-suexec-safepath  Set the safepath
   --with-suexec-umask     umask for suexec'd process
 
@@ -25514,10 +25520,10 @@ EOF
 
 
   if test "x$INCLUDES" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting INCLUDES to \"-I\$(top_srcdir)/$modpath_current\""
-    INCLUDES="-I\$(top_srcdir)/$modpath_current"
+    test "x$silent" != "xyes" && echo "  setting INCLUDES to \"-I\$(top_srcdir)/$modpath_current -I\$(top_srcdir)/modules/http2\""
+    INCLUDES="-I\$(top_srcdir)/$modpath_current -I\$(top_srcdir)/modules/http2"
   else
-    apr_addto_bugger="-I\$(top_srcdir)/$modpath_current"
+    apr_addto_bugger="-I\$(top_srcdir)/$modpath_current -I\$(top_srcdir)/modules/http2"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $INCLUDES; do
@@ -38869,12 +38875,50 @@ fi
 # Check whether --with-suexec-logfile was given.
 if test "${with_suexec_logfile+set}" = set; then :
   withval=$with_suexec_logfile;
+  if test "x$withval" = "xyes"; then
+    as_fn_error $? "log filename required for --with-suexec-logfile option" "$LINENO" 5
+  elif test "x$withval" != "xno"; then
 
 cat >>confdefs.h <<_ACEOF
 #define AP_LOG_EXEC "$withval"
 _ACEOF
 
+  fi
+
 fi
+
+
+
+# Check whether --with-suexec-syslog was given.
+if test "${with_suexec_syslog+set}" = set; then :
+  withval=$with_suexec_syslog;
+  if test $withval = "yes"; then
+    if test "x${with_suexec_logfile}" != "xno"; then
+      { $as_echo "$as_me:${as_lineno-$LINENO}: hint: use \"--without-suexec-logfile --with-suexec-syslog\"" >&5
+$as_echo "$as_me: hint: use \"--without-suexec-logfile --with-suexec-syslog\"" >&6;}
+      as_fn_error $? "suexec does not support both logging to file and syslog" "$LINENO" 5
+    fi
+    for ac_func in vsyslog
+do :
+  ac_fn_c_check_func "$LINENO" "vsyslog" "ac_cv_func_vsyslog"
+if test "x$ac_cv_func_vsyslog" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_VSYSLOG 1
+_ACEOF
+
+else
+
+       as_fn_error $? "cannot support syslog from suexec without vsyslog()" "$LINENO" 5
+fi
+done
+
+
+$as_echo "#define AP_LOG_SYSLOG 1" >>confdefs.h
+
+  fi
+
+fi
+
 
 
 
@@ -38899,6 +38943,22 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 fi
+
+
+INSTALL_SUEXEC=setuid
+# Check whether --enable-suexec-capabilities was given.
+if test "${enable_suexec_capabilities+set}" = set; then :
+  enableval=$enable_suexec_capabilities;
+INSTALL_SUEXEC=caps
+
+$as_echo "#define AP_SUEXEC_CAPABILITIES 1" >>confdefs.h
+
+
+fi
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST INSTALL_SUEXEC"
+
 
 
 if test x${apu_found} != xobsolete; then

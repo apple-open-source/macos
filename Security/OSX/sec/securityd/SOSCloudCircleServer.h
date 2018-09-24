@@ -38,25 +38,21 @@ __BEGIN_DECLS
 bool SOSCCTryUserCredentials_Server(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
 bool SOSCCSetUserCredentials_Server(CFStringRef user_label, CFDataRef user_password, CFErrorRef *error);
 bool SOSCCSetUserCredentialsAndDSID_Server(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
+bool SOSCCSetUserCredentialsAndDSIDWithAnalytics_Server(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFDataRef parentEvent, CFErrorRef *error);
 
 bool SOSCCCanAuthenticate_Server(CFErrorRef *error);
 bool SOSCCPurgeUserCredentials_Server(CFErrorRef *error);
 
 SOSCCStatus SOSCCThisDeviceIsInCircle_Server(CFErrorRef *error);
 bool SOSCCRequestToJoinCircle_Server(CFErrorRef* error);
+bool SOSCCRequestToJoinCircleWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error);
 bool SOSCCRequestToJoinCircleAfterRestore_Server(CFErrorRef* error);
-CFStringRef SOSCCCopyDeviceID_Server(CFErrorRef *error);
-bool SOSCCSetDeviceID_Server(CFStringRef IDS, CFErrorRef *error);
-HandleIDSMessageReason SOSCCHandleIDSMessage_Server(CFDictionaryRef messageDict, CFErrorRef* error);
-bool SOSCCRequestSyncWithPeerOverKVS_Server(CFStringRef peerID, CFDataRef message, CFErrorRef *error);
-bool SOSCCClearPeerMessageKeyInKVS_Server(CFStringRef peerID, CFErrorRef *error);
-
-bool SOSCCIDSServiceRegistrationTest_Server(CFStringRef message, CFErrorRef *error);
-bool SOSCCIDSPingTest_Server(CFStringRef message, CFErrorRef *error);
-bool SOSCCIDSDeviceIDIsAvailableTest_Server(CFErrorRef *error);
+bool SOSCCRequestToJoinCircleAfterRestoreWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error);
 
 bool SOSCCRemoveThisDeviceFromCircle_Server(CFErrorRef* error);
+bool SOSCCRemoveThisDeviceFromCircleWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error);
 bool SOSCCRemovePeersFromCircle_Server(CFArrayRef peers, CFErrorRef* error);
+bool SOSCCRemovePeersFromCircleWithAnalytics_Server(CFArrayRef peers, CFDataRef parentEvent, CFErrorRef* error);
 bool SOSCCLoggedOutOfAccount_Server(CFErrorRef *error);
 bool SOSCCBailFromCircle_Server(uint64_t limit_in_seconds, CFErrorRef* error);
 bool SOSCCRequestEnsureFreshParameters_Server(CFErrorRef* error);
@@ -85,19 +81,18 @@ CFArrayRef SOSCCCopyEngineState_Server(CFErrorRef* error);
 
 CFArrayRef SOSCCCopyPeerPeerInfo_Server(CFErrorRef* error);
 CFArrayRef SOSCCCopyConcurringPeerPeerInfo_Server(CFErrorRef* error);
-bool SOSCCCheckPeerAvailability_Server(CFErrorRef *error);
 bool SOSCCkSecXPCOpIsThisDeviceLastBackup_Server(CFErrorRef *error);
 bool SOSCCkSecXPCOpIsThisDeviceLastBackup_Server(CFErrorRef *error);
 bool SOSCCAccountSetToNew_Server(CFErrorRef *error);
 bool SOSCCResetToOffering_Server(CFErrorRef* error);
 bool SOSCCResetToEmpty_Server(CFErrorRef* error);
+bool SOSCCResetToEmptyWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error);
 
 CFBooleanRef SOSCCPeersHaveViewsEnabled_Server(CFArrayRef viewNames, CFErrorRef *error);
 
 SOSViewResultCode SOSCCView_Server(CFStringRef view, SOSViewActionCode action, CFErrorRef *error);
+bool SOSCCViewSetWithAnalytics_Server(CFSetRef enabledViews, CFSetRef disabledViews, CFDataRef parentEvent);
 bool SOSCCViewSet_Server(CFSetRef enabledView, CFSetRef disabledViews);
-
-SOSSecurityPropertyResultCode SOSCCSecurityProperty_Server(CFStringRef property, SOSSecurityPropertyActionCode action, CFErrorRef *error);
 
 CFStringRef SOSCCCopyIncompatibilityInfo_Server(CFErrorRef* error);
 enum DepartureReason SOSCCGetLastDepartureReason_Server(CFErrorRef* error);
@@ -107,12 +102,12 @@ bool SOSCCProcessEnsurePeerRegistration_Server(CFErrorRef* error);
 
 CF_RETURNS_RETAINED CFSetRef SOSCCProcessSyncWithPeers_Server(CFSetRef peers, CFSetRef backupPeers, CFErrorRef *error);
 SyncWithAllPeersReason SOSCCProcessSyncWithAllPeers_Server(CFErrorRef* error);
-bool SOSCCRequestSyncWithPeerOverKVSUsingIDOnly_Server(CFStringRef deviceID, CFErrorRef *error);
 
 SOSPeerInfoRef SOSCCSetNewPublicBackupKey_Server(CFDataRef newPublicBackup, CFErrorRef *error);
 bool SOSCCRegisterSingleRecoverySecret_Server(CFDataRef backupSlice, bool setupV0Only, CFErrorRef *error);
 
 bool SOSCCWaitForInitialSync_Server(CFErrorRef*);
+bool SOSCCWaitForInitialSyncWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error);
 CFArrayRef SOSCCCopyYetToSyncViewsList_Server(CFErrorRef*);
 
 bool SOSWrapToBackupSliceKeyBagForView_Server(CFStringRef viewName, CFDataRef input, CFDataRef* output, CFDataRef* bskbEncoded, CFErrorRef* error);
@@ -131,7 +126,6 @@ void SOSCCRequestSyncWithPeer(CFStringRef peerID);
 void SOSCCRequestSyncWithPeers(CFSetRef /*SOSPeerInfoRef/CFStringRef*/ peerIDs);
 void SOSCCRequestSyncWithPeersList(CFArrayRef /*CFStringRef*/ peerIDs);
 void SOSCCRequestSyncWithBackupPeer(CFStringRef backupPeerId);
-
 bool SOSCCIsSyncPendingFor(CFStringRef peerID, CFErrorRef *error);
 
 void SOSCCEnsurePeerRegistration(void);
@@ -148,7 +142,9 @@ CFTypeRef SOSKeychainAccountGetSharedAccount(void);
 //
 // MARK: Internal SPIs for testing
 //
-CFStringRef CopyOSVersion(void);
+
+void SOSCCSetGestalt_Server(CFStringRef name, CFStringRef version, CFStringRef model, CFStringRef serial);
+CFStringRef SOSCCCopyOSVersion(void);
 CFDataRef SOSCCCopyAccountState_Server(CFErrorRef* error);
 CFDataRef SOSCCCopyEngineData_Server(CFErrorRef* error);
 bool SOSCCDeleteEngineState_Server(CFErrorRef* error);

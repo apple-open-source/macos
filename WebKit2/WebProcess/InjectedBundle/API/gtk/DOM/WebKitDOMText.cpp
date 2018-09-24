@@ -35,6 +35,8 @@
 #include <wtf/GetPtr.h>
 #include <wtf/RefPtr.h>
 
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
+
 namespace WebKit {
 
 WebKitDOMText* kit(WebCore::Text* obj)
@@ -83,18 +85,18 @@ static gboolean webkit_dom_text_remove_event_listener(WebKitDOMEventTarget* targ
     return WebKit::GObjectEventListener::removeEventListener(G_OBJECT(target), coreTarget, eventName, handler, useCapture);
 }
 
-static void webkit_dom_event_target_init(WebKitDOMEventTargetIface* iface)
+static void webkit_dom_text_dom_event_target_init(WebKitDOMEventTargetIface* iface)
 {
     iface->dispatch_event = webkit_dom_text_dispatch_event;
     iface->add_event_listener = webkit_dom_text_add_event_listener;
     iface->remove_event_listener = webkit_dom_text_remove_event_listener;
 }
 
-G_DEFINE_TYPE_WITH_CODE(WebKitDOMText, webkit_dom_text, WEBKIT_DOM_TYPE_CHARACTER_DATA, G_IMPLEMENT_INTERFACE(WEBKIT_DOM_TYPE_EVENT_TARGET, webkit_dom_event_target_init))
+G_DEFINE_TYPE_WITH_CODE(WebKitDOMText, webkit_dom_text, WEBKIT_DOM_TYPE_CHARACTER_DATA, G_IMPLEMENT_INTERFACE(WEBKIT_DOM_TYPE_EVENT_TARGET, webkit_dom_text_dom_event_target_init))
 
 enum {
-    PROP_0,
-    PROP_WHOLE_TEXT,
+    DOM_TEXT_PROP_0,
+    DOM_TEXT_PROP_WHOLE_TEXT,
 };
 
 static void webkit_dom_text_get_property(GObject* object, guint propertyId, GValue* value, GParamSpec* pspec)
@@ -102,7 +104,7 @@ static void webkit_dom_text_get_property(GObject* object, guint propertyId, GVal
     WebKitDOMText* self = WEBKIT_DOM_TEXT(object);
 
     switch (propertyId) {
-    case PROP_WHOLE_TEXT:
+    case DOM_TEXT_PROP_WHOLE_TEXT:
         g_value_take_string(value, webkit_dom_text_get_whole_text(self));
         break;
     default:
@@ -118,7 +120,7 @@ static void webkit_dom_text_class_init(WebKitDOMTextClass* requestClass)
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_WHOLE_TEXT,
+        DOM_TEXT_PROP_WHOLE_TEXT,
         g_param_spec_string(
             "whole-text",
             "Text:whole-text",
@@ -157,3 +159,4 @@ gchar* webkit_dom_text_get_whole_text(WebKitDOMText* self)
     return result;
 }
 
+G_GNUC_END_IGNORE_DEPRECATIONS;

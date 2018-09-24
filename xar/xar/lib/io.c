@@ -162,6 +162,7 @@ size_t xar_io_get_toc_checksum_length_for_type(const char *type) {
 size_t xar_io_get_toc_checksum_length(xar_t x) {
 	switch(XAR(x)->header.cksum_alg) {
 		case XAR_CKSUM_NONE:
+			// Left in place even though it is no longer supported for archive parsing
 			return 0;
 		case XAR_CKSUM_SHA1:
 			return 20;

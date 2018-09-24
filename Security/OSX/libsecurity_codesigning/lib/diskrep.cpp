@@ -78,7 +78,6 @@ void DiskRep::Writer::addDiscretionary(CodeDirectory::Builder &)
 	// do nothing
 }
 
-
 //
 // Given a file system path, come up with the most likely correct
 // disk representation for what's there.
@@ -299,6 +298,9 @@ std::string DiskRep::canonicalIdentifier(const std::string &name)
 	// foo3^.5, foo.3^.5, foo3^, foo.3^, foo^
 	return s.substr(0, p);
 }
+
+void DiskRep::registerStapledTicket()
+{ /* do nothing */ }
 
 
 //

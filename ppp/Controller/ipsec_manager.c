@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2014, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2014, 2017-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,7 +69,11 @@ includes
 #include <SystemConfiguration/SCPreferences.h>
 #include <sys/un.h>
 
+#if __has_include(<nw/private.h>)
+#include <nw/private.h>
+#else // __has_include(<nw/private.h>)
 #include <network/private.h>
+#endif // __has_include(<nw/private.h>)
 
 #include "scnc_client.h"
 #include "scnc_main.h"
@@ -548,6 +552,19 @@ int ipsec_setup_service(struct service *serv)
 #endif
 
 	return 0;
+}
+
+void
+ipsec_set_initial_values(struct service *serv, CFDictionaryRef initialValues)
+{
+	if (!isA_CFDictionary(initialValues)) {
+		return;
+	}
+
+	uint32_t lastcause = IPSEC_NO_ERROR;
+	getNumber(initialValues, CFSTR("LastCause"), &lastcause);
+
+	serv->u.ipsec.laststatus = lastcause;
 }
 
 /* -----------------------------------------------------------------------------

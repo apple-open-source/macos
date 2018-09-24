@@ -100,6 +100,11 @@ bool KeychainPromptAclSubject::validates(const AclValidationContext &ctx) const
 bool KeychainPromptAclSubject::validates(const AclValidationContext &context,
     const TypedList &sample) const
 {
+    // Try to grab a common lock. We'll need it in queryUser, but we can't get
+    // it in validateExplicitly since other callers have it.
+    SecurityServerEnvironment *env = context.environment<SecurityServerEnvironment>();
+    StMaybeLock<Mutex> _(env && env->database && env->database->hasCommon() ? &env->database->common() : NULL);
+
 	return validateExplicitly(context, ^{
 		if (SecurityServerEnvironment *env = context.environment<SecurityServerEnvironment>()) {
             Process& process = Server::process();

@@ -61,12 +61,13 @@
 // __pthread_tsd_end is the end of dynamic keys.
 
 static const int __pthread_tsd_first = __TSD_RESERVED_MAX + 1;
-static int __pthread_tsd_max = __pthread_tsd_first;
 static const int __pthread_tsd_start = _INTERNAL_POSIX_THREAD_KEYS_MAX;
 static const int __pthread_tsd_end = _INTERNAL_POSIX_THREAD_KEYS_END;
 
-static int __pthread_key_legacy_behaviour = 0;
-static int __pthread_key_legacy_behaviour_log = 0;
+static int __pthread_tsd_max = __pthread_tsd_first;
+static _pthread_lock __pthread_tsd_lock = _PTHREAD_LOCK_INITIALIZER;
+static bool __pthread_key_legacy_behaviour = 0;
+static bool __pthread_key_legacy_behaviour_log = 0;
 
 // Omit support for pthread key destructors in the static archive for dyld.
 // dyld does not create and destroy threads so these are not necessary.
@@ -80,15 +81,17 @@ static struct {
 	uintptr_t destructor;
 } _pthread_keys[_INTERNAL_POSIX_THREAD_KEYS_END];
 
-static _pthread_lock tsd_lock = _PTHREAD_LOCK_INITIALIZER;
-
 // The pthread_tsd destruction order can be reverted to the old (pre-10.11) order
 // by setting this environment variable.
 void
 _pthread_key_global_init(const char *envp[])
 {
-	__pthread_key_legacy_behaviour = _simple_getenv(envp, "PTHREAD_KEY_LEGACY_DESTRUCTOR_ORDER") ? 1 : 0;
-	__pthread_key_legacy_behaviour_log = _simple_getenv(envp, "PTHREAD_KEY_LEGACY_DESTRUCTOR_ORDER_LOG") ? 1 : 0;
+	if (_simple_getenv(envp, "PTHREAD_KEY_LEGACY_DESTRUCTOR_ORDER")) {
+		__pthread_key_legacy_behaviour = true;
+	}
+	if (_simple_getenv(envp, "PTHREAD_KEY_LEGACY_DESTRUCTOR_ORDER_LOG")) {
+		__pthread_key_legacy_behaviour_log = true;
+	}
 }
 
 // Returns true if successful, false if destructor was already set.
@@ -133,7 +136,7 @@ pthread_key_create(pthread_key_t *key, void (*destructor)(void *))
 	int res = EAGAIN; // Returns EAGAIN if key cannot be allocated.
 	pthread_key_t k;
 
-	_PTHREAD_LOCK(tsd_lock);
+	_PTHREAD_LOCK(__pthread_tsd_lock);
 	for (k = __pthread_tsd_start; k < __pthread_tsd_end; k++) {
 		if (_pthread_key_set_destructor(k, destructor)) {
 			*key = k;
@@ -141,7 +144,7 @@ pthread_key_create(pthread_key_t *key, void (*destructor)(void *))
 			break;
 		}
 	}
-	_PTHREAD_UNLOCK(tsd_lock);
+	_PTHREAD_UNLOCK(__pthread_tsd_lock);
 
 	return res;
 }
@@ -151,12 +154,12 @@ pthread_key_delete(pthread_key_t key)
 {
 	int res = EINVAL; // Returns EINVAL if key is not allocated.
 
-	_PTHREAD_LOCK(tsd_lock);
+	_PTHREAD_LOCK(__pthread_tsd_lock);
 	if (key >= __pthread_tsd_start && key < __pthread_tsd_end) {
 		if (_pthread_key_unset_destructor(key)) {
 			struct _pthread *p;
 			_PTHREAD_LOCK(_pthread_list_lock);
-			TAILQ_FOREACH(p, &__pthread_head, plist) {
+			TAILQ_FOREACH(p, &__pthread_head, tl_plist) {
 				// No lock for word-sized write.
 				p->tsd[key] = 0;
 			}
@@ -164,7 +167,7 @@ pthread_key_delete(pthread_key_t key)
 			res = 0;
 		}
 	}
-	_PTHREAD_UNLOCK(tsd_lock);
+	_PTHREAD_UNLOCK(__pthread_tsd_lock);
 
 	return res;
 }
@@ -188,7 +191,7 @@ pthread_setspecific(pthread_key_t key, const void *value)
 				_pthread_key_set_destructor(key, NULL);
 			}
 			if (key > self->max_tsd_key) {
-				self->max_tsd_key = (int)key;
+				self->max_tsd_key = (uint16_t)key;
 			}
 		}
 	}
@@ -342,12 +345,12 @@ pthread_key_init_np(int key, void (*destructor)(void *))
 {
 	int res = EINVAL; // Returns EINVAL if key is out of range.
 	if (key >= __pthread_tsd_first && key < __pthread_tsd_start) {
-		_PTHREAD_LOCK(tsd_lock);
+		_PTHREAD_LOCK(__pthread_tsd_lock);
 		_pthread_key_set_destructor(key, destructor);
 		if (key > __pthread_tsd_max) {
 			__pthread_tsd_max = key;
 		}
-		_PTHREAD_UNLOCK(tsd_lock);
+		_PTHREAD_UNLOCK(__pthread_tsd_lock);
 		res = 0;
 	}
 	return res;

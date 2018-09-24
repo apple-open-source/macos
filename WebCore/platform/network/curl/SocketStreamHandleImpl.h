@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2018 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,7 @@
 #include <wtf/Seconds.h>
 #include <wtf/StreamBuffer.h>
 #include <wtf/Threading.h>
+#include <wtf/UniqueArray.h>
 
 namespace WebCore {
 
@@ -56,13 +57,14 @@ public:
 
     virtual ~SocketStreamHandleImpl();
 
-    void platformSend(const char* data, size_t length, Function<void(bool)>&&) final;
-    void platformClose() final;
+    WEBCORE_EXPORT void platformSend(const uint8_t* data, size_t length, Function<void(bool)>&&) final;
+    WEBCORE_EXPORT void platformSendHandshake(const uint8_t* data, size_t length, const std::optional<CookieRequestHeaderFieldProxy>&, Function<void(bool, bool)>&&) final;
+    WEBCORE_EXPORT void platformClose() final;
 private:
-    SocketStreamHandleImpl(const URL&, SocketStreamHandleClient&);
+    WEBCORE_EXPORT SocketStreamHandleImpl(const URL&, SocketStreamHandleClient&);
 
     size_t bufferedAmount() final;
-    std::optional<size_t> platformSendInternal(const char*, size_t);
+    std::optional<size_t> platformSendInternal(const uint8_t*, size_t);
     bool sendPendingData();
 
     bool readData(CURL*);
@@ -76,7 +78,7 @@ private:
     void didOpenSocket();
 
     struct SocketData {
-        SocketData(std::unique_ptr<char[]>&& source, size_t length)
+        SocketData(UniqueArray<char>&& source, size_t length)
         {
             data = WTFMove(source);
             size = length;
@@ -89,7 +91,7 @@ private:
             other.size = 0;
         }
 
-        std::unique_ptr<char[]> data;
+        UniqueArray<char> data;
         size_t size { 0 };
     };
 
@@ -99,8 +101,9 @@ private:
     Lock m_mutexReceive;
     Deque<SocketData> m_sendData;
     Deque<SocketData> m_receiveData;
+    bool m_closed { false };
 
-    StreamBuffer<char, 1024 * 1024> m_buffer;
+    StreamBuffer<uint8_t, 1024 * 1024> m_buffer;
     static const unsigned maxBufferSize = 100 * 1024 * 1024;
 };
 

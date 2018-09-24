@@ -26,7 +26,7 @@
 
 #pragma ident	"@(#)tst.stack.d	1.1	06/08/28 SMI"
 
-BEGIN
+profile-500ms
 {
 	@[stack()] = count();
 	@[ustack()] = count();

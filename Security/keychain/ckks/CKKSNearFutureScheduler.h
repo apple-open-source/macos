@@ -69,6 +69,8 @@ NS_ASSUME_NONNULL_BEGIN
 // Don't trigger again until at least this much time has passed.
 - (void)waitUntil:(uint64_t)delay;
 
+- (void)changeDelays:(dispatch_time_t)initialDelay continuingDelay:(dispatch_time_t)continuingDelay;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -92,6 +92,9 @@ do {    \
 #define kIOPMRootDomainWakeTypeNotification CFSTR("Notification")
 #endif
 
+
+#define  kDisplayTickleDelay  30        // Mininum delay(in secs) between sending tickles
+
 /*
  * Lower 16 bits are used for assertionID created by powerd.
  * Upper 16 bits are used for assertionID created by the client process creating
@@ -423,6 +426,7 @@ __private_extern__ void InternalReleaseAssertion(
 __private_extern__ IOReturn InternalReleaseAssertionSync(IOPMAssertionID outID);
 __private_extern__ IOReturn 
 InternalCreateAssertionWithTimeout(CFStringRef type, CFStringRef name, int timerSecs, IOPMAssertionID *outID);
+__private_extern__ IOReturn InternalSetAssertionTimeout(IOPMAssertionID id, CFTimeInterval timeout);
 
 __private_extern__ void InternalEvaluateAssertions(void);
 

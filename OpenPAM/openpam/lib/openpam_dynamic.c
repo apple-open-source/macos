@@ -40,9 +40,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <dispatch/dispatch.h>
-
+#include <os/log.h>
 #include <security/pam_appl.h>
 
 #include "openpam_impl.h"
@@ -68,10 +69,22 @@ openpam_dynamic_load(const char *prefix, const char *path, pam_module_t *module)
 	if (asprintf(&vpath, "%s%s.%d", prefix, path, LIB_MAJ) < 0)
 		goto buf_err;
 	if ((dlh = dlopen(vpath, RTLD_NOW)) == NULL) {
-		openpam_log(PAM_LOG_LIBDEBUG, "%s: %s", vpath, dlerror());
+		/* <rdar://problem/41312354> PAM should trigger a simulated crash when it fails to load a module */
+		const char *dlerr = dlerror();
+		int rv = access(vpath, R_OK);
+		if (rv == 0)
+			os_log_fault(OS_LOG_DEFAULT, "[%{public}s] %{public}s exists + readable, but failed dlopen(): %{public}s",
+						 __func__, vpath, dlerr);
+		openpam_log(PAM_LOG_LIBDEBUG, "%s: %s", vpath, dlerr);
 		*strrchr(vpath, '.') = '\0';
 		if ((dlh = dlopen(vpath, RTLD_NOW)) == NULL) {
-			openpam_log(PAM_LOG_LIBDEBUG, "%s: %s", vpath, dlerror());
+			/* <rdar://problem/41312354> PAM should trigger a simulated crash when it fails to load a module */
+			dlerr = dlerror();
+			rv = access(vpath, R_OK);
+			if (rv == 0)
+				os_log_fault(OS_LOG_DEFAULT, "[%{public}s] %{public}s exists + readable, but failed dlopen(): %{public}s",
+							 __func__, vpath, dlerr);
+			openpam_log(PAM_LOG_LIBDEBUG, "%s: %s", vpath, dlerr);
 			FREE(vpath);
 			return false;
 		}

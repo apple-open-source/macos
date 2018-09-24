@@ -37,8 +37,13 @@
 CFDataRef oaep_padding_via_c(int desired_message_length, CFDataRef dataValue);
 CFDataRef oaep_padding_via_c(int desired_message_length, CFDataRef dataValue) CF_RETURNS_RETAINED
 {
-	cc_unit paddingBuffer[ccn_nof_size(desired_message_length)];
-	bzero(paddingBuffer, sizeof(cc_unit) * ccn_nof_size(desired_message_length)); // XXX needed??
+    size_t pBufferSize = ccn_sizeof_size(desired_message_length);
+	cc_unit *paddingBuffer = malloc(pBufferSize);
+    if (paddingBuffer == NULL){
+        return (void*)GetNoMemoryErrorAndRetain();
+    }
+    
+	bzero(paddingBuffer, pBufferSize); // XXX needed??
 	static dispatch_once_t randomNumberGenneratorInitialzed;
 	static struct ccrng_system_state rng;
 	dispatch_once(&randomNumberGenneratorInitialzed, ^{
@@ -47,23 +52,29 @@ CFDataRef oaep_padding_via_c(int desired_message_length, CFDataRef dataValue) CF
 	
     ccrsa_oaep_encode(ccsha1_di(),
                       (struct ccrng_state*)&rng,
-                      sizeof(paddingBuffer), (cc_unit*)paddingBuffer,
+                      pBufferSize, (cc_unit*)paddingBuffer,
                       CFDataGetLength(dataValue), CFDataGetBytePtr(dataValue));
-    ccn_swap(ccn_nof_size(sizeof(paddingBuffer)), (cc_unit*)paddingBuffer);
+    ccn_swap(ccn_nof_size(pBufferSize), (cc_unit*)paddingBuffer);
 	
     CFDataRef paddedValue = CFDataCreate(NULL, (UInt8*)paddingBuffer, desired_message_length);
-	return paddedValue ? paddedValue : (void*)GetNoMemoryErrorAndRetain();
+    free(paddingBuffer);
+    return paddedValue ? paddedValue : (void*)GetNoMemoryErrorAndRetain();
 }
 
 CFDataRef oaep_unpadding_via_c(CFDataRef encodedMessage);
 CFDataRef oaep_unpadding_via_c(CFDataRef encodedMessage) CF_RETURNS_RETAINED
 {
 	size_t mlen = CFDataGetLength(encodedMessage);
-	cc_size n = ccn_nof_size(mlen);
-	cc_unit paddingBuffer[n];
-	UInt8 plainText[mlen];
+	size_t pBufferSize = ccn_sizeof_size(mlen);
+    cc_unit *paddingBuffer = malloc(pBufferSize);
+	UInt8 *plainText = malloc(mlen);
+    if (plainText == NULL || paddingBuffer == NULL) {
+        free(plainText);
+        free(paddingBuffer);
+        return (void*)GetNoMemoryErrorAndRetain();
+    }
 	
-	ccn_read_uint(n, paddingBuffer, mlen, CFDataGetBytePtr(encodedMessage));
+	ccn_read_uint(ccn_nof_size(mlen), paddingBuffer, mlen, CFDataGetBytePtr(encodedMessage));
 	size_t plainTextLength = mlen;
     int err = ccrsa_oaep_decode(ccsha1_di(), &plainTextLength, plainText, mlen, paddingBuffer);
 	
@@ -71,8 +82,15 @@ CFDataRef oaep_unpadding_via_c(CFDataRef encodedMessage) CF_RETURNS_RETAINED
 		// XXX should make a CFError or something.
         CFErrorRef error = fancy_error(CFSTR("CoreCrypto"), err, CFSTR("OAEP decode error"));
         CFRetainSafe(error);
+        free(plainText);
+        free(paddingBuffer);
         return (void*)error;
     }
-	CFDataRef result = CFDataCreate(NULL, (UInt8*)plainText, plainTextLength);
-	return result;
+	
+    CFDataRef result = CFDataCreate(NULL, (UInt8*)plainText, plainTextLength);
+    
+    free(plainText);
+    free(paddingBuffer);
+    
+    return result;
 }

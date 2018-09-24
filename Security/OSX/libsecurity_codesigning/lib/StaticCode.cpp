@@ -29,6 +29,7 @@
 #include "reqmaker.h"
 #if TARGET_OS_OSX
 #include "drmaker.h"
+#include "notarization.h"
 #endif
 #include "reqdumper.h"
 #include "reqparser.h"
@@ -100,13 +101,14 @@ static inline OSStatus errorForSlot(CodeDirectory::SpecialSlot slot)
 //
 // Construct a SecStaticCode object given a disk representation object
 //
-SecStaticCode::SecStaticCode(DiskRep *rep)
+SecStaticCode::SecStaticCode(DiskRep *rep, uint32_t flags)
 	: mCheckfix30814861builder1(NULL),
 	  mRep(rep),
 	  mValidated(false), mExecutableValidated(false), mResourcesValidated(false), mResourcesValidContext(NULL),
 	  mProgressQueue("com.apple.security.validation-progress", false, QOS_CLASS_UNSPECIFIED),
 	  mOuterScope(NULL), mResourceScope(NULL),
-	  mDesignatedReq(NULL), mGotResourceBase(false), mMonitor(NULL), mLimitedAsync(NULL)
+	  mDesignatedReq(NULL), mGotResourceBase(false), mMonitor(NULL), mLimitedAsync(NULL),
+	  mFlags(flags), mNotarizationChecked(false), mStaplingChecked(false), mNotarizationDate(NAN)
 #if TARGET_OS_OSX
     , mEvalDetails(NULL)
 #else
@@ -675,6 +677,58 @@ CFAbsoluteTime SecStaticCode::signingTimestamp()
 	return mSigningTimestamp;
 }
 
+#if TARGET_OS_OSX
+#define kSecSHA256HashSize 32
+// subject:/C=US/ST=California/L=San Jose/O=Adobe Systems Incorporated/OU=Information Systems/OU=Digital ID Class 3 - Microsoft Software Validation v2/CN=Adobe Systems Incorporated
+// issuer :/C=US/O=VeriSign, Inc./OU=VeriSign Trust Network/OU=Terms of use at https://www.verisign.com/rpa (c)10/CN=VeriSign Class 3 Code Signing 2010 CA
+// Not Before: Dec 15 00:00:00 2010 GMT
+// Not After : Dec 14 23:59:59 2012 GMT
+static const unsigned char ASI_CS_12[] = {
+	0x77,0x82,0x9C,0x64,0x33,0x45,0x2E,0x4A,0xD3,0xA8,0xE4,0x6F,0x00,0x6C,0x27,0xEA,
+	0xFB,0xD3,0xF2,0x6D,0x50,0xF3,0x6F,0xE0,0xE9,0x6D,0x06,0x59,0x19,0xB5,0x46,0xFF
+};
+
+bool SecStaticCode::checkfix41082220(OSStatus cssmTrustResult)
+{
+	// only applicable to revoked results
+	if (cssmTrustResult != CSSMERR_TP_CERT_REVOKED) {
+		return false;
+	}
+
+	// only this leaf certificate
+	if (CFArrayGetCount(mCertChain) == 0) {
+		return false;
+	}
+	CFRef<CFDataRef> leafHash(SecCertificateCopySHA256Digest((SecCertificateRef)CFArrayGetValueAtIndex(mCertChain, 0)));
+	if (memcmp(ASI_CS_12, CFDataGetBytePtr(leafHash), kSecSHA256HashSize) != 0) {
+		return false;
+	}
+
+	// detached dmg signature
+	if (!isDetached() || format() != std::string("disk image")) {
+		return false;
+	}
+
+	// sha-1 signed
+	if (hashAlgorithms().size() != 1 || hashAlgorithm() != kSecCodeSignatureHashSHA1) {
+		return false;
+	}
+
+	// not a privileged binary - no TeamID and no entitlements
+	if (component(cdEntitlementSlot) || teamID()) {
+		return false;
+	}
+
+	// no flags and old version
+	if (codeDirectory()->version != 0x20100 || codeDirectory()->flags != 0) {
+		return false;
+	}
+
+	Security::Syslog::warning("CodeSigning: Check-fix enabled for dmg '%s' with identifier '%s' signed with revoked certificates",
+							  mainExecutablePath().c_str(), identifier().c_str());
+	return true;
+}
+#endif // TARGET_OS_OSX
 
 //
 // Verify the CMS signature.
@@ -898,6 +952,9 @@ bool SecStaticCode::verifySignature()
 						actionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED; // (this also allows postdated certs)
 						continue;		// retry validation while tolerating expiration
 					}
+				}
+				if (checkfix41082220(result)) {
+					break; // success
 				}
 				Security::Syslog::error("SecStaticCode: verification failed (trust result %d, error %d)", trustResult, (int)result);
 				MacOSError::throwMe(result);
@@ -1822,7 +1879,10 @@ const Requirement *SecStaticCode::defaultDesignatedRequirement()
 			this->infoDictionary(),
 			this->entitlements(),
 			this->identifier(),
-			this->codeDirectory()
+			this->codeDirectory(),
+			NULL,
+			kSecCodeSignatureNoHash,
+			false
 		);
 		return DRMaker(context).make();
 #else
@@ -1855,7 +1915,7 @@ bool SecStaticCode::satisfiesRequirement(const Requirement *req, OSStatus failur
 	bool result = false;
 	assert(req);
 	validateDirectory();
-	result = req->validates(Requirement::Context(mCertChain, infoDictionary(), entitlements(), codeDirectory()->identifier(), codeDirectory()), failure);
+	result = req->validates(Requirement::Context(mCertChain, infoDictionary(), entitlements(), codeDirectory()->identifier(), codeDirectory(), NULL, kSecCodeSignatureNoHash, mRep->appleInternalForcePlatform()), failure);
 	return result;
 }
 
@@ -2015,6 +2075,14 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 		if (CFRef<CFDictionaryRef> ddict = diskRepInformation())
 			CFDictionaryAddValue(dict, kSecCodeInfoDiskRepInfo, ddict);
 		} catch (...) { }
+		if (mNotarizationChecked && !isnan(mNotarizationDate)) {
+			CFRef<CFDateRef> date = CFDateCreate(NULL, mNotarizationDate);
+			if (date) {
+				CFDictionaryAddValue(dict, kSecCodeInfoNotarizationDate, date.get());
+			} else {
+				secerror("Error creating date from timestamp: %f", mNotarizationDate);
+			}
+		}
 	}
 
 
@@ -2085,6 +2153,25 @@ void SecStaticCode::CollectingContext::throwMe()
 void SecStaticCode::staticValidate(SecCSFlags flags, const SecRequirement *req)
 {
 	setValidationFlags(flags);
+
+#if TARGET_OS_OSX
+	if (!mStaplingChecked) {
+		mRep->registerStapledTicket();
+		mStaplingChecked = true;
+	}
+
+	if (mFlags & kSecCSForceOnlineNotarizationCheck) {
+		if (!mNotarizationChecked) {
+			if (this->cdHash()) {
+				bool is_revoked = checkNotarizationServiceForRevocation(this->cdHash(), (SecCSDigestAlgorithm)this->hashAlgorithm(), &mNotarizationDate);
+				if (is_revoked) {
+					MacOSError::throwMe(errSecCSRevokedNotarization);
+				}
+			}
+			mNotarizationChecked = true;
+		}
+	}
+#endif // TARGET_OS_OSX
 
 	// initialize progress/cancellation state
 	if (flags & kSecCSReportProgress)
@@ -2203,7 +2290,7 @@ bool SecStaticCode::isAppleDeveloperCert(CFArrayRef certs)
 {
 	static const std::string appleDeveloperRequirement = "(" + std::string(WWDRRequirement) + ") or (" + MACWWDRRequirement + ") or (" + developerID + ") or (" + distributionCertificate + ") or (" + iPhoneDistributionCert + ")";
 	SecPointer<SecRequirement> req = new SecRequirement(parseRequirement(appleDeveloperRequirement), true);
-	Requirement::Context ctx(certs, NULL, NULL, "", NULL);
+	Requirement::Context ctx(certs, NULL, NULL, "", NULL, NULL, kSecCodeSignatureNoHash, false);
 
 	return req->requirement()->validates(ctx);
 }

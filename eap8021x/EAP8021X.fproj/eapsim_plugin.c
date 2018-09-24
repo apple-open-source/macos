@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -157,6 +157,8 @@ typedef struct {
 /**
  ** Identity routines
  **/
+
+#if TARGET_OS_EMBEDDED
 STATIC CFStringRef
 copy_imsi_identity(CFStringRef imsi, CFStringRef realm)
 {
@@ -190,6 +192,7 @@ copy_static_realm(CFDictionaryRef properties)
     }
     return (CFRetain(realm));
 }
+#endif /* TARGET_OS_EMBEDDED */
 
 STATIC CFStringRef
 copy_static_imsi(CFDictionaryRef properties)
@@ -229,6 +232,7 @@ S_get_plist_int(CFDictionaryRef plist, CFStringRef key, int def)
 	return (ret);
 }
 
+#if TARGET_OS_EMBEDDED
 static bool
 S_get_plist_bool(CFDictionaryRef plist, CFStringRef key, bool def)
 {
@@ -241,6 +245,7 @@ S_get_plist_bool(CFDictionaryRef plist, CFStringRef key, bool def)
 	}
 	return (ret);
 }
+#endif /* TARGET_OS_EMBEDDED */
 
 STATIC bool
 blocks_are_duplicated(const uint8_t * blocks, int n_blocks, int block_size)
@@ -390,7 +395,7 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
     }
     realm = copy_static_realm(properties);
     if (realm == NULL) {
-	realm = SIMCopyRealm();
+	realm = SIMCopyRealm(properties);
     }
     ret_identity = create_identity(persist, properties, identity_type, realm,
 				   is_reauth_id_p, client_status);
@@ -411,17 +416,6 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
 	*is_reauth_id_p = FALSE;
     }
     return (NULL);
-}
-
-STATIC CFStringRef
-copy_pseudonym_identity(CFStringRef pseudonym, CFStringRef realm)
-{
-    if (realm != NULL) {
-	return (CFStringCreateWithFormat(NULL, NULL,
-					 CFSTR("%@" "@" "%@"),
-					 pseudonym, realm));
-    }
-    return (CFRetain(pseudonym));
 }
 
 #endif /* TARGET_OS_EMBEDDED */
@@ -723,7 +717,7 @@ EAPSIMContextSIMProcessRAND(EAPSIMContextRef context,
     }
     else {
         /* ask the SIM to get the (Kc, SRES) pairs from the RAND's */
-        if (SIMAuthenticateGSM(rand_p, count, kc_p, sres_p) == FALSE) {
+        if (SIMAuthenticateGSM(context->plugin->properties, rand_p, count, kc_p, sres_p) == FALSE) {
             EAPLOG(LOG_NOTICE, "SIMAuthenticateGSM failed");
             return (FALSE);
         }
@@ -759,7 +753,7 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
     }
     else {
 	/* check for a real SIM module */
-	imsi = SIMCopyIMSI();
+	imsi = SIMCopyIMSI(plugin->properties);
 	if (imsi == NULL) {
 	    EAPLOG(LOG_NOTICE, "EAP-SIM: no SIM available");
 	    return (kEAPClientStatusResourceUnavailable);
@@ -801,7 +795,7 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
     }
     if (plugin->encryptedEAPIdentity == NULL) {
 	context->encrypted_identity_info
-	= EAPSIMAKAInitEncryptedIdentityInfo(plugin->properties, static_config);
+	= EAPSIMAKAInitEncryptedIdentityInfo(kEAPTypeEAPSIM, plugin->properties, static_config);
     }
     context->plugin = plugin;
     plugin->private = context;
@@ -1901,13 +1895,13 @@ eapsim_user_name_copy(CFDictionaryRef properties)
 
     imsi = copy_static_imsi(properties);
     if (imsi == NULL) {
-	imsi = SIMCopyIMSI();
+	imsi = SIMCopyIMSI(properties);
 	if (imsi == NULL) {
 	    goto done;
 	}
 	static_config = false;
     }
-    encrypted_identity_info = EAPSIMAKAInitEncryptedIdentityInfo(properties, static_config);
+    encrypted_identity_info = EAPSIMAKAInitEncryptedIdentityInfo(kEAPTypeEAPSIM, properties, static_config);
     identity_type = S_get_identity_type(properties);
     persist = EAPSIMAKAPersistentStateCreate(kEAPTypeEAPSIM,
 					     CC_SHA1_DIGEST_LENGTH,

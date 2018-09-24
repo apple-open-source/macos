@@ -293,6 +293,10 @@ void Graph::dump(PrintStream& out, const char* prefix, Node* node, DumpContext* 
         for (unsigned i = 0; i < data.variants.size(); ++i)
             out.print(comma, inContext(data.variants[i], context));
     }
+    if (node->hasMatchStructureData()) {
+        for (MatchStructureVariant& variant : node->matchStructureData().variants)
+            out.print(comma, inContext(*variant.structure.get(), context), "=>", variant.result);
+    }
     ASSERT(node->hasVariableAccessData(*this) == node->accessesStack(*this));
     if (node->hasVariableAccessData(*this)) {
         VariableAccessData* variableAccessData = node->tryGetVariableAccessData();
@@ -318,7 +322,7 @@ void Graph::dump(PrintStream& out, const char* prefix, Node* node, DumpContext* 
     if (node->hasLazyJSValue())
         out.print(comma, node->lazyJSValue());
     if (node->hasIndexingType())
-        out.print(comma, IndexingTypeDump(node->indexingType()));
+        out.print(comma, IndexingTypeDump(node->indexingMode()));
     if (node->hasTypedArrayType())
         out.print(comma, node->typedArrayType());
     if (node->hasPhi())
@@ -348,6 +352,8 @@ void Graph::dump(PrintStream& out, const char* prefix, Node* node, DumpContext* 
         out.print(comma, "id", data->identifierNumber, "{", identifiers()[data->identifierNumber], "}");
         out.print(", domJIT = ", RawPointer(data->domJIT));
     }
+    if (node->hasIgnoreLastIndexIsWritable())
+        out.print(comma, "ignoreLastIndexIsWritable = ", node->ignoreLastIndexIsWritable());
     if (node->isConstant())
         out.print(comma, pointerDumpInContext(node->constant(), context));
     if (node->isJump())
@@ -650,7 +656,8 @@ void Graph::handleSuccessor(Vector<BasicBlock*, 16>& worklist, BasicBlock* block
         worklist.append(successor);
     }
     
-    successor->predecessors.append(block);
+    if (!successor->predecessors.contains(block))
+        successor->predecessors.append(block);
 }
 
 void Graph::determineReachability()
@@ -905,7 +912,7 @@ BlockList Graph::blocksInPreOrder()
     return result;
 }
 
-BlockList Graph::blocksInPostOrder()
+BlockList Graph::blocksInPostOrder(bool isSafeToValidate)
 {
     BlockList result;
     PostOrderBlockWorklist worklist;
@@ -924,7 +931,7 @@ BlockList Graph::blocksInPostOrder()
         }
     }
 
-    if (validationEnabled()) {
+    if (isSafeToValidate && validationEnabled()) { // There are users of this where we haven't yet built of the CFG enough to be able to run dominators.
         auto validateResults = [&] (auto& dominators) {
             // When iterating over reverse post order, we should see dominators
             // before things they dominate.
@@ -1237,7 +1244,7 @@ JSValue Graph::tryGetConstantProperty(
     
     for (unsigned i = structureSet.size(); i--;) {
         RegisteredStructure structure = structureSet[i];
-        
+
         WatchpointSet* set = structure->propertyReplacementWatchpointSet(offset);
         if (!set || !set->isStillValid())
             return JSValue();
@@ -1256,22 +1263,24 @@ JSValue Graph::tryGetConstantProperty(
     //
     // One argument in favor of this code is that it should definitely work because the butterfly
     // is always set before the structure. However, we don't currently have a fence between those
-    // stores. It's not clear if this matters, however. We don't ever shrink the property storage.
-    // So, for this to fail, you'd need an access on a constant object pointer such that the inline
-    // caches told us that the object had a structure that it did not *yet* have, and then later,
-    // the object transitioned to that structure that the inline caches had alraedy seen. And then
-    // the processor reordered the stores. Seems unlikely and difficult to test. I believe that
-    // this is worth revisiting but it isn't worth losing sleep over. Filed:
+    // stores. It's not clear if this matters, however. We only shrink the propertyStorage while
+    // holding the Structure's lock. So, for this to fail, you'd need an access on a constant
+    // object pointer such that the inline caches told us that the object had a structure that it
+    // did not *yet* have, and then later,the object transitioned to that structure that the inline
+    // caches had already seen. And then the processor reordered the stores. Seems unlikely and
+    // difficult to test. I believe that this is worth revisiting but it isn't worth losing sleep
+    // over. Filed:
     // https://bugs.webkit.org/show_bug.cgi?id=134641
     //
     // For now, we just do the minimal thing: defend against the structure right now being
     // incompatible with the getDirect we're trying to do. The easiest way to do that is to
     // determine if the structure belongs to the proven set.
-    
-    if (!structureSet.toStructureSet().contains(object->structure()))
+
+    Structure* structure = object->structure(m_vm);
+    if (!structureSet.toStructureSet().contains(structure))
         return JSValue();
-    
-    return object->getDirect(offset);
+
+    return object->getDirectConcurrently(structure, offset);
 }
 
 JSValue Graph::tryGetConstantProperty(JSValue base, Structure* structure, PropertyOffset offset)

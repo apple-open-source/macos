@@ -649,11 +649,6 @@
 		<dict>
 			<key>PolicyIdentifier</key>
 			<string>1.2.840.113635.100.1.33</string>
-			<key>Properties</key>
-			<dict>
-				<key>SecPolicyName</key>
-				<string>test.nosuchdomain</string>
-			</dict>
 		</dict>
 		<key>Leaf</key>
 		<string>generic_apple_server</string>
@@ -707,8 +702,6 @@
 			<string>1.2.840.113635.100.1.3</string>
 			<key>Properties</key>
 			<dict>
-				<key>SecPolicyName</key>
-				<string>com.apple.ist.ds.appleconnect2.production.vpn.8F2B3ADCD72ED2EA08DDC26AD0255A983B1DEBEB</string>
 				<key>SecPolicyClient</key>
 				<true/>
 			</dict>
@@ -1240,7 +1233,7 @@
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>VerifyDate</key>
-		<date>2015-04-20T19:00:00Z</date>
+		<date>2018-04-20T19:00:00Z</date>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>ChainLength</key>
@@ -2293,30 +2286,6 @@
 		<key>MajorTestName</key>
 		<string>DOD</string>
 		<key>MinorTestName</key>
-		<string>SHA2</string>
-		<key>Policies</key>
-		<dict>
-			<key>PolicyIdentifier</key>
-			<string>1.2.840.113635.100.1.2</string>
-		</dict>
-		<key>Leaf</key>
-		<string>ECARootCA4</string>
-		<key>Intermediates</key>
-		<array>
-			<string>FederalBridgeCA2013</string>
-			<string>DODInteroperabilityRootCA2</string>
-		</array>
-		<key>Anchors</key>
-		<string>FederalCommonPolicyCA</string>
-		<key>ExpectedResult</key>
-		<integer>4</integer>
-		<key>VerifyDate</key>
-		<date>2016-12-10T04:38:00Z</date>
-	</dict>
-	<dict>
-		<key>MajorTestName</key>
-		<string>DOD</string>
-		<key>MinorTestName</key>
 		<string>SHA1-SMIME</string>
 		<key>Policies</key>
 		<dict>
@@ -2876,6 +2845,94 @@
 		<date>2017-08-10T06:00:00Z</date>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
+	</dict>
+	<dict>
+		<key>MajorTestName</key>
+		<string>BAA_SCRT</string>
+		<key>MinorTestName</key>
+		<string>Positive</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.84</string>
+		</dict>
+		<key>Leaf</key>
+		<string>baa_scrt_leaf</string>
+		<key>Intermediates</key>
+		<string>baa_system_subca1</string>
+		<key>Anchors</key>
+		<string>baa_system_root</string>
+		<key>VerifyDate</key>
+		<date>2018-05-09T13:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+	</dict>
+	<dict>
+		<key>MajorTestName</key>
+		<string>AssetReceipt</string>
+		<key>MinorTestName</key>
+		<string>Positive-TemporallyValid</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.89</string>
+		</dict>
+		<key>Leaf</key>
+		<string>asset_receipt</string>
+		<key>Intermediates</key>
+		<string>AppleSystemIntegration2CA</string>
+		<key>Anchors</key>
+		<string>AppleRootCA</string>
+		<key>VerifyDate</key>
+		<date>2018-04-10T06:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>MajorTestName</key>
+		<string>AssetReceipt</string>
+		<key>MinorTestName</key>
+		<string>Positive-TemporallyInvalid</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.89</string>
+		</dict>
+		<key>Leaf</key>
+		<string>asset_receipt</string>
+		<key>Intermediates</key>
+		<string>AppleSystemIntegration2CA</string>
+		<key>Anchors</key>
+		<string>AppleRootCA</string>
+		<key>VerifyDate</key>
+		<date>2019-06-02T06:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>MajorTestName</key>
+		<string>AssetReceipt</string>
+		<key>MinorTestName</key>
+		<string>Negative</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.89</string>
+		</dict>
+		<key>Leaf</key>
+		<string>ppq_signing</string>
+		<key>Intermediates</key>
+		<string>AppleSystemIntegration2CA</string>
+		<key>Anchors</key>
+		<string>AppleRootCA</string>
+		<key>VerifyDate</key>
+		<date>2017-02-18T00:19:45Z</date>
+		<key>ExpectedResult</key>
+		<integer>5</integer>
 	</dict>
 </array>
 </plist>

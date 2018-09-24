@@ -47,9 +47,9 @@
 /********************************************************************/
 #endif
 /*
- * We use "/System/Library/Extensions" and "/Library/Extensions" - 11860417
+ * We use "/System/Library/Extensions", "/Library/Extensions", and /AppleInternal/Library/Extensions - 11860417
  */
-#define _kOSKextNumSystemExtensionsFolders (2)
+#define _kOSKextNumSystemExtensionsFolders (3)
 
 #define _kOSKextSystemLibraryExtensionsFolder           \
             "/System/Library/Extensions"

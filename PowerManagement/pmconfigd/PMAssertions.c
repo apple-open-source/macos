@@ -78,7 +78,6 @@ os_log_t    assertions_log = NULL;
  */
 #define kPMMaxDisplayTurnOffDelay  (5)
 
-static uint32_t     kDisplayTickleDelay = 30;  //secs
 
 // Globals
 
@@ -1318,6 +1317,31 @@ __private_extern__ IOReturn InternalReleaseAssertionSync(IOPMAssertionID outID)
     return ret;
 }
 
+__private_extern__ IOReturn InternalSetAssertionTimeout(IOPMAssertionID id, CFTimeInterval timeout)
+{
+    CFMutableDictionaryRef          dict = NULL;
+    IOReturn                        rc = kIOReturnError;
+
+    if (!id)
+        return kIOReturnBadArgument;
+
+    CFNumberRef timeout_num = CFNumberCreate(0, kCFNumberDoubleType, &timeout);
+    if (!timeout_num) {
+        return kIOReturnError;
+    }
+
+    if ((dict = CFDictionaryCreateMutable(0, 0,
+                                          &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)))
+    {
+        CFDictionarySetValue(dict, kIOPMAssertionTimeoutKey, timeout_num);
+        rc = doSetProperties(getpid(), id, dict, NULL);
+        CFRelease(dict);
+    }
+    CFRelease(timeout_num);
+
+    return rc;
+
+}
 
 static IOReturn _localCreateAssertion(CFStringRef type, CFStringRef name, IOPMAssertionID *outID)
 {
@@ -1844,7 +1868,7 @@ static void checkProcAggregates( )
                     notify_set_state(token, (((uint64_t)kIOPMAssertionAggregateException << 32)) | pid);
                     notify_post(kIOPMAssertionExceptionNotifyName);
                     notify_cancel(token);
-                    DEBUG_LOG("Aggregate assertion exception on pid %llu.\n", pid);
+                    INFO_LOG("Aggregate assertion exception on pid %llu.\n", pid);
                 }
 
            }
@@ -2071,7 +2095,7 @@ void handleProcAssertionTimeout(pid_t pid, IOPMAssertionID id)
         notify_set_state(token, (((uint64_t)kIOPMAssertionDurationException << 32)) | pid);
         notify_post(kIOPMAssertionExceptionNotifyName);
         notify_cancel(token);
-        DEBUG_LOG("Single assertion exception on pid %d. Assertion details: %@\n", pid, assertion->props);
+        INFO_LOG("Single assertion exception on pid %d. Assertion details: %@\n", pid, assertion->props);
     }
 
 
@@ -3026,12 +3050,10 @@ kern_return_t  _io_pm_set_exception_limits (
     CFIndex  cnt;
 
     // Check the caller's entitlement 
-#if 0
-    if (auditTokenHasEntitlement(token, CFSTR("com.apple.private.iokit.powerlogging")))  {
+    if (!auditTokenHasEntitlement(token, CFSTR("com.apple.private.iokit.powerlogging")))  {
         *return_code =  kIOReturnNotPrivileged;
         goto exit;
     }
-#endif
 
     unfolder = CFDataCreateWithBytesNoCopy(0, (const UInt8 *)props, propsCnt, kCFAllocatorNull);
     if (unfolder) {
@@ -4220,8 +4242,10 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
          * to unclamp SilentRunning through AppleSMC
          */
         if ( ((assertType->kassert == kPreventSleepType) || (assertType->kassert == kNetworkAccessType))
-             && activesForTheType)
+             && activesForTheType) {
             _unclamp_silent_running(true);
+            setVMDarkwakeMode(false);
+        }
         /*
          * if already raised with kernel or if there are no active ones,
          * nothing to do
@@ -5310,7 +5334,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
                         assertType->disableCnt--;
                     prevBTdisable = false;
                 }
-                assertType->flags |= kAssertionTypeLogOnCreate;
+                assertType->flags &= ~kAssertionTypeLogOnCreate;
             }
             newEffect = kPrevDemandSlpEffect;
         }

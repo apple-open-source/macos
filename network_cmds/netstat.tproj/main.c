@@ -220,6 +220,7 @@ int	Wflag;		/* wide display */
 int	qflag;		/* classq stats display */
 int	Qflag;		/* opportunistic polling stats display */
 int	xflag;		/* show extended link-layer reachability information */
+int	zflag;		/* show only entries with non zero rtt metrics */
 
 int	cq = -1;	/* send classq index (-1 for all) */
 int	interval;	/* repeat interval for i/f stats */
@@ -239,7 +240,7 @@ main(argc, argv)
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "Aabc:dFf:gI:ikLlmnP:p:qQrRsStuvWw:x")) != -1)
+	while ((ch = getopt(argc, argv, "Aabc:dFf:gI:ikLlmnP:p:qQrRsStuvWw:xz")) != -1)
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
@@ -299,7 +300,7 @@ main(argc, argv)
 			iflag = 1;
 			break;
 		case 'l':
-			lflag = 1;
+			lflag += 1;
 			break;
 		case 'L':
 			Lflag = 1;
@@ -358,6 +359,9 @@ main(argc, argv)
 		case 'x':
 			xflag = 1;
 			Rflag = 1;
+			break;
+		case 'z':
+			zflag = 1;
 			break;
 		case '?':
 		default:

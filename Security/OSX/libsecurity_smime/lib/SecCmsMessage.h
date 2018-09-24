@@ -99,7 +99,7 @@ SecCmsMessageGetContentInfo(SecCmsMessageRef cmsg);
                 In case of nested contentInfos, this descends and retrieves the innermost content.
  */
 extern CSSM_DATA_PTR
-SecCmsMessageGetContent(SecCmsMessageRef cmsg);
+SecCmsMessageGetContent(SecCmsMessageRef cmsg) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function

@@ -23,7 +23,7 @@ AUTHD_DEFINE_LOG
 #define AUTH_STR(x) #x
 #define AUTH_STRINGIFY(x) AUTH_STR(x)
 
-#define AUTHDB_VERSION 1
+#define AUTHDB_VERSION 2
 #define AUTHDB_VERSION_STRING AUTH_STRINGIFY(AUTHDB_VERSION)
 
 #define AUTHDB_BUSY_DELAY 1
@@ -105,7 +105,16 @@ static const char * const authdb_upgrade_sql[] = {
         "value TEXT NOT NULL"
         ");"
     "CREATE INDEX b_r_id ON buttons(r_id);"
-    "INSERT INTO config VALUES('version', "AUTHDB_VERSION_STRING");"
+    "INSERT INTO config VALUES('version', '1');" ,
+    
+    // version 2 of the database
+    "CREATE TABLE rules_history ("
+        "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,"
+        "rule TEXT NOT NULL,"
+        "version INTEGER NOT NULL,"
+        "source TEXT NOT NULL,"
+        "operation INTEGER NOT NULL"
+        ");"
 };
 
 static sqlite3 * _create_handle(authdb_t db);
@@ -134,7 +143,8 @@ struct _db_upgrade_stages {
 };
 
 static struct _db_upgrade_stages auth_upgrade_script[] = {
-    { .pre = -1, .main = 0, .post = -1 } // Create version AUTHDB_VERSION databse.
+    { .pre = -1, .main = 0, .post = -1 }, // Create version AUTHDB_VERSION databse.
+    { .pre = -1, .main = 1, .post = -1}
 };
 
 static int32_t _db_run_script(authdb_connection_t dbconn, int number)
@@ -174,7 +184,7 @@ static int32_t _db_upgrade_from_version(authdb_connection_t dbconn, int32_t vers
     return s3e;
 }
 
-static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
+static CFDictionaryRef _copy_plist(auth_items_t config, CFAbsoluteTime *outTs)
 {
     CFURLRef authURL = NULL;
     CFPropertyListRef plist = NULL;
@@ -184,34 +194,96 @@ static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
     CFTypeRef value = NULL;
     CFAbsoluteTime ts = 0;
     CFAbsoluteTime old_ts = 0;
-	Boolean ok;
-    
+    Boolean ok;
     authURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, CFSTR(AUTHDB_DATA), kCFURLPOSIXPathStyle, false);
     require_action(authURL != NULL, done, os_log_error(AUTHD_LOG, "authdb: file not found %{public}s", AUTHDB_DATA));
-    
-	ok = CFURLCopyResourcePropertyForKey(authURL, kCFURLContentModificationDateKey, &value, &err);
+
+    ok = CFURLCopyResourcePropertyForKey(authURL, kCFURLContentModificationDateKey, &value, &err);
     require_action(ok && value != NULL, done, os_log_error(AUTHD_LOG, "authdb: failed to get modification date: %{public}@", err));
     
     if (CFGetTypeID(value) == CFDateGetTypeID()) {
         ts = CFDateGetAbsoluteTime(value);
+        if (outTs) {
+            *outTs = ts;
+        }
     }
     
-    old_ts = auth_items_get_double(config, "data_ts");
-
-	// <rdar://problem/17484375> SEED: BUG: Fast User Switching Not Working
-	// After Mavericks => Yosemite upgrade install, the new Yosemite rule "system.login.fus" was missing.
-	// Somehow (probably during install) ts < old_ts, even though that should never happen.
-	// Solution: always import plist and update db when time stamps don't match.
-	// After a successful import, old_ts = ts below.
-    if (ts != old_ts) {
+    if (config) {
+        old_ts = auth_items_get_double(config, "data_ts");
+    }
+    
+    // <rdar://problem/17484375> SEED: BUG: Fast User Switching Not Working
+    // After Mavericks => Yosemite upgrade install, the new Yosemite rule "system.login.fus" was missing.
+    // Somehow (probably during install) ts < old_ts, even though that should never happen.
+    // Solution: always import plist and update db when time stamps don't match.
+    // After a successful import, old_ts = ts below.
+    if (!config || (ts != old_ts)) {
         os_log_debug(AUTHD_LOG, "authdb: %{public}s modified old=%f, new=%f", AUTHDB_DATA, old_ts, ts);
         CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, authURL, &data, NULL, NULL, (SInt32*)&rc);
         require_noerr_action(rc, done, os_log_error(AUTHD_LOG, "authdb: failed to load %{public}s", AUTHDB_DATA));
-
+        
         plist = CFPropertyListCreateWithData(kCFAllocatorDefault, data, kCFPropertyListImmutable, NULL, &err);
         require_action(err == NULL, done, os_log_error(AUTHD_LOG, "authdb: failed to read plist: %{public}@", err));
-        
-        if (authdb_import_plist(dbconn, plist, true)) {
+    }
+
+done:
+    CFReleaseSafe(authURL);
+    CFReleaseSafe(value);
+    CFReleaseSafe(err);
+    CFReleaseSafe(data);
+
+    return plist;
+}
+
+static void _repair_broken_kofn_right(authdb_connection_t dbconn, const char *right, CFDictionaryRef plist)
+{
+    if (!right || !dbconn) {
+        return;
+    }
+    
+    CFDictionaryRef localPlist = plist;
+    if (!localPlist) {
+        localPlist = _copy_plist(NULL, NULL);
+    }
+    
+    // import the broken right
+    os_log(AUTHD_LOG, "Repairing broken right %{public}s", right);
+    authdb_import_plist(dbconn, localPlist, FALSE, right);
+    
+    if (!plist && localPlist) {
+        CFRelease(localPlist);
+    }
+}
+
+static void _repair_all_kofns(authdb_connection_t dbconn, auth_items_t config)
+{
+    // we want plist to be returned always and not only when never
+    CFDictionaryRef plist = _copy_plist(NULL, NULL);
+    
+    if (!plist) {
+        os_log_error(AUTHD_LOG, "authdb: unable to repair kofns");
+        return;
+    }
+    
+    authdb_step(dbconn, "SELECT name FROM rules WHERE (rules.kofn > 0) AND (id NOT IN (SELECT r_id FROM delegates_map WHERE r_id = id))",
+                NULL, ^bool(auth_items_t data) {
+                    const char *name = auth_items_get_string(data, "name");
+                    if (name) {
+                        _repair_broken_kofn_right(dbconn, name, plist);
+                    }
+                    return false;
+                });
+    
+    CFRelease(plist);
+}
+
+static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
+{
+    CFAbsoluteTime ts = 0;
+    CFDictionaryRef plist = _copy_plist(config, &ts);
+    
+    if (plist) {
+        if (authdb_import_plist(dbconn, plist, true, NULL)) {
             os_log_debug(AUTHD_LOG, "authdb: updating data_ts");
             auth_items_t update = auth_items_create();
             auth_items_set_double(update, "data_ts", ts);
@@ -219,13 +291,7 @@ static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
             CFReleaseSafe(update);
         }
     }
-    
-done:
-    CFReleaseSafe(value);
-    CFReleaseSafe(authURL);
     CFReleaseSafe(plist);
-    CFReleaseSafe(err);
-    CFReleaseSafe(data);
 }
 
 static bool _truncate_db(authdb_connection_t dbconn)
@@ -531,6 +597,7 @@ bool authdb_maintenance(authdb_connection_t dbconn)
 
     _db_load_data(dbconn, config);
 
+    _repair_all_kofns(dbconn, config);
 done:
     CFReleaseSafe(config);
     os_log_debug(AUTHD_LOG, "authdb: finished maintenance");
@@ -859,13 +926,18 @@ done:
 }
 
 static void
-_import_rules(authdb_connection_t dbconn, CFMutableArrayRef rules, bool version_check, CFAbsoluteTime now)
+_import_rules(authdb_connection_t dbconn, CFMutableArrayRef rules, bool version_check, CFAbsoluteTime now, const char *nameFilter)
 {
     CFMutableArrayRef notcommited = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     CFIndex count = CFArrayGetCount(rules);
     
     for (CFIndex i = 0; i < count; i++) {
         rule_t rule = (rule_t)CFArrayGetValueAtIndex(rules, i);
+        
+        if (nameFilter && (strcmp(nameFilter, rule_get_name(rule)) != 0)) {
+            // current rule name does not match the requested filter
+            continue;
+        }
         
         bool update = false;
         if (version_check) {
@@ -922,7 +994,7 @@ _import_rules(authdb_connection_t dbconn, CFMutableArrayRef rules, bool version_
 }
 
 bool
-authdb_import_plist(authdb_connection_t dbconn, CFDictionaryRef plist, bool version_check)
+authdb_import_plist(authdb_connection_t dbconn, CFDictionaryRef plist, bool version_check, const char *name)
 {
     bool result = false;
     
@@ -955,10 +1027,10 @@ authdb_import_plist(authdb_connection_t dbconn, CFDictionaryRef plist, bool vers
         if (!count)
             break;
 
-        _import_rules(dbconn, rules, version_check, now);
+        _import_rules(dbconn, rules, version_check, now, name);
     }
     
-    _import_rules(dbconn, rights, version_check, now);
+    _import_rules(dbconn, rights, version_check, now, name);
     
     if (CFArrayGetCount(rights) == 0) {
         result = true;

@@ -29,6 +29,7 @@
 
 #include <security_utilities/utilities.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include "CSCommon.h"
 
 extern "C" {
 #include <xar/xar.h>
@@ -49,13 +50,17 @@ public:
 	
 	operator bool() const { return mXar != 0; }
 	bool isSigned() const { return mSigClassic != 0 || mSigCMS != 0; }
-	
+
+	void registerStapledNotarization();
+	CFDataRef createPackageChecksum();
 	CFArrayRef copyCertChain();
+	SecCSDigestAlgorithm checksumDigestAlgorithm();
 
 private:
 	xar_t mXar;
 	xar_signature_t mSigClassic;
 	xar_signature_t mSigCMS;
+	std::string mPath;
 };
 
 

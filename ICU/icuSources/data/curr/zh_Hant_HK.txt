@@ -34,6 +34,10 @@ zh_Hant_HK{
             "BIF",
             "布隆迪法郎",
         }
+        BMD{
+            "BMD",
+            "百慕達元",
+        }
         BWP{
             "BWP",
             "博茨瓦納普拉",
@@ -108,7 +112,7 @@ zh_Hant_HK{
         }
         KRW{
             "₩",
-            "韓圓",
+            "韓元",
         }
         KZT{
             "KZT",
@@ -128,6 +132,10 @@ zh_Hant_HK{
         }
         MRO{
             "MRO",
+            "毛里塔尼亞烏吉亞 (1973–2017)",
+        }
+        MRU{
+            "MRU",
             "毛里塔尼亞烏吉亞",
         }
         MUR{
@@ -200,6 +208,10 @@ zh_Hant_HK{
         }
         STD{
             "STD",
+            "聖多美和普林西比多布拉 (1977–2017)",
+        }
+        STN{
+            "STN",
             "聖多美和普林西比多布拉",
         }
         SYP{
@@ -277,6 +289,9 @@ zh_Hant_HK{
         BIF{
             other{"布隆迪法郎"}
         }
+        BMD{
+            other{"百慕達元"}
+        }
         BWP{
             other{"博茨瓦納普拉"}
         }
@@ -294,9 +309,6 @@ zh_Hant_HK{
         }
         DJF{
             other{"吉布提法郎"}
-        }
-        DKK{
-            other{"丹麥克羅納"}
         }
         DOP{
             other{"多米尼加披索"}
@@ -350,6 +362,9 @@ zh_Hant_HK{
             other{"摩爾多瓦列伊"}
         }
         MRO{
+            other{"毛里塔尼亞烏吉亞 (1973–2017)"}
+        }
+        MRU{
             other{"毛里塔尼亞烏吉亞"}
         }
         MUR{
@@ -363,9 +378,6 @@ zh_Hant_HK{
         }
         NGN{
             other{"尼日利亞奈拉"}
-        }
-        NOK{
-            other{"挪威克羅納"}
         }
         NZD{
             other{"紐西蘭元"}
@@ -394,9 +406,6 @@ zh_Hant_HK{
         SCR{
             other{"塞舌爾盧比"}
         }
-        SEK{
-            other{"瑞典克羅納"}
-        }
         SGD{
             other{"新加坡元"}
         }
@@ -410,6 +419,9 @@ zh_Hant_HK{
             other{"蘇里南元"}
         }
         STD{
+            other{"聖多美和普林西比多布拉 (1977–2017)"}
+        }
+        STN{
             other{"聖多美和普林西比多布拉"}
         }
         SYP{
@@ -449,5 +461,5 @@ zh_Hant_HK{
             other{"贊比亞克瓦查"}
         }
     }
-    Version{"2.1.31.33"}
+    Version{"2.1.39.11"}
 }

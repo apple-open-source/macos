@@ -1,8 +1,8 @@
 /*
  * "lpadmin" command for CUPS.
  *
- * Copyright 2007-2016 by Apple Inc.
- * Copyright 1997-2006 by Easy Software Products.
+ * Copyright © 2007-2018 by Apple Inc.
+ * Copyright © 1997-2006 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
@@ -33,12 +33,12 @@ static int		delete_printer_from_class(http_t *http, char *printer,
 static int		delete_printer_option(http_t *http, char *printer,
 			                      char *option);
 static int		enable_printer(http_t *http, char *printer);
-static char		*get_printer_ppd(const char *uri, char *buffer, size_t bufsize);
+static char		*get_printer_ppd(const char *uri, char *buffer, size_t bufsize, int *num_options, cups_option_t **options);
 static cups_ptype_t	get_printer_type(http_t *http, char *printer, char *uri,
 			                 size_t urisize);
 static int		set_printer_options(http_t *http, char *printer,
 			                    int num_options, cups_option_t *options,
-					    char *file);
+					    char *file, int enable);
 static int		validate_name(const char *name);
 
 
@@ -46,23 +46,23 @@ static int		validate_name(const char *name);
  * 'main()' - Parse options and configure the scheduler.
  */
 
-int
-main(int  argc,			/* I - Number of command-line arguments */
-     char *argv[])		/* I - Command-line arguments */
+int					/* O - Exit status */
+main(int  argc,				/* I - Number of command-line arguments */
+     char *argv[])			/* I - Command-line arguments */
 {
-  int		i;		/* Looping var */
-  http_t	*http;		/* Connection to server */
-  char		*printer,	/* Destination printer */
-		*pclass,	/* Printer class name */
-		*opt,		/* Option pointer */
-		*val;		/* Pointer to allow/deny value */
-  int		num_options;	/* Number of options */
-  cups_option_t	*options;	/* Options */
-  char		*file,		/* New PPD file */
-		evefile[1024] = "";
-				/* IPP Everywhere PPD */
-  const char	*ppd_name,	/* ppd-name value */
-		*device_uri;	/* device-uri value */
+  int		i;			/* Looping var */
+  http_t	*http;			/* Connection to server */
+  char		*printer,		/* Destination printer */
+		*pclass,		/* Printer class name */
+		*opt,			/* Option pointer */
+		*val;			/* Pointer to allow/deny value */
+  int		enable = 0;		/* Enable/resume printer? */
+  int		num_options;		/* Number of options */
+  cups_option_t	*options;		/* Options */
+  char		*file,			/* New PPD file */
+		evefile[1024] = "";	/* IPP Everywhere PPD */
+  const char	*ppd_name,		/* ppd-name value */
+		*device_uri;		/* device-uri value */
 
 
   _cupsSetLocale(argv);
@@ -218,6 +218,25 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 		file = argv[i];
 	      }
+
+	      if (*opt == 'i')
+	      {
+	       /*
+	        * Check to see that the specified file is, in fact, a PPD...
+	        */
+
+                cups_file_t *fp = cupsFileOpen(file, "r");
+                char line[256];
+
+                if (!cupsFileGets(fp, line, sizeof(line)) || strncmp(line, "*PPD-Adobe", 10))
+                {
+                  _cupsLangPuts(stderr, _("lpadmin: System V interface scripts are no longer supported for security reasons."));
+                  cupsFileClose(fp);
+                  return (1);
+                }
+
+                cupsFileClose(fp);
+	      }
 	      break;
 
 	  case 'E' : /* Enable the printer/enable encryption */
@@ -247,8 +266,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 		}
 	      }
 
-	      if (enable_printer(http, printer))
-		return (1);
+              enable = 1;
 	      break;
 
 	  case 'm' : /* Use the specified standard script/PPD file */
@@ -591,9 +609,19 @@ main(int  argc,			/* I - Number of command-line arguments */
   * Set options as needed...
   */
 
-  if ((ppd_name = cupsGetOption("ppd-name", num_options, options)) != NULL && !strcmp(ppd_name, "everywhere") && (device_uri = cupsGetOption("device-uri", num_options, options)) != NULL)
+  ppd_name   = cupsGetOption("ppd-name", num_options, options);
+  device_uri = cupsGetOption("device-uri", num_options, options);
+
+  if (ppd_name && !strcmp(ppd_name, "raw"))
   {
-    if ((file = get_printer_ppd(device_uri, evefile, sizeof(evefile))) == NULL)
+    _cupsLangPuts(stderr, _("lpadmin: Raw queues are deprecated and will stop working in a future version of CUPS."));
+
+    if (device_uri && (!strncmp(device_uri, "ipp://", 6) || !strncmp(device_uri, "ipps://", 7)) && strstr(device_uri, "/printers/"))
+      _cupsLangPuts(stderr, _("lpadmin: Use the 'everywhere' model for shared printers."));
+  }
+  else if (ppd_name && !strcmp(ppd_name, "everywhere") && device_uri)
+  {
+    if ((file = get_printer_ppd(device_uri, evefile, sizeof(evefile), &num_options, &options)) == NULL)
       return (1);
 
     num_options = cupsRemoveOption("ppd-name", num_options, &options);
@@ -601,30 +629,31 @@ main(int  argc,			/* I - Number of command-line arguments */
 
   if (num_options || file)
   {
-    if (!http)
-    {
-      http = httpConnect2(cupsServer(), ippPort(), NULL, AF_UNSPEC, cupsEncryption(), 1, 30000, NULL);
-
-      if (http == NULL)
-      {
-	_cupsLangPrintf(stderr,
-			_("lpadmin: Unable to connect to server: %s"),
-			strerror(errno));
-	return (1);
-      }
-    }
-
     if (printer == NULL)
     {
       _cupsLangPuts(stderr,
                     _("lpadmin: Unable to set the printer options:\n"
-		      "         You must specify a printer name first."));
+                      "         You must specify a printer name first."));
       return (1);
     }
 
-    if (set_printer_options(http, printer, num_options, options, file))
+    if (!http)
+    {
+      http = httpConnect2(cupsServer(), ippPort(), NULL, AF_UNSPEC,
+                          cupsEncryption(), 1, 30000, NULL);
+
+      if (http == NULL) {
+        _cupsLangPrintf(stderr, _("lpadmin: Unable to connect to server: %s"),
+                        strerror(errno));
+        return (1);
+      }
+    }
+
+    if (set_printer_options(http, printer, num_options, options, file, enable))
       return (1);
   }
+  else if (enable && enable_printer(http, printer))
+    return (1);
 
   if (evefile[0])
     unlink(evefile);
@@ -1100,33 +1129,19 @@ enable_printer(http_t *http,		/* I - Server connection */
   DEBUG_printf(("enable_printer(%p, \"%s\")\n", http, printer));
 
  /*
-  * Build a IPP_OP_CUPS_ADD_MODIFY_PRINTER or IPP_OP_CUPS_ADD_MODIFY_CLASS request, which
+  * Send IPP_OP_ENABLE_PRINTER and IPP_OP_RESUME_PRINTER requests, which
   * require the following attributes:
   *
   *    attributes-charset
   *    attributes-natural-language
   *    printer-uri
   *    requesting-user-name
-  *    printer-state
-  *    printer-is-accepting-jobs
   */
 
-  if (get_printer_type(http, printer, uri, sizeof(uri)) & CUPS_PRINTER_CLASS)
-    request = ippNewRequest(IPP_OP_CUPS_ADD_MODIFY_CLASS);
-  else
-    request = ippNewRequest(IPP_OP_CUPS_ADD_MODIFY_PRINTER);
+  request = ippNewRequest(IPP_OP_ENABLE_PRINTER);
 
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI,
-               "printer-uri", NULL, uri);
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
-               "requesting-user-name", NULL, cupsUser());
-  ippAddInteger(request, IPP_TAG_PRINTER, IPP_TAG_ENUM, "printer-state",
-                IPP_PSTATE_IDLE);
-  ippAddBoolean(request, IPP_TAG_PRINTER, "printer-is-accepting-jobs", 1);
-
- /*
-  * Do the request and get back a response...
-  */
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, uri);
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name", NULL, cupsUser());
 
   ippDelete(cupsDoRequest(http, request, "/admin/"));
 
@@ -1136,8 +1151,22 @@ enable_printer(http_t *http,		/* I - Server connection */
 
     return (1);
   }
-  else
-    return (0);
+
+  request = ippNewRequest(IPP_OP_RESUME_PRINTER);
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, uri);
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name", NULL, cupsUser());
+
+  ippDelete(cupsDoRequest(http, request, "/admin/"));
+
+  if (cupsLastError() > IPP_STATUS_OK_CONFLICTING)
+  {
+    _cupsLangPrintf(stderr, _("%s: %s"), "lpadmin", cupsLastErrorString());
+
+    return (1);
+  }
+
+  return (0);
 }
 
 
@@ -1145,20 +1174,31 @@ enable_printer(http_t *http,		/* I - Server connection */
  * 'get_printer_ppd()' - Get an IPP Everywhere PPD file for the given URI.
  */
 
-static char *				/* O - Filename or NULL */
-get_printer_ppd(const char *uri,	/* I - Printer URI */
-                char       *buffer,	/* I - Filename buffer */
-		size_t     bufsize)	/* I - Size of filename buffer */
+static char *				/* O  - Filename or NULL */
+get_printer_ppd(
+    const char    *uri,			/* I  - Printer URI */
+    char          *buffer,		/* I  - Filename buffer */
+    size_t        bufsize,		/* I  - Size of filename buffer */
+    int           *num_options,		/* IO - Number of options */
+    cups_option_t **options)		/* IO - Options */
 {
   http_t	*http;			/* Connection to printer */
   ipp_t		*request,		/* Get-Printer-Attributes request */
 		*response;		/* Get-Printer-Attributes response */
+  ipp_attribute_t *attr;		/* Attribute from response */
   char		resolved[1024],		/* Resolved URI */
 		scheme[32],		/* URI scheme */
 		userpass[256],		/* Username:password */
 		host[256],		/* Hostname */
 		resource[256];		/* Resource path */
   int		port;			/* Port number */
+  static const char * const pattrs[] =	/* Attributes to use */
+  {
+    "job-template",
+    "printer-defaults",
+    "printer-description",
+    "media-col-database"
+  };
 
 
  /*
@@ -1199,9 +1239,21 @@ get_printer_ppd(const char *uri,	/* I - Printer URI */
 
   request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, uri);
+  ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "requested-attributes", sizeof(pattrs) / sizeof(pattrs[0]), NULL, pattrs);
   response = cupsDoRequest(http, request, resource);
 
-  if (!_ppdCreateFromIPP(buffer, bufsize, response))
+  if (_ppdCreateFromIPP(buffer, bufsize, response))
+  {
+    if (!cupsGetOption("printer-geo-location", *num_options, *options) && (attr = ippFindAttribute(response, "printer-geo-location", IPP_TAG_URI)) != NULL)
+      *num_options = cupsAddOption("printer-geo-location", ippGetString(attr, 0, NULL), *num_options, options);
+
+    if (!cupsGetOption("printer-info", *num_options, *options) && (attr = ippFindAttribute(response, "printer-info", IPP_TAG_TEXT)) != NULL)
+      *num_options = cupsAddOption("printer-info", ippGetString(attr, 0, NULL), *num_options, options);
+
+    if (!cupsGetOption("printer-location", *num_options, *options) && (attr = ippFindAttribute(response, "printer-location", IPP_TAG_TEXT)) != NULL)
+      *num_options = cupsAddOption("printer-location", ippGetString(attr, 0, NULL), *num_options, options);
+  }
+  else
     _cupsLangPrintf(stderr, _("%s: Unable to create PPD file: %s"), "lpadmin", strerror(errno));
 
   ippDelete(response);
@@ -1283,7 +1335,8 @@ set_printer_options(
     char          *printer,		/* I - Printer */
     int           num_options,		/* I - Number of options */
     cups_option_t *options,		/* I - Options */
-    char          *file)		/* I - PPD file/interface script */
+    char          *file,		/* I - PPD file */
+    int           enable)		/* I - Enable printer? */
 {
   ipp_t		*request;		/* IPP Request */
   const char	*ppdfile;		/* PPD filename */
@@ -1328,6 +1381,12 @@ set_printer_options(
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, uri);
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name", NULL, cupsUser());
+
+  if (enable)
+  {
+    ippAddInteger(request, IPP_TAG_PRINTER, IPP_TAG_ENUM, "printer-state", IPP_PSTATE_IDLE);
+    ippAddBoolean(request, IPP_TAG_PRINTER, "printer-is-accepting-jobs", 1);
+  }
 
  /*
   * Add the options...
@@ -1573,8 +1632,7 @@ validate_name(const char *name)		/* I - Name to check */
   for (ptr = name; *ptr; ptr ++)
     if (*ptr == '@')
       break;
-    else if ((*ptr >= 0 && *ptr <= ' ') || *ptr == 127 || *ptr == '/' ||
-             *ptr == '#')
+    else if ((*ptr >= 0 && *ptr <= ' ') || *ptr == 127 || *ptr == '/' || *ptr == '\\' || *ptr == '?' || *ptr == '\'' || *ptr == '\"' || *ptr == '#')
       return (0);
 
  /*

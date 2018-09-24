@@ -32,7 +32,6 @@
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSKeychainView.h"
-#import "Analytics/SFAnalytics.h"
 #include <utilities/SecFileLocations.h>
 #include <sys/stat.h>
 
@@ -103,20 +102,7 @@ CKKSAnalyticsActivity* const CKKSActivityBottleCheck = (CKKSAnalyticsActivity *)
             remove(filename);
         });
     });
-
-    WithPathInKeychainDirectory(CFSTR("Analytics"), ^(const char *path) {
-#if TARGET_OS_IPHONE
-        mode_t permissions = 0775;
-#else
-        mode_t permissions = 0700;
-#endif // TARGET_OS_IPHONE
-        int ret = mkpath_np(path, permissions);
-        if (!(ret == 0 || ret ==  EEXIST)) {
-            secerror("could not create path: %s (%s)", path, strerror(ret));
-        }
-        chmod(path, permissions);
-    });
-    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)@"Analytics/ckks_analytics.db") path];
+    return [CKKSAnalytics defaultAnalyticsDatabasePath:@"ckks_analytics"];
 }
 
 + (instancetype)logger

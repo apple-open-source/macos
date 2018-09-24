@@ -113,7 +113,7 @@ static void *do_sos(void *arg)
 #define N_THREADS 10
 
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
-CFArrayRef SecAccessGroupsGetCurrent();
+CFArrayRef SecAccessGroupsGetCurrent(void);
 
 int secd_02_upgrade_while_locked(int argc, char *const *argv)
 {

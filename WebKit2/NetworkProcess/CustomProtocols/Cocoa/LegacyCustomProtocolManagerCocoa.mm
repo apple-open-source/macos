@@ -107,17 +107,12 @@ namespace WebKit {
 
 void LegacyCustomProtocolManager::registerProtocolClass()
 {
-#if !USE(NETWORK_SESSION)
-    [NSURLProtocol registerClass:[WKCustomProtocol class]];
-#endif
 }
 
-#if USE(NETWORK_SESSION)
 void LegacyCustomProtocolManager::registerProtocolClass(NSURLSessionConfiguration *configuration)
 {
     configuration.protocolClasses = @[[WKCustomProtocol class]];
 }
-#endif
 
 void LegacyCustomProtocolManager::registerScheme(const String& scheme)
 {
@@ -209,7 +204,7 @@ void LegacyCustomProtocolManager::wasRedirectedToRequest(uint64_t customProtocol
     if (!protocol)
         return;
 
-    RetainPtr<NSURLRequest> nsRequest = request.nsURLRequest(WebCore::DoNotUpdateHTTPBody);
+    RetainPtr<NSURLRequest> nsRequest = request.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody);
     RetainPtr<NSURLResponse> nsRedirectResponse = redirectResponse.nsURLResponse();
 
     dispatchOnInitializationRunLoop(protocol.get(), [protocol, nsRequest, nsRedirectResponse]() {

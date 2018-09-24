@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -116,7 +116,7 @@ static CFMutableDictionaryRef	notify_to_instance	= NULL;
  * Logging
  */
 static os_log_t
-__log_SCMonitor()
+__log_SCMonitor(void)
 {
 	static os_log_t	log	= NULL;
 

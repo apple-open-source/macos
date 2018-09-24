@@ -26,40 +26,95 @@
 
 #pragma once
 
+#include "CertificateInfo.h"
+#include <openssl/crypto.h>
 #include <wtf/HashMap.h>
-#include <wtf/ListHashSet.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/Variant.h>
 #include <wtf/text/StringHash.h>
+
+// all version of LibreSSL and OpenSSL prior to 1.1.0 need thread support
+#if defined(LIBRESSL_VERSION_NUMBER) || (defined(OPENSSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER < 0x1010000fL)
+#define NEED_OPENSSL_THREAD_SUPPORT 1
+#else
+#define NEED_OPENSSL_THREAD_SUPPORT 0
+#endif
 
 namespace WebCore {
 
 class CurlSSLHandle {
     WTF_MAKE_NONCOPYABLE(CurlSSLHandle);
     friend NeverDestroyed<CurlSSLHandle>;
-
-public:
-    CurlSSLHandle();
-
     using ClientCertificate = std::pair<String, String>;
 
+public:
+    using CACertInfo = Variant<Monostate, String, CertificateInfo::Certificate>;
+
+    CurlSSLHandle();
+
+    const String& getCipherList() const { return m_cipherList; }
+    const String& getSignatureAlgorithmsList() const { return m_signatureAlgorithmsList; }
+    const String& getCurvesList() const { return m_curvesList; }
+
+    WEBCORE_EXPORT void setCipherList(String&& data) { m_cipherList = WTFMove(data); }
+    WEBCORE_EXPORT void setSignatureAlgorithmsList(String&& data) { m_signatureAlgorithmsList = WTFMove(data); }
+    WEBCORE_EXPORT void setCurvesList(String&& data) { m_curvesList = WTFMove(data); }
+
     bool shouldIgnoreSSLErrors() const { return m_ignoreSSLErrors; }
-    const char* getCACertPath() const { return m_caCertPath.data(); }
+    WEBCORE_EXPORT void setIgnoreSSLErrors(bool flag) { m_ignoreSSLErrors = flag; }
 
-    void setHostAllowsAnyHTTPSCertificate(const String&);
+    const CACertInfo& getCACertInfo() const { return m_caCertInfo; }
+    WEBCORE_EXPORT void setCACertPath(String&&);
+    WEBCORE_EXPORT void setCACertData(CertificateInfo::Certificate&&);
+    WEBCORE_EXPORT void clearCACertInfo();
+
+    WEBCORE_EXPORT void setHostAllowsAnyHTTPSCertificate(const String&);
     bool isAllowedHTTPSCertificateHost(const String&);
-    bool canIgnoredHTTPSCertificate(const String&, const ListHashSet<String>&);
+    bool canIgnoredHTTPSCertificate(const String&, const Vector<CertificateInfo::Certificate>&);
 
-    void setClientCertificateInfo(const String&, const String&, const String&);
+    WEBCORE_EXPORT void setClientCertificateInfo(const String&, const String&, const String&);
     std::optional<ClientCertificate> getSSLClientCertificate(const String&);
 
 private:
-    CString getCACertPathEnv();
+#if NEED_OPENSSL_THREAD_SUPPORT
+    class ThreadSupport {
+        friend NeverDestroyed<CurlSSLHandle::ThreadSupport>;
+        
+    public:
+        static void setup();
+
+    private:
+        static ThreadSupport& singleton()
+        {
+            static NeverDestroyed<CurlSSLHandle::ThreadSupport> shared;
+            return shared;
+        }
+
+        ThreadSupport();
+        void lock(int type) { m_locks[type].lock(); }
+        void unlock(int type) { m_locks[type].unlock(); }
+
+        Lock m_locks[CRYPTO_NUM_LOCKS];
+
+        static void lockingCallback(int mode, int type, const char* file, int line);
+#if OS(WINDOWS)
+        static void threadIdCallback(CRYPTO_THREADID*);
+#endif
+    };
+#endif
+
+    String getCACertPathEnv();
+
+    String m_cipherList;
+    String m_signatureAlgorithmsList;
+    String m_curvesList;
+    CACertInfo m_caCertInfo;
 
     bool m_ignoreSSLErrors { false };
-    CString m_caCertPath;
 
     Lock m_mutex;
-    HashMap<String, ListHashSet<String>, ASCIICaseInsensitiveHash> m_allowedHosts;
+    HashMap<String, Vector<CertificateInfo::Certificate>, ASCIICaseInsensitiveHash> m_allowedHosts;
     HashMap<String, ClientCertificate, ASCIICaseInsensitiveHash> m_allowedClientHosts;
 };
 

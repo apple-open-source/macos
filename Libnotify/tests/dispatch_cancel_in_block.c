@@ -40,7 +40,7 @@ T_DECL(dispatch_cancel_in_block,
 
                 is_valid = notify_is_valid_token(x);
                 T_EXPECT_EQ(is_valid, 0,
-                        "notify_is_valid_token(%d) == 0", x, is_valid);    
+                        "notify_is_valid_token(%d) == %d", x, is_valid);    
 
                 dispatch_group_leave(group);
 		});

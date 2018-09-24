@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -103,7 +103,7 @@ void JIT::compileCallEval(Instruction* instruction)
 
     callOperation(operationCallEval, regT1);
 
-    addSlowCase(branch64(Equal, regT0, TrustedImm64(JSValue::encode(JSValue()))));
+    addSlowCase(branchIfEmpty(regT0));
 
     sampleCodeBlock(m_codeBlock);
     
@@ -165,7 +165,7 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
 
         if (opcodeID == op_call && shouldEmitProfiling()) {
             emitGetVirtualRegister(registerOffset + CallFrame::argumentOffsetIncludingThis(0), regT0);
-            Jump done = emitJumpIfNotJSCell(regT0);
+            Jump done = branchIfNotCell(regT0);
             load32(Address(regT0, JSCell::structureIDOffset()), regT0);
             store32(regT0, instruction[OPCODE_LENGTH(op_call) - 2].u.arrayProfile->addressOfLastSeenStructureID());
             done.link(this);
@@ -175,7 +175,7 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
         store32(TrustedImm32(argCount), Address(stackPointerRegister, CallFrameSlot::argumentCount * static_cast<int>(sizeof(Register)) + PayloadOffset - sizeof(CallerFrameAndPC)));
     } // SP holds newCallFrame + sizeof(CallerFrameAndPC), with ArgumentCount initialized.
     
-    uint32_t bytecodeOffset = instruction - m_codeBlock->instructions().begin();
+    uint32_t bytecodeOffset = m_codeBlock->bytecodeOffset(instruction);
     uint32_t locationBits = CallSiteIndex(bytecodeOffset).bits();
     store32(TrustedImm32(locationBits), Address(callFrameRegister, CallFrameSlot::argumentCount * static_cast<int>(sizeof(Register)) + TagOffset));
 
@@ -188,7 +188,7 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
     }
 
     DataLabelPtr addressOfLinkedFunctionCheck;
-    Jump slowCase = branchPtrWithPatch(NotEqual, regT0, addressOfLinkedFunctionCheck, TrustedImmPtr(0));
+    Jump slowCase = branchPtrWithPatch(NotEqual, regT0, addressOfLinkedFunctionCheck, TrustedImmPtr(nullptr));
     addSlowCase(slowCase);
 
     ASSERT(m_callCompilationInfo.size() == callLinkInfoIndex);
@@ -250,7 +250,8 @@ void JIT::compileOpCallSlowCase(OpcodeID opcodeID, Instruction* instruction, Vec
 
     move(TrustedImmPtr(m_callCompilationInfo[callLinkInfoIndex].callLinkInfo), regT2);
 
-    m_callCompilationInfo[callLinkInfoIndex].callReturnLocation = emitNakedCall(m_vm->getCTIStub(linkCallThunkGenerator).code());
+    m_callCompilationInfo[callLinkInfoIndex].callReturnLocation =
+        emitNakedCall(m_vm->getCTIStub(linkCallThunkGenerator).retaggedCode<NoPtrTag>());
 
     if (opcodeID == op_tail_call || opcodeID == op_tail_call_varargs) {
         abortWithReason(JITDidReturnFromTailCall);

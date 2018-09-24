@@ -10,6 +10,8 @@
 #define devices_h
 
 #import <Foundation/Foundation.h>
+#import <CoreUtils/CoreUtils.h>
+
 #include <IOKit/hid/IOHIDEventSystemClient.h>
 #include <IOKit/hid/IOHIDLib.h>
 
@@ -26,13 +28,16 @@
 "                                      LocationID       - numeric value (decimal or hex)\n" \
 "                                      PrimaryUsagePage - numeric value (decimal or hex)\n" \
 "                                      PrimaryUsage     - numeric value (decimal or hex)\n" \
-"                                      Trasport         - string value\n" \
+"                                      Transport        - string value\n" \
 "                                      Product          - string value\n" \
+"                                  For matching against generic properties, you will need to include\n" \
+"                                  the \"IOPropertyMatch\" key (see example below).\n" \
 "                                  Example strings:\n" \
 "                                      'keyboard'\n" \
 "                                      'digi'\n" \
 "                                      '{\"ProductID\":0x8600,\"VendorID\":0x5ac}'\n" \
-"                                      '[{\"ProductID\":0x8600},{\"PrimaryUsagePage\":1,\"PrimaryUsage\":6}]'\n"
+"                                      '[{\"ProductID\":0x8600},{\"PrimaryUsagePage\":1,\"PrimaryUsage\":6}]'\n" \
+"                                      '{\"IOPropertyMatch\":{\"ReportInterval\":1000}}'\n"
 
 id createPropertiesDicitonary (NSString *str);
 NSString * createPropertiesString (const char * str);

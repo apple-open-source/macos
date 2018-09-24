@@ -202,8 +202,6 @@ public:
 
     virtual LayoutUnit containingBlockLogicalWidthForContent() const;
 
-    virtual void childBecameNonInline(RenderElement&) { }
-
     void paintBorder(const PaintInfo&, const LayoutRect&, const RenderStyle&, BackgroundBleedAvoidance = BackgroundBleedNone, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true);
     bool paintNinePieceImage(GraphicsContext&, const LayoutRect&, const RenderStyle&, const NinePieceImage&, CompositeOperator = CompositeSourceOver);
     void paintBoxShadow(const PaintInfo&, const LayoutRect&, const RenderStyle&, ShadowStyle, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true);
@@ -231,9 +229,10 @@ public:
 
     bool startAnimation(double timeOffset, const Animation*, const KeyframeList& keyframes);
     void animationPaused(double timeOffset, const String& name);
+    void animationSeeked(double timeOffset, const String& name);
     void animationFinished(const String& name);
 
-    void suspendAnimations(double time = 0);
+    void suspendAnimations(MonotonicTime = MonotonicTime());
 
     RenderBoxModelObject* continuation() const;
     WEBCORE_EXPORT RenderInline* inlineContinuation() const;
@@ -272,44 +271,33 @@ protected:
     DecodingMode decodingModeForImageDraw(const Image&, const PaintInfo&) const;
 
 public:
-    // For RenderBlocks and RenderInlines with m_style->styleType() == FIRST_LETTER, this tracks their remaining text fragments
+    // For RenderBlocks and RenderInlines with m_style->styleType() == PseudoId::FirstLetter, this tracks their remaining text fragments
     RenderTextFragment* firstLetterRemainingText() const;
     void setFirstLetterRemainingText(RenderTextFragment&);
     void clearFirstLetterRemainingText();
-
-    // NormalizeAfterInsertion::Yes ensures that the destination subtree is consistent after the insertion (anonymous wrappers etc).
-    enum class NormalizeAfterInsertion { No, Yes };
-    void moveChildTo(RenderBoxModelObject* toBoxModelObject, RenderObject* child, RenderObject* beforeChild, NormalizeAfterInsertion);
-    void moveChildTo(RenderBoxModelObject* toBoxModelObject, RenderObject* child, NormalizeAfterInsertion normalizeAfterInsertion)
-    {
-        moveChildTo(toBoxModelObject, child, nullptr, normalizeAfterInsertion);
-    }
-    void moveAllChildrenTo(RenderBoxModelObject* toBoxModelObject, NormalizeAfterInsertion normalizeAfterInsertion)
-    {
-        moveAllChildrenTo(toBoxModelObject, nullptr, normalizeAfterInsertion);
-    }
-    void moveAllChildrenTo(RenderBoxModelObject* toBoxModelObject, RenderObject* beforeChild, NormalizeAfterInsertion normalizeAfterInsertion)
-    {
-        moveChildrenTo(toBoxModelObject, firstChild(), nullptr, beforeChild, normalizeAfterInsertion);
-    }
-    // Move all of the kids from |startChild| up to but excluding |endChild|. 0 can be passed as the |endChild| to denote
-    // that all the kids from |startChild| onwards should be moved.
-    void moveChildrenTo(RenderBoxModelObject* toBoxModelObject, RenderObject* startChild, RenderObject* endChild, NormalizeAfterInsertion normalizeAfterInsertion)
-    {
-        moveChildrenTo(toBoxModelObject, startChild, endChild, nullptr, normalizeAfterInsertion);
-    }
-    void moveChildrenTo(RenderBoxModelObject* toBoxModelObject, RenderObject* startChild, RenderObject* endChild, RenderObject* beforeChild, NormalizeAfterInsertion);
 
     enum ScaleByEffectiveZoomOrNot { ScaleByEffectiveZoom, DoNotScaleByEffectiveZoom };
     LayoutSize calculateImageIntrinsicDimensions(StyleImage*, const LayoutSize& scaledPositioningAreaSize, ScaleByEffectiveZoomOrNot) const;
 
     RenderBlock* containingBlockForAutoHeightDetection(Length logicalHeight) const;
 
-    struct ContinuationChainNode;
+    struct ContinuationChainNode {
+        WeakPtr<RenderBoxModelObject> renderer;
+        ContinuationChainNode* previous { nullptr };
+        ContinuationChainNode* next { nullptr };
+
+        ContinuationChainNode(RenderBoxModelObject&);
+        ~ContinuationChainNode();
+
+        void insertAfter(ContinuationChainNode&);
+
+        WTF_MAKE_FAST_ALLOCATED;
+    };
+
+    ContinuationChainNode* continuationChainNode() const;
 
 private:
     ContinuationChainNode& ensureContinuationChainNode();
-    void removeAndDestroyAllContinuations();
 
     LayoutUnit computedCSSPadding(const Length&) const;
     
@@ -335,7 +323,7 @@ private:
         bool includeLogicalLeftEdge, bool includeLogicalRightEdge, bool antialias = false, const Color* overrideColor = nullptr);
     void drawBoxSideFromPath(GraphicsContext&, const LayoutRect&, const Path&, const BorderEdge[],
         float thickness, float drawThickness, BoxSide, const RenderStyle&,
-        Color, EBorderStyle, BackgroundBleedAvoidance, bool includeLogicalLeftEdge, bool includeLogicalRightEdge);
+        Color, BorderStyle, BackgroundBleedAvoidance, bool includeLogicalLeftEdge, bool includeLogicalRightEdge);
     void paintMaskForTextFillBox(ImageBuffer*, const IntRect&, InlineFlowBox*, const LayoutRect&);
 };
 

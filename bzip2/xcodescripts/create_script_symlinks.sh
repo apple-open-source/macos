@@ -1,6 +1,8 @@
-#!/bin/sh
+#!/bin/bash -e -x
 
-set -ex
+# Do nothing for installhdrs
+[ "$ACTION" == "installhdrs" ] && exit 0
+[ "$ACTION" == "installapi" ] && exit 0
 
 chmod +x ${DSTROOT}/usr/bin/bzdiff
 ln -s bzdiff ${DSTROOT}/usr/bin/bzcmp

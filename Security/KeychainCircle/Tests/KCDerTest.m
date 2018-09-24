@@ -34,28 +34,28 @@
     if (size == 0)
         return;
 
-    uint8_t buffer[size];
+    NSMutableData *buffer = [NSMutableData dataWithLength:size];
     error = nil;
-    uint8_t* beginning = kcder_encode_data(data, &error, buffer, buffer + sizeof(buffer));
+    uint8_t* beginning = kcder_encode_data(data, &error, [buffer mutableBytes], [buffer mutableBytes] + size);
 
     XCTAssert(beginning != NULL, "Error encoding: %@", error);
 
     if (beginning == NULL)
         return;
 
-    XCTAssertEqual(beginning, &buffer[0], @"Size != buffer use");
+    XCTAssertEqual(beginning, [buffer mutableBytes], @"Size != buffer use");
 
     NSData* recovered = nil;
 
     error = nil;
-    const uint8_t* end = kcder_decode_data(&recovered, &error, buffer, buffer + sizeof(buffer));
+    const uint8_t* end = kcder_decode_data(&recovered, &error, [buffer mutableBytes], [buffer mutableBytes] + size);
 
     XCTAssert(end != NULL, "Error decoding: %@", error);
 
     if (end == NULL)
         return;
 
-    XCTAssertEqual(end, buffer + sizeof(buffer), @"readback didn't use all the buffer");
+    XCTAssertEqual(end, [buffer mutableBytes] + size, @"readback didn't use all the buffer");
 
     XCTAssertEqualObjects(data, recovered, @"Didn't get equal object");
 
@@ -78,28 +78,28 @@
     if (size == 0)
         return;
 
-    uint8_t buffer[size];
+    NSMutableData *buffer = [NSMutableData dataWithLength:size];
     error = nil;
-    uint8_t* beginning = kcder_encode_string(string, &error, buffer, buffer + sizeof(buffer));
+    uint8_t* beginning = kcder_encode_string(string, &error, [buffer mutableBytes], [buffer mutableBytes] + size);
 
     XCTAssert(beginning != NULL, "Error encoding: %@", error);
 
     if (beginning == NULL)
         return;
 
-    XCTAssertEqual(beginning, &buffer[0], @"Size != buffer use");
+    XCTAssertEqual(beginning, [buffer mutableBytes], @"Size != buffer use");
 
     NSString* recovered = nil;
 
     error = nil;
-    const uint8_t* end = kcder_decode_string(&recovered, &error, buffer, buffer + sizeof(buffer));
+    const uint8_t* end = kcder_decode_string(&recovered, &error, [buffer mutableBytes], [buffer mutableBytes] + size);
 
     XCTAssert(end != NULL, "Error decoding: %@", error);
 
     if (end == NULL)
         return;
 
-    XCTAssertEqual(end, buffer + sizeof(buffer), @"readback didn't use all the buffer");
+    XCTAssertEqual(end, [buffer mutableBytes] + size, @"readback didn't use all the buffer");
 
     XCTAssertEqualObjects(string, recovered, @"Didn't get equal object");
     

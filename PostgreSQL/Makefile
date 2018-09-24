@@ -1,6 +1,6 @@
 #
 # Apple wrapper Makefile for PostgreSQL
-# Copyright (c) 2009-2013,2016-2017 Apple Inc. All Rights Reserved.
+# Copyright (c) 2009-2013,2016-2018 Apple Inc. All Rights Reserved.
 #
 
 # General project info for use with RC/GNUsource.make makefile
@@ -118,6 +118,13 @@ install-docs:
 	$(TOUCH) -r $(Sources)/Makefile $(Sources)/configure
 	$(MAKE) -C $(BuildDirectory) $(Install_Flags) $@
 
+
+install_source::
+	if [ -z "$(SERVER_INSTALL_PATH_PREFIX)" ]; then \
+		echo "Stripping archives from SRCROOT"; \
+		find $(SRCROOT)/Support -name \*.tar.gz -delete; \
+		rm $(SRCROOT)/plpgsql_check.tgz; \
+	fi
 
 .PHONY: prepare-contribs
 prepare-contribs:

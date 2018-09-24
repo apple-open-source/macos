@@ -40,6 +40,7 @@
 #include <sys/time.h>
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
 
+#include "pmconfigd.h"
 #include "powermanagementServer.h" // mig generated
 #include "BatteryTimeRemaining.h"
 #include "PMSettings.h"
@@ -167,12 +168,18 @@ BatteryTimeRemaining_prime(void)
      recordFDREvent(kFDRInit, false, NULL);
 
 
-    /*
-     *Initiate the next battery poll; or start a timer to poll
-     * when the 60sec user visible polling timer expres.
-     */
-    startBatteryPoll(kPeriodicPoll);
+    /* Do initial full poll and kick of the polling timer */
+    startBatteryPoll(kImmediateFullPoll);
     return;
+}
+
+__private_extern__ void BatteryTimeRemaining_finish(void)
+{
+    /* don't wait for notification if we already have battery info */
+    IOPMBattery **b = _batteries();
+    if (b && b[0]) {
+        ioregBatteryProcess(b[0], b[0]->me);
+    }
 }
 
 __private_extern__ void
@@ -241,19 +248,12 @@ static CFAbsoluteTime getASBMPropertyCFAbsoluteTime(CFStringRef key)
     IOPMBattery     **b = _batteries();
     uint32_t        secs = 0;
     CFAbsoluteTime  return_val = 0.0;
-/*
-    if (b && b[0] && b[0]->me)
-    {
-        secSince1970 = IORegistryEntryCreateCFProperty(b[0]->me, key, 0, 0);
-        if (secSince1970) {
-*/
     if (b && b[0] && b[0]->properties)
     {
         secSince1970 = CFDictionaryGetValue(b[0]->properties, key);
         // the numbers in the registry are secs since start of epoch which is 1st Jan 1970
         if (secSince1970) {
             CFNumberGetValue(secSince1970, kCFNumberIntType, &secs);
-//            CFRelease(secSince1970);
             // this is the seconds since 1st Jan 2001
             return_val = (CFAbsoluteTime)secs - kCFAbsoluteTimeIntervalSince1970;
         } else {
@@ -695,10 +695,8 @@ kernelPowerSourcesDidChange(IOPMBattery *b)
         // If AC has changed, we must invalidate time remaining.
         _discontinuityOccurred();
         control.needsNotifyAC = true;
-
-        _lastExternalConnected = _nowExternalConnected;
     }
-    
+
     readAndPublishACAdapter(b->externalConnected,
                              CFDictionaryGetValue(b->properties, CFSTR(kIOPMPSAdapterDetailsKey)));
 
@@ -713,6 +711,7 @@ kernelPowerSourcesDidChange(IOPMBattery *b)
     }
     // b->swCalculatedPR is used by packageKernelPowerSource()
     b->swCalculatedPR = percentRemaining;
+    _lastExternalConnected = _nowExternalConnected;
 
     /************************************************************************
      *
@@ -1794,11 +1793,6 @@ kern_return_t _io_ps_release_pspowersource(
     if (toRelease) {
         dispatch_source_cancel(toRelease->procdeathsrc);
     }
-#ifdef XCTEST
-    if (toRelease) {
-        bzero(toRelease, sizeof(PSStruct));
-    }
-#endif
     return 0;
 }
 
@@ -1875,6 +1869,61 @@ kern_return_t _io_ps_copy_powersources_info(
     return 0;
 }
 
+#if TARGET_OS_IPHONE
+static bool CheckAccessoryLedChange(PSStruct *ps, CFDictionaryRef update)
+{
+        CFArrayRef old_leds = CFDictionaryGetValue(ps->description, CFSTR(kIOPSLEDsKey));
+        CFArrayRef new_leds = CFDictionaryGetValue(update, CFSTR(kIOPSLEDsKey));
+
+        if (!old_leds && !new_leds) {
+            return false;
+        }
+
+        if (!!old_leds ^ !!new_leds) {
+            return true;
+        }
+
+        size_t old_led_cnt = CFArrayGetCount(old_leds);
+        size_t new_led_cnt = CFArrayGetCount(new_leds);
+
+        // no entries
+        if (!old_led_cnt && !new_led_cnt) {
+            return false;
+        }
+
+        // notify if number of LEDs differs
+        if (old_led_cnt != new_led_cnt) {
+            return true;
+        }
+
+        // entries exist -> compare
+        for (size_t i = 0; i < new_led_cnt; i++) {
+            CFDictionaryRef old_led = CFArrayGetValueAtIndex(old_leds, i);
+            CFDictionaryRef new_led = CFArrayGetValueAtIndex(new_leds, i);
+
+            CFTypeRef old_value = CFDictionaryGetValue(old_led, CFSTR(kIOPSLedStateKey));
+            CFTypeRef new_value = CFDictionaryGetValue(new_led, CFSTR(kIOPSLedStateKey));
+            if (!!old_value ^ !!new_value) {
+                return true;
+            }
+            if (old_value && new_value && !CFEqual(old_value, new_value)) {
+                return true;
+            }
+
+            old_value = CFDictionaryGetValue(old_led, CFSTR(kIOPSLedColorKey));
+            new_value = CFDictionaryGetValue(new_led, CFSTR(kIOPSLedColorKey));
+            if (!!old_value ^ !!new_value) {
+                return true;
+            }
+            if (old_value && new_value && !CFEqual(old_value, new_value)) {
+                return true;
+            }
+        }
+
+        return false;
+}
+#endif
+
 static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update)
 {
     CFNumberRef     n = NULL;
@@ -1936,6 +1985,12 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
 
             notify_post(kIOPSAccNotifyPowerSource); // Not the right notification
             INFO_LOG("Posted \"%s\" for partname change of power source id %ld\n", kIOPSAccNotifyPowerSource, ps->psid);
+        }
+
+        // Notify for AirPod case LED changes (rdar://problem/37842910)
+        if (CheckAccessoryLedChange(ps, update)) {
+            notify_post(kIOPSAccNotifyPowerSource); // Not the right notification
+            INFO_LOG("Posted \"%s\" for LED change of power source id %ld\n", kIOPSAccNotifyPowerSource, ps->psid);
         }
 #endif
 

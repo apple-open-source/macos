@@ -39,7 +39,7 @@ CFGiblisGetSingleton(CFDictionaryRef, SecGetDebugDescriptionFormatOptions, forma
 })
 
 //
-// Smart comparitor for strings that matchies sorting functions
+// Smart comparator for strings that matches sorting functions
 //
 
 CFComparisonResult CFStringCompareSafe(const void *val1, const void *val2, void *context) {
@@ -51,7 +51,7 @@ CFComparisonResult CFStringCompareSafe(const void *val1, const void *val2, void 
     return CFStringCompare(val1, val2, 0);
 }
 
-void CFStringArrayPerfromWithDelimeterWithDescription(CFArrayRef strings, CFStringRef start, CFStringRef end, void (^action)(CFStringRef description)) {
+void CFStringArrayPerformWithDelimiterWithDescription(CFArrayRef strings, CFStringRef start, CFStringRef end, void (^action)(CFStringRef description)) {
     if(!strings) {
         action(CFSTR("null"));
     } else {
@@ -72,19 +72,41 @@ void CFStringArrayPerfromWithDelimeterWithDescription(CFArrayRef strings, CFStri
 }
 
 
-void CFStringArrayPerfromWithDescription(CFArrayRef strings, void (^action)(CFStringRef description)) {
-    CFStringArrayPerfromWithDelimeterWithDescription(strings, CFSTR("["), CFSTR("]"), action);
+void CFStringArrayPerformWithDescription(CFArrayRef strings, void (^action)(CFStringRef description)) {
+    CFStringArrayPerformWithDelimiterWithDescription(strings, CFSTR("["), CFSTR("]"), action);
+}
+
+static void
+appendDescriptionToArray(const void *value, void *context)
+{
+    CFTypeRef obj = (CFTypeRef)value;
+    CFMutableArrayRef array = (CFMutableArrayRef)context;
+    CFStringRef desc;
+
+    if (CFGetTypeID(obj) == CFStringGetTypeID()) {
+        CFArrayAppendValue(array, obj);
+    } else {
+        desc = CFCopyDescription(obj);
+        if (desc != NULL) {
+            CFArrayAppendValue(array, desc);
+            CFRelease(desc);
+        } else {
+            CFArrayAppendValue(array, CFSTR("null"));
+        }
+    }
 }
 
 void CFStringSetPerformWithDescription(CFSetRef set, void (^action)(CFStringRef description)) {
     if(!set) {
         action(CFSTR("null"));
     } else {
-        CFMutableArrayRef keys = CFSetCopyValues(set);
+        CFMutableArrayRef keys = CFArrayCreateMutable(NULL, CFSetGetCount(set), &kCFTypeArrayCallBacks);
         
+        CFSetApplyFunction(set, appendDescriptionToArray, keys);
+
         CFArraySortValues(keys, CFRangeMake(0, CFArrayGetCount(keys)), (CFComparatorFunction)&CFStringCompare, NULL);
         
-        CFStringArrayPerfromWithDelimeterWithDescription(keys, CFSTR("{("), CFSTR(")}"), action);
+        CFStringArrayPerformWithDelimiterWithDescription(keys, CFSTR("{("), CFSTR(")}"), action);
         
         CFReleaseNull(keys);
     }

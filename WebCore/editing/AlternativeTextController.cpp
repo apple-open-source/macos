@@ -283,7 +283,8 @@ void AlternativeTextController::timerFired()
         VisiblePosition start(selection.start(), selection.affinity());
         VisiblePosition p = startOfWord(start, LeftWordIfOnBoundary);
         VisibleSelection adjacentWords = VisibleSelection(p, start);
-        m_frame.editor().markAllMisspellingsAndBadGrammarInRanges(TextCheckingTypeSpelling | TextCheckingTypeReplacement | TextCheckingTypeShowCorrectionPanel, adjacentWords.toNormalizedRange().get(), 0);
+        auto adjacentWordRange = adjacentWords.toNormalizedRange();
+        m_frame.editor().markAllMisspellingsAndBadGrammarInRanges(TextCheckingTypeSpelling | TextCheckingTypeReplacement | TextCheckingTypeShowCorrectionPanel, adjacentWordRange.copyRef(), adjacentWordRange.copyRef(), nullptr);
     }
         break;
     case AlternativeTextTypeReversion: {
@@ -632,7 +633,7 @@ bool AlternativeTextController::insertDictatedText(const String& text, const Vec
     if (FrameView* view = m_frame.view())
         view->disableLayerFlushThrottlingTemporarilyForInteraction();
 
-    Ref<TextEvent> event = TextEvent::createForDictation(m_frame.document()->domWindow(), text, dictationAlternatives);
+    auto event = TextEvent::createForDictation(&m_frame.windowProxy(), text, dictationAlternatives);
     event->setUnderlyingEvent(triggeringEvent);
 
     target->dispatchEvent(event);

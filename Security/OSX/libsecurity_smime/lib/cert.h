@@ -127,6 +127,8 @@ SECStatus CERT_VerifyCert(SecKeychainRef keychainOrArray, SecCertificateRef cert
 
 CFTypeRef CERT_PolicyForCertUsage(SECCertUsage certUsage);
 
+int CERT_CompareCssmData(const CSSM_DATA *d1, const CSSM_DATA *d2);
+
 /************************************************************************/
 SEC_END_PROTOS
 

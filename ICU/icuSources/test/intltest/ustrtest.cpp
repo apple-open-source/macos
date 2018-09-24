@@ -1881,9 +1881,9 @@ UnicodeStringTest::TestUTF8() {
         0xf3, 0xa0, 0x80, 0x80, 0xf4, 0x8f, 0xbf, 0xbf
     };
     static const UChar expected_utf16[] = {
-        0x41, 0xfffd,
-        0x61, 0xfffd,
-        0xfffd, 0x5a,
+        0x41, 0xfffd, 0xfffd, 0xfffd,
+        0x61, 0xfffd, 0xfffd, 0xfffd,
+        0xfffd,  0xfffd, 0xfffd, 0xfffd,0x5a,
         0xd900, 0xdc00, 0x7a,
         0xd800, 0xdc00, 0xd840, 0xdc00,
         0xdb40, 0xdc00, 0xdbff, 0xdfff
@@ -2160,7 +2160,6 @@ UnicodeStringTest::TestMoveSwap() {
     if(s6.getBuffer() != abc || s6.length() != 3) {
         errln("UnicodeString.moveFrom(alias) did not move");
     }
-#if U_HAVE_RVALUE_REFERENCES
     infoln("TestMoveSwap() with rvalue references");
     s1 = static_cast<UnicodeString &&>(s6);
     if(s1.getBuffer() != abc || s1.length() != 3) {
@@ -2170,10 +2169,6 @@ UnicodeStringTest::TestMoveSwap() {
     if(s7.getBuffer() != p || s7.length() != 100 || !s4.isBogus()) {
         errln("UnicodeString move constructor did not move");
     }
-#else
-    infoln("TestMoveSwap() without rvalue references");
-    UnicodeString s7;
-#endif
 
     // Move self assignment leaves the object valid but in an undefined state.
     // Do it to make sure there is no crash,

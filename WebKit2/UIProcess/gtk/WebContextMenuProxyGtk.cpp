@@ -44,9 +44,8 @@ static const char* gContextMenuActionId = "webkit-context-menu-action";
 static const char* gContextMenuTitle = "webkit-context-menu-title";
 static const char* gContextMenuItemGroup = "webkitContextMenu";
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 static void contextMenuItemActivatedCallback(GAction* action, GVariant*, WebPageProxy* page)
 {
@@ -149,14 +148,11 @@ void WebContextMenuProxyGtk::show()
             proposedAPIItems.append(WebContextMenuItem::create(item));
     }
 
-    Vector<Ref<WebContextMenuItem>> clientItems;
-    bool useProposedItems = true;
+    m_page->contextMenuClient().getContextMenuFromProposedMenu(*m_page, WTFMove(proposedAPIItems), WebContextMenuListenerProxy::create(this).get(), m_context.webHitTestResultData(), m_page->process().transformHandlesToObjects(m_userData.object()).get());
+}
 
-    if (m_page->contextMenuClient().getContextMenuFromProposedMenu(*m_page, proposedAPIItems, clientItems, m_context.webHitTestResultData(), m_page->process().transformHandlesToObjects(m_userData.object()).get()))
-        useProposedItems = false;
-
-    const Vector<Ref<WebContextMenuItem>>& items = useProposedItems ? proposedAPIItems : clientItems;
-
+void WebContextMenuProxyGtk::showContextMenuWithItems(Vector<Ref<WebContextMenuItem>>&& items)
+{
     if (!items.isEmpty())
         populate(items);
 
@@ -171,12 +167,7 @@ void WebContextMenuProxyGtk::show()
     NativeWebMouseEvent* mouseEvent = m_page->currentlyProcessedMouseDownEvent();
     const GdkEvent* event = mouseEvent ? mouseEvent->nativeEvent() : 0;
     gtk_menu_attach_to_widget(m_menu, GTK_WIDGET(m_webView), nullptr);
-    gtk_menu_popup(m_menu, nullptr, nullptr, reinterpret_cast<GtkMenuPositionFunc>(menuPositionFunction), this,
-                   event ? event->button.button : 3, event ? event->button.time : GDK_CURRENT_TIME);
-}
-
-void WebContextMenuProxyGtk::showContextMenuWithItems(Vector<WebContextMenuItemData>&&)
-{
+    gtk_menu_popup(m_menu, nullptr, nullptr, reinterpret_cast<GtkMenuPositionFunc>(menuPositionFunction), this, event ? event->button.button : 3, event ? event->button.time : GDK_CURRENT_TIME);
 }
 
 WebContextMenuProxyGtk::WebContextMenuProxyGtk(GtkWidget* webView, WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)

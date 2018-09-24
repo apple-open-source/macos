@@ -79,7 +79,7 @@ public:
     
     static size_t sizeClassToIndex(size_t size)
     {
-        ASSERT(size);
+        RELEASE_ASSERT(size);
         return (size + sizeStep - 1) / sizeStep - 1;
     }
     
@@ -142,7 +142,7 @@ public:
     size_t size();
     size_t capacity();
 
-    bool isPagedOut(double deadline);
+    bool isPagedOut(MonotonicTime deadline);
     
     HeapVersion markingVersion() const { return m_markingVersion; }
     HeapVersion newlyAllocatedVersion() const { return m_newlyAllocatedVersion; }

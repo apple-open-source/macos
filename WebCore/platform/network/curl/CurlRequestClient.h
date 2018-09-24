@@ -29,16 +29,21 @@
 
 namespace WebCore {
 
+class CurlRequest;
 class CurlResponse;
 class ResourceError;
 class SharedBuffer;
 
 class CurlRequestClient {
 public:
-    virtual void curlDidReceiveResponse(const CurlResponse&) = 0;
-    virtual void curlDidReceiveBuffer(Ref<SharedBuffer>&&) = 0;
-    virtual void curlDidComplete() = 0;
-    virtual void curlDidFailWithError(const ResourceError&) = 0;
+    virtual void ref() = 0;
+    virtual void deref() = 0;
+
+    virtual void curlDidSendData(CurlRequest&, unsigned long long bytesSent, unsigned long long totalBytesToBeSent) = 0;
+    virtual void curlDidReceiveResponse(CurlRequest&, const CurlResponse&) = 0;
+    virtual void curlDidReceiveBuffer(CurlRequest&, Ref<SharedBuffer>&&) = 0;
+    virtual void curlDidComplete(CurlRequest&) = 0;
+    virtual void curlDidFailWithError(CurlRequest&, const ResourceError&) = 0;
 };
 
 } // namespace WebCore

@@ -104,7 +104,7 @@
 #import <UIKit/_UITextDragCaretView.h>
 #endif
 
-#else
+#else // USE(APPLE_INTERNAL_SDK)
 
 #if ENABLE(DRAG_SUPPORT)
 #import <UIKit/NSItemProvider+UIKitAdditions.h>
@@ -307,12 +307,19 @@ typedef enum {
 
 @interface UIResponder ()
 - (void)_handleKeyUIEvent:(UIEvent *)event;
+- (void)_wheelChangedWithEvent:(UIEvent *)event;
 @end
 
-@class CADisplay;
+@class FBSDisplayConfiguration;
 @interface UIScreen ()
-- (CADisplay *)_display;
+@property (nonatomic, readonly, retain) FBSDisplayConfiguration *displayConfiguration;
 @end
+
+typedef NS_ENUM(NSInteger, UIScrollViewIndicatorInsetAdjustmentBehavior) {
+    UIScrollViewIndicatorInsetAdjustmentAutomatic,
+    UIScrollViewIndicatorInsetAdjustmentAlways,
+    UIScrollViewIndicatorInsetAdjustmentNever
+};
 
 @interface UIScrollView ()
 - (void)_stopScrollingAndZoomingAnimations;
@@ -325,6 +332,7 @@ typedef enum {
 @property (nonatomic) CGFloat verticalScrollDecelerationFactor;
 @property (nonatomic, readonly) BOOL _isInterruptingDeceleration;
 @property (nonatomic, getter=_contentScrollInset, setter=_setContentScrollInset:) UIEdgeInsets contentScrollInset;
+@property (nonatomic, getter=_indicatorInsetAdjustmentBehavior, setter=_setIndicatorInsetAdjustmentBehavior:) UIScrollViewIndicatorInsetAdjustmentBehavior indicatorInsetAdjustmentBehavior;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
 @property (nonatomic, readonly) UIEdgeInsets _systemContentInset;
 #endif
@@ -377,12 +385,6 @@ typedef enum {
 @end
 
 @interface UITextInputTraits : NSObject <UITextInputTraits, UITextInputTraits_Private, NSCopying>
-@end
-
-@protocol UITextInputMultiDocument <NSObject>
-@optional
-- (void)_restoreFocusWithToken:(id <NSCopying, NSSecureCoding>)token completion:(void (^)(BOOL didRestore))completion;
-- (void)_preserveFocusWithToken:(id <NSCopying, NSSecureCoding>)token destructively:(BOOL)destructively;
 @end
 
 @interface UITextInteractionAssistant : NSObject
@@ -479,6 +481,8 @@ typedef NS_ENUM (NSInteger, _UIBackdropMaskViewFlags) {
 - (void)safeAreaInsetsDidChange;
 #endif
 @property (nonatomic, setter=_setContinuousCornerRadius:) CGFloat _continuousCornerRadius;
+- (void)insertSubview:(UIView *)view above:(UIView *)sibling;
+- (void)viewWillMoveToSuperview:(UIView *)newSuperview;
 @end
 
 @interface UIWebSelectionView : UIView
@@ -502,7 +506,9 @@ typedef NS_ENUM (NSInteger, _UIBackdropMaskViewFlags) {
 - (void)setGestureRecognizers;
 - (void)willStartScrollingOrZoomingPage;
 - (void)willStartScrollingOverflow;
+#if !PLATFORM(IOSMAC)
 @property (nonatomic, retain) UIWebSelectionView *selectionView;
+#endif
 @property (nonatomic, readonly) CGRect selectionFrame;
 @end
 
@@ -543,9 +549,6 @@ typedef NS_ENUM(NSInteger, UIWKGestureType) {
 @end
 
 @interface UIWKSelectionAssistant ()
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-- (void)blockSelectionChangedWithTouch:(UIWKSelectionTouch)touch withFlags:(UIWKSelectionFlags)flags growThreshold:(CGFloat)grow shrinkThreshold:(CGFloat)shrink;
-#endif
 - (BOOL)shouldHandleSingleTapAtPoint:(CGPoint)point;
 - (void)selectionChangedWithGestureAt:(CGPoint)point withGesture:(UIWKGestureType)gestureType withState:(UIGestureRecognizerState)gestureState withFlags:(UIWKSelectionFlags)flags;
 - (void)selectionChangedWithTouchAt:(CGPoint)point withSelectionTouch:(UIWKSelectionTouch)touch withFlags:(UIWKSelectionFlags)flags;
@@ -590,18 +593,10 @@ typedef NS_ENUM(NSInteger, UIWKGestureType) {
 - (void)scheduleReplacementsForText:(NSString *)text;
 - (void)scheduleChineseTransliterationForText:(NSString *)text;
 
+@property (nonatomic, readonly, assign) UILongPressGestureRecognizer *forcePressGesture;
 @property (nonatomic, readonly, assign) UILongPressGestureRecognizer *loupeGesture;
 @property (nonatomic, readonly, assign) UITapGestureRecognizer *singleTapGesture;
 @end
-
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-typedef NS_ENUM(NSInteger, UIWKHandlePosition) {
-    UIWKHandleTop = 0,
-    UIWKHandleRight = 1,
-    UIWKHandleBottom = 2,
-    UIWKHandleLeft = 3,
-};
-#endif
 
 @protocol UIWKInteractionViewProtocol
 - (void)changeSelectionWithGestureAt:(CGPoint)point withGesture:(UIWKGestureType)gestureType withState:(UIGestureRecognizerState)state;
@@ -627,10 +622,6 @@ typedef NS_ENUM(NSInteger, UIWKHandlePosition) {
 - (void)_cancelLongPressGestureRecognizer;
 
 @optional
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-- (void)changeBlockSelectionWithTouchAt:(CGPoint)point withSelectionTouch:(UIWKSelectionTouch)touch forHandle:(UIWKHandlePosition)handle;
-#endif
-
 - (void)clearSelection;
 - (void)replaceDictatedText:(NSString *)oldText withText:(NSString *)newText;
 - (void)requestDictationContext:(void (^)(NSString *selectedText, NSString *prefixText, NSString *postfixText))completionHandler;
@@ -953,14 +944,22 @@ typedef NS_OPTIONS(NSUInteger, UIDragOperation)
 - (void)configureLayerView:(UIView *)view;
 @end
 
+@interface _UIVisualEffectTintLayerConfig : _UIVisualEffectLayerConfig
++ (instancetype)layerWithTintColor:(UIColor *)tintColor;
++ (instancetype)layerWithTintColor:(UIColor *)tintColor filterType:(NSString *)filterType NS_AVAILABLE_IOS(9_0);
+@end
+
 @interface _UIVisualEffectConfig : NSObject
 @property (nonatomic, readonly) _UIVisualEffectLayerConfig *contentConfig;
 + (_UIVisualEffectConfig *)configWithContentConfig:(_UIVisualEffectLayerConfig *)contentConfig;
 @end
 
+typedef NSInteger UICompositingMode;
+
 @interface UIVisualEffect ()
 + (UIVisualEffect *)emptyEffect;
 + (UIVisualEffect *)effectCombiningEffects:(NSArray<UIVisualEffect *> *)effects;
++ (UIVisualEffect *)effectCompositingColor:(UIColor *)color withMode:(UICompositingMode)compositingMode alpha:(CGFloat)alpha;
 @end
 
 @interface UIColorEffect : UIVisualEffect
@@ -984,11 +983,29 @@ typedef NS_OPTIONS(NSUInteger, UIDragOperation)
 - (UIRectEdge)_edgesApplyingSafeAreaInsetsToContentInset;
 @end
 
+@interface UIScrollView (IPI)
+- (CGFloat)_rubberBandOffsetForOffset:(CGFloat)newOffset maxOffset:(CGFloat)maxOffset minOffset:(CGFloat)minOffset range:(CGFloat)range outside:(BOOL *)outside;
+- (void)_adjustForAutomaticKeyboardInfo:(NSDictionary *)info animated:(BOOL)animated lastAdjustment:(CGFloat*)lastAdjustment;
+- (BOOL)_isScrollingToTop;
+- (CGPoint)_animatedTargetOffset;
+@end
+
 @interface UIPeripheralHost (IPI)
 - (void)_beginIgnoringReloadInputViews;
 - (int)_endIgnoringReloadInputViews;
 - (void)forceReloadInputViews;
+- (CGFloat)getVerticalOverlapForView:(UIView *)view usingKeyboardInfo:(NSDictionary *)info;
 @end
+
+#if __has_include(<UIKit/UITextInputMultiDocument.h>)
+#import <UIKit/UITextInputMultiDocument.h>
+#else
+@protocol UITextInputMultiDocument <NSObject>
+@optional
+- (void)_restoreFocusWithToken:(id <NSCopying, NSSecureCoding>)token completion:(void (^)(BOOL didRestore))completion;
+- (void)_preserveFocusWithToken:(id <NSCopying, NSSecureCoding>)token destructively:(BOOL)destructively;
+@end
+#endif
 
 @interface UIResponder ()
 - (UIResponder *)firstResponder;
@@ -1023,10 +1040,11 @@ WTF_EXTERN_C_BEGIN
 
 BOOL UIKeyboardEnabledInputModesAllowOneToManyShortcuts(void);
 BOOL UIKeyboardEnabledInputModesAllowChineseTransliterationForText(NSString *);
-BOOL UIKeyboardCurrentInputModeAllowsChineseOrJapaneseReanalysisForText(NSString *);
 
 extern const float UITableCellDefaultFontSize;
 extern const float UITableViewCellDefaultFontSize;
+
+extern NSString *const _UIApplicationDidFinishSuspensionSnapshotNotification;
 
 extern NSString * const UIWindowDidMoveToScreenNotification;
 extern NSString * const UIWindowDidRotateNotification;

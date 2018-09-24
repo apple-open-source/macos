@@ -25,7 +25,6 @@
 #include "DestructionMode.h"
 #include "HeapCell.h"
 #include "IterationStatus.h"
-#include "SecurityOriginToken.h"
 #include "WeakSet.h"
 #include <wtf/Atomics.h>
 #include <wtf/Bitmap.h>
@@ -67,7 +66,14 @@ private:
     friend class Handle;
 public:
     static constexpr size_t atomSize = 16; // bytes
+
+    // Block size must be at least as large as the system page size.
+#if CPU(PPC64) || CPU(PPC64LE) || CPU(PPC) || CPU(UNKNOWN)
+    static constexpr size_t blockSize = 64 * KB;
+#else
     static constexpr size_t blockSize = 16 * KB;
+#endif
+
     static constexpr size_t blockMask = ~(blockSize - 1); // blockSize must be a power of two.
 
     static constexpr size_t atomsPerBlock = blockSize / atomSize;
@@ -181,6 +187,7 @@ public:
         template <typename Functor> inline IterationStatus forEachMarkedCell(const Functor&);
             
         JS_EXPORT_PRIVATE bool areMarksStale();
+        bool areMarksStaleForSweep();
         
         void assertMarksNotStale();
             
@@ -194,9 +201,6 @@ public:
         void didRemoveFromDirectory();
         
         void dumpState(PrintStream&);
-        
-        void associateWithOrigin(SecurityOriginToken);
-        SecurityOriginToken securityOriginToken() const { return m_securityOriginToken; }
         
     private:
         Handle(Heap&, AlignedMemoryAllocator*, void*);
@@ -233,8 +237,6 @@ public:
         WeakSet m_weakSet;
         
         MarkedBlock* m_block { nullptr };
-        
-        SecurityOriginToken m_securityOriginToken { 0 };
     };
 
 private:    

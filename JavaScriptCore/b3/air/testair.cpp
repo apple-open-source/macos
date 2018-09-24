@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,10 +40,10 @@
 #include "LinkBuffer.h"
 #include "PureNaN.h"
 #include <cmath>
-#include <map>
 #include <string>
 #include <wtf/Lock.h>
 #include <wtf/NumberOfCores.h>
+#include <wtf/StdMap.h>
 #include <wtf/Threading.h>
 
 // We don't have a NO_RETURN_DUE_TO_EXIT, nor should we. That's ridiculous.
@@ -71,7 +71,7 @@ using JSC::B3::Width64;
 
 namespace {
 
-StaticLock crashLock;
+Lock crashLock;
 
 // Nothing fancy for now; we just use the existing WTF assertion machinery.
 #define CHECK(x) do {                                                   \
@@ -90,13 +90,14 @@ std::unique_ptr<B3::Compilation> compile(B3::Procedure& proc)
     LinkBuffer linkBuffer(jit, nullptr);
 
     return std::make_unique<B3::Compilation>(
-        FINALIZE_CODE(linkBuffer, ("testair compilation")), proc.releaseByproducts());
+        FINALIZE_CODE(linkBuffer, B3CompilationPtrTag, "testair compilation"), proc.releaseByproducts());
 }
 
 template<typename T, typename... Arguments>
 T invoke(const B3::Compilation& code, Arguments... arguments)
 {
-    T (*function)(Arguments...) = bitwise_cast<T(*)(Arguments...)>(code.code().executableAddress());
+    void* executableAddress = untagCFunctionPtr(code.code().executableAddress(), B3CompilationPtrTag);
+    T (*function)(Arguments...) = bitwise_cast<T(*)(Arguments...)>(executableAddress);
     return function(arguments...);
 }
 
@@ -122,12 +123,12 @@ void testSimple()
 template<typename T>
 void loadConstantImpl(BasicBlock* block, T value, B3::Air::Opcode move, Tmp tmp, Tmp scratch)
 {
-    static StaticLock lock;
-    static std::map<T, T*>* map; // I'm not messing with HashMap's problems with integers.
+    static Lock lock;
+    static StdMap<T, T*>* map; // I'm not messing with HashMap's problems with integers.
 
     LockHolder locker(lock);
     if (!map)
-        map = new std::map<T, T*>();
+        map = new StdMap<T, T*>();
 
     if (!map->count(value))
         (*map)[value] = new T(value);

@@ -237,7 +237,6 @@ GetBacktraceSymbols(CSSymbolicatorRef symbolicator, uint64_t addr,
 {
     static char           unknownKernel[38];
     static char           unknownKernelSymbol[38];
-    static char           _module[38];
     const char          * symbolName;
     CSSymbolOwnerRef       owner;
     CSSymbolRef            symbol;
@@ -269,8 +268,6 @@ GetBacktraceSymbols(CSSymbolicatorRef symbolicator, uint64_t addr,
         }
         else
         {
-            CFStringGetCString(kCFURLVolumeUUIDStringKey, _module, sizeof(_module), kCFStringEncodingUTF8);
-            *pModuleName = _module;
             symbolName   = CSSymbolOwnerGetName(owner);
             *pSymbolName = symbolName;
             *pOffset     = addr - CSSymbolOwnerGetBaseAddress(owner);

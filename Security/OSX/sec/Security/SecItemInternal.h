@@ -90,14 +90,14 @@ typedef enum {
 } SecItemAuthResult;
 
 bool SecItemAuthDo(SecCFDictionaryCOW *auth_params, CFErrorRef *error, SecItemAuthResult (^perform)(CFArrayRef *ac_pairs, CFErrorRef *error),
-                   void (^newCredentialRefAdded)());
+                   void (^newCredentialRefAdded)(void));
 
 bool SecItemAuthDoQuery(SecCFDictionaryCOW *query, SecCFDictionaryCOW *attributes, const void *secItemOperation, CFErrorRef *error,
                                bool (^perform)(TKTokenRef token, CFDictionaryRef query, CFDictionaryRef attributes, CFDictionaryRef auth_params, CFErrorRef *error));
 
 void SecItemAuthCopyParams(SecCFDictionaryCOW *auth_params, SecCFDictionaryCOW *query);
 
-TKTokenRef SecTokenCreate(CFStringRef token_id, CFDictionaryRef auth_params, CFErrorRef *error);
+TKTokenRef SecTokenCreate(CFStringRef token_id, SecCFDictionaryCOW *auth_params, CFErrorRef *error);
 
 CFDictionaryRef SecTokenItemValueCopy(CFDataRef db_value, CFErrorRef *error);
 

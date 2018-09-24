@@ -122,7 +122,7 @@ bool setClientMatching(IOHIDEventSystemClientRef client, const char *str) {
     } else {
         matchingObj = matchingDictionaryForDeviceString(matchString);
     }
-    
+   
     if (!client || error || !matchingObj) {
         if (error) {
             NSLog(@"Serialization error: %@", error);

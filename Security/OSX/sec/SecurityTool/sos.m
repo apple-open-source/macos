@@ -88,16 +88,6 @@
         dispatch_semaphore_signal(sema1);
     }];
     
-
-    [[self.connection remoteObjectProxy] idsPerformanceCounters:^(NSDictionary <NSString *, NSNumber *> *counters){
-        if (counters == NULL){
-            printf("no IDS counters!");
-            return;
-        }
-        [merged addEntriesFromDictionary:counters];
-        dispatch_semaphore_signal(sema2);
-    }];
-    
     [[self.connection remoteObjectProxy] rateLimitingPerformanceCounters:^(NSDictionary <NSString *, NSString *> *returnedDiagnostics){
         if (returnedDiagnostics == NULL){
             printf("no rate limiting counters!");

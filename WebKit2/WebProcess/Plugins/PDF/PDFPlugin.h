@@ -169,7 +169,7 @@ private:
     bool getFormValue(String& formValue) final { return false; }
     bool handleScroll(WebCore::ScrollDirection, WebCore::ScrollGranularity) final;
     RefPtr<WebCore::SharedBuffer> liveResourceData() const final;
-    void willDetatchRenderer() final;
+    void willDetachRenderer() final;
     bool pluginHandlesContentOffsetForAccessibilityHitTest() const final;
     
     bool isBeingAsynchronouslyInitialized() const final { return false; }
@@ -249,8 +249,10 @@ private:
     WebCore::IntSize pdfDocumentSize() const { return m_pdfDocumentSize; }
     void setPDFDocumentSize(WebCore::IntSize size) { m_pdfDocumentSize = size; }
 
+#ifdef __OBJC__
     NSData *liveData() const;
-    NSData *rawData() const { return (NSData *)m_data.get(); }
+    NSData *rawData() const { return (__bridge NSData *)m_data.get(); }
+#endif
 
     WebFrame* webFrame() const { return m_frame; }
 

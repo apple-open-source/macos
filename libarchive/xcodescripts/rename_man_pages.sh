@@ -1,6 +1,8 @@
-#!/bin/sh
+#!/bin/bash -e -x
 
-set -ex
+# Do nothing for installhdrs
+[ "$ACTION" == "installhdrs" ] && exit 0
+[ "$ACTION" == "installapi" ] && exit 0
 
 if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
 	[ -z "${DSTROOT}" ] && exit 1

@@ -92,6 +92,15 @@ main(int argc, char *argv[])
 		if (argc != 2)
 			usage();
 		linkf = link;
+		/* UNIX conformance requires that both operands be NOT a dir */
+		for (int i = 0; i < 2; i++) {
+			if (stat(argv[i], &sb) == 0 && S_ISDIR(sb.st_mode)){
+				errno = EISDIR;
+				warn("%s", argv[0]);
+				return 1;
+			}
+		}
+
 		exit(linkit(argv[0], argv[1], 0));
 	}
 

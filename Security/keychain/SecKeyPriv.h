@@ -46,7 +46,6 @@
 
 __BEGIN_DECLS
 
-#if SEC_OS_IPHONE
 typedef struct __SecDERKey {
      uint8_t             *oid;
      CFIndex             oidLength;
@@ -58,7 +57,6 @@ typedef struct __SecDERKey {
      uint8_t             *key;
      CFIndex             keyLength;
 } SecDERKey;
-#endif // SEC_OS_IPHONE
 
 typedef struct SecRSAPublicKeyParams {
     uint8_t             *modulus;            /* modulus */
@@ -218,13 +216,12 @@ typedef struct __SecKeyDescriptor {
 #endif
 } SecKeyDescriptor;
 
-#if SEC_OS_IPHONE
 struct __SecKey {
     CFRuntimeBase          _base;
 
     const SecKeyDescriptor *key_class;
 
-#if !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
     // On OSX, keep optional SecKeyRef which holds dynamically, on-demand created CSSM-based key with the same
     // key material.  It is used to implement SecKeyGetCSSMKey().
     SecKeyRef cdsaKey;
@@ -233,7 +230,6 @@ struct __SecKey {
     /* The actual key handled by class. */
     void *key;
 };
-#endif
 
 /* Create a public key from a CFData containing a SubjectPublicKeyInfo in DER format. */
 SecKeyRef SecKeyCreateFromSubjectPublicKeyInfoData(CFAllocatorRef allocator,
@@ -243,7 +239,6 @@ SecKeyRef SecKeyCreateFromSubjectPublicKeyInfoData(CFAllocatorRef allocator,
 CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key);
 
 
-#if SEC_OS_IPHONE
 /*!
     @function SecKeyCreate
     @abstract Given a private key and data to sign, generate a digital signature.
@@ -265,7 +260,6 @@ SecKeyRef SecKeyCreatePublicFromDER(CFAllocatorRef allocator,
 
 /* Create public key from private key */
 SecKeyRef SecKeyCreatePublicFromPrivate(SecKeyRef privateKey);
-#endif // SEC_OS_IPHONE
 
 /* Get Private Key (if present) by publicKey. */
 SecKeyRef SecKeyCopyMatchingPrivateKey(SecKeyRef publicKey, CFErrorRef *error);
@@ -280,6 +274,10 @@ CFDictionaryRef CreatePrivateKeyMatchingQuery(SecKeyRef publicKey, bool returnPe
  in a keychain. */
 SecKeyRef SecKeyCreateFromAttributeDictionary(CFDictionaryRef refAttributes);
 
+// SecAsn1AlgId is deprecated, but we still need to use it.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 OSStatus SecKeyDigestAndVerify(
                                SecKeyRef           key,            /* Public key */
                                const SecAsn1AlgId  *algId,         /* algorithm oid/params */
@@ -288,7 +286,6 @@ OSStatus SecKeyDigestAndVerify(
                                const uint8_t       *sig,               /* signature to verify */
                                size_t              sigLen);           /* length of sig */
 
-#if SEC_OS_IPHONE
 /* Return an attribute dictionary used to store this item in a keychain. */
 CFDictionaryRef SecKeyCopyAttributeDictionary(SecKeyRef key);
 
@@ -316,6 +313,8 @@ OSStatus SecKeySignDigest(
     uint8_t             *sig,               /* signature, RETURNED */
     size_t              *sigLen);           /* IN/OUT */
 
+#pragma clang diagnostic pop
+
 OSStatus SecKeyCopyPublicBytes(SecKeyRef key, CFDataRef* serializedPublic);
 SecKeyRef SecKeyCreateFromPublicBytes(CFAllocatorRef allocator, CFIndex algorithmID, const uint8_t *keyData, CFIndex keyDataLength);
 SecKeyRef SecKeyCreateFromPublicData(CFAllocatorRef allocator, CFIndex algorithmID, CFDataRef serialized);
@@ -333,7 +332,6 @@ CFDictionaryRef SecKeyGeneratePrivateAttributeDictionary(SecKeyRef key,
                                                          CFDataRef privateBlob);
 CF_RETURNS_RETAINED
 CFDictionaryRef SecKeyGeneratePublicAttributeDictionary(SecKeyRef key, CFTypeRef keyType);
-#endif // SEC_OS_IPHONE
 
 enum {
     kSecNullAlgorithmID = 0,
@@ -342,7 +340,16 @@ enum {
     kSecECDSAAlgorithmID = 3,
 };
 
-#if SEC_OS_IPHONE_INCLUDES
+/*!
+ @function SecKeyGetAlgorithmId
+ @abstract Returns an enumerated constant value which identifies the algorithm for the given key.
+ @param key A key reference.
+ @result An algorithm identifier.
+ */
+CFIndex SecKeyGetAlgorithmId(SecKeyRef key)
+API_AVAILABLE(macos(10.8), ios(9.0));
+
+#if TARGET_OS_IPHONE
 /*!
      @function SecKeyGetAlgorithmID
      @abstract Returns an enumerated constant value which identifies the algorithm for the given key.
@@ -353,26 +360,32 @@ enum {
      For compatibility, your code should migrate to use SecKeyGetAlgorithmId instead.
 */
 CFIndex SecKeyGetAlgorithmID(SecKeyRef key)
-     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_8, __IPHONE_5_0, __IPHONE_9_0);
+API_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", ios(5.0, 9.0)) API_UNAVAILABLE(iosmac);
+#endif // TARGET_OS_IPHONE
 
+#if TARGET_OS_OSX
 /*!
-     @function SecKeyGetAlgorithmId
-     @abstract Returns an enumerated constant value which identifies the algorithm for the given key.
-     @param key A key reference.
-     @result An algorithm identifier.
-*/
-CFIndex SecKeyGetAlgorithmId(SecKeyRef key)
-     __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_9_0);
-#endif //#SEC_OS_IPHONE_INCLUDES
+ @function SecKeyGetAlgorithmID
+ @abstract Returns a pointer to a CSSM_X509_ALGORITHM_IDENTIFIER structure for the given key.
+ @param key A key reference.
+ @param algid On return, a pointer to a CSSM_X509_ALGORITHM_IDENTIFIER structure.
+ @result A result code.  See "Security Error Codes" (SecBase.h).
+ @discussion Deprecated in OS X 10.8 and later. Continued use is strongly discouraged,
+ since there is a naming conflict with a similar function (also deprecated) on iOS that
+ had different arguments and a different return value. Use SecKeyGetAlgorithmId instead.
+ */
+OSStatus SecKeyGetAlgorithmID(SecKeyRef key, const CSSM_X509_ALGORITHM_IDENTIFIER **algid)
+API_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", macos(10.2, 10.8)) API_UNAVAILABLE(ios);
+#endif
 
-#if SEC_OS_IPHONE
-typedef enum {
+#if !SEC_OS_OSX
+typedef CF_ENUM(int, SecKeySize) {
     kSecKeyKeySizeInBits        = 0,
     kSecKeySignatureSize        = 1,
     kSecKeyEncryptedDataSize    = 2,
     // More might belong here, but we aren't settled on how
     // to take into account padding and/or digest types.
-} SecKeySize;
+};
 
 /*!
  @function SecKeyGetSize
@@ -385,10 +398,7 @@ typedef enum {
  */
 size_t SecKeyGetSize(SecKeyRef key, SecKeySize whichSize)
 __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
-
 #endif
-
-#if SEC_OS_IPHONE
 
 /*!
  @function SecKeyLookupPersistentRef
@@ -399,7 +409,6 @@ __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
  */
 OSStatus SecKeyFindWithPersistentRef(CFDataRef persistentRef, SecKeyRef* lookedUpData)
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
-#endif // SEC_OS_IPHONE
 
 /*!
  @function SecKeyCopyPersistentRef
@@ -410,12 +419,6 @@ __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
  */
 OSStatus SecKeyCopyPersistentRef(SecKeyRef key, CFDataRef* persistentRef)
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
-
-#if SEC_OS_IPHONE
-
-/*
- *
- */
 
 extern const CFStringRef _kSecKeyWrapPGPSymAlg; /* CFNumber */
 extern const CFStringRef _kSecKeyWrapPGPFingerprint; /* CFDataRef, at least 20 bytes */
@@ -443,32 +446,7 @@ CFDataRef
 _SecKeyCopyUnwrapKey(SecKeyRef key, SecKeyWrapType type, CFDataRef wrappedKey, CFDictionaryRef parameters, CFDictionaryRef *outParam, CFErrorRef *error)
 __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
-#endif // SEC_OS_IPHONE
-
-
 #if SEC_OS_OSX_INCLUDES
-/*!
-    @function SecKeyGetAlgorithmID
-    @abstract Returns a pointer to a CSSM_X509_ALGORITHM_IDENTIFIER structure for the given key.
-    @param key A key reference.
-    @param algid On return, a pointer to a CSSM_X509_ALGORITHM_IDENTIFIER structure.
-    @result A result code.  See "Security Error Codes" (SecBase.h).
-    @discussion Deprecated in OS X 10.8 and later. Continued use is strongly discouraged,
-    since there is a naming conflict with a similar function (also deprecated) on iOS that
-    had different arguments and a different return value. Use SecKeyGetAlgorithmId instead.
-*/
-OSStatus SecKeyGetAlgorithmID(SecKeyRef key, const CSSM_X509_ALGORITHM_IDENTIFIER **algid)
-    DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
-
-/*!
-    @function SecKeyGetAlgorithmId
-    @abstract Returns an enumerated constant value which identifies the algorithm for the given key.
-    @param key A key reference.
-    @result An algorithm identifier.
-*/
-CFIndex SecKeyGetAlgorithmId(SecKeyRef key)
-    __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_9_0);
-
 /*!
     @function SecKeyGetStrengthInBits
     @abstract Returns key strength in bits for the given key.
@@ -477,7 +455,7 @@ CFIndex SecKeyGetAlgorithmId(SecKeyRef key)
     @param strength On return, the key strength in bits.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeyGetStrengthInBits(SecKeyRef key, const CSSM_X509_ALGORITHM_IDENTIFIER *algid, unsigned int *strength);
+OSStatus SecKeyGetStrengthInBits(SecKeyRef key, const CSSM_X509_ALGORITHM_IDENTIFIER *algid, unsigned int *strength) API_DEPRECATED("CSSM_X509_ALGORITHM_IDENTIFIER is deprecated", macos(10.4, 10.14));
 
 /*!
     @function SecKeyImportPair
@@ -527,7 +505,7 @@ SecKeyRef SecKeyCreate(CFAllocatorRef allocator,
     @result A result code. See "Security Error Codes" (SecBase.h).
     @discussion Warning: this function is NOT intended for use outside the Security stack in its current state. <rdar://3201885>
 */
-OSStatus SecKeyCreateWithCSSMKey(const CSSM_KEY *key, SecKeyRef* keyRef);
+OSStatus SecKeyCreateWithCSSMKey(const CSSM_KEY *key, SecKeyRef* keyRef) API_DEPRECATED("CSSM_KEY is deprecated", macos(10.11, 10.14));
 
 
 /*!
@@ -647,6 +625,9 @@ OSStatus SecKeyDecrypt(
        uint8_t             *plainText,
        size_t              *plainTextLen);    /* IN/OUT */
 
+// SecAsn1AlgId is deprecated, but we still need to use it.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 OSStatus SecKeyVerifyDigest(
        SecKeyRef           key,            /* Private key */
        const SecAsn1AlgId  *algId,         /* algorithm oid/params */
@@ -662,6 +643,9 @@ OSStatus SecKeySignDigest(
        size_t              digestDataLen,  /* length of digestData */
        uint8_t             *sig,           /* signature, RETURNED */
        size_t              *sigLen);       /* IN/OUT */
+#pragma clang diagnostic pop
+
+#endif  // SEC_OS_OSX_INCLUDES
 
 
 /* These are the named curves we support. These values come from RFC 4492
@@ -713,6 +697,7 @@ SecKeyRef SecKeyCreatePublicFromPrivate(SecKeyRef privateKey);
 */
 SecKeyRef SecKeyCreateFromPublicData(CFAllocatorRef allocator, CFIndex algorithmID, CFDataRef publicBytes);
 
+#if SEC_OS_OSX_INCLUDES
 OSStatus SecKeyRawVerifyOSX(
          SecKeyRef           key,
          SecPadding          padding,
@@ -729,9 +714,11 @@ OSStatus SecKeyRawVerifyOSX(
 */
 typedef CF_ENUM(uint32_t, SecKeyAttestationKeyType)
 {
-     kSecKeyAttestationKeyTypeSIK = 0,
-     kSecKeyAttestationKeyTypeGID
-} __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+    kSecKeyAttestationKeyTypeSIK = 0,
+    kSecKeyAttestationKeyTypeGID = 1,
+    kSecKeyAttestationKeyTypeUIKCommitted API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0)) = 2,
+    kSecKeyAttestationKeyTypeUIKProposed API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0)) = 3,
+} API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
 
 /*!
  @function SecKeyCopyAttestationKey
@@ -743,7 +730,7 @@ typedef CF_ENUM(uint32_t, SecKeyAttestationKeyType)
  @result On success a SecKeyRef containing the requested key is returned, on failure it returns NULL.
 */
 SecKeyRef SecKeyCopyAttestationKey(SecKeyAttestationKeyType keyType, CFErrorRef *error)
-__OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
 
 /*!
  @function SecKeyCreateAttestation
@@ -758,7 +745,7 @@ __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AV
  @discussion Key attestation only works for CTK SEP keys, i.e. keys created with kSecAttrTokenID=kSecAttrTokenIDSecureEnclave.
 */
 CFDataRef SecKeyCreateAttestation(SecKeyRef key, SecKeyRef keyToAttest, CFErrorRef *error)
-__OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
 
 /*!
  @function SecKeySetParameter
@@ -774,10 +761,29 @@ __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AV
  SecKey user (application) and backend and in this case are not interpreted by SecKey layer in any way.
  */
 Boolean SecKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error)
-__OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
 
 extern const CFStringRef kSecKeyParameterSETokenAttestationNonce
 API_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0));
+
+/*!
+ Available lifetime operations for SEP system keys.
+ */
+typedef CF_ENUM(int, SecKeyControlLifetimeType) {
+    kSecKeyControlLifetimeTypeBump = 0,
+    kSecKeyControlLifetimeTypeCommit = 1,
+} API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0));
+
+/*!
+ @function SecKeyControlLifetime
+ @abstract Performs key lifetime control operations for SEP system keys.
+
+ @param key Key to be controlled, currently must be either proposed or committed system UIK.
+ @param type Type of the control operation to be performed.
+ @param error Error which gathers more information when something went wrong.
+ */
+Boolean SecKeyControlLifetime(SecKeyRef key, SecKeyControlLifetimeType type, CFErrorRef *error)
+API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0));
 
 /*!
  @function SecKeyCreateDuplicate
@@ -790,7 +796,7 @@ API_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0));
  If the key is immutable (i.e. does not support SecKeySetParameter), calling this method is identical to calling CFRetain().
  */
 SecKeyRef SecKeyCreateDuplicate(SecKeyRef key)
-__OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
 
 /*!
  Algorithms for converting between bigendian and core-crypto ccunit data representation.

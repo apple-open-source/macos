@@ -149,7 +149,7 @@ static bool SOSCircleDigestArray(const struct ccdigest_info *di, CFMutableArrayR
     void * a_digest = (void * )array_digest;
 
     ccdigest_init(di, array_digest);
-    CFArraySortValues(array, CFRangeMake(0, CFArrayGetCount(array)), SOSPeerInfoCompareByID, SOSPeerCmpPubKeyHash);
+    CFArraySortValues(array, CFRangeMake(0, CFArrayGetCount(array)), SOSPeerInfoCompareByID, (void *)SOSPeerCmpPubKeyHash);
     CFArrayForEach(array, ^(const void *peer) {
         if (!SOSPeerInfoUpdateDigestWithPublicKeyBytes((SOSPeerInfoRef)peer, di, a_digest, error))
             success = false;
@@ -187,12 +187,18 @@ static bool SOSCircleHash(const struct ccdigest_info *di, SOSCircleRef circle, v
 }
 
 static bool SOSCircleHashNextGenWithAdditionalPeer(const struct ccdigest_info *di, SOSCircleRef circle, SOSPeerInfoRef additionalPeer, void *hash_result, CFErrorRef *error) {
+    bool result = false;
     CFMutableSetRef peers = CFSetCreateMutableCopy(NULL, 0, circle->peers);
     CFSetAddValue(peers, additionalPeer);
 
     SOSGenCountRef nextGen = SOSGenerationIncrementAndCreate(circle->generation);
 
-    return SOSCircleHashGenAndPeers(di, nextGen, peers, hash_result, error);
+    result = SOSCircleHashGenAndPeers(di, nextGen, peers, hash_result, error);
+
+    CFReleaseNull(nextGen);
+    CFReleaseNull(peers);
+
+    return result;
 }
 
 bool SOSCircleSetSignature(SOSCircleRef circle, SecKeyRef pubkey, CFDataRef signature, CFErrorRef *error) {
@@ -299,13 +305,19 @@ static bool SOSCircleConcordanceRingSign(SOSCircleRef circle, SecKeyRef privKey,
 
 bool SOSCircleVerifySignatureExists(SOSCircleRef circle, SecKeyRef pubKey, CFErrorRef *error) {
     if(!pubKey) {
-        // TODO ErrorRef
         secerror("SOSCircleVerifySignatureExists no pubKey");
         SOSCreateError(kSOSErrorBadFormat, CFSTR("SOSCircleVerifySignatureExists no pubKey"), (error != NULL) ? *error : NULL, error);
         return false;
     }
     CFDataRef signature = SOSCircleGetSignature(circle, pubKey, error);
     return NULL != signature;
+}
+
+CFStringRef SOSCircleCopyHashString(SOSCircleRef circle) {
+    const struct ccdigest_info *di = ccsha256_di();
+    uint8_t hash_result[di->output_size];
+    SOSCircleHash(di, circle, hash_result, NULL);
+    return SOSCopyHashBufAsString(hash_result, sizeof(hash_result));
 }
 
 bool SOSCircleVerify(SOSCircleRef circle, SecKeyRef pubKey, CFErrorRef *error) {
@@ -321,11 +333,21 @@ bool SOSCircleVerify(SOSCircleRef circle, SecKeyRef pubKey, CFErrorRef *error) {
                                     CFDataGetBytePtr(signature), CFDataGetLength(signature)), error, CFSTR("Signature verification failed."));;
 }
 
+bool SOSCircleVerifyPeerSignatureExists(SOSCircleRef circle, SOSPeerInfoRef peer) {
+    bool result = false;
+    SecKeyRef pub_key = SOSPeerInfoCopyPubKey(peer, NULL);
+    require_quiet(pub_key, fail);
+    result = SOSCircleVerifySignatureExists(circle, pub_key, NULL);
+fail:
+    CFReleaseSafe(pub_key);
+    return result;
+}
+
 bool SOSCircleVerifyPeerSigned(SOSCircleRef circle, SOSPeerInfoRef peer, CFErrorRef *error) {
     bool result = false;
     SecKeyRef pub_key = SOSPeerInfoCopyPubKey(peer, error);
     require_quiet(pub_key, fail);
-
+    
     result = SOSCircleVerify(circle, pub_key, error);
 fail:
     CFReleaseSafe(pub_key);
@@ -1463,7 +1485,7 @@ bool SOSCircleAcceptPeerFromHSA2(SOSCircleRef circle, SecKeyRef userKey, SOSGenC
 
 static inline void logPeerInfo(char *category, SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID, SOSPeerInfoRef peer) {
     char sigchr = 'v';
-    if (SOSCircleVerifyPeerSigned(circle, peer, NULL)) {
+    if (SOSCircleVerifyPeerSignatureExists(circle, peer)) {
         sigchr = 'V';
     }
     SOSPeerInfoLogState(category, peer, pubKey, myPID, sigchr);
@@ -1473,7 +1495,7 @@ void SOSCircleLogState(char *category, SOSCircleRef circle, SecKeyRef pubKey, CF
     if(!circle) return;
     CFStringRef genString = SOSGenerationCountCopyDescription(SOSCircleGetGeneration(circle));
     char sigchr = 'v';
-    if(pubKey && SOSCircleVerify(circle, pubKey, NULL)) {
+    if(pubKey && SOSCircleVerifySignatureExists(circle, pubKey, NULL)) {
         sigchr = 'V';
     }
     secnotice(category, "CIRCLE:    [%20@] UserSigned: %c", genString, sigchr);

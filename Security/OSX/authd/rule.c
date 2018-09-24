@@ -11,6 +11,7 @@
 #include <Security/AuthorizationDB.h>
 #include <Security/AuthorizationTagsPriv.h>
 #include "server.h"
+#include <libproc.h>
 
 AUTHD_DEFINE_LOG
 
@@ -747,6 +748,7 @@ bool
 rule_sql_commit(rule_t rule, authdb_connection_t dbconn, CFAbsoluteTime modified, process_t proc)
 {
     bool result = false;
+    __block bool insert = false;
     // type and class required else rule is name only?
     RuleClass rule_class = rule_get_class(rule);
     require(rule_get_type(rule) != 0, done);
@@ -792,6 +794,7 @@ rule_sql_commit(rule_t rule, authdb_connection_t dbconn, CFAbsoluteTime modified
         if (rule_get_id(rule)) {
             update = _sql_update(rule, dbconn);
         } else {
+            insert = true;
             if (proc) {
                 const char * ident = process_get_identifier(proc);
                 if (ident) {
@@ -824,12 +827,14 @@ rule_sql_commit(rule_t rule, authdb_connection_t dbconn, CFAbsoluteTime modified
 done:
     if (!result) {
         os_log_debug(AUTHD_LOG, "rule: commit, failed for %{public}s (%llu)", rule_get_name(rule), rule_get_id(rule));
+    } else {
+        rule_log_manipulation(dbconn, rule, insert ? rule_insert : rule_update, proc);
     }
     return result;
 }
 
 bool
-rule_sql_remove(rule_t rule, authdb_connection_t dbconn)
+rule_sql_remove(rule_t rule, authdb_connection_t dbconn, process_t proc)
 {
     bool result = false;
     int64_t id = rule_get_id(rule);
@@ -844,7 +849,12 @@ rule_sql_remove(rule_t rule, authdb_connection_t dbconn)
                          ^(sqlite3_stmt *stmt) {
                              sqlite3_bind_int64(stmt, 1, id);
                          }, NULL);
-done:
+    
+    if (result) {
+        rule_log_manipulation(dbconn, rule, rule_delete, proc);
+    }
+    
+done:  
     return result;
 }
 
@@ -1245,4 +1255,26 @@ SecRequirementRef rule_get_requirement(rule_t rule)
     }
     
     return rule->requirement;
+}
+
+void
+rule_log_manipulation(authdb_connection_t dbconn, rule_t rule, RuleOperation operation, process_t source)
+{
+    authdb_step(dbconn, "INSERT INTO rules_history (rule, source, operation, version) VALUES (?,?,?,?)", ^(sqlite3_stmt *stmt) {
+        char pathbuf[PROC_PIDPATHINFO_MAXSIZE];
+        if (source) {
+            pid_t pid = process_get_pid(source);
+            if (!proc_pidpath(pid, pathbuf, sizeof(pathbuf))) {
+                os_log_error(AUTHD_LOG, "Failed to get path for pid %d", pid);
+                snprintf(pathbuf, sizeof(pathbuf), "Unknown process with PID %d", pid);
+            }
+        } else {
+            strncpy(pathbuf, "authd", sizeof(pathbuf));
+        }
+        
+        sqlite3_bind_text(stmt, 1, rule_get_name(rule), -1, NULL);
+        sqlite3_bind_text(stmt, 2, pathbuf, -1, NULL);
+        sqlite3_bind_int(stmt, 3, operation);
+        sqlite3_bind_int64(stmt, 4, rule_get_version(rule));
+    }, NULL);
 }

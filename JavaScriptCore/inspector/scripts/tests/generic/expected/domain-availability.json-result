@@ -74,8 +74,8 @@ InspectorBackend.activateDomain("DomainB");
 #if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
 
 #include "TestProtocolTypes.h"
-#include <inspector/InspectorFrontendRouter.h>
 #include <JavaScriptCore/InspectorBackendDispatcher.h>
+#include <JavaScriptCore/InspectorFrontendRouter.h>
 
 namespace Inspector {
 
@@ -138,7 +138,7 @@ public:
 #pragma once
 
 #include "TestProtocolObjects.h"
-#include <inspector/InspectorBackendDispatcher.h>
+#include <JavaScriptCore/InspectorBackendDispatcher.h>
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
@@ -235,7 +235,7 @@ private:
 #include "config.h"
 #include "TestBackendDispatchers.h"
 
-#include <inspector/InspectorFrontendRouter.h>
+#include <JavaScriptCore/InspectorFrontendRouter.h>
 #include <wtf/JSONValues.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
@@ -258,7 +258,7 @@ DomainABackendDispatcher::DomainABackendDispatcher(BackendDispatcher& backendDis
     : SupplementalBackendDispatcher(backendDispatcher)
     , m_agent(agent)
 {
-    m_backendDispatcher->registerDispatcherForDomain(ASCIILiteral("DomainA"), this);
+    m_backendDispatcher->registerDispatcherForDomain("DomainA"_s, this);
 }
 
 void DomainABackendDispatcher::dispatch(long requestId, const String& method, Ref<JSON::Object>&& message)
@@ -266,12 +266,12 @@ void DomainABackendDispatcher::dispatch(long requestId, const String& method, Re
     Ref<DomainABackendDispatcher> protect(*this);
 
     RefPtr<JSON::Object> parameters;
-    message->getObject(ASCIILiteral("params"), parameters);
+    message->getObject("params"_s, parameters);
 
     if (method == "enable")
         enable(requestId, WTFMove(parameters));
     else
-        m_backendDispatcher->reportProtocolError(BackendDispatcher::MethodNotFound, makeString('\'', "DomainA", '.', method, "' was not found"));
+        m_backendDispatcher->reportProtocolError(BackendDispatcher::MethodNotFound, "'DomainA." + method + "' was not found");
 }
 
 void DomainABackendDispatcher::enable(long requestId, RefPtr<JSON::Object>&&)
@@ -302,7 +302,7 @@ DomainBBackendDispatcher::DomainBBackendDispatcher(BackendDispatcher& backendDis
     : SupplementalBackendDispatcher(backendDispatcher)
     , m_agent(agent)
 {
-    m_backendDispatcher->registerDispatcherForDomain(ASCIILiteral("DomainB"), this);
+    m_backendDispatcher->registerDispatcherForDomain("DomainB"_s, this);
 }
 
 void DomainBBackendDispatcher::dispatch(long requestId, const String& method, Ref<JSON::Object>&& message)
@@ -310,12 +310,12 @@ void DomainBBackendDispatcher::dispatch(long requestId, const String& method, Re
     Ref<DomainBBackendDispatcher> protect(*this);
 
     RefPtr<JSON::Object> parameters;
-    message->getObject(ASCIILiteral("params"), parameters);
+    message->getObject("params"_s, parameters);
 
     if (method == "enable")
         enable(requestId, WTFMove(parameters));
     else
-        m_backendDispatcher->reportProtocolError(BackendDispatcher::MethodNotFound, makeString('\'', "DomainB", '.', method, "' was not found"));
+        m_backendDispatcher->reportProtocolError(BackendDispatcher::MethodNotFound, "'DomainB." + method + "' was not found");
 }
 
 void DomainBBackendDispatcher::enable(long requestId, RefPtr<JSON::Object>&&)
@@ -419,7 +419,7 @@ class FrontendRouter;
 #include "config.h"
 #include "TestFrontendDispatchers.h"
 
-#include <inspector/InspectorFrontendRouter.h>
+#include <JavaScriptCore/InspectorFrontendRouter.h>
 #include <wtf/text/CString.h>
 
 namespace Inspector {
@@ -461,7 +461,7 @@ namespace Inspector {
 
 #pragma once
 
-#include <inspector/InspectorProtocolTypes.h>
+#include <JavaScriptCore/InspectorProtocolTypes.h>
 #include <wtf/Assertions.h>
 
 namespace Inspector {
@@ -781,7 +781,7 @@ using namespace Inspector;
     _domainAHandler = [handler retain];
 
     auto alternateDispatcher = std::make_unique<ObjCInspectorDomainABackendDispatcher>(handler);
-    auto alternateAgent = std::make_unique<AlternateDispatchableAgent<DomainABackendDispatcher, AlternateDomainABackendDispatcher>>(ASCIILiteral("DomainA"), *_controller, WTFMove(alternateDispatcher));
+    auto alternateAgent = std::make_unique<AlternateDispatchableAgent<DomainABackendDispatcher, AlternateDomainABackendDispatcher>>("DomainA"_s, *_controller, WTFMove(alternateDispatcher));
     _controller->appendExtraAgent(WTFMove(alternateAgent));
 }
 
@@ -799,7 +799,7 @@ using namespace Inspector;
     _domainBHandler = [handler retain];
 
     auto alternateDispatcher = std::make_unique<ObjCInspectorDomainBBackendDispatcher>(handler);
-    auto alternateAgent = std::make_unique<AlternateDispatchableAgent<DomainBBackendDispatcher, AlternateDomainBBackendDispatcher>>(ASCIILiteral("DomainB"), *_controller, WTFMove(alternateDispatcher));
+    auto alternateAgent = std::make_unique<AlternateDispatchableAgent<DomainBBackendDispatcher, AlternateDomainBBackendDispatcher>>("DomainB"_s, *_controller, WTFMove(alternateDispatcher));
     _controller->appendExtraAgent(WTFMove(alternateAgent));
 }
 
@@ -1002,13 +1002,13 @@ inline String toProtocolString(TestProtocolPlatform value)
 {
     switch(value) {
     case TestProtocolPlatformAll:
-        return ASCIILiteral("all");
+        return "all"_s;
     case TestProtocolPlatformGeneric:
-        return ASCIILiteral("generic");
+        return "generic"_s;
     case TestProtocolPlatformIOS:
-        return ASCIILiteral("ios");
+        return "ios"_s;
     case TestProtocolPlatformMacOS:
-        return ASCIILiteral("macos");
+        return "macos"_s;
     }
 }
 

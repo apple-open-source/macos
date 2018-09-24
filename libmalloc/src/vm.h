@@ -49,11 +49,7 @@ mvm_deallocate_pages(void *addr, size_t size, unsigned debug_flags);
 
 MALLOC_NOEXPORT
 int
-mvm_madvise_free(rack_t *szone, region_t r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t *last);
-
-MALLOC_NOEXPORT
-int
-mvm_madvise_reuse(region_t r, uintptr_t pgLo, uintptr_t phHi, uint32_t debug_flags);
+mvm_madvise_free(void *szone, void *r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t *last, boolean_t scribble);
 
 MALLOC_NOEXPORT
 void

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,9 +29,9 @@
 
 __BEGIN_DECLS
 
-void process_AgentMonitor();
-void process_AgentMonitor_DNS();
-void process_AgentMonitor_Proxy();
+void process_AgentMonitor(void);
+void process_AgentMonitor_DNS(void);
+void process_AgentMonitor_Proxy(void);
 
 const void * copy_proxy_information_for_agent_uuid(uuid_t uuid, uint64_t *length);
 const void * copy_dns_information_for_agent_uuid(uuid_t uuid, uint64_t *length);

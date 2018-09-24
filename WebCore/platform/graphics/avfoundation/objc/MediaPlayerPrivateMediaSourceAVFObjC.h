@@ -52,12 +52,10 @@ class MediaSourcePrivateAVFObjC;
 class PixelBufferConformerCV;
 class PlatformClockCM;
 class TextureCacheCV;
+class VideoFullscreenLayerManagerObjC;
 class VideoTextureCopierCV;
 class WebCoreDecompressionSession;
 
-#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
-class VideoFullscreenLayerManager;
-#endif
 
 class MediaPlayerPrivateMediaSourceAVFObjC : public MediaPlayerPrivateInterface {
 public:
@@ -108,16 +106,12 @@ public:
     AVSampleBufferDisplayLayer* sampleBufferDisplayLayer() const { return m_sampleBufferDisplayLayer.get(); }
     WebCoreDecompressionSession* decompressionSession() const { return m_decompressionSession.get(); }
 
-#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
     void setVideoFullscreenLayer(PlatformLayer*, WTF::Function<void()>&& completionHandler) override;
     void setVideoFullscreenFrame(FloatRect) override;
-#endif
 
-#if ENABLE(VIDEO_TRACK)
     bool requiresTextTrackRepresentation() const override;
     void setTextTrackRepresentation(TextTrackRepresentation*) override;
     void syncTextTrackBounds() override;
-#endif
     
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     bool hasStreamSession() { return m_streamSession; }
@@ -135,6 +129,10 @@ public:
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
     void keyNeeded(Uint8Array*);
+
+    void outputObscuredDueToInsufficientExternalProtectionChanged(bool);
+    void beginSimulatedHDCPError() override { outputObscuredDueToInsufficientExternalProtectionChanged(true); }
+    void endSimulatedHDCPError() override { outputObscuredDueToInsufficientExternalProtectionChanged(false); }
 #endif
 #if ENABLE(ENCRYPTED_MEDIA)
     void initializationDataEncountered(const String&, RefPtr<ArrayBuffer>&&);
@@ -155,7 +153,6 @@ private:
     void cancelLoad() override;
 
     void prepareToPlay() override;
-    PlatformMedia platformMedia() const override;
     PlatformLayer* platformLayer() const override;
 
     bool supportsPictureInPicture() const override { return true; }
@@ -229,7 +226,7 @@ private:
 
     size_t extraMemoryCost() const override;
 
-    std::optional<PlatformVideoPlaybackQualityMetrics> videoPlaybackQualityMetrics() override;
+    std::optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics() override;
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     bool isCurrentPlaybackTargetWireless() const override;
@@ -304,7 +301,6 @@ private:
     bool m_hasBeenAskedToPaintGL { false };
     bool m_hasAvailableVideoFrame { false };
     bool m_allRenderersHaveAvailableSamples { false };
-    RetainPtr<PlatformLayer> m_textTrackRepresentationLayer;
     std::unique_ptr<TextureCacheCV> m_textureCache;
     std::unique_ptr<VideoTextureCopierCV> m_videoTextureCopier;
     RetainPtr<CVOpenGLTextureRef> m_lastTexture;
@@ -312,9 +308,7 @@ private:
     RefPtr<MediaPlaybackTarget> m_playbackTarget;
     bool m_shouldPlayToTarget { false };
 #endif
-#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
-    std::unique_ptr<VideoFullscreenLayerManager> m_videoFullscreenLayerManager;
-#endif
+    std::unique_ptr<VideoFullscreenLayerManagerObjC> m_videoFullscreenLayerManager;
 #if ENABLE(ENCRYPTED_MEDIA)
     RefPtr<CDMInstance> m_cdmInstance;
 #endif

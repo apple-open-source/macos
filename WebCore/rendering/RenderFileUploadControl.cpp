@@ -114,7 +114,7 @@ int RenderFileUploadControl::maxFilenameWidth() const
 
 void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (style().visibility() != VISIBLE)
+    if (style().visibility() != Visibility::Visible)
         return;
     
     // Push a clip.
@@ -160,7 +160,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, const LayoutPoin
         else
             textY = baselinePosition(AlphabeticBaseline, true, HorizontalLine, PositionOnContainingLine);
 
-        paintInfo.context().setFillColor(style().visitedDependentColor(CSSPropertyColor));
+        paintInfo.context().setFillColor(style().visitedDependentColorWithColorFilter(CSSPropertyColor));
         
         // Draw the filename
         paintInfo.context().drawBidiText(font, textRun, IntPoint(roundToInt(textX), roundToInt(textY)));

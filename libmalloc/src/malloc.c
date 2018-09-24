@@ -23,25 +23,12 @@
 
 #include "internal.h"
 
-#if TARGET_OS_EMBEDDED || TARGET_IPHONE_SIMULATOR
-// _malloc_printf(ASL_LEVEL_INFO...) on iOS doesn't show up in the Xcode Console log of the device,
+#if TARGET_OS_IPHONE
+// malloc_report(ASL_LEVEL_INFO...) on iOS doesn't show up in the Xcode Console log of the device,
 // but ASL_LEVEL_NOTICE does.  So raising the log level is helpful.
 #undef ASL_LEVEL_INFO
 #define ASL_LEVEL_INFO ASL_LEVEL_NOTICE
-#endif
-
-/*
- * MALLOC_ABSOLUTE_MAX_SIZE - There are many instances of addition to a
- * user-specified size_t, which can cause overflow (and subsequent crashes)
- * for values near SIZE_T_MAX.  Rather than add extra "if" checks everywhere
- * this occurs, it is easier to just set an absolute maximum request size,
- * and immediately return an error if the requested size exceeds this maximum.
- * Of course, values less than this absolute max can fail later if the value
- * is still too large for the available memory.  The largest value added
- * seems to be PAGE_SIZE (in the macro round_page()), so to be safe, we set
- * the maximum to be 2 * PAGE_SIZE less than SIZE_T_MAX.
- */
-#define MALLOC_ABSOLUTE_MAX_SIZE (SIZE_T_MAX - (2 * PAGE_SIZE))
+#endif // TARGET_OS_IPHONE
 
 #define USE_SLEEP_RATHER_THAN_ABORT 0
 
@@ -91,16 +78,10 @@ unsigned malloc_check_start = 0; // 0 means don't check
 unsigned malloc_check_counter = 0;
 unsigned malloc_check_each = 1000;
 
-/* global flag to suppress ASL logging e.g. for syslogd */
-int _malloc_no_asl_log = 0;
-
 static int malloc_check_sleep = 100; // default 100 second sleep
 static int malloc_check_abort = 0;   // default is to sleep, not abort
 
-static int malloc_debug_file = STDERR_FILENO;
 static os_once_t _malloc_initialize_pred;
-
-static const char Malloc_Facility[] = "com.apple.Libsystem.malloc";
 
 // Used by memory resource exceptions and enabling/disabling malloc stack logging via malloc_memory_event_handler
 static boolean_t warn_mode_entered = false;
@@ -115,6 +96,8 @@ static int32_t volatile counterAlice = 0, counterBob = 0;
 static int32_t volatile * volatile pFRZCounterLive = &counterAlice;
 static int32_t volatile * volatile pFRZCounterDrain = &counterBob;
 
+unsigned int _os_cpu_number_override = -1;
+
 static inline malloc_zone_t *inline_malloc_default_zone(void) __attribute__((always_inline));
 
 #define MALLOC_LOG_TYPE_ALLOCATE stack_logging_type_alloc
@@ -124,8 +107,19 @@ static inline malloc_zone_t *inline_malloc_default_zone(void) __attribute__((alw
 
 #define DEFAULT_MALLOC_ZONE_STRING "DefaultMallocZone"
 #define DEFAULT_PUREGEABLE_ZONE_STRING "DefaultPurgeableMallocZone"
+#define MALLOC_HELPER_ZONE_STRING "MallocHelperZone"
 
-boolean_t malloc_engaged_nano(void);
+MALLOC_NOEXPORT
+unsigned int phys_ncpus;
+
+MALLOC_NOEXPORT
+unsigned int logical_ncpus;
+
+MALLOC_NOEXPORT
+unsigned int hyper_shift;
+
+// Boot argument for max magazine control
+static const char max_magazines_boot_arg[] = "malloc_max_magazines";
 
 /*********	Utilities	************/
 static bool _malloc_entropy_initialized;
@@ -162,14 +156,47 @@ __entropy_from_kernel(const char *str)
 	return idx;
 }
 
+static void
+__malloc_init_from_bootargs(const char *bootargs)
+{
+	// The maximum number of magazines can be set either via a
+	// boot argument or from the environment. Get the boot argument value
+	// here and store it. We can't bounds check it until we have phys_ncpus,
+	// which happens later in _malloc_initialize(), along with handling
+	// of the environment value setting.
+	char value_buf[256];
+	const char *flag = malloc_common_value_for_key_copy(bootargs,
+			max_magazines_boot_arg, value_buf, sizeof(value_buf));
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && value >= 0) {
+			max_magazines = (unsigned int)value;
+		} else {
+			malloc_report(ASL_LEVEL_ERR,
+						   "malloc_max_magazines must be positive - ignored.\n");
+		}
+	}
+}
+
 /* TODO: Investigate adding _malloc_initialize() into this libSystem initializer */
 void
 __malloc_init(const char *apple[])
 {
+	// We could try to be clever and cater for arbitrary length bootarg
+	// strings, but it's probably not worth it, especially as we would need
+	// to temporarily allocate at least a page of memory to read the bootargs
+	// into.
+	char bootargs[1024] = { '\0' };
+	size_t len = sizeof(bootargs) - 1;
+	if (!sysctlbyname("kern.bootargs", bootargs, &len, NULL, 0) && len > 0) {
+		bootargs[len + 1] = '\0';
+	}
+
 #if CONFIG_NANOZONE
 	// TODO: envp should be passed down from Libsystem
 	const char **envp = (const char **)*_NSGetEnviron();
-	nano_init(envp, apple);
+	nano_common_init(envp, apple, bootargs);
 #endif
 
 	const char **p;
@@ -189,6 +216,7 @@ __malloc_init(const char *apple[])
 		_malloc_entropy_initialized = true;
 	}
 
+	__malloc_init_from_bootargs(bootargs);
 	mvm_aslr_init();
 }
 
@@ -292,8 +320,16 @@ static size_t
 default_zone_pressure_relief(malloc_zone_t *zone, size_t goal)
 {
 	zone = runtime_default_zone();
-	
+
 	return zone->pressure_relief(zone, goal);
+}
+
+static boolean_t
+default_zone_malloc_claimed_address(malloc_zone_t *zone, void *ptr)
+{
+	zone = runtime_default_zone();
+
+	return malloc_zone_claimed_address(zone, ptr);
 }
 
 static kern_return_t
@@ -329,8 +365,8 @@ static void
 default_zone_print(malloc_zone_t *zone, boolean_t verbose)
 {
 	zone = runtime_default_zone();
-	
-	return (void)zone->introspect->check(zone);
+
+	return (void)zone->introspect->print(zone, verbose);
 }
 
 static void
@@ -419,10 +455,11 @@ __attribute__((aligned(PAGE_MAX_SIZE))) = {
 	default_zone_batch_malloc,
 	default_zone_batch_free,
 	&default_zone_introspect,
-	9,
+	10,
 	default_zone_memalign,
 	default_zone_free_definite_size,
-	default_zone_pressure_relief
+	default_zone_pressure_relief,
+	default_zone_malloc_claimed_address,
 };
 
 static malloc_zone_t *default_zone = &virtual_default_zone.malloc_zone;
@@ -580,7 +617,7 @@ malloc_zone_register_while_locked(malloc_zone_t *zone)
 	 * so, print an error message and return. */
 	for (i = 0; i != malloc_num_zones; ++i) {
 		if (zone == malloc_zones[i]) {
-			_malloc_printf(ASL_LEVEL_ERR, "Attempted to register zone more than once: %p\n", zone);
+			malloc_report(ASL_LEVEL_ERR, "Attempted to register zone more than once: %p\n", zone);
 			return;
 		}
 	}
@@ -594,7 +631,7 @@ malloc_zone_register_while_locked(malloc_zone_t *zone)
 		vm_addr = vm_page_size;
 		kern_return_t kr = mach_vm_allocate(mach_task_self(), &vm_addr, alloc_size, alloc_flags);
 		if (kr) {
-			_malloc_printf(ASL_LEVEL_ERR, "malloc_zone_register allocation failed: %d\n", kr);
+			malloc_report(ASL_LEVEL_ERR, "malloc_zone_register allocation failed: %d\n", kr);
 			return;
 		}
 
@@ -634,7 +671,7 @@ malloc_zone_register_while_locked(malloc_zone_t *zone)
 	/* Finally, now that the zone is registered, disallow write access to the
 	 * malloc_zones array */
 	mprotect(malloc_zones, protect_size, PROT_READ);
-	//_malloc_printf(ASL_LEVEL_INFO, "Registered malloc_zone %p in malloc_zones %p [%u zones, %u bytes]\n", zone, malloc_zones,
+	//malloc_report(ASL_LEVEL_INFO, "Registered malloc_zone %p in malloc_zones %p [%u zones, %u bytes]\n", zone, malloc_zones,
 	// malloc_num_zones, protect_size);
 }
 
@@ -670,7 +707,7 @@ turn_on_stack_logging(stack_logging_mode_type mode)
 					stack_logging_enable_logging = 1;
 					ret = true;
 					
-					malloc_printf("recording malloc and VM allocation stacks to disk using standard recorder\n");
+					malloc_report(ASL_LEVEL_INFO, "recording malloc and VM allocation stacks to disk using standard recorder\n");
 					break;
 					
 				case stack_logging_mode_malloc:
@@ -680,7 +717,7 @@ turn_on_stack_logging(stack_logging_mode_type mode)
 					stack_logging_enable_logging = 1;
 					ret = true;
 					
-					malloc_printf("recording malloc (but not VM allocation) stacks to disk using standard recorder\n");
+					malloc_report(ASL_LEVEL_INFO, "recording malloc (but not VM allocation) stacks to disk using standard recorder\n");
 					break;
 					
 				case stack_logging_mode_vm:
@@ -690,15 +727,15 @@ turn_on_stack_logging(stack_logging_mode_type mode)
 					stack_logging_enable_logging = 1;
 					ret = true;
 					
-					malloc_printf("recording VM allocation (but not malloc) stacks to disk using standard recorder\n");
+					malloc_report(ASL_LEVEL_INFO, "recording VM allocation (but not malloc) stacks to disk using standard recorder\n");
 					break;
 					
 				case stack_logging_mode_lite:
 					if (!has_default_zone0()) {
-						malloc_printf("zone[0] is not the normal default zone so can't turn on lite mode.\n", mode);
+						malloc_report(ASL_LEVEL_ERR, "zone[0] is not the normal default zone so can't turn on lite mode.\n", mode);
 						ret = false;
 					} else {
-						malloc_printf("recording malloc (and VM allocation) stacks using lite mode\n");
+						malloc_report(ASL_LEVEL_INFO, "recording malloc (and VM allocation) stacks using lite mode\n");
 						
 						if (lite_zone) {
 							enable_stack_logging_lite();
@@ -716,13 +753,22 @@ turn_on_stack_logging(stack_logging_mode_type mode)
 					}
 					break;
 					
+				case stack_logging_mode_vmlite:
+					if (__prepare_to_log_stacks(true)) {
+						__syscall_logger = __disk_stack_logging_log_stack;
+						stack_logging_mode = mode;
+						stack_logging_enable_logging = 1;
+						malloc_report(ASL_LEVEL_INFO, "recording VM allocation (but not malloc) stacks using lite mode\n");
+					}
+					break;
+					
 				default:
-					malloc_printf("invalid mode %d passed to turn_on_stack_logging\n", mode);
+					malloc_report(ASL_LEVEL_ERR, "invalid mode %d passed to turn_on_stack_logging\n", mode);
 					break;
 			}
 		}
 	} else {
-		malloc_printf("malloc stack logging already enabled.\n");
+		malloc_report(ASL_LEVEL_ERR, "malloc stack logging already enabled.\n");
 	}
 	
 	MALLOC_UNLOCK();
@@ -741,34 +787,40 @@ turn_off_stack_logging()
 				malloc_logger = NULL;
 				__syscall_logger = NULL;
 				stack_logging_enable_logging = 0;
-				malloc_printf("turning off recording malloc and VM allocation stacks to disk using standard recorder\n");
+				malloc_report(ASL_LEVEL_INFO, "turning off recording malloc and VM allocation stacks to disk using standard recorder\n");
 				break;
 				
 			case stack_logging_mode_malloc:
 				malloc_logger = NULL;
 				stack_logging_enable_logging = 0;
-				malloc_printf("turnning off recording malloc (but not VM allocation) stacks to disk using standard recorder\n");
+				malloc_report(ASL_LEVEL_INFO, "turnning off recording malloc (but not VM allocation) stacks to disk using standard recorder\n");
 				break;
 				
 			case stack_logging_mode_vm:
 				__syscall_logger = NULL;
 				stack_logging_enable_logging = 0;
-				malloc_printf("turning off recording VM allocation (but not malloc) stacks to disk using standard recorder\n");
+				malloc_report(ASL_LEVEL_INFO, "turning off recording VM allocation (but not malloc) stacks to disk using standard recorder\n");
 				break;
 				
 			case stack_logging_mode_lite:
-				malloc_printf("turning off recording malloc (but not VM allocation) stacks using lite mode\n");
+				malloc_report(ASL_LEVEL_INFO, "turning off recording malloc (but not VM allocation) stacks using lite mode\n");
 				
 				disable_stack_logging_lite();
 				stack_logging_enable_logging = 0;
 				break;
 				
+			case stack_logging_mode_vmlite:
+				__syscall_logger = NULL;
+				stack_logging_enable_logging = 0;
+				malloc_report(ASL_LEVEL_INFO, "turning off recording VM allocation stacks using lite mode\n");
+				break;
+				
 			default:
-				malloc_printf("invalid stack_logging_mode %d in turn_off_stack_logging\n", stack_logging_mode);
+				malloc_report(ASL_LEVEL_ERR, "invalid stack_logging_mode %d in turn_off_stack_logging\n", stack_logging_mode);
 				break;
 		}
 	} else {
-		malloc_printf("malloc stack logging not enabled.\n");
+		malloc_report(ASL_LEVEL_ERR, "malloc stack logging not enabled.\n");
 	}
 	
 	MALLOC_UNLOCK();
@@ -780,20 +832,57 @@ _malloc_initialize(void *context __unused)
 {
 	MALLOC_LOCK();
 	unsigned n;
-	malloc_zone_t *zone;
+	malloc_zone_t *zone = NULL;
 
 	if (!_malloc_entropy_initialized) {
 		// Lazy initialization may occur before __malloc_init (rdar://27075409)
 		// TODO: make this a fatal error
-		malloc_printf("*** malloc was initialized without entropy\n");
+		malloc_report(ASL_LEVEL_ERR, "*** malloc was initialized without entropy\n");
+	}
+
+	phys_ncpus = *(uint8_t *)(uintptr_t)_COMM_PAGE_PHYSICAL_CPUS;
+	logical_ncpus = *(uint8_t *)(uintptr_t)_COMM_PAGE_LOGICAL_CPUS;
+
+	if (0 != (logical_ncpus % phys_ncpus)) {
+		MALLOC_REPORT_FATAL_ERROR(logical_ncpus % phys_ncpus,
+				"logical_ncpus %% phys_ncpus != 0\n");
+	}
+
+	switch (logical_ncpus / phys_ncpus) {
+	case 1:
+		hyper_shift = 0;
+		break;
+	case 2:
+		hyper_shift = 1;
+		break;
+	case 4:
+		hyper_shift = 2;
+		break;
+	default:
+		MALLOC_REPORT_FATAL_ERROR(logical_ncpus / phys_ncpus, "logical_ncpus / phys_ncpus not 1, 2, or 4");
+	}
+
+	// max_magazines may already be set from a boot argument. Make sure that it
+	// is bounded by the number of CPUs.
+	if (max_magazines) {
+		max_magazines = MIN(max_magazines, logical_ncpus);
+	} else {
+		max_magazines = logical_ncpus;
 	}
 
 	set_flags_from_environment(); // will only set flags up to two times
 	n = malloc_num_zones;
 
 #if CONFIG_NANOZONE
+	nano_common_configure();
+	
 	malloc_zone_t *helper_zone = create_scalable_zone(0, malloc_debug_flags);
-	zone = create_nano_zone(0, helper_zone, malloc_debug_flags);
+
+	if (_malloc_engaged_nano == NANO_V2) {
+		zone = nanov2_create_zone(helper_zone, malloc_debug_flags);
+	} else if (_malloc_engaged_nano == NANO_V1) {
+		zone = nano_create_zone(helper_zone, malloc_debug_flags);
+	}
 
 	if (zone) {
 		malloc_zone_register_while_locked(zone);
@@ -850,11 +939,14 @@ _malloc_initialize(void *context __unused)
 			create_and_insert_lite_zone_while_locked();
 			enable_stack_logging_lite();
 			break;
+		case stack_logging_mode_vmlite:
+			__syscall_logger = __disk_stack_logging_log_stack;
+			break;
 		}
 	}
 
-	// _malloc_printf(ASL_LEVEL_INFO, "%d registered zones\n", malloc_num_zones);
-	// _malloc_printf(ASL_LEVEL_INFO, "malloc_zones is at %p; malloc_num_zones is at %p\n", (unsigned)&malloc_zones,
+	// malloc_report(ASL_LEVEL_INFO, "%d registered zones\n", malloc_num_zones);
+	// malloc_report(ASL_LEVEL_INFO, "malloc_zones is at %p; malloc_num_zones is at %p\n", (unsigned)&malloc_zones,
 	// (unsigned)&malloc_num_zones);
 	MALLOC_UNLOCK();
 }
@@ -870,7 +962,7 @@ static inline malloc_zone_t *
 inline_malloc_default_zone(void)
 {
 	_malloc_initialize_once();
-	// _malloc_printf(ASL_LEVEL_INFO, "In inline_malloc_default_zone with %d %d\n", malloc_num_zones, malloc_has_debug_zone);
+	// malloc_report(ASL_LEVEL_INFO, "In inline_malloc_default_zone with %d %d\n", malloc_num_zones, malloc_has_debug_zone);
 	return malloc_zones[0];
 }
 
@@ -887,7 +979,7 @@ inline_malloc_default_scalable_zone(void)
 	unsigned index;
 
 	_malloc_initialize_once();
-	// _malloc_printf(ASL_LEVEL_INFO, "In inline_malloc_default_scalable_zone with %d %d\n", malloc_num_zones,
+	// malloc_report(ASL_LEVEL_INFO, "In inline_malloc_default_scalable_zone with %d %d\n", malloc_num_zones,
 	// malloc_has_debug_zone);
 
 	MALLOC_LOCK();
@@ -911,7 +1003,7 @@ inline_malloc_default_scalable_zone(void)
 	}
 	MALLOC_UNLOCK();
 
-	malloc_printf("*** malloc_default_scalable_zone() failed to find 'DefaultMallocZone'\n");
+	malloc_report(ASL_LEVEL_ERR, "*** malloc_default_scalable_zone() failed to find 'DefaultMallocZone'\n");
 	return NULL; // FIXME: abort() instead?
 }
 
@@ -951,9 +1043,9 @@ zeroify_scalable_zone(malloc_zone_t *zone)
 }
 
 /*
- * malloc_engaged_nano() is for the benefit of libdispatch, which calls here just once.
+ * Returns the version of the Nano allocator that's in use, or 0 if not.
  */
-boolean_t
+int
 malloc_engaged_nano(void)
 {
 #if CONFIG_NANOZONE
@@ -987,16 +1079,10 @@ static void
 set_flags_from_environment(void)
 {
 	const char *flag;
-	int fd;
 	char **env = *_NSGetEnviron();
 	char **p;
 	char *c;
-	bool restricted = 0;
 
-	if (malloc_debug_file != STDERR_FILENO) {
-		close(malloc_debug_file);
-		malloc_debug_file = STDERR_FILENO;
-	}
 #if __LP64__
 	malloc_debug_flags = MALLOC_ABORT_ON_CORRUPTION; // Set always on 64-bit processes
 #else
@@ -1034,33 +1120,23 @@ set_flags_from_environment(void)
 	 * MallocLogFile & MallocCorruptionAbort
 	 * as these provide the ability to turn *off* aborting in error cases.
 	 */
-	restricted = dyld_process_is_restricted();
+	bool restricted = dyld_process_is_restricted();
+	malloc_print_configure(restricted);
 
 	if (c == NULL) {
 		return;
 	}
-	if (!restricted) {
-		flag = getenv("MallocLogFile");
-		if (flag) {
-			fd = open(flag, O_WRONLY | O_APPEND | O_CREAT, 0644);
-			if (fd >= 0) {
-				malloc_debug_file = fd;
-				fcntl(fd, F_SETFD, 0); // clear close-on-exec flag  XXX why?
-			} else {
-				malloc_printf("Could not open %s, using stderr\n", flag);
-			}
-		}
-	}
+
 	if (getenv("MallocGuardEdges")) {
 		malloc_debug_flags |= MALLOC_ADD_GUARD_PAGES;
-		_malloc_printf(ASL_LEVEL_INFO, "protecting edges\n");
+		malloc_report(ASL_LEVEL_INFO, "protecting edges\n");
 		if (getenv("MallocDoNotProtectPrelude")) {
 			malloc_debug_flags |= MALLOC_DONT_PROTECT_PRELUDE;
-			_malloc_printf(ASL_LEVEL_INFO, "... but not protecting prelude guard page\n");
+			malloc_report(ASL_LEVEL_INFO, "... but not protecting prelude guard page\n");
 		}
 		if (getenv("MallocDoNotProtectPostlude")) {
 			malloc_debug_flags |= MALLOC_DONT_PROTECT_POSTLUDE;
-			_malloc_printf(ASL_LEVEL_INFO, "... but not protecting postlude guard page\n");
+			malloc_report(ASL_LEVEL_INFO, "... but not protecting postlude guard page\n");
 		}
 	}
 	flag = getenv("MallocStackLogging");
@@ -1070,43 +1146,46 @@ set_flags_from_environment(void)
 	}
 	if (flag) {
 		// Set up stack logging as early as possible to catch all ensuing VM allocations,
-		// including those from _malloc_printf and malloc zone setup.  Make sure to set
+		// including those from malloc_report and malloc zone setup.  Make sure to set
 		// __syscall_logger after this, because prepare_to_log_stacks() itself makes VM
 		// allocations that we aren't prepared to log yet.
-		boolean_t lite_mode = strcmp(flag, "lite") == 0;
+		boolean_t lite_or_vmlite_mode = strcmp(flag, "lite") == 0 || strcmp(flag, "vmlite") == 0;
 		
-		__prepare_to_log_stacks(lite_mode);
+		__prepare_to_log_stacks(lite_or_vmlite_mode);
 
 		if (strcmp(flag, "lite") == 0) {
 			stack_logging_mode = stack_logging_mode_lite;
-			_malloc_printf(ASL_LEVEL_INFO, "recording malloc and VM allocation stacks using lite mode\n");
+			malloc_report(ASL_LEVEL_INFO, "recording malloc and VM allocation stacks using lite mode\n");
 		} else if (strcmp(flag,"malloc") == 0) {
 			stack_logging_mode = stack_logging_mode_malloc;
-			_malloc_printf(ASL_LEVEL_INFO, "recording malloc (but not VM allocation) stacks to disk using standard recorder\n");
+			malloc_report(ASL_LEVEL_INFO, "recording malloc (but not VM allocation) stacks to disk using standard recorder\n");
 		} else if (strcmp(flag, "vm") == 0) {
 			stack_logging_mode = stack_logging_mode_vm;
-			_malloc_printf(ASL_LEVEL_INFO, "recording VM allocation (but not malloc) stacks to disk using standard recorder\n");
+			malloc_report(ASL_LEVEL_INFO, "recording VM allocation (but not malloc) stacks to disk using standard recorder\n");
+		} else if (strcmp(flag, "vmlite") == 0) {
+			stack_logging_mode = stack_logging_mode_vmlite;
+			malloc_report(ASL_LEVEL_NOTICE, "recording VM allocation (but not malloc) stacks using lite mode\n");
 		} else {
 			stack_logging_mode = stack_logging_mode_all;
-			_malloc_printf(ASL_LEVEL_INFO, "recording malloc and VM allocation stacks to disk using standard recorder\n");
+			malloc_report(ASL_LEVEL_INFO, "recording malloc and VM allocation stacks to disk using standard recorder\n");
 		}
 		stack_logging_enable_logging = 1;
 		if (stack_logging_dontcompact) {
 			if (stack_logging_mode == stack_logging_mode_all || stack_logging_mode == stack_logging_mode_malloc) {
-				_malloc_printf(
+				malloc_report(
 						ASL_LEVEL_INFO, "stack logging compaction turned off; size of log files on disk can increase rapidly\n");
 			} else {
-				_malloc_printf(ASL_LEVEL_INFO, "stack logging compaction turned off; VM can increase rapidly\n");
+				malloc_report(ASL_LEVEL_INFO, "stack logging compaction turned off; VM can increase rapidly\n");
 			}
 		}
 	}
 	if (getenv("MallocScribble")) {
 		malloc_debug_flags |= MALLOC_DO_SCRIBBLE;
-		_malloc_printf(ASL_LEVEL_INFO, "enabling scribbling to detect mods to free blocks\n");
+		malloc_report(ASL_LEVEL_INFO, "enabling scribbling to detect mods to free blocks\n");
 	}
 	if (getenv("MallocErrorAbort")) {
 		malloc_debug_flags |= MALLOC_ABORT_ON_ERROR;
-		_malloc_printf(ASL_LEVEL_INFO, "enabling abort() on bad malloc or free\n");
+		malloc_report(ASL_LEVEL_INFO, "enabling abort() on bad malloc or free\n");
 	}
 	if (getenv("MallocTracing")) {
 		malloc_tracing_enabled = true;
@@ -1141,30 +1220,56 @@ set_flags_from_environment(void)
 				malloc_check_each = 1;
 			}
 		}
-		_malloc_printf(
-				ASL_LEVEL_INFO, "checks heap after %dth operation and each %d operations\n", malloc_check_start, malloc_check_each);
+		malloc_report(ASL_LEVEL_INFO, "checks heap after operation #%d and each %d operations\n", malloc_check_start, malloc_check_each);
 		flag = getenv("MallocCheckHeapAbort");
 		if (flag) {
 			malloc_check_abort = (unsigned)strtol(flag, NULL, 0);
 		}
 		if (malloc_check_abort) {
-			_malloc_printf(ASL_LEVEL_INFO, "will abort on heap corruption\n");
+			malloc_report(ASL_LEVEL_INFO, "will abort on heap corruption\n");
 		} else {
 			flag = getenv("MallocCheckHeapSleep");
 			if (flag) {
 				malloc_check_sleep = (unsigned)strtol(flag, NULL, 0);
 			}
 			if (malloc_check_sleep > 0) {
-				_malloc_printf(ASL_LEVEL_INFO, "will sleep for %d seconds on heap corruption\n", malloc_check_sleep);
+				malloc_report(ASL_LEVEL_INFO, "will sleep for %d seconds on heap corruption\n", malloc_check_sleep);
 			} else if (malloc_check_sleep < 0) {
-				_malloc_printf(ASL_LEVEL_INFO, "will sleep once for %d seconds on heap corruption\n", -malloc_check_sleep);
+				malloc_report(ASL_LEVEL_INFO, "will sleep once for %d seconds on heap corruption\n", -malloc_check_sleep);
 			} else {
-				_malloc_printf(ASL_LEVEL_INFO, "no sleep on heap corruption\n");
+				malloc_report(ASL_LEVEL_INFO, "no sleep on heap corruption\n");
 			}
 		}
 	}
+
+	flag = getenv("MallocMaxMagazines");
+	if (flag) {
+		int value = (unsigned)strtol(flag, NULL, 0);
+		if (value == 0) {
+			malloc_report(ASL_LEVEL_INFO, "Maximum magazines defaulted to %d\n", max_magazines);
+		} else if (value < 0) {
+			malloc_report(ASL_LEVEL_ERR, "MallocMaxMagazines must be positive - ignored.\n");
+		} else if (value > logical_ncpus) {
+			max_magazines = logical_ncpus;
+			malloc_report(ASL_LEVEL_INFO, "Maximum magazines limited to number of logical CPUs (%d)\n", max_magazines);
+		} else {
+			max_magazines = value;
+			malloc_report(ASL_LEVEL_INFO, "Maximum magazines set to %d\n", max_magazines);
+		}
+	}
+#if CONFIG_RECIRC_DEPOT
+	flag = getenv("MallocRecircRetainedRegions");
+	if (flag) {
+		int value = (int)strtol(flag, NULL, 0);
+		if (value > 0) {
+			recirc_retained_regions = value;
+		} else {
+			malloc_report(ASL_LEVEL_ERR, "MallocRecircRetainedRegions must be positive - ignored.\n");
+		}
+	}
+#endif // CONFIG_RECIRC_DEPOT
 	if (getenv("MallocHelp")) {
-		_malloc_printf(ASL_LEVEL_INFO,
+		malloc_report(ASL_LEVEL_INFO,
 				"environment variables that can be set for debug:\n"
 				"- MallocLogFile <f> to create/append messages to file <f> instead of stderr\n"
 				"- MallocGuardEdges to add 2 guard pages for each large block\n"
@@ -1248,71 +1353,87 @@ malloc_destroy_zone(malloc_zone_t *zone)
 	zone->destroy(zone);
 }
 
+static vm_address_t *frames = NULL;
+static unsigned num_frames;
+
+MALLOC_NOINLINE
+void
+malloc_zone_check_fail(const char *msg, const char *fmt, ...)
+{
+	_SIMPLE_STRING b = _simple_salloc();
+	if (b) {
+		_simple_sprintf(b, "*** MallocCheckHeap: FAILED check at operation #%d\n", malloc_check_counter - 1);
+	} else {
+		malloc_report(MALLOC_REPORT_NOLOG, "*** MallocCheckHeap: FAILED check at operation #%d\n", malloc_check_counter - 1);
+	}
+	if (frames) {
+		unsigned index = 1;
+		if (b) {
+			_simple_sappend(b, "Stack for last operation where the malloc check succeeded: ");
+			while (index < num_frames)
+				_simple_sprintf(b, "%p ", (void*)frames[index++]);
+			malloc_report(MALLOC_REPORT_NOLOG, "%s\n(Use 'atos' for a symbolic stack)\n", _simple_string(b));
+		} else {
+			/*
+			 * Should only get here if vm_allocate() can't get a single page of
+			 * memory, implying _simple_asl_log() would also fail.  So we just
+			 * print to the file descriptor.
+			 */
+			malloc_report(MALLOC_REPORT_NOLOG, "Stack for last operation where the malloc check succeeded: ");
+			while (index < num_frames) {
+				malloc_report(MALLOC_REPORT_NOLOG, "%p ", (void *)frames[index++]);
+			}
+			malloc_report(MALLOC_REPORT_NOLOG, "\n(Use 'atos' for a symbolic stack)\n");
+		}
+	}
+	if (malloc_check_each > 1) {
+		unsigned recomm_each = (malloc_check_each > 10) ? malloc_check_each / 10 : 1;
+		unsigned recomm_start =
+				(malloc_check_counter > malloc_check_each + 1) ? malloc_check_counter - 1 - malloc_check_each : 1;
+		malloc_report(MALLOC_REPORT_NOLOG,
+				"*** Recommend using 'setenv MallocCheckHeapStart %d; setenv MallocCheckHeapEach %d' to narrow down failure\n",
+				recomm_start, recomm_each);
+	}
+
+	if (b) {
+		_simple_sfree(b);
+	}
+
+	// Use malloc_vreport() to:
+	// 	* report the error
+	// 	* call malloc_error_break() for a breakpoint
+	// 	* sleep or stop for debug
+	// 	* set the crash message and crash if malloc_check_abort is set.
+	unsigned sleep_time = 0;
+	uint32_t report_flags = ASL_LEVEL_ERR | MALLOC_REPORT_DEBUG | MALLOC_REPORT_NOLOG;
+	if (malloc_check_abort) {
+		report_flags |= MALLOC_REPORT_CRASH;
+	} else {
+		if (malloc_check_sleep > 0) {
+			malloc_report(ASL_LEVEL_NOTICE, "*** Will sleep for %d seconds to leave time to attach\n", malloc_check_sleep);
+			sleep_time = malloc_check_sleep;
+		} else if (malloc_check_sleep < 0) {
+			malloc_report(ASL_LEVEL_NOTICE, "*** Will sleep once for %d seconds to leave time to attach\n", -malloc_check_sleep);
+			sleep_time = -malloc_check_sleep;
+			malloc_check_sleep = 0;
+		}
+	}
+	va_list ap;
+	va_start(ap, fmt);
+	malloc_vreport(report_flags, sleep_time, msg, NULL, fmt, ap);
+	va_end(ap);
+}
+
 /*********	Block creation and manipulation	************/
 
 static void
 internal_check(void)
 {
-	static vm_address_t *frames = NULL;
-	static unsigned num_frames;
 	if (malloc_zone_check(NULL)) {
 		if (!frames) {
 			vm_allocate(mach_task_self(), (void *)&frames, vm_page_size, 1);
 		}
 		thread_stack_pcs(frames, (unsigned)(vm_page_size / sizeof(vm_address_t) - 1), &num_frames);
-	} else {
-		_SIMPLE_STRING b = _simple_salloc();
-		if (b) {
-			_simple_sprintf(b, "*** MallocCheckHeap: FAILED check at %dth operation\n", malloc_check_counter - 1);
-		} else {
-			_malloc_printf(MALLOC_PRINTF_NOLOG, "*** MallocCheckHeap: FAILED check at %dth operation\n", malloc_check_counter - 1);
-		}
-		malloc_printf("*** MallocCheckHeap: FAILED check at %dth operation\n", malloc_check_counter - 1);
-		if (frames) {
-			unsigned index = 1;
-			if (b) {
-				_simple_sappend(b, "Stack for last operation where the malloc check succeeded: ");
-				while (index < num_frames)
-					_simple_sprintf(b, "%p ", (void*)frames[index++]);
-				malloc_printf("%s\n(Use 'atos' for a symbolic stack)\n", _simple_string(b));
-			} else {
-				/*
-				 * Should only get here if vm_allocate() can't get a single page of
-				 * memory, implying _simple_asl_log() would also fail.  So we just
-				 * print to the file descriptor.
-				 */
-				_malloc_printf(MALLOC_PRINTF_NOLOG, "Stack for last operation where the malloc check succeeded: ");
-				while (index < num_frames)
-					_malloc_printf(MALLOC_PRINTF_NOLOG, "%p ", frames[index++]);
-				_malloc_printf(MALLOC_PRINTF_NOLOG, "\n(Use 'atos' for a symbolic stack)\n");
-			}
-		}
-		if (malloc_check_each > 1) {
-			unsigned recomm_each = (malloc_check_each > 10) ? malloc_check_each / 10 : 1;
-			unsigned recomm_start =
-					(malloc_check_counter > malloc_check_each + 1) ? malloc_check_counter - 1 - malloc_check_each : 1;
-			malloc_printf(
-					"*** Recommend using 'setenv MallocCheckHeapStart %d; setenv MallocCheckHeapEach %d' to narrow down failure\n",
-					recomm_start, recomm_each);
-		}
-		if (malloc_check_abort) {
-			if (b) {
-				_os_set_crash_log_message_dynamic(_simple_string(b));
-			} else {
-				_os_set_crash_log_message("*** MallocCheckHeap: FAILED check");
-			}
-			abort();
-		} else if (b) {
-			_simple_sfree(b);
-		}
-		if (malloc_check_sleep > 0) {
-			_malloc_printf(ASL_LEVEL_NOTICE, "*** Sleeping for %d seconds to leave time to attach\n", malloc_check_sleep);
-			sleep(malloc_check_sleep);
-		} else if (malloc_check_sleep < 0) {
-			_malloc_printf(ASL_LEVEL_NOTICE, "*** Sleeping once for %d seconds to leave time to attach\n", -malloc_check_sleep);
-			sleep(-malloc_check_sleep);
-			malloc_check_sleep = 0;
-		}
 	}
 	malloc_check_start += malloc_check_each;
 }
@@ -1344,14 +1465,11 @@ malloc_zone_malloc(malloc_zone_t *zone, size_t size)
 void *
 malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size)
 {
+	MALLOC_TRACE(TRACE_calloc | DBG_FUNC_START, (uintptr_t)zone, num_items, size, 0);
+
 	void *ptr;
-	size_t alloc_size;
 	if (malloc_check_start && (malloc_check_counter++ >= malloc_check_start)) {
 		internal_check();
-	}
-	if (os_mul_overflow(num_items, size, &alloc_size) || alloc_size > MALLOC_ABSOLUTE_MAX_SIZE){
-		errno = ENOMEM;
-		return NULL;
 	}
 
 	ptr = zone->calloc(zone, num_items, size);
@@ -1360,12 +1478,16 @@ malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size)
 		malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE | MALLOC_LOG_TYPE_CLEARED, (uintptr_t)zone,
 				(uintptr_t)(num_items * size), 0, (uintptr_t)ptr, 0);
 	}
+
+	MALLOC_TRACE(TRACE_calloc | DBG_FUNC_END, (uintptr_t)zone, num_items, size, (uintptr_t)ptr);
 	return ptr;
 }
 
 void *
 malloc_zone_valloc(malloc_zone_t *zone, size_t size)
 {
+	MALLOC_TRACE(TRACE_valloc | DBG_FUNC_START, (uintptr_t)zone, size, 0, 0);
+
 	void *ptr;
 	if (malloc_check_start && (malloc_check_counter++ >= malloc_check_start)) {
 		internal_check();
@@ -1379,6 +1501,8 @@ malloc_zone_valloc(malloc_zone_t *zone, size_t size)
 	if (malloc_logger) {
 		malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)size, 0, (uintptr_t)ptr, 0);
 	}
+
+	MALLOC_TRACE(TRACE_valloc | DBG_FUNC_END, (uintptr_t)zone, size, (uintptr_t)ptr, 0);
 	return ptr;
 }
 
@@ -1408,7 +1532,7 @@ malloc_zone_realloc(malloc_zone_t *zone, void *ptr, size_t size)
 void
 malloc_zone_free(malloc_zone_t *zone, void *ptr)
 {
-	MALLOC_TRACE(TRACE_free, (uintptr_t)zone, (uintptr_t)ptr, 0, 0);
+	MALLOC_TRACE(TRACE_free, (uintptr_t)zone, (uintptr_t)ptr, (ptr) ? *(uintptr_t*)ptr : 0, 0);
 
 	if (malloc_logger) {
 		malloc_logger(MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, 0, 0, 0);
@@ -1423,7 +1547,7 @@ malloc_zone_free(malloc_zone_t *zone, void *ptr)
 static void
 malloc_zone_free_definite_size(malloc_zone_t *zone, void *ptr, size_t size)
 {
-	MALLOC_TRACE(TRACE_free, (uintptr_t)zone, (uintptr_t)ptr, size, 0);
+	MALLOC_TRACE(TRACE_free, (uintptr_t)zone, (uintptr_t)ptr, size, (ptr && size) ? *(uintptr_t*)ptr : 0);
 
 	if (malloc_logger) {
 		malloc_logger(MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, 0, 0, 0);
@@ -1476,6 +1600,27 @@ malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size)
 
 	MALLOC_TRACE(TRACE_memalign | DBG_FUNC_END, (uintptr_t)zone, alignment, size, (uintptr_t)ptr);
 	return ptr;
+}
+
+boolean_t
+malloc_zone_claimed_address(malloc_zone_t *zone, void *ptr)
+{
+	if (!ptr) {
+		// NULL is not a member of any zone.
+		return false;
+	}
+
+	if (malloc_check_start && (malloc_check_counter++ >= malloc_check_start)) {
+		internal_check();
+	}
+
+	if (zone->version < 10 || !zone->claimed_address) {
+		// For zones that have not implemented claimed_address, we always have
+		// to return true to avoid a false negative.
+		return true;
+	}
+
+	return zone->claimed_address(zone, ptr);
 }
 
 /*********	Functions for zone implementors	************/
@@ -1533,7 +1678,7 @@ malloc_zone_unregister(malloc_zone_t *z)
 		return;
 	}
 	MALLOC_UNLOCK();
-	malloc_printf("*** malloc_zone_unregister() failed for %p\n", z);
+	malloc_report(ASL_LEVEL_ERR, "*** malloc_zone_unregister() failed for %p\n", z);
 }
 
 void
@@ -1565,53 +1710,6 @@ malloc_get_zone_name(malloc_zone_t *zone)
 	return zone->zone_name;
 }
 
-/*
- * XXX malloc_printf now uses _simple_*printf.  It only deals with a
- * subset of printf format specifiers, but it doesn't call malloc.
- */
-
-__attribute__((visibility("hidden"))) void
-_malloc_vprintf(int flags, const char *format, va_list ap)
-{
-	_SIMPLE_STRING b;
-
-	if (_malloc_no_asl_log || (flags & MALLOC_PRINTF_NOLOG) || (b = _simple_salloc()) == NULL) {
-		if (!(flags & MALLOC_PRINTF_NOPREFIX)) {
-			void *self = _os_tsd_get_direct(__TSD_THREAD_SELF);
-			_simple_dprintf(malloc_debug_file, "%s(%d,%p) malloc: ", getprogname(), getpid(), self);
-		}
-		_simple_vdprintf(malloc_debug_file, format, ap);
-		return;
-	}
-	if (!(flags & MALLOC_PRINTF_NOPREFIX)) {
-		void *self = _os_tsd_get_direct(__TSD_THREAD_SELF);
-		_simple_sprintf(b, "%s(%d,%p) malloc: ", getprogname(), getpid(), self);
-	}
-	_simple_vsprintf(b, format, ap);
-	_simple_put(b, malloc_debug_file);
-	_simple_asl_log(flags & MALLOC_PRINTF_LEVEL_MASK, Malloc_Facility, _simple_string(b));
-	_simple_sfree(b);
-}
-
-__attribute__((visibility("hidden"))) void
-_malloc_printf(int flags, const char *format, ...)
-{
-	va_list ap;
-
-	va_start(ap, format);
-	_malloc_vprintf(flags, format, ap);
-	va_end(ap);
-}
-
-void
-malloc_printf(const char *format, ...)
-{
-	va_list ap;
-
-	va_start(ap, format);
-	_malloc_vprintf(ASL_LEVEL_ERR, format, ap);
-	va_end(ap);
-}
 
 /*********	Generic ANSI callouts	************/
 
@@ -1645,23 +1743,15 @@ free(void *ptr)
 	if (!ptr) {
 		return;
 	}
+
 	zone = find_registered_zone(ptr, &size);
 	if (!zone) {
-		malloc_printf(
-				"*** error for object %p: pointer being freed was not allocated\n"
-				"*** set a breakpoint in malloc_error_break to debug\n",
-				ptr);
-		malloc_error_break();
+		int flags = MALLOC_REPORT_DEBUG | MALLOC_REPORT_NOLOG;
 		if ((malloc_debug_flags & (MALLOC_ABORT_ON_CORRUPTION | MALLOC_ABORT_ON_ERROR))) {
-			_SIMPLE_STRING b = _simple_salloc();
-			if (b) {
-				_simple_sprintf(b, "*** error for object %p: pointer being freed was not allocated\n", ptr);
-				_os_set_crash_log_message_dynamic(_simple_string(b));
-			} else {
-				_os_set_crash_log_message("*** error: pointer being freed was not allocated\n");
-			}
-			abort();
+			flags = MALLOC_REPORT_CRASH | MALLOC_REPORT_NOLOG;
 		}
+		malloc_report(flags,
+				"*** error for object %p: pointer being freed was not allocated\n", ptr);
 	} else if (zone->version >= 6 && zone->free_definite_size) {
 		malloc_zone_free_definite_size(zone, ptr, size);
 	} else {
@@ -1690,25 +1780,16 @@ realloc(void *in_ptr, size_t new_size)
 	} else {
 		zone = find_registered_zone(old_ptr, NULL);
 		if (!zone) {
-			malloc_printf(
-					"*** error for object %p: pointer being realloc'd was not allocated\n"
-					"*** set a breakpoint in malloc_error_break to debug\n",
-					old_ptr);
-			malloc_error_break();
-			if ((malloc_debug_flags & (MALLOC_ABORT_ON_CORRUPTION | MALLOC_ABORT_ON_ERROR))) {
-				_SIMPLE_STRING b = _simple_salloc();
-				if (b) {
-					_simple_sprintf(b, "*** error for object %p: pointer being realloc'd was not allocated\n", old_ptr);
-					_os_set_crash_log_message_dynamic(_simple_string(b));
-				} else {
-					_os_set_crash_log_message("*** error: pointer being realloc'd was not allocated\n");
-				}
-				abort();
+			int flags = MALLOC_REPORT_DEBUG;
+			if (malloc_debug_flags & (MALLOC_ABORT_ON_CORRUPTION | MALLOC_ABORT_ON_ERROR)) {
+				flags = MALLOC_REPORT_CRASH;
 			}
+			malloc_report(flags, "*** error for object %p: pointer being realloc'd was not allocated\n", in_ptr);
 		} else {
 			retval = malloc_zone_realloc(zone, old_ptr, new_size);
 		}
 	}
+
 	if (retval == NULL) {
 		errno = ENOMEM;
 	} else if (new_size == 0) {
@@ -1793,6 +1874,46 @@ posix_memalign(void **memptr, size_t alignment, size_t size)
 		*memptr = retval; // Set iff allocation succeeded
 		return 0;
 	}
+}
+
+boolean_t
+malloc_claimed_address(void *ptr)
+{
+	// We need to check with each registered zone whether it claims "ptr".
+	// Use logic similar to that in find_registered_zone().
+	if (malloc_num_zones == 0) {
+		return false;
+	}
+
+	// Start with the lite zone, if it's in use.
+	if (lite_zone && malloc_zone_claimed_address(lite_zone, ptr)) {
+		return true;
+	}
+
+	// Next, try the default zone, which is always present.
+	if (malloc_zone_claimed_address(malloc_zones[0], ptr)) {
+		return true;
+	}
+
+	// Try all the other zones. Increment the FRZ barrier so that we can
+	// walk the zones array without a lock (see find_registered_zone() for
+	// the details).
+	int32_t volatile *pFRZCounter = pFRZCounterLive;
+	OSAtomicIncrement32Barrier(pFRZCounter);
+
+	int32_t limit = *(int32_t volatile *)&malloc_num_zones;
+	malloc_zone_t **zones = &malloc_zones[1];
+	boolean_t result = false;
+	for (unsigned index = 1; index < limit; ++index, ++zones) {
+		malloc_zone_t *zone = *zones;
+		if (malloc_zone_claimed_address(zone, ptr)) {
+			result = true;
+			break;
+		}
+	}
+
+	OSAtomicDecrement32Barrier(pFRZCounter);
+	return result;
 }
 
 void *
@@ -1956,17 +2077,23 @@ handle_msl_memory_event(unsigned long event)
 	boolean_t msl_vm = (event & MEMORYSTATUS_ENABLE_MSL_VM);
 	boolean_t msl_lite = (event & MEMORYSTATUS_ENABLE_MSL_LITE);
 	
-	// The following always checks to make it's not possible to enable two different modes
+	// The following ensures it's not possible to enable two different modes
 	// For instance this would not be allowed:
 	// Enable lite
 	// Disable
 	// Enable full
 	
-	// Currently there is no separation of malloc/vm in lite mode
 	if (msl_lite) {
-		if (msl_type_enabled_at_runtime == stack_logging_mode_none || msl_type_enabled_at_runtime == stack_logging_mode_lite) {
-			msl_type_enabled_at_runtime = stack_logging_mode_lite;
-			turn_on_stack_logging(stack_logging_mode_lite);
+		if (msl_vm && msl_malloc) {
+			if (msl_type_enabled_at_runtime == stack_logging_mode_none || msl_type_enabled_at_runtime == stack_logging_mode_lite) {
+				msl_type_enabled_at_runtime = stack_logging_mode_lite;
+				turn_on_stack_logging(stack_logging_mode_lite);
+			}
+		} else if (msl_vm) {
+			if (msl_type_enabled_at_runtime == stack_logging_mode_none || msl_type_enabled_at_runtime == stack_logging_mode_vmlite) {
+				msl_type_enabled_at_runtime = stack_logging_mode_vmlite;
+				turn_on_stack_logging(stack_logging_mode_vmlite);
+			}
 		}
 		return;
 	} else if (msl_malloc && msl_vm) {
@@ -2018,7 +2145,7 @@ malloc_memory_event_handler(unsigned long event)
 		// Only try to clean up stack log data if it was enabled through a proc limit warning.
 		// User initiated stack logging should proceed unimpeded.
 		if (warn_mode_entered) {
-			malloc_printf("malloc_memory_event_handler: stopping stack-logging\n");
+			malloc_report(ASL_LEVEL_INFO, "malloc_memory_event_handler: stopping stack-logging\n");
 			turn_off_stack_logging();
 			__malloc_lock_stack_logging();
 			__delete_uniquing_table_memory_while_locked();
@@ -2034,7 +2161,7 @@ malloc_memory_event_handler(unsigned long event)
 		!(event & NOTE_MEMORYSTATUS_PRESSURE_CRITICAL) &&
 		!warn_mode_entered && !warn_mode_disable_retries &&
 		is_eligible_for_lite_mode_mre_handling()) {
-		malloc_printf("malloc_memory_event_handler: approaching memory limit. Starting stack-logging.\n");
+		malloc_report(ASL_LEVEL_INFO, "malloc_memory_event_handler: approaching memory limit. Starting stack-logging.\n");
 		if (turn_on_stack_logging(stack_logging_mode_lite)) {
 			warn_mode_entered = true;
 			
@@ -2163,14 +2290,14 @@ malloc_get_all_zones(task_t task, memory_reader_t reader, vm_address_t **address
 	err = reader(task, remote_malloc_zones, sizeof(void *), (void **)&zones_address_ref);
 	// printf("Read malloc_zones[%p]=%p\n", remote_malloc_zones, *zones_address_ref);
 	if (err) {
-		malloc_printf("*** malloc_get_all_zones: error reading zones_address at %p\n", (unsigned)remote_malloc_zones);
+		malloc_report(ASL_LEVEL_ERR, "*** malloc_get_all_zones: error reading zones_address at %p\n", (void *)remote_malloc_zones);
 		return err;
 	}
 	zones_address = *zones_address_ref;
 	// printf("Reading num_zones at address %p\n", remote_malloc_num_zones);
 	err = reader(task, remote_malloc_num_zones, sizeof(unsigned), (void **)&num_zones_ref);
 	if (err) {
-		malloc_printf("*** malloc_get_all_zones: error reading num_zones at %p\n", (unsigned)remote_malloc_num_zones);
+		malloc_report(ASL_LEVEL_ERR, "*** malloc_get_all_zones: error reading num_zones at %p\n", (void *)remote_malloc_num_zones);
 		return err;
 	}
 	num_zones = *num_zones_ref;
@@ -2179,7 +2306,7 @@ malloc_get_all_zones(task_t task, memory_reader_t reader, vm_address_t **address
 	// printf("malloc_get_all_zones succesfully found %d zones\n", num_zones);
 	err = reader(task, zones_address, sizeof(malloc_zone_t *) * num_zones, (void **)addresses);
 	if (err) {
-		malloc_printf("*** malloc_get_all_zones: error reading zones at %p\n", &zones_address);
+		malloc_report(ASL_LEVEL_ERR, "*** malloc_get_all_zones: error reading zones at %p\n", &zones_address);
 		return err;
 	}
 	// printf("malloc_get_all_zones succesfully read %d zones\n", num_zones);
@@ -2271,20 +2398,29 @@ malloc_zone_log(malloc_zone_t *zone, void *address)
 
 /*********	Misc other entry points	************/
 
+void
+mag_set_thread_index(unsigned int index)
+{
+	_os_cpu_number_override = index;
+#if CONFIG_NANOZONE
+	nano_common_cpu_number_override_set();
+#endif // CONFIG_NANOZONE
+}
+
 static void
 DefaultMallocError(int x)
 {
 #if USE_SLEEP_RATHER_THAN_ABORT
-	malloc_printf("*** error %d\n", x);
+	malloc_report(ASL_LEVEL_ERR, "*** error %d\n", x);
 	sleep(3600);
 #else
 	_SIMPLE_STRING b = _simple_salloc();
 	if (b) {
 		_simple_sprintf(b, "*** error %d", x);
-		malloc_printf("%s\n", _simple_string(b));
+		malloc_report(MALLOC_REPORT_NOLOG, "%s\n", _simple_string(b));
 		_os_set_crash_log_message_dynamic(_simple_string(b));
 	} else {
-		_malloc_printf(MALLOC_PRINTF_NOLOG, "*** error %d", x);
+		malloc_report(MALLOC_REPORT_NOLOG, "*** error %d\n", x);
 		_os_set_crash_log_message("*** DefaultMallocError called");
 	}
 	abort();
@@ -2358,8 +2494,12 @@ void
 _malloc_fork_child(void)
 {
 #if CONFIG_NANOZONE
-	if (_malloc_initialize_pred && _malloc_engaged_nano) {
-		nano_forked_zone((nanozone_t *)inline_malloc_default_zone());
+	if (_malloc_initialize_pred) {
+		if (_malloc_engaged_nano == NANO_V2) {
+			nanov2_forked_zone((nanozonev2_t *)inline_malloc_default_zone());
+		} else if (_malloc_engaged_nano == NANO_V1) {
+			nano_forked_zone((nanozone_t *)inline_malloc_default_zone());
+		}
 	}
 #endif
 	return _malloc_reinit_lock_all(&__stack_logging_fork_child);
@@ -2468,7 +2608,7 @@ set_malloc_singlethreaded(boolean_t single)
 	static boolean_t warned = 0;
 	if (!warned) {
 #if PHASE_OUT_OLD_MALLOC
-		malloc_printf("*** OBSOLETE: set_malloc_singlethreaded(%d)\n", single);
+		malloc_report(ASL_LEVEL_ERR, "*** OBSOLETE: set_malloc_singlethreaded(%d)\n", single);
 #endif
 		warned = 1;
 	}
@@ -2479,7 +2619,7 @@ malloc_singlethreaded(void)
 {
 	static boolean_t warned = 0;
 	if (!warned) {
-		malloc_printf("*** OBSOLETE: malloc_singlethreaded()\n");
+		malloc_report(ASL_LEVEL_ERR, "*** OBSOLETE: malloc_singlethreaded()\n");
 		warned = 1;
 	}
 }
@@ -2487,7 +2627,7 @@ malloc_singlethreaded(void)
 int
 malloc_debug(int level)
 {
-	malloc_printf("*** OBSOLETE: malloc_debug()\n");
+	malloc_report(ASL_LEVEL_ERR, "*** OBSOLETE: malloc_debug()\n");
 	return 0;
 }
 

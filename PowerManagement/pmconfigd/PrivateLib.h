@@ -59,9 +59,11 @@
 #include <IOKit/IOReturn.h>
 #include <os/log.h>
 
+
 #include <dispatch/dispatch.h>
 #include "PMAssertions.h"
 #include "CommonLib.h"
+#include "adaptiveDisplay.h"
 
   #define HAVE_CF_USER_NOTIFICATION     1
   #define HAVE_SMART_BATTERY            1
@@ -382,8 +384,6 @@ __private_extern__ void                 logASLMessageWake(const char *sig, const
                                                         const char *failureStr,
                                                         IOPMCapabilityBits in_capabilities, WakeTypeEnum dark_wake);
 
-__private_extern__ void                 logASLAppWakeReason(const char * ident, const char * reason);
-
 
 __private_extern__ void                 logASLMessagePMConnectionResponse(CFStringRef logSourceString, CFStringRef appNameString,
                                                          CFStringRef responseTypeString, CFNumberRef responseTime,
@@ -400,6 +400,8 @@ __private_extern__ void                 logASLMessagePMConnectionScheduledWakeEv
 __private_extern__ void                 logASLMessageExecutedWakeupEvent(CFStringRef requestedMaintenancesString);
 
 __private_extern__ void                 logASLMessageIgnoredDWTEmergency(void);
+__private_extern__ void                 logASLInactivityWindow(inactivityWindowType type, CFDateRef start, CFDateRef end);
+
 
 __private_extern__ void logASLMessageSleepCanceledAtLastCall( bool tcpka_active,
                                                               bool sys_active,
@@ -461,6 +463,9 @@ __private_extern__ CFStringRef          _getSleepReason();
 __private_extern__ void                 _resetWakeReason( );
 __private_extern__ void                 _updateWakeReason(CFStringRef *wakeReason, CFStringRef *wakeType);
 __private_extern__ void                 getPlatformWakeReason(CFStringRef *wakeReason, CFStringRef *wakeType);
+__private_extern__ void                 appClaimWakeReason(xpc_connection_t peer, xpc_object_t claim);
+__private_extern__ bool                 checkForAppWakeReason(CFStringRef wakeReason);
+
 
 __private_extern__ IOReturn             _setRootDomainProperty(CFStringRef key, CFTypeRef val);
 __private_extern__ CFTypeRef            _copyRootDomainProperty(CFStringRef key);
@@ -494,6 +499,12 @@ __private_extern__ int getLastSleepType();
 __private_extern__ IOReturn _smcWriteKey( uint32_t key, uint8_t *outBuf, uint8_t outBufMax);
 __private_extern__ IOReturn _smcReadKey( uint32_t key, uint8_t *outBuf, uint8_t *outBufMax, bool byteSwap);
 
+#ifdef XCTEST
+void xctSetPowerSource(PowerSources src);
+void xctSetCapacity(uint32_t capacity);
+void setAppWakeReason(CFStringRef reasonStr);
+
+#endif
 
 #endif
 

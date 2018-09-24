@@ -268,33 +268,9 @@ CCBigNumCreateRandom(CCStatus *status, int __unused bits, int top, int bottom)
     struct ccrng_state *rng = ccDRBGGetRngState();
     ccz *r = (ccz *)CCCreateBigNum(status);
     if (r && top > 0) {
-        /* TODO: Use the #if 0'd code once CommonCrypto has a native ccrng handle to use. */
-#if 1
         do {
             ccz_random_bits(r, top, rng);
         } while(ccz_bitlen(r) - ccz_trailing_zeros(r) < (unsigned long) bottom);
-#else
-        size_t data_size = ccn_sizeof(top);
-        uint8_t data[data_size];
-        CCStatus st;
-        do {
-            st = CCRandomCopyBytes(kCCRandomDefault, data, data_size);
-            if (st) {
-                break;
-            }
-            if (top & 7)
-                data[0] &= 0xff >> 8 - (top & 7);
-
-            ccz_read_uint(r, data_size, data);
-        } while(ccz_bitlen(r) - ccz_trailing_zeros(r) < bottom);
-        CC_XZEROMEM(data, data_size);
-        if (st) {
-            if (status)
-                *status = st;
-            CCBigNumFree(r);
-            r = NULL;
-        }
-#endif
     }
     return (CCBigNumRef)r;
 }
@@ -444,9 +420,10 @@ CCBigNumSquareMod(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef modulu
 CCStatus
 CCBigNumInverseMod(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef modulus)
 {
+    int status=0;
     CC_DEBUG_LOG("Entering\n");
-	ccz_invmod((ccz *)res, (ccz *)a, (ccz *)modulus);
-    return kCCSuccess;
+	status=ccz_invmod((ccz *)res, (ccz *)a, (ccz *)modulus);
+    return (status==0)?kCCSuccess:kCCParamError;
 }
 
 CCStatus

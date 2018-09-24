@@ -60,6 +60,7 @@ NS_ASSUME_NONNULL_BEGIN
 // A single trusted SOSPeer, but without any CKKS keys
 @property CKKSSOSPeer* remoteSOSOnlyPeer;
 
+@property NSMutableSet<CKKSKeychainView*>* ckksViews;
 @property NSMutableSet<CKRecordZoneID*>* ckksZones;
 @property (nullable) NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>* keys;
 

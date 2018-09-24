@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,7 @@
 namespace WebKit {
 
 class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::CookiesStrategy, private WebCore::PasteboardStrategy {
-    friend class NeverDestroyed<WebPlatformStrategies>;
+    friend NeverDestroyed<WebPlatformStrategies>;
 public:
     static void initialize();
     
@@ -47,12 +47,12 @@ private:
     WebCore::BlobRegistry* createBlobRegistry() override;
 
     // WebCore::CookiesStrategy
-    std::pair<String, bool> cookiesForDOM(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, WebCore::IncludeSecureCookies) override;
-    void setCookiesFromDOM(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, const String&) override;
+    std::pair<String, bool> cookiesForDOM(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::SameSiteInfo&, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, WebCore::IncludeSecureCookies) override;
+    void setCookiesFromDOM(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::SameSiteInfo&, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, const String&) override;
     bool cookiesEnabled(const WebCore::NetworkStorageSession&) override;
-    std::pair<String, bool> cookieRequestHeaderFieldValue(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, WebCore::IncludeSecureCookies) override;
-    std::pair<String, bool> cookieRequestHeaderFieldValue(PAL::SessionID, const WebCore::URL& firstParty, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, WebCore::IncludeSecureCookies) override;
-    bool getRawCookies(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, Vector<WebCore::Cookie>&) override;
+    std::pair<String, bool> cookieRequestHeaderFieldValue(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::SameSiteInfo&, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, WebCore::IncludeSecureCookies) override;
+    std::pair<String, bool> cookieRequestHeaderFieldValue(PAL::SessionID, const WebCore::URL& firstParty, const WebCore::SameSiteInfo&, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, WebCore::IncludeSecureCookies) override;
+    bool getRawCookies(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::SameSiteInfo&, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, Vector<WebCore::Cookie>&) override;
     void deleteCookie(const WebCore::NetworkStorageSession&, const WebCore::URL&, const String&) override;
 
     // WebCore::PasteboardStrategy
@@ -65,6 +65,7 @@ private:
     String readStringFromPasteboard(int index, const String& pasteboardType, const String& pasteboardName) override;
     RefPtr<WebCore::SharedBuffer> readBufferFromPasteboard(int index, const String& pasteboardType, const String& pasteboardName) override;
     WebCore::URL readURLFromPasteboard(int index, const String& pasteboardType, const String& pasteboardName, String& title) override;
+    Vector<WebCore::PasteboardItemInfo> allPasteboardItemInfo(const String& pasteboardName) override;
     WebCore::PasteboardItemInfo informationForItemAtIndex(int index, const String& pasteboardName) override;
     void updateSupportedTypeIdentifiers(const Vector<String>& identifiers, const String& pasteboardName) override;
     void getTypesByFidelityForItemAtIndex(Vector<String>& types, uint64_t index, const String& pasteboardName) override;
@@ -83,7 +84,7 @@ private:
     long addTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) override;
     long setTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) override;
     long setBufferForType(WebCore::SharedBuffer*, const String& pasteboardType, const String& pasteboardName) override;
-    long setPathnamesForType(const Vector<String>&, const String& pasteboardType, const String& pasteboardName) override;
+    long setURL(const WebCore::PasteboardURL&, const String& pasteboardName) override;
     long setStringForType(const String&, const String& pasteboardType, const String& pasteboardName) override;
 #endif
 #if PLATFORM(GTK)

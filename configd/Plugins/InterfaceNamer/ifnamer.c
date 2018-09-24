@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -57,11 +57,16 @@
  *   to give persistent interface names
  */
 
+#include <TargetConditionals.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#if	TARGET_OS_IPHONE
+#include <lockdown.h>
+#include <notify.h>
+#endif	// TARGET_OS_IPHONE
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
@@ -79,6 +84,7 @@
 #include <SystemConfiguration/SCDPlugin.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include "SCNetworkConfigurationInternal.h"
 #include "plugin_shared.h"
 #if	!TARGET_OS_IPHONE
 #include "InterfaceNamerControlPrefs.h"
@@ -108,9 +114,10 @@ enum {
 };
 #endif	// !USE_REGISTRY_ENTRY_ID
 
+#define	kSCNetworkInterfaceActive	"Active"
 #define	kSCNetworkInterfaceInfo		"SCNetworkInterfaceInfo"
 #define	kSCNetworkInterfaceType		"SCNetworkInterfaceType"
-#define	kSCNetworkInterfaceActive	"Active"
+#define	kSCNetworkInterfaceMatchingMACs	"MatchingMACs"
 
 #define MY_PLUGIN_NAME			"InterfaceNamer"
 #define	MY_PLUGIN_ID			CFSTR("com.apple.SystemConfiguration." MY_PLUGIN_NAME)
@@ -147,6 +154,16 @@ static CFMutableArrayRef	S_iflist		= NULL;
  *   new network interfaces.
  */
 static io_iterator_t		S_iter			= MACH_PORT_NULL;
+
+#if	!TARGET_OS_IPHONE
+/*
+ * S_locked
+ *   An array of CFData(WatchedInfo) objects representing those
+ *   interfaces that have been connected to the system while
+ *   locked.
+ */
+static CFMutableArrayRef	S_locked		= NULL;
+#endif	// !TARGET_OS_IPHONE
 
 /*
  * S_notify
@@ -192,6 +209,22 @@ static io_iterator_t		S_stack			= MACH_PORT_NULL;
  */
 static CFMutableDictionaryRef	S_state			= NULL;
 
+#if	TARGET_OS_IPHONE
+/*
+ * S_trustedHostAttached
+ *
+ * Note: this global must only be updated on trustRequired_queue()
+ */
+static Boolean			S_trustedHostAttached	= FALSE;
+
+/*
+ * S_trustRequired
+ *   An array of CFData(WatchedInfo) objects representing those
+ *   interfaces that require [lockdownd] trust.
+ */
+static CFMutableArrayRef	S_trustRequired		= NULL;
+#endif	// TARGET_OS_IPHONE
+
 /*
  * S_timer
  *   CFRunLoopTimer tracking how long we are willing to wait
@@ -225,7 +258,7 @@ static CFArrayRef		S_vlans			= NULL;
  */
 __private_extern__
 os_log_t
-__log_InterfaceNamer()
+__log_InterfaceNamer(void)
 {
     static os_log_t	log = NULL;
 
@@ -290,7 +323,7 @@ writeInterfaceList(CFArrayRef if_list)
 	return;
     }
 
-    prefs = SCPreferencesCreate(NULL, MY_PLUGIN_ID, NETWORK_INTERFACES_PREFS);
+    prefs = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME ":writeInterfaceList"), NETWORK_INTERFACES_PREFS);
     if (prefs == NULL) {
 	SC_log(LOG_NOTICE, "SCPreferencesCreate() failed: %s", SCErrorString(SCError()));
 	return;
@@ -384,7 +417,7 @@ readInterfaceList()
     CFMutableArrayRef 	plist	= NULL;
     SCPreferencesRef	prefs	= NULL;
 
-    prefs = SCPreferencesCreate(NULL, MY_PLUGIN_ID, NETWORK_INTERFACES_PREFS);
+    prefs = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME ":readInterfaceList"), NETWORK_INTERFACES_PREFS);
     if (prefs == NULL) {
 	SC_log(LOG_NOTICE, "SCPreferencesCreate() failed: %s", SCErrorString(SCError()));
 	return (NULL);
@@ -469,8 +502,7 @@ updateStore(void)
 {
     CFStringRef		key;
 
-    key = SCDynamicStoreKeyCreate(NULL, CFSTR("%@" MY_PLUGIN_NAME),
-				  kSCDynamicStoreDomainPlugin);
+    key = SCDynamicStoreKeyCreate(NULL, CFSTR("%@" MY_PLUGIN_NAME), kSCDynamicStoreDomainPlugin);
     (void)SCDynamicStoreSetValue(NULL, key, S_state);
     CFRelease(key);
 
@@ -611,7 +643,7 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
     return;
 }
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 
 static void
 updateBTPANInformation(const void *value, void *context)
@@ -650,10 +682,10 @@ updateBTPANInformation(const void *value, void *context)
 
     return;
 }
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_OSX
 
 static CFDictionaryRef
-createInterfaceDict(SCNetworkInterfaceRef interface)
+createInterfaceDict(SCNetworkInterfaceRef interface, CFArrayRef matchingMACs)
 {
     CFMutableDictionaryRef	new_if;
     CFTypeRef			val;
@@ -709,6 +741,10 @@ createInterfaceDict(SCNetworkInterfaceRef interface)
 			 _SCNetworkInterfaceIsBuiltin(interface) ? kCFBooleanTrue : kCFBooleanFalse);
 
     CFDictionarySetValue(new_if, CFSTR(kSCNetworkInterfaceActive), kCFBooleanTrue);
+
+    if (matchingMACs != NULL) {
+	CFDictionarySetValue(new_if, CFSTR(kSCNetworkInterfaceMatchingMACs), matchingMACs);
+    }
 
     return new_if;
 }
@@ -952,9 +988,9 @@ interfaceExists(CFStringRef prefix, CFNumberRef unit)
 
 
     io_registry_entry_t	entry		= MACH_PORT_NULL;
-    io_iterator_t		iterator	= MACH_PORT_NULL;
-    kern_return_t		kr;
-    mach_port_t			masterPort	= MACH_PORT_NULL;
+    io_iterator_t	iterator	= MACH_PORT_NULL;
+    kern_return_t	kr;
+    mach_port_t		masterPort	= MACH_PORT_NULL;
 
     kr = IOMasterPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
@@ -1110,14 +1146,15 @@ lookupMatchingInterface(SCNetworkInterfaceRef	interface,
 }
 
 static void
-insertInterface(CFMutableArrayRef db_list, SCNetworkInterfaceRef interface)
+insertInterface(CFMutableArrayRef db_list, SCNetworkInterfaceRef interface, CFDictionaryRef db_dict_match)
 {
     CFIndex		i;
     CFDictionaryRef	if_dict;
     CFStringRef		if_name;
     CFNumberRef		if_type;
     CFNumberRef		if_unit;
-    CFIndex		n	= CFArrayGetCount(db_list);
+    CFArrayRef		matchingMACs	= NULL;
+    CFIndex		n		= CFArrayGetCount(db_list);
     CFComparisonResult	res;
 
     if_name = SCNetworkInterfaceGetBSDName(interface);
@@ -1125,7 +1162,56 @@ insertInterface(CFMutableArrayRef db_list, SCNetworkInterfaceRef interface)
 	addTimestamp(S_state, if_name);
     }
 
-    if_dict = createInterfaceDict(interface);
+    if (!_SCNetworkInterfaceIsBuiltin(interface) && (db_dict_match != NULL)) {
+	CFDataRef	addr_cur;
+	CFDataRef	addr_old;
+
+	matchingMACs = CFDictionaryGetValue(db_dict_match, CFSTR(kSCNetworkInterfaceMatchingMACs));
+	if (matchingMACs != NULL) {
+	    CFRetain(matchingMACs);
+	}
+
+	addr_old = CFDictionaryGetValue(db_dict_match, CFSTR(kIOMACAddress));
+	addr_cur = _SCNetworkInterfaceGetHardwareAddress(interface);
+	if ((addr_old != NULL) && (addr_cur != NULL) && !CFEqual(addr_old, addr_cur)) {
+	    CFMutableArrayRef	matching_new;
+
+	    // if MAC address changed, add previous MAC to history
+	    if (matchingMACs != NULL) {
+		matching_new = CFArrayCreateMutableCopy(NULL, 0, matchingMACs);
+		CFRelease(matchingMACs);
+
+		// remove duplicates of the now current MAC from history
+		i = CFArrayGetFirstIndexOfValue(matching_new, CFRangeMake(0, CFArrayGetCount(matching_new)), addr_cur);
+		if (i != kCFNotFound) {
+		    CFArrayRemoveValueAtIndex(matching_new, i);
+		}
+
+		// remove duplicates of the previous MAC from history before re-inserting
+		i = CFArrayGetFirstIndexOfValue(matching_new, CFRangeMake(0, CFArrayGetCount(matching_new)), addr_old);
+		if (i != kCFNotFound) {
+		    CFArrayRemoveValueAtIndex(matching_new, i);
+		}
+	    } else {
+		matching_new = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	    }
+	    CFArrayInsertValueAtIndex(matching_new, 0, addr_old);
+
+	    // limit history size
+#define	MATCHING_HISTORY_MAXLEN	32
+	    for (i = CFArrayGetCount(matching_new); i > MATCHING_HISTORY_MAXLEN; i--) {
+		CFArrayRemoveValueAtIndex(matching_new, i - 1);
+	    }
+
+	    matchingMACs = matching_new;
+	}
+    }
+
+    if_dict = createInterfaceDict(interface, matchingMACs);
+    if (matchingMACs != NULL) {
+	CFRelease(matchingMACs);
+    }
+
     if_type = _SCNetworkInterfaceGetIOInterfaceType(interface);
     if_unit = _SCNetworkInterfaceGetIOInterfaceUnit(interface);
     if ((if_type == NULL) || (if_unit == NULL)) {
@@ -1153,9 +1239,9 @@ insertInterface(CFMutableArrayRef db_list, SCNetworkInterfaceRef interface)
 
     CFArrayAppendValue(S_dblist, if_dict);
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
     updateBTPANInformation(if_dict, NULL);
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_OSX
 
     CFRelease(if_dict);
     return;
@@ -1164,24 +1250,46 @@ insertInterface(CFMutableArrayRef db_list, SCNetworkInterfaceRef interface)
 static void
 replaceInterface(SCNetworkInterfaceRef interface)
 {
-    int		n	= 0;
-    CFIndex	where;
+    CFDictionaryRef	db_dict;
+    CFDictionaryRef	db_dict_match	= NULL;
+    int			n		= 0;
+    CFIndex		where;
 
     if (S_dblist == NULL) {
 	S_dblist = CFArrayCreateMutable(NULL, 0,
 					&kCFTypeArrayCallBacks);
     }
+
     // remove any dict that has our type/addr
-    while (lookupInterfaceByAddress(S_dblist, interface, &where) != NULL) {
+    while (TRUE) {
+	db_dict = lookupInterfaceByAddress(S_dblist, interface, &where);
+	if (db_dict == NULL) {
+	    break;
+	}
+	if (db_dict_match == NULL) {
+	    db_dict_match = CFRetain(db_dict);
+	}
 	CFArrayRemoveValueAtIndex(S_dblist, where);
 	n++;
     }
+
     // remove any dict that has the same type/unit
-    while (lookupInterfaceByUnit(S_dblist, interface, &where) != NULL) {
+    while (TRUE) {
+	db_dict = lookupInterfaceByUnit(S_dblist, interface, &where);
+	if (db_dict == NULL) {
+	    break;
+	}
+	if (db_dict_match == NULL) {
+	    db_dict_match = CFRetain(db_dict);
+	}
 	CFArrayRemoveValueAtIndex(S_dblist, where);
 	n++;
     }
-    insertInterface(S_dblist, interface);
+
+    insertInterface(S_dblist, interface, db_dict_match);
+    if (db_dict_match != NULL) {
+	CFRelease(db_dict_match);
+    }
 
     if (n > 1) {
 	SC_log(LOG_ERR, "Multiple interfaces updated (n = %d, %@)", n, interface);
@@ -1418,7 +1526,7 @@ displayInterface(SCNetworkInterfaceRef interface)
 	  (unit != NULL) ? "Unit: " : "",
 	  (unit != NULL) ? (CFTypeRef)unit : (CFTypeRef)CFSTR(""),
 	  (unit != NULL) ? ", " : "",
-	  addr);
+	  (addr != NULL) ? addr : CFSTR("?"));
 }
 
 static Boolean
@@ -1513,7 +1621,7 @@ updateWatchedInterface(void *refCon, io_service_t service, natural_t messageType
 #pragma unused(service)
 #pragma unused(messageArgument)
     switch (messageType) {
-	case kIOMessageServiceIsTerminated : {		// if [locked] interface yanked
+	case kIOMessageServiceIsTerminated : {		// if [watched] interface yanked
 	    CFDataRef	watched		= (CFDataRef)refCon;
 	    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
 
@@ -1550,7 +1658,7 @@ watcherCreate(SCNetworkInterfaceRef interface, InterfaceUpdateCallBack callback)
 	return NULL;
     }
 
-    // create [locked] interface watcher
+    // create [locked/trusted] interface watcher
     watched = CFDataCreateMutable(NULL, sizeof(WatchedInfo));
     CFDataSetLength(watched, sizeof(WatchedInfo));
     watchedInfo = (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
@@ -1615,6 +1723,47 @@ watcherRelease(CFDataRef watched)
 
 
 #if	!TARGET_OS_IPHONE
+static void
+shareLocked(void)
+{
+    CFIndex	n;
+
+    n = (S_locked != NULL) ? CFArrayGetCount(S_locked) : 0;
+    if (n > 0) {
+	CFMutableArrayRef	locked;
+
+	locked = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	for (CFIndex i = 0; i < n; i++) {
+	    CFStringRef		addr;
+	    CFStringRef		name;
+	    CFStringRef		path;
+	    CFStringRef		str;
+	    CFDataRef		watched		= CFArrayGetValueAtIndex(S_locked, i);
+	    WatchedInfo		*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+	    name = SCNetworkInterfaceGetLocalizedDisplayName(watchedInfo->interface);
+	    addr = SCNetworkInterfaceGetHardwareAddressString(watchedInfo->interface);
+	    path = _SCNetworkInterfaceGetIOPath(watchedInfo->interface);
+	    str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@: %@: %@"),
+					   (name != NULL) ? name : CFSTR("?"),
+					   (addr != NULL) ? addr : CFSTR("?"),
+					   path);
+	    CFArrayAppendValue(locked, str);
+	    CFRelease(str);
+	}
+
+	CFDictionarySetValue(S_state, kInterfaceNamerKey_LockedInterfaces, locked);
+	CFRelease(locked);
+    } else {
+	CFDictionaryRemoveValue(S_state, kInterfaceNamerKey_LockedInterfaces);
+    }
+
+    updateStore();
+
+    return;
+}
+
 static boolean_t
 blockNewInterfaces()
 {
@@ -1627,7 +1776,6 @@ blockNewInterfaces()
 
     return !allow;
 }
-
 
 static boolean_t
 isConsoleLocked()
@@ -1702,7 +1850,516 @@ isConsoleLocked()
 
     return locked;
 }
+
+//#define	ENABLE_LOCKED_CONSOLE_INTERFACE_NOTIFICATIONS
+#ifdef	ENABLE_LOCKED_CONSOLE_INTERFACE_NOTIFICATIONS
+
+static CFUserNotificationRef	userNotification;
+static CFRunLoopSourceRef	userRls;
+
+static void
+lockedNotification_remove(void)
+{
+    if (userRls != NULL) {
+	CFRunLoopSourceInvalidate(userRls);
+	userRls = NULL;
+    }
+
+    if (userNotification != NULL) {
+	SInt32	status;
+
+	status = CFUserNotificationCancel(userNotification);
+	if (status != 0) {
+	    SC_log(LOG_ERR,
+		   "CFUserNotificationCancel() failed, status=%d",
+		   (int)status);
+	}
+	CFRelease(userNotification);
+	userNotification = NULL;
+    }
+
+    return;
+}
+
+#define	MY_ICON_PATH	"/System/Library/PreferencePanes/Network.prefPane/Contents/Resources/Network.icns"
+
+static void
+lockedNotification_reply(CFUserNotificationRef userNotification, CFOptionFlags response_flags)
+{
+#pragma unused(userNotification)
+
+    os_activity_t	activity;
+    CFIndex		n;
+
+    activity = os_activity_create("process locked interface notification",
+				  OS_ACTIVITY_CURRENT,
+				  OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    n = (S_locked != NULL) ? CFArrayGetCount(S_locked) : 0;
+    for (CFIndex i = 0; i < n; i++) {
+	CFDataRef	watched		= CFArrayGetValueAtIndex(S_locked, i);
+	WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+	// process user response
+	switch (response_flags & 0x3) {
+	    case kCFUserNotificationDefaultResponse: {
+		// if OK'd, [re-]process new interfaces
+		if (i == 0) {
+		    SC_log(LOG_INFO, "Reprocessing %ld [locked] interface%s", n, n == 1 ? "" : "s");
+
+		    if (S_iflist == NULL) {
+			S_iflist = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		    }
+		}
+
+		// add the interface to those newly discovered
+		CFArrayAppendValue(S_iflist, watchedInfo->interface);
+		break;
+	    }
+	    default: {
+		// if cancelled, ignore [remaining] new interfaces
+		SC_log(LOG_INFO, "[locked] interface ignored");
+		SC_log(LOG_INFO, "  path = %@", _SCNetworkInterfaceGetIOPath(watchedInfo->interface));
+		break;
+	    }
+	}
+
+	// stop watching
+	watcherRelease(watched);
+    }
+
+    if (S_locked != NULL) {
+	CFRelease(S_locked);
+	S_locked = NULL;
+    }
+
+    lockedNotification_remove();
+
+    if (S_iflist != NULL) {
+	updateInterfaces();
+    }
+
+    os_release(activity);
+
+    return;
+}
+
+static void
+lockedNotification_add(void)
+{
+    CFBundleRef			bundle;
+    CFMutableDictionaryRef	dict;
+    SInt32			error	= 0;
+    CFMutableArrayRef		message;
+    CFIndex			n;
+    CFURLRef			url	= NULL;
+
+    n = (S_locked != NULL) ? CFArrayGetCount(S_locked) : 0;
+    if (n == 0) {
+	// no locked interfaces, no notification needed
+	return;
+    }
+
+    dict = CFDictionaryCreateMutable(NULL,
+				     0,
+				     &kCFTypeDictionaryKeyCallBacks,
+				     &kCFTypeDictionaryValueCallBacks);
+
+    // set localization URL
+    bundle = _SC_CFBundleGet();
+    if (bundle != NULL) {
+	url = CFBundleCopyBundleURL(bundle);
+    }
+    if (url != NULL) {
+	// set URL
+	CFDictionarySetValue(dict, kCFUserNotificationLocalizationURLKey, url);
+	CFRelease(url);
+    } else {
+	SC_log(LOG_ERR, "can't find bundle");
+	goto done;
+    }
+
+    // set icon URL
+    url = CFURLCreateFromFileSystemRepresentation(NULL,
+						  (const UInt8 *)MY_ICON_PATH,
+						  sizeof(MY_ICON_PATH) - 1,
+						  FALSE);
+    if (url != NULL) {
+	CFDictionarySetValue(dict, kCFUserNotificationIconURLKey, url);
+	CFRelease(url);
+    }
+
+    // header
+    CFDictionarySetValue(dict,
+			 kCFUserNotificationAlertHeaderKey,
+			 (n == 1) ? CFSTR("LOCKED_SINGLE_INTERFACE_HEADER")
+				  : CFSTR("LOCKED_MULTIPLE_INTERFACES_HEADER"));
+
+    // message
+    message = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(message,
+		       (n == 1) ? CFSTR("LOCKED_SINGLE_INTERFACE_MESSAGE")
+				: CFSTR("LOCKED_MULTIPLE_INTERFACES_MESSAGE"));
+    for (CFIndex i = 0; i < n; i++) {
+	CFStringRef		name;
+	CFStringRef		str;
+	CFDataRef		watched		= CFArrayGetValueAtIndex(S_locked, i);
+	WatchedInfo		*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+	name = SCNetworkInterfaceGetLocalizedDisplayName(watchedInfo->interface);
+	str = CFStringCreateWithFormat(NULL, NULL, CFSTR("\r\t%@"), name);
+	CFArrayAppendValue(message, str);
+	CFRelease(str);
+    }
+    CFDictionarySetValue(dict, kCFUserNotificationAlertMessageKey, message);
+    CFRelease(message);
+
+    // button titles
+    CFDictionarySetValue(dict,
+			 kCFUserNotificationDefaultButtonTitleKey,
+			 CFSTR("LOCKED_INTERFACES_IGNORE"));
+    CFDictionarySetValue(dict,
+			 kCFUserNotificationAlternateButtonTitleKey,
+			 (n == 1) ? CFSTR("LOCKED_SINGLE_INTERFACE_ADD")
+				  : CFSTR("LOCKED_MULTIPLE_INTERFACES_ADD"));
+
+    // create and post notification
+    userNotification = CFUserNotificationCreate(NULL,
+						0,
+						kCFUserNotificationNoteAlertLevel,
+						&error,
+						dict);
+    if (userNotification == NULL) {
+	SC_log(LOG_ERR, "CFUserNotificationCreate() failed: %d", (int)error);
+	goto done;
+    }
+
+    // establish callback
+    userRls = CFUserNotificationCreateRunLoopSource(NULL,
+						    userNotification,
+						    lockedNotification_reply,
+						    0);
+    if (userRls == NULL) {
+	SC_log(LOG_ERR, "CFUserNotificationCreateRunLoopSource() failed");
+	CFRelease(userNotification);
+	userNotification = NULL;
+	goto done;
+    }
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), userRls,  kCFRunLoopDefaultMode);
+
+  done :
+
+    if (dict != NULL) CFRelease(dict);
+    return;
+}
+
+static void
+lockedNotification_update(void)
+{
+    // if present, remove current notification
+    lockedNotification_remove();
+
+    // post notification (if needed)
+    lockedNotification_add();
+
+    return;
+}
+
+#endif	// ENABLE_LOCKED_CONSOLE_INTERFACE_NOTIFICATIONS
+
+static void
+lockedInterfaceUpdated(CFDataRef watched, natural_t messageType, void *messageArgument)
+{
+#pragma unused(messageArgument)
+    Boolean	updated		= FALSE;
+    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+    switch (messageType) {
+	case kIOMessageServiceIsTerminated : {		// if [locked] interface yanked
+	    SC_log(LOG_INFO, "[locked] interface removed");
+	    SC_log(LOG_INFO, "  path = %@", _SCNetworkInterfaceGetIOPath(watchedInfo->interface));
+
+	    if (S_locked != NULL) {
+		CFIndex	i;
+		CFIndex	n	= CFArrayGetCount(S_locked);
+
+		i = CFArrayGetFirstIndexOfValue(S_locked, CFRangeMake(0, n), watched);
+		if (i != kCFNotFound) {
+		    CFArrayRemoveValueAtIndex(S_locked, i);
+		    if (CFArrayGetCount(S_locked) == 0) {
+			CFRelease(S_locked);
+			S_locked = NULL;
+		    }
+		    updated = TRUE;
+		}
+	    }
+
+	    break;
+	}
+
+	default :
+	    return;
+    }
+
+    if (updated) {
+#ifdef	ENABLE_LOCKED_CONSOLE_INTERFACE_NOTIFICATIONS
+	// update user notification after interface removed
+	lockedNotification_update();
+#endif	// ENABLE_LOCKED_CONSOLE_INTERFACE_NOTIFICATIONS
+
+	// post info about interfaces not added because the console is locked
+	shareLocked();
+    }
+
+    return;
+}
+
+static void
+watchLockedInterface(SCNetworkInterfaceRef interface)
+{
+    Boolean	updated	= FALSE;
+    CFDataRef	watched;
+
+    watched = watcherCreate(interface, lockedInterfaceUpdated);
+    if (watched != NULL) {
+	SC_log(LOG_INFO, "watching [locked] interface");
+	SC_log(LOG_INFO, "  path = %@", _SCNetworkInterfaceGetIOPath(interface));
+
+	if (S_locked == NULL) {
+	    S_locked = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	}
+	CFArrayAppendValue(S_locked, watched);
+	updated = TRUE;
+    }
+
+    if (updated) {
+	// post info about interfaces not added because the console is locked
+	shareLocked();
+
+#ifdef	ENABLE_LOCKED_CONSOLE_INTERFACE_NOTIFICATIONS
+	// post/update user notification with new interface
+	lockedNotification_update();
+#endif	// ENABLE_LOCKED_CONSOLE_INTERFACE_NOTIFICATIONS
+    }
+
+    return;
+}
 #endif	// !TARGET_OS_IPHONE
+
+
+#pragma mark -
+#pragma mark Trust required support [iOS]
+
+
+#if	TARGET_OS_IPHONE
+static void
+shareExcluded()
+{
+    CFMutableArrayRef	excluded	= NULL;
+    CFIndex		n;
+
+    n = (S_trustRequired != NULL) ? CFArrayGetCount(S_trustRequired) : 0;
+    if ((n > 0) && !S_trustedHostAttached) {
+	// if we have interfaces that require not [yet] granted "trust".
+
+	excluded = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	for (CFIndex i = 0; i < n; i++) {
+	    CFStringRef	bsdName;
+	    CFDataRef	watched		= CFArrayGetValueAtIndex(S_trustRequired, i);
+	    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+	    bsdName = SCNetworkInterfaceGetBSDName(watchedInfo->interface);
+	    if (bsdName == NULL) {
+		SC_log(LOG_NOTICE, "[trust required] excluded interface w/no BSD name");
+		SC_log(LOG_NOTICE, "  interface = %@", watchedInfo->interface);
+		continue;
+	    }
+	    CFArrayAppendValue(excluded, bsdName);
+	}
+    }
+
+    if (excluded != NULL) {
+	CFDictionarySetValue(S_state, kInterfaceNamerKey_ExcludedInterfaces, excluded);
+	CFRelease(excluded);
+    } else {
+	CFDictionaryRemoveValue(S_state, kInterfaceNamerKey_ExcludedInterfaces);
+    }
+
+    updateStore();
+
+    return;
+}
+
+static dispatch_queue_t
+trustRequired_queue()
+{
+    static dispatch_once_t	once;
+    static dispatch_queue_t	q;
+
+    dispatch_once(&once, ^{
+	q = dispatch_queue_create("Trust Required queue", NULL);
+    });
+
+    return q;
+
+}
+
+// runs on "Trust Required" dispatch queue
+static void
+trustRequiredNotification_update(CFRunLoopRef rl, CFStringRef reason)
+{
+    Boolean		curTrusted	= FALSE;
+    CFBooleanRef	trusted;
+
+    trusted = lockdown_copy_trustedHostAttached();
+    if (trusted != NULL) {
+	curTrusted = isA_CFBoolean(trusted) && CFBooleanGetValue(trusted);
+	CFRelease(trusted);
+    }
+
+    SC_log(LOG_INFO, "%@, trusted = %s", reason, curTrusted ? "Yes" : "No");
+
+    if (S_trustedHostAttached != curTrusted) {
+	S_trustedHostAttached = curTrusted;
+	CFRunLoopPerformBlock(rl, kCFRunLoopDefaultMode, ^{
+	    shareExcluded();
+	});
+	CFRunLoopWakeUp(rl);
+    }
+
+    return;
+}
+
+static void
+trustRequiredInterfaceUpdated(CFDataRef watched, natural_t messageType, void *messageArgument)
+{
+#pragma unused(messageArgument)
+    Boolean	updated		= FALSE;
+    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+    switch (messageType) {
+	case kIOMessageServiceIsTerminated : {		// if [locked] interface yanked
+	    SC_log(LOG_INFO, "[trust required] interface removed");
+	    SC_log(LOG_INFO, "  path = %@", _SCNetworkInterfaceGetIOPath(watchedInfo->interface));
+
+	    if (S_trustRequired != NULL) {
+		CFIndex	i;
+		CFIndex	n	= CFArrayGetCount(S_trustRequired);
+
+		i = CFArrayGetFirstIndexOfValue(S_trustRequired, CFRangeMake(0, n), watched);
+		if (i != kCFNotFound) {
+		    CFArrayRemoveValueAtIndex(S_trustRequired, i);
+		    if (CFArrayGetCount(S_trustRequired) == 0) {
+			CFRelease(S_trustRequired);
+			S_trustRequired = NULL;
+		    }
+		    updated = TRUE;
+		}
+	    }
+
+	    break;
+	}
+
+	default :
+	    return;
+    }
+
+    if (updated) {
+	CFRunLoopRef	rl	= CFRunLoopGetCurrent();
+
+	CFRetain(rl);
+	dispatch_async(trustRequired_queue(), ^{
+	    trustRequiredNotification_update(rl, CFSTR("TrustRequired interface removed"));
+	    CFRelease(rl);
+	});
+    }
+
+    return;
+}
+
+static void
+watchTrustedStatus(CFStringRef notification, CFStringRef reason)
+{
+    const char *	key;
+    int			notify_token	= -1;
+    uint32_t		ret;
+    CFRunLoopRef	rl	= CFRunLoopGetCurrent();
+
+    key = CFStringGetCStringPtr(notification, kCFStringEncodingUTF8);
+    assert(key != NULL);
+
+    CFRetain(rl);
+    CFRetain(reason);
+    ret = notify_register_dispatch(key,
+				   &notify_token,
+				   trustRequired_queue(),
+				   ^(int token){
+#pragma unused(token)
+	trustRequiredNotification_update(rl, reason);
+    });
+    if (ret != NOTIFY_STATUS_OK) {
+	SC_log(LOG_ERR, "notify_register_dispatch(%@) failed: %u", notification, ret);
+	CFRelease(rl);
+	CFRelease(reason);
+    }
+
+    return;
+}
+
+static void
+updateTrustRequiredInterfaces(CFArrayRef interfaces)
+{
+    CFIndex	n;
+    Boolean	updated	= FALSE;
+
+    n = (interfaces != NULL) ? CFArrayGetCount(interfaces) : 0;
+    for (CFIndex i = 0; i < n; i++) {
+	SCNetworkInterfaceRef	interface;
+
+	interface = CFArrayGetValueAtIndex(interfaces, i);
+	if (_SCNetworkInterfaceIsTrustRequired(interface)) {
+	    CFDataRef	watched;
+
+	    watched = watcherCreate(interface, trustRequiredInterfaceUpdated);
+	    if (watched != NULL) {
+		SC_log(LOG_INFO, "watching [trust required] interface: %@",
+		       SCNetworkInterfaceGetBSDName(interface));
+
+		if (S_trustRequired == NULL) {
+		    S_trustRequired = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		}
+		CFArrayAppendValue(S_trustRequired, watched);
+		updated = TRUE;
+	    }
+	}
+    }
+
+    if (updated) {
+	static dispatch_once_t	once;
+	CFRunLoopRef		rl	= CFRunLoopGetCurrent();
+
+	dispatch_once(&once, ^{
+	    // watch for "Trusted host attached"
+	    watchTrustedStatus(kLockdownNotificationTrustedHostAttached,
+			       CFSTR("Trusted Host attached"));
+
+	    // watch for "Host detached"
+	    watchTrustedStatus(kLockdownNotificationHostDetached,
+			       CFSTR("Host detached"));
+	});
+
+	CFRetain(rl);
+	dispatch_async(trustRequired_queue(), ^{
+	    trustRequiredNotification_update(rl, CFSTR("TrustRequired interface added"));
+	    CFRelease(rl);
+	});
+    }
+
+    return;
+}
+#endif	// TARGET_OS_IPHONE
 
 
 #pragma mark -
@@ -1713,6 +2370,28 @@ static __inline__ boolean_t
 isQuiet(void)
 {
     return (S_quiet == MACH_PORT_NULL);
+}
+
+static Boolean
+wasPreviouslyUsedInterface(CFDictionaryRef dbdict, SCNetworkInterfaceRef interface)
+{
+    CFArrayRef	matchingMACs;
+
+    matchingMACs = CFDictionaryGetValue(dbdict, CFSTR(kSCNetworkInterfaceMatchingMACs));
+    if (matchingMACs != NULL) {
+	CFDataRef	addr;
+
+	addr = _SCNetworkInterfaceGetHardwareAddress(interface);
+	if (addr != NULL) {
+	    if (CFArrayContainsValue(matchingMACs,
+				     CFRangeMake(0, CFArrayGetCount(matchingMACs)),
+				     addr)) {
+		return TRUE;
+	    }
+	}
+    }
+
+    return FALSE;
 }
 
 static void
@@ -1756,7 +2435,7 @@ nameInterfaces(CFMutableArrayRef if_list)
 	    CFDictionaryRef 	dbdict;
 	    boolean_t		is_builtin;
 	    kern_return_t	kr;
-	    int			retries	= 0;
+	    int			retries		= 0;
 
 	    dbdict = lookupInterfaceByAddress(S_dblist, interface, NULL);
 	    if (dbdict != NULL) {
@@ -1781,30 +2460,38 @@ nameInterfaces(CFMutableArrayRef if_list)
 						 i + 1,
 						 is_builtin ? kCFBooleanTrue : kCFBooleanFalse);
 
+		if ((dbdict != NULL) && wasPreviouslyUsedInterface(dbdict, interface)) {
+		    unit = CFDictionaryGetValue(dbdict, CFSTR(kIOInterfaceUnit));
+		    CFRetain(unit);
+
+		    SC_log(LOG_INFO, "Interface assigned unit %@ (updating database w/previously used interface)", unit);
+		}
+
 #if	!TARGET_OS_IPHONE
-		if (!is_builtin &&
+		if ((unit == NULL) &&
+		    !is_builtin &&
 		    (dbdict != NULL) &&
 		    blockNewInterfaces() &&
 		    !_SCNetworkInterfaceIsApplePreconfigured(interface) &&
 		    isConsoleLocked()) {
-		    CFDataRef	    addr;
+		    CFStringRef		addr;
 
 		    // if new (but matching) interface and console locked, ignore
+		    addr = SCNetworkInterfaceGetHardwareAddressString(interface);
 		    SC_log(LOG_NOTICE, "Console locked, network interface* ignored");
-		    SC_log(LOG_INFO, "  path = %@", path);
-		    addr = _SCNetworkInterfaceGetHardwareAddress(interface);
-		    if (addr != NULL) {
-			SC_log(LOG_INFO, "  addr = %@", addr);
-		    }
+		    SC_log(LOG_INFO, "  path = %@, addr = %@",
+			   path,
+			   (addr != NULL) ? addr : CFSTR("?"));
+		    watchLockedInterface(interface);
 		    continue;
 		}
 #endif	// !TARGET_OS_IPHONE
 
-		if (dbdict != NULL) {
+		if ((unit == NULL) && (dbdict != NULL)) {
 		    unit = CFDictionaryGetValue(dbdict, CFSTR(kIOInterfaceUnit));
 		    CFRetain(unit);
 
-		    SC_log(LOG_INFO, "Interface assigned unit %@ (updating database)", unit);
+		    SC_log(LOG_INFO, "Interface assigned unit %@ (updating database w/new interface)", unit);
 		}
 	    }
 
@@ -1848,15 +2535,15 @@ nameInterfaces(CFMutableArrayRef if_list)
 		    blockNewInterfaces() &&
 		    !_SCNetworkInterfaceIsApplePreconfigured(interface) &&
 		    isConsoleLocked()) {
-		    CFDataRef	    addr;
+		    CFStringRef		addr;
 
 		    // if new interface and console locked, ignore
+		    addr = SCNetworkInterfaceGetHardwareAddressString(interface);
 		    SC_log(LOG_NOTICE, "Console locked, network interface ignored");
-		    SC_log(LOG_INFO, "  path = %@", path);
-		    addr = _SCNetworkInterfaceGetHardwareAddress(interface);
-		    if (addr != NULL) {
-			SC_log(LOG_INFO, "  addr = %@", addr);
-		    }
+		    SC_log(LOG_INFO, "  path = %@, addr = %@",
+			   path,
+			   (addr != NULL) ? addr : CFSTR("?"));
+		    watchLockedInterface(interface);
 		    continue;
 		}
 #endif	// !TARGET_OS_IPHONE
@@ -2018,7 +2705,11 @@ updateNetworkConfiguration(CFArrayRef if_list)
     SCPreferencesRef	prefs		= NULL;
     SCNetworkSetRef	set		= NULL;
 
-    prefs = SCPreferencesCreate(NULL, CFSTR("InterfaceNamer:updateNetworkConfiguration"), NULL);
+    prefs = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME ":updateNetworkConfiguration"), NULL);
+    if (prefs == NULL) {
+	SC_log(LOG_NOTICE, "SCPreferencesCreate() failed: %s", SCErrorString(SCError()));
+	return;
+    }
 
     set = SCNetworkSetCopyCurrent(prefs);
     if (set == NULL) {
@@ -2203,6 +2894,13 @@ updateInterfaces()
      * Update the list of [Apple] pre-configured interfaces
      */
     updatePreConfiguredInterfaces(S_iflist);
+
+#if	TARGET_OS_IPHONE
+    /*
+     * Update the list of "trust required" interfaces
+     */
+    updateTrustRequiredInterfaces(S_iflist);
+#endif	// TARGET_OS_IPHONE
 
     if (isQuiet()) {
 	/*
@@ -2730,7 +3428,7 @@ setup_IOKit(CFBundleRef bundle)
     }
 #endif	/* WAIT_PREVIOUS_BOOT_INTERFACES_OR_QUIET */
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
     if (S_dblist != NULL) {
 	// apply special handling for the BT-PAN interface (if present)
 	CFArrayApplyFunction(S_dblist,
@@ -2738,7 +3436,7 @@ setup_IOKit(CFBundleRef bundle)
 			     updateBTPANInformation,
 			     NULL);
     }
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_OSX
 
     ok = TRUE;
 
@@ -2758,7 +3456,7 @@ setup_Virtual(CFBundleRef bundle)
 {
 #pragma unused(bundle)
     // open a SCPreferences session
-    S_prefs = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME), NULL);
+    S_prefs = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME ":setup_Virtual"), NULL);
     if (S_prefs == NULL) {
 	SC_log(LOG_ERR, "SCPreferencesCreate() failed: %s",
 	       SCErrorString(SCError()));

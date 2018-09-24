@@ -940,13 +940,15 @@ IOHIDDeviceClass::getReport(IOHIDReportType     reportType,
 {
     uint64_t    in[3];
     IOReturn    ret;
-    size_t      reportLength = *pReportLength;
+    size_t      reportLength = 0;
 
     allChecks();
     
     if (!pReportLength || (*pReportLength < 0))
     	return kIOReturnNoMemory;
-    	
+    
+    reportLength = *pReportLength;
+    
     // Async getReport
     if (callback) 
     {

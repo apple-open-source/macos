@@ -123,31 +123,6 @@ static int CreateHashForData(CFDataRef cfData, int useSHA1, CFDataRef* out_hash)
 	return result;
 }
 
-static int Base64Data(CFDataRef cfData, int for_encoding, CFDataRef* encoded_data)
-{
-	int result = -1; // Guilty until proven
-	CNEncodings encoding = kCNEncodingBase64;
-	CNStatus status = kCCSuccess;
-	CNEncodingDirection direction = (for_encoding) ? kCNEncode : kCNDecode;
-	unsigned char buffer[1024];
-	size_t encoded_data_length = 1024;
-	
-	if (NULL == cfData || NULL == encoded_data)
-	{
-		return result;
-	}
-	memset(buffer, 0, 1024);
-	*encoded_data = NULL;
-	
-	status = CNEncode(encoding, direction, CFDataGetBytePtr(cfData), CFDataGetLength(cfData), buffer, &encoded_data_length);
-	if (kCCSuccess == status)
-	{
-		*encoded_data = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)buffer, encoded_data_length);
-		result = (NULL == *encoded_data) ? -1 : 0;
-	}
-	return result;
-}
-
 static int CreatePropertyListFromData(CFDataRef prop_data,  CFTypeID output_type, CFTypeRef* plistRef)
 {
 	int result = -1; // Guilt until proven

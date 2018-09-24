@@ -66,7 +66,7 @@
 #include "ScriptController.h"
 #include "ScriptProcessorNode.h"
 #include "WaveShaperNode.h"
-#include <inspector/ScriptCallStack.h>
+#include <JavaScriptCore/ScriptCallStack.h>
 
 #if ENABLE(MEDIA_STREAM)
 #include "MediaStream.h"
@@ -85,7 +85,7 @@
 #endif
 
 #if USE(GSTREAMER)
-#include "GStreamerUtilities.h"
+#include "GStreamerCommon.h"
 #endif
 
 #if PLATFORM(IOS)
@@ -93,7 +93,7 @@
 #include "Settings.h"
 #endif
 
-#include <runtime/ArrayBuffer.h>
+#include <JavaScriptCore/ArrayBuffer.h>
 #include <wtf/Atomics.h>
 #include <wtf/MainThread.h>
 #include <wtf/Ref.h>
@@ -162,20 +162,14 @@ void AudioContext::constructCommon()
     // Lets mark it as ActiveDOMObject with pending activity and unmark it in clear method.
     setPendingActivity(this);
 
-#if USE(GSTREAMER)
-    initializeGStreamer();
-#endif
-
     FFTFrame::initialize();
     
     m_listener = AudioListener::create();
 
-#if PLATFORM(IOS)
-    if (document()->settings().audioPlaybackRequiresUserGesture())
+    if (document()->audioPlaybackRequiresUserGesture())
         addBehaviorRestriction(RequireUserGestureForAudioStartRestriction);
     else
         m_restrictions = NoRestrictions;
-#endif
 
 #if PLATFORM(COCOA)
     addBehaviorRestriction(RequirePageConsentForAudioStartRestriction);
@@ -349,7 +343,7 @@ Document* AudioContext::document() const
     return downcast<Document>(m_scriptExecutionContext);
 }
 
-const Document* AudioContext::hostingDocument() const
+Document* AudioContext::hostingDocument() const
 {
     return downcast<Document>(m_scriptExecutionContext);
 }

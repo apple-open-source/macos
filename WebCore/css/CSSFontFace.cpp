@@ -89,12 +89,12 @@ void CSSFontFace::appendSources(CSSFontFace& fontFace, CSSValueList& srcList, Do
 }
 
 CSSFontFace::CSSFontFace(CSSFontSelector* fontSelector, StyleRuleFontFace* cssConnection, FontFace* wrapper, bool isLocalFallback)
-    : m_timeoutTimer(*this, &CSSFontFace::timeoutFired)
-    , m_fontSelector(fontSelector)
+    : m_fontSelector(fontSelector)
     , m_cssConnection(cssConnection)
-    , m_wrapper(wrapper ? wrapper->createWeakPtr() : WeakPtr<FontFace>())
+    , m_wrapper(makeWeakPtr(wrapper))
     , m_isLocalFallback(isLocalFallback)
     , m_mayBePurged(!wrapper)
+    , m_timeoutTimer(*this, &CSSFontFace::timeoutFired)
 {
 }
 
@@ -563,14 +563,14 @@ Ref<FontFace> CSSFontFace::wrapper()
         return *m_wrapper.get();
 
     auto wrapper = FontFace::create(*this);
-    m_wrapper = wrapper->createWeakPtr();
+    m_wrapper = makeWeakPtr(wrapper.get());
     initializeWrapper();
     return wrapper;
 }
 
 void CSSFontFace::setWrapper(FontFace& newWrapper)
 {
-    m_wrapper = newWrapper.createWeakPtr();
+    m_wrapper = makeWeakPtr(newWrapper);
     initializeWrapper();
 }
 
@@ -580,6 +580,13 @@ void CSSFontFace::adoptSource(std::unique_ptr<CSSFontFaceSource>&& source)
 
     // We should never add sources in the middle of loading.
     ASSERT(!m_sourcesPopulated);
+}
+
+AllowUserInstalledFonts CSSFontFace::allowUserInstalledFonts() const
+{
+    if (m_fontSelector && m_fontSelector->document())
+        return m_fontSelector->document()->settings().shouldAllowUserInstalledFonts() ? AllowUserInstalledFonts::Yes : AllowUserInstalledFonts::No;
+    return AllowUserInstalledFonts::Yes;
 }
 
 static Settings::FontLoadTimingOverride fontLoadTimingOverride(CSSFontSelector* fontSelector)
@@ -605,6 +612,7 @@ auto CSSFontFace::fontLoadTiming() const -> FontLoadTiming
         case FontLoadingBehavior::Optional:
             return { 0.1_s, 0_s };
         }
+        RELEASE_ASSERT_NOT_REACHED();
     case Settings::FontLoadTimingOverride::Block:
         return { Seconds::infinity(), 0_s };
     case Settings::FontLoadTimingOverride::Swap:
@@ -612,8 +620,7 @@ auto CSSFontFace::fontLoadTiming() const -> FontLoadTiming
     case Settings::FontLoadTimingOverride::Failure:
         return { 0_s, 0_s };
     }
-    ASSERT_NOT_REACHED();
-    return { 3_s, Seconds::infinity() };
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 void CSSFontFace::setStatus(Status newStatus)

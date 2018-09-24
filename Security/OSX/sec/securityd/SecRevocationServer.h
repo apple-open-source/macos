@@ -32,6 +32,8 @@
 
 #include <securityd/SecTrustServer.h>
 #include <securityd/SecRevocationDb.h>
+#include <securityd/SecOCSPRequest.h>
+#include <securityd/SecOCSPResponse.h>
 
 typedef struct OpaqueSecORVC *SecORVCRef;
 #if ENABLE_CRLS
@@ -60,12 +62,47 @@ struct OpaqueSecRVC {
 };
 typedef struct OpaqueSecRVC *SecRVCRef;
 
+/* OCSP Revocation verification context. */
+struct OpaqueSecORVC {
+    /* Pointer to the builder for this revocation check. */
+    SecPathBuilderRef builder;
+
+    /* Pointer to the generic rvc for this revocation check */
+    SecRVCRef rvc;
+
+    /* The ocsp request we send to each responder. */
+    SecOCSPRequestRef ocspRequest;
+
+    /* The freshest response we received so far, from stapling or cache or responder. */
+    SecOCSPResponseRef ocspResponse;
+
+    /* The best validated candidate single response we received so far, from stapling or cache or responder. */
+    SecOCSPSingleResponseRef ocspSingleResponse;
+
+    /* Index of cert in builder that this RVC is for 0 = leaf, etc. */
+    CFIndex certIX;
+
+    /* Date until which this revocation status is valid. */
+    CFAbsoluteTime nextUpdate;
+
+    /* URL of current responder. For logging purposes. */
+    CFURLRef responder;
+
+    bool done;
+};
+
 bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder);
+void SecPathBuilderCheckKnownIntermediateConstraints(SecPathBuilderRef builder);
 CFAbsoluteTime SecRVCGetEarliestNextUpdate(SecRVCRef rvc);
 void SecRVCDelete(SecRVCRef rvc);
 bool SecRVCHasDefinitiveValidInfo(SecRVCRef rvc);
 bool SecRVCHasRevokedValidInfo(SecRVCRef rvc);
-void SecRVCSetRevokedResult(SecRVCRef rvc);
+void SecRVCSetValidDeterminedErrorResult(SecRVCRef rvc);
+
+/* OCSP verification callbacks */
+void SecORVCConsumeOCSPResponse(SecORVCRef rvc, SecOCSPResponseRef ocspResponse /*CF_CONSUMED*/,
+                                CFTimeInterval maxAge, bool updateCache, bool fromCache);
+void SecORVCUpdatePVC(SecORVCRef rvc);
 
 
 #endif /* _SECURITY_SECREVOCATIONSERVER_H_ */

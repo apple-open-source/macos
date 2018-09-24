@@ -19,6 +19,7 @@ Environment	= YACC=$(shell xcrun -f bison) \
 			MAKEOBJDIR="$(BuildDirectory)" \
 			INSTALL_ROOT="$(DSTROOT)" \
 			TMPDIR="$(TMPDIR)" TEMPDIR="$(TMPDIR)" 
+Extra_Make_Flags = -j $(shell sysctl -n hw.ncpu) $(Environment)
 
 #SDK variables for configure
 SDKROOT = $(shell xcrun --show-sdk-path --sdk macosx.internal)

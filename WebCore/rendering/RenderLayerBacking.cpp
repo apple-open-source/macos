@@ -27,12 +27,15 @@
 
 #include "RenderLayerBacking.h"
 
+#include "BitmapImage.h"
 #include "CSSAnimationController.h"
 #include "CanvasRenderingContext.h"
 #include "CSSPropertyNames.h"
 #include "CachedImage.h"
 #include "Chrome.h"
+#include "DocumentTimeline.h"
 #include "FilterEffectRenderer.h"
+#include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "GraphicsLayer.h"
@@ -45,7 +48,6 @@
 #include "InspectorInstrumentation.h"
 #include "KeyframeList.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PerformanceLoggingClient.h"
 #include "PluginViewBase.h"
@@ -60,6 +62,7 @@
 #include "RenderMedia.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
+#include "RuntimeEnabledFeatures.h"
 #include "ScrollingCoordinator.h"
 #include "Settings.h"
 #include "StyleResolver.h"
@@ -68,6 +71,10 @@
 
 #if PLATFORM(IOS)
 #include "RuntimeApplicationChecks.h"
+#endif
+
+#if PLATFORM(MAC)
+#include "LocalDefaultSystemAppearance.h"
 #endif
 
 namespace WebCore {
@@ -214,6 +221,9 @@ RenderLayerBacking::RenderLayerBacking(RenderLayer& layer)
     }
     
     createPrimaryGraphicsLayer();
+#if ENABLE(FULLSCREEN_API)
+    setRequiresBackgroundLayer(layer.renderer().isRenderFullScreen());
+#endif
 
     if (auto* tiledBacking = this->tiledBacking()) {
         tiledBacking->setIsInWindow(renderer().page().isInWindow());
@@ -667,7 +677,7 @@ bool RenderLayerBacking::updateConfiguration()
     setBackgroundLayerPaintsFixedRootBackground(compositor().needsFixedRootBackgroundLayer(m_owningLayer));
     
     // The background layer is currently only used for fixed root backgrounds.
-    if (updateBackgroundLayer(m_backgroundLayerPaintsFixedRootBackground))
+    if (updateBackgroundLayer(m_backgroundLayerPaintsFixedRootBackground || m_requiresBackgroundLayer))
         layerConfigChanged = true;
 
     if (updateForegroundLayer(compositor().needsContentsCompositingLayer(m_owningLayer)))
@@ -742,6 +752,7 @@ bool RenderLayerBacking::updateConfiguration()
     else if (is<RenderVideo>(renderer()) && downcast<RenderVideo>(renderer()).shouldDisplayVideo()) {
         auto* mediaElement = downcast<HTMLMediaElement>(renderer().element());
         m_graphicsLayer->setContentsToPlatformLayer(mediaElement->platformLayer(), GraphicsLayer::ContentsLayerForMedia);
+        resetContentsRect();
     }
 #endif
 #if ENABLE(WEBGL) || ENABLE(ACCELERATED_2D_CANVAS)
@@ -939,16 +950,23 @@ LayoutRect RenderLayerBacking::computeParentGraphicsLayerRect(RenderLayer* compo
 
 void RenderLayerBacking::updateGeometry()
 {
-    LOG_WITH_STREAM(Compositing, stream << "updateGeometry " << m_owningLayer);
-
     // If we haven't built z-order lists yet, wait until later.
     if (m_owningLayer.isStackingContainer() && m_owningLayer.m_zOrderListsDirty)
         return;
 
     const RenderStyle& style = renderer().style();
 
-    bool isRunningAcceleratedTransformAnimation = renderer().animation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform, AnimationBase::Running | AnimationBase::Paused);
-    bool isRunningAcceleratedOpacityAnimation = renderer().animation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyOpacity, AnimationBase::Running | AnimationBase::Paused);
+    bool isRunningAcceleratedTransformAnimation = false;
+    bool isRunningAcceleratedOpacityAnimation = false;
+    if (RuntimeEnabledFeatures::sharedFeatures().webAnimationsCSSIntegrationEnabled()) {
+        if (auto* timeline = renderer().documentTimeline()) {
+            isRunningAcceleratedTransformAnimation = timeline->isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform);
+            isRunningAcceleratedOpacityAnimation = timeline->isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyOpacity);
+        }
+    } else {
+        isRunningAcceleratedTransformAnimation = renderer().animation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform, AnimationBase::Running | AnimationBase::Paused);
+        isRunningAcceleratedOpacityAnimation = renderer().animation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyOpacity, AnimationBase::Running | AnimationBase::Paused);
+    }
 
     // Set transform property, if it is not animating. We have to do this here because the transform
     // is affected by the layer dimensions.
@@ -969,9 +987,9 @@ void RenderLayerBacking::updateGeometry()
     m_owningLayer.updateDescendantDependentFlags();
 
     // FIXME: reflections should force transform-style to be flat in the style: https://bugs.webkit.org/show_bug.cgi?id=106959
-    bool preserves3D = style.transformStyle3D() == TransformStyle3DPreserve3D && !renderer().hasReflection();
+    bool preserves3D = style.transformStyle3D() == TransformStyle3D::Preserve3D && !renderer().hasReflection();
     m_graphicsLayer->setPreserves3D(preserves3D);
-    m_graphicsLayer->setBackfaceVisibility(style.backfaceVisibility() == BackfaceVisibilityVisible);
+    m_graphicsLayer->setBackfaceVisibility(style.backfaceVisibility() == BackfaceVisibility::Visible);
 
     auto* compositedAncestor = m_owningLayer.ancestorCompositingLayer();
     LayoutSize ancestorClippingLayerOffset;
@@ -1019,7 +1037,7 @@ void RenderLayerBacking::updateGeometry()
         positionOverflowControlsLayers();
     }
 
-    if (!m_isMainFrameRenderViewLayer && !m_isFrameLayerWithTiledBacking) {
+    if (!m_isMainFrameRenderViewLayer && !m_isFrameLayerWithTiledBacking && !m_requiresBackgroundLayer) {
         // For non-root layers, background is always painted by the primary graphics layer.
         ASSERT(!m_backgroundLayer);
         // Subpixel offset from graphics layer or size changed.
@@ -1108,6 +1126,10 @@ void RenderLayerBacking::updateGeometry()
             const FrameView& frameView = renderer().view().frameView();
             backgroundPosition = frameView.scrollPositionForFixedPosition();
             backgroundSize = frameView.layoutSize();
+        } else {
+            auto boundingBox = renderer().objectBoundingBox();
+            backgroundPosition = boundingBox.location();
+            backgroundSize = boundingBox.size();
         }
         m_backgroundLayer->setPosition(backgroundPosition);
         m_backgroundLayer->setSize(backgroundSize);
@@ -1227,8 +1249,8 @@ void RenderLayerBacking::updateAfterDescendants()
 
     m_graphicsLayer->setContentsVisible(m_owningLayer.hasVisibleContent() || hasVisibleNonCompositedDescendants());
     if (m_scrollingLayer) {
-        m_scrollingLayer->setContentsVisible(renderer().style().visibility() == VISIBLE);
-        m_scrollingLayer->setUserInteractionEnabled(renderer().style().pointerEvents() != PE_NONE);
+        m_scrollingLayer->setContentsVisible(renderer().style().visibility() == Visibility::Visible);
+        m_scrollingLayer->setUserInteractionEnabled(renderer().style().pointerEvents() != PointerEvents::None);
     }
 }
 
@@ -1374,7 +1396,7 @@ void RenderLayerBacking::updateDrawsContent(PaintedContentsInfo& contentsInfo)
         m_graphicsLayer->setSupportsSubpixelAntialiasedText(m_paintsSubpixelAntialiasedText);
 
     if (m_backgroundLayer)
-        m_backgroundLayer->setDrawsContent(hasPaintedContent);
+        m_backgroundLayer->setDrawsContent(m_backgroundLayerPaintsFixedRootBackground ? hasPaintedContent : contentsInfo.paintsBoxDecorations());
 }
 
 // Return true if the layer changed.
@@ -1430,6 +1452,11 @@ void RenderLayerBacking::setBackgroundLayerPaintsFixedRootBackground(bool backgr
         ASSERT(m_isFrameLayerWithTiledBacking);
         renderer().view().frameView().removeSlowRepaintObject(*renderer().view().rendererForRootBackground());
     }
+}
+
+void RenderLayerBacking::setRequiresBackgroundLayer(bool requiresBackgroundLayer)
+{
+    m_requiresBackgroundLayer = requiresBackgroundLayer;
 }
 
 bool RenderLayerBacking::requiresHorizontalScrollbarLayer() const
@@ -1628,8 +1655,9 @@ bool RenderLayerBacking::updateBackgroundLayer(bool needsBackgroundLayer)
     
     if (layerChanged) {
         m_graphicsLayer->setNeedsDisplay();
-        // This assumes that the background layer is only used for fixed backgrounds, which is currently a correct assumption.
-        compositor().fixedRootBackgroundLayerChanged();
+
+        if (m_backgroundLayerPaintsFixedRootBackground)
+            compositor().fixedRootBackgroundLayerChanged();
     }
     
     return layerChanged;
@@ -1828,12 +1856,12 @@ static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderStyle& sty
     if (!fillLayer.imagesAreLoaded())
         return false;
 
-    if (fillLayer.attachment() != ScrollBackgroundAttachment)
+    if (fillLayer.attachment() != FillAttachment::ScrollBackground)
         return false;
 
     // FIXME: Allow color+image compositing when it makes sense.
     // For now bailing out.
-    if (style.visitedDependentColor(CSSPropertyBackgroundColor).isVisible())
+    if (style.visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor).isVisible())
         return false;
 
     // FIXME: support gradients with isGeneratedImage.
@@ -1873,11 +1901,24 @@ Color RenderLayerBacking::rendererBackgroundColor() const
     if (!backgroundRenderer)
         backgroundRenderer = &renderer();
 
-    return backgroundRenderer->style().visitedDependentColor(CSSPropertyBackgroundColor);
+    return backgroundRenderer->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
 }
 
 void RenderLayerBacking::updateDirectlyCompositedBackgroundColor(PaintedContentsInfo& contentsInfo, bool& didUpdateContentsRect)
 {
+    if (m_backgroundLayer && !m_backgroundLayerPaintsFixedRootBackground && !contentsInfo.paintsBoxDecorations()) {
+        m_graphicsLayer->setContentsToSolidColor(Color());
+        m_backgroundLayer->setContentsToSolidColor(rendererBackgroundColor());
+
+        FloatRect contentsRect = backgroundBoxForSimpleContainerPainting();
+        // NOTE: This is currently only used by RenderFullScreen, which we want to be
+        // big enough to hide overflow areas of the root.
+        contentsRect.inflate(contentsRect.size());
+        m_backgroundLayer->setContentsRect(contentsRect);
+        m_backgroundLayer->setContentsClippingRect(FloatRoundedRect(contentsRect));
+        return;
+    }
+
     if (!contentsInfo.isSimpleContainer() || (is<RenderBox>(renderer()) && !downcast<RenderBox>(renderer()).paintsOwnBackground())) {
         m_graphicsLayer->setContentsToSolidColor(Color());
         return;
@@ -2035,7 +2076,7 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer(PaintedContentsInfo& 
     if (contentsInfo.paintsBoxDecorations() || contentsInfo.paintsContent())
         return false;
 
-    if (renderer().style().backgroundClip() == TextFillBox)
+    if (renderer().style().backgroundClip() == FillBox::Text)
         return false;
     
     if (renderer().isDocumentElementRenderer() && m_owningLayer.isolatesCompositedBlending())
@@ -2189,10 +2230,10 @@ bool RenderLayerBacking::isDirectlyCompositedImage() const
             return false;
 
         auto* image = cachedImage->imageForRenderer(&imageRenderer);
-        if (!image->isBitmapImage())
+        if (!is<BitmapImage>(image))
             return false;
 
-        if (image->orientationForCurrentFrame() != DefaultImageOrientation)
+        if (downcast<BitmapImage>(*image).orientationForCurrentFrame() != DefaultImageOrientation)
             return false;
 
 #if (PLATFORM(GTK) || PLATFORM(WPE))
@@ -2312,11 +2353,11 @@ LayoutRect RenderLayerBacking::contentsBox() const
 static LayoutRect backgroundRectForBox(const RenderBox& box)
 {
     switch (box.style().backgroundClip()) {
-    case BorderFillBox:
+    case FillBox::Border:
         return box.borderBoxRect();
-    case PaddingFillBox:
+    case FillBox::Padding:
         return box.paddingBoxRect();
-    case ContentFillBox:
+    case FillBox::Content:
         return box.contentBoxRect();
     default:
         break;
@@ -2507,7 +2548,7 @@ void RenderLayerBacking::paintIntoLayer(const GraphicsLayer* graphicsLayer, Grap
     if (paintingPhase & GraphicsLayerPaintCompositedScroll)
         paintFlags |= RenderLayer::PaintLayerPaintingCompositingScrollingPhase;
 
-    if (graphicsLayer == m_backgroundLayer.get())
+    if (graphicsLayer == m_backgroundLayer.get() && m_backgroundLayerPaintsFixedRootBackground)
         paintFlags |= (RenderLayer::PaintLayerPaintingRootBackgroundOnly | RenderLayer::PaintLayerPaintingCompositingForegroundPhase); // Need PaintLayerPaintingCompositingForegroundPhase to walk child layers.
     else if (compositor().fixedRootBackgroundLayer())
         paintFlags |= RenderLayer::PaintLayerPaintingSkipRootBackground;
@@ -2540,6 +2581,10 @@ void RenderLayerBacking::paintContents(const GraphicsLayer* graphicsLayer, Graph
 {
 #ifndef NDEBUG
     renderer().page().setIsPainting(true);
+#endif
+
+#if PLATFORM(MAC)
+    LocalDefaultSystemAppearance localAppearance(renderer().page().useSystemAppearance(), renderer().page().useDarkAppearance());
 #endif
 
     // The dirtyRect is in the coords of the painting root.
@@ -2732,7 +2777,7 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation* anim
         if (!keyframeStyle)
             continue;
             
-        auto* tf = currentKeyframe.timingFunction(keyframes.animationName());
+        auto* tf = currentKeyframe.timingFunction();
         
         bool isFirstOrLastKeyframe = key == 0 || key == 1;
         if ((hasTransform && isFirstOrLastKeyframe) || currentKeyframe.containsProperty(CSSPropertyTransform))
@@ -2775,6 +2820,11 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation* anim
 void RenderLayerBacking::animationPaused(double timeOffset, const String& animationName)
 {
     m_graphicsLayer->pauseAnimation(animationName, timeOffset);
+}
+
+void RenderLayerBacking::animationSeeked(double timeOffset, const String& animationName)
+{
+    m_graphicsLayer->seekAnimation(animationName, timeOffset);
 }
 
 void RenderLayerBacking::animationFinished(const String& animationName)
@@ -2864,7 +2914,7 @@ void RenderLayerBacking::transitionFinished(CSSPropertyID property)
         m_graphicsLayer->removeAnimation(GraphicsLayer::animationNameForTransition(animatedProperty));
 }
 
-void RenderLayerBacking::notifyAnimationStarted(const GraphicsLayer*, const String&, double time)
+void RenderLayerBacking::notifyAnimationStarted(const GraphicsLayer*, const String&, MonotonicTime time)
 {
     renderer().animation().notifyAnimationStarted(renderer(), time);
 }
@@ -2882,7 +2932,7 @@ void RenderLayerBacking::notifyFlushBeforeDisplayRefresh(const GraphicsLayer* la
 }
 
 // This is used for the 'freeze' API, for testing only.
-void RenderLayerBacking::suspendAnimations(double time)
+void RenderLayerBacking::suspendAnimations(MonotonicTime time)
 {
     m_graphicsLayer->suspendAnimations(time);
 }

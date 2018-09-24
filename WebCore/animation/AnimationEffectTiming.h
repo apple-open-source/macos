@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,12 @@
 
 #pragma once
 
+#include "AnimationEffectTimingReadOnly.h"
 #include "ExceptionOr.h"
+#include "FillMode.h"
+#include "PlaybackDirection.h"
+#include "TimingFunction.h"
+#include "WebAnimationUtilities.h"
 #include <wtf/Forward.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
@@ -35,19 +40,15 @@
 
 namespace WebCore {
 
-class AnimationEffectTiming final : public RefCounted<AnimationEffectTiming> {
+class AnimationEffectTiming final : public AnimationEffectTimingReadOnly {
 public:
     static Ref<AnimationEffectTiming> create();
     ~AnimationEffectTiming();
 
-    double bindingsDuration() const { return m_duration.milliseconds(); }
-    ExceptionOr<void> setBindingsDuration(Variant<double, String>&&);
-    Seconds duration() const { return m_duration; }
-    void setDuration(Seconds& duration) { m_duration = duration; }
-
 private:
     AnimationEffectTiming();
-    Seconds m_duration;
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_ANIMATION_EFFECT_TIMING(AnimationEffectTiming, isAnimationEffectTiming());

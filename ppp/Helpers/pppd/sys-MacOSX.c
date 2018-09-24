@@ -108,6 +108,7 @@
 #include <netinet/ip_icmp.h>
 
 #include <ne_session.h>
+#include <nelog.h>
 
 #include "pppcontroller.h"
 #include <ppp/pppcontroller_types.h>
@@ -185,9 +186,6 @@ int route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_a
 static void ppp_ip_probe_timeout (void *arg);
 static void republish_dict();
 static int commit_publish_dict();
-
-extern bool nelog_is_logging_at_level(int level);
-extern void nelogv(int level, const char *format, va_list args) __attribute__((format(__printf__, 2, 0)));
 
 /* -----------------------------------------------------------------------------
  Globals
@@ -4965,11 +4963,31 @@ void
 sys_log(int priority, const char *message, ...)
 {
 	if (ne_is_controller()) {
-		if (nelog_is_logging_at_level(priority)) {
-			va_list args;
+		os_log_type_t log_type;
+		if (priority <= LOG_CRIT) {
+			log_type = OS_LOG_TYPE_FAULT;
+		} else if (priority <= LOG_ERR) {
+			log_type = OS_LOG_TYPE_ERROR;
+		} else if (priority <= LOG_NOTICE) {
+			log_type = OS_LOG_TYPE_DEFAULT;
+		} else if (priority <= LOG_INFO) {
+			log_type = OS_LOG_TYPE_INFO;
+		} else {
+			log_type = OS_LOG_TYPE_DEBUG;
+		}
 
+		if (os_log_type_enabled(ne_log_obj(), log_type)) {
+			va_list args;
 			va_start(args, message);
-			nelogv(priority, message, args);
+			CFStringRef cfFormat = CFStringCreateWithCString(kCFAllocatorDefault, message, kCFStringEncodingUTF8);
+			if (cfFormat != NULL) {
+				CFStringRef logString = CFStringCreateWithFormatAndArguments(kCFAllocatorDefault, 0, cfFormat, args);
+				if (logString != NULL) {
+					os_log_with_type(ne_log_obj(), log_type, "%@", logString);
+					CFRelease(logString);
+				}
+				CFRelease(cfFormat);
+			}
 			va_end(args);
 		}
 	} else {

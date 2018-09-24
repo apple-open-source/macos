@@ -316,7 +316,7 @@ void RenderMultiColumnSet::updateLogicalWidth()
     
     // FIXME: When we add fragments support, we'll start it off at the width of the multi-column
     // block in that particular fragment.
-    setLogicalWidth(parentBox()->contentLogicalWidth());
+    setLogicalWidth(multiColumnBlockFlow()->contentLogicalWidth());
 }
 
 bool RenderMultiColumnSet::requiresBalancing() const
@@ -332,7 +332,7 @@ bool RenderMultiColumnSet::requiresBalancing() const
         }
     }
     RenderBlockFlow* container = multiColumnBlockFlow();
-    if (container->style().columnFill() == ColumnFillBalance)
+    if (container->style().columnFill() == ColumnFill::Balance)
         return true;
     return !multiColumnFlow()->columnHeightAvailable();
 }
@@ -429,9 +429,9 @@ LayoutUnit RenderMultiColumnSet::columnGap() const
     // FIXME: Eventually we will cache the column gap when the widths of columns start varying, but for now we just
     // go to the parent block to get the gap.
     RenderBlockFlow& parentBlock = downcast<RenderBlockFlow>(*parent());
-    if (parentBlock.style().hasNormalColumnGap())
+    if (parentBlock.style().columnGap().isNormal())
         return parentBlock.style().fontDescription().computedPixelSize(); // "1em" is recommended as the normal gap setting. Matches <p> margins.
-    return parentBlock.style().columnGap();
+    return valueForLength(parentBlock.style().columnGap().length(), parentBlock.availableLogicalWidth());
 }
 
 unsigned RenderMultiColumnSet::columnCount() const
@@ -581,12 +581,12 @@ void RenderMultiColumnSet::paintColumnRules(PaintInfo& paintInfo, const LayoutPo
 
     RenderMultiColumnFlow* fragmentedFlow = multiColumnFlow();
     const RenderStyle& blockStyle = parent()->style();
-    const Color& ruleColor = blockStyle.visitedDependentColor(CSSPropertyColumnRuleColor);
+    const Color& ruleColor = blockStyle.visitedDependentColorWithColorFilter(CSSPropertyColumnRuleColor);
     bool ruleTransparent = blockStyle.columnRuleIsTransparent();
-    EBorderStyle ruleStyle = collapsedBorderStyle(blockStyle.columnRuleStyle());
+    BorderStyle ruleStyle = collapsedBorderStyle(blockStyle.columnRuleStyle());
     LayoutUnit ruleThickness = blockStyle.columnRuleWidth();
     LayoutUnit colGap = columnGap();
-    bool renderRule = ruleStyle > BHIDDEN && !ruleTransparent;
+    bool renderRule = ruleStyle > BorderStyle::Hidden && !ruleTransparent;
     if (!renderRule)
         return;
 

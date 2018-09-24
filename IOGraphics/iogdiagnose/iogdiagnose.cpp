@@ -281,7 +281,7 @@ void dumpGTraceReport( const IOGDiagnose * report, const bool bDumpToFile )
     strftime(filename, kFILENAME_LENGTH, "Report date: %F %H:%M:%S\n", timeinfo);
     fprintf(fOut, "%s", filename);
     if (report) {
-        if (report->version <= 5) {
+        if (report->version <= 6) {
             fprintf(fOut, "Report version: %#llx\n", report->version);
             fprintf(fOut, "Boot Epoch Time: %llu\n", report->systemBootEpochTime);
             fprintf(fOut, "Number of framebuffers: %llu\n\n",
@@ -303,6 +303,9 @@ void dumpGTraceReport( const IOGDiagnose * report, const bool bDumpToFile )
                 }
                 fprintf(fOut, " (%u %#llx)\n",
                         fbState->dependentIndex, fbState->regID);
+                if (fbState->aliasID) {
+                    fprintf(fOut, "\t\tAlias     : 0x%08x\n", fbState->aliasID);
+                }
 
                 fprintf(fOut, "\t\tI-State   : 0x%08x (b", fbState->stateBits);
                 for (mask = 0x80000000; 0 != mask; mask >>= 1) {
@@ -310,7 +313,34 @@ void dumpGTraceReport( const IOGDiagnose * report, const bool bDumpToFile )
                 }
                 fprintf(fOut, ")\n");
 
-                if (report->version >= 4) {
+                if (report->version >= 6) {
+                    fprintf(fOut, "\t\tStates    : OP:ON:US:PS:CS:CC:CL:CO:DS:MR:SG:WL:NA:SN:SS:SA:PP:SP:MS:MP:MU:PPS: NOTIFIED :   WSAA   \n");
+                    fprintf(fOut, "\t\tState Bits: %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:0x%01x:0x%08x:0x%08x\n",
+                            fbState->stateBits & kIOGReportState_Opened ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_Online ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_Usable ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_Paging ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_Clamshell ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_ClamshellCurrent ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_ClamshellLast ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_ClamshellOffline ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_SystemDark ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_Mirrored ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_SystemGated ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_WorkloopGated ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_NotificationActive ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_ServerNotified ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_ServerState ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_ServerPendingAck ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_PowerPendingChange ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_SystemPowerAckTo ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_IsMuxSwitching ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_PowerPendingMuxChange ? 1 : 0,
+                            fbState->stateBits & kIOGReportState_Muted ? 1 : 0,
+                            fbState->pendingPowerState,
+                            fbState->notificationGroup,
+                            fbState->wsaaState );
+                } else if (report->version >= 4) {
                     fprintf(fOut, "\t\tStates    : OP:US:PS:CS:CC:CL:DS:MR:SG:WL:NA:SN:SS:SA:PP:SP:MX:PPS: NOTIFIED :   WSAA   \n");
                     fprintf(fOut, "\t\tState Bits: %02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:%02d:0x%01x:0x%08x:0x%08x\n",
                             fbState->stateBits & kIOGReportState_Opened ? 1 : 0,

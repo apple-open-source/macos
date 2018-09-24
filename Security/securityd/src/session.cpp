@@ -75,7 +75,7 @@ Session::Session(const AuditInfo &audit, Server &server)
 	mSessions[audit.sessionId()] = this;
 	
 	// log it
-    secnotice("SS", "%p Session %d created, uid:%d sessionId:%d", this, this->sessionId(), mAudit.uid(), mAudit.sessionId());
+    secnotice("SecServer", "%p Session %d created, uid:%d sessionId:%d", this, this->sessionId(), mAudit.uid(), mAudit.sessionId());
 	Syslog::notice("Session %d created", this->sessionId());
 }
 
@@ -85,7 +85,7 @@ Session::Session(const AuditInfo &audit, Server &server)
 //
 Session::~Session()
 {
-    secnotice("SS", "%p Session %d destroyed", this, this->sessionId());
+    secnotice("SecServer", "%p Session %d destroyed", this, this->sessionId());
 	Syslog::notice("Session %d destroyed", this->sessionId());
 }
 
@@ -150,7 +150,7 @@ void Session::destroy(SessionId id)
 void Session::kill()
 {
     StLock<Mutex> _(*this);     // do we need to take this so early?
-    secnotice("SS", "%p killing session %d", this, this->sessionId());
+    secnotice("SecServer", "%p killing session %d", this, this->sessionId());
     invalidateSessionAuthHosts();
 	
 	// base kill processing
@@ -217,7 +217,7 @@ void Session::resetKeyStorePassphrase(const CssmData &passphrase)
 
 service_context_t Session::get_current_service_context()
 {
-    service_context_t context = { sessionId(), originatorUid(), *Server::connection().auditToken() };
+    service_context_t context = { sessionId(), originatorUid(), *Server::connection().auditToken(), 0 };
     return context;
 }
 

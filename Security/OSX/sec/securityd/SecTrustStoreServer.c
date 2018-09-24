@@ -62,8 +62,7 @@ static SecTrustStoreRef kSecTrustStoreUser = NULL;
 
 static const char copyParentsSQL[] = "SELECT data FROM tsettings WHERE subj=?";
 static const char containsSQL[] = "SELECT tset FROM tsettings WHERE sha1=?";
-static const char insertSQL[] = "INSERT INTO tsettings(sha1,subj,tset,data)VALUES(?,?,?,?)";
-static const char updateSQL[] = "UPDATE tsettings SET tset=? WHERE sha1=?";
+static const char insertSQL[] = "INSERT OR REPLACE INTO tsettings(sha1,subj,tset,data)VALUES(?,?,?,?)";
 static const char deleteSQL[] = "DELETE FROM tsettings WHERE sha1=?";
 static const char deleteAllSQL[] = "BEGIN EXCLUSIVE TRANSACTION; DELETE from tsettings; COMMIT TRANSACTION; VACUUM;";
 static const char copyAllSQL[] = "SELECT data,tset FROM tsettings ORDER BY sha1";
@@ -145,7 +144,7 @@ static int64_t SecTrustStoreCountAll(SecTrustStoreRef ts) {
     require_quiet(ts, errOutNotLocked);
     dispatch_sync(ts->queue, ^{
         sqlite3_stmt *countAllStmt = NULL;
-        int s3e = sqlite3_prepare(ts->s3h, countAllSQL, sizeof(countAllSQL),
+        int s3e = sqlite3_prepare_v2(ts->s3h, countAllSQL, sizeof(countAllSQL),
                                       &countAllStmt, NULL);
         if (s3e == SQLITE_OK) {
             s3e = sqlite3_step(countAllStmt);
@@ -172,8 +171,8 @@ static SecTrustStoreRef SecTrustStoreCreate(const char *db_name,
     ts->queue = dispatch_queue_create("truststore", DISPATCH_QUEUE_SERIAL);
 	require_noerr(s3e = sec_sqlite3_open(db_name, &ts->s3h, create), errOut);
 
-	s3e = sqlite3_prepare(ts->s3h, copyParentsSQL, sizeof(copyParentsSQL),
-		&ts->copyParents, NULL);
+	s3e = sqlite3_prepare_v3(ts->s3h, copyParentsSQL, sizeof(copyParentsSQL),
+                             SQLITE_PREPARE_PERSISTENT, &ts->copyParents, NULL);
 	if (create && s3e == SQLITE_ERROR) {
 		/* sqlite3_prepare returns SQLITE_ERROR if the table we are
 		   compiling this statement for doesn't exist. */
@@ -193,12 +192,12 @@ static SecTrustStoreRef SecTrustStoreCreate(const char *db_name,
 			sqlite3_free(errmsg);
 		}
 		require_noerr(s3e, errOut);
-		s3e = sqlite3_prepare(ts->s3h, copyParentsSQL, sizeof(copyParentsSQL),
-			&ts->copyParents, NULL);
+        s3e = sqlite3_prepare_v3(ts->s3h, copyParentsSQL, sizeof(copyParentsSQL),
+                                 SQLITE_PREPARE_PERSISTENT, &ts->copyParents, NULL);
 	}
 	require_noerr(s3e, errOut);
-	require_noerr(s3e = sqlite3_prepare(ts->s3h, containsSQL, sizeof(containsSQL),
-		&ts->contains, NULL), errOut);
+	require_noerr(s3e = sqlite3_prepare_v3(ts->s3h, containsSQL, sizeof(containsSQL), SQLITE_PREPARE_PERSISTENT,
+                                           &ts->contains, NULL), errOut);
 
     if (SecTrustStoreCountAll(ts) == 0) {
         ts->containsSettings = false;
@@ -274,7 +273,7 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
     require_action_quiet(!ts->readOnly, errOutNotLocked, ok = SecError(errSecReadOnly, error, CFSTR("truststore is readOnly")));
     dispatch_sync(ts->queue, ^{
         CFTypeRef trustSettingsDictOrArray = tsdoa;
-        sqlite3_stmt *insert = NULL, *update = NULL;
+        sqlite3_stmt *insert = NULL;
         CFDataRef xmlData = NULL;
         CFArrayRef array = NULL;
 
@@ -306,7 +305,7 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
         require_action_quiet(s3e == SQLITE_OK, errOut, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
 
         /* Parameter order is sha1,subj,tset,data. */
-        require_noerr_action_quiet(s3e = sqlite3_prepare(ts->s3h, insertSQL, sizeof(insertSQL),
+        require_noerr_action_quiet(s3e = sqlite3_prepare_v2(ts->s3h, insertSQL, sizeof(insertSQL),
                                                    &insert, NULL), errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
         require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 1,
                                                              CFDataGetBytePtr(digest), CFDataGetLength(digest), SQLITE_STATIC),
@@ -325,20 +324,6 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
             /* Great the insert worked. */
             ok = true;
             ts->containsSettings = true;
-        } else if (s3e == SQLITE_ERROR) {
-            /* Try update. */
-            require_noerr_action_quiet(s3e = sqlite3_prepare(ts->s3h, updateSQL, sizeof(updateSQL),
-                                                             &update, NULL), errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-            require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(update, 1,
-                                                                       CFDataGetBytePtr(xmlData), CFDataGetLength(xmlData),
-                                                                       SQLITE_STATIC), errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-            require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(update, 2,
-                                                                       CFDataGetBytePtr(digest), CFDataGetLength(digest), SQLITE_STATIC),
-                                       errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-            s3e = sqlite3_step(update);
-            require_action_quiet(s3e == SQLITE_DONE, errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-            s3e = SQLITE_OK;
-            ok = true;
         } else {
             require_noerr_action_quiet(s3e, errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
             ok = true;
@@ -347,9 +332,6 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
     errOutSql:
         if (insert) {
             s3e = sqlite3_finalize(insert);
-        }
-        if (update) {
-            s3e = sqlite3_finalize(update);
         }
 
         if (ok && s3e == SQLITE_OK) {
@@ -385,7 +367,7 @@ bool SecTrustStoreRemoveCertificateWithDigest(SecTrustStoreRef ts,
         int s3e = SQLITE_OK;
         sqlite3_stmt *deleteStmt = NULL;
 
-        require_noerr(s3e = sqlite3_prepare(ts->s3h, deleteSQL, sizeof(deleteSQL),
+        require_noerr(s3e = sqlite3_prepare_v2(ts->s3h, deleteSQL, sizeof(deleteSQL),
                                       &deleteStmt, NULL), errOut);
         require_noerr(s3e = sqlite3_bind_blob_wrapper(deleteStmt, 1,
                                                 CFDataGetBytePtr(digest), CFDataGetLength(digest), SQLITE_STATIC),
@@ -423,11 +405,11 @@ bool _SecTrustStoreRemoveAll(SecTrustStoreRef ts, CFErrorRef *error)
         /* prepared statements become unusable after deleteAllSQL, reset them */
         if (ts->copyParents)
             sqlite3_finalize(ts->copyParents);
-        sqlite3_prepare(ts->s3h, copyParentsSQL, sizeof(copyParentsSQL),
+        sqlite3_prepare_v3(ts->s3h, copyParentsSQL, sizeof(copyParentsSQL), SQLITE_PREPARE_PERSISTENT,
                         &ts->copyParents, NULL);
         if (ts->contains)
             sqlite3_finalize(ts->contains);
-        sqlite3_prepare(ts->s3h, containsSQL, sizeof(containsSQL),
+        sqlite3_prepare_v3(ts->s3h, containsSQL, sizeof(containsSQL), SQLITE_PREPARE_PERSISTENT,
                         &ts->contains, NULL);
     });
 errOutNotLocked:
@@ -552,7 +534,7 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, 
         CFPropertyListRef trustSettings = NULL;
         CFArrayRef certSettingsPair = NULL;
         int s3e = SQLITE_OK;
-        require_noerr(s3e = sqlite3_prepare(ts->s3h, copyAllSQL, sizeof(copyAllSQL),
+        require_noerr(s3e = sqlite3_prepare_v2(ts->s3h, copyAllSQL, sizeof(copyAllSQL),
                                             &copyAllStmt, NULL), errOut);
         require(CertsAndSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
         for(;;) {

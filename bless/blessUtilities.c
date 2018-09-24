@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <dirent.h>
 #include <libgen.h>
 #include <unistd.h>
@@ -29,7 +30,7 @@ static int DeleteFileWithPrejudice(const char *path, struct stat *sb);
 
 
 int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bootEFISourceLocation,
-					   CFDataRef labelData, CFDataRef labelData2)
+					   CFDataRef labelData, CFDataRef labelData2, bool setIDs)
 {
     int             ret;
     io_service_t    rootMedia = IO_OBJECT_NULL;
@@ -53,6 +54,7 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
 	char			bridgeDstVersionPath[MAXPATHLEN];
 	CFDataRef		versionData = NULL;
 	char			*pathEnd;
+    char            *pathEnd2;
     
     // Is this already a preboot or recovery volume?
     if (APFSVolumeRole(rootBSD, &role, NULL)) {
@@ -146,11 +148,13 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
 		*pathEnd = '\0';
 	}
 	
-    ret = BLGetAPFSInodeNum(context, prebootFolderPath, &blessIDs[1]);
-    if (ret) {
-        blesscontextprintf(context, kBLLogLevelError, "Preboot folder path \"%s\" doesn't exist.\n", prebootFolderPath);
-        ret = 6;
-        goto exit;
+    if (setIDs) {
+        ret = BLGetAPFSInodeNum(context, prebootFolderPath, &blessIDs[1]);
+        if (ret) {
+            blesscontextprintf(context, kBLLogLevelError, "Preboot folder path \"%s\" doesn't exist.\n", prebootFolderPath);
+            ret = 6;
+            goto exit;
+        }
     }
     strlcat(prebootFolderPath, "/boot.efi", sizeof prebootFolderPath);
     if (bootEFISourceLocation) {
@@ -199,7 +203,10 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
 			goto exit;
 		}
 		strlcpy(bridgeSrcVersionPath, sfs.f_mntonname, sizeof bridgeSrcVersionPath);
-		strlcat(bridgeSrcVersionPath, kBL_PATH_BRIDGE_VERSION, sizeof bridgeSrcVersionPath);
+        strlcat(bridgeDstVersionPath, "/", sizeof bridgeDstVersionPath);
+        pathEnd = bridgeSrcVersionPath + strlen(bridgeSrcVersionPath);
+        pathEnd2 = bridgeDstVersionPath + strlen(bridgeDstVersionPath);
+        strlcpy(pathEnd, kBL_PATH_BRIDGE_VERSION_BIN, bridgeSrcVersionPath + sizeof bridgeSrcVersionPath - pathEnd);
 		if (access(bridgeSrcVersionPath, R_OK) < 0) {
 			ret = ENOENT;
 		} else {
@@ -211,8 +218,7 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
 			ret = 0;
 		}
 		if (versionData) {
-			strlcat(bridgeDstVersionPath, "/", sizeof bridgeDstVersionPath);
-			strlcat(bridgeDstVersionPath, basename(kBL_PATH_BRIDGE_VERSION), sizeof bridgeDstVersionPath);
+            strlcpy(pathEnd2, basename(kBL_PATH_BRIDGE_VERSION_BIN), bridgeDstVersionPath + sizeof bridgeDstVersionPath - pathEnd2);
 			ret = BLCreateFileWithOptions(context, versionData, bridgeDstVersionPath, 0, 0, 0, 0);
 			CFRelease(versionData);
 			if (ret) {
@@ -220,6 +226,26 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
 				goto exit;
 			}
 		}
+        strlcpy(pathEnd, kBL_PATH_BRIDGE_VERSION_PLIST, bridgeSrcVersionPath + sizeof bridgeSrcVersionPath - pathEnd);
+        if (access(bridgeSrcVersionPath, R_OK) < 0) {
+            ret = ENOENT;
+        } else {
+            ret = BLLoadFile(context, bridgeSrcVersionPath, 0, &versionData);
+        }
+        if (ret) {
+            blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load version data from %s\n",
+                               bridgeSrcVersionPath);
+            ret = 0;
+        }
+        if (versionData) {
+            strlcpy(pathEnd2, basename(kBL_PATH_BRIDGE_VERSION_PLIST), bridgeDstVersionPath + sizeof bridgeDstVersionPath - pathEnd2);
+            ret = BLCreateFileWithOptions(context, versionData, bridgeDstVersionPath, 0, 0, 0, 0);
+            CFRelease(versionData);
+            if (ret) {
+                blesscontextprintf(context, kBLLogLevelError, "Couldn't create file at %s\n", bridgeDstVersionPath);
+                goto exit;
+            }
+        }
     } else {
         ret = lstat(prebootFolderPath, &existingStat);
         if (ret) {
@@ -229,16 +255,18 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
             goto exit;
         }
     }
-    ret = BLGetAPFSInodeNum(context, prebootFolderPath, &blessIDs[0]);
-    if (ret) {
-        blesscontextprintf(context, kBLLogLevelError, "Preboot booter path \"%s\" doesn't exist.", prebootFolderPath);
-        ret = 6;
-        goto exit;
-    }
-    ret = BLSetAPFSBlessData(context,  prebootMountPoint, blessIDs);
-    if (ret) {
-        blesscontextprintf(context, kBLLogLevelError,  "Can't set bless data for preboot volume: %s\n", strerror(errno));
-        return 2;
+    if (setIDs) {
+        ret = BLGetAPFSInodeNum(context, prebootFolderPath, &blessIDs[0]);
+        if (ret) {
+            blesscontextprintf(context, kBLLogLevelError, "Preboot booter path \"%s\" doesn't exist.", prebootFolderPath);
+            ret = 6;
+            goto exit;
+        }
+        ret = BLSetAPFSBlessData(context,  prebootMountPoint, blessIDs);
+        if (ret) {
+            blesscontextprintf(context, kBLLogLevelError,  "Can't set bless data for preboot volume: %s\n", strerror(errno));
+            return 2;
+        }
     }
     
 exit:

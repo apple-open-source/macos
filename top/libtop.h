@@ -218,11 +218,11 @@ struct libtop_psamp_s {
 	uint64_t		p_rshrd;
 	uint64_t		p_empty;
 
-	/* Anonymous/purgeable memory statistics. */
-	uint64_t anonymous;
+	/* Physical/purgeable memory statistics. */
 	uint64_t purgeable;
-	uint64_t p_anonymous;
+    uint64_t pfootprint;
 	uint64_t p_purgeable;
+    uint64_t p_pfootprint;
 
 	/* Compressed memory statistics. */
 	uint64_t compressed;

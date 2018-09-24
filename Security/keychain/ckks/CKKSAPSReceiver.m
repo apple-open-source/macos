@@ -28,6 +28,33 @@
 #import <CloudKit/CloudKit_Private.h>
 #include <utilities/debugging.h>
 
+@implementation CKRecordZoneNotification (CKKSPushTracing)
+- (void)setCkksPushTracingEnabled:(BOOL)ckksPushTracingEnabled {
+    objc_setAssociatedObject(self, "ckksPushTracingEnabled", ckksPushTracingEnabled ? @YES : @NO, OBJC_ASSOCIATION_RETAIN);
+}
+
+- (BOOL)ckksPushTracingEnabled {
+    return !![objc_getAssociatedObject(self, "ckksPushTracingEnabled") boolValue];
+}
+
+- (void)setCkksPushTracingUUID:(NSString*)ckksPushTracingUUID {
+    objc_setAssociatedObject(self, "ckksPushTracingUUID", ckksPushTracingUUID, OBJC_ASSOCIATION_RETAIN);
+}
+
+- (NSString*)ckksPushTracingUUID {
+    return objc_getAssociatedObject(self, "ckksPushTracingUUID");
+}
+
+- (void)setCkksPushReceivedDate:(NSDate*)ckksPushReceivedDate {
+    objc_setAssociatedObject(self, "ckksPushReceivedDate", ckksPushReceivedDate, OBJC_ASSOCIATION_RETAIN);
+}
+
+- (NSDate*)ckksPushReceivedDate {
+    return objc_getAssociatedObject(self, "ckksPushReceivedDate");
+}
+@end
+
+
 @interface CKKSAPSReceiver()
 // If we receive >0 notifications for a CKRecordZoneID that hasn't been registered yet, give them a fake update when they register
 @property NSMutableSet<CKRecordZoneID*>* undeliveredUpdates;
@@ -139,10 +166,18 @@
 - (void)connection:(APSConnection *)connection didReceiveIncomingMessage:(APSIncomingMessage *)message {
     secnotice("ckkspush", "CKKSAPSDelegate received a message: %@ on connection %@", message, connection);
 
+    // Report back through APS that we received a message
+    if(message.tracingEnabled) {
+        [connection confirmReceiptForMessage:message];
+    }
+
     CKNotification* notification = [CKNotification notificationFromRemoteNotificationDictionary:message.userInfo];
 
     if(notification.notificationType == CKNotificationTypeRecordZone) {
         CKRecordZoneNotification* rznotification = (CKRecordZoneNotification*) notification;
+        rznotification.ckksPushTracingEnabled = message.tracingEnabled;
+        rznotification.ckksPushTracingUUID = message.tracingUUID ? [[[NSUUID alloc] initWithUUIDBytes:message.tracingUUID.bytes] UUIDString] : nil;
+        rznotification.ckksPushReceivedDate = [NSDate date];
 
         // Find receiever in map
         id<CKKSZoneUpdateReceiver> recv = [self.zoneMap objectForKey:rznotification.recordZoneID];
@@ -151,6 +186,7 @@
         } else {
             secerror("ckks: received push for unregistered zone: %@", rznotification);
             if(rznotification.recordZoneID) {
+                // TODO: save the rznofication itself
                 [self.undeliveredUpdates addObject: rznotification.recordZoneID];
             }
         }

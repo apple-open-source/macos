@@ -31,6 +31,7 @@ az{
         151{"Şərqi Avropa"}
         154{"Şimali Avropa"}
         155{"Qərbi Avropa"}
+        202{"Saharadan cənub"}
         419{"Latın Amerikası"}
         AC{"Askenson adası"}
         AD{"Andorra"}
@@ -106,6 +107,7 @@ az{
         ES{"İspaniya"}
         ET{"Efiopiya"}
         EU{"Avropa Birliyi"}
+        EZ{"Avrozona"}
         FI{"Finlandiya"}
         FJ{"Fici"}
         FK{"Folklend adaları"}
@@ -310,5 +312,5 @@ az{
         MK{"Makedoniya (KYRM)"}
         TL{"Doğu Timor"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

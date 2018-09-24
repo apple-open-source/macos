@@ -30,10 +30,11 @@
 #import "Page.h"
 
 #import "DocumentLoader.h"
+#import "Frame.h"
 #import "FrameLoader.h"
 #import "FrameTree.h"
+#import "LayoutTreeBuilder.h"
 #import "Logging.h"
-#import "MainFrame.h"
 #import "RenderObject.h"
 #import <pal/Logging.h>
 
@@ -51,13 +52,35 @@ void Page::platformInitialize()
     addSchedulePair(SchedulePair::create([[NSRunLoop currentRunLoop] getCFRunLoop], kCFRunLoopCommonModes));
 #endif
 
-#if ENABLE(TREE_DEBUGGING)
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [] {
+#if ENABLE(TREE_DEBUGGING)
         PAL::registerNotifyCallback("com.apple.WebKit.showRenderTree", printRenderTreeForLiveDocuments);
         PAL::registerNotifyCallback("com.apple.WebKit.showLayerTree", printLayerTreeForLiveDocuments);
-    });
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+        PAL::registerNotifyCallback("com.apple.WebKit.showLayoutTree", Layout::printLayoutTreeForLiveDocuments);
 #endif
+#endif // ENABLE(TREE_DEBUGGING)
+
+        PAL::registerNotifyCallback("com.apple.WebKit.showAllDocuments", [] {
+            unsigned numPages = 0;
+            Page::forEachPage([&numPages](Page&) {
+                ++numPages;
+            });
+
+            WTFLogAlways("%u live pages:", numPages);
+
+            Page::forEachPage([](Page& page) {
+                const auto* mainFrameDocument = page.mainFrame().document();
+                WTFLogAlways("Page %p with main document %p %s", &page, mainFrameDocument, mainFrameDocument ? mainFrameDocument->url().string().utf8().data() : "");
+            });
+
+            WTFLogAlways("%u live documents:", Document::allDocuments().size());
+            for (const auto* document : Document::allDocuments()) {
+                WTFLogAlways("Document %p %s", document, document->url().string().utf8().data());
+            }
+        });
+    });
 }
 
 void Page::addSchedulePair(Ref<SchedulePair>&& pair)

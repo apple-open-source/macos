@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#import "SecKeybagSupport.h"
 #import "SecDbKeychainItem.h"
 #import "SecdTestKeychainUtilities.h"
 #import "CKKS.h"
@@ -32,7 +33,9 @@
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
+#if USE_KEYSTORE
 #import <libaks.h>
+#endif
 #import <sqlite3.h>
 #import "mockaks.h"
 
@@ -57,7 +60,9 @@
      * that leads to the vnode delete kevent trap triggering for sqlite
      * over and over again.
      */
+#if OCTAGON
     SecCKKSTestSetDisableSOS(true);
+#endif
     //securityd_init(NULL);
 }
 
@@ -103,33 +108,6 @@
         self.testHomeDirectory = nil;
     });
     //kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
-}
-
-- (void)testAddKeyByReference
-{
-    NSDictionary* keyParams = @{ (id)kSecAttrKeyType : (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits : @(1024) };
-    SecKeyRef key = SecKeyCreateRandomKey((__bridge CFDictionaryRef)keyParams, NULL);
-    NSDictionary* item = @{ (id)kSecClass : (id)kSecClassKey,
-                            (id)kSecValueRef : (__bridge id)key,
-                            (id)kSecAttrLabel : @"TestLabel",
-                            (id)kSecAttrNoLegacy : @(YES) };
-
-    OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
-    XCTAssertEqual(result, 0, @"failed to add test item to keychain");
-
-    NSMutableDictionary* refQuery = item.mutableCopy;
-    [refQuery removeObjectForKey:(id)kSecValueData];
-    refQuery[(id)kSecReturnRef] = @(YES);
-    CFTypeRef foundItem = NULL;
-    result = SecItemCopyMatching((__bridge CFDictionaryRef)refQuery, &foundItem);
-    XCTAssertEqual(result, 0, @"failed to find the reference for the item we just added in the keychain");
-
-    NSData* originalKeyData = (__bridge_transfer NSData*)SecKeyCopyExternalRepresentation(key, NULL);
-    NSData* foundKeyData = (__bridge_transfer NSData*)SecKeyCopyExternalRepresentation((SecKeyRef)foundItem, NULL);
-    XCTAssertEqualObjects(originalKeyData, foundKeyData, @"found key does not match the key we put in the keychain");
-
-    result = SecItemDelete((__bridge CFDictionaryRef)refQuery);
-    XCTAssertEqual(result, 0, @"failed to delete key");
 }
 
 
@@ -265,8 +243,10 @@
 
 - (void)testCreateSampleDatabase
 {
+#if USE_KEYSTORE
     id mock = OCMClassMock([SecMockAKS class]);
     OCMStub([mock useGenerationCount]).andReturn(true);
+#endif
 
     [self createManyItems];
     [self createManyKeys];
@@ -286,11 +266,13 @@
 
 - (void)testTestAKSGenerationCount
 {
+#if USE_KEYSTORE
     id mock = OCMClassMock([SecMockAKS class]);
     OCMStub([mock useGenerationCount]).andReturn(true);
 
     [self createManyItems];
     [self findManyItems:50];
+#endif
 }
 
 
@@ -318,6 +300,31 @@
     XCTAssertEqual(SQLITE_OK, sqlite3_close(handle), "close sqlite");
 }
 
+- (void)checkIncremental
+{
+    /*
+     * check that we made incremental vacuum mode
+     */
+
+    __block CFErrorRef localError = NULL;
+    __block bool ok = true;
+    __block int vacuumMode = -1;
+
+    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+        ok &= SecDbPrepare(dbt, CFSTR("PRAGMA auto_vacuum"), &localError, ^(sqlite3_stmt *stmt) {
+            ok = SecDbStep(dbt, stmt, NULL, ^(bool *stop) {
+                vacuumMode = sqlite3_column_int(stmt, 0);
+            });
+        });
+        return ok;
+    });
+    XCTAssertEqual(ok, true, "should work to fetch auto_vacuum value: %@", localError);
+    XCTAssertEqual(vacuumMode, 2, "vacuum mode should be incremental (2)");
+
+    CFReleaseNull(localError);
+
+}
+
 - (void)testUpgradeFromVersion10_5
 {
     SecKeychainDbReset(^{
@@ -327,6 +334,8 @@
 
     NSLog(@"find items from old database");
     [self findManyItems:50];
+
+    [self checkIncremental];
 }
 
 - (void)testUpgradeFromVersion11_1
@@ -338,6 +347,37 @@
 
     NSLog(@"find items from old database");
     [self findManyItems:50];
+
+    [self checkIncremental];
+}
+
+#if USE_KEYSTORE
+
+- (void)testAddKeyByReference
+{
+    NSDictionary* keyParams = @{ (id)kSecAttrKeyType : (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits : @(1024) };
+    SecKeyRef key = SecKeyCreateRandomKey((__bridge CFDictionaryRef)keyParams, NULL);
+    NSDictionary* item = @{ (id)kSecClass : (id)kSecClassKey,
+                            (id)kSecValueRef : (__bridge id)key,
+                            (id)kSecAttrLabel : @"TestLabel",
+                            (id)kSecAttrNoLegacy : @(YES) };
+
+    OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+    XCTAssertEqual(result, 0, @"failed to add test item to keychain");
+
+    NSMutableDictionary* refQuery = item.mutableCopy;
+    [refQuery removeObjectForKey:(id)kSecValueData];
+    refQuery[(id)kSecReturnRef] = @(YES);
+    CFTypeRef foundItem = NULL;
+    result = SecItemCopyMatching((__bridge CFDictionaryRef)refQuery, &foundItem);
+    XCTAssertEqual(result, 0, @"failed to find the reference for the item we just added in the keychain");
+
+    NSData* originalKeyData = (__bridge_transfer NSData*)SecKeyCopyExternalRepresentation(key, NULL);
+    NSData* foundKeyData = (__bridge_transfer NSData*)SecKeyCopyExternalRepresentation((SecKeyRef)foundItem, NULL);
+    XCTAssertEqualObjects(originalKeyData, foundKeyData, @"found key does not match the key we put in the keychain");
+
+    result = SecItemDelete((__bridge CFDictionaryRef)refQuery);
+    XCTAssertEqual(result, 0, @"failed to delete key");
 }
 
 - (bool)isLockedSoon:(keyclass_t)key_class
@@ -349,7 +389,6 @@
     self.lockCounter--;
     return false;
 }
-
 
 /*
  * Lock in the middle of migration
@@ -419,6 +458,8 @@
         SecKeychainDbGetVersion(dbt, &version, &error);
         XCTAssertEqual(error, NULL, "error getting version");
         XCTAssertEqual(version, 0x50a, "managed to upgrade when we shouldn't have");
+
+        return true;
     });
 
     /* user got the SEP out of DFU */
@@ -433,12 +474,15 @@
         int version = 0;
         SecKeychainDbGetVersion(dbt, &version, &error);
         XCTAssertEqual(error, NULL, "error getting version");
-        XCTAssertEqual(version, 0x20b, "didnt managed to upgrade");
+        XCTAssertEqual(version, 0x40b, "didnt managed to upgrade");
+
+        return true;
     });
 
     NSLog(@"find items from old database");
     [self findManyItems:50];
 }
 
+#endif /* USE_KEYSTORE */
 
 @end

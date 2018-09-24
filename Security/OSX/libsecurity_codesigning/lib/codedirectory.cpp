@@ -111,6 +111,8 @@ unsigned CodeDirectory::slotAttributes(SpecialSlot slot)
 		return cdComponentIsBlob; // global
 	case cdIdentificationSlot:
 		return cdComponentPerArchitecture; // raw
+	case cdTicketSlot:
+		return 0; // global, raw
 	default:
 		return 0; // global, raw
 	}

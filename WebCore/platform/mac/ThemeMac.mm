@@ -26,12 +26,15 @@
 #import "config.h"
 #import "ThemeMac.h"
 
+#if PLATFORM(MAC)
+
 #import "AXObjectCache.h"
 #import "ControlStates.h"
 #import "GraphicsContext.h"
 #import "ImageBuffer.h"
 #import "LengthSize.h"
 #import "LocalCurrentGraphicsContext.h"
+#import "LocalDefaultSystemAppearance.h"
 #import "ScrollView.h"
 #import <Carbon/Carbon.h>
 #import <pal/spi/cocoa/NSButtonCellSPI.h>
@@ -359,12 +362,15 @@ static bool drawCellFocusRingWithFrameAtTime(NSCell *cell, NSRect cellFrame, NSV
 
     CGFocusRingStyle focusRingStyle;
     bool needsRepaint = NSInitializeCGFocusRingStyleForTime(NSFocusRingOnly, &focusRingStyle, timeOffset);
+
     // We want to respect the CGContext clipping and also not overpaint any
     // existing focus ring. The way to do this is set accumulate to
     // -1. According to CoreGraphics, the reasoning for this behavior has been
     // lost in time.
     focusRingStyle.accumulate = -1;
-    auto style = adoptCF(CGStyleCreateFocusRingWithColor(&focusRingStyle, GraphicsContext::focusRingColor()));
+
+    // FIXME: This color should be shared with RenderThemeMac. For now just use the same NSColor color.
+    auto style = adoptCF(CGStyleCreateFocusRingWithColor(&focusRingStyle, [NSColor keyboardFocusIndicatorColor].CGColor));
     CGContextSetStyle(cgContext, style.get());
 
     CGContextBeginTransparencyLayerWithRect(cgContext, NSRectToCGRect(cellFrame), nullptr);
@@ -421,7 +427,6 @@ static void paintToggleButton(ControlPart buttonType, ControlStates& controlStat
         context.scale(zoomFactor);
         context.translate(-inflatedRect.location());
     }
-
     LocalCurrentGraphicsContext localContext(context);
 
     NSView *view = ThemeMac::ensuredView(scrollView, controlStates, true /* useUnparentedView */);
@@ -643,6 +648,7 @@ NSView *ThemeMac::ensuredView(ScrollView* scrollView, const ControlStates& contr
     // Use a fake view.
     static WebCoreThemeView *themeView = [[WebCoreThemeView alloc] init];
     [themeView setFrameSize:NSSizeFromCGSize(scrollView->totalContentsSize())];
+    [themeView setAppearance:[NSAppearance currentAppearance]];
 
     themeWindowHasKeyAppearance = !(controlStates.states() & ControlStates::WindowInactiveState);
 
@@ -842,8 +848,10 @@ void ThemeMac::inflateControlPaintRect(ControlPart part, const ControlStates& st
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-void ThemeMac::paint(ControlPart part, ControlStates& states, GraphicsContext& context, const FloatRect& zoomedRect, float zoomFactor, ScrollView* scrollView, float deviceScaleFactor, float pageScaleFactor)
+void ThemeMac::paint(ControlPart part, ControlStates& states, GraphicsContext& context, const FloatRect& zoomedRect, float zoomFactor, ScrollView* scrollView, float deviceScaleFactor, float pageScaleFactor, bool useSystemAppearance, bool useDarkAppearance)
 {
+    LocalDefaultSystemAppearance localAppearance(useSystemAppearance, useDarkAppearance);
+
     switch (part) {
         case CheckboxPart:
             paintToggleButton(part, states, context, zoomedRect, zoomFactor, scrollView, deviceScaleFactor, pageScaleFactor);
@@ -867,11 +875,9 @@ void ThemeMac::paint(ControlPart part, ControlStates& states, GraphicsContext& c
 
 bool ThemeMac::userPrefersReducedMotion() const
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
     return [[NSWorkspace sharedWorkspace] accessibilityDisplayShouldReduceMotion];
-#else
-    return false;
-#endif
 }
 
 }
+
+#endif // PLATFORM(MAC)

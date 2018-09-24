@@ -243,6 +243,8 @@ primary[Maker &maker]
 			{ maker.cdhash(digest); }
 	|	"platform" { int32_t ident; } eql ident=integer
 			{ maker.platform(ident); }
+	|	"notarized"
+			{ maker.put(opNotarized); }
 	|	LPAREN { string name; } name=identifierString RPAREN
 			{ maker.put(opNamedCode); maker.put(name); }
 	;

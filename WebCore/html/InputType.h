@@ -194,7 +194,7 @@ public:
 
     virtual bool shouldSubmitImplicitly(Event&);
     virtual bool hasCustomFocusLogic() const;
-    virtual bool isKeyboardFocusable(KeyboardEvent&) const;
+    virtual bool isKeyboardFocusable(KeyboardEvent*) const;
     virtual bool isMouseFocusable() const;
     virtual bool shouldUseInputMethod() const;
     virtual void handleFocusEvent(Node* oldFocusedNode, FocusDirection);
@@ -234,11 +234,6 @@ public:
     virtual void addSearchResult();
     virtual void attach();
     virtual void detach();
-    virtual void minOrMaxAttributeChanged();
-    virtual void stepAttributeChanged();
-    virtual void altAttributeChanged();
-    virtual void srcAttributeChanged();
-    virtual void maxResultsAttributeChanged();
     virtual bool shouldRespectAlignAttribute();
     virtual FileList* files();
     virtual void setFiles(RefPtr<FileList>&&);
@@ -257,11 +252,10 @@ public:
     virtual bool supportsReadOnly() const;
     virtual void updateInnerTextValue();
     virtual void updatePlaceholderText();
-    virtual void attributeChanged(const QualifiedName&);
-    virtual void multipleAttributeChanged();
-    virtual void disabledAttributeChanged();
-    virtual void readonlyAttributeChanged();
-    virtual void requiredAttributeChanged();
+    virtual void attributeChanged(const QualifiedName&) { }
+    virtual void disabledStateChanged() { }
+    virtual void readOnlyStateChanged() { }
+    virtual void requiredStateChanged() { }
     virtual void capsLockStateMayHaveChanged();
     virtual void updateAutoFillButton();
     virtual String defaultToolTip() const;
@@ -310,8 +304,9 @@ public:
     virtual String displayString() const;
 
 protected:
-    explicit InputType(HTMLInputElement& element) : m_element(element) { }
-    HTMLInputElement& element() const { return m_element; }
+    explicit InputType(HTMLInputElement& element)
+        : m_element(makeWeakPtr(element)) { }
+    HTMLInputElement* element() const { return m_element.get(); }
     Chrome* chrome() const;
     Decimal parseToNumberOrNaN(const String&) const;
 
@@ -320,7 +315,7 @@ private:
     ExceptionOr<void> applyStep(int count, AnyStepHandling, TextFieldEventBehavior);
 
     // Raw pointer because the HTMLInputElement object owns this InputType object.
-    HTMLInputElement& m_element;
+    WeakPtr<HTMLInputElement> m_element;
 };
 
 } // namespace WebCore

@@ -4,8 +4,6 @@
 #include <notify.h>
 #include <dispatch/dispatch.h>
 
-extern uint32_t notify_register_plain(const char *name, int *out_token);
-
 #define forever for(;;)
 
 #define MAX_REG 1000

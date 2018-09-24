@@ -23,8 +23,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)ctf.c	1.14	06/05/03 SMI"
-
 /*
  * Create and parse buffers containing CTF data.
  */

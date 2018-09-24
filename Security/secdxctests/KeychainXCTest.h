@@ -23,12 +23,13 @@
 
 #import "KeychainXCTest.h"
 #import "SecItemServer.h"
+#import "SFKeychainServer.h"
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
 
 #if USE_KEYSTORE
-#include <libaks.h>
+#import <libaks.h>
 
 typedef enum {
     LockStateUnlocked,
@@ -48,7 +49,19 @@ typedef enum {
 @property SFAESKeySpecifier* keySpecifier;
 @property SFAESKey* fakeAKSKey;
 
+@property id keychainPartialMock;
+
 - (bool)setNewFakeAKSKey:(NSData*)newKeyData;
+
+- (void)setEntitlements:(NSDictionary<NSString *, id> *)entitlements validated:(BOOL)validated;
+
+- (NSData*)getDatabaseKeyDataithError:(NSError**)error;
+
+@end
+
+@interface SFKeychainServerFakeConnection : SFKeychainServerConnection
+
+- (void)setFakeAccessGroups:(NSArray*)fakeAccessGroups;
 
 @end
 

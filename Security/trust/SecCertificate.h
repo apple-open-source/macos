@@ -49,7 +49,7 @@
 
 #include <Security/cssmtype.h>
 #include <Security/x509defs.h>
-#endif
+#endif // SEC_OS_OSX
 
 __BEGIN_DECLS
 
@@ -145,16 +145,27 @@ __nullable
 CFDataRef SecCertificateCopyNormalizedSubjectSequence(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_12_4, __IPHONE_10_3);
 
+/*!
+ @function SecCertificateCopyKey
+ @abstract Retrieves the public key for a given certificate.
+ @param certificate A reference to the certificate from which to retrieve the public key.
+ @result A reference to the public key for the specified certificate. Your code must release this reference by calling the CFRelease function. If the public key has an encoding issue or uses an unsupported algorithm, the returned reference will be null.
+ */
+__nullable CF_RETURNS_RETAINED
+SecKeyRef SecCertificateCopyKey(SecCertificateRef certificate)
+    API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
+
 #if TARGET_OS_IPHONE
 /*!
  @function SecCertificateCopyPublicKey
  @abstract Retrieves the public key for a given certificate.
  @param certificate A reference to the certificate from which to retrieve the public key.
  @result A reference to the public key for the specified certificate. Your code must release this reference by calling the CFRelease function.
+ @discussion NOTE: Deprecated in iOS 12.0; use SecCertificateCopyKey instead for cross-platform availability.
  */
 __nullable
 SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
-    __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_10_3);
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopyKey", ios(10.3, 12.0)) API_UNAVAILABLE(macos);
 #endif
 
 #if TARGET_OS_OSX
@@ -164,9 +175,10 @@ SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
  @param certificate A reference to the certificate from which to retrieve the public key.
  @param key On return, a reference to the public key for the specified certificate. Your code must release this reference by calling the CFRelease function.
  @result A result code. See "Security Error Codes" (SecBase.h).
+ @discussion NOTE: Deprecated in macOS 10.14; use SecCertificateCopyKey instead for cross-platform availability.
  */
 OSStatus SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef * __nonnull CF_RETURNS_RETAINED key)
-    __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_NA);
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopyKey", macos(10.3, 10.14)) API_UNAVAILABLE(ios);
 #endif
 
 /*!
@@ -189,7 +201,7 @@ CFDataRef SecCertificateCopySerialNumberData(SecCertificateRef certificate, CFEr
  */
 __nullable
 CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate)
-    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_NA, __MAC_NA, __IPHONE_10_3, __IPHONE_11_0, "SecCertificateCopySerialNumber is deprecated. Use SecCertificateCopySerialNumberData instead.");
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopySerialNumberData", ios(10.3, 11.0)) API_UNAVAILABLE(macos);
 #endif
 
 #if TARGET_OS_OSX
@@ -202,7 +214,7 @@ CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate)
  */
 __nullable
 CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate, CFErrorRef *error)
-    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_7, __MAC_10_13, __IPHONE_NA, __IPHONE_NA, "SecCertificateCopySerialNumber is deprecated. Use SecCertificateCopySerialNumberData instead.");
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopySerialNumberData", macos(10.7, 10.13)) API_UNAVAILABLE(ios);
 #endif
 
 /*

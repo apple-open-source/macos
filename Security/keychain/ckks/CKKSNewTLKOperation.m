@@ -28,6 +28,7 @@
 #import "CKKSGroupOperation.h"
 #import "CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #if OCTAGON
 
@@ -253,7 +254,11 @@
         modifyRecordsOp = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave recordIDsToDelete:recordIDsToDelete];
         modifyRecordsOp.atomic = YES;
         modifyRecordsOp.longLived = NO; // The keys are only in memory; mark this explicitly not long-lived
-        modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;  // This needs to happen before CKKS is available for PCS/CloudKit use.
+
+        // This needs to happen before CKKS is available for PCS/CloudKit use.
+        modifyRecordsOp.configuration.automaticallyRetryNetworkFailures = NO;
+        modifyRecordsOp.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+
         modifyRecordsOp.group = self.ckoperationGroup;
         ckksnotice("ckkstlk", ckks, "Operation group is %@", self.ckoperationGroup);
 

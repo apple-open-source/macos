@@ -362,9 +362,9 @@ extern const CFStringRef kSecAttrViewHintManatee;
 extern const CFStringRef kSecAttrViewHintAutoUnlock;
 extern const CFStringRef kSecAttrViewHintHealth;
 extern const CFStringRef kSecAttrViewHintApplePay;
+extern const CFStringRef kSecAttrViewHintHome;
 
 
-#if SEC_OS_IPHONE
 extern const CFStringRef kSecUseSystemKeychain
     __TVOS_AVAILABLE(9.2)
     __WATCHOS_AVAILABLE(3.0)
@@ -376,7 +376,6 @@ extern const CFStringRef kSecUseSyncBubbleKeychain
     __WATCHOS_AVAILABLE(3.0)
     __OSX_AVAILABLE(10.11.4)
     __IOS_AVAILABLE(9.3);
-#endif /* SEC_OS_IPHONE */
 
 /*!
     @enum Other Constants (Private)
@@ -411,6 +410,8 @@ extern const CFStringRef kSecUseSyncBubbleKeychain
         which have non-empty kSecAttrTokenID are not going through client-side
         postprocessing, only raw form stored in the database is listed.  This
         flag is ignored in other operations than SecItemCopyMatching().
+    @constant kSecUseCertificatesWithMatchIssuers If set to true,
+        SecItemCopyMatching allows to return certificates when kSecMatchIssuers is specified.
 */
 extern const CFStringRef kSecUseTombstones
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
@@ -420,6 +421,8 @@ extern const CFStringRef kSecUseCallerName
     __OSX_AVAILABLE(10.11.4) __IOS_AVAILABLE(9.3) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
 extern const CFStringRef kSecUseTokenRawItems
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecUseCertificatesWithMatchIssuers
+    __OSX_AVAILABLE(10.14) __IOS_UNAVAILABLE __TVOS_UNAVAILABLE __WATCHOS_UNAVAILABLE;
 
 extern const CFStringRef kSOSInternalAccessGroup
     __OSX_AVAILABLE(10.9) __IOS_AVAILABLE(7.0) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
@@ -512,7 +515,6 @@ void SecItemFetchCurrentItemAcrossAllDevices(CFStringRef accessGroup,
 void _SecItemFetchDigests(NSString *itemClass, NSString *accessGroup, void (^complete)(NSArray *, NSError *));
 #endif
 
-#if SEC_OS_IPHONE
 /*!
  @function SecItemDeleteAllWithAccessGroups
  @abstract Deletes all items for each class for the given access groups
@@ -522,7 +524,6 @@ void _SecItemFetchDigests(NSString *itemClass, NSString *accessGroup, void (^com
     Requires entitlement "com.apple.private.uninstall.deletion"
  */
 bool SecItemDeleteAllWithAccessGroups(CFArrayRef accessGroups, CFErrorRef *error);
-#endif /* SEC_OS_IPHONE */
 
 /*
     Ensure the escrow keybag has been used to unlock the system keybag before
@@ -568,6 +569,7 @@ bool _SecKeychainRollKeys(bool force, CFErrorRef *error);
 
 CFDictionaryRef _SecSecuritydCopyWhoAmI(CFErrorRef *error);
 XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyCKKSEndpoint(CFErrorRef *error);
+XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopySFKeychainEndpoint(CFErrorRef* error);
 XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyKeychainControlEndpoint(CFErrorRef* error);
 
 #if SEC_OS_IPHONE
@@ -577,9 +579,7 @@ bool _SecSyncBubbleTransfer(CFArrayRef services, CFErrorRef *error);
 #endif /* SEC_OS_IPHONE */
 
 bool _SecSystemKeychainTransfer(CFErrorRef *error);
-#if SEC_OS_IPHONE
 bool _SecSyncDeleteUserViews(uid_t uid, CFErrorRef *error);
-#endif /* SEC_OS_IPHONE */
 
 
 
@@ -589,7 +589,6 @@ OSStatus SecItemUpdateTokenItems(CFTypeRef tokenID, CFArrayRef tokenItemsAttribu
 CFTypeRef SecItemCreateFromAttributeDictionary_osx(CFDictionaryRef refAttributes);
 #endif
 
-#if SEC_OS_IPHONE
 /*!
  * @function SecCopyLastError
  * @abstract return the last CFErrorRef for this thread
@@ -620,7 +619,6 @@ SecItemUpdateWithError(CFDictionaryRef inQuery,
     __TVOS_AVAILABLE(10.0)
     __WATCHOS_AVAILABLE(3.0)
     __IOS_AVAILABLE(10.0);
-#endif // SEC_OS_IPHONE
 
 #if SEC_OS_OSX
 /*!

@@ -353,7 +353,7 @@ _vnode_event(vnode_t *vnode)
 	if ((vnode->src != NULL) && (dispatch_source_testcancel(vnode->src))) return;
 
 	ulf = dispatch_source_get_data(vnode->src);
-	flags = ulf;
+	flags = (uint32_t)ulf;
 
 	memset(&sb, 0, sizeof(struct stat));
 	if (fstat(vnode->fd, &sb) == 0)

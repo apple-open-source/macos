@@ -1179,6 +1179,7 @@ static const CSSPropertyID blockProperties[] = {
     CSSPropertyWebkitAspectRatio,
     CSSPropertyColumnCount,
     CSSPropertyColumnGap,
+    CSSPropertyRowGap,
     CSSPropertyColumnRuleColor,
     CSSPropertyColumnRuleStyle,
     CSSPropertyColumnRuleWidth,
@@ -1226,8 +1227,7 @@ bool MutableStyleProperties::removePropertiesInSet(const CSSPropertyID* set, uns
         toRemove.add(set[i]);
 
     return m_propertyVector.removeAllMatching([&toRemove] (const CSSProperty& property) {
-        // Not quite sure if the isImportant test is needed but it matches the existing behavior.
-        return !property.isImportant() && toRemove.contains(property.id());
+        return toRemove.contains(property.id());
     }) > 0;
 }
 

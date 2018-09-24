@@ -37,8 +37,8 @@
 #import "WebCoreNSErrorExtras.h"
 #import <AVFoundation/AVError.h>
 #import <CoreMedia/CMBase.h>
+#import <JavaScriptCore/TypedArrayInlines.h>
 #import <objc/objc-runtime.h>
-#import <runtime/TypedArrayInlines.h>
 #import <wtf/SoftLinking.h>
 
 SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
@@ -164,7 +164,7 @@ RefPtr<Uint8Array> CDMSessionAVContentKeySession::generateKeyRequest(const Strin
     }
 
     if (!m_certificate) {
-        String certificateString(ASCIILiteral("certificate"));
+        String certificateString("certificate"_s);
         RefPtr<Uint8Array> array = Uint8Array::create(certificateString.length());
         for (unsigned i = 0, length = certificateString.length(); i < length; ++i)
             array->set(i, certificateString[i]);
@@ -237,13 +237,6 @@ bool CDMSessionAVContentKeySession::update(Uint8Array* key, RefPtr<Uint8Array>& 
 {
     UNUSED_PARAM(nextMessage);
 
-    bool shouldGenerateKeyRequest = !m_certificate || isEqual(key, "renew");
-    if (!m_certificate) {
-        LOG(Media, "CDMSessionAVContentKeySession::update(%p) - certificate data", this);
-
-        m_certificate = key;
-    }
-
     if (isEqual(key, "acknowledged")) {
         LOG(Media, "CDMSessionAVContentKeySession::update(%p) - acknowleding secure stop message", this);
 
@@ -259,6 +252,18 @@ bool CDMSessionAVContentKeySession::update(Uint8Array* key, RefPtr<Uint8Array>& 
             [getAVContentKeySessionClass() removePendingExpiredSessionReports:@[m_expiredSession.get()] withAppIdentifier:certificateData.get() storageDirectoryAtURL:[NSURL fileURLWithPath:storagePath]];
         m_expiredSession = nullptr;
         return true;
+    }
+
+    if (m_stopped) {
+        errorCode = MediaPlayer::InvalidPlayerState;
+        return false;
+    }
+
+    bool shouldGenerateKeyRequest = !m_certificate || isEqual(key, "renew");
+    if (!m_certificate) {
+        LOG(Media, "CDMSessionAVContentKeySession::update(%p) - certificate data", this);
+
+        m_certificate = key;
     }
 
     if (m_mode == KeyRelease)

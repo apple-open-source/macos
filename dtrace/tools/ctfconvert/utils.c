@@ -24,8 +24,6 @@
  * All rights reserved.
  */
 
-#pragma ident	"@(#)utils.c	1.2	05/06/08 SMI"
-
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>

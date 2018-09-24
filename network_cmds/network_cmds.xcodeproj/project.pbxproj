@@ -3782,7 +3782,6 @@
 		03B2DBF1100BE71D005349BC /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -3824,6 +3823,7 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
+				USE_HEADERMAP = NO;
 				WARNING_CFLAGS = (
 					"$(inherited)",
 					"-Wno-deprecated-declarations",
@@ -3901,7 +3901,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALTERNATE_MODE = 0555;
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -3917,7 +3916,6 @@
 		4D2B04F61208C2050004A3F3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -3932,7 +3930,6 @@
 		4D2B04F71208C2050004A3F3 /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/bin;
@@ -3944,7 +3941,6 @@
 		565825A11339218F003E5FA5 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
@@ -3961,7 +3957,6 @@
 		565825A21339218F003E5FA5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
@@ -3978,7 +3973,6 @@
 		565825A31339218F003E5FA5 /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -3992,7 +3986,6 @@
 		690D978312DE6035004323A7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
@@ -4011,7 +4004,6 @@
 		690D978412DE6035004323A7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
@@ -4030,7 +4022,6 @@
 		690D978512DE6035004323A7 /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				"DEBUG_INFORMATION_FORMAT[sdk=iphoneos*][arch=*]" = dwarf;
@@ -4046,10 +4037,8 @@
 		7132976C1A93C743002359CF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -4073,7 +4062,8 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
-				"USER_HEADER_SEARCH_PATHS[arch=*]" = unbound/;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/unbound";
+				USE_HEADERMAP = NO;
 				VALID_ARCHS = "x86_64 x86_64h";
 			};
 			name = Debug;
@@ -4081,10 +4071,8 @@
 		7132976D1A93C743002359CF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -4104,7 +4092,8 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
-				"USER_HEADER_SEARCH_PATHS[arch=*]" = unbound;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/unbound";
+				USE_HEADERMAP = NO;
 				VALID_ARCHS = "x86_64 x86_64h";
 			};
 			name = Release;
@@ -4112,10 +4101,8 @@
 		7132976E1A93C743002359CF /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -4135,6 +4122,8 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/unbound";
+				USE_HEADERMAP = NO;
 				VALID_ARCHS = "x86_64 x86_64h";
 			};
 			name = "Ignore Me";
@@ -4326,7 +4315,6 @@
 		7216D2CF0EE89B7A00AE70E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -4342,7 +4330,6 @@
 		7216D2D00EE89B7A00AE70E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -4399,6 +4386,7 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
+				USE_HEADERMAP = NO;
 				WARNING_CFLAGS = (
 					"$(inherited)",
 					"-Wno-deprecated-declarations",
@@ -4421,6 +4409,7 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
+				USE_HEADERMAP = NO;
 				WARNING_CFLAGS = (
 					"$(inherited)",
 					"-Wno-deprecated-declarations",

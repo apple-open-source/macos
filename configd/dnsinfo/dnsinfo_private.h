@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006, 2008, 2009, 2012, 2013, 2015, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2008, 2009, 2012, 2013, 2015, 2017, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,7 +25,7 @@
 #define __DNSINFO_PRIVATE_H__
 
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <sys/cdefs.h>
 #include <stdint.h>
 #include <sys/types.h>

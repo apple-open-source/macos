@@ -26,14 +26,13 @@
 #include "DOMWrapperWorld.h"
 #include "JSDOMGlobalObject.h"
 #include "JSDOMWrapper.h"
-#include "JSDynamicDowncast.h"
 #include "ScriptWrappable.h"
 #include "ScriptWrappableInlines.h"
 #include "WebCoreTypedArrayController.h"
-#include <heap/Weak.h>
-#include <heap/WeakInlines.h>
-#include <runtime/JSArrayBuffer.h>
-#include <runtime/TypedArrayInlines.h>
+#include <JavaScriptCore/JSArrayBuffer.h>
+#include <JavaScriptCore/TypedArrayInlines.h>
+#include <JavaScriptCore/Weak.h>
+#include <JavaScriptCore/WeakInlines.h>
 
 namespace WebCore {
 

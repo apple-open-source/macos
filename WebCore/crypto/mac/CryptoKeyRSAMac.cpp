@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,8 +35,8 @@
 #include "CryptoKeyRSAComponents.h"
 #include "ScriptExecutionContext.h"
 #include <JavaScriptCore/GenericTypedArrayViewInlines.h>
+#include <JavaScriptCore/HeapInlines.h>
 #include <JavaScriptCore/JSGenericTypedArrayViewInlines.h>
-#include <heap/HeapInlines.h>
 #include <wtf/MainThread.h>
 
 namespace WebCore {
@@ -102,6 +102,23 @@ static CCCryptorStatus getPrivateKeyComponents(CCRSACryptorRef rsaKey, Vector<ui
     firstPrimeInfo.primeFactor.shrink(pLength);
     secondPrimeInfo.primeFactor.shrink(qLength);
 
+#if HAVE(CCRSAGetCRTComponents)
+    size_t dpSize;
+    size_t dqSize;
+    size_t qinvSize;
+    if (auto status = CCRSAGetCRTComponentsSizes(rsaKey, &dpSize, &dqSize, &qinvSize))
+        return status;
+
+    Vector<uint8_t> dp(dpSize);
+    Vector<uint8_t> dq(dqSize);
+    Vector<uint8_t> qinv(qinvSize);
+    if (auto status = CCRSAGetCRTComponents(rsaKey, dp.data(), dpSize, dq.data(), dqSize, qinv.data(), qinvSize))
+        return status;
+
+    firstPrimeInfo.factorCRTExponent = WTFMove(dp);
+    secondPrimeInfo.factorCRTExponent = WTFMove(dq);
+    secondPrimeInfo.factorCRTCoefficient = WTFMove(qinv);
+#else
     CCBigNum d(privateExponent.data(), privateExponent.size());
     CCBigNum p(firstPrimeInfo.primeFactor.data(), firstPrimeInfo.primeFactor.size());
     CCBigNum q(secondPrimeInfo.primeFactor.data(), secondPrimeInfo.primeFactor.size());
@@ -113,6 +130,7 @@ static CCCryptorStatus getPrivateKeyComponents(CCRSACryptorRef rsaKey, Vector<ui
     firstPrimeInfo.factorCRTExponent = dp.data();
     secondPrimeInfo.factorCRTExponent = dq.data();
     secondPrimeInfo.factorCRTCoefficient = qi.data();
+#endif
 
     return status;
 }
@@ -293,24 +311,24 @@ void CryptoKeyRSA::generatePair(CryptoAlgorithmIdentifier algorithm, CryptoAlgor
     // We only use the callback functions when back on the main/worker thread, but captured variables are copied on a secondary thread too.
     KeyPairCallback* localCallback = new KeyPairCallback(WTFMove(callback));
     VoidCallback* localFailureCallback = new VoidCallback(WTFMove(failureCallback));
-    context->ref();
+    auto contextIdentifier = context->contextIdentifier();
 
+    // FIXME: There is a risk that localCallback and localFailureCallback are never freed.
+    // Fix this by using unique pointers and move them from one lambda to the other.
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        ASSERT(context);
         CCRSACryptorRef ccPublicKey;
         CCRSACryptorRef ccPrivateKey;
         CCCryptorStatus status = CCRSACryptorGeneratePair(modulusLength, e, &ccPublicKey, &ccPrivateKey);
         if (status) {
             WTFLogAlways("Could not generate a key pair, status %d", status);
-            context->postTask([localCallback, localFailureCallback](ScriptExecutionContext& context) {
+            ScriptExecutionContext::postTaskTo(contextIdentifier, [localCallback, localFailureCallback](auto&) {
                 (*localFailureCallback)();
                 delete localCallback;
                 delete localFailureCallback;
-                context.deref();
             });
             return;
         }
-        context->postTask([algorithm, hash, hasHash, extractable, usage, localCallback, localFailureCallback, ccPublicKey, ccPrivateKey](ScriptExecutionContext& context) {
+        ScriptExecutionContext::postTaskTo(contextIdentifier, [algorithm, hash, hasHash, extractable, usage, localCallback, localFailureCallback, ccPublicKey, ccPrivateKey](auto&) {
             auto publicKey = CryptoKeyRSA::create(algorithm, hash, hasHash, CryptoKeyType::Public, ccPublicKey, true, usage);
             auto privateKey = CryptoKeyRSA::create(algorithm, hash, hasHash, CryptoKeyType::Private, ccPrivateKey, extractable, usage);
 
@@ -318,7 +336,6 @@ void CryptoKeyRSA::generatePair(CryptoAlgorithmIdentifier algorithm, CryptoAlgor
 
             delete localCallback;
             delete localFailureCallback;
-            context.deref();
         });
     });
 }

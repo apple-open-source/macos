@@ -881,17 +881,17 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
             else if (frame.mainResource)
                 this._pendingInsertions.push(frame.mainResource);
 
-            for (let resource of frame.resourceCollection.items)
+            for (let resource of frame.resourceCollection)
                 this._pendingInsertions.push(resource);
 
-            for (let childFrame of frame.childFrameCollection.items)
+            for (let childFrame of frame.childFrameCollection)
                 populateResourcesForFrame(childFrame);
         };
 
         let populateResourcesForTarget = (target) => {
             if (target.mainResource instanceof WI.Resource)
                 this._pendingInsertions.push(target.mainResource);
-            for (let resource of target.resourceCollection.items)
+            for (let resource of target.resourceCollection)
                 this._pendingInsertions.push(resource);
         };
 
@@ -1243,7 +1243,9 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
 
     _updateSortAndFilteredEntries()
     {
-        this._entries = this._entries.sort(this._entriesSortComparator);
+        if (this._entriesSortComparator)
+            this._entries = this._entries.sort(this._entriesSortComparator);
+
         this._updateFilteredEntries();
     }
 
@@ -1404,7 +1406,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
     _waterfallPopoverContentForResource(resource)
     {
         let contentElement = document.createElement("div");
-        contentElement.className = "waterfall-popover";
+        contentElement.className = "waterfall-popover-content";
 
         if (!resource.hasResponse() || !resource.timingData.startTime || !resource.timingData.responseEnd) {
             contentElement.textContent = WI.UIString("Resource has no timing data");
@@ -1422,7 +1424,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
     {
         if (!this._waterfallPopover) {
             this._waterfallPopover = new WI.Popover;
-            this._waterfallPopover.backgroundStyle = WI.Popover.BackgroundStyle.White;
+            this._waterfallPopover.element.classList.add("waterfall-popover");
         }
 
         if (this._waterfallPopover.visible)

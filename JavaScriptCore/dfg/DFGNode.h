@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -96,11 +96,20 @@ struct MultiPutByOffsetData {
     bool reallocatesStorage() const;
 };
 
+struct MatchStructureVariant {
+    RegisteredStructure structure;
+    bool result;
+};
+
+struct MatchStructureData {
+    Vector<MatchStructureVariant, 2> variants;
+};
+
 struct NewArrayBufferData {
     union {
         struct {
             unsigned vectorLengthHint;
-            unsigned indexingType;
+            unsigned indexingMode;
         };
         uint64_t asQuadWord;
     };
@@ -205,7 +214,7 @@ struct SwitchData {
     Vector<SwitchCase> cases;
     BranchTarget fallThrough;
     SwitchKind kind;
-    unsigned switchTableIndex;
+    size_t switchTableIndex;
     bool didUseJumpTable;
 };
 
@@ -247,7 +256,7 @@ struct StackAccessData {
 };
 
 struct CallDOMGetterData {
-    PropertySlot::GetValueFunc customAccessorGetter { nullptr };
+    FunctionPtr<OperationPtrTag> customAccessorGetter;
     const DOMJIT::GetterSetter* domJIT { nullptr };
     DOMJIT::CallDOMGetterSnippet* snippet { nullptr };
     unsigned identifierNumber { 0 };
@@ -431,6 +440,7 @@ public:
     }
 
     void remove(Graph&);
+    void removeWithoutChecks();
 
     void convertToCheckStructure(RegisteredStructureSet* set)
     {
@@ -451,11 +461,8 @@ public:
         children.setChild1(Edge(structure, CellUse));
     }
     
-    void replaceWith(Graph& graph, Node* other)
-    {
-        remove(graph);
-        setReplacement(other);
-    }
+    void replaceWith(Graph&, Node* other);
+    void replaceWithWithoutChecks(Node* other);
 
     void convertToIdentity();
     void convertToIdentityOn(Node*);
@@ -562,11 +569,11 @@ public:
     
     void convertToMultiGetByOffset(MultiGetByOffsetData* data)
     {
-        ASSERT(m_op == GetById || m_op == GetByIdFlush || m_op == GetByIdDirect || m_op == GetByIdDirectFlush);
+        RELEASE_ASSERT(m_op == GetById || m_op == GetByIdFlush || m_op == GetByIdDirect || m_op == GetByIdDirectFlush);
         m_opInfo = data;
         child1().setUseKind(CellUse);
         m_op = MultiGetByOffset;
-        ASSERT(m_flags & NodeMustGenerate);
+        RELEASE_ASSERT(m_flags & NodeMustGenerate);
     }
     
     void convertToPutByOffset(StorageAccessData& data, Edge storage, Edge base)
@@ -585,12 +592,6 @@ public:
         m_opInfo = data;
         m_op = MultiPutByOffset;
     }
-    
-    void convertToPutHint(const PromotedLocationDescriptor&, Node* base, Node* value);
-    
-    void convertToPutByOffsetHint();
-    void convertToPutStructureHint(Node* structure);
-    void convertToPutClosureVarHint();
     
     void convertToPhantomNewObject()
     {
@@ -649,6 +650,15 @@ public:
         m_op = PhantomCreateActivation;
         m_flags &= ~NodeHasVarArgs;
         m_flags |= NodeMustGenerate;
+        m_opInfo = OpInfoWrapper();
+        m_opInfo2 = OpInfoWrapper();
+        children = AdjacencyList();
+    }
+
+    void convertToPhantomNewRegexp()
+    {
+        ASSERT(m_op == NewRegexp);
+        setOpAndDefaultFlags(PhantomNewRegexp);
         m_opInfo = OpInfoWrapper();
         m_opInfo2 = OpInfoWrapper();
         children = AdjacencyList();
@@ -723,7 +733,7 @@ public:
 
     void convertToNewObject(RegisteredStructure structure)
     {
-        ASSERT(m_op == CallObjectConstructor);
+        ASSERT(m_op == CallObjectConstructor || m_op == CreateThis || m_op == ObjectCreate);
         setOpAndDefaultFlags(NewObject);
         children.reset();
         m_opInfo = structure;
@@ -733,6 +743,24 @@ public:
     void convertToDirectCall(FrozenValue*);
 
     void convertToCallDOM(Graph&);
+
+    void convertToRegExpExecNonGlobalOrSticky(FrozenValue* regExp);
+    void convertToRegExpMatchFastGlobal(FrozenValue* regExp);
+
+    void convertToSetRegExpObjectLastIndex()
+    {
+        setOp(SetRegExpObjectLastIndex);
+        m_opInfo = false;
+    }
+
+    void convertToInById(unsigned identifierNumber)
+    {
+        ASSERT(m_op == InByVal);
+        setOpAndDefaultFlags(InById);
+        children.setChild2(Edge());
+        m_opInfo = identifierNumber;
+        m_opInfo2 = OpInfoWrapper();
+    }
     
     JSValue asJSValue()
     {
@@ -1000,6 +1028,7 @@ public:
         case PutSetterById:
         case PutGetterSetterById:
         case DeleteById:
+        case InById:
         case GetDynamicVar:
         case PutDynamicVar:
         case ResolveScopeForHoistingFuncDeclInEval:
@@ -1078,7 +1107,7 @@ public:
     NodeFlags arithNodeFlags()
     {
         NodeFlags result = m_flags & NodeArithFlagsMask;
-        if (op() == ArithMul || op() == ArithDiv || op() == ArithMod || op() == ArithNegate || op() == ArithPow || op() == ArithRound || op() == ArithFloor || op() == ArithCeil || op() == ArithTrunc || op() == DoubleAsInt32)
+        if (op() == ArithMul || op() == ArithDiv || op() == ArithMod || op() == ArithNegate || op() == ArithPow || op() == ArithRound || op() == ArithFloor || op() == ArithCeil || op() == ArithTrunc || op() == DoubleAsInt32 || op() == ValueNegate)
             return result;
         return result & ~NodeBytecodeNeedsNegZero;
     }
@@ -1111,12 +1140,21 @@ public:
 
     unsigned hasVectorLengthHint()
     {
-        return op() == NewArrayBuffer || op() == PhantomNewArrayBuffer;
+        switch (op()) {
+        case NewArray:
+        case NewArrayBuffer:
+        case PhantomNewArrayBuffer:
+            return true;
+        default:
+            return false;
+        }
     }
     
     unsigned vectorLengthHint()
     {
         ASSERT(hasVectorLengthHint());
+        if (op() == NewArray)
+            return m_opInfo2.as<unsigned>();
         return newArrayBufferData().vectorLengthHint;
     }
     
@@ -1151,7 +1189,15 @@ public:
     {
         ASSERT(hasIndexingType());
         if (op() == NewArrayBuffer || op() == PhantomNewArrayBuffer)
-            return static_cast<IndexingType>(newArrayBufferData().indexingType);
+            return static_cast<IndexingType>(newArrayBufferData().indexingMode) & IndexingTypeMask;
+        return static_cast<IndexingType>(m_opInfo.as<uint32_t>());
+    }
+
+    IndexingType indexingMode()
+    {
+        ASSERT(hasIndexingType());
+        if (op() == NewArrayBuffer || op() == PhantomNewArrayBuffer)
+            return static_cast<IndexingType>(newArrayBufferData().indexingMode);
         return static_cast<IndexingType>(m_opInfo.as<uint32_t>());
     }
     
@@ -1585,7 +1631,10 @@ public:
         case ArrayPop:
         case ArrayPush:
         case RegExpExec:
+        case RegExpExecNonGlobalOrSticky:
         case RegExpTest:
+        case RegExpMatchFast:
+        case RegExpMatchFastGlobal:
         case GetGlobalVar:
         case GetGlobalLexicalVariable:
         case StringReplace:
@@ -1666,6 +1715,8 @@ public:
         case DirectTailCall:
         case DirectConstruct:
         case DirectTailCallInlinedCaller:
+        case RegExpExecNonGlobalOrSticky:
+        case RegExpMatchFastGlobal:
             return true;
         default:
             return false;
@@ -1829,6 +1880,17 @@ public:
         return *m_opInfo.as<MultiPutByOffsetData*>();
     }
     
+    bool hasMatchStructureData()
+    {
+        return op() == MatchStructure;
+    }
+    
+    MatchStructureData& matchStructureData()
+    {
+        ASSERT(hasMatchStructureData());
+        return *m_opInfo.as<MatchStructureData*>();
+    }
+    
     bool hasObjectMaterializationData()
     {
         switch (op()) {
@@ -1930,6 +1992,7 @@ public:
         case PhantomNewAsyncFunction:
         case PhantomNewAsyncGeneratorFunction:
         case PhantomCreateActivation:
+        case PhantomNewRegexp:
             return true;
         default:
             return false;
@@ -1942,7 +2005,7 @@ public:
         case GetIndexedPropertyStorage:
         case GetArrayLength:
         case GetVectorLength:
-        case In:
+        case InByVal:
         case PutByValDirect:
         case PutByVal:
         case PutByValAlias:
@@ -2317,6 +2380,11 @@ public:
         return isSymbolSpeculation(prediction());
     }
     
+    bool shouldSpeculateBigInt()
+    {
+        return isBigIntSpeculation(prediction());
+    }
+    
     bool shouldSpeculateFinalObject()
     {
         return isFinalObjectSpeculation(prediction());
@@ -2507,6 +2575,11 @@ public:
         return op1->shouldSpeculateSymbol() && op2->shouldSpeculateSymbol();
     }
     
+    static bool shouldSpeculateBigInt(Node* op1, Node* op2)
+    {
+        return op1->shouldSpeculateBigInt() && op2->shouldSpeculateBigInt();
+    }
+    
     static bool shouldSpeculateFinalObject(Node* op1, Node* op2)
     {
         return op1->shouldSpeculateFinalObject() && op2->shouldSpeculateFinalObject();
@@ -2678,6 +2751,17 @@ public:
     {
         ASSERT(hasValidRadixConstant());
         return m_opInfo.as<int32_t>();
+    }
+
+    bool hasIgnoreLastIndexIsWritable()
+    {
+        return op() == SetRegExpObjectLastIndex;
+    }
+
+    bool ignoreLastIndexIsWritable()
+    {
+        ASSERT(hasIgnoreLastIndexIsWritable());
+        return m_opInfo.as<uint32_t>();
     }
 
     uint32_t errorType()

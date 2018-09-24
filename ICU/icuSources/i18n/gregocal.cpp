@@ -323,6 +323,9 @@ GregorianCalendar::setGregorianChange(UDate date, UErrorCode& status)
 {
     if (U_FAILURE(status)) 
         return;
+    
+    if (date == fGregorianCutover)
+        return;
 
     fGregorianCutover = date;
 

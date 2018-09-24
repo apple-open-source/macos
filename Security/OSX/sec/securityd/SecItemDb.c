@@ -78,11 +78,11 @@ const SecDbAttr *SecDbAttrWithKey(const SecDbClass *c,
     return NULL;
 }
 
-bool kc_transaction(SecDbConnectionRef dbt, CFErrorRef *error, bool(^perform)()) {
+bool kc_transaction(SecDbConnectionRef dbt, CFErrorRef *error, bool(^perform)(void)) {
     return kc_transaction_type(dbt, kSecDbExclusiveTransactionType, error, perform);
 }
 
-bool kc_transaction_type(SecDbConnectionRef dbt, SecDbTransactionType type, CFErrorRef *error, bool(^perform)()) {
+bool kc_transaction_type(SecDbConnectionRef dbt, SecDbTransactionType type, CFErrorRef *error, bool(^perform)(void)) {
     __block bool ok = true;
     return ok && SecDbTransaction(dbt, type, error, ^(bool *commit) {
         ok = *commit = perform();
@@ -148,9 +148,13 @@ static void SecDbAppendCreateTableWithClass(CFMutableStringRef sql, const SecDbC
 
     CFStringAppend(sql, CFSTR(");"));
 
-    // Create indicies
+    // Create indices
     SecDbForEachAttrWithMask(c,desc, kSecDbIndexFlag | kSecDbInFlag) {
-        CFStringAppendFormat(sql, 0, CFSTR("CREATE INDEX %@%@ ON %@(%@);"), c->name, desc->name, c->name, desc->name);
+        if (desc->kind == kSecDbSyncAttr) {
+            CFStringAppendFormat(sql, 0, CFSTR("CREATE INDEX %@%@0 ON %@(%@) WHERE %@=0;"), c->name, desc->name, c->name, desc->name, desc->name);
+        } else {
+            CFStringAppendFormat(sql, 0, CFSTR("CREATE INDEX %@%@ ON %@(%@);"), c->name, desc->name, c->name, desc->name);
+        }
     }
 }
 

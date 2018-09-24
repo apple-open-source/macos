@@ -130,6 +130,7 @@ static u_int32_t net_mask __P((struct in_addr));
  * Resolver state default settings.
  */
 
+__attribute__((__visibility__("hidden")))
 res_state 
 res_build_start(res_state x)
 {
@@ -172,6 +173,7 @@ res_build_start(res_state x)
 	return res;
 }
 
+__attribute__((__visibility__("hidden")))
 int
 res_build_finish(res_state res, uint32_t timeout, uint16_t port)
 {
@@ -207,6 +209,7 @@ res_build_finish(res_state res, uint32_t timeout, uint16_t port)
 	return 0;
 }
 
+__attribute__((__visibility__("hidden")))
 int
 res_build_sortlist(res_state res, struct in_addr addr, struct in_addr mask)
 {
@@ -225,6 +228,7 @@ res_build_sortlist(res_state res, struct in_addr addr, struct in_addr mask)
 	return 0;
 }
 
+__attribute__((__visibility__("hidden")))
 char *
 res_next_word(char **p)
 {
@@ -256,6 +260,7 @@ res_next_word(char **p)
 	return s;
 }
 
+__attribute__((__visibility__("hidden")))
 int
 res_build(res_state res, uint16_t port, uint32_t *nsrch, char *key, char *val)
 {
@@ -518,7 +523,7 @@ res_build(res_state res, uint16_t port, uint32_t *nsrch, char *key, char *val)
  *
  * Return 0 if completes successfully, -1 on error
  */
-
+static
 int
 res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 {

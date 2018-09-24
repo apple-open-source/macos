@@ -1,0 +1,16 @@
+--- inc/Module/Install/PRIVATE/Net/SSLeay.pm.orig	2018-07-27 21:07:00.000000000 -0700
++++ inc/Module/Install/PRIVATE/Net/SSLeay.pm	2018-07-27 20:37:56.000000000 -0700
+@@ -212,6 +214,13 @@ sub find_openssl_prefix {
+ sub find_openssl_exec {
+     my ($self, $prefix) = @_;
+ 
++    if (defined $ENV{OPENSSL_BINDIR}) {
++        my $path = File::Spec->catfile($ENV{OPENSSL_BINDIR}, "openssl$Config{_exe}");
++        if ( -x $path ) {
++            return $path;
++        }
++    }
++
+     my $exe_path;
+     for my $subdir (qw( bin sbin out32dll ia64_exe alpha_exe )) {
+         my $path = File::Spec->catfile($prefix, $subdir, "openssl$Config{_exe}");

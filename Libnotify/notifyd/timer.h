@@ -35,19 +35,18 @@
  */
 typedef struct
 {
-	uint32_t type;
-	int64_t start;
-	int64_t end;
-	uint32_t freq;
-	int32_t day;
-	int64_t next;
-	void (^deactivation_handler)();
 	dispatch_source_t src;
 	dispatch_source_t t_src;
 	dispatch_queue_t t_queue;
 	void *contextp;
-	uint32_t context32;
+	int64_t start;
+	int64_t end;
+	int64_t next;
 	uint64_t context64;
+	uint32_t freq;
+	uint32_t type;
+	int32_t day;
+	uint32_t context32;
 } timer_t;
 
 timer_t *timer_oneshot(time_t when, dispatch_queue_t queue);

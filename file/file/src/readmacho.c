@@ -59,9 +59,11 @@ print_arch_name_for_file(struct magic_set *ms, cpu_type_t cputype,
 }
 
 protected int
-file_trymacho(struct magic_set *ms, int fd, const unsigned char *buf,
-	size_t nbytes, const char *inname)
+file_trymacho(struct magic_set *ms, const struct buffer *b, const char *inname)
 {
+	int fd = b->fd;
+	const unsigned char *buf = b->fbuf;
+	size_t nbytes = b->flen;
 	struct stat stat_buf;
 	unsigned long size;
 	struct fat_header fat_header;

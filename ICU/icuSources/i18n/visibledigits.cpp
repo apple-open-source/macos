@@ -76,6 +76,13 @@ UBool VisibleDigits::isNaNOrInfinity() const {
     return (fFlags & (kInfinite | kNaN)) != 0;
 }
 
+UBool VisibleDigits::formatFullPrecision() const { // Apple
+    return fFormatFullPrecision;
+}
+void VisibleDigits::setFormatFullPrecision(UBool formatFullPrecision) { // Apple
+    fFormatFullPrecision = formatFullPrecision;
+}
+
 double VisibleDigits::computeAbsDoubleValue() const {
     // Take care of NaN and infinity
     if (isNaN()) {

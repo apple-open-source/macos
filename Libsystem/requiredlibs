@@ -19,7 +19,6 @@ system_info
 system_sim_kernel system_kernel
 system_m
 system_malloc
-system_network
 system_notify
 system_sim_platform system_platform
 system_sim_pthread system_pthread

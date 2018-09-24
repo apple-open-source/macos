@@ -52,11 +52,7 @@
 OSStatus SecCertificateGetCLHandle_legacy(SecCertificateRef certificate, CSSM_CL_HANDLE *clHandle);
 extern CSSM_KEYUSE ConvertArrayToKeyUsage(CFArrayRef usage);
 
-#define SEC_CONST_DECL(k,v) const CFStringRef k = CFSTR(v);
 
-SEC_CONST_DECL (kSecCertificateProductionEscrowKey, "ProductionEscrowKey");
-SEC_CONST_DECL (kSecCertificateProductionPCSEscrowKey, "ProductionPCSEscrowKey");
-SEC_CONST_DECL (kSecCertificateEscrowFileName, "AppleESCertificates");
 
 
 using namespace CssmClient;
@@ -791,20 +787,28 @@ OSStatus SecCertificateSetPreference(
 	const char *templateStr = "%s [key usage 0x%X]";
 	const int keyUsageMaxStrLen = 8;
 	accountUTF8Len += strlen(templateStr) + keyUsageMaxStrLen;
-	char accountUTF8[accountUTF8Len];
+	char *accountUTF8 = (char *)malloc(accountUTF8Len);
+	if (!accountUTF8) {
+		MacOSError::throwMe(errSecMemoryError);
+	}
     if (!CFStringGetCString(labelStr, accountUTF8, accountUTF8Len-1, kCFStringEncodingUTF8))
 		accountUTF8[0] = (char)'\0';
 	if (keyUsage)
 		snprintf(accountUTF8, accountUTF8Len-1, templateStr, accountUTF8, keyUsage);
-    CssmData account(const_cast<char *>(accountUTF8), strlen(accountUTF8));
+    CssmDataContainer account(const_cast<char *>(accountUTF8), strlen(accountUTF8));
+    free(accountUTF8);
     CFRelease(labelStr);
 
 	// service attribute (name provided by the caller)
 	CFIndex serviceUTF8Len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(name), kCFStringEncodingUTF8) + 1;;
-	char serviceUTF8[serviceUTF8Len];
+	char *serviceUTF8 = (char *)malloc(serviceUTF8Len);
+	if (!serviceUTF8) {
+		MacOSError::throwMe(errSecMemoryError);
+	}
     if (!CFStringGetCString(name, serviceUTF8, serviceUTF8Len-1, kCFStringEncodingUTF8))
         serviceUTF8[0] = (char)'\0';
-    CssmData service(const_cast<char *>(serviceUTF8), strlen(serviceUTF8));
+    CssmDataContainer service(const_cast<char *>(serviceUTF8), strlen(serviceUTF8));
+    free(serviceUTF8);
 
     // look for existing preference item, in case this is an update
 	StorageManager::KeychainList keychains;

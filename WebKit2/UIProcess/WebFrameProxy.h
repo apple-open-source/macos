@@ -52,6 +52,7 @@ class WebCertificateInfo;
 class WebFramePolicyListenerProxy;
 class WebPageProxy;
 class WebsiteDataStore;
+enum class PolicyListenerType;
 struct WebsitePoliciesData;
 
 typedef GenericCallback<API::Data*> DataCallback;
@@ -90,7 +91,6 @@ public:
     bool containsPluginDocument() const { return m_containsPluginDocument; }
 
     const String& title() const { return m_title; }
-    Vector<WebCore::URL>&& takeProvisionalLoadRedirectChain() { return WTFMove(m_provisionalLoadRedirectChain); }
 
     WebCertificateInfo* certificateInfo() const { return m_certificateInfo.get(); }
 
@@ -117,7 +117,10 @@ public:
 
     // Policy operations.
     void receivedPolicyDecision(WebCore::PolicyAction, uint64_t listenerID, API::Navigation*, std::optional<WebsitePoliciesData>&&);
-    WebFramePolicyListenerProxy& setUpPolicyListenerProxy(uint64_t listenerID);
+
+    WebFramePolicyListenerProxy& setUpPolicyListenerProxy(uint64_t listenerID, PolicyListenerType);
+    WebFramePolicyListenerProxy* activePolicyListenerProxy();
+
     void changeWebsiteDataStore(WebsiteDataStore&);
 
 #if ENABLE(CONTENT_FILTERING)
@@ -143,7 +146,6 @@ private:
     RefPtr<WebCertificateInfo> m_certificateInfo;
     RefPtr<WebFrameListenerProxy> m_activeListener;
     uint64_t m_frameID;
-    Vector<WebCore::URL> m_provisionalLoadRedirectChain;
 #if ENABLE(CONTENT_FILTERING)
     WebCore::ContentFilterUnblockHandler m_contentFilterUnblockHandler;
 #endif

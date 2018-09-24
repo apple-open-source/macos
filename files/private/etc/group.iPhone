@@ -35,7 +35,6 @@ interactusers:*:51:
 netusers:*:52:
 consoleusers:*:53:
 _mcxalr:*:54:
-_serialnumberd:*:58:
 _devdocs:*:59:
 _sandbox:*:60:
 localaccounts:*:61:
@@ -75,11 +74,13 @@ _unknown:*:99:
 _distnote:*:241:
 _astris:*:245:
 _ondemand:*:249:
-_analyticsusers:*:250:mobile,_analyticsd,_wireless,_networkd,_timed,_securityd
+_analyticsusers:*:250:mobile,_analyticsd,_wireless,_networkd,_timed,_gpsd,_reportmemoryexception,_securityd
 _findmydevice:*:254:
 _datadetectors:*:257:
 _captiveagent:*:258:
 _analyticsd:*:263:
 _timed:*:266:
-systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd
+_gpsd:*:267:
+_reportmemoryexception:*:269:
+systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed
 mobile:*:501:mobile

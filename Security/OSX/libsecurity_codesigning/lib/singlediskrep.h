@@ -53,7 +53,9 @@ public:
 	size_t execSegLimit(const Architecture *arch);			// size of executable segment
 	UnixPlusPlus::FileDesc &fd();							// readable fd for this file
 	void flush();											// close cached fd
-	
+
+	bool appleInternalForcePlatform() const;
+
 	std::string recommendedIdentifier(const SigningContext &ctx); // basename(path)
 
 	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags);

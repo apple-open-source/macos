@@ -386,8 +386,9 @@ libtop_fini(void)
 int
 libtop_set_interval(uint32_t ival)
 {
-	if (ival < 0 || ival > LIBTOP_MAX_INTERVAL) {
-		return -1;
+    /* Interval has to be above or equal one and less than max */
+	if ((ival == 0) || (ival > LIBTOP_MAX_INTERVAL)) {
+        return -1;
 	}
 	interval = ival;
 	return 0;
@@ -815,9 +816,9 @@ libtop_p_fw_sample(boolean_t fw)
 #elif defined(__x86_64__) || defined(__i386__)
 	libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_I386, SHARED_REGION_BASE_I386);
 	libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_X86_64, SHARED_REGION_BASE_X86_64);
-#else /* !defined(__arm__) && !defined(__arm64__) && !defined(__x86_64__) && !defined(__i386__) */
+#else
 #error "unsupported architecture"
-#endif /* !defined(__arm__) && !defined(__arm64__) && !defined(__x86_64__) && !defined(__i386__) */
+#endif
 
 	// Iterate through all processes, collecting their individual fw stats
 	libtop_piter = NULL;
@@ -1284,6 +1285,8 @@ libtop_p_proc_table_read(boolean_t reg)
 				case LIBTOP_ERR_ALLOC:
 					fatal_error_occurred = true;
 					break;
+                case LIBTOP_NO_ERR:
+                    break;
 			}
 
 			mach_port_deallocate(mach_task_self(), tasks[j]);
@@ -1549,67 +1552,22 @@ libtop_pinfo_update_power_info(task_t task, libtop_pinfo_t *pinfo)
 	return kr;
 }
 
-#ifndef TASK_VM_INFO_PURGEABLE
-// cribbed from sysmond
-static uint64_t
-sum_vm_purgeable_info(const vm_purgeable_info_t info)
-{
-	uint64_t sum = 0;
-	int i;
-
-	for (i = 0; i < 8; i++) {
-		sum += info->fifo_data[i].size;
-	}
-	sum += info->obsolete_data.size;
-	for (i = 0; i < 8; i++) {
-		sum += info->lifo_data[i].size;
-	}
-
-	return sum;
-}
-#endif /* !TASK_VM_INFO_PURGEABLE */
-
 static kern_return_t
 libtop_pinfo_update_vm_info(task_t task, libtop_pinfo_t *pinfo)
 {
 	kern_return_t kr;
-#ifndef TASK_VM_INFO_PURGEABLE
-	task_purgable_info_t purgeable_info;
-	uint64_t purgeable_sum = 0;
-#endif /* !TASK_VM_INFO_PURGEABLE */
 	mach_msg_type_number_t info_count;
 	task_vm_info_data_t vm_info;
 
 	pinfo->psamp.p_purgeable = pinfo->psamp.purgeable;
-	pinfo->psamp.p_anonymous = pinfo->psamp.anonymous;
+    pinfo->psamp.p_pfootprint = pinfo->psamp.pfootprint;
 	pinfo->psamp.p_compressed = pinfo->psamp.compressed;
 
-#ifndef TASK_VM_INFO_PURGEABLE
-	kr = task_purgable_info(task, &purgeable_info);
-	if (kr == KERN_SUCCESS) {
-		purgeable_sum = sum_vm_purgeable_info(&purgeable_info);
-		pinfo->psamp.purgeable = purgeable_sum;
-	}
-#endif /* !TASK_VM_INFO_PURGEABLE */
-
 	info_count = TASK_VM_INFO_COUNT;
-#ifdef TASK_VM_INFO_PURGEABLE
 	kr = task_info(task, TASK_VM_INFO_PURGEABLE, (task_info_t)&vm_info, &info_count);
-#else
-	kr = task_info(task, TASK_VM_INFO, (task_info_t)&vm_info, &info_count);
-#endif
 	if (kr == KERN_SUCCESS) {
-#ifdef TASK_VM_INFO_PURGEABLE
 		pinfo->psamp.purgeable = vm_info.purgeable_volatile_resident;
-		pinfo->psamp.anonymous = vm_info.internal - vm_info.purgeable_volatile_pmap;
-#else
-		if (purgeable_sum < vm_info.internal) {
-			pinfo->psamp.anonymous = vm_info.internal - purgeable_sum;
-		} else {
-			/* radar:13816348 */
-			pinfo->psamp.anonymous = 0;
-		}
-#endif
+        pinfo->psamp.pfootprint = vm_info.phys_footprint;
 		pinfo->psamp.compressed = vm_info.compressed;
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,11 +33,11 @@
 #import "WebEvent.h"
 #import <Carbon/Carbon.h>
 #import <WebCore/GraphicsContext.h>
-#import <WebCore/MachSendRight.h>
 #import <WebCore/NotImplemented.h>
 #import <objc/runtime.h>
 #import <pal/spi/mac/HIToolboxSPI.h>
 #import <pal/spi/mac/NSMenuSPI.h>
+#import <wtf/MachSendRight.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/text/StringView.h>
 
@@ -167,7 +167,7 @@ NPError NetscapePlugin::popUpContextMenu(NPMenu* npMenu)
     if (!convertPoint(m_currentMouseEvent->data.mouse.pluginX, m_currentMouseEvent->data.mouse.pluginY, NPCoordinateSpacePlugin, screenX, screenY, NPCoordinateSpaceScreen))
         ASSERT_NOT_REACHED();
 
-    _NSPopUpCarbonMenu3(reinterpret_cast<NSMenu *>(npMenu), nil, nil, NSMakePoint(screenX, screenY), -1, nil, 0, nil, NSPopUpMenuTypeContext, nil);
+    _NSPopUpCarbonMenu3((__bridge NSMenu *)npMenu, nil, nil, NSMakePoint(screenX, screenY), -1, nil, 0, nil, NSPopUpMenuTypeContext, nil);
     return NPERR_NO_ERROR;
 }
 

@@ -166,7 +166,7 @@ static void tests(void)
 
     SecKeyRef pubkey = NULL;
 #if TARGET_OS_OSX
-    ok_status(SecCertificateCopyPublicKey(cert, &pubkey), "get public key from cert");
+    ok(pubkey = SecCertificateCopyKey(cert), "get public key from cert");
 #else
     ok(pubkey = SecKeyCopyPublicKey(pkey), "get public key from private key");
 #endif

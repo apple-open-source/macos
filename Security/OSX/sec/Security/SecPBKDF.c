@@ -9,7 +9,9 @@
 #include "Security/pbkdf2.h"
 
 #include <CommonCrypto/CommonHMAC.h>
+#include "Security/SecBase.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 /* CC Based HMAC PRF functions */
@@ -41,15 +43,19 @@ void hmac_sha256_PRF(const uint8_t *key,
 
 
 /* This implements the HMAC SHA-1 version of pbkdf2 and allocates a local buffer for the HMAC */
-void pbkdf2_hmac_sha1(const uint8_t *passwordPtr, size_t passwordLen,
+OSStatus pbkdf2_hmac_sha1(const uint8_t *passwordPtr, size_t passwordLen,
                       const uint8_t *saltPtr, size_t saltLen,
                       uint32_t iterationCount,
                       void *dkPtr, size_t dkLen)
 {
     // MAX(salt_length + 4, 20 /* SHA1 Digest size */) + 2 * 20;
     // salt_length + HASH_SIZE is bigger than either salt + 4 and digestSize.
-    const size_t kBigEnoughSize = (saltLen + CC_SHA1_DIGEST_LENGTH) + 2 * CC_SHA1_DIGEST_LENGTH;
-    uint8_t temp_data[kBigEnoughSize];
+    size_t kBigEnoughSize = (saltLen + CC_SHA1_DIGEST_LENGTH) + 2 * CC_SHA1_DIGEST_LENGTH;
+    uint8_t *temp_data = malloc(kBigEnoughSize);
+    
+    if (temp_data == NULL) {
+        return errSecMemoryError;
+    }
 
     pbkdf2(hmac_sha1_PRF, CC_SHA1_DIGEST_LENGTH,
            passwordPtr, passwordLen,
@@ -58,19 +64,25 @@ void pbkdf2_hmac_sha1(const uint8_t *passwordPtr, size_t passwordLen,
            dkPtr, dkLen,
            temp_data);
                    
-    bzero(temp_data, kBigEnoughSize);    
+    bzero(temp_data, kBigEnoughSize);
+    
+    return errSecSuccess;
 }
 
 /* This implements the HMAC SHA-256 version of pbkdf2 and allocates a local buffer for the HMAC */
-void pbkdf2_hmac_sha256(const uint8_t *passwordPtr, size_t passwordLen,
+OSStatus pbkdf2_hmac_sha256(const uint8_t *passwordPtr, size_t passwordLen,
                       const uint8_t *saltPtr, size_t saltLen,
                       uint32_t iterationCount,
                       void *dkPtr, size_t dkLen)
 {
     // MAX(salt_length + 4, 32 /* SHA1 Digest size */) + 2 * 32;
     // salt_length + HASH_SIZE is bigger than either salt + 4 and digestSize.
-    const size_t kBigEnoughSize = (saltLen + CC_SHA256_DIGEST_LENGTH) + 2 * CC_SHA256_DIGEST_LENGTH;
-    uint8_t temp_data[kBigEnoughSize];
+    size_t kBigEnoughSize = (saltLen + CC_SHA256_DIGEST_LENGTH) + 2 * CC_SHA256_DIGEST_LENGTH;
+    uint8_t *temp_data = malloc(kBigEnoughSize);
+    
+    if (temp_data == NULL) {
+        return errSecMemoryError;
+    }
 
     pbkdf2(hmac_sha256_PRF, CC_SHA256_DIGEST_LENGTH,
            passwordPtr, passwordLen,
@@ -80,20 +92,22 @@ void pbkdf2_hmac_sha256(const uint8_t *passwordPtr, size_t passwordLen,
            temp_data);
 
     bzero(temp_data, kBigEnoughSize);
+    
+    return errSecSuccess;
 }
 
-void SecKeyFromPassphraseDataHMACSHA1(CFDataRef password, CFDataRef salt, uint32_t interationCount, CFMutableDataRef derivedKey)
+OSStatus SecKeyFromPassphraseDataHMACSHA1(CFDataRef password, CFDataRef salt, uint32_t interationCount, CFMutableDataRef derivedKey)
 {
-    pbkdf2_hmac_sha1(CFDataGetBytePtr(password), CFDataGetLength(password),
+    return pbkdf2_hmac_sha1(CFDataGetBytePtr(password), CFDataGetLength(password),
                      CFDataGetBytePtr(salt), CFDataGetLength(salt),
                      interationCount,
                      CFDataGetMutableBytePtr(derivedKey), CFDataGetLength(derivedKey));
 
 }
 
-void SecKeyFromPassphraseDataHMACSHA256(CFDataRef password, CFDataRef salt, uint32_t interationCount, CFMutableDataRef derivedKey)
+OSStatus SecKeyFromPassphraseDataHMACSHA256(CFDataRef password, CFDataRef salt, uint32_t interationCount, CFMutableDataRef derivedKey)
 {
-    pbkdf2_hmac_sha256(CFDataGetBytePtr(password), CFDataGetLength(password),
+    return pbkdf2_hmac_sha256(CFDataGetBytePtr(password), CFDataGetLength(password),
                        CFDataGetBytePtr(salt), CFDataGetLength(salt),
                        interationCount,
                        CFDataGetMutableBytePtr(derivedKey), CFDataGetLength(derivedKey));

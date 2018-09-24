@@ -98,7 +98,7 @@ service_open_path(const char *name, const char *path, uid_t uid, gid_t gid)
 		return NOTIFY_STATUS_OK;
 	}
 
-	node = path_node_create(path, getpid(), uid, gid, PATH_NODE_ALL, dispatch_get_main_queue());
+	node = path_node_create(path, getpid(), uid, gid, PATH_NODE_ALL, global.workloop);
 	if (node == NULL) return NOTIFY_STATUS_FAILED;
 	
 	node->contextp = strdup(name);
@@ -111,15 +111,10 @@ service_open_path(const char *name, const char *path, uid_t uid, gid_t gid)
 	n->private = info;
 
 	dispatch_source_set_event_handler(node->src, ^{
-		dispatch_async(global.work_q, ^{
-			if (0 == dispatch_source_testcancel(node->src))
-			{
-				daemon_post((const char *)node->contextp, uid, gid);
-			}
-		});
+		daemon_post((const char *)node->contextp, uid, gid);
 	});
 	
-	dispatch_resume(node->src);
+	dispatch_activate(node->src);
 
 	return NOTIFY_STATUS_OK;
 }
@@ -158,7 +153,7 @@ service_open_path_private(const char *name, client_t *c, const char *path, uid_t
 
 	if (flags == 0) flags = PATH_NODE_ALL;
 
-	node = path_node_create(path, c->pid, uid, gid, flags, dispatch_get_main_queue());
+	node = path_node_create(path, c->pid, uid, gid, flags, global.workloop);
 	if (node == NULL) return NOTIFY_STATUS_FAILED;
 	
 	node->context64 = c->client_id;
@@ -171,15 +166,10 @@ service_open_path_private(const char *name, client_t *c, const char *path, uid_t
 	c->private = info;
 	
 	dispatch_source_set_event_handler(node->src, ^{
-		dispatch_async(global.work_q, ^{
-			if (0 == dispatch_source_testcancel(node->src))
-			{
-				daemon_post_client(node->context64);
-			}
-		});
+		daemon_post_client(node->context64);
 	});
 	
-	dispatch_resume(node->src);
+	dispatch_activate(node->src);
 	
 	return NOTIFY_STATUS_OK;
 }
@@ -323,17 +313,17 @@ service_open_timer(const char *name, const char *args)
 	{
 		case TIME_EVENT_ONESHOT:
 		{
-			timer = timer_oneshot(s, dispatch_get_main_queue());
+			timer = timer_oneshot(s, global.workloop);
 			break;
 		}
 		case TIME_EVENT_CLOCK:
 		{
-			timer = timer_clock(s, f, e, dispatch_get_main_queue());
+			timer = timer_clock(s, f, e, global.workloop);
 			break;
 		}
 		case TIME_EVENT_CAL:
 		{
-			timer = timer_calendar(s, f, e, d, dispatch_get_main_queue());
+			timer = timer_calendar(s, f, e, d, global.workloop);
 			break;
 		}
 		default:
@@ -353,15 +343,10 @@ service_open_timer(const char *name, const char *args)
 	n->private = info;
 
 	dispatch_source_set_event_handler(timer->src, ^{
-		dispatch_async(global.work_q, ^{
-			if (0 == dispatch_source_testcancel(timer->src))
-			{
-				daemon_post((const char *)timer->contextp, 0, 0);
-			}
-		});
+		daemon_post((const char *)timer->contextp, 0, 0);
 	});
-	
-	dispatch_resume(timer->src);
+
+	dispatch_activate(timer->src);
 
 	return NOTIFY_STATUS_OK;
 }
@@ -406,17 +391,17 @@ service_open_timer_private(const char *name, client_t *c, const char *args)
 	{
 		case TIME_EVENT_ONESHOT:
 		{
-			timer = timer_oneshot(s, dispatch_get_main_queue());
+			timer = timer_oneshot(s, global.workloop);
 			break;
 		}
 		case TIME_EVENT_CLOCK:
 		{
-			timer = timer_clock(s, f, e, dispatch_get_main_queue());
+			timer = timer_clock(s, f, e, global.workloop);
 			break;
 		}
 		case TIME_EVENT_CAL:
 		{
-			timer = timer_calendar(s, f, e, d, dispatch_get_main_queue());
+			timer = timer_calendar(s, f, e, d, global.workloop);
 			break;
 		}
 		default:
@@ -436,15 +421,10 @@ service_open_timer_private(const char *name, client_t *c, const char *args)
 	c->private = info;
 	
 	dispatch_source_set_event_handler(timer->src, ^{
-		dispatch_async(global.work_q, ^{
-			if (0 == dispatch_source_testcancel(timer->src))
-			{
-				daemon_post_client(timer->context64);
-			}
-		});
+		daemon_post_client(timer->context64);
 	});
 	
-	dispatch_resume(timer->src);
+	dispatch_activate(timer->src);
 	
 	return NOTIFY_STATUS_OK;
 }
@@ -474,7 +454,7 @@ service_open(const char *name, client_t *client, uint32_t uid, uint32_t gid)
 			q = strchr(p, ':');
 			if (q != NULL) 
 			{
-				flags = strtol(p, NULL, 0);
+				flags = (uint32_t)strtol(p, NULL, 0);
 				p = q + 1;
 			}
 

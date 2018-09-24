@@ -110,6 +110,9 @@ enum {
     kBManufacturerInfoCmd             = 0x70,     // READ BLOCK
     kBDesignCycleCount9CCmd           = 0x9C,     // READ WORD
     kBPackReserveCmd                  = 0x8B,     // READ WORD
+    kChargerDataCmd                   = 0x1100,
+    kBatteryFCCDataCmd                = 0x1200,
+    kBatteryDataCmd                   = 0x1300,
 };
 
 

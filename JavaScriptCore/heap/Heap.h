@@ -32,16 +32,13 @@
 #include "HandleSet.h"
 #include "HeapFinalizerCallback.h"
 #include "HeapObserver.h"
-#include "ListableHandler.h"
 #include "MarkedBlock.h"
 #include "MarkedSpace.h"
 #include "MutatorState.h"
 #include "Options.h"
 #include "StructureIDTable.h"
 #include "Synchronousness.h"
-#include "UnconditionalFinalizer.h"
 #include "WeakHandleOwner.h"
-#include "WeakReferenceHarvester.h"
 #include <wtf/AutomaticThread.h>
 #include <wtf/ConcurrentPtrHashSet.h>
 #include <wtf/Deque.h>
@@ -58,7 +55,6 @@ class CollectingScope;
 class ConservativeRoots;
 class GCDeferralContext;
 class EdenGCActivityCallback;
-class ExecutableBase;
 class FullGCActivityCallback;
 class GCActivityCallback;
 class GCAwareJITStubRoutine;
@@ -69,6 +65,7 @@ class IncrementalSweeper;
 class JITStubRoutine;
 class JITStubRoutineSet;
 class JSCell;
+class JSImmutableButterfly;
 class JSValue;
 class LLIntOffsetsExtractor;
 class MachineThreads;
@@ -84,10 +81,13 @@ class SlotVisitor;
 class SpaceTimeMutatorScheduler;
 class StopIfNecessaryTimer;
 class SweepingScope;
-class ThreadLocalCacheLayout;
 class VM;
 class WeakGCMapBase;
 struct CurrentThreadState;
+
+#if USE(GLIB)
+class JSCGLibWrapperObject;
+#endif
 
 namespace DFG {
 class SpeculativeJIT;
@@ -164,7 +164,6 @@ public:
     
     typedef void (*Finalizer)(JSCell*);
     JS_EXPORT_PRIVATE void addFinalizer(JSCell*, Finalizer);
-    void addExecutable(ExecutableBase*);
 
     void notifyIsSafeToCollect();
     bool isSafeToCollect() const { return m_isSafeToCollect; }
@@ -257,7 +256,7 @@ public:
     void deleteAllUnlinkedCodeBlocks(DeleteAllCodeEffort);
 
     void didAllocate(size_t);
-    bool isPagedOut(double deadline);
+    bool isPagedOut(MonotonicTime deadline);
     
     const JITStubRoutineSet& jitStubRoutines() { return *m_jitStubRoutines; }
     
@@ -271,6 +270,9 @@ public:
 
 #if USE(FOUNDATION)
     template<typename T> void releaseSoon(RetainPtr<T>&&);
+#endif
+#if USE(GLIB)
+    void releaseSoon(std::unique_ptr<JSCGLibWrapperObject>&&);
 #endif
 
     JS_EXPORT_PRIVATE void registerWeakGCMap(WeakGCMapBase* weakGCMap);
@@ -373,9 +375,10 @@ public:
 
     template<typename Func>
     void forEachSlotVisitor(const Func&);
-    unsigned numberOfSlotVisitors();
     
-    ThreadLocalCacheLayout& threadLocalCacheLayout() { return *m_threadLocalCacheLayout; }
+    Seconds totalGCTime() const { return m_totalGCTime; }
+
+    HashMap<JSImmutableButterfly*, JSString*> immutableButterflyToStringCache;
 
 private:
     friend class AllocatingScope;
@@ -504,8 +507,7 @@ private:
     void finalizeMarkedUnconditionalFinalizers(CellSet&);
 
     void finalizeUnconditionalFinalizers();
-    
-    void clearUnmarkedExecutables();
+
     void deleteUnmarkedCompiledCode();
     JS_EXPORT_PRIVATE void addToRememberedSet(const JSCell*);
     void updateAllocationLimits();
@@ -552,6 +554,9 @@ private:
     void assertMarkStacksEmpty();
 
     void setBonusVisitorTask(RefPtr<SharedTask<void(SlotVisitor&)>>);
+
+    static bool useGenerationalGC();
+    static bool shouldSweepSynchronously();
     
     const HeapType m_heapType;
     const size_t m_ramSize;
@@ -620,8 +625,6 @@ private:
     Seconds m_lastFullGCLength;
     Seconds m_lastEdenGCLength;
 
-    Vector<ExecutableBase*> m_executables;
-
     Vector<WeakBlock*> m_logicallyEmptyWeakBlocks;
     size_t m_indexOfNextLogicallyEmptyWeakBlockToSweep { WTF::notFound };
     
@@ -643,6 +646,10 @@ private:
     Vector<RetainPtr<CFTypeRef>> m_delayedReleaseObjects;
     unsigned m_delayedReleaseRecursionCount;
 #endif
+#if USE(GLIB)
+    Vector<std::unique_ptr<JSCGLibWrapperObject>> m_delayedReleaseObjects;
+    unsigned m_delayedReleaseRecursionCount { 0 };
+#endif
 
     HashSet<WeakGCMapBase*> m_weakGCMaps;
     
@@ -659,9 +666,6 @@ private:
     ConcurrentPtrHashSet m_opaqueRoots;
 
     static const size_t s_blockFragmentLength = 32;
-
-    ListableHandler<WeakReferenceHarvester>::List m_weakReferenceHarvesters;
-    ListableHandler<UnconditionalFinalizer>::List m_unconditionalFinalizers;
 
     ParallelHelperClient m_helperClient;
     RefPtr<SharedTask<void(SlotVisitor&)>> m_bonusVisitorTask;
@@ -697,7 +701,7 @@ private:
     uint64_t m_mutatorExecutionVersion { 0 };
     uint64_t m_phaseVersion { 0 };
     Box<Lock> m_threadLock;
-    RefPtr<AutomaticThreadCondition> m_threadCondition; // The mutator must not wait on this. It would cause a deadlock.
+    Ref<AutomaticThreadCondition> m_threadCondition; // The mutator must not wait on this. It would cause a deadlock.
     RefPtr<AutomaticThread> m_thread;
 
 #if PLATFORM(IOS)
@@ -713,13 +717,12 @@ private:
     MonotonicTime m_lastGCStartTime;
     MonotonicTime m_lastGCEndTime;
     MonotonicTime m_currentGCStartTime;
+    Seconds m_totalGCTime;
     
     uintptr_t m_barriersExecuted { 0 };
     
     CurrentThreadState* m_currentThreadState { nullptr };
     WTF::Thread* m_currentThread { nullptr }; // It's OK if this becomes a dangling pointer.
-    
-    std::unique_ptr<ThreadLocalCacheLayout> m_threadLocalCacheLayout;
 };
 
 } // namespace JSC

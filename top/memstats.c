@@ -334,32 +334,32 @@ struct statistic *top_kshrd_create(WINDOW *parent, const char *name) {
 
 #ifdef TOP_ANONYMOUS_MEMORY
 static bool
-rmem_insert_cell(struct statistic *s, const void *sample)
+pmem_insert_cell(struct statistic *s, const void *sample)
 {
 	const libtop_psamp_t *psamp = sample;
 	char buf[7];
 
-	if (top_uinteger_format_mem_result(buf, sizeof(buf), psamp->anonymous, psamp->p_anonymous, 0ULL)) {
+	if (top_uinteger_format_mem_result(buf, sizeof(buf), psamp->pfootprint, psamp->p_pfootprint, 0ULL)) {
 		return true;
 	}
 
 	return generic_insert_cell(s, buf);
 }
 
-static struct statistic_callbacks rmem_callbacks = {
+static struct statistic_callbacks pmem_callbacks = {
 	.draw = generic_draw,
 	.resize_cells = generic_resize_cells,
 	.move_cells = generic_move_cells,
 	.get_request_size = generic_get_request_size,
 	.get_minimum_size = generic_get_minimum_size,
-	.insert_cell = rmem_insert_cell,
+	.insert_cell = pmem_insert_cell,
 	.reset_insertion = generic_reset_insertion,
 };
 
 struct statistic *
-top_rmem_create(WINDOW *parent, const char *name)
+top_pmem_create(WINDOW *parent, const char *name)
 {
-	return create_statistic(STATISTIC_RMEM, parent, NULL, &rmem_callbacks, name);
+	return create_statistic(STATISTIC_PMEM, parent, NULL, &pmem_callbacks, name);
 }
 
 static bool

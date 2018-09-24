@@ -29,7 +29,8 @@
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <IOKit/hid/IOHIDInterface.h>
 #include <IOKit/hidevent/IOHIDEventService.h>
-
+#include <IOKit/IOWorkLoop.h>
+#include <IOKit/IOCommandGate.h>
 
 class DigitizerTransducer;
 class EventElementCollection;
@@ -145,7 +146,8 @@ private:
         } gameController;
       
         struct {
-            OSArray *           elements;
+            OSArray *           childElements;
+            OSArray *           primaryElements;
             OSArray *           pendingEvents;
         } vendorMessage;
         
@@ -153,8 +155,38 @@ private:
             OSArray *           elements;
         } biometric;
 
+        struct {
+            OSArray *           elements;
+        } accel;
+
+        struct {
+            OSArray *           elements;
+        } gyro;
+        
+        struct {
+            OSArray *           elements;
+        } compass;
+
+        struct {
+            OSArray *           elements;
+        } temperature;
+
+        struct {
+            IOHIDElement *      reportInterval;
+            IOHIDElement *      reportLatency;
+            IOHIDElement *      sniffControl;
+        } sensorProperty;
+
+        struct {
+            OSArray *           elements;
+        } orientation;
+
         UInt64  lastReportTime;
+
+        IOWorkLoop *            workLoop;
+        IOCommandGate *         commandGate;
     };
+
     ExpansionData *             _reserved;
     
     bool                    parseElements(OSArray * elementArray, UInt32 bootProtocol);
@@ -171,7 +203,13 @@ private:
     bool                    parseGestureUnicodeElement(IOHIDElement * element);
     bool                    parseVendorMessageElement(IOHIDElement * element);
     bool                    parseBiometricElement(IOHIDElement * element);
-  
+    bool                    parseAccelElement(IOHIDElement * element);
+    bool                    parseGyroElement(IOHIDElement * element);
+    bool                    parseCompassElement(IOHIDElement * element);
+    bool                    parseTemperatureElement(IOHIDElement * element);
+    bool                    parseSensorPropertyElement(IOHIDElement * element);
+    bool                    parseDeviceOrientationElement(IOHIDElement * element);
+
     void                    processDigitizerElements();
     void                    processMultiAxisElements();
     void                    processGameControllerElements();
@@ -188,6 +226,12 @@ private:
     void                    setAccelerationProperties();
     void                    setVendorMessageProperties();
     void                    setBiometricProperties();
+    void                    setAccelProperties();
+    void                    setGyroProperties();
+    void                    setCompassProperties();
+    void                    setTemperatureProperties();
+    void                    setSensorProperties();
+    void                    setDeviceOrientationProperties();
 
     UInt32                  checkGameControllerElement(IOHIDElement * element);
     UInt32                  checkMultiAxisElement(IOHIDElement * element);
@@ -211,7 +255,12 @@ private:
 
     void                    handleVendorMessageReport(AbsoluteTime timeStamp, IOMemoryDescriptor * report, UInt32 reportID, int phase);
     void                    handleBiometricReport(AbsoluteTime timeStamp, UInt32 reportID);
-  
+    void                    handleAccelReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleGyroReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleCompassReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleTemperatureReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleDeviceOrientationReport(AbsoluteTime timeStamp, UInt32 reportID);
+
     bool                    serializeCharacterGestureState(void * ref, OSSerialize * serializer);
     bool                    conformTo (UInt32 usagePage, UInt32 usage);
     IOHIDEvent*             createDigitizerTransducerEventForReport(DigitizerTransducer * transducer, AbsoluteTime timeStamp, UInt32 reportID);
@@ -275,6 +324,11 @@ public:
                                 bool *                      defer );
 
     virtual IOReturn        setProperties( OSObject * properties );
+
+    virtual IOHIDEvent *    copyEvent(
+                                IOHIDEventType              type,
+                                IOHIDEvent *                matching = 0,
+                                IOOptionBits                options = 0) APPLE_KEXT_OVERRIDE;
   
   
     OSMetaClassDeclareReservedUnused(IOHIDEventDriver,  0);

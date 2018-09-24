@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Apple Inc.  All rights reserved.
- * Copyright (C) 2017 Sony Interactive Entertainment Inc.
+ * Copyright (C) 2018 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,7 +34,7 @@ namespace WebCore {
 
 class CurlResponse;
 
-class ResourceResponse : public ResourceResponseBase {
+class WEBCORE_EXPORT ResourceResponse : public ResourceResponseBase {
 public:
     ResourceResponse()
         : ResourceResponseBase()
@@ -50,7 +50,8 @@ public:
 
     void appendHTTPHeaderField(const String&);
 
-    void setDeprecatedNetworkLoadMetrics(const NetworkLoadMetrics& networkLoadMetrics) { m_networkLoadMetrics = networkLoadMetrics; }
+    void setCertificateInfo(CertificateInfo&&);
+    void setDeprecatedNetworkLoadMetrics(NetworkLoadMetrics&&);
 
     bool shouldRedirect();
     bool isMovedPermanently() const;
@@ -58,6 +59,7 @@ public:
     bool isSeeOther() const;
     bool isNotModified() const;
     bool isUnauthorized() const;
+    bool isProxyAuthenticationRequired() const;
 
     // Needed for compatibility.
     CFURLResponseRef cfURLResponse() const { return 0; }

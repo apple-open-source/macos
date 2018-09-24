@@ -167,9 +167,6 @@ const CSSM_OID	CSSMOID_PIV_AUTH   = {PIV_AUTH_OID_LEN, (uint8 *)OID_PIV_AUTH};
 static const uint8 	OID_PIV_AUTH_2048[] = {PIV_AUTH_2048_OID};
 const CSSM_OID	CSSMOID_PIV_AUTH_2048   = {PIV_AUTH_2048_OID_LEN, (uint8 *)OID_PIV_AUTH_2048};
 
-static CSSM_RETURN tp_verifyAppleIDSharingOpts(TPCertGroup &certGroup,
-												const CSSM_DATA *fieldOpts,			// optional Common Name
-												const iSignCertInfo *certInfo);
 /*
  * Setup a single iSignExtenInfo. Called once per known extension
  * per cert.
@@ -1990,7 +1987,7 @@ static CSSM_RETURN tp_verifyMacAppStoreReceiptOpts(
 
 	if (!isCertInfo->basicConstraints.present)
 	{
-		tpPolicyError("tp_verifyAppleIDSharingOpts: no basicConstraints in intermediate");
+		tpPolicyError("tp_verifyMacAppStoreReceiptOpts: no basicConstraints in intermediate");
 		if (tpCert->addStatusCode(CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS))
 			return CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS;
 	}
@@ -2035,177 +2032,6 @@ bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const C
     }
 
 	return false;
-}
-
-
-/*
- * Verify Apple ID Sharing options.
- *
- * -- Do basic cert validation (OCSP-based certs)
- * -- Validate that the cert is an Apple ID sharing cert:
- *		has a custom extension: OID: Apple ID Sharing Certificate ( 1 2 840 113635 100 4 7 )
- *			(CSSMOID_APPLE_EXTENSION_APPLEID_SHARING)
- *		EKU should have both client and server authentication
- *		chains to the "Apple Application Integration Certification Authority" intermediate
- * -- optionally has a client-specified common name, which is the Apple ID account's UUID.
-
- * -- Must have one intermediate cert ("Apple Application Integration Certification Authority")
- * -- intermediate must have basic constraints with path length 0
- * -- intermediate has CSSMOID_APPLE_EXTENSION_AAI_INTERMEDIATE extension (OID 1 2 840 113635 100 6 2 3)
- OR APPLE_EXTENSION_AAI_INTERMEDIATE_2
- */
-
-static CSSM_RETURN tp_verifyAppleIDSharingOpts(TPCertGroup &certGroup,
-												const CSSM_DATA *fieldOpts,			// optional Common Name
-												const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
-{
-	unsigned numCerts = certGroup.numCerts();
-	const iSignCertInfo *isCertInfo;
-	TPCertInfo *tpCert;
-	//	const CE_BasicConstraints *bc;		// currently unused
-	CE_ExtendedKeyUsage *eku;
-	CSSM_RETURN crtn = CSSM_OK;
-	unsigned int serverNameLen = 0;
-	const char *serverName = NULL;
-
-	// The CSSM_APPLE_TP_SMIME_OPTIONS pointer is optional as is everything in it.
-    if (fieldOpts && fieldOpts->Data)
-    {
-		CSSM_APPLE_TP_SSL_OPTIONS *sslOpts = (CSSM_APPLE_TP_SSL_OPTIONS *)fieldOpts->Data;
-        switch (sslOpts->Version)
-        {
-        case CSSM_APPLE_TP_SSL_OPTS_VERSION:
-            if (fieldOpts->Length != sizeof(CSSM_APPLE_TP_SSL_OPTIONS))
-                return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
-            break;
-            /* handle backwards compatibility here if necessary */
-        default:
-            return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
-		}
-		serverNameLen = sslOpts->ServerNameLen;
-		serverName = sslOpts->ServerName;
-	}
-
-	//------------------------------------------------------------------------
-
-	if (numCerts != 3)
-	{
-		if (!certGroup.isAllowedError(CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH))
-		{
-			tpPolicyError("tp_verifyAppleIDSharingOpts: numCerts %u", numCerts);
-			return CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
-		}
-		else
-		if (numCerts < 3)
-		{
-			/* this error allowed, but no intermediate...check leaf */
-			goto checkLeaf;
-		}
-	}
-
-	/* verify intermediate cert */
-	isCertInfo = &certInfo[1];
-	tpCert = certGroup.certAtIndex(1);
-
-	if (!isCertInfo->basicConstraints.present)
-	{
-		tpPolicyError("tp_verifyAppleIDSharingOpts: no basicConstraints in intermediate");
-		if (tpCert->addStatusCode(CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS))
-			return CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS;
-	}
-
-checkLeaf:
-
-	/* verify leaf cert */
-	isCertInfo = &certInfo[0];
-	tpCert = certGroup.certAtIndex(0);
-
-	/* host name check is optional */
-	if (serverNameLen != 0)
-	{
-		if (serverName == NULL)
-			return CSSMERR_TP_INVALID_POINTER;
-
-		/* convert caller's hostname string to lower case */
-		char *hostName = (char *)certGroup.alloc().malloc(serverNameLen);
-		memmove(hostName, serverName, serverNameLen);
-		tpToLower(hostName, serverNameLen);
-
-		/* Check common name... */
-
-		bool fieldFound;
-		CSSM_BOOL match = tpCompareSubjectName(*tpCert, SN_CommonName, false, hostName,
-									 serverNameLen, fieldFound);
-
-		certGroup.alloc().free(hostName);
-		if (!match && tpCert->addStatusCode(CSSMERR_APPLETP_HOSTNAME_MISMATCH))
-            return CSSMERR_APPLETP_HOSTNAME_MISMATCH;
-	}
-
-	if (certInfo->certificatePolicies.present)
-	{
-		const CE_CertPolicies *certPolicies =
-				&isCertInfo->certificatePolicies.extnData->certPolicies;
-		if (!certificatePoliciesContainsOID(certPolicies, &CSSMOID_APPLEID_SHARING_CERT_POLICY))
-			if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
-				return CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
-	}
-	else
-	if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
-		return CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
-
-	if (!isCertInfo->extendKeyUsage.present)
-    {
-		tpPolicyError("tp_verifyAppleIDSharingOpts: no extendedKeyUse in leaf");
-		if (tpCert->addStatusCode(CSSMERR_APPLETP_CS_NO_EXTENDED_KEY_USAGE))
-			return crtn ? crtn : CSSMERR_APPLETP_CS_NO_EXTENDED_KEY_USAGE;
-
-        /* have to skip remainder */
-        return CSSM_OK;
-	}
-
-	// Check that certificate can do Client and Server Authentication (EKU)
-	eku = &isCertInfo->extendKeyUsage.extnData->extendedKeyUsage;
-	assert(eku != NULL);
-	if(eku->numPurposes != 2)
-	{
-		tpPolicyError("tp_verifyAppleIDSharingOpts: bad eku->numPurposes (%lu)",
-					  (unsigned long)eku->numPurposes);
-		if (tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE))
-		{
-			if (crtn == CSSM_OK)
-				crtn = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE;
-		}
-		return crtn;
-	}
-	bool canDoClientAuth = false, canDoServerAuth = false, ekuError = false;
-	for (int ix=0;ix<2;ix++)
-	{
-		if (tpCompareOids(&eku->purposes[ix], &CSSMOID_ClientAuth))
-			canDoClientAuth = true;
-		else
-		if (tpCompareOids(&eku->purposes[ix], &CSSMOID_ServerAuth))
-			canDoServerAuth = true;
-		else
-		{
-			ekuError = true;
-			break;
-		}
-	}
-
-	if (!(canDoClientAuth && canDoServerAuth))
-		ekuError = true;
-	if (ekuError)
-	{
-		tpPolicyError("tp_verifyAppleIDSharingOpts: bad EKU in leaf");
-		if (tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE))
-		{
-			if (crtn == CSSM_OK)
-				crtn = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE;
-		}
-	}
-
-	return crtn;
 }
 
 /*
@@ -3325,8 +3151,11 @@ CSSM_RETURN tp_policyVerify(
 			policyError = tp_verifyMacAppStoreReceiptOpts(*certGroup, policyFieldData, certInfo);
 			break;
 		case kTP_AppleIDSharing:
-			policyError = tp_verifyAppleIDSharingOpts(*certGroup, policyFieldData, certInfo);
-			break;
+			/* As of macOS 10.12, this code path should be unused. Until we can remove this
+			 * module entirely, ensure that no Apple ID evaluations take this path. [10119995] */
+			tpPolicyError("tp_policyVerify: unexpected attempt to use legacy kTP_AppleIDSharing");
+			policyFail = CSSM_TRUE;
+			abort();
 		case kTP_TimeStamping:
 			policyError = tp_verifyTimeStampingOpts(*certGroup, policyFieldData, certInfo);
 			break;

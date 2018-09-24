@@ -336,6 +336,7 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 		}
 		state.mRuntimeVersionOverride = parseRuntimeVersion(runtime);
 	}
+	state.mPreserveAFSC = getBool(kSecCodeSignerPreserveAFSC);
 }
 
 

@@ -38,14 +38,6 @@ typedef enum SyncWithAllPeersReason {
     kSyncWithAllPeersLocked,
 } SyncWithAllPeersReason;
 
-typedef enum HandleIDSMessageReason {
-    kHandleIDSMessageDontHandle = 0,
-    kHandleIDSMessageNotReady,
-    kHandleIDSMessageSuccess,
-    kHandleIDSMessageLocked,
-    kHandleIDSmessageDeviceIDMismatch
-} HandleIDSMessageReason;
-
 /*
  * Piggy backing codes
  */
@@ -93,30 +85,6 @@ enum {
 };
 typedef int SOSViewActionCode;
 
-/*
- SecurityProperty Result Codes
- */
-enum {
-    kSOSCCGeneralSecurityPropertyError    = 0,
-    kSOSCCSecurityPropertyValid           = 1,
-    kSOSCCSecurityPropertyNotValid        = 2,
-    kSOSCCSecurityPropertyNotQualified    = 3,
-    kSOSCCNoSuchSecurityProperty          = 4,
-    kSOSCCSecurityPropertyPending         = 5,
-};
-typedef int SOSSecurityPropertyResultCode;
-
-
-/*
- SecurityProperty Action Codes
- */
-enum {
-    kSOSCCSecurityPropertyEnable          = 1,
-    kSOSCCSecurityPropertyDisable         = 2,
-    kSOSCCSecurityPropertyQuery           = 3,
-};
-typedef int SOSSecurityPropertyActionCode;
-
 #if __OBJC__
 
 #import <Foundation/Foundation.h>
@@ -129,7 +97,6 @@ typedef int SOSSecurityPropertyActionCode;
 @protocol SOSControlProtocol <NSObject>
 - (void)userPublicKey:(void ((^))(BOOL trusted, NSData *spki, NSError *error))complete;
 - (void)kvsPerformanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply;
-- (void)idsPerformanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply;
 - (void)rateLimitingPerformanceCounters:(void(^)(NSDictionary <NSString *, NSString *> *))reply;
 
 - (void)stashedCredentialPublicKey:(void(^)(NSData *, NSError *error))complete;

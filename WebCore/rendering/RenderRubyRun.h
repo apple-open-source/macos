@@ -50,15 +50,12 @@ public:
     bool hasRubyBase() const;
     RenderRubyText* rubyText() const;
     RenderRubyBase* rubyBase() const;
-    RenderRubyBase* rubyBaseSafe(); // creates the base if it doesn't already exist
 
     void layoutExcludedChildren(bool relayoutChildren) override;
     void layout() override;
     void layoutBlock(bool relayoutChildren, LayoutUnit pageHeight = 0) override;
 
     bool isChildAllowed(const RenderObject&, const RenderStyle&) const override;
-    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) override;
-    RenderPtr<RenderObject> takeChild(RenderObject&) override;
 
     RenderBlock* firstLineBlock() const override;
 
@@ -74,14 +71,12 @@ public:
     }
     bool canBreakBefore(const LazyLineBreakIterator&) const;
     
-protected:
     RenderPtr<RenderRubyBase> createRubyBase() const;
 
 private:
     bool isRubyRun() const override { return true; }
     const char* renderName() const override { return "RenderRubyRun (anonymous)"; }
     bool createsAnonymousWrapper() const override { return true; }
-    void removeLeftoverAnonymousBlock(RenderBlock*) override { }
 
 private:
     UChar m_lastCharacter;

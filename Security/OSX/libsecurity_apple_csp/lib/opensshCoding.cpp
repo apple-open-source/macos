@@ -111,10 +111,15 @@ static CSSM_RETURN appendBigNum2(
 		return CSSMERR_CSP_INTERNAL_ERROR;
 	}
 	int numBytes = BN_num_bytes(bn);
-	unsigned char buf[numBytes];
+	unsigned char *buf = (unsigned char*)malloc(numBytes);
+	if (buf == NULL) {
+		dprintf("appendBigNum: Cannot allocate a temp BN buffer\n");
+		return CSSMERR_CSSM_MEMORY_ERROR;
+	}
 	int moved = BN_bn2bin(bn, buf);
 	if(moved != numBytes) {
 		dprintf("appendBigNum: BN_bn2bin() screwup\n");
+		free(buf);
 		return CSSMERR_CSP_INTERNAL_ERROR;
 	}
 	bool appendZero = false;
@@ -131,6 +136,7 @@ static CSSM_RETURN appendBigNum2(
 	}
 	CFDataAppendBytes(cfOut, buf, numBytes);
 	memset(buf, 0, numBytes);
+	free(buf);
 	return CSSM_OK;
 }
 

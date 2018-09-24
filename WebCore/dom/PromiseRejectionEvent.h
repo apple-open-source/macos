@@ -26,7 +26,7 @@
 #pragma once
 
 #include "Event.h"
-#include <heap/Strong.h>
+#include <JavaScriptCore/Strong.h>
 
 namespace WebCore {
 
@@ -55,6 +55,8 @@ private:
     PromiseRejectionEvent(JSC::ExecState&, const AtomicString&, const Init&, IsTrusted);
 
     Ref<DOMPromise> m_promise;
+    // FIXME: The following use of JSC::Strong is incorrect and can lead to storage leaks
+    // due to reference cycles; we should use JSValueInWrappedObject instead.
     JSC::Strong<JSC::Unknown> m_reason;
 };
 

@@ -61,6 +61,8 @@ static const NSStringEncoding srpStringEncoding = NSUTF8StringEncoding;
     return self;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 - (void) finalize {
     ccsrp_ctx_clear(ccsrp_ctx_di(self.context),
                     ccsrp_ctx_gp(self.context),
@@ -68,6 +70,7 @@ static const NSStringEncoding srpStringEncoding = NSUTF8StringEncoding;
 
     free(self.context);
 }
+#pragma clang diagnostic pop
 
 - (NSData*) getKey {
     size_t key_length = 0;

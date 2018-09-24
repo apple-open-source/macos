@@ -29,6 +29,7 @@
 #import "CloudKitDependencies.h"
 #import "keychain/ckks/CKKSCKAccountStateTracker.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
 
@@ -182,11 +183,6 @@
     self.zoneCreated = zoneCreated;
     self.zoneSubscribed = zoneSubscribed;
 
-    // Zone setups and teardowns are due to either 1) first CKKS launch or 2) the user logging in to iCloud.
-    // Therefore, they're QoS UserInitiated.
-    self.zoneSetupOperation.queuePriority = NSOperationQueuePriorityNormal;
-    self.zoneSetupOperation.qualityOfService = NSQualityOfServiceUserInitiated;
-
     ckksnotice("ckkszone", self, "Setting up zone %@", self.zoneName);
 
     __weak __typeof(self) weakSelf = self;
@@ -240,8 +236,8 @@
         if(!zoneCreated) {
             ckksnotice("ckkszone", strongSelf, "Creating CloudKit zone '%@'", strongSelf.zoneName);
             CKDatabaseOperation<CKKSModifyRecordZonesOperation>* zoneCreationOperation = [[strongSelf.modifyRecordZonesOperationClass alloc] initWithRecordZonesToSave: @[strongSelf.zone] recordZoneIDsToDelete: nil];
-            zoneCreationOperation.queuePriority = NSOperationQueuePriorityNormal;
-            zoneCreationOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+            zoneCreationOperation.configuration.automaticallyRetryNetworkFailures = NO;
+            zoneCreationOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
             zoneCreationOperation.database = strongSelf.database;
             zoneCreationOperation.name = @"zone-creation-operation";
             zoneCreationOperation.group = strongSelf.zoneSetupOperationGroup ?: [CKOperationGroup CKKSGroupWithName:@"zone-creation"];;
@@ -274,7 +270,7 @@
             };
 
             if (strongSelf.zoneCreateNetworkFailure) {
-                [zoneCreationOperation addNullableDependency:reachabilityTracker.reachablityDependency];
+                [zoneCreationOperation addNullableDependency:reachabilityTracker.reachabilityDependency];
                 strongSelf.zoneCreateNetworkFailure = false;
             }
             ckksnotice("ckkszone", strongSelf, "Adding CKKSModifyRecordZonesOperation: %@ %@", zoneCreationOperation, zoneCreationOperation.dependencies);
@@ -296,8 +292,8 @@
 
             CKDatabaseOperation<CKKSModifySubscriptionsOperation>* zoneSubscriptionOperation = [[strongSelf.modifySubscriptionsOperationClass alloc] initWithSubscriptionsToSave: @[subscription] subscriptionIDsToDelete: nil];
 
-            zoneSubscriptionOperation.queuePriority = NSOperationQueuePriorityNormal;
-            zoneSubscriptionOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+            zoneSubscriptionOperation.configuration.automaticallyRetryNetworkFailures = NO;
+            zoneSubscriptionOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
             zoneSubscriptionOperation.database = strongSelf.database;
             zoneSubscriptionOperation.name = @"zone-subscription-operation";
 
@@ -333,7 +329,7 @@
             };
 
             if (strongSelf.zoneSubscriptionNetworkFailure) {
-                [zoneSubscriptionOperation addNullableDependency:reachabilityTracker.reachablityDependency];
+                [zoneSubscriptionOperation addNullableDependency:reachabilityTracker.reachabilityDependency];
                 strongSelf.zoneSubscriptionNetworkFailure = false;
             }
             [zoneSubscriptionOperation addNullableDependency:modifyRecordZonesCompleteOperation];
@@ -370,8 +366,8 @@
     // Step 2: Try to delete the zone
 
     CKDatabaseOperation<CKKSModifyRecordZonesOperation>* zoneDeletionOperation = [[self.modifyRecordZonesOperationClass alloc] initWithRecordZonesToSave: nil recordZoneIDsToDelete: @[self.zoneID]];
-    zoneDeletionOperation.queuePriority = NSOperationQueuePriorityNormal;
-    zoneDeletionOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+    zoneDeletionOperation.configuration.automaticallyRetryNetworkFailures = NO;
+    zoneDeletionOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
     zoneDeletionOperation.database = self.database;
     zoneDeletionOperation.group = ckoperationGroup;
 

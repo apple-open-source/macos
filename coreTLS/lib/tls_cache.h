@@ -10,29 +10,29 @@
 
 typedef struct _tls_cache_s *tls_cache_t;
 
-tls_cache_t
+CORETLS_EXTERN tls_cache_t
 tls_cache_create(void);
 
-void
+CORETLS_EXTERN void
 tls_cache_destroy(tls_cache_t cache);
 
-void
+CORETLS_EXTERN void
 tls_cache_set_default_ttls(tls_cache_t cache, time_t default_ttl, time_t max_ttl);
 
-void
+CORETLS_EXTERN void
 tls_cache_empty(tls_cache_t cache);
 
-void
+CORETLS_EXTERN void
 tls_cache_cleanup(tls_cache_t cache);
 
 /* main interface to coretls handshake layer */
-int
+CORETLS_EXTERN int
 tls_cache_save_session_data(tls_cache_t cache, const tls_buffer *sessionKey, const tls_buffer *sessionData, time_t ttl);
 
-int
+CORETLS_EXTERN int
 tls_cache_load_session_data(tls_cache_t cache, const tls_buffer *sessionKey, tls_buffer *sessionData);
 
-int
+CORETLS_EXTERN int
 tls_cache_delete_session_data(tls_cache_t cache, const tls_buffer *sessionKey);
 
 

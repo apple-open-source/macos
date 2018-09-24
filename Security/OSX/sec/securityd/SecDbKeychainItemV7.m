@@ -343,6 +343,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 - (SFAESKey*)keyForKeyclass:(keyclass_t)keyClass
                      keybag:(keybag_handle_t)keybag
                keySpecifier:(SFAESKeySpecifier*)keySpecifier
+         createKeyIfMissing:(bool)createIfMissing
         overwriteCorruptKey:(bool)overwriteCorruptKey
                       error:(NSError**)error;
 @end
@@ -478,6 +479,7 @@ static void initializeSharedMetadataStoreQueue(void) {
 - (SFAESKey*)keyForKeyclass:(keyclass_t)keyclass
                      keybag:(keybag_handle_t)keybag
                keySpecifier:(SFAESKeySpecifier*)keySpecifier
+         createKeyIfMissing:(bool)createIfMissing
         overwriteCorruptKey:(bool)overwriteCorruptKey
                       error:(NSError**)error
 {
@@ -503,6 +505,9 @@ static void initializeSharedMetadataStoreQueue(void) {
         // if we think we're locked, it's possible AKS will still give us access to keys, such as during backup,
         // but we should force AKS to be the truth and not used cached class A keys while locked
         bool allowKeyCaching = [SecDbKeychainMetadataKeyStore cachingEnabled];
+
+        // However, we must not cache a newly-created key, just in case someone above us in the stack rolls back our database transaction and the stored key is lost.
+        __block bool keyIsNewlyCreated = false;
 #if 0
         // <rdar://problem/37523001> Fix keychain lock state check to be both secure and fast for EDU mode
         if (![SecDbKeychainItemV7 isKeychainUnlocked]) {
@@ -515,7 +520,7 @@ static void initializeSharedMetadataStoreQueue(void) {
         if (!key) {
             __block bool ok = true;
             __block bool metadataKeyDoesntAuthenticate = false;
-            ok &= kc_with_dbt_non_item_tables(true, &cfError, ^bool(SecDbConnectionRef dbt) {
+            ok &= kc_with_dbt_non_item_tables(createIfMissing, &cfError, ^bool(SecDbConnectionRef dbt) {
                 __block NSString* sql = [NSString stringWithFormat:@"SELECT data, actualKeyclass FROM metadatakeys WHERE keyclass = %d", keyclass];
                 ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &cfError, ^(sqlite3_stmt *stmt) {
                     ok &= SecDbStep(dbt, stmt, &cfError, ^(bool *stop) {
@@ -529,6 +534,10 @@ static void initializeSharedMetadataStoreQueue(void) {
                         ok &= [SecDbKeychainItemV7 aksDecryptWithKeybag:keybag keyclass:keyclassForUnwrapping wrappedKeyData:wrappedKeyData outKeyclass:NULL unwrappedKey:unwrappedKeyData error:&nsErrorLocal];
                         if (ok) {
                             key = [[SFAESKey alloc] initWithData:unwrappedKeyData specifier:keySpecifier error:&nsErrorLocal];
+
+                            if(!key) {
+                                os_log_fault(secLogObjForScope("SecDbKeychainItemV7"), "Metadata class key (%d) decrypted, but didn't become a key: %@", keyclass, nsErrorLocal);
+                            }
                             
                             if (actualKeyclass == 0) {
                                 actualKeyclassToWriteBackToDB = keyclassForUnwrapping;
@@ -548,6 +557,11 @@ static void initializeSharedMetadataStoreQueue(void) {
                             if (ok) {
                                 secerror("SecDbKeychainItemV7: successfully decrypted metadata key using keyrolled keyclass %d", keyrolledKeyclass);
                                 key = [[SFAESKey alloc] initWithData:unwrappedKeyData specifier:keySpecifier error:&retryError];
+
+                                if(!key) {
+                                    os_log_fault(secLogObjForScope("SecDbKeychainItemV7"), "Metadata class key (%d) decrypted using keyrolled keyclass %d, but didn't become a key: %@", keyclass, keyrolledKeyclass, retryError);
+                                    nsErrorLocal = retryError;
+                                }
                             }
                             else {
                                 secerror("SecDbKeychainItemV7: failed to decrypt metadata key with keyrolled keyclass %d; error: %@", keyrolledKeyclass, retryError);
@@ -555,7 +569,7 @@ static void initializeSharedMetadataStoreQueue(void) {
                         }
 #endif
                         
-                        if (ok) {
+                        if (ok && key) {
                             if (actualKeyclassToWriteBackToDB > 0) {
                                 // check if we have updated this keyclass or not already
                                 static NSMutableDictionary* updated = NULL;
@@ -582,10 +596,13 @@ static void initializeSharedMetadataStoreQueue(void) {
                                 });
                                 sec_action_perform(kclockedaction);
                             } else {
-                                secerror("SecDbKeychainItemV7: failed to decrypt metadata key for class %d; error: %@", keyclass, nsErrorLocal);
+                                secerror("SecDbKeychainItemV7: failed to decrypt and create metadata key for class %d; error: %@", keyclass, nsErrorLocal);
 
                                 // If this error is errSecDecode, then it's failed authentication and likely will forever. Other errors are scary.                                
                                 metadataKeyDoesntAuthenticate = [nsErrorLocal.domain isEqualToString:NSOSStatusErrorDomain] && nsErrorLocal.code == errSecDecode;
+                                if(metadataKeyDoesntAuthenticate) {
+                                    os_log_fault(secLogObjForScope("SecDbKeychainItemV7"), "Metadata class key (%d) failed to decrypt: %@", keyclass, nsErrorLocal);
+                                }
                             }
                         }
                     });
@@ -594,7 +611,7 @@ static void initializeSharedMetadataStoreQueue(void) {
                 bool keyNotYetCreated = ok && !key;
                 bool forceOverwriteBadKey = !key && metadataKeyDoesntAuthenticate && overwriteCorruptKey;
 
-                if (keyNotYetCreated || forceOverwriteBadKey) {
+                if (createIfMissing && (keyNotYetCreated || forceOverwriteBadKey)) {
                     // we completed the database query, but no key exists or it's broken - we should create one
                     if(forceOverwriteBadKey) {
                         secerror("SecDbKeychainItemV7: metadata key is irreparably corrupt; throwing away forever");
@@ -604,9 +621,11 @@ static void initializeSharedMetadataStoreQueue(void) {
                     ok = true; // Reset 'ok': we have a second chance
 
                     key = [[SFAESKey alloc] initRandomKeyWithSpecifier:keySpecifier error:&nsErrorLocal];
+                    keyIsNewlyCreated = true;
+
                     if (key) {
                         NSMutableData* wrappedKey = [NSMutableData dataWithLength:key.keyData.length + 40];
-                        keyclass_t outKeyclass;
+                        keyclass_t outKeyclass = keyclass;
                         ok &= [SecDbKeychainItemV7 aksEncryptWithKeybag:keybag keyclass:keyclass keyData:key.keyData outKeyclass:&outKeyclass wrappedKey:wrappedKey error:&nsErrorLocal];
                         if (ok) {
                             secinfo("SecDbKeychainItemV7", "attempting to save new metadata key for keyclass %d with actualKeyclass %d", keyclass, outKeyclass);
@@ -634,13 +653,21 @@ static void initializeSharedMetadataStoreQueue(void) {
                     else {
                         ok = false;
                     }
+                } else if(!key) {
+                    // No key, but we're not supposed to make one. Make an error if one doesn't yet exist.
+                    ok = false;
+                    if(!nsErrorLocal) {
+                        nsErrorLocal = [NSError errorWithDomain:(id)kSecErrorDomain code:errSecDecode userInfo:@{NSLocalizedDescriptionKey: @"Unable to find or create a suitable metadata key"}];
+                    }
                 }
 
                 return ok;
             });
 
             if (ok && key) {
-                if (allowKeyCaching) {
+                // We can't cache a newly-created key, just in case this db transaction is rolled back and we lose the persisted key.
+                // Don't worry, we'll cache it as soon as it's used again.
+                if (allowKeyCaching && !keyIsNewlyCreated) {
                     self->_keysDict[@(keyclass)] = key;
                     __weak __typeof(self) weakSelf = self;
                     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(60 * 5 * NSEC_PER_SEC)), self->_queue, ^{
@@ -697,10 +724,13 @@ static void initializeSharedMetadataStoreQueue(void) {
     return result;
 }
 
+// bring back with <rdar://problem/37523001>
+#if 0
 + (bool)isKeychainUnlocked
 {
     return kc_is_unlocked();
 }
+#endif
 
 - (instancetype)initWithData:(NSData*)data decryptionKeybag:(keybag_handle_t)decryptionKeybag error:(NSError**)error
 {
@@ -778,6 +808,7 @@ static void initializeSharedMetadataStoreQueue(void) {
 {
     if (!_metadataAttributes) {
         SFAESKey* metadataClassKey = [self metadataClassKeyWithKeybag:_keybag
+                                                   createKeyIfMissing:false
                                                   overwriteCorruptKey:false
                                                                 error:error];
         if (metadataClassKey) {
@@ -928,6 +959,7 @@ static void initializeSharedMetadataStoreQueue(void) {
     SFAuthenticatedCiphertext* ciphertext = [encryptionOperation encrypt:metadata withKey:key error:error];
 
     SFAESKey* metadataClassKey = [self metadataClassKeyWithKeybag:keybag
+                                               createKeyIfMissing:true
                                               overwriteCorruptKey:true
                                                             error:error];
     if (metadataClassKey) {
@@ -965,12 +997,14 @@ static void initializeSharedMetadataStoreQueue(void) {
 }
 
 - (SFAESKey*)metadataClassKeyWithKeybag:(keybag_handle_t)keybag
+                     createKeyIfMissing:(bool)createIfMissing
                     overwriteCorruptKey:(bool)force
                                   error:(NSError**)error
 {
     return [[SecDbKeychainMetadataKeyStore sharedStore] keyForKeyclass:_keyclass
                                                                 keybag:keybag
                                                           keySpecifier:[self.class keySpecifier]
+                                                    createKeyIfMissing:(bool)createIfMissing
                                                    overwriteCorruptKey:force
                                                                  error:error];
 }

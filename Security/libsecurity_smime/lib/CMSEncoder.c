@@ -98,6 +98,7 @@ struct _CMSEncoder {
     CMSCertificateChainMode chainMode;
     CFDataRef           hashAgilityAttrValue;
     CFDictionaryRef     hashAgilityV2AttrValues;
+    CFAbsoluteTime      expirationTime;
 };
 
 static void cmsEncoderInit(CFTypeRef enc);
@@ -280,12 +281,20 @@ static int convertOid(
         // CFStringRef: OID representation is a dotted-decimal string
         CFStringRef inStr = (CFStringRef)inRef;
         CFIndex max = CFStringGetLength(inStr) * 3;
-        char buf[max];
-        if (!CFStringGetCString(inStr, buf, max-1, kCFStringEncodingASCII))
+        char *buf = (char *)malloc(max);
+        if (!buf) {
+            return errSecMemoryError;
+        }
+        if (!CFStringGetCString(inStr, buf, max-1, kCFStringEncodingASCII)) {
+            free(buf);
             return errSecParam;
+        }
 
-        if(encodeOid((unsigned char *)buf, &oidData, &oidLen) != 0)
+        if (encodeOid((unsigned char *)buf, &oidData, &oidLen) != 0) {
+            free(buf);
             return errSecParam;
+        }
+        free(buf);
     }
     else if (CFGetTypeID(inRef) == CFDataGetTypeID()) {
         // CFDataRef: OID representation is in binary DER format
@@ -534,6 +543,14 @@ static OSStatus cmsSetupForSignedData(
             if(ortn) {
                 ortn = cmsRtnToOSStatus(ortn);
                 CSSM_PERROR("SecCmsSignerInfoAddAppleCodesigningHashAgilityV2", ortn);
+                break;
+            }
+        }
+        if (cmsEncoder->signedAttributes & kCMSAttrAppleExpirationTime) {
+            ortn = SecCmsSignerInfoAddAppleExpirationTime(signerInfo, cmsEncoder->expirationTime);
+            if(ortn) {
+                ortn = cmsRtnToOSStatus(ortn);
+                CSSM_PERROR("SecCmsSignerInfoAddAppleExpirationTime", ortn);
                 break;
             }
         }
@@ -1032,6 +1049,24 @@ OSStatus CMSEncoderSetAppleCodesigningHashAgilityV2(
         return errSecParam;
     }
     cmsEncoder->hashAgilityV2AttrValues = CFRetainSafe(hashAgilityV2AttrValues);
+    return errSecSuccess;
+}
+
+/*
+ * Set the expiration time for a CMSEncoder.
+ * This is only used if the kCMSAttrAppleExpirationTime attribute is included.
+ */
+OSStatus CMSEncoderSetAppleExpirationTime(
+                                          CMSEncoderRef cmsEncoder,
+                                          CFAbsoluteTime time)
+{
+    if(cmsEncoder == NULL) {
+        return errSecParam;
+    }
+    if(cmsEncoder->encState != ES_Init) {
+        return errSecParam;
+    }
+    cmsEncoder->expirationTime = time;
     return errSecSuccess;
 }
 

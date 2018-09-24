@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,7 +34,7 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/SCPreferencesPathKey.h>
+#include "SCPreferencesPathKey.h"
 #include <IOKit/IOKitLib.h>
 
 #if	!TARGET_OS_SIMULATOR
@@ -157,6 +157,7 @@ typedef struct {
 	uint64_t		entryID;
 	CFMutableDictionaryRef	overrides;
 	CFStringRef		prefix;
+	Boolean			trustRequired;
 	CFNumberRef		type;
 	CFNumberRef		unit;
 	CFNumberRef		family;
@@ -291,15 +292,6 @@ CFStringRef
 __SCNetworkInterfaceCopyXNonLocalizedDisplayName(SCNetworkInterfaceRef	interface);
 #endif	// !TARGET_OS_IPHONE
 
-int
-__SCNetworkInterfaceCreateCapabilities		(SCNetworkInterfaceRef	interface,
-						 int			capability_base,
-						 CFDictionaryRef	capability_options);
-
-int
-__SCNetworkInterfaceCreateMediaOptions		(SCNetworkInterfaceRef	interface,
-						 CFDictionaryRef	media_options);
-
 CFStringRef
 __SCNetworkInterfaceGetDefaultConfigurationType	(SCNetworkInterfaceRef	interface);
 
@@ -311,10 +303,6 @@ __SCNetworkInterfaceGetEntityType		(SCNetworkInterfaceRef interface);
 
 CFStringRef
 __SCNetworkInterfaceGetNonLocalizedDisplayName	(SCNetworkInterfaceRef	interface);
-
-Boolean
-__SCNetworkInterfaceSetDisableUntilNeededValue	(SCNetworkInterfaceRef	interface,
-						 CFTypeRef		disable);
 
 void
 __SCNetworkInterfaceSetUserDefinedName(SCNetworkInterfaceRef interface, CFStringRef name);
@@ -413,10 +401,10 @@ __SCBridgeInterfaceSetMemberInterfaces		(SCBridgeInterfaceRef	bridge,
 						 CFArrayRef		members);
 
 void
-_SCNetworkInterfaceCacheOpen();
+_SCNetworkInterfaceCacheOpen(void);
 
 void
-_SCNetworkInterfaceCacheClose();
+_SCNetworkInterfaceCacheClose(void);
 
 #pragma mark -
 #pragma mark SCNetworkProtocol configuration (internal)
@@ -493,7 +481,7 @@ __SCNetworkServiceAddProtocolToService		(SCNetworkServiceRef		service,
 
 
 os_log_t
-__log_SCNetworkConfiguration			();
+__log_SCNetworkConfiguration			(void);
 
 
 #pragma mark -

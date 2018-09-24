@@ -67,9 +67,7 @@ MediaElementAudioSourceNode::~MediaElementAudioSourceNode()
 
 void MediaElementAudioSourceNode::setFormat(size_t numberOfChannels, float sourceSampleRate)
 {
-#if !PLATFORM(MAC) || __MAC_OS_X_VERSION_MAX_ALLOWED >= 101200
     m_muted = wouldTaintOrigin();
-#endif
 
     if (numberOfChannels != m_sourceNumberOfChannels || sourceSampleRate != m_sourceSampleRate) {
         if (!numberOfChannels || numberOfChannels > AudioContext::maxNumberOfChannels() || sourceSampleRate < minSampleRate || sourceSampleRate > maxSampleRate) {
@@ -112,7 +110,12 @@ bool MediaElementAudioSourceNode::wouldTaintOrigin()
     if (m_mediaElement->didPassCORSAccessCheck())
         return false;
 
-    return context().wouldTaintOrigin(m_mediaElement->currentSrc());
+    if (auto* scriptExecutionContext = context().scriptExecutionContext()) {
+        if (auto* origin = scriptExecutionContext->securityOrigin())
+            return m_mediaElement->wouldTaintOrigin(*origin);
+    }
+
+    return true;
 }
 
 void MediaElementAudioSourceNode::process(size_t numberOfFrames)

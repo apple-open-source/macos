@@ -45,7 +45,7 @@ public:
 
     const RemoteLayerTreeHost& remoteLayerTreeHost() const { return m_remoteLayerTreeHost; }
 
-    void acceleratedAnimationDidStart(uint64_t layerID, const String& key, double startTime);
+    void acceleratedAnimationDidStart(uint64_t layerID, const String& key, MonotonicTime startTime);
     void acceleratedAnimationDidEnd(uint64_t layerID, const String& key);
 
     uint64_t nextLayerTreeTransactionID() const { return m_pendingLayerTreeTransactionID + 1; }
@@ -82,7 +82,7 @@ private:
     void updateDebugIndicatorPosition();
     void initializeDebugIndicator();
 
-    void waitForDidUpdateActivityState() override;
+    void waitForDidUpdateActivityState(ActivityStateChangeID) override;
     void hideContentUntilPendingUpdate() override;
     void hideContentUntilAnyUpdate() override;
     bool hasVisibleContent() const override;
@@ -115,6 +115,7 @@ private:
     uint64_t m_lastVisibleTransactionID { 0 };
     uint64_t m_transactionIDForPendingCACommit { 0 };
     uint64_t m_transactionIDForUnhidingContent { 0 };
+    ActivityStateChangeID m_activityStateChangeID { ActivityStateChangeAsynchronous };
 
     CallbackMap m_callbacks;
 

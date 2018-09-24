@@ -28,8 +28,13 @@
 
 #import "CFURLExtras.h"
 #import "URLParser.h"
+#import "WebCoreNSURLExtras.h"
 #import <wtf/ObjcRuntimeExtras.h>
 #import <wtf/text/CString.h>
+
+@interface NSString (WebCoreNSURLExtras)
+- (BOOL)_web_looksLikeIPAddress;
+@end
 
 namespace WebCore {
 
@@ -42,16 +47,16 @@ URL::URL(NSURL *url)
 
     // FIXME: Why is it OK to ignore base URL here?
     CString urlBytes;
-    getURLBytes(reinterpret_cast<CFURLRef>(url), urlBytes);
+    getURLBytes((__bridge CFURLRef)url, urlBytes);
     URLParser parser(urlBytes.data());
     *this = parser.result();
 }
 
 URL::operator NSURL *() const
 {
-    // Creating a toll-free bridged CFURL, because a real NSURL would not preserve the original string.
+    // Creating a toll-free bridged CFURL because creation with NSURL methods would not preserve the original string.
     // We'll need fidelity when round-tripping via CFURLGetBytes().
-    return (NSURL *)createCFURL().autorelease();
+    return createCFURL().bridgingAutorelease();
 }
 
 RetainPtr<CFURLRef> URL::createCFURL() const
@@ -61,7 +66,7 @@ RetainPtr<CFURLRef> URL::createCFURL() const
 
     if (isEmpty()) {
         // We use the toll-free bridge between NSURL and CFURL to create a CFURLRef supporting both empty and null values.
-        return reinterpret_cast<CFURLRef>(adoptNS([[NSURL alloc] initWithString:@""]).get());
+        return (__bridge CFURLRef)adoptNS([[NSURL alloc] initWithString:@""]).get();
     }
 
     RetainPtr<CFURLRef> cfURL;
@@ -80,6 +85,11 @@ RetainPtr<CFURLRef> URL::createCFURL() const
         return nullptr;
 
     return cfURL;
+}
+
+bool URL::hostIsIPAddress(StringView host)
+{
+    return [host.createNSStringWithoutCopying().get() _web_looksLikeIPAddress];
 }
 
 }

@@ -2,7 +2,8 @@ The files in this directory are generated programatically as part of the regular
 build process. The manner in which they are generated is sufficiently complicated that for now we'll
 stick with checking in the generated files and updating them by hand when needed.
 
-config.h, xsltconfig.h and exsltconfig.h: Taken directly from a regular automake-based build of libxslt.
+include/config.h, include/libxslt/xsltconfig.h and include/libexslt/exsltconfig.h: Taken
+directly from a regular automake-based build of libxslt.
 xslt-config: Hand-modified based on generated xslt-config to include the SDKROOT in paths.
 
 Steps to rebuild files:
@@ -96,13 +97,13 @@ Steps to rebuild files:
      CC="xcrun -sdk macosx.internal cc -fsanitize=address"
    NOTE: This currently doesn't work; I haven't figured out why yet! Compile with Xcode to get ASan builds for now.
 10. Copy replacement files into place:
-   cp -p config.h "../Pregenerated Files/"
-   cp -p libexslt/exsltconfig.h "../Pregenerated Files/libexslt/"
-   cp -p libxslt/xsltconfig.h "../Pregenerated Files/libxslt/"
+   cp -p config.h "../Pregenerated Files/include/"
+   cp -p libexslt/exsltconfig.h "../Pregenerated Files/include/libexslt/"
+   cp -p libxslt/xsltconfig.h "../Pregenerated Files/include/libxslt/"
    cp -p xslt-config "../Pregenerated Files/"
 11. Run git-add on changed files (including those in libxslt), and check them in.
    cd ..
-   git add "Pregenerated Files/*"
+   git add "Pregenerated Files/include/config.h" "Pregenerated Files/include/libexslt/exsltconfig.h" "Pregenerated Files/include/libxslt/xsltconfig.h" "Pregenerated Files/xslt-config"
    git add libxslt/config.h.in
 12. Update libxslt.plist with libxslt version, md5 hash, radars to upstream as needed.
 13. Run git-commit to commit the updated files.

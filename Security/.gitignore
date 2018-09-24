@@ -2,3 +2,5 @@
 cscope.out
 .DS_Store
 xcuserdata
+._*
+build

@@ -74,6 +74,14 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
             this._valueTextField.detached();
     }
 
+    hidden()
+    {
+        if (this._nameTextField && this._nameTextField.editing)
+            this._nameTextField.element.blur();
+        else if (this._valueTextField && this._valueTextField.editing)
+            this._valueTextField.element.blur();
+    }
+
     highlight()
     {
         this._element.classList.add("highlighted");
@@ -182,6 +190,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         }
 
         this._contentElement = this.element.appendChild(document.createElement("span"));
+        this._contentElement.className = "content";
 
         if (!this._property.enabled)
             this._contentElement.append("/* ");
@@ -190,7 +199,8 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         this._nameElement.classList.add("name");
         this._nameElement.textContent = this._property.name;
 
-        this._contentElement.append(": ");
+        let colonElement = this._contentElement.appendChild(document.createElement("span"));
+        colonElement.textContent = ": ";
 
         this._valueElement = this._contentElement.appendChild(document.createElement("span"));
         this._valueElement.classList.add("value");
@@ -214,7 +224,8 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
             this._setupJumpToSymbol(this._valueElement);
         }
 
-        this._contentElement.append(";");
+        let semicolonElement = this._contentElement.appendChild(document.createElement("span"));
+        semicolonElement.textContent = ";";
 
         if (this._property.enabled) {
             this._warningElement = this.element.appendChild(document.createElement("span"));
@@ -287,6 +298,9 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
         if (textField === this._valueTextField)
             this._renderValue(this._valueElement.textContent);
+
+        if (typeof this._delegate.spreadsheetStylePropertyFocusMoved === "function")
+            this._delegate.spreadsheetStylePropertyFocusMoved(this, {direction: null});
     }
 
     spreadsheetTextFieldDidBackspace(textField)
@@ -333,7 +347,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
             if (className) {
                 let span = document.createElement("span");
                 span.classList.add(className);
-                span.textContent = token.value.trimMiddle(maxValueLength);
+                span.textContent = token.value.truncateMiddle(maxValueLength);
                 return span;
             }
 

@@ -1,0 +1,10 @@
+--- Python-2.7.10.orig/Mac/Resources/app/Info.plist.in	2015-05-23 09:09:16.000000000 -0700
++++ Python-2.7.10/Mac/Resources/app/Info.plist.in	2018-07-17 13:53:19.000000000 -0700
+@@ -58,5 +58,7 @@
+ 	<string>(c) 2001-2015 Python Software Foundation.</string>
+ 	<key>NSHighResolutionCapable</key>
+ 	<true/>
++	<key>NSRequiresAquaSystemAppearance</key>
++	<true/>
+ </dict>
+ </plist>

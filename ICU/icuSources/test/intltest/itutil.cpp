@@ -39,7 +39,10 @@ static IntlTest *createEnumSetTest();
 extern IntlTest *createSimpleFormatterTest();
 extern IntlTest *createUnifiedCacheTest();
 extern IntlTest *createQuantityFormatterTest();
-extern IntlTest *createPluralMapTest(); 
+extern IntlTest *createPluralMapTest();
+#if !UCONFIG_NO_FORMATTING
+extern IntlTest *createStaticUnicodeSetsTest();
+#endif
 
 
 #define CASE(id, test) case id:                               \
@@ -135,6 +138,16 @@ void IntlTestUtilities::runIndexedTest( int32_t index, UBool exec, const char* &
                 callTest(*test, par); 
             } 
             break;
+        case 24:
+            name = "StaticUnicodeSetsTest";
+#if !UCONFIG_NO_FORMATTING
+            if (exec) {
+                logln("TestSuite StaticUnicodeSetsTest---"); logln();
+                LocalPointer<IntlTest> test(createStaticUnicodeSetsTest());
+                callTest(*test, par);
+            }
+#endif
+            break;
         default: name = ""; break; //needed to end loop
     }
 }
@@ -144,6 +157,7 @@ void ErrorCodeTest::runIndexedTest(int32_t index, UBool exec, const char* &name,
     switch (index) {
         case 0: name = "TestErrorCode"; if (exec) TestErrorCode(); break;
         case 1: name = "TestSubclass"; if (exec) TestSubclass(); break;
+        case 2: name = "TestIcuTestErrorCode"; if (exec) TestIcuTestErrorCode(); break;
         default: name = ""; break; //needed to end loop
     }
 }
@@ -254,6 +268,92 @@ void ErrorCodeTest::TestSubclass() {
         errln("MyErrorCode destructor failed to detect failure");
     }
 }
+
+class IcuTestErrorCodeTestHelper : public IntlTest {
+  public:
+    void errln( const UnicodeString &message ) U_OVERRIDE {
+        test->assertFalse("Already saw an error", seenError);
+        seenError = TRUE;
+        test->assertEquals("Message for Error", expectedErrln, message);
+        if (expectedDataErr) {
+            test->errln("Got non-data error, but expected data error");
+        }
+    }
+
+    void dataerrln( const UnicodeString &message ) U_OVERRIDE {
+        test->assertFalse("Already saw an error", seenError);
+        seenError = TRUE;
+        test->assertEquals("Message for Error", expectedErrln, message);
+        if (!expectedDataErr) {
+            test->errln("Got data error, but expected non-data error");
+        }
+    }
+
+    IntlTest* test;
+    UBool expectedDataErr;
+    UnicodeString expectedErrln;
+    UBool seenError;
+};
+
+void ErrorCodeTest::TestIcuTestErrorCode() {
+    IcuTestErrorCodeTestHelper helper;
+    helper.test = this;
+
+    // Test destructor message
+    helper.expectedErrln = u"AAA failure: U_ILLEGAL_PAD_POSITION";
+    helper.expectedDataErr = FALSE;
+    helper.seenError = FALSE;
+    {
+        IcuTestErrorCode testStatus(helper, "AAA");
+        testStatus.set(U_ILLEGAL_PAD_POSITION);
+    }
+    assertTrue("Should have seen an error", helper.seenError);
+
+    // Test destructor message with scope
+    helper.expectedErrln = u"BBB failure: U_ILLEGAL_PAD_POSITION scope: foo";
+    helper.expectedDataErr = FALSE;
+    helper.seenError = FALSE;
+    {
+        IcuTestErrorCode testStatus(helper, "BBB");
+        testStatus.setScope("foo");
+        testStatus.set(U_ILLEGAL_PAD_POSITION);
+    }
+    assertTrue("Should have seen an error", helper.seenError);
+
+    // Check errIfFailure message with scope
+    helper.expectedErrln = u"CCC failure: U_ILLEGAL_PAD_POSITION scope: foo";
+    helper.expectedDataErr = FALSE;
+    helper.seenError = FALSE;
+    {
+        IcuTestErrorCode testStatus(helper, "CCC");
+        testStatus.setScope("foo");
+        testStatus.set(U_ILLEGAL_PAD_POSITION);
+        testStatus.errIfFailureAndReset();
+        assertTrue("Should have seen an error", helper.seenError);
+        helper.seenError = FALSE;
+        helper.expectedErrln = u"CCC failure: U_ILLEGAL_CHAR_FOUND scope: foo - 5.4300";
+        testStatus.set(U_ILLEGAL_CHAR_FOUND);
+        testStatus.errIfFailureAndReset("%6.4f", 5.43);
+        assertTrue("Should have seen an error", helper.seenError);
+    }
+
+    // Check errDataIfFailure message without scope
+    helper.expectedErrln = u"DDD failure: U_ILLEGAL_PAD_POSITION";
+    helper.expectedDataErr = TRUE;
+    helper.seenError = FALSE;
+    {
+        IcuTestErrorCode testStatus(helper, "DDD");
+        testStatus.set(U_ILLEGAL_PAD_POSITION);
+        testStatus.errDataIfFailureAndReset();
+        assertTrue("Should have seen an error", helper.seenError);
+        helper.seenError = FALSE;
+        helper.expectedErrln = u"DDD failure: U_ILLEGAL_CHAR_FOUND - 5.4300";
+        testStatus.set(U_ILLEGAL_CHAR_FOUND);
+        testStatus.errDataIfFailureAndReset("%6.4f", 5.43);
+        assertTrue("Should have seen an error", helper.seenError);
+    }
+}
+
 
 class LocalPointerTest : public IntlTest {
 public:
@@ -375,7 +475,6 @@ void LocalPointerTest::TestLocalPointerMoveSwap() {
     if(s3.getAlias() != p1 || s1.isValid()) {
         errln("LocalPointer.moveFrom() did not move");
     }
-#if U_HAVE_RVALUE_REFERENCES
     infoln("TestLocalPointerMoveSwap() with rvalue references");
     s1 = static_cast<LocalPointer<UnicodeString> &&>(s3);
     if(s1.getAlias() != p1 || s3.isValid()) {
@@ -385,9 +484,6 @@ void LocalPointerTest::TestLocalPointerMoveSwap() {
     if(s4.getAlias() != p2 || s2.isValid()) {
         errln("LocalPointer move constructor did not move");
     }
-#else
-    infoln("TestLocalPointerMoveSwap() without rvalue references");
-#endif
 
     // Move self assignment leaves the object valid but in an undefined state.
     // Do it to make sure there is no crash,
@@ -472,7 +568,6 @@ void LocalPointerTest::TestLocalArrayMoveSwap() {
     if(a3.getAlias() != p1 || a1.isValid()) {
         errln("LocalArray.moveFrom() did not move");
     }
-#if U_HAVE_RVALUE_REFERENCES
     infoln("TestLocalArrayMoveSwap() with rvalue references");
     a1 = static_cast<LocalArray<UnicodeString> &&>(a3);
     if(a1.getAlias() != p1 || a3.isValid()) {
@@ -482,9 +577,6 @@ void LocalPointerTest::TestLocalArrayMoveSwap() {
     if(a4.getAlias() != p2 || a2.isValid()) {
         errln("LocalArray move constructor did not move");
     }
-#else
-    infoln("TestLocalArrayMoveSwap() without rvalue references");
-#endif
 
     // Move self assignment leaves the object valid but in an undefined state.
     // Do it to make sure there is no crash,
@@ -510,7 +602,7 @@ void LocalPointerTest::TestLocalXyzPointer() {
     static const char *const encoding="ISO-8859-1";
     LocalUConverterSelectorPointer sel(
         ucnvsel_open(&encoding, 1, NULL, UCNV_ROUNDTRIP_SET, errorCode));
-    if(errorCode.logIfFailureAndReset("ucnvsel_open()")) {
+    if(errorCode.errIfFailureAndReset("ucnvsel_open()")) {
         return;
     }
     if(sel.isNull()) {
@@ -520,7 +612,7 @@ void LocalPointerTest::TestLocalXyzPointer() {
 
 #if !UCONFIG_NO_FORMATTING
     LocalUCalendarPointer cal(ucal_open(NULL, 0, "root", UCAL_GREGORIAN, errorCode));
-    if(errorCode.logDataIfFailureAndReset("ucal_open()")) {
+    if(errorCode.errDataIfFailureAndReset("ucal_open()")) {
         return;
     }
     if(cal.isNull()) {
@@ -529,7 +621,7 @@ void LocalPointerTest::TestLocalXyzPointer() {
     }
 
     LocalUDateTimePatternGeneratorPointer patgen(udatpg_open("root", errorCode));
-    if(errorCode.logDataIfFailureAndReset("udatpg_open()")) {
+    if(errorCode.errDataIfFailureAndReset("udatpg_open()")) {
         return;
     }
     if(patgen.isNull()) {
@@ -538,7 +630,7 @@ void LocalPointerTest::TestLocalXyzPointer() {
     }
 
     LocalULocaleDisplayNamesPointer ldn(uldn_open("de-CH", ULDN_STANDARD_NAMES, errorCode));
-    if(errorCode.logIfFailureAndReset("uldn_open()")) {
+    if(errorCode.errIfFailureAndReset("uldn_open()")) {
         return;
     }
     if(ldn.isNull()) {
@@ -549,7 +641,7 @@ void LocalPointerTest::TestLocalXyzPointer() {
     UnicodeString hello=UNICODE_STRING_SIMPLE("Hello {0}!");
     LocalUMessageFormatPointer msg(
         umsg_open(hello.getBuffer(), hello.length(), "root", NULL, errorCode));
-    if(errorCode.logIfFailureAndReset("umsg_open()")) {
+    if(errorCode.errIfFailureAndReset("umsg_open()")) {
         return;
     }
     if(msg.isNull()) {
@@ -562,7 +654,7 @@ void LocalPointerTest::TestLocalXyzPointer() {
     const UNormalizer2 *nfc=unorm2_getNFCInstance(errorCode);
     UnicodeSet emptySet;
     LocalUNormalizer2Pointer fn2(unorm2_openFiltered(nfc, emptySet.toUSet(), errorCode));
-    if(errorCode.logIfFailureAndReset("unorm2_openFiltered()")) {
+    if(errorCode.errIfFailureAndReset("unorm2_openFiltered()")) {
         return;
     }
     if(fn2.isNull()) {
@@ -573,7 +665,7 @@ void LocalPointerTest::TestLocalXyzPointer() {
 
 #if !UCONFIG_NO_IDNA
     LocalUIDNAPointer idna(uidna_openUTS46(0, errorCode));
-    if(errorCode.logIfFailureAndReset("uidna_openUTS46()")) {
+    if(errorCode.errIfFailureAndReset("uidna_openUTS46()")) {
         return;
     }
     if(idna.isNull()) {
@@ -586,7 +678,7 @@ void LocalPointerTest::TestLocalXyzPointer() {
     UnicodeString pattern=UNICODE_STRING_SIMPLE("abc|xy+z");
     LocalURegularExpressionPointer regex(
         uregex_open(pattern.getBuffer(), pattern.length(), 0, NULL, errorCode));
-    if(errorCode.logIfFailureAndReset("uregex_open()")) {
+    if(errorCode.errIfFailureAndReset("uregex_open()")) {
         return;
     }
     if(regex.isNull()) {
@@ -599,7 +691,7 @@ void LocalPointerTest::TestLocalXyzPointer() {
     UnicodeString id=UNICODE_STRING_SIMPLE("Grek-Latn");
     LocalUTransliteratorPointer trans(
         utrans_openU(id.getBuffer(), id.length(), UTRANS_FORWARD, NULL, 0, NULL, errorCode));
-    if(errorCode.logIfFailureAndReset("utrans_open()")) {
+    if(errorCode.errIfFailureAndReset("utrans_open()")) {
         return;
     }
     if(trans.isNull()) {
@@ -616,7 +708,7 @@ void LocalPointerTest::TestLocalXyzPointerMoveSwap() {
     IcuTestErrorCode errorCode(*this, "TestLocalXyzPointerMoveSwap");
     const UNormalizer2 *nfc=unorm2_getNFCInstance(errorCode);
     const UNormalizer2 *nfd=unorm2_getNFDInstance(errorCode);
-    if(errorCode.logIfFailureAndReset("unorm2_getNF[CD]Instance()")) {
+    if(errorCode.errIfFailureAndReset("unorm2_getNF[CD]Instance()")) {
         return;
     }
     UnicodeSet emptySet;
@@ -624,7 +716,7 @@ void LocalPointerTest::TestLocalXyzPointerMoveSwap() {
     UNormalizer2 *p2 = unorm2_openFiltered(nfd, emptySet.toUSet(), errorCode);
     LocalUNormalizer2Pointer f1(p1);
     LocalUNormalizer2Pointer f2(p2);
-    if(errorCode.logIfFailureAndReset("unorm2_openFiltered()")) {
+    if(errorCode.errIfFailureAndReset("unorm2_openFiltered()")) {
         return;
     }
     if(f1.isNull() || f2.isNull()) {
@@ -644,7 +736,6 @@ void LocalPointerTest::TestLocalXyzPointerMoveSwap() {
     if(f3.getAlias() != p1 || f1.isValid()) {
         errln("LocalUNormalizer2Pointer.moveFrom() did not move");
     }
-#if U_HAVE_RVALUE_REFERENCES
     infoln("TestLocalXyzPointerMoveSwap() with rvalue references");
     f1 = static_cast<LocalUNormalizer2Pointer &&>(f3);
     if(f1.getAlias() != p1 || f3.isValid()) {
@@ -654,9 +745,6 @@ void LocalPointerTest::TestLocalXyzPointerMoveSwap() {
     if(f4.getAlias() != p2 || f2.isValid()) {
         errln("LocalUNormalizer2Pointer move constructor did not move");
     }
-#else
-    infoln("TestLocalXyzPointerMoveSwap() without rvalue references");
-#endif
     // Move self assignment leaves the object valid but in an undefined state.
     // Do it to make sure there is no crash,
     // but do not check for any particular resulting value.
@@ -680,7 +768,7 @@ void LocalPointerTest::TestLocalXyzPointerNull() {
         IcuTestErrorCode errorCode(*this, "TestLocalXyzPointerNull/LocalUCalendarPointer");
         LocalUCalendarPointer null;
         LocalUCalendarPointer cal(ucal_open(NULL, 0, "root", UCAL_GREGORIAN, errorCode));
-        if(!errorCode.logDataIfFailureAndReset("ucal_open()")) {
+        if(!errorCode.errDataIfFailureAndReset("ucal_open()")) {
             cal.adoptInstead(NULL);
         }
     }
@@ -707,7 +795,7 @@ void LocalPointerTest::TestLocalXyzPointerNull() {
         LocalURegularExpressionPointer null;
         LocalURegularExpressionPointer regex(
             uregex_open(pattern.getBuffer(), pattern.length(), 0, NULL, errorCode));
-        if(!errorCode.logDataIfFailureAndReset("urege_open()")) {
+        if(!errorCode.errDataIfFailureAndReset("urege_open()")) {
             regex.adoptInstead(NULL);
         }
     }
@@ -720,7 +808,7 @@ void LocalPointerTest::TestLocalXyzPointerNull() {
         LocalUTransliteratorPointer null;
         LocalUTransliteratorPointer trans(
             utrans_openU(id.getBuffer(), id.length(), UTRANS_FORWARD, NULL, 0, NULL, errorCode));
-        if(!errorCode.logDataIfFailureAndReset("utrans_openU()")) {
+        if(!errorCode.errDataIfFailureAndReset("utrans_openU()")) {
             trans.adoptInstead(NULL);
         }
     }

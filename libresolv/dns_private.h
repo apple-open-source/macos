@@ -1,6 +1,8 @@
 #ifndef __DNS_PRIVATE_H__
 #define __DNS_PRIVATE_H__
 
+#include <dns.h>
+#include <resolv.h>
 #include <sys/cdefs.h>
 
 #define MDNS_HANDLE_NAME "*MDNS*"

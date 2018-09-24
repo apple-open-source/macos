@@ -430,7 +430,7 @@ webkit_web_view_execute_editing_command_with_argument(WebKitWebView             
 WEBKIT_API WebKitFindController *
 webkit_web_view_get_find_controller                  (WebKitWebView             *web_view);
 
-WEBKIT_API JSGlobalContextRef
+WEBKIT_DEPRECATED JSGlobalContextRef
 webkit_web_view_get_javascript_global_context        (WebKitWebView             *web_view);
 
 WEBKIT_API void
@@ -441,6 +441,18 @@ webkit_web_view_run_javascript                       (WebKitWebView             
                                                       gpointer                   user_data);
 WEBKIT_API WebKitJavascriptResult *
 webkit_web_view_run_javascript_finish                (WebKitWebView             *web_view,
+                                                      GAsyncResult              *result,
+                                                      GError                   **error);
+
+WEBKIT_API void
+webkit_web_view_run_javascript_in_world              (WebKitWebView             *web_view,
+                                                      const gchar               *script,
+                                                      const gchar               *world_name,
+                                                      GCancellable              *cancellable,
+                                                      GAsyncReadyCallback        callback,
+                                                      gpointer                   user_data);
+WEBKIT_API WebKitJavascriptResult *
+webkit_web_view_run_javascript_in_world_finish       (WebKitWebView             *web_view,
                                                       GAsyncResult              *result,
                                                       GError                   **error);
 

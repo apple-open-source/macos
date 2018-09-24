@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include "offsets.h"
+
 #if defined(__x86_64__)
 
 #include <mach/i386/syscall_sw.h>
@@ -48,6 +50,51 @@ _thread_start:
 	call   __pthread_start
 	leave
 	ret
+
+	.align 2, 0x90
+	.globl _thread_chkstk_darwin
+_thread_chkstk_darwin:
+	.globl ____chkstk_darwin
+____chkstk_darwin: // %rax == alloca size
+	pushq  %rcx
+	leaq   0x10(%rsp), %rcx
+
+	// validate that the frame pointer is on our stack (no alt stack)
+	cmpq   %rcx, %gs:_PTHREAD_STRUCT_DIRECT_STACKADDR_OFFSET
+	jb     Lprobe
+	cmpq   %rcx, %gs:_PTHREAD_STRUCT_DIRECT_STACKBOTTOM_OFFSET
+	jae    Lprobe
+
+	// validate alloca size
+	subq   %rax, %rcx
+	jb     Lcrash
+	cmpq   %rcx, %gs:_PTHREAD_STRUCT_DIRECT_STACKBOTTOM_OFFSET
+	ja     Lcrash
+
+	popq   %rcx
+	retq
+
+Lprobe:
+	// probe the stack when it's not ours (altstack or some shenanigan)
+	cmpq   $0x1000, %rax
+	jb     Lend
+	pushq  %rax
+Lloop:
+	subq   $0x1000, %rcx
+	testq  %rcx, (%rcx)
+	subq   $0x1000, %rax
+	cmpq   $0x1000, %rax
+	ja     Lloop
+	popq   %rax
+Lend:
+	subq   %rax, %rcx
+	testq  %rcx, (%rcx)
+
+	popq   %rcx
+	retq
+
+Lcrash:
+	ud2
 
 #endif
 
@@ -90,6 +137,56 @@ _thread_start:
 	call   __pthread_start
 	leave
 	ret
+
+	.align 2, 0x90
+	.globl _thread_chkstk_darwin
+_thread_chkstk_darwin:
+	.globl ____chkstk_darwin
+____chkstk_darwin: // %eax == alloca size
+	pushl  %ecx
+	pushl  %edx
+	leal   0xc(%esp), %ecx
+
+	// validate that the frame pointer is on our stack (no alt stack)
+	movl   %gs:0x0, %edx    // pthread_self()
+	cmpl   %ecx, _PTHREAD_STRUCT_DIRECT_STACKADDR_OFFSET(%edx)
+	jb     Lprobe
+	movl   _PTHREAD_STRUCT_DIRECT_STACKBOTTOM_OFFSET(%edx), %edx
+	cmpl   %ecx, %edx
+	jae    Lprobe
+
+	// validate alloca size
+	subl   %eax, %ecx
+	jb     Lcrash
+	cmpl   %ecx, %edx
+	ja     Lcrash
+
+	popl   %edx
+	popl   %ecx
+	retl
+
+Lprobe:
+	// probe the stack when it's not ours (altstack or some shenanigan)
+	cmpl   $0x1000, %eax
+	jb     Lend
+	pushl  %eax
+Lloop:
+	subl   $0x1000, %ecx
+	testl  %ecx, (%ecx)
+	subl   $0x1000, %eax
+	cmpl   $0x1000, %eax
+	ja     Lloop
+	popl   %eax
+Lend:
+	subl   %eax, %ecx
+	testl  %ecx, (%ecx)
+
+	popl   %edx
+	popl   %ecx
+	retl
+
+Lcrash:
+	ud2
 
 #endif
 

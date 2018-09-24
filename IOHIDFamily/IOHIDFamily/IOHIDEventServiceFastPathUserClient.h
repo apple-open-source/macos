@@ -44,6 +44,8 @@ enum IOHIDEventServiceFastPathUserClientCopySpecType {
 #include <IOKit/IOUserClient.h>
 #include "IOHIDEventService.h"
 #include <IOKit/IOCommandGate.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
+
 
 class IOHIDEventServiceQueue;
 
@@ -65,11 +67,12 @@ private:
 
     IOHIDEventService *         _owner;
     void *                      _clientContext;
-    IOHIDEventServiceQueue *    _queue;
+    IOBufferMemoryDescriptor *  _buffer;
     IOCommandGate *             _commandGate;
     volatile uint32_t           _opened;
     IOOptionBits                _options;
     IOLock *                    _lock;
+    bool                        _fastPathEntitlement;
     
     static IOReturn _open (IOHIDEventServiceFastPathUserClient * target, void * reference, IOExternalMethodArguments * arguments);
     static IOReturn _close (IOHIDEventServiceFastPathUserClient *  target, void * reference, IOExternalMethodArguments * arguments);
@@ -106,6 +109,8 @@ protected:
     IOReturn setPropertiesGated (OSObject * properties) ;
     
     void copyPropertyGated (const char * aKey, OSObject **result) const;
+    
+    uint32_t getSharedMemorySize ();
     
 public:
     

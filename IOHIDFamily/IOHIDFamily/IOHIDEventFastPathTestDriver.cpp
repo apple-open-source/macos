@@ -5,11 +5,14 @@
 #include "IOHIDUsageTables.h"
 #include "IOHIDEventServiceFastPathUserClient.h"
 #include "IOHIDEvent.h"
+#include "IOHIDEventData.h"
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
 
-#define KEventCacheSize 20
-#define KFastPathQueueSize 4096
+#define kFastPathRequireEntitlementKey "RequireEntitlement"
+
+#define KFastPathQueueSize (4 * 4096)
+#define KEventCacheSize (KFastPathQueueSize / sizeof (IOHIDKeyboardEventData))
 
 //===========================================================================
 // IOHIDFastClientData class
@@ -121,7 +124,7 @@ void IOHIDEventFastPathDriver::dispatchEvent(IOHIDEvent * event __unused, IOOpti
 //====================================================================================================
 IOHIDEvent * IOHIDEventFastPathDriver::copyEventForClient (OSObject * copySpec, IOOptionBits options, void * clientContext)
 {
-    HIDLogDebug ("IOHIDEventFastPathDriver::copyEventForClient (0x%lx,0x%x,0x%lx)", (uintptr_t)copySpec, options, (uintptr_t)clientContext);
+    HIDLogDebug ("IOHIDEventFastPathDriver::copyEventForClient (0x%lx,0x%x,0x%lx)", (uintptr_t)copySpec, (unsigned int)options, (uintptr_t)clientContext);
     
     IOHIDFastClientData * clientData = (IOHIDFastClientData*) clientContext;
     
@@ -148,6 +151,7 @@ IOHIDEvent * IOHIDEventFastPathDriver::copyEventForClient (OSObject * copySpec, 
 
     OSArray * events = clientData->getEventCache();
 
+    HIDLogDebug ("IOHIDEventFastPathDriver copy:%d cache:%d", copyCount, events->getCount());
 
     int start = 0;
     int end   = copyCount < events->getCount () ? copyCount : events->getCount();
@@ -174,6 +178,10 @@ IOHIDEvent * IOHIDEventFastPathDriver::copyEventForClient (OSObject * copySpec, 
         event = (IOHIDEvent*)events->getObject(index);
         event->retain();
     }
+    
+    if (collection) {
+        HIDLogDebug ("IOHIDEventFastPathDriver collection:%u", (unsigned int)collection->getLength());
+    }
     return collection ? collection : event;
 }
 
@@ -185,14 +193,16 @@ OSObject *  IOHIDEventFastPathDriver::copyPropertyForClient (const char * aKey, 
     HIDLogDebug("IOHIDEventFastPathDriver::copyPropertyForClient(%s,%lx)", aKey ? aKey : "null", (uintptr_t)clientContext);
     IOHIDFastClientData *clientData = (IOHIDFastClientData*) clientContext;
     
-    if (aKey && !strcmp(aKey, kIOHIDEventServiceQueueSize)) {
-        return OSNumber::withNumber(KFastPathQueueSize, 32);
-    }
     
     OSObject * value =  clientData->getPropertyCache()->getObject(aKey);
     if (value) {
         value->retain();
     }
+
+    if (!value && aKey && !strcmp(aKey, kIOHIDEventServiceQueueSize)) {
+        return OSNumber::withNumber(KFastPathQueueSize, 32);
+    }
+
     return value;
 }
 
@@ -217,12 +227,24 @@ bool  IOHIDEventFastPathDriver::openForClient (IOService * client, IOOptionBits 
 {
     bool                    result;
     IOHIDFastClientData     * clientData = NULL;
+    OSBoolean               * hasEntitlement;
+    OSBoolean               * requiresEntitlement;
     
     result = super::open(client, options, NULL, NULL);
     require (result, exit);
+
+    require_action(property, exit, result = false);
+
+    hasEntitlement = (OSBoolean *)property->getObject(kIOHIDFastPathHasEntitlementKey);
+
+    requiresEntitlement = (OSBoolean *)property->getObject(kFastPathRequireEntitlementKey);
+
+    if (requiresEntitlement == kOSBooleanTrue) {
+        require_action(hasEntitlement == kOSBooleanTrue, exit, result = false);
+    }
     
     clientData = IOHIDFastClientData::withClientInfo(client);
-    require (clientData, exit);
+    require_action(clientData, exit, result = false);
 
     *clientContext = (void *) clientData;
 
@@ -236,7 +258,7 @@ bool  IOHIDEventFastPathDriver::openForClient (IOService * client, IOOptionBits 
 
 exit:
 
-    HIDLogDebug ("IOHIDEventFastPathDriver::openForClient(%lx,%x,%lx,%lx) = %d", (uintptr_t)client, options, (uintptr_t)property, (uintptr_t)clientData, result);
+    HIDLogDebug ("IOHIDEventFastPathDriver::openForClient(%lx,%x,%lx,%lx) = %d", (uintptr_t)client, (unsigned int)options, (uintptr_t)property, (uintptr_t)clientData, result);
    
     if (!result) {
         super::close (client, options);
@@ -249,7 +271,7 @@ exit:
 //====================================================================================================
 void IOHIDEventFastPathDriver::closeForClient(IOService *client, void *context, IOOptionBits options) {
     
-    HIDLogDebug ("IOHIDEventFastPathDriver::closeForClient(%lx,%x,%lx)", (uintptr_t)client, options, (uintptr_t)context);
+    HIDLogDebug ("IOHIDEventFastPathDriver::closeForClient(%lx,%x,%lx)", (uintptr_t)client, (unsigned int)options, (uintptr_t)context);
     
     fastClients->removeObject((const OSSymbol *)client);
 

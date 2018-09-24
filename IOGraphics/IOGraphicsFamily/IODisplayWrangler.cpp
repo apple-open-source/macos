@@ -500,6 +500,8 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
 
 IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOService * whatDevice )
 {
+    IOG_KTRACE_LOG_SYNCH(DBG_IOG_LOG_SYNCH);
+
     IOG_KTRACE(DBG_IOG_SET_POWER_STATE,
                DBG_FUNC_NONE,
                kGMETRICS_DOMAIN_DISPLAYWRANGLER
@@ -686,6 +688,7 @@ bool IODisplayWrangler::activityTickle( unsigned long x, unsigned long y )
         return (true);
     }
 
+
     AbsoluteTime_to_scalar(&now) = mach_absolute_time();
     if (AbsoluteTime_to_scalar(&fIdleUntil))
     {
@@ -750,6 +753,36 @@ OSObject * IODisplayWrangler::copyProperty( const char * aKey ) const
     return (obj);
 }
 
+// Called from IOFramebuffer
+/* static */ void IODisplayWrangler::forceIdle()
+{
+    if (gIODisplayWrangler)
+        gIODisplayWrangler->forceIdleImpl();
+}
+
+void IODisplayWrangler::forceIdleImpl()
+{
+    // Force idle for idleFor time
+    const auto currentPower = getPowerState();
+    char procName[32]; proc_selfname(procName, sizeof(procName));
+    DEBG1("W", " forceIdle by process '%s' from %d\n", procName, currentPower);
+    IOLog("DW forceIdle by process '%s' from %d\n", procName, currentPower);
+
+    if (currentPower > 1) {
+        IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
+                   DBG_FUNC_NONE,
+                   kGMETRICS_DOMAIN_DISPLAYWRANGLER
+                       | kGMETRICS_DOMAIN_POWER
+                       | kGMETRICS_DOMAIN_DOZE,
+                   DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+                   0, 1,
+                   0, 0,
+                   0, 0);
+
+        changePowerStateToPriv(1);
+    }
+}
+
 IOReturn IODisplayWrangler::setProperties( OSObject * properties )
 {
     IODW_START(setProperties,0,0,0);
@@ -758,9 +791,8 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
     OSDictionary * prefs;
     OSObject *     obj;
     OSNumber *     num;
-    uint32_t       idleFor = 0;
-    enum { kIODisplayRequestDefaultIdleFor = 1000,
-            kIODisplayRequestMaxIdleFor    = 15000 };
+    enum { kIODisplayRequestDefaultIdleFor =  1000,
+           kIODisplayRequestMaxIdleFor     = 15000, };
 
     if (!(dict = OSDynamicCast(OSDictionary, properties)))
     {
@@ -776,74 +808,30 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
         return (err);
     }
 
+
+    uint32_t idleFor = 0;
     obj = dict->getObject(kIORequestIdleKey);
-    if (kOSBooleanTrue == obj)
-    {
+    if (kOSBooleanTrue == obj) {
         idleFor = kIODisplayRequestDefaultIdleFor;
     }
-    else if (kOSBooleanFalse == obj)
-    {
+    else if (kOSBooleanFalse == obj) {
+        // Clear idle and wake everything up
         AbsoluteTime_to_scalar(&fIdleUntil) = 0;
         activityTickle(0, 0);
     }
-    else if ((num = OSDynamicCast(OSNumber, obj)))
-    {
+    else if ((num = OSDynamicCast(OSNumber, obj))) {
         idleFor = num->unsigned32BitValue();
         if (idleFor > kIODisplayRequestMaxIdleFor)
             idleFor = kIODisplayRequestMaxIdleFor;
     }
 
-    if (idleFor)
-    {
-        const auto currentPower = getPowerState();
-        char procName[32]; proc_selfname(procName, sizeof(procName));
-
-        DEBG1("W", " requested idleFor %s%dms by process '%s' from %d\n",
-              (2 == gIODisplayFadeStyle)? "with fade " : "",
-              idleFor, procName, currentPower);
-        IOLog("DW forced idle %sfor %dms by process '%s' from %d\n",
-              (2 == gIODisplayFadeStyle)? "with fade " : "",
-              idleFor, procName, currentPower);
+    if (idleFor) {
         clock_interval_to_deadline(idleFor, kMillisecondScale, &fIdleUntil);
-		if (2 == gIODisplayFadeStyle)
-		{
-			if (currentPower > 3)
-			{
-                IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
-                           DBG_FUNC_NONE,
-                           kGMETRICS_DOMAIN_DISPLAYWRANGLER
-                               | kGMETRICS_DOMAIN_POWER,
-                           DBG_IOG_SOURCE_IODISPLAYWRANGLER,
-                           0, 3,
-                           0, 0,
-                           0, 0);
-
-                changePowerStateToPriv(3);
-
-                IOG_KTRACE(DBG_IOG_SET_TIMER_PERIOD,
-                           DBG_FUNC_NONE,
-                           0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
-                           0, 60,
-                           0, 0,
-                           0, 0);
-
-				setIdleTimerPeriod(60);
-			}
-		}
-		else if (currentPower > 1)
-        {
-            IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
-                       DBG_FUNC_NONE,
-                       kGMETRICS_DOMAIN_DISPLAYWRANGLER
-                           | kGMETRICS_DOMAIN_POWER
-                           | kGMETRICS_DOMAIN_DOZE,
-                       DBG_IOG_SOURCE_IODISPLAYWRANGLER,
-                       0, 1,
-                       0, 0,
-                       0, 0);
-
-            changePowerStateToPriv(1);
-        }
+        DEBG1("W", " requested idleFor %dms\n", idleFor);
+        forceIdleImpl();
+    } else {
+        IOLog("DW Unknown or zero idle property value, no forceIdle\n");
+        DEBG1("W", " Unknown or zero idle property value, no forceIdle\n");
     }
 
     IODW_END(setProperties,kIOReturnSuccess,0,0);

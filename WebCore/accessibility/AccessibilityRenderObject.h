@@ -52,7 +52,7 @@ class RenderView;
 class VisibleSelection;
 class Widget;
     
-class AccessibilityRenderObject : public AccessibilityNodeObject {
+class AccessibilityRenderObject : public AccessibilityNodeObject, public CanMakeWeakPtr<AccessibilityRenderObject> {
 public:
     static Ref<AccessibilityRenderObject> create(RenderObject*);
     virtual ~AccessibilityRenderObject();
@@ -200,8 +200,6 @@ public:
     AccessibilityRole roleValueForMSAA() const override;
 
     String passwordFieldValue() const override;
-    
-    WeakPtr<AccessibilityRenderObject> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(*this); }
 
 protected:
     explicit AccessibilityRenderObject(RenderObject*);
@@ -220,7 +218,6 @@ protected:
     WeakPtr<RenderObject> m_renderer;
 
 private:
-    WeakPtrFactory<AccessibilityRenderObject> m_weakPtrFactory;
     bool isAccessibilityRenderObject() const final { return true; }
     void ariaListboxSelectedChildren(AccessibilityChildrenVector&);
     void ariaListboxVisibleChildren(AccessibilityChildrenVector&);
@@ -274,7 +271,7 @@ private:
     bool elementAttributeValue(const QualifiedName&) const;
     void setElementAttributeValue(const QualifiedName&, bool);
     
-    ESpeak speakProperty() const override;
+    OptionSet<SpeakAs> speakAsProperty() const override;
     
     const String liveRegionStatus() const override;
     const String liveRegionRelevant() const override;
@@ -285,6 +282,7 @@ private:
 
     bool shouldGetTextFromNode(AccessibilityTextUnderElementMode) const;
 
+    RenderObject* targetElementForActiveDescendant(const QualifiedName&, AccessibilityObject*) const;
     bool canHavePlainText() const;
 };
 

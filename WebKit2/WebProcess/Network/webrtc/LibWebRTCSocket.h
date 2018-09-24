@@ -28,7 +28,7 @@
 #if USE(LIBWEBRTC)
 
 #include <WebCore/LibWebRTCProvider.h>
-#include <webrtc/base/asyncpacketsocket.h>
+#include <webrtc/rtc_base/asyncpacketsocket.h>
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
 
@@ -93,7 +93,7 @@ private:
     State m_state { STATE_BINDING };
 
     static const unsigned MAX_SOCKET_OPTION { rtc::Socket::OPT_RTP_SENDTIME_EXTN_ID + 1 };
-    int m_options[MAX_SOCKET_OPTION];
+    std::optional<int> m_options[MAX_SOCKET_OPTION];
 
     Deque<size_t> m_beingSentPacketSizes;
     size_t m_availableSendingBytes { 65536 };

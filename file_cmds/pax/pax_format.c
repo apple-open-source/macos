@@ -944,6 +944,10 @@ pax_rd(ARCHD *arcn, char *buf)
 	arcn->sb.st_size = (off_t)asc_ul(hd->size, sizeof(hd->size), OCT);
 #else
 	arcn->sb.st_size = (off_t)asc_uqd(hd->size, sizeof(hd->size), OCT);
+	/* When we have extended header for size, prefer it over hd->size */
+	if (size_x_current) {
+		sscanf(size_x_current, "%lld", &arcn->sb.st_size);
+	}
 #endif
 	arcn->sb.st_mtime = (time_t)asc_ul(hd->mtime, sizeof(hd->mtime), OCT);
 	if (arcn->sb.st_atimespec.tv_sec == 0) { // Can be set from header
@@ -1315,6 +1319,9 @@ pax_wr(ARCHD *arcn)
 	mode_t mode12only;
 	int term_char=3;	/* orignal setting */
 	term_char=1;		/* To pass conformance tests 274, 301 */
+	const char *size_header_name = "size";
+	char size_value[100];
+	bzero(size_value, sizeof(size_value));
 
 	/*
 	 * check for those file system types pax cannot store
@@ -1444,8 +1451,21 @@ pax_wr(ARCHD *arcn)
 		if (uqd_oct((u_quad_t)arcn->sb.st_size, hd->size,
 		    sizeof(hd->size), term_char)) {
 #		endif
-			paxwarn(1,"File is too long for pax %s",arcn->org_name);
-			return(1);
+			/*
+			 * Insert an extended header for size=<arcn->sb.st_size> since
+			 * octal range of 12 byte string cannot fit > 8GiB files in header.
+			 * This fixes Conformance test pax.343
+			 */
+			int i;
+			snprintf(size_value, sizeof(size_value), "%lld", arcn->sb.st_size);
+			for (i = 0; i < sizeof(o_option_table)/sizeof(O_OPTION_TYPE); i++) {
+				if (strncasecmp(size_header_name, o_option_table[i].name, o_option_table[i].len) == 0) {
+					size_x = size_value;
+					ext_header_entry[ext_header_inx++] = i;
+				}
+			}
+			generate_pax_ext_header_and_data(arcn, ext_header_inx, &ext_header_entry[0],
+							 PAXXTYPE, header_name_x, header_name_x_requested);
 		}
 		break;
 	}

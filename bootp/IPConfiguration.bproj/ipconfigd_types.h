@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -200,6 +200,7 @@ typedef struct {
     const struct in6_addr *	dns_servers;
     int				dns_servers_count;
     CFArrayRef			dns_search_domains;
+    struct in_addr		clat46_address;
 } dhcpv6_info_t;
 
 typedef struct {

@@ -34,6 +34,7 @@
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ckks/CKKSCKAccountStateTracker.h"
 #import "keychain/ckks/CKKSAnalytics.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 @interface CKKSCKAccountStateTracker ()
 @property (readonly) Class<CKKSNSNotificationCenter> nsnotificationCenterClass;
@@ -59,7 +60,7 @@
         _nsnotificationCenterClass = nsnotificationCenterClass;
         _changeListeners = [NSMapTable strongToWeakObjectsMapTable]; // Backwards from how we'd like, but it's the best way to have weak pointers to CKKSAccountStateListener.
         _currentCKAccountInfo = nil;
-        _currentCircleStatus = kSOSCCError;
+        _currentCircleStatus = [[SOSAccountStatus alloc] init:kSOSCCError error:nil];
 
         _currentComputedAccountStatus = CKKSAccountStatusUnknown;
         _currentComputedAccountStatusValid = [[CKKSCondition alloc] init];
@@ -114,7 +115,7 @@
               selfString,
               [self currentStatus],
               self.currentCKAccountInfo,
-              SOSCCGetStatusDescription(self.currentCircleStatus),
+              self.currentCircleStatus,
             self.currentAccountError ?: @""];
 }
 
@@ -197,7 +198,7 @@
 -(dispatch_semaphore_t)notifyCircleChange:(__unused id)object {
     dispatch_semaphore_t finishedSema = dispatch_semaphore_create(0);
 
-    SOSCCStatus circleStatus = [CKKSCKAccountStateTracker getCircleStatus];
+    SOSAccountStatus* circleStatus = [CKKSCKAccountStateTracker getCircleStatus];
     dispatch_sync(self.queue, ^{
         self.firstSOSCircleFetch = true;
 
@@ -260,12 +261,12 @@
 }
 
 // Takes the new ckAccountInfo we're moving to
--(void)_onqueueUpdateCirclePeerID: (SOSCCStatus)sosccstatus {
+-(void)_onqueueUpdateCirclePeerID: (SOSAccountStatus*)sosstatus {
     dispatch_assert_queue(self.queue);
     __weak __typeof(self) weakSelf = self;
 
     // If we're in a circle, fetch the peer id
-    if(sosccstatus == kSOSCCInCircle) {
+    if(sosstatus.status == kSOSCCInCircle) {
         [CKKSCKAccountStateTracker fetchCirclePeerID:^(NSString* peerID, NSError* error) {
             __strong __typeof(self) strongSelf = weakSelf;
             if(!strongSelf) {
@@ -276,7 +277,7 @@
             dispatch_async(strongSelf.queue, ^{
                 __strong __typeof(self) innerstrongSelf = weakSelf;
 
-                if(innerstrongSelf.currentCircleStatus == kSOSCCInCircle) {
+                if(innerstrongSelf.currentCircleStatus && innerstrongSelf.currentCircleStatus.status == kSOSCCInCircle) {
                     secnotice("ckksaccount", "Circle peerID is: %@ %@", peerID, error);
                     // Still in circle. Proceed.
                     innerstrongSelf.accountCirclePeerID = peerID;
@@ -293,7 +294,7 @@
         }];
     } else {
         // Not in-circle, reset circle ID
-        secnotice("ckksaccount", "out of circle(%d): resetting peer ID", sosccstatus);
+        secnotice("ckksaccount", "out of circle(%@): resetting peer ID", sosstatus);
         self.accountCirclePeerID = nil;
         self.accountCirclePeerIDError = nil;
         self.accountCirclePeerIDInitialized = [[CKKSCondition alloc] init];
@@ -339,7 +340,7 @@
         return false;
     }
 
-    if(self.currentCircleStatus != kSOSCCInCircle) {
+    if(self.currentCircleStatus.status != kSOSCCInCircle) {
         if(error) {
             *error = [NSError errorWithDomain:(__bridge NSString*)kSOSErrorDomain
                                          code:kSOSErrorNotInCircle
@@ -351,12 +352,12 @@
     return true;
 }
 
--(void)_onqueueUpdateAccountState:(CKAccountInfo*)ckAccountInfo circle:(SOSCCStatus)sosccstatus deliveredSemaphore:(dispatch_semaphore_t)finishedSema {
+-(void)_onqueueUpdateAccountState:(CKAccountInfo*)ckAccountInfo circle:(SOSAccountStatus*)sosstatus deliveredSemaphore:(dispatch_semaphore_t)finishedSema {
     dispatch_assert_queue(self.queue);
 
-    if([self.currentCKAccountInfo isEqual: ckAccountInfo] && self.currentCircleStatus == sosccstatus) {
+    if([self.currentCKAccountInfo isEqual: ckAccountInfo] && self.currentCircleStatus.status == sosstatus.status) {
         // no-op.
-        secinfo("ckksaccount", "received another notification of CK Account State %@ and Circle status %d", ckAccountInfo, (int)sosccstatus);
+        secinfo("ckksaccount", "received another notification of CK Account State %@ and Circle status %d", ckAccountInfo, (int)sosstatus);
         dispatch_semaphore_signal(finishedSema);
         return;
     }
@@ -367,17 +368,26 @@
 
         [self _onqueueUpdateCKDeviceID: ckAccountInfo];
     }
-    if(self.currentCircleStatus != sosccstatus) {
-        secnotice("ckksaccount", "moving to circle status: %@", SOSCCGetStatusDescription(sosccstatus));
-        self.currentCircleStatus = sosccstatus;
-        if (sosccstatus == kSOSCCInCircle) {
+    if(self.currentCircleStatus.status != sosstatus.status) {
+        secnotice("ckksaccount", "moving to circle status: %@", sosstatus);
+        self.currentCircleStatus = sosstatus;
+        if (sosstatus.status == kSOSCCInCircle) {
             [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastInCircle];
         }
-        [self _onqueueUpdateCirclePeerID: sosccstatus];
+        [self _onqueueUpdateCirclePeerID: sosstatus];
     }
 
     if(!self.firstSOSCircleFetch || !self.firstCKAccountFetch) {
         secnotice("ckksaccount", "Haven't received updates from all sources; not passing update along: %@", self);
+        dispatch_semaphore_signal(finishedSema);
+        return;
+    }
+
+    if(self.currentCircleStatus.status == kSOSCCError &&
+       [self.currentCircleStatus.error.domain isEqualToString:(__bridge id)kSOSErrorDomain] &&
+       self.currentCircleStatus.error.code == kSOSErrorNotReady &&
+       self.currentComputedAccountStatus == CKKSAccountStatusUnknown) {
+        secnotice("ckksaccount", "Device not unlocked yet; can't determine account status. Not passing update along: %@", self);
         dispatch_semaphore_signal(finishedSema);
         return;
     }
@@ -398,7 +408,7 @@
         secnotice("ckksaccount", "No change in computed account status: %@ (%@ %@)",
                   [self currentStatus],
                   self.currentCKAccountInfo,
-                  SOSCCGetStatusDescription(self.currentCircleStatus));
+                  self.currentCircleStatus);
         dispatch_semaphore_signal(finishedSema);
         return;
     }
@@ -406,7 +416,7 @@
     secnotice("ckksaccount", "New computed account status: %@ (%@ %@)",
               [self currentStatus],
               self.currentCKAccountInfo,
-              SOSCCGetStatusDescription(self.currentCircleStatus));
+              self.currentCircleStatus);
 
     [self _onqueueDeliverStateChanges:oldComputedStatus deliveredSemaphore:finishedSema];
 }
@@ -484,16 +494,16 @@
 }
 
 // This is its own function to allow OCMock to swoop in and replace the result during testing.
-+(SOSCCStatus)getCircleStatus {
++ (SOSAccountStatus*)getCircleStatus {
     CFErrorRef cferror = NULL;
 
     SOSCCStatus status = SOSCCThisDeviceIsInCircle(&cferror);
     if(cferror) {
         secerror("ckksaccount: error getting circle status: %@", cferror);
-        CFReleaseNull(cferror);
-        return kSOSCCError;
+        return [[SOSAccountStatus alloc] init:kSOSCCError error:CFBridgingRelease(cferror)];
     }
-    return status;
+
+    return [[SOSAccountStatus alloc] init:status error:nil];
 }
 
 -(NSString*)currentStatus {
@@ -508,6 +518,22 @@
     }
 }
 
+@end
+
+@implementation SOSAccountStatus
+- (instancetype)init:(SOSCCStatus)status error:(NSError*)error
+{
+    if((self = [super init])) {
+        _status = status;
+        _error = error;
+    }
+    return self;
+}
+
+- (NSString*)description
+{
+    return [NSString stringWithFormat:@"<SOSStatus: %@ (%@)>", SOSCCGetStatusDescription(self.status), self.error];
+}
 @end
 
 #endif // OCTAGON

@@ -340,6 +340,9 @@
 		72E61F3B1BFE7C6100183C11 /* kextfind in CopyFiles */ = {isa = PBXBuildFile; fileRef = 05762AC009D0B98500EC18C1 /* kextfind */; };
 		72F3A30C1713949D00594E83 /* com.apple.logkextloadsd.plist in Copy launchd plist */ = {isa = PBXBuildFile; fileRef = 72CEFE13170F871E00A7EAC3 /* com.apple.logkextloadsd.plist */; };
 		72F3A30D1713950900594E83 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
+		A620205C20BD0CEF00D24B46 /* signposts.m in Sources */ = {isa = PBXBuildFile; fileRef = A620205A20BD0C6800D24B46 /* signposts.m */; };
+		A620205D20BD0D2200D24B46 /* signposts.m in Sources */ = {isa = PBXBuildFile; fileRef = A620205A20BD0C6800D24B46 /* signposts.m */; };
+		A620205E20BD167B00D24B46 /* signposts.m in Sources */ = {isa = PBXBuildFile; fileRef = A620205A20BD0C6800D24B46 /* signposts.m */; };
 		A6438BB81E6A719900E12806 /* staging.m in Sources */ = {isa = PBXBuildFile; fileRef = A65EA4661E57C5A000B49C4E /* staging.m */; };
 		A65EA4671E57CB0700B49C4E /* staging.m in Sources */ = {isa = PBXBuildFile; fileRef = A65EA4661E57C5A000B49C4E /* staging.m */; };
 		A66AD2EE1E80CE5000B2EEC9 /* staging.m in Sources */ = {isa = PBXBuildFile; fileRef = A65EA4661E57C5A000B49C4E /* staging.m */; };
@@ -895,6 +898,8 @@
 		72D82259170F850300F16618 /* logkextloadsd_main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = logkextloadsd_main.c; sourceTree = SOURCE_ROOT; };
 		72D8225B170F850300F16618 /* logkextloadsd.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = logkextloadsd.8; sourceTree = "<group>"; };
 		72F4D6E31AE576FF00EFAFBA /* kextstat-entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "kextstat-entitlements.plist"; sourceTree = "<group>"; };
+		A620205920BD0C5C00D24B46 /* signposts.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = signposts.h; sourceTree = "<group>"; };
+		A620205A20BD0C6800D24B46 /* signposts.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = signposts.m; sourceTree = "<group>"; };
 		A65EA4651E57C58600B49C4E /* staging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = staging.h; sourceTree = "<group>"; };
 		A65EA4661E57C5A000B49C4E /* staging.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = staging.m; sourceTree = "<group>"; };
 		A66AD2E81E80CCBD00B2EEC9 /* kext_tools.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = kext_tools.plist; path = tests/kext_tools.plist; sourceTree = "<group>"; };
@@ -1412,21 +1417,23 @@
 		24C462410DBE942B00E11943 /* shared source */ = {
 			isa = PBXGroup;
 			children = (
+				2401C8760E0978C700500BEE /* compression.h */,
+				14DA20A701EE680802CA2A87 /* compression.c */,
+				24A1ACD40DD6E3FB00B6E4A0 /* fork_program.h */,
+				24A1ACD50DD6E3FB00B6E4A0 /* fork_program.c */,
 				24F041720DC2906D001CFC70 /* kext_tools_util.h */,
 				24F041730DC2906D001CFC70 /* kext_tools_util.c */,
 				24B79F8A125A6B2D009FF51B /* kernelcache.h */,
 				24B79F8B125A6B2D009FF51B /* kernelcache.c */,
-				24A1ACD40DD6E3FB00B6E4A0 /* fork_program.h */,
-				24A1ACD50DD6E3FB00B6E4A0 /* fork_program.c */,
-				2401C8760E0978C700500BEE /* compression.h */,
-				14DA20A701EE680802CA2A87 /* compression.c */,
+				3667FED52040E50200E3DE5F /* kextaudit.c */,
 				728BAE22167F7CD0004193C6 /* security.h */,
 				728BAE1E167F7C97004193C6 /* security.c */,
+				A620205920BD0C5C00D24B46 /* signposts.h */,
+				A620205A20BD0C6800D24B46 /* signposts.m */,
 				A65EA4651E57C58600B49C4E /* staging.h */,
 				A65EA4661E57C5A000B49C4E /* staging.m */,
-				A6D698151E56AAAA0050FC06 /* syspolicy.m */,
 				A6D698171E56AAB70050FC06 /* syspolicy.h */,
-				3667FED52040E50200E3DE5F /* kextaudit.c */,
+				A6D698151E56AAAA0050FC06 /* syspolicy.m */,
 			);
 			name = "shared source";
 			sourceTree = "<group>";
@@ -1928,6 +1935,7 @@
 				24162D690E6600B400ACEA84 /* mkext1_file.c in Sources */,
 				0C3171710AB0E82000B8CA9A /* safecalls.c in Sources */,
 				249EA5C90DE9108300765DFF /* kext_tools_util.c in Sources */,
+				A620205C20BD0CEF00D24B46 /* signposts.m in Sources */,
 				24162D750E6602AB00ACEA84 /* fork_program.c in Sources */,
 				24B79F8F125A6B2D009FF51B /* kernelcache.c in Sources */,
 				728BAE1F167F7C97004193C6 /* security.c in Sources */,
@@ -1954,6 +1962,7 @@
 				0C3171730AB0E82000B8CA9A /* safecalls.c in Sources */,
 				05097292094910D30034B52C /* kextmanager.defs in Sources */,
 				0CF69C540C8CC127007E76E8 /* kextmanager_async.defs in Sources */,
+				A620205D20BD0D2200D24B46 /* signposts.m in Sources */,
 				24F65A0F0D94896F00D1C132 /* kextd_mach.defs in Sources */,
 				2495232A0F0076BE00F5BB3B /* kextd_usernotification.c in Sources */,
 				728BAE20167F7C97004193C6 /* security.c in Sources */,
@@ -2053,6 +2062,7 @@
 				A6D6981A1E56B2730050FC06 /* syspolicy.m in Sources */,
 				24640A410EC58022000D6238 /* kextload_main.c in Sources */,
 				24C4E5810DD3EC9300A70AB5 /* kext_tools_util.c in Sources */,
+				A620205E20BD167B00D24B46 /* signposts.m in Sources */,
 				3667FED72040E50200E3DE5F /* kextaudit.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

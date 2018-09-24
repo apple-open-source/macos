@@ -800,12 +800,6 @@ bool AppleBacklightDisplay::updatePowerParam(void)
 	SInt32 		   value, current;
 	bool	       ret;
 
-#if DEBUG
-    IOLog("brightness[%d,%d] %d\n", (int) fCurrentPowerState, (int) gIOFBLastClamshellState, (int) value);
-    if (!getControllerWorkLoop()->inGate())
-        OSReportWithBacktrace("AppleBacklightDisplay::updatePowerParam !inGate\n");
-#endif
-
 	DEBG1("B", " fProviderPower %d, fClamshellSlept %d, fCurrentPowerState %d\n", 
 			fProviderPower, fClamshellSlept, fCurrentPowerState);
 
@@ -887,9 +881,9 @@ void AppleBacklightDisplay::_deferredEvent( OSObject * target,
         IOInterruptEventSource * evtSrc, int intCount )
 {
     ABL_START(_deferredEvent,intCount,0,0);
-    AppleBacklightDisplay * self = (AppleBacklightDisplay *) target;
+    AppleBacklightDisplay * abd = (AppleBacklightDisplay *) target;
 
-	self->updatePowerParam();
+	abd->updatePowerParam();
     ABL_END(_deferredEvent,0,0,0);
 }
 

@@ -62,5 +62,11 @@
 	<array>
 		<string>securityd</string>
 	</array>
+	<key>com.apple.private.sqlite.sqlite-encryption</key>
+	<true/>
+	<key>com.apple.accounts.appleaccount.fullaccess</key>
+	<true/>
+	<key>com.apple.authkit.client.private</key>
+	<true/>
 </dict>
 </plist>

@@ -30,7 +30,7 @@
 static int kTestTestCount = 1;
 static void tests(void)
 {
-    CFStringRef osVersion = CopyOSVersion();
+    CFStringRef osVersion = SOSCCCopyOSVersion();
 
     ok(osVersion != NULL, "OS Version Exists");
 

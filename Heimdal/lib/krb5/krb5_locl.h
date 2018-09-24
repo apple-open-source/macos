@@ -169,7 +169,7 @@ struct sockaddr_dl;
 #include <xpc/xpc.h>
 #if !TARGET_OS_SIMULATOR
 #include <NEHelperClient.h>
-#include <network/private.h>
+#include <nw/private.h>
 #include <ne_session.h>
 #endif /* !TARGET_OS_SIMULATOR */
 
@@ -416,7 +416,7 @@ struct srv_reply {
     uint16_t priority;
     int32_t weight;
     struct _krb5_srv_query_ctx *query;
-    heim_sema_t sema;
+    heim_sema_t hostsema;
     DNSServiceRef srv_sd;
     char *hostname;
     krb5_krbhst_info *hostinfo;

@@ -35,6 +35,9 @@
  * SUCH DAMAGE.
  */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)glob.c	8.3 (Berkeley) 10/13/93";
 #endif /* LIBC_SCCS and not lint */
@@ -1171,3 +1174,4 @@ qprintf(const char *str, Char *s)
 	}
 }
 #endif
+#pragma clang diagnostic pop

@@ -30,7 +30,7 @@
 
 #import "DownloadProxy.h"
 #import "WKWebViewInternal.h"
-#import "WeakObjCPtr.h"
+#import <wtf/WeakObjCPtr.h>
 
 @implementation _WKDownload {
     API::ObjectStorage<WebKit::DownloadProxy> _download;
@@ -50,7 +50,7 @@
 
 - (NSURLRequest *)request
 {
-    return _download->request().nsURLRequest(WebCore::DoNotUpdateHTTPBody);
+    return _download->request().nsURLRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody);
 }
 
 - (WKWebView *)originatingWebView
@@ -67,6 +67,11 @@
     for (const auto& redirectURL : redirectURLs)
         [nsURLs addObject:(NSURL *)redirectURL];
     return nsURLs;
+}
+
+- (BOOL)wasUserInitiated
+{
+    return _download->wasUserInitiated();
 }
 
 #pragma mark WKObject protocol implementation

@@ -256,7 +256,6 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 struct IOHIDReportHandler
 {
     IOHIDElementPrivate * head[kIOHIDReportTypeCount];
-    boolean_t             variableSizeReport[kIOHIDReportTypeCount];
 };
 
 #define GetHeadElement(slot, type)  _reportHandlers[slot].head[type]
@@ -1382,6 +1381,31 @@ bool IOHIDDevice::setReportSize( UInt8           reportID,
 {
     IOHIDElementPrivate * element;
     bool           ret = false;
+    UInt8          variableReportSizeInfo = 0;
+    
+    
+    if (reportType == kIOHIDReportTypeInput || reportType == kIOHIDReportTypeFeature) {
+        for (unsigned int index = 0; index < _elementArray->getCount(); index++) {
+            element = (IOHIDElementPrivate*) _elementArray->getObject(index);
+            IOHIDReportType elementReportType;
+            if (element->getReportID() == reportID && element->getReportType(&elementReportType) && elementReportType == reportType && element->isVariableSize()) {
+                
+                variableReportSizeInfo |= kIOHIDElementVariableSizeReport;
+
+                if (reportType == kIOHIDReportTypeInput) {
+                    for (unsigned int inputReport = 0; inputReport < _inputInterruptElementArray->getCount(); inputReport++) {
+                        element = (IOHIDElementPrivate*) _inputInterruptElementArray->getObject(inputReport);
+                        if (element->getReportID() == reportID) {
+                            element->setVariableSizeInfo (kIOHIDElementVariableSizeElement | kIOHIDElementVariableSizeReport);
+                            break;
+                        }
+                    }
+                }
+                
+                break;
+            }
+        }
+    }
 
     element = GetHeadElement( GetReportHandlerSlot(reportID), reportType );
 
@@ -1389,7 +1413,8 @@ bool IOHIDDevice::setReportSize( UInt8           reportID,
     {
         if ( element->getReportID() == reportID )
         {
-            element->setReportSize( numberOfBits );
+            element->setVariableSizeInfo (element->getVariableSizeInfo () | variableReportSizeInfo);
+            element->setReportSize (numberOfBits);
             ret = true;
             break;
         }
@@ -1685,11 +1710,6 @@ bool IOHIDDevice::registerElement( IOHIDElementPrivate * element,
         }
       
         reportHandler->head[reportType] = element;
-      
-        if (element->isVariableSize())
-        {
-            reportHandler->variableSizeReport[reportType] = true;
-        }
       
         if ( element->getUsagePage() == kHIDPage_KeyboardOrKeypad )
         {
@@ -2209,7 +2229,7 @@ IOReturn IOHIDDevice::handleReportWithTime(
                                                (UInt32)reportLength << 3,
                                                &timeStamp,
                                                &element,
-                                               reportHandler->variableSizeReport[reportType] ? (options | kIOHIDReportOptionVariableSize) : options
+                                               options
                                                );
         }
 

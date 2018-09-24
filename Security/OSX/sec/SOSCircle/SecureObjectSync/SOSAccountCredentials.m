@@ -392,7 +392,7 @@ fail:
 
 
 
-bool SOSAccountAssertUserCredentials(SOSAccount* account, CFStringRef user_account __unused, CFDataRef user_password, CFErrorRef *error)
+bool SOSAccountAssertUserCredentials(SOSAccount* account, CFStringRef user_account, CFDataRef user_password, CFErrorRef *error)
 {
     bool public_was_trusted = account.accountKeyIsTrusted;
     account.accountKeyIsTrusted = false;
@@ -423,6 +423,7 @@ bool SOSAccountAssertUserCredentials(SOSAccount* account, CFStringRef user_accou
     CFReleaseNull(publishError);
 recordCred:
     SOSAccountStashAccountKey(account);
+    SOSAccountSetValue(account, kSOSAccountName, user_account, NULL);
 errOut:
     CFReleaseNull(parameters);
     CFReleaseNull(user_private);
@@ -432,10 +433,11 @@ errOut:
 }
 
 
-bool SOSAccountTryUserCredentials(SOSAccount* account, CFStringRef user_account __unused, CFDataRef user_password, CFErrorRef *error) {
+bool SOSAccountTryUserCredentials(SOSAccount* account, CFStringRef user_account, CFDataRef user_password, CFErrorRef *error) {
     bool success = sosAccountValidatePasswordOrFail(account, user_password, error);
     if(success) {
         SOSAccountStashAccountKey(account);
+        SOSAccountSetValue(account, kSOSAccountName, user_account, NULL);
     }
     secnotice("circleop", "Setting account.key_interests_need_updating to true in SOSAccountTryUserCredentials");
     account.key_interests_need_updating = true;

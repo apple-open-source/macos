@@ -26,15 +26,14 @@
 
 #pragma once
 
-#include "JSDOMPromiseDeferred.h"
-#include <wtf/Function.h>
+#if ENABLE(WEB_AUTHN)
+
+#include "AuthenticatorManager.h"
 #include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>
-#include <wtf/WorkQueue.h>
 
 namespace WebCore {
 
-class BasicCredential;
 class Document;
 
 struct CredentialCreationOptions;
@@ -44,25 +43,22 @@ class CredentialsContainer : public RefCounted<CredentialsContainer> {
 public:
     static Ref<CredentialsContainer> create(WeakPtr<Document>&& document) { return adoptRef(*new CredentialsContainer(WTFMove(document))); }
 
-    void get(CredentialRequestOptions&&, Ref<DeferredPromise>&&);
+    void get(CredentialRequestOptions&&, CredentialPromise&&);
 
-    void store(const BasicCredential&, Ref<DeferredPromise>&&);
+    void store(const BasicCredential&, CredentialPromise&&);
 
-    void isCreate(CredentialCreationOptions&&, Ref<DeferredPromise>&&);
+    void isCreate(CredentialCreationOptions&&, CredentialPromise&&);
 
-    void preventSilentAccess(Ref<DeferredPromise>&&);
+    void preventSilentAccess(DOMPromiseDeferred<void>&&) const;
 
 private:
     CredentialsContainer(WeakPtr<Document>&&);
 
     bool doesHaveSameOriginAsItsAncestors();
-    template<typename OperationType>
-    void dispatchTask(OperationType&&, Ref<DeferredPromise>&&);
 
     WeakPtr<Document> m_document;
-    HashMap<DeferredPromise*, Ref<DeferredPromise>> m_pendingPromises;
-    Ref<WorkQueue> m_workQueue;
-    WeakPtrFactory<CredentialsContainer> m_weakPtrFactory;
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_AUTHN)

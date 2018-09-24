@@ -71,7 +71,11 @@
 #include <CoreFoundation/CFBundle.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <sys/un.h>
+#if __has_include(<nw/private.h>)
+#include <nw/private.h>
+#else // __has_include(<nw/private.h>)
 #include <network/nat64.h>
+#endif // __has_include(<nw/private.h>)
 
 
 #include "../../../Controller/ppp_msg.h"

@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if USE(NETWORK_SESSION)
-
 OBJC_CLASS NSData;
 OBJC_CLASS NSURLSession;
 OBJC_CLASS NSURLSessionDownloadTask;
@@ -54,7 +52,6 @@ public:
     static void setSourceApplicationAuditTokenData(RetainPtr<CFDataRef>&&);
     static void setSourceApplicationBundleIdentifier(const String&);
     static void setSourceApplicationSecondaryIdentifier(const String&);
-    static void setUsesNetworkCache(bool);
 #if PLATFORM(IOS)
     static void setCTDataConnectionServiceType(const String&);
 #endif
@@ -88,5 +85,3 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // USE(NETWORK_SESSION)

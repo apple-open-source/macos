@@ -77,7 +77,7 @@ int main(int argc, const char * argv[]) {
         result = STATUS_ERROR;
     }
   
-    if (result) {
+    if (result == kOptionErr) {
         printUsage();
     }
   

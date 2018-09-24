@@ -14,8 +14,6 @@
 	<true/>
 	<key>com.apple.private.keychain.certificates</key>
 	<true/>
-	<key>com.apple.private.read-trustd-downloads</key>
-	<true/>
 	<key>com.apple.private.assets.accessible-asset-types</key>
 	<array>
 		<string>com.apple.MobileAsset.CertificatePinning</string>

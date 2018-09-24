@@ -244,7 +244,7 @@ static void tests(void)
     ok([bob_account.trust leaveCircle:bob_account err:&error], "bob Leaves w/o credentials (%@)", error);
     CFReleaseNull(error);
 
-    ok(![bob_account.trust isInCircle:&error], "bob knows he's out (%@)", error);
+    ok(![bob_account isInCircle:&error], "bob knows he's out (%@)", error);
     CFReleaseNull(error);
     alice_account = nil;
     bob_account = nil;

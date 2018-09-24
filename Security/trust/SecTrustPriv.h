@@ -414,30 +414,22 @@ OSStatus SecTrustSetPinningPolicyName(SecTrustRef trust, CFStringRef policyName)
 OSStatus SecTrustSetPinningException(SecTrustRef trust)
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
+#ifdef __BLOCKS__
 /*!
- @function SecTrustEvaluateWithError
- @abstract Evaluates a trust reference synchronously.
+ @function SecTrustEvaluateFastAsync
+ @abstract Evaluates a trust reference asynchronously.
  @param trust A reference to the trust object to evaluate.
- @param error A pointer to an error object
- @result A boolean value indicating whether the certificate is trusted
- @discussion This function will completely evaluate trust before returning,
- possibly including network access to fetch intermediate certificates or to
- perform revocation checking. Since this function can block during those
- operations, you should call it from within a function that is placed on a
- dispatch queue, or in a separate thread from your application's main
- run loop.
- If the certificate is trusted and the result is true, the error will be set to NULL.
- If the certificate is not trusted or the evaluation was unable to complete, the result
- will be false and the error will be set with a description of the failure.
- The error contains a code for the most serious error encountered (if multiple trust
- failures occurred). The localized description indicates the certificate with the most
- serious problem and the type of error. The underlying error contains a localized
- description of each certificate in the chain that had an error and all errors found
- with that certificate.
+ @param queue A dispatch queue on which the result callback will be
+ executed. Note that this function MUST be called from that queue.
+ @param result A SecTrustCallback block which will be executed when the
+ trust evaluation is complete. The block is guaranteed to be called exactly once
+ when the result code is errSecSuccess, and not called otherwise. Note that this
+ block may be called synchronously inline if no asynchronous operations are required.
+ @result A result code. See "Security Error Codes" (SecBase.h).
  */
-__attribute__((warn_unused_result)) bool
-SecTrustEvaluateWithError(SecTrustRef trust, CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error)
-    __OSX_AVAILABLE(10.13.4) __IOS_AVAILABLE(11.3) __TVOS_AVAILABLE(11.3) __WATCHOS_AVAILABLE(4.3);
+OSStatus SecTrustEvaluateFastAsync(SecTrustRef trust, dispatch_queue_t queue, SecTrustCallback result)
+    __API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0));
+#endif
 
 /*!
  @function SecTrustReportTLSAnalytics

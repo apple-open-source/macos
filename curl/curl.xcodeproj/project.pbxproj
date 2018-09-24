@@ -459,7 +459,7 @@
 		FDC61C7E14983BDE005BBE36 /* easy.h in Headers */ = {isa = PBXBuildFile; fileRef = FC41A5E512455686007EDB1C /* easy.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FDC61C7F14983BDE005BBE36 /* mprintf.h in Headers */ = {isa = PBXBuildFile; fileRef = FC41A5E912455686007EDB1C /* mprintf.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FDC61C8014983BDE005BBE36 /* multi.h in Headers */ = {isa = PBXBuildFile; fileRef = FC41A5EA12455686007EDB1C /* multi.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		FDC61C8114983BDE005BBE36 /* stdcheaders.h in Headers */ = {isa = PBXBuildFile; fileRef = FC41A5EC12455686007EDB1C /* stdcheaders.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FDC61C8114983BDE005BBE36 /* stdcheaders.h in Headers */ = {isa = PBXBuildFile; fileRef = FC41A5EC12455686007EDB1C /* stdcheaders.h */; };
 		FDC61C8214983BDE005BBE36 /* typecheck-gcc.h in Headers */ = {isa = PBXBuildFile; fileRef = FC41A5ED12455686007EDB1C /* typecheck-gcc.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FDC61C8314983DB2005BBE36 /* nonblock.c in Sources */ = {isa = PBXBuildFile; fileRef = FC41A6CF12455686007EDB1C /* nonblock.c */; };
 		FDC61C8514983DC7005BBE36 /* strtoofft.c in Sources */ = {isa = PBXBuildFile; fileRef = FC41A71612455686007EDB1C /* strtoofft.c */; };

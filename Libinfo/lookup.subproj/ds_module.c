@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,6 +22,8 @@
  */
 
 #ifdef DS_AVAILABLE
+
+#include "libinfo_common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -128,6 +130,7 @@ _ds_serv_cache_free(void *x)
 	if (x != NULL) si_item_release(x);
 }
 
+LIBINFO_EXPORT
 void
 _si_disable_opendirectory(void)
 {
@@ -209,6 +212,7 @@ _ds_child(void)
 	_ds_port = MACH_PORT_NULL;
 }
 
+LIBINFO_EXPORT
 int
 _ds_running(void)
 {

@@ -31,6 +31,7 @@
 #include <Security/SecCertificateInternal.h>
 #include <securityd/SecPolicyServer.h>
 #include <libDER/asn1Types.h>
+#include <libDER/oids.h>
 
 /* RFC 5280 Section 4.2.1.10:
  DNS name restrictions are expressed as host.example.com.  Any DNS
@@ -448,6 +449,33 @@ static void nc_compare_RFC822Name_to_subtrees(const void *value, void *context) 
     }
 }
 
+static bool certAllowsSSL(SecCertificateRef certificate) {
+    CFArrayRef ekus = SecCertificateCopyExtendedKeyUsage(certificate);
+    if (!ekus) {
+        return true; // No EKU -> any purpose
+    }
+
+    const DERItem *serverEkus[] = {
+        &oidAnyExtendedKeyUsage, &oidExtendedKeyUsageServerAuth,
+        &oidExtendedKeyUsageMicrosoftSGC, &oidExtendedKeyUsageNetscapeSGC,
+    };
+
+    bool result = false;
+    for (uint8_t ix = 0; ix < sizeof(serverEkus)/sizeof(const DERItem *); ix++) {
+        CFDataRef ekuOid = CFDataCreate(NULL, serverEkus[ix]->data, serverEkus[ix]->length);
+        if (CFArrayContainsValue(ekus, CFRangeMake(0, CFArrayGetCount(ekus)), ekuOid)) {
+            result = true;
+        }
+        CFReleaseNull(ekuOid);
+        if (result) {
+            break;
+        }
+    }
+
+    CFReleaseNull(ekus);
+    return result;
+}
+
 static void nc_compare_subject_to_subtrees(SecCertificateRef certificate, CFArrayRef subtrees,
                                            bool permit, match_t *match) {
     CFDataRef subject = SecCertificateCopySubjectSequence(certificate);
@@ -467,16 +495,22 @@ static void nc_compare_subject_to_subtrees(SecCertificateRef certificate, CFArra
     CFReleaseNull(subject);
     update_match(permit, &x500_match, match);
 
-    /* Compare DNSName constraints */
-    match_t dns_match = { false, permit };
-    CFArrayRef dnsNames = SecCertificateCopyDNSNamesFromSubject(certificate);
-    if (dnsNames) {
-        CFRange dnsRange = { 0, CFArrayGetCount(dnsNames) };
-        nc_san_match_context_t dnsContext = { subtrees, &dns_match, permit };
-        CFArrayApplyFunction(dnsNames, dnsRange, nc_compare_DNSName_to_subtrees, &dnsContext);
+    /* These checks are unnecessary if Common Names aren't used to match SSLHostnames. (<rdar://31562470>)
+     * In the meantime, this hack makes non-SSL certs with DNS-like CNs work. (<rdar://41173883>) */
+    /* Compare DNSName constraints -- if there's no DNS names in the SAN and this cert can be used for SSL Server Auth*/
+    CFArrayRef sanDnsNames = SecCertificateCopyDNSNamesFromSAN(certificate);
+    if (certAllowsSSL(certificate) && (!sanDnsNames || CFArrayGetCount(sanDnsNames) == 0)) {
+        match_t dns_match = { false, permit };
+        CFArrayRef dnsNames = SecCertificateCopyDNSNamesFromSubject(certificate);
+        if (dnsNames) {
+            CFRange dnsRange = { 0, CFArrayGetCount(dnsNames) };
+            nc_san_match_context_t dnsContext = { subtrees, &dns_match, permit };
+            CFArrayApplyFunction(dnsNames, dnsRange, nc_compare_DNSName_to_subtrees, &dnsContext);
+        }
+        CFReleaseNull(dnsNames);
+        update_match(permit, &dns_match, match);
     }
-    CFReleaseNull(dnsNames);
-    update_match(permit, &dns_match, match);
+    CFReleaseNull(sanDnsNames);
 
     /* Compare IPAddresss constraints */
     match_t ip_match = { false, permit };

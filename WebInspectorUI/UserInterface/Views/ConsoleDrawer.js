@@ -39,6 +39,7 @@ WI.ConsoleDrawer = class ConsoleDrawer extends WI.ContentBrowser
         this.navigationBar.element.addEventListener("mousedown", this._consoleResizerMouseDown.bind(this));
 
         this._toggleDrawerButton = new WI.ToggleButtonNavigationItem("toggle-drawer", WI.UIString("Hide Console"), WI.UIString("Show Console"), "Images/HideConsoleDrawer.svg", "Images/ShowConsoleDrawer.svg");
+
         this._toggleDrawerButton.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
         this._toggleDrawerButton.addEventListener(WI.ButtonNavigationItem.Event.Clicked, () => { WI.toggleSplitConsole(); });
         this.navigationBar.insertNavigationItem(this._toggleDrawerButton, 0);
@@ -49,6 +50,11 @@ WI.ConsoleDrawer = class ConsoleDrawer extends WI.ContentBrowser
     }
 
     // Public
+
+    toggleButtonShortcutTooltip(keyboardShortcut)
+    {
+        this._toggleDrawerButton.defaultToolTip = WI.UIString("Hide Console (%s)").format(keyboardShortcut.displayName);
+    }
 
     get collapsed()
     {
@@ -116,7 +122,8 @@ WI.ConsoleDrawer = class ConsoleDrawer extends WI.ContentBrowser
             return;
 
         let resizerElement = event.target;
-        let mouseOffset = resizerElement.offsetHeight - (event.pageY - resizerElement.totalOffsetTop);
+        let quickConsoleHeight = window.innerHeight - (this.element.totalOffsetTop + this.height);
+        let mouseOffset = quickConsoleHeight - (event.pageY - resizerElement.totalOffsetTop);
 
         function dockedResizerDrag(event)
         {

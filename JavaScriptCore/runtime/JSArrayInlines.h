@@ -88,9 +88,10 @@ ALWAYS_INLINE void JSArray::pushInline(ExecState* exec, JSValue value)
     VM& vm = exec->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
+reloop:
     Butterfly* butterfly = this->butterfly();
 
-    switch (indexingType()) {
+    switch (indexingMode()) {
     case ArrayClass: {
         createInitialUndecided(vm, 0);
         FALLTHROUGH;
@@ -122,7 +123,7 @@ ALWAYS_INLINE void JSArray::pushInline(ExecState* exec, JSValue value)
         if (UNLIKELY(length > MAX_ARRAY_INDEX)) {
             methodTable(vm)->putByIndex(this, exec, length, value, true);
             if (!scope.exception())
-                throwException(exec, scope, createRangeError(exec, ASCIILiteral(LengthExceededTheMaximumArrayLengthError)));
+                throwException(exec, scope, createRangeError(exec, LengthExceededTheMaximumArrayLengthError));
             return;
         }
 
@@ -143,7 +144,7 @@ ALWAYS_INLINE void JSArray::pushInline(ExecState* exec, JSValue value)
         if (UNLIKELY(length > MAX_ARRAY_INDEX)) {
             methodTable(vm)->putByIndex(this, exec, length, value, true);
             if (!scope.exception())
-                throwException(exec, scope, createRangeError(exec, ASCIILiteral(LengthExceededTheMaximumArrayLengthError)));
+                throwException(exec, scope, createRangeError(exec, LengthExceededTheMaximumArrayLengthError));
             return;
         }
 
@@ -178,7 +179,7 @@ ALWAYS_INLINE void JSArray::pushInline(ExecState* exec, JSValue value)
         if (UNLIKELY(length > MAX_ARRAY_INDEX)) {
             methodTable(vm)->putByIndex(this, exec, length, value, true);
             if (!scope.exception())
-                throwException(exec, scope, createRangeError(exec, ASCIILiteral(LengthExceededTheMaximumArrayLengthError)));
+                throwException(exec, scope, createRangeError(exec, LengthExceededTheMaximumArrayLengthError));
             return;
         }
 
@@ -217,7 +218,7 @@ ALWAYS_INLINE void JSArray::pushInline(ExecState* exec, JSValue value)
             methodTable(vm)->putByIndex(this, exec, storage->length(), value, true);
             // Per ES5.1 15.4.4.7 step 6 & 15.4.5.1 step 3.d.
             if (!scope.exception())
-                throwException(exec, scope, createRangeError(exec, ASCIILiteral(LengthExceededTheMaximumArrayLengthError)));
+                throwException(exec, scope, createRangeError(exec, LengthExceededTheMaximumArrayLengthError));
             return;
         }
 
@@ -227,8 +228,11 @@ ALWAYS_INLINE void JSArray::pushInline(ExecState* exec, JSValue value)
         return;
     }
 
-    default:
-        RELEASE_ASSERT_NOT_REACHED();
+    default: {
+        RELEASE_ASSERT(isCopyOnWrite(indexingMode()));
+        convertFromCopyOnWrite(vm);
+        goto reloop;
+    }
     }
 }
 

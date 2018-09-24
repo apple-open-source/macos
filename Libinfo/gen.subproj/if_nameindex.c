@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2018 Apple Inc. All rights reserved.
+ */
 /*	$KAME: if_nameindex.c,v 1.8 2000/11/24 08:20:01 itojun Exp $	*/
 
 /*-
@@ -24,6 +27,8 @@
  *
  *	BSDI Id: if_nameindex.c,v 2.3 2000/04/17 22:38:05 dab Exp
  */
+
+#include "libinfo_common.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -75,6 +80,7 @@
  *    if_nameindex().
  */
 
+LIBINFO_EXPORT
 struct if_nameindex *
 if_nameindex(void)
 {
@@ -162,6 +168,7 @@ out:
 }
 
 #ifndef __OpenBSD__
+LIBINFO_EXPORT
 void
 if_freenameindex(struct if_nameindex *ptr)
 {

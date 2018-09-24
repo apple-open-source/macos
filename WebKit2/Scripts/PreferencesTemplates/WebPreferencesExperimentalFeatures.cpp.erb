@@ -53,7 +53,7 @@ const Vector<RefPtr<API::Object>>& WebPreferences::experimentalFeatures()
 <%- if @pref.condition -%>
 #if <%= @pref.condition %>
 <%- end -%>
-        API::ExperimentalFeature::create(<%= @pref.humanReadableName %>, "<%= @pref.name %>", <%= @pref.humanReadableDescription %>, <%= @pref.defaultValue %>),
+        API::ExperimentalFeature::create(<%= @pref.humanReadableName %>, "<%= @pref.name %>", <%= @pref.humanReadableDescription %>, <%= @pref.defaultValue %>, <%= @pref.hidden %>),
 <%- if @pref.condition -%>
 #endif
 <%- end -%>

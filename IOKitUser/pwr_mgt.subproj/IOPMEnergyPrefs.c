@@ -90,6 +90,7 @@ PMSettingDescriptorStruct defaultSettings[] =
     {kIOPMWakeOnLANKey,                                 1,   0,  0},
     {kIOPMWakeOnRingKey,                                1,   0,  0},
     {kIOPMTCPKeepAlivePrefKey,                          1,   1,  1},
+    {kIOPMProximityDarkWakeKey,                         1,   0,  0},
 };
 
 static const int kPMSettingsCount = sizeof(defaultSettings)/sizeof(PMSettingDescriptorStruct);
@@ -1160,7 +1161,9 @@ supportedNameForPMName( CFStringRef pm_name )
     }
 
     if (CFEqual(pm_name, CFSTR(kIOPMDeepSleepEnabledKey))
-        || CFEqual(pm_name, CFSTR(kIOPMDeepSleepDelayKey)))
+        || CFEqual(pm_name, CFSTR(kIOPMDeepSleepDelayKey))
+        || CFEqual(pm_name, CFSTR(kIOPMDeepSleepDelayHighKey))
+        || CFEqual(pm_name, CFSTR(kIOPMStandbyBatteryThresholdKey)))
     {
         return CFSTR("DeepSleep");
     }
@@ -1169,6 +1172,10 @@ supportedNameForPMName( CFStringRef pm_name )
         || CFEqual(pm_name, CFSTR(kIOPMAutoPowerOffDelayKey)))
     {
         return CFSTR("AutoPowerOff");
+    }
+
+    if (CFEqual(pm_name, CFSTR(kIOPMProximityDarkWakeKey))) {
+        return CFSTR("ProximityWake");
     }
 
     return pm_name;

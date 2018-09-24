@@ -85,6 +85,12 @@ __private_extern__ bool isDisplayAsleep( );
 
 static uint32_t updateUserActivityLevels(void);
 
+#ifdef XCTEST
+void xctSetUserActiveRootDomain(bool active) {
+    gUserActive.rootDomain = active;
+}
+#endif
+
 static void userActive_prime(void) {
     bzero(&gUserActive, sizeof(UserActiveStruct));
 
@@ -144,6 +150,7 @@ void userActiveHandleRootDomainActivity(void)
         _unclamp_silent_running(true);
         cancel_NotificationDisplayWake();
         cancelPowerNapStates();
+        cancelDarkWakeCapabilitiesTimer();
 #if TCPKEEPALIVE
         enableTCPKeepAlive();
 #endif
@@ -162,7 +169,10 @@ void userActiveHandleRootDomainActivity(void)
     if (userIsActive) {
         CFRelease(userIsActive);
     }
-    evaluateADS();
+    if (gUserActive.sessionActivityLevels == 0) {
+        evaluateADS();
+    }
+    setVMDarkwakeMode(false);
     evaluateAdaptiveStandby();
 }
 
@@ -624,7 +634,7 @@ uint64_t __IOHIDEventSystemClientCopyIntegerProperty(CFStringRef key)
 {
     uint64_t value = -1;
 
-    assert(strcmp(dispatch_queue_get_label(DISPATCH_CURRENT_QUEUE_LABEL), sysload_qname) == 0);
+    dispatch_assert_queue(sysloadQ);
     if (gUserActive.hidClient == 0) {
         return value;
     }
@@ -640,7 +650,7 @@ uint64_t __IOHIDEventSystemClientCopyIntegerProperty(CFStringRef key)
 void __IOHIDEventSystemClientSetIntegerProperty(CFStringRef key, uint64_t value)
 {
 
-    assert(strcmp(dispatch_queue_get_label(DISPATCH_CURRENT_QUEUE_LABEL), sysload_qname) == 0);
+    dispatch_assert_queue(sysloadQ);
     if (gUserActive.hidClient == 0) {
         return;
     }
@@ -654,7 +664,7 @@ void __IOHIDEventSystemClientSetIntegerProperty(CFStringRef key, uint64_t value)
 // This function gets called on 'sysloadQ'.
 void hidPropertyCallback( void * target, void * context, CFStringRef property, CFTypeRef value)
 {
-    assert(strcmp(dispatch_queue_get_label(DISPATCH_CURRENT_QUEUE_LABEL), sysload_qname) == 0);
+    dispatch_assert_queue(sysloadQ);
 
     int state = (int)__IOHIDEventSystemClientCopyIntegerProperty(CFSTR(kIOHIDActivityStateKey));
     uint64_t ts = 0;
@@ -1227,11 +1237,18 @@ void updateUserActivityTimeout(xpc_object_t connection, xpc_object_t msg)
 
 __private_extern__ uint32_t getTimeSinceLastTickle( )
 {
-    __block uint64_t  hidActivity_ts;
+    __block uint64_t  hidActivity_ts = 0;
+
+#if 0
+    // NOTE: This section is required on iOS to get last tickle timestamp from backboardd.
+    // Hid activity tickle time stamp is not required on macOS as an
+    // assertion update is guaranteed for each HID activity.
+    dispatch_assert_queue_not(dispatch_get_main_queue());
     dispatch_sync(sysloadQ, ^{
         hidActivity_ts = monotonicTS2Secs(__IOHIDEventSystemClientCopyIntegerProperty(
                 CFSTR(kIOHIDLastActivityTimestampKey)));
     });
+#endif
     uint64_t  currTime = getMonotonicContinuousTime();
 
     if (hidActivity_ts > gUserActive.lastAssertion_ts) {

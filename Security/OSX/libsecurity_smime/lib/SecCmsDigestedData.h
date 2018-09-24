@@ -53,7 +53,7 @@ extern "C" {
                 digest will be calculated while encoding
  */
 extern SecCmsDigestedDataRef
-SecCmsDigestedDataCreate(SecCmsMessageRef cmsg, SECAlgorithmID *digestalg);
+SecCmsDigestedDataCreate(SecCmsMessageRef cmsg, SECAlgorithmID *digestalg) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
     @function

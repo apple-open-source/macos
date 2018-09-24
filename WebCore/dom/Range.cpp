@@ -1310,7 +1310,7 @@ int Range::collectSelectionRectsWithoutUnionInteriorLines(Vector<SelectionRect>&
     for (Node* node = firstNode(); node && node != stopNode; node = NodeTraversal::next(*node)) {
         RenderObject* renderer = node->renderer();
         // Only ask leaf render objects for their line box rects.
-        if (renderer && !renderer->firstChildSlow() && renderer->style().userSelect() != SELECT_NONE) {
+        if (renderer && !renderer->firstChildSlow() && renderer->style().userSelect() != UserSelect::None) {
             bool isStartNode = renderer->node() == &startContainer;
             bool isEndNode = renderer->node() == &endContainer;
             if (hasFlippedWritingMode != renderer->style().isFlippedBlocksWritingMode())
@@ -1823,7 +1823,7 @@ Vector<FloatRect> Range::borderAndTextRects(CoordinateSpace space, RespectClippi
         selectedElementsSet.remove(parent);
 
     for (Node* node = firstNode(); node != stopNode; node = NodeTraversal::next(*node)) {
-        if (is<Element>(*node) && selectedElementsSet.contains(node) && !selectedElementsSet.contains(node->parentNode())) {
+        if (is<Element>(*node) && selectedElementsSet.contains(node) && (!node->parentNode() || !selectedElementsSet.contains(node->parentNode()))) {
             if (auto* renderer = downcast<Element>(*node).renderBoxModelObject()) {
                 Vector<FloatQuad> elementQuads;
                 renderer->absoluteQuads(elementQuads);

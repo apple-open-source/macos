@@ -84,6 +84,9 @@ typedef struct {
 extern const SecAsn1Template kSecAsn1CertExtensionTemplate[];
 extern const SecAsn1Template kSecAsn1SequenceOfCertExtensionTemplate[];
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /*
  * X.509 certificate object (the unsigned form)
  *
@@ -191,6 +194,8 @@ typedef struct {
 } NSS_SignedCertOrCRL;
 
 extern const SecAsn1Template kSecAsn1SignedCertOrCRLTemplate[];
+
+#pragma clang diagnostic pop
 
 #ifdef  __cplusplus
 }

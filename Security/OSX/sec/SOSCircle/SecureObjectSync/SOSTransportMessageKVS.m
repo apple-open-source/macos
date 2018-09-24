@@ -96,32 +96,6 @@ static bool SOSTransportMessageKVSUpdateKVS(SOSMessageKVS* transport, CFDictiona
     return true;
 }
 
-static bool SOSTransportMessageKVSSendPendingChanges(SOSMessageKVS* transport, CFErrorRef *error) {
-    CFErrorRef changeError = NULL;
-    
-    if (transport->pending_changes == NULL || CFDictionaryGetCount(transport->pending_changes) == 0) {
-        CFReleaseNull(transport->pending_changes);
-        return true;
-    }
-    SOSAccount* acct = [transport SOSTransportMessageGetAccount];
-    CFTypeRef dsid = SOSAccountGetValue(acct, kSOSDSIDKey, error);
-    
-    if(dsid == NULL)
-        dsid = kCFNull;
-    
-    CFDictionaryAddValue(transport->pending_changes, kSOSKVSRequiredKey, dsid);
-    
-    bool success = SOSTransportMessageKVSUpdateKVS(transport, transport->pending_changes, &changeError);
-    if (success) {
-        CFDictionaryRemoveAllValues(transport->pending_changes);
-    } else {
-        SOSCreateErrorWithFormat(kSOSErrorSendFailure, changeError, error, NULL,
-                                 CFSTR("Send changes block failed [%@]"), transport->pending_changes);
-    }
-    
-    return success;
-}
-
 static void SOSTransportMessageKVSAddToPendingChanges(SOSMessageKVS* transport, CFStringRef message_key, CFDataRef message_data){
     if (transport.pending_changes == NULL) {
         transport.pending_changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -256,11 +230,6 @@ static bool sendToPeer(SOSMessage* transport, CFStringRef circleName, CFStringRe
     });
 
     return true;
-}
-
--(bool) SOSTransportMssageFlushChanges:(SOSMessage*) transport err:(CFErrorRef *)error
-{
-    return SOSTransportMessageKVSSendPendingChanges((SOSMessageKVS*) transport, error);
 }
 
 @end

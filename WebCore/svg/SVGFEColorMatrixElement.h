@@ -37,13 +37,13 @@ struct SVGPropertyTraits<ColorMatrixType> {
         case FECOLORMATRIX_TYPE_UNKNOWN:
             return emptyString();
         case FECOLORMATRIX_TYPE_MATRIX:
-            return ASCIILiteral("matrix");
+            return "matrix"_s;
         case FECOLORMATRIX_TYPE_SATURATE:
-            return ASCIILiteral("saturate");
+            return "saturate"_s;
         case FECOLORMATRIX_TYPE_HUEROTATE:
-            return ASCIILiteral("hueRotate");
+            return "hueRotate"_s;
         case FECOLORMATRIX_TYPE_LUMINANCETOALPHA:
-            return ASCIILiteral("luminanceToAlpha");
+            return "luminanceToAlpha"_s;
         }
 
         ASSERT_NOT_REACHED();
@@ -65,6 +65,7 @@ struct SVGPropertyTraits<ColorMatrixType> {
 };
 
 class SVGFEColorMatrixElement final : public SVGFilterPrimitiveStandardAttributes {
+    WTF_MAKE_ISO_ALLOCATED(SVGFEColorMatrixElement);
 public:
     static Ref<SVGFEColorMatrixElement> create(const QualifiedName&, Document&);
 

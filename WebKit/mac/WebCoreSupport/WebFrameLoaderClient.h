@@ -31,6 +31,7 @@
 #import <wtf/Forward.h>
 #import <wtf/HashMap.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/WeakObjCPtr.h>
 
 @class WebDownload;
 @class WebFrame;
@@ -101,12 +102,12 @@ private:
 #endif
     void dispatchDidFailLoading(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceError&) final;
 
-    NSCachedURLResponse* willCacheResponse(WebCore::DocumentLoader*, unsigned long identifier, NSCachedURLResponse*) const final;
+    void willCacheResponse(WebCore::DocumentLoader*, unsigned long identifier, NSCachedURLResponse*, CompletionHandler<void(NSCachedURLResponse *)>&&) const final;
 
     void dispatchDidDispatchOnloadEvents() final;
     void dispatchDidReceiveServerRedirectForProvisionalLoad() final;
     void dispatchDidCancelClientRedirect() final;
-    void dispatchWillPerformClientRedirect(const WebCore::URL&, double interval, double fireDate) final;
+    void dispatchWillPerformClientRedirect(const WebCore::URL&, double interval, WallTime fireDate) final;
     void dispatchDidChangeLocationWithinPage() final;
     void dispatchDidPushStateWithinPage() final;
     void dispatchDidReplaceStateWithinPage() final;
@@ -127,7 +128,7 @@ private:
 
     void dispatchDecidePolicyForResponse(const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, WebCore::FramePolicyFunction&&) final;
     void dispatchDecidePolicyForNewWindowAction(const WebCore::NavigationAction&, const WebCore::ResourceRequest&, WebCore::FormState*, const WTF::String& frameName, WebCore::FramePolicyFunction&&) final;
-    void dispatchDecidePolicyForNavigationAction(const WebCore::NavigationAction&, const WebCore::ResourceRequest&, bool didReceiveRedirectResponse, WebCore::FormState*, WebCore::FramePolicyFunction&&) final;
+    void dispatchDecidePolicyForNavigationAction(const WebCore::NavigationAction&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse& redirectResponse, WebCore::FormState*, WebCore::PolicyDecisionMode, WebCore::FramePolicyFunction&&) final;
     void cancelPolicyCheck() final;
 
     void dispatchUnableToImplementPolicy(const WebCore::ResourceError&) final;
@@ -233,7 +234,7 @@ private:
 
     RemoteAXObjectRef accessibilityRemoteObject() final { return 0; }
     
-    RetainPtr<WebFramePolicyListener> setUpPolicyListener(WebCore::FramePolicyFunction&&, NSURL *appLinkURL = nil);
+    RetainPtr<WebFramePolicyListener> setUpPolicyListener(WebCore::FramePolicyFunction&&, WebCore::PolicyAction defaultPolicy, NSURL *appLinkURL = nil);
 
     NSDictionary *actionDictionary(const WebCore::NavigationAction&, WebCore::FormState*) const;
     
@@ -260,5 +261,5 @@ private:
 
     RetainPtr<WebFrame> m_webFrame;
 
-    RetainPtr<WebFramePolicyListener> m_policyListener;
+    WeakObjCPtr<WebFramePolicyListener> m_policyListener;
 };

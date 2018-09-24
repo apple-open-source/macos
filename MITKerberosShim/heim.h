@@ -596,13 +596,6 @@ krb5_boolean KRB5_LIB_FUNCTION
 heim_krb5_c_is_keyed_cksum (krb5_cksumtype /*ctype*/);
 
 krb5_error_code KRB5_LIB_FUNCTION
-heim_krb5_c_keylengths (
-	krb5_context /*context*/,
-	krb5_enctype /*enctype*/,
-	size_t */*ilen*/,
-	size_t */*keylen*/);
-
-krb5_error_code KRB5_LIB_FUNCTION
 heim_krb5_c_make_checksum (
 	krb5_context /*context*/,
 	krb5_cksumtype /*cksumtype*/,
@@ -616,19 +609,6 @@ heim_krb5_c_make_random_key (
 	krb5_context /*context*/,
 	krb5_enctype /*enctype*/,
 	krb5_keyblock */*random_key*/);
-
-krb5_error_code KRB5_LIB_FUNCTION
-heim_krb5_c_prf (
-	krb5_context /*context*/,
-	const krb5_keyblock */*key*/,
-	const krb5_data */*input*/,
-	krb5_data */*output*/);
-
-krb5_error_code KRB5_LIB_FUNCTION
-heim_krb5_c_prf_length (
-	krb5_context /*context*/,
-	krb5_enctype /*type*/,
-	size_t */*length*/);
 
 krb5_error_code KRB5_LIB_FUNCTION
 heim_krb5_c_set_checksum (
@@ -737,12 +717,6 @@ heim_krb5_cc_get_config (
 	krb5_const_principal /*principal*/,
 	const char */*name*/,
 	krb5_data */*data*/);
-
-krb5_error_code KRB5_LIB_FUNCTION
-heim_krb5_cc_get_flags (
-	krb5_context /*context*/,
-	krb5_ccache /*id*/,
-	krb5_flags */*flags*/);
 
 krb5_error_code KRB5_LIB_FUNCTION
 heim_krb5_cc_get_friendly_name (

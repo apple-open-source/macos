@@ -166,6 +166,9 @@ typedef NS_ENUM(NSInteger, PDFLayerControllerCursorType) {
 - (id)accessibilityElementForAnnotation:(PDFAnnotation *)annotation;
 #endif
 
+#if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+- (void)setDeviceColorSpace:(CGColorSpaceRef)colorSpace;
+#endif
 @end
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300

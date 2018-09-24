@@ -48,6 +48,7 @@
 #include "Element.h"
 #include "MediaList.h"
 #include "MediaQueryParser.h"
+#include "MediaQueryParserContext.h"
 #include "StyleProperties.h"
 #include "StyleRuleImport.h"
 #include "StyleSheetContents.h"
@@ -155,7 +156,7 @@ static Ref<ImmutableStyleProperties> createStyleProperties(ParsedPropertyVector&
     return result;
 }
 
-Ref<ImmutableStyleProperties> CSSParserImpl::parseInlineStyleDeclaration(const String& string, Element* element)
+Ref<ImmutableStyleProperties> CSSParserImpl::parseInlineStyleDeclaration(const String& string, const Element* element)
 {
     CSSParserContext context(element->document());
     context.mode = strictToCSSParserMode(element->isHTMLElement() && !element->document().inQuirksMode());
@@ -184,6 +185,7 @@ void CSSParserImpl::parseDeferredRuleList(CSSParserTokenRange tokenRange, CSSDef
     parser.consumeRuleList(tokenRange, RegularRuleList, [&childRules](const RefPtr<StyleRuleBase>& rule) {
         childRules.append(rule);
     });
+    childRules.shrinkToFit();
 }
 
 void CSSParserImpl::parseDeferredKeyframeList(CSSParserTokenRange tokenRange, CSSDeferredParser& deferredParser, StyleRuleKeyframes& keyframeRule)
@@ -517,8 +519,8 @@ RefPtr<StyleRuleImport> CSSParserImpl::consumeImportRule(CSSParserTokenRange pre
         m_observerWrapper->observer().startRuleBody(endOffset);
         m_observerWrapper->observer().endRuleBody(endOffset);
     }
-
-    return StyleRuleImport::create(uri, MediaQueryParser::parseMediaQuerySet(prelude).releaseNonNull());
+    
+    return StyleRuleImport::create(uri, MediaQueryParser::parseMediaQuerySet(prelude, MediaQueryParserContext(m_context)).releaseNonNull());
 }
 
 RefPtr<StyleRuleNamespace> CSSParserImpl::consumeNamespaceRule(CSSParserTokenRange prelude)
@@ -537,7 +539,7 @@ RefPtr<StyleRuleNamespace> CSSParserImpl::consumeNamespaceRule(CSSParserTokenRan
 RefPtr<StyleRuleMedia> CSSParserImpl::consumeMediaRule(CSSParserTokenRange prelude, CSSParserTokenRange block)
 {
     if (m_deferredParser)
-        return StyleRuleMedia::create(MediaQueryParser::parseMediaQuerySet(prelude).releaseNonNull(),  std::make_unique<DeferredStyleGroupRuleList>(block, *m_deferredParser));
+        return StyleRuleMedia::create(MediaQueryParser::parseMediaQuerySet(prelude, MediaQueryParserContext(m_context)).releaseNonNull(),  std::make_unique<DeferredStyleGroupRuleList>(block, *m_deferredParser));
 
     Vector<RefPtr<StyleRuleBase>> rules;
 
@@ -550,11 +552,12 @@ RefPtr<StyleRuleMedia> CSSParserImpl::consumeMediaRule(CSSParserTokenRange prelu
     consumeRuleList(block, RegularRuleList, [&rules](RefPtr<StyleRuleBase> rule) {
         rules.append(rule);
     });
+    rules.shrinkToFit();
 
     if (m_observerWrapper)
         m_observerWrapper->observer().endRuleBody(m_observerWrapper->endOffset(block));
 
-    return StyleRuleMedia::create(MediaQueryParser::parseMediaQuerySet(prelude).releaseNonNull(), rules);
+    return StyleRuleMedia::create(MediaQueryParser::parseMediaQuerySet(prelude, MediaQueryParserContext(m_context)).releaseNonNull(), rules);
 }
 
 RefPtr<StyleRuleSupports> CSSParserImpl::consumeSupportsRule(CSSParserTokenRange prelude, CSSParserTokenRange block)
@@ -576,6 +579,7 @@ RefPtr<StyleRuleSupports> CSSParserImpl::consumeSupportsRule(CSSParserTokenRange
     consumeRuleList(block, RegularRuleList, [&rules](RefPtr<StyleRuleBase> rule) {
         rules.append(rule);
     });
+    rules.shrinkToFit();
 
     if (m_observerWrapper)
         m_observerWrapper->observer().endRuleBody(m_observerWrapper->endOffset(block));

@@ -22,10 +22,37 @@
 
 #if !TARGET_OS_SIMULATOR
 SOFT_LINK_FRAMEWORK(PrivateFrameworks, AuthKit);
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
 SOFT_LINK_CLASS(AuthKit, AKAccountManager);
+#pragma clang diagnostic pop
 #endif
 
 @implementation SOSCCAuthPlugin
+
+static bool accountIsHSA2(ACAccount *account) {
+    bool hsa2 = false;
+
+#if !TARGET_OS_SIMULATOR
+    AKAccountManager *manager = [getAKAccountManagerClass() sharedInstance];
+    if(manager != nil) {
+#if TARGET_OS_OSX
+        ACAccount *aka = [manager authKitAccountWithAltDSID:account.icaAltDSID];
+#else
+        ACAccount *aka = [manager authKitAccountWithAltDSID:account.aa_altDSID];
+#endif
+        if (aka) {
+            AKAppleIDSecurityLevel securityLevel = [manager securityLevelForAccount: aka];
+            if(securityLevel == AKAppleIDSecurityLevelHSA2) {
+                hsa2 = true;
+            }
+        }
+    }
+#endif
+    secnotice("accounts", "Account %s HSA2", (hsa2) ? "is": "isn't" );
+    return hsa2;
+}
 
 - (void) didReceiveAuthenticationResponseParameters: (NSDictionary *) parameters
 									   accountStore: (ACDAccountStore *) store
@@ -47,43 +74,36 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
 		do_auth = [account aa_isPrimaryAccount];
 	}
 
-#if !TARGET_OS_SIMULATOR
-    // If this is an HSA2 account let cdpd SetCreds
-    AKAccountManager *manager = [getAKAccountManagerClass() sharedInstance];
-    if(manager != nil) {
-        AKAppleIDSecurityLevel securityLevel = [manager securityLevelForAccount: account];
-        if(securityLevel == AKAppleIDSecurityLevelHSA2) {
-            secnotice("accounts", "Not performing SOSCCSetUserCredentialsAndDSID in accountsd plugin since we're HSA2" );
-            do_auth = NO;
-        }
-    } else {
-        secnotice("accounts", "Couldn't softlink AKAccountManager - proceeding with do_auth = %@", do_auth ? @"YES" : @"NO");
-    }
-#endif
-
-	secnotice("accounts", "do_auth %@", do_auth ? @"YES" : @"NO" );
-
-	if (do_auth) {
-		CFErrorRef	authError    = NULL;
+    if(do_auth && !accountIsHSA2(account)) {
 		NSString	*rawPassword = [account _aa_rawPassword];
 
 		if (rawPassword != NULL) {
-			const char *password   = [rawPassword cStringUsingEncoding:NSUTF8StringEncoding];
-			CFDataRef passwordData = CFDataCreate(kCFAllocatorDefault, (const uint8_t *) password, strlen(password));
-			if (passwordData) {
-				secinfo("accounts", "Performing SOS circle credential set for account %@: %@", accountIdentifier, account.username);
-				NSString *dsid = [account aa_personID];
-				if (!SOSCCSetUserCredentialsAndDSID((__bridge CFStringRef) account.username, passwordData, (__bridge CFStringRef) dsid, &authError)) {
-					secerror("Unable to set SOS circle credentials for account %@: %@", accountIdentifier, authError);
-					CFReleaseNull(authError);
-				}
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                CFErrorRef asyncError = NULL;
+                NSString *dsid = [account aa_personID];
+                const char *password   = [rawPassword cStringUsingEncoding:NSUTF8StringEncoding];
+                CFDataRef passwordData = CFDataCreate(kCFAllocatorDefault, (const uint8_t *) password, strlen(password));
 
-				CFRelease(passwordData);
-			}
+                if (passwordData) {
+                    secinfo("accounts", "Performing async SOS circle credential set for account %@: %@", accountIdentifier, account.username);
+
+                    if (!SOSCCSetUserCredentialsAndDSID((__bridge CFStringRef) account.username, passwordData, (__bridge CFStringRef) dsid, &asyncError)) {
+                        secerror("Unable to set SOS circle credentials for account %@: %@", accountIdentifier, asyncError);
+                        secinfo("accounts", "Returning from failed async call to SOSCCSetUserCredentialsAndDSID");
+                        CFReleaseNull(asyncError);
+                    } else {
+                        secinfo("accounts", "Returning from successful async call to SOSCCSetUserCredentialsAndDSID");
+                    }
+                    CFRelease(passwordData);
+                } else {
+                    secinfo("accounts", "Failed to create string for call to SOSCCSetUserCredentialsAndDSID");
+                }
+            });
 		} else {
+            CFErrorRef    authError    = NULL;
 			if (!SOSCCCanAuthenticate(&authError)) {
 				secerror("Account %@ did not present a password and we could not authenticate the SOS circle: %@", accountIdentifier, authError);
-				CFReleaseNull(authError);	// CFReleaseSafe?
+				CFReleaseNull(authError);
 			}
 		}
 	} else {

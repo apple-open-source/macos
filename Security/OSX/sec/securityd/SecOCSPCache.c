@@ -67,12 +67,12 @@
 // MARK: SecOCSPCacheDb
 
 static SecDbRef SecOCSPCacheDbCreate(CFStringRef path) {
-    return SecDbCreate(path, ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
-        __block bool ok;
-        ok = (SecDbExec(dbconn, CFSTR("PRAGMA auto_vacuum = FULL"), error) &&
-              SecDbExec(dbconn, CFSTR("PRAGMA journal_mode = WAL"), error));
+    return SecDbCreate(path, 0600, true, true, true, true, 1,
+            ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
+        __block bool ok = true;
+
         CFErrorRef localError = NULL;
-        if (ok && !SecDbWithSQL(dbconn, selectHashAlgorithmSQL /* expireSQL */, &localError, NULL) && CFErrorGetCode(localError) == SQLITE_ERROR) {
+        if (!SecDbWithSQL(dbconn, selectHashAlgorithmSQL /* expireSQL */, &localError, NULL) && CFErrorGetCode(localError) == SQLITE_ERROR) {
             /* SecDbWithSQL returns SQLITE_ERROR if the table we are preparing the above statement for doesn't exist. */
             ok &= SecDbTransaction(dbconn, kSecDbExclusiveTransactionType, error, ^(bool *commit) {
                 ok &= SecDbExec(dbconn,
@@ -299,16 +299,6 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
         TrustdHealthAnalyticsLogErrorCodeForDatabase(TAOCSPCache, TAOperationWrite, TAFatalError,
                                                      localError ? CFErrorGetCode(localError) : errSecInternalComponent);
         CFReleaseNull(localError);
-    } else {
-        // force a vacuum when we modify the database
-        ok &= SecDbPerformWrite(this->db, &localError, ^(SecDbConnectionRef dbconn) {
-            ok &= SecDbExec(dbconn, CFSTR("VACUUM"), &localError);
-            if (!ok) {
-                secerror("_SecOCSPCacheAddResponse VACUUM failed: %@", localError);
-                TrustdHealthAnalyticsLogErrorCodeForDatabase(TAOCSPCache, TAOperationWrite, TAFatalError,
-                                                             localError ? CFErrorGetCode(localError) : errSecInternalComponent);
-            }
-        });
     }
     CFReleaseSafe(localError);
 }
@@ -324,11 +314,7 @@ static SecOCSPResponseRef _SecOCSPCacheCopyMatching(SecOCSPCacheRef this,
 
     require(publicKey = SecCertificateGetPublicKeyData(request->issuer), errOut);
     require(issuer = SecCertificateCopyIssuerSequence(request->certificate), errOut);
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
-    require(serial = SecCertificateCopySerialNumber(request->certificate, NULL), errOut);
-#else
-    require(serial = SecCertificateCopySerialNumber(request->certificate), errOut);
-#endif
+    require(serial = SecCertificateCopySerialNumberData(request->certificate, NULL), errOut);
 
     ok &= SecDbPerformRead(this->db, &localError, ^(SecDbConnectionRef dbconn) {
         ok &= SecDbWithSQL(dbconn, selectHashAlgorithmSQL, &localError, ^bool(sqlite3_stmt *selectHash) {

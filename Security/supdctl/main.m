@@ -25,7 +25,7 @@
 #include "lib/SecArgParse.h"
 #import "supd/supdProtocol.h"
 #import <Foundation/NSXPCConnection_Private.h>
-#import "SFAnalytics.h"
+#import <Security/SFAnalytics.h>
 
 /* Internal Topic Names */
 NSString* const SFAnalyticsTopicKeySync = @"KeySyncTopic";
@@ -81,7 +81,8 @@ static void getLoggingJSON(char *topicName)
         dispatch_semaphore_signal(sema);
     }] getLoggingJSON:YES topic:topic reply:^(NSData* data, NSError* error) {
         if (data) {
-            nsprintf(@"Logging data we would have uploaded:\n%@", [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+            // Success! Only print the JSON blob to make output easier to parse
+            nsprintf(@"%@", [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
         } else {
             nsprintf(@"supd gave us an error: %@", error);
         }
@@ -128,7 +129,7 @@ int main(int argc, char **argv)
 
         { .command="sysdiagnose", .flag=&getSysdiagnose, .flagval=true, .description="Retrieve the current sysdiagnose dump for security analytics"},
         { .command="get", .flag=&getJSON, .flagval=true, .description="Get the JSON blob we would upload to the server if an upload were due"},
-        { .command="upload", .flag=&forceUpload, .flagval=true, .description="Force an upload of analytics data to server"},
+        { .command="upload", .flag=&forceUpload, .flagval=true, .description="Force an upload of analytics data to server (ignoring privacy settings)"},
         {}  // Need this!
     };
 

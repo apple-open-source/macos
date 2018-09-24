@@ -162,7 +162,7 @@
 - (DOMAbstractView *)defaultView
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(IMPL->defaultView()));
+    return kit(WTF::getPtr(IMPL->windowProxy()));
 }
 
 - (DOMStyleSheetList *)styleSheets
@@ -326,20 +326,16 @@
 
 - (NSString *)preferredStylesheetSet
 {
-    WebCore::JSMainThreadNullState state;
-    return IMPL->preferredStylesheetSet();
+    return nil;
 }
 
 - (NSString *)selectedStylesheetSet
 {
-    WebCore::JSMainThreadNullState state;
-    return IMPL->selectedStylesheetSet();
+    return nil;
 }
 
 - (void)setSelectedStylesheetSet:(NSString *)newSelectedStylesheetSet
 {
-    WebCore::JSMainThreadNullState state;
-    IMPL->setSelectedStylesheetSet(newSelectedStylesheetSet);
 }
 
 - (DOMElement *)activeElement
@@ -684,7 +680,7 @@ static RefPtr<WebCore::XPathNSResolver> wrap(id <DOMXPathNSResolver> resolver)
     WebCore::JSMainThreadNullState state;
     if (!element)
         raiseTypeErrorException();
-    WebCore::DOMWindow* dv = IMPL->defaultView();
+    WebCore::DOMWindow* dv = IMPL->domWindow();
     if (!dv)
         return nil;
     return kit(WTF::getPtr(dv->getComputedStyle(*core(element), pseudoElement)));
@@ -698,7 +694,7 @@ static RefPtr<WebCore::XPathNSResolver> wrap(id <DOMXPathNSResolver> resolver)
 - (DOMCSSRuleList *)getMatchedCSSRules:(DOMElement *)element pseudoElement:(NSString *)pseudoElement authorOnly:(BOOL)authorOnly
 {
     WebCore::JSMainThreadNullState state;
-    WebCore::DOMWindow* dv = IMPL->defaultView();
+    WebCore::DOMWindow* dv = IMPL->domWindow();
     if (!dv)
         return nil;
     return kit(WTF::getPtr(dv->getMatchedCSSRules(core(element), pseudoElement, authorOnly)));

@@ -2560,11 +2560,7 @@ static void appendPublicKeyProperty(CFMutableArrayRef parent, CFStringRef label,
                             &certificate->_algId, localized);
 
     /* Public Key Size */
-#if TARGET_OS_IPHONE
-    SecKeyRef publicKey = SecCertificateCopyPublicKey(certificate);
-#else
-    SecKeyRef publicKey = SecCertificateCopyPublicKey_ios(certificate);
-#endif
+    SecKeyRef publicKey = SecCertificateCopyKey(certificate);
     if (publicKey) {
         size_t sizeInBytes = SecKeyGetBlockSize(publicKey);
         CFStringRef sizeInBitsString = CFStringCreateWithFormat(allocator, NULL,
@@ -4360,14 +4356,7 @@ CFDataRef SecCertificateCopySerialNumberData(
 	return certificate->_serialNumber;
 }
 
-#if TARGET_OS_OSX
-/* On OS X, the SecCertificateCopySerialNumber API takes two arguments. */
-CFDataRef SecCertificateCopySerialNumber(
-	SecCertificateRef certificate,
-	CFErrorRef *error) {
-	return SecCertificateCopySerialNumberData(certificate, error);
-}
-#else
+#if !TARGET_OS_OSX
 /* On iOS, the SecCertificateCopySerialNumber API takes one argument. */
 CFDataRef SecCertificateCopySerialNumber(
 		SecCertificateRef certificate) {
@@ -4735,7 +4724,7 @@ CFArrayRef SecCertificateCopyDNSNames(SecCertificateRef certificate) {
     CFMutableArrayRef dnsNames = CFArrayCreateMutable(kCFAllocatorDefault,
                                                       0, &kCFTypeArrayCallBacks);
     OSStatus status = parseX501NameContent(&certificate->_subject, dnsNames,
-                                           appendDNSNamesFromX501Name, true);
+            appendDNSNamesFromX501Name, true);
     if (status || CFArrayGetCount(dnsNames) == 0) {
         CFReleaseNull(dnsNames);
     }
@@ -5216,6 +5205,10 @@ __nullable SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certifica
 __nullable SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
 #endif
 {
+    return SecCertificateCopyKey(certificate);
+}
+
+SecKeyRef SecCertificateCopyKey(SecCertificateRef certificate) {
     if (certificate->_pubKey == NULL) {
         const DERAlgorithmId *algId =
         SecCertificateGetPublicKeyAlgorithm(certificate);
@@ -5246,11 +5239,7 @@ static CFIndex SecCertificateGetPublicKeyAlgorithmIdAndSize(SecCertificateRef ce
 
     SecKeyRef pubKey = NULL;
     require_quiet(certificate, out);
-#if TARGET_OS_OSX
-    require_quiet(pubKey = SecCertificateCopyPublicKey_ios(certificate), out);
-#else
-    require_quiet(pubKey = SecCertificateCopyPublicKey(certificate) ,out);
-#endif
+    require_quiet(pubKey = SecCertificateCopyKey(certificate) ,out);
     size = SecKeyGetBlockSize(pubKey);
     keyAlgID = SecKeyGetAlgorithmId(pubKey);
 
@@ -5606,11 +5595,7 @@ static bool _SecCertificateIsSelfSigned(SecCertificateRef certificate) {
         certificate->_isSelfSigned = kSecSelfSignedFalse;
         SecKeyRef publicKey = NULL;
         require(certificate && (CFGetTypeID(certificate) == SecCertificateGetTypeID()), out);
-#if TARGET_OS_OSX
-        require(publicKey = SecCertificateCopyPublicKey_ios(certificate), out);
-#else
-        require(publicKey = SecCertificateCopyPublicKey(certificate), out);
-#endif
+        require(publicKey = SecCertificateCopyKey(certificate), out);
         CFDataRef normalizedIssuer =
         SecCertificateGetNormalizedIssuerContent(certificate);
         CFDataRef normalizedSubject =
@@ -6146,6 +6131,40 @@ SeciAuthVersion SecCertificateGetiAuthVersion(SecCertificateRef certificate) {
     return kSeciAuthVersion2;
 out:
     return kSeciAuthInvalid;
+}
+
+static CFStringRef SecCertificateiAPSWAuthCapabilitiesTypeToOID(SeciAPSWAuthCapabilitiesType type) {
+    CFStringRef extensionOID = NULL;
+    /* Get the oid for the type */
+    if (type == kSeciAPSWAuthGeneralCapabilities) {
+        extensionOID = CFSTR("1.2.840.113635.100.6.59.1");
+    } else if (type == kSeciAPSWAuthAirPlayCapabilities) {
+        extensionOID = CFSTR("1.2.840.113635.100.6.59.2");
+    } else if (type == kSeciAPSWAuthHomeKitCapabilities) {
+        extensionOID = CFSTR("1.2.840.113635.100.6.59.3");
+    }
+    return extensionOID;
+}
+
+CFDataRef SecCertificateCopyiAPSWAuthCapabilities(SecCertificateRef certificate, SeciAPSWAuthCapabilitiesType type) {
+    if (!certificate) {
+        return NULL;
+    }
+    CFDataRef extensionData = NULL;
+    DERItem *extensionValue = NULL;
+    CFStringRef extensionOID = SecCertificateiAPSWAuthCapabilitiesTypeToOID(type);
+    require_quiet(extensionOID, out);
+    extensionValue = SecCertificateGetExtensionValue(certificate, extensionOID);
+    require_quiet(extensionValue, out);
+    /* The extension is a octet string containing the DER-encoded variable-length octet string */
+    DERDecodedInfo decodedValue;
+    require_noerr_quiet(DERDecodeItem(extensionValue, &decodedValue), out);
+    if (decodedValue.tag == ASN1_OCTET_STRING) {
+        extensionData = CFDataCreate(NULL, decodedValue.content.data,
+                                     decodedValue.content.length);
+    }
+out:
+    return extensionData;
 }
 
 SecCertificateRef SecCertificateCreateWithPEM(CFAllocatorRef allocator,

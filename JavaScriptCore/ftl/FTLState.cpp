@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,7 +42,6 @@ using namespace DFG;
 
 State::State(Graph& graph)
     : graph(graph)
-    , generatedFunction(0)
 {
     switch (graph.m_plan.mode) {
     case FTLMode: {
@@ -51,7 +50,7 @@ State::State(Graph& graph)
     }
     case FTLForOSREntryMode: {
         RefPtr<ForOSREntryJITCode> code = adoptRef(new ForOSREntryJITCode());
-        code->initializeEntryBuffer(graph.m_vm, graph.m_profiledBlock->m_numCalleeLocals);
+        code->initializeEntryBuffer(graph.m_vm, graph.m_profiledBlock->numCalleeLocals());
         code->setBytecodeIndex(graph.m_plan.osrEntryBytecodeIndex);
         jitCode = code;
         break;

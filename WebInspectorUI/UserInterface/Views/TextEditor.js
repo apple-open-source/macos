@@ -118,10 +118,9 @@ WI.TextEditor = class TextEditor extends WI.View
             if (this._initialStringNotSet)
                 this._codeMirror.removeLineClass(0, "wrap");
 
-            if (this._codeMirror.getValue() !== newString) {
+            if (this._codeMirror.getValue() !== newString)
                 this._codeMirror.setValue(newString);
-                console.assert(this.string.length === newString.length, "A lot of our code depends on precise text offsets, so the string should remain the same.");
-            } else {
+            else {
                 // Ensure we at display content even if the value did not change. This often happens when auto formatting.
                 this.layout();
             }
@@ -467,13 +466,13 @@ WI.TextEditor = class TextEditor extends WI.View
 
     getTextInRange(startPosition, endPosition)
     {
-        return this._codeMirror.getRange(startPosition, endPosition);
+        return this._codeMirror.getRange(startPosition.toCodeMirror(), endPosition.toCodeMirror());
     }
 
     addStyleToTextRange(startPosition, endPosition, styleClassName)
     {
-        endPosition.ch += 1;
-        return this._codeMirror.getDoc().markText(startPosition, endPosition, {className: styleClassName, inclusiveLeft: true, inclusiveRight: true});
+        endPosition = endPosition.offsetColumn(1);
+        return this._codeMirror.getDoc().markText(startPosition.toCodeMirror(), endPosition.toCodeMirror(), {className: styleClassName, inclusiveLeft: true, inclusiveRight: true});
     }
 
     revealPosition(position, textRangeToSelect, forceUnformatted, noHighlight)
@@ -720,6 +719,35 @@ WI.TextEditor = class TextEditor extends WI.View
         return {startOffset, endOffset};
     }
 
+    visibleRangePositions()
+    {
+        let visibleRange = this._codeMirror.getViewport();
+        let startLine;
+        let endLine;
+
+        if (this._formatterSourceMap) {
+            startLine = this._formatterSourceMap.formattedToOriginal(Math.max(visibleRange.from - 1, 0), 0).lineNumber;
+            endLine = this._formatterSourceMap.formattedToOriginal(visibleRange.to - 1, 0).lineNumber;
+        } else {
+            startLine = visibleRange.from;
+            endLine = visibleRange.to;
+        }
+
+        return {
+            startPosition: new WI.SourceCodePosition(startLine, 0),
+            endPosition: new WI.SourceCodePosition(endLine, 0)
+        };
+    }
+
+    originalPositionToCurrentPosition(position)
+    {
+        if (!this._formatterSourceMap)
+            return position;
+
+        let {lineNumber, columnNumber} = this._formatterSourceMap.originalToFormatted(position.lineNumber, position.columnNumber);
+        return new WI.SourceCodePosition(lineNumber, columnNumber);
+    }
+
     originalOffsetToCurrentPosition(offset)
     {
         var position = null;
@@ -734,7 +762,8 @@ WI.TextEditor = class TextEditor extends WI.View
 
     currentOffsetToCurrentPosition(offset)
     {
-        return this._codeMirror.getDoc().posFromIndex(offset);
+        let pos = this._codeMirror.getDoc().posFromIndex(offset);
+        return new WI.SourceCodePosition(pos.line, pos.ch);
     }
 
     currentPositionToOriginalOffset(position)
@@ -754,18 +783,18 @@ WI.TextEditor = class TextEditor extends WI.View
         if (!this._formatterSourceMap)
             return position;
 
-        let location = this._formatterSourceMap.formattedToOriginal(position.line, position.ch);
-        return {line: location.lineNumber, ch: location.columnNumber};
+        let location = this._formatterSourceMap.formattedToOriginal(position.lineNumber, position.columnNumber);
+        return new WI.SourceCodePosition(location.lineNumber, location.columnNumber);
     }
 
     currentPositionToCurrentOffset(position)
     {
-        return this._codeMirror.getDoc().indexFromPos(position);
+        return this._codeMirror.getDoc().indexFromPos(position.toCodeMirror());
     }
 
     setInlineWidget(position, inlineElement)
     {
-        return this._codeMirror.setUniqueBookmark(position, {widget: inlineElement});
+        return this._codeMirror.setUniqueBookmark(position.toCodeMirror(), {widget: inlineElement});
     }
 
     addScrollHandler(handler)
@@ -1293,13 +1322,9 @@ WI.TextEditor = class TextEditor extends WI.View
         if (isNaN(this._executionLineNumber))
             return;
 
-        let currentPosition = {line: this._executionLineNumber, ch: this._executionColumnNumber};
-        let originalOffset = this.currentPositionToOriginalOffset(currentPosition);
-        let originalCodeMirrorPosition = this.currentPositionToOriginalPosition(currentPosition);
-        let originalPosition = new WI.SourceCodePosition(originalCodeMirrorPosition.line, originalCodeMirrorPosition.ch);
-        let characterAtOffset = this._codeMirror.getRange(currentPosition, {line: this._executionLineNumber, ch: this._executionColumnNumber + 1});
+        let currentPosition = new WI.SourceCodePosition(this._executionLineNumber, this._executionColumnNumber);
 
-        this._delegate.textEditorExecutionHighlightRange(originalOffset, originalPosition, characterAtOffset, (range) => {
+        this._delegate.textEditorExecutionHighlightRange(currentPosition, (range) => {
             let start, end;
             if (!range) {
                 // Highlight the rest of the line.
@@ -1307,8 +1332,8 @@ WI.TextEditor = class TextEditor extends WI.View
                 end = {line: this._executionLineNumber};
             } else {
                 // Highlight the range.
-                start = this.originalOffsetToCurrentPosition(range[0]);
-                end = this.originalOffsetToCurrentPosition(range[1]);
+                start = range.startPosition;
+                end = range.endPosition;
             }
 
             // Ensure the marker is cleared in case there were multiple updates very quickly.

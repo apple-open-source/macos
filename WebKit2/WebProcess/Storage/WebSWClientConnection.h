@@ -60,8 +60,9 @@ public:
     void disconnectedFromWebProcess();
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
-    bool mayHaveServiceWorkerRegisteredForOrigin(const WebCore::SecurityOrigin&) const final;
-    void startFetch(uint64_t fetchIdentifier, WebCore::ServiceWorkerRegistrationIdentifier, const WebCore::ResourceRequest&, const WebCore::FetchOptions&, const String& referrer);
+    bool mayHaveServiceWorkerRegisteredForOrigin(const WebCore::SecurityOriginData&) const final;
+    void startFetch(WebCore::FetchIdentifier, WebCore::ServiceWorkerRegistrationIdentifier, const WebCore::ResourceRequest&, const WebCore::FetchOptions&, const String& referrer);
+    void cancelFetch(WebCore::FetchIdentifier, WebCore::ServiceWorkerRegistrationIdentifier);
 
     void postMessageToServiceWorkerClient(WebCore::DocumentIdentifier destinationContextIdentifier, WebCore::MessageWithMessagePorts&&, WebCore::ServiceWorkerData&& source, const String& sourceOrigin);
 
@@ -75,16 +76,16 @@ private:
     void scheduleJobInServer(const WebCore::ServiceWorkerJobData&) final;
     void finishFetchingScriptInServer(const WebCore::ServiceWorkerFetchResult&) final;
     void postMessageToServiceWorker(WebCore::ServiceWorkerIdentifier destinationIdentifier, WebCore::MessageWithMessagePorts&&, const WebCore::ServiceWorkerOrClientIdentifier& source) final;
-    void registerServiceWorkerClient(const WebCore::SecurityOrigin& topOrigin, const WebCore::ServiceWorkerClientData&, const std::optional<WebCore::ServiceWorkerIdentifier>&) final;
+    void registerServiceWorkerClient(const WebCore::SecurityOrigin& topOrigin, const WebCore::ServiceWorkerClientData&, const std::optional<WebCore::ServiceWorkerRegistrationIdentifier>&) final;
     void unregisterServiceWorkerClient(WebCore::DocumentIdentifier) final;
 
-    void matchRegistration(const WebCore::SecurityOrigin& topOrigin, const WebCore::URL& clientURL, RegistrationCallback&&) final;
+    void matchRegistration(WebCore::SecurityOriginData&& topOrigin, const WebCore::URL& clientURL, RegistrationCallback&&) final;
     void didMatchRegistration(uint64_t matchRequestIdentifier, std::optional<WebCore::ServiceWorkerRegistrationData>&&);
     void didGetRegistrations(uint64_t matchRequestIdentifier, Vector<WebCore::ServiceWorkerRegistrationData>&&);
     void whenRegistrationReady(const WebCore::SecurityOrigin& topOrigin, const WebCore::URL& clientURL, WhenRegistrationReadyCallback&&) final;
     void registrationReady(uint64_t callbackID, WebCore::ServiceWorkerRegistrationData&&);
 
-    void getRegistrations(const WebCore::SecurityOrigin& topOrigin, const WebCore::URL& clientURL, GetRegistrationsCallback&&) final;
+    void getRegistrations(WebCore::SecurityOriginData&& topOrigin, const WebCore::URL& clientURL, GetRegistrationsCallback&&) final;
 
     void didResolveRegistrationPromise(const WebCore::ServiceWorkerRegistrationKey&) final;
 

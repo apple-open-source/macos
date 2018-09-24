@@ -97,6 +97,15 @@ namespace JSC {
         : ConstantNode(location, ResultType::bigIntType())
         , m_value(value)
         , m_radix(radix)
+        , m_sign(false)
+    {
+    }
+    
+    inline BigIntNode::BigIntNode(const JSTokenLocation& location, const Identifier& value, uint8_t radix, bool sign)
+        : ConstantNode(location, ResultType::bigIntType())
+        , m_value(value)
+        , m_radix(radix)
+        , m_sign(sign)
     {
     }
 
@@ -242,36 +251,36 @@ namespace JSC {
     {
     }
 
-    inline PropertyNode::PropertyNode(const Identifier& name, ExpressionNode* assign, Type type, PutType putType, SuperBinding superBinding, bool isClassProperty)
+    inline PropertyNode::PropertyNode(const Identifier& name, ExpressionNode* assign, Type type, PutType putType, SuperBinding superBinding, ClassElementTag tag)
         : m_name(&name)
         , m_assign(assign)
         , m_type(type)
         , m_needsSuperBinding(superBinding == SuperBinding::Needed)
         , m_putType(putType)
-        , m_isClassProperty(isClassProperty)
+        , m_classElementTag(static_cast<unsigned>(tag))
         , m_isOverriddenByDuplicate(false)
     {
     }
     
-    inline PropertyNode::PropertyNode(ExpressionNode* assign, Type type, PutType putType, SuperBinding superBinding, bool isClassProperty)
+    inline PropertyNode::PropertyNode(ExpressionNode* assign, Type type, PutType putType, SuperBinding superBinding, ClassElementTag tag)
         : m_name(nullptr)
         , m_assign(assign)
         , m_type(type)
         , m_needsSuperBinding(superBinding == SuperBinding::Needed)
         , m_putType(putType)
-        , m_isClassProperty(isClassProperty)
+        , m_classElementTag(static_cast<unsigned>(tag))
         , m_isOverriddenByDuplicate(false)
     {
     }
 
-    inline PropertyNode::PropertyNode(ExpressionNode* name, ExpressionNode* assign, Type type, PutType putType, SuperBinding superBinding, bool isClassProperty)
+    inline PropertyNode::PropertyNode(ExpressionNode* name, ExpressionNode* assign, Type type, PutType putType, SuperBinding superBinding, ClassElementTag tag)
         : m_name(nullptr)
         , m_expression(name)
         , m_assign(assign)
         , m_type(type)
         , m_needsSuperBinding(superBinding == SuperBinding::Needed)
         , m_putType(putType)
-        , m_isClassProperty(isClassProperty)
+        , m_classElementTag(static_cast<unsigned>(tag))
         , m_isOverriddenByDuplicate(false)
     {
     }
@@ -623,7 +632,7 @@ namespace JSC {
     }
 
     inline InNode::InNode(const JSTokenLocation& location, ExpressionNode* expr1, ExpressionNode* expr2, bool rightHasAssignments)
-        : ThrowableBinaryOpNode(location, expr1, expr2, op_in, rightHasAssignments)
+        : ThrowableBinaryOpNode(location, expr1, expr2, op_in_by_val, rightHasAssignments)
     {
     }
 
@@ -993,7 +1002,7 @@ namespace JSC {
     {
     }
 
-    inline ClassExprNode::ClassExprNode(const JSTokenLocation& location, const Identifier& name, const SourceCode& classSource, VariableEnvironment& classEnvironment, ExpressionNode* constructorExpression, ExpressionNode* classHeritage, PropertyListNode* instanceMethods, PropertyListNode* staticMethods)
+    inline ClassExprNode::ClassExprNode(const JSTokenLocation& location, const Identifier& name, const SourceCode& classSource, VariableEnvironment& classEnvironment, ExpressionNode* constructorExpression, ExpressionNode* classHeritage, PropertyListNode* classElements)
         : ExpressionNode(location)
         , VariableEnvironmentNode(classEnvironment)
         , m_classSource(classSource)
@@ -1001,8 +1010,7 @@ namespace JSC {
         , m_ecmaName(&name)
         , m_constructorExpression(constructorExpression)
         , m_classHeritage(classHeritage)
-        , m_instanceMethods(instanceMethods)
-        , m_staticMethods(staticMethods)
+        , m_classElements(classElements)
     {
     }
 

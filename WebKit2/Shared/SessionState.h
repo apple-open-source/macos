@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,9 +29,11 @@
 #include "ViewSnapshotStore.h"
 #endif
 
+#include <WebCore/BackForwardItemIdentifier.h>
 #include <WebCore/FloatRect.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/IntRect.h>
+#include <WebCore/SerializedScriptValue.h>
 #include <WebCore/URL.h>
 #include <wtf/Optional.h>
 #include <wtf/Vector.h>
@@ -119,19 +121,19 @@ struct PageState {
     String title;
     FrameState mainFrameState;
     WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy { WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow };
+    RefPtr<WebCore::SerializedScriptValue> sessionStateObject;
 };
 
 struct BackForwardListItemState {
     void encode(IPC::Encoder&) const;
     static std::optional<BackForwardListItemState> decode(IPC::Decoder&);
 
-    uint64_t identifier;
+    WebCore::BackForwardItemIdentifier identifier;
 
     PageState pageState;
 #if PLATFORM(COCOA)
     RefPtr<ViewSnapshot> snapshot;
 #endif
-
 };
 
 struct BackForwardListState {

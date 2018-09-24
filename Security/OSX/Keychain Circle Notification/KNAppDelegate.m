@@ -550,6 +550,7 @@ static void PSKeychainSyncIsUsingICDP(void)
 
     secnotice("kcn", "About to post #%d/%lu (%@): %@", postCount, noteCenter.deliveredNotifications.count, applicant.idString, note);
 	[appropriateNotificationCenter() deliverNotification:note];
+    [self.viewedIds addObject:applicant.idString];
 	postCount++;
 }
 

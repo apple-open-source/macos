@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,7 @@
 #import "Extensions3DOpenGL.h"
 #import "GraphicsContext.h"
 #import "HTMLCanvasElement.h"
+#import "HostWindow.h"
 #import "ImageBuffer.h"
 #import "Logging.h"
 #import "WebGLLayer.h"
@@ -47,7 +48,7 @@
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/text/CString.h>
 
-#if PLATFORM(IOS)
+#if USE(OPENGL_ES)
 #import <OpenGLES/EAGL.h>
 #import <OpenGLES/EAGLDrawable.h>
 #import <OpenGLES/EAGLIOSurface.h>
@@ -60,11 +61,15 @@
 #import <OpenGL/gl.h>
 #endif
 
+#if PLATFORM(MAC)
+#import "ScreenProperties.h"
+#endif
+
 namespace WebCore {
 
 static const unsigned statusCheckThreshold = 5;
 
-#if PLATFORM(MAC)
+#if HAVE(APPLE_GRAPHICS_CONTROL)
 
 enum {
     kAGCOpen,
@@ -73,7 +78,7 @@ enum {
 
 static io_connect_t attachToAppleGraphicsControl()
 {
-    mach_port_t masterPort;
+    mach_port_t masterPort = MACH_PORT_NULL;
 
     if (IOMasterPort(MACH_PORT_NULL, &masterPort) != KERN_SUCCESS)
         return MACH_PORT_NULL;
@@ -137,7 +142,6 @@ static bool hasMuxableGPU()
     static bool canMux = hasMuxCapability();
     return canMux;
 }
-
 #endif
 
 const unsigned MaxContexts = 16;
@@ -315,9 +319,9 @@ public:
     ~GraphicsContext3DPrivate() { }
 };
 
-#if PLATFORM(MAC)
+#if USE(OPENGL)
 
-static void setPixelFormat(Vector<CGLPixelFormatAttribute>& attribs, int colorBits, int depthBits, bool accelerated, bool supersample, bool closest, bool antialias, bool useGLES3)
+static void setPixelFormat(Vector<CGLPixelFormatAttribute>& attribs, int colorBits, int depthBits, bool accelerated, bool supersample, bool closest, bool antialias, bool useGLES3, bool allowOfflineRenderers)
 {
     attribs.clear();
     
@@ -330,7 +334,7 @@ static void setPixelFormat(Vector<CGLPixelFormatAttribute>& attribs, int colorBi
     // allowing us to request the integrated graphics on a dual GPU
     // system, and not force the discrete GPU.
     // See https://developer.apple.com/library/mac/technotes/tn2229/_index.html
-    if (hasMuxableGPU())
+    if (allowOfflineRenderers)
         attribs.append(kCGLPFAAllowOfflineRenderers);
 
     if (accelerated)
@@ -363,7 +367,8 @@ static void setPixelFormat(Vector<CGLPixelFormatAttribute>& attribs, int colorBi
         
     attribs.append(static_cast<CGLPixelFormatAttribute>(0));
 }
-#endif // !PLATFORM(IOS)
+
+#endif // USE(OPENGL)
 
 RefPtr<GraphicsContext3D> GraphicsContext3D::create(GraphicsContext3DAttributes attrs, HostWindow* hostWindow, GraphicsContext3D::RenderStyle renderStyle)
 {
@@ -395,14 +400,40 @@ Ref<GraphicsContext3D> GraphicsContext3D::createShared(GraphicsContext3D& shared
     return context;
 }
 
-GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attrs, HostWindow*, GraphicsContext3D::RenderStyle, GraphicsContext3D* sharedContext)
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+static void identifyAndSetCurrentGPU(CGLPixelFormatObj pixelFormatObj, int numPixelFormats, CGOpenGLDisplayMask displayMaskOpenGL, PlatformGraphicsContext3D contextObj)
+{
+    // When the WebProcess does not have access to the WindowServer, there is no way for OpenGL to tell which GPU is connected to a display.
+    // CGLSetVirtualScreen can be used to tell OpenGL which GPU it should be using.
+    // See code example at https://developer.apple.com/library/content/technotes/tn2229/_index.html#//apple_ref/doc/uid/DTS40008924-CH1-SUBSECTION7
+    
+    if (!displayMaskOpenGL || !contextObj)
+        return;
+
+    for (int virtualScreen = 0; virtualScreen < numPixelFormats; ++virtualScreen) {
+        GLint displayMask = 0;
+        CGLError error = CGLDescribePixelFormat(pixelFormatObj, virtualScreen, kCGLPFADisplayMask, &displayMask);
+        ASSERT(error == kCGLNoError);
+        if (error != kCGLNoError)
+            continue;
+        if (displayMask & displayMaskOpenGL) {
+            error = CGLSetVirtualScreen(contextObj, virtualScreen);
+            ASSERT(error == kCGLNoError);
+            break;
+        }
+    }
+}
+#endif
+
+GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attrs, HostWindow* hostWindow, GraphicsContext3D::RenderStyle, GraphicsContext3D* sharedContext)
     : m_attrs(attrs)
 #if PLATFORM(IOS)
     , m_compiler(SH_ESSL_OUTPUT)
 #endif
     , m_private(std::make_unique<GraphicsContext3DPrivate>(this))
 {
-#if PLATFORM(IOS)
+#if USE(OPENGL_ES)
+    UNUSED_PARAM(hostWindow);
     EAGLRenderingAPI api = m_attrs.useGLES3 ? kEAGLRenderingAPIOpenGLES3 : kEAGLRenderingAPIOpenGLES2;
     if (!sharedContext)
         m_contextObj = [[EAGLContext alloc] initWithAPI:api];
@@ -430,21 +461,25 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attrs, HostWind
 
     bool useMultisampling = m_attrs.antialias;
 
+#if HAVE(APPLE_GRAPHICS_CONTROL)
     m_powerPreferenceUsedForCreation = (hasMuxableGPU() && attrs.powerPreference == GraphicsContext3DPowerPreference::HighPerformance) ? GraphicsContext3DPowerPreference::HighPerformance : GraphicsContext3DPowerPreference::Default;
+#else
+    m_powerPreferenceUsedForCreation = GraphicsContext3DPowerPreference::Default;
+#endif
 
-    setPixelFormat(attribs, 32, 32, !attrs.forceSoftwareRenderer, true, false, useMultisampling, attrs.useGLES3);
+    setPixelFormat(attribs, 32, 32, !attrs.forceSoftwareRenderer, true, false, useMultisampling, attrs.useGLES3, allowOfflineRenderers());
     CGLChoosePixelFormat(attribs.data(), &pixelFormatObj, &numPixelFormats);
 
     if (!numPixelFormats) {
-        setPixelFormat(attribs, 32, 32, !attrs.forceSoftwareRenderer, false, false, useMultisampling, attrs.useGLES3);
+        setPixelFormat(attribs, 32, 32, !attrs.forceSoftwareRenderer, false, false, useMultisampling, attrs.useGLES3, allowOfflineRenderers());
         CGLChoosePixelFormat(attribs.data(), &pixelFormatObj, &numPixelFormats);
 
         if (!numPixelFormats) {
-            setPixelFormat(attribs, 32, 16, !attrs.forceSoftwareRenderer, false, false, useMultisampling, attrs.useGLES3);
+            setPixelFormat(attribs, 32, 16, !attrs.forceSoftwareRenderer, false, false, useMultisampling, attrs.useGLES3, allowOfflineRenderers());
             CGLChoosePixelFormat(attribs.data(), &pixelFormatObj, &numPixelFormats);
 
             if (!attrs.forceSoftwareRenderer && !numPixelFormats) {
-                setPixelFormat(attribs, 32, 16, false, false, true, false, attrs.useGLES3);
+                setPixelFormat(attribs, 32, 16, false, false, true, false, attrs.useGLES3, allowOfflineRenderers());
                 CGLChoosePixelFormat(attribs.data(), &pixelFormatObj, &numPixelFormats);
                 useMultisampling = false;
             }
@@ -456,10 +491,16 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attrs, HostWind
 
     CGLError err = CGLCreateContext(pixelFormatObj, sharedContext ? sharedContext->m_contextObj : nullptr, &m_contextObj);
     GLint abortOnBlacklist = 0;
-#if PLATFORM(MAC)
     CGLSetParameter(m_contextObj, kCGLCPAbortOnGPURestartStatusBlacklisted, &abortOnBlacklist);
-#elif PLATFORM(IOS)
-    CGLSetParameter(m_contextObj, kEAGLCPAbortOnGPURestartStatusBlacklisted, &abortOnBlacklist);
+    
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    if (auto displayMask = primaryOpenGLDisplayMask()) {
+        if (hostWindow && hostWindow->displayID())
+            displayMask = displayMaskForDisplay(hostWindow->displayID());
+        identifyAndSetCurrentGPU(pixelFormatObj, numPixelFormats, displayMask, m_contextObj);
+    }
+#else
+    UNUSED_PARAM(hostWindow);
 #endif
 
     CGLDestroyPixelFormat(pixelFormatObj);
@@ -475,7 +516,7 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attrs, HostWind
     // Set the current context to the one given to us.
     CGLSetCurrentContext(m_contextObj);
 
-#endif // !PLATFORM(IOS)
+#endif // !USE(OPENGL_ES)
     
     validateAttributes();
 
@@ -487,13 +528,13 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attrs, HostWind
 #endif
     END_BLOCK_OBJC_EXCEPTIONS
 
-#if !PLATFORM(IOS)
+#if USE(OPENGL)
     if (useMultisampling)
         ::glEnable(GL_MULTISAMPLE);
 #endif
 
     // Create the texture that will be used for the framebuffer.
-#if PLATFORM(IOS)
+#if USE(OPENGL_ES)
     ::glGenRenderbuffers(1, &m_texture);
 #else
     ::glGenTextures(1, &m_texture);
@@ -547,7 +588,7 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attrs, HostWind
 
     m_compiler.setResources(ANGLEResources);
     
-#if !PLATFORM(IOS)
+#if USE(OPENGL)
     ::glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
     if (!isGLES2Compliant())
         ::glEnable(GL_POINT_SPRITE);
@@ -563,7 +604,7 @@ GraphicsContext3D::~GraphicsContext3D()
     manager().removeContext(this);
 
     if (m_contextObj) {
-#if PLATFORM(IOS)
+#if USE(OPENGL_ES)
         makeContextCurrent();
         [m_contextObj renderbufferStorage:GL_RENDERBUFFER fromDrawable:nil];
         ::glDeleteRenderbuffers(1, &m_texture);
@@ -581,7 +622,7 @@ GraphicsContext3D::~GraphicsContext3D()
                 ::glDeleteRenderbuffersEXT(1, &m_depthStencilBuffer);
         }
         ::glDeleteFramebuffersEXT(1, &m_fbo);
-#if PLATFORM(IOS)
+#if USE(OPENGL_ES)
         [EAGLContext setCurrentContext:0];
         [static_cast<EAGLContext*>(m_contextObj) release];
 #else
@@ -594,7 +635,7 @@ GraphicsContext3D::~GraphicsContext3D()
     LOG(WebGL, "Destroyed a GraphicsContext3D (%p).", this);
 }
 
-#if PLATFORM(IOS)
+#if USE(OPENGL_ES)
 void GraphicsContext3D::setRenderbufferStorageFromDrawable(GC3Dsizei width, GC3Dsizei height)
 {
     // We need to make a call to setBounds below to update the backing store size but we also
@@ -615,7 +656,7 @@ bool GraphicsContext3D::makeContextCurrent()
     if (!m_contextObj)
         return false;
 
-#if PLATFORM(IOS)
+#if USE(OPENGL_ES)
     if ([EAGLContext currentContext] != m_contextObj)
         return [EAGLContext setCurrentContext:static_cast<EAGLContext*>(m_contextObj)];
 #else
@@ -632,7 +673,7 @@ void GraphicsContext3D::checkGPUStatus()
         LOG(WebGL, "Pretending the GPU has reset (%p). Lose the context.", this);
         m_failNextStatusCheck = false;
         forceContextLost();
-#if PLATFORM(MAC)
+#if USE(OPENGL)
         CGLSetCurrentContext(0);
 #else
         [EAGLContext setCurrentContext:0];
@@ -647,7 +688,7 @@ void GraphicsContext3D::checkGPUStatus()
     m_statusCheckCount = (m_statusCheckCount + 1) % statusCheckThreshold;
 
     GLint restartStatus = 0;
-#if PLATFORM(MAC)
+#if USE(OPENGL)
     CGLGetParameter(platformGraphicsContext3D(), kCGLCPGPURestartStatus, &restartStatus);
     if (restartStatus == kCGLCPGPURestartStatusBlacklisted) {
         LOG(WebGL, "The GPU has blacklisted us (%p). Terminating.", this);
@@ -669,7 +710,7 @@ void GraphicsContext3D::checkGPUStatus()
 #endif
 }
 
-#if PLATFORM(IOS)
+#if USE(OPENGL_ES)
 void GraphicsContext3D::presentRenderbuffer()
 {
     makeContextCurrent();
@@ -685,9 +726,9 @@ void GraphicsContext3D::presentRenderbuffer()
 
 bool GraphicsContext3D::texImageIOSurface2D(GC3Denum target, GC3Denum internalFormat, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, IOSurfaceRef surface, GC3Duint plane)
 {
-#if PLATFORM(MAC)
+#if USE(OPENGL)
     return kCGLNoError == CGLTexImageIOSurface2D(platformGraphicsContext3D(), target, internalFormat, width, height, format, type, surface, plane);
-#elif PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+#elif USE(OPENGL_ES) && !PLATFORM(IOS_SIMULATOR)
     return [platformGraphicsContext3D() texImageIOSurface:surface target:target internalFormat:internalFormat width:width height:height format:format type:type plane:plane];
 #else
     UNUSED_PARAM(target);
@@ -702,7 +743,7 @@ bool GraphicsContext3D::texImageIOSurface2D(GC3Denum target, GC3Denum internalFo
 #endif
 }
 
-#if PLATFORM(MAC)
+#if USE(OPENGL)
 void GraphicsContext3D::allocateIOSurfaceBackingStore(IntSize size)
 {
     LOG(WebGL, "GraphicsContext3D::allocateIOSurfaceBackingStore at %d x %d. (%p)", size.width(), size.height(), this);
@@ -753,6 +794,27 @@ void GraphicsContext3D::setErrorMessageCallback(std::unique_ptr<ErrorMessageCall
 void GraphicsContext3D::simulateContextChanged()
 {
     manager().updateAllContexts();
+}
+
+bool GraphicsContext3D::allowOfflineRenderers() const
+{
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    // When WindowServer access is blocked in the WebProcess, there is no way
+    // for OpenGL to decide which GPU is connected to a display (online/offline).
+    // OpenGL will then consider all GPUs, or renderers, as offline, which means
+    // all offline renderers need to be considered when finding a pixel format.
+    // In WebKit legacy, there will still be a WindowServer connection, and
+    // m_displayMask will not be set in this case.
+    if (primaryOpenGLDisplayMask())
+        return true;
+#endif
+        
+#if HAVE(APPLE_GRAPHICS_CONTROL)
+    if (hasMuxableGPU())
+        return true;
+#endif
+    
+    return false;
 }
 
 }

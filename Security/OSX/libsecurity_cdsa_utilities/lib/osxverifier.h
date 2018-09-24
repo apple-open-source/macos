@@ -31,6 +31,8 @@
 #include <string>
 #include <map>
 
+#define LEGACY_HASH_LIMIT 16*1024
+
 namespace Security {
 
 
@@ -43,7 +45,7 @@ namespace Security {
 //
 class OSXVerifier {
 public:
-	static const size_t legacyHashLimit = 16 * 1024;
+	static const size_t legacyHashLimit = LEGACY_HASH_LIMIT;
 	static const uint32_t commentAlignment = 4;
 	
 public:

@@ -742,7 +742,11 @@ void CSPFullPluginSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
 	
 	// make data to be encrypted
 	unsigned bytesInKey = encryptingKey->KeyHeader.LogicalKeySizeInBits / 8;
-	u_int8_t buffer[bytesInKey];
+	u_int8_t *buffer = (u_int8_t*)malloc(bytesInKey);
+    if (buffer == NULL) {
+        CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+    }
+    
 	unsigned i;
 	
 	for (i = 0; i < bytesInKey; ++i)
@@ -759,6 +763,7 @@ void CSPFullPluginSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
 	CSSM_RETURN result = CSSM_CSP_CreateAsymmetricContext(moduleHandle, encryptingKey->KeyHeader.AlgorithmId,  &nullCreds, encryptingKey, CSSM_PADDING_NONE, &encryptHandle);
 	if (result != CSSM_OK)
 	{
+        free(buffer);
 		CssmError::throwMe(result);
 	}
 	
@@ -769,6 +774,7 @@ void CSPFullPluginSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
 	result = CSSM_QuerySize(encryptHandle, CSSM_TRUE, 1, &qsData);
 	if (result == CSSMERR_CSP_INVALID_ALGORITHM)
 	{
+        free(buffer);
 		return;
 	}
 	
@@ -780,6 +786,7 @@ void CSPFullPluginSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
 	result = CSSM_EncryptData(encryptHandle, &clearBuf, 1, &cipherBuf, 1, &bytesEncrypted, &remData);
 	if (result != CSSM_OK)
 	{
+        free(buffer);
 		CssmError::throwMe(result);
 	}
 	
@@ -803,12 +810,14 @@ void CSPFullPluginSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
 
 	if (result != CSSM_OK)
 	{
+        free(buffer);
 		CssmError::throwMe(result);
 	}
 	
 	result = CSSM_DecryptData(decryptHandle, &cipherBuf, 1, &decryptedBuf, 1, &bytesEncrypted, &remData);
 	if (result != CSSM_OK)
 	{
+        free(buffer);
 		CssmError::throwMe(result);
 	}
 	
@@ -826,6 +835,8 @@ void CSPFullPluginSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
 	{
 		free(remData.Data);
 	}
+    
+    free(buffer);
 }
 
 void CSPFullPluginSession::ObtainPrivateKeyFromPublicKey(const CssmKey &PublicKey,

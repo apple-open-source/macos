@@ -79,7 +79,7 @@ struct	firewire_header {
 int firewire_attach_inet(ifnet_t ifp, protocol_family_t protocol_family);
 int firewire_attach_inet6(ifnet_t ifp, __unused protocol_family_t protocol_family);
 
-int firewire_ifattach(register ifnet_t ifp);
-void firewire_ifdetach(register ifnet_t ifp);
+int firewire_ifattach(ifnet_t ifp);
+void firewire_ifdetach(ifnet_t ifp);
 
 #endif /* !_NET_FIREWIRE_H_ */

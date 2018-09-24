@@ -26,7 +26,7 @@
 #pragma once
 
 #include "IsoSubspace.h"
-#include "JSCell.h"
+#include "JSCast.h"
 #include "VM.h"
 #include "Watchpoint.h"
 #include "WriteBarrier.h"
@@ -41,7 +41,7 @@ namespace JSC {
 // Commonly used for inferring singletons - in that case each allocation does notifyWrite(). But you
 // can use it for other things as well.
 
-class InferredValue : public JSCell {
+class InferredValue final : public JSCell {
 public:
     typedef JSCell Base;
     

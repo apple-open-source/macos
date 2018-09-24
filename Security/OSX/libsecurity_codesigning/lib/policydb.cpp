@@ -286,6 +286,33 @@ void PolicyDatabase::upgradeDatabase()
     simpleFeature("root_only", ^{
         UnixError::check(::chmod(dbPath(), S_IRUSR | S_IWUSR));
     });
+
+	simpleFeature("notarized_apps", ^{
+
+		// Insert a set of notarization requirements for notarized applications and installers, with a priority that will be higher than developer id priorities
+		// so they are guaranteed to match first.
+		SQLite::Statement addNotarizedExecutables(*this,
+			"INSERT INTO authority (type, allow, flags, priority, label, requirement) VALUES (1, 1, 2, 5.0, 'Notarized Developer ID', 'anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and notarized')");
+		addNotarizedExecutables.execute();
+
+		SQLite::Statement addNotarizedInstallers(*this,
+			"INSERT INTO authority (type, allow, flags, priority, label, requirement) VALUES (2, 1, 2, 5.0, 'Notarized Developer ID', 'anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and (certificate leaf[field.1.2.840.113635.100.6.1.14] or certificate leaf[field.1.2.840.113635.100.6.1.13]) and notarized')");
+		addNotarizedInstallers.execute();
+
+		// Bump the priority on apple system, apple installer, and mac app store entries so they are evaluated before Developer ID variants.
+		// This is important because notarized variants meet the requirement of the Developer ID variant and would could match that too.
+		SQLite::Statement bumpAppleSystemPriority(*this,
+			  "UPDATE authority SET priority = 20.0 WHERE label = 'Apple System'");
+		bumpAppleSystemPriority.execute();
+
+		SQLite::Statement bumpAppleInstallerPriority(*this,
+			  "UPDATE authority SET priority = 20.0 WHERE label = 'Apple Installer'");
+		bumpAppleInstallerPriority.execute();
+
+		SQLite::Statement bumpMacAppStorePriority(*this,
+			  "UPDATE authority SET priority = 10.0 WHERE label = 'Mac App Store'");
+		bumpMacAppStorePriority.execute();
+	});
 }
 
 

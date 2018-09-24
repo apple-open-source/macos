@@ -262,6 +262,10 @@ hr{
             "CLP",
             "čileanski pezo",
         }
+        CNH{
+            "CNH",
+            "kineski juan (offshore)",
+        }
         CNX{
             "CNX",
             "kineski narodni dolar",
@@ -680,6 +684,10 @@ hr{
         }
         MRO{
             "MRO",
+            "mauritanijska ouguja (1973–2017)",
+        }
+        MRU{
+            "MRU",
             "mauritanijska ouguja",
         }
         MTL{
@@ -912,6 +920,10 @@ hr{
         }
         STD{
             "STD",
+            "dobra Svetog Tome i Principa (1977–2017)",
+        }
+        STN{
+            "STN",
             "dobra Svetog Tome i Principa",
         }
         SUR{
@@ -1267,6 +1279,7 @@ hr{
         PKR{"Rs"}
         PLN{"zł"}
         PYG{"₲"}
+        RON{"lei"}
         RUB{"₽"}
         RUR{"р."}
         RWF{"RF"}
@@ -1276,7 +1289,7 @@ hr{
         SHP{"£"}
         SRD{"$"}
         SSP{"£"}
-        STD{"Db"}
+        STN{"Db"}
         SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
@@ -1304,7 +1317,7 @@ hr{
         }
         AED{
             few{"UAE dirhama"}
-            one{"UAE diram"}
+            one{"UAE dirham"}
             other{"UAE dirhama"}
         }
         AFA{
@@ -1616,6 +1629,11 @@ hr{
             few{"čileanska peza"}
             one{"čileanski pezo"}
             other{"čileanskih peza"}
+        }
+        CNH{
+            few{"kineska juana (offshore)"}
+            one{"kineski juan (offshore)"}
+            other{"kineskih juana (offshore)"}
         }
         CNX{
             few{"kineska narodna dolara"}
@@ -2133,6 +2151,11 @@ hr{
             other{"makaoških pataka"}
         }
         MRO{
+            few{"mauritanijske ouguje (1973–2017)"}
+            one{"mauritanijska ouguja (1973–2017)"}
+            other{"mauritanijskih ouguja (1973–2017)"}
+        }
+        MRU{
             few{"mauritanijske ouguje"}
             one{"mauritanijska ouguja"}
             other{"mauritanijskih ouguja"}
@@ -2423,6 +2446,11 @@ hr{
             other{"južnosudanskih funti"}
         }
         STD{
+            few{"dobre Svetog Tome i Principa (1977–2017)"}
+            one{"dobra Svetog Tome i Principa (1977–2017)"}
+            other{"dobri Svetog Tome i Principa (1977–2017)"}
+        }
+        STN{
             few{"dobre Svetog Tome i Principa"}
             one{"dobra Svetog Tome i Principa"}
             other{"dobri Svetog Tome i Principa"}
@@ -2783,5 +2811,5 @@ hr{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

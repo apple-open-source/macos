@@ -82,6 +82,8 @@ _IPv6AWDReportCreate(InterfaceType type)
     metric.routerLifetimeSeconds = 0;
     metric.routerLifetimeZero = NO;
     metric.routerSourceAddressCollision = NO;
+    metric.xlat464Enabled = NO;
+    metric.xlat464PlatDiscoveryFailed = NO;
 
     /* default integers to 0 */
     metric.autoconfAddressAcquisitionSeconds = 0;
@@ -269,6 +271,18 @@ IPv6AWDReportSetRouterLifetimeZero(IPv6AWDReportRef report)
 }
 
 void
+IPv6AWDReportSetXLAT464Enabled(IPv6AWDReportRef report)
+{
+    IPV6_REPORT_SET_PROP(report, xlat464Enabled, YES);
+}
+
+void
+IPv6AWDReportSetXLAT464PLATDiscoveryFailed(IPv6AWDReportRef report)
+{
+    IPV6_REPORT_SET_PROP(report, xlat464PlatDiscoveryFailed, YES);
+}
+
+void
 IPv6AWDReportSetDefaultRouterCount(IPv6AWDReportRef report, UInt32 count)
 {
     IPV6_REPORT_SET_PROP(report, defaultRouterCount, count);
@@ -361,6 +375,7 @@ main(int argc, char * argv[])
     IPv6AWDReportSetRouterLifetimeNotMaximum(report);
     IPv6AWDReportSetRouterSourceAddressCollision(report);
     IPv6AWDReportSetRouterLifetimeZero(report);
+    IPv6AWDReportSetXLAT464Enabled(report);
 
     IPv6AWDReportSetDefaultRouterCount(report, 1);
     IPv6AWDReportSetExpiredDefaultRouterCount(report, 2);

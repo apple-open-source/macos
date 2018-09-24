@@ -26,7 +26,7 @@ static void start(dispatch_queue_t queue)
 {
 	IOReturn result;
 	io_service_t aksService = IO_OBJECT_NULL;
-	IONotificationPortRef aksNotifyPort = IO_OBJECT_NULL;
+	IONotificationPortRef aksNotifyPort = NULL;
 	io_object_t notification = IO_OBJECT_NULL;
 
 	aksService = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching(kAppleKeyStoreServiceName));

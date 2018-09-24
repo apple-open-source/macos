@@ -25,17 +25,25 @@ hmac_sha1(const uint8_t *key, size_t key_len, const uint8_t *text, size_t text_l
 }
 
 static
-void
-pbkdf2_hmac_sha1_deriviation(const uint8_t *passphrase, size_t passphrase_length,
+OSStatus
+pbkdf2_hmac_sha1_derivation(const uint8_t *passphrase, size_t passphrase_length,
                              const uint8_t *salt, size_t salt_length,
                              size_t iterations,
                              uint8_t *key_out, size_t key_length)
 {
         // MAX(salt_length + 4, 20 /* SHA1 Digest size */) + 2 * 20;
-    uint8_t temp_data[3*20+salt_length];
+    uint8_t *temp_data = malloc(3*20+salt_length);
+    
+    if (temp_data == NULL) {
+        return errSecMemoryError;
+    }
 
     pbkdf2(hmac_sha1, 20, passphrase, passphrase_length,
                    salt, salt_length, iterations, key_out, key_length, temp_data);
+    
+    free(temp_data);
+    
+    return errSecSuccess;
 }
 
 
@@ -52,7 +60,7 @@ printComparison(const uint8_t*left, const uint8_t* right, int length)
 }
 #endif
 
-static int kTestTestCount = 4;
+static int kTestTestCount = 8;
 static void tests(void)
 {
     {
@@ -69,9 +77,9 @@ static void tests(void)
 
         uint8_t actual[resultSize];
 
-        pbkdf2_hmac_sha1_deriviation((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
+        is(pbkdf2_hmac_sha1_derivation((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-1");
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-1");
+        is(memcmp(expected, actual, resultSize), 0, "pbkdf-sha-1: P-'password' S-'Salt' I-1");
     }
 
     {
@@ -88,9 +96,9 @@ static void tests(void)
 
         uint8_t actual[resultSize];
 
-        pbkdf2_hmac_sha1_deriviation((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
+        is(pbkdf2_hmac_sha1_derivation((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-2");
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-2");
+        is(memcmp(expected, actual, resultSize), 0, "pbkdf-sha-1: P-'password' S-'Salt' I-2");
     }
 
     {
@@ -107,13 +115,13 @@ static void tests(void)
 
         uint8_t actual[resultSize];
 
-        pbkdf2_hmac_sha1_deriviation((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
+        is(pbkdf2_hmac_sha1_derivation((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-4096");
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-4096");
+        is(memcmp(expected, actual, resultSize), 0, "pbkdf-sha-1: P-'password' S-'Salt' I-4096");
     }
 
     SKIP: {
-        skip("16777216 iterations is too slow", 1, 0);
+        skip("16777216 iterations is too slow", 2, 0);
 
         const char *password =          "password";
         const char *salt =              "salt";
@@ -128,9 +136,9 @@ static void tests(void)
 
         uint8_t actual[resultSize];
 
-        pbkdf2_hmac_sha1_deriviation((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
+        is(pbkdf2_hmac_sha1_derivation((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-1: Failed Key Derivation I-16777216");
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-16777216");
+        is(memcmp(expected, actual, resultSize), 0, "pbkdf-sha-1: P-'password' S-'Salt' I-16777216");
     }
 }
 

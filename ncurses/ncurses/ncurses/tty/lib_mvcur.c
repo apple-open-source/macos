@@ -1244,6 +1244,10 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
     return (0);
 }
 
+#else
+
+NCURSES_EXPORT_VAR(const char *) _nc_progname = NULL;
+
 #endif /* MAIN */
 
 /* lib_mvcur.c ends here */

@@ -61,7 +61,6 @@
 #include "HTMLTextAreaElement.h"
 #include "HTMLTextFormControlElement.h"
 #include "LibWebRTCProvider.h"
-#include "MainFrame.h"
 #include "MarkupAccumulator.h"
 #include "NodeList.h"
 #include "Page.h"
@@ -190,10 +189,12 @@ std::unique_ptr<Page> createPageForSanitizingWebContent()
     FrameLoader& loader = frame.loader();
     static char markup[] = "<!DOCTYPE html><html><body></body></html>";
     ASSERT(loader.activeDocumentLoader());
-    loader.activeDocumentLoader()->writer().setMIMEType("text/html");
-    loader.activeDocumentLoader()->writer().begin();
-    loader.activeDocumentLoader()->writer().addData(markup, sizeof(markup));
-    loader.activeDocumentLoader()->writer().end();
+    auto& writer = loader.activeDocumentLoader()->writer();
+    writer.setMIMEType("text/html");
+    writer.begin();
+    writer.insertDataSynchronously(String(markup));
+    writer.end();
+    RELEASE_ASSERT(page->mainFrame().document()->body());
 
     return page;
 }
@@ -409,6 +410,7 @@ void StyledMarkupAccumulator::appendCustomAttributes(StringBuilder& out, const E
         return;
     
     const HTMLAttachmentElement& attachment = downcast<HTMLAttachmentElement>(element);
+    appendAttribute(out, element, { webkitattachmentidAttr, attachment.uniqueIdentifier() }, namespaces);
     if (auto* file = attachment.file()) {
         // These attributes are only intended for File deserialization, and are removed from the generated attachment
         // element after we've deserialized and set its backing File.
@@ -424,7 +426,13 @@ void StyledMarkupAccumulator::appendCustomAttributes(StringBuilder& out, const E
 
 bool StyledMarkupAccumulator::shouldPreserveMSOListStyleForElement(const Element& element)
 {
-    return m_inMSOList || (m_shouldPreserveMSOList && element.hasTagName(pTag) && element.getAttribute(styleAttr).contains(";mso-list:"));
+    if (m_inMSOList)
+        return true;
+    if (m_shouldPreserveMSOList) {
+        auto style = element.getAttribute(styleAttr);
+        return style.startsWith("mso-list:") || style.contains(";mso-list:") || style.contains("\nmso-list:");
+    }
+    return false;
 }
 
 void StyledMarkupAccumulator::appendElement(StringBuilder& out, const Element& element, bool addDisplayInline, RangeFullySelectsNode rangeFullySelectsNode)
@@ -853,7 +861,7 @@ String sanitizedMarkupForFragmentInDocument(Ref<DocumentFragment>&& fragment, Do
 
     auto bodyElement = makeRefPtr(document.body());
     ASSERT(bodyElement);
-    bodyElement->appendChild(WTFMove(fragment));
+    bodyElement->appendChild(fragment.get());
 
     auto range = Range::create(document);
     range->selectNodeContents(*bodyElement);
@@ -888,12 +896,16 @@ Ref<DocumentFragment> createFragmentFromMarkup(Document& document, const String&
         attachments.append(attachment);
 
     for (auto& attachment : attachments) {
+        attachment->setUniqueIdentifier(attachment->attributeWithoutSynchronization(webkitattachmentidAttr));
+
         auto attachmentPath = attachment->attachmentPath();
         auto blobURL = attachment->blobURL();
         if (!attachmentPath.isEmpty())
             attachment->setFile(File::create(attachmentPath));
         else if (!blobURL.isEmpty())
             attachment->setFile(File::deserialize({ }, blobURL, attachment->attachmentType(), attachment->attachmentTitle()));
+
+        attachment->removeAttribute(webkitattachmentidAttr);
         attachment->removeAttribute(webkitattachmentpathAttr);
         attachment->removeAttribute(webkitattachmentbloburlAttr);
     }

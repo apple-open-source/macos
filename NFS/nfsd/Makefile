@@ -69,6 +69,9 @@ HFILES = common.h pathnames.h
 CFILES = main.c nfsd.c mountd.c
 OFILES = $(CFILES:.c=.o) $(MIG_GEN_CFILES:.c=.o)
 
+CODE_SIGN_IDENTITY = "-"
+CODE_SIGN_ENTITLEMENTS = nfsd-entitlements.plist
+
 $(OFILES:%=$(OBJROOT)/%): $(HFILES:%=$(SRCROOT)/%) $(MIG_GEN_HFILES:%=$(OBJROOT)/%)
 $(OFILES): $(HFILES) $(MIG_GEN_HFILES)
 
@@ -84,6 +87,9 @@ $(MIG_OUT_FILES): $(MIG_DEF_FILES)
 
 $(SYMROOT)/nfsd: $(addprefix $(OBJROOT)/, $(OFILES))
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
+	xcrun codesign --force --sign $(CODE_SIGN_IDENTITY) \
+	    --entitlements $(CODE_SIGN_ENTITLEMENTS) \
+	    --timestamp=none $@
 
 $(SYMROOT)/$(DSYM): $(SYMROOT)/nfsd
 	$(DSYMUTIL) -o $@ $<

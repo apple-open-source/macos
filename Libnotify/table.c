@@ -110,7 +110,7 @@ hash_key(int size, const char *key)
 static uint32_t
 hash_nkey(uint32_t size, uint64_t key)
 {
-	uint32_t x = key;
+	uint32_t x = (uint32_t)key;
 	uint32_t y = key >> 32;
 	return ((x ^ y) % size);
 }

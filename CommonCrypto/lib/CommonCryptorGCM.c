@@ -62,9 +62,7 @@ static inline CCCryptorStatus translate_err_code(int err)
 {
     if (err==0) {
         return kCCSuccess;
-    } /*else if(err == CCMODE_INVALID_CALL_SEQUENCE){ //until we can read error codes from corecrypto
-        return kCCCallSequenceError;
-    } */ else {
+    } else {
         return kCCUnspecifiedError;
     }
 }
@@ -196,8 +194,8 @@ CCCryptorStatus CCCryptorGCMFinalize(CCCryptorRef cryptorRef,
     }
     
     int rc = ccgcm_finalize(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, tagLength, tag);
-    CCCryptorStatus rv = rc<0? kCCUnspecifiedError:kCCSuccess;
-    
+    CCCryptorStatus rv = rc == 0 ? kCCSuccess : kCCUnspecifiedError;
+
     if(cryptorRef->op == kCCDecrypt)
         cc_clear(sizeof dec_tag, dec_tag);
     
@@ -311,9 +309,13 @@ CCCryptorStatus CCCryptorGCMOneshotDecrypt(CCAlgorithm alg, const void  *key, si
     
     char tag[tagLength]; //we are sure tagLength is not very large
     CC_XMEMCPY(tag, tagIn, sizeof(tag));
-    
+
     int rc = ccgcm_one_shot(ccaes_gcm_decrypt_mode(), keyLength, key, ivLen, iv, aDataLen, aData, dataInLength, dataIn, dataOut, tagLength, tag);
-    
+
+    if (rc) {
+        cc_clear(dataInLength, dataOut);
+    }
+
     cc_clear(sizeof tag, tag);
     return translate_err_code(rc);
 }

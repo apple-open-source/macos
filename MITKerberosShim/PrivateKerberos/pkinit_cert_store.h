@@ -78,9 +78,6 @@ krb5_boolean krb5_pkinit_have_client_cert(
  * in NULL for the client_cert has the effect of deleting the relevant entry
  * in the cert storage.
  */
-krb5_error_code krb5_pkinit_set_client_cert_from_signing_cert(
-    const char			*principal,     /* full principal string */
-    krb5_pkinit_signing_cert_t	client_cert);
 krb5_error_code krb5_pkinit_set_client_cert(
     const char			*principal,     /* full principal string */
     krb5_pkinit_cert_t	client_cert);
@@ -143,19 +140,6 @@ extern void krb5_pkinit_release_cert_db(
 char *krb5_pkinit_cert_hash_str(
     const krb5_data *cert);
     
-/* 
- * Obtain a client's optional list of trusted KDC CA certs (trustedCertifiers)
- * and/or trusted KDC cert (kdcPkId) for a given client and server. 
- * All returned values are mallocd and must be freed by caller; the contents 
- * of the krb5_datas are DER-encoded certificates. 
- */
-krb5_error_code krb5_pkinit_get_server_certs(
-    const char *client_principal,
-    const char *server_principal,
-    krb5_data **trusted_CAs,	    /* RETURNED, though return value may be NULL */
-    krb5_ui_4 *num_trusted_CAs,	    /* RETURNED */
-    krb5_data *kdc_cert);	    /* RETURNED, though may be 0/NULL */
-
 #ifdef  __cplusplus
 }
 #endif

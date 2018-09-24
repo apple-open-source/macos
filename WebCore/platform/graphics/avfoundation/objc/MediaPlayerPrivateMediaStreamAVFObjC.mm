@@ -33,6 +33,7 @@
 #import "Logging.h"
 #import "MediaStreamPrivate.h"
 #import "PixelBufferConformerCV.h"
+#import "VideoFullscreenLayerManagerObjC.h"
 #import "VideoTrackPrivateMediaStream.h"
 #import <AVFoundation/AVSampleBufferDisplayLayer.h>
 #import <QuartzCore/CALayer.h>
@@ -45,9 +46,6 @@
 #import <wtf/MainThread.h>
 #import <wtf/NeverDestroyed.h>
 
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
-#import "VideoFullscreenLayerManager.h"
-#endif
 
 #pragma mark - Soft Linking
 
@@ -58,9 +56,9 @@ SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
 
 SOFT_LINK_CLASS_OPTIONAL(AVFoundation, AVSampleBufferDisplayLayer)
 
-SOFT_LINK_POINTER(AVFoundation, AVLayerVideoGravityResizeAspect, NSString *)
-SOFT_LINK_POINTER(AVFoundation, AVLayerVideoGravityResizeAspectFill, NSString *)
-SOFT_LINK_POINTER(AVFoundation, AVLayerVideoGravityResize, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVLayerVideoGravityResizeAspect, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVLayerVideoGravityResizeAspectFill, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVLayerVideoGravityResize, NSString *)
 
 #define AVLayerVideoGravityResizeAspect getAVLayerVideoGravityResizeAspect()
 #define AVLayerVideoGravityResizeAspectFill getAVLayerVideoGravityResizeAspectFill()
@@ -191,9 +189,7 @@ MediaPlayerPrivateMediaStreamAVFObjC::MediaPlayerPrivateMediaStreamAVFObjC(Media
     : m_player(player)
     , m_statusChangeListener(adoptNS([[WebAVSampleBufferStatusChangeListener alloc] initWithParent:this]))
     , m_clock(PAL::Clock::create())
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
-    , m_videoFullscreenLayerManager(VideoFullscreenLayerManager::create())
-#endif
+    , m_videoFullscreenLayerManager(std::make_unique<VideoFullscreenLayerManagerObjC>())
 #if !RELEASE_LOG_DISABLED
     , m_logger(player->mediaPlayerLogger())
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
@@ -399,7 +395,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::enqueueVideoSample(MediaStreamTrackPr
 
 void MediaPlayerPrivateMediaStreamAVFObjC::requestNotificationWhenReadyForVideoData()
 {
-    auto weakThis = createWeakPtr();
+    auto weakThis = makeWeakPtr(*this);
     [m_sampleBufferDisplayLayer requestMediaDataWhenReadyOnQueue:dispatch_get_main_queue() usingBlock:^ {
         if (!weakThis)
             return;
@@ -500,9 +496,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::ensureLayers()
     updateRenderingMode();
     updateDisplayLayer();
 
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     m_videoFullscreenLayerManager->setVideoLayer(m_backgroundLayer.get(), snappedIntRect(m_player->client().mediaPlayerContentBoxRect()).size());
-#endif
 }
 
 void MediaPlayerPrivateMediaStreamAVFObjC::destroyLayers()
@@ -518,9 +512,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::destroyLayers()
 
     updateRenderingMode();
     
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     m_videoFullscreenLayerManager->didDestroyVideoLayer();
-#endif
 }
 
 #pragma mark -
@@ -586,11 +578,7 @@ PlatformLayer* MediaPlayerPrivateMediaStreamAVFObjC::platformLayer() const
     if (!m_backgroundLayer || m_displayMode == None)
         return nullptr;
 
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     return m_videoFullscreenLayerManager->videoInlineLayer();
-#else
-    return m_backgroundLayer.get();
-#endif
 }
 
 PlatformLayer* MediaPlayerPrivateMediaStreamAVFObjC::displayLayer()
@@ -909,22 +897,16 @@ bool MediaPlayerPrivateMediaStreamAVFObjC::supportsPictureInPicture() const
     return true;
 }
 
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 void MediaPlayerPrivateMediaStreamAVFObjC::setVideoFullscreenLayer(PlatformLayer* videoFullscreenLayer, WTF::Function<void()>&& completionHandler)
 {
-    if (m_videoFullscreenLayerManager->videoFullscreenLayer() == videoFullscreenLayer) {
-        completionHandler();
-        return;
-    }
-
-    m_videoFullscreenLayerManager->setVideoFullscreenLayer(videoFullscreenLayer, WTFMove(completionHandler));
+    updateCurrentFrameImage();
+    m_videoFullscreenLayerManager->setVideoFullscreenLayer(videoFullscreenLayer, WTFMove(completionHandler), m_imagePainter.cgImage);
 }
 
 void MediaPlayerPrivateMediaStreamAVFObjC::setVideoFullscreenFrame(FloatRect frame)
 {
     m_videoFullscreenLayerManager->setVideoFullscreenFrame(frame);
 }
-#endif
 
 typedef enum {
     Add,
@@ -933,7 +915,7 @@ typedef enum {
 } TrackState;
 
 template <typename RefT>
-void updateTracksOfType(HashMap<String, RefT>& trackMap, RealtimeMediaSource::Type trackType, MediaStreamTrackPrivateVector& currentTracks, RefT (*itemFactory)(MediaStreamTrackPrivate&), const Function<void(RefT, int, TrackState)>& configureTrack)
+void updateTracksOfType(HashMap<String, RefT>& trackMap, RealtimeMediaSource::Type trackType, MediaStreamTrackPrivateVector& currentTracks, RefT (*itemFactory)(MediaStreamTrackPrivate&), const Function<void(typename RefT::ValueType&, int, TrackState)>& configureTrack)
 {
     Vector<RefT> removedTracks;
     Vector<RefT> addedTracks;
@@ -953,8 +935,9 @@ void updateTracksOfType(HashMap<String, RefT>& trackMap, RealtimeMediaSource::Ty
             continue;
 
         removedTracks.append(track);
-        trackMap.remove(streamTrack.id());
     }
+    for (auto& track : removedTracks)
+        trackMap.remove(track->streamTrack().id());
 
     for (auto& track : addedPrivateTracks) {
         RefT newTrack = itemFactory(*track.get());
@@ -964,15 +947,15 @@ void updateTracksOfType(HashMap<String, RefT>& trackMap, RealtimeMediaSource::Ty
 
     int index = 0;
     for (auto& track : removedTracks)
-        configureTrack(track, index++, TrackState::Remove);
+        configureTrack(*track, index++, TrackState::Remove);
 
     index = 0;
     for (auto& track : addedTracks)
-        configureTrack(track, index++, TrackState::Add);
+        configureTrack(*track, index++, TrackState::Add);
 
     index = 0;
     for (const auto& track : trackMap.values())
-        configureTrack(track, index++, TrackState::Configure);
+        configureTrack(*track, index++, TrackState::Configure);
 }
 
 void MediaPlayerPrivateMediaStreamAVFObjC::checkSelectedVideoTrack()
@@ -1009,46 +992,47 @@ void MediaPlayerPrivateMediaStreamAVFObjC::updateTracks()
 {
     MediaStreamTrackPrivateVector currentTracks = m_mediaStreamPrivate->tracks();
 
-    Function<void(RefPtr<AudioTrackPrivateMediaStreamCocoa>, int, TrackState)>  setAudioTrackState = [this](auto track, int index, TrackState state)
+    auto setAudioTrackState = [this](AudioTrackPrivateMediaStreamCocoa& track, int index, TrackState state)
     {
         switch (state) {
         case TrackState::Remove:
-            m_player->removeAudioTrack(*track);
+            track.streamTrack().removeObserver(*this);
+            m_player->removeAudioTrack(track);
             break;
         case TrackState::Add:
-            track->streamTrack().addObserver(*this);
-            m_player->addAudioTrack(*track);
+            track.streamTrack().addObserver(*this);
+            m_player->addAudioTrack(track);
             break;
         case TrackState::Configure:
-            track->setTrackIndex(index);
-            bool enabled = track->streamTrack().enabled() && !track->streamTrack().muted();
-            track->setEnabled(enabled);
+            track.setTrackIndex(index);
+            bool enabled = track.streamTrack().enabled() && !track.streamTrack().muted();
+            track.setEnabled(enabled);
             break;
         }
     };
-    updateTracksOfType(m_audioTrackMap, RealtimeMediaSource::Type::Audio, currentTracks, &AudioTrackPrivateMediaStreamCocoa::create, setAudioTrackState);
+    updateTracksOfType(m_audioTrackMap, RealtimeMediaSource::Type::Audio, currentTracks, &AudioTrackPrivateMediaStreamCocoa::create, WTFMove(setAudioTrackState));
 
-    Function<void(RefPtr<VideoTrackPrivateMediaStream>, int, TrackState)> setVideoTrackState = [&](auto track, int index, TrackState state)
+    auto setVideoTrackState = [this](VideoTrackPrivateMediaStream& track, int index, TrackState state)
     {
         switch (state) {
         case TrackState::Remove:
-            track->streamTrack().removeObserver(*this);
-            m_player->removeVideoTrack(*track);
+            track.streamTrack().removeObserver(*this);
+            m_player->removeVideoTrack(track);
             checkSelectedVideoTrack();
             break;
         case TrackState::Add:
-            track->streamTrack().addObserver(*this);
-            m_player->addVideoTrack(*track);
+            track.streamTrack().addObserver(*this);
+            m_player->addVideoTrack(track);
             break;
         case TrackState::Configure:
-            track->setTrackIndex(index);
-            bool selected = &track->streamTrack() == m_mediaStreamPrivate->activeVideoTrack();
-            track->setSelected(selected);
+            track.setTrackIndex(index);
+            bool selected = &track.streamTrack() == m_mediaStreamPrivate->activeVideoTrack();
+            track.setSelected(selected);
             checkSelectedVideoTrack();
             break;
         }
     };
-    updateTracksOfType(m_videoTrackMap, RealtimeMediaSource::Type::Video, currentTracks, &VideoTrackPrivateMediaStream::create, setVideoTrackState);
+    updateTracksOfType(m_videoTrackMap, RealtimeMediaSource::Type::Video, currentTracks, &VideoTrackPrivateMediaStream::create, WTFMove(setVideoTrackState));
 }
 
 std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateMediaStreamAVFObjC::seekable() const
@@ -1072,7 +1056,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::updateCurrentFrameImage()
         return;
 
     if (!m_imagePainter.pixelBufferConformer)
-        m_imagePainter.pixelBufferConformer = std::make_unique<PixelBufferConformerCV>((CFDictionaryRef)@{ (NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) });
+        m_imagePainter.pixelBufferConformer = std::make_unique<PixelBufferConformerCV>((__bridge CFDictionaryRef)@{ (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) });
 
     ASSERT(m_imagePainter.pixelBufferConformer);
     if (!m_imagePainter.pixelBufferConformer)
@@ -1149,7 +1133,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::setShouldBufferData(bool shouldBuffer
 void MediaPlayerPrivateMediaStreamAVFObjC::scheduleDeferredTask(Function<void ()>&& function)
 {
     ASSERT(function);
-    callOnMainThread([weakThis = createWeakPtr(), function = WTFMove(function)] {
+    callOnMainThread([weakThis = makeWeakPtr(*this), function = WTFMove(function)] {
         if (!weakThis)
             return;
 
@@ -1193,7 +1177,6 @@ WTFLogChannel& MediaPlayerPrivateMediaStreamAVFObjC::logChannel() const
     return LogMedia;
 }
 #endif
-
 
 }
 

@@ -78,7 +78,7 @@ timer_next(timer_t *t, time_t now)
 			/* shouldn't happen, as TIME_EVENT_CLOCK should always recur */ 
 			if (t->freq == 0) return 0;
 			
-			x = ((t->freq - 1) + now - t->start) / t->freq;
+			x = (int32_t)(((t->freq - 1) + now - t->start) / t->freq);
 			next = t->start + (x * t->freq);
 			return next;
 		}
@@ -236,7 +236,6 @@ timer_next(timer_t *t, time_t now)
 		}
 	}
 	
-	return 0;
 }
 
 /*
@@ -247,7 +246,6 @@ static void
 timer_free(timer_t *t)
 {
 	if (t == NULL) return;
-	if (t->deactivation_handler != NULL) Block_release(t->deactivation_handler);
 	if (t->contextp != NULL) free(t->contextp);
 
 	dispatch_release(t->t_src);
@@ -300,13 +298,9 @@ timer_oneshot(time_t when, dispatch_queue_t queue)
 	dispatch_source_set_event_handler(t->t_src, ^{
 		dispatch_source_merge_data(t->src, 1);
 		dispatch_source_cancel(t->t_src);
-		if (t->deactivation_handler != NULL)
-		{
-			dispatch_async(t->t_queue, ^{ t->deactivation_handler(); });
-		}
 	});
 	
-	dispatch_resume(t->t_src);
+	dispatch_activate(t->t_src);
 	return t;
 }
 
@@ -338,7 +332,7 @@ timer_clock(time_t first, time_t freq_sec, time_t end, dispatch_queue_t queue)
 	}
 
 	t->end = end;
-	t->freq = freq_sec;
+	t->freq = (uint32_t)freq_sec;
 	t->t_queue = queue;
 	
 	t->t_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
@@ -355,14 +349,10 @@ timer_clock(time_t first, time_t freq_sec, time_t end, dispatch_queue_t queue)
 		if ((t->end > 0) && (t->end < (time(0) + freq_sec)))
 		{
 			dispatch_source_cancel(t->t_src);
-			if (t->deactivation_handler != NULL)
-			{
-				dispatch_async(t->t_queue, ^{ t->deactivation_handler(); });
-			}
 		}
 	});
 	
-	dispatch_resume(t->t_src);
+	dispatch_activate(t->t_src);
 	
 	return t;
 }
@@ -385,7 +375,7 @@ timer_calendar(time_t first, time_t freq_mth, time_t end, int day, dispatch_queu
 	t->start = first;
 	t->day = day;
 	t->end = end;
-	t->freq = freq_mth;
+	t->freq = (uint32_t)freq_mth;
 	t->t_queue = queue;
 
 	t->t_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
@@ -406,10 +396,6 @@ timer_calendar(time_t first, time_t freq_mth, time_t end, int day, dispatch_queu
 		if (x == 0) 
 		{			
 			dispatch_source_cancel(t->t_src);
-			if (t->deactivation_handler != NULL)
-			{
-				dispatch_async(t->t_queue, ^{ t->deactivation_handler(); });
-			}
 		}
 		else
 		{
@@ -417,7 +403,7 @@ timer_calendar(time_t first, time_t freq_mth, time_t end, int day, dispatch_queu
 		}
 	});
 	
-	dispatch_resume(t->t_src);
+	dispatch_activate(t->t_src);
 	
 	return t;
 }

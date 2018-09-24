@@ -31,6 +31,7 @@ sq{
         151{"Europa Lindore"}
         154{"Europa Veriore"}
         155{"Europa Perëndimore"}
+        202{"Afrika Subsahariane"}
         419{"Amerika Latine"}
         AC{"Ishulli Asenshion"}
         AD{"Andorrë"}
@@ -58,7 +59,7 @@ sq{
         BH{"Bahrejn"}
         BI{"Burundi"}
         BJ{"Benin"}
-        BL{"Shën Bartolomeu"}
+        BL{"Shën-Bartolome"}
         BM{"Bermudë"}
         BN{"Brunei"}
         BO{"Bolivi"}
@@ -66,14 +67,14 @@ sq{
         BR{"Brazil"}
         BS{"Bahamas"}
         BT{"Butan"}
-        BV{"Ishulli Bove’"}
+        BV{"Ishulli Bove"}
         BW{"Botsvanë"}
         BY{"Bjellorusi"}
         BZ{"Belizë"}
         CA{"Kanada"}
         CC{"Ishujt Kokos"}
         CD{"Kongo-Kinshasa"}
-        CF{"Repubika e Afrikës Qendrore"}
+        CF{"Republika e Afrikës Qendrore"}
         CG{"Kongo-Brazavilë"}
         CH{"Zvicër"}
         CI{"Côte d’Ivoire"}
@@ -106,6 +107,7 @@ sq{
         ES{"Spanjë"}
         ET{"Etiopi"}
         EU{"Bashkimi Europian"}
+        EZ{"Eurozonë"}
         FI{"Finlandë"}
         FJ{"Fixhi"}
         FK{"Ishujt Falkland"}
@@ -131,8 +133,8 @@ sq{
         GU{"Guam"}
         GW{"Guine-Bisau"}
         GY{"Guajanë"}
-        HK{"RVAK i Hong Kongut"}
-        HM{"Ishulli Hërd dhe Ishujt Mekdonald"}
+        HK{"RPA i Hong-Kongut"}
+        HM{"Ishujt Hërd e Mekdonald"}
         HN{"Honduras"}
         HR{"Kroaci"}
         HT{"Haiti"}
@@ -157,7 +159,7 @@ sq{
         KH{"Kamboxhia"}
         KI{"Kiribati"}
         KM{"Komore"}
-        KN{"Shën Kits dhe Nevis"}
+        KN{"Shën-Kits dhe Nevis"}
         KP{"Koreja e Veriut"}
         KR{"Koreja e Jugut"}
         KW{"Kuvajt"}
@@ -185,7 +187,7 @@ sq{
         ML{"Mali"}
         MM{"Mianmar (Burma)"}
         MN{"Mongoli"}
-        MO{"RVAK i Makaos"}
+        MO{"RPA i Makaos"}
         MP{"Ishujt e Marianës Veriore"}
         MQ{"Martinikë"}
         MR{"Mauritani"}
@@ -213,11 +215,11 @@ sq{
         PA{"Panama"}
         PE{"Peru"}
         PF{"Polinezia Franceze"}
-        PG{"Papua Guineja e Re"}
+        PG{"Guineja e Re-Papua"}
         PH{"Filipine"}
         PK{"Pakistan"}
         PL{"Poloni"}
-        PM{"Shën Pier dhe Mikelon"}
+        PM{"Shën-Pier dhe Mikelon"}
         PN{"Ishujt Pitkern"}
         PR{"Porto-Riko"}
         PS{"Territoret Palestineze"}
@@ -247,9 +249,9 @@ sq{
         SO{"Somali"}
         SR{"Surinami"}
         SS{"Sudani i Jugut"}
-        ST{"Sao-Tome e Prinsipe"}
+        ST{"Sao-Tome e Principe"}
         SV{"Salvador"}
-        SX{"Sint Marten"}
+        SX{"Sint-Marten"}
         SY{"Siri"}
         SZ{"Svazilandë"}
         TA{"Tristan-da-Kuna"}
@@ -271,16 +273,16 @@ sq{
         TZ{"Tanzani"}
         UA{"Ukrainë"}
         UG{"Ugandë"}
-        UM{"Ishujt periferikë të SHBA-së"}
-        UN{"kombet e bashkuara"}
+        UM{"Ishujt Periferikë të SHBA-së"}
+        UN{"Kombet e Bashkuara"}
         US{"Shtetet e Bashkuara të Amerikës"}
         UY{"Uruguai"}
         UZ{"Uzbekistan"}
         VA{"Vatikan"}
-        VC{"Shën Vincent dhe Grenadine"}
+        VC{"Shën-Vincent dhe Grenadine"}
         VE{"Venezuelë"}
         VG{"Ishujt e Virgjër Britanikë"}
-        VI{"Ishujt e Virgjër Amerikanë"}
+        VI{"Ishujt e Virgjër të SHBA-së"}
         VN{"Vietnam"}
         VU{"Vanuatu"}
         WF{"Uollis e Futuna"}
@@ -294,11 +296,11 @@ sq{
         ZZ{"I panjohur"}
     }
     Countries%short{
-        GB{"MB"}
-        HK{"Hong Kong"}
+        GB{"Mbretëria e Bashkuar"}
+        HK{"Hong-Kong"}
         MO{"Makao"}
         PS{"Palestinë"}
-        UN{"kombet e bashkuara"}
+        UN{"Kombet e Bashkuara"}
         US{"SHBA"}
     }
     Countries%variant{
@@ -310,5 +312,5 @@ sq{
         MK{"Maqedoni (IRJM)"}
         TL{"Timori Lindor"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

@@ -30,12 +30,12 @@
 #import "WebPreferences.h"
 #import "WebView.h"
 #import "WebViewInternal.h"
+#import <JavaScriptCore/InitializeThreading.h>
 #import <WebCore/ApplicationCacheStorage.h>
 #import <WebCore/CredentialStorage.h>
 #import <WebCore/CrossOriginPreflightResultCache.h>
 #import <WebCore/Document.h>
 #import <WebCore/MemoryCache.h>
-#import <runtime/InitializeThreading.h>
 #import <wtf/MainThread.h>
 #import <wtf/RunLoop.h>
 
@@ -118,7 +118,7 @@
     webApplicationCacheStorage().empty();
 
     // Empty the Cross-Origin Preflight cache
-    WebCore::CrossOriginPreflightResultCache::singleton().empty();
+    WebCore::CrossOriginPreflightResultCache::singleton().clear();
 }
 
 #if PLATFORM(IOS)

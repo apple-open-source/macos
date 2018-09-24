@@ -75,7 +75,7 @@ class WEBCORE_EXPORT EmptyFrameLoaderClient : public FrameLoaderClient {
     void dispatchDidDispatchOnloadEvents() final { }
     void dispatchDidReceiveServerRedirectForProvisionalLoad() final { }
     void dispatchDidCancelClientRedirect() final { }
-    void dispatchWillPerformClientRedirect(const URL&, double, double) final { }
+    void dispatchWillPerformClientRedirect(const URL&, double, WallTime) final { }
     void dispatchDidChangeLocationWithinPage() final { }
     void dispatchDidPushStateWithinPage() final { }
     void dispatchDidReplaceStateWithinPage() final { }
@@ -95,7 +95,7 @@ class WEBCORE_EXPORT EmptyFrameLoaderClient : public FrameLoaderClient {
 
     void dispatchDecidePolicyForResponse(const ResourceResponse&, const ResourceRequest&, FramePolicyFunction&&) final { }
     void dispatchDecidePolicyForNewWindowAction(const NavigationAction&, const ResourceRequest&, FormState*, const String&, FramePolicyFunction&&) final;
-    void dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, bool didReceiveRedirectResponse, FormState*, FramePolicyFunction&&) final;
+    void dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse& redirectResponse, FormState*, PolicyDecisionMode, FramePolicyFunction&&) final;
     void cancelPolicyCheck() final { }
 
     void dispatchUnableToImplementPolicy(const ResourceError&) final { }
@@ -185,7 +185,7 @@ class WEBCORE_EXPORT EmptyFrameLoaderClient : public FrameLoaderClient {
 
 #if PLATFORM(COCOA)
     RemoteAXObjectRef accessibilityRemoteObject() final { return nullptr; }
-    NSCachedURLResponse *willCacheResponse(DocumentLoader*, unsigned long, NSCachedURLResponse *response) const final { return response; }
+    void willCacheResponse(DocumentLoader*, unsigned long, NSCachedURLResponse *response, CompletionHandler<void(NSCachedURLResponse *)>&& completionHandler) const final { completionHandler(response); }
 #endif
 
 #if USE(CFURLCONNECTION)

@@ -30,8 +30,7 @@
 #include <TargetConditionals.h>
 #include <_simple.h>
 #include <platform/string.h>
-static size_t _platform_strlen(const char *s);
-static size_t _platform_strlcpy(char * restrict dst, const char * restrict src, size_t maxlen);
+#undef memcpy
 #define memcpy _platform_memmove
 #include <platform/compat.h>
 #include <assert.h>
@@ -49,6 +48,7 @@ static size_t _platform_strlcpy(char * restrict dst, const char * restrict src, 
 #include <mach/mach_init.h>
 #include <mach/mach_types.h>
 #include <mach/mach_vm.h>
+#include <mach/shared_region.h>
 #include <mach/thread_switch.h>
 #include <mach/vm_map.h>
 #include <mach/vm_page_size.h>
@@ -91,7 +91,10 @@ static size_t _platform_strlcpy(char * restrict dst, const char * restrict src, 
 #include "frozen_malloc.h"
 #include "legacy_malloc.h"
 #include "magazine_malloc.h"
+#include "malloc_common.h"
+#include "nano_malloc_common.h"
 #include "nano_malloc.h"
+#include "nanov2_malloc.h"
 #include "purgeable_malloc.h"
 #include "malloc_private.h"
 #include "stack_logging.h"
@@ -101,7 +104,9 @@ static size_t _platform_strlcpy(char * restrict dst, const char * restrict src, 
 
 #include "magazine_rack.h"
 #include "magazine_zone.h"
+#include "nano_zone_common.h"
 #include "nano_zone.h"
+#include "nanov2_zone.h"
 
 #include "magazine_inline.h"
 
@@ -109,6 +114,9 @@ extern uint64_t malloc_entropy[2];
 
 MALLOC_NOEXPORT
 extern boolean_t malloc_tracing_enabled;
+
+MALLOC_NOEXPORT
+extern unsigned malloc_debug_flags;
 
 MALLOC_NOEXPORT MALLOC_NOINLINE
 void
@@ -120,6 +128,5 @@ malloc_gdb_po_unsafe(void);
 
 MALLOC_NOEXPORT
 extern uint64_t max_lite_mallocs;
-
 
 #endif // __INTERNAL_H

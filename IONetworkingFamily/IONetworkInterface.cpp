@@ -39,12 +39,14 @@ extern "C" {
 #include <net/dlil.h>
 #include <net/if_dl.h>
 #include <net/kpi_interface.h>
+#include <net/ethernet.h>
 #include <sys/kern_event.h>
 
 #define _IP_VHL
 
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
+#include <sys/_types/_timeval32.h>
 }
 
 #include <IOKit/assert.h>
@@ -836,47 +838,67 @@ UInt32 IONetworkInterface::clearInputQueue( void )
     return count;
 }
 
-inline static const char *get_icmp_data(mbuf_t *pkt, int hdrlen, int datalen)
+inline static void checkForRNMIPacket(mbuf_t pkt, int hdrlen, int datalen, const char* pattern)
 {
-    struct ip   *ip;
-    struct icmp *icmp;
-    int hlen, icmplen;
+    // Validate the ethernet header length
+    if (sizeof(struct ether_header) != hdrlen)
+        return;
+
+    // Check if mbuf may contain ethernet frame header
+    if (mbuf_len(pkt) < sizeof(struct ether_header))
+        return;
+
+    struct ether_header etherHeader;
+    if (mbuf_copydata(pkt, 0, sizeof(struct ether_header), &etherHeader) != 0)
+        return;
+
+    // Examine IP protocol ethernet frames
+    if (ntohs(etherHeader.ether_type) != ETHERTYPE_IP)
+        return;
+
+    // Check if mbuf may contain an IPv4 packet
+    if (mbuf_len(pkt) < sizeof(struct ether_header) + sizeof(struct ip))
+        return;
+
+    struct ip ipHeader;
+    if (mbuf_copydata(pkt, sizeof(struct ether_header), sizeof(struct ip), &ipHeader) != 0)
+        return;
+
+    // Examine IPv4 packets
+    if (IP_VHL_V(ipHeader.ip_vhl) != IPVERSION)
+        return;
+
+    int ipHeaderLen = IP_VHL_HL(ipHeader.ip_vhl) << 2;
+
+    // Verify the calculated header length with the defined IP struct
+    if (ipHeaderLen != sizeof(struct ip))
+        return;
+
+    // Check if mbuf may contain an ICMP packet with enough payload
+    if (mbuf_len(pkt) < sizeof(struct ether_header) + ipHeaderLen + sizeof(struct icmp) + sizeof(struct timeval32) + datalen)
+        return;
+
+    struct icmp icmpHeader;
+    if (mbuf_copydata(pkt, sizeof(struct ether_header) + ipHeaderLen, sizeof(struct icmp), &icmpHeader) != 0)
+        return;
+
+    // Examine ICMP echo packets
+    if (icmpHeader.icmp_type != ICMP_ECHO)
+        return;
     
-    icmplen = sizeof(*icmp) + sizeof(struct timeval);
+    // Verify datalen is less than the max remote NMI pattern length
+    if (datalen > (REMOTE_NMI_PATTERN_LEN >> 1))
+        return;
 
-    /* make sure hdrlen is sane with respect to mbuf */
-    if (mbuf_len(*pkt) < (sizeof(*ip) + hdrlen))
-        goto error;    
+    // Extract ICMP payload
+    char icmpPayload[(REMOTE_NMI_PATTERN_LEN >> 1) + 1];
+    memset(icmpPayload, 0, sizeof(icmpPayload));
 
-    /* only work for IPv4 packets */
-    ip = (struct ip *) ((char *) mbuf_data(*pkt) + hdrlen);
-    if (IP_VHL_V(ip->ip_vhl) != IPVERSION)
-        goto error;
+    if (mbuf_copydata(pkt, sizeof(struct ether_header) + ipHeaderLen + sizeof(struct icmp) + sizeof(struct timeval32), datalen, icmpPayload) != 0)
+        return;
 
-    hlen = IP_VHL_HL(ip->ip_vhl) << 2;
-
-    /* make sure header and data is contiguous */
-    if (mbuf_pullup(pkt, hlen + icmplen) != 0)
-        goto error;
-
-    /* refresh the pointer and hlen in case buffer was shifted */
-    ip = (struct ip *) ((char *) mbuf_data(*pkt) + hdrlen); 
-        hlen = IP_VHL_HL(ip->ip_vhl) << 2;
-
-    if (ip->ip_p != IPPROTO_ICMP)
-        goto error;
-
-    if (ip->ip_len < (icmplen + datalen))
-        goto error;
-
-    icmp = (struct icmp *) (((char *) mbuf_data(*pkt) + hdrlen) + hlen);
-    if (icmp->icmp_type != ICMP_ECHO)
-        goto error;
-
-    return (const char *) (((char *) mbuf_data(*pkt) + hdrlen) + icmplen);
-
-error:
-    return NULL;
+    if (memcmp(icmpPayload, pattern, datalen) == 0)
+        IOKernelDebugger::signalDebugger();
 }
 
 UInt32 IONetworkInterface::inputPacket( mbuf_t          packet,
@@ -925,15 +947,10 @@ UInt32 IONetworkInterface::inputPacket( mbuf_t          packet,
         length = (UInt32)mbuf_pkthdr_len(packet);
     }
 
-    // check for special debugger packet 
-    if (_remote_NMI_len) {
-       const char *data = get_icmp_data(&packet, hdrlen, _remote_NMI_len);
+    // check for special debugger packet
+    if (_remote_NMI_len)
+        checkForRNMIPacket(packet, hdrlen, _remote_NMI_len, _remote_NMI_pattern);
 
-       if (data && (memcmp(data, _remote_NMI_pattern, _remote_NMI_len) == 0)) {
-           IOKernelDebugger::signalDebugger();
-       } 
-    }
-	
     // input BPF tap
 	if (_inputFilterFunc)
 		feedPacketInputTap(packet);
@@ -1026,7 +1043,7 @@ bool IONetworkInterface::inputEvent(UInt32 type, void * data)
                 ifnet_event(_backingIfnet, &event.header);
 
                 retain();
-                if (thread_call_enter1(_inputEventThreadCall, (thread_call_param_t)type) == TRUE)
+                if (thread_call_enter1(_inputEventThreadCall, (thread_call_param_t)(uintptr_t)type) == TRUE)
                 {
                     release();
                 }
@@ -3204,14 +3221,9 @@ IOReturn IONetworkInterface::enqueueInputPacket(
     length = (uint32_t)mbuf_pkthdr_len(packet);
     assert(length != 0);
 
-    // check for special debugger packet 
-    if (_remote_NMI_len) {
-        const char *data = get_icmp_data(&packet, hdrlen, _remote_NMI_len);
-        
-        if (data && (memcmp(data, _remote_NMI_pattern, _remote_NMI_len) == 0)) {
-            IOKernelDebugger::signalDebugger();
-        } 
-    }
+    // check for special debugger packet
+    if (_remote_NMI_len)
+        checkForRNMIPacket(packet, hdrlen, _remote_NMI_len, _remote_NMI_pattern);
 
     // input BPF tap
 	if (_inputFilterFunc)

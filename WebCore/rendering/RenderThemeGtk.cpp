@@ -28,6 +28,7 @@
 #include "CSSValueKeywords.h"
 #include "FileList.h"
 #include "FileSystem.h"
+#include "FloatRoundedRect.h"
 #include "FontDescription.h"
 #include "GRefPtrGtk.h"
 #include "GUniquePtrGtk.h"
@@ -923,6 +924,15 @@ bool RenderThemeGtk::paintMenuListButtonDecorations(const RenderBox& object, con
     return paintMenuList(object, info, rect);
 }
 
+bool RenderThemeGtk::isControlStyled(const RenderStyle& style, const BorderData& border, const FillLayer& background, const Color& backgroundColor) const
+{
+    // To avoid rendering issues with dark themes, if text input elements have color styling, we don't style them with GTK.
+    if ((style.appearance() == TextFieldPart || style.appearance() == TextAreaPart || style.appearance() == SearchFieldPart) && style.color() != RenderStyle::initialColor())
+        return true;
+
+    return RenderTheme::isControlStyled(style, border, background, backgroundColor);
+}
+
 #if GTK_CHECK_VERSION(3, 20, 0)
 
 static IntSize spinButtonSize()
@@ -1304,7 +1314,7 @@ void RenderThemeGtk::adjustSliderThumbSize(RenderStyle& style, const Element*) c
     if (part != SliderThumbHorizontalPart && part != SliderThumbVerticalPart)
         return;
 
-    auto& sliderWidget = static_cast<RenderThemeSlider&>(RenderThemeWidget::getOrCreate(part == SliderHorizontalPart ? RenderThemeWidget::Type::HorizontalSlider : RenderThemeWidget::Type::VerticalSlider));
+    auto& sliderWidget = static_cast<RenderThemeSlider&>(RenderThemeWidget::getOrCreate(part == SliderThumbHorizontalPart ? RenderThemeWidget::Type::HorizontalSlider : RenderThemeWidget::Type::VerticalSlider));
     sliderWidget.scale().setState(GTK_STATE_FLAG_NORMAL);
     sliderWidget.trough().setState(GTK_STATE_FLAG_NORMAL);
 
@@ -1715,47 +1725,47 @@ static Color styleColor(RenderThemePart themePart, GtkStateFlags state, StyleCol
 }
 #endif // GTK_CHECK_VERSION(3, 20, 0)
 
-Color RenderThemeGtk::platformActiveSelectionBackgroundColor() const
+Color RenderThemeGtk::platformActiveSelectionBackgroundColor(OptionSet<StyleColor::Options>) const
 {
     return styleColor(EntrySelection, static_cast<GtkStateFlags>(GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_FOCUSED), StyleColorBackground);
 }
 
-Color RenderThemeGtk::platformInactiveSelectionBackgroundColor() const
+Color RenderThemeGtk::platformInactiveSelectionBackgroundColor(OptionSet<StyleColor::Options>) const
 {
     return styleColor(EntrySelection, GTK_STATE_FLAG_SELECTED, StyleColorBackground);
 }
 
-Color RenderThemeGtk::platformActiveSelectionForegroundColor() const
+Color RenderThemeGtk::platformActiveSelectionForegroundColor(OptionSet<StyleColor::Options>) const
 {
     return styleColor(EntrySelection, static_cast<GtkStateFlags>(GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_FOCUSED), StyleColorForeground);
 }
 
-Color RenderThemeGtk::platformInactiveSelectionForegroundColor() const
+Color RenderThemeGtk::platformInactiveSelectionForegroundColor(OptionSet<StyleColor::Options>) const
 {
     return styleColor(EntrySelection, GTK_STATE_FLAG_SELECTED, StyleColorForeground);
 }
 
-Color RenderThemeGtk::platformActiveListBoxSelectionBackgroundColor() const
+Color RenderThemeGtk::platformActiveListBoxSelectionBackgroundColor(OptionSet<StyleColor::Options>) const
 {
     return styleColor(ListBox, static_cast<GtkStateFlags>(GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_FOCUSED), StyleColorBackground);
 }
 
-Color RenderThemeGtk::platformInactiveListBoxSelectionBackgroundColor() const
+Color RenderThemeGtk::platformInactiveListBoxSelectionBackgroundColor(OptionSet<StyleColor::Options>) const
 {
     return styleColor(ListBox, GTK_STATE_FLAG_SELECTED, StyleColorBackground);
 }
 
-Color RenderThemeGtk::platformActiveListBoxSelectionForegroundColor() const
+Color RenderThemeGtk::platformActiveListBoxSelectionForegroundColor(OptionSet<StyleColor::Options>) const
 {
     return styleColor(ListBox, static_cast<GtkStateFlags>(GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_FOCUSED), StyleColorForeground);
 }
 
-Color RenderThemeGtk::platformInactiveListBoxSelectionForegroundColor() const
+Color RenderThemeGtk::platformInactiveListBoxSelectionForegroundColor(OptionSet<StyleColor::Options>) const
 {
     return styleColor(ListBox, GTK_STATE_FLAG_SELECTED, StyleColorForeground);
 }
 
-Color RenderThemeGtk::systemColor(CSSValueID cssValueId) const
+Color RenderThemeGtk::systemColor(CSSValueID cssValueId, OptionSet<StyleColor::Options> options) const
 {
     switch (cssValueId) {
     case CSSValueButtontext:
@@ -1763,7 +1773,7 @@ Color RenderThemeGtk::systemColor(CSSValueID cssValueId) const
     case CSSValueCaptiontext:
         return styleColor(Entry, GTK_STATE_FLAG_ACTIVE, StyleColorForeground);
     default:
-        return RenderTheme::systemColor(cssValueId);
+        return RenderTheme::systemColor(cssValueId, options);
     }
 }
 
@@ -1964,9 +1974,9 @@ Seconds RenderThemeGtk::animationRepeatIntervalForProgressBar(RenderProgress&) c
     return progressAnimationInterval;
 }
 
-double RenderThemeGtk::animationDurationForProgressBar(RenderProgress&) const
+Seconds RenderThemeGtk::animationDurationForProgressBar(RenderProgress&) const
 {
-    return progressAnimationInterval.value() * progressAnimationFrames * 2; // "2" for back and forth;
+    return progressAnimationInterval * progressAnimationFrames * 2; // "2" for back and forth;
 }
 
 IntRect RenderThemeGtk::calculateProgressRect(const RenderObject& renderObject, const IntRect& fullBarRect)

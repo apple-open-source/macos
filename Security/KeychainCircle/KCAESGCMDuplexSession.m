@@ -299,6 +299,8 @@ static NSString* KCDSContext = @"context";
                error:error] ? decrypted : nil;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 - (void) finalize {
     if (self.send) {
         ccgcm_ctx_clear(sizeof(*self.send), self.send);
@@ -310,5 +312,6 @@ static NSString* KCDSContext = @"context";
     }
     [super finalize];
 }
+#pragma clang diagnostic pop
 
 @end

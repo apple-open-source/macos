@@ -78,11 +78,6 @@
     [self.account kvsPerformanceCounters:reply];
 }
 
-- (void)idsPerformanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply
-{
-    [self.account idsPerformanceCounters:reply];
-}
-
 - (void)rateLimitingPerformanceCounters:(void(^)(NSDictionary <NSString *, NSString *> *))reply
 {
     [self.account rateLimitingPerformanceCounters:reply];

@@ -57,6 +57,8 @@
 {
 	// XXX: assert not on main_queue
 	CFErrorRef err = NULL;
+
+    SOSCCValidateUserPublic(NULL); // requires the account queue - makes the rest of this wait for fresh info.  This used to happen in SOSCCThisDeviceIsInCircle(below) before we made it use cached info.
 	SOSCCStatus newRawStatus = SOSCCThisDeviceIsInCircle(&err);
     NSArray *peerInfos = (__bridge NSArray *) SOSCCCopyApplicantPeerInfo(&err);
     NSMutableArray *newApplicants = [[NSMutableArray alloc] initWithCapacity:peerInfos.count];

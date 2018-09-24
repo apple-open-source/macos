@@ -48,9 +48,7 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-#if TARGET_OS_EMBEDDED || TARGET_IPHONE_SIMULATOR
-/* @@@ We need something that tells us which platform we are building
-   for that let's us distinguish if we are doing an emulator build. */
+#if !TARGET_OS_OSX
 
 typedef struct {
     size_t Length;

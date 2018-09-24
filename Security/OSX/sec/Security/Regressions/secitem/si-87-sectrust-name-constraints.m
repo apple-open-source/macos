@@ -21,8 +21,8 @@
 
 
 static void tests(void) {
-    SecCertificateRef root = NULL, subca = NULL, leaf1 = NULL, leaf2 = NULL;
-    NSArray *certs1 = nil, *certs2, *anchors = nil;
+    SecCertificateRef root = NULL, subca = NULL, leaf1 = NULL, leaf2 = NULL, leaf3 = NULL;
+    NSArray *certs1 = nil, *certs2 = nil, *certs3 = nil, *anchors = nil;
     SecPolicyRef policy = SecPolicyCreateBasicX509();
     SecTrustRef trust = NULL;
     SecTrustResultType trustResult = kSecTrustResultInvalid;
@@ -36,11 +36,15 @@ static void tests(void) {
                    fail("Failed to create leaf cert 1"));
     require_action(leaf2 = SecCertificateCreateWithBytes(NULL, _test_leaf2, sizeof(_test_leaf2)), errOut,
                    fail("Failed to create leaf cert 2"));
+    require_action(leaf3 = SecCertificateCreateWithBytes(NULL, _test_leaf3, sizeof(_test_leaf3)), errOut,
+                   fail("Failed to create leaf cert 3"));;
 
     certs1 = @[(__bridge id)leaf1, (__bridge id)subca];
     certs2 = @[(__bridge id)leaf2, (__bridge id)subca];
+    certs3 = @[(__bridge id)leaf3, (__bridge id)subca];
     anchors = @[(__bridge id)root];
 
+    /* Test multiple pre-pended labels and intersecting name constraints in the subCA */
     require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs1,
                                                         policy, &trust), errOut,
                          fail("Failed to create trust for leaf 1"));
@@ -55,16 +59,33 @@ static void tests(void) {
     CFReleaseNull(trust);
     trustResult = kSecTrustResultInvalid;
 
+    /* Test no pre-pended labels */
     require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs2,
                                                         policy, &trust), errOut,
-                         fail("Failed to create trust for leaf 1"));
+                         fail("Failed to create trust for leaf 2"));
     require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
                          fail("Failed to set verify date"));
     require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), errOut,
                          fail("Failed to set anchors"));
     require_noerr_action(SecTrustEvaluate(trust, &trustResult), errOut,
                          fail("Failed to evaluate trust"));
-    is(trustResult, kSecTrustResultUnspecified, "Got wrong trust result for leaf 1");
+    is(trustResult, kSecTrustResultUnspecified, "Got wrong trust result for leaf 2");
+
+    CFReleaseNull(trust);
+    trustResult  = kSecTrustResultInvalid;
+
+    /* Test DNS-looking Common Name */
+    date = [NSDate dateWithTimeIntervalSinceReferenceDate:548800000.0]; // 23 May 2018
+    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs3,
+                                                        policy, &trust), errOut,
+                         fail("Failed to create trust for leaf 3"));
+    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut,
+                         fail("Failed to set verify date"));
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), errOut,
+                         fail("Failed to set anchors"));
+    require_noerr_action(SecTrustEvaluate(trust, &trustResult), errOut,
+                         fail("Failed to evaluate trust"));
+    is(trustResult, kSecTrustResultUnspecified, "Got wrong trust result for leaf 3");
 
 errOut:
     CFReleaseNull(root);
@@ -350,7 +371,7 @@ static void cleanup(NSURL *tmpDir) {
 int si_87_sectrust_name_constraints(int argc, char *const *argv)
 {
     NSArray *testsArray = getTestsArray();
-	plan_tests(2 + (int)(2 * [testsArray count]));
+	plan_tests(3 + (int)(2 * [testsArray count]));
 	tests();
 
     if(untar_test_certs()) {

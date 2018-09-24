@@ -39,7 +39,7 @@
 #include "removefile.h"
 #include "removefile_priv.h"
 
-int
+static int
 __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t state) {
 	int res = 0;
 	char* path = current_file->fts_path;

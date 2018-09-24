@@ -28,15 +28,13 @@
 
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
 
-#import <wtf/CurrentTime.h>
-
 using namespace WebCore;
 
 namespace WebKit {
 
 RemoteLayerTreeDisplayRefreshMonitor::RemoteLayerTreeDisplayRefreshMonitor(PlatformDisplayID displayID, RemoteLayerTreeDrawingArea& drawingArea)
     : DisplayRefreshMonitor(displayID)
-    , m_drawingArea(drawingArea.createWeakPtr())
+    , m_drawingArea(makeWeakPtr(drawingArea))
 {
 }
 

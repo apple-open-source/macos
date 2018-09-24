@@ -28,28 +28,25 @@ namespace JSC {
 
 void reifyStaticAccessor(VM& vm, const HashTableValue& value, JSObject& thisObject, PropertyName propertyName)
 {
-    JSGlobalObject* globalObject = thisObject.globalObject();
-    GetterSetter* accessor = GetterSetter::create(vm, globalObject);
+    JSGlobalObject* globalObject = thisObject.globalObject(vm);
+    JSObject* getter = nullptr;
     if (value.accessorGetter()) {
-        JSFunction* function = nullptr;
         if (value.attributes() & PropertyAttribute::Builtin)
-            function = JSFunction::create(vm, value.builtinAccessorGetterGenerator()(vm).value(), globalObject);
+            getter = JSFunction::create(vm, value.builtinAccessorGetterGenerator()(vm), globalObject);
         else {
-            String getterName = tryMakeString(ASCIILiteral("get "), String(*propertyName.publicName()));
+            String getterName = tryMakeString("get "_s, String(*propertyName.publicName()));
             if (!getterName)
                 return;
-            function = JSFunction::create(vm, globalObject, 0, getterName, value.accessorGetter());
+            getter = JSFunction::create(vm, globalObject, 0, getterName, value.accessorGetter());
         }
-        accessor->setGetter(vm, globalObject, function);
     }
+    GetterSetter* accessor = GetterSetter::create(vm, globalObject, getter, nullptr);
     thisObject.putDirectNonIndexAccessor(vm, propertyName, accessor, attributesForStructure(value.attributes()));
 }
 
-bool setUpStaticFunctionSlot(ExecState* exec, const ClassInfo* classInfo, const HashTableValue* entry, JSObject* thisObject, PropertyName propertyName, PropertySlot& slot)
+bool setUpStaticFunctionSlot(VM& vm, const ClassInfo* classInfo, const HashTableValue* entry, JSObject* thisObject, PropertyName propertyName, PropertySlot& slot)
 {
-    VM& vm = exec->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-    ASSERT(thisObject->globalObject());
+    ASSERT(thisObject->globalObject(vm));
     ASSERT(entry->attributes() & PropertyAttribute::BuiltinOrFunctionOrAccessorOrLazyProperty);
     unsigned attributes;
     bool isAccessor = entry->attributes() & PropertyAttribute::Accessor;
@@ -58,11 +55,10 @@ bool setUpStaticFunctionSlot(ExecState* exec, const ClassInfo* classInfo, const 
     if (!isValidOffset(offset)) {
         // If a property is ever deleted from an object with a static table, then we reify
         // all static functions at that time - after this we shouldn't be re-adding anything.
-        if (thisObject->staticPropertiesReified())
+        if (thisObject->staticPropertiesReified(vm))
             return false;
 
-        reifyStaticProperty(vm, exec, classInfo, propertyName, *entry, *thisObject);
-        RETURN_IF_EXCEPTION(scope, false);
+        reifyStaticProperty(vm, classInfo, propertyName, *entry, *thisObject);
 
         offset = thisObject->getDirectOffset(vm, propertyName, attributes);
         if (!isValidOffset(offset)) {

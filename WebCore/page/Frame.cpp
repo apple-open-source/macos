@@ -40,6 +40,7 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "DOMWindow.h"
+#include "DocumentTimeline.h"
 #include "DocumentType.h"
 #include "Editing.h"
 #include "Editor.h"
@@ -66,9 +67,8 @@
 #include "HitTestResult.h"
 #include "ImageBuffer.h"
 #include "InspectorInstrumentation.h"
-#include "JSDOMWindowProxy.h"
+#include "JSWindowProxy.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "MathMLNames.h"
 #include "MediaFeatureNames.h"
 #include "NavigationScheduler.h"
@@ -108,10 +108,10 @@
 #include "markup.h"
 #include "npruntime_impl.h"
 #include "runtime_root.h"
+#include <JavaScriptCore/RegularExpression.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
-#include <yarr/RegularExpression.h>
 
 #if PLATFORM(IOS)
 #include "WKContentObservation.h"
@@ -151,7 +151,7 @@ static inline float parentTextZoomFactor(Frame* frame)
 }
 
 Frame::Frame(Page& page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient& frameLoaderClient)
-    : m_mainFrame(ownerElement ? page.mainFrame() : static_cast<MainFrame&>(*this))
+    : m_mainFrame(ownerElement ? page.mainFrame() : *this)
     , m_page(&page)
     , m_settings(&page.settings())
     , m_treeNode(*this, parentFromOwnerElement(ownerElement))
@@ -282,7 +282,19 @@ void Frame::setDocument(RefPtr<Document>&& newDocument)
         if (m_page)
             m_page->didChangeMainDocument();
         m_loader->client().dispatchDidChangeMainDocument();
+
+        // We want to generate the same unique names whenever a page is loaded to avoid making layout tests
+        // flaky and for things like form state restoration to work. To achieve this, we reset our frame
+        // identifier generator every time the page is navigated.
+        tree().resetFrameIdentifiers();
     }
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+    if (m_doc) {
+        for (auto& attachment : m_doc->attachmentElementsByIdentifier().values())
+            editor().didRemoveAttachmentElement(attachment);
+    }
+#endif
 
     if (m_doc && m_doc->pageCacheState() != Document::InPageCache)
         m_doc->prepareForDestruction();
@@ -295,6 +307,13 @@ void Frame::setDocument(RefPtr<Document>&& newDocument)
     // that the document is not destroyed during this function call.
     if (newDocument)
         newDocument->didBecomeCurrentDocumentInFrame();
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+    if (m_doc) {
+        for (auto& attachment : m_doc->attachmentElementsByIdentifier().values())
+            editor().didInsertAttachmentElement(attachment);
+    }
+#endif
 
     InspectorInstrumentation::frameDocumentUpdated(*this);
 
@@ -365,7 +384,7 @@ String Frame::searchForLabelsAboveCell(const JSC::Yarr::RegularExpression& regEx
         // search within the above cell we found for a match
         size_t lengthSearched = 0;    
         for (Text* textNode = TextNodeTraversal::firstWithin(*aboveCell); textNode; textNode = TextNodeTraversal::next(*textNode, aboveCell)) {
-            if (!textNode->renderer() || textNode->renderer()->style().visibility() != VISIBLE)
+            if (!textNode->renderer() || textNode->renderer()->style().visibility() != Visibility::Visible)
                 continue;
             // For each text chunk, run the regexp
             String nodeString = textNode->data();
@@ -422,7 +441,7 @@ String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element
                 return result;
             }
             searchedCellAbove = true;
-        } else if (n->isTextNode() && n->renderer() && n->renderer()->style().visibility() == VISIBLE) {
+        } else if (n->isTextNode() && n->renderer() && n->renderer()->style().visibility() == Visibility::Visible) {
             // For each text chunk, run the regexp
             String nodeString = n->nodeValue();
             // add 100 for slop, to make it more likely that we'll search whole nodes
@@ -716,18 +735,24 @@ void Frame::injectUserScripts(UserScriptInjectionTime injectionTime)
         return;
 
     m_page->userContentProvider().forEachUserScript([this, protectedThis = makeRef(*this), injectionTime](DOMWrapperWorld& world, const UserScript& script) {
-        auto* document = this->document();
-        if (!document)
-            return;
-        if (script.injectedFrames() == InjectInTopFrameOnly && ownerElement())
-            return;
-
-        if (script.injectionTime() == injectionTime && UserContentURLPattern::matchesPatterns(document->url(), script.whitelist(), script.blacklist())) {
-            if (m_page)
-                m_page->setAsRunningUserScripts();
-            m_script->evaluateInWorld(ScriptSourceCode(script.source(), script.url()), world);
-        }
+        if (script.injectionTime() == injectionTime)
+            injectUserScriptImmediately(world, script);
     });
+}
+
+void Frame::injectUserScriptImmediately(DOMWrapperWorld& world, const UserScript& script)
+{
+    auto* document = this->document();
+    if (!document)
+        return;
+    if (script.injectedFrames() == InjectInTopFrameOnly && !isMainFrame())
+        return;
+    if (!UserContentURLPattern::matchesPatterns(document->url(), script.whitelist(), script.blacklist()))
+        return;
+    if (m_page)
+        m_page->setAsRunningUserScripts();
+    loader().client().willInjectUserScript(world);
+    m_script->evaluateInWorld(ScriptSourceCode(script.source(), script.url()), world);
 }
 
 RenderView* Frame::contentRenderer() const
@@ -764,7 +789,10 @@ void Frame::clearTimers(FrameView *view, Document *document)
 {
     if (view) {
         view->layoutContext().unscheduleLayout();
-        view->frame().animation().suspendAnimationsForDocument(document);
+        if (RuntimeEnabledFeatures::sharedFeatures().webAnimationsCSSIntegrationEnabled())
+            document->timeline().suspendAnimations();
+        else
+            view->frame().animation().suspendAnimationsForDocument(document);
         view->frame().eventHandler().stopAutoscrollTimer();
     }
 }
@@ -861,7 +889,7 @@ RefPtr<Range> Frame::rangeForPoint(const IntPoint& framePoint)
 
     Position deepPosition = position.deepEquivalent();
     Text* containerText = deepPosition.containerText();
-    if (!containerText || !containerText->renderer() || containerText->renderer()->style().userSelect() == SELECT_NONE)
+    if (!containerText || !containerText->renderer() || containerText->renderer()->style().userSelect() == UserSelect::None)
         return nullptr;
 
     VisiblePosition previous = position.previous();
@@ -913,8 +941,7 @@ void Frame::createView(const IntSize& viewportSize, const Color& backgroundColor
 
     setView(frameView.copyRef());
 
-    if (backgroundColor.isValid())
-        frameView->updateBackgroundRecursively(backgroundColor, transparent);
+    frameView->updateBackgroundRecursively(backgroundColor, transparent);
 
     if (isMainFrame)
         frameView->setParentVisible(true);
@@ -924,6 +951,16 @@ void Frame::createView(const IntSize& viewportSize, const Color& backgroundColor
 
     if (HTMLFrameOwnerElement* owner = ownerElement())
         view()->setCanHaveScrollbars(owner->scrollingMode() != ScrollbarAlwaysOff);
+}
+
+DOMWindow* Frame::window() const
+{
+    return document() ? document()->domWindow() : nullptr;
+}
+
+AbstractDOMWindow* Frame::virtualWindow() const
+{
+    return window();
 }
 
 String Frame::layerTreeAsText(LayerTreeFlags flags) const
@@ -1019,7 +1056,7 @@ void Frame::suspendActiveDOMObjectsAndAnimations()
     // FIXME: Suspend/resume calls will not match if the frame is navigated, and gets a new document.
     clearTimers(); // Suspends animations and pending relayouts.
     if (m_doc)
-        m_doc->suspendScheduledTasks(ActiveDOMObject::PageWillBeSuspended);
+        m_doc->suspendScheduledTasks(ReasonForSuspension::PageWillBeSuspended);
 }
 
 void Frame::resumeActiveDOMObjectsAndAnimations()
@@ -1036,7 +1073,7 @@ void Frame::resumeActiveDOMObjectsAndAnimations()
         return;
 
     // FIXME: Suspend/resume calls will not match if the frame is navigated, and gets a new document.
-    m_doc->resumeScheduledTasks(ActiveDOMObject::PageWillBeSuspended);
+    m_doc->resumeScheduledTasks(ReasonForSuspension::PageWillBeSuspended);
 
     // Frame::clearTimers() suspended animations and pending relayouts.
     animation().resumeAnimationsForDocument(m_doc.get());
@@ -1073,6 +1110,35 @@ bool Frame::isURLAllowed(const URL& url) const
 bool Frame::isAlwaysOnLoggingAllowed() const
 {
     return page() && page()->isAlwaysOnLoggingAllowed();
+}
+
+void Frame::dropChildren()
+{
+    ASSERT(isMainFrame());
+    while (Frame* child = tree().firstChild())
+        tree().removeChild(*child);
+}
+
+void Frame::selfOnlyRef()
+{
+    ASSERT(isMainFrame());
+    if (m_selfOnlyRefCount++)
+        return;
+
+    ref();
+}
+
+void Frame::selfOnlyDeref()
+{
+    ASSERT(isMainFrame());
+    ASSERT(m_selfOnlyRefCount);
+    if (--m_selfOnlyRefCount)
+        return;
+
+    if (hasOneRef())
+        dropChildren();
+
+    deref();
 }
 
 } // namespace WebCore

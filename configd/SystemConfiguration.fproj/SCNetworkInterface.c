@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,7 +33,7 @@
  */
 
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
@@ -103,7 +103,7 @@ static void		__SCNetworkInterfaceDeallocate			(CFTypeRef cf);
 static Boolean		__SCNetworkInterfaceEqual			(CFTypeRef cf1, CFTypeRef cf2);
 static CFHashCode	__SCNetworkInterfaceHash			(CFTypeRef cf);
 static void 		__SCNetworkInterfaceCacheAdd			(CFStringRef bsdName, CFArrayRef matchingInterfaces);
-static Boolean		__SCNetworkInterfaceCacheIsOpen			();
+static Boolean		__SCNetworkInterfaceCacheIsOpen			(void);
 static CFArrayRef 	__SCNetworkInterfaceCacheCopy			(CFStringRef bsdName);
 
 
@@ -333,6 +333,11 @@ __SCNetworkInterfaceCopyFormattingDescription(CFTypeRef cf, CFDictionaryRef form
 	if (interfacePrivate->hidden) {
 		CFStringAppendFormat(result, NULL, CFSTR(", hidden = TRUE"));
 	}
+#if	TARGET_OS_IPHONE
+	if (interfacePrivate->trustRequired) {
+		CFStringAppendFormat(result, NULL, CFSTR(", trust required = TRUE"));
+	}
+#endif	// TARGET_OS_IPHONE
 	if (interfacePrivate->location != NULL) {
 		CFStringAppendFormat(result, NULL, CFSTR(", location = %@"), interfacePrivate->location);
 	}
@@ -2653,6 +2658,21 @@ createInterface(io_registry_entry_t interface, processInterface func,
 			interfacePrivate->hidden = TRUE;
 			CFRelease(val);
 		}
+
+#if	TARGET_OS_IPHONE
+		// get TrustRequired preference
+		val = IORegistryEntrySearchCFProperty(interface,
+						      kIOServicePlane,
+						      kSCNetworkInterfaceTrustRequiredKey,
+						      NULL,
+						      kIORegistryIterateRecursively | kIORegistryIterateParents);
+		if (val != NULL) {
+			if (isA_CFBoolean(val)) {
+				interfacePrivate->trustRequired = CFBooleanGetValue(val);
+			}
+			CFRelease(val);
+		}
+#endif	// TARGET_OS_IPHONE
 	} else {
 		CFRelease(interfacePrivate);
 		interfacePrivate = NULL;
@@ -3125,6 +3145,13 @@ __SCNetworkInterfaceCopyInterfaceEntity(SCNetworkInterfaceRef interface)
 				     kSCNetworkInterfaceHiddenConfigurationKey,
 				     kCFBooleanTrue);
 	}
+#if	TARGET_OS_IPHONE
+	if (interfacePrivate->trustRequired) {
+		CFDictionarySetValue(entity,
+				     kSCNetworkInterfaceTrustRequiredKey,
+				     kCFBooleanTrue);
+	}
+#endif	// TARGET_OS_IPHONE
 
 	// match the "hardware" with the lowest layer
 	while (TRUE) {
@@ -3846,8 +3873,9 @@ done:
 }
 
 
+__private_extern__
 void
-_SCNetworkInterfaceCacheOpen()
+_SCNetworkInterfaceCacheOpen(void)
 {
 	if (!__SCNetworkInterfaceCacheIsOpen()) {
 		S_interface_cache = CFDictionaryCreateMutable(NULL,
@@ -3859,8 +3887,9 @@ _SCNetworkInterfaceCacheOpen()
 }
 
 
+__private_extern__
 void
-_SCNetworkInterfaceCacheClose()
+_SCNetworkInterfaceCacheClose(void)
 {
 	if (__SCNetworkInterfaceCacheIsOpen()) {
 		SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): close", S_interface_cache);
@@ -3883,7 +3912,7 @@ __SCNetworkInterfaceCacheAdd(CFStringRef bsdName, CFArrayRef matchingInterfaces)
 
 
 static inline Boolean
-__SCNetworkInterfaceCacheIsOpen()
+__SCNetworkInterfaceCacheIsOpen(void)
 {
 	return (S_interface_cache != NULL);
 }
@@ -4259,7 +4288,7 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef	allocator,
 			    (((virtualInterface = findBridgeInterface(servicePref, ifDevice)) != NULL) ||
 #if	!TARGET_OS_IPHONE
 			    ((virtualInterface = findBondInterface(servicePref,  ifDevice)) != NULL) ||
-#endif
+#endif	// !TARGET_OS_IPHONE
 			    ((virtualInterface = findVLANInterface(servicePref, ifDevice)) != NULL))) {
 				CFRelease(interfacePrivate);
 				interfacePrivate = (SCNetworkInterfacePrivateRef)virtualInterface;
@@ -4380,6 +4409,11 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef	allocator,
 		if (CFDictionaryContainsKey(interface_entity, kSCNetworkInterfaceHiddenConfigurationKey)) {
 			interfacePrivate->hidden = TRUE;
 		}
+#if	TARGET_OS_IPHONE
+		if (CFDictionaryContainsKey(interface_entity, kSCNetworkInterfaceTrustRequiredKey)) {
+			interfacePrivate->trustRequired = TRUE;
+		}
+#endif	// TARGET_OS_IPHONE
 	}
 
 	if (service != NULL) {
@@ -4998,6 +5032,10 @@ SCNetworkInterfaceCreateWithInterface(SCNetworkInterfaceRef child, CFStringRef i
 
 	parentPrivate->hidden = childPrivate->hidden;
 
+#if	TARGET_OS_IPHONE
+	parentPrivate->trustRequired = childPrivate->trustRequired;
+#endif	// TARGET_OS_IPHONE
+
 	if (childPrivate->overrides != NULL) {
 		parentPrivate->overrides = CFDictionaryCreateMutableCopy(NULL, 0, childPrivate->overrides);
 	}
@@ -5328,10 +5366,10 @@ copy_interface_string(CFBundleRef bundle, CFStringRef key, Boolean localized)
 															 knownStrKey,
 															 localized);
 
-#if TARGET_OS_IPHONE
+#if	TARGET_OS_IPHONE
 			/* ...and we want to know about it! */
 			_SC_crash("Failed to retrieve interface string", NULL, NULL);
-#endif //TARGET_OS_IPHONE
+#endif	//TARGET_OS_IPHONE
 			reported = TRUE;
 		}
 
@@ -5888,11 +5926,13 @@ SCNetworkInterfaceForceConfigurationRefresh(SCNetworkInterfaceRef interface)
 }
 
 
+#if	!TARGET_OS_IPHONE
 Boolean
 SCNetworkInterfaceRefreshConfiguration(CFStringRef ifName)
 {
 	return _SCNetworkInterfaceForceConfigurationRefresh(ifName);
 }
+#endif	// !TARGET_OS_IPHONE
 
 
 #pragma mark -
@@ -6963,6 +7003,101 @@ SCNetworkInterfaceSetPassword(SCNetworkInterfaceRef		interface,
 	return ok;
 }
 
+#pragma mark -
+#pragma mark SCNetworkInterface [Advisory] SPIs
+#if	TARGET_OS_SIMULATOR
+Boolean
+SCNetworkInterfaceSetAdvisory(SCNetworkInterfaceRef interface,
+			      SCNetworkInterfaceAdvisory advisory,
+			      CFStringRef reason)
+{
+#pragma unused(interface, advisory, reason)
+	return (FALSE);
+}
+
+Boolean
+SCNetworkInterfaceAdvisoryIsSet(SCNetworkInterfaceRef interface)
+{
+#pragma unused(interface)
+	return (FALSE);
+}
+
+CFStringRef
+SCNetworkInterfaceCopyAdvisoryNotificationKey(SCNetworkInterfaceRef interface)
+{
+#pragma unused(interface)
+	return (NULL);
+}
+
+#else /* TARGET_OS_SIMULATOR */
+Boolean
+SCNetworkInterfaceSetAdvisory(SCNetworkInterfaceRef interface,
+			      SCNetworkInterfaceAdvisory advisory,
+			      CFStringRef reason)
+{
+	IPMonitorControlRef		control;
+	SCNetworkInterfacePrivateRef 	interfacePrivate =
+					(SCNetworkInterfacePrivateRef)interface;
+	CFStringRef			ifName;
+
+	ifName = SCNetworkInterfaceGetBSDName(interface);
+	if (ifName == NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return (FALSE);
+	}
+	control = interfacePrivate->IPMonitorControl;
+	if (control == NULL) {
+		control = IPMonitorControlCreate();
+		if (control == NULL) {
+			_SCErrorSet(kSCStatusFailed);
+			return (FALSE);
+		}
+		interfacePrivate->IPMonitorControl = control;
+	}
+	return IPMonitorControlSetInterfaceAdvisory(control,
+						    ifName,
+						    advisory,
+						    reason);
+}
+
+Boolean
+SCNetworkInterfaceAdvisoryIsSet(SCNetworkInterfaceRef interface)
+{
+	IPMonitorControlRef		control;
+	SCNetworkInterfacePrivateRef 	interfacePrivate =
+					(SCNetworkInterfacePrivateRef)interface;
+	CFStringRef			ifName;
+
+	ifName = SCNetworkInterfaceGetBSDName(interface);
+	if (ifName == NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return (FALSE);
+	}
+	control = interfacePrivate->IPMonitorControl;
+	if (control == NULL) {
+		control = IPMonitorControlCreate();
+		if (control == NULL) {
+			_SCErrorSet(kSCStatusFailed);
+			return (FALSE);
+		}
+		interfacePrivate->IPMonitorControl = control;
+	}
+	return IPMonitorControlInterfaceAdvisoryIsSet(control, ifName);
+}
+
+CFStringRef
+SCNetworkInterfaceCopyAdvisoryNotificationKey(SCNetworkInterfaceRef interface)
+{
+	CFStringRef			ifName;
+
+	ifName = SCNetworkInterfaceGetBSDName(interface);
+	if (ifName == NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return (NULL);
+	}
+	return IPMonitorControlCopyInterfaceAdvisoryNotificationKey(ifName);
+}
+#endif /* TARGET_OS_SIMULATOR */
 
 #pragma mark -
 #pragma mark SCNetworkInterface [InterfaceNamer] SPIs
@@ -7181,11 +7316,20 @@ _SCNetworkInterfaceIsBuiltin(SCNetworkInterfaceRef interface)
 }
 
 
+Boolean
+_SCNetworkInterfaceIsTrustRequired(SCNetworkInterfaceRef interface)
+{
+	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	return interfacePrivate->trustRequired;
+}
+
+
 #pragma mark -
 #pragma mark SCNetworkInterface SPIs
 
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 
 SCNetworkInterfaceRef
 _SCNetworkInterfaceCopyBTPANInterface(void)
@@ -7242,7 +7386,7 @@ _SCNetworkInterfaceCopyBTPANInterface(void)
 
 	return interface;
 }
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_OSX
 
 
 CFStringRef
@@ -7598,6 +7742,9 @@ __SCNetworkInterfaceCreateCopy(CFAllocatorRef		allocator,
 		newPrivate->configurationAction	= CFRetain(oldPrivate->configurationAction);
 	}
 	newPrivate->hidden			= oldPrivate->hidden;
+#if	TARGET_OS_IPHONE
+	newPrivate->trustRequired		= oldPrivate->trustRequired;
+#endif	// TARGET_OS_IPHONE
 	if (oldPrivate->location != NULL) {
 		newPrivate->location		= CFRetain(oldPrivate->location);
 	}

@@ -85,7 +85,7 @@ static inline bool skipEquals(const String& str, unsigned &pos)
     return skipWhiteSpace(str, pos) && str[pos++] == '=' && skipWhiteSpace(str, pos);
 }
 
-// True if a value present, incrementing pos to next space or semicolon, if any.  
+// True if a value present, incrementing pos to next space or semicolon, if any.
 // Note: might return pos == str.length().
 static inline bool skipValue(const String& str, unsigned& pos)
 {
@@ -110,7 +110,7 @@ bool isValidReasonPhrase(const String& value)
     return true;
 }
 
-// See RFC 7230, Section 3.2.3.
+// See https://fetch.spec.whatwg.org/#concept-header
 bool isValidHTTPHeaderValue(const String& value)
 {
     UChar c = value[0];
@@ -121,7 +121,8 @@ bool isValidHTTPHeaderValue(const String& value)
         return false;
     for (unsigned i = 0; i < value.length(); ++i) {
         c = value[i];
-        if (c == 0x7F || c > 0xFF || (c < 0x20 && c != '\t'))
+        ASSERT(c <= 0xFF);
+        if (c == 0x00 || c == 0x0A || c == 0x0D)
             return false;
     }
     return true;
@@ -141,9 +142,15 @@ bool isValidAcceptHeaderValue(const String& value)
 {
     for (unsigned i = 0; i < value.length(); ++i) {
         UChar c = value[i];
+
         // First check for alphanumeric for performance reasons then whitelist four delimiter characters.
         if (isASCIIAlphanumeric(c) || c == ',' || c == '/' || c == ';' || c == '=')
             continue;
+
+        ASSERT(c <= 0xFF);
+        if (c == 0x7F || (c < 0x20 && c != '\t'))
+            return false;
+
         if (isDelimiterCharacter(c))
             return false;
     }
@@ -607,20 +614,20 @@ size_t parseHTTPRequestLine(const char* data, size_t length, String& failureReas
 
     // Haven't finished header line.
     if (consumedLength == length) {
-        failureReason = ASCIILiteral("Incomplete Request Line");
+        failureReason = "Incomplete Request Line"_s;
         return 0;
     }
 
     // RequestLine does not contain 3 parts.
     if (!space1 || !space2) {
-        failureReason = ASCIILiteral("Request Line does not appear to contain: <Method> <Url> <HTTPVersion>.");
+        failureReason = "Request Line does not appear to contain: <Method> <Url> <HTTPVersion>."_s;
         return 0;
     }
 
     // The line must end with "\r\n".
     const char* end = p + 1;
     if (*(end - 2) != '\r') {
-        failureReason = ASCIILiteral("Request line does not end with CRLF");
+        failureReason = "Request line does not end with CRLF"_s;
         return 0;
     }
 
@@ -754,7 +761,7 @@ size_t parseHTTPHeader(const char* start, size_t length, String& failureReason, 
     }
     valueStr = String::fromUTF8(value.data(), value.size());
     if (valueStr.isNull()) {
-        failureReason = ASCIILiteral("Invalid UTF-8 sequence in header value");
+        failureReason = "Invalid UTF-8 sequence in header value"_s;
         return 0;
     }
     return p - start;
@@ -885,16 +892,47 @@ bool isCrossOriginSafeRequestHeader(HTTPHeaderName name, const String& value)
 // Implements <https://fetch.spec.whatwg.org/#concept-method-normalize>.
 String normalizeHTTPMethod(const String& method)
 {
-    const char* const methods[] = { "DELETE", "GET", "HEAD", "OPTIONS", "POST", "PUT" };
-    for (auto* value : methods) {
-        if (equalIgnoringASCIICase(method, value)) {
+    const ASCIILiteral methods[] = { "DELETE"_s, "GET"_s, "HEAD"_s, "OPTIONS"_s, "POST"_s, "PUT"_s };
+    for (auto value : methods) {
+        if (equalIgnoringASCIICase(method, value.characters())) {
             // Don't bother allocating a new string if it's already all uppercase.
             if (method == value)
                 break;
-            return ASCIILiteral { value };
+            return value;
         }
     }
     return method;
+}
+
+CrossOriginResourcePolicy parseCrossOriginResourcePolicyHeader(StringView header)
+{
+    auto strippedHeader = stripLeadingAndTrailingHTTPSpaces(header);
+
+    if (strippedHeader.isEmpty())
+        return CrossOriginResourcePolicy::None;
+
+    if (strippedHeader == "same-origin")
+        return CrossOriginResourcePolicy::SameOrigin;
+
+    if (strippedHeader == "same-site")
+        return CrossOriginResourcePolicy::SameSite;
+
+    return CrossOriginResourcePolicy::Invalid;
+}
+
+CrossOriginWindowPolicy parseCrossOriginWindowPolicyHeader(StringView header)
+{
+    header = stripLeadingAndTrailingHTTPSpaces(header);
+    if (header.isEmpty())
+        return CrossOriginWindowPolicy::Allow;
+
+    if (equalLettersIgnoringASCIICase(header, "deny"))
+        return CrossOriginWindowPolicy::Deny;
+
+    if (equalLettersIgnoringASCIICase(header, "allow-postmessage"))
+        return CrossOriginWindowPolicy::AllowPostMessage;
+
+    return CrossOriginWindowPolicy::Allow;
 }
 
 }

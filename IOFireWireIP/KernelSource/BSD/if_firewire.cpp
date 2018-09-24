@@ -59,7 +59,7 @@ extern "C"
 #include "IOFireWireIP.h"
 
 void		firewire_arpintr __P((mbuf_t m));
-u_char		*firewire_sprintf __P((register u_char *p, register u_char *ap));
+u_char		*firewire_sprintf __P((u_char *p, u_char *ap));
 static void inet_firewire_arp_input __P((mbuf_t m));
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -77,7 +77,7 @@ static void inet_firewire_arp_input __P((mbuf_t m));
 //
 ////////////////////////////////////////////////////////////////////////////////
 void
-firewire_arpintr(register mbuf_t m)
+firewire_arpintr(mbuf_t m)
 {
     if (m == 0 || (mbuf_flags(m) & MBUF_PKTHDR) == 0)
         panic("arpintr");
@@ -311,7 +311,7 @@ firewire_inet_event(
  */
 static u_char digits[] = "0123456789abcdef";
 u_char *
-firewire_sprintf(register u_char *p, register u_char *ap)
+firewire_sprintf(u_char *p, u_char *ap)
 {	
     u_char *cp;
     int i;

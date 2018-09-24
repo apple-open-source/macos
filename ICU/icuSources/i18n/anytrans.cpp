@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 /*
 *****************************************************************
-* Copyright (c) 2002-2016 International Business Machines Corporation
+* Copyright (c) 2002-2014, International Business Machines Corporation
 * and others.  All Rights Reserved.
 *****************************************************************
 * Date        Name        Description
@@ -36,7 +36,7 @@ static const UChar NULL_ID[] = {78,117,108,108,0}; // "Null"
 static const UChar LATIN_PIVOT[] = {0x2D,0x4C,0x61,0x74,0x6E,0x3B,0x4C,0x61,0x74,0x6E,0x2D,0}; // "-Latn;Latn-"
 
 // initial size for an Any-XXXX transform's cache of script-XXXX transforms
-// (will grow as necessary, but we don't expect to have source text wit more than 7 scripts)
+// (will grow as necessary, but we don't expect to have source text with more than 7 scripts)
 #define ANY_TRANS_CACHE_INIT_SIZE 7
 
 //------------------------------------------------------------

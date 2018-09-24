@@ -1,4 +1,4 @@
-# Copyright (C) 2011 Apple Inc. All rights reserved.
+# Copyright (C) 2011-2018 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -929,9 +929,24 @@ class Instruction < Node
             $asm.putGlobalAnnotation
         when "emit"
             $asm.puts "#{operands[0].dump}"
+        when "tagReturnAddress", "untagReturnAddress", "removeCodePtrTag"
         else
             raise "Unhandled opcode #{opcode} at #{codeOriginString}"
         end
+    end
+
+    def prepareToLower(backendName)
+        if respond_to?("recordMetaData#{backendName}")
+            send("recordMetaData#{backendName}")
+        else
+            recordMetaDataDefault
+        end
+    end
+
+    def recordMetaDataDefault
+        $asm.codeOrigin codeOriginString if $enableCodeOriginComments
+        $asm.annotation annotation if $enableInstrAnnotations
+        $asm.debugAnnotation codeOrigin.debugDirective if $enableDebugAnnotations
     end
 end
 

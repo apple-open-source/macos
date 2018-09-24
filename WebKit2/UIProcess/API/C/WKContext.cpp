@@ -36,8 +36,10 @@
 #include "AuthenticationChallengeProxy.h"
 #include "DownloadProxy.h"
 #include "WKAPICast.h"
+#include "WKArray.h"
 #include "WKContextConfigurationRef.h"
 #include "WKRetainPtr.h"
+#include "WKString.h"
 #include "WebCertificateInfo.h"
 #include "WebContextInjectedBundleClient.h"
 #include "WebProcessPool.h"
@@ -203,16 +205,6 @@ void WKContextSetDownloadClient(WKContextRef contextRef, const WKContextDownload
 
             m_client.didReceiveData(toAPI(&processPool), toAPI(&downloadProxy), length, m_client.base.clientInfo);
         }
-
-#if !USE(NETWORK_SESSION)
-        bool shouldDecodeSourceDataOfMIMEType(WebProcessPool& processPool, DownloadProxy& downloadProxy, const String& mimeType) final
-        {
-            if (!m_client.shouldDecodeSourceDataOfMIMEType)
-                return true;
-
-            return m_client.shouldDecodeSourceDataOfMIMEType(toAPI(&processPool), toAPI(&downloadProxy), toAPI(mimeType.impl()), m_client.base.clientInfo);
-        }
-#endif
 
         void decideDestinationWithSuggestedFilename(WebProcessPool& processPool, DownloadProxy& downloadProxy, const String& filename, Function<void(AllowOverwrite, WTF::String)>&& completionHandler) final
         {
@@ -395,6 +387,11 @@ void WKContextRegisterURLSchemeAsCachePartitioned(WKContextRef contextRef, WKStr
     toImpl(contextRef)->registerURLSchemeAsCachePartitioned(toImpl(urlScheme)->string());
 }
 
+void WKContextRegisterURLSchemeAsCanDisplayOnlyIfCanRequest(WKContextRef contextRef, WKStringRef urlScheme)
+{
+    toImpl(contextRef)->registerURLSchemeAsCanDisplayOnlyIfCanRequest(toImpl(urlScheme)->string());
+}
+
 void WKContextSetDomainRelaxationForbiddenForURLScheme(WKContextRef contextRef, WKStringRef urlScheme)
 {
     toImpl(contextRef)->setDomainRelaxationForbiddenForURLScheme(toImpl(urlScheme)->string());
@@ -491,11 +488,6 @@ void WKContextAllowSpecificHTTPSCertificateForHost(WKContextRef contextRef, WKCe
     toImpl(contextRef)->allowSpecificHTTPSCertificateForHost(toImpl(certificateRef), toImpl(hostRef)->string());
 }
 
-WK_EXPORT void WKContextSetCookieStorageDirectory(WKContextRef contextRef, WKStringRef cookieStorageDirectory)
-{
-    toImpl(contextRef)->setCookieStorageDirectory(toImpl(cookieStorageDirectory)->string());
-}
-
 void WKContextDisableProcessTermination(WKContextRef contextRef)
 {
     toImpl(contextRef)->disableProcessTermination();
@@ -584,7 +576,7 @@ void WKContextSetPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(WKConte
 {
     if (!dictionaryRef)
         return;
-    toImpl(contextRef)->setPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(*toImpl(dictionaryRef), time);
+    toImpl(contextRef)->setPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(*toImpl(dictionaryRef), WallTime::fromRawSeconds(time));
 }
 
 void WKContextSetPlugInAutoStartOrigins(WKContextRef contextRef, WKArrayRef arrayRef)
@@ -616,7 +608,12 @@ void WKContextTerminateNetworkProcess(WKContextRef context)
 
 void WKContextTerminateServiceWorkerProcess(WKContextRef context)
 {
-    toImpl(context)->terminateServiceWorkerProcess();
+    toImpl(context)->terminateServiceWorkerProcesses();
+}
+
+void WKContextTerminateStorageProcess(WKContextRef context)
+{
+    toImpl(context)->terminateStorageProcessForTesting();
 }
 
 ProcessID WKContextGetNetworkProcessIdentifier(WKContextRef contextRef)
@@ -627,4 +624,28 @@ ProcessID WKContextGetNetworkProcessIdentifier(WKContextRef contextRef)
 ProcessID WKContextGetDatabaseProcessIdentifier(WKContextRef contextRef)
 {
     return toImpl(contextRef)->storageProcessIdentifier();
+}
+
+void WKContextAddSupportedPlugin(WKContextRef contextRef, WKStringRef domainRef, WKStringRef nameRef, WKArrayRef mimeTypesRef, WKArrayRef extensionsRef)
+{
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    HashSet<String> mimeTypes;
+    HashSet<String> extensions;
+
+    size_t count = WKArrayGetSize(mimeTypesRef);
+    for (size_t i = 0; i < count; ++i)
+        mimeTypes.add(toWTFString(static_cast<WKStringRef>(WKArrayGetItemAtIndex(mimeTypesRef, i))));
+    count = WKArrayGetSize(extensionsRef);
+    for (size_t i = 0; i < count; ++i)
+        extensions.add(toWTFString(static_cast<WKStringRef>(WKArrayGetItemAtIndex(extensionsRef, i))));
+
+    toImpl(contextRef)->addSupportedPlugin(toWTFString(domainRef), toWTFString(nameRef), WTFMove(mimeTypes), WTFMove(extensions));
+#endif
+}
+
+void WKContextClearSupportedPlugins(WKContextRef contextRef)
+{
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    toImpl(contextRef)->clearSupportedPlugins();
+#endif
 }

@@ -55,6 +55,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 #include <limits.h>
 #include <sys/codesign.h>
 #include <Security/SecBase.h>
@@ -69,6 +70,7 @@
 #include "personalization.h"
 #include <utilities/SecInternalReleasePriv.h>
 #include <mach/mach_time.h>
+#include <dispatch/private.h>
 
 #if TARGET_OS_OSX
 #include <Security/SecTaskPriv.h>
@@ -131,7 +133,7 @@ struct SecPathBuilder {
     CFIndex                 pvcCount;
 
     SecCertificatePathVCRef path;
-    unsigned int            asyncJobCount;
+    _Atomic unsigned int    asyncJobCount;
     bool                    online_revocation;
     bool                    trusted_revocation;
     CFStringRef             revocation_check_method;
@@ -167,7 +169,7 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
     CFArrayRef signedCertificateTimestamps, CFArrayRef trustedLogs,
     CFAbsoluteTime verifyTime, CFArrayRef accessGroups, CFArrayRef exceptions,
     SecPathBuilderCompleted completed, const void *context) {
-    secdebug("alloc", "%p", builder);
+    secdebug("alloc", "builder %p", builder);
     CFAllocatorRef allocator = kCFAllocatorDefault;
 
     builder->analyticsData = calloc(1, sizeof(TrustAnalyticsBuilder));
@@ -175,13 +177,34 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
 
     builder->clientAuditToken = (CFDataRef)
         ((clientAuditToken) ? CFRetain(clientAuditToken) : NULL);
-    builder->queue = dispatch_queue_create("builder", DISPATCH_QUEUE_SERIAL);
+
+    /* Put all trust evaluations on the same workloop in order to avoid
+     * high thread fanout and frequent expensive context switches */
+    static dispatch_workloop_t workloop = NULL;
+    static dispatch_once_t onceToken;
+    static const char *recursion_key = "trust-evaluation-recursion-token";
+    dispatch_once(&onceToken, ^{
+        workloop = dispatch_workloop_create("com.apple.trustd.evaluation");
+    });
+    dispatch_queue_t builderQueue = NULL;
+    if (dispatch_workloop_is_current(workloop) || dispatch_get_specific(recursion_key)) {
+        /* If we're on the workloop already or are in a recursive trust evaluation, make a
+         * new thread so that the new path builder block will get scheduled and the blocked
+         * trust evaluation can proceed. */
+        builderQueue = dispatch_queue_create("com.apple.trustd.evaluation.recursive", DISPATCH_QUEUE_SERIAL);
+        dispatch_queue_set_specific(builderQueue, recursion_key, (void *)1, NULL);
+    } else {
+        builderQueue = workloop;
+        dispatch_retain_safe(builderQueue);
+    }
+    builder->queue = builderQueue;
 
     builder->nextParentSource = 1;
 #if !TARGET_OS_WATCH
     /* <rdar://32728029> */
     builder->canAccessNetwork = true;
 #endif
+    atomic_init(&builder->asyncJobCount, 0);
 
     builder->anchorSources = CFArrayCreateMutable(allocator, 0, NULL);
     builder->parentSources = CFArrayCreateMutable(allocator, 0, NULL);
@@ -337,7 +360,7 @@ static void SecPathBuilderForEachPVC(SecPathBuilderRef builder,void (^operation)
 }
 
 static void SecPathBuilderDestroy(SecPathBuilderRef builder) {
-    secdebug("alloc", "%p", builder);
+    secdebug("alloc", "destroy builder %p", builder);
     dispatch_release_null(builder->queue);
     if (builder->anchorSource) {
         SecMemoryCertificateSourceDestroy(builder->anchorSource);
@@ -500,12 +523,22 @@ bool SecPathBuilderIsAnchored(SecPathBuilderRef builder) {
 }
 
 unsigned int SecPathBuilderDecrementAsyncJobCount(SecPathBuilderRef builder) {
-    return --builder->asyncJobCount;
+    unsigned int result = atomic_fetch_sub(&builder->asyncJobCount, 1);
+    secdebug("rvc", "%p: decrement asyncJobCount from %d", builder, result);
+    /* atomic_fetch_sub returns the original value, but we want this function to return the
+     * value after the operation. */
+    return --result;
 }
 
 void SecPathBuilderSetAsyncJobCount(SecPathBuilderRef builder, unsigned int jobCount) {
-    builder->asyncJobCount = jobCount;
-    secdebug("rvc", "set asyncJobCount to %d", builder->asyncJobCount);
+    atomic_store(&builder->asyncJobCount, jobCount);
+    secdebug("rvc", "%p: set asyncJobCount to %d", builder, jobCount);
+}
+
+unsigned int SecPathBuilderGetAsyncJobCount(SecPathBuilderRef builder) {
+    unsigned int count = atomic_load(&builder->asyncJobCount);
+    secdebug("rvc", "%p: current asyncJobCount is %d", builder, count);
+    return count;
 }
 
 CFMutableDictionaryRef SecPathBuilderGetInfo(SecPathBuilderRef builder) {
@@ -1256,6 +1289,7 @@ static bool SecPathBuilderReportResult(SecPathBuilderRef builder) {
    the completion callback will be invoked and the builder will be deallocated.
  */
 bool SecPathBuilderStep(SecPathBuilderRef builder) {
+    secdebug("async", "step builder %p", builder);
     if (builder->activations) {
         secdebug("async", "activations: %lu returning true",
                  builder->activations);
@@ -1292,15 +1326,29 @@ bool SecPathBuilderStep(SecPathBuilderRef builder) {
         builder->bestPath, pvc->details, result);
 
     if (builder->completed) {
+        /* We want to retain just the data we need to return to our caller
+         * and free the rest of the builder before doing the callback.
+         * Since the callback may end an XPC transaction that made us active, we
+         * want to retain as little residual memory as possible. */
         CFArrayRef resultPath = SecCertificatePathVCCopyCertificates(builder->bestPath);
-        builder->completed(builder->context, resultPath,
-            pvc->details, builder->info, result);
-        CFReleaseNull(resultPath);
-    }
+        CFDictionaryRef info = CFRetainSafe(builder->info);
+        CFArrayRef details = CFRetainSafe(pvc->details);
+        const void *context = builder->context;
+        SecPathBuilderCompleted completed = builder->completed;
 
-    /* Finally, destroy the builder and free it. */
-    SecPathBuilderDestroy(builder);
-    free(builder);
+        secdebug("async", "free builder");
+        SecPathBuilderDestroy(builder);
+        free(builder);
+
+        secdebug("async", "returning to caller");
+        completed(context, resultPath, details, info, result);
+        CFReleaseNull(resultPath);
+        CFReleaseNull(info);
+        CFReleaseNull(details);
+    } else {
+        SecPathBuilderDestroy(builder);
+        free(builder);
+    }
 
     return false;
 }

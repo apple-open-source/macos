@@ -54,6 +54,7 @@
 #include <login/SessionAgentCom.h>
 #include <login/SessionAgentStatusCom.h>
 #include <os/activity.h>
+#include <CoreFoundation/CFPriv.h>
 
 
 const uint8_t kUUIDStringLength = 36;
@@ -80,6 +81,7 @@ bool _SecItemParsePersistentRef(CFDataRef persistent_ref, CFStringRef *return_cl
 }
 
 static Boolean SecItemSynchronizable(CFDictionaryRef query);
+static CFArrayRef _CopyMatchingIssuers(CFArrayRef issuers);
 
 static void secitemlog(int priority, const char *format, ...)
 {
@@ -3074,11 +3076,12 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
 		require_action(!(itemParams->itemClass == 0 && !itemParams->useItems), error_exit, status = errSecItemClassMissing);
 	}
 
-    // kSecMatchIssuers is only permitted with identities.
+    // kSecMatchIssuers is only permitted with identities or certificates.
     // Convert the input issuers to normalized form.
     require_noerr(status = _ValidateDictionaryEntry(dict, kSecMatchIssuers, (const void **)&itemParams->matchIssuers, CFArrayGetTypeID(), NULL), error_exit);
     if (itemParams->matchIssuers) {
-        require_action(itemParams->returnIdentity, error_exit, status = errSecParam);
+        CFTypeRef allowCerts = CFDictionaryGetValue(itemParams->query, kSecUseCertificatesWithMatchIssuers);
+        require_action(itemParams->returnIdentity || (allowCerts && CFEqual(allowCerts, kCFBooleanTrue)), error_exit, status = errSecParam);
         CFMutableArrayRef canonical_issuers = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
         CFArrayRef issuers = (CFArrayRef)itemParams->matchIssuers;
         if (canonical_issuers) {
@@ -4030,15 +4033,23 @@ static OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_i
 	can_target_osx = can_target_ios = true;
 
 	// Check no-legacy flag.
-    CFTypeRef value = CFDictionaryGetValue(query, kSecAttrNoLegacy);
-	if (value != NULL) {
-		can_target_ios = readNumber(value) != 0;
+    // it's iOS or bust if we're on MZ!
+    CFTypeRef noLegacy = NULL;
+    if (_CFMZEnabled()) {
+        noLegacy = kCFBooleanTrue;
+    }
+    else {
+        noLegacy = CFDictionaryGetValue(query, kSecAttrNoLegacy);
+    }
+
+	if (noLegacy != NULL) {
+		can_target_ios = readNumber(noLegacy) != 0;
 		can_target_osx = !can_target_ios;
 		return errSecSuccess;
 	}
 
 	// Check whether the query contains kSecValueRef and modify can_ flags according to the kind and type of the value.
-	value = CFDictionaryGetValue(query, kSecValueRef);
+	CFTypeRef value = CFDictionaryGetValue(query, kSecValueRef);
 	if (value != NULL) {
 		CFTypeID typeID = CFGetTypeID(value);
 		if (typeID == SecKeyGetTypeID()) {
@@ -4101,6 +4112,13 @@ static OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_i
 	for (CFIndex i = 0; i < array_size(osx_only_items); i++) {
 		can_target_ios = can_target_ios && !CFDictionaryContainsKey(query, *osx_only_items[i]);
 	}
+
+    // Absence of all of kSecItemClass, kSecValuePersistentRef, and kSecValueRef means that the query can't target iOS
+    if(CFDictionaryGetValue(query, kSecClass) == NULL &&
+       CFDictionaryGetValue(query, kSecValuePersistentRef) == NULL &&
+       CFDictionaryGetValue(query, kSecValueRef) == NULL) {
+        can_target_ios = false;
+    }
 
 	return (can_target_ios || can_target_osx) ? errSecSuccess : errSecParam;
 }
@@ -4317,13 +4335,16 @@ SecItemValidateAppleApplicationGroupAccess(CFStringRef group)
 	return status;
 }
 
-static Mutex gParentCertCacheLock;
+static Mutex& gParentCertCacheLock() {
+    static Mutex fParentCertCacheLock;
+    return fParentCertCacheLock;
+}
 static CFMutableDictionaryRef gParentCertCache;
 static CFMutableArrayRef gParentCertCacheList;
 #define PARENT_CACHE_SIZE 100
 
 void SecItemParentCachePurge() {
-    StLock<Mutex> _(gParentCertCacheLock);
+    StLock<Mutex> _(gParentCertCacheLock());
     CFReleaseNull(gParentCertCache);
     CFReleaseNull(gParentCertCacheList);
 }
@@ -4334,7 +4355,7 @@ static CFArrayRef CF_RETURNS_RETAINED parentCacheRead(SecCertificateRef certific
     CFDataRef digest = SecCertificateGetSHA1Digest(certificate);
     if (!digest) return NULL;
 
-    StLock<Mutex> _(gParentCertCacheLock);
+    StLock<Mutex> _(gParentCertCacheLock());
     if (gParentCertCache && gParentCertCacheList) {
         if (0 <= (ix = CFArrayGetFirstIndexOfValue(gParentCertCacheList,
                                                    CFRangeMake(0, CFArrayGetCount(gParentCertCacheList)),
@@ -4353,7 +4374,7 @@ static void parentCacheWrite(SecCertificateRef certificate, CFArrayRef parents) 
     CFDataRef digest = SecCertificateGetSHA1Digest(certificate);
     if (!digest) return;
 
-    StLock<Mutex> _(gParentCertCacheLock);
+    StLock<Mutex> _(gParentCertCacheLock());
     if (!gParentCertCache || !gParentCertCacheList) {
         CFReleaseNull(gParentCertCache);
         gParentCertCache = makeCFMutableDictionary();
@@ -4369,6 +4390,7 @@ static void parentCacheWrite(SecCertificateRef certificate, CFArrayRef parents) 
             CFDictionaryAddValue(gParentCertCache, digest, parents);
             if (PARENT_CACHE_SIZE <= CFArrayGetCount(gParentCertCacheList)) {
                 // Remove least recently used cache entry.
+                CFDictionaryRemoveValue(gParentCertCache, CFArrayGetValueAtIndex(gParentCertCacheList, 0));
                 CFArrayRemoveValueAtIndex(gParentCertCacheList, 0);
             }
             CFArrayAppendValue(gParentCertCacheList, digest);
@@ -4483,11 +4505,10 @@ SecCertificateRef SecItemCopyStoredCertificate(SecCertificateRef certificate, vo
 #pragma unused (context) /* for now; in future this can reference a container object */
 
 	/* Certificates are unique by issuer and serial number. */
+	CFDataRef serialNumber = SecCertificateCopySerialNumberData(certificate, NULL);
 #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
-	CFDataRef serialNumber = SecCertificateCopySerialNumber(certificate, NULL);
 	CFDataRef normalizedIssuer = SecCertificateCopyNormalizedIssuerContent(certificate, NULL);
 #else
-	CFDataRef serialNumber = SecCertificateCopySerialNumber(certificate);
 	CFDataRef normalizedIssuer = SecCertificateGetNormalizedIssuerContent(certificate);
 	CFRetainSafe(normalizedIssuer);
 #endif
@@ -4659,6 +4680,18 @@ SecItemCopyTranslatedAttributes(CFDictionaryRef inOSXDict, CFTypeRef itemClass,
 		 * which won't work once the item is updated.
 		 */
 		CFDictionaryRemoveValue(result, kSecAttrModificationDate);
+
+        /* Find all intermediate certificates in OSX keychain and append them in to the kSecMatchIssuers.
+         * This is required because secd cannot do query in to the OSX keychain
+         */
+        CFTypeRef matchIssuers = CFDictionaryGetValue(result, kSecMatchIssuers);
+        if (matchIssuers && CFGetTypeID(matchIssuers) == CFArrayGetTypeID()) {
+            CFArrayRef newMatchIssuers = _CopyMatchingIssuers((CFArrayRef)matchIssuers);
+            if (newMatchIssuers) {
+                CFDictionarySetValue(result, kSecMatchIssuers, newMatchIssuers);
+                CFRelease(newMatchIssuers);
+            }
+        }
     }
 	else {
 		/* iOS doesn't add the class attribute, so we must do it here. */
@@ -4680,6 +4713,46 @@ SecItemCopyTranslatedAttributes(CFDictionaryRef inOSXDict, CFTypeRef itemClass,
 }
 
 } /* extern "C" */
+
+static CFArrayRef
+_CopyMatchingIssuers(CFArrayRef matchIssuers) {
+    CFMutableArrayRef result = NULL;
+    CFMutableDictionaryRef query = NULL;
+    CFMutableDictionaryRef policyProperties = NULL;
+    SecPolicyRef policy = NULL;
+    CFTypeRef matchedCertificates = NULL;
+
+    require_quiet(policyProperties = CFDictionaryCreateMutable(kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), out);
+    CFDictionarySetValue(policyProperties, kSecPolicyKU_KeyCertSign, kCFBooleanTrue);
+    require_quiet(policy = SecPolicyCreateWithProperties(kSecPolicyAppleX509Basic, policyProperties), out);
+    
+    require_quiet(query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), out);
+    CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
+    CFDictionarySetValue(query, kSecMatchIssuers, matchIssuers);
+    CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitAll);
+    CFDictionarySetValue(query, kSecReturnAttributes, kCFBooleanTrue);
+    CFDictionarySetValue(query, kSecUseCertificatesWithMatchIssuers, kCFBooleanTrue);
+    CFDictionarySetValue(query, kSecMatchPolicy, policy);
+    
+    if (SecItemCopyMatching_osx(query, &matchedCertificates) == errSecSuccess && CFGetTypeID(matchedCertificates) == CFArrayGetTypeID()) {
+        require_quiet(result = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, (CFArrayRef)matchedCertificates), out);
+        for(CFIndex i = 0; i < CFArrayGetCount((CFArrayRef)matchedCertificates); ++i) {
+            CFDictionaryRef attributes = (CFDictionaryRef)CFArrayGetValueAtIndex((CFArrayRef)matchedCertificates, i);
+            CFTypeRef subject = CFDictionaryGetValue(attributes, kSecAttrSubject);
+            if (!CFArrayContainsValue(result, CFRangeMake(0, CFArrayGetCount(result)), subject)) {
+                CFArrayAppendValue(result, subject);
+            }
+        }
+    }
+    
+out:
+    CFReleaseSafe(query);
+    CFReleaseSafe(policyProperties);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(matchedCertificates);
+
+    return result;
+}
 
 static OSStatus
 SecItemMergeResults(bool can_target_ios, OSStatus status_ios, CFTypeRef result_ios,

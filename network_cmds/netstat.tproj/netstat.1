@@ -249,7 +249,15 @@ is also present, show routing statistics instead.  When
 .Fl l
 is also present,
 .Nm
-assumes more columns are there and the maximum transmission unit
+assumes more columns are there and the maximum transmission unit.
+More detailed information about the route metrics are displayed with
+.Fl ll
+for TCP round trip times
+.Fl lll
+for all metrics.
+Use the
+.Fl z
+flags to display only entries with non-zero RTT values.
 .Pq Dq mtu
 are also displayed.
 .It Fl R
@@ -258,7 +266,7 @@ Show reachability information.  Use with
 to show link-layer reachability information for a given interface.
 .It Fl s
 Show per-protocol statistics.  If this option is repeated, counters with a value of
-zero are suppressed.
+zero are suppressed.  For security reasons, root privileges are required to read TCP statistics and in the absence of such privileges all TCP counters will be reported as zero.
 .It Fl S
 Show interface link status and interface state information about the specified interface.  This option requires specifying an interface with
 .Fl I

@@ -1,6 +1,14 @@
-#!/bin/sh
+#!/bin/bash -e -x
 
-set -ex
+# Do nothing for installhdrs
+[ "$ACTION" == "installhdrs" ] && exit 0
 
-ln -s libarchive.2.dylib ${DSTROOT}/usr/lib/libarchive.dylib
+# This script gets run after creating the dylib and before creating the tbd file
+# <rdar://problem/39067080> GenerateTAPI phase should appear in the build phases of a target
+mkdir -p ${INSTALL_DIR}
 
+if [[ ${ACTION} == "install" ]] ; then
+    ln -s -f ${EXECUTABLE_NAME} ${INSTALL_DIR}/libarchive.dylib
+fi
+
+ln -s -f ${EXECUTABLE_NAME/dylib/tbd} ${INSTALL_DIR}/libarchive.tbd

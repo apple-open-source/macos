@@ -100,7 +100,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "tls_01_record"
-            isEnabled = "NO">
+            isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "tls_02_self"

@@ -31,6 +31,7 @@ fi{
         151{"Itä-Eurooppa"}
         154{"Pohjois-Eurooppa"}
         155{"Länsi-Eurooppa"}
+        202{"Saharan eteläpuolinen Afrikka"}
         419{"Latinalainen Amerikka"}
         AC{"Ascension-saari"}
         AD{"Andorra"}
@@ -106,6 +107,7 @@ fi{
         ES{"Espanja"}
         ET{"Etiopia"}
         EU{"Euroopan unioni"}
+        EZ{"euroalue"}
         FI{"Suomi"}
         FJ{"Fidži"}
         FK{"Falklandinsaaret"}
@@ -310,5 +312,5 @@ fi{
         MK{"EJT Makedonia"}
         TL{"Timor-Leste"}
     }
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
 }

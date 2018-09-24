@@ -252,7 +252,7 @@
 #  Unicode word boundary mode
 #
 "(?w).*?\b"                      v   "<0></0>hello, world"
-"(?w).*?(\b.+?\b).*"             v   "<0><1> </1> 123.45   </0>"
+"(?w).*?(\b.+?\b).*"             v   "<0><1>  </1>123.45   </0>"
 "(?w).*?(\b\d.*?\b).*"           v   "<0>  <1>123.45</1>   </0>"
 ".*?(\b.+?\b).*"                     "<0>  <1>123</1>.45   </0>"
 "(?w:.*?(\b\d.*?\b).*)"          v   "<0>  <1>123.45</1>   </0>"
@@ -1355,6 +1355,13 @@
 "[^\u0000-\U0010ffff]bc?"       "bc no match"
 "[^\u0000-\U0010ffff]?bc?"      "<0>bc</0> has a match"
 
+# Bug #12160  Hit End behavior after find fails to find.
+#             To match Java, should be true if find fails to find.
+#
+"abc"                  Z        "<0>abc</0> abc abc xyz"
+"abc"                  Z2       "abc <0>abc</0> abc xyz"
+"abc"                  Z3       "abc abc <0>abc</0> xyz"
+"abc"                  z4       "abc abc abc xyz"
 
 #  Random debugging, Temporary
 #

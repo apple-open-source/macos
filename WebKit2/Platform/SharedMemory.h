@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  * Copyright (C) 2017 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,13 +35,17 @@
 #include <wtf/Optional.h>
 #endif
 
+#if OS(WINDOWS)
+#include <windows.h>
+#endif
+
 namespace IPC {
 class Decoder;
 class Encoder;
 }
 
 #if OS(DARWIN)
-namespace WebCore {
+namespace WTF {
 class MachSendRight;
 }
 #endif
@@ -77,7 +81,7 @@ public:
 #if USE(UNIX_DOMAIN_SOCKETS)
         mutable IPC::Attachment m_attachment;
 #elif OS(DARWIN)
-        mutable mach_port_t m_port;
+        mutable mach_port_t m_port { MACH_PORT_NULL };
         size_t m_size;
 #elif OS(WINDOWS)
         mutable HANDLE m_handle;
@@ -115,7 +119,7 @@ public:
 
 private:
 #if OS(DARWIN)
-    WebCore::MachSendRight createSendRight(Protection) const;
+    WTF::MachSendRight createSendRight(Protection) const;
 #endif
 
     size_t m_size;
@@ -128,7 +132,7 @@ private:
     std::optional<int> m_fileDescriptor;
     bool m_isWrappingMap { false };
 #elif OS(DARWIN)
-    mach_port_t m_port;
+    mach_port_t m_port { MACH_PORT_NULL };
 #elif OS(WINDOWS)
     HANDLE m_handle;
 #endif

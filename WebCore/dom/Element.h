@@ -37,7 +37,6 @@
 
 namespace WebCore {
 
-class AccessibleNode;
 class CustomElementReactionQueue;
 class DatasetDOMStringMap;
 class DOMRect;
@@ -70,6 +69,7 @@ enum class SelectionRevealMode {
 };
 
 class Element : public ContainerNode {
+    WTF_MAKE_ISO_ALLOCATED(Element);
 public:
     static Ref<Element> create(const QualifiedName&, Document&);
     virtual ~Element();
@@ -104,15 +104,17 @@ public:
     // in style attribute or one of the SVG animation attributes.
     bool hasAttributesWithoutUpdate() const;
 
-    WEBCORE_EXPORT bool hasAttribute(const AtomicString& name) const;
+    WEBCORE_EXPORT bool hasAttribute(const AtomicString& qualifiedName) const;
     WEBCORE_EXPORT bool hasAttributeNS(const AtomicString& namespaceURI, const AtomicString& localName) const;
 
-    WEBCORE_EXPORT const AtomicString& getAttribute(const AtomicString& name) const;
+    WEBCORE_EXPORT const AtomicString& getAttribute(const AtomicString& qualifiedName) const;
     WEBCORE_EXPORT const AtomicString& getAttributeNS(const AtomicString& namespaceURI, const AtomicString& localName) const;
 
-    WEBCORE_EXPORT ExceptionOr<void> setAttribute(const AtomicString& name, const AtomicString& value);
+    WEBCORE_EXPORT ExceptionOr<void> setAttribute(const AtomicString& qualifiedName, const AtomicString& value);
     static ExceptionOr<QualifiedName> parseAttributeName(const AtomicString& namespaceURI, const AtomicString& qualifiedName);
     WEBCORE_EXPORT ExceptionOr<void> setAttributeNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, const AtomicString& value);
+
+    ExceptionOr<bool> toggleAttribute(const AtomicString& qualifiedName, std::optional<bool> force);
 
     const AtomicString& getIdAttribute() const;
     void setIdAttribute(const AtomicString&);
@@ -183,12 +185,12 @@ public:
     // Returns the absolute bounding box translated into screen coordinates.
     WEBCORE_EXPORT IntRect screenRect() const;
 
-    WEBCORE_EXPORT bool removeAttribute(const AtomicString& name);
+    WEBCORE_EXPORT bool removeAttribute(const AtomicString& qualifiedName);
     WEBCORE_EXPORT bool removeAttributeNS(const AtomicString& namespaceURI, const AtomicString& localName);
 
     Ref<Attr> detachAttribute(unsigned index);
 
-    WEBCORE_EXPORT RefPtr<Attr> getAttributeNode(const AtomicString& name);
+    WEBCORE_EXPORT RefPtr<Attr> getAttributeNode(const AtomicString& qualifiedName);
     WEBCORE_EXPORT RefPtr<Attr> getAttributeNodeNS(const AtomicString& namespaceURI, const AtomicString& localName);
     WEBCORE_EXPORT ExceptionOr<RefPtr<Attr>> setAttributeNode(Attr&);
     WEBCORE_EXPORT ExceptionOr<RefPtr<Attr>> setAttributeNodeNS(Attr&);
@@ -305,7 +307,7 @@ public:
     bool tabIndexSetExplicitly() const;
     virtual bool supportsFocus() const;
     virtual bool isFocusable() const;
-    virtual bool isKeyboardFocusable(KeyboardEvent&) const;
+    virtual bool isKeyboardFocusable(KeyboardEvent*) const;
     virtual bool isMouseFocusable() const;
 
     virtual bool shouldUseInputMethod();
@@ -314,13 +316,13 @@ public:
     WEBCORE_EXPORT void setTabIndex(int);
     virtual RefPtr<Element> focusDelegate();
 
-    ExceptionOr<void> insertAdjacentHTML(const String& where, const String& html, std::optional<NodeVector&> addedNodes);
+    ExceptionOr<void> insertAdjacentHTML(const String& where, const String& html, NodeVector* addedNodes);
 
     WEBCORE_EXPORT ExceptionOr<Element*> insertAdjacentElement(const String& where, Element& newChild);
     WEBCORE_EXPORT ExceptionOr<void> insertAdjacentHTML(const String& where, const String& html);
     WEBCORE_EXPORT ExceptionOr<void> insertAdjacentText(const String& where, const String& text);
 
-    const RenderStyle* computedStyle(PseudoId = NOPSEUDO) override;
+    const RenderStyle* computedStyle(PseudoId = PseudoId::None) override;
 
     bool needsStyleInvalidation() const;
 
@@ -328,11 +330,15 @@ public:
     bool styleAffectedByActive() const { return hasRareData() && rareDataStyleAffectedByActive(); }
     bool styleAffectedByEmpty() const { return hasRareData() && rareDataStyleAffectedByEmpty(); }
     bool styleAffectedByFocusWithin() const { return hasRareData() && rareDataStyleAffectedByFocusWithin(); }
+    bool descendantsAffectedByPreviousSibling() const { return getFlag(DescendantsAffectedByPreviousSiblingFlag); }
     bool childrenAffectedByHover() const { return getFlag(ChildrenAffectedByHoverRulesFlag); }
     bool childrenAffectedByDrag() const { return hasRareData() && rareDataChildrenAffectedByDrag(); }
     bool childrenAffectedByFirstChildRules() const { return getFlag(ChildrenAffectedByFirstChildRulesFlag); }
     bool childrenAffectedByLastChildRules() const { return getFlag(ChildrenAffectedByLastChildRulesFlag); }
+    bool childrenAffectedByForwardPositionalRules() const { return hasRareData() && rareDataChildrenAffectedByForwardPositionalRules(); }
+    bool descendantsAffectedByForwardPositionalRules() const { return hasRareData() && rareDataDescendantsAffectedByForwardPositionalRules(); }
     bool childrenAffectedByBackwardPositionalRules() const { return hasRareData() && rareDataChildrenAffectedByBackwardPositionalRules(); }
+    bool descendantsAffectedByBackwardPositionalRules() const { return hasRareData() && rareDataDescendantsAffectedByBackwardPositionalRules(); }
     bool childrenAffectedByPropertyBasedBackwardPositionalRules() const { return hasRareData() && rareDataChildrenAffectedByPropertyBasedBackwardPositionalRules(); }
     bool affectsNextSiblingElementStyle() const { return getFlag(AffectsNextSiblingElementStyle); }
     unsigned childIndex() const { return hasRareData() ? rareDataChildIndex() : 0; }
@@ -341,18 +347,22 @@ public:
 
     void setStyleAffectedByEmpty();
     void setStyleAffectedByFocusWithin();
+    void setDescendantsAffectedByPreviousSibling() const { return setFlag(DescendantsAffectedByPreviousSiblingFlag); }
     void setChildrenAffectedByHover() { setFlag(ChildrenAffectedByHoverRulesFlag); }
     void setStyleAffectedByActive();
     void setChildrenAffectedByDrag();
     void setChildrenAffectedByFirstChildRules() { setFlag(ChildrenAffectedByFirstChildRulesFlag); }
     void setChildrenAffectedByLastChildRules() { setFlag(ChildrenAffectedByLastChildRulesFlag); }
+    void setChildrenAffectedByForwardPositionalRules();
+    void setDescendantsAffectedByForwardPositionalRules();
     void setChildrenAffectedByBackwardPositionalRules();
+    void setDescendantsAffectedByBackwardPositionalRules();
     void setChildrenAffectedByPropertyBasedBackwardPositionalRules();
     void setAffectsNextSiblingElementStyle() { setFlag(AffectsNextSiblingElementStyle); }
     void setStyleIsAffectedByPreviousSibling() { setFlag(StyleIsAffectedByPreviousSibling); }
     void setChildIndex(unsigned);
 
-    AtomicString computeInheritedLanguage() const;
+    WEBCORE_EXPORT AtomicString computeInheritedLanguage() const;
     Locale& locale() const;
 
     virtual void accessKeyAction(bool /*sendToAnyEvent*/) { }
@@ -369,8 +379,8 @@ public:
     virtual String target() const { return String(); }
 
     static AXTextStateChangeIntent defaultFocusTextStateChangeIntent() { return AXTextStateChangeIntent(AXTextStateChangeTypeSelectionMove, AXTextSelection { AXTextSelectionDirectionDiscontiguous, AXTextSelectionGranularityUnknown, true }); }
-    void updateFocusAppearanceAfterAttachIfNeeded();
     virtual void focus(bool restorePreviousSelection = true, FocusDirection = FocusDirectionNone);
+    virtual RefPtr<Element> focusAppearanceUpdateTarget();
     virtual void updateFocusAppearance(SelectionRestorationMode, SelectionRevealMode = SelectionRevealMode::Reveal);
     virtual void blur();
 
@@ -467,7 +477,7 @@ public:
     WEBCORE_EXPORT bool containsFullScreenElement() const;
     void setContainsFullScreenElement(bool);
     void setContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(bool);
-    WEBCORE_EXPORT void webkitRequestFullscreen();
+    WEBCORE_EXPORT virtual void webkitRequestFullscreen();
 #endif
 
 #if ENABLE(POINTER_LOCK)
@@ -515,7 +525,6 @@ public:
     void clearAfterPseudoElement();
     void resetComputedStyle();
     void resetStyleRelations();
-    void clearStyleDerivedDataBeforeDetachingRenderer();
     void clearHoverAndActiveStatusBeforeDetachingRenderer();
 
     WEBCORE_EXPORT URL absoluteLinkURL() const;
@@ -532,7 +541,7 @@ public:
     // This should be called whenever an element changes in a manner that can affect its style.
     void invalidateStyle();
 
-    // As above but also call RenderElement::setStyle with StyleDifferenceRecompositeLayer flag for
+    // As above but also call RenderElement::setStyle with StyleDifference::RecompositeLayer flag for
     // the element even when the style doesn't change. This is mostly needed by the animation code.
     WEBCORE_EXPORT void invalidateStyleAndLayerComposition();
 
@@ -547,6 +556,9 @@ public:
     // Elements newly added to the tree are also in this state.
     void invalidateStyleAndRenderersForSubtree();
 
+    void invalidateStyleInternal();
+    void invalidateStyleForSubtreeInternal();
+
     bool hasDisplayContents() const;
     void storeDisplayContentsStyle(std::unique_ptr<RenderStyle>);
 
@@ -554,9 +566,6 @@ public:
     void setAttributeEventListener(const AtomicString& eventType, const QualifiedName& attributeName, const AtomicString& value);
 
     Element* findAnchorElementForLink(String& outAnchorName);
-
-    AccessibleNode* existingAccessibleNode() const;
-    AccessibleNode* accessibleNode();
 
     ExceptionOr<Ref<WebAnimation>> animate(JSC::ExecState&, JSC::Strong<JSC::JSObject>&&, std::optional<Variant<double, KeyframeAnimationOptions>>&&);
     Vector<RefPtr<WebAnimation>> getAnimations();
@@ -650,7 +659,10 @@ private:
     bool rareDataStyleAffectedByActive() const;
     bool rareDataChildrenAffectedByDrag() const;
     bool rareDataChildrenAffectedByLastChildRules() const;
+    bool rareDataChildrenAffectedByForwardPositionalRules() const;
+    bool rareDataDescendantsAffectedByForwardPositionalRules() const;
     bool rareDataChildrenAffectedByBackwardPositionalRules() const;
+    bool rareDataDescendantsAffectedByBackwardPositionalRules() const;
     bool rareDataChildrenAffectedByPropertyBasedBackwardPositionalRules() const;
     unsigned rareDataChildIndex() const;
 
@@ -708,7 +720,6 @@ inline bool Element::hasAttributeWithoutSynchronization(const QualifiedName& nam
 
 inline const AtomicString& Element::attributeWithoutSynchronization(const QualifiedName& name) const
 {
-    ASSERT(fastAttributeLookupAllowed(name));
     if (elementData()) {
         if (const Attribute* attribute = findAttributeByName(name))
             return attribute->value();

@@ -39,6 +39,7 @@
 #include "kextd_personalities.h"
 #include "kextd_usernotification.h"
 #include "kextd_globals.h"
+#include "signposts.h"
 #include "staging.h"
 
 static OSReturn sendCachedPersonalitiesToKernel(Boolean resetFlag);
@@ -53,8 +54,9 @@ OSReturn sendSystemKextPersonalitiesToKernel(
     CFArrayRef        personalities  = NULL;    // must release
     CFMutableArrayRef authenticKexts = NULL;    // must release
     CFMutableArrayRef nonsecureKexts = NULL;    // must release
+    os_signpost_id_t  spid           = 0;
     CFIndex           count, i;
-    
+
    /* Note that we are going to finish on success here!
     * If we sent personalities we are done.
     * sendCachedPersonalitiesToKernel() logs a msg on failure.
@@ -63,6 +65,9 @@ OSReturn sendSystemKextPersonalitiesToKernel(
     if (result == kOSReturnSuccess) {
         goto finish;
     }
+
+    spid = generate_signpost_id();
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_PERSONALITY_SCRAPE);
 
    /* If we didn't send from cache, send from the kexts. This will cause
     * lots of I/O.
@@ -122,6 +127,9 @@ OSReturn sendSystemKextPersonalitiesToKernel(
             _kOSKextCacheFormatIOXML, personalities);
 
 finish:
+    if (spid) {
+        os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_PERSONALITY_SCRAPE);
+    }
     if (result != kOSReturnSuccess) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogIPCFlag,

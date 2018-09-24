@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1223,6 +1223,16 @@ main(int argc, char * argv[])
 		   strerror(errno));
 	}
 #endif /* SO_TRAFFIC_CLASS */
+
+#if defined(SO_DEFUNCTOK)
+    opt = 0;
+    /* ensure that our socket can't be defunct'd */
+    if (setsockopt(bootp_socket, SOL_SOCKET, SO_DEFUNCTOK, &opt,
+		   sizeof(opt)) < 0) {
+	my_log(LOG_NOTICE, "setsockopt(SO_DEFUNCTOK) failed, %s",
+	       strerror(errno));
+    }
+#endif /* SO_DEFUNCTOK */
     }
     
     /* install our sighup handler */

@@ -21,6 +21,7 @@
 #include "unicode/basictz.h"
 #include "unicode/tzfmt.h"
 #include "unicode/localpointer.h"
+#include "unicode/utf16.h"
 
 #include "cstring.h"
 #include "cstr.h"
@@ -83,7 +84,8 @@ TimeZoneFormatTest::runIndexedTest( int32_t index, UBool exec, const char* &name
         TESTCASE(4, TestFormat);
         TESTCASE(5, TestFormatTZDBNames);
         TESTCASE(6, TestFormatCustomZone);
-        default: name = ""; break;
+        TESTCASE(7, TestFormatTZDBNamesAllZoneCoverage);
+    default: name = ""; break;
     }
 }
 
@@ -139,7 +141,9 @@ TimeZoneFormatTest::TestTimeZoneRoundTrip(void) {
         Locale("en"),
         Locale("en_CA"),
         Locale("fr"),
-        Locale("zh_Hant")
+        Locale("zh_Hant"),
+        Locale("fa"),
+        Locale("ccp")
     };
 
     const Locale *LOCALES;
@@ -168,7 +172,6 @@ TimeZoneFormatTest::TestTimeZoneRoundTrip(void) {
         gmtFmt.format(0.0, localGMTString);
 
         for (int32_t patidx = 0; patidx < UPRV_LENGTHOF(PATTERNS); patidx++) {
-
             SimpleDateFormat *sdf = new SimpleDateFormat((UnicodeString)PATTERNS[patidx], LOCALES[locidx], status);
             if (U_FAILURE(status)) {
                 dataerrln((UnicodeString)"new SimpleDateFormat failed for pattern " +
@@ -299,10 +302,13 @@ TimeZoneFormatTest::TestTimeZoneRoundTrip(void) {
                         if (!isOffsetFormat) {
                             // Check if localized GMT format is used as a fallback of name styles
                             int32_t numDigits = 0;
-                            for (int n = 0; n < tzstr.length(); n++) {
-                                if (u_isdigit(tzstr.charAt(n))) {
+                            int32_t idx = 0;
+                            while (idx < tzstr.length()) {
+                                UChar32 cp = tzstr.char32At(idx);
+                                if (u_isdigit(cp)) {
                                     numDigits++;
                                 }
+                                idx += U16_LENGTH(cp);
                             }
                             isOffsetFormat = (numDigits > 0);
                         }
@@ -478,7 +484,7 @@ TimeZoneFormatTest::TestTimeRoundTrip(void) {
         Locale("ko_KR"), Locale("nb_NO"), Locale("nl_NL"), Locale("nn_NO"), Locale("pl_PL"),
         Locale("pt"), Locale("pt_BR"), Locale("pt_PT"), Locale("ru_RU"), Locale("sv_SE"),
         Locale("th_TH"), Locale("tr_TR"), Locale("zh"), Locale("zh_Hans"), Locale("zh_Hans_CN"),
-        Locale("zh_Hant"), Locale("zh_Hant_TW")
+        Locale("zh_Hant"), Locale("zh_Hant_TW"), Locale("fa"), Locale("ccp")
     };
 
     if (bTestAll) {
@@ -595,7 +601,8 @@ void TimeZoneFormatTest::RunTimeRoundTripTests(int32_t threadNumber) {
                 }
             }
 
-            if (*tzid == "Pacific/Apia" && uprv_strcmp(PATTERNS[patidx], "vvvv") == 0
+            if ((*tzid == "Pacific/Apia" || *tzid == "Pacific/Midway" || *tzid == "Pacific/Pago_Pago")
+                    && uprv_strcmp(PATTERNS[patidx], "vvvv") == 0
                     && logKnownIssue("11052", "Ambiguous zone name - Samoa Time")) {
                 continue;
             }
@@ -1257,5 +1264,48 @@ TimeZoneFormatTest::TestFormatCustomZone(void) {
     }
 }
 
+void
+TimeZoneFormatTest::TestFormatTZDBNamesAllZoneCoverage(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<StringEnumeration> tzids(TimeZone::createEnumeration());
+    if (tzids.getAlias() == nullptr) {
+        dataerrln("%s %d tzids is null", __FILE__, __LINE__);
+        return;
+    }
+    const UnicodeString *tzid;
+    LocalPointer<TimeZoneNames> tzdbNames(TimeZoneNames::createTZDBInstance(Locale("en"), status));
+    UDate now = Calendar::getNow();
+    UnicodeString mzId;
+    UnicodeString name;
+    while ((tzid = tzids->snext(status))) {
+        logln("Zone: " + *tzid);
+        LocalPointer<TimeZone> tz(TimeZone::createTimeZone(*tzid));
+        tzdbNames->getMetaZoneID(*tzid, now, mzId);
+        if (mzId.isBogus()) {
+            logln((UnicodeString)"Meta zone: <not available>");
+        } else {
+            logln((UnicodeString)"Meta zone: " + mzId);
+        }
+
+        // mzID could be bogus here
+        tzdbNames->getMetaZoneDisplayName(mzId, UTZNM_SHORT_STANDARD, name);
+        // name could be bogus here
+        if (name.isBogus()) {
+            logln((UnicodeString)"Meta zone short standard name: <not available>");
+        }
+        else {
+            logln((UnicodeString)"Meta zone short standard name: " + name);
+        }
+
+        tzdbNames->getMetaZoneDisplayName(mzId, UTZNM_SHORT_DAYLIGHT, name);
+        // name could be bogus here
+        if (name.isBogus()) {
+            logln((UnicodeString)"Meta zone short daylight name: <not available>");
+        }
+        else {
+            logln((UnicodeString)"Meta zone short daylight name: " + name);
+        }
+    }
+}
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

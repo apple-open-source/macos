@@ -31,25 +31,23 @@ U_NAMESPACE_BEGIN
 #   define U_ALIASING_BARRIER(ptr) asm volatile("" : : "rm"(ptr) : "memory")
 #endif
 
-// Do not use #ifndef U_HIDE_DRAFT_API for the following class, it
-// is now used in place of UChar* in several stable C++ methods
 /**
  * char16_t * wrapper with implicit conversion from distinct but bit-compatible pointer types.
- * @draft ICU 59
+ * @stable ICU 59
  */
 class U_COMMON_API Char16Ptr U_FINAL {
 public:
     /**
      * Copies the pointer.
      * @param p pointer
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline Char16Ptr(char16_t *p);
 #if !U_CHAR16_IS_TYPEDEF
     /**
      * Converts the pointer to char16_t *.
      * @param p pointer to be converted
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline Char16Ptr(uint16_t *p);
 #endif
@@ -58,32 +56,32 @@ public:
      * Converts the pointer to char16_t *.
      * (Only defined if U_SIZEOF_WCHAR_T==2.)
      * @param p pointer to be converted
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline Char16Ptr(wchar_t *p);
 #endif
     /**
      * nullptr constructor.
      * @param p nullptr
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline Char16Ptr(std::nullptr_t p);
     /**
      * Destructor.
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline ~Char16Ptr();
 
     /**
      * Pointer access.
      * @return the wrapped pointer
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline char16_t *get() const;
     /**
      * char16_t pointer access via type conversion (e.g., static_cast).
      * @return the wrapped pointer
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline operator char16_t *() const { return get(); }
 
@@ -96,67 +94,65 @@ private:
         return reinterpret_cast<char16_t *>(t);
     }
 
-    char16_t *p;
+    char16_t *p_;
 #else
     union {
         char16_t *cp;
         uint16_t *up;
         wchar_t *wp;
-    } u;
+    } u_;
 #endif
 };
 
 #ifdef U_ALIASING_BARRIER
 
-Char16Ptr::Char16Ptr(char16_t *p) : p(p) {}
+Char16Ptr::Char16Ptr(char16_t *p) : p_(p) {}
 #if !U_CHAR16_IS_TYPEDEF
-Char16Ptr::Char16Ptr(uint16_t *p) : p(cast(p)) {}
+Char16Ptr::Char16Ptr(uint16_t *p) : p_(cast(p)) {}
 #endif
 #if U_SIZEOF_WCHAR_T==2
-Char16Ptr::Char16Ptr(wchar_t *p) : p(cast(p)) {}
+Char16Ptr::Char16Ptr(wchar_t *p) : p_(cast(p)) {}
 #endif
-Char16Ptr::Char16Ptr(std::nullptr_t p) : p(p) {}
+Char16Ptr::Char16Ptr(std::nullptr_t p) : p_(p) {}
 Char16Ptr::~Char16Ptr() {
-    U_ALIASING_BARRIER(p);
+    U_ALIASING_BARRIER(p_);
 }
 
-char16_t *Char16Ptr::get() const { return p; }
+char16_t *Char16Ptr::get() const { return p_; }
 
 #else
 
-Char16Ptr::Char16Ptr(char16_t *p) { u.cp = p; }
+Char16Ptr::Char16Ptr(char16_t *p) { u_.cp = p; }
 #if !U_CHAR16_IS_TYPEDEF
-Char16Ptr::Char16Ptr(uint16_t *p) { u.up = p; }
+Char16Ptr::Char16Ptr(uint16_t *p) { u_.up = p; }
 #endif
 #if U_SIZEOF_WCHAR_T==2
-Char16Ptr::Char16Ptr(wchar_t *p) { u.wp = p; }
+Char16Ptr::Char16Ptr(wchar_t *p) { u_.wp = p; }
 #endif
-Char16Ptr::Char16Ptr(std::nullptr_t p) { u.cp = p; }
+Char16Ptr::Char16Ptr(std::nullptr_t p) { u_.cp = p; }
 Char16Ptr::~Char16Ptr() {}
 
-char16_t *Char16Ptr::get() const { return u.cp; }
+char16_t *Char16Ptr::get() const { return u_.cp; }
 
 #endif
 
-// Do not use #ifndef U_HIDE_DRAFT_API for the following class, it is
-// now used in place of const UChar* in several stable C++ methods
 /**
  * const char16_t * wrapper with implicit conversion from distinct but bit-compatible pointer types.
- * @draft ICU 59
+ * @stable ICU 59
  */
 class U_COMMON_API ConstChar16Ptr U_FINAL {
 public:
     /**
      * Copies the pointer.
      * @param p pointer
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline ConstChar16Ptr(const char16_t *p);
 #if !U_CHAR16_IS_TYPEDEF
     /**
      * Converts the pointer to char16_t *.
      * @param p pointer to be converted
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline ConstChar16Ptr(const uint16_t *p);
 #endif
@@ -165,33 +161,33 @@ public:
      * Converts the pointer to char16_t *.
      * (Only defined if U_SIZEOF_WCHAR_T==2.)
      * @param p pointer to be converted
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline ConstChar16Ptr(const wchar_t *p);
 #endif
     /**
      * nullptr constructor.
      * @param p nullptr
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline ConstChar16Ptr(const std::nullptr_t p);
 
     /**
      * Destructor.
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline ~ConstChar16Ptr();
 
     /**
      * Pointer access.
      * @return the wrapped pointer
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline const char16_t *get() const;
     /**
      * char16_t pointer access via type conversion (e.g., static_cast).
      * @return the wrapped pointer
-     * @draft ICU 59
+     * @stable ICU 59
      */
     inline operator const char16_t *() const { return get(); }
 
@@ -204,45 +200,45 @@ private:
         return reinterpret_cast<const char16_t *>(t);
     }
 
-    const char16_t *p;
+    const char16_t *p_;
 #else
     union {
         const char16_t *cp;
         const uint16_t *up;
         const wchar_t *wp;
-    } u;
+    } u_;
 #endif
 };
 
 #ifdef U_ALIASING_BARRIER
 
-ConstChar16Ptr::ConstChar16Ptr(const char16_t *p) : p(p) {}
+ConstChar16Ptr::ConstChar16Ptr(const char16_t *p) : p_(p) {}
 #if !U_CHAR16_IS_TYPEDEF
-ConstChar16Ptr::ConstChar16Ptr(const uint16_t *p) : p(cast(p)) {}
+ConstChar16Ptr::ConstChar16Ptr(const uint16_t *p) : p_(cast(p)) {}
 #endif
 #if U_SIZEOF_WCHAR_T==2
-ConstChar16Ptr::ConstChar16Ptr(const wchar_t *p) : p(cast(p)) {}
+ConstChar16Ptr::ConstChar16Ptr(const wchar_t *p) : p_(cast(p)) {}
 #endif
-ConstChar16Ptr::ConstChar16Ptr(const std::nullptr_t p) : p(p) {}
+ConstChar16Ptr::ConstChar16Ptr(const std::nullptr_t p) : p_(p) {}
 ConstChar16Ptr::~ConstChar16Ptr() {
-    U_ALIASING_BARRIER(p);
+    U_ALIASING_BARRIER(p_);
 }
 
-const char16_t *ConstChar16Ptr::get() const { return p; }
+const char16_t *ConstChar16Ptr::get() const { return p_; }
 
 #else
 
-ConstChar16Ptr::ConstChar16Ptr(const char16_t *p) { u.cp = p; }
+ConstChar16Ptr::ConstChar16Ptr(const char16_t *p) { u_.cp = p; }
 #if !U_CHAR16_IS_TYPEDEF
-ConstChar16Ptr::ConstChar16Ptr(const uint16_t *p) { u.up = p; }
+ConstChar16Ptr::ConstChar16Ptr(const uint16_t *p) { u_.up = p; }
 #endif
 #if U_SIZEOF_WCHAR_T==2
-ConstChar16Ptr::ConstChar16Ptr(const wchar_t *p) { u.wp = p; }
+ConstChar16Ptr::ConstChar16Ptr(const wchar_t *p) { u_.wp = p; }
 #endif
-ConstChar16Ptr::ConstChar16Ptr(const std::nullptr_t p) { u.cp = p; }
+ConstChar16Ptr::ConstChar16Ptr(const std::nullptr_t p) { u_.cp = p; }
 ConstChar16Ptr::~ConstChar16Ptr() {}
 
-const char16_t *ConstChar16Ptr::get() const { return u.cp; }
+const char16_t *ConstChar16Ptr::get() const { return u_.cp; }
 
 #endif
 
@@ -251,7 +247,7 @@ const char16_t *ConstChar16Ptr::get() const { return u.cp; }
  * Includes an aliasing barrier if available.
  * @param p pointer
  * @return p as const UChar *
- * @draft ICU 59
+ * @stable ICU 59
  */
 inline const UChar *toUCharPtr(const char16_t *p) {
 #ifdef U_ALIASING_BARRIER
@@ -265,7 +261,7 @@ inline const UChar *toUCharPtr(const char16_t *p) {
  * Includes an aliasing barrier if available.
  * @param p pointer
  * @return p as UChar *
- * @draft ICU 59
+ * @stable ICU 59
  */
 inline UChar *toUCharPtr(char16_t *p) {
 #ifdef U_ALIASING_BARRIER
@@ -279,7 +275,7 @@ inline UChar *toUCharPtr(char16_t *p) {
  * Includes an aliasing barrier if available.
  * @param p pointer
  * @return p as const OldUChar *
- * @draft ICU 59
+ * @stable ICU 59
  */
 inline const OldUChar *toOldUCharPtr(const char16_t *p) {
 #ifdef U_ALIASING_BARRIER
@@ -293,7 +289,7 @@ inline const OldUChar *toOldUCharPtr(const char16_t *p) {
  * Includes an aliasing barrier if available.
  * @param p pointer
  * @return p as OldUChar *
- * @draft ICU 59
+ * @stable ICU 59
  */
 inline OldUChar *toOldUCharPtr(char16_t *p) {
 #ifdef U_ALIASING_BARRIER

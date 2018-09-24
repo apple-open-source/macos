@@ -104,10 +104,6 @@ void fill_security_client(SecurityClient * client, const uid_t uid, audit_token_
 
     client->task = SecTaskCreateWithAuditToken(kCFAllocatorDefault, auditToken);
 
-#if TARGET_OS_IPHONE
-    pthread_setspecific(taskThreadKey, client->task);
-#endif
-
     client->accessGroups = SecTaskCopyAccessGroups(client->task);
 
 #if TARGET_OS_IPHONE

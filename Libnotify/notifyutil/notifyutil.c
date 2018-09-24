@@ -33,6 +33,7 @@
 #include <notify_private.h>
 #include <signal.h>
 #include <dispatch/dispatch.h>
+#include <os/variant_private.h>
 
 #define forever for(;;)
 #define IndexNull ((uint32_t)-1)
@@ -68,8 +69,6 @@ static const char *typename[] =
 	"plain"
 };
 
-extern uint32_t notify_register_plain(const char *name, int *out_token);
-
 typedef struct
 {
 	uint32_t token;
@@ -87,11 +86,11 @@ static int port_flag;
 static int file_flag;
 static int watch_file;
 static mach_port_t watch_port;
-dispatch_source_t timer_src;
-dispatch_source_t port_src;
-dispatch_source_t file_src;
-dispatch_source_t sig_src[__DARWIN_NSIG];
-dispatch_queue_t watch_queue;
+static dispatch_source_t timer_src;
+static dispatch_source_t port_src;
+static dispatch_source_t file_src;
+static dispatch_source_t sig_src[__DARWIN_NSIG];
+static dispatch_queue_t watch_queue;
 
 static void
 usage(const char *name)
@@ -109,11 +108,33 @@ usage(const char *name)
 	fprintf(stderr, "    -signal [#]    switch to signal [#] for subsequent registrations\n");
 	fprintf(stderr, "                   initial default for signal is 1 (SIGHUP)\n");
 	fprintf(stderr, "    -dispatch      switch to dispatch for subsequent registrations\n");
-	fprintf(stderr, "    -p key         post a notifcation for key\n");
+	fprintf(stderr, "    -p key         post a notification for key\n");
 	fprintf(stderr, "    -w key         register for key and report notifications\n");
 	fprintf(stderr, "    -# key         (# is an integer value, eg \"-1\") register for key and report # notifications\n");
 	fprintf(stderr, "    -g key         get state value for key\n");
 	fprintf(stderr, "    -s key val     set state value for key\n");
+
+	if(os_variant_has_internal_diagnostics(NULL))
+	{
+		fprintf(stderr, "    --dump         dumps metadata to a file in /var/run/\n");
+	}
+}
+
+// Triggers a notifyd dump
+static void
+notifyutil_dump()
+{
+	int ret;
+
+	ret = notify_dump_status("/var/run/notifyd.status");
+
+	if(ret == NOTIFY_STATUS_OK)
+	{
+		fprintf(stdout, "Notifyd dump success! New file created at /var/run/notifyd.status\n");
+	} else {
+		fprintf(stdout, "Notifyd dump failed with %x\n", ret);
+	}
+
 }
 
 static const char *
@@ -621,6 +642,12 @@ main(int argc, const char *argv[])
 			{
 				fprintf(stderr, "value following -s name must be a 64-bit integer\n");
 			}
+		}
+		else if (!strcmp(argv[i], "--dump") && os_variant_has_internal_diagnostics(NULL))
+		{
+			notifyutil_dump();
+			exit(0);
+
 		}
 		else
 		{

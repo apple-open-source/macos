@@ -23,6 +23,7 @@
 #include "bundlediskrep.h"
 #include "filediskrep.h"
 #include "dirscanner.h"
+#include "notarization.h"
 #include <CoreFoundation/CFBundlePriv.h>
 #include <CoreFoundation/CFURLAccess.h>
 #include <CoreFoundation/CFBundlePriv.h>
@@ -47,11 +48,12 @@ static std::string findDistFile(const std::string &directory);
 // We make a CFBundleRef immediately, but everything else is lazy
 //
 BundleDiskRep::BundleDiskRep(const char *path, const Context *ctx)
-	: mBundle(_CFBundleCreateUnique(NULL, CFTempURL(path)))
+	: mBundle(_CFBundleCreateUnique(NULL, CFTempURL(path))), forcePlatform(false)
 {
 	if (!mBundle)
 		MacOSError::throwMe(errSecCSBadBundleFormat);
 	setup(ctx);
+	forcePlatform = mExecRep->appleInternalForcePlatform();
 	CODESIGN_DISKREP_CREATE_BUNDLE_PATH(this, (char*)path, (void*)ctx, mExecRep);
 }
 
@@ -59,6 +61,7 @@ BundleDiskRep::BundleDiskRep(CFBundleRef ref, const Context *ctx)
 {
 	mBundle = ref;		// retains
 	setup(ctx);
+	forcePlatform = mExecRep->appleInternalForcePlatform();
 	CODESIGN_DISKREP_CREATE_BUNDLE_REF(this, ref, (void*)ctx, mExecRep);
 }
 
@@ -87,7 +90,7 @@ void BundleDiskRep::setup(const Context *ctx)
 	mInstallerPackage = false;	// default
 	mAppLike = false;			// pessimism first
 	bool appDisqualified = false; // found reason to disqualify as app
-	
+
 	// capture the path of the main executable before descending into a specific version
 	CFRef<CFURLRef> mainExecBefore = CFBundleCopyExecutableURL(mBundle);
 	CFRef<CFURLRef> infoPlistBefore = _CFBundleCopyInfoPlistURL(mBundle);
@@ -576,41 +579,73 @@ CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &ctx)
 			"'^.*' = #T"								// everything is a resource
 			"'^Info\\.plist$' = {omit=#T,weight=10}"	// explicitly exclude this for backward compatibility
 		"}}");
-	
-	// new (V2) executable bundle rules
-	return cfmake<CFDictionaryRef>("{"					// *** the new (V2) world ***
-		"rules={"										// old (V1; legacy) version
-			"'^version.plist$' = #T"					// include version.plist
-			"%s = #T"									// include Resources
-			"%s = {optional=#T, weight=1000}"			// make localizations optional
-			"%s = {weight=1010}"						// ... except for Base.lproj which really isn't optional at all
-			"%s = {omit=#T, weight=1100}"				// exclude all locversion.plist files
-		"},rules2={"
-			"'^.*' = #T"								// include everything as a resource, with the following exceptions
-			"'^[^/]+$' = {nested=#T, weight=10}"		// files directly in Contents
-			"'^(Frameworks|SharedFrameworks|PlugIns|Plug-ins|XPCServices|Helpers|MacOS|Library/(Automator|Spotlight|LoginItems))/' = {nested=#T, weight=10}" // dynamic repositories
-			"'.*\\.dSYM($|/)' = {weight=11}"			// but allow dSYM directories in code locations (parallel to their code)
-			"'^(.*/)?\\.DS_Store$' = {omit=#T,weight=2000}"	// ignore .DS_Store files
-			"'^Info\\.plist$' = {omit=#T, weight=20}"	// excluded automatically now, but old systems need to be told
-			"'^version\\.plist$' = {weight=20}"			// include version.plist as resource
-			"'^embedded\\.provisionprofile$' = {weight=20}"	// include embedded.provisionprofile as resource
-			"'^PkgInfo$' = {omit=#T, weight=20}"		// traditionally not included
-			"%s = {weight=20}"							// Resources override default nested (widgets)
-			"%s = {optional=#T, weight=1000}"			// make localizations optional
-			"%s = {weight=1010}"						// ... except for Base.lproj which really isn't optional at all
-			"%s = {omit=#T, weight=1100}"				// exclude all locversion.plist files
-		"}}",
-			
-		(string("^") + resources).c_str(),
-		(string("^") + resources + ".*\\.lproj/").c_str(),
-		(string("^") + resources + "Base\\.lproj/").c_str(),
-		(string("^") + resources + ".*\\.lproj/locversion.plist$").c_str(),
-			
-		(string("^") + resources).c_str(),
-		(string("^") + resources + ".*\\.lproj/").c_str(),
-		(string("^") + resources + "Base\\.lproj/").c_str(),
-		(string("^") + resources + ".*\\.lproj/locversion.plist$").c_str()
-	);
+
+    // new (V2) executable bundle rules
+    if (!resources.empty()) {
+        return cfmake<CFDictionaryRef>("{"                    // *** the new (V2) world ***
+            "rules={"                                        // old (V1; legacy) version
+                "'^version.plist$' = #T"                    // include version.plist
+                "%s = #T"                                    // include Resources
+                "%s = {optional=#T, weight=1000}"            // make localizations optional
+                "%s = {weight=1010}"						// ... except for Base.lproj which really isn't optional at all
+                "%s = {omit=#T, weight=1100}"                // exclude all locversion.plist files
+            "},rules2={"
+                "'^.*' = #T"                                // include everything as a resource, with the following exceptions
+                "'^[^/]+$' = {nested=#T, weight=10}"        // files directly in Contents
+                "'^(Frameworks|SharedFrameworks|PlugIns|Plug-ins|XPCServices|Helpers|MacOS|Library/(Automator|Spotlight|LoginItems))/' = {nested=#T, weight=10}" // dynamic repositories
+                "'.*\\.dSYM($|/)' = {weight=11}"            // but allow dSYM directories in code locations (parallel to their code)
+                "'^(.*/)?\\.DS_Store$' = {omit=#T,weight=2000}"    // ignore .DS_Store files
+                "'^Info\\.plist$' = {omit=#T, weight=20}"    // excluded automatically now, but old systems need to be told
+                "'^version\\.plist$' = {weight=20}"            // include version.plist as resource
+                "'^embedded\\.provisionprofile$' = {weight=20}"    // include embedded.provisionprofile as resource
+                "'^PkgInfo$' = {omit=#T, weight=20}"        // traditionally not included
+                "%s = {weight=20}"                            // Resources override default nested (widgets)
+                "%s = {optional=#T, weight=1000}"            // make localizations optional
+                "%s = {weight=1010}"						// ... except for Base.lproj which really isn't optional at all
+                "%s = {omit=#T, weight=1100}"                // exclude all locversion.plist files
+            "}}",
+
+            (string("^") + resources).c_str(),
+            (string("^") + resources + ".*\\.lproj/").c_str(),
+            (string("^") + resources + "Base\\.lproj/").c_str(),
+            (string("^") + resources + ".*\\.lproj/locversion.plist$").c_str(),
+
+            (string("^") + resources).c_str(),
+            (string("^") + resources + ".*\\.lproj/").c_str(),
+            (string("^") + resources + "Base\\.lproj/").c_str(),
+            (string("^") + resources + ".*\\.lproj/locversion.plist$").c_str()
+        );
+    } else {
+        /* This is a bundle format without a Resources directory, which means we need to omit
+         * Resources-directory specific rules that would create conflicts. */
+
+        /* We also declare that flat bundles do not use any nested code rules.
+         * Embedded, where flat bundles are used, currently does not support them,
+         * and we have no plans for allowing the replacement of nested code there.
+         * Should anyone actually intend to use nested code rules in a flat
+         * bundle, they are free to create their own rules. */
+        
+         return cfmake<CFDictionaryRef>("{"                    // *** the new (V2) world ***
+            "rules={"                                        // old (V1; legacy) version
+                "'^version.plist$' = #T"                    // include version.plist
+                "'^.*' = #T"                                    // include Resources
+                "'^.*\\.lproj/' = {optional=#T, weight=1000}"            // make localizations optional
+                "'^Base\\.lproj/' = {weight=1010}"						// ... except for Base.lproj which really isn't optional at all
+                "'^.*\\.lproj/locversion.plist$' = {omit=#T, weight=1100}"  // exclude all locversion.plist files
+            "},rules2={"
+                "'^.*' = #T"                                // include everything as a resource, with the following exceptions
+                "'.*\\.dSYM($|/)' = {weight=11}"            // but allow dSYM directories in code locations (parallel to their code)
+                "'^(.*/)?\\.DS_Store$' = {omit=#T,weight=2000}"    // ignore .DS_Store files
+                "'^Info\\.plist$' = {omit=#T, weight=20}"    // excluded automatically now, but old systems need to be told
+                "'^version\\.plist$' = {weight=20}"            // include version.plist as resource
+                "'^embedded\\.provisionprofile$' = {weight=20}"    // include embedded.provisionprofile as resource
+                "'^PkgInfo$' = {omit=#T, weight=20}"        // traditionally not included
+                "'^.*\\.lproj/' = {optional=#T, weight=1000}"            // make localizations optional
+                "'^Base\\.lproj/' = {weight=1010}"						// ... except for Base.lproj which really isn't optional at all
+                "'^.*\\.lproj/locversion.plist$' = {omit=#T, weight=1100}"                // exclude all locversion.plist files
+            "}}"
+        );
+   }
 }
 
 
@@ -797,8 +832,48 @@ void BundleDiskRep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef
 		if (const char *name = CodeDirectory::canonicalSlotName(slot)) {
 			rep->createMeta();
 			string path = rep->metaPath(name);
+
+#if TARGET_OS_OSX
+			// determine AFSC status if we are told to preserve compression
+			bool conductCompression = false;
+			cmpInfo cInfo;
+			if (this->getPreserveAFSC()) {
+				struct stat statBuffer;
+				if (stat(path.c_str(), &statBuffer) == 0) {
+					if (queryCompressionInfo(path.c_str(), &cInfo) == 0) {
+						if (cInfo.compressionType != 0 && cInfo.compressedSize > 0) {
+							conductCompression = true;
+						}
+					}
+				}
+			}
+#endif
+
 			AutoFileDesc fd(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 			fd.writeAll(CFDataGetBytePtr(data), CFDataGetLength(data));
+			fd.close();
+
+#if TARGET_OS_OSX
+			// if the original file was compressed, compress the new file after move
+			if (conductCompression) {
+				CFMutableDictionaryRef options = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+				CFStringRef val = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), cInfo.compressionType);
+				CFDictionarySetValue(options, kAFSCCompressionTypes, val);
+				CFRelease(val);
+
+				CompressionQueueContext compressionQueue = CreateCompressionQueue(NULL, NULL, NULL, NULL, options);
+
+				if (!CompressFile(compressionQueue, path.c_str(), NULL)) {
+					secinfo("bundlediskrep", "%p Failed to queue compression of file %s", this, path.c_str());
+					MacOSError::throwMe(errSecCSInternalError);
+				}
+
+				FinishCompressionAndCleanUp(compressionQueue);
+				compressionQueue = NULL;
+				CFRelease(options);
+			}
+#endif
+
 			mWrittenFiles.insert(name);
 		} else
 			MacOSError::throwMe(errSecCSBadBundleFormat);
@@ -838,8 +913,7 @@ void BundleDiskRep::Writer::flush()
 	execWriter->flush();
 	purgeMetaDirectory();
 }
-	
-	
+
 // purge _CodeSignature of all left-over files from any previous signature
 void BundleDiskRep::Writer::purgeMetaDirectory()
 {
@@ -856,6 +930,11 @@ void BundleDiskRep::Writer::purgeMetaDirectory()
 	
 }
 
+void BundleDiskRep::registerStapledTicket()
+{
+	string root = cfStringRelease(copyCanonicalPath());
+	registerStapledTicketInBundle(root);
+}
 
 } // end namespace CodeSigning
 } // end namespace Security

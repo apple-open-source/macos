@@ -26,14 +26,6 @@
 #import <utilities/debugging.h>
 #import <TargetConditionals.h>
 
-#if !TARGET_OS_BRIDGE
-#import <WirelessDiagnostics/WirelessDiagnostics.h>
-#import "keychain/analytics/awd/AWDMetricIds_Keychain.h"
-#import "keychain/analytics/awd/AWDKeychainCKKSRateLimiterOverload.h"
-#import "keychain/analytics/awd/AWDKeychainCKKSRateLimiterTopWriters.h"
-#import "keychain/analytics/awd/AWDKeychainCKKSRateLimiterAggregatedScores.h"
-#endif
-
 typedef NS_ENUM(int, BucketType) {
     All,
     Group,
@@ -44,11 +36,6 @@ typedef NS_ENUM(int, BucketType) {
 @property (readwrite) NSDictionary<NSString *, NSNumber *> *config;
 @property NSMutableDictionary<NSString *, NSDate *> *buckets;
 @property NSDate *overloadUntil;
-#if !TARGET_OS_BRIDGE
-@property NSMutableArray<NSNumber *> *badnessData;
-@property AWDServerConnection *awdConnection;
-#define CKKSRateLimiterName @"ckks-original"
-#endif
 @end
 
 @implementation CKKSRateLimiter
@@ -81,11 +68,6 @@ typedef NS_ENUM(int, BucketType) {
                    @250 , @"trimSize",
                    @3600, @"trimTime",
                    @1800, @"overloadDuration", nil];
-#if !TARGET_OS_BRIDGE
-        _badnessData = [[NSMutableArray alloc] initWithObjects:@0, @0, @0, @0, @0, @0, nil];
-        _awdConnection = [[AWDServerConnection alloc] initWithComponentId:AWDComponentId_Keychain];
-        [self setUpAwdMetrics];
-#endif
     }
     return self;
 }
@@ -182,10 +164,6 @@ typedef NS_ENUM(int, BucketType) {
         badness = 4;
     }
 
-#if !TARGET_OS_BRIDGE
-    self.badnessData[badness] = @([self.badnessData[badness] intValue] + 1);
-#endif
-
     *limitTime = sendTime;
     return badness;
 }
@@ -208,12 +186,6 @@ typedef NS_ENUM(int, BucketType) {
     // Nothing to remove means everybody keeps being noisy. Tell them to go away.
     if ([toRemove count] == 0) {
         self.overloadUntil = [self.buckets[@"All"] dateByAddingTimeInterval:[self.config[@"overloadDuration"] intValue]];
-#if !TARGET_OS_BRIDGE
-        AWDKeychainCKKSRateLimiterOverload *metric = [AWDKeychainCKKSRateLimiterOverload new];
-        metric.durationMsec = [self.overloadUntil timeIntervalSinceDate:time];
-        metric.ratelimitertype = CKKSRateLimiterName;
-        AWDPostMetric(AWDComponentId_Keychain, metric);
-#endif
         seccritical("RateLimiter overloaded until %@", self.overloadUntil);
     } else {
         self.overloadUntil = nil;
@@ -269,32 +241,6 @@ typedef NS_ENUM(int, BucketType) {
         return nil;
     }
 }
-
-#if !TARGET_OS_BRIDGE
-- (void)setUpAwdMetrics {
-    [self.awdConnection registerQueriableMetric:AWDMetricId_Keychain_CKKSRateLimiterTopWriters callback:^(UInt32 metricId) {
-        AWDKeychainCKKSRateLimiterTopWriters *metric = [AWDKeychainCKKSRateLimiterTopWriters new];
-        NSArray *offenders = [self topOffendingAccessGroups:3];
-        if (offenders) {
-            for (NSString *offender in offenders) {
-                [metric addWriter:offender];
-            }
-        }
-        metric.ratelimitertype = CKKSRateLimiterName;
-        AWDPostMetric(metricId, metric);
-    }];
-
-    [self.awdConnection registerQueriableMetric:AWDMetricId_Keychain_CKKSRateLimiterAggregatedScores callback:^(UInt32 metricId) {
-        AWDKeychainCKKSRateLimiterAggregatedScores *metric = [AWDKeychainCKKSRateLimiterAggregatedScores new];
-        for (NSNumber *num in self.badnessData) {
-            [metric addData:[num unsignedIntValue]];
-        }
-        metric.ratelimitertype = CKKSRateLimiterName;
-        AWDPostMetric(metricId, metric);
-        self.badnessData = [[NSMutableArray alloc] initWithObjects:@0, @0, @0, @0, @0, @0, nil];
-    }];
-}
-#endif
 
 + (BOOL)supportsSecureCoding {
     return YES;

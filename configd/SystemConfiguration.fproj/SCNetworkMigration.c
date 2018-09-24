@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2014-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -57,6 +57,7 @@
 
 const CFStringRef kSCNetworkConfigurationMigrationActionKey = CFSTR("MigrationActionKey");
 const CFStringRef kSCNetworkConfigurationRepair = CFSTR("ConfigurationRepair");
+
 #if	!TARGET_OS_IPHONE
 static CFDictionaryRef
 _SCNetworkMigrationCopyMappingBSDNameToBridgeServices(SCPreferencesRef prefs);
@@ -66,7 +67,8 @@ _SCNetworkMigrationCopyMappingBSDNameToBondServices(SCPreferencesRef prefs);
 
 static CFDictionaryRef
 _SCNetworkMigrationCopyMappingBSDNameToVLANServices(SCPreferencesRef prefs);
-#endif
+#endif	// !TARGET_OS_IPHONE
+
 static Boolean
 _SCNetworkConfigurationIsInterfaceNamerMappable(SCNetworkInterfaceRef interface1, SCNetworkInterfaceRef interface2, Boolean bypassActive);
 
@@ -1432,7 +1434,7 @@ validate_bond(const void *value, void *context)
 	}
 	CFRelease(memberInterfacesMutable);
 }
-#endif
+#endif	// !TARGET_OS_IPHONE
 
 static void
 validate_vlan(const void *value, void *context)
@@ -1560,7 +1562,7 @@ _SCNetworkConfigurationCheckValidityWithPreferences(SCPreferencesRef prefs,
 		bsdNameToBridgeServices = _SCNetworkMigrationCopyMappingBSDNameToBridgeServices(prefs);
 		bsdNameToBondServices = _SCNetworkMigrationCopyMappingBSDNameToBondServices(prefs);
 		bsdNameToVLANServices = _SCNetworkMigrationCopyMappingBSDNameToVLANServices(prefs);
-#endif
+#endif	// !TARGET_OS_IPHONE
 	}
 	context.interfaceMapping = mappingBSDNameToInterface;
 	context.isValid = &isValid;
@@ -1668,7 +1670,7 @@ _SCNetworkConfigurationCheckValidityWithPreferences(SCPreferencesRef prefs,
 		CFArrayApplyFunction(bonds, CFRangeMake(0, CFArrayGetCount(bonds)), validate_bond, (void*)ni_prefs);
 		CFRelease(bonds);
 	}
-#endif
+#endif	// !TARGET_OS_IPHONE
 	CFArrayRef vlans = SCVLANInterfaceCopyAll(prefs);
 	if (vlans != NULL) {
 		CFArrayApplyFunction(vlans, CFRangeMake(0, CFArrayGetCount(vlans)), validate_vlan, (void*)ni_prefs);
@@ -1699,7 +1701,7 @@ done:
 	if (bsdNameToVLANServices != NULL) {
 		CFRelease(bsdNameToVLANServices);
 	}
-#endif
+#endif	// !TARGET_OS_IPHONE
 	if (setServices != NULL) {
 		CFRelease(setServices);
 	}
@@ -3091,7 +3093,7 @@ _SCNetworkMigrationDoVirtualNetworkInterfaceMigration(SCPreferencesRef sourcePre
 	}
 	return TRUE;
 }
-#endif
+#endif	// !TARGET_OS_IPHONE
 
 typedef struct {
 	SCPreferencesRef prefs;
@@ -3493,7 +3495,7 @@ _SCNetworkConfigurationMigrateConfiguration(CFURLRef sourceDir, CFURLRef targetD
 									  bsdNameMapping, setMapping, sourceServiceSetMapping)) {
 			SC_log(LOG_INFO, "_SCNetworkMigrationDoVirtualNetworkInterfaceMigration: failed to complete successfully");
 		}
-#endif
+#endif	// !TARGET_OS_IPHONE
 		// Migrate Service Order
 		if (!_SCNetworkMigrationDoServiceOrderMigration(sourcePrefs, targetPrefs, setMapping)) {
 			SC_log(LOG_INFO, "_SCNetworkMigrationDoServiceOrderMigration: failed to complete successfully");

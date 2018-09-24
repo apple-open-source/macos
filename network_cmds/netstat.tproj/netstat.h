@@ -90,6 +90,7 @@ extern int	Wflag;	/* wide display */
 extern int	qflag;	/* Display ifclassq stats */
 extern int	Qflag;	/* Display opportunistic polling stats */
 extern int	xflag;	/* show extended link-layer reachability information */
+extern int	zflag;	/* show only entries with non zero rtt metrics */
 
 extern int	cq;	/* send classq index (-1 for all) */
 extern int	interval; /* repeat interval for i/f stats */

@@ -298,7 +298,7 @@ static WORD_LIST *brace_expand_word_list __P((WORD_LIST *, int));
 #endif
 static WORD_LIST *shell_expand_word_list __P((WORD_LIST *, int));
 static WORD_LIST *expand_word_list_internal __P((WORD_LIST *, int));
-
+static WORD_LIST *check_field_quotes_append_null __P((WORD_LIST *, WORD_LIST *));
 /* **************************************************************** */
 /*								    */
 /*			Utility Functions			    */
@@ -7991,6 +7991,55 @@ brace_expand_word_list (tlist, eflags)
 }
 #endif
 
+#define IS_SINGLE_QUOTES(str, len) (len >= 2 && ((str[len - 1] == '\'') && (str[len - 2] == '\'')))
+#define IS_DOUBLE_QUOTES(str, len) (len >= 2 && ((str[len - 1] == '\"') && (str[len - 2] == '\"')))
+#define HAS_TRAILING_QUOTES(str, len) (IS_SINGLE_QUOTES(str, len) || IS_DOUBLE_QUOTES(str, len))
+
+static WORD_LIST *
+check_field_quotes_append_null(expanded, original)
+    WORD_LIST * expanded;
+    WORD_LIST * original;
+{
+    size_t orig_slen = 0;
+    char * orig_str = NULL;
+    char * expanded_str = NULL;
+
+    if (expanded == NULL || original == NULL) {
+        /* Nothing to do here */
+        return expanded;
+    }
+
+    if (original->word && original->word->word) {
+        orig_str = original->word->word;
+    }
+
+    if (expanded->word && expanded->word->word) {
+        expanded_str = expanded->word->word;
+    }
+
+    if (orig_str == NULL || expanded_str == NULL) { 
+        /* Nothing to do here */
+        return expanded;
+    }
+
+    /* compute the length of the strings*/
+    orig_slen = strlen(orig_str);
+
+    if (HAS_TRAILING_QUOTES(orig_str, orig_slen)) {
+        size_t expanded_slen = strlen(expanded_str);
+        size_t lchar_idx = expanded_slen - 1;
+        size_t expanded_size = expanded_slen + 1;
+        if (isifs(expanded_str[lchar_idx])) {
+           RESIZE_MALLOCED_BUFFER(expanded_str, expanded_slen, 1,
+                   expanded_size, 64);
+           expanded_str[++lchar_idx] = CTLNUL;
+           expanded_str[++lchar_idx] = '\0';
+           expanded->word->word = expanded_str;
+        }
+    }
+    return expanded;
+}
+
 static WORD_LIST *
 shell_expand_word_list (tlist, eflags)
      WORD_LIST *tlist;
@@ -8058,6 +8107,25 @@ shell_expand_word_list (tlist, eflags)
       /* Don't split words marked W_NOSPLIT. */
       if (expanded_something && (tlist->word->flags & W_NOSPLIT) == 0)
 	{
+         /* This version of BASH does not follow POSIX order of Word Expansions
+          * in which field splitting is to be performed after all expansions
+          * (such as $var) have been completed and before any quote removal.
+          * Because expand_word_internal() removes quotes delimiting
+          * empty strings, field splitting won't see empty strings adjacent to
+          * trailing field separators and empty fields will be lost.
+          *
+          * The following code appends <CTLNUL> to the expanded word list from previous
+          * operation if the expanded word has the last char as an IFS character.
+          * For instance, If IFS=" :" and var=a:b:, $var'' token will expand to 
+          * "a:b:<CTLNUL>".
+          * It will append <CTLNUL> to the expansion because a:b: has the last char
+          * ':' as an IFS character.
+          */
+          if (posixly_correct) {
+              expanded = check_field_quotes_append_null(expanded, tlist);
+          }
+
+          /* Split the word list */
 	  temp_list = word_list_split (expanded);
 	  dispose_words (expanded);
 	}

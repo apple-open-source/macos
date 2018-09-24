@@ -126,8 +126,8 @@ void OSXVerifier::makeLegacyHash(OSXCode *code, SHA1::Digest digest)
 {
 	secinfo("codesign", "calculating legacy hash for %s", code->canonicalPath().c_str());
 	UnixPlusPlus::AutoFileDesc fd(code->executablePath(), O_RDONLY);
-	char buffer[legacyHashLimit];
-	size_t size = fd.read(buffer, legacyHashLimit);
+	char buffer[LEGACY_HASH_LIMIT];
+	size_t size = fd.read(buffer, LEGACY_HASH_LIMIT);
 	SHA1 hash;
 	hash(buffer, size);
 	hash.finish(digest);

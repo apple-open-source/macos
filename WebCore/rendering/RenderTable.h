@@ -53,7 +53,7 @@ public:
     LayoutUnit hBorderSpacing() const { return m_hSpacing; }
     LayoutUnit vBorderSpacing() const { return m_vSpacing; }
     
-    bool collapseBorders() const { return style().borderCollapse(); }
+    bool collapseBorders() const { return style().borderCollapse() == BorderCollapse::Collapse; }
 
     LayoutUnit borderStart() const override { return m_borderStart; }
     LayoutUnit borderEnd() const override { return m_borderEnd; }
@@ -88,7 +88,7 @@ public:
         return style().isLeftToRightDirection() ? borderEnd() : borderStart();
     }
 
-    Color bgColor() const { return style().visitedDependentColor(CSSPropertyBackgroundColor); }
+    Color bgColor() const { return style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor); }
 
     LayoutUnit outerBorderBefore() const;
     LayoutUnit outerBorderAfter() const;
@@ -126,8 +126,6 @@ public:
     LayoutUnit calcBorderStart() const;
     LayoutUnit calcBorderEnd() const;
     void recalcBordersInRowDirection();
-
-    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) final;
 
     struct ColumnStruct {
         explicit ColumnStruct(unsigned initialSpan = 1)
@@ -268,7 +266,10 @@ public:
     LayoutUnit offsetHeightForColumn(const RenderTableCol&) const;
     
     void markForPaginationRelayoutIfNeeded() final;
-    
+
+    void willInsertTableColumn(RenderTableCol& child, RenderObject* beforeChild);
+    void willInsertTableSection(RenderTableSection& child, RenderObject* beforeChild);
+
 protected:
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) final;
     void simplifiedNormalFlowLayout() final;

@@ -27,7 +27,7 @@
 #pragma once
 
 #include "FileSystem.h"
-#include <runtime/ArrayBuffer.h>
+#include <JavaScriptCore/ArrayBuffer.h>
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -41,6 +41,11 @@
 
 #if USE(SOUP)
 #include "GUniquePtrSoup.h"
+#endif
+
+#if USE(GLIB)
+#include <wtf/glib/GRefPtr.h>
+typedef struct _GBytes GBytes;
 #endif
 
 #if USE(FOUNDATION)
@@ -66,6 +71,7 @@ public:
     RetainPtr<NSData> createNSData() const;
     RetainPtr<NSArray> createNSDataArray() const;
     static Ref<SharedBuffer> create(NSData *);
+    void append(NSData *);
 #endif
 #if USE(CF)
     RetainPtr<CFDataRef> createCFData() const;
@@ -76,6 +82,10 @@ public:
 #if USE(SOUP)
     GUniquePtr<SoupBuffer> createSoupBuffer(unsigned offset = 0, unsigned size = 0);
     static Ref<SharedBuffer> wrapSoupBuffer(SoupBuffer*);
+#endif
+
+#if USE(GLIB)
+    static Ref<SharedBuffer> create(GBytes*);
 #endif
 
     // Calling data() causes all the data segments to be copied into one segment if they are not already.
@@ -103,8 +113,8 @@ public:
     // To modify or combine the data, allocate a new DataSegment.
     class DataSegment : public ThreadSafeRefCounted<DataSegment> {
     public:
-        const char* data() const;
-        size_t size() const;
+        WEBCORE_EXPORT const char* data() const;
+        WEBCORE_EXPORT size_t size() const;
 
         static Ref<DataSegment> create(Vector<char>&& data) { return adoptRef(*new DataSegment(WTFMove(data))); }
 #if USE(CF)
@@ -112,6 +122,9 @@ public:
 #endif
 #if USE(SOUP)
         static Ref<DataSegment> create(GUniquePtr<SoupBuffer>&& data) { return adoptRef(*new DataSegment(WTFMove(data))); }
+#endif
+#if USE(GLIB)
+        static Ref<DataSegment> create(GRefPtr<GBytes>&& data) { return adoptRef(*new DataSegment(WTFMove(data))); }
 #endif
         static Ref<DataSegment> create(FileSystem::MappedFileData&& data) { return adoptRef(*new DataSegment(WTFMove(data))); }
 
@@ -126,6 +139,10 @@ public:
         DataSegment(GUniquePtr<SoupBuffer>&& data)
             : m_immutableData(WTFMove(data)) { }
 #endif
+#if USE(GLIB)
+        DataSegment(GRefPtr<GBytes>&& data)
+            : m_immutableData(WTFMove(data)) { }
+#endif
         DataSegment(FileSystem::MappedFileData&& data)
             : m_immutableData(WTFMove(data)) { }
 
@@ -135,6 +152,9 @@ public:
 #endif
 #if USE(SOUP)
             GUniquePtr<SoupBuffer>,
+#endif
+#if USE(GLIB)
+            GRefPtr<GBytes>,
 #endif
             FileSystem::MappedFileData> m_immutableData;
         friend class SharedBuffer;
@@ -164,6 +184,9 @@ private:
 #endif
 #if USE(SOUP)
     explicit SharedBuffer(SoupBuffer*);
+#endif
+#if USE(GLIB)
+    explicit SharedBuffer(GBytes*);
 #endif
 
     void combineIntoOneSegment() const;

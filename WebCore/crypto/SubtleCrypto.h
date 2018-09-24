@@ -29,7 +29,7 @@
 
 #include "ContextDestructionObserver.h"
 #include "CryptoKeyFormat.h"
-#include <heap/Strong.h>
+#include <JavaScriptCore/Strong.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Variant.h>
@@ -52,7 +52,7 @@ class DeferredPromise;
 
 enum class CryptoKeyUsage;
 
-class SubtleCrypto : public ContextDestructionObserver, public RefCounted<SubtleCrypto> {
+class SubtleCrypto : public ContextDestructionObserver, public RefCounted<SubtleCrypto>, public CanMakeWeakPtr<SubtleCrypto> {
 public:
     static Ref<SubtleCrypto> create(ScriptExecutionContext& context) { return adoptRef(*new SubtleCrypto(context)); }
     ~SubtleCrypto();
@@ -82,7 +82,6 @@ private:
 
     Ref<WorkQueue> m_workQueue;
     HashMap<DeferredPromise*, Ref<DeferredPromise>> m_pendingPromises;
-    WeakPtrFactory<SubtleCrypto> m_weakPtrFactory;
 };
 
 }

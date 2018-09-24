@@ -26,7 +26,8 @@ AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = LT_VERSION.diff ldap-deprecation.diff \
-                 apu-config.in.diff
+                 apu-config.in.diff \
+                 CVE-2017-12618.diff
 
 # Extract the source.
 install_source::

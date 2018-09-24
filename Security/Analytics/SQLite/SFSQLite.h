@@ -65,7 +65,6 @@ typedef NS_ENUM(NSInteger, SFSQLiteSynchronousMode) {
     NSMutableDictionary* _unitTestOverrides;
 #endif
     BOOL _hasMigrated;
-    BOOL _shouldVacuum;
     BOOL _corrupt;
     BOOL _traced;
 }
@@ -80,7 +79,6 @@ typedef NS_ENUM(NSInteger, SFSQLiteSynchronousMode) {
 @property (nonatomic, assign)           SFSQLiteSynchronousMode synchronousMode;
 @property (nonatomic, readonly)         BOOL       isOpen;
 @property (nonatomic, readonly)         BOOL       hasMigrated;
-@property (nonatomic, assign)           BOOL       shouldVacuum; // vacuum the db on open (default:YES)
 @property (nonatomic, assign)           BOOL       traced;
 
 @property (nonatomic, strong) id<SFSQLiteDelegate> delegate;

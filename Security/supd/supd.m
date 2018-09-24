@@ -24,7 +24,7 @@
 #import "supd.h"
 #import "SFAnalyticsDefines.h"
 #import "SFAnalyticsSQLiteStore.h"
-#import "SFAnalytics.h"
+#import <Security/SFAnalytics.h>
 
 #include <utilities/SecFileLocations.h>
 #import "utilities/debugging.h"
@@ -111,6 +111,7 @@ NSUInteger const secondsBetweenUploadsInternal = (60 * 60 * 24);
 
 static supd *_supdInstance = nil;
 
+BOOL runningTests = NO;
 BOOL deviceAnalyticsOverride = NO;
 BOOL deviceAnalyticsEnabled = NO;
 BOOL iCloudAnalyticsOverride = NO;
@@ -365,6 +366,7 @@ _isiCloudAnalyticsEnabled()
 @end
 
 @implementation SFAnalyticsTopic
+
 - (void)setupClientsForTopic:(NSString *)topicName
 {
     NSMutableArray<SFAnalyticsClient*>* clients = [NSMutableArray<SFAnalyticsClient*> new];
@@ -375,6 +377,10 @@ _isiCloudAnalyticsEnabled()
                                                                    name:@"sos" deviceAnalytics:NO iCloudAnalytics:YES]];
         [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForPCS]
                                                                    name:@"pcs" deviceAnalytics:NO iCloudAnalytics:YES]];
+        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForSignIn]
+                                                                   name:@"signins" deviceAnalytics:NO iCloudAnalytics:YES]];
+        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForLocal]
+                                                                   name:@"local" deviceAnalytics:YES iCloudAnalytics:NO]];
     } else if ([topicName isEqualToString:SFAnaltyicsTopicTrust]) {
 #if TARGET_OS_OSX
         _set_user_dir_suffix("com.apple.trustd"); // supd needs to read trustd's cache dir for these
@@ -385,6 +391,7 @@ _isiCloudAnalyticsEnabled()
                                                                    name:@"trustdHealth" deviceAnalytics:YES iCloudAnalytics:NO]];
         [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForTLS]
                                                                    name:@"tls" deviceAnalytics:YES iCloudAnalytics:NO]];
+
 #if TARGET_OS_OSX
         _set_user_dir_suffix(NULL); // set back to the default cache dir
 #endif
@@ -734,6 +741,7 @@ _isiCloudAnalyticsEnabled()
 - (NSData*)getLoggingJSON:(bool)pretty
                 forUpload:(BOOL)upload
      participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
+                    force:(BOOL)force                                       // supdctl uploads ignore privacy settings and recency
                     error:(NSError**)error
 {
     NSMutableArray<SFAnalyticsClient*>* localClients = [NSMutableArray new];
@@ -746,12 +754,12 @@ _isiCloudAnalyticsEnabled()
         ckdeviceID = os_variant_has_internal_diagnostics("com.apple.security") ? [self askSecurityForCKDeviceID] : nil;
     }
     for (SFAnalyticsClient* client in self->_topicClients) {
-        if ([client requireDeviceAnalytics] && !_isDeviceAnalyticsEnabled()) {
+        if (!force && [client requireDeviceAnalytics] && !_isDeviceAnalyticsEnabled()) {
             // Client required device analytics, yet the user did not opt in. 
             secnotice("getLoggingJSON", "Client '%@' requires device analytics yet user did not opt in.", [client name]);
             continue;
         } 
-        if ([client requireiCloudAnalytics] && !_isiCloudAnalyticsEnabled()) {
+        if (!force && [client requireiCloudAnalytics] && !_isiCloudAnalyticsEnabled()) {
             // Client required iCloud analytics, yet the user did not opt in. 
             secnotice("getLoggingJSON", "Client '%@' requires iCloud analytics yet user did not opt in.", [client name]);
             continue;
@@ -761,20 +769,24 @@ _isiCloudAnalyticsEnabled()
 
         if (upload) {
             NSDate* uploadDate = store.uploadDate;
-            if (uploadDate && [[NSDate date] timeIntervalSinceDate:uploadDate] < _secondsBetweenUploads) {
+            if (!force && uploadDate && [[NSDate date] timeIntervalSinceDate:uploadDate] < _secondsBetweenUploads) {
                 secnotice("json", "ignoring client '%@' for %@ because last upload too recent: %@",
                           client.name, _internalTopicName, uploadDate);
                 continue;
             }
 
-            if (!uploadDate) {
+            if (!force && !uploadDate) {
                 secnotice("json", "ignoring client '%@' because doesn't have an upload date; giving it a baseline date",
                           client.name);
                 [self updateUploadDateForClients:@[client] clearData:NO];
                 continue;
             }
 
-            secnotice("json", "including client '%@' for upload", client.name);
+            if (force) {
+                secnotice("json", "client '%@' for topic '%@' force-included", client.name, _internalTopicName);
+            } else {
+                secnotice("json", "including client '%@' for topic '%@' for upload", client.name, _internalTopicName);
+            }
             [localClients addObject:client];
         }
 
@@ -790,10 +802,6 @@ _isiCloudAnalyticsEnabled()
         [softFailures addObject:store.softFailures];
     }
 
-    if (clients) {
-        *clients = localClients;
-    }
-
     if (upload && [localClients count] == 0) {
         if (error) {
             NSString *description = [NSString stringWithFormat:@"Upload too recent for all clients for %@", _internalTopicName];
@@ -802,6 +810,10 @@ _isiCloudAnalyticsEnabled()
                                      userInfo:@{NSLocalizedDescriptionKey : description}];
         }
         return nil;
+    }
+
+    if (clients) {
+        *clients = localClients;
     }
 
     [self addFailures:hardFailures toUploadRecords:uploadRecords threshold:_maxEventsToReport/10];
@@ -819,6 +831,7 @@ _isiCloudAnalyticsEnabled()
     if (error) {
         *error = localError;
     }
+
     return json;
 }
 
@@ -859,9 +872,9 @@ _isiCloudAnalyticsEnabled()
 
 // this method is kind of evil for the fact that it has side-effects in pulling other things besides the metricsURL from the server, and as such should NOT be memoized.
 // TODO redo this, probably to return a dictionary.
-- (NSURL*)splunkUploadURL
+- (NSURL*)splunkUploadURL:(BOOL)force
 {
-    if (![self haveEligibleClients]) {
+    if (!force && ![self haveEligibleClients]) {    // force is true IFF called from supdctl. Customers don't have it and internal audiences must call it explicitly.
         secnotice("getURL", "Not going to talk to server for topic %@ because no eligible clients", [self internalTopicName]);
         return nil;
     }
@@ -910,7 +923,7 @@ _isiCloudAnalyticsEnabled()
                     if (secondsBetweenUploads > 0) {
                         if (os_variant_has_internal_diagnostics("com.apple.security") &&
                             self->_secondsBetweenUploads < secondsBetweenUploads) {
-                            secnotice("getURL", "Overriding server-sent post frequency because device is internal (%lu -> %lu)", secondsBetweenUploads, self->_secondsBetweenUploads);
+                            secnotice("getURL", "Overriding server-sent post frequency because device is internal (%lu -> %lu)", (unsigned long)secondsBetweenUploads, (unsigned long)self->_secondsBetweenUploads);
                         } else {
                             strongSelf->_secondsBetweenUploads = secondsBetweenUploads;
                         }
@@ -1043,6 +1056,11 @@ _isiCloudAnalyticsEnabled()
     return dbpath;
 }
 
++ (NSString*)databasePathForLocal
+{
+    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)@"Analytics/localkeychain.db") path];
+}
+
 + (NSString*)databasePathForTrustdHealth
 {
 #if TARGET_OS_IPHONE
@@ -1068,6 +1086,11 @@ _isiCloudAnalyticsEnabled()
 #else
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInUserCacheDirectory(CFSTR("Analytics/TLS_analytics.db")) path];
 #endif
+}
+
++ (NSString*)databasePathForSignIn
+{
+    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/signin_metrics.db")) path];
 }
 
 @end
@@ -1200,7 +1223,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
             xpc_activity_state_t activityState = xpc_activity_get_state(activity);
             secnotice("supd", "hit xpc activity trigger, state: %ld", activityState);
             if (activityState == XPC_ACTIVITY_STATE_RUN) {
-                // Clean up the reports directory, and then run our regularly scheduled scan
+                // Run our regularly scheduled scan
                 [self performRegularlyScheduledUpload];
             }
         });
@@ -1223,21 +1246,21 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 - (void)performRegularlyScheduledUpload {
     secnotice("upload", "Starting uploads in response to regular trigger");
     NSError *error = nil;
-    if ([self uploadAnalyticsWithError:&error]) {
+    if ([self uploadAnalyticsWithError:&error force:NO]) {
         secnotice("upload", "Regularly scheduled upload successful");
     } else {
         secerror("upload: Failed to complete regularly scheduled upload: %@", error);
     }
 }
 
-- (BOOL)uploadAnalyticsWithError:(NSError**)error {
+- (BOOL)uploadAnalyticsWithError:(NSError**)error force:(BOOL)force {
     [self sendNotificationForOncePerReportSamplers];
     
     BOOL result = NO;
     NSError* localError = nil;
     for (SFAnalyticsTopic *topic in _analyticsTopics) {
         @autoreleasepool { // The logging JSONs get quite large. Ensure they're deallocated between topics.
-            __block NSURL* endpoint = [topic splunkUploadURL];   // has side effects!
+            __block NSURL* endpoint = [topic splunkUploadURL:force];   // has side effects!
 
             if (!endpoint) {
                 secnotice("upload", "Skipping upload for %@ because no endpoint", [topic internalTopicName]);
@@ -1250,7 +1273,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
             }
 
             NSMutableArray<SFAnalyticsClient*>* clients = [NSMutableArray new];
-            NSData* json = [topic getLoggingJSON:false forUpload:YES participatingClients:&clients error:&localError];
+            NSData* json = [topic getLoggingJSON:false forUpload:YES participatingClients:&clients force:force error:&localError];
             if (json) {
                 if ([topic isSampledUpload]) {
                     if (![self->_reporter saveReport:json fileName:[topic internalTopicName]]) {
@@ -1362,7 +1385,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     NSData* json = nil;
     for (SFAnalyticsTopic* topic in self->_analyticsTopics) {
         if ([topic.internalTopicName isEqualToString:topicName]) {
-            json = [topic getLoggingJSON:pretty forUpload:NO participatingClients:nil error:&error];
+            json = [topic getLoggingJSON:pretty forUpload:NO participatingClients:nil force:!runningTests error:&error];
         }
     }
     if (!json) {
@@ -1374,7 +1397,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 - (void)forceUploadWithReply:(void (^)(BOOL, NSError*))reply {
     secnotice("upload", "Performing upload in response to rpc message");
     NSError* error = nil;
-    BOOL result = [self uploadAnalyticsWithError:&error];
+    BOOL result = [self uploadAnalyticsWithError:&error force:YES];
     secnotice("upload", "Result of manually triggered upload: %@, error: %@", result ? @"success" : @"failure", error);
     reply(result, error);
 }

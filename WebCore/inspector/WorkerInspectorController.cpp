@@ -39,12 +39,12 @@
 #include "WorkerRuntimeAgent.h"
 #include "WorkerThread.h"
 #include "WorkerToPageFrontendChannel.h"
-#include <inspector/InspectorAgentBase.h>
-#include <inspector/InspectorBackendDispatcher.h>
-#include <inspector/InspectorFrontendChannel.h>
-#include <inspector/InspectorFrontendDispatchers.h>
-#include <inspector/InspectorFrontendRouter.h>
-#include <inspector/agents/InspectorAgent.h>
+#include <JavaScriptCore/InspectorAgent.h>
+#include <JavaScriptCore/InspectorAgentBase.h>
+#include <JavaScriptCore/InspectorBackendDispatcher.h>
+#include <JavaScriptCore/InspectorFrontendChannel.h>
+#include <JavaScriptCore/InspectorFrontendDispatchers.h>
+#include <JavaScriptCore/InspectorFrontendRouter.h>
 
 #if ENABLE(SERVICE_WORKER)
 #include "ServiceWorkerAgent.h"
@@ -110,7 +110,9 @@ void WorkerInspectorController::connectFrontend()
 
     createLazyAgents();
 
-    InspectorInstrumentation::frontendCreated();
+    callOnMainThread([] {
+        InspectorInstrumentation::frontendCreated();
+    });
 
     m_executionStopwatch->reset();
     m_executionStopwatch->start();
@@ -127,7 +129,9 @@ void WorkerInspectorController::disconnectFrontend(Inspector::DisconnectReason r
 
     ASSERT(m_forwardingChannel);
 
-    InspectorInstrumentation::frontendDeleted();
+    callOnMainThread([] {
+        InspectorInstrumentation::frontendDeleted();
+    });
 
     m_agents.willDestroyFrontendAndBackend(reason);
     m_frontendRouter->disconnectFrontend(m_forwardingChannel.get());

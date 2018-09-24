@@ -27,8 +27,6 @@
 #ifndef _CTF_HEADERS_H
 #define	_CTF_HEADERS_H
 
-#pragma ident	"@(#)ctf_headers.h	1.2	05/06/08 SMI"
-
 /*
  * Because the ON tools are executed on the system where they are built,
  * the tools need to include the headers installed on the build system,

@@ -29,13 +29,11 @@
 #include "WebPage.h"
 
 #include "EditorState.h"
-#include "NotImplemented.h"
 #include "WebEvent.h"
 #include "WebFrame.h"
 #include "WebPageAccessibilityObject.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
-#include "WindowsKeyboardCodes.h"
 #include <WebCore/BackForwardController.h>
 #include <WebCore/Editor.h>
 #include <WebCore/EventHandler.h>
@@ -43,17 +41,18 @@
 #include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/KeyboardEvent.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/PasteboardHelper.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/Settings.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/UserAgent.h>
+#include <WebCore/WindowsKeyboardCodes.h>
 #include <wtf/glib/GUniquePtr.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 void WebPage::platformInitialize()
 {
@@ -158,34 +157,10 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboard
     return true;
 }
 
-bool WebPage::platformHasLocalDataForURL(const URL&)
-{
-    notImplemented();
-    return false;
-}
-
-String WebPage::cachedResponseMIMETypeForURL(const URL&)
-{
-    notImplemented();
-    return String();
-}
-
 bool WebPage::platformCanHandleRequest(const ResourceRequest&)
 {
     notImplemented();
     return false;
-}
-
-String WebPage::cachedSuggestedFilenameForURL(const URL&)
-{
-    notImplemented();
-    return String();
-}
-
-RefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const URL&)
-{
-    notImplemented();
-    return 0;
 }
 
 String WebPage::platformUserAgent(const URL& url) const

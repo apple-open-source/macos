@@ -167,6 +167,8 @@
 		72F5C72F1607A1AE004C192F /* api_support.c in Sources */ = {isa = PBXBuildFile; fileRef = 72F5C72D1607A1AE004C192F /* api_support.c */; };
 		7822D11E188DB07300874E91 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7822D11D188DB07300874E91 /* NetworkExtension.framework */; };
 		7822D120188DB07C00874E91 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7822D11F188DB07C00874E91 /* NetworkExtension.framework */; };
+		78A0A1BF1F7F54F600B34E00 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 78A0A1BE1F7F54F600B34E00 /* libnetwork.tbd */; };
+		78A0A1C11F7F550300B34E00 /* libnetwork.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 78A0A1C01F7F550200B34E00 /* libnetwork.dylib */; };
 		812530C30D3FE9DC006BDF4F /* algorithm.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258AE0988657000D15623 /* algorithm.c */; };
 		812530C50D3FE9DC006BDF4F /* cfparse.y in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B40988657000D15623 /* cfparse.y */; };
 		812530C60D3FE9DC006BDF4F /* cftoken.l in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B60988657000D15623 /* cftoken.l */; };
@@ -727,6 +729,8 @@
 		72F5C7311607A1DD004C192F /* api_support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = api_support.h; sourceTree = "<group>"; };
 		7822D11D188DB07300874E91 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = ../../../../../System/Library/Frameworks/NetworkExtension.framework; sourceTree = "<group>"; };
 		7822D11F188DB07C00874E91 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/System/Library/Frameworks/NetworkExtension.framework; sourceTree = DEVELOPER_DIR; };
+		78A0A1BE1F7F54F600B34E00 /* libnetwork.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libnetwork.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/usr/lib/libnetwork.tbd; sourceTree = DEVELOPER_DIR; };
+		78A0A1C01F7F550200B34E00 /* libnetwork.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libnetwork.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.0.Internal.sdk/usr/lib/libnetwork.dylib; sourceTree = DEVELOPER_DIR; };
 		8125310A0D3FE9DC006BDF4F /* racoon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = racoon; sourceTree = BUILT_PRODUCTS_DIR; };
 		812A64EC0D4AA082004CB7EB /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = SDKs/Purple/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
 		81657D551457582300B8A054 /* racoon_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = racoon_types.h; sourceTree = "<group>"; };
@@ -777,6 +781,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				78A0A1BF1F7F54F600B34E00 /* libnetwork.tbd in Frameworks */,
 				7822D11E188DB07300874E91 /* NetworkExtension.framework in Frameworks */,
 				81C387570D45208700975D5E /* DirectoryService.framework in Frameworks */,
 				81C387560D45208700975D5E /* Security.framework in Frameworks */,
@@ -811,6 +816,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				78A0A1C11F7F550300B34E00 /* libnetwork.dylib in Frameworks */,
 				7822D120188DB07C00874E91 /* NetworkExtension.framework in Frameworks */,
 				8D5B167D0E5F7F9F00E72675 /* libresolv.dylib in Frameworks */,
 				817FFC4E0D6134A7004A8DD8 /* libipsec.A.dylib in Frameworks */,
@@ -903,6 +909,8 @@
 		25D3DB4C098998230025F703 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				78A0A1C01F7F550200B34E00 /* libnetwork.dylib */,
+				78A0A1BE1F7F54F600B34E00 /* libnetwork.tbd */,
 				6912CB751E78DD7100631D9A /* SystemConfiguration.framework */,
 				6912CB711E78D97200631D9A /* CoreFoundation.framework */,
 				6912CB6F1E78D96900631D9A /* Security.framework */,

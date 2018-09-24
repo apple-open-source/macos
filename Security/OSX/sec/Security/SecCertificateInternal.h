@@ -95,6 +95,12 @@ CFDictionaryRef SecCertificateCopyAttributeDictionary(
 SecCertificateRef SecCertificateCreateFromAttributeDictionary(
 	CFDictionaryRef refAttributes);
 
+/* Return a SecKeyRef for the public key embedded in the cert. */
+#if TARGET_OS_OSX
+SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certificate)
+    __OSX_DEPRECATED(__MAC_10_12, __MAC_10_14, "Use SecCertificateCopyKey instead.");
+#endif
+
 /* Return the SecCEBasicConstraints extension for this certificate if it
    has one. */
 const SecCEBasicConstraints *

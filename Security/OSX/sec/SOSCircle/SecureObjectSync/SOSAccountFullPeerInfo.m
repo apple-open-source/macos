@@ -28,8 +28,13 @@
 #include "SOSInternal.h"
 #include "SOSViews.h"
 #include "SOSPeerInfoV2.h"
+#include "SOSPeerInfoPriv.h"
+#import <Security/SecureObjectSync/SOSAccountPriv.h>
 #import <Security/SecureObjectSync/SOSAccountTrust.h>
 #import <Security/SecureObjectSync/SOSAccountTrustClassic.h>
+#include <Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h>
+#include <Security/SecureObjectSync/SOSAccountTrustClassic+Expansion.h>
+
 
 static CFStringRef kicloud_identity_name = CFSTR("Cloud Identity");
 
@@ -191,4 +196,41 @@ fail:
     CFReleaseNull(cloud_key);
     
     return cloud_peer;
+}
+
+
+bool SOSAccountUpdatePeerInfo(SOSAccount*  account, CFStringRef updateDescription, CFErrorRef *error, bool (^update)(SOSFullPeerInfoRef fpi, CFErrorRef *error)) {
+    
+    if (!account.hasPeerInfo)
+        return true;
+    
+    bool result = update(account.fullPeerInfo, error);
+    
+    if (result && SOSAccountHasCircle(account, NULL)) {
+        return [account.trust modifyCircle:account.circle_transport err:error action:^(SOSCircleRef circle_to_change) {
+            secnotice("circleChange", "Calling SOSCircleUpdatePeerInfo for %@", updateDescription);
+            return SOSCircleUpdatePeerInfo(circle_to_change, account.peerInfo);
+        }];
+    }
+    
+    return result;
+}
+
+
+bool SOSAccountUpdatePeerInfoAndPush(SOSAccount* account, CFStringRef updateDescription, CFErrorRef *error,
+                                            bool (^update)(SOSPeerInfoRef pi, CFErrorRef *error)) {
+    return SOSAccountUpdatePeerInfo(account, updateDescription, error, ^bool(SOSFullPeerInfoRef fpi, CFErrorRef *localError) {
+        return SOSFullPeerInfoUpdate(fpi, localError, ^SOSPeerInfoRef(SOSPeerInfoRef pi, SecKeyRef peerPriv, CFErrorRef *localError) {
+            SOSPeerInfoRef newPI = SOSPeerInfoCreateCopy(kCFAllocatorDefault, pi, localError);
+            if(update(newPI, error)) {
+                if(peerPriv && SOSPeerInfoSign(peerPriv, newPI, localError)) {
+                    secnotice("circleOp", "Signed Peerinfo to update");
+                    return newPI;
+                }
+            }
+            secnotice("circleOp", "Failed updating PeerInfo");
+            CFReleaseNull(newPI);
+            return NULL;
+        });
+    });
 }

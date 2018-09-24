@@ -1,15 +1,15 @@
-/* 
+/*
  * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,19 +17,19 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*
  * CommonDigest.h - common digest routines: MD2, MD4, MD5, SHA1.
  */
- 
+
 #ifndef _CC_COMMON_DIGEST_H_
 #define _CC_COMMON_DIGEST_H_
 
 #include <stdint.h>
-#include <Availability.h>
+#include <os/availability.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,20 +37,20 @@ extern "C" {
 
 /*
  * For compatibility with legacy implementations, the *Init(), *Update(),
- * and *Final() functions declared here *always* return a value of 1 (one). 
- * This corresponds to "success" in the similar openssl implementations. 
- * There are no errors of any kind which can be, or are, reported here, 
- * so you can safely ignore the return values of all of these functions 
+ * and *Final() functions declared here *always* return a value of 1 (one).
+ * This corresponds to "success" in the similar openssl implementations.
+ * There are no errors of any kind which can be, or are, reported here,
+ * so you can safely ignore the return values of all of these functions
  * if you are implementing new code.
  *
  * The one-shot functions (CC_MD2(), CC_SHA1(), etc.) perform digest
  * calculation and place the result in the caller-supplied buffer
  * indicated by the md parameter. They return the md parameter.
  * Unlike the opensssl counterparts, these one-shot functions require
- * a non-NULL md pointer. Passing in NULL for the md parameter 
- * results in a NULL return and no digest calculation. 
+ * a non-NULL md pointer. Passing in NULL for the md parameter
+ * results in a NULL return and no digest calculation.
  */
- 
+
 typedef uint32_t CC_LONG;       /* 32 bit unsigned integer */
 typedef uint64_t CC_LONG64;     /* 64 bit unsigned integer */
 
@@ -69,16 +69,16 @@ typedef struct CC_MD2state_st
 } CC_MD2_CTX;
 
 extern int CC_MD2_Init(CC_MD2_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_MD2_Update(CC_MD2_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_MD2_Final(unsigned char *md, CC_MD2_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern unsigned char *CC_MD2(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 /*** MD4 ***/
 
@@ -95,16 +95,16 @@ typedef struct CC_MD4state_st
 } CC_MD4_CTX;
 
 extern int CC_MD4_Init(CC_MD4_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_MD4_Update(CC_MD4_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_MD4_Final(unsigned char *md, CC_MD4_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern unsigned char *CC_MD4(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 
 /*** MD5 ***/
@@ -122,16 +122,16 @@ typedef struct CC_MD5state_st
 } CC_MD5_CTX;
 
 extern int CC_MD5_Init(CC_MD5_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_MD5_Update(CC_MD5_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_MD5_Final(unsigned char *md, CC_MD5_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern unsigned char *CC_MD5(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 
 /*** SHA1 ***/
@@ -149,16 +149,16 @@ typedef struct CC_SHA1state_st
 } CC_SHA1_CTX;
 
 extern int CC_SHA1_Init(CC_SHA1_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_SHA1_Update(CC_SHA1_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_SHA1_Final(unsigned char *md, CC_SHA1_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern unsigned char *CC_SHA1(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 
 /*** SHA224 ***/
@@ -173,16 +173,16 @@ typedef struct CC_SHA256state_st
 } CC_SHA256_CTX;
 
 extern int CC_SHA224_Init(CC_SHA256_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_SHA224_Update(CC_SHA256_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_SHA224_Final(unsigned char *md, CC_SHA256_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern unsigned char *CC_SHA224(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 
 /*** SHA256 ***/
@@ -191,16 +191,16 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
 #define CC_SHA256_BLOCK_BYTES       64          /* block size in bytes */
 
 extern int CC_SHA256_Init(CC_SHA256_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_SHA256_Update(CC_SHA256_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_SHA256_Final(unsigned char *md, CC_SHA256_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern unsigned char *CC_SHA256(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 
 /*** SHA384 ***/
@@ -216,16 +216,16 @@ typedef struct CC_SHA512state_st
 } CC_SHA512_CTX;
 
 extern int CC_SHA384_Init(CC_SHA512_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_SHA384_Update(CC_SHA512_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_SHA384_Final(unsigned char *md, CC_SHA512_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern unsigned char *CC_SHA384(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 
 /*** SHA512 ***/
@@ -234,20 +234,20 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
 #define CC_SHA512_BLOCK_BYTES      128          /* block size in bytes */
 
 extern int CC_SHA512_Init(CC_SHA512_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_SHA512_Update(CC_SHA512_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern int CC_SHA512_Final(unsigned char *md, CC_SHA512_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 extern unsigned char *CC_SHA512(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 /*
  * To use the above digest functions with existing code which uses
- * the corresponding openssl functions, #define the symbol 
+ * the corresponding openssl functions, #define the symbol
  * COMMON_DIGEST_FOR_OPENSSL in your client code (BEFORE including
  * this file), and simply link against libSystem (or System.framework)
  * instead of libcrypto.
@@ -257,7 +257,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
  * on a CC_MD5_CTX object, do not assume that you can do an openssl-style
  * MD5_Update() on that same context.
  */
- 
+
 #ifdef  COMMON_DIGEST_FOR_OPENSSL
 
 #define MD2_DIGEST_LENGTH           CC_MD2_DIGEST_LENGTH
@@ -310,19 +310,20 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
 #endif  /* COMMON_DIGEST_FOR_OPENSSL */
 
 /*
- * In a manner similar to that described above for openssl 
- * compatibility, these macros can be used to provide compatiblity 
- * with legacy implementations of MD5 using the interface defined 
+ * In a manner similar to that described above for openssl
+ * compatibility, these macros can be used to provide compatiblity
+ * with legacy implementations of MD5 using the interface defined
  * in RFC 1321.
  */
- 
+
 #ifdef  COMMON_DIGEST_FOR_RFC_1321
 
 #define MD5_CTX                     CC_MD5_CTX
 #define MD5Init                     CC_MD5_Init
 #define MD5Update                   CC_MD5_Update
+
 void MD5Final (unsigned char [16], MD5_CTX *)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+API_AVAILABLE(macos(10.4), ios(2.0));
 
 #endif  /* COMMON_DIGEST_FOR_RFC_1321 */
 

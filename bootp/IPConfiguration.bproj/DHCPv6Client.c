@@ -2012,8 +2012,58 @@ Boolean G_IPConfiguration_verbose = TRUE;
 
 bool S_allocate_address;
 
-STATIC void 
-client_notification(void * callback_arg, DHCPv6ClientRef client)
+STATIC void
+DHCPv6ClientSendBadOptions(DHCPv6ClientRef client)
+{
+    char			buf[1500];
+    int				error;
+    interface_t *		if_p = DHCPv6ClientGetInterface(client);
+    DHCPv6OptionArea		oa;
+    DHCPv6OptionRef		opt;
+    DHCPv6PacketRef		pkt;
+    int				pkt_len;
+
+    pkt = DHCPv6ClientMakePacket(client,  kDHCPv6MessageINFORMATION_REQUEST,
+				 buf, sizeof(buf), &oa);
+    if (pkt == NULL) {
+	return;
+    }
+
+    opt = (DHCPv6OptionRef)(oa.buf + oa.used);
+    DHCPv6OptionSetCode(opt, kDHCPv6OPTION_SERVERID);
+    DHCPv6OptionSetLength(opt, 64); /* pretend that it's longer */
+    opt->data[0] = 'X';
+    opt->data[1] = 'X';
+    opt->data[2] = 'X';
+    opt->data[3] = 'X';
+    oa.used += 8; /* only put in 8 bytes */
+    pkt_len = DHCPV6_PACKET_HEADER_LENGTH + DHCPv6OptionAreaGetUsedLength(&oa);
+
+    for (int i = 0; i < (1024 * 1024); i++) {
+	error = DHCPv6SocketTransmit(client->sock, pkt, pkt_len);
+	switch (error) {
+	case 0:
+	    break;
+	case ENXIO:
+	case ENETDOWN:
+	    fprintf(stderr, "DHCPv6SocketTransmit failed, %d (%s)\n",
+		    error, strerror(error));
+	    return;
+	default:
+	    printf("send failed, waiting a bit\n");
+	    my_log(LOG_NOTICE, "DHCPv6 %s: SendBadOptions transmit failed, %s",
+		   if_name(if_p), strerror(error));
+	    usleep(1000);
+	    break;
+	}
+    }
+    return;
+}
+
+STATIC void
+client_notification(DHCPv6ClientRef client,
+		    void * callback_arg,
+		    DHCPv6ClientNotificationType type)
 {
     dhcpv6_info_t	info;
 
@@ -2136,10 +2186,24 @@ main(int argc, char * argv[])
     interface_t *		if_p;
     const char *		ifname;
     interface_list_t *		interfaces = NULL;
+    boolean_t			send_bad_options = FALSE;
 
     if (argc < 2) {
 	fprintf(stderr, "%s <ifname>\n", argv[0]);
 	exit(1);
+    }
+    else if (argc >= 3) {
+	switch (argv[2][0]) {
+	case 'a':
+	case 'A':
+	default:
+	    S_allocate_address = TRUE;
+	    break;
+	case 'b':
+	case 'B':
+	    send_bad_options = TRUE;
+	    break;
+	}
     }
     interfaces = get_interface_list();
     if (interfaces == NULL) {
@@ -2159,12 +2223,15 @@ main(int argc, char * argv[])
 	fprintf(stderr, "DHCPv6ClientCreate(%s) failed\n", ifname);
 	exit(2);
     }
-    notification_init(client);
-    DHCPv6ClientSetNotificationCallBack(client, client_notification, NULL);
-    S_allocate_address = (argc > 2);
-    DHCPv6ClientStart(client, S_allocate_address);
-    CFRunLoopRun();
-    fprintf(stderr, "all done\n");
+    if (send_bad_options) {
+	DHCPv6ClientSendBadOptions(client);
+    }
+    else {
+	notification_init(client);
+	DHCPv6ClientSetNotificationCallBack(client, client_notification, NULL);
+	DHCPv6ClientStart(client, S_allocate_address);
+	CFRunLoopRun();
+    }
     exit(0);
     return (0);
 }

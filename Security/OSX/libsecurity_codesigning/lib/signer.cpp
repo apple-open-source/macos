@@ -107,6 +107,10 @@ void SecCodeSigner::Signer::remove(SecCSFlags flags)
 		MacOSError::throwMe(errSecCSNotSupported);
 
 	rep = code->diskRep();
+
+	if (state.mPreserveAFSC)
+		rep->writer()->setPreserveAFSC(state.mPreserveAFSC);
+
 	if (Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage()) {
 		// architecture-sensitive removal
 		MachOEditor editor(rep->writer(), *fat, digestAlgorithms(), rep->mainExecutablePath());
@@ -403,7 +407,8 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 	if (!(signingFlags() & kSecCSSignV1)) {
 		CFCopyRef<CFDictionaryRef> rules2 = cfget<CFDictionaryRef>(rulesDict, "rules2");
 		if (!rules2) {
-			// Clone V1 rules and add default nesting rules at weight 0 (overridden by anything in rules).
+            // Clone V1 rules and add default nesting rules at weight 0 (overridden by anything in rules,
+            // because the default weight, according to ResourceBuilder::addRule(), is 1).
 			// V1 rules typically do not cover these places so we'll prevail, but if they do, we defer to them.
 			rules2 = cfmake<CFDictionaryRef>("{+%O"
 				"'^(Frameworks|SharedFrameworks|PlugIns|Plug-ins|XPCServices|Helpers|MacOS|Library/(Automator|Spotlight|LoginItems))/' = {nested=#T, weight=0}" // exclude dynamic repositories
@@ -524,6 +529,10 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 {
 	// Mach-O executable at the core - perform multi-architecture signing
 	RefPointer<DiskRep::Writer> writer = rep->writer();
+
+	if (state.mPreserveAFSC)
+		writer->setPreserveAFSC(state.mPreserveAFSC);
+
 	auto_ptr<ArchEditor> editor(state.mDetached
 		? static_cast<ArchEditor *>(new BlobEditor(*fat, *this))
 		: new MachOEditor(writer, *fat, this->digestAlgorithms(), rep->mainExecutablePath()));
@@ -628,7 +637,10 @@ void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context 
 	// non-Mach-O executable - single-instance signing
 	RefPointer<DiskRep::Writer> writer = state.mDetached ?
 		(new DetachedBlobWriter(*this)) : rep->writer();
-	
+
+	if(state.mPreserveAFSC)
+		writer->setPreserveAFSC(state.mPreserveAFSC);
+
 	CodeDirectorySet cdSet;
 
 	for (auto type = digestAlgorithms().begin(); type != digestAlgorithms().end(); ++type) {

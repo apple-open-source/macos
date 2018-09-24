@@ -244,6 +244,13 @@ static void test_store_cert_to_ios() {
     SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, (CFDataRef)certData);
     ok(cert != NULL, "create certificate from data");
 
+    // Clean up any pre-existing data, but don't fail if nothing is deleted.
+    SecItemDelete((CFDictionaryRef)@{
+                                     (id)kSecClass: (id)kSecClassCertificate,
+                                     (id)kSecAttrLabel: @"sectests:store_cert_to_ios",
+                                     (id)kSecAttrNoLegacy: @YES,
+                                     });
+
     // Store certificate to modern keychain.
     NSDictionary *attrs = @{
         (id)kSecValueRef: (__bridge id)cert,

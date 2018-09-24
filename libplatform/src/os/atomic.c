@@ -22,7 +22,7 @@
 #include "resolver.h"
 #include "libkern/OSAtomic.h"
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 
 OS_ATOMIC_EXPORT
 int32_t OSAtomicAdd32(int32_t v, volatile int32_t *p);
@@ -426,6 +426,6 @@ OSMemoryBarrier(void)
 	os_atomic_thread_fence(seq_cst);
 }
 
-#endif // TARGET_OS_EMBEDDED
+#endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 
 struct _os_empty_files_are_not_c_files;

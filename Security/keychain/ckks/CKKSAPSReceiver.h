@@ -29,7 +29,15 @@
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/ckks/CloudKitDependencies.h"
 
+
 NS_ASSUME_NONNULL_BEGIN
+
+// APS is giving us a tracingUUID and a tracingEnabled bool, but our interfaces take a CKRecordZoneNotification. Add them to that class, then.
+@interface CKRecordZoneNotification (CKKSPushTracing)
+@property (nonatomic, assign) BOOL ckksPushTracingEnabled;
+@property (nonatomic, strong, nullable) NSString* ckksPushTracingUUID;
+@property (nonatomic, strong, nullable) NSDate* ckksPushReceivedDate;
+@end
 
 @protocol CKKSZoneUpdateReceiver <NSObject>
 - (void)notifyZoneChange:(CKRecordZoneNotification* _Nullable)notification;

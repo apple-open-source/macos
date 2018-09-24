@@ -12,6 +12,7 @@
 		722CFA1C0FF4274A0065AA57 /* netcat.c in Sources */ = {isa = PBXBuildFile; fileRef = 722504240FF4250C00D7B031 /* netcat.c */; };
 		722CFA1D0FF4274A0065AA57 /* socks.c in Sources */ = {isa = PBXBuildFile; fileRef = 722504250FF4250C00D7B031 /* socks.c */; };
 		722CFA260FF427780065AA57 /* nc.1 in Copy manpage */ = {isa = PBXBuildFile; fileRef = 722504290FF4251B00D7B031 /* nc.1 */; };
+		78A0A1C41F7F562800B34E00 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 78A0A1C31F7F562800B34E00 /* libnetwork.tbd */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -39,6 +40,7 @@
 		722CFA2E0FF429E20065AA57 /* netcat.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = netcat.plist; sourceTree = "<group>"; };
 		722CFA390FF42A9F0065AA57 /* netcat.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = netcat.txt; sourceTree = "<group>"; };
 		72869D29190886BF00700749 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
+		78A0A1C31F7F562800B34E00 /* libnetwork.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libnetwork.tbd; path = usr/lib/libnetwork.tbd; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,6 +48,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				78A0A1C41F7F562800B34E00 /* libnetwork.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -59,6 +62,7 @@
 				C6A0FF2B0290797F04C91782 /* Documentation */,
 				72869D281908869F00700749 /* Resources */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
+				78A0A1C21F7F562800B34E00 /* Frameworks */,
 			);
 			name = netcat;
 			sourceTree = "<group>";
@@ -89,6 +93,14 @@
 				72869D29190886BF00700749 /* entitlements.plist */,
 			);
 			name = Resources;
+			sourceTree = "<group>";
+		};
+		78A0A1C21F7F562800B34E00 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				78A0A1C31F7F562800B34E00 /* libnetwork.tbd */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		C6A0FF2B0290797F04C91782 /* Documentation */ = {

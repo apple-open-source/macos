@@ -7,7 +7,7 @@
 Project               = tidy
 BuildNumber           = $(RC_ProjectSourceVersion)
 ifeq ($(BuildNumber),)
-BuildNumber           = 15.18.1
+BuildNumber           = 16
 endif
 UserType              = Administrator
 ToolType              = Libraries
@@ -30,6 +30,7 @@ export SDK_DIR = $(shell xcodebuild -version -sdk $(SDKROOT) Path)
 endif
 
 ifeq "$(RC_TARGET_CONFIG)" "MacOSX"
+OTHER_LDFLAGS=-Wl,-iosmac_version_min,12.0
 SECTORDER_FLAGS=-sectorder __TEXT __text $(SDK_DIR)/usr/local/lib/OrderFiles/libtidy.order
 endif
 
@@ -58,7 +59,7 @@ export STRIP
 install::
 	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(DSTROOT)/usr" devinst_prefix="$(DSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installhdrs devinst_prefix="$(DSTROOT)/usr" runinst_prefix="$(DSTROOT)/usr"
 	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(DSTROOT)/usr" devinst_prefix="$(DSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installib devinst_prefix="$(DSTROOT)/usr" runinst_prefix="$(DSTROOT)/usr"
-	$(CC) $(CFLAGS) -dynamiclib $(SECTORDER_FLAGS) -o "$(DSTROOT)/usr/lib/libtidy.A.dylib" "$(OBJROOT)/tidy/lib/libtidy.a" -install_name "/usr/lib/libtidy.A.dylib" -all_load -compatibility_version 1.0.0 -current_version 1.0.0
+	$(CC) $(CFLAGS) $(OTHER_LDFLAGS) -dynamiclib $(SECTORDER_FLAGS) -o "$(DSTROOT)/usr/lib/libtidy.A.dylib" -Wl,-force_load,"$(OBJROOT)/tidy/lib/libtidy.a" -install_name "/usr/lib/libtidy.A.dylib" -compatibility_version 1.0.0 -current_version 1.0.0
 	$(LN) -s "libtidy.A.dylib" "$(DSTROOT)/usr/lib/libtidy.dylib"
 	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(DSTROOT)/usr" devinst_prefix="$(DSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installexes devinst_prefix="$(DSTROOT)/usr" runinst_prefix="$(DSTROOT)/usr" LIBDIR="$(DSTROOT)/usr/lib"
 	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(DSTROOT)/usr" devinst_prefix="$(DSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installmanpage_apple devinst_prefix="$(DSTROOT)/usr" runinst_prefix="$(DSTROOT)/usr"
@@ -68,6 +69,9 @@ ifndef TIDY_DEBUG
 	$(STRIP) -x "$(DSTROOT)/usr/lib/libtidy.A.dylib"
 endif
 	$(RM) "$(DSTROOT)/usr/lib/libtidy.a"
+
+	$(MKDIR) "$(DSTROOT)/usr/include/$(Project)"
+	$(INSTALL_FILE) "$(SRCROOT)/$(Project).modulemap" "$(DSTROOT)/usr/include/$(Project)/module.modulemap"
 
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist

@@ -33,7 +33,7 @@
 
 #include "Event.h"
 #include "SerializedScriptValue.h"
-#include <heap/Strong.h>
+#include <JavaScriptCore/Strong.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -80,6 +80,8 @@ private:
     String m_fileName;
     unsigned m_lineNumber;
     unsigned m_columnNumber;
+    // FIXME: The following use of JSC::Strong is incorrect and can lead to storage leaks
+    // due to reference cycles; we should use JSValueInWrappedObject instead.
     JSC::Strong<JSC::Unknown> m_error;
     RefPtr<SerializedScriptValue> m_serializedDetail;
     bool m_triedToSerialize { false };

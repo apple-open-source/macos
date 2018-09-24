@@ -128,7 +128,9 @@ extern "C" {
 #endif
 
 extern NCURSES_EXPORT_VAR(unsigned) _nc_tracing;
+#ifndef __APPLE__
 extern NCURSES_EXPORT(void) _nc_tracef (char *, ...) GCC_PRINTFLIKE(1,2);
+#endif
 extern NCURSES_EXPORT(const char *) _nc_visbuf (const char *);
 extern NCURSES_EXPORT(const char *) _nc_visbuf2 (int, const char *);
 

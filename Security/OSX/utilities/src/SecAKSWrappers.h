@@ -46,7 +46,7 @@
   #else
     #define TARGET_HAS_KEYSTORE 1
   #endif
-#elif TARGET_OS_EMBEDDED
+#elif TARGET_OS_IPHONE
   #define TARGET_HAS_KEYSTORE 1
 #else
   #error "unknown keystore status for this platform"

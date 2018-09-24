@@ -134,6 +134,25 @@ void Scope::clearResolver()
         m_document.didClearStyleResolver();
 }
 
+void Scope::releaseMemory()
+{
+    if (!m_shadowRoot) {
+        for (auto* descendantShadowRoot : m_document.inDocumentShadowRoots())
+            descendantShadowRoot->styleScope().releaseMemory();
+    }
+
+#if ENABLE(CSS_SELECTOR_JIT)
+    for (auto& sheet : m_activeStyleSheets) {
+        sheet->contents().traverseRules([] (const StyleRuleBase& rule) {
+            if (is<StyleRule>(rule))
+                downcast<StyleRule>(rule).releaseCompiledSelectors();
+            return false;
+        });
+    }
+#endif
+    clearResolver();
+}
+
 Scope& Scope::forNode(Node& node)
 {
     ASSERT(node.isConnected());
@@ -179,15 +198,6 @@ void Scope::setPreferredStylesheetSetName(const String& name)
     m_preferredStylesheetSetName = name;
     didChangeActiveStyleSheetCandidates();
 }
-
-void Scope::setSelectedStylesheetSetName(const String& name)
-{
-    if (m_selectedStylesheetSetName == name)
-        return;
-    m_selectedStylesheetSetName = name;
-    didChangeActiveStyleSheetCandidates();
-}
-
 
 void Scope::addPendingSheet(const Element& element)
 {
@@ -330,10 +340,8 @@ void Scope::collectActiveStyleSheets(Vector<RefPtr<StyleSheet>>& sheets)
                 if (linkElement.styleSheetIsLoading()) {
                     // it is loading but we should still decide which style sheet set to use
                     if (!enabledViaScript && !title.isEmpty() && m_preferredStylesheetSetName.isEmpty()) {
-                        if (!linkElement.attributeWithoutSynchronization(relAttr).contains("alternate")) {
+                        if (!linkElement.attributeWithoutSynchronization(relAttr).contains("alternate"))
                             m_preferredStylesheetSetName = title;
-                            m_selectedStylesheetSetName = title;
-                        }
                     }
                     continue;
                 }
@@ -360,7 +368,7 @@ void Scope::collectActiveStyleSheets(Vector<RefPtr<StyleSheet>>& sheets)
                     // us as the preferred set. Otherwise, just ignore
                     // this sheet.
                     if (is<HTMLStyleElement>(element) || !rel.contains("alternate"))
-                        m_preferredStylesheetSetName = m_selectedStylesheetSetName = title;
+                        m_preferredStylesheetSetName = title;
                 }
                 if (title != m_preferredStylesheetSetName)
                     sheet = nullptr;

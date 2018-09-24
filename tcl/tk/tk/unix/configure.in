@@ -715,7 +715,7 @@ TK_BUILD_STUB_LIB_PATH="`pwd`/${TK_STUB_LIB_FILE}"
 TK_STUB_LIB_PATH="${TK_STUB_LIB_DIR}/${TK_STUB_LIB_FILE}"
 
 # Install time header dir can be set via --includedir
-eval "TK_INCLUDE_SPEC=\"-I${includedir}\""
+eval "TK_INCLUDE_SPEC=\"-iwithsysroot ${includedir}\""
 
 #------------------------------------------------------------------------
 # tkConfig.sh refers to this by a different name

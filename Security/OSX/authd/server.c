@@ -1148,7 +1148,7 @@ authorization_right_remove(connection_t conn, xpc_object_t message, xpc_object_t
     }
     
     if (rule_get_id(rule) != 0) {
-        rule_sql_remove(rule, dbconn);
+        rule_sql_remove(rule, dbconn, proc);
     }
     
 done:

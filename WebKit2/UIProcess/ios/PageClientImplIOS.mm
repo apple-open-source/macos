@@ -211,6 +211,7 @@ void PageClientImpl::processDidExit()
 void PageClientImpl::didRelaunchProcess()
 {
     [m_contentView _didRelaunchProcess];
+    [m_webView _didRelaunchProcess];
 }
 
 void PageClientImpl::pageClosed()
@@ -245,6 +246,7 @@ void PageClientImpl::decidePolicyForGeolocationPermissionRequest(WebFrameProxy& 
 
 void PageClientImpl::didStartProvisionalLoadForMainFrame()
 {
+    [m_webView _didStartProvisionalLoadForMainFrame];
     [m_webView _hidePasswordView];
 }
 
@@ -361,11 +363,6 @@ bool PageClientImpl::executeSavedCommandBySelector(const String&)
 {
     notImplemented();
     return false;
-}
-
-void PageClientImpl::setDragImage(const IntPoint&, Ref<ShareableBitmap>&&, DragSourceAction)
-{
-    notImplemented();
 }
 
 void PageClientImpl::selectionDidChange()
@@ -519,11 +516,6 @@ void PageClientImpl::layerTreeCommitComplete()
     [m_contentView _layerTreeCommitComplete];
 }
 
-void PageClientImpl::dynamicViewportUpdateChangedTarget(double newScale, const WebCore::FloatPoint& newScrollPosition, uint64_t nextValidLayerTreeTransactionID)
-{
-    [m_webView _dynamicViewportUpdateChangedTargetToScale:newScale position:newScrollPosition nextValidLayerTreeTransactionID:nextValidLayerTreeTransactionID];
-}
-
 void PageClientImpl::couldNotRestorePageState()
 {
     [m_webView _couldNotRestorePageState];
@@ -566,14 +558,6 @@ void PageClientImpl::stopAssistingNode()
 {
     [m_contentView _stopAssistingNode];
 }
-    
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-void PageClientImpl::didUpdateBlockSelectionWithTouch(uint32_t touch, uint32_t flags, float growThreshold, float shrinkThreshold)
-{
-    [m_contentView _didUpdateBlockSelectionWithTouch:(SelectionTouch)touch withFlags:(SelectionFlags)flags growThreshold:growThreshold shrinkThreshold:shrinkThreshold];
-}
-#endif
-    
 
 void PageClientImpl::showPlaybackTargetPicker(bool hasVideo, const IntRect& elementRect, WebCore::RouteSharingPolicy policy, const String& contextUID)
 {
@@ -747,6 +731,11 @@ void PageClientImpl::didChangeBackgroundColor()
     [m_webView _updateScrollViewBackground];
 }
 
+void PageClientImpl::videoControlsManagerDidChange()
+{
+    [m_webView _videoControlsManagerDidChange];
+}
+
 void PageClientImpl::refView()
 {
     [m_contentView retain];
@@ -825,15 +814,6 @@ void PageClientImpl::requestPasswordForQuickLookDocument(const String& fileName,
     NavigationState::fromWebPage(*m_webView->_page).didRequestPasswordForQuickLookDocument();
 }
 #endif
-
-void PageClientImpl::prepareToDragPromisedBlob(const WebCore::PromisedBlobInfo& info)
-{
-#if ENABLE(DRAG_SUPPORT)
-    [m_contentView _prepareToDragPromisedBlob:info];
-#else
-    UNUSED_PARAM(info);
-#endif
-}
 
 } // namespace WebKit
 

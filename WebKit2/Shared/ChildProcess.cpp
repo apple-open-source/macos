@@ -30,7 +30,14 @@
 #include "SandboxInitializationParameters.h"
 #include <WebCore/SchemeRegistry.h>
 #include <pal/SessionID.h>
+
+#if !OS(WINDOWS)
 #include <unistd.h>
+#endif
+
+#if OS(LINUX)
+#include <wtf/MemoryPressureHandler.h>
+#endif
 
 using namespace WebCore;
 
@@ -47,7 +54,16 @@ ChildProcess::~ChildProcess()
 {
 }
 
-static void didCloseOnConnectionWorkQueue(IPC::Connection*)
+void ChildProcess::didClose(IPC::Connection&)
+{
+}
+
+NO_RETURN static void callExitNow(IPC::Connection*)
+{
+    _exit(EXIT_SUCCESS);
+}
+
+static void callExitSoon(IPC::Connection*)
 {
     // If the connection has been closed and we haven't responded in the main thread for 10 seconds
     // the process will exit forcibly.
@@ -83,7 +99,11 @@ void ChildProcess::initialize(const ChildProcessInitializationParameters& parame
     PAL::SessionID::enableGenerationProtection();
 
     m_connection = IPC::Connection::createClientConnection(parameters.connectionIdentifier, *this);
-    m_connection->setDidCloseOnConnectionWorkQueueCallback(didCloseOnConnectionWorkQueue);
+    if (shouldCallExitWhenConnectionIsClosed())
+        m_connection->setDidCloseOnConnectionWorkQueueCallback(callExitNow);
+    else
+        m_connection->setDidCloseOnConnectionWorkQueueCallback(callExitSoon);
+
     initializeConnection(m_connection.get());
     m_connection->open();
 }
@@ -216,6 +236,14 @@ void ChildProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::StringReferen
     WTFLogAlways("Received invalid message: '%s::%s'", messageReceiverName.toString().data(), messageName.toString().data());
     CRASH();
 }
+
+#if OS(LINUX)
+void ChildProcess::didReceiveMemoryPressureEvent(bool isCritical)
+{
+    MemoryPressureHandler::singleton().triggerMemoryPressureEvent(isCritical);
+}
 #endif
+
+#endif // !PLATFORM(COCOA)
 
 } // namespace WebKit

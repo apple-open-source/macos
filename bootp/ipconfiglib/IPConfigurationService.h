@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,6 +81,12 @@ extern const CFStringRef	kIPConfigurationServiceOptionEnableDAD; /* boolean */
  * - specify the APN name
  */
 extern const CFStringRef	kIPConfigurationServiceOptionAPNName; /* string */
+
+/*
+ * kIPConfigurationServiceOptionEnableCLAT46 (CFBooleanRef, default FALSE)
+ * - specify whether to enable CLAT46 translation or not
+ */
+extern const CFStringRef	kIPConfigurationServiceOptionEnableCLAT46; /* boolean */
 
 /*
  * Function: IPConfigurationServiceCreate

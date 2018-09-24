@@ -93,6 +93,8 @@ static void TestFCDCrash(void);
 
 static void TestJ5298(void);
 
+static void TestBadKey(void);
+
 const UCollationResult results[] = {
     UCOL_LESS,
     UCOL_LESS, /*UCOL_GREATER,*/
@@ -210,6 +212,7 @@ void addAllCollTest(TestNode** root)
     addTest(root, &TestJitterbug1098, "tscoll/callcoll/TestJitterbug1098");
     addTest(root, &TestFCDCrash, "tscoll/callcoll/TestFCDCrash");
     addTest(root, &TestJ5298, "tscoll/callcoll/TestJ5298");
+    addTest(root, &TestBadKey, "tscoll/callcoll/TestBadKey");
 }
 
 UBool hasCollationElements(const char *locName) {
@@ -1342,5 +1345,37 @@ static void TestJ5298(void)
     }
     uenum_close(values);
     log_verbose("\n");
+}
+
+static const char* badKeyLocales[] = {
+	"@calendar=japanese;collation=search", // OK
+	"@calendar=japanese", // OK
+	"en@calendar=x", // OK
+	"ja@calendar=x", // OK
+	"en@collation=x", // OK
+	"ja@collation=x", // OK
+	"en@calendar=\x81", // OK
+	"ja@collation=private-kana", // fail, this string is cause of <rdar://problem/40930320>
+	"en@collation=\x81", // fail
+	"ja@calendar=japanese;collation=\x81", // fail
+	NULL
+};
+
+static void TestBadKey(void)
+{
+    const char* badLoc;
+    const char** badLocsPtr = badKeyLocales;
+    while ((badLoc = *badLocsPtr++) != NULL) {
+        UErrorCode status = U_ZERO_ERROR;
+        UCollator* uc = ucol_open(badLoc, &status);
+        if ( U_SUCCESS(status) ) {
+            if (uc == NULL) {
+                log_err("ucol_open sets SUCCESS but returns NULL, locale: %s\n", badLoc);
+            }
+            ucol_close(uc);
+        } else if (uc != NULL) {
+            log_err("ucol_open sets FAILURE but returns non-NULL, locale: %s\n", badLoc);
+        }
+    }
 }
 #endif /* #if !UCONFIG_NO_COLLATION */

@@ -40,7 +40,6 @@
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "SharedBuffer.h"
-#include <wtf/CurrentTime.h>
 #include <wtf/DateMath.h>
 #include <wtf/HexNumber.h>
 #include <wtf/MD5.h>
@@ -276,7 +275,6 @@ bool CurlCacheEntry::parseResponseHeaders(const ResourceResponse& response)
         return false;
 
     WallTime fileTime;
-    time_t fileModificationDate;
 
     if (auto fileTimeFromFile = FileSystem::getFileModificationTime(m_headerFilename))
         fileTime = fileTimeFromFile.value();

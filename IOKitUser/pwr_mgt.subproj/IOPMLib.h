@@ -660,7 +660,7 @@ void IOPMAssertionRetain(IOPMAssertionID theAssertion)
  * @result              Returns kIOReturnSuccess on success.
  */
 IOReturn IOPMAssertionRelease(IOPMAssertionID AssertionID)
-                            AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+                            __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_3_2);
     
 
 /*!
@@ -708,7 +708,7 @@ IOReturn IOPMAssertionSetProperty(IOPMAssertionID theAssertion, CFStringRef theP
  * @result              Returns kIOReturnSuccess on success.
  */
 IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *AssertionsByPID)
-                            AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+                            __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_3_2);
     
 /*!
  * @function            IOPMCopyAssertionsStatus
@@ -724,7 +724,7 @@ IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *AssertionsByPID)
  * @result Returns      kIOReturnSuccess on success.
  */
 IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *AssertionsStatus)
-                            AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+                            __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_3_2);
 
     
     

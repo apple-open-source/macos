@@ -109,18 +109,12 @@ uint8_t*    SOSFullPeerInfoEncodeToDER(SOSFullPeerInfoRef peer, CFErrorRef* erro
 
 CFDataRef SOSFullPeerInfoCopyEncodedData(SOSFullPeerInfoRef peer, CFAllocatorRef allocator, CFErrorRef *error);
 
-bool SOSFullPeerInfoUpdateTransportType(SOSFullPeerInfoRef peer, CFStringRef transportType, CFErrorRef* error);
-bool SOSFullPeerInfoUpdateDeviceID(SOSFullPeerInfoRef peer, CFStringRef deviceID, CFErrorRef* error);
-bool SOSFullPeerInfoUpdateTransportPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error);
-bool SOSFullPeerInfoUpdateTransportFragmentationPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error);
-bool SOSFullPeerInfoUpdateTransportAckModelPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error);
-
 bool SOSFullPeerInfoUpdateOctagonSigningKey(SOSFullPeerInfoRef peer, SecKeyRef octagonSigningKey, CFErrorRef* error);
 bool SOSFullPeerInfoUpdateOctagonEncryptionKey(SOSFullPeerInfoRef peer, SecKeyRef octagonEncryptionKey, CFErrorRef* error);
 
-SOSSecurityPropertyResultCode SOSFullPeerInfoUpdateSecurityProperty(SOSFullPeerInfoRef peer, SOSViewActionCode action, CFStringRef property, CFErrorRef* error);
-SOSSecurityPropertyResultCode SOSFullPeerInfoSecurityPropertyStatus(SOSFullPeerInfoRef peer, CFStringRef property, CFErrorRef *error);
 CFDataRef SOSPeerInfoCopyData(SOSPeerInfoRef fpi, CFErrorRef *error);
+
+bool SOSFullPeerInfoUpdate(SOSFullPeerInfoRef fullPeerInfo, CFErrorRef *error, SOSPeerInfoRef (^create_modification)(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error));
 
 __END_DECLS
 

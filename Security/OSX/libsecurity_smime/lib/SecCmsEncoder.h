@@ -75,7 +75,7 @@ SecCmsEncoderCreate(SecCmsMessageRef cmsg,
                     PK11PasswordFunc pwfn, void *pwfn_arg,
                     SecCmsGetDecryptKeyCallback encrypt_key_cb, void *encrypt_key_cb_arg,
                     SECAlgorithmID **detached_digestalgs, CSSM_DATA_PTR *detached_digests,
-                    SecCmsEncoderRef *outEncoder);
+                    SecCmsEncoderRef *outEncoder) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
     
 /*!
     @function
@@ -120,7 +120,7 @@ SecCmsEncoderFinish(SecCmsEncoderRef encoder);
  */
 extern OSStatus
 SecCmsMessageEncode(SecCmsMessageRef cmsg, const CSSM_DATA *input, SecArenaPoolRef arena,
-                    CSSM_DATA_PTR outBer);
+                    CSSM_DATA_PTR outBer) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #if defined(__cplusplus)
 }

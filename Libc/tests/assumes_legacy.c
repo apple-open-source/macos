@@ -16,7 +16,7 @@ void os_crash_function(const char *message) {
 	}
 }
 
-T_DECL(os_crash_sanity, "sanity check for os_crash")
+T_DECL(os_crash_sanity_legacy, "sanity check for os_crash")
 {
 	expected_message = "My AWESOME assertion message.";
 	os_crash(expected_message);

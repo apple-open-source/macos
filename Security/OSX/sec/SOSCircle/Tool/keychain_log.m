@@ -44,8 +44,8 @@
 
 #include <Security/SecItem.h>
 
-#include <CoreFoundation/CFNumber.h>
-#include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFPriv.h>
 
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
@@ -93,13 +93,6 @@ static char *createDateStrNow() {
     sprintf(retval, "%04d%02d%02d%02d%02d%02d", tmstruct->tm_year+1900, tmstruct->tm_mon+1, tmstruct->tm_mday, tmstruct->tm_hour, tmstruct->tm_min, tmstruct->tm_sec);
     return retval;
 }
-
-// #include <CoreFoundation/CFPriv.h>
-
-CF_EXPORT CFDictionaryRef _CFCopySystemVersionDictionary(void);
-CF_EXPORT const CFStringRef _kCFSystemVersionProductNameKey;
-CF_EXPORT const CFStringRef _kCFSystemVersionProductVersionKey;
-CF_EXPORT const CFStringRef _kCFSystemVersionBuildVersionKey;
 
 static char *CFDictionaryCopyCString(CFDictionaryRef dict, const void *key) {
     CFStringRef val = CFDictionaryGetValue(dict, key);

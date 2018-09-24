@@ -47,42 +47,13 @@
 #define ASSERT(s)	assert(s)
 #endif
 
-static const size_t diMax = kCCDigestSkein512+1;
-
 // This returns a pointer to the corecrypto "di" structure for a digest.
 // It's used for all functions that need a di (HMac, Key Derivation, etc).
-
-static void init_globals(__unused void *g){
-    cc_globals_t globals = _cc_globals();
-    
-    globals->digest_info = (const struct ccdigest_info **)calloc(diMax, sizeof(struct ccdigest_info *));
-    globals->digest_info[kCCDigestNone] = NULL;
-    globals->digest_info[kCCDigestMD2] = &ccmd2_di;
-    globals->digest_info[kCCDigestMD4] = &ccmd4_di;
-    globals->digest_info[kCCDigestMD5] = ccmd5_di();
-    globals->digest_info[kCCDigestRMD128] = &ccrmd128_di;
-    globals->digest_info[kCCDigestRMD160] = &ccrmd160_di;
-    globals->digest_info[kCCDigestRMD256] = &ccrmd256_di;
-    globals->digest_info[kCCDigestRMD320] = &ccrmd320_di;
-    globals->digest_info[kCCDigestSHA1] = ccsha1_di();
-    globals->digest_info[kCCDigestSHA224] = ccsha224_di();
-    globals->digest_info[kCCDigestSHA256] = ccsha256_di();
-    globals->digest_info[kCCDigestSHA384] = ccsha384_di();
-    globals->digest_info[kCCDigestSHA512] = ccsha512_di();
-    globals->digest_info[kCCDigestSkein128] = NULL;
-    globals->digest_info[kCCDigestSkein160] = NULL;
-    globals->digest_info[15] = NULL; // gap
-    globals->digest_info[kCCDigestSkein224] = NULL;
-    globals->digest_info[kCCDigestSkein256] = NULL;
-    globals->digest_info[kCCDigestSkein384] = NULL;
-    globals->digest_info[kCCDigestSkein512] = NULL;
-}
 
 const struct ccdigest_info *
 CCDigestGetDigestInfo(CCDigestAlgorithm algorithm) {
     cc_globals_t globals = _cc_globals();
-    cc_dispatch_once(&globals->digest_info_init, NULL, init_globals);
-    if (algorithm>=diMax) {
+    if (algorithm>=CC_MAX_N_DIGESTS) {
         return NULL;
     }
     return globals->digest_info[algorithm];
@@ -91,7 +62,7 @@ CCDigestGetDigestInfo(CCDigestAlgorithm algorithm) {
 int 
 CCDigestInit(CCDigestAlgorithm alg, CCDigestRef c)
 {
-    if(alg == 0 || alg >= diMax) return kCCParamError;
+    if(alg == 0 || alg >= CC_MAX_N_DIGESTS) return kCCParamError;
     if(!c) return kCCParamError;
     
     CC_DEBUG_LOG("Entering Algorithm: %d\n", alg);
@@ -241,7 +212,7 @@ CCDigestRef
 CCDigestCreateByOID(const uint8_t *OID, size_t OIDlen)
 {    
     CC_DEBUG_LOG("Entering\n");
-    for(unsigned int i=kCCDigestMD2; i<diMax; i++) {
+    for(unsigned int i=kCCDigestMD2; i<CC_MAX_N_DIGESTS; i++) {
         const struct ccdigest_info *di = CCDigestGetDigestInfo(i);
         if(di && (OIDlen == di->oid_size) && (CC_XMEMCMP(OID, di->oid, OIDlen) == 0))
             return CCDigestCreate(i);

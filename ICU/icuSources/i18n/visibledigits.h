@@ -35,12 +35,13 @@ class DigitList;
  */
 class U_I18N_API VisibleDigits : public UMemory {
 public:
-    VisibleDigits() : fExponent(0), fFlags(0), fAbsIntValue(0), fAbsIntValueSet(FALSE), fAbsDoubleValue(0.0), fAbsDoubleValueSet(FALSE) { }
+    VisibleDigits() : fExponent(0), fFlags(0), fAbsIntValue(0), fAbsIntValueSet(FALSE), fAbsDoubleValue(0.0), fAbsDoubleValueSet(FALSE), fFormatFullPrecision(TRUE) { }
 
     UBool isNegative() const;
     UBool isNaN() const;
     UBool isInfinite() const;
     UBool isNaNOrInfinity() const;
+    UBool formatFullPrecision() const; // Apple
 
     /**
      * Gets the digit at particular exponent, if number is 987.6, then
@@ -112,6 +113,10 @@ private:
      */
     UBool fAbsDoubleValueSet;
 
+    // Flag to cap double conversion precision at DBL_DIG digits (Apple specific)
+    UBool fFormatFullPrecision;
+    void setFormatFullPrecision(UBool formatFullPrecision);
+
     void setNegative();
     void setNaN();
     void setInfinite();
@@ -144,6 +149,7 @@ public:
     UBool isNegative() const { return fMantissa.isNegative(); }
     UBool isNaN() const { return fMantissa.isNaN(); }
     UBool isInfinite() const { return fMantissa.isInfinite(); }
+    void setFormatFullPrecision(UBool formatFullPrecision) { fMantissa.setFormatFullPrecision(formatFullPrecision); }
 private:
     VisibleDigitsWithExponent(const VisibleDigitsWithExponent &);
     VisibleDigitsWithExponent &operator=(

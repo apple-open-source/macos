@@ -27,8 +27,6 @@
 #ifndef _MEMORY_H
 #define	_MEMORY_H
 
-#pragma ident	"@(#)memory.h	1.3	05/06/08 SMI"
-
 /*
  * Routines for memory management
  */

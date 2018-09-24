@@ -26,7 +26,6 @@
 
 #include <IOKit/IOService.h>
 
-#include <IOKit/smc/AppleSMCFamily.h>
 #include <IOKit/smbus/IOSMBusController.h>
 #include "SmbusHandler.h"
 #include <os/log.h>
@@ -44,8 +43,8 @@ class AppleSMC;
 extern uint32_t gBMDebugFlags;
 extern bool gDebugAllowed;
 enum {
-    BM_LOG_LEVEL0 = 0x00000001,     // basic logging for completions and errors
-    BM_LOG_LEVEL1 = 0x00000002,     // log individual transactions
+    BM_LOG_LEVEL0 = 0x00000001,     // basic logging for errors
+    BM_LOG_LEVEL1 = 0x00000002,     // basic logging
     BM_LOG_LEVEL2 = 0x00000004,     // verbose logging
 };
 

@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Samsung Electronics. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -28,6 +28,7 @@
 #include "HTMLTextFormControlElement.h"
 #include "StepRange.h"
 #include <memory>
+#include <wtf/WeakPtr.h>
 
 #if PLATFORM(IOS)
 #include "DateComponents.h"
@@ -54,7 +55,8 @@ struct InputElementClickState {
     RefPtr<HTMLInputElement> checkedRadioButton;
 };
 
-class HTMLInputElement : public HTMLTextFormControlElement {
+class HTMLInputElement : public HTMLTextFormControlElement, public CanMakeWeakPtr<HTMLInputElement> {
+    WTF_MAKE_ISO_ALLOCATED(HTMLInputElement);
 public:
     static Ref<HTMLInputElement> create(const QualifiedName&, Document&, HTMLFormElement*, bool createdByParser);
     virtual ~HTMLInputElement();
@@ -240,7 +242,7 @@ public:
     AutoFillButtonType autoFillButtonType() const { return static_cast<AutoFillButtonType>(m_autoFillButtonType); }
     WEBCORE_EXPORT void setShowAutoFillButton(AutoFillButtonType);
 
-    bool hasAutoFillStrongPasswordButton() const  { return autoFillButtonType() == AutoFillButtonType::StrongPassword || autoFillButtonType() == AutoFillButtonType::StrongConfirmationPassword; }
+    bool hasAutoFillStrongPasswordButton() const  { return autoFillButtonType() == AutoFillButtonType::StrongPassword; }
 
     bool isAutoFillAvailable() const { return m_isAutoFillAvailable; }
     void setAutoFillAvailable(bool autoFillAvailable) { m_isAutoFillAvailable = autoFillAvailable; }
@@ -267,7 +269,7 @@ public:
     bool willRespondToMouseClickEvents() override;
 
 #if ENABLE(DATALIST_ELEMENT)
-    RefPtr<HTMLElement> list() const;
+    WEBCORE_EXPORT RefPtr<HTMLElement> list() const;
     RefPtr<HTMLDataListElement> dataList() const;
     void listAttributeTargetChanged();
 #endif
@@ -281,7 +283,7 @@ public:
     // Functions for InputType classes.
     void setValueInternal(const String&, TextFieldEventBehavior);
     bool isTextFormControlFocusable() const;
-    bool isTextFormControlKeyboardFocusable(KeyboardEvent&) const;
+    bool isTextFormControlKeyboardFocusable(KeyboardEvent*) const;
     bool isTextFormControlMouseFocusable() const;
     bool valueAttributeWasUpdatedAfterParsing() const { return m_valueAttributeWasUpdatedAfterParsing; }
 
@@ -359,7 +361,7 @@ private:
     void didMoveToNewDocument(Document& oldDocument, Document& newDocument) final;
 
     bool hasCustomFocusLogic() const final;
-    bool isKeyboardFocusable(KeyboardEvent&) const final;
+    bool isKeyboardFocusable(KeyboardEvent*) const final;
     bool isMouseFocusable() const final;
     bool isEnumeratable() const final;
     bool supportLabels() const final;
@@ -375,6 +377,8 @@ private:
     bool shouldSaveAndRestoreFormControlState() const final;
     FormControlState saveFormControlState() const final;
     void restoreFormControlState(const FormControlState&) final;
+
+    void resignStrongPasswordAppearance();
 
     bool canStartSelection() const final;
 
@@ -425,13 +429,15 @@ private:
     bool isOptionalFormControl() const final { return !isRequiredFormControl(); }
     bool isRequiredFormControl() const final;
     bool computeWillValidate() const final;
-    void requiredAttributeChanged() final;
+    void requiredStateChanged() final;
 
     void initializeInputType();
     void updateType();
     void runPostTypeUpdateTasks();
-    
+
     void subtreeHasChanged() final;
+    void disabledStateChanged() final;
+    void readOnlyStateChanged() final;
 
 #if ENABLE(DATALIST_ELEMENT)
     void resetListAttributeTargetObserver();

@@ -10,16 +10,19 @@
 #include "unicode/decimfmt.h"
 #include "unicode/ucurr.h"
 #include "unicode/smpdtfmt.h"
+#include "unicode/strenum.h"
 #include "unicode/dtfmtsym.h"
 #include "unicode/brkiter.h"
 #include "unicode/coll.h"
+#include "unicode/ustring.h"
+#include "charstr.h"
 #include "cmemory.h"
 #include "cstring.h"
 #include <stdio.h>
 #include <string.h>
 #include "putilimp.h"
-#include "unicode/ustring.h"
 #include "hash.h"
+#include "locmap.h"
 
 static const char* const rawData[33][8] = {
 
@@ -228,6 +231,8 @@ void LocaleTest::runIndexedTest( int32_t index, UBool exec, const char* &name, c
     TESTCASE_AUTO(TestCurrencyByDate);
     TESTCASE_AUTO(TestGetVariantWithKeywords);
     TESTCASE_AUTO(TestIsRightToLeft);
+    TESTCASE_AUTO(TestBug13277);
+    TESTCASE_AUTO(TestBug13554);
     TESTCASE_AUTO_END;
 }
 
@@ -864,8 +869,8 @@ LocaleTest::TestGetLangsAndCountries()
       ;
 
     /* TODO: Change this test to be more like the cloctst version? */
-    if (testCount != 594)
-        errln("Expected getISOLanguages() to return 594 languages; it returned %d", testCount);
+    if (testCount != 595)
+        errln("Expected getISOLanguages() to return 595 languages; it returned %d", testCount);
     else {
         for (i = 0; i < 15; i++) {
             int32_t j;
@@ -1256,6 +1261,19 @@ LocaleTest::TestEuroSupport()
     int32_t invalidLen = ucurr_forLocale("en_QQ", tmp, 4, &status);
     if (invalidLen || U_SUCCESS(status)) {
         errln("Fail: en_QQ didn't return NULL");
+    }
+
+    // The currency keyword value is as long as the destination buffer.
+    // It should detect the overflow internally, and default to the locale's currency.
+    tmp[0] = u'¤';
+    status = U_ZERO_ERROR;
+    int32_t length = ucurr_forLocale("en_US@currency=euro", tmp, 4, &status);
+    if (U_FAILURE(status) || dollarStr != UnicodeString(tmp, length)) {
+        if (U_SUCCESS(status) && tmp[0] == u'¤') {
+            errln("Fail: ucurr_forLocale(en_US@currency=euro) succeeded without writing output");
+        } else {
+            errln("Fail: ucurr_forLocale(en_US@currency=euro) != USD - %s", u_errorName(status));
+        }
     }
 }
 
@@ -2698,3 +2716,36 @@ void LocaleTest::TestBug11421() {
         }
     }
 }
+
+//  TestBug13277. The failure manifests as valgrind errors.
+//                See the trac ticket for details.
+//                
+
+void LocaleTest::TestBug13277() {
+    UErrorCode status = U_ZERO_ERROR;
+    CharString name("en-us-x-foo", -1, status);
+    while (name.length() < 152) {
+        name.append("-x-foo", -1, status);
+    }
+
+    while (name.length() < 160) {
+        name.append('z', status);
+        Locale loc(name.data(), nullptr, nullptr, nullptr);
+    }
+}
+
+// TestBug13554 Check for read past end of array in getPosixID().
+//              The bug shows as an Address Sanitizer failure.
+
+void LocaleTest::TestBug13554() {
+    UErrorCode status = U_ZERO_ERROR;
+    const int BUFFER_SIZE = 100;
+    char  posixID[BUFFER_SIZE];
+
+    for (uint32_t hostid = 0; hostid < 0x500; ++hostid) {
+        status = U_ZERO_ERROR;
+        uprv_convertToPosix(hostid, posixID, BUFFER_SIZE, &status);
+    }
+}
+
+

@@ -81,9 +81,9 @@ static void hauntedCircle(SOSPeerInfoDeviceClass devClass, bool expectGhostBuste
     // Did ghostbuster work?
     is(ProcessChangesUntilNoChange(changes, bobFinal, NULL), 2, "updates");
     if(expectGhostBusted) { // ghostbusting is currently disabled for MacOSX Peers
-        ok([bobFinal.trust isInCircle:NULL], "Bob is in");
+        ok([bobFinal isInCircle:NULL], "Bob is in");
     } else {
-        ok(![bobFinal.trust isInCircle:NULL], "Bob is not in");
+        ok(![bobFinal isInCircle:NULL], "Bob is not in");
     }
 
     is(countPeers(bobFinal), 1, "There should only be 1 valid peer");
@@ -141,7 +141,7 @@ static void multiBob(SOSPeerInfoDeviceClass devClass, bool expectGhostBusted, bo
     CFReleaseNull(cfpassword);
 
     
-    ok([bobFinal_account.trust isInCircle:NULL], "bobFinal_account is in");
+    ok([bobFinal_account isInCircle:NULL], "bobFinal_account is in");
 
     is(countPeers(bobFinal_account), 2, "Expect ghostBobs to be gone");
     is(countPeers(alice_account), 2, "Expect ghostBobs to be gone");

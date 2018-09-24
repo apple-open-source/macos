@@ -99,6 +99,7 @@ __unused static const char copyright[] =
 #include <string.h>
 #include <unistd.h>
 #include <sysexits.h>
+#include <syslog.h>
 
 #include "ifconfig.h"
 
@@ -137,6 +138,8 @@ static char *bytes_to_str(unsigned long long bytes);
 static char *bps_to_str(unsigned long long rate);
 static char *ns_to_str(unsigned long long nsec);
 static	void tunnel_status(int s);
+static void clat46_addr(int s, char *name);
+static void nat64_status(int s, char *name);
 static	void usage(void);
 static char *sched2str(unsigned int s);
 static char *tl2str(unsigned int s);
@@ -1189,6 +1192,16 @@ setqosmarking(const char *cmd, const char *arg, int s, const struct afswtch *afp
 
 #endif /* defined(SIOCSQOSMARKINGMODE) && defined(SIOCSQOSMARKINGENABLED) */
 
+void
+setlowpowermode(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_low_power_mode = !!value;
+
+	if (ioctl(s, SIOCSIFLOWPOWER, (caddr_t)&ifr) < 0)
+		Perror(vname);
+}
+
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
@@ -1196,7 +1209,7 @@ setqosmarking(const char *cmd, const char *arg, int s, const struct afswtch *afp
 
 #define	IFEFBITS \
 "\020\1AUTOCONFIGURING\4PROBE_CONNECTIVITY\5FASTLN_CAP\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
-"\12VLAN\13BOND\14ARPLL\15NOWINDOWSCALE\16NOAUTOIPV6LL\17EXPENSIVE\20ROUTER4" \
+"\12VLAN\13BOND\14ARPLL\15CLAT46\16NOAUTOIPV6LL\17EXPENSIVE\20ROUTER4" \
 "\21ROUTER6\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI" \
 "\27AWDL_RESTRICTED\30CL2K\31ECN_ENABLE\32ECN_DISABLE\33CHANNEL_DRV\34CA" \
 "\35SENDLIST\36DIRECTLINK\37FASTLN_ON\40UPDOWNCHANGE"
@@ -1290,6 +1303,13 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		} else if (afp->af_af == ift->ifa_addr->sa_family)
 			afp->af_status(s, ift);
 	}
+
+/* Print CLAT46 address */
+	clat46_addr(s, name);
+
+/* Print NAT64 prefix */
+	nat64_status(s, name);
+
 #if 0
 	if (allfamilies || afp->af_af == AF_LINK) {
 		const struct afswtch *lafp;
@@ -1619,6 +1639,11 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		}
 	}
 #endif /* defined(SIOCGQOSMARKINGENABLED) && defined(SIOCGQOSMARKINGMODE) */
+
+	if (verbose > 0 && ioctl(s, SIOCGIFLOWPOWER, &ifr) != -1) {
+		printf("\tlow power mode: %s\n",
+		       (ifr.ifr_low_power_mode != 0) ? "enabled" : "disabled");
+	}
 done:
 	close(s);
 	return;
@@ -1715,6 +1740,51 @@ static void
 tunnel_status(int s)
 {
 	af_all_tunnel_status(s);
+}
+
+static void
+clat46_addr(int s, char * if_name)
+{
+	struct if_clat46req ifr;
+	char buf[MAXHOSTNAMELEN];
+
+	bzero(&ifr, sizeof (ifr));
+	strlcpy(ifr.ifclat46_name, if_name, sizeof(ifr.ifclat46_name));
+
+	if (ioctl(s, SIOCGIFCLAT46ADDR, &ifr) < 0) {
+		if (errno != ENOENT)
+			syslog(LOG_WARNING, "ioctl (SIOCGIFCLAT46ADDR): %d", errno);
+		return;
+	}
+
+	if (inet_ntop(AF_INET6, &ifr.ifclat46_addr.v6_address, buf, sizeof(buf)) != NULL)
+		printf("\tinet6 %s prefixlen %d clat46\n",
+			buf, ifr.ifclat46_addr.v6_prefixlen);
+}
+
+static void
+nat64_status(int s, char * if_name)
+{
+	int i;
+	struct if_nat64req ifr;
+	char buf[MAXHOSTNAMELEN];
+
+	bzero(&ifr, sizeof(ifr));
+	strlcpy(ifr.ifnat64_name, if_name, sizeof(ifr.ifnat64_name));
+
+	if (ioctl(s, SIOCGIFNAT64PREFIX, &ifr) < 0) {
+		if (errno != ENOENT)
+			syslog(LOG_WARNING, "ioctl(SIOCGIFNAT64PREFIX): %d", errno);
+		return;
+	}
+
+	for (i = 0; i < NAT64_MAX_NUM_PREFIXES; i++) {
+		if (ifr.ifnat64_prefixes[i].prefix_len > 0) {
+			inet_ntop(AF_INET6, &ifr.ifnat64_prefixes[i].ipv6_prefix, buf, sizeof(buf));
+			printf("\tnat64 prefix %s prefixlen %d\n",
+			    buf, ifr.ifnat64_prefixes[i].prefix_len << 3);
+		}
+	}
 }
 
 void
@@ -1930,6 +2000,8 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD_ARG("disable_output",		setdisableoutput),
 	DEF_CMD("probe_connectivity",	1,		setprobeconnectivity),
 	DEF_CMD("-probe_connectivity",	0,		setprobeconnectivity),
+	DEF_CMD("lowpowermode",	1,		setlowpowermode),
+	DEF_CMD("-lowpowermode",	0,	setlowpowermode),
 };
 
 static __constructor void

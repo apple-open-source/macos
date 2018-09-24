@@ -53,6 +53,10 @@
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #endif
 
+#if PLATFORM(IOS)
+#include "WebCoreThreadInternal.h"
+#endif
+
 #if PLATFORM(IOS) || PLATFORM(MAC)
 extern "C" const CFStringRef kCFStreamPropertySourceApplication;
 extern "C" const CFStringRef _kCFStreamSocketSetNoDelay;
@@ -70,6 +74,26 @@ SOFT_LINK_OPTIONAL(CFNetwork, _CFHTTPMessageSetResponseProxyURL, void, __cdecl, 
 WTF_DECLARE_CF_TYPE_TRAIT(CFHTTPMessage);
 
 namespace WebCore {
+
+static inline CFRunLoopRef callbacksRunLoop()
+{
+#if PLATFORM(WIN)
+    return loaderRunLoop();
+#elif PLATFORM(IOS)
+    return WebThreadRunLoop();
+#else
+    return CFRunLoopGetMain();
+#endif
+}
+
+static inline auto callbacksRunLoopMode()
+{
+#if PLATFORM(WIN)
+    return kCFRunLoopDefaultMode;
+#else
+    return kCFRunLoopCommonModes;
+#endif
+}
 
 SocketStreamHandleImpl::SocketStreamHandleImpl(const URL& url, SocketStreamHandleClient& client, PAL::SessionID sessionID, const String& credentialPartition, SourceApplicationAuditToken&& auditData)
     : SocketStreamHandle(url, client)
@@ -119,13 +143,8 @@ void SocketStreamHandleImpl::scheduleStreams()
     CFReadStreamSetClient(m_readStream.get(), static_cast<CFOptionFlags>(-1), readStreamCallback, &clientContext);
     CFWriteStreamSetClient(m_writeStream.get(), static_cast<CFOptionFlags>(-1), writeStreamCallback, &clientContext);
 
-#if PLATFORM(WIN)
-    CFReadStreamScheduleWithRunLoop(m_readStream.get(), loaderRunLoop(), kCFRunLoopDefaultMode);
-    CFWriteStreamScheduleWithRunLoop(m_writeStream.get(), loaderRunLoop(), kCFRunLoopDefaultMode);
-#else
-    CFReadStreamScheduleWithRunLoop(m_readStream.get(), CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
-    CFWriteStreamScheduleWithRunLoop(m_writeStream.get(), CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
-#endif
+    CFReadStreamScheduleWithRunLoop(m_readStream.get(), callbacksRunLoop(), callbacksRunLoopMode());
+    CFWriteStreamScheduleWithRunLoop(m_writeStream.get(), callbacksRunLoop(), callbacksRunLoopMode());
 
     CFReadStreamOpen(m_readStream.get());
     CFWriteStreamOpen(m_writeStream.get());
@@ -166,6 +185,7 @@ void SocketStreamHandleImpl::pacExecutionCallback(void* client, CFArrayRef proxy
 {
     SocketStreamHandleImpl* handle = static_cast<SocketStreamHandleImpl*>(client);
 
+    RefPtr<SocketStreamHandle> protector(handle);
     callOnMainThreadAndWait([&] {
         ASSERT(handle->m_connectingSubstate == ExecutingPACFile);
         // This time, the array won't have PAC as a first entry.
@@ -182,11 +202,7 @@ void SocketStreamHandleImpl::executePACFileURL(CFURLRef pacFileURL)
     // CFNetwork returns an empty proxy array for WebSocket schemes, so use m_httpsURL.
     CFStreamClientContext clientContext = { 0, this, retainSocketStreamHandle, releaseSocketStreamHandle, copyPACExecutionDescription };
     m_pacRunLoopSource = adoptCF(CFNetworkExecuteProxyAutoConfigurationURL(pacFileURL, m_httpsURL.get(), pacExecutionCallback, &clientContext));
-#if PLATFORM(WIN)
-    CFRunLoopAddSource(loaderRunLoop(), m_pacRunLoopSource.get(), kCFRunLoopDefaultMode);
-#else
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), m_pacRunLoopSource.get(), kCFRunLoopCommonModes);
-#endif
+    CFRunLoopAddSource(callbacksRunLoop(), m_pacRunLoopSource.get(), callbacksRunLoopMode());
     m_connectingSubstate = ExecutingPACFile;
 }
 
@@ -195,11 +211,7 @@ void SocketStreamHandleImpl::removePACRunLoopSource()
     ASSERT(m_pacRunLoopSource);
 
     CFRunLoopSourceInvalidate(m_pacRunLoopSource.get());
-#if PLATFORM(WIN)
-    CFRunLoopRemoveSource(loaderRunLoop(), m_pacRunLoopSource.get(), kCFRunLoopDefaultMode);
-#else
-    CFRunLoopRemoveSource(CFRunLoopGetCurrent(), m_pacRunLoopSource.get(), kCFRunLoopCommonModes);
-#endif
+    CFRunLoopRemoveSource(callbacksRunLoop(), m_pacRunLoopSource.get(), callbacksRunLoopMode());
     m_pacRunLoopSource = 0;
 }
 
@@ -462,16 +474,11 @@ void SocketStreamHandleImpl::readStreamCallback(CFReadStreamRef stream, CFStream
     if (!handle->m_readStream)
         return;
 
-#if PLATFORM(WIN)
     RefPtr<SocketStreamHandle> protector(handle);
     callOnMainThreadAndWait([&] {
         if (handle->m_readStream)
             handle->readStreamCallback(type);
     });
-#else
-    ASSERT(isMainThread());
-    handle->readStreamCallback(type);
-#endif
 }
 
 void SocketStreamHandleImpl::writeStreamCallback(CFWriteStreamRef stream, CFStreamEventType type, void* clientCallBackInfo)
@@ -482,16 +489,11 @@ void SocketStreamHandleImpl::writeStreamCallback(CFWriteStreamRef stream, CFStre
     if (!handle->m_writeStream)
         return;
 
-#if PLATFORM(WIN)
     RefPtr<SocketStreamHandle> protector(handle);
     callOnMainThreadAndWait([&] {
         if (handle->m_writeStream)
             handle->writeStreamCallback(type);
     });
-#else
-    ASSERT(isMainThread());
-    handle->writeStreamCallback(type);
-#endif
 }
 
 #if !PLATFORM(IOS)
@@ -696,7 +698,7 @@ SocketStreamHandleImpl::~SocketStreamHandleImpl()
     ASSERT(!m_pacRunLoopSource);
 }
 
-std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const char* data, size_t length)
+std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t* data, size_t length)
 {
     if (!m_writeStream)
         return 0;
@@ -726,13 +728,8 @@ void SocketStreamHandleImpl::platformClose()
         return;
     }
 
-#if PLATFORM(WIN)
-    CFReadStreamUnscheduleFromRunLoop(m_readStream.get(), loaderRunLoop(), kCFRunLoopDefaultMode);
-    CFWriteStreamUnscheduleFromRunLoop(m_writeStream.get(), loaderRunLoop(), kCFRunLoopDefaultMode);
-#else
-    CFReadStreamUnscheduleFromRunLoop(m_readStream.get(), CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
-    CFWriteStreamUnscheduleFromRunLoop(m_writeStream.get(), CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
-#endif
+    CFReadStreamUnscheduleFromRunLoop(m_readStream.get(), callbacksRunLoop(), callbacksRunLoopMode());
+    CFWriteStreamUnscheduleFromRunLoop(m_writeStream.get(), callbacksRunLoop(), callbacksRunLoopMode());
 
     CFReadStreamClose(m_readStream.get());
     CFWriteStreamClose(m_writeStream.get());

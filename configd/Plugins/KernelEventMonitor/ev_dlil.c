@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,17 +38,24 @@
 #endif  /* kSCEntNetIdleRoute */
 
 static CFStringRef
-create_interface_key(const char * if_name)
+create_interface_cfstring(const char * if_name)
 {
-	CFStringRef		interface;
+	CFStringRef	interface;
+
+	interface = CFStringCreateWithCString(NULL, if_name,
+					      kCFStringEncodingUTF8);
+	return (interface);
+}
+
+static CFStringRef
+create_interface_key(CFStringRef interface)
+{
 	CFStringRef		key;
 
-	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
 	key       = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 								  kSCDynamicStoreDomainState,
 								  interface,
 								  kSCEntNetLink);
-	CFRelease(interface);
 	return (key);
 }
 
@@ -87,6 +94,7 @@ copy_entity(CFStringRef key)
 
 static void
 interface_update_status(const char *if_name,
+			CFStringRef interface,
 			CFBooleanRef active, boolean_t attach,
 			CFBooleanRef expensive, boolean_t only_if_different)
 {
@@ -94,7 +102,7 @@ interface_update_status(const char *if_name,
 	CFMutableDictionaryRef	newDict;
 	CFDictionaryRef		oldDict;
 
-	key = create_interface_key(if_name);
+	key = create_interface_key(interface);
 	oldDict = cache_SCDynamicStoreCopyValue(store, key);
 	if (oldDict != NULL && isA_CFDictionary(oldDict) == NULL) {
 		CFRelease(oldDict);
@@ -148,17 +156,14 @@ interface_update_status(const char *if_name,
 
 #ifdef KEV_DL_LINK_QUALITY_METRIC_CHANGED
 static CFStringRef
-create_linkquality_key(const char * if_name)
+create_linkquality_key(CFStringRef interface)
 {
-	CFStringRef		interface;
 	CFStringRef		key;
 
-	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
 	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 							    kSCDynamicStoreDomainState,
 							    interface,
 							    kSCEntNetLinkQuality);
-	CFRelease(interface);
 	return (key);
 }
 
@@ -168,14 +173,17 @@ void
 interface_update_quality_metric(const char *if_name,
 				int quality)
 {
-	CFStringRef  		key             = NULL;
-	CFMutableDictionaryRef	newDict         = NULL;
-	CFNumberRef		linkquality     = NULL;
+	CFStringRef  		key;
+	CFStringRef		interface;
+	CFMutableDictionaryRef	newDict;
 
-	key = create_linkquality_key(if_name);
+	interface = create_interface_cfstring(if_name);
+	key = create_linkquality_key(interface);
 	newDict = copy_entity(key);
 
 	if (quality != IFNET_LQM_THRESH_UNKNOWN) {
+		CFNumberRef	linkquality;
+
 		linkquality = CFNumberCreate(NULL, kCFNumberIntType, &quality);
 		CFDictionarySetValue(newDict, kSCPropNetLinkQuality, linkquality);
 		CFRelease(linkquality);
@@ -192,6 +200,7 @@ interface_update_quality_metric(const char *if_name,
 		cache_SCDynamicStoreRemoveValue(store, key);
 	}
 
+	CFRelease(interface);
 	CFRelease(key);
 	CFRelease(newDict);
 	return;
@@ -233,17 +242,14 @@ link_update_quality_metric(const char *if_name)
 
 #ifdef	KEV_DL_ISSUES
 static CFStringRef
-create_link_issues_key(const char * if_name)
+create_link_issues_key(CFStringRef interface)
 {
-	CFStringRef	interface;
 	CFStringRef	key;
 
-	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
 	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 							    kSCDynamicStoreDomainState,
 							    interface,
 							    kSCEntNetLinkIssues);
-	CFRelease(interface);
 	return (key);
 }
 
@@ -258,12 +264,14 @@ interface_update_link_issues(const char		*if_name,
 			     size_t		info_size)
 {
 	CFDataRef		infoData;
+	CFStringRef		interface;
 	CFStringRef		key;
 	CFDataRef		modidData;
 	CFMutableDictionaryRef	newDict;
 	CFDateRef		timeStamp;
 
-	key = create_link_issues_key(if_name);
+	interface = create_interface_cfstring(if_name);
+	key = create_link_issues_key(interface);
 
 	newDict = copy_entity(key);
 
@@ -285,6 +293,7 @@ interface_update_link_issues(const char		*if_name,
 
 	SC_log(LOG_DEBUG, "Update interface link issues: %s: %@", if_name, newDict);
 	cache_SCDynamicStoreSetValue(store, key, newDict);
+	CFRelease(interface);
 	CFRelease(newDict);
 	CFRelease(key);
 	return;
@@ -296,52 +305,74 @@ __private_extern__
 void
 interface_detaching(const char *if_name)
 {
+	CFStringRef		interface;
 	CFStringRef		key;
 	CFMutableDictionaryRef	newDict;
 
 	SC_log(LOG_DEBUG, "Detach interface: %s", if_name);
 
-	key = create_interface_key(if_name);
+	interface = create_interface_cfstring(if_name);
+	key = create_interface_key(interface);
 	newDict = copy_entity(key);
 	CFDictionarySetValue(newDict, kSCPropNetLinkDetaching,
 			     kCFBooleanTrue);
 	cache_SCDynamicStoreSetValue(store, key, newDict);
+	CFRelease(interface);
 	CFRelease(newDict);
 	CFRelease(key);
 	return;
+}
+
+static CFStringRef
+create_nat64_key(CFStringRef interface)
+{
+	CFStringRef	key;
+
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainState,
+							    interface,
+							    kSCEntNetNAT64);
+	return (key);
 }
 
 
 static void
 interface_remove(const char *if_name)
 {
+	CFStringRef		interface;
 	CFStringRef		key;
 
 	SC_log(LOG_DEBUG, "Remove interface: %s", if_name);
 
-	key = create_interface_key(if_name);
+	interface = create_interface_cfstring(if_name);
+
+	key = create_interface_key(interface);
+	cache_SCDynamicStoreRemoveValue(store, key);
+	CFRelease(key);
+
+	key = create_nat64_key(interface);
 	cache_SCDynamicStoreRemoveValue(store, key);
 	CFRelease(key);
 
 #ifdef	KEV_DL_LINK_QUALITY_METRIC_CHANGED
-	key = create_linkquality_key(if_name);
+	key = create_linkquality_key(interface);
 	cache_SCDynamicStoreRemoveValue(store, key);
 	CFRelease(key);
 #endif	/* KEV_DL_LINK_QUALITY_METRIC_CHANGED */
 
 #ifdef	KEV_DL_ISSUES
-	key = create_link_issues_key(if_name);
+	key = create_link_issues_key(interface);
 	cache_SCDynamicStoreRemoveValue(store, key);
 	CFRelease(key);
 #endif	/* KEV_DL_ISSUES */
 
+	CFRelease(interface);
 	return;
 }
 
 
-__private_extern__
-void
-link_update_status(const char *if_name, boolean_t attach, boolean_t only_if_different)
+static void
+S_link_update_status(const char *if_name, CFStringRef interface, boolean_t attach, boolean_t only_if_different)
 {
 	CFBooleanRef		active		= NULL;
 	CFBooleanRef		expensive	= NULL;
@@ -389,9 +420,20 @@ link_update_status(const char *if_name, boolean_t attach, boolean_t only_if_diff
 	}
 
 	/* update status */
-	interface_update_status(if_name, active, attach, expensive, only_if_different);
+	interface_update_status(if_name, interface, active, attach, expensive, only_if_different);
 	close(sock);
 	return;
+}
+
+__private_extern__
+void
+link_update_status(const char *if_name, boolean_t attach, boolean_t only_if_different)
+{
+	CFStringRef	interface;
+
+	interface = create_interface_cfstring(if_name);
+	S_link_update_status(if_name, interface, attach, only_if_different);
+	CFRelease(interface);
 }
 
 
@@ -399,17 +441,19 @@ __private_extern__
 void
 link_update_status_if_missing(const char * if_name)
 {
+	CFStringRef	interface;
 	CFStringRef	key;
 	CFDictionaryRef	dict;
 
-	key = create_interface_key(if_name);
+	interface = create_interface_cfstring(if_name);
+	key = create_interface_key(interface);
 	dict = cache_SCDynamicStoreCopyValue(store, key);
 	if (dict != NULL) {
 		/* it's already present, don't update */
 		CFRelease(dict);
 		goto done;
 	}
-	link_update_status(if_name, FALSE, FALSE);
+	S_link_update_status(if_name, interface, FALSE, FALSE);
 	dict = cache_SCDynamicStoreCopyValue(store, key);
 	if (dict != NULL) {
 		/* our action made it appear */
@@ -417,6 +461,7 @@ link_update_status_if_missing(const char * if_name)
 		CFRelease(dict);
 	}
  done:
+	CFRelease(interface);
 	CFRelease(key);
 	return;
 }
@@ -497,7 +542,7 @@ interfaceListAddInterface(CFMutableArrayRef ifList, const char * if_name)
 	Boolean		added = FALSE;
 	CFStringRef	interface;
 
-	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
+	interface = create_interface_cfstring(if_name);
 	if (!CFArrayContainsValue(ifList,
 				  CFRangeMake(0, CFArrayGetCount(ifList)),
 				  interface)) {
@@ -524,7 +569,7 @@ interfaceListRemoveInterface(CFMutableArrayRef ifList, const char * if_name)
 	CFStringRef	interface;
 	CFIndex		where;
 
-	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
+	interface = create_interface_cfstring(if_name);
 	where = CFArrayGetFirstIndexOfValue(ifList,
 					    CFRangeMake(0, CFArrayGetCount(ifList)),
 					    interface);
@@ -602,29 +647,26 @@ __private_extern__
 void
 interface_update_idle_state(const char *if_name)
 {
-	CFStringRef		if_name_cf;
+	CFStringRef		interface;
 	CFStringRef		key;
 	int			ref;
 
-	/* We will only update the SCDynamicStore if the idle ref count
-	 * is still 0 */
+	/* only update the SCDynamicStore if the idle ref count is still 0 */
 	ref = socket_reference_count(if_name);
 	if (ref != 0) {
 		return;
 	}
 
-	if_name_cf = CFStringCreateWithCString(NULL, if_name,
-					       kCFStringEncodingASCII);
-
+	interface = create_interface_cfstring(if_name);
 	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 							    kSCDynamicStoreDomainState,
-							    if_name_cf,
+							    interface,
 							    kSCEntNetIdleRoute);
 
 	SC_log(LOG_DEBUG, "Post interface idle: %s", if_name);
 	cache_SCDynamicStoreNotifyValue(store, key);
 	CFRelease(key);
-	CFRelease(if_name_cf);
+	CFRelease(interface);
 	return;
 }
 #endif	// KEV_DL_IF_IDLE_ROUTE_REFCNT

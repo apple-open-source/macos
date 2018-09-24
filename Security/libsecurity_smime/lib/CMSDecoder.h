@@ -407,8 +407,8 @@ OSStatus CMSDecoderGetDecoder(
 OSStatus CMSDecoderCopySignerAppleCodesigningHashAgility(
     CMSDecoderRef		cmsDecoder,
     size_t				signerIndex,            /* usually 0 */
-    CFDataRef  _Nullable CF_RETURNS_RETAINED * _Nonnull hashAgilityAttrValue);		/* RETURNED */
-
+    CFDataRef  _Nullable CF_RETURNS_RETAINED * _Nonnull hashAgilityAttrValue)		/* RETURNED */
+API_AVAILABLE(macos(10.12.4), ios(11.0));
 
 /*
  * Obtain the Hash Agility v2 attribute value of signer 'signerIndex'
@@ -422,7 +422,23 @@ OSStatus CMSDecoderCopySignerAppleCodesigningHashAgility(
 OSStatus CMSDecoderCopySignerAppleCodesigningHashAgilityV2(
     CMSDecoderRef                                               cmsDecoder,
     size_t                                                      signerIndex,            /* usually 0 */
-    CFDictionaryRef _Nullable CF_RETURNS_RETAINED * _Nonnull    hashAgilityAttrValues);   /* RETURNED */
+    CFDictionaryRef _Nullable CF_RETURNS_RETAINED * _Nonnull    hashAgilityAttrValues)   /* RETURNED */
+API_AVAILABLE(macos(10.13.4), ios(11.3));
+
+/*
+ * Obtain the expiration time of signer 'signerIndex' of a CMS message, if
+ * present. This is part of the signed attributes of the message.
+ *
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one.
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called.
+ */
+OSStatus CMSDecoderCopySignerAppleExpirationTime(
+     CMSDecoderRef      cmsDecoder,
+     size_t             signerIndex,
+     CFAbsoluteTime     *expirationTime)            /* RETURNED */
+API_AVAILABLE(macos(10.14), ios(12.0));
 
 
 CF_ASSUME_NONNULL_END

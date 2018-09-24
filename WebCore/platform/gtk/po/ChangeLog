@@ -1,3 +1,57 @@
+2018-07-02  Yuri Chornoivan  <yurchor@ukr.net>
+
+        [GTK] [l10n] Updated Ukrainian translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=187231
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * uk.po:
+
+2018-04-08  Daniel Rusek  <mail@asciiwolf.com>
+
+        Updated Czech translation
+        https://bugs.webkit.org/show_bug.cgi?id=184403
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * cs.po:
+
+2018-03-29  Rafael Fontenelle  <rafaelff@gnome.org>
+
+        [l10n] [pt_BR] Updated Brazilian Portuguese translation
+        https://bugs.webkit.org/show_bug.cgi?id=184132
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * pt_BR.po:
+
+2018-03-04  Andika Triwidada  <atriwidada@gnome.org>
+
+        [l10n] Updated Indonesian translation for WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=183318
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * id.po:
+
+2018-03-03  Michael Catanzaro  <mcatanzaro@igalia.com>
+
+        [GTK] POTFILES.in is out of date
+        https://bugs.webkit.org/show_bug.cgi?id=183313
+
+        Unreviewed, remove WebErrorsGLib.cpp after r229193
+
+        * POTFILES.in:
+
+2018-02-12  Piotr Drąg  <piotrdrag@gmail.com>
+
+        [l10n] Updated Polish translation of WebKitGTK+ for 2.20
+        https://bugs.webkit.org/show_bug.cgi?id=182693
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * pl.po:
+
 2017-12-21  Josef Andersson  <josef.andersson@fripost.org>
 
         Updated Swedish translation

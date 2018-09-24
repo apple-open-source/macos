@@ -39,6 +39,7 @@
 #include <wtf/UUID.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/TextStream.h>
 
@@ -83,7 +84,7 @@ void URL::invalidate()
     m_userEnd = 0;
     m_passwordEnd = 0;
     m_hostEnd = 0;
-    m_portEnd = 0;
+    m_portLength = 0;
     m_pathEnd = 0;
     m_pathAfterLastSlash = 0;
     m_queryEnd = 0;
@@ -143,7 +144,7 @@ String URL::lastPathComponent() const
         --end;
 
     size_t start = m_string.reverseFind('/', end);
-    if (start < static_cast<unsigned>(m_portEnd))
+    if (start < static_cast<unsigned>(m_hostEnd + m_portLength))
         return String();
     ++start;
 
@@ -155,23 +156,23 @@ StringView URL::protocol() const
     return StringView(m_string).substring(0, m_schemeEnd);
 }
 
-String URL::host() const
+StringView URL::host() const
 {
     unsigned start = hostStart();
-    return m_string.substring(start, m_hostEnd - start);
+    return StringView(m_string).substring(start, m_hostEnd - start);
 }
 
 std::optional<uint16_t> URL::port() const
 {
-    if (!m_portEnd || m_hostEnd >= m_portEnd - 1)
+    if (!m_portLength)
         return std::nullopt;
 
     bool ok = false;
     unsigned number;
     if (m_string.is8Bit())
-        number = charactersToUIntStrict(m_string.characters8() + m_hostEnd + 1, m_portEnd - m_hostEnd - 1, &ok);
+        number = charactersToUIntStrict(m_string.characters8() + m_hostEnd + 1, m_portLength - 1, &ok);
     else
-        number = charactersToUIntStrict(m_string.characters16() + m_hostEnd + 1, m_portEnd - m_hostEnd - 1, &ok);
+        number = charactersToUIntStrict(m_string.characters16() + m_hostEnd + 1, m_portLength - 1, &ok);
     if (!ok || number > std::numeric_limits<uint16_t>::max())
         return std::nullopt;
     return number;
@@ -180,13 +181,13 @@ std::optional<uint16_t> URL::port() const
 String URL::hostAndPort() const
 {
     if (auto port = this->port())
-        return host() + ':' + String::number(port.value());
-    return host();
+        return makeString(host(), ':', static_cast<unsigned>(port.value()));
+    return host().toString();
 }
 
 String URL::protocolHostAndPort() const
 {
-    String result = m_string.substring(0, m_portEnd);
+    String result = m_string.substring(0, m_hostEnd + m_portLength);
 
     if (m_passwordEnd - m_userStart > 0) {
         const int allowForTrailingAtSign = 1;
@@ -275,7 +276,7 @@ static void assertProtocolIsGood(StringView protocol)
 
 #endif
 
-static StaticLock defaultPortForProtocolMapForTestingLock;
+static Lock defaultPortForProtocolMapForTestingLock;
 
 using DefaultPortForProtocolMapForTesting = HashMap<String, uint16_t>;
 static DefaultPortForProtocolMapForTesting*& defaultPortForProtocolMapForTesting()
@@ -369,7 +370,8 @@ String URL::query() const
 
 String URL::path() const
 {
-    return m_string.substring(m_portEnd, m_pathEnd - m_portEnd);
+    unsigned portEnd = m_hostEnd + m_portLength;
+    return m_string.substring(portEnd, m_pathEnd - portEnd);
 }
 
 bool URL::setProtocol(const String& s)
@@ -415,18 +417,11 @@ static bool appendEncodedHostname(UCharBuffer& buffer, StringView string)
     
     UChar hostnameBuffer[hostnameBufferLength];
     UErrorCode error = U_ZERO_ERROR;
+    UIDNAInfo processingDetails = UIDNA_INFO_INITIALIZER;
+    int32_t numCharactersConverted = uidna_nameToASCII(&URLParser::internationalDomainNameTranscoder(),
+        string.upconvertedCharacters(), string.length(), hostnameBuffer, hostnameBufferLength, &processingDetails, &error);
     
-#if COMPILER(GCC_OR_CLANG)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-    int32_t numCharactersConverted = uidna_IDNToASCII(string.upconvertedCharacters(), string.length(), hostnameBuffer,
-        hostnameBufferLength, UIDNA_ALLOW_UNASSIGNED, 0, &error);
-#if COMPILER(GCC_OR_CLANG)
-#pragma GCC diagnostic pop
-#endif
-    
-    if (error == U_ZERO_ERROR) {
+    if (U_SUCCESS(error) && !processingDetails.errors) {
         buffer.append(hostnameBuffer, numCharactersConverted);
         return true;
     }
@@ -461,9 +456,9 @@ void URL::setHost(const String& s)
 
 void URL::removePort()
 {
-    if (m_hostEnd == m_portEnd)
+    if (!m_portLength)
         return;
-    URLParser parser(m_string.left(m_hostEnd) + m_string.substring(m_portEnd));
+    URLParser parser(makeString(StringView(m_string).left(m_hostEnd), StringView(m_string).substring(m_hostEnd + m_portLength)));
     *this = parser.result();
 }
 
@@ -472,10 +467,10 @@ void URL::setPort(unsigned short i)
     if (!m_isValid)
         return;
 
-    bool colonNeeded = m_portEnd == m_hostEnd;
+    bool colonNeeded = !m_portLength;
     unsigned portStart = (colonNeeded ? m_hostEnd : m_hostEnd + 1);
 
-    URLParser parser(makeString(m_string.left(portStart), (colonNeeded ? ":" : ""), String::number(i), m_string.substring(m_portEnd)));
+    URLParser parser(makeString(StringView(m_string).left(portStart), (colonNeeded ? ":" : ""), String::number(i), StringView(m_string).substring(m_hostEnd + m_portLength)));
     *this = parser.result();
 }
 
@@ -515,7 +510,7 @@ void URL::setHostAndPort(const String& hostAndPort)
         builder.appendLiteral(":");
         builder.append(port);
     }
-    builder.append(m_string.substring(m_portEnd));
+    builder.append(StringView(m_string).substring(m_hostEnd + m_portLength));
 
     URLParser parser(builder.toString());
     *this = parser.result();
@@ -664,7 +659,7 @@ void URL::setPath(const String& s)
     auto questionMarkOrNumberSign = [] (UChar character) {
         return character == '?' || character == '#';
     };
-    URLParser parser(makeString(StringView(m_string).left(m_portEnd), percentEncodeCharacters(path, questionMarkOrNumberSign), StringView(m_string).substring(m_pathEnd)));
+    URLParser parser(makeString(StringView(m_string).left(m_hostEnd + m_portLength), percentEncodeCharacters(path, questionMarkOrNumberSign), StringView(m_string).substring(m_pathEnd)));
     *this = parser.result();
 }
 
@@ -729,6 +724,18 @@ bool equalIgnoringFragmentIdentifier(const URL& a, const URL& b)
     return true;
 }
 
+bool equalIgnoringQueryAndFragment(const URL& a, const URL& b)
+{
+    if (a.pathEnd() != b.pathEnd())
+        return false;
+    unsigned pathEnd = a.pathEnd();
+    for (unsigned i = 0; i < pathEnd; ++i) {
+        if (a.string()[i] != b.string()[i])
+            return false;
+    }
+    return true;
+}
+
 bool protocolHostAndPortAreEqual(const URL& a, const URL& b)
 {
     if (a.m_schemeEnd != b.m_schemeEnd)
@@ -774,6 +781,24 @@ bool hostsAreEqual(const URL& a, const URL& b)
     }
 
     return true;
+}
+
+bool URL::isMatchingDomain(const String& domain) const
+{
+    if (isNull())
+        return false;
+
+    if (domain.isEmpty())
+        return true;
+
+    if (!protocolIsInHTTPFamily())
+        return false;
+
+    auto host = this->host();
+    if (!host.endsWith(domain))
+        return false;
+
+    return host.length() == domain.length() || host[host.length() - domain.length() - 1] == '.';
 }
 
 String encodeWithURLEscapeSequences(const String& input)
@@ -953,6 +978,7 @@ bool portAllowed(const URL& url)
         531,  // Chat
         532,  // netnews
         540,  // UUCP
+        548,  // afpovertcp [Apple addition]
         556,  // remotefs
         563,  // NNTP+SSL
         587,  // ESMTP
@@ -1006,7 +1032,7 @@ String mimeTypeFromDataURL(const String& url)
         return emptyString();
     }
     if (index == 5)
-        return ASCIILiteral("text/plain");
+        return "text/plain"_s;
     ASSERT(index >= 5);
     return url.substring(5, index - 5).convertToASCIILowercase();
 }
@@ -1034,5 +1060,13 @@ TextStream& operator<<(TextStream& ts, const URL& url)
     ts << url.string();
     return ts;
 }
+
+#if !PLATFORM(COCOA) && !USE(SOUP)
+bool URL::hostIsIPAddress(StringView host)
+{
+    // Assume that any host that ends with a digit is trying to be an IP address.
+    return !host.isEmpty() && isASCIIDigit(host[host.length() - 1]);
+}
+#endif
 
 } // namespace WebCore

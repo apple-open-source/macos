@@ -22,10 +22,14 @@
 
 messages -> WebPage LegacyReceiver {
     SetInitialFocus(bool forward, bool isKeyboardEventValid, WebKit::WebKeyboardEvent event, WebKit::CallbackID callbackID)
-    SetActivityState(unsigned activityState, bool wantsDidUpdateActivityState, Vector<WebKit::CallbackID> callbackIDs)
+    SetActivityState(unsigned activityState, WebKit::ActivityStateChangeID activityStateChangeID, Vector<WebKit::CallbackID> callbackIDs)
     SetLayerHostingMode(enum WebKit::LayerHostingMode layerHostingMode)
 
     SetDrawsBackground(bool drawsBackground)
+
+    AddConsoleMessage(uint64_t frameID, enum MessageSource messageSource, enum MessageLevel messageLevel, String message, uint64_t requestID)
+    SendCSPViolationReport(uint64_t frameID, WebCore::URL reportURL, IPC::FormDataReference reportData)
+    EnqueueSecurityPolicyViolationEvent(uint64_t frameID, WebCore::SecurityPolicyViolationEvent::Init eventInit)
 
 #if PLATFORM(COCOA)
     SetTopContentInsetFenced(float contentInset, IPC::Attachment fencePort)
@@ -41,11 +45,11 @@ messages -> WebPage LegacyReceiver {
     KeyEvent(WebKit::WebKeyboardEvent event)
     MouseEvent(WebKit::WebMouseEvent event)
 #if PLATFORM(IOS)
-    SetViewportConfigurationMinimumLayoutSize(WebCore::FloatSize size)
+    SetViewportConfigurationViewLayoutSize(WebCore::FloatSize size)
     SetMaximumUnobscuredSize(WebCore::FloatSize size)
     SetDeviceOrientation(int32_t deviceOrientation)
-    DynamicViewportSizeUpdate(WebCore::FloatSize minimumLayoutSize, WebCore::FloatSize maximumUnobscuredSize, WebCore::FloatRect targetExposedContentRect, WebCore::FloatRect targetUnobscuredRect, WebCore::FloatRect targetUnobscuredRectInScrollViewCoordinates, WebCore::RectEdges<float> targetUnobscuredSafeAreaInsets, double scale, int32_t deviceOrientation, uint64_t dynamicViewportSizeUpdateID)
-    SynchronizeDynamicViewportUpdate() -> (double newTargetScale, WebCore::FloatPoint newScrollPosition, uint64_t nextValidLayerTreeTransactionID)
+    SetOverrideViewportArguments(std::optional<WebCore::ViewportArguments> arguments)
+    DynamicViewportSizeUpdate(WebCore::FloatSize viewLayoutSize, WebCore::FloatSize maximumUnobscuredSize, WebCore::FloatRect targetExposedContentRect, WebCore::FloatRect targetUnobscuredRect, WebCore::FloatRect targetUnobscuredRectInScrollViewCoordinates, WebCore::RectEdges<float> targetUnobscuredSafeAreaInsets, double scale, int32_t deviceOrientation, uint64_t dynamicViewportSizeUpdateID)
 
     HandleTap(WebCore::IntPoint point, uint64_t lastLayerTreeTransactionId)
     PotentialTapAtPosition(uint64_t requestID, WebCore::FloatPoint point)
@@ -57,9 +61,6 @@ messages -> WebPage LegacyReceiver {
     BlurAssistedNode()
     SelectWithGesture(WebCore::IntPoint point, uint32_t granularity, uint32_t gestureType, uint32_t gestureState, bool isInteractingWithAssistedNode, WebKit::CallbackID callbackID)
     UpdateSelectionWithTouches(WebCore::IntPoint point, uint32_t touches, bool baseIsStart, WebKit::CallbackID callbackID)
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-    UpdateBlockSelectionWithTouch(WebCore::IntPoint point, uint32_t touch, uint32_t handlePosition)
-#endif
     SelectWithTwoTouches(WebCore::IntPoint from, WebCore::IntPoint to, uint32_t gestureType, uint32_t gestureState, WebKit::CallbackID callbackID)
     ExtendSelection(uint32_t granularity)
     SelectWordBackward()
@@ -104,6 +105,7 @@ messages -> WebPage LegacyReceiver {
     StoreSelectionForAccessibility(bool shouldStore)
     StartAutoscrollAtPosition(WebCore::FloatPoint positionInWindow)
     CancelAutoscroll()
+    RequestAssistedNodeInformation(WebKit::CallbackID callbackID)
 #endif
 
     SetControlledByAutomation(bool controlled)
@@ -125,6 +127,11 @@ messages -> WebPage LegacyReceiver {
     DidChooseColor(WebCore::Color color)
 #endif
 
+#if ENABLE(DATALIST_ELEMENT)
+    DidSelectDataListOption(String selectedOption);
+    DidCloseSuggestions();
+#endif
+
 #if ENABLE(CONTEXT_MENUS)
     ContextMenuHidden()
     ContextMenuForKeyEvent()
@@ -133,9 +140,7 @@ messages -> WebPage LegacyReceiver {
     ScrollBy(uint32_t scrollDirection, uint32_t scrollGranularity)
     CenterSelectionInVisibleArea()
 
-    GoBack(uint64_t navigationID, uint64_t backForwardItemID)
-    GoForward(uint64_t navigationID, uint64_t backForwardItemID)
-    GoToBackForwardItem(uint64_t navigationID, uint64_t backForwardItemID)
+    GoToBackForwardItem(uint64_t navigationID, struct WebCore::BackForwardItemIdentifier backForwardItemID, enum WebCore::FrameLoadType backForwardType, enum WebCore::ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad)
     TryRestoreScrollPosition()
 
     LoadURLInFrame(WebCore::URL url, uint64_t frameID)
@@ -152,8 +157,9 @@ messages -> WebPage LegacyReceiver {
     StopLoadingFrame(uint64_t frameID)
     
     RestoreSession(Vector<WebKit::BackForwardListItemState> itemStates)
+    UpdateBackForwardListForReattach(Vector<WebKit::BackForwardListItemState> itemStates)
 
-    DidRemoveBackForwardItem(uint64_t backForwardItemID)
+    DidRemoveBackForwardItem(struct WebCore::BackForwardItemIdentifier backForwardItemID)
 
     UpdateWebsitePolicies(struct WebKit::WebsitePoliciesData websitePolicies)
     DidReceivePolicyDecision(uint64_t frameID, uint64_t listenerID, enum WebCore::PolicyAction policyAction, uint64_t navigationID, WebKit::DownloadID downloadID, std::optional<WebKit::WebsitePoliciesData> websitePolicies)
@@ -175,6 +181,7 @@ messages -> WebPage LegacyReceiver {
     GetSourceForFrame(uint64_t frameID, WebKit::CallbackID callbackID)
     GetWebArchiveOfFrame(uint64_t frameID, WebKit::CallbackID callbackID)
     RunJavaScriptInMainFrame(String script, bool forceUserGesture, WebKit::CallbackID callbackID)
+    RunJavaScriptInMainFrameScriptWorld(String script, bool forceUserGesture, String worldName, WebKit::CallbackID callbackID)
     ForceRepaint(WebKit::CallbackID callbackID)
 
 #if PLATFORM(COCOA)
@@ -212,6 +219,9 @@ messages -> WebPage LegacyReceiver {
     WindowScreenDidChange(uint32_t displayID)
 
     AccessibilitySettingsDidChange()
+#if ENABLE(ACCESSIBILITY_EVENTS)
+    UpdateAccessibilityEventsEnabled(bool enabled)
+#endif
 
     ScalePage(double scale, WebCore::IntPoint origin)
     ScalePageInViewCoordinates(double scale, WebCore::IntPoint centerInViewCoordinates)
@@ -353,10 +363,6 @@ messages -> WebPage LegacyReceiver {
     SetVolumeOfMediaElement(double volume, uint64_t elementID)
 #endif
 
-    // FIXME: This a dummy message, to avoid breaking the build for platforms that don't require
-    // any synchronous messages, and should be removed when <rdar://problem/8775115> is fixed.
-    Dummy() -> (bool dummyReturn)
-
     SetCanRunBeforeUnloadConfirmPanel(bool canRunBeforeUnloadConfirmPanel)
     SetCanRunModal(bool canRunModal)
 
@@ -390,6 +396,7 @@ messages -> WebPage LegacyReceiver {
     ShouldDelayWindowOrderingEvent(WebKit::WebMouseEvent event) -> (bool result)
     AcceptsFirstMouse(int eventNumber, WebKit::WebMouseEvent event) -> (bool result)
 
+    SetTextAsync(String text)
     InsertTextAsync(String text, struct WebKit::EditingRange replacementRange, bool registerUndoGroup, uint32_t editingRangeIsRelativeTo, bool suppressSelectionUpdate)
     GetMarkedRangeAsync(WebKit::CallbackID callbackID)
     GetSelectedRangeAsync(WebKit::CallbackID callbackID)
@@ -407,7 +414,7 @@ messages -> WebPage LegacyReceiver {
     SetAlwaysShowsHorizontalScroller(bool alwaysShowsHorizontalScroller)
     SetAlwaysShowsVerticalScroller(bool alwaysShowsVerticalScroller)
 
-    SetMinimumLayoutSize(WebCore::IntSize minimumLayoutSize)
+    SetViewLayoutSize(WebCore::IntSize viewLayoutSize)
     SetAutoSizingShouldExpandToViewHeight(bool shouldExpand)
 
     SetViewportSizeForCSSViewportUnits(std::optional<WebCore::IntSize> viewportSize)
@@ -439,6 +446,9 @@ messages -> WebPage LegacyReceiver {
     DataDetectorsDidHideUI(WebCore::PageOverlay::PageOverlayID pageOverlay)
 
     HandleAcceptedCandidate(struct WebCore::TextCheckingResult acceptedCandidate)
+
+    SetUseSystemAppearance(bool useSystemAppearance);
+    SetUseDarkAppearance(bool useDarkAppearance);
 
     SetHeaderBannerHeightForTesting(int height);
     SetFooterBannerHeightForTesting(int height);
@@ -484,6 +494,8 @@ messages -> WebPage LegacyReceiver {
     DidReceivePasswordForQuickLookDocument(String password)
 #endif
 
+    FrameBecameRemote(uint64_t frameID, struct WebCore::GlobalFrameIdentifier remoteFrameIdentifier, struct WebCore::GlobalWindowIdentifier remoteWindowIdentifier)
+
     RegisterURLSchemeHandler(uint64_t identifier, String scheme)
 
     URLSchemeTaskDidPerformRedirection(uint64_t handlerIdentifier, uint64_t taskIdentifier, WebCore::ResourceResponse response, WebCore::ResourceRequest request)
@@ -491,13 +503,15 @@ messages -> WebPage LegacyReceiver {
     URLSchemeTaskDidReceiveData(uint64_t handlerIdentifier, uint64_t taskIdentifier, IPC::DataReference data)
     URLSchemeTaskDidComplete(uint64_t handlerIdentifier, uint64_t taskIdentifier, WebCore::ResourceError error)
 
+    SetIsSuspended(bool suspended)
+
 #if HAVE(CFNETWORK_STORAGE_PARTITIONING)
     StorageAccessResponse(bool wasGranted, uint64_t contextId)
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     InsertAttachment(String identifier, struct WebCore::AttachmentDisplayOptions options, String filename, std::optional<String> contentType, IPC::DataReference data, WebKit::CallbackID callbackID)
-    RequestAttachmentData(String identifier, WebKit::CallbackID callbackID)
+    RequestAttachmentInfo(String identifier, WebKit::CallbackID callbackID)
     SetAttachmentDisplayOptions(String identifier, struct WebCore::AttachmentDisplayOptions options, WebKit::CallbackID callbackID)
     SetAttachmentDataAndContentType(String identifier, IPC::DataReference data, std::optional<String> newContentType, std::optional<String> newFilename, WebKit::CallbackID callbackID)
 #endif
@@ -505,4 +519,6 @@ messages -> WebPage LegacyReceiver {
 #if ENABLE(APPLICATION_MANIFEST)
     GetApplicationManifest(WebKit::CallbackID callbackID)
 #endif
+
+    SetDefersLoading(bool defersLoading)
 }

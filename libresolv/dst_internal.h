@@ -18,6 +18,7 @@
  * WITH THE USE OR PERFORMANCE OF THE SOFTWARE.
  */
 #include <limits.h>
+#include <stdio.h>
 #include <sys/param.h>
 #if (!defined(BSD)) || (BSD < 199306)
 # include <sys/bitypes.h>
@@ -54,6 +55,8 @@ typedef struct dst_key {
 #else
 #include <isc/dst.h>
 #endif
+
+#pragma GCC visibility push(hidden)
 
 /* 
  * define what crypto systems are supported for RSA, 
@@ -183,6 +186,6 @@ void
 dst_s_dump(const int mode, const u_char *data, const int size,
             const char *msg);
 
-
+#pragma GCC visibility pop
 
 #endif /* DST_INTERNAL_H */

@@ -25,9 +25,8 @@
 #if ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(MEDIA_SOURCE)
 
 #include "AudioTrackPrivateGStreamer.h"
+#include "GStreamerCommon.h"
 #include "MediaSampleGStreamer.h"
-#include "GStreamerUtilities.h"
-#include "GUniquePtrGStreamer.h"
 #include "MediaSample.h"
 #include "SourceBufferPrivateGStreamer.h"
 #include "VideoTrackPrivateGStreamer.h"
@@ -36,7 +35,6 @@
 #include <gst/gst.h>
 #include <wtf/MainThread.h>
 #include <wtf/RefCounted.h>
-#include <wtf/glib/GMutexLocker.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/AtomicString.h>
@@ -162,7 +160,7 @@ void PlaybackPipeline::removeSourceBuffer(RefPtr<SourceBufferPrivateGStreamer> s
         webKitMediaSrcFreeStream(m_webKitMediaSrc.get(), stream);
 }
 
-void PlaybackPipeline::attachTrack(RefPtr<SourceBufferPrivateGStreamer> sourceBufferPrivate, RefPtr<TrackPrivateBase> trackPrivate, GstStructure* structure, GstCaps* caps)
+void PlaybackPipeline::attachTrack(RefPtr<SourceBufferPrivateGStreamer> sourceBufferPrivate, RefPtr<TrackPrivateBase> trackPrivate, GstCaps* caps)
 {
     WebKitMediaSrc* webKitMediaSrc = m_webKitMediaSrc.get();
 
@@ -177,13 +175,15 @@ void PlaybackPipeline::attachTrack(RefPtr<SourceBufferPrivateGStreamer> sourceBu
     stream->parent->priv->numberOfPads++;
     GST_OBJECT_UNLOCK(webKitMediaSrc);
 
-    const gchar* mediaType = gst_structure_get_name(structure);
-
+    const char* mediaType = capsMediaType(caps);
     GST_DEBUG_OBJECT(webKitMediaSrc, "Configured track %s: appsrc=%s, padId=%u, mediaType=%s", trackPrivate->id().string().utf8().data(), GST_ELEMENT_NAME(stream->appsrc), padId, mediaType);
 
     GUniquePtr<gchar> parserBinName(g_strdup_printf("streamparser%u", padId));
 
-    if (!g_strcmp0(mediaType, "video/x-h264")) {
+    if (areEncryptedCaps(caps)) {
+        GST_DEBUG("It's encrypted content, parsers are not needed before decrypting the content");
+        stream->parser = nullptr;
+    } else if (!g_strcmp0(mediaType, "video/x-h264")) {
         GRefPtr<GstCaps> filterCaps = adoptGRef(gst_caps_new_simple("video/x-h264", "alignment", G_TYPE_STRING, "au", nullptr));
         GstElement* capsfilter = gst_element_factory_make("capsfilter", nullptr);
         g_object_set(capsfilter, "caps", filterCaps.get(), nullptr);
@@ -217,6 +217,7 @@ void PlaybackPipeline::attachTrack(RefPtr<SourceBufferPrivateGStreamer> sourceBu
         gst_element_add_pad(stream->parser, gst_ghost_pad_new("src", pad.get()));
     } else if (!g_strcmp0(mediaType, "audio/mpeg")) {
         gint mpegversion = -1;
+        GstStructure* structure = gst_caps_get_structure(caps, 0);
         gst_structure_get_int(structure, "mpegversion", &mpegversion);
 
         GstElement* parser = nullptr;
@@ -272,17 +273,17 @@ void PlaybackPipeline::attachTrack(RefPtr<SourceBufferPrivateGStreamer> sourceBu
     int signal = -1;
 
     GST_OBJECT_LOCK(webKitMediaSrc);
-    if (g_str_has_prefix(mediaType, "audio")) {
+    if (doCapsHaveType(caps, GST_AUDIO_CAPS_TYPE_PREFIX)) {
         stream->type = Audio;
         stream->parent->priv->numberOfAudioStreams++;
         signal = SIGNAL_AUDIO_CHANGED;
         stream->audioTrack = RefPtr<WebCore::AudioTrackPrivateGStreamer>(static_cast<WebCore::AudioTrackPrivateGStreamer*>(trackPrivate.get()));
-    } else if (g_str_has_prefix(mediaType, "video")) {
+    } else if (doCapsHaveType(caps, GST_VIDEO_CAPS_TYPE_PREFIX)) {
         stream->type = Video;
         stream->parent->priv->numberOfVideoStreams++;
         signal = SIGNAL_VIDEO_CHANGED;
         stream->videoTrack = RefPtr<WebCore::VideoTrackPrivateGStreamer>(static_cast<WebCore::VideoTrackPrivateGStreamer*>(trackPrivate.get()));
-    } else if (g_str_has_prefix(mediaType, "text")) {
+    } else if (doCapsHaveType(caps, GST_TEXT_CAPS_TYPE_PREFIX)) {
         stream->type = Text;
         stream->parent->priv->numberOfTextStreams++;
         signal = SIGNAL_TEXT_CHANGED;
@@ -295,7 +296,7 @@ void PlaybackPipeline::attachTrack(RefPtr<SourceBufferPrivateGStreamer> sourceBu
         g_signal_emit(G_OBJECT(stream->parent), webKitMediaSrcSignals[signal], 0, nullptr);
 }
 
-void PlaybackPipeline::reattachTrack(RefPtr<SourceBufferPrivateGStreamer> sourceBufferPrivate, RefPtr<TrackPrivateBase> trackPrivate, const char* mediaType)
+void PlaybackPipeline::reattachTrack(RefPtr<SourceBufferPrivateGStreamer> sourceBufferPrivate, RefPtr<TrackPrivateBase> trackPrivate, GstCaps* caps)
 {
     GST_DEBUG("Re-attaching track");
 
@@ -313,15 +314,15 @@ void PlaybackPipeline::reattachTrack(RefPtr<SourceBufferPrivateGStreamer> source
     int signal = -1;
 
     GST_OBJECT_LOCK(webKitMediaSrc);
-    if (g_str_has_prefix(mediaType, "audio")) {
+    if (doCapsHaveType(caps, GST_AUDIO_CAPS_TYPE_PREFIX)) {
         ASSERT(stream->type == Audio);
         signal = SIGNAL_AUDIO_CHANGED;
         stream->audioTrack = RefPtr<WebCore::AudioTrackPrivateGStreamer>(static_cast<WebCore::AudioTrackPrivateGStreamer*>(trackPrivate.get()));
-    } else if (g_str_has_prefix(mediaType, "video")) {
+    } else if (doCapsHaveType(caps, GST_VIDEO_CAPS_TYPE_PREFIX)) {
         ASSERT(stream->type == Video);
         signal = SIGNAL_VIDEO_CHANGED;
         stream->videoTrack = RefPtr<WebCore::VideoTrackPrivateGStreamer>(static_cast<WebCore::VideoTrackPrivateGStreamer*>(trackPrivate.get()));
-    } else if (g_str_has_prefix(mediaType, "text")) {
+    } else if (doCapsHaveType(caps, GST_TEXT_CAPS_TYPE_PREFIX)) {
         ASSERT(stream->type == Text);
         signal = SIGNAL_TEXT_CHANGED;
 
@@ -513,6 +514,12 @@ void PlaybackPipeline::enqueueSample(Ref<MediaSample>&& mediaSample)
 
         stream->lastEnqueuedTime = lastEnqueuedTime;
     }
+}
+
+void PlaybackPipeline::allSamplesInTrackEnqueued(const AtomicString& trackId)
+{
+    Stream* stream = getStreamByTrackId(m_webKitMediaSrc.get(), trackId);
+    gst_app_src_end_of_stream(GST_APP_SRC(stream->appsrc));
 }
 
 GstElement* PlaybackPipeline::pipeline()

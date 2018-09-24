@@ -41,10 +41,6 @@
 #include <CoreText/CoreText.h>
 #endif
 
-#if PLATFORM(MAC)
-#include <ApplicationServices/ApplicationServices.h>
-#endif
-
 namespace WebCore {
 
 class TextLayout {
@@ -148,6 +144,10 @@ ComplexTextController::ComplexTextController(const FontCascade& font, const Text
     , m_mayUseNaturalWritingDirection(mayUseNaturalWritingDirection)
     , m_forTextEmphasis(forTextEmphasis)
 {
+#if PLATFORM(WIN)
+    ASSERT_NOT_REACHED();
+#endif
+
     computeExpansionOpportunity();
 
     collectComplexTextRuns();

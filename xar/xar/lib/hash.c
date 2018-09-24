@@ -84,14 +84,9 @@ CCDigestRef digestRef_from_name(const char* name, unsigned int *outHashSize) {
         if (NULL != outHashSize)
             *outHashSize = CC_MD5_DIGEST_LENGTH;
 #endif // XAR_SUPPORT_MD5
-    } else if (0 == strcasecmp(name, "md2")) {
-        result = CCDigestCreate(kCCDigestMD2);
-        if (NULL != outHashSize)
-            *outHashSize = CC_MD2_DIGEST_LENGTH;
     }
-    
-    return result;
 	
+    return result;
 }
 #endif // __APPLE__
 

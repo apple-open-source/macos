@@ -31,6 +31,7 @@ uz{
         151{"Sharqiy Yevropa"}
         154{"Shimoliy Yevropa"}
         155{"G‘arbiy Yevropa"}
+        202{"Sahro janubidagi Afrika"}
         419{"Lotin Amerikasi"}
         AC{"Me’roj oroli"}
         AD{"Andorra"}
@@ -106,6 +107,7 @@ uz{
         ES{"Ispaniya"}
         ET{"Efiopiya"}
         EU{"Yevropa Ittifoqi"}
+        EZ{"yevrozona"}
         FI{"Finlandiya"}
         FJ{"Fiji"}
         FK{"Folklend orollari"}
@@ -220,7 +222,7 @@ uz{
         PM{"Sen-Pyer va Mikelon"}
         PN{"Pitkern orollari"}
         PR{"Puerto-Riko"}
-        PS{"Falastin hududi"}
+        PS{"Falastin hududlari"}
         PT{"Portugaliya"}
         PW{"Palau"}
         PY{"Paragvay"}
@@ -239,7 +241,7 @@ uz{
         SG{"Singapur"}
         SH{"Muqaddas Yelena oroli"}
         SI{"Sloveniya"}
-        SJ{"Svalbard va Yan-Mayen"}
+        SJ{"Shpitsbergen va Yan-Mayen"}
         SK{"Slovakiya"}
         SL{"Syerra-Leone"}
         SM{"San-Marino"}
@@ -310,5 +312,5 @@ uz{
         MK{"Makedoniya (SYRM)"}
         TL{"Sharqiy Timor"}
     }
-    Version{"2.1.32.60"}
+    Version{"2.1.41.97"}
 }

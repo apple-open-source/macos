@@ -20,8 +20,8 @@
 #include "ImageBuffer.h"
 
 #include "CairoUtilities.h"
-#include "GdkCairoUtilities.h"
 #include "GRefPtrGtk.h"
+#include "GdkCairoUtilities.h"
 #include "MIMETypeRegistry.h"
 #include <cairo.h>
 #include <gtk/gtk.h>

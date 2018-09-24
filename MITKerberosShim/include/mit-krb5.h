@@ -470,11 +470,6 @@ mit_krb5_error_code KRB5_CALLCONV
 		    size_t *blocksize);
 
 mit_krb5_error_code KRB5_CALLCONV
-    krb5_c_keylengths
-    (mit_krb5_context context, mit_krb5_enctype enctype,
-		    size_t *keybytes, size_t *keylength);
-
-mit_krb5_error_code KRB5_CALLCONV
 	krb5_c_init_state
 (mit_krb5_context context,
 const mit_krb5_keyblock *key, mit_krb5_keyusage usage,
@@ -485,21 +480,9 @@ mit_krb5_error_code KRB5_CALLCONV
 (mit_krb5_context context, const mit_krb5_keyblock *key, mit_krb5_data *state);
 
 mit_krb5_error_code KRB5_CALLCONV
-    krb5_c_prf (mit_krb5_context, const mit_krb5_keyblock *,
-		mit_krb5_data *in, mit_krb5_data *out);
-
-mit_krb5_error_code KRB5_CALLCONV
-    krb5_c_prf_length (mit_krb5_context, mit_krb5_enctype, size_t *outlen);
-
-mit_krb5_error_code KRB5_CALLCONV
     krb5_c_make_random_key
     (mit_krb5_context context, mit_krb5_enctype enctype,
 		    mit_krb5_keyblock *k5_random_key);
-
-mit_krb5_error_code KRB5_CALLCONV
-    krb5_c_random_to_key
-    (mit_krb5_context context, mit_krb5_enctype enctype,
-		    mit_krb5_data *random_data, mit_krb5_keyblock *k5_random_key);
 
 /* Register a new entropy sample  with the PRNG. may cause
 * the PRNG to be reseeded, although this is not guaranteed.  See previous randsource definitions
@@ -1304,9 +1287,6 @@ krb5_cc_remove_cred (mit_krb5_context context, mit_krb5_ccache cache, mit_krb5_f
 mit_krb5_error_code KRB5_CALLCONV
 krb5_cc_set_flags (mit_krb5_context context, mit_krb5_ccache cache, mit_krb5_flags flags);
 
-mit_krb5_error_code KRB5_CALLCONV
-krb5_cc_get_flags (mit_krb5_context context, mit_krb5_ccache cache, mit_krb5_flags *flags);
-
 const char * KRB5_CALLCONV
 krb5_cc_get_type (mit_krb5_context context, mit_krb5_ccache cache);
 
@@ -2094,10 +2074,6 @@ mit_krb5_error_code KRB5_CALLCONV krb5_aname_to_localname
 mit_krb5_error_code KRB5_CALLCONV krb5_get_host_realm
 	(mit_krb5_context,
 		const char *,
-		char *** );
-mit_krb5_error_code KRB5_CALLCONV krb5_get_fallback_host_realm
-	(mit_krb5_context,
-		mit_krb5_data *,
 		char *** );
 mit_krb5_error_code KRB5_CALLCONV krb5_free_host_realm
 	(mit_krb5_context,

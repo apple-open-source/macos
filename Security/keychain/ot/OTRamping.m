@@ -96,13 +96,13 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
     return self;
 }
 
--(void) fetchRampRecord:(NSQualityOfService)qos reply:(void (^)(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError))recordRampStateFetchCompletionBlock
+-(void) fetchRampRecord:(CKOperationDiscretionaryNetworkBehavior)networkBehavior reply:(void (^)(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError))recordRampStateFetchCompletionBlock
 {
     __weak __typeof(self) weakSelf = self;
 
     CKOperationConfiguration *opConfig = [[CKOperationConfiguration alloc] init];
     opConfig.allowsCellularAccess = YES;
-    opConfig.qualityOfService = qos;
+    opConfig.discretionaryNetworkBehavior = networkBehavior;
 
     _recordID = [[CKRecordID alloc] initWithRecordName:_recordName zoneID:_zoneID];
     CKFetchRecordsOperation *operation = [[[self.fetchRecordRecordsOperationClass class] alloc] initWithRecordIDs:@[ _recordID]];
@@ -146,7 +146,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
     secnotice("octagon", "Attempting to fetch ramp state from CloudKit");
 }
 
--(BOOL) checkRampState:(NSInteger*)retryAfter qos:(NSQualityOfService)qos error:(NSError**)error
+-(BOOL) checkRampState:(NSInteger*)retryAfter networkBehavior:(CKOperationDiscretionaryNetworkBehavior)networkBehavior error:(NSError**)error
 {
     __block BOOL isFeatureEnabled = NO;
     __block NSError* localError = nil;
@@ -202,7 +202,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
 
     [tracker start];
 
-    [self fetchRampRecord:qos reply:^(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError) {
+    [self fetchRampRecord:networkBehavior reply:^(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError) {
         secnotice("octagon", "fetch ramp records returned with featureAllowed: %d,\n featurePromoted: %d,\n featureVisible: %d,\n", featureAllowed, featurePromoted, featureVisible);
 
         isFeatureEnabled = featureAllowed;
@@ -226,7 +226,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
     [tracker stop];
 
     if(localRetryAfter > 0){
-        secnotice("octagon", "cloud kit asked security to retry: %ld", localRetryAfter);
+        secnotice("octagon", "cloud kit asked security to retry: %lu", (unsigned long)localRetryAfter);
         *retryAfter = localRetryAfter;
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -128,7 +128,7 @@ private:
                 case NewArrayWithSpread: {
                     if (m_graph.isWatchingHavingABadTimeWatchpoint(node)) {
                         BitVector* bitVector = node->bitVector();
-                        // We only allow for Spreads to be of rest nodes for now.
+                        // We only allow for Spreads to be of CreateRest or NewArrayBuffer nodes for now.
                         bool isOK = true;
                         for (unsigned i = 0; i < node->numChildren(); i++) {
                             if (bitVector->get(i)) {
@@ -148,7 +148,7 @@ private:
                 }
 
                 case NewArrayBuffer: {
-                    if (m_graph.isWatchingHavingABadTimeWatchpoint(node) && !hasAnyArrayStorage(node->indexingType()))
+                    if (m_graph.isWatchingHavingABadTimeWatchpoint(node) && !hasAnyArrayStorage(node->indexingMode()))
                         m_candidates.add(node);
                     break;
                 }
@@ -252,7 +252,7 @@ private:
                 // If we're out-of-bounds then we proceed only if the prototype chain
                 // for the allocation is sane (i.e. doesn't have indexed properties).
                 JSGlobalObject* globalObject = m_graph.globalObjectFor(edge->origin.semantic);
-                Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure();
+                Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure(m_graph.m_vm);
                 if (objectPrototypeStructure->transitionWatchpointSetIsStillValid()
                     && globalObject->objectPrototypeIsSane()) {
                     m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
@@ -275,9 +275,9 @@ private:
                 // If we're out-of-bounds then we proceed only if the prototype chain
                 // for the allocation is sane (i.e. doesn't have indexed properties).
                 JSGlobalObject* globalObject = m_graph.globalObjectFor(edge->origin.semantic);
-                Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure();
+                Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure(m_graph.m_vm);
                 if (edge->op() == CreateRest) {
-                    Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure();
+                    Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure(m_graph.m_vm);
                     if (arrayPrototypeStructure->transitionWatchpointSetIsStillValid()
                         && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
                         && globalObject->arrayPrototypeChainIsSane()) {
@@ -317,17 +317,16 @@ private:
                     escapeBasedOnArrayMode(node->arrayMode(), m_graph.varArgChild(node, 0), node);
                     escape(m_graph.varArgChild(node, 1), node);
                     escape(m_graph.varArgChild(node, 2), node);
-                    escape(m_graph.varArgChild(node, 3), node);
                     break;
 
                 case GetArrayLength:
-                    // FIXME: It would not be hard to support NewArrayWithSpread here if it is only over Spread(CreateRest) nodes.
                     escape(node->child2(), node);
+                    // Computing the length of a NewArrayWithSpread can require some additions.
+                    // These additions can overflow if the array is sufficiently enormous, and in that case we will need to exit.
+                    if ((node->child1()->op() == NewArrayWithSpread) && !node->origin.exitOK)
+                        escape(node->child1(), node);
                     break;
 
-                case GetArrayMask:
-                    break;
-                
                 case NewArrayWithSpread: {
                     BitVector* bitVector = node->bitVector();
                     bool isWatchingHavingABadTimeWatchpoint = m_graph.isWatchingHavingABadTimeWatchpoint(node); 
@@ -430,9 +429,9 @@ private:
                         break;
                     case NewArrayBuffer: {
                         ASSERT(m_graph.isWatchingHavingABadTimeWatchpoint(target));
-                        IndexingType indexingType = target->indexingType();
-                        ASSERT(!hasAnyArrayStorage(indexingType));
-                        structure = globalObject->originalArrayStructureForIndexingType(indexingType);
+                        IndexingType indexingMode = target->indexingMode();
+                        ASSERT(!hasAnyArrayStorage(indexingMode));
+                        structure = globalObject->originalArrayStructureForIndexingType(indexingMode);
                         break;
                     }
                     default:
@@ -708,11 +707,7 @@ private:
                     if (!isEliminatedAllocation(candidate))
                         break;
 
-                    // FIXME: This should be an assert:
-                    // https://bugs.webkit.org/show_bug.cgi?id=182982
-                    if (node->child2()->op() != PhantomClonedArguments)
-                        break;
-
+                    ASSERT(candidate->op() == PhantomClonedArguments);
                     ASSERT(node->storageAccessData().offset == clonedArgumentsLengthPropertyOffset);
 
                     // Meh, this is kind of hackish - we use an Identity so that we can reuse the
@@ -730,20 +725,6 @@ private:
                     break;
                 }
 
-                case GetArrayMask: {
-                    Node* candidate = node->child1().node();
-                    if (!isEliminatedAllocation(candidate))
-                        break;
-                    
-                    // NOTE: This is valid because the only user of this node at the moment is GetByVal.
-                    // If the candidate is eliminated, it must also be eliminated for all GetByVal users.
-                    // Therefore, we'll transform those GetByVal nodes to no longer use us. If we introduce
-                    // other users of this node, we'll need to change this code. That would be easy: just
-                    // introduce a ComputeArrayMask node, and transform this into ComputeArrayMask(getArrayLength(candidate)).
-                    node->convertToConstant(m_graph.freeze(jsNumber(0)));
-                    break;
-                }
-                    
                 case GetByVal: {
                     // FIXME: For ClonedArguments, we would have already done a separate bounds check.
                     // This code will cause us to have two bounds checks - the original one that we
@@ -886,7 +867,7 @@ private:
                                 }
 
                                 if (candidate->op() == PhantomNewArrayBuffer)
-                                    return candidate->castOperand<JSFixedArray*>()->length();
+                                    return candidate->castOperand<JSImmutableButterfly*>()->length();
 
                                 ASSERT(candidate->op() == PhantomCreateRest);
                                 unsigned numberOfArgumentsToSkip = candidate->numberOfArgumentsToSkip();
@@ -923,8 +904,7 @@ private:
                                     }
 
                                     if (candidate->op() == PhantomNewArrayBuffer) {
-                                        bool canExit = true;
-                                        auto* array = candidate->castOperand<JSFixedArray*>();
+                                        auto* array = candidate->castOperand<JSImmutableButterfly*>();
                                         for (unsigned index = 0; index < array->length(); ++index) {
                                             JSValue constant;
                                             if (candidate->indexingType() == ArrayWithDouble)
@@ -1141,7 +1121,7 @@ private:
 
                                 if (candidate->op() == PhantomNewArrayBuffer) {
                                     bool canExit = true;
-                                    auto* array = candidate->castOperand<JSFixedArray*>();
+                                    auto* array = candidate->castOperand<JSImmutableButterfly*>();
                                     for (unsigned index = 0; index < array->length(); ++index) {
                                         JSValue constant;
                                         if (candidate->indexingType() == ArrayWithDouble)

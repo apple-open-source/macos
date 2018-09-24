@@ -53,7 +53,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 324;
+static int kTestTestCount = 257;
 
 static void tests(void)
 {
@@ -246,8 +246,9 @@ static void tests(void)
     ok(SOSAccountJoinCircles_wTxn(alice_account, &error), "Alice re-applies (%@)", error);
     CFReleaseNull(error);
     
-    FeedChangesTo(changes, bob_account); // Bob sees Alice reapply.
-    
+    //FeedChangesTo(changes, bob_account); // Bob sees Alice reapply.
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
+
     {
         CFArrayRef applicants = SOSAccountCopyApplicants(alice_account, &error);
         
@@ -256,7 +257,7 @@ static void tests(void)
         CFReleaseNull(error);
         CFReleaseNull(applicants);
     }
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 3, "updates");
 
     accounts_agree("Alice comes back", bob_account, alice_account);
     
@@ -328,10 +329,10 @@ static void tests(void)
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 4, "Remove peers");
 
-    ok([alice_account.trust isInCircle:&error], "Alice still here");
-    ok(![bob_account.trust isInCircle:&error], "Bob not in circle");
+    ok([alice_account isInCircle:&error], "Alice still here");
+    ok(![bob_account isInCircle:&error], "Bob not in circle");
     // Carol's not in circle, but reapplied, as she's persistent until positive rejection.
-    ok(![carol_account.trust isInCircle:NULL], "carol not in circle");
+    ok(![carol_account isInCircle:NULL], "carol not in circle");
 
     CFReleaseNull(peers_to_remove_array);
 

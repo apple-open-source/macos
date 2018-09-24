@@ -70,7 +70,7 @@ public:
 	void cdhash(SHA1::Digest digest);
 	void cdhash(CFDataRef digest);
 	void platform(int platformIdentifier);
-	
+
 	void copy(const void *data, size_t length)
 		{ memcpy(this->alloc(length), data, length); }
 	void copy(const Requirement *req);				// inline expand

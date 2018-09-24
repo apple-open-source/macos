@@ -27,7 +27,7 @@ namespace JSC {
 class NumberPrototype;
 class GetterSetter;
 
-class NumberConstructor : public InternalFunction {
+class NumberConstructor final : public InternalFunction {
 public:
     typedef InternalFunction Base;
     static const unsigned StructureFlags = Base::StructureFlags | ImplementsHasInstance | HasStaticPropertyTable;
@@ -44,6 +44,17 @@ public:
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue proto) 
     { 
         return Structure::create(vm, globalObject, proto, TypeInfo(InternalFunctionType, StructureFlags), info()); 
+    }
+
+    static bool isIntegerImpl(JSValue value)
+    {
+        if (value.isInt32())
+            return true;
+        if (!value.isDouble())
+            return false;
+
+        double number = value.asDouble();
+        return std::isfinite(number) && trunc(number) == number;
     }
 
 protected:

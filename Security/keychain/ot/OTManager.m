@@ -38,7 +38,7 @@
 #import "keychain/ot/OT.h"
 #import "keychain/ot/OTConstants.h"
 
-#import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ckks/CKKSAnalytics.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CKKS.h"
@@ -358,7 +358,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }
 
     NSInteger retryDelayInSeconds = 0;
-    BOOL isFeatureOn = [self.enrollRamp checkRampState:&retryDelayInSeconds qos:NSQualityOfServiceUserInitiated error:&error];
+    BOOL isFeatureOn = [self.enrollRamp checkRampState:&retryDelayInSeconds networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&error];
 
     //got an error from ramp check, we should log it
     if(error){
@@ -428,7 +428,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }
     
     NSInteger retryDelayInSeconds = 0;
-    BOOL isFeatureOn = [self.enrollRamp checkRampState:&retryDelayInSeconds qos:NSQualityOfServiceUserInitiated error:&error];
+    BOOL isFeatureOn = [self.enrollRamp checkRampState:&retryDelayInSeconds networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&error];
 
     //got an error from ramp check, we should log it
     if(error){
@@ -497,7 +497,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }
 
     NSInteger retryDelayInSeconds = 0;
-    BOOL isFeatureOn = [self.restoreRamp checkRampState:&retryDelayInSeconds qos:NSQualityOfServiceUserInitiated error:&error];
+    BOOL isFeatureOn = [self.restoreRamp checkRampState:&retryDelayInSeconds networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&error];
 
     //got an error from ramp check, we should log it
     if(error){
@@ -621,7 +621,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [tracker start];
 
     NSInteger retryDelayInSeconds = 0;
-    BOOL isFeatureOn = [self.enrollRamp checkRampState:&retryDelayInSeconds qos:NSQualityOfServiceUserInitiated error:&error];
+    BOOL isFeatureOn = [self.enrollRamp checkRampState:&retryDelayInSeconds networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&error];
 
     //got an error from ramp check, we should log it
     if(error){
@@ -667,6 +667,14 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 -(void) reset:(void (^)(BOOL result, NSError *))reply
 {
     NSError* error = nil;
+
+    if(!self.context || !self.localStore){
+        if(![self initializeManagerPropertiesForContext:nil error:&error]){
+            secerror("octagon:  could not init manager obejcts: %@", error);
+            reply(NO,error);
+            return;
+        }
+    }
 
     if(self.context.lockStateTracker.isLocked){
         secnotice("octagon","device is locked! can't check ramp state");
@@ -715,6 +723,13 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 - (void)listOfEligibleBottledPeerRecords:(void (^)(NSArray* listOfRecords, NSError *))reply
 {
     NSError* error = nil;
+    if(!self.context || !self.localStore){
+        if(![self initializeManagerPropertiesForContext:nil error:&error]){
+            secerror("octagon:  could not init manager obejcts: %@", error);
+            reply(nil,error);
+            return;
+        }
+    }
 
     if(self.context.lockStateTracker.isLocked){
         secnotice("octagon","device is locked! can't check ramp state");
@@ -807,7 +822,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     CKKSAnalytics* logger = [CKKSAnalytics logger];
 
     if(self.cfuRamp){
-        BOOL canCFU = [self.cfuRamp checkRampState:&retryAfterInSeconds qos:NSQualityOfServiceUserInitiated error:&localError];
+        BOOL canCFU = [self.cfuRamp checkRampState:&retryAfterInSeconds networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&localError];
 
         if(localError){
             secerror("octagon: checking ramp state for CFU error'd: %@", localError);
@@ -824,7 +839,9 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                 //time to post a follow up!
                 secnotice("octagon", "device does not have a bottle, posting a follow up");
                 if(!SecCKKSTestsEnabled()){
-                    [self.context postFollowUp];
+                    //40347954 removing cfu invocations until we can add CDP without creating a cycle.
+                    //[self.context postFollowUp];
+                    secnotice("octagon", "would have posted a follow up");
                 }
                 NSInteger timeDiff = -1;
 

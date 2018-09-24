@@ -38,4 +38,5 @@ __private_extern__ void standbyTimer_prime( ) {}
 __private_extern__ CFAbsoluteTime getWakeFromStandbyTime() { return 0;}
 __private_extern__ void evaluateAdaptiveStandby() {}
 __private_extern__ void setInactivityWindow(xpc_object_t remoteConnection, xpc_object_t msg) {}
+__private_extern__ void refreshStandbyInactivityPrediction() {}
 

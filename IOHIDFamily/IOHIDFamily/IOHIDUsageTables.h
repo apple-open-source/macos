@@ -303,7 +303,8 @@ enum
     kHIDUsage_Game_GunSafety    = 0x36,    /* On/Off Control */
     kHIDUsage_Game_GamepadFireOrJump    = 0x37,    /* Logical Collection */
     kHIDUsage_Game_GamepadTrigger    = 0x39,    /* Logical Collection */
-    kHIDUsage_Game_GamepadFormFitting    = 0x39,    /* Static Flag */
+    kHIDUsage_Game_GamepadFormFitting_Compatibility  = 0x39,    /* Static Flag */
+    kHIDUsage_Game_GamepadFormFitting                = 0x3A,    /* Static Flag */
     /* 0x3A - 0xFFFF Reserved */
     kHIDUsage_Game_Reserved = 0xFFFF
 };
@@ -1531,7 +1532,9 @@ enum
     kHIDUsage_Snsr_Property_SamplingRate                        = 0x0317,
     kHIDUsage_Snsr_Property_ResponseCurve                       = 0x0318,
     kHIDUsage_Snsr_Property_PowerState                          = 0x0319,
-    /* 0x031A - 0x03FF Reserved */
+    kHIDUsage_Snsr_Property_ReportLatency                       = 0x031B,
+
+    /* 0x031C - 0x03FF Reserved */
     
     kHIDUsage_Snsr_Property_ConnectionType_Integrated           = 0x0830,
     kHIDUsage_Snsr_Property_ConnectionType_Attached             = 0x0831,
@@ -2309,6 +2312,15 @@ enum
     kHIDUsage_MSR_Track3Data = 0x23,                       /* SF, DF, SEL - Track 3 Data */
     kHIDUsage_MSR_TrackJISData = 0x24                      /* SF, DF, SEL - Track JIS Data */
     /* Reserved 0x25 - 0xFFFF */
+};
+
+/* Camera Control Page (0x90) */
+enum
+{
+    kHIDUsage_CC_Undefined = 0x00,      /* Camera Control Undefined Usage */
+    /* Reserved 0x01 - 0x1F */
+    kHIDUsage_CC_Autofocus = 0x20,      /* One-Shot Control */
+    kHIDUsage_CC_Shutter = 0x21,        /* One-Shot Control */
 };
 
 #endif /* _IOHIDUSAGETABLES_H */

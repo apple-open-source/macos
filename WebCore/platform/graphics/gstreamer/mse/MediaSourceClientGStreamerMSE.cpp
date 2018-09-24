@@ -23,6 +23,7 @@
 
 #include "AppendPipeline.h"
 #include "MediaPlayerPrivateGStreamerMSE.h"
+#include "PlaybackPipeline.h"
 #include "WebKitMediaSourceGStreamer.h"
 #include <gst/gst.h>
 
@@ -128,7 +129,7 @@ bool MediaSourceClientGStreamerMSE::append(RefPtr<SourceBufferPrivateGStreamer> 
 {
     ASSERT(WTF::isMainThread());
 
-    GST_DEBUG("Appending %u bytes", data.size());
+    GST_DEBUG("Appending %zu bytes", data.size());
 
     if (!m_playerPrivate)
         return false;
@@ -194,6 +195,14 @@ void MediaSourceClientGStreamerMSE::enqueueSample(Ref<MediaSample>&& sample)
 
     if (m_playerPrivate)
         m_playerPrivate->m_playbackPipeline->enqueueSample(WTFMove(sample));
+}
+
+void MediaSourceClientGStreamerMSE::allSamplesInTrackEnqueued(const AtomicString& trackId)
+{
+    ASSERT(WTF::isMainThread());
+
+    if (m_playerPrivate)
+        m_playerPrivate->m_playbackPipeline->allSamplesInTrackEnqueued(trackId);
 }
 
 GRefPtr<WebKitMediaSrc> MediaSourceClientGStreamerMSE::webKitMediaSrc()

@@ -31,6 +31,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <dns.h>
+#include <stdio.h>
 
 /*
  * Status returned in a dns_reply_t

@@ -24,7 +24,6 @@
 
 #include "ElementIterator.h"
 #include "RenderSVGHiddenContainer.h"
-#include "RenderSVGPath.h"
 #include "RenderSVGResourceLinearGradient.h"
 #include "RenderSVGResourceRadialGradient.h"
 #include "SVGNames.h"
@@ -33,9 +32,12 @@
 #include "SVGTransformable.h"
 #include "StyleResolver.h"
 #include "XLinkNames.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(SVGGradientElement);
 
 // Animated property definitions
 DEFINE_ANIMATED_ENUMERATION(SVGGradientElement, SVGNames::spreadMethodAttr, SpreadMethod, spreadMethod, SVGSpreadMethodType)

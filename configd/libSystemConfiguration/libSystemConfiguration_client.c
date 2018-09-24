@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, 2013, 2015, 2016, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <Availability.h>
+#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <dispatch/dispatch.h>
 #include <dispatch/private.h>
@@ -31,6 +31,7 @@
 #include <xpc/xpc.h>
 
 #include "libSystemConfiguration_client.h"
+#include "libSystemConfiguration_internal.h"
 
 
 #pragma mark -
@@ -106,11 +107,11 @@ libSC_info_client_create(dispatch_queue_t	q,
 {
 	xpc_connection_t	c;
 	libSC_info_client_t	*client;
-#if	!TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 	const uint64_t		flags	=	XPC_CONNECTION_MACH_SERVICE_PRIVILEGED;
-#else	// !TARGET_OS_SIMULATOR
+#else	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 	const uint64_t		flags	=	0;
-#endif	// !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
 
 	if (!_available) {
 		return NULL;

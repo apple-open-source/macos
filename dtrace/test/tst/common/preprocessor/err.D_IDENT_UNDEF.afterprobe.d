@@ -24,9 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma	ident	"@(#)err.D_IDENT_UNDEF.afterprobe.d	1.1	06/08/28 SMI"
-
-
 /*
  * ASSERTION:
  *
@@ -36,7 +33,6 @@
  * SECTION: Program Structure/Use of the C Preprocessor
  *
  */
-
 
 #pragma D option quiet
 

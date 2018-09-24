@@ -64,9 +64,10 @@ typedef struct xar_header xar_header_t;
 #define XAR_HEADER_MAGIC 0x78617221
 #define XAR_EA_FORK "ea"
 
+/* NONE is not supported for security reasons, and may not be supported by all implementations */
 #define XAR_CKSUM_NONE   0
 #define XAR_CKSUM_SHA1   1
-/* MD5 is not recommended for security reasons, and may not be supported by all implementations */
+/* MD5 is not supported for security reasons, and may not be supported by all implementations */
 #define XAR_CKSUM_MD5    2
 #define XAR_CKSUM_SHA256 3
 #define XAR_CKSUM_SHA512 4
@@ -150,8 +151,10 @@ typedef void (*xar_progress_callback)(xar_t x, xar_file_t f, size_t sizeread);
 
 xar_t xar_open(const char *file, int32_t flags);
 int xar_close(xar_t x);
-xar_file_t xar_add(xar_t x, const char *path);
 
+xar_header_t xar_header_get(xar_t x);
+
+xar_file_t xar_add(xar_t x, const char *path);
 xar_file_t xar_add_frombuffer(xar_t x, xar_file_t parent, const char *name, char *buffer, size_t length);
 xar_file_t xar_add_folder(xar_t x, xar_file_t f, const char *name, struct stat *info);
 xar_file_t xar_add_frompath(xar_t x, xar_file_t parent, const char *name, const char *realpath);

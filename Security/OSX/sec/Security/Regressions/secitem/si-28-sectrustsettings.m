@@ -29,6 +29,7 @@
 
 /* Of course, the interface is different for OS X and iOS. */
 /* each call is 1 test */
+#define kNumberSetTSTests 1
 #if TARGET_OS_IPHONE
 #define setTS(cert, settings) \
 { \
@@ -61,6 +62,7 @@
 #endif
 
 /* each call is 1 test */
+#define kNumberRemoveTSTests 1
 #if TARGET_OS_IPHONE
 #define removeTS(cert) \
 { \
@@ -76,6 +78,7 @@
 #endif
 
 /* each call is 4 tests */
+#define kNumberCheckTrustTests 4
 #define check_trust(certs, policy, valid_date, expected) \
 { \
     SecTrustRef trust = NULL; \
@@ -533,7 +536,28 @@ static void test_multiple_constraints(void) {
 
 }
 
-#define kNumberPolicyNamePinnningConstraintsTests (1 + 1 + 5)
+#define kNumberChangeConstraintsTests (2*kNumberSetTSTests + kNumberRemoveTSTests + 4*kNumberCheckTrustTests)
+static void test_change_constraints(void) {
+    /* allow all but */
+    NSArray *allowAllBut = @[
+                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy ,
+                               (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultUnspecified)},
+                             @{(__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot) }
+                             ];
+    setTS(cert0, (__bridge CFArrayRef)allowAllBut);
+    check_trust(sslChain, basicPolicy, verify_date, kSecTrustResultProceed);
+    check_trust(sslChain, sslPolicy, verify_date, kSecTrustResultRecoverableTrustFailure);
+
+    /* Don't clear trust settings. Just change them. */
+
+    /* root with the default TrustRoot result succeeds */
+    setTS(cert0, NULL);
+    check_trust(sslChain, basicPolicy, verify_date, kSecTrustResultProceed);
+    check_trust(sslChain, sslPolicy, verify_date, kSecTrustResultProceed);
+    removeTS(cert0);
+}
+
+#define kNumberPolicyNamePinnningConstraintsTests (kNumberSetTSTests + kNumberRemoveTSTests + 5)
 static void test_policy_name_pinning_constraints(void) {
     /* allow all but */
     NSArray *allowAllBut = @[
@@ -564,6 +588,7 @@ int si_28_sectrustsettings(int argc, char *const *argv)
                + kNumberKeyUsageConstraintsTests
                + kNumberAllowedErrorsTests
                + kNumberMultipleConstraintsTests
+               + kNumberChangeConstraintsTests
                + kNumberPolicyNamePinnningConstraintsTests
                );
 
@@ -583,6 +608,7 @@ int si_28_sectrustsettings(int argc, char *const *argv)
         test_key_usage_constraints();
         test_allowed_errors();
         test_multiple_constraints();
+        test_change_constraints();
         test_policy_name_pinning_constraints();
         cleanup_globals();
     }

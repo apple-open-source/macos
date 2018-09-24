@@ -30,7 +30,7 @@
 #include "config.h"
 #include "CSSSelectorParser.h"
 
-#include "CSSParserMode.h"
+#include "CSSParserContext.h"
 #include "CSSSelectorList.h"
 #include "StyleSheetContents.h"
 #include <memory>
@@ -494,7 +494,7 @@ std::unique_ptr<CSSParserSelector> CSSSelectorParser::consumePseudo(CSSParserTok
 
     std::unique_ptr<CSSParserSelector> selector;
     
-    auto lowercasedValue = token.value().toString().convertToASCIILowercase();
+    auto lowercasedValue = token.value().convertToASCIILowercase();
     auto value = StringView { lowercasedValue };
 
     if (colons == 1)
@@ -735,7 +735,7 @@ bool CSSSelectorParser::consumeANPlusB(CSSParserTokenRange& range, std::pair<int
     } else if (token.type() == IdentToken) {
         if (token.value()[0] == '-') {
             result.first = -1;
-            nString = token.value().toString().substring(1);
+            nString = token.value().substring(1).toString();
         } else {
             result.first = 1;
             nString = token.value().toString();

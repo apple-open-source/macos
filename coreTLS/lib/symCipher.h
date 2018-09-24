@@ -120,7 +120,6 @@ typedef struct SSLSymmetricCipher {
 } SSLSymmetricCipher;
 
 extern const SSLSymmetricCipher SSLCipherNull;
-extern const SSLSymmetricCipher SSLCipherRC2_128;
 extern const SSLSymmetricCipher SSLCipherRC4_128;
 extern const SSLSymmetricCipher SSLCipher3DES_CBC;
 extern const SSLSymmetricCipher SSLCipherAES_128_CBC;
@@ -130,7 +129,6 @@ extern const SSLSymmetricCipher SSLCipherAES_256_GCM;
 
 /* Those are defined in symCipherParams.c */
 extern const SSLSymmetricCipherParams SSLCipherNullParams;
-extern const SSLSymmetricCipherParams SSLCipherRC2_128Params;
 extern const SSLSymmetricCipherParams SSLCipherRC4_128Params;
 extern const SSLSymmetricCipherParams SSLCipher3DES_CBCParams;
 extern const SSLSymmetricCipherParams SSLCipherAES_128_CBCParams;

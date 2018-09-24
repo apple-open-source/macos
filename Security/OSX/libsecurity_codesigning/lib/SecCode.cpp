@@ -265,6 +265,7 @@ const CFStringRef kSecCodeInfoCodeDirectory =	CFSTR("CodeDirectory");
 const CFStringRef kSecCodeInfoCodeOffset =		CFSTR("CodeOffset");
 const CFStringRef kSecCodeInfoDiskRepInfo =     CFSTR("DiskRepInfo");
 const CFStringRef kSecCodeInfoResourceDirectory = CFSTR("ResourceDirectory");
+const CFStringRef kSecCodeInfoNotarizationDate = CFSTR("NotarizationDate");
 
 /* DiskInfoRepInfo types */
 const CFStringRef kSecCodeInfoDiskRepVersionPlatform =	 	CFSTR("VersionPlatform");

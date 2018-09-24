@@ -56,7 +56,7 @@ atexit.3 atexit.3 atexit_b.3
 atof.3 atof.3 atof_l.3
 atoi.3 atoi.3 atoi_l.3
 atol.3 atol.3 atol_l.3 atoll.3 atoll_l.3
-backtrace.3 backtrace.3 backtrace_symbols.3 backtrace_symbols_fd.3
+backtrace.3 backtrace.3 backtrace_symbols.3 backtrace_symbols_fd.3 backtrace_from_fp.3 backtrace_image_offsets.3
 basename.3 basename.3 basename_r.3
 bcmp.3 bcmp.3
 bcopy.3 bcopy.3
@@ -287,6 +287,7 @@ strtol.3 strtol.3 strtoll.3 strtoq.3 strtoimax.3
 strtol_l.3 strtol_l.3 strtoimax_l.3 strtoll_l.3 strtoq_l.3 strtoul_l.3 strtoull_l.3 strtoumax_l.3 strtouq_l.3
 strtoul.3 strtoul.3 strtoull.3 strtoumax.3 strtouq.3
 strxfrm.3 strxfrm.3 strxfrm_l.3
+style.3 style.3
 swab.3 swab.3
 sync_volume_np.3 sync_volume_np.3 fsync_volume_np.3
 sysconf.3 sysconf.3

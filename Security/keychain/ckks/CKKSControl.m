@@ -68,10 +68,19 @@
 - (void)rpcResetCloudKit:(NSString*)viewName reply:(void(^)(NSError* error))reply {
     [[self.connection remoteObjectProxyWithErrorHandler:^(NSError* error) {
         reply(error);
-    }] rpcResetCloudKit:viewName reply:^(NSError* error){
+    }] rpcResetCloudKit:viewName reason:[NSString stringWithFormat:@"%s", getprogname()] reply:^(NSError* error){
         reply(error);
     }];
 }
+
+- (void)rpcResetCloudKit:(NSString*)viewName reason:(NSString *)reason reply:(void(^)(NSError* error))reply {
+    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError* error) {
+        reply(error);
+    }] rpcResetCloudKit:viewName reason:reason reply:^(NSError* error){
+        reply(error);
+    }];
+}
+
 
 - (void)rpcResync:(NSString*)viewName reply:(void(^)(NSError* error))reply {
     [[self.connection remoteObjectProxyWithErrorHandler:^(NSError* error) {

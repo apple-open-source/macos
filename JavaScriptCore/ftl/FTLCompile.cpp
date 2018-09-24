@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -79,8 +79,8 @@ void compile(State& state, Safepoint::Result& safepointResult)
     std::unique_ptr<RegisterAtOffsetList> registerOffsets =
         std::make_unique<RegisterAtOffsetList>(state.proc->calleeSaveRegisterAtOffsetList());
     if (shouldDumpDisassembly())
-        dataLog("Unwind info for ", CodeBlockWithJITType(state.graph.m_codeBlock, JITCode::FTLJIT), ": ", *registerOffsets, "\n");
-    state.graph.m_codeBlock->setCalleeSaveRegisters(WTFMove(registerOffsets));
+        dataLog("Unwind info for ", CodeBlockWithJITType(codeBlock, JITCode::FTLJIT), ": ", *registerOffsets, "\n");
+    codeBlock->setCalleeSaveRegisters(WTFMove(registerOffsets));
     ASSERT(!(state.proc->frameSize() % sizeof(EncodedJSValue)));
     state.jitCode->common.frameRegisterCount = state.proc->frameSize() / sizeof(EncodedJSValue);
 
@@ -134,11 +134,11 @@ void compile(State& state, Safepoint::Result& safepointResult)
     jit.copyCalleeSavesToEntryFrameCalleeSavesBuffer(vm.topEntryFrame);
     jit.move(MacroAssembler::TrustedImmPtr(&vm), GPRInfo::argumentGPR0);
     jit.move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR1);
-    CCallHelpers::Call call = jit.call();
+    CCallHelpers::Call call = jit.call(OperationPtrTag);
     jit.jumpToExceptionHandler(vm);
     jit.addLinkTask(
         [=] (LinkBuffer& linkBuffer) {
-            linkBuffer.link(call, FunctionPtr(lookupExceptionHandler));
+            linkBuffer.link(call, FunctionPtr<OperationPtrTag>(lookupExceptionHandler));
         });
 
     state.finalizer->b3CodeLinkBuffer = std::make_unique<LinkBuffer>(jit, codeBlock, JITCompilationCanFail);
@@ -152,8 +152,8 @@ void compile(State& state, Safepoint::Result& safepointResult)
     if (vm.shouldBuilderPCToCodeOriginMapping())
         codeBlock->setPCToCodeOriginMap(std::make_unique<PCToCodeOriginMap>(PCToCodeOriginMapBuilder(vm, WTFMove(originMap)), *state.finalizer->b3CodeLinkBuffer));
 
-    CodeLocationLabel label = state.finalizer->b3CodeLinkBuffer->locationOf(state.proc->entrypointLabel(0));
-    state.generatedFunction = label.executableAddress<GeneratedFunction>();
+    CodeLocationLabel<JSEntryPtrTag> label = state.finalizer->b3CodeLinkBuffer->locationOf<JSEntryPtrTag>(state.proc->entrypointLabel(0));
+    state.generatedFunction = label;
     state.jitCode->initializeB3Byproducts(state.proc->releaseByproducts());
 
     for (auto pair : state.graph.m_entrypointIndexToCatchBytecodeOffset) {
@@ -161,7 +161,7 @@ void compile(State& state, Safepoint::Result& safepointResult)
         unsigned entrypointIndex = pair.key;
         Vector<FlushFormat> argumentFormats = state.graph.m_argumentFormats[entrypointIndex];
         state.jitCode->common.appendCatchEntrypoint(
-            catchBytecodeOffset, state.finalizer->b3CodeLinkBuffer->locationOf(state.proc->entrypointLabel(entrypointIndex)).executableAddress(), WTFMove(argumentFormats));
+            catchBytecodeOffset, state.finalizer->b3CodeLinkBuffer->locationOf<ExceptionHandlerPtrTag>(state.proc->entrypointLabel(entrypointIndex)), WTFMove(argumentFormats));
     }
     state.jitCode->common.finalizeCatchEntrypoints();
 

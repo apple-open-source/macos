@@ -62,10 +62,10 @@ typedef enum {
     WebKitFrameFlatteningFullyEnabled
 } WebKitFrameFlattening;
 
-extern NSString *WebPreferencesChangedNotification;
-extern NSString *WebPreferencesRemovedNotification;
-extern NSString *WebPreferencesChangedInternalNotification;
-extern NSString *WebPreferencesCacheModelChangedInternalNotification;
+extern NSString *WebPreferencesChangedNotification WEBKIT_DEPRECATED_MAC(10_3, 10_14);
+extern NSString *WebPreferencesRemovedNotification WEBKIT_DEPRECATED_MAC(10_3, 10_14);
+extern NSString *WebPreferencesChangedInternalNotification WEBKIT_DEPRECATED_MAC(10_3, 10_14);
+extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPRECATED_MAC(10_5, 10_14);
 
 @interface WebPreferences (WebPrivate)
 
@@ -143,6 +143,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 
 - (BOOL)allowFileAccessFromFileURLs;
 - (void)setAllowFileAccessFromFileURLs:(BOOL)flag;
+
+- (BOOL)allowCrossOriginSubresourcesToAskForCredentials;
+- (void)setAllowCrossOriginSubresourcesToAskForCredentials:(BOOL)flag;
 
 - (BOOL)needsStorageAccessFromFileURLsQuirk;
 - (void)setNeedsStorageAccessFromFileURLsQuirk:(BOOL)flag;
@@ -423,9 +426,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (void)setAVFoundationNSURLSessionEnabled:(BOOL)flag;
 - (BOOL)isAVFoundationNSURLSessionEnabled;
 
-- (void)setQTKitEnabled:(BOOL)flag;
-- (BOOL)isQTKitEnabled;
-
 // Deprecated, has no effect.
 - (void)setVideoPluginProxyEnabled:(BOOL)flag;
 - (BOOL)isVideoPluginProxyEnabled;
@@ -543,6 +543,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (BOOL)cacheAPIEnabled;
 - (void)setCacheAPIEnabled:(BOOL)enabled;
 
+- (BOOL)crossOriginWindowPolicySupportEnabled;
+- (void)setCrossOriginWindowPolicySupportEnabled:(BOOL)enabled;
+
 - (void)setFetchAPIEnabled:(BOOL)flag;
 - (BOOL)fetchAPIEnabled;
 
@@ -558,9 +561,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (void)setDirectoryUploadEnabled:(BOOL)flag;
 - (BOOL)directoryUploadEnabled;
 
-- (void)setCSSGridLayoutEnabled:(BOOL)flag;
-- (BOOL)isCSSGridLayoutEnabled;
-
 - (void)setWebAnimationsEnabled:(BOOL)flag;
 - (BOOL)webAnimationsEnabled;
 
@@ -570,11 +570,17 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (void)setModernMediaControlsEnabled:(BOOL)flag;
 - (BOOL)modernMediaControlsEnabled;
 
+- (void)setWebAnimationsCSSIntegrationEnabled:(BOOL)flag;
+- (BOOL)webAnimationsCSSIntegrationEnabled;
+
 - (void)setWebAuthenticationEnabled:(BOOL)flag;
 - (BOOL)webAuthenticationEnabled;
 
 - (void)setIsSecureContextAttributeEnabled:(BOOL)flag;
 - (BOOL)isSecureContextAttributeEnabled;
+
+- (void)setServerTimingEnabled:(BOOL)flag;
+- (BOOL)serverTimingEnabled;
 
 @property (nonatomic) BOOL visualViewportEnabled;
 @property (nonatomic) BOOL visualViewportAPIEnabled;
@@ -597,10 +603,13 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 @property (nonatomic) BOOL encryptedMediaAPIEnabled;
 @property (nonatomic) BOOL viewportFitEnabled;
 @property (nonatomic) BOOL constantPropertiesEnabled;
+@property (nonatomic) BOOL colorFilterEnabled;
+@property (nonatomic) BOOL punchOutWhiteBackgroundsInDarkMode;
 @property (nonatomic) BOOL inspectorAdditionsEnabled;
 @property (nonatomic) BOOL allowMediaContentTypesRequiringHardwareSupportAsFallback;
 @property (nonatomic) BOOL accessibilityObjectModelEnabled;
 @property (nonatomic) BOOL mediaCapabilitiesEnabled;
+@property (nonatomic) BOOL allowCrossOriginSubresourcesToAskForCredentials;
 
 #if TARGET_OS_IPHONE
 @property (nonatomic) BOOL quickLookDocumentSavingEnabled;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2015, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2015, 2017, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -937,7 +937,7 @@ done:
 
 	exit(0);
 }
-#endif
+#endif	// !TARGET_OS_IPHONE
 
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
@@ -964,7 +964,7 @@ nc_enablevpn(int argc, char **argv)
 			nc_set_application_url(vendorType, argument);
 			my_CFRelease(&argument);
 		}
-#endif
+#endif	// !TARGET_OS_IPHONE
 	}
 
 	exit_code = 0;
@@ -996,7 +996,7 @@ nc_show(int argc, char **argv)
 	Boolean			isStale			= FALSE;
 	char			*path			= NULL;
 	CFIndex			path_len		= 0;
-#endif
+#endif	// !TARGET_OS_IPHONE
 
 	service = nc_copy_service_from_arguments(argc, argv, NULL);
 	if (service == NULL) {
@@ -1049,7 +1049,7 @@ nc_show(int argc, char **argv)
 
 	SCPrint(TRUE, stdout, CFSTR("ApplicationURL: %@\n"), directory);
 skipURL:
-#endif
+#endif	// !TARGET_OS_IPHONE
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("scutil --nc"), NULL, NULL);
 	if (store == NULL) {
@@ -1120,13 +1120,13 @@ nc_select(int argc, char **argv)
 		SCPrint(TRUE, stderr, CFSTR("Unable to enable service: %s\n"), SCErrorString(SCError()));
 		goto done;
 	}
-#else
+#else	// !TARGET_OS_IPHONE
 	status = SCNetworkSetSetSelectedVPNService(current_set, service);
 	if (!status) {
 		SCPrint(TRUE, stderr, CFSTR("Unable to select service: %s\n"), SCErrorString(SCError()));
 		goto done;
 	}
-#endif
+#endif	// !TARGET_OS_IPHONE
 
 	_prefs_save();
 	exit_code = 0;
@@ -1185,11 +1185,11 @@ nc_help(int argc, char **argv)
 	SCPrint(TRUE, stderr, CFSTR("\tenablevpn <service or vpn type> [path]\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\tEnables the given VPN application type. Takes either a service or VPN type. Pass a path to set ApplicationURL\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
-#else
+#else	// !TARGET_OS_IPHONE
 	SCPrint(TRUE, stderr, CFSTR("\tenablevpn <service or vpn type>\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\tEnables the given VPN application type. Takes either a service or VPN type\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
-#endif
+#endif	// !TARGET_OS_IPHONE
 	SCPrint(TRUE, stderr, CFSTR("\tdisablevpn <service or vpn type>\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\tDisables the given VPN application type. Takes either a service or VPN type\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));

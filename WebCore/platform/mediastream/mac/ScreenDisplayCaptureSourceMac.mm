@@ -133,9 +133,9 @@ bool ScreenDisplayCaptureSourceMac::createDisplayStream()
     if (!m_displayStream) {
 
         if (size().isEmpty()) {
-            CGDisplayModeRef displayMode = CGDisplayCopyDisplayMode(m_displayID);
-            auto screenWidth = CGDisplayModeGetPixelsWide(displayMode);
-            auto screenHeight = CGDisplayModeGetPixelsHigh(displayMode);
+            RetainPtr<CGDisplayModeRef> displayMode = adoptCF(CGDisplayCopyDisplayMode(m_displayID));
+            auto screenWidth = CGDisplayModeGetPixelsWide(displayMode.get());
+            auto screenHeight = CGDisplayModeGetPixelsHigh(displayMode.get());
             if (!screenWidth || !screenHeight) {
                 RELEASE_LOG(Media, "ScreenDisplayCaptureSourceMac::createDisplayStream(%p), unable to get screen width/height", this);
                 captureFailed();
@@ -143,7 +143,6 @@ bool ScreenDisplayCaptureSourceMac::createDisplayStream()
             }
             setWidth(screenWidth);
             setHeight(screenHeight);
-            CGDisplayModeRelease(displayMode);
         }
 
         if (!m_captureQueue)
@@ -167,7 +166,7 @@ bool ScreenDisplayCaptureSourceMac::createDisplayStream()
         };
         auto streamOptions = adoptCF(CFDictionaryCreate(kCFAllocatorDefault, keys, values, WTF_ARRAY_LENGTH(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
-        auto weakThis = m_weakFactory.createWeakPtr(*this);
+        auto weakThis = makeWeakPtr(*this);
         m_frameAvailableBlock = Block_copy(^(CGDisplayStreamFrameStatus status, uint64_t displayTime, IOSurfaceRef frameSurface, CGDisplayStreamUpdateRef updateRef) {
             if (!weakThis)
                 return;
@@ -219,7 +218,7 @@ RetainPtr<CMSampleBufferRef> ScreenDisplayCaptureSourceMac::sampleBufferFromPixe
     if (!pixelBuffer)
         return nullptr;
 
-    CMTime sampleTime = CMTimeMake((elapsedTime() + .1) * 100, 100);
+    CMTime sampleTime = CMTimeMake(((elapsedTime() + 100_ms) * 100).seconds(), 100);
     CMSampleTimingInfo timingInfo = { kCMTimeInvalid, sampleTime, sampleTime };
 
     CMVideoFormatDescriptionRef formatDescription = nullptr;
@@ -387,7 +386,7 @@ void ScreenDisplayCaptureSourceMac::frameAvailable(CGDisplayStreamFrameStatus st
         return;
 
     LockHolder lock(m_currentFrameMutex);
-    m_lastFrameTime = monotonicallyIncreasingTime();
+    m_lastFrameTime = MonotonicTime::now();
     m_currentFrame = frameSurface;
 }
 

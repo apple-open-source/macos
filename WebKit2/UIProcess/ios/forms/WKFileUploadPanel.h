@@ -48,7 +48,6 @@ class WebOpenPanelResultListenerProxy;
 @protocol WKFileUploadPanelDelegate <NSObject>
 @optional
 - (void)fileUploadPanelDidDismiss:(WKFileUploadPanel *)fileUploadPanel;
-- (UIViewController *)viewControllerForPresentingFileUploadPanel:(WKFileUploadPanel *)fileUploadPanel;
 @end
 
 #endif // PLATFORM(IOS)

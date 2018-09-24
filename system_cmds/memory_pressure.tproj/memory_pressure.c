@@ -41,6 +41,7 @@
 unsigned long	phys_mem = 0;            /* amount of physical memory in bytes */
 unsigned int	phys_pages = 0;          /* number of physical memory pages */
 int		sleep_seconds = 1;
+int		requested_hysteresis_seconds = 0;
 boolean_t	quiet_mode_on = FALSE;
 boolean_t	simulate_mode_on = FALSE;
 
@@ -83,6 +84,7 @@ usage(void)
 			"  -p <percent-free>     - allocate memory until percent free is this (or less)\n"
 			"  -s <seconds>          - how long to sleep between checking for a set percent level\n"
 			"  -w <percent-free>     - don't allocate, just wait until percent free is this then exit\n"
+			"  -y <seconds>          - Hysteresis Interval: how long to wait after requested percntage free is reached, before exiting program. Requires the usage of the -p option\n"
 			"  -v <print VM stats>   - print VM statistics every sampling interval\n"
 			"  -Q <quiet mode>	 - reduces the tool's output\n"
 			"  -S			 - simulate the system's memory pressure level without applying any real pressure\n"
@@ -457,6 +459,7 @@ munch_for_percentage(unsigned int sleep_seconds, unsigned int wait_percent_free,
 {
 
 	int		total_pages_allocated = 0;
+	int		current_stable_timer = 0;	/* in seconds */
 	unsigned int	current_percent = 0;
 	boolean_t	page_op = PAGE_OP_FREE;
 	unsigned int	pages_to_process = 0;
@@ -539,6 +542,18 @@ munch_for_percentage(unsigned int sleep_seconds, unsigned int wait_percent_free,
 				printf(".");
 				fflush(stdout);
 			}
+
+			/* Stability has been reached; Increment current_stable_timer by sleep_seconds */
+
+			if (current_stable_timer <= requested_hysteresis_seconds){
+				current_stable_timer += sleep_seconds;
+				/* Debug only */
+				/* printf("\n Percentage Free stable for %d seconds", current_stable_timer); */
+			} else {
+				printf ("\n Maintained memory pressure to %d percent free for more than %d seconds. Stopping pressure now.", current_percent, requested_hysteresis_seconds);
+				return;
+			}
+
 			print_vm_stats_on_page_processing = FALSE;
 		}
 
@@ -566,7 +581,7 @@ main(int argc, char * const argv[])
 	unsigned int print_vm_stats = 0;
 	char	     level[10];
 
-	while ((opt = getopt(argc, argv, "hl:p:s:w:vQS")) != -1) {
+	while ((opt = getopt(argc, argv, "hl:p:s:w:y:vQS")) != -1) {
 		switch (opt) {
 			case 'h':
 				usage();
@@ -599,6 +614,9 @@ main(int argc, char * const argv[])
 			case 'w':
 				wait_percent_free = atoi(optarg);
 				break;
+			case 'y':
+				requested_hysteresis_seconds = atoi(optarg);
+				break;
 			case 'v':
 				print_vm_stats = 1;
 				break;
@@ -616,6 +634,13 @@ main(int argc, char * const argv[])
 	if (simulate_mode_on == TRUE && desired_level == 0) {
 		printf("Expected level with -l along with \"simulated\" mode.\n");
 		return 0;
+	}
+
+	if (requested_hysteresis_seconds > 0) {
+		if (desired_percent == 0) {
+			printf("Hysteresis time may only be specified in conjunction with a non-zero value for the -p option. \n");
+			usage();
+		}
 	}
 
 	phys_mem   = read_sysctl_int("hw.physmem");

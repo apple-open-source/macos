@@ -105,6 +105,10 @@ void __IOMIGMachPortRelease(CFTypeRef object)
     
     if ( migPort->port ) {
         CFMachPortInvalidate(migPort->port);
+        mach_port_mod_refs(mach_task_self(),
+                           CFMachPortGetPort(migPort->port),
+                           MACH_PORT_RIGHT_RECEIVE,
+                           -1);
         CFRelease(migPort->port);
     }
     
@@ -154,6 +158,11 @@ IOMIGMachPortRef IOMIGMachPortCreate(CFAllocatorRef allocator, CFIndex maxMessag
             CFMachPortCreate(allocator, __IOMIGMachPortPortCallback, &context, NULL);
     
     require(migPort->port, exit);
+    
+    mach_port_mod_refs(mach_task_self(),
+                       CFMachPortGetPort(migPort->port),
+                       MACH_PORT_RIGHT_RECEIVE,
+                       1);
     
     migPort->maxMessageSize = maxMessageSize;
     
@@ -215,12 +224,23 @@ void IOMIGMachPortScheduleWithDispatchQueue(IOMIGMachPortRef migPort, dispatch_q
     
     // init the sources
     if ( !migPort->dispatchSource ) {
-        migPort->dispatchSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, port, 0, migPort->dispatchQueue);
-        require(migPort->dispatchSource, exit);
-
-        dispatch_set_context(migPort->dispatchSource, migPort);
-        dispatch_source_set_event_handler_f(migPort->dispatchSource, __IOMIGMachPortSourceCallback);
-        dispatch_resume(migPort->dispatchSource);
+        dispatch_source_t ds = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV,
+                                                      port,
+                                                      0,
+                                                      migPort->dispatchQueue);
+        require(ds, exit);
+        
+        dispatch_set_context(ds, migPort);
+        dispatch_source_set_event_handler_f(ds, __IOMIGMachPortSourceCallback);
+        
+        CFRetain(migPort);
+        dispatch_source_set_cancel_handler(ds, ^{
+            dispatch_release(ds);
+            CFRelease(migPort);
+        });
+        
+        dispatch_activate(ds);
+        migPort->dispatchSource = ds;
     }
     
     
@@ -242,7 +262,7 @@ void IOMIGMachPortUnscheduleFromDispatchQueue(IOMIGMachPortRef migPort, dispatch
     migPort->dispatchQueue = NULL;
 
     if ( migPort->dispatchSource ) {
-        dispatch_release(migPort->dispatchSource);
+        dispatch_cancel(migPort->dispatchSource);
         migPort->dispatchSource = NULL;
     }
 }

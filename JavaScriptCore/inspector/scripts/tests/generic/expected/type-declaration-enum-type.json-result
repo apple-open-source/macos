@@ -71,8 +71,8 @@ InspectorBackend.activateDomain("Runtime");
 #if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
 
 #include "TestProtocolTypes.h"
-#include <inspector/InspectorFrontendRouter.h>
 #include <JavaScriptCore/InspectorBackendDispatcher.h>
+#include <JavaScriptCore/InspectorFrontendRouter.h>
 
 namespace Inspector {
 
@@ -126,7 +126,7 @@ private:
 #pragma once
 
 #include "TestProtocolObjects.h"
-#include <inspector/InspectorBackendDispatcher.h>
+#include <JavaScriptCore/InspectorBackendDispatcher.h>
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
@@ -172,7 +172,7 @@ typedef String ErrorString;
 #include "config.h"
 #include "TestBackendDispatchers.h"
 
-#include <inspector/InspectorFrontendRouter.h>
+#include <JavaScriptCore/InspectorFrontendRouter.h>
 #include <wtf/JSONValues.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
@@ -267,7 +267,7 @@ class FrontendRouter;
 #include "config.h"
 #include "TestFrontendDispatchers.h"
 
-#include <inspector/InspectorFrontendRouter.h>
+#include <JavaScriptCore/InspectorFrontendRouter.h>
 #include <wtf/text/CString.h>
 
 namespace Inspector {
@@ -309,7 +309,7 @@ namespace Inspector {
 
 #pragma once
 
-#include <inspector/InspectorProtocolTypes.h>
+#include <JavaScriptCore/InspectorProtocolTypes.h>
 #include <wtf/Assertions.h>
 
 namespace Inspector {
@@ -865,13 +865,13 @@ inline String toProtocolString(TestProtocolPlatform value)
 {
     switch(value) {
     case TestProtocolPlatformAll:
-        return ASCIILiteral("all");
+        return "all"_s;
     case TestProtocolPlatformGeneric:
-        return ASCIILiteral("generic");
+        return "generic"_s;
     case TestProtocolPlatformIOS:
-        return ASCIILiteral("ios");
+        return "ios"_s;
     case TestProtocolPlatformMacOS:
-        return ASCIILiteral("macos");
+        return "macos"_s;
     }
 }
 
@@ -894,13 +894,13 @@ inline String toProtocolString(TestProtocolRuntimeFarmAnimals value)
 {
     switch(value) {
     case TestProtocolRuntimeFarmAnimalsPigs:
-        return ASCIILiteral("Pigs");
+        return "Pigs"_s;
     case TestProtocolRuntimeFarmAnimalsCows:
-        return ASCIILiteral("Cows");
+        return "Cows"_s;
     case TestProtocolRuntimeFarmAnimalsCats:
-        return ASCIILiteral("Cats");
+        return "Cats"_s;
     case TestProtocolRuntimeFarmAnimalsHens:
-        return ASCIILiteral("Hens");
+        return "Hens"_s;
     }
 }
 
@@ -922,13 +922,13 @@ inline String toProtocolString(TestProtocolRuntimeTwoLeggedAnimals value)
 {
     switch(value) {
     case TestProtocolRuntimeTwoLeggedAnimalsDucks:
-        return ASCIILiteral("Ducks");
+        return "Ducks"_s;
     case TestProtocolRuntimeTwoLeggedAnimalsHens:
-        return ASCIILiteral("Hens");
+        return "Hens"_s;
     case TestProtocolRuntimeTwoLeggedAnimalsCrows:
-        return ASCIILiteral("Crows");
+        return "Crows"_s;
     case TestProtocolRuntimeTwoLeggedAnimalsFlamingos:
-        return ASCIILiteral("Flamingos");
+        return "Flamingos"_s;
     }
 }
 

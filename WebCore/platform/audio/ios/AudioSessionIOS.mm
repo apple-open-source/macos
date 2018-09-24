@@ -38,14 +38,14 @@
 SOFT_LINK_FRAMEWORK(AVFoundation)
 SOFT_LINK_CLASS(AVFoundation, AVAudioSession)
 
-SOFT_LINK_POINTER(AVFoundation, AVAudioSessionCategoryAmbient, NSString *)
-SOFT_LINK_POINTER(AVFoundation, AVAudioSessionCategorySoloAmbient, NSString *)
-SOFT_LINK_POINTER(AVFoundation, AVAudioSessionCategoryPlayback, NSString *)
-SOFT_LINK_POINTER(AVFoundation, AVAudioSessionCategoryRecord, NSString *)
-SOFT_LINK_POINTER(AVFoundation, AVAudioSessionCategoryPlayAndRecord, NSString *)
-SOFT_LINK_POINTER(AVFoundation, AVAudioSessionCategoryAudioProcessing, NSString *)
-SOFT_LINK_POINTER(AVFoundation, AVAudioSessionModeDefault, NSString *)
-SOFT_LINK_POINTER(AVFoundation, AVAudioSessionModeVideoChat, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategoryAmbient, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategorySoloAmbient, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategoryPlayback, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategoryRecord, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategoryPlayAndRecord, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategoryAudioProcessing, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionModeDefault, NSString *)
+SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionModeVideoChat, NSString *)
 
 #define AVAudioSession getAVAudioSessionClass()
 #define AVAudioSessionCategoryAmbient getAVAudioSessionCategoryAmbient()
@@ -135,14 +135,13 @@ void AudioSession::setCategory(CategoryType newCategory)
         categoryString = AVAudioSessionCategoryAudioProcessing;
         break;
     case None:
-    default:
-        categoryString = nil;
+        categoryString = AVAudioSessionCategoryAmbient;
         break;
     }
 
     NSError *error = nil;
     [[AVAudioSession sharedInstance] setCategory:categoryString mode:categoryMode routeSharingPolicy:policy options:options error:&error];
-#if !PLATFORM(IOS_SIMULATOR)
+#if !PLATFORM(IOS_SIMULATOR) && !PLATFORM(IOSMAC)
     ASSERT(!error);
 #endif
 }
@@ -178,7 +177,7 @@ RouteSharingPolicy AudioSession::routeSharingPolicy() const
 
 String AudioSession::routingContextUID() const
 {
-#if !PLATFORM(IOS_SIMULATOR) && !ENABLE(MINIMAL_SIMULATOR) && !PLATFORM(WATCHOS)
+#if !PLATFORM(IOS_SIMULATOR) && !PLATFORM(IOSMAC) && !PLATFORM(WATCHOS)
     return [[AVAudioSession sharedInstance] routingContextUID];
 #else
     return emptyString();
@@ -217,7 +216,7 @@ size_t AudioSession::numberOfOutputChannels() const
 bool AudioSession::tryToSetActive(bool active)
 {
     NSError *error = nil;
-    [[AVAudioSession sharedInstance] setActive:active error:&error];
+    [[AVAudioSession sharedInstance] setActive:active withOptions:active ? 0 : AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:&error];
     return !error;
 }
 

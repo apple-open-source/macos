@@ -49,6 +49,8 @@ extern OTPowerEvent* const kOTPowerEventEnroll;
 
 + (void)CKKSPowerEvent:(CKKSPowerEvent *)operation zone:(NSString *)zone;
 + (void)CKKSPowerEvent:(CKKSPowerEvent *)operation zone:(NSString *)zone count:(NSUInteger)count;
++ (void)CKKSPowerEvent:(CKKSPowerEvent *)operation count:(NSUInteger)count;
+
 + (void)OTPowerEvent:(NSString *)operation;
 
 - (void)storedOQE:(CKKSOutgoingQueueEntry *)oqe;

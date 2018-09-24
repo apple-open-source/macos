@@ -56,9 +56,6 @@ const char *kSecXPCPublicPeerId = "publicPeerId"; // Public peer id
 const char *kSecXPCOTRSession = "otrsess"; // OTR session bytes
 const char *kSecXPCData = "data"; // Data to process
 const char *kSecXPCOTRReady = "otrrdy"; // OTR ready for messages
-const char *kSecXPCKeyDeviceID = "deviceID";
-const char *kSecXPCKeySendIDSMessage = "sendIDSMessageCommand";
-const char *kSecXPCKeyIDSMessage = "idsMessage";
 const char *kSecXPCKeyViewName = "viewname";
 const char *kSecXPCKeyViewActionCode = "viewactioncode";
 const char *kSecXPCKeyHSA2AutoAcceptInfo = "autoacceptinfo";
@@ -82,7 +79,7 @@ const char *kSecXPCKeySerialNumber = "serialNum";
 const char *kSecXPCKeyBackupKeybagIdentifier = "backupKeybagID";
 const char *kSecXPCKeyBackupKeybagPath = "backupKeybagPath";
 const char *kSecXPCVersion = "version";
-
+const char *kSecXPCKeySignInAnalytics = "signinanalytics";
 //
 // XPC Functions for both client and server.
 //
@@ -135,20 +132,12 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("GetAllTheRings");
         case kSecXPCOpGetLastDepartureReason:
             return CFSTR("GetLastDepartureReason");
-        case kSecXPCOpHandleIDSMessage:
-            return CFSTR("HandleIDSMessage");
         case kSecXPCOpSyncWithKVSPeer:
             return CFSTR("SyncKVSPeer");
-        case kSecXPCOpSyncWithIDSPeer:
-            return CFSTR("SyncIDSPeer");
-        case kSecXPCOpIDSDeviceID:
-            return CFSTR("IDSDeviceID");
         case kSecXPCOpClearKVSPeerMessage:
             return CFSTR("kSecXPCOpClearKVSPeerMessage");
         case kSecXPCOpLoggedOutOfAccount:
             return CFSTR("LoggedOutOfAccount");
-        case kSecXPCOpPingTest:
-            return CFSTR("PingTest");
         case kSecXPCOpProcessSyncWithAllPeers:
             return CFSTR("ProcessSyncWithAllPeers");
         case kSecXPCOpProcessSyncWithPeers:
@@ -161,32 +150,34 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("RejectApplicants");
         case kSecXPCOpRemoveThisDeviceFromCircle:
             return CFSTR("RemoveThisDeviceFromCircle");
+        case kSecXPCOpRemoveThisDeviceFromCircleWithAnalytics:
+            return CFSTR("RemoveThisDeviceFromCircleWithAnalytics");
         case kSecXPCOpRemovePeersFromCircle:
             return CFSTR("RemovePeersFromCircle");
-        case kSecXPCOpRequestDeviceID:
-            return CFSTR("RequestDeviceID");
+        case kSecXPCOpRemovePeersFromCircleWithAnalytics:
+            return CFSTR("RemovePeersFromCircleWithAnalytics");
         case kSecXPCOpRequestEnsureFreshParameters:
             return CFSTR("RequestEnsureFreshParameters");
         case kSecXPCOpRequestToJoin:
             return CFSTR("RequestToJoin");
+        case kSecXPCOpRequestToJoinWithAnalytics:
+            return CFSTR("RequestToJoinWithAnalytics");
         case kSecXPCOpRequestToJoinAfterRestore:
             return CFSTR("RequestToJoinAfterRestore");
+        case kSecXPCOpRequestToJoinAfterRestoreWithAnalytics:
+            return CFSTR("RequestToJoinAfterRestoreWithAnalytics");
         case kSecXPCOpResetToEmpty:
             return CFSTR("ResetToEmpty");
+        case kSecXPCOpResetToEmptyWithAnalytics:
+            return CFSTR("ResetToEmptyWithAnalytics");
         case kSecXPCOpResetToOffering:
             return CFSTR("ResetToOffering");
         case kSecXPCOpRingStatus:
             return CFSTR("RingStatus");
         case kSecXPCOpRollKeys:
             return CFSTR("RollKeys");
-        case kSecXPCOpSecurityProperty:
-            return CFSTR("SecurityProperty");
-        case kSecXPCOpSendIDSMessage:
-            return CFSTR("SendIDSMessage");
         case kSecXPCOpSetBagForAllSlices:
             return CFSTR("SetBagForAllSlices");
-        case kSecXPCOpSetDeviceID:
-            return CFSTR("SetDeviceID");
         case kSecXPCOpSetLastDepartureReason:
             return CFSTR("SetLastDepartureReason");
         case kSecXPCOpSetNewPublicBackupKey:
@@ -195,6 +186,8 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("SetUserCredentials");
         case kSecXPCOpSetUserCredentialsAndDSID:
             return CFSTR("SetUserCredentialsAndDSID");
+        case kSecXPCOpSetUserCredentialsAndDSIDWithAnalytics:
+            return CFSTR("SetUserCredentialsAndDSIDWithAnalytics");
         case kSecXPCOpTryUserCredentials:
             return CFSTR("TryUserCredentials");
         case kSecXPCOpValidateUserPublic:

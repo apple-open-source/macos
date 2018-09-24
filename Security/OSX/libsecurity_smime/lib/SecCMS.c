@@ -56,6 +56,7 @@ CFTypeRef kSecCMSSignDate = CFSTR("kSecCMSSignDate");
 CFTypeRef kSecCMSAllCerts = CFSTR("kSecCMSAllCerts");
 CFTypeRef kSecCMSHashAgility = CFSTR("kSecCMSHashAgility");
 CFTypeRef kSecCMSHashAgilityV2 = CFSTR("kSecCMSHashAgilityV2");
+CFTypeRef kSecCMSExpirationDate = CFSTR("kSecCMSExpirationDate");
 
 CFTypeRef kSecCMSBulkEncryptionAlgorithm = CFSTR("kSecCMSBulkEncryptionAlgorithm");
 CFTypeRef kSecCMSEncryptionAlgorithmDESCBC = CFSTR("kSecCMSEncryptionAlgorithmDESCBC");
@@ -402,6 +403,15 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
                 CFDictionarySetValue(attrs, kSecCMSHashAgilityV2, hash_agility_values);
             }
         }
+
+        CFAbsoluteTime expiration_time;
+        if (errSecSuccess == SecCmsSignerInfoGetAppleExpirationTime(sigd->signerInfos[0], &expiration_time)) {
+            CFDateRef expiration_date = CFDateCreate(NULL, expiration_time);
+            if (expiration_date) {
+                CFDictionarySetValue(attrs, kSecCMSExpirationDate, expiration_date);
+                CFRetainSafe(expiration_date);
+            }
+        }
         
         *signed_attributes = attrs;
         if (certs) CFRelease(certs);
@@ -449,6 +459,10 @@ CFArrayRef SecCMSCertificatesOnlyMessageCopyCertificates(CFDataRef message) {
     SecCmsSignedDataRef sigd = NULL;
     CFMutableArrayRef certs = NULL;
 
+    if (!message) {
+        return NULL;
+    }
+
     CSSM_DATA encoded_message = { CFDataGetLength(message), (uint8_t*)CFDataGetBytePtr(message) };
     require_noerr_quiet(SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg), out);
     /* expected to be a signed data message at the top level */
@@ -473,8 +487,10 @@ CFArrayRef SecCMSCertificatesOnlyMessageCopyCertificates(CFDataRef message) {
     }
 
 out:
-    if (cmsg)
-        SecCmsMessageDestroy(cmsg);
+    if (cmsg) { SecCmsMessageDestroy(cmsg); }
+    if (certs && CFArrayGetCount(certs) < 1) {
+        CFReleaseNull(certs);
+    }
 
     return certs;
 }

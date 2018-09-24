@@ -47,8 +47,8 @@
 		__builtin_trap(); \
 })
 
-#define MALLOC_PRINTF_FATAL_ERROR(cause, message) ({ \
-		malloc_printf("*** FATAL ERROR - " message ".\n"); \
+#define MALLOC_REPORT_FATAL_ERROR(cause, message) ({ \
+		malloc_report(ASL_LEVEL_ERR, "*** FATAL ERROR - " message ".\n"); \
 		MALLOC_FATAL_ERROR((cause), message); \
 })
 

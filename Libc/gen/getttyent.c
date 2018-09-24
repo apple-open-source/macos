@@ -63,6 +63,9 @@
 #include <regex.h>
 #include <limits.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+
 static char zapchar;
 static FILE *tf;
 
@@ -385,3 +388,5 @@ endttyent()
 	}
 	return (1);
 }
+#pragma clang diagnostic pop
+

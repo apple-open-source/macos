@@ -58,6 +58,8 @@
 #include <utilities/SecAKSWrappers.h>
 #include <ipc/securityd_client.h>
 
+#include "server_security_helpers.h"
+
 struct securityd *gSecurityd;
 struct trustd *gTrustd;
 
@@ -74,6 +76,7 @@ static CFArrayRef SecServerCopyAccessGroups(void) {
                                    CFSTR("lockdown-identities"),
                                    CFSTR("123456.test.group"),
                                    CFSTR("123456.test.group2"),
+                                   CFSTR("com.apple.cfnetwork"),
 #else
                                    CFSTR("sync"),
 #endif
@@ -82,6 +85,7 @@ static CFArrayRef SecServerCopyAccessGroups(void) {
                                    CFSTR("com.apple.security.sos-usercredential"),
                                    CFSTR("com.apple.sbd"),
                                    CFSTR("com.apple.lakitu"),
+                                   CFSTR("com.apple.security.securityd"),
                                    kSecAttrAccessGroupToken,
                                    NULL);
 }
@@ -123,7 +127,6 @@ CFArrayRef SecAccessGroupsGetCurrent(void) {
 }
 
 // Only for testing.
-void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups) {
     // Not thread safe at all, but OK because it is meant to be used only by tests.
     gClient.accessGroups = accessGroups;
@@ -254,6 +257,46 @@ void SecServerSetTrustdMachServiceName(const char *name) {
         xpc_release(oldConection);
 }
 
+
+#define SECURITYD_MAX_XPC_TRIES 4
+// Per <rdar://problem/17829836> N61/12A342: Audio Playback... for why this needs to be at least 3, so we made it 4.
+
+static bool
+_securityd_process_message_reply(xpc_object_t *reply,
+								 CFErrorRef *error,
+								 xpc_connection_t connection,
+								 uint64_t operation)
+{
+	if (xpc_get_type(*reply) != XPC_TYPE_ERROR) {
+		return true;
+	}
+	CFIndex code =  0;
+	if (*reply == XPC_ERROR_CONNECTION_INTERRUPTED || *reply == XPC_ERROR_CONNECTION_INVALID) {
+		code = kSecXPCErrorConnectionFailed;
+		seccritical("Failed to talk to %s after %d attempts.",
+					(is_trust_operation((enum SecXPCOperation)operation)) ? "trustd" :
+#if TARGET_OS_IPHONE
+					"securityd",
+#else
+					"secd",
+#endif
+					SECURITYD_MAX_XPC_TRIES);
+	} else if (*reply == XPC_ERROR_TERMINATION_IMMINENT) {
+		code = kSecXPCErrorUnknown;
+	} else {
+		code = kSecXPCErrorUnknown;
+	}
+
+	char *conn_desc = xpc_copy_description(connection);
+	const char *description = xpc_dictionary_get_string(*reply, XPC_ERROR_KEY_DESCRIPTION);
+	SecCFCreateErrorWithFormat(code, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("%s: %s"), conn_desc, description);
+	free(conn_desc);
+	xpc_release(*reply);
+	*reply = NULL;
+	return false;
+}
+
+
 XPC_RETURNS_RETAINED
 xpc_object_t
 securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
@@ -262,7 +305,7 @@ securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
     uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
     xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation);
 
-    const int max_tries = 4; // Per <rdar://problem/17829836> N61/12A342: Audio Playback... for why this needs to be at least 3, so we made it 4.
+    const int max_tries = SECURITYD_MAX_XPC_TRIES;
 
     unsigned int tries_left = max_tries;
     do {
@@ -270,32 +313,44 @@ securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
         reply = xpc_connection_send_message_with_reply_sync(connection, message);
     } while (reply == XPC_ERROR_CONNECTION_INTERRUPTED && --tries_left > 0);
 
-    if (xpc_get_type(reply) == XPC_TYPE_ERROR) {
-        CFIndex code =  0;
-        if (reply == XPC_ERROR_CONNECTION_INTERRUPTED || reply == XPC_ERROR_CONNECTION_INVALID) {
-            code = kSecXPCErrorConnectionFailed;
-            seccritical("Failed to talk to %s after %d attempts.",
-                (is_trust_operation((enum SecXPCOperation)operation)) ? "trustd" :
-#if TARGET_OS_IPHONE
-                        "securityd",
-#else
-                        "secd",
-#endif
-                max_tries);
-        } else if (reply == XPC_ERROR_TERMINATION_IMMINENT)
-            code = kSecXPCErrorUnknown;
-        else
-            code = kSecXPCErrorUnknown;
-
-        char *conn_desc = xpc_copy_description(connection);
-        const char *description = xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION);
-        SecCFCreateErrorWithFormat(code, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("%s: %s"), conn_desc, description);
-        free(conn_desc);
-        xpc_release(reply);
-        reply = NULL;
-    }
+	_securityd_process_message_reply(&reply, error, connection, operation);
 
     return reply;
+}
+
+static void
+_securityd_message_with_reply_async_inner(xpc_object_t message,
+										  dispatch_queue_t replyq,
+										  securityd_handler_t handler,
+										  uint32_t tries_left)
+{
+	uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
+	xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation);
+
+	xpc_retain(message);
+	dispatch_retain(replyq);
+	securityd_handler_t handlerCopy = Block_copy(handler);
+	xpc_connection_send_message_with_reply(connection, message, replyq, ^(xpc_object_t _Nonnull reply) {
+		if (reply == XPC_ERROR_CONNECTION_INTERRUPTED && tries_left > 0) {
+			_securityd_message_with_reply_async_inner(message, replyq, handlerCopy, tries_left - 1);
+		} else {
+			CFErrorRef error = NULL;
+			_securityd_process_message_reply(&reply, &error, connection, operation);
+			handlerCopy(reply, error);
+			CFReleaseNull(error);
+		}
+		xpc_release(message);
+		dispatch_release(replyq);
+		Block_release(handlerCopy);
+	});
+}
+
+void
+securityd_message_with_reply_async(xpc_object_t message,
+								   dispatch_queue_t replyq,
+								   securityd_handler_t handler)
+{
+	_securityd_message_with_reply_async_inner(message, replyq, handler, SECURITYD_MAX_XPC_TRIES);
 }
 
 XPC_RETURNS_RETAINED
@@ -361,6 +416,42 @@ bool securityd_send_sync_and_do(enum SecXPCOperation op, CFErrorRef *error,
     }
 
     return ok;
+}
+
+void securityd_send_async_and_do(enum SecXPCOperation op, dispatch_queue_t replyq,
+								 bool (^add_to_message)(xpc_object_t message, CFErrorRef* error),
+								 securityd_handler_t handler) {
+	CFErrorRef error = NULL;
+	xpc_object_t message = securityd_create_message(op, &error);
+	if (message == NULL) {
+		handler(NULL, error);
+		CFReleaseNull(error);
+		return;
+	}
+
+	if (add_to_message != NULL) {
+		if (!add_to_message(message, &error)) {
+			handler(NULL, error);
+			xpc_release(message);
+			CFReleaseNull(error);
+			return;
+		}
+	}
+
+	securityd_message_with_reply_async(message, replyq, ^(xpc_object_t reply, CFErrorRef error2) {
+		if (error2 != NULL) {
+			handler(NULL, error2);
+			return;
+		}
+		CFErrorRef error3 = NULL;
+		if (!securityd_message_no_error(reply, &error3)) {
+			handler(NULL, error3);
+			CFReleaseNull(error3);
+			return;
+		}
+		handler(reply, NULL);
+	});
+	xpc_release(message);
 }
 
 
@@ -487,4 +578,10 @@ XPC_RETURNS_RETAINED xpc_endpoint_t
 _SecSecuritydCopyKeychainControlEndpoint(CFErrorRef* error)
 {
     return _SecSecuritydCopyEndpoint(kSecXPCOpKeychainControlEndpoint, error);
+}
+
+XPC_RETURNS_RETAINED xpc_endpoint_t
+_SecSecuritydCopySFKeychainEndpoint(CFErrorRef* error)
+{
+    return _SecSecuritydCopyEndpoint(kSecXPCOpSFKeychainEndpoint, error);
 }

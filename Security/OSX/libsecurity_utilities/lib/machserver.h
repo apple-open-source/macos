@@ -41,11 +41,11 @@ namespace MachPlusPlus {
 
 
 extern "C" {
-	void cdsa_mach_notify_dead_name(mach_port_t, mach_port_name_t port);
-	void cdsa_mach_notify_port_destroyed(mach_port_t, mach_port_name_t port);
-	void cdsa_mach_notify_port_deleted(mach_port_t, mach_port_name_t port);
-	void cdsa_mach_notify_send_once(mach_port_t);
-	void cdsa_mach_notify_no_senders(mach_port_t, mach_port_mscount_t);
+	kern_return_t cdsa_mach_notify_dead_name(mach_port_t, mach_port_name_t port);
+	kern_return_t cdsa_mach_notify_port_destroyed(mach_port_t, mach_port_name_t port);
+	kern_return_t cdsa_mach_notify_port_deleted(mach_port_t, mach_port_name_t port);
+	kern_return_t cdsa_mach_notify_send_once(mach_port_t);
+	kern_return_t cdsa_mach_notify_no_senders(mach_port_t, mach_port_mscount_t);
 };
 
 
@@ -236,11 +236,11 @@ private:
     void setup(const char *name);
 	void runServerThread(bool doTimeout = false);
 	
-	friend void cdsa_mach_notify_dead_name(mach_port_t, mach_port_name_t port);
-	friend void cdsa_mach_notify_port_destroyed(mach_port_t, mach_port_name_t port);
-	friend void cdsa_mach_notify_port_deleted(mach_port_t, mach_port_name_t port);
-	friend void cdsa_mach_notify_send_once(mach_port_t);
-	friend void cdsa_mach_notify_no_senders(mach_port_t, mach_port_mscount_t);
+	friend kern_return_t cdsa_mach_notify_dead_name(mach_port_t, mach_port_name_t port);
+	friend kern_return_t cdsa_mach_notify_port_destroyed(mach_port_t, mach_port_name_t port);
+	friend kern_return_t cdsa_mach_notify_port_deleted(mach_port_t, mach_port_name_t port);
+	friend kern_return_t cdsa_mach_notify_send_once(mach_port_t);
+	friend kern_return_t cdsa_mach_notify_no_senders(mach_port_t, mach_port_mscount_t);
 };
 
 

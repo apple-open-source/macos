@@ -105,6 +105,9 @@ must be run as root in order to modify any settings.
 .Ar powernap
 - enable/disable Power Nap on supported machines (value = 0/1)
 .br
+.Ar proximitywake
+- On supported systems, this option controls system wake from sleep based on proximity of devices using same iCloud id. (value = 0/1)
+.br
 .Ar autorestart
 - automatic restart on power loss (value = 0/1)
 .br
@@ -288,9 +291,15 @@ will be visible in
 .Fl g
 if the feature is supported on this machine.
 .Pp
-.Ar standbydelay
-specifies the delay, in seconds, before writing the hibernation image to disk and powering off memory for Standby.
-
+.Ar standbydelayhigh
+and
+.Ar standbydelaylow
+specify the delay, in seconds, before writing the hibernation image to disk and powering off memory for Standby.
+.Ar standbydelayhigh
+is used when the remaining battery capacity is high, and
+.Ar standbydelaylow
+is used when the remaining battery capacity is low.
+.Pp
 .Ar autopoweroff
 is enabled by default on supported platforms as an implementation of Lot 6 to the European Energy-related Products Directive. After sleeping for <autopoweroffdelay> seconds, the system will write a hibernation image and go into a lower power chipset sleep. Wakeups from this state will take longer than wakeups from regular sleep.
 .Pp

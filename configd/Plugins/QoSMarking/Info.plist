@@ -28,6 +28,10 @@
 		<string>com.apple.facetime</string>
 		<string>com.apple.siri</string>
 	</array>
+	<key>QoSMarking_AppleAudioVideoCalls_ExecutablePaths</key>
+	<array>
+		<string>/System/Library/PrivateFrameworks/IDS.framework/identityservicesd.app/Contents/MacOS/identityservicesd</string>
+	</array>
 	<key>Requires</key>
 	<array>
 		<string>com.apple.SystemConfiguration.InterfaceNamer</string>

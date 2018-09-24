@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2017-07-25</string>
+		<string>2018-07-18</string>
 		<key>OpenSourceLicense</key>
 		<string>GPL</string>
 		<key>OpenSourceLicenseFile</key>
@@ -17,9 +17,9 @@
 		<key>OpenSourceProject</key>
 		<string>CUPS</string>
 		<key>OpenSourceURL</key>
-		<string>https://www.cups.org/software.php</string>
+		<string>https://www.cups.org/software.html</string>
 		<key>OpenSourceVersion</key>
-		<string>2.2.5 (master@0bc1a539f)</string>
+		<string>2.2.9 (branch-2.2@aca718a42)</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>https://www.cups.org/</string>
 	</dict>

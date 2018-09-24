@@ -11,13 +11,13 @@
 
 #include "tls_handshake_priv.h"
 #include "tls_metrics.h"
+#include "sslHandshake.h"
+#include "sslHandshake_priv.h"
 #include "sslDebug.h"
 #include "sslDigests.h"
 #include "sslCipherSpecs.h"
 #include "sslAlertMessage.h"
 #include "sslCrypto.h"
-
-//#include <network/tcp_connection_private.h>
 
 /*
  * Minimum and maximum supported versions
@@ -907,23 +907,17 @@ const uint16_t all_ciphersuites[] = {
     TLS_RSA_WITH_AES_256_CBC_SHA,
     TLS_RSA_WITH_AES_128_CBC_SHA,
     SSL_RSA_WITH_3DES_EDE_CBC_SHA,
-    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_SHA,
-    SSL_RSA_WITH_RC4_128_MD5,
 
     /* those are only used by the 'anonymous' config. */
     TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
     TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
     TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
-    TLS_ECDH_anon_WITH_RC4_128_SHA,
 
     TLS_DH_anon_WITH_AES_256_CBC_SHA256,
     TLS_DH_anon_WITH_AES_256_CBC_SHA,
     TLS_DH_anon_WITH_AES_128_CBC_SHA256,
     TLS_DH_anon_WITH_AES_128_CBC_SHA,
     TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
-    TLS_DH_anon_WITH_RC4_128_MD5,
 
 };
 

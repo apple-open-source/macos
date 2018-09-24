@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -60,7 +60,7 @@ typedef NS_ENUM(NSUInteger, AgentSubType) {
 	kAgentSubTypeGlobal,
 };
 
-os_log_t	__log_IPMonitor();
+os_log_t	__log_IPMonitor(void);
 
 /* Parameters */
 #define kEntityName	"EntityName"

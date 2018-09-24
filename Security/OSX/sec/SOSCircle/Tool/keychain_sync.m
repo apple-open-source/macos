@@ -31,6 +31,8 @@
 #include <sys/utsname.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <getopt.h>
+#include <readpassphrase.h>
 
 #include <Security/SecItem.h>
 
@@ -153,6 +155,29 @@ static bool tryPassword(char *labelAndPassword, CFErrorRef *err)
     return returned;
 }
 
+/*
+ * Prompt user, call SOSCCTryUserCredentials.
+ * Does not support optional label syntax like -T/-P.
+ * Returns true on success.
+ */
+static bool
+promptAndTryPassword(CFErrorRef *error)
+{
+    bool success = false;
+    char passbuf[1024];
+    CFDataRef password;
+
+    if (readpassphrase("iCloud password: ", passbuf, sizeof(passbuf), RPP_REQUIRE_TTY) != NULL) {
+        password = CFDataCreate(NULL, (const UInt8 *)passbuf, strlen(passbuf));
+        if (password != NULL) {
+            success = SOSCCTryUserCredentials(CFSTR("security command line tool"), password, error);
+            CFReleaseNull(password);
+        }
+    }
+
+    return success;
+}
+
 static bool syncAndWait(CFErrorRef *err)
 {
     __block CFTypeRef objects = NULL;
@@ -182,72 +207,6 @@ static bool syncAndWait(CFErrorRef *err)
     fprintf(outFile, "\n");
     return false;
 }
-
-static CFStringRef convertStringToProperty(char *propertyname) {
-    CFStringRef propertyspec = NULL;
-    
-    if(strcmp(propertyname, "hasentropy") == 0) {
-        propertyspec = kSOSSecPropertyHasEntropy;
-    } else if(strcmp(propertyname, "screenlock") == 0) {
-        propertyspec = kSOSSecPropertyScreenLock;
-    } else if(strcmp(propertyname, "SEP") == 0) {
-        propertyspec = kSOSSecPropertySEP;
-    } else if(strcmp(propertyname, "IOS") == 0) {
-        propertyspec = kSOSSecPropertyIOS;
-    }
-    return propertyspec;
-}
-
-
-static CFStringRef convertPropertyReturnCodeToString(SOSSecurityPropertyResultCode ac) {
-    CFStringRef retval = NULL;
-    switch(ac) {
-        case kSOSCCGeneralSecurityPropertyError:
-            retval = CFSTR("General Error"); break;
-        case kSOSCCSecurityPropertyValid:
-            retval = CFSTR("Is Member of Security Property"); break;
-        case kSOSCCSecurityPropertyNotValid:
-            retval = CFSTR("Is Not Member of Security Property"); break;
-        case kSOSCCSecurityPropertyNotQualified:
-            retval = CFSTR("Is not qualified for Security Property"); break;
-        case kSOSCCNoSuchSecurityProperty:
-            retval = CFSTR("No Such Security Property"); break;
-    }
-    return retval;
-}
-
-
-static bool SecPropertycmd(char *itemName, CFErrorRef *err) {
-    char *cmd, *propertyname;
-    SOSSecurityPropertyActionCode ac = kSOSCCSecurityPropertyQuery;
-    CFStringRef propertyspec;
-    
-    propertyname = strchr(itemName, ':');
-    if(propertyname == NULL) return false;
-    *propertyname = 0;
-    propertyname++;
-    cmd = itemName;
-    
-    if(strcmp(cmd, "enable") == 0) {
-        ac = kSOSCCSecurityPropertyEnable;
-    } else if(strcmp(cmd, "disable") == 0) {
-        ac = kSOSCCSecurityPropertyDisable;
-    } else if(strcmp(cmd, "query") == 0) {
-        ac = kSOSCCSecurityPropertyQuery;
-    } else {
-        return false;
-    }
-    
-    propertyspec = convertStringToProperty(propertyname);
-    if(!propertyspec) return false;
-    
-    SOSSecurityPropertyResultCode rc = SOSCCSecurityProperty(propertyspec, ac, err);
-    CFStringRef resultString = convertPropertyReturnCodeToString(rc);
-    
-    printmsg(CFSTR("Property Result: %@ : %@\n"), resultString, propertyspec);
-    return true;
-}
-
 
 static void dumpStringSet(CFStringRef label, CFSetRef s) {
     if(!s || !label) return;
@@ -291,21 +250,21 @@ static bool dumpMyPeer(CFErrorRef *error) {
         CFBooleanRef preferIDSACKModel = SOSPeerInfoV2DictionaryCopyBoolean(myPeer, sPreferIDSACKModel);
         CFStringRef transportType = SOSPeerInfoV2DictionaryCopyString(myPeer, sTransportType);
         CFStringRef idsDeviceID = SOSPeerInfoV2DictionaryCopyString(myPeer, sDeviceID);
-        CFMutableSetRef properties = SOSPeerInfoV2DictionaryCopySet(myPeer, sSecurityPropertiesKey);
-        
+
         printmsg(CFSTR("Serial#: %@   PrefIDS#: %@   PrefFragmentation#: %@   PrefACK#: %@   transportType#: %@   idsDeviceID#: %@\n"),
                  serialNumber, preferIDS, preferIDSFragmentation, preferIDSACKModel, transportType, idsDeviceID);
+
+        printmsg(CFSTR("Serial#: %@\n"),
+                 serialNumber);
         dumpStringSet(CFSTR("             Views: "), views);
-        dumpStringSet(CFSTR("SecurityProperties: "), properties);
-        
+
+
         CFReleaseSafe(serialNumber);
         CFReleaseSafe(preferIDS);
         CFReleaseSafe(preferIDSFragmentation);
         CFReleaseSafe(views);
         CFReleaseSafe(transportType);
         CFReleaseSafe(idsDeviceID);
-        CFReleaseSafe(properties);
-        
     }
 
     bool ret = myPeer != NULL;
@@ -393,6 +352,107 @@ static bool dumpYetToSync(CFErrorRef *error) {
     return !hadError;
 }
 
+#pragma mark -
+#pragma mark --remove-peer
+
+static void
+add_matching_peerinfos(CFMutableArrayRef list, CFArrayRef spids, CFArrayRef (*copy_peer_func)(CFErrorRef *))
+{
+    CFErrorRef error;
+    CFArrayRef peers;
+    SOSPeerInfoRef pi;
+    CFStringRef spid;
+    CFIndex i, j;
+
+    peers = copy_peer_func(&error);
+    if (peers != NULL) {
+        for (i = 0; i < CFArrayGetCount(peers); i++) {
+            pi = (SOSPeerInfoRef)CFArrayGetValueAtIndex(peers, i);
+            for (j = 0; j < CFArrayGetCount(spids); j++) {
+                spid = (CFStringRef)CFArrayGetValueAtIndex(spids, j);
+                if (CFStringGetLength(spid) < 8) {
+                    continue;
+                }
+                if (CFStringHasPrefix(SOSPeerInfoGetPeerID(pi), spid)) {
+                    CFArrayAppendValue(list, pi);
+                }
+            }
+        }
+        CFRelease(peers);
+    } else {
+        // unlikely
+        CFShow(error);
+        CFRelease(error);
+    }
+}
+
+static CFArrayRef
+copy_peerinfos(CFArrayRef spids)
+{
+    CFMutableArrayRef matches;
+
+    matches = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    add_matching_peerinfos(matches, spids, SOSCCCopyValidPeerPeerInfo);
+    add_matching_peerinfos(matches, spids, SOSCCCopyNotValidPeerPeerInfo);
+    add_matching_peerinfos(matches, spids, SOSCCCopyRetirementPeerInfo);
+
+    return matches;
+}
+
+static bool
+doRemovePeers(CFArrayRef peerids, CFErrorRef *error)
+{
+    bool success = false;
+    CFArrayRef peers = NULL;
+    CFErrorRef localError = NULL;
+    CFIndex i;
+    char buf[16];
+
+    peers = copy_peerinfos(peerids);
+    if (peers == NULL || CFArrayGetCount(peers) == 0) {
+        fprintf(stdout, "No matching peers to remove.\n");
+        success = true;
+        goto done;
+    }
+
+    fprintf(stdout, "Matched the following devices:\n");
+    for (i = 0; i < CFArrayGetCount(peers); i++) {
+        // Ugly.
+        CFShow(CFArrayGetValueAtIndex(peers, i));
+    }
+
+    if (readpassphrase("Confirm removal (y/N): ", buf, sizeof(buf), RPP_ECHO_ON | RPP_FORCEUPPER) == NULL) {
+        goto done;
+    }
+
+    if (buf[0] != 'Y') {
+        success = true;
+        goto done;
+    }
+
+    success = SOSCCRemovePeersFromCircle(peers, &localError);
+    if (!success && isSOSErrorCoded(localError, kSOSErrorPrivateKeyAbsent)) {
+        CFReleaseNull(localError);
+
+        success = promptAndTryPassword(&localError);
+        if (success) {
+            success = SOSCCRemovePeersFromCircle(peers, &localError);
+        }
+    }
+
+done:
+    CFReleaseNull(peers);
+
+    if (!success && error != NULL) {
+        *error = localError;
+    } else {
+        CFReleaseNull(localError);
+    }
+
+    return success;
+}
+
+#pragma mark -
 
 // enable, disable, accept, reject, status, Reset, Clear
 int
@@ -431,13 +491,6 @@ keychain_sync(int argc, char * const *argv)
      "    -5     cleanup old KVS keys in KVS"
      "    -6     [test]populate KVS with garbage KVS keys
 	 "
-	 "IDS"
-	 "    -g     set IDS device id"
-	 "    -p     retrieve IDS device id"
-	 "    -x     ping all devices in an IDS account"
-	 "    -w     check IDS availability"
-	 "    -z     retrieve IDS id through KeychainSyncingOverIDSProxy"
-	 "
 	 "Password"
 	 "    -P     [label:]password  set password (optionally for a given label) for sync"
 	 "    -T     [label:]password  try password (optionally for a given label) for sync"
@@ -453,20 +506,27 @@ keychain_sync(int argc, char * const *argv)
 	 "             viewnames are: keychain|masterkey|iclouddrive|photos|cloudkit|escrow|fde|maildrop|icloudbackup|notes|imessage|appletv|homekit|"
      "                            wifi|passwords|creditcards|icloudidentity|othersyncable"
      "    -L     list all known view and their status"
-	 "    -S     [enable|disable|propertyname] enable, disable, or query my PeerInfo's Security Property set"
-	 "             propertynames are: hasentropy|screenlock|SEP|IOS\n"
 	 "    -U     purge private key material cache\n"
      "    -V     Report View Sync Status on all known clients.\n"
      "    -H     Set escrow record.\n"
      "    -J     Get the escrow record.\n"
      "    -M     Check peer availability.\n"
      */
-	int ch, result = 0;
+    enum {
+        SYNC_REMOVE_PEER,
+    };
+    int action = -1;
+    const struct option longopts[] = {
+        { "remove-peer",    required_argument,  &action,    SYNC_REMOVE_PEER, },
+        { NULL,             0,                  NULL,       0, },
+    };
+    int ch, result = 0;
     CFErrorRef error = NULL;
     bool hadError = false;
+    CFMutableArrayRef peers2remove = NULL;
     SOSLogSetOutputTo(NULL, NULL);
 
-    while ((ch = getopt(argc, argv, "ab:deg:hikl:mopq:rSv:w:x:zA:B:MNJCDEF:HG:ILOP:RT:UWX:VY0123456")) != -1)
+    while ((ch = getopt_long(argc, argv, "ab:deg:hikl:mopq:rSv:w:x:zA:B:MNJCDEF:HG:ILOP:RT:UWX:VY0123456", longopts, NULL)) != -1)
         switch  (ch) {
 		case 'l':
 		{
@@ -503,69 +563,6 @@ keychain_sync(int argc, char * const *argv)
 			notify_post(kSOSCCCircleChangedNotification);
 			break;
 		}
-			
-		case 'p':
-		{
-			fprintf(outFile, "Grabbing DS ID\n");
-			CFStringRef deviceID = SOSCCCopyDeviceID(&error);
-			if (error) {
-				hadError = true;
-				break;
-			}
-			if (!isNull(deviceID)) {
-				const char *id = CFStringGetCStringPtr(deviceID, kCFStringEncodingUTF8);
-				if (id)
-					fprintf(outFile, "IDS Device ID: %s\n", id);
-				else
-					fprintf(outFile, "IDS Device ID is null!\n");
-			}
-            CFReleaseNull(deviceID);
-			break;
-		}
-			
-		case 'g':
-		{
-			fprintf(outFile, "Setting DS ID: %s\n", optarg);
-			CFStringRef deviceID = CFStringCreateWithCString(kCFAllocatorDefault, optarg, kCFStringEncodingUTF8);
-			hadError = SOSCCSetDeviceID(deviceID, &error);
-			CFReleaseNull(deviceID);
-			break;
-		}
-			
-		case 'w':
-		{
-			fprintf(outFile, "Attempting to send this message over IDS: %s\n", optarg);
-			CFStringRef message = CFStringCreateWithCString(kCFAllocatorDefault, optarg, kCFStringEncodingUTF8);
-			hadError = SOSCCIDSServiceRegistrationTest(message, &error);
-			if (error) {
-				printerr(CFSTR("IDS is not ready: %@\n"), error);
-				CFRelease(error);
-			}
-			CFReleaseNull(message);
-			break;
-		}
-			
-		case 'x':
-		{
-			fprintf(outFile, "Starting ping test using this message: %s\n", optarg);
-			CFStringRef message = CFStringCreateWithCString(kCFAllocatorDefault, optarg, kCFStringEncodingUTF8);
-			hadError = SOSCCIDSPingTest(message, &error);
-			if (error) {
-				printerr(CFSTR("Ping test failed to start: %@\n"), error);
-				CFRelease(error);
-			}
-			CFReleaseNull(message);
-			break;
-		}
-			
-		case 'z':
-			hadError = SOSCCIDSDeviceIDIsAvailableTest(&error);
-			if (error) {
-				printerr(CFSTR("Failed to retrieve IDS device ID: %@\n"), error);
-				CFRelease(error);
-			}
-			break;
-			
 		case 'e':
 			fprintf(outFile, "Turning ON keychain syncing\n");
 			hadError = requestToJoinCircle(&error);
@@ -783,15 +780,6 @@ keychain_sync(int argc, char * const *argv)
             hadError = false;
             break;
         }
-        case 'M':
-        {
-            bool success = SOSCCCheckPeerAvailability(&error);
-            if(success)
-                hadError = false;
-            else
-                hadError = true;
-            break;
-        }
 		case 'I':
 		{
 			fprintf(outFile, "Printing all the rings\n");
@@ -864,10 +852,6 @@ keychain_sync(int argc, char * const *argv)
             hadError = !listviewcmd(&error);
             break;
 
-		case 'S':
-			hadError = !SecPropertycmd(optarg, &error);
-			break;
-
         case 'b':
             hadError = setBag(optarg, &error);
             break;
@@ -875,13 +859,35 @@ keychain_sync(int argc, char * const *argv)
         case 'Y':
             hadError = dumpYetToSync(&error);
             break;
+        case 0:
+            switch (action) {
+            case SYNC_REMOVE_PEER: {
+                CFStringRef optstr;
+                optstr = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
+                if (peers2remove == NULL) {
+                    peers2remove = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+                }
+                CFArrayAppendValue(peers2remove, optstr);
+                CFRelease(optstr);
+                break;
+            }
+            default:
+                return SHOW_USAGE_MESSAGE;
+            }
+            break;
         case '?':
-		default:
-			return SHOW_USAGE_MESSAGE;
-	}
+        default:
+            return SHOW_USAGE_MESSAGE;
+    }
 
-	if (hadError)
+    if (peers2remove != NULL) {
+        hadError = !doRemovePeers(peers2remove, &error);
+        CFRelease(peers2remove);
+    }
+
+    if (hadError) {
         printerr(CFSTR("Error: %@\n"), error);
+    }
 
-	return result;
+    return result;
 }

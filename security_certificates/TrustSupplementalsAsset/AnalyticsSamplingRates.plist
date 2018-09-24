@@ -34,7 +34,7 @@
 	<key>Events</key>
 	<dict>
 		<key>SystemRootUsageEvent</key>
-		<integer>4294967295</integer>
+		<integer>200</integer>
 		<key>PinningEvent</key>
 		<integer>100</integer>
 		<key>TrustFailureEvent</key>

@@ -82,6 +82,9 @@ private:
     void didFinishResourceLoad(const WebCore::NetworkLoadMetrics&);
     void didFailResourceLoad(const WebCore::ResourceError&);
     void didBlockAuthenticationChallenge();
+
+    void stopLoadingAfterXFrameOptionsOrContentSecurityPolicyDenied();
+
 #if ENABLE(SHAREABLE_RESOURCE)
     void didReceiveResource(const ShareableResource::Handle&);
 #endif
@@ -89,6 +92,10 @@ private:
     RefPtr<WebCore::ResourceLoader> m_coreLoader;
     TrackingParameters m_trackingParameters;
     size_t m_numBytesReceived { 0 };
+
+#if !ASSERT_DISABLED
+    bool m_isProcessingNetworkResponse { false };
+#endif
 };
 
 } // namespace WebKit

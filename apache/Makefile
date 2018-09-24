@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.4.33
+Version    = 2.4.34
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = PR-18640257-SDK.diff \
@@ -24,8 +24,7 @@ Patch_List = PR-18640257-SDK.diff \
              PR-16019357-apxs.diff \
              PR-13708279.diff \
              PR-32889915.diff \
-             patch-server__Makefile.in \
-             mod_proxy_balancer-partialfix.diff
+             patch-server__Makefile.in 
 
 Configure_Flags = --prefix=/usr \
                   --enable-layout=Darwin \
@@ -36,7 +35,7 @@ Configure_Flags = --prefix=/usr \
                   --enable-ssl \
                   --with-z=$(SDKROOT)/usr/include \
                   --with-libxml2=$(SDKROOT)/usr/include/libxml2 \
-                  --with-ssl=$(SDKROOT)/usr/local/libressl \
+                  --with-ssl=$(SDKROOT)/usr/local/libressl-2.5 \
                   --enable-cache \
                   --enable-mem-cache \
                   --enable-proxy-balancer \
@@ -54,6 +53,7 @@ Post_Install_Targets = module-setup module-disable module-enable recopy-httpd-co
 # Extract the source.
 install_source::
 	$(TAR) -C $(SRCROOT) -jxf $(SRCROOT)/$(Project)-$(Version).tar.bz2
+	find $(SRCROOT) -name httpd-2.\*.bz2 -print -delete
 	$(RMDIR) $(Sources)
 	$(MV) $(SRCROOT)/$(Project)-$(Version) $(Sources)
 	for patch in $(Patch_List); do \
@@ -63,7 +63,8 @@ install_source::
 build::
 	$(MKDIR) $(OBJROOT)
 	cd $(BuildDirectory) && $(Sources)/configure $(Configure_Flags)
-	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -framework CoreFoundation -D_FORTIFY_SOURCE=2" MOD_LDFLAGS="-L$(SDKROOT)/usr/lib -lcrypto -lssl" HTTPD_LDFLAGS="-sectcreate __TEXT __info_plist  $(SRCROOT)/Info.plist"
+	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -framework CoreFoundation -D_FORTIFY_SOURCE=2" MOD_LDFLAGS="-L$(SDKROOT)/usr/local/libressl-2.5/lib -lcrypto -lssl" HTTPD_LDFLAGS="-sectcreate __TEXT __info_plist  $(SRCROOT)/Info.plist"
+
 
 install::
 	cd $(BuildDirectory) && make install DESTDIR=$(DSTROOT)
@@ -116,7 +117,7 @@ post-install:
 	$(MV) $(DSTROOT)/usr/sbin/apxs $(DSTROOT)/usr/local/bin/apxs
 	sed -e "29s,\".installbuilddir,\"$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build," < $(DSTROOT)/usr/local/bin/apxs > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
 	$(CHMOD) 0755 $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
-	sed -e "54s,.*,includedir = $(SDKROOT)/usr/include/apache2," -e 's,/BuildRoot,,g' < $(DSTROOT)/usr/share/httpd/build/config_vars.mk > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build/config_vars.mk
+	sed -e "55s,.*,includedir = $(SDKROOT)/usr/include/apache2," -e 's,/BuildRoot,,g' < $(DSTROOT)/usr/share/httpd/build/config_vars.mk > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build/config_vars.mk
 	$(SILENT) $(RM) -Rf $(DSTROOT)/BuildRoot
 	
 strip-modules:

@@ -26,9 +26,9 @@
 #include "config.h"
 #include "WebResourceLoadStatisticsTelemetry.h"
 
+#include "ResourceLoadStatisticsMemoryStore.h"
 #include "WebProcessPool.h"
 #include "WebProcessProxy.h"
-#include "WebResourceLoadStatisticsStore.h"
 #include <WebCore/DiagnosticLoggingKeys.h>
 #include <WebCore/ResourceLoadStatistics.h>
 #include <wtf/MainThread.h>
@@ -36,9 +36,8 @@
 #include <wtf/RunLoop.h>
 #include <wtf/text/StringBuilder.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 const unsigned minimumPrevalentResourcesForTelemetry = 3;
 const unsigned significantFiguresForLoggedValues = 3;
@@ -55,7 +54,7 @@ struct PrevalentResourceTelemetry {
     unsigned timesAccessedAsFirstPartyDueToStorageAccessAPI;
 };
 
-static Vector<PrevalentResourceTelemetry> sortedPrevalentResourceTelemetry(const WebResourceLoadStatisticsStore& store)
+static Vector<PrevalentResourceTelemetry> sortedPrevalentResourceTelemetry(const ResourceLoadStatisticsMemoryStore& store)
 {
     ASSERT(!RunLoop::isMain());
     Vector<PrevalentResourceTelemetry> sorted;
@@ -224,9 +223,9 @@ void static notifyPages(unsigned totalPrevalentResources, unsigned totalPrevalen
 {
     RunLoop::main().dispatch([totalPrevalentResources, totalPrevalentResourcesWithUserInteraction, top3SubframeUnderTopFrameOrigins] {
         API::Dictionary::MapType messageBody;
-        messageBody.set(ASCIILiteral("TotalPrevalentResources"), API::UInt64::create(totalPrevalentResources));
-        messageBody.set(ASCIILiteral("TotalPrevalentResourcesWithUserInteraction"), API::UInt64::create(totalPrevalentResourcesWithUserInteraction));
-        messageBody.set(ASCIILiteral("Top3SubframeUnderTopFrameOrigins"), API::UInt64::create(top3SubframeUnderTopFrameOrigins));
+        messageBody.set("TotalPrevalentResources"_s, API::UInt64::create(totalPrevalentResources));
+        messageBody.set("TotalPrevalentResourcesWithUserInteraction"_s, API::UInt64::create(totalPrevalentResourcesWithUserInteraction));
+        messageBody.set("Top3SubframeUnderTopFrameOrigins"_s, API::UInt64::create(top3SubframeUnderTopFrameOrigins));
         WebProcessProxy::notifyPageStatisticsTelemetryFinished(API::Dictionary::create(messageBody).ptr());
     });
 }
@@ -241,7 +240,7 @@ void static notifyPages(const Vector<PrevalentResourceTelemetry>& sortedPrevalen
     notifyPages(sortedPrevalentResources.size(), totalNumberOfPrevalentResourcesWithUserInteraction, median(sortedPrevalentResourcesWithoutUserInteraction, 0, 2, subframeUnderTopFrameOriginsGetter));
 }
     
-void WebResourceLoadStatisticsTelemetry::calculateAndSubmit(const WebResourceLoadStatisticsStore& resourceLoadStatisticsStore)
+void WebResourceLoadStatisticsTelemetry::calculateAndSubmit(const ResourceLoadStatisticsMemoryStore& resourceLoadStatisticsStore)
 {
     ASSERT(!RunLoop::isMain());
     
@@ -277,13 +276,13 @@ void WebResourceLoadStatisticsTelemetry::calculateAndSubmit(const WebResourceLoa
             return;
         }
         
-        webPageProxy->logDiagnosticMessageWithValue(DiagnosticLoggingKeys::resourceLoadStatisticsTelemetryKey(), ASCIILiteral("totalNumberOfPrevalentResources"), sortedPrevalentResources.size(), significantFiguresForLoggedValues, ShouldSample::No);
-        webPageProxy->logDiagnosticMessageWithValue(DiagnosticLoggingKeys::resourceLoadStatisticsTelemetryKey(), ASCIILiteral("totalNumberOfPrevalentResourcesWithUserInteraction"), prevalentResourcesDaysSinceUserInteraction.size(), significantFiguresForLoggedValues, ShouldSample::No);
+        webPageProxy->logDiagnosticMessageWithValue(DiagnosticLoggingKeys::resourceLoadStatisticsTelemetryKey(), "totalNumberOfPrevalentResources"_s, sortedPrevalentResources.size(), significantFiguresForLoggedValues, ShouldSample::No);
+        webPageProxy->logDiagnosticMessageWithValue(DiagnosticLoggingKeys::resourceLoadStatisticsTelemetryKey(), "totalNumberOfPrevalentResourcesWithUserInteraction"_s, prevalentResourcesDaysSinceUserInteraction.size(), significantFiguresForLoggedValues, ShouldSample::No);
         
         if (prevalentResourcesDaysSinceUserInteraction.size() > 0)
-            webPageProxy->logDiagnosticMessageWithValue(DiagnosticLoggingKeys::resourceLoadStatisticsTelemetryKey(), ASCIILiteral("topPrevalentResourceWithUserInteractionDaysSinceUserInteraction"), prevalentResourcesDaysSinceUserInteraction[0], significantFiguresForLoggedValues, ShouldSample::No);
+            webPageProxy->logDiagnosticMessageWithValue(DiagnosticLoggingKeys::resourceLoadStatisticsTelemetryKey(), "topPrevalentResourceWithUserInteractionDaysSinceUserInteraction"_s, prevalentResourcesDaysSinceUserInteraction[0], significantFiguresForLoggedValues, ShouldSample::No);
         if (prevalentResourcesDaysSinceUserInteraction.size() > 1)
-            webPageProxy->logDiagnosticMessageWithValue(DiagnosticLoggingKeys::resourceLoadStatisticsTelemetryKey(), ASCIILiteral("medianPrevalentResourcesWithUserInteractionDaysSinceUserInteraction"), median(prevalentResourcesDaysSinceUserInteraction), significantFiguresForLoggedValues, ShouldSample::No);
+            webPageProxy->logDiagnosticMessageWithValue(DiagnosticLoggingKeys::resourceLoadStatisticsTelemetryKey(), "medianPrevalentResourcesWithUserInteractionDaysSinceUserInteraction"_s, median(prevalentResourcesDaysSinceUserInteraction), significantFiguresForLoggedValues, ShouldSample::No);
         
         submitTopLists(sortedPrevalentResources, sortedPrevalentResourcesWithoutUserInteraction, *webPageProxy);
     });

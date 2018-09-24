@@ -83,8 +83,6 @@ private:
 
     void mapLocalToContainer(const RenderLayerModelObject* repaintContainer, TransformState&, MapCoordinatesFlags, bool* wasFixed) const override;
     const RenderObject* pushMappingToContainer(const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap&) const override;
-    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr) override;
-    RenderPtr<RenderObject> takeChild(RenderObject&) override;
     void willBeDestroyed() override;
 
     const AffineTransform& localToParentTransform() const override { return m_localTransform; }

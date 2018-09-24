@@ -52,8 +52,6 @@
 #define kIOPSAccessoryType                  "Accessory Source"
 
 
-#if TARGET_OS_IPHONE
-
 /* kIOPSRawExternalConnectivityKey specifies if device is receiving power from
  * an external power source. In some cases, kIOPSPowerSourceStateKey may not
  * show the external power source, if that external source is a battery
@@ -69,7 +67,6 @@
 #define kIOPSShowChargingUIKey     "Show Charging UI"
 
 
-#endif
 /*
  * kIOPSAccessoryIdentifierKey -
  * Accessory Identifier key. This key holds identifier key for each accessory power source.
@@ -129,6 +126,7 @@
 #define kIOPSAIDTransportType                   "AID"
 #define kIOPSTransportTypeBluetooth             "Bluetooth"
 #define kIOPSTransportTypeBluetoothLowEnergy    "Bluetooth LE"
+#define kIOPSTransportTypeInductiveInBandComms  "Inductive In-Band"
 
 /*
  * Invalid ProductId & VendorId values are used in cases when there are no
@@ -317,4 +315,106 @@
  */
 #define kIOPSAppleBatteryCaseCommandEnableChargingKey "Enable Charging"
 
+/*!
+ * @define      kIOPSAppleBatteryCaseAddress
+ *
+ * @abstract    CFDictionary key for a battery case's advertised resolvable public address,
+ *              as assigned by the last device it was attached to.
+ * @discussion
+ *              <ul>
+ *              <li> Apple-defined power sources may publish this key.
+ *              <li> Type CFString
+ *              <li> A 6-byte address in the format "XX:XX:XX:XX:XX:XX"
+ *              </ul>
+ */
+#define kIOPSAppleBatteryCaseAddress "Address"
+
+/*!
+ * @define      kIOPSAppleBatteryCaseCommandSetAddress
+ *
+ * @abstract    Tell the battery case what resolvable public address it should advertise.
+ * @discussion
+ *              <ul>
+ *              <li>The matching argument should be a CFString of a 6-byte address in the format "XX:XX:XX:XX:XX:XX".
+ *              </ul>
+ */
+#define kIOPSAppleBatteryCaseCommandSetAddress "Set Address"
+
+/*!
+ * @define      kIOPSLEDsKey
+ * @abstract    An array describing the state of each LED associated with the power source.
+ * @discussion  Power sources that feature LEDs can publish the state of their LEDs. Each
+ *              LED is described through an CFDictionary.
+ *              <ul>
+ *              <li> Apple-defined power sources will publish this key if the hardware features LEDs.
+ *              <li> Type CFArrayRef
+ *              </ul>
+ */
+#define kIOPSLEDsKey            "LEDs"
+
+/*!
+ * @group       LED Description
+ * @abstract    Possible keys for <code>@link kIOPSLEDsKey @/link</code>
+ */
+/*!
+ * @define      kIOPSLedStateKey
+ * @abstract    Describtion of the state of the LED.
+ * @discussion  <ul>
+ *              <li> Type CFStringRef
+ *              </ul>
+ */
+#define kIOPSLedStateKey       "State"
+
+/*!
+ * @define      kIOPSLedColorKey
+ * @abstract    Description of the color of the LED.
+ * @discussion  <ul>
+ *              <li> Type CFStringRef
+ *              </ul>
+ */
+#define kIOPSLedColorKey       "Color"
+
+/*!
+ * @group       LED States
+ * @abstract    Possible keys for <code>@link kIOPSLedStateKey @/link</code>
+ */
+/*!
+ * @define      kIOPSLedStateSolid
+ * @abstract    Potential value for key <code>@link kIOPSLeddStateKey@/link</code>
+ */
+#define kIOPSLedStateSolid    "Solid"
+
+/*!
+ * @define      kIOPSLedStateBlinking
+ * @abstract    Potential value for key <code>@link kIOPSLeddStateKey@/link</code>
+ */
+#define kIOPSLedStateBlinking "Blinking"
+
+/*!
+ * @define      kIOPSLedStateOff
+ * @abstract    Potential value for key <code>@link kIOPSLeddStateKey@/link</code>
+ */
+#define kIOPSLedStateOff      "Off"
+
+/*!
+ * @group       LED Colors
+ * @abstract    Possible keys for <code>@link kIOPSLedColorKey @/link</code>
+ */
+/*!
+ * @define      kIOPSLedColorWhite
+ * @abstract    Potential value for key <code>@link kIOPSLeddColorKey@/link</code>
+ */
+#define kIOPSLedColorWhite    "White"
+
+/*!
+ * @define      kIOPSLedColorGreen
+ * @abstract    Potential value for key <code>@link kIOPSLeddColorKey@/link</code>
+ */
+#define kIOPSLedColorGreen    "Green"
+
+/*!
+ * @define      kIOPSLedColorOrange
+ * @abstract    Potential value for key <code>@link kIOPSLeddColorKey@/link</code>
+ */
+#define kIOPSLedColorOrange   "Orange"
 #endif /* defined(_IOPSKEYSPRIVATE_H_) */

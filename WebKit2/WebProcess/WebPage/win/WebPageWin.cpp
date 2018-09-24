@@ -28,24 +28,25 @@
 #include "WebPage.h"
 
 #include "EditorState.h"
-#include "NotImplemented.h"
 #include "WebEvent.h"
 #include "WebFrame.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
-#include "WindowsKeyboardCodes.h"
 #include <WebCore/BackForwardController.h>
+#include <WebCore/Editor.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/EventNames.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/KeyboardEvent.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/Settings.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/UserAgent.h>
+#include <WebCore/WindowsKeyboardCodes.h>
 
 using namespace WebCore;
 
@@ -103,34 +104,10 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboard
     return true;
 }
 
-bool WebPage::platformHasLocalDataForURL(const URL&)
-{
-    notImplemented();
-    return false;
-}
-
-String WebPage::cachedResponseMIMETypeForURL(const URL&)
-{
-    notImplemented();
-    return String();
-}
-
 bool WebPage::platformCanHandleRequest(const ResourceRequest&)
 {
     notImplemented();
     return false;
-}
-
-String WebPage::cachedSuggestedFilenameForURL(const URL&)
-{
-    notImplemented();
-    return String();
-}
-
-RefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const URL&)
-{
-    notImplemented();
-    return 0;
 }
 
 String WebPage::platformUserAgent(const URL& url) const
@@ -138,7 +115,7 @@ String WebPage::platformUserAgent(const URL& url) const
     if (url.isNull() || !m_page->settings().needsSiteSpecificQuirks())
         return String();
 
-    return String();
+    return WebCore::standardUserAgentForURL(url);
 }
 
 static const unsigned CtrlKey = 1 << 0;
@@ -260,4 +237,36 @@ const char* WebPage::interpretKeyEvent(const WebCore::KeyboardEvent* evt)
     int mapKey = modifiers << 16 | evt->charCode();
     return mapKey ? keyPressCommandsMap->get(mapKey) : 0;
 }
+
+bool WebPage::handleEditingKeyboardEvent(WebCore::KeyboardEvent* event)
+{
+    auto* frame = downcast<Node>(event->target())->document().frame();
+    ASSERT(frame);
+
+    auto* keyEvent = event->underlyingPlatformEvent();
+    if (!keyEvent || keyEvent->isSystemKey()) // Do not treat this as text input if it's a system key event.
+        return false;
+
+    auto command = frame->editor().command(interpretKeyEvent(event));
+
+    if (keyEvent->type() == PlatformEvent::RawKeyDown) {
+        // WebKit doesn't have enough information about mode to decide
+        // how commands that just insert text if executed via Editor
+        // should be treated, so we leave it upon WebCore to either
+        // handle them immediately (e.g. Tab that changes focus) or
+        // let a keypress event be generated (e.g. Tab that inserts a
+        // Tab character, or Enter).
+        return !command.isTextInsertion() && command.execute(event);
+    }
+
+    if (command.execute(event))
+        return true;
+
+    // Don't insert null or control characters as they can result in unexpected behaviour.
+    if (event->charCode() < ' ')
+        return false;
+
+    return frame->editor().insertText(keyEvent->text(), event);
+}
+
 } // namespace WebKit

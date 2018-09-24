@@ -180,6 +180,31 @@
 			<key>WorkingDirectory</key>
 			<string>/tmp/</string>
 		</dict>
+		<dict>
+			<key>Arch</key>
+			<string>platform-native</string>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/proc_uuid_policy</string>
+				<string>add</string>
+				<string>alt-dyld</string>
+				<string>/usr/bin/yes</string>
+			</array>
+			<key>EligibleResource</key>
+			<string>deviceClass == &apos;iPhone&apos;</string>
+			<key>IgnoreCrashes</key>
+			<array>
+			</array>
+			<key>TestName</key>
+			<string>test_proc_uuid_policy</string>
+			<key>TestSpecificLogs</key>
+			<array>
+			</array>
+			<key>WorkingDirectory</key>
+			<string>/tmp/</string>
+		</dict>
 	</array>
 </dict>
 </plist>

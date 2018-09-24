@@ -31,6 +31,7 @@
 #import "ArgumentCoders.h"
 #import "DataReference.h"
 #import "PDFAnnotationTextWidgetDetails.h"
+#import "PDFContextMenu.h"
 #import "PDFLayerControllerSPI.h"
 #import "PDFPluginAnnotation.h"
 #import "PDFPluginPasswordField.h"
@@ -69,11 +70,11 @@
 #import <WebCore/HTMLPlugInElement.h>
 #import <WebCore/LegacyNSPasteboardTypes.h>
 #import <WebCore/LocalizedStrings.h>
-#import <WebCore/MainFrame.h>
 #import <WebCore/MouseEvent.h>
 #import <WebCore/PDFDocumentImage.h>
 #import <WebCore/Page.h>
 #import <WebCore/Pasteboard.h>
+#import <WebCore/PlatformScreen.h>
 #import <WebCore/PluginData.h>
 #import <WebCore/PluginDocument.h>
 #import <WebCore/RenderBoxModelObject.h>
@@ -83,8 +84,11 @@
 #import <WebCore/WheelEventTestTrigger.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/NSMenuSPI.h>
-#import <wtf/CurrentTime.h>
 #import <wtf/UUID.h>
+
+#if PLATFORM(MAC)
+#include <WebCore/LocalDefaultSystemAppearance.h>
+#endif
 
 using namespace WebCore;
 
@@ -633,6 +637,12 @@ inline PDFPlugin::PDFPlugin(WebFrame& frame)
 
     [m_containerLayer addSublayer:m_contentLayer.get()];
     [m_containerLayer addSublayer:m_scrollCornerLayer.get()];
+#if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    if ([m_pdfLayerController respondsToSelector:@selector(setDeviceColorSpace:)]) {
+        auto view = webFrame()->coreFrame()->view();
+        [m_pdfLayerController setDeviceColorSpace:screenColorSpace(view)];
+    }
+#endif
 }
 
 PDFPlugin::~PDFPlugin()
@@ -645,6 +655,7 @@ PluginInfo PDFPlugin::pluginInfo()
     info.name = builtInPDFPluginName();
     info.isApplicationPlugin = true;
     info.clientLoadPolicy = PluginLoadClientPolicyUndefined;
+    info.bundleIdentifier = "com.apple.webkit.builtinpdfplugin"_s;
 
     MimeClassInfo pdfMimeClassInfo;
     pdfMimeClassInfo.type = "application/pdf";
@@ -1162,7 +1173,7 @@ bool PDFPlugin::initialize(const Parameters& parameters)
     return true;
 }
 
-void PDFPlugin::willDetatchRenderer()
+void PDFPlugin::willDetachRenderer()
 {
     if (webFrame()) {
         if (FrameView* frameView = webFrame()->coreFrame()->view())
@@ -1191,7 +1202,7 @@ void PDFPlugin::destroy()
 
 void PDFPlugin::updateControlTints(GraphicsContext& graphicsContext)
 {
-    ASSERT(graphicsContext.updatingControlTints());
+    ASSERT(graphicsContext.invalidatingControlTints());
 
     if (m_horizontalScrollbar)
         m_horizontalScrollbar->invalidate();
@@ -1202,20 +1213,25 @@ void PDFPlugin::updateControlTints(GraphicsContext& graphicsContext)
 
 void PDFPlugin::paintControlForLayerInContext(CALayer *layer, CGContextRef context)
 {
+#if PLATFORM(MAC)
+    auto* page = webFrame()->coreFrame()->page();
+    LocalDefaultSystemAppearance localAppearance(page->useSystemAppearance(), page->useDarkAppearance());
+#endif
+
     GraphicsContext graphicsContext(context);
     GraphicsContextStateSaver stateSaver(graphicsContext);
-    
+
     graphicsContext.setIsCALayerContext(true);
-    
+
     if (layer == m_scrollCornerLayer) {
         IntRect scrollCornerRect = this->scrollCornerRect();
         graphicsContext.translate(-scrollCornerRect.x(), -scrollCornerRect.y());
-        ScrollbarTheme::theme().paintScrollCorner(nullptr, graphicsContext, scrollCornerRect);
+        ScrollbarTheme::theme().paintScrollCorner(graphicsContext, scrollCornerRect);
         return;
     }
-    
+
     Scrollbar* scrollbar = nullptr;
-    
+
     if (layer == m_verticalScrollbarLayer)
         scrollbar = verticalScrollbar();
     else if (layer == m_horizontalScrollbarLayer)
@@ -1223,7 +1239,7 @@ void PDFPlugin::paintControlForLayerInContext(CALayer *layer, CGContextRef conte
 
     if (!scrollbar)
         return;
-    
+
     graphicsContext.translate(-scrollbar->x(), -scrollbar->y());
     scrollbar->paint(graphicsContext, scrollbar->frameRect());
 }
@@ -1574,9 +1590,28 @@ bool PDFPlugin::handleContextMenuEvent(const WebMouseEvent& event)
 {
     FrameView* frameView = webFrame()->coreFrame()->view();
     IntPoint point = frameView->contentsToScreen(IntRect(frameView->windowToContents(event.position()), IntSize())).location();
-    
+
     if (NSMenu *nsMenu = [m_pdfLayerController menuForEvent:nsEventForWebMouseEvent(event)]) {
-        _NSPopUpCarbonMenu3(nsMenu, nil, nil, point, -1, nil, 0, nil, NSPopUpMenuTypeContext, nil);
+        Vector<PDFContextMenuItem> items;
+        auto itemCount = [nsMenu numberOfItems];
+        for (int i = 0; i < itemCount; i++) {
+            auto item = [nsMenu itemAtIndex:i];
+            if ([item submenu])
+                continue;
+            PDFContextMenuItem menuItem { String([item title]), !![item isEnabled], !![item isSeparatorItem], static_cast<int>([item state]), [item action], i };
+            items.append(WTFMove(menuItem));
+        }
+        PDFContextMenu contextMenu { point, WTFMove(items) };
+
+        if (!webFrame()->page())
+            return false;
+
+        std::optional<int> selectedIndex = -1;
+        webFrame()->page()->sendSync(Messages::WebPageProxy::ShowPDFContextMenu(contextMenu), Messages::WebPageProxy::ShowPDFContextMenu::Reply(selectedIndex));
+
+        if (selectedIndex && *selectedIndex >= 0 && *selectedIndex < itemCount)
+            [nsMenu performActionForItemAtIndex:*selectedIndex];
+
         return true;
     }
     
@@ -1682,7 +1717,7 @@ void PDFPlugin::clickedLink(NSURL *url)
 
     RefPtr<Event> coreEvent;
     if (m_lastMouseEvent.type() != WebEvent::NoType)
-        coreEvent = MouseEvent::create(eventNames().clickEvent, frame->document()->defaultView(), platform(m_lastMouseEvent), 0, 0);
+        coreEvent = MouseEvent::create(eventNames().clickEvent, &frame->windowProxy(), platform(m_lastMouseEvent), 0, 0);
 
     frame->loader().urlSelected(coreURL, emptyString(), coreEvent.get(), LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, ShouldOpenExternalURLsPolicy::ShouldAllow);
 }

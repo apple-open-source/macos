@@ -331,7 +331,6 @@ static CFOptionFlags swca_handle_request(enum SWCAXPCOperation operation, Client
     CFUserNotificationRef notification = NULL;
     NSMutableDictionary *notification_dictionary = NULL;
     NSString *request_key;
-    NSString *request_format;
     NSString *default_button_key;
     NSString *alternate_button_key;
     NSString *other_button_key;
@@ -390,16 +389,12 @@ check_database:
         goto out;
     }
     request_key = [NSString stringWithFormat:@"SWC_REQUEST_%s", op];
-    request_format = NSLocalizedStringFromTableInBundle(request_key, swca_string_table, swca_get_security_bundle(), nil);
     alternate_button_key = (op) ? [NSString stringWithFormat:@"SWC_ALLOW_%s", op] : nil;
     default_button_key = @"SWC_NEVER";
     other_button_key = @"SWC_DENY";
     info_message_key = @"SWC_INFO_MESSAGE";
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-nonliteral"
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertHeaderKey] = [NSString stringWithFormat:request_format, client.client_name, domain];
-#pragma clang diagnostic pop
+    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertHeaderKey] = NSLocalizedStringFromTableInBundle(request_key, swca_string_table, swca_get_security_bundle(), nil);;
     notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertMessageKey] = NSLocalizedStringFromTableInBundle(info_message_key, swca_string_table, swca_get_security_bundle(), nil);
     notification_dictionary[(__bridge NSString *)kCFUserNotificationDefaultButtonTitleKey] = NSLocalizedStringFromTableInBundle(default_button_key, swca_string_table, swca_get_security_bundle(), nil);
     notification_dictionary[(__bridge NSString *)kCFUserNotificationAlternateButtonTitleKey] = NSLocalizedStringFromTableInBundle(alternate_button_key, swca_string_table, swca_get_security_bundle(), nil);
@@ -709,14 +704,15 @@ static void swca_xpc_dictionary_handler(const xpc_connection_t connection, xpc_o
                     // select a dictionary from an input array of dictionaries
                     if (swca_select_item(items, client, accessGroups, &result, &error) && result) {
 #if TARGET_OS_IOS
-                        if (MGGetBoolAnswer(kMGOPearlIDCapability) &&
+                        LAContext *ctx = [LAContext new];
+                        if ([ctx canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:nil] &&
                             [[MCProfileConnection sharedConnection] isAuthenticationBeforeAutoFillRequired]) {
-                            LAContext *ctx = [LAContext new];
                             NSString *subTitle = NSLocalizedStringFromTableInBundle(@"SWC_FILLPWD", swca_string_table, swca_get_security_bundle(), nil);
                             dispatch_semaphore_t sema = dispatch_semaphore_create(0);
                             [ctx evaluatePolicy:LAPolicyDeviceOwnerAuthentication localizedReason:subTitle reply:^(BOOL success, NSError * _Nullable laError) {
-                                if (success || ([laError.domain isEqual:LAErrorDomain] && laError.code == LAErrorPasscodeNotSet))
+                                if (success || ([laError.domain isEqual:LAErrorDomain] && laError.code == LAErrorPasscodeNotSet)) {
                                     SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
+                                }
                                 dispatch_semaphore_signal(sema);
                             }];
                             dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);

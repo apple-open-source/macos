@@ -70,7 +70,6 @@ using namespace WebKit;
         return nil;
 
     self.wantsLayer = YES;
-    self.layer.backgroundColor = [NSColor whiteColor].CGColor;
     _scale = 1;
     _lastSnapshotScale = NAN;
     
@@ -101,6 +100,18 @@ using namespace WebKit;
     _originalSourceViewIsInWindow = !![_wkWebView window];
     
     return self;
+}
+
+- (BOOL)wantsUpdateLayer
+{
+    return YES;
+}
+
+- (void)updateLayer
+{
+    [super updateLayer];
+
+    self.layer.backgroundColor = [NSColor quaternaryLabelColor].CGColor;
 }
 
 - (void)requestSnapshot
@@ -197,7 +208,7 @@ using namespace WebKit;
     _waitingForSnapshot = NO;
     self.layer.sublayers = @[];
     self.layer.contentsGravity = kCAGravityResizeAspectFill;
-    self.layer.contents = (id)image;
+    self.layer.contents = (__bridge id)image;
 
     // If we got a scale change while snapshotting, we'll take another snapshot once the first one returns.
     if (_snapshotWasDeferred) {

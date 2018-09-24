@@ -238,6 +238,13 @@ is present in the second or third position of the
 argument). Buffers opened in text-mode make sure that writes are terminated with
 a NULL byte, if the last write hasn't filled up the whole buffer. Buffers
 opened in binary-mode never append a NULL byte.
+.Pp
+Input and output against the opened stream will be fully buffered, unless
+it refers to an interactive terminal device, or a different kind of buffering
+is specified in the environment.
+See
+.Xr setvbuf 3
+for additional details.
 .Sh RETURN VALUES
 Upon successful completion
 .Fn fopen ,

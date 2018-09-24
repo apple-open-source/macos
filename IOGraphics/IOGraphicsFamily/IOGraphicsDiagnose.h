@@ -12,7 +12,7 @@
 #include "GTraceTypes.h"
 
 
-#define IOGRAPHICS_DIAGNOSE_VERSION             5
+#define IOGRAPHICS_DIAGNOSE_VERSION             6
 
 #define IOGRAPHICS_MAXIMUM_REPORTS              16
 #define IOGRAPHICS_TOKENBUFFERSIZE              (kGTraceMaximumLineCount * (sizeof(sGTrace) / sizeof(uint64_t))) // ensure >= kGTraceMaximumLineCount
@@ -40,7 +40,7 @@
 #define kIOGReportState_NotificationActive      (1 << 10)
 #define kIOGReportState_ServerNotified          (1 << 11)
 #define kIOGReportState_ServerState             (1 << 12)
-#define kIOGReportState_ServerPendingAck        (1 << 13)
+#define kIOGReportState_ServerPendingAck        (1 << 13)  // unused FBv6
 #define kIOGReportState_PowerPendingChange      (1 << 14)
 #define kIOGReportState_PowerPendingMuxChange   (1 << 15)
 #define kIOGReportState_PrivateInvalid          (1 << 16)
@@ -48,6 +48,10 @@
 #define kIOGReportState_GraphicsWorkloopInvalid (1 << 18)
 #define kIOGReportState_SystemWorkloopInvalid   (1 << 19)
 #define kIOGReportState_SystemPowerAckTo        (1 << 20)
+#define kIOGReportState_Online                  (1 << 21)
+#define kIOGReportState_ClamshellOffline        (1 << 22)
+#define kIOGReportState_Muted                   (1 << 23)
+#define kIOGReportState_IsMuxSwitching          (1 << 24)
 
 
 // External API states
@@ -79,6 +83,8 @@
 #define kIOGReportAPIState_SetProperties                    (1 << 25)
 #define kIOGReportAPIState_CopySharedCursor                 (1 << 26)
 #define kIOGReportAPIState_SetHibernateGammaTable           (1 << 27)
+#define kIOGReportAPIState_SetNotificationPort              (1 << 28)
+#define kIOGReportAPIState_RestoreCDBlob                    (1 << 29)
 
 
 #pragma pack(push, 4)
@@ -118,7 +124,7 @@ typedef struct _iogreport {
     IONotify        notifications[IOGRAPHICS_MAXIMUM_REPORTS];
 
     uint32_t        lastSuccessfulMode;
-    uint32_t        reservedA;
+    uint32_t        aliasID;
 
     uint64_t        reservedC[15];
 } IOGReport;

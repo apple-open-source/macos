@@ -2322,6 +2322,29 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             
         } break;
 
+///w:start
+#if defined(DKIOCGETMAXSWAPWRITE) && defined(kIOMaximumSwapWriteKey)
+///w:stop
+        case DKIOCGETMAXSWAPWRITE:                              // (uint64_t *)
+        {
+            //
+            // get maximum swap file write per day in bytes
+            //
+
+            OSNumber * number = OSDynamicCast(
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMaximumSwapWriteKey,
+                                 /* plane */ gIOServicePlane ) );
+            if ( number )
+                *(uint64_t *)data = number->unsigned64BitValue();
+            else
+                *(uint64_t *)data = 0;
+        } break;
+///w:start
+#endif //DKIOCGETMAXSWAPWRITE
+///w:stop
+
         default:
         {
             //

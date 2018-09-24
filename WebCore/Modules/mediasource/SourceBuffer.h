@@ -115,6 +115,8 @@ public:
 
     bool hasPendingActivity() const final;
 
+    void trySignalAllSamplesEnqueued();
+
 private:
     SourceBuffer(Ref<SourceBufferPrivate>&&, MediaSource*);
 
@@ -180,6 +182,8 @@ private:
 
     void rangeRemoval(const MediaTime&, const MediaTime&);
 
+    void trySignalAllSamplesInTrackEnqueued(const AtomicString&);
+
     friend class Internals;
     WEBCORE_EXPORT Vector<String> bufferedSamplesForTrackID(const AtomicString&);
     WEBCORE_EXPORT Vector<String> enqueuedSamplesForTrackID(const AtomicString&);
@@ -214,7 +218,7 @@ private:
     enum AppendStateType { WaitingForSegment, ParsingInitSegment, ParsingMediaSegment };
     AppendStateType m_appendState;
 
-    double m_timeOfBufferingMonitor;
+    MonotonicTime m_timeOfBufferingMonitor;
     double m_bufferedSinceLastMonitor { 0 };
     double m_averageBufferRate { 0 };
 

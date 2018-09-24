@@ -91,11 +91,13 @@ extern uint64_t gIOGraphicsDebugCategories;
  * no longer used, the categories can be too.
  */
 typedef enum debg_category_t {
-    DEBG_CATEGORY_GENERAL = 0,
-    DEBG_CATEGORY_POWER = 1,
+    DEBG_CATEGORY_GENERAL          = 0,
+    DEBG_CATEGORY_POWER            = 1,
     DEBG_CATEGORY_DISPLAY_WRANGLER = 2,
-    DEBG_CATEGORY_TIME = 3, // TIME_LOGS
-    DEBG_CATEGORY_NOTIFICATIONS = 4, // Framebuffer notifications, spammy
+    DEBG_CATEGORY_TIME             = 3, // TIME_LOGS
+    DEBG_CATEGORY_NOTIFICATIONS    = 4, // Framebuffer notifications, spammy
+    DEBG_CATEGORY_MUX              = 5,
+    DEBG_CATEGORY_DIM              = 6,
 } debg_category_t;
 
 
@@ -198,9 +200,6 @@ extern "C" ppnum_t pmap_find_phys(pmap_t map, addr64_t va);
 
 extern "C" vm_map_t IOPageableMapForAddress( vm_address_t address );
 
-extern "C" IOReturn IOGetHardwareClamshellState( IOOptionBits * result )
-__OSX_DEPRECATED(10.0, 10.13, "Use IOFramebuffer::getAttribute(kIOClamshellStateAttribute)");
-
 
 extern bool                   gIOGraphicsSystemPower;
 extern bool                   gIOFBSystemPower;
@@ -246,7 +245,8 @@ enum {
     kIOGMetrics_Enabled                 = 0x00000000000000000001ULL,
 };
 
-#ifndef kIOScreenLockStateKey
+#if defined(_OPEN_SOURCE_) && !defined(kIOScreenLockStateKey)
+// Local IOHibernatePrivate.h declarations if necessary
 
 #define IOHIB_PREVIEW_V0	1
 
@@ -262,7 +262,7 @@ typedef struct hibernate_preview_t hibernate_preview_t;
 
 #define kIOScreenLockStateKey      "IOScreenLockState"
 
-#endif /* ! kIOScreenLockStateKey */
+#endif // _OPEN_SOURCE_ && !kIOScreenLockStateKey
 
 // these are the private instance variables for power management
 struct IODisplayPMVars

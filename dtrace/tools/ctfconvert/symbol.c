@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)symbol.c	1.2	05/06/08 SMI"
-
 #include <sys/types.h>
 #include <string.h>
 

@@ -138,11 +138,11 @@ fi
 # get-network-info
 #
 if [ -x /System/Library/Frameworks/SystemConfiguration.framework/Resources/get-network-info ]; then
-	/System/Library/Frameworks/SystemConfiguration.framework/Resources/get-network-info -s -c -P "${WORKDIR}"
+	/bin/sh /System/Library/Frameworks/SystemConfiguration.framework/Resources/get-network-info -s -c -P "${WORKDIR}"
 elif [ -x /System/Library/Frameworks/SystemConfiguration.framework/get-network-info ]; then
-	/System/Library/Frameworks/SystemConfiguration.framework/get-network-info -s -c -P "${WORKDIR}"
+	/bin/sh /System/Library/Frameworks/SystemConfiguration.framework/get-network-info -s -c -P "${WORKDIR}"
 elif [ -x /System/Library/PrivateFrameworks/SystemConfiguration.framework/get-network-info ]; then
-	/System/Library/PrivateFrameworks/SystemConfiguration.framework/get-network-info -s -c -P "${WORKDIR}"
+	/bin/sh /System/Library/PrivateFrameworks/SystemConfiguration.framework/get-network-info -s -c -P "${WORKDIR}"
 fi
 
 #

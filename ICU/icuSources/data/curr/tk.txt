@@ -40,11 +40,11 @@ tk{
         }
         AZN{
             "AZN",
-            "Azerbaýjan manaty",
+            "Azerbaýjan manady",
         }
         BAM{
             "BAM",
-            "Konwertirlenýän bosniýa we gersogowina markasy",
+            "Konwertirlenýän Bosniýa we Gersogowina markasy",
         }
         BBD{
             "BBD",
@@ -56,7 +56,7 @@ tk{
         }
         BGN{
             "BGN",
-            "Bolgar lewy",
+            "Bolgar lewi",
         }
         BHD{
             "BHD",
@@ -64,7 +64,7 @@ tk{
         }
         BIF{
             "BIF",
-            "Burundiý franky",
+            "Burundi franky",
         }
         BMD{
             "BMD",
@@ -96,7 +96,7 @@ tk{
         }
         BYN{
             "BYN",
-            "Belorus rubly",
+            "Belarus rubly",
         }
         BYR{
             "BYR",
@@ -112,7 +112,7 @@ tk{
         }
         CDF{
             "CDF",
-            "Kongolez franky",
+            "Kongo franky",
         }
         CHF{
             "CHF",
@@ -121,6 +121,10 @@ tk{
         CLP{
             "CLP",
             "Çili pesosy",
+        }
+        CNH{
+            "CNH",
+            "CNH",
         }
         CNY{
             "CN¥",
@@ -164,7 +168,7 @@ tk{
         }
         DZD{
             "DZD",
-            "Aljir dinary",
+            "Alžir dinary",
         }
         EGP{
             "EGP",
@@ -192,11 +196,11 @@ tk{
         }
         GBP{
             "GBP",
-            "Iňlis funt sterlingi",
+            "Britan funt sterlingi",
         }
         GEL{
             "GEL",
-            "Gruzin lari",
+            "Gruzin larisi",
         }
         GHS{
             "GHS",
@@ -208,7 +212,7 @@ tk{
         }
         GMD{
             "GMD",
-            "Gambiýa dalasy",
+            "Gambiýa dalasisi",
         }
         GNF{
             "GNF",
@@ -220,7 +224,7 @@ tk{
         }
         GYD{
             "GYD",
-            "Gaýan dollary",
+            "Gaýana dollary",
         }
         HKD{
             "HK$",
@@ -236,11 +240,11 @@ tk{
         }
         HTG{
             "HTG",
-            "Gaitýan gurdy",
+            "Gaiti gurdy",
         }
         HUF{
             "HUF",
-            "Wenger forinty",
+            "Wenger forinti",
         }
         IDR{
             "IDR",
@@ -272,7 +276,7 @@ tk{
         }
         JOD{
             "JOD",
-            "Iordaniýa dinary",
+            "Iordan dinary",
         }
         JPY{
             "JP¥",
@@ -292,15 +296,15 @@ tk{
         }
         KMF{
             "KMF",
-            "Komor adalar franky",
+            "Komor adalarynyň franky",
         }
         KPW{
             "KPW",
-            "Demirgazyk Koreýa wony",
+            "Demirgazyk Koreý wony",
         }
         KRW{
             "₩",
-            "Günorta Koreýa wony",
+            "Günorta Koreý wony",
         }
         KWD{
             "KWD",
@@ -336,7 +340,7 @@ tk{
         }
         MAD{
             "MAD",
-            "Marokka dirhamy",
+            "Marokko dirhamy",
         }
         MDL{
             "MDL",
@@ -388,7 +392,7 @@ tk{
         }
         MZN{
             "MZN",
-            "Mozambik metikal",
+            "Mozambik metikaly",
         }
         NAD{
             "NAD",
@@ -428,7 +432,7 @@ tk{
         }
         PGK{
             "PGK",
-            "Papua — Täze Gwineýa kinasy",
+            "Papua - Täze Gwineýa kinasy",
         }
         PHP{
             "PHP",
@@ -440,11 +444,11 @@ tk{
         }
         PLN{
             "PLN",
-            "Polýak zloty",
+            "Polýak zlotysy",
         }
         PYG{
             "PYG",
-            "Paragwaý guarani",
+            "Paragwaý guaranisi",
         }
         QAR{
             "QAR",
@@ -464,7 +468,7 @@ tk{
         }
         RWF{
             "RWF",
-            "Rwanda franky",
+            "Ruanda franky",
         }
         SAR{
             "SAR",
@@ -496,11 +500,11 @@ tk{
         }
         SLL{
             "SLL",
-            "Leon",
+            "Sýerra-Leone leony",
         }
         SOS{
             "SOS",
-            "Somali şilingi",
+            "Somali şillingi",
         }
         SRD{
             "SRD",
@@ -508,7 +512,7 @@ tk{
         }
         SSP{
             "SSP",
-            "Günorta sudan funty",
+            "Günorta Sudan funty",
         }
         STD{
             "STD",
@@ -532,7 +536,7 @@ tk{
         }
         TMT{
             "TMT",
-            "Türkmen manaty",
+            "Türkmen manady",
         }
         TND{
             "TND",
@@ -556,7 +560,7 @@ tk{
         }
         TZS{
             "TZS",
-            "Tanzaniýa şilingi",
+            "Tanzaniýa şillingi",
         }
         UAH{
             "UAH",
@@ -564,7 +568,7 @@ tk{
         }
         UGX{
             "UGX",
-            "Uganda şilingi",
+            "Uganda şillingi",
         }
         USD{
             "US$",
@@ -580,7 +584,7 @@ tk{
         }
         VEF{
             "VEF",
-            "Wenezuela boliwary",
+            "Wenesuela boliwary",
         }
         VND{
             "₫",
@@ -612,7 +616,7 @@ tk{
         }
         XXX{
             "XXX",
-            "Näbelli ýa-da ýöremeýän pul birligi",
+            "Näbelli pul birligi",
         }
         YER{
             "YER",
@@ -657,6 +661,7 @@ tk{
         FJD{"$"}
         FKP{"£"}
         GBP{"£"}
+        GEL{"₾"}
         GIP{"£"}
         GNF{"FG"}
         GTQ{"Q"}
@@ -697,6 +702,7 @@ tk{
         PKR{"Rs"}
         PLN{"zł"}
         PYG{"₲"}
+        RON{"lei"}
         RUB{"₽"}
         RWF{"RF"}
         SBD{"$"}
@@ -763,8 +769,8 @@ tk{
             other{"aruba florini"}
         }
         AZN{
-            one{"azerbaýjan manaty"}
-            other{"azerbaýjan manaty"}
+            one{"azerbaýjan manady"}
+            other{"azerbaýjan manady"}
         }
         BAM{
             one{"konwertirlenýän bosniýa we gersogowina markasy"}
@@ -779,16 +785,16 @@ tk{
             other{"bangladeş takasy"}
         }
         BGN{
-            one{"bolgar lewy"}
-            other{"bolgar lewy"}
+            one{"bolgar lewi"}
+            other{"bolgar lewi"}
         }
         BHD{
             one{"bahreýn dinary"}
             other{"bahreýn dinary"}
         }
         BIF{
-            one{"burundiý franky"}
-            other{"burundiý franky"}
+            one{"burundi franky"}
+            other{"burundi franky"}
         }
         BMD{
             one{"bermuda dollary"}
@@ -819,8 +825,8 @@ tk{
             other{"botswana pulasy"}
         }
         BYN{
-            one{"belorus rubly"}
-            other{"belorus rubly"}
+            one{"belarus rubly"}
+            other{"belarus rubly"}
         }
         BYR{
             one{"belorus rubly (2000–2016)"}
@@ -835,8 +841,8 @@ tk{
             other{"kanada dollary"}
         }
         CDF{
-            one{"kongolez franky"}
-            other{"kongolez franky"}
+            one{"kongo franky"}
+            other{"kongo franky"}
         }
         CHF{
             one{"şweýsar franky"}
@@ -845,6 +851,10 @@ tk{
         CLP{
             one{"çili pesosy"}
             other{"çili pesosy"}
+        }
+        CNH{
+            one{"CNH"}
+            other{"CNH"}
         }
         CNY{
             one{"hytaý ýuany"}
@@ -887,8 +897,8 @@ tk{
             other{"dominikan pesosy"}
         }
         DZD{
-            one{"aljir dinary"}
-            other{"aljir dinary"}
+            one{"alžir dinary"}
+            other{"alžir dinary"}
         }
         EGP{
             one{"müsür funty"}
@@ -915,12 +925,12 @@ tk{
             other{"folklend adalarynyň funty"}
         }
         GBP{
-            one{"iňlis funt sterlingi"}
-            other{"iňlis funt sterlingi"}
+            one{"britan funt sterlingi"}
+            other{"britan funt sterlingi"}
         }
         GEL{
-            one{"gruzin lari"}
-            other{"gruzin lari"}
+            one{"gruzin larisi"}
+            other{"gruzin larisi"}
         }
         GHS{
             one{"gano sedisi"}
@@ -931,8 +941,8 @@ tk{
             other{"gibraltar funty"}
         }
         GMD{
-            one{"gambiýa dalasy"}
-            other{"gambiýa dalasy"}
+            one{"gambiýa dalasisi"}
+            other{"gambiýa dalasisi"}
         }
         GNF{
             one{"gwineý franky"}
@@ -943,8 +953,8 @@ tk{
             other{"gwatemala ketsaly"}
         }
         GYD{
-            one{"gaýan dollary"}
-            other{"gaýan dollary"}
+            one{"gaýana dollary"}
+            other{"gaýana dollary"}
         }
         HKD{
             one{"gonkong dollary"}
@@ -959,20 +969,20 @@ tk{
             other{"horwat kunasy"}
         }
         HTG{
-            one{"gaitýan gurdy"}
-            other{"gaitýan gurdy"}
+            one{"gaiti gurdy"}
+            other{"gaiti gurdy"}
         }
         HUF{
-            one{"wenger forinty"}
-            other{"wenger forinty"}
+            one{"wenger forinti"}
+            other{"wenger forinti"}
         }
         IDR{
             one{"indoneziýa rupiýasy"}
             other{"indoneziýa rupiýasy"}
         }
         ILS{
-            one{"Täze Ysraýyl şekeli"}
-            other{"Täze Ysraýyl şekeli"}
+            one{"täze ysraýyl şekeli"}
+            other{"täze ysraýyl şekeli"}
         }
         INR{
             one{"hindi rupiýasy"}
@@ -995,8 +1005,8 @@ tk{
             other{"ýamaýka dollary"}
         }
         JOD{
-            one{"iordaniýa dinary"}
-            other{"iordaniýa dinary"}
+            one{"iordan dinary"}
+            other{"iordan dinary"}
         }
         JPY{
             one{"ýapon ýeni"}
@@ -1015,16 +1025,16 @@ tk{
             other{"kamboja riýeli"}
         }
         KMF{
-            one{"komor adalar franky"}
-            other{"komor adalar franky"}
+            one{"komor adalarynyň franky"}
+            other{"komor adalarynyň franky"}
         }
         KPW{
-            one{"demirgazyk koreýa wony"}
-            other{"demirgazyk koreýa wony"}
+            one{"demirgazyk koreý wony"}
+            other{"demirgazyk koreý wony"}
         }
         KRW{
-            one{"günorta koreýa wony"}
-            other{"günorta koreýa wony"}
+            one{"günorta koreý wony"}
+            other{"günorta koreý wony"}
         }
         KWD{
             one{"kuweýt dinary"}
@@ -1059,8 +1069,8 @@ tk{
             other{"liwiýa dinary"}
         }
         MAD{
-            one{"marokka dirhamy"}
-            other{"marokka dirhamy"}
+            one{"marokko dirhamy"}
+            other{"marokko dirhamy"}
         }
         MDL{
             one{"moldaw leýi"}
@@ -1111,8 +1121,8 @@ tk{
             other{"malaýziýa ringgiti"}
         }
         MZN{
-            one{"mozambik metikal"}
-            other{"mozambik metikal"}
+            one{"mozambik metikaly"}
+            other{"mozambik metikaly"}
         }
         NAD{
             one{"namibiýa dollary"}
@@ -1147,12 +1157,12 @@ tk{
             other{"panama balboasy"}
         }
         PEN{
-            one{"Peru soly"}
-            other{"Peru soly"}
+            one{"peru soly"}
+            other{"peru soly"}
         }
         PGK{
-            one{"papua — täze gwineýa kinasy"}
-            other{"papua — täze gwineýa kinasy"}
+            one{"papua - täze gwineýa kinasy"}
+            other{"papua - täze gwineýa kinasy"}
         }
         PHP{
             one{"filippin pesosy"}
@@ -1163,12 +1173,12 @@ tk{
             other{"päkistan rupiýasy"}
         }
         PLN{
-            one{"polýak zloty"}
-            other{"polýak zloty"}
+            one{"polýak zlotysy"}
+            other{"polýak zlotysy"}
         }
         PYG{
-            one{"paragwaý guarani"}
-            other{"paragwaý guarani"}
+            one{"paragwaý guaranisi"}
+            other{"paragwaý guaranisi"}
         }
         QAR{
             one{"katar rialy"}
@@ -1187,8 +1197,8 @@ tk{
             other{"rus rubly"}
         }
         RWF{
-            one{"rwanda franky"}
-            other{"rwanda franky"}
+            one{"ruanda franky"}
+            other{"ruanda franky"}
         }
         SAR{
             one{"saud rialy"}
@@ -1219,12 +1229,12 @@ tk{
             other{"keramatly ýelena adasynyň funty"}
         }
         SLL{
-            one{"leon"}
-            other{"leon"}
+            one{"sýerra-leone leony"}
+            other{"sýerra-leone leony"}
         }
         SOS{
-            one{"somali şilingi"}
-            other{"somali şilingi"}
+            one{"somali şillingi"}
+            other{"somali şillingi"}
         }
         SRD{
             one{"surinam dollary"}
@@ -1255,8 +1265,8 @@ tk{
             other{"täjik somonisy"}
         }
         TMT{
-            one{"türkmen manaty"}
-            other{"türkmen manaty"}
+            one{"türkmen manady"}
+            other{"türkmen manady"}
         }
         TND{
             one{"tunis dinary"}
@@ -1279,16 +1289,16 @@ tk{
             other{"täze taýwan dollary"}
         }
         TZS{
-            one{"tanzaniýa şilingi"}
-            other{"tanzaniýa şilingi"}
+            one{"tanzaniýa şillingi"}
+            other{"tanzaniýa şillingi"}
         }
         UAH{
             one{"ukrain griwnasy"}
             other{"ukrain griwnasy"}
         }
         UGX{
-            one{"uganda şilingi"}
-            other{"uganda şilingi"}
+            one{"uganda şillingi"}
+            other{"uganda şillingi"}
         }
         USD{
             one{"ABŞ dollary"}
@@ -1303,8 +1313,8 @@ tk{
             other{"özbek somy"}
         }
         VEF{
-            one{"wenezuela boliwary"}
-            other{"wenezuela boliwary"}
+            one{"wenesuela boliwary"}
+            other{"wenesuela boliwary"}
         }
         VND{
             one{"wýetnam dongy"}
@@ -1335,8 +1345,8 @@ tk{
             other{"fransuz ýuwaş umman franky"}
         }
         XXX{
-            one{"näbelli ýa-da ýöremeýän pul birligi"}
-            other{"näbelli ýa-da ýöremeýän pul birligi"}
+            one{"näbelli pul birligi"}
+            other{"näbelli pul birligi"}
         }
         YER{
             one{"ýemen rialy"}
@@ -1355,5 +1365,5 @@ tk{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.31.86"}
+    Version{"2.1.37.1"}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -86,7 +86,7 @@
 
 
 /* get-network-info script path */
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 #define SYSTEMCONFIGURATION_GET_NETWORK_INFO_PATH	SYSTEMCONFIGURATION_FRAMEWORK_PATH "/Resources/get-network-info"
 #else
 #define SYSTEMCONFIGURATION_GET_NETWORK_INFO_PATH	SYSTEMCONFIGURATION_FRAMEWORK_PATH "/get-network-info"
@@ -94,7 +94,7 @@
 
 
 /* crash report(s) directory path */
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 #define	_SC_CRASH_DIR	"/Library/Logs/DiagnosticReports"
 #else
 #define	_SC_CRASH_DIR	"/Library/Logs/CrashReporter"
@@ -426,7 +426,7 @@ void		_SC_sendMachMessage		(mach_port_t		port,
 		used for [SystemConfiguration] logging.
 	@result The os_log_t object
  */
-os_log_t	_SC_LOG_DEFAULT			();
+os_log_t	_SC_LOG_DEFAULT			(void);
 
 
 /*!
@@ -578,7 +578,7 @@ void		SCPrint				(Boolean		condition,
 CFArrayRef
 SCNetworkProxiesCopyMatching			(CFDictionaryRef	globalConfiguration,
 						 CFStringRef		server,
-						 CFStringRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
+						 CFStringRef		interface)	API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 #define kSCProxiesMatchServer		CFSTR("Server")		/* CFString */
 #define kSCProxiesMatchInterface	CFSTR("Interface")	/* CFString */
@@ -611,7 +611,7 @@ SCNetworkProxiesCopyMatching			(CFDictionaryRef	globalConfiguration,
  */
 CFArrayRef
 SCNetworkProxiesCopyMatchingWithOptions		(CFDictionaryRef	globalConfiguration,
-						 CFDictionaryRef	options)	__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0/*SPI*/);
+						 CFDictionaryRef	options)	API_AVAILABLE(macos(10.10)) SPI_AVAILABLE(ios(8.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 extern const CFStringRef	kSCProxiesNoGlobal;
 
@@ -625,7 +625,7 @@ extern const CFStringRef	kSCProxiesNoGlobal;
 		You must release the returned value.
  */
 CFDataRef
-SCNetworkProxiesCreateProxyAgentData(CFDictionaryRef proxyConfig)	__OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+SCNetworkProxiesCreateProxyAgentData		(CFDictionaryRef	proxyConfig)	API_AVAILABLE(macos(10.12)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(3.0));
 
 /*!
 	@function SCDynamicStoreCopyProxiesWithOptions
@@ -646,7 +646,8 @@ SCNetworkProxiesCreateProxyAgentData(CFDictionaryRef proxyConfig)	__OSX_AVAILABL
 		You must release the returned value.
 */
 CFDictionaryRef
-SCDynamicStoreCopyProxiesWithOptions(SCDynamicStoreRef store, CFDictionaryRef options)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
+SCDynamicStoreCopyProxiesWithOptions		(SCDynamicStoreRef	store,
+						 CFDictionaryRef	options)	API_AVAILABLE(macos(10.9)) SPI_AVAILABLE(ios(7.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 #pragma mark -
 #pragma mark Reachability

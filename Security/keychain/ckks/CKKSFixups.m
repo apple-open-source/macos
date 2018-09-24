@@ -27,6 +27,7 @@
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ckks/CKKSCurrentItemPointer.h"
 #import "keychain/ckks/CKKSZoneStateEntry.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 @implementation CKKSFixups
 +(CKKSGroupOperation*)fixup:(CKKSFixup)lastfixup for:(CKKSKeychainView*)keychainView

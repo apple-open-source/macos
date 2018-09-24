@@ -131,11 +131,11 @@ metaZones:table(nofallback){
             001{"America/Halifax"}
             AG{"America/Antigua"}
             AI{"America/Anguilla"}
-            AN{"America/Curacao"}
             AW{"America/Aruba"}
             BB{"America/Barbados"}
             BM{"Atlantic/Bermuda"}
             BQ{"America/Kralendijk"}
+            CW{"America/Curacao"}
             DM{"America/Dominica"}
             GD{"America/Grenada"}
             GL{"America/Thule"}
@@ -1094,11 +1094,11 @@ metaZones:table(nofallback){
             {
                 "Africa_Western",
                 "1994-03-20 22:00",
-                "2017-09-03 01:00",
+                "2017-10-23 22:00",
             }
             {
                 "Africa_Central",
-                "2017-09-03 01:00",
+                "2017-10-23 22:00",
                 "9999-12-31 23:59",
             }
         }
@@ -2559,6 +2559,11 @@ metaZones:table(nofallback){
             {
                 "Casey",
                 "2016-10-21 16:00",
+                "2016-03-10 17:00",
+            }
+            {
+                "Australia_Western",
+                "2018-03-10 17:00",
                 "9999-12-31 23:59",
             }
         }
@@ -3127,6 +3132,11 @@ metaZones:table(nofallback){
             {
                 "Pyongyang",
                 "2015-08-14 15:00",
+                "2018-05-05 08:30",
+            }
+            {
+                "Korea",
+                "2018-05-05 08:30",
                 "9999-12-31 23:59",
             }
         }

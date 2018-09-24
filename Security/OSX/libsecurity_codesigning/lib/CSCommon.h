@@ -119,12 +119,13 @@ CF_ENUM(OSStatus) {
 	errSecCSBadDiskImageFormat =		-67001,	/* disk image format unrecognized, invalid, or unsuitable */
 	errSecCSUnsupportedDigestAlgorithm = -67000, /* a requested signature digest algorithm is not supported */
 	errSecCSInvalidAssociatedFileData =	-66999,	/* resource fork, Finder information, or similar detritus not allowed */
-    errSecCSInvalidTeamIdentifier =     -66998, /* a Team Identifier string is invalid */
-    errSecCSBadTeamIdentifier =         -66997, /* a Team Identifier is wrong or inappropriate */
-    errSecCSSignatureUntrusted =        -66996, /* signature is valid but signer is not trusted */
+	errSecCSInvalidTeamIdentifier =		-66998, /* a Team Identifier string is invalid */
+	errSecCSBadTeamIdentifier = 		-66997, /* a Team Identifier is wrong or inappropriate */
+	errSecCSSignatureUntrusted =		-66996, /* signature is valid but signer is not trusted */
 	errSecMultipleExecSegments =		-66995, /* the image contains multiple executable segments */
 	errSecCSInvalidEntitlements =		-66994, /* invalid entitlement plist */
-	errSecCSInvalidRuntimeVersion =     -66993, /* an invalid runtime version was explicitly set */
+	errSecCSInvalidRuntimeVersion =		-66993, /* an invalid runtime version was explicitly set */
+	errSecCSRevokedNotarization =		-66992, /* notarization indicates this code has been revoked */
 };
 
 /*
@@ -302,11 +303,20 @@ typedef CF_OPTIONS(uint32_t, SecCodeSignatureFlags) {
 	This bit can only be set. Code that has the kill flag set will never be dynamically invalid
 	(and live). Note however that a change in static validity does not necessarily trigger instant
 	death.
+
+	@constant kSecCodeStatusDebugged
+	Indicated that code has been debugged by another process that was allowed to do so. The debugger
+	causes this to be set when it attachs.
+
+	@constant kSecCodeStatusPlatform
+	Indicates the code is platform code, shipping with the operating system and signed by Apple.
 */
 typedef CF_OPTIONS(uint32_t, SecCodeStatus) {
-	kSecCodeStatusValid =	0x0001,
-	kSecCodeStatusHard =	0x0100,
-	kSecCodeStatusKill =	0x0200,
+	kSecCodeStatusValid     = 0x00000001,
+	kSecCodeStatusHard      = 0x00000100,
+	kSecCodeStatusKill      = 0x00000200,
+	kSecCodeStatusDebugged  = 0x10000000,
+	kSecCodeStatusPlatform  = 0x04000000,
 };
 
 
@@ -343,6 +353,7 @@ typedef CF_ENUM(uint32_t, SecCSDigestAlgorithm) {
 	kSecCodeSignatureHashSHA256						=  2,	/* SHA-256 */
 	kSecCodeSignatureHashSHA256Truncated			=  3,	/* SHA-256 truncated to first 20 bytes */
 	kSecCodeSignatureHashSHA384						=  4,	/* SHA-384 */
+    kSecCodeSignatureHashSHA512                     =  5,   /* SHA-512 */
 };
 
 CF_ASSUME_NONNULL_END

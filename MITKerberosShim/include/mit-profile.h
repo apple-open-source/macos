@@ -173,8 +173,6 @@ long KRB5_CALLCONV profile_add_relation
 #define PROF_MAGIC_FILE_DATA                     (-1429577698L)
 #define ERROR_TABLE_BASE_prof (-1429577728L)
 
-extern const struct error_table et_prof_error_table;
-
 #if !defined(_WIN32)
 /* for compatibility with older versions... */
 extern void initialize_prof_error_table (void) /*@modifies internalState@*/;

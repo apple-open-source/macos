@@ -39,14 +39,18 @@ class RenderMathMLFenced final : public RenderMathMLRow {
 public:
     RenderMathMLFenced(MathMLRowElement&, RenderStyle&&);
 
+    StringImpl* separators() const { return m_separators.get(); }
+    String openingBrace() const { return m_open; }
+    String closingBrace() const { return m_close; }
+
+    RenderMathMLFencedOperator* closeFenceRenderer() const { return m_closeFenceRenderer.get(); }
+    void setCloseFenceRenderer(RenderMathMLFencedOperator& renderer) { m_closeFenceRenderer = makeWeakPtr(renderer); }
+
+    void updateFromElement();
+
 private:
     bool isRenderMathMLFenced() const final { return true; }
     const char* renderName() const final { return "RenderMathMLFenced"; }
-    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild) final;
-    void updateFromElement() final;
-
-    RenderPtr<RenderMathMLFencedOperator> createMathMLOperator(const String& operatorString, MathMLOperatorDictionary::Form, MathMLOperatorDictionary::Flag);
-    void makeFences();
 
     String m_open;
     String m_close;
@@ -56,5 +60,7 @@ private:
 };
 
 }
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderMathMLFenced, isRenderMathMLFenced())
 
 #endif // ENABLE(MATHML)

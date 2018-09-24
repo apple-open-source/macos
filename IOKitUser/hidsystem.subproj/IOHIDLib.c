@@ -44,19 +44,56 @@
 #include <IOKit/hid/IOHIDEventSystemClient.h>
 #include <IOKit/hid/IOHIDServiceKeys.h>
 #include <os/log.h>
+#include <dlfcn.h>
+#include "IOHIDLibPrivate.h"
 
+#define TCC_FRAMEWORK  "/System/Library/PrivateFrameworks/TCC.framework/TCC"
+void TCCAccessRequest(CFStringRef service, CFDictionaryRef options, void (^callback)(Boolean granted));
 
-#if !TARGET_OS_IPHONE
-kern_return_t IOFramebufferServerStart( void );
-#endif
+static bool __IOHIDRequestPostEventAccess(void) {
+    static bool tccAccessGranted = false;
+    static dispatch_once_t predicate;
+    
+    dispatch_once(&predicate, ^{
+        void *tcc_framework_handle = dlopen(TCC_FRAMEWORK, RTLD_LAZY | RTLD_LOCAL);
+        static typeof (TCCAccessRequest) *requestFunc = NULL;
+        
+        if (tcc_framework_handle == NULL) {
+            IOHIDLogError("Could not load TCC");
+            return;
+        }
+        
+        requestFunc = dlsym(tcc_framework_handle, "TCCAccessRequest");
+        if (requestFunc == NULL) {
+            IOHIDLogError("Could not find TCC symbol \"TCCAccessRequest\"");
+            return;
+        }
+        
+        __block dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+        if (semaphore != NULL) {
+            dispatch_retain(semaphore);
+        }
+        
+        requestFunc(CFSTR("kTCCServicePostEvent"), NULL, ^(Boolean granted) {
+            tccAccessGranted = granted;
+            if (semaphore != NULL) {
+                dispatch_semaphore_signal(semaphore);
+                dispatch_release(semaphore);
+            }
+        });
+        if (semaphore != NULL) {
+            dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+            dispatch_release(semaphore);
+        }
+    });
+    
+    return tccAccessGranted;
+}
 
 kern_return_t
 IOHIDCreateSharedMemory( io_connect_t connect,
 	unsigned int version )
 {
-#if !TARGET_OS_IPHONE
-    IOFramebufferServerStart();
-#endif
     uint64_t inData = version;
     return IOConnectCallMethod( connect, 0,		// Index
 			   &inData, 1, NULL, 0,		// Input
@@ -161,6 +198,11 @@ IOHIDPostEvent( io_connect_t        connect,
     allowEvent  = _IOPMReportSoftwareHIDEvent(event->type);
 
     if (allowEvent) {
+        
+        if ((event->setCursor & kIOHIDSetCursorPosition) || event->type != NX_NULLEVENT) {
+            __IOHIDRequestPostEventAccess();
+        }
+        
         return IOConnectCallMethod(connect, 3,		// Index
                    NULL, 0,    data, dataSize,	// Input
                    NULL, NULL, NULL, NULL);	// Output

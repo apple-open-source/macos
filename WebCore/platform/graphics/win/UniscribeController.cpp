@@ -364,16 +364,21 @@ bool UniscribeController::shapeAndPlaceItem(const UChar* cp, unsigned i, const F
         // as well, so that when the time comes to draw those glyphs, we can apply the appropriate
         // translation.
         if (glyphBuffer) {
-            FloatSize size(offsetX, -offsetY);
-            glyphBuffer->add(glyph, fontData, advance, GlyphBuffer::noOffset, &size);
+            GlyphBufferAdvance origin(offsetX, -offsetY);
+            if (!glyphBuffer->advancesCount())
+                glyphBuffer->setInitialAdvance(origin);
+            else
+                glyphBuffer->expandLastAdvance(origin);
+            GlyphBufferAdvance advance(-origin.width() + advance, -origin.height());
+            glyphBuffer->add(glyph, fontData, advance);
         }
 
         FloatRect glyphBounds = fontData->boundsForGlyph(glyph);
         glyphBounds.move(m_glyphOrigin.x(), m_glyphOrigin.y());
-        m_minGlyphBoundingBoxX = std::min(m_minGlyphBoundingBoxX, glyphBounds.x());
-        m_maxGlyphBoundingBoxX = std::max(m_maxGlyphBoundingBoxX, glyphBounds.maxX());
-        m_minGlyphBoundingBoxY = std::min(m_minGlyphBoundingBoxY, glyphBounds.y());
-        m_maxGlyphBoundingBoxY = std::max(m_maxGlyphBoundingBoxY, glyphBounds.maxY());
+        m_minGlyphBoundingBoxX = min(m_minGlyphBoundingBoxX, glyphBounds.x());
+        m_maxGlyphBoundingBoxX = max(m_maxGlyphBoundingBoxX, glyphBounds.maxX());
+        m_minGlyphBoundingBoxY = min(m_minGlyphBoundingBoxY, glyphBounds.y());
+        m_maxGlyphBoundingBoxY = max(m_maxGlyphBoundingBoxY, glyphBounds.maxY());
         m_glyphOrigin.move(advance + offsetX, -offsetY);
 
         // Mutate the glyph array to contain our altered advances.

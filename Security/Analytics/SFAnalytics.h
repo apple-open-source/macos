@@ -39,6 +39,8 @@ extern const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport;
 
 + (NSInteger)fuzzyDaysSinceDate:(NSDate*)date;
 + (void)addOSVersionToEvent:(NSMutableDictionary*)event;
+// Help for the subclass to pick a prefered location
++ (NSString *)defaultAnalyticsDatabasePath:(NSString *)basename;
 
 // Log event-based metrics: create an event corresponding to some event in your feature
 // and call the appropriate method based on the successfulness of that event

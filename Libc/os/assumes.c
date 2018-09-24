@@ -267,7 +267,7 @@ _os_crash_fmt_impl(os_log_pack_t pack, size_t pack_size)
 	if (!__os_log_default) return false;
 
 	char *composed = _os_log_pack_send_and_compose(pack, __os_log_default,
-			OS_LOG_TYPE_FAULT, NULL, 0);
+			OS_LOG_TYPE_ERROR, NULL, 0);
 
 	abort_with_payload(OS_REASON_LIBSYSTEM, OS_REASON_LIBSYSTEM_CODE_FAULT, pack, pack_size, composed, 0);
 }

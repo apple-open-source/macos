@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2015 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include "libinfo_common.h"
+
+#include <dlfcn.h>
 #include <netdb.h>
 #include <sys/types.h>
 #include <ctype.h>
@@ -29,9 +32,7 @@
 #include <sys/socket.h>
 #include <net/if.h>
 #include <netinet/in.h>
-#include <network/sa_compare.h>
-#include <network/nat64.h>
-#include <network/path_evaluation.h>
+#include <os/log.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -42,6 +43,7 @@
 #include <pthread.h>
 #include <TargetConditionals.h>
 #include "netdb_async.h"
+#include "si_compare.h"
 #include "si_module.h"
 
 #define SOCK_UNSPEC 0
@@ -62,6 +64,7 @@ static int net_config_token = -1;
 static uint32_t net_v4_count = 0;
 static uint32_t net_v6_count = 0;	// includes 6to4 addresses
 static pthread_mutex_t net_config_mutex = PTHREAD_MUTEX_INITIALIZER;
+static os_log_t _gai_log = OS_LOG_DEFAULT;
 
 // Libc SPI
 int _inet_aton_check(const char *cp, struct in_addr *addr, int strict);
@@ -72,6 +75,20 @@ typedef struct {
 	int addr_count;
 	uint64_t ttl;
 } build_hostent_t;
+
+static void
+gai_log_init(void)
+{
+	_gai_log = os_log_create("com.apple.network.libinfo", "getaddrinfo");
+}
+
+static os_log_t
+gai_log(void)
+{
+	static pthread_once_t	once = PTHREAD_ONCE_INIT;
+	pthread_once(&once, gai_log_init);
+	return _gai_log;
+}
 
 __private_extern__ int
 si_inet_config(uint32_t *inet4, uint32_t *inet6)
@@ -135,6 +152,7 @@ si_inet_config(uint32_t *inet4, uint32_t *inet6)
 	return status;
 }
 
+LIBINFO_EXPORT
 void
 freeaddrinfo(struct addrinfo *a)
 {
@@ -150,6 +168,7 @@ freeaddrinfo(struct addrinfo *a)
 	}
 }
 
+LIBINFO_EXPORT
 const char *
 gai_strerror(int32_t err)
 {
@@ -185,6 +204,7 @@ gai_strerror(int32_t err)
  * string.  If the caller specifies both NI_NUMERICHOST and NI_NUMERICSERV,
  * we inet_ntop() and printf() and return the results.
  */
+LIBINFO_EXPORT
 si_item_t *
 si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *interface, uint32_t *err)
 {
@@ -425,6 +445,7 @@ _gai_numericserv(const char *serv, uint16_t *port)
 	return numeric;
 }
 
+LIBINFO_EXPORT
 int
 _gai_serv_to_port(const char *serv, uint32_t proto, uint16_t *port)
 {
@@ -447,6 +468,7 @@ _gai_serv_to_port(const char *serv, uint32_t proto, uint16_t *port)
 	return 0;
 }
 
+LIBINFO_EXPORT
 si_item_t *
 si_addrinfo_v4(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in_addr *addr, uint16_t iface, const char *cname)
 {
@@ -472,6 +494,7 @@ si_addrinfo_v4(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_
 	return (si_item_t *)LI_ils_create("L448844444Ss", (unsigned long)si, CATEGORY_ADDRINFO, 1, unused, unused, flags, AF_INET, sock, proto, len, sockdata, cname);
 }
 
+LIBINFO_EXPORT
 si_item_t *
 si_addrinfo_v4_mapped(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in_addr *addr, uint16_t iface, const char *cname)
 {
@@ -498,6 +521,7 @@ si_addrinfo_v4_mapped(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, 
 }
 
 
+LIBINFO_EXPORT
 si_item_t *
 si_addrinfo_v6(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in6_addr *addr, uint16_t iface, const char *cname)
 {
@@ -533,6 +557,7 @@ si_addrinfo_v6(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_
 	return (si_item_t *)LI_ils_create("L448844444Ss", (unsigned long)si, CATEGORY_ADDRINFO, 1, unused, unused, flags, AF_INET6, sock, proto, len, sockdata, cname);
 }
 
+LIBINFO_EXPORT
 si_list_t *
 si_addrinfo_list(si_mod_t *si, uint32_t flags, int socktype, int proto, struct in_addr *a4, struct in6_addr *a6, int port, int scopeid, const char *cname4, const char *cname6)
 {
@@ -728,6 +753,7 @@ _gai_numerichost(const char* nodename, uint32_t *family, int flags, struct in_ad
 /* si_addrinfo_list_from_hostent
  * Returns an addrinfo list from IPv4 and IPv6 hostent entries
  */
+LIBINFO_EXPORT
 si_list_t *
 si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t flags, uint32_t socktype, uint32_t proto, uint16_t port, uint16_t scope, const struct hostent *h4, const struct hostent *h6)
 {
@@ -779,11 +805,11 @@ _gai_addr_sort(const void *a, const void *b)
 	sq = (struct sockaddr *)q->ai_addr.x;
 
 	/*
-	 * sa_dst_compare(A,B) returns -1 if A is less desirable than B,
+	 * si_destination_compare(A,B) returns -1 if A is less desirable than B,
 	 * 0 if they are equally desirable, and 1 if A is more desirable.
 	 * qsort() expects the inverse, so we swap sp and sq.
 	 */
-	return sa_dst_compare(sq, sp, 0);
+	return si_destination_compare(sq, 0, sp, 0, true);
 }
 
 static si_list_t *
@@ -863,6 +889,7 @@ _gai_sort_list(si_list_t *in, uint32_t flags)
 /* _gai_simple
  * Simple lookup via gethostbyname2(3) mechanism.
  */
+LIBINFO_EXPORT
 si_list_t *
 _gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
 {
@@ -930,6 +957,7 @@ _gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t fam
 	return _gai_sort_list(out, flags);
 }
 
+LIBINFO_EXPORT
 si_list_t *
 si_srv_byname(si_mod_t *si, const char *qname, const char *interface, uint32_t *err)
 {
@@ -939,6 +967,7 @@ si_srv_byname(si_mod_t *si, const char *qname, const char *interface, uint32_t *
 	return si->vtable->sim_srv_byname(si, qname, interface, err);
 }
 
+LIBINFO_EXPORT
 int
 si_wants_addrinfo(si_mod_t *si)
 {
@@ -1030,6 +1059,116 @@ _gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint
 	return result;
 }
 
+#pragma mark -- NAT64 --
+
+static bool (*nat64_v4_requires_synthesis)(const struct in_addr *ipv4_addr) = NULL;
+static int (*nat64_v4_synthesize)(uint32_t *index, const struct in_addr *ipv4, struct in6_addr **out_ipv6_addrs) = NULL;
+
+#if !TARGET_OS_SIMULATOR
+static void _gai_load_libnetwork_once(void)
+{
+	// If the function pointers are already loaded, we don't need to call dlopen
+	if (nat64_v4_requires_synthesis != NULL && nat64_v4_synthesize != NULL) {
+		return;
+	}
+
+	// Using dlopen will trigger libnetwork's init functions which should call
+	// si_set_nat64_v4_synthesize and si_set_nat64_v4_requires_synthesis
+	static void *handle;
+	os_log_debug(gai_log(), "Opening libnetwork.dylib");
+	handle = dlopen("/usr/lib/libnetwork.dylib", RTLD_LAZY | RTLD_LOCAL);
+	if (handle == NULL) {
+		const char *error_description = dlerror();
+		os_log_error(gai_log(), "dlopen(\"...libnetwork.dylib\") failed: %{public}s",
+					 error_description ? error_description : "?");
+	} else {
+		if (nat64_v4_requires_synthesis == NULL) {
+			os_log_error(gai_log(), "libnetwork.dylib did not set nat64_v4_requires_synthesis");
+		}
+		if (nat64_v4_synthesize == NULL) {
+			os_log_error(gai_log(), "libnetwork.dylib did not set nat64_v4_synthesize");
+		}
+	}
+}
+
+static void _gai_load_libnetwork(void)
+{
+	static pthread_once_t	load_once = PTHREAD_ONCE_INIT;
+	pthread_once(&load_once, _gai_load_libnetwork_once);
+}
+#else
+static void _gai_load_libnetwork(void)
+{
+}
+#endif
+
+static bool _gai_nat64_v4_address_requires_synthesis(const struct in_addr *ipv4_addr)
+{
+	_gai_load_libnetwork();
+	if (nat64_v4_requires_synthesis == NULL) {
+		return false;
+	}
+	bool result = nat64_v4_requires_synthesis(ipv4_addr);
+	os_log_debug(gai_log(), "nat64_v4_requires_synthesis(%{network:in_addr}d) == %{bool}d", ipv4_addr->s_addr, result);
+	return result;
+}
+
+static int _gai_nat64_v4_synthesize(uint32_t *index, const struct in_addr *ipv4, struct in6_addr **out_ipv6_addrs)
+{
+	_gai_load_libnetwork();
+	if (nat64_v4_synthesize == NULL) {
+		return 0;
+	}
+	int result = nat64_v4_synthesize(index, ipv4, out_ipv6_addrs);
+	os_log_debug(gai_log(), "nat64_v4_synthesize(%d, %{network:in_addr}d, ...) returned %d", index != NULL ? *index : 0,
+				 ipv4->s_addr, result);
+	return nat64_v4_synthesize(index, ipv4, out_ipv6_addrs);
+}
+
+LIBINFO_EXPORT
+void si_set_nat64_v4_requires_synthesis(bool (*new_requires_synthesis)(const struct in_addr *ipv4_addr))
+{
+	if (new_requires_synthesis == NULL) {
+		os_log_fault(gai_log(), "new_requires_synthesis is NULL");
+		return;
+	}
+	nat64_v4_requires_synthesis = new_requires_synthesis;
+}
+
+LIBINFO_EXPORT
+void si_set_nat64_v4_synthesize(int (*new_synthesize)(uint32_t *index, const struct in_addr *ipv4,
+													  struct in6_addr **out_ipv6_addrs))
+{
+	if (new_synthesize == NULL) {
+		os_log_fault(gai_log(), "new_synthesize is NULL");
+		return;
+	}
+	nat64_v4_synthesize = new_synthesize;
+}
+
+LIBINFO_EXPORT
+bool _gai_nat64_can_v4_address_be_synthesized(const struct in_addr *ipv4_addr)
+{
+	if (ipv4_addr == NULL) {
+		os_log_fault(gai_log(), "ipv4_addr is NULL");
+		return false;
+	}
+
+	const in_addr_t addr_hbo = ntohl(ipv4_addr->s_addr); // host byte order
+
+	if (IN_ZERONET(addr_hbo)			||	// 0.0.0.0/8			Source hosts on local network
+		IN_LOOPBACK(addr_hbo)			||	// 127.0.0.0/8			Loopback
+		IN_LINKLOCAL(addr_hbo)			||	// 169.254.0.0/16		Link Local
+		IN_DS_LITE(addr_hbo)			||	// 192.0.0.0/29			DS-Lite
+		IN_6TO4_RELAY_ANYCAST(addr_hbo)	||	// 192.88.99.0/24		6to4 Relay Anycast
+		IN_MULTICAST(addr_hbo)			||	// 224.0.0.0/4			Multicast
+		INADDR_BROADCAST == addr_hbo) {		// 255.255.255.255/32	Limited Broadcast
+		return false;
+	}
+
+	return true;
+}
+
 static si_list_t *
 _gai_nat64_synthesis(si_mod_t *si, const char *node, const void *servptr, int numericserv,
 					 uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface)
@@ -1059,11 +1198,9 @@ _gai_nat64_synthesis(si_mod_t *si, const char *node, const void *servptr, int nu
 	}
 
 	/* validate that IPv4 address is eligible for NAT64 synthesis */
-#if defined(NW_NAT64_API_VERSION) && NW_NAT64_API_VERSION >= 2
-	if (!nw_nat64_can_v4_address_be_synthesized(&a4)) {
+	if (!_gai_nat64_can_v4_address_be_synthesized(&a4)) {
 		return NULL;
 	}
-#endif // NW_NAT64_API_VERSION
 
 	/* validate that there is at least an IPv6 address configured */
 	uint32_t num_inet6 = 0;
@@ -1102,23 +1239,17 @@ _gai_nat64_synthesis(si_mod_t *si, const char *node, const void *servptr, int nu
 	}
 
 	/* query NAT64 prefixes */
-	nw_nat64_prefix_t *prefixes = NULL;
-	const int32_t num_prefixes = nw_nat64_copy_prefixes(&ifindex, &prefixes);
-	if ((num_prefixes <= 0) || (NULL == prefixes))
-	{
-		return NULL;
+	struct in6_addr *synthesized = NULL;
+	const size_t count = _gai_nat64_v4_synthesize(&ifindex, &a4, &synthesized);
+	if (count <= 0 || (NULL == synthesized)) {
+		return false;
 	}
 
 	/* add every address to results */
 	si_list_t *out_list = NULL;
-	for (int32_t i = 0; i < num_prefixes; i++)
+	for (size_t i = 0; i < count; i++)
 	{
-		struct in6_addr a6;
-		if (!nw_nat64_synthesize_v6(&prefixes[i], &a4, &a6))
-		{
-			continue;
-		}
-		si_list_t *temp_list = si_addrinfo_list(si, flags, socktype, proto, NULL, &a6, port, 0, NULL, NULL);
+		si_list_t *temp_list = si_addrinfo_list(si, flags, socktype, proto, NULL, &synthesized[i], port, 0, NULL, NULL);
 		if (NULL == temp_list)
 		{
 			continue;
@@ -1134,7 +1265,7 @@ _gai_nat64_synthesis(si_mod_t *si, const char *node, const void *servptr, int nu
 		}
 	}
 
-	free(prefixes);
+	free(synthesized);
 
 	/* return to standard code path if no NAT64 addresses could be synthesized */
 	if (NULL == out_list)
@@ -1213,41 +1344,13 @@ _gai_nat64_second_pass(si_list_t *out, si_mod_t *si, const char *serv, uint32_t 
 			continue;
 		}
 
-		/* validate that IPv4 address is eligible for NAT64 synthesis */
-#if defined(NW_NAT64_API_VERSION) && NW_NAT64_API_VERSION >= 2
-		if (!nw_nat64_can_v4_address_be_synthesized(addr4))
+		if (!_gai_nat64_v4_address_requires_synthesis(addr4))
 		{
 			continue;
 		}
-#endif // NW_NAT64_API_VERSION
 
 		char v4_str[INET_ADDRSTRLEN] = {0};
 		if (NULL == inet_ntop(AF_INET, addr4, v4_str, sizeof(v4_str)))
-		{
-			continue;
-		}
-
-		/* skip if we have a path (route) to this address as it might go through a VPN */
-		nw_endpoint_t endpoint = nw_endpoint_create_address((struct sockaddr *)a->ai_addr.x);
-		if (endpoint == NULL)
-		{
-			continue;
-		}
-		nw_path_evaluator_t evaluator = nw_path_create_evaluator_for_endpoint(endpoint, NULL);
-		network_release(endpoint);
-		if (evaluator == NULL)
-		{
-			continue;
-		}
-		nw_path_t path = nw_path_evaluator_copy_path(evaluator);
-		network_release(evaluator);
-		if (path == NULL)
-		{
-			continue;
-		}
-		const nw_path_status_t status = nw_path_get_status(path);
-		network_release(path);
-		if (status != nw_path_status_unsatisfied)
 		{
 			continue;
 		}
@@ -1276,6 +1379,9 @@ _gai_nat64_second_pass(si_list_t *out, si_mod_t *si, const char *serv, uint32_t 
 	return out_list;
 }
 
+#pragma mark -- /NAT64 --
+
+LIBINFO_EXPORT
 si_list_t *
 si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
 {
@@ -1717,6 +1823,7 @@ free_build_hostent(build_hostent_t *h)
 	free(h);
 }
 
+LIBINFO_EXPORT
 si_item_t *
 si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const char *interface, uint32_t *err)
 {

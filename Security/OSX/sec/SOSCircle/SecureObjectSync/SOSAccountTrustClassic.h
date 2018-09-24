@@ -16,11 +16,6 @@
 
 +(instancetype)trustClassic;
 
-
-//Security Properties
--(SOSSecurityPropertyResultCode) UpdateSecurityProperty:(SOSAccount*)account property:(CFStringRef)property code:(SOSSecurityPropertyActionCode)actionCode err:(CFErrorRef*)error;
--(SOSSecurityPropertyResultCode) SecurityPropertyStatus:(CFStringRef)property err:(CFErrorRef *)error;
-
 //Gestalt Dictionary
 -(bool) updateGestalt:(SOSAccount*)account newGestalt:(CFDictionaryRef) new_gestalt;
 
@@ -38,6 +33,8 @@
 -(SOSViewResultCode) updateView:(SOSAccount*)account name:(CFStringRef) viewname code:(SOSViewActionCode) actionCode err:(CFErrorRef *)error;
 -(SOSViewResultCode) viewStatus:(SOSAccount*)account name:(CFStringRef) viewname err:(CFErrorRef *)error;
 -(bool) updateViewSets:(SOSAccount*)account enabled:(CFSetRef) origEnabledViews disabled:(CFSetRef) origDisabledViews;
+-(bool) updateViewSetsWithAnalytics:(SOSAccount*)account enabled:(CFSetRef) origEnabledViews disabled:(CFSetRef) origDisabledViews parentEvent:(NSData*)parentEvent;
+
 -(CFSetRef) copyPeerSetForView:(CFStringRef) viewName;
 
 //DER

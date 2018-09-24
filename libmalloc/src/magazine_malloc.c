@@ -41,69 +41,14 @@
 #define LOG(szone, ptr) 0
 #endif
 
-/*********************	VERY LOW LEVEL UTILITIES  ************************/
+// Maximum number of magazines, set from the number of logical CPUS and
+// possibly limited by the MallocMaxMagazines environment variable.
+int max_magazines;
 
-static void
-szone_sleep(void)
-{
-	if (getenv("MallocErrorStop")) {
-		_malloc_printf(ASL_LEVEL_NOTICE, "*** sending SIGSTOP to help debug\n");
-		kill(getpid(), SIGSTOP);
-	} else if (getenv("MallocErrorSleep")) {
-		_malloc_printf(ASL_LEVEL_NOTICE, "*** sleeping to help debug\n");
-		sleep(3600); // to help debug
-	}
-}
-
-// msg prints after fmt, ...
-void
-szone_error(uint32_t debug_flags, int is_corruption, const char *msg, const void *ptr, const char *fmt, ...)
-{
-	va_list ap;
-	_SIMPLE_STRING b = _simple_salloc();
-
-	if (b) {
-		if (fmt) {
-			va_start(ap, fmt);
-			_simple_vsprintf(b, fmt, ap);
-			va_end(ap);
-		}
-		if (ptr) {
-			_simple_sprintf(b, "*** error for object %p: %s\n", ptr, msg);
-		} else {
-			_simple_sprintf(b, "*** error: %s\n", msg);
-		}
-		malloc_printf("%s*** set a breakpoint in malloc_error_break to debug\n", _simple_string(b));
-	} else {
-		/*
-		 * Should only get here if vm_allocate() can't get a single page of
-		 * memory, implying _simple_asl_log() would also fail.  So we just
-		 * print to the file descriptor.
-		 */
-		if (fmt) {
-			va_start(ap, fmt);
-			_malloc_vprintf(MALLOC_PRINTF_NOLOG, fmt, ap);
-			va_end(ap);
-		}
-		if (ptr) {
-			_malloc_printf(MALLOC_PRINTF_NOLOG, "*** error for object %p: %s\n", ptr, msg);
-		} else {
-			_malloc_printf(MALLOC_PRINTF_NOLOG, "*** error: %s\n", msg);
-		}
-		_malloc_printf(MALLOC_PRINTF_NOLOG, "*** set a breakpoint in malloc_error_break to debug\n");
-	}
-	malloc_error_break();
-	szone_sleep();
-	// Call abort() if this is a memory corruption error and the abort on
-	// corruption flag is set, or if any error should abort.
-	if ((is_corruption && (debug_flags & MALLOC_ABORT_ON_CORRUPTION)) ||
-			(debug_flags & MALLOC_ABORT_ON_ERROR)) {
-		_os_set_crash_log_message_dynamic(b ? _simple_string(b) : msg);
-		abort();
-	} else if (b) {
-		_simple_sfree(b);
-	}
-}
+// Number of regions to retain in a recirc depot.
+#if CONFIG_RECIRC_DEPOT
+int recirc_retained_regions = DEFAULT_RECIRC_RETAINED_REGIONS;
+#endif // CONFIG_RECIRC_DEPOT
 
 /*********************	Zone call backs	************************/
 /*
@@ -117,7 +62,7 @@ szone_free(szone_t *szone, void *ptr)
 
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("in szone_free with %p\n", ptr);
+		malloc_report(ASL_LEVEL_INFO, "in szone_free with %p\n", ptr);
 	}
 #endif
 	if (!ptr) {
@@ -127,12 +72,12 @@ szone_free(szone_t *szone, void *ptr)
 	 * Try to free to a tiny region.
 	 */
 	if ((uintptr_t)ptr & (TINY_QUANTUM - 1)) {
-		szone_error(szone->debug_flags, 1, "Non-aligned pointer being freed", ptr, NULL);
+		malloc_zone_error(szone->debug_flags, true, "Non-aligned pointer %p being freed\n", ptr);
 		return;
 	}
 	if ((tiny_region = tiny_region_for_ptr_no_lock(&szone->tiny_rack, ptr)) != NULL) {
 		if (TINY_INDEX_FOR_PTR(ptr) >= NUM_TINY_BLOCKS) {
-			szone_error(szone->debug_flags, 1, "Pointer to metadata being freed", ptr, NULL);
+			malloc_zone_error(szone->debug_flags, true, "Pointer %p to metadata being freed\n", ptr);
 			return;
 		}
 		free_tiny(&szone->tiny_rack, ptr, tiny_region, 0);
@@ -143,12 +88,12 @@ szone_free(szone_t *szone, void *ptr)
 	 * Try to free to a small region.
 	 */
 	if ((uintptr_t)ptr & (SMALL_QUANTUM - 1)) {
-		szone_error(szone->debug_flags, 1, "Non-aligned pointer being freed (2)", ptr, NULL);
+		malloc_zone_error(szone->debug_flags, true, "Non-aligned pointer %p being freed (2)\n", ptr);
 		return;
 	}
 	if ((small_region = small_region_for_ptr_no_lock(&szone->small_rack, ptr)) != NULL) {
 		if (SMALL_META_INDEX_FOR_PTR(ptr) >= NUM_SMALL_BLOCKS) {
-			szone_error(szone->debug_flags, 1, "Pointer to metadata being freed (2)", ptr, NULL);
+			malloc_zone_error(szone->debug_flags, true, "Pointer %p to metadata being freed (2)\n", ptr);
 			return;
 		}
 		free_small(&szone->small_rack, ptr, small_region, 0);
@@ -157,7 +102,7 @@ szone_free(szone_t *szone, void *ptr)
 
 	/* check that it's a legal large allocation */
 	if ((uintptr_t)ptr & (vm_page_quanta_size - 1)) {
-		szone_error(szone->debug_flags, 1, "non-page-aligned, non-allocated pointer being freed", ptr, NULL);
+		malloc_zone_error(szone->debug_flags, true, "non-page-aligned, non-allocated pointer %p being freed\n", ptr);
 		return;
 	}
 	free_large(szone, ptr);
@@ -168,11 +113,11 @@ szone_free_definite_size(szone_t *szone, void *ptr, size_t size)
 {
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("in szone_free_definite_size with %p\n", ptr);
+		malloc_report(ASL_LEVEL_INFO, "in szone_free_definite_size with %p\n", ptr);
 	}
 
 	if (0 == size) {
-		szone_error(szone->debug_flags, 1, "pointer of size zero being freed", ptr, NULL);
+		malloc_zone_error(szone->debug_flags, true, "pointer %p of size zero being freed\n", ptr);
 		return;
 	}
 
@@ -185,12 +130,12 @@ szone_free_definite_size(szone_t *szone, void *ptr, size_t size)
 	 * Try to free to a tiny region.
 	 */
 	if ((uintptr_t)ptr & (TINY_QUANTUM - 1)) {
-		szone_error(szone->debug_flags, 1, "Non-aligned pointer being freed", ptr, NULL);
+		malloc_zone_error(szone->debug_flags, true, "Non-aligned pointer %p being freed\n", ptr);
 		return;
 	}
 	if (size <= SMALL_THRESHOLD) {
 		if (TINY_INDEX_FOR_PTR(ptr) >= NUM_TINY_BLOCKS) {
-			szone_error(szone->debug_flags, 1, "Pointer to metadata being freed", ptr, NULL);
+			malloc_zone_error(szone->debug_flags, true, "Pointer %p to metadata being freed\n", ptr);
 			return;
 		}
 		free_tiny(&szone->tiny_rack, ptr, TINY_REGION_FOR_PTR(ptr), size);
@@ -201,12 +146,12 @@ szone_free_definite_size(szone_t *szone, void *ptr, size_t size)
 	 * Try to free to a small region.
 	 */
 	if ((uintptr_t)ptr & (SMALL_QUANTUM - 1)) {
-		szone_error(szone->debug_flags, 1, "Non-aligned pointer being freed (2)", ptr, NULL);
+		malloc_zone_error(szone->debug_flags, true, "Non-aligned pointer %p being freed (2)\n", ptr);
 		return;
 	}
 	if (size <= szone->large_threshold) {
 		if (SMALL_META_INDEX_FOR_PTR(ptr) >= NUM_SMALL_BLOCKS) {
-			szone_error(szone->debug_flags, 1, "Pointer to metadata being freed (2)", ptr, NULL);
+			malloc_zone_error(szone->debug_flags, true, "Pointer %p to metadata being freed (2)\n", ptr);
 			return;
 		}
 		free_small(&szone->small_rack, ptr, SMALL_REGION_FOR_PTR(ptr), size);
@@ -215,7 +160,7 @@ szone_free_definite_size(szone_t *szone, void *ptr, size_t size)
 
 	/* check that it's a legal large allocation */
 	if ((uintptr_t)ptr & (vm_page_quanta_size - 1)) {
-		szone_error(szone->debug_flags, 1, "non-page-aligned, non-allocated pointer being freed", ptr, NULL);
+		malloc_zone_error(szone->debug_flags, true, "non-page-aligned, non-allocated pointer %p being freed\n", ptr);
 		return;
 	}
 	free_large(szone, ptr);
@@ -228,7 +173,7 @@ szone_malloc_should_clear(szone_t *szone, size_t size, boolean_t cleared_request
 	msize_t msize;
 
 	if (size <= SMALL_THRESHOLD) {
-		// tiny size: <1024 bytes (64-bit), <512 bytes (32-bit)
+		// tiny size: <=1008 bytes (64-bit), <=496 bytes (32-bit)
 		// think tiny
 		msize = TINY_MSIZE_FOR_BYTES(size + TINY_QUANTUM - 1);
 		if (!msize) {
@@ -236,7 +181,7 @@ szone_malloc_should_clear(szone_t *szone, size_t size, boolean_t cleared_request
 		}
 		ptr = tiny_malloc_should_clear(&szone->tiny_rack, msize, cleared_requested);
 	} else if (size <= szone->large_threshold) {
-		// small size: <15k (<1GB machines), <127k (>1GB machines)
+		// small size: <=15k (iOS), <=64k (large iOS), <=128k (macOS)
 		// think small
 		msize = SMALL_MSIZE_FOR_BYTES(size + SMALL_QUANTUM - 1);
 		if (!msize) {
@@ -254,7 +199,7 @@ szone_malloc_should_clear(szone_t *szone, size_t size, boolean_t cleared_request
 	}
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("szone_malloc returned %p\n", ptr);
+		malloc_report(ASL_LEVEL_INFO, "szone_malloc returned %p\n", ptr);
 	}
 #endif
 	/*
@@ -276,29 +221,10 @@ szone_malloc(szone_t *szone, size_t size)
 void *
 szone_calloc(szone_t *szone, size_t num_items, size_t size)
 {
-	size_t total_bytes = num_items * size;
-
-	// Check for overflow of integer multiplication
-	if (num_items > 1) {
-#if __LP64__ /* size_t is uint64_t */
-		if ((num_items | size) & 0xffffffff00000000ul) {
-			// num_items or size equals or exceeds sqrt(2^64) == 2^32, appeal to wider arithmetic
-			__uint128_t product = ((__uint128_t)num_items) * ((__uint128_t)size);
-			if ((uint64_t)(product >> 64)) { // compiles to test on upper register of register pair
-				return NULL;
-			}
-		}
-#else /* size_t is uint32_t */
-		if ((num_items | size) & 0xffff0000ul) {
-			// num_items or size equals or exceeds sqrt(2^32) == 2^16, appeal to wider arithmetic
-			uint64_t product = ((uint64_t)num_items) * ((uint64_t)size);
-			if ((uint32_t)(product >> 32)) { // compiles to test on upper register of register pair
-				return NULL;
-			}
-		}
-#endif
+	size_t total_bytes;
+	if (calloc_get_size(num_items, size, 0, &total_bytes)) {
+		return NULL;
 	}
-
 	return szone_malloc_should_clear(szone, total_bytes, 1);
 }
 
@@ -318,7 +244,7 @@ szone_valloc(szone_t *szone, size_t size)
 
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("szone_valloc returned %p\n", ptr);
+		malloc_report(ASL_LEVEL_INFO, "szone_valloc returned %p\n", ptr);
 	}
 #endif
 	return ptr;
@@ -339,7 +265,7 @@ szone_size_try_large(szone_t *szone, const void *ptr)
 	SZONE_UNLOCK(szone);
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("szone_size for %p returned %d\n", ptr, (unsigned)size);
+		malloc_report(ASL_LEVEL_INFO, "szone_size for %p returned %d\n", ptr, (unsigned)size);
 	}
 #endif
 	return size;
@@ -355,7 +281,7 @@ szone_size(szone_t *szone, const void *ptr)
 	}
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("in szone_size for %p (szone=%p)\n", ptr, szone);
+		malloc_report(ASL_LEVEL_INFO, "in szone_size for %p (szone=%p)\n", ptr, szone);
 	}
 #endif
 
@@ -404,7 +330,7 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
 
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("in szone_realloc for %p, %d\n", ptr, (unsigned)new_size);
+		malloc_report(ASL_LEVEL_INFO, "in szone_realloc for %p, %d\n", ptr, (unsigned)new_size);
 	}
 #endif
 	if (NULL == ptr) {
@@ -420,7 +346,7 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
 
 	old_size = szone_size(szone, ptr);
 	if (!old_size) {
-		szone_error(szone->debug_flags, 1, "pointer being reallocated was not allocated", ptr, NULL);
+		malloc_zone_error(szone->debug_flags, true, "pointer %p being reallocated was not allocated\n", ptr);
 		return NULL;
 	}
 
@@ -520,7 +446,7 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
 	 * if it's too small, just copy by hand.
 	 */
 	valid_size = MIN(old_size, new_size);
-	if ((valid_size < szone->vm_copy_threshold) ||
+	if ((valid_size <= szone->vm_copy_threshold) ||
 			vm_copy(mach_task_self(), (vm_address_t)ptr, valid_size, (vm_address_t)new_ptr)) {
 		memcpy(new_ptr, ptr, valid_size);
 	}
@@ -528,7 +454,7 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
 
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_printf("szone_realloc returned %p for %d\n", new_ptr, (unsigned)new_size);
+		malloc_report(ASL_LEVEL_INFO, "szone_realloc returned %p for %d\n", new_ptr, (unsigned)new_size);
 	}
 #endif
 	return new_ptr;
@@ -550,92 +476,55 @@ szone_memalign(szone_t *szone, size_t alignment, size_t size)
 
 	if (alignment <= TINY_QUANTUM) {
 		return szone_malloc(szone, size); // Trivially satisfied by tiny, small, or large
-
-	} else if (span <= SMALL_THRESHOLD) {
+	}
+	if (span <= SMALL_THRESHOLD) {
 		return tiny_memalign(szone, alignment, size, span);
-
-	} else if (SMALL_THRESHOLD < size && alignment <= SMALL_QUANTUM) {
+	}
+	if (SMALL_THRESHOLD < size && alignment <= SMALL_QUANTUM) {
 		return szone_malloc(szone, size); // Trivially satisfied by small or large
-
-	} else if (span <= szone->large_threshold) {
+	}
+	if (size <= SMALL_THRESHOLD) {
+		// ensure block allocated by small does not have a tiny-possible size
+		size = SMALL_THRESHOLD + TINY_QUANTUM;
+		span = size + alignment - 1;
+	}
+	if (span <= szone->large_threshold) {
 		return small_memalign(szone, alignment, size, span);
-
-	} else if (szone->large_threshold < size && alignment <= vm_page_quanta_size) {
+	}
+	if (szone->large_threshold < size && alignment <= vm_page_quanta_size) {
 		return szone_malloc(szone, size); // Trivially satisfied by large
-
+	}
+	// ensure block allocated by large does not have a small-possible size
+	size_t num_kernel_pages = round_page_quanta(MAX(szone->large_threshold + 1,
+			size)) >> vm_page_quanta_shift;
+	if (num_kernel_pages == 0) { /* Overflowed */
+		return NULL;
 	} else {
-		// ensure block allocated by large does not have a small-possible size
-		size_t num_kernel_pages = round_page_quanta(MAX(szone->large_threshold + 1, size)) >> vm_page_quanta_shift;
-		void *p;
-
-		if (num_kernel_pages == 0) { /* Overflowed */
-			p = NULL;
-		} else {
-			p = large_malloc(szone, num_kernel_pages, MAX(vm_page_quanta_shift, __builtin_ctz((unsigned)alignment)), 0);
-		}
-
-		return p;
+		return large_malloc(szone, num_kernel_pages,
+				MAX(vm_page_quanta_shift, __builtin_ctz((unsigned)alignment)), 0);
 	}
 	/* NOTREACHED */
 }
 
-// given a size, returns the number of pointers allocated capable of holding
+// Given a size, returns the number of pointers allocated capable of holding
 // that size, up to the limit specified by the 'count' argument.  These pointers
 // are stored in the 'results' array, which must be allocated by the caller.
-// may return zero, since this function is only a best attempt at allocating
-// the pointers.  clients should be prepared to call malloc for any additional
+// May return zero, since this function is only a best attempt at allocating
+// the pointers. Clients should be prepared to call malloc for any additional
 // blocks they need.
 unsigned
 szone_batch_malloc(szone_t *szone, size_t size, void **results, unsigned count)
 {
-	msize_t msize = TINY_MSIZE_FOR_BYTES(size + TINY_QUANTUM - 1);
-	unsigned found = 0;
-	mag_index_t mag_index = mag_get_thread_index() % szone->tiny_rack.num_magazines;
-	magazine_t *tiny_mag_ptr = &(szone->tiny_rack.magazines[mag_index]);
-
 	// only bother implementing this for tiny
-	if (size > SMALL_THRESHOLD) {
-		return 0;
+	if (size <= SMALL_THRESHOLD) {
+		return tiny_batch_malloc(szone, size, results, count);
 	}
-	// make sure to return objects at least one quantum in size
-	if (!msize) {
-		msize = 1;
-	}
-
-	CHECK(szone, __PRETTY_FUNCTION__);
-
-	// We must lock the zone now, since tiny_malloc_from_free_list assumes that
-	// the caller has done so.
-	SZONE_MAGAZINE_PTR_LOCK(tiny_mag_ptr);
-
-	// with the zone locked, allocate objects from the free list until all
-	// sufficiently large objects have been exhausted, or we have met our quota
-	// of objects to allocate.
-	while (found < count) {
-		void *ptr = tiny_malloc_from_free_list(&szone->tiny_rack, tiny_mag_ptr, mag_index, msize);
-		if (!ptr) {
-			break;
-		}
-
-		*results++ = ptr;
-		found++;
-	}
-	SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
-	return found;
+	return 0;
 }
 
-/* Try caching the tiny_region and checking if the next ptr hits there. */
 void
 szone_batch_free(szone_t *szone, void **to_be_freed, unsigned count)
 {
-	unsigned cc = 0;
-	void *ptr;
-	region_t tiny_region = NULL;
-	boolean_t is_free;
-	msize_t msize;
-	magazine_t *tiny_mag_ptr = NULL;
-	mag_index_t mag_index = -1;
-
 	// frees all the pointers in to_be_freed
 	// note that to_be_freed may be overwritten during the process
 	if (!count) {
@@ -643,55 +532,14 @@ szone_batch_free(szone_t *szone, void **to_be_freed, unsigned count)
 	}
 
 	CHECK(szone, __PRETTY_FUNCTION__);
-	while (cc < count) {
-		ptr = to_be_freed[cc];
-		if (ptr) {
-			if (NULL == tiny_region || tiny_region != TINY_REGION_FOR_PTR(ptr)) { // region same as last iteration?
-				if (tiny_mag_ptr) {												  // non-NULL iff magazine lock taken
-					SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
-					tiny_mag_ptr = NULL;
-				}
 
-				tiny_region = tiny_region_for_ptr_no_lock(&szone->tiny_rack, ptr);
-
-				if (tiny_region) {
-					tiny_mag_ptr = mag_lock_zine_for_region_trailer(szone->tiny_rack.magazines,
-							REGION_TRAILER_FOR_TINY_REGION(tiny_region),
-							MAGAZINE_INDEX_FOR_TINY_REGION(tiny_region));
-					mag_index = MAGAZINE_INDEX_FOR_TINY_REGION(tiny_region);
-				}
-			}
-			if (tiny_region) {
-				// this is a tiny pointer
-				if (TINY_INDEX_FOR_PTR(ptr) >= NUM_TINY_BLOCKS) {
-					break; // pointer to metadata; let the standard free deal with it
-				}
-				msize = get_tiny_meta_header(ptr, &is_free);
-				if (is_free) {
-					break; // a double free; let the standard free deal with it
-				}
-				if (!tiny_free_no_lock(&szone->tiny_rack, tiny_mag_ptr, mag_index, tiny_region, ptr, msize)) {
-					// Arrange to re-acquire magazine lock
-					tiny_mag_ptr = NULL;
-					tiny_region = NULL;
-				}
-				to_be_freed[cc] = NULL;
-			} else {
-				// No region in this zone claims ptr; let the standard free deal with it
-				break;
-			}
-		}
-		cc++;
-	}
-
-	if (tiny_mag_ptr) {
-		SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
-		tiny_mag_ptr = NULL;
-	}
-
+	// We only support batch malloc in tiny. Let it free all of the pointers
+	// that belong to it, then let the standard free deal with the rest.
+	tiny_batch_free(szone, to_be_freed, count);
+	
 	CHECK(szone, __PRETTY_FUNCTION__);
 	while (count--) {
-		ptr = to_be_freed[count];
+		void *ptr = to_be_freed[count];
 		if (ptr) {
 			szone_free(szone, ptr);
 		}
@@ -797,10 +645,18 @@ szone_good_size(szone_t *szone, size_t size)
 	// failed to catch a request for zero bytes in the tiny check, or the size
 	// overflowed to zero during some arithmetic.
 	if (size == 0) {
-		malloc_printf("szone_good_size() invariant broken %y\n", size);
+		malloc_report(ASL_LEVEL_INFO, "szone_good_size() invariant broken %y\n", size);
 	}
 #endif
 	return round_page_quanta(size);
+}
+
+boolean_t
+szone_claimed_address(szone_t *szone, void *ptr)
+{
+	return tiny_claimed_address(&szone->tiny_rack, ptr)
+			|| small_claimed_address(&szone->small_rack, ptr)
+			|| large_claimed_address(szone, ptr);
 }
 
 unsigned szone_check_counter = 0;
@@ -825,11 +681,9 @@ szone_check_all(szone_t *szone, const char *function)
 					REGION_TRAILER_FOR_TINY_REGION(tiny),
 					MAGAZINE_INDEX_FOR_TINY_REGION(tiny));
 
-			if (!tiny_check_region(&szone->tiny_rack, tiny)) {
+			if (!tiny_check_region(&szone->tiny_rack, tiny, index, szone_check_counter)) {
 				SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
 				szone->debug_flags &= ~CHECK_REGIONS;
-				szone_error(szone->debug_flags, 1, "check: tiny region incorrect", NULL,
-						"*** tiny region %ld incorrect szone_check_all(%s) counter=%d\n", index, function, szone_check_counter);
 				return 0;
 			}
 			SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
@@ -837,11 +691,8 @@ szone_check_all(szone_t *szone, const char *function)
 	}
 	/* check tiny free lists */
 	for (index = 0; index < NUM_TINY_SLOTS; ++index) {
-		if (!tiny_free_list_check(&szone->tiny_rack, (grain_t)index)) {
+		if (!tiny_free_list_check(&szone->tiny_rack, (grain_t)index, szone_check_counter)) {
 			szone->debug_flags &= ~CHECK_REGIONS;
-			szone_error(szone->debug_flags, 1, "check: tiny free list incorrect", NULL,
-					"*** tiny free list incorrect (slot=%ld) szone_check_all(%s) counter=%d\n", index, function,
-					szone_check_counter);
 			return 0;
 		}
 	}
@@ -859,11 +710,9 @@ szone_check_all(szone_t *szone, const char *function)
 					REGION_TRAILER_FOR_SMALL_REGION(small),
 					MAGAZINE_INDEX_FOR_SMALL_REGION(small));
 
-			if (!small_check_region(&szone->small_rack, small)) {
+			if (!small_check_region(&szone->small_rack, small, index, szone_check_counter)) {
 				SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 				szone->debug_flags &= ~CHECK_REGIONS;
-				szone_error(szone->debug_flags, 1, "check: small region incorrect", NULL,
-						"*** small region %ld incorrect szone_check_all(%s) counter=%d\n", index, function, szone_check_counter);
 				return 0;
 			}
 			SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
@@ -871,11 +720,8 @@ szone_check_all(szone_t *szone, const char *function)
 	}
 	/* check small free lists */
 	for (index = 0; index < SMALL_FREE_SLOT_COUNT(&szone->small_rack); ++index) {
-		if (!small_free_list_check(&szone->small_rack, (grain_t)index)) {
+		if (!small_free_list_check(&szone->small_rack, (grain_t)index, szone_check_counter)) {
 			szone->debug_flags &= ~CHECK_REGIONS;
-			szone_error(szone->debug_flags, 1, "check: small free list incorrect", NULL,
-					"*** small free list incorrect (slot=%ld) szone_check_all(%s) counter=%d\n", index, function,
-					szone_check_counter);
 			return 0;
 		}
 	}
@@ -887,7 +733,7 @@ static boolean_t
 szone_check(szone_t *szone)
 {
 	if ((++szone_check_counter % 10000) == 0) {
-		_malloc_printf(ASL_LEVEL_NOTICE, "at szone_check counter=%d\n", szone_check_counter);
+		malloc_report(ASL_LEVEL_NOTICE, "at szone_check counter=%d\n", szone_check_counter);
 	}
 
 	if (szone_check_counter < szone_check_start) {
@@ -997,15 +843,15 @@ szone_print(szone_t *szone, boolean_t verbose)
 	region_t region;
 
 	scalable_zone_info((void *)szone, info, 13);
-	_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX,
+	malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX,
 			"Scalable zone %p: inUse=%u(%y) touched=%y allocated=%y flags=%d\n", szone, info[0], info[1], info[2], info[3],
 			info[12]);
-	_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX, "\ttiny=%u(%y) small=%u(%y) large=%u(%y) huge=%u(%y)\n", info[4],
+	malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "\ttiny=%u(%y) small=%u(%y) large=%u(%y) huge=%u(%y)\n", info[4],
 			info[5], info[6], info[7], info[8], info[9], info[10], info[11]);
 	// tiny
-	_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX, "%lu tiny regions:\n", szone->tiny_rack.num_regions);
+	malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "%lu tiny regions:\n", szone->tiny_rack.num_regions);
 	if (szone->tiny_rack.num_regions_dealloc) {
-		_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX, "[%lu tiny regions have been vm_deallocate'd]\n",
+		malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "[%lu tiny regions have been vm_deallocate'd]\n",
 				szone->tiny_rack.num_regions_dealloc);
 	}
 	for (index = 0; index < szone->tiny_rack.region_generation->num_regions_allocated; ++index) {
@@ -1024,9 +870,9 @@ szone_print(szone_t *szone, boolean_t verbose)
 		print_tiny_free_list(&szone->tiny_rack);
 	}
 	// small
-	_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX, "%lu small regions:\n", szone->small_rack.num_regions);
+	malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "%lu small regions:\n", szone->small_rack.num_regions);
 	if (szone->small_rack.num_regions_dealloc) {
-		_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX, "[%lu small regions have been vm_deallocate'd]\n",
+		malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "[%lu small regions have been vm_deallocate'd]\n",
 				szone->small_rack.num_regions_dealloc);
 	}
 	for (index = 0; index < szone->small_rack.region_generation->num_regions_allocated; ++index) {
@@ -1154,6 +1000,9 @@ size_t
 szone_pressure_relief(szone_t *szone, size_t goal)
 {
 	size_t total = 0;
+
+	MAGMALLOC_PRESSURERELIEFBEGIN((void *)szone, szone->basic_zone.zone_name, (int)goal); // DTrace USDT Probe
+	MALLOC_TRACE(TRACE_malloc_memory_pressure | DBG_FUNC_START, (uint64_t)szone, goal, 0, 0);
 
 #if CONFIG_MADVISE_PRESSURE_RELIEF
 	mag_index_t mag_index;
@@ -1346,7 +1195,9 @@ szone_pressure_relief(szone_t *szone, size_t goal)
 	}
 #endif
 
-	MAGMALLOC_PRESSURERELIEF((void *)szone, (int)goal, (int)total); // DTrace USDT Probe
+	MAGMALLOC_PRESSURERELIEFEND((void *)szone, szone->basic_zone.zone_name, (int)goal, (int)total); // DTrace USDT Probe
+	MALLOC_TRACE(TRACE_malloc_memory_pressure | DBG_FUNC_END, (uint64_t)szone, goal, total, 0);
+
 	return total;
 }
 
@@ -1457,7 +1308,7 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 
 #if defined(__i386__) || defined(__x86_64__)
 	if (_COMM_PAGE_VERSION_REQD > (*((uint16_t *)_COMM_PAGE_VERSION))) {
-		MALLOC_PRINTF_FATAL_ERROR((*((uint16_t *)_COMM_PAGE_VERSION)), "comm page version mismatch");
+		MALLOC_REPORT_FATAL_ERROR((*((uint16_t *)_COMM_PAGE_VERSION)), "comm page version mismatch");
 	}
 #endif
 
@@ -1483,30 +1334,43 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 		debug_flags |= DISABLE_ASLR;
 	}
 
-#if CONFIG_SMALL_CUTTOFF_127KB
-	debug_flags |= MALLOC_EXTENDED_SMALL_SLOTS;
-	szone->is_largemem = 1;
-	szone->large_threshold = LARGE_THRESHOLD_LARGEMEM;
-	szone->vm_copy_threshold = VM_COPY_THRESHOLD_LARGEMEM;
-#else // CONFIG_SMALL_CUTTOFF_127KB
-	debug_flags &= ~MALLOC_EXTENDED_SMALL_SLOTS;
-	szone->is_largemem = 0;
-	szone->large_threshold = LARGE_THRESHOLD;
-	szone->vm_copy_threshold = VM_COPY_THRESHOLD;
-#endif // CONFIG_SMALL_CUTTOFF_127KB
+#if CONFIG_SMALL_CUTOFF_DYNAMIC || CONFIG_LARGE_CACHE
+	uint64_t memsize = platform_hw_memsize();
+#endif
+
+	bool is_largemem = false;
+#if CONFIG_SMALL_CUTOFF_LARGEMEM
+	is_largemem = true;
+#elif CONFIG_SMALL_CUTOFF_DYNAMIC
+	// TODO: rdar://problem/35395572
+	// switch to largemem thresholds on devices with > 2 cores and > 2gb of memory
+	uint32_t nproc = platform_cpu_count();
+	is_largemem = (nproc > 2) && (memsize > (2ull << 30));
+#endif
+	if (is_largemem) {
+		debug_flags |= MALLOC_EXTENDED_SMALL_SLOTS;
+		szone->is_largemem = 1;
+		szone->large_threshold = LARGE_THRESHOLD_LARGEMEM;
+		szone->vm_copy_threshold = VM_COPY_THRESHOLD_LARGEMEM;
+	} else {
+		debug_flags &= ~MALLOC_EXTENDED_SMALL_SLOTS;
+		szone->is_largemem = 0;
+		szone->large_threshold = LARGE_THRESHOLD;
+		szone->vm_copy_threshold = VM_COPY_THRESHOLD;
+	}
 
 	// Query the number of configured processors.
 	// Uniprocessor case gets just one tiny and one small magazine (whose index is zero). This gives
 	// the same behavior as the original scalable malloc. MP gets per-CPU magazines
 	// that scale (way) better.
-	uint32_t nproc = platform_cpu_count();
-	uint32_t num_magazines = (nproc > 1) ? MIN(nproc, TINY_MAX_MAGAZINES) : 1;
+	unsigned int max_mags = mag_max_magazines();
+	uint32_t num_magazines = (max_mags > 1) ? MIN(max_mags, TINY_MAX_MAGAZINES) : 1;
 	rack_init(&szone->tiny_rack, RACK_TYPE_TINY, num_magazines, debug_flags);
 	rack_init(&szone->small_rack, RACK_TYPE_SMALL, num_magazines, debug_flags);
 
 #if CONFIG_LARGE_CACHE
 	// madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]
-	szone->large_entry_cache_reserve_limit = (size_t)(platform_hw_memsize() >> 10);
+	szone->large_entry_cache_reserve_limit = (size_t)(memsize >> 10);
 
 	/* <rdar://problem/6610904> Reset protection when returning a previous large allocation? */
 	int32_t libSystemVersion = NSVersionOfLinkTimeLibrary("System");
@@ -1520,7 +1384,7 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 	// Initialize the security token.
 	szone->cookie = (uintptr_t)malloc_entropy[0];
 
-	szone->basic_zone.version = 9;
+	szone->basic_zone.version = 10;
 	szone->basic_zone.size = (void *)szone_size;
 	szone->basic_zone.malloc = (void *)szone_malloc;
 	szone->basic_zone.calloc = (void *)szone_calloc;
@@ -1534,6 +1398,7 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 	szone->basic_zone.memalign = (void *)szone_memalign;
 	szone->basic_zone.free_definite_size = (void *)szone_free_definite_size;
 	szone->basic_zone.pressure_relief = (void *)szone_pressure_relief;
+	szone->basic_zone.claimed_address = (void *)szone_claimed_address;
 
 	/* Set to zero once and for all as required by CFAllocator. */
 	szone->basic_zone.reserved1 = 0;

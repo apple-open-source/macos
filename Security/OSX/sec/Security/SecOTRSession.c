@@ -122,7 +122,7 @@ static void SecOTRSExpireCachedKeysForPublicKey(SecOTRSessionRef session, SecOTR
     }
 }
 
-static void SecOTRGenerateNewProposedKey(SecOTRSessionRef session)
+static OSStatus SecOTRGenerateNewProposedKey(SecOTRSessionRef session)
 {
     SecOTRSExpireCachedKeysForFullKey(session, session->_myKey);
     
@@ -134,9 +134,11 @@ static void SecOTRGenerateNewProposedKey(SecOTRSessionRef session)
     }
     
     // Derive a new next key by regenerating over the old key.
-    SecFDHKNewKey(session->_myNextKey);
+    OSStatus ret = SecFDHKNewKey(session->_myNextKey);
     
     session->_keyID += 1;
+
+    return ret;
 }
 
 

@@ -39,6 +39,7 @@
 #import "keychain/ckks/CKKSMirrorEntry.h"
 #import "keychain/ckks/CKKSItemEncrypter.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
 
 @interface CKKSCloudKitTests : XCTestCase
@@ -177,11 +178,12 @@
 }
 
 - (NSMutableDictionary *)fetchRemoteItems {
-    CKFetchRecordZoneChangesOptions *options = [CKFetchRecordZoneChangesOptions new];
+    CKFetchRecordZoneChangesConfiguration *options = [CKFetchRecordZoneChangesConfiguration new];
     options.previousServerChangeToken = nil;
 
-    CKFetchRecordZoneChangesOperation *op = [[CKFetchRecordZoneChangesOperation alloc] initWithRecordZoneIDs:@[self.zoneID] optionsByRecordZoneID:@{self.zoneID : options}];
-    op.qualityOfService = NSQualityOfServiceUserInitiated;
+    CKFetchRecordZoneChangesOperation *op = [[CKFetchRecordZoneChangesOperation alloc] initWithRecordZoneIDs:@[self.zoneID] configurationsByRecordZoneID:@{self.zoneID : options}];
+    op.configuration.automaticallyRetryNetworkFailures = NO;
+    op.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
     op.configuration.container = self.container;
 
     __block NSMutableDictionary *data = [NSMutableDictionary new];
@@ -215,8 +217,8 @@
     dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
     
     // These are new, fresh zones for each test. There should not be old keys yet.
-    if (synckeys != 3) {XCTFail(@"Unexpected number of synckeys: %lu", synckeys);}
-    if (currkeys != 3) {XCTFail(@"Unexpected number of current keys: %lu", currkeys);}
+    if (synckeys != 3) {XCTFail(@"Unexpected number of synckeys: %lu", (unsigned long)synckeys);}
+    if (currkeys != 3) {XCTFail(@"Unexpected number of current keys: %lu", (unsigned long)currkeys);}
 
     self.remoteItems = data;
     return data;
@@ -273,7 +275,8 @@
 
 - (BOOL)uploadRecords:(NSArray<CKRecord*>*)records {
     CKModifyRecordsOperation *op = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:records recordIDsToDelete:nil];
-    op.qualityOfService = NSQualityOfServiceUserInitiated;
+    op.configuration.automaticallyRetryNetworkFailures = NO;
+    op.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
     op.configuration.container = self.container;
     
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);

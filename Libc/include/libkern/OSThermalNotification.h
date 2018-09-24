@@ -39,24 +39,22 @@
 __BEGIN_DECLS
 
 /* Define pressure levels usable by OSThermalPressureLevel */
-#if TARGET_OS_IPHONE
 typedef enum {
+#if TARGET_OS_OSX || TARGET_OS_IOSMAC
+	kOSThermalPressureLevelNominal = 0,
+	kOSThermalPressureLevelModerate,
+	kOSThermalPressureLevelHeavy,
+	kOSThermalPressureLevelTrapping,
+	kOSThermalPressureLevelSleeping
+#else
 	kOSThermalPressureLevelNominal = 0,
 	kOSThermalPressureLevelLight = 10,
 	kOSThermalPressureLevelModerate = 20,
 	kOSThermalPressureLevelHeavy = 30,
 	kOSThermalPressureLevelTrapping = 40,
 	kOSThermalPressureLevelSleeping = 50
-} OSThermalPressureLevel;
-#else
-typedef enum {
-	kOSThermalPressureLevelNominal = 0,
-	kOSThermalPressureLevelModerate,
-	kOSThermalPressureLevelHeavy,
-	kOSThermalPressureLevelTrapping,
-	kOSThermalPressureLevelSleeping
-} OSThermalPressureLevel;
 #endif
+} OSThermalPressureLevel;
 
 /*
  ** External notify(3) string for thermal pressure level notification

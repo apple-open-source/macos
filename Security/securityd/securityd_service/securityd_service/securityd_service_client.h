@@ -26,6 +26,7 @@ typedef struct {
     au_asid_t s_id;
     uid_t s_uid;
     audit_token_t procToken;
+    uint64_t kcv;
 } service_context_t;
 
 int service_client_kb_create(service_context_t *context, const void * secret, int secret_len);

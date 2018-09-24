@@ -38,11 +38,48 @@ large_debug_print(szone_t *szone)
 			}
 		}
 
-		_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX, "%s\n", _simple_string(b));
+		malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "%s\n", _simple_string(b));
 		_simple_sfree(b);
 	}
 }
 #endif
+
+/*
+ * Scan the hash ring looking for an entry containing a given pointer.
+ */
+static large_entry_t *
+large_entry_containing_pointer_no_lock(szone_t *szone, const void *ptr)
+{
+	// result only valid with lock held
+	unsigned num_large_entries = szone->num_large_entries;
+	unsigned hash_index;
+	unsigned index;
+	large_entry_t *range;
+
+	if (!num_large_entries) {
+		return NULL;
+	}
+
+	hash_index = ((uintptr_t)ptr >> vm_page_quanta_shift) % num_large_entries;
+	index = hash_index;
+
+	do {
+		range = szone->large_entries + index;
+		if (range->address == (vm_address_t)ptr) {
+			return range;
+		} else if ((vm_address_t)ptr >= range->address
+				&& (vm_address_t)ptr < range->address + range->size) {
+			return range;
+		}
+
+		// Since we may be looking for an inner pointer, we might not get an
+		// exact match on the address, so we need to scan further and to skip
+		// over empty entries. It will usually be faster to scan backwards.
+		index = index == 0 ? num_large_entries - 1 : index - 1;
+	} while (index != hash_index);
+
+	return NULL;
+}
 
 /*
  * Scan the hash ring looking for an entry for the given pointer.
@@ -221,7 +258,7 @@ large_entry_free_no_lock(szone_t *szone, large_entry_t *entry)
 
 #if DEBUG_MALLOC
 	if (large_entry_for_pointer_no_lock(szone, (void *)range.address)) {
-		malloc_printf("*** freed entry %p still in use; num_large_entries=%d\n", range.address, szone->num_large_entries);
+		malloc_report(ASL_LEVEL_ERR, "*** freed entry %p still in use; num_large_entries=%d\n", range.address, szone->num_large_entries);
 		large_debug_print(szone);
 		szone_sleep();
 	}
@@ -412,45 +449,11 @@ large_malloc(szone_t *szone, size_t num_kernel_pages, unsigned char alignment, b
 				mvm_deallocate_pages((void *)range_to_deallocate.address, range_to_deallocate.size, 0);
 			}
 
-			// Perform the madvise() outside the lock.
-			// Typically the madvise() is successful and we'll quickly return from this routine.
-			// In the unusual case of failure, reacquire the lock to unwind.
-#if TARGET_OS_EMBEDDED
-			// Ok to do this madvise on embedded because we won't call MADV_FREE_REUSABLE on a large
-			// cache block twice without MADV_FREE_REUSE in between.
-#endif
-			if (was_madvised_reusable && -1 == madvise(addr, size, MADV_FREE_REUSE)) {
-				/* -1 return: VM map entry change makes this unfit for reuse. */
-#if DEBUG_MADVISE
-				szone_error(szone->debug_flags, 0, "large_malloc madvise(..., MADV_FREE_REUSE) failed", addr, "length=%d\n", size);
-#endif
-
-				SZONE_LOCK(szone);
-				szone->num_large_objects_in_use--;
-				szone->num_bytes_in_large_objects -= large_entry.size;
-
-				// Re-acquire "entry" after interval just above where we let go the lock.
-				large_entry_t *entry = large_entry_for_pointer_no_lock(szone, addr);
-				if (NULL == entry) {
-					szone_error(szone->debug_flags, 1, "entry for pointer being discarded from death-row vanished", addr, NULL);
-					SZONE_UNLOCK(szone);
-				} else {
-					range_to_deallocate = large_entry_free_no_lock(szone, entry);
-					SZONE_UNLOCK(szone);
-
-					if (range_to_deallocate.size) {
-						// we deallocate outside the lock
-						mvm_deallocate_pages((void *)range_to_deallocate.address, range_to_deallocate.size, 0);
-					}
-				}
-				/* Fall through to allocate_pages() afresh. */
-			} else {
-				if (cleared_requested) {
-					memset(addr, 0, size);
-				}
-
-				return addr;
+			if (cleared_requested) {
+				memset(addr, 0, size);
 			}
+
+			return addr;
 		} else {
 			SZONE_UNLOCK(szone);
 		}
@@ -518,7 +521,7 @@ free_large(szone_t *szone, void *ptr)
 				// is accommodated, matching the behavior of the previous implementation.]
 				while (1) { // Scan large_entry_cache starting with most recent entry
 					if (szone->large_entry_cache[idx].address == entry->address) {
-						szone_error(szone->debug_flags, 1, "pointer being freed already on death-row", ptr, NULL);
+						malloc_zone_error(szone->debug_flags, true, "pointer %p being freed already on death-row\n", ptr);
 						SZONE_UNLOCK(szone);
 						return;
 					}
@@ -540,8 +543,8 @@ free_large(szone_t *szone, void *ptr)
 					int state = VM_PURGABLE_NONVOLATILE;			  // restore to default condition
 
 					if (KERN_SUCCESS != vm_purgable_control(mach_task_self(), this_entry.address, VM_PURGABLE_SET_STATE, &state)) {
-						malloc_printf("*** can't vm_purgable_control(..., VM_PURGABLE_SET_STATE) for large freed block at %p\n",
-									  this_entry.address);
+						malloc_report(ASL_LEVEL_ERR, "*** can't vm_purgable_control(..., VM_PURGABLE_SET_STATE) for large freed block at %p\n",
+									  (void *)this_entry.address);
 						reusable = FALSE;
 					}
 				}
@@ -550,7 +553,7 @@ free_large(szone_t *szone, void *ptr)
 					// Accomodate Leopard apps that (illegally) mprotect() their own guard pages on large malloc'd allocations
 					int err = mprotect((void *)(this_entry.address), this_entry.size, PROT_READ | PROT_WRITE);
 					if (err) {
-						malloc_printf("*** can't reset protection for large freed block at %p\n", this_entry.address);
+						malloc_report(ASL_LEVEL_ERR, "*** can't reset protection for large freed block at %p\n", (void *)this_entry.address);
 						reusable = FALSE;
 					}
 				}
@@ -558,20 +561,17 @@ free_large(szone_t *szone, void *ptr)
 				// madvise(..., MADV_REUSABLE) death-row arrivals if hoarding would exceed large_entry_cache_reserve_limit
 				if (should_madvise) {
 					// Issue madvise to avoid paging out the dirtied free()'d pages in "entry"
-					MAGMALLOC_MADVFREEREGION(
-											 (void *)szone, (void *)0, (void *)(this_entry.address), (int)this_entry.size); // DTrace USDT Probe
+					MAGMALLOC_MADVFREEREGION((void *)szone, (void *)0, (void *)(this_entry.address), (int)this_entry.size); // DTrace USDT Probe
 
-#if TARGET_OS_EMBEDDED
 					// Ok to do this madvise on embedded because we won't call MADV_FREE_REUSABLE on a large
 					// cache block twice without MADV_FREE_REUSE in between.
-#endif
+
 					if (-1 == madvise((void *)(this_entry.address), this_entry.size, MADV_FREE_REUSABLE)) {
 						/* -1 return: VM map entry change makes this unfit for reuse. */
 #if DEBUG_MADVISE
-						szone_error(szone->debug_flags, 0,
-									"free_large madvise(..., MADV_FREE_REUSABLE) failed",
-									(void *)this_entry.address,
-									"length=%d\n", this_entry.size);
+						malloc_zone_error(szone->debug_flags, false,
+									"free_large madvise(..., MADV_FREE_REUSABLE) failed for %p, length=%d\n",
+									(void *)this_entry.address, this_entry.size);
 #endif
 						reusable = FALSE;
 					}
@@ -582,7 +582,7 @@ free_large(szone_t *szone, void *ptr)
 				// Re-acquire "entry" after interval just above where we let go the lock.
 				entry = large_entry_for_pointer_no_lock(szone, ptr);
 				if (NULL == entry) {
-					szone_error(szone->debug_flags, 1, "entry for pointer being freed from death-row vanished", ptr, NULL);
+					malloc_zone_error(szone->debug_flags, true, "entry for pointer %p being freed from death-row vanished\n", ptr);
 					SZONE_UNLOCK(szone);
 					return;
 				}
@@ -676,7 +676,7 @@ free_large(szone_t *szone, void *ptr)
 #if DEBUG_MALLOC
 		large_debug_print(szone);
 #endif
-		szone_error(szone->debug_flags, 1, "pointer being freed was not allocated", ptr, NULL);
+		malloc_zone_error(szone->debug_flags, true, "pointer %p being freed was not allocated\n", ptr);
 		SZONE_UNLOCK(szone);
 		return;
 	}
@@ -688,8 +688,8 @@ free_large(szone_t *szone, void *ptr)
 #if DEBUG_MALLOC
 		// FIXME: large_entry_for_pointer_no_lock() needs the lock held ...
 		if (large_entry_for_pointer_no_lock(szone, (void *)vm_range_to_deallocate.address)) {
-			malloc_printf("*** invariant broken: %p still in use num_large_entries=%d\n", vm_range_to_deallocate.address,
-						  szone->num_large_entries);
+			malloc_report(ASL_LEVEL_ERR, "*** invariant broken: %p still in use num_large_entries=%d\n",
+					vm_range_to_deallocate.address, szone->num_large_entries);
 			large_debug_print(szone);
 			szone_sleep();
 		}
@@ -708,7 +708,7 @@ large_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new
 		/* contract existing large entry */
 		large_entry_t *large_entry = large_entry_for_pointer_no_lock(szone, ptr);
 		if (!large_entry) {
-			szone_error(szone->debug_flags, 1, "large entry reallocated is not properly in table", ptr, NULL);
+			malloc_zone_error(szone->debug_flags, true, "large entry %p reallocated is not properly in table\n", ptr);
 			SZONE_UNLOCK(szone);
 			return ptr;
 		}
@@ -716,7 +716,21 @@ large_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new
 		large_entry->address = (vm_address_t)ptr;
 		large_entry->size = new_good_size;
 		szone->num_bytes_in_large_objects -= shrinkage;
+		boolean_t guarded = szone->debug_flags & MALLOC_ADD_GUARD_PAGES;
 		SZONE_UNLOCK(szone); // we release the lock asap
+
+		if (guarded) {
+			// Keep the page above the new end of the allocation as the
+			// postlude guard page.
+			kern_return_t err;
+			err = mprotect((void *)((uintptr_t)ptr + new_good_size), vm_page_quanta_size, 0);
+			if (err) {
+				malloc_report(ASL_LEVEL_ERR, "*** can't mvm_protect(0x0) region for new postlude guard page at %p\n",
+						  ptr + new_good_size);
+			}
+			new_good_size += vm_page_quanta_size;
+			shrinkage -= vm_page_quanta_size;
+		}
 
 		mvm_deallocate_pages((void *)((uintptr_t)ptr + new_good_size), shrinkage, 0);
 	}
@@ -752,7 +766,7 @@ large_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t ne
 	/* extend existing large entry */
 	large_entry = large_entry_for_pointer_no_lock(szone, ptr);
 	if (!large_entry) {
-		szone_error(szone->debug_flags, 1, "large entry reallocated is not properly in table", ptr, NULL);
+		malloc_zone_error(szone->debug_flags, true, "large entry %p reallocated is not properly in table\n", ptr);
 		SZONE_UNLOCK(szone);
 		return 0; // Bail, leaking "addr"
 	}
@@ -763,4 +777,14 @@ large_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t ne
 	SZONE_UNLOCK(szone); // we release the lock asap
 	
 	return 1;
+}
+
+boolean_t
+large_claimed_address(szone_t *szone, void *ptr)
+{
+	SZONE_LOCK(szone);
+	boolean_t result = large_entry_containing_pointer_no_lock(szone,
+			(void *)trunc_page((uintptr_t)ptr)) != NULL;
+	SZONE_UNLOCK(szone);
+	return result;
 }

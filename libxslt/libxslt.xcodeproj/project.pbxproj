@@ -23,6 +23,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		444B432A201198F900872977 /* libxslt/module.modulemap in Install Module Map */ = {isa = PBXBuildFile; fileRef = 44E29620201196C200BEE3E0 /* libxslt/module.modulemap */; };
+		444B432C2011993800872977 /* libexslt/module.modulemap in Install Module Map */ = {isa = PBXBuildFile; fileRef = 44E29621201196C200BEE3E0 /* libexslt/module.modulemap */; };
 		5DCB929C14FDA52D00F7276A /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCB929B14FDA52D00F7276A /* libxml2.dylib */; };
 		5DCB92B814FDA5A700F7276A /* libxslt.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D6883EC14FDA2C5009E3E04 /* libxslt.1.dylib */; };
 		5DCB92B914FDA5B100F7276A /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCB929B14FDA52D00F7276A /* libxml2.dylib */; };
@@ -85,8 +87,8 @@
 		5DCB934C14FDAB9400F7276A /* libxslt.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D6883EC14FDA2C5009E3E04 /* libxslt.1.dylib */; };
 		5DCB934D14FDABA200F7276A /* libexslt.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D87352714FDA3BB006E89B4 /* libexslt.0.dylib */; };
 		5DCB934E14FDABF200F7276A /* libxslt.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DCB930314FDAB1700F7276A /* libxslt.h */; };
-		5DCB935114FDAC5B00F7276A /* libxslt/xsltconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DCB935014FDAC4F00F7276A /* libxslt/xsltconfig.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		5DCB935214FDAC6000F7276A /* libexslt/exsltconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DCB934F14FDAC4F00F7276A /* libexslt/exsltconfig.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5DCB935114FDAC5B00F7276A /* include/libxslt/xsltconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DCB935014FDAC4F00F7276A /* include/libxslt/xsltconfig.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5DCB935214FDAC6000F7276A /* include/libexslt/exsltconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DCB934F14FDAC4F00F7276A /* include/libexslt/exsltconfig.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		5DCB935914FDAF2B00F7276A /* xsltproc.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5DCB935814FDAF2300F7276A /* xsltproc.1 */; };
 		5DCB935B14FDAF5F00F7276A /* libexslt.3 in Install Man Page */ = {isa = PBXBuildFile; fileRef = 5DCB92E014FDAAE500F7276A /* libexslt.3 */; };
 		5DCB935D14FDAF8200F7276A /* libxslt.3 in Install Man Page */ = {isa = PBXBuildFile; fileRef = 5DCB930214FDAB1700F7276A /* libxslt.3 */; };
@@ -120,10 +122,32 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		444B43292011988800872977 /* Install Module Map */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/include/libxslt;
+			dstSubfolderSpec = 0;
+			files = (
+				444B432A201198F900872977 /* libxslt/module.modulemap in Install Module Map */,
+			);
+			name = "Install Module Map";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		444B432B2011990F00872977 /* Install Module Map */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/include/libexslt;
+			dstSubfolderSpec = 0;
+			files = (
+				444B432C2011993800872977 /* libexslt/module.modulemap in Install Module Map */,
+			);
+			name = "Install Module Map";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		5DCB92C514FDAA5500F7276A /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/share/man/man1/";
+			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
 				5DCB935914FDAF2B00F7276A /* xsltproc.1 in CopyFiles */,
@@ -133,7 +157,7 @@
 		5DCB935A14FDAF4D00F7276A /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/share/man/man3/";
+			dstPath = /usr/share/man/man3;
 			dstSubfolderSpec = 0;
 			files = (
 				5DCB935B14FDAF5F00F7276A /* libexslt.3 in Install Man Page */,
@@ -144,7 +168,7 @@
 		5DCB935C14FDAF7200F7276A /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/share/man/man3/";
+			dstPath = /usr/share/man/man3;
 			dstSubfolderSpec = 0;
 			files = (
 				5DCB935D14FDAF8200F7276A /* libxslt.3 in Install Man Page */,
@@ -155,7 +179,7 @@
 		5DCB936414FDB16200F7276A /* Install License File */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/OpenSourceLicenses";
+			dstPath = /usr/local/OpenSourceLicenses;
 			dstSubfolderSpec = 0;
 			files = (
 				5DCB936914FDB1A300F7276A /* libxslt.txt in Install License File */,
@@ -166,7 +190,7 @@
 		5DCB936514FDB17C00F7276A /* Install Open Source Property List */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/OpenSourceVersions";
+			dstPath = /usr/local/OpenSourceVersions;
 			dstSubfolderSpec = 0;
 			files = (
 				5DCB936714FDB19100F7276A /* libxslt.plist in Install Open Source Property List */,
@@ -177,7 +201,7 @@
 		5DCB936A14FDB1D900F7276A /* Install xslt-config */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/bin";
+			dstPath = /usr/bin;
 			dstSubfolderSpec = 0;
 			files = (
 				5DCB936C14FDB1F200F7276A /* xslt-config in Install xslt-config */,
@@ -188,6 +212,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		44E29620201196C200BEE3E0 /* libxslt/module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = libxslt/module.modulemap; sourceTree = "<group>"; };
+		44E29621201196C200BEE3E0 /* libexslt/module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = libexslt/module.modulemap; sourceTree = "<group>"; };
 		5D6883EC14FDA2C5009E3E04 /* libxslt.1.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxslt.1.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D87351714FDA36B006E89B4 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		5D87351814FDA36B006E89B4 /* DebugRelease.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = DebugRelease.xcconfig; sourceTree = "<group>"; };
@@ -195,7 +221,7 @@
 		5D87351A14FDA36B006E89B4 /* libxslt.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libxslt.xcconfig; sourceTree = "<group>"; };
 		5D87352714FDA3BB006E89B4 /* libexslt.0.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libexslt.0.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D87352814FDA3D8006E89B4 /* libexslt.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libexslt.xcconfig; sourceTree = "<group>"; };
-		5DCB929A14FDA4ED00F7276A /* config.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
+		5DCB929A14FDA4ED00F7276A /* include/config.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = include/config.h; sourceTree = "<group>"; };
 		5DCB929B14FDA52D00F7276A /* libxml2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libxml2.dylib; path = /usr/lib/libxml2.dylib; sourceTree = "<absolute>"; };
 		5DCB92C714FDAA5500F7276A /* xsltproc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xsltproc; sourceTree = BUILT_PRODUCTS_DIR; };
 		5DCB92D614FDAAAB00F7276A /* xsltproc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xsltproc.c; sourceTree = "<group>"; };
@@ -257,8 +283,8 @@
 		5DCB931C14FDAB1700F7276A /* xsltutils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xsltutils.c; sourceTree = "<group>"; };
 		5DCB931D14FDAB1700F7276A /* xsltutils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xsltutils.h; sourceTree = "<group>"; };
 		5DCB934A14FDAB6200F7276A /* xsltproc.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = xsltproc.xcconfig; path = Configurations/xsltproc.xcconfig; sourceTree = "<group>"; };
-		5DCB934F14FDAC4F00F7276A /* libexslt/exsltconfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libexslt/exsltconfig.h; sourceTree = "<group>"; };
-		5DCB935014FDAC4F00F7276A /* libxslt/xsltconfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libxslt/xsltconfig.h; sourceTree = "<group>"; };
+		5DCB934F14FDAC4F00F7276A /* include/libexslt/exsltconfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = include/libexslt/exsltconfig.h; sourceTree = "<group>"; };
+		5DCB935014FDAC4F00F7276A /* include/libxslt/xsltconfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = include/libxslt/xsltconfig.h; sourceTree = "<group>"; };
 		5DCB935814FDAF2300F7276A /* xsltproc.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = xsltproc.1; path = libxslt/doc/xsltproc.1; sourceTree = SOURCE_ROOT; };
 		5DCB936114FDB0F900F7276A /* libxslt.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libxslt.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		5DCB936614FDB19100F7276A /* libxslt.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = libxslt.plist; sourceTree = "<group>"; };
@@ -412,10 +438,12 @@
 		5DCB929914FDA4ED00F7276A /* Pregenerated Files */ = {
 			isa = PBXGroup;
 			children = (
+				5DCB929A14FDA4ED00F7276A /* include/config.h */,
+				5DCB934F14FDAC4F00F7276A /* include/libexslt/exsltconfig.h */,
+				5DCB935014FDAC4F00F7276A /* include/libxslt/xsltconfig.h */,
+				44E29621201196C200BEE3E0 /* libexslt/module.modulemap */,
+				44E29620201196C200BEE3E0 /* libxslt/module.modulemap */,
 				5DCB936B14FDB1F200F7276A /* xslt-config */,
-				5DCB929A14FDA4ED00F7276A /* config.h */,
-				5DCB934F14FDAC4F00F7276A /* libexslt/exsltconfig.h */,
-				5DCB935014FDAC4F00F7276A /* libxslt/xsltconfig.h */,
 			);
 			path = "Pregenerated Files";
 			sourceTree = "<group>";
@@ -479,7 +507,7 @@
 				5DCB934E14FDABF200F7276A /* libxslt.h in Headers */,
 				5DCB933C14FDAB1700F7276A /* trio.h in Headers */,
 				5DCB933D14FDAB1700F7276A /* triodef.h in Headers */,
-				5DCB935114FDAC5B00F7276A /* libxslt/xsltconfig.h in Headers */,
+				5DCB935114FDAC5B00F7276A /* include/libxslt/xsltconfig.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -490,7 +518,7 @@
 				5DCB92EB14FDAAE500F7276A /* exslt.h in Headers */,
 				5DCB92EC14FDAAE500F7276A /* exsltexports.h in Headers */,
 				5DCB92EE14FDAAE500F7276A /* libexslt.h in Headers */,
-				5DCB935214FDAC6000F7276A /* libexslt/exsltconfig.h in Headers */,
+				5DCB935214FDAC6000F7276A /* include/libexslt/exsltconfig.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -509,6 +537,7 @@
 				5DCB936414FDB16200F7276A /* Install License File */,
 				5DCB936514FDB17C00F7276A /* Install Open Source Property List */,
 				5DCB935C14FDAF7200F7276A /* Install Man Page */,
+				444B43292011988800872977 /* Install Module Map */,
 				5DCB936A14FDB1D900F7276A /* Install xslt-config */,
 			);
 			buildRules = (
@@ -528,6 +557,7 @@
 				5D87352114FDA3BB006E89B4 /* Frameworks */,
 				5D87352214FDA3BB006E89B4 /* Headers */,
 				5DCB935A14FDAF4D00F7276A /* Install Man Page */,
+				444B432B2011990F00872977 /* Install Module Map */,
 				5DCB936D14FDB25D00F7276A /* Create libexslt.dylib Symlink */,
 			);
 			buildRules = (

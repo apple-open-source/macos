@@ -25,8 +25,7 @@
 
 #if ENABLE(ENCRYPTED_MEDIA) && USE(GSTREAMER)
 
-#include "GRefPtrGStreamer.h"
-#include "GUniquePtrGStreamer.h"
+#include "GStreamerCommon.h"
 #include <wtf/Condition.h>
 #include <wtf/RunLoop.h>
 
@@ -198,6 +197,9 @@ static GstFlowReturn webkitMediaCommonEncryptionDecryptTransformInPlace(GstBaseT
             GST_ERROR_OBJECT(self, "can't process key requests in less than PAUSED state");
             return GST_FLOW_NOT_SUPPORTED;
         }
+        // Send "decrypt-key-needed" message to the application in order to resend the key if it is available in the application.
+        gst_element_post_message(GST_ELEMENT(self), gst_message_new_element(GST_OBJECT(self), gst_structure_new_empty("decrypt-key-needed")));
+
         priv->condition.waitFor(priv->mutex, Seconds(5), [priv] {
             return priv->keyReceived;
         });
@@ -297,23 +299,6 @@ static gboolean webkitMediaCommonEncryptionDecryptSinkEventHandler(GstBaseTransf
     gboolean result = FALSE;
 
     switch (GST_EVENT_TYPE(event)) {
-    case GST_EVENT_PROTECTION: {
-        const char* systemId = nullptr;
-
-        gst_event_parse_protection(event, &systemId, nullptr, nullptr);
-        GST_TRACE_OBJECT(self, "received protection event for %s", systemId);
-
-        if (!g_strcmp0(systemId, klass->protectionSystemId)) {
-            GST_DEBUG_OBJECT(self, "sending protection event to the pipeline");
-            gst_element_post_message(GST_ELEMENT(self),
-                gst_message_new_element(GST_OBJECT(self),
-                    gst_structure_new("drm-key-needed", "event", GST_TYPE_EVENT, event, nullptr)));
-        }
-
-        gst_event_unref(event);
-        result = TRUE;
-        break;
-    }
     case GST_EVENT_CUSTOM_DOWNSTREAM_OOB: {
         if (klass->handleKeyResponse(self, event)) {
             GST_DEBUG_OBJECT(self, "key received");

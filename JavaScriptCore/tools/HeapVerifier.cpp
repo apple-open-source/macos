@@ -43,7 +43,7 @@ HeapVerifier::HeapVerifier(Heap* heap, unsigned numberOfGCCyclesToRecord)
     , m_numberOfCycles(numberOfGCCyclesToRecord)
 {
     RELEASE_ASSERT(m_numberOfCycles > 0);
-    m_cycles = std::make_unique<GCCycle[]>(m_numberOfCycles);
+    m_cycles = makeUniqueArray<GCCycle>(m_numberOfCycles);
 }
 
 const char* HeapVerifier::phaseName(HeapVerifier::Phase phase)
@@ -188,7 +188,7 @@ bool HeapVerifier::validateCell(HeapCell* cell, VM* expectedVM)
         return false;
     }
 
-    if (cell->cellKind() != HeapCell::JSCell)
+    if (!isJSCellKind(cell->cellKind()))
         return true; // Nothing more to validate.
 
     JSCell* jsCell = static_cast<JSCell*>(cell);
@@ -388,7 +388,7 @@ void HeapVerifier::reportCell(CellProfile& profile, int cycleIndex, HeapVerifier
 
     if (profile.isLive() && profile.isJSCell()) {
         JSCell* jsCell = profile.jsCell();
-        Structure* structure = jsCell->structure();
+        Structure* structure = jsCell->structure(*vm);
         dataLog(" structure:", RawPointer(structure));
         if (jsCell->isObject()) {
             JSObject* obj = static_cast<JSObject*>(cell);

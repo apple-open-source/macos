@@ -49,7 +49,7 @@ Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCri
 
     // let's take a look at our wannabe client...
 	if (mTaskPort.pid() != mPid) {
-		secnotice("SS", "Task/pid setup mismatch pid=%d task=%d(%d)",
+		secnotice("SecServer", "Task/pid setup mismatch pid=%d task=%d(%d)",
 			mPid, mTaskPort.port(), mTaskPort.pid());
 		CssmError::throwMe(CSSMERR_CSSM_ADDIN_AUTHENTICATE_FAILED);	// you lied!
 	}
@@ -64,7 +64,7 @@ Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCri
         || ServerChild::find<ServerChild>(this->pid()))   // securityd's child; do not mark this txn dirty
 		VProc::Transaction::deactivate();
 
-    secinfo("SS", "%p client new: pid:%d session:%d %s taskPort:%d uid:%d gid:%d", this, this->pid(), this->session().sessionId(),
+    secinfo("SecServer", "%p client new: pid:%d session:%d %s taskPort:%d uid:%d gid:%d", this, this->pid(), this->session().sessionId(),
              (char *)codePath(this->processCode()).c_str(), taskPort.port(), mUid, mGid);
 }
 
@@ -79,7 +79,7 @@ void Process::reset(TaskPort taskPort, const ClientSetupInfo *info, const Common
 {
 	StLock<Mutex> _(*this);
 	if (taskPort != mTaskPort) {
-		secnotice("SS", "Process %p(%d) reset mismatch (tp %d-%d)",
+		secnotice("SecServer", "Process %p(%d) reset mismatch (tp %d-%d)",
 			this, pid(), taskPort.port(), mTaskPort.port());
 		//@@@ CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);		// liar
 	}
@@ -88,9 +88,9 @@ void Process::reset(TaskPort taskPort, const ClientSetupInfo *info, const Common
 
 	ClientIdentification::setup(this->pid());	// re-constructs processCode()
 	if (CFEqual(oldCode, processCode())) {
-        secnotice("SS", "%p Client reset amnesia", this);
+        secnotice("SecServer", "%p Client reset amnesia", this);
 	} else {
-        secnotice("SS", "%p Client reset full", this);
+        secnotice("SecServer", "%p Client reset full", this);
 		CodeSigningHost::reset();
 	}
 }
@@ -124,7 +124,7 @@ void Process::setup(const ClientSetupInfo *info)
 //
 Process::~Process()
 {
-    secinfo("SS", "%p client release: %d", this, this->pid());
+    secinfo("SecServer", "%p client release: %d", this, this->pid());
 
     // release our name for the process's task port
 	if (mTaskPort)
@@ -180,7 +180,7 @@ void Process::changeSession(Session::SessionId sessionId)
 {
 	// re-parent
 	parent(Session::find(sessionId, true));
-    secnotice("SS", "%p client change session to %d", this, this->session().sessionId());
+    secnotice("SecServer", "%p client change session to %d", this, this->session().sessionId());
 }
 
 

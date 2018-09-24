@@ -76,9 +76,6 @@ AUTH_NONNULL_ALL
 void auth_token_set_right(auth_token_t,credential_t);
     
 AUTH_NONNULL_ALL
-bool auth_token_rights_iterate(auth_token_t, credential_iterator_t iter);
-
-AUTH_NONNULL_ALL
 CFTypeRef auth_token_copy_entitlement_value(auth_token_t, const char * entitlement);
     
 AUTH_NONNULL_ALL

@@ -93,7 +93,7 @@ private:
     CFMutableSetRef             _hesServices;
     
     IOHIDEventRef               _attachEvent;
-
+    
     std::shared_ptr<awd::AWDServerConnection> _awdConnection;
     
 private:

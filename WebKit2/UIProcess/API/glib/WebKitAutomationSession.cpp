@@ -82,14 +82,43 @@ private:
         return String::fromUTF8(m_session->priv->id.data());
     }
 
-    WebPageProxy* didRequestNewWindow(WebAutomationSession&) override
+    void didDisconnectFromRemote(WebAutomationSession&) override
+    {
+        webkitWebContextWillCloseAutomationSession(m_session->priv->webContext);
+    }
+
+    void requestNewPageWithOptions(WebAutomationSession&, API::AutomationSessionBrowsingContextOptions, CompletionHandler<void(WebPageProxy*)>&& completionHandler) override
     {
         WebKitWebView* webView = nullptr;
         g_signal_emit(m_session, signals[CREATE_WEB_VIEW], 0, &webView);
         if (!webView || !webkit_web_view_is_controlled_by_automation(webView))
-            return nullptr;
+            completionHandler(nullptr);
+        else
+            completionHandler(&webkitWebViewGetPage(webView));
+    }
 
-        return &webkitWebViewGetPage(webView);
+    void requestMaximizeWindowOfPage(WebAutomationSession&, WebPageProxy& page, CompletionHandler<void()>&& completionHandler) override
+    {
+        if (auto* webView = webkitWebContextGetWebViewForPage(m_session->priv->webContext, &page))
+            webkitWebViewMaximizeWindow(webView, WTFMove(completionHandler));
+        else
+            completionHandler();
+    }
+
+    void requestHideWindowOfPage(WebAutomationSession&, WebPageProxy& page, CompletionHandler<void()>&& completionHandler) override
+    {
+        if (auto* webView = webkitWebContextGetWebViewForPage(m_session->priv->webContext, &page))
+            webkitWebViewMinimizeWindow(webView, WTFMove(completionHandler));
+        else
+            completionHandler();
+    }
+
+    void requestRestoreWindowOfPage(WebAutomationSession&, WebPageProxy& page, CompletionHandler<void()>&& completionHandler) override
+    {
+        if (auto* webView = webkitWebContextGetWebViewForPage(m_session->priv->webContext, &page))
+            webkitWebViewRestoreWindow(webView, WTFMove(completionHandler));
+        else
+            completionHandler();
     }
 
     bool isShowingJavaScriptDialogOnPage(WebAutomationSession&, WebPageProxy& page) override
@@ -259,10 +288,17 @@ static void webkit_automation_session_class_init(WebKitAutomationSessionClass* s
         G_TYPE_NONE);
 }
 
-WebKitAutomationSession* webkitAutomationSessionCreate(WebKitWebContext* webContext, const char* sessionID)
+WebKitAutomationSession* webkitAutomationSessionCreate(WebKitWebContext* webContext, const char* sessionID, const Inspector::RemoteInspector::Client::SessionCapabilities& capabilities)
 {
     auto* session = WEBKIT_AUTOMATION_SESSION(g_object_new(WEBKIT_TYPE_AUTOMATION_SESSION, "id", sessionID, nullptr));
     session->priv->webContext = webContext;
+    if (capabilities.acceptInsecureCertificates)
+        webkit_web_context_set_tls_errors_policy(webContext, WEBKIT_TLS_ERRORS_POLICY_IGNORE);
+    for (auto& certificate : capabilities.certificates) {
+        GRefPtr<GTlsCertificate> tlsCertificate = adoptGRef(g_tls_certificate_new_from_file(certificate.second.utf8().data(), nullptr));
+        if (tlsCertificate)
+            webkit_web_context_allow_tls_certificate_for_host(webContext, tlsCertificate.get(), certificate.first.utf8().data());
+    }
     return session;
 }
 

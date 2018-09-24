@@ -52,8 +52,8 @@ OSStatus SecStaticCodeCreateWithPath(CFURLRef path, SecCSFlags flags, SecStaticC
 {
 	BEGIN_CSAPI
 
-	checkFlags(flags);
-	CodeSigning::Required(staticCodeRef) = (new SecStaticCode(DiskRep::bestGuess(cfString(path).c_str())))->handle();
+	checkFlags(flags, kSecCSForceOnlineNotarizationCheck);
+	CodeSigning::Required(staticCodeRef) = (new SecStaticCode(DiskRep::bestGuess(cfString(path).c_str()), flags))->handle();
 
 	END_CSAPI
 }
@@ -68,7 +68,7 @@ OSStatus SecStaticCodeCreateWithPathAndAttributes(CFURLRef path, SecCSFlags flag
 {
 	BEGIN_CSAPI
 
-	checkFlags(flags);
+	checkFlags(flags, kSecCSForceOnlineNotarizationCheck);
 	DiskRep::Context ctx;
 	std::string version; // holds memory placed into ctx
 	if (attributes) {
@@ -87,7 +87,7 @@ OSStatus SecStaticCodeCreateWithPathAndAttributes(CFURLRef path, SecCSFlags flag
 			ctx.version = version.c_str();
 	}
 
-	CodeSigning::Required(staticCodeRef) = (new SecStaticCode(DiskRep::bestGuess(cfString(path).c_str(), &ctx)))->handle();
+	CodeSigning::Required(staticCodeRef) = (new SecStaticCode(DiskRep::bestGuess(cfString(path).c_str(), &ctx), flags))->handle();
 
 	END_CSAPI
 }
@@ -238,10 +238,38 @@ OSStatus SecCodeMapMemory(SecStaticCodeRef codeRef, SecCSFlags flags)
 	checkFlags(flags);
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(codeRef);
 	if (const CodeDirectory *cd = code->codeDirectory(false)) {
-		fsignatures args = { static_cast<off_t>(code->diskRep()->signingBase()), (void *)cd, cd->length() };
-		UnixError::check(::fcntl(code->diskRep()->fd(), F_ADDSIGS, &args));
-	} else
+		if (code->isDetached()) {
+			// Detached signatures need to attach their code directory from memory.
+			fsignatures args = { static_cast<off_t>(code->diskRep()->signingBase()), (void *)cd, cd->length() };
+			UnixError::check(::fcntl(code->diskRep()->fd(), F_ADDSIGS, &args));
+		} else {
+			// All other signatures can simply point to the signature in the main executable.
+			Universal *execImage = code->diskRep()->mainExecutableImage();
+			if (execImage == NULL) {
+				MacOSError::throwMe(errSecCSNoMainExecutable);
+			}
+
+			auto_ptr<MachO> arch(execImage->architecture());
+			if (arch.get() == NULL) {
+				MacOSError::throwMe(errSecCSNoMainExecutable);
+			}
+
+			size_t signatureOffset = arch->signingOffset();
+			size_t signatureLength = arch->signingLength();
+			if (signatureOffset == 0) {
+				MacOSError::throwMe(errSecCSUnsigned);
+			}
+
+			fsignatures args = {
+				static_cast<off_t>(code->diskRep()->signingBase()),
+				(void *)signatureOffset,
+				signatureLength,
+			};
+			UnixError::check(::fcntl(code->diskRep()->fd(), F_ADDFILESIGS, &args));
+		}
+	} else {
 		MacOSError::throwMe(errSecCSUnsigned);
+	}
 
 	END_CSAPI
 }

@@ -67,6 +67,8 @@ extern NSString* const SFAnalyticsTableSchema;
 // We can only send this many events in total to splunk per upload
 extern NSUInteger const SFAnalyticsMaxEventsToReport;
 
+extern NSString* const SFAnalyticsErrorDomain;
+
 #endif /* __OBJC2__ */
 
 #endif /* SFAnalyticsDefines_h */

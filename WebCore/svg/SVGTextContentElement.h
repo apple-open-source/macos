@@ -28,6 +28,8 @@
 
 namespace WebCore {
 
+struct DOMPointInit;
+
 enum SVGLengthAdjustType {
     SVGLengthAdjustUnknown,
     SVGLengthAdjustSpacing,
@@ -43,9 +45,9 @@ template<> struct SVGPropertyTraits<SVGLengthAdjustType> {
         case SVGLengthAdjustUnknown:
             return emptyString();
         case SVGLengthAdjustSpacing:
-            return ASCIILiteral("spacing");
+            return "spacing"_s;
         case SVGLengthAdjustSpacingAndGlyphs:
-            return ASCIILiteral("spacingAndGlyphs");
+            return "spacingAndGlyphs"_s;
         }
 
         ASSERT_NOT_REACHED();
@@ -63,6 +65,7 @@ template<> struct SVGPropertyTraits<SVGLengthAdjustType> {
 };
 
 class SVGTextContentElement : public SVGGraphicsElement, public SVGExternalResourcesRequired {
+    WTF_MAKE_ISO_ALLOCATED(SVGTextContentElement);
 public:
     enum {
         LENGTHADJUST_UNKNOWN = SVGLengthAdjustUnknown,
@@ -77,7 +80,7 @@ public:
     ExceptionOr<Ref<SVGPoint>> getEndPositionOfChar(unsigned charnum);
     ExceptionOr<Ref<SVGRect>> getExtentOfChar(unsigned charnum);
     ExceptionOr<float> getRotationOfChar(unsigned charnum);
-    int getCharNumAtPosition(SVGPoint&);
+    int getCharNumAtPosition(DOMPointInit&&);
     ExceptionOr<void> selectSubString(unsigned charnum, unsigned nchars);
 
     static SVGTextContentElement* elementFromRenderer(RenderObject*);

@@ -246,7 +246,7 @@ out:
 
 CFDataRef
 SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters,
-    SecKeyRef __unused publicKey, SecKeyRef privateKey,
+    SecKeyRef publicKey, SecKeyRef privateKey,
     SecIdentityRef signer, CFTypeRef recipients)
 {
     CFDataRef csr = NULL;
@@ -275,14 +275,16 @@ SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters
     require(recipient, out);
 
     /* We don't support EC recipients for SCEP yet. */
-#if TARGET_OS_IPHONE
-    recipientKey = SecCertificateCopyPublicKey(recipient);
-#else
-    recipientKey = SecCertificateCopyPublicKey_ios(recipient);
-#endif
+    recipientKey = SecCertificateCopyKey(recipient);
     require(SecKeyGetAlgorithmId(recipientKey) == kSecRSAAlgorithmID, out);
 
-    require(realPublicKey = SecKeyCopyPublicKey(privateKey), out);
+    realPublicKey = SecKeyCopyPublicKey(privateKey);
+    if (!realPublicKey) {
+        /* If we can't get the public key from the private key,
+         * fall back to the public key provided by the caller. */
+        realPublicKey = CFRetainSafe(publicKey);
+    }
+    require(realPublicKey, out);
     require(csr = SecGenerateCertificateRequest(subject, parameters, realPublicKey, privateKey), out);
     require(enveloped_data = CFDataCreateMutable(kCFAllocatorDefault, 0), out);
     require_noerr(SecCMSCreateEnvelopedData(recipient, parameters, csr, enveloped_data), out);
@@ -384,11 +386,7 @@ SecSCEPCertifyRequestWithAlgorithms(CFDataRef request, SecIdentityRef ca_identit
     CFMutableDictionaryRef parameters = NULL;
     
     require_noerr(SecIdentityCopyCertificate(ca_identity, &ca_certificate), out);
-#if TARGET_OS_IPHONE
-    ca_public_key = SecCertificateCopyPublicKey(ca_certificate); /*@@@*/
-#else
-    ca_public_key = SecCertificateCopyPublicKey_ios(ca_certificate);
-#endif
+    ca_public_key = SecCertificateCopyKey(ca_certificate);
 
     /* unwrap outer layer: */
     policy = SecPolicyCreateBasicX509();

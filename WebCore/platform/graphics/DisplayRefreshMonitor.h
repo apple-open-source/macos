@@ -42,7 +42,9 @@ class DisplayRefreshMonitor : public RefCounted<DisplayRefreshMonitor> {
 public:
     static RefPtr<DisplayRefreshMonitor> create(DisplayRefreshMonitorClient&);
     WEBCORE_EXPORT virtual ~DisplayRefreshMonitor();
-    
+
+    virtual void displayLinkFired() { }
+
     // Return true if callback request was scheduled, false if it couldn't be
     // (e.g., hardware refresh is not available)
     virtual bool requestRefreshCallback() = 0;
@@ -56,7 +58,7 @@ public:
 
     bool shouldBeTerminated() const
     {
-        const int maxInactiveFireCount = 10;
+        const int maxInactiveFireCount = 20;
         return !m_scheduled && m_unscheduledFireCount > maxInactiveFireCount;
     }
 
@@ -66,6 +68,8 @@ protected:
     WEBCORE_EXPORT explicit DisplayRefreshMonitor(PlatformDisplayID);
     WEBCORE_EXPORT static void handleDisplayRefreshedNotificationOnMainThread(void* data);
 
+    friend class DisplayRefreshMonitorManager;
+    
     Lock& mutex() { return m_mutex; }
 
     bool isActive() const { return m_active; }
@@ -76,6 +80,8 @@ protected:
 
     bool isPreviousFrameDone() const { return m_previousFrameDone; }
     void setIsPreviousFrameDone(bool done) { m_previousFrameDone = done; }
+
+    virtual bool hasRequestedRefreshCallback() const { return false; }
 
 private:
     void displayDidRefresh();

@@ -599,7 +599,8 @@ static void query_add_return(const void *key, const void *value, Query *q)
  */
 static void query_add_use(const void *key, const void *value, Query *q)
 {
-    if (CFEqual(key, kSecUseItemList)) {
+    // Gotta use a string literal because we just outlawed this symbol on iOS
+    if (CFEqual(key, CFSTR("u_ItemList"))) {
         /* TODO: Add sanity checking when we start using this. */
         q->q_use_item_list = value;
     } else if (CFEqual(key, kSecUseTombstones)) {

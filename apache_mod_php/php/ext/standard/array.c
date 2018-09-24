@@ -2099,10 +2099,18 @@ PHP_FUNCTION(range)
 	}
 
 	if (zstep) {
-		if (Z_TYPE_P(zstep) == IS_DOUBLE ||
-			(Z_TYPE_P(zstep) == IS_STRING && is_numeric_string(Z_STRVAL_P(zstep), Z_STRLEN_P(zstep), NULL, NULL, 0) == IS_DOUBLE)
-		) {
+		if (Z_TYPE_P(zstep) == IS_DOUBLE) {
 			is_step_double = 1;
+		} else if (Z_TYPE_P(zstep) == IS_STRING) {
+			int type = is_numeric_string(Z_STRVAL_P(zstep), Z_STRLEN_P(zstep), NULL, NULL, 0);
+			if (type == IS_DOUBLE) {
+				is_step_double = 1;
+			}
+			if (type == 0) {
+				/* bad number */
+				php_error_docref(NULL, E_WARNING, "Invalid range string - must be numeric");
+				RETURN_FALSE;
+			}
 		}
 
 		step = zval_get_double(zstep);
@@ -2242,6 +2250,10 @@ long_str:
 		}
 
 		lstep = step;
+		if (step <= 0) {
+			err = 1;
+			goto err;
+		}
 
 		Z_TYPE_INFO(tmp) = IS_LONG;
 		if (low > high) { 		/* Negative steps */
@@ -2788,7 +2800,7 @@ PHP_FUNCTION(array_unshift)
 	Z_ARRVAL_P(stack)->nNextFreeElement  = new_hash.nNextFreeElement;
 	Z_ARRVAL_P(stack)->arData            = new_hash.arData;
 	Z_ARRVAL_P(stack)->pDestructor       = new_hash.pDestructor;
-	
+
 	zend_hash_internal_pointer_reset(Z_ARRVAL_P(stack));
 
 	/* Clean up and return the number of elements in the stack */
@@ -3229,7 +3241,7 @@ static inline void php_array_merge_or_replace_wrapper(INTERNAL_FUNCTION_PARAMETE
 }
 /* }}} */
 
-/* {{{ proto array array_merge(array arr1, array arr2 [, array ...])
+/* {{{ proto array array_merge(array arr1 [, array ...])
    Merges elements from passed arrays into one array */
 PHP_FUNCTION(array_merge)
 {
@@ -3237,7 +3249,7 @@ PHP_FUNCTION(array_merge)
 }
 /* }}} */
 
-/* {{{ proto array array_merge_recursive(array arr1, array arr2 [, array ...])
+/* {{{ proto array array_merge_recursive(array arr1 [, array ...])
    Recursively merges elements from passed arrays into one array */
 PHP_FUNCTION(array_merge_recursive)
 {
@@ -3245,7 +3257,7 @@ PHP_FUNCTION(array_merge_recursive)
 }
 /* }}} */
 
-/* {{{ proto array array_replace(array arr1, array arr2 [, array ...])
+/* {{{ proto array array_replace(array arr1 [, array ...])
    Replaces elements from passed arrays into one array */
 PHP_FUNCTION(array_replace)
 {
@@ -3253,7 +3265,7 @@ PHP_FUNCTION(array_replace)
 }
 /* }}} */
 
-/* {{{ proto array array_replace_recursive(array arr1, array arr2 [, array ...])
+/* {{{ proto array array_replace_recursive(array arr1 [, array ...])
    Recursively replaces elements from passed arrays into one array */
 PHP_FUNCTION(array_replace_recursive)
 {
@@ -4099,7 +4111,7 @@ static void php_array_intersect(INTERNAL_FUNCTION_PARAMETERS, int behavior, int 
 		ZVAL_UNDEF(&list->val);
 		if (hash->nNumOfElements > 1) {
 			if (behavior == INTERSECT_NORMAL) {
-				zend_sort((void *) lists[i], hash->nNumOfElements, 
+				zend_sort((void *) lists[i], hash->nNumOfElements,
 						sizeof(Bucket), intersect_data_compare_func, (swap_func_t)zend_hash_bucket_swap);
 			} else if (behavior & INTERSECT_ASSOC) { /* triggered also when INTERSECT_KEY */
 				zend_sort((void *) lists[i], hash->nNumOfElements,
@@ -5348,7 +5360,7 @@ PHP_FUNCTION(array_map)
 
 		array_init_size(return_value, maxlen);
 
-		ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL(arrays[0]), num_key, str_key, zv) {
+		ZEND_HASH_FOREACH_KEY_VAL_IND(Z_ARRVAL(arrays[0]), num_key, str_key, zv) {
 			fci.retval = &result;
 			fci.param_count = 1;
 			fci.params = &arg;

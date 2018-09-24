@@ -59,7 +59,7 @@ struct asl_context {
 	bool asl_enabled;
 	const char *progname;
 	int asl_fd;
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR && !TARGET_OS_IOSMAC
 	const char *sim_log_path;
 	os_unfair_lock sim_connect_lock;
 #else
@@ -118,7 +118,7 @@ _simple_asl_init(const char *envp[], const struct ProgramVars *vars)
 	ctx->asl_enabled = true;
 	if (vars && vars->__prognamePtr) {
 		ctx->progname = *(vars->__prognamePtr);
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	} else {
 		const char * progname = *_NSGetProgname();
 		if (progname)
@@ -165,7 +165,7 @@ _simple_asl_get_fd(void)
 		return -1;
 	}
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR && !TARGET_OS_IOSMAC
 	os_unfair_lock_lock_with_options(&ctx->sim_connect_lock,
 			OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION);
 	if (ctx->sim_log_path) {

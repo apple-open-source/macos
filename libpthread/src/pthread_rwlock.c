@@ -61,8 +61,6 @@
 #include <platform/compat.h> // for bzero
 #endif
 
-extern int __unix_conforming;
-
 #ifdef PLOCKSTAT
 #include "plockstat.h"
 #else /* !PLOCKSTAT */
@@ -513,7 +511,7 @@ _pthread_rwlock_updateval(_pthread_rwlock *rwlock, uint32_t updateval)
 	rwlock_seq_load(seqaddr, &oldseq, RWLOCK_SEQ_LS);
 	do {
 		newseq = oldseq;
-		if (isoverlap || is_rws_setunlockinit(oldseq.rw_seq) != 0) {
+		if (isoverlap || is_rws_unlockinit_set(oldseq.rw_seq)) {
 			// Set S word to the specified value
 			uint32_t savebits = (oldseq.rw_seq & PTHRW_RWS_SAVEMASK);
 			newseq.lcntval = _pthread_rwlock_modbits(oldseq.lcntval, updateval,
@@ -763,7 +761,7 @@ retry:
 				newseq.lcntval |= PTH_RWL_KBIT | PTH_RWL_WBIT;
 			}
 			newseq.lcntval += PTHRW_INC;
-			if (is_rws_setseq(oldseq.rw_seq)) {
+			if (is_rws_sbit_set(oldseq.rw_seq)) {
 				// Clear the S bit and set S to L
 				newseq.rw_seq &= (PTHRW_BIT_MASK & ~PTH_RWS_SBIT);
 				newseq.rw_seq |= (oldseq.lcntval & PTHRW_COUNT_MASK);

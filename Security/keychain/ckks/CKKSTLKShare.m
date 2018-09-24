@@ -28,6 +28,7 @@
 #import "keychain/ckks/CKKSTLKShare.h"
 #import "keychain/ckks/CKKSPeer.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import <SecurityFoundation/SFKey.h>
 #import <SecurityFoundation/SFEncryptionOperation.h>

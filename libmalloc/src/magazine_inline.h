@@ -24,6 +24,42 @@
 #ifndef __MAGAZINE_INLINE_H
 #define __MAGAZINE_INLINE_H
 
+extern unsigned int _os_cpu_number_override;
+
+/*
+ * MALLOC_ABSOLUTE_MAX_SIZE - There are many instances of addition to a
+ * user-specified size_t, which can cause overflow (and subsequent crashes)
+ * for values near SIZE_T_MAX.  Rather than add extra "if" checks everywhere
+ * this occurs, it is easier to just set an absolute maximum request size,
+ * and immediately return an error if the requested size exceeds this maximum.
+ * Of course, values less than this absolute max can fail later if the value
+ * is still too large for the available memory.  The largest value added
+ * seems to be PAGE_SIZE (in the macro round_page()), so to be safe, we set
+ * the maximum to be 2 * PAGE_SIZE less than SIZE_T_MAX.
+ */
+#define MALLOC_ABSOLUTE_MAX_SIZE (SIZE_T_MAX - (2 * PAGE_SIZE))
+
+// Gets the allocation size for a calloc(). Multiples size by num_items and adds
+// extra_size, storing the result in *total_size. Returns 0 on success, -1 (with
+// errno set to ENOMEM) on overflow.
+static int MALLOC_INLINE MALLOC_ALWAYS_INLINE
+calloc_get_size(size_t num_items, size_t size, size_t extra_size, size_t *total_size)
+{
+	size_t alloc_size = size;
+	if (num_items != 1 && (os_mul_overflow(num_items, size, &alloc_size)
+			|| alloc_size > MALLOC_ABSOLUTE_MAX_SIZE)) {
+		errno = ENOMEM;
+		return -1;
+	}
+	if (extra_size && (os_add_overflow(alloc_size, extra_size, &alloc_size)
+			|| alloc_size > MALLOC_ABSOLUTE_MAX_SIZE)) {
+		errno = ENOMEM;
+		return -1;
+	}
+	*total_size = alloc_size;
+	return 0;
+}
+
 /*********************	FREE LIST UTILITIES  ************************/
 
 // A free list entry is comprised of a pair of pointers, previous and next.
@@ -151,12 +187,12 @@ SZONE_MAGAZINE_PTR_REINIT_LOCK(magazine_t *mag_ptr)
 #pragma mark free list
 
 static MALLOC_NOINLINE void
-free_list_checksum_botch(rack_t *rack, void *ptr)
+free_list_checksum_botch(rack_t *rack, void *ptr, void *value)
 {
-	szone_error(rack->debug_flags, 1,
-				"incorrect checksum for freed object "
-				"- object was probably modified after being freed.",
-				ptr, NULL);
+	malloc_zone_error(rack->debug_flags, true,
+			"Incorrect checksum for freed object %p: "
+			"probably modified after being freed.\n"
+			"Corrupt value: %p\n", ptr, value);
 }
 
 static MALLOC_INLINE uintptr_t
@@ -175,7 +211,7 @@ free_list_gen_checksum(uintptr_t ptr)
 	chk += (unsigned char)(ptr >> 56);
 #endif
 
-	return chk & (uintptr_t)0xF;
+	return chk;
 }
 
 static unsigned
@@ -201,7 +237,7 @@ static MALLOC_INLINE uintptr_t
 free_list_checksum_ptr(rack_t *rack, void *ptr)
 {
 	uintptr_t p = (uintptr_t)ptr;
-	return (p >> NYBBLE) | (free_list_gen_checksum(p ^ rack->cookie) << ANTI_NYBBLE); // compiles to rotate instruction
+	return (p >> NYBBLE) | ((free_list_gen_checksum(p ^ rack->cookie) & (uintptr_t)0xF) << ANTI_NYBBLE); // compiles to rotate instruction
 }
 
 static MALLOC_INLINE void *
@@ -213,8 +249,8 @@ free_list_unchecksum_ptr(rack_t *rack, inplace_union *ptr)
 	t = (t << NYBBLE) | (t >> ANTI_NYBBLE); // compiles to rotate instruction
 	p.u = t & ~(uintptr_t)0xF;
 
-	if ((t & (uintptr_t)0xF) != free_list_gen_checksum(p.u ^ rack->cookie)) {
-		free_list_checksum_botch(rack, ptr);
+	if ((t ^ free_list_gen_checksum(p.u ^ rack->cookie)) & (uintptr_t)0xF) {
+		free_list_checksum_botch(rack, ptr, (void *)ptr->u);
 		__builtin_trap();
 	}
 	return p.p;
@@ -390,19 +426,25 @@ hash_regions_grow_no_lock(region_t *regions, size_t old_size, size_t *mutable_sh
 	return new_regions;
 }
 
-#pragma mark mag lock
+#pragma mark mag index
 
 /*
  * These commpage routines provide fast access to the logical cpu number
  * of the calling processor assuming no pre-emption occurs.
  */
 
+extern unsigned int hyper_shift;
+extern unsigned int phys_ncpus;
+extern unsigned int logical_ncpus;
+
 static MALLOC_INLINE MALLOC_ALWAYS_INLINE
-mag_index_t
-mag_get_thread_index(void)
+unsigned int
+mag_max_magazines(void)
 {
-	return _os_cpu_number() & (TINY_MAX_MAGAZINES - 1);
+    return max_magazines;
 }
+
+#pragma mark mag lock
 
 static MALLOC_INLINE magazine_t *
 mag_lock_zine_for_region_trailer(magazine_t *magazines, region_trailer_t *trailer, mag_index_t mag_index)
@@ -493,7 +535,7 @@ get_tiny_meta_header(const void *ptr, boolean_t *is_free)
 	// (index >> 5) << 1 identifies the uint32_t allowing for the actual interleaving
 #if defined(__LP64__)
 	// The return value, msize, is computed as the distance to the next 1 bit in block_header.
-	// That's guaranteed to be somewhwere in the next 64 bits. And those bits could span three
+	// That's guaranteed to be somewhere in the next 64 bits. And those bits could span three
 	// uint32_t block_header elements. Collect the bits into a single uint64_t and measure up with ffsl.
 	uint32_t *addr = ((uint32_t *)block_header) + ((index >> 5) << 1);
 	uint32_t bitidx = index & 31;
@@ -505,7 +547,7 @@ get_tiny_meta_header(const void *ptr, boolean_t *is_free)
 	uint32_t result = __builtin_ffsl(word >> 1);
 #else
 	// The return value, msize, is computed as the distance to the next 1 bit in block_header.
-	// That's guaranteed to be somwhwere in the next 32 bits. And those bits could span two
+	// That's guaranteed to be somewhere in the next 32 bits. And those bits could span two
 	// uint32_t block_header elements. Collect the bits into a single uint32_t and measure up with ffs.
 	uint32_t *addr = ((uint32_t *)block_header) + ((index >> 5) << 1);
 	uint32_t bitidx = index & 31;

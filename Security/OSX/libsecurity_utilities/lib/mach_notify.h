@@ -45,7 +45,7 @@ typedef struct {
         char            *name;
         function_ptr_t  function;
 } function_table_entry;
-typedef function_table_entry 	*function_table_t;
+typedef function_table_entry   *function_table_t;
 #endif /* FUNCTION_PTR_T */
 #endif /* AUTOTEST */
 
@@ -54,10 +54,14 @@ typedef function_table_entry 	*function_table_t;
 #endif	/* notify_MSG_COUNT */
 
 #include <mach/std_types.h>
+#include <mach/mig.h>
 
 #ifdef __BeforeMigUserHeader
 __BeforeMigUserHeader
 #endif /* __BeforeMigUserHeader */
+
+#include <sys/cdefs.h>
+__BEGIN_DECLS
 
 
 /* SimpleRoutine mach_notify_port_deleted */
@@ -66,7 +70,7 @@ mig_external
 #else
 extern
 #endif	/* mig_external */
-kern_return_t mach_notify_port_deleted
+kern_return_t cdsa_mach_notify_port_deleted
 (
 	mach_port_t notify,
 	mach_port_name_t name
@@ -78,11 +82,10 @@ mig_external
 #else
 extern
 #endif	/* mig_external */
-kern_return_t mach_notify_port_destroyed
+kern_return_t cdsa_mach_notify_port_destroyed
 (
 	mach_port_t notify,
-	mach_port_t rights,
-	mach_msg_type_name_t rightsPoly
+	mach_port_t rights
 );
 
 /* SimpleRoutine mach_notify_no_senders */
@@ -91,7 +94,7 @@ mig_external
 #else
 extern
 #endif	/* mig_external */
-kern_return_t mach_notify_no_senders
+kern_return_t cdsa_mach_notify_no_senders
 (
 	mach_port_t notify,
 	mach_port_mscount_t mscount
@@ -103,7 +106,7 @@ mig_external
 #else
 extern
 #endif	/* mig_external */
-kern_return_t mach_notify_send_once
+kern_return_t cdsa_mach_notify_send_once
 (
 	mach_port_t notify
 );
@@ -114,11 +117,13 @@ mig_external
 #else
 extern
 #endif	/* mig_external */
-kern_return_t mach_notify_dead_name
+kern_return_t cdsa_mach_notify_dead_name
 (
 	mach_port_t notify,
 	mach_port_name_t name
 );
+
+__END_DECLS
 
 #ifndef subsystem_to_name_map_notify
 #define subsystem_to_name_map_notify \

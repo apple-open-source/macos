@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +39,7 @@
 #if TARGET_OS_EMBEDDED
 
 OSStatus
-EAPSecKeychainPasswordItemRemove(SecKeychainRef keychain,
+EAPSecKeychainPasswordItemRemove(EAPSecKeychainRef keychain,
 				 CFStringRef unique_id_str)
 {
     const void *	keys[] = {
@@ -68,7 +68,7 @@ EAPSecKeychainPasswordItemRemove(SecKeychainRef keychain,
 }
 
 OSStatus
-EAPSecKeychainPasswordItemCopy(SecKeychainRef keychain, 
+EAPSecKeychainPasswordItemCopy(EAPSecKeychainRef keychain,
 			       CFStringRef unique_id_str, 
 			       CFDataRef * ret_password)
 {
@@ -102,8 +102,8 @@ EAPSecKeychainPasswordItemCopy(SecKeychainRef keychain,
 }
 
 OSStatus
-EAPSecKeychainPasswordItemCreateWithAccess(SecKeychainRef keychain,
-					   SecAccessRef access,
+EAPSecKeychainPasswordItemCreateWithAccess(EAPSecKeychainRef keychain,
+					   EAPSecAccessRef access,
 					   CFStringRef unique_id_str,
 					   CFDataRef label,
 					   CFDataRef description,
@@ -135,7 +135,7 @@ EAPSecKeychainPasswordItemCreateWithAccess(SecKeychainRef keychain,
 }
 
 OSStatus
-EAPSecKeychainPasswordItemSet(SecKeychainRef keychain,
+EAPSecKeychainPasswordItemSet(EAPSecKeychainRef keychain,
 			      CFStringRef unique_id_str,
 			      CFDataRef password)
 {
@@ -312,7 +312,7 @@ mySecKeychainAttributeListAddFromDict(mySecKeychainAttributeList * attr_list,
 PRIVATE_EXTERN OSStatus
 EAPSecAccessCreateWithTrustedApplications(CFArrayRef trusted_apps,
 					  CFDataRef label_data,
-					  SecAccessRef * ret_access)
+					  EAPSecAccessRef * ret_access)
 {
     CFStringRef		label = NULL;
     OSStatus		status;
@@ -330,14 +330,14 @@ EAPSecAccessCreateWithTrustedApplications(CFArrayRef trusted_apps,
 }
 
 PRIVATE_EXTERN OSStatus
-EAPSecKeychainItemSetAccessForTrustedApplications(SecKeychainItemRef item,
+EAPSecKeychainItemSetAccessForTrustedApplications(EAPSecKeychainItemRef item,
 						  CFArrayRef trusted_apps)
 {
     CFArrayRef 		app_list = NULL;
     CFMutableArrayRef	app_list_data = NULL;
     SecACLRef		acl;
     CFArrayRef		acl_list = NULL;
-    SecAccessRef	access = NULL;
+    EAPSecAccessRef	access = NULL;
     CFStringRef 	prompt_description = NULL;
     SecKeychainPromptSelector prompt_selector;
     OSStatus		status;
@@ -441,13 +441,13 @@ EAPSecKeychainItemSetAccessForTrustedApplications(SecKeychainItemRef item,
 }
 
 STATIC OSStatus
-KeychainPasswordItemCopy(SecKeychainRef keychain,
+KeychainPasswordItemCopy(EAPSecKeychainRef keychain,
 			 CFStringRef unique_id_str,
-			 SecKeychainItemRef * ret_item)
+			 EAPSecKeychainItemRef * ret_item)
 {
-    SecKeychainItemRef	item;
-    OSStatus		status;
-    CFDataRef		unique_id;
+    EAPSecKeychainItemRef	item;
+    OSStatus			status;
+    CFDataRef			unique_id;
 
     unique_id = CFStringCreateExternalRepresentation(NULL,
 						     unique_id_str,
@@ -491,7 +491,7 @@ SecKeychainAttrTypeGetCFString(SecKeychainAttrType type)
 }
 
 STATIC OSStatus
-KeychainItemCopyInfo(SecKeychainItemRef item,
+KeychainItemCopyInfo(EAPSecKeychainItemRef item,
 		     CFArrayRef keys,
 		     CFDictionaryRef * ret_attrs)
 {
@@ -585,11 +585,11 @@ KeychainItemCopyInfo(SecKeychainItemRef item,
 }
 
 OSStatus
-EAPSecKeychainPasswordItemRemove(SecKeychainRef keychain,
+EAPSecKeychainPasswordItemRemove(EAPSecKeychainRef keychain,
 				 CFStringRef unique_id_str)
 {
-    SecKeychainItemRef	item;
-    OSStatus		status;
+    EAPSecKeychainItemRef	item;
+    OSStatus			status;
 
     status = KeychainPasswordItemCopy(keychain, unique_id_str, &item);
     if (status != noErr) {
@@ -612,7 +612,7 @@ EAPSecKeychainPasswordItemCopy2(SecKeychainRef keychain,
 				CFArrayRef keys,
 				CFDictionaryRef * ret_values)
 {
-    SecKeychainItemRef		item = NULL;
+    EAPSecKeychainItemRef	item = NULL;
     OSStatus			status;
 
     *ret_values = NULL;
@@ -627,7 +627,7 @@ EAPSecKeychainPasswordItemCopy2(SecKeychainRef keychain,
 }
 
 OSStatus
-EAPSecKeychainPasswordItemCopy(SecKeychainRef keychain, 
+EAPSecKeychainPasswordItemCopy(EAPSecKeychainRef keychain,
 			       CFStringRef unique_id_str, 
 			       CFDataRef * ret_password)
 {
@@ -660,8 +660,8 @@ EAPSecKeychainPasswordItemCopy(SecKeychainRef keychain,
 }
 
 OSStatus
-EAPSecKeychainPasswordItemCreateWithAccess(SecKeychainRef keychain,
-					   SecAccessRef access,
+EAPSecKeychainPasswordItemCreateWithAccess(EAPSecKeychainRef keychain,
+					   EAPSecAccessRef access,
 					   CFStringRef unique_id_str,
 					   CFDataRef label,
 					   CFDataRef description,
@@ -700,12 +700,12 @@ EAPSecKeychainPasswordItemCreateWithAccess(SecKeychainRef keychain,
 }
 
 OSStatus
-EAPSecKeychainPasswordItemCreate(SecKeychainRef keychain,
+EAPSecKeychainPasswordItemCreate(EAPSecKeychainRef keychain,
 				 CFStringRef unique_id_str,
 				 CFDictionaryRef attrs)
 {
     CFBooleanRef		allow_root;
-    SecAccessRef		access = NULL;
+    EAPSecAccessRef		access = NULL;
     mySecKeychainAttributeList	attr_list;
     CFDataRef 			password;
     void *			password_data;
@@ -786,7 +786,7 @@ EAPSecKeychainPasswordItemCreate(SecKeychainRef keychain,
 }
 
 OSStatus
-EAPSecKeychainPasswordItemCreateUnique(SecKeychainRef keychain,
+EAPSecKeychainPasswordItemCreateUnique(EAPSecKeychainRef keychain,
 				       CFDictionaryRef attrs,
 				       CFStringRef * ret_unique_id)
 {
@@ -810,11 +810,11 @@ EAPSecKeychainPasswordItemCreateUnique(SecKeychainRef keychain,
 }
 
 OSStatus
-EAPSecKeychainPasswordItemSet(SecKeychainRef keychain,
+EAPSecKeychainPasswordItemSet(EAPSecKeychainRef keychain,
 			      CFStringRef unique_id_str,
 			      CFDataRef password)
 {
-    SecKeychainItemRef		item;
+    EAPSecKeychainItemRef	item;
     OSStatus			status;
 
     status = KeychainPasswordItemCopy(keychain, unique_id_str, &item);
@@ -830,12 +830,12 @@ EAPSecKeychainPasswordItemSet(SecKeychainRef keychain,
 }
 
 OSStatus
-EAPSecKeychainPasswordItemSet2(SecKeychainRef keychain,
+EAPSecKeychainPasswordItemSet2(EAPSecKeychainRef keychain,
 			       CFStringRef unique_id_str,
 			       CFDictionaryRef attrs)
 {
     mySecKeychainAttributeList	attr_list;
-    SecKeychainItemRef		item;
+    EAPSecKeychainItemRef	item;
     CFDataRef 			password;
     void *			password_data;
     UInt32			password_length;
@@ -873,8 +873,8 @@ EAPSecKeychainPasswordItemSet2(SecKeychainRef keychain,
 #endif /* TARGET_OS_EMBEDDED */
 
 OSStatus
-EAPSecKeychainPasswordItemCreateUniqueWithAccess(SecKeychainRef keychain,
-						 SecAccessRef access,
+EAPSecKeychainPasswordItemCreateUniqueWithAccess(EAPSecKeychainRef keychain,
+						 EAPSecAccessRef access,
 						 CFDataRef label,
 						 CFDataRef description,
 						 CFDataRef user,
@@ -908,7 +908,7 @@ EAPSecKeychainPasswordItemCreateUniqueWithAccess(SecKeychainRef keychain,
 
 #if ! TARGET_OS_EMBEDDED
 /*
- * Create a SecAccessRef with a custom form.
+ * Create a EAPSecAccessRef with a custom form.
  * Both the owner and the ACL set allow free access to root,
  * but nothing to anyone else.
  * NOTE: This is not the easiest way to build up CSSM data structures.
@@ -916,9 +916,9 @@ EAPSecKeychainPasswordItemCreateUniqueWithAccess(SecKeychainRef keychain,
  * (other than CSSM and Security's Sec* layer, of course).
  */
 static OSStatus
-SecKeychainCopySystemKeychain(SecKeychainRef * ret_keychain)
+SecKeychainCopySystemKeychain(EAPSecKeychainRef * ret_keychain)
 {
-    SecKeychainRef		keychain = NULL;
+    EAPSecKeychainRef		keychain = NULL;
     OSStatus			status;
 
     status = SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem,
@@ -1040,7 +1040,7 @@ int
 main(int argc, const char *argv[])
 {
     Command		cmd = kCommandUnknown;
-    SecKeychainRef	keychain = NULL;
+    EAPSecKeychainRef	keychain = NULL;
     const char *	progname = argv[0];
     OSStatus		status;
 #ifdef HAS_KEYCHAINS
@@ -1140,7 +1140,7 @@ main(int argc, const char *argv[])
 	break;
     }
     case kCommandCreate: {
-	SecAccessRef			access = NULL;
+	EAPSecAccessRef			access = NULL;
 	CFMutableDictionaryRef	attrs = NULL;
 	CFDataRef			data;
 	CFArrayRef			trusted_apps;

@@ -59,7 +59,6 @@
 #endif /* PLOCKSTAT */
 
 extern int __gettimeofday(struct timeval *, struct timezone *);
-extern void _pthread_testcancel(pthread_t thread, int isconforming);
 
 PTHREAD_NOEXPORT
 int _pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex,
@@ -88,8 +87,8 @@ COND_GETSEQ_ADDR(_pthread_cond *cond,
 #ifndef BUILDING_VARIANT /* [ */
 
 static void _pthread_cond_cleanup(void *arg);
-static void _pthread_cond_updateval(_pthread_cond * cond, int error,
-		uint32_t updateval);
+static void _pthread_cond_updateval(_pthread_cond *cond, _pthread_mutex *mutex,
+		int error, uint32_t updateval);
 
 
 int
@@ -401,7 +400,7 @@ _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 	}
 
 	if (updateval != (uint32_t)-1 && updateval != 0) {
-		_pthread_cond_updateval(cond, 0, updateval);
+		_pthread_cond_updateval(cond, NULL, 0, updateval);
 	}
 
 	return 0;
@@ -449,8 +448,8 @@ pthread_cond_signal(pthread_cond_t *ocond)
  * Suspend waiting for a condition variable.
  * Note: we have to keep a list of condition variables which are using
  * this same mutex variable so we can detect invalid 'destroy' sequences.
- * If isconforming < 0, we skip the _pthread_testcancel(), but keep the
- * remaining conforming behavior..
+ * If conformance is not cancelable, we skip the _pthread_testcancel(),
+ * but keep the remaining conforming behavior..
  */
 PTHREAD_NOEXPORT PTHREAD_NOINLINE
 int
@@ -458,7 +457,7 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 			pthread_mutex_t *omutex,
 			const struct timespec *abstime,
 			int isRelative,
-			int isconforming)
+			int conforming)
 {
 	int res;
 	_pthread_cond *cond = (_pthread_cond *)ocond;
@@ -477,13 +476,13 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 		return res;
 	}
 
-	if (isconforming) {
+	if (conforming) {
 		if (!_pthread_mutex_check_signature(mutex) &&
 				!_pthread_mutex_check_signature_init(mutex)) {
 			return EINVAL;
 		}
-		if (isconforming > 0) {
-			_pthread_testcancel(pthread_self(), 1);
+		if (conforming == PTHREAD_CONFORM_UNIX03_CANCELABLE) {
+			_pthread_testcancel(conforming);
 		}
 	}
 
@@ -505,7 +504,7 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 			if (then.tv_sec < 0 || (then.tv_sec == 0 && then.tv_nsec == 0)) {
 				return ETIMEDOUT;
 			}
-			if (isconforming &&
+			if (conforming &&
 			    (abstime->tv_sec < 0 ||
 			     abstime->tv_nsec < 0 ||
 			     abstime->tv_nsec >= NSEC_PER_SEC)) {
@@ -518,7 +517,7 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 				return ETIMEDOUT;
 			}
 		}
-		if (isconforming && (then.tv_sec < 0 || then.tv_nsec < 0)) {
+		if (conforming && (then.tv_sec < 0 || then.tv_nsec < 0)) {
 			return EINVAL;
 		}
 		if (then.tv_nsec >= NSEC_PER_SEC) {
@@ -567,10 +566,10 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 	cvlsgen = ((uint64_t)(ulval | savebits)<< 32) | nlval;
 
 	// SUSv3 requires pthread_cond_wait to be a cancellation point
-	if (isconforming) {
+	if (conforming) {
 		pthread_cleanup_push(_pthread_cond_cleanup, (void *)cond);
 		updateval = __psynch_cvwait(ocond, cvlsgen, ucntval, (pthread_mutex_t *)npmtx, mugen, flags, (int64_t)then.tv_sec, (int32_t)then.tv_nsec);
-		_pthread_testcancel(pthread_self(), isconforming);
+		_pthread_testcancel(conforming);
 		pthread_cleanup_pop(0);
 	} else {
 		updateval = __psynch_cvwait(ocond, cvlsgen, ucntval, (pthread_mutex_t *)npmtx, mugen, flags, (int64_t)then.tv_sec, (int32_t)then.tv_nsec);
@@ -592,12 +591,12 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 		}
 
 		// add unlock ref to show one less waiter
-		_pthread_cond_updateval(cond, err, 0);
+		_pthread_cond_updateval(cond, mutex, err, 0);
 	} else if (updateval != 0) {
 		// Successful wait
 		// The return due to prepost and might have bit states
 		// update S and return for prepo if needed
-		_pthread_cond_updateval(cond, 0, updateval);
+		_pthread_cond_updateval(cond, mutex, 0, updateval);
 	}
 
 	pthread_mutex_lock(omutex);
@@ -609,25 +608,20 @@ static void
 _pthread_cond_cleanup(void *arg)
 {
 	_pthread_cond *cond = (_pthread_cond *)arg;
+	pthread_t thread = pthread_self();
 	pthread_mutex_t *mutex;
 
 // 4597450: begin
-	pthread_t thread = pthread_self();
-	int thcanceled = 0;
-
-	_PTHREAD_LOCK(thread->lock);
-	thcanceled = (thread->detached & _PTHREAD_WASCANCEL);
-	_PTHREAD_UNLOCK(thread->lock);
-
-	if (thcanceled == 0) {
+	if (!thread->canceled) {
 		return;
 	}
-
 // 4597450: end
+
 	mutex = (pthread_mutex_t *)cond->busy;
 
 	// add unlock ref to show one less waiter
-	_pthread_cond_updateval(cond, thread->cancel_error, 0);
+	_pthread_cond_updateval(cond, (_pthread_mutex *)mutex,
+			thread->cancel_error, 0);
 
 	/*
 	** Can't do anything if this fails -- we're on the way out
@@ -637,11 +631,9 @@ _pthread_cond_cleanup(void *arg)
 	}
 }
 
-#define ECVCERORR       256
-#define ECVPERORR       512
-
 static void
-_pthread_cond_updateval(_pthread_cond *cond, int error, uint32_t updateval)
+_pthread_cond_updateval(_pthread_cond *cond, _pthread_mutex *mutex,
+		int error, uint32_t updateval)
 {
 	int needclearpre;
 
@@ -653,10 +645,10 @@ _pthread_cond_updateval(_pthread_cond *cond, int error, uint32_t updateval)
 
 	if (error != 0) {
 		updateval = PTHRW_INC;
-		if ((error & ECVCERORR) != 0) {
+		if (error & ECVCLEARED) {
 			updateval |= PTH_RWS_CV_CBIT;
 		}
-		if ((error & ECVPERORR) != 0) {
+		if (error & ECVPREPOST) {
 			updateval |= PTH_RWS_CV_PBIT;
 		}
 	}
@@ -675,7 +667,10 @@ _pthread_cond_updateval(_pthread_cond *cond, int error, uint32_t updateval)
 		oldval64 = (((uint64_t)scntval) << 32);
 		oldval64 |= lcntval;
 
-		if (diffgen <= 0) {
+		PTHREAD_TRACE(psynch_cvar_updateval | DBG_FUNC_START, cond, oldval64,
+				updateval, 0);
+
+		if (diffgen <= 0 && !is_rws_pbit_set(updateval)) {
 			/* TBD: Assert, should not be the case */
 			/* validate it is spurious and return */
 			newval64 = oldval64;
@@ -700,19 +695,22 @@ _pthread_cond_updateval(_pthread_cond *cond, int error, uint32_t updateval)
 		}
 	} while (!os_atomic_cmpxchg(c_lsseqaddr, oldval64, newval64, seq_cst));
 
+	PTHREAD_TRACE(psynch_cvar_updateval | DBG_FUNC_END, cond, newval64,
+			(uint64_t)diffgen << 32 | needclearpre, 0);
+
 	if (diffgen > 0) {
 		// if L == S, then reset associated mutex
 		if ((nsval & PTHRW_COUNT_MASK) == (lcntval & PTHRW_COUNT_MASK)) {
 			cond->busy = NULL;
 		}
+	}
 
-		if (needclearpre != 0) {
-			uint32_t flags = 0;
-			if (cond->pshared == PTHREAD_PROCESS_SHARED) {
-				flags |= _PTHREAD_MTX_OPT_PSHARED;
-			}
-			(void)__psynch_cvclrprepost(cond, lcntval, ucntval, nsval, 0, lcntval, flags);
+	if (needclearpre) {
+		uint32_t flags = 0;
+		if (cond->pshared == PTHREAD_PROCESS_SHARED) {
+			flags |= _PTHREAD_MTX_OPT_PSHARED;
 		}
+		(void)__psynch_cvclrprepost(cond, lcntval, ucntval, nsval, 0, lcntval, flags);
 	}
 }
 

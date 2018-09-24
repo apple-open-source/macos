@@ -37,6 +37,8 @@ typedef struct _WebKitDOMClientRectPrivate {
     RefPtr<WebCore::DOMRect> coreObject;
 } WebKitDOMClientRectPrivate;
 
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
+
 namespace WebKit {
 
 WebKitDOMClientRect* kit(WebCore::DOMRect* obj)
@@ -66,13 +68,13 @@ WebKitDOMClientRect* wrapClientRect(WebCore::DOMRect* coreObject)
 G_DEFINE_TYPE(WebKitDOMClientRect, webkit_dom_client_rect, WEBKIT_DOM_TYPE_OBJECT)
 
 enum {
-    PROP_0,
-    PROP_TOP,
-    PROP_RIGHT,
-    PROP_BOTTOM,
-    PROP_LEFT,
-    PROP_WIDTH,
-    PROP_HEIGHT,
+    DOM_CLIENT_RECT_PROP_0,
+    DOM_CLIENT_RECT_PROP_TOP,
+    DOM_CLIENT_RECT_PROP_RIGHT,
+    DOM_CLIENT_RECT_PROP_BOTTOM,
+    DOM_CLIENT_RECT_PROP_LEFT,
+    DOM_CLIENT_RECT_PROP_WIDTH,
+    DOM_CLIENT_RECT_PROP_HEIGHT,
 };
 
 static void webkit_dom_client_rect_finalize(GObject* object)
@@ -90,22 +92,22 @@ static void webkit_dom_client_rect_get_property(GObject* object, guint propertyI
     WebKitDOMClientRect* self = WEBKIT_DOM_CLIENT_RECT(object);
 
     switch (propertyId) {
-    case PROP_TOP:
+    case DOM_CLIENT_RECT_PROP_TOP:
         g_value_set_float(value, webkit_dom_client_rect_get_top(self));
         break;
-    case PROP_RIGHT:
+    case DOM_CLIENT_RECT_PROP_RIGHT:
         g_value_set_float(value, webkit_dom_client_rect_get_right(self));
         break;
-    case PROP_BOTTOM:
+    case DOM_CLIENT_RECT_PROP_BOTTOM:
         g_value_set_float(value, webkit_dom_client_rect_get_bottom(self));
         break;
-    case PROP_LEFT:
+    case DOM_CLIENT_RECT_PROP_LEFT:
         g_value_set_float(value, webkit_dom_client_rect_get_left(self));
         break;
-    case PROP_WIDTH:
+    case DOM_CLIENT_RECT_PROP_WIDTH:
         g_value_set_float(value, webkit_dom_client_rect_get_width(self));
         break;
-    case PROP_HEIGHT:
+    case DOM_CLIENT_RECT_PROP_HEIGHT:
         g_value_set_float(value, webkit_dom_client_rect_get_height(self));
         break;
     default:
@@ -133,7 +135,7 @@ static void webkit_dom_client_rect_class_init(WebKitDOMClientRectClass* requestC
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_TOP,
+        DOM_CLIENT_RECT_PROP_TOP,
         g_param_spec_float(
             "top",
             "ClientRect:top",
@@ -143,7 +145,7 @@ static void webkit_dom_client_rect_class_init(WebKitDOMClientRectClass* requestC
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_RIGHT,
+        DOM_CLIENT_RECT_PROP_RIGHT,
         g_param_spec_float(
             "right",
             "ClientRect:right",
@@ -153,7 +155,7 @@ static void webkit_dom_client_rect_class_init(WebKitDOMClientRectClass* requestC
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_BOTTOM,
+        DOM_CLIENT_RECT_PROP_BOTTOM,
         g_param_spec_float(
             "bottom",
             "ClientRect:bottom",
@@ -163,7 +165,7 @@ static void webkit_dom_client_rect_class_init(WebKitDOMClientRectClass* requestC
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_LEFT,
+        DOM_CLIENT_RECT_PROP_LEFT,
         g_param_spec_float(
             "left",
             "ClientRect:left",
@@ -173,7 +175,7 @@ static void webkit_dom_client_rect_class_init(WebKitDOMClientRectClass* requestC
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_WIDTH,
+        DOM_CLIENT_RECT_PROP_WIDTH,
         g_param_spec_float(
             "width",
             "ClientRect:width",
@@ -183,7 +185,7 @@ static void webkit_dom_client_rect_class_init(WebKitDOMClientRectClass* requestC
 
     g_object_class_install_property(
         gobjectClass,
-        PROP_HEIGHT,
+        DOM_CLIENT_RECT_PROP_HEIGHT,
         g_param_spec_float(
             "height",
             "ClientRect:height",
@@ -240,3 +242,4 @@ gfloat webkit_dom_client_rect_get_height(WebKitDOMClientRect* self)
     g_return_val_if_fail(WEBKIT_DOM_IS_CLIENT_RECT(self), 0);
     return WebKit::core(self)->height();
 }
+G_GNUC_END_IGNORE_DEPRECATIONS;

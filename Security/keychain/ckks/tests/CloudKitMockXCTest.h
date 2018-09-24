@@ -50,6 +50,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) id mockDatabase;
 @property (nullable) id mockDatabaseExceptionCatcher;
 @property (nullable) id mockContainer;
+@property (nullable) id mockContainerExpectations;
 @property (nullable) id mockFakeCKModifyRecordZonesOperation;
 @property (nullable) id mockFakeCKModifySubscriptionsOperation;
 @property (nullable) id mockFakeCKFetchRecordZoneChangesOperation;
@@ -61,9 +62,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKAccountStatus accountStatus;
 @property BOOL supportsDeviceToDeviceEncryption;
 @property BOOL iCloudHasValidCredentials;
-@property SOSCCStatus circleStatus;
+@property SOSAccountStatus* circleStatus;
 @property (readonly) NSString* ckDeviceID;
 @property (readonly) CKKSCKAccountStateTracker* accountStateTracker;
+
+@property NSString* apsEnvironment;
 
 @property NSString* circlePeerID;
 
@@ -121,13 +124,13 @@ NS_ASSUME_NONNULL_BEGIN
       deletedRecordTypeCounts:(NSDictionary<NSString*, NSNumber*>* _Nullable)expectedDeletedRecordTypeCounts
                        zoneID:(CKRecordZoneID*)zoneID
           checkModifiedRecord:(BOOL (^_Nullable)(CKRecord*))checkRecord
-         runAfterModification:(void (^_Nullable)())afterModification;
+         runAfterModification:(void (^_Nullable)(void))afterModification;
 
 - (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID;
 - (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID
-                                      blockAfterReject:(void (^_Nullable)())blockAfterReject;
+                                      blockAfterReject:(void (^_Nullable)(void))blockAfterReject;
 - (void)failNextCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID
-                                      blockAfterReject:(void (^_Nullable)())blockAfterReject
+                                      blockAfterReject:(void (^_Nullable)(void))blockAfterReject
                                              withError:(NSError* _Nullable)error;
 - (void)expectCKAtomicModifyItemRecordsUpdateFailure:(CKRecordZoneID*)zoneID;
 
@@ -141,7 +144,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Use this to 1) assert that a fetch occurs and 2) cause a block to run _after_ all changes have been delivered but _before_ the fetch 'completes'.
 // This way, you can modify the CK zone to cause later collisions.
-- (void)expectCKFetchAndRunBeforeFinished:(void (^_Nullable)())blockAfterFetch;
+- (void)expectCKFetchAndRunBeforeFinished:(void (^_Nullable)(void))blockAfterFetch;
 
 // Use this to assert that a FakeCKFetchRecordsOperation occurs.
 - (void)expectCKFetchByRecordID;

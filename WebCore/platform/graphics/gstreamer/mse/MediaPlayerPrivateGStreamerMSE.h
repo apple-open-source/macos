@@ -26,11 +26,10 @@
 
 #if ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(MEDIA_SOURCE) 
 
-#include "GRefPtrGStreamer.h"
+#include "GStreamerCommon.h"
 #include "MediaPlayerPrivateGStreamer.h"
 #include "MediaSample.h"
 #include "MediaSourceGStreamer.h"
-#include "PlaybackPipeline.h"
 #include "WebKitMediaSourceGStreamer.h"
 
 namespace WebCore {
@@ -71,7 +70,7 @@ public:
     std::unique_ptr<PlatformTimeRanges> buffered() const override;
     MediaTime maxMediaTimeSeekable() const override;
 
-    void sourceChanged() override;
+    void sourceSetup(GstElement*) override;
 
     void setReadyState(MediaPlayer::ReadyState);
     void waitForSeekCompleted();
@@ -105,8 +104,7 @@ private:
     void updatePlaybackRate() override;
     void asyncStateChangeDone() override;
 
-    // FIXME: Implement.
-    std::optional<PlatformVideoPlaybackQualityMetrics> videoPlaybackQualityMetrics() override { return std::nullopt; }
+    // FIXME: Implement videoPlaybackQualityMetrics.
     bool isTimeBuffered(const MediaTime&) const;
 
     bool isMediaSource() const override { return true; }

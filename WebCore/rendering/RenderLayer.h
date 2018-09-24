@@ -46,11 +46,13 @@
 #include "ClipRect.h"
 #include "GraphicsLayer.h"
 #include "LayerFragment.h"
+#include "PaintFrequencyTracker.h"
 #include "PaintInfo.h"
 #include "RenderBox.h"
 #include "RenderPtr.h"
 #include "ScrollableArea.h"
 #include <memory>
+#include <wtf/WeakPtr.h>
 
 namespace WTF {
 class TextStream;
@@ -66,7 +68,6 @@ class FilterOperations;
 class HitTestRequest;
 class HitTestResult;
 class HitTestingTransformState;
-class PaintFrequencyInfo;
 class RenderFragmentedFlow;
 class RenderGeometryMap;
 class RenderLayerBacking;
@@ -142,6 +143,7 @@ public:
     RenderLayer* nextSibling() const { return m_next; }
     RenderLayer* firstChild() const { return m_first; }
     RenderLayer* lastChild() const { return m_last; }
+    bool isDescendantOf(const RenderLayer&) const;
 
     void addChild(RenderLayer* newChild, RenderLayer* beforeChild = nullptr);
     RenderLayer* removeChild(RenderLayer*);
@@ -217,7 +219,7 @@ public:
     void availableContentSizeChanged(AvailableSizeChangeReason) override;
 
     // "absoluteRect" is in scaled document coordinates.
-    void scrollRectToVisible(SelectionRevealMode, const LayoutRect& absoluteRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY);
+    void scrollRectToVisible(SelectionRevealMode, const LayoutRect& absoluteRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY, ShouldAllowCrossOriginScrolling);
 
     bool scrollsOverflow() const;
     bool hasScrollbars() const { return m_hBar || m_vBar; }
@@ -324,7 +326,7 @@ public:
     {
         if (mode == ExcludeCompositedPaginatedLayers && hasCompositedLayerInEnclosingPaginationChain())
             return nullptr;
-        return m_enclosingPaginationLayer;
+        return m_enclosingPaginationLayer.get();
     }
 
     void updateTransform();
@@ -442,7 +444,7 @@ public:
 
     // Gets the nearest enclosing positioned ancestor layer (also includes
     // the <html> layer and the root layer).
-    RenderLayer* enclosingAncestorForPosition(EPosition) const;
+    RenderLayer* enclosingAncestorForPosition(PositionType) const;
 
     // Returns the nearest enclosing layer that is scrollable.
     RenderLayer* enclosingScrollableLayer() const;
@@ -610,7 +612,7 @@ public:
     // Note that this transform has the perspective-origin baked in.
     TransformationMatrix perspectiveTransform() const;
     FloatPoint perspectiveOrigin() const;
-    bool preserves3D() const { return renderer().style().transformStyle3D() == TransformStyle3DPreserve3D; }
+    bool preserves3D() const { return renderer().style().transformStyle3D() == TransformStyle3D::Preserve3D; }
     bool has3DTransform() const { return m_transform && !m_transform->isAffine(); }
 
     void filterNeedsRepaint();
@@ -713,9 +715,8 @@ public:
 
     bool shouldPlaceBlockDirectionScrollbarOnLeft() const final { return renderer().shouldPlaceBlockDirectionScrollbarOnLeft(); }
 
-    WEBCORE_EXPORT void simulateFrequentPaint();
-    WEBCORE_EXPORT bool paintingFrequently() const;
-    void clearPaintFrequencyInfo();
+    void simulateFrequentPaint() { SinglePaintFrequencyTracking { m_paintFrequencyTracker }; }
+    bool paintingFrequently() const { return m_paintFrequencyTracker.paintingFrequently(); }
 
 private:
     enum CollectLayersBehavior { StopAtStackingContexts, StopAtStackingContainers };
@@ -1164,13 +1165,13 @@ private:
     RenderPtr<RenderScrollbarPart> m_resizer;
 
     // Pointer to the enclosing RenderLayer that caused us to be paginated. It is 0 if we are not paginated.
-    RenderLayer* m_enclosingPaginationLayer;
+    WeakPtr<RenderLayer> m_enclosingPaginationLayer;
 
     IntRect m_blockSelectionGapsBounds;
 
     std::unique_ptr<RenderLayerBacking> m_backing;
     
-    std::unique_ptr<PaintFrequencyInfo> m_paintFrequencyInfo;
+    PaintFrequencyTracker m_paintFrequencyTracker;
 };
 
 inline void RenderLayer::clearZOrderLists()

@@ -594,7 +594,7 @@ OSSet * IOPartitionScheme::juxtaposeMediaObjects(OSSet * partitionsOld,
 
             if ( handleIsOpen( partition1 ) == false )
             {
-                partition1->terminate( kIOServiceSynchronous );
+                partition1->terminate( );
 
                 detachMediaObjectFromDeviceTree( partition1 );
             }

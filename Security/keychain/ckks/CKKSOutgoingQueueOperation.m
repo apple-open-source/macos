@@ -21,6 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
+#import <CloudKit/CloudKit.h>
+#import <CloudKit/CloudKit_Private.h>
+
 #import "CKKSKeychainView.h"
 #import "CKKSCurrentKeyPointer.h"
 #import "CKKSOutgoingQueueOperation.h"
@@ -36,8 +41,6 @@
 #include <Security/SecItemPriv.h>
 #include <utilities/SecADWrapper.h>
 #import "CKKSPowerCollection.h"
-
-#if OCTAGON
 
 @interface CKKSOutgoingQueueOperation()
 @property CKModifyRecordsOperation* modifyRecordsOperation;
@@ -76,7 +79,7 @@
         return;
     }
 
-    [ckks dispatchSyncWithAccountKeys: ^bool{
+    [ckks dispatchSync: ^bool{
         ckks.lastOutgoingQueueOperation = self;
         if(self.cancelled) {
             ckksnotice("ckksoutgoing", ckks, "CKKSOutgoingQueueOperation cancelled, quitting");
@@ -235,15 +238,6 @@
                 ckksnotice("ckksoutgoing", ckks, "End of operation group: %@", self.ckoperationGroup);
             }
             return true;
-        }
-
-        bool uploadingPCSEntries = false;
-        for(CKKSOutgoingQueueEntry* oqe in oqesModified) {
-            // PCS always sets these fields, and nothing else does
-            if(oqe.item.plaintextPCSPublicKey || oqe.item.plaintextPCSPublicIdentity || oqe.item.plaintextPCSServiceIdentifier) {
-                uploadingPCSEntries = true;
-                break;
-            }
         }
 
         self.itemsProcessed = recordsToSave.count;
@@ -443,10 +437,16 @@
                 return true;
             }];
 
-
             [strongSelf.operationQueue addOperation: modifyComplete];
             // Kick off another queue process. We expect it to exit instantly, but who knows!
-            [strongCKKS processOutgoingQueue:strongSelf.ckoperationGroup];
+            // If we think the network is iffy, though, wait for it to come back
+            CKKSResultOperation* possibleNetworkDependency = nil;
+            CKKSReachabilityTracker* reachabilityTracker = strongCKKS.reachabilityTracker;
+            if(ckerror && [reachabilityTracker isNetworkError:ckerror]) {
+                possibleNetworkDependency = reachabilityTracker.reachabilityDependency;
+            }
+
+            [strongCKKS processOutgoingQueueAfter:possibleNetworkDependency ckoperationGroup:strongSelf.ckoperationGroup];
         };
 
         ckksinfo("ckksoutgoing", ckks, "Current keys to update: %@", currentKeysToSave);
@@ -474,7 +474,11 @@
 
         self.modifyRecordsOperation = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave.allValues recordIDsToDelete:recordIDsToDelete];
         self.modifyRecordsOperation.atomic = TRUE;
-        self.modifyRecordsOperation.qualityOfService = uploadingPCSEntries ? NSQualityOfServiceUserInitiated : NSQualityOfServiceUtility; // PCS items are needed for CloudKit to work, so they might be user-initiated
+
+        // Until <rdar://problem/38725728> Changes to discretionary-ness (explicit or derived from QoS) should be "live", all requests should be nondiscretionary
+        self.modifyRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
+        self.modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+
         self.modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
         self.modifyRecordsOperation.group = self.ckoperationGroup;
         ckksnotice("ckksoutgoing", ckks, "QoS: %d; operation group is %@", (int)self.modifyRecordsOperation.qualityOfService, self.modifyRecordsOperation.group);

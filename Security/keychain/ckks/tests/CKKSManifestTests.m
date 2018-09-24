@@ -117,7 +117,7 @@
     [self.keychainView waitForKeyHierarchyReadiness];
     
     // Wait for uploads to happen
-    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
     int tlkshares = 1;
     int extraDeviceStates = 1;
@@ -166,7 +166,7 @@
     NSArray* knownItems = [self mirrorItemsForExistingItems];
     [self addGenericPassword:@"data" account:@"unknown_account"];
     [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
-    OCMVerifyAllWithDelay(self.mockDatabase, 4);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
     
     NSArray* newItems = [self mirrorItemsForExistingItems];
@@ -242,7 +242,7 @@
     
     [self addGenericPassword:@"data" account:@"GenerationCountIncrease"];
     [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
-    OCMVerifyAllWithDelay(self.mockDatabase, 4);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
     
     NSInteger postUpdateGenerationCount = [[CKKSEgoManifest tryCurrentEgoManifestForZone:self.keychainZoneID.zoneName] generationCount];

@@ -69,6 +69,8 @@ using WebCore::VerticalScrollbar;
 using WebCore::macScrollbarTheme;
 using WebCore::IntRect;
 using WebCore::ThumbPart;
+using WebCore::CubicBezierTimingFunction;
+
 @interface NSObject (ScrollAnimationHelperDetails)
 - (id)initWithDelegate:(id)delegate;
 - (void)_stopRun;
@@ -284,31 +286,55 @@ enum FeatureToAnimate {
     ExpansionTransition
 };
 
+#if !ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
 @interface WebScrollbarPartAnimation : NSAnimation
+#else
+@interface WebScrollbarPartAnimation : NSObject
+#endif
 {
     Scrollbar* _scrollbar;
     RetainPtr<NSScrollerImp> _scrollerImp;
     FeatureToAnimate _featureToAnimate;
     CGFloat _startValue;
     CGFloat _endValue;
+#if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    NSTimeInterval _duration;
+    RetainPtr<NSTimer> _timer;
+    RetainPtr<NSDate> _startDate;
+    RefPtr<CubicBezierTimingFunction> _timingFunction;
+#endif
 }
 - (id)initWithScrollbar:(Scrollbar*)scrollbar featureToAnimate:(FeatureToAnimate)featureToAnimate animateFrom:(CGFloat)startValue animateTo:(CGFloat)endValue duration:(NSTimeInterval)duration;
+#if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+- (void)setCurrentProgress:(NSTimer *)timer;
+- (void)setDuration:(NSTimeInterval)duration;
+- (void)stopAnimation;
+#endif
 @end
 
 @implementation WebScrollbarPartAnimation
 
 - (id)initWithScrollbar:(Scrollbar*)scrollbar featureToAnimate:(FeatureToAnimate)featureToAnimate animateFrom:(CGFloat)startValue animateTo:(CGFloat)endValue duration:(NSTimeInterval)duration
 {
+#if !ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
     self = [super initWithDuration:duration animationCurve:NSAnimationEaseInOut];
     if (!self)
         return nil;
+#else
+    const NSTimeInterval timeInterval = 0.01;
+    _timer = adoptNS([[NSTimer alloc] initWithFireDate:[NSDate dateWithTimeIntervalSinceNow:0] interval:timeInterval target:self selector:@selector(setCurrentProgress:) userInfo:nil repeats:YES]);
+    _duration = duration;
+    _timingFunction = CubicBezierTimingFunction::create(CubicBezierTimingFunction::EaseInOut);
+#endif
 
     _scrollbar = scrollbar;
     _featureToAnimate = featureToAnimate;
     _startValue = startValue;
     _endValue = endValue;
 
+#if !ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
     [self setAnimationBlockingMode:NSAnimationNonblocking];
+#endif
 
     return self;
 }
@@ -319,7 +345,12 @@ enum FeatureToAnimate {
 
     _scrollerImp = scrollerImpForScrollbar(*_scrollbar);
 
+#if !ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
     [super startAnimation];
+#else
+    [[NSRunLoop mainRunLoop] addTimer:_timer.get() forMode:NSDefaultRunLoopMode];
+    _startDate = adoptNS([[NSDate alloc] initWithTimeIntervalSinceNow:0]);
+#endif
 }
 
 - (void)setStartValue:(CGFloat)startValue
@@ -332,10 +363,28 @@ enum FeatureToAnimate {
     _endValue = endValue;
 }
 
+#if !ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
 - (void)setCurrentProgress:(NSAnimationProgress)progress
+#else
+- (void)setCurrentProgress:(NSTimer *)timer
+#endif
 {
+#if !ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
     [super setCurrentProgress:progress];
-
+#else
+    CGFloat progress = 0;
+    NSDate *now = [NSDate dateWithTimeIntervalSinceNow:0];
+    NSTimeInterval elapsed = [now timeIntervalSinceDate:_startDate.get()];
+    if (elapsed > _duration) {
+        progress = 1;
+        [timer invalidate];
+    } else {
+        NSTimeInterval t = 1;
+        if (_duration)
+            t = elapsed / _duration;
+        progress = _timingFunction->transformTime(t, _duration);
+    }
+#endif
     ASSERT(_scrollbar);
 
     CGFloat currentValue;
@@ -370,6 +419,18 @@ enum FeatureToAnimate {
     END_BLOCK_OBJC_EXCEPTIONS;
     _scrollbar = 0;
 }
+
+#if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+- (void)setDuration:(NSTimeInterval)duration
+{
+    _duration = duration;
+}
+
+- (void)stopAnimation
+{
+    [_timer invalidate];
+}
+#endif
 
 @end
 
@@ -635,7 +696,7 @@ ScrollAnimatorMac::ScrollAnimatorMac(ScrollableArea& scrollableArea)
     m_scrollerImpPairDelegate = adoptNS([[WebScrollerImpPairDelegate alloc] initWithScrollableArea:&scrollableArea]);
     m_scrollerImpPair = adoptNS([[NSScrollerImpPair alloc] init]);
     [m_scrollerImpPair setDelegate:m_scrollerImpPairDelegate.get()];
-    [m_scrollerImpPair setScrollerStyle:recommendedScrollerStyle()];
+    [m_scrollerImpPair setScrollerStyle:ScrollerStyle::recommendedScrollerStyle()];
 }
 
 ScrollAnimatorMac::~ScrollAnimatorMac()
@@ -815,7 +876,7 @@ void ScrollAnimatorMac::mouseMovedInContentArea()
 void ScrollAnimatorMac::mouseEnteredScrollbar(Scrollbar* scrollbar) const
 {
     // At this time, only legacy scrollbars needs to send notifications here.
-    if (recommendedScrollerStyle() != NSScrollerStyleLegacy)
+    if (ScrollerStyle::recommendedScrollerStyle() != NSScrollerStyleLegacy)
         return;
 
     if ([m_scrollerImpPair overlayScrollerStateIsLocked])
@@ -828,7 +889,7 @@ void ScrollAnimatorMac::mouseEnteredScrollbar(Scrollbar* scrollbar) const
 void ScrollAnimatorMac::mouseExitedScrollbar(Scrollbar* scrollbar) const
 {
     // At this time, only legacy scrollbars needs to send notifications here.
-    if (recommendedScrollerStyle() != NSScrollerStyleLegacy)
+    if (ScrollerStyle::recommendedScrollerStyle() != NSScrollerStyleLegacy)
         return;
 
     if ([m_scrollerImpPair overlayScrollerStateIsLocked])
@@ -1047,7 +1108,7 @@ void ScrollAnimatorMac::horizontalScrollbarLayerDidChange()
 bool ScrollAnimatorMac::shouldScrollbarParticipateInHitTesting(Scrollbar* scrollbar)
 {
     // Non-overlay scrollbars should always participate in hit testing.
-    if (recommendedScrollerStyle() != NSScrollerStyleOverlay)
+    if (ScrollerStyle::recommendedScrollerStyle() != NSScrollerStyleOverlay)
         return true;
 
     if (scrollbar->isAlphaLocked())

@@ -208,6 +208,7 @@ struct SecCmsSignerInfoStr {
     SecPublicKeyRef		pubKey;
     CFDataRef           hashAgilityAttrValue;
     CFDictionaryRef     hashAgilityV2AttrValues;
+    CFAbsoluteTime      expirationTime;
 };
 #define SEC_CMS_SIGNER_INFO_VERSION_ISSUERSN	1	/* what we *create* */
 #define SEC_CMS_SIGNER_INFO_VERSION_SUBJKEY	3	/* what we *create* */

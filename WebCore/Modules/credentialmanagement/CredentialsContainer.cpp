@@ -27,25 +27,27 @@
 #include "config.h"
 #include "CredentialsContainer.h"
 
+#if ENABLE(WEB_AUTHN)
+
 #include "AbortSignal.h"
 #include "CredentialCreationOptions.h"
 #include "CredentialRequestOptions.h"
 #include "Document.h"
 #include "ExceptionOr.h"
-#include "JSBasicCredential.h"
-#include "PublicKeyCredential.h"
+#include "JSDOMPromiseDeferred.h"
 #include "SecurityOrigin.h"
 
 namespace WebCore {
 
 CredentialsContainer::CredentialsContainer(WeakPtr<Document>&& document)
     : m_document(WTFMove(document))
-    , m_workQueue(WorkQueue::create("com.apple.WebKit.CredentialQueue"))
 {
 }
 
 bool CredentialsContainer::doesHaveSameOriginAsItsAncestors()
 {
+    // The following implements https://w3c.github.io/webappsec-credential-management/#same-origin-with-its-ancestors
+    // as of 14 November 2017.
     if (!m_document)
         return false;
 
@@ -57,89 +59,68 @@ bool CredentialsContainer::doesHaveSameOriginAsItsAncestors()
     return true;
 }
 
-template<typename OperationType>
-void CredentialsContainer::dispatchTask(OperationType&& operation, Ref<DeferredPromise>&& promise)
+void CredentialsContainer::get(CredentialRequestOptions&& options, CredentialPromise&& promise)
 {
-    auto* promiseIndex = promise.ptr();
-    m_pendingPromises.add(promiseIndex, WTFMove(promise));
-    auto weakThis = m_weakPtrFactory.createWeakPtr(*this);
-    auto task = [promiseIndex, weakThis, isSameOriginWithItsAncestors = doesHaveSameOriginAsItsAncestors(), operation = WTFMove(operation)] () {
-        auto result = operation(isSameOriginWithItsAncestors);
-        callOnMainThread([promiseIndex, weakThis, result = WTFMove(result)] () mutable {
-            if (weakThis) {
-                if (auto promise = weakThis->m_pendingPromises.take(promiseIndex)) {
-                    if (result.hasException())
-                        promise.value()->reject(result.releaseException());
-                    else
-                        promise.value()->resolve<IDLNullable<IDLInterface<BasicCredential>>>(result.releaseReturnValue().get());
-                }
-            }
-        });
-    };
-    m_workQueue->dispatch(WTFMove(task));
-}
-
-void CredentialsContainer::get(CredentialRequestOptions&& options, Ref<DeferredPromise>&& promise)
-{
-    // FIXME: Optional options are passed with no contents. It should be std::optional.
-    if ((!options.signal && !options.publicKey) || !m_document) {
-        promise->reject(Exception { NotSupportedError });
+    // The following implements https://www.w3.org/TR/credential-management-1/#algorithm-request as of 4 August 2017
+    // with enhancement from 14 November 2017 Editor's Draft.
+    if (!m_document) {
+        promise.reject(Exception { NotSupportedError });
         return;
     }
     if (options.signal && options.signal->aborted()) {
-        promise->reject(Exception { AbortError });
+        promise.reject(Exception { AbortError, "Aborted by AbortSignal."_s });
         return;
     }
+    // Step 1-2.
     ASSERT(m_document->isSecureContext());
 
-    // The followings is a shortcut to https://www.w3.org/TR/credential-management-1/#algorithm-request,
-    // as we only support PublicKeyCredential which can only be requested from [[discoverFromExternalSource]].
+    // Step 3 is enhanced with doesHaveSameOriginAsItsAncestors.
+    // Step 4-6. Shortcut as we only support PublicKeyCredential which can only
+    // be requested from [[discoverFromExternalSource]].
     if (!options.publicKey) {
-        promise->reject(Exception { NotSupportedError });
+        promise.reject(Exception { NotSupportedError, "Only PublicKeyCredential is supported."_s });
         return;
     }
 
-    auto operation = [options = WTFMove(options)] (bool isSameOriginWithItsAncestors) {
-        return PublicKeyCredential::discoverFromExternalSource(options, isSameOriginWithItsAncestors);
-    };
-    dispatchTask(WTFMove(operation), WTFMove(promise));
+    // Async operations are dispatched/handled in (Web)CredentialMessenger, which exchanges messages between WebProcess and UIProcess.
+    AuthenticatorManager::singleton().discoverFromExternalSource(m_document->securityOrigin(), options.publicKey.value(), doesHaveSameOriginAsItsAncestors(), WTFMove(options.signal), WTFMove(promise));
 }
 
-void CredentialsContainer::store(const BasicCredential&, Ref<DeferredPromise>&& promise)
+void CredentialsContainer::store(const BasicCredential&, CredentialPromise&& promise)
 {
-    promise->reject(Exception { NotSupportedError });
+    promise.reject(Exception { NotSupportedError, "Not implemented."_s });
 }
 
-void CredentialsContainer::isCreate(CredentialCreationOptions&& options, Ref<DeferredPromise>&& promise)
+void CredentialsContainer::isCreate(CredentialCreationOptions&& options, CredentialPromise&& promise)
 {
-    // FIXME: Optional options are passed with no contents. It should be std::optional.
-    if ((!options.signal && !options.publicKey) || !m_document) {
-        promise->reject(Exception { NotSupportedError });
+    // The following implements https://www.w3.org/TR/credential-management-1/#algorithm-create as of 4 August 2017
+    // with enhancement from 14 November 2017 Editor's Draft.
+    if (!m_document) {
+        promise.reject(Exception { NotSupportedError });
         return;
     }
     if (options.signal && options.signal->aborted()) {
-        promise->reject(Exception { AbortError });
+        promise.reject(Exception { AbortError, "Aborted by AbortSignal."_s });
         return;
     }
+    // Step 1-2.
     ASSERT(m_document->isSecureContext());
 
-    // This is a shortcut to https://www.w3.org/TR/credential-management-1/#credentialrequestoptions-relevant-credential-interface-objects,
-    // as we only support one kind of credentials.
+    // Step 3-7. Shortcut as we only support one kind of credentials.
     if (!options.publicKey) {
-        promise->reject(Exception { NotSupportedError });
+        promise.reject(Exception { NotSupportedError, "Only PublicKeyCredential is supported."_s });
         return;
     }
 
-    auto operation = [options = WTFMove(options)] (bool isSameOriginWithItsAncestors) {
-        // Shortcut as well.
-        return PublicKeyCredential::create(options, isSameOriginWithItsAncestors);
-    };
-    dispatchTask(WTFMove(operation), WTFMove(promise));
+    // Async operations are dispatched/handled in (Web)CredentialMessenger, which exchanges messages between WebProcess and UIProcess.
+    AuthenticatorManager::singleton().create(m_document->securityOrigin(), options.publicKey.value(), doesHaveSameOriginAsItsAncestors(), WTFMove(options.signal), WTFMove(promise));
 }
 
-void CredentialsContainer::preventSilentAccess(Ref<DeferredPromise>&& promise)
+void CredentialsContainer::preventSilentAccess(DOMPromiseDeferred<void>&& promise) const
 {
-    promise->reject(Exception { NotSupportedError });
+    promise.reject(Exception { NotSupportedError, "Not implemented."_s });
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_AUTHN)

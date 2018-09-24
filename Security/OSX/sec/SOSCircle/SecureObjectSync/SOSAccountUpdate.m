@@ -253,7 +253,7 @@ void SOSAccountNotifyOfChange(SOSAccount* account, SOSCircleRef oldCircle, SOSCi
         DifferenceAndCall(old_applicants, new_applicants, ^(CFSetRef added_applicants, CFSetRef removed_applicants) {
             CFArrayForEach((__bridge CFArrayRef)(account.change_blocks), ^(const void * notificationBlock) {
                 secnotice("updates", "calling change block");
-                ((__bridge SOSAccountCircleMembershipChangeBlock) notificationBlock)(newCircle, added_members, removed_members, added_applicants, removed_applicants);
+                ((__bridge SOSAccountCircleMembershipChangeBlock) notificationBlock)(account, newCircle, added_members, removed_members, added_applicants, removed_applicants);
             });
         });
     });

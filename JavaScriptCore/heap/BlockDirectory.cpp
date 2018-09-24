@@ -33,9 +33,7 @@
 #include "JSCInlines.h"
 #include "MarkedBlockInlines.h"
 #include "SuperSampler.h"
-#include "ThreadLocalCacheInlines.h"
 #include "VM.h"
-#include <wtf/CurrentTime.h>
 
 namespace JSC {
 
@@ -43,11 +41,13 @@ BlockDirectory::BlockDirectory(Heap* heap, size_t cellSize)
     : m_cellSize(static_cast<unsigned>(cellSize))
     , m_heap(heap)
 {
-    heap->threadLocalCacheLayout().allocateOffset(this);
 }
 
 BlockDirectory::~BlockDirectory()
 {
+    auto locker = holdLock(m_localAllocatorsLock);
+    while (!m_localAllocators.isEmpty())
+        m_localAllocators.begin()->remove();
 }
 
 void BlockDirectory::setSubspace(Subspace* subspace)
@@ -56,7 +56,7 @@ void BlockDirectory::setSubspace(Subspace* subspace)
     m_subspace = subspace;
 }
 
-bool BlockDirectory::isPagedOut(double deadline)
+bool BlockDirectory::isPagedOut(MonotonicTime deadline)
 {
     unsigned itersSinceLastTimeCheck = 0;
     for (auto* block : m_blocks) {
@@ -64,7 +64,7 @@ bool BlockDirectory::isPagedOut(double deadline)
             holdLock(block->block().lock());
         ++itersSinceLastTimeCheck;
         if (itersSinceLastTimeCheck >= Heap::s_timeCheckResolution) {
-            double currentTime = WTF::monotonicallyIncreasingTime();
+            MonotonicTime currentTime = MonotonicTime::now();
             if (currentTime > deadline)
                 return true;
             itersSinceLastTimeCheck = 0;
@@ -90,10 +90,8 @@ MarkedBlock::Handle* BlockDirectory::findBlockForAllocation(LocalAllocator& allo
         
         size_t blockIndex = allocator.m_allocationCursor++;
         MarkedBlock::Handle* result = m_blocks[blockIndex];
-        if (result->securityOriginToken() == allocator.tlc()->securityOriginToken()) {
-            setIsCanAllocateButNotEmpty(NoLockingNecessary, blockIndex, false);
-            return result;
-        }
+        setIsCanAllocateButNotEmpty(NoLockingNecessary, blockIndex, false);
+        return result;
     }
 }
 

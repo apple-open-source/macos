@@ -39,7 +39,7 @@
 			_spins++; \
 			_os_preemption_yield(_spins); \
 		} } while (0)
-#elif TARGET_OS_EMBEDDED
+#else
 // <rdar://problem/15508918>
 #ifndef OS_WAIT_SPINS
 #define OS_WAIT_SPINS 1024
@@ -52,11 +52,6 @@
 			} else { \
 				os_hardware_pause(); \
 			} \
-		} } while (0)
-#else
-#define _os_wait_until(c) do { \
-		while (!(c)) { \
-			os_hardware_pause(); \
 		} } while (0)
 #endif
 
@@ -76,13 +71,7 @@
 #pragma mark -
 #pragma mark _os_preemption_yield
 
-#if defined(SWITCH_OPTION_OSLOCK_DEPRESS) && !(TARGET_IPHONE_SIMULATOR && \
-		IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED < 1090)
-#define OS_YIELD_THREAD_SWITCH_OPTION SWITCH_OPTION_OSLOCK_DEPRESS
-#else
-#define OS_YIELD_THREAD_SWITCH_OPTION SWITCH_OPTION_DEPRESS
-#endif
 #define _os_preemption_yield(n) thread_switch(MACH_PORT_NULL, \
-		OS_YIELD_THREAD_SWITCH_OPTION, (mach_msg_timeout_t)(n))
+		SWITCH_OPTION_OSLOCK_DEPRESS, (mach_msg_timeout_t)(n))
 
 #endif // __OS_YIELD__

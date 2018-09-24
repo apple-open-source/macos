@@ -36,10 +36,12 @@
 #include <TargetConditionals.h>
 
 #include "symbol_scope.h"
+#include "cfutil.h"
 #include "ipconfigServer.h"
 #include "ipconfigd.h"
 #include "ipconfig_ext.h"
 #include "globals.h"
+#include "IPConfigurationUtilPrivate.h"
 
 static uid_t S_uid = -1;
 static pid_t S_pid = -1;
@@ -84,6 +86,8 @@ S_has_entitlement(audit_token_t token, CFStringRef entitlement)
 static void
 S_process_audit_token(audit_token_t audit_token)
 {
+    S_uid = -1;
+    S_pid = -1;
     audit_token_to_au32(audit_token,
 			NULL,		/* auidp */
 			&S_uid,		/* euid */
@@ -429,6 +433,44 @@ _ipconfig_refresh_service(mach_port_t server,
     else {
 	*ret_status = refresh_service(name, service_id, service_id_len);
     }
+    return (KERN_SUCCESS);
+}
+
+PRIVATE_EXTERN kern_return_t
+_ipconfig_forget_network(mach_port_t server,
+			 if_name_t name,
+			 xmlData_t xml_data,
+			 mach_msg_type_number_t xml_data_len,
+			 ipconfig_status_t * ret_status,
+			 audit_token_t audit_token)
+{
+    CFDictionaryRef		dict = NULL;
+    ipconfig_status_t		status;
+    CFStringRef			ssid = NULL;
+
+    S_process_audit_token(audit_token);
+    if (S_uid != 0) {
+	status = ipconfig_status_permission_denied_e;
+	goto done;
+    }
+    if (xml_data != NULL) {
+	dict = my_CFPropertyListCreateWithBytePtrAndLength(xml_data,
+							   xml_data_len);
+	if (isA_CFDictionary(dict) != NULL) {
+	    ssid = CFDictionaryGetValue(dict,
+					kIPConfigurationForgetNetworkSSID);
+	    ssid = isA_CFString(ssid);
+	}
+    }
+    status = forget_network(name, ssid);
+    my_CFRelease(&dict);
+
+ done:
+    if (xml_data != NULL) {
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)xml_data,
+			    xml_data_len);
+    }
+    *ret_status = status;
     return (KERN_SUCCESS);
 }
 

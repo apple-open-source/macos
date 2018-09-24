@@ -110,13 +110,13 @@ WI.CanvasManager = class CanvasManager extends WI.Object
             return;
 
         let canvas = this._recordingCanvas;
-        this._recordingCanvas = null;
 
         CanvasAgent.stopRecording(canvas.identifier, (error) => {
             if (!error)
                 return;
 
             console.error(error);
+            this._recordingCanvas = null;
             this.dispatchEventToListeners(WI.CanvasManager.Event.RecordingStopped, {canvas, recording: null});
         });
     }
@@ -268,7 +268,7 @@ WI.CanvasManager = class CanvasManager extends WI.Object
 
     _removeCanvas(canvas)
     {
-        for (let program of canvas.shaderProgramCollection.items) {
+        for (let program of canvas.shaderProgramCollection) {
             this._shaderProgramIdentifierMap.delete(program.identifier);
             this._dispatchShaderProgramRemoved(program);
         }

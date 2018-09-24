@@ -11,6 +11,10 @@ VARIANTS="$3"
 
 BSD_LIBS="c info m pthread dbm poll dl rpcsvc proc"
 
+if [[ "${PLATFORM_NAME}" =~ macosx ]]; then
+   BSD_LIBS="${BSD_LIBS} gcc_s.1"
+fi
+
 mkdir -p "${DSTROOT}/usr/lib" || exit 1
 
 if [ "${ACTION}" != "installhdrs" ]; then
@@ -20,11 +24,7 @@ if [ "${ACTION}" != "installhdrs" ]; then
 	    suffix="_${variant}"
 	fi
 
-        if [[ "${PLATFORM_NAME}" =~ simulator ]] ; then
-            ln -sf "libSystem${suffix}.dylib" "${DSTROOT}/usr/lib/libSystem.B${suffix}.dylib" || exit 1
-        else
-            ln -sf "libSystem.B${suffix}.dylib" "${DSTROOT}/usr/lib/libSystem${suffix}.dylib" || exit 1
-        fi
+        ln -sf "libSystem.B${suffix}.dylib" "${DSTROOT}/usr/lib/libSystem${suffix}.dylib" || exit 1
 
 	for i in ${BSD_LIBS}; do
 	    ln -sf "libSystem.dylib" "${DSTROOT}/usr/lib/lib${i}.dylib" || exit 1

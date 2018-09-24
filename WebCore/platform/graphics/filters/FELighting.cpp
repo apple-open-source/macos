@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2010 University of Szeged
  * Copyright (C) 2010 Zoltan Herczeg
+ * Copyright (C) 2018 Apple Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -294,9 +295,9 @@ void FELighting::setPixelInternal(int offset, const LightingData& data, const Li
         lightStrength = 0;
 
     uint8_t pixelValue[3] = {
-        static_cast<uint8_t>(lightStrength * lightingData.colorVector.x()),
-        static_cast<uint8_t>(lightStrength * lightingData.colorVector.y()),
-        static_cast<uint8_t>(lightStrength * lightingData.colorVector.z())
+        static_cast<uint8_t>(lightStrength * lightingData.colorVector.x() * 255.0f),
+        static_cast<uint8_t>(lightStrength * lightingData.colorVector.y() * 255.0f),
+        static_cast<uint8_t>(lightStrength * lightingData.colorVector.z() * 255.0f)
     };
     
     data.pixels->setRange(pixelValue, 3, offset);
@@ -307,6 +308,7 @@ void FELighting::platformApplyGenericPaint(const LightingData& data, const Light
 {
     // Make sure startY is > 0 since we read from the previous row in the loop.
     ASSERT(startY);
+    ASSERT(endY > startY);
 
     for (int y = startY; y < endY; ++y) {
         int rowStartOffset = y * data.widthMultipliedByPixelSize;
@@ -341,7 +343,9 @@ void FELighting::platformApplyGenericWorker(PlatformApplyGenericParameters* para
 
 void FELighting::platformApplyGeneric(const LightingData& data, const LightSource::PaintingData& paintingData)
 {
-    int optimalThreadNumber = ((data.widthDecreasedByOne - 1) * (data.heightDecreasedByOne - 1)) / s_minimalRectDimension;
+    unsigned rowsToProcess = data.heightDecreasedByOne - 1;
+    unsigned maxNumThreads = rowsToProcess / 8;
+    unsigned optimalThreadNumber = std::min<unsigned>(((data.widthDecreasedByOne - 1) * rowsToProcess) / s_minimalRectDimension, maxNumThreads);
     if (optimalThreadNumber > 1) {
         // Initialize parallel jobs
         WTF::ParallelJobs<PlatformApplyGenericParameters> parallelJobs(&platformApplyGenericWorker, optimalThreadNumber);
@@ -351,8 +355,8 @@ void FELighting::platformApplyGeneric(const LightingData& data, const LightSourc
         if (job > 1) {
             // Split the job into "yStep"-sized jobs but there a few jobs that need to be slightly larger since
             // yStep * jobs < total size. These extras are handled by the remainder "jobsWithExtra".
-            const int yStep = (data.heightDecreasedByOne - 1) / job;
-            const int jobsWithExtra = (data.heightDecreasedByOne - 1) % job;
+            const int yStep = rowsToProcess / job;
+            const int jobsWithExtra = rowsToProcess % job;
 
             int yStart = 1;
             for (--job; job >= 0; --job) {
@@ -399,8 +403,8 @@ bool FELighting::drawLighting(Uint8ClampedArray& pixels, int width, int height)
     data.widthDecreasedByOne = width - 1;
     data.heightDecreasedByOne = height - 1;
     
-    Color lightColor = (operatingColorSpace() == ColorSpaceLinearRGB) ? sRGBToLinearColor(m_lightingColor) : m_lightingColor;
-    paintingData.initialLightingData.colorVector = FloatPoint3D(lightColor.red(), lightColor.green(), lightColor.blue());
+    FloatComponents lightColor = (operatingColorSpace() == ColorSpaceLinearRGB) ? sRGBColorToLinearComponents(m_lightingColor) : FloatComponents(m_lightingColor);
+    paintingData.initialLightingData.colorVector = FloatPoint3D(lightColor.components[0], lightColor.components[1], lightColor.components[2]);
     m_lightSource->initPaintingData(*this, paintingData);
 
     // Top left.

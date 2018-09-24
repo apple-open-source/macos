@@ -13,6 +13,7 @@
 #import "Security/SecureObjectSync/SOSViews.h"
 #import "Security/SecureObjectSync/SOSPeerInfoV2.h"
 #import "Security/SecureObjectSync/SOSTransportCircleKVS.h"
+#import "keychain/Signin Metrics/SFSignInAnalytics.h"
 
 @implementation SOSAccountTrustClassic (Expansion)
 typedef enum {
@@ -204,9 +205,9 @@ errOut:
 {
     
     __block bool result = true;
-    
+
     result &= [self resetAllRings:account err:error];
-    
+
     self.fullPeerInfo = nil;
     
     self.departureCode = kSOSWithdrewMembership;
@@ -217,6 +218,45 @@ errOut:
         return result;
     }];
     
+    if (!result) {
+        secerror("error: %@", error ? *error : NULL);
+    }
+    return result;
+}
+
+-(bool) resetAccountToEmptyWithAnalytics:(SOSAccount*)account transport: (SOSCircleStorageTransport*)circleTransport parentEvent:(NSData*)parentEvent err:(CFErrorRef*) error
+{
+    __block bool result = true;
+
+    NSError* localError = nil;
+    SFSignInAnalytics* parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentEvent error:&localError];
+
+    CFErrorRef resetError = NULL;
+    SFSignInAnalytics *resetAllRingsEvent = [parent newSubTaskForEvent:@"resetAllRingsEvent"];
+    result &= [self resetAllRings:account err:&resetError];
+    if(resetError){
+        [resetAllRingsEvent logRecoverableError:(__bridge NSError*)resetError];
+        secerror("reset all rings error: %@", resetError);
+        if(error){
+            *error = resetError;
+        }else{
+            CFReleaseNull(resetError);
+        }
+    }
+    [resetAllRingsEvent stopWithAttributes:nil];
+
+    self.fullPeerInfo = nil;
+
+    self.departureCode = kSOSWithdrewMembership;
+    secnotice("circleOps", "Reset Circle to empty by client request");
+
+    SFSignInAnalytics *resetCircleToEmptyEvent = [parent newSubTaskForEvent:@"resetCircleToEmptyEvent"];
+    result &= [self modifyCircle:circleTransport err:error action:^bool(SOSCircleRef circle) {
+        result = SOSCircleResetToEmpty(circle, error);
+        return result;
+    }];
+    [resetCircleToEmptyEvent stopWithAttributes:nil];
+
     if (!result) {
         secerror("error: %@", error ? *error : NULL);
     }
@@ -303,13 +343,14 @@ static bool SOSAccountBackupSliceKeyBagNeedsFix(SOSAccount* account, SOSBackupSl
     SOSFullPeerInfoRef fpi = self.fullPeerInfo;
     SOSPeerInfoRef     pi = SOSFullPeerInfoGetPeerInfo(fpi);
     CFStringRef        peerID = SOSPeerInfoGetPeerID(pi);
-    bool               peerActive = (fpi && pi && peerID && [self isInCircle:NULL]);
+    bool               peerActive = (fpi && pi && peerID && [self isInCircleOnly:NULL]);
     SOSRingRef newRing = NULL;
     SOSRingRef oldRing = NULL;
-    
+
+    require_quiet(SOSAccountHasPublicKey(account, error), errOut);
+
     secdebug("ringSigning", "start:[%s] %@", localRemote, prospectiveRing);
     
-    require_quiet(SOSAccountHasPublicKey(account, error), errOut);
 
     require_action_quiet(prospectiveRing, errOut,
                          SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("No Ring to work with"), NULL, error));
@@ -553,7 +594,7 @@ errOut:
     CFMutableDictionaryRef rings = [self getRings:error];
     require_action_quiet(rings, errOut, SOSCreateError(kSOSErrorNoRing, CFSTR("No Rings found"), NULL, error));
     CFTypeRef ringder = CFDictionaryGetValue(rings, ringName);
-    require_action_quiet(ringder, errOut, SOSCreateError(kSOSErrorNoRing, CFSTR("No Ring found"), NULL, error));
+    require_action_quiet(ringder, errOut, SOSCreateErrorWithFormat(kSOSErrorNoRing, NULL, error, NULL, CFSTR("No Ring found %@"), ringName));
     SOSRingRef ring = SOSRingCreateFromData(NULL, ringder);
     return (SOSRingRef) ring;
     

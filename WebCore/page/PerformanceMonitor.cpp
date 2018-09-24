@@ -31,8 +31,8 @@
 #include "DeprecatedGlobalSettings.h"
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
+#include "Frame.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PerformanceLogging.h"
 #include "PublicSuffix.h"
@@ -148,7 +148,7 @@ static void reportPageOverPostLoadResourceThreshold(Page& page, ReportingReason 
     if (!document)
         return;
 
-    String domain = topPrivatelyControlledDomain(document->url().host());
+    String domain = topPrivatelyControlledDomain(document->url().host().toString());
     if (domain.isEmpty())
         return;
 

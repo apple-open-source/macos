@@ -45,7 +45,7 @@
 #include "ios8-inet-keychain-2.h"
 
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
-CFArrayRef SecAccessGroupsGetCurrent();
+CFArrayRef SecAccessGroupsGetCurrent(void);
 
 int secd_35_keychain_migrate_inet(int argc, char *const *argv)
 {

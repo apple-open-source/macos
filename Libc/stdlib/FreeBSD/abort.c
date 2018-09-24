@@ -27,6 +27,9 @@
  * SUCH DAMAGE.
  */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)abort.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
@@ -155,3 +158,4 @@ abort_report_np(const char *fmt, ...)
 		CRSetCrashLogMessage(fmt); /* the format string is better than nothing */
 	abort();
 }
+#pragma clang diagnostic pop

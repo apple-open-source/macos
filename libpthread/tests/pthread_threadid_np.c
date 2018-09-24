@@ -9,7 +9,7 @@ extern __uint64_t __thread_selfid( void );
 static void *do_test(void * __unused arg)
 {
 	uint64_t threadid = __thread_selfid();
-	T_ASSERT_NOTNULL(threadid, NULL);
+	T_ASSERT_NE(threadid, (uint64_t)0, "__thread_selfid()");
 
 	uint64_t pth_threadid = 0;
 	T_ASSERT_POSIX_ZERO(pthread_threadid_np(NULL, &pth_threadid), NULL);

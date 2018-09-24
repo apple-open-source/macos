@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,8 +31,8 @@
 
 #import "APIContextMenuClient.h"
 #import "APIUIClient.h"
-#import "WeakObjCPtr.h"
 #import <wtf/RetainPtr.h>
+#import <wtf/WeakObjCPtr.h>
 
 @class _WKActivatedElementInfo;
 @class WKWebView;
@@ -67,7 +67,7 @@ private:
 
     private:
         // API::ContextMenuClient
-        RetainPtr<NSMenu> menuFromProposedMenu(WebPageProxy&, NSMenu *, const WebHitTestResultData&, API::Object*) override;
+        void menuFromProposedMenu(WebPageProxy&, NSMenu *, const WebHitTestResultData&, API::Object*, CompletionHandler<void(RetainPtr<NSMenu>&&)>&&) override;
 
         UIDelegate& m_uiDelegate;
     };
@@ -88,11 +88,13 @@ private:
         void runJavaScriptAlert(WebPageProxy*, const WTF::String&, WebFrameProxy*, const WebCore::SecurityOriginData&, Function<void()>&& completionHandler) final;
         void runJavaScriptConfirm(WebPageProxy*, const WTF::String&, WebFrameProxy*, const WebCore::SecurityOriginData&, Function<void(bool)>&& completionHandler) final;
         void runJavaScriptPrompt(WebPageProxy*, const WTF::String&, const WTF::String&, WebFrameProxy*, const WebCore::SecurityOriginData&, Function<void(const WTF::String&)>&&) final;
+        void requestStorageAccessConfirm(WebPageProxy&, WebFrameProxy*, const WTF::String& requestingDomain, const WTF::String& currentDomain, CompletionHandler<void(bool)>&&) final;
         void decidePolicyForGeolocationPermissionRequest(WebPageProxy&, WebFrameProxy&, API::SecurityOrigin&, Function<void(bool)>&) final;
         bool canRunBeforeUnloadConfirmPanel() const final;
         void runBeforeUnloadConfirmPanel(WebPageProxy*, const WTF::String&, WebFrameProxy*, const WebCore::SecurityOriginData&, Function<void(bool)>&& completionHandler) final;
         void exceededDatabaseQuota(WebPageProxy*, WebFrameProxy*, API::SecurityOrigin*, const WTF::String& databaseName, const WTF::String& displayName, unsigned long long currentQuota, unsigned long long currentOriginUsage, unsigned long long currentUsage, unsigned long long expectedUsage, Function<void(unsigned long long)>&& completionHandler) final;
         void reachedApplicationCacheOriginQuota(WebPageProxy*, const WebCore::SecurityOrigin&, uint64_t currentQuota, uint64_t totalBytesNeeded, Function<void(unsigned long long)>&& completionHandler) final;
+        void didResignInputElementStrongPasswordAppearance(WebPageProxy&, API::Object*) final;
 #if PLATFORM(MAC)
         void showPage(WebPageProxy*) final;
         void takeFocus(WebPageProxy*, WKFocusDirection) final;
@@ -155,8 +157,10 @@ private:
         bool webViewRunJavaScriptAlertPanelWithMessageInitiatedByFrameCompletionHandler : 1;
         bool webViewRunJavaScriptConfirmPanelWithMessageInitiatedByFrameCompletionHandler : 1;
         bool webViewRunJavaScriptTextInputPanelWithPromptDefaultTextInitiatedByFrameCompletionHandler : 1;
+        bool webViewRequestStorageAccessPanelForTopPrivatelyControlledDomainUnderFirstPartyTopPrivatelyControlledDomainCompletionHandler : 1;
         bool webViewRunBeforeUnloadConfirmPanelWithMessageInitiatedByFrameCompletionHandler : 1;
         bool webViewRequestGeolocationPermissionForFrameDecisionHandler : 1;
+        bool webViewDidResignInputElementStrongPasswordAppearanceWithUserInfo : 1;
 #if PLATFORM(MAC)
         bool showWebView : 1;
         bool focusWebView : 1;
@@ -210,6 +214,7 @@ private:
 #if ENABLE(CONTEXT_MENUS)
         bool webViewContextMenuForElement : 1;
         bool webViewContextMenuForElementUserInfo : 1;
+        bool webViewGetContextMenuFromProposedMenuForElementUserInfoCompletionHandler : 1;
 #endif
         bool webViewHasVideoInPictureInPictureDidChange : 1;
     } m_delegateMethods;

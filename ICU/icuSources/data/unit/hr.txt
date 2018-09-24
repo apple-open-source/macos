@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 hr{
-    Version{"2.1.32.59"}
+    Version{"2.1.41.97"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -518,6 +518,7 @@ hr{
                 other{"{0} pikometara"}
             }
             point{
+                dnam{"točke"}
                 few{"{0} točke"}
                 one{"{0} točka"}
                 other{"{0} točaka"}
@@ -2085,6 +2086,7 @@ hr{
                 other{"{0} pm"}
             }
             point{
+                dnam{"točke"}
                 few{"{0} pt"}
                 one{"{0} pt"}
                 other{"{0} pt"}

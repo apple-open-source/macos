@@ -15,7 +15,6 @@
 #import "Security/SecureObjectSync/SOSPeerInfoV2.h"
 #import "Security/SecureObjectSync/SOSPeerInfoCollections.h"
 #import "Security/SecureObjectSync/SOSTransportMessageKVS.h"
-#import "Security/SecureObjectSync/SOSTransportMessageIDS.h"
 
 #include <Security/SecureObjectSync/SOSAccountTransaction.h>
 #include <Security/SecureObjectSync/SOSTransportCircleKVS.h>
@@ -68,44 +67,6 @@ extern CFStringRef kSOSAccountDebugScope;
 
 
 }
--(SOSSecurityPropertyResultCode) UpdateSecurityProperty:(SOSAccount*)account property:(CFStringRef)property code:(SOSSecurityPropertyActionCode)actionCode err:(CFErrorRef*)error
-{
-    SOSSecurityPropertyResultCode retval = kSOSCCGeneralSecurityPropertyError;
-    bool updateCircle = false;
-    
-    require_action_quiet(self.trustedCircle, errOut, SOSCreateError(kSOSErrorNoCircle, CFSTR("No Trusted Circle"), NULL, error));
-    require_action_quiet(self.fullPeerInfo, errOut, SOSCreateError(kSOSErrorPeerNotFound, CFSTR("No Peer for Account"), NULL, error));
-    retval = SOSFullPeerInfoUpdateSecurityProperty(self.fullPeerInfo, actionCode, property, error);
-    
-    if(actionCode == kSOSCCSecurityPropertyEnable && retval == kSOSCCSecurityPropertyValid) {
-        updateCircle = true;
-    } else if(actionCode == kSOSCCSecurityPropertyDisable && retval == kSOSCCSecurityPropertyNotValid) {
-        updateCircle = true;
-    } else if(actionCode == kSOSCCSecurityPropertyPending) {
-        updateCircle = true;
-    }
-    
-    if (updateCircle) {
-        [self modifyCircle:account.circle_transport err:NULL action:^(SOSCircleRef circle_to_change) {
-            secnotice("circleChange", "Calling SOSCircleUpdatePeerInfo for security property change");
-            return SOSCircleUpdatePeerInfo(circle_to_change, self.peerInfo);
-        }];
-    }
-    
-errOut:
-    return retval;
-}
-
--(SOSSecurityPropertyResultCode) SecurityPropertyStatus:(CFStringRef)property err:(CFErrorRef *)error
-{
-    SOSSecurityPropertyResultCode retval = kSOSCCGeneralViewError;
-    require_action_quiet(self.trustedCircle, errOut, SOSCreateError(kSOSErrorNoCircle, CFSTR("No Trusted Circle"), NULL, error));
-    require_action_quiet(self.fullPeerInfo, errOut, SOSCreateError(kSOSErrorPeerNotFound, CFSTR("No Peer for Account"), NULL, error));
-    retval = SOSFullPeerInfoSecurityPropertyStatus(self.fullPeerInfo, property, error);
-errOut:
-    return retval;
-}
-
 
 -(bool) updateGestalt:(SOSAccount*)account newGestalt:(CFDictionaryRef)new_gestalt
 {
@@ -124,6 +85,8 @@ errOut:
     return true;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-value"
 -(SOSViewResultCode) updateView:(SOSAccount*)account name:(CFStringRef) viewname code:(SOSViewActionCode) actionCode err:(CFErrorRef *)error
 {
     SOSViewResultCode retval = kSOSCCGeneralViewError;
@@ -181,6 +144,7 @@ errOut:
 errOut:
     return retval;
 }
+#pragma clang diagnostic pop
 
 -(bool) activeValidInCircle:(SOSAccount*) account err:(CFErrorRef *)error {
     return SOSCircleHasActiveValidPeer(self.trustedCircle, SOSFullPeerInfoGetPeerInfo(self.fullPeerInfo), SOSAccountGetTrustedPublicCredential(account, error), error);
@@ -190,6 +154,7 @@ errOut:
 {
     SOSViewResultCode retval = kSOSCCGeneralViewError;
     
+    require_action_quiet(SOSAccountGetTrustedPublicCredential(account, error), errOut, SOSCreateError(kSOSErrorNoKey, CFSTR("No Trusted UserKey"), NULL, error));
     require_action_quiet(self.trustedCircle, errOut, SOSCreateError(kSOSErrorNoCircle, CFSTR("No Trusted Circle"), NULL, error));
     require_action_quiet(self.fullPeerInfo, errOut, SOSCreateError(kSOSErrorPeerNotFound, CFSTR("No Peer for Account"), NULL, error));
     require_action_quiet([self activeValidInCircle: account err: error ],
@@ -242,6 +207,87 @@ static bool SOSAccountScreenViewListForValidV0(SOSAccount*  account, CFMutableSe
     return retval;
 }
 
+-(bool) updateViewSetsWithAnalytics:(SOSAccount*)account enabled:(CFSetRef) origEnabledViews disabled:(CFSetRef) origDisabledViews parentEvent:(NSData*)parentEvent
+{
+    bool retval = false;
+    bool updateCircle = false;
+    SOSPeerInfoRef  pi = NULL;
+    NSError* localError = nil;
+    SFSignInAnalytics* parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentEvent error:&localError];
+
+    SFSignInAnalytics *hasCompletedInitialSyncEvent = nil;
+    SFSignInAnalytics *updatePeerInCircleEvent = nil;
+
+    CFMutableSetRef enabledViews = NULL;
+    CFMutableSetRef disabledViews = NULL;
+    if(origEnabledViews) enabledViews = CFSetCreateMutableCopy(kCFAllocatorDefault, 0, origEnabledViews);
+    if(origDisabledViews) disabledViews = CFSetCreateMutableCopy(kCFAllocatorDefault, 0, origDisabledViews);
+    dumpViewSet(CFSTR("Enabled"), enabledViews);
+    dumpViewSet(CFSTR("Disabled"), disabledViews);
+
+    require_action_quiet(self.trustedCircle, errOut, secnotice("views", "Attempt to set viewsets with no trusted circle"));
+
+    // Make sure we have a peerInfo capable of supporting views.
+    SOSFullPeerInfoRef fpi = self.fullPeerInfo;
+    require_action_quiet(fpi, errOut, secnotice("views", "Attempt to set viewsets with no fullPeerInfo"));
+    require_action_quiet(enabledViews || disabledViews, errOut, secnotice("views", "No work to do"));
+
+    pi = SOSPeerInfoCreateCopy(kCFAllocatorDefault, SOSFullPeerInfoGetPeerInfo(fpi), NULL);
+
+    require_action_quiet(pi, errOut, secnotice("views", "Couldn't copy PeerInfoRef"));
+
+    if(!SOSPeerInfoVersionIsCurrent(pi)) {
+        CFErrorRef updateFailure = NULL;
+        require_action_quiet(SOSPeerInfoUpdateToV2(pi, &updateFailure), errOut,
+                             (secnotice("views", "Unable to update peer to V2- can't update views: %@", updateFailure), (void) CFReleaseNull(updateFailure)));
+        secnotice("V2update", "Updating PeerInfo to V2 within SOSAccountUpdateViewSets");
+        updateCircle = true;
+    }
+
+    CFStringSetPerformWithDescription(enabledViews, ^(CFStringRef description) {
+        secnotice("viewChange", "Enabling %@", description);
+    });
+
+    CFStringSetPerformWithDescription(disabledViews, ^(CFStringRef description) {
+        secnotice("viewChange", "Disabling %@", description);
+    });
+
+    require_action_quiet(SOSAccountScreenViewListForValidV0(account, enabledViews, kSOSCCViewEnable), errOut, secnotice("viewChange", "Bad view change (enable) with kSOSViewKeychainV0"));
+    require_action_quiet(SOSAccountScreenViewListForValidV0(account, disabledViews, kSOSCCViewDisable), errOut, secnotice("viewChange", "Bad view change (disable) with kSOSViewKeychainV0"));
+
+    hasCompletedInitialSyncEvent = [parent newSubTaskForEvent:@"hasCompletedInitialSyncEvent"];
+    if(SOSAccountHasCompletedInitialSync(account)) {
+        if(enabledViews) updateCircle |= SOSViewSetEnable(pi, enabledViews);
+        if(disabledViews) updateCircle |= SOSViewSetDisable(pi, disabledViews);
+        retval = true;
+    } else {
+        //hold on to the views and enable them later
+        if(enabledViews) [self pendEnableViewSet:enabledViews];
+        if(disabledViews) SOSAccountPendDisableViewSet(account, disabledViews);
+        retval = true;
+    }
+    [hasCompletedInitialSyncEvent stopWithAttributes:nil];
+    if(updateCircle) {
+        /* UPDATE FULLPEERINFO VIEWS */
+        require_quiet(SOSFullPeerInfoUpdateToThisPeer(fpi, pi, NULL), errOut);
+        updatePeerInCircleEvent = [parent newSubTaskForEvent:@"updatePeerInCircleEvent"];
+        require_quiet([self modifyCircle:account.circle_transport err:NULL action:^(SOSCircleRef circle_to_change) {
+            secnotice("circleChange", "Calling SOSCircleUpdatePeerInfo for views or peerInfo change");
+            bool updated= SOSCircleUpdatePeerInfo(circle_to_change, self.peerInfo);
+            return updated;
+        }], errOut);
+        [updatePeerInCircleEvent stopWithAttributes:nil];
+        // Make sure we update the engine
+        account.circle_rings_retirements_need_attention = true;
+    }
+
+errOut:
+    [updatePeerInCircleEvent stopWithAttributes:nil];
+    CFReleaseNull(enabledViews);
+    CFReleaseNull(disabledViews);
+    CFReleaseNull(pi);
+    return retval;
+}
 -(bool) updateViewSets:(SOSAccount*)account enabled:(CFSetRef) origEnabledViews disabled:(CFSetRef) origDisabledViews
 {
     bool retval = false;
@@ -328,7 +374,7 @@ static inline void CFArrayAppendValueIfNot(CFMutableArrayRef array, CFTypeRef va
     if (!changeBlock) return;
     SOSAccount* account = txn.account;
     CFRetainSafe(ds_name);
-    SOSAccountCircleMembershipChangeBlock block_to_register = ^void (SOSCircleRef new_circle,
+    SOSAccountCircleMembershipChangeBlock block_to_register = ^void (SOSAccount *account, SOSCircleRef new_circle,
                                                                      CFSetRef added_peers, CFSetRef removed_peers,
                                                                      CFSetRef added_applicants, CFSetRef removed_applicants) {
         
@@ -368,7 +414,7 @@ static inline void CFArrayAppendValueIfNot(CFMutableArrayRef array, CFTypeRef va
     
     CFSetRef empty = CFSetCreateMutableForSOSPeerInfosByID(kCFAllocatorDefault);
     if (self.trustedCircle && CFEqualSafe(ds_name, SOSCircleGetName(self.trustedCircle))) {
-        block_to_register(self.trustedCircle, empty, empty, empty, empty);
+        block_to_register(account, self.trustedCircle, empty, empty, empty, empty);
     }
     CFReleaseSafe(empty);
 }
@@ -635,34 +681,25 @@ static uint8_t* der_encode_data_optional(CFDataRef data, CFErrorRef *error,
 {
     CFMutableSetRef notMePeers = NULL;
     CFMutableSetRef handledPeerIDs = NULL;
-    CFMutableSetRef peersForIDS = NULL;
     CFMutableSetRef peersForKVS = NULL;
 
     SOSAccount* account = txn.account;
-    
-    // Kick getting our device ID if we don't have it, and find out if we're setup to use IDS.
-    [account.ids_message_transport SOSTransportMessageIDSGetIDSDeviceID:account];
 
-    bool canUseIDS = [account.ids_message_transport SOSTransportMessageIDSGetIDSDeviceID:account];
-
-    if(![self isInCircle:error])
+    if(![account isInCircle:error])
     {
         handledPeerIDs = CFSetCreateMutableCopy(kCFAllocatorDefault, 0, peerIDs);
         CFReleaseNull(notMePeers);
-        CFReleaseNull(peersForIDS);
         CFReleaseNull(peersForKVS);
         return handledPeerIDs;
     }
     
     handledPeerIDs = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
-    peersForIDS = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
     peersForKVS = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
     
     SOSPeerInfoRef myPeerInfo = account.peerInfo;
     if(!myPeerInfo)
     {
         CFReleaseNull(notMePeers);
-        CFReleaseNull(peersForIDS);
         CFReleaseNull(peersForKVS);
         return handledPeerIDs;
         
@@ -680,11 +717,7 @@ static uint8_t* der_encode_data_optional(CFDataRef data, CFErrorRef *error,
         
         peerInfo = SOSCircleCopyPeerWithID(self.trustedCircle, peerID, NULL);
         if (peerInfo && SOSCircleHasValidSyncingPeer(self.trustedCircle, peerInfo, account.accountKey, NULL)) {
-            if (ENABLE_IDS && canUseIDS && SOSPeerInfoShouldUseIDSTransport(myPeerInfo, peerInfo)) {
-                CFSetAddValue(peersForIDS, peerID);
-            } else {
-                CFSetAddValue(peersForKVS, peerID);
-            }
+            CFSetAddValue(peersForKVS, peerID);
         } else {
             CFSetAddValue(handledPeerIDs, peerID);
         }
@@ -696,11 +729,7 @@ static uint8_t* der_encode_data_optional(CFDataRef data, CFErrorRef *error,
         }
         CFReleaseNull(localError);
     });
-    
-    CFSetRef handledIDSPeerIDs = SOSAccountSyncWithPeersOverIDS(txn, peersForIDS);
-    CFSetUnion(handledPeerIDs, handledIDSPeerIDs);
-    CFReleaseNull(handledIDSPeerIDs);
-    
+
     CFSetRef handledKVSPeerIDs = SOSAccountSyncWithPeersOverKVS(txn, peersForKVS);
     CFSetUnion(handledPeerIDs, handledKVSPeerIDs);
     CFReleaseNull(handledKVSPeerIDs);
@@ -708,14 +737,13 @@ static uint8_t* der_encode_data_optional(CFDataRef data, CFErrorRef *error,
     SOSAccountConsiderLoggingEngineState(txn);
     
     CFReleaseNull(notMePeers);
-    CFReleaseNull(peersForIDS);
     CFReleaseNull(peersForKVS);
     return handledPeerIDs;
 }
 
 -(bool) requestSyncWithAllPeers:(SOSAccountTransaction*) txn key:(SecKeyRef)userPublic err:(CFErrorRef *)error
 {
-    if (![self isInCircle: error]) {
+    if (![txn.account isInCircle: error]) {
         return false;
     }
 

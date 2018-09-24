@@ -26,10 +26,11 @@
 #include "DOMWindow.h"
 #include "Document.h"
 #include "DocumentType.h"
-#include "FileIconLoader.h"
 #include "FileChooser.h"
+#include "FileIconLoader.h"
 #include "FileList.h"
 #include "FloatRect.h"
+#include "Frame.h"
 #include "FrameLoaderClient.h"
 #include "FrameTree.h"
 #include "Geolocation.h"
@@ -39,7 +40,6 @@
 #include "HitTestResult.h"
 #include "Icon.h"
 #include "InspectorInstrumentation.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PageGroupLoadDeferrer.h"
 #include "PopupOpeningObserver.h"
@@ -48,12 +48,16 @@
 #include "Settings.h"
 #include "StorageNamespace.h"
 #include "WindowFeatures.h"
-#include <runtime/VM.h>
+#include <JavaScriptCore/VM.h>
 #include <wtf/SetForScope.h>
 #include <wtf/Vector.h>
 
 #if ENABLE(INPUT_TYPE_COLOR)
 #include "ColorChooser.h"
+#endif
+
+#if ENABLE(DATALIST_ELEMENT)
+#include "DataListSuggestionPicker.h"
 #endif
 
 namespace WebCore {
@@ -91,13 +95,6 @@ void Chrome::scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, con
     m_client.scroll(scrollDelta, rectToScroll, clipRect);
     InspectorInstrumentation::didScroll(m_page);
 }
-
-#if USE(COORDINATED_GRAPHICS)
-void Chrome::delegatedScrollRequested(const IntPoint& scrollPoint)
-{
-    m_client.delegatedScrollRequested(scrollPoint);
-}
-#endif
 
 IntPoint Chrome::screenToRootView(const IntPoint& point) const
 {
@@ -331,7 +328,7 @@ void Chrome::setStatusbarText(Frame& frame, const String& status)
 void Chrome::mouseDidMoveOverElement(const HitTestResult& result, unsigned modifierFlags)
 {
     if (result.innerNode() && result.innerNode()->document().isDNSPrefetchEnabled())
-        m_page.mainFrame().loader().client().prefetchDNS(result.absoluteLinkURL().host());
+        m_page.mainFrame().loader().client().prefetchDNS(result.absoluteLinkURL().host().toString());
     m_client.mouseDidMoveOverElement(result, modifierFlags);
 
     InspectorInstrumentation::mouseDidMoveOverElement(m_page, result, modifierFlags);
@@ -429,6 +426,16 @@ std::unique_ptr<ColorChooser> Chrome::createColorChooser(ColorChooserClient& cli
 
 #endif
 
+#if ENABLE(DATALIST_ELEMENT)
+
+std::unique_ptr<DataListSuggestionPicker> Chrome::createDataListSuggestionPicker(DataListSuggestionsClient& client)
+{
+    notifyPopupOpeningObservers();
+    return m_client.createDataListSuggestionPicker(client);
+}
+
+#endif
+
 void Chrome::runOpenPanel(Frame& frame, FileChooser& fileChooser)
 {
     notifyPopupOpeningObservers();
@@ -448,6 +455,16 @@ FloatSize Chrome::screenSize() const
 FloatSize Chrome::availableScreenSize() const
 {
     return m_client.availableScreenSize();
+}
+
+FloatSize Chrome::overrideScreenSize() const
+{
+    return m_client.overrideScreenSize();
+}
+
+void Chrome::dispatchDisabledAdaptationsDidChange(const OptionSet<DisabledAdaptations>& disabledAdaptations) const
+{
+    m_client.dispatchDisabledAdaptationsDidChange(disabledAdaptations);
 }
 
 void Chrome::dispatchViewportPropertiesDidChange(const ViewportArguments& arguments) const

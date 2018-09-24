@@ -110,6 +110,16 @@ using namespace WebCore;
     return _data->_impl->drawsBackground();
 }
 
+- (NSColor *)_backgroundColor
+{
+    return _data->_impl->backgroundColor();
+}
+
+- (void)_setBackgroundColor:(NSColor *)backgroundColor
+{
+    _data->_impl->setBackgroundColor(backgroundColor);
+}
+
 - (void)setDrawsTransparentBackground:(BOOL)drawsTransparentBackground
 {
     _data->_impl->setDrawsBackground(!drawsTransparentBackground);
@@ -873,10 +883,12 @@ Some other editing-related methods still unimplemented:
     private:
         typedef void (^IconLoadCompletionHandler)(NSData*);
 
-        void getLoadDecisionForIcon(const WebCore::LinkIcon& linkIcon, WTF::Function<void (WTF::Function<void (API::Data*, WebKit::CallbackBase::Error)>&&)>&& completionHandler) override {
+        void getLoadDecisionForIcon(const WebCore::LinkIcon& linkIcon, WTF::CompletionHandler<void(WTF::Function<void(API::Data*, WebKit::CallbackBase::Error)>&&)>&& completionHandler) override
+        {
             RetainPtr<_WKLinkIconParameters> parameters = adoptNS([[_WKLinkIconParameters alloc] _initWithLinkIcon:linkIcon]);
 
             [m_wkView performSelector:delegateSelector() withObject:parameters.get() withObject:BlockPtr<void (IconLoadCompletionHandler)>::fromCallable([completionHandler = WTFMove(completionHandler)](IconLoadCompletionHandler loadCompletionHandler) {
+                ASSERT(RunLoop::isMain());
                 if (loadCompletionHandler) {
                     completionHandler([loadCompletionHandler = BlockPtr<void (NSData *)>(loadCompletionHandler)](API::Data* data, WebKit::CallbackBase::Error error) {
                         if (error != CallbackBase::Error::None || !data)
@@ -1609,6 +1621,27 @@ static _WKOverlayScrollbarStyle toAPIScrollbarStyle(std::optional<WebCore::Scrol
 {
     _data->_impl->setShouldSuppressFirstResponderChanges(shouldSuppress);
 }
+
+- (void)viewDidChangeEffectiveAppearance
+{
+    // This can be called during [super initWithCoder:] and [super initWithFrame:].
+    // That is before _data or _impl is ready to be used, so check. <rdar://problem/39611236>
+    if (!_data || !_data->_impl)
+        return;
+
+    _data->_impl->effectiveAppearanceDidChange();
+}
+
+- (void)_setUseSystemAppearance:(BOOL)useSystemAppearance
+{
+    _data->_impl->setUseSystemAppearance(useSystemAppearance);
+}
+
+- (BOOL)_useSystemAppearance
+{
+    return _data->_impl->useSystemAppearance();
+}
+
 @end
 
 #endif // PLATFORM(MAC)

@@ -128,8 +128,8 @@ static void kextd_raise_unsignedkext_notification(
 #endif
 
 static void kextd_raise_excludedkext_notification(
-                                                  CFStringRef alertHeader,
-                                                  CFArrayRef  alertMessageArray );
+                                                  CFTypeRef alertHeader,
+                                                  CFTypeRef alertMessageArray );
 static int validateKextsAlertDict( CFDictionaryRef theDict );
 
 
@@ -443,13 +443,13 @@ void _checkNotificationQueue(void * info __unused)
     CFMutableArrayRef invalidSigAlertMessageArray   = NULL;  // must release
     CFMutableArrayRef unsignedKextAlertMessageArray = NULL;  // must release
     CFMutableArrayRef excludedAlertMessageArray     = NULL;  // must release
-    CFMutableStringRef excludedAlertHeader          = NULL;  // must release
+    CFMutableArrayRef excludedAlertHeaderArray      = NULL;  // must release
     CFIndex     count, i;
 
     if (sConsoleUser == (uid_t)-1) {
         goto finish;
     }
-    
+
     /* handle alerts for kexts that do not have the proper privs set
      */
     if (CFArrayGetCount(sPendedNonsecureKextPaths)  &&
@@ -661,12 +661,15 @@ void _checkNotificationQueue(void * info __unused)
         if (excludedAlertMessageArray == NULL) {
             goto finish;
         }
-        excludedAlertHeader = CFStringCreateMutable(kCFAllocatorDefault, 0);
-        if (excludedAlertHeader == NULL) {
+        excludedAlertHeaderArray =
+        CFArrayCreateMutable(kCFAllocatorDefault,
+                             0,
+                             &kCFTypeArrayCallBacks);
+        if (excludedAlertHeaderArray == NULL) {
             goto finish;
         }
         if (count > 1) {
-            CFStringAppend(excludedAlertHeader,
+            CFArrayAppendValue(excludedAlertHeaderArray,
                            CFSTR("Some system extensions are not compatible with this version of OS X and can’t be used:"));
             for (i = 0; i < count; i ++) {
                 kextPath = (CFStringRef) CFArrayGetValueAtIndex(
@@ -712,7 +715,7 @@ void _checkNotificationQueue(void * info __unused)
             if (kextPath == NULL) {
                 goto finish;
             }
-            CFStringAppend(excludedAlertHeader,
+            CFArrayAppendValue(excludedAlertHeaderArray,
                            CFSTR("The system extension \""));
             CFRange             myRange;
             myRange = CFStringFind(kextPath, CFSTR("/"), kCFCompareBackwards);
@@ -725,29 +728,29 @@ void _checkNotificationQueue(void * info __unused)
                                                        kextPath,
                                                        myRange);
                 if (myString) {
-                    CFStringAppend(excludedAlertHeader,
+                    CFArrayAppendValue(excludedAlertHeaderArray,
                                    myString);
                    SAFE_RELEASE(myString);
                 }
                 else {
                     // fall back to full path
-                    CFStringAppend(excludedAlertHeader,
+                    CFArrayAppendValue(excludedAlertHeaderArray,
                                    kextPath);
                 }
             }
             else {
                 // fall back to full path
-                CFStringAppend(excludedAlertHeader,
+                CFArrayAppendValue(excludedAlertHeaderArray,
                                kextPath);
             }
-            CFStringAppend(excludedAlertHeader,
+            CFArrayAppendValue(excludedAlertHeaderArray,
                            CFSTR("\" is not compatible with this version of OS X and can’t be used."));
         }
         CFArrayAppendValue(excludedAlertMessageArray,
                            CFSTR("Please contact the developer for updated software."));
         
         CFArrayRemoveAllValues(sPendedExcludedKextPaths);
-        kextd_raise_excludedkext_notification(excludedAlertHeader,
+        kextd_raise_excludedkext_notification(excludedAlertHeaderArray,
                                               excludedAlertMessageArray);
     }
 #endif // <rdar://problem/12811081>
@@ -759,7 +762,7 @@ finish:
     SAFE_RELEASE(revokedCertAlertMessageArray);
     SAFE_RELEASE(invalidSigAlertMessageArray);
     SAFE_RELEASE(unsignedKextAlertMessageArray);
-    SAFE_RELEASE(excludedAlertHeader);
+    SAFE_RELEASE(excludedAlertHeaderArray);
     return;
 }
 
@@ -945,8 +948,8 @@ void sendExcludedKextNotification(void)
 /*******************************************************************************
  *******************************************************************************/
 static CFMutableDictionaryRef createAlertDict(
-                                              CFStringRef alertHeader,
-                                              CFArrayRef  alertMessageArray )
+                                              CFTypeRef alertHeader,
+                                              CFTypeRef alertMessageArray )
 {
     CFMutableDictionaryRef alertDict               = NULL;  // do not release
     CFURLRef               iokitFrameworkBundleURL = NULL;  // must release
@@ -1241,8 +1244,8 @@ finish:
 /*******************************************************************************
  *******************************************************************************/
 static void kextd_raise_excludedkext_notification(
-                                                  CFStringRef alertHeader,
-                                                  CFArrayRef  alertMessageArray )
+                                                  CFTypeRef alertHeader,
+                                                  CFTypeRef alertMessageArray )
 {
     CFMutableDictionaryRef alertDict               = NULL;  // must release
     SInt32                 userNotificationError   = 0;

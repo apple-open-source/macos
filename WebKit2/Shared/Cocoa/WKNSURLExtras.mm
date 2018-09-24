@@ -38,19 +38,19 @@ using namespace WebCore;
 + (instancetype)_web_URLWithWTFString:(const String&)string
 {
     URL url { URL { }, string };
-    return (__bridge NSURL*) url.createCFURL().autorelease();
+    return (NSURL *)url;
 }
 
 + (instancetype)_web_URLWithWTFString:(const String&)string relativeToURL:(NSURL *)baseURL
 {
     URL url { URL { baseURL }, string };
-    return (__bridge NSURL*) url.createCFURL().autorelease();
+    return (NSURL *)url;
 }
 
 - (String)_web_originalDataAsWTFString
 {
     CString originalData;
-    getURLBytes((CFURLRef)self, originalData);
+    getURLBytes((__bridge CFURLRef)self, originalData);
     return String::fromUTF8(originalData);
 }
 

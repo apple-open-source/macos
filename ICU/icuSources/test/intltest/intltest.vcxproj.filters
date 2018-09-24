@@ -256,10 +256,43 @@
     <ClCompile Include="numberformattesttuple.cpp">
       <Filter>formatting</Filter>
     </ClCompile>
-    <ClCompile Include="numberformat2test.cpp">
+    <ClCompile Include="numbertest_affixutils.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="numbertest_api.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="numbertest_decimalquantity.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="numbertest_modifiers.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="numbertest_patternmodifier.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="numbertest_patternstring.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="numbertest_stringbuilder.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="numbertest_stringsegment.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="numbertest_parse.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="numbertest_doubleconversion.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="numbertest_skeletons.cpp">
       <Filter>formatting</Filter>
     </ClCompile>
     <ClCompile Include="numfmtst.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="numfmtdatadriventest.cpp">
       <Filter>formatting</Filter>
     </ClCompile>
     <ClCompile Include="numrgts.cpp">
@@ -293,6 +326,9 @@
       <Filter>formatting</Filter>
     </ClCompile>
     <ClCompile Include="simpleformattertest.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="static_unisets_test.cpp">
       <Filter>formatting</Filter>
     </ClCompile>
     <ClCompile Include="tchcfmt.cpp">
@@ -679,6 +715,9 @@
       <Filter>formatting</Filter>
     </ClInclude>
     <ClInclude Include="numberformattesttuple.h">
+      <Filter>formatting</Filter>
+    </ClInclude>
+    <ClInclude Include="numbertest.h">
       <Filter>formatting</Filter>
     </ClInclude>
     <ClInclude Include="numfmtst.h">

@@ -85,11 +85,11 @@
 -(void)setCheckbox
 {
     if (self.circle.isInCircle) {
-        [self.enableKeychainSyncing setState:NSOnState];
+        [self.enableKeychainSyncing setState:NSControlStateValueOn];
     } else if (self.circle.isOutOfCircle) {
-        [self.enableKeychainSyncing setState:NSOffState];
+        [self.enableKeychainSyncing setState:NSControlStateValueOff];
     } else {
-        [self.enableKeychainSyncing setState:NSMixedState];
+        [self.enableKeychainSyncing setState:NSControlStateValueMixed];
     }
 }
 

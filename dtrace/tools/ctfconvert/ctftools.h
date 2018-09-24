@@ -26,8 +26,6 @@
 #ifndef _CTFTOOLS_H
 #define	_CTFTOOLS_H
 
-#pragma ident	"@(#)ctftools.h	1.16	06/08/22 SMI"
-
 /*
  * Functions and data structures used in the manipulation of stabs and CTF data
  */
@@ -48,9 +46,6 @@ extern "C" {
 
 #ifndef DEBUG_LEVEL
 #define	DEBUG_LEVEL 0
-#endif
-#ifndef DEBUG_PARSE
-#define	DEBUG_PARSE 0
 #endif
 
 #ifndef DEBUG_STREAM
@@ -90,20 +85,7 @@ extern "C" {
 
 extern const char *progname;
 extern int debug_level;
-extern int debug_parse;
 extern const char *curhdr;
-
-/*
- * This is a partial copy of the stab.h that DevPro includes with their
- * compiler.
- */
-typedef struct stab {
-	uint32_t	n_strx;
-	uint8_t		n_type;
-	int8_t		n_other;
-	int16_t		n_desc;
-	uint32_t	n_value;
-} stab_t;
 
 #define	N_GSYM	0x20	/* global symbol: name,,0,type,0 */
 #define	N_FUN	0x24	/* procedure: name,,0,linenumber,0 */
@@ -191,14 +173,6 @@ typedef struct intr {
 
 #define	intr_iformat _u._iformat
 #define	intr_fformat _u._fformat
-
-typedef struct fnarg {
-	char *fna_name;
-	struct tdesc *fna_type;
-} fnarg_t;
-
-#define	FN_F_GLOBAL	0x1
-#define	FN_F_VARARGS	0x2
 
 typedef struct fndef {
 	struct tdesc *fn_ret;
@@ -342,10 +316,6 @@ typedef struct ctf_buf ctf_buf_t;
 
 typedef struct symit_data symit_data_t;
 
-/* fixup_tdescs.c */
-void cvt_fixstabs(tdata_t *);
-void cvt_fixups(tdata_t *, size_t);
-
 /* ctf.c */
 caddr_t ctf_gen(iiburst_t *, size_t *, int);
 tdata_t *ctf_load(char *, caddr_t, size_t, symit_data_t *, char *);
@@ -385,33 +355,24 @@ void symit_free(symit_data_t *);
 
 /* merge.c */
 void merge_into_master(tdata_t *, tdata_t *, tdata_t *, int);
+void ctfmerge_prepare(int nielems);
+int ctfmerge_add_td(tdata_t *td, char *name);
+tdata_t *ctfmerge_done(void);
 
 /* output.c */
-#define	CTF_FUZZY_MATCH	0x1 /* match local symbols to global CTF */
-#define	CTF_USE_DYNSYM	0x2 /* use .dynsym not .symtab */
-#define	CTF_COMPRESS	0x4 /* compress CTF output */
-#define	CTF_KEEP_STABS	0x8 /* keep .stabs sections */
+#define	CTF_FUZZY_MATCH	0x01 /* match local symbols to global CTF */
+#define	CTF_USE_DYNSYM	0x02 /* use .dynsym not .symtab */
+#define	CTF_COMPRESS	0x04 /* compress CTF output */
+#define	CTF_KEEP_STABS	0x08 /* keep .stabs sections */
+#define	CTF_MINIMIZE	0x10 /* create minimal symbols & CTF output file */
 #if defined(__APPLE__)
 #define CTF_RAW_OUTPUT	(1<<30) /* output raw CTF data only, no segment/section data, and do not copy original file */
 #endif /* __APPLE__ */
 
 void write_ctf(tdata_t *, const char *, const char *, int);
 
-/* parse.c */
-void parse_init(tdata_t *);
-void parse_finish(tdata_t *);
-int parse_stab(stab_t *, char *, iidesc_t **);
-tdesc_t *lookup(int);
-tdesc_t *lookupname(const char *);
-void check_hash(void);
-void resolve_typed_bitfields(void);
-
-/* stabs.c */
-int stabs_read(tdata_t *, Elf *, const char *);
-
 /* dwarf.c */
-int dw_read(tdata_t *, Elf *, const char *);
-const char *dw_tag2str(uint_t);
+int dw_read(Elf *, const char *, const char *, int, tdata_t **);
 
 /* tdata.c */
 tdata_t *tdata_new(void);

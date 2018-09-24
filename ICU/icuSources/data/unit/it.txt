@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 it{
-    Version{"2.1.32.60"}
+    Version{"2.1.41.97"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -253,7 +253,7 @@ it{
                 dnam{"secondi"}
                 one{"{0} secondo"}
                 other{"{0} secondi"}
-                per{"{0}/s"}
+                per{"{0} al secondo"}
             }
             week{
                 dnam{"settimane"}
@@ -612,6 +612,11 @@ it{
                 dnam{"acre-feet"}
                 one{"{0} acre-foot"}
                 other{"{0} acre-feet"}
+            }
+            bushel{
+                dnam{"staia"}
+                one{"{0} staio"}
+                other{"{0} staia"}
             }
             centiliter{
                 dnam{"centilitri"}
@@ -1583,6 +1588,9 @@ it{
                 one{"{0} ac ft"}
                 other{"{0} ac ft"}
             }
+            bushel{
+                dnam{"staia"}
+            }
             centiliter{
                 dnam{"cl"}
                 one{"{0} cl"}
@@ -1653,6 +1661,9 @@ it{
             }
             gallon-imperial{
                 dnam{"Gal imp."}
+                one{"{0} gal imp."}
+                other{"{0} gal imp."}
+                per{"{0}/gal imp."}
             }
             hectoliter{
                 dnam{"hl"}

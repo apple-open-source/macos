@@ -207,7 +207,7 @@ static float maximumRectangleComponentDelta(FloatRect a, FloatRect b)
     return std::max(std::abs(a.x() - b.x()), std::max(std::abs(a.y() - b.y()), std::max(std::abs(a.width() - b.width()), std::abs(a.height() - b.height()))));
 }
 
-void ViewGestureController::didCollectGeometryForSmartMagnificationGesture(FloatPoint origin, FloatRect renderRect, FloatRect visibleContentRect, bool isReplacedElement, double viewportMinimumScale, double viewportMaximumScale)
+void ViewGestureController::didCollectGeometryForSmartMagnificationGesture(FloatPoint origin, FloatRect renderRect, FloatRect visibleContentRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale)
 {
     double currentScaleFactor = m_webPageProxy.pageScaleFactor();
 
@@ -235,7 +235,7 @@ void ViewGestureController::didCollectGeometryForSmartMagnificationGesture(Float
 
     // For replaced elements like images, we want to fit the whole element
     // in the view, so scale it down enough to make both dimensions fit if possible.
-    if (isReplacedElement)
+    if (fitEntireRect)
         targetMagnification = std::min(targetMagnification, static_cast<double>(visibleContentRect.height() / viewportConstrainedUnscaledTargetRect.height()));
 
     targetMagnification = std::min(std::max(targetMagnification, minMagnification), maxMagnification);
@@ -615,22 +615,22 @@ void ViewGestureController::beginSwipeGesture(WebBackForwardListItem* targetItem
         m_swipeShadowLayer = adoptNS([[CAGradientLayer alloc] init]);
         [m_swipeShadowLayer setName:@"Gesture Swipe Shadow Layer"];
         [m_swipeShadowLayer setColors:@[
-            (id)adoptCF(CGColorCreateGenericGray(0, 1.)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.99)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.98)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.95)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.92)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.82)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.71)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.46)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.35)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.25)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.17)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.11)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.07)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.04)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.01)).get(),
-            (id)adoptCF(CGColorCreateGenericGray(0, 0.)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 1.)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.99)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.98)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.95)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.92)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.82)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.71)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.46)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.35)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.25)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.17)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.11)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.07)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.04)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.01)).get(),
+            (__bridge id)adoptCF(CGColorCreateGenericGray(0, 0.)).get(),
         ]];
         [m_swipeShadowLayer setLocations:@[
             @0,
@@ -741,15 +741,17 @@ void ViewGestureController::endSwipeGesture(WebBackForwardListItem* targetItem, 
     m_webPageProxy.process().send(Messages::ViewGestureGeometryCollector::SetRenderTreeSizeNotificationThreshold(renderTreeSize * swipeSnapshotRemovalRenderTreeSizeTargetFraction), m_webPageProxy.pageID());
 
     m_webPageProxy.navigationGestureDidEnd(true, *targetItem);
-    m_webPageProxy.goToBackForwardItem(targetItem);
+    m_webPageProxy.goToBackForwardItem(*targetItem);
 
-    SnapshotRemovalTracker::Events desiredEvents = SnapshotRemovalTracker::VisuallyNonEmptyLayout
-        | SnapshotRemovalTracker::MainFrameLoad
-        | SnapshotRemovalTracker::SubresourceLoads
-        | SnapshotRemovalTracker::ScrollPositionRestoration;
-    if (renderTreeSize)
-        desiredEvents |= SnapshotRemovalTracker::RenderTreeSizeThreshold;
-    m_snapshotRemovalTracker.start(desiredEvents, [this] { this->forceRepaintIfNeeded(); });
+    m_provisionalOrSameDocumentLoadCallback = [this, renderTreeSize] {
+        SnapshotRemovalTracker::Events desiredEvents = SnapshotRemovalTracker::VisuallyNonEmptyLayout
+            | SnapshotRemovalTracker::MainFrameLoad
+            | SnapshotRemovalTracker::SubresourceLoads
+            | SnapshotRemovalTracker::ScrollPositionRestoration;
+        if (renderTreeSize)
+            desiredEvents |= SnapshotRemovalTracker::RenderTreeSizeThreshold;
+        m_snapshotRemovalTracker.start(desiredEvents, [this] { this->forceRepaintIfNeeded(); });
+    };
 
     // FIXME: Like on iOS, we should ensure that even if one of the timeouts fires,
     // we never show the old page content, instead showing the snapshot background color.

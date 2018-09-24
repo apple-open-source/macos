@@ -35,7 +35,6 @@
 #include "ScriptCallStack.h"
 #include "ScriptCallStackFactory.h"
 #include "ScriptObject.h"
-#include <wtf/CurrentTime.h>
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
@@ -44,7 +43,7 @@ static const unsigned maximumConsoleMessages = 100;
 static const int expireConsoleMessagesStep = 10;
 
 InspectorConsoleAgent::InspectorConsoleAgent(AgentContext& context, InspectorHeapAgent* heapAgent)
-    : InspectorAgentBase(ASCIILiteral("Console"))
+    : InspectorAgentBase("Console"_s)
     , m_injectedScriptManager(context.injectedScriptManager)
     , m_frontendDispatcher(std::make_unique<ConsoleFrontendDispatcher>(context.frontendRouter))
     , m_backendDispatcher(ConsoleBackendDispatcher::create(context.backendDispatcher, this))
@@ -104,7 +103,7 @@ void InspectorConsoleAgent::clearMessages(ErrorString&)
     m_consoleMessages.clear();
     m_expiredConsoleMessageCount = 0;
 
-    m_injectedScriptManager.releaseObjectGroup(ASCIILiteral("console"));
+    m_injectedScriptManager.releaseObjectGroup("console"_s);
 
     if (m_enabled)
         m_frontendDispatcher->messagesCleared();
@@ -138,7 +137,7 @@ void InspectorConsoleAgent::startTiming(const String& title)
     if (title.isNull())
         return;
 
-    auto result = m_times.add(title, monotonicallyIncreasingTime());
+    auto result = m_times.add(title, MonotonicTime::now());
 
     if (!result.isNewEntry) {
         // FIXME: Send an enum to the frontend for localization?
@@ -161,11 +160,11 @@ void InspectorConsoleAgent::stopTiming(const String& title, Ref<ScriptCallStack>
         return;
     }
 
-    double startTime = it->value;
+    MonotonicTime startTime = it->value;
     m_times.remove(it);
 
-    double elapsed = monotonicallyIncreasingTime() - startTime;
-    String message = title + String::format(": %.3fms", elapsed * 1000);
+    Seconds elapsed = MonotonicTime::now() - startTime;
+    String message = title + String::format(": %.3fms", elapsed.milliseconds());
     addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::Timing, MessageLevel::Debug, message, WTFMove(callStack)));
 }
 
@@ -190,7 +189,7 @@ void InspectorConsoleAgent::count(JSC::ExecState* state, Ref<ScriptArguments>&& 
     String identifier;
     if (!arguments->argumentCount()) {
         // '@' prefix for engine generated labels.
-        title = ASCIILiteral("Global");
+        title = "Global"_s;
         identifier = makeString('@', title);
     } else {
         // '#' prefix for user labels.
@@ -239,15 +238,15 @@ void InspectorConsoleAgent::addConsoleMessage(std::unique_ptr<ConsoleMessage> co
     }
 }
 
-void InspectorConsoleAgent::getLoggingChannels(ErrorString&, RefPtr<JSON::ArrayOf<Inspector::Protocol::Console::Channel>>& channels)
+void InspectorConsoleAgent::getLoggingChannels(ErrorString&, RefPtr<JSON::ArrayOf<Protocol::Console::Channel>>& channels)
 {
     // Default implementation has no logging channels.
-    channels = JSON::ArrayOf<Inspector::Protocol::Console::Channel>::create();
+    channels = JSON::ArrayOf<Protocol::Console::Channel>::create();
 }
 
 void InspectorConsoleAgent::setLoggingChannelLevel(ErrorString& errorString, const String&, const String&)
 {
-    errorString = ASCIILiteral("No such channel to enable");
+    errorString = "No such channel to enable"_s;
 }
 
 } // namespace Inspector

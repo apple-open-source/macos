@@ -144,7 +144,7 @@ dtrace='
  inline int OPT_totals    = '$opt_totals';
  inline int OPT_pid       = '$opt_pid';
  inline int PID           = '$pid';
- inline string NAME       = "'$pname'";
+ inline string NAME       = "'"$pname"'";
 
  dtrace:::BEGIN 
  /! OPT_command/

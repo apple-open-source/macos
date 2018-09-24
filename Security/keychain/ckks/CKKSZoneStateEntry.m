@@ -154,7 +154,7 @@
     return @{@"ckzone": self.ckzone};
 }
 
-- (NSDictionary<NSString*,NSString*>*) sqlValues {
+- (NSDictionary<NSString*,id>*) sqlValues {
     NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
 
     return @{@"ckzone": self.ckzone,
