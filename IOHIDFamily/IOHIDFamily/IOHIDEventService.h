@@ -845,7 +845,55 @@ protected:
     OSMetaClassDeclareReservedUsed(IOHIDEventService, 19);
     virtual void           closeForClient(IOService *client, void *context, IOOptionBits options = 0);
     
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 20);
+    /*!
+     @function dispatchExtendedGameControllerEvent
+     @abstract Dispatch extended game controller event
+     @discussion This is meant to dispatch a conforming extended game controller event that includes the
+     following: Direction Pad, Face Buttons, Left and Right Joysticks and 2 Left and 2 Right Shoulder Buttons.
+     @param timeStamp   AbsoluteTime representing origination of event
+     @param dpadUp      Direction pad up with a fixed value between 0.0 and 1.0
+     @param dpadDown    Direction pad down with a fixed value between 0.0 and 1.0
+     @param dpadLeft    Direction pad left with a fixed value between 0.0 and 1.0
+     @param dpadRight   Direction pad right with a fixed value between 0.0 and 1.0
+     @param faceX       Face button X with a fixed value between 0.0 and 1.0
+     @param faceY       Face button Y with a fixed value between 0.0 and 1.0
+     @param faceA       Face button A with a fixed value between 0.0 and 1.0
+     @param faceB       Face button B with a fixed value between 0.0 and 1.0
+     @param shoulderL1  Top left shoulder button with a fixed value between 0.0 and 1.0
+     @param shoulderR1  Top right shoulder button with a fixed value between 0.0 and 1.0
+     @param shoulderL2  Bottom left shoulder button with a fixed value between 0.0 and 1.0
+     @param shoulderR2  Bottom right shoulder button with a fixed value between 0.0 and 1.0
+     @param joystickX   Joystick X axis with a fixed value between -1.0 and 1.0
+     @param joystickY   Joystick Y axis with a fixed value between -1.0 and 1.0
+     @param joystickZ   Joystick Z axis with a fixed value between -1.0 and 1.0
+     @param joystickRz  Joystick Rz axis with a fixed value between -1.0 and 1.0
+     @param thumbstickButtonLeft   Joystick left  thumbstick button with boolean value true/false for button down/up
+     @param thumbstickButtonRight  Joystick right thumbstick button with boolean value true/false for button down/up
+     @param options     Additional options to be defined.
+     */
+    OSMetaClassDeclareReservedUsed(IOHIDEventService, 20);
+    virtual void            dispatchExtendedGameControllerEventWithThumbstickButtons(
+                                                                AbsoluteTime                    timeStamp,
+                                                                IOFixed                         dpadUp,
+                                                                IOFixed                         dpadDown,
+                                                                IOFixed                         dpadLeft,
+                                                                IOFixed                         dpadRight,
+                                                                IOFixed                         faceX,
+                                                                IOFixed                         faceY,
+                                                                IOFixed                         faceA,
+                                                                IOFixed                         faceB,
+                                                                IOFixed                         shoulderL1,
+                                                                IOFixed                         shoulderR1,
+                                                                IOFixed                         shoulderL2,
+                                                                IOFixed                         shoulderR2,
+                                                                IOFixed                         joystickX,
+                                                                IOFixed                         joystickY,
+                                                                IOFixed                         joystickZ,
+                                                                IOFixed                         joystickRz,
+                                                                boolean_t                       thumbstickButtonLeft,
+                                                                boolean_t                       thumbstickButtonRight,
+                                                                IOOptionBits                    options         = 0 );
+    
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 21);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 22);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 23);

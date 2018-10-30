@@ -294,6 +294,8 @@ typedef struct {
 
 typedef struct {
     IOHIDGameControllerEventData base;
+    uint32_t thumbstickButtonLeft:1;
+    uint32_t thumbstickButtonRight:1;
 } __IOHIDGameControllerEventData;
 
 typedef struct {

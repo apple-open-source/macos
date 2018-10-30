@@ -151,6 +151,7 @@ main(int argc, char * const * argv)
 
     /* Set up auditing of kext loads, see kextaudit.c */
     _OSKextSetLoadAuditFunction(&KextAuditLoadCallback);
+    setVariantSuffix();
 
    /*****
     * Create the set of kexts we'll be working from.

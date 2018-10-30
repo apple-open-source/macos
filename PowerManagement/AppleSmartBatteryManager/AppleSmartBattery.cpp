@@ -59,6 +59,7 @@ do {  \
 #define kFinishPolling          0x9999
 
 static const uint32_t kBatteryReadAllTimeout = 10000;       // 10 seconds
+static const uint32_t kExternalConnectedDebounceMs = 1000;
 
 #define kErrorPermanentFailure              "Permanent Battery Failure"
 
@@ -296,6 +297,9 @@ void AppleSmartBattery::initializeCommands(void)
         {kBAverageTimeToFullCmd,    kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
         {kBRemainingCapacityCmd,    kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
         {kBFullChargeCapacityCmd,   kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
+#if TARGET_OS_WATCH
+        {kSkinTemperatureCmd,       kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kUserVis},
+#endif
         {kFinishPolling,            0,     kASBMInvalidOp,     0, 0, NULL,                      kUserVis}
     };
     
@@ -342,6 +346,23 @@ bool AppleSmartBattery::doInitiateTransaction(const CommandStruct *cs)
 
     return fProvider->performTransaction(&req, (OSObject *)this, (void *)cs);
 }
+
+#if TARGET_OS_WATCH
+void AppleSmartBattery::updateSKTMData(void)
+{
+    smcToRegistry sktmKeys[] = {
+        { _skinTemperature,                     'TSBH', -2 },
+        { _skinTemperatureVirtual,              'TV0s', -8 },
+        { NULL,                                 '0',     0 }
+    };
+
+    OSDictionary *sktmData = smcKeysToDictionary(sktmKeys);
+    if (sktmData) {
+        setPSProperty(_SKTMData, sktmData);
+        OSSafeReleaseNULL(sktmData);
+    }
+}
+#endif
 
 bool AppleSmartBattery::initiateTransaction(const CommandStruct *cs)
 {
@@ -656,7 +677,6 @@ void AppleSmartBattery::incompleteReadTimeOut(void)
         pollBatteryState(kUseLastPath);
     }
 }
-
 
 
 void AppleSmartBattery::handlePollingFinished(bool visitedEntirePath)

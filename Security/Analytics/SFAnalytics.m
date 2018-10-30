@@ -311,11 +311,21 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
 - (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError
 {
+    [self logResultForEvent:eventName hardFailure:hardFailure result:eventResultError withAttributes:nil];
+}
+
+- (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError withAttributes:(NSDictionary*)attributes
+{
     if(!eventResultError) {
         [self logSuccessForEventNamed:eventName];
     } else {
         // Make an Attributes dictionary
-        NSMutableDictionary* eventAttributes = [NSMutableDictionary dictionary];
+        NSMutableDictionary* eventAttributes = nil;
+        if (attributes) {
+            eventAttributes = [attributes mutableCopy];
+        } else {
+            eventAttributes = [NSMutableDictionary dictionary];
+        }
 
         /* if we have underlying errors, capture the chain below the top-most error */
         NSError *underlyingError = eventResultError.userInfo[NSUnderlyingErrorKey];

@@ -770,7 +770,14 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
     case CSSPropertyApplePayButtonStyle: // white | white-outline | black
         return valueID == CSSValueWhite || valueID == CSSValueWhiteOutline || valueID == CSSValueBlack;
     case CSSPropertyApplePayButtonType: // plain | buy | set-up | donate
-        return valueID == CSSValuePlain || valueID == CSSValueBuy || valueID == CSSValueSetUp || valueID == CSSValueDonate;
+        if (valueID == CSSValuePlain || valueID == CSSValueBuy || valueID == CSSValueSetUp || valueID == CSSValueDonate)
+            return true;
+#if ENABLE(APPLE_PAY_SESSION_V4)
+        // check-out | book | subscribe
+        return valueID == CSSValueCheckOut || valueID == CSSValueBook || valueID == CSSValueSubscribe;
+#else
+        return false;
+#endif
 #endif
     case CSSPropertyWebkitNbspMode: // normal | space
         return valueID == CSSValueNormal || valueID == CSSValueSpace;

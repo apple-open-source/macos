@@ -418,6 +418,23 @@ bool Message::sendReceive(mach_port_t receivePort,
         NULL, 0));
 }
 
+/* cribbed from libdispatch: _dispatch_mach_msg_get_audit_trailer */
+mach_msg_audit_trailer_t *
+Message::auditTrailer()
+{
+    mach_msg_header_t *hdr = &mBuffer->Head;
+    mach_msg_trailer_t *tlr = NULL;
+    mach_msg_audit_trailer_t *audit_tlr = NULL;
+    tlr = (mach_msg_trailer_t *)((unsigned char *)hdr +
+            round_msg(hdr->msgh_size));
+    // The trailer should always be of format zero.
+    if (tlr->msgh_trailer_type == MACH_MSG_TRAILER_FORMAT_0) {
+        if (tlr->msgh_trailer_size >= sizeof(mach_msg_audit_trailer_t)) {
+            audit_tlr = (mach_msg_audit_trailer_t *)tlr;
+        }
+    }
+    return audit_tlr;
+}
 
 //
 // Debug dumping of ports etc.

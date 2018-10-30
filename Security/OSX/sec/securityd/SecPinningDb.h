@@ -45,9 +45,9 @@ extern const CFStringRef kSecPinningDbKeyRules;
 CFDictionaryRef _Nullable SecPinningDbCopyMatching(CFDictionaryRef _Nonnull query);
 void SecPinningDbInitialize(void);
 
-#if !TARGET_OS_BRIDGE
+#if !TARGET_OS_BRIDGE && __OBJC__
 /* Updating the pinning DB isn't supported on BridgeOS because we treat the disk as read-only. */
-bool SecPinningDbUpdateFromURL(CFURLRef url);
+bool SecPinningDbUpdateFromURL(NSURL *url, NSError **error);
 #endif
 
 CFNumberRef SecPinningDbCopyContentVersion(void);

@@ -244,6 +244,16 @@
  */
 #define kIOPSCommandSendCurrentStateOfCharge       "Send Current State of Charge"
 
+/*!
+ * @define      kIOPSCommandSendCurrentTemperature
+ *
+ * @abstract Tell the UPS the device's current temperature
+ * @discussion
+ *              <ul>
+ *                  <li>The matching argument should be a CFNumber of kCFNumberIntType specifying the device's
+ *                  <li>temperature in degrees deciKelvin.
+ */
+#define kIOPSCommandSendCurrentTemperature       "Send Current Temperature"
 
 /*!
  * @group       Power Source data keys

@@ -130,6 +130,13 @@ static int gIdleSleepPreventersToken = 0;
 static int gSystemSleepPreventersToken = 0;
 uint64_t lastcall_ts = 0;
 
+// Wake time bookkeeping
+static uint64_t gCurrentWakeTime = 0; 
+static uint64_t gCurrentWakeStart = 0; // read from SMC on calendar re sync notification
+static uint64_t gCurrentWakeEnd = 0; // updated on capability change callback
+bool gIsDarkWake = false;
+bool gWakeFromDarkWake = false;
+bool gCapabilityChangeDone = false;
 
 // gPowerState - Tracks various wake types the system is currently in
 // by setting appropriate bits. 
@@ -281,6 +288,7 @@ __private_extern__ void ClockSleepWakeNotification(IOPMCapabilityBits b,
 __private_extern__ bool isDisplayAsleep( );
 void setAutoPowerOffTimer(bool initialCall, CFAbsoluteTime postpone);
 static void sendNoRespNotification( int interestBitsNotify );
+static void sendNoRespNotificationToInterestedClients( int interestBitsNotify );
 void cancelAutoPowerOffTimer();
 static void setInitialSleepPreventersCount(int type);
 static bool PMConnectionHandleDeadName(uint32_t connection_id);
@@ -1365,14 +1373,15 @@ static void updateCapabilitiesToAllowBackgroundTasks()
     /* Its been kPMSleepDurationForBT since sleep. We can allow background task if not already
      * allowed in Dark Wake
      */
+    IOPMCapabilityBits deliverCapabilityBits;
     if ((gCurrentCapabilityBits & kIOPMSystemCapabilityCPU) &&
         !(gCurrentCapabilityBits & (kIOPMSystemCapabilityGraphics| kIOPMSystemCapabilityAudio))){
         // in Dark Wake
         if (_DWBT_allowed() && gCurrentSilentRunningState) {
             if (!(gCurrentCapabilityBits & kIOPMCapabilityBackgroundTask)){
-                gCurrentCapabilityBits |= kIOPMCapabilityBackgroundTask;
+                deliverCapabilityBits = gCurrentCapabilityBits | kIOPMCapabilityBackgroundTask;
                 // deliver capabilities notification
-                connectionFireNotification(gCurrentCapabilityBits, 0);
+                sendNoRespNotificationToInterestedClients(deliverCapabilityBits);
                 INFO_LOG("Capabilities changed to include BackgroundTask\n");
             }
         }
@@ -2055,6 +2064,46 @@ void setVMDarkwakeMode(bool darkwakeMode)
 }
 
 
+void updateWakeTime()
+{
+    if (gCapabilityChangeDone == true) {
+        if (gWakeFromDarkWake) {
+            uint64_t useractive = 0;
+            size_t size = sizeof(useractive);
+            sysctlbyname("kern.useractive_abs_time", &useractive, &size, NULL, 0);
+            DEBUG_LOG("WakeTime: useractive %llu\n", useractive);
+
+            gCurrentWakeTime = intervalInNanoseconds(useractive, gCurrentWakeEnd);
+            logASLMessageWakeTime(gCurrentWakeTime, kIsDarkToFullWake);
+        } else {
+            if (gCurrentWakeStart != 0 && gCurrentWakeTime == 0) {
+                // Calendar re sync is done
+                gCurrentWakeTime = intervalInNanoseconds(gCurrentWakeStart, gCurrentWakeEnd);
+                if (gIsDarkWake)
+                    logASLMessageWakeTime(gCurrentWakeTime, kIsDarkWake);
+                else
+                    logASLMessageWakeTime(gCurrentWakeTime, kIsFullWake);
+            } else {
+                DEBUG_LOG("WakeTime: calendar hasn't resynced yet\n");
+            }
+        }
+    } else {
+        DEBUG_LOG("WakeTime: capabilityChange isn't done yet\n");
+    }
+}
+
+
+void updateCurrentWakeStart(uint64_t timestamp)
+{
+    INFO_LOG("Updating wake start timestamp to %llu\n", timestamp);
+    gCurrentWakeStart = timestamp;
+}
+
+void updateCurrentWakeEnd(uint64_t timestamp)
+{
+    INFO_LOG("Updating wake end timestamp to %llu\n", timestamp);
+    gCurrentWakeEnd = timestamp;
+}
 /*****************************************************************************/
 /* PMConnectionPowerCallBack */
 /*****************************************************************************/
@@ -2127,6 +2176,14 @@ static void PMConnectionPowerCallBack(
     
     if (SYSTEM_WILL_SLEEP_TO_S0(capArgs))
     {
+        // clear all wake time bookkeeping
+        gIsDarkWake = false;
+        gWakeFromDarkWake = false;
+        gCurrentWakeStart = 0;
+        gCurrentWakeEnd = 0;
+        gCapabilityChangeDone = false;
+        gCurrentWakeTime = 0;
+
         // Send an async notify out - clients include SCNetworkReachability API's; no ack expected
         setSystemSleepStateTracking(0);
         notify_post(kIOPMSystemPowerStateNotify);
@@ -2206,6 +2263,13 @@ static void PMConnectionPowerCallBack(
         return;
     } else if (SYSTEM_WILL_SLEEP_TO_S0DARK(capArgs))
     {
+        // clear all wake time bookkeeping
+        gIsDarkWake = false;
+        gWakeFromDarkWake = false;
+        gCurrentWakeStart = 0;
+        gCurrentWakeEnd = 0;
+        gCapabilityChangeDone = false;
+        gCurrentWakeTime = 0;
 
 
         gPowerState |= kDarkWakeState;
@@ -2245,6 +2309,10 @@ static void PMConnectionPowerCallBack(
     } else if (SYSTEM_DID_WAKE(capArgs))
     {
         _updateWakeReason(&wakeReason, &wakeType);
+
+        // Update wake end timestamp
+        updateCurrentWakeEnd(mach_absolute_time());
+
         // On a SilentRunningMachine, the assumption is that every wake is
         // Silent until powerd unclamps SilentRunning or unforeseen thermal
         // constraints arise
@@ -2288,6 +2356,7 @@ static void PMConnectionPowerCallBack(
                 }
 
                 else if (s02dw_logd || slp2dw_logd) {
+                    gWakeFromDarkWake = true;
                     logASLMessageWake(kPMASLSigSuccess, NULL,  NULL, deliverCapabilityBits, kIsDarkToFullWake);
                 }
                 recordFDREvent(kFDRUserWakeEvent, false, NULL);
@@ -2300,16 +2369,20 @@ static void PMConnectionPowerCallBack(
             }
             slp_logd = s02dw_logd = slp2dw_logd = false;
 
+            // update wake time
+            gCapabilityChangeDone = true;
+            updateWakeTime();
+
 
         } else if (IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityCPU))
         {
+            gIsDarkWake = true;
             //If system is in any power nap state, cancel those states
             cancelPowerNapStates();
 
             // e.g. System has moved into dark wake
             deliverCapabilityBits = 
                     kIOPMCapabilityCPU | kIOPMCapabilityDisk | kIOPMCapabilityNetwork;
-            
 
             // kDarkWakeForSSState bit is removed when the SS session is closed.
             gPowerState &= ~(kPowerStateMask ^ kDarkWakeForSSState);
@@ -2402,6 +2475,9 @@ static void PMConnectionPowerCallBack(
             }
             mt2RecordWakeEvent(kWakeStateDark);
             recordFDREvent(kFDRDarkWakeEvent, true, NULL);
+            gCapabilityChangeDone = true;
+            updateWakeTime();
+
         }
 
         if ((kACPowered == _getPowerSource()) && (kPMDarkWakeLingerDuration != 0)
@@ -2442,7 +2518,6 @@ static void PMConnectionPowerCallBack(
     }
     else if (SYSTEM_WILL_WAKE(capArgs) )
     {
-
         // reset delta to standby
         resetDeltaToStandby();
         refreshStandbyInactivityPrediction();
@@ -2509,7 +2584,7 @@ static PMResponseWrangler *connectionFireNotification(
         return gLastResponseWrangler;
     }
 
-
+    INFO_LOG("connectionFireNotification: 0x%x\n", interestBitsNotify);
     // We only send state change notifications out to entities interested in the changing
     // bits, or interested in a subset of the changing bits.
     // Any client who is interested in a superset of the changing bits shall not receive
@@ -2639,7 +2714,7 @@ static void sendNoRespNotification( int interestBitsNotify )
     uint32_t                messageToken = 0;
     PMConnection            *connection = NULL;
 
-
+    INFO_LOG("sendNoRespNotification: 0x%x\n", interestBitsNotify);
     count = CFArrayGetCount(gConnections);
 
     for (i=0; i<count; i++)
@@ -2668,6 +2743,46 @@ static void sendNoRespNotification( int interestBitsNotify )
 
 }
 
+static void sendNoRespNotificationToInterestedClients( int interestBitsNotify )
+{
+
+    CFIndex                 i, count = 0;
+    // Set messageToken to 0, to indicate that we are not interested in response
+    uint32_t                messageToken = 0;
+    PMConnection            *connection = NULL;
+    int                     affectedBits = 0;
+
+
+    INFO_LOG("sendNoRespNotificationToInterestedClients: 0x%x\n", interestBitsNotify);
+    count = CFArrayGetCount(gConnections);
+
+    affectedBits = interestBitsNotify ^ gCurrentCapabilityBits;
+    gCurrentCapabilityBits = interestBitsNotify;
+    for (i=0; i<count; i++)
+    {
+        connection = (PMConnection *)CFArrayGetValueAtIndex(gConnections, i);
+
+        if ((connection->interestsBits & affectedBits) == 0) 
+           continue;
+
+        if ((MACH_PORT_NULL == connection->notifyPort) ||
+            (false == connection->notifyEnable)) {
+            continue;
+        }
+
+        _sendMachMessage(connection->notifyPort, 
+                            0,
+                            interestBitsNotify, 
+                            messageToken);
+
+
+        if (gDebugFlags & kIOPMDebugLogCallbacks)
+           logASLPMConnectionNotify(connection->callerName, interestBitsNotify );
+         
+    }
+
+
+}
 /*****************************************************************************/
 /*****************************************************************************/
 
@@ -3323,7 +3438,7 @@ __private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits)
                 (kIOPMCapabilityPushServiceTask|kIOPMCapabilityBackgroundTask|kIOPMCapabilitySilentRunning)))
     {
         deliverCapabilityBits = gCurrentCapabilityBits & ~(kIOPMCapabilitySilentRunning);
-        connectionFireNotification(deliverCapabilityBits, 0);
+        sendNoRespNotificationToInterestedClients(deliverCapabilityBits);
     }
 
     int newSRCap = kSilentRunningOff;

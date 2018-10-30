@@ -296,9 +296,15 @@ and
 .Ar standbydelaylow
 specify the delay, in seconds, before writing the hibernation image to disk and powering off memory for Standby.
 .Ar standbydelayhigh
-is used when the remaining battery capacity is high, and
+is used when the remaining battery capacity is above
+.Ar highstandbythreshold
+, and
 .Ar standbydelaylow
-is used when the remaining battery capacity is low.
+is used when the remaining battery capacity is below
+.Ar highstandbythreshold.
+.Pp
+.Ar highstandbythreshold
+has a default value of 50 percent.
 .Pp
 .Ar autopoweroff
 is enabled by default on supported platforms as an implementation of Lot 6 to the European Energy-related Products Directive. After sleeping for <autopoweroffdelay> seconds, the system will write a hibernation image and go into a lower power chipset sleep. Wakeups from this state will take longer than wakeups from regular sleep.

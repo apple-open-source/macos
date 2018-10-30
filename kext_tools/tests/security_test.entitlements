@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <!--
-     syspolicyd requires callers to have the kext-management entitlement, but respects a special
+     syspolicyd requires callers to have the kext-secure-management entitlement, but respects a special
      -internal variant of the entitlement on apple internal machines only.  Use that for this test binary
      so it is not expoitable on a user machine if it were released into the wild.
      -->
-    <key>com.apple.rootless.kext-management-internal</key>
+    <key>com.apple.rootless.kext-secure-management-internal</key>
     <true/>
 </dict>
 </plist>

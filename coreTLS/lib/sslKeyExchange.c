@@ -793,17 +793,73 @@ fail:
     return err;
 }
 
+/*
+ * These constant-time functions are adopted from BoringSSL.
+ * See: crypto/internal.h
+ */
+
+// constant_time_msb_w returns the given value with the MSB copied to all the
+// other bits.
+static inline uint64_t constant_time_msb_w(uint64_t a) {
+    return 0u - (a >> (sizeof(a) * 8 - 1));
+}
+
+// constant_time_is_zero returns 0xff..f if a == 0 and 0 otherwise.
+static inline uint64_t constant_time_is_zero_w(uint64_t a) {
+    // Here is an SMT-LIB verification of this formula:
+    //
+    // (define-fun is_zero ((a (_ BitVec 32))) (_ BitVec 32)
+    //   (bvand (bvnot a) (bvsub a #x00000001))
+    // )
+    //
+    // (declare-fun a () (_ BitVec 32))
+    //
+    // (assert (not (= (= #x00000001 (bvlshr (is_zero a) #x0000001f)) (= a #x00000000))))
+    // (check-sat)
+    // (get-model)
+    return constant_time_msb_w(~a & (a - 1));
+}
+
+// constant_time_eq_w returns 0xff..f if a == b and 0 otherwise.
+static inline uint64_t constant_time_eq_w(uint64_t a, uint64_t b) {
+    return constant_time_is_zero_w(a ^ b);
+}
+
+static inline uint8_t constant_time_eq_8(uint64_t a, uint64_t b) {
+    return (uint8_t)(constant_time_eq_w(a, b));
+}
+
+// constant_time_select_w returns (mask & a) | (~mask & b). When |mask| is all
+// 1s or all 0s (as returned by the methods above), the select methods return
+// either |a| (if |mask| is nonzero) or |b| (if |mask| is zero).
+static inline uint64_t constant_time_select_w(uint64_t mask, uint64_t a, uint64_t b) {
+    return (mask & a) | (~mask & b);
+}
+
+// constant_time_select_8 acts like |constant_time_select| but operates on
+// 8-bit values.
+static inline uint8_t constant_time_select_8(uint8_t mask, uint8_t a, uint8_t b) {
+    return (uint8_t)(constant_time_select_w(mask, a, b));
+}
+
 static int
 SSLDecodeRSAKeyExchange(tls_buffer keyExchange, tls_handshake_t ctx)
-{   int            err;
-    size_t        		outputLen, localKeyModulusLen;
-    tls_protocol_version  version;
-	uint8_t				*src = NULL;
-	tls_private_key_t   keyRef = NULL;
+{
+    int err = 0;
+    size_t outputLen = 0;
+    size_t localKeyModulusLen = 0;
+	uint8_t *src = NULL;
+	tls_private_key_t keyRef = NULL;
+    uint8_t *plaintext = NULL;
+    size_t index = 0;
+    unsigned char rand_premaster_secret[SSL_RSA_PREMASTER_SECRET_SIZE];
+    unsigned char decrypt_good = 0;
+    unsigned char requested_version_good = 0;
+    unsigned char negotiated_version_good = 0;
 
 	assert(ctx->isServer);
 
-    keyRef  = ctx->signingPrivKeyRef;
+    keyRef = ctx->signingPrivKeyRef;
 
 	localKeyModulusLen = sslPrivKeyLengthInBytes(keyRef);
 	if (localKeyModulusLen == 0) {
@@ -834,62 +890,48 @@ SSLDecodeRSAKeyExchange(tls_buffer keyExchange, tls_handshake_t ctx)
         return err;
 	}
 
+    /*
+     * Always generate the random PMS.
+     */
+    tls_buffer wrapper_buffer;
+    wrapper_buffer.data = rand_premaster_secret;
+    wrapper_buffer.length = sizeof(rand_premaster_secret);
+    sslRand(&wrapper_buffer);
+
 	/*
 	 * From this point on, to defend against the Bleichenbacher attack
 	 * and its Klima-Pokorny-Rosa variant, any errors we detect are *not*
-	 * reported to the caller or the peer. If we detect any error during
-	 * decryption (e.g., bad PKCS1 padding) or in the testing of the version
-	 * number in the premaster secret, we proceed by generating a random
-	 * premaster secret, with the correct version number, and tell our caller
-	 * that everything is fine. This session will fail as soon as the
-	 * finished messages are sent, since we will be using a bogus premaster
-	 * secret (and hence bogus session and MAC keys). Meanwhile we have
-	 * not provided any side channel information relating to the cause of
-	 * the failure.
-	 *
-	 * See http://eprint.iacr.org/2003/052/ for more info.
+	 * reported to the caller or the peer.
 	 */
+    plaintext = ctx->preMasterSecret.data;
 	err = sslRsaDecrypt(keyRef,
 		src,
 		localKeyModulusLen,				// ciphertext len
 		ctx->preMasterSecret.data,
 		SSL_RSA_PREMASTER_SECRET_SIZE,	// plaintext buf available
 		&outputLen);
-	if(err != errSSLSuccess) {
-		/* possible Bleichenbacher attack */
-		sslLogNegotiateDebug("SSLDecodeRSAKeyExchange: RSA decrypt fail");
-	}
-	else if(outputLen != SSL_RSA_PREMASTER_SECRET_SIZE) {
-		sslLogNegotiateDebug("SSLDecodeRSAKeyExchange: premaster secret size error");
-    	err = errSSLProtocol;							// not passed back to caller
-    }
 
-	if(err == errSSLSuccess) {
-		/*
-		 * Two legal values here - the one we actually negotiated (which is
-		 * technically incorrect but not uncommon), and the one the client
-		 * sent as its preferred version in the client hello msg.
-		 */
-		version = (tls_protocol_version)SSLDecodeInt(ctx->preMasterSecret.data, 2);
-		if((version != ctx->negProtocolVersion) &&
-		   (version != ctx->clientReqProtocol)) {
-			/* possible Klima-Pokorny-Rosa attack */
-			sslLogNegotiateDebug("SSLDecodeRSAKeyExchange: version error");
-			err = errSSLProtocol;
-		}
+    /*
+     * First, make sure the decrypted length is correct. Then, make
+     * sure the first two bytes match one of the legal values:
+     * the one we actually negotiated (which is technically incorrect
+     * but not uncommon), and the one the client sent as its preferred
+     * version in the ClientHello message. If either check fails,
+     * copy over the random PMS bytes into the PMS buffer and return
+     * success. Otherwise, leave the PMS bytes untouched. And do
+     * all of this in constant time.
+     */
+    decrypt_good = constant_time_eq_w(err, errSSLSuccess);
+    decrypt_good &= constant_time_eq_8(outputLen, sizeof(rand_premaster_secret));
+    negotiated_version_good = constant_time_eq_8(plaintext[0], (unsigned)(ctx->negProtocolVersion >> 8));
+    negotiated_version_good &= constant_time_eq_8(plaintext[1], (unsigned)(ctx->negProtocolVersion & 0xff));
+    requested_version_good = constant_time_eq_8(plaintext[0], (unsigned)(ctx->clientReqProtocol >> 8));
+    requested_version_good &= constant_time_eq_8(plaintext[1], (unsigned)(ctx->clientReqProtocol & 0xff));
+    decrypt_good &= negotiated_version_good | requested_version_good;
+
+    for (index = 0; index < sizeof(rand_premaster_secret); index++) {
+        plaintext[index] = constant_time_select_8(decrypt_good, plaintext[index], rand_premaster_secret[index]);
     }
-	if(err != errSSLSuccess) {
-		/*
-		 * Obfuscate failures for defense against Bleichenbacher and
-		 * Klima-Pokorny-Rosa attacks.
-		 */
-		SSLEncodeInt(ctx->preMasterSecret.data, ctx->negProtocolVersion, 2);
-		tls_buffer tmpBuf;
-		tmpBuf.data   = ctx->preMasterSecret.data + 2;
-		tmpBuf.length = SSL_RSA_PREMASTER_SECRET_SIZE - 2;
-		/* must ignore failures here */
-		sslRand(&tmpBuf);
-	}
 
 	/* in any case, save premaster secret (good or bogus) and proceed */
     return errSSLSuccess;

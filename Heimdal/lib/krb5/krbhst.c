@@ -78,7 +78,6 @@ struct krb5_krbhst_data {
     heim_queue_t addrinfo_queue;
 #if __APPLE__
     DNSServiceRef main_sd;
-    DNSServiceRef addrinfo_sd;
 #endif
     void (*callback)(void *, krb5_krbhst_info *);
     void *userctx;
@@ -138,9 +137,9 @@ query_release(void *ctx)
 	     * to clean
 	     */
 	    dispatch_sync((dispatch_queue_t)query->handle->addrinfo_queue, ^{
-		if (query->array[n]->srv_sd) {
-		    DNSServiceRefDeallocate(query->array[n]->srv_sd);
-		    query->array[n]->srv_sd = NULL;
+		if (query->array[n]->query_sd) {
+		    DNSServiceRefDeallocate(query->array[n]->query_sd);
+		    query->array[n]->query_sd = NULL;
 
 		    if (!query->array[n]->flags.getAddrDone) {
 			query->array[n]->flags.getAddrDone = true;
@@ -498,9 +497,27 @@ srv_release(void *ctx)
 	_krb5_debugx(NULL, 10, "srv_release w/o getAddrDone set");
     if (reply->hostsema)
 	heim_release(reply->hostsema);
-    if (reply->srv_sd) {
-	DNSServiceRefDeallocate(reply->srv_sd);
+
+    if (reply->addrinfo_queue) {
+	DNSServiceRef srv_sd = reply->srv_sd;
+	DNSServiceRef query_sd = reply->query_sd;
+	heim_queue_t queue = reply->addrinfo_queue;
+
 	reply->srv_sd = NULL;
+	reply->query_sd = NULL;
+
+	heim_retain(queue);
+
+	/* need to release on queue */
+	dispatch_async((dispatch_queue_t)queue, ^{
+	    if (query_sd) {
+		DNSServiceRefDeallocate(query_sd);
+	    }
+	    if (srv_sd) {
+		DNSServiceRefDeallocate(srv_sd);
+	    }
+	    heim_release(queue);
+	});
     }
     if (reply->hostname)
 	free(reply->hostname);
@@ -561,7 +578,6 @@ dns_getaddrinfo_callback(DNSServiceRef sdRef,
     struct addrinfo *ai = NULL;
     char host[NI_MAXHOST];
     int failure = 0, error;
-    int shouldStop = 1;
 
     if (srv_reply->flags.getAddrDone) {
 	return;
@@ -599,10 +615,8 @@ dns_getaddrinfo_callback(DNSServiceRef sdRef,
 
 	if (address->sa_family == AF_INET) {
 	    srv_reply->flags.recvIPv4 = 1;
-	    shouldStop = (flags & kDNSServiceFlagsMoreComing) == 0;
 	} else if (address->sa_family == AF_INET6) {
 	    srv_reply->flags.recvIPv6 = 1;
-	    shouldStop = (flags & kDNSServiceFlagsMoreComing) == 0;
 	} else {
 	    failure = 1;
 	}
@@ -641,7 +655,10 @@ dns_getaddrinfo_callback(DNSServiceRef sdRef,
     }
 
  out:
-    _krb5_debugx(query->context, 10, " SRV getaddrinfo end: %s (%s)", hostname, (flags & kDNSServiceFlagsMoreComing) ? "more coming" : "done");
+    _krb5_debugx(query->context, 10, " SRV getaddrinfo end: %s (%s) (IPv4:%s) (IPv6:%s)",
+		 hostname, (flags & kDNSServiceFlagsMoreComing) ? "more coming" : "done",
+		 srv_reply->flags.noIPv4 ? "no-rr" :  (srv_reply->flags.recvIPv4 ? "yes" : "waiting"),
+		 srv_reply->flags.noIPv6 ? "no-rr" :  (srv_reply->flags.recvIPv6 ? "yes" : "waiting"));
 
     /*
      * Stop processing requests when we have:
@@ -652,7 +669,7 @@ dns_getaddrinfo_callback(DNSServiceRef sdRef,
     if (failure ||
 	((srv_reply->flags.noIPv4 || srv_reply->flags.recvIPv4) &&
 	 (srv_reply->flags.noIPv6 || srv_reply->flags.recvIPv6) &&
-	 shouldStop))
+	 (flags & kDNSServiceFlagsMoreComing) == 0))
     {
 	_krb5_debugx(query->context, 10, " DNS getaddrinfo done: %s %s", srv_reply->hostname, failure ? "failed" : "success");
 	srv_reply->flags.getAddrDone = true;
@@ -751,40 +768,37 @@ SRVQueryCallback(DNSServiceRef sdRef,
 	krb5_af_flags kafs = _krb5_get_supported_af(query->context);
 	struct krb5_krbhst_data *handle = query->handle;
 	DNSServiceFlags dnsFlags =
-	    kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates | kDNSServiceFlagsSuppressUnusable;
+	    kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates;
 	DNSServiceProtocol protocol_flags = 0;
 	char *fqdn_host = NULL;
 
 	_krb5_debugx(query->context, 10, "Got delegated query on: %s", srv_reply->hostname);
 
 	/*
-	 * If we are dealing with KD_DELEG_UUID, we need a second handle to
-	 * for the addrinfo calls, since mDNSResponder uses that to track the
+	 * If we are dealing with KD_DELEG_UUID, we need one handle per request
+	 * for each addrinfo calls, since mDNSResponder uses that to track the
 	 * morecoming flag, and if we have these new addrinfo calls outstanding
 	 * while the main query is still out there (it will be), it will never
 	 * get the morecoming flag cleared.
 	 */
 
-	if (handle->addrinfo_sd == NULL) {
+	srv_reply->addrinfo_queue = heim_retain(handle->addrinfo_queue);
 
-	    error = DNSServiceCreateDelegateConnection(&handle->addrinfo_sd, 0, handle->delegate_uuid);
-	    if (error != kDNSServiceErr_NoError) {
-		_krb5_debugx(query->context, 2,
-			     "Failed setting up search context for addrinfo resolving for %s failed: %d",
-			     srv_reply->hostname, error);
-		goto end;
-	    }
+	error = DNSServiceCreateDelegateConnection(&srv_reply->srv_sd, 0, handle->delegate_uuid);
+	if (error != kDNSServiceErr_NoError) {
+	    _krb5_debugx(query->context, 2,
+			 "Failed setting up search context for addrinfo resolving for %s failed: %d",
+			 srv_reply->hostname, error);
+	    goto end;
+	}
 
-	    _krb5_debugx(query->context, 10, "setting queue");
+	_krb5_debugx(query->context, 10, "setting queue");
 
-	    error = DNSServiceSetDispatchQueue(handle->addrinfo_sd, (dispatch_queue_t)handle->addrinfo_queue);
-	    if (error) {
-		DNSServiceRefDeallocate(handle->addrinfo_sd);
-		handle->addrinfo_sd = NULL;
-		_krb5_debugx(query->context, 2,
-			     "Failed setting run queue for SRV query: %d", error);
-		goto end;
-	    }
+	error = DNSServiceSetDispatchQueue(srv_reply->srv_sd, (dispatch_queue_t)srv_reply->addrinfo_queue);
+	if (error) {
+	    _krb5_debugx(query->context, 2,
+			 "Failed setting run queue for SRV query: %d", error);
+	    goto end;
 	}
 
 	/* always use the realm as the "hostname" so that we tunnel out though the same connection */
@@ -795,7 +809,6 @@ SRVQueryCallback(DNSServiceRef sdRef,
 	    goto end;
 	}
 
-	srv_reply->srv_sd = handle->addrinfo_sd;
 	heim_retain(srv_reply); /* retain for callback */
 
 	if (kafs & KRB5_AF_FLAG_INET) {
@@ -809,11 +822,13 @@ SRVQueryCallback(DNSServiceRef sdRef,
 	    srv_reply->flags.noIPv6 = true;
 	}
 
-	if (flags == 0) {
+	if (protocol_flags == 0) {
 	    _krb5_debugx(query->context, 10, "No support address families: %s", srv_reply->hostname);
 	    heim_release(srv_reply); /* release for the callback that will never happen */
 	    goto end;
 	}
+
+	_krb5_debugx(query->context, 10, "DNS SRV using address flags: %08x", protocol_flags);
 
 	/*
 	 * Since its a DNS query, add a . at the end to avoid having
@@ -823,7 +838,9 @@ SRVQueryCallback(DNSServiceRef sdRef,
 	 */
 	asprintf(&fqdn_host, "%s.", srv_reply->hostname);
 
-	error = DNSServiceGetAddrInfo(&srv_reply->srv_sd,
+	srv_reply->query_sd = srv_reply->srv_sd;
+
+	error = DNSServiceGetAddrInfo(&srv_reply->query_sd,
 				      dnsFlags | kDNSServiceFlagsShareConnection,
 				      dns_service_id,
 				      protocol_flags,
@@ -845,20 +862,22 @@ SRVQueryCallback(DNSServiceRef sdRef,
     if (tmp == NULL) {
 	_krb5_debugx(query->context, 10, "SRV callback: realloc failed");
 
-	if (srv_reply->srv_sd) {
+	if (srv_reply->query_sd) {
 	    /* we need to release the retain for the callback if it never happned */
-	    dispatch_sync((dispatch_queue_t)query->handle->addrinfo_queue, ^{
-	        DNSServiceRefDeallocate(srv_reply->srv_sd);
-		srv_reply->srv_sd = NULL;
-
-		if (!srv_reply->flags.getAddrDone) {
-		    srv_reply->flags.getAddrDone = 1;
-		    heim_release(srv_reply);
+	    dispatch_sync((dispatch_queue_t)srv_reply->addrinfo_queue, ^{
+		if (srv_reply->query_sd) {
+		    DNSServiceRefDeallocate(srv_reply->query_sd);
+		    srv_reply->query_sd = NULL;
+		    if (!srv_reply->flags.getAddrDone) {
+			srv_reply->flags.getAddrDone = true;
+			heim_release(srv_reply);
+		    }
 		}
 	    });
 	} else {
 	    heim_release(srv_reply);
 	}
+
 	goto end;
     }
     query->array = tmp;
@@ -894,7 +913,7 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
     krb5_error_code ret;
     int dns_service_id;
     DNSServiceFlags dnsFlags =
-	kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates | kDNSServiceFlagsSuppressUnusable;
+	kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates;
 
     if (handle->main_sd == NULL) {
 
@@ -1896,13 +1915,6 @@ krbhost_dealloc(void *ptr)
 	handle->main_sd = NULL;
 
 	dispatch_async((dispatch_queue_t)handle->srv_queue, ^{
-	    DNSServiceRefDeallocate(client);
-	});
-    }
-    if (handle->addrinfo_sd) {
-	DNSServiceRef client = handle->addrinfo_sd;
-	handle->addrinfo_sd = NULL;
-	dispatch_async((dispatch_queue_t)handle->addrinfo_queue, ^{
 	    DNSServiceRefDeallocate(client);
 	});
     }

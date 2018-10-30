@@ -101,6 +101,7 @@
 			);
 			comments = "Test ssh/sshd currently installed on the system.";
 			dependencies = (
+				FEB9B18D215E8F9900487B1E /* PBXTargetDependency */,
 				FE603E151C9E328E00EE3641 /* PBXTargetDependency */,
 				739A2FBC1B5D9DEB0073A9BC /* PBXTargetDependency */,
 				7351403F1A9FEA5A00A40ED8 /* PBXTargetDependency */,
@@ -260,8 +261,6 @@
 		1C6B2D660FEC4FA7004F1935 /* includes.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2D650FEC4FA7004F1935 /* includes.h */; };
 		1C6B2D780FEC554A004F1935 /* log.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2D760FEC554A004F1935 /* log.h */; };
 		1C6B2D800FEC5596004F1935 /* audit.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2D7C0FEC5596004F1935 /* audit.h */; };
-		1C6B2D810FEC5596004F1935 /* buffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2D7D0FEC5596004F1935 /* buffer.h */; };
-		1C6B2D820FEC5596004F1935 /* key.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2D7E0FEC5596004F1935 /* key.h */; };
 		1C6B2D830FEC5596004F1935 /* xmalloc.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2D7F0FEC5596004F1935 /* xmalloc.h */; };
 		1C6B2D880FEC55BC004F1935 /* channels.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2D860FEC55BC004F1935 /* channels.h */; };
 		1C6B2D890FEC55BC004F1935 /* misc.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2D870FEC55BC004F1935 /* misc.h */; };
@@ -272,9 +271,6 @@
 		1C6B2DDC0FEC5780004F1935 /* authfd.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2DBB0FEC5780004F1935 /* authfd.h */; };
 		1C6B2DDD0FEC5780004F1935 /* authfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DBC0FEC5780004F1935 /* authfile.c */; };
 		1C6B2DDE0FEC5780004F1935 /* authfile.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2DBD0FEC5780004F1935 /* authfile.h */; };
-		1C6B2DDF0FEC5780004F1935 /* bufaux.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DBE0FEC5780004F1935 /* bufaux.c */; };
-		1C6B2DE00FEC5780004F1935 /* bufbn.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DBF0FEC5780004F1935 /* bufbn.c */; };
-		1C6B2DE10FEC5780004F1935 /* buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DC00FEC5780004F1935 /* buffer.c */; };
 		1C6B2DE20FEC5780004F1935 /* canohost.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DC10FEC5780004F1935 /* canohost.c */; };
 		1C6B2DE30FEC5780004F1935 /* canohost.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2DC20FEC5780004F1935 /* canohost.h */; };
 		1C6B2DE40FEC5780004F1935 /* channels.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DC30FEC5780004F1935 /* channels.c */; };
@@ -343,9 +339,6 @@
 		1C6B2F540FEC61A5004F1935 /* libopenbsd-compat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2CBB0FEC4E73004F1935 /* libopenbsd-compat.a */; };
 		1C6B2F8D0FEFF7A7004F1935 /* authfd.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DBA0FEC5780004F1935 /* authfd.c */; };
 		1C6B2F8E0FEFF7A7004F1935 /* authfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DBC0FEC5780004F1935 /* authfile.c */; };
-		1C6B2F8F0FEFF7A7004F1935 /* bufaux.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DBE0FEC5780004F1935 /* bufaux.c */; };
-		1C6B2F900FEFF7A7004F1935 /* bufbn.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DBF0FEC5780004F1935 /* bufbn.c */; };
-		1C6B2F910FEFF7A7004F1935 /* buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DC00FEC5780004F1935 /* buffer.c */; };
 		1C6B2F960FEFF7F1004F1935 /* canohost.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DC10FEC5780004F1935 /* canohost.c */; };
 		1C6B2F970FEFF7F1004F1935 /* channels.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DC30FEC5780004F1935 /* channels.c */; };
 		1C6B2F990FEFF7F1004F1935 /* cipher-aes.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DC60FEC5780004F1935 /* cipher-aes.c */; };
@@ -365,7 +358,6 @@
 		1C6B2FBC0FEFF95B004F1935 /* ttymodes.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FB50FEFF95B004F1935 /* ttymodes.c */; };
 		1C6B2FBE0FEFF95B004F1935 /* xmalloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FB70FEFF95B004F1935 /* xmalloc.c */; };
 		1C6B2FC90FEFF9FF004F1935 /* atomicio.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FBF0FEFF9FF004F1935 /* atomicio.c */; };
-		1C6B2FCB0FEFF9FF004F1935 /* key.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FC10FEFF9FF004F1935 /* key.c */; };
 		1C6B2FCC0FEFF9FF004F1935 /* mac.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FC20FEFF9FF004F1935 /* mac.c */; };
 		1C6B2FCE0FEFF9FF004F1935 /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FC40FEFF9FF004F1935 /* misc.c */; };
 		1C6B2FCF0FEFF9FF004F1935 /* uidswap.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FC50FEFF9FF004F1935 /* uidswap.c */; };
@@ -525,7 +517,6 @@
 		73A3E1C71B5F18C80002909F /* kexdhs.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C76A84B0FF028CA00D35824 /* kexdhs.c */; };
 		73A3E1C81B5F18E30002909F /* kexecdhs.c in Sources */ = {isa = PBXBuildFile; fileRef = EEA0F6D314733143009DF2FB /* kexecdhs.c */; };
 		73A3E1CA1B5F190B0002909F /* kexgexs.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C76A84C0FF028CA00D35824 /* kexgexs.c */; };
-		73E11A551A9A7A45005C72BC /* bufec.c in Sources */ = {isa = PBXBuildFile; fileRef = 7365E6181437BB71004DC1EC /* bufec.c */; };
 		73E11A561A9A84A9005C72BC /* kexecdh.c in Sources */ = {isa = PBXBuildFile; fileRef = 7365E6251437BB71004DC1EC /* kexecdh.c */; };
 		73E11A571A9A84DA005C72BC /* kexecdhc.c in Sources */ = {isa = PBXBuildFile; fileRef = EEA0F6D5147331A8009DF2FB /* kexecdhc.c */; };
 		73E11A581A9A8559005C72BC /* ssh-ecdsa.c in Sources */ = {isa = PBXBuildFile; fileRef = 7365E64F1437BB71004DC1EC /* ssh-ecdsa.c */; };
@@ -637,6 +628,10 @@
 		FEAAFCCA1E25D31C00BB4AA2 /* moduli.in in CopyFiles */ = {isa = PBXBuildFile; fileRef = FEAAFCC91E25D31700BB4AA2 /* moduli.in */; };
 		FEB68C2E1DB1E5B3004914A7 /* sshcfgparse.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FEB68C2D1DB1E58B004914A7 /* sshcfgparse.sh */; };
 		FEB68C2F1DB1E5BF004914A7 /* cfginclude.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FEB68C2C1DB1E58B004914A7 /* cfginclude.sh */; };
+		FEB9B185215E8F6900487B1E /* libopenbsd-compat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2CBB0FEC4E73004F1935 /* libopenbsd-compat.a */; };
+		FEB9B186215E8F6900487B1E /* libssh.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2DAC0FEC5695004F1935 /* libssh.a */; };
+		FEB9B18E215E8FBB00487B1E /* mkdtemp.c in Sources */ = {isa = PBXBuildFile; fileRef = FEB9B17C215E8F0700487B1E /* mkdtemp.c */; };
+		FEB9B18F215E8FCB00487B1E /* cfgmatchlisten.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FEB9B17B215E8F0700487B1E /* cfgmatchlisten.sh */; };
 		FEC3D3EF1C9BE97C00B698D9 /* libssh.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2DAC0FEC5695004F1935 /* libssh.a */; };
 		FEC3D3F01C9BE97C00B698D9 /* libopenbsd-compat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2CBB0FEC4E73004F1935 /* libopenbsd-compat.a */; };
 		FEC3D3F81C9BE9E900B698D9 /* check-perm.c in Sources */ = {isa = PBXBuildFile; fileRef = FEC3D3F71C9BE9CE00B698D9 /* check-perm.c */; };
@@ -1025,6 +1020,27 @@
 			remoteGlobalIDString = FE71DD081CA5F19300B2C19F;
 			remoteInfo = "slapconfig-keygen";
 		};
+		FEB9B17F215E8F6900487B1E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C6B2DAB0FEC5695004F1935;
+			remoteInfo = libssh;
+		};
+		FEB9B181215E8F6900487B1E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C6B2CBA0FEC4E73004F1935;
+			remoteInfo = "openbsd-compat";
+		};
+		FEB9B18C215E8F9900487B1E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FEB9B17D215E8F6900487B1E;
+			remoteInfo = mkdtemp;
+		};
 		FEC3D3E91C9BE97C00B698D9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -1089,6 +1105,7 @@
 				1C18265210FFE3F400C8B173 /* Makefile in CopyFiles */,
 				1C18265310FFE3F400C8B173 /* multiplex.sh in CopyFiles */,
 				1C18265410FFE3F400C8B173 /* proto-mismatch.sh in CopyFiles */,
+				FEB9B18F215E8FCB00487B1E /* cfgmatchlisten.sh in CopyFiles */,
 				1C18265510FFE3F400C8B173 /* proto-version.sh in CopyFiles */,
 				1C18265610FFE3F400C8B173 /* proxy-connect.sh in CopyFiles */,
 				1C18265710FFE3F400C8B173 /* putty-ciphers.sh in CopyFiles */,
@@ -1177,6 +1194,15 @@
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		F5A5C964208684B3003DDEC2 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FEB9B187215E8F6900487B1E /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = /usr/share/man/man1/;
@@ -1340,8 +1366,6 @@
 		1C6B2D750FEC554A004F1935 /* log.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = log.c; path = openssh/log.c; sourceTree = "<group>"; };
 		1C6B2D760FEC554A004F1935 /* log.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = log.h; path = openssh/log.h; sourceTree = "<group>"; };
 		1C6B2D7C0FEC5596004F1935 /* audit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = audit.h; path = openssh/audit.h; sourceTree = "<group>"; };
-		1C6B2D7D0FEC5596004F1935 /* buffer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = buffer.h; path = openssh/buffer.h; sourceTree = "<group>"; };
-		1C6B2D7E0FEC5596004F1935 /* key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = key.h; path = openssh/key.h; sourceTree = "<group>"; };
 		1C6B2D7F0FEC5596004F1935 /* xmalloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmalloc.h; path = openssh/xmalloc.h; sourceTree = "<group>"; };
 		1C6B2D860FEC55BC004F1935 /* channels.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = channels.h; path = openssh/channels.h; sourceTree = "<group>"; };
 		1C6B2D870FEC55BC004F1935 /* misc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = misc.h; path = openssh/misc.h; sourceTree = "<group>"; };
@@ -1353,9 +1377,6 @@
 		1C6B2DBB0FEC5780004F1935 /* authfd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = authfd.h; path = openssh/authfd.h; sourceTree = "<group>"; };
 		1C6B2DBC0FEC5780004F1935 /* authfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = authfile.c; path = openssh/authfile.c; sourceTree = "<group>"; };
 		1C6B2DBD0FEC5780004F1935 /* authfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = authfile.h; path = openssh/authfile.h; sourceTree = "<group>"; };
-		1C6B2DBE0FEC5780004F1935 /* bufaux.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bufaux.c; path = openssh/bufaux.c; sourceTree = "<group>"; };
-		1C6B2DBF0FEC5780004F1935 /* bufbn.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bufbn.c; path = openssh/bufbn.c; sourceTree = "<group>"; };
-		1C6B2DC00FEC5780004F1935 /* buffer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = buffer.c; path = openssh/buffer.c; sourceTree = "<group>"; };
 		1C6B2DC10FEC5780004F1935 /* canohost.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = canohost.c; path = openssh/canohost.c; sourceTree = "<group>"; };
 		1C6B2DC20FEC5780004F1935 /* canohost.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = canohost.h; path = openssh/canohost.h; sourceTree = "<group>"; };
 		1C6B2DC30FEC5780004F1935 /* channels.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = channels.c; path = openssh/channels.c; sourceTree = "<group>"; };
@@ -1434,7 +1455,6 @@
 		1C6B2FB70FEFF95B004F1935 /* xmalloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmalloc.c; path = openssh/xmalloc.c; sourceTree = "<group>"; };
 		1C6B2FBF0FEFF9FF004F1935 /* atomicio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = atomicio.c; path = openssh/atomicio.c; sourceTree = "<group>"; };
 		1C6B2FC00FEFF9FF004F1935 /* atomicio.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = atomicio.h; path = openssh/atomicio.h; sourceTree = "<group>"; };
-		1C6B2FC10FEFF9FF004F1935 /* key.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = key.c; path = openssh/key.c; sourceTree = "<group>"; };
 		1C6B2FC20FEFF9FF004F1935 /* mac.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mac.c; path = openssh/mac.c; sourceTree = "<group>"; };
 		1C6B2FC30FEFF9FF004F1935 /* mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mac.h; path = openssh/mac.h; sourceTree = "<group>"; };
 		1C6B2FC40FEFF9FF004F1935 /* misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = misc.c; path = openssh/misc.c; sourceTree = "<group>"; };
@@ -1578,7 +1598,6 @@
 		73452E5F1A9A71DD00633C3B /* sftp-perm.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "sftp-perm.sh"; path = "openssh/regress/sftp-perm.sh"; sourceTree = "<group>"; };
 		735140331A9FE29400A40ED8 /* setuid-allowed */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "setuid-allowed"; sourceTree = BUILT_PRODUCTS_DIR; };
 		735961E617CE828100CFE215 /* ssh-util.rb */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = text.script.ruby; path = "ssh-util.rb"; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
-		7365E6181437BB71004DC1EC /* bufec.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = bufec.c; path = openssh/bufec.c; sourceTree = "<group>"; };
 		7365E6251437BB71004DC1EC /* kexecdh.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = kexecdh.c; path = openssh/kexecdh.c; sourceTree = "<group>"; };
 		7365E64F1437BB71004DC1EC /* ssh-ecdsa.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "ssh-ecdsa.c"; path = "openssh/ssh-ecdsa.c"; sourceTree = "<group>"; };
 		7365E6501437BB71004DC1EC /* ssh-gss.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "ssh-gss.h"; path = "openssh/ssh-gss.h"; sourceTree = "<group>"; };
@@ -1794,6 +1813,10 @@
 		FEAAFCC91E25D31700BB4AA2 /* moduli.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = moduli.in; path = openssh/regress/moduli.in; sourceTree = "<group>"; };
 		FEB68C2C1DB1E58B004914A7 /* cfginclude.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = cfginclude.sh; path = openssh/regress/cfginclude.sh; sourceTree = "<group>"; };
 		FEB68C2D1DB1E58B004914A7 /* sshcfgparse.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sshcfgparse.sh; path = openssh/regress/sshcfgparse.sh; sourceTree = "<group>"; };
+		FEB9B17A215E8EC500487B1E /* bsd-getline.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "bsd-getline.c"; path = "openssh/openbsd-compat/bsd-getline.c"; sourceTree = "<group>"; };
+		FEB9B17B215E8F0700487B1E /* cfgmatchlisten.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = cfgmatchlisten.sh; path = openssh/regress/cfgmatchlisten.sh; sourceTree = "<group>"; };
+		FEB9B17C215E8F0700487B1E /* mkdtemp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mkdtemp.c; path = openssh/regress/mkdtemp.c; sourceTree = "<group>"; };
+		FEB9B18B215E8F6900487B1E /* mkdtemp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mkdtemp; sourceTree = BUILT_PRODUCTS_DIR; };
 		FEBB73DE20E3603400BCEAF2 /* sshd.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = sshd.entitlements; sourceTree = "<group>"; };
 		FEC3D3E61C9BE92F00B698D9 /* platform-pledge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "platform-pledge.c"; path = "openssh/platform-pledge.c"; sourceTree = "<group>"; };
 		FEC3D3F51C9BE97C00B698D9 /* check-perm */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "check-perm"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2033,6 +2056,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FEB9B184215E8F6900487B1E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FEB9B185215E8F6900487B1E /* libopenbsd-compat.a in Frameworks */,
+				FEB9B186215E8F6900487B1E /* libssh.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FEC3D3EE1C9BE97C00B698D9 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -2092,6 +2124,7 @@
 				FEC3D3F51C9BE97C00B698D9 /* check-perm */,
 				FE71DD171CA5F19300B2C19F /* slapconfig-keygen */,
 				F5A5C966208684B3003DDEC2 /* sshd-keygen-wrapper */,
+				FEB9B18B215E8F6900487B1E /* mkdtemp */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2119,6 +2152,7 @@
 				1C6B2CC80FEC4F58004F1935 /* bsd-cygwin_util.c */,
 				727891101D9EF6E900767C80 /* bsd-err.c */,
 				FEEF84AD20B252DC00CB7E8E /* bsd-flock.c */,
+				FEB9B17A215E8EC500487B1E /* bsd-getline.c */,
 				FE7710371F9AC6910092A263 /* bsd-getpagesize.c */,
 				1C6B2CCA0FEC4F58004F1935 /* bsd-getpeereid.c */,
 				FE7710391F9AC6920092A263 /* bsd-malloc.c */,
@@ -2222,9 +2256,6 @@
 		1C7D817F10FFC4CD00F0889F /* regress */ = {
 			isa = PBXGroup;
 			children = (
-				FEEF84BC20B2618B00CB7E8E /* connect-uri.sh */,
-				FEEF84BA20B2618900CB7E8E /* scp-uri.sh */,
-				FEEF84BB20B2618A00CB7E8E /* sftp-uri.sh */,
 				1C1825DC10FFE3F400C8B173 /* addrmatch.sh */,
 				1C1825DD10FFE3F400C8B173 /* agent-getpeereid.sh */,
 				1C7924981162CB9500C4DB0B /* agent-pkcs11.sh */,
@@ -2241,11 +2272,13 @@
 				1C79249A1162CB9500C4DB0B /* cert-userkey.sh */,
 				FEB68C2C1DB1E58B004914A7 /* cfginclude.sh */,
 				1C1825E610FFE3F400C8B173 /* cfgmatch.sh */,
+				FEB9B17B215E8F0700487B1E /* cfgmatchlisten.sh */,
 				739A2F9C1B5D9ABC0073A9BC /* cfgparse.sh */,
 				FEC3D3F71C9BE9CE00B698D9 /* check-perm.c */,
 				1C1825E710FFE3F400C8B173 /* cipher-speed.sh */,
 				1C1825E810FFE3F400C8B173 /* conch-ciphers.sh */,
 				1C1825E910FFE3F400C8B173 /* connect-privsep.sh */,
+				FEEF84BC20B2618B00CB7E8E /* connect-uri.sh */,
 				1C1825EA10FFE3F400C8B173 /* connect.sh */,
 				737269201AA00C970042DD0E /* dhgex.sh */,
 				1C1825EB10FFE3F400C8B173 /* dsa_ssh2.prv */,
@@ -2274,6 +2307,7 @@
 				1C1825F810FFE3F400C8B173 /* localcommand.sh */,
 				1C1825F910FFE3F400C8B173 /* login-timeout.sh */,
 				1C1825FA10FFE3F400C8B173 /* Makefile */,
+				FEB9B17C215E8F0700487B1E /* mkdtemp.c */,
 				73F2463917739422006986BE /* modpipe.c */,
 				FEAAFCC91E25D31700BB4AA2 /* moduli.in */,
 				1C1825FB10FFE3F400C8B173 /* multiplex.sh */,
@@ -2295,6 +2329,7 @@
 				1C18260910FFE3F400C8B173 /* rsa_openssh.pub */,
 				1C18260A10FFE3F400C8B173 /* rsa_ssh2.prv */,
 				1C18261310FFE3F400C8B173 /* scp-ssh-wrapper.sh */,
+				FEEF84BA20B2618900CB7E8E /* scp-uri.sh */,
 				1C18261410FFE3F400C8B173 /* scp.sh */,
 				73452E5D1A9A71DC00633C3B /* setuid-allowed.c */,
 				1C18261510FFE3F400C8B173 /* sftp-badcmds.sh */,
@@ -2303,6 +2338,7 @@
 				1C18261710FFE3F400C8B173 /* sftp-cmds.sh */,
 				1C18261810FFE3F400C8B173 /* sftp-glob.sh */,
 				73452E5F1A9A71DD00633C3B /* sftp-perm.sh */,
+				FEEF84BB20B2618A00CB7E8E /* sftp-uri.sh */,
 				1C18261910FFE3F400C8B173 /* sftp.sh */,
 				1C18261C10FFE3F400C8B173 /* ssh-com-client.sh */,
 				1C18261D10FFE3F400C8B173 /* ssh-com-keygen.sh */,
@@ -2552,11 +2588,6 @@
 				1C6B2CD10FEC4F58004F1935 /* bsd-poll.h */,
 				1C6B2CD40FEC4F58004F1935 /* bsd-statvfs.h */,
 				1C6B2CD60FEC4F58004F1935 /* bsd-waitpid.h */,
-				1C6B2DBE0FEC5780004F1935 /* bufaux.c */,
-				1C6B2DBF0FEC5780004F1935 /* bufbn.c */,
-				7365E6181437BB71004DC1EC /* bufec.c */,
-				1C6B2DC00FEC5780004F1935 /* buffer.c */,
-				1C6B2D7D0FEC5596004F1935 /* buffer.h */,
 				1C6B2DC10FEC5780004F1935 /* canohost.c */,
 				1C6B2DC20FEC5780004F1935 /* canohost.h */,
 				73452E281A9A6FFF00633C3B /* chacha.c */,
@@ -2625,8 +2656,6 @@
 				1C6B2E300FEC5933004F1935 /* kexgex.c */,
 				1C6B2E310FEC5933004F1935 /* kexgexc.c */,
 				1C76A84C0FF028CA00D35824 /* kexgexs.c */,
-				1C6B2FC10FEFF9FF004F1935 /* key.c */,
-				1C6B2D7E0FEC5596004F1935 /* key.h */,
 				1C6B2F250FEC5D46004F1935 /* keychain.h */,
 				1C6B2F240FEC5D46004F1935 /* keychain.m */,
 				73F246231773930F006986BE /* krl.c */,
@@ -2855,8 +2884,6 @@
 				73F2462E1773937E006986BE /* bsd-setres_id.h in Headers */,
 				739A2F961B5D872F0073A9BC /* md5.h in Headers */,
 				1C6B2D800FEC5596004F1935 /* audit.h in Headers */,
-				1C6B2D810FEC5596004F1935 /* buffer.h in Headers */,
-				1C6B2D820FEC5596004F1935 /* key.h in Headers */,
 				1C6B2D830FEC5596004F1935 /* xmalloc.h in Headers */,
 				73452E141A9A67E200633C3B /* getopt.h in Headers */,
 				1C6B2D880FEC55BC004F1935 /* channels.h in Headers */,
@@ -3267,6 +3294,25 @@
 			productReference = FE996A4E1C7D8880006637D5 /* ssh-copy-id */;
 			productType = "com.apple.product-type.tool";
 		};
+		FEB9B17D215E8F6900487B1E /* mkdtemp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FEB9B188215E8F6900487B1E /* Build configuration list for PBXNativeTarget "mkdtemp" */;
+			buildPhases = (
+				FEB9B182215E8F6900487B1E /* Sources */,
+				FEB9B184215E8F6900487B1E /* Frameworks */,
+				FEB9B187215E8F6900487B1E /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FEB9B17E215E8F6900487B1E /* PBXTargetDependency */,
+				FEB9B180215E8F6900487B1E /* PBXTargetDependency */,
+			);
+			name = mkdtemp;
+			productName = modpipe;
+			productReference = FEB9B18B215E8F6900487B1E /* mkdtemp */;
+			productType = "com.apple.product-type.tool";
+		};
 		FEC3D3E71C9BE97C00B698D9 /* check-perm */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FEC3D3F21C9BE97C00B698D9 /* Build configuration list for PBXNativeTarget "check-perm" */;
@@ -3355,6 +3401,7 @@
 				FEC3D3E71C9BE97C00B698D9 /* check-perm */,
 				FE71DD081CA5F19300B2C19F /* slapconfig-keygen */,
 				F5A5C965208684B3003DDEC2 /* sshd-keygen-wrapper */,
+				FEB9B17D215E8F6900487B1E /* mkdtemp */,
 			);
 		};
 /* End PBXProject section */
@@ -3829,9 +3876,6 @@
 				1C6B2D590FEC4F58004F1935 /* xcrypt.c in Sources */,
 				1C6B2DDB0FEC5780004F1935 /* authfd.c in Sources */,
 				1C6B2DDD0FEC5780004F1935 /* authfile.c in Sources */,
-				1C6B2DDF0FEC5780004F1935 /* bufaux.c in Sources */,
-				1C6B2DE00FEC5780004F1935 /* bufbn.c in Sources */,
-				1C6B2DE10FEC5780004F1935 /* buffer.c in Sources */,
 				1C6B2DE20FEC5780004F1935 /* canohost.c in Sources */,
 				1C6B2DE40FEC5780004F1935 /* channels.c in Sources */,
 				1C6B2DE70FEC5780004F1935 /* cipher-aes.c in Sources */,
@@ -3864,11 +3908,9 @@
 				1C6B2FD10FEFF9FF004F1935 /* uuencode.c in Sources */,
 				73E11A561A9A84A9005C72BC /* kexecdh.c in Sources */,
 				1C6B2FCC0FEFF9FF004F1935 /* mac.c in Sources */,
-				73E11A551A9A7A45005C72BC /* bufec.c in Sources */,
 				73E11A581A9A8559005C72BC /* ssh-ecdsa.c in Sources */,
 				FEEF84B920B2606700CB7E8E /* xmss_wots.c in Sources */,
 				73452E331A9A6FFF00633C3B /* digest-openssl.c in Sources */,
-				1C6B2FCB0FEFF9FF004F1935 /* key.c in Sources */,
 				1C6B2E350FEC5933004F1935 /* kex.c in Sources */,
 				73452E221A9A6DDA00633C3B /* sshbuf.c in Sources */,
 				1C6B2E240FEC58C4004F1935 /* dispatch.c in Sources */,
@@ -3900,10 +3942,7 @@
 				1C6B2F8D0FEFF7A7004F1935 /* authfd.c in Sources */,
 				73452E1F1A9A6DDA00633C3B /* sshbuf-getput-basic.c in Sources */,
 				1C6B2F8E0FEFF7A7004F1935 /* authfile.c in Sources */,
-				1C6B2F8F0FEFF7A7004F1935 /* bufaux.c in Sources */,
 				73452E411A9A70D100633C3B /* ed25519.c in Sources */,
-				1C6B2F900FEFF7A7004F1935 /* bufbn.c in Sources */,
-				1C6B2F910FEFF7A7004F1935 /* buffer.c in Sources */,
 				FEEF84B320B2606700CB7E8E /* ssh-xmss.c in Sources */,
 				1C6B2E260FEC58C4004F1935 /* dns.c in Sources */,
 				73452E491A9A70D100633C3B /* kexc25519.c in Sources */,
@@ -4223,6 +4262,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FEB9B182215E8F6900487B1E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FEB9B18E215E8FBB00487B1E /* mkdtemp.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FEC3D3EC1C9BE97C00B698D9 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -4493,6 +4540,21 @@
 			isa = PBXTargetDependency;
 			target = FE71DD081CA5F19300B2C19F /* slapconfig-keygen */;
 			targetProxy = FEB4D3481CAB294400CFCE67 /* PBXContainerItemProxy */;
+		};
+		FEB9B17E215E8F6900487B1E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C6B2DAB0FEC5695004F1935 /* libssh */;
+			targetProxy = FEB9B17F215E8F6900487B1E /* PBXContainerItemProxy */;
+		};
+		FEB9B180215E8F6900487B1E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C6B2CBA0FEC4E73004F1935 /* openbsd-compat */;
+			targetProxy = FEB9B181215E8F6900487B1E /* PBXContainerItemProxy */;
+		};
+		FEB9B18D215E8F9900487B1E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FEB9B17D215E8F6900487B1E /* mkdtemp */;
+			targetProxy = FEB9B18C215E8F9900487B1E /* PBXContainerItemProxy */;
 		};
 		FEC3D3E81C9BE97C00B698D9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -5548,6 +5610,82 @@
 			};
 			name = Debug;
 		};
+		FEB9B189215E8F6900487B1E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/openssh";
+				INSTALL_PATH = "/usr/local/libexec/openssh/regression-tests";
+				MACOSX_DEPLOYMENT_TARGET = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				USER_HEADER_SEARCH_PATHS = "";
+			};
+			name = Release;
+		};
+		FEB9B18A215E8F6900487B1E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/openssh";
+				INSTALL_PATH = "/usr/local/libexec/openssh/regression-tests";
+				MACOSX_DEPLOYMENT_TARGET = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				USER_HEADER_SEARCH_PATHS = "";
+			};
+			name = Debug;
+		};
 		FEC3D3F31C9BE97C00B698D9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -5884,6 +6022,15 @@
 			buildConfigurations = (
 				FE996A531C7D8880006637D5 /* Release */,
 				FE996A541C7D8880006637D5 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FEB9B188215E8F6900487B1E /* Build configuration list for PBXNativeTarget "mkdtemp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FEB9B189215E8F6900487B1E /* Release */,
+				FEB9B18A215E8F6900487B1E /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

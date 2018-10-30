@@ -80,7 +80,6 @@ typedef struct {
 
 #define COMPILE_TIME_ASSERT(pred)   switch(0){case 0:case pred:;}
 
-
 /*
  * Macros to support PATHCPY/PATHCAT
  *
@@ -288,6 +287,16 @@ Boolean isSameFileDevAndInoWith_fd(int      the_fd,
                                    dev_t    the_dev_t,
                                    ino_t    the_ino_t);
 
+Boolean createRawBytesFromHexString(char *bytePtr,
+                                    size_t byteLen,
+                                    const char *hexPtr,
+                                    size_t hexLen);
+
+Boolean createHexStringFromRawBytes(char *hexPtr,
+                                    size_t hexLen,
+                                    const char *bytePtr,
+                                    size_t byteLen);
+
 // bootcaches.plist helpers
 CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL);
 Boolean getKernelPathForURL(
@@ -309,4 +318,5 @@ bool translatePrelinkedToImmutablePath(const char *prelinked_path,
 
 extern char * createUTF8CStringForCFString(CFStringRef aString);
 
+void setVariantSuffix(void);
 #endif /* _KEXT_TOOLS_UTIL_H */

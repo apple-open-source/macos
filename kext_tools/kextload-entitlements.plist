@@ -6,11 +6,13 @@
 	<true/>
 	<key>com.apple.private.kernel.get-kext-info</key>
 	<true/>
-	<key>com.apple.rootless.kext-management</key>
+	<key>com.apple.rootless.kext-secure-management</key>
 	<true/>
 	<key>com.apple.rootless.storage.KernelExtensionManagement</key>
 	<true/>
 	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+	<key>com.apple.private.KextAudit.user-access</key>
 	<true/>
 </dict>
 </plist>

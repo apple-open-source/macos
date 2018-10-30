@@ -371,8 +371,12 @@ void mt2PublishReports(void);
  */
 void mt2PublishSleepWakeFailure(const char *failType, const char *failPhase, const char *pci_string);
 
-
-
+/* mt2PublishWakeTime
+ * powerd should call to report wake time
+ * @arg waketime wake time in milliseconds
+ * @arg waketype wake type
+ */
+void mt2PublishWakeTime(double waketime, WakeTypeEnum waketype);
 
 #define kAssertionHumanReadableReasonTTY        CFSTR("A remote user is connected. That prevents system sleep.")
 
@@ -383,6 +387,8 @@ __private_extern__ void                 logASLMessageSleep(const char *sig, cons
 __private_extern__ void                 logASLMessageWake(const char *sig, const char *uuidStr,
                                                         const char *failureStr,
                                                         IOPMCapabilityBits in_capabilities, WakeTypeEnum dark_wake);
+
+__private_extern__ void                 logASLMessageWakeTime(uint64_t waketime, WakeTypeEnum waketype);
 
 
 __private_extern__ void                 logASLMessagePMConnectionResponse(CFStringRef logSourceString, CFStringRef appNameString,
@@ -498,6 +504,7 @@ __private_extern__ const char *sleepType2String(int sleepType);
 __private_extern__ int getLastSleepType();
 __private_extern__ IOReturn _smcWriteKey( uint32_t key, uint8_t *outBuf, uint8_t outBufMax);
 __private_extern__ IOReturn _smcReadKey( uint32_t key, uint8_t *outBuf, uint8_t *outBufMax, bool byteSwap);
+__private_extern__ IOReturn _smcReadKeySwizzle(uint32_t key, uint8_t *outBuf, uint8_t *outBufMax, unsigned int byteSwap);
 
 #ifdef XCTEST
 void xctSetPowerSource(PowerSources src);

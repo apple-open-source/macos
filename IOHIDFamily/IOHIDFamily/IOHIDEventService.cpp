@@ -2472,6 +2472,7 @@ void IOHIDEventService::dispatchExtendedGameControllerEvent(
     }
 }
 
+
 OSMetaClassDefineReservedUsed(IOHIDEventService, 14);
 void IOHIDEventService::dispatchBiometricEvent(
                                                AbsoluteTime                 timeStamp,
@@ -2798,7 +2799,42 @@ void IOHIDEventService::closeForClient(IOService *client __unused, void *context
     
 }
 
-OSMetaClassDefineReservedUnused(IOHIDEventService, 20);
+//==============================================================================
+// IOHIDEventService::dispatchExtendedGameControllerEventWithThumbstickButtons
+//==============================================================================
+OSMetaClassDefineReservedUsed(IOHIDEventService, 20);
+void IOHIDEventService::dispatchExtendedGameControllerEventWithThumbstickButtons(
+                                                                                AbsoluteTime                    timeStamp,
+                                                                                IOFixed                         dpadUp,
+                                                                                IOFixed                         dpadDown,
+                                                                                IOFixed                         dpadLeft,
+                                                                                IOFixed                         dpadRight,
+                                                                                IOFixed                         faceX,
+                                                                                IOFixed                         faceY,
+                                                                                IOFixed                         faceA,
+                                                                                IOFixed                         faceB,
+                                                                                IOFixed                         shoulderL1,
+                                                                                IOFixed                         shoulderR1,
+                                                                                IOFixed                         shoulderL2,
+                                                                                IOFixed                         shoulderR2,
+                                                                                IOFixed                         joystickX,
+                                                                                IOFixed                         joystickY,
+                                                                                IOFixed                         joystickZ,
+                                                                                IOFixed                         joystickRz,
+                                                                                boolean_t                       thumbstickButtonLeft,
+                                                                                boolean_t                       thumbstickButtonRight,
+                                                                                IOOptionBits                    options)
+{
+    IOHIDEvent * event = IOHIDEvent::extendedGameControllerEvent(timeStamp, dpadUp, dpadDown, dpadLeft, dpadRight, faceX, faceY, faceA, faceB, shoulderL1, shoulderR1, shoulderL2, shoulderR2, joystickX, joystickY, joystickZ, joystickRz, options);
+    
+    if (event) {
+        event->setIntegerValue(kIOHIDEventFieldGameControllerThumbstickButtonRight, thumbstickButtonRight);
+        event->setIntegerValue(kIOHIDEventFieldGameControllerThumbstickButtonLeft, thumbstickButtonLeft);
+        dispatchEvent(event);
+        event->release();
+    }
+}
+
 OSMetaClassDefineReservedUnused(IOHIDEventService, 21);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 22);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 23);

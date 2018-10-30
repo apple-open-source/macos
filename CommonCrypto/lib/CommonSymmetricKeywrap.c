@@ -27,7 +27,7 @@
 #include "CommonCryptorPriv.h"
 #include <AssertMacros.h>
 #include "ccdebug.h"
-#include <corecrypto/ccwrap.h>
+#include <corecrypto/ccwrap_priv.h>
 
 
 static const uint8_t rfc3394_iv_data[] = {
@@ -38,8 +38,8 @@ const uint8_t * const CCrfc3394_iv = rfc3394_iv_data;
 const size_t CCrfc3394_ivLen = sizeof(rfc3394_iv_data);
 
 int
-CCSymmetricKeyWrap( CCWrappingAlgorithm __unused algorithm,
-				   const uint8_t *iv __unused, const size_t ivLen __unused,
+CCSymmetricKeyWrap(CCWrappingAlgorithm __unused algorithm,
+				   const uint8_t *iv, const size_t ivLen,
 				   const uint8_t *kek, size_t kekLen,
 				   const uint8_t *rawKey, size_t rawKeyLen,
 				   uint8_t  *wrappedKey, size_t *wrappedKeyLen)
@@ -56,26 +56,42 @@ CCSymmetricKeyWrap( CCWrappingAlgorithm __unused algorithm,
                    out, err = kCCParamError);
     require_action(wrappedKeyLen && (*wrappedKeyLen >= ccwrap_wrapped_size(rawKeyLen)), out, err = kCCParamError);
 
+    /* due to rdar://problem/44095510, we tolerate a null IV */
+    /* if the IV is not null, it must be long enough to satisfy corecrypto */
+    /* if the IV is null, use the default IV */
+    require_action((iv == NULL) || (ivLen >= CCWRAP_SEMIBLOCK), out, err = kCCParamError);
+    if (iv == NULL) {
+        iv = CCrfc3394_iv;
+    }
+
     ccmode->init(ccmode, ctx, kekLen, kek);
 
-    require_action(ccwrap_auth_encrypt(ccmode, ctx, rawKeyLen, rawKey, wrappedKeyLen, wrappedKey) == CCERR_OK, out, err = kCCParamError);
+    require_action(ccwrap_auth_encrypt_withiv(ccmode, ctx, rawKeyLen, rawKey, wrappedKeyLen, wrappedKey, iv) == CCERR_OK, out, err = kCCParamError);
 
     err = kCCSuccess;
 
 out:
+    if (err != kCCSuccess) {
+        cc_clear(*wrappedKeyLen, wrappedKey);
+        *wrappedKeyLen = 0;
+    }
     ccecb_ctx_clear(ccmode->size, ctx);
     return err;
 }
 
 int
 CCSymmetricKeyUnwrap(CCWrappingAlgorithm __unused algorithm,
-					 const uint8_t *iv __unused, const size_t ivLen __unused,
+					 const uint8_t *iv, const size_t ivLen,
 					 const uint8_t *kek, size_t kekLen,
 					 const uint8_t  *wrappedKey, size_t wrappedKeyLen,
                      uint8_t  *rawKey, size_t *rawKeyLen)
 {
     CC_DEBUG_LOG("Entering\n");
     int err = kCCUnspecifiedError;
+    const uint8_t *ivs[2] = { iv, CCrfc3394_iv };
+    int i;
+    size_t tmpRawKeyLen = 0;
+    void *tmpRawKey = NULL;
 
     const struct ccmode_ecb *ccmode = getCipherMode(kCCAlgorithmAES128, kCCModeECB, kCCDecrypt).ecb;
     ccecb_ctx_decl(ccmode->size, ctx);
@@ -86,13 +102,44 @@ CCSymmetricKeyUnwrap(CCWrappingAlgorithm __unused algorithm,
                    out, err = kCCParamError);
     require_action(rawKeyLen && (*rawKeyLen >= ccwrap_unwrapped_size(wrappedKeyLen)), out, err = kCCParamError);
 
+    /* due to rdar://problem/44095510, we tolerate a null IV */
+    /* if the IV is not null, it must be long enough to satisfy corecrypto */
+    require_action((iv == NULL) || (ivLen >= CCWRAP_SEMIBLOCK), out, err = kCCParamError);
+
     ccmode->init(ccmode, ctx, kekLen, kek);
 
-    require_action(ccwrap_auth_decrypt(ccmode, ctx, wrappedKeyLen, wrappedKey, rawKeyLen, rawKey) == CCERR_OK, out, err = kCCDecodeError);
+    /* ccwrap_auth_decrypt_withiv clears the out buffer on failure */
+    /* we need scratch space in case rawKey is an alias for wrappedKey */
+    tmpRawKey = malloc(*rawKeyLen);
+    require_action(tmpRawKey != NULL, out, err = kCCMemoryFailure);
 
-    err = kCCSuccess;
+    err = kCCDecodeError;
 
-out:
+    for (i = 0; i < 2; i += 1) {
+        if (ivs[i] == NULL) {
+            continue;
+        }
+
+        /* ccwrap_auth_decrypt_withiv modifies this out parameter, so we need to set it on each iteration */
+        tmpRawKeyLen = *rawKeyLen;
+
+        if (ccwrap_auth_decrypt_withiv(ccmode, ctx, wrappedKeyLen, wrappedKey, &tmpRawKeyLen, tmpRawKey, ivs[i]) == CCERR_OK) {
+            err = kCCSuccess;
+            break;
+        }
+    }
+
+    if (err == kCCSuccess) {
+        memcpy(rawKey, tmpRawKey, tmpRawKeyLen);
+    } else {
+        cc_clear(tmpRawKeyLen, rawKey);
+    }
+
+    cc_clear(*rawKeyLen, tmpRawKey);
+    free(tmpRawKey);
+
+ out:
+    *rawKeyLen = tmpRawKeyLen;
     ccecb_ctx_clear(ccmode->size, ctx);
     return err;
 }

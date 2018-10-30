@@ -626,6 +626,11 @@ dispatch_once_t globalZoneStateQueueOnce;
 
 - (void)syncBackupAndNotifyAboutSync {
     SOSAccount* account = (__bridge SOSAccount*)SOSKeychainAccountGetSharedAccount();
+    
+    if(!account) {
+        secnotice("ckks", "Failed to get account object");
+        return;
+    }
 
     [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
         CFErrorRef error = NULL;

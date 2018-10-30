@@ -251,7 +251,8 @@ bool SecAccessControlSetProtection(SecAccessControlRef access_control, CFTypeRef
                                                kSecAttrAccessibleWhenUnlocked, kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate,
                                                kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
                                                kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-                                               kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly),
+                                               kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+                                               kSecAttrAccessibleUntilReboot),
                          CFSTR("SecAccessControl: invalid protection"));
     }
 

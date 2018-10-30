@@ -1361,6 +1361,7 @@
                        [existingPeerShare.receiver.publicEncryptionKey isEqual:self.currentSelfPeers.currentSelf.publicEncryptionKey]) {
                         ckksnotice("ckksshare", self, "Local peer %@ is shared %@ via self: %@", peer, key, existingPeerShare);
                         alreadyShared = true;
+                        break;
                     } else {
                         ckksnotice("ckksshare", self, "Local peer %@ is shared %@ via trusted %@, but that's not good enough", peer, key, existingPeerShare);
                     }
@@ -1371,6 +1372,7 @@
                         // Some other peer has a trusted share. Cool!
                         ckksnotice("ckksshare", self, "Peer %@ is shared %@ via trusted %@", peer, key, existingPeerShare);
                         alreadyShared = true;
+                        break;
                     } else {
                         ckksnotice("ckksshare", self, "Peer %@ has a share for %@, but to old keys: %@", peer, key, existingPeerShare);
                     }

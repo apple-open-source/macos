@@ -5823,6 +5823,37 @@
 				<string>shoulder</string>
 			</dict>
 		</array>
+		<key>fields</key>
+		<array>
+			<dict>
+				<key>canonical_type</key>
+				<string>unsigned int</string>
+				<key>field_number</key>
+				<integer>17</integer>
+				<key>kind</key>
+				<string>value</string>
+				<key>length</key>
+				<integer>1</integer>
+				<key>name</key>
+				<string>thumbstickButtonLeft</string>
+				<key>type</key>
+				<string>uint32_t</string>
+			</dict>
+			<dict>
+				<key>canonical_type</key>
+				<string>unsigned int</string>
+				<key>field_number</key>
+				<integer>18</integer>
+				<key>kind</key>
+				<string>value</string>
+				<key>length</key>
+				<integer>1</integer>
+				<key>name</key>
+				<string>thumbstickButtonRight</string>
+				<key>type</key>
+				<string>uint32_t</string>
+			</dict>
+		</array>
 		<key>name</key>
 		<string>GameController</string>
 	</dict>

@@ -79,6 +79,10 @@ __private_extern__ void InternalEvalConnections(void);
 __private_extern__ kern_return_t getPlatformSleepType(uint32_t *sleepType, uint32_t *standbyTimer);
 __private_extern__ void setDwlInterval(uint32_t newInterval);
 __private_extern__ int getBTWakeInterval(void);
+__private_extern__ uint64_t getCurrentWakeTime();
+__private_extern__ void updateWakeTime();
+__private_extern__ void updateCurrentWakeStart();
+__private_extern__ void updateCurrentWakeEnd();
 
 __private_extern__ int getCurrentSleepServiceCapTimeout();
 /** Sets whether processes should get modified vm behavior for darkwake. */

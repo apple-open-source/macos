@@ -229,12 +229,20 @@ UpdateMountStatus(const char *path, u_int32_t volstatus) {
 	int result;
 	union wait status;
 	int pid;
+
+	/* 
+	 * selectors to determine whether or not certain features 
+	 * should be re-enabled via mount -u 
+	 */
 	int nosuid;
 	int nodev;
 	int noexec;
 	int readonly;
 	int protect;
 	int quarantine;
+	int nobrowse;
+	int unionmnt;
+
 	char mountline[255];
 
 	result = statfs(path, &mntstat);
@@ -249,16 +257,21 @@ UpdateMountStatus(const char *path, u_int32_t volstatus) {
 	readonly = mntstat.f_flags & MNT_RDONLY;
 	protect = mntstat.f_flags & MNT_CPROTECT;
 	quarantine = mntstat.f_flags & MNT_QUARANTINE;
+	unionmnt = mntstat.f_flags & MNT_UNION;
+	nobrowse = mntstat.f_flags & MNT_DONTBROWSE;
 
 
-	snprintf(mountline, sizeof(mountline), "%s%s%s%s%s%s%s", 
+	//note: need 9 %s strings for each of the checks below
+	snprintf(mountline, sizeof(mountline), "%s%s%s%s%s%s%s%s%s", 
 			(volstatus & VOLUME_USEPERMISSIONS) ? "perm" : "noperm",
 			(nosuid) ? ",nosuid":"", 
 			(nodev)? ",nodev":"", 
 			(noexec) ? ",noexec":"",
 			(readonly) ? ",rdonly":"", 
 			(protect) ? ",protect":"",
-			(quarantine) ? ",quarantine" : "");
+			(quarantine) ? ",quarantine" : "", 
+			(unionmnt) ? ",union":"",
+			(nobrowse) ? ",nobrowse":"");
 
 	pid = fork();
 	if (pid == 0) {

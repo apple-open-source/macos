@@ -50,9 +50,10 @@
 			buildPhases = (
 			);
 			dependencies = (
-				A69865CB200F0086000AC4EE /* PBXTargetDependency */,
 				0CDA836E1566EF7200FCA0F6 /* PBXTargetDependency */,
 				0CDA83711566EF7400FCA0F6 /* PBXTargetDependency */,
+				3F3E4200206D3EED0044651B /* PBXTargetDependency */,
+				A69865CB200F0086000AC4EE /* PBXTargetDependency */,
 			);
 			name = osx;
 			productName = osx_executables;
@@ -138,6 +139,17 @@
 			name = bootcaches_plist;
 			productName = "bootcaches plist";
 		};
+		3F3E41F8206D3EC30044651B /* osx_kexts */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 3F3E41F9206D3EC30044651B /* Build configuration list for PBXAggregateTarget "osx_kexts" */;
+			buildPhases = (
+			);
+			dependencies = (
+				3F3E41FE206D3ECF0044651B /* PBXTargetDependency */,
+			);
+			name = osx_kexts;
+			productName = osx_kexts;
+		};
 		A66AD30F1E80CF4900B2EEC9 /* unit_tests */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = A66AD3111E80CF4900B2EEC9 /* Build configuration list for PBXAggregateTarget "unit_tests" */;
@@ -145,6 +157,7 @@
 				A66AD3171E80CF7200B2EEC9 /* Copy BATS Plist */,
 			);
 			dependencies = (
+				364A90C1203FB91900F223BF /* PBXTargetDependency */,
 				A66AD3161E80CF6400B2EEC9 /* PBXTargetDependency */,
 			);
 			name = unit_tests;
@@ -267,7 +280,6 @@
 		24E1F0FD09EC4FEB00262C22 /* kextlibs_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 24E1F0FC09EC4FEB00262C22 /* kextlibs_main.c */; };
 		24E1F16509EC5A3E00262C22 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
 		24E1F16609EC5A4200262C22 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
-		24EDE7120F0061180097FF87 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
 		24EE72D209EC934B008CF6B0 /* kextlibs.8 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = 24EE72C809EC9338008CF6B0 /* kextlibs.8 */; };
 		24F65A0F0D94896F00D1C132 /* kextd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = 24F65A0B0D94892800D1C132 /* kextd_mach.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		24FD2F700DC121DD0065A35B /* kextutil_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 24FD2F6F0DC121DD0065A35B /* kextutil_main.c */; };
@@ -280,9 +292,31 @@
 		354A56E31E9C3F34006C72A2 /* libdz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 354A56E11E9C3F21006C72A2 /* libdz.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		354A56E41E9C3F48006C72A2 /* libdz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 354A56E11E9C3F21006C72A2 /* libdz.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		35C528FA1E9D5155002E15E9 /* libdz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 35C528F91E9D5155002E15E9 /* libdz.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
-		3667FED62040E50200E3DE5F /* kextaudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 3667FED52040E50200E3DE5F /* kextaudit.c */; };
-		3667FED72040E50200E3DE5F /* kextaudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 3667FED52040E50200E3DE5F /* kextaudit.c */; };
-		3667FED82040E50200E3DE5F /* kextaudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 3667FED52040E50200E3DE5F /* kextaudit.c */; };
+		364A90B4203FB79200F223BF /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
+		364A90BF203FB86100F223BF /* kextaudit_test.m in Sources */ = {isa = PBXBuildFile; fileRef = 364A90BE203FB86100F223BF /* kextaudit_test.m */; };
+		365342F7203F91AA007C5B77 /* KextAudit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365342EF203F91A9007C5B77 /* KextAudit.cpp */; };
+		365342F8203F91AA007C5B77 /* KextAuditUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365342F0203F91A9007C5B77 /* KextAuditUserClient.cpp */; };
+		365342F9203F91AA007C5B77 /* KextAudit.h in Headers */ = {isa = PBXBuildFile; fileRef = 365342F1203F91A9007C5B77 /* KextAudit.h */; };
+		365342FD203F91AA007C5B77 /* KextAuditUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 365342F5203F91A9007C5B77 /* KextAuditUserClient.h */; };
+		365888AD20352368002DF547 /* kextaudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 365888AC20352368002DF547 /* kextaudit.c */; };
+		365888AE20352368002DF547 /* kextaudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 365888AC20352368002DF547 /* kextaudit.c */; };
+		365888AF20352368002DF547 /* kextaudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 365888AC20352368002DF547 /* kextaudit.c */; };
+		36F3F5A0204F837B006108B8 /* RemoteXPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F59F204F837B006108B8 /* RemoteXPC.framework */; };
+		36F3F5A2204F8380006108B8 /* RemoteServiceDiscovery.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F5A1204F8380006108B8 /* RemoteServiceDiscovery.framework */; };
+		36F3F5A32050647A006108B8 /* security.c in Sources */ = {isa = PBXBuildFile; fileRef = 728BAE1E167F7C97004193C6 /* security.c */; };
+		36F3F5A420506483006108B8 /* kextaudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 365888AC20352368002DF547 /* kextaudit.c */; };
+		36F3F5AC205065C4006108B8 /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F5AB205065C4006108B8 /* System.framework */; };
+		36F3F5AD20506774006108B8 /* kext_tools_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F041730DC2906D001CFC70 /* kext_tools_util.c */; };
+		36F3F5B0205067B5006108B8 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F5A520506550006108B8 /* Security.framework */; };
+		36F3F5B320506854006108B8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F5B220506854006108B8 /* IOKit.framework */; };
+		36F3F5B420506AB8006108B8 /* staging.m in Sources */ = {isa = PBXBuildFile; fileRef = A65EA4661E57C5A000B49C4E /* staging.m */; };
+		36F3F5B520506ACA006108B8 /* syspolicy.m in Sources */ = {isa = PBXBuildFile; fileRef = A6D698151E56AAAA0050FC06 /* syspolicy.m */; };
+		36F3F5B620506ADB006108B8 /* SystemPolicy.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F5A720506565006108B8 /* SystemPolicy.framework */; };
+		3F3E41F7206D3D9A0044651B /* efi_smc.h in Headers */ = {isa = PBXBuildFile; fileRef = 3F059E17206C70E600A46AA9 /* efi_smc.h */; };
+		3FDA50EC206EF3D30089927A /* unit_test.h in Headers */ = {isa = PBXBuildFile; fileRef = A66AD2E91E80CDC200B2EEC9 /* unit_test.h */; };
+		3FDA50EE206EF4050089927A /* kext_tools_util.h in Headers */ = {isa = PBXBuildFile; fileRef = 24F041720DC2906D001CFC70 /* kext_tools_util.h */; };
+		3FDA50EF206EF4050089927A /* security.h in Headers */ = {isa = PBXBuildFile; fileRef = 728BAE22167F7CD0004193C6 /* security.h */; };
+		3FDA50F1206EF4360089927A /* kextaudit.h in Headers */ = {isa = PBXBuildFile; fileRef = 3FDA50F0206EF4150089927A /* kextaudit.h */; };
 		4B5563471267821C009908A3 /* libcsfde.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B5563461267821C009908A3 /* libcsfde.dylib */; };
 		4B55634E1267837B009908A3 /* libcsfde.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B5563461267821C009908A3 /* libcsfde.dylib */; };
 		50473D77166C859800211829 /* fsremount in Install kcinstall */ = {isa = PBXBuildFile; fileRef = 50473D74166C855700211829 /* fsremount */; };
@@ -340,6 +374,8 @@
 		72E61F3B1BFE7C6100183C11 /* kextfind in CopyFiles */ = {isa = PBXBuildFile; fileRef = 05762AC009D0B98500EC18C1 /* kextfind */; };
 		72F3A30C1713949D00594E83 /* com.apple.logkextloadsd.plist in Copy launchd plist */ = {isa = PBXBuildFile; fileRef = 72CEFE13170F871E00A7EAC3 /* com.apple.logkextloadsd.plist */; };
 		72F3A30D1713950900594E83 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
+		9CF060D9210A73D500F1B0C9 /* signposts.m in Sources */ = {isa = PBXBuildFile; fileRef = A620205A20BD0C6800D24B46 /* signposts.m */; };
+		9CF060DA210A749900F1B0C9 /* signposts.m in Sources */ = {isa = PBXBuildFile; fileRef = A620205A20BD0C6800D24B46 /* signposts.m */; };
 		A620205C20BD0CEF00D24B46 /* signposts.m in Sources */ = {isa = PBXBuildFile; fileRef = A620205A20BD0C6800D24B46 /* signposts.m */; };
 		A620205D20BD0D2200D24B46 /* signposts.m in Sources */ = {isa = PBXBuildFile; fileRef = A620205A20BD0C6800D24B46 /* signposts.m */; };
 		A620205E20BD167B00D24B46 /* signposts.m in Sources */ = {isa = PBXBuildFile; fileRef = A620205A20BD0C6800D24B46 /* signposts.m */; };
@@ -508,6 +544,27 @@
 			proxyType = 1;
 			remoteGlobalIDString = 24E1F0ED09EC4F9B00262C22;
 			remoteInfo = kextlibs;
+		};
+		364A90C0203FB91900F223BF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 364A90AC203FB79200F223BF;
+			remoteInfo = kextaudit_test;
+		};
+		3F3E41FD206D3ECF0044651B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 365342E5203F9163007C5B77;
+			remoteInfo = KextAudit;
+		};
+		3F3E41FF206D3EED0044651B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3F3E41F8206D3EC30044651B;
+			remoteInfo = osx_kexts;
 		};
 		506B28DF127755760047F9AE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -750,14 +807,14 @@
 		};
 		A66AD3171E80CF7200B2EEC9 /* Copy BATS Plist */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
 			dstSubfolderSpec = 0;
 			files = (
 				A66AD3181E80CF8D00B2EEC9 /* kext_tools.plist in Copy BATS Plist */,
 			);
 			name = "Copy BATS Plist";
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -864,14 +921,32 @@
 		24EE72C809EC9338008CF6B0 /* kextlibs.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = kextlibs.8; sourceTree = "<group>"; };
 		24F041720DC2906D001CFC70 /* kext_tools_util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kext_tools_util.h; sourceTree = "<group>"; };
 		24F041730DC2906D001CFC70 /* kext_tools_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kext_tools_util.c; sourceTree = "<group>"; };
-		24F57F210F005C5D006111B5 /* KextUserAgent.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KextUserAgent.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		24F65A0B0D94892800D1C132 /* kextd_mach.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = kextd_mach.defs; sourceTree = "<group>"; };
 		24FD2F590DC1218F0065A35B /* kextutil */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextutil; sourceTree = BUILT_PRODUCTS_DIR; };
 		24FD2F6E0DC121DD0065A35B /* kextutil_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextutil_main.h; sourceTree = "<group>"; };
 		24FD2F6F0DC121DD0065A35B /* kextutil_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextutil_main.c; sourceTree = "<group>"; };
 		354A56E11E9C3F21006C72A2 /* libdz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libdz.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/usr/lib/libdz.dylib; sourceTree = DEVELOPER_DIR; };
 		35C528F91E9D5155002E15E9 /* libdz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libdz.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/usr/lib/libdz.dylib; sourceTree = DEVELOPER_DIR; };
-		3667FED52040E50200E3DE5F /* kextaudit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextaudit.c; sourceTree = "<group>"; };
+		364A90BC203FB79200F223BF /* kextaudit_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextaudit_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		364A90BD203FB86100F223BF /* kextaudit_test.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = kextaudit_test.entitlements; path = tests/kextaudit_test.entitlements; sourceTree = "<group>"; };
+		364A90BE203FB86100F223BF /* kextaudit_test.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = kextaudit_test.m; path = tests/kextaudit_test.m; sourceTree = "<group>"; };
+		365342E6203F9163007C5B77 /* KextAudit.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KextAudit.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		365342EF203F91A9007C5B77 /* KextAudit.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = KextAudit.cpp; path = KextAudit/KextAudit.cpp; sourceTree = "<group>"; };
+		365342F0203F91A9007C5B77 /* KextAuditUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = KextAuditUserClient.cpp; path = KextAudit/KextAuditUserClient.cpp; sourceTree = "<group>"; };
+		365342F1203F91A9007C5B77 /* KextAudit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KextAudit.h; path = KextAudit/KextAudit.h; sourceTree = "<group>"; };
+		365342F2203F91A9007C5B77 /* KextAudit-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "KextAudit-Info.plist"; path = "KextAudit/KextAudit-Info.plist"; sourceTree = "<group>"; };
+		365342F5203F91A9007C5B77 /* KextAuditUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KextAuditUserClient.h; path = KextAudit/KextAuditUserClient.h; sourceTree = "<group>"; };
+		365888AC20352368002DF547 /* kextaudit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextaudit.c; sourceTree = "<group>"; };
+		365888B0203668A8002DF547 /* libSMC.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libSMC.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/usr/lib/libSMC.tbd; sourceTree = DEVELOPER_DIR; };
+		36F3F59F204F837B006108B8 /* RemoteXPC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RemoteXPC.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/PrivateFrameworks/RemoteXPC.framework; sourceTree = DEVELOPER_DIR; };
+		36F3F5A1204F8380006108B8 /* RemoteServiceDiscovery.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RemoteServiceDiscovery.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/PrivateFrameworks/RemoteServiceDiscovery.framework; sourceTree = DEVELOPER_DIR; };
+		36F3F5A520506550006108B8 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		36F3F5A720506565006108B8 /* SystemPolicy.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemPolicy.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/PrivateFrameworks/SystemPolicy.framework; sourceTree = DEVELOPER_DIR; };
+		36F3F5A92050658D006108B8 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
+		36F3F5AB205065C4006108B8 /* System.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = System.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/Frameworks/System.framework; sourceTree = DEVELOPER_DIR; };
+		36F3F5B220506854006108B8 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		3F059E17206C70E600A46AA9 /* efi_smc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = efi_smc.h; path = KextAudit/efi_smc.h; sourceTree = "<group>"; };
+		3FDA50F0206EF4150089927A /* kextaudit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextaudit.h; sourceTree = "<group>"; };
 		4B5563461267821C009908A3 /* libcsfde.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcsfde.dylib; path = /usr/lib/libcsfde.dylib; sourceTree = "<absolute>"; };
 		50473D74166C855700211829 /* fsremount */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fsremount; sourceTree = "<group>"; };
 		50473D75166C855700211829 /* kcinstall */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = kcinstall; sourceTree = "<group>"; };
@@ -1065,14 +1140,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		24F57F1F0F005C5D006111B5 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				24EDE7120F0061180097FF87 /* CoreFoundation.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		24FD2F570DC1218F0065A35B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1082,6 +1149,27 @@
 				728BAE26167F7FE7004193C6 /* Security.framework in Frameworks */,
 				A6D6981C1E56B2C70050FC06 /* SystemPolicy.framework in Frameworks */,
 				35C528FA1E9D5155002E15E9 /* libdz.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		364A90B3203FB79200F223BF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				36F3F5B620506ADB006108B8 /* SystemPolicy.framework in Frameworks */,
+				36F3F5B320506854006108B8 /* IOKit.framework in Frameworks */,
+				36F3F5B0205067B5006108B8 /* Security.framework in Frameworks */,
+				36F3F5AC205065C4006108B8 /* System.framework in Frameworks */,
+				36F3F5A2204F8380006108B8 /* RemoteServiceDiscovery.framework in Frameworks */,
+				36F3F5A0204F837B006108B8 /* RemoteXPC.framework in Frameworks */,
+				364A90B4203FB79200F223BF /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		365342E2203F9163007C5B77 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1222,6 +1310,7 @@
 		1492D16C01E53C3C02CA2A87 = {
 			isa = PBXGroup;
 			children = (
+				365342E0203F90F1007C5B77 /* KextAudit */,
 				24C462410DBE942B00E11943 /* shared source */,
 				1485151D03F1F3B302CA28EB /* libBootRoot */,
 				24057CE3124966740023CEF4 /* kcgen */,
@@ -1261,7 +1350,6 @@
 				050972C3094910D30034B52C /* kextstat */,
 				050972D7094910D30034B52C /* kextunload */,
 				24FD2F590DC1218F0065A35B /* kextutil */,
-				24F57F210F005C5D006111B5 /* KextUserAgent.plugin */,
 				050972EB094910D30034B52C /* mkextunpack */,
 				24C0463A125BB6160005A9B7 /* kextcache */,
 				506B28D4127755310047F9AE /* kcgen */,
@@ -1269,6 +1357,8 @@
 				0C8854001331646A00942EB9 /* brtest */,
 				72D82257170F850200F16618 /* logkextloadsd */,
 				A66AD30E1E80CE5000B2EEC9 /* security_test */,
+				365342E6203F9163007C5B77 /* KextAudit.kext */,
+				364A90BC203FB79200F223BF /* kextaudit_test */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1425,7 +1515,8 @@
 				24F041730DC2906D001CFC70 /* kext_tools_util.c */,
 				24B79F8A125A6B2D009FF51B /* kernelcache.h */,
 				24B79F8B125A6B2D009FF51B /* kernelcache.c */,
-				3667FED52040E50200E3DE5F /* kextaudit.c */,
+				365888AC20352368002DF547 /* kextaudit.c */,
+				3FDA50F0206EF4150089927A /* kextaudit.h */,
 				728BAE22167F7CD0004193C6 /* security.h */,
 				728BAE1E167F7C97004193C6 /* security.c */,
 				A620205920BD0C5C00D24B46 /* signposts.h */,
@@ -1454,6 +1545,19 @@
 				24FD2F6F0DC121DD0065A35B /* kextutil_main.c */,
 			);
 			name = kextutil;
+			sourceTree = "<group>";
+		};
+		365342E0203F90F1007C5B77 /* KextAudit */ = {
+			isa = PBXGroup;
+			children = (
+				3F059E17206C70E600A46AA9 /* efi_smc.h */,
+				365342F2203F91A9007C5B77 /* KextAudit-Info.plist */,
+				365342EF203F91A9007C5B77 /* KextAudit.cpp */,
+				365342F1203F91A9007C5B77 /* KextAudit.h */,
+				365342F0203F91A9007C5B77 /* KextAuditUserClient.cpp */,
+				365342F5203F91A9007C5B77 /* KextAuditUserClient.h */,
+			);
+			name = KextAudit;
 			sourceTree = "<group>";
 		};
 		50473D73166C852C00211829 /* kcinstall */ = {
@@ -1491,6 +1595,8 @@
 				A66AD2E91E80CDC200B2EEC9 /* unit_test.h */,
 				A66AD2EA1E80CE3600B2EEC9 /* security_test.m */,
 				A69E0B251EF31F2D0079C9B1 /* security_test.entitlements */,
+				364A90BD203FB86100F223BF /* kextaudit_test.entitlements */,
+				364A90BE203FB86100F223BF /* kextaudit_test.m */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -1498,6 +1604,14 @@
 		A6D698121E56A90C0050FC06 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				36F3F5B220506854006108B8 /* IOKit.framework */,
+				36F3F5AB205065C4006108B8 /* System.framework */,
+				36F3F5A92050658D006108B8 /* SystemConfiguration.framework */,
+				36F3F5A720506565006108B8 /* SystemPolicy.framework */,
+				36F3F5A520506550006108B8 /* Security.framework */,
+				36F3F5A1204F8380006108B8 /* RemoteServiceDiscovery.framework */,
+				36F3F59F204F837B006108B8 /* RemoteXPC.framework */,
+				365888B0203668A8002DF547 /* libSMC.tbd */,
 				35C528F91E9D5155002E15E9 /* libdz.dylib */,
 				354A56E11E9C3F21006C72A2 /* libdz.dylib */,
 			);
@@ -1512,6 +1626,27 @@
 			buildActionMask = 2147483647;
 			files = (
 				0C88540C1331655800942EB9 /* bootroot.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		365342E3203F9163007C5B77 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3F3E41F7206D3D9A0044651B /* efi_smc.h in Headers */,
+				365342FD203F91AA007C5B77 /* KextAuditUserClient.h in Headers */,
+				365342F9203F91AA007C5B77 /* KextAudit.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3FDA50EB206EF3C40089927A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3FDA50F1206EF4360089927A /* kextaudit.h in Headers */,
+				3FDA50EE206EF4050089927A /* kext_tools_util.h in Headers */,
+				3FDA50EF206EF4050089927A /* security.h in Headers */,
+				3FDA50EC206EF3D30089927A /* unit_test.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1726,22 +1861,6 @@
 			productReference = 24E1F0EE09EC4F9B00262C22 /* kextlibs */;
 			productType = "com.apple.product-type.tool";
 		};
-		24F57F200F005C5D006111B5 /* KextUserAgent */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 24F57F280F005C7C006111B5 /* Build configuration list for PBXNativeTarget "KextUserAgent" */;
-			buildPhases = (
-				24F57F1E0F005C5D006111B5 /* Sources */,
-				24F57F1F0F005C5D006111B5 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = KextUserAgent;
-			productName = KextUserAgent;
-			productReference = 24F57F210F005C5D006111B5 /* KextUserAgent.plugin */;
-			productType = "com.apple.product-type.bundle";
-		};
 		24FD2F580DC1218F0065A35B /* kextutil */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 24FD2F6D0DC1219E0065A35B /* Build configuration list for PBXNativeTarget "kextutil" */;
@@ -1758,6 +1877,42 @@
 			productName = kextutil;
 			productReference = 24FD2F590DC1218F0065A35B /* kextutil */;
 			productType = "com.apple.product-type.tool";
+		};
+		364A90AC203FB79200F223BF /* kextaudit_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 364A90B8203FB79200F223BF /* Build configuration list for PBXNativeTarget "kextaudit_test" */;
+			buildPhases = (
+				364A90AD203FB79200F223BF /* Sources */,
+				364A90B3203FB79200F223BF /* Frameworks */,
+				3FDA50EB206EF3C40089927A /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = kextaudit_test;
+			productInstallPath = /usr/sbin;
+			productName = kextcache;
+			productReference = 364A90BC203FB79200F223BF /* kextaudit_test */;
+			productType = "com.apple.product-type.tool";
+		};
+		365342E5203F9163007C5B77 /* KextAudit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 365342EB203F9163007C5B77 /* Build configuration list for PBXNativeTarget "KextAudit" */;
+			buildPhases = (
+				365342E1203F9163007C5B77 /* Sources */,
+				365342E2203F9163007C5B77 /* Frameworks */,
+				365342E3203F9163007C5B77 /* Headers */,
+				365342E4203F9163007C5B77 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KextAudit;
+			productName = KextAudit;
+			productReference = 365342E6203F9163007C5B77 /* KextAudit.kext */;
+			productType = "com.apple.product-type.kernel-extension";
 		};
 		506B28D3127755310047F9AE /* kcgen-embedded-host */ = {
 			isa = PBXNativeTarget;
@@ -1853,6 +2008,14 @@
 					331983EE1C9B3A03009D04F3 = {
 						CreatedOnToolsVersion = 8.0;
 					};
+					365342E5203F9163007C5B77 = {
+						CreatedOnToolsVersion = 9.3;
+						ProvisioningStyle = Automatic;
+					};
+					3F3E41F8206D3EC30044651B = {
+						CreatedOnToolsVersion = 9.3;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 0509730E094910F30034B52C /* Build configuration list for PBXProject "kext_tools" */;
@@ -1872,6 +2035,7 @@
 			targets = (
 				0CE8644A1562DF5A003DF7D4 /* osx */,
 				05097255094910D30034B52C /* osx_executables */,
+				3F3E41F8206D3EC30044651B /* osx_kexts */,
 				0CE864451562DF40003DF7D4 /* osx_base */,
 				10830D0E0F5DE85900937E9E /* embedded */,
 				10830D120F5DE87100937E9E /* embedded-host */,
@@ -1893,16 +2057,27 @@
 				24C4E5770DD3EC7C00A70AB5 /* kextload */,
 				050972B7094910D30034B52C /* kextstat */,
 				050972C9094910D30034B52C /* kextunload */,
-				24F57F200F005C5D006111B5 /* KextUserAgent */,
 				24FD2F580DC1218F0065A35B /* kextutil */,
 				050972DD094910D30034B52C /* mkextunpack */,
 				0C8853F51331628200942EB9 /* libBootRoot */,
 				0C8853FF1331646A00942EB9 /* brtest_standalone */,
 				72D82256170F850200F16618 /* logkextloadsd */,
 				A66AD2EB1E80CE5000B2EEC9 /* security_test */,
+				365342E5203F9163007C5B77 /* KextAudit */,
+				364A90AC203FB79200F223BF /* kextaudit_test */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		365342E4203F9163007C5B77 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		10830D1E0F5DE94B00937E9E /* Script: Create system cache folders */ = {
@@ -1951,7 +2126,7 @@
 				0509728D094910D30034B52C /* kextd_main.c in Sources */,
 				0509728F094910D30034B52C /* kextd_mig_server.c in Sources */,
 				A6D698161E56AAAA0050FC06 /* syspolicy.m in Sources */,
-				3667FED62040E50200E3DE5F /* kextaudit.c in Sources */,
+				365888AD20352368002DF547 /* kextaudit.c in Sources */,
 				245CC3670DDD6561002E3E22 /* kextd_personalities.c in Sources */,
 				05097291094910D30034B52C /* kextd_request.c in Sources */,
 				05E5D3F60B4DD7FC00E2E59F /* kextd_serialize_kextload.c in Sources */,
@@ -2063,7 +2238,7 @@
 				24640A410EC58022000D6238 /* kextload_main.c in Sources */,
 				24C4E5810DD3EC9300A70AB5 /* kext_tools_util.c in Sources */,
 				A620205E20BD167B00D24B46 /* signposts.m in Sources */,
-				3667FED72040E50200E3DE5F /* kextaudit.c in Sources */,
+				365888AE20352368002DF547 /* kextaudit.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2076,23 +2251,40 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		24F57F1E0F005C5D006111B5 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		24FD2F560DC1218F0065A35B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9CF060D9210A73D500F1B0C9 /* signposts.m in Sources */,
 				24FD2F700DC121DD0065A35B /* kextutil_main.c in Sources */,
 				A66BCA8B1E981AE1008DD993 /* staging.m in Sources */,
 				A6D6981F1E56B3380050FC06 /* syspolicy.m in Sources */,
 				2479E3BB0DCDAF8600DA4448 /* kext_tools_util.c in Sources */,
 				728BAE21167F7C97004193C6 /* security.c in Sources */,
-				3667FED82040E50200E3DE5F /* kextaudit.c in Sources */,
+				365888AF20352368002DF547 /* kextaudit.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		364A90AD203FB79200F223BF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9CF060DA210A749900F1B0C9 /* signposts.m in Sources */,
+				36F3F5B520506ACA006108B8 /* syspolicy.m in Sources */,
+				36F3F5B420506AB8006108B8 /* staging.m in Sources */,
+				36F3F5AD20506774006108B8 /* kext_tools_util.c in Sources */,
+				36F3F5A420506483006108B8 /* kextaudit.c in Sources */,
+				36F3F5A32050647A006108B8 /* security.c in Sources */,
+				364A90BF203FB86100F223BF /* kextaudit_test.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		365342E1203F9163007C5B77 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				365342F7203F91AA007C5B77 /* KextAudit.cpp in Sources */,
+				365342F8203F91AA007C5B77 /* KextAuditUserClient.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2251,6 +2443,21 @@
 			isa = PBXTargetDependency;
 			target = 24E1F0ED09EC4F9B00262C22 /* kextlibs */;
 			targetProxy = 24EE72D309EC994F008CF6B0 /* PBXContainerItemProxy */;
+		};
+		364A90C1203FB91900F223BF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 364A90AC203FB79200F223BF /* kextaudit_test */;
+			targetProxy = 364A90C0203FB91900F223BF /* PBXContainerItemProxy */;
+		};
+		3F3E41FE206D3ECF0044651B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 365342E5203F9163007C5B77 /* KextAudit */;
+			targetProxy = 3F3E41FD206D3ECF0044651B /* PBXContainerItemProxy */;
+		};
+		3F3E4200206D3EED0044651B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3F3E41F8206D3EC30044651B /* osx_kexts */;
+			targetProxy = 3F3E41FF206D3EED0044651B /* PBXContainerItemProxy */;
 		};
 		506B28E0127755760047F9AE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2413,6 +2620,7 @@
 					"-DKEXTD",
 					"-DDEV_KERNEL_SUPPORT",
 					"-isystem$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"-isystem$(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = kextd;
@@ -2443,6 +2651,7 @@
 					"-DKEXTD",
 					"-DDEV_KERNEL_SUPPORT",
 					"-isystem$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"-isystem$(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = kextd;
@@ -2476,6 +2685,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-deprecated",
 				);
 				ZERO_LINK = YES;
 			};
@@ -2497,6 +2707,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-deprecated",
 				);
 				ZERO_LINK = NO;
 			};
@@ -2518,6 +2729,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-deprecated",
 				);
 				ZERO_LINK = YES;
 			};
@@ -2538,6 +2750,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-deprecated",
 				);
 				ZERO_LINK = NO;
 			};
@@ -2559,6 +2772,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-deprecated",
 				);
 				ZERO_LINK = YES;
 			};
@@ -2579,6 +2793,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-deprecated",
 				);
 				ZERO_LINK = NO;
 			};
@@ -2910,6 +3125,7 @@
 					"-DKEXTD",
 					"-DDEV_KERNEL_SUPPORT",
 					"-isystem$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"-isystem$(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = kextd;
@@ -2952,6 +3168,12 @@
 				);
 				PRODUCT_NAME = kextlibs;
 				SDKROOT = macosx.internal;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused",
+					"-Wno-deprecated",
+				);
 				ZERO_LINK = NO;
 			};
 			name = Analyze;
@@ -2972,6 +3194,7 @@
 					"$(inherited)",
 					"-DDEV_KERNEL_SUPPORT",
 					"-isystem$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"-isystem$(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders",
 				);
 				PRODUCT_NAME = kextload;
 				SDKROOT = macosx.internal;
@@ -2996,6 +3219,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-deprecated",
 				);
 				ZERO_LINK = NO;
 			};
@@ -3016,32 +3240,8 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-deprecated",
 				);
-				ZERO_LINK = NO;
-			};
-			name = Analyze;
-		};
-		0CCC900D116EAC92004EBE10 /* Analyze */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				DEPLOYMENT_POSTPROCESSING = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
-				INFOPLIST_FILE = "KextUserAgent-Info.plist";
-				INSTALL_PATH = /System/Library/UserEventPlugins;
-				OTHER_LDFLAGS = (
-					"-lstdc++",
-					"-framework",
-					Carbon,
-				);
-				PRODUCT_NAME = KextUserAgent;
-				SEPARATE_STRIP = NO;
-				STRIP_INSTALLED_PRODUCT = NO;
-				WRAPPER_EXTENSION = plugin;
 				ZERO_LINK = NO;
 			};
 			name = Analyze;
@@ -3061,6 +3261,7 @@
 					"$(inherited)",
 					"-DDEV_KERNEL_SUPPORT",
 					"-isystem$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"-isystem$(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders",
 				);
 				PRODUCT_NAME = kextutil;
 				SDKROOT = macosx.internal;
@@ -3089,6 +3290,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-deprecated",
 				);
 				ZERO_LINK = NO;
 			};
@@ -3284,6 +3486,12 @@
 				PRODUCT_NAME = kcgen;
 				SDKROOT = macosx.internal;
 				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused",
+					"-Wno-deprecated",
+				);
 			};
 			name = Development;
 		};
@@ -3301,6 +3509,12 @@
 				PRODUCT_NAME = kcgen;
 				SDKROOT = macosx.internal;
 				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused",
+					"-Wno-deprecated",
+				);
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -3319,6 +3533,12 @@
 				PRODUCT_NAME = kcgen;
 				SDKROOT = macosx.internal;
 				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused",
+					"-Wno-deprecated",
+				);
 			};
 			name = Analyze;
 		};
@@ -3334,6 +3554,12 @@
 				PRODUCT_NAME = kclist;
 				SDKROOT = macosx.internal;
 				USER_HEADER_SEARCH_PATHS = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused",
+					"-Wno-deprecated",
+				);
 			};
 			name = Development;
 		};
@@ -3348,6 +3574,12 @@
 				PRODUCT_NAME = kclist;
 				SDKROOT = macosx.internal;
 				USER_HEADER_SEARCH_PATHS = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused",
+					"-Wno-deprecated",
+				);
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -3363,6 +3595,12 @@
 				PRODUCT_NAME = kclist;
 				SDKROOT = macosx.internal;
 				USER_HEADER_SEARCH_PATHS = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused",
+					"-Wno-deprecated",
+				);
 			};
 			name = Analyze;
 		};
@@ -3383,6 +3621,7 @@
 					"$(inherited)",
 					"-DDEV_KERNEL_SUPPORT",
 					"-isystem$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"-isystem$(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders",
 				);
 				PRODUCT_NAME = kextload;
 				SDKROOT = macosx.internal;
@@ -3406,6 +3645,7 @@
 					"$(inherited)",
 					"-DDEV_KERNEL_SUPPORT",
 					"-isystem$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"-isystem$(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders",
 				);
 				PRODUCT_NAME = kextload;
 				SDKROOT = macosx.internal;
@@ -3427,6 +3667,12 @@
 				);
 				PRODUCT_NAME = kextlibs;
 				SDKROOT = macosx.internal;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused",
+					"-Wno-deprecated",
+				);
 				ZERO_LINK = YES;
 			};
 			name = Development;
@@ -3443,57 +3689,12 @@
 				);
 				PRODUCT_NAME = kextlibs;
 				SDKROOT = macosx.internal;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		24F57F220F005C5E006111B5 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				DEPLOYMENT_POSTPROCESSING = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
-				INFOPLIST_FILE = "KextUserAgent-Info.plist";
-				INSTALL_PATH = /System/Library/UserEventPlugins;
-				OTHER_LDFLAGS = (
-					"-lstdc++",
-					"-framework",
-					Carbon,
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused",
+					"-Wno-deprecated",
 				);
-				PRODUCT_NAME = KextUserAgent;
-				SEPARATE_STRIP = NO;
-				STRIP_INSTALLED_PRODUCT = NO;
-				WRAPPER_EXTENSION = plugin;
-			};
-			name = Development;
-		};
-		24F57F230F005C5E006111B5 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				DEPLOYMENT_POSTPROCESSING = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
-				INFOPLIST_FILE = "KextUserAgent-Info.plist";
-				INSTALL_PATH = /System/Library/UserEventPlugins;
-				OTHER_LDFLAGS = (
-					"-lstdc++",
-					"-framework",
-					Carbon,
-				);
-				PRODUCT_NAME = KextUserAgent;
-				SEPARATE_STRIP = NO;
-				STRIP_INSTALLED_PRODUCT = NO;
-				WRAPPER_EXTENSION = plugin;
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -3514,6 +3715,7 @@
 					"$(inherited)",
 					"-DDEV_KERNEL_SUPPORT",
 					"-isystem$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"-isystem$(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders",
 				);
 				PRODUCT_NAME = kextutil;
 				SDKROOT = macosx.internal;
@@ -3542,6 +3744,7 @@
 					"$(inherited)",
 					"-DDEV_KERNEL_SUPPORT",
 					"-isystem$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"-isystem$(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders",
 				);
 				PRODUCT_NAME = kextutil;
 				SDKROOT = macosx.internal;
@@ -3572,6 +3775,351 @@
 		331983F11C9B3A03009D04F3 /* Analyze */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Analyze;
+		};
+		364A90B9203FB79200F223BF /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = tests/kextaudit_test.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				INSTALL_PATH = /AppleInternal/CoreOS/kext_tools;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				OTHER_CFLAGS = (
+					"-DPRODUCT_NAME='\"$(PRODUCT_NAME)\"'",
+					"-DDEV_KERNEL_SUPPORT",
+					"-DDEBUG",
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders";
+				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		364A90BA203FB79200F223BF /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = tests/kextaudit_test.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/kext_tools;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				OTHER_CFLAGS = (
+					"-DPRODUCT_NAME='\"$(PRODUCT_NAME)\"'",
+					"-DDEV_KERNEL_SUPPORT",
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders";
+				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		364A90BB203FB79200F223BF /* Analyze */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = tests/kextaudit_test.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/kext_tools;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				OTHER_CFLAGS = (
+					"-DPRODUCT_NAME='\"$(PRODUCT_NAME)\"'",
+					"-DDEV_KERNEL_SUPPORT",
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders";
+				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Analyze;
+		};
+		365342EC203F9163007C5B77 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "KextAudit/KextAudit-Info.plist";
+				KEXT_FAMILY_NAME = KextAudit;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MODULE_NAME = com.apple.private.KextAudit;
+				MODULE_START = 0;
+				MODULE_STOP = 0;
+				MODULE_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/kext";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.private.KextAudit;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused-parameter",
+					"-Werror",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		365342ED203F9163007C5B77 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "KextAudit/KextAudit-Info.plist";
+				KEXT_FAMILY_NAME = KextAudit;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MODULE_NAME = com.apple.private.KextAudit;
+				MODULE_START = 0;
+				MODULE_STOP = 0;
+				MODULE_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRIVATE_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/kext";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.private.KextAudit;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused-parameter",
+					"-Werror",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
+		365342EE203F9163007C5B77 /* Analyze */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "KextAudit/KextAudit-Info.plist";
+				KEXT_FAMILY_NAME = KextAudit;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MODULE_NAME = com.apple.private.KextAudit;
+				MODULE_START = 0;
+				MODULE_STOP = 0;
+				MODULE_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRIVATE_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/kext";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.private.KextAudit;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused-parameter",
+					"-Werror",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Analyze;
+		};
+		3F3E41FA206D3EC30044651B /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		3F3E41FB206D3EC30044651B /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		3F3E41FC206D3EC30044651B /* Analyze */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Analyze;
@@ -4233,16 +4781,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
 		};
-		24F57F280F005C7C006111B5 /* Build configuration list for PBXNativeTarget "KextUserAgent" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				24F57F220F005C5E006111B5 /* Development */,
-				24F57F230F005C5E006111B5 /* Deployment */,
-				0CCC900D116EAC92004EBE10 /* Analyze */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
 		24FD2F6D0DC1219E0065A35B /* Build configuration list for PBXNativeTarget "kextutil" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -4259,6 +4797,36 @@
 				331983EF1C9B3A03009D04F3 /* Development */,
 				331983F01C9B3A03009D04F3 /* Deployment */,
 				331983F11C9B3A03009D04F3 /* Analyze */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		364A90B8203FB79200F223BF /* Build configuration list for PBXNativeTarget "kextaudit_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				364A90B9203FB79200F223BF /* Development */,
+				364A90BA203FB79200F223BF /* Deployment */,
+				364A90BB203FB79200F223BF /* Analyze */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		365342EB203F9163007C5B77 /* Build configuration list for PBXNativeTarget "KextAudit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				365342EC203F9163007C5B77 /* Development */,
+				365342ED203F9163007C5B77 /* Deployment */,
+				365342EE203F9163007C5B77 /* Analyze */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		3F3E41F9206D3EC30044651B /* Build configuration list for PBXAggregateTarget "osx_kexts" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3F3E41FA206D3EC30044651B /* Development */,
+				3F3E41FB206D3EC30044651B /* Deployment */,
+				3F3E41FC206D3EC30044651B /* Analyze */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

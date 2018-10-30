@@ -55,11 +55,6 @@ dz_notify_kextcache_update_v2(const char *kextpath, bool allowed);
 static OSStatus     checkRootCertificateIsApple(OSKextRef aKext);
 static CFStringRef  copyCDHash(SecStaticCodeRef code);
 static CFStringRef  copyIssuerCN(SecCertificateRef certificate);
-static void         copySigningInfo(CFURLRef kextURL,
-                                    CFStringRef* cdhash,
-                                    CFStringRef* teamId,
-                                    CFStringRef* subjectCN,
-                                    CFStringRef* issuerCN);
 static CFArrayRef   copySubjectCNArray(CFURLRef kextURL);
 static CFStringRef  copyTeamID(SecCertificateRef certificate);
 static CFStringRef  createArchitectureList(OSKextRef aKext, CFBooleanRef *isFat);
@@ -869,7 +864,7 @@ finish:
  *  <rdar://13646260> 
  *  Note: the caller must release the created CFStringRefs
  *******************************************************************************/
-static void copySigningInfo(CFURLRef kextURL,
+void copySigningInfo(CFURLRef kextURL,
                             CFStringRef* cdhash,
                             CFStringRef* teamId,
                             CFStringRef* subjectCN,
@@ -1499,16 +1494,6 @@ finish:
     
     return result;
 }
-
-#define GET_CSTRING_PTR(the_cfstring, the_ptr, the_buffer, the_size) \
-do { \
-the_ptr = CFStringGetCStringPtr(the_cfstring, kCFStringEncodingUTF8); \
-if (the_ptr == NULL) { \
-the_buffer[0] = 0x00; \
-the_ptr = the_buffer;  \
-CFStringGetCString(the_cfstring, the_buffer, the_size, kCFStringEncodingUTF8); \
-} \
-} while(0)
 
 /*********************************************************************
  * isInExceptionList checks to see if the given kext is in the

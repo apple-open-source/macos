@@ -104,75 +104,77 @@ __IODataQueueDequeue(IODataQueueMemory *dataQueue, uint64_t qSize, void *data, u
     UInt32              headOffset      = 0;
     UInt32              tailOffset      = 0;
     UInt32              newHeadOffset   = 0;
-
-    if (dataQueue) {
-        // Read head and tail with acquire barrier
-        headOffset = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED);
-        tailOffset = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->tail, __ATOMIC_ACQUIRE);
+    
+    if (!dataQueue || (data && !dataSize)) {
+        return kIOReturnBadArgument;
+    }
+    
+    // Read head and tail with acquire barrier
+    headOffset = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED);
+    tailOffset = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->tail, __ATOMIC_ACQUIRE);
+    
+    if (headOffset != tailOffset) {
+        IODataQueueEntry *  head        = 0;
+        UInt32              headSize    = 0;
+        UInt32              queueSize   = qSize ? qSize : dataQueue->queueSize;
         
-        if (headOffset != tailOffset) {
-            IODataQueueEntry *  head        = 0;
-            UInt32              headSize    = 0;
-            UInt32              queueSize   = qSize ? qSize : dataQueue->queueSize;
-            
-            head         = (IODataQueueEntry *)((char *)dataQueue->queue + headOffset);
-            headSize     = head->size;
-                        
-            // we wrapped around to beginning, so read from there
-            // either there was not even room for the header
-            if ((headOffset > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) ||
-                (headOffset + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize) ||
-                // or there was room for the header, but not for the data
-                (headOffset + DATA_QUEUE_ENTRY_HEADER_SIZE > UINT32_MAX - headSize) ||
-                (headOffset + headSize + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize)) {
-                // Note: we have to wrap to the beginning even with the UINT32_MAX checks
-                // because we have to support a queueSize of UINT32_MAX.
-                entry           = dataQueue->queue;
-                entrySize       = entry->size;
-                if ((entrySize > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) ||
-                    (entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize)) {
-                    return kIOReturnError;
-                }
-                newHeadOffset   = entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE;
-                // else it is at the end
-            } else {
-                entry           = head;
-                entrySize       = entry->size;
-                if ((entrySize > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) ||
-                    (entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE > UINT32_MAX - headOffset) ||
-                    (entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE + headOffset > queueSize)) {
-                    return kIOReturnError;
-                }
-                newHeadOffset   = headOffset + entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE;
-            }
+        if (headOffset > queueSize) {
+            return kIOReturnError;
         }
-
-        if (entry) {
-            if (data) {
-                if (dataSize) {
-                    if (entrySize <= *dataSize) {
-                        memcpy(data, &(entry->data), entrySize);
-                        __c11_atomic_store((_Atomic UInt32 *)&dataQueue->head, newHeadOffset, __ATOMIC_RELEASE);
-                    } else {
-                        retVal = kIOReturnNoSpace;
-                    }
-                } else {
-                    retVal = kIOReturnBadArgument;
-                }
-            } else {
-                __c11_atomic_store((_Atomic UInt32 *)&dataQueue->head, newHeadOffset, __ATOMIC_RELEASE);
+        
+        head         = (IODataQueueEntry *)((char *)dataQueue->queue + headOffset);
+        headSize     = head->size;
+        
+        // we wrapped around to beginning, so read from there
+        // either there was not even room for the header
+        if ((headOffset > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) ||
+            (headOffset + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize) ||
+            // or there was room for the header, but not for the data
+            (headOffset + DATA_QUEUE_ENTRY_HEADER_SIZE > UINT32_MAX - headSize) ||
+            (headOffset + headSize + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize)) {
+            // Note: we have to wrap to the beginning even with the UINT32_MAX checks
+            // because we have to support a queueSize of UINT32_MAX.
+            entry           = dataQueue->queue;
+            entrySize       = entry->size;
+            if ((entrySize > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) ||
+                (entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize)) {
+                return kIOReturnError;
             }
-
-            // RY: Update the data size here.  This will
-            // ensure that dataSize is always updated.
-            if (dataSize) {
-                *dataSize = entrySize;
-            }
+            newHeadOffset   = entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE;
+            // else it is at the end
         } else {
-            retVal = kIOReturnUnderrun;
+            entry           = head;
+            entrySize       = entry->size;
+            if ((entrySize > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) ||
+                (entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE > UINT32_MAX - headOffset) ||
+                (entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE + headOffset > queueSize)) {
+                return kIOReturnError;
+            }
+            newHeadOffset   = headOffset + entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE;
         }
     } else {
-        retVal = kIOReturnBadArgument;
+        // empty queue
+        return kIOReturnUnderrun;
+    }
+    
+    if (data) {
+        if (entrySize > *dataSize) {
+            // not enough space
+            return kIOReturnNoSpace;
+        }
+        memcpy(data, &(entry->data), entrySize);
+        *dataSize = entrySize;
+    }
+    
+    __c11_atomic_store((_Atomic UInt32 *)&dataQueue->head, newHeadOffset, __ATOMIC_RELEASE);
+    
+    if (newHeadOffset == tailOffset) {
+        //
+        // If we are making the queue empty, then we need to make sure
+        // that either the enqueuer notices, or we notice the enqueue
+        // that raced with our making of the queue empty.
+        //
+        __c11_atomic_thread_fence(__ATOMIC_SEQ_CST);
     }
     
     return retVal;
@@ -291,12 +293,25 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint64_t qSize, mach_msg_head
     // Send notification (via mach message) that data is available.    
     
     if ( retVal == kIOReturnSuccess ) {
-        // Update tail with release barrier
+        // Publish the data we just enqueued
         __c11_atomic_store((_Atomic UInt32 *)&dataQueue->tail, newTail, __ATOMIC_RELEASE);
         
-        if ( ( head == tail )                                                           /* queue was empty prior to enqueue() */
-        ||   ( tail == __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_ACQUIRE) ) )  /* queue was emptied during enqueue() */
-        {
+        if (tail != head) {
+            //
+            // The memory barrier below pairs with the one in dequeue
+            // so that either our store to the tail cannot be missed by
+            // the next dequeue attempt, or we will observe the dequeuer
+            // making the queue empty.
+            //
+            // Of course, if we already think the queue is empty,
+            // there's no point paying this extra cost.
+            //
+            __c11_atomic_thread_fence(__ATOMIC_SEQ_CST);
+            head = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED);
+        }
+        
+        if (tail == head) {
+            // Send notification (via mach message) that data is now available.
             retVal = _IODataQueueSendDataAvailableNotification(dataQueue, msgh);
         }
 #if TARGET_IPHONE_SIMULATOR

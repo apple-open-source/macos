@@ -229,7 +229,7 @@ void SOSAccountEnsureRecoveryRing(SOSAccount* account) {
         return;
     }
 
-    CFStringRef accountDSID = SOSAccountGetValue(account, kSOSDSIDKey, NULL); // murfxxx this needs to be consulted still
+    CFStringRef accountDSID = SOSAccountGetValue(account, kSOSDSIDKey, NULL);
     SOSRecoveryKeyBagRef acctRKBG = SOSAccountCopyRecoveryKeyBagEntry(kCFAllocatorDefault, account, NULL);
     SOSRecoveryKeyBagRef ringRKBG = SOSAccountCopyRecoveryKeyBag(kCFAllocatorDefault, account, NULL);
     if(!SOSRecoveryKeyBagDSIDIs(ringRKBG, accountDSID)) CFReleaseNull(ringRKBG);

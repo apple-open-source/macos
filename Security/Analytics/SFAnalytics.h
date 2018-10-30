@@ -51,6 +51,7 @@ extern const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport;
 - (void)noteEventNamed:(NSString*)eventName;
 
 - (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError;
+- (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError withAttributes:(NSDictionary*)attributes;
 
 // Track the state of a named value over time
 - (SFAnalyticsSampler*)addMetricSamplerForName:(NSString*)samplerName withTimeInterval:(NSTimeInterval)timeInterval block:(NSNumber* (^)(void))block;

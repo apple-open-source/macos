@@ -224,6 +224,50 @@ setpw_prexmit(krb5_context context, int proto,
 }
 
 static krb5_error_code
+process_krb_error(krb5_context context, uint8_t *reply, ssize_t len,
+		  int *result_code, krb5_data *result_string)
+{
+    krb5_error_code ret;
+    KRB_ERROR error;
+    size_t size = 0;
+    u_char *p = NULL;
+
+    memset(&error, 0, sizeof(error));
+
+    ret = decode_KRB_ERROR(reply, len, &error, &size);
+    if (ret)
+	return ret;
+
+    if (error.e_data) {
+
+	if (error.e_data->length < 2) {
+	    krb5_data_format(result_string, "server sent too short "
+			     "e_data to print anything usable");
+	    free_KRB_ERROR(&error);
+	    *result_code = KRB5_KPASSWD_MALFORMED;
+	    return 0;
+	}
+
+	p = error.e_data->data;
+	*result_code = (p[0] << 8) | p[1];
+	if (error.e_data->length == 2) {
+	    krb5_data_format(result_string, "server only sent error code");
+	} else {
+	    krb5_data_copy (result_string,
+			    p + 2,
+			    error.e_data->length - 2);
+	}
+
+	ret = 0;
+    } else {
+	ret = error.error_code;
+    }
+    free_KRB_ERROR(&error);
+    return ret;
+}
+
+
+static krb5_error_code
 process_reply(krb5_context context,
 	      krb5_auth_context auth_context,
 	      krb5_data *data,
@@ -253,34 +297,7 @@ process_reply(krb5_context context,
     pkt_ver = (reply[2] << 8) | (reply[3]);
 
     if ((pkt_len != len) || (reply[1] == 0x7e || reply[1] == 0x5e)) {
-	KRB_ERROR error;
-	size_t size;
-	u_char *p;
-
-	memset(&error, 0, sizeof(error));
-
-	ret = decode_KRB_ERROR(reply, len, &error, &size);
-	if (ret)
-	    return ret;
-
-	if (error.e_data->length < 2) {
-	    krb5_data_format(result_string, "server sent too short "
-		     "e_data to print anything usable");
-	    free_KRB_ERROR(&error);
-	    *result_code = KRB5_KPASSWD_MALFORMED;
-	    return 0;
-	}
-
-	p = error.e_data->data;
-	*result_code = (p[0] << 8) | p[1];
-	if (error.e_data->length == 2)
-	    krb5_data_format(result_string, "server only sent error code");
-	else
-	    krb5_data_copy (result_string,
-			    p + 2,
-			    error.e_data->length - 2);
-	free_KRB_ERROR(&error);
-	return 0;
+	return process_krb_error(context, reply, len, result_code, result_string);
     }
 
     if (pkt_len != len) {
@@ -346,25 +363,7 @@ process_reply(krb5_context context,
                         result_code_string->length - 2);
         return 0;
     } else {
-	KRB_ERROR error;
-	size_t size;
-	u_char *p;
-
-	ret = decode_KRB_ERROR(reply + 6, len - 6, &error, &size);
-	if (ret) {
-	    return ret;
-	}
-	if (error.e_data->length < 2) {
-	    krb5_warnx (context, "too short e_data to print anything usable");
-	    return 1;		/* XXX */
-	}
-
-	p = error.e_data->data;
-	*result_code = (p[0] << 8) | p[1];
-	krb5_data_copy (result_string,
-			p + 2,
-			error.e_data->length - 2);
-	return 0;
+	return process_krb_error(context, reply, len, result_code, result_string);
     }
 }
 

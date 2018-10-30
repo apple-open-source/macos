@@ -1519,7 +1519,17 @@ static void calendarRTCDidResync(CFMachPortRef port, void *msg, CFIndex size, vo
 
     calendarRTCDidResync_getSMCWakeInterval();
     AutoWakeCalendarChange();
-    
+
+    // calendar has resync. Safe to get timestamps now
+    CFAbsoluteTime wakeStart;
+    CFTimeInterval smcAdjustment;
+    IOReturn rc = IOPMGetLastWakeTime(&wakeStart, &smcAdjustment);
+    if (rc == kIOReturnSuccess) {
+        uint64_t wakeStartTimestamp = CFAbsoluteTimeToMachAbsoluteTime(wakeStart);
+        DEBUG_LOG("WakeTime: Calendar resynced\n");
+        updateCurrentWakeStart(wakeStartTimestamp);
+        updateWakeTime();
+    }
     return;
 }
 

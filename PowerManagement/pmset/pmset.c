@@ -114,6 +114,7 @@
 #define ARG_DEEPSLEEPDELAY  "standbydelay"
 #define ARG_DEEPSLEEPDELAYLOW  "standbydelaylow"
 #define ARG_DEEPSLEEPDELAYHIGH "standbydelayhigh"
+#define ARG_STANDBYBATTERYTHRESHOLD "highstandbythreshold"
 #define ARG_DARKWAKES       "darkwakes"
 #define ARG_POWERNAP        "powernap"
 #define ARG_RESTOREDEFAULTS "restoredefaults"
@@ -296,6 +297,7 @@ PMFeature all_features[] =
     { kIOPMDeepSleepEnabledKey,     ARG_DEEPSLEEP },
     { kIOPMDeepSleepDelayHighKey,   ARG_DEEPSLEEPDELAYHIGH },
     { kIOPMDeepSleepDelayKey,       ARG_DEEPSLEEPDELAYLOW },
+    { kIOPMStandbyBatteryThresholdKey, ARG_STANDBYBATTERYTHRESHOLD },
     { kIOPMDarkWakeBackgroundTaskKey, ARG_POWERNAP },
     { kIOPMTTYSPreventSleepKey,     ARG_TTYKEEPAWAKE },
     { kIOHibernateModeKey,          ARG_HIBERNATEMODE },
@@ -5555,6 +5557,17 @@ static int parseArgs(int argc,
             } else if(0 == strncmp(argv[i], ARG_DEEPSLEEPDELAYLOW, kMaxArgStringLength))
             {
                 if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMDeepSleepDelayKey),
+                                             apply, false, kNoMultiplier,
+                                             ac, battery, ups))
+                {
+                    ret = kParseBadArgs;
+                    goto exit;
+                }
+                modified |= kModSettings;
+                i+=2;
+            } else if(0 == strncmp(argv[i], ARG_STANDBYBATTERYTHRESHOLD, kMaxArgStringLength))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMStandbyBatteryThresholdKey),
                                              apply, false, kNoMultiplier,
                                              ac, battery, ups))
                 {

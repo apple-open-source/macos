@@ -1017,6 +1017,63 @@
     XCTAssert (stats.counts[kIOHIDEventTypeOrientation] == 4, "Events:%@", events);
 }
 
+
+- (void)MAC_OS_ONLY_TEST_CASE(testGamecontrollerEventWithTubmstickButtons) {
+    
+    IOReturn status;
+    CFIndex  value;
+    
+    static uint8_t descriptor [] = {HIDGameControllerWithThumbstickButtons};
+    
+    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
+    
+    [self setupTestSystem :  descriptorData];
+    
+    HIDGameControllerWithThumbstickButtonsInputReport report;
+    memset (&report, 0 , sizeof(report));
+ 
+    report.BTN_CountedBufferGamePadButton9 = 1;
+    report.BTN_CountedBufferGamePadButton10 = 1;
+
+    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
+
+    report.BTN_CountedBufferGamePadButton9 = 0;
+    report.BTN_CountedBufferGamePadButton10 = 0;
+
+    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
+    
+    // Allow event to be dispatched
+    usleep(kDefaultReportDispatchCompletionTime);
+    
+    
+    NSArray *events = nil;
+    @synchronized (self.eventController.events) {
+        events = [self.eventController.events copy];
+    }
+
+    
+    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
+    
+    HIDTestEventLatency(stats);
+    
+    XCTAssert(stats.totalCount == 2,
+              "events count:%lu expected:%d events:%@ ", (unsigned long)stats.totalCount , 2, events);
+    
+    XCTAssert (stats.counts[kIOHIDEventTypeGameController] == 2, "kIOHIDEventTypeGameController count:%lu events:%@", (unsigned long)stats.counts[kIOHIDEventTypeGameController], events);
+    
+
+    value = IOHIDEventGetIntegerValue ((IOHIDEventRef)events[0], kIOHIDEventFieldGameControllerThumbstickButtonRight);
+    XCTAssert (value == 1);
+
+    value = IOHIDEventGetIntegerValue ((IOHIDEventRef)events[0], kIOHIDEventFieldGameControllerThumbstickButtonLeft);
+    XCTAssert (value == 1);
+
+    value = IOHIDEventGetIntegerValue ((IOHIDEventRef)events[1], kIOHIDEventFieldGameControllerThumbstickButtonRight);
+    XCTAssert (value == 0);
+    
+    value = IOHIDEventGetIntegerValue ((IOHIDEventRef)events[1], kIOHIDEventFieldGameControllerThumbstickButtonLeft);
+    XCTAssert (value == 0);
+}
 - (void)testCameraEvents {
     IOReturn status;
     static uint8_t descriptor[] = { HIDCameraDescriptor };

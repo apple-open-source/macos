@@ -96,7 +96,7 @@ void NetworkProcess::platformInitializeNetworkProcessCocoa(const NetworkProcessC
 
     initializeNetworkSettings();
 
-#if PLATFORM(COCOA)
+#if PLATFORM(MAC)
     setSharedHTTPCookieStorage(parameters.uiProcessCookieStorageIdentifier);
 #endif
 
@@ -173,7 +173,7 @@ void NetworkProcess::clearDiskCache(WallTime modifiedSince, Function<void ()>&& 
     }
 }
 
-#if PLATFORM(COCOA)
+#if PLATFORM(MAC)
 void NetworkProcess::setSharedHTTPCookieStorage(const Vector<uint8_t>& identifier)
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
@@ -216,10 +216,12 @@ void NetworkProcess::platformSyncAllCookies(CompletionHandler<void()>&& completi
 #pragma clang diagnostic pop
 }
 
-void NetworkProcess::platformPrepareToSuspend()
+void NetworkProcess::platformPrepareToSuspend(CompletionHandler<void()>&& completionHandler)
 {
 #if ENABLE(WIFI_ASSERTIONS)
-    suspendWiFiAssertions(SuspensionReason::ProcessSuspending);
+    suspendWiFiAssertions(SuspensionReason::ProcessSuspending, WTFMove(completionHandler));
+#else
+    completionHandler();
 #endif
 }
 
@@ -233,10 +235,10 @@ void NetworkProcess::platformProcessDidResume()
 void NetworkProcess::platformProcessDidTransitionToBackground()
 {
 #if ENABLE(WIFI_ASSERTIONS)
-    suspendWiFiAssertions(SuspensionReason::ProcessBackgrounding);
+    suspendWiFiAssertions(SuspensionReason::ProcessBackgrounding, [] { });
 #endif
 }
-    
+
 void NetworkProcess::platformProcessDidTransitionToForeground()
 {
 #if ENABLE(WIFI_ASSERTIONS)

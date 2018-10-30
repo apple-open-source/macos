@@ -843,6 +843,7 @@
 		808EE7E11DB6CF260035C5A1 /* AppleSmartBatteryManager-Embedded.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "AppleSmartBatteryManager-Embedded.kext"; sourceTree = BUILT_PRODUCTS_DIR; };
 		80FD7DB01E36AEA8008803C4 /* Info-Embedded.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "Info-Embedded.plist"; path = "AppleSmartBatteryManager/Info-Embedded.plist"; sourceTree = "<group>"; };
 		8C0CB46220A691A700FE22F5 /* PowerManagementSignposts.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PowerManagementSignposts.h; sourceTree = "<group>"; };
+		8C45D014215B102300722AE4 /* ioupsd-entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "ioupsd-entitlements.plist"; sourceTree = "<group>"; };
 		8CCB23AD1979C99000F63BE8 /* libIOAccessoryManager.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libIOAccessoryManager.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/usr/lib/libIOAccessoryManager.dylib; sourceTree = DEVELOPER_DIR; };
 		9C474D6120041C1C00627C4F /* powerd.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = powerd.1; sourceTree = "<group>"; };
 		9CD0FD542009607B0030E5A9 /* swd.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = swd.1; sourceTree = "<group>"; };
@@ -1365,6 +1366,7 @@
 				F7828184058E83D30055547B /* IOUPSPrivate.c */,
 				F7828186058E83D30055547B /* IOUPSPrivate.h */,
 				72FE7EA409AE4931003E0C4C /* ioupsd.8 */,
+				8C45D014215B102300722AE4 /* ioupsd-entitlements.plist */,
 			);
 			path = ioupsd;
 			sourceTree = "<group>";
@@ -4267,6 +4269,8 @@
 		729A75870A01EE43000AB587 /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "ioupsd/ioupsd-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
@@ -4278,6 +4282,8 @@
 		729A75880A01EE43000AB587 /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "ioupsd/ioupsd-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
@@ -5120,6 +5126,8 @@
 		8C1DA6ED1986BFE90041B69A /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "ioupsd/ioupsd-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
@@ -5131,6 +5139,8 @@
 		8C1DA6EE1986BFE90041B69A /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "ioupsd/ioupsd-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
@@ -5147,6 +5157,8 @@
 		8C1DA6EF1986BFE90041B69A /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "ioupsd/ioupsd-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
@@ -5158,6 +5170,8 @@
 		8C1DA6F01986BFE90041B69A /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "ioupsd/ioupsd-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
@@ -5287,6 +5301,8 @@
 		A60E72080CFE3809003989A7 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "ioupsd/ioupsd-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
@@ -5425,6 +5441,8 @@
 		A60E72140CFE3815003989A7 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "ioupsd/ioupsd-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (

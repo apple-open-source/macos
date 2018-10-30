@@ -162,7 +162,7 @@
 
 "com.apple.configurationprofiles.userprofile.trustcert" = "__APPNAME__ is trying to trust a certificate from a user configuration profile.";
 
-"com.apple.app-sandbox.create-symlink" = "__APPNAME__ wants to install a symlink into /usr/local/bin.";
+"com.apple.app-sandbox.create-symlink" = "__APPNAME__ wants to install symlinks in /usr/local.";
 
 "com.apple.app-sandbox.set-attributes" = "__APPNAME__ wants to change permissions of a privileged file.";
 

@@ -505,6 +505,8 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
 
     /* Set up auditing of kext loads, see kextaudit.c */
     _OSKextSetLoadAuditFunction(&KextAuditLoadCallback);
+    setVariantSuffix();
+
 #endif
 
     count = CFArrayGetCount(toolArgs->kextIDs);

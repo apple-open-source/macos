@@ -1127,6 +1127,11 @@ enum class ApplePayButtonType : uint8_t {
     Buy,
     SetUp,
     Donate,
+#if ENABLE(APPLE_PAY_SESSION_V4)
+    CheckOut,
+    Book,
+    Subscribe,
+#endif
 };
 #endif
 

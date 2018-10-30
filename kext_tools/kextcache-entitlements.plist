@@ -10,7 +10,7 @@
 	<true/>
 	<key>com.apple.rootless.install</key>
 	<true/>
-	<key>com.apple.rootless.kext-management</key>
+	<key>com.apple.rootless.kext-secure-management</key>
 	<true/>
 	<key>com.apple.rootless.storage.KernelExtensionManagement</key>
 	<true/>

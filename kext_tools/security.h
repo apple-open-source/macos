@@ -59,6 +59,16 @@
 #define kMTKextLoadingDomain        "com.apple.libkext.kext.loading.v4"
 #define kMTKextBlockedDomain        "com.apple.libkext.kext.blocked"
 
+#define GET_CSTRING_PTR(the_cfstring, the_ptr, the_buffer, the_size) \
+do { \
+	the_ptr = CFStringGetCStringPtr(the_cfstring, kCFStringEncodingUTF8); \
+	if (the_ptr == NULL) { \
+		the_buffer[0] = 0x00; \
+		the_ptr = the_buffer;  \
+		CFStringGetCString(the_cfstring, the_buffer, the_size, kCFStringEncodingUTF8); \
+	} \
+} while(0)
+
 void    messageTraceExcludedKext(OSKextRef aKext);
 void    recordKextLoadListForMT(CFArrayRef kextList, Boolean userLoad);
 void    recordKextLoadForMT(OSKextRef aKext, Boolean userLoad);
@@ -75,6 +85,8 @@ Boolean isInvalidSignatureAllowed(void);
 Boolean isKextdRunning(void);
 int callSecKeychainMDSInstall( void );
 
+void copySigningInfo(CFURLRef kextURL, CFStringRef* cdhash, CFStringRef* teamId,
+                        CFStringRef* subjectCN, CFStringRef* issuerCN);
 void getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer, CFDictionaryRef codesignAttributes);
 
 Boolean isNetBooted(void);

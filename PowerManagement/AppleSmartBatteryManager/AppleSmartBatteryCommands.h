@@ -113,6 +113,9 @@ enum {
     kChargerDataCmd                   = 0x1100,
     kBatteryFCCDataCmd                = 0x1200,
     kBatteryDataCmd                   = 0x1300,
+#if TARGET_OS_WATCH
+    kSkinTemperatureCmd               = 0x1c00,
+#endif
 };
 
 

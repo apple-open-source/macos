@@ -1,0 +1,11 @@
+--- lib/ExtUtils/Depends.pm.orig	2013-09-28 22:04:16.000000000 -0700
++++ lib/ExtUtils/Depends.pm	2018-08-09 16:11:26.000000000 -0700
+@@ -193,7 +193,7 @@ sub load {
+ 	{
+ 		instpath => $instpath,
+ 		typemaps => \@typemaps,
+-		inc      => "-I$instpath ".${"$depinstallfiles\::inc"},
++		inc      => (($instpath =~ /^\/System\/Library\/Perl\//) ? "-iwithsysroot " : "-I")."$instpath ".${"$depinstallfiles\::inc"},
+ 		libs     => ${"$depinstallfiles\::libs"},
+ 		# this will not exist when loading files from old versions
+ 		# of ExtUtils::Depends.

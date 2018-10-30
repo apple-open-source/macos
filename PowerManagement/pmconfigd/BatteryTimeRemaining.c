@@ -1671,7 +1671,9 @@ kern_return_t _io_ps_new_pspowersource(
         bzero(ps, sizeof(PSStruct));
 
         dispatch_async(dispatch_get_main_queue(), ^()
-                       { HandlePublishAllPowerSources(); });
+                       {
+                           HandlePublishAllPowerSources();
+                       });
     });
 
     dispatch_source_set_event_handler(ps->procdeathsrc, ^{
@@ -1761,7 +1763,9 @@ kern_return_t _io_ps_update_pspowersource(
                 next->description = details;
                 updateLogBuffer(next, false);
                 dispatch_async(dispatch_get_main_queue(), ^()
-                           { HandlePublishAllPowerSources(); });
+                           {
+                               HandlePublishAllPowerSources();
+                           });
                 *return_code = kIOReturnSuccess;
             }
             else if (next->psType == kPSTypeAccessory) {

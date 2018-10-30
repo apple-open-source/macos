@@ -370,14 +370,14 @@ void PolicyDatabase::installExplicitSet(const char *authfile, const char *sigfil
 			
 			// load new data
 			CFIndex count = CFDictionaryGetCount(content);
-			CFStringRef keys[count];
-			CFDictionaryRef values[count];
-			CFDictionaryGetKeysAndValues(content, (const void **)keys, (const void **)values);
+			vector<CFStringRef> keys_vector(count, NULL);
+			vector<CFDictionaryRef> values_vector(count, NULL);
+			CFDictionaryGetKeysAndValues(content, (const void **)keys_vector.data(), (const void **)values_vector.data());
 			
 			SQLite::Statement insert(*this, "INSERT INTO authority (type, allow, requirement, label, filter_unsigned, flags, remarks)"
 				" VALUES (:type, 1, :requirement, 'GKE', :filter, :flags, :path)");
 			for (CFIndex n = 0; n < count; n++) {
-				CFDictionary info(values[n], errSecCSDbCorrupt);
+				CFDictionary info(values_vector[n], errSecCSDbCorrupt);
 				uint32_t flags = kAuthorityFlagWhitelist;
 				if (CFNumberRef versionRef = info.get<CFNumberRef>("version")) {
 					int version = cfNumber<int>(versionRef);

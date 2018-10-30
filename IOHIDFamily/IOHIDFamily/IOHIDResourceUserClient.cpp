@@ -239,6 +239,12 @@ IOReturn IOHIDResourceDeviceUserClient::registerNotificationPortGated(mach_port_
     _port = port;
     _queue->setNotificationPort(port);
     
+    // 43101337 clear pending reports when our port is cleared, otherwise we will
+    // wait until the timeout occurs, which could be a very long time.
+    if (!_port && _commandGate) {
+        cleanupPendingReports();
+    }
+    
     result = kIOReturnSuccess;
 
 exit:
@@ -638,6 +644,7 @@ IOReturn IOHIDResourceDeviceUserClient::getReportGated(ReportGatedArguments * ar
     _pending->setObject(retData);
     
     require_action(_queue, exit, ret = kIOReturnNotReady); // client has not mapped memory
+    require_action(_port, exit, ret = kIOReturnOffline); // client has not registered a port
     
     _getReportCount++;
     
@@ -722,6 +729,7 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
     _pending->setObject(retData);
     
     require_action(_queue, exit, ret = kIOReturnNotReady); // client has not mapped memory
+    require_action(_port, exit, ret = kIOReturnOffline); // client has not registered a port
     
     _setReportCount++;
     

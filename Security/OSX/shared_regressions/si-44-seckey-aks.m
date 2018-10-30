@@ -14,8 +14,8 @@
 
 #import "shared_regressions.h"
 
-static id generateKey(id keyType) {
-    id accessControl = (__bridge_transfer id)SecAccessControlCreateWithFlags(NULL, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, kSecAccessControlPrivateKeyUsage, NULL);
+static id generateKey(id keyType, CFStringRef protection) {
+    id accessControl = (__bridge_transfer id)SecAccessControlCreateWithFlags(NULL, protection, kSecAccessControlPrivateKeyUsage, NULL);
     NSDictionary *keyAttributes = @{ (id)kSecAttrTokenID : (id)kSecAttrTokenIDAppleKeyStore,
                                      (id)kSecAttrKeyType : keyType,
                                      (id)kSecAttrAccessControl : accessControl,
@@ -34,7 +34,7 @@ static void secKeySepTest(BOOL testPKA) {
         keyTypes = @[(id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeyTypeSecureEnclaveAttestation];
     }
     for (id keyType in keyTypes) {
-        id privateKey = generateKey((id)keyType);
+        id privateKey = generateKey((id)keyType, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly);
         ok(privateKey, "failed to create key '%@'", keyType);
         id publicKey = (__bridge_transfer id)SecKeyCopyPublicKey((SecKeyRef)privateKey);
 
@@ -83,12 +83,12 @@ static void secKeySepTest(BOOL testPKA) {
     }
 }
 
-static void attestationTest(void) {
+static void attestationTest(CFStringRef protection) {
     NSError *error;
-    id privKey = generateKey((id)kSecAttrKeyTypeECSECPrimeRandom);
-    id uik = generateKey((id)kSecAttrKeyTypeSecureEnclaveAttestation);
+    id privKey = generateKey((id)kSecAttrKeyTypeECSECPrimeRandom, protection);
+    id uik = generateKey((id)kSecAttrKeyTypeSecureEnclaveAttestation, protection);
     id sik = CFBridgingRelease(SecKeyCopyAttestationKey(kSecKeyAttestationKeyTypeSIK, (void *)&error));
-    ok(sik != nil, "get SIk key: %@", error);
+    ok(sik != nil, "get SIK key: %@", error);
 
     id pubSIK = CFBridgingRelease(SecKeyCopyPublicKey((__bridge SecKeyRef)sik));
     ok(pubSIK != nil, "get SIK pubkey");
@@ -196,9 +196,10 @@ int si_44_seckey_aks(int argc, char *const *argv) {
 
         testPKA = NO;
 #endif
-        plan_tests(testPKA ? 66 : 51);
+        plan_tests(testPKA ? 95 : 80);
         secKeySepTest(testPKA);
-        attestationTest();
+        attestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly);
+        attestationTest(kSecAttrAccessibleUntilReboot);
         return 0;
     }
 }

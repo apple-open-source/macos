@@ -1,6 +1,941 @@
-2018-08-17  Kocsen Chung  <kocsen_chung@apple.com>
+2018-09-27  Mark Lam  <mark.lam@apple.com>
 
-        Cherry-pick r235007. rdar://problem/43445973
+        Cherry-pick r236554. rdar://problem/44855120
+
+    2018-09-27  Mark Lam  <mark.lam@apple.com>
+
+            JITMathIC should not use integer offsets into machine code.
+            https://bugs.webkit.org/show_bug.cgi?id=190030
+            <rdar://problem/44803307>
+
+            Reviewed by Saam Barati.
+
+            We'll replace them with CodeLocation smart pointers instead.
+
+            * jit/JITMathIC.h:
+            (JSC::isProfileEmpty):
+
+2018-09-27  Mark Lam  <mark.lam@apple.com>
+
+        Cherry-pick r236587. rdar://problem/44855118
+
+    2018-09-27  Mark Lam  <mark.lam@apple.com>
+
+            ByValInfo should not use integer offsets.
+            https://bugs.webkit.org/show_bug.cgi?id=190070
+            <rdar://problem/44803430>
+
+            Reviewed by Saam Barati.
+
+            Also moved some fields around to allow the ByValInfo struct to be more densely packed.
+
+            * bytecode/ByValInfo.h:
+            (JSC::ByValInfo::ByValInfo):
+            * jit/JIT.cpp:
+            (JSC::JIT::link):
+            * jit/JITOpcodes.cpp:
+            (JSC::JIT::privateCompileHasIndexedProperty):
+            * jit/JITOpcodes32_64.cpp:
+            (JSC::JIT::privateCompileHasIndexedProperty):
+            * jit/JITPropertyAccess.cpp:
+            (JSC::JIT::privateCompileGetByVal):
+            (JSC::JIT::privateCompileGetByValWithCachedId):
+            (JSC::JIT::privateCompilePutByVal):
+            (JSC::JIT::privateCompilePutByValWithCachedId):
+
+2018-09-27  Mark Lam  <mark.lam@apple.com>
+
+        Cherry-pick r236576. rdar://problem/44855116
+
+    2018-09-27  Mark Lam  <mark.lam@apple.com>
+
+            DFG::OSREntry::m_machineCodeOffset should be a CodeLocation.
+            https://bugs.webkit.org/show_bug.cgi?id=190054
+            <rdar://problem/44803543>
+
+            Reviewed by Saam Barati.
+
+            * dfg/DFGJITCode.h:
+            (JSC::DFG::JITCode::appendOSREntryData):
+            * dfg/DFGJITCompiler.cpp:
+            (JSC::DFG::JITCompiler::noticeOSREntry):
+            * dfg/DFGOSREntry.cpp:
+            (JSC::DFG::OSREntryData::dumpInContext const):
+            (JSC::DFG::prepareOSREntry):
+            * dfg/DFGOSREntry.h:
+            * runtime/JSCPtrTag.h:
+
+2018-09-27  Saam barati  <sbarati@apple.com>
+
+        Cherry-pick r236585. rdar://problem/44848947
+
+    DFG::OSRExit::m_patchableCodeOffset should not be an int
+    https://bugs.webkit.org/show_bug.cgi?id=190066
+    <rdar://problem/39498244>
+    
+    Reviewed by Mark Lam.
+    
+    dfg/DFGJITCompiler.cpp:
+    (JSC::DFG::JITCompiler::linkOSRExits):
+    (JSC::DFG::JITCompiler::link):
+    
+    dfg/DFGOSRExit.cpp:
+    (JSC::DFG::OSRExit::codeLocationForRepatch const):
+    (JSC::DFG::OSRExit::compileOSRExit):
+    (JSC::DFG::OSRExit::setPatchableCodeOffset): Deleted.
+    (JSC::DFG::OSRExit::getPatchableCodeOffsetAsJump const): Deleted.
+    (JSC::DFG::OSRExit::correctJump): Deleted.
+    
+    dfg/DFGOSRExit.h:
+    dfg/DFGOSRExitCompilationInfo.h:
+
+2018-09-27  Saam barati  <sbarati@apple.com>
+
+        Cherry-pick r236584. rdar://problem/44848936
+
+   Don't use int offsets in StructureStubInfo
+   https://bugs.webkit.org/show_bug.cgi?id=190064
+   <rdar://problem/44784719>
+   
+   Reviewed by Mark Lam.
+   
+   bytecode/InlineAccess.cpp:
+   (JSC::linkCodeInline):
+   
+   bytecode/StructureStubInfo.h:
+   (JSC::StructureStubInfo::slowPathCallLocation):
+   (JSC::StructureStubInfo::doneLocation):
+   (JSC::StructureStubInfo::slowPathStartLocation):
+   
+   jit/JITInlineCacheGenerator.cpp:
+   (JSC::JITInlineCacheGenerator::finalize):
+
+2018-09-21  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r236223. rdar://problem/44682814
+
+    AI rule for MultiPutByOffset executes its effects in the wrong order
+    https://bugs.webkit.org/show_bug.cgi?id=189757
+    <rdar://problem/43535257>
+    
+    Reviewed by Michael Saboff.
+    
+    JSTests:
+    
+    * stress/multi-put-by-offset-must-filter-value-before-filtering-base.js: Added.
+    (foo):
+    (Foo):
+    (g):
+    
+    Source/JavaScriptCore:
+    
+    The AI rule for MultiPutByOffset was executing effects in the wrong order.
+    It first executed the transition effects and the effects on the base, and
+    then executed the filtering effects on the value being stored. However, you
+    can end up with the wrong type when the base and the value being stored
+    are the same. E.g, in a program like `o.f = o`. These effects need to happen
+    in the opposite order, modeling what happens in the runtime executing of
+    MultiPutByOffset.
+    
+    * dfg/DFGAbstractInterpreterInlines.h:
+    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236223 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-19  Saam barati  <sbarati@apple.com>
+
+            AI rule for MultiPutByOffset executes its effects in the wrong order
+            https://bugs.webkit.org/show_bug.cgi?id=189757
+            <rdar://problem/43535257>
+
+            Reviewed by Michael Saboff.
+
+            The AI rule for MultiPutByOffset was executing effects in the wrong order.
+            It first executed the transition effects and the effects on the base, and
+            then executed the filtering effects on the value being stored. However, you
+            can end up with the wrong type when the base and the value being stored
+            are the same. E.g, in a program like `o.f = o`. These effects need to happen
+            in the opposite order, modeling what happens in the runtime executing of
+            MultiPutByOffset.
+
+            * dfg/DFGAbstractInterpreterInlines.h:
+            (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+
+2018-09-19  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r236161. rdar://problem/44613375
+
+    Ensure that ForInContexts are invalidated if their loop local is over-written.
+    https://bugs.webkit.org/show_bug.cgi?id=189571
+    <rdar://problem/44402277>
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/regress-189571.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    Instead of hunting down every place in the BytecodeGenerator that potentially
+    needs to invalidate an enclosing ForInContext (if one exists), we simply iterate
+    the bytecode range of the loop body when the ForInContext is popped, and
+    invalidate the context if we ever find the loop temp variable over-written.
+    
+    This has 2 benefits:
+    1. It ensures that every type of opcode that can write to the loop temp will be
+       handled appropriately, not just the op_mov that we've hunted down.
+    2. It avoids us having to check the BytecodeGenerator's m_forInContextStack
+       every time we emit an op_mov (or other opcodes that can write to a local)
+       even when we're not inside a for-in loop.
+    
+    JSC benchmarks show that that this change is performance neutral.
+    
+    * bytecompiler/BytecodeGenerator.cpp:
+    (JSC::BytecodeGenerator::pushIndexedForInScope):
+    (JSC::BytecodeGenerator::popIndexedForInScope):
+    (JSC::BytecodeGenerator::pushStructureForInScope):
+    (JSC::BytecodeGenerator::popStructureForInScope):
+    (JSC::ForInContext::finalize):
+    (JSC::StructureForInContext::finalize):
+    (JSC::IndexedForInContext::finalize):
+    (JSC::BytecodeGenerator::invalidateForInContextForLocal): Deleted.
+    * bytecompiler/BytecodeGenerator.h:
+    (JSC::ForInContext::ForInContext):
+    (JSC::ForInContext::bodyBytecodeStartOffset const):
+    (JSC::StructureForInContext::StructureForInContext):
+    (JSC::IndexedForInContext::IndexedForInContext):
+    * bytecompiler/NodesCodegen.cpp:
+    (JSC::PostfixNode::emitResolve):
+    (JSC::PrefixNode::emitResolve):
+    (JSC::ReadModifyResolveNode::emitBytecode):
+    (JSC::AssignResolveNode::emitBytecode):
+    (JSC::EmptyLetExpression::emitBytecode):
+    (JSC::ForInNode::emitLoopHeader):
+    (JSC::ForOfNode::emitBytecode):
+    (JSC::BindingNode::bindValue const):
+    (JSC::AssignmentElementNode::bindValue const):
+    * runtime/CommonSlowPaths.cpp:
+    (JSC::SLOW_PATH_DECL):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236161 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-18  Mark Lam  <mark.lam@apple.com>
+
+            Ensure that ForInContexts are invalidated if their loop local is over-written.
+            https://bugs.webkit.org/show_bug.cgi?id=189571
+            <rdar://problem/44402277>
+
+            Reviewed by Saam Barati.
+
+            Instead of hunting down every place in the BytecodeGenerator that potentially
+            needs to invalidate an enclosing ForInContext (if one exists), we simply iterate
+            the bytecode range of the loop body when the ForInContext is popped, and
+            invalidate the context if we ever find the loop temp variable over-written.
+
+            This has 2 benefits:
+            1. It ensures that every type of opcode that can write to the loop temp will be
+               handled appropriately, not just the op_mov that we've hunted down.
+            2. It avoids us having to check the BytecodeGenerator's m_forInContextStack
+               every time we emit an op_mov (or other opcodes that can write to a local)
+               even when we're not inside a for-in loop.
+
+            JSC benchmarks show that that this change is performance neutral.
+
+            * bytecompiler/BytecodeGenerator.cpp:
+            (JSC::BytecodeGenerator::pushIndexedForInScope):
+            (JSC::BytecodeGenerator::popIndexedForInScope):
+            (JSC::BytecodeGenerator::pushStructureForInScope):
+            (JSC::BytecodeGenerator::popStructureForInScope):
+            (JSC::ForInContext::finalize):
+            (JSC::StructureForInContext::finalize):
+            (JSC::IndexedForInContext::finalize):
+            (JSC::BytecodeGenerator::invalidateForInContextForLocal): Deleted.
+            * bytecompiler/BytecodeGenerator.h:
+            (JSC::ForInContext::ForInContext):
+            (JSC::ForInContext::bodyBytecodeStartOffset const):
+            (JSC::StructureForInContext::StructureForInContext):
+            (JSC::IndexedForInContext::IndexedForInContext):
+            * bytecompiler/NodesCodegen.cpp:
+            (JSC::PostfixNode::emitResolve):
+            (JSC::PrefixNode::emitResolve):
+            (JSC::ReadModifyResolveNode::emitBytecode):
+            (JSC::AssignResolveNode::emitBytecode):
+            (JSC::EmptyLetExpression::emitBytecode):
+            (JSC::ForInNode::emitLoopHeader):
+            (JSC::ForOfNode::emitBytecode):
+            (JSC::BindingNode::bindValue const):
+            (JSC::AssignmentElementNode::bindValue const):
+            * runtime/CommonSlowPaths.cpp:
+            (JSC::SLOW_PATH_DECL):
+
+2018-09-19  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r236018. rdar://problem/44613375
+
+    Refactor some ForInContext code for better encapsulation.
+    https://bugs.webkit.org/show_bug.cgi?id=189626
+    <rdar://problem/44466415>
+    
+    Reviewed by Keith Miller.
+    
+    1. Add a ForInContext::m_type field to store the context type.  This does not
+       increase the class size, but eliminates the need for a virtual call to get the
+       type.
+    
+       Note: we still need a virtual destructor because we'll be mingling
+       IndexedForInContexts and StructureForInContexts in the BytecodeGenerator::m_forInContextStack.
+    
+    2. Add ForInContext::isIndexedForInContext() and ForInContext::isStructureForInContext()
+       convenience methods.
+    
+    3. Add ForInContext::asIndexedForInContext() and ForInContext::asStructureForInContext()
+       to do the casting to the subclass types.  This ensures that we'll properly
+       assert that the casting is legal.
+    
+    * bytecompiler/BytecodeGenerator.cpp:
+    (JSC::BytecodeGenerator::emitGetByVal):
+    (JSC::BytecodeGenerator::popIndexedForInScope):
+    (JSC::BytecodeGenerator::popStructureForInScope):
+    * bytecompiler/BytecodeGenerator.h:
+    (JSC::ForInContext::type const):
+    (JSC::ForInContext::isIndexedForInContext const):
+    (JSC::ForInContext::isStructureForInContext const):
+    (JSC::ForInContext::asIndexedForInContext):
+    (JSC::ForInContext::asStructureForInContext):
+    (JSC::ForInContext::ForInContext):
+    (JSC::StructureForInContext::StructureForInContext):
+    (JSC::IndexedForInContext::IndexedForInContext):
+    (JSC::ForInContext::~ForInContext): Deleted.
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236018 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-14  Mark Lam  <mark.lam@apple.com>
+
+            Refactor some ForInContext code for better encapsulation.
+            https://bugs.webkit.org/show_bug.cgi?id=189626
+            <rdar://problem/44466415>
+
+            Reviewed by Keith Miller.
+
+            1. Add a ForInContext::m_type field to store the context type.  This does not
+               increase the class size, but eliminates the need for a virtual call to get the
+               type.
+
+               Note: we still need a virtual destructor because we'll be mingling
+               IndexedForInContexts and StructureForInContexts in the BytecodeGenerator::m_forInContextStack.
+
+            2. Add ForInContext::isIndexedForInContext() and ForInContext::isStructureForInContext()
+               convenience methods.
+
+            3. Add ForInContext::asIndexedForInContext() and ForInContext::asStructureForInContext()
+               to do the casting to the subclass types.  This ensures that we'll properly
+               assert that the casting is legal.
+
+            * bytecompiler/BytecodeGenerator.cpp:
+            (JSC::BytecodeGenerator::emitGetByVal):
+            (JSC::BytecodeGenerator::popIndexedForInScope):
+            (JSC::BytecodeGenerator::popStructureForInScope):
+            * bytecompiler/BytecodeGenerator.h:
+            (JSC::ForInContext::type const):
+            (JSC::ForInContext::isIndexedForInContext const):
+            (JSC::ForInContext::isStructureForInContext const):
+            (JSC::ForInContext::asIndexedForInContext):
+            (JSC::ForInContext::asStructureForInContext):
+            (JSC::ForInContext::ForInContext):
+            (JSC::StructureForInContext::StructureForInContext):
+            (JSC::IndexedForInContext::IndexedForInContext):
+            (JSC::ForInContext::~ForInContext): Deleted.
+
+2018-09-19  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r235827. rdar://problem/44613379
+
+    Ensure that handleIntrinsicCall() is only applied on op_call shaped instructions.
+    https://bugs.webkit.org/show_bug.cgi?id=189317
+    <rdar://problem/44152198>
+    
+    Reviewed by Filip Pizlo.
+    
+    JSTests:
+    
+    * stress/regress-189317.js: Added.
+    (testGetter):
+    (testSetter):
+    
+    Source/JavaScriptCore:
+    
+    handleIntrinsicCall() is normally used for checking if an op_call is a call to
+    an intrinsic function, and inlining it if it's a match.
+    
+    However, getter and setter functions also does calls, and uses handleCall()
+    to implement the call.  handleCall() eventually calls handleIntrinsicCall() to
+    check for intrinsics.  This results in a bug because handleIntrinsicCall()
+    sometimes relies on the ArrayProfile* of the instruction, and is always assuming
+    that the instruction is op_call shaped.  This turns out to be not true: getters
+    and setters can get there with op_get_by_val and op_put_by_val instead.
+    
+    Since the intrinsic functions handled by handleIntrinsicCall() are never
+    intended to be used as getter / setter functions anyway, we can prevent this
+    whole class of bugs by having handleIntrinsicCall() fail early if the
+    instruction is not op_call shaped.
+    
+    To implement this fix, we did the following:
+    
+    1. Introduced the OpcodeShape enum.
+    2. Introduced isOpcodeShape<OpcodeShape>() for testing if a instruction of the
+       shape of the specified OpcodeShape.
+    3. Introduced arrayProfileFor<OpcodeShape>() for fetching the ArrayProfile* from
+       the instruction given the OpcodeShape.
+    
+       Using this arrayProfileFor template has the following benefits:
+       1. Centralizes the definition of which instructions has an ArrayProfile* operand.
+       2. Centralizes the definition of which operand is the ArrayProfile*.
+       3. Asserts that the instruction is of the expected shape when retrieving the
+          ArrayProfile*.
+    
+    4. Added ArrayProfile::m_typeName and ArrayProfile::s_typeName which are used
+       in ArrayProfile::isValid() as a sanity check that a retrieved ArrayProfile*
+       indeed does point to an ArrayProfile.
+    
+    * JavaScriptCore.xcodeproj/project.pbxproj:
+    * bytecode/ArrayProfile.cpp:
+    * bytecode/ArrayProfile.h:
+    (JSC::ArrayProfile::isValid const):
+    * bytecode/OpcodeInlines.h: Added.
+    (JSC::isOpcodeShape):
+    (JSC::arrayProfileFor):
+    * dfg/DFGByteCodeParser.cpp:
+    (JSC::DFG::ByteCodeParser::handleIntrinsicCall):
+    (JSC::DFG::ByteCodeParser::parseBlock):
+    * jit/JITCall.cpp:
+    (JSC::JIT::compileOpCall):
+    * jit/JITCall32_64.cpp:
+    (JSC::JIT::compileOpCall):
+    * jit/JITOpcodes.cpp:
+    (JSC::JIT::emit_op_has_indexed_property):
+    * jit/JITOpcodes32_64.cpp:
+    (JSC::JIT::emit_op_has_indexed_property):
+    * jit/JITPropertyAccess.cpp:
+    (JSC::JIT::emit_op_get_by_val):
+    (JSC::JIT::emit_op_put_by_val):
+    (JSC::JIT::emitGenericContiguousPutByVal):
+    (JSC::JIT::emitArrayStoragePutByVal):
+    (JSC::JIT::emitIntTypedArrayPutByVal):
+    (JSC::JIT::emitFloatTypedArrayPutByVal):
+    * jit/JITPropertyAccess32_64.cpp:
+    (JSC::JIT::emit_op_get_by_val):
+    (JSC::JIT::emit_op_put_by_val):
+    (JSC::JIT::emitGenericContiguousPutByVal):
+    (JSC::JIT::emitArrayStoragePutByVal):
+    * llint/LLIntSlowPaths.cpp:
+    (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+    (JSC::LLInt::getByVal):
+    * runtime/CommonSlowPaths.cpp:
+    (JSC::SLOW_PATH_DECL):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235827 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-07  Mark Lam  <mark.lam@apple.com>
+
+            Ensure that handleIntrinsicCall() is only applied on op_call shaped instructions.
+            https://bugs.webkit.org/show_bug.cgi?id=189317
+            <rdar://problem/44152198>
+
+            Reviewed by Filip Pizlo.
+
+            handleIntrinsicCall() is normally used for checking if an op_call is a call to
+            an intrinsic function, and inlining it if it's a match.
+
+            However, getter and setter functions also does calls, and uses handleCall()
+            to implement the call.  handleCall() eventually calls handleIntrinsicCall() to
+            check for intrinsics.  This results in a bug because handleIntrinsicCall()
+            sometimes relies on the ArrayProfile* of the instruction, and is always assuming
+            that the instruction is op_call shaped.  This turns out to be not true: getters
+            and setters can get there with op_get_by_val and op_put_by_val instead.
+
+            Since the intrinsic functions handled by handleIntrinsicCall() are never
+            intended to be used as getter / setter functions anyway, we can prevent this
+            whole class of bugs by having handleIntrinsicCall() fail early if the
+            instruction is not op_call shaped.
+
+            To implement this fix, we did the following:
+
+            1. Introduced the OpcodeShape enum.
+            2. Introduced isOpcodeShape<OpcodeShape>() for testing if a instruction of the
+               shape of the specified OpcodeShape.
+            3. Introduced arrayProfileFor<OpcodeShape>() for fetching the ArrayProfile* from
+               the instruction given the OpcodeShape.
+
+               Using this arrayProfileFor template has the following benefits:
+               1. Centralizes the definition of which instructions has an ArrayProfile* operand.
+               2. Centralizes the definition of which operand is the ArrayProfile*.
+               3. Asserts that the instruction is of the expected shape when retrieving the
+                  ArrayProfile*.
+
+            4. Added ArrayProfile::m_typeName and ArrayProfile::s_typeName which are used
+               in ArrayProfile::isValid() as a sanity check that a retrieved ArrayProfile*
+               indeed does point to an ArrayProfile.
+
+            * JavaScriptCore.xcodeproj/project.pbxproj:
+            * bytecode/ArrayProfile.cpp:
+            * bytecode/ArrayProfile.h:
+            (JSC::ArrayProfile::isValid const):
+            * bytecode/OpcodeInlines.h: Added.
+            (JSC::isOpcodeShape):
+            (JSC::arrayProfileFor):
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::handleIntrinsicCall):
+            (JSC::DFG::ByteCodeParser::parseBlock):
+            * jit/JITCall.cpp:
+            (JSC::JIT::compileOpCall):
+            * jit/JITCall32_64.cpp:
+            (JSC::JIT::compileOpCall):
+            * jit/JITOpcodes.cpp:
+            (JSC::JIT::emit_op_has_indexed_property):
+            * jit/JITOpcodes32_64.cpp:
+            (JSC::JIT::emit_op_has_indexed_property):
+            * jit/JITPropertyAccess.cpp:
+            (JSC::JIT::emit_op_get_by_val):
+            (JSC::JIT::emit_op_put_by_val):
+            (JSC::JIT::emitGenericContiguousPutByVal):
+            (JSC::JIT::emitArrayStoragePutByVal):
+            (JSC::JIT::emitIntTypedArrayPutByVal):
+            (JSC::JIT::emitFloatTypedArrayPutByVal):
+            * jit/JITPropertyAccess32_64.cpp:
+            (JSC::JIT::emit_op_get_by_val):
+            (JSC::JIT::emit_op_put_by_val):
+            (JSC::JIT::emitGenericContiguousPutByVal):
+            (JSC::JIT::emitArrayStoragePutByVal):
+            * llint/LLIntSlowPaths.cpp:
+            (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+            (JSC::LLInt::getByVal):
+            * runtime/CommonSlowPaths.cpp:
+            (JSC::SLOW_PATH_DECL):
+
+2018-09-19  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r235356. rdar://problem/44613253
+
+    [JSC] Array.prototype.reverse modifies JSImmutableButterfly
+    https://bugs.webkit.org/show_bug.cgi?id=188794
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/reverse-with-immutable-butterfly.js: Added.
+    (shouldBe):
+    (reverseInt):
+    (reverseDouble):
+    (reverseContiguous):
+    
+    Source/JavaScriptCore:
+    
+    While Array.prototype.reverse modifies the butterfly of the given Array,
+    it does not account JSImmutableButterfly case. So it accidentally modifies
+    the content of JSImmutableButterfly.
+    This patch converts CoW arrays to writable arrays before reversing.
+    
+    * runtime/ArrayPrototype.cpp:
+    (JSC::arrayProtoFuncReverse):
+    * runtime/JSObject.h:
+    (JSC::JSObject::ensureWritable):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235356 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-24  Yusuke Suzuki  <yusukesuzuki@slowstart.org>
+
+            [JSC] Array.prototype.reverse modifies JSImmutableButterfly
+            https://bugs.webkit.org/show_bug.cgi?id=188794
+
+            Reviewed by Saam Barati.
+
+            While Array.prototype.reverse modifies the butterfly of the given Array,
+            it does not account JSImmutableButterfly case. So it accidentally modifies
+            the content of JSImmutableButterfly.
+            This patch converts CoW arrays to writable arrays before reversing.
+
+            * runtime/ArrayPrototype.cpp:
+            (JSC::arrayProtoFuncReverse):
+            * runtime/JSObject.h:
+            (JSC::JSObject::ensureWritable):
+
+2018-09-06  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235251. rdar://problem/44209840
+
+    [Apple Pay] Introduce Apple Pay JS v4 on iOS 12 and macOS Mojave
+    https://bugs.webkit.org/show_bug.cgi?id=188829
+    
+    Reviewed by Tim Horton.
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebCore:
+    
+    Test: http/tests/ssl/applepay/ApplePaySessionV4.html
+    
+    * Configurations/FeatureDefines.xcconfig:
+    * testing/MockPaymentCoordinator.cpp:
+    (WebCore::MockPaymentCoordinator::supportsVersion):
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKit:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    * WebProcess/ApplePay/WebPaymentCoordinator.cpp:
+    (WebKit::WebPaymentCoordinator::supportsVersion):
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Tools:
+    
+    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig:
+    
+    LayoutTests:
+    
+    * http/tests/ssl/applepay/ApplePaySession-expected.txt:
+    * http/tests/ssl/applepay/ApplePaySession.html:
+    * http/tests/ssl/applepay/ApplePaySessionV3-expected.txt:
+    * http/tests/ssl/applepay/ApplePaySessionV3.html:
+    * http/tests/ssl/applepay/ApplePaySessionV4-expected.txt: Added.
+    * http/tests/ssl/applepay/ApplePaySessionV4.html: Added.
+    * platform/mac-wk2/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235251 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-23  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Introduce Apple Pay JS v4 on iOS 12 and macOS Mojave
+            https://bugs.webkit.org/show_bug.cgi?id=188829
+
+            Reviewed by Tim Horton.
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2018-09-06  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235742. rdar://problem/44169344
+
+    Gardening: only visit m_cachedStructureID if it's not null.
+    https://bugs.webkit.org/show_bug.cgi?id=189124
+    <rdar://problem/43863605>
+    
+    Not reviewed.
+    
+    * runtime/JSPropertyNameEnumerator.cpp:
+    (JSC::JSPropertyNameEnumerator::visitChildren):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235742 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-06  Mark Lam  <mark.lam@apple.com>
+
+            Gardening: only visit m_cachedStructureID if it's not null.
+            https://bugs.webkit.org/show_bug.cgi?id=189124
+            <rdar://problem/43863605>
+
+            Not reviewed.
+
+            * runtime/JSPropertyNameEnumerator.cpp:
+            (JSC::JSPropertyNameEnumerator::visitChildren):
+
+2018-09-06  Mark Lam  <mark.lam@apple.com>
+
+        Cherry-pick r235254, r235419, r235666. rdar://problem/44169332
+
+    2018-08-23  Mark Lam  <mark.lam@apple.com>
+
+            Move vmEntryGlobalObject() to VM from CallFrame.
+            https://bugs.webkit.org/show_bug.cgi?id=188900
+            <rdar://problem/43655753>
+
+            Reviewed by Michael Saboff.
+
+            Also introduced CallFrame::isGlobalExec() which makes use of one property of
+            GlobalExecs to identify them i.e. GlobalExecs have null callerFrame and returnPCs.
+            CallFrame::initGlobalExec() ensures this.
+
+            In contrast, normal CallFrames always have a callerFrame (because they must at
+            least be preceded by a VM EntryFrame) and a returnPC (at least return to the
+            VM entry glue).
+
+            * API/APIUtils.h:
+            (handleExceptionIfNeeded):
+            (setException):
+            * API/JSBase.cpp:
+            (JSEvaluateScript):
+            (JSCheckScriptSyntax):
+            * API/JSContextRef.cpp:
+            (JSGlobalContextRetain):
+            (JSGlobalContextRelease):
+            (JSGlobalContextCopyName):
+            (JSGlobalContextSetName):
+            (JSGlobalContextGetRemoteInspectionEnabled):
+            (JSGlobalContextSetRemoteInspectionEnabled):
+            (JSGlobalContextGetIncludesNativeCallStackWhenReportingExceptions):
+            (JSGlobalContextSetIncludesNativeCallStackWhenReportingExceptions):
+            (JSGlobalContextGetDebuggerRunLoop):
+            (JSGlobalContextSetDebuggerRunLoop):
+            (JSGlobalContextGetAugmentableInspectorController):
+            * API/JSValue.mm:
+            (reportExceptionToInspector):
+            * API/glib/JSCClass.cpp:
+            (jscContextForObject):
+            * API/glib/JSCContext.cpp:
+            (jsc_context_evaluate_in_object):
+            * debugger/Debugger.cpp:
+            (JSC::Debugger::pauseIfNeeded):
+            * debugger/DebuggerCallFrame.cpp:
+            (JSC::DebuggerCallFrame::vmEntryGlobalObject const):
+            (JSC::DebuggerCallFrame::evaluateWithScopeExtension):
+            * interpreter/CallFrame.cpp:
+            (JSC::CallFrame::vmEntryGlobalObject): Deleted.
+            * interpreter/CallFrame.h:
+            (JSC::ExecState::scope const):
+            (JSC::ExecState::noCaller):
+            (JSC::ExecState::isGlobalExec const):
+            * interpreter/Interpreter.cpp:
+            (JSC::notifyDebuggerOfUnwinding):
+            (JSC::Interpreter::notifyDebuggerOfExceptionToBeThrown):
+            (JSC::Interpreter::debug):
+            * runtime/CallData.cpp:
+            (JSC::profiledCall):
+            * runtime/Completion.cpp:
+            (JSC::evaluate):
+            (JSC::profiledEvaluate):
+            (JSC::evaluateWithScopeExtension):
+            (JSC::loadAndEvaluateModule):
+            (JSC::loadModule):
+            (JSC::linkAndEvaluateModule):
+            (JSC::importModule):
+            * runtime/ConstructData.cpp:
+            (JSC::profiledConstruct):
+            * runtime/Error.cpp:
+            (JSC::getStackTrace):
+            * runtime/VM.cpp:
+            (JSC::VM::throwException):
+            (JSC::VM::vmEntryGlobalObject const):
+            * runtime/VM.h:
+
+    2018-08-27  Mark Lam  <mark.lam@apple.com>
+
+            Fix exception throwing code so that topCallFrame and topEntryFrame stay true to their names.
+            https://bugs.webkit.org/show_bug.cgi?id=188577
+            <rdar://problem/42985684>
+
+            Reviewed by Saam Barati.
+
+            1. Introduced CallFrame::convertToStackOverflowFrame() which converts the current
+               (top) CallFrame (which may not have a valid callee) into a StackOverflowFrame.
+
+               The StackOverflowFrame is a sentinel frame that the low level code (exception
+               throwing code, stack visitor, and stack unwinding code) will know to skip
+               over.  The StackOverflowFrame will also have a valid JSCallee so that client
+               code can compute the globalObject or VM from this frame.
+
+               As a result, client code that throws StackOverflowErrors no longer need to
+               compute the caller frame to throw from: it just converts the top frame into
+               a StackOverflowFrame and everything should *Just Work*.
+
+            2. NativeCallFrameTracerWithRestore is now obsolete.
+
+               Instead, client code should always call convertToStackOverflowFrame() on the
+               frame before instantiating a NativeCallFrameTracer with it.
+
+               This means that topCallFrame will always point to the top CallFrame (which
+               may be a StackOverflowFrame), and topEntryFrame will always point to the top
+               EntryFrame.  We'll never temporarily point them to the previous EntryFrame
+               (which we used to do with NativeCallFrameTracerWithRestore).
+
+            3. genericUnwind() and Interpreter::unwind() will now always unwind from the top
+               CallFrame, and will know how to handle a StackOverflowFrame if they see one.
+
+               This obsoletes the UnwindStart flag.
+
+            * CMakeLists.txt:
+            * JavaScriptCore.xcodeproj/project.pbxproj:
+            * Sources.txt:
+            * debugger/Debugger.cpp:
+            (JSC::Debugger::pauseIfNeeded):
+            * interpreter/CallFrame.cpp:
+            (JSC::CallFrame::callerFrame const):
+            (JSC::CallFrame::unsafeCallerFrame const):
+            (JSC::CallFrame::convertToStackOverflowFrame):
+            (JSC::CallFrame::callerFrame): Deleted.
+            (JSC::CallFrame::unsafeCallerFrame): Deleted.
+            * interpreter/CallFrame.h:
+            (JSC::ExecState::iterate):
+            * interpreter/CallFrameInlines.h: Added.
+            (JSC::CallFrame::isStackOverflowFrame const):
+            (JSC::CallFrame::isWasmFrame const):
+            * interpreter/EntryFrame.h: Added.
+            (JSC::EntryFrame::vmEntryRecordOffset):
+            (JSC::EntryFrame::calleeSaveRegistersBufferOffset):
+            * interpreter/FrameTracers.h:
+            (JSC::NativeCallFrameTracerWithRestore::NativeCallFrameTracerWithRestore): Deleted.
+            (JSC::NativeCallFrameTracerWithRestore::~NativeCallFrameTracerWithRestore): Deleted.
+            * interpreter/Interpreter.cpp:
+            (JSC::Interpreter::unwind):
+            * interpreter/Interpreter.h:
+            * interpreter/StackVisitor.cpp:
+            (JSC::StackVisitor::StackVisitor):
+            * interpreter/StackVisitor.h:
+            (JSC::StackVisitor::visit):
+            (JSC::StackVisitor::topEntryFrameIsEmpty const):
+            * interpreter/VMEntryRecord.h:
+            (JSC::VMEntryRecord::callee const):
+            (JSC::EntryFrame::vmEntryRecordOffset): Deleted.
+            (JSC::EntryFrame::calleeSaveRegistersBufferOffset): Deleted.
+            * jit/AssemblyHelpers.h:
+            * jit/JITExceptions.cpp:
+            (JSC::genericUnwind):
+            * jit/JITExceptions.h:
+            * jit/JITOperations.cpp:
+            * llint/LLIntOffsetsExtractor.cpp:
+            * llint/LLIntSlowPaths.cpp:
+            (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+            * llint/LowLevelInterpreter.asm:
+            * llint/LowLevelInterpreter32_64.asm:
+            * llint/LowLevelInterpreter64.asm:
+            * runtime/CallData.cpp:
+            * runtime/CommonSlowPaths.cpp:
+            (JSC::throwArityCheckStackOverflowError):
+            (JSC::SLOW_PATH_DECL):
+            * runtime/CommonSlowPathsExceptions.cpp: Removed.
+            * runtime/CommonSlowPathsExceptions.h: Removed.
+            * runtime/Completion.cpp:
+            (JSC::evaluateWithScopeExtension):
+            * runtime/JSGeneratorFunction.h:
+            * runtime/JSGlobalObject.cpp:
+            (JSC::JSGlobalObject::init):
+            (JSC::JSGlobalObject::visitChildren):
+            * runtime/JSGlobalObject.h:
+            (JSC::JSGlobalObject::stackOverflowFrameCallee const):
+            * runtime/VM.cpp:
+            (JSC::VM::throwException):
+            * runtime/VM.h:
+            * runtime/VMInlines.h:
+            (JSC::VM::topJSCallFrame const):
+
+    2018-09-05  David Kilzer  <ddkilzer@apple.com>
+
+            REGRESSION (r235419): DFGCFG.h is missing from JavaScriptCore Xcode project
+
+            Found using `tidy-Xcode-project-file --missing` (see Bug
+            188754).  Fix was made manually.
+
+            * JavaScriptCore.xcodeproj/project.pbxproj:
+            (dfg/DFGCFG.h): Revert accidental change in r235419 by restoring
+            `name` and `path` values to file reference.
+
+2018-09-06  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235715. rdar://problem/44169344
+
+    JSPropertyNameEnumerator::visitChildren() needs to visit its m_cachedStructureID.
+    https://bugs.webkit.org/show_bug.cgi?id=189124
+    <rdar://problem/43863605>
+    
+    Reviewed by Filip Pizlo.
+    
+    JSTests:
+    
+    * stress/regress-189124.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    It is assumed that the Structure for the m_cachedStructureID will remain alive
+    while the m_cachedStructureID is in use.  This prevents the structureID from being
+    re-used for a different Structure.
+    
+    * runtime/JSPropertyNameEnumerator.cpp:
+    (JSC::JSPropertyNameEnumerator::visitChildren):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235715 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-05  Mark Lam  <mark.lam@apple.com>
+
+            JSPropertyNameEnumerator::visitChildren() needs to visit its m_cachedStructureID.
+            https://bugs.webkit.org/show_bug.cgi?id=189124
+            <rdar://problem/43863605>
+
+            Reviewed by Filip Pizlo.
+
+            It is assumed that the Structure for the m_cachedStructureID will remain alive
+            while the m_cachedStructureID is in use.  This prevents the structureID from being
+            re-used for a different Structure.
+
+            * runtime/JSPropertyNameEnumerator.cpp:
+            (JSC::JSPropertyNameEnumerator::visitChildren):
+
+2018-09-06  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235177. rdar://problem/44169333
+
+    The DFG CFGSimplification phase shouldn’t jettison a block when it’s the target of both branch directions.
+    https://bugs.webkit.org/show_bug.cgi?id=188298
+    <rdar://problem/42888427>
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/bug-188298.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    In the event that both targets of a Branch is the same block, then even if we'll
+    always take one path of the branch, the other target is not unreachable because
+    it is the same target as the one in the taken path.  Hence, it should not be
+    jettisoned.
+    
+    * JavaScriptCore.xcodeproj/project.pbxproj:
+    - Added DFGCFG.h which is in use and should have been added to the project.
+    * dfg/DFGCFGSimplificationPhase.cpp:
+    (JSC::DFG::CFGSimplificationPhase::run):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235177 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-22  Mark Lam  <mark.lam@apple.com>
+
+            The DFG CFGSimplification phase shouldn’t jettison a block when it’s the target of both branch directions.
+            https://bugs.webkit.org/show_bug.cgi?id=188298
+            <rdar://problem/42888427>
+
+            Reviewed by Saam Barati.
+
+            In the event that both targets of a Branch is the same block, then even if we'll
+            always take one path of the branch, the other target is not unreachable because
+            it is the same target as the one in the taken path.  Hence, it should not be
+            jettisoned.
+
+            * JavaScriptCore.xcodeproj/project.pbxproj:
+            - Added DFGCFG.h which is in use and should have been added to the project.
+            * dfg/DFGCFGSimplificationPhase.cpp:
+            (JSC::DFG::CFGSimplificationPhase::run):
+
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235007. rdar://problem/44144079
 
     intersectionOfPastValuesAtHead must filter values after they've observed an invalidation point
     https://bugs.webkit.org/show_bug.cgi?id=188707
@@ -84,6 +1019,52 @@
 
             * dfg/DFGCFAPhase.cpp:
             (JSC::DFG::CFAPhase::run):
+
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r234649. rdar://problem/43009920
+
+    Use a more specific PtrTag for PlatformRegisters PC and LR.
+    https://bugs.webkit.org/show_bug.cgi?id=188366
+    <rdar://problem/42984123>
+    
+    Reviewed by Keith Miller.
+    
+    Also fixed a bug in linkRegister(), which was previously returning the PC instead
+    of LR.  It now returns LR.
+    
+    * runtime/JSCPtrTag.h:
+    * runtime/MachineContext.h:
+    (JSC::MachineContext::instructionPointer):
+    (JSC::MachineContext::linkRegister):
+    * runtime/VMTraps.cpp:
+    (JSC::SignalContext::SignalContext):
+    * tools/SigillCrashAnalyzer.cpp:
+    (JSC::SignalContext::SignalContext):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234649 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-07  Mark Lam  <mark.lam@apple.com>
+
+            Use a more specific PtrTag for PlatformRegisters PC and LR.
+            https://bugs.webkit.org/show_bug.cgi?id=188366
+            <rdar://problem/42984123>
+
+            Reviewed by Keith Miller.
+
+            Also fixed a bug in linkRegister(), which was previously returning the PC instead
+            of LR.  It now returns LR.
+
+            * runtime/JSCPtrTag.h:
+            * runtime/MachineContext.h:
+            (JSC::MachineContext::instructionPointer):
+            (JSC::MachineContext::linkRegister):
+            * runtime/VMTraps.cpp:
+            (JSC::SignalContext::SignalContext):
+            * tools/SigillCrashAnalyzer.cpp:
+            (JSC::SignalContext::SignalContext):
 
 2018-08-06  Kocsen Chung  <kocsen_chung@apple.com>
 

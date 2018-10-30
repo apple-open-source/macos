@@ -173,6 +173,8 @@ SEC_CONST_DECL (kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, "akpu");
 /* kSecAttrAccessible Value Constants (Private). */
 SEC_CONST_DECL (kSecAttrAccessibleAlwaysPrivate, "dk");
 SEC_CONST_DECL (kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate, "dku");
+/* _kSecAttrAccessibleUntilReboot for class F. */
+SEC_CONST_DECL (kSecAttrAccessibleUntilReboot, "f");
 
 /* kSecAttrProtocol Value Constants. */
 SEC_CONST_DECL (kSecAttrProtocolFTP, "ftp ");

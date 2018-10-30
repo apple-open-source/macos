@@ -72,7 +72,8 @@ static NSString* const KeychainDataclass = @"KeychainDataclass";
         NSDictionary* baseQuery = @{ (id)kSecAttrSynchronizable : @(YES),
                                      (id)kSecAttrAccessGroup : @"com.apple.cfnetwork",
                                      (id)kSecAttrNoLegacy : @(YES),
-                                     (id)kSecAttrTombstone : @(NO) };
+                                     (id)kSecAttrTombstone : @(NO),
+                                     (id)kSecUseTombstones : @(NO) };
         NSMutableDictionary* inetQuery = baseQuery.mutableCopy;
         inetQuery[(id)kSecClass] = (id)kSecClassInternetPassword;
         OSStatus inetResult = SecItemDelete((__bridge CFDictionaryRef)inetQuery);

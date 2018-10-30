@@ -66,7 +66,7 @@ CPAN_PROJECTS := \
     XML-Writer-0.623 \
     XML-XPath-1.13 \
     XML-SAX-Expat-0.51 \
-    XML-Simple-2.20 \
+    XML-Simple-2.25 \
     IO-Stty-0.03 \
     IO-Tty-1.10 \
     Expect-1.21 \

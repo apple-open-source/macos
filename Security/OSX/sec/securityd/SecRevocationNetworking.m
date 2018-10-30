@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2017-2018 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -530,7 +530,17 @@ bool SecValidUpdateRequest(dispatch_queue_t queue, CFStringRef server, CFIndex v
     CFDataRef ocspDER = CFRetainSafe(SecOCSPRequestGetDER(orvc->ocspRequest));
     NSData *nsOcspDER = CFBridgingRelease(ocspDER);
     NSString *ocspBase64 = [nsOcspDER base64EncodedStringWithOptions:0];
-    NSString *escapedRequest = [ocspBase64 stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLPathAllowedCharacterSet]];
+
+    /* Ensure that we percent-encode specific characters in the base64 path
+       which are defined as delimiters in RFC 3986 [2.2].
+     */
+    static NSMutableCharacterSet *allowedSet = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        allowedSet = [[NSCharacterSet URLPathAllowedCharacterSet] mutableCopy];
+        [allowedSet removeCharactersInString:@":/?#[]@!$&'()*+,;="];
+    });
+    NSString *escapedRequest = [ocspBase64 stringByAddingPercentEncodingWithAllowedCharacters:allowedSet];
     NSURLRequest *request = nil;
 
     /* Interesting tidbit from rfc5019
@@ -540,9 +550,10 @@ bool SecValidUpdateRequest(dispatch_queue_t queue, CFStringRef server, CFIndex v
      use the GET method (to enable OCSP response caching).  OCSP requests
      larger than 255 bytes SHOULD be submitted using the POST method.
      */
-    if ([escapedRequest length] < 256) {
+    if (([[uri absoluteString] length] + 1 + [escapedRequest length]) < 256) {
         /* Use a GET */
-        NSURL *requestURL = [uri URLByAppendingPathComponent:escapedRequest];
+        NSString *requestString = [NSString stringWithFormat:@"%@/%@", [uri absoluteString], escapedRequest];
+        NSURL *requestURL = [NSURL URLWithString:requestString];
         request = [NSURLRequest requestWithURL:requestURL];
     } else {
         /* Use a POST */

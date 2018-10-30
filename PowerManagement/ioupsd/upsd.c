@@ -91,6 +91,8 @@ typedef struct UPSData {
     CFRunLoopTimerRef       upsEventTimer;
     DeviceType              deviceType;
     Boolean                 requiresCurrentLimitControl;
+    Boolean                 requiresChargeCurrentUpdates;
+    CFRunLoopTimerRef       chargeCurrentUpdateTimer;
     Boolean                 hasACPower;
     io_object_t             batteryStateNotification;
     io_object_t             currentLimitNotification;
@@ -131,6 +133,7 @@ void BatteryCaseCurrentLimitChangeCallback(void *refcon, io_service_t service,
                                            uint32_t messageType, void *messageArgument);
 void BatteryCaseRequiredVoltageChangeCallback(void *refcon, io_service_t service,
                                               uint32_t messageType, void *messageArgument);
+void BatteryCasePollAverageChargeCurrentCallback(CFRunLoopTimerRef timer __unused, void *refcon);
 
 //---------------------------------------------------------------------------
 // main
@@ -402,6 +405,17 @@ Boolean IsCurrentLimitControlRequired(UPSDataRef upsDataRef)
 }
 
 //---------------------------------------------------------------------------
+// AreAverageChargeCurrentUpdatesRequired
+//
+// Identify whether a UPS is a device that requires updates on our average
+// charge current when AC is present
+//---------------------------------------------------------------------------
+Boolean AreAverageChargeCurrentUpdatesRequired(UPSDataRef upsDataRef)
+{
+    return false;
+}
+
+//---------------------------------------------------------------------------
 // UPSDeviceAdded
 //
 // This routine is the callback for our IOServiceAddMatchingNotification.
@@ -508,6 +522,7 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
             
             kr = CreatePowerManagerUPSEntry(upsDataRef, upsProperties, upsCapabilites);
             upsDataRef->requiresCurrentLimitControl = IsCurrentLimitControlRequired(upsDataRef);
+            upsDataRef->requiresChargeCurrentUpdates = AreAverageChargeCurrentUpdatesRequired(upsDataRef);
             
             if (kr != kIOReturnSuccess)
                 goto UPSDEVICEADDED_FAIL;
@@ -764,6 +779,7 @@ kern_return_t BatteryCaseSendCommand(UPSDataRef upsDataRef, CFStringRef commandS
     return KERN_NOT_SUPPORTED;
 }
 
+#define DECIKELVIN_OFFSET_FROM_DECICELSIUS  2732
 //---------------------------------------------------------------------------
 // BatteryCaseBatteryStateChangedCallback
 //
@@ -794,6 +810,15 @@ void BatteryCaseCurrentLimitChangeCallback(void *refcon, io_service_t service,
 //---------------------------------------------------------------------------
 void BatteryCaseRequiredVoltageChangeCallback(void *refcon, io_service_t service,
                                               uint32_t messageType, void *messageArgument) {
+    // NOOP on OS X
+}
+
+//---------------------------------------------------------------------------
+// BatteryCasePollAverageChargeCurrentCallback
+//
+// Timer callback to copy the average charging current since the last poll.
+//---------------------------------------------------------------------------
+void BatteryCasePollAverageChargeCurrentCallback(CFRunLoopTimerRef timer __unused, void *refcon) {
     // NOOP on OS X
 }
 

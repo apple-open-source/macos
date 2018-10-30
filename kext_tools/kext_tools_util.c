@@ -29,6 +29,7 @@
 #endif  // !TARGET_OS_EMBEDDED
 
 #include <libc.h>
+#include <stdint.h>
 #include <sysexits.h>
 #include <asl.h>
 #include <syslog.h>
@@ -453,6 +454,70 @@ Boolean isDebugSetInBootargs(void)
 }
 
 #endif  // !TARGET_OS_EMBEDDED
+
+/*******************************************************************************
+ * createRawBytesFromHexString() - Given an ASCII hex string + length, dump the
+ * computer-readable equivalent into a byte pointer. **Only accepts hex strings
+ * of even length, because I'm lazy.**
+ *******************************************************************************/
+Boolean createRawBytesFromHexString(char *bytePtr, size_t byteLen, const char *hexPtr, size_t hexLen)
+{
+    size_t minByteLen = (hexLen + 1)/2;
+
+    if (!bytePtr || !hexPtr) {
+        return false;
+    } else if (hexLen % 2 != 0) {
+        return false;
+    } else if (minByteLen > byteLen) {
+        return false;
+    }
+
+    /* reset the output to 0 */
+    memset(bytePtr, 0, minByteLen);
+
+    for (size_t index = 0; index < hexLen; index++) {
+        uint8_t nibble;
+        uint8_t shift = (((index + 1) % 2) ? 4 : 0);
+        char    hex   = hexPtr[index];
+
+        if ('0' <= hex && hex <= '9') {
+            nibble = hex - '0';
+        } else if ('A' <= hex && hex <= 'F') {
+            nibble = 10 + (hex - 'A');
+        } else if ('a' <= hex && hex <= 'f') {
+            nibble = 10 + (hex - 'a');
+        } else {
+            return false;
+        }
+        bytePtr[index/2] += (nibble << shift);
+    }
+    return true;
+}
+
+/*******************************************************************************
+ * createHexStringFromRawBytes() - Given a byte pointer + length, dump the
+ * human-readable equivalent into a hex string pointer.
+ *******************************************************************************/
+Boolean createHexStringFromRawBytes(char *hexPtr, size_t hexLen, const char *bytePtr, size_t byteLen)
+{
+    size_t minHexLen = (byteLen * 2) + 1;
+    const char *hexes = "0123456789abcdef";
+
+    if (!hexPtr || !bytePtr) {
+        return false;
+    } else if (minHexLen > hexLen) {
+        return false;
+    }
+
+    for (size_t bidx = 0, hidx = 0; bidx < byteLen; bidx++) {
+        const uint8_t byte = (const uint8_t)bytePtr[bidx];
+        hexPtr[hidx++] = hexes[byte >> 4];
+        hexPtr[hidx++] = hexes[byte & 0x0f];
+    }
+    /* NULL-terminate */
+    hexPtr[minHexLen-1] = 0;
+    return true;
+}
 
 #if PRAGMA_MARK
 #pragma mark Path & File
@@ -1966,3 +2031,33 @@ finish:
     return result;
 }
 
+void
+setVariantSuffix(void)
+{
+    char* variant = 0;
+    size_t len = 0;
+    int result;
+    result = sysctlbyname("kern.osbuildconfig", NULL, &len, NULL, 0);
+    if (result == 0) {
+        variant = (char *)malloc(len + 2);
+        variant[0] = '_';
+        result = sysctlbyname("kern.osbuildconfig", &variant[1], &len, NULL, 0);
+        if (result == 0) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogDebugLevel,
+                "variant is %s",variant);
+            if (strcmp(&variant[1], "release") != 0) {
+               OSKextSetExecutableSuffix(variant, NULL);
+            }
+        } else {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel,
+                "kern.osbuildconfig failed after reporting return size of size %d",(int) len);
+        }
+        free(variant);
+    } else {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel,
+            "Impossible to query kern.osbuildconfig");
+    }
+}

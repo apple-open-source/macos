@@ -50,6 +50,11 @@ void SOSEnsureBackupWhileUnlocked(void) {
                 secnotice("engine", "Performing keychain backup after unlock because backing up while locked failed");
                 SOSAccount *account = (__bridge SOSAccount *)(SOSKeychainAccountGetSharedAccount());
 
+                if(!account) {
+                    secnotice("ckks", "Failed to get account object");
+                    return;
+                }
+
                 [account performTransaction:^(SOSAccountTransaction *transaction) {
                     CFErrorRef error = NULL;
                     NSSet* set = CFBridgingRelease(SOSAccountCopyBackupPeersAndForceSync(transaction, &error));

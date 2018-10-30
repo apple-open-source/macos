@@ -348,8 +348,12 @@ static CFTypeRef CERT_FindBySubjectKeyID (CFTypeRef keychainOrArray, CFTypeRef c
 {
     CFTypeRef ident = NULL;
     CFDictionaryRef query = NULL;
-    CFDataRef subjectkeyid = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, subjKeyID->Data, subjKeyID->Length, kCFAllocatorNull);
 
+    if (!subjKeyID || !subjKeyID->Data || !subjKeyID->Length) {
+        return NULL;
+    }
+
+    CFDataRef subjectkeyid = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, subjKeyID->Data, subjKeyID->Length, kCFAllocatorNull);
     if (keychainOrArray && (CFGetTypeID(keychainOrArray) == CFArrayGetTypeID()) && CFEqual(class, kSecClassCertificate))
     {
         CFIndex c, count = CFArrayGetCount((CFArrayRef)keychainOrArray);

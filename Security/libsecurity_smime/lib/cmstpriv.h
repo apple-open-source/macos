@@ -301,9 +301,9 @@ struct SecCmsOriginatorIdentifierOrKeyStr {
 typedef struct SecCmsOriginatorIdentifierOrKeyStr SecCmsOriginatorIdentifierOrKey;
 
 struct SecCmsRecipientKeyIdentifierStr {
-    SecAsn1Item * 				subjectKeyIdentifier;
-    SecAsn1Item * 				date;			/* optional */
-    SecAsn1Item * 				other;			/* optional */
+    SecAsn1Item 				subjectKeyIdentifier;
+    SecAsn1Item 				date;			/* optional */
+    SecAsn1Item 				other;			/* optional */
 };
 typedef struct SecCmsRecipientKeyIdentifierStr SecCmsRecipientKeyIdentifier;
 

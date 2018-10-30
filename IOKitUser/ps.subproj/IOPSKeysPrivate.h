@@ -279,6 +279,18 @@
 #define kIOPSAppleBatteryCaseAvailableCurrentKey "Battery Case Available Current"
 
 /*!
+ * @define      kAppleBatteryCaseChargingVoltageKey
+ * @abstract    CFDictionary key for a the voltage a battery case is charging from.
+ *
+ * @discussion
+ *              <ul>
+ *              <li> Apple-defined power sources will publish this key in units mV.
+ *              <li> Type CFNumber kCFNumberIntType (signed integer)
+ *              </ul>
+ */
+#define kAppleBatteryCaseChargingVoltageKey "Battery Case Charging Voltage"
+
+/*!
  * @define      kIOPSAppleBatteryCaseChemIDKey
  * @abstract    CFDictionary key for a battery case's battery's Chem ID.
  *
@@ -302,6 +314,17 @@
  *              </ul>
  */
 #define kIOPSAppleBatteryCaseCommandSetCurrentLimitBackOffKey "Current Limit Back Off"
+
+/*!
+ * @define      kIOPSCommandSendAverageChargingCurrent
+ *
+ * @abstract Tell the UPS the device's average current drawn from the charger
+ * @discussion
+ *              <ul>
+ *                  <li>The matching argument should be a CFNumber of kCFNumberIntType specifying the device's
+ *                  <li>average current draw from the charger in mA.
+ */
+#define kIOPSCommandSendAverageChargingCurrent       "Send Average Charging Current"
 
 /*!
  * @define      kIOPSAppleBatteryCaseCommandEnableChargingKey

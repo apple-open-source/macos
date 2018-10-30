@@ -1525,6 +1525,23 @@ __private_extern__ void logASLMessageWake(
 
 
 }
+
+__private_extern__ void logASLMessageWakeTime(uint64_t waketime, WakeTypeEnum waketype)
+{
+    aslmsg m = NULL;
+    m = new_msg_pmset_log();
+    asl_set(m, kPMASLDomainKey, kPMASLDomainWakeTime);
+
+    asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
+    char buf[128];
+    double wakeTime = (double)(waketime)/1000000.0;
+    snprintf(buf, sizeof(buf), "WakeTime: %2.3lf sec", wakeTime/1000.0);
+    asl_set(m, ASL_KEY_MSG, buf);
+    asl_send(NULL, m);
+    INFO_LOG("%s\n", buf);
+    mt2PublishWakeTime(wakeTime, waketype);
+    asl_release(m);
+}
 /*****************************************************************************/
 
 __private_extern__ void logASLAppWakeReason(
@@ -2695,6 +2712,7 @@ void mt2RecordAppTimeouts(CFStringRef sleepReason, CFStringRef procName)
 
 
 #define kMT2DomainSleepWakeInfo     "com.apple.sleepwake.type"
+#define kMT2DomainWakeTime          "com.apple.sleepwake.waketime"
 #define kMT2DomainSleepWakeFailure  "com.apple.sleepwake.failure"
 #define kMT2DomainSleepFailure      "com.apple.sleep.failure"
 #define kMT2DomainWakeFailure       "com.apple.wake.failure"
@@ -2753,8 +2771,32 @@ void mt2PublishSleepWakeInfo(CFStringRef wakeTypeStr, CFStringRef claimedWakeStr
     asl_set(m, "com.apple.message.summarize", "YES");
     asl_log(NULL, m, ASL_LEVEL_NOTICE, "");
     asl_release(m);
-
 }
+
+void mt2PublishWakeTime(double waketime, WakeTypeEnum waketype)
+{
+    // Publish wake times
+    aslmsg m_wake = asl_new(ASL_TYPE_MSG);
+    asl_set(m_wake, "com.apple.message.domain", kMT2DomainWakeTime);
+    char waketimeBuf[128];
+    char waketypeBuf[128];
+    const char *sleepTypeString;
+    snprintf(waketimeBuf, sizeof(waketimeBuf), "%lf", waketime);
+    asl_set(m_wake, "com.apple.message.waketime", waketimeBuf);
+    if (waketype == kIsDarkToFullWake)
+        snprintf(waketypeBuf, sizeof(waketypeBuf), "%s", "Full Wake from Dark Wake");
+    else {
+        sleepTypeString = getSleepTypeString();
+        if (waketype == kIsDarkWake)
+            snprintf(waketypeBuf, sizeof(waketypeBuf), "Dark Wake from %s", sleepTypeString);
+        else if (waketype == kIsFullWake)
+            snprintf(waketypeBuf, sizeof(waketypeBuf), "Full Wake from %s", sleepTypeString);
+    }
+    asl_set(m_wake, "com.apple.message.waketype", waketypeBuf);
+    asl_log(NULL, m_wake, ASL_LEVEL_NOTICE, "");
+    asl_release(m_wake);
+}
+
 void mt2PublishSleepFailure(const char *phase, const char *pci_string)
 {
     aslmsg m = asl_new(ASL_TYPE_MSG);

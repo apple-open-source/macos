@@ -75,6 +75,12 @@ enum {
     } \
 }while (0);
 
+
+#define GAME_CONTROLLER_STANDARD_MASK 0x00000F3F
+#define GAME_CONTROLLER_EXTENDED_MASK (0x000270C0 | GAME_CONTROLLER_STANDARD_MASK)
+#define GAME_CONTROLLER_FORM_FITTING_MASK (0x1000000)
+
+
 //===========================================================================
 // EventElementCollection class
 class EventElementCollection: public OSObject
@@ -527,8 +533,13 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
         if ( element->getReportID() != 0 )
             _multipleReports = true;
 
-        if ( element->getType() == kIOHIDElementTypeCollection )
+        if ( element->getType() == kIOHIDElementTypeCollection ) {
+            if (element->getUsagePage() == kHIDPage_Game && element->getUsage() == kHIDUsage_Game_GamepadFormFitting) {
+                _gameController.capable |= GAME_CONTROLLER_FORM_FITTING_MASK;
+            }
+            
             continue;
+        }
         
         if ( element->getUsage() == 0 )
             continue;
@@ -764,10 +775,6 @@ exit:
 //====================================================================================================
 // IOHIDEventDriver::processGameControllerElements
 //====================================================================================================
-#define GAME_CONTROLLER_STANDARD_MASK 0x00000F3F
-#define GAME_CONTROLLER_EXTENDED_MASK (0x000270C0 | GAME_CONTROLLER_STANDARD_MASK)
-#define GAME_CONTROLLER_FORM_FITTING_MASK (0x1000000)
-
 void IOHIDEventDriver::processGameControllerElements()
 {
     UInt32 index, count;
@@ -2476,7 +2483,7 @@ UInt32 IOHIDEventDriver::checkGameControllerElement(IOHIDElement * element)
             break;
             
         case kHIDPage_Button:
-            require(usage >= 1 && usage <= 8, exit);
+            require(usage >= 1 && usage <= 10, exit);
             
             base = kHIDUsage_Button_1;
             offset = 0;
@@ -2485,7 +2492,7 @@ UInt32 IOHIDEventDriver::checkGameControllerElement(IOHIDElement * element)
             
         case kHIDPage_Game:
             if (usage == kHIDUsage_Game_GamepadFormFitting || usage == kHIDUsage_Game_GamepadFormFitting_Compatibility) {
-                base = kHIDUsage_Game_GamepadFormFitting_Compatibility;
+                base = usage;
                 offset = 24;
             }
             
@@ -2669,6 +2676,8 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
         IOHIDElement *  element;
         IOFixed         elementFixedVal;
         IOFixed *       gcFixedVal = NULL;
+        unsigned int    elementIntVal;
+        unsigned int *  gcIntVal = NULL;
         AbsoluteTime    elementTimeStamp;
         UInt32          usagePage, usage;
         bool            elementIsCurrent;
@@ -2741,14 +2750,23 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
                     case 8:
                         gcFixedVal = &_gameController.shoulder.r2;
                         break;
-                        
+                    case 9:
+                        gcIntVal = &_gameController.thumbstick.left;
+                        break;
+                    case 10:
+                        gcIntVal = &_gameController.thumbstick.right;
+                        break;
+
                 }
                 break;
         }
 
-        if ( gcFixedVal && ( *gcFixedVal != ( elementFixedVal = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated) ) ) )
-        {
+        if (gcFixedVal && ( *gcFixedVal != ( elementFixedVal = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated)))){
             *gcFixedVal = elementFixedVal;
+            handled = true;
+        }
+        if (gcIntVal && ( *gcIntVal != (elementIntVal = element->getScaledValue()))){
+            *gcIntVal = elementIntVal;
             handled = true;
         }
     }
@@ -2759,7 +2777,7 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
     require_quiet(reportID == _gameController.sendingReportID, exit);
     
     if ( _gameController.extended ) {
-        dispatchExtendedGameControllerEvent(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1, _gameController.shoulder.l2, _gameController.shoulder.r2, _gameController.joystick.x, _gameController.joystick.y, _gameController.joystick.z, _gameController.joystick.rz);
+        dispatchExtendedGameControllerEventWithThumbstickButtons(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1, _gameController.shoulder.l2, _gameController.shoulder.r2, _gameController.joystick.x, _gameController.joystick.y, _gameController.joystick.z, _gameController.joystick.rz, _gameController.thumbstick.left, _gameController.thumbstick.right);
     } else {
         dispatchStandardGameControllerEvent(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1);
     }

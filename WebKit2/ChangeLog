@@ -1,6 +1,571 @@
-2018-08-22  Kocsen Chung  <kocsen_chung@apple.com>
+2018-09-28  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r235133. rdar://problem/43584853
+        Cherry-pick r236571. rdar://problem/44852809
+
+    [iOS] Allow access to VoiceServices features needed for accessibility
+    https://bugs.webkit.org/show_bug.cgi?id=190019
+    <rdar://problem/43621111>
+    
+    Reviewed by Chris Fleizach.
+    
+    Revise the sandbox to allow access to relevant WebSpeech features.
+    
+    * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236571 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-27  Brent Fulgham  <bfulgham@apple.com>
+
+            [iOS] Allow access to VoiceServices features needed for accessibility
+            https://bugs.webkit.org/show_bug.cgi?id=190019
+            <rdar://problem/43621111>
+
+            Reviewed by Chris Fleizach.
+
+            Revise the sandbox to allow access to relevant WebSpeech features.
+
+            * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb:
+
+2018-09-21  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r236322. rdar://problem/44660342
+
+    Whitelist two additional plugins
+    https://bugs.webkit.org/show_bug.cgi?id=189832
+    <rdar://problem/44628127>
+    
+    Reviewed by Brent Fulgham.
+    
+    * UIProcess/Plugins/mac/PluginInfoStoreMac.mm:
+    (WebKit::PluginInfoStore::shouldAllowPluginToRunUnsandboxed):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236322 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-21  Youenn Fablet  <youenn@apple.com>
+
+            Whitelist two additional plugins
+            https://bugs.webkit.org/show_bug.cgi?id=189832
+            <rdar://problem/44628127>
+
+            Reviewed by Brent Fulgham.
+
+            * UIProcess/Plugins/mac/PluginInfoStoreMac.mm:
+            (WebKit::PluginInfoStore::shouldAllowPluginToRunUnsandboxed):
+
+2018-09-21  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r236291. rdar://problem/44660342
+
+    Allow additional plug-ins to run unsandboxed
+    https://bugs.webkit.org/show_bug.cgi?id=189791
+    <rdar://problem/44628127>
+    
+    Reviewed by Brent Fulgham.
+    
+    * UIProcess/Plugins/mac/PluginInfoStoreMac.mm:
+    (WebKit::PluginInfoStore::shouldAllowPluginToRunUnsandboxed):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236291 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-20  Youenn Fablet  <youenn@apple.com>
+
+            Allow additional plug-ins to run unsandboxed
+            https://bugs.webkit.org/show_bug.cgi?id=189791
+            <rdar://problem/44628127>
+
+            Reviewed by Brent Fulgham.
+
+            * UIProcess/Plugins/mac/PluginInfoStoreMac.mm:
+            (WebKit::PluginInfoStore::shouldAllowPluginToRunUnsandboxed):
+
+2018-09-19  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r235752. rdar://problem/44576797
+
+    Don't pause playback when locking screen if video is being displayed on second screen.
+    https://bugs.webkit.org/show_bug.cgi?id=189321
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore:
+    
+    Expand the existing behavior when AirPlaying to an external device to playing to a local
+    external screen. Don't pause when the screen locks, and don't stop buffering in that mode either.
+    
+    Add a KVO-observer to the WebAVPlayerController's playingOnSecondScreen property, and pass
+    that observed value on to the media element.
+    
+    * html/HTMLMediaElement.cpp:
+    (WebCore::HTMLMediaElement::setShouldPlayToPlaybackTarget):
+    (WebCore::HTMLMediaElement::setPlayingOnSecondScreen):
+    (WebCore::HTMLMediaElement::shouldOverrideBackgroundPlaybackRestriction const):
+    (WebCore::HTMLMediaElement::processingUserGestureForMedia const):
+    (WebCore::HTMLMediaElement::mediaState const):
+    (WebCore::HTMLMediaElement::purgeBufferedDataIfPossible):
+    (WebCore::HTMLMediaElement::shouldOverrideBackgroundLoadingRestriction const):
+    (WebCore::HTMLMediaElement::webkitCurrentPlaybackTargetIsWireless const): Deleted.
+    (WebCore::HTMLMediaElement::canPlayToWirelessPlaybackTarget const): Deleted.
+    (WebCore::HTMLMediaElement::isPlayingToWirelessPlaybackTarget const): Deleted.
+    * html/HTMLMediaElement.h:
+    (WebCore::HTMLMediaElement::webkitCurrentPlaybackTargetIsWireless const):
+    (WebCore::HTMLMediaElement::isPlayingToExternalTarget const):
+    * html/MediaElementSession.cpp:
+    (WebCore::MediaElementSession::canPlayToWirelessPlaybackTarget const): Deleted.
+    * html/MediaElementSession.h:
+    * platform/audio/PlatformMediaSession.h:
+    (WebCore::PlatformMediaSessionClient::setWirelessPlaybackTarget):
+    (WebCore::PlatformMediaSessionClient::isPlayingOnSecondScreen const):
+    (WebCore::PlatformMediaSession::canPlayToWirelessPlaybackTarget const): Deleted.
+    (WebCore::PlatformMediaSessionClient::canPlayToWirelessPlaybackTarget const): Deleted.
+    * platform/cocoa/PlaybackSessionModel.h:
+    * platform/cocoa/PlaybackSessionModelMediaElement.h:
+    * platform/cocoa/PlaybackSessionModelMediaElement.mm:
+    (WebCore::PlaybackSessionModelMediaElement::setPlayingOnSecondScreen):
+    * platform/ios/WebAVPlayerController.mm:
+    (-[WebAVPlayerController init]):
+    (-[WebAVPlayerController dealloc]):
+    (-[WebAVPlayerController observeValueForKeyPath:ofObject:change:context:]):
+    * platform/ios/WebVideoFullscreenControllerAVKit.mm:
+    (VideoFullscreenControllerContext::setPlayingOnSecondScreen):
+    
+    Source/WebKit:
+    
+    Pass the "isPlayingOnSecondScreen" value across the process boundary.
+    
+    * UIProcess/Cocoa/PlaybackSessionManagerProxy.h:
+    * UIProcess/Cocoa/PlaybackSessionManagerProxy.mm:
+    (WebKit::PlaybackSessionModelContext::setPlayingOnSecondScreen):
+    (WebKit::PlaybackSessionManagerProxy::setPlayingOnSecondScreen):
+    * WebProcess/cocoa/PlaybackSessionManager.h:
+    * WebProcess/cocoa/PlaybackSessionManager.messages.in:
+    * WebProcess/cocoa/PlaybackSessionManager.mm:
+    (WebKit::PlaybackSessionManager::setPlayingOnSecondScreen):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235752 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-06  Jer Noble  <jer.noble@apple.com>
+
+            Don't pause playback when locking screen if video is being displayed on second screen.
+            https://bugs.webkit.org/show_bug.cgi?id=189321
+
+            Reviewed by Eric Carlson.
+
+            Pass the "isPlayingOnSecondScreen" value across the process boundary.
+
+            * UIProcess/Cocoa/PlaybackSessionManagerProxy.h:
+            * UIProcess/Cocoa/PlaybackSessionManagerProxy.mm:
+            (WebKit::PlaybackSessionModelContext::setPlayingOnSecondScreen):
+            (WebKit::PlaybackSessionManagerProxy::setPlayingOnSecondScreen):
+            * WebProcess/cocoa/PlaybackSessionManager.h:
+            * WebProcess/cocoa/PlaybackSessionManager.messages.in:
+            * WebProcess/cocoa/PlaybackSessionManager.mm:
+            (WebKit::PlaybackSessionManager::setPlayingOnSecondScreen):
+
+2018-09-19  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r236086. rdar://problem/44576830
+
+    Swipe snapshot can get stuck if swiping is disabled while it is visible
+    https://bugs.webkit.org/show_bug.cgi?id=189667
+    <rdar://problem/40367780>
+    
+    Reviewed by Simon Fraser.
+    
+    If navigation gestures are disabled while a swipe snapshot is visible,
+    WKWebView will tear down the ViewGestureController, which means that
+    the SnapshotRemovalTracker will no longer be around to ever remove
+    the snapshot.
+    
+    It's currently very hard to write a test for this because we have
+    yet to come up with a good mechanism for testing swiping on iOS.
+    
+    * UIProcess/API/Cocoa/WKWebView.mm:
+    (-[WKWebView setAllowsBackForwardNavigationGestures:]):
+    Instead of tearing down the ViewGestureController when navigation
+    gestures are disabled, just set a bit on it that disables gestures.
+    
+    * UIProcess/Cocoa/ViewGestureController.cpp:
+    (WebKit::ViewGestureController::canSwipeInDirection const):
+    * UIProcess/Cocoa/ViewGestureController.h:
+    (WebKit::ViewGestureController::setSwipeGestureEnabled):
+    (WebKit::ViewGestureController::isSwipeGestureEnabled):
+    Add a bit to ViewGestureController that makes starting new gestures
+    always fail, but allows e.g. snapshots from existing swipes to continue
+    their usual behavior.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236086 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-17  Tim Horton  <timothy_horton@apple.com>
+
+            Swipe snapshot can get stuck if swiping is disabled while it is visible
+            https://bugs.webkit.org/show_bug.cgi?id=189667
+            <rdar://problem/40367780>
+
+            Reviewed by Simon Fraser.
+
+            If navigation gestures are disabled while a swipe snapshot is visible,
+            WKWebView will tear down the ViewGestureController, which means that
+            the SnapshotRemovalTracker will no longer be around to ever remove
+            the snapshot.
+
+            It's currently very hard to write a test for this because we have
+            yet to come up with a good mechanism for testing swiping on iOS.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView setAllowsBackForwardNavigationGestures:]):
+            Instead of tearing down the ViewGestureController when navigation
+            gestures are disabled, just set a bit on it that disables gestures.
+
+            * UIProcess/Cocoa/ViewGestureController.cpp:
+            (WebKit::ViewGestureController::canSwipeInDirection const):
+            * UIProcess/Cocoa/ViewGestureController.h:
+            (WebKit::ViewGestureController::setSwipeGestureEnabled):
+            (WebKit::ViewGestureController::isSwipeGestureEnabled):
+            Add a bit to ViewGestureController that makes starting new gestures
+            always fail, but allows e.g. snapshots from existing swipes to continue
+            their usual behavior.
+
+2018-09-06  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235506. rdar://problem/44169670
+
+    [macOS] Whitelist Network process features for VPN
+    https://bugs.webkit.org/show_bug.cgi?id=189023
+    <rdar://problem/43310000>
+    
+    Reviewed by Eric Carlson.
+    
+    CFNetwork needs access to some VPN preference files to configure networking, and
+    need to be allowed to communicate with the VPN process from the Network Process
+    sandbox.
+    
+    * NetworkProcess/mac/com.apple.WebKit.NetworkProcess.sb.in:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235506 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-30  Brent Fulgham  <bfulgham@apple.com>
+
+            [macOS] Whitelist Network process features for VPN
+            https://bugs.webkit.org/show_bug.cgi?id=189023
+            <rdar://problem/43310000>
+
+            Reviewed by Eric Carlson.
+
+            CFNetwork needs access to some VPN preference files to configure networking, and
+            need to be allowed to communicate with the VPN process from the Network Process
+            sandbox.
+
+            * NetworkProcess/mac/com.apple.WebKit.NetworkProcess.sb.in:
+
+2018-09-06  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235569. rdar://problem/44169479
+
+    Storage Access API: Maintain access through same-site navigations
+    https://bugs.webkit.org/show_bug.cgi?id=188564
+    <rdar://problem/43445160>
+    
+    Reviewed by Alex Christensen.
+    
+    Source/WebCore:
+    
+    Tests: http/tests/storageAccess/request-and-grant-access-then-navigate-cross-site-should-not-have-access.html
+           http/tests/storageAccess/request-and-grant-access-then-navigate-same-site-should-have-access.html
+    
+    * dom/Document.h:
+        Removed unused member variable m_hasFrameSpecificStorageAccess.
+    * loader/DocumentLoader.cpp:
+    (WebCore::DocumentLoader::willSendRequest):
+    * loader/FrameLoaderClient.h:
+    
+    Source/WebKit:
+    
+    * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+    (WebKit::WebFrameLoaderClient::dispatchWillChangeDocument):
+        Now takes the current URL and the new URL as parameters
+        and only clears out storage access if the navigation is
+        cross-site, i.e. with differing eTLD+1s.
+    * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+    
+    LayoutTests:
+    
+    * http/tests/storageAccess/request-and-grant-access-cross-origin-sandboxed-iframe-from-prevalent-domain-with-user-interaction-and-access-from-right-frame-expected.txt:
+    * http/tests/storageAccess/request-and-grant-access-cross-origin-sandboxed-iframe-from-prevalent-domain-with-user-interaction-and-access-from-right-frame.html:
+        Added both a same-site and a cross-site navigation to the sub frame to test maintained and cleared access.
+    * http/tests/storageAccess/request-and-grant-access-then-navigate-cross-site-should-not-have-access-expected.txt: Copied from LayoutTests/http/tests/storageAccess/request-and-grant-access-then-navigate-should-not-have-access-expected.txt.
+    * http/tests/storageAccess/request-and-grant-access-then-navigate-cross-site-should-not-have-access.html: Copied from LayoutTests/http/tests/storageAccess/request-and-grant-access-then-navigate-should-not-have-access.html.
+    * http/tests/storageAccess/request-and-grant-access-then-navigate-same-site-should-have-access-expected.txt: Renamed from LayoutTests/http/tests/storageAccess/request-and-grant-access-then-navigate-should-not-have-access-expected.txt.
+    * http/tests/storageAccess/request-and-grant-access-then-navigate-same-site-should-have-access.html: Renamed from LayoutTests/http/tests/storageAccess/request-and-grant-access-then-navigate-should-not-have-access.html.
+    * http/tests/storageAccess/resources/get-cookies.php:
+        Support for the new test scenarios.
+    * http/tests/storageAccess/resources/self-navigating-frame-after-granted-access.html:
+        Support for the new test scenarios.
+    * platform/mac-wk2/TestExpectations:
+        Marked the new and the renamed tests as [ Pass ].
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235569 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-31  John Wilander  <wilander@apple.com>
+
+            Storage Access API: Maintain access through same-site navigations
+            https://bugs.webkit.org/show_bug.cgi?id=188564
+            <rdar://problem/43445160>
+
+            Reviewed by Alex Christensen.
+
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::dispatchWillChangeDocument):
+                Now takes the current URL and the new URL as parameters
+                and only clears out storage access if the navigation is
+                cross-site, i.e. with differing eTLD+1s.
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+
+2018-09-06  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235251. rdar://problem/44209840
+
+    [Apple Pay] Introduce Apple Pay JS v4 on iOS 12 and macOS Mojave
+    https://bugs.webkit.org/show_bug.cgi?id=188829
+    
+    Reviewed by Tim Horton.
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebCore:
+    
+    Test: http/tests/ssl/applepay/ApplePaySessionV4.html
+    
+    * Configurations/FeatureDefines.xcconfig:
+    * testing/MockPaymentCoordinator.cpp:
+    (WebCore::MockPaymentCoordinator::supportsVersion):
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKit:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    * WebProcess/ApplePay/WebPaymentCoordinator.cpp:
+    (WebKit::WebPaymentCoordinator::supportsVersion):
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Tools:
+    
+    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig:
+    
+    LayoutTests:
+    
+    * http/tests/ssl/applepay/ApplePaySession-expected.txt:
+    * http/tests/ssl/applepay/ApplePaySession.html:
+    * http/tests/ssl/applepay/ApplePaySessionV3-expected.txt:
+    * http/tests/ssl/applepay/ApplePaySessionV3.html:
+    * http/tests/ssl/applepay/ApplePaySessionV4-expected.txt: Added.
+    * http/tests/ssl/applepay/ApplePaySessionV4.html: Added.
+    * platform/mac-wk2/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235251 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-23  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Introduce Apple Pay JS v4 on iOS 12 and macOS Mojave
+            https://bugs.webkit.org/show_bug.cgi?id=188829
+
+            Reviewed by Tim Horton.
+
+            * Configurations/FeatureDefines.xcconfig:
+            * WebProcess/ApplePay/WebPaymentCoordinator.cpp:
+            (WebKit::WebPaymentCoordinator::supportsVersion):
+
+2018-09-06  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235209. rdar://problem/44169451
+
+    The Storage Access API prompt should show the eTLD+1s, not the full host names
+    https://bugs.webkit.org/show_bug.cgi?id=188830
+    <rdar://problem/43380645>
+    
+    Reviewed by Brent Fulgham.
+    
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::requestStorageAccess):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235209 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-22  John Wilander  <wilander@apple.com>
+
+            The Storage Access API prompt should show the eTLD+1s, not the full host names
+            https://bugs.webkit.org/show_bug.cgi?id=188830
+            <rdar://problem/43380645>
+
+            Reviewed by Brent Fulgham.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::requestStorageAccess):
+
+2018-09-06  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235145. rdar://problem/44169453
+
+    Storage Access API: The call to ResourceLoadStatisticsMemoryStore::grantStorageAccessInternal() should send eTLD+1s, not full host names
+    https://bugs.webkit.org/show_bug.cgi?id=188783
+    <rdar://problem/43559215>
+    
+    Reviewed by Alex Christensen.
+    
+    * UIProcess/ResourceLoadStatisticsMemoryStore.cpp:
+    (WebKit::ResourceLoadStatisticsMemoryStore::grantStorageAccess):
+        Now sends the eTLD+1 for the top frame and sub frame.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235145 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-21  John Wilander  <wilander@apple.com>
+
+            Storage Access API: The call to ResourceLoadStatisticsMemoryStore::grantStorageAccessInternal() should send eTLD+1s, not full host names
+            https://bugs.webkit.org/show_bug.cgi?id=188783
+            <rdar://problem/43559215>
+
+            Reviewed by Alex Christensen.
+
+            * UIProcess/ResourceLoadStatisticsMemoryStore.cpp:
+            (WebKit::ResourceLoadStatisticsMemoryStore::grantStorageAccess):
+                Now sends the eTLD+1 for the top frame and sub frame.
+
+2018-09-06  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r234719. rdar://problem/44169456
+
+    Yet more crashes in MobileSafari under -[WKFormInputSession setSuggestions:]
+    https://bugs.webkit.org/show_bug.cgi?id=188427
+    <rdar://problem/43064672>
+    
+    Reviewed by Wenson Hsieh.
+    
+    Speculatively fix more crashes seen under setSuggestions.
+    
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKFormInputSession isValid]):
+    (-[WKFormInputSession setSuggestions:]):
+    (-[WKFormInputSession invalidate]):
+    Belt-and-suspenders fix: use WeakObjCPtr for WKFormInputSession's WKContentView reference.
+    
+    (-[WKContentView _startAssistingNode:userIsInteracting:blurPreviousNode:changingActivityState:userObject:]):
+    Invalidate the WKFormInputSession before replacing it; we theorize that
+    there is a path in which we get here without having previously called stopAssistingNode.
+    Most of the code is OK with this, but this leaves WKFormInputSession
+    with a raw reference to WKContentView which can later become stale.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234719 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-08  Tim Horton  <timothy_horton@apple.com>
+
+            Yet more crashes in MobileSafari under -[WKFormInputSession setSuggestions:]
+            https://bugs.webkit.org/show_bug.cgi?id=188427
+            <rdar://problem/43064672>
+
+            Reviewed by Wenson Hsieh.
+
+            Speculatively fix more crashes seen under setSuggestions.
+
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKFormInputSession isValid]):
+            (-[WKFormInputSession setSuggestions:]):
+            (-[WKFormInputSession invalidate]):
+            Belt-and-suspenders fix: use WeakObjCPtr for WKFormInputSession's WKContentView reference.
+
+            (-[WKContentView _startAssistingNode:userIsInteracting:blurPreviousNode:changingActivityState:userObject:]):
+            Invalidate the WKFormInputSession before replacing it; we theorize that
+            there is a path in which we get here without having previously called stopAssistingNode.
+            Most of the code is OK with this, but this leaves WKFormInputSession
+            with a raw reference to WKContentView which can later become stale.
+
+2018-09-06  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r234504. rdar://problem/44209851
+
+    [iOS] Keyboard becomes unresponsive after pressing delete while pressing down on a character key with accents
+    https://bugs.webkit.org/show_bug.cgi?id=188251
+    <rdar://problem/37842108>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebKit:
+    
+    Fixes a bug in key event handling where invoking -handleKeyWebEvent:withCompletionHandler: from within the
+    completion callback of a previous call to -handleKeyWebEvent:withCompletionHandler: would cause the completion
+    callback to be cleared out prematurely. In some cases (as described in the title of this bug), UIKit exercises
+    this codepath and subsequently hangs due to their completion block never getting invoked by WebKit.
+    
+    Test: KeyboardInputTests.CanHandleKeyEventInCompletionHandler
+    
+    * UIProcess/ios/WKContentViewInteraction.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView handleKeyWebEvent:withCompletionHandler:]):
+    (-[WKContentView _didHandleKeyEvent:eventWasHandled:]):
+    
+    Tools:
+    
+    Adds a new API test to verify that clients (in this case, UIKit) is allowed to invoke
+    -handleKeyWebEvent:withCompletionHandler: within the completion block of a prior invocation.
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/ios/KeyboardInputTestsIOS.mm: Added.
+    (TestWebKitAPI::TEST):
+    * TestWebKitAPI/Tests/ios/TestInputDelegate.h: Added.
+    
+    Pull some logic used to force an input session to start out from an existing API test file
+    (WKWebViewAutofillTests) and into a separate helper class that is used by both the existing API tests and the
+    new keyboard input test.
+    
+    * TestWebKitAPI/Tests/ios/WKWebViewAutofillTests.mm:
+    (-[AutofillTestView initWithFrame:]):
+    (TestWebKitAPI::TEST):
+    (-[TestInputDelegate init]): Deleted.
+    (-[TestInputDelegate _webView:focusShouldStartInputSession:]): Deleted.
+    * TestWebKitAPI/ios/UIKitSPI.h:
+    
+    Add some UIKit SPI utilized by the new API test.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234504 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-02  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iOS] Keyboard becomes unresponsive after pressing delete while pressing down on a character key with accents
+            https://bugs.webkit.org/show_bug.cgi?id=188251
+            <rdar://problem/37842108>
+
+            Reviewed by Tim Horton.
+
+            Fixes a bug in key event handling where invoking -handleKeyWebEvent:withCompletionHandler: from within the
+            completion callback of a previous call to -handleKeyWebEvent:withCompletionHandler: would cause the completion
+            callback to be cleared out prematurely. In some cases (as described in the title of this bug), UIKit exercises
+            this codepath and subsequently hangs due to their completion block never getting invoked by WebKit.
+
+            Test: KeyboardInputTests.CanHandleKeyEventInCompletionHandler
+
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView handleKeyWebEvent:withCompletionHandler:]):
+            (-[WKContentView _didHandleKeyEvent:eventWasHandled:]):
+
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235133. rdar://problem/44144065
 
     Increment NetworkCache::Storage::lastStableVersion after r233742
     https://bugs.webkit.org/show_bug.cgi?id=188798
@@ -24,9 +589,9 @@
 
             * NetworkProcess/cache/NetworkCacheStorage.h:
 
-2018-08-16  Kocsen Chung  <kocsen_chung@apple.com>
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r234908. rdar://problem/43385542
+        Cherry-pick r234908. rdar://problem/44144086
 
     [WinCairo] Unreviewed build fix after r234896.
     
@@ -42,9 +607,69 @@
             * NetworkProcess/curl/NetworkDataTaskCurl.cpp:
             (WebKit::NetworkDataTaskCurl::tryHttpAuthentication):
 
-2018-08-16  Kocsen Chung  <kocsen_chung@apple.com>
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r234896. rdar://problem/43385542
+        Cherry-pick r234905. rdar://problem/44144059
+
+    Can't share an app on AppStore to WeChat due to a release assert
+    https://bugs.webkit.org/show_bug.cgi?id=188621
+    <rdar://problem/43343976>
+    
+    Reviewed by Geoffrey Garen.
+    
+    Disable the thread safety check when the app is not linked on or after iOS 12 since this release assert
+    is getting hit by third party applications on iOS in UI process.
+    
+    Source/WebCore:
+    
+    * platform/Timer.cpp:
+    (WebCore::shouldSuppressThreadSafetyCheck): Added a SDK check.
+    
+    Source/WebKit:
+    
+    * UIProcess/Cocoa/VersionChecks.h:
+    (WebKit::SDKVersion::FirstWithMainThreadReleaseAssertionInWebPageProxy): Added. It's iOS 12 or macOS 10.14 Mojave.
+    * UIProcess/WebProcessProxy.cpp:
+    (WebKit::isMainThreadOrCheckDisabled): Added. Returns true whether when we're in the main thread or if the app
+    is not linked on or after iOS 12 or macOS 10.14 Mojave.
+    (WebKit::globalPageMap):
+    (WebKit::m_isInPrewarmedPool):
+    (WebKit::WebProcessProxy::~WebProcessProxy):
+    (WebKit::WebProcessProxy::shutDown):
+    (WebKit::WebProcessProxy::deleteWebsiteDataForTopPrivatelyControlledDomainsInAllPersistentDataStores):
+    (WebKit::WebProcessProxy::topPrivatelyControlledDomainsWithWebsiteData):
+    (WebKit::WebProcessProxy::didFinishLaunching):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234905 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-15  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Can't share an app on AppStore to WeChat due to a release assert
+            https://bugs.webkit.org/show_bug.cgi?id=188621
+            <rdar://problem/43343976>
+
+            Reviewed by Geoffrey Garen.
+
+            Disable the thread safety check when the app is not linked on or after iOS 12 since this release assert
+            is getting hit by third party applications on iOS in UI process.
+
+            * UIProcess/Cocoa/VersionChecks.h:
+            (WebKit::SDKVersion::FirstWithMainThreadReleaseAssertionInWebPageProxy): Added. It's iOS 12 or macOS 10.14 Mojave.
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::isMainThreadOrCheckDisabled): Added. Returns true whether when we're in the main thread or if the app
+            is not linked on or after iOS 12 or macOS 10.14 Mojave.
+            (WebKit::globalPageMap):
+            (WebKit::m_isInPrewarmedPool):
+            (WebKit::WebProcessProxy::~WebProcessProxy):
+            (WebKit::WebProcessProxy::shutDown):
+            (WebKit::WebProcessProxy::deleteWebsiteDataForTopPrivatelyControlledDomainsInAllPersistentDataStores):
+            (WebKit::WebProcessProxy::topPrivatelyControlledDomainsWithWebsiteData):
+            (WebKit::WebProcessProxy::didFinishLaunching):
+
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r234896. rdar://problem/44144086
 
     NetworkCORSPreflightChecker should proceed in case of ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested even though the WebKit app is not implementing the didReceiveAuthenticationChallenge/didReceiveAuthenticationChallengeInFrame callback
     https://bugs.webkit.org/show_bug.cgi?id=188592
@@ -122,9 +747,9 @@
             * NetworkProcess/cocoa/NetworkDataTaskCocoa.mm:
             (WebKit::NetworkDataTaskCocoa::didReceiveChallenge):
 
-2018-08-16  Kocsen Chung  <kocsen_chung@apple.com>
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r234873. rdar://problem/43385599
+        Cherry-pick r234873. rdar://problem/44144063
 
     isValidCSSSelector is unsafe to be called from a non-main thread
     https://bugs.webkit.org/show_bug.cgi?id=188581
@@ -202,69 +827,72 @@
             * UIProcess/API/APIContentRuleListStore.h:
             * UIProcess/API/Cocoa/WKContentRuleListStore.mm:
 
-2018-08-15  Babak Shafiei  <bshafiei@apple.com>
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r234905. rdar://problem/43347925
+        Cherry-pick r234730. rdar://problem/44144081
 
-    Can't share an app on AppStore to WeChat due to a release assert
-    https://bugs.webkit.org/show_bug.cgi?id=188621
-    <rdar://problem/43343976>
+    REGRESSION (r232083): WKWebView loses first-party cookies on iOS
+    https://bugs.webkit.org/show_bug.cgi?id=188443
+    <rdar://problem/42991584>
     
-    Reviewed by Geoffrey Garen.
-    
-    Disable the thread safety check when the app is not linked on or after iOS 12 since this release assert
-    is getting hit by third party applications on iOS in UI process.
-    
-    Source/WebCore:
-    
-    * platform/Timer.cpp:
-    (WebCore::shouldSuppressThreadSafetyCheck): Added a SDK check.
+    Patch by Sihui Liu <sihui_liu@apple.com> on 2018-08-09
+    Reviewed by Chris Dumez.
     
     Source/WebKit:
     
-    * UIProcess/Cocoa/VersionChecks.h:
-    (WebKit::SDKVersion::FirstWithMainThreadReleaseAssertionInWebPageProxy): Added. It's iOS 12 or macOS 10.14 Mojave.
-    * UIProcess/WebProcessProxy.cpp:
-    (WebKit::isMainThreadOrCheckDisabled): Added. Returns true whether when we're in the main thread or if the app
-    is not linked on or after iOS 12 or macOS 10.14 Mojave.
-    (WebKit::globalPageMap):
-    (WebKit::m_isInPrewarmedPool):
-    (WebKit::WebProcessProxy::~WebProcessProxy):
-    (WebKit::WebProcessProxy::shutDown):
-    (WebKit::WebProcessProxy::deleteWebsiteDataForTopPrivatelyControlledDomainsInAllPersistentDataStores):
-    (WebKit::WebProcessProxy::topPrivatelyControlledDomainsWithWebsiteData):
-    (WebKit::WebProcessProxy::didFinishLaunching):
+    Revert the change to set sharedCookieStorage for iOS as it is breaking Kayak.
     
+    * NetworkProcess/NetworkProcess.h:
+    * NetworkProcess/NetworkProcessCreationParameters.cpp:
+    (WebKit::NetworkProcessCreationParameters::encode const):
+    (WebKit::NetworkProcessCreationParameters::decode):
+    * NetworkProcess/NetworkProcessCreationParameters.h:
+    * NetworkProcess/cocoa/NetworkProcessCocoa.mm:
+    (WebKit::NetworkProcess::platformInitializeNetworkProcessCocoa):
+    * Shared/WebProcessCreationParameters.cpp:
+    (WebKit::WebProcessCreationParameters::encode const):
+    (WebKit::WebProcessCreationParameters::decode):
+    * Shared/WebProcessCreationParameters.h:
+    * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+    (WebKit::WebProcessPool::platformInitializeWebProcess):
+    (WebKit::WebProcessPool::platformInitializeNetworkProcess):
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234905 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    Tools:
+    
+    Skip WebKit.WKHTTPCookieStoreWithoutProcessPool on iOS.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/WKHTTPCookieStore.mm:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234730 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2018-08-15  Ryosuke Niwa  <rniwa@webkit.org>
+    2018-08-09  Sihui Liu  <sihui_liu@apple.com>
 
-            Can't share an app on AppStore to WeChat due to a release assert
-            https://bugs.webkit.org/show_bug.cgi?id=188621
-            <rdar://problem/43343976>
+            REGRESSION (r232083): WKWebView loses first-party cookies on iOS
+            https://bugs.webkit.org/show_bug.cgi?id=188443
+            <rdar://problem/42991584>
 
-            Reviewed by Geoffrey Garen.
+            Reviewed by Chris Dumez.
 
-            Disable the thread safety check when the app is not linked on or after iOS 12 since this release assert
-            is getting hit by third party applications on iOS in UI process.
+            Revert the change to set sharedCookieStorage for iOS as it is breaking Kayak.
 
-            * UIProcess/Cocoa/VersionChecks.h:
-            (WebKit::SDKVersion::FirstWithMainThreadReleaseAssertionInWebPageProxy): Added. It's iOS 12 or macOS 10.14 Mojave.
-            * UIProcess/WebProcessProxy.cpp:
-            (WebKit::isMainThreadOrCheckDisabled): Added. Returns true whether when we're in the main thread or if the app
-            is not linked on or after iOS 12 or macOS 10.14 Mojave.
-            (WebKit::globalPageMap):
-            (WebKit::m_isInPrewarmedPool):
-            (WebKit::WebProcessProxy::~WebProcessProxy):
-            (WebKit::WebProcessProxy::shutDown):
-            (WebKit::WebProcessProxy::deleteWebsiteDataForTopPrivatelyControlledDomainsInAllPersistentDataStores):
-            (WebKit::WebProcessProxy::topPrivatelyControlledDomainsWithWebsiteData):
-            (WebKit::WebProcessProxy::didFinishLaunching):
+            * NetworkProcess/NetworkProcess.h:
+            * NetworkProcess/NetworkProcessCreationParameters.cpp:
+            (WebKit::NetworkProcessCreationParameters::encode const):
+            (WebKit::NetworkProcessCreationParameters::decode):
+            * NetworkProcess/NetworkProcessCreationParameters.h:
+            * NetworkProcess/cocoa/NetworkProcessCocoa.mm:
+            (WebKit::NetworkProcess::platformInitializeNetworkProcessCocoa):
+            * Shared/WebProcessCreationParameters.cpp:
+            (WebKit::WebProcessCreationParameters::encode const):
+            (WebKit::WebProcessCreationParameters::decode):
+            * Shared/WebProcessCreationParameters.h:
+            * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+            (WebKit::WebProcessPool::platformInitializeWebProcess):
+            (WebKit::WebProcessPool::platformInitializeNetworkProcess):
 
-2018-08-07  Kocsen Chung  <kocsen_chung@apple.com>
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r234652. rdar://problem/43009927
+        Cherry-pick r234652. rdar://problem/43009928
 
     [macOS] Scrollbars are not visible when using 3rd party mouse
     https://bugs.webkit.org/show_bug.cgi?id=188372
@@ -332,9 +960,9 @@
             (WebKit::WebProcess::platformInitializeWebProcess):
             (WebKit::WebProcess::scrollerStylePreferenceChanged):
 
-2018-08-07  Kocsen Chung  <kocsen_chung@apple.com>
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r234626. rdar://problem/43009894
+        Cherry-pick r234626. rdar://problem/43009898
 
     Regression(NetworkLoadChecker): CORS preflights are no longer able to deal with client certificate authentication
     https://bugs.webkit.org/show_bug.cgi?id=188355
@@ -411,9 +1039,9 @@
             * NetworkProcess/PingLoad.cpp:
             (WebKit::PingLoad::PingLoad):
 
-2018-08-07  Kocsen Chung  <kocsen_chung@apple.com>
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r234611. rdar://problem/43009901
+        Cherry-pick r234611. rdar://problem/43009906
 
     Fix IPC::Connection leak in StorageManager
     https://bugs.webkit.org/show_bug.cgi?id=188321
@@ -527,6 +1155,48 @@
             * UIProcess/WebStorage/StorageManager.cpp:
             (WebKit::StorageManager::StorageArea::hasListener const):
             (WebKit::StorageManager::createTransientLocalStorageMap):
+
+2018-09-05  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r234651. rdar://problem/43009912
+
+    [Wi-Fi Assertions] suspendWiFiAssertions() should be able to delay sending ProcessReadyToSuspend
+    https://bugs.webkit.org/show_bug.cgi?id=188373
+    <rdar://problem/42857398>
+    
+    Reviewed by Tim Horton.
+    
+    * NetworkProcess/NetworkProcess.cpp:
+    (WebKit::NetworkProcess::actualPrepareToSuspend):
+    * NetworkProcess/NetworkProcess.h:
+    * NetworkProcess/cocoa/NetworkProcessCocoa.mm:
+    (WebKit::NetworkProcess::platformPrepareToSuspend):
+    (WebKit::NetworkProcess::platformProcessDidTransitionToBackground):
+    * NetworkProcess/curl/NetworkProcessCurl.cpp:
+    (WebKit::NetworkProcess::platformPrepareToSuspend):
+    * NetworkProcess/soup/NetworkProcessSoup.cpp:
+    (WebKit::NetworkProcess::platformPrepareToSuspend):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234651 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-06  Andy Estes  <aestes@apple.com>
+
+            [Wi-Fi Assertions] suspendWiFiAssertions() should be able to delay sending ProcessReadyToSuspend
+            https://bugs.webkit.org/show_bug.cgi?id=188373
+            <rdar://problem/42857398>
+
+            Reviewed by Tim Horton.
+
+            * NetworkProcess/NetworkProcess.cpp:
+            (WebKit::NetworkProcess::actualPrepareToSuspend):
+            * NetworkProcess/NetworkProcess.h:
+            * NetworkProcess/cocoa/NetworkProcessCocoa.mm:
+            (WebKit::NetworkProcess::platformPrepareToSuspend):
+            (WebKit::NetworkProcess::platformProcessDidTransitionToBackground):
+            * NetworkProcess/curl/NetworkProcessCurl.cpp:
+            (WebKit::NetworkProcess::platformPrepareToSuspend):
+            * NetworkProcess/soup/NetworkProcessSoup.cpp:
+            (WebKit::NetworkProcess::platformPrepareToSuspend):
 
 2018-08-01  Babak Shafiei  <bshafiei@apple.com>
 

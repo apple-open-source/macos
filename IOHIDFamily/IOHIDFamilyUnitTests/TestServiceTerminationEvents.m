@@ -8,10 +8,14 @@
 
 #import <XCTest/XCTest.h>
 #include "IOHIDUnitTestUtility.h"
-#import "IOHIDEventSystemTestController.h"
-#import "IOHIDUserDeviceTestController.h"
-#import "IOHIDDeviceTestController.h"
+#include "IOHIDXCTestExpectation.h"
 #import "IOHIDUnitTestDescriptors.h"
+#include <IOKit/hid/IOHIDUserDevice.h>
+#include <IOKit/hid/IOHIDEventSystemClient.h>
+
+#define fulfill(exp) \
+    exp.expectationDescription = [exp.expectationDescription stringByAppendingString:@"(fullfilled)"];\
+    [exp fulfill];
 
 static uint8_t descriptor[] = {
     HIDKeyboardDescriptor
@@ -19,14 +23,15 @@ static uint8_t descriptor[] = {
 
 @interface TestServiceTerminationEvents : XCTestCase
 
-@property IOHIDEventSystemTestController *  eventController;
-@property IOHIDUserDeviceTestController *   sourceController;
+@property IOHIDEventSystemClientRef         eventSystem;
+@property IOHIDUserDeviceRef                userDevice;
 
-@property dispatch_queue_t                  rootQueue;
-@property dispatch_queue_t                  eventControllerQueue;
+@property IOHIDXCTestExpectation            * testServiceExpectation;
+@property IOHIDXCTestExpectation            * testKbcDownEventExpectation;
+@property IOHIDXCTestExpectation            * testKbcUpEventExpectation;
+@property IOHIDXCTestExpectation            * testNullEventExpectation;
 
-@property NSInteger                         eventCount;
-@property NSInteger                         filterCount;
+@property NSMutableArray                    * events;
 
 @end
 
@@ -35,89 +40,99 @@ static uint8_t descriptor[] = {
 - (void)setUp {
     [super setUp];
 
-    self.rootQueue = IOHIDUnitTestCreateRootQueue(31, 2);
-  
-    self.eventControllerQueue = dispatch_queue_create_with_target ("IOHIDEventSystemTestController", DISPATCH_QUEUE_SERIAL, self.rootQueue);
-    XCTAssertNotNil(self.eventControllerQueue);
-
-    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
+    self.events = [[NSMutableArray alloc] init];
+    
     NSString * uniqueID = [[[NSUUID alloc] init] UUIDString];
-  
-    self.sourceController = [[IOHIDUserDeviceTestController alloc] initWithDescriptor:descriptorData DeviceUniqueID:uniqueID andQueue:nil];
-    //
-    // Ise EVAL to make sure XCTAssertTrue will ot hold ref to sourceController.
-    //
-    XCTAssertTrue(EVAL(self.sourceController != nil), "Event source controller is nil");
 
-    self.eventController = [[IOHIDEventSystemTestController alloc] initWithDeviceUniqueID:uniqueID AndQueue:self.eventControllerQueue];
-    XCTAssertNotNil (self.eventController);
-  
+    self.eventSystem = IOHIDEventSystemClientCreateWithType (kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
+    HIDXCTAssertAndThrowTrue(self.eventSystem != NULL);
 
+    NSDictionary *matching = @{@kIOHIDPhysicalDeviceUniqueIDKey : uniqueID};
+    
+    IOHIDEventSystemClientSetMatching(self.eventSystem , (__bridge CFDictionaryRef)matching);
+    
+    self.testServiceExpectation = [[IOHIDXCTestExpectation alloc] initWithDescription:@"expectation: Test HID service"];
+
+    self.testKbcDownEventExpectation = [[IOHIDXCTestExpectation alloc] initWithDescription:@"expectation: keyboard event down"];
+
+    self.testKbcUpEventExpectation = [[IOHIDXCTestExpectation alloc] initWithDescription:@"expectation: Keyboard event Up"];
+
+    self.testNullEventExpectation = [[IOHIDXCTestExpectation alloc] initWithDescription:@"expectation: Null event"];
+    
+    IOHIDServiceClientBlock handler = ^(void * _Nullable target __unused, void * _Nullable refcon __unused, IOHIDServiceClientRef  _Nonnull service __unused) {
+        [self.testServiceExpectation fulfill];
+    };
+    
+    IOHIDEventSystemClientRegisterDeviceMatchingBlock(self.eventSystem , handler, NULL, NULL);
+    
+    IOHIDEventSystemClientRegisterEventBlock(self.eventSystem, ^(void * _Nullable target __unused, void * _Nullable refcon __unused, void * _Nullable sender __unused, IOHIDEventRef  _Nonnull event) {
+        NSLog(@"Event: %@", event);
+        if (IOHIDEventGetType(event) == kIOHIDEventTypeKeyboard && IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsage) == kHIDUsage_KeypadEqualSignAS400) {
+            if (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardDown)) {
+                [self.testKbcDownEventExpectation fulfill];
+            } else {
+                [self.testKbcUpEventExpectation fulfill];
+            }
+        } else if (IOHIDEventGetType(event) == kIOHIDEventTypeNULL) {
+             [self.testNullEventExpectation fulfill];
+        } else {
+            [self.events addObject: (__bridge id _Nonnull)event];
+        }
+    }, NULL,  NULL);
+    
+    
+    IOHIDEventSystemClientScheduleWithDispatchQueue(self.eventSystem, dispatch_get_main_queue());
+    
+    NSDictionary * description = @{
+                                   @kIOHIDPhysicalDeviceUniqueIDKey : uniqueID,
+                                   @kIOHIDReportDescriptorKey : [NSData dataWithBytes:descriptor length:sizeof(descriptor)],
+                                   @kIOHIDVendorIDKey   : @(555),
+                                   @kIOHIDProductIDKey  : @(555),
+                                   };
+    self.userDevice =  IOHIDUserDeviceCreate(kCFAllocatorDefault, (CFDictionaryRef)description);
+    HIDXCTAssertAndThrowTrue(self.userDevice != NULL, "HID User Device config:%@", description);
+    
 }
 
 - (void)tearDown {
   
-    @autoreleasepool {
-        self.sourceController = nil;
-        self.eventController = nil;
+    if (self.userDevice) {
+        CFRelease(self.userDevice);
     }
-  
+
+    if (self.eventSystem) {
+        CFRelease(self.eventSystem);
+    }
+
     [super tearDown];
 }
 
 - (void)testKeyboardServiceTerminationEvent {
-
-    IOReturn status;
+    XCTWaiterResult result;
+    IOReturn        status;
+    
+    result = [XCTWaiter waitForExpectations:@[self.testServiceExpectation] timeout:10];
+    XCTAssert(result == XCTWaiterResultCompleted, "result:%ld %@", (long)result, self.testServiceExpectation);
     
     HIDKeyboardDescriptorInputReport report;
     memset(&report, 0, sizeof(report));
     
     report.KB_Keyboard[0] = kHIDUsage_KeypadEqualSignAS400;
 
-    status = [self.sourceController handleReport: (uint8_t *)&report Length:sizeof(report) andInterval:0];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
+    status = IOHIDUserDeviceHandleReport(self.userDevice, (uint8_t *)&report, sizeof(report));
+    XCTAssert(status == kIOReturnSuccess, "IOHIDUserDeviceHandleReport:%x", status);
 
-    // Allow event to be dispatched
-    usleep(kDefaultReportDispatchCompletionTime);
+    result = [XCTWaiter waitForExpectations:@[self.testKbcDownEventExpectation] timeout:10];
+    XCTAssert(result == XCTWaiterResultCompleted, "result:%ld %@", (long)result, self.testKbcDownEventExpectation);
+    
+    CFRelease(self.userDevice);
+    self.userDevice = NULL;
+    
+    result = [XCTWaiter waitForExpectations:@[self.testKbcUpEventExpectation, self.testNullEventExpectation] timeout:10];
+    XCTAssert(result == XCTWaiterResultCompleted, "result:%ld %@", (long)result, @[self.testKbcUpEventExpectation, self.testNullEventExpectation]);
+    
+    XCTAssert (self.events.count == 0, "Unexpected events:%@", self.events);
 
-    @autoreleasepool {
-      self.sourceController = nil;
-    }
-  
-    // Wait for device & service to terminate
-    sleep(4);
-
-    // Make copy
-    NSArray *events = nil;
-    @synchronized (self.eventController.events) {
-        events = [self.eventController.events copy];
-    }
-
-    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
-
-    HIDTestEventLatency(stats);
-
-    // Check events
-    XCTAssertTrue(stats.totalCount > 1,
-        "events count:%lu expected:>%d", (unsigned long)stats.totalCount , 1);
-  
-    XCTAssertTrue (stats.counts[kIOHIDEventTypeNULL] == 1, "kIOHIDEventTypeNULL count: %lu", (unsigned long)stats.counts[kIOHIDEventTypeNULL]);
-
-    // Check if any key left in down state
-    NSMutableSet * usages = [[NSMutableSet alloc] init];
-    for (NSUInteger index = 0; index < events.count; ++index) {
-        IOHIDEventRef event = (__bridge IOHIDEventRef)events[index];
-        if (IOHIDEventConformsTo(event, kIOHIDEventTypeKeyboard)) {
-            CFIndex usage = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsage);
-            CFIndex down  = IOHIDEventGetIntegerValue (event, kIOHIDEventFieldKeyboardDown);
-            if (down) {
-                [usages addObject: @(usage)];
-            } else {
-                [usages removeObject : @(usage)];
-            }
-        }
-    }
-    XCTAssert (usages.count == 0, "Outstanding usages:%@", usages);
 }
 
 @end

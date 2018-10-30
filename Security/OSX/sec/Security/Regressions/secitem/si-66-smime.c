@@ -2799,6 +2799,7 @@ out:
 static void test_smime_attrs(void) {
     testEncKeyPrefs(_thunderbird_ua_content, sizeof(_thunderbird_ua_content), _thunderbird_ua_cms, sizeof(_thunderbird_ua_cms));
     testEncKeyPrefs(_outlook15_ua_content, sizeof(_outlook15_ua_content), _outlook15_ua_cms, sizeof(_outlook15_ua_cms));
+    testEncKeyPrefs(_recipientKeyID_content, sizeof(_recipientKeyID_content), _recipientKeyID_cms, sizeof(_recipientKeyID_cms));
 }
 
 static void test_sign_no_priv(void) {
@@ -2874,7 +2875,7 @@ out:
 
 int si_66_smime(int argc, char *const *argv)
 {
-	plan_tests(33+2+9);
+	plan_tests(33+3+9);
 
 	tests();
     test_smime_attrs();

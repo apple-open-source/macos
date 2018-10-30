@@ -661,19 +661,20 @@ struct IOFramebufferPrivate
 
 #define GetShmem(instance)      ((StdFBShmem_t *)(instance->priv))
 
-#define KICK_CURSOR(thread)     \
-            thread->interruptOccurred(0, 0, 0);
+#define KICK_CURSOR(thread)     thread->interruptOccurred(0, 0, 0)
 
-#define CLEARSEMA(shmem, inst)                          \
-        if( inst->__private->cursorToDo ) {             \
-            KICK_CURSOR(inst->__private->cursorThread); \
-        }                                               \
-        OSSpinLockUnlock(&shmem->cursorSema)
+#define CLEARSEMA(shmem, inst) do {                               \
+    if (inst->__private->cursorToDo)                              \
+        KICK_CURSOR(inst->__private->cursorThread);               \
+    if (shmem)                                                    \
+        OSSpinLockUnlock(&shmem->cursorSema);                     \
+} while(false)
 
-#define SETSEMA(shmem, name)                            \
-        if (!OSSpinLockTry(&shmem->cursorSema)) {       \
-            IOFB_END(name,-1,__LINE__,0);               \
-            return; }
+#define SETSEMA(shmem, name_unused) do {                          \
+        if ( !(shmem && OSSpinLockTry(&shmem->cursorSema)) )      \
+            return;                                               \
+} while(false)
+
 #define TOUCHBOUNDS(one, two) \
         (((one.minx < two.maxx) && (two.minx < one.maxx)) && \
         ((one.miny < two.maxy) && (two.miny < one.maxy)))
@@ -1165,10 +1166,10 @@ static void TIMELOCK(IOGraphicsWorkLoop * wl, const char * name, const char * fn
     uint64_t nsec;														\
 	AbsoluteTime_to_scalar(&startTime) = mach_absolute_time();			\
 																		\
+    IOGraphicsWorkLoop::GateGuard ctrlgated(FBWL(fb));                  \
     StdFBShmem_t *shmem = GetShmem(fb);									\
     bool __checkTime = (2 == fb->getPowerState());						\
     SETSEMA(shmem, name);												\
-    FBLOCK(this);														\
 																		\
     AbsoluteTime_to_scalar(&endTime) = mach_absolute_time();			\
     SUB_ABSOLUTETIME(&endTime, &startTime);								\
@@ -1179,19 +1180,15 @@ static void TIMELOCK(IOGraphicsWorkLoop * wl, const char * name, const char * fn
 
 #else	/* TIME_CURSOR */
 
-#define CURSORLOCK(fb, name) 											\
-if (!cursorEnable) {                                                    \
-    IOFB_END(name,-1,__LINE__,0);                                       \
-    return; }                                                           \
+#define CURSORLOCK(fb, name)                                            \
+    if (!cursorEnable) return;                                          \
+    IOGraphicsWorkLoop::GateGuard ctrlgated(FBWL(fb));                  \
     StdFBShmem_t *shmem = GetShmem(fb);									\
     SETSEMA(shmem, name);												\
-    FBLOCK(this);														\
 
 #endif	/* TIME_CURSOR */
 
-#define CURSORUNLOCK(fb)	\
-    FBUNLOCK(fb);			\
-    CLEARSEMA(shmem, fb);
+#define CURSORUNLOCK(fb)	CLEARSEMA(shmem, fb);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -2557,29 +2554,34 @@ IOReturn IOFramebuffer::extCreateSharedCursor(
 
 IOReturn IOFramebuffer::extCopySharedCursor(IOMemoryDescriptor **cursorH)
 {
-    IOFB_START(extCopySharedCursor,0,0,0);
-
-    IOReturn err = kIOReturnSuccess;
-    /*
-     <rdar://problem/33240449> 17A306d : Coin Flip app and gfxCardStatus go not responding, stuck in IOFramebuffer::_extEntry()
-     When extCopySharedCursor() was introduced, the usage of extEntry/extExit was added.
-     For now, comment these out and return to the previous functionality and
-     lack-of-locking while maintaining the structure and usage of extCopySharedCursor().
-     */
-    //    err = extEntry(true, kIOGReportAPIState_CopySharedCursor);
-    //    if (err) {
-    //        IOFB_END(extCopySharedCursor,err,__LINE__,0);
-    //        return err;
-    //    }
+    // Using the GateGuard directly is lower risk than using the extEntry as it
+    // doesn't have the other sleep conditions. The shared cursor is orhogonal
+    // to the other extEntry conditions.
+    IOGraphicsWorkLoop::GateGuard ctrlgated(FBWL(this));
 
     if (sharedCursor) {
         sharedCursor->retain();
         *cursorH = sharedCursor;
     }
+    return kIOReturnSuccess;
+}
 
-    //    extExit(err, kIOGReportAPIState_CopySharedCursor);
+IOReturn IOFramebuffer::extCopyUserAccessObject(const uint32_t type,
+                                                IOMemoryDescriptor** memP)
+{
+    IOReturn err = kIOReturnBadArgument;
 
-    IOFB_END(extCopySharedCursor,err,0,0);
+    IOGraphicsWorkLoop::GateGuard ctrlgated(FBWL(this));
+
+    IOMemoryDescriptor* mem = NULL;
+    if (static_cast<bool>(userAccessRanges))
+        mem = OSDynamicCast(IOMemoryDescriptor,
+                            userAccessRanges->getObject(type));
+    if (static_cast<bool>(mem)) {
+        mem->retain();
+        *memP = mem;
+        err = kIOReturnSuccess;
+    }
     return err;
 }
 
@@ -3715,6 +3717,9 @@ void IOFramebuffer::checkDeferredCLUTSet( void )
 IOReturn IOFramebuffer::createSharedCursor(
     int cursorversion, int maxWidth, int maxWaitWidth )
 {
+
+    FBASSERTGATED(this);
+
     IOFB_START(createSharedCursor,cursorversion,maxWidth,maxWaitWidth);
     StdFBShmem_t *      shmem;
     UInt32              shmemVersion;
@@ -3726,20 +3731,16 @@ IOReturn IOFramebuffer::createSharedCursor(
 
     shmemVersion = cursorversion & kIOFBShmemVersionMask;
 
-    if ((maxWidth > 1024) || (maxWaitWidth > 1024))
-    {
-        IOFB_END(createSharedCursor,kIOReturnNoMemory,__LINE__,0);
+    const auto uMaxWidth = static_cast<uint32_t>(maxWidth);
+    const auto uMaxWaitWidth = static_cast<uint32_t>(maxWaitWidth);
+    if (uMaxWidth > kIOFBMaxCursorWidth || uMaxWaitWidth > kIOFBMaxCursorWidth)
         return (kIOReturnNoMemory);
-    }
-    if ((maxWidth < 0)    || (maxWaitWidth < 0))
-    {
-        IOFB_END(createSharedCursor,kIOReturnNoMemory,__LINE__,0);
-        return (kIOReturnNoMemory);
-    }
 
     if (shmemVersion == kIOFBTenPtTwoShmemVersion)
     {
         numCursorFrames = (kIOFBShmemCursorNumFramesMask & cursorversion) >> kIOFBShmemCursorNumFramesShift;
+        if (numCursorFrames > kIOFBMaxCursorFrames)
+            return (kIOReturnNoMemory);
 
         setProperty(kIOFBWaitCursorFramesKey, (numCursorFrames - 1), 32);
         setProperty(kIOFBWaitCursorPeriodKey, 33333333, 32);    /* 30 fps */
@@ -3794,22 +3795,16 @@ IOReturn IOFramebuffer::createSharedCursor(
            + max(maxImageSize, maxWaitImageSize)
            + ((numCursorFrames - 1) * maxWaitImageSize);
 
-    if (!sharedCursor || (size != sharedCursor->getLength()))
+    if (!sharedCursor)
     {
-        IOBufferMemoryDescriptor * newDesc;
-
-        priv = 0;
-        newDesc = IOBufferMemoryDescriptor::withOptions(
-                      kIODirectionNone | kIOMemoryKernelUserShared, size );
-        if (!newDesc)
+        priv = NULL;
+        sharedCursor = IOBufferMemoryDescriptor::withOptions(
+                kIODirectionNone | kIOMemoryKernelUserShared, size );
+        if (!sharedCursor)
         {
             IOFB_END(createSharedCursor,kIOReturnNoMemory,__LINE__,0);
             return (kIOReturnNoMemory);
         }
-
-        if (sharedCursor)
-            sharedCursor->release();
-        sharedCursor = newDesc;
     }
     shmem = (StdFBShmem_t *) sharedCursor->getBytesNoCopy();
     priv = shmem;
@@ -4445,6 +4440,7 @@ do {                                                                           \
 
         OSSafeReleaseNULL(__private->pmSettingNotificationHandle);
         OSSafeReleaseNULL(__private->paramHandler);
+        priv = NULL;
         OSSafeReleaseNULL(sharedCursor);
 
         // Disable notifications so we aren't delivering notifications for
@@ -10319,7 +10315,7 @@ void IOFramebuffer::close( void )
     // Only send the WSAA close event for managed FBs, else IOAF/drivers get confused.
     if (kIOWSAA_DriverOpen != __private->wsaaState)
     {
-        setWSAAAttribute(kIOWindowServerActiveAttribute, kIOWSAA_Unaccelerated | (__private->wsaaState & kIOWSAA_NonConsoleDevice));
+        setWSAAAttribute(kIOWindowServerActiveAttribute, (uint32_t)(kIOWSAA_Unaccelerated | (__private->wsaaState & kIOWSAA_NonConsoleDevice)));
         __private->wsaaState = kIOWSAA_DriverOpen;
     }
     // <rdar://problem/32880536> Intel: (J45G/IG) Flash of color logging out or rebooting

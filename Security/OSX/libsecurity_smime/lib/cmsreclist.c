@@ -98,7 +98,7 @@ nss_cms_recipients_traverse(SecCmsRecipientInfoRef *recipientinfos, SecCmsRecipi
 			break;
 		    case SecCmsKeyAgreeRecipientIDRKeyID:
 			rle->kind = RLSubjKeyID;
-			rle->id.subjectKeyID = rek->recipientIdentifier.id.recipientKeyIdentifier.subjectKeyIdentifier;
+			rle->id.subjectKeyID = &rek->recipientIdentifier.id.recipientKeyIdentifier.subjectKeyIdentifier;
 			break;
 		    }
 		    recipient_list[rlindex++] = rle;

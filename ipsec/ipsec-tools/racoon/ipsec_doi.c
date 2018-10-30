@@ -4082,9 +4082,13 @@ ipsecdoi_sockaddr2id(saddr, prefixlen, ul_proto)
 		if (prefixlen == (sizeof(struct in_addr) << 3)) {
 			type = IPSECDOI_ID_IPV4_ADDR;
 			len2 = 0;
-		} else {
+		} else if (prefixlen < (sizeof(struct in_addr) << 3)) {
 			type = IPSECDOI_ID_IPV4_ADDR_SUBNET;
 			len2 = sizeof(struct in_addr);
+		} else {
+			plog(ASL_LEVEL_ERR,
+				"invalid prefix length: %d.\n", prefixlen);
+			return NULL;
 		}
 		sa = (caddr_t)&((struct sockaddr_in *)(saddr))->sin_addr;
 		port = ((struct sockaddr_in *)(saddr))->sin_port;
@@ -4095,9 +4099,13 @@ ipsecdoi_sockaddr2id(saddr, prefixlen, ul_proto)
 		if (prefixlen == (sizeof(struct in6_addr) << 3)) {
 			type = IPSECDOI_ID_IPV6_ADDR;
 			len2 = 0;
-		} else {
+		} else if (prefixlen < (sizeof(struct in6_addr) << 3)) {
 			type = IPSECDOI_ID_IPV6_ADDR_SUBNET;
 			len2 = sizeof(struct in6_addr);
+		} else {
+			plog(ASL_LEVEL_ERR,
+				"invalid prefix length: %d.\n", prefixlen);
+			return NULL;
 		}
 		sa = (caddr_t)&((struct sockaddr_in6 *)(saddr))->sin6_addr;
 		port = ((struct sockaddr_in6 *)(saddr))->sin6_port;

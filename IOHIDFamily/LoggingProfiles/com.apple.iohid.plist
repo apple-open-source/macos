@@ -6,6 +6,8 @@
 	<dict>
 		<key>Enable-Oversize-Messages</key>
 		<true/>
+		<key>Default-Privacy-Setting</key>
+		<string>Public</string>
 	</dict>
 </dict>
 </plist>

@@ -815,6 +815,7 @@
 		D81A990D1DBFA00F00B35A3A /* TestDigitizerCollection.m in Sources */ = {isa = PBXBuildFile; fileRef = D81A990C1DBFA00F00B35A3A /* TestDigitizerCollection.m */; };
 		D81A99131DC0278300B35A3A /* TestHIDEventSystemClient.m in Sources */ = {isa = PBXBuildFile; fileRef = D81A99121DC0278300B35A3A /* TestHIDEventSystemClient.m */; };
 		D81A99151DC02DE100B35A3A /* TestServiceTerminationEvents.m in Sources */ = {isa = PBXBuildFile; fileRef = D81A99141DC02DE100B35A3A /* TestServiceTerminationEvents.m */; };
+		D820ADAF211DFC9E001C70A0 /* IOHIDFamilyTestSetup.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = D820ADAC211DFC13001C70A0 /* IOHIDFamilyTestSetup.sh */; };
 		D82E338E1DBEDD1C002A3D61 /* TestVendorMessageAndVendorPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = D82E338D1DBEDD1C002A3D61 /* TestVendorMessageAndVendorPayload.m */; };
 		D8349BE41CBFF698007BAD11 /* hidutil.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8349BE21CBFF664007BAD11 /* hidutil.1 */; };
 		D8349BE51CBFF6A1007BAD11 /* hidutil.m in Sources */ = {isa = PBXBuildFile; fileRef = D8349BE31CBFF664007BAD11 /* hidutil.m */; };
@@ -859,6 +860,7 @@
 		D862CB791E245A00001AE29F /* IOHIDEventServiceFastPathUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = D862CB5C1E243450001AE29F /* IOHIDEventServiceFastPathUserClient.h */; };
 		D862CB7A1E245A0C001AE29F /* IOHIDEventServiceFastPathUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D862CB5B1E243450001AE29F /* IOHIDEventServiceFastPathUserClient.cpp */; };
 		D867408D1ED897620099A4F9 /* TestHIDActivity.m in Sources */ = {isa = PBXBuildFile; fileRef = D867408C1ED897620099A4F9 /* TestHIDActivity.m */; };
+		D867A96A21207CF3003F2600 /* IOHIDXCTestExpectation.m in Sources */ = {isa = PBXBuildFile; fileRef = D867A96921207CF3003F2600 /* IOHIDXCTestExpectation.m */; };
 		D868E2CD1BD5D9C600CC07F9 /* IOHIDNXEventRouter.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = D868E2C61BD5D92100CC07F9 /* IOHIDNXEventRouter.plugin */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D868E2CE1BD5D9DB00CC07F9 /* IOHIDIUnknown.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 014D1774FFE1C65511CA2CF6 /* IOHIDIUnknown.cpp */; };
 		D868E2D41BD5DA5800CC07F9 /* IOHIDNXEventRouter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D868E2D11BD5DA2A00CC07F9 /* IOHIDNXEventRouter.cpp */; };
@@ -907,6 +909,9 @@
 		D88E7F90200C537C00D0CFFD /* MobileBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D88E7F8F200C537C00D0CFFD /* MobileBluetooth.framework */; };
 		D88E7FA0200C734800D0CFFD /* HIDRemoteDeviceServer.m in Sources */ = {isa = PBXBuildFile; fileRef = D88E7F9D200C552500D0CFFD /* HIDRemoteDeviceServer.m */; };
 		D8911DF01DC8195300EF2CEF /* TestKeyboardServicePlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = D8911DEF1DC8195300EF2CEF /* TestKeyboardServicePlugin.m */; };
+		D894CA772131024C005248B2 /* TestIOHIDEventDriver_GCFormFittedCollection.m in Sources */ = {isa = PBXBuildFile; fileRef = D894CA762131024B005248B2 /* TestIOHIDEventDriver_GCFormFittedCollection.m */; };
+		D894CA7A213115C2005248B2 /* TestIOHIDEventDriver_GCFormFitted.m in Sources */ = {isa = PBXBuildFile; fileRef = D894CA79213115C2005248B2 /* TestIOHIDEventDriver_GCFormFitted.m */; };
+		D894CA7D21311753005248B2 /* TestIOHIDEventDriver_GCGamepad.m in Sources */ = {isa = PBXBuildFile; fileRef = D894CA7C21311753005248B2 /* TestIOHIDEventDriver_GCGamepad.m */; };
 		D8A2F3A4201705FA006C2F4C /* com.apple.hidrsd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8A2F3A3201700F1006C2F4C /* com.apple.hidrsd.plist */; };
 		D8ACE9321DBA7A0900F34E42 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8ACE9301DBA709800F34E42 /* XCTest.framework */; };
 		D8ACE9341DBA7ADC00F34E42 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8ACE9331DBA7ADC00F34E42 /* Foundation.framework */; };
@@ -999,6 +1004,9 @@
 		D8DBD7911BE4687000E16D93 /* IOHIDAccelerationAlgorithm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D8DBD7871BE4679E00E16D93 /* IOHIDAccelerationAlgorithm.cpp */; };
 		D8DBD7921BE4687000E16D93 /* IOHIDAccelerationTable.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D8DBD7891BE4679E00E16D93 /* IOHIDAccelerationTable.cpp */; };
 		D8DBD7931BE4687000E16D93 /* IOHIDPointerScrollFilter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D8DBD78C1BE4679E00E16D93 /* IOHIDPointerScrollFilter.cpp */; };
+		D8F3855621250A1A0096957A /* IOHIDEventDriverTestCase.m in Sources */ = {isa = PBXBuildFile; fileRef = D8F3855521250A1A0096957A /* IOHIDEventDriverTestCase.m */; };
+		D8F3855921250A260096957A /* TestIOHIDEventDriver_Compass.m in Sources */ = {isa = PBXBuildFile; fileRef = D8F3855721250A250096957A /* TestIOHIDEventDriver_Compass.m */; };
+		D8F3855A21250A260096957A /* TestIOHIDEventDriver_Gyro.m in Sources */ = {isa = PBXBuildFile; fileRef = D8F3855821250A250096957A /* TestIOHIDEventDriver_Gyro.m */; };
 		D8FABD631DC0FF8A00BE942D /* IOHIDFamily.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8FABD611DC0FF7A00BE942D /* IOHIDFamily.plist */; };
 		D8FABD661DC189E000BE942D /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8FABD651DC189E000BE942D /* IOKit.framework */; };
 		D8FD9CB81F1FD4830018950C /* IOHIDDescriptorParser.h in Headers */ = {isa = PBXBuildFile; fileRef = F5AB66CD02ADD67601FF6135 /* IOHIDDescriptorParser.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -1849,6 +1857,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		D820ADAE211DFC5E001C70A0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/tests/IOHIDFamily;
+			dstSubfolderSpec = 0;
+			files = (
+				D820ADAF211DFC9E001C70A0 /* IOHIDFamilyTestSetup.sh in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		D83B3DE11FB2409C00DB1962 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -2194,6 +2212,7 @@
 		D81A990C1DBFA00F00B35A3A /* TestDigitizerCollection.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestDigitizerCollection.m; sourceTree = "<group>"; };
 		D81A99121DC0278300B35A3A /* TestHIDEventSystemClient.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDEventSystemClient.m; sourceTree = "<group>"; };
 		D81A99141DC02DE100B35A3A /* TestServiceTerminationEvents.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestServiceTerminationEvents.m; sourceTree = "<group>"; };
+		D820ADAC211DFC13001C70A0 /* IOHIDFamilyTestSetup.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = IOHIDFamilyTestSetup.sh; sourceTree = "<group>"; };
 		D82E338D1DBEDD1C002A3D61 /* TestVendorMessageAndVendorPayload.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestVendorMessageAndVendorPayload.m; sourceTree = "<group>"; };
 		D8349BE21CBFF664007BAD11 /* hidutil.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = hidutil.1; sourceTree = "<group>"; };
 		D8349BE31CBFF664007BAD11 /* hidutil.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = hidutil.m; sourceTree = "<group>"; };
@@ -2235,6 +2254,8 @@
 		D863EE391DDE19E800B06757 /* hid.codes */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = hid.codes; path = tools/hid.codes; sourceTree = "<group>"; };
 		D8666FA41BBEE6C10071B5F7 /* IOHIDUserDeviceTest-Entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "IOHIDUserDeviceTest-Entitlements.plist"; path = "tools/IOHIDUserDeviceTest-Entitlements.plist"; sourceTree = "<group>"; };
 		D867408C1ED897620099A4F9 /* TestHIDActivity.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDActivity.m; sourceTree = "<group>"; };
+		D867A96821207CF3003F2600 /* IOHIDXCTestExpectation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDXCTestExpectation.h; sourceTree = "<group>"; };
+		D867A96921207CF3003F2600 /* IOHIDXCTestExpectation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDXCTestExpectation.m; sourceTree = "<group>"; };
 		D868E2C61BD5D92100CC07F9 /* IOHIDNXEventRouter.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDNXEventRouter.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		D868E2D01BD5DA2A00CC07F9 /* IOHIDNXEventRouter-info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "IOHIDNXEventRouter-info.plist"; sourceTree = "<group>"; };
 		D868E2D11BD5DA2A00CC07F9 /* IOHIDNXEventRouter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDNXEventRouter.cpp; sourceTree = "<group>"; };
@@ -2278,6 +2299,12 @@
 		D8929523206AAC68004D7843 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.0.Internal.sdk/System/Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
 		D8929525206AB2B6004D7843 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS5.0.Internal.sdk/System/Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
 		D8929527206AC9BF004D7843 /* hideventdata.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = hideventdata.plist; path = tools/hideventdata.plist; sourceTree = "<group>"; };
+		D894CA752131024B005248B2 /* IOHIDGCFormfittedCollectionDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDGCFormfittedCollectionDescriptor.h; sourceTree = "<group>"; };
+		D894CA762131024B005248B2 /* TestIOHIDEventDriver_GCFormFittedCollection.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDEventDriver_GCFormFittedCollection.m; sourceTree = "<group>"; };
+		D894CA78213115C2005248B2 /* IOHIDGCFormfittedDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDGCFormfittedDescriptor.h; sourceTree = "<group>"; };
+		D894CA79213115C2005248B2 /* TestIOHIDEventDriver_GCFormFitted.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDEventDriver_GCFormFitted.m; sourceTree = "<group>"; };
+		D894CA7B21311753005248B2 /* IOHIDGCGamepadDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDGCGamepadDescriptor.h; sourceTree = "<group>"; };
+		D894CA7C21311753005248B2 /* TestIOHIDEventDriver_GCGamepad.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDEventDriver_GCGamepad.m; sourceTree = "<group>"; };
 		D8990FED1DDE30E900029D49 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		D8A2F3A3201700F1006C2F4C /* com.apple.hidrsd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.hidrsd.plist; sourceTree = "<group>"; };
 		D8ACE9171DBA6D3C00F34E42 /* IOHIDFamilyUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDFamilyUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2407,6 +2434,12 @@
 		D8DBD78C1BE4679E00E16D93 /* IOHIDPointerScrollFilter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDPointerScrollFilter.cpp; sourceTree = "<group>"; };
 		D8DBD78D1BE4679E00E16D93 /* IOHIDPointerScrollFilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDPointerScrollFilter.h; sourceTree = "<group>"; };
 		D8DBD78E1BE4679E00E16D93 /* IOHIDPointerScrollFilter.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = IOHIDPointerScrollFilter.hpp; sourceTree = "<group>"; };
+		D8F3855221250A190096957A /* IOHIDGyroDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDGyroDescriptor.h; sourceTree = "<group>"; };
+		D8F3855321250A1A0096957A /* IOHIDCompassDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDCompassDescriptor.h; sourceTree = "<group>"; };
+		D8F3855421250A1A0096957A /* IOHIDEventDriverTestCase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDEventDriverTestCase.h; sourceTree = "<group>"; };
+		D8F3855521250A1A0096957A /* IOHIDEventDriverTestCase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IOHIDEventDriverTestCase.m; sourceTree = "<group>"; };
+		D8F3855721250A250096957A /* TestIOHIDEventDriver_Compass.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDEventDriver_Compass.m; sourceTree = "<group>"; };
+		D8F3855821250A250096957A /* TestIOHIDEventDriver_Gyro.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDEventDriver_Gyro.m; sourceTree = "<group>"; };
 		D8FABD611DC0FF7A00BE942D /* IOHIDFamily.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = IOHIDFamily.plist; sourceTree = "<group>"; };
 		D8FABD651DC189E000BE942D /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
 		D8FD9CAB1F1E8D830018950C /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
@@ -3299,6 +3332,13 @@
 		D81A99161DC0484E00B35A3A /* Helpers */ = {
 			isa = PBXGroup;
 			children = (
+				D894CA7B21311753005248B2 /* IOHIDGCGamepadDescriptor.h */,
+				D894CA78213115C2005248B2 /* IOHIDGCFormfittedDescriptor.h */,
+				D894CA752131024B005248B2 /* IOHIDGCFormfittedCollectionDescriptor.h */,
+				D8F3855321250A1A0096957A /* IOHIDCompassDescriptor.h */,
+				D8F3855421250A1A0096957A /* IOHIDEventDriverTestCase.h */,
+				D8F3855521250A1A0096957A /* IOHIDEventDriverTestCase.m */,
+				D8F3855221250A190096957A /* IOHIDGyroDescriptor.h */,
 				D8CCD1BD1DBE73D300EB862E /* IOHIDUserDeviceTestController.h */,
 				D8CCD1BE1DBE73D300EB862E /* IOHIDUserDeviceTestController.m */,
 				D8CCD1C01DBE742300EB862E /* IOHIDEventSystemTestController.h */,
@@ -3310,6 +3350,8 @@
 				D808C1171E1F617300FE7094 /* IOHIDUnitTestDescriptors.h */,
 				727472932059F68C003FCBD2 /* TestIOHIDEventSerializationWrapper.h */,
 				727472942059F6B0003FCBD2 /* TestIOHIDEventSerializationWrapper.mm */,
+				D867A96821207CF3003F2600 /* IOHIDXCTestExpectation.h */,
+				D867A96921207CF3003F2600 /* IOHIDXCTestExpectation.m */,
 			);
 			name = Helpers;
 			sourceTree = "<group>";
@@ -3426,6 +3468,7 @@
 		D8ACE9181DBA6D3C00F34E42 /* IOHIDFamilyUnitTests */ = {
 			isa = PBXGroup;
 			children = (
+				D820ADAC211DFC13001C70A0 /* IOHIDFamilyTestSetup.sh */,
 				D81A99161DC0484E00B35A3A /* Helpers */,
 				D81A990C1DBFA00F00B35A3A /* TestDigitizerCollection.m */,
 				D867408C1ED897620099A4F9 /* TestHIDActivity.m */,
@@ -3450,6 +3493,11 @@
 				727472962059F6E3003FCBD2 /* TestIOHIDEventSerialization.mm */,
 				D85AF94B20865F2B00B30A9B /* TestSensorProperty.m */,
 				7230D18F208666C900DCA4FB /* TestIOHIDConnectionFilterPlugIn.m */,
+				D8F3855721250A250096957A /* TestIOHIDEventDriver_Compass.m */,
+				D8F3855821250A250096957A /* TestIOHIDEventDriver_Gyro.m */,
+				D894CA7C21311753005248B2 /* TestIOHIDEventDriver_GCGamepad.m */,
+				D894CA79213115C2005248B2 /* TestIOHIDEventDriver_GCFormFitted.m */,
+				D894CA762131024B005248B2 /* TestIOHIDEventDriver_GCFormFittedCollection.m */,
 			);
 			path = IOHIDFamilyUnitTests;
 			sourceTree = "<group>";
@@ -4746,8 +4794,8 @@
 			buildPhases = (
 				D8ACE9131DBA6D3C00F34E42 /* Sources */,
 				D8ACE9141DBA6D3C00F34E42 /* Frameworks */,
-				D8ACE9151DBA6D3C00F34E42 /* Resources */,
 				D8FABD601DC0FF5400BE942D /* CopyFiles */,
+				D820ADAE211DFC5E001C70A0 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -5203,13 +5251,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		D87D2638204CE739000229C1 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		D8ACE9151DBA6D3C00F34E42 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -5766,24 +5807,31 @@
 				727472952059F6B0003FCBD2 /* TestIOHIDEventSerializationWrapper.mm in Sources */,
 				727472972059F6E3003FCBD2 /* TestIOHIDEventSerialization.mm in Sources */,
 				D81A99151DC02DE100B35A3A /* TestServiceTerminationEvents.m in Sources */,
+				D894CA7A213115C2005248B2 /* TestIOHIDEventDriver_GCFormFitted.m in Sources */,
+				D8F3855621250A1A0096957A /* IOHIDEventDriverTestCase.m in Sources */,
 				D81A990D1DBFA00F00B35A3A /* TestDigitizerCollection.m in Sources */,
 				486EE5291E5D05A300C0A7C1 /* TestProperty.m in Sources */,
 				D85AF94C20865F2B00B30A9B /* TestSensorProperty.m in Sources */,
+				D894CA7D21311753005248B2 /* TestIOHIDEventDriver_GCGamepad.m in Sources */,
 				D81A990B1DBF0A9700B35A3A /* IOHIDUnitTestUtility.m in Sources */,
 				D862CB761E245616001AE29F /* TestFastPath.m in Sources */,
 				D808C1121E1F607000FE7094 /* TestHIDDevice.m in Sources */,
+				D894CA772131024C005248B2 /* TestIOHIDEventDriver_GCFormFittedCollection.m in Sources */,
 				7230D190208666C900DCA4FB /* TestIOHIDConnectionFilterPlugIn.m in Sources */,
 				D85443441E490795003BF2F7 /* TestHIDEventDriver.m in Sources */,
 				D8911DF01DC8195300EF2CEF /* TestKeyboardServicePlugin.m in Sources */,
+				D8F3855A21250A260096957A /* TestIOHIDEventDriver_Gyro.m in Sources */,
 				D867408D1ED897620099A4F9 /* TestHIDActivity.m in Sources */,
 				D85DCFD81E370BD5006D9264 /* TestVirtualService.m in Sources */,
 				46E83C87204E59EE0091DF92 /* TestIOHIDPostEvent.m in Sources */,
 				D8862B511DED385D0026B52C /* TestPerfEvents.m in Sources */,
 				D8BAE7581E6908C900CA5A24 /* TestHIDManager.m in Sources */,
+				D8F3855921250A260096957A /* TestIOHIDEventDriver_Compass.m in Sources */,
 				D82E338E1DBEDD1C002A3D61 /* TestVendorMessageAndVendorPayload.m in Sources */,
 				D8CCD1BF1DBE73D300EB862E /* IOHIDUserDeviceTestController.m in Sources */,
 				D8CCD1C51DBE754A00EB862E /* IOHIDDeviceTestController.m in Sources */,
 				D81A99131DC0278300B35A3A /* TestHIDEventSystemClient.m in Sources */,
+				D867A96A21207CF3003F2600 /* IOHIDXCTestExpectation.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -11108,10 +11156,9 @@
 				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDFamilyUnitTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 				TVOS_DEPLOYMENT_TARGET = 10.2;
-				VALID_ARCHS = "i386 x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s xscale";
 			};
 			name = "Development-CodeCoverage";
 		};
@@ -11270,10 +11317,9 @@
 				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDFamilyUnitTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 				TVOS_DEPLOYMENT_TARGET = 10.2;
-				VALID_ARCHS = "i386 x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s xscale";
 			};
 			name = Development;
 		};
@@ -11329,10 +11375,9 @@
 				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDFamilyUnitTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 				TVOS_DEPLOYMENT_TARGET = 10.2;
-				VALID_ARCHS = "i386 x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s xscale";
 			};
 			name = Deployment;
 		};

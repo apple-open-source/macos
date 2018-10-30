@@ -67,7 +67,9 @@ enum {
     kIOFBNumCursorFrames        = 4,
     kIOFBNumCursorFramesShift   = 2,
 #endif
-    kIOFBMaxCursorDepth         = 32
+    kIOFBMaxCursorDepth         = 32,
+    kIOFBMaxCursorWidth         = 256,
+    kIOFBMaxCursorFrames        = 32,
 };
 
 #ifndef IOFB_ARBITRARY_SIZE_CURSOR

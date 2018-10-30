@@ -1075,8 +1075,6 @@ void SecPathBuilderCheckKnownIntermediateConstraints(SecPathBuilderRef builder) 
         if (analytics) {
             analytics->valid_unknown_intermediate = true;
         }
-        /* [40648172] For now, log this error but do not fail the evaluation. */
-        certIX = -1;
     }
     SecCertificatePathVCSetUnknownCAIndex(path, certIX);
     SecCertificatePathVCSetCheckedIssuers(path, true);

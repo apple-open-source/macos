@@ -4590,26 +4590,27 @@ _dispatch_queue_wakeup_with_override_slow(dispatch_queue_t dq,
 		uint64_t dq_state, dispatch_wakeup_flags_t flags)
 {
 	dispatch_qos_t oqos, qos = _dq_state_max_qos(dq_state);
-	dispatch_queue_t tq;
+	dispatch_queue_t tq = dq->do_targetq;
+	mach_port_t owner;
 	bool locked;
 
 	if (_dq_state_is_base_anon(dq_state)) {
-		mach_port_t owner = _dq_state_drain_owner(dq_state);
-		if (owner) {
+		if (!_dispatch_is_in_root_queues_array(tq)) {
+			// <rdar://problem/40320044> Do not try to override pthread root
+			// queues, it isn't supported and can cause things to run
+			// on the wrong hierarchy if we enqueue a stealer by accident
+			goto out;
+		} else if ((owner = _dq_state_drain_owner(dq_state))) {
 			(void)_dispatch_wqthread_override_start_check_owner(owner, qos,
-				&dq->dq_state_lock);
+					&dq->dq_state_lock);
 			goto out;
 		}
-	}
 
-	tq = dq->do_targetq;
-
-	if (likely(!_dispatch_queue_is_mutable(dq))) {
-		locked = false;
-	} else if (_dispatch_is_in_root_queues_array(tq)) {
 		// avoid locking when we recognize the target queue as a global root
 		// queue it is gross, but is a very common case. The locking isn't
 		// needed because these target queues cannot go away.
+		locked = false;
+	} else if (likely(!_dispatch_queue_is_mutable(dq))) {
 		locked = false;
 	} else if (_dispatch_queue_sidelock_trylock(upcast(dq)._dl, qos)) {
 		// <rdar://problem/17735825> to traverse the tq chain safely we must

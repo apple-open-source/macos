@@ -11,6 +11,8 @@
 #include <mach/mach_time.h>
 #include <AssertMacros.h>
 #import <spawn.h>
+#include <sys/time.h>
+#include <IOKit/hid/IOHIDLibPrivate.h>
 
 int __IOHIDUnitTestAttributeInit(pthread_attr_t * p_pthread_attr, int priority, int policy);
 void * __IOHIDUnitTestCreateRunLoopThread(void * context);
@@ -145,10 +147,11 @@ void IOHIDUnitTestDestroyRunLoop (CFRunLoopRef runloop)  {
     CFRelease(runloop);
 }
 
-char *const hidutil[] = { "/usr/local/bin/hidutil", "dump", NULL };
-char *const spindump[] = { "/usr/sbin/spindump", "-notarget", "5", "10", "-stdout", NULL };
+char * const  hidutil[]  = { "/usr/local/bin/hidutil", "dump", NULL };
+const char * spindump[]  = { "/usr/sbin/spindump", "-notarget", "5", "10", "-o", NULL, NULL};
 char *const logcollect[] = { "/usr/bin/log", "show", "--debug", "--predicate", "senderImagePath contains \"IOHIDFamily\" or subsystem == \"com.apple.iohid\"", NULL };
-char *const ioreg[] = { "/usr/sbin/ioreg", "-lw0", NULL };
+char *const ioreg[]      = { "/usr/sbin/ioreg", "-lw0", NULL };
+const char * tailspin[]  = { "/usr/bin/tailspin", "save", "-r", "hidxctest", "-o" , "-n" , NULL, NULL};
 
 void IOHIDUnitTestRunPosixCommand(char *const argv[], NSString *stdoutFile)
 {
@@ -159,15 +162,76 @@ void IOHIDUnitTestRunPosixCommand(char *const argv[], NSString *stdoutFile)
     if (stdoutFile) {
         // for reading stdout
         posix_spawn_file_actions_init(&child_fd_actions);
-        posix_spawn_file_actions_addopen(&child_fd_actions, STDOUT_FILENO, [stdoutFile cStringUsingEncoding:NSUTF8StringEncoding], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        status = posix_spawn_file_actions_addopen(&child_fd_actions, STDOUT_FILENO, [stdoutFile cStringUsingEncoding:NSUTF8StringEncoding], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (status) {
+            NSLog(@"posix_spawn_file_actions_addopen (,,%@,,):%s", stdoutFile, strerror(status));
+        }
     }
     
-    NSLog(@"Running %s", argv[0]);
+    NSLog(@"Running %s > %s", argv[0], [stdoutFile cStringUsingEncoding:NSUTF8StringEncoding]);
     status = posix_spawnp(&pid, argv[0], &child_fd_actions, NULL, argv, NULL);
     if (status) {
         NSLog(@"posix_spawnp: %s", strerror(status));
     } else {
         waitpid(pid, &status, 0);
         NSLog(@"%s exited with status %i\n", argv[0], status);
+    }
+}
+
+CFStringRef IOHIDUnitTestCreateStringFromTimeval(CFAllocatorRef allocator, struct timeval *tv)
+{
+    struct tm tmd;
+    struct tm *local_time;
+    char time_str[32] = { 0, };
+    
+    local_time = localtime_r(&tv->tv_sec, &tmd);
+    if (local_time == NULL) {
+        local_time = gmtime_r(&tv->tv_sec, &tmd);
+    }
+    
+    if (local_time) {
+        strftime(time_str, sizeof(time_str), "%F_%H:%M:%S", local_time);
+    }
+    
+    
+    CFStringRef time = CFStringCreateWithFormat(allocator, NULL, CFSTR("%s.%06d"), time_str, tv->tv_usec);
+    return time;
+}
+
+void IOHIDUnitTestCollectLogs (uint32_t logTypes, char * fileName, int line)
+{
+    struct timeval t;
+    gettimeofday(&t, NULL);
+  
+    NSString * path = [NSString stringWithFormat:@"%s/%s", kLogDestinationDir, fileName];
+    
+    NSString * base = [NSString stringWithFormat:@"%@/%d_%@",
+                                                path,
+                                                line,
+                                                CFBridgingRelease(IOHIDUnitTestCreateStringFromTimeval(kCFAllocatorDefault, &t))];
+    
+    NSFileManager * manager =  [NSFileManager defaultManager];
+    
+    if ([manager fileExistsAtPath: path] == NO) {
+        [manager createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:nil];
+    }
+    if (logTypes & COLLECT_SPINDUMP) {
+        NSString * outFile = [NSString stringWithFormat:@"%@_spindump.txt", base];
+        spindump[5] = [outFile cStringUsingEncoding:NSUTF8StringEncoding];
+        IOHIDUnitTestRunPosixCommand((char * const *)spindump, NULL);
+    }
+    if (logTypes & COLLECT_TAILSPIN) {
+        NSString * outFile = [NSString stringWithFormat:@"%@_tailspin.tailspin", base];
+        tailspin[6] = [outFile cStringUsingEncoding:NSUTF8StringEncoding];
+        IOHIDUnitTestRunPosixCommand((char * const *)tailspin, NULL);
+    }
+    if (logTypes & COLLECT_HIDUTIL) {
+        IOHIDUnitTestRunPosixCommand(hidutil, [NSString stringWithFormat:@"%@_hidutil.plist", base]);
+    }
+    if (logTypes & COLLECT_IOREG) {
+        IOHIDUnitTestRunPosixCommand(ioreg, [NSString stringWithFormat:@"%@_ioreg.txt", base]);
+    }
+    if (logTypes & COLLECT_LOGARCHIVE) {
+        IOHIDUnitTestRunPosixCommand(logcollect, [NSString stringWithFormat:@"%@_logdump.txt", base]);
     }
 }

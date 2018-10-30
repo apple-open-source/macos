@@ -286,9 +286,10 @@ CFDataRef ResourceBuilder::hashFile(const char *path, CodeDirectory::HashAlgorit
 	fd.fcntl(F_NOCACHE, true);		// turn off page caching (one-pass)
 	RefPointer<DynamicHash> hasher(CodeDirectory::hashFor(type));
 	hashFileData(fd, hasher.get());
-	Hashing::Byte digest[hasher->digestLength()];
-	hasher->finish(digest);
-	return CFDataCreate(NULL, digest, sizeof(digest));
+	vector<Hashing::Byte> digest_vector(hasher->digestLength());
+	hasher->finish(digest_vector.data());
+	return CFDataCreate(NULL, digest_vector.data(),
+						digest_vector.size() * sizeof(Hashing::Byte));
 }
 
 
@@ -306,9 +307,9 @@ CFMutableDictionaryRef ResourceBuilder::hashFile(const char *path, CodeDirectory
 	CFMutableDictionaryRef resultRef = result;
 	CodeDirectory::multipleHashFileData(fd, 0, types, ^(CodeDirectory::HashAlgorithm type, Security::DynamicHash *hasher) {
 		size_t length = hasher->digestLength();
-		Hashing::Byte digest[length];
-		hasher->finish(digest);
-		CFDictionaryAddValue(resultRef, CFTempString(hashName(type)), CFTempData(digest, length));
+		vector<Hashing::Byte> digest_vector(length);
+		hasher->finish(digest_vector.data());
+		CFDictionaryAddValue(resultRef, CFTempString(hashName(type)), CFTempData(digest_vector.data(), length));
 	});
 	return result.yield();
 }

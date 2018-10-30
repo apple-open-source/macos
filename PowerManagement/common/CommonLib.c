@@ -239,3 +239,39 @@ __private_extern__  asl_object_t open_pm_asl_store(char *store)
     return response;
 }
 
+uint64_t CFAbsoluteTimeToMachAbsoluteTime(CFAbsoluteTime absoluteTime)
+{
+    uint64_t absolute;
+    struct timespec date;
+    kern_return_t result = mach_get_times(&absolute, NULL, &date);
+    if (result != KERN_SUCCESS) {
+        ERROR_LOG("Unable to get times: %i", result);
+        return 0;
+    }
+
+    // Convert the date to a CFAbsoluteTime
+    CFAbsoluteTime now = (date.tv_sec - kCFAbsoluteTimeIntervalSince1970) + date.tv_nsec / (CFTimeInterval)NSEC_PER_SEC;
+
+    // Figure out the difference between the date we got and the date we were passed in.
+    CFTimeInterval secondsBetweenInputAndNow = now - absoluteTime;
+
+    mach_timebase_info_data_t timebaseInfo;
+    mach_timebase_info(&timebaseInfo);
+    
+    uint64_t absoluteTimeIntervalBetweenInputAndNow = secondsBetweenInputAndNow * (CFTimeInterval)NSEC_PER_SEC * (timebaseInfo.denom / timebaseInfo.numer);
+    // back up the absolute time we got by this interval
+    uint64_t inputInAbsoluteTime = absolute - absoluteTimeIntervalBetweenInputAndNow;
+
+    return inputInAbsoluteTime;
+}
+
+uint64_t intervalInNanoseconds(uint64_t start, uint64_t end)
+{
+    // interval between two mach absolute timestamps
+    mach_timebase_info_data_t timebaseInfo;
+    mach_timebase_info(&timebaseInfo);
+    uint64_t elapsedNano = (end - start) * timebaseInfo.numer / timebaseInfo.denom;
+    return elapsedNano;
+
+}
+

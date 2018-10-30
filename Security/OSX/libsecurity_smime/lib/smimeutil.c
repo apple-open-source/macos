@@ -117,8 +117,8 @@ static const SecAsn1Template smime_encryptionkeypref_template[] = {
 	  NSSSMIMEEncryptionKeyPref_IssuerSN },
     { SEC_ASN1_POINTER | SEC_ASN1_CONTEXT_SPECIFIC | 1,
 	  offsetof(NSSSMIMEEncryptionKeyPreference,id.recipientKeyID),
-	  SecCmsRecipientKeyIdentifierTemplate,
-	  NSSSMIMEEncryptionKeyPref_IssuerSN },
+	  SEC_ASN1_SUB(SecCmsRecipientKeyIdentifierTemplate),
+	  NSSSMIMEEncryptionKeyPref_RKeyID },
     { SEC_ASN1_POINTER | SEC_ASN1_CONTEXT_SPECIFIC | SEC_ASN1_XTRN | 2,
 	  offsetof(NSSSMIMEEncryptionKeyPreference,id.subjectKeyID),
 	  SEC_ASN1_SUB(kSecAsn1OctetStringTemplate),
@@ -733,8 +733,10 @@ SecSMIMEGetCertFromEncryptionKeyPreference(SecKeychainRef keychainOrArray, CSSM_
 	cert = CERT_FindCertByIssuerAndSN(keychainOrArray, rawCerts, NULL, tmppoolp, ekp.id.issuerAndSN);
 	break;
     case NSSSMIMEEncryptionKeyPref_RKeyID:
+        cert = CERT_FindCertBySubjectKeyID(keychainOrArray, rawCerts, NULL, &ekp.id.recipientKeyID->subjectKeyIdentifier);
+        break;
     case NSSSMIMEEncryptionKeyPref_SubjectKeyID:
-            cert = CERT_FindCertBySubjectKeyID(keychainOrArray, rawCerts, NULL, ekp.id.subjectKeyID);
+        cert = CERT_FindCertBySubjectKeyID(keychainOrArray, rawCerts, NULL, ekp.id.subjectKeyID);
 	break;
     default:
 	PORT_Assert(0);

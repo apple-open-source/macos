@@ -587,7 +587,7 @@ static pthread_t
 _pthread_allocate(const pthread_attr_t *attrs, void **stack)
 {
 	mach_vm_address_t allocaddr = __pthread_stack_hint;
-	size_t allocsize, guardsize, stacksize;
+	size_t allocsize, guardsize, stacksize, pthreadoff;
 	kern_return_t kr;
 	pthread_t t;
 
@@ -600,6 +600,7 @@ _pthread_allocate(const pthread_attr_t *attrs, void **stack)
 		PTHREAD_ASSERT(((uintptr_t)attrs->stackaddr % vm_page_size) == 0);
 		allocsize = PTHREAD_SIZE;
 		guardsize = 0;
+		pthreadoff = 0;
 		// <rdar://problem/42588315> if the attrs struct specifies a custom
 		// stack address but not a custom size, using ->stacksize here instead
 		// of _pthread_attr_stacksize stores stacksize as zero, indicating
@@ -608,7 +609,8 @@ _pthread_allocate(const pthread_attr_t *attrs, void **stack)
 	} else {
 		guardsize = _pthread_attr_guardsize(attrs);
 		stacksize = _pthread_attr_stacksize(attrs) + PTHREAD_T_OFFSET;
-		allocsize = stacksize + guardsize + PTHREAD_SIZE;
+		pthreadoff = stacksize + guardsize;
+		allocsize = pthreadoff + PTHREAD_SIZE;
 		allocsize = mach_vm_round_page(allocsize);
 	}
 
@@ -637,7 +639,7 @@ _pthread_allocate(const pthread_attr_t *attrs, void **stack)
 	// Thread structure resides at the top of the stack (when using a
 	// custom stack, allocsize == PTHREAD_SIZE, so places the pthread_t
 	// at allocaddr).
-	t = (pthread_t)(allocaddr + allocsize - PTHREAD_SIZE);
+	t = (pthread_t)(allocaddr + pthreadoff);
 	if (attrs->stackaddr) {
 		*stack = attrs->stackaddr;
 	} else {

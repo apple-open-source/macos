@@ -885,7 +885,9 @@ IOReturn IOHIDUPSClass::sendCommand(CFDictionaryRef command)
         }
         else if (CFEqual(CFSTR(kIOPSCommandSetCurrentLimitKey), keys[i]) ||
                  CFEqual(CFSTR(kIOPSCommandSetRequiredVoltageKey), keys[i]) ||
+                 CFEqual(CFSTR(kIOPSCommandSendCurrentTemperature), keys[i]) ||
                  CFEqual(CFSTR(kIOPSCommandSendCurrentStateOfCharge), keys[i]) ||
+                 CFEqual(CFSTR(kIOPSCommandSendAverageChargingCurrent), keys[i]) ||
                  CFEqual(CFSTR(kIOPSAppleBatteryCaseCommandEnableChargingKey), keys[i]))
         {
             CFNumberGetValue((CFNumberRef)values[i], kCFNumberSInt32Type, &value);
@@ -1161,13 +1163,24 @@ bool IOHIDUPSClass::findElements()
                     }
                     break;
                 case kHIDUsage_PD_Temperature:
-                    // Normalize to Kelvin
-                    if ( newElement.unit == kIOHIDUnitKelvin )
-                        newElement.multiplier = pow(10, newElement.unitExponent);
-                    else
-                        newElement.multiplier = 1.0;
+                    // If the element is an output report, it represents
+                    // OUR temperature
+                    if ( newElement.type == kIOHIDElementTypeOutput )
+                    {
+                        newElement.isDesiredType = true;
+                        psKey                   = CFSTR(kIOPSCommandSendCurrentTemperature);
+                        newElement.shouldPoll   = false;
+                        newElement.isCommand    = true;
+                    // otherwise, it represents the temperature of the UPS
+                    } else {
+                        // Normalize to Kelvin
+                        if ( newElement.unit == kIOHIDUnitKelvin )
+                            newElement.multiplier = pow(10, newElement.unitExponent);
+                        else
+                            newElement.multiplier = 1.0;
                     
-                    psKey = CFSTR(kIOPSTemperatureKey);
+                        psKey = CFSTR(kIOPSTemperatureKey);
+                    }
                     break;
                 case kHIDUsage_PD_InternalFailure:
                     psKey = CFSTR(kIOPSInternalFailureKey);
@@ -1275,6 +1288,24 @@ bool IOHIDUPSClass::findElements()
                     {
                         // 6-byte address
                         psKey = CFSTR(kIOPSAppleBatteryCaseAddress);
+                    }
+                    break;
+                case kHIDUsage_AppleVendorBattery_ChargingVoltage:
+                    // Normalize to mV (accounting for HID's units being 10^-7 V)
+                    if ( newElement.unit == kIOHIDUnitVolt )
+                        newElement.multiplier = pow(10, (3 + (newElement.unitExponent - kIOHIDUnitExponentVolt)));
+                    else
+                        newElement.multiplier = 1000.0;
+
+                    psKey = CFSTR(kAppleBatteryCaseChargingVoltageKey);
+                    break;
+                case kHIDUsage_AppleVendorBattery_AverageChargingCurrent:
+                    if ( newElement.type == kIOHIDElementTypeOutput )
+                    {
+                        newElement.isDesiredType = true;
+                        psKey                   = CFSTR(kIOPSCommandSendAverageChargingCurrent);
+                        newElement.shouldPoll   = false;
+                        newElement.isCommand    = true;
                     }
                     break;
             }
@@ -1627,6 +1658,10 @@ PROCESS_EVENT_UPDATE_AC:
             case kHIDUsage_AppleVendorBattery_AdapterFamily:
                 value = hidElement->currentValue;
                 update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPMPSAdapterDetailsFamilyKey), value);
+                break;
+            case kHIDUsage_AppleVendorBattery_ChargingVoltage:
+                value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier);
+                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kAppleBatteryCaseChargingVoltageKey), value);
                 break;
             case kHIDUsage_AppleVendorBattery_Address:
                 // Address must be stored in the longValue field since it's 6 bytes.

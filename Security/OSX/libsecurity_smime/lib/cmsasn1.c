@@ -322,11 +322,13 @@ static const SecAsn1Template SecCmsOriginatorIdentifierOrKeyTemplate[] = {
 const SecAsn1Template SecCmsRecipientKeyIdentifierTemplate[] = {
     { SEC_ASN1_SEQUENCE,
 	  0, NULL, sizeof(SecCmsRecipientKeyIdentifier) },
-    { SEC_ASN1_OCTET_STRING,
-	  offsetof(SecCmsRecipientKeyIdentifier,subjectKeyIdentifier) },
-    { SEC_ASN1_OPTIONAL | SEC_ASN1_OCTET_STRING,
-	  offsetof(SecCmsRecipientKeyIdentifier,date) },
-    { SEC_ASN1_OPTIONAL | SEC_ASN1_OCTET_STRING,
+    { SEC_ASN1_INLINE | SEC_ASN1_OCTET_STRING,
+	  offsetof(SecCmsRecipientKeyIdentifier,subjectKeyIdentifier),
+          SEC_ASN1_SUB(kSecAsn1OctetStringTemplate) },
+    { SEC_ASN1_INLINE | SEC_ASN1_OPTIONAL | SEC_ASN1_GENERALIZED_TIME,
+	  offsetof(SecCmsRecipientKeyIdentifier,date),
+          SEC_ASN1_SUB(kSecAsn1GeneralizedTimeTemplate) },
+    { SEC_ASN1_INLINE | SEC_ASN1_OPTIONAL | SEC_ASN1_ANY,
 	  offsetof(SecCmsRecipientKeyIdentifier,other) },
     { 0 }
 };

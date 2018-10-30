@@ -128,9 +128,14 @@ uint64_t SecOTAPKIGetTrustStoreVersion(SecOTAPKIRef otapkiRef);
 CF_EXPORT
 uint64_t SecOTAPKIGetAssetVersion(SecOTAPKIRef otapkiRef);
 
-// Accessor to retrieve the last check in time for the OTAPKI asset
+// Accessors to retrieve the last check in time for the OTAPKI asset
 CF_EXPORT
 CFDateRef SecOTAPKICopyLastAssetCheckInDate(SecOTAPKIRef otapkiRef);
+
+#define kSecOTAPKIAssetStalenessAtRisk (60*60*24*30) // 30 days
+#define kSecOTAPKIAssetStalenessWarning (60*60*24*45) // 45 days
+#define kSecOTAPKIAssetStalenessDisable (60*60*24*60) // 60 days
+bool SecOTAPKIAssetStalenessLessThanSeconds(SecOTAPKIRef otapkiRef, CFTimeInterval seconds);
 
 #if __OBJC__
 // SPI to return the current sampling rate for the event name

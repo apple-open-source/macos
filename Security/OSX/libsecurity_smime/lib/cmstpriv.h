@@ -322,9 +322,9 @@ struct SecCmsOriginatorIdentifierOrKeyStr {
 typedef struct SecCmsOriginatorIdentifierOrKeyStr SecCmsOriginatorIdentifierOrKey;
 
 struct SecCmsRecipientKeyIdentifierStr {
-    CSSM_DATA_PTR 				subjectKeyIdentifier;
-    CSSM_DATA_PTR 				date;			/* optional */
-    CSSM_DATA_PTR 				other;			/* optional */
+    CSSM_DATA 				subjectKeyIdentifier;
+    CSSM_DATA 				date;			/* optional */
+    CSSM_DATA 				other;			/* optional */
 };
 typedef struct SecCmsRecipientKeyIdentifierStr SecCmsRecipientKeyIdentifier;
 

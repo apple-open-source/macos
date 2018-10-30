@@ -1916,6 +1916,12 @@ case kIOHIDEventTypeGameController:\
         case kIOHIDEventFieldGameControllerShoulderButtonR2: \
             ((IOHIDGameControllerEventData*)event)->shoulder.r2 = (typeof(((IOHIDGameControllerEventData*)event)->shoulder.r2)) CAST_INTEGER_TO_FIXED(value); \
             break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonLeft: \
+            ((__IOHIDGameControllerEventData*)event)->thumbstickButtonLeft = value ? 1 : 0; \
+            break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
+            ((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight = value ? 1 : 0; \
+            break; \
         _IOHIDGameControllerSetSynthesizedFieldsAsIntegerMacro(event,field) \
     }\
     break;\
@@ -1976,6 +1982,12 @@ case kIOHIDEventTypeGameController:\
             break; \
         case kIOHIDEventFieldGameControllerShoulderButtonR2: \
             value = (typeof(value))CAST_FIXED_TO_INTEGER(((IOHIDGameControllerEventData*)event)->shoulder.r2); \
+            break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonLeft: \
+            value = (typeof(value))CAST_INTEGER_TO_INTEGER(((__IOHIDGameControllerEventData*)event)->thumbstickButtonLeft); \
+            break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
+            value = (typeof(value))CAST_INTEGER_TO_INTEGER(((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight); \
             break; \
         _IOHIDGameControllerGetSynthesizedFieldsAsIntegerMacro(event,field) \
     }\
@@ -2038,6 +2050,12 @@ case kIOHIDEventTypeGameController:\
         case kIOHIDEventFieldGameControllerShoulderButtonR2: \
             ((IOHIDGameControllerEventData*)event)->shoulder.r2 = (typeof(((IOHIDGameControllerEventData*)event)->shoulder.r2)) CAST_DOUBLE_TO_FIXED(value); \
             break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonLeft: \
+            ((__IOHIDGameControllerEventData*)event)->thumbstickButtonLeft = value ? 1 : 0; \
+            break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
+            ((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight = value ? 1 : 0; \
+            break; \
         _IOHIDGameControllerSetSynthesizedFieldsAsDoubleMacro(event,field) \
     }\
     break;\
@@ -2098,6 +2116,12 @@ case kIOHIDEventTypeGameController:\
             break; \
         case kIOHIDEventFieldGameControllerShoulderButtonR2: \
             value = (typeof(value))CAST_FIXED_TO_DOUBLE(((IOHIDGameControllerEventData*)event)->shoulder.r2); \
+            break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonLeft: \
+            value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((__IOHIDGameControllerEventData*)event)->thumbstickButtonLeft); \
+            break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
+            value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight); \
             break; \
         _IOHIDGameControllerGetSynthesizedFieldsAsDoubleMacro(event,field) \
     }\
@@ -2160,6 +2184,12 @@ case kIOHIDEventTypeGameController:\
         case kIOHIDEventFieldGameControllerShoulderButtonR2: \
             ((IOHIDGameControllerEventData*)event)->shoulder.r2 = (typeof(((IOHIDGameControllerEventData*)event)->shoulder.r2)) CAST_FIXED_TO_FIXED(value); \
             break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonLeft: \
+            ((__IOHIDGameControllerEventData*)event)->thumbstickButtonLeft = value ? 1 : 0; \
+            break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
+            ((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight = value ? 1 : 0; \
+            break; \
         _IOHIDGameControllerSetSynthesizedFieldsAsFixedMacro(event,field) \
     }\
     break;\
@@ -2220,6 +2250,12 @@ case kIOHIDEventTypeGameController:\
             break; \
         case kIOHIDEventFieldGameControllerShoulderButtonR2: \
             value = (typeof(value))CAST_FIXED_TO_FIXED(((IOHIDGameControllerEventData*)event)->shoulder.r2); \
+            break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonLeft: \
+            value = (typeof(value))CAST_SHORTINTEGER_TO_FIXED(((__IOHIDGameControllerEventData*)event)->thumbstickButtonLeft); \
+            break; \
+        case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
+            value = (typeof(value))CAST_SHORTINTEGER_TO_FIXED(((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight); \
             break; \
         _IOHIDGameControllerGetSynthesizedFieldsAsFixedMacro(event,field) \
     }\

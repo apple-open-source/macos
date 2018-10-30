@@ -45,7 +45,10 @@ using PtrTag = WTF::PtrTag;
     v(JSSwitchPtrTag) \
     v(LinkBufferPtrTag) \
     v(OperationPtrTag) \
+    v(OSREntryPtrTag) \
     v(OSRExitPtrTag) \
+    v(PlatformRegistersLRPtrTag) \
+    v(PlatformRegistersPCPtrTag) \
     v(SlowPathPtrTag) \
     v(WasmEntryPtrTag) \
     v(Yarr8BitPtrTag) \

@@ -256,6 +256,8 @@
     static IOReturn extAcknowledgeNotification(OSObject * target, void * reference, IOExternalMethodArguments * args);
     IOReturn extAcknowledgeNotificationImpl(IOExternalMethodArguments * args);
     IOReturn extCopySharedCursor(IOMemoryDescriptor **cursorH);
+    IOReturn extCopyUserAccessObject(const uint32_t type,
+                                     IOMemoryDescriptor** memP);
     IOReturn newDiagnosticUserClient(IOUserClient **clientH);
     static IOReturn extSetHibernateGammaTable(OSObject * target, void * reference, IOExternalMethodArguments * args);
 

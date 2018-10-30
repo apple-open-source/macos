@@ -40,6 +40,8 @@
 # include <sys/time.h>
 #endif
 
+#define SEC_MACH_AUDIT_TOKEN_PID (5)
+
 namespace Security {
 namespace MachPlusPlus {
 
@@ -245,6 +247,11 @@ void MachServer::runServerThread(bool doTimeout)
 				bufRequest.msgId() <= MACH_NOTIFY_LAST) {
 				// mach kernel notification message
 				// we assume this is quick, so no thread arbitration here
+				mach_msg_audit_trailer_t *tlr = bufRequest.auditTrailer();
+				if (tlr == NULL || tlr->msgh_audit.val[SEC_MACH_AUDIT_TOKEN_PID] != 0) {
+					secnotice("machserver", "ignoring invalid notify message");
+					continue;
+				}
 				cdsa_notify_server(bufRequest, bufReply);
 			} else {
 				// normal request message

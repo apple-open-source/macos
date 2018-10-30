@@ -143,6 +143,11 @@ private:
                 IOFixed r2;
             } shoulder;
 
+            struct {
+                unsigned int  left;
+                unsigned int  right;
+            } thumbstick;
+            
         } gameController;
       
         struct {

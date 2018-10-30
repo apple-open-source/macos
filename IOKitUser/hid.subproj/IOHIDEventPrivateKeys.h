@@ -24,7 +24,8 @@
 #ifndef IOHIDEventPrivateKeys_h
 #define IOHIDEventPrivateKeys_h
 
-#define kIOHIDEventAttachmentSender  "Sender"
+
+extern  const CFStringRef kIOHIDEventAttachmentSender;
 
 
 #endif /* IOHIDEventPrivateKeys_h */

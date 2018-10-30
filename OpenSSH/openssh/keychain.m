@@ -37,7 +37,10 @@
 #include <stdio.h>
 
 #include "xmalloc.h"
-#include "key.h"
+#include "sshkey.h"
+#include "ssherr.h"
+#include "authfile.h"
+#include "openbsd-compat/openbsd-compat.h"
 #include "log.h"
 
 char *keychain_read_passphrase(const char *filename)
@@ -84,15 +87,14 @@ char *keychain_read_passphrase(const char *filename)
 	[passphraseData release];
 
 	// Try to load the key first and only return the passphrase if we know it's the right one
-	char *comment = NULL;
-	Key *private = key_load_private(filename, passphrase, &comment);
-	if (NULL == private) {
+	struct sshkey *private = NULL;
+	int r = sshkey_load_private_type(KEY_UNSPEC, filename, passphrase, &private, NULL, NULL);
+	if (r != SSH_ERR_SUCCESS) {
 		debug2("Could not unlock key with the passphrase retrieved from the keychain.");
-		free(passphrase);
+		freezero(passphrase, strlen(passphrase));
 		return NULL;
 	}
-	free(comment);
-	key_free(private);
+	sshkey_free(private);
 
 	return passphrase;
 }

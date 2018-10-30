@@ -89,6 +89,12 @@ NSString *rejoinICDPUrl     = @"prefs:root=APPLE_ACCOUNT&aaaction=CDP&command=re
 
 BOOL processRequests(CFErrorRef *error);
 
+static bool PSKeychainSyncPrimaryAcccountExists(void)
+{
+    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
+    return [accountStore aa_primaryAppleAccount] != NULL;
+}
+
 static void PSKeychainSyncIsUsingICDP(void)
 {
     ACAccountStore *accountStore = [[ACAccountStore alloc] init];
@@ -753,7 +759,7 @@ static bool processEvents()
 
 	CFErrorRef			error			 = NULL;
 	CFErrorRef			departError		 = NULL;
-	SOSCCStatus			circleStatus	 = SOSCCThisDeviceIsInCircle(&error);
+	SOSCCStatus			circleStatus	 = SOSCCThisDeviceIsInCircleNonCached(&error);
     enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&departError);
 
     // Error due to XPC failure does not provide information about the circle.
@@ -782,29 +788,37 @@ static bool processEvents()
 	}
     
     PSKeychainSyncIsUsingICDP();
-    
+
+    // Refresh because sometimes we're fixed elsewhere before we get here.
+    CFReleaseNull(error);
+    circleStatus = SOSCCThisDeviceIsInCircleNonCached(&error);
+
+    /*
+     * Double check that the account still exists before doing anything rash (like posting a CFU or throw up a dialog)
+     */
+
+    if (!PSKeychainSyncPrimaryAcccountExists()) {
+        secnotice("cjr", "no primary account, bailing");
+        return true;
+    }
+
     if(_isAccountICDP){
         if((circleStatus == kSOSCCError || circleStatus == kSOSCCCircleAbsent || circleStatus == kSOSCCNotInCircle) && _hasPostedFollowupAndStillInError == false) {
-            secnotice("cjr", "error from SOSCCThisDeviceIsInCircle: %@", error);
+            if(circleStatus == kSOSCCError) {
+                secnotice("cjr", "error from SOSCCThisDeviceIsInCircle: %@", error);
+            }
             secnotice("cjr", "iCDP: We need to get back into the circle");
             doOnceInMain(^{
-                if(_isAccountICDP){
-                    NSError *localError = nil;
-                    CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
-                    CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
-                    [cdpd postFollowUpWithContext:context error:&localError ];
-                    if(localError){
-                        secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
-                    }
-                    else{
-                        secnotice("cjr", "CoreCDP handling follow up");
-                        _hasPostedFollowupAndStillInError = true;
-                    }
+                NSError *localError = nil;
+                CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
+                CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+                [cdpd postFollowUpWithContext:context error:&localError ];
+                if(localError){
+                    secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
                 }
                 else{
-                    postKickedOutAlert(kSOSPasswordChanged);
-                    state.lastCircleStatus = kSOSCCError;
-                    [state writeToStorage];
+                    secnotice("cjr", "CoreCDP handling follow up");
+                    _hasPostedFollowupAndStillInError = true;
                 }
             });
             state.lastCircleStatus = circleStatus;
@@ -821,9 +835,7 @@ static bool processEvents()
             _executeProcessEventsOnce = true;
             return false;
         }
-    }
-    else if(circleStatus == kSOSCCError && state.lastCircleStatus != kSOSCCError && (departureReason == kSOSNeverLeftCircle)
-            && !_isAccountICDP) {
+    } else if(circleStatus == kSOSCCError && state.lastCircleStatus != kSOSCCError && (departureReason == kSOSNeverLeftCircle)) {
         secnotice("cjr", "SA: error from SOSCCThisDeviceIsInCircle: %@", error);
         CFIndex errorCode = CFErrorGetCode(error);
         if(errorCode == kSOSErrorPublicKeyAbsent){

@@ -418,6 +418,8 @@ struct srv_reply {
     struct _krb5_srv_query_ctx *query;
     heim_sema_t hostsema;
     DNSServiceRef srv_sd;
+    DNSServiceRef query_sd;
+    heim_queue_t addrinfo_queue;
     char *hostname;
     krb5_krbhst_info *hostinfo;
     struct {

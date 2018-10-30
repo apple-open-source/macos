@@ -283,9 +283,7 @@ IOReturn IOFramebufferUserClient::clientMemoryForType( UInt32 type,
             break;
 
         default:
-            mem = (IOMemoryDescriptor *)
-                fOwner->userAccessRanges->getObject(type);
-            if (mem) mem->retain();
+            err = fOwner->extCopyUserAccessObject(type, &mem);
             break;
     }
 

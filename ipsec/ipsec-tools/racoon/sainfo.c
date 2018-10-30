@@ -334,35 +334,39 @@ inssainfoalg(struct sainfoalg **head, struct sainfoalg *new)
 const char *
 sainfo2str(const struct sainfo *si)
 {
-    char *idsrc_str;
-    char *iddst_str;
-    char *idi_str;
+	char *idsrc_str;
+	char *iddst_str;
+	char *idi_str;
 	static char buf[256];
 
 	if (si->idsrc == NULL)
 		snprintf(buf, sizeof(buf), "anonymous");
 	else {
-        idsrc_str = ipsecdoi_id2str(si->idsrc);
-        if (idsrc_str) {
-            snprintf(buf, sizeof(buf), "%s", idsrc_str);
-            racoon_free(idsrc_str);
-        }
-        iddst_str = ipsecdoi_id2str(si->iddst);
-        if (iddst_str) {
-            snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
-                     " %s", iddst_str);
-            racoon_free(iddst_str);
-        }
+		idsrc_str = ipsecdoi_id2str(si->idsrc);
+		if (idsrc_str) {
+			snprintf(buf, sizeof(buf), "%s", idsrc_str);
+			racoon_free(idsrc_str);
+		}
+		if (si->iddst == NULL) {
+			snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), " anonymous");
+		} else {
+			iddst_str = ipsecdoi_id2str(si->iddst);
+			if (iddst_str) {
+				snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
+					" %s", iddst_str);
+				racoon_free(iddst_str);
+			}
+		}
 	}
 
 	if (si->id_i != NULL) {
-        idi_str = ipsecdoi_id2str(si->id_i);
-        if (idi_str) {
-            snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
-                     " from %s", idi_str);
-            racoon_free(idi_str);
-        }
-    }
+		idi_str = ipsecdoi_id2str(si->id_i);
+		if (idi_str) {
+			snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
+				" from %s", idi_str);
+			racoon_free(idi_str);
+		}
+	}
 
 	return buf;
 }

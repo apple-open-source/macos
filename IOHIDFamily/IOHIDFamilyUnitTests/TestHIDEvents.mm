@@ -347,6 +347,26 @@ namespace base {
     
 }
 
+- (void)testGameControllerEvent {
+     CFIndex value;
+    IOHIDEventRef gcEvent = IOHIDEventCreate(kCFAllocatorDefault, kIOHIDEventTypeGameController, mach_absolute_time(), 0);
+    HIDXCTAssertAndThrowTrue (gcEvent != NULL);
 
+    IOHIDEventSetIntegerValue (gcEvent, kIOHIDEventFieldGameControllerThumbstickButtonRight, 1);
+    value = IOHIDEventGetIntegerValue (gcEvent, kIOHIDEventFieldGameControllerThumbstickButtonRight);
+    XCTAssert (value == 1);
 
+    IOHIDEventSetIntegerValue (gcEvent, kIOHIDEventFieldGameControllerThumbstickButtonRight, 0);
+    value = IOHIDEventGetIntegerValue (gcEvent, kIOHIDEventFieldGameControllerThumbstickButtonRight);
+    XCTAssert (value == 0);
+
+    IOHIDEventSetIntegerValue (gcEvent, kIOHIDEventFieldGameControllerThumbstickButtonLeft, 1);
+    value = IOHIDEventGetIntegerValue (gcEvent, kIOHIDEventFieldGameControllerThumbstickButtonLeft);
+    XCTAssert (value == 1);
+
+    IOHIDEventSetIntegerValue (gcEvent, kIOHIDEventFieldGameControllerThumbstickButtonLeft, 0);
+    value = IOHIDEventGetIntegerValue (gcEvent, kIOHIDEventFieldGameControllerThumbstickButtonLeft);
+    XCTAssert (value == 0);
+
+}
 @end

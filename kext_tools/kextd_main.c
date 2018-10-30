@@ -226,6 +226,7 @@ int main(int argc, char * const * argv)
 
     /* Set up auditing of kext loads, see kextaudit.c */
     _OSKextSetLoadAuditFunction(&KextAuditLoadCallback);
+    setVariantSuffix();
 
     gRepositoryURLs = OSKextGetSystemExtensionsFolderURLs();
     if (!gRepositoryURLs) {

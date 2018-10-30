@@ -84,7 +84,10 @@ static uint8_t descriptor[] = {
     dispatch_sync (self.clientQueue, ^{
         IOHIDEventSystemClientScheduleWithDispatchQueue(self.eventSystemClient, self.clientQueue);
         // this is barrier that guaranteed that IOHIDEventSystemClientScheduleWithDispatchQueue completed
-        IOHIDEventSystemClientCopyProperty(self.eventSystemClient, CFSTR (kIOHIDEventSystemClientIsUnresponsive));
+        CFTypeRef val = IOHIDEventSystemClientCopyProperty(self.eventSystemClient, CFSTR (kIOHIDEventSystemClientIsUnresponsive));
+        if (val) {
+            CFRelease(val);
+        }
     });
   
 }
@@ -241,7 +244,10 @@ static uint8_t descriptor[] = {
         IOHIDEventSystemClientUnregisterEventBlock (self.eventSystemClient, handler, (__bridge void * _Nullable)(self), NULL);
         IOHIDEventSystemClientRegisterEventBlock (self.eventSystemClient, handler, (__bridge void * _Nullable)(self), NULL);
         IOHIDEventSystemClientScheduleWithRunLoop (self.eventSystemClient, runLoop, kCFRunLoopDefaultMode);
-        IOHIDEventSystemClientCopyProperty(self.eventSystemClient, CFSTR (kIOHIDEventSystemClientIsUnresponsive));
+        CFTypeRef val = IOHIDEventSystemClientCopyProperty(self.eventSystemClient, CFSTR (kIOHIDEventSystemClientIsUnresponsive));
+        if (val) {
+            CFRelease(val);
+        }
     });
     CFRunLoopWakeUp(runLoop);
 

@@ -318,6 +318,7 @@ typedef struct __OSKext {
 #define __kOSKextCompatibilityBundleID   "com.apple.kernel.6.0"
 #define __kOSKextPrivateKPI              CFSTR("com.apple.kpi.private")
 #define __kOSKextKasanKPI                CFSTR("com.apple.kpi.kasan")
+#define __kOSKextKasanKPIVersion         CFSTR("8.0.0b1")
 
 /* Used when generating symbols.
  */
@@ -9617,6 +9618,13 @@ OSReturn __OSKextLoadWithArgsDict(
         goto finish;
     }
 
+    if (!__sOSKextLoadAuditFunction) {
+        OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+             "No load audit function set, cannot load %s", kextPath);
+        result = kOSReturnError;
+        goto finish;
+    }
+
    /* First resolve dependencies without loaded kext info to build
     * a list of identifiers, so we don't read any more bundles off
     * disk than necessary when we do check loaded. If we have different
@@ -9716,7 +9724,7 @@ OSReturn __OSKextLoadWithArgsDict(
             goto finish;
         }
     }
-    
+
    /* Ok, now resolve dependencies based on kexts having their load info.
     * Hopefully it'll still work.
     */
@@ -9736,6 +9744,17 @@ OSReturn __OSKextLoadWithArgsDict(
         goto finish;
     }
 
+    /*
+     * The auditing function is called for every kext in
+     * loadList from __OSKextCreateMkext.
+     *
+     * At this point loadList includes aKext too because
+     * OSKextCopyLoadList includes it by default.
+     *
+     * If for any reason this assumption changes, an
+     * explicit call to __sOSKextLoadAuditFunction must be
+     * forced for aKext before calling __OSKextCreateMkext.
+     */
     // construct mkext w/o compression & w/o loaded kexts in it
     mkext = __OSKextCreateMkext(CFGetAllocator(aKext), loadList,
         /* volumeRootURL */ NULL,
@@ -9751,18 +9770,6 @@ OSReturn __OSKextLoadWithArgsDict(
 
     requestBuffer = CFDataGetBytePtr(mkext);
     requestLength = CFDataGetLength(mkext);
-
-    if (!__sOSKextLoadAuditFunction) {
-        OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-             "No load audit function set, cannot load %s", kextPath);
-        goto finish;
-    }
-
-    if (!__sOSKextLoadAuditFunction(aKext)) {
-        OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-             "Load audit function returned false, bailing on load of %s", kextPath);
-        goto finish;
-    }
 
     OSKextLog(aKext, kOSKextLogProgressLevel | kOSKextLogLoadFlag,
          "Loading %s.", kextPath);
@@ -14836,6 +14843,12 @@ Boolean __OSKextAddToMkext(
     __OSKextGetFileSystemPath(aKext, /* otherURL */ NULL,
         /* resolveToBase */ true, kextPath);
 
+    if (!__sOSKextLoadAuditFunction(aKext)) {
+        OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+             "Load audit function returned false, bailing on adding %s to mkext.", kextPath);
+        goto finish;
+    }
+
     OSKextLog(aKext, kOSKextLogStepLevel | kOSKextLogArchiveFlag,
         "Adding %s to mkext.", kextPath);
 
@@ -14844,6 +14857,26 @@ Boolean __OSKextAddToMkext(
         OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
             "Can't get info dictionary for %s.", kextPath);
         goto finish;
+    }
+
+    /*
+     * If this is a KASan kext, implicitly link against the KASan bundle.
+     * We've done this already in __OSKextResolveDependencies, but we have
+     * to add the dependency to the kext's Info.plist that's sent to the kernel.
+     */
+    if (OSKextDeclaresExecutable(aKext) && __OSKextHasSuffix(aKext, "_kasan") && !OSKextIsKernelComponent(aKext)) {
+        CFMutableDictionaryRef depsDict = (CFMutableDictionaryRef) OSKextGetValueForInfoDictionaryKey(
+            aKext, CFSTR(kOSBundleLibrariesKey));
+        if (depsDict) {
+            CFStringRef kasanVer = (CFStringRef)CFDictionaryGetValue(depsDict, __kOSKextKasanKPI);
+            if (!kasanVer) {
+                CFDictionarySetValue(depsDict, __kOSKextKasanKPI, __kOSKextKasanKPIVersion);
+            }
+        } else {
+            OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                "Executable kext %s with no dependencies?!", kextPath);
+            goto finish;
+        }
     }
 
    /* If the kext has logging enabled, whether originally in the plist

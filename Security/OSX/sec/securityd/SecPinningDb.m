@@ -157,7 +157,7 @@ static inline bool isNSDictionary(id nsType) {
     return ok;
 }
 
-- (BOOL) shouldUpdateContent:(NSNumber *)new_version {
+- (BOOL) shouldUpdateContent:(NSNumber *)new_version error:(NSError **)nserror  {
     __block CFErrorRef error = NULL;
     __block BOOL ok = YES;
     __block BOOL newer = NO;
@@ -172,7 +172,7 @@ static inline bool isNSDictionary(id nsType) {
     if (!ok || error) {
         secerror("SecPinningDb: error reading content version from database %@", error);
     }
-    CFReleaseNull(error);
+    if (nserror && error) { *nserror = CFBridgingRelease(error); }
     return newer;
 }
 
@@ -303,21 +303,25 @@ static inline bool isNSDictionary(id nsType) {
 }
 
 #if !TARGET_OS_BRIDGE
-- (BOOL) installDbFromURL:(NSURL *)localURL {
+- (BOOL) installDbFromURL:(NSURL *)localURL error:(NSError **)nserror {
     if (!localURL) {
         secerror("SecPinningDb: missing url for downloaded asset");
         return NO;
     }
     NSURL *fileLoc = [NSURL URLWithString:@"CertificatePinning.plist"
                      relativeToURL:localURL];
-    __block NSArray *pinningList = [NSArray arrayWithContentsOfURL:fileLoc];
+    __block NSArray *pinningList = [NSArray arrayWithContentsOfURL:fileLoc error:nserror];
     if (!pinningList) {
         secerror("SecPinningDb: unable to create pinning list from asset file: %@", fileLoc);
         return NO;
     }
 
     NSNumber *plist_version = [pinningList objectAtIndex:0];
-    if (![self shouldUpdateContent:plist_version]) {
+    if (![self shouldUpdateContent:plist_version error:nserror]) {
+        /* Something went wrong reading the DB in order to determine whether this version is new. */
+        if (nserror && *nserror) {
+            return NO;
+        }
         /* We got a new plist but we already have that version installed. */
         return YES;
     }
@@ -341,7 +345,7 @@ static inline bool isNSDictionary(id nsType) {
                                       withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
                                                        TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationWrite) }];
 #endif // ENABLE_TRUSTD_ANALYTICS
-        CFReleaseNull(error);
+        if (nserror && error) { *nserror = CFBridgingRelease(error); }
     }
 
     return ok;
@@ -817,10 +821,10 @@ CFDictionaryRef _Nullable SecPinningDbCopyMatching(CFDictionaryRef query) {
 }
 
 #if !TARGET_OS_BRIDGE
-bool SecPinningDbUpdateFromURL(CFURLRef url) {
+bool SecPinningDbUpdateFromURL(NSURL *url, NSError **error) {
     SecPinningDbInitialize();
 
-    return [pinningDb installDbFromURL:(__bridge NSURL*)url];
+    return [pinningDb installDbFromURL:url error:error];
 }
 #endif
 

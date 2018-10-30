@@ -82,6 +82,7 @@
 #include "ExternalMedia.h"
 #include "Platform.h"
 #include "StandbyTimer.h"
+#include "PrivateLib.h"
 
 
 #include "adaptiveDisplay.h"

@@ -36,7 +36,7 @@
 #include <os/log.h>
 
 #define APPLEOSXWATCHDOG_FILENAMETOKEN "progress watchdog"
-#define SLEEP_WAKE_FILENAMETOKEN "System Sleep Wake"
+#define SLEEP_WAKE_FILENAMETOKEN "Sleep Wake Failure"
 
 #define PANIC_FILE "/var/db/PanicReporter/current.panic"
 

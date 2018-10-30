@@ -211,9 +211,9 @@ bool CodeDirectory::validateSlot(const void *data, size_t length, Slot slot, boo
 {
 	secinfo("codedir", "%p validating slot %d", this, int(slot));
 	MakeHash<CodeDirectory> hasher(this);
-	Hashing::Byte digest[hasher->digestLength()];
-	generateHash(hasher, data, length, digest);
-	return memcmp(digest, getSlot(slot, preEncrypt), hasher->digestLength()) == 0;
+	vector<Hashing::Byte> digest_vector(hasher->digestLength());
+	generateHash(hasher, data, length, digest_vector.data());
+	return memcmp(digest_vector.data(), getSlot(slot, preEncrypt), hasher->digestLength()) == 0;
 }
 
 
@@ -224,9 +224,9 @@ bool CodeDirectory::validateSlot(const void *data, size_t length, Slot slot, boo
 bool CodeDirectory::validateSlot(FileDesc fd, size_t length, Slot slot, bool preEncrypt) const
 {
 	MakeHash<CodeDirectory> hasher(this);
-	Hashing::Byte digest[hasher->digestLength()];
-	generateHash(hasher, fd, digest, length);
-	return memcmp(digest, getSlot(slot, preEncrypt), hasher->digestLength()) == 0;
+	vector<Hashing::Byte> digest_vector(hasher->digestLength());
+	generateHash(hasher, fd, digest_vector.data(), length);
+	return memcmp(digest_vector.data(), getSlot(slot, preEncrypt), hasher->digestLength()) == 0;
 }
 
 
@@ -337,10 +337,10 @@ bool CodeDirectory::verifyMemoryContent(CFDataRef data, const Byte* digest) cons
 CFDataRef CodeDirectory::cdhash(bool truncate) const
 {
 	MakeHash<CodeDirectory> hash(this);
-	Hashing::Byte digest[hash->digestLength()];
+	vector<Hashing::Byte> digest_vector(hash->digestLength());
 	hash->update(this, this->length());
-	hash->finish(digest);
-	return makeCFData(digest,
+	hash->finish(digest_vector.data());
+	return makeCFData(digest_vector.data(),
 					  truncate ? min(hash->digestLength(), size_t(kSecCodeCDHashLength)) :
 					  hash->digestLength());
 }

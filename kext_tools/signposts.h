@@ -33,7 +33,8 @@
 #define SIGNPOST_KEXTD_VOLUME_APPEARED          "KextdVolumeAppeared"
 #define SIGNPOST_KEXTD_VOLUME_CHANGED           "KextdVolumeChanged"
 #define SIGNPOST_KEXTD_VOLUME_DISAPPEARED       "KextdVolumeDisappeared"
-
+#define SIGNPOST_KEXTD_KEXTAUDITMAKEKALN        "KextdAuditMakeKALN"
+#define SIGNPOST_KEXTD_KEXTAUDITLOADCALLBACK    "KextdAuditCallback"
 // kextcache intervals
 #define SIGNPOST_KEXTCACHE_BUILD_PRELINKED_KERNEL "KextcacheBuildPrelinkedKernel"
 #define SIGNPOST_KEXTCACHE_UPDATE_VOLUME        "KextcacheUpdateVolume"

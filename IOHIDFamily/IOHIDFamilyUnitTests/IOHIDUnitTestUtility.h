@@ -64,10 +64,13 @@ extern dispatch_queue_t IOHIDUnitTestCreateRootQueue (int priority, int poolSize
 extern uint64_t  IOHIDInitTestAbsoluteTimeToNanosecond (uint64_t abs);
 CFRunLoopRef IOHIDUnitTestCreateRunLoop (int priority);
 void IOHIDUnitTestDestroyRunLoop (CFRunLoopRef runloop);
+CFStringRef IOHIDUnitTestCreateStringFromTimeval(CFAllocatorRef allocator, struct timeval *tv);
 
 #define MS_TO_US(x) (x*1000ull)
 #define MS_TO_NS(x) (MS_TO_US(x)*1000ull)
-#define NS_TO_MS(x) ((x)/1000ull)
+#define NS_TO_US(x) ((x)/1000ull)
+#define NS_TO_MS(x) (NS_TO_US(x)/1000ull)
+
 
 #define VALUE_IN_RANGE(x,l,r) ((l)<=(x) && (x) <= (r))
 #define VALUE_PST(x,p) ((p < 0) ? (x) - ((abs(p))*(x))/100 : (x) + ((abs(p))*(x))/100)
@@ -87,28 +90,32 @@ void IOHIDUnitTestDestroyRunLoop (CFRunLoopRef runloop);
 #define kLogDestinationDir "/var/tmp/hidxctest"
 
 void IOHIDUnitTestRunPosixCommand(char *const argv[], NSString *stdoutFile);
+void IOHIDUnitTestCollectLogs (uint32_t logTypes, char * fileName, int line);
 
-extern char *const hidutil[];
-extern char *const spindump[];
-extern char *const logcollect[];
-extern char *const ioreg[];
+
+#define  COLLECT_HIDUTIL 	0x1
+#define  COLLECT_SPINDUMP 	0x2
+#define  COLLECT_LOGARCHIVE 0x4
+#define  COLLECT_IOREG 		0x8
+#define  COLLECT_TAILSPIN 	0x10
+#define  RETURN_FROM_TEST 	0x80000000
+
+#define  COLLECT_ALL 		0x7FFFFFFF
+
+
+#define __SHORT_FORM_OF_FILE__ \
+    (strrchr(__FILE__,'/') ? strrchr(__FILE__,'/')+1 : __FILE__)
 
 #define HIDXCTAssertWithLogs(expression, ...) \
+	HIDXCTAssertWithParameters (COLLECT_ALL, COLLECT_ALL, __VA_ARGS__)
+
+#define HIDXCTAssertWithParameters(params, expression, ...) \
 do { \
     _XCTPrimitiveAssertTrue(self, expression, @#expression, __VA_ARGS__); \
     BOOL expressionValue = !!(expression); \
     if (!expressionValue) { \
-        NSMutableString *dir = [NSMutableString stringWithFormat:@"%s/%s_%d_", kLogDestinationDir, __FUNCTION__, __LINE__]; \
-        char *mkdircmd[] = { \
-            "/bin/mkdir", \
-            kLogDestinationDir, \
-            NULL \
-        }; \
-        IOHIDUnitTestRunPosixCommand(mkdircmd, NULL); \
-        IOHIDUnitTestRunPosixCommand(hidutil, [dir stringByAppendingFormat:@"%s", "hidutil.plist"]); \
-        IOHIDUnitTestRunPosixCommand(spindump, [dir stringByAppendingFormat:@"%s", "spindump.txt"]); \
-        IOHIDUnitTestRunPosixCommand(logcollect, [dir stringByAppendingFormat:@"%s", "logdump.txt"]); \
-        IOHIDUnitTestRunPosixCommand(ioreg, [dir stringByAppendingFormat:@"%s", "ioreg.txt"]); \
+        IOHIDUnitTestCollectLogs ((params), __SHORT_FORM_OF_FILE__, __LINE__); \
+        if ((params) & RETURN_FROM_TEST) return; \
     } \
 } while (0);
 

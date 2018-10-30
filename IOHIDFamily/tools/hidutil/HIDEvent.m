@@ -757,12 +757,28 @@ HIDEvent *createHIDEvent(IOHIDEventRef event)
     IOHIDEventSetFloatValue(self->eventRef, kIOHIDEventFieldGameControllerDirectionPadLeft, directionpadleft.floatValue);
 }
 
+- (NSNumber *)thumbstickbuttonright {
+    return [NSNumber numberWithInteger:IOHIDEventGetIntegerValue(self->eventRef, kIOHIDEventFieldGameControllerThumbstickButtonRight)];
+}
+
+- (void)setThumbstickbuttonright:(NSNumber *)thumbstickbuttonright {
+    IOHIDEventSetIntegerValue(self->eventRef, kIOHIDEventFieldGameControllerThumbstickButtonRight, thumbstickbuttonright.unsignedIntValue);
+}
+
 - (NSNumber *)directionpaddown {
     return [NSNumber numberWithFloat:IOHIDEventGetFloatValue(self->eventRef, kIOHIDEventFieldGameControllerDirectionPadDown)];
 }
 
 - (void)setDirectionpaddown:(NSNumber *)directionpaddown {
     IOHIDEventSetFloatValue(self->eventRef, kIOHIDEventFieldGameControllerDirectionPadDown, directionpaddown.floatValue);
+}
+
+- (NSNumber *)thumbstickbuttonleft {
+    return [NSNumber numberWithInteger:IOHIDEventGetIntegerValue(self->eventRef, kIOHIDEventFieldGameControllerThumbstickButtonLeft)];
+}
+
+- (void)setThumbstickbuttonleft:(NSNumber *)thumbstickbuttonleft {
+    IOHIDEventSetIntegerValue(self->eventRef, kIOHIDEventFieldGameControllerThumbstickButtonLeft, thumbstickbuttonleft.unsignedIntValue);
 }
 
 - (NSNumber *)joystickaxisz {
@@ -831,7 +847,7 @@ HIDEvent *createHIDEvent(IOHIDEventRef event)
 
 - (NSString *)description {
     NSString * desc;
-    desc = [NSString stringWithFormat:@"%@ type:%@ directionpadup:%@ directionpaddown:%@ directionpadleft:%@ directionpadright:%@ facebuttonx:%@ facebuttony:%@ facebuttona:%@ facebuttonb:%@ joystickaxisx:%@ joystickaxisy:%@ joystickaxisz:%@ joystickaxisrz:%@ shoulderbuttonl1:%@ shoulderbuttonl2:%@ shoulderbuttonr1:%@ shoulderbuttonr2:%@", [super description], self.type, self.directionpadup, self.directionpaddown, self.directionpadleft, self.directionpadright, self.facebuttonx, self.facebuttony, self.facebuttona, self.facebuttonb, self.joystickaxisx, self.joystickaxisy, self.joystickaxisz, self.joystickaxisrz, self.shoulderbuttonl1, self.shoulderbuttonl2, self.shoulderbuttonr1, self.shoulderbuttonr2];
+    desc = [NSString stringWithFormat:@"%@ type:%@ directionpadup:%@ directionpaddown:%@ directionpadleft:%@ directionpadright:%@ facebuttonx:%@ facebuttony:%@ facebuttona:%@ facebuttonb:%@ joystickaxisx:%@ joystickaxisy:%@ joystickaxisz:%@ joystickaxisrz:%@ shoulderbuttonl1:%@ shoulderbuttonl2:%@ shoulderbuttonr1:%@ shoulderbuttonr2:%@ thumbstickbuttonleft:%@ thumbstickbuttonright:%@", [super description], self.type, self.directionpadup, self.directionpaddown, self.directionpadleft, self.directionpadright, self.facebuttonx, self.facebuttony, self.facebuttona, self.facebuttonb, self.joystickaxisx, self.joystickaxisy, self.joystickaxisz, self.joystickaxisrz, self.shoulderbuttonl1, self.shoulderbuttonl2, self.shoulderbuttonr1, self.shoulderbuttonr2, self.thumbstickbuttonleft, self.thumbstickbuttonright];
     return desc;
 }
 @end

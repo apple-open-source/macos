@@ -118,6 +118,7 @@
 #define kPMASLDomainFilteredFailure         "FilteredFailure"
 #define kPMASLDomainAppNotify               "Notification"
 #define kPMASLDomainSWFailure               "Failure"
+#define kPMASLDomainWakeTime                "WakeTime"
 
 #define kPMASLDomainThermalEvent            "ThermalEvent"
 #define kPMASLDomainPerformanceEvent        "PerformanceEvent"
@@ -206,4 +207,10 @@ __private_extern__ CFCalendarRef        _gregorian(void);
 
 __private_extern__  asl_object_t open_pm_asl_store(char *);
 
+__private_extern__ uint64_t CFAbsoluteTimeToMachAbsoluteTime(CFAbsoluteTime absoluteTime);
+
+__private_extern__ uint64_t intervalInNanoseconds(uint64_t start, uint64_t end);
+
+// This doesn't seem to be defined in the header file
+extern kern_return_t mach_get_times(uint64_t* absolute_time, uint64_t* continuous_time, struct timespec *tp);
 #endif

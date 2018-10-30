@@ -175,7 +175,7 @@ private:
 
     enum class ShouldAcknowledgeWhenReadyToSuspend { No, Yes };
     void actualPrepareToSuspend(ShouldAcknowledgeWhenReadyToSuspend);
-    void platformPrepareToSuspend();
+    void platformPrepareToSuspend(CompletionHandler<void()>&&);
     void platformProcessDidResume();
 
     // ChildProcess
@@ -245,7 +245,7 @@ private:
     void setNetworkProxySettings(const WebCore::SoupNetworkProxySettings&);
 #endif
 
-#if PLATFORM(COCOA)
+#if PLATFORM(MAC)
     static void setSharedHTTPCookieStorage(const Vector<uint8_t>& identifier);
 #endif
 

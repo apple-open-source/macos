@@ -160,7 +160,7 @@
 
 "com.apple.configurationprofiles.userprofile.trustcert" = "Touch ID to Trust a Certificate from a User Configuration Profile.";
 
-"com.apple.app-sandbox.create-symlink" = "Touch ID to Install a Symlink into /usr/local/bin.";
+"com.apple.app-sandbox.create-symlink" = "Touch ID to Install Symlinks into /usr/local.";
 
 "com.apple.app-sandbox.set-attributes" = "Touch ID to Change the Permissions of a Privileged File.";
 

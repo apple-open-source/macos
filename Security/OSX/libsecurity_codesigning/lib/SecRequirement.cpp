@@ -217,13 +217,13 @@ OSStatus SecRequirementsCreateFromRequirements(CFDictionaryRef requirements, Sec
 	if (requirements == NULL)
 		return errSecCSObjectRequired;
 	CFIndex count = CFDictionaryGetCount(requirements);
-	CFNumberRef keys[count];
-	SecRequirementRef reqs[count];
-	CFDictionaryGetKeysAndValues(requirements, (const void **)keys, (const void **)reqs);
+	vector<CFNumberRef> keys_vector(count, NULL);
+	vector<SecRequirementRef> reqs_vector(count, NULL);
+	CFDictionaryGetKeysAndValues(requirements, (const void **)keys_vector.data(), (const void **)reqs_vector.data());
 	Requirements::Maker maker;
 	for (CFIndex n = 0; n < count; n++) {
-		const Requirement *req = SecRequirement::required(reqs[n])->requirement();
-		maker.add(cfNumber<Requirements::Type>(keys[n]), req->clone());
+		const Requirement *req = SecRequirement::required(reqs_vector[n])->requirement();
+		maker.add(cfNumber<Requirements::Type>(keys_vector[n]), req->clone());
 	}
 	Requirements *reqset = maker.make();					// malloc'ed
 	CodeSigning::Required(requirementSet) = makeCFDataMalloc(*reqset);	// takes ownership of reqs

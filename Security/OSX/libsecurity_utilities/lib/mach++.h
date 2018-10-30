@@ -292,6 +292,7 @@ public:
     mach_msg_id_t msgId() const				{ return mBuffer->Head.msgh_id; }
     mach_msg_bits_t bits() const			{ return mBuffer->Head.msgh_bits; }
     kern_return_t returnCode() const		{ return mBuffer->RetCode; }
+    mach_msg_audit_trailer_t *auditTrailer();
     
     void localPort(mach_port_t p)			{ mBuffer->Head.msgh_local_port = p; }
     void remotePort(mach_port_t p)			{ mBuffer->Head.msgh_remote_port = p; }

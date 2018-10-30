@@ -33,6 +33,7 @@
 #include <Security/SecBase.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <AvailabilityMacros.h>
+#include <Availability.h>
 
 __BEGIN_DECLS
 
@@ -349,7 +350,11 @@ CFAbsoluteTime SecTrustGetVerifyTime(SecTrustRef trust)
     run loop. Alternatively, you can use the SecTrustEvaluateAsync function.
  */
 OSStatus SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *result)
-    __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_2_0);
+    API_DEPRECATED_WITH_REPLACEMENT("SecTrustEvaluateWithError",
+                                    macos(10.3, API_TO_BE_DEPRECATED),
+                                    ios(2.0, API_TO_BE_DEPRECATED),
+                                    watchos(1.0, API_TO_BE_DEPRECATED),
+                                    tvos(2.0, API_TO_BE_DEPRECATED));
 
 #ifdef __BLOCKS__
 /*!

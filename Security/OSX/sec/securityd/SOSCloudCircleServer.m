@@ -739,13 +739,22 @@ static bool do_with_account_while_unlocked(CFErrorRef *error, bool (^action)(SOS
     return result && action_result;
 }
 
+
+
 CFTypeRef SOSKeychainAccountGetSharedAccount()
 {
     __block SOSAccount* result = NULL;
+    CFErrorRef localError = NULL;
 
-    do_with_account(^(SOSAccountTransaction* txn) {
+    bool success = do_with_account_if_after_first_unlock(&localError, ^bool (SOSAccountTransaction* txn, CFErrorRef *error) {
         result = txn.account;
+        return true;
     });
+    
+    if(!success) {
+        secnotice("secAccount", "Failed request for account object (%@)", localError);
+        CFReleaseNull(localError);
+    }
 
     return (__bridge CFTypeRef)result;
 }

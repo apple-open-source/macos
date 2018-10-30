@@ -629,7 +629,7 @@ EOF
 	license => 'Perl',
 	licensefile => "$CPAN/5.10/XML-SAX-0.96/LICENSE",
     },
-    'XML-Simple-2.18' => {
+    'XML-Simple-2.25' => {
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },

@@ -1780,9 +1780,9 @@ realloc(void *in_ptr, size_t new_size)
 	} else {
 		zone = find_registered_zone(old_ptr, NULL);
 		if (!zone) {
-			int flags = MALLOC_REPORT_DEBUG;
+			int flags = MALLOC_REPORT_DEBUG | MALLOC_REPORT_NOLOG;
 			if (malloc_debug_flags & (MALLOC_ABORT_ON_CORRUPTION | MALLOC_ABORT_ON_ERROR)) {
-				flags = MALLOC_REPORT_CRASH;
+				flags = MALLOC_REPORT_CRASH | MALLOC_REPORT_NOLOG;
 			}
 			malloc_report(flags, "*** error for object %p: pointer being realloc'd was not allocated\n", in_ptr);
 		} else {

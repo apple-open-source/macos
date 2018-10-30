@@ -70,7 +70,6 @@ typedef struct {
 
 class AppleSmartBattery : public IOPMPowerSource {
     OSDeclareDefaultStructors(AppleSmartBattery)
-    
 protected:
     AppleSmartBatteryManager    *fProvider;
     IOWorkLoop                  *fWorkLoop;
@@ -87,7 +86,7 @@ protected:
     uint16_t                    fFullChargeCapacity;
     bool                        fCapacityOverride;
     bool                        fMaxCapacityOverride;
-    
+
     uint8_t                     fInitialPollCountdown;
     uint8_t                     fIncompleteReadRetries;
 
@@ -108,10 +107,6 @@ protected:
     CommandTable                cmdTable;
     bool                        fDisplayKeys;
     OSSet                       *fReportersSet;
-
-
-    
-
     // Accessor for MaxError reading
     // Percent error in MaxCapacity reading
     void    setMaxErr(int error);
@@ -128,7 +123,7 @@ protected:
 
     // Time remaining estimate - as measured instantaneously
     void    setInstantaneousTimeToEmpty(int seconds);
-    
+
     // Instantaneous amperage
     void    setInstantAmperage(int mA);
 
@@ -137,13 +132,13 @@ protected:
 
     // Time remaining until full estimate - 1 minute average
     int     averageTimeToFull(void);
-    
+
     void    setManufactureDate(int date);
     int     manufactureDate(void);
 
     void    setSerialNumber(uint16_t sernum);
     uint16_t    serialNumber(void);
-    
+
     void    setChargeStatus(const OSSymbol *sym);
     const OSSymbol    *chargeStatus(void);
 
@@ -151,9 +146,9 @@ protected:
     void    setManufacturerData(uint8_t *buffer, uint32_t bufferSize);
 
     void    oneTimeBatterySetup(void);
-    
+
     void    constructAppleSerialNumber(void);
-    
+
     CommandStruct *commandForState(uint32_t state);
     void    initializeCommands(void);
     bool    initiateTransaction(const CommandStruct *cs);
@@ -177,14 +172,14 @@ public:
     void    handleSwitchToTrueCapacity(void);
     IOReturn handleSystemSleepWake(IOService * powerService, bool isSystemSleep);
 
-    
+
 protected:
     void    logReadError( const char *error_type, 
                           uint16_t additional_error,
                           uint32_t cmd);
 
     void    clearBatteryState(bool do_update);
-    
+
     void    incompleteReadTimeOut(void);
 
     void    rebuildLegacyIOBatteryInfo(void);
@@ -207,6 +202,9 @@ protected:
                                    void *result, void *destination) APPLE_KEXT_OVERRIDE;
     IOReturn updateReport(IOReportChannelList *channels, IOReportUpdateAction action,
                                 void *result, void *destination) APPLE_KEXT_OVERRIDE;
+#if TARGET_OS_WATCH
+    void           updateSKTMData(void);
+#endif
 #if TARGET_OS_IOS || TARGET_OS_WATCH
     uint16_t    _gasGaugeFirmwareVersion;
 #endif

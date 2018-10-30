@@ -330,11 +330,16 @@ extern const CFStringRef kSecAttrSecureEnclaveKeyBlob
         which is going to be deprecated for 3rd party use.
     @constant kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate for kSecAttrAccessibleAlwaysThisDeviceOnly,
         which is going to be deprecated for 3rd party use.
+    @constant kSecAttrAccessibleUntilReboot Not usable for keychain item. Can be used only
+        for generating non-permanent SEP-based SecKey. Such key does not need any keybag loaded and
+        is valid only until next reboot. Also known as class F protection.
 */
 extern const CFStringRef kSecAttrAccessibleAlwaysPrivate
 ;//%%%    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 extern const CFStringRef kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate
 ;//%%%    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+extern const CFStringRef kSecAttrAccessibleUntilReboot
+API_AVAILABLE(macos(10.14.1), ios(12.1), tvos(12.1), watchos(5.1));
 
 /*  View Hint Constants */
 

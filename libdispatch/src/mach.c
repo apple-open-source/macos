@@ -2126,6 +2126,10 @@ _dispatch_mach_msg_invoke_with_mach(dispatch_mach_msg_t dmsg,
 				// This makes XPC unhappy because some of these messages are
 				// port-destroyed notifications that can cause it to try to
 				// reconnect on a channel that is almost fully canceled
+				mach_msg_header_t *hdr = _dispatch_mach_msg_get_msg(dmsg);
+				_dispatch_debug("machport[0x%08x]: drop msg id 0x%x, reply on 0x%08x",
+						hdr->msgh_local_port, hdr->msgh_id, hdr->msgh_remote_port);
+				mach_msg_destroy(hdr);
 			} else {
 				_dispatch_client_callout4(dmrr->dmrr_handler_ctxt, reason, dmsg,
 						err, dmrr->dmrr_handler_func);
