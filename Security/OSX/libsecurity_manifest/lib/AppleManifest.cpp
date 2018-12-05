@@ -472,15 +472,15 @@ static u_int16_t ReconstructUInt16 (uint32& finger, const uint8* data)
 static void ReconstructFileSystemHeader (uint32& finger, const uint8* data, FileSystemEntryItem* item)
 {
 	// get the number of bytes for the name
-	u_int16_t length = ReconstructUInt16 (finger, data);
-	char name[length + 1];
-	
+    u_int16_t length = ReconstructUInt16 (finger, data);
+    std::vector<char> name(length + 1);
+
 	// make a c-string for the name
-	memcpy (name, data + finger, length);
-	name[length] = 0;
-	item->SetName (name);
-	
-	secinfo ("manifest", "    File item name is %s", name);
+    memcpy (name.data(), data + finger, length);
+    name[length] = 0;
+
+    secinfo ("manifest", "    File item name is %s", name.data());
+    item->SetName (name.data());
 
 	finger += length;
 	

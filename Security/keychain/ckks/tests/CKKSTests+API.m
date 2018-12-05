@@ -1299,11 +1299,41 @@
         XCTAssertNotNil(keychainStatus, "Should have received at least one zone status back");
         XCTAssertEqualObjects(keychainStatus[@"view"], @"keychain", "Should have received status for the keychain view");
         XCTAssertEqualObjects(keychainStatus[@"keystate"], SecCKKSZoneKeyStateReady, "Should be in 'ready' status");
+        XCTAssertNotNil(keychainStatus[@"ckmirror"], "Status should have any ckmirror");
         [callbackOccurs fulfill];
     }];
 
     [self waitForExpectations:@[callbackOccurs] timeout:20];
 }
+
+- (void)testRpcFastStatus {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+
+    [self startCKKSSubsystem];
+
+    // Let things shake themselves out.
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should return to 'ready'");
+    [self waitForCKModifications];
+
+    XCTestExpectation* callbackOccurs = [self expectationWithDescription:@"callback-occurs"];
+    [self.ckksControl rpcFastStatus:@"keychain" reply:^(NSArray<NSDictionary*>* result, NSError* error) {
+        XCTAssertNil(error, "should be no error fetching status for keychain");
+
+        // Ugly "global" hack
+        XCTAssertEqual(result.count, 1u, "Should have received one result dictionaries back");
+        NSDictionary* keychainStatus = result[0];
+
+        XCTAssertNotNil(keychainStatus, "Should have received at least one zone status back");
+        XCTAssertEqualObjects(keychainStatus[@"view"], @"keychain", "Should have received status for the keychain view");
+        XCTAssertEqualObjects(keychainStatus[@"keystate"], SecCKKSZoneKeyStateReady, "Should be in 'ready' status");
+        XCTAssertNil(keychainStatus[@"ckmirror"], "fastStatus should not have any ckmirror");
+        [callbackOccurs fulfill];
+    }];
+
+    [self waitForExpectations:@[callbackOccurs] timeout:20];
+}
+
 
 - (void)testRpcStatusWaitsForAccountDetermination {
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.

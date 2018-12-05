@@ -3448,9 +3448,13 @@
 - (NSDictionary*)status {
 #define stringify(obj) CKKSNilToNSNull([obj description])
 #define boolstr(obj) (!!(obj) ? @"yes" : @"no")
-    __block NSDictionary* ret = nil;
+    __block NSMutableDictionary* ret = nil;
     __block NSError* error = nil;
-    CKKSManifest* manifest = [CKKSManifest latestTrustedManifestForZone:self.zoneName error:&error];
+    CKKSManifest* manifest = nil;
+
+    ret = [[self fastStatus] mutableCopy];
+
+    manifest = [CKKSManifest latestTrustedManifestForZone:self.zoneName error:&error];
     [self dispatchSync: ^bool {
 
         CKKSCurrentKeySet* keyset = [[CKKSCurrentKeySet alloc] initForZone:self.zoneID];
@@ -3479,23 +3483,7 @@
             [mutTLKShares addObject: [obj description]];
         }];
 
-
-        ret = @{
-                 @"view":                CKKSNilToNSNull(self.zoneName),
-                 @"ckaccountstatus":     self.accountStatus == CKAccountStatusCouldNotDetermine ? @"could not determine" :
-                                         self.accountStatus == CKAccountStatusAvailable         ? @"logged in" :
-                                         self.accountStatus == CKAccountStatusRestricted        ? @"restricted" :
-                                         self.accountStatus == CKAccountStatusNoAccount         ? @"logged out" : @"unknown",
-                 @"lockstatetracker":    stringify(self.lockStateTracker),
-                 @"accounttracker":      stringify(self.accountTracker),
-                 @"fetcher":             stringify(self.zoneChangeFetcher),
-                 @"zoneCreated":         boolstr(self.zoneCreated),
-                 @"zoneCreatedError":    stringify(self.zoneCreatedError),
-                 @"zoneSubscribed":      boolstr(self.zoneSubscribed),
-                 @"zoneSubscribedError": stringify(self.zoneSubscribedError),
-                 @"zoneInitializeScheduler": stringify(self.initializeScheduler),
-                 @"keystate":            CKKSNilToNSNull(self.keyHierarchyState),
-                 @"keyStateError":       stringify(self.keyHierarchyError),
+        [ret addEntriesFromDictionary:@{
                  @"statusError":         stringify(error),
                  @"oqe":                 CKKSNilToNSNull([CKKSOutgoingQueueEntry countsByStateInZone:self.zoneID error:&error]),
                  @"iqe":                 CKKSNilToNSNull([CKKSIncomingQueueEntry countsByStateInZone:self.zoneID error:&error]),
@@ -3509,24 +3497,51 @@
                  @"currentTLKPtr":       CKKSNilToNSNull(keyset.currentTLKPointer.currentKeyUUID),
                  @"currentClassAPtr":    CKKSNilToNSNull(keyset.currentClassAPointer.currentKeyUUID),
                  @"currentClassCPtr":    CKKSNilToNSNull(keyset.currentClassCPointer.currentKeyUUID),
-                 @"currentManifestGen":   CKKSNilToNSNull(manifestGeneration),
-
-
-                 @"zoneSetupOperation":                 stringify(self.zoneSetupOperation),
-                 @"keyStateOperation":                  stringify(self.keyStateMachineOperation),
-                 @"lastIncomingQueueOperation":         stringify(self.lastIncomingQueueOperation),
-                 @"lastNewTLKOperation":                stringify(self.lastNewTLKOperation),
-                 @"lastOutgoingQueueOperation":         stringify(self.lastOutgoingQueueOperation),
-                 @"lastProcessReceivedKeysOperation":   stringify(self.lastProcessReceivedKeysOperation),
-                 @"lastReencryptOutgoingItemsOperation":stringify(self.lastReencryptOutgoingItemsOperation),
-                 @"lastScanLocalItemsOperation":        stringify(self.lastScanLocalItemsOperation),
-                 };
+                 @"currentManifestGen":  CKKSNilToNSNull(manifestGeneration),
+            }];
         return false;
     }];
     return ret;
 }
 
+- (NSDictionary*)fastStatus {
 
+    __block NSDictionary* ret = nil;
+
+    [self dispatchSync: ^bool {
+
+        ret = @{
+            @"view":                CKKSNilToNSNull(self.zoneName),
+            @"ckaccountstatus":     self.accountStatus == CKAccountStatusCouldNotDetermine ? @"could not determine" :
+                self.accountStatus == CKAccountStatusAvailable         ? @"logged in" :
+                self.accountStatus == CKAccountStatusRestricted        ? @"restricted" :
+                self.accountStatus == CKAccountStatusNoAccount         ? @"logged out" : @"unknown",
+            @"lockstatetracker":    stringify(self.lockStateTracker),
+            @"accounttracker":      stringify(self.accountTracker),
+            @"fetcher":             stringify(self.zoneChangeFetcher),
+            @"zoneCreated":         boolstr(self.zoneCreated),
+            @"zoneCreatedError":    stringify(self.zoneCreatedError),
+            @"zoneSubscribed":      boolstr(self.zoneSubscribed),
+            @"zoneSubscribedError": stringify(self.zoneSubscribedError),
+            @"zoneInitializeScheduler": stringify(self.initializeScheduler),
+            @"keystate":            CKKSNilToNSNull(self.keyHierarchyState),
+            @"keyStateError":       stringify(self.keyHierarchyError),
+            @"statusError":         [NSNull null],
+
+            @"zoneSetupOperation":                 stringify(self.zoneSetupOperation),
+            @"keyStateOperation":                  stringify(self.keyStateMachineOperation),
+            @"lastIncomingQueueOperation":         stringify(self.lastIncomingQueueOperation),
+            @"lastNewTLKOperation":                stringify(self.lastNewTLKOperation),
+            @"lastOutgoingQueueOperation":         stringify(self.lastOutgoingQueueOperation),
+            @"lastProcessReceivedKeysOperation":   stringify(self.lastProcessReceivedKeysOperation),
+            @"lastReencryptOutgoingItemsOperation":stringify(self.lastReencryptOutgoingItemsOperation),
+            @"lastScanLocalItemsOperation":        stringify(self.lastScanLocalItemsOperation),
+        };
+        return false;
+    }];
+
+    return ret;
+}
 
 #endif /* OCTAGON */
 @end

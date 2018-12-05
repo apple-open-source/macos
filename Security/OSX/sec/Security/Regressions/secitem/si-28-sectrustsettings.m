@@ -579,6 +579,7 @@ static void test_policy_name_pinning_constraints(void) {
     removeTS(cert0);
 }
 
+
 int si_28_sectrustsettings(int argc, char *const *argv)
 {
     plan_tests(kNumberNoConstraintsTests

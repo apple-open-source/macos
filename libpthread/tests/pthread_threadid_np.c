@@ -1,6 +1,8 @@
 #include <pthread.h>
 #include <pthread/private.h>
 #include <dispatch/dispatch.h>
+#include <sys/wait.h>
+#include <stdlib.h>
 
 #include "darwintest_defaults.h"
 
@@ -41,4 +43,42 @@ T_DECL(pthread_threadid_np, "pthread_threadid_np",
 	T_LOG("Workqueue Thread Reuse");
 	dispatch_async(dq, ^{ do_test(NULL); });
 	dispatch_sync(dq, ^{});
+}
+
+T_DECL(pthread_threadid_fork, "pthread_threadid_np post-fork test")
+{
+	uint64_t tid = __thread_selfid();
+	T_ASSERT_NE(tid, (uint64_t)0, "__thread_selfid()");
+
+	uint64_t ptid = 0;
+	T_ASSERT_POSIX_ZERO(pthread_threadid_np(NULL, &ptid), NULL);
+	T_ASSERT_EQ(ptid, tid, NULL);
+
+	pid_t pid = fork();
+	if (pid == 0) {
+		// child
+		uint64_t ntid = __thread_selfid();
+		if (ntid == tid) {
+			T_LOG("FAIL: forked child tid is equal to parent tid");
+			exit(1);
+		}
+
+		uint64_t nptid = 0;
+		if (pthread_threadid_np(NULL, &nptid) != 0) {
+			T_LOG("FAIL: pthread_threadid_np: %d", errno);
+			exit(1);
+		}
+
+		if (nptid != ntid) {
+			T_LOG("FAIL: pthread_threadid_np == tid (expected: %lld == %lld)",
+					nptid, ntid);
+			exit(1);
+		}
+		exit(0);
+	} else {
+		int status;
+		T_ASSERT_EQ(waitpid(pid, &status, 0), pid, NULL);
+		int exitstatus = WEXITSTATUS(status);
+		T_ASSERT_EQ(exitstatus, 0, NULL);
+	}
 }

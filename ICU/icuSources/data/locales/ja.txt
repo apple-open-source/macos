@@ -2064,17 +2064,6 @@ ja{
                 "{1} {0}",
                 "{1} {0}",
             }
-            availableFormats{
-                M{"M月"}
-                MEd{"M/d(E)"}
-                MMM{"M月"}
-                MMMEd{"M月d日(E)"}
-                MMMMd{"M月d日"}
-                MMMd{"M月d日"}
-                Md{"M/d"}
-                d{"d日"}
-                y{"Gy年"}
-            }
             eras{
                 abbreviated{
                     "AH",

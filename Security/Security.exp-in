@@ -347,17 +347,13 @@ __SecSetSecuritydTargetUID
 
 _SecDERItemCopyOIDDecimalRepresentation
 _SecDigestCreate
-#if TARGET_OS_IPHONE
 _SecFrameworkCopyResourceContents
 _SecFrameworkCopyResourceURL
-#endif
 _SecCopyErrorMessageString
 
 _SecPKCS12Import
 _SecRandomCopyBytes
-#if TARGET_OS_IPHONE
 _SecSHA1DigestCreate
-#endif
 _SecTaskCopySigningIdentifier
 _SecTaskCopyValueForEntitlement
 _SecTaskCopyValuesForEntitlements
@@ -1925,15 +1921,9 @@ _CopyCurrentScopePlist
 #endif
 
 // SecFramework.h
-#if TARGET_OS_IPHONE
 _SecOSStatusWith
 _SecSHA256DigestCreate
 _SecSHA256DigestCreateFromData
-#endif
-#if TARGET_OS_OSX
-_SecSHA256DigestCreate
-_SecSHA256DigestCreateFromData
-#endif
 
 _secLogObjForScope
 _secLogObjForCFScope

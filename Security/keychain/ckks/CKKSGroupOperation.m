@@ -46,7 +46,7 @@
         _operationQueue = [[NSOperationQueue alloc] init];
         _internalSuccesses = [[NSMutableArray alloc] init];
 
-        _queue = dispatch_queue_create("CKKSGroupOperationDispatchQueue", DISPATCH_QUEUE_SERIAL);
+        _queue = dispatch_queue_create("CKKSGroupOperationDispatchQueue", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
 
         // At start, we'll call this method (for subclasses)
         _startOperation = [NSBlockOperation blockOperationWithBlock:^{

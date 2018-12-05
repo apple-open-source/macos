@@ -60,6 +60,8 @@ bool SecDbItemQuery(SecDbQueryRef query, CFArrayRef accessGroups, SecDbConnectio
 
 void query_pre_add(Query *q, bool force_date);
 
+bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool multiUser);
+
 //
 // MARK: backup restore stuff
 //

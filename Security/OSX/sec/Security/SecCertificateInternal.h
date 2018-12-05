@@ -184,6 +184,8 @@ OSStatus SecCertificateParseGeneralNameContentProperty(DERTag tag,
 OSStatus SecCertificateParseGeneralNames(const DERItem *generalNames, void *context,
                                          parseGeneralNameCallback callback);
 
+CFArrayRef SecCertificateCopyOrganizationFromX501NameContent(const DERItem *nameContent);
+
 bool SecCertificateIsWeakKey(SecCertificateRef certificate);
 bool SecCertificateIsAtLeastMinKeySize(SecCertificateRef certificate,
                                        CFDictionaryRef keySizes);

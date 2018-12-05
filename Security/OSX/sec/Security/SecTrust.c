@@ -331,7 +331,7 @@ OSStatus SecTrustAddToInputCertificates(SecTrustRef trust, CFTypeRef certificate
     return errSecSuccess;
 }
 
-static void SecTrustSetNeedsEvaluation(SecTrustRef trust) {
+void SecTrustSetNeedsEvaluation(SecTrustRef trust) {
     check(trust);
     if (trust) {
         dispatch_sync(trust->_trustQueue, ^{
@@ -2399,6 +2399,18 @@ uint64_t SecTrustGetTrustStoreVersionNumber(CFErrorRef *error) {
     return num;
 }
 
+uint64_t SecTrustGetAssetVersionNumber(CFErrorRef *error) {
+    do_if_registered(sec_ota_pki_asset_version, error);
+
+    os_activity_t activity = os_activity_create("SecTrustGetAssetVersionNumber", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    uint64_t num = do_ota_pki_op(sec_ota_pki_asset_version_id, error);
+
+    os_release(activity);
+    return num;
+}
+
 uint64_t SecTrustOTAPKIGetUpdatedAsset(CFErrorRef *error) {
 	do_if_registered(sec_ota_pki_get_new_asset, error);
 
@@ -2415,13 +2427,13 @@ bool SecTrustReportTLSAnalytics(CFStringRef eventName, xpc_object_t eventAttribu
     if (!eventName || !eventAttributes) {
         return false;
     }
-    do_if_registered(sec_tls_analytics_report, eventName, eventAttributes, error);
+    do_if_registered(sec_networking_analytics_report, eventName, eventAttributes, error);
 
     os_activity_t activity = os_activity_create("SecTrustReportTLSAnalytics", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
 
     __block bool result = false;
-    securityd_send_sync_and_do(kSecXPCOpTLSAnaltyicsReport, error, ^bool(xpc_object_t message, CFErrorRef *block_error) {
+    securityd_send_sync_and_do(kSecXPCOpNetworkingAnalyticsReport, error, ^bool(xpc_object_t message, CFErrorRef *block_error) {
         if (!SecXPCDictionarySetString(message, kSecTrustEventNameKey, eventName, block_error)) {
             return false;
         }
@@ -2431,6 +2443,53 @@ bool SecTrustReportTLSAnalytics(CFStringRef eventName, xpc_object_t eventAttribu
         result = SecXPCDictionaryGetBool(response, kSecXPCKeyResult, block_error);
         return true;
     });
+
+    os_release(activity);
+    return result;
+}
+
+bool SecTrustReportNetworkingAnalytics(const char *eventNameString, xpc_object_t eventAttributes) {
+    if (!eventNameString || !eventAttributes) {
+        return false;
+    }
+
+    CFStringRef eventName = CFStringCreateWithCString(kCFAllocatorDefault, eventNameString, kCFStringEncodingUTF8);
+    if (!eventName) {
+        secerror("CFStringCreateWithCString failed");
+        return false;
+    }
+
+    CFErrorRef error = NULL;
+    if (gTrustd && gTrustd->sec_networking_analytics_report) {
+        bool result = gTrustd->sec_networking_analytics_report(eventName, eventAttributes, &error);
+        if (error != NULL) {
+            secerror("SecTrustReportNetworkingAnalytics failed with error: %d", (int)CFErrorGetCode(error));
+        }
+        CFReleaseNull(eventName);
+        CFReleaseNull(error);
+        return result;
+    }
+
+    os_activity_t activity = os_activity_create("SecTrustReportNetworkingAnalytics", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    __block bool result = false;
+    securityd_send_sync_and_do(kSecXPCOpNetworkingAnalyticsReport, &error, ^bool(xpc_object_t message, CFErrorRef *block_error) {
+        if (!SecXPCDictionarySetString(message, kSecTrustEventNameKey, eventName, block_error)) {
+            return false;
+        }
+        xpc_dictionary_set_value(message, kSecTrustEventAttributesKey, eventAttributes);
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *block_error) {
+        result = SecXPCDictionaryGetBool(response, kSecXPCKeyResult, block_error);
+        return true;
+    });
+
+    if (error != NULL) {
+        secerror("SecTrustReportNetworkingAnalytics failed with error: %d", (int)CFErrorGetCode(error));
+    }
+    CFReleaseNull(error);
+    CFReleaseNull(eventName);
 
     os_release(activity);
     return result;
@@ -2653,7 +2712,7 @@ static OSStatus SecTrustCreateFromPlist(CFPropertyListRef plist, SecTrustRef CF_
         output->_responses = CFRetainSafe(responses);
     }
     SCTs = CFDictionaryGetValue(plist, CFSTR(kSecTrustSCTsKey));
-    if (isArray(responses)) {
+    if (isArray(SCTs)) {
         output->_SCTs = CFRetainSafe(SCTs);
     }
     trustedLogs = CFDictionaryGetValue(plist, CFSTR(kSecTrustTrustedLogsKey));

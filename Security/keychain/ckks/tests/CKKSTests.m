@@ -528,6 +528,15 @@
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D10" withAccount:@"account10"]];
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D11" withAccount:@"account11"]];
 
+    for(int i = 12; i < 100; i++) {
+        @autoreleasepool {
+            NSString* recordName = [NSString stringWithFormat:@"7B598D31-F9C5-481E-98AC-%012d", i];
+            NSString* account = [NSString stringWithFormat:@"account%d", i];
+
+            [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:recordName withAccount:account]];
+        }
+    }
+
     // Trigger a notification (with hilariously fake data)
     [self.keychainView notifyZoneChange:nil];
 
@@ -3604,19 +3613,28 @@
     // test starts as if a previously logged-in device has just rebooted
     self.aksLockState = true;
     self.accountStatus = CKAccountStatusAvailable;
-    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCError error:[NSError errorWithDomain:(__bridge id)kSOSErrorDomain code:kSOSErrorNotReady description:@"fake error: device is locked, so SOS doesn't know if it's in-circle"]];
 
+    // This is the original state of the account tracker
+    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCError error:nil];
+    [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+
+    // And this is what the first circle status fetch will actually return
+    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCError error:[NSError errorWithDomain:(__bridge id)kSOSErrorDomain code:kSOSErrorNotReady description:@"fake error: device is locked, so SOS doesn't know if it's in-circle"]];
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
 
     XCTAssertNil(self.accountStateTracker.currentAccountError, "Account tracker error should not yet exist");
-    XCTAssertEqual(self.accountStateTracker.currentAccountError.code, CKKSAccountStatusUnknown, "Account tracker error should just be 'no account'");
-
+    XCTAssertEqual(self.accountStateTracker.currentComputedAccountStatus, CKKSAccountStatusUnknown, "Account tracker status should just be 'no account'");
     XCTAssertNotEqual(0, [self.keychainView.accountStateKnown wait:50*NSEC_PER_MSEC], "CKKS shouldn't know the account state yet");
 
     [self startCKKSSubsystem];
 
     XCTAssertNotEqual(0, [self.keychainView.loggedOut wait:100*NSEC_PER_MSEC], "Shouldn't have been told of a 'logout' event on startup");
     XCTAssertNotEqual(0, [self.keychainView.loggedIn wait:100*NSEC_PER_MSEC], "'login' event shouldn't have happened");
+    XCTAssertNotEqual(0, [self.keychainView.accountStateKnown wait:50*NSEC_PER_MSEC], "CKKS shouldn't know the account state yet");
+
+    // And assume another CK status change
+    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
+    XCTAssertEqual(self.accountStateTracker.currentComputedAccountStatus, CKKSAccountStatusUnknown, "Account tracker status should just be 'no account'");
     XCTAssertNotEqual(0, [self.keychainView.accountStateKnown wait:50*NSEC_PER_MSEC], "CKKS shouldn't know the account state yet");
 
     [self expectCKModifyKeyRecords: 3 currentKeyPointerRecords: 3 tlkShareRecords: 1 zoneID:self.keychainZoneID];

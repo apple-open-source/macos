@@ -548,6 +548,10 @@ _pthread_main_thread_init(pthread_t p);
 
 PTHREAD_NOEXPORT
 void
+_pthread_main_thread_postfork_init(pthread_t p);
+
+PTHREAD_NOEXPORT
+void
 _pthread_bsdthread_init(struct _pthread_registration_data *data);
 
 PTHREAD_NOEXPORT_VARIANT

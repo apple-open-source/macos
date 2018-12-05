@@ -581,7 +581,7 @@
 
         _fetchErrors = [[NSMutableArray alloc] init];
 
-        _queue = dispatch_queue_create("fake-ckzone", DISPATCH_QUEUE_SERIAL);
+        _queue = dispatch_queue_create("fake-ckzone", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
 
         dispatch_sync(_queue, ^{
             [self _onqueueRollChangeToken];

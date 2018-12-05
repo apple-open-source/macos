@@ -1948,7 +1948,7 @@ _pthread_main_thread_init(pthread_t p)
 	p->__cleanup_stack = NULL;
 	p->tl_join_ctx = NULL;
 	p->tl_exit_gate = MACH_PORT_NULL;
-	p->tsd[__TSD_SEMAPHORE_CACHE] = (void*)SEMAPHORE_NULL;
+	p->tsd[__TSD_SEMAPHORE_CACHE] = (void*)(uintptr_t)SEMAPHORE_NULL;
 	p->tsd[__TSD_MACH_SPECIAL_REPLY] = 0;
 	p->cancel_state |= _PTHREAD_CANCEL_INITIALIZED;
 
@@ -1957,6 +1957,14 @@ _pthread_main_thread_init(pthread_t p)
 	_pthread_count = 1;
 
 	_pthread_introspection_thread_start(p);
+}
+
+PTHREAD_NOEXPORT
+void
+_pthread_main_thread_postfork_init(pthread_t p)
+{
+	_pthread_main_thread_init(p);
+	_pthread_set_self_internal(p, false);
 }
 
 int

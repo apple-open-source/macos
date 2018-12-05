@@ -17,7 +17,7 @@ asset:
 	ditto Info.plist ${ASSET_DIR}
 	mkdir -p ${ASSET_DATA}
 	plutil -convert binary1 ${PINNING_DIR}/CertificatePinning.plist -o  ${ASSET_DATA}/CertificatePinning.plist
-	ruby ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.rb ${CT_DIR}/log_list.json ${ASSET_DATA}/TrustedCTLogs.plist
+	python ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs.plist
 	plutil -convert binary1 ${ASSET_DATA}/TrustedCTLogs.plist
 	plutil -convert binary1 AnalyticsSamplingRates.plist -o  ${ASSET_DATA}/AnalyticsSamplingRates.plist
 	plutil -convert binary1 AppleCertificateAuthorities.plist -o  ${ASSET_DATA}/AppleCertificateAuthorities.plist
@@ -31,5 +31,5 @@ clean:
 stage: asset
 	echo "PKItrustSupplementals staging"
 	rm -rf staged
-	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) stage -p . -s staged -v 2
+	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) stage -p . -s staged -v 4
 	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) sign -s staged

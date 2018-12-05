@@ -1984,11 +1984,24 @@ yue_Hans{
                 "{1} {0}",
             }
             availableFormats{
+                Bh{"Bh时"}
+                Bhm{"Bh:mm"}
+                Bhms{"Bh:mm:ss"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
                 Ed{"d日（E）"}
+                Ehm{"ah:mmE"}
+                Ehms{"ah:mm:ssE"}
                 Gy{"Gy年"}
                 GyMMM{"Gy年M月"}
                 GyMMMEd{"Gy年M月d日E"}
                 GyMMMd{"Gy年M月d日"}
+                H{"H时"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
                 M{"M月"}
                 MEd{"M-dE"}
                 MMM{"LLL"}
@@ -1997,6 +2010,10 @@ yue_Hans{
                 MMMd{"M月d日"}
                 Md{"M-d"}
                 d{"d日"}
+                h{"ah时"}
+                hm{"ah:mm"}
+                hms{"ah:mm:ss"}
+                ms{"mm:ss"}
                 y{"Gy年"}
                 yyyy{"Gy年"}
                 yyyyM{"Gy/M"}

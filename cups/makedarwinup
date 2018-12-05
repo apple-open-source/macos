@@ -13,23 +13,60 @@
 #
 
 if test $# != 1; then
-	echo "Usage: makedarwinup radar-number-or-label"
+	echo "Usage: makedarwinup [-build build] [-train name] radar-number-or-label"
 	exit 1
 fi
 
-buildit -update PrevailingmacOSLiberty -project cups -arch i386 -arch x86_64 -archive -archiveName cups-$1 -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify . || exit 1
-rm -f ~/Desktop/Shared_cups-$1_HDRDSTROOT_osx.tar.gz
-mv -f ~/Desktop/Shared_cups-$1_DSTROOT_osx.tar.gz ~/Desktop/cups-$1.tar.gz
+build=""
+train=""
 
-echo "Send ~/Desktop/cups-$1.tar.gz to tester."
+while test $# -gt 0; do
+        opt="$1"
+        shift
+
+        case "$opt" in
+        	-build)
+        		build="$1"
+        		shift
+        		;;
+        	-train)
+        		train="$1"
+        		shift
+        		;;
+        	-*)
+        		echo "Usage: makedarwinup [-build build] [-train name] radar-number-or-label"
+        		exit 1
+        		;;
+        	*)
+        		label="$opt"
+        		;;
+        esac
+done
+
+if test "x$train" = x; then
+	if test "x$build" = x; then
+		build=`sw_vers -buildVersion`
+	fi
+
+	train=`xbs getTrainForBuild $build --quiet`
+fi
+
+echo Building cups for $train...
+
+echo sudo xbs buildit . -update Prevailing$train -project cups -arch i386 -arch x86_64 -rootsDirectory /private/var/tmp AD_HOC_CODE_SIGN_IDENTITY=- -archive -archiveName cups-$label -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify
+sudo xbs buildit . -update Prevailing$train -project cups -arch i386 -arch x86_64 -rootsDirectory /private/var/tmp AD_HOC_CODE_SIGN_IDENTITY=- -archive -archiveName cups-$label -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify || exit 1
+rm -f ~/Desktop/Shared_cups-${label}_HDRDSTROOT_osx.tar.gz
+mv -f ~/Desktop/Shared_cups-${label}_DSTROOT_osx.tar.gz ~/Desktop/cups-$label.tar.gz
+
+echo "Send ~/Desktop/cups-$label.tar.gz to tester."
 echo ""
 echo "Use the following commands to install the root:"
 echo ""
-echo "  sudo darwinup install ~/Desktop/cups-$1.tar.gz"
+echo "  sudo darwinup install ~/Desktop/cups-$label.tar.gz"
 echo "  sudo killall cupsd"
 echo "  cupsctl --debug-logging"
 echo ""
 echo "Use the following commands to remove the root:"
 echo ""
-echo "  sudo darwinup uninstall cups-$1.tar.gz"
+echo "  sudo darwinup uninstall cups-$label.tar.gz"
 echo "  sudo killall cupsd"

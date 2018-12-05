@@ -2038,18 +2038,58 @@ bool _SecItemUpdateTokenItems(CFStringRef tokenID, CFArrayRef items, SecurityCli
     return ok;
 }
 
-/* AUDIT[securityd](done):
-   No caller provided inputs.
- */
+static bool deleteNonSysboundItemsForItemClass(SecDbConnectionRef dbt, SecDbClass const* class, CFErrorRef* error) {
+    CFMutableDictionaryRef query = CFDictionaryCreateMutableForCFTypes(NULL);
+    CFDictionaryAddValue(query, kSecMatchLimit, kSecMatchLimitAll);
+
+    __block CFErrorRef localError = NULL;
+    SecDbQueryRef q = query_create(class, NULL, query, &localError);
+    if (q == NULL) {    // illegal query or out of memory
+        secerror("SecItemServerDeleteAll: aborting because failed to initialize Query: %@", localError);
+        abort();
+    }
+    SecDbItemSelect(q, dbt, &localError, ^bool(const SecDbAttr *attr) {
+        return (attr->flags & kSecDbInFlag) && !CFEqual(attr->name, CFSTR("data"));
+    }, NULL, NULL, NULL,
+    ^(SecDbItemRef item, bool *stop) {
+        if (!SecItemIsSystemBound(item->attributes, class, false) &&
+            !CFEqual(CFDictionaryGetValue(item->attributes, kSecAttrAccessGroup), CFSTR("com.apple.bluetooth")))
+        {
+            SecDbItemDelete(item, dbt, kCFBooleanFalse, &localError);
+        }
+    });
+    query_destroy(q, &localError);
+
+    if (localError) {
+        if (error) {
+            CFReleaseNull(*error);
+            *error = localError;
+        } else {
+            CFReleaseNull(localError);
+        }
+        return false;
+    }
+    return true;
+}
+
+// Delete all the items except sysbound ones because horrible things happen if you do, like bluetooth devices unpairing
 static bool
 SecItemServerDeleteAll(CFErrorRef *error) {
     secerror("SecItemServerDeleteAll");
     return kc_with_dbt(true, error, ^bool (SecDbConnectionRef dbt) {
         return (kc_transaction(dbt, error, ^bool {
-            return (SecDbExec(dbt, CFSTR("DELETE from genp;"), error) &&
-                    SecDbExec(dbt, CFSTR("DELETE from inet;"), error) &&
-                    SecDbExec(dbt, CFSTR("DELETE from cert;"), error) &&
-                    SecDbExec(dbt, CFSTR("DELETE from keys;"), error));
+            bool ok = true;
+            ok &= SecDbExec(dbt, CFSTR("DELETE FROM genp WHERE sync=1;"), error);
+            ok &= SecDbExec(dbt, CFSTR("DELETE FROM inet WHERE sync=1;"), error);
+            ok &= SecDbExec(dbt, CFSTR("DELETE FROM cert WHERE sync=1;"), error);
+            ok &= SecDbExec(dbt, CFSTR("DELETE FROM keys WHERE sync=1;"), error);
+
+            ok &= deleteNonSysboundItemsForItemClass(dbt, genp_class(), error);
+            ok &= deleteNonSysboundItemsForItemClass(dbt, inet_class(), error);
+            ok &= deleteNonSysboundItemsForItemClass(dbt, cert_class(), error);
+            ok &= deleteNonSysboundItemsForItemClass(dbt, keys_class(), error);
+
+            return ok;
         }) && SecDbExec(dbt, CFSTR("VACUUM;"), error));
     });
 }

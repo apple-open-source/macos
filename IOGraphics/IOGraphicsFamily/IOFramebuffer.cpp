@@ -1091,7 +1091,11 @@ void IOGraphicsWorkLoop::wakeupGate(void *event, bool oneThread)
 #define SYSASSERTGATED() do { \
     if (!gIOFBSystemWorkLoop->inGate()) panic(__FUNCTION__ " not sys gated?"); \
 } while(false)
-
+#define SYSASSERTNOTGATED() do { \
+    if (gIOFBSystemWorkLoop->inGate()) panic(__FUNCTION__ " sys gated?"); \
+} while(false)
+#define SYSGATEGUARD(guardname) IOGraphicsWorkLoop::GateGuard \
+    guardname(gIOFBSystemWorkLoop)
 
 #define FCLOCK(fc)        \
     fc->fWl->closeGate()
@@ -1100,6 +1104,11 @@ void IOGraphicsWorkLoop::wakeupGate(void *event, bool oneThread)
 #define FCASSERTGATED(fc) do { \
     if (!fc->fWl->inGate()) panic(__FUNCTION__ " not controller gated?"); \
 } while(false)
+#define FCASSERTNOTGATED(fc) do { \
+    if (fc->fWl->inGate()) panic(__FUNCTION__ " controller gated?"); \
+} while(false)
+#define FCGATEGUARD(guardname, fc) IOGraphicsWorkLoop::GateGuard \
+        guardname(fc->fWl)
 
 #define FBWL(fb)          \
     fb->__private->controller->fWl
@@ -1110,6 +1119,15 @@ void IOGraphicsWorkLoop::wakeupGate(void *event, bool oneThread)
 #define FBASSERTGATED(fb) do { \
     if (!FBWL(fb)->inGate()) panic(__FUNCTION__ " not framebuffer gated?"); \
 } while(false)
+#define FBASSERTNOTGATED(fb) do { \
+    if (FBWL(fb)->inGate()) panic(__FUNCTION__ " framebuffer gated?"); \
+} while(false)
+#define FBGATEGUARD(guardname, fb) IOGraphicsWorkLoop::GateGuard \
+        guardname(FBWL(fb))
+
+#define SYSISLOCKED()         gIOFBSystemWorkLoop->inGate()
+#define FCISLOCKED(fc)        fc->fWl->inGate()
+#define FBISLOCKED(fb)        FBWL(fb)->inGate()
 
 #if TIME_LOGS
 
@@ -4597,6 +4615,7 @@ IOReturn IOFramebuffer::probeAccelerator()
     IOFB_END(probeAccelerator,status,0,0);
     return status;
 }
+
 
 void IOFramebuffer::initialize()
 {
@@ -8346,94 +8365,75 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
     switch (messageType)
     {
         case kIOMessageSystemCapabilityChange:
-		{
-			IOPMSystemCapabilityChangeParameters * params = (IOGRAPHICS_TYPEOF(params)) messageArgument;
-	
-			// root domain won't overlap capability changes with pstate changes
+        {
+            IOPMSystemCapabilityChangeParameters * params = (IOGRAPHICS_TYPEOF(params)) messageArgument;
 
-			DEBG1("DARK", " %s%s 0x%x->0x%x\n", 
-			params->changeFlags & kIOPMSystemCapabilityWillChange ? "will" : "",
-			params->changeFlags & kIOPMSystemCapabilityDidChange ? "did" : "",
-			params->fromCapabilities,
-			params->toCapabilities);
+            // root domain won't overlap capability changes with pstate changes
 
-			if ((params->changeFlags & kIOPMSystemCapabilityWillChange) &&
-				(params->fromCapabilities & kIOPMSystemCapabilityGraphics) &&
-				((params->toCapabilities & kIOPMSystemCapabilityGraphics) == 0))
-			{
-				ret = muxPowerMessage(kIOMessageSystemWillSleep);
-				if (kIOReturnNotReady == ret)
-				{
-                    IOGraphicsWorkLoop::GateGuard sysgated(gIOFBSystemWorkLoop);
+#define X(field, flag) \
+    static_cast<bool>(params->field & kIOPMSystemCapability ## flag)
+            const auto&    will = X(changeFlags,      WillChange);
+            const auto&     did = X(changeFlags,      DidChange);
+            const auto& fromGFX = X(fromCapabilities, Graphics);
+            const auto&   toGFX = X(toCapabilities,   Graphics);
+            const auto& fromCPU = X(fromCapabilities, CPU);
+            const auto&   toCPU = X(toCapabilities,   CPU);
+#undef X
 
-					gIOFBIsMuxSwitching = true;
-					gIOFBSystemPowerMuxAckRef = params->notifyRef;
-					gIOFBSystemPowerMuxAckTo  = service;
-					params->maxWaitForReply = gIOGNotifyTO * 1000 * 1000;
-				}
-			}
-			else if ((params->changeFlags & kIOPMSystemCapabilityWillChange) &&
-				((params->fromCapabilities & kIOPMSystemCapabilityGraphics) == 0) &&
-				(params->toCapabilities & kIOPMSystemCapabilityGraphics))
-			{
-		        if (kIOMessageSystemHasPoweredOn != gIOFBLastMuxMessage)
-				    muxPowerMessage(kIOMessageSystemWillPowerOn);
-			}
-			else if ((params->changeFlags & kIOPMSystemCapabilityDidChange) &&
-				((params->fromCapabilities & kIOPMSystemCapabilityGraphics) == 0) &&
-				(params->toCapabilities & kIOPMSystemCapabilityGraphics))
-			{
-				muxPowerMessage(kIOMessageSystemHasPoweredOn);
-			}
+            DEBG1("DARK", " %s%s 0x%x->0x%x\n",
+                will ? "will" : "",
+                did ? "did" : "",
+                params->fromCapabilities,
+                params->toCapabilities);
 
-			else if ((params->changeFlags & kIOPMSystemCapabilityDidChange) &&
-				((params->fromCapabilities & kIOPMSystemCapabilityCPU) == 0) &&
-				(params->toCapabilities & kIOPMSystemCapabilityCPU))
-			{
-				muxPowerMessage(kIOMessageSystemHasPoweredOn);
-			}
-			else if ((params->changeFlags & kIOPMSystemCapabilityWillChange) &&
-				((params->fromCapabilities & kIOPMSystemCapabilityCPU) == 0) &&
-				(params->toCapabilities & kIOPMSystemCapabilityCPU))
-			{
+
+            if (will && fromGFX && !toGFX) {
+                ret = muxPowerMessage(kIOMessageSystemWillSleep);
+                if (kIOReturnNotReady == ret) {
+                    SYSGATEGUARD(sysgated);
+                    gIOFBIsMuxSwitching = true;
+                    gIOFBSystemPowerMuxAckRef = params->notifyRef;
+                    gIOFBSystemPowerMuxAckTo  = service;
+                    params->maxWaitForReply = gIOGNotifyTO * 1000 * 1000;
+                }
+            } else if (will && !fromGFX && toGFX) {
+                if (kIOMessageSystemHasPoweredOn != gIOFBLastMuxMessage) {
+                    muxPowerMessage(kIOMessageSystemWillPowerOn);
+                }
+            } else if (did && !fromGFX && toGFX) {
+                muxPowerMessage(kIOMessageSystemHasPoweredOn);
+            } else if (did && !fromCPU && toCPU) {
+                muxPowerMessage(kIOMessageSystemHasPoweredOn);
+            } else if (will && !fromCPU && toCPU) {
                 GMETRIC(kGMETRICS_DOMAIN_FRAMEBUFFER
                         | kGMETRICS_DOMAIN_POWER
                         | kGMETRICS_DOMAIN_SLEEP,
                         kGMETRICS_EVENT_SIGNAL,
                         GMETRIC_DATA_FROM_MARKER(kGMETRICS_MARKER_EXITING_SLEEP));
 
-				muxPowerMessage(kIOMessageSystemWillPowerOn);
+                muxPowerMessage(kIOMessageSystemWillPowerOn);
 
-                IOGraphicsWorkLoop::GateGuard sysgated(gIOFBSystemWorkLoop);
-				gIOFBSystemPower       = true;
-				gIOGraphicsSystemPower = true;
-				gIOFBSystemDark        = true;
-			}
-			else if ((params->changeFlags & kIOPMSystemCapabilityWillChange) &&
-				(params->fromCapabilities & kIOPMSystemCapabilityCPU) &&
-				((params->toCapabilities & kIOPMSystemCapabilityCPU) == 0))
-			{
-				if (gIOFBSystemPower)
-				{
-					ret = muxPowerMessage(kIOMessageSystemWillSleep);
-	
-                    IOGraphicsWorkLoop::GateGuard sysgated(gIOFBSystemWorkLoop);
+                SYSGATEGUARD(sysgated);
+                gIOFBSystemPower       = true;
+                gIOGraphicsSystemPower = true;
+                gIOFBSystemDark        = true;
+            } else if (will && fromCPU && !toCPU) {
+                if (gIOFBSystemPower) {
+                    ret = muxPowerMessage(kIOMessageSystemWillSleep);
 
-//					gIOFBClamshellState = kIOPMDisableClamshell;
-//					getPMRootDomain()->receivePowerNotification(kIOPMDisableClamshell);
-			
-					gIOFBSystemPower       = false;
-					gIOFBSystemPowerAckRef = (void *)(uintptr_t) params->notifyRef;
-					gIOFBSystemPowerAckTo  = service;
-					startThread(false);
-					gIOGraphicsSystemPower = false;
-			
-					// We will ack within gIOGNotifyTO seconds
-					params->maxWaitForReply = gIOGNotifyTO * 1000 * 1000;
-					ret                    = kIOReturnSuccess;
-				}
-			}
-			ret = kIOReturnSuccess;
+                    SYSGATEGUARD(sysgated);
+                    gIOFBSystemPower       = false;
+                    gIOFBSystemPowerAckRef = (void *)(uintptr_t) params->notifyRef;
+                    gIOFBSystemPowerAckTo  = service;
+                    startThread(false);
+                    gIOGraphicsSystemPower = false;
+
+                    // We will ack within gIOGNotifyTO seconds
+                    params->maxWaitForReply = gIOGNotifyTO * 1000 * 1000;
+                    ret                    = kIOReturnSuccess;
+                }
+            }
+            ret = kIOReturnSuccess;
 
             IOG_KTRACE(DBG_IOG_SYSTEM_POWER_CHANGE,
                        DBG_FUNC_END,
@@ -8448,7 +8448,7 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
                        0, params->toCapabilities,
                        0, 0);
             break;
-		}
+        }
 
         case kIOMessageSystemWillSleep:
 		{
@@ -13045,7 +13045,7 @@ IOItemCount IOFramebuffer::getConnectionCount( void )
 IOReturn IOFramebuffer::setAttributeExt( IOSelect attribute, uintptr_t value )
 {
     IOFB_START(setAttributeExt,attribute,value,0);
-	IOReturn err;
+    IOReturn err = kIOReturnSuccess;
 
     IOG_KTRACE(DBG_IOG_SET_ATTRIBUTE_EXT,
                DBG_FUNC_START,
@@ -13054,35 +13054,35 @@ IOReturn IOFramebuffer::setAttributeExt( IOSelect attribute, uintptr_t value )
                0, value,
                0, 0);
 
-	FBLOCK(this);
-	switch (attribute)
-	{
-        case kIOPowerAttribute:
+    if (!SYSISLOCKED()) FBASSERTNOTGATED(this);
+    SYSGATEGUARD(sysgated);
+    FBGATEGUARD(ctrlgated, this);
 
-            DEBG1(thisName, " mux power change %d->%ld, gated %d, thread %d\n", 
-            	pendingPowerState, value,
+    switch (attribute) {
+        case kIOPowerAttribute:
+            DEBG1(thisName, " mux power change %d->%ld, gated %d, thread %d\n",
+                pendingPowerState, value,
                 gIOFBSystemWorkLoop->inGate(), gIOFBSystemWorkLoop->onThread());
+
 
             if (value != pendingPowerState)
             {
                 pendingPowerState = static_cast<unsigned int>(value);
-				if (!__private->controllerIndex)
-				{
-					__private->controller->fPendingMuxPowerChange = true;
-					__private->controller->startThread();
-				}
+                if (!__private->controllerIndex)
+                {
+                    __private->controller->fPendingMuxPowerChange = true;
+                    __private->controller->startThread();
+                }
             }
             err = kIOReturnSuccess;
-			break;
+            break;
 
-		default:
+        default:
             FB_START(setAttribute,attribute,__LINE__,value);
-			err = setAttribute(attribute, value);
+            err = setAttribute(attribute, value);
             FB_END(setAttribute,err,__LINE__,0);
-			break;
-	}
-
-	FBUNLOCK(this);
+            break;
+    }
 
     IOG_KTRACE(DBG_IOG_SET_ATTRIBUTE_EXT,
                DBG_FUNC_END,
@@ -13092,7 +13092,7 @@ IOReturn IOFramebuffer::setAttributeExt( IOSelect attribute, uintptr_t value )
                0, 0);
 
     IOFB_END(setAttributeExt,err,0,0);
-	return (err);
+    return (err);
 }
 
 IOReturn IOFramebuffer::getAttributeExt( IOSelect attribute, uintptr_t * value )

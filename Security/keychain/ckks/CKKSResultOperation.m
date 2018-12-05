@@ -42,7 +42,7 @@
         _error = nil;
         _successDependencies = [[NSMutableArray alloc] init];
         _timeoutCanOccur = true;
-        _timeoutQueue = dispatch_queue_create("result-operation-timeout", DISPATCH_QUEUE_SERIAL);
+        _timeoutQueue = dispatch_queue_create("result-operation-timeout", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _completionHandlerDidRunCondition = [[CKKSCondition alloc] init];
 
         __weak __typeof(self) weakSelf = self;

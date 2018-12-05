@@ -60,6 +60,7 @@ CFArrayRef SecTrustCopyProperties_ios(SecTrustRef trust);
 
 #define kSecTrustEventNameKey "eventName"
 #define kSecTrustEventAttributesKey "eventAttributes"
+#define kSecTrustEventApplicationID "appID"
 
 __END_DECLS
 

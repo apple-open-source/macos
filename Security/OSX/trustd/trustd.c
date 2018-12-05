@@ -74,12 +74,15 @@ static struct trustd trustd_spi = {
     .sec_truststore_remove_all              = _SecTrustStoreRemoveAll,
     .sec_trust_evaluate                     = SecTrustServerEvaluate,
     .sec_ota_pki_trust_store_version        = SecOTAPKIGetCurrentTrustStoreVersion,
+    .sec_ota_pki_asset_version              = SecOTAPKIGetCurrentAssetVersion,
     .ota_CopyEscrowCertificates             = SecOTAPKICopyCurrentEscrowCertificates,
     .sec_ota_pki_get_new_asset              = SecOTAPKISignalNewAsset,
     .sec_trust_store_copy_all               = _SecTrustStoreCopyAll,
     .sec_trust_store_copy_usage_constraints = _SecTrustStoreCopyUsageConstraints,
     .sec_ocsp_cache_flush                   = SecOCSPCacheFlush,
-    .sec_tls_analytics_report               = SecTLSAnalyticsReport,
+    .sec_networking_analytics_report        = SecNetworkingAnalyticsReport,
+    .sec_trust_store_set_ct_exceptions      = _SecTrustStoreSetCTExceptions,
+    .sec_trust_store_copy_ct_exceptions     = _SecTrustStoreCopyCTExceptions,
 };
 
 static bool SecXPCDictionarySetChainOptional(xpc_object_t message, const char *key, CFArrayRef path, CFErrorRef *error) {
@@ -168,7 +171,8 @@ static SecTrustStoreRef SecXPCDictionaryGetTrustStore(xpc_object_t message, cons
     return ts;
 }
 
-static bool SecXPCTrustStoreContains(xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
+static bool SecXPCTrustStoreContains(SecurityClient * __unused client, xpc_object_t event,
+                                     xpc_object_t reply, CFErrorRef *error) {
     bool result = false;
     SecTrustStoreRef ts = SecXPCDictionaryGetTrustStore(event, kSecXPCKeyDomain, error);
     if (ts) {
@@ -185,7 +189,8 @@ static bool SecXPCTrustStoreContains(xpc_object_t event, xpc_object_t reply, CFE
     return result;
 }
 
-static bool SecXPCTrustStoreSetTrustSettings(xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
+static bool SecXPCTrustStoreSetTrustSettings(SecurityClient * __unused client, xpc_object_t event,
+                                             xpc_object_t reply, CFErrorRef *error) {
     bool noError = false;
     SecTrustStoreRef ts = SecXPCDictionaryGetTrustStore(event, kSecXPCKeyDomain, error);
     if (ts) {
@@ -204,7 +209,8 @@ static bool SecXPCTrustStoreSetTrustSettings(xpc_object_t event, xpc_object_t re
     return noError;
 }
 
-static bool SecXPCTrustStoreRemoveCertificate(xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
+static bool SecXPCTrustStoreRemoveCertificate(SecurityClient * __unused client, xpc_object_t event,
+                                              xpc_object_t reply, CFErrorRef *error) {
     SecTrustStoreRef ts = SecXPCDictionaryGetTrustStore(event, kSecXPCKeyDomain, error);
     if (ts) {
         CFDataRef digest = SecXPCDictionaryCopyData(event, kSecXPCKeyDigest, error);
@@ -218,7 +224,8 @@ static bool SecXPCTrustStoreRemoveCertificate(xpc_object_t event, xpc_object_t r
     return false;
 }
 
-static bool SecXPCTrustStoreCopyAll(xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
+static bool SecXPCTrustStoreCopyAll(SecurityClient * __unused client, xpc_object_t event,
+                                    xpc_object_t reply, CFErrorRef *error) {
     SecTrustStoreRef ts = SecXPCDictionaryGetTrustStore(event, kSecXPCKeyDomain, error);
     if (ts) {
         CFArrayRef trustStoreContents = NULL;
@@ -231,7 +238,8 @@ static bool SecXPCTrustStoreCopyAll(xpc_object_t event, xpc_object_t reply, CFEr
     return false;
 }
 
-static bool SecXPCTrustStoreCopyUsageConstraints(xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
+static bool SecXPCTrustStoreCopyUsageConstraints(SecurityClient * __unused client, xpc_object_t event,
+                                                 xpc_object_t reply, CFErrorRef *error) {
     bool result = false;
     SecTrustStoreRef ts = SecXPCDictionaryGetTrustStore(event, kSecXPCKeyDomain, error);
     if (ts) {
@@ -249,19 +257,28 @@ static bool SecXPCTrustStoreCopyUsageConstraints(xpc_object_t event, xpc_object_
     return result;
 }
 
-static bool SecXPC_OCSPCacheFlush(xpc_object_t __unused event, xpc_object_t __unused reply, CFErrorRef *error) {
+static bool SecXPC_OCSPCacheFlush(SecurityClient * __unused client, xpc_object_t __unused event,
+                                  xpc_object_t __unused reply, CFErrorRef *error) {
     if(SecOCSPCacheFlush(error)) {
         return true;
     }
     return false;
 }
 
-static bool SecXPC_OTAPKI_GetAssetVersion(xpc_object_t __unused event, xpc_object_t reply, CFErrorRef *error) {
+static bool SecXPC_OTAPKI_GetCurrentTrustStoreVersion(SecurityClient * __unused client, xpc_object_t __unused event,
+                                          xpc_object_t reply, CFErrorRef *error) {
     xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTAPKIGetCurrentTrustStoreVersion(error));
     return true;
 }
 
-static bool SecXPC_OTAPKI_GetEscrowCertificates(xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
+static bool SecXPC_OTAPKI_GetCurrentAssetVersion(SecurityClient * __unused client, xpc_object_t __unused event,
+                                                      xpc_object_t reply, CFErrorRef *error) {
+    xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTAPKIGetCurrentAssetVersion(error));
+    return true;
+}
+
+static bool SecXPC_OTAPKI_GetEscrowCertificates(SecurityClient * __unused client, xpc_object_t event,
+                                                xpc_object_t reply, CFErrorRef *error) {
     bool result = false;
     uint32_t escrowRootType = (uint32_t)xpc_dictionary_get_uint64(event, "escrowType");
     CFArrayRef array = SecOTAPKICopyCurrentEscrowCertificates(escrowRootType, error);
@@ -275,24 +292,53 @@ static bool SecXPC_OTAPKI_GetEscrowCertificates(xpc_object_t event, xpc_object_t
     return result;
 }
 
-static bool SecXPC_OTAPKI_GetNewAsset(xpc_object_t __unused event, xpc_object_t reply, CFErrorRef *error) {
+static bool SecXPC_OTAPKI_GetNewAsset(SecurityClient * __unused client, xpc_object_t __unused event,
+                                      xpc_object_t reply, CFErrorRef *error) {
     xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTAPKISignalNewAsset(error));
     return true;
 }
 
-static bool SecXPC_TLS_AnalyticsReport(xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
+static bool SecXPC_Networking_AnalyticsReport(SecurityClient * __unused client, xpc_object_t event,
+                                       xpc_object_t reply, CFErrorRef *error) {
     xpc_object_t attributes = xpc_dictionary_get_dictionary(event, kSecTrustEventAttributesKey);
     CFStringRef eventName = SecXPCDictionaryCopyString(event, kSecTrustEventNameKey, error);
     bool result = false;
     if (attributes && eventName) {
-        result = SecTLSAnalyticsReport(eventName, attributes, error);
+        result = SecNetworkingAnalyticsReport(eventName, attributes, error);
     }
     xpc_dictionary_set_bool(reply, kSecXPCKeyResult, result);
     CFReleaseNull(eventName);
     return result;
 }
 
-typedef bool(*SecXPCOperationHandler)(xpc_object_t event, xpc_object_t reply, CFErrorRef *error);
+static bool SecXPCTrustStoreSetCTExceptions(SecurityClient *client, xpc_object_t event,
+                                            xpc_object_t reply, CFErrorRef *error) {
+    CFStringRef appID = NULL;
+    CFDictionaryRef exceptions = NULL;
+    if (!SecXPCDictionaryCopyStringOptional(event, kSecTrustEventApplicationID, &appID, error) || !appID) {
+        /* We always want to set the app ID with the exceptions */
+        appID = SecTaskCopyApplicationIdentifier(client->task);
+    }
+    (void)SecXPCDictionaryCopyDictionaryOptional(event, kSecTrustExceptionsKey, &exceptions, error);
+    bool result = _SecTrustStoreSetCTExceptions(appID, exceptions, error);
+    xpc_dictionary_set_bool(reply, kSecXPCKeyResult, result);
+    CFReleaseNull(exceptions);
+    CFReleaseNull(appID);
+    return false;
+}
+
+static bool SecXPCTrustStoreCopyCTExceptions(SecurityClient * __unused client, xpc_object_t event,
+                                             xpc_object_t reply, CFErrorRef *error) {
+    CFStringRef appID = NULL;
+    (void)SecXPCDictionaryCopyStringOptional(event, kSecTrustEventApplicationID, &appID, error);
+    CFDictionaryRef exceptions = _SecTrustStoreCopyCTExceptions(appID, error);
+    SecXPCDictionarySetPListOptional(reply, kSecTrustExceptionsKey, exceptions, error);
+    CFReleaseNull(exceptions);
+    CFReleaseNull(appID);
+    return false;
+}
+
+typedef bool(*SecXPCOperationHandler)(SecurityClient *client, xpc_object_t event, xpc_object_t reply, CFErrorRef *error);
 
 typedef struct {
     CFStringRef entitlement;
@@ -307,9 +353,12 @@ struct trustd_operations {
     SecXPCServerOperation trust_store_copy_usage_constraints;
     SecXPCServerOperation ocsp_cache_flush;
     SecXPCServerOperation ota_pki_trust_store_version;
+    SecXPCServerOperation ota_pki_asset_version;
     SecXPCServerOperation ota_pki_get_escrow_certs;
     SecXPCServerOperation ota_pki_get_new_asset;
-    SecXPCServerOperation tls_analytics_report;
+    SecXPCServerOperation networking_analytics_report;
+    SecXPCServerOperation trust_store_set_ct_exceptions;
+    SecXPCServerOperation trust_store_copy_ct_exceptions;
 };
 
 static struct trustd_operations trustd_ops = {
@@ -319,10 +368,13 @@ static struct trustd_operations trustd_ops = {
     .trust_store_copy_all = { kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreCopyAll },
     .trust_store_copy_usage_constraints = { kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreCopyUsageConstraints },
     .ocsp_cache_flush = { NULL, SecXPC_OCSPCacheFlush },
-    .ota_pki_trust_store_version = { NULL, SecXPC_OTAPKI_GetAssetVersion },
+    .ota_pki_trust_store_version = { NULL, SecXPC_OTAPKI_GetCurrentTrustStoreVersion },
+    .ota_pki_asset_version = { NULL, SecXPC_OTAPKI_GetCurrentAssetVersion },
     .ota_pki_get_escrow_certs = { NULL, SecXPC_OTAPKI_GetEscrowCertificates },
     .ota_pki_get_new_asset = { NULL, SecXPC_OTAPKI_GetNewAsset },
-    .tls_analytics_report = { NULL, SecXPC_TLS_AnalyticsReport },
+    .networking_analytics_report = { NULL, SecXPC_Networking_AnalyticsReport },
+    .trust_store_set_ct_exceptions = {kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreSetCTExceptions },
+    .trust_store_copy_ct_exceptions = {kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreCopyCTExceptions }
 };
 
 static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc_object_t event) {
@@ -446,14 +498,24 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                 case sec_ota_pki_trust_store_version_id:
                     server_op = &trustd_ops.ota_pki_trust_store_version;
                     break;
+                case sec_ota_pki_asset_version_id:
+                    server_op = &trustd_ops.ota_pki_asset_version;
+                    break;
                 case kSecXPCOpOTAGetEscrowCertificates:
                     server_op = &trustd_ops.ota_pki_get_escrow_certs;
                     break;
                 case kSecXPCOpOTAPKIGetNewAsset:
                     server_op = &trustd_ops.ota_pki_get_new_asset;
                     break;
-                case kSecXPCOpTLSAnaltyicsReport:
-                    server_op = &trustd_ops.tls_analytics_report;
+                case kSecXPCOpNetworkingAnalyticsReport:
+                    server_op = &trustd_ops.networking_analytics_report;
+                    break;
+                case kSecXPCOpSetCTExceptions:
+                    server_op = &trustd_ops.trust_store_set_ct_exceptions;
+                    break;
+                case kSecXPCOpCopyCTExceptions:
+                    server_op = &trustd_ops.trust_store_copy_ct_exceptions;
+                    break;
                 default:
                     break;
             }
@@ -463,7 +525,7 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                     entitled = EntitlementPresentAndTrue(operation, client.task, server_op->entitlement, &error);
                 }
                 if (entitled) {
-                    (void)server_op->handler(event, replyMessage, &error);
+                    (void)server_op->handler(&client, event, replyMessage, &error);
                 }
             }
         }

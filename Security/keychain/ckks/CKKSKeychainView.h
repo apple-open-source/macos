@@ -265,8 +265,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSHashTable<CKKSOutgoingQueueOperation*>* outgoingQueueOperations;
 @property CKKSScanLocalItemsOperation* initialScanOperation;
 
-// Returns the current state of this view
+// Returns the current state of this view, fastStatus is the same, but as name promise, no expensive calculations
 - (NSDictionary<NSString*, NSString*>*)status;
+- (NSDictionary<NSString*, NSString*>*)fastStatus;
 @end
 
 NS_ASSUME_NONNULL_END

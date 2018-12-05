@@ -59,6 +59,8 @@ typedef enum {
     kIOHIDLogCategoryProperty,
     kIOHIDLogCategoryActivity,
     kIOHIDLogCategoryFastPath,
+    kIOHIDLogCategoryService,
+    kIOHIDLogCategoryConnection,
     kIOHIDLogCategoryCount
 } IOHIDLogCategory;
 

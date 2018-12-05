@@ -255,6 +255,14 @@ CFStringRef SecTrustCopyFailureDescription(SecTrustRef trust);
 uint64_t SecTrustGetTrustStoreVersionNumber(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
 
 /*
+ @function SecTrustGetAssetVersionNumber
+ @abstract Ask trustd what asset version it is using.
+ @param error A returned error if trustd failed to answer.
+ @result The current version of the asset. 0 upon failure.
+ */
+uint64_t SecTrustGetAssetVersionNumber(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
+
+/*
  @function SecTrustOTAPKIGetUpdatedAsset
  @abstract Trigger trustd to fetch a new trust supplementals asset right now.
  @param error A returned error if trustd failed to update the asset.
@@ -275,18 +283,6 @@ uint64_t SecTrustOTAPKIGetUpdatedAsset(CFErrorRef _Nullable * _Nullable CF_RETUR
  */
 Boolean SecTrustFlushResponseCache(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error)
     __OSX_AVAILABLE(10.13.4) __IOS_AVAILABLE(11.3) __TVOS_AVAILABLE(11.3) __WATCHOS_AVAILABLE(4.3);
-
-/*!
- @function SecTrustSignedCertificateTimestampList
- @abstract Attach SignedCertificateTimestampList data to a trust object.
- @param trust A reference to a trust object.
- @param sctArray is a CFArray of CFData objects each containing a SCT (per RFC 6962).
- @result A result code. See "Security Error Codes" (SecBase.h).
- @discussion Allows the caller to provide SCT data (which may be
- obtained during a TLS/SSL handshake, per RFC 6962) as input to a trust
- evaluation.
- */
-OSStatus SecTrustSetSignedCertificateTimestamps(SecTrustRef trust, CFArrayRef sctArray);
 
 /*!
  @function SecTrustSetTrustedLogs
@@ -437,6 +433,24 @@ OSStatus SecTrustEvaluateFastAsync(SecTrustRef trust, dispatch_queue_t queue, Se
 */
 bool SecTrustReportTLSAnalytics(CFStringRef eventName, xpc_object_t eventAttributes, CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error)
     __API_AVAILABLE(macos(10.13.4), ios(11.3), tvos(11.3), watchos(4.3));
+
+/*!
+ @function SecTrustReportNetworkingAnalytics
+ @discussion This function MUST NOT be called outside of the networking stack.
+ */
+bool SecTrustReportNetworkingAnalytics(const char *eventName, xpc_object_t eventAttributes)
+__API_AVAILABLE(macos(10.14.1), ios(12.1), tvos(12.1), watchos(5.1));
+
+/*!
+ @function SecTrustSetNeedsEvaluation
+ @abstract Reset the evaluation state of the trust object
+ @param trust Trust object to reset
+ @discussion Calling this will reset the trust object so that the next time SecTrustEvaluate*
+ is called, a new trust evaluation is performed. SecTrustSet* interfaces implicitly call this,
+ so this function is only necessary if you've made system configuration changes (like trust
+ settings) that don't impact the trust object itself.
+ */
+void SecTrustSetNeedsEvaluation(SecTrustRef trust);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

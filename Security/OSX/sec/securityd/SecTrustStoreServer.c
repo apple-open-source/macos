@@ -53,6 +53,10 @@
 #include "utilities/SecFileLocations.h"
 #include <utilities/SecDispatchRelease.h>
 #include <securityd/SecTrustLoggingServer.h>
+#include <os/variant_private.h>
+#include <dirent.h>
+#include <utilities/SecCFWrappers.h>
+#include <utilities/SecInternalReleasePriv.h>
 
 /* uid of the _securityd user. */
 #define SECURTYD_UID 64
@@ -76,12 +80,18 @@ static const char countAllSQL[] = "SELECT COUNT(*) FROM tsettings";
 
 struct __SecTrustStore {
     dispatch_queue_t queue;
-	sqlite3 *s3h;
-	sqlite3_stmt *copyParents;
-	sqlite3_stmt *contains;
-	bool readOnly;
-	bool containsSettings;  // For optimization of high-use calls.
+    sqlite3 *s3h;
+    sqlite3_stmt *copyParents;
+    sqlite3_stmt *contains;
+    bool readOnly;
+    bool containsSettings;  // For optimization of high-use calls.
 };
+
+// MARK: -
+// MARK: Corporate Root functions
+
+// MARK: -
+// MARK: Trust store functions
 
 static int sec_create_path(const char *path)
 {
@@ -207,6 +217,7 @@ static SecTrustStoreRef SecTrustStoreCreate(const char *db_name,
          * DB operations */
         ts->containsSettings = true;
     }
+
 
 	return ts;
 
@@ -422,10 +433,10 @@ CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts,
 	require(ts, errOutNotLocked);
     dispatch_sync(ts->queue, ^{
         int s3e = SQLITE_OK;
-        require_quiet(ts->containsSettings, ok);
-        CFDataRef issuer;
+        CFDataRef issuer = NULL;
         require(issuer = SecCertificateGetNormalizedIssuerContent(certificate),
-            errOut);
+                errOut);
+        require_quiet(ts->containsSettings, ok);
         /* @@@ Might have to use SQLITE_TRANSIENT */
         require_noerr(s3e = sqlite3_bind_blob_wrapper(ts->copyParents, 1,
             CFDataGetBytePtr(issuer), CFDataGetLength(issuer),

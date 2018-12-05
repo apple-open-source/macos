@@ -655,13 +655,9 @@ uint8_t* SOSFullPeerInfoEncodeToDER(SOSFullPeerInfoRef peer, CFErrorRef* error, 
 
 CFDataRef SOSFullPeerInfoCopyEncodedData(SOSFullPeerInfoRef peer, CFAllocatorRef allocator, CFErrorRef *error)
 {
-    size_t size = SOSFullPeerInfoGetDEREncodedSize(peer, error);
-    if (size == 0)
-        return NULL;
-    uint8_t buffer[size];
-    uint8_t* start = SOSFullPeerInfoEncodeToDER(peer, error, buffer, buffer + sizeof(buffer));
-    CFDataRef result = CFDataCreate(kCFAllocatorDefault, start, size);
-    return result;
+    return CFDataCreateWithDER(kCFAllocatorDefault, SOSFullPeerInfoGetDEREncodedSize(peer, error), ^uint8_t*(size_t size, uint8_t *buffer) {
+        return SOSFullPeerInfoEncodeToDER(peer, error, buffer, (uint8_t *) buffer + size);
+    });
 }
 
 bool SOSFullPeerInfoPromoteToApplication(SOSFullPeerInfoRef fpi, SecKeyRef user_key, CFErrorRef *error)

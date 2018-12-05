@@ -546,6 +546,19 @@ CFDictionaryRef SecTrustCopyResult(SecTrustRef trust)
 OSStatus SecTrustSetOCSPResponse(SecTrustRef trust, CFTypeRef __nullable responseData)
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
+/*!
+     @function SecTrustSignedCertificateTimestamps
+     @abstract Attach SignedCertificateTimestamp data to a trust object.
+     @param trust A reference to a trust object.
+     @param sctArray is a CFArray of CFData objects each containing a SCT (per RFC 6962).
+     @result A result code. See "Security Error Codes" (SecBase.h).
+     @discussion Allows the caller to provide SCT data (which may be
+     obtained during a TLS/SSL handshake, per RFC 6962) as input to a trust
+     evaluation.
+ */
+OSStatus SecTrustSetSignedCertificateTimestamps(SecTrustRef trust, CFArrayRef __nullable sctArray)
+    API_AVAILABLE(macos(10.14.2), ios(12.1.1), tvos(12.1.1), watchos(5.1.1));
+
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END
 

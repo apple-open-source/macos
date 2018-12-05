@@ -1244,7 +1244,7 @@ matchAnyString(CFStringRef needle, CFStringRef *haystack)
 /* Return true iff the item in question should not be backed up, nor restored,
  but when restoring a backup the original version of the item should be
  added back to the keychain again after the restore completes. */
-static bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool multiUser) {
+bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool multiUser) {
     CFNumberRef sysb =  CFDictionaryGetValue(item, kSecAttrSysBound);
     if (isNumber(sysb)) {
         int32_t num = 0;

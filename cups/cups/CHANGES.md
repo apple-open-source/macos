@@ -1,11 +1,12 @@
-CHANGES - 2.2.9 - 2018-07-18
+CHANGES - 2.2.9 - 2018-08-28
 ============================
 
 
 Changes in CUPS v2.2.9
 ----------------------
 
-- Localization changes (Issue #5348)
+- Localization changes (Issue #5348, Issue #5362)
+- Documentation updates (Issue #5369)
 - The lpadmin command would create a non-working printer in some error cases
   (Issue #5305)
 - The scheduler would crash if an empty `AccessLog` directive was specified
@@ -16,9 +17,19 @@ Changes in CUPS v2.2.9
 - Automatic debug logging of job errors did not work with systemd (Issue #5337)
 - The web interface did not list the IPP Everywhere "driver" (Issue #5338)
 - Fixed some typos in the label printer drivers (Issue #5350)
+- The IPP Everywhere "driver" no longer does local filtering when printing to
+  a shared CUPS printer (Issue #5361)
+- Fixed some memory leaks discovered by Coverity (Issue #5375)
+- The PPD compiler incorrectly terminated JCL options (Issue #5379)
+- The cupstestppd utility did not generate errors for missing/mismatched
+  CloseUI/JCLCloseUI keywords (Issue #5381)
 - The scheduler was being backgrounded on macOS, causing applications to spin
   (rdar://40436080)
+- The scheduler did not validate that required initial request attributes were
+  in the operation group (rdar://41098178)
 - Authentication in the web interface did not work on macOS (rdar://41444473)
+- Fixed an issue with HTTP Digest authentication (rdar://41709086)
+- The scheduler could crash when job history was purged (rdar://42198057)
 - Dropped non-working RSS subscriptions UI from web interface templates.
 - Fixed a memory leak for some IPP (extension) syntaxes.
 

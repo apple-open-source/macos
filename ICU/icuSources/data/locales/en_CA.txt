@@ -263,31 +263,6 @@ en_CA{
                 }
             }
         }
-        islamic{
-            DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
-                "EEEE, MMMM d, y G",
-                "MMMM d, y G",
-                "MMM d, y G",
-                "GGGGG y-MM-dd",
-                "{1}, {0}",
-                "{1} 'at' {0}",
-                "{1} 'at' {0}",
-                "{1}, {0}",
-                "{1}, {0}",
-            }
-            availableFormats{
-                GyMMMEd{"E, MMM d, y G"}
-                GyMMMd{"MMM d, y G"}
-                MEd{"E, MM-dd"}
-                MMMd{"MMM d"}
-                yyyyMMMEd{"E, MMM d, y G"}
-                yyyyMMMd{"MMM d, y G"}
-            }
-        }
     }
     characterLabel{
         downwards_arrows{"downward arrow"}

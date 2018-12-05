@@ -1220,7 +1220,9 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 
 	if (doit) {
 		if (mLimitedAsync == NULL) {
-			mLimitedAsync = new LimitedAsync(diskRep()->fd().mediumType() == kIOPropertyMediumTypeSolidStateKey);
+			bool runMultiThreaded = ((flags & kSecCSSingleThreaded) == kSecCSSingleThreaded) ? false :
+					(diskRep()->fd().mediumType() == kIOPropertyMediumTypeSolidStateKey);
+			mLimitedAsync = new LimitedAsync(runMultiThreaded);
 		}
 
 		try {

@@ -158,6 +158,7 @@ void SecRevocationDbComputeAndSetNextUpdateTime(void);
 void SecRevocationDbInitialize(void);
 
 extern const CFStringRef kValidUpdateProdServer;
+extern const CFStringRef kValidUpdateSeedServer;
 extern const CFStringRef kValidUpdateCarryServer;
 
 /*!

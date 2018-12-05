@@ -120,7 +120,7 @@ CKKSFetchBecause* const CKKSFetchBecauseResync = (CKKSFetchBecause*) @"resync";
         _clientMap = [NSMapTable strongToWeakObjectsMapTable];
 
         _name = @"zone-change-fetcher";
-        _queue = dispatch_queue_create([_name UTF8String], DISPATCH_QUEUE_SERIAL);
+        _queue = dispatch_queue_create([_name UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _operationQueue = [[NSOperationQueue alloc] init];
         _successfulFetchDependency = [self createSuccesfulFetchDependency];
 

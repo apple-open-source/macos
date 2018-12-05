@@ -425,6 +425,7 @@ enum
 #define kIOMessageGraphicsDeviceEjectFinalize                   iog_msg(0x2004)
 #define kIOMessageGraphicsDeviceEjectCancel                     iog_msg(0x2005)
 
+
 enum {
     kVendorDeviceNVidia,
     kVendorDeviceAMD,

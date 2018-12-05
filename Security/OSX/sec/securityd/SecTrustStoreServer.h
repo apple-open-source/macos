@@ -54,6 +54,9 @@ bool _SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, CFDataRef digest, C
 
 bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error);
 
+bool _SecTrustStoreSetCTExceptions(CFStringRef appID, CFDictionaryRef exceptions, CFErrorRef *error);
+CF_RETURNS_RETAINED CFDictionaryRef _SecTrustStoreCopyCTExceptions(CFStringRef appID, CFErrorRef *error);
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECTRUSTSTORESERVER_H_ */

@@ -333,8 +333,10 @@ static inline bool isNSDictionary(id nsType) {
         ok &= SecDbPerformWrite(self->_db, &error, ^(SecDbConnectionRef dbconn) {
             ok &= [self updateDb:dbconn error:&error pinningList:pinningList updateSchema:NO updateContent:YES];
         });
+#if !TARGET_OS_WATCH
         /* We changed the database, so clear the database cache */
         [self clearCache];
+#endif
     });
 
     if (!ok || error) {
@@ -515,8 +517,10 @@ static void verify_create_path(const char *path)
 - (instancetype) init {
     if (self = [super init]) {
         _queue = dispatch_queue_create("Pinning DB Queue", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+#if !TARGET_OS_WATCH
         _regexCache = [NSMutableDictionary dictionary];
         _regexCacheLock = OS_UNFAIR_LOCK_INIT;
+#endif
         [self initializedDb];
     }
     return self;
@@ -527,20 +531,26 @@ static void verify_create_path(const char *path)
 }
 
 /* MARK: DB Cache
- * The cache is represented a dictionary defined as { suffix : { regex : resultsDictionary } } */
+ * The cache is represented a dictionary defined as { suffix : { regex : resultsDictionary } }
+ * The cache is not used on watchOS to reduce memory overhead. */
+#if !TARGET_OS_WATCH
 - (void) clearCache {
     os_unfair_lock_lock(&_regexCacheLock);
     self.regexCache = [NSMutableDictionary dictionary];
     os_unfair_lock_unlock(&_regexCacheLock);
 }
+#endif // !TARGET_OS_WATCH
 
+#if !TARGET_OS_WATCH
 - (void) addSuffixToCache:(NSString *)suffix entry:(NSDictionary <NSRegularExpression *, NSDictionary *> *)entry {
     os_unfair_lock_lock(&_regexCacheLock);
     secinfo("SecPinningDb", "adding %llu entries for %@ to cache", (unsigned long long)[entry count], suffix);
     self.regexCache[suffix] = entry;
     os_unfair_lock_unlock(&_regexCacheLock);
 }
+#endif // !TARGET_OS_WATCH
 
+#if !TARGET_OS_WATCH
 /* Because we iterate over all DB entries for a suffix, even if we find a match, we guarantee
  * that the cache, if the cache has an entry for a suffix, it has all the entries for that suffix */
 - (BOOL) queryCacheForSuffix:(NSString *)suffix firstLabel:(NSString *)firstLabel results:(NSDictionary * __autoreleasing *)results{
@@ -574,6 +584,7 @@ static void verify_create_path(const char *path)
 
     return foundSuffix;
 }
+#endif // !TARGET_OS_WATCH
 
 - (BOOL) isPinningDisabled:(NSString * _Nullable)policy {
     static dispatch_once_t once;
@@ -624,18 +635,22 @@ static void verify_create_path(const char *path)
     __block NSString *firstLabel = [domain substringToIndex:firstDot.location];
     __block NSString *suffix = [domain substringFromIndex:(firstDot.location + 1)];
 
+#if !TARGET_OS_WATCH
     /* Search cache */
     NSDictionary *cacheResult = nil;
     if ([self queryCacheForSuffix:suffix firstLabel:firstLabel results:&cacheResult]) {
         return cacheResult;
     }
+#endif
 
     /* Cache miss. Perform SELECT */
     __block bool ok = true;
     __block CFErrorRef error = NULL;
     __block NSMutableArray *resultRules = [NSMutableArray array];
     __block NSString *resultName = nil;
+#if !TARGET_OS_WATCH
     __block NSMutableDictionary <NSRegularExpression *, NSDictionary *> *newCacheEntry = [NSMutableDictionary dictionary];
+#endif
     ok &= SecDbPerformRead(_db, &error, ^(SecDbConnectionRef dbconn) {
         ok &= SecDbWithSQL(dbconn, selectDomainSQL, &error, ^bool(sqlite3_stmt *selectDomain) {
             ok &= SecDbBindText(selectDomain, 1, [suffix UTF8String], [suffix length], SQLITE_TRANSIENT, &error);
@@ -660,10 +675,12 @@ static void verify_create_path(const char *path)
                     id policies = [NSPropertyListSerialization propertyListWithData:xmlPolicies options:0 format:nil error:nil];
                     verify_action(isNSArray(policies), return);
 
+#if !TARGET_OS_WATCH
                     /* Add to cache entry */
                     [newCacheEntry setObject:@{(__bridge NSString*)kSecPinningDbKeyPolicyName:policyNameStr,
                                                (__bridge NSString*)kSecPinningDbKeyRules:policies}
                                       forKey:regularExpression];
+#endif
 
                     /* Match the labelRegex */
                     NSUInteger numMatches = [regularExpression numberOfMatchesInString:firstLabel
@@ -700,10 +717,12 @@ static void verify_create_path(const char *path)
         CFReleaseNull(error);
     }
 
+#if !TARGET_OS_WATCH
     /* Add new cache entry to cache. */
     if ([newCacheEntry count] > 0) {
         [self addSuffixToCache:suffix entry:newCacheEntry];
     }
+#endif
 
     /* Return results if found */
     if ([resultRules count] > 0) {

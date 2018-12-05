@@ -152,12 +152,15 @@ static struct trustd trustd_spi = {
     .sec_truststore_remove_all              = _SecTrustStoreRemoveAll,
     .sec_trust_evaluate                     = SecTrustServerEvaluate,
     .sec_ota_pki_trust_store_version        = SecOTAPKIGetCurrentTrustStoreVersion,
+    .sec_ota_pki_asset_version              = SecOTAPKIGetCurrentAssetVersion,
     .ota_CopyEscrowCertificates             = SecOTAPKICopyCurrentEscrowCertificates,
     .sec_ota_pki_get_new_asset              = SecOTAPKISignalNewAsset,
     .sec_trust_store_copy_all               = _SecTrustStoreCopyAll,
     .sec_trust_store_copy_usage_constraints = _SecTrustStoreCopyUsageConstraints,
     .sec_ocsp_cache_flush                   = SecOCSPCacheFlush,
-    .sec_tls_analytics_report               = SecTLSAnalyticsReport,
+    .sec_networking_analytics_report        = SecNetworkingAnalyticsReport,
+    .sec_trust_store_set_ct_exceptions      = _SecTrustStoreSetCTExceptions,
+    .sec_trust_store_copy_ct_exceptions     = _SecTrustStoreCopyCTExceptions,
 };
 #endif
 

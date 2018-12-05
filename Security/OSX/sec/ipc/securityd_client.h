@@ -190,6 +190,7 @@ enum SecXPCOperation {
     sec_item_backup_restore_id,
     sec_keychain_sync_update_message_id,
     sec_ota_pki_trust_store_version_id,
+    sec_ota_pki_asset_version_id,
     sec_otr_session_create_remote_id,
     sec_otr_session_process_packet_remote_id,
     kSecXPCOpOTAPKIGetNewAsset,
@@ -306,7 +307,9 @@ enum SecXPCOperation {
     kSecXPCOpBackupKeybagDelete,
     kSecXPCOpSFKeychainEndpoint,
     kSecXPCOpKeychainControlEndpoint,
-    kSecXPCOpTLSAnaltyicsReport,
+    kSecXPCOpNetworkingAnalyticsReport,
+    kSecXPCOpSetCTExceptions,
+    kSecXPCOpCopyCTExceptions,
 };
 
 
@@ -455,12 +458,15 @@ struct trustd {
     bool (*sec_truststore_remove_all)(SecTrustStoreRef ts, CFErrorRef* error);
     SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
     uint64_t (*sec_ota_pki_trust_store_version)(CFErrorRef* error);
+    uint64_t (*sec_ota_pki_asset_version)(CFErrorRef* error);
     CFArrayRef (*ota_CopyEscrowCertificates)(uint32_t escrowRootType, CFErrorRef* error);
     uint64_t (*sec_ota_pki_get_new_asset)(CFErrorRef* error);
     bool (*sec_trust_store_copy_all)(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error);
     bool (*sec_trust_store_copy_usage_constraints)(SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error);
     bool (*sec_ocsp_cache_flush)(CFErrorRef *error);
-    bool (*sec_tls_analytics_report)(CFStringRef event_name, xpc_object_t tls_analytics_attributes, CFErrorRef *error);
+    bool (*sec_networking_analytics_report)(CFStringRef event_name, xpc_object_t tls_analytics_attributes, CFErrorRef *error);
+    bool (*sec_trust_store_set_ct_exceptions)(CFStringRef appID, CFDictionaryRef exceptions, CFErrorRef *error);
+    CFDictionaryRef (*sec_trust_store_copy_ct_exceptions)(CFStringRef appID, CFErrorRef *error);
 };
 
 extern struct trustd *gTrustd;

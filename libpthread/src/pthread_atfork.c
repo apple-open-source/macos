@@ -156,7 +156,7 @@ _pthread_atfork_child(void)
 	pthread_globals_t globals = _pthread_globals();
 	_PTHREAD_LOCK_INIT(globals->psaved_self_global_lock);
 	__is_threaded = 0;
-	_pthread_main_thread_init(globals->psaved_self);
+	_pthread_main_thread_postfork_init(globals->psaved_self);
 
 	struct _pthread_registration_data registration_data;
 	_pthread_bsdthread_init(&registration_data);

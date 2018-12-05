@@ -1352,6 +1352,9 @@ SecPolicyRef SecPolicyCreateSSL(Boolean server, CFStringRef hostname) {
         CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedWeakHash, kCFBooleanTrue);
         CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedWeakKey, kCFBooleanTrue);
         require_quiet(SecPolicyAddPinningRequiredIfInfoSpecified(options), errOut);
+#if !TARGET_OS_BRIDGE
+        CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedCTRequired, kCFBooleanTrue);
+#endif
     }
 
 	set_ssl_ekus(options, server);

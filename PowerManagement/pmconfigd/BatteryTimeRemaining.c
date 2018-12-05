@@ -1953,10 +1953,12 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
     }
 
     if (ps->description != NULL) {
+        bool do_notify_ps = false;
+        bool do_notify_tr = false;
+
         old_src = CFDictionaryGetValue(ps->description, CFSTR(kIOPSPowerSourceStateKey));
         if (old_src && CFStringCompare(new_src, old_src, 0) != kCFCompareEqualTo) {
-            notify_post(kIOPSAccNotifyPowerSource);
-            INFO_LOG("Posted \"%s\" for power source id %ld\n", kIOPSAccNotifyPowerSource, ps->psid);
+            do_notify_ps = true;
         }
 
         n = CFDictionaryGetValue(ps->description, CFSTR(kIOPSCurrentCapacityKey));
@@ -1964,8 +1966,24 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
             CFNumberGetValue(n, kCFNumberIntType, &old_cap);
         }
         if (new_cap != old_cap) {
-            notify_post(kIOPSAccNotifyTimeRemaining);
-            INFO_LOG("Posted \"%s\" for power source id %ld\n", kIOPSAccNotifyTimeRemaining, ps->psid);
+            do_notify_tr = true;
+        }
+
+        // notify if kIOPSIsChargingKey changes
+        int old_is_charging = 0;
+        int new_is_charging = 0;
+        n = CFDictionaryGetValue(ps->description, CFSTR(kIOPSIsChargingKey));
+        if (n) {
+            CFNumberGetValue(n, kCFNumberIntType, &old_is_charging);
+        }
+
+        n = CFDictionaryGetValue(update, CFSTR(kIOPSIsChargingKey));
+        if (n) {
+            CFNumberGetValue(n, kCFNumberIntType, &new_is_charging);
+        }
+
+        if (old_is_charging != new_is_charging) {
+            do_notify_ps = true;
         }
 
 #if TARGET_OS_IPHONE
@@ -1976,8 +1994,7 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
             (isA_CFString(old_name) && isA_CFString(new_name) &&
             !CFEqual(old_name, new_name))) {
 
-            notify_post(kIOPSAccNotifyPowerSource); // Not the right notification
-            INFO_LOG("Posted \"%s\" for name change of power source id %ld\n", kIOPSAccNotifyPowerSource, ps->psid);
+            do_notify_ps = true; // Not the right notification
         }
 
         old_pname = new_pname = NULL;
@@ -1987,17 +2004,24 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
             (isA_CFString(old_pname) && isA_CFString(new_pname) &&
             !CFEqual(old_pname, new_pname))) {
 
-            notify_post(kIOPSAccNotifyPowerSource); // Not the right notification
-            INFO_LOG("Posted \"%s\" for partname change of power source id %ld\n", kIOPSAccNotifyPowerSource, ps->psid);
+            do_notify_ps = true; // Not the right notification
         }
 
         // Notify for AirPod case LED changes (rdar://problem/37842910)
         if (CheckAccessoryLedChange(ps, update)) {
-            notify_post(kIOPSAccNotifyPowerSource); // Not the right notification
-            INFO_LOG("Posted \"%s\" for LED change of power source id %ld\n", kIOPSAccNotifyPowerSource, ps->psid);
+            do_notify_ps = true; // Not the right notification
         }
 #endif
 
+        if (do_notify_ps) {
+            notify_post(kIOPSAccNotifyPowerSource);
+            INFO_LOG("Posted \"%s\" for power source id %ld\n", kIOPSAccNotifyPowerSource, ps->psid);
+        }
+
+        if (do_notify_tr) {
+            notify_post(kIOPSAccNotifyTimeRemaining);
+            INFO_LOG("Posted \"%s\" for power source id %ld\n", kIOPSAccNotifyTimeRemaining, ps->psid);
+        }
 
         CFRelease(ps->description);
     }

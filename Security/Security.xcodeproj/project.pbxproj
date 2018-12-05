@@ -1882,6 +1882,8 @@
 		D465131A2097FF2E005D93FE /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6CF4A0EB1E4549F300ECD7B5 /* Main.storyboard */; };
 		D465131B2097FF2E005D93FE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6CF4A0EE1E4549F300ECD7B5 /* Assets.xcassets */; };
 		D465131C2097FF2E005D93FE /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6CF4A0F01E4549F300ECD7B5 /* LaunchScreen.storyboard */; };
+		D46A6C09215336BC008ABF6A /* SecFramework.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C0B906C0ACCBD240077CD03 /* SecFramework.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		D46B37A62151B7950083DAAA /* SecTrustStoreServer.m in Sources */ = {isa = PBXBuildFile; fileRef = D46B379F2151B6E50083DAAA /* SecTrustStoreServer.m */; };
 		D479F6E21F980FAB00388D28 /* Trust.strings in Resources */ = {isa = PBXBuildFile; fileRef = D479F6DF1F980F8F00388D28 /* Trust.strings */; };
 		D479F6E31F981FD600388D28 /* OID.strings in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C198F1F0ACDB4BF00AAB142 /* OID.strings */; };
 		D479F6E41F981FD600388D28 /* Certificate.strings in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C198F1D0ACDB4BF00AAB142 /* Certificate.strings */; };
@@ -1889,6 +1891,7 @@
 		D47CA65D1EB036450038E2BB /* libMobileGestalt.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D47CA65C1EB036450038E2BB /* libMobileGestalt.dylib */; };
 		D47E69401E92F75D002C8CF6 /* si-61-pkcs12.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DD91D8085FC00865A7C /* si-61-pkcs12.c */; };
 		D47F514C1C3B812500A7CEFE /* SecCFAllocator.h in Headers */ = {isa = PBXBuildFile; fileRef = D47F514B1C3B812500A7CEFE /* SecCFAllocator.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		D484A1072167D707008653A9 /* ct_exceptions.m in Sources */ = {isa = PBXBuildFile; fileRef = D484A1012167D6F8008653A9 /* ct_exceptions.m */; };
 		D487B9821DFA28DB000410A1 /* SecInternalReleasePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = DC0BCC771D8C68CF00070CB0 /* SecInternalReleasePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		D487B9881DFA2902000410A1 /* SecInternalReleasePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = DC0BCC771D8C68CF00070CB0 /* SecInternalReleasePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		D487FBB81DB8357300D4BB0B /* si-29-sectrust-sha1-deprecation.m in Sources */ = {isa = PBXBuildFile; fileRef = D487FBB71DB8357300D4BB0B /* si-29-sectrust-sha1-deprecation.m */; };
@@ -9981,7 +9984,7 @@
 		4C4296300BB0A68200491999 /* SecTrustSettings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecTrustSettings.h; path = trust/SecTrustSettings.h; sourceTree = "<group>"; };
 		4C465C7D13AFD82300E841AC /* SecurityDevTests-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "SecurityDevTests-Info.plist"; sourceTree = "<group>"; };
 		4C47FA8D20A51DC700384CB6 /* AppleFSCompression.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppleFSCompression.framework; path = System/Library/PrivateFrameworks/AppleFSCompression.framework; sourceTree = SDKROOT; };
-		4C4CB7100DDA44900026B660 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
+		4C4CB7100DDA44900026B660 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = entitlements.plist; path = SecurityTool/entitlements.plist; sourceTree = SOURCE_ROOT; };
 		4C4CE9070AF81ED80056B01D /* TODO */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = TODO; sourceTree = "<group>"; };
 		4C4CE9120AF81F0E0056B01D /* README */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		4C50ACFC1410671D00EE92DE /* DigiNotarCA2007RootCertificate.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = DigiNotarCA2007RootCertificate.crt; sourceTree = "<group>"; };
@@ -10403,6 +10406,8 @@
 		D43DBEFA1E99D17300C04AEA /* SecTrustStoreServer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecTrustStoreServer.h; path = OSX/sec/securityd/SecTrustStoreServer.h; sourceTree = "<group>"; };
 		D43DDE511F620F09009742A5 /* SecPolicyChecks.list */ = {isa = PBXFileReference; lastKnownFileType = text; path = SecPolicyChecks.list; sourceTree = "<group>"; };
 		D43DDE581F638061009742A5 /* SecPolicy.list */ = {isa = PBXFileReference; lastKnownFileType = text; path = SecPolicy.list; sourceTree = "<group>"; };
+		D442AD62215ADA250050B50F /* AppleCorporateRootCA2.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = AppleCorporateRootCA2.cer; path = OSX/trustd/iOS/AppleCorporateRootCA2.cer; sourceTree = "<group>"; };
+		D442AD68215ADA250050B50F /* AppleCorporateRootCA.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = AppleCorporateRootCA.cer; path = OSX/trustd/iOS/AppleCorporateRootCA.cer; sourceTree = "<group>"; };
 		D44D08B420AB890E0023C439 /* Security.apinotes */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = Security.apinotes; path = base/Security.apinotes; sourceTree = "<group>"; };
 		D45068681E948A9E00FA7675 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = entitlements.plist; path = OSX/trustd/macOS/entitlements.plist; sourceTree = "<group>"; };
 		D45068691E948ACE00FA7675 /* entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = entitlements.plist; path = OSX/trustd/iOS/entitlements.plist; sourceTree = "<group>"; };
@@ -10416,12 +10421,15 @@
 		D46246C31F9AEA5200D63882 /* libDER.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libDER.a; path = usr/local/lib/security_libDER/libDER.a; sourceTree = SDKROOT; };
 		D46246CE1F9AEAE300D63882 /* libDER.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libDER.a; path = usr/local/lib/security_libDER/libDER.a; sourceTree = SDKROOT; };
 		D46513072097954B005D93FE /* si-23-sectrust-ocsp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "si-23-sectrust-ocsp.h"; sourceTree = "<group>"; };
+		D46A6BF121531F77008ABF6A /* si-82-sectrust-ct.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "si-82-sectrust-ct.h"; path = "OSX/shared_regressions/si-82-sectrust-ct.h"; sourceTree = SOURCE_ROOT; };
+		D46B379F2151B6E50083DAAA /* SecTrustStoreServer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = SecTrustStoreServer.m; path = OSX/sec/securityd/SecTrustStoreServer.m; sourceTree = "<group>"; };
 		D479F6E01F980F8F00388D28 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Trust.strings; sourceTree = "<group>"; };
 		D47C56AB1DCA831C00E18518 /* lib_ios_x64.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = lib_ios_x64.xcconfig; path = xcconfig/lib_ios_x64.xcconfig; sourceTree = "<group>"; };
 		D47C56AF1DCA841D00E18518 /* lib_ios_x64_shim.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = lib_ios_x64_shim.xcconfig; path = xcconfig/lib_ios_x64_shim.xcconfig; sourceTree = "<group>"; };
 		D47C56FB1DCA8F4900E18518 /* all_arches.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = all_arches.xcconfig; path = xcconfig/all_arches.xcconfig; sourceTree = "<group>"; };
 		D47CA65C1EB036450038E2BB /* libMobileGestalt.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libMobileGestalt.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.0.Internal.sdk/usr/lib/libMobileGestalt.dylib; sourceTree = DEVELOPER_DIR; };
 		D47F514B1C3B812500A7CEFE /* SecCFAllocator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCFAllocator.h; sourceTree = "<group>"; };
+		D484A1012167D6F8008653A9 /* ct_exceptions.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ct_exceptions.m; sourceTree = "<group>"; };
 		D487FBB71DB8357300D4BB0B /* si-29-sectrust-sha1-deprecation.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "si-29-sectrust-sha1-deprecation.m"; sourceTree = "<group>"; };
 		D487FBB91DB835B500D4BB0B /* si-29-sectrust-sha1-deprecation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "si-29-sectrust-sha1-deprecation.h"; sourceTree = "<group>"; };
 		D48BD193206C47530075DDC9 /* si-35-cms-expiration-time.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "si-35-cms-expiration-time.m"; sourceTree = "<group>"; };
@@ -11243,7 +11251,7 @@
 		DC52EA4C1D80CB7000B0A59C /* libSecurityTool.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libSecurityTool.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC52EA8E1D80CC2A00B0A59C /* builtin_commands.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = builtin_commands.h; sourceTree = "<group>"; };
 		DC52EA8F1D80CC2A00B0A59C /* digest_calc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = digest_calc.c; sourceTree = "<group>"; };
-		DC52EA901D80CC2A00B0A59C /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
+		DC52EA901D80CC2A00B0A59C /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = entitlements.plist; path = OSX/sec/SecurityTool/entitlements.plist; sourceTree = SOURCE_ROOT; };
 		DC52EA911D80CC2A00B0A59C /* whoami.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = whoami.m; sourceTree = "<group>"; };
 		DC52EA921D80CC2A00B0A59C /* syncbubble.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = syncbubble.m; sourceTree = "<group>"; };
 		DC52EA931D80CC2A00B0A59C /* leaks.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = leaks.c; sourceTree = "<group>"; };
@@ -15952,9 +15960,9 @@
 			isa = PBXGroup;
 			children = (
 				DCE4E6A71D7A38C000AFB96E /* security2.1 */,
+				DC52EA901D80CC2A00B0A59C /* entitlements.plist */,
 				E78A9AD81D34959200006B5B /* NSFileHandle+Formatting.h */,
 				E78A9AD91D34959200006B5B /* NSFileHandle+Formatting.m */,
-				4C4CB7100DDA44900026B660 /* entitlements.plist */,
 				E7104A0B169E171900DB0045 /* security_tool_commands.c */,
 				D453C47F1FFD857400DE349B /* security_tool_commands.h */,
 				E7FEFB80169E26E200E18152 /* sub_commands.h */,
@@ -17694,10 +17702,10 @@
 		DC52EA9B1D80CC2A00B0A59C /* SecurityTool iOS */ = {
 			isa = PBXGroup;
 			children = (
+				4C4CB7100DDA44900026B660 /* entitlements.plist */,
 				DCC78E211D8085FC00865A7C /* keychain_backup.c */,
 				DC52EA8E1D80CC2A00B0A59C /* builtin_commands.h */,
 				DC52EA8F1D80CC2A00B0A59C /* digest_calc.c */,
-				DC52EA901D80CC2A00B0A59C /* entitlements.plist */,
 				DC52EA911D80CC2A00B0A59C /* whoami.m */,
 				EB48C19E1E573EDC00EC5E57 /* sos.m */,
 				DC52EA921D80CC2A00B0A59C /* syncbubble.m */,
@@ -19628,6 +19636,7 @@
 				DCC78E021D8085FC00865A7C /* si-80-empty-data.c */,
 				DCC78E031D8085FC00865A7C /* si-82-seccertificate-ct.c */,
 				DCC78E041D8085FC00865A7C /* si-82-sectrust-ct.m */,
+				D46A6BF121531F77008ABF6A /* si-82-sectrust-ct.h */,
 				DCC78E051D8085FC00865A7C /* si-82-token-ag.c */,
 				DCC78E061D8085FC00865A7C /* si-83-seccertificate-sighashalg.c */,
 				BE6215BD1DB6E69100961E15 /* si-84-sectrust-allowlist.m */,
@@ -19694,6 +19703,7 @@
 				DCC78E251D8085FC00865A7C /* show_certificates.c */,
 				D453C38A1FEC669300DE349B /* trust_update.m */,
 				DCC78E261D8085FC00865A7C /* spc.c */,
+				D484A1012167D6F8008653A9 /* ct_exceptions.m */,
 			);
 			name = Security/Tool;
 			path = OSX/sec/Security/Tool;
@@ -20453,6 +20463,7 @@
 				D43DBEF71E99D17300C04AEA /* SecTrustServer.c */,
 				D43DBEF81E99D17300C04AEA /* SecTrustServer.h */,
 				D43DBEF91E99D17300C04AEA /* SecTrustStoreServer.c */,
+				D46B379F2151B6E50083DAAA /* SecTrustStoreServer.m */,
 				D43DBEFA1E99D17300C04AEA /* SecTrustStoreServer.h */,
 				D4961BBD2079423300F16DA7 /* TrustURLSessionDelegate.m */,
 				D4961BC52079426000F16DA7 /* TrustURLSessionDelegate.h */,
@@ -20466,6 +20477,8 @@
 		DCE4E85D1D7A584D00AFB96E /* iOS */ = {
 			isa = PBXGroup;
 			children = (
+				D442AD68215ADA250050B50F /* AppleCorporateRootCA.cer */,
+				D442AD62215ADA250050B50F /* AppleCorporateRootCA2.cer */,
 				D41257EE1E941DA800781F23 /* com.apple.trustd.plist */,
 				D45068691E948ACE00FA7675 /* entitlements.plist */,
 			);
@@ -22468,6 +22481,7 @@
 				EB10A3FC2035789B00E84270 /* OTConstants.h in Headers */,
 				DC1787591D7790B600B50D50 /* CMSPrivate.h in Headers */,
 				DC1785881D778B8000B50D50 /* CSCommon.h in Headers */,
+				D46A6C09215336BC008ABF6A /* SecFramework.h in Headers */,
 				DC17874E1D7790A500B50D50 /* CSCommonPriv.h in Headers */,
 				DC1785A51D778D0D00B50D50 /* CipherSuite.h in Headers */,
 				DC1785871D778B8000B50D50 /* CodeSigning.h in Headers */,
@@ -24876,6 +24890,7 @@
 				D41257CB1E9410A300781F23 /* Sources */,
 				D41257CC1E9410A300781F23 /* Frameworks */,
 				D41257CD1E9410A300781F23 /* Copy LaunchDaemon */,
+				D442AD70215C39100050B50F /* Install Apple Corporate Roots */,
 			);
 			buildRules = (
 			);
@@ -27880,7 +27895,29 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "PLIST_FILE_NAME=com.apple.security.cloudkeychainproxy3\nFILE_TO_COPY=${PROJECT_DIR}/KVSKeychainSyncingProxy/${PLIST_FILE_NAME}.ios.plist\n\nif [ ${PLATFORM_NAME} = \"macosx\" ]\nthen\nFILE_TO_COPY=${PROJECT_DIR}/KVSKeychainSyncingProxy/${PLIST_FILE_NAME}.osx.plist\nfi\n\ncp ${FILE_TO_COPY} ${INSTALL_ROOT}/${INSTALL_DAEMON_AGENT_DIR}/${PLIST_FILE_NAME}.plist";
+			shellScript = "PLIST_FILE_NAME=com.apple.security.cloudkeychainproxy3\nFILE_TO_COPY=${PROJECT_DIR}/KVSKeychainSyncingProxy/${PLIST_FILE_NAME}.ios.plist\n\nif [ ${PLATFORM_NAME} = \"macosx\" ]\nthen\nFILE_TO_COPY=${PROJECT_DIR}/KVSKeychainSyncingProxy/${PLIST_FILE_NAME}.osx.plist\nfi\n\ncp ${FILE_TO_COPY} ${INSTALL_ROOT}/${INSTALL_DAEMON_AGENT_DIR}/${PLIST_FILE_NAME}.plist\n";
+		};
+		D442AD70215C39100050B50F /* Install Apple Corporate Roots */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/OSX/trustd/iOS/AppleCorporateRootCA.cer",
+				"$(SRCROOT)/OSX/trustd/iOS/AppleCorporateRootCA2.cer",
+			);
+			name = "Install Apple Corporate Roots";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/AppleInternal/Library/Security/AppleCorporateRootCA.cer",
+				"$(DSTROOT)/AppleInternal/Library/Security/AppleCorporateRootCA2.cer",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "ditto ${SRCROOT}/OSX/trustd/iOS/AppleCorporateRootCA.cer ${DSTROOT}/AppleInternal/Library/Security/\nditto ${SRCROOT}/OSX/trustd/iOS/AppleCorporateRootCA2.cer ${DSTROOT}/AppleInternal/Library/Security/\nchown -R root:wheel ${DSTROOT}/AppleInternal/Library/Security/\n";
 		};
 		D4C263C41F8FEAA8001317EA /* Run Script Generate Error Strings */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -29085,6 +29122,7 @@
 				D43DBF071E99D1CA00C04AEA /* SecPinningDb.m in Sources */,
 				D43DBF081E99D1CA00C04AEA /* SecPolicyServer.c in Sources */,
 				D43DBF091E99D1CA00C04AEA /* SecRevocationDb.c in Sources */,
+				D46B37A62151B7950083DAAA /* SecTrustStoreServer.m in Sources */,
 				D43DBF0A1E99D1CA00C04AEA /* SecRevocationServer.c in Sources */,
 				D43DBF0B1E99D1CA00C04AEA /* SecTrustLoggingServer.m in Sources */,
 				D4961BC42079424200F16DA7 /* TrustURLSessionDelegate.m in Sources */,
@@ -29917,6 +29955,7 @@
 				DC52EC191D80CF4C00B0A59C /* keychain_find.m in Sources */,
 				DC52EC181D80CF4700B0A59C /* log_control.c in Sources */,
 				DC52EC171D80CF4200B0A59C /* pkcs12_util.c in Sources */,
+				D484A1072167D707008653A9 /* ct_exceptions.m in Sources */,
 				DC52EC161D80CF3B00B0A59C /* scep.c in Sources */,
 				DC52EC151D80CF0B00B0A59C /* show_certificates.c in Sources */,
 				DC52EC141D80CF0500B0A59C /* spc.c in Sources */,
@@ -44136,6 +44175,11 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"NO_SERVER=1",
+					"FAKE_KEYSTORE=1",
+					"$(inherited)",
+				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
 				INFOPLIST_FILE = tests/secdmockaks/Info.plist;
@@ -44182,6 +44226,11 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				ENABLE_NS_ASSERTIONS = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"NO_SERVER=1",
+					"FAKE_KEYSTORE=1",
+					"$(inherited)",
+				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
 				INFOPLIST_FILE = tests/secdmockaks/Info.plist;

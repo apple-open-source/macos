@@ -308,10 +308,6 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
 
     if(trustedLogs) {
         builder->trustedLogs = CFRetainSafe(trustedLogs);
-    } else {
-        SecOTAPKIRef otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
-        builder->trustedLogs = SecOTAPKICopyTrustedCTLogs(otapkiref);
-        CFReleaseSafe(otapkiref);
     }
 
     /* Now let's get the leaf cert and turn it into a path. */

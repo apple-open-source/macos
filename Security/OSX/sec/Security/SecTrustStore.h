@@ -44,6 +44,8 @@ typedef uint32_t SecTrustStoreDomain;
 
 typedef int32_t SecTrustSettingsVersionNumber;
 
+typedef int32_t SecTrustSettingsAssetVersionNumber;
+
 SecTrustStoreRef SecTrustStoreForDomain(SecTrustStoreDomain domain);
 
 Boolean SecTrustStoreContains(SecTrustStoreRef source,
@@ -58,6 +60,8 @@ OSStatus SecTrustStoreRemoveCertificate(SecTrustStoreRef ts,
 	SecCertificateRef certificate);
 
 OSStatus SecTrustStoreGetSettingsVersionNumber(SecTrustSettingsVersionNumber* p_settings_version_number);
+
+OSStatus SecTrustStoreGetSettingsAssetVersionNumber(SecTrustSettingsAssetVersionNumber* p_settings_asset_version_number);
 
 OSStatus SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *CF_RETURNS_RETAINED trustStoreContents);
 

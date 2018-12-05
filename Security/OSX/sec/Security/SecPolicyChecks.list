@@ -86,6 +86,7 @@ POLICYCHECKMACRO(PinningRequired,                R, P, L,  ,  , 0x8001243C, errS
 POLICYCHECKMACRO(Revocation,                     F, V, L,  ,  , 0x8001210C, errSecCertificateRevoked) //CSSMERR_TP_CERT_REVOKED
 POLICYCHECKMACRO(RevocationResponseRequired,     R, P, L,  ,  , 0x80012423, errSecIncompleteCertRevocationCheck) //CSSMERR_APPLETP_INCOMPLETE_REVOCATION_CHECK
 POLICYCHECKMACRO(CTRequired,                     R, T,  ,  ,  , 0x8001212A, errSecNotTrusted) //CSSMERR_TP_NOT_TRUSTED
+POLICYCHECKMACRO(SystemTrustedCTRequired,        R, C,  , A,  , 0x80012114, errSecVerifyActionFailed) //CSSMERR_TP_VERIFY_ACTION_FAILED
 
 /********************************************************
 ******************* Feature Toggles *********************

@@ -1821,6 +1821,9 @@ bool SecDbItemSelect(SecDbQueryRef query, SecDbConnectionRef dbconn, CFErrorRef 
             return attr->kind == kSecDbRowIdAttr || attr->kind == kSecDbEncryptedDataAttr || attr->kind == kSecDbSHA1Attr;
         };
     }
+    if (use_attr_in_where == NULL) {
+        use_attr_in_where = ^bool (const SecDbAttr* attr) { return false; };
+    }
     
     CFStringRef sql = SecDbItemCopySelectSQL(query, return_attr, use_attr_in_where, add_where_sql);
     if (sql) {

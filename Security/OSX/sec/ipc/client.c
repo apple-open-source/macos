@@ -77,9 +77,9 @@ static CFArrayRef SecServerCopyAccessGroups(void) {
                                    CFSTR("123456.test.group"),
                                    CFSTR("123456.test.group2"),
                                    CFSTR("com.apple.cfnetwork"),
-#else
-                                   CFSTR("sync"),
+                                   CFSTR("com.apple.bluetooth"),
 #endif
+                                   CFSTR("sync"),
                                    CFSTR("com.apple.security.sos"),
                                    CFSTR("com.apple.security.ckks"),
                                    CFSTR("com.apple.security.sos-usercredential"),
@@ -223,9 +223,12 @@ static bool is_trust_operation(enum SecXPCOperation op) {
         case sec_trust_store_copy_usage_constraints_id:
         case sec_ocsp_cache_flush_id:
         case sec_ota_pki_trust_store_version_id:
+        case sec_ota_pki_asset_version_id:
         case kSecXPCOpOTAGetEscrowCertificates:
         case kSecXPCOpOTAPKIGetNewAsset:
-        case kSecXPCOpTLSAnaltyicsReport:
+        case kSecXPCOpNetworkingAnalyticsReport:
+        case kSecXPCOpSetCTExceptions:
+        case kSecXPCOpCopyCTExceptions:
             return true;
         default:
             break;

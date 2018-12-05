@@ -635,6 +635,7 @@
 		FEC3D3EF1C9BE97C00B698D9 /* libssh.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2DAC0FEC5695004F1935 /* libssh.a */; };
 		FEC3D3F01C9BE97C00B698D9 /* libopenbsd-compat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2CBB0FEC4E73004F1935 /* libopenbsd-compat.a */; };
 		FEC3D3F81C9BE9E900B698D9 /* check-perm.c in Sources */ = {isa = PBXBuildFile; fileRef = FEC3D3F71C9BE9CE00B698D9 /* check-perm.c */; };
+		FECAC7F52192BE7E0007479F /* libressl-api-compat.c in Sources */ = {isa = PBXBuildFile; fileRef = FECAC7F32192BDC30007479F /* libressl-api-compat.c */; };
 		FEEF84B120B2536200CB7E8E /* bsd-signal.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF84AA20B252DC00CB7E8E /* bsd-signal.c */; };
 		FEEF84B220B2536E00CB7E8E /* port-net.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF84A920B252DB00CB7E8E /* port-net.c */; };
 		FEEF84B320B2606700CB7E8E /* ssh-xmss.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF849E20B2521500CB7E8E /* ssh-xmss.c */; };
@@ -1850,6 +1851,7 @@
 		FEC3D4131C9BEAAC00B698D9 /* sshd_config.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sshd_config.5; path = openssh/sshd_config.5; sourceTree = "<group>"; };
 		FEC3D4141C9BEAAC00B698D9 /* sshd.0 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sshd.0; path = openssh/sshd.0; sourceTree = "<group>"; };
 		FEC3D4151C9BEAAC00B698D9 /* sshd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sshd.8; path = openssh/sshd.8; sourceTree = "<group>"; };
+		FECAC7F32192BDC30007479F /* libressl-api-compat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "libressl-api-compat.c"; path = "openssh/openbsd-compat/libressl-api-compat.c"; sourceTree = "<group>"; };
 		FECD1CCE212B890F00CC0BBB /* ssh-keygen.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = "ssh-keygen.entitlements"; sourceTree = "<group>"; };
 		FEEF849B20B2521400CB7E8E /* sshkey-xmss.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "sshkey-xmss.c"; path = "openssh/sshkey-xmss.c"; sourceTree = "<group>"; };
 		FEEF849C20B2521400CB7E8E /* xmss_fast.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmss_fast.c; path = openssh/xmss_fast.c; sourceTree = "<group>"; };
@@ -2186,6 +2188,7 @@
 				1C6B2CE40FEC4F58004F1935 /* inet_ntoa.c */,
 				1C6B2CE50FEC4F58004F1935 /* inet_ntop.c */,
 				73452E0C1A9A67E200633C3B /* kludge-fd_set.c */,
+				FECAC7F32192BDC30007479F /* libressl-api-compat.c */,
 				739A2F8C1B5D872F0073A9BC /* Makefile */,
 				73F246291773937E006986BE /* Makefile.in */,
 				739A2F8D1B5D872F0073A9BC /* md5.c */,
@@ -3859,6 +3862,7 @@
 				1C6B2D470FEC4F58004F1935 /* rresvport.c in Sources */,
 				1C6B2D480FEC4F58004F1935 /* setenv.c in Sources */,
 				1C6B2D490FEC4F58004F1935 /* setproctitle.c in Sources */,
+				FECAC7F52192BE7E0007479F /* libressl-api-compat.c in Sources */,
 				1C6B2D4A0FEC4F58004F1935 /* sha2.c in Sources */,
 				1C6B2D4C0FEC4F58004F1935 /* sigact.c in Sources */,
 				73452E131A9A67E200633C3B /* getopt_long.c in Sources */,

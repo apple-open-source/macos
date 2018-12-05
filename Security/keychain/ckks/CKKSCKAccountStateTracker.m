@@ -144,7 +144,7 @@
         if(listener && !alreadyRegisteredListener) {
             NSString* queueName = [NSString stringWithFormat: @"ck-account-state-%@", listener];
 
-            dispatch_queue_t objQueue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL);
+            dispatch_queue_t objQueue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
             [self.changeListeners setObject: listener forKey: objQueue];
 
             secinfo("ckksaccount", "adding a new listener: %@", listener);
@@ -188,6 +188,7 @@
 
         dispatch_sync(self.queue, ^{
             self.firstCKAccountFetch = true;
+            secnotice("ckksaccount", "received CK Account info: %@", ckAccountInfo);
             [self _onqueueUpdateAccountState:ckAccountInfo circle:self.currentCircleStatus deliveredSemaphore:finishedSema];
         });
     }];
@@ -362,13 +363,14 @@
         return;
     }
 
-    if(![self.currentCKAccountInfo isEqual: ckAccountInfo]) {
+    if((self.currentCKAccountInfo == nil && ckAccountInfo != nil) ||
+       ![self.currentCKAccountInfo isEqual: ckAccountInfo]) {
         secnotice("ckksaccount", "moving to CK Account info: %@", ckAccountInfo);
         self.currentCKAccountInfo = ckAccountInfo;
 
         [self _onqueueUpdateCKDeviceID: ckAccountInfo];
     }
-    if(self.currentCircleStatus.status != sosstatus.status) {
+    if(![self.currentCircleStatus isEqual:sosstatus]) {
         secnotice("ckksaccount", "moving to circle status: %@", sosstatus);
         self.currentCircleStatus = sosstatus;
         if (sosstatus.status == kSOSCCInCircle) {
@@ -528,6 +530,21 @@
         _error = error;
     }
     return self;
+}
+
+- (BOOL)isEqual:(id)object
+{
+    if(![object isKindOfClass:[SOSAccountStatus class]]) {
+        return NO;
+    }
+
+    if(object == nil) {
+        return NO;
+    }
+
+    SOSAccountStatus* obj = (SOSAccountStatus*) object;
+    return self.status == obj.status &&
+            ((self.error == nil && obj.error == nil) || [self.error isEqual:obj.error]);
 }
 
 - (NSString*)description

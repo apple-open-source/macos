@@ -57,6 +57,16 @@
     }];
 }
 
+- (void)rpcFastStatus:(NSString*)viewName reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply {
+    [[self.connection remoteObjectProxyWithErrorHandler: ^(NSError* error) {
+        reply(nil, error);
+
+    }] rpcFastStatus:viewName reply:^(NSArray<NSDictionary*>* result, NSError* error){
+        reply(result, error);
+    }];
+}
+
+
 - (void)rpcResetLocal:(NSString*)viewName reply:(void(^)(NSError* error))reply {
     [[self.connection remoteObjectProxyWithErrorHandler:^(NSError* error) {
         reply(error);
@@ -128,11 +138,9 @@
 }
 
 - (void)rpcTLKMissing:(NSString*)viewName reply:(void(^)(bool missing))reply {
-    [self rpcStatus:viewName reply:^(NSArray<NSDictionary*>* results, NSError* blockError) {
+    [self rpcFastStatus:viewName reply:^(NSArray<NSDictionary*>* results, NSError* blockError) {
         bool missing = false;
 
-        // Until PCS fixes [<rdar://problem/35103941> PCS: Remove PCS's use of CKKSControlProtocol], we can't add things to the protocol
-        // Use this hack
         for(NSDictionary* result in results) {
             NSString* name = result[@"view"];
             NSString* keystate = result[@"keystate"];
@@ -152,14 +160,12 @@
 }
 
 - (void)rpcKnownBadState:(NSString* _Nullable)viewName reply:(void (^)(CKKSKnownBadState))reply {
-    [self rpcStatus:viewName reply:^(NSArray<NSDictionary*>* results, NSError* blockError) {
+    [self rpcFastStatus:viewName reply:^(NSArray<NSDictionary*>* results, NSError* blockError) {
         bool tlkMissing = false;
         bool waitForUnlock = false;
 
         CKKSKnownBadState response = CKKSKnownStatePossiblyGood;
 
-        // We can now change this hack, but this change needs to be addition-only: <rdar://problem/36356681> CKKS: remove "global" hack from rpcStatus
-        // Use this hack
         for(NSDictionary* result in results) {
             NSString* name = result[@"view"];
             NSString* keystate = result[@"keystate"];

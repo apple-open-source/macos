@@ -159,12 +159,6 @@ en_AU{
                 }
             }
         }
-        islamic{
-            availableFormats{
-                yMEd{"E, dd/MM/y"}
-                yMd{"dd/MM/y"}
-            }
-        }
     }
     characterLabel{
         downwards_arrows{"downward arrow"}

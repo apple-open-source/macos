@@ -1831,6 +1831,7 @@ extern const CFStringRef kSecPolicyCheckBlackListedLeaf;
 extern const CFStringRef kSecPolicyCheckCertificatePolicy;
 extern const CFStringRef kSecPolicyCheckChainLength;
 extern const CFStringRef kSecPolicyCheckCriticalExtensions;
+extern const CFStringRef kSecPolicyCheckCTRequired;
 extern const CFStringRef kSecPolicyCheckEAPTrustedServerNames;
 extern const CFStringRef kSecPolicyCheckEmail;
 extern const CFStringRef kSecPolicyCheckExtendedKeyUsage;
@@ -1867,6 +1868,7 @@ extern const CFStringRef kSecPolicyCheckSubjectCommonNamePrefix;
 extern const CFStringRef kSecPolicyCheckSubjectCommonNameTEST;
 extern const CFStringRef kSecPolicyCheckSubjectOrganization;
 extern const CFStringRef kSecPolicyCheckSubjectOrganizationalUnit;
+extern const CFStringRef kSecPolicyCheckSystemTrustedCTRequired;
 extern const CFStringRef kSecPolicyCheckSystemTrustedWeakHash;
 extern const CFStringRef kSecPolicyCheckSystemTrustedWeakKey;
 extern const CFStringRef kSecPolicyCheckTemporalValidity;
@@ -1874,7 +1876,6 @@ extern const CFStringRef kSecPolicyCheckUsageConstraints;
 extern const CFStringRef kSecPolicyCheckValidRoot;
 extern const CFStringRef kSecPolicyCheckWeakKeySize;
 extern const CFStringRef kSecPolicyCheckWeakSignature;
-extern const CFStringRef kSecPolicyCheckCTRequired;
 
 /*  Special option for checking Apple Anchors */
 extern const CFStringRef kSecPolicyAppleAnchorIncludeTestRoots;
@@ -1932,6 +1933,8 @@ void SecPolicySetName(SecPolicyRef policy, CFStringRef policyName);
 __nullable CFArrayRef SecPolicyXPCArrayCopyArray(xpc_object_t xpc_policies, CFErrorRef *error);
 
 void SecPolicySetOptionsValue(SecPolicyRef policy, CFStringRef key, CFTypeRef value);
+
+bool SecDNSIsTLD(CFStringRef reference);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

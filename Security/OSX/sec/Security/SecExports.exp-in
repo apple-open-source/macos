@@ -127,6 +127,8 @@ _kSecPolicyKU_KeyEncipherment
 _kSecPolicyKU_NonRepudiation
 #endif
 
+_SecDNSIsTLD
+
 #undef POLICYCHECKMACRO
 #define __PC_DO_EXPORT_(NAME)
 #define __PC_DO_EXPORT_O(NAME) _SecPolicyCheckCert##NAME
@@ -232,6 +234,7 @@ _SecTrustEvaluateFastAsync
 _SecTrustEvaluateLeafOnly
 _SecTrustEvaluateWithError
 _SecTrustFlushResponseCache
+_SecTrustGetAssetVersionNumber
 _SecTrustGetCertificateAtIndex
 _SecTrustGetCertificateCount
 _SecTrustGetDetails
@@ -245,11 +248,13 @@ _SecTrustGetTrustExceptionsArray
 _SecTrustIsExpiredOnly
 _SecTrustOTAPKIGetUpdatedAsset
 _SecTrustReportTLSAnalytics
+_SecTrustReportNetworkingAnalytics
 _SecTrustSerialize
 _SecTrustSetAnchorCertificates
 _SecTrustSetAnchorCertificatesOnly
 _SecTrustSetExceptions
 _SecTrustSetKeychainsAllowed
+_SecTrustSetNeedsEvaluation
 _SecTrustSetNetworkFetchAllowed
 _SecTrustSetOCSPResponse
 _SecTrustSetPinningException
@@ -317,9 +322,16 @@ _SecTrustStoreCopyAll
 _SecTrustStoreCopyUsageConstraints
 _SecTrustStoreForDomain
 _SecTrustStoreGetSettingsVersionNumber
+_SecTrustStoreGetSettingsAssetVersionNumber
 _SecTrustStoreRemoveCertificate
 _SecTrustStoreSetTrustSettings
 #endif
+_SecTrustStoreSetCTExceptions
+_SecTrustStoreCopyCTExceptions
+_kSecCTExceptionsCAsKey
+_kSecCTExceptionsDomainsKey
+_kSecCTExceptionsHashAlgorithmKey
+_kSecCTExceptionsSPKIHashKey
 
 //
 // Identity
@@ -367,6 +379,7 @@ _SecCertificateCopyNormalizedIssuerSequence
 _SecCertificateCopyNormalizedSubjectSequence
 _SecCertificateCopyNTPrincipalNames
 _SecCertificateCopyOrganization
+_SecCertificateCopyOrganizationFromX501NameContent
 _SecCertificateCopyOrganizationalUnit
 _SecCertificateCopyPrecertTBS
 _SecCertificateCopyProperties

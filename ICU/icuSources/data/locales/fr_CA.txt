@@ -237,7 +237,6 @@ fr_CA{
                 ms{"mm:ss"}
                 yyyyM{"y-MM G"}
                 yyyyMEd{"E y-MM-dd G"}
-                yyyyMM{"y-MM G"}
                 yyyyMd{"y-MM-dd G"}
             }
             intervalFormats{
@@ -510,24 +509,26 @@ fr_CA{
             }
         }
         islamic{
-            DateTimePatterns{
-                "HH:mm:ss zzzz",
-                "HH:mm:ss z",
-                "HH:mm:ss",
-                "HH:mm",
-                "EEEE d MMMM y G",
-                "d MMMM y G",
-                "d MMM y G",
-                "y-MM-dd GGGGG",
-                "{1} {0}",
-                "{1} 'à' {0}",
-                "{1} 'à' {0}",
-                "{1} {0}",
-                "{1} {0}",
-            }
             availableFormats{
+                Bh{"h 'h' B"}
+                Bhms{"h:mm:ss B"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                H{"HH 'h'"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
                 MEd{"E d MMM"}
+                MMd{"MM-d"}
+                MMdd{"MM-dd"}
                 Md{"MM-dd"}
+                h{"h 'h' a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
                 yyyyM{"y-MM GGGGG"}
                 yyyyMEd{"E y-MM-dd GGGGG"}
                 yyyyMd{"y-MM-dd GGGGG"}

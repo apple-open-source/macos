@@ -5236,12 +5236,24 @@ zh_Hant{
                 "{1} {0}",
             }
             availableFormats{
+                Bh{"Bh時"}
+                Bhm{"Bh:mm"}
+                Bhms{"Bh:mm:ss"}
                 E{"ccc"}
+                EBhm{"E Bh:mm"}
+                EBhms{"E Bh:mm:ss"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
                 Ed{"d日（E）"}
+                Ehm{"E ah:mm"}
+                Ehms{"E ah:mm:ss"}
                 Gy{"Gy年"}
                 GyMMM{"Gy年M月"}
                 GyMMMEd{"Gy年M月d日E"}
                 GyMMMd{"Gy年M月d日"}
+                H{"H時"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
                 M{"M月"}
                 MEd{"M/d（E）"}
                 MMM{"LLL"}
@@ -5250,6 +5262,10 @@ zh_Hant{
                 MMMd{"M月d日"}
                 Md{"M/d"}
                 d{"d日"}
+                h{"ah時"}
+                hm{"ah:mm"}
+                hms{"ah:mm:ss"}
+                ms{"mm:ss"}
                 y{"Gy年"}
                 yyyy{"Gy年"}
                 yyyyM{"Gy/M"}

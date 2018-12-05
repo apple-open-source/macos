@@ -824,13 +824,13 @@ void ManifestFileItem::ComputeDigestForFile (char* name, SHA1Digest &digest, siz
 	if (st.st_size != 0)
 	{
 		// read the file
-		char buffer[kReadChunkSize];
-		
-		ssize_t bytesRead;
-		while ((bytesRead = read (fileNo, buffer, kReadChunkSize)) != 0)
+        std::vector<char> buffer(kReadChunkSize);
+
+        ssize_t bytesRead;
+        while ((bytesRead = read (fileNo, buffer.data(), kReadChunkSize)) != 0)
 		{
 			// digest the read data
-			CC_SHA1_Update (&digestContext, buffer, (CC_LONG)bytesRead);
+			CC_SHA1_Update (&digestContext, buffer.data(), (CC_LONG)bytesRead);
 		}
 		
 		// compute the SHA1 hash

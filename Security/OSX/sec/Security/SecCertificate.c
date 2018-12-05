@@ -4870,17 +4870,21 @@ static OSStatus appendOrganizationFromX501Name(void *context,
 	return errSecSuccess;
 }
 
+CFArrayRef SecCertificateCopyOrganizationFromX501NameContent(const DERItem *nameContent) {
+    CFMutableArrayRef organization = CFArrayCreateMutable(kCFAllocatorDefault,
+                                                          0, &kCFTypeArrayCallBacks);
+    OSStatus status;
+    status = parseX501NameContent(nameContent, organization,
+                                  appendOrganizationFromX501Name, true);
+    if (status || CFArrayGetCount(organization) == 0) {
+        CFRelease(organization);
+        organization = NULL;
+    }
+    return organization;
+}
+
 CFArrayRef SecCertificateCopyOrganization(SecCertificateRef certificate) {
-	CFMutableArrayRef organization = CFArrayCreateMutable(kCFAllocatorDefault,
-		0, &kCFTypeArrayCallBacks);
-	OSStatus status;
-	status = parseX501NameContent(&certificate->_subject, organization,
-        appendOrganizationFromX501Name, true);
-	if (status || CFArrayGetCount(organization) == 0) {
-		CFRelease(organization);
-		organization = NULL;
-	}
-	return organization;
+    return SecCertificateCopyOrganizationFromX501NameContent(&certificate->_subject);
 }
 
 static OSStatus appendOrganizationalUnitFromX501Name(void *context,

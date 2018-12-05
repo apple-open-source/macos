@@ -332,6 +332,7 @@
         }
     };
 
+    __block bool errored = false;
     [ckks dispatchSync: ^bool{
         if(self.cancelled) {
             ckksnotice("ckksincoming", ckks, "CKKSIncomingQueueOperation cancelled, quitting");
@@ -399,15 +400,31 @@
                 }
             }
         }
+        errored = !ok;
+        return ok;
+    }];
 
-        // Iterate through all incoming queue entries a chunk at a time (for peak memory concerns)
-        NSArray<CKKSIncomingQueueEntry*> * queueEntries = nil;
-        NSString* lastMaxUUID = nil;
-        while(queueEntries == nil || queueEntries.count == SecCKKSIncomingQueueItemsAtOnce) {
+    if(errored) {
+        ckksnotice("ckksincoming", ckks, "Early-exiting from IncomingQueueOperation");
+        return;
+    }
+
+    // Now for the tricky bit: take and drop the account queue for each batch of queue entries
+    // This is for peak memory concerns, but also to allow keychain API clients to make changes while we're processing many items
+    // Note that IncomingQueueOperations are no longer transactional: they can partially succeed. This might make them harder to reason about.
+    __block NSUInteger lastCount = SecCKKSIncomingQueueItemsAtOnce;
+    __block NSString* lastMaxUUID = nil;
+
+    while(lastCount == SecCKKSIncomingQueueItemsAtOnce) {
+        [ckks dispatchSync: ^bool{
+            NSArray<CKKSIncomingQueueEntry*> * queueEntries = nil;
             if(self.cancelled) {
                 ckksnotice("ckksincoming", ckks, "CKKSIncomingQueueOperation cancelled, quitting");
+                errored = true;
                 return false;
             }
+
+            NSError* error = nil;
 
             queueEntries = [CKKSIncomingQueueEntry fetch: SecCKKSIncomingQueueItemsAtOnce
                                           startingAtUUID:lastMaxUUID
@@ -418,19 +435,23 @@
             if(error != nil) {
                 ckkserror("ckksincoming", ckks, "Error fetching incoming queue records: %@", error);
                 self.error = error;
+                errored = true;
                 return false;
             }
+
+            lastCount = queueEntries.count;
 
             if([queueEntries count] == 0) {
                 // Nothing to do! exit.
                 ckksnotice("ckksincoming", ckks, "Nothing in incoming queue to process");
-                break;
+                return true;
             }
 
             [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventOutgoingQueue zone:ckks.zoneName count:[queueEntries count]];
 
             if (![self processQueueEntries:queueEntries withManifest:ckks.latestManifest egoManifest:ckks.egoManifest]) {
                 ckksnotice("ckksincoming", ckks, "processQueueEntries didn't complete successfully");
+                errored = true;
                 return false;
             }
 
@@ -438,10 +459,19 @@
             for(CKKSIncomingQueueEntry* iqe in queueEntries) {
                 lastMaxUUID = ([lastMaxUUID compare:iqe.uuid] == NSOrderedDescending) ? lastMaxUUID : iqe.uuid;
             };
-        }
+            return true;
+        }];
 
-        // Process other queues: CKKSCurrentItemPointers
-        ckksnotice("ckksincoming", ckks, "Processed %lu items in incoming queue (%lu errors)", (unsigned long)self.successfulItemsProcessed, (unsigned long)self.errorItemsProcessed);
+        if(errored) {
+            ckksnotice("ckksincoming", ckks, "Early-exiting from IncomingQueueOperation");
+            return;
+        }
+    }
+
+    ckksnotice("ckksincoming", ckks, "Processed %lu items in incoming queue (%lu errors)", (unsigned long)self.successfulItemsProcessed, (unsigned long)self.errorItemsProcessed);
+
+    [ckks dispatchSync: ^bool{
+        NSError* error = nil;
 
         NSArray<CKKSCurrentItemPointer*>* newCIPs = [CKKSCurrentItemPointer remoteItemPointers:ckks.zoneID error:&error];
         if(error || !newCIPs) {
@@ -462,7 +492,7 @@
             [self.ckks processIncomingQueueAfterNextUnlock];
         }
 
-        return ok;
+        return true;
     }];
 }
 

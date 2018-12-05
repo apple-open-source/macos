@@ -1302,7 +1302,7 @@ void UniqueIDBDatabase::commitTransaction(UniqueIDBDatabaseTransaction& transact
     ASSERT(isMainThread());
     LOG(IndexedDB, "(main) UniqueIDBDatabase::commitTransaction - %s", transaction.info().identifier().loggingString().utf8().data());
 
-    ASSERT(&transaction.databaseConnection().database() == this);
+    ASSERT(transaction.databaseConnection().database() == this);
 
     uint64_t callbackID = storeCallbackOrFireError(WTFMove(callback));
     if (!callbackID)
@@ -1346,7 +1346,7 @@ void UniqueIDBDatabase::abortTransaction(UniqueIDBDatabaseTransaction& transacti
     ASSERT(isMainThread());
     LOG(IndexedDB, "(main) UniqueIDBDatabase::abortTransaction - %s", transaction.info().identifier().loggingString().utf8().data());
 
-    ASSERT(&transaction.databaseConnection().database() == this);
+    ASSERT(transaction.databaseConnection().database() == this);
 
     uint64_t callbackID = storeCallbackOrFireError(WTFMove(callback));
     if (!callbackID)
@@ -1533,8 +1533,8 @@ bool UniqueIDBDatabase::hasUnfinishedTransactions() const
 void UniqueIDBDatabase::invokeOperationAndTransactionTimer()
 {
     LOG(IndexedDB, "UniqueIDBDatabase::invokeOperationAndTransactionTimer()");
-    ASSERT(!m_hardClosedForUserDelete);
-    ASSERT(!m_owningPointerForClose);
+    RELEASE_ASSERT(!m_hardClosedForUserDelete);
+    RELEASE_ASSERT(!m_owningPointerForClose);
 
     if (!m_operationAndTransactionTimer.isActive())
         m_operationAndTransactionTimer.startOneShot(0_s);

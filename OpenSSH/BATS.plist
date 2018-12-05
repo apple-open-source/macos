@@ -18,7 +18,7 @@
 				<string>/private/tmp/ssh_regression_tests_.*/.*log</string>
 			</array>
             <key>Timeout</key>
-            <integer>1200</integer>
+            <integer>3600</integer>
 		</dict>
 	</array>
 </dict>

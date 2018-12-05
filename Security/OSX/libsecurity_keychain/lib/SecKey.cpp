@@ -830,10 +830,35 @@ namespace Security {
 
             if (key->cdsaKey == NULL) {
                 // Create CDSA key from exported data of existing key.
-                CFRef<CFDataRef> keyData = SecKeyCopyExternalRepresentation(key, NULL);
                 CFRef<CFDictionaryRef> keyAttributes = SecKeyCopyAttributes(key);
-                if (keyData && keyAttributes) {
-                    key->cdsaKey = SecKeyCreateFromData(keyAttributes, keyData, NULL);
+                if (keyAttributes) {
+                    CFRef<CFDataRef> keyData = SecKeyCopyExternalRepresentation(key, NULL);
+                    if (!keyData) {
+                        CFTypeRef pubKeyHash = CFDictionaryGetValue(keyAttributes, kSecAttrApplicationLabel);
+                        const void *keys[] = { kSecClass, kSecAttrNoLegacy, kSecReturnRef, kSecMatchLimit };
+                        const void *values[] = { kSecClassIdentity, kCFBooleanFalse, kCFBooleanTrue, kSecMatchLimitAll };
+                        CFRef<CFDictionaryRef> query = CFDictionaryCreate(kCFAllocatorDefault, keys, values,
+                                                                          sizeof(keys) / sizeof(*keys),
+                                                                          &kCFTypeDictionaryKeyCallBacks,
+                                                                          &kCFTypeDictionaryValueCallBacks);
+                        CFRef<CFArrayRef> identities;
+                        OSStatus status = SecItemCopyMatching(query, (CFTypeRef *)identities.take());
+                        if (status == errSecSuccess) {
+                            for (int i = 0; i < CFArrayGetCount(identities); ++i) {
+                                CFRef<SecKeyRef> privateKey;
+                                if (SecIdentityCopyPrivateKey((SecIdentityRef)CFArrayGetValueAtIndex(identities, i), privateKey.take()) != errSecSuccess) {
+                                    continue;
+                                }
+                                CFRef<CFDictionaryRef> attrs = SecKeyCopyAttributes(privateKey);
+                                if (CFEqual(CFDictionaryGetValue(attrs, kSecAttrApplicationLabel), pubKeyHash)) {
+                                    key->cdsaKey = privateKey.retain();
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        key->cdsaKey = SecKeyCreateFromData(keyAttributes, keyData, NULL);
+                    }
                 }
             }
 

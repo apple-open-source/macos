@@ -218,6 +218,15 @@ WriteMyIncludes(FILE *file, statement_t *stats)
       "(MACH_SEND_SYNC_OVERRIDE|MACH_SEND_SYNC_USE_THRPRI|MACH_RCV_SYNC_WAIT) : MACH_MSG_OPTION_NONE)\n");
     fprintf(file, "#endif /* __MigSpecialReplyPortMsgOption */\n");
   }
+  /*
+   * extern the definition of mach_msg_destroy
+   * (to avoid inserting mach/mach.h everywhere)
+   */
+  fprintf(file, "/* TODO: #include <mach/mach.h> */\n");
+  fprintf(file, "#ifdef __cplusplus\nextern \"C\" {\n#endif /* __cplusplus */\n");
+  fprintf(file, "extern void mach_msg_destroy(mach_msg_header_t *);\n");
+  fprintf(file, "#ifdef __cplusplus\n}\n#endif /* __cplusplus */\n");
+
   fprintf(file, "\n");
 }
 
@@ -2711,46 +2720,76 @@ WriteOOLSizeCheck(FILE *file, routine_t *rt)
     
     // scan through arguments to see if there are any ool data blocks
     for (argPtr = rt->rtArgs; argPtr != NULL; argPtr = argPtr->argNext) {
-        if (akCheck(argPtr->argKind, akbReturnKPD) && (argPtr->argKPD_Type == MACH_MSG_OOL_DESCRIPTOR)) {
+        if (akCheck(argPtr->argKind, akbReturnKPD)) {
             register ipc_type_t *it = argPtr->argType;
-            char *tab, string[MAX_STR_LEN];
+            char string[MAX_STR_LEN];
             boolean_t test;
             argument_t  *argCountPtr;
             
-            if ( !openedTypeCheckConditional ) {
-                openedTypeCheckConditional = TRUE;
-                fputs("#if __MigTypeCheck\n", file);
-            }
+            if (argPtr->argKPD_Type == MACH_MSG_OOL_DESCRIPTOR) {
+				char *tab;
+				
+				if (IS_MULTIPLE_KPD(it)) {
+					if ( !openedTypeCheckConditional ) {
+						openedTypeCheckConditional = TRUE;
+						fputs("#if __MigTypeCheck\n", file);
+					}
+					
+					WriteKPD_Iterator(file, TRUE, FALSE, FALSE, argPtr, TRUE);
+					tab = "\t\t\t";
+					sprintf(string, "ptr->");
+					test = !it->itVarArray && !it->itElement->itVarArray;
+					it = it->itElement; // point to element descriptor, so size calculation is correct
+					argCountPtr = argPtr->argSubCount;
+				}
+				else {
+					tab = "";
+					sprintf(string, "Out%dP->%s.", argPtr->argReplyPos, argPtr->argMsgField);
+					test = !it->itVarArray;
+					argCountPtr = argPtr->argCount;
+				}
             
-            if (IS_MULTIPLE_KPD(it)) {
-                WriteKPD_Iterator(file, TRUE, FALSE, FALSE, argPtr, TRUE);
-                tab = "\t\t\t";
-                sprintf(string, "ptr->");
-                test = !it->itVarArray && !it->itElement->itVarArray;
-                it = it->itElement; // point to element descriptor, so size calculation is correct
-                argCountPtr = argPtr->argSubCount;
-            }
-            else {
-                tab = "";
-                sprintf(string, "Out%dP->%s.", argPtr->argReplyPos, argPtr->argMsgField);
-                test = !it->itVarArray;
-                argCountPtr = argPtr->argCount;
-            }
-            
-            if (!test) {
-                int multiplier = (argCountPtr->argMultiplier > 1 || it->itSize > 8) ? argCountPtr->argMultiplier * it->itSize / 8 : 1;
-                fprintf(file, "\t%s" "if (%ssize ", tab, string);
-                if (multiplier > 1)
-                    fprintf(file, "/ %d ", multiplier);
-                fprintf(file,"!= Out%dP->%s%s)\n", argCountPtr->argReplyPos, argCountPtr->argVarName, IS_MULTIPLE_KPD(it) ? "[i]" : "");
+				if (!test) {
+					int multiplier = (argCountPtr->argMultiplier > 1 || it->itSize > 8) ? argCountPtr->argMultiplier * it->itSize / 8 : 1;
+					
+					if ( !openedTypeCheckConditional ) {
+						openedTypeCheckConditional = TRUE;
+						fputs("#if __MigTypeCheck\n", file);
+					}
+
+					fprintf(file, "\t%s" "if (%ssize ", tab, string);
+					if (multiplier > 1)
+						fprintf(file, "/ %d ", multiplier);
+					fprintf(file,"!= Out%dP->%s%s)\n", argCountPtr->argReplyPos, argCountPtr->argVarName, IS_MULTIPLE_KPD(it) ? "[i]" : "");
                 
-                fprintf(file, "\t\t%s" "return MIG_TYPE_ERROR;\n", tab);
-            }
+					fprintf(file, "\t\t%s" "return MIG_TYPE_ERROR;\n", tab);
+				}
+				
+				if (IS_MULTIPLE_KPD(it))
+					fprintf(file, "\t    }\n\t}\n");
+			}
+			else if (argPtr->argKPD_Type == MACH_MSG_OOL_PORTS_DESCRIPTOR) {
+				{
+					extern int lineno;
+					extern char *yyinname;
+					fprintf(stderr, "^^^###_MIG_NOTICE_###^^^ (user) %s, line %d uses OOL_PORTS_DESCRIPTOR\n", yyinname, lineno-1);
+				}
+				sprintf(string, "Out%dP->%s.", argPtr->argReplyPos, argPtr->argMsgField);
+				test = !it->itVarArray;
+				argCountPtr = argPtr->argCount;
             
-            if (IS_MULTIPLE_KPD(it))
-                fprintf(file, "\t    }\n\t}\n");
-            
-        }
+				if (!test) {
+					if ( !openedTypeCheckConditional ) {
+						openedTypeCheckConditional = TRUE;
+						fputs("#if __MigTypeCheck\n", file);
+					}
+
+					fprintf(file, "\t" "if (%scount ", string);
+					fprintf(file,"!= Out%dP->%s)\n", argCountPtr->argReplyPos, argCountPtr->argVarName);
+					fprintf(file, "\t\t" "return MIG_TYPE_ERROR;\n");
+				}
+			}       
+		}
     }
     
     if ( openedTypeCheckConditional )
@@ -2894,8 +2933,16 @@ WriteCheckReplyCall(FILE *file, routine_t *rt)
   for (i = 1; i <= rt->rtMaxReplyPos; i++)
     fprintf(file, ", (__Reply__%s_t **)&Out%dP", rt->rtName, i);
   fprintf(file, ");\n");
-  fprintf(file, "\tif (check_result != MACH_MSG_SUCCESS)\n");
+  fprintf(file, "\tif (check_result != MACH_MSG_SUCCESS) {\n");
+  if (IsKernelUser) {
+      fprintf(file, "#if\t__MigKernelSpecificCode\n");
+      fprintf(file, "\t\tmach_msg_destroy_from_kernel(&Out0P->Head);\n");
+      fprintf(file, "#endif\t/* __MigKernelSpecificCode */\n");
+  } else {
+      fprintf(file, "\t\tmach_msg_destroy(&Out0P->Head);\n");
+  }
   WriteReturnMsgError(file, rt, TRUE, argNULL, "check_result");
+  fprintf(file, "\t}\n");
   fprintf(file, "#endif\t/* defined(__MIG_check__Reply__%s_t__defined) */\n", rt->rtName);
   fprintf(file, "\n");
 }

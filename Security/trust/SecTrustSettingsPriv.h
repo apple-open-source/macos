@@ -50,6 +50,36 @@ __BEGIN_DECLS
 #define kSecTrustSettingsPolicyName               CFSTR("kSecTrustSettingsPolicyName")
 #define kSecTrustSettingsPolicyOptions            CFSTR("kSecTrustSettingsPolicyOptions")
 
+extern const CFStringRef kSecCTExceptionsCAsKey;
+extern const CFStringRef kSecCTExceptionsDomainsKey;
+extern const CFStringRef kSecCTExceptionsHashAlgorithmKey;
+extern const CFStringRef kSecCTExceptionsSPKIHashKey;
+
+/*
+ @function SecTrustStoreSetCTExceptions
+ @abstract Set the certificate transparency enforcement exceptions
+ @param applicationIdentifier Identifier for the caller. If null, the application-identifier will be read from the callers entitlements.
+ @param exceptions Dictionary of exceptions to set for this application. These exceptions replace existing exceptions for the keys in the dictionary. Exceptions for omitted keys are not affected. Null removes all exceptions for this application. See the discussion sections below for a complete overview of options.
+ @param error Upon failure describes cause of the failure.
+ @result boolean indicating success of the operation. If false, error will be filled in with a description of the error.
+ @discussions An exceptions dictionary has two optional keys:
+ kSecCTExceptionsDomainsKey takes an array of strings. These strings are the domains that are excluded from enforcing CT. A leading "." is supported to signify subdomains. Wildcard domains are not supported.
+ kSecCTExceptionsCAsKey takes an array of dictionaries. Each dictionary has two required keys:
+    kSecCTExceptionsHashAlgorithmKey takes a string indicating the hash algorithm. Currenlty only "sha256" is supported.
+    kSecCTExceptionsSPKIHashKey takes a data containing hash of a certificates SubjectPublicKeyInfo.
+ */
+bool SecTrustStoreSetCTExceptions(CFStringRef applicationIdentifier, CFDictionaryRef exceptions, CFErrorRef *error);
+
+/*
+ @function SecTrustStoreCopyCTExceptions
+ @abstract Return the certificate transparency enforcement exceptions
+ @param applicationIdentifier Identifier for the caller's exceptions to fetch. If null, all set exceptions will be returned (regardless of which caller set them).
+ @param error Upon failure describes cause of the failure.
+ @result The dictionary of currently set exceptions. Null if none exist or upon failure.
+ @discussion The returned exceptions dictionary has the same options as input exceptions. See the discussion of SecTrustStoreSetCTExceptions.
+ */
+CF_RETURNS_RETAINED CFDictionaryRef SecTrustStoreCopyCTExceptions(CFStringRef applicationIdentifier, CFErrorRef *error);
+
 #if SEC_OS_OSX
 
 /*

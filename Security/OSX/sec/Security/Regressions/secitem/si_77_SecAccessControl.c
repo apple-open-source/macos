@@ -361,7 +361,9 @@ static bool aks_consistency_test(bool currentAuthDataFormat, kern_return_t expec
     CFDataRef auth_data = NULL;
     CFMutableDictionaryRef auth_attribs = NULL;
 
-    require_noerr_string(SecRandomCopyBytes(kSecRandomDefault, bulkKeySize, bulkKey), out, "SecRandomCopyBytes failed");
+    OSStatus status = SecRandomCopyBytes(kSecRandomDefault, bulkKeySize, bulkKey);
+    ok_status(status, "SecRandomCopyBytes failed");
+    require_noerr(status, out);
 
     auth_attribs = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (currentAuthDataFormat) {
@@ -371,14 +373,16 @@ static bool aks_consistency_test(bool currentAuthDataFormat, kern_return_t expec
         auth_data = kc_copy_constraints_data(access_control, auth_attribs);
     }
 
-    require_string(aks_crypt_acl(kAKSKeyOpEncrypt, KEYBAG_DEVICE, key_class_dk, bulkKeySize, bulkKey, bulkKeyWrapped,
-                                 auth_data, acm_context, NULL) == kAKSReturnSuccess, out, "kAKSKeyOpEncrypt failed");
+    status = aks_crypt_acl(kAKSKeyOpEncrypt, KEYBAG_DEVICE, key_class_dk, bulkKeySize, bulkKey, bulkKeyWrapped, auth_data, acm_context, NULL);
+    is_status(status, kAKSReturnSuccess, "kAKSKeyOpEncrypt failed");
+    require(status == kAKSReturnSuccess, out);
 
     uint32_t blobLenWrapped = (uint32_t)CFDataGetLength(bulkKeyWrapped);
     const uint8_t *cursor = CFDataGetBytePtr(bulkKeyWrapped);
 
-    require_string(aks_crypt_acl(kAKSKeyOpDecrypt, KEYBAG_DEVICE, key_class_dk, blobLenWrapped, cursor, bulkKeyUnwrapped,
-                                 auth_data, acm_context, NULL) == expectedAksResult, out, "kAKSKeyOpDecrypt finished with unexpected result");
+    status = aks_crypt_acl(kAKSKeyOpDecrypt, KEYBAG_DEVICE, key_class_dk, blobLenWrapped, cursor, bulkKeyUnwrapped, auth_data, acm_context, NULL);
+    is_status(status, expectedAksResult, "kAKSKeyOpDecrypt finished with unexpected result");
+    require(status == expectedAksResult, out);
 
     result = true;
 

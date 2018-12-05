@@ -234,7 +234,7 @@ extern NSString* const CKKSServerExtensionErrorDomain;
 
 /* Queue limits: these should likely be configurable via plist */
 #define SecCKKSOutgoingQueueItemsAtOnce 100
-#define SecCKKSIncomingQueueItemsAtOnce 10
+#define SecCKKSIncomingQueueItemsAtOnce 50
 
 // Utility functions
 NSString* SecCKKSHostOSVersion(void);

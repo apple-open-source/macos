@@ -26,6 +26,7 @@
 #include <sys/proc.h>
 #include <TargetConditionals.h>
 #include <os/overflow.h>
+#include <IOKit/IOKitKeys.h>
 
 #define kIOHIDManagerUserAccessUserDeviceEntitlement "com.apple.hid.manager.user-access-device"
 
@@ -468,8 +469,16 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(IOExternalMethodArguments *
     
     _properties = OSDynamicCast(OSDictionary, object);
     require_action(_properties, exit, result=kIOReturnNoMemory);
-    
     _properties->retain();
+    
+    if (_properties->getObject(kIOUserClientClassKey) ||
+        _properties->getObject(kIOClassKey) ||
+        _properties->getObject(kIOProviderClassKey) ||
+        _properties->getObject(kIOKitDebugKey)) {
+        result = kIOReturnBadArgument;
+        goto exit;
+    }
+    
     
     if ( arguments->scalarInput[0] )
         result = createAndStartDeviceAsync();

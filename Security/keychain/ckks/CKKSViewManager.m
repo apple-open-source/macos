@@ -277,7 +277,7 @@ dispatch_once_t globalZoneStateQueueOnce;
 // Lazy-load it here.
 - (CKKSRateLimiter*)getGlobalRateLimiter {
     dispatch_once(&globalZoneStateQueueOnce, ^{
-        globalZoneStateQueue = dispatch_queue_create("CKKS global zone state", DISPATCH_QUEUE_SERIAL);
+        globalZoneStateQueue = dispatch_queue_create("CKKS global zone state", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
     });
 
     if(_globalRateLimiter != nil) {
@@ -805,7 +805,11 @@ dispatch_once_t globalZoneStateQueueOnce;
     [op timeout:120*NSEC_PER_SEC];
 }
 
-- (void)rpcStatus: (NSString*)viewName reply: (void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply {
+- (void)rpcStatus: (NSString*)viewName
+           global:(bool)reportGlobal
+            reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply
+        viewBlock:(NSDictionary * (^)(CKKSKeychainView* view))viewBlock
+{
     NSMutableArray* a = [[NSMutableArray alloc] init];
 
     // Now, query the views about their status
@@ -820,38 +824,40 @@ dispatch_once_t globalZoneStateQueueOnce;
     CKKSResultOperation* statusOp = [CKKSResultOperation named:@"status-rpc" withBlock:^{
         __strong __typeof(self) strongSelf = weakSelf;
 
-        // The first element is always the current global state (non-view-specific)
-        NSError* selfPeersError = nil;
-        CKKSSelves* selves = [strongSelf fetchSelfPeers:&selfPeersError];
-        NSError* trustedPeersError = nil;
-        NSSet<id<CKKSPeer>>* peers = [strongSelf fetchTrustedPeers:&trustedPeersError];
+        if (reportGlobal) {
+            // The first element is always the current global state (non-view-specific)
+            NSError* selfPeersError = nil;
+            CKKSSelves* selves = [strongSelf fetchSelfPeers:&selfPeersError];
+            NSError* trustedPeersError = nil;
+            NSSet<id<CKKSPeer>>* peers = [strongSelf fetchTrustedPeers:&trustedPeersError];
 
-        // Get account state, even wait for it a little
-        [self.accountTracker.ckdeviceIDInitialized wait:1*NSEC_PER_SEC];
-        NSString *deviceID = self.accountTracker.ckdeviceID;
-        NSError *deviceIDError = self.accountTracker.ckdeviceIDError;
+            // Get account state, even wait for it a little
+            [self.accountTracker.ckdeviceIDInitialized wait:1*NSEC_PER_SEC];
+            NSString *deviceID = self.accountTracker.ckdeviceID;
+            NSError *deviceIDError = self.accountTracker.ckdeviceIDError;
 
-        NSMutableArray<NSString*>* mutTrustedPeers = [[NSMutableArray alloc] init];
-        [peers enumerateObjectsUsingBlock:^(id<CKKSPeer>  _Nonnull obj, BOOL * _Nonnull stop) {
-            [mutTrustedPeers addObject: [obj description]];
-        }];
+            NSMutableArray<NSString*>* mutTrustedPeers = [[NSMutableArray alloc] init];
+            [peers enumerateObjectsUsingBlock:^(id<CKKSPeer>  _Nonnull obj, BOOL * _Nonnull stop) {
+                [mutTrustedPeers addObject: [obj description]];
+            }];
 
 #define stringify(obj) CKKSNilToNSNull([obj description])
-        NSDictionary* global = @{
-                                 @"view":                @"global",
-                                 @"selfPeers":           stringify(selves),
-                                 @"selfPeersError":      CKKSNilToNSNull(selfPeersError),
-                                 @"trustedPeers":        CKKSNilToNSNull(mutTrustedPeers),
-                                 @"trustedPeersError":   CKKSNilToNSNull(trustedPeersError),
-                                 @"reachability":        strongSelf.reachabilityTracker.currentReachability ? @"network" : @"no-network",
-                                 @"ckdeviceID":          CKKSNilToNSNull(deviceID),
-                                 @"ckdeviceIDError":     CKKSNilToNSNull(deviceIDError),
-        };
-        [a addObject: global];
+            NSDictionary* global = @{
+                                     @"view":                @"global",
+                                     @"selfPeers":           stringify(selves),
+                                     @"selfPeersError":      CKKSNilToNSNull(selfPeersError),
+                                     @"trustedPeers":        CKKSNilToNSNull(mutTrustedPeers),
+                                     @"trustedPeersError":   CKKSNilToNSNull(trustedPeersError),
+                                     @"reachability":        strongSelf.reachabilityTracker.currentReachability ? @"network" : @"no-network",
+                                     @"ckdeviceID":          CKKSNilToNSNull(deviceID),
+                                     @"ckdeviceIDError":     CKKSNilToNSNull(deviceIDError),
+                                     };
+            [a addObject: global];
+        }
 
         for(CKKSKeychainView* view in actualViews) {
             ckksnotice("ckks", view, "Fetching status for %@", view.zoneName);
-            NSDictionary* status = [view status];
+            NSDictionary* status = viewBlock(view);
             ckksinfo("ckks", view, "Status is %@", status);
             if(status) {
                 [a addObject: status];
@@ -877,6 +883,20 @@ dispatch_once_t globalZoneStateQueueOnce;
     [self.operationQueue addOperation:statusOp];
 
     return;
+}
+
+- (void)rpcStatus:(NSString*)viewName reply:(void (^)(NSArray<NSDictionary*>* result, NSError* error))reply
+{
+    [self rpcStatus:viewName global:true reply:reply viewBlock:^NSDictionary *(CKKSKeychainView *view) {
+        return [view status];
+    }];
+}
+
+- (void)rpcFastStatus:(NSString*)viewName reply:(void (^)(NSArray<NSDictionary*>* result, NSError* error))reply
+{
+    [self rpcStatus:viewName global:false reply:reply viewBlock:^NSDictionary *(CKKSKeychainView *view) {
+        return [view fastStatus];
+    }];
 }
 
 - (void)rpcFetchAndProcessChanges:(NSString*)viewName reply: (void(^)(NSError* result))reply {
@@ -1246,7 +1266,7 @@ dispatch_once_t globalZoneStateQueueOnce;
         if(listener && !alreadyRegisteredListener) {
             NSString* queueName = [NSString stringWithFormat: @"ck-peer-change-%@", listener];
 
-            dispatch_queue_t objQueue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL);
+            dispatch_queue_t objQueue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
             [self.peerChangeListeners setObject: listener forKey: objQueue];
         }
     }

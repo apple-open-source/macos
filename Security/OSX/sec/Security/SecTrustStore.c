@@ -44,6 +44,7 @@
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
 #include "utilities/SecDb.h"
+#include "SecTrustInternal.h"
 
 static CFStringRef kSecTrustStoreUserName = CFSTR("user");
 
@@ -238,7 +239,6 @@ errOut:
 	return status;
 }
 
-
 OSStatus SecTrustStoreGetSettingsVersionNumber(SecTrustSettingsVersionNumber* p_settings_version_number)
 {
     if (NULL == p_settings_version_number) {
@@ -249,6 +249,24 @@ OSStatus SecTrustStoreGetSettingsVersionNumber(SecTrustSettingsVersionNumber* p_
     CFErrorRef error = nil;
     uint64_t versionNumber = SecTrustGetTrustStoreVersionNumber(&error);
     *p_settings_version_number = (SecTrustSettingsVersionNumber)versionNumber;
+
+    if (error) {
+        status = (OSStatus)CFErrorGetCode(error);
+    }
+    CFReleaseSafe(error);
+    return status;
+}
+
+OSStatus SecTrustStoreGetSettingsAssetVersionNumber(SecTrustSettingsAssetVersionNumber* p_settings_asset_version_number)
+{
+    if (NULL == p_settings_asset_version_number) {
+        return errSecParam;
+    }
+
+    OSStatus status = errSecSuccess;
+    CFErrorRef error = nil;
+    uint64_t versionNumber = SecTrustGetAssetVersionNumber(&error);
+    *p_settings_asset_version_number = (SecTrustSettingsAssetVersionNumber)versionNumber;
 
     if (error) {
         status = (OSStatus)CFErrorGetCode(error);
@@ -322,4 +340,52 @@ OSStatus SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRe
 errOut:
     os_release(activity);
     return status;
+}
+
+#define do_if_registered(sdp, ...) if (gTrustd && gTrustd->sdp) { return gTrustd->sdp(__VA_ARGS__); }
+
+/* MARK: CT Enforcement Exceptions */
+
+const CFStringRef kSecCTExceptionsCAsKey = CFSTR("DisabledForCAs");
+const CFStringRef kSecCTExceptionsDomainsKey = CFSTR("DisabledForDomains");
+const CFStringRef kSecCTExceptionsHashAlgorithmKey = CFSTR("HashAlgorithm");
+const CFStringRef kSecCTExceptionsSPKIHashKey = CFSTR("SubjectPublicKeyInfoHash");
+
+bool SecTrustStoreSetCTExceptions(CFStringRef applicationIdentifier, CFDictionaryRef exceptions, CFErrorRef *error) {
+    do_if_registered(sec_trust_store_set_ct_exceptions, applicationIdentifier, exceptions, error);
+
+    os_activity_t activity = os_activity_create("SecTrustStoreSetCTExceptions", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    __block bool result = false;
+    securityd_send_sync_and_do(kSecXPCOpSetCTExceptions, error, ^bool(xpc_object_t message, CFErrorRef *block_error) {
+        SecXPCDictionarySetPListOptional(message, kSecTrustExceptionsKey, exceptions, block_error);
+        SecXPCDictionarySetStringOptional(message, kSecTrustEventApplicationID, applicationIdentifier, block_error);
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *block_error) {
+        result = SecXPCDictionaryGetBool(response, kSecXPCKeyResult, block_error);
+        return true;
+    });
+
+    os_release(activity);
+    return result;
+}
+
+CFDictionaryRef SecTrustStoreCopyCTExceptions(CFStringRef applicationIdentifier, CFErrorRef *error) {
+    do_if_registered(sec_trust_store_copy_ct_exceptions, applicationIdentifier, error);
+
+    os_activity_t activity = os_activity_create("SecTrustStoreCopyCTExceptions", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    __block CFDictionaryRef result = NULL;
+    securityd_send_sync_and_do(kSecXPCOpCopyCTExceptions, error, ^bool(xpc_object_t message, CFErrorRef *block_error) {
+        SecXPCDictionarySetStringOptional(message, kSecTrustEventApplicationID, applicationIdentifier, block_error);
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *block_error) {
+        (void)SecXPCDictionaryCopyDictionaryOptional(response, kSecTrustExceptionsKey, &result, block_error);
+        return true;
+    });
+
+    os_release(activity);
+    return result;
 }

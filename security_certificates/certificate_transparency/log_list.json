@@ -1,585 +1,943 @@
 {
-  "logs": [
-    {
-      "maximum_merge_delay": 86400,
-      "state": 1,
-      "url": "ct.googleapis.com/aviator/",
-      "dns_api_endpoint": "aviator.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==",
-      "description": "Google 'Aviator' log",
-      "final_sth": {
-        "tree_size": 46466472,
-        "tree_head_signature": "BAMASDBGAiEA/M0Nvt77aNe+9eYbKsv6rRpTzFTKa5CGqb56ea4hnt8CIQCJDE7pL6xgAewMd5i3G1lrBWgFooT2kd3+zliEz5Rw8w==",
-        "sha256_root_hash": "LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA=",
-        "timestamp": 1480512258330
-      },
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/icarus/",
-      "dns_api_endpoint": "icarus.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==",
-      "description": "Google 'Icarus' log",
-      "state": 0,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/pilot/",
-      "dns_api_endpoint": "pilot.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfahLEimAoz2t01p3uMziiLOl/fHTDM0YDOhBRuiBARsV4UvxG2LdNgoIGLrtCzWE0J5APC2em4JlvR8EEEFMoA==",
-      "description": "Google 'Pilot' log",
-      "state": 0,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/rocketeer/",
-      "dns_api_endpoint": "rocketeer.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg==",
-      "description": "Google 'Rocketeer' log",
-      "state": 0,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/skydiver/",
-      "dns_api_endpoint": "skydiver.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEmyGDvYXsRJsNyXSrYc9DjHsIa2xzb4UR7ZxVoV6mrc9iZB7xjI6+NrOiwH+P/xxkRmOFG6Jel20q37hTh58rA==",
-      "description": "Google 'Skydiver' log",
-      "state": 0,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct1.digicert-ct.com/log/",
-      "dns_api_endpoint": "digicert.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEAkbFvhu7gkAW6MHSrBlpE1n4+HCFRkC5OLAjgqhkTH+/uzSfSl8ois8ZxAD2NgaTZe1M9akhYlrYkes4JECs6A==",
-      "description": "DigiCert Log Server",
-      "state": 0,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct2.digicert-ct.com/log/",
-      "dns_api_endpoint": "digicert2.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzF05L2a4TH/BLgOhNKPoioYCrkoRxvcmajeb8Dj4XQmNY+gxa4Zmz3mzJTwe33i0qMVp+rfwgnliQ/bM/oFmhA==",
-      "description": "DigiCert Log Server 2",
-      "state": 0,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.ws.symantec.com/",
-      "dns_api_endpoint": "symantec.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEluqsHEYMG1XcDfy1lCdGV0JwOmkY4r87xNuroPS2bMBTP01CEDPwWJePa75y9CrsHEKqAy8afig1dpkIPSEUhg==",
-      "description": "Symantec log",
-      "state": 0,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "vega.ws.symantec.com/",
-      "dns_api_endpoint": "symantec-vega.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6pWeAv/u8TNtS4e8zf0ZF2L/lNPQWQc/Ai0ckP7IRzA78d0NuBEMXR2G3avTK0Zm+25ltzv9WWis36b4ztIYTQ==",
-      "description": "Symantec 'Vega' log",
-      "state": 0,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "sirius.ws.symantec.com/",
-      "dns_api_endpoint": "symantec-sirius.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEowJkhCK7JewN47zCyYl93UXQ7uYVhY/Z5xcbE4Dq7bKFN61qxdglnfr0tPNuFiglN+qjN2Syxwv9UeXBBfQOtQ==",
-      "description": "Symantec 'Sirius' log",
-      "state": 0,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "operated_by": [
-        2
-      ],
-      "url": "log.certly.io/",
-      "dns_api_endpoint": "certly.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==",
-      "description": "Certly.IO log",
-      "state": 3,
-      "disqualified_at": 1460678400000
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "operated_by": [
-        3
-      ],
-      "url": "ct.izenpe.com/",
-      "dns_api_endpoint": "izenpe1.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJ2Q5DC3cUBj4IQCiDu0s6j51up+TZAkAEcQRF6tczw90rLWXkJMAW7jr9yc92bIKgV8vDXU4lDeZHvYHduDuvg==",
-      "description": "Izenpe log",
-      "state": 3,
-      "disqualified_at": 1464566400000
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ctlog.wosign.com/",
-      "dns_api_endpoint": "wosign1.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzBGIey1my66PTTBmJxklIpMhRrQvAdPG+SvVyLpzmwai8IoCnNBrRhgwhbrpJIsO0VtwKAx+8TpFf1rzgkJgMQ==",
-      "description": "WoSign log",
-      "state": 3,
-      "operated_by": [
-        4
-      ],
-      "disqualified_at" : 1518479999000
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "operated_by": [
-        5
-      ],
-      "url": "ctlog.api.venafi.com/",
-      "dns_api_endpoint": "venafi.ct.googleapis.com",
-      "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAolpIHxdSlTXLo1s6H1OCdpSj/4DyHDc8wLG9wVmLqy1lk9fz4ATVmm+/1iN2Nk8jmctUKK2MFUtlWXZBSpym97M7frGlSaQXUWyA3CqQUEuIJOmlEjKTBEiQAvpfDjCHjlV2Be4qTM6jamkJbiWtgnYPhJL6ONaGTiSPm7Byy57iaz/hbckldSOIoRhYBiMzeNoA0DiRZ9KmfSeXZ1rB8y8X5urSW+iBzf2SaOfzBvDpcoTuAaWx2DPazoOl28fP1hZ+kHUYvxbcMjttjauCFx+JII0dmuZNIwjfeG/GBb9frpSX219k1O4Wi6OEbHEr8at/XQ0y7gTikOxBn/s5wQIDAQAB",
-      "description": "Venafi log",
-      "state": 3,
-      "disqualified_at": 1488307346000
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ctlog-gen2.api.venafi.com/",
-      "dns_api_endpoint": "venafi2.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEjicnerZVCXTrbEuUhGW85BXx6lrYfA43zro/bAna5ymW00VQb94etBzSg4j/KS/Oqf/fNN51D8DMGA2ULvw3AQ==",
-      "description": "Venafi Gen2 CT log",
-      "state": 0,
-      "operated_by": [
-        5
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ctserver.cnnic.cn/",
-      "dns_api_endpoint": "cnnic.ct.googleapis.com",
-      "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv7UIYZopMgTTJWPp2IXhhuAf1l6a9zM7gBvntj5fLaFm9pVKhKYhVnno94XuXeN8EsDgiSIJIj66FpUGvai5samyetZhLocRuXhAiXXbDNyQ4KR51tVebtEq2zT0mT9liTtGwiksFQccyUsaVPhsHq9gJ2IKZdWauVA2Fm5x9h8B9xKn/L/2IaMpkIYtd967TNTP/dLPgixN1PLCLaypvurDGSVDsuWabA3FHKWL9z8wr7kBkbdpEhLlg2H+NAC+9nGKx+tQkuhZ/hWR65aX+CNUPy2OB9/u2rNPyDydb988LENXoUcMkQT0dU3aiYGkFAY0uZjD2vH97TM20xYtNQIDAQAB",
-      "description": "CNNIC CT log",
-      "state": 0,
-      "operated_by": [
-        6
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.startssl.com/",
-      "dns_api_endpoint": "startcom1.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAESPNZ8/YFGNPbsu1Gfs/IEbVXsajWTOaft0oaFIZDqUiwy1o/PErK38SCFFWa+PeOQFXc9NKv6nV0+05/YIYuUQ==",
-      "description": "StartCom log",
-      "state": 3,
-      "operated_by": [
-        7
-      ],
-      "disqualified_at" : 1518479999000
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "sabre.ct.comodo.com/",
-      "dns_api_endpoint": "comodo-sabre.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8m/SiQ8/xfiHHqtls9m7FyOMBg4JVZY9CgiixXGz0akvKD6DEL8S0ERmFe9U4ZiA0M4kbT5nmuk3I85Sk4bagA==",
-      "description": "Comodo 'Sabre' CT log",
-      "state": 0,
-      "operated_by": [
-        8
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "mammoth.ct.comodo.com/",
-      "dns_api_endpoint": "comodo-mammoth.ct.googleapis.com",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE7+R9dC4VFbbpuyOL+yy14ceAmEf7QGlo/EmtYU6DRzwat43f/3swtLr/L8ugFOOt1YU/RFmMjGCL17ixv66MZw==",
-      "description": "Comodo 'Mammoth' CT log",
-      "state": 0,
-      "operated_by": [
-        8
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/logs/argon2017/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVG18id3qnfC6X/RtYHo3TwIlvxz2b4WurxXfaW7t26maKZfymXYe5jNGHif0vnDdWde6z/7Qco6wVw+dN4liow==",
-      "description": "Google 'Argon 2017' log",
-      "state": 0,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/logs/argon2018/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0gBVBa3VR7QZu82V+ynXWD14JM3ORp37MtRxTmACJV5ZPtfUA7htQ2hofuigZQs+bnFZkje+qejxoyvk2Q1VaA==",
-      "description": "Google 'Argon 2018' log",
-      "state": 0,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/logs/argon2019/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEI3MQm+HzXvaYa2mVlhB4zknbtAT8cSxakmBoJcBKGqGwYS0bhxSpuvABM1kdBTDpQhXnVdcq+LSiukXJRpGHVg==",
-      "description": "Google 'Argon 2019' log",
-      "state": 0,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/logs/argon2020/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6Tx2p1yKY4015NyIYvdrk36es0uAc1zA4PQ+TGRY+3ZjUTIYY9Wyu+3q/147JG4vNVKLtDWarZwVqGkg6lAYzA==",
-      "description": "Google 'Argon 2020' log",
-      "state": 0,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/logs/argon2021/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETeBmZOrzZKo4xYktx9gI2chEce3cw/tbr5xkoQlmhB18aKfsxD+MnILgGNl0FOm0eYGilFVi85wLRIOhK8lxKw==",
-      "description": "Google 'Argon 2021' log",
-      "state": 0,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.cloudflare.com/logs/nimbus2017/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE15ypB40iQe6ToFJB2vSA8CW86/rzPNJ+kdg/LNpRvcjuKnLj/xhW5DoiDyI8xtUws5toLqtWwkFf1mRXFLFarw==",
-      "description": "Cloudflare 'Nimbus 2017' log",
-      "state": 0,
-      "operated_by": [
-        9
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.cloudflare.com/logs/nimbus2018/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEAsVpWvrH3Ke0VRaMg9ZQoQjb5g/xh1z3DDa6IuxY5DyPsk6brlvrUNXZzoIg0DcvFiAn2kd6xmu4Obk5XA/nRg==",
-      "description": "Cloudflare 'Nimbus 2018' log",
-      "state": 0,
-      "operated_by": [
-        9
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.cloudflare.com/logs/nimbus2019/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkZHz1v5r8a9LmXSMegYZAg4UW+Ug56GtNfJTDNFZuubEJYgWf4FcC5D+ZkYwttXTDSo4OkanG9b3AI4swIQ28g==",
-      "description": "Cloudflare 'Nimbus 2019' log",
-      "state": 0,
-      "operated_by": [
-        9
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.cloudflare.com/logs/nimbus2020/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE01EAhx4o0zPQrXTcYjgCt4MVFsT0Pwjzb1RwrM0lhWDlxAYPP6/gyMCXNkOn/7KFsjL7rwk78tHMpY8rXn8AYg==",
-      "description": "Cloudflare 'Nimbus 2020' log",
-      "state": 0,
-      "operated_by": [
-        9
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.cloudflare.com/logs/nimbus2021/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAExpon7ipsqehIeU1bmpog9TFo4Pk8+9oN8OYHl1Q2JGVXnkVFnuuvPgSo2Ep+6vLffNLcmEbxOucz03sFiematg==",
-      "description": "Cloudflare 'Nimbus 2021' log",
-      "state": 0,
-      "operated_by": [
-        9
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "yeti2018.ct.digicert.com/log/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAESYlKFDLLFmA9JScaiaNnqlU8oWDytxIYMfswHy9Esg0aiX+WnP/yj4O0ViEHtLwbmOQeSWBGkIu9YK9CLeer+g==",
-      "description": "DigiCert 'Yeti 2018' log",
-      "state": 0,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "yeti2019.ct.digicert.com/log/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkZd/ow8X+FSVWAVSf8xzkFohcPph/x6pS1JHh7g1wnCZ5y/8Hk6jzJxs6t3YMAWz2CPd4VkCdxwKexGhcFxD9A==",
-      "description": "DigiCert 'Yeti 2019' log",
-      "state": 0,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "yeti2020.ct.digicert.com/log/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEURAG+Zo0ac3n37ifZKUhBFEV6jfcCzGIRz3tsq8Ca9BP/5XUHy6ZiqsPaAEbVM0uI3Tm9U24RVBHR9JxDElPmg==",
-      "description": "DigiCert 'Yeti 2020' log",
-      "state": 0,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "yeti2021.ct.digicert.com/log/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6J4EbcpIAl1+AkSRsbhoY5oRTj3VoFfaf1DlQkfi7Rbe/HcjfVtrwN8jaC+tQDGjF+dqvKhWJAQ6Q6ev6q9Mew==",
-      "description": "DigiCert 'Yeti 2021' log",
-      "state": 0,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "yeti2022.ct.digicert.com/log/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn/jYHd77W1G1+131td5mEbCdX/1v/KiYW5hPLcOROvv+xA8Nw2BDjB7y+RGyutD2vKXStp/5XIeiffzUfdYTJg==",
-      "description": "DigiCert 'Yeti 2022' log",
-      "state": 0,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "nessie2018.ct.digicert.com/log/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVqpLa2W+Rz1XDZPBIyKJO+KKFOYZTj9MpJWnZeFUqzc5aivOiWEVhs8Gy2AlH3irWPFjIZPZMs3Dv7M+0LbPyQ==",
-      "description": "DigiCert 'Nessie 2018' log",
-      "state": 2,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "nessie2019.ct.digicert.com/log/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEX+0nudCKImd7QCtelhMrDW0OXni5RE10tiiClZesmrwUk2iHLCoTHHVV+yg5D4n/rxCRVyRhikPpVDOLMLxJaA==",
-      "description": "DigiCert 'Nessie 2019' log",
-      "state": 2,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "nessie2020.ct.digicert.com/log/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE4hHIyMVIrR9oShgbQMYEk8WX1lmkfFKB448Gn93KbsZnnwljDHY6MQqEnWfKGgMOq0gh3QK48c5ZB3UKSIFZ4g==",
-      "description": "DigiCert 'Nessie 2020' log",
-      "state": 2,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "nessie2021.ct.digicert.com/log/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9o7AiwrbGBIX6Lnc47I6OfLMdZnRzKoP5u072nBi6vpIOEooktTi1gNwlRPzGC2ySGfuc1xLDeaA/wSFGgpYFg==",
-      "description": "DigiCert 'Nessie 2021' log",
-      "state": 2,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "nessie2022.ct.digicert.com/log/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJyTdaAMoy/5jvg4RR019F2ihEV1McclBKMe2okuX7MCv/C87v+nxsfz1Af+p+0lADGMkmNd5LqZVqxbGvlHYcQ==",
-      "description": "DigiCert 'Nessie 2022' log",
-      "state": 2,
-      "operated_by": [
-        1
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/logs/xenon2018",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1syJvwQdrv0a8dM2VAnK/SmHJNw/+FxC+CncFcnXMX2jNH9Xs7Q56FiV3taG5G2CokMsizhpcm7xXzuR3IHmag==",
-      "description": "Google 'Xenon 2018' log",
-      "state": 2,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/logs/xenon2019",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/XyDwqzXL9i2GTjMYkqaEyiRL0Dy9sHq/BTebFdshbvCaXXEh6mjUK0Yy+AsDcI4MpzF1l7Kded2MD5zi420gA==",
-      "description": "Google 'Xenon 2019' log",
-      "state": 2,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/logs/xenon2020",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZU75VqjyzSTgFZKAnWg1QeYfFFIRZTMK7q3kWWZsmHhQdrBYnHRZ3OA4kUeUx0JN+xX+dSgt1ruqUhhl7jOvmw==",
-      "description": "Google 'Xenon 2020' log",
-      "state": 2,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/logs/xenon2021",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAER+1MInu8Q39BwDZ5Rp9TwXhwm3ktvgJzpk/r7dDgGk7ZacMm3ljfcoIvP1E72T8jvyLT1bvdapylajZcTH6W5g==",
-      "description": "Google 'Xenon 2021' log",
-      "state": 2,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "ct.googleapis.com/logs/xenon2022",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE+WS9FSxAYlCVEzg8xyGwOrmPonoV14nWjjETAIdZvLvukPzIWBMKv6tDNlQjpIHNrUcUt1igRPpqoKDXw2MeKw==",
-      "description": "Google 'Xenon 2022' log",
-      "state": 2,
-      "operated_by": [
-        0
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "log.gdca.com.cn/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzVH/qe+rgr/Mo+owQ00I6aegDSjHttgqQBmg+hBdTXXLgJT/+8LdSgjfY/8lOBtfivndJzQlTNQ9Le1cU6wXNQ==",
-      "description": "GDCA 'CT Log 1' log",
-      "state": 2,
-      "operated_by": [
-        10
-      ]
-    },
-    {
-      "maximum_merge_delay": 86400,
-      "url": "log2.gdca.com.cn/",
-      "dns_api_endpoint": "",
-      "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEx6zC8wCbMs3fpQWnSCeo2RvG827AEssGkMa+5RVIpRF0SDO4hFsn2Ph1l8marSCuwVLhv0JIN3arSzbUieX6HA==",
-      "description": "GDCA 'CT Log 2' log",
-      "state": 2,
-      "operated_by": [
-        10
-      ]
+    "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v2.json",
+    "assetVersion": 4,
+    "logListVersion": 22,
+    "operators": {
+        "Beijing PuChuangSiDa Technology Ltd.": {
+            "email": [
+                "certificatetransparency@outlook.com"
+            ],
+            "logs": {
+                "puchuangsida": {
+                    "description": [
+                        "PuChuangSiDa CT log"
+                    ],
+                    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArM8vS3Cs8Q2Wv+gK/kSd1IwXncOaEBGEE+2M+Tdtg+QAb7FLwKaJx2GPmjS7VlLKA1ZQ7yR/S0npNYHd8OcX9XLSI8XjE3/Xjng1j0nemASKY6+tojlwlYRoS5Ez/kzhMhfC8mG4Oo05f9WVgj5WGVBFb8sIMw3VGUIIGkhCEPFow8NBE8sNHtsCtyR6UZZuvAjqaa9t75KYjlXzZeXonL4aR2AwfXqArVaDepPDrpMraiiKpl9jGQy+fHshY0E4t/fodnNrhcy8civBUtBbXTFOnSrzTZtkFJkmxnH4e/hE1eMjIPMK14tRPnKA0nh4NS1K50CZEZU01C9/+V81NwIDAQAB",
+                    "log_id": "4BJ2KekEllZOPQFHmESYqkj4rbFmAOt5AqHvmQmQYnM=",
+                    "mmd": 86400,
+                    "state": {
+                        "rejected": {
+                            "timestamp": "2017-09-19T18:24:24Z",
+                            "version": 7
+                        }
+                    },
+                    "url": "www.certificatetransparency.cn/ct/"
+                }
+            }
+        },
+        "CNNIC": {
+            "email": [
+                "ctlog-admin@cnnic.cn"
+            ],
+            "logs": {
+                "cnnic_ct": {
+                    "description": [
+                        "CNNIC CT log"
+                    ],
+                    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv7UIYZopMgTTJWPp2IXhhuAf1l6a9zM7gBvntj5fLaFm9pVKhKYhVnno94XuXeN8EsDgiSIJIj66FpUGvai5samyetZhLocRuXhAiXXbDNyQ4KR51tVebtEq2zT0mT9liTtGwiksFQccyUsaVPhsHq9gJ2IKZdWauVA2Fm5x9h8B9xKn/L/2IaMpkIYtd967TNTP/dLPgixN1PLCLaypvurDGSVDsuWabA3FHKWL9z8wr7kBkbdpEhLlg2H+NAC+9nGKx+tQkuhZ/hWR65aX+CNUPy2OB9/u2rNPyDydb988LENXoUcMkQT0dU3aiYGkFAY0uZjD2vH97TM20xYtNQIDAQAB",
+                    "log_id": "pXesnO11SN2PAltnokEInfhuD0duwgPC7L7bGF8oJjg=",
+                    "mmd": 86400,
+                    "state": {
+                        "retired": {
+                            "timestamp": "2018-09-18T00:00:00Z",
+                            "version": 19
+                        }
+                    },
+                    "url": "ctserver.cnnic.cn/"
+                }
+            }
+        },
+        "Certly": {
+            "email": [
+                "ian@certly.io"
+            ],
+            "logs": {
+                "certly_io": {
+                    "description": [
+                        "Certly.IO log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==",
+                    "log_id": "zbUXm3/BwEb+6jETaj+PAC5hgvr4iW/syLL1tatgSQA=",
+                    "mmd": 86400,
+                    "state": {
+                        "retired": {
+                            "timestamp": "2016-04-15T00:00:00Z",
+                            "version": 4
+                        }
+                    },
+                    "url": "log.certly.io/"
+                }
+            }
+        },
+        "Cloudflare": {
+            "email": [
+                "ct-logs@cloudflare.com",
+                "brendan@cloudflare.com",
+                "nick@cloudflare.com",
+                "pat@cloudflare.com",
+                "zi@cloudflare.com",
+                "ivan@cloudflare.com"
+            ],
+            "logs": {
+                "cloudflare_nimbus_2017": {
+                    "description": [
+                        "Cloudflare 'Nimbus 2017' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE15ypB40iQe6ToFJB2vSA8CW86/rzPNJ+kdg/LNpRvcjuKnLj/xhW5DoiDyI8xtUws5toLqtWwkFf1mRXFLFarw==",
+                    "log_id": "H7w24ALt6X9AGZ6Gs1c7ikIX2AGHdGrQ2gOgYFTSDfQ=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2018-02-15T18:42:47Z",
+                            "version": 14
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2018-01-01T00:00:00Z",
+                        "start_inclusive": "2017-01-01T00:00:00Z"
+                    },
+                    "url": "ct.cloudflare.com/logs/nimbus2017/"
+                },
+                "cloudflare_nimbus_2018": {
+                    "description": [
+                        "Cloudflare 'Nimbus 2018' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEAsVpWvrH3Ke0VRaMg9ZQoQjb5g/xh1z3DDa6IuxY5DyPsk6brlvrUNXZzoIg0DcvFiAn2kd6xmu4Obk5XA/nRg==",
+                    "log_id": "23Sv7ssp7LH+yj5xbSzluaq7NveEcYPHXZ1PN7Yfv2Q=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2018-02-15T18:42:47Z",
+                            "version": 14
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2019-01-01T00:00:00Z",
+                        "start_inclusive": "2018-01-01T00:00:00Z"
+                    },
+                    "url": "ct.cloudflare.com/logs/nimbus2018/"
+                },
+                "cloudflare_nimbus_2019": {
+                    "description": [
+                        "Cloudflare 'Nimbus 2019' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkZHz1v5r8a9LmXSMegYZAg4UW+Ug56GtNfJTDNFZuubEJYgWf4FcC5D+ZkYwttXTDSo4OkanG9b3AI4swIQ28g==",
+                    "log_id": "dH7agzGtMxCRIZzOJU9CcMK//V5CIAjGNzV55hB7zFY=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2018-02-15T18:42:47Z",
+                            "version": 14
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2020-01-01T00:00:00Z",
+                        "start_inclusive": "2019-01-01T00:00:00Z"
+                    },
+                    "url": "ct.cloudflare.com/logs/nimbus2019/"
+                },
+                "cloudflare_nimbus_2020": {
+                    "description": [
+                        "Cloudflare 'Nimbus 2020' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE01EAhx4o0zPQrXTcYjgCt4MVFsT0Pwjzb1RwrM0lhWDlxAYPP6/gyMCXNkOn/7KFsjL7rwk78tHMpY8rXn8AYg==",
+                    "log_id": "Xqdz+d9WwOe1Nkh90EngMnqRmgyEoRIShBh1loFxRVg=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2018-02-15T18:42:47Z",
+                            "version": 14
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2021-01-01T00:00:00Z",
+                        "start_inclusive": "2020-01-01T00:00:00Z"
+                    },
+                    "url": "ct.cloudflare.com/logs/nimbus2020/"
+                },
+                "cloudflare_nimbus_2021": {
+                    "description": [
+                        "Cloudflare 'Nimbus 2021' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAExpon7ipsqehIeU1bmpog9TFo4Pk8+9oN8OYHl1Q2JGVXnkVFnuuvPgSo2Ep+6vLffNLcmEbxOucz03sFiematg==",
+                    "log_id": "RJRlLrDuzq/EQAfYqP4owNrmgr7YyzG1P9MzlrW2gag=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2018-02-15T18:42:47Z",
+                            "version": 14
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2022-01-01T00:00:00Z",
+                        "start_inclusive": "2021-01-01T00:00:00Z"
+                    },
+                    "url": "ct.cloudflare.com/logs/nimbus2021/"
+                },
+                "cloudflare_nimbus_2022": {
+                    "description": [
+                        "Cloudflare 'Nimbus 2022' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAESLJHTlAycmJKDQxIv60pZG8g33lSYxYpCi5gteI6HLevWbFVCdtZx+m9b+0LrwWWl/87mkNN6xE0M4rnrIPA/w==",
+                    "log_id": "QcjKsd8iRkoQxqE6CUKHXk4xixsD6+tLx2jwkGKWBvY=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2018-10-20T00:47:00Z",
+                            "version": 21
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2023-01-01T00:00:00Z",
+                        "start_inclusive": "2022-01-01T00:00:00Z"
+                    },
+                    "url": "ct.cloudflare.com/logs/nimbus2022/"
+                },
+                "cloudflare_nimbus_2023": {
+                    "description": [
+                        "Cloudflare 'Nimbus 2023' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEi/8tkhjLRp0SXrlZdTzNkTd6HqmcmXiDJz3fAdWLgOhjmv4mohvRhwXul9bgW0ODgRwC9UGAgH/vpGHPvIS1qA==",
+                    "log_id": "ejKMVNi3LbYg6jjgUh7phBZwMhOFTTvSK8E6V6NS61I=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2018-10-20T00:47:00Z",
+                            "version": 21
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2024-01-01T00:00:00Z",
+                        "start_inclusive": "2023-01-01T00:00:00Z"
+                    },
+                    "url": "ct.cloudflare.com/logs/nimbus2023/"
+                }
+            }
+        },
+        "Comodo": {
+            "email": [
+                "ctops@comodo.com"
+            ],
+            "logs": {
+                "comodo_mammoth": {
+                    "description": [
+                        "Comodo 'Mammoth' CT log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE7+R9dC4VFbbpuyOL+yy14ceAmEf7QGlo/EmtYU6DRzwat43f/3swtLr/L8ugFOOt1YU/RFmMjGCL17ixv66MZw==",
+                    "log_id": "b1N2rDHwMRnYmQCkURX/dxUcEdkCwQApBo2yCJo32RM=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-09-19T18:24:24Z",
+                            "version": 7
+                        }
+                    },
+                    "url": "mammoth.ct.comodo.com/"
+                },
+                "comoodo_sabre": {
+                    "description": [
+                        "Comodo 'Sabre' CT log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8m/SiQ8/xfiHHqtls9m7FyOMBg4JVZY9CgiixXGz0akvKD6DEL8S0ERmFe9U4ZiA0M4kbT5nmuk3I85Sk4bagA==",
+                    "log_id": "VYHUwhaQNgFK6gubVzxT8MDkOHhwJQgXL6OqHQcT0ww=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-09-19T18:24:24Z",
+                            "version": 7
+                        }
+                    },
+                    "url": "sabre.ct.comodo.com/"
+                }
+            }
+        },
+        "DigiCert": {
+            "email": [
+                "ctops@digicert.com"
+            ],
+            "logs": {
+                "digicert_1": {
+                    "description": [
+                        "DigiCert Log Server"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEAkbFvhu7gkAW6MHSrBlpE1n4+HCFRkC5OLAjgqhkTH+/uzSfSl8ois8ZxAD2NgaTZe1M9akhYlrYkes4JECs6A==",
+                    "log_id": "VhQGmi/XwuzT9eG9RLI+x0Z2ubyZEVzA75SYVdaJ0N0=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2015-12-02T22:55:17Z",
+                            "version": 1
+                        }
+                    },
+                    "url": "ct1.digicert-ct.com/log/"
+                },
+                "digicert_2": {
+                    "description": [
+                        "DigiCert Log Server 2"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzF05L2a4TH/BLgOhNKPoioYCrkoRxvcmajeb8Dj4XQmNY+gxa4Zmz3mzJTwe33i0qMVp+rfwgnliQ/bM/oFmhA==",
+                    "log_id": "h3W/51l8+IxDmV+9827/Vo1HVjb/SrVgwbTq/16ggw8=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-09-19T18:24:24Z",
+                            "version": 7
+                        }
+                    },
+                    "url": "ct2.digicert-ct.com/log/"
+                },
+                "digicert_nessie_2018": {
+                    "description": [
+                        "DigiCert 'Nessie 2018' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVqpLa2W+Rz1XDZPBIyKJO+KKFOYZTj9MpJWnZeFUqzc5aivOiWEVhs8Gy2AlH3irWPFjIZPZMs3Dv7M+0LbPyQ==",
+                    "log_id": "b/FBtWR+QiL37wUs7658If1gjifSr1pun0uKN9ZjPuU=",
+                    "mmd": 86400,
+                    "state": {
+                        "rejected": {
+                            "timestamp": "2018-10-20T00:33:00Z",
+                            "version": 20
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2019-01-01T00:00:00Z",
+                        "start_inclusive": "2018-01-01T00:00:00Z"
+                    },
+                    "url": "nessie2018.ct.digicert.com/log/"
+                },
+                "digicert_nessie_2019": {
+                    "description": [
+                        "DigiCert 'Nessie 2019' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEX+0nudCKImd7QCtelhMrDW0OXni5RE10tiiClZesmrwUk2iHLCoTHHVV+yg5D4n/rxCRVyRhikPpVDOLMLxJaA==",
+                    "log_id": "/kRhCLHQGreKYsz+q2qysrq/86va2ApNizDfLQAIgww=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2018-10-20T00:55:00Z",
+                            "version": 22
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2020-01-01T00:00:00Z",
+                        "start_inclusive": "2019-01-01T00:00:00Z"
+                    },
+                    "url": "nessie2019.ct.digicert.com/log/"
+                },
+                "digicert_nessie_2020": {
+                    "description": [
+                        "DigiCert 'Nessie 2020' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE4hHIyMVIrR9oShgbQMYEk8WX1lmkfFKB448Gn93KbsZnnwljDHY6MQqEnWfKGgMOq0gh3QK48c5ZB3UKSIFZ4g==",
+                    "log_id": "xlKg7EjOs/yrFwmSxDqHQTMJ6ABlomJSQBujNioXxWU=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2018-10-20T00:55:00Z",
+                            "version": 22
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2021-01-01T00:00:00Z",
+                        "start_inclusive": "2020-01-01T00:00:00Z"
+                    },
+                    "url": "nessie2020.ct.digicert.com/log/"
+                },
+                "digicert_nessie_2021": {
+                    "description": [
+                        "DigiCert 'Nessie 2021' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9o7AiwrbGBIX6Lnc47I6OfLMdZnRzKoP5u072nBi6vpIOEooktTi1gNwlRPzGC2ySGfuc1xLDeaA/wSFGgpYFg==",
+                    "log_id": "7sCV7o1yZA+S48O5G8cSo2lqCXtLahoUOOZHssvtxfk=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2018-10-20T00:55:00Z",
+                            "version": 22
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2022-01-01T00:00:00Z",
+                        "start_inclusive": "2021-01-01T00:00:00Z"
+                    },
+                    "url": "nessie2021.ct.digicert.com/log/"
+                },
+                "digicert_nessie_2022": {
+                    "description": [
+                        "DigiCert 'Nessie 2022' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJyTdaAMoy/5jvg4RR019F2ihEV1McclBKMe2okuX7MCv/C87v+nxsfz1Af+p+0lADGMkmNd5LqZVqxbGvlHYcQ==",
+                    "log_id": "UaOw9f0BeZxWbbg3eI8MpHrMGyfL956IQpoN/tSLBeU=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2018-10-20T00:55:00Z",
+                            "version": 22
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2023-01-01T00:00:00Z",
+                        "start_inclusive": "2022-01-01T00:00:00Z"
+                    },
+                    "url": "nessie2022.ct.digicert.com/log/"
+                },
+                "digicert_yeti_2018": {
+                    "description": [
+                        "DigiCert 'Yeti 2018' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAESYlKFDLLFmA9JScaiaNnqlU8oWDytxIYMfswHy9Esg0aiX+WnP/yj4O0ViEHtLwbmOQeSWBGkIu9YK9CLeer+g==",
+                    "log_id": "wRZK4Kdy0tQ5LcgKwQdw1PDEm96ZGkhAwfoHUWT2M2A=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2018-05-18T19:25:41",
+                            "version": 17
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2019-01-01T00:00:00Z",
+                        "start_inclusive": "2018-01-01T00:00:00Z"
+                    },
+                    "url": "yeti2018.ct.digicert.com/log/"
+                },
+                "digicert_yeti_2019": {
+                    "description": [
+                        "DigiCert 'Yeti 2019' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkZd/ow8X+FSVWAVSf8xzkFohcPph/x6pS1JHh7g1wnCZ5y/8Hk6jzJxs6t3YMAWz2CPd4VkCdxwKexGhcFxD9A==",
+                    "log_id": "4mlLribo6UAJ6IYbtjuD1D7n/nSI+6SPKJMBnd3x2/4=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2018-05-18T19:25:41",
+                            "version": 17
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2020-01-01T00:00:00Z",
+                        "start_inclusive": "2019-01-01T00:00:00Z"
+                    },
+                    "url": "yeti2019.ct.digicert.com/log/"
+                },
+                "digicert_yeti_2020": {
+                    "description": [
+                        "DigiCert 'Yeti 2020' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEURAG+Zo0ac3n37ifZKUhBFEV6jfcCzGIRz3tsq8Ca9BP/5XUHy6ZiqsPaAEbVM0uI3Tm9U24RVBHR9JxDElPmg==",
+                    "log_id": "8JWkWfIA0YJAEC0vk4iOrUv+HUfjmeHQNKawqKqOsnM=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2018-05-18T19:25:41",
+                            "version": 17
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2021-01-01T00:00:00Z",
+                        "start_inclusive": "2020-01-01T00:00:00Z"
+                    },
+                    "url": "yeti2020.ct.digicert.com/log/"
+                },
+                "digicert_yeti_2021": {
+                    "description": [
+                        "DigiCert 'Yeti 2021' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6J4EbcpIAl1+AkSRsbhoY5oRTj3VoFfaf1DlQkfi7Rbe/HcjfVtrwN8jaC+tQDGjF+dqvKhWJAQ6Q6ev6q9Mew==",
+                    "log_id": "XNxDkv7mq0VEsV6a1FbmEDf71fpH3KFzlLJe5vbHDso=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2018-05-18T19:25:41",
+                            "version": 17
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2022-01-01T00:00:00Z",
+                        "start_inclusive": "2021-01-01T00:00:00Z"
+                    },
+                    "url": "yeti2021.ct.digicert.com/log/"
+                },
+                "digicert_yeti_2022": {
+                    "description": [
+                        "DigiCert 'Yeti 2022' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn/jYHd77W1G1+131td5mEbCdX/1v/KiYW5hPLcOROvv+xA8Nw2BDjB7y+RGyutD2vKXStp/5XIeiffzUfdYTJg==",
+                    "log_id": "IkVFB1lVJFaWP6Ev8fdthuAjJmOtwEt/XcaDXG7iDwI=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2018-05-18T19:25:41",
+                            "version": 17
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2023-01-01T00:00:00Z",
+                        "start_inclusive": "2022-01-01T00:00:00Z"
+                    },
+                    "url": "yeti2022.ct.digicert.com/log/"
+                },
+                "symantec": {
+                    "description": [
+                        "Symantec log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEluqsHEYMG1XcDfy1lCdGV0JwOmkY4r87xNuroPS2bMBTP01CEDPwWJePa75y9CrsHEKqAy8afig1dpkIPSEUhg==",
+                    "log_id": "3esdK3oNT6Ygi4GtgWhwfi6OnQHVXIiNPRHEzbbsvsw=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2015-12-02T22:55:17Z",
+                            "version": 15
+                        }
+                    },
+                    "url": "ct.ws.symantec.com/"
+                },
+                "symantec_sirius": {
+                    "description": [
+                        "Symantec 'Sirius' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEowJkhCK7JewN47zCyYl93UXQ7uYVhY/Z5xcbE4Dq7bKFN61qxdglnfr0tPNuFiglN+qjN2Syxwv9UeXBBfQOtQ==",
+                    "log_id": "FZcEiNe5l6Bb61JRKt7o0ui0oxZSZBIan6v71fha2T8=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-09-19T18:24:24Z",
+                            "version": 15
+                        }
+                    },
+                    "url": "sirius.ws.symantec.com/"
+                },
+                "symantec_vega": {
+                    "description": [
+                        "Symantec 'Vega' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6pWeAv/u8TNtS4e8zf0ZF2L/lNPQWQc/Ai0ckP7IRzA78d0NuBEMXR2G3avTK0Zm+25ltzv9WWis36b4ztIYTQ==",
+                    "log_id": "vHjh38X2PGhGSTNNoQ+hXwl5aSAJwIG08/aRfz7ZuKU=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-05-04T22:18:39Z",
+                            "version": 15
+                        }
+                    },
+                    "url": "vega.ws.symantec.com/"
+                }
+            }
+        },
+        "GDCA": {
+            "email": [
+                "capoc@gdca.com.cn"
+            ],
+            "logs": {
+                "gdca_ct_1": {
+                    "description": [
+                        "GDCA 'CT Log 1' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzVH/qe+rgr/Mo+owQ00I6aegDSjHttgqQBmg+hBdTXXLgJT/+8LdSgjfY/8lOBtfivndJzQlTNQ9Le1cU6wXNQ==",
+                    "log_id": "cX6nQgl1voSicjVT8Xd8Jt1Rr04QIUQJTZAZtGL7Zmg=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2018-05-18T19:33:49Z",
+                            "version": 18
+                        }
+                    },
+                    "url": "log.gdca.com.cn/"
+                },
+                "gdca_ct_2": {
+                    "description": [
+                        "GDCA 'CT Log 2' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEx6zC8wCbMs3fpQWnSCeo2RvG827AEssGkMa+5RVIpRF0SDO4hFsn2Ph1l8marSCuwVLhv0JIN3arSzbUieX6HA==",
+                    "log_id": "FDCNkMzQMBNQBcAcpSbYHoTodiTjm2JI4I9ySuo7tCo=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2018-05-18T19:33:49Z",
+                            "version": 18
+                        }
+                    },
+                    "url": "log2.gdca.com.cn/"
+                }
+            }
+        },
+        "Google": {
+            "email": [
+                "google-ct-logs@google.com"
+            ],
+            "logs": {
+                "google_argon_2017": {
+                    "description": [
+                        "Google 'Argon 2017' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVG18id3qnfC6X/RtYHo3TwIlvxz2b4WurxXfaW7t26maKZfymXYe5jNGHif0vnDdWde6z/7Qco6wVw+dN4liow==",
+                    "log_id": "+tTJfMSe4vishcXqXOoJ0CINu/TknGtQZi/4aPhrjCg=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-12-12T02:57:54Z",
+                            "version": 8
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2018-01-01T00:00:00Z",
+                        "start_inclusive": "2017-01-01T00:00:00Z"
+                    },
+                    "url": "ct.googleapis.com/logs/argon2017/"
+                },
+                "google_argon_2018": {
+                    "description": [
+                        "Google 'Argon 2018' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0gBVBa3VR7QZu82V+ynXWD14JM3ORp37MtRxTmACJV5ZPtfUA7htQ2hofuigZQs+bnFZkje+qejxoyvk2Q1VaA==",
+                    "log_id": "pFASaQVaFVReYhGrN7wQP2KuVXakXksXFEU+GyIQaiU=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-12-12T02:57:54Z",
+                            "version": 8
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2019-01-01T00:00:00Z",
+                        "start_inclusive": "2018-01-01T00:00:00Z"
+                    },
+                    "url": "ct.googleapis.com/logs/argon2018/"
+                },
+                "google_argon_2019": {
+                    "description": [
+                        "Google 'Argon 2019' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEI3MQm+HzXvaYa2mVlhB4zknbtAT8cSxakmBoJcBKGqGwYS0bhxSpuvABM1kdBTDpQhXnVdcq+LSiukXJRpGHVg==",
+                    "log_id": "Y/Lbzeg7zCzPC3KEJ1drM6SNYXePvXWmOLHHaFRL2I0=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-12-12T02:57:54Z",
+                            "version": 8
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2020-01-01T00:00:00Z",
+                        "start_inclusive": "2019-01-01T00:00:00Z"
+                    },
+                    "url": "ct.googleapis.com/logs/argon2019/"
+                },
+                "google_argon_2020": {
+                    "description": [
+                        "Google 'Argon 2020' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6Tx2p1yKY4015NyIYvdrk36es0uAc1zA4PQ+TGRY+3ZjUTIYY9Wyu+3q/147JG4vNVKLtDWarZwVqGkg6lAYzA==",
+                    "log_id": "sh4FzIuizYogTodm+Su5iiUgZ2va+nDnsklTLe+LkF4=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-12-12T02:57:54Z",
+                            "version": 8
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2021-01-01T00:00:00Z",
+                        "start_inclusive": "2020-01-01T00:00:00Z"
+                    },
+                    "url": "ct.googleapis.com/logs/argon2020/"
+                },
+                "google_argon_2021": {
+                    "description": [
+                        "Google 'Argon 2021' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETeBmZOrzZKo4xYktx9gI2chEce3cw/tbr5xkoQlmhB18aKfsxD+MnILgGNl0FOm0eYGilFVi85wLRIOhK8lxKw==",
+                    "log_id": "9lyUL9F3MCIUVBgIMJRWjuNNExkzv98MLyALzE7xZOM=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-12-12T02:57:54Z",
+                            "version": 8
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2022-01-01T00:00:00Z",
+                        "start_inclusive": "2021-01-01T00:00:00Z"
+                    },
+                    "url": "ct.googleapis.com/logs/argon2021/"
+                },
+                "google_aviator": {
+                    "description": [
+                        "Google 'Aviator' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==",
+                    "log_id": "aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=",
+                    "mmd": 86400,
+                    "state": {
+                        "frozen": {
+                            "final_tree_head": {
+                                "sha256_root_hash": "LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA=",
+                                "tree_size": 46466472
+                            },
+                            "timestamp": "2016-11-29T13:09:00Z",
+                            "version": 1
+                        }
+                    },
+                    "url": "ct.googleapis.com/aviator/"
+                },
+                "google_icarus": {
+                    "description": [
+                        "Google 'Icarus' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==",
+                    "log_id": "KTxRllTIOWW6qlD8WAfUt2+/WHopctykwwz05UVH9Hg=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-05-04T22:18:39Z",
+                            "version": 5
+                        }
+                    },
+                    "url": "ct.googleapis.com/icarus/"
+                },
+                "google_pilot": {
+                    "description": [
+                        "Google 'Pilot' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfahLEimAoz2t01p3uMziiLOl/fHTDM0YDOhBRuiBARsV4UvxG2LdNgoIGLrtCzWE0J5APC2em4JlvR8EEEFMoA==",
+                    "log_id": "pLkJkLQYWBSHuxOizGdwCjw1mAT5G9+443fNDsgN3BA=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2015-12-02T22:55:17Z",
+                            "version": 1
+                        }
+                    },
+                    "url": "ct.googleapis.com/pilot/"
+                },
+                "google_rocketeer": {
+                    "description": [
+                        "Google 'Rocketeer' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg==",
+                    "log_id": "7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2015-12-02T22:55:17Z",
+                            "version": 1
+                        }
+                    },
+                    "url": "ct.googleapis.com/rocketeer/"
+                },
+                "google_skydiver": {
+                    "description": [
+                        "Google 'Skydiver' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEmyGDvYXsRJsNyXSrYc9DjHsIa2xzb4UR7ZxVoV6mrc9iZB7xjI6+NrOiwH+P/xxkRmOFG6Jel20q37hTh58rA==",
+                    "log_id": "u9nfvB+KcbWTlCOXqpJ7RzhXlQqrUugakJZkNo4e0YU=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-05-04T22:18:39Z",
+                            "version": 5
+                        }
+                    },
+                    "url": "ct.googleapis.com/skydiver/"
+                },
+                "google_xenon_2018": {
+                    "description": [
+                        "Google 'Xenon 2018' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1syJvwQdrv0a8dM2VAnK/SmHJNw/+FxC+CncFcnXMX2jNH9Xs7Q56FiV3taG5G2CokMsizhpcm7xXzuR3IHmag==",
+                    "log_id": "sQzVWabWeEaBH335pRUyc5rEjXA76gMj2l04dVvArU4=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2018-05-11T21:57:37Z",
+                            "version": 16
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2019-01-01T00:00:00Z",
+                        "start_inclusive": "2018-01-01T00:00:00Z"
+                    },
+                    "url": "ct.googleapis.com/logs/xenon2018"
+                },
+                "google_xenon_2019": {
+                    "description": [
+                        "Google 'Xenon 2019' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/XyDwqzXL9i2GTjMYkqaEyiRL0Dy9sHq/BTebFdshbvCaXXEh6mjUK0Yy+AsDcI4MpzF1l7Kded2MD5zi420gA==",
+                    "log_id": "CEEUmABxUywWGQRgvPxH/cJlOvopLHKzf/hjrinMyfA=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2018-05-11T21:57:37Z",
+                            "version": 16
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2020-01-01T00:00:00Z",
+                        "start_inclusive": "2019-01-01T00:00:00Z"
+                    },
+                    "url": "ct.googleapis.com/logs/xenon2019"
+                },
+                "google_xenon_2020": {
+                    "description": [
+                        "Google 'Xenon 2020' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZU75VqjyzSTgFZKAnWg1QeYfFFIRZTMK7q3kWWZsmHhQdrBYnHRZ3OA4kUeUx0JN+xX+dSgt1ruqUhhl7jOvmw==",
+                    "log_id": "B7dcG+V9aP/xsMYdIxXHuuZXfFeUt2ruvGE6GmnTohw=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2018-05-11T21:57:37Z",
+                            "version": 16
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2021-01-01T00:00:00Z",
+                        "start_inclusive": "2020-01-01T00:00:00Z"
+                    },
+                    "url": "ct.googleapis.com/logs/xenon2020"
+                },
+                "google_xenon_2021": {
+                    "description": [
+                        "Google 'Xenon 2021' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAER+1MInu8Q39BwDZ5Rp9TwXhwm3ktvgJzpk/r7dDgGk7ZacMm3ljfcoIvP1E72T8jvyLT1bvdapylajZcTH6W5g==",
+                    "log_id": "fT7y+I//iFVoJMLAyp5SiXkrxQ54CX8uapdomX4i8Nc=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2018-05-11T21:57:37Z",
+                            "version": 16
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2022-01-01T00:00:00Z",
+                        "start_inclusive": "2021-01-01T00:00:00Z"
+                    },
+                    "url": "ct.googleapis.com/logs/xenon2021"
+                },
+                "google_xenon_2022": {
+                    "description": [
+                        "Google 'Xenon 2022' log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE+WS9FSxAYlCVEzg8xyGwOrmPonoV14nWjjETAIdZvLvukPzIWBMKv6tDNlQjpIHNrUcUt1igRPpqoKDXw2MeKw==",
+                    "log_id": "RqVV63X6kSAwtaKJafTzfREsQXS+/Um4havy/HD+bUc=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2018-05-11T21:57:37Z",
+                            "version": 16
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2023-01-01T00:00:00Z",
+                        "start_inclusive": "2022-01-01T00:00:00Z"
+                    },
+                    "url": "ct.googleapis.com/logs/xenon2022"
+                }
+            }
+        },
+        "Izenpe": {
+            "email": [
+                "atecnica@izenpe.net"
+            ],
+            "logs": {
+                "izenpe": {
+                    "description": [
+                        "Izenpe log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJ2Q5DC3cUBj4IQCiDu0s6j51up+TZAkAEcQRF6tczw90rLWXkJMAW7jr9yc92bIKgV8vDXU4lDeZHvYHduDuvg==",
+                    "log_id": "dGG0oJz7PUHXUVlXWy52SaRFqNJ3CbDMVkpkgrfrQaM=",
+                    "mmd": 86400,
+                    "state": {
+                        "retired": {
+                            "timestamp": "2016-05-30T00:00:00Z",
+                            "version": 4
+                        }
+                    },
+                    "url": "ct.izenpe.com/"
+                }
+            }
+        },
+        "StartCom": {
+            "email": [
+                "ct@startssl.com"
+            ],
+            "logs": {
+                "startcom": {
+                    "description": [
+                        "StartCom log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAESPNZ8/YFGNPbsu1Gfs/IEbVXsajWTOaft0oaFIZDqUiwy1o/PErK38SCFFWa+PeOQFXc9NKv6nV0+05/YIYuUQ==",
+                    "log_id": "NLtq1sPfnAPuqKSZ/3iRSGydXlysktAfe/0bzhnbSO8=",
+                    "mmd": 86400,
+                    "state": {
+                        "retired": {
+                            "timestamp": "2018-02-12T11:59:59Z",
+                            "version": 11
+                        }
+                    },
+                    "url": "ct.startssl.com/"
+                }
+            }
+        },
+        "Venafi": {
+            "email": [
+                "ctlog-admin@venafi.com"
+            ],
+            "logs": {
+                "venafi": {
+                    "description": [
+                        "Venafi log"
+                    ],
+                    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAolpIHxdSlTXLo1s6H1OCdpSj/4DyHDc8wLG9wVmLqy1lk9fz4ATVmm+/1iN2Nk8jmctUKK2MFUtlWXZBSpym97M7frGlSaQXUWyA3CqQUEuIJOmlEjKTBEiQAvpfDjCHjlV2Be4qTM6jamkJbiWtgnYPhJL6ONaGTiSPm7Byy57iaz/hbckldSOIoRhYBiMzeNoA0DiRZ9KmfSeXZ1rB8y8X5urSW+iBzf2SaOfzBvDpcoTuAaWx2DPazoOl28fP1hZ+kHUYvxbcMjttjauCFx+JII0dmuZNIwjfeG/GBb9frpSX219k1O4Wi6OEbHEr8at/XQ0y7gTikOxBn/s5wQIDAQAB",
+                    "log_id": "rDua7X+pZ0dXFZ5tfVdWcvnZgQCUHpve/+yhMTt1eC0=",
+                    "mmd": 86400,
+                    "state": {
+                        "retired": {
+                            "timestamp": "2017-02-28T06:42:26Z",
+                            "version": 1
+                        }
+                    },
+                    "url": "ctlog.api.venafi.com/"
+                },
+                "venafi_gen2": {
+                    "description": [
+                        "Venafi Gen2 CT log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEjicnerZVCXTrbEuUhGW85BXx6lrYfA43zro/bAna5ymW00VQb94etBzSg4j/KS/Oqf/fNN51D8DMGA2ULvw3AQ==",
+                    "log_id": "AwGd8/2FppqOvR+sxtqbpz5Gl3T+d/V5/FoIuDKMHWs=",
+                    "mmd": 86400,
+                    "state": {
+                        "usable": {
+                            "timestamp": "2017-06-01T23:28:39",
+                            "version": 6
+                        }
+                    },
+                    "url": "ctlog-gen2.api.venafi.com/"
+                }
+            }
+        },
+        "WoSign": {
+            "email": [
+                "ctlog@wosign.com"
+            ],
+            "logs": {
+                "wosign": {
+                    "description": [
+                        "WoSign log"
+                    ],
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzBGIey1my66PTTBmJxklIpMhRrQvAdPG+SvVyLpzmwai8IoCnNBrRhgwhbrpJIsO0VtwKAx+8TpFf1rzgkJgMQ==",
+                    "log_id": "QbLcLonmPOSvG6e7Kb9oxt7m+fHMBH4w3/rjs7olkmM=",
+                    "mmd": 86400,
+                    "state": {
+                        "retired": {
+                            "timestamp": "2018-02-12T11:59:59Z",
+                            "version": 10
+                        }
+                    },
+                    "url": "ctlog.wosign.com/"
+                }
+            }
+        }
     }
-  ],
-  "operators": [
-    {
-      "id": 0,
-      "name": "Google"
-    },
-    {
-      "id": 1,
-      "name": "DigiCert"
-    },
-    {
-      "id": 2,
-      "name": "Certly"
-    },
-    {
-      "id": 3,
-      "name": "Izenpe"
-    },
-    {
-      "id": 4,
-      "name": "WoSign"
-    },
-    {
-      "id": 5,
-      "name": "Venafi"
-    },
-    {
-      "id": 6,
-      "name": "CNNIC"
-    },
-    {
-      "id": 7,
-      "name": "StartCom"
-    },
-    {
-      "id": 8,
-      "name": "Comodo"
-    },
-    {
-      "id": 9,
-      "name": "Cloudflare"
-    },
-    {
-      "id": 10,
-      "name": "GDCA"
-    }
-  ],
-  "states": [
-    {
-      "id": 0,
-      "name": "Included"
-    },
-    {
-      "id": 1,
-      "name": "Frozen"
-    },
-    {
-      "id": 2,
-      "name": "Pending"
-    },
-    {
-      "id": 3,
-      "name": "Disqualified"
-    }
-  ]
 }

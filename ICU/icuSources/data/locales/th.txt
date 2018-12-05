@@ -1913,45 +1913,6 @@ th{
             }
         }
         islamic{
-            DateTimePatterns{
-                "H นาฬิกา mm นาที ss วินาที zzzz",
-                "H นาฬิกา mm นาที ss วินาที z",
-                "HH:mm:ss",
-                "HH:mm",
-                "EEEEที่ d MMMM G y",
-                "d MMMM G y",
-                "d MMM G y",
-                "d/M/y G",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-            }
-            availableFormats{
-                Ed{"E d"}
-                Gy{"G y"}
-                GyMMM{"MMM G y"}
-                GyMMMEd{"E d MMM G y"}
-                GyMMMd{"d MMM G y"}
-                M{"L"}
-                MEd{"E, d/M"}
-                MMM{"LLL"}
-                MMMEd{"E d MMM"}
-                MMMd{"d MMM"}
-                Md{"d/M"}
-                d{"d"}
-                y{"G y"}
-                yyyy{"G y"}
-                yyyyM{"M/y G"}
-                yyyyMEd{"E d/M/y GGGGG"}
-                yyyyMMM{"MMM G y"}
-                yyyyMMMEd{"E d MMM G y"}
-                yyyyMMMd{"d MMM G y"}
-                yyyyMd{"d/M/y GGGGG"}
-                yyyyQQQ{"QQQ G y"}
-                yyyyQQQQ{"QQQQ G y"}
-            }
             eras{
                 abbreviated{
                     "ฮ.ศ.",

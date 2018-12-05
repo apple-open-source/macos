@@ -60,6 +60,7 @@
 #include <securityd/SecCertificateServer.h>
 #include <securityd/SecCertificateSource.h>
 #include <securityd/SecOCSPResponse.h>
+#include <securityd/SecTrustStoreServer.h>
 #include <utilities/array_size.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecAppleAnchorPriv.h>
@@ -1493,6 +1494,13 @@ static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, int entry_type, CFData
         require(!CFDictionaryContainsKey(logData, CFSTR("expiry")), out);
     }
 
+    CFAbsoluteTime sct_time = TimestampToCFAbsoluteTime(timestamp);
+    CFDateRef frozen_date = CFDictionaryGetValue(logData, CFSTR("frozen"));
+    if (frozen_date && (sct_time > CFDateGetAbsoluteTime(frozen_date))) {
+        secerror("Frozen CT log issued SCT after freezing (log=%@)\n", logData);
+        goto out;
+    }
+
     CFDataRef logKeyData = CFDictionaryGetValue(logData, CFSTR("key"));
     require(logKeyData, out); // This failing would be an internal logic error
     pubKey = SecKeyCreateFromSubjectPublicKeyInfoData(kCFAllocatorDefault, logKeyData);
@@ -1506,7 +1514,7 @@ static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, int entry_type, CFData
     algId.parameters.Length = 0;
 
     if(SecKeyDigestAndVerify(pubKey, &algId, signed_data, signed_data_len, signatureData, signatureLen)==0) {
-        *sct_at = TimestampToCFAbsoluteTime(timestamp);
+        *sct_at = sct_time;
         result = logData;
     } else {
         secerror("SCT signature failed (log=%@)\n", logData);
@@ -1594,6 +1602,12 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
     __block uint32_t trustedSCTCount = 0;
     __block CFAbsoluteTime issuanceTime = SecPVCGetVerifyTime(pvc);
     TA_CTFailureReason failureReason = TA_CTNoFailure;
+
+    if (!trustedLogs) {
+        SecOTAPKIRef otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
+        trustedLogs = SecOTAPKICopyTrustedCTLogs(otapkiref);
+        CFReleaseSafe(otapkiref);
+    }
 
     // This eventually contain list of logs who validated the SCT.
     CFMutableDictionaryRef currentLogsValidatingScts = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -2073,6 +2087,256 @@ static void SecPolicyCheckPinningRequired(SecPVCRef pvc, CFStringRef key) {
                 return;
             }
         }
+    }
+}
+
+static bool is_configured_test_system_root(SecCertificateRef root) {
+    if (!SecIsInternalRelease()) {
+        return false;
+    }
+    bool result = false;
+    CFDataRef rootHash = SecCertificateCopySHA256Digest(root);
+    CFTypeRef value  = CFPreferencesCopyValue(CFSTR("TestCTRequiredSystemRoot"), CFSTR("com.apple.security"),
+                                              kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+    require_quiet(isData(value), out);
+    require_quiet(kCFCompareEqualTo == CFDataCompare(rootHash, value), out);
+    result = true;
+
+out:
+    CFReleaseNull(value);
+    CFReleaseNull(rootHash);
+    return result;
+}
+
+static bool is_ct_excepted_domain(CFStringRef hostname, CFStringRef exception) {
+    if (kCFCompareEqualTo == CFStringCompare(exception, hostname, kCFCompareCaseInsensitive)) {
+        /* exact match */
+        return true;
+    } else if (CFStringHasPrefix(exception, CFSTR("."))) {
+        /* subdomains */
+        CFIndex elength = CFStringGetLength(exception);
+        CFIndex hlength = CFStringGetLength(hostname);
+        if (hlength > elength) {
+            CFRange compareRange = { hlength - elength, elength };
+            if (kCFCompareEqualTo == CFStringCompareWithOptions(hostname, exception, compareRange, kCFCompareCaseInsensitive)) {
+                return true;
+            }
+        } else if (hlength + 1 == elength) {
+            CFRange compareRange = { 1, hlength };
+            if (kCFCompareEqualTo == CFStringCompareWithOptions(exception, hostname, compareRange, kCFCompareCaseInsensitive)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static OSStatus is_subtree_dn_with_org(void *context, SecCEGeneralNameType gnType, const DERItem *generalName) {
+    if (gnType != GNT_DirectoryName) {
+        return errSecInternal;
+    }
+
+    DERDecodedInfo subtreeName_content;
+    if (DR_Success != DERDecodeItem(generalName, &subtreeName_content) || subtreeName_content.tag != ASN1_CONSTR_SEQUENCE) {
+        return errSecDecode;
+    }
+
+    CFArrayRef subtree_orgs = SecCertificateCopyOrganizationFromX501NameContent(&subtreeName_content.content);
+    if (subtree_orgs) {
+        CFReleaseNull(subtree_orgs);
+        return errSecSuccess;
+    }
+    return errSecInternal;
+}
+
+static bool has_ct_excepted_key(SecCertificatePathVCRef path, CFDictionaryRef exception) {
+    __block bool result = false;
+    CFDataRef exceptionHash = CFDictionaryGetValue(exception, kSecCTExceptionsSPKIHashKey);
+
+    /* exception for a leaf is always allowed */
+    SecCertificateRef leaf = SecCertificatePathVCGetCertificateAtIndex(path, 0);
+    CFDataRef spkiHash = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(leaf);
+    if (CFEqualSafe(exceptionHash, spkiHash)) {
+        result = true;
+    }
+    CFReleaseNull(spkiHash);
+
+    if (result) { return result; }
+
+    /* exceptions for CAs */
+    for (CFIndex certIX = 1; certIX < SecCertificatePathVCGetCount(path); certIX++) {
+        SecCertificateRef ca = SecCertificatePathVCGetCertificateAtIndex(path, certIX);
+
+        spkiHash = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(ca);
+        if (!CFEqualSafe(exceptionHash, spkiHash)) {
+            CFReleaseNull(spkiHash);
+            continue;
+        }
+        CFReleaseNull(spkiHash);
+
+        /* this CA matches but exceptions for CAs have constraints */
+        if (SecCertificateGetPermittedSubtrees(ca)) {
+            /* Constrained CAs have to have a Distinguished Name permitted subtree with an Organization attribute */
+            CFArrayForEach(SecCertificateGetPermittedSubtrees(ca), ^(const void *value) {
+                CFDataRef subtree = (CFDataRef)value;
+                const DERItem general_name = { (unsigned char *)CFDataGetBytePtr(subtree), CFDataGetLength(subtree) };
+                DERDecodedInfo general_name_content;
+                if (DR_Success == DERDecodeItem(&general_name, &general_name_content)) {
+                    OSStatus status = SecCertificateParseGeneralNameContentProperty(general_name_content.tag,
+                                                                                    &general_name_content.content,
+                                                                                    NULL,
+                                                                                    is_subtree_dn_with_org);
+                    if (status == errSecSuccess) {
+                        result = true;
+                    }
+                }
+            });
+        }
+
+        if (!result) {
+            /* The Organization attribute(s) in the CA subject have to exactly match the Organization attribute(s) in the leaf */
+            CFArrayRef leafOrgs = SecCertificateCopyOrganization(leaf);
+            CFArrayRef caOrgs = SecCertificateCopyOrganization(ca);
+            if (caOrgs && leafOrgs && CFEqualSafe(leafOrgs, caOrgs)) {
+                result = true;
+            }
+            CFReleaseNull(leafOrgs);
+            CFReleaseNull(caOrgs);
+        }
+
+        if (result) {
+            break;
+        }
+    }
+
+    return result;
+}
+
+static bool is_ct_excepted(SecPVCRef pvc) {
+    CFDictionaryRef ct_exceptions = _SecTrustStoreCopyCTExceptions(NULL, NULL);
+    if (!ct_exceptions) {
+        return false;
+    }
+
+    __block bool result = false;
+    CFArrayRef domainExceptions = CFDictionaryGetValue(ct_exceptions, kSecCTExceptionsDomainsKey);
+    if (domainExceptions) {
+        SecPolicyRef policy = SecPVCGetPolicy(pvc);
+        CFStringRef hostname = CFDictionaryGetValue(policy->_options, kSecPolicyCheckSSLHostname);
+        if (hostname) {
+            CFArrayForEach(domainExceptions, ^(const void *value) {
+                result = result || is_ct_excepted_domain(hostname, value);
+            });
+        }
+    }
+    if (result) {
+        secinfo("policy", "domain-based CT exception applied");
+        CFReleaseNull(ct_exceptions);
+        return result;
+    }
+
+    CFArrayRef keyExceptions = CFDictionaryGetValue(ct_exceptions, kSecCTExceptionsCAsKey);
+    if (keyExceptions) {
+        __block SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
+        CFArrayForEach(keyExceptions, ^(const void *value) {
+            result = result || has_ct_excepted_key(path, value);
+        });
+    }
+
+    if (result) {
+        secinfo("policy" , "key-based CT exceptions applied");
+    }
+
+    CFReleaseNull(ct_exceptions);
+    return result;
+}
+
+/* <rdar://45466778> some Apple servers not getting certs with embedded SCTs
+ * <rdar://45545270> some Google apps have their own TLS stacks and aren't passing us TLS SCTs */
+static bool is_apple_ca(SecCertificatePathVCRef path) {
+    /* subject:/CN=Apple IST CA 8 - G1/OU=Certification Authority/O=Apple Inc./C=US */
+    /* issuer :/C=US/O=GeoTrust Inc./OU=(c) 2007 GeoTrust Inc. - For authorized use only/CN=GeoTrust Primary Certification Authority - G2 */
+    static const uint8_t appleISTCA8G1_spkiSHA256[] = {
+        0xe2, 0x4f, 0x8e, 0x8c, 0x21, 0x85, 0xda, 0x2f, 0x5e, 0x88, 0xd4, 0x57, 0x9e, 0x81, 0x7c, 0x47,
+        0xbf, 0x6e, 0xaf, 0xbc, 0x85, 0x05, 0xf0, 0xf9, 0x60, 0xfd, 0x5a, 0x0d, 0xf4, 0x47, 0x3a, 0xd3
+    };
+
+    /* subject:/CN=Apple IST CA 2 - G1/OU=Certification Authority/O=Apple Inc./C=US */
+    /* issuer :/C=US/O=GeoTrust Inc./CN=GeoTrust Global CA */
+    static const uint8_t appleISTCA2G1_spkiSHA256[] = {
+        0xb5, 0xcf, 0x82, 0xd4, 0x7e, 0xf9, 0x82, 0x3f, 0x9a, 0xa7, 0x8f, 0x12, 0x31, 0x86, 0xc5, 0x2e,
+        0x88, 0x79, 0xea, 0x84, 0xb0, 0xf8, 0x22, 0xc9, 0x1d, 0x83, 0xe0, 0x42, 0x79, 0xb7, 0x8f, 0xd5
+    };
+
+    /* subject:/C=US/O=Google Trust Services/CN=Google Internet Authority G3 */
+    /* issuer :/OU=GlobalSign Root CA - R2/O=GlobalSign/CN=GlobalSign */
+    static const uint8_t googleIAG3_spkiSHA256[] = {
+        0x7f, 0xc3, 0x67, 0x10, 0x56, 0x71, 0x43, 0x81, 0x31, 0x14, 0xe8, 0x52, 0x37, 0xb1, 0x22, 0x15,
+        0x6b, 0x62, 0xb9, 0xd6, 0x50, 0x54, 0x3d, 0xa8, 0x63, 0xad, 0x2e, 0x6a, 0xe5, 0x7f, 0x9f, 0xbf
+    };
+
+    bool result = false;
+    for (CFIndex certIX = 1; certIX < SecCertificatePathVCGetCount(path); certIX++) {
+        SecCertificateRef ca = SecCertificatePathVCGetCertificateAtIndex(path, certIX);
+
+        CFDataRef caSPKIHash = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(ca);
+        const uint8_t *dp = CFDataGetBytePtr(caSPKIHash);
+        if (dp && (!memcmp(appleISTCA8G1_spkiSHA256, dp, CC_SHA256_DIGEST_LENGTH) ||
+                   !memcmp(appleISTCA2G1_spkiSHA256, dp, CC_SHA256_DIGEST_LENGTH) ||
+                   !memcmp(googleIAG3_spkiSHA256, dp, CC_SHA256_DIGEST_LENGTH))) {
+            result = true;
+        }
+        CFReleaseNull(caSPKIHash);
+        if (result) {
+            break;
+        }
+    }
+    return result;
+}
+
+static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
+    SecCertificateSourceRef appleAnchorSource = NULL;
+    SecOTAPKIRef otaref = SecOTAPKICopyCurrentOTAPKIRef();
+    SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
+    CFArrayRef trustedLogs = SecPathBuilderCopyTrustedLogs(pvc->builder);
+
+    /* Skip this check if we haven't done the CT checks yet */
+    require_quiet(SecCertificatePathVCIsPathValidated(path), out);
+
+    /* We only enforce this check when all of the following are true:
+     *  0. Not a pinning policy */
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    require_quiet(CFEqualSafe(SecPolicyGetName(policy),kSecPolicyNameSSLServer), out);
+
+    /*  1. Device has checked in to MobileAsset for a current log list within the last 60 days.
+     *     Or the caller passed in the trusted log list. */
+    require_quiet(SecOTAPKIAssetStalenessLessThanSeconds(otaref, kSecOTAPKIAssetStalenessDisable) || trustedLogs, out);
+
+    /*  2. Leaf issuance date is on or after 16 Oct 2018 at 00:00:00 AM UTC */
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    require_quiet(SecCertificateNotValidBefore(leaf) >= 561340800.0, out);
+
+    /*  3. Chain is anchored with root in the system anchor source but not the Apple anchor source */
+    CFIndex count = SecPVCGetCertificateCount(pvc);
+    SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
+    appleAnchorSource = SecMemoryCertificateSourceCreate(SecGetAppleTrustAnchors(false));
+    require_quiet(SecPathBuilderIsAnchored(pvc->builder), out);
+    require_quiet((SecCertificateSourceContains(kSecSystemAnchorSource, root) &&
+                   appleAnchorSource && !SecCertificateSourceContains(appleAnchorSource, root) &&
+                   !is_apple_ca(path)) ||
+                  is_configured_test_system_root(root), out);
+
+    if (!SecCertificatePathVCIsCT(path) && !is_ct_excepted(pvc)) {
+        /* Set failure. By not using the Forced variant, we implicitly check that this
+         * policy had this options set. */
+        SecPVCSetResult(pvc, kSecPolicyCheckSystemTrustedCTRequired, 0, kCFBooleanFalse);
+    }
+
+out:
+    CFReleaseNull(trustedLogs);
+    CFReleaseNull(otaref);
+    if (appleAnchorSource) {
+        SecMemoryCertificateSourceDestroy(appleAnchorSource);
     }
 }
 
@@ -3212,8 +3476,12 @@ void SecPVCPathChecks(SecPVCRef pvc) {
         }
     }
 
+    /* Say that we did the expensive path checks (that we want to skip on the second call) */
+    SecCertificatePathVCSetPathValidated(SecPathBuilderGetPath(pvc->builder));
+
     /* Check that this path meets CT constraints. */
     SecPVCCheckRequireCTConstraints(pvc);
+    SecPolicyCheckSystemTrustedCTRequired(pvc);
 
     /* Check that this path meets known-intermediate constraints. */
     SecPathBuilderCheckKnownIntermediateConstraints(pvc->builder);
@@ -3221,7 +3489,6 @@ void SecPVCPathChecks(SecPVCRef pvc) {
     secdebug("policy", "end %strusted path: %@",
         (SecPVCIsOkResult(pvc) ? "" : "not "), SecPathBuilderGetPath(pvc->builder));
 
-    SecCertificatePathVCSetPathValidated(SecPathBuilderGetPath(pvc->builder));
     return;
 }
 

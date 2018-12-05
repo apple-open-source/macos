@@ -158,7 +158,7 @@ bool SecPolicyCheckCertNonEmptySubject(SecCertificateRef cert, CFTypeRef __unuse
    more labels. Use CFNetwork's function for determining if those labels comprise
    a top-level domain. We need to dlopen since CFNetwork is a client of ours. */
 typedef bool (*CFNIsTLD_f)(CFStringRef domain);
-static bool SecDNSIsTLD(CFStringRef reference) {
+bool SecDNSIsTLD(CFStringRef reference) {
     bool result = false; /* fail open for allocation and symbol lookup failures */
     static CFNIsTLD_f CFNIsDomainTopLevelFunctionPtr = NULL;
     static dispatch_once_t onceToken;

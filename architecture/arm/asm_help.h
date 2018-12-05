@@ -190,24 +190,20 @@ name:
 
 #if defined(__DYNAMIC__)
 #define BRANCH_EXTERNAL(var)		\
-	.globl	var						;\
 	GET_ADDRESS(ip, var)			;\
 	bx	ip
 #else
 #define BRANCH_EXTERNAL(var)		;\
-.globl	var							;\
 	b	var
 #endif
 
 #if defined(__DYNAMIC__)
 #define CALL_EXTERNAL(var)			\
-	.globl	var						;\
 	GET_ADDRESS(ip,var)				;\
 	mov	lr, pc						;\
 	bx	ip
 #else
 #define CALL_EXTERNAL(var)			\
-	.globl	var						;\
 	bl	var
 #endif
 
@@ -309,27 +305,13 @@ name:
 #endif /* __DYNAMIC__ */
 #endif /* __LP64__ */
 
-#if defined(__DYNAMIC__)	
-#define BRANCH_EXTERNAL(var)		\
-	.globl var						%%\
-	GET_ADDRESS(w16, x16, var)		%%\
-	br x16 
-#else /* __DYNAMIC__ */
-#define BRANCH_EXTERNAL(var)		\
-	.globl var						%%\
+/* The linker will link to stubs in the DYNAMIC case */
+#define BRANCH_EXTERNAL(var) \
 	b var
-#endif /* __DYNAMIC__ */
 
-#if defined(__DYNAMIC__)	
-#define CALL_EXTERNAL(var)			\
-	.globl var						%%\
-	GET_ADDRESS(w16, x16, var)		%%\
-	blr x16					
-#else /* __DYNAMIC__ */
-#define CALL_EXTERNAL(var)			\
-	.globl var						%%\
+/* The linker will link to stubs in the DYNAMIC case */
+#define CALL_EXTERNAL(var) \
 	bl var
-#endif /* __DYNAMIC__ */
 
 #define ENTRY_POINT(name)			\
 	.align 2						%%\

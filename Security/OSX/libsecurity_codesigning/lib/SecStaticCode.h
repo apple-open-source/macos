@@ -180,6 +180,7 @@ CF_ENUM(uint32_t) {
 	kSecCSRestrictSidebandData = 1 << 9,
     kSecCSUseSoftwareSigningCert = 1 << 10,
 	kSecCSValidatePEH = 1 << 11,
+	kSecCSSingleThreaded = 1 << 12,
 };
 
 OSStatus SecStaticCodeCheckValidity(SecStaticCodeRef staticCode, SecCSFlags flags,

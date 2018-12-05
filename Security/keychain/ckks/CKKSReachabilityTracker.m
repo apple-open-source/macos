@@ -61,7 +61,7 @@ callout(SCNetworkReachabilityRef reachability,
 
 - (instancetype)init {
     if((self = [super init])) {
-        _queue = dispatch_queue_create("reachabiltity-tracker", DISPATCH_QUEUE_SERIAL);
+        _queue = dispatch_queue_create("reachabiltity-tracker", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _operationQueue = [[NSOperationQueue alloc] init];
 
         dispatch_sync(_queue, ^{

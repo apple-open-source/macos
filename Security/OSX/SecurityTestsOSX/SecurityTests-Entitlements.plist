@@ -24,6 +24,8 @@
 	<true/>
 	<key>application-identifier</key>
 	<string>com.apple.security.regressions</string>
+	<key>com.apple.application-identifier</key>
+	<string>com.apple.security.regressions</string>
 	<key>com.apple.private.uninstall.deletion</key>
 	<true/>
 	<key>com.apple.private.security.delete.all</key>

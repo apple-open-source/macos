@@ -146,7 +146,7 @@
             (id)kSecAttrNoLegacy : @(YES)
         };
         OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
-        XCTAssertEqual(result, 0, @"failed to add test item to keychain: %u", n);
+        XCTAssertEqual(result, errSecSuccess, @"failed to add test item to keychain: %u", n);
     }
 }
 
@@ -161,8 +161,95 @@
                                (id)kSecAttrNoLegacy : @(YES)
                                };
         OSStatus result = SecItemCopyMatching((__bridge CFDictionaryRef)item, NULL);
-        XCTAssertEqual(result, 0, @"failed to find test item to keychain: %u", n);
+        XCTAssertEqual(result, errSecSuccess, @"failed to find test item to keychain: %u", n);
     }
+}
+
+- (void)testSecItemServerDeleteAll
+{
+    // BT root key, should not be deleted
+    NSMutableDictionary* bt = [@{
+                                 (id)kSecClass : (id)kSecClassGenericPassword,
+                                 (id)kSecAttrAccessGroup : @"com.apple.bluetooth",
+                                 (id)kSecAttrService : @"BluetoothGlobal",
+                                 (id)kSecAttrAccessible : (id)kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate,
+                                 (id)kSecAttrSynchronizable : @(NO),
+                                 (id)kSecValueData : [@"btkey" dataUsingEncoding:NSUTF8StringEncoding],
+                                 } mutableCopy];
+
+    // lockdown-identities, should not be deleted
+    NSMutableDictionary* ld = [@{
+                                 (id)kSecClass : (id)kSecClassKey,
+                                 (id)kSecAttrAccessGroup : @"lockdown-identities",
+                                 (id)kSecAttrLabel : @"com.apple.lockdown.identity.activation",
+                                 (id)kSecAttrAccessible : (id)kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate,
+                                 (id)kSecAttrSynchronizable : @(NO),
+                                 (id)kSecValueData : [@"ldkey" dataUsingEncoding:NSUTF8StringEncoding],
+                                 } mutableCopy];
+
+    // general nonsyncable item, should be deleted
+    NSMutableDictionary* s0 = [@{
+                                 (id)kSecClass : (id)kSecClassGenericPassword,
+                                 (id)kSecAttrService : @"NonsyncableService",
+                                 (id)kSecAttrSynchronizable : @(NO),
+                                 (id)kSecValueData : [@"s0pwd" dataUsingEncoding:NSUTF8StringEncoding],
+                                 } mutableCopy];
+
+    // general syncable item, should be deleted
+    NSMutableDictionary* s1 = [@{
+                                 (id)kSecClass : (id)kSecClassGenericPassword,
+                                 (id)kSecAttrService : @"SyncableService",
+                                 (id)kSecAttrSynchronizable : @(YES),
+                                 (id)kSecValueData : [@"s0pwd" dataUsingEncoding:NSUTF8StringEncoding],
+                                 } mutableCopy];
+
+    // Insert all items
+    OSStatus status;
+    status = SecItemAdd((__bridge CFDictionaryRef)bt, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to add bt item to keychain");
+    status = SecItemAdd((__bridge CFDictionaryRef)ld, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to add ld item to keychain");
+    status = SecItemAdd((__bridge CFDictionaryRef)s0, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to add s0 item to keychain");
+    status = SecItemAdd((__bridge CFDictionaryRef)s1, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to add s1 item to keychain");
+
+    // Make sure they exist now
+    bt[(id)kSecValueData] = nil;
+    ld[(id)kSecValueData] = nil;
+    s0[(id)kSecValueData] = nil;
+    s1[(id)kSecValueData] = nil;
+    status = SecItemCopyMatching((__bridge CFDictionaryRef)bt, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to find bt item in keychain");
+    status = SecItemCopyMatching((__bridge CFDictionaryRef)ld, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to find ld item in keychain");
+    status = SecItemCopyMatching((__bridge CFDictionaryRef)s0, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to find s0 item in keychain");
+    status = SecItemCopyMatching((__bridge CFDictionaryRef)s1, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to find s1 item in keychain");
+
+    // Nuke the keychain
+    CFErrorRef error = NULL;
+    _SecItemDeleteAll(&error);
+    XCTAssertEqual(error, NULL, "_SecItemDeleteAll returned an error: %@", error);
+    CFReleaseNull(error);
+
+    // Does the function work properly with an error pre-set?
+    error = CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, errSecItemNotFound, NULL);
+    _SecItemDeleteAll(&error);
+    XCTAssertEqual(CFErrorGetDomain(error), kCFErrorDomainOSStatus);
+    XCTAssertEqual(CFErrorGetCode(error), errSecItemNotFound);
+    CFReleaseNull(error);
+
+    // Check the relevant items are missing
+    status = SecItemCopyMatching((__bridge CFDictionaryRef)bt, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to find bt item in keychain");
+    status = SecItemCopyMatching((__bridge CFDictionaryRef)ld, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to find ld item in keychain");
+    status = SecItemCopyMatching((__bridge CFDictionaryRef)s0, NULL);
+    XCTAssertEqual(status, errSecItemNotFound, "unexpectedly found s0 item in keychain");
+    status = SecItemCopyMatching((__bridge CFDictionaryRef)s1, NULL);
+    XCTAssertEqual(status, errSecItemNotFound, "unexpectedly found s1 item in keychain");
 }
 
 - (void)createManyKeys

@@ -4979,50 +4979,6 @@ nb{
             }
         }
         islamic{
-            DateTimePatterns{
-                "HH:mm:ss zzzz",
-                "HH:mm:ss z",
-                "HH:mm:ss",
-                "HH:mm",
-                "EEEE d. MMMM y G",
-                "d. MMMM y G",
-                "d. MMM y G",
-                "d.M.y G",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-            }
-            availableFormats{
-                E{"ccc"}
-                Ed{"E d."}
-                Gy{"y G"}
-                GyMMM{"MMM y G"}
-                GyMMMEd{"E d. MMM y G"}
-                GyMMMd{"d. MMM y G"}
-                M{"L."}
-                MEd{"E d.M"}
-                MMM{"LLL"}
-                MMMEd{"E d. MMM"}
-                MMMMd{"d. MMMM"}
-                MMMd{"d. MMM"}
-                MMdd{"d.M."}
-                Md{"d.M."}
-                d{"d."}
-                y{"y G"}
-                yyyy{"y G"}
-                yyyyM{"M.y G"}
-                yyyyMEd{"E d.M.y G"}
-                yyyyMM{"MM.y G"}
-                yyyyMMM{"MMM y G"}
-                yyyyMMMEd{"E d. MMM y G"}
-                yyyyMMMM{"MMMM y G"}
-                yyyyMMMd{"d. MMM y G"}
-                yyyyMd{"d.M.y G"}
-                yyyyQQQ{"QQQ y G"}
-                yyyyQQQQ{"QQQQ y G"}
-            }
             eras{
                 abbreviated{
                     "AH",
@@ -5032,81 +4988,6 @@ nb{
                 }
                 wide{
                     "AH",
-                }
-            }
-            intervalFormats{
-                H{
-                    H{"HH–HH"}
-                }
-                Hv{
-                    H{"HH–HH v"}
-                }
-                M{
-                    M{"M.–M."}
-                }
-                MEd{
-                    M{"E d.M.–E d.M."}
-                    d{"E d.M.–E d.M."}
-                }
-                MMM{
-                    M{"MMM–MMM"}
-                }
-                MMMEd{
-                    M{"E d. MMM–E d. MMM"}
-                    d{"E d. MMM–E d. MMM"}
-                }
-                MMMd{
-                    M{"d. MMM–d. MMM"}
-                    d{"d.–d. MMM"}
-                }
-                Md{
-                    M{"d.M.–d.M."}
-                    d{"d.M.–d.M."}
-                }
-                d{
-                    d{"d.–d."}
-                }
-                fallback{"{0}–{1}"}
-                h{
-                    h{"h–h a"}
-                }
-                hv{
-                    h{"h–h a v"}
-                }
-                y{
-                    y{"y–y G"}
-                }
-                yM{
-                    M{"M.y–M.y G"}
-                    y{"M.y–M.y G"}
-                }
-                yMEd{
-                    M{"E d.M.y–E d.M.y G"}
-                    d{"E d.M.y–E d.M.y G"}
-                    y{"E d.M.y–E d.M.y G"}
-                }
-                yMMM{
-                    M{"MMM–MMM y G"}
-                    y{"MMM y–MMM y G"}
-                }
-                yMMMEd{
-                    M{"E d. MMM–E d. MMM y G"}
-                    d{"E d. MMM–E d. MMM y G"}
-                    y{"E d. MMM y–E d. MMM y G"}
-                }
-                yMMMM{
-                    M{"MMMM–MMMM y G"}
-                    y{"MMMM y–MMMM y G"}
-                }
-                yMMMd{
-                    M{"d. MMM–d. MMM y G"}
-                    d{"d.–d. MMM y G"}
-                    y{"d. MMM y–d. MMM y G"}
-                }
-                yMd{
-                    M{"d.M.y–d.M.y G"}
-                    d{"d.M.y–d.M.y G"}
-                    y{"d.M.y–d.M.y G"}
                 }
             }
             monthNames{

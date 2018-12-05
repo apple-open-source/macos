@@ -35,7 +35,14 @@
 - (void)rpcResetCloudKit: (NSString*)viewName reason:(NSString *)reason reply: (void(^)(NSError* result)) reply;
 - (void)rpcResync:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcResyncLocal:(NSString*)viewName reply:(void(^)(NSError* result))reply;
+/**
+ * Fetch status for the CKKS zones. If NULL is passed in a viewname, all zones are fetched.
+ */
 - (void)rpcStatus:(NSString*)viewName reply: (void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply;
+/**
+ * Same as rpcStatus:reply: but avoid expensive operations (and thus don't report them). fastStatus doesn't include global status.
+ */
+- (void)rpcFastStatus:(NSString*)viewName reply: (void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply;
 - (void)rpcFetchAndProcessChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcFetchAndProcessClassAChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcPushOutgoingChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;

@@ -88,6 +88,8 @@ os_log_t _IOHIDLogCategory(IOHIDLogCategory category)
         log[kIOHIDLogCategoryProperty]      = os_log_create(kIOHIDLogSubsytem, "property");
         log[kIOHIDLogCategoryActivity]      = os_log_create(kIOHIDLogSubsytem, "activity");
         log[kIOHIDLogCategoryFastPath]      = os_log_create(kIOHIDLogSubsytem, "fastpath");
+        log[kIOHIDLogCategoryService]       = os_log_create(kIOHIDLogSubsytem, "service");
+        log[kIOHIDLogCategoryConnection]    = os_log_create(kIOHIDLogSubsytem, "connection");
     });
     return log[category];
 }

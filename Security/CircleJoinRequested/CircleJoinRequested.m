@@ -89,12 +89,6 @@ NSString *rejoinICDPUrl     = @"prefs:root=APPLE_ACCOUNT&aaaction=CDP&command=re
 
 BOOL processRequests(CFErrorRef *error);
 
-static bool PSKeychainSyncPrimaryAcccountExists(void)
-{
-    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
-    return [accountStore aa_primaryAppleAccount] != NULL;
-}
-
 static void PSKeychainSyncIsUsingICDP(void)
 {
     ACAccountStore *accountStore = [[ACAccountStore alloc] init];
@@ -792,15 +786,6 @@ static bool processEvents()
     // Refresh because sometimes we're fixed elsewhere before we get here.
     CFReleaseNull(error);
     circleStatus = SOSCCThisDeviceIsInCircleNonCached(&error);
-
-    /*
-     * Double check that the account still exists before doing anything rash (like posting a CFU or throw up a dialog)
-     */
-
-    if (!PSKeychainSyncPrimaryAcccountExists()) {
-        secnotice("cjr", "no primary account, bailing");
-        return true;
-    }
 
     if(_isAccountICDP){
         if((circleStatus == kSOSCCError || circleStatus == kSOSCCCircleAbsent || circleStatus == kSOSCCNotInCircle) && _hasPostedFollowupAndStillInError == false) {

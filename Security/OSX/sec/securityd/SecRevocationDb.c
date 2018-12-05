@@ -72,6 +72,7 @@
 #include <CoreFoundation/CFUtilities.h>
 
 const CFStringRef kValidUpdateProdServer   = CFSTR("valid.apple.com");
+const CFStringRef kValidUpdateSeedServer   = CFSTR("valid.apple.com/seed");
 const CFStringRef kValidUpdateCarryServer  = CFSTR("valid.apple.com/carry");
 
 static CFStringRef kSecPrefsDomain          = CFSTR("com.apple.security");
@@ -686,15 +687,22 @@ static bool SecValidUpdateSchedule(bool updateEnabled, CFStringRef server, CFInd
 }
 
 static CFStringRef SecRevocationDbGetDefaultServer(void) {
-#if RC_SEED_BUILD
-    return kValidUpdateCarryServer;
-#else // !RC_SEED_BUILD
-    CFStringRef defaultServer = kValidUpdateProdServer;
-    if (os_variant_has_internal_diagnostics("com.apple.security")) {
-        defaultServer = kValidUpdateCarryServer;
-    }
-    return defaultServer;
-#endif // !RC_SEED_BUILD
+#if !TARGET_OS_WATCH && !TARGET_OS_BRIDGE
+    #if RC_SEED_BUILD
+        CFStringRef defaultServer = kValidUpdateSeedServer;
+    #else // !RC_SEED_BUILD
+        CFStringRef defaultServer = kValidUpdateProdServer;
+    #endif // !RC_SEED_BUILD
+        if (os_variant_has_internal_diagnostics("com.apple.security")) {
+            defaultServer = kValidUpdateCarryServer;
+        }
+        return defaultServer;
+#else // TARGET_OS_WATCH || TARGET_OS_BRIDGE
+    /* Because watchOS and bridgeOS can't update over the air, we should
+     * always use the prod server so that the valid database built into the
+     * image is used. */
+    return kValidUpdateProdServer;
+#endif
 }
 
 void SecRevocationDbInitialize() {

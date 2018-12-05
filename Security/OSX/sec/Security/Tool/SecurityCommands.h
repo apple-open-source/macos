@@ -196,3 +196,24 @@ SECURITY_COMMAND("check-trust-update", check_trust_update,
                  "[-s]\n"
                  "    -s Check for Supplementals (Pinning DB and Trusted CT Logs) update\n",
                  "Check for data updates for trust and return current version.")
+
+SECURITY_COMMAND("add-ct-exceptions", add_ct_exceptions,
+                 "[options]\n"
+                 "   -d domain  Domain to add. Can be specified multiple times.\n"
+                 "   -c cert    Cert to add. Can be specified multiple times.\n"
+                 "   -p plist   plist with exceptions to set (resetting existing).\n"
+                 "                 Overrides -d and -c\n"
+                 "                 For detailed specification, see SecTrustSettingsPriv.h.\n"
+                 "   -r which   Reset exceptions for \"domain\", \"cert\", or \"all\".\n"
+                 "                 Overrides -d, -c, and -p\n",
+                 "Set exceptions for Certificate Transparency enforcement")
+
+SECURITY_COMMAND("show-ct-exceptions", show_ct_exceptions,
+                 "[options]\n"
+                 "   -a             Output all combined CT exceptions.\n"
+                 "   -i identifier  Output CT exceptions for specified identifier.\n"
+                 "                      Default is exceptions for this tool. Overridden by -a.\n"
+                 "   -d             Output domain exceptions. Default is both domains and certs.\n"
+                 "   -c             Output certificate exceptions (as SPKI hash).\n"
+                 "                      Default is both domains and certs.\n",
+                 "Display exceptions for Certificate Transparnecy enforcment in json.")

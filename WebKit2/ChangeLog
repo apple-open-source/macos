@@ -1,3 +1,564 @@
+2018-10-29  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/45363479
+
+    2018-10-29  Jer Noble  <jer.noble@apple.com>
+
+            Adopt -setOverrideRouteSharingPolicy:routingContextUID: SPI
+            https://bugs.webkit.org/show_bug.cgi?id=190951
+            <rdar://problem/45213065>
+
+            Reviewed by Alex Christensen.
+
+            Add an asyncronous reply request to VideoFullscreenManager.
+
+            Drive-by fix: messages.py generates "WTFMove(*arg1, *arg2)" instead of "WTFMove(*arg1), WTFMove(*arg2)"
+            in its reply handler generation.
+
+            * Platform/IPC/MessageSender.h:
+            (IPC::MessageSender::sendWithAsyncReply):
+            * Scripts/webkit/messages.py:
+            * UIProcess/Cocoa/VideoFullscreenManagerProxy.h:
+            * UIProcess/Cocoa/VideoFullscreenManagerProxy.mm:
+            (WebKit::VideoFullscreenModelContext::requestRouteSharingPolicyAndContextUID):
+            * WebProcess/cocoa/VideoFullscreenManager.h:
+            * WebProcess/cocoa/VideoFullscreenManager.messages.in:
+            * WebProcess/cocoa/VideoFullscreenManager.mm:
+            (WebKit::VideoFullscreenManager::requestRouteSharingPolicyAndContextUID):
+
+2018-10-28  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r237060. rdar://problem/45435468
+
+    IOS 12 - Service worker cache not shared when added to homescreen
+    https://bugs.webkit.org/show_bug.cgi?id=190269
+    <rdar://problem/45009961>
+    
+    Reviewed by Alex Christensen.
+    
+    Source/WebCore:
+    
+    Expose Cache Storage API when Service Worker API is exposed.
+    This is used for API tests.
+    
+    * dom/ScriptExecutionContext.h: Make hasServiceWorkerScheme
+    available outside SERVICE_WORKER compilation flag since used by DOMWindowCaches.
+    * dom/ScriptExecutionContext.cpp: Ditto.
+    * Modules/cache/DOMWindowCaches.idl:
+    
+    Source/WebKit:
+    
+    NetworkProcessProxy does not always have all its stores in its hash map.
+    Make sure to check for the default web process pool store when grabbing cache storage parameters from a given session ID.
+    
+    Add a way to remove the default website data for testing.
+    This is used in the new API test.
+    
+    * UIProcess/API/APIWebsiteDataStore.cpp:
+    (API::WebsiteDataStore::deleteDefaultDataStoreForTesting):
+    * UIProcess/API/APIWebsiteDataStore.h:
+    * UIProcess/API/Cocoa/WKWebsiteDataStore.mm:
+    (+[WKWebsiteDataStore _deleteDefaultDataStoreForTesting]):
+    * UIProcess/API/Cocoa/WKWebsiteDataStorePrivate.h:
+    * UIProcess/Network/NetworkProcessProxy.cpp:
+    (WebKit::NetworkProcessProxy::retrieveCacheStorageParameters):
+    
+    Tools:
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/ServiceWorkerBasic.mm:
+    Add test to ensure that CacheStorage use the default website data store parameters.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@237060 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-10-11  Youenn Fablet  <youenn@apple.com>
+
+            IOS 12 - Service worker cache not shared when added to homescreen
+            https://bugs.webkit.org/show_bug.cgi?id=190269
+            <rdar://problem/45009961>
+
+            Reviewed by Alex Christensen.
+
+            NetworkProcessProxy does not always have all its stores in its hash map.
+            Make sure to check for the default web process pool store when grabbing cache storage parameters from a given session ID.
+
+            Add a way to remove the default website data for testing.
+            This is used in the new API test.
+
+            * UIProcess/API/APIWebsiteDataStore.cpp:
+            (API::WebsiteDataStore::deleteDefaultDataStoreForTesting):
+            * UIProcess/API/APIWebsiteDataStore.h:
+            * UIProcess/API/Cocoa/WKWebsiteDataStore.mm:
+            (+[WKWebsiteDataStore _deleteDefaultDataStoreForTesting]):
+            * UIProcess/API/Cocoa/WKWebsiteDataStorePrivate.h:
+            * UIProcess/Network/NetworkProcessProxy.cpp:
+            (WebKit::NetworkProcessProxy::retrieveCacheStorageParameters):
+
+2018-10-28  Babak Shafiei  <bshafiei@apple.com>
+
+        Apply patch. rdar://problem/45523764
+
+    2018-10-28  John Wilander  <wilander@apple.com>
+
+            Override the session configuration for cookieAcceptPolicy
+            https://bugs.webkit.org/show_bug.cgi?id=190925
+            <rdar://problem/45497382>
+
+            Reviewed by Alex Christensen.
+
+            * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
+            (WebKit::NetworkSessionCocoa::NetworkSessionCocoa):
+                Sets the _overrideSessionCookieAcceptPolicy property to YES
+                If the application is Safari.
+
+2018-10-28  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r237135. rdar://problem/45562440
+
+    [iOS] Can't select text after dismissing the keyboard when changing focus
+    https://bugs.webkit.org/show_bug.cgi?id=190563
+    <rdar://problem/44613559>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebKit:
+    
+    In r230686, we switched from using UIWKSelectionAssistant to UIWKTextInteractionAssistant for handling selection
+    in non-editable content on iOS; as such, when an editable element loses focus, instead of switching from the
+    text interaction assistant to the web selection assistant as we've previously done, we now reset our text
+    interaction assistant by calling `-[UIWKTextInteractionAssistant setGestureRecognizers]`, which removes all of
+    the current text selection gesture recognizers from WKContentView and regenerates them by building up a tree of
+    `UITextInteraction`s and adding them to the assistant (see `-[UITextInteractionAssistant
+    addGestureRecognizersToView:]`). In particular, `_UITextSelectionForceGesture` is the gesture recognizer used to
+    trigger text selection when long pressing.
+    
+    After dismissing the keyboard by tapping the "Done" button, the UITextInteractions and gesture recognizers on
+    the interaction assistant include:
+    
+        <UITextInteraction>
+            …
+            <UITextIndirectNonEditableInteraction>
+                <_UIKeyboardBasedNonEditableTextSelectionInteraction>
+                  ↳ "_UIKeyboardTextSelectionGestureForcePress" → <_UITextSelectionForceGesture>
+    
+    However, after the keyboard dismisses due to an editable element losing focus, the UITextInteractions on the
+    interaction assistant look like this:
+    
+        <UITextInteraction>
+            …
+            <UITextIndirectNonEditableInteraction>
+    
+    Subsequently, the lack of a `_UIKeyboardBasedNonEditableTextSelectionInteraction` makes text selection by long
+    pressing impossible, since the `_UITextSelectionForceGesture` is never introduced to `WKContentView`. In UIKit,
+    `UITextIndirectNonEditableInteraction` only adds `_UIKeyboardBasedNonEditableTextSelectionInteraction` as a
+    child if the text input view — in our case, WKContentView — is missing an input delegate (see `-initWithView:`).
+    In the case where the Done button is used to dismiss the keyboard, WKContentView loses first responder, and the
+    input delegate of WKContentView is cleared out early on, before we call `-stopAssistingKeyboard`:
+    
+        -[WKContentView(WKInteraction) setInputDelegate:]
+        -[UIKeyboardImpl setDelegate:force:]
+        -[UIPeripheralHost(UIKitInternal) _reloadInputViewsForResponder:]
+        -[UIResponder _finishResignFirstResponder]
+        -[UIResponder resignFirstResponder]
+        -[WKContentView(WKInteraction) resignFirstResponderForWebView]
+        -[UIKeyboardImpl dismissKeyboard]
+    
+    However, in the case where the focused element is blurred, we end up clearing out the delegate in
+    `-_stopAssistingNode`, *after* we've already called `-setGestureRecognizers` on the interaction assistant. This
+    means UIKit will skip adding `_UIKeyboardBasedNonEditableTextSelectionInteraction` to the text interaction
+    assistant.
+    
+        -[WKContentView(WKInteraction) setInputDelegate:]
+        -[UIKeyboardImpl setDelegate:force:]
+        -[UIPeripheralHost(UIKitInternal) _reloadInputViewsForResponder:]
+        -[UIResponder(UIResponderInputViewAdditions) reloadInputViews]
+        -[WKContentView(WKInteraction) _stopAssistingNode]
+    
+    To fix this, we simply reset our `inputDelegate` earlier in `_stopAssistingKeyboard` instead of waiting until
+    we reload input views. This ensures that UIKit sets up the text interaction assistant's gestures when changing
+    focus in the same way as we would when the keyboard is dismissed via `-resignFirstResponder` (e.g. when pressing
+    the Done button).
+    
+    Test: editing/selection/ios/select-text-after-changing-focus.html
+    
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView setupInteraction]):
+    (-[WKContentView setUpTextSelectionAssistant]):
+    (-[WKContentView _startAssistingKeyboard]):
+    (-[WKContentView _stopAssistingKeyboard]):
+    (-[WKContentView useSelectionAssistantWithGranularity:]): Deleted.
+    
+    Additionally rename this to -setUpTextSelectionAssistant and remove the selection granularity argument. This was
+    previously used to switch between web and text interaction assistants.
+    
+    Tools:
+    
+    * DumpRenderTree/ios/UIScriptControllerIOS.mm:
+    (WTR::UIScriptController::isShowingKeyboard const):
+    
+    Add a new UIScriptController method that returns whether the keyboard is shown. See `ui-helper.js` for more
+    details.
+    
+    * TestRunnerShared/UIScriptContext/Bindings/UIScriptController.idl:
+    * TestRunnerShared/UIScriptContext/UIScriptController.cpp:
+    (WTR::UIScriptController::isShowingKeyboard const):
+    * TestRunnerShared/UIScriptContext/UIScriptController.h:
+    * WebKitTestRunner/cocoa/TestRunnerWKWebView.h:
+    * WebKitTestRunner/cocoa/TestRunnerWKWebView.mm:
+    
+    Also rename the `isShowingKeyboard` Objective-C property to the more canonical `showingKeyboard`, with
+    `isShowingKeyboard` as the getter method.
+    
+    (-[TestRunnerWKWebView _invokeShowKeyboardCallbackIfNecessary]):
+    (-[TestRunnerWKWebView _invokeHideKeyboardCallbackIfNecessary]):
+    * WebKitTestRunner/ios/UIScriptControllerIOS.mm:
+    (WTR::UIScriptController::isShowingKeyboard const):
+    
+    LayoutTests:
+    
+    Add a new layout test to check that the user can make a selection by long pressing after the keyboard is
+    dismissed due to changing the focused element.
+    
+    * editing/selection/ios/select-text-after-changing-focus-expected.txt: Added.
+    * editing/selection/ios/select-text-after-changing-focus.html: Added.
+    * resources/ui-helper.js:
+    
+    Also tweak the behavior of `UIHelper.waitForKeyboardToHide()`, so that it resolves immediately if the keyboard
+    is not shown. This allows us to ensure that tests which use `UIHelper.waitForKeyboardToHide()` are robust in the
+    case where they wait for another action to complete (e.g. a simulated tap) prior to registering a keyboard
+    hiding callback.
+    
+    (window.UIHelper.waitForKeyboardToHide.return.new.Promise):
+    (window.UIHelper.waitForKeyboardToHide):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@237135 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-10-15  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iOS] Can't select text after dismissing the keyboard when changing focus
+            https://bugs.webkit.org/show_bug.cgi?id=190563
+            <rdar://problem/44613559>
+
+            Reviewed by Tim Horton.
+
+            In r230686, we switched from using UIWKSelectionAssistant to UIWKTextInteractionAssistant for handling selection
+            in non-editable content on iOS; as such, when an editable element loses focus, instead of switching from the
+            text interaction assistant to the web selection assistant as we've previously done, we now reset our text
+            interaction assistant by calling `-[UIWKTextInteractionAssistant setGestureRecognizers]`, which removes all of
+            the current text selection gesture recognizers from WKContentView and regenerates them by building up a tree of
+            `UITextInteraction`s and adding them to the assistant (see `-[UITextInteractionAssistant
+            addGestureRecognizersToView:]`). In particular, `_UITextSelectionForceGesture` is the gesture recognizer used to
+            trigger text selection when long pressing.
+
+            After dismissing the keyboard by tapping the "Done" button, the UITextInteractions and gesture recognizers on
+            the interaction assistant include:
+
+                <UITextInteraction>
+                    …
+                    <UITextIndirectNonEditableInteraction>
+                        <_UIKeyboardBasedNonEditableTextSelectionInteraction>
+                          ↳ "_UIKeyboardTextSelectionGestureForcePress" → <_UITextSelectionForceGesture>
+
+            However, after the keyboard dismisses due to an editable element losing focus, the UITextInteractions on the
+            interaction assistant look like this:
+
+                <UITextInteraction>
+                    …
+                    <UITextIndirectNonEditableInteraction>
+
+            Subsequently, the lack of a `_UIKeyboardBasedNonEditableTextSelectionInteraction` makes text selection by long
+            pressing impossible, since the `_UITextSelectionForceGesture` is never introduced to `WKContentView`. In UIKit,
+            `UITextIndirectNonEditableInteraction` only adds `_UIKeyboardBasedNonEditableTextSelectionInteraction` as a
+            child if the text input view — in our case, WKContentView — is missing an input delegate (see `-initWithView:`).
+            In the case where the Done button is used to dismiss the keyboard, WKContentView loses first responder, and the
+            input delegate of WKContentView is cleared out early on, before we call `-stopAssistingKeyboard`:
+
+                -[WKContentView(WKInteraction) setInputDelegate:]
+                -[UIKeyboardImpl setDelegate:force:]
+                -[UIPeripheralHost(UIKitInternal) _reloadInputViewsForResponder:]
+                -[UIResponder _finishResignFirstResponder]
+                -[UIResponder resignFirstResponder]
+                -[WKContentView(WKInteraction) resignFirstResponderForWebView]
+                -[UIKeyboardImpl dismissKeyboard]
+
+            However, in the case where the focused element is blurred, we end up clearing out the delegate in
+            `-_stopAssistingNode`, *after* we've already called `-setGestureRecognizers` on the interaction assistant. This
+            means UIKit will skip adding `_UIKeyboardBasedNonEditableTextSelectionInteraction` to the text interaction
+            assistant.
+
+                -[WKContentView(WKInteraction) setInputDelegate:]
+                -[UIKeyboardImpl setDelegate:force:]
+                -[UIPeripheralHost(UIKitInternal) _reloadInputViewsForResponder:]
+                -[UIResponder(UIResponderInputViewAdditions) reloadInputViews]
+                -[WKContentView(WKInteraction) _stopAssistingNode]
+
+            To fix this, we simply reset our `inputDelegate` earlier in `_stopAssistingKeyboard` instead of waiting until
+            we reload input views. This ensures that UIKit sets up the text interaction assistant's gestures when changing
+            focus in the same way as we would when the keyboard is dismissed via `-resignFirstResponder` (e.g. when pressing
+            the Done button).
+
+            Test: editing/selection/ios/select-text-after-changing-focus.html
+
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView setupInteraction]):
+            (-[WKContentView setUpTextSelectionAssistant]):
+            (-[WKContentView _startAssistingKeyboard]):
+            (-[WKContentView _stopAssistingKeyboard]):
+            (-[WKContentView useSelectionAssistantWithGranularity:]): Deleted.
+
+            Additionally rename this to -setUpTextSelectionAssistant and remove the selection granularity argument. This was
+            previously used to switch between web and text interaction assistants.
+
+2018-10-24  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r236227. rdar://problem/45491949
+
+    Crash under WebPageProxy::decidePolicyForNavigationAction()
+    https://bugs.webkit.org/show_bug.cgi?id=189763
+    <rdar://problem/44597111>
+    
+    Reviewed by Alex Christensen.
+    
+    Update WebNavigationState::navigation() / WebNavigationState::takeNavigation()
+    to return a pointer instead of a reference as we have evidence that they can
+    return null. I kept the debug assertions to try and catch the cases where we
+    return null but at least we stop crashing in release builds.
+    
+    * UIProcess/WebNavigationState.cpp:
+    (WebKit::WebNavigationState::navigation):
+    (WebKit::WebNavigationState::takeNavigation):
+    * UIProcess/WebNavigationState.h:
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::didStartProvisionalLoadForFrame):
+    (WebKit::WebPageProxy::didReceiveServerRedirectForProvisionalLoadForFrame):
+    (WebKit::WebPageProxy::didCommitLoadForFrame):
+    (WebKit::WebPageProxy::didFinishDocumentLoadForFrame):
+    (WebKit::WebPageProxy::didFinishLoadForFrame):
+    (WebKit::WebPageProxy::didFailLoadForFrame):
+    (WebKit::WebPageProxy::didSameDocumentNavigationForFrame):
+    (WebKit::WebPageProxy::decidePolicyForNavigationAction):
+    (WebKit::WebPageProxy::decidePolicyForResponse):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236227 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-19  Chris Dumez  <cdumez@apple.com>
+
+            Crash under WebPageProxy::decidePolicyForNavigationAction()
+            https://bugs.webkit.org/show_bug.cgi?id=189763
+            <rdar://problem/44597111>
+
+            Reviewed by Alex Christensen.
+
+            Update WebNavigationState::navigation() / WebNavigationState::takeNavigation()
+            to return a pointer instead of a reference as we have evidence that they can
+            return null. I kept the debug assertions to try and catch the cases where we
+            return null but at least we stop crashing in release builds.
+
+            * UIProcess/WebNavigationState.cpp:
+            (WebKit::WebNavigationState::navigation):
+            (WebKit::WebNavigationState::takeNavigation):
+            * UIProcess/WebNavigationState.h:
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::didStartProvisionalLoadForFrame):
+            (WebKit::WebPageProxy::didReceiveServerRedirectForProvisionalLoadForFrame):
+            (WebKit::WebPageProxy::didCommitLoadForFrame):
+            (WebKit::WebPageProxy::didFinishDocumentLoadForFrame):
+            (WebKit::WebPageProxy::didFinishLoadForFrame):
+            (WebKit::WebPageProxy::didFailLoadForFrame):
+            (WebKit::WebPageProxy::didSameDocumentNavigationForFrame):
+            (WebKit::WebPageProxy::decidePolicyForNavigationAction):
+            (WebKit::WebPageProxy::decidePolicyForResponse):
+
+2018-10-23  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r237238. rdar://problem/45363879
+
+    [Apple Pay] Increment the API version to 5
+    https://bugs.webkit.org/show_bug.cgi?id=190686
+    <rdar://problem/45348523>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    Test: http/tests/ssl/applepay/ApplePaySessionV5.html
+    
+    * testing/MockPaymentCoordinator.cpp:
+    (WebCore::MockPaymentCoordinator::supportsVersion):
+    
+    Source/WebKit:
+    
+    * WebProcess/ApplePay/WebPaymentCoordinator.cpp:
+    (WebKit::WebPaymentCoordinator::supportsVersion):
+    
+    LayoutTests:
+    
+    * http/tests/ssl/applepay/ApplePaySessionV5-expected.txt: Added.
+    * http/tests/ssl/applepay/ApplePaySessionV5.html: Added.
+    * platform/mac-wk2/TestExpectations:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@237238 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-10-17  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Increment the API version to 5
+            https://bugs.webkit.org/show_bug.cgi?id=190686
+            <rdar://problem/45348523>
+
+            Reviewed by Simon Fraser.
+
+            * WebProcess/ApplePay/WebPaymentCoordinator.cpp:
+            (WebKit::WebPaymentCoordinator::supportsVersion):
+
+2018-10-23  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r236578. rdar://problem/45285613
+
+    Resource Load Statistics: Non-redirected top frame navigation should not get captured in statistics
+    https://bugs.webkit.org/show_bug.cgi?id=190055
+    <rdar://problem/44843460>
+    
+    Reviewed by Chris Dumez.
+    
+    Source/WebCore:
+    
+    Test: http/tests/resourceLoadStatistics/do-not-capture-statistics-for-simple-top-navigations.html
+    
+    * loader/ResourceLoadStatistics.cpp:
+    (WebCore::ResourceLoadStatistics::decode):
+        Corrects legacy statistics for frames and triggers a re-classification.
+    
+    Source/WebKit:
+    
+    * UIProcess/ResourceLoadStatisticsMemoryStore.cpp:
+        Bumped the statisticsModelVersion to 14 to be able to
+        correct legacy statistics.
+    (WebKit::ResourceLoadStatisticsMemoryStore::logFrameNavigation):
+        Now skips capture if it's the main frame.
+    
+    LayoutTests:
+    
+    * http/tests/resourceLoadStatistics/do-not-capture-statistics-for-simple-top-navigations-expected.txt: Added.
+    * http/tests/resourceLoadStatistics/do-not-capture-statistics-for-simple-top-navigations.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236578 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-27  John Wilander  <wilander@apple.com>
+
+            Resource Load Statistics: Non-redirected top frame navigation should not get captured in statistics
+            https://bugs.webkit.org/show_bug.cgi?id=190055
+            <rdar://problem/44843460>
+
+            Reviewed by Chris Dumez.
+
+            * UIProcess/ResourceLoadStatisticsMemoryStore.cpp:
+                Bumped the statisticsModelVersion to 14 to be able to
+                correct legacy statistics.
+            (WebKit::ResourceLoadStatisticsMemoryStore::logFrameNavigation):
+                Now skips capture if it's the main frame.
+
+2018-10-23  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r235674. rdar://problem/45285711
+
+    Cancelled fullscreen exit gesture leaves bad state for next exit request.
+    https://bugs.webkit.org/show_bug.cgi?id=189278
+    
+    Patch by Jeremy Jones <jeremyj@apple.com> on 2018-09-05
+    Reviewed by Jer Noble.
+    
+    * UIProcess/ios/fullscreen/WKFullScreenWindowControllerIOS.mm:
+    (-[WKFullScreenWindowController _dismissFullscreenViewController]):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235674 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-05  Jeremy Jones  <jeremyj@apple.com>
+
+            Cancelled fullscreen exit gesture leaves bad state for next exit request.
+            https://bugs.webkit.org/show_bug.cgi?id=189278
+
+            Reviewed by Jer Noble.
+
+            * UIProcess/ios/fullscreen/WKFullScreenWindowControllerIOS.mm:
+            (-[WKFullScreenWindowController _dismissFullscreenViewController]):
+
+2018-10-21  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r235739. rdar://problem/45445194
+
+    WebKit/Platform/IPC/mac/ConnectionMac.mm:222: _dispatch_bug_kevent_vanished
+    https://bugs.webkit.org/show_bug.cgi?id=189314
+    <rdar://problem/41248286>
+    
+    Reviewed by Anders Carlsson.
+    
+    There is a short period in time when m_isServer is true, after open() has been
+    called, but before we've receive the InitializeConnection IPC, where m_receiveSource
+    has been initialized but m_isConnected is still false. If platformInvalidate() gets
+    called during this period of time, we would fail to cancel / release m_receiveSource
+    and we would forcefully deallocate m_receivePort, leading to the libdispatch simulated
+    crashes.
+    
+    To address the issue, platformInvalidate() now properly cancels / releases
+    m_receiveSource if present, and only deallocates m_receivePort manually if m_receiveSource
+    has not been initialized (i.e. open() has not been called yet).
+    
+    * Platform/IPC/Connection.h:
+    * Platform/IPC/mac/ConnectionMac.mm:
+    (IPC::Connection::platformInvalidate):
+    (IPC::Connection::clearReceiveSource):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235739 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-06  Chris Dumez  <cdumez@apple.com>
+
+            WebKit/Platform/IPC/mac/ConnectionMac.mm:222: _dispatch_bug_kevent_vanished
+            https://bugs.webkit.org/show_bug.cgi?id=189314
+            <rdar://problem/41248286>
+
+            Reviewed by Anders Carlsson.
+
+            There is a short period in time when m_isServer is true, after open() has been
+            called, but before we've receive the InitializeConnection IPC, where m_receiveSource
+            has been initialized but m_isConnected is still false. If platformInvalidate() gets
+            called during this period of time, we would fail to cancel / release m_receiveSource
+            and we would forcefully deallocate m_receivePort, leading to the libdispatch simulated
+            crashes.
+
+            To address the issue, platformInvalidate() now properly cancels / releases
+            m_receiveSource if present, and only deallocates m_receivePort manually if m_receiveSource
+            has not been initialized (i.e. open() has not been called yet).
+
+            * Platform/IPC/Connection.h:
+            * Platform/IPC/mac/ConnectionMac.mm:
+            (IPC::Connection::platformInvalidate):
+            (IPC::Connection::clearReceiveSource):
+
+2018-10-21  Babak Shafiei  <bshafiei@apple.com>
+
+        Apply patch. rdar://problem/45285649
+
+    2018-10-21  Chris Dumez  <cdumez@apple.com>
+
+            Crash under WebKit: WTF::Function<void ()>::CallableWrapper<WebKit::ResourceLoadStatisticsMemoryStore::removeDataRecords(WTF::CompletionHandler<void ()>&&)::$_1>::call()
+            https://bugs.webkit.org/show_bug.cgi?id=189098
+            <rdar://problem/43179891>
+
+            Reviewed by Youenn Fablet.
+
+            The crash was caused by implicitly using |this| on the main thread by accessing member variables, even though
+            |this| gets destroyed on the statistics queue. To address the issue, capture what we need on the statistics
+            queue, *before* dispatching to the main thread.
+
+            Also stop capturing |this| in the lambdas to make this less error prone.
+
+            * UIProcess/ResourceLoadStatisticsMemoryStore.cpp:
+            (WebKit::ResourceLoadStatisticsMemoryStore::removeDataRecords):
+            (WebKit::ResourceLoadStatisticsMemoryStore::grandfatherExistingWebsiteData):
+            (WebKit::ResourceLoadStatisticsMemoryStore::updateCookiePartitioning):
+
 2018-09-28  Babak Shafiei  <bshafiei@apple.com>
 
         Cherry-pick r236571. rdar://problem/44852809

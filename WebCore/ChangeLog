@@ -1,3 +1,565 @@
+2018-10-29  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/45363479
+
+    2018-10-29  Jer Noble  <jer.noble@apple.com>
+
+            Adopt -setOverrideRouteSharingPolicy:routingContextUID: SPI
+            https://bugs.webkit.org/show_bug.cgi?id=190951
+            <rdar://problem/45213065>
+
+            Reviewed by Alex Christensen.
+
+            Request the correct route policy and context from the VideoFullscreenModel.
+
+            * platform/cocoa/VideoFullscreenModel.h:
+            (WebCore::VideoFullscreenModel::requestRouteSharingPolicyAndContextUID):
+            * platform/cocoa/VideoFullscreenModelVideoElement.h:
+            * platform/cocoa/VideoFullscreenModelVideoElement.mm:
+            (WebCore::VideoFullscreenModelVideoElement::requestRouteSharingPolicyAndContextUID):
+            * platform/ios/VideoFullscreenInterfaceAVKit.h:
+            * platform/ios/VideoFullscreenInterfaceAVKit.mm:
+            (-[WebAVPlayerViewController setWebKitOverrideRouteSharingPolicy:routingContextUID:]):
+            (VideoFullscreenInterfaceAVKit::setVideoFullscreenModel):
+            (VideoFullscreenInterfaceAVKit::doSetup):
+
+2018-10-28  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r237466. rdar://problem/45562436
+
+    Use dark appearance scrollbar when page background is dark or document supports dark mode.
+    https://bugs.webkit.org/show_bug.cgi?id=190937
+    rdar://problem/41225839
+    
+    Reviewed by Beth Dakin.
+    
+    Source/WebCore:
+    
+    * page/FrameView.cpp:
+    (WebCore::FrameView::useDarkAppearance const): Added. Ask the document.
+    (WebCore::FrameView::paintScrollCorner): Set LocalDefaultSystemAppearance based
+    on the scrollbar overlay style too.
+    * page/FrameView.h:
+    * platform/ScrollableArea.h:
+    (WebCore::ScrollableArea::useDarkAppearance const): Added. Default to false.
+    * platform/mac/ScrollAnimatorMac.mm:
+    (-[WebScrollerImpDelegate effectiveAppearanceForScrollerImp:]): Added.
+    Ask the ScrollableArea if a dark appearance is desired.
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/mac/NSScrollerImpSPI.h: Added effectiveAppearanceForScrollerImp:.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@237466 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-10-26  Timothy Hatcher  <timothy@apple.com>
+
+            Use dark appearance scrollbar when page background is dark or document supports dark mode.
+            https://bugs.webkit.org/show_bug.cgi?id=190937
+            rdar://problem/41225839
+
+            Reviewed by Beth Dakin.
+
+            * page/FrameView.cpp:
+            (WebCore::FrameView::useDarkAppearance const): Added. Ask the document.
+            (WebCore::FrameView::paintScrollCorner): Set LocalDefaultSystemAppearance based
+            on the scrollbar overlay style too.
+            * page/FrameView.h:
+            * platform/ScrollableArea.h:
+            (WebCore::ScrollableArea::useDarkAppearance const): Added. Default to false.
+            * platform/mac/ScrollAnimatorMac.mm:
+            (-[WebScrollerImpDelegate effectiveAppearanceForScrollerImp:]): Added.
+            Ask the ScrollableArea if a dark appearance is desired.
+
+2018-10-28  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r237060. rdar://problem/45435468
+
+    IOS 12 - Service worker cache not shared when added to homescreen
+    https://bugs.webkit.org/show_bug.cgi?id=190269
+    <rdar://problem/45009961>
+    
+    Reviewed by Alex Christensen.
+    
+    Source/WebCore:
+    
+    Expose Cache Storage API when Service Worker API is exposed.
+    This is used for API tests.
+    
+    * dom/ScriptExecutionContext.h: Make hasServiceWorkerScheme
+    available outside SERVICE_WORKER compilation flag since used by DOMWindowCaches.
+    * dom/ScriptExecutionContext.cpp: Ditto.
+    * Modules/cache/DOMWindowCaches.idl:
+    
+    Source/WebKit:
+    
+    NetworkProcessProxy does not always have all its stores in its hash map.
+    Make sure to check for the default web process pool store when grabbing cache storage parameters from a given session ID.
+    
+    Add a way to remove the default website data for testing.
+    This is used in the new API test.
+    
+    * UIProcess/API/APIWebsiteDataStore.cpp:
+    (API::WebsiteDataStore::deleteDefaultDataStoreForTesting):
+    * UIProcess/API/APIWebsiteDataStore.h:
+    * UIProcess/API/Cocoa/WKWebsiteDataStore.mm:
+    (+[WKWebsiteDataStore _deleteDefaultDataStoreForTesting]):
+    * UIProcess/API/Cocoa/WKWebsiteDataStorePrivate.h:
+    * UIProcess/Network/NetworkProcessProxy.cpp:
+    (WebKit::NetworkProcessProxy::retrieveCacheStorageParameters):
+    
+    Tools:
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/ServiceWorkerBasic.mm:
+    Add test to ensure that CacheStorage use the default website data store parameters.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@237060 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-10-11  Youenn Fablet  <youenn@apple.com>
+
+            IOS 12 - Service worker cache not shared when added to homescreen
+            https://bugs.webkit.org/show_bug.cgi?id=190269
+            <rdar://problem/45009961>
+
+            Reviewed by Alex Christensen.
+
+            Expose Cache Storage API when Service Worker API is exposed.
+            This is used for API tests.
+
+            * dom/ScriptExecutionContext.h: Make hasServiceWorkerScheme
+            available outside SERVICE_WORKER compilation flag since used by DOMWindowCaches.
+            * dom/ScriptExecutionContext.cpp: Ditto.
+            * Modules/cache/DOMWindowCaches.idl:
+
+2018-10-28  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r237395. rdar://problem/45574503
+
+    Only report resource timing to parent frame for the first iframe load
+    https://bugs.webkit.org/show_bug.cgi?id=190498
+    <rdar://problem/44347398>
+    
+    Reviewed by Youenn Fablet.
+    
+    Source/WebCore:
+    
+    Only the first iframe navigation or the first iframe navigation after about:blank should be reported.
+    https://www.w3.org/TR/resource-timing-2/#resources-included-in-the-performanceresourcetiming-interface
+    
+    Test: http/tests/misc/resource-timing-navigation-in-restored-iframe.html
+    
+    * loader/FrameLoader.cpp:
+    (WebCore::FrameLoader::loadWithDocumentLoader):
+    * loader/FrameLoader.h:
+    (WebCore::FrameLoader::shouldReportResourceTimingToParentFrame):
+    (WebCore::FrameLoader::setShouldReportResourceTimingToParentFrame): Deleted.
+    * loader/ResourceTimingInformation.cpp:
+    (WebCore::ResourceTimingInformation::addResourceTiming):
+    
+    LayoutTests:
+    
+    The layout test is from Chromium change:
+    https://chromium-review.googlesource.com/c/chromium/src/+/1186215.
+    
+    * http/tests/misc/resource-timing-navigation-in-restored-iframe-expected.txt: Added.
+    * http/tests/misc/resource-timing-navigation-in-restored-iframe.html: Added.
+    * http/tests/misc/resources/alert-then-back.html: Added.
+    * http/tests/misc/resources/navigate-on-message.html: Added.
+    * http/tests/misc/resources/post-message-to-parent.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@237395 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-10-11  Jiewen Tan  <jiewen_tan@apple.com>
+
+            Only report resource timing to parent frame for the first iframe load
+            https://bugs.webkit.org/show_bug.cgi?id=190498
+            <rdar://problem/44347398>
+
+            Reviewed by Youenn Fablet.
+
+            Only the first iframe navigation or the first iframe navigation after about:blank should be reported.
+            https://www.w3.org/TR/resource-timing-2/#resources-included-in-the-performanceresourcetiming-interface
+
+            Test: http/tests/misc/resource-timing-navigation-in-restored-iframe.html
+
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::loadWithDocumentLoader):
+            * loader/FrameLoader.h:
+            (WebCore::FrameLoader::shouldReportResourceTimingToParentFrame):
+            (WebCore::FrameLoader::setShouldReportResourceTimingToParentFrame): Deleted.
+            * loader/ResourceTimingInformation.cpp:
+            (WebCore::ResourceTimingInformation::addResourceTiming):
+
+2018-10-24  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r236747. rdar://problem/45491954
+
+    Add release assertion to ensure m_owningPointerForClose is null in UniqueIDBDatabase::invokeOperationAndTransactionTimer()
+    https://bugs.webkit.org/show_bug.cgi?id=190178
+    
+    Reviewed by Chris Dumez.
+    
+    This would help debug rdar://problem/44902833.
+    
+    * Modules/indexeddb/server/UniqueIDBDatabase.cpp:
+    (WebCore::IDBServer::UniqueIDBDatabase::invokeOperationAndTransactionTimer):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236747 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-10-02  Sihui Liu  <sihui_liu@apple.com>
+
+            Add release assertion to ensure m_owningPointerForClose is null in UniqueIDBDatabase::invokeOperationAndTransactionTimer()
+            https://bugs.webkit.org/show_bug.cgi?id=190178
+
+            Reviewed by Chris Dumez.
+
+            This would help debug rdar://problem/44902833.
+
+            * Modules/indexeddb/server/UniqueIDBDatabase.cpp:
+            (WebCore::IDBServer::UniqueIDBDatabase::invokeOperationAndTransactionTimer):
+
+2018-10-24  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r234791. rdar://problem/45491958
+
+    CrashTracer: com.apple.WebKit.Storage at WebCore::IDBServer::UniqueIDBDatabase::connectionClosedFromClient(WebCore::IDBServer::UniqueIDBDatabaseConnection&)
+    https://bugs.webkit.org/show_bug.cgi?id=188474
+    
+    Reviewed by Chris Dumez.
+    
+    UniqueIDBDatabaseConnection is refcounted by UniqueIDBDatabaseTransaction and it refcounts
+    UniqueIDBDatabaseTransaction. This cycle could make UniqueIDBDatabaseConnection outlives
+    UniqueIDBDatabase, so its reference to UniqueIDBDatabase may be stale. Calling a function
+    on a stale object is probably the reason of recent various storage process crashes in
+    indexedDB.
+    
+    This patch makes m_database a WeakPtr and adds assertions that could help us debug the
+    crashes.
+    
+    * Modules/indexeddb/server/IDBServer.cpp:
+    (WebCore::IDBServer::IDBServer::closeAndDeleteDatabasesModifiedSince):
+    (WebCore::IDBServer::IDBServer::closeAndDeleteDatabasesForOrigins):
+    * Modules/indexeddb/server/UniqueIDBDatabase.cpp:
+    (WebCore::IDBServer::UniqueIDBDatabase::commitTransaction):
+    (WebCore::IDBServer::UniqueIDBDatabase::abortTransaction):
+    * Modules/indexeddb/server/UniqueIDBDatabase.h:
+    * Modules/indexeddb/server/UniqueIDBDatabaseConnection.cpp:
+    (WebCore::IDBServer::UniqueIDBDatabaseConnection::UniqueIDBDatabaseConnection):
+    (WebCore::IDBServer::UniqueIDBDatabaseConnection::~UniqueIDBDatabaseConnection):
+    (WebCore::IDBServer::UniqueIDBDatabaseConnection::abortTransactionWithoutCallback):
+    (WebCore::IDBServer::UniqueIDBDatabaseConnection::connectionClosedFromClient):
+    (WebCore::IDBServer::UniqueIDBDatabaseConnection::confirmDidCloseFromServer):
+    (WebCore::IDBServer::UniqueIDBDatabaseConnection::didFireVersionChangeEvent):
+    (WebCore::IDBServer::UniqueIDBDatabaseConnection::didFinishHandlingVersionChange):
+    (WebCore::IDBServer::UniqueIDBDatabaseConnection::createVersionChangeTransaction):
+    (WebCore::IDBServer::UniqueIDBDatabaseConnection::establishTransaction):
+    (WebCore::IDBServer::UniqueIDBDatabaseConnection::didAbortTransaction):
+    * Modules/indexeddb/server/UniqueIDBDatabaseConnection.h:
+    (WebCore::IDBServer::UniqueIDBDatabaseConnection::database):
+    * Modules/indexeddb/server/UniqueIDBDatabaseTransaction.cpp:
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::UniqueIDBDatabaseTransaction):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::~UniqueIDBDatabaseTransaction):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::abort):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::commit):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::createObjectStore):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::deleteObjectStore):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::renameObjectStore):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::clearObjectStore):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::createIndex):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::deleteIndex):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::renameIndex):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::putOrAdd):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::getRecord):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::getAllRecords):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::getCount):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::deleteRecord):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::openCursor):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::iterateCursor):
+    (WebCore::IDBServer::UniqueIDBDatabaseTransaction::objectStoreIdentifiers):
+    * Modules/indexeddb/shared/IDBResultData.cpp:
+    (WebCore::IDBResultData::openDatabaseSuccess):
+    (WebCore::IDBResultData::openDatabaseUpgradeNeeded):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234791 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-08-12  Sihui Liu  <sihui_liu@apple.com>
+
+            CrashTracer: com.apple.WebKit.Storage at WebCore::IDBServer::UniqueIDBDatabase::connectionClosedFromClient(WebCore::IDBServer::UniqueIDBDatabaseConnection&)
+            https://bugs.webkit.org/show_bug.cgi?id=188474
+
+            Reviewed by Chris Dumez.
+
+            UniqueIDBDatabaseConnection is refcounted by UniqueIDBDatabaseTransaction and it refcounts
+            UniqueIDBDatabaseTransaction. This cycle could make UniqueIDBDatabaseConnection outlives
+            UniqueIDBDatabase, so its reference to UniqueIDBDatabase may be stale. Calling a function
+            on a stale object is probably the reason of recent various storage process crashes in
+            indexedDB.
+
+            This patch makes m_database a WeakPtr and adds assertions that could help us debug the
+            crashes.
+
+            * Modules/indexeddb/server/IDBServer.cpp:
+            (WebCore::IDBServer::IDBServer::closeAndDeleteDatabasesModifiedSince):
+            (WebCore::IDBServer::IDBServer::closeAndDeleteDatabasesForOrigins):
+            * Modules/indexeddb/server/UniqueIDBDatabase.cpp:
+            (WebCore::IDBServer::UniqueIDBDatabase::commitTransaction):
+            (WebCore::IDBServer::UniqueIDBDatabase::abortTransaction):
+            * Modules/indexeddb/server/UniqueIDBDatabase.h:
+            * Modules/indexeddb/server/UniqueIDBDatabaseConnection.cpp:
+            (WebCore::IDBServer::UniqueIDBDatabaseConnection::UniqueIDBDatabaseConnection):
+            (WebCore::IDBServer::UniqueIDBDatabaseConnection::~UniqueIDBDatabaseConnection):
+            (WebCore::IDBServer::UniqueIDBDatabaseConnection::abortTransactionWithoutCallback):
+            (WebCore::IDBServer::UniqueIDBDatabaseConnection::connectionClosedFromClient):
+            (WebCore::IDBServer::UniqueIDBDatabaseConnection::confirmDidCloseFromServer):
+            (WebCore::IDBServer::UniqueIDBDatabaseConnection::didFireVersionChangeEvent):
+            (WebCore::IDBServer::UniqueIDBDatabaseConnection::didFinishHandlingVersionChange):
+            (WebCore::IDBServer::UniqueIDBDatabaseConnection::createVersionChangeTransaction):
+            (WebCore::IDBServer::UniqueIDBDatabaseConnection::establishTransaction):
+            (WebCore::IDBServer::UniqueIDBDatabaseConnection::didAbortTransaction):
+            * Modules/indexeddb/server/UniqueIDBDatabaseConnection.h:
+            (WebCore::IDBServer::UniqueIDBDatabaseConnection::database):
+            * Modules/indexeddb/server/UniqueIDBDatabaseTransaction.cpp:
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::UniqueIDBDatabaseTransaction):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::~UniqueIDBDatabaseTransaction):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::abort):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::commit):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::createObjectStore):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::deleteObjectStore):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::renameObjectStore):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::clearObjectStore):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::createIndex):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::deleteIndex):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::renameIndex):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::putOrAdd):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::getRecord):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::getAllRecords):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::getCount):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::deleteRecord):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::openCursor):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::iterateCursor):
+            (WebCore::IDBServer::UniqueIDBDatabaseTransaction::objectStoreIdentifiers):
+            * Modules/indexeddb/shared/IDBResultData.cpp:
+            (WebCore::IDBResultData::openDatabaseSuccess):
+            (WebCore::IDBResultData::openDatabaseUpgradeNeeded):
+
+2018-10-23  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r237238. rdar://problem/45363879
+
+    [Apple Pay] Increment the API version to 5
+    https://bugs.webkit.org/show_bug.cgi?id=190686
+    <rdar://problem/45348523>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    Test: http/tests/ssl/applepay/ApplePaySessionV5.html
+    
+    * testing/MockPaymentCoordinator.cpp:
+    (WebCore::MockPaymentCoordinator::supportsVersion):
+    
+    Source/WebKit:
+    
+    * WebProcess/ApplePay/WebPaymentCoordinator.cpp:
+    (WebKit::WebPaymentCoordinator::supportsVersion):
+    
+    LayoutTests:
+    
+    * http/tests/ssl/applepay/ApplePaySessionV5-expected.txt: Added.
+    * http/tests/ssl/applepay/ApplePaySessionV5.html: Added.
+    * platform/mac-wk2/TestExpectations:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@237238 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-10-17  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Increment the API version to 5
+            https://bugs.webkit.org/show_bug.cgi?id=190686
+            <rdar://problem/45348523>
+
+            Reviewed by Simon Fraser.
+
+            Test: http/tests/ssl/applepay/ApplePaySessionV5.html
+
+            * testing/MockPaymentCoordinator.cpp:
+            (WebCore::MockPaymentCoordinator::supportsVersion):
+
+2018-10-23  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r236578. rdar://problem/45285613
+
+    Resource Load Statistics: Non-redirected top frame navigation should not get captured in statistics
+    https://bugs.webkit.org/show_bug.cgi?id=190055
+    <rdar://problem/44843460>
+    
+    Reviewed by Chris Dumez.
+    
+    Source/WebCore:
+    
+    Test: http/tests/resourceLoadStatistics/do-not-capture-statistics-for-simple-top-navigations.html
+    
+    * loader/ResourceLoadStatistics.cpp:
+    (WebCore::ResourceLoadStatistics::decode):
+        Corrects legacy statistics for frames and triggers a re-classification.
+    
+    Source/WebKit:
+    
+    * UIProcess/ResourceLoadStatisticsMemoryStore.cpp:
+        Bumped the statisticsModelVersion to 14 to be able to
+        correct legacy statistics.
+    (WebKit::ResourceLoadStatisticsMemoryStore::logFrameNavigation):
+        Now skips capture if it's the main frame.
+    
+    LayoutTests:
+    
+    * http/tests/resourceLoadStatistics/do-not-capture-statistics-for-simple-top-navigations-expected.txt: Added.
+    * http/tests/resourceLoadStatistics/do-not-capture-statistics-for-simple-top-navigations.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236578 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-27  John Wilander  <wilander@apple.com>
+
+            Resource Load Statistics: Non-redirected top frame navigation should not get captured in statistics
+            https://bugs.webkit.org/show_bug.cgi?id=190055
+            <rdar://problem/44843460>
+
+            Reviewed by Chris Dumez.
+
+            Test: http/tests/resourceLoadStatistics/do-not-capture-statistics-for-simple-top-navigations.html
+
+            * loader/ResourceLoadStatistics.cpp:
+            (WebCore::ResourceLoadStatistics::decode):
+                Corrects legacy statistics for frames and triggers a re-classification.
+
+2018-10-18  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r237081. rdar://problem/45285441
+
+    WebAVSampleBufferErrorListener's parent should be a WeakPtr.
+    https://bugs.webkit.org/show_bug.cgi?id=190524
+    <rdar://problem/44359307>
+    
+    Reviewed by Eric Carlson.
+    
+    Once WebAVSampleBufferErrorListener's parent is a WeakPtr, we no longer need to pass
+    protectedSelf into the callOnMainThread lambdas; we can pass in the parent itself.
+    
+    * platform/graphics/avfoundation/objc/SourceBufferPrivateAVFObjC.mm:
+    (-[WebAVSampleBufferErrorListener initWithParent:]):
+    (-[WebAVSampleBufferErrorListener observeValueForKeyPath:ofObject:change:context:]):
+    (-[WebAVSampleBufferErrorListener layerFailedToDecode:]):
+    (WebCore::SourceBufferPrivateAVFObjC::SourceBufferPrivateAVFObjC):
+    (WebCore::SourceBufferPrivateAVFObjC::destroyRenderers):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@237081 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-10-12  Jer Noble  <jer.noble@apple.com>
+
+            WebAVSampleBufferErrorListener's parent should be a WeakPtr.
+            https://bugs.webkit.org/show_bug.cgi?id=190524
+            <rdar://problem/44359307>
+
+            Reviewed by Eric Carlson.
+
+            Once WebAVSampleBufferErrorListener's parent is a WeakPtr, we no longer need to pass
+            protectedSelf into the callOnMainThread lambdas; we can pass in the parent itself.
+
+            * platform/graphics/avfoundation/objc/SourceBufferPrivateAVFObjC.mm:
+            (-[WebAVSampleBufferErrorListener initWithParent:]):
+            (-[WebAVSampleBufferErrorListener observeValueForKeyPath:ofObject:change:context:]):
+            (-[WebAVSampleBufferErrorListener layerFailedToDecode:]):
+            (WebCore::SourceBufferPrivateAVFObjC::SourceBufferPrivateAVFObjC):
+            (WebCore::SourceBufferPrivateAVFObjC::destroyRenderers):
+
+2018-10-18  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r236820. rdar://problem/45285653
+
+    [WebCrypto] ECDSA could not deal with invalid signature inputs
+    https://bugs.webkit.org/show_bug.cgi?id=189879
+    <rdar://problem/44701276>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    Add some guards over detections of the start positions of r/s.
+    
+    Covered by improved existing tests.
+    
+    * crypto/mac/CryptoAlgorithmECDSAMac.cpp:
+    (WebCore::verifyECDSA):
+    
+    LayoutTests:
+    
+    * crypto/subtle/ecdsa-verify-malformed-parameters-expected.txt:
+    * crypto/subtle/ecdsa-verify-malformed-parameters.html:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236820 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-09-28  Jiewen Tan  <jiewen_tan@apple.com>
+
+            [WebCrypto] ECDSA could not deal with invalid signature inputs
+            https://bugs.webkit.org/show_bug.cgi?id=189879
+            <rdar://problem/44701276>
+
+            Reviewed by Brent Fulgham.
+
+            Add some guards over detections of the start positions of r/s.
+
+            Covered by improved existing tests.
+
+            * crypto/mac/CryptoAlgorithmECDSAMac.cpp:
+            (WebCore::verifyECDSA):
+
+2018-10-18  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r236806. rdar://problem/45285366
+
+    CRASH in CVPixelBufferGetBytePointerCallback()
+    https://bugs.webkit.org/show_bug.cgi?id=190092
+    
+    Reviewed by Eric Carlson.
+    
+    Speculative fix for crash that occurs when callers of CVPixelBufferGetBytePointerCallback() attempt
+    to read the last byte of a CVPixelBuffer (as a pre-flight check) and crash due to a memory access
+    error. It's speculated that mismatching CVPixelBufferLockBytePointer / CVPixelBufferUnlockBytePointer
+    calls could result in an incorrect state inside the CVPixelBuffer. Add log count checks, locking, and
+    release logging to try to pinpoint if mismatch lock counts are occurring in this code path.
+    
+    * platform/graphics/cv/PixelBufferConformerCV.cpp:
+    (WebCore::CVPixelBufferGetBytePointerCallback):
+    (WebCore::CVPixelBufferReleaseBytePointerCallback):
+    (WebCore::CVPixelBufferReleaseInfoCallback):
+    (WebCore::PixelBufferConformerCV::createImageFromPixelBuffer):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@236806 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-10-03  Jer Noble  <jer.noble@apple.com>
+
+            CRASH in CVPixelBufferGetBytePointerCallback()
+            https://bugs.webkit.org/show_bug.cgi?id=190092
+
+            Reviewed by Eric Carlson.
+
+            Speculative fix for crash that occurs when callers of CVPixelBufferGetBytePointerCallback() attempt
+            to read the last byte of a CVPixelBuffer (as a pre-flight check) and crash due to a memory access
+            error. It's speculated that mismatching CVPixelBufferLockBytePointer / CVPixelBufferUnlockBytePointer
+            calls could result in an incorrect state inside the CVPixelBuffer. Add log count checks, locking, and
+            release logging to try to pinpoint if mismatch lock counts are occurring in this code path.
+
+            * platform/graphics/cv/PixelBufferConformerCV.cpp:
+            (WebCore::CVPixelBufferGetBytePointerCallback):
+            (WebCore::CVPixelBufferReleaseBytePointerCallback):
+            (WebCore::CVPixelBufferReleaseInfoCallback):
+            (WebCore::PixelBufferConformerCV::createImageFromPixelBuffer):
+
 2018-09-28  Babak Shafiei  <bshafiei@apple.com>
 
         Cherry-pick r236615. rdar://problem/44883290
