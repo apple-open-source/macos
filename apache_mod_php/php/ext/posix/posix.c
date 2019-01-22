@@ -52,6 +52,9 @@
 #if HAVE_SYS_MKDEV_H
 # include <sys/mkdev.h>
 #endif
+#if HAVE_SYS_SYSMACROS_H
+# include <sys/sysmacros.h>
+#endif
 
 ZEND_DECLARE_MODULE_GLOBALS(posix)
 static PHP_MINFO_FUNCTION(posix);
@@ -1074,9 +1077,15 @@ PHP_FUNCTION(posix_getgrnam)
 		RETURN_FALSE;
 	}
 	buf = emalloc(buflen);
+try_again:
 	g = &gbuf;
 
 	if (getgrnam_r(name, g, buf, buflen, &g) || g == NULL) {
+		if (errno == ERANGE) {
+			buflen *= 2;
+			buf = erealloc(buf, buflen);
+			goto try_again;
+		}
 		POSIX_G(last_error) = errno;
 		efree(buf);
 		RETURN_FALSE;

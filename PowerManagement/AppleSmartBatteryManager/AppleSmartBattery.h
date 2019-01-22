@@ -121,6 +121,9 @@ protected:
     void    setFullyCharged(bool);
     bool    fullyCharged(void);
 
+    // Wrapper around IOPMPowerSource::setExternalConnected()
+    void    setExternalConnectedToIOPMPowerSource(bool);
+
     // Time remaining estimate - as measured instantaneously
     void    setInstantaneousTimeToEmpty(int seconds);
 

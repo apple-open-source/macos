@@ -28,6 +28,7 @@
 
 #include "CSSComputedStyleDeclaration.h"
 #include "ContextDestructionObserver.h"
+#include "Cookie.h"
 #include "ExceptionOr.h"
 #include "JSDOMPromiseDeferred.h"
 #include "OrientationNotifier.h"
@@ -657,6 +658,7 @@ public:
     void removeMediaStreamTrack(MediaStream&, MediaStreamTrack&);
     void simulateMediaStreamTrackCaptureSourceFailure(MediaStreamTrack&);
     void setMediaStreamTrackIdentifier(MediaStreamTrack&, String&& id);
+    void setMediaStreamSourceInterrupted(MediaStreamTrack&, bool);
 #endif
 
     String audioSessionCategory() const;
@@ -723,6 +725,40 @@ public:
     size_t pluginCount();
 
     void notifyResourceLoadObserver();
+
+    void setAlwaysAllowLocalWebarchive() const;
+
+    struct CookieData {
+        String name;
+        String value;
+        String domain;
+        // Expiration dates are expressed as milliseconds since the UNIX epoch.
+        double expires { 0 };
+        bool isHttpOnly { false };
+        bool isSecure { false };
+        bool isSession { false };
+        bool isSameSiteLax { false };
+        bool isSameSiteStrict { false };
+
+        CookieData(Cookie cookie)
+            : name(cookie.name)
+            , value(cookie.value)
+            , domain(cookie.domain)
+            , expires(cookie.expires)
+            , isHttpOnly(cookie.httpOnly)
+            , isSecure(cookie.secure)
+            , isSession(cookie.session)
+            , isSameSiteLax(cookie.sameSite == Cookie::SameSitePolicy::Lax)
+            , isSameSiteStrict(cookie.sameSite == Cookie::SameSitePolicy::Strict)
+        {
+            ASSERT(!(isSameSiteLax && isSameSiteStrict));
+        }
+
+        CookieData()
+        {
+        }
+    };
+    Vector<CookieData> getCookies() const;
 
 private:
     explicit Internals(Document&);

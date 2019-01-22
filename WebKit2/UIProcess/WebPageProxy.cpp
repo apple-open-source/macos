@@ -4157,6 +4157,8 @@ void WebPageProxy::unableToImplementPolicy(uint64_t frameID, const ResourceError
     WebFrameProxy* frame = m_process->webFrame(frameID);
     MESSAGE_CHECK(frame);
 
+    if (!m_policyClient)
+        return;
     m_policyClient->unableToImplementPolicy(*this, *frame, error, m_process->transformHandlesToObjects(userData.object()).get());
 }
 
@@ -6281,6 +6283,13 @@ WebPageCreationParameters WebPageProxy::creationParameters()
     m_process->addWebUserContentControllerProxy(m_userContentController, parameters);
 
     return parameters;
+}
+
+bool WebPageProxy::isJITEnabled()
+{
+    bool enabled = false;
+    m_process->connection()->sendSync(Messages::WebProcess::IsJITEnabled(), Messages::WebProcess::IsJITEnabled::Reply(enabled), 0);
+    return enabled;
 }
 
 void WebPageProxy::enterAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)

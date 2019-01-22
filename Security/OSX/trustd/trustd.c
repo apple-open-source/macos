@@ -715,6 +715,8 @@ static void trustd_sandbox(void) {
 
 int main(int argc, char *argv[])
 {
+    DisableLocalization();
+
     char *wait4debugger = getenv("WAIT4DEBUGGER");
     if (wait4debugger && !strcasecmp("YES", wait4debugger)) {
         seccritical("SIGSTOPing self, awaiting debugger");

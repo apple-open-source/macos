@@ -1,3 +1,174 @@
+2018-12-19  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/46848447
+
+    2018-12-19  Brent Fulgham  <bfulgham@apple.com>
+
+            Add ability to configure document.cookie lifetime cap through user defaults
+            https://bugs.webkit.org/show_bug.cgi?id=191480
+            <rdar://problem/45240871>
+
+            Reviewed by Chris Dumez.
+
+            This change makes the capped lifetime in seconds configurable through
+            user defaults.
+
+            * NetworkProcess/NetworkProcess.cpp:
+            (WebKit::NetworkProcess::setAgeCapForClientSideCookies):
+            (WebKit::NetworkProcess::setShouldCapLifetimeForClientSideCookies): Deleted.
+                Renamed setAgeCapForClientSideCookies().
+            * NetworkProcess/NetworkProcess.h:
+            * NetworkProcess/NetworkProcess.messages.in:
+            * UIProcess/Cocoa/ResourceLoadStatisticsMemoryStoreCocoa.mm:
+            (WebKit::ResourceLoadStatisticsMemoryStore::registerUserDefaultsIfNeeded):
+            * UIProcess/Network/NetworkProcessProxy.cpp:
+            (WebKit::NetworkProcessProxy::setAgeCapForClientSideCookies):
+            (WebKit::NetworkProcessProxy::didSetAgeCapForClientSideCookies):
+                Renamed setAgeCapForClientSideCookies().
+            (WebKit::NetworkProcessProxy::setShouldCapLifetimeForClientSideCookies): Deleted.
+            (WebKit::NetworkProcessProxy::didSetShouldCapLifetimeForClientSideCookies): Deleted.
+            * UIProcess/Network/NetworkProcessProxy.h:
+            * UIProcess/Network/NetworkProcessProxy.messages.in:
+            * UIProcess/ResourceLoadStatisticsMemoryStore.cpp:
+            (WebKit::ResourceLoadStatisticsMemoryStore::setAgeCapForClientSideCookies):
+            (WebKit::ResourceLoadStatisticsMemoryStore::updateClientSideCookiesAgeCap):
+            (WebKit::ResourceLoadStatisticsMemoryStore::didCreateNetworkProcess):
+            * UIProcess/ResourceLoadStatisticsMemoryStore.h:
+            * UIProcess/WebResourceLoadStatisticsStore.cpp:
+            (WebKit::WebResourceLoadStatisticsStore::didCreateNetworkProcess):
+            * UIProcess/WebResourceLoadStatisticsStore.h:
+            * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+            (WebKit::WebsiteDataStore::setAgeCapForClientSideCookies):
+            (WebKit::WebsiteDataStore::setShouldCapLifetimeForClientSideCookies): Deleted.
+                Renamed setAgeCapForClientSideCookies().
+            * UIProcess/WebsiteData/WebsiteDataStore.h:
+
+2018-12-19  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/46848447
+
+    2018-12-19  Brent Fulgham  <bfulgham@apple.com>
+
+            Only cap lifetime of persistent cookies created client-side through document.cookie when resource load statistics is enabled
+            https://bugs.webkit.org/show_bug.cgi?id=190687
+            <rdar://problem/45349024>
+
+            This patch adds the following:=
+            * The WebProcessPool now tells the WebsiteDataStore when a network process has
+            been created.
+            * The WebsiteDataStore in turn tells the WebResourceLoadStatisticsStore when
+            a network process has been created.
+            * The WebResourceLoadStatisticsStore makes sure to update the network processes
+            with its cookie policy when it's notified that a network process has been
+            created.
+
+            In addition, this patch changes the following:
+
+            * Removes WebsiteDataStore::networkProcessDidCrash() and
+            WebResourceLoadStatisticsStore::scheduleCookieBlockingStateReset() since
+            the call site---WebProcessPool::ensureNetworkProcess()---now calls
+            WebsiteDataStore::didCreateNetworkProcess() after a network process
+            crash and the state sync for cookie blocking is triggered.
+
+            * NetworkProcess/NetworkProcess.cpp:
+            (WebKit::NetworkProcess::setShouldCapLifetimeForClientSideCookies):
+            * NetworkProcess/NetworkProcess.h:
+            * NetworkProcess/NetworkProcess.messages.in:
+            * UIProcess/Network/NetworkProcessProxy.cpp:
+            (WebKit::NetworkProcessProxy::setShouldCapLifetimeForClientSideCookies):
+            (WebKit::NetworkProcessProxy::didSetShouldCapLifetimeForClientSideCookies):
+            * UIProcess/Network/NetworkProcessProxy.h:
+            * UIProcess/Network/NetworkProcessProxy.messages.in:
+            * UIProcess/WebProcessPool.cpp:
+            (WebKit::WebProcessPool::ensureNetworkProcess):
+            * UIProcess/WebResourceLoadStatisticsStore.cpp:
+            (WebKit::WebResourceLoadStatisticsStore::didCreateNetworkProcess):
+            * UIProcess/WebResourceLoadStatisticsStore.h:
+            * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+            (WebKit::WebsiteDataStore::setShouldCapLifetimeForClientSideCookies):
+            (WebKit::WebsiteDataStore::didCreateNetworkProcess):
+            (WebKit::WebsiteDataStore::networkProcessDidCrash): Deleted.
+            * UIProcess/WebsiteData/WebsiteDataStore.h:
+
+2018-12-05  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/45997392
+
+    2018-12-05  Jiewen Tan  <jiewen_tan@apple.com>
+
+            Disallow loading webarchives as iframes
+            https://bugs.webkit.org/show_bug.cgi?id=191728
+            <rdar://problem/45524528>
+
+            Reviewed by Youenn Fablet.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::unableToImplementPolicy):
+            Add a check to prevent null pointer dereference.
+
+2018-12-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r238799. rdar://problem/46432866
+
+    [Cocoa] Check descriptor types in createMessageDecoder
+    https://bugs.webkit.org/show_bug.cgi?id=192302
+    
+    Reviewed by Chris Dumez.
+    
+    Not sure how to construct a test case for Connection, so not adding any
+    tests at this time.
+    
+    * Platform/IPC/mac/ConnectionMac.mm:
+    (IPC::createMessageDecoder): Check descriptor types and return nullptr if they
+    are incorrect. Retained the assertions to help with debugging.
+    (IPC::Connection::receiveSourceEventHandler): Ignore the message if no decoder
+    is created, which means the message is invalid.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@238799 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2018-12-03  Darin Adler  <darin@apple.com>
+
+            [Cocoa] Check descriptor types in createMessageDecoder
+            https://bugs.webkit.org/show_bug.cgi?id=192302
+
+            Reviewed by Chris Dumez.
+
+            Not sure how to construct a test case for Connection, so not adding any
+            tests at this time.
+
+            * Platform/IPC/mac/ConnectionMac.mm:
+            (IPC::createMessageDecoder): Check descriptor types and return nullptr if they
+            are incorrect. Retained the assertions to help with debugging.
+            (IPC::Connection::receiveSourceEventHandler): Ignore the message if no decoder
+            is created, which means the message is invalid.
+
+2018-11-27  Alex Christensen  <achristensen@webkit.org>
+
+        Build fix after r238572
+        <rdar://problem/46259202>
+
+        * Shared/EntryPointUtilities/mac/XPCService/XPCServiceEntryPoint.h:
+        (WebKit::XPCServiceInitializer):
+        JSC::ExecutableAllocator is protected by ENABLE(ASSEMBLER).
+        When there is no assembler, there is no JIT to disable.
+
+2018-11-13  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/45996792
+
+    2018-11-13  John Wilander  <wilander@apple.com>
+
+            Override the session configuration for cookieAcceptPolicy
+            https://bugs.webkit.org/show_bug.cgi?id=190925
+            <rdar://problem/45497382>
+
+            Reviewed by Alex Christensen.
+
+            * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
+            (WebKit::NetworkSessionCocoa::NetworkSessionCocoa):
+                Sets the _overrideSessionCookieAcceptPolicy property to YES
+                if the application is Safari.
+
 2018-10-29  Kocsen Chung  <kocsen_chung@apple.com>
 
         Apply patch. rdar://problem/45363479
@@ -92,23 +263,6 @@
             * UIProcess/API/Cocoa/WKWebsiteDataStorePrivate.h:
             * UIProcess/Network/NetworkProcessProxy.cpp:
             (WebKit::NetworkProcessProxy::retrieveCacheStorageParameters):
-
-2018-10-28  Babak Shafiei  <bshafiei@apple.com>
-
-        Apply patch. rdar://problem/45523764
-
-    2018-10-28  John Wilander  <wilander@apple.com>
-
-            Override the session configuration for cookieAcceptPolicy
-            https://bugs.webkit.org/show_bug.cgi?id=190925
-            <rdar://problem/45497382>
-
-            Reviewed by Alex Christensen.
-
-            * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
-            (WebKit::NetworkSessionCocoa::NetworkSessionCocoa):
-                Sets the _overrideSessionCookieAcceptPolicy property to YES
-                If the application is Safari.
 
 2018-10-28  Babak Shafiei  <bshafiei@apple.com>
 

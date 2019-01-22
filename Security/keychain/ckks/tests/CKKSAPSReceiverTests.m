@@ -166,7 +166,7 @@
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
 
-- (void)testReceiveNullNotificationIfRegisteredAfterDelivery {
+- (void)testReceiveNotificationIfRegisteredAfterDelivery {
     CKKSAPSReceiver* apsr = [[CKKSAPSReceiver alloc] initWithEnvironmentName:@"testenvironment"
                                                            namedDelegatePort:SecCKKSAPSNamedPort
                                                           apsConnectionClass:[FakeAPSConnection class]];
@@ -180,7 +180,7 @@
     CKKSAPSNotificationReceiver* anr = [[CKKSAPSNotificationReceiver alloc] initWithExpectation:[self expectationWithDescription:@"receive notification"]
                                                                                           block:
                                         ^(CKRecordZoneNotification* notification) {
-                                            XCTAssertNil(notification, "Should not have received a notification, since we weren't alive to receive it");
+                                            XCTAssertNotNil(notification, "Should have received a (stored) notification");
                                         }];
 
     CKKSCondition* registered = [apsr registerReceiver:anr forZoneID:self.testZoneID];

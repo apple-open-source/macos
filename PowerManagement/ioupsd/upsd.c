@@ -57,6 +57,7 @@
 
 #include <IOKit/ps/IOUPSPlugIn.h>
 #include "IOUPSPrivate.h"
+#include <AssertMacros.h>
 
 #define kDefaultUPSName		"Generic UPS"
 #define kDefaultTransport   "UNK"
@@ -94,6 +95,7 @@ typedef struct UPSData {
     Boolean                 requiresChargeCurrentUpdates;
     CFRunLoopTimerRef       chargeCurrentUpdateTimer;
     Boolean                 hasACPower;
+    UInt32                  adapterFamily;
     io_object_t             batteryStateNotification;
     io_object_t             currentLimitNotification;
     io_object_t             requiredVoltageNotification;
@@ -116,6 +118,7 @@ static void RemoveAndReleasePowerManagerUPSEntry(UPSDataRef upsDataRef);
 static void UPSEventCallback(void * target, IOReturn result, void *refcon,
                              void *sender, CFDictionaryRef event);
 static void ProcessUPSEvent(UPSDataRef upsDataRef, CFDictionaryRef event);
+static void BatteryCaseHandleAdapterFamilyChange(UPSDataRef upsDataRef, CFTypeRef adapterFamily);
 static void BatteryCaseHandleACStateChange(UPSDataRef upsDataRef, CFTypeRef powerState);
 static UPSDataRef GetPrivateData( CFDictionaryRef properties );
 static IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
@@ -172,6 +175,9 @@ void CleanupAndExit(void) {
         IOObjectRelease(gAddedIter);
         gAddedIter = 0;
     }
+    IOReturn disconnected = kIOPSFamilyCodeDisconnected;
+    CFNumberRef disconnectedFamilyRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &disconnected);
+    BatteryCaseHandleAdapterFamilyChange(NULL, disconnectedFamilyRef);
     exit(0);
 }
 
@@ -635,7 +641,12 @@ void RemoveAndReleasePowerManagerUPSEntry(UPSDataRef upsDataRef) {
         return;
     
     upsDataRef->isPresent = FALSE;
-    
+
+    if (upsDataRef->deviceType == kDeviceTypeBatteryCase) {
+        IOReturn disconnected = kIOPSFamilyCodeDisconnected;
+        CFNumberRef disconnectedFamilyRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &disconnected);
+        BatteryCaseHandleAdapterFamilyChange(upsDataRef, disconnectedFamilyRef);
+    }
     
     if (upsDataRef->upsEventSource) {
         CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
@@ -739,7 +750,13 @@ void ProcessUPSEvent(UPSDataRef upsDataRef, CFDictionaryRef event)
         for (index = 0; index < count; index++) {
             // If a battery case changes from "unplugged" to "plugged in",
             // or vice versa, we need to configure it.
-            if (CFEqual(keys[index], CFSTR(kIOPSPowerSourceStateKey)) &&
+            if (CFEqual(keys[index], CFSTR(kIOPSPowerAdapterFamilyKey)) &&
+                upsDataRef->deviceType == kDeviceTypeBatteryCase) {
+                CFTypeRef oldValue = CFDictionaryGetValue(upsDataRef->upsStoreDict, keys[index]);
+                if (oldValue == NULL || !CFEqual(oldValue, values[index])) {
+                    BatteryCaseHandleAdapterFamilyChange(upsDataRef, values[index]);
+                }
+            } else if (CFEqual(keys[index], CFSTR(kIOPSPowerSourceStateKey)) &&
                 upsDataRef->deviceType == kDeviceTypeBatteryCase) {
                 CFTypeRef oldValue = CFDictionaryGetValue(upsDataRef->upsStoreDict, keys[index]);
                 if (oldValue && !CFEqual(oldValue, values[index])) {
@@ -819,6 +836,10 @@ void BatteryCaseRequiredVoltageChangeCallback(void *refcon, io_service_t service
 // Timer callback to copy the average charging current since the last poll.
 //---------------------------------------------------------------------------
 void BatteryCasePollAverageChargeCurrentCallback(CFRunLoopTimerRef timer __unused, void *refcon) {
+    // NOOP on OS X
+}
+
+void BatteryCaseHandleAdapterFamilyChange(UPSDataRef upsDataRef, CFTypeRef adapterFamilyRef) {
     // NOOP on OS X
 }
 

@@ -38,6 +38,7 @@
 #include "WebsiteDataFetchOption.h"
 #include "WebsiteDataStore.h"
 #include <WebCore/ResourceLoadStatistics.h>
+#include <wtf/CallbackAggregator.h>
 #include <wtf/CrossThreadCopier.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/threads/BinarySemaphore.h>
@@ -315,6 +316,17 @@ void WebResourceLoadStatisticsStore::callGrantStorageAccessHandler(const String&
     }
 #endif
     callback(false);
+}
+
+void WebResourceLoadStatisticsStore::didCreateNetworkProcess()
+{
+    ASSERT(RunLoop::isMain());
+
+    postTask([this] {
+        if (!m_memoryStore)
+            return;
+        m_memoryStore->didCreateNetworkProcess();
+    });
 }
 
 void WebResourceLoadStatisticsStore::removeAllStorageAccess()

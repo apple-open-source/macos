@@ -74,4 +74,14 @@ void NetworkStorageSession::permitProcessToUseCookieAPI(bool value)
         removeProcessPrivilege(ProcessPrivilege::CanAccessRawCookies);
 }
 
+void NetworkStorageSession::setAgeCapForClientSideCookies(std::optional<Seconds> seconds)
+{
+    m_ageCapForClientSideCookies = seconds;
+}
+
+std::optional<Seconds> NetworkStorageSession::ageCapForClientSideCookies() const
+{
+    return m_ageCapForClientSideCookies;
+}
+
 }

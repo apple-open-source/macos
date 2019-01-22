@@ -906,12 +906,14 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
             }
 
             fACConnected = new_ac_connected;
-            setExternalConnected(fACConnected);
+            setExternalConnectedToIOPMPowerSource(fACConnected);
+
             setExternalChargeCapable((val & kMPowerNotGoodBit) ? false:true);
 
         } else {
             fACConnected = false;
-            setExternalConnected(true);
+            setExternalConnectedToIOPMPowerSource(true);
+
             setExternalChargeCapable(false);
         }
         break;
@@ -1294,4 +1296,8 @@ bool AppleSmartBattery::fullyCharged(void)
     return (kOSBooleanTrue == properties->getObject(_FullyChargedSym));
 }
 
+void AppleSmartBattery::setExternalConnectedToIOPMPowerSource(bool externalConnected)
+{
+    setExternalConnected(externalConnected);
+}
 

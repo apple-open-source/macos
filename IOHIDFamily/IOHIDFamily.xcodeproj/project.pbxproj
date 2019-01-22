@@ -183,6 +183,7 @@
 				D83B3DE11FB2409C00DB1962 /* CopyFiles */,
 			);
 			dependencies = (
+				6604B03721B1F0BE00904AB6 /* PBXTargetDependency */,
 				D87D264A204CF489000229C1 /* PBXTargetDependency */,
 				D84FDBDD1FBE8EF000796A00 /* PBXTargetDependency */,
 			);
@@ -345,6 +346,9 @@
 		48F282311CE29D6600AA8798 /* IOHIDProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48F2822A1CE2986300AA8798 /* IOHIDProperties.h */; };
 		48F282321CE29D9D00AA8798 /* IOHIDProperties.h in Headers */ = {isa = PBXBuildFile; fileRef = 48F2822A1CE2986300AA8798 /* IOHIDProperties.h */; };
 		48F282331CE2A3B300AA8798 /* IOHIDProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48F2822A1CE2986300AA8798 /* IOHIDProperties.h */; };
+		6604B02A21B1EF8300904AB6 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98AC786B1AB35A3B00F61533 /* IOKit.framework */; };
+		6604B02B21B1EF8300904AB6 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98B9F0531AB00DBB003B3C24 /* Foundation.framework */; };
+		6604B03521B1F0AD00904AB6 /* IOHIDT8027USBSessionFilter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6604B03421B1F0AD00904AB6 /* IOHIDT8027USBSessionFilter.cpp */; };
 		6C1F23001F33991B006EE813 /* HIDEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C1F22FF1F33991B006EE813 /* HIDEvent.m */; };
 		6C6A3456206D67F4008B3FDF /* AppleKeyboardStateManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C6A3453206D67EB008B3FDF /* AppleKeyboardStateManager.m */; };
 		6C6A3457206D67F9008B3FDF /* AppleKeyboardStateManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C6A3453206D67EB008B3FDF /* AppleKeyboardStateManager.m */; };
@@ -1036,6 +1040,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 48EB79B01F327DEC0027CB69;
 			remoteInfo = "hidutil-internal";
+		};
+		6604B03621B1F0BE00904AB6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6604B02321B1EF8300904AB6;
+			remoteInfo = IOHIDT8027USBSessionFilter;
 		};
 		6614EFED1CEA784400076F0B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -2052,6 +2063,10 @@
 		583C4D890309B2BA04CA2A11 /* Cosmo_USB2ADB.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = Cosmo_USB2ADB.c; sourceTree = "<group>"; };
 		58DBF979020875DE04CA2A11 /* IOHIDPointing.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDPointing.cpp; sourceTree = "<group>"; };
 		58DBF97A020875DE04CA2A11 /* IOHIDPointing.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDPointing.h; sourceTree = "<group>"; };
+		6604B03121B1EF8300904AB6 /* IOHIDT8027USBSessionFilter.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDT8027USBSessionFilter.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		6604B03221B1EF8300904AB6 /* IOHIDT8027USBSessionFilter-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "IOHIDT8027USBSessionFilter-Info.plist"; path = "/Users/pdoerr/Projects/IOHIDFamily/IOHIDT8027USBSessionFilter-Info.plist"; sourceTree = "<absolute>"; };
+		6604B03321B1F0AD00904AB6 /* IOHIDT8027USBSessionFilter.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = IOHIDT8027USBSessionFilter.hpp; sourceTree = "<group>"; };
+		6604B03421B1F0AD00904AB6 /* IOHIDT8027USBSessionFilter.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDT8027USBSessionFilter.cpp; sourceTree = "<group>"; };
 		6654082C20572B7D00689D0B /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		6C1F22FE1F33991B006EE813 /* HIDEvent.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDEvent.h; sourceTree = "<group>"; };
 		6C1F22FF1F33991B006EE813 /* HIDEvent.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDEvent.m; sourceTree = "<group>"; };
@@ -2560,6 +2575,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6604B02821B1EF8300904AB6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6604B02A21B1EF8300904AB6 /* IOKit.framework in Frameworks */,
+				6604B02B21B1EF8300904AB6 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7230D1802086593D00DCA4FB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -2963,6 +2987,7 @@
 				D8D2DBEA20356DC400AD0C04 /* InstallHeaders-rtkit */,
 				D87D263A204CE739000229C1 /* IOHIDRemoteSensorSessionFilter.plugin */,
 				7230D1832086593D00DCA4FB /* IOHIDTestConnectionFilter.plugin */,
+				6604B03121B1EF8300904AB6 /* IOHIDT8027USBSessionFilter.plugin */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2975,6 +3000,16 @@
 				48516CBE1D637D9E001A629B /* IOHIDDFREventFilter.hpp */,
 			);
 			name = IOHIDDFREventFilter;
+			sourceTree = "<group>";
+		};
+		6604B02221B1EEF000904AB6 /* IOHIDT8027USBSessionFilter */ = {
+			isa = PBXGroup;
+			children = (
+				6604B03221B1EF8300904AB6 /* IOHIDT8027USBSessionFilter-Info.plist */,
+				6604B03321B1F0AD00904AB6 /* IOHIDT8027USBSessionFilter.hpp */,
+				6604B03421B1F0AD00904AB6 /* IOHIDT8027USBSessionFilter.cpp */,
+			);
+			name = IOHIDT8027USBSessionFilter;
 			sourceTree = "<group>";
 		};
 		7230D1842086593D00DCA4FB /* IOHIDTestConnectionFilter */ = {
@@ -2990,6 +3025,7 @@
 		8416F41B174BD88F000D1277 /* IOHIDEventSystemPlugIns */ = {
 			isa = PBXGroup;
 			children = (
+				6604B02221B1EEF000904AB6 /* IOHIDT8027USBSessionFilter */,
 				D87D2641204CE7C8000229C1 /* IOHIDRemoteSensorSessionFilter */,
 				48516CBC1D637D3B001A629B /* IOHIDDFREventFilter */,
 				982748361C4F885F00582ECC /* IOHIDEventProcessorFilter */,
@@ -4196,6 +4232,23 @@
 			productReference = 48EB79C21F327DEC0027CB69 /* hidutil */;
 			productType = "com.apple.product-type.tool";
 		};
+		6604B02321B1EF8300904AB6 /* IOHIDT8027USBSessionFilter */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6604B02D21B1EF8300904AB6 /* Build configuration list for PBXNativeTarget "IOHIDT8027USBSessionFilter" */;
+			buildPhases = (
+				6604B02621B1EF8300904AB6 /* Sources */,
+				6604B02821B1EF8300904AB6 /* Frameworks */,
+				6604B02C21B1EF8300904AB6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOHIDT8027USBSessionFilter;
+			productName = IOHIDAccessibilityFilter;
+			productReference = 6604B03121B1EF8300904AB6 /* IOHIDT8027USBSessionFilter.plugin */;
+			productType = "com.apple.product-type.bundle";
+		};
 		7230D1822086593D00DCA4FB /* IOHIDTestConnectionFilter */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7230D1892086593E00DCA4FB /* Build configuration list for PBXNativeTarget "IOHIDTestConnectionFilter" */;
@@ -5105,12 +5158,20 @@
 				D8D2DB8F20356DC400AD0C04 /* InstallHeaders-rtkit */,
 				D87D2639204CE739000229C1 /* IOHIDRemoteSensorSessionFilter */,
 				7230D1822086593D00DCA4FB /* IOHIDTestConnectionFilter */,
+				6604B02321B1EF8300904AB6 /* IOHIDT8027USBSessionFilter */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		48516CC11D637E2D001A629B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6604B02C21B1EF8300904AB6 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -5456,6 +5517,14 @@
 				48EB79B51F327DEC0027CB69 /* utility.m in Sources */,
 				48EB79CC1F3288480027CB69 /* monitor.m in Sources */,
 				6CC644A01F43D00C0041D7E6 /* report.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6604B02621B1EF8300904AB6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6604B03521B1F0AD00904AB6 /* IOHIDT8027USBSessionFilter.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5967,6 +6036,11 @@
 			isa = PBXTargetDependency;
 			target = 48EB79B01F327DEC0027CB69 /* hidutil-internal */;
 			targetProxy = 48EB79C81F327EC00027CB69 /* PBXContainerItemProxy */;
+		};
+		6604B03721B1F0BE00904AB6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6604B02321B1EF8300904AB6 /* IOHIDT8027USBSessionFilter */;
+			targetProxy = 6604B03621B1F0BE00904AB6 /* PBXContainerItemProxy */;
 		};
 		6614EFEE1CEA784400076F0B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -6623,6 +6697,150 @@
 			};
 			name = Deployment;
 		};
+		6604B02E21B1EF8300904AB6 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "IOHIDT8027USBSessionFilter-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/HIDPlugins";
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = "$(inherited)";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.iokit.hid.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Development;
+		};
+		6604B02F21B1EF8300904AB6 /* Development-CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "IOHIDT8027USBSessionFilter-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/HIDPlugins";
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = "$(inherited)";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.iokit.hid.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = "Development-CodeCoverage";
+		};
+		6604B03021B1EF8300904AB6 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "IOHIDT8027USBSessionFilter-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/HIDPlugins";
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = "$(inherited)";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.iokit.hid.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				VALIDATE_PRODUCT = YES;
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Deployment;
+		};
 		7230D1862086593E00DCA4FB /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -6894,6 +7112,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -6940,6 +7159,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -10266,6 +10486,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -12044,6 +12265,16 @@
 				48EB79BC1F327DEC0027CB69 /* Development */,
 				48EB79BD1F327DEC0027CB69 /* Development-CodeCoverage */,
 				48EB79C01F327DEC0027CB69 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		6604B02D21B1EF8300904AB6 /* Build configuration list for PBXNativeTarget "IOHIDT8027USBSessionFilter" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6604B02E21B1EF8300904AB6 /* Development */,
+				6604B02F21B1EF8300904AB6 /* Development-CodeCoverage */,
+				6604B03021B1EF8300904AB6 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

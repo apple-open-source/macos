@@ -74,10 +74,13 @@ pthread_rwlock_t rddir_cache_lock;		/* readdir cache lock */
 struct rddir_cache *rddir_head;		/* readdir cache head */
 
 int
-do_readdir(autofs_pathname rda_map, off_t rda_offset,
-    uint32_t rda_count, off_t *rddir_offset,
-    boolean_t *rddir_eof, byte_buffer *rddir_entries,
-    mach_msg_type_number_t *rddir_entriesCnt)
+do_readdir(autofs_pathname rda_map,
+	   off_t rda_offset,
+	   uint32_t rda_count,
+	   off_t *rddir_offset,
+	   boolean_t *rddir_eof,
+	   byte_buffer *rddir_entries,
+	   mach_msg_type_number_t *rddir_entriesCnt)
 {
 	struct dir_entry *list = NULL, *l, *bucket;
 	struct rddir_cache *rdcp = NULL;

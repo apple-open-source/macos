@@ -3130,8 +3130,10 @@ ZEND_METHOD(reflection_method, __construct)
 	switch (Z_TYPE_P(classname)) {
 		case IS_STRING:
 			if ((ce = zend_lookup_class(Z_STR_P(classname))) == NULL) {
-				zend_throw_exception_ex(reflection_exception_ptr, 0,
-						"Class %s does not exist", Z_STRVAL_P(classname));
+				if (!EG(exception)) {
+					zend_throw_exception_ex(reflection_exception_ptr, 0,
+							"Class %s does not exist", Z_STRVAL_P(classname));
+				}
 				if (classname == &ztmp) {
 					zval_dtor(&ztmp);
 				}
@@ -4617,7 +4619,7 @@ ZEND_METHOD(reflection_class, getConstants)
 	ZEND_HASH_FOREACH_STR_KEY_PTR(&ce->constants_table, key, c) {
 		if (UNEXPECTED(zval_update_constant_ex(&c->value, ce) != SUCCESS)) {
 			zend_array_destroy(Z_ARRVAL_P(return_value));
-			return;
+			RETURN_NULL();
 		}
 		val = zend_hash_add_new(Z_ARRVAL_P(return_value), key, &c->value);
 		Z_TRY_ADDREF_P(val);
@@ -5645,7 +5647,7 @@ ZEND_METHOD(reflection_property, getValue)
 			return;
 		}
 
-		if (!instanceof_function(Z_OBJCE_P(object), ref->ce)) {
+		if (!instanceof_function(Z_OBJCE_P(object), ref->prop.ce)) {
 			_DO_THROW("Given object is not an instance of the class this property was declared in");
 			/* Returns from this function */
 		}

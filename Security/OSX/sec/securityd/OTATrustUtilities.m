@@ -65,6 +65,7 @@
 
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 #import <MobileKeyBag/MobileKeyBag.h>
+#include <System/sys/content_protection.h>
 #endif
 
 #if TARGET_OS_OSX
@@ -437,6 +438,27 @@ static BOOL DeleteAssetFromDisk(void) {
     return NO;
 }
 
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+static bool ChangeFileProtectionToClassD(NSURL *fileURL, NSError **error) {
+    BOOL result = YES;
+    int file_fd = open([fileURL fileSystemRepresentation], O_RDONLY);
+    if (file_fd) {
+        int retval = fcntl(file_fd, F_SETPROTECTIONCLASS, PROTECTION_CLASS_D);
+        if (retval < 0) {
+            MakeOTATrustError(error, OTATrustLogLevelError, NSPOSIXErrorDomain, errno,
+                              @"set proteciton class error for asset %d: %s", errno, strerror(errno));
+            result = NO;
+        }
+        close(file_fd);
+    } else {
+        MakeOTATrustError(error, OTATrustLogLevelError, NSPOSIXErrorDomain, errno,
+                          @"open error for asset %d: %s", errno, strerror(errno));
+        result = NO;
+    }
+    return result;
+}
+#endif
+
 static BOOL CopyFileToDisk(NSString *filename, NSURL *localURL, NSError **error) {
     if (SecOTAPKIIsSystemTrustd()) {
         NSURL *toFileURL = GetAssetFileURL(filename);
@@ -450,7 +472,12 @@ static BOOL CopyFileToDisk(NSString *filename, NSURL *localURL, NSError **error)
                               @"copyfile error for asset %d: %s", errno, strerror(errno));
             return NO;
         } else {
+            /* make sure we can read this file before first unlock */
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+            return ChangeFileProtectionToClassD(toFileURL, error);
+#else
             return YES;
+#endif
         }
     }
     return NO;

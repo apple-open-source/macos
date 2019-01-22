@@ -753,7 +753,7 @@ static bool processEvents()
 
 	CFErrorRef			error			 = NULL;
 	CFErrorRef			departError		 = NULL;
-	SOSCCStatus			circleStatus	 = SOSCCThisDeviceIsInCircleNonCached(&error);
+	SOSCCStatus			circleStatus	 = SOSCCThisDeviceIsInCircle(&error);
     enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&departError);
 
     // Error due to XPC failure does not provide information about the circle.
@@ -782,28 +782,29 @@ static bool processEvents()
 	}
     
     PSKeychainSyncIsUsingICDP();
-
-    // Refresh because sometimes we're fixed elsewhere before we get here.
-    CFReleaseNull(error);
-    circleStatus = SOSCCThisDeviceIsInCircleNonCached(&error);
-
+    
     if(_isAccountICDP){
         if((circleStatus == kSOSCCError || circleStatus == kSOSCCCircleAbsent || circleStatus == kSOSCCNotInCircle) && _hasPostedFollowupAndStillInError == false) {
-            if(circleStatus == kSOSCCError) {
-                secnotice("cjr", "error from SOSCCThisDeviceIsInCircle: %@", error);
-            }
+            secnotice("cjr", "error from SOSCCThisDeviceIsInCircle: %@", error);
             secnotice("cjr", "iCDP: We need to get back into the circle");
             doOnceInMain(^{
-                NSError *localError = nil;
-                CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
-                CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
-                [cdpd postFollowUpWithContext:context error:&localError ];
-                if(localError){
-                    secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
+                if(_isAccountICDP){
+                    NSError *localError = nil;
+                    CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
+                    CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+                    [cdpd postFollowUpWithContext:context error:&localError ];
+                    if(localError){
+                        secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
+                    }
+                    else{
+                        secnotice("cjr", "CoreCDP handling follow up");
+                        _hasPostedFollowupAndStillInError = true;
+                    }
                 }
                 else{
-                    secnotice("cjr", "CoreCDP handling follow up");
-                    _hasPostedFollowupAndStillInError = true;
+                    postKickedOutAlert(kSOSPasswordChanged);
+                    state.lastCircleStatus = kSOSCCError;
+                    [state writeToStorage];
                 }
             });
             state.lastCircleStatus = circleStatus;
@@ -820,7 +821,9 @@ static bool processEvents()
             _executeProcessEventsOnce = true;
             return false;
         }
-    } else if(circleStatus == kSOSCCError && state.lastCircleStatus != kSOSCCError && (departureReason == kSOSNeverLeftCircle)) {
+    }
+    else if(circleStatus == kSOSCCError && state.lastCircleStatus != kSOSCCError && (departureReason == kSOSNeverLeftCircle)
+            && !_isAccountICDP) {
         secnotice("cjr", "SA: error from SOSCCThisDeviceIsInCircle: %@", error);
         CFIndex errorCode = CFErrorGetCode(error);
         if(errorCode == kSOSErrorPublicKeyAbsent){

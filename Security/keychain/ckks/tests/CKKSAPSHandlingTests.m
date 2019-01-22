@@ -87,6 +87,19 @@
     [super tearDown];
 }
 
++ (APSIncomingMessage*)messageWithTracingEnabledForZoneID:(CKRecordZoneID*)zoneID {
+    APSIncomingMessage* apsMessage = [CKKSAPSReceiverTests messageForZoneID:zoneID];
+    NSUUID* nsuuid = [NSUUID UUID];
+    uuid_t uuid = {0};
+    [nsuuid getUUIDBytes:(unsigned char*)&uuid];
+    NSData* uuidData = [NSData dataWithBytes:&uuid length:sizeof(uuid)];
+
+    apsMessage.tracingUUID = uuidData;
+    apsMessage.tracingEnabled = YES;
+
+    return apsMessage;
+}
+
 - (void)testSendPushMetricUponRequest {
     for(CKRecordZoneID* zoneID in self.ckksZones) {
         [self putFakeKeyHierarchyInCloudKit:zoneID];
@@ -127,14 +140,7 @@
     [manateeProcessTimeoutOp addSuccessDependency:manateeProcessOp];
     [self.operationQueue addOperation:manateeProcessTimeoutOp];
 
-    APSIncomingMessage* apsMessage = [CKKSAPSReceiverTests messageForZoneID:self.keychainZoneID];
-    NSUUID* nsuuid = [NSUUID UUID];
-    uuid_t uuid = {0};
-    [nsuuid getUUIDBytes:(unsigned char*)&uuid];
-    NSData* uuidData = [NSData dataWithBytes:&uuid length:sizeof(uuid)];
-
-    apsMessage.tracingUUID = uuidData;
-    apsMessage.tracingEnabled = YES;
+    APSIncomingMessage* apsMessage = [CKKSAPSHandlingTests messageWithTracingEnabledForZoneID:self.keychainZoneID];
 
     // Inject a message at the APS layer
     // Because we can only make APS receivers once iCloud tells us the push environment after sign-in, we can't use our normal injection strategy, and fell back on global state.
@@ -197,13 +203,8 @@
     [keychainProcessTimeoutOp addSuccessDependency:keychainProcessOp];
     [self.operationQueue addOperation:keychainProcessTimeoutOp];
 
-    APSIncomingMessage* apsMessage = [CKKSAPSReceiverTests messageForZoneID:self.keychainZoneID];
-    NSUUID* nsuuid = [NSUUID UUID];
-    uuid_t uuid = {0};
-    [nsuuid getUUIDBytes:(unsigned char*)&uuid];
-    NSData* uuidData = [NSData dataWithBytes:&uuid length:sizeof(uuid)];
-
-    apsMessage.tracingUUID = uuidData;
+    // Create a push that matchs all push tracing patterns except for the enabled flag
+    APSIncomingMessage* apsMessage = [CKKSAPSHandlingTests messageWithTracingEnabledForZoneID:self.keychainZoneID];
     apsMessage.tracingEnabled = NO;
 
     // Inject a message at the APS layer
@@ -229,6 +230,50 @@
     XCTAssertNil(keychainProcessTimeoutOp.error, "Shouldn't have been any error processing incoming queue (keychain)");
 
     [self findGenericPassword:@"keychain-view" expecting:errSecSuccess];
+}
+
+- (void)testSendPushMetricEvenIfPushArrivesEarly {
+    CKRecordZoneID* pushTestZone = [[CKRecordZoneID alloc] initWithZoneName:@"PushTestZone" ownerName:CKCurrentUserDefaultName];
+    [self.ckksZones addObject:pushTestZone];
+    self.zones[pushTestZone] = [[FakeCKZone alloc] initZone: pushTestZone];
+
+    for(CKRecordZoneID* zoneID in self.ckksZones) {
+        [self putFakeKeyHierarchyInCloudKit:zoneID];
+        [self saveTLKMaterialToKeychain:zoneID];
+        [self expectCKKSTLKSelfShareUpload:zoneID];
+    }
+
+    // The push wakes securityd, so it happens before pushTestZone is created locally
+    // Send 2, just to test our infrastructure
+    APSIncomingMessage* apsMessage = [CKKSAPSHandlingTests messageWithTracingEnabledForZoneID:pushTestZone];
+    APSIncomingMessage* apsMessage2 = [CKKSAPSHandlingTests messageWithTracingEnabledForZoneID:pushTestZone];
+
+    // Inject a message at the APS layer
+    // Because we can only make APS receivers once iCloud tells us the push environment after sign-in, we can't use our normal injection strategy, and fell back on global state.
+    CKKSAPSReceiver* apsReceiver = [CKKSAPSReceiver receiverForEnvironment:self.apsEnvironment
+                                                               namedDelegatePort:SecCKKSAPSNamedPort
+                                                              apsConnectionClass:[FakeAPSConnection class]];
+    XCTAssertNotNil(apsReceiver, "Should have gotten an APS receiver");
+
+    [apsReceiver connection:nil didReceiveIncomingMessage:apsMessage];
+    [apsReceiver connection:nil didReceiveIncomingMessage:apsMessage2];
+
+    // Expect four metric pushes, two per push: one from receiving the push and one from after we finish the fetch
+    // AFAICT there's no way to introspect a metric object to ensure we did it right
+    OCMExpect([self.mockContainerExpectations submitEventMetric:[OCMArg any]]);
+    OCMExpect([self.mockContainerExpectations submitEventMetric:[OCMArg any]]);
+    OCMExpect([self.mockContainerExpectations submitEventMetric:[OCMArg any]]);
+    OCMExpect([self.mockContainerExpectations submitEventMetric:[OCMArg any]]);
+
+    // Launch!
+    [self.injectedManager findOrCreateView:pushTestZone.zoneName];
+
+    [self startCKKSSubsystem];
+
+    for(CKKSKeychainView* view in self.ckksViews) {
+        XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should enter 'ready' for view %@", view);
+    }
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 @end

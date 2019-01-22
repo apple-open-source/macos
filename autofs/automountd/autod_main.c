@@ -620,49 +620,81 @@ wait_for_flush_indication_thread(__unused void *arg)
 }
 
 kern_return_t
-autofs_readdir(__unused mach_port_t server, autofs_pathname rda_map,
-    int64_t rda_offset, uint32_t rda_count, int *status, int64_t *rddir_offset,
-    boolean_t *rddir_eof, byte_buffer *rddir_entries,
-    mach_msg_type_number_t *rddir_entriesCnt, security_token_t token)
+autofs_readdir(__unused mach_port_t server,
+	       autofs_pathname rda_map,				/* IN */
+	       int64_t rda_offset,				/* IN */
+	       uint32_t rda_count,				/* IN */
+	       int *status,					/* OUT */
+	       int64_t *rddir_offset,				/* OUT */
+	       boolean_t *rddir_eof,				/* OUT */
+	       byte_buffer *rddir_entries,			/* OUT */
+	       mach_msg_type_number_t *rddir_entriesCnt,	/* OUT */
+	       security_token_t token)
 {
+	/* Sanitize our OUT parameters */
+	*status = EPERM;
+	*rddir_offset = 0;
+	*rddir_eof = TRUE;
+	*rddir_entries = NULL;
+	*rddir_entriesCnt = 0;
+
 	new_worker_thread();
 
 	pthread_setname_np("readdir worker");
-
 	/*
 	 * Reject this if the sender wasn't root
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
-		*status  = EPERM;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 
-	if (trace > 0)
-		trace_prt(1, "READDIR REQUEST   : %s @ %llu\n", rda_map, rda_offset);
+	if (trace > 0) {
+		trace_prt(1, "READDIR REQUEST   : %.1024s @ %llu\n", rda_map, rda_offset);
+	}
 
-	*status = do_readdir(rda_map, rda_offset, rda_count, rddir_offset,
-	    rddir_eof, rddir_entries, rddir_entriesCnt);
+	*status = do_readdir(rda_map,
+			     rda_offset,
+			     rda_count,
+			     rddir_offset,
+			     rddir_eof,
+			     rddir_entries,
+			     rddir_entriesCnt);
 
-	if (trace > 0)
+	if (trace > 0) {
 		trace_prt(1, "READDIR REPLY	: status=%d\n", *status);
+	}
 
+out:
 	end_worker_thread();
-
 	return KERN_SUCCESS;
 }
 
 kern_return_t
-autofs_readsubdir(__unused mach_port_t server, autofs_pathname rda_map,
-    autofs_component rda_name, mach_msg_type_number_t rda_nameCnt,
-    autofs_pathname rda_subdir, autofs_opts rda_mntopts,
-    uint32_t rda_parentino, int64_t rda_offset, uint32_t rda_count,
-    int *status, int64_t *rddir_offset, boolean_t *rddir_eof,
-    byte_buffer *rddir_entries, mach_msg_type_number_t *rddir_entriesCnt,
-    security_token_t token)
+autofs_readsubdir(__unused mach_port_t server,
+		  autofs_pathname rda_map,			/* IN */
+		  autofs_component rda_name,			/* IN */
+		  mach_msg_type_number_t rda_nameCnt,		/* IN */
+		  autofs_pathname rda_subdir,			/* IN */
+		  autofs_opts rda_mntopts,			/* IN */
+		  uint32_t rda_parentino,			/* IN */
+		  int64_t rda_offset,				/* IN */
+		  uint32_t rda_count,				/* IN */
+		  int *status,					/* OUT */
+		  int64_t *rddir_offset,			/* OUT */
+		  boolean_t *rddir_eof,				/* OUT */
+		  byte_buffer *rddir_entries,			/* OUT */
+		  mach_msg_type_number_t *rddir_entriesCnt,	/* OUT */
+		  security_token_t token)
 {
 	char *key;
+
+	/* Sanitize our OUT parameters */
+	*status = EPERM;
+	*rddir_offset = 0;
+	*rddir_eof = TRUE;
+	*rddir_entries = NULL;
+	*rddir_entriesCnt = 0;
 
 	new_worker_thread();
 
@@ -671,9 +703,7 @@ autofs_readsubdir(__unused mach_port_t server, autofs_pathname rda_map,
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
-		*status  = EPERM;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 
 	/*
@@ -682,14 +712,12 @@ autofs_readsubdir(__unused mach_port_t server, autofs_pathname rda_map,
 	 */
 	if (rda_nameCnt < 1 || rda_nameCnt > MAXNAMLEN) {
 		*status = ENOENT;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 	key = malloc(rda_nameCnt + 1);
 	if (key == NULL) {
 		*status = ENOMEM;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 	memcpy(key, rda_name, rda_nameCnt);
 	key[rda_nameCnt] = '\0';
@@ -698,25 +726,40 @@ autofs_readsubdir(__unused mach_port_t server, autofs_pathname rda_map,
 		trace_prt(1, "READSUBDIR REQUEST : name=%s[%s] map=%s @ %llu\n",
 		key, rda_subdir, rda_map, rda_offset);
 
-	*status = do_readsubdir(rda_map, key, rda_subdir, rda_mntopts,
-	    rda_parentino, rda_offset, rda_count, rddir_offset, rddir_eof,
-	    rddir_entries, rddir_entriesCnt);
+	*status = do_readsubdir(rda_map,
+				key,
+				rda_subdir,
+				rda_mntopts,
+				rda_parentino,
+				rda_offset,
+				rda_count,
+				rddir_offset,
+				rddir_eof,
+				rddir_entries,
+				rddir_entriesCnt);
 	free(key);
 
 	if (trace > 0)
 		trace_prt(1, "READSUBDIR REPLY   : status=%d\n", *status);
 
+out:
 	end_worker_thread();
-
 	return KERN_SUCCESS;
 }
 
 kern_return_t
-autofs_unmount(__unused mach_port_t server, fsid_t mntpnt_fsid,
-    autofs_pathname mntresource, autofs_pathname mntpnt,
-    autofs_component fstype, autofs_opts mntopts, int *status,
-    security_token_t token)
+autofs_unmount(__unused mach_port_t server,
+	       fsid_t mntpnt_fsid,				/* IN */
+	       autofs_pathname mntresource,			/* IN */
+	       autofs_pathname mntpnt,				/* IN */
+	       autofs_component fstype,				/* IN */
+	       autofs_opts mntopts,				/* IN */
+	       int *status,					/* OUT */
+	       security_token_t token)
 {
+	/* Sanitize our OUT parameters */
+	*status = EPERM;
+
 	new_worker_thread();
 
 	pthread_setname_np("unmount worker");
@@ -726,9 +769,7 @@ autofs_unmount(__unused mach_port_t server, fsid_t mntpnt_fsid,
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
-		*status  = EPERM;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 
 	if (trace > 0) {
@@ -736,25 +777,41 @@ autofs_unmount(__unused mach_port_t server, fsid_t mntpnt_fsid,
 			mntresource, fstype, mntpnt, mntopts);
 	}
 
-	*status = do_unmount1(mntpnt_fsid, mntresource, mntpnt, fstype,
-	    mntopts);
+	*status = do_unmount1(mntpnt_fsid,
+			      mntresource,
+			      mntpnt,
+			      fstype,
+			      mntopts);
 
 	if (trace > 0)
 		trace_prt(1, "UNMOUNT REPLY: status=%d\n", *status);
 
+out:
 	end_worker_thread();
-
 	return KERN_SUCCESS;
 }
 
 kern_return_t
-autofs_lookup(__unused mach_port_t server, autofs_pathname map,
-    autofs_pathname path, autofs_component name, mach_msg_type_number_t nameCnt,
-    autofs_pathname subdir, autofs_opts opts, boolean_t isdirect,
-    uint32_t sendereuid, int *err, int *node_type, boolean_t *lu_verbose,
-    security_token_t token)
+autofs_lookup(__unused mach_port_t server,
+	      autofs_pathname map,				/* IN */
+	      autofs_pathname path,				/* IN */
+	      autofs_component name,				/* IN */
+	      mach_msg_type_number_t nameCnt,			/* IN */
+	      autofs_pathname subdir,				/* IN */
+	      autofs_opts opts,					/* IN */
+	      boolean_t isdirect,				/* IN */
+	      uint32_t sendereuid,				/* IN */
+	      int *err,						/* OUT */
+	      int *node_type,					/* OUT */
+	      boolean_t *lu_verbose,				/* OUT */
+	      security_token_t token)
 {
 	char *key;
+
+	/* Sanitize our OUT parameters */
+	*err = EPERM;
+	*node_type = 0;
+	*lu_verbose = 0;
 
 	new_worker_thread();
 
@@ -765,11 +822,7 @@ autofs_lookup(__unused mach_port_t server, autofs_pathname map,
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
-		*err = EPERM;
-		*node_type = 0;
-		*lu_verbose = 0;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 
 	/*
@@ -778,18 +831,12 @@ autofs_lookup(__unused mach_port_t server, autofs_pathname map,
 	 */
 	if (nameCnt < 1 || nameCnt > MAXNAMLEN) {
 		*err = ENOENT;
-		*node_type = 0;
-		*lu_verbose = 0;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 	key = malloc(nameCnt + 1);
 	if (key == NULL) {
 		*err = ENOMEM;
-		*node_type = 0;
-		*lu_verbose = 0;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 	memcpy(key, name, nameCnt);
 	key[nameCnt] = '\0';
@@ -807,40 +854,56 @@ autofs_lookup(__unused mach_port_t server, autofs_pathname map,
 	if (trace > 0)
 		trace_prt(1, "LOOKUP REPLY  : status=%d\n", *err);
 
+out:
 	end_worker_thread();
-
 	return KERN_SUCCESS;
 }
 
 kern_return_t
-autofs_mount(__unused mach_port_t server, autofs_pathname map,
-    autofs_pathname path, autofs_component name, mach_msg_type_number_t nameCnt,
-    autofs_pathname subdir, autofs_opts opts, boolean_t isdirect,
-    boolean_t issubtrigger, fsid_t mntpnt_fsid, uint32_t sendereuid,
-    int32_t asid, int *mr_type, fsid_t *fsidp, uint32_t *retflags,
-    byte_buffer *actions, mach_msg_type_number_t *actionsCnt, int *err,
-    boolean_t *mr_verbose, security_token_t token)
+autofs_mount(__unused mach_port_t server,
+	     autofs_pathname map,				/* IN */
+	     autofs_pathname path,				/* IN */
+	     autofs_component name,				/* IN */
+	     mach_msg_type_number_t nameCnt,			/* IN */
+	     autofs_pathname subdir,				/* IN */
+	     autofs_opts opts,					/* IN */
+	     boolean_t isdirect,				/* IN */
+	     boolean_t issubtrigger,				/* IN */
+	     fsid_t mntpnt_fsid,				/* IN */
+	     uint32_t sendereuid,				/* IN */
+	     int32_t asid,					/* IN */
+	     int *mr_type,					/* OUT */
+	     fsid_t *fsidp,					/* OUT */
+	     uint32_t *retflags,				/* OUT */
+	     byte_buffer *actions,				/* OUT */
+	     mach_msg_type_number_t *actionsCnt,		/* OUT */
+	     int *err,						/* OUT */
+	     boolean_t *mr_verbose,				/* OUT */
+	     security_token_t token)
 {
 	char *key;
 	int status;
 	static time_t prevmsg = 0;
 
+	/* Sanitize our OUT parameters */
+	*err = EPERM;
+	*mr_type = AUTOFS_DONE;
+	memset(fsidp, 0, sizeof(*fsidp));
+	*retflags = 0;	/* what we call sets retflags as needed */
+	*actions = NULL;
+	*actionsCnt = 0;
+	*mr_verbose = FALSE;
+
 	new_worker_thread();
 
 	pthread_setname_np("mount worker");
-
-	*retflags = 0;	/* what we call sets retflags as needed */
 
 	/*
 	 * Reject this if the sender wasn't root
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
-		*mr_type = AUTOFS_DONE;
-		*err  = EPERM;
-		*mr_verbose = 0;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 
 	/*
@@ -848,19 +911,13 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	 * null-terminated string out of it.
 	 */
 	if (nameCnt < 1 || nameCnt > MAXNAMLEN) {
-		*mr_type = AUTOFS_DONE;
 		*err = ENOENT;
-		*mr_verbose = 0;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 	key = malloc(nameCnt + 1);
 	if (key == NULL) {
-		*mr_type = AUTOFS_DONE;
 		*err = ENOMEM;
-		*mr_verbose = 0;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 	memcpy(key, name, nameCnt);
 	key[nameCnt] = '\0';
@@ -870,9 +927,20 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 			key, subdir, map, opts, path, isdirect);
 	}
 
-	status = do_mount1(map, key, subdir, opts, path, isdirect,
-	    issubtrigger, mntpnt_fsid, sendereuid, asid, fsidp,
-	    retflags, actions, actionsCnt);
+	status = do_mount1(map,
+			   key,
+			   subdir,
+			   opts,
+			   path,
+			   isdirect,
+			   issubtrigger,
+			   mntpnt_fsid,
+			   sendereuid,
+			   asid,
+			   fsidp,
+			   retflags,
+			   actions,
+			   actionsCnt);
 
 	if (status == 0 && *actionsCnt != 0)
 		*mr_type = AUTOFS_ACTION;
@@ -915,20 +983,33 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	}
 	free(key);
 
+out:
 	end_worker_thread();
-
 	return KERN_SUCCESS;
 }
 
 kern_return_t
 autofs_mount_subtrigger(__unused mach_port_t server,
-    autofs_pathname mntpt, autofs_pathname submntpt,
-    autofs_pathname path, autofs_opts opts,
-    autofs_pathname map, autofs_pathname subdir,
-    autofs_component key, uint32_t flags, uint32_t mntflags,
-    int32_t direct, fsid_t *fsidp, boolean_t *top_level, int *err,
-    security_token_t token)
+			autofs_pathname mntpt,			/* IN */
+			autofs_pathname submntpt,		/* IN */
+			autofs_pathname path,			/* IN */
+			autofs_opts opts,			/* IN */
+			autofs_pathname map,			/* IN */
+			autofs_pathname subdir,			/* IN */
+			autofs_component key,			/* IN */
+			uint32_t flags,				/* IN */
+			uint32_t mntflags,			/* IN */
+			int32_t direct,				/* IN */
+			fsid_t *fsidp,				/* OUT */
+			boolean_t *top_level,			/* OUT */
+			int *err,				/* OUT */
+			security_token_t token)
 {
+	/* Sanitize our OUT parameters */
+	*err = EPERM;
+	memset(fsidp, 0, sizeof(*fsidp));
+	*top_level = FALSE;
+
 	new_worker_thread();
 
 	pthread_setname_np("mount-subtrigger worker");
@@ -938,29 +1019,44 @@ autofs_mount_subtrigger(__unused mach_port_t server,
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
-		*err = EPERM;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 
-	*err = do_mount_subtrigger(mntpt, submntpt, path, opts, map, subdir,
-	    key, flags, mntflags, direct, fsidp, top_level);
+	*err = do_mount_subtrigger(mntpt,
+				   submntpt,
+				   path,
+				   opts,
+				   map,
+				   subdir,
+				   key,
+				   flags,
+				   mntflags,
+				   direct,
+				   fsidp,
+				   top_level);
 
 	if (*err)
 		syslog(LOG_ERR, "subtrigger mount on %s failed: %s", mntpt,
 		    strerror(*err));
 
+out:
 	end_worker_thread();
-
 	return KERN_SUCCESS;
 }
 
 static int
-do_mount_subtrigger(autofs_pathname mntpt, autofs_pathname submntpt,
-    autofs_pathname path, autofs_opts opts,
-    autofs_pathname map, autofs_pathname subdir,
-    autofs_component key, uint32_t flags, uint32_t mntflags,
-    int32_t direct, fsid_t *fsidp, boolean_t *top_level)
+do_mount_subtrigger(autofs_pathname mntpt,
+		    autofs_pathname submntpt,
+		    autofs_pathname path,
+		    autofs_opts opts,
+		    autofs_pathname map,
+		    autofs_pathname subdir,
+		    autofs_component key,
+		    uint32_t flags,
+		    uint32_t mntflags,
+		    int32_t direct,
+		    fsid_t *fsidp,
+		    boolean_t *top_level)
 {
 	struct stat statb;
 	struct autofs_args mnt_args;
@@ -1032,27 +1128,35 @@ do_mount_subtrigger(autofs_pathname mntpt, autofs_pathname submntpt,
 }
 
 kern_return_t
-autofs_mount_url(__unused mach_port_t server, autofs_pathname url,
-    autofs_pathname mountpoint, autofs_opts opts, fsid_t mntpnt_fsid,
-    uint32_t sendereuid, int32_t asid, fsid_t *fsidp,
-    uint32_t *retflags, int *err, security_token_t token)
+autofs_mount_url(__unused mach_port_t server,
+		 autofs_pathname url,				/* IN */
+		 autofs_pathname mountpoint,			/* IN */
+		 autofs_opts opts,				/* IN */
+		 fsid_t mntpnt_fsid,				/* IN */
+		 uint32_t sendereuid,				/* IN */
+		 int32_t asid,					/* IN */
+		 fsid_t *fsidp,					/* OUT */
+		 uint32_t *retflags,				/* OUT */
+		 int *err,					/* OUT */
+		 security_token_t token)
 {
 	int status;
+
+	/* Sanitize our OUT parameters */
+	*err = EPERM;
+	memset(fsidp, 0, sizeof(*fsidp));
+	*retflags = 0;	/* what we call sets retflags as needed */
 
 	new_worker_thread();
 
 	pthread_setname_np("mount-url worker");
-
-	*retflags = 0;	/* what we call sets retflags as needed */
 
 	/*
 	 * Reject this if the sender wasn't root
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
-		*err  = EPERM;
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 
 	if (trace > 0) {
@@ -1071,16 +1175,18 @@ autofs_mount_url(__unused mach_port_t server, autofs_pathname url,
 	if (status && verbose)
 		syslog(LOG_ERR, "mount of %s on %s failed", url, mountpoint);
 
+out:
 	end_worker_thread();
-
 	return KERN_SUCCESS;
 }
 
 #define SMBREMOUNTSERVER_PATH	"/System/Library/Extensions/autofs.kext/Contents/Resources/smbremountserver"
 
 kern_return_t
-autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
-			  mach_msg_type_number_t blobCnt, au_asid_t asid,
+autofs_smb_remount_server(__unused mach_port_t server,
+			  byte_buffer blob,			/* IN */
+			  mach_msg_type_number_t blobCnt,	/* IN */
+			  au_asid_t asid,			/* IN */
 			  security_token_t token)
 {
 	int pipefds[2];
@@ -1099,8 +1205,7 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
-		end_worker_thread();
-		return KERN_SUCCESS;
+		goto out;
 	}
 
 	if (trace > 0) {
@@ -1241,8 +1346,8 @@ done:
 		trace_prt(1, "SMB_REMOUNT_SERVER REPLY\n");
 	}
 
+out:
 	end_worker_thread();
-
 	return KERN_SUCCESS;
 }
 

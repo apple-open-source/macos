@@ -165,7 +165,6 @@ typedef void (^CFCachedURLResponseCallBackBlock)(CFCachedURLResponseRef);
 - (void)_getCookiesForURL:(NSURL *)url mainDocumentURL:(NSURL *)mainDocumentURL partition:(NSString *)partition completionHandler:(void (^)(NSArray *))completionHandler;
 - (void)_getCookiesForURL:(NSURL *)url mainDocumentURL:(NSURL *)mainDocumentURL partition:(NSString *)partition policyProperties:(NSDictionary*)props completionHandler:(void (^)(NSArray *))completionHandler;
 - (void)_setCookies:(NSArray *)cookies forURL:(NSURL *)URL mainDocumentURL:(NSURL *)mainDocumentURL policyProperties:(NSDictionary*) props;
-@property (nonatomic, readwrite) BOOL _overrideSessionCookieAcceptPolicy;
 @end
 
 @interface NSURLSessionTask ()
@@ -182,6 +181,12 @@ typedef void (^CFCachedURLResponseCallBackBlock)(CFCachedURLResponseRef);
 #endif // defined(__OBJC__)
 
 #endif // !PLATFORM(WIN) && !USE(APPLE_INTERNAL_SDK)
+
+#if defined(__OBJC__)
+@interface NSHTTPCookieStorage ()
+@property (nonatomic, readwrite) BOOL _overrideSessionCookieAcceptPolicy;
+@end
+#endif
 
 WTF_EXTERN_C_BEGIN
 

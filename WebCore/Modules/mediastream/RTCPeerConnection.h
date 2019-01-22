@@ -215,6 +215,7 @@ private:
 
     RTCConfiguration m_configuration;
     RTCController* m_controller { nullptr };
+    RefPtr<PendingActivity<RTCPeerConnection>> m_pendingActivity;
 };
 
 } // namespace WebCore

@@ -28,4 +28,6 @@
 #define _SECURITY_SECTRUSTLOGGINGSERVER_H_
 
 
+void DisableLocalization(void);
+
 #endif /* _SECURITY_SECTRUSTLOGGINGSERVER_H_ */

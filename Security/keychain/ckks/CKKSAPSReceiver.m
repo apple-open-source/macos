@@ -56,8 +56,8 @@
 
 
 @interface CKKSAPSReceiver()
-// If we receive >0 notifications for a CKRecordZoneID that hasn't been registered yet, give them a fake update when they register
-@property NSMutableSet<CKRecordZoneID*>* undeliveredUpdates;
+// If we receive notifications for a CKRecordZoneID that hasn't been registered yet, send them a their updates when they register
+@property NSMutableDictionary<CKRecordZoneID*, NSMutableSet<CKRecordZoneNotification*>*>* undeliveredUpdates;
 @end
 
 @implementation CKKSAPSReceiver
@@ -104,7 +104,7 @@
         _apsConnectionClass = apsConnectionClass;
         _apsConnection = NULL;
 
-        _undeliveredUpdates = [[NSMutableSet alloc] init];
+        _undeliveredUpdates = [NSMutableDictionary dictionary];
 
         // APS might be slow. This doesn't need to happen immediately, so let it happen later.
         __weak __typeof(self) weakSelf = self;
@@ -138,12 +138,14 @@
         }
 
         [self.zoneMap setObject:receiver forKey: zoneID];
-        if([strongSelf.undeliveredUpdates containsObject:zoneID]) {
-            [strongSelf.undeliveredUpdates removeObject:zoneID];
 
-            // Now, send the receiver its fake notification!
-            secerror("ckks: sending fake push to newly-registered zone(%@): %@", zoneID, receiver);
-            [receiver notifyZoneChange:nil];
+        NSMutableSet<CKRecordZoneNotification*>* currentPendingMessages = self.undeliveredUpdates[zoneID];
+        [self.undeliveredUpdates removeObjectForKey:zoneID];
+
+        for(CKRecordZoneNotification* message in currentPendingMessages.allObjects) {
+            // Now, send the receiver its notification!
+            secerror("ckks: sending stored push(%@) to newly-registered zone(%@): %@", message, zoneID, receiver);
+            [receiver notifyZoneChange:message];
         }
 
         [finished fulfill];
@@ -186,8 +188,12 @@
         } else {
             secerror("ckks: received push for unregistered zone: %@", rznotification);
             if(rznotification.recordZoneID) {
-                // TODO: save the rznofication itself
-                [self.undeliveredUpdates addObject: rznotification.recordZoneID];
+                NSMutableSet<CKRecordZoneNotification*>* currentPendingMessages = self.undeliveredUpdates[rznotification.recordZoneID];
+                if(currentPendingMessages) {
+                    [currentPendingMessages addObject:rznotification];
+                } else {
+                    self.undeliveredUpdates[rznotification.recordZoneID] = [NSMutableSet setWithObject:rznotification];
+                }
             }
         }
     } else {
