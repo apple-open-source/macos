@@ -238,6 +238,10 @@ zh_Hant_HK{
             "TZS",
             "坦桑尼亞先令",
         }
+        VES{
+            "VES",
+            "VES",
+        }
         VUV{
             "VUV",
             "瓦努阿圖瓦圖",

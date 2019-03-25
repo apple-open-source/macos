@@ -163,7 +163,7 @@ bool IOFireWireSBP2Login::initWithLUN( IOFireWireSBP2LUN * lun )
     fPasswordBuf = NULL;
     fPasswordLen = 0;
     fPasswordAddressSpace = NULL;
-    fPasswordAddress = NULL;
+    fPasswordAddress = 0;
 	fPasswordDescriptor = NULL;
 	fSuspended = false;
 	

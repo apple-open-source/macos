@@ -36,7 +36,7 @@ namespace Layout {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(BlockContainer);
 
-BlockContainer::BlockContainer(std::optional<ElementAttributes> attributes, RenderStyle&& style, BaseTypeFlags baseTypeFlags)
+BlockContainer::BlockContainer(Optional<ElementAttributes> attributes, RenderStyle&& style, BaseTypeFlags baseTypeFlags)
     : Container(attributes, WTFMove(style), baseTypeFlags | BlockContainerFlag)
 {
 }
@@ -45,11 +45,12 @@ bool BlockContainer::establishesInlineFormattingContext() const
 {
     // 9.4.2 Inline formatting contexts
     // An inline formatting context is established by a block container box that contains no block-level boxes.
-    for (auto* child = firstInFlowChild(); child; child = child->nextInFlowSibling()) {
-        if (child->isBlockLevelBox())
-            return false;
-    }
-    return hasInFlowOrFloatingChild();
+
+    // It's enough to check the first in-flow child since we can't have both block and inline level sibling boxes.
+    if (auto* firstInFlowChild = this->firstInFlowChild())
+        return firstInFlowChild->isInlineLevelBox();
+
+    return false;
 }
 
 }

@@ -110,6 +110,12 @@ struct CodingType {
     typedef std::remove_const_t<std::remove_reference_t<T>> Type;
 };
 
+class DataReference;
+class SharedBufferDataReference;
+template<> struct CodingType<const SharedBufferDataReference&> {
+    typedef DataReference Type;
+};
+
 template<typename... Ts>
 struct CodingType<std::tuple<Ts...>> {
     typedef std::tuple<typename CodingType<Ts>::Type...> Type;
@@ -128,7 +134,7 @@ void handleMessage(Decoder& decoder, C* object, MF function)
 }
 
 template<typename T, typename C, typename MF>
-void handleMessage(Decoder& decoder, Encoder& replyEncoder, C* object, MF function)
+void handleMessageLegacySync(Decoder& decoder, Encoder& replyEncoder, C* object, MF function)
 {
     typename CodingType<typename T::Arguments>::Type arguments;
     if (!decoder.decode(arguments)) {
@@ -142,7 +148,7 @@ void handleMessage(Decoder& decoder, Encoder& replyEncoder, C* object, MF functi
 }
 
 template<typename T, typename C, typename MF>
-void handleMessage(Connection& connection, Decoder& decoder, Encoder& replyEncoder, C* object, MF function)
+void handleMessageLegacySync(Connection& connection, Decoder& decoder, Encoder& replyEncoder, C* object, MF function)
 {
     typename CodingType<typename T::Arguments>::Type arguments;
     if (!decoder.decode(arguments)) {
@@ -177,6 +183,30 @@ void handleMessageDelayed(Connection& connection, Decoder& decoder, std::unique_
 
     typename T::DelayedReply completionHandler = [replyEncoder = WTFMove(replyEncoder), connection = makeRef(connection)] (auto&&... args) mutable {
         T::send(WTFMove(replyEncoder), WTFMove(connection), args...);
+    };
+    callMemberFunction(WTFMove(arguments), WTFMove(completionHandler), object, function);
+}
+
+template<typename T, typename C, typename MF>
+void handleMessageAsync(Connection& connection, Decoder& decoder, C* object, MF function)
+{
+    Optional<uint64_t> listenerID;
+    decoder >> listenerID;
+    if (!listenerID) {
+        ASSERT(decoder.isInvalid());
+        return;
+    }
+    
+    typename CodingType<typename T::Arguments>::Type arguments;
+    if (!decoder.decode(arguments)) {
+        ASSERT(decoder.isInvalid());
+        return;
+    }
+
+    typename T::AsyncReply completionHandler = [listenerID = *listenerID, connection = makeRef(connection)] (auto&&... args) mutable {
+        auto encoder = std::make_unique<Encoder>("AsyncReply", T::asyncMessageReplyName(), 0);
+        *encoder << listenerID;
+        T::send(WTFMove(encoder), WTFMove(connection), args...);
     };
     callMemberFunction(WTFMove(arguments), WTFMove(completionHandler), object, function);
 }

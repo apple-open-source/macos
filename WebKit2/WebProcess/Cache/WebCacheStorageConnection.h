@@ -56,7 +56,7 @@ private:
     void doRemove(uint64_t requestIdentifier, uint64_t cacheIdentifier) final;
     void doRetrieveCaches(uint64_t requestIdentifier, const WebCore::ClientOrigin&, uint64_t updateCounter) final;
 
-    void doRetrieveRecords(uint64_t requestIdentifier, uint64_t cacheIdentifier, const WebCore::URL&) final;
+    void doRetrieveRecords(uint64_t requestIdentifier, uint64_t cacheIdentifier, const URL&) final;
     void doBatchDeleteOperation(uint64_t requestIdentifier, uint64_t cacheIdentifier, const WebCore::ResourceRequest&, WebCore::CacheQueryOptions&&) final;
     void doBatchPutOperation(uint64_t requestIdentifier, uint64_t cacheIdentifier, Vector<WebCore::DOMCacheEngine::Record>&&) final;
 
@@ -75,7 +75,7 @@ private:
     void putRecordsCompleted(uint64_t requestIdentifier, WebCore::DOMCacheEngine::RecordIdentifiersOrError&&);
 
     void engineRepresentationCompleted(uint64_t requestIdentifier, const String& representation);
-    void clearMemoryRepresentationCompleted(uint64_t requestIdentifier, std::optional<WebCore::DOMCacheEngine::Error>&&);
+    void clearMemoryRepresentationCompleted(uint64_t requestIdentifier, Optional<WebCore::DOMCacheEngine::Error>&&);
 
     WebCacheStorageProvider& m_provider;
     PAL::SessionID m_sessionID;

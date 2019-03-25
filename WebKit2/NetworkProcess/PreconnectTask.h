@@ -37,22 +37,18 @@ namespace WebKit {
 class NetworkLoad;
 class NetworkLoadParameters;
 
-class PreconnectTask final : public NetworkLoadClient, public CanMakeWeakPtr<PreconnectTask> {
+class PreconnectTask final : public NetworkLoadClient {
 public:
-    explicit PreconnectTask(NetworkLoadParameters&&, WTF::CompletionHandler<void(const WebCore::ResourceError&)>&& completionHandler = { });
+    explicit PreconnectTask(NetworkLoadParameters&&, CompletionHandler<void(const WebCore::ResourceError&)>&& completionHandler = { });
     ~PreconnectTask();
-
-    uint64_t frameID() const;
-    uint64_t pageID() const;
 
 private:
     // NetworkLoadClient.
     bool isSynchronous() const final { return false; }
     bool isAllowedToAskUserForCredentials() const final { return false; }
     void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) final;
-    void canAuthenticateAgainstProtectionSpaceAsync(const WebCore::ProtectionSpace&) final;
     void willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&& redirectResponse) final;
-    ShouldContinueDidReceiveResponse didReceiveResponse(WebCore::ResourceResponse&&) final;
+    void didReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) final;
     void didReceiveBuffer(Ref<WebCore::SharedBuffer>&&, int reportedEncodedDataLength) final;
     void didFinishLoading(const WebCore::NetworkLoadMetrics&) final;
     void didFailLoading(const WebCore::ResourceError&) final;
@@ -60,7 +56,7 @@ private:
     void didFinish(const WebCore::ResourceError&);
 
     std::unique_ptr<NetworkLoad> m_networkLoad;
-    WTF::CompletionHandler<void(const WebCore::ResourceError&)> m_completionHandler;
+    CompletionHandler<void(const WebCore::ResourceError&)> m_completionHandler;
     WebCore::Timer m_timeoutTimer;
 };
 

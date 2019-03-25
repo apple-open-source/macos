@@ -347,7 +347,7 @@ enum {
  @result An algorithm identifier.
  */
 CFIndex SecKeyGetAlgorithmId(SecKeyRef key)
-API_AVAILABLE(macos(10.8), ios(9.0));
+SPI_AVAILABLE(macos(10.8), ios(9.0));
 
 #if TARGET_OS_IPHONE
 /*!
@@ -709,6 +709,88 @@ OSStatus SecKeyRawVerifyOSX(
 #endif // SEC_OS_OSX_INCLUDES
 
 /*!
+ @constant kSecKeyApplePayEnabled If set to kCFBooleanTrue during SecKeyCreateRandomKey, then the SEP-based key is ApplePay-enabled,
+ which means that it can be used for ECIES to re-crypt.
+ */
+extern const CFStringRef kSecKeyApplePayEnabled
+SPI_AVAILABLE(macos(10.14.4), ios(12.2), tvos(12.2), watchos(5.2));
+
+/*!
+ @constant kSecKeyEncryptionParameterSymmetricKeySizeInBits CFNumberRef with size in bits for ephemeral
+ symmetric key used for encryption/decryption.
+ */
+extern const CFStringRef kSecKeyEncryptionParameterSymmetricKeySizeInBits
+SPI_AVAILABLE(macos(10.14.4), ios(12.2), tvos(12.2), watchos(5.2));
+
+/*!
+ @constant kSecKeyEncryptionParameterSymmetricAAD CFDataRef with additional authentiction data for AES-GCM encryption.
+ */
+extern const CFStringRef kSecKeyEncryptionParameterSymmetricAAD
+SPI_AVAILABLE(macos(10.14.4), ios(12.2), tvos(12.2), watchos(5.2));
+
+/*!
+ @constant kSecKeyEncryptionParameterRecryptParameters Usable only for SecKeyCreateDecryptedDataWithParameters.
+ Contains dictionary with parameters for re-encryption using the same algorithm and encryption parameters
+ specified inside this dictionary.
+ */
+extern const CFStringRef kSecKeyEncryptionParameterRecryptParameters
+SPI_AVAILABLE(macos(10.14.4), ios(12.2), tvos(12.2), watchos(5.2));
+
+/*!
+ @constant kSecKeyEncryptionParameterRecryptCertificate Usable only inside kSecKeyEncryptionParameterRecryptParameters.
+ Specifies certificate whose public key is used to re-crypt previously decrypted data. This parameter should contain
+ CFDataRef with X509 DER-encoded data of the certificate chain {leaf, intermediate, root}, leaf's public key is
+ to be used for re-encryption.
+ */
+extern const CFStringRef kSecKeyEncryptionParameterRecryptCertificate
+SPI_AVAILABLE(macos(10.14.4), ios(12.2), tvos(12.2), watchos(5.2));
+
+/*!
+ @function SecKeyCreateEncryptedDataWithParameters
+ @abstract Encrypt a block of plaintext.
+ @param key Public key with which to encrypt the data.
+ @param algorithm One of SecKeyAlgorithm constants suitable to perform encryption with this key.
+ @param plaintext The data to encrypt. The length and format of the data must conform to chosen algorithm,
+ typically be less or equal to the value returned by SecKeyGetBlockSize().
+ @param parameters Dictionary with additional parameters for encryption. Supported parameters are:
+  - kSecKeyKeyExchangeParameterSharedInfo: additional SharedInfo value for ECIES encryptions
+  - kSecKeyEncryptionParameterSymmetricKeySizeInBits: 128 or 256, size of ephemeral AES key used for symmetric encryption
+  - kSecKeyEncryptionParameterSymmetricAAD: optional CFDataRef with additiona authentication data for AES-GCM encryption
+ @param error On error, will be populated with an error object describing the failure.
+ See "Security Error Codes" (SecBase.h).
+ @result The ciphertext represented as a CFData, or NULL on failure.
+ @discussion Encrypts plaintext data using specified key.  The exact type of the operation including the format
+ of input and output data is specified by encryption algorithm.
+ */
+CFDataRef SecKeyCreateEncryptedDataWithParameters(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef plaintext,
+                                                  CFDictionaryRef parameters, CFErrorRef *error)
+SPI_AVAILABLE(macos(10.14.4), ios(12.2), tvos(12.2), watchos(5.2));
+
+/*!
+ @function SecKeyCreateDecryptedDataWithParameters
+ @abstract Decrypt a block of ciphertext.
+ @param key Private key with which to decrypt the data.
+ @param algorithm One of SecKeyAlgorithm constants suitable to perform decryption with this key.
+ @param ciphertext The data to decrypt. The length and format of the data must conform to chosen algorithm,
+ typically be less or equal to the value returned by SecKeyGetBlockSize().
+ @param parameters Dictionary with additional parameters for decryption.Supported parameters are:
+  - kSecKeyKeyExchangeParameterSharedInfo: additional SharedInfo value for ECIES encryptions
+  - kSecKeyEncryptionParameterSymmetricKeySizeInBits: 128 or 256, size of ephemeral AES key used for symmetric encryption
+  - kSecKeyEncryptionParameterSymmetricAAD: optional CFDataRef with additiona authentication data for AES-GCM encryption
+  - kSecKeyEncryptionParameterRecryptParameters: optional CFDictionaryRef with parameters for immediate re-encryption
+    of decrypted data. If present, the dictionary *must* contain at least kSecKeyEncryptionParameterRecryptCertificate parameter.
+
+ @param error On error, will be populated with an error object describing the failure.
+ See "Security Error Codes" (SecBase.h).
+ @result The plaintext represented as a CFData, or NULL on failure.
+ @discussion Decrypts ciphertext data using specified key.  The exact type of the operation including the format
+ of input and output data is specified by decryption algorithm.
+ */
+CFDataRef SecKeyCreateDecryptedDataWithParameters(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef ciphertext,
+                                                  CFDictionaryRef parameters, CFErrorRef *error)
+SPI_AVAILABLE(macos(10.14.4), ios(12.2), tvos(12.2), watchos(5.2));
+
+/*!
  @enum SecKeyAttestationKeyType
  @abstract Defines types of builtin attestation keys.
 */
@@ -716,9 +798,9 @@ typedef CF_ENUM(uint32_t, SecKeyAttestationKeyType)
 {
     kSecKeyAttestationKeyTypeSIK = 0,
     kSecKeyAttestationKeyTypeGID = 1,
-    kSecKeyAttestationKeyTypeUIKCommitted API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0)) = 2,
-    kSecKeyAttestationKeyTypeUIKProposed API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0)) = 3,
-} API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
+    kSecKeyAttestationKeyTypeUIKCommitted SPI_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0)) = 2,
+    kSecKeyAttestationKeyTypeUIKProposed SPI_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0)) = 3,
+} SPI_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
 
 /*!
  @function SecKeyCopyAttestationKey
@@ -730,7 +812,7 @@ typedef CF_ENUM(uint32_t, SecKeyAttestationKeyType)
  @result On success a SecKeyRef containing the requested key is returned, on failure it returns NULL.
 */
 SecKeyRef SecKeyCopyAttestationKey(SecKeyAttestationKeyType keyType, CFErrorRef *error)
-API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
+SPI_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
 
 /*!
  @function SecKeyCreateAttestation
@@ -745,7 +827,7 @@ API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
  @discussion Key attestation only works for CTK SEP keys, i.e. keys created with kSecAttrTokenID=kSecAttrTokenIDSecureEnclave.
 */
 CFDataRef SecKeyCreateAttestation(SecKeyRef key, SecKeyRef keyToAttest, CFErrorRef *error)
-API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
+SPI_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
 
 /*!
  @function SecKeySetParameter
@@ -761,10 +843,10 @@ API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
  SecKey user (application) and backend and in this case are not interpreted by SecKey layer in any way.
  */
 Boolean SecKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error)
-API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
+SPI_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
 
 extern const CFStringRef kSecKeyParameterSETokenAttestationNonce
-API_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0));
+SPI_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0));
 
 /*!
  Available lifetime operations for SEP system keys.
@@ -772,7 +854,7 @@ API_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0));
 typedef CF_ENUM(int, SecKeyControlLifetimeType) {
     kSecKeyControlLifetimeTypeBump = 0,
     kSecKeyControlLifetimeTypeCommit = 1,
-} API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0));
+} SPI_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0));
 
 /*!
  @function SecKeyControlLifetime
@@ -783,7 +865,7 @@ typedef CF_ENUM(int, SecKeyControlLifetimeType) {
  @param error Error which gathers more information when something went wrong.
  */
 Boolean SecKeyControlLifetime(SecKeyRef key, SecKeyControlLifetimeType type, CFErrorRef *error)
-API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0));
+SPI_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0));
 
 /*!
  @function SecKeyCreateDuplicate
@@ -796,7 +878,7 @@ API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0));
  If the key is immutable (i.e. does not support SecKeySetParameter), calling this method is identical to calling CFRetain().
  */
 SecKeyRef SecKeyCreateDuplicate(SecKeyRef key)
-API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
+SPI_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
 
 /*!
  Algorithms for converting between bigendian and core-crypto ccunit data representation.

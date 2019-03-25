@@ -26,16 +26,15 @@
 #import "config.h"
 #import "ScrollingTreeOverflowScrollingNodeIOS.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #if ENABLE(ASYNC_SCROLLING)
 
 #import "ScrollingTreeScrollingNodeDelegateIOS.h"
 
 #import <WebCore/ScrollingStateOverflowScrollingNode.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 Ref<ScrollingTreeOverflowScrollingNodeIOS> ScrollingTreeOverflowScrollingNodeIOS::create(WebCore::ScrollingTree& scrollingTree, WebCore::ScrollingNodeID nodeID)
 {
@@ -90,4 +89,4 @@ void ScrollingTreeOverflowScrollingNodeIOS::updateLayersAfterDelegatedScroll(con
 } // namespace WebKit
 
 #endif // ENABLE(ASYNC_SCROLLING)
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

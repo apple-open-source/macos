@@ -212,11 +212,12 @@ error:
 void
 KextAudit::stop(IOService *provider)
 {
-	DEBUG_LOG("STOP");
-	super::stop(provider);
+	IOLog("%s called!?", __FUNCTION__);
+}
 
-	if (_kalnLock) {
-		IOLockFree(_kalnLock);
-		_kalnLock = NULL;
-	}
+bool
+KextAudit::terminate(IOOptionBits options)
+{
+	IOLog("%s called!?", __FUNCTION__);
+	return false;
 }

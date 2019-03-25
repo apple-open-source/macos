@@ -31,6 +31,7 @@
 #include "MediaPlayerPrivateAVFoundation.h"
 #include <wtf/Function.h>
 #include <wtf/HashMap.h>
+#include <wtf/threads/BinarySemaphore.h>
 
 OBJC_CLASS AVAssetImageGenerator;
 OBJC_CLASS AVAssetResourceLoadingRequest;
@@ -60,6 +61,7 @@ class CDMSessionAVFoundationObjC;
 class InbandMetadataTextTrackPrivateAVF;
 class MediaSelectionGroupAVFObjC;
 class PixelBufferConformerCV;
+class SharedBuffer;
 class VideoFullscreenLayerManagerObjC;
 class VideoTextureCopierCV;
 class VideoTrackPrivateAVFObjC;
@@ -76,8 +78,9 @@ public:
     static void clearMediaCache(const String&, WallTime modifiedSince);
     static void clearMediaCacheForOrigins(const String&, const HashSet<RefPtr<SecurityOrigin>>&);
 
-    void setAsset(RetainPtr<id>);
+    void setAsset(RetainPtr<id>&&);
     void tracksChanged() override;
+    void didEnd() override;
 
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
     RetainPtr<AVPlayerItem> playerItem() const { return m_avPlayerItem; }
@@ -104,14 +107,15 @@ public:
     void playbackBufferEmptyDidChange(bool);
     void playbackBufferFullWillChange();
     void playbackBufferFullDidChange(bool);
-    void loadedTimeRangesDidChange(RetainPtr<NSArray>);
-    void seekableTimeRangesDidChange(RetainPtr<NSArray>);
-    void tracksDidChange(RetainPtr<NSArray>);
+    void loadedTimeRangesDidChange(RetainPtr<NSArray>&&);
+    void seekableTimeRangesDidChange(RetainPtr<NSArray>&&);
+    void tracksDidChange(const RetainPtr<NSArray>&);
     void hasEnabledAudioDidChange(bool);
     void presentationSizeDidChange(FloatSize);
     void durationDidChange(const MediaTime&);
     void rateDidChange(double);
-    void metadataDidArrive(RetainPtr<NSArray>, const MediaTime&);
+    void timeControlStatusDidChange(int);
+    void metadataDidArrive(const RetainPtr<NSArray>&, const MediaTime&);
     void firstFrameAvailableDidChange(bool);
     void trackEnabledDidChange(bool);
     void canPlayFastReverseDidChange(bool);
@@ -146,6 +150,8 @@ public:
     void cdmInstanceAttached(CDMInstance&) final;
     void cdmInstanceDetached(CDMInstance&) final;
     void attemptToDecryptWithInstance(CDMInstance&) final;
+    void setWaitingForKey(bool);
+    bool waitingForKey() const final { return m_waitingForKey; }
 #endif
 
 private:
@@ -163,7 +169,7 @@ private:
     void platformPause() override;
     MediaTime currentMediaTime() const override;
     void setVolume(float) override;
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     bool supportsMuting() const override { return true; }
 #endif
     void setMuted(bool) override;
@@ -176,8 +182,10 @@ private:
     void setVideoFullscreenFrame(FloatRect) override;
     void setVideoFullscreenGravity(MediaPlayer::VideoGravity) override;
     void setVideoFullscreenMode(MediaPlayer::VideoFullscreenMode) override;
+    void videoFullscreenStandbyChanged() override;
+    void setPlayerRate(double);
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     NSArray *timedMetadata() const override;
     String accessLog() const override;
     String errorLog() const override;
@@ -227,7 +235,7 @@ private:
     void updateVideoLayerGravity() override;
 
     bool didPassCORSAccessCheck() const override;
-    std::optional<bool> wouldTaintOrigin(const SecurityOrigin&) const final;
+    Optional<bool> wouldTaintOrigin(const SecurityOrigin&) const final;
 
 
     MediaTime getStartDate() const override;
@@ -307,7 +315,7 @@ private:
     void updateDisableExternalPlayback();
 #endif
 
-#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
     void setWirelessPlaybackTarget(Ref<MediaPlaybackTarget>&&) override;
     void setShouldPlayToPlaybackTarget(bool) override;
 #endif
@@ -319,12 +327,18 @@ private:
 
     void setShouldDisableSleep(bool) override;
 
+    Optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics() final;
+
 #if !RELEASE_LOG_DISABLED
     const char* logClassName() const final { return "MediaPlayerPrivateAVFoundationObjC"; }
 #endif
 
     AVPlayer *objCAVFoundationAVPlayer() const final { return m_avPlayer.get(); }
 
+    bool performTaskAtMediaTime(WTF::Function<void()>&&, MediaTime) final;
+    void setShouldObserveTimeControlStatus(bool);
+
+    WeakPtrFactory<MediaPlayerPrivateAVFoundationObjC> m_weakPtrFactory;
     RetainPtr<AVURLAsset> m_avAsset;
     RetainPtr<AVPlayer> m_avPlayer;
     RetainPtr<AVPlayerItem> m_avPlayerItem;
@@ -347,7 +361,7 @@ private:
     RetainPtr<WebCoreAVFPullDelegate> m_videoOutputDelegate;
     RetainPtr<CVPixelBufferRef> m_lastPixelBuffer;
     RetainPtr<CGImageRef> m_lastImage;
-    dispatch_semaphore_t m_videoOutputSemaphore;
+    BinarySemaphore m_videoOutputSemaphore;
     std::unique_ptr<VideoTextureCopierCV> m_videoTextureCopier;
 #endif
 
@@ -357,7 +371,7 @@ private:
 
 #if HAVE(AVFOUNDATION_LOADER_DELEGATE)
     friend class WebCoreAVFResourceLoader;
-    HashMap<RetainPtr<AVAssetResourceLoadingRequest>, RefPtr<WebCoreAVFResourceLoader>> m_resourceLoaderMap;
+    HashMap<RetainPtr<CFTypeRef>, RefPtr<WebCoreAVFResourceLoader>> m_resourceLoaderMap;
     RetainPtr<WebCoreAVFLoaderDelegate> m_loaderDelegate;
     HashMap<String, RetainPtr<AVAssetResourceLoadingRequest>> m_keyURIToRequestMap;
     HashMap<String, RetainPtr<AVAssetResourceLoadingRequest>> m_sessionIDToRequestMap;
@@ -390,8 +404,11 @@ private:
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     WeakPtr<CDMSessionAVFoundationObjC> m_session;
 #endif
-#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+#if ENABLE(ENCRYPTED_MEDIA)
+    bool m_waitingForKey { false };
+#if HAVE(AVCONTENTKEYSESSION)
     RefPtr<CDMInstanceFairPlayStreamingAVFObjC> m_cdmInstance;
+#endif
 #endif
 
     mutable RetainPtr<NSArray> m_cachedSeekableRanges;
@@ -400,7 +417,11 @@ private:
     RetainPtr<NSArray> m_currentMetaData;
     FloatSize m_cachedPresentationSize;
     MediaTime m_cachedDuration;
+    RefPtr<SharedBuffer> m_keyID;
     double m_cachedRate;
+    bool m_requestedPlaying { false };
+    double m_requestedRate { 1.0 };
+    int m_cachedTimeControlStatus { 0 };
     mutable long long m_cachedTotalBytes;
     unsigned m_pendingStatusChanges;
     int m_cachedItemStatus;
@@ -414,7 +435,8 @@ private:
     bool m_cachedCanPlayFastForward;
     bool m_cachedCanPlayFastReverse;
     bool m_muted { false };
-    mutable std::optional<bool> m_tracksArePlayable;
+    bool m_shouldObserveTimeControlStatus { false };
+    mutable Optional<bool> m_tracksArePlayable;
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     mutable bool m_allowsWirelessVideoPlayback;
     bool m_shouldPlayToPlaybackTarget { false };

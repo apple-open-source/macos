@@ -26,8 +26,9 @@
 #import "config.h"
 #import "ViewGestureController.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
+#import "APINavigation.h"
 #import "DrawingAreaProxy.h"
 #import "UIKitSPI.h"
 #import "ViewGestureControllerMessages.h"
@@ -44,8 +45,6 @@
 #import <WebCore/IOSurface.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/WeakObjCPtr.h>
-
-using namespace WebCore;
 
 @interface WKSwipeTransitionController : NSObject <_UINavigationInteractiveTransitionBaseDelegate>
 - (instancetype)initWithViewGestureController:(WebKit::ViewGestureController*)gestureController gestureRecognizerView:(UIView *)gestureRecognizerView;
@@ -202,17 +201,17 @@ void ViewGestureController::beginSwipeGesture(_UINavigationInteractiveTransition
     RetainPtr<UIColor> backgroundColor = [UIColor whiteColor];
     if (ViewSnapshot* snapshot = targetItem->snapshot()) {
         float deviceScaleFactor = m_webPageProxy.deviceScaleFactor();
-        FloatSize swipeLayerSizeInDeviceCoordinates(liveSwipeViewFrame.size);
+        WebCore::FloatSize swipeLayerSizeInDeviceCoordinates(liveSwipeViewFrame.size);
         swipeLayerSizeInDeviceCoordinates.scale(deviceScaleFactor);
         
         BOOL shouldRestoreScrollPosition = targetItem->pageState().mainFrameState.shouldRestoreScrollPosition;
-        IntPoint currentScrollPosition = roundedIntPoint(m_webPageProxy.viewScrollPosition());
+        WebCore::IntPoint currentScrollPosition = WebCore::roundedIntPoint(m_webPageProxy.viewScrollPosition());
 
         if (snapshot->hasImage() && snapshot->size() == swipeLayerSizeInDeviceCoordinates && deviceScaleFactor == snapshot->deviceScaleFactor() && (shouldRestoreScrollPosition || (currentScrollPosition == snapshot->viewScrollPosition())))
             [m_snapshotView layer].contents = snapshot->asLayerContents();
-        Color coreColor = snapshot->backgroundColor();
+        WebCore::Color coreColor = snapshot->backgroundColor();
         if (coreColor.isValid())
-            backgroundColor = adoptNS([[UIColor alloc] initWithCGColor:cachedCGColor(coreColor)]);
+            backgroundColor = adoptNS([[UIColor alloc] initWithCGColor:WebCore::cachedCGColor(coreColor)]);
     }
 
     [m_snapshotView setBackgroundColor:backgroundColor.get()];
@@ -301,34 +300,35 @@ void ViewGestureController::endSwipeGesture(WebBackForwardListItem* targetItem, 
         return;
     }
 
-    m_provisionalOrSameDocumentLoadCallback = [this] {
-        if (auto drawingArea = m_webPageProxy.drawingArea()) {
-            uint64_t pageID = m_webPageProxy.pageID();
-            GestureID gestureID = m_currentGestureID;
-            drawingArea->dispatchAfterEnsuringDrawing([pageID, gestureID] (CallbackBase::Error error) {
-                if (auto gestureController = controllerForGesture(pageID, gestureID))
-                    gestureController->willCommitPostSwipeTransitionLayerTree(error == CallbackBase::Error::None);
-            });
-            drawingArea->hideContentUntilPendingUpdate();
-        } else {
-            removeSwipeSnapshot();
-            return;
-        }
-
-        // FIXME: Should we wait for VisuallyNonEmptyLayout like we do on Mac?
-        m_snapshotRemovalTracker.start(SnapshotRemovalTracker::RenderTreeSizeThreshold
-            | SnapshotRemovalTracker::RepaintAfterNavigation
-            | SnapshotRemovalTracker::MainFrameLoad
-            | SnapshotRemovalTracker::SubresourceLoads
-            | SnapshotRemovalTracker::ScrollPositionRestoration, [this] {
-                this->removeSwipeSnapshot();
-        });
-    };
+    // FIXME: Should we wait for VisuallyNonEmptyLayout like we do on Mac?
+    m_snapshotRemovalTracker.start(SnapshotRemovalTracker::RenderTreeSizeThreshold
+        | SnapshotRemovalTracker::RepaintAfterNavigation
+        | SnapshotRemovalTracker::MainFrameLoad
+        | SnapshotRemovalTracker::SubresourceLoads
+        | SnapshotRemovalTracker::ScrollPositionRestoration, [this] {
+            this->removeSwipeSnapshot();
+    });
 
     if (ViewSnapshot* snapshot = targetItem->snapshot()) {
         m_backgroundColorForCurrentSnapshot = snapshot->backgroundColor();
         m_webPageProxy.didChangeBackgroundColor();
     }
+
+    uint64_t pageID = m_webPageProxy.pageID();
+    GestureID gestureID = m_currentGestureID;
+    m_loadCallback = [this, pageID, gestureID] {
+        auto drawingArea = m_webPageProxy.provisionalDrawingArea();
+        if (!drawingArea) {
+            removeSwipeSnapshot();
+            return;
+        }
+
+        drawingArea->dispatchAfterEnsuringDrawing([pageID, gestureID] (CallbackBase::Error error) {
+            if (auto gestureController = controllerForGesture(pageID, gestureID))
+                gestureController->willCommitPostSwipeTransitionLayerTree(error == CallbackBase::Error::None);
+        });
+        drawingArea->hideContentUntilPendingUpdate();
+    };
 }
 
 void ViewGestureController::setRenderTreeSize(uint64_t renderTreeSize)
@@ -370,7 +370,7 @@ void ViewGestureController::removeSwipeSnapshot()
 
     m_swipeTransitionContext = nullptr;
 
-    m_backgroundColorForCurrentSnapshot = Color();
+    m_backgroundColorForCurrentSnapshot = WebCore::Color();
 
     didEndGesture();
 }
@@ -397,4 +397,4 @@ bool ViewGestureController::completeSimulatedSwipeInDirectionForTesting(SwipeDir
 
 } // namespace WebKit
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

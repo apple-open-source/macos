@@ -795,7 +795,7 @@ static sqlite3 *_SecDbOpenV2(const char *path,
     } else if (SQLITE_OPEN_READWRITE == (flags & SQLITE_OPEN_READWRITE)) {
         if (useRobotVacuum) {
 #define SECDB_SQLITE_AUTO_VACUUM_INCREMENTAL 2
-            sqlite3_stmt *stmt;
+            sqlite3_stmt *stmt = NULL;
             int vacuumMode = -1;
 
             /*
@@ -812,6 +812,7 @@ static sqlite3 *_SecDbOpenV2(const char *path,
                 }
                 sqlite3_reset(stmt);
             }
+            sqlite3_finalize(stmt);
 
             if (vacuumMode != SECDB_SQLITE_AUTO_VACUUM_INCREMENTAL) {
                 (void)sqlite3_exec(handle, "PRAGMA auto_vacuum = incremental", NULL, NULL, NULL);
@@ -1284,7 +1285,10 @@ SecDbConnectionDestroy(CFTypeRef value)
 {
     SecDbConnectionRef dbconn = (SecDbConnectionRef)value;
     if (dbconn->handle) {
-        sqlite3_close(dbconn->handle);
+        int s3e = sqlite3_close(dbconn->handle);
+        if (s3e != SQLITE_OK) {
+            secerror("failed to close database connection (%d) for %@: %s", s3e, dbconn->db->db_path, sqlite3_errmsg(dbconn->handle));
+        }
     }
     dbconn->db = NULL;
     CFReleaseNull(dbconn->changes);

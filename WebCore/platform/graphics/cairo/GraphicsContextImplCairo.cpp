@@ -30,9 +30,13 @@
 #if USE(CAIRO)
 
 #include "CairoOperations.h"
+#include "FloatRoundedRect.h"
 #include "Font.h"
 #include "GlyphBuffer.h"
 #include "GraphicsContextPlatformPrivateCairo.h"
+#include "ImageBuffer.h"
+#include "IntRect.h"
+
 
 namespace WebCore {
 
@@ -151,6 +155,8 @@ void GraphicsContextImplCairo::fillRect(const FloatRect& rect, const Color& colo
 void GraphicsContextImplCairo::fillRect(const FloatRect& rect, Gradient& gradient)
 {
     RefPtr<cairo_pattern_t> platformGradient = adoptRef(gradient.createPlatformGradient(1.0));
+    if (!platformGradient)
+        return;
 
     Cairo::save(m_platformContext);
     Cairo::fillRect(m_platformContext, rect, platformGradient.get());
@@ -164,7 +170,7 @@ void GraphicsContextImplCairo::fillRect(const FloatRect& rect, const Color& colo
 
     Cairo::State::setCompositeOperation(m_platformContext, compositeOperator, blendMode);
     Cairo::fillRect(m_platformContext, rect, color, Cairo::ShadowState(state));
-    Cairo::State::setCompositeOperation(m_platformContext, previousOperator, BlendModeNormal);
+    Cairo::State::setCompositeOperation(m_platformContext, previousOperator, BlendMode::Normal);
 }
 
 void GraphicsContextImplCairo::fillRoundedRect(const FloatRoundedRect& rect, const Color& color, BlendMode blendMode)
@@ -180,7 +186,7 @@ void GraphicsContextImplCairo::fillRoundedRect(const FloatRoundedRect& rect, con
     else
         Cairo::fillRect(m_platformContext, rect.rect(), color, shadowState);
 
-    Cairo::State::setCompositeOperation(m_platformContext, previousOperator, BlendModeNormal);
+    Cairo::State::setCompositeOperation(m_platformContext, previousOperator, BlendMode::Normal);
 }
 
 void GraphicsContextImplCairo::fillRectWithRoundedHole(const FloatRect& rect, const FloatRoundedRect& roundedHoleRect, const Color&)
@@ -294,16 +300,15 @@ void GraphicsContextImplCairo::drawLine(const FloatPoint& point1, const FloatPoi
     Cairo::drawLine(m_platformContext, point1, point2, state.strokeStyle, state.strokeColor, state.strokeThickness, state.shouldAntialias);
 }
 
-void GraphicsContextImplCairo::drawLinesForText(const FloatPoint& point, const DashArray& widths, bool printing, bool doubleUnderlines, float strokeThickness)
+void GraphicsContextImplCairo::drawLinesForText(const FloatPoint& point, float thickness, const DashArray& widths, bool printing, bool doubleUnderlines)
 {
-    UNUSED_PARAM(strokeThickness);
     auto& state = graphicsContext().state();
-    Cairo::drawLinesForText(m_platformContext, point, widths, printing, doubleUnderlines, state.strokeColor, state.strokeThickness);
+    Cairo::drawLinesForText(m_platformContext, point, thickness, widths, printing, doubleUnderlines, state.strokeColor);
 }
 
-void GraphicsContextImplCairo::drawLineForDocumentMarker(const FloatPoint& origin, float width, DocumentMarkerLineStyle style)
+void GraphicsContextImplCairo::drawDotsForDocumentMarker(const FloatRect& rect, DocumentMarkerLineStyle style)
 {
-    Cairo::drawLineForDocumentMarker(m_platformContext, origin, width, style);
+    Cairo::drawDotsForDocumentMarker(m_platformContext, rect, style);
 }
 
 void GraphicsContextImplCairo::drawEllipse(const FloatRect& rect)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011, 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011, 2015-2017, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -109,6 +109,7 @@ _configopen(mach_port_t			server,
 	SCDynamicStorePrivateRef	storePrivate;
 	CFBooleanRef			useSessionKeys	= NULL;
 
+	*newServer = MACH_PORT_NULL;
 	*sc_status = kSCStatusOK;
 
 	/* un-serialize the name */

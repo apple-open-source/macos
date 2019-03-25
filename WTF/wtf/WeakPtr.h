@@ -24,8 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WTF_WeakPtr_h
-#define WTF_WeakPtr_h
+#pragma once
 
 #include <wtf/Noncopyable.h>
 #include <wtf/Ref.h>
@@ -90,6 +89,7 @@ private:
     RefPtr<WeakReference<T>> m_ref;
 };
 
+// Note: you probably want to inherit from CanMakeWeakPtr rather than use this directly.
 template<typename T>
 class WeakPtrFactory {
     WTF_MAKE_NONCOPYABLE(WeakPtrFactory<T>);
@@ -108,6 +108,13 @@ public:
         if (!m_ref)
             m_ref = WeakReference<T>::create(&ptr);
         return { makeRef(*m_ref) };
+    }
+
+    WeakPtr<const T> createWeakPtr(const T& ptr) const
+    {
+        if (!m_ref)
+            m_ref = WeakReference<T>::create(const_cast<T*>(&ptr));
+        return { makeRef(reinterpret_cast<WeakReference<const T>&>(*m_ref)) };
     }
 
     void revokeAll()
@@ -215,5 +222,3 @@ using WTF::WeakPtr;
 using WTF::WeakPtrFactory;
 using WTF::WeakReference;
 using WTF::makeWeakPtr;
-
-#endif

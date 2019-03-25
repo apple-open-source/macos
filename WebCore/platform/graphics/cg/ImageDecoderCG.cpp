@@ -176,7 +176,7 @@ String ImageDecoderCG::uti() const
 
 String ImageDecoderCG::filenameExtension() const
 {
-    return WebCore::preferredExtensionForImageSourceType(uti());
+    return WebCore::preferredExtensionForImageType(uti());
 }
 
 EncodedDataStatus ImageDecoderCG::encodedDataStatus() const
@@ -199,7 +199,7 @@ EncodedDataStatus ImageDecoderCG::encodedDataStatus() const
         return EncodedDataStatus::Error;
 
     case kCGImageStatusIncomplete: {
-        if (!isAllowedImageUTI(uti))
+        if (!isSupportedImageType(uti))
             return EncodedDataStatus::Error;
 
         RetainPtr<CFDictionaryRef> image0Properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), 0, imageSourceOptions().get()));
@@ -213,7 +213,7 @@ EncodedDataStatus ImageDecoderCG::encodedDataStatus() const
     }
 
     case kCGImageStatusComplete:
-        if (!isAllowedImageUTI(uti))
+        if (!isSupportedImageType(uti))
             return EncodedDataStatus::Error;
 
         return EncodedDataStatus::Complete;
@@ -266,23 +266,23 @@ RepetitionCount ImageDecoderCG::repetitionCount() const
     return RepetitionCountNone;
 }
 
-std::optional<IntPoint> ImageDecoderCG::hotSpot() const
+Optional<IntPoint> ImageDecoderCG::hotSpot() const
 {
     RetainPtr<CFDictionaryRef> properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), 0, imageSourceOptions().get()));
     if (!properties)
-        return std::nullopt;
+        return WTF::nullopt;
     
     int x = -1, y = -1;
     CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(properties.get(), CFSTR("hotspotX"));
     if (!num || !CFNumberGetValue(num, kCFNumberIntType, &x))
-        return std::nullopt;
+        return WTF::nullopt;
     
     num = (CFNumberRef)CFDictionaryGetValue(properties.get(), CFSTR("hotspotY"));
     if (!num || !CFNumberGetValue(num, kCFNumberIntType, &y))
-        return std::nullopt;
+        return WTF::nullopt;
     
     if (x < 0 || y < 0)
-        return std::nullopt;
+        return WTF::nullopt;
     
     return IntPoint(x, y);
 }
@@ -405,7 +405,7 @@ NativeImagePtr ImageDecoderCG::createFrameImageAtIndex(size_t index, Subsampling
         
         if (decodingOptions.hasSizeForDrawing()) {
             // See which size is smaller: the image native size or the sizeForDrawing.
-            std::optional<IntSize> sizeForDrawing = decodingOptions.sizeForDrawing();
+            Optional<IntSize> sizeForDrawing = decodingOptions.sizeForDrawing();
             if (sizeForDrawing.value().unclampedArea() < size.unclampedArea())
                 size = sizeForDrawing.value();
         }
@@ -418,20 +418,15 @@ NativeImagePtr ImageDecoderCG::createFrameImageAtIndex(size_t index, Subsampling
         image = adoptCF(CGImageSourceCreateImageAtIndex(m_nativeDecoder.get(), index, options.get()));
     }
     
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     // <rdar://problem/7371198> - CoreGraphics changed the default caching behaviour in iOS 4.0 to kCGImageCachingTransient
     // which caused a performance regression for us since the images had to be resampled/recreated every time we called
     // CGContextDrawImage. We now tell CG to cache the drawn images. See also <rdar://problem/14366755> -
     // CoreGraphics needs to un-deprecate kCGImageCachingTemporary since it's still not the default.
-#if COMPILER(CLANG)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     CGImageSetCachingFlags(image.get(), kCGImageCachingTemporary);
-#if COMPILER(CLANG)
-#pragma clang diagnostic pop
-#endif
-#endif // PLATFORM(IOS)
+    ALLOW_DEPRECATED_DECLARATIONS_END
+#endif // PLATFORM(IOS_FAMILY)
     
     String uti = this->uti();
     if (uti.isEmpty() || uti != "public.xbitmap-image")

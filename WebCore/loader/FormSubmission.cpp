@@ -133,10 +133,7 @@ static TextEncoding encodingFromAcceptCharset(const String& acceptCharset, Docum
     String normalizedAcceptCharset = acceptCharset;
     normalizedAcceptCharset.replace(',', ' ');
 
-    Vector<String> charsets;
-    normalizedAcceptCharset.split(' ', charsets);
-
-    for (auto& charset : charsets) {
+    for (auto& charset : normalizedAcceptCharset.split(' ')) {
         TextEncoding encoding(charset);
         if (encoding.isValid())
             return encoding;
@@ -178,7 +175,7 @@ Ref<FormSubmission> FormSubmission::create(HTMLFormElement& form, const Attribut
     }
 
     auto dataEncoding = isMailtoForm ? UTF8Encoding() : encodingFromAcceptCharset(copiedAttributes.acceptCharset(), document);
-    auto domFormData = DOMFormData::create(dataEncoding.encodingForFormSubmission());
+    auto domFormData = DOMFormData::create(dataEncoding.encodingForFormSubmissionOrURLParsing());
     StringPairVector formValues;
 
     bool containsPasswordData = false;

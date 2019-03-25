@@ -75,11 +75,14 @@
 #import "_WKFrameHandleInternal.h"
 #import "_WKGeolocationPositionInternal.h"
 #import "_WKHitTestResultInternal.h"
+#import "_WKInspectorInternal.h"
+#import "_WKInternalDebugFeatureInternal.h"
 #import "_WKProcessPoolConfigurationInternal.h"
 #import "_WKUserContentWorldInternal.h"
 #import "_WKUserInitiatedActionInternal.h"
 #import "_WKUserStyleSheetInternal.h"
 #import "_WKVisitedLinkStoreInternal.h"
+#import "_WKWebsiteDataStoreConfigurationInternal.h"
 #import "_WKWebsitePoliciesInternal.h"
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -92,19 +95,19 @@ static const size_t maximumExtraSpaceForAlignment = minimumObjectAlignment - ali
 
 namespace API {
 
-void Object::ref()
+void Object::ref() const
 {
-    CFRetain(wrapper());
+    CFRetain((__bridge CFTypeRef)wrapper());
 }
 
-void Object::deref()
+void Object::deref() const
 {
-    CFRelease(wrapper());
+    CFRelease((__bridge CFTypeRef)wrapper());
 }
 
 static id <WKObject> allocateWKObject(Class cls, size_t size)
 {
-    return NSAllocateObject(cls, size + maximumExtraSpaceForAlignment, nullptr);
+    return class_createInstance(cls, size + maximumExtraSpaceForAlignment);
 }
 
 API::Object& Object::fromWKObjectExtraSpace(id <WKObject> obj)
@@ -134,12 +137,16 @@ void* Object::newObject(size_t size, Type type)
         wrapper = [WKNSArray alloc];
         break;
 
+#if ENABLE(ATTACHMENT_ELEMENT)
     case Type::Attachment:
         wrapper = [_WKAttachment alloc];
         break;
+#endif
 
     case Type::AuthenticationChallenge:
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         wrapper = allocateWKObject([WKNSURLAuthenticationChallenge self], size);
+        ALLOW_DEPRECATED_DECLARATIONS_END
         break;
 
     case Type::AutomationSession:
@@ -172,7 +179,9 @@ void* Object::newObject(size_t size, Type type)
     case Type::Connection:
         // While not actually a WKObject instance, WKConnection uses allocateWKObject to allocate extra space
         // instead of using ObjectStorage because the wrapped C++ object is a subclass of WebConnection.
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         wrapper = allocateWKObject([WKConnection self], size);
+        ALLOW_DEPRECATED_DECLARATIONS_END
         break;
 
     case Type::Preferences:
@@ -189,6 +198,10 @@ void* Object::newObject(size_t size, Type type)
 
     case Type::Data:
         wrapper = [WKNSData alloc];
+        break;
+
+    case Type::InternalDebugFeature:
+        wrapper = [_WKInternalDebugFeature alloc];
         break;
 
     case Type::Dictionary:
@@ -215,7 +228,7 @@ void* Object::newObject(size_t size, Type type)
         wrapper = [WKFrameInfo alloc];
         break;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     case Type::GeolocationPosition:
         wrapper = [_WKGeolocationPosition alloc];
         break;
@@ -231,6 +244,10 @@ void* Object::newObject(size_t size, Type type)
         break;
 #endif
 
+    case Type::Inspector:
+        wrapper = [_WKInspector alloc];
+        break;
+        
     case Type::Navigation:
         wrapper = [WKNavigation alloc];
         break;
@@ -240,7 +257,9 @@ void* Object::newObject(size_t size, Type type)
         break;
 
     case Type::NavigationData:
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         wrapper = [WKNavigationData alloc];
+        ALLOW_DEPRECATED_DECLARATIONS_END
         break;
 
     case Type::NavigationResponse:
@@ -254,7 +273,9 @@ void* Object::newObject(size_t size, Type type)
 #endif
 
     case Type::PageGroup:
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         wrapper = [WKBrowsingContextGroup alloc];
+        ALLOW_DEPRECATED_DECLARATIONS_END
         break;
 
     case Type::SecurityOrigin:
@@ -316,6 +337,10 @@ void* Object::newObject(size_t size, Type type)
     case Type::WebsiteDataStore:
         wrapper = [WKWebsiteDataStore alloc];
         break;
+        
+    case Type::WebsiteDataStoreConfiguration:
+        wrapper = [_WKWebsiteDataStoreConfiguration alloc];
+        break;
 
     case Type::WebsitePolicies:
         wrapper = [_WKWebsitePolicies alloc];
@@ -365,7 +390,7 @@ void* Object::wrap(API::Object* object)
     if (!object)
         return nullptr;
 
-    return static_cast<void*>(object->wrapper());
+    return (__bridge void*)object->wrapper();
 }
 
 API::Object* Object::unwrap(void* object)
@@ -373,7 +398,7 @@ API::Object* Object::unwrap(void* object)
     if (!object)
         return nullptr;
 
-    return &static_cast<id <WKObject>>(object)._apiObject;
+    return &((__bridge id <WKObject>)object)._apiObject;
 }
 
 } // namespace API

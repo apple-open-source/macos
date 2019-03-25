@@ -27,11 +27,10 @@
 #include <WebCore/SecurityOriginData.h>
 #include <wtf/text/StringHash.h>
 
+namespace WebKit {
 using namespace WebCore;
 
-namespace WebKit {
-
-UserMediaPermissionRequestProxy::UserMediaPermissionRequestProxy(UserMediaPermissionRequestManagerProxy& manager, uint64_t userMediaID, uint64_t mainFrameID, uint64_t frameID, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, Vector<WebCore::CaptureDevice>&& audioDevices, Vector<WebCore::CaptureDevice>&& videoDevices, String&& deviceIDHashSalt, WebCore::MediaStreamRequest&& request)
+UserMediaPermissionRequestProxy::UserMediaPermissionRequestProxy(UserMediaPermissionRequestManagerProxy& manager, uint64_t userMediaID, uint64_t mainFrameID, uint64_t frameID, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, Vector<WebCore::CaptureDevice>&& audioDevices, Vector<WebCore::CaptureDevice>&& videoDevices, WebCore::MediaStreamRequest&& request)
     : m_manager(&manager)
     , m_userMediaID(userMediaID)
     , m_mainFrameID(mainFrameID)
@@ -40,7 +39,6 @@ UserMediaPermissionRequestProxy::UserMediaPermissionRequestProxy(UserMediaPermis
     , m_topLevelDocumentSecurityOrigin(WTFMove(topLevelDocumentOrigin))
     , m_eligibleVideoDevices(WTFMove(videoDevices))
     , m_eligibleAudioDevices(WTFMove(audioDevices))
-    , m_deviceIdentifierHashSalt(WTFMove(deviceIDHashSalt))
     , m_request(WTFMove(request))
 {
 }

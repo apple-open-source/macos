@@ -27,10 +27,11 @@
 
 #include "ArgumentCoders.h"
 #include <WebCore/Color.h>
+#include <WebCore/FontAttributes.h>
 #include <WebCore/IntRect.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include <WebCore/SelectionRect.h>
 #endif
 
@@ -74,25 +75,27 @@ struct EditorState {
     bool hasComposition { false };
     bool isMissingPostLayoutData { false };
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     WebCore::IntRect firstMarkedRect;
     WebCore::IntRect lastMarkedRect;
     String markedText;
 #endif
 
+    String originIdentifierForPasteboard;
+
     struct PostLayoutData {
         uint32_t typingAttributes { AttributeNone };
-#if PLATFORM(IOS) || PLATFORM(GTK)
+#if PLATFORM(IOS_FAMILY) || PLATFORM(GTK)
         WebCore::IntRect caretRectAtStart;
 #endif
-#if PLATFORM(IOS) || PLATFORM(MAC)
-        WebCore::IntRect selectionClipRect;
+#if PLATFORM(IOS_FAMILY) || PLATFORM(MAC)
+        WebCore::IntRect focusedElementRect;
         uint64_t selectedTextLength { 0 };
         uint32_t textAlignment { NoAlignment };
         WebCore::Color textColor { WebCore::Color::black };
         uint32_t enclosingListType { NoList };
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
         WebCore::IntRect caretRectAtEnd;
         Vector<WebCore::SelectionRect> selectionRects;
         String wordAtSelection;
@@ -104,6 +107,7 @@ struct EditorState {
         bool isStableStateUpdate { false };
         bool insideFixedPosition { false };
         bool hasPlainText { false };
+        bool elementIsTransparent { false };
         WebCore::Color caretColor;
 #endif
 #if PLATFORM(MAC)
@@ -111,6 +115,8 @@ struct EditorState {
         String paragraphContextForCandidateRequest;
         String stringForCandidateRequest;
 #endif
+
+        Optional<WebCore::FontAttributes> fontAttributes;
 
         bool canCut { false };
         bool canCopy { false };

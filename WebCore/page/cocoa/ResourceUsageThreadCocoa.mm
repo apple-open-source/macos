@@ -40,7 +40,7 @@ namespace WebCore {
 
 size_t vmPageSize()
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     return vm_kernel_page_size;
 #else
     static size_t cached = sysconf(_SC_PAGESIZE);
@@ -248,8 +248,9 @@ void ResourceUsageThread::platformThreadBody(JSC::VM* vm, ResourceUsageData& dat
 
     data.totalExternalSize = currentGCOwnedExternal;
 
-    data.timeOfNextEdenCollection = vm->heap.edenActivityCallback()->nextFireTime();
-    data.timeOfNextFullCollection = vm->heap.fullActivityCallback()->nextFireTime();
+    auto now = MonotonicTime::now();
+    data.timeOfNextEdenCollection = now + vm->heap.edenActivityCallback()->timeUntilFire().valueOr(Seconds(std::numeric_limits<double>::infinity()));
+    data.timeOfNextFullCollection = now + vm->heap.fullActivityCallback()->timeUntilFire().valueOr(Seconds(std::numeric_limits<double>::infinity()));
 }
 
 }

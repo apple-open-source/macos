@@ -35,7 +35,7 @@ small-caption
 -webkit-small-control
 -webkit-control
 
-#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+#if defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY
 -apple-system-headline
 -apple-system-body
 -apple-system-subheadline
@@ -244,6 +244,7 @@ windowtext
 -apple-system-quaternary-label
 -apple-system-grid
 -apple-system-separator
+-apple-system-container-border
 #endif
 -apple-wireless-playback-target-active
 -apple-system-blue
@@ -550,7 +551,6 @@ no-close-quote
 no-open-quote
 nowrap
 open-quote
-overlay
 overline
 portrait
 pre
@@ -835,6 +835,12 @@ image-controls-button
 #endif
 #if defined(ENABLE_APPLE_PAY) && ENABLE_APPLE_PAY
 -apple-pay-button
+#endif
+#if defined(ENABLE_INPUT_TYPE_COLOR) && ENABLE_INPUT_TYPE_COLOR
+color-well
+#endif
+#if defined(ENABLE_DATALIST_ELEMENT) && ENABLE_DATALIST_ELEMENT
+list-button
 #endif
 textarea
 #if defined(ENABLE_ATTACHMENT_ELEMENT) && ENABLE_ATTACHMENT_ELEMENT
@@ -1146,7 +1152,7 @@ on-demand
 // normal
 multiply
 screen
-// overlay
+overlay
 darken
 lighten
 color-dodge
@@ -1195,6 +1201,9 @@ repeating-conic-gradient
 filter
 -webkit-filter
 dashboard-region
+#if defined(ENABLE_CSS_PAINTING_API) && ENABLE_CSS_PAINTING_API
+paint
+#endif
 
 // deprecated gradients
 from
@@ -1231,7 +1240,6 @@ url
 cubic-bezier
 spring
 steps
-frames
 apple-invert-lightness
 
 // colors
@@ -1371,6 +1379,18 @@ prefers
 reduce
 no-preference
 
+#if defined(ENABLE_DARK_MODE_CSS) && ENABLE_DARK_MODE_CSS
+// prefers-color-scheme
+light
+dark
+// no-preference
+
+// supported-color-schemes
+only
+// light
+// dark
+#endif
+
 // auto-repeat
 auto-fill
 auto-fit
@@ -1388,3 +1408,6 @@ standalone
 minimal-ui
 browser
 #endif
+
+// text-decoration-thickness, text-underline-offset
+from-font

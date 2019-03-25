@@ -94,6 +94,19 @@ typedef uint32_t fs_media_encryption_details_t;
  */
 extern errno_t _FSGetMediaEncryptionStatus(CFStringRef devnode, bool *encryption_status, fs_media_encryption_details_t *encryption_details);
 
+/* Input:
+ *  1. const char *devnode: C string representation of /dev/diskXsXX
+ *  2. bool *encryption_status: pointer to store boolean value of encryption status.
+ *      Only valid on success. Must not be NULL.
+ *  3. uint32_t *encryption_details: pointer to bitfield with extra encryption information.
+ *      Only valid on success. May be NULL.
+ * Output:
+ *  1. errno_t: 0 upon success, or an errno indicating why no information could be found.
+ *
+ * This function returns the encryption status for /dev/diskXsXX
+ */
+extern errno_t _FSGetMediaEncryptionStatusAtPath(const char *devnode, bool *encryption_status, fs_media_encryption_details_t *encryption_details);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

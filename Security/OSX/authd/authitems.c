@@ -255,6 +255,10 @@ auth_item_create_with_xpc(xpc_object_t data)
         bool sensitive = xpc_dictionary_get_value(data, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH);
         if (sensitive) {
             size_t sensitiveLength = (size_t)xpc_dictionary_get_uint64(data, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH);
+            if (sensitiveLength > len) {
+                os_log_error(AUTHD_LOG, "Sensitive data len %zu is not valid", sensitiveLength);
+                goto done;
+            }
             item->bufLen = sensitiveLength;
             item->data.valueLength = sensitiveLength;
             item->data.value = calloc(1u, sensitiveLength);

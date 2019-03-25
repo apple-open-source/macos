@@ -114,8 +114,6 @@
 #define MALLOC_PURGEABLE (1 << 5)
 // call abort() on malloc errors, but not on out of memory.
 #define MALLOC_ABORT_ON_CORRUPTION (1 << 6)
-// expanded small-zone free list size (256 slots)
-#define MALLOC_EXTENDED_SMALL_SLOTS (1 << 7)
 
 /*
  * msize - a type to refer to the number of quanta of a tiny or small

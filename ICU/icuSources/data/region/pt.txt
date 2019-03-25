@@ -80,7 +80,7 @@ pt{
         CK{"Ilhas Cook"}
         CL{"Chile"}
         CM{"Camarões"}
-        CN{"China"}
+        CN{"China continental"}
         CO{"Colômbia"}
         CP{"Ilha de Clipperton"}
         CR{"Costa Rica"}
@@ -132,7 +132,7 @@ pt{
         GU{"Guam"}
         GW{"Guiné-Bissau"}
         GY{"Guiana"}
-        HK{"Hong Kong (China)"}
+        HK{"Hong Kong"}
         HM{"Ilhas Heard e McDonald"}
         HN{"Honduras"}
         HR{"Croácia"}
@@ -186,7 +186,7 @@ pt{
         ML{"Mali"}
         MM{"Mianmar (Birmânia)"}
         MN{"Mongólia"}
-        MO{"Macau (China)"}
+        MO{"Macau"}
         MP{"Ilhas Marianas do Norte"}
         MQ{"Martinica"}
         MR{"Mauritânia"}
@@ -296,8 +296,6 @@ pt{
     }
     Countries%short{
         GB{"Reino Unido"}
-        HK{"Hong Kong"}
-        MO{"Macau"}
         PS{"Palestina"}
         UN{"ONU"}
         US{"EUA"}

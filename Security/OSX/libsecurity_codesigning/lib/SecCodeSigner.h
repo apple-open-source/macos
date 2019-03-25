@@ -165,6 +165,10 @@ extern const CFStringRef kSecCodeSignerTeamIdentifier;
 extern const CFStringRef kSecCodeSignerPlatformIdentifier;
 extern const CFStringRef kSecCodeSignerRuntimeVersion;
 extern const CFStringRef kSecCodeSignerPreserveAFSC;
+extern const CFStringRef kSecCodeSignerOmitAdhocFlag;
+extern const CFStringRef kSecCodeSignerEditCpuType;
+extern const CFStringRef kSecCodeSignerEditCpuSubtype;
+extern const CFStringRef kSecCodeSignerEditCMS;
 
 enum {
     kSecCodeSignerPreserveIdentifier = 1 << 0,		// preserve signing identifier
@@ -189,7 +193,9 @@ enum {
 		useful defaults, and will need to be set before signing is attempted.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 		The kSecCSRemoveSignature flag requests that any existing signature be stripped
-		from the target code instead of signing.
+		from the target code instead of signing. The kSecCSEditSignature flag
+        requests editing of existing signatures, which only works with a very
+        limited set of options.
 	@param staticCode On successful return, a SecStaticCode object reference representing
 	the file system origin of the given SecCode. On error, unchanged.
 	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
@@ -206,6 +212,7 @@ enum {
 	kSecCSSignStrictPreflight = 1 << 7, // fail signing operation if signature would fail strict validation
 	kSecCSSignGeneratePEH = 1 << 8,		// generate pre-encryption hashes
     kSecCSSignGenerateEntitlementDER = 1 << 9, // generate entitlement DER
+    kSecCSEditSignature = 1 << 10,      // edit existing signature
 };
 
 

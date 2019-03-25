@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,49 +25,44 @@
 
 #pragma once
 
-#include "WebFrameListenerProxy.h"
+#include "APIObject.h"
+#include <WebCore/FrameLoaderTypes.h>
+#include <wtf/CompletionHandler.h>
+#include <wtf/Vector.h>
 
-#if PLATFORM(COCOA)
-#include "WKFoundation.h"
-#endif
-
-#define DELEGATE_REF_COUNTING_TO_COCOA (PLATFORM(COCOA) && WK_API_ENABLED)
+namespace API {
+class WebsitePolicies;
+}
 
 namespace WebKit {
 
-enum class PolicyListenerType {
-    NavigationAction,
-    NewWindowAction,
-    Response,
-};
+class SafeBrowsingWarning;
 
-class WebFramePolicyListenerProxy : public WebFrameListenerProxy {
+enum class ProcessSwapRequestedByClient { No, Yes };
+enum class ShouldExpectSafeBrowsingResult { No, Yes };
+
+class WebFramePolicyListenerProxy : public API::ObjectImpl<API::Object::Type::FramePolicyListener> {
 public:
-    static const Type APIType = Type::FramePolicyListener;
 
-    static Ref<WebFramePolicyListenerProxy> create(WebFrameProxy* frame, uint64_t listenerID, PolicyListenerType policyType)
+    using Reply = CompletionHandler<void(WebCore::PolicyAction, API::WebsitePolicies*, ProcessSwapRequestedByClient, RefPtr<SafeBrowsingWarning>&&)>;
+    static Ref<WebFramePolicyListenerProxy> create(Reply&& reply, ShouldExpectSafeBrowsingResult expect)
     {
-        return adoptRef(*new WebFramePolicyListenerProxy(frame, listenerID, policyType));
+        return adoptRef(*new WebFramePolicyListenerProxy(WTFMove(reply), expect));
     }
+    ~WebFramePolicyListenerProxy();
 
-    void use(std::optional<WebsitePoliciesData>&&);
+    void use(API::WebsitePolicies* = nullptr, ProcessSwapRequestedByClient = ProcessSwapRequestedByClient::No);
     void download();
     void ignore();
-
-    PolicyListenerType policyListenerType() const { return m_policyType; }
+    
+    void didReceiveSafeBrowsingResults(RefPtr<SafeBrowsingWarning>&&);
 
 private:
-    WebFramePolicyListenerProxy(WebFrameProxy*, uint64_t listenerID, PolicyListenerType);
+    WebFramePolicyListenerProxy(Reply&&, ShouldExpectSafeBrowsingResult);
 
-    Type type() const override { return APIType; }
-
-#if DELEGATE_REF_COUNTING_TO_COCOA
-    void* operator new(size_t size) { return newObject(size, APIType); }
-#endif
-
-    PolicyListenerType m_policyType;
+    Optional<std::pair<RefPtr<API::WebsitePolicies>, ProcessSwapRequestedByClient>> m_policyResult;
+    Optional<RefPtr<SafeBrowsingWarning>> m_safeBrowsingWarning;
+    Reply m_reply;
 };
 
 } // namespace WebKit
-
-#undef DELEGATE_REF_COUNTING_TO_COCOA

@@ -100,7 +100,7 @@ bc_get_volume_info(dev_t volume_dev,
 		*apfs_container_has_rolling_volumes_out = true;
 	}
 	
-	if (volume_dev == nulldev()) {
+	if (volume_dev == nulldev() || volume_dev == NODEV) {
 		return;
 	}
 	
@@ -198,6 +198,103 @@ bc_get_volume_info(dev_t volume_dev,
 }
 
 
+/* group_uuid_out will be filled with the UUID of this device's group uuid,
+ * or zero'ed out if the device has no grouping.
+ */
+void
+bc_get_group_uuid_for_dev(dev_t dev, uuid_t _Nonnull group_uuid_out)
+{
+	if (!group_uuid_out) {
+		return;
+	}
+
+	uuid_clear(group_uuid_out);
+	
+	if (dev == nulldev() || dev == NODEV) {
+		return;
+	}
+	
+	OSDictionary *target, *filter;
+	OSNumber *number;
+	IOService *matchingService;
+	OSString* uuid_str;
+	
+	if ((target = IOService::serviceMatching(kIOMediaClass)) != NULL) {
+		filter = OSDictionary::withCapacity(2);
+		number = OSNumber::withNumber(major(dev), 32);
+		filter->setObject(kIOBSDMajorKey, number);
+		number->release();
+		number = OSNumber::withNumber(minor(dev), 32);
+		filter->setObject(kIOBSDMinorKey, number);
+		number->release();
+		target->setObject(gIOPropertyMatchKey, filter);
+		filter->release();
+		if ((matchingService = IOService::copyMatchingService(target)) != NULL) {
+			matchingService->waitQuiet();
+			
+			if (matchingService->metaCast(APFS_MEDIA_OBJECT) != NULL) {
+				// For APFS containers, the bsd device will match the container's parent APFS_MEDIA_OBJECT, so we need to search the APFS_MEDIA_OBJECT's children for an APFS container
+				OSIterator* iterator = matchingService->getChildIterator(gIOServicePlane);
+				if (iterator) {
+					IORegistryEntry* container = NULL;
+					bool foundContainer = false;
+					while ((container = (IORegistryEntry *)iterator->getNextObject()) != NULL) {
+						if (container->metaCast(APFS_CONTAINER_OBJECT)) {
+							foundContainer = true;
+							
+							debug("Found apfs container via media for device %#x", dev);
+							if ((uuid_str = OSDynamicCast(OSString, container->getProperty(kIOMediaUUIDKey))) != NULL) {
+								uuid_parse(uuid_str->getCStringNoCopy(), group_uuid_out);
+							}
+							
+							break;
+						}
+					}
+					
+					if (!foundContainer) {
+						debug("No apfs container for media for device %#x", dev);
+					}
+
+					iterator->release();
+				} else {
+					message("No child iterator for media for device %#x", dev);
+				}
+
+			} else if (matchingService->metaCast(APFS_VOLUME_OBJECT) != NULL) {
+				IORegistryEntry* container = NULL;
+
+				if ((container = matchingService->getParentEntry(gIOServicePlane)) != NULL && container->metaCast(APFS_CONTAINER_OBJECT) != NULL) {
+					
+					debug("Found apfs container via volume for device %#x", dev);
+					if ((uuid_str = OSDynamicCast(OSString, container->getProperty(kIOMediaUUIDKey))) != NULL) {
+						uuid_parse(uuid_str->getCStringNoCopy(), group_uuid_out);
+					}
+					
+				} else {
+					message("No container for APFS volume");
+				}
+				
+				
+			} else if (matchingService->metaCast(APFS_CONTAINER_OBJECT) != NULL) {
+				
+				debug("Found apfs container directly for device %#x", dev);
+				if ((uuid_str = OSDynamicCast(OSString, matchingService->getProperty(kIOMediaUUIDKey))) != NULL) {
+					uuid_parse(uuid_str->getCStringNoCopy(), group_uuid_out);
+				}
+
+			} else if (matchingService->metaCast(kCoreStorageLogicalClassName) != NULL) {
+				// No groupings for CoreStorage
+				debug("No grouping for cs device %#x", dev);
+			} else {
+				// Non-apfs and non-CoreStorage, no groupings
+				debug("No grouping for non-apfs, non-cs device %#x", dev);
+			}
+			matchingService->release();
+		}
+		target->release();
+	}
+}
+
 
 // Get device string to pass to vnode_lookup for APFS container device
 void
@@ -208,7 +305,7 @@ lookup_dev_name(dev_t dev, char* name, int nmlen)
 	}
 	name[0] = '\0';
 	
-	if (dev == nulldev()) {
+	if (dev == nulldev() || dev == NODEV) {
 		return;
 	}
 	

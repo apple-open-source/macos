@@ -36,7 +36,7 @@
 #import <wtf/WeakPtr.h>
 #import <wtf/text/StringView.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import <WebCore/WAKAppKitStubs.h>
 #endif
 
@@ -137,13 +137,14 @@ private:
     void textDidChangeInTextArea(WebCore::Element*) final;
     void overflowScrollPositionChanged() final { };
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     void startDelayingAndCoalescingContentChangeNotifications() final;
     void stopDelayingAndCoalescingContentChangeNotifications() final;
     bool hasRichlyEditableSelection() final;
     int getPasteboardItemsCount() final;
     RefPtr<WebCore::DocumentFragment> documentFragmentFromDelegate(int index) final;
     bool performsTwoStepPaste(WebCore::DocumentFragment*) final;
+    void updateStringForFind(const String&) final { }
 #endif
 
     bool performTwoStepDrop(WebCore::DocumentFragment&, WebCore::Range& destination, bool isMove) final;
@@ -154,7 +155,7 @@ private:
     void checkSpellingOfString(StringView, int* misspellingLocation, int* misspellingLength) final;
     String getAutoCorrectSuggestionForMisspelledWord(const String&) final;
     void checkGrammarOfString(StringView, Vector<WebCore::GrammarDetail>&, int* badGrammarLocation, int* badGrammarLength) final;
-    Vector<WebCore::TextCheckingResult> checkTextOfParagraph(StringView, WebCore::TextCheckingTypeMask checkingTypes, const WebCore::VisibleSelection& currentSelection) final;
+    Vector<WebCore::TextCheckingResult> checkTextOfParagraph(StringView, OptionSet<WebCore::TextCheckingType> checkingTypes, const WebCore::VisibleSelection& currentSelection) final;
     void updateSpellingUIWithGrammarString(const String&, const WebCore::GrammarDetail&) final;
     void updateSpellingUIWithMisspelledWord(const String&) final;
     void showSpellingUI(bool show) final;
@@ -165,7 +166,7 @@ private:
     void setInputMethodState(bool enabled) final;
     void requestCheckingOfString(WebCore::TextCheckingRequest&, const WebCore::VisibleSelection& currentSelection) final;
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+#if PLATFORM(MAC)
     void requestCandidatesForSelection(const WebCore::VisibleSelection&) final;
     void handleRequestedCandidates(NSInteger, NSArray<NSTextCheckingResult *> *);
     void handleAcceptedCandidateWithSoftSpaces(WebCore::TextCheckingResult) final;
@@ -178,14 +179,14 @@ private:
     bool m_haveUndoRedoOperations { false };
     RefPtr<WebCore::TextCheckingRequest> m_textCheckingRequest;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     bool m_delayingContentChangeNotifications { false };
     bool m_hasDelayedContentChangeNotification { false };
 #endif
 
     WebCore::VisibleSelection m_lastSelectionForRequestedCandidates;
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+#if PLATFORM(MAC)
     RetainPtr<NSString> m_paragraphContextForCandidateRequest;
     NSRange m_rangeForCandidates;
     NSInteger m_lastCandidateRequestSequenceNumber;
@@ -219,7 +220,7 @@ inline WebCore::EAffinity core(NSSelectionAffinity affinity)
     return WebCore::EAffinity::UPSTREAM;
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 inline bool WebEditorClient::isGrammarCheckingEnabled()
 {
@@ -227,10 +228,6 @@ inline bool WebEditorClient::isGrammarCheckingEnabled()
 }
 
 inline void WebEditorClient::toggleGrammarChecking()
-{
-}
-
-inline void WebEditorClient::toggleContinuousSpellChecking()
 {
 }
 

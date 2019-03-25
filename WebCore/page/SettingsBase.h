@@ -34,7 +34,7 @@
 #include "StorageMap.h"
 #include "TextFlags.h"
 #include "Timer.h"
-#include "URL.h"
+#include <wtf/URL.h>
 #include "WritingMode.h"
 #include <JavaScriptCore/RuntimeFlags.h>
 #include <unicode/uscript.h>
@@ -81,7 +81,7 @@ enum PDFImageCachingPolicy {
     PDFImageCachingBelowMemoryLimit,
     PDFImageCachingDisabled,
     PDFImageCachingClipBoundsOnly,
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     PDFImageCachingDefault = PDFImageCachingBelowMemoryLimit
 #else
     PDFImageCachingDefault = PDFImageCachingEnabled
@@ -178,7 +178,6 @@ protected:
     void setNeedsRelayoutAllFrames();
     void mediaTypeOverrideChanged();
     void imagesEnabledChanged();
-    void scriptEnabledChanged();
     void pluginsEnabledChanged();
     void userStyleSheetLocationChanged();
     void usesPageCacheChanged();
@@ -207,6 +206,10 @@ protected:
     float m_oneLineTextMultiplierCoefficient { defaultOneLineTextMultiplierCoefficient };
     float m_multiLineTextMultiplierCoefficient { defaultMultiLineTextMultiplierCoefficient };
     float m_maxTextAutosizingScaleIncrease { defaultMaxTextAutosizingScaleIncrease };
+#endif
+
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/SettingsAdditions.h>
 #endif
 };
 

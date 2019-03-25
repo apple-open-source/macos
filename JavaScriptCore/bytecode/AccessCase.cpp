@@ -121,6 +121,12 @@ std::unique_ptr<AccessCase> AccessCase::fromStructureStubInfo(
     case CacheType::InByIdSelf:
         return AccessCase::create(vm, owner, InHit, stubInfo.u.byIdSelf.offset, stubInfo.u.byIdSelf.baseObjectStructure.get());
 
+    case CacheType::ArrayLength:
+        return AccessCase::create(vm, owner, AccessCase::ArrayLength);
+
+    case CacheType::StringLength:
+        return AccessCase::create(vm, owner, AccessCase::StringLength);
+
     default:
         return nullptr;
     }
@@ -1013,14 +1019,6 @@ void AccessCase::generateImpl(AccessGenerationState& state)
     }
 
     case Replace: {
-        if (InferredType* type = structure()->inferredTypeFor(ident.impl())) {
-            if (AccessCaseInternal::verbose)
-                dataLog("Have type: ", type->descriptor(), "\n");
-            state.failAndRepatch.append(
-                jit.branchIfNotType(valueRegs, scratchGPR, type->descriptor()));
-        } else if (AccessCaseInternal::verbose)
-            dataLog("Don't have type.\n");
-
         if (isInlineOffset(m_offset)) {
             jit.storeValue(
                 valueRegs,
@@ -1043,14 +1041,6 @@ void AccessCase::generateImpl(AccessGenerationState& state)
         // AccessCase::transition() should have returned null if this wasn't true.
         RELEASE_ASSERT(GPRInfo::numberOfRegisters >= 6 || !structure()->outOfLineCapacity() || structure()->outOfLineCapacity() == newStructure()->outOfLineCapacity());
 
-        if (InferredType* type = newStructure()->inferredTypeFor(ident.impl())) {
-            if (AccessCaseInternal::verbose)
-                dataLog("Have type: ", type->descriptor(), "\n");
-            state.failAndRepatch.append(
-                jit.branchIfNotType(valueRegs, scratchGPR, type->descriptor()));
-        } else if (AccessCaseInternal::verbose)
-            dataLog("Don't have type.\n");
-
         // NOTE: This logic is duplicated in AccessCase::doesCalls(). It's important that doesCalls() knows
         // exactly when this would make calls.
         bool allocating = newStructure()->outOfLineCapacity() != structure()->outOfLineCapacity();
@@ -1060,7 +1050,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
         ScratchRegisterAllocator allocator(stubInfo.patch.usedRegisters);
         allocator.lock(baseGPR);
 #if USE(JSVALUE32_64)
-        allocator.lock(static_cast<GPRReg>(stubInfo.patch.baseTagGPR));
+        allocator.lock(stubInfo.patch.baseTagGPR);
 #endif
         allocator.lock(valueRegs);
         allocator.lock(scratchGPR);

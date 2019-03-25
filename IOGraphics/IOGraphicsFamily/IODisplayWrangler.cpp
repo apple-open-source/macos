@@ -20,7 +20,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
 #include <sys/kdebug.h>
 #include <sys/proc.h>
 
@@ -37,8 +36,10 @@
 #include <IOKit/graphics/IOGraphicsTypesPrivate.h>
 
 #include "IODisplayWrangler.h"
+#include "IODisplayWranglerUserClients.hpp"
 
 #include "IOGraphicsKTrace.h"
+#include "GMetric.hpp"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -185,7 +186,7 @@ bool IODisplayWrangler::start( IOService * provider )
 
     setProperty(kIOUserClientClassKey, "IOAccelerationUserClient");
 
-	clock_interval_to_absolutetime_interval(kDimInterval, kSecondScale, &fDimInterval);
+    clock_interval_to_absolutetime_interval(kDimInterval, kSecondScale, &fDimInterval);
 
     gIODisplayWrangler = this;
 
@@ -196,6 +197,7 @@ bool IODisplayWrangler::start( IOService * provider )
     IODW_END(start,true,0,0);
     return (true);
 }
+
 
 bool IODisplayWrangler::makeDisplayConnects( IOFramebuffer * fb )
 {
@@ -498,17 +500,21 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
 // If it's down, inform the displays to lower one state, too.  If it's up,
 // the idle displays are made usable.
 
+#define RECORD_METRIC(func, domain) \
+    GMETRICFUNC(func, DBG_FUNC_NONE, (domain)|kGMETRICS_DOMAIN_DISPLAYWRANGLER)
+#define RECORD_METRIC_POWER(func, domain) \
+    RECORD_METRIC(func, (domain) | kGMETRICS_DOMAIN_POWER);
+
 IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOService * whatDevice )
 {
+    // Single threaded by IOServicePM design
     IOG_KTRACE_LOG_SYNCH(DBG_IOG_LOG_SYNCH);
 
-    IOG_KTRACE(DBG_IOG_SET_POWER_STATE,
-               DBG_FUNC_NONE,
-               kGMETRICS_DOMAIN_DISPLAYWRANGLER
-                   | kGMETRICS_DOMAIN_POWER
-                   | (powerStateOrdinal < getPowerState() ? kGMETRICS_DOMAIN_SLEEP
-                                                          : kGMETRICS_DOMAIN_WAKE),
-               powerStateOrdinal,
+    RECORD_METRIC_POWER(DBG_IOG_SET_POWER_STATE,
+                        powerStateOrdinal < getPowerState()
+                            ? kGMETRICS_DOMAIN_SLEEP : kGMETRICS_DOMAIN_WAKE);
+    IOG_KTRACE(DBG_IOG_SET_POWER_STATE, DBG_FUNC_NONE,
+               0, powerStateOrdinal,
                0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
                0, 0,
                0, 0);
@@ -526,12 +532,10 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
         // system is going to sleep
         // keep displays off on wake till UI brings them up
 
-        IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
-                   DBG_FUNC_NONE,
-                   kGMETRICS_DOMAIN_DISPLAYWRANGLER
-                       | kGMETRICS_DOMAIN_POWER
-                       | kGMETRICS_DOMAIN_SLEEP,
-                   DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+        RECORD_METRIC_POWER(DBG_IOG_CHANGE_POWER_STATE_PRIV,
+                            kGMETRICS_DOMAIN_SLEEP);
+        IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV, DBG_FUNC_NONE,
+                   0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
                    0, 0,
                    0, 0,
                    0, 0);
@@ -637,12 +641,10 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
 				absolutetime_to_nanoseconds(deadline, &delayNS);
 				delaySecs = static_cast<SInt32>(delayNS / kSecondScale);
             } else {
-                IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
-                           DBG_FUNC_NONE,
-                           kGMETRICS_DOMAIN_DISPLAYWRANGLER
-                               | kGMETRICS_DOMAIN_POWER
-                               | kGMETRICS_DOMAIN_WAKE,
-                           DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+                RECORD_METRIC_POWER(DBG_IOG_CHANGE_POWER_STATE_PRIV,
+                                    kGMETRICS_DOMAIN_WAKE);
+                IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV, DBG_FUNC_NONE,
+                           0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
                            0, 2,
                            0, 0,
                            0, 0);
@@ -719,10 +721,9 @@ bool IODisplayWrangler::activityTickle( unsigned long x, unsigned long y )
         return (true);
     }
 
-    IOG_KTRACE(DBG_IOG_WAKE_FROM_DOZE,
-               DBG_FUNC_NONE,
-               kGMETRICS_DOMAIN_DISPLAYWRANGLER | kGMETRICS_DOMAIN_DOZE,
-               x,
+    RECORD_METRIC(DBG_IOG_WAKE_FROM_DOZE, kGMETRICS_DOMAIN_DOZE);
+    IOG_KTRACE(DBG_IOG_WAKE_FROM_DOZE, DBG_FUNC_NONE,
+               0, x,
                0, y,
                0, 0,
                0, 0);
@@ -769,12 +770,10 @@ void IODisplayWrangler::forceIdleImpl()
     IOLog("DW forceIdle by process '%s' from %d\n", procName, currentPower);
 
     if (currentPower > 1) {
-        IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
-                   DBG_FUNC_NONE,
-                   kGMETRICS_DOMAIN_DISPLAYWRANGLER
-                       | kGMETRICS_DOMAIN_POWER
-                       | kGMETRICS_DOMAIN_DOZE,
-                   DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+        RECORD_METRIC_POWER(DBG_IOG_CHANGE_POWER_STATE_PRIV,
+                            kGMETRICS_DOMAIN_SLEEP);
+        IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV, DBG_FUNC_NONE,
+                   0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
                    0, 1,
                    0, 0,
                    0, 0);

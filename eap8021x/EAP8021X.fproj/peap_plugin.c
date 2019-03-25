@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -752,6 +752,7 @@ peap_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
 	*call_module_free_packet = TRUE;
 	*out_buf_size = EAPPacketGetLength((EAPPacketRef)out_pkt_p);
     }
+    context->inner_auth_state = state;
     context->eap.publish_props = eap_client_publish_properties(context);
 
     switch (state) {
@@ -764,15 +765,9 @@ peap_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
 		context->eap.last_status;
 	}
 	break;
-    case kEAPClientStateSuccess:
-	/* authentication method succeeded */
-	context->inner_auth_state = kPEAPInnerAuthStateSuccess;
-	break;
     case kEAPClientStateFailure:
 	/* authentication method failed */
-	context->inner_auth_state = kPEAPInnerAuthStateFailure;
 	*client_status = context->eap.last_status;
-	//context->plugin_state = kEAPClientStateFailure;
 	break;
     }
 
@@ -913,7 +908,6 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 				     client_status,
 				     &call_module_free_packet);
 	if (context->peap_version == kPEAPVersion1) {
-	    context->inner_auth_state = kPEAPInnerAuthStateSuccess;
 	    ret = TRUE;
 	}
 	break;
@@ -1387,9 +1381,13 @@ peap_process(EAPClientPluginDataRef plugin,
 	if (context->inner_auth_state == kPEAPInnerAuthStateSuccess) {
 	    context->plugin_state = kEAPClientStateSuccess;
 	}
-	else if (context->peap_version == kPEAPVersion1
-		 && context->handshake_complete && context->trust_proceed) {
-	    context->plugin_state = kEAPClientStateSuccess;
+	else {
+	    /* it's not expected to receive EAP-Success before inner authentication is done successfully
+	     * rdar://problem/42984203
+	     */
+	    context->inner_auth_state = kPEAPInnerAuthStateFailure;
+	    context->plugin_state = kEAPClientStateFailure;
+	    EAPLOG_FL(LOG_NOTICE, "Tearing down the EAP session as the server is either malicious or has a compliance issue");
 	}
 	break;
     case kEAPCodeFailure:

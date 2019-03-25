@@ -27,20 +27,17 @@
 #ifndef _H_PIDDISKREP
 #define _H_PIDDISKREP
 
+#include <memory>
+
 #include "diskrep.h"
 
 namespace Security {
 namespace CodeSigning {
                 
                 
-//
-// A KernelDiskRep represents a (the) kernel on disk.
-// It has no write support, so we can't sign the kernel,
-// which is fine since we unconditionally trust it anyway.
-//
 class PidDiskRep : public DiskRep {
 public:
-        PidDiskRep(pid_t pid, CFDataRef infoPlist);
+        PidDiskRep(pid_t pid, audit_token_t *audit, CFDataRef infoPlist);
         ~PidDiskRep();
         
         CFDataRef component(CodeDirectory::SpecialSlot slot);
@@ -64,6 +61,7 @@ private:
         const BlobCore *blob() { return (const BlobCore *)mBuffer; }
         void fetchData(void);
         pid_t mPid;
+        std::unique_ptr<audit_token_t> mAudit;
         uint8_t *mBuffer;
 		CFRef<CFDataRef> mInfoPlistHash;
         CFRef<CFDataRef> mInfoPlist;

@@ -20,6 +20,7 @@ es_419{
         CI{"Costa de Marfil"}
         EZ{"Eurozona"}
         GG{"Guernesey"}
+        HK{"Hong-Kong"}
         IC{"Islas Canarias"}
         QO{"Islas Ultramarinas"}
         TA{"Tristán da Cunha"}

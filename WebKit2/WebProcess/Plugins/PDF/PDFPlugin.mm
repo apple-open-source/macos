@@ -48,8 +48,6 @@
 #import "WebProcess.h"
 #import <JavaScriptCore/JSContextRef.h>
 #import <JavaScriptCore/JSObjectRef.h>
-#import <JavaScriptCore/JSStringRef.h>
-#import <JavaScriptCore/JSStringRefCF.h>
 #import <PDFKit/PDFKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/AXObjectCache.h>
@@ -69,6 +67,7 @@
 #import <WebCore/HTMLFormElement.h>
 #import <WebCore/HTMLPlugInElement.h>
 #import <WebCore/LegacyNSPasteboardTypes.h>
+#import <WebCore/LocalDefaultSystemAppearance.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/MouseEvent.h>
 #import <WebCore/PDFDocumentImage.h>
@@ -81,16 +80,11 @@
 #import <WebCore/ScrollAnimator.h>
 #import <WebCore/ScrollbarTheme.h>
 #import <WebCore/Settings.h>
+#import <WebCore/WebAccessibilityObjectWrapperMac.h>
 #import <WebCore/WheelEventTestTrigger.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/NSMenuSPI.h>
 #import <wtf/UUID.h>
-
-#if PLATFORM(MAC)
-#include <WebCore/LocalDefaultSystemAppearance.h>
-#endif
-
-using namespace WebCore;
 
 // Set overflow: hidden on the annotation container so <input> elements scrolled out of view don't show
 // scrollbars on the body. We can't add annotations directly to the body, because overflow: hidden on the body
@@ -127,7 +121,7 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
 
 @interface WKPDFPluginAccessibilityObject : NSObject {
     PDFLayerController *_pdfLayerController;
-    NSObject *_parent;
+    __unsafe_unretained NSObject *_parent;
     WebKit::PDFPlugin* _pdfPlugin;
 }
 
@@ -167,7 +161,9 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
 #endif
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (BOOL)accessibilityIsIgnored
+IGNORE_WARNINGS_END
 {
     return NO;
 }
@@ -178,7 +174,9 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
     return _pdfPlugin->convertFromPDFViewToScreen(rect);
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (id)accessibilityAttributeValue:(NSString *)attribute
+IGNORE_WARNINGS_END
 {
     if ([attribute isEqualToString:NSAccessibilityParentAttribute])
         return _parent;
@@ -220,7 +218,9 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
     return 0;
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (id)accessibilityAttributeValue:(NSString *)attribute forParameter:(id)parameter
+IGNORE_WARNINGS_END
 {
     if ([attribute isEqualToString:NSAccessibilityBoundsForRangeParameterizedAttribute]) {
         NSRect boundsInPDFViewCoordinates = [[_pdfLayerController accessibilityBoundsForRangeAttributeForParameter:parameter] rectValue];
@@ -243,7 +243,9 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
     return [_pdfLayerController readingModel];
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (NSArray *)accessibilityAttributeNames
+IGNORE_WARNINGS_END
 {
     static NSArray *attributeNames = 0;
 
@@ -275,7 +277,9 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
     return attributeNames;
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (NSArray *)accessibilityActionNames
+IGNORE_WARNINGS_END
 {
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     return nil;
@@ -289,23 +293,31 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
 #endif
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (void)accessibilityPerformAction:(NSString *)action
+IGNORE_WARNINGS_END
 {
     if ([action isEqualToString:NSAccessibilityShowMenuAction])
-        _pdfPlugin->showContextMenuAtPoint(IntRect(IntPoint(), _pdfPlugin->size()).center());
+        _pdfPlugin->showContextMenuAtPoint(WebCore::IntRect(WebCore::IntPoint(), _pdfPlugin->size()).center());
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (BOOL)accessibilityIsAttributeSettable:(NSString *)attribute
+IGNORE_WARNINGS_END
 {
     return [_pdfLayerController accessibilityIsAttributeSettable:attribute];
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (void)accessibilitySetValue:(id)value forAttribute:(NSString *)attribute
+IGNORE_WARNINGS_END
 {
     return [_pdfLayerController accessibilitySetValue:value forAttribute:attribute];
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (NSArray *)accessibilityParameterizedAttributeNames
+IGNORE_WARNINGS_END
 {
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     return nil;
@@ -318,12 +330,11 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
 {
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     if (WebKit::PDFPluginAnnotation* activeAnnotation = _pdfPlugin->activeAnnotation()) {
-        if (AXObjectCache* existingCache = _pdfPlugin->axObjectCache()) {
-            if (AccessibilityObject* object = existingCache->getOrCreate(activeAnnotation->element()))
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        if (WebCore::AXObjectCache* existingCache = _pdfPlugin->axObjectCache()) {
+            if (WebCore::AccessibilityObject* object = existingCache->getOrCreate(activeAnnotation->element()))
+                ALLOW_DEPRECATED_DECLARATIONS_BEGIN
                 return [object->wrapper() accessibilityAttributeValue:@"_AXAssociatedPluginParent"];
-#pragma clang diagnostic pop
+                ALLOW_DEPRECATED_DECLARATIONS_END
         }
     }
     return nil;
@@ -340,11 +351,11 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
     if (!activeAnnotation || ![activeAnnotation->annotation() isEqual:annotation])
         return nil;
     
-    AXObjectCache* cache = _pdfPlugin->axObjectCache();
+    WebCore::AXObjectCache* cache = _pdfPlugin->axObjectCache();
     if (!cache)
         return nil;
     
-    AccessibilityObject* object = cache->getOrCreate(activeAnnotation->element());
+    WebCore::AccessibilityObject* object = cache->getOrCreate(activeAnnotation->element());
     if (!object)
         return nil;
 
@@ -355,7 +366,7 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
 - (id)accessibilityHitTest:(NSPoint)point
 {
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
-    point = _pdfPlugin->convertFromRootViewToPDFView(IntPoint(point));
+    point = _pdfPlugin->convertFromRootViewToPDFView(WebCore::IntPoint(point));
     return [_pdfLayerController accessibilityHitTest:point];
 #else
     return self;
@@ -423,15 +434,14 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
 
 - (void)updateScrollPosition:(CGPoint)newPosition
 {
-    _pdfPlugin->notifyScrollPositionChanged(IntPoint(newPosition));
+    _pdfPlugin->notifyScrollPositionChanged(WebCore::IntPoint(newPosition));
 }
 
 - (void)writeItemsToPasteboard:(NSArray *)items withTypes:(NSArray *)types
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     _pdfPlugin->writeItemsToPasteboard(NSGeneralPboard, items, types);
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 - (void)showDefinitionForAttributedString:(NSAttributedString *)string atPoint:(CGPoint)point
@@ -501,6 +511,10 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
 - (NSRect)convertRect:(NSRect)rect fromPage:(PDFPage *) page forScaleFactor:(CGFloat) scaleFactor;
 - (PDFPage *)pageNearestPoint:(NSPoint)point currentPage:(PDFPage *)currentPage;
 @end
+
+namespace WebKit {
+using namespace WebCore;
+using namespace HTMLNames;
 
 static const char* postScriptMIMEType = "application/postscript";
 const uint64_t pdfDocumentRequestID = 1; // PluginController supports loading multiple streams, but we only need one for PDF.
@@ -597,10 +611,6 @@ static void getAllScriptsInPDFDocument(CGPDFDocumentRef pdfDocument, Vector<Reta
         scripts.append(script);
     }
 }
-
-namespace WebKit {
-
-using namespace HTMLNames;
 
 Ref<PDFPlugin> PDFPlugin::create(WebFrame& frame)
 {
@@ -933,7 +943,7 @@ void PDFPlugin::addArchiveResource()
     RetainPtr<NSURLResponse> response = adoptNS([[NSHTTPURLResponse alloc] initWithURL:m_sourceURL statusCode:200 HTTPVersion:(NSString*)kCFHTTPVersion1_1 headerFields:headers]);
     ResourceResponse synthesizedResponse(response.get());
 
-    RefPtr<ArchiveResource> resource = ArchiveResource::create(SharedBuffer::create(m_data.get()), m_sourceURL, "application/pdf", String(), String(), synthesizedResponse);
+    auto resource = ArchiveResource::create(SharedBuffer::create(m_data.get()), m_sourceURL, "application/pdf", String(), String(), synthesizedResponse);
     pluginView()->frame()->document()->loader()->addArchiveResource(resource.releaseNonNull());
 }
 
@@ -1102,24 +1112,21 @@ void PDFPlugin::runScriptsInPDFDocument()
     Vector<RetainPtr<CFStringRef>> scripts;
     getAllScriptsInPDFDocument([m_pdfDocument documentRef], scripts);
 
-    size_t scriptCount = scripts.size();
-    if (!scriptCount)
+    if (scripts.isEmpty())
         return;
 
     JSGlobalContextRef ctx = JSGlobalContextCreate(0);
     JSObjectRef jsPDFDoc = makeJSPDFDoc(ctx);
-
-    for (size_t i = 0; i < scriptCount; ++i) {
-        JSStringRef script = JSStringCreateWithCFString(scripts[i].get());
-        JSEvaluateScript(ctx, script, jsPDFDoc, 0, 0, 0);
-        JSStringRelease(script);
-    }
-    
+    for (auto& script : scripts)
+        JSEvaluateScript(ctx, OpaqueJSString::tryCreate(script.get()).get(), jsPDFDoc, nullptr, 0, nullptr);
     JSGlobalContextRelease(ctx);
 }
 
 void PDFPlugin::createPasswordEntryForm()
 {
+    if (!supportsForms())
+        return;
+
     m_passwordField = PDFPluginPasswordField::create(m_pdfLayerController.get(), this);
     m_passwordField->attach(m_annotationContainer.get());
 }
@@ -1215,7 +1222,7 @@ void PDFPlugin::paintControlForLayerInContext(CALayer *layer, CGContextRef conte
 {
 #if PLATFORM(MAC)
     auto* page = webFrame()->coreFrame()->page();
-    LocalDefaultSystemAppearance localAppearance(page->useSystemAppearance(), page->useDarkAppearance());
+    LocalDefaultSystemAppearance localAppearance(page->useDarkAppearance());
 #endif
 
     GraphicsContext graphicsContext(context);
@@ -1253,7 +1260,7 @@ RefPtr<ShareableBitmap> PDFPlugin::snapshot()
     IntSize backingStoreSize = size();
     backingStoreSize.scale(contentsScaleFactor);
 
-    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(backingStoreSize, { });
+    auto bitmap = ShareableBitmap::createShareable(backingStoreSize, { });
     auto context = bitmap->createGraphicsContext();
 
     context->scale(FloatSize(contentsScaleFactor, -contentsScaleFactor));
@@ -1282,7 +1289,7 @@ IntPoint PDFPlugin::convertFromRootViewToPlugin(const IntPoint& point) const
 IntPoint PDFPlugin::convertFromPDFViewToRootView(const IntPoint& point) const
 {
     IntPoint pointInPluginCoordinates(point.x(), size().height() - point.y());
-    return m_rootViewToPluginTransform.inverse().value_or(AffineTransform()).mapPoint(pointInPluginCoordinates);
+    return m_rootViewToPluginTransform.inverse().valueOr(AffineTransform()).mapPoint(pointInPluginCoordinates);
 }
     
 IntPoint PDFPlugin::convertFromRootViewToPDFView(const IntPoint& point) const
@@ -1311,7 +1318,7 @@ IntRect PDFPlugin::boundsOnScreen() const
         return IntRect();
 
     FloatRect bounds = FloatRect(FloatPoint(), size());
-    FloatRect rectInRootViewCoordinates = m_rootViewToPluginTransform.inverse().value_or(AffineTransform()).mapRect(bounds);
+    FloatRect rectInRootViewCoordinates = m_rootViewToPluginTransform.inverse().valueOr(AffineTransform()).mapRect(bounds);
     return frameView->contentsToScreen(enclosingIntRect(rectInRootViewCoordinates));
 }
 
@@ -1321,7 +1328,7 @@ void PDFPlugin::geometryDidChange(const IntSize& pluginSize, const IntRect&, con
         return;
 
     m_size = pluginSize;
-    m_rootViewToPluginTransform = pluginToRootViewTransform.inverse().value_or(AffineTransform());
+    m_rootViewToPluginTransform = pluginToRootViewTransform.inverse().valueOr(AffineTransform());
     [m_pdfLayerController setFrameSize:pluginSize];
 
     [CATransaction begin];
@@ -1453,7 +1460,7 @@ void PDFPlugin::updateCursor(const WebMouseEvent& event, UpdateCursorMode mode)
     if (hitTestResult == m_lastHitTestResult && mode == UpdateIfNeeded)
         return;
 
-    webFrame()->page()->send(Messages::WebPageProxy::SetCursor(hitTestResult == Text ? iBeamCursor() : pointerCursor()));
+    webFrame()->page()->send(Messages::WebPageProxy::SetCursor(hitTestResult == Text ? WebCore::iBeamCursor() : WebCore::pointerCursor()));
     m_lastHitTestResult = hitTestResult;
 }
 #endif
@@ -1588,34 +1595,41 @@ bool PDFPlugin::showContextMenuAtPoint(const IntPoint& point)
 
 bool PDFPlugin::handleContextMenuEvent(const WebMouseEvent& event)
 {
+    if (!webFrame()->page())
+        return false;
+
+    WebPage* webPage = webFrame()->page();
     FrameView* frameView = webFrame()->coreFrame()->view();
     IntPoint point = frameView->contentsToScreen(IntRect(frameView->windowToContents(event.position()), IntSize())).location();
 
-    if (NSMenu *nsMenu = [m_pdfLayerController menuForEvent:nsEventForWebMouseEvent(event)]) {
-        Vector<PDFContextMenuItem> items;
-        auto itemCount = [nsMenu numberOfItems];
-        for (int i = 0; i < itemCount; i++) {
-            auto item = [nsMenu itemAtIndex:i];
-            if ([item submenu])
-                continue;
-            PDFContextMenuItem menuItem { String([item title]), !![item isEnabled], !![item isSeparatorItem], static_cast<int>([item state]), [item action], i };
-            items.append(WTFMove(menuItem));
-        }
-        PDFContextMenu contextMenu { point, WTFMove(items) };
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+    NSUserInterfaceLayoutDirection uiLayoutDirection = webPage->userInterfaceLayoutDirection() == UserInterfaceLayoutDirection::LTR ? NSUserInterfaceLayoutDirectionLeftToRight : NSUserInterfaceLayoutDirectionRightToLeft;
+    NSMenu *nsMenu = [m_pdfLayerController menuForEvent:nsEventForWebMouseEvent(event) withUserInterfaceLayoutDirection:uiLayoutDirection];
+#else
+    NSMenu *nsMenu = [m_pdfLayerController menuForEvent:nsEventForWebMouseEvent(event)];
+#endif
 
-        if (!webFrame()->page())
-            return false;
-
-        std::optional<int> selectedIndex = -1;
-        webFrame()->page()->sendSync(Messages::WebPageProxy::ShowPDFContextMenu(contextMenu), Messages::WebPageProxy::ShowPDFContextMenu::Reply(selectedIndex));
-
-        if (selectedIndex && *selectedIndex >= 0 && *selectedIndex < itemCount)
-            [nsMenu performActionForItemAtIndex:*selectedIndex];
-
-        return true;
-    }
+    if (!nsMenu)
+        return false;
     
-    return false;
+    Vector<PDFContextMenuItem> items;
+    auto itemCount = [nsMenu numberOfItems];
+    for (int i = 0; i < itemCount; i++) {
+        auto item = [nsMenu itemAtIndex:i];
+        if ([item submenu])
+            continue;
+        PDFContextMenuItem menuItem { String([item title]), !![item isEnabled], !![item isSeparatorItem], static_cast<int>([item state]), [item action], i };
+        items.append(WTFMove(menuItem));
+    }
+    PDFContextMenu contextMenu { point, WTFMove(items) };
+
+    Optional<int> selectedIndex = -1;
+    webPage->sendSync(Messages::WebPageProxy::ShowPDFContextMenu(contextMenu), Messages::WebPageProxy::ShowPDFContextMenu::Reply(selectedIndex));
+
+    if (selectedIndex && *selectedIndex >= 0 && *selectedIndex < itemCount)
+        [nsMenu performActionForItemAtIndex:*selectedIndex];
+
+    return true;
 }
 
 bool PDFPlugin::handleKeyboardEvent(const WebKeyboardEvent& event)
@@ -1647,11 +1661,10 @@ bool PDFPlugin::handleEditingCommand(const String& commandName, const String& ar
         [m_pdfLayerController selectAll];
     else if (commandName == "takeFindStringFromSelection") {
         NSString *string = [m_pdfLayerController currentSelection].string;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if (string.length)
             writeItemsToPasteboard(NSFindPboard, @[ [string dataUsingEncoding:NSUTF8StringEncoding] ], @[ NSPasteboardTypeString ]);
-#pragma clang diagnostic pop
+        ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     return true;
@@ -1710,7 +1723,7 @@ bool PDFPlugin::handlesPageScaleFactor() const
 void PDFPlugin::clickedLink(NSURL *url)
 {
     URL coreURL = url;
-    if (protocolIsJavaScript(coreURL))
+    if (WTF::protocolIsJavaScript(coreURL))
         return;
 
     Frame* frame = webFrame()->coreFrame();
@@ -1731,13 +1744,12 @@ void PDFPlugin::setActiveAnnotation(PDFAnnotation *annotation)
         m_activeAnnotation->commit();
 
     if (annotation) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if ([annotation isKindOfClass:pdfAnnotationTextWidgetClass()] && static_cast<PDFAnnotationTextWidget *>(annotation).isReadOnly) {
             m_activeAnnotation = nullptr;
             return;
         }
-#pragma clang diagnostic pop
+        ALLOW_DEPRECATED_DECLARATIONS_END
 
         m_activeAnnotation = PDFPluginAnnotation::create(annotation, m_pdfLayerController.get(), this);
         m_activeAnnotation->attach(m_annotationContainer.get());
@@ -1844,11 +1856,7 @@ void PDFPlugin::writeItemsToPasteboard(NSString *pasteboardName, NSArray *items,
             RetainPtr<NSString> plainTextString = adoptNS([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
             webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardStringForType(pasteboardName, type, plainTextString.get()), Messages::WebPasteboardProxy::SetPasteboardStringForType::Reply(newChangeCount), 0);
         } else {
-            RefPtr<SharedBuffer> buffer = SharedBuffer::create(data);
-
-            if (!buffer)
-                continue;
-
+            auto buffer = SharedBuffer::create(data);
             SharedMemory::Handle handle;
             RefPtr<SharedMemory> sharedMemory = SharedMemory::allocate(buffer->size());
             memcpy(sharedMemory->data(), buffer->data(), buffer->size());
@@ -1863,7 +1871,24 @@ void PDFPlugin::showDefinitionForAttributedString(NSAttributedString *string, CG
     DictionaryPopupInfo dictionaryPopupInfo;
     dictionaryPopupInfo.origin = convertFromPDFViewToRootView(IntPoint(point));
     dictionaryPopupInfo.attributedString = string;
+    
+    
+    NSRect rangeRect;
+    rangeRect.origin = NSMakePoint(point.x, point.y);
+    CGFloat scaleFactor = PDFPlugin::scaleFactor();
 
+    rangeRect.size.height = string.size.height * scaleFactor;
+    rangeRect.size.width = string.size.width * scaleFactor;
+
+    rangeRect.origin.y -= rangeRect.size.height;
+
+    TextIndicatorData dataForSelection;
+    dataForSelection.selectionRectInRootViewCoordinates = rangeRect;
+    dataForSelection.textBoundingRectInRootViewCoordinates = rangeRect;
+    dataForSelection.contentImageScaleFactor = scaleFactor;
+    dataForSelection.presentationTransition = TextIndicatorPresentationTransition::FadeIn;
+    dictionaryPopupInfo.textIndicator = dataForSelection;
+    
     webFrame()->page()->send(Messages::WebPageProxy::DidPerformDictionaryLookup(dictionaryPopupInfo));
 }
 
@@ -1977,16 +2002,16 @@ void PDFPlugin::notifySelectionChanged(PDFSelection *)
     webFrame()->page()->didChangeSelection();
 }
 
-static const Cursor& coreCursor(PDFLayerControllerCursorType type)
+static const WebCore::Cursor& coreCursor(PDFLayerControllerCursorType type)
 {
     switch (type) {
     case kPDFLayerControllerCursorTypeHand:
-        return handCursor();
+        return WebCore::handCursor();
     case kPDFLayerControllerCursorTypeIBeam:
-        return iBeamCursor();
+        return WebCore::iBeamCursor();
     case kPDFLayerControllerCursorTypePointer:
     default:
-        return pointerCursor();
+        return WebCore::pointerCursor();
     }
 }
 
@@ -2075,10 +2100,9 @@ std::tuple<String, PDFSelection *, NSDictionary *> PDFPlugin::lookupTextAtLocati
         if (!NSPointInRect(pointInPageSpace, bounds))
             continue;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         PDFAnnotationLink *linkAnnotation = (PDFAnnotationLink *)annotation;
-#pragma clang diagnostic pop
+        ALLOW_DEPRECATED_DECLARATIONS_END
         NSURL *url = linkAnnotation.URL;
         if (!url)
             continue;
@@ -2088,8 +2112,9 @@ std::tuple<String, PDFSelection *, NSDictionary *> PDFPlugin::lookupTextAtLocati
         return { selection.string, selection, nil };
     }
 
-    NSDictionary *options = nil;
-    NSString *lookupText = DictionaryLookup::stringForPDFSelection(selection, &options);
+    NSString *lookupText;
+    NSDictionary *options;
+    std::tie(lookupText, options) = DictionaryLookup::stringForPDFSelection(selection);
     if (!lookupText.length)
         return { emptyString(), selection, nil };
 

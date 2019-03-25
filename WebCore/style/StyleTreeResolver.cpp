@@ -67,6 +67,7 @@ TreeResolver::Scope::Scope(Document& document)
     : styleResolver(document.styleScope().resolver())
     , sharingResolver(document, styleResolver.ruleSets(), selectorFilter)
 {
+    document.setIsResolvingTreeStyle(true);
 }
 
 TreeResolver::Scope::Scope(ShadowRoot& shadowRoot, Scope& enclosingScope)
@@ -80,6 +81,9 @@ TreeResolver::Scope::Scope(ShadowRoot& shadowRoot, Scope& enclosingScope)
 
 TreeResolver::Scope::~Scope()
 {
+    if (!shadowRoot)
+        styleResolver.document().setIsResolvingTreeStyle(false);
+
     styleResolver.setOverrideDocumentElementStyle(nullptr);
 }
 
@@ -162,15 +166,6 @@ static bool affectsRenderedSubtree(Element& element, const RenderStyle& newStyle
     return false;
 }
 
-static const RenderStyle* renderOrDisplayContentsStyle(const Element& element)
-{
-    if (auto* renderStyle = element.renderStyle())
-        return renderStyle;
-    if (element.hasDisplayContents())
-        return element.existingComputedStyle();
-    return nullptr;
-}
-
 static DescendantsToResolve computeDescendantsToResolve(Change change, Validity validity, DescendantsToResolve parentDescendantsToResolve)
 {
     if (parentDescendantsToResolve == DescendantsToResolve::All)
@@ -203,7 +198,7 @@ ElementUpdates TreeResolver::resolveElement(Element& element)
     if (!affectsRenderedSubtree(element, *newStyle))
         return { };
 
-    auto* existingStyle = renderOrDisplayContentsStyle(element);
+    auto* existingStyle = element.renderOrDisplayContentsStyle();
 
     if (m_didSeePendingStylesheet && (!existingStyle || existingStyle->isNotFinal())) {
         newStyle->setIsNotFinal();
@@ -284,7 +279,9 @@ const RenderStyle* TreeResolver::parentBoxStyle() const
 
 ElementUpdate TreeResolver::createAnimatedElementUpdate(std::unique_ptr<RenderStyle> newStyle, Element& element, Change parentChange)
 {
-    auto* oldStyle = renderOrDisplayContentsStyle(element);
+    auto* oldStyle = element.renderOrDisplayContentsStyle();
+
+    bool shouldRecompositeLayer = false;
 
     // New code path for CSS Animations and CSS Transitions.
     if (RuntimeEnabledFeatures::sharedFeatures().webAnimationsCSSIntegrationEnabled()) {
@@ -303,23 +300,17 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(std::unique_ptr<RenderSt
     if (auto timeline = m_document.existingTimeline()) {
         // Now we can update all Web animations, which will include CSS Animations as well
         // as animations created via the JS API.
-        auto webAnimations = timeline->animationsForElement(element);
-        if (!webAnimations.isEmpty()) {
-            auto animatedStyle = RenderStyle::clonePtr(*newStyle);
-            for (const auto& animation : webAnimations)
-                animation->resolve(*animatedStyle);
-            newStyle = WTFMove(animatedStyle);
-        }
+        auto animatedStyle = RenderStyle::clonePtr(*newStyle);
+        shouldRecompositeLayer = timeline->resolveAnimationsForElement(element, *animatedStyle);
+        newStyle = WTFMove(animatedStyle);
     }
-
-    bool shouldRecompositeLayer = false;
 
     // Old code path for CSS Animations and CSS Transitions.
     if (!RuntimeEnabledFeatures::sharedFeatures().webAnimationsCSSIntegrationEnabled()) {
         auto& animationController = m_document.frame()->animation();
 
         auto animationUpdate = animationController.updateAnimations(element, *newStyle, oldStyle);
-        shouldRecompositeLayer = animationUpdate.stateChanged;
+        shouldRecompositeLayer = animationUpdate.stateChanged; // FIXME: constrain this to just property animations triggering acceleration.
 
         if (animationUpdate.style)
             newStyle = WTFMove(animationUpdate.style);
@@ -401,7 +392,7 @@ static bool shouldResolveElement(const Element& element, DescendantsToResolve pa
     case DescendantsToResolve::All:
         return true;
     case DescendantsToResolve::ChildrenWithExplicitInherit:
-        auto* existingStyle = renderOrDisplayContentsStyle(element);
+        auto* existingStyle = element.renderOrDisplayContentsStyle();
         return existingStyle && existingStyle->hasExplicitlyInheritedProperties();
     };
     ASSERT_NOT_REACHED();
@@ -486,7 +477,7 @@ void TreeResolver::resolveComposedTree()
             continue;
         }
 
-        auto* style = renderOrDisplayContentsStyle(element);
+        auto* style = element.renderOrDisplayContentsStyle();
         auto change = NoChange;
         auto descendantsToResolve = DescendantsToResolve::None;
 

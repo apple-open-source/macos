@@ -32,7 +32,7 @@
 #include "JSCInlines.h"
 #include "JSWebAssemblyInstance.h"
 #include "VMEntryScope.h"
-#include "WasmContext.h"
+#include "WasmContextInlines.h"
 #include "WasmInstance.h"
 #include <wtf/StringPrintStream.h>
 
@@ -107,12 +107,12 @@ SUPPRESS_ASAN CallSiteIndex CallFrame::unsafeCallSiteIndex() const
 }
 
 #if USE(JSVALUE32_64)
-Instruction* CallFrame::currentVPC() const
+const Instruction* CallFrame::currentVPC() const
 {
     return bitwise_cast<Instruction*>(callSiteIndex().bits());
 }
 
-void CallFrame::setCurrentVPC(Instruction* vpc)
+void CallFrame::setCurrentVPC(const Instruction* vpc)
 {
     CallSiteIndex callSite(vpc);
     this[CallFrameSlot::argumentCount].tag() = callSite.bits();
@@ -126,13 +126,13 @@ unsigned CallFrame::callSiteBitsAsBytecodeOffset() const
 }
 
 #else // USE(JSVALUE32_64)
-Instruction* CallFrame::currentVPC() const
+const Instruction* CallFrame::currentVPC() const
 {
     ASSERT(callSiteBitsAreBytecodeOffset());
-    return &codeBlock()->instructions()[callSiteBitsAsBytecodeOffset()];
+    return codeBlock()->instructions().at(callSiteBitsAsBytecodeOffset()).ptr();
 }
 
-void CallFrame::setCurrentVPC(Instruction* vpc)
+void CallFrame::setCurrentVPC(const Instruction* vpc)
 {
     CallSiteIndex callSite(codeBlock()->bytecodeOffset(vpc));
     this[CallFrameSlot::argumentCount].tag() = static_cast<int32_t>(callSite.bits());
@@ -337,9 +337,10 @@ const char* CallFrame::describeFrame()
     return buffer;
 }
 
-void CallFrame::convertToStackOverflowFrame(VM& vm)
+void CallFrame::convertToStackOverflowFrame(VM& vm, CodeBlock* codeBlockToKeepAliveUntilFrameIsUnwound)
 {
     ASSERT(!isGlobalExec());
+    ASSERT(codeBlockToKeepAliveUntilFrameIsUnwound->inherits<CodeBlock>(vm));
 
     EntryFrame* entryFrame = vm.topEntryFrame;
     CallFrame* throwOriginFrame = this;
@@ -350,7 +351,7 @@ void CallFrame::convertToStackOverflowFrame(VM& vm)
     JSObject* originCallee = throwOriginFrame ? throwOriginFrame->jsCallee() : vmEntryRecord(vm.topEntryFrame)->callee();
     JSObject* stackOverflowCallee = originCallee->globalObject()->stackOverflowFrameCallee();
 
-    setCodeBlock(nullptr);
+    setCodeBlock(codeBlockToKeepAliveUntilFrameIsUnwound);
     setCallee(stackOverflowCallee);
     setArgumentCountIncludingThis(0);
 }

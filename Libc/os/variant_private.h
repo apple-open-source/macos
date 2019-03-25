@@ -140,6 +140,26 @@ OS_EXPORT OS_WARN_RESULT
 bool
 os_variant_allows_internal_security_policies(const char *subsystem);
 
+/*!
+ * @function os_variant_has_factory_content
+ *
+ * @abstract returns whether this system has factory diagnostics content
+ *
+ * @description
+ *
+ * On macOS, this checks for a AppleFactoryVariant.plist that is present in the
+ * factory diagnostics image.
+ *
+ * On embedded platforms, this will check for the NonUI variant.
+ *
+ * @result
+ * Returns true if this build has this property.  False otherwise or upon error.
+ */
+API_AVAILABLE(macosx(10.14), ios(12.0), tvos(12.0), watchos(5.0))
+OS_EXPORT OS_WARN_RESULT
+bool
+os_variant_has_factory_content(const char *subsystem);
+
 __END_DECLS
 
 #endif // __os_variant_H__

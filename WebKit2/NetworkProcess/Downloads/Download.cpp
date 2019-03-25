@@ -26,6 +26,7 @@
 #include "config.h"
 #include "Download.h"
 
+#include "AuthenticationChallengeDisposition.h"
 #include "AuthenticationManager.h"
 #include "Connection.h"
 #include "DataReference.h"
@@ -43,11 +44,10 @@
 #include "NetworkDataTaskCocoa.h"
 #endif
 
-using namespace WebCore;
-
 #define RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(isAlwaysOnLoggingAllowed(), Network, "%p - Download::" fmt, this, ##__VA_ARGS__)
 
 namespace WebKit {
+using namespace WebCore;
 
 Download::Download(DownloadManager& downloadManager, DownloadID downloadID, NetworkDataTask& download, const PAL::SessionID& sessionID, const String& suggestedName)
     : m_downloadManager(downloadManager)
@@ -77,6 +77,7 @@ Download::Download(DownloadManager& downloadManager, DownloadID downloadID, NSUR
 
 Download::~Download()
 {
+    platformDestroyDownload();
     m_downloadManager.didDestroyDownload();
 }
 
@@ -179,6 +180,12 @@ bool Download::isAlwaysOnLoggingAllowed() const
 void Download::platformCancelNetworkLoad()
 {
 }
+
+void Download::platformDestroyDownload()
+{
+}
 #endif
 
 } // namespace WebKit
+
+#undef RELEASE_LOG_IF_ALLOWED

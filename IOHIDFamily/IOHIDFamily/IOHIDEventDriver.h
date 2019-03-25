@@ -183,7 +183,8 @@ private:
         } sensorProperty;
 
         struct {
-            OSArray *           elements;
+            OSArray *           cmElements;
+            OSArray *           tiltElements;
         } orientation;
 
         UInt64  lastReportTime;

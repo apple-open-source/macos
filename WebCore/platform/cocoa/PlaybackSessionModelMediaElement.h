@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
 #include "EventListener.h"
 #include "HTMLMediaElementEnums.h"
@@ -95,6 +95,7 @@ public:
     bool wirelessVideoPlaybackDisabled() const final;
     bool isMuted() const final;
     double volume() const final;
+    bool isPictureInPictureSupported() const final;
     bool isPictureInPictureActive() const final;
 
 protected:

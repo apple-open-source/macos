@@ -25,9 +25,19 @@
 #pragma once
 
 #include "ArgumentCoders.h"
+#include "TestClassName.h"
 #include <wtf/Forward.h>
+#include <wtf/Optional.h>
+#include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/text/WTFString.h>
 
+namespace IPC {
+class Connection;
+}
+
+namespace WebKit {
+enum class TestTwoStateEnum : bool;
+}
 
 namespace Messages {
 namespace WebPage {
@@ -47,6 +57,134 @@ public:
 
     explicit LoadURL(const String& url)
         : m_arguments(url)
+    {
+    }
+
+    const Arguments& arguments() const
+    {
+        return m_arguments;
+    }
+
+private:
+    Arguments m_arguments;
+};
+
+#if ENABLE(TEST_FEATURE)
+class TestAsyncMessage {
+public:
+    typedef std::tuple<WebKit::TestTwoStateEnum> Arguments;
+
+    static IPC::StringReference receiverName() { return messageReceiverName(); }
+    static IPC::StringReference name() { return IPC::StringReference("TestAsyncMessage"); }
+    static const bool isSync = false;
+
+    static void callReply(IPC::Decoder&, CompletionHandler<void(uint64_t&&)>&&);
+    static void cancelReply(CompletionHandler<void(uint64_t&&)>&&);
+    static IPC::StringReference asyncMessageReplyName() { return { "TestAsyncMessageReply" }; }
+    using AsyncReply = CompletionHandler<void(uint64_t result)>;
+    static void send(std::unique_ptr<IPC::Encoder>&&, IPC::Connection&, uint64_t result);
+    typedef std::tuple<uint64_t&> Reply;
+    explicit TestAsyncMessage(WebKit::TestTwoStateEnum twoStateEnum)
+        : m_arguments(twoStateEnum)
+    {
+    }
+
+    const Arguments& arguments() const
+    {
+        return m_arguments;
+    }
+
+private:
+    Arguments m_arguments;
+};
+#endif
+
+#if ENABLE(TEST_FEATURE)
+class TestAsyncMessageWithNoArguments {
+public:
+    typedef std::tuple<> Arguments;
+
+    static IPC::StringReference receiverName() { return messageReceiverName(); }
+    static IPC::StringReference name() { return IPC::StringReference("TestAsyncMessageWithNoArguments"); }
+    static const bool isSync = false;
+
+    static void callReply(IPC::Decoder&, CompletionHandler<void()>&&);
+    static void cancelReply(CompletionHandler<void()>&&);
+    static IPC::StringReference asyncMessageReplyName() { return { "TestAsyncMessageWithNoArgumentsReply" }; }
+    using AsyncReply = CompletionHandler<void()>;
+    static void send(std::unique_ptr<IPC::Encoder>&&, IPC::Connection&);
+    typedef std::tuple<> Reply;
+    const Arguments& arguments() const
+    {
+        return m_arguments;
+    }
+
+private:
+    Arguments m_arguments;
+};
+#endif
+
+#if ENABLE(TEST_FEATURE)
+class TestAsyncMessageWithMultipleArguments {
+public:
+    typedef std::tuple<> Arguments;
+
+    static IPC::StringReference receiverName() { return messageReceiverName(); }
+    static IPC::StringReference name() { return IPC::StringReference("TestAsyncMessageWithMultipleArguments"); }
+    static const bool isSync = false;
+
+    static void callReply(IPC::Decoder&, CompletionHandler<void(bool&&, uint64_t&&)>&&);
+    static void cancelReply(CompletionHandler<void(bool&&, uint64_t&&)>&&);
+    static IPC::StringReference asyncMessageReplyName() { return { "TestAsyncMessageWithMultipleArgumentsReply" }; }
+    using AsyncReply = CompletionHandler<void(bool flag, uint64_t value)>;
+    static void send(std::unique_ptr<IPC::Encoder>&&, IPC::Connection&, bool flag, uint64_t value);
+    typedef std::tuple<bool&, uint64_t&> Reply;
+    const Arguments& arguments() const
+    {
+        return m_arguments;
+    }
+
+private:
+    Arguments m_arguments;
+};
+#endif
+
+class TestSyncMessage {
+public:
+    typedef std::tuple<uint32_t> Arguments;
+
+    static IPC::StringReference receiverName() { return messageReceiverName(); }
+    static IPC::StringReference name() { return IPC::StringReference("TestSyncMessage"); }
+    static const bool isSync = true;
+
+    typedef std::tuple<uint8_t&> Reply;
+    explicit TestSyncMessage(uint32_t param)
+        : m_arguments(param)
+    {
+    }
+
+    const Arguments& arguments() const
+    {
+        return m_arguments;
+    }
+
+private:
+    Arguments m_arguments;
+};
+
+class TestDelayedMessage {
+public:
+    typedef std::tuple<bool> Arguments;
+
+    static IPC::StringReference receiverName() { return messageReceiverName(); }
+    static IPC::StringReference name() { return IPC::StringReference("TestDelayedMessage"); }
+    static const bool isSync = true;
+
+    using DelayedReply = CompletionHandler<void(const Optional<WebKit::TestClassName>& optionalReply)>;
+    static void send(std::unique_ptr<IPC::Encoder>&&, IPC::Connection&, const Optional<WebKit::TestClassName>& optionalReply);
+    typedef std::tuple<Optional<WebKit::TestClassName>&> Reply;
+    explicit TestDelayedMessage(bool value)
+        : m_arguments(value)
     {
     }
 

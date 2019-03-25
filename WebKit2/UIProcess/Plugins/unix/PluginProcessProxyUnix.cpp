@@ -50,7 +50,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-void PluginProcessProxy::platformGetLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions, const PluginProcessAttributes& pluginProcessAttributes)
+void PluginProcessProxy::platformGetLaunchOptionsWithAttributes(ProcessLauncher::LaunchOptions& launchOptions, const PluginProcessAttributes& pluginProcessAttributes)
 {
     launchOptions.processType = ProcessLauncher::ProcessType::Plugin64;
 
@@ -137,8 +137,7 @@ bool PluginProcessProxy::scanPlugin(const String& pluginPath, RawPluginMetaData&
         return false;
     }
 
-    Vector<String> lines;
-    String::fromUTF8(stdOut.get()).split(UChar('\n'), true, lines);
+    Vector<String> lines = String::fromUTF8(stdOut.get()).splitAllowingEmptyEntries('\n');
 
     if (lines.size() < 3) {
         WTFLogAlways("Error scanning plugin %s, too few lines of output provided", argv[2]);

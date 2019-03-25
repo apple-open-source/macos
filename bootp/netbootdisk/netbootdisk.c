@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1476,8 +1476,10 @@ autodiskmount_findDisk(boolean_t all, const char * volume_name)
 	DiskVolumesPtr 	 	vols;
 	
 	DiskVolumes_new(&vols);
-	DiskVolumes_do_volumes(vols);
-
+	vols = DiskVolumes_do_volumes(vols);
+	if (vols == NULL) {
+		return (FALSE);
+	}
 	(void)fsck_vols(vols);
 	found = DiskVolumes_findDisk(vols, all, volume_name);
 

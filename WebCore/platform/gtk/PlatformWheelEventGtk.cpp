@@ -47,15 +47,15 @@ PlatformWheelEvent::PlatformWheelEvent(GdkEventScroll* event)
     m_timestamp = wallTimeForEvent(event);
 
     if (event->state & GDK_SHIFT_MASK)
-        m_modifiers |= Modifier::ShiftKey;
+        m_modifiers.add(Modifier::ShiftKey);
     if (event->state & GDK_CONTROL_MASK)
-        m_modifiers |= Modifier::CtrlKey;
+        m_modifiers.add(Modifier::CtrlKey);
     if (event->state & GDK_MOD1_MASK)
-        m_modifiers |= Modifier::AltKey;
+        m_modifiers.add(Modifier::AltKey);
     if (event->state & GDK_META_MASK)
-        m_modifiers |= Modifier::MetaKey;
+        m_modifiers.add(Modifier::MetaKey);
     if (PlatformKeyboardEvent::modifiersContainCapsLock(event->state))
-        m_modifiers |= PlatformEvent::Modifier::CapsLockKey;
+        m_modifiers.add(PlatformEvent::Modifier::CapsLockKey);
 
     m_deltaX = 0;
     m_deltaY = 0;
@@ -87,6 +87,7 @@ PlatformWheelEvent::PlatformWheelEvent(GdkEventScroll* event)
     m_wheelTicksX = m_deltaX;
     m_wheelTicksY = m_deltaY;
 
+#if ENABLE(ASYNC_SCROLLING)
 #ifndef GTK_API_VERSION_2
 #if GTK_CHECK_VERSION(3, 20, 0)
     m_phase = event->is_stop ?
@@ -100,6 +101,7 @@ PlatformWheelEvent::PlatformWheelEvent(GdkEventScroll* event)
 #else
     m_phase = PlatformWheelEventPhaseChanged;
 #endif // GTK_API_VERSION_2
+#endif // ENABLE(ASYNC_SCROLLING)
 
     m_position = IntPoint(static_cast<int>(event->x), static_cast<int>(event->y));
     m_globalPosition = IntPoint(static_cast<int>(event->x_root), static_cast<int>(event->y_root));
@@ -111,10 +113,4 @@ PlatformWheelEvent::PlatformWheelEvent(GdkEventScroll* event)
     m_deltaY *= static_cast<float>(Scrollbar::pixelsPerLineStep());
 }
 
-FloatPoint PlatformWheelEvent::swipeVelocity() const
-{
-    // The swiping velocity is stored in the deltas of the event declaring it.
-    return isTransitioningToMomentumScroll() ? FloatPoint(m_wheelTicksX, m_wheelTicksY) : FloatPoint();
-}
-
-}
+} // namespace WebCore

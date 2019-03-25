@@ -53,7 +53,7 @@ COMPILE_ASSERT(sizeof(SVGInlineTextBox) == sizeof(ExpectedSVGInlineTextBoxSize),
 
 SVGInlineTextBox::SVGInlineTextBox(RenderSVGInlineText& renderer)
     : InlineTextBox(renderer)
-    , m_paintingResourceMode(OptionSet<RenderSVGResourceMode>(RenderSVGResourceMode::ApplyToDefault).toRaw())
+    , m_paintingResourceMode(OptionSet<RenderSVGResourceMode>().toRaw())
     , m_startsNewTextChunk(false)
 {
 }
@@ -178,7 +178,7 @@ static inline bool textShouldBePainted(const RenderSVGInlineText& textRenderer)
 void SVGInlineTextBox::paintSelectionBackground(PaintInfo& paintInfo)
 {
     ASSERT(paintInfo.shouldPaintWithinRoot(renderer()));
-    ASSERT(paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection);
+    ASSERT(paintInfo.phase == PaintPhase::Foreground || paintInfo.phase == PaintPhase::Selection);
     ASSERT(truncation() == cNoTruncation);
 
     if (renderer().style().visibility() != Visibility::Visible)
@@ -188,7 +188,7 @@ void SVGInlineTextBox::paintSelectionBackground(PaintInfo& paintInfo)
     ASSERT(!parentRenderer.document().printing());
 
     // Determine whether or not we're selected.
-    bool paintSelectedTextOnly = paintInfo.phase == PaintPhaseSelection;
+    bool paintSelectedTextOnly = paintInfo.phase == PaintPhase::Selection;
     bool hasSelection = selectionState() != RenderObject::SelectionNone;
     if (!hasSelection || paintSelectedTextOnly)
         return;
@@ -227,7 +227,7 @@ void SVGInlineTextBox::paintSelectionBackground(PaintInfo& paintInfo)
         paintInfo.context().setFillColor(backgroundColor);
         paintInfo.context().fillRect(selectionRectForTextFragment(fragment, fragmentStartPosition, fragmentEndPosition, style), backgroundColor);
 
-        setPaintingResourceMode(RenderSVGResourceMode::ApplyToDefault);
+        setPaintingResourceMode({ });
     }
 
     ASSERT(!m_paintingResource);
@@ -236,7 +236,7 @@ void SVGInlineTextBox::paintSelectionBackground(PaintInfo& paintInfo)
 void SVGInlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, LayoutUnit, LayoutUnit)
 {
     ASSERT(paintInfo.shouldPaintWithinRoot(renderer()));
-    ASSERT(paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection);
+    ASSERT(paintInfo.phase == PaintPhase::Foreground || paintInfo.phase == PaintPhase::Selection);
     ASSERT(truncation() == cNoTruncation);
 
     if (renderer().style().visibility() != Visibility::Visible)
@@ -247,8 +247,8 @@ void SVGInlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffse
 
     auto& parentRenderer = parent()->renderer();
 
-    bool paintSelectedTextOnly = paintInfo.phase == PaintPhaseSelection;
-    bool shouldPaintSelectionHighlight = !(paintInfo.paintBehavior & PaintBehaviorSkipSelectionHighlight);
+    bool paintSelectedTextOnly = paintInfo.phase == PaintPhase::Selection;
+    bool shouldPaintSelectionHighlight = !(paintInfo.paintBehavior.contains(PaintBehavior::SkipSelectionHighlight));
     bool hasSelection = !parentRenderer.document().printing() && selectionState() != RenderObject::SelectionNone;
     if (!hasSelection && paintSelectedTextOnly)
         return;
@@ -277,7 +277,7 @@ void SVGInlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffse
             selectionStyle = &style;
     }
 
-    if (renderer().view().frameView().paintBehavior() & PaintBehaviorRenderingSVGMask) {
+    if (renderer().view().frameView().paintBehavior().contains(PaintBehavior::RenderingSVGMask)) {
         hasFill = true;
         hasVisibleStroke = false;
     }
@@ -326,7 +326,7 @@ void SVGInlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffse
         if (decorations & TextDecoration::LineThrough)
             paintDecoration(paintInfo.context(), TextDecoration::LineThrough, fragment);
 
-        setPaintingResourceMode(RenderSVGResourceMode::ApplyToDefault);
+        setPaintingResourceMode({ });
     }
 
     // Finally, paint the outline if any.
@@ -339,7 +339,7 @@ void SVGInlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffse
 bool SVGInlineTextBox::acquirePaintingResource(GraphicsContext*& context, float scalingFactor, RenderBoxModelObject& renderer, const RenderStyle& style)
 {
     ASSERT(scalingFactor);
-    ASSERT(paintingResourceMode() != RenderSVGResourceMode::ApplyToDefault);
+    ASSERT(!paintingResourceMode().isEmpty());
 
     Color fallbackColor;
     if (paintingResourceMode().contains(RenderSVGResourceMode::ApplyToFill))
@@ -502,7 +502,7 @@ void SVGInlineTextBox::paintDecoration(GraphicsContext& context, OptionSet<TextD
 void SVGInlineTextBox::paintDecorationWithStyle(GraphicsContext& context, OptionSet<TextDecoration> decoration, const SVGTextFragment& fragment, RenderBoxModelObject& decorationRenderer)
 {
     ASSERT(!m_paintingResource);
-    ASSERT(paintingResourceMode() != RenderSVGResourceMode::ApplyToDefault);
+    ASSERT(!paintingResourceMode().isEmpty());
 
     auto& decorationStyle = decorationRenderer.style();
 

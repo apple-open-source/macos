@@ -35,6 +35,7 @@ qsort_perf: OTHER_CFLAGS += -Wno-sign-compare -Wno-sign-conversion -Wno-cast-ali
 else
 EXCLUDED_SOURCES += qsort_perf.c
 endif
+os_variant: OTHER_CFLAGS += -DOS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets
 

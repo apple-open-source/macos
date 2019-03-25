@@ -26,7 +26,7 @@
 #import "config.h"
 #import "RenderThemeIOS.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import "BitmapImage.h"
 #import "CSSPrimitiveValue.h"
@@ -76,10 +76,6 @@
 #import <wtf/RefPtr.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/StdLibExtras.h>
-
-#if USE(SYSTEM_PREVIEW) && USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/SystemPreviewArtwork.cpp>
-#endif
 
 SOFT_LINK_FRAMEWORK(UIKit)
 SOFT_LINK_CLASS(UIKit, UIApplication)
@@ -371,14 +367,16 @@ static CGPoint shortened(CGPoint start, CGPoint end, float width)
     return CGPointMake(start.x + x * ratio, start.y + y * ratio);
 }
 
-static void drawJoinedLines(CGContextRef context, CGPoint points[], unsigned count, bool antialias, CGLineCap lineCap)
+static void drawJoinedLines(CGContextRef context, const Vector<CGPoint>& points, CGLineCap lineCap, float lineWidth, Color strokeColor)
 {
-    CGContextSetShouldAntialias(context, antialias);
+    CGContextSetLineWidth(context, lineWidth);
+    CGContextSetStrokeColorWithColor(context, cachedCGColor(strokeColor));
+    CGContextSetShouldAntialias(context, true);
     CGContextBeginPath(context);
     CGContextSetLineCap(context, lineCap);
     CGContextMoveToPoint(context, points[0].x, points[0].y);
     
-    for (unsigned i = 1; i < count; ++i)
+    for (unsigned i = 1; i < points.size(); ++i)
         CGContextAddLineToPoint(context, points[i].x, points[i].y);
 
     CGContextStrokePath(context);
@@ -392,45 +390,61 @@ bool RenderThemeIOS::paintCheckboxDecorations(const RenderObject& box, const Pai
     float width = clip.width();
     float height = clip.height();
 
-    CGContextRef cgContext = paintInfo.context().platformContext();
-    if (isChecked(box)) {
-        drawAxialGradient(cgContext, gradientWithName(ConcaveGradient), clip.location(), FloatPoint(clip.x(), clip.maxY()), LinearInterpolation);
+    bool checked = isChecked(box);
+    bool indeterminate = isIndeterminate(box);
 
-        static const float thicknessRatio = 2 / 14.0;
-        static const CGSize size = { 14.0f, 14.0f };
+    CGContextRef cgContext = paintInfo.context().platformContext();
+    if (!checked && !indeterminate) {
+        FloatPoint bottomCenter(clip.x() + clip.width() / 2.0f, clip.maxY());
+        drawAxialGradient(cgContext, gradientWithName(ShadeGradient), clip.location(), FloatPoint(clip.x(), clip.maxY()), LinearInterpolation);
+        drawRadialGradient(cgContext, gradientWithName(ShineGradient), bottomCenter, 0, bottomCenter, sqrtf((width * width) / 4.0f + height * height), ExponentialInterpolation);
+        return false;
+    }
+
+    drawAxialGradient(cgContext, gradientWithName(ConcaveGradient), clip.location(), FloatPoint(clip.x(), clip.maxY()), LinearInterpolation);
+
+    static const float thicknessRatio = 2 / 14.0;
+    static const CGSize size = { 14.0f, 14.0f };
+    float lineWidth = std::min(width, height) * 2.0f * thicknessRatio;
+
+    Vector<CGPoint> line;
+    Vector<CGPoint> shadow;
+
+    if (checked) {
         static const CGPoint pathRatios[3] = {
             { 2.5f / size.width, 7.5f / size.height },
             { 5.5f / size.width, 10.5f / size.height },
             { 11.5f / size.width, 2.5f / size.height }
         };
 
-        float lineWidth = std::min(width, height) * 2.0f * thicknessRatio;
-
-        CGPoint line[3] = {
+        line = {
             CGPointMake(clip.x() + width * pathRatios[0].x, clip.y() + height * pathRatios[0].y),
             CGPointMake(clip.x() + width * pathRatios[1].x, clip.y() + height * pathRatios[1].y),
             CGPointMake(clip.x() + width * pathRatios[2].x, clip.y() + height * pathRatios[2].y)
         };
-        CGPoint shadow[3] = {
+
+        shadow = {
             shortened(line[0], line[1], lineWidth / 4.0f),
             line[1],
             shortened(line[2], line[1], lineWidth / 4.0f)
         };
+    } else if (indeterminate) {
+        line = {
+            CGPointMake(clip.x() + 3.5, clip.center().y()),
+            CGPointMake(clip.maxX() - 3.5, clip.center().y())
+        };
 
-        lineWidth = std::max<float>(lineWidth, 1);
-        CGContextSetLineWidth(cgContext, lineWidth);
-        CGContextSetStrokeColorWithColor(cgContext, cachedCGColor(Color(0.0f, 0.0f, 0.0f, 0.7f)));
-        drawJoinedLines(cgContext, shadow, 3, true, kCGLineCapSquare);
-
-        lineWidth = std::max<float>(std::min(clip.width(), clip.height()) * thicknessRatio, 1);
-        CGContextSetLineWidth(cgContext, lineWidth);
-        CGContextSetStrokeColorWithColor(cgContext, cachedCGColor(Color(1.0f, 1.0f, 1.0f, 240 / 255.0f)));
-        drawJoinedLines(cgContext, line, 3, true, kCGLineCapButt);
-    } else {
-        FloatPoint bottomCenter(clip.x() + clip.width() / 2.0f, clip.maxY());
-        drawAxialGradient(cgContext, gradientWithName(ShadeGradient), clip.location(), FloatPoint(clip.x(), clip.maxY()), LinearInterpolation);
-        drawRadialGradient(cgContext, gradientWithName(ShineGradient), bottomCenter, 0, bottomCenter, sqrtf((width * width) / 4.0f + height * height), ExponentialInterpolation);
+        shadow = {
+            shortened(line[0], line[1], lineWidth / 4.0f),
+            shortened(line[1], line[0], lineWidth / 4.0f)
+        };
     }
+
+    lineWidth = std::max<float>(lineWidth, 1);
+    drawJoinedLines(cgContext, shadow, kCGLineCapSquare, lineWidth, Color(0.0f, 0.0f, 0.0f, 0.7f));
+
+    lineWidth = std::max<float>(std::min(clip.width(), clip.height()) * thicknessRatio, 1);
+    drawJoinedLines(cgContext, line, kCGLineCapButt, lineWidth, Color(1.0f, 1.0f, 1.0f, 240 / 255.0f));
 
     return false;
 }
@@ -529,7 +543,7 @@ const float MenuListButtonPaddingAfter = 19;
 LengthBox RenderThemeIOS::popupInternalPaddingBox(const RenderStyle& style) const
 {
     if (style.appearance() == MenulistButtonPart) {
-        if (style.direction() == RTL)
+        if (style.direction() == TextDirection::RTL)
             return { 0, 0, 0, static_cast<int>(MenuListButtonPaddingAfter + style.borderTopWidth()) };
         return { 0, static_cast<int>(MenuListButtonPaddingAfter + style.borderTopWidth()), 0, 0 };
     }
@@ -548,7 +562,7 @@ void RenderThemeIOS::adjustRoundBorderRadius(RenderStyle& style, RenderBox& box)
 static void applyCommonButtonPaddingToStyle(RenderStyle& style, const Element& element)
 {
     Document& document = element.document();
-    RefPtr<CSSPrimitiveValue> emSize = CSSPrimitiveValue::create(0.5, CSSPrimitiveValue::CSS_EMS);
+    auto emSize = CSSPrimitiveValue::create(0.5, CSSPrimitiveValue::CSS_EMS);
     int pixels = emSize->computeLength<int>(CSSToLengthConversionData(&style, document.renderStyle(), document.renderView(), document.frame()->pageZoomFactor()));
     style.setPaddingBox(LengthBox(0, pixels, 0, pixels));
 }
@@ -630,7 +644,7 @@ void RenderThemeIOS::adjustMenuListButtonStyle(StyleResolver&, RenderStyle& styl
 bool RenderThemeIOS::paintMenuListButtonDecorations(const RenderBox& box, const PaintInfo& paintInfo, const FloatRect& rect)
 {
     auto& style = box.style();
-    bool isRTL = style.direction() == RTL;
+    bool isRTL = style.direction() == TextDirection::RTL;
     float borderTopWidth = style.borderTopWidth();
     FloatRect clip(rect.x() + style.borderLeftWidth(), rect.y() + style.borderTopWidth(), rect.width() - style.borderLeftWidth() - style.borderRightWidth(), rect.height() - style.borderTopWidth() - style.borderBottomWidth());
     CGContextRef cgContext = paintInfo.context().platformContext();
@@ -903,12 +917,12 @@ bool RenderThemeIOS::paintProgressBar(const RenderObject& renderer, const PaintI
     context.setStrokeStyle(SolidStroke);
 
     const float verticalRenderingPosition = rect.y() + verticalOffset;
-    RefPtr<Gradient> strokeGradient = Gradient::create(Gradient::LinearData { FloatPoint(rect.x(), verticalRenderingPosition), FloatPoint(rect.x(), verticalRenderingPosition + progressBarHeight - 1) });
+    auto strokeGradient = Gradient::create(Gradient::LinearData { FloatPoint(rect.x(), verticalRenderingPosition), FloatPoint(rect.x(), verticalRenderingPosition + progressBarHeight - 1) });
     strokeGradient->addColorStop(0.0, Color(0x8d, 0x8d, 0x8d));
     strokeGradient->addColorStop(0.45, Color(0xee, 0xee, 0xee));
     strokeGradient->addColorStop(0.55, Color(0xee, 0xee, 0xee));
     strokeGradient->addColorStop(1.0, Color(0x8d, 0x8d, 0x8d));
-    context.setStrokeGradient(strokeGradient.releaseNonNull());
+    context.setStrokeGradient(WTFMove(strokeGradient));
 
     context.setFillColor(Color(255, 255, 255));
 
@@ -923,10 +937,10 @@ bool RenderThemeIOS::paintProgressBar(const RenderObject& renderer, const PaintI
     paintInfo.context().clipRoundedRect(FloatRoundedRect(border, roundedCornerRadius, roundedCornerRadius, roundedCornerRadius, roundedCornerRadius));
 
     float upperGradientHeight = progressBarHeight / 2.;
-    RefPtr<Gradient> upperGradient = Gradient::create(Gradient::LinearData { FloatPoint(rect.x(), verticalRenderingPosition + 0.5), FloatPoint(rect.x(), verticalRenderingPosition + upperGradientHeight - 1.5) });
+    auto upperGradient = Gradient::create(Gradient::LinearData { FloatPoint(rect.x(), verticalRenderingPosition + 0.5), FloatPoint(rect.x(), verticalRenderingPosition + upperGradientHeight - 1.5) });
     upperGradient->addColorStop(0.0, Color(133, 133, 133, 188));
     upperGradient->addColorStop(1.0, Color(18, 18, 18, 51));
-    context.setFillGradient(upperGradient.releaseNonNull());
+    context.setFillGradient(WTFMove(upperGradient));
 
     context.fillRect(FloatRect(rect.x(), verticalRenderingPosition, rect.width(), upperGradientHeight));
 
@@ -935,20 +949,20 @@ bool RenderThemeIOS::paintProgressBar(const RenderObject& renderer, const PaintI
         // 2) Draw the progress bar.
         double position = clampTo(renderProgress.position(), 0.0, 1.0);
         double barWidth = position * rect.width();
-        RefPtr<Gradient> barGradient = Gradient::create(Gradient::LinearData { FloatPoint(rect.x(), verticalRenderingPosition + 0.5), FloatPoint(rect.x(), verticalRenderingPosition + progressBarHeight - 1) });
+        auto barGradient = Gradient::create(Gradient::LinearData { FloatPoint(rect.x(), verticalRenderingPosition + 0.5), FloatPoint(rect.x(), verticalRenderingPosition + progressBarHeight - 1) });
         barGradient->addColorStop(0.0, Color(195, 217, 247));
         barGradient->addColorStop(0.45, Color(118, 164, 228));
         barGradient->addColorStop(0.49, Color(118, 164, 228));
         barGradient->addColorStop(0.51, Color(36, 114, 210));
         barGradient->addColorStop(0.55, Color(36, 114, 210));
         barGradient->addColorStop(1.0, Color(57, 142, 244));
-        context.setFillGradient(barGradient.releaseNonNull());
+        context.setFillGradient(WTFMove(barGradient));
 
-        RefPtr<Gradient> barStrokeGradient = Gradient::create(Gradient::LinearData { FloatPoint(rect.x(), verticalRenderingPosition), FloatPoint(rect.x(), verticalRenderingPosition + progressBarHeight - 1) });
+        auto barStrokeGradient = Gradient::create(Gradient::LinearData { FloatPoint(rect.x(), verticalRenderingPosition), FloatPoint(rect.x(), verticalRenderingPosition + progressBarHeight - 1) });
         barStrokeGradient->addColorStop(0.0, Color(95, 107, 183));
         barStrokeGradient->addColorStop(0.5, Color(66, 106, 174, 240));
         barStrokeGradient->addColorStop(1.0, Color(38, 104, 166));
-        context.setStrokeGradient(barStrokeGradient.releaseNonNull());
+        context.setStrokeGradient(WTFMove(barStrokeGradient));
 
         Path barPath;
         int left = rect.x();
@@ -1002,11 +1016,16 @@ void RenderThemeIOS::adjustButtonStyle(StyleResolver& selector, RenderStyle& sty
 {
     RenderTheme::adjustButtonStyle(selector, style, element);
 
+#if ENABLE(INPUT_TYPE_COLOR)
+    if (style.appearance() == ColorWellPart)
+        return;
+#endif
+
     // Set padding: 0 1.0em; on buttons.
     // CSSPrimitiveValue::computeLengthInt only needs the element's style to calculate em lengths.
     // Since the element might not be in a document, just pass nullptr for the root element style
     // and the render view.
-    RefPtr<CSSPrimitiveValue> emSize = CSSPrimitiveValue::create(1.0, CSSPrimitiveValue::CSS_EMS);
+    auto emSize = CSSPrimitiveValue::create(1.0, CSSPrimitiveValue::CSS_EMS);
     int pixels = emSize->computeLength<int>(CSSToLengthConversionData(&style, nullptr, nullptr, 1.0, false));
     style.setPaddingBox(LengthBox(0, pixels, 0, pixels));
 
@@ -1112,11 +1131,6 @@ Color RenderThemeIOS::platformInactiveSelectionBackgroundColor(OptionSet<StyleCo
 }
 
 bool RenderThemeIOS::shouldHaveSpinButton(const HTMLInputElement&) const
-{
-    return false;
-}
-
-bool RenderThemeIOS::shouldHaveCapsLockIndicator(const HTMLInputElement&) const
 {
     return false;
 }
@@ -1581,12 +1595,13 @@ void RenderAttachmentInfo::buildWrappedLines(const String& text, CTFontRef font,
     // Combine it into one last line, and center-truncate it.
     CTLineRef firstRemainingLine = (CTLineRef)CFArrayGetValueAtIndex(ctLines, lineIndex);
     CFIndex remainingRangeStart = CTLineGetStringRange(firstRemainingLine).location;
-    NSRange remainingRange = NSMakeRange(remainingRangeStart, [attributedText length] - remainingRangeStart);
-    NSAttributedString *remainingString = [attributedText attributedSubstringFromRange:remainingRange];
-    RetainPtr<CTLineRef> remainingLine = adoptCF(CTLineCreateWithAttributedString((CFAttributedStringRef)remainingString));
+    CFRange remainingRange = CFRangeMake(remainingRangeStart, [attributedText length] - remainingRangeStart);
+    RetainPtr<CGPathRef> remainingPath = adoptCF(CGPathCreateWithRect(CGRectMake(0, 0, CGFLOAT_MAX, CGFLOAT_MAX), nullptr));
+    RetainPtr<CTFrameRef> remainingFrame = adoptCF(CTFramesetterCreateFrame(framesetter.get(), remainingRange, remainingPath.get(), nullptr));
     RetainPtr<NSAttributedString> ellipsisString = adoptNS([[NSAttributedString alloc] initWithString:@"\u2026" attributes:textAttributes]);
     RetainPtr<CTLineRef> ellipsisLine = adoptCF(CTLineCreateWithAttributedString((CFAttributedStringRef)ellipsisString.get()));
-    RetainPtr<CTLineRef> truncatedLine = adoptCF(CTLineCreateTruncatedLine(remainingLine.get(), attachmentWrappingTextMaximumWidth, kCTLineTruncationMiddle, ellipsisLine.get()));
+    CTLineRef remainingLine = (CTLineRef)CFArrayGetValueAtIndex(CTFrameGetLines(remainingFrame.get()), 0);
+    RetainPtr<CTLineRef> truncatedLine = adoptCF(CTLineCreateTruncatedLine(remainingLine, attachmentWrappingTextMaximumWidth, kCTLineTruncationMiddle, ellipsisLine.get()));
 
     if (!truncatedLine)
         truncatedLine = remainingLine;
@@ -1675,7 +1690,7 @@ RenderAttachmentInfo::RenderAttachmentInfo(const RenderAttachment& attachment)
 
     hasProgress = getAttachmentProgress(attachment, progress);
 
-    String title = attachment.attachmentElement().attachmentTitle();
+    String title = attachment.attachmentElement().attachmentTitleForDisplay();
     String action = attachment.attachmentElement().attributeWithoutSynchronization(actionAttr);
     String subtitle = attachment.attachmentElement().attributeWithoutSynchronization(subtitleAttr);
 
@@ -1728,11 +1743,8 @@ static void paintAttachmentIcon(GraphicsContext& context, RenderAttachmentInfo& 
     if (!info.icon)
         return;
 
-    RefPtr<Image> iconImage = BitmapImage::create([info.icon CGImage]);
-    if (!iconImage)
-        return;
-
-    context.drawImage(*iconImage, info.iconRect);
+    auto iconImage = BitmapImage::create([info.icon CGImage]);
+    context.drawImage(iconImage.get(), info.iconRect);
 }
 
 static void paintAttachmentText(GraphicsContext& context, RenderAttachmentInfo& info)
@@ -1825,6 +1837,43 @@ String RenderThemeIOS::extraDefaultStyleSheet()
 #endif
 
 #if USE(SYSTEM_PREVIEW)
+static NSBundle *arKitBundle()
+{
+    static NSBundle *arKitBundle = []() {
+#if PLATFORM(IOS_FAMILY_SIMULATOR)
+        dlopen("/System/Library/PrivateFrameworks/AssetViewer.framework/AssetViewer", RTLD_NOW);
+        return [NSBundle bundleForClass:NSClassFromString(@"ASVThumbnailView")];
+#else
+        return [NSBundle bundleWithURL:[NSURL fileURLWithPath:@"/System/Library/PrivateFrameworks/AssetViewer.framework"]];
+#endif
+    }();
+
+    return arKitBundle;
+}
+
+static RetainPtr<CGPDFPageRef> loadARKitPDFPage(NSString *imageName)
+{
+    NSURL *url = [arKitBundle() URLForResource:imageName withExtension:@"pdf"];
+
+    if (!url)
+        return nullptr;
+
+    auto document = adoptCF(CGPDFDocumentCreateWithURL((CFURLRef)url));
+    if (!document)
+        return nullptr;
+
+    if (!CGPDFDocumentGetNumberOfPages(document.get()))
+        return nullptr;
+
+    return CGPDFDocumentGetPage(document.get(), 1);
+}
+
+static CGPDFPageRef systemPreviewLogo()
+{
+    static CGPDFPageRef logoPage = loadARKitPDFPage(@"ARKitBadge").leakRef();
+    return logoPage;
+}
+
 void RenderThemeIOS::paintSystemPreviewBadge(Image& image, const PaintInfo& paintInfo, const FloatRect& rect)
 {
     static const int largeBadgeDimension = 70;
@@ -1958,7 +2007,6 @@ void RenderThemeIOS::paintSystemPreviewBadge(Image& image, const PaintInfo& pain
     CGContextScaleCTM(ctx, 1, -1);
     CGContextDrawImage(ctx, badgeRect, cgImage.get());
 
-#if USE(APPLE_INTERNAL_SDK)
     if (auto logo = systemPreviewLogo()) {
         CGSize pdfSize = CGPDFPageGetBoxRect(logo, kCGPDFMediaBox).size;
         CGFloat scaleX = badgeDimension / pdfSize.width;
@@ -1966,7 +2014,6 @@ void RenderThemeIOS::paintSystemPreviewBadge(Image& image, const PaintInfo& pain
         CGContextScaleCTM(ctx, scaleX, scaleY);
         CGContextDrawPDFPage(ctx, logo);
     }
-#endif
 
     CGContextFlush(ctx);
     CGContextRestoreGState(ctx);
@@ -1975,4 +2022,4 @@ void RenderThemeIOS::paintSystemPreviewBadge(Image& image, const PaintInfo& pain
 
 } // namespace WebCore
 
-#endif //PLATFORM(IOS)
+#endif //PLATFORM(IOS_FAMILY)

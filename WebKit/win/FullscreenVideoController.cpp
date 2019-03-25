@@ -39,7 +39,6 @@
 #include <WebCore/HWndDC.h>
 #include <WebCore/Page.h>
 #include <WebCore/TextRun.h>
-#include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <windowsx.h>
 #include <wtf/StdLibExtras.h>
 
@@ -48,7 +47,6 @@
 #include <WebCore/PlatformCALayerWin.h>
 #endif
 
-using namespace std;
 using namespace WebCore;
 
 static const Seconds timerInterval { 33_ms };
@@ -172,7 +170,7 @@ void HUDSlider::drag(const IntPoint& point, bool start)
             m_dragStartOffset = m_rect.location().x() + m_buttonSize / 2;
     }
 
-    m_buttonPosition = max(0, min(m_rect.width() - m_buttonSize, point.x() - m_dragStartOffset));
+    m_buttonPosition = std::max(0, std::min(m_rect.width() - m_buttonSize, point.x() - m_dragStartOffset));
 }
 
 #if USE(CA)
@@ -185,7 +183,7 @@ private:
     virtual bool platformCALayerRespondsToLayoutChanges() const { return true; }
 
     virtual void platformCALayerAnimationStarted(MonotonicTime beginTime) { }
-    virtual GraphicsLayer::CompositingCoordinatesOrientation platformCALayerContentsOrientation() const { return GraphicsLayer::CompositingCoordinatesBottomUp; }
+    virtual GraphicsLayer::CompositingCoordinatesOrientation platformCALayerContentsOrientation() const { return GraphicsLayer::CompositingCoordinatesOrientation::BottomUp; }
     virtual void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect&, GraphicsLayerPaintBehavior) { }
     virtual bool platformCALayerShowDebugBorders() const { return false; }
     virtual bool platformCALayerShowRepaintCounter(PlatformCALayer*) const { return false; }

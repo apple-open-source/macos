@@ -30,9 +30,8 @@
 #include <WebCore/IntPoint.h>
 #include <wtf/SetForScope.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 void Plugin::Parameters::encode(IPC::Encoder& encoder) const
 {
@@ -52,8 +51,7 @@ bool Plugin::Parameters::decode(IPC::Decoder& decoder, Parameters& parameters)
     String urlString;
     if (!decoder.decode(urlString))
         return false;
-    // FIXME: We can't assume that the url passed in here is valid.
-    parameters.url = URL(ParsedURLString, urlString);
+    parameters.url = URL({ }, urlString);
 
     if (!decoder.decode(parameters.names))
         return false;

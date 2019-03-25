@@ -26,7 +26,7 @@
 #include "config.h"
 #include "CryptoAlgorithmECDSA.h"
 
-#if ENABLE(SUBTLE_CRYPTO)
+#if ENABLE(WEB_CRYPTO)
 
 #include "CryptoAlgorithmEcKeyParams.h"
 #include "CryptoAlgorithmEcdsaParams.h"
@@ -36,12 +36,14 @@
 
 namespace WebCore {
 
+namespace CryptoAlgorithmECDSAInternal {
 static const char* const ALG256 = "ES256";
 static const char* const ALG384 = "ES384";
 static const char* const ALG512 = "ES512";
 static const char* const P256 = "P-256";
 static const char* const P384 = "P-384";
 static const char* const P521 = "P-521";
+}
 
 Ref<CryptoAlgorithm> CryptoAlgorithmECDSA::create()
 {
@@ -102,6 +104,7 @@ void CryptoAlgorithmECDSA::generateKey(const CryptoAlgorithmParameters& paramete
 
 void CryptoAlgorithmECDSA::importKey(CryptoKeyFormat format, KeyData&& data, const CryptoAlgorithmParameters& parameters, bool extractable, CryptoKeyUsageBitmap usages, KeyCallback&& callback, ExceptionCallback&& exceptionCallback)
 {
+    using namespace CryptoAlgorithmECDSAInternal;
     const auto& ecParameters = downcast<CryptoAlgorithmEcKeyParams>(parameters);
 
     RefPtr<CryptoKeyEC> result;
@@ -217,4 +220,4 @@ void CryptoAlgorithmECDSA::exportKey(CryptoKeyFormat format, Ref<CryptoKey>&& ke
 
 } // namespace WebCore
 
-#endif // ENABLE(SUBTLE_CRYPTO)
+#endif // ENABLE(WEB_CRYPTO)

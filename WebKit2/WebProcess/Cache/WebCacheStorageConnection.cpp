@@ -35,10 +35,9 @@
 #include "WebProcess.h"
 #include <wtf/MainThread.h>
 
-using namespace WebCore::DOMCacheEngine;
-using namespace WebKit::CacheStorage;
-
 namespace WebKit {
+using namespace WebCore::DOMCacheEngine;
+using namespace CacheStorage;
 
 WebCacheStorageConnection::WebCacheStorageConnection(WebCacheStorageProvider& provider, PAL::SessionID sessionID)
     : m_provider(provider)
@@ -71,7 +70,7 @@ void WebCacheStorageConnection::doRetrieveCaches(uint64_t requestIdentifier, con
     connection().send(Messages::CacheStorageEngineConnection::Caches(m_sessionID, requestIdentifier, origin, updateCounter), 0);
 }
 
-void WebCacheStorageConnection::doRetrieveRecords(uint64_t requestIdentifier, uint64_t cacheIdentifier, const WebCore::URL& url)
+void WebCacheStorageConnection::doRetrieveRecords(uint64_t requestIdentifier, uint64_t cacheIdentifier, const URL& url)
 {
     connection().send(Messages::CacheStorageEngineConnection::RetrieveRecords(m_sessionID, requestIdentifier, cacheIdentifier, url), 0);
 }
@@ -133,7 +132,7 @@ void WebCacheStorageConnection::clearMemoryRepresentation(const WebCore::ClientO
     connection().send(Messages::CacheStorageEngineConnection::ClearMemoryRepresentation(m_sessionID, requestIdentifier, origin), 0);
 }
 
-void WebCacheStorageConnection::clearMemoryRepresentationCompleted(uint64_t requestIdentifier, std::optional<Error>&& result)
+void WebCacheStorageConnection::clearMemoryRepresentationCompleted(uint64_t requestIdentifier, Optional<Error>&& result)
 {
     if (auto callback = m_clearRepresentationCallbacks.take(requestIdentifier))
         callback(WTFMove(result));

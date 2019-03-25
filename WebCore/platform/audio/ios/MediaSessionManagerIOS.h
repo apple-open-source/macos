@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #include "MediaSessionManagerCocoa.h"
 #include <wtf/RetainPtr.h>
@@ -53,36 +53,13 @@ private:
 
     MediaSessionManageriOS();
 
-    void removeSession(PlatformMediaSession&) override;
-
-    bool sessionWillBeginPlayback(PlatformMediaSession&) override;
-    void sessionWillEndPlayback(PlatformMediaSession&) override;
-    void clientCharacteristicsChanged(PlatformMediaSession&) override;
-
-    void updateNowPlayingInfo();
-    
     void resetRestrictions() override;
 
     void configureWireLessTargetMonitoring() override;
 
-    bool hasActiveNowPlayingSession() const final { return m_nowPlayingActive; }
-    String lastUpdatedNowPlayingTitle() const final { return m_reportedTitle; }
-    double lastUpdatedNowPlayingDuration() const final { return m_reportedDuration; }
-    double lastUpdatedNowPlayingElapsedTime() const final { return m_reportedCurrentTime; }
-    uint64_t lastUpdatedNowPlayingInfoUniqueIdentifier() const final { return m_lastUpdatedNowPlayingInfoUniqueIdentifier; }
-    bool registeredAsNowPlayingApplication() const final { return m_nowPlayingActive; }
-
-    PlatformMediaSession* nowPlayingEligibleSession();
-    
     RetainPtr<WebMediaSessionHelper> m_objcObserver;
-    double m_reportedRate { 0 };
-    double m_reportedDuration { 0 };
-    double m_reportedCurrentTime { 0 };
-    uint64_t m_lastUpdatedNowPlayingInfoUniqueIdentifier { 0 };
-    String m_reportedTitle;
-    bool m_nowPlayingActive { false };
 };
 
 } // namespace WebCore
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

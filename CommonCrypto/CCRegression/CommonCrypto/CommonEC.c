@@ -9,7 +9,7 @@ entryPoint(CommonEC,"Elliptic Curve Cryptography")
 
 #include <CommonCrypto/CommonECCryptor.h>
 
-static int kTestTestCount = 11;
+static int kTestTestCount = 12;
 
 int CommonEC(int __unused argc, char *const * __unused argv) {
 	CCCryptorStatus retval;
@@ -17,9 +17,11 @@ int CommonEC(int __unused argc, char *const * __unused argv) {
     CCECCryptorRef publicKey, privateKey;
     CCECCryptorRef publicKey2;
     CCECCryptorRef badPublicKey, badPrivateKey;
+    CCECCryptorRef privateKey224;
     // byteBuffer keydata, dekeydata;
     byteBuffer hash;
     byteBuffer badPublicKeyBytes, badPrivateKeyBytes;
+    byteBuffer privateKey224Bytes;
     char encryptedKey[8192];
     size_t encryptedKeyLen = 8192;
     // char decryptedKey[8192];
@@ -120,13 +122,20 @@ int CommonEC(int __unused argc, char *const * __unused argv) {
     badPrivateKeyBytes = hexStringToBytes("044c4d4c1c624fcf8db7221efd097f19d8b6a33e870f1f8d2988491859e2cf9cb7cbef11efc0f4c8bf58b602f814d5432335341c636459a090e4fcf71185f44d001bc7662261a5e0ed73902c99b872c813bfc1d7081ab672a592fe20079a36d23e");
     retval = CCECCryptorImportKey(kCCImportKeyBinary, badPrivateKeyBytes->bytes, badPrivateKeyBytes->len, ccECKeyPrivate, &badPrivateKey);
     ok(retval == kCCInvalidKey, "Reject Invalid Private Key");
-    
+
+    // Import a P-224 private key.
+    privateKey224Bytes = hexStringToBytes("040b75435120c361428ba8b6fa219d65b7dcd9b51302d40009ca7c6bba1524090ec83448b41a213e93d0ee7b94ba15fa49aff3f68863b1ff4b000102030405060708090a0b0c0d0e0f101112131415161718191a1b");
+    retval = CCECCryptorImportKey(kCCImportKeyBinary, privateKey224Bytes->bytes, privateKey224Bytes->len, ccECKeyPrivate, &privateKey224);
+    is(retval, 0, "Import P-224 Private Key");
+
     CCECCryptorRelease(publicKey);
     CCECCryptorRelease(publicKey2);
     CCECCryptorRelease(privateKey);
+    CCECCryptorRelease(privateKey224);
     free(hash);
     free(badPublicKeyBytes);
     free(badPrivateKeyBytes);
+    free(privateKey224Bytes);
     return accum;
 }
 #endif /* CCEC */

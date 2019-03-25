@@ -49,9 +49,6 @@ public:
     virtual ~PlaybackSessionInterfaceMac();
     PlaybackSessionModel* playbackSessionModel() const;
 
-    // PlaybackSessionInterface
-    void resetMediaState() final;
-
     // PlaybackSessionModelClient
     void durationChanged(double) final;
     void currentTimeChanged(double /*currentTime*/, double /*anchorTime*/) final;
@@ -62,12 +59,15 @@ public:
     void audioMediaSelectionIndexChanged(uint64_t) final;
     void legibleMediaSelectionIndexChanged(uint64_t) final;
     void externalPlaybackChanged(bool /* enabled */, PlaybackSessionModel::ExternalPlaybackTargetType, const String& /* localizedDeviceName */) final;
+    void isPictureInPictureSupportedChanged(bool) final;
 
     void invalidate();
     void ensureControlsManager();
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
     void setPlayBackControlsManager(WebPlaybackControlsManager *);
     WebPlaybackControlsManager *playBackControlsManager();
+
+    void updatePlaybackControlsManagerCanTogglePictureInPicture();
 #endif
     void beginScrubbing();
     void endScrubbing();

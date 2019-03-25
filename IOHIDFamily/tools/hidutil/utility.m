@@ -116,6 +116,10 @@ bool setClientMatching(IOHIDEventSystemClientRef client, const char *str) {
     
     matchString = createMatchingString(str);
     
+    if (!matchString || matchString.length == 0) {
+        return result;
+    }
+    
     if ([[matchString substringToIndex:1] isEqual:@"["] ||
         [[matchString substringToIndex:1] isEqual:@"{"]) {
         matchingObj = [NSJSONSerialization JSONObjectWithData:[matchString dataUsingEncoding:NSUTF8StringEncoding] options:NSJSONReadingMutableContainers error:&error];

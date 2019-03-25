@@ -84,7 +84,7 @@
     vertical-align: middle;
     font-weight: normal;
     white-space: nowrap;
-    background-color: white;
+    background-color: var(--background-color);
     overflow: hidden;
 }
 
@@ -189,11 +189,11 @@ body[dir=rtl] .data-grid :matches(th, td):not(:last-child) {
     pointer-events: none;
 }
 
-body[dir=ltr] .data-grid:matches(:focus, .force-focus) tr.selected td:not(:last-child) {
+body[dir=ltr] .data-grid:focus tr.selected td:not(:last-child) {
     border-right-color: hsl(210, 100%, 40%);
 }
 
-body[dir=rtl] .data-grid:matches(:focus, .force-focus) tr.selected td:not(:last-child) {
+body[dir=rtl] .data-grid:focus tr.selected td:not(:last-child) {
     border-left-color: hsl(210, 100%, 40%);
 }
 
@@ -287,11 +287,11 @@ body[dir=rtl] .data-grid tr.parent td.disclosure::before {
     background-image: url(../Images/DisclosureTriangles.svg#open-normal);
 }
 
-.data-grid:matches(:focus, .force-focus) tr.parent.selected td.disclosure::before {
+.data-grid:focus tr.parent.selected td.disclosure::before {
     background-image: url(../Images/DisclosureTriangles.svg#closed-selected);
 }
 
-.data-grid:matches(:focus, .force-focus) tr.parent.expanded.selected td.disclosure::before {
+.data-grid:focus tr.parent.expanded.selected td.disclosure::before {
     background-image: url(../Images/DisclosureTriangles.svg#open-selected);
 }
 
@@ -300,7 +300,7 @@ body[dir=rtl] .data-grid tr.parent td.disclosure::before {
     color: inherit !important;
 }
 
-.data-grid:matches(:focus, .force-focus) tr.selected {
+.data-grid:focus tr.selected {
     background-color: var(--selected-background-color) !important;
     color: var(--selected-foreground-color) !important;
 }
@@ -314,10 +314,10 @@ body[dir=rtl] .data-grid tr.parent td.disclosure::before {
 }
 
 .data-grid td .subtitle::before {
-    content: " — ";
+    content: "\00A0\2014\00A0"; /* &nbsp;&mdash;&nbsp; */;
 }
 
-.data-grid:matches(:focus, .force-focus) tr.selected td .subtitle {
+.data-grid:focus tr.selected td .subtitle {
     color: hsla(0, 0%, 100%, 0.9);
 }
 
@@ -425,6 +425,34 @@ body[dir=rtl] .data-grid :matches(th, td):first-child {
     outline: none;
 }
 
-body:not(.window-inactive, .window-docked-inactive) .data-grid:matches(:focus, .force-focus) tr.editable.selected .cell-content > input {
-    color: white;
+body:not(.window-inactive, .window-docked-inactive) .data-grid:focus tr.editable.selected .cell-content > input {
+    color: var(--selected-foreground-color);
+}
+
+@media (prefers-dark-interface) {
+    .data-grid td .subtitle {
+        color: var(--selected-secondary-text-color);
+    }
+
+    .data-grid:focus tr.selected td .subtitle {
+        color: hsla(0, 0%, var(--foreground-lightness), 0.9);
+    }
+
+    .data-grid tr.editable .cell-content > input {
+        color: inherit;
+    }
+
+    .data-grid td.spanning {
+        color: var(--text-color-secondary);
+        background-color: unset;
+    }
+
+    .data-grid th.sortable:active {
+        background-color: hsl(0, 0%, 40%);
+    }
+
+    .data-grid th.sort-ascending > div:first-child::after,
+    .data-grid th.sort-descending > div:first-child::after {
+        filter: invert();
+    }
 }

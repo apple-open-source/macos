@@ -81,7 +81,7 @@ ms{
         CK{"Kepulauan Cook"}
         CL{"Chile"}
         CM{"Cameroon"}
-        CN{"China"}
+        CN{"China, Tanah Besar"}
         CO{"Colombia"}
         CP{"Pulau Clipperton"}
         CR{"Costa Rica"}
@@ -133,7 +133,7 @@ ms{
         GU{"Guam"}
         GW{"Guinea Bissau"}
         GY{"Guyana"}
-        HK{"Hong Kong (China)"}
+        HK{"Hong Kong"}
         HM{"Kepulauan Heard & McDonald"}
         HN{"Honduras"}
         HR{"Croatia"}
@@ -187,7 +187,7 @@ ms{
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
-        MO{"Macau (China)"}
+        MO{"Macau"}
         MP{"Kepulauan Mariana Utara"}
         MQ{"Martinique"}
         MR{"Mauritania"}
@@ -297,8 +297,6 @@ ms{
     }
     Countries%short{
         GB{"UK"}
-        HK{"Hong Kong"}
-        MO{"Macau"}
         PS{"Palestin"}
         UN{"PBB"}
         US{"A.S"}

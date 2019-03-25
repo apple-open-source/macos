@@ -1,5 +1,4 @@
 list(APPEND WTF_SOURCES
-    generic/MainThreadGeneric.cpp
     generic/WorkQueueGeneric.cpp
 )
 
@@ -9,6 +8,7 @@ if (WIN32)
 
         win/CPUTimeWin.cpp
         win/LanguageWin.cpp
+        win/MainThreadWin.cpp
     )
     list(APPEND WTF_PUBLIC_HEADERS
         text/win/WCharStringExtras.h
@@ -16,6 +16,8 @@ if (WIN32)
 else ()
     list(APPEND WTF_SOURCES
         UniStdExtras.cpp
+
+        generic/MainThreadGeneric.cpp
 
         text/unix/TextBreakIteratorInternalICUUnix.cpp
 
@@ -30,7 +32,6 @@ else ()
             unix/CPUTimeUnix.cpp
         )
     endif ()
-
 endif ()
 
 if (WIN32)
@@ -57,9 +58,19 @@ elseif (APPLE)
     list(APPEND WTF_INCLUDE_DIRECTORIES
         ${DERIVED_SOURCES_WTF_DIR}
     )
+elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    list(APPEND WTF_SOURCES
+        linux/CurrentProcessMemoryStatus.cpp
+        linux/MemoryFootprintLinux.cpp
+        linux/MemoryPressureHandlerLinux.cpp
+    )
+    list(APPEND WTF_PUBLIC_HEADERS
+        linux/CurrentProcessMemoryStatus.h
+    )
 else ()
     list(APPEND WTF_SOURCES
-        linux/MemoryFootprintLinux.cpp
+        generic/MemoryFootprintGeneric.cpp
+        generic/MemoryPressureHandlerGeneric.cpp
     )
 endif ()
 

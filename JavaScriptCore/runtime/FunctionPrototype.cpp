@@ -87,48 +87,68 @@ EncodedJSValue JSC_HOST_CALL functionProtoFuncToString(ExecState* exec)
     JSValue thisValue = exec->thisValue();
     if (thisValue.inherits<JSFunction>(vm)) {
         JSFunction* function = jsCast<JSFunction*>(thisValue);
-        if (function->isHostOrBuiltinFunction()) {
-            scope.release();
-            return JSValue::encode(jsMakeNontrivialString(exec, "function ", function->name(vm), "() {\n    [native code]\n}"));
-        }
+        if (function->isHostOrBuiltinFunction())
+            RELEASE_AND_RETURN(scope, JSValue::encode(jsMakeNontrivialString(exec, "function ", function->name(vm), "() {\n    [native code]\n}")));
 
         FunctionExecutable* executable = function->jsExecutable();
-        if (executable->isClass()) {
-            StringView classSource = executable->classSource().view();
-            return JSValue::encode(jsString(exec, classSource.toStringWithoutCopying()));
+        if (executable->isClass())
+            return JSValue::encode(jsString(exec, executable->classSource().view().toString()));
+
+        String functionHeader;
+        switch (executable->parseMode()) {
+        case SourceParseMode::GeneratorWrapperFunctionMode:
+        case SourceParseMode::GeneratorWrapperMethodMode:
+            functionHeader = "function* ";
+            break;
+
+        case SourceParseMode::NormalFunctionMode:
+        case SourceParseMode::GetterMode:
+        case SourceParseMode::SetterMode:
+        case SourceParseMode::MethodMode:
+        case SourceParseMode::ProgramMode:
+        case SourceParseMode::ModuleAnalyzeMode:
+        case SourceParseMode::ModuleEvaluateMode:
+        case SourceParseMode::GeneratorBodyMode:
+        case SourceParseMode::AsyncGeneratorBodyMode:
+        case SourceParseMode::AsyncFunctionBodyMode:
+        case SourceParseMode::AsyncArrowFunctionBodyMode:
+            functionHeader = "function ";
+            break;
+
+        case SourceParseMode::ArrowFunctionMode:
+            functionHeader = "";
+            break;
+
+        case SourceParseMode::AsyncFunctionMode:
+        case SourceParseMode::AsyncMethodMode:
+            functionHeader = "async function ";
+            break;
+
+        case SourceParseMode::AsyncArrowFunctionMode:
+            functionHeader = "async ";
+            break;
+
+        case SourceParseMode::AsyncGeneratorWrapperFunctionMode:
+        case SourceParseMode::AsyncGeneratorWrapperMethodMode:
+            functionHeader = "async function* ";
+            break;
         }
 
-        if (thisValue.inherits<JSAsyncFunction>(vm)) {
-            String functionHeader = executable->isArrowFunction() ? "async " : "async function ";
-
-            StringView source = executable->source().provider()->getRange(
-                executable->parametersStartOffset(),
-                executable->parametersStartOffset() + executable->source().length());
-            scope.release();
-            return JSValue::encode(jsMakeNontrivialString(exec, functionHeader, function->name(vm), source));
-        }
-
-        String functionHeader = executable->isArrowFunction() ? "" : "function ";
-        
         StringView source = executable->source().provider()->getRange(
             executable->parametersStartOffset(),
             executable->parametersStartOffset() + executable->source().length());
-        scope.release();
-        return JSValue::encode(jsMakeNontrivialString(exec, functionHeader, function->name(vm), source));
+        RELEASE_AND_RETURN(scope, JSValue::encode(jsMakeNontrivialString(exec, functionHeader, function->name(vm), source)));
     }
 
     if (thisValue.inherits<InternalFunction>(vm)) {
         InternalFunction* function = jsCast<InternalFunction*>(thisValue);
-        scope.release();
-        return JSValue::encode(jsMakeNontrivialString(exec, "function ", function->name(), "() {\n    [native code]\n}"));
+        RELEASE_AND_RETURN(scope, JSValue::encode(jsMakeNontrivialString(exec, "function ", function->name(), "() {\n    [native code]\n}")));
     }
 
     if (thisValue.isObject()) {
         JSObject* object = asObject(thisValue);
-        if (object->isFunction(vm)) {
-            scope.release();
-            return JSValue::encode(jsMakeNontrivialString(exec, "function ", object->classInfo(vm)->className, "() {\n    [native code]\n}"));
-        }
+        if (object->isFunction(vm))
+            RELEASE_AND_RETURN(scope, JSValue::encode(jsMakeNontrivialString(exec, "function ", object->classInfo(vm)->className, "() {\n    [native code]\n}")));
     }
 
     return throwVMTypeError(exec, scope);

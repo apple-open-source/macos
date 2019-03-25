@@ -441,7 +441,14 @@ static MALLOC_INLINE MALLOC_ALWAYS_INLINE
 unsigned int
 mag_max_magazines(void)
 {
-    return max_magazines;
+	return max_magazines;
+}
+
+static MALLOC_INLINE MALLOC_ALWAYS_INLINE
+unsigned int
+mag_max_medium_magazines(void)
+{
+	return max_medium_magazines;
 }
 
 #pragma mark mag lock
@@ -569,6 +576,21 @@ small_region_for_ptr_no_lock(rack_t *rack, const void *ptr)
 	rgnhdl_t r = hash_lookup_region_no_lock(rack->region_generation->hashed_regions,
 			rack->region_generation->num_regions_allocated, rack->region_generation->num_regions_allocated_shift,
 			SMALL_REGION_FOR_PTR(ptr));
+	return r ? *r : r;
+}
+
+#pragma mark medium allocator
+
+/*
+ * medium_region_for_ptr_no_lock - Returns the medium region containing the pointer,
+ * or NULL if not found.
+ */
+static MALLOC_INLINE region_t
+medium_region_for_ptr_no_lock(rack_t *rack, const void *ptr)
+{
+	rgnhdl_t r = hash_lookup_region_no_lock(rack->region_generation->hashed_regions,
+			rack->region_generation->num_regions_allocated, rack->region_generation->num_regions_allocated_shift,
+			MEDIUM_REGION_FOR_PTR(ptr));
 	return r ? *r : r;
 }
 

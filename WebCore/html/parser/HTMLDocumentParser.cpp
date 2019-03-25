@@ -27,6 +27,7 @@
 #include "config.h"
 #include "HTMLDocumentParser.h"
 
+#include "CustomElementReactionQueue.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
@@ -38,8 +39,10 @@
 #include "HTMLUnknownElement.h"
 #include "JSCustomElementInterface.h"
 #include "LinkLoader.h"
+#include "Microtasks.h"
 #include "NavigationScheduler.h"
 #include "ScriptElement.h"
+#include "ThrowOnDynamicMarkupInsertionCountIncrementer.h"
 
 namespace WebCore {
 
@@ -208,9 +211,17 @@ void HTMLDocumentParser::runScriptsForPausedTreeBuilder()
         ASSERT(!m_treeBuilder->hasParserBlockingScriptWork());
 
         // https://html.spec.whatwg.org/#create-an-element-for-the-token
-        auto& elementInterface = constructionData->elementInterface.get();
-        auto newElement = elementInterface.constructElementWithFallback(*document(), constructionData->name);
-        m_treeBuilder->didCreateCustomOrFallbackElement(WTFMove(newElement), *constructionData);
+        {
+            // Prevent document.open/write during reactions by allocating the incrementer before the reactions stack.
+            ThrowOnDynamicMarkupInsertionCountIncrementer incrementer(*document());
+
+            MicrotaskQueue::mainThreadQueue().performMicrotaskCheckpoint();
+
+            CustomElementReactionStack reactionStack(document()->execState());
+            auto& elementInterface = constructionData->elementInterface.get();
+            auto newElement = elementInterface.constructElementWithFallback(*document(), constructionData->name);
+            m_treeBuilder->didCreateCustomOrFallbackElement(WTFMove(newElement), *constructionData);
+        }
         return;
     }
 

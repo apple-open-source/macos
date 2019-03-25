@@ -25,6 +25,8 @@
 #pragma once
 
 #include <wtf/Forward.h>
+#include <wtf/URL.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -32,11 +34,13 @@ struct Cookie;
 
 namespace CookieUtil {
 
-bool parseCookieHeader(const String& cookieLine, const String& domain, Cookie& result);
+Optional<Cookie> parseCookieHeader(const String&);
 
-bool isIPAddress(const String& hostname);
+bool isIPAddress(const String&);
 
 bool domainMatch(const String& cookieDomain, const String& host);
+
+WEBCORE_EXPORT String defaultPathForURL(const URL&);
 
 } // namespace CookieUtil
 

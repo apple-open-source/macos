@@ -81,7 +81,7 @@ vi{
         CK{"Quần đảo Cook"}
         CL{"Chile"}
         CM{"Cameroon"}
-        CN{"Trung Quốc"}
+        CN{"Trung Quốc đại lục"}
         CO{"Colombia"}
         CP{"Đảo Clipperton"}
         CR{"Costa Rica"}
@@ -133,7 +133,7 @@ vi{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Hồng Kông (Trung Quốc)"}
+        HK{"Hồng Kông"}
         HM{"Quần đảo Heard và McDonald"}
         HN{"Honduras"}
         HR{"Croatia"}
@@ -187,7 +187,7 @@ vi{
         ML{"Mali"}
         MM{"Myanmar (Miến Điện)"}
         MN{"Mông Cổ"}
-        MO{"Macao (Trung Quốc)"}
+        MO{"Ma Cao"}
         MP{"Quần đảo Bắc Mariana"}
         MQ{"Martinique"}
         MR{"Mauritania"}
@@ -297,8 +297,6 @@ vi{
     }
     Countries%short{
         GB{"Vương quốc Anh"}
-        HK{"Hồng Kông"}
-        MO{"Macao"}
         PS{"Palestine"}
         UN{"Liên hiệp quốc"}
         US{"Hoa Kỳ"}

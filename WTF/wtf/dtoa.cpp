@@ -33,7 +33,7 @@
  */
 
 #include "config.h"
-#include "dtoa.h"
+#include <wtf/dtoa.h>
 
 #include <stdio.h>
 #include <wtf/Lock.h>
@@ -360,7 +360,7 @@ struct P5Node {
 public:
     P5Node() { }
     BigInt val;
-    P5Node* next;
+    P5Node* next { nullptr };
 };
 
 static P5Node* p5s;

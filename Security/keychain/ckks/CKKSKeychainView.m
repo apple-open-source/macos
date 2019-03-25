@@ -175,7 +175,10 @@
 
                                                                        // Ugly, but: the Manatee and Engram views need to send a fake 'PCS' view change.
                                                                        // TODO: make this data-driven somehow
-                                                                       if([strongSelf.zoneName isEqualToString:@"Manatee"] || [strongSelf.zoneName isEqualToString:@"Engram"]) {
+                                                                       if([strongSelf.zoneName isEqualToString:@"Manatee"] ||
+                                                                          [strongSelf.zoneName isEqualToString:@"Engram"] ||
+                                                                          [strongSelf.zoneName isEqualToString:@"ApplePay"] ||
+                                                                          [strongSelf.zoneName isEqualToString:@"LimitedPeersAllowed"]) {
                                                                            [strongSelf.notifierClass post:@"com.apple.security.view-change.PCS"];
                                                                        }
                                                                    }];

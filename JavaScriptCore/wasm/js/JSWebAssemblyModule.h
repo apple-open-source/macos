@@ -43,7 +43,7 @@ namespace Wasm {
 class Module;
 struct ModuleInformation;
 class Plan;
-using SignatureIndex = uint32_t;
+using SignatureIndex = uint64_t;
 }
 
 class SymbolTable;
@@ -67,8 +67,6 @@ public:
 
     JSWebAssemblyCodeBlock* codeBlock(Wasm::MemoryMode mode);
     void setCodeBlock(VM&, Wasm::MemoryMode, JSWebAssemblyCodeBlock*);
-
-    const Vector<uint8_t>& source() const;
 
     JS_EXPORT_PRIVATE Wasm::Module& module();
 

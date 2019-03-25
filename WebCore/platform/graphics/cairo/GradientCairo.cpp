@@ -48,6 +48,10 @@ cairo_pattern_t* Gradient::createPlatformGradient(float globalAlpha)
         },
         [&] (const RadialData& data) -> cairo_pattern_t* {
             return cairo_pattern_create_radial(data.point0.x(), data.point0.y(), data.startRadius, data.point1.x(), data.point1.y(), data.endRadius);
+        },
+        [&] (const ConicData&)  -> cairo_pattern_t* {
+            // FIXME: implement conic gradient rendering.
+            return nullptr;
         }
     );
 
@@ -83,10 +87,13 @@ cairo_pattern_t* Gradient::createPlatformGradient(float globalAlpha)
 
 void Gradient::fill(GraphicsContext& context, const FloatRect& rect)
 {
+    RefPtr<cairo_pattern_t> platformGradient = adoptRef(createPlatformGradient(1.0));
+    if (!platformGradient)
+        return;
+
     ASSERT(context.hasPlatformContext());
     auto& platformContext = *context.platformContext();
 
-    RefPtr<cairo_pattern_t> platformGradient = adoptRef(createPlatformGradient(1.0));
     Cairo::save(platformContext);
     Cairo::fillRect(platformContext, rect, platformGradient.get());
     Cairo::restore(platformContext);

@@ -36,7 +36,6 @@ WI.CSSCompletions = class CSSCompletions
     constructor(properties, acceptEmptyPrefix)
     {
         this._values = [];
-        this._longhands = {};
         this._shorthands = {};
 
         // The `properties` parameter can be either a list of objects with 'name' / 'longhand'
@@ -51,10 +50,12 @@ WI.CSSCompletions = class CSSCompletions
 
                 this._values.push(propertyName);
 
+                let aliases = property.aliases;
+                if (aliases)
+                    this._values = this._values.concat(aliases);
+
                 var longhands = property.longhands;
                 if (longhands) {
-                    this._longhands[propertyName] = longhands;
-
                     for (var j = 0; j < longhands.length; ++j) {
                         var longhandName = longhands[j];
 
@@ -77,8 +78,10 @@ WI.CSSCompletions = class CSSCompletions
 
     // Static
 
-    static requestCSSCompletions()
+    static initializeCSSCompletions(target)
     {
+        console.assert(target.CSSAgent);
+
         if (WI.CSSCompletions.cssNameCompletions)
             return;
 
@@ -123,7 +126,7 @@ WI.CSSCompletions = class CSSCompletions
                 var keywords = WI.CSSKeywordCompletions._propertyKeywordMap[propertyName];
                 for (var i = 0; i < keywords.length; ++i) {
                     // Skip numbers, like the ones defined for font-weight.
-                    if (!isNaN(Number(keywords[i])))
+                    if (keywords[i] === WI.CSSKeywordCompletions.AllPropertyNamesPlaceholder || !isNaN(Number(keywords[i])))
                         continue;
                     valueKeywordsForCodeMirror[nameForCodeMirror(keywords[i])] = true;
                 }
@@ -161,13 +164,11 @@ WI.CSSCompletions = class CSSCompletions
             WI.CSSKeywordCompletions.addPropertyCompletionValues("font", fontFamilyNames);
         }
 
-        if (window.CSSAgent) {
-            CSSAgent.getSupportedCSSProperties(propertyNamesCallback);
+        target.CSSAgent.getSupportedCSSProperties(propertyNamesCallback);
 
-            // COMPATIBILITY (iOS 9): CSS.getSupportedSystemFontFamilyNames did not exist.
-            if (CSSAgent.getSupportedSystemFontFamilyNames)
-                CSSAgent.getSupportedSystemFontFamilyNames(fontFamilyNamesCallback);
-        }
+        // COMPATIBILITY (iOS 9): CSS.getSupportedSystemFontFamilyNames did not exist.
+        if (target.CSSAgent.getSupportedSystemFontFamilyNames)
+            target.CSSAgent.getSupportedSystemFontFamilyNames(fontFamilyNamesCallback);
     }
 
     // Public
@@ -221,13 +222,6 @@ WI.CSSCompletions = class CSSCompletions
         return foundIndex;
     }
 
-    keySet()
-    {
-        if (!this._keySet)
-            this._keySet = this._values.keySet();
-        return this._keySet;
-    }
-
     next(str, prefix)
     {
         return this._closest(str, prefix, 1);
@@ -260,7 +254,7 @@ WI.CSSCompletions = class CSSCompletions
 
     isShorthandPropertyName(shorthand)
     {
-        return shorthand in this._longhands;
+        return WI.CSSKeywordCompletions.LonghandNamesForShorthandProperty.has(shorthand);
     }
 
     shorthandsForLonghand(longhand)
@@ -271,27 +265,6 @@ WI.CSSCompletions = class CSSCompletions
     isValidPropertyName(name)
     {
         return this._values.includes(name);
-    }
-
-    propertyRequiresWebkitPrefix(name)
-    {
-        return this._values.includes("-webkit-" + name) && !this._values.includes(name);
-    }
-
-    getClosestPropertyName(name)
-    {
-        var bestMatches = [{distance: Infinity, name: null}];
-
-        for (var property of this._values) {
-            var distance = name.levenshteinDistance(property);
-
-            if (distance < bestMatches[0].distance)
-                bestMatches = [{distance, name: property}];
-            else if (distance === bestMatches[0].distance)
-                bestMatches.push({distance, name: property});
-        }
-
-        return bestMatches.length < 3 ? bestMatches[0].name : false;
     }
 };
 

@@ -58,7 +58,6 @@
 #import <WebCore/ProxyServer.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/SecurityOrigin.h>
-#import <WebCore/URL.h>
 #import <WebCore/UserGestureIndicator.h>
 #import <WebCore/npruntime_impl.h>
 #import <WebCore/runtime_object.h>
@@ -66,6 +65,7 @@
 #import <utility>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/RefCountedLeakCounter.h>
+#import <wtf/URL.h>
 #import <wtf/text/CString.h>
 
 extern "C" {
@@ -307,7 +307,7 @@ void NetscapePluginInstanceProxy::cleanup()
     m_localObjects.clear();
     
     if (Frame* frame = core([m_pluginView webFrame]))
-        frame->script().cleanupScriptObjectsForPlugin(m_pluginView);
+        frame->script().cleanupScriptObjectsForPlugin((__bridge void*)m_pluginView);
     
     ProxyInstanceSet instances;
     instances.swap(m_instances);
@@ -423,10 +423,9 @@ void NetscapePluginInstanceProxy::startTimers(bool throttleTimers)
     
 void NetscapePluginInstanceProxy::mouseEvent(NSView *pluginView, NSEvent *event, NPCocoaEventType type)
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     NSPoint screenPoint = [[event window] convertBaseToScreen:[event locationInWindow]];
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
     NSPoint pluginPoint = [pluginView convertPoint:[event locationInWindow] fromView:nil];
     
     int clickCount;
@@ -551,7 +550,7 @@ void NetscapePluginInstanceProxy::status(const char* message)
         return;
 
     WebView *wv = [m_pluginView webView];
-    [[wv _UIDelegateForwarder] webView:wv setStatusText:(NSString *)status.get()];
+    [[wv _UIDelegateForwarder] webView:wv setStatusText:(__bridge NSString *)status.get()];
 }
 
 NPError NetscapePluginInstanceProxy::loadURL(const char* url, const char* target, const char* postData, uint32_t postLen, LoadURLFlags flags, uint32_t& streamID)
@@ -572,12 +571,12 @@ NPError NetscapePluginInstanceProxy::loadURL(const char* url, const char* target
             if (!bufString)
                 return NPERR_INVALID_PARAM;
             
-            NSURL *fileURL = [NSURL _web_URLWithDataAsString:(NSString *)bufString.get()];
+            NSURL *fileURL = [NSURL _web_URLWithDataAsString:(__bridge NSString *)bufString.get()];
             NSString *path;
             if ([fileURL isFileURL])
                 path = [fileURL path];
             else
-                path = (NSString *)bufString.get();
+                path = (__bridge NSString *)bufString.get();
             httpBody = [NSData dataWithContentsOfFile:path];
             if (!httpBody)
                 return NPERR_FILE_NOT_FOUND;
@@ -720,8 +719,8 @@ void NetscapePluginInstanceProxy::evaluateJavaScript(PluginRequest* pluginReques
         // Don't call NPP_NewStream and other stream methods if there is no JS result to deliver. This is what Mozilla does.
         NSData *JSData = [result dataUsingEncoding:NSUTF8StringEncoding];
         
-        RefPtr<HostedNetscapePluginStream> stream = HostedNetscapePluginStream::create(this, pluginRequest->requestID(), pluginRequest->request());
-        m_streams.add(stream->streamID(), stream);
+        auto stream = HostedNetscapePluginStream::create(this, pluginRequest->requestID(), pluginRequest->request());
+        m_streams.add(stream->streamID(), stream.copyRef());
         
         RetainPtr<NSURLResponse> response = adoptNS([[NSURLResponse alloc] initWithURL:URL 
                                                                              MIMEType:@"text/plain" 
@@ -800,10 +799,10 @@ NPError NetscapePluginInstanceProxy::loadRequest(NSURLRequest *request, const ch
         m_pluginRequests.append(WTFMove(pluginRequest));
         m_requestTimer.startOneShot(0_s);
     } else {
-        RefPtr<HostedNetscapePluginStream> stream = HostedNetscapePluginStream::create(this, requestID, request);
+        auto stream = HostedNetscapePluginStream::create(this, requestID, request);
 
         ASSERT(!m_streams.contains(requestID));
-        m_streams.add(requestID, stream);
+        m_streams.add(requestID, stream.copyRef());
         stream->start();
     }
     
@@ -887,7 +886,7 @@ bool NetscapePluginInstanceProxy::evaluate(uint32_t objectID, const String& scri
     Strong<JSGlobalObject> globalObject(vm, frame->script().globalObject(pluginWorld()));
     ExecState* exec = globalObject->globalExec();
 
-    UserGestureIndicator gestureIndicator(allowPopups ? std::optional<ProcessingUserGestureState>(ProcessingUserGesture) : std::nullopt);
+    UserGestureIndicator gestureIndicator(allowPopups ? Optional<ProcessingUserGestureState>(ProcessingUserGesture) : WTF::nullopt);
     
     JSValue result = JSC::evaluate(exec, JSC::makeSource(script, { }));
     
@@ -1415,7 +1414,7 @@ bool NetscapePluginInstanceProxy::demarshalValueFromArray(ExecState* exec, NSArr
             if (!frame->script().canExecuteScripts(NotAboutToExecuteScript))
                 return false;
 
-            auto rootObject = frame->script().createRootObject(m_pluginView);
+            auto rootObject = frame->script().createRootObject((__bridge void*)m_pluginView);
             result = ProxyInstance::create(WTFMove(rootObject), this, objectID)->createRuntimeObject(exec);
             return true;
         }

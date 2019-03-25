@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WebAutomationSession.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import "NativeWebKeyboardEvent.h"
 #import "WebAutomationSessionMacros.h"
@@ -35,9 +35,8 @@
 #import <WebCore/NotImplemented.h>
 #import <WebCore/WebEvent.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 void WebAutomationSession::sendSynthesizedEventsToPage(WebPageProxy& page, NSArray *eventsToSend)
 {
@@ -73,8 +72,8 @@ void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& pag
     // UIKit does not send key codes for virtual keys even for a hardware keyboard.
     // Instead, it sends single unichars and WebCore maps these to "windows" key codes.
     // Synthesize a single unichar such that the correct key code is inferred.
-    std::optional<unichar> charCode;
-    std::optional<unichar> charCodeIgnoringModifiers;
+    Optional<unichar> charCode;
+    Optional<unichar> charCodeIgnoringModifiers;
 
     // Figure out the effects of sticky modifiers.
     WTF::switchOn(key,
@@ -84,19 +83,19 @@ void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& pag
 
             switch (virtualKey) {
             case VirtualKey::Shift:
-                changedModifiers |= WebEventFlagMaskShift;
+                changedModifiers |= WebEventFlagMaskShiftKey;
                 break;
             case VirtualKey::Control:
-                changedModifiers |= WebEventFlagMaskControl;
+                changedModifiers |= WebEventFlagMaskControlKey;
                 break;
             case VirtualKey::Alternate:
-                changedModifiers |= WebEventFlagMaskAlternate;
+                changedModifiers |= WebEventFlagMaskOptionKey;
                 break;
             case VirtualKey::Meta:
                 // The 'meta' key does not exist on Apple keyboards and is usually
                 // mapped to the Command key when using third-party keyboards.
             case VirtualKey::Command:
-                changedModifiers |= WebEventFlagMaskCommand;
+                changedModifiers |= WebEventFlagMaskCommandKey;
                 break;
             default:
                 break;
@@ -173,4 +172,4 @@ void WebAutomationSession::platformSimulateKeySequence(WebPageProxy& page, const
 
 } // namespace WebKit
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

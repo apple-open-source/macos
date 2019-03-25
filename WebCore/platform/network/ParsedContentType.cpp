@@ -53,41 +53,43 @@ static bool isTokenCharacter(char c)
     return isASCII(c) && c > ' ' && c != '"' && c != '(' && c != ')' && c != ',' && c != '/' && (c < ':' || c > '@') && (c < '[' || c > ']');
 }
 
-static SubstringRange parseToken(const String& input, unsigned& startIndex)
+static Optional<SubstringRange> parseToken(const String& input, unsigned& startIndex)
 {
     unsigned inputLength = input.length();
     unsigned tokenStart = startIndex;
     unsigned& tokenEnd = startIndex;
 
     if (tokenEnd >= inputLength)
-        return SubstringRange();
+        return WTF::nullopt;
 
     while (tokenEnd < inputLength) {
         if (!isTokenCharacter(input[tokenEnd]))
-            return SubstringRange(tokenStart, tokenEnd - tokenStart);
+            break;
         ++tokenEnd;
     }
 
+    if (tokenEnd == tokenStart)
+        return WTF::nullopt;
     return SubstringRange(tokenStart, tokenEnd - tokenStart);
 }
 
-static SubstringRange parseQuotedString(const String& input, unsigned& startIndex)
+static Optional<SubstringRange> parseQuotedString(const String& input, unsigned& startIndex)
 {
     unsigned inputLength = input.length();
     unsigned quotedStringStart = startIndex + 1;
     unsigned& quotedStringEnd = startIndex;
 
     if (quotedStringEnd >= inputLength)
-        return SubstringRange();
+        return WTF::nullopt;
 
     if (input[quotedStringEnd++] != '"' || quotedStringEnd >= inputLength)
-        return SubstringRange();
+        return WTF::nullopt;
 
     bool lastCharacterWasBackslash = false;
     char currentCharacter;
     while ((currentCharacter = input[quotedStringEnd++]) != '"' || lastCharacterWasBackslash) {
         if (quotedStringEnd >= inputLength)
-            return SubstringRange();
+            return WTF::nullopt;
         if (currentCharacter == '\\' && !lastCharacterWasBackslash) {
             lastCharacterWasBackslash = true;
             continue;
@@ -160,19 +162,37 @@ bool parseContentType(const String& contentType, ReceiverType& receiver)
         return false;
     }
 
+    unsigned contentTypeStart = index;
+    auto typeRange = parseToken(contentType, index);
+    if (!typeRange) {
+        LOG_ERROR("Invalid Content-Type, invalid type value.");
+        return false;
+    }
+
+    if (contentType[index++] != '/') {
+        LOG_ERROR("Invalid Content-Type, missing '/'.");
+        return false;
+    }
+
+    auto subTypeRange = parseToken(contentType, index);
+    if (!subTypeRange) {
+        LOG_ERROR("Invalid Content-Type, invalid subtype value.");
+        return false;
+    }
+
     // There should not be any quoted strings until we reach the parameters.
-    size_t semiColonIndex = contentType.find(';', index);
+    size_t semiColonIndex = contentType.find(';', contentTypeStart);
     if (semiColonIndex == notFound) {
-        receiver.setContentType(SubstringRange(index, contentTypeLength - index));
+        receiver.setContentType(SubstringRange(contentTypeStart, contentTypeLength - contentTypeStart));
         return true;
     }
 
-    receiver.setContentType(SubstringRange(index, semiColonIndex - index));
+    receiver.setContentType(SubstringRange(contentTypeStart, semiColonIndex - contentTypeStart));
     index = semiColonIndex + 1;
     while (true) {
         skipSpaces(contentType, index);
-        SubstringRange keyRange = parseToken(contentType, index);
-        if (!keyRange.second || index >= contentTypeLength) {
+        auto keyRange = parseToken(contentType, index);
+        if (!keyRange || index >= contentTypeLength) {
             LOG_ERROR("Invalid Content-Type parameter name.");
             return false;
         }
@@ -185,13 +205,13 @@ bool parseContentType(const String& contentType, ReceiverType& receiver)
 
         // Should we tolerate spaces here?
         String value;
-        SubstringRange valueRange;
+        Optional<SubstringRange> valueRange;
         if (contentType[index] == '"')
             valueRange = parseQuotedString(contentType, index);
         else
             valueRange = parseToken(contentType, index);
 
-        if (!valueRange.second) {
+        if (!valueRange) {
             LOG_ERROR("Invalid Content-Type, invalid parameter value.");
             return false;
         }
@@ -202,7 +222,7 @@ bool parseContentType(const String& contentType, ReceiverType& receiver)
             return false;
         }
 
-        receiver.setContentTypeParameter(keyRange, valueRange);
+        receiver.setContentTypeParameter(*keyRange, *valueRange);
 
         if (index >= contentTypeLength)
             return true;

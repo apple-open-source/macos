@@ -31,12 +31,13 @@
 #import "WebResourceLoadStatisticsStore.h"
 #import "WebsiteDataStoreParameters.h"
 #import <WebCore/FileSystem.h>
+#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SearchPopupMenuCocoa.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/ProcessPrivilege.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import <UIKit/UIApplication.h>
 #endif
 
@@ -51,18 +52,53 @@ static Vector<WebsiteDataStore*>& dataStoresWithStorageManagers()
     return dataStoresWithStorageManagers;
 }
 
+static NSString * const WebKitNetworkLoadThrottleLatencyMillisecondsDefaultsKey = @"WebKitNetworkLoadThrottleLatencyMilliseconds";
+
 WebsiteDataStoreParameters WebsiteDataStore::parameters()
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
 
     resolveDirectoriesIfNecessary();
 
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+#if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
+    static NSString * const WebKitLogCookieInformationDefaultsKey = @"WebKitLogCookieInformation";
+    bool shouldLogCookieInformation = [defaults boolForKey:WebKitLogCookieInformationDefaultsKey];
+#else
+    bool shouldLogCookieInformation = false;
+#endif
+
+    URL httpProxy = m_configuration->httpProxy();
+    URL httpsProxy = m_configuration->httpsProxy();
+    
+    bool isSafari = false;
+#if PLATFORM(IOS_FAMILY)
+    isSafari = WebCore::IOSApplication::isMobileSafari();
+#elif PLATFORM(MAC)
+    isSafari = WebCore::MacApplication::isSafari();
+#endif
+    // FIXME: Remove these once Safari adopts _WKWebsiteDataStoreConfiguration.httpProxy and .httpsProxy.
+    if (!httpProxy.isValid() && isSafari)
+        httpProxy = URL(URL(), [defaults stringForKey:(NSString *)WebKit2HTTPProxyDefaultsKey]);
+    if (!httpsProxy.isValid() && isSafari)
+        httpsProxy = URL(URL(), [defaults stringForKey:(NSString *)WebKit2HTTPSProxyDefaultsKey]);
+
     WebsiteDataStoreParameters parameters;
-    parameters.networkSessionParameters = { m_sessionID, m_boundInterfaceIdentifier, m_allowsCellularAccess, m_proxyConfiguration };
+    parameters.networkSessionParameters = {
+        m_sessionID,
+        m_boundInterfaceIdentifier,
+        m_allowsCellularAccess,
+        m_proxyConfiguration,
+        m_configuration->sourceApplicationBundleIdentifier(),
+        m_configuration->sourceApplicationSecondaryIdentifier(),
+        shouldLogCookieInformation,
+        Seconds { [defaults integerForKey:WebKitNetworkLoadThrottleLatencyMillisecondsDefaultsKey] / 1000. },
+        WTFMove(httpProxy),
+        WTFMove(httpsProxy),
+    };
 
     auto cookieFile = resolvedCookieStorageFile();
 
-#if PLATFORM(COCOA)
     if (m_uiProcessCookieStorageIdentifier.isEmpty()) {
         auto utf8File = cookieFile.utf8();
         auto url = adoptCF(CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)utf8File.data(), (CFIndex)utf8File.length(), true));
@@ -71,12 +107,25 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     }
 
     parameters.uiProcessCookieStorageIdentifier = m_uiProcessCookieStorageIdentifier;
-#endif
+    parameters.networkSessionParameters.sourceApplicationBundleIdentifier = m_configuration->sourceApplicationBundleIdentifier();
+    parameters.networkSessionParameters.sourceApplicationSecondaryIdentifier = m_configuration->sourceApplicationSecondaryIdentifier();
 
     parameters.pendingCookies = copyToVector(m_pendingCookies);
 
     if (!cookieFile.isEmpty())
         SandboxExtension::createHandleForReadWriteDirectory(WebCore::FileSystem::directoryName(cookieFile), parameters.cookieStoragePathExtensionHandle);
+
+#if ENABLE(INDEXED_DATABASE)
+    parameters.indexedDatabaseDirectory = resolvedIndexedDatabaseDirectory();
+    if (!parameters.indexedDatabaseDirectory.isEmpty())
+        SandboxExtension::createHandleForReadWriteDirectory(parameters.indexedDatabaseDirectory, parameters.indexedDatabaseDirectoryExtensionHandle);
+#endif
+
+#if ENABLE(SERVICE_WORKER)
+    parameters.serviceWorkerRegistrationDirectory = resolvedServiceWorkerRegistrationDirectory();
+    if (!parameters.serviceWorkerRegistrationDirectory.isEmpty())
+        SandboxExtension::createHandleForReadWriteDirectory(parameters.serviceWorkerRegistrationDirectory, parameters.serviceWorkerRegistrationDirectoryExtensionHandle);
+#endif
 
     return parameters;
 }

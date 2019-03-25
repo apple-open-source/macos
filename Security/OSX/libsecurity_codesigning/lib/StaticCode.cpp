@@ -548,6 +548,26 @@ CFArrayRef SecStaticCode::cdHashes()
 	return mCDHashes;
 }
 
+//
+// Get a dictionary of untruncated cdhashes for all digest types in this signature.
+//
+CFDictionaryRef SecStaticCode::cdHashesFull()
+{
+	if (!mCDHashFullDict) {
+		CFRef<CFMutableDictionaryRef> cdDict = makeCFMutableDictionary();
+		for (auto const &it : mCodeDirectories) {
+			CodeDirectory::HashAlgorithm alg = it.first;
+			const CodeDirectory *cd = (const CodeDirectory *)CFDataGetBytePtr(it.second);
+			CFRef<CFDataRef> hash = cd->cdhash(false);
+			if (hash) {
+				CFDictionaryAddValue(cdDict, CFTempNumber(alg), hash);
+			}
+		}
+		mCDHashFullDict = cdDict.get();
+	}
+	return mCDHashFullDict;
+}
+
 
 //
 // Return the CMS signature blob; NULL if none found.
@@ -1986,6 +2006,7 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 	CFDictionaryAddValue(dict, kSecCodeInfoSource, CFTempString(this->signatureSource()));
 	CFDictionaryAddValue(dict, kSecCodeInfoUnique, this->cdHash());
 	CFDictionaryAddValue(dict, kSecCodeInfoCdHashes, this->cdHashes());
+	CFDictionaryAddValue(dict, kSecCodeInfoCdHashesFull, this->cdHashesFull());
 	const CodeDirectory* cd = this->codeDirectory(false);
 	CFDictionaryAddValue(dict, kSecCodeInfoDigestAlgorithm, CFTempNumber(cd->hashType));
 	CFRef<CFArrayRef> digests = makeCFArrayFrom(^CFTypeRef(CodeDirectory::HashAlgorithm type) { return CFTempNumber(type); }, hashAlgorithms());
@@ -2087,6 +2108,16 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 		}
 	}
 
+	if (flags & kSecCSCalculateCMSDigest) {
+		try {
+			CFDictionaryAddValue(dict, kSecCodeInfoCMSDigestHashType, CFTempNumber(cmsDigestHashType()));
+			
+			CFRef<CFDataRef> cmsDigest = createCmsDigest();
+			if (cmsDigest) {
+				CFDictionaryAddValue(dict, kSecCodeInfoCMSDigest, cmsDigest.get());
+			}
+		} catch (...) { }
+	}
 
 	//
 	// kSecCSContentInformation adds more information about the physical layout
@@ -2297,5 +2328,30 @@ bool SecStaticCode::isAppleDeveloperCert(CFArrayRef certs)
 	return req->requirement()->validates(ctx);
 }
 
+CFDataRef SecStaticCode::createCmsDigest()
+{
+	/*
+	 * The CMS digest is a hash of the primary (first, most compatible) code directory,
+	 * but its hash algorithm is fixed and not related to the code directory's
+	 * hash algorithm.
+	 */
+	
+	auto it = codeDirectories()->begin();
+	
+	if (it == codeDirectories()->end()) {
+		return NULL;
+	}
+
+	CodeDirectory const * const cd = reinterpret_cast<CodeDirectory const*>(CFDataGetBytePtr(it->second));
+	
+	RefPointer<DynamicHash> hash = cd->hashFor(mCMSDigestHashType);
+	CFMutableDataRef data = CFDataCreateMutable(NULL, hash->digestLength());
+	CFDataSetLength(data, hash->digestLength());
+	hash->update(cd, cd->length());
+	hash->finish(CFDataGetMutableBytePtr(data));
+	
+	return data;
+}
+	
 } // end namespace CodeSigning
 } // end namespace Security

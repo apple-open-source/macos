@@ -548,13 +548,10 @@ _ConvertNewFormatToOldFormat(
 
 	// make storage to extract the dictionary items
 	CFIndex itemsInDictionary = CFDictionaryGetCount(dictionaryRef);
-	CFTypeRef keys[itemsInDictionary];
-	CFTypeRef values[itemsInDictionary];
+	std::vector<CFTypeRef> keys(itemsInDictionary);
+	std::vector<CFTypeRef> values(itemsInDictionary);
 
-	CFTypeRef *keysPtr = keys;
-	CFTypeRef *valuesPtr = values;
-
-	CFDictionaryGetKeysAndValues(dictionaryRef, keys, values);
+	CFDictionaryGetKeysAndValues(dictionaryRef, keys.data(), values.data());
 
 	// count the number of items we are interested in
 	CFIndex count = 0;
@@ -562,12 +559,12 @@ _ConvertNewFormatToOldFormat(
 
 	// since this is one of those nasty order n^2 loops, we cache as much stuff as possible so that
 	// we don't pay the price for this twice
-	SecKeychainAttrType tags[itemsInDictionary];
-	ItemRepresentation types[itemsInDictionary];
+	std::vector<SecKeychainAttrType> tags(itemsInDictionary);
+	std::vector<ItemRepresentation> types(itemsInDictionary);
 
 	for (i = 0; i < itemsInDictionary; ++i)
 	{
-		CFTypeRef key = keysPtr[i];
+		CFTypeRef key = keys[i];
 
 		int j;
 		for (j = 0; j < infoNumItems; ++j)
@@ -584,7 +581,7 @@ _ConvertNewFormatToOldFormat(
 		if (j >= infoNumItems)
 		{
 			// if we got here, we aren't interested in this item.
-			valuesPtr[i] = NULL;
+			values[i] = NULL;
 		}
 	}
 
@@ -602,7 +599,7 @@ _ConvertNewFormatToOldFormat(
 
 			// we have to clone the data pointer.  The caller will need to make sure to throw these away
 			// with _FreeAttrList when it is done...
-			attrList->attr[resultPointer].data = CloneDataByType(types[i], valuesPtr[i], attrList->attr[resultPointer].length);
+			attrList->attr[resultPointer].data = CloneDataByType(types[i], values[i], attrList->attr[resultPointer].length);
 			resultPointer += 1;
 		}
 	}
@@ -2364,19 +2361,6 @@ _ReplaceKeychainItem(
 	for (i=0, newCount=0; i < attrList->count; i++) {
 		if (attrList->attr[i].length > 0) {
 			newAttrList.attr[newCount++] = attrList->attr[i];
-		#if 0
-			// debugging code to log item attributes
-			SecKeychainAttrType tag = attrList->attr[i].tag;
-			SecKeychainAttrType htag=(SecKeychainAttrType)OSSwapConstInt32(tag);
-			char tmp[sizeof(SecKeychainAttrType) + 1];
-			char tmpdata[attrList->attr[i].length + 1];
-			memcpy(tmp, &htag, sizeof(SecKeychainAttrType));
-			tmp[sizeof(SecKeychainAttrType)]=0;
-			memcpy(tmpdata, attrList->attr[i].data, attrList->attr[i].length);
-			tmpdata[attrList->attr[i].length]=0;
-			secitemlog(priority, "item attr '%s' = %d bytes: \"%s\"",
-				tmp, (int)attrList->attr[i].length, tmpdata);
-		#endif
 		}
 	}
 	newAttrList.count = newCount;

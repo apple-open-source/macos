@@ -66,7 +66,7 @@ int pluginProcessLatencyQOS();
 int pluginProcessThroughputQOS();
 #endif
 
-class PluginProcessProxy : public ChildProcessProxy {
+class PluginProcessProxy final : public ChildProcessProxy, public ThreadSafeRefCounted<PluginProcessProxy> {
 public:
     static Ref<PluginProcessProxy> create(PluginProcessManager*, const PluginProcessAttributes&, uint64_t pluginProcessToken);
     ~PluginProcessProxy();
@@ -78,9 +78,9 @@ public:
     // encoded in the given argument encoder and sent back to the connection of the given web process.
     void getPluginProcessConnection(Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply&&);
 
-    void fetchWebsiteData(WTF::Function<void (Vector<String>)>&& completionHandler);
-    void deleteWebsiteData(WallTime modifiedSince, WTF::Function<void ()>&& completionHandler);
-    void deleteWebsiteDataForHostNames(const Vector<String>& hostNames, WTF::Function<void ()>&& completionHandler);
+    void fetchWebsiteData(CompletionHandler<void (Vector<String>)>&&);
+    void deleteWebsiteData(WallTime modifiedSince, CompletionHandler<void ()>&&);
+    void deleteWebsiteDataForHostNames(const Vector<String>& hostNames, CompletionHandler<void ()>&&);
 
 #if OS(LINUX)
     void sendMemoryPressureEvent(bool isCritical);
@@ -96,7 +96,7 @@ private:
     PluginProcessProxy(PluginProcessManager*, const PluginProcessAttributes&, uint64_t pluginProcessToken);
 
     void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
-    void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&, const PluginProcessAttributes&);
+    void platformGetLaunchOptionsWithAttributes(ProcessLauncher::LaunchOptions&, const PluginProcessAttributes&);
     void processWillShutDown(IPC::Connection&) override;
 
     void pluginProcessCrashedOrFailedToLaunch();
@@ -151,21 +151,21 @@ private:
     Deque<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> m_pendingConnectionReplies;
 
     Vector<uint64_t> m_pendingFetchWebsiteDataRequests;
-    HashMap<uint64_t, WTF::Function<void (Vector<String>)>> m_pendingFetchWebsiteDataCallbacks;
+    HashMap<uint64_t, CompletionHandler<void (Vector<String>)>> m_pendingFetchWebsiteDataCallbacks;
 
     struct DeleteWebsiteDataRequest {
         WallTime modifiedSince;
         uint64_t callbackID;
     };
     Vector<DeleteWebsiteDataRequest> m_pendingDeleteWebsiteDataRequests;
-    HashMap<uint64_t, WTF::Function<void ()>> m_pendingDeleteWebsiteDataCallbacks;
+    HashMap<uint64_t, CompletionHandler<void ()>> m_pendingDeleteWebsiteDataCallbacks;
 
     struct DeleteWebsiteDataForHostNamesRequest {
         Vector<String> hostNames;
         uint64_t callbackID;
     };
     Vector<DeleteWebsiteDataForHostNamesRequest> m_pendingDeleteWebsiteDataForHostNamesRequests;
-    HashMap<uint64_t, WTF::Function<void ()>> m_pendingDeleteWebsiteDataForHostNamesCallbacks;
+    HashMap<uint64_t, CompletionHandler<void ()>> m_pendingDeleteWebsiteDataForHostNamesCallbacks;
 
     // If createPluginConnection is called while the process is still launching we'll keep count of it and send a bunch of requests
     // when the process finishes launching.

@@ -31,7 +31,7 @@
 #if ENABLE(GRAPHICS_CONTEXT_3D)
 
 #include "GraphicsContext3D.h"
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "GraphicsContext3DIOS.h"
 #endif
 
@@ -399,12 +399,16 @@ bool GraphicsContext3D::checkVaryingsPacking(Platform3DObject vertexShader, Plat
         variables.push_back(varyingSymbol);
 
     GC3Dint maxVaryingVectors = 0;
-#if !USE(OPENGL_ES)
-    GC3Dint maxVaryingFloats = 0;
-    ::glGetIntegerv(GL_MAX_VARYING_FLOATS, &maxVaryingFloats);
-    maxVaryingVectors = maxVaryingFloats / 4;
-#else
+#if USE(OPENGL_ES)
     ::glGetIntegerv(MAX_VARYING_VECTORS, &maxVaryingVectors);
+#else
+    if (m_isForWebGL2)
+        ::glGetIntegerv(GL_MAX_VARYING_VECTORS, &maxVaryingVectors);
+    else {
+        GC3Dint maxVaryingFloats = 0;
+        ::glGetIntegerv(GL_MAX_VARYING_FLOATS, &maxVaryingFloats);
+        maxVaryingVectors = maxVaryingFloats / 4;
+    }
 #endif
     return sh::CheckVariablesWithinPackingLimits(maxVaryingVectors, variables);
 }
@@ -547,7 +551,7 @@ void GraphicsContext3D::bufferSubData(GC3Denum target, GC3Dintptr offset, GC3Dsi
     ::glBufferSubData(target, offset, size, data);
 }
 
-#if PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(WPE)
+#if PLATFORM(MAC) || PLATFORM(IOS_FAMILY) || PLATFORM(WPE)
 void* GraphicsContext3D::mapBufferRange(GC3Denum target, GC3Dintptr offset, GC3Dsizeiptr length, GC3Dbitfield access)
 {
     makeContextCurrent();
@@ -564,6 +568,26 @@ void GraphicsContext3D::copyBufferSubData(GC3Denum readTarget, GC3Denum writeTar
 {
     makeContextCurrent();
     ::glCopyBufferSubData(readTarget, writeTarget, readOffset, writeOffset, size);
+}
+
+void GraphicsContext3D::getInternalformativ(GC3Denum target, GC3Denum internalformat, GC3Denum pname, GC3Dsizei bufSize, GC3Dint* params)
+{
+#if USE(OPENGL_ES)
+    makeContextCurrent();
+    ::glGetInternalformativ(target, internalformat, pname, bufSize, params);
+#else
+    UNUSED_PARAM(target);
+    UNUSED_PARAM(internalformat);
+    UNUSED_PARAM(pname);
+    UNUSED_PARAM(bufSize);
+    UNUSED_PARAM(params);
+#endif
+}
+
+void GraphicsContext3D::renderbufferStorageMultisample(GC3Denum target, GC3Dsizei samples, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height)
+{
+    makeContextCurrent();
+    ::glRenderbufferStorageMultisample(target, samples, internalformat, width, height);
 }
 
 void GraphicsContext3D::texStorage2D(GC3Denum target, GC3Dsizei levels, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height)
@@ -956,16 +980,16 @@ static String generateHashedName(const String& name)
     return builder.toString();
 }
 
-std::optional<String> GraphicsContext3D::mappedSymbolInShaderSourceMap(Platform3DObject shader, ANGLEShaderSymbolType symbolType, const String& name)
+Optional<String> GraphicsContext3D::mappedSymbolInShaderSourceMap(Platform3DObject shader, ANGLEShaderSymbolType symbolType, const String& name)
 {
     auto result = m_shaderSourceMap.find(shader);
     if (result == m_shaderSourceMap.end())
-        return std::nullopt;
+        return WTF::nullopt;
 
     const auto& symbolMap = result->value.symbolMap(symbolType);
     auto symbolEntry = symbolMap.find(name);
     if (symbolEntry == symbolMap.end())
-        return std::nullopt;
+        return WTF::nullopt;
 
     auto& mappedName = symbolEntry->value.mappedName;
     return String(mappedName.c_str(), mappedName.length());
@@ -1014,18 +1038,18 @@ String GraphicsContext3D::mappedSymbolName(Platform3DObject program, ANGLEShader
     return name;
 }
 
-std::optional<String> GraphicsContext3D::originalSymbolInShaderSourceMap(Platform3DObject shader, ANGLEShaderSymbolType symbolType, const String& name)
+Optional<String> GraphicsContext3D::originalSymbolInShaderSourceMap(Platform3DObject shader, ANGLEShaderSymbolType symbolType, const String& name)
 {
     auto result = m_shaderSourceMap.find(shader);
     if (result == m_shaderSourceMap.end())
-        return std::nullopt;
+        return WTF::nullopt;
 
     const auto& symbolMap = result->value.symbolMap(symbolType);
     for (const auto& symbolEntry : symbolMap) {
         if (name == symbolEntry.value.mappedName.c_str())
             return symbolEntry.key;
     }
-    return std::nullopt;
+    return WTF::nullopt;
 }
 
 String GraphicsContext3D::originalSymbolName(Platform3DObject program, ANGLEShaderSymbolType symbolType, const String& name)
@@ -1521,10 +1545,8 @@ Platform3DObject GraphicsContext3D::createVertexArray()
 {
     makeContextCurrent();
     GLuint array = 0;
-#if !USE(OPENGL_ES) && (PLATFORM(GTK) || PLATFORM(WIN))
-    glGenVertexArrays(1, &array);
-#elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
-    glGenVertexArraysAPPLE(1, &array);
+#if (!USE(OPENGL_ES) && (PLATFORM(GTK) || PLATFORM(WIN))) || PLATFORM(COCOA)
+    ::glGenVertexArrays(1, &array);
 #endif
     return array;
 }
@@ -1535,10 +1557,8 @@ void GraphicsContext3D::deleteVertexArray(Platform3DObject array)
         return;
     
     makeContextCurrent();
-#if !USE(OPENGL_ES) && (PLATFORM(GTK) || PLATFORM(WIN))
-    glDeleteVertexArrays(1, &array);
-#elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
-    glDeleteVertexArraysAPPLE(1, &array);
+#if (!USE(OPENGL_ES) && (PLATFORM(GTK) || PLATFORM(WIN))) || PLATFORM(COCOA)
+    ::glDeleteVertexArrays(1, &array);
 #endif
 }
 
@@ -1548,10 +1568,8 @@ GC3Dboolean GraphicsContext3D::isVertexArray(Platform3DObject array)
         return GL_FALSE;
     
     makeContextCurrent();
-#if !USE(OPENGL_ES) && (PLATFORM(GTK) || PLATFORM(WIN))
-    return glIsVertexArray(array);
-#elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
-    return glIsVertexArrayAPPLE(array);
+#if (!USE(OPENGL_ES) && (PLATFORM(GTK) || PLATFORM(WIN))) || PLATFORM(COCOA)
+    return ::glIsVertexArray(array);
 #endif
     return GL_FALSE;
 }
@@ -1559,10 +1577,8 @@ GC3Dboolean GraphicsContext3D::isVertexArray(Platform3DObject array)
 void GraphicsContext3D::bindVertexArray(Platform3DObject array)
 {
     makeContextCurrent();
-#if !USE(OPENGL_ES) && (PLATFORM(GTK) || PLATFORM(WIN))
-    glBindVertexArray(array);
-#elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
-    glBindVertexArrayAPPLE(array);
+#if (!USE(OPENGL_ES) && (PLATFORM(GTK) || PLATFORM(WIN))) || PLATFORM(COCOA)
+    ::glBindVertexArray(array);
 #else
     UNUSED_PARAM(array);
 #endif
@@ -2055,6 +2071,14 @@ void GraphicsContext3D::vertexAttribDivisor(GC3Duint index, GC3Duint divisor)
 {
     getExtensions().vertexAttribDivisor(index, divisor);
 }
+
+#if USE(OPENGL) && ENABLE(WEBGL2)
+void GraphicsContext3D::primitiveRestartIndex(GC3Duint index)
+{
+    makeContextCurrent();
+    ::glPrimitiveRestartIndex(index);
+}
+#endif
 
 }
 

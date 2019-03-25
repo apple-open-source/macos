@@ -31,6 +31,7 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
 
         let element = document.createElement("section");
         element.classList.add("spreadsheet-css-declaration");
+
         super(element);
 
         this._delegate = delegate || null;
@@ -41,6 +42,9 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
         this._filterText = null;
         this._shouldFocusSelectorElement = false;
         this._wasEditing = false;
+
+        this._isMousePressed = false;
+        this._mouseDownIndex = NaN;
     }
 
     // Public
@@ -59,9 +63,8 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
         this._headerElement = document.createElement("div");
         this._headerElement.classList.add("header");
 
-        this._originElement = document.createElement("span");
-        this._originElement.classList.add("origin");
-        this._headerElement.append(this._originElement);
+        this._styleOriginView = new WI.StyleOriginView();
+        this._headerElement.append(this._styleOriginView.element);
 
         this._selectorElement = document.createElement("span");
         this._selectorElement.classList.add("selector");
@@ -99,9 +102,10 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
         else if (!this._style.ownerRule)
             this._element.classList.add("selector-locked");
 
+        this.element.addEventListener("mousedown", this._handleMouseDown.bind(this));
+
         if (this._style.editable) {
             this.element.addEventListener("click", this._handleClick.bind(this));
-            this.element.addEventListener("mousedown", this._handleMouseDown.bind(this));
 
             new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.CommandOrControl, "S", this._save.bind(this), this._element);
             new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.CommandOrControl | WI.KeyboardShortcut.Modifier.Shift, "S", this._save.bind(this), this._element);
@@ -112,7 +116,7 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
     {
         super.layout();
 
-        this._renderOrigin();
+        this._styleOriginView.update(this._style);
         this._renderSelector();
 
         if (this._shouldFocusSelectorElement)
@@ -154,11 +158,6 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
         return false;
     }
 
-    cssStyleDeclarationTextEditorStartEditingRuleSelector()
-    {
-        this.startEditingRuleSelector();
-    }
-
     // SpreadsheetSelectorField delegate
 
     spreadsheetSelectorFieldDidChange(direction)
@@ -195,6 +194,11 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
 
     // SpreadsheetCSSStyleDeclarationEditor delegate
 
+    spreadsheetCSSStyleDeclarationEditorStartEditingRuleSelector()
+    {
+        this.startEditingRuleSelector();
+    }
+
     spreadsheetCSSStyleDeclarationEditorStartEditingAdjacentRule(propertiesEditor, delta)
     {
         if (!this._delegate)
@@ -202,6 +206,20 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
 
         if (this._delegate.spreadsheetCSSStyleDeclarationSectionStartEditingAdjacentRule)
             this._delegate.spreadsheetCSSStyleDeclarationSectionStartEditingAdjacentRule(this, delta);
+    }
+
+    spreadsheetCSSStyleDeclarationEditorPropertyBlur(event, property)
+    {
+        if (!this._isMousePressed)
+            this._propertiesEditor.deselectProperties();
+    }
+
+    spreadsheetCSSStyleDeclarationEditorPropertyMouseEnter(event, property)
+    {
+        if (this._isMousePressed) {
+            let index = parseInt(property.element.dataset.propertyIndex);
+            this._propertiesEditor.selectProperties(this._mouseDownIndex, index);
+        }
     }
 
     applyFilter(filterText)
@@ -302,71 +320,6 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
             this.applyFilter(this._filterText);
     }
 
-    _renderOrigin()
-    {
-        this._originElement.removeChildren();
-
-        switch (this._style.type) {
-        case WI.CSSStyleDeclaration.Type.Rule:
-            console.assert(this._style.ownerRule);
-
-            if (this._style.ownerRule.sourceCodeLocation) {
-                let options = {
-                    dontFloat: true,
-                    ignoreNetworkTab: true,
-                    ignoreSearchTab: true,
-                };
-
-                if (this._style.ownerStyleSheet.isInspectorStyleSheet()) {
-                    options.nameStyle = WI.SourceCodeLocation.NameStyle.None;
-                    options.prefix = WI.UIString("Inspector Style Sheet") + ":";
-                }
-
-                let sourceCodeLink = WI.createSourceCodeLocationLink(this._style.ownerRule.sourceCodeLocation, options);
-                this._originElement.appendChild(sourceCodeLink);
-            } else {
-                let originString = "";
-
-                switch (this._style.ownerRule.type) {
-                case WI.CSSStyleSheet.Type.Author:
-                    originString = WI.UIString("Author Stylesheet");
-                    break;
-
-                case WI.CSSStyleSheet.Type.User:
-                    originString = WI.UIString("User Stylesheet");
-                    break;
-
-                case WI.CSSStyleSheet.Type.UserAgent:
-                    originString = WI.UIString("User Agent Stylesheet");
-                    break;
-
-                case WI.CSSStyleSheet.Type.Inspector:
-                    originString = WI.UIString("Web Inspector");
-                    break;
-                }
-
-                console.assert(originString);
-                if (originString)
-                    this._originElement.append(originString);
-
-                if (!this._style.editable) {
-                    let styleTitle = "";
-                    if (this._style.ownerRule && this._style.ownerRule.type === WI.CSSStyleSheet.Type.UserAgent)
-                        styleTitle = WI.UIString("User Agent Stylesheet");
-                    else
-                        styleTitle = WI.UIString("Style rule");
-
-                    this._originElement.title = WI.UIString("%s cannot be modified").format(styleTitle);
-                }
-            }
-            break;
-
-        case WI.CSSStyleDeclaration.Type.Attribute:
-            this._originElement.append(WI.UIString("HTML Attributes"));
-            break;
-        }
-    }
-
     _createMediaHeader()
     {
         let mediaList = this._style.mediaList;
@@ -414,7 +367,7 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
 
         let url;
         if (sourceCode.urlComponents.scheme === "data") {
-            let mainResource = WI.frameResourceManager.mainFrame.mainResource;
+            let mainResource = WI.networkManager.mainFrame.mainResource;
             if (mainResource.urlComponents.lastPathComponent.endsWith(".html"))
                 url = mainResource.url.replace(/\.html$/, "-data.css");
             else {
@@ -425,17 +378,56 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
             url = sourceCode.url;
 
         const saveAs = event.shiftKey;
-        WI.saveDataToFile({url: url, content: sourceCode.content}, saveAs);
+        WI.FileUtilities.save({url: url, content: sourceCode.content}, saveAs);
     }
 
     _handleMouseDown(event)
     {
         this._wasEditing = this._propertiesEditor.editing || document.activeElement === this._selectorElement;
+
+        let propertyElement = event.target.closest(".property");
+        if (!propertyElement)
+            return;
+
+        this._isMousePressed = true;
+
+        // Disable text selection on mousemove.
+        event.preventDefault();
+
+        // Canceling mousedown event prevents blur event from firing on the previously focused element.
+        if (this._wasEditing && document.activeElement)
+            document.activeElement.blur();
+
+        // Prevent name/value fields from editing when properties selected.
+        window.addEventListener("click", this._handleWindowClick.bind(this), {capture: true, once: true});
+
+        let propertyIndex = parseInt(propertyElement.dataset.propertyIndex);
+        if (event.shiftKey && this._propertiesEditor.hasSelectedProperties())
+            this._propertiesEditor.extendSelectedProperties(propertyIndex);
+        else
+            this._propertiesEditor.deselectProperties();
+
+        if (propertyElement.parentNode) {
+            this._mouseDownIndex = propertyIndex;
+            this._element.classList.add("selecting");
+        } else
+            this._stopSelection();
+    }
+
+    _handleWindowClick(event)
+    {
+        if (this._propertiesEditor.hasSelectedProperties()) {
+            // Don't start editing name/value if there's selection.
+            event.stop();
+        }
+        this._stopSelection();
     }
 
     _handleClick(event)
     {
-        if (this._wasEditing)
+        this._stopSelection();
+
+        if (this._wasEditing || this._propertiesEditor.hasSelectedProperties())
             return;
 
         if (window.getSelection().type === "Range")
@@ -460,20 +452,27 @@ WI.SpreadsheetCSSStyleDeclarationSection = class SpreadsheetCSSStyleDeclarationS
         }
     }
 
+    _stopSelection()
+    {
+        this._isMousePressed = false;
+        this._mouseDownIndex = NaN;
+        this._element.classList.remove("selecting");
+    }
+
     _highlightNodesWithSelector()
     {
         if (!this._style.ownerRule) {
-            WI.domTreeManager.highlightDOMNode(this._style.node.id);
+            WI.domManager.highlightDOMNode(this._style.node.id);
             return;
         }
 
         let selectorText = this._selectorElement.textContent.trim();
-        WI.domTreeManager.highlightSelector(selectorText, this._style.node.ownerDocument.frameIdentifier);
+        WI.domManager.highlightSelector(selectorText, this._style.node.ownerDocument.frameIdentifier);
     }
 
     _hideDOMNodeHighlight()
     {
-        WI.domTreeManager.hideDOMNodeHighlight();
+        WI.domManager.hideDOMNodeHighlight();
     }
 
     _handleEditorFilterApplied(event)

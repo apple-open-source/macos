@@ -36,8 +36,9 @@
 #import "PlatformStrategies.h"
 #import "RuntimeEnabledFeatures.h"
 #import "WebCoreNSURLExtras.h"
+#import <wtf/cocoa/NSURLExtras.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import <MobileCoreServices/MobileCoreServices.h>
 #endif
 
@@ -45,7 +46,7 @@ namespace WebCore {
 
 static inline String rtfPasteboardType()
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     return String(kUTTypeRTF);
 #else
     return String(legacyRTFPasteboardType());
@@ -54,7 +55,7 @@ static inline String rtfPasteboardType()
 
 static inline String rtfdPasteboardType()
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     return String(kUTTypeFlatRTFD);
 #else
     return String(legacyRTFDPasteboardType());
@@ -63,7 +64,7 @@ static inline String rtfdPasteboardType()
 
 static inline String stringPasteboardType()
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     return String(kUTTypeText);
 #else
     return String(legacyStringPasteboardType());
@@ -72,7 +73,7 @@ static inline String stringPasteboardType()
 
 static inline String urlPasteboardType()
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     return String(kUTTypeURL);
 #else
     return String(legacyURLPasteboardType());
@@ -81,7 +82,7 @@ static inline String urlPasteboardType()
 
 static inline String htmlPasteboardType()
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     return String(kUTTypeHTML);
 #else
     return String(legacyHTMLPasteboardType());
@@ -90,8 +91,8 @@ static inline String htmlPasteboardType()
 
 static inline String colorPasteboardType()
 {
-#if PLATFORM(IOS)
-    return "com.apple.uikit.color";
+#if PLATFORM(IOS_FAMILY)
+    return String { UIColorPboardType };
 #else
     return String(legacyColorPasteboardType());
 #endif
@@ -99,7 +100,7 @@ static inline String colorPasteboardType()
 
 static inline String pdfPasteboardType()
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     return String(kUTTypePDF);
 #else
     return String(legacyPDFPasteboardType());
@@ -108,7 +109,7 @@ static inline String pdfPasteboardType()
 
 static inline String tiffPasteboardType()
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     return String(kUTTypeTIFF);
 #else
     return String(legacyTIFFPasteboardType());
@@ -210,7 +211,7 @@ String DragData::asPlainText() const
     // FIXME: It's not clear this is 100% correct since we know -[NSURL URLWithString:] does not handle
     // all the same cases we handle well in the URL code for creating an NSURL.
     if (text.isURL)
-        return userVisibleString([NSURL URLWithString:string]);
+        return WTF::userVisibleString([NSURL URLWithString:string]);
 
     // FIXME: WTF should offer a non-Mac-specific way to convert string to precomposed form so we can do it for all platforms.
     return [(NSString *)string precomposedStringWithCanonicalMapping];
@@ -225,6 +226,9 @@ bool DragData::containsCompatibleContent(DraggingPurpose purpose) const
 {
     if (purpose == DraggingPurpose::ForFileUpload)
         return containsFiles();
+
+    if (purpose == DraggingPurpose::ForColorControl)
+        return containsColor();
 
     if (purpose == DraggingPurpose::ForEditing && RuntimeEnabledFeatures::sharedFeatures().attachmentElementEnabled() && containsFiles())
         return true;
@@ -262,7 +266,7 @@ bool DragData::containsPromise() const
 
 bool DragData::containsURL(FilenameConversionPolicy filenamePolicy) const
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     UNUSED_PARAM(filenamePolicy);
     Vector<String> types;
     platformStrategies()->pasteboardStrategy()->getTypes(types, m_pasteboardName);
@@ -271,7 +275,7 @@ bool DragData::containsURL(FilenameConversionPolicy filenamePolicy) const
 
     auto urlString = platformStrategies()->pasteboardStrategy()->stringForType(urlPasteboardType(), m_pasteboardName);
     if (urlString.isEmpty()) {
-        // On iOS, we don't get access to the contents of UIItemProviders until we perform the drag operation.
+        // On iOS, we don't get access to the contents of NSItemProviders until we perform the drag operation.
         // Thus, we consider DragData to contain an URL if it contains the `public.url` UTI type. Later down the
         // road, when we perform the drag operation, we can then check if the URL's protocol is http or https,
         // and if it isn't, we bail out of page navigation.

@@ -30,11 +30,11 @@
 
 #include "WebEvent.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 struct _UIWebTouchEvent;
 #elif PLATFORM(GTK)
 #include <WebCore/GUniquePtrGtk.h>
-#elif PLATFORM(WPE)
+#elif USE(LIBWPE)
 #include <wpe/wpe.h>
 #endif
 
@@ -42,13 +42,13 @@ namespace WebKit {
 
 class NativeWebTouchEvent : public WebTouchEvent {
 public:
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     explicit NativeWebTouchEvent(const _UIWebTouchEvent*);
 #elif PLATFORM(GTK)
     NativeWebTouchEvent(GdkEvent*, Vector<WebPlatformTouchPoint>&&);
     NativeWebTouchEvent(const NativeWebTouchEvent&);
     const GdkEvent* nativeEvent() const { return m_nativeEvent.get(); }
-#elif PLATFORM(WPE)
+#elif USE(LIBWPE)
     NativeWebTouchEvent(struct wpe_input_touch_event*, float deviceScaleFactor);
     const struct wpe_input_touch_event_raw* nativeFallbackTouchPoint() const { return &m_fallbackTouchPoint; }
 #elif PLATFORM(WIN)
@@ -56,13 +56,13 @@ public:
 #endif
 
 private:
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     Vector<WebPlatformTouchPoint> extractWebTouchPoint(const _UIWebTouchEvent*);
 #endif
 
 #if PLATFORM(GTK)
     GUniquePtr<GdkEvent> m_nativeEvent;
-#elif PLATFORM(WPE)
+#elif USE(LIBWPE)
     struct wpe_input_touch_event_raw m_fallbackTouchPoint;
 #endif
 };

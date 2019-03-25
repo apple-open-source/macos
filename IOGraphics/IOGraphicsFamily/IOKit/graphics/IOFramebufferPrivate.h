@@ -226,7 +226,8 @@
     void assignGLIndex(void);
     IOReturn probeAccelerator(void);
 
-	static void saveGammaTables(void);
+    void diagnose(void *vFBState_IOGReport);
+    static void saveGammaTables(void);
 
     // -- user client support
 
@@ -258,21 +259,11 @@
     IOReturn extCopySharedCursor(IOMemoryDescriptor **cursorH);
     IOReturn extCopyUserAccessObject(const uint32_t type,
                                      IOMemoryDescriptor** memP);
-    IOReturn newDiagnosticUserClient(IOUserClient **clientH);
     static IOReturn extSetHibernateGammaTable(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    void extClose(void);
+    void closeWork(IOInterruptEventSource *, int);
 
 private:
-    /*
-     New for IOGraphics diagnose
-     extReservedB() through extReservedE() reserved for future use.
-     */
-    static IOReturn extDiagnose(OSObject * target, void * reference, IOExternalMethodArguments * args);
-    static IOReturn extReservedB(OSObject * target, void * reference, IOExternalMethodArguments * args);
-    static IOReturn extReservedC(OSObject * target, void * reference, IOExternalMethodArguments * args);
-    static IOReturn extReservedD(OSObject * target, void * reference, IOExternalMethodArguments * args);
-    static IOReturn extReservedE(OSObject * target, void * reference, IOExternalMethodArguments * args);
-
-    IOReturn __Report( uintptr_t * r );
 
     /* New for addFramebufferNotificationWithOptions */
     static SInt32 osNotifyOrderFunction( const OSMetaClassBase *obj1, const OSMetaClassBase *obj2, void *context);
@@ -329,7 +320,6 @@ public:
     IODeviceMemory * getApertureRangeWithLength( IOPixelAperture aperture, IOByteCount requiredLength );
 
     IOReturn waitQuietController(void);
-    void closeNoSys(void);
 
 
 protected:

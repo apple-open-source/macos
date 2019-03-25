@@ -28,10 +28,12 @@
 
 #if PLATFORM(MAC)
 
+#import "APINavigation.h"
 #import "DrawingAreaProxy.h"
 #import "FrameLoadState.h"
 #import "Logging.h"
 #import "NativeWebWheelEvent.h"
+#import "ProvisionalPageProxy.h"
 #import "ViewGestureControllerMessages.h"
 #import "ViewGestureGeometryCollectorMessages.h"
 #import "ViewSnapshotStore.h"
@@ -47,8 +49,6 @@
 #import <WebCore/WebActionDisablingCALayerDelegate.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/mac/NSEventSPI.h>
-
-using namespace WebCore;
 
 static const double minMagnification = 1;
 static const double maxMagnification = 3;
@@ -85,6 +85,7 @@ static const float swipeSnapshotRemovalRenderTreeSizeTargetFraction = 0.5;
 @end
 
 namespace WebKit {
+using namespace WebCore;
 
 void ViewGestureController::platformTeardown()
 {
@@ -678,10 +679,10 @@ void ViewGestureController::handleSwipeGesture(WebBackForwardListItem* targetIte
 {
     ASSERT(m_activeGestureType == ViewGestureType::Swipe);
 
-    bool swipingLeft = isPhysicallySwipingLeft(direction);
-
     if (!m_webPageProxy.drawingArea())
         return;
+
+    bool swipingLeft = isPhysicallySwipingLeft(direction);
 
     double width;
     if (!m_customSwipeViews.isEmpty())
@@ -737,21 +738,22 @@ void ViewGestureController::endSwipeGesture(WebBackForwardListItem* targetItem, 
     uint64_t renderTreeSize = 0;
     if (ViewSnapshot* snapshot = targetItem->snapshot())
         renderTreeSize = snapshot->renderTreeSize();
-
-    m_webPageProxy.process().send(Messages::ViewGestureGeometryCollector::SetRenderTreeSizeNotificationThreshold(renderTreeSize * swipeSnapshotRemovalRenderTreeSizeTargetFraction), m_webPageProxy.pageID());
+    auto renderTreeSizeThreshold = renderTreeSize * swipeSnapshotRemovalRenderTreeSizeTargetFraction;
 
     m_webPageProxy.navigationGestureDidEnd(true, *targetItem);
     m_webPageProxy.goToBackForwardItem(*targetItem);
 
-    m_provisionalOrSameDocumentLoadCallback = [this, renderTreeSize] {
-        SnapshotRemovalTracker::Events desiredEvents = SnapshotRemovalTracker::VisuallyNonEmptyLayout
-            | SnapshotRemovalTracker::MainFrameLoad
-            | SnapshotRemovalTracker::SubresourceLoads
-            | SnapshotRemovalTracker::ScrollPositionRestoration;
-        if (renderTreeSize)
-            desiredEvents |= SnapshotRemovalTracker::RenderTreeSizeThreshold;
-        m_snapshotRemovalTracker.start(desiredEvents, [this] { this->forceRepaintIfNeeded(); });
-    };
+    SnapshotRemovalTracker::Events desiredEvents = SnapshotRemovalTracker::VisuallyNonEmptyLayout
+        | SnapshotRemovalTracker::MainFrameLoad
+        | SnapshotRemovalTracker::SubresourceLoads
+        | SnapshotRemovalTracker::ScrollPositionRestoration;
+
+    if (renderTreeSizeThreshold) {
+        desiredEvents |= SnapshotRemovalTracker::RenderTreeSizeThreshold;
+        m_snapshotRemovalTracker.setRenderTreeSizeThreshold(renderTreeSizeThreshold);
+    }
+
+    m_snapshotRemovalTracker.start(desiredEvents, [this] { this->forceRepaintIfNeeded(); });
 
     // FIXME: Like on iOS, we should ensure that even if one of the timeouts fires,
     // we never show the old page content, instead showing the snapshot background color.
@@ -833,6 +835,17 @@ bool ViewGestureController::completeSimulatedSwipeInDirectionForTesting(SwipeDir
 {
     notImplemented();
     return false;
+}
+
+void ViewGestureController::requestRenderTreeSizeNotificationIfNeeded()
+{
+    if (!m_snapshotRemovalTracker.hasOutstandingEvent(SnapshotRemovalTracker::RenderTreeSizeThreshold))
+        return;
+
+    auto& process = m_webPageProxy.provisionalPageProxy() ? m_webPageProxy.provisionalPageProxy()->process() : m_webPageProxy.process();
+    auto threshold = m_snapshotRemovalTracker.renderTreeSizeThreshold();
+
+    process.send(Messages::ViewGestureGeometryCollector::SetRenderTreeSizeNotificationThreshold(threshold), m_webPageProxy.pageID());
 }
 
 } // namespace WebKit

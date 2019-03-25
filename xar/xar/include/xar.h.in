@@ -150,6 +150,7 @@ typedef void (*xar_progress_callback)(xar_t x, xar_file_t f, size_t sizeread);
 #define XAR_ERR_ARCHIVE_EXTRACTION 2
 
 xar_t xar_open(const char *file, int32_t flags);
+xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc_digest, size_t expected_toc_digest_len);
 int xar_close(xar_t x);
 
 xar_header_t xar_header_get(xar_t x);
@@ -171,6 +172,13 @@ int32_t xar_extract_tostream_end(xar_stream *stream);
 
 int32_t xar_verify(xar_t x, xar_file_t f);
 int32_t xar_verify_progress(xar_t x, xar_file_t f, xar_progress_callback progress);
+
+/* To get the checksum of the table of contents use this function.
+ * The function returns a alloced buffer that caller must free. */
+void* xar_get_toc_checksum(xar_t x, size_t* buffer_size);
+
+/* Returns XAR_CKSUM_* that maps to the type of the checksum. */
+int32_t xar_get_toc_checksum_type(xar_t x);
 
 const char *xar_opt_get(xar_t x, const char *option);
 int32_t xar_opt_set(xar_t x, const char *option, const char *value);

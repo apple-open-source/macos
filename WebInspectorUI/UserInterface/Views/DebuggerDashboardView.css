@@ -22,6 +22,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 .toolbar .dashboard.debugger {
     display: flex;
     flex-wrap: nowrap;
@@ -156,15 +157,15 @@ body[dir=rtl] .dashboard.debugger > .location > :last-child {
     height: 16px;
 }
 
-.dashboard.debugger > .location .function-icon {
+.dashboard.debugger > .location {
     --debugger-dashboard-function-icon-margin-end: 3px;
 }
 
-body[dir=ltr] .dashboard.debugger > .location .function-icon {
+body[dir=ltr] .dashboard.debugger > .location :matches(.function-icon, .event-listener-icon) {
     margin-right: var(--debugger-dashboard-function-icon-margin-end);
 }
 
-body[dir=rtl] .dashboard.debugger > .location .function-icon {
+body[dir=rtl] .dashboard.debugger > .location :matches(.function-icon, .event-listener-icon) {
     margin-left: var(--debugger-dashboard-function-icon-margin-end);
 }
 
@@ -174,7 +175,7 @@ body[dir=rtl] .dashboard.debugger > .location .function-icon {
 }
 
 .dashboard.debugger > .location .function-name::after {
-    content: '\00A0\2014\00A0'; /* &nbsp;&mdash;&nbsp; */
+    content: "\00A0\2014\00A0"; /* &nbsp;&mdash;&nbsp; */;
 }
 
 .dashboard.debugger > .location .go-to-link {
@@ -198,4 +199,27 @@ body[dir=rtl] .dashboard.debugger > .location .function-icon {
 .toolbar.small-size .dashboard.debugger > .location > :first-child {
     width: 14px;
     height: 14px;
+}
+
+@media (prefers-dark-interface) {
+    .toolbar .dashboard.debugger {
+        color: var(--text-color);
+    }
+
+    .dashboard.debugger .navigation-bar .item.button > .glyph {
+        color: var(--glyph-color-active);
+    }
+
+    .dashboard.debugger > .location .function-name {
+        color: var(--text-color-active);
+    }
+
+    .dashboard.debugger > .location .go-to-link {
+        padding-bottom: 1px;
+        -webkit-text-decoration-color: var(--text-color-secondary);
+    }
+
+    .dashboard.debugger > .divider {
+        background-image: linear-gradient(var(--text-color-tertiary), var(--text-color-tertiary));
+    }
 }

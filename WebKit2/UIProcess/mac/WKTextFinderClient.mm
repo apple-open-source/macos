@@ -34,27 +34,25 @@
 #import "WebPageProxy.h"
 #import <algorithm>
 #import <pal/spi/mac/NSTextFinderSPI.h>
+#import <wtf/BlockPtr.h>
 #import <wtf/Deque.h>
 
-// FIXME: Implement support for replace.
 // FIXME: Implement scrollFindMatchToVisible.
 // FIXME: The NSTextFinder overlay doesn't move with scrolling; we should have a mode where we manage the overlay.
-
-using namespace WebCore;
-using namespace WebKit;
 
 static const NSUInteger maximumFindMatches = 1000;
 
 @interface WKTextFinderClient ()
 
-- (void)didFindStringMatchesWithRects:(const Vector<Vector<IntRect>>&)rects didWrapAround:(BOOL)didWrapAround;
+- (void)didFindStringMatchesWithRects:(const Vector<Vector<WebCore::IntRect>>&)rects didWrapAround:(BOOL)didWrapAround;
 
 - (void)getImageForMatchResult:(id <NSTextFinderAsynchronousDocumentFindMatch>)findMatch completionHandler:(void (^)(NSImage *generatedImage))completionHandler;
-- (void)didGetImageForMatchResult:(WebImage *)string;
+- (void)didGetImageForMatchResult:(WebKit::WebImage *)string;
 
 @end
 
 namespace WebKit {
+using namespace WebCore;
 
 class TextFinderFindClient : public API::FindMatchesClient, public API::FindClient {
 public:
@@ -64,7 +62,7 @@ public:
     }
 
 private:
-    void didFindStringMatches(WebPageProxy* page, const String&, const Vector<Vector<IntRect>>& matchRects, int32_t) override
+    void didFindStringMatches(WebPageProxy* page, const String&, const Vector<Vector<WebCore::IntRect>>& matchRects, int32_t) override
     {
         [m_textFinderClient didFindStringMatchesWithRects:matchRects didWrapAround:NO];
     }
@@ -74,7 +72,7 @@ private:
         [m_textFinderClient didGetImageForMatchResult:image];
     }
 
-    void didFindString(WebPageProxy*, const String&, const Vector<IntRect>& matchRects, uint32_t, int32_t, bool didWrapAround) override
+    void didFindString(WebPageProxy*, const String&, const Vector<WebCore::IntRect>& matchRects, uint32_t, int32_t, bool didWrapAround) override
     {
         [m_textFinderClient didFindStringMatchesWithRects:{ matchRects } didWrapAround:didWrapAround];
     }
@@ -140,13 +138,13 @@ private:
 @end
 
 @implementation WKTextFinderClient {
-    WebPageProxy *_page;
+    WebKit::WebPageProxy *_page;
     NSView *_view;
     Deque<WTF::Function<void(NSArray *, bool didWrap)>> _findReplyCallbacks;
     Deque<WTF::Function<void(NSImage *)>> _imageReplyCallbacks;
 }
 
-- (instancetype)initWithPage:(WebPageProxy&)page view:(NSView *)view
+- (instancetype)initWithPage:(WebKit::WebPageProxy&)page view:(NSView *)view
 {
     self = [super init];
 
@@ -156,8 +154,8 @@ private:
     _page = &page;
     _view = view;
     
-    _page->setFindMatchesClient(std::make_unique<TextFinderFindClient>(self));
-    _page->setFindClient(std::make_unique<TextFinderFindClient>(self));
+    _page->setFindMatchesClient(std::make_unique<WebKit::TextFinderFindClient>(self));
+    _page->setFindClient(std::make_unique<WebKit::TextFinderFindClient>(self));
 
     return self;
 }
@@ -173,6 +171,19 @@ private:
 
 #pragma mark - NSTextFinderClient SPI
 
+- (void)replaceMatches:(NSArray *)matches withString:(NSString *)replacementText inSelectionOnly:(BOOL)selectionOnly resultCollector:(void (^)(NSUInteger replacementCount))resultCollector
+{
+    Vector<uint32_t> matchIndices;
+    matchIndices.reserveCapacity(matches.count);
+    for (id match in matches) {
+        if ([match isKindOfClass:WKTextFinderMatch.class])
+            matchIndices.uncheckedAppend([(WKTextFinderMatch *)match index]);
+    }
+    _page->replaceMatches(WTFMove(matchIndices), replacementText, selectionOnly, [collector = makeBlockPtr(resultCollector)] (uint64_t numberOfReplacements, auto error) {
+        collector(error == WebKit::CallbackBase::Error::None ? numberOfReplacements : 0);
+    });
+}
+
 - (void)findMatchesForString:(NSString *)targetString relativeToMatch:(id <NSTextFinderAsynchronousDocumentFindMatch>)relativeMatch findOptions:(NSTextFinderAsynchronousDocumentFindOptions)findOptions maxResults:(NSUInteger)maxResults resultCollector:(void (^)(NSArray *matches, BOOL didWrap))resultCollector
 {
     // Limit the number of results, for performance reasons; NSTextFinder always
@@ -183,13 +194,13 @@ private:
     unsigned kitFindOptions = 0;
 
     if (findOptions & NSTextFinderAsynchronousDocumentFindOptionsBackwards)
-        kitFindOptions |= FindOptionsBackwards;
+        kitFindOptions |= WebKit::FindOptionsBackwards;
     if (findOptions & NSTextFinderAsynchronousDocumentFindOptionsWrap)
-        kitFindOptions |= FindOptionsWrapAround;
+        kitFindOptions |= WebKit::FindOptionsWrapAround;
     if (findOptions & NSTextFinderAsynchronousDocumentFindOptionsCaseInsensitive)
-        kitFindOptions |= FindOptionsCaseInsensitive;
+        kitFindOptions |= WebKit::FindOptionsCaseInsensitive;
     if (findOptions & NSTextFinderAsynchronousDocumentFindOptionsStartsWith)
-        kitFindOptions |= FindOptionsAtWordStarts;
+        kitFindOptions |= WebKit::FindOptionsAtWordStarts;
 
     RetainPtr<NSProgress> progress = [NSProgress progressWithTotalUnitCount:1];
     auto copiedResultCollector = Block_copy(resultCollector);
@@ -209,7 +220,7 @@ private:
 {
     void (^copiedCompletionHandler)(NSString *) = Block_copy(completionHandler);
 
-    _page->getSelectionOrContentsAsString([copiedCompletionHandler] (const String& string, CallbackBase::Error) {
+    _page->getSelectionOrContentsAsString([copiedCompletionHandler] (const String& string, WebKit::CallbackBase::Error) {
         copiedCompletionHandler(string);
         Block_release(copiedCompletionHandler);
     });
@@ -226,7 +237,7 @@ private:
 
 #pragma mark - FindMatchesClient
 
-static RetainPtr<NSArray> arrayFromRects(const Vector<IntRect>& matchRects)
+static RetainPtr<NSArray> arrayFromRects(const Vector<WebCore::IntRect>& matchRects)
 {
     RetainPtr<NSMutableArray> nsMatchRects = adoptNS([[NSMutableArray alloc] initWithCapacity:matchRects.size()]);
     for (auto& rect : matchRects)
@@ -234,7 +245,7 @@ static RetainPtr<NSArray> arrayFromRects(const Vector<IntRect>& matchRects)
     return nsMatchRects;
 }
 
-- (void)didFindStringMatchesWithRects:(const Vector<Vector<IntRect>>&)rectsForMatches didWrapAround:(BOOL)didWrapAround
+- (void)didFindStringMatchesWithRects:(const Vector<Vector<WebCore::IntRect>>&)rectsForMatches didWrapAround:(BOOL)didWrapAround
 {
     if (_findReplyCallbacks.isEmpty())
         return;
@@ -251,12 +262,12 @@ static RetainPtr<NSArray> arrayFromRects(const Vector<IntRect>& matchRects)
     replyCallback(matchObjects.get(), didWrapAround);
 }
 
-- (void)didGetImageForMatchResult:(WebImage *)image
+- (void)didGetImageForMatchResult:(WebKit::WebImage *)image
 {
     if (_imageReplyCallbacks.isEmpty())
         return;
 
-    IntSize size = image->bitmap().size();
+    WebCore::IntSize size = image->bitmap().size();
     size.scale(1 / _page->deviceScaleFactor());
 
     auto imageCallback = _imageReplyCallbacks.takeFirst();

@@ -25,6 +25,7 @@
 
 #import "config.h"
 #import "WebProcessCocoa.h"
+#import "XPCServiceEntryPoint.h"
 
 #import <CoreFoundation/CoreFoundation.h>
 #import <wtf/OSObjectPtr.h>
@@ -91,11 +92,7 @@ static void XPCServiceEventHandler(xpc_connection_t peer)
     xpc_connection_resume(peer);
 }
 
-} // namespace WebKit
-
-using namespace WebKit;
-
-int main(int argc, char** argv)
+int XPCServiceMain(int, const char**)
 {
 #if defined(__i386__)
     // FIXME: This should only be done for the 32-bit plug-in XPC service so we rely on the fact that
@@ -108,7 +105,7 @@ int main(int argc, char** argv)
 #endif
 
     auto bootstrap = adoptOSObject(xpc_copy_bootstrap());
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     auto containerEnvironmentVariables = xpc_dictionary_get_value(bootstrap.get(), "ContainerEnvironmentVariables");
     xpc_dictionary_apply(containerEnvironmentVariables, ^(const char *key, xpc_object_t value) {
         setenv(key, xpc_string_get_string_ptr(value), 1);
@@ -159,4 +156,11 @@ int main(int argc, char** argv)
 
     xpc_main(XPCServiceEventHandler);
     return 0;
+}
+
+} // namespace WebKit
+
+int main(int argc, const char** argv)
+{
+    return WebKit::XPCServiceMain(argc, argv);
 }

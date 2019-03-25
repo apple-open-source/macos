@@ -68,7 +68,7 @@
 #import <WebCore/HTMLElement.h>
 #import <WebCore/HTMLHeadElement.h>
 #import <WebCore/HTMLScriptElement.h>
-#import <WebCore/JSMainThreadExecState.h>
+#import <WebCore/JSExecState.h>
 #import <WebCore/NameNodeList.h>
 #import <WebCore/NativeNodeFilter.h>
 #import <WebCore/Node.h>
@@ -82,12 +82,12 @@
 #import <WebCore/Text.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/TreeWalker.h>
-#import <WebCore/URL.h>
 #import <WebCore/WebScriptObjectPrivate.h>
 #import <WebCore/XPathExpression.h>
 #import <WebCore/XPathNSResolver.h>
 #import <WebCore/XPathResult.h>
 #import <wtf/GetPtr.h>
+#import <wtf/URL.h>
 
 #define IMPL static_cast<WebCore::Document*>(reinterpret_cast<WebCore::Node*>(_internal))
 
@@ -418,7 +418,7 @@
 - (DOMElement *)scrollingElement
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(IMPL->scrollingElement()));
+    return kit(WTF::getPtr(IMPL->scrollingElementForAPI()));
 }
 
 - (DOMHTMLCollection *)children

@@ -39,22 +39,16 @@
 #include "NetworkSession.h"
 #include "WebErrors.h"
 #include <WebCore/AsyncFileStream.h>
-#include <WebCore/BlobData.h>
 #include <WebCore/BlobRegistryImpl.h>
-#include <WebCore/FileStream.h>
-#include <WebCore/HTTPHeaderNames.h>
 #include <WebCore/HTTPParsers.h>
 #include <WebCore/ParsedContentRange.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/SharedBuffer.h>
-#include <WebCore/URL.h>
-#include <wtf/MainThread.h>
 #include <wtf/RunLoop.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 static const unsigned bufferSize = 512 * 1024;
 
@@ -317,9 +311,9 @@ void NetworkDataTaskBlob::dispatchDidReceiveResponse(Error errorCode)
             m_buffer.resize(bufferSize);
             read();
             break;
-        case PolicyAction::Suspend:
-            LOG_ERROR("PolicyAction::Suspend encountered - Treating as PolicyAction::Ignore for now");
-            FALLTHROUGH;
+        case PolicyAction::StopAllLoads:
+            ASSERT_NOT_REACHED();
+            break;
         case PolicyAction::Ignore:
             break;
         case PolicyAction::Download:

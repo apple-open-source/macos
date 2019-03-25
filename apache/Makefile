@@ -119,6 +119,7 @@ post-install:
 	$(CHMOD) 0755 $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
 	sed -e "55s,.*,includedir = $(SDKROOT)/usr/include/apache2," -e 's,/BuildRoot,,g' < $(DSTROOT)/usr/share/httpd/build/config_vars.mk > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build/config_vars.mk
 	$(SILENT) $(RM) -Rf $(DSTROOT)/BuildRoot
+	 /usr/bin/codesign --force --sign - --entitlements $(SRCROOT)/entitlements.plist $(DSTROOT)/usr/sbin/httpd
 	
 strip-modules:
 	$(CP) $(DSTROOT)/usr/libexec/apache2/*.so $(SYMROOT)

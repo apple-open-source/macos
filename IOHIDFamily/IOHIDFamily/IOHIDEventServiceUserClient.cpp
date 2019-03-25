@@ -60,8 +60,8 @@ const IOExternalMethodDispatch IOHIDEventServiceUserClient::sMethods[kIOHIDEvent
     },
     { //    kIOHIDEventServiceUserClientCopyEvent
 	(IOExternalMethodAction) &IOHIDEventServiceUserClient::_copyEvent,
-	2, -1,
-    0, -1
+    2, kIOUCVariableStructureSize,
+    0, kIOUCVariableStructureSize
     },
     { //    kIOHIDEventServiceUserClientSetElementValue
 	(IOExternalMethodAction) &IOHIDEventServiceUserClient::_setElementValue,

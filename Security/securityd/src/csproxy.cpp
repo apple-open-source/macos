@@ -64,13 +64,12 @@ void CodeSigningHost::reset()
 	case noHosting:
 		break;	// nothing to do
 	case dynamicHosting:
-		mHostingPort.destroy();
-		mHostingPort = MACH_PORT_NULL;
+		mHostingPort.deallocate();
         secnotice("SecServer", "%d host unregister", mHostingPort.port());
 		break;
 	case proxyHosting:
 		Server::active().remove(*this);	// unhook service handler
-		mHostingPort.destroy();	// destroy receive right
+		mHostingPort.modRefs(MACH_PORT_RIGHT_RECEIVE, -1);
 		mHostingState = noHosting;
 		mHostingPort = MACH_PORT_NULL;
 		mGuests.erase(mGuests.begin(), mGuests.end());

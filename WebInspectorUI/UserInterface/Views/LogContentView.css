@@ -134,6 +134,10 @@ body[dir=rtl] .log-scope-bar > li.unread::before {
     background-color: hsl(210, 0%, 90%) !important;
 }
 
+.console-messages:focus .console-item .data-grid tr.selected td:not(:last-child) {
+    border-right-color: hsl(210, 70%, 75%);
+}
+
 .console-messages:focus .console-item.selected {
     background-color: hsl(210, 98%, 96%);
     border-color: hsl(210, 90%, 93%);
@@ -160,9 +164,17 @@ body[dir=rtl] .log-scope-bar > li.unread::before {
     background-image: url(../Images/DisclosureTriangles.svg#open-normal);
     background-size: 13px 13px;
     top: 4px;
-    left: 4px;
     width: 13px;
     height: 13px;
+}
+
+body[dir=ltr] .console-group-title::before {
+    left: 4px;
+}
+
+body[dir=rtl] .console-group-title::before {
+    transform: scaleX(-1);
+    right: 4px;
 }
 
 .console-group.collapsed .console-group-title::before {
@@ -240,4 +252,93 @@ body[dir=rtl] .log-scope-bar > li.unread::before {
 .console-messages:focus .console-item.selected .console-user-command-result.console-log-level::before {
         /* Accessible label alternative for icon indicating console input/output/warning/error, etc. */
         alt: attr(data-labelprefix);
+}
+
+@media (prefers-dark-interface) {
+    .console-messages {
+        background-color: var(--background-color-code);
+    }
+
+    .console-item {
+        border-top-color: var(--console-message-separator);
+    }
+
+    .console-item .data-grid tr.selected {
+        background-color: hsl(210, 0%, 35%) !important;
+    }
+
+    .console-messages:focus .console-item.selected .data-grid tr.selected {
+        background-color: hsl(210, 90%, 35%) !important;
+    }
+
+    .console-messages:focus .console-item .data-grid tr.selected td:not(:last-child) {
+        border-right-color: hsl(210, 70%, 25%);
+    }
+
+    .console-messages {
+        --background-color-selected: hsl(233, 30%, 30%);
+        --border-color-selected: hsl(224, 30%, 35%);
+        --border-color-error: hsla(20, 100%, 50%, 0.12);
+        --border-color-warning: hsla(40, 100%, 50%, 0.12);
+    }
+
+    .console-messages:focus .console-item.selected {
+        background-color: var(--background-color-selected);
+        border-color: var(--border-color-selected);
+    }
+
+    .console-messages:focus .console-item.selected + .console-item {
+        border-color: var(--border-color-selected);
+    }
+
+    .console-session:first-of-type .console-session-header {
+        color: var(--text-color-tertiary);
+    }
+
+    .console-session:not(:first-of-type) .console-session-header {
+        color: unset;
+        background-color: unset;
+    }
+
+    .console-messages a {
+        color: var(--selected-secondary-text-color);
+        cursor: pointer;
+    }
+
+    .console-messages a:hover {
+        color: var(--selected-secondary-text-color-active);
+    }
+
+    .console-messages:focus .console-item.selected::after {
+        background: hsl(210, 100%, 75%);
+    }
+
+    .console-error-level {
+        background-color: var(--error-background-color-secondary);
+        border-color: var(--border-color-error);
+    }
+
+    .console-error-level:not(.filtered-out, .filtered-out-by-search), .console-error-level:not(.filtered-out, .filtered-out-by-search) + .console-item {
+        border-top-color: var(--border-color-error);
+    }
+
+    .console-warning-level {
+        background-color: var(--warning-background-color-secondary);
+        border-color: var(--border-color-warning);
+    }
+
+    .console-warning-level:not(.filtered-out, .filtered-out-by-search), .console-warning-level:not(.filtered-out, .filtered-out-by-search) + .console-item {
+        border-top-color: var(--border-color-warning);
+    }
+
+    .search-in-progress .console-item:not(.filtered-out-by-search) .highlighted {
+        color: var(--search-highlight-text-color);
+        background-color: var(--search-highlight-background-color);
+        border-bottom-color: var(--search-highlight-underline-color);
+    }
+
+    .search-in-progress .console-item:not(.filtered-out-by-search) .highlighted.selected {
+        color: var(--search-highlight-text-color-active);
+        background-color: var(--search-highlight-background-color-active);
+    }
 }

@@ -75,6 +75,12 @@ bool IOFireWireSBP2UserClient::start( IOService * provider )
     if (fProviderLUN == NULL)
         return false;
 
+    fUserClientLock = IOLockAlloc ();
+    if( !fUserClientLock )
+    {
+        return false;
+    }
+    
 	if( !IOUserClient::start(provider) )
          return false;
   
@@ -100,6 +106,12 @@ IOFireWireSBP2UserClient::free()
 		fExporter = NULL;
 	}
 	
+    if( fUserClientLock )
+    {
+        IOLockFree( fUserClientLock );
+        fUserClientLock = NULL;
+    }
+    
 	IOUserClient::free();
 }
 
@@ -119,200 +131,212 @@ IOReturn IOFireWireSBP2UserClient::externalMethod(	uint32_t selector,
 //	IOLog( "IOFireWireSBP2UserClient::externalMethod - selector = %d, scalarIn = %d, scalarOut = %d structInDesc = 0x%08lx structIn = %d structOutDesc = 0x%08lx structOut = %d\n", 
 //					selector, args->scalarInputCount, args->scalarOutputCount, args->structureInputDescriptor, args->structureInputSize, args->structureOutputDescriptor, args->structureOutputSize);
 	
-    switch( selector )
+    if( !fUserClientLock )
     {
-    	case kIOFWSBP2UserClientOpen:
-    		status = open( args );
-    		break;
-    	
-    	case kIOFWSBP2UserClientClose:
-    		status = close( args );
-    		break;
-    	
-    	case kIOFWSBP2UserClientCreateLogin:
-    		status = createLogin( args );
-    		break;
+        status = kIOReturnInternalError;
+    }
     
-    	case kIOFWSBP2UserClientReleaseLogin:
-    		status = releaseLogin( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSubmitLogin:
-    		status = submitLogin( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSubmitLogout:
-    		status = submitLogout( args );
-    		break;
-    		
-  		case kIOFWSBP2UserClientSetLoginFlags:
-  			status = setLoginFlags( args );
-  			break;
-  			
-    	case kIOFWSBP2UserClientGetMaxCommandBlockSize:
-    		status = getMaxCommandBlockSize( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientGetLoginID:
-    		status = getLoginID( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSetReconnectTime:
-    		status = setReconnectTime( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSetMaxPayloadSize:
-    		status = setMaxPayloadSize( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientCreateORB:
-    		status = createORB( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientReleaseORB:
-    		status = releaseORB( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSubmitORB:
-    		status = submitORB( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSetCommandFlags:
-    		status = setCommandFlags( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSetMaxORBPayloadSize:
-    		status = setMaxORBPayloadSize( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSetCommandTimeout:
-    		status = setCommandTimeout( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSetCommandGeneration:
-    		status = setCommandGeneration( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSetToDummy:
-    		status = setToDummy( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSetCommandBuffersAsRanges:
-    		status = setCommandBuffersAsRanges( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientReleaseCommandBuffers:
-    		status = releaseCommandBuffers( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSetCommandBlock:
-    		status = setCommandBlock( args );
-    		break;
-    		
-		case kIOFWSBP2UserClientCreateMgmtORB:
-			status = createMgmtORB( args );
-			break;
-			
-		case kIOFWSBP2UserClientReleaseMgmtORB:
-			status = releaseMgmtORB( args );
-			break;
-			
-		case kIOFWSBP2UserClientSubmitMgmtORB:
-			status = submitMgmtORB( args );
-			break;
-			
-		case kIOFWSBP2UserClientMgmtORBSetCommandFunction:
-			status = setMgmtORBCommandFunction( args );
-			break;
-			
-		case kIOFWSBP2UserClientMgmtORBSetManageeORB:
-			status = setMgmtORBManageeORB( args );
-			break;
-			
-		case kIOFWSBP2UserClientMgmtORBSetManageeLogin:
-			status = setMgmtORBManageeLogin( args );
-			break;
-			
-		case kIOFWSBP2UserClientMgmtORBSetResponseBuffer:
-			status = setMgmtORBResponseBuffer( args );
-			break;
-			
-		case kIOFWSBP2UserClientLSIWorkaroundSetCommandBuffersAsRanges:
-			status = LSIWorkaroundSetCommandBuffersAsRanges( args );
-			break;
-			
-		case kIOFWSBP2UserClientMgmtORBLSIWorkaroundSyncBuffersForOutput:
-			status = LSIWorkaroundSyncBuffersForOutput( args );
-			break;
-			
-		case kIOFWSBP2UserClientMgmtORBLSIWorkaroundSyncBuffersForInput:
-			status = LSIWorkaroundSyncBuffersForInput( args );
-			break;
-			
-    	case kIOFWSBP2UserClientOpenWithSessionRef:
-    		status = openWithSessionRef( args );
-    		break;
-    		
-		case kIOFWSBP2UserClientGetSessionRef:
-			status = getSessionRef( args );
-			break;
-			
-		case kIOFWSBP2UserClientRingDoorbell:
-			status = ringDoorbell( args );
-			break;
-			
-		case kIOFWSBP2UserClientEnableUnsolicitedStatus:
-			status = enableUnsolicitedStatus( args );
-			break;
-			
-		case kIOFWSBP2UserClientSetBusyTimeoutRegisterValue:
-			status = setBusyTimeoutRegisterValue( args );
-			break;
-			
-		case kIOFWSBP2UserClientSetORBRefCon:
-			status = setORBRefCon( args );
-			break;
-			
-		case kIOFWSBP2UserClientSetPassword:
-			status = setPassword( args );
-			break;
-			
-    	case kIOFWSBP2UserClientSetMessageCallback:
-    		status = setMessageCallback( args );
-    		break;
-    		
-   		case kIOFWSBP2UserClientSetLoginCallback:
-   			status = setLoginCallback( args );
-   			break;
-   			
-    	case kIOFWSBP2UserClientSetLogoutCallback:
-    		status = setLogoutCallback( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSetUnsolicitedStatusNotify:
-    		status = setUnsolicitedStatusNotify( args );
-    		break;
-    		
-    	case kIOFWSBP2UserClientSetStatusNotify:
-    		status = setStatusNotify( args );
-    		break;
-    		
-		case kIOFWSBP2UserClientSetMgmtORBCallback:
-			status = setMgmtORBCallback( args );
-			break;
-			
-		case kIOFWSBP2UserClientSubmitFetchAgentReset:
-			status = submitFetchAgentReset( args );
-			break;
-			
-		case kIOFWSBP2UserClientSetFetchAgentWriteCompletion:
-			status = setFetchAgentWriteCompletion( args );
-			break;
-		
-		default:
-			status = kIOReturnBadArgument;
-	}
+    if( status == kIOReturnSuccess )
+    {
+        IOLockLock( fUserClientLock );
+        
+        switch( selector )
+        {
+            case kIOFWSBP2UserClientOpen:
+                status = open( args );
+                break;
+            
+            case kIOFWSBP2UserClientClose:
+                status = close( args );
+                break;
+            
+            case kIOFWSBP2UserClientCreateLogin:
+                status = createLogin( args );
+                break;
+        
+            case kIOFWSBP2UserClientReleaseLogin:
+                status = releaseLogin( args );
+                break;
+                
+            case kIOFWSBP2UserClientSubmitLogin:
+                status = submitLogin( args );
+                break;
+                
+            case kIOFWSBP2UserClientSubmitLogout:
+                status = submitLogout( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetLoginFlags:
+                status = setLoginFlags( args );
+                break;
+                
+            case kIOFWSBP2UserClientGetMaxCommandBlockSize:
+                status = getMaxCommandBlockSize( args );
+                break;
+                
+            case kIOFWSBP2UserClientGetLoginID:
+                status = getLoginID( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetReconnectTime:
+                status = setReconnectTime( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetMaxPayloadSize:
+                status = setMaxPayloadSize( args );
+                break;
+                
+            case kIOFWSBP2UserClientCreateORB:
+                status = createORB( args );
+                break;
+                
+            case kIOFWSBP2UserClientReleaseORB:
+                status = releaseORB( args );
+                break;
+                
+            case kIOFWSBP2UserClientSubmitORB:
+                status = submitORB( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetCommandFlags:
+                status = setCommandFlags( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetMaxORBPayloadSize:
+                status = setMaxORBPayloadSize( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetCommandTimeout:
+                status = setCommandTimeout( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetCommandGeneration:
+                status = setCommandGeneration( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetToDummy:
+                status = setToDummy( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetCommandBuffersAsRanges:
+                status = setCommandBuffersAsRanges( args );
+                break;
+                
+            case kIOFWSBP2UserClientReleaseCommandBuffers:
+                status = releaseCommandBuffers( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetCommandBlock:
+                status = setCommandBlock( args );
+                break;
+                
+            case kIOFWSBP2UserClientCreateMgmtORB:
+                status = createMgmtORB( args );
+                break;
+                
+            case kIOFWSBP2UserClientReleaseMgmtORB:
+                status = releaseMgmtORB( args );
+                break;
+                
+            case kIOFWSBP2UserClientSubmitMgmtORB:
+                status = submitMgmtORB( args );
+                break;
+                
+            case kIOFWSBP2UserClientMgmtORBSetCommandFunction:
+                status = setMgmtORBCommandFunction( args );
+                break;
+                
+            case kIOFWSBP2UserClientMgmtORBSetManageeORB:
+                status = setMgmtORBManageeORB( args );
+                break;
+                
+            case kIOFWSBP2UserClientMgmtORBSetManageeLogin:
+                status = setMgmtORBManageeLogin( args );
+                break;
+                
+            case kIOFWSBP2UserClientMgmtORBSetResponseBuffer:
+                status = setMgmtORBResponseBuffer( args );
+                break;
+                
+            case kIOFWSBP2UserClientLSIWorkaroundSetCommandBuffersAsRanges:
+                status = LSIWorkaroundSetCommandBuffersAsRanges( args );
+                break;
+                
+            case kIOFWSBP2UserClientMgmtORBLSIWorkaroundSyncBuffersForOutput:
+                status = LSIWorkaroundSyncBuffersForOutput( args );
+                break;
+                
+            case kIOFWSBP2UserClientMgmtORBLSIWorkaroundSyncBuffersForInput:
+                status = LSIWorkaroundSyncBuffersForInput( args );
+                break;
+                
+            case kIOFWSBP2UserClientOpenWithSessionRef:
+                status = openWithSessionRef( args );
+                break;
+                
+            case kIOFWSBP2UserClientGetSessionRef:
+                status = getSessionRef( args );
+                break;
+                
+            case kIOFWSBP2UserClientRingDoorbell:
+                status = ringDoorbell( args );
+                break;
+                
+            case kIOFWSBP2UserClientEnableUnsolicitedStatus:
+                status = enableUnsolicitedStatus( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetBusyTimeoutRegisterValue:
+                status = setBusyTimeoutRegisterValue( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetORBRefCon:
+                status = setORBRefCon( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetPassword:
+                status = setPassword( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetMessageCallback:
+                status = setMessageCallback( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetLoginCallback:
+                status = setLoginCallback( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetLogoutCallback:
+                status = setLogoutCallback( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetUnsolicitedStatusNotify:
+                status = setUnsolicitedStatusNotify( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetStatusNotify:
+                status = setStatusNotify( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetMgmtORBCallback:
+                status = setMgmtORBCallback( args );
+                break;
+                
+            case kIOFWSBP2UserClientSubmitFetchAgentReset:
+                status = submitFetchAgentReset( args );
+                break;
+                
+            case kIOFWSBP2UserClientSetFetchAgentWriteCompletion:
+                status = setFetchAgentWriteCompletion( args );
+                break;
+            
+            default:
+                status = kIOReturnBadArgument;
+        }
 	
+        IOLockUnlock( fUserClientLock );
+    }
+    
 //	IOLog( "IOFireWireSBP2UserClient::externalMethod - selector = %d, status = 0x%08lx\n", selector, status );
 	
 	return status;
@@ -367,37 +391,48 @@ IOReturn IOFireWireSBP2UserClient::clientClose( void )
 {
     FWKLOG(( "IOFireWireSBP2UserClient : clientClose\n" ));
 	
-	if( fExporter )
-	{
-		fExporter->removeAllObjects();
-	}
-	
-    if( fLogin )
+    // this NULL check is just paranoia
+    // clientClose should not be called on user client that failed start
+    // if for some reason it was called, this isn't a leak because none of these resources would be allocated if we had a NULL lock
+    
+    if( fUserClientLock )
     {
-		// releasing the login flushes all orbs
-        fLogin->release();
-        fLogin = NULL;
-    }
+        IOLockLock( fUserClientLock );
 
-    if( fOpened )
-    {
-		// as long as we have the provider open we should not get terminated
-		
-		IOService * provider = getProvider();
-		
-		if( provider )
-		{
-			flushAllManagementORBs();
-			
-			IOFireWireController * control = (((IOFireWireSBP2LUN*)provider)->getFireWireUnit())->getController();
-
-			// reset bus - aborts orbs
-			control->resetBus();
-		
-			provider->close(this);
+        if( fExporter )
+        {
+            fExporter->removeAllObjects();
         }
-		
-		fOpened = false;
+        
+        if( fLogin )
+        {
+            // releasing the login flushes all orbs
+            fLogin->release();
+            fLogin = NULL;
+        }
+
+        if( fOpened )
+        {
+            // as long as we have the provider open we should not get terminated
+            
+            IOService * provider = getProvider();
+            
+            if( provider )
+            {
+                flushAllManagementORBs();
+                
+                IOFireWireController * control = (((IOFireWireSBP2LUN*)provider)->getFireWireUnit())->getController();
+
+                // reset bus - aborts orbs
+                control->resetBus();
+            
+                provider->close(this);
+            }
+            
+            fOpened = false;
+        }
+
+        IOLockUnlock( fUserClientLock );
     }
     
 	// from here on we cannot assume our provider is valid
@@ -406,6 +441,7 @@ IOReturn IOFireWireSBP2UserClient::clientClose( void )
 	
     terminate( kIOServiceRequired );
 	
+
 	return kIOReturnSuccess;
 }
 

@@ -53,7 +53,7 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "SelectionRect.h"
 #endif
 
@@ -952,11 +952,6 @@ String Range::toString() const
     return builder.toString();
 }
 
-String Range::toHTML() const
-{
-    return createMarkup(*this);
-}
-
 String Range::text() const
 {
     // We need to update layout, since plainText uses line boxes in the render tree.
@@ -1132,7 +1127,7 @@ ExceptionOr<void> Range::setStartBefore(Node& refNode)
 
 Node* Range::firstNode() const
 {
-    if (startContainer().offsetInCharacters())
+    if (startContainer().isCharacterDataNode())
         return &startContainer();
     if (Node* child = startContainer().traverseToChildAt(m_start.offset()))
         return child;
@@ -1148,7 +1143,7 @@ ShadowRoot* Range::shadowRoot() const
 
 Node* Range::pastLastNode() const
 {
-    if (endContainer().offsetInCharacters())
+    if (endContainer().isCharacterDataNode())
         return NodeTraversal::nextSkippingChildren(endContainer());
     if (Node* child = endContainer().traverseToChildAt(m_end.offset()))
         return child;
@@ -1250,7 +1245,7 @@ void Range::absoluteTextQuads(Vector<FloatQuad>& quads, bool useSelectionHeight,
         *inFixed = allFixed ? EntirelyFixedPosition : (someFixed ? PartiallyFixedPosition : NotFixedPosition);
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 static bool intervalsSufficientlyOverlap(int startA, int endA, int startB, int endB)
 {
     if (endA <= startA || endB <= startB)
@@ -1431,7 +1426,7 @@ int Range::collectSelectionRectsWithoutUnionInteriorLines(Vector<SelectionRect>&
         if (rects[j].lineNumber() != rects[j - 1].lineNumber())
             continue;
         SelectionRect& previousRect = rects[j - 1];
-        bool previousRectMayNotReachRightEdge = (previousRect.direction() == LTR && previousRect.containsEnd()) || (previousRect.direction() == RTL && previousRect.containsStart());
+        bool previousRectMayNotReachRightEdge = (previousRect.direction() == TextDirection::LTR && previousRect.containsEnd()) || (previousRect.direction() == TextDirection::RTL && previousRect.containsStart());
         if (previousRectMayNotReachRightEdge)
             continue;
         int adjustedWidth = rects[j].logicalLeft() - previousRect.logicalLeft();
@@ -1446,10 +1441,10 @@ int Range::collectSelectionRectsWithoutUnionInteriorLines(Vector<SelectionRect>&
         SelectionRect& selectionRect = rects[i];
         if (!selectionRect.isLineBreak() && selectionRect.lineNumber() >= maxLineNumber)
             continue;
-        if (selectionRect.direction() == RTL && selectionRect.isFirstOnLine()) {
+        if (selectionRect.direction() == TextDirection::RTL && selectionRect.isFirstOnLine()) {
             selectionRect.setLogicalWidth(selectionRect.logicalWidth() + selectionRect.logicalLeft() - selectionRect.minX());
             selectionRect.setLogicalLeft(selectionRect.minX());
-        } else if (selectionRect.direction() == LTR && selectionRect.isLastOnLine())
+        } else if (selectionRect.direction() == TextDirection::LTR && selectionRect.isLastOnLine())
             selectionRect.setLogicalWidth(selectionRect.maxX() - selectionRect.logicalLeft());
     }
     

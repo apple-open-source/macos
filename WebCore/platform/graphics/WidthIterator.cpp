@@ -53,7 +53,7 @@ WidthIterator::WidthIterator(const FontCascade* font, const TextRun& run, HashSe
     if (!m_expansion)
         m_expansionPerOpportunity = 0;
     else {
-        unsigned expansionOpportunityCount = FontCascade::expansionOpportunityCount(m_run.text(), m_run.ltr() ? LTR : RTL, run.expansionBehavior()).first;
+        unsigned expansionOpportunityCount = FontCascade::expansionOpportunityCount(m_run.text(), m_run.ltr() ? TextDirection::LTR : TextDirection::RTL, run.expansionBehavior()).first;
 
         if (!expansionOpportunityCount)
             m_expansionPerOpportunity = 0;
@@ -345,7 +345,7 @@ inline unsigned WidthIterator::advanceInternal(TextIterator& textIterator, Glyph
         previousCharacter = character;
     }
 
-    if (leftoverJustificationWidth) {
+    if (glyphBuffer && leftoverJustificationWidth) {
         if (m_forTextEmphasis)
             glyphBuffer->add(lastFontData->zeroWidthSpaceGlyph(), lastFontData, leftoverJustificationWidth, m_run.length() - 1);
         else

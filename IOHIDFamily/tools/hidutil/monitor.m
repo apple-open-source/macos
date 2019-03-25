@@ -12,6 +12,7 @@
 #import "HIDEvent.h"
 #import <objc/runtime.h>
 #import <AssertMacros.h>
+#import <os/variant_private.h>
 
 #define kOptClientType  1000
 
@@ -276,6 +277,10 @@ int monitor(int argc __unused, const char * argv[] __unused) {
     char *                      matchingStr         = NULL;
     _debugKeys = @[ @kIOHIDPrimaryUsagePageKey, @kIOHIDPrimaryUsageKey, @kIOHIDVendorIDKey, @kIOHIDProductIDKey,
                      @kIOHIDTransportKey, @kIOHIDLocationIDKey, @kIOHIDProductKey, @kIOHIDManufacturerKey ];
+    
+    if(!os_variant_allows_internal_security_policies(nil)) {
+        return 0;
+    }
     
     while ((arg = getopt_long(argc, (char **) argv, MAIN_OPTIONS_SHORT, MAIN_OPTIONS, NULL)) != -1) {
         switch (arg) {

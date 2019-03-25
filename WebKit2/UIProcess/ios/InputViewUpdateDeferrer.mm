@@ -26,11 +26,9 @@
 #import "config.h"
 #import "InputViewUpdateDeferrer.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import "UIKitSPI.h"
-
-using namespace WebKit;
 
 namespace WebKit {
 
@@ -47,4 +45,4 @@ InputViewUpdateDeferrer::~InputViewUpdateDeferrer()
     
 }
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

@@ -36,7 +36,7 @@
 #include "VisibleSelection.h"
 #include <wtf/Noncopyable.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "Color.h"
 #endif
 
@@ -104,6 +104,7 @@ public:
     void setCaretPosition(const VisiblePosition&);
     void clear() { setCaretPosition(VisiblePosition()); }
     WEBCORE_EXPORT IntRect caretRectInRootViewCoordinates() const;
+    WEBCORE_EXPORT IntRect editableElementRectInRootViewCoordinates() const;
 
     void nodeWillBeRemoved(Node&);
 
@@ -129,10 +130,12 @@ public:
         RevealSelection = 1 << 7,
         RevealSelectionUpToMainFrame = 1 << 8,
     };
-    typedef unsigned SetSelectionOptions; // Union of values in SetSelectionOption and EUserTriggered
-    static inline SetSelectionOptions defaultSetSelectionOptions(EUserTriggered userTriggered = NotUserTriggered)
+    static constexpr OptionSet<SetSelectionOption> defaultSetSelectionOptions(EUserTriggered userTriggered = NotUserTriggered)
     {
-        return CloseTyping | ClearTypingStyle | (userTriggered ? (RevealSelection | FireSelectEvent | IsUserTriggered) : 0);
+        OptionSet<SetSelectionOption> options { CloseTyping, ClearTypingStyle };
+        if (userTriggered == UserTriggered)
+            options.add({ RevealSelection, FireSelectEvent, IsUserTriggered });
+        return options;
     }
 
     WEBCORE_EXPORT explicit FrameSelection(Frame* = nullptr);
@@ -147,15 +150,19 @@ public:
     void moveWithoutValidationTo(const Position&, const Position&, bool selectionHasDirection, bool shouldSetFocus, SelectionRevealMode, const AXTextStateChangeIntent& = AXTextStateChangeIntent());
 
     const VisibleSelection& selection() const { return m_selection; }
-    WEBCORE_EXPORT void setSelection(const VisibleSelection&, SetSelectionOptions = defaultSetSelectionOptions(), AXTextStateChangeIntent = AXTextStateChangeIntent(), CursorAlignOnScroll = AlignCursorOnScrollIfNeeded, TextGranularity = CharacterGranularity);
-    WEBCORE_EXPORT bool setSelectedRange(Range*, EAffinity, bool closeTyping, EUserTriggered = NotUserTriggered);
+    WEBCORE_EXPORT void setSelection(const VisibleSelection&, OptionSet<SetSelectionOption> = defaultSetSelectionOptions(), AXTextStateChangeIntent = AXTextStateChangeIntent(), CursorAlignOnScroll = AlignCursorOnScrollIfNeeded, TextGranularity = CharacterGranularity);
+
+    enum class ShouldCloseTyping : bool { No, Yes };
+    WEBCORE_EXPORT bool setSelectedRange(Range*, EAffinity, ShouldCloseTyping, EUserTriggered = NotUserTriggered);
     WEBCORE_EXPORT void selectAll();
     WEBCORE_EXPORT void clear();
     void prepareForDestruction();
 
     void updateAppearanceAfterLayout();
     void scheduleAppearanceUpdateAfterStyleChange();
-    void setNeedsSelectionUpdate();
+
+    enum class RevealSelectionAfterUpdate : bool { NotForced, Forced };
+    void setNeedsSelectionUpdate(RevealSelectionAfterUpdate = RevealSelectionAfterUpdate::NotForced);
 
     bool contains(const LayoutPoint&) const;
 
@@ -216,7 +223,7 @@ public:
     void showTreeForThis() const;
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 public:
     WEBCORE_EXPORT void expandSelectionToElementContainingCaretSelection();
     WEBCORE_EXPORT RefPtr<Range> elementRangeContainingCaretSelection() const;
@@ -282,7 +289,7 @@ private:
     void updateAndRevealSelection(const AXTextStateChangeIntent&);
     void updateDataDetectorsForSelection();
 
-    bool setSelectionWithoutUpdatingAppearance(const VisibleSelection&, SetSelectionOptions, CursorAlignOnScroll, TextGranularity);
+    bool setSelectionWithoutUpdatingAppearance(const VisibleSelection&, OptionSet<SetSelectionOption>, CursorAlignOnScroll, TextGranularity);
 
     void respondToNodeModification(Node&, bool baseRemoved, bool extentRemoved, bool startRemoved, bool endRemoved);
     TextDirection directionOfEnclosingBlock();
@@ -360,7 +367,7 @@ private:
     bool m_pendingSelectionUpdate : 1;
     bool m_alwaysAlignCursorOnScrollWhenRevealingSelection : 1;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     bool m_updateAppearanceEnabled : 1;
     bool m_caretBlinks : 1;
     Color m_caretColor;

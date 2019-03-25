@@ -449,6 +449,9 @@ bool CLASS::createRoot(void)
     root->isBridge     = true;
 
     root->secBusNum    = 0xff;
+    root->subDeviceNum = 0;
+    root->endDeviceNum = 31;
+
 
 	IOLog  ("pci (build %s %s), flags 0x%x\n", __TIME__, __DATE__, gIOPCIFlags);
 	kprintf("pci (build %s %s), flags 0x%x\n", __TIME__, __DATE__, gIOPCIFlags);
@@ -476,6 +479,8 @@ IOReturn CLASS::addHostBridge(IOPCIBridge * hostBridge)
     bridge->headerType   = kPCIHeaderType1;
     bridge->secBusNum    = hostBridge->firstBusNum();
     bridge->subBusNum    = hostBridge->lastBusNum();
+    bridge->subDeviceNum = 0;
+    bridge->endDeviceNum = 31;
 //#warning bus52
 //    if (bridge->subBusNum > 250) bridge->subBusNum = 52;
     bridge->space        = hostBridge->getBridgeSpace();
@@ -1050,7 +1055,7 @@ void CLASS::matchACPIEntry( IORegistryEntry * dtEntry, void * _context )
     {
         if (kPCIDeviceStateDead & child->deviceState)
             continue;
-        if (child->space.s.deviceNum == deviceNum &&
+        if ((child->space.s.deviceNum - bridge->subDeviceNum) == deviceNum &&
             (functionAll || (child->space.s.functionNum == functionNum)))
         {
             match = child;
@@ -1487,7 +1492,7 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 		  16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 };
 #endif
 		// Scan all PCI devices and functions on the secondary bus.
-		for (scanDevice = 0; scanDevice <= 31; scanDevice++)
+		for (scanDevice = bridge->subDeviceNum; scanDevice <= bridge->endDeviceNum; scanDevice++)
 		{
 			lastFunction = 0;
 			for (scanFunction = 0; scanFunction <= lastFunction; scanFunction++)
@@ -1816,7 +1821,9 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 
         case kPCIHeaderType1:
         case kPCIHeaderType2:
-            child->isBridge = true;
+            child->isBridge     = true;
+			child->subDeviceNum = 0;
+			child->endDeviceNum = 31;
             break;
 
         default:
@@ -1856,6 +1863,26 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 			child->linkCaps           = linkCaps;
 			DLOG("  expressCaps 0x%x, linkControl 0x%x, linkCaps 0x%x, slotCaps 0x%x\n",
 				 child->expressCaps, linkControl, child->linkCaps, slotCaps);
+
+			if ((kIOPCIConfiguratorFPBEnable & gIOPCIFlags)
+			 && findPCICapability(child, kIOPCIFPBCapability, &child->fpbCapBlock))
+			{
+				child->fpbCaps = configRead32(child, child->fpbCapBlock + 0x04);
+				if (1 & child->fpbCaps)
+				{
+					child->fpbUp   = (0x50 == (0xf0 & expressCaps));
+					child->fpbDown = (bridge->fpbUp && (0x60 == (0xf0 & expressCaps)));
+				}
+				if (child->fpbDown)
+				{
+					child->subDeviceNum = child->endDeviceNum
+					= child->space.s.deviceNum + (1 + (31 & (bridge->fpbCaps >> 3)));
+
+					child->rangeBaseChanges = (1 << kIOPCIRangeBridgeBusNumber);
+				}
+				DLOG("  fpbCaps 0x%x, fpbUp %d, fpbDown %d subDevice %d\n",
+					 child->fpbCaps, child->fpbUp, child->fpbDown, child->subDeviceNum);
+			}
 		}
 		child->expressDeviceCaps1 = configRead32(child, child->expressCapBlock + 0x04);
 		child->expressMaxPayload  = (child->expressDeviceCaps1 & 7);
@@ -2225,7 +2252,7 @@ void CLASS::bridgeProbeBusRange(IOPCIConfigEntry * bridge, uint32_t resetMask)
 
     range = IOPCIRangeAlloc();
     start = bridge->secBusNum;
-    size  = bridge->subBusNum - bridge->secBusNum + 1;
+    size  = bridge->subBusNum - bridge->secBusNum + (bridge->fpbDown ? 0 : 1);
     IOPCIRangeInit(range, kIOPCIResourceTypeBusNumber, start, size, kPCIBridgeBusNumberAlignment);
     bridge->ranges[kIOPCIRangeBridgeBusNumber] = range;
 }
@@ -2403,9 +2430,10 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 
     if (!(kPCIDeviceStateScanned & bridge->deviceState))
     {
-		haveBus = ((bridge->secBusNum || bridge->isHostBridge)
+		haveBus = (bridge->fpbDown
+			|| (((bridge->secBusNum || bridge->isHostBridge)
 			    && ((bootScan && bridge->ranges[kIOPCIRangeBridgeBusNumber]->proposedSize)
-				   || ((!bootScan) && bridge->ranges[kIOPCIRangeBridgeBusNumber]->size)));
+				   || ((!bootScan) && bridge->ranges[kIOPCIRangeBridgeBusNumber]->size)))));
 		if (haveBus)
 		{
 			DLOG("scan %s" B() "\n", bootScan ? "(boot) " : "", BRIDGE_IDENT(bridge));
@@ -2416,7 +2444,7 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 						   | (1 << kIOPCIResourceTypeIO)
 						   | (1 << kIOPCIResourceTypeBusNumber));
 			}
-			bridgeScanBus(bridge, bridge->secBusNum);
+			bridgeScanBus(bridge, (bridge->fpbDown ? bridge->space.s.busNum : bridge->secBusNum));
 			bridge->deviceState |= kPCIDeviceStateScanned;
 			if (kPCIDeviceStateChildChanged & bridge->deviceState) 
 			{
@@ -2465,16 +2493,17 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 int32_t CLASS::bootResetProc(void * ref, IOPCIConfigEntry * bridge)
 {
     bool     ok = true;
-    uint32_t reg32;
+    uint32_t reg32, reserveSize;
 
 	if ((kPCIStatic != (kPCIHPTypeMask & bridge->supportsHotPlug))
 	 && bridge->ranges[kIOPCIRangeBridgeBusNumber]
 	 && !bridge->ranges[kIOPCIRangeBridgeBusNumber]->nextSubRange)
 	{
+		reserveSize = (bridge->fpbDown ? 0 : 1);
         bridge->ranges[kIOPCIRangeBridgeBusNumber]->start        = 0;
         bridge->ranges[kIOPCIRangeBridgeBusNumber]->size         = 0;
-        bridge->ranges[kIOPCIRangeBridgeBusNumber]->totalSize    = 1;
-        bridge->ranges[kIOPCIRangeBridgeBusNumber]->proposedSize = 1;
+        bridge->ranges[kIOPCIRangeBridgeBusNumber]->totalSize    = reserveSize;
+        bridge->ranges[kIOPCIRangeBridgeBusNumber]->proposedSize = reserveSize;
 		if (kPCIHotPlugTunnelRootParent != bridge->supportsHotPlug)
 		{
 			DLOG("boot reset " B() "\n", BRIDGE_IDENT(bridge));
@@ -2855,7 +2884,7 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 
     bzero(&ranges[0], sizeof(ranges));
     bzero(&totalSize[0], sizeof(totalSize));
-    if (bridge != fRoot) totalSize[kIOPCIResourceTypeBusNumber] = 1;
+    if ((bridge != fRoot) && !bridge->fpbDown) totalSize[kIOPCIResourceTypeBusNumber] = 1;
 
     bcopy(&minBridgeAlignments[0], &maxAlignment[0], sizeof(maxAlignment));
 
@@ -3059,7 +3088,8 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 
 	if (((1 << kIOPCIResourceTypeBusNumber) & typeMask)
 	 && (range = bridgeGetRange(bridge, kIOPCIResourceTypeBusNumber))
-	 && !bridge->busResv.nextSubRange)
+	 && !bridge->busResv.nextSubRange
+	 && !bridge->fpbDown)
 	{
 		IOPCIRangeInit(&bridge->busResv, kIOPCIResourceTypeBusNumber,
 						bridge->secBusNum, 1, kPCIBridgeBusNumberAlignment);
@@ -3543,10 +3573,17 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
         {
 			range = bridge->ranges[kIOPCIRangeBridgeBusNumber];
             DLOGI_RANGE("  BUS", range);
+            uint8_t secondaryBus;
+
 			if (range->start && range->size)
 			{
 				bridge->secBusNum = range->start;
 				bridge->subBusNum = range->start + range->size - 1;
+			}
+			else if (bridge->fpbDown)
+			{
+				bridge->secBusNum = bridge->space.s.busNum;
+				bridge->subBusNum = 0;
 			}
 			else
 			{
@@ -3554,11 +3591,12 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
 			}
 
             // Give children the correct bus
+            secondaryBus = (bridge->fpbDown ? bridge->space.s.busNum : bridge->secBusNum);
 
             FOREACH_CHILD(bridge, child)
             {
-                child->space.s.busNum = bridge->secBusNum;
-            	child->deviceState &= ~kPCIDeviceStatePropertiesDone;
+				child->space.s.busNum = secondaryBus;
+				child->deviceState &= ~kPCIDeviceStatePropertiesDone;
             }
 
             DLOGI("  OLD: prim/sec/sub = 0x%02x:0x%02x:0x%02x\n",
@@ -3572,11 +3610,26 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
             reg32 &= ~0x00ffffff;
             reg32 |= bridge->space.s.busNum | (bridge->secBusNum << 8) | (bridge->subBusNum << 16);
             configWrite32(bridge, kPCI2PCIPrimaryBus, reg32);
-    
+
             DLOGI("  BUS: prim/sec/sub = 0x%02x:0x%02x:0x%02x\n",
                  configRead8(bridge, kPCI2PCIPrimaryBus),
                  configRead8(bridge, kPCI2PCISecondaryBus),
                  configRead8(bridge, kPCI2PCISubordinateBus));
+
+            // Program FPB caps
+
+			if (bridge->fpbUp || bridge->fpbDown)
+			{
+				reg32 = (secondaryBus << 8) | (bridge->subDeviceNum << 3);
+				configWrite32(bridge, bridge->fpbCapBlock + 8, (1 | (reg32 << 16)));
+				configWrite32(bridge, bridge->fpbCapBlock + 12, reg32);
+
+				configWrite32(bridge, bridge->fpbCapBlock + 28, 0);
+				configWrite32(bridge, bridge->fpbCapBlock + 32, bridge->fpbDown ? 1 : 0);
+				DLOGI("  FPB: control      = 0x%08x:0x%08x\n",
+					 configRead32(bridge, bridge->fpbCapBlock + 8),
+					 configRead32(bridge, bridge->fpbCapBlock + 12));
+			}
 
             bridge->rangeBaseChanges &= ~(1 << kIOPCIRangeBridgeBusNumber);
             bridge->rangeSizeChanges &= ~(1 << kIOPCIRangeBridgeBusNumber);

@@ -34,16 +34,23 @@ namespace CodeSigning {
 
 CFDataRef EmbeddedSignatureBlob::component(CodeDirectory::SpecialSlot slot) const
 {
-	if (const BlobCore *blob = this->find(slot)) {
-		if (CodeDirectory::slotAttributes(slot) & cdComponentIsBlob) {
-			return makeCFData(*blob);	// is a native Blob
-		} else if (const BlobWrapper *wrap = BlobWrapper::specific(blob)) {
-			return makeCFData(*wrap);
-		} else {
-			MacOSError::throwMe(errSecCSSignatureInvalid);
-		}
+	const BlobCore *blob = this->find(slot);
+	
+	if (blob) {
+		return blobData(slot, blob);
 	}
 	return NULL;
+}
+	
+CFDataRef EmbeddedSignatureBlob::blobData(CodeDirectory::SpecialSlot slot, BlobCore const *blob)
+{
+	if (CodeDirectory::slotAttributes(slot) & cdComponentIsBlob) {
+		return makeCFData(*blob);	// is a native Blob
+	} else if (const BlobWrapper *wrap = BlobWrapper::specific(blob)) {
+		return makeCFData(*wrap);
+	} else {
+		MacOSError::throwMe(errSecCSSignatureInvalid);
+	}
 }
 
 

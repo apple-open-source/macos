@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "AnimationEffectReadOnly.h"
+#include "AnimationEffect.h"
 #include "GenericEventQueue.h"
 #include "WebAnimation.h"
 #include <wtf/Ref.h>
@@ -42,28 +42,51 @@ public:
 
     bool isDeclarativeAnimation() const final { return true; }
 
+    Element* owningElement() const { return m_owningElement; }
     const Animation& backingAnimation() const { return m_backingAnimation; }
     void setBackingAnimation(const Animation&);
-    void invalidateDOMEvents(Seconds elapsedTime = 0_s);
+    void cancelFromStyle();
+
+    Optional<double> startTime() const final;
+    void setStartTime(Optional<double>) final;
+    Optional<double> bindingsCurrentTime() const final;
+    ExceptionOr<void> setBindingsCurrentTime(Optional<double>) final;
+    WebAnimation::PlayState bindingsPlayState() const final;
+    bool bindingsPending() const final;
+    WebAnimation::ReadyPromise& bindingsReady() final;
+    WebAnimation::FinishedPromise& bindingsFinished() final;
+    ExceptionOr<void> bindingsPlay() override;
+    ExceptionOr<void> bindingsPause() override;
 
     void setTimeline(RefPtr<AnimationTimeline>&&) final;
     void cancel() final;
 
+    bool needsTick() const override;
+    void tick() override;
+
 protected:
     DeclarativeAnimation(Element&, const Animation&);
 
-    virtual void initialize(const Element&, const RenderStyle* oldStyle, const RenderStyle& newStyle);
+    virtual void initialize(const RenderStyle* oldStyle, const RenderStyle& newStyle);
     virtual void syncPropertiesWithBackingAnimation();
+    void invalidateDOMEvents(Seconds elapsedTime = 0_s);
 
 private:
-    AnimationEffectReadOnly::Phase phaseWithoutEffect() const;
+    void disassociateFromOwningElement();
+    void flushPendingStyleChanges() const;
+    AnimationEffect::Phase phaseWithoutEffect() const;
     void enqueueDOMEvent(const AtomicString&, Seconds);
     void remove() final;
 
-    Element& m_target;
+    // ActiveDOMObject.
+    void suspend(ReasonForSuspension) final;
+    void resume() final;
+    void stop() final;
+
+    Element* m_owningElement;
     Ref<Animation> m_backingAnimation;
     bool m_wasPending { false };
-    AnimationEffectReadOnly::Phase m_previousPhase { AnimationEffectReadOnly::Phase::Idle };
+    AnimationEffect::Phase m_previousPhase { AnimationEffect::Phase::Idle };
     double m_previousIteration;
     GenericEventQueue m_eventQueue;
 };

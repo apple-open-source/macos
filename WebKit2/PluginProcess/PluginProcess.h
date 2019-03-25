@@ -49,6 +49,7 @@ class PluginProcess : public ChildProcess
 
 public:
     static PluginProcess& singleton();
+    static constexpr ProcessType processType = ProcessType::Plugin;
 
     void removeWebProcessConnection(WebProcessConnection*);
 
@@ -81,6 +82,7 @@ private:
     // ChildProcess
     void initializeProcess(const ChildProcessInitializationParameters&) override;
     void initializeProcessName(const ChildProcessInitializationParameters&) override;
+    void initializeConnection(IPC::Connection*) override;
     void initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&) override;
     bool shouldTerminate() override;
     void platformInitializeProcess(const ChildProcessInitializationParameters&);

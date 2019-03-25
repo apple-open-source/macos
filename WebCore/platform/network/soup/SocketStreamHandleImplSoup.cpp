@@ -36,11 +36,15 @@
 
 #include "DeprecatedGlobalSettings.h"
 #include "Logging.h"
+#include "NetworkStorageSession.h"
+#include "ResourceError.h"
 #include "SocketStreamError.h"
 #include "SocketStreamHandleClient.h"
-#include "URL.h"
+#include "SoupNetworkSession.h"
+#include "URLSoup.h"
 #include <gio/gio.h>
 #include <glib.h>
+#include <wtf/URL.h>
 #include <wtf/Vector.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
@@ -86,7 +90,7 @@ Ref<SocketStreamHandleImpl> SocketStreamHandleImpl::create(const URL& url, Socke
     if (!networkStorageSession)
         return socket;
 
-    auto uri = url.createSoupURI();
+    auto uri = urlToSoupURI(url);
     Ref<SocketStreamHandle> protectedSocketStreamHandle = socket.copyRef();
     soup_session_connect_async(networkStorageSession->getOrCreateSoupNetworkSession().soupSession(), uri.get(), socket->m_cancellable.get(),
         url.protocolIs("wss") ? reinterpret_cast<SoupSessionConnectProgressCallback>(connectProgressCallback) : nullptr,
@@ -212,7 +216,7 @@ void SocketStreamHandleImpl::writeReady()
     sendPendingData();
 }
 
-std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t* data, size_t length)
+Optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t* data, size_t length)
 {
     LOG(Network, "SocketStreamHandle %p platformSend", this);
     if (!m_outputStream || !data)
@@ -225,7 +229,7 @@ std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t
             beginWaitingForSocketWritability();
         else
             didFail(SocketStreamError(error->code, String(), error->message));
-        return std::nullopt;
+        return WTF::nullopt;
     }
 
     // If we did not send all the bytes we were given, we know that
@@ -234,7 +238,7 @@ std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t
         beginWaitingForSocketWritability();
 
     if (written == -1)
-        return std::nullopt;
+        return WTF::nullopt;
 
     return static_cast<size_t>(written);
 }

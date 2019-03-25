@@ -583,6 +583,11 @@ RSA_OAEP_CRYPT_ADAPTOR(SHA512, ccsha512_di());
 const SecKeyKeyExchangeParameter kSecKeyKeyExchangeParameterRequestedSize = CFSTR("requestedSize");
 const SecKeyKeyExchangeParameter kSecKeyKeyExchangeParameterSharedInfo = CFSTR("sharedInfo");
 
+const CFStringRef kSecKeyEncryptionParameterSymmetricKeySizeInBits = CFSTR("symKeySize");
+const CFStringRef kSecKeyEncryptionParameterSymmetricAAD = CFSTR("aad");
+const CFStringRef kSecKeyEncryptionParameterRecryptParameters = CFSTR("recryptParams");
+const CFStringRef kSecKeyEncryptionParameterRecryptCertificate = CFSTR("recryptCert");
+
 static CFTypeRef SecKeyECDHCopyX963Result(SecKeyOperationContext *context, const struct ccdigest_info *di,
                                           CFTypeRef in1, CFTypeRef params, CFErrorRef *error) {
     CFTypeRef result = NULL;
@@ -648,9 +653,9 @@ static CFIndex SecKeyGetCFIndexFromRef(CFTypeRef ref) {
     return result;
 }
 
-typedef CFDataRef (*SecKeyECIESKeyExchangeCopyResult)(SecKeyOperationContext *context, SecKeyAlgorithm keyExchangeAlgorithm, bool encrypt, CFDataRef ephemeralPubKey, CFDataRef pubKey, bool variableIV, CFErrorRef *error);
-typedef Boolean (*SecKeyECIESEncryptCopyResult)(CFDataRef keyExchangeResult, CFDataRef inData, CFMutableDataRef result, CFErrorRef *error);
-typedef CFDataRef SecKeyECIESDecryptCopyResult(CFDataRef keyExchangeResult, CFDataRef inData, CFErrorRef *error);
+typedef CFDataRef (*SecKeyECIESKeyExchangeCopyResult)(SecKeyOperationContext *context, SecKeyAlgorithm keyExchangeAlgorithm, bool encrypt, CFDataRef ephemeralPubKey, CFDataRef pubKey, bool variableIV, CFDictionaryRef inParams, CFErrorRef *error);
+typedef Boolean (*SecKeyECIESEncryptCopyResult)(CFDataRef keyExchangeResult, CFDataRef inData, CFDictionaryRef inParams, CFMutableDataRef result, CFErrorRef *error);
+typedef CFDataRef SecKeyECIESDecryptCopyResult(CFDataRef keyExchangeResult, CFDataRef inData, CFDictionaryRef inParams, CFErrorRef *error);
 
 static CFTypeRef SecKeyECIESCopyEncryptedData(SecKeyOperationContext *context, SecKeyAlgorithm keyExchangeAlgorithm,
                                               SecKeyECIESKeyExchangeCopyResult keyExchangeCopyResult,
@@ -681,11 +686,11 @@ static CFTypeRef SecKeyECIESCopyEncryptedData(SecKeyOperationContext *context, S
 
     context->key = ephemeralPrivateKey;
     require_quiet(keyExchangeResult = keyExchangeCopyResult(context, keyExchangeAlgorithm, true,
-                                                            ephemeralPubKeyData, pubKeyData, variableIV, error), out);
+                                                            ephemeralPubKeyData, pubKeyData, variableIV, in2, error), out);
     if (context->mode == kSecKeyOperationModePerform) {
         // Encrypt input data using AES-GCM.
         ciphertext = CFDataCreateMutableCopy(kCFAllocatorDefault, 0, ephemeralPubKeyData);
-        require_quiet(encryptCopyResult(keyExchangeResult, in1, ciphertext, error), out);
+        require_quiet(encryptCopyResult(keyExchangeResult, in1, in2, ciphertext, error), out);
         result = CFRetain(ciphertext);
     } else {
         result = CFRetain(keyExchangeResult);
@@ -736,12 +741,12 @@ static CFTypeRef SecKeyECIESCopyDecryptedData(SecKeyOperationContext *context, S
 
     // Perform keyExchange operation.
     require_quiet(keyExchangeResult = keyExchangeCopyResult(context, keyExchangeAlgorithm, false,
-                                                            ephemeralPubKeyData, pubKeyData, variableIV, error), out);
+                                                            ephemeralPubKeyData, pubKeyData, variableIV, in2, error), out);
     if (context->mode == kSecKeyOperationModePerform) {
         // Decrypt ciphertext using AES-GCM.
         ciphertext = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, ciphertextBuffer, CFDataGetLength(in1) - (keySize * 2 + 1),
                                                  kCFAllocatorNull);
-        require_quiet(result = decryptCopyResult(keyExchangeResult, ciphertext, error), out);
+        require_quiet(result = decryptCopyResult(keyExchangeResult, ciphertext, in2, error), out);
     } else {
         result = CFRetain(keyExchangeResult);
     }
@@ -761,45 +766,55 @@ static const UInt8 kSecKeyIESIV[16] = { 0 };
 
 static CFDataRef SecKeyECIESKeyExchangeKDFX963CopyResult(SecKeyOperationContext *context, SecKeyAlgorithm keyExchangeAlgorithm,
                                                          bool encrypt, CFDataRef ephemeralPubKey, CFDataRef pubKey, bool variableIV,
-                                                         CFErrorRef *error) {
-    CFDictionaryRef parameters = NULL;
-    CFNumberRef keySizeRef = NULL;
-    CFDataRef result = NULL;
+                                                         CFDictionaryRef inParams, CFErrorRef *error) {
+    NSDictionary *parametersForKeyExchange, *inputParameters = (__bridge NSDictionary *)inParams;
+    NSData *result;
+    NSMutableData *sharedInfoForKeyExchange;
 
     CFArrayAppendValue(context->algorithm, keyExchangeAlgorithm);
     context->operation = kSecKeyOperationTypeKeyExchange;
 
     if (context->mode == kSecKeyOperationModePerform) {
-        // Use 128bit AES for EC keys <= 256bit, 256bit AES for larger keys.
-        CFIndex keySize = ((CFDataGetLength(pubKey) - 1) / 2) * 8;
-        keySize = (keySize > 256) ? (256 / 8) : (128 / 8);
+        NSInteger keySize = 0;
+        NSNumber *keySizeObject = inputParameters[(__bridge id)kSecKeyEncryptionParameterSymmetricKeySizeInBits];
+        if (keySizeObject != nil) {
+            if (![keySizeObject isKindOfClass:NSNumber.class]) {
+                SecError(errSecParam, error, CFSTR("Bad requested kSecKeyEncryptionParameterSymmetricKeySizeInBits: %@"), keySizeObject);
+                return NULL;
+            }
+            keySize = keySizeObject.integerValue / 8;
+        } else {
+            // Use 128bit AES for EC keys <= 256bit, 256bit AES for larger keys.
+            keySize = ((CFDataGetLength(pubKey) - 1) / 2) * 8;
+            keySize = (keySize > 256) ? (256 / 8) : (128 / 8);
+        }
 
         if (variableIV) {
             keySize += sizeof(kSecKeyIESIV);
         }
 
         // Generate shared secret using KDF.
-        keySizeRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &keySize);
-        parameters = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
-                                                  kSecKeyKeyExchangeParameterSharedInfo, ephemeralPubKey,
-                                                  kSecKeyKeyExchangeParameterRequestedSize, keySizeRef,
-                                                  NULL);
+        sharedInfoForKeyExchange = ((__bridge NSData *)ephemeralPubKey).mutableCopy;
+        NSData *sharedInfo = inputParameters[(__bridge id)kSecKeyKeyExchangeParameterSharedInfo];
+        if (sharedInfo != nil) {
+            [sharedInfoForKeyExchange appendData:sharedInfo];
+        }
+        parametersForKeyExchange = @{ (__bridge id)kSecKeyKeyExchangeParameterSharedInfo: sharedInfoForKeyExchange,
+                                      (__bridge id)kSecKeyKeyExchangeParameterRequestedSize: @(keySize) };
     }
 
-    result = SecKeyRunAlgorithmAndCopyResult(context, encrypt ? pubKey : ephemeralPubKey, parameters, error);
+    result = CFBridgingRelease(SecKeyRunAlgorithmAndCopyResult(context, encrypt ? pubKey : ephemeralPubKey, (__bridge CFDictionaryRef)parametersForKeyExchange, error));
     if (context->mode == kSecKeyOperationModePerform && !variableIV && result != NULL) {
         // Append all-zero IV to the result.
-        CFMutableDataRef data = CFDataCreateMutableCopy(kCFAllocatorDefault, 0, result);
-        CFDataAppendBytes(data, kSecKeyIESIV, sizeof(kSecKeyIESIV));
-        CFAssignRetained(result, data);
+        NSMutableData *data = result.mutableCopy;
+        [data appendBytes:kSecKeyIESIV length:sizeof(kSecKeyIESIV)];
+        result = [NSData dataWithData:data];
     }
-    CFReleaseSafe(parameters);
-    CFReleaseSafe(keySizeRef);
-    return result;
+    return CFBridgingRetain(result);
 }
 
-static Boolean SecKeyECIESEncryptAESGCMCopyResult(CFDataRef keyExchangeResult, CFDataRef inData, CFMutableDataRef result,
-                                                  CFErrorRef *error) {
+static Boolean SecKeyECIESEncryptAESGCMCopyResult(CFDataRef keyExchangeResult, CFDataRef inData, CFDictionaryRef inParams,
+                                                  CFMutableDataRef result, CFErrorRef *error) {
     Boolean res = FALSE;
     CFIndex prefix = CFDataGetLength(result);
     CFDataSetLength(result, prefix + CFDataGetLength(inData) + kSecKeyIESTagLength);
@@ -807,10 +822,11 @@ static Boolean SecKeyECIESEncryptAESGCMCopyResult(CFDataRef keyExchangeResult, C
     UInt8 *tagBuffer = resultBuffer + CFDataGetLength(inData);
     CFIndex aesKeySize = CFDataGetLength(keyExchangeResult) - sizeof(kSecKeyIESIV);
     const UInt8 *ivBuffer = CFDataGetBytePtr(keyExchangeResult) + aesKeySize;
+    CFDataRef aad = inParams ? CFDictionaryGetValue(inParams, kSecKeyEncryptionParameterSymmetricAAD) : NULL;
     require_action_quiet(ccgcm_one_shot(ccaes_gcm_encrypt_mode(),
                                         aesKeySize, CFDataGetBytePtr(keyExchangeResult),
                                         sizeof(kSecKeyIESIV), ivBuffer,
-                                        0, NULL,
+                                        aad ? CFDataGetLength(aad) : 0, aad ? CFDataGetBytePtr(aad) : NULL,
                                         CFDataGetLength(inData), CFDataGetBytePtr(inData),
                                         resultBuffer, kSecKeyIESTagLength, tagBuffer) == 0, out,
                          SecError(errSecParam, error, CFSTR("ECIES: Failed to aes-gcm encrypt data")));
@@ -819,7 +835,8 @@ out:
     return res;
 }
 
-static CFDataRef SecKeyECIESDecryptAESGCMCopyResult(CFDataRef keyExchangeResult, CFDataRef inData, CFErrorRef *error) {
+static CFDataRef SecKeyECIESDecryptAESGCMCopyResult(CFDataRef keyExchangeResult, CFDataRef inData, CFDictionaryRef inParams,
+                                                    CFErrorRef *error) {
     CFDataRef result = NULL;
     CFMutableDataRef plaintext = CFDataCreateMutableWithScratch(kCFAllocatorDefault, CFDataGetLength(inData) - kSecKeyIESTagLength);
     CFMutableDataRef tag = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), kSecKeyIESTagLength);
@@ -827,10 +844,11 @@ static CFDataRef SecKeyECIESDecryptAESGCMCopyResult(CFDataRef keyExchangeResult,
                    CFDataGetMutableBytePtr(tag));
     CFIndex aesKeySize = CFDataGetLength(keyExchangeResult) - sizeof(kSecKeyIESIV);
     const UInt8 *ivBuffer = CFDataGetBytePtr(keyExchangeResult) + aesKeySize;
+    CFDataRef aad = inParams ? CFDictionaryGetValue(inParams, kSecKeyEncryptionParameterSymmetricAAD) : NULL;
     require_action_quiet(ccgcm_one_shot(ccaes_gcm_decrypt_mode(),
                                         aesKeySize, CFDataGetBytePtr(keyExchangeResult),
                                         sizeof(kSecKeyIESIV), ivBuffer,
-                                        0, NULL,
+                                        aad ? CFDataGetLength(aad) : 0, aad ? CFDataGetBytePtr(aad) : NULL,
                                         CFDataGetLength(plaintext), CFDataGetBytePtr(inData), CFDataGetMutableBytePtr(plaintext),
                                         kSecKeyIESTagLength, CFDataGetMutableBytePtr(tag)) == 0, out,
                          SecError(errSecParam, error, CFSTR("ECIES: Failed to aes-gcm decrypt data")));
@@ -877,7 +895,7 @@ ECIES_X963_ADAPTOR(SHA512, Cofactor, VariableIVX963, true)
 
 static CFDataRef SecKeyECIESKeyExchangeSHA2562PubKeysCopyResult(SecKeyOperationContext *context, SecKeyAlgorithm keyExchangeAlgorithm,
                                                                 bool encrypt, CFDataRef ephemeralPubKey, CFDataRef pubKey, bool variableIV,
-                                                                CFErrorRef *error) {
+                                                                CFDictionaryRef inParams, CFErrorRef *error) {
     CFArrayAppendValue(context->algorithm, keyExchangeAlgorithm);
     context->operation = kSecKeyOperationTypeKeyExchange;
     CFMutableDataRef result = (CFMutableDataRef)SecKeyRunAlgorithmAndCopyResult(context, ephemeralPubKey, NULL, error);
@@ -894,7 +912,8 @@ static CFDataRef SecKeyECIESKeyExchangeSHA2562PubKeysCopyResult(SecKeyOperationC
     return result;
 }
 
-static CFDataRef SecKeyECIESDecryptAESCBCCopyResult(CFDataRef keyExchangeResult, CFDataRef inData, CFErrorRef *error) {
+static CFDataRef SecKeyECIESDecryptAESCBCCopyResult(CFDataRef keyExchangeResult, CFDataRef inData, CFDictionaryRef inParams,
+                                                    CFErrorRef *error) {
     CFMutableDataRef result = CFDataCreateMutableWithScratch(kCFAllocatorDefault, CFDataGetLength(inData));
     cccbc_one_shot(ccaes_cbc_decrypt_mode(),
                    CFDataGetLength(keyExchangeResult), CFDataGetBytePtr(keyExchangeResult),

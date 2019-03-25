@@ -106,7 +106,7 @@ void MediaSourceClientGStreamerMSE::abort(RefPtr<SourceBufferPrivateGStreamer> s
 
     ASSERT(appendPipeline);
 
-    appendPipeline->abort();
+    appendPipeline->resetParserState();
 }
 
 void MediaSourceClientGStreamerMSE::resetParserState(RefPtr<SourceBufferPrivateGStreamer> sourceBufferPrivate)
@@ -122,7 +122,7 @@ void MediaSourceClientGStreamerMSE::resetParserState(RefPtr<SourceBufferPrivateG
 
     ASSERT(appendPipeline);
 
-    appendPipeline->abort();
+    appendPipeline->resetParserState();
 }
 
 bool MediaSourceClientGStreamerMSE::append(RefPtr<SourceBufferPrivateGStreamer> sourceBufferPrivate, Vector<unsigned char>&& data)
@@ -169,13 +169,10 @@ void MediaSourceClientGStreamerMSE::removedFromMediaSource(RefPtr<SourceBufferPr
 
     ASSERT(m_playerPrivate->m_playbackPipeline);
 
-    RefPtr<AppendPipeline> appendPipeline = m_playerPrivate->m_appendPipelinesMap.get(sourceBufferPrivate);
-
-    ASSERT(appendPipeline);
-
-    appendPipeline->clearPlayerPrivate();
+    // Remove the AppendPipeline from the map. This should cause its destruction since there should be no alive
+    // references at this point.
+    ASSERT(m_playerPrivate->m_appendPipelinesMap.get(sourceBufferPrivate)->hasOneRef());
     m_playerPrivate->m_appendPipelinesMap.remove(sourceBufferPrivate);
-    // AppendPipeline destructor will take care of cleaning up when appropriate.
 
     m_playerPrivate->m_playbackPipeline->removeSourceBuffer(sourceBufferPrivate);
 }

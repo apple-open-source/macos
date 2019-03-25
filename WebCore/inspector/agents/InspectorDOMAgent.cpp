@@ -56,15 +56,18 @@
 #include "Element.h"
 #include "Event.h"
 #include "EventListener.h"
+#include "EventNames.h"
 #include "Frame.h"
 #include "FrameTree.h"
 #include "HTMLElement.h"
 #include "HTMLFrameOwnerElement.h"
+#include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLScriptElement.h"
 #include "HTMLStyleElement.h"
 #include "HTMLTemplateElement.h"
+#include "HTMLVideoElement.h"
 #include "HitTestResult.h"
 #include "InspectorClient.h"
 #include "InspectorController.h"
@@ -94,6 +97,7 @@
 #include "Text.h"
 #include "TextNodeTraversal.h"
 #include "Timer.h"
+#include "VideoPlaybackQuality.h"
 #include "WebInjectedScriptManager.h"
 #include "XPathResult.h"
 #include "markup.h"
@@ -218,6 +222,51 @@ private:
     RefPtr<Node> m_node;
 };
 
+class EventFiredCallback final : public EventListener {
+public:
+    static Ref<EventFiredCallback> create(InspectorDOMAgent& domAgent)
+    {
+        return adoptRef(*new EventFiredCallback(domAgent));
+    }
+
+    bool operator==(const EventListener& other) const final
+    {
+        return this == &other;
+    }
+
+    void handleEvent(ScriptExecutionContext&, Event& event) final
+    {
+        if (!is<Node>(event.target()) || m_domAgent.m_dispatchedEvents.contains(&event))
+            return;
+
+        auto* node = downcast<Node>(event.target());
+        int nodeId = m_domAgent.pushNodePathToFrontend(node);
+        if (!nodeId)
+            return;
+
+        m_domAgent.m_dispatchedEvents.add(&event);
+
+        RefPtr<JSON::Object> data = JSON::Object::create();
+
+#if ENABLE(FULLSCREEN_API)
+        if (event.type() == eventNames().webkitfullscreenchangeEvent)
+            data->setBoolean("enabled"_s, !!node->document().webkitFullscreenElement());
+#endif // ENABLE(FULLSCREEN_API)
+
+        auto timestamp = m_domAgent.m_environment.executionStopwatch()->elapsedTime().seconds();
+        m_domAgent.m_frontendDispatcher->didFireEvent(nodeId, event.type(), timestamp, data->size() ? WTFMove(data) : nullptr);
+    }
+
+private:
+    EventFiredCallback(InspectorDOMAgent& domAgent)
+        : EventListener(EventListener::CPPEventListenerType)
+        , m_domAgent(domAgent)
+    {
+    }
+
+    InspectorDOMAgent& m_domAgent;
+};
+
 String InspectorDOMAgent::toErrorString(ExceptionCode ec)
 {
     return ec ? String(DOMException::name(ec)) : emptyString();
@@ -235,6 +284,9 @@ InspectorDOMAgent::InspectorDOMAgent(WebAgentContext& context, InspectorPageAgen
     , m_backendDispatcher(Inspector::DOMBackendDispatcher::create(context.backendDispatcher, this))
     , m_pageAgent(pageAgent)
     , m_overlay(overlay)
+#if ENABLE(VIDEO)
+    , m_mediaMetricsTimer(*this, &InspectorDOMAgent::mediaMetricsTimerFired)
+#endif
 {
 }
 
@@ -251,6 +303,14 @@ void InspectorDOMAgent::didCreateFrontendAndBackend(Inspector::FrontendRouter*, 
 
     m_instrumentingAgents.setInspectorDOMAgent(this);
     m_document = m_pageAgent->mainFrame().document();
+
+#if ENABLE(VIDEO)
+    if (m_document)
+        addEventListenersToNode(*m_document);
+
+    for (auto* mediaElement : HTMLMediaElement::allMediaElements())
+        addEventListenersToNode(*mediaElement);
+#endif
 
     if (m_nodeToFocus)
         focusNode();
@@ -482,11 +542,10 @@ void InspectorDOMAgent::discardBindings()
 {
     m_documentNodeToIdMap.clear();
     m_idToNode.clear();
+    m_dispatchedEvents.clear();
     m_eventListenerEntries.clear();
     releaseDanglingNodes();
     m_childrenRequested.clear();
-    m_backendIdToNode.clear();
-    m_nodeGroupToBackendIdMap.clear();
 }
 
 int InspectorDOMAgent::pushNodeToFrontend(ErrorString& errorString, int documentNodeId, Node* nodeToPush)
@@ -623,37 +682,6 @@ int InspectorDOMAgent::boundNodeId(const Node* node)
     return m_documentNodeToIdMap.get(const_cast<Node*>(node));
 }
 
-BackendNodeId InspectorDOMAgent::backendNodeIdForNode(Node* node, const String& nodeGroup)
-{
-    if (!node)
-        return 0;
-
-    if (!m_nodeGroupToBackendIdMap.contains(nodeGroup))
-        m_nodeGroupToBackendIdMap.set(nodeGroup, NodeToBackendIdMap());
-
-    NodeToBackendIdMap& map = m_nodeGroupToBackendIdMap.find(nodeGroup)->value;
-    BackendNodeId id = map.get(node);
-    if (!id) {
-        id = --m_lastBackendNodeId;
-        map.set(node, id);
-        m_backendIdToNode.set(id, std::make_pair(node, nodeGroup));
-    }
-
-    return id;
-}
-
-void InspectorDOMAgent::releaseBackendNodeIds(ErrorString& errorString, const String& nodeGroup)
-{
-    if (m_nodeGroupToBackendIdMap.contains(nodeGroup)) {
-        NodeToBackendIdMap& map = m_nodeGroupToBackendIdMap.find(nodeGroup)->value;
-        for (auto& backendId : map.values())
-            m_backendIdToNode.remove(backendId);
-        m_nodeGroupToBackendIdMap.remove(nodeGroup);
-        return;
-    }
-    errorString = "Group name not found"_s;
-}
-
 void InspectorDOMAgent::setAttributeValue(ErrorString& errorString, int elementId, const String& name, const String& value)
 {
     Element* element = assertEditableElement(errorString, elementId);
@@ -765,7 +793,7 @@ void InspectorDOMAgent::getOuterHTML(ErrorString& errorString, int nodeId, WTF::
     if (!node)
         return;
 
-    *outerHTML = createMarkup(*node);
+    *outerHTML = serializeFragment(*node, SerializedNodes::SubtreeIncludingNode);
 }
 
 void InspectorDOMAgent::setOuterHTML(ErrorString& errorString, int nodeId, const String& outerHTML)
@@ -829,6 +857,15 @@ void InspectorDOMAgent::setNodeValue(ErrorString& errorString, int nodeId, const
     m_domEditor->replaceWholeText(downcast<Text>(*node), value, errorString);
 }
 
+void InspectorDOMAgent::getSupportedEventNames(ErrorString&, RefPtr<JSON::ArrayOf<String>>& eventNames)
+{
+    eventNames = JSON::ArrayOf<String>::create();
+
+#define DOM_EVENT_NAMES_ADD(name) eventNames->addItem(#name);
+    DOM_EVENT_NAMES_FOR_EACH(DOM_EVENT_NAMES_ADD)
+#undef DOM_EVENT_NAMES_ADD
+}
+
 void InspectorDOMAgent::getEventListenersForNode(ErrorString& errorString, int nodeId, const String* objectGroup, RefPtr<JSON::ArrayOf<Inspector::Protocol::DOM::EventListener>>& listenersArray)
 {
     listenersArray = JSON::ArrayOf<Inspector::Protocol::DOM::EventListener>::create();
@@ -841,20 +878,28 @@ void InspectorDOMAgent::getEventListenersForNode(ErrorString& errorString, int n
     auto addListener = [&] (RegisteredEventListener& listener, const EventListenerInfo& info) {
         int identifier = 0;
         bool disabled = false;
+        bool hasBreakpoint = false;
 
-        auto it = m_eventListenerEntries.find(&listener.callback());
-        if (it == m_eventListenerEntries.end()) {
-            InspectorEventListener inspectorEventListener(m_lastEventListenerId++, *info.node, info.eventType, listener.useCapture());
-            m_eventListenerEntries.add(&listener.callback(), inspectorEventListener);
+        for (auto& inspectorEventListener : m_eventListenerEntries.values()) {
+            if (inspectorEventListener.matches(*info.node, info.eventType, listener.callback(), listener.useCapture())) {
+                identifier = inspectorEventListener.identifier;
+                disabled = inspectorEventListener.disabled;
+                hasBreakpoint = inspectorEventListener.hasBreakpoint;
+                break;
+            }
+        }
+
+        if (!identifier) {
+            InspectorEventListener inspectorEventListener(m_lastEventListenerId++, *info.node, info.eventType, listener.callback(), listener.useCapture());
 
             identifier = inspectorEventListener.identifier;
             disabled = inspectorEventListener.disabled;
-        } else {
-            identifier = it->value.identifier;
-            disabled = it->value.disabled;
+            hasBreakpoint = inspectorEventListener.hasBreakpoint;
+
+            m_eventListenerEntries.add(identifier, inspectorEventListener);
         }
 
-        listenersArray->addItem(buildObjectForEventListener(listener, identifier, info.eventType, info.node, objectGroup, disabled));
+        listenersArray->addItem(buildObjectForEventListener(listener, identifier, info.eventType, info.node, objectGroup, disabled, hasBreakpoint));
     };
 
     // Get Capturing Listeners (in this order)
@@ -910,14 +955,35 @@ void InspectorDOMAgent::getEventListeners(Node* node, Vector<EventListenerInfo>&
 
 void InspectorDOMAgent::setEventListenerDisabled(ErrorString& errorString, int eventListenerId, bool disabled)
 {
-    for (InspectorEventListener& inspectorEventListener : m_eventListenerEntries.values()) {
-        if (inspectorEventListener.identifier == eventListenerId) {
-            inspectorEventListener.disabled = disabled;
-            return;
-        }
+    auto it = m_eventListenerEntries.find(eventListenerId);
+    if (it == m_eventListenerEntries.end()) {
+        errorString = "No event listener for given identifier."_s;
+        return;
     }
 
-    errorString = "No event listener for given identifier."_s;
+    it->value.disabled = disabled;
+}
+
+void InspectorDOMAgent::setBreakpointForEventListener(ErrorString& errorString, int eventListenerId)
+{
+    auto it = m_eventListenerEntries.find(eventListenerId);
+    if (it == m_eventListenerEntries.end()) {
+        errorString = "No event listener for given identifier."_s;
+        return;
+    }
+
+    it->value.hasBreakpoint = true;
+}
+
+void InspectorDOMAgent::removeBreakpointForEventListener(ErrorString& errorString, int eventListenerId)
+{
+    auto it = m_eventListenerEntries.find(eventListenerId);
+    if (it == m_eventListenerEntries.end()) {
+        errorString = "No event listener for given identifier."_s;
+        return;
+    }
+
+    it->value.hasBreakpoint = false;
 }
 
 void InspectorDOMAgent::getAccessibilityPropertiesForNode(ErrorString& errorString, int nodeId, RefPtr<Inspector::Protocol::DOM::AccessibilityProperties>& axProperties)
@@ -1528,15 +1594,6 @@ Ref<Inspector::Protocol::DOM::Node> InspectorDOMAgent::buildObjectForNode(Node* 
         value->setShadowRootType(shadowRootType(shadowRoot.mode()));
     }
 
-    // Need to enable AX to get the computed role.
-    if (!WebCore::AXObjectCache::accessibilityEnabled())
-        WebCore::AXObjectCache::enableAccessibility();
-
-    if (AXObjectCache* axObjectCache = node->document().axObjectCache()) {
-        if (AccessibilityObject* axObject = axObjectCache->getOrCreate(node))
-            value->setRole(axObject->computedRoleString());
-    }
-
     return value;
 }
 
@@ -1593,7 +1650,7 @@ RefPtr<JSON::ArrayOf<Inspector::Protocol::DOM::Node>> InspectorDOMAgent::buildAr
     return WTFMove(pseudoElements);
 }
 
-Ref<Inspector::Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEventListener(const RegisteredEventListener& registeredEventListener, int identifier, const AtomicString& eventType, Node* node, const String* objectGroupId, bool disabled)
+Ref<Inspector::Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEventListener(const RegisteredEventListener& registeredEventListener, int identifier, const AtomicString& eventType, Node* node, const String* objectGroupId, bool disabled, bool hasBreakpoint)
 {
     Ref<EventListener> eventListener = registeredEventListener.callback();
 
@@ -1653,6 +1710,8 @@ Ref<Inspector::Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEv
         value->setOnce(true);
     if (disabled)
         value->setDisabled(disabled);
+    if (hasBreakpoint)
+        value->setHasBreakpoint(hasBreakpoint);
     return value;
 }
     
@@ -2044,6 +2103,51 @@ void InspectorDOMAgent::didCommitLoad(Document* document)
     m_frontendDispatcher->childNodeInserted(parentId, prevId, WTFMove(value));
 }
 
+int InspectorDOMAgent::identifierForNode(Node& node)
+{
+    return pushNodePathToFrontend(&node);
+}
+
+void InspectorDOMAgent::addEventListenersToNode(Node& node)
+{
+#if ENABLE(VIDEO)
+    auto callback = EventFiredCallback::create(*this);
+
+    auto createEventListener = [&] (const AtomicString& eventName) {
+        node.addEventListener(eventName, callback.copyRef(), false);
+    };
+
+#if ENABLE(FULLSCREEN_API)
+    if (is<Document>(node) || is<HTMLMediaElement>(node))
+        createEventListener(eventNames().webkitfullscreenchangeEvent);
+#endif // ENABLE(FULLSCREEN_API)
+
+    if (is<HTMLMediaElement>(node)) {
+        createEventListener(eventNames().abortEvent);
+        createEventListener(eventNames().canplayEvent);
+        createEventListener(eventNames().canplaythroughEvent);
+        createEventListener(eventNames().emptiedEvent);
+        createEventListener(eventNames().endedEvent);
+        createEventListener(eventNames().loadeddataEvent);
+        createEventListener(eventNames().loadedmetadataEvent);
+        createEventListener(eventNames().loadstartEvent);
+        createEventListener(eventNames().pauseEvent);
+        createEventListener(eventNames().playEvent);
+        createEventListener(eventNames().playingEvent);
+        createEventListener(eventNames().seekedEvent);
+        createEventListener(eventNames().seekingEvent);
+        createEventListener(eventNames().stalledEvent);
+        createEventListener(eventNames().suspendEvent);
+        createEventListener(eventNames().waitingEvent);
+
+        if (!m_mediaMetricsTimer.isActive())
+            m_mediaMetricsTimer.start(0_s, 1_s / 15.);
+    }
+#else
+    UNUSED_PARAM(node);
+#endif // ENABLE(VIDEO)
+}
+
 void InspectorDOMAgent::didInsertDOMNode(Node& node)
 {
     if (containsOnlyHTMLWhitespace(&node))
@@ -2271,22 +2375,89 @@ void InspectorDOMAgent::willRemoveEventListener(EventTarget& target, const Atomi
     if (!listenerExists)
         return;
 
-    m_eventListenerEntries.remove(&listener);
+    m_eventListenerEntries.removeIf([&] (auto& entry) {
+        return entry.value.matches(target, eventType, listener, capture);
+    });
 
     m_frontendDispatcher->willRemoveEventListener(nodeId);
 }
 
 bool InspectorDOMAgent::isEventListenerDisabled(EventTarget& target, const AtomicString& eventType, EventListener& listener, bool capture)
 {
-    auto it = m_eventListenerEntries.find(&listener);
-    if (it == m_eventListenerEntries.end())
-        return false;
-
-    if (!it->value.disabled)
-        return false;
-
-    return it->value.eventTarget.get() == &target && it->value.eventType == eventType && it->value.useCapture == capture;
+    for (auto& inspectorEventListener : m_eventListenerEntries.values()) {
+        if (inspectorEventListener.matches(target, eventType, listener, capture))
+            return inspectorEventListener.disabled;
+    }
+    return false;
 }
+
+void InspectorDOMAgent::eventDidResetAfterDispatch(const Event& event)
+{
+    m_dispatchedEvents.remove(&event);
+}
+
+bool InspectorDOMAgent::hasBreakpointForEventListener(EventTarget& target, const AtomicString& eventType, EventListener& listener, bool capture)
+{
+    for (auto& inspectorEventListener : m_eventListenerEntries.values()) {
+        if (inspectorEventListener.matches(target, eventType, listener, capture))
+            return inspectorEventListener.hasBreakpoint;
+    }
+    return false;
+}
+
+int InspectorDOMAgent::idForEventListener(EventTarget& target, const AtomicString& eventType, EventListener& listener, bool capture)
+{
+    for (auto& inspectorEventListener : m_eventListenerEntries.values()) {
+        if (inspectorEventListener.matches(target, eventType, listener, capture))
+            return inspectorEventListener.identifier;
+    }
+    return 0;
+}
+
+#if ENABLE(VIDEO)
+void InspectorDOMAgent::mediaMetricsTimerFired()
+{
+    // FIXME: remove metrics information for any media element when it's destroyed
+
+    if (HTMLMediaElement::allMediaElements().isEmpty()) {
+        if (m_mediaMetricsTimer.isActive())
+            m_mediaMetricsTimer.stop();
+        m_mediaMetrics.clear();
+        return;
+    }
+
+    for (auto* mediaElement : HTMLMediaElement::allMediaElements()) {
+        if (!is<HTMLVideoElement>(mediaElement) || !mediaElement->isPlaying())
+            continue;
+
+        auto videoPlaybackQuality = mediaElement->getVideoPlaybackQuality();
+        unsigned displayCompositedVideoFrames = videoPlaybackQuality->displayCompositedVideoFrames();
+
+        auto iterator = m_mediaMetrics.find(mediaElement);
+        if (iterator == m_mediaMetrics.end()) {
+            m_mediaMetrics.set(mediaElement, MediaMetrics(displayCompositedVideoFrames));
+            continue;
+        }
+
+        bool isLowPower = (displayCompositedVideoFrames - iterator->value.displayCompositedFrames) > 0;
+        if (iterator->value.isLowPower != isLowPower) {
+            iterator->value.isLowPower = isLowPower;
+
+            int nodeId = pushNodePathToFrontend(mediaElement);
+            if (nodeId) {
+                auto timestamp = m_environment.executionStopwatch()->elapsedTime().seconds();
+                m_frontendDispatcher->videoLowPowerChanged(nodeId, timestamp, iterator->value.isLowPower);
+            }
+        }
+
+        iterator->value.displayCompositedFrames = displayCompositedVideoFrames;
+    }
+
+    m_mediaMetrics.removeIf([&] (auto& entry) {
+        return !HTMLMediaElement::allMediaElements().contains(entry.key);
+    });
+}
+#endif
 
 Node* InspectorDOMAgent::nodeForPath(const String& path)
 {
@@ -2295,8 +2466,7 @@ Node* InspectorDOMAgent::nodeForPath(const String& path)
         return nullptr;
 
     Node* node = m_document.get();
-    Vector<String> pathTokens;
-    path.split(',', false, pathTokens);
+    Vector<String> pathTokens = path.split(',');
     if (!pathTokens.size())
         return nullptr;
 
@@ -2343,27 +2513,6 @@ void InspectorDOMAgent::pushNodeByPathToFrontend(ErrorString& errorString, const
         *nodeId = pushNodePathToFrontend(node);
     else
         errorString = "No node with given path found"_s;
-}
-
-void InspectorDOMAgent::pushNodeByBackendIdToFrontend(ErrorString& errorString, BackendNodeId backendNodeId, int* nodeId)
-{
-    auto iterator = m_backendIdToNode.find(backendNodeId);
-    if (iterator == m_backendIdToNode.end()) {
-        errorString = "No node with given backend id found"_s;
-        return;
-    }
-
-    Node* node = iterator->value.first;
-    String nodeGroup = iterator->value.second;
-
-    *nodeId = pushNodePathToFrontend(node);
-
-    if (nodeGroup.isEmpty()) {
-        m_backendIdToNode.remove(iterator);
-        // FIXME: We really do the following only when nodeGroup is the empty string? Seems wrong.
-        ASSERT(m_nodeGroupToBackendIdMap.contains(nodeGroup));
-        m_nodeGroupToBackendIdMap.find(nodeGroup)->value.remove(node);
-    }
 }
 
 RefPtr<Inspector::Protocol::Runtime::RemoteObject> InspectorDOMAgent::resolveNode(Node* node, const String& objectGroup)

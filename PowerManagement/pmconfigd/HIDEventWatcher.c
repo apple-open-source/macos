@@ -202,6 +202,8 @@ __private_extern__ kern_return_t _io_pm_hid_event_copy_history(
             int             *return_val)
 {
     CFDataRef   sendData = NULL;
+    *array_data = 0;
+    *array_dataLen = 0;
 
     sendData = CFPropertyListCreateData(0, gHIDEventHistory, kCFPropertyListXMLFormat_v1_0, 0, NULL);
     if (!sendData) {

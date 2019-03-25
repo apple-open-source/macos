@@ -76,7 +76,7 @@ static CString buildAcceptLanguages(const Vector<String>& languages)
             continue;
 
         if (i)
-            builder.appendLiteral(", ");
+            builder.appendLiteral(",");
 
         builder.append(languages[i]);
 
@@ -113,10 +113,10 @@ void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreati
 
     OptionSet<NetworkCache::Cache::Option> cacheOptions { NetworkCache::Cache::Option::RegisterNotify };
     if (parameters.shouldEnableNetworkCacheEfficacyLogging)
-        cacheOptions |= NetworkCache::Cache::Option::EfficacyLogging;
+        cacheOptions.add(NetworkCache::Cache::Option::EfficacyLogging);
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
     if (parameters.shouldEnableNetworkCacheSpeculativeRevalidation)
-        cacheOptions |= NetworkCache::Cache::Option::SpeculativeRevalidation;
+        cacheOptions.add(NetworkCache::Cache::Option::SpeculativeRevalidation);
 #endif
 
     m_cache = NetworkCache::Cache::open(m_diskCacheDirectory, cacheOptions);
@@ -151,10 +151,12 @@ void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
     clearDiskCache(-WallTime::infinity(), [] { });
 }
 
-void NetworkProcess::clearDiskCache(WallTime modifiedSince, Function<void ()>&& completionHandler)
+void NetworkProcess::clearDiskCache(WallTime modifiedSince, CompletionHandler<void()>&& completionHandler)
 {
-    if (!m_cache)
+    if (!m_cache) {
+        completionHandler();
         return;
+    }
     m_cache->clear(modifiedSince, WTFMove(completionHandler));
 }
 

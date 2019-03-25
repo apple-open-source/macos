@@ -140,7 +140,7 @@ void EventSource::scheduleReconnect()
 {
     m_state = CONNECTING;
     m_connectTimer.startOneShot(1_ms * m_reconnectDelay);
-    dispatchEvent(Event::create(eventNames().errorEvent, false, false));
+    dispatchEvent(Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::No));
 }
 
 void EventSource::close()
@@ -196,13 +196,13 @@ void EventSource::didReceiveResponse(unsigned long, const ResourceResponse& resp
 
     if (!responseIsValid(response)) {
         m_loader->cancel();
-        dispatchEvent(Event::create(eventNames().errorEvent, false, false));
+        dispatchEvent(Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::No));
         return;
     }
 
     m_eventStreamOrigin = SecurityOriginData::fromURL(response.url()).toString();
     m_state = OPEN;
-    dispatchEvent(Event::create(eventNames().openEvent, false, false));
+    dispatchEvent(Event::create(eventNames().openEvent, Event::CanBubble::No, Event::IsCancelable::No));
 }
 
 void EventSource::didReceiveData(const char* data, int length)
@@ -264,7 +264,7 @@ void EventSource::abortConnectionAttempt()
     }
 
     ASSERT(m_state == CLOSED);
-    dispatchEvent(Event::create(eventNames().errorEvent, false, false));
+    dispatchEvent(Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::No));
 }
 
 void EventSource::parseEventStream()
@@ -278,8 +278,8 @@ void EventSource::parseEventStream()
             m_discardTrailingNewline = false;
         }
 
-        std::optional<unsigned> lineLength;
-        std::optional<unsigned> fieldLength;
+        Optional<unsigned> lineLength;
+        Optional<unsigned> fieldLength;
         for (unsigned i = position; !lineLength && i < size; ++i) {
             switch (m_receiveBuffer[i]) {
             case ':':
@@ -315,7 +315,7 @@ void EventSource::parseEventStream()
         m_receiveBuffer.remove(0, position);
 }
 
-void EventSource::parseEventStreamLine(unsigned position, std::optional<unsigned> fieldLength, unsigned lineLength)
+void EventSource::parseEventStreamLine(unsigned position, Optional<unsigned> fieldLength, unsigned lineLength)
 {
     if (!lineLength) {
         if (!m_data.isEmpty())

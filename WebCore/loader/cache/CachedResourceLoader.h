@@ -57,7 +57,6 @@ class DocumentLoader;
 class Frame;
 class ImageLoader;
 class Settings;
-class URL;
 
 template <typename T>
 using ResourceErrorOr = Expected<T, ResourceError>;
@@ -129,8 +128,6 @@ public:
     void setDocument(Document* document) { m_document = document; }
     void clearDocumentLoader() { m_documentLoader = nullptr; }
     PAL::SessionID sessionID() const;
-
-    void removeCachedResource(CachedResource&);
 
     void loadDone(LoadCompletionType, bool shouldPerformPostLoadActions = true);
 

@@ -321,6 +321,10 @@ static void xpcArrayToAuthItemSet(AuthItemSet *setToBuild, xpc_object_t input) {
         bool sensitive = xpc_dictionary_get_value(item, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH);
         if (sensitive) {
             size_t sensitiveLength = (size_t)xpc_dictionary_get_uint64(item, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH);
+            if (sensitiveLength > length) {
+                secnotice("SecurityAgentXPCQuery", "Sensitive data len %zu is not valid", sensitiveLength);
+                return true;
+            }
             dataCopy = malloc(sensitiveLength);
             memcpy(dataCopy, data, sensitiveLength);
             memset_s((void *)data, length, 0, sensitiveLength); // clear the sensitive data, memset_s is never optimized away

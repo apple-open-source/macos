@@ -8,6 +8,20 @@
 #import "IOHIDEventDriverTestCase.h"
 
 
+static IOReturn getReportCallback(void *refcon, IOHIDReportType type, uint32_t reportID, uint8_t *report, CFIndex *reportLength)
+{
+    NSUInteger length = (NSUInteger)*reportLength;
+    IOReturn ret;
+  
+    IOHIDEventDriverTestCase * self = (__bridge IOHIDEventDriverTestCase *)refcon;
+    
+    ret = [self userDeviceGetReportHandler:type :reportID :report :&length];
+    *reportLength = (CFIndex)length;
+    
+    return ret;
+}
+
+
 @implementation IOHIDEventDriverTestCase
 
 
@@ -61,15 +75,20 @@
         return;
     }
 
+    IOHIDUserDeviceRegisterGetReportWithReturnLengthCallback(self.userDevice, getReportCallback, (__bridge void * _Nullable)(self));
+    IOHIDUserDeviceScheduleWithDispatchQueue(self.userDevice , dispatch_get_main_queue());
+
 }
 
 - (void)tearDown {
 
     if (self.userDevice) {
+        IOHIDUserDeviceUnscheduleFromDispatchQueue(self.userDevice, dispatch_get_main_queue());
         CFRelease(self.userDevice);
     }
     
     if (self.eventSystem) {
+        IOHIDEventSystemClientUnscheduleFromDispatchQueue (self.eventSystem, dispatch_get_main_queue());
         CFRelease(self.eventSystem);
     }
 
@@ -85,6 +104,11 @@
 -(void) handleEvent: (IOHIDEventRef) event fromService:(IOHIDServiceClientRef __unused) service;
 {
     [self.events addObject:(__bridge id _Nonnull)(event)];
+}
+
+-(IOReturn)userDeviceGetReportHandler: (IOHIDReportType __unused)type :(uint32_t __unused)reportID :(uint8_t * __unused)report :(NSUInteger * __unused) length
+{
+    return kIOReturnUnsupported;
 }
 
 

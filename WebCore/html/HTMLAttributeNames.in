@@ -144,6 +144,7 @@ http_equiv
 id
 incremental
 indeterminate
+inputmode
 integrity
 is
 ismap
@@ -419,3 +420,5 @@ x-apple-data-detectors-type
 x-apple-data-detectors-result
 
 x-apple-pdf-annotation
+
+x-apple-editable-image

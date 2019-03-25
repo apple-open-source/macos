@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WKImagePreviewViewController.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import <UIKitSPI.h>
 #import <WebCore/IntSize.h>
@@ -92,7 +92,9 @@ static CGSize _scaleSizeWithinSize(CGSize source, CGSize destination)
 }
 
 #if HAVE(LINK_PREVIEW)
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (NSArray <UIViewControllerPreviewAction *> *)previewActions
+IGNORE_WARNINGS_END
 {
     NSMutableArray<UIViewControllerPreviewAction *> *previewActions = [NSMutableArray array];
     for (_WKElementAction *imageAction in _imageActions.get()) {

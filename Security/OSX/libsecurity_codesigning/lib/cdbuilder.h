@@ -49,6 +49,7 @@ public:
 	
 	void executable(string path, size_t pagesize, size_t offset, size_t length);
 	void reopen(string path, size_t offset, size_t length);
+	bool opened();
 
 	void specialSlot(SpecialSlot slot, CFDataRef data);
 	void identifier(const std::string &code) { mIdentifier = code; }

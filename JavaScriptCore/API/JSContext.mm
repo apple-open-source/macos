@@ -100,12 +100,9 @@
 - (JSValue *)evaluateScript:(NSString *)script withSourceURL:(NSURL *)sourceURL
 {
     JSValueRef exceptionValue = nullptr;
-    JSStringRef scriptJS = JSStringCreateWithCFString((__bridge CFStringRef)script);
-    JSStringRef sourceURLJS = sourceURL ? JSStringCreateWithCFString((__bridge CFStringRef)[sourceURL absoluteString]) : nullptr;
-    JSValueRef result = JSEvaluateScript(m_context, scriptJS, nullptr, sourceURLJS, 0, &exceptionValue);
-    if (sourceURLJS)
-        JSStringRelease(sourceURLJS);
-    JSStringRelease(scriptJS);
+    auto scriptJS = OpaqueJSString::tryCreate(script);
+    auto sourceURLJS = OpaqueJSString::tryCreate([sourceURL absoluteString]);
+    JSValueRef result = JSEvaluateScript(m_context, scriptJS.get(), nullptr, sourceURLJS.get(), 0, &exceptionValue);
 
     if (exceptionValue)
         return [self valueFromNotifyException:exceptionValue];
@@ -161,7 +158,8 @@
 {
     Thread& thread = Thread::current();
     CallbackData *entry = (CallbackData *)thread.m_apiData;
-    if (!entry)
+    // calleeValue may be null if we are initializing a promise.
+    if (!entry || !entry->calleeValue)
         return nil;
     return [JSValue valueWithJSValueRef:entry->calleeValue inContext:[JSContext currentContext]];
 }
@@ -202,10 +200,7 @@
 
 - (void)setName:(NSString *)name
 {
-    JSStringRef nameJS = name ? JSStringCreateWithCFString((__bridge CFStringRef)name) : nullptr;
-    JSGlobalContextSetName(m_context, nameJS);
-    if (nameJS)
-        JSStringRelease(nameJS);
+    JSGlobalContextSetName(m_context, OpaqueJSString::tryCreate(name).get());
 }
 
 - (BOOL)_remoteInspectionEnabled

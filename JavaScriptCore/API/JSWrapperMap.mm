@@ -39,7 +39,6 @@
 #import "WeakGCMap.h"
 #import "WeakGCMapInlines.h"
 #import <wtf/Vector.h>
-#import <wtf/spi/cocoa/NSMapTableSPI.h>
 #import <wtf/spi/darwin/dyldSPI.h>
 
 #include <mach-o/dyld.h>
@@ -47,7 +46,7 @@
 #if PLATFORM(APPLETV)
 #else
 static const int32_t firstJavaScriptCoreVersionWithInitConstructorSupport = 0x21A0400; // 538.4.0
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 static const uint32_t firstSDKVersionWithInitConstructorSupport = DYLD_IOS_VERSION_10_0;
 #elif PLATFORM(MAC)
 static const uint32_t firstSDKVersionWithInitConstructorSupport = 0xA0A00; // OSX 10.10.0
@@ -408,7 +407,7 @@ static JSC::JSObject* allocateConstructorForCustomClass(JSContext *context, cons
         return constructorWithCustomBrand(context, [NSString stringWithFormat:@"%sConstructor", className], cls);
 
     // For each protocol that the class implements, gather all of the init family methods into a hash table.
-    __block HashMap<String, Protocol *> initTable;
+    __block HashMap<String, CFTypeRef> initTable;
     Protocol *exportProtocol = getJSExportProtocol();
     for (Class currentClass = cls; currentClass; currentClass = class_getSuperclass(currentClass)) {
         forEachProtocolImplementingProtocol(currentClass, exportProtocol, ^(Protocol *protocol, bool&) {
@@ -416,7 +415,7 @@ static JSC::JSObject* allocateConstructorForCustomClass(JSContext *context, cons
                 const char* name = sel_getName(selector);
                 if (!isInitFamilyMethod(@(name)))
                     return;
-                initTable.set(name, protocol);
+                initTable.set(name, (__bridge CFTypeRef)protocol);
             });
         });
     }
@@ -436,7 +435,7 @@ static JSC::JSObject* allocateConstructorForCustomClass(JSContext *context, cons
 
             numberOfInitsFound++;
             initMethod = selector;
-            initProtocol = iter->value;
+            initProtocol = (__bridge Protocol *)iter->value;
             types = method_getTypeEncoding(method);
         });
 
@@ -565,7 +564,7 @@ typedef std::pair<JSC::JSObject*, JSC::JSObject*> ConstructorPrototypePair;
 
 @implementation JSWrapperMap {
     NSMutableDictionary *m_classMap;
-    std::unique_ptr<JSC::WeakGCMap<id, JSC::JSObject>> m_cachedJSWrappers;
+    std::unique_ptr<JSC::WeakGCMap<__unsafe_unretained id, JSC::JSObject>> m_cachedJSWrappers;
     NSMapTable *m_cachedObjCWrappers;
 }
 
@@ -579,7 +578,7 @@ typedef std::pair<JSC::JSObject*, JSC::JSObject*> ConstructorPrototypePair;
     NSPointerFunctionsOptions valueOptions = NSPointerFunctionsWeakMemory | NSPointerFunctionsObjectPersonality;
     m_cachedObjCWrappers = [[NSMapTable alloc] initWithKeyOptions:keyOptions valueOptions:valueOptions capacity:0];
 
-    m_cachedJSWrappers = std::make_unique<JSC::WeakGCMap<id, JSC::JSObject>>(toJS(context)->vm());
+    m_cachedJSWrappers = std::make_unique<JSC::WeakGCMap<__unsafe_unretained id, JSC::JSObject>>(toJS(context)->vm());
 
     ASSERT(!toJSGlobalObject(context)->wrapperMap());
     toJSGlobalObject(context)->setWrapperMap(self);

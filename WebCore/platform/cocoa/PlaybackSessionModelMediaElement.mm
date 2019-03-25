@@ -26,7 +26,7 @@
 #import "config.h"
 #import "PlaybackSessionModelMediaElement.h"
 
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
 #import "AudioTrackList.h"
 #import "Event.h"
@@ -66,15 +66,17 @@ void PlaybackSessionModelMediaElement::setMediaElement(HTMLMediaElement* mediaEl
     if (m_mediaElement && m_isListening) {
         for (auto& eventName : observedEventNames())
             m_mediaElement->removeEventListener(eventName, *this, false);
-        auto& audioTracks = m_mediaElement->audioTracks();
-        audioTracks.removeEventListener(events.addtrackEvent, *this, false);
-        audioTracks.removeEventListener(events.changeEvent, *this, false);
-        audioTracks.removeEventListener(events.removetrackEvent, *this, false);
+        if (auto* audioTracks = m_mediaElement->audioTracks()) {
+            audioTracks->removeEventListener(events.addtrackEvent, *this, false);
+            audioTracks->removeEventListener(events.changeEvent, *this, false);
+            audioTracks->removeEventListener(events.removetrackEvent, *this, false);
+        }
 
-        auto& textTracks = m_mediaElement->audioTracks();
-        textTracks.removeEventListener(events.addtrackEvent, *this, false);
-        textTracks.removeEventListener(events.changeEvent, *this, false);
-        textTracks.removeEventListener(events.removetrackEvent, *this, false);
+        if (auto* textTracks = m_mediaElement->audioTracks()) {
+            textTracks->removeEventListener(events.addtrackEvent, *this, false);
+            textTracks->removeEventListener(events.changeEvent, *this, false);
+            textTracks->removeEventListener(events.removetrackEvent, *this, false);
+        }
     }
     m_isListening = false;
 
@@ -87,18 +89,21 @@ void PlaybackSessionModelMediaElement::setMediaElement(HTMLMediaElement* mediaEl
         for (auto& eventName : observedEventNames())
             m_mediaElement->addEventListener(eventName, *this, false);
 
-        auto& audioTracks = m_mediaElement->audioTracks();
+        auto& audioTracks = m_mediaElement->ensureAudioTracks();
         audioTracks.addEventListener(events.addtrackEvent, *this, false);
         audioTracks.addEventListener(events.changeEvent, *this, false);
         audioTracks.addEventListener(events.removetrackEvent, *this, false);
 
-        auto& textTracks = m_mediaElement->audioTracks();
+        auto& textTracks = m_mediaElement->ensureTextTracks();
         textTracks.addEventListener(events.addtrackEvent, *this, false);
         textTracks.addEventListener(events.changeEvent, *this, false);
         textTracks.addEventListener(events.removetrackEvent, *this, false);
     }
 
     updateForEventName(eventNameAll());
+
+    for (auto client : m_clients)
+        client->isPictureInPictureSupportedChanged(isPictureInPictureSupported());
 }
 
 void PlaybackSessionModelMediaElement::handleEvent(WebCore::ScriptExecutionContext&, WebCore::Event& event)
@@ -338,15 +343,15 @@ void PlaybackSessionModelMediaElement::updateMediaSelectionOptions()
         return;
 
     auto& captionPreferences = m_mediaElement->document().page()->group().captionPreferences();
-    auto& textTracks = m_mediaElement->textTracks();
-    if (textTracks.length())
-        m_legibleTracksForMenu = captionPreferences.sortedTrackListForMenu(&textTracks);
+    auto* textTracks = m_mediaElement->textTracks();
+    if (textTracks && textTracks->length())
+        m_legibleTracksForMenu = captionPreferences.sortedTrackListForMenu(textTracks);
     else
         m_legibleTracksForMenu.clear();
 
-    auto& audioTracks = m_mediaElement->audioTracks();
-    if (audioTracks.length() > 1)
-        m_audioTracksForMenu = captionPreferences.sortedTrackListForMenu(&audioTracks);
+    auto* audioTracks = m_mediaElement->audioTracks();
+    if (audioTracks && audioTracks->length() > 1)
+        m_audioTracksForMenu = captionPreferences.sortedTrackListForMenu(audioTracks);
     else
         m_audioTracksForMenu.clear();
 
@@ -569,6 +574,11 @@ bool PlaybackSessionModelMediaElement::isMuted() const
 double PlaybackSessionModelMediaElement::volume() const
 {
     return m_mediaElement ? m_mediaElement->volume() : 0;
+}
+
+bool PlaybackSessionModelMediaElement::isPictureInPictureSupported() const
+{
+    return m_mediaElement ? m_mediaElement->isVideo() : false;
 }
 
 bool PlaybackSessionModelMediaElement::isPictureInPictureActive() const

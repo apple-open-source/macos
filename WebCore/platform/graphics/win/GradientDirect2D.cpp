@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc.  All rights reserved.
+ * Copyright (C) 2016-2018 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -94,11 +94,14 @@ void Gradient::generateGradient(ID2D1RenderTarget* renderTarget)
             float radiusX = data.endRadius + offset.width();
             float radiusY = radiusX / data.aspectRatio;
             hr = renderTarget->CreateRadialGradientBrush(
-                D2D1::RadialGradientBrushProperties(p0(), D2D1::Point2F(offset.width(), offset.height()), radiusX, radiusY),
+                D2D1::RadialGradientBrushProperties(data.point0, D2D1::Point2F(offset.width(), offset.height()), radiusX, radiusY),
                 D2D1::BrushProperties(), gradientStopCollection.get(),
                 &radialGradient);
             RELEASE_ASSERT(SUCCEEDED(hr));
             m_gradient = radialGradient;
+        },
+        [&] (const ConicData&) {
+            // FIXME: implement conic gradient rendering.
         }
     );
 
@@ -148,6 +151,9 @@ void Gradient::fill(GraphicsContext& context, const FloatRect& rect)
 
             if (needScaling)
                 context.restore();
+        },
+        [&] (const ConicData&) {
+            // FIXME: implement conic gradient rendering.
         }
     );
 }

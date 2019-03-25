@@ -46,7 +46,8 @@ AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = PR-3996371-conf.diff \
 	         PR-4883535.patch \
 		 PR-4383204.patch \
-		 PR-4905054.manpages.patch
+		 PR-4905054.manpages.patch \
+		 rdar-25537031-fix-uuconv.c.diff
 
 AEP_SubDir     = uucp
 AEP_TarDir     := $(shell pwd)

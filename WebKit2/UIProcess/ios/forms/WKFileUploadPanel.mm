@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WKFileUploadPanel.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import "APIArray.h"
 #import "APIData.h"
@@ -46,8 +46,7 @@
 
 using namespace WebKit;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 
 static inline UIImagePickerControllerCameraDevice cameraDeviceForMediaCaptureType(WebCore::MediaCaptureType mediaCaptureType)
 {
@@ -160,10 +159,9 @@ static inline UIImage *cameraIcon()
     BOOL _usingCamera;
     RetainPtr<UIImagePickerController> _imagePicker;
     RetainPtr<UIViewController> _presentationViewController; // iPhone always. iPad for Fullscreen Camera.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     RetainPtr<UIPopoverController> _presentationPopover; // iPad for action sheet and Photo Library.
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
     RetainPtr<UIDocumentMenuViewController> _documentMenuController;
     WebCore::MediaCaptureType _mediaCaptureType;
 }
@@ -415,18 +413,12 @@ static NSArray *UTIsForMIMETypes(NSArray *mimeTypes)
 - (void)_showPhotoPickerWithSourceType:(UIImagePickerControllerSourceType)sourceType
 {
     ASSERT([UIImagePickerController isSourceTypeAvailable:sourceType]);
-    
-    _imagePicker = adoptNS([[UIImagePickerController alloc] init]);
-    [_imagePicker setDelegate:self];
-    [_imagePicker setSourceType:sourceType];
-    [_imagePicker setAllowsEditing:NO];
-    [_imagePicker setModalPresentationStyle:UIModalPresentationFullScreen];
-    [_imagePicker _setAllowsMultipleSelection:_allowMultipleFiles];
-    [_imagePicker setMediaTypes:[self _mediaTypesForPickerSourceType:sourceType]];
 
-    if (_mediaCaptureType != WebCore::MediaCaptureTypeNone)
-        [_imagePicker setCameraDevice:cameraDeviceForMediaCaptureType(_mediaCaptureType)];
-    
+    _imagePicker = adoptNS([[UIImagePickerController alloc] init]);
+    [_imagePicker setSourceType:sourceType];
+    [_imagePicker setMediaTypes:[self _mediaTypesForPickerSourceType:sourceType]];
+    [self _configureImagePicker:_imagePicker.get()];
+
     // Use a popover on the iPad if the source type is not the camera.
     // The camera will use a fullscreen, modal view controller.
     BOOL usePopover = currentUserInterfaceIdiomIsPad() && sourceType != UIImagePickerControllerSourceTypeCamera;
@@ -434,6 +426,17 @@ static NSArray *UTIsForMIMETypes(NSArray *mimeTypes)
         [self _presentPopoverWithContentViewController:_imagePicker.get() animated:YES];
     else
         [self _presentFullscreenViewController:_imagePicker.get() animated:YES];
+}
+
+- (void)_configureImagePicker:(UIImagePickerController *)imagePicker
+{
+    [imagePicker setDelegate:self];
+    [imagePicker setAllowsEditing:NO];
+    [imagePicker setModalPresentationStyle:UIModalPresentationFullScreen];
+    [imagePicker _setAllowsMultipleSelection:_allowMultipleFiles];
+
+    if (_mediaCaptureType != WebCore::MediaCaptureTypeNone)
+        [imagePicker setCameraDevice:cameraDeviceForMediaCaptureType(_mediaCaptureType)];
 }
 
 #pragma mark - Presenting View Controllers
@@ -450,10 +453,9 @@ static NSArray *UTIsForMIMETypes(NSArray *mimeTypes)
 {
     [self _dismissDisplayAnimated:animated];
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     _presentationPopover = adoptNS([[UIPopoverController alloc] initWithContentViewController:contentViewController]);
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
     [_presentationPopover setDelegate:self];
     [_presentationPopover presentPopoverFromRect:CGRectIntegral(CGRectMake(_interactionPoint.x, _interactionPoint.y, 1, 1)) inView:_view permittedArrowDirections:UIPopoverArrowDirectionAny animated:animated];
 }
@@ -468,7 +470,9 @@ static NSArray *UTIsForMIMETypes(NSArray *mimeTypes)
 
 #pragma mark - UIPopoverControllerDelegate
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (void)popoverControllerDidDismissPopover:(UIPopoverController *)popoverController
+IGNORE_WARNINGS_END
 {
     [self _cancel];
 }
@@ -489,7 +493,9 @@ static NSArray *UTIsForMIMETypes(NSArray *mimeTypes)
 
 #pragma mark - UIDocumentPickerControllerDelegate implementation
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (void)documentPicker:(UIDocumentPickerViewController *)documentPicker didPickDocumentAtURL:(NSURL *)url
+IGNORE_WARNINGS_END
 {
     [self _dismissDisplayAnimated:YES];
     [self _chooseFiles:@[url] displayString:url.lastPathComponent iconImage:iconForFile(url)];
@@ -720,6 +726,6 @@ static NSArray *UTIsForMIMETypes(NSArray *mimeTypes)
 
 @end
 
-#pragma clang diagnostic pop
+ALLOW_DEPRECATED_DECLARATIONS_END
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

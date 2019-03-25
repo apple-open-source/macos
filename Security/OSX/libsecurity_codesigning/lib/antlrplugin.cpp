@@ -49,7 +49,7 @@ private:
 class StringInputStream : public antlr::InputBuffer {
 public:
 	StringInputStream(const string &s) : mInput(s), mPos(mInput.begin()) { }
-	int getChar() { return (mPos == mInput.end()) ? EOF : *mPos++; }
+	int getChar() { return (mPos == mInput.end()) ? EOF : static_cast<unsigned char>(*mPos++); }
 
 private:
 	string mInput;

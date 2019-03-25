@@ -60,9 +60,8 @@
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 static const LPCWSTR kWebKit2WebViewWindowClassName = L"WebKit2WebViewWindowClass";
 
@@ -475,10 +474,8 @@ void WebView::paint(HDC hdc, const IntRect& dirtyRect)
         cairo_surface_destroy(surface);
 
         Vector<IntRect> unpaintedRects = unpaintedRegion.rects();
-        for (size_t i = 0; i < unpaintedRects.size(); ++i) {
-            RECT winRect = unpaintedRects[i];
-            drawPageBackground(hdc, m_page.get(), unpaintedRects[i]);
-        }
+        for (auto& rect : unpaintedRects)
+            drawPageBackground(hdc, m_page.get(), rect);
     } else
         drawPageBackground(hdc, m_page.get(), dirtyRect);
 }
@@ -654,7 +651,7 @@ void WebView::initializeToolTipWindow()
     if (!m_toolTipWindow)
         return;
 
-    TOOLINFO info = { 0 };
+    TOOLINFO info { };
     info.cbSize = sizeof(info);
     info.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
     info.uId = reinterpret_cast<UINT_PTR>(m_window);
@@ -748,6 +745,14 @@ HCURSOR WebView::cursorToShow() const
         return m_overrideCursor;
 
     return m_webCoreCursor;
+}
+
+void WebView::setCursor(const WebCore::Cursor& cursor)
+{
+    if (!cursor.platformCursor()->nativeCursor())
+        return;
+    m_webCoreCursor = cursor.platformCursor()->nativeCursor();
+    updateNativeCursor();
 }
 
 void WebView::updateNativeCursor()
@@ -856,6 +861,24 @@ void WebView::windowReceivedMessage(HWND, UINT message, WPARAM wParam, LPARAM)
     case WM_SETTINGCHANGE:
         break;
     }
+}
+
+void WebView::setToolTip(const String& toolTip)
+{
+    if (!m_toolTipWindow)
+        return;
+
+    if (!toolTip.isEmpty()) {
+        TOOLINFO info { };
+        info.cbSize = sizeof(info);
+        info.uFlags = TTF_IDISHWND;
+        info.uId = reinterpret_cast<UINT_PTR>(nativeWindow());
+        Vector<UChar> toolTipCharacters = toolTip.charactersWithNullTermination(); // Retain buffer long enough to make the SendMessage call
+        info.lpszText = const_cast<UChar*>(toolTipCharacters.data());
+        ::SendMessage(m_toolTipWindow, TTM_UPDATETIPTEXT, 0, reinterpret_cast<LPARAM>(&info));
+    }
+
+    ::SendMessage(m_toolTipWindow, TTM_ACTIVATE, !toolTip.isEmpty(), 0);
 }
 
 } // namespace WebKit

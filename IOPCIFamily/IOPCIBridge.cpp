@@ -120,6 +120,7 @@ const OSSymbol *           gIOPlatformGetMessagedInterruptControllerKey;
 const OSSymbol *           gIOPlatformGetMessagedInterruptAddressKey;
 const OSSymbol *           gIOPolledInterfaceActiveKey;
 const OSSymbol *           gIOPCIDeviceHiddenKey;
+const OSSymbol *           gIOPCIDeviceChangedKey;
 
 #if ACPI_SUPPORT
 const OSSymbol *           gIOPCIPSMethods[kIOPCIDevicePowerStateCount];
@@ -139,7 +140,7 @@ static OSSet *             gIOPCIProbeSet;
 static bool                gIOPCIUSBCSystem;
 
 uint32_t gIOPCIFlags = 0
-             | kIOPCIConfiguratorAllocate
+             | 0*kIOPCIConfiguratorFPBEnable
              | kIOPCIConfiguratorPFM64
              | kIOPCIConfiguratorCheckTunnel
              | kIOPCIConfiguratorTBMSIEnable
@@ -288,6 +289,8 @@ void IOPCIBridge::initialize(void)
         	= OSSymbol::withCStringNoCopy(kIOPlatformResolvePCIInterruptKey);
         gIOPlatformFreeDeviceResourcesKey
         	= OSSymbol::withCStringNoCopy(kIOPlatformFreeDeviceResourcesKey);
+        gIOPCIDeviceChangedKey
+            = OSSymbol::withCStringNoCopy(kIOPCIDeviceChangedKey);
         gIOPlatformGetMessagedInterruptAddressKey
         	= OSSymbol::withCStringNoCopy(kIOPlatformGetMessagedInterruptAddressKey);
         gIOPlatformGetMessagedInterruptControllerKey
@@ -329,11 +332,14 @@ void IOPCIBridge::initialize(void)
 
 #if ACPI_SUPPORT
 
+#include <i386/cpuid.h>
+#include <i386/cpu_number.h>
+
 #define kACPITablesKey                      "ACPI Tables"
 enum {
 	// LAPIC_DEFAULT_INTERRUPT_BASE (mp.h)
 	kBaseMessagedInterruptVectors = 0x70,
-	kNumMessagedInterruptVectors = 0xFF - kBaseMessagedInterruptVectors
+	kNumMessagedInterruptVectors = 0x200 - kBaseMessagedInterruptVectors
 };
 
 IOReturn
@@ -345,6 +351,8 @@ IOPCIPlatformInitialize(void)
     OSData       * data;
     IOService    * provider;
     bool           ok;
+    int            lapic_max_interrupt_cpunum;
+    int            forceintcpu;
 
     data = 0;
     ok = true;
@@ -355,6 +363,13 @@ IOPCIPlatformInitialize(void)
 		data = OSDynamicCast(OSData, dict->getObject("DMAR"));
 	}
 
+    if (!PE_parse_boot_argn("intcpumax", &lapic_max_interrupt_cpunum, sizeof(lapic_max_interrupt_cpunum))) {
+        lapic_max_interrupt_cpunum = ((cpuid_features() & CPUID_FEATURE_HTT) ? 1 : 0);
+    }
+    if (!PE_parse_boot_argn("forceintcpu", &forceintcpu, sizeof(forceintcpu))) {
+        forceintcpu = 0;
+    }
+
 	ic = new IOPCIMessagedInterruptController;
 	if (ic && !ic->init(kNumMessagedInterruptVectors, kBaseMessagedInterruptVectors))
 	{
@@ -363,8 +378,31 @@ IOPCIPlatformInitialize(void)
 	}
 	if (ic)
 	{
-		ok  = ic->reserveVectors(0x7F - kBaseMessagedInterruptVectors, 4);
-		ok &= ic->reserveVectors(0xD0 - kBaseMessagedInterruptVectors, 16);
+        if (forceintcpu && lapic_max_interrupt_cpunum)
+        {
+            // no vectors below 0x100
+            ok  = ic->reserveVectors(0, 0x100 - kBaseMessagedInterruptVectors);
+        }
+        else
+        {
+            // used by osfmk/cpu
+            ok  = ic->reserveVectors(0x7F - kBaseMessagedInterruptVectors, 4);
+            ok &= ic->reserveVectors(0xD0 - kBaseMessagedInterruptVectors, 16);
+            ok &= ic->reserveVectors(0xFF - kBaseMessagedInterruptVectors, 1);
+        }
+        if (lapic_max_interrupt_cpunum)
+        {
+            // used by osfmk/cpu
+            ok &= ic->reserveVectors(0x100 - kBaseMessagedInterruptVectors, 32);
+            ok &= ic->reserveVectors(0x17F - kBaseMessagedInterruptVectors, 4);
+            ok &= ic->reserveVectors(0x1D0 - kBaseMessagedInterruptVectors, 16);
+            ok &= ic->reserveVectors(0x1FF - kBaseMessagedInterruptVectors, 1);
+        }
+        else
+        {
+            // no vectors above 0xFF
+            ok  = ic->reserveVectors(0x100 - kBaseMessagedInterruptVectors, 0x100);
+        }
 	}
 	if (!ic || !ok) panic("IOPCIMessagedInterruptController");
 	gIOPCIMessagedInterruptController = ic;
@@ -1177,6 +1215,17 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
 		if (kIOPCIConfigShadowWakeL1PMDisable & shadow->flags) saved->savedLinkControl &= ~(0x100);
     }
 
+    if (device->reserved->fpbCapability)
+    {
+        saved->savedFPBControl1
+            = device->configRead32(device->reserved->fpbCapability + 0x08);
+        saved->savedFPBControl2
+            = device->configRead32(device->reserved->fpbCapability + 0x0C);
+		device->configWrite32(device->reserved->fpbCapability + 0x1C, 0);
+        saved->savedFPBRIDVector0
+            = device->configRead32(device->reserved->fpbCapability + 0x20);
+	}
+
 	IOPCIMessagedInterruptController::saveDeviceState(device, saved);
 
     if (shadow->handler)
@@ -1396,6 +1445,18 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 				device->configWrite16(device->reserved->expressCapability + 0x38,
 									  saved->savedSlotControl2);
 			}
+		}
+
+		if (device->reserved->fpbCapability)
+		{
+			device->configWrite32(device->reserved->fpbCapability + 0x08,
+									saved->savedFPBControl1);
+			device->configWrite32(device->reserved->fpbCapability + 0x0C,
+									saved->savedFPBControl2);
+			device->configWrite32(device->reserved->fpbCapability + 0x1C,
+									0);
+			device->configWrite32(device->reserved->fpbCapability + 0x20,
+									saved->savedFPBRIDVector0);
 		}
 
 		IOPCIMessagedInterruptController::restoreDeviceState(device, saved);
@@ -2008,8 +2069,14 @@ void IOPCIBridge::removeDevice( IOPCIDevice * device, IOOptionBits options )
 #endif /* USE_MSI */
 
     getPlatform()->callPlatformFunction(gIOPlatformFreeDeviceResourcesKey,
-									  /* waitForFunction */ false,
-									  /* nub             */ device, NULL, NULL, NULL);
+                                          /* waitForFunction */ false,
+                                          /* nub             */ device, NULL, NULL, NULL);
+
+    device->callPlatformFunction(gIOPCIDeviceChangedKey,
+                                  /* waitForFunction */ false,
+                                  /* nub             */ device,
+                                  kOSBooleanFalse, NULL, NULL);
+
 #if ACPI_SUPPORT
 	AppleVTD::removeDevice(device);
 #endif
@@ -2335,6 +2402,12 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
 					}
 				}
 
+                capa = 0;
+                if (nub->extendedFindPCICapability(kIOPCIFPBCapability, &capa))
+                {
+                    nub->reserved->fpbCapability = capa;
+                }
+
                 nub->release();
             }
         }
@@ -2593,6 +2666,10 @@ IOReturn IOPCIBridge::getNubResources( IOService * service )
     if (!msiDefault)
         resolveMSIInterrupts( provider, nub );
 
+    nub->callPlatformFunction(gIOPCIDeviceChangedKey,
+                              /* waitForFunction */ false,
+                              /* nub             */ nub,
+                              kOSBooleanTrue, NULL, NULL);
 #if ACPI_SUPPORT
 	AppleVTD::adjustDevice(nub);
 #endif

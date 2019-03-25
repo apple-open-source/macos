@@ -217,7 +217,10 @@ $(OBJROOT)/$(PROJECT)::
 	patch -p0 -F0 $(PROJECT)/perl.c fix/CVE-2016-2381.diff && \
 	patch -p0 -F0 $(PROJECT)/regcomp.c fix/CVE-2013-7422.diff && \
 	patch -p0 -F0 $(PROJECT)/regcomp.c fix/CVE-2018-6797.diff && \
+	patch -p0 -F0 $(PROJECT)/regcomp.c fix/CVE-2018-18313.diff && \
+	patch -p0 -F0 $(PROJECT)/util.c fix/CVE-2018-18311.diff && \
 	(cd $(PROJECT) ; patch -p1 -F0 < $(SRCROOT)/fix/CVE-2018-6913.diff) && \
+	(cd $(PROJECT) ; patch -p1 -F0 < $(SRCROOT)/fix/CVE-2018-12015.diff) && \
 	patch -p0 -F0 $(PROJECT)/config_h.SH fix/CORE-config.h.diff && \
 	(cd $(PROJECT) ; patch -p1 -F0 < $(SRCROOT)/fix/perl_inc.diff) && \
 	sed -e 's/@VERSION@/$(VERSION)/g' \

@@ -277,7 +277,8 @@ public:
     virtual void                            setCalibration(UInt32 min=0, UInt32 max=0, UInt32 saturationMin=0, UInt32 saturationMax=0, UInt32 deadZoneMin=0, UInt32 deadZoneMax=0, IOFixed granularity=0);
     virtual UInt32                          getScaledValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical);
     virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical);
-
+    virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type, IOOptionBits options);
+    
     unsigned int getCount() const;
     unsigned int getCapacity() const;
     unsigned int getCapacityIncrement() const;

@@ -35,11 +35,13 @@
 #include "Document.h"
 #include "Frame.h"
 #include "HTMLCanvasElement.h"
+#include "ImageBitmapRenderingContext.h"
 #include "InspectorController.h"
 #include "InspectorInstrumentation.h"
 #include "JSCanvasRenderingContext2D.h"
+#include "JSExecState.h"
 #include "JSHTMLCanvasElement.h"
-#include "JSMainThreadExecState.h"
+#include "JSImageBitmapRenderingContext.h"
 #include "JSOffscreenCanvas.h"
 #include "OffscreenCanvas.h"
 #include "Page.h"
@@ -134,7 +136,7 @@ void PageConsoleClient::addMessage(MessageSource source, MessageLevel level, con
     unsigned column = 0;
     getParserLocationForConsoleMessage(document, url, line, column);
 
-    addMessage(source, level, message, url, line, column, 0, JSMainThreadExecState::currentState(), requestIdentifier);
+    addMessage(source, level, message, url, line, column, 0, JSExecState::currentState(), requestIdentifier);
 }
 
 void PageConsoleClient::addMessage(MessageSource source, MessageLevel level, const String& message, Ref<ScriptCallStack>&& callStack)
@@ -234,6 +236,8 @@ static CanvasRenderingContext* canvasRenderingContext(JSC::VM& vm, ScriptArgumen
     if (auto* canvas = JSOffscreenCanvas::toWrapped(vm, target))
         return canvas->renderingContext();
     if (auto* context = JSCanvasRenderingContext2D::toWrapped(vm, target))
+        return context;
+    if (auto* context = JSImageBitmapRenderingContext::toWrapped(vm, target))
         return context;
 #if ENABLE(WEBGL)
     if (auto* context = JSWebGLRenderingContext::toWrapped(vm, target))

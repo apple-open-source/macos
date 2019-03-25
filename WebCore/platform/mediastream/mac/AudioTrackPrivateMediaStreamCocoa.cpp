@@ -106,7 +106,7 @@ AudioComponentInstance AudioTrackPrivateMediaStreamCocoa::createAudioUnit(CAAudi
     AudioComponentInstance remoteIOUnit { nullptr };
 
     AudioComponentDescription ioUnitDescription { kAudioUnitType_Output, 0, kAudioUnitManufacturer_Apple, 0, 0 };
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     ioUnitDescription.componentSubType = kAudioUnitSubType_RemoteIO;
 #else
     ioUnitDescription.componentSubType = kAudioUnitSubType_DefaultOutput;
@@ -125,7 +125,7 @@ AudioComponentInstance AudioTrackPrivateMediaStreamCocoa::createAudioUnit(CAAudi
         return nullptr;
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     UInt32 param = 1;
     err = AudioUnitSetProperty(remoteIOUnit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &param, sizeof(param));
     if (err) {
@@ -165,24 +165,21 @@ AudioComponentInstance AudioTrackPrivateMediaStreamCocoa::createAudioUnit(CAAudi
     return remoteIOUnit;
 }
 
+// May get called on a background thread.
 void AudioTrackPrivateMediaStreamCocoa::audioSamplesAvailable(const MediaTime& sampleTime, const PlatformAudioData& audioData, const AudioStreamDescription& description, size_t sampleCount)
 {
-    // This function is called on a background thread. The following protectedThis object ensures the object is not
-    // destroyed on the main thread before this function exits.
-    Ref<AudioTrackPrivateMediaStreamCocoa> protectedThis { *this };
-
     ASSERT(description.platformDescription().type == PlatformDescription::CAAudioStreamBasicType);
 
     if (!m_inputDescription || *m_inputDescription != description) {
-
-        m_inputDescription = nullptr;
-        m_outputDescription = nullptr;
 
         if (m_remoteIOUnit) {
             AudioOutputUnitStop(m_remoteIOUnit);
             AudioComponentInstanceDispose(m_remoteIOUnit);
             m_remoteIOUnit = nullptr;
         }
+
+        m_inputDescription = nullptr;
+        m_outputDescription = nullptr;
 
         CAAudioStreamDescription inputDescription = toCAAudioStreamDescription(description);
         CAAudioStreamDescription outputDescription;

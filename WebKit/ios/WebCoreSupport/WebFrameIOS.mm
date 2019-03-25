@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import "WebFrameIOS.h"
 
@@ -220,7 +220,7 @@ using namespace WebCore;
         SelectionRect &coreRect = rects[i];
         WebSelectionRect *webRect = [WebSelectionRect selectionRect];
         webRect.rect = static_cast<CGRect>(coreRect.rect());
-        webRect.writingDirection = coreRect.direction() == LTR ? WKWritingDirectionLeftToRight : WKWritingDirectionRightToLeft;
+        webRect.writingDirection = coreRect.direction() == TextDirection::LTR ? WKWritingDirectionLeftToRight : WKWritingDirectionRightToLeft;
         webRect.isLineBreak = coreRect.isLineBreak();
         webRect.isFirstOnLine = coreRect.isFirstOnLine();
         webRect.isLastOnLine = coreRect.isLastOnLine();
@@ -533,10 +533,10 @@ using namespace WebCore;
 {
     Frame *frame = [self coreFrame];
     switch (frame->editor().baseWritingDirectionForSelectionStart()) {
-    case LeftToRightWritingDirection:
+    case WritingDirection::LeftToRight:
         return WKWritingDirectionLeftToRight;
 
-    case RightToLeftWritingDirection:
+    case WritingDirection::RightToLeft:
         return WKWritingDirectionRightToLeft;
 
     default:
@@ -573,16 +573,16 @@ using namespace WebCore;
     if (!frame->selection().selection().isContentEditable())
         return;
     
-    WritingDirection wcDirection = LeftToRightWritingDirection;
+    auto wcDirection = WritingDirection::LeftToRight;
     switch (direction) {
         case WKWritingDirectionNatural:
-            wcDirection = NaturalWritingDirection;
+            wcDirection = WritingDirection::Natural;
             break;
         case WKWritingDirectionLeftToRight:
-            wcDirection = LeftToRightWritingDirection;
+            wcDirection = WritingDirection::LeftToRight;
             break;
         case WKWritingDirectionRightToLeft:
-            wcDirection = RightToLeftWritingDirection;
+            wcDirection = WritingDirection::RightToLeft;
             break;
         default:
             ASSERT_NOT_REACHED();
@@ -643,7 +643,7 @@ using namespace WebCore;
             break;
     }
     FrameSelection& frameSelection = _private->coreFrame->selection();
-    frameSelection.setSelection(frameSelection.selection(), wcGranularity);
+    frameSelection.setSelection(frameSelection.selection(), { }, { }, { }, wcGranularity);
 }
 
 static inline bool isAlphaNumericCharacter(UChar32 c)
@@ -950,4 +950,4 @@ static VisiblePosition SimpleSmartExtendEnd(const VisiblePosition& start, const 
 
 @end
 
-#endif  // PLATFORM(IOS)
+#endif  // PLATFORM(IOS_FAMILY)

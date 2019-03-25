@@ -42,12 +42,6 @@
 
 namespace JSC {
 
-EncodedJSValue JS_EXPORT_PRIVATE vmEntryToWasm(void* code, VM* vm, ProtoCallFrame* frame)
-{
-    code = retagCodePtr<WasmEntryPtrTag, JSEntryPtrTag>(code);
-    return vmEntryToJavaScript(code, vm, frame);
-}
-    
 #if ENABLE(JIT)
 
 namespace LLInt {
@@ -104,8 +98,9 @@ MacroAssemblerCodeRef<JITThunkPtrTag> moduleProgramEntryThunkGenerator(VM* vm)
 
 } // namespace LLInt
 
-#else // ENABLE(JIT)
+#endif
 
+#if ENABLE(C_LOOP)
 // Non-JIT (i.e. C Loop LLINT) case:
 
 EncodedJSValue vmEntryToJavaScript(void* executableAddress, VM* vm, ProtoCallFrame* protoCallFrame)
@@ -128,7 +123,6 @@ extern "C" VMEntryRecord* vmEntryRecord(EntryFrame* entryFrame)
     return reinterpret_cast<VMEntryRecord*>(reinterpret_cast<char*>(entryFrame) - VMEntryTotalFrameSize);
 }
 
-
-#endif // ENABLE(JIT)
+#endif // ENABLE(C_LOOP)
 
 } // namespace JSC

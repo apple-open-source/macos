@@ -29,7 +29,9 @@
 #include <System/libkern/OSCrossEndian.h>
 
 __BEGIN_DECLS
+#if !defined(__LP64__)
 #include <IOKit/iokitmig.h>
+#endif
 __END_DECLS
 
 //

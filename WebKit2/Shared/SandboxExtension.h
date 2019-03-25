@@ -63,7 +63,7 @@ public:
         ~Handle();
 
         void encode(IPC::Encoder&) const;
-        static std::optional<Handle> decode(IPC::Decoder&);
+        static Optional<Handle> decode(IPC::Decoder&);
 
     private:
         friend class SandboxExtension;
@@ -77,14 +77,16 @@ public:
     public:
         HandleArray();
         HandleArray(HandleArray&&) = default;
+        HandleArray& operator=(HandleArray&&) = default;
         ~HandleArray();
         void allocate(size_t);
         Handle& operator[](size_t i);
+        Handle& at(size_t i) { return operator[](i); }
         const Handle& operator[](size_t i) const;
         size_t size() const;
         void encode(IPC::Encoder&) const;
-        static bool decode(IPC::Decoder&, HandleArray&);
-       
+        static Optional<HandleArray> decode(IPC::Decoder&);
+
     private:
 #if ENABLE(SANDBOX_EXTENSIONS)
         Vector<Handle> m_data;
@@ -120,7 +122,7 @@ private:
 inline SandboxExtension::Handle::Handle() { }
 inline SandboxExtension::Handle::~Handle() { }
 inline void SandboxExtension::Handle::encode(IPC::Encoder&) const { }
-inline std::optional<SandboxExtension::Handle> SandboxExtension::Handle::decode(IPC::Decoder&) { return SandboxExtension::Handle { }; }
+inline Optional<SandboxExtension::Handle> SandboxExtension::Handle::decode(IPC::Decoder&) { return SandboxExtension::Handle { }; }
 inline SandboxExtension::HandleArray::HandleArray() { }
 inline SandboxExtension::HandleArray::~HandleArray() { }
 inline void SandboxExtension::HandleArray::allocate(size_t) { }
@@ -128,7 +130,7 @@ inline size_t SandboxExtension::HandleArray::size() const { return 0; }
 inline const SandboxExtension::Handle& SandboxExtension::HandleArray::operator[](size_t) const { return m_emptyHandle; }
 inline SandboxExtension::Handle& SandboxExtension::HandleArray::operator[](size_t) { return m_emptyHandle; }
 inline void SandboxExtension::HandleArray::encode(IPC::Encoder&) const { }
-inline bool SandboxExtension::HandleArray::decode(IPC::Decoder&, HandleArray&) { return true; }
+inline auto SandboxExtension::HandleArray::decode(IPC::Decoder&) -> Optional<HandleArray> { return {{ }}; }
 inline RefPtr<SandboxExtension> SandboxExtension::create(Handle&&) { return nullptr; }
 inline bool SandboxExtension::createHandle(const String&, Type, Handle&) { return true; }
 inline bool SandboxExtension::createHandleWithoutResolvingPath(const String&, Type, Handle&) { return true; }

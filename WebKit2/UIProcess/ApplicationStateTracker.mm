@@ -26,12 +26,12 @@
 #import "config.h"
 #import "ApplicationStateTracker.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import "AssertionServicesSPI.h"
 #import "SandboxUtilities.h"
 #import "UIKitSPI.h"
-#import <wtf/ObjcRuntimeExtras.h>
+#import <wtf/ObjCRuntimeExtras.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/spi/cocoa/SecuritySPI.h>
 
@@ -40,7 +40,6 @@
 @end
 
 namespace WebKit {
-
 
 enum class ApplicationType {
     Application,
@@ -199,13 +198,13 @@ void ApplicationStateTracker::applicationDidEnterBackground()
     m_isInBackground = true;
 
     if (auto view = m_view.get())
-        wtfObjcMsgSend<void>(view.get(), m_didEnterBackgroundSelector);
+        wtfObjCMsgSend<void>(view.get(), m_didEnterBackgroundSelector);
 }
 
 void ApplicationStateTracker::applicationDidFinishSnapshottingAfterEnteringBackground()
 {
     if (auto view = m_view.get())
-        wtfObjcMsgSend<void>(view.get(), m_didFinishSnapshottingAfterEnteringBackgroundSelector);
+        wtfObjCMsgSend<void>(view.get(), m_didFinishSnapshottingAfterEnteringBackgroundSelector);
 }
 
 void ApplicationStateTracker::applicationWillEnterForeground()
@@ -213,7 +212,7 @@ void ApplicationStateTracker::applicationWillEnterForeground()
     m_isInBackground = false;
 
     if (auto view = m_view.get())
-        wtfObjcMsgSend<void>(view.get(), m_willEnterForegroundSelector);
+        wtfObjCMsgSend<void>(view.get(), m_willEnterForegroundSelector);
 }
 
 }

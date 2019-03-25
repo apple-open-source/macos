@@ -33,10 +33,15 @@
 #include <System/machine/cpu_capabilities.h>
 
 #include <os/assumes.h>
+#include <os/stdlib.h>
 #include <os/variant_private.h>
 
+/*
+ * Lists all properties overridden by an empty file
+ */
+#define ALL_OVERRIDES_STR "content,diagnostics,ui,security"
+
 enum variant_property {
-	VP_ALL = 0,
 	VP_CONTENT,
 	VP_DIAGNOSTICS,
 	VP_UI,
@@ -83,6 +88,7 @@ status2bool(enum check_status status) {
 #define INTERNAL_SETTINGS_PATH "/AppleInternal/Library/PreferenceBundles/Internal Settings.bundle"
 #else
 #define INTERNAL_DIAGS_PROFILE_PATH "/var/db/ConfigurationProfiles/Settings/com.apple.InternalDiagnostics.plist"
+#define FACTORY_CONTENT_PATH "/System/Library/CoreServices/AppleFactoryVariant.plist"
 #endif
 
 #if !TARGET_OS_SIMULATOR
@@ -156,8 +162,10 @@ static enum check_status internal_content = S_UNKNOWN;
 static enum check_status can_has_debugger = S_UNKNOWN;
 #if TARGET_OS_IPHONE
 static enum check_status internal_release_type = S_UNKNOWN;
+static enum check_status factory_release_type = S_UNKNOWN;
 #else // TARGET_OS_IPHONE
 static enum check_status internal_diags_profile = S_UNKNOWN;
+static enum check_status factory_content = S_UNKNOWN;
 #endif // TARGET_OS_IPHONE
 #endif // !TARGET_OS_SIMULATOR
 
@@ -174,10 +182,10 @@ static void _parse_disabled_status(char *test_string)
 
 	if (test_string != NULL) {
 		/* used for unit tests */
-		override_str = strdup(test_string);
+		override_str = os_strdup(test_string);
 	} else {
 		if (access(VAR_FILE_LEGACY, F_OK) == 0) {
-			goto disable_all;
+			override_str = os_strdup(ALL_OVERRIDES_STR);
 		} else if (access(VAR_FILE_OVERRIDE, F_OK) != 0) {
 			return;
 		}
@@ -185,7 +193,9 @@ static void _parse_disabled_status(char *test_string)
 		override_str = _read_file(VAR_FILE_OVERRIDE, NULL);
 	}
 
-	if (override_str == NULL) goto disable_all;
+	if (override_str == NULL) {
+		override_str = os_strdup(ALL_OVERRIDES_STR);
+	}
 
 	char *token, *string = override_str;
 	while ((token = strsep(&string, ",\n")) != NULL) {
@@ -202,11 +212,6 @@ static void _parse_disabled_status(char *test_string)
 
 	free(override_str);
 	return;
-
-disable_all:
-	for (int i = 0; i < VP_MAX; i++) {
-		disabled_status[i] = true;
-	}
 #endif //!TARGET_OS_SIMULATOR
 }
 
@@ -285,7 +290,54 @@ static bool _check_internal_content(void)
 }
 #endif // !TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
 
+#if TARGET_OS_OSX
+static bool _check_factory_content(void)
+{
+	if (factory_content == S_UNKNOWN) {
+		const char * path = FACTORY_CONTENT_PATH;
+		factory_content = (access(path, F_OK) == 0) ? S_YES : S_NO;
+	}
+	return status2bool(factory_content);
+}
+#endif // TARGET_OS_OSX
+
 #if TARGET_OS_IPHONE
+
+#if !TARGET_OS_SIMULATOR
+static bool _parse_system_version_plist(void)
+{
+	xpc_object_t system_version_plist = read_plist(SYSTEM_VERSION_PLIST_PATH);
+	if (!system_version_plist) {
+		return false;
+	}
+
+	const char *release_type =
+			xpc_dictionary_get_string(system_version_plist,
+					SYSTEM_VERSION_PLIST_KEY);
+
+	if (release_type == NULL) {
+		/*
+		 * Confusingly, customer images are just completely missing this key.
+		 */
+		internal_release_type = S_NO;
+		factory_release_type = S_NO;
+	} else if (strcmp(release_type, "Internal") == 0 ||
+			strcmp(release_type, "Lite Internal") == 0) {
+		internal_release_type = S_YES;
+		factory_release_type = S_NO;
+	} else if (strcmp(release_type, "NonUI") == 0) {
+		internal_release_type = S_YES;
+		factory_release_type = S_YES;
+	} else {
+		internal_release_type = S_NO;
+		factory_release_type = S_NO;
+	}
+
+	xpc_release(system_version_plist);
+
+	return true;
+}
+#endif //!TARGET_OS_SIMULATOR
 
 /*
  * This set of criteria was taken from copyInternalBuild in MobileGestalt.c
@@ -296,32 +348,27 @@ static bool _check_internal_release_type(void)
 	return _check_internal_content();
 #else // TARGET_OS_SIMULATOR
 	if (internal_release_type == S_UNKNOWN) {
-		xpc_object_t system_version_plist = read_plist(SYSTEM_VERSION_PLIST_PATH);
-		if (system_version_plist) {
-			const char *release_type =
-					xpc_dictionary_get_string(system_version_plist,
-							SYSTEM_VERSION_PLIST_KEY);
-
-			if (release_type == NULL) {
-				/*
-				 * Confusingly, customer images are just completely missing this key.
-				 */
-				internal_release_type = S_NO;
-			} else if (strcmp(release_type, "Internal") == 0 ||
-					strcmp(release_type, "Lite Internal") == 0 ||
-					strcmp(release_type, "NonUI") == 0) {
-				internal_release_type = S_YES;
-			} else {
-				internal_release_type = S_NO;
-			}
-
-			xpc_release(system_version_plist);
-		} else {
+		if (!_parse_system_version_plist()) {
 			internal_release_type = (access(INTERNAL_SETTINGS_PATH, F_OK) == 0) ? S_YES : S_NO;
 		}
 	}
 
 	return status2bool(internal_release_type);
+#endif // TARGET_OS_SIMULATOR
+}
+
+static bool _check_factory_release_type(void)
+{
+#if TARGET_OS_SIMULATOR
+	return false;
+#else // TARGET_OS_SIMULATOR
+	if (factory_release_type == S_UNKNOWN) {
+		if (!_parse_system_version_plist()) {
+			factory_release_type = S_NO;
+		}
+	}
+
+	return status2bool(factory_release_type);
 #endif // TARGET_OS_SIMULATOR
 }
 
@@ -421,6 +468,16 @@ os_variant_allows_internal_security_policies(const char * __unused subsystem)
 	return _check_can_has_debugger();
 }
 
+bool
+os_variant_has_factory_content(const char * __unused subsystem)
+{
+#if TARGET_OS_IPHONE
+	return _check_factory_release_type();
+#else
+	return _check_factory_content();
+#endif
+}
+
 #endif // VARIANT_SKIP_EXPORTED
 
 #define STATUS_INITIAL_BITS 0x70000000F0000000ULL
@@ -432,7 +489,9 @@ enum status_flags_positions {
 	SFP_INTERNAL_CONTENT = 0,
 	SFP_CAN_HAS_DEBUGGER = 1,
 	SFP_INTERNAL_RELEASE_TYPE = 2,
-	SFP_INTERNAL_DIAGS_PROFILE = 3
+	SFP_INTERNAL_DIAGS_PROFILE = 3,
+	SFP_FACTORY_CONTENT = 4,
+	SFP_FACTORY_RELEASE_TYPE = 5,
 };
 
 #if !TARGET_OS_SIMULATOR
@@ -454,10 +513,18 @@ static uint64_t _get_cached_check_status(void)
 	_check_internal_release_type();
 	if (internal_release_type != S_UNKNOWN)
 		res |= internal_release_type << SFP_INTERNAL_RELEASE_TYPE * STATUS_BIT_WIDTH;
+
+	_check_factory_release_type();
+	if (factory_release_type != S_UNKNOWN)
+		res |= factory_release_type << SFP_FACTORY_RELEASE_TYPE * STATUS_BIT_WIDTH;
 #else
 	_check_internal_diags_profile();
 	if (internal_diags_profile != S_UNKNOWN)
 		res |= internal_diags_profile << SFP_INTERNAL_DIAGS_PROFILE * STATUS_BIT_WIDTH;
+
+	_check_factory_content();
+	if (factory_content != S_UNKNOWN)
+		res |= factory_content << SFP_FACTORY_CONTENT * STATUS_BIT_WIDTH;
 #endif
 
 	_parse_disabled_status(NULL);
@@ -476,14 +543,22 @@ static void _restore_cached_check_status(uint64_t status)
 	if ((status >> (SFP_INTERNAL_CONTENT * STATUS_BIT_WIDTH)) & STATUS_SET)
 		internal_content = (status >> (SFP_INTERNAL_CONTENT * STATUS_BIT_WIDTH)) & STATUS_MASK;
 #endif
+
 	if ((status >> (SFP_CAN_HAS_DEBUGGER * STATUS_BIT_WIDTH)) & STATUS_SET)
 		can_has_debugger = (status >> (SFP_CAN_HAS_DEBUGGER * STATUS_BIT_WIDTH)) & STATUS_MASK;
+
 #if TARGET_OS_IPHONE
 	if ((status >> (SFP_INTERNAL_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_SET)
 		internal_release_type = (status >> (SFP_INTERNAL_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_MASK;
+
+	if ((status >> (SFP_FACTORY_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_SET)
+		factory_release_type = (status >> (SFP_FACTORY_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_MASK;
 #else
 	if ((status >> (SFP_INTERNAL_DIAGS_PROFILE * STATUS_BIT_WIDTH)) & STATUS_SET)
 		internal_diags_profile = (status >> (SFP_INTERNAL_DIAGS_PROFILE * STATUS_BIT_WIDTH)) & STATUS_MASK;
+
+	if ((status >> (SFP_FACTORY_CONTENT * STATUS_BIT_WIDTH)) & STATUS_SET)
+		factory_content = (status >> (SFP_FACTORY_CONTENT * STATUS_BIT_WIDTH)) & STATUS_MASK;
 #endif
 
 	for (int i = 0; i < VP_MAX; i++) {

@@ -47,4 +47,5 @@ DOVIEWMACRO(AutoUnlock,             "AutoUnlock",           "autounlock",       
 DOVIEWMACRO(Health,                 "Health",               "health",                  CKKS, D,  , A,  ,  )
 DOVIEWMACRO(ApplePay,               "ApplePay",             "applepay",                CKKS, D,  , A,  ,  )
 DOVIEWMACRO(Home,                   "Home",                 "home",                    CKKS, D,  , A,  ,  )
+DOVIEWMACRO(LimitedPeersAllowed,    "LimitedPeersAllowed",  "limitedpeersallowed",     CKKS, D,  , A,  ,  )
 

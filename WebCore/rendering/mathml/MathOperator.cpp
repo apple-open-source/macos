@@ -708,7 +708,7 @@ void MathOperator::paintHorizontalGlyphAssembly(const RenderStyle& style, PaintI
 
 void MathOperator::paint(const RenderStyle& style, PaintInfo& info, const LayoutPoint& paintOffset)
 {
-    if (info.context().paintingDisabled() || info.phase != PaintPhaseForeground || style.visibility() != Visibility::Visible)
+    if (info.context().paintingDisabled() || info.phase != PaintPhase::Foreground || style.visibility() != Visibility::Visible)
         return;
 
     // Make a copy of the PaintInfo because applyTransform will modify its rect.
@@ -721,7 +721,7 @@ void MathOperator::paint(const RenderStyle& style, PaintInfo& info, const Layout
         float radicalHorizontalScale = style.isLeftToRightDirection() ? 1 : -1;
         if (radicalHorizontalScale == -1 || m_radicalVerticalScale > 1) {
             LayoutPoint scaleOrigin = paintOffset;
-            scaleOrigin.move(m_width / 2, 0);
+            scaleOrigin.move(m_width / 2, 0_lu);
             paintInfo.applyTransform(AffineTransform().translate(scaleOrigin).scale(radicalHorizontalScale, m_radicalVerticalScale).translate(-scaleOrigin));
         }
     }

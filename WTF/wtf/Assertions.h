@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef WTF_Assertions_h
-#define WTF_Assertions_h
+#pragma once
 
 #include <wtf/Platform.h>
 
@@ -45,6 +44,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <wtf/ExportMacros.h>
 
 #if USE(OS_LOG)
@@ -55,7 +55,7 @@
 #include <type_traits>
 
 #if OS(WINDOWS)
-#if !COMPILER(GCC_OR_CLANG)
+#if !COMPILER(GCC_COMPATIBLE)
 extern "C" void _ReadWriteBarrier(void);
 #pragma intrinsic(_ReadWriteBarrier)
 #endif
@@ -102,7 +102,7 @@ extern "C" void _ReadWriteBarrier(void);
 #define RELEASE_LOG_DISABLED !(USE(OS_LOG))
 #endif
 
-#if COMPILER(GCC_OR_CLANG)
+#if COMPILER(GCC_COMPATIBLE)
 #define WTF_PRETTY_FUNCTION __PRETTY_FUNCTION__
 #else
 #define WTF_PRETTY_FUNCTION __FUNCTION__
@@ -111,7 +111,7 @@ extern "C" void _ReadWriteBarrier(void);
 #if COMPILER(MINGW)
 /* By default MinGW emits warnings when C99 format attributes are used, even if __USE_MINGW_ANSI_STDIO is defined */
 #define WTF_ATTRIBUTE_PRINTF(formatStringArgument, extraArguments) __attribute__((__format__(gnu_printf, formatStringArgument, extraArguments)))
-#elif COMPILER(GCC_OR_CLANG) && !defined(__OBJC__)
+#elif COMPILER(GCC_COMPATIBLE) && !defined(__OBJC__)
 /* WTF logging functions can process %@ in the format string to log a NSObject* but the printf format attribute
    emits a warning when %@ is used in the format string.  Until <rdar://problem/5195437> is resolved we can't include
    the attribute when being used from Objective-C code in case it decides to use %@. */
@@ -120,12 +120,12 @@ extern "C" void _ReadWriteBarrier(void);
 #define WTF_ATTRIBUTE_PRINTF(formatStringArgument, extraArguments)
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 /* For a project that uses WTF but has no config.h, we need to explicitly set the export defines here. */
 #ifndef WTF_EXPORT_PRIVATE
 #define WTF_EXPORT_PRIVATE
 #endif
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
 
 /* These helper functions are always declared, but not necessarily always defined if the corresponding function is disabled. */
 
@@ -141,7 +141,7 @@ extern "C" {
 
    Signals are ignored by the crash reporter on OS X so we must do better.
 */
-#if COMPILER(GCC_OR_CLANG) || COMPILER(MSVC)
+#if COMPILER(GCC_COMPATIBLE) || COMPILER(MSVC)
 #define NO_RETURN_DUE_TO_CRASH NO_RETURN
 #else
 #define NO_RETURN_DUE_TO_CRASH
@@ -240,6 +240,14 @@ WTF_EXPORT_PRIVATE bool WTFIsDebuggerAttached(void);
     WTFBreakpointTrapUnderConstexprContext(); \
     __builtin_unreachable(); \
 } while (0)
+#elif !ENABLE(DEVELOPER_MODE) && !OS(DARWIN)
+#ifdef __cplusplus
+#define CRASH() std::abort()
+#define CRASH_UNDER_CONSTEXPR_CONTEXT() std::abort()
+#else
+#define CRASH() abort()
+#define CRASH_UNDER_CONSTEXPR_CONTEXT() abort()
+#endif // __cplusplus
 #else
 #define CRASH() WTFCrash()
 #define CRASH_UNDER_CONSTEXPR_CONTEXT() WTFCrash()
@@ -289,15 +297,15 @@ WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH void WTFCrashWithSecurityImplication(v
 
 #if ASSERT_DISABLED
 
-#define ASSERT(assertion) ((void)0)
+#define ASSERT(assertion, ...) ((void)0)
 #define ASSERT_UNDER_CONSTEXPR_CONTEXT(assertion) ((void)0)
 #define ASSERT_AT(assertion, file, line, function) ((void)0)
-#define ASSERT_NOT_REACHED() ((void)0)
+#define ASSERT_NOT_REACHED(...) ((void)0)
 #define ASSERT_NOT_IMPLEMENTED_YET() ((void)0)
 #define ASSERT_IMPLIES(condition, assertion) ((void)0)
 #define NO_RETURN_DUE_TO_ASSERT
 
-#define ASSERT_UNUSED(variable, assertion) ((void)variable)
+#define ASSERT_UNUSED(variable, assertion, ...) ((void)variable)
 
 #if ENABLE(SECURITY_ASSERTIONS)
 #define ASSERT_WITH_SECURITY_IMPLICATION(assertion) \
@@ -314,10 +322,10 @@ WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH void WTFCrashWithSecurityImplication(v
 
 #else
 
-#define ASSERT(assertion) do { \
+#define ASSERT(assertion, ...) do { \
     if (!(assertion)) { \
         WTFReportAssertionFailure(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, #assertion); \
-        CRASH(); \
+        CRASH_WITH_INFO(__VA_ARGS__); \
     } \
 } while (0)
 
@@ -335,9 +343,9 @@ WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH void WTFCrashWithSecurityImplication(v
     } \
 } while (0)
 
-#define ASSERT_NOT_REACHED() do { \
+#define ASSERT_NOT_REACHED(...) do { \
     WTFReportAssertionFailure(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, 0); \
-    CRASH(); \
+    CRASH_WITH_INFO(__VA_ARGS__); \
 } while (0)
 
 #define ASSERT_NOT_IMPLEMENTED_YET() do { \
@@ -352,7 +360,7 @@ WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH void WTFCrashWithSecurityImplication(v
     } \
 } while (0)
 
-#define ASSERT_UNUSED(variable, assertion) ASSERT(assertion)
+#define ASSERT_UNUSED(variable, assertion, ...) ASSERT(assertion, __VA_ARGS__)
 
 #define NO_RETURN_DUE_TO_ASSERT NO_RETURN_DUE_TO_CRASH
 
@@ -510,49 +518,46 @@ WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH void WTFCrashWithSecurityImplication(v
 /* RELEASE_ASSERT */
 
 #if ASSERT_DISABLED
-#define RELEASE_ASSERT(assertion) do { \
+#define RELEASE_ASSERT(assertion, ...) do { \
     if (UNLIKELY(!(assertion))) \
-        CRASH(); \
+        CRASH_WITH_INFO(__VA_ARGS__); \
 } while (0)
 #define RELEASE_ASSERT_WITH_MESSAGE(assertion, ...) RELEASE_ASSERT(assertion)
 #define RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(assertion) RELEASE_ASSERT(assertion)
-#define RELEASE_ASSERT_NOT_REACHED() CRASH()
+#define RELEASE_ASSERT_NOT_REACHED(...) CRASH_WITH_INFO(__VA_ARGS__)
+#define RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(assertion) do { \
+    if (UNLIKELY(!(assertion))) { \
+        CRASH_UNDER_CONSTEXPR_CONTEXT(); \
+    } \
+} while (0)
 #else
-#define RELEASE_ASSERT(assertion) ASSERT(assertion)
+#define RELEASE_ASSERT(assertion, ...) ASSERT(assertion, __VA_ARGS__)
 #define RELEASE_ASSERT_WITH_MESSAGE(assertion, ...) ASSERT_WITH_MESSAGE(assertion, __VA_ARGS__)
 #define RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(assertion) ASSERT_WITH_SECURITY_IMPLICATION(assertion)
 #define RELEASE_ASSERT_NOT_REACHED() ASSERT_NOT_REACHED()
-#endif
-
-/* UNREACHABLE_FOR_PLATFORM */
-
-#if COMPILER(CLANG)
-// This would be a macro except that its use of #pragma works best around
-// a function. Hence it uses macro naming convention.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
-static inline void UNREACHABLE_FOR_PLATFORM()
-{
-    // This *MUST* be a release assert. We use it in places where it's better to crash than to keep
-    // going.
-    RELEASE_ASSERT_NOT_REACHED();
-}
-#pragma clang diagnostic pop
-#else
-#define UNREACHABLE_FOR_PLATFORM() RELEASE_ASSERT_NOT_REACHED()
+#define RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(assertion) ASSERT_UNDER_CONSTEXPR_CONTEXT(assertion)
 #endif
 
 #ifdef __cplusplus
 
 // The combination of line, file, function, and counter should be a unique number per call to this crash. This tricks the compiler into not coalescing calls to WTFCrashWithInfo.
 // The easiest way to fill these values per translation unit is to pass __LINE__, __FILE__, WTF_PRETTY_FUNCTION, and __COUNTER__.
+WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4, uint64_t misc5, uint64_t misc6);
+WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4, uint64_t misc5);
 WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4);
 WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3);
 WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2);
 WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1);
 WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason);
-WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter);
+NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter);
 
+inline void WTFCrashWithInfo(int, const char*, const char*, int)
+#if COMPILER(CLANG)
+    __attribute__((optnone))
+#endif
+{
+    CRASH();
+}
 
 namespace WTF {
 inline void isIntegralType() { }
@@ -567,7 +572,7 @@ void isIntegralType(T, Types... types)
 
 inline void compilerFenceForCrash()
 {
-#if OS(WINDOWS) && !COMPILER(GCC_OR_CLANG)
+#if OS(WINDOWS) && !COMPILER(GCC_COMPATIBLE)
     _ReadWriteBarrier();
 #else
     asm volatile("" ::: "memory");
@@ -592,6 +597,27 @@ inline void compilerFenceForCrash()
 #define CRASH_WITH_SECURITY_IMPLICATION_AND_INFO CRASH_WITH_INFO
 #endif // CRASH_WITH_SECURITY_IMPLICATION_AND_INFO
 
-#endif // __cplusplus
+#else /* not __cplusplus */
 
-#endif /* WTF_Assertions_h */
+#ifndef CRASH_WITH_INFO
+#define CRASH_WITH_INFO() CRASH()
+#endif
+
+#endif /* __cplusplus */
+
+/* UNREACHABLE_FOR_PLATFORM */
+
+#if COMPILER(CLANG)
+// This would be a macro except that its use of #pragma works best around
+// a function. Hence it uses macro naming convention.
+IGNORE_WARNINGS_BEGIN("missing-noreturn")
+static inline void UNREACHABLE_FOR_PLATFORM()
+{
+    // This *MUST* be a release assert. We use it in places where it's better to crash than to keep
+    // going.
+    RELEASE_ASSERT_NOT_REACHED();
+}
+IGNORE_WARNINGS_END
+#else
+#define UNREACHABLE_FOR_PLATFORM() RELEASE_ASSERT_NOT_REACHED()
+#endif

@@ -56,7 +56,7 @@ ccMallocECCryptor(size_t nbits, CCECKeyType keyType)
     
     if(!ccec_keysize_is_supported(nbits)) return NULL;
     ccec_const_cp_t cp = ccec_get_cp(nbits);    
-    size_t len = ccec_cp_prime_size(cp);
+    size_t len = ccec_ccn_size(cp);
 
     if((retval = CC_XMALLOC(sizeof(CCECCryptor))) == NULL) return NULL;
     
@@ -94,7 +94,7 @@ ccECCryptorFree(CCECCryptor *theKey)
     size_t ctxSize = 0;
     
     ccec_const_cp_t cp = ccec_get_cp(nbits);    
-    size_t len = ccec_cp_prime_size(cp);
+    size_t len = ccec_ccn_size(cp);
     
     CCECCryptor *key = (CCECCryptor *) theKey;
     if(!key) return;
@@ -195,7 +195,7 @@ CCECCryptorGetPublicKeyFromPrivateKey(CCECCryptorRef privateKey)
     CC_DEBUG_LOG("Entering\n");
     __Require((publicCryptor = ccMallocECCryptor(privateKey->key_nbits, ccECKeyPublic)) != NULL, errOut);
     ccec_const_cp_t cp = ccec_get_cp(privateKey->key_nbits);    
-    size_t ctx_size = ccec_pub_ctx_size(ccec_cp_prime_size(cp));
+    size_t ctx_size = ccec_pub_ctx_size(ccec_ccn_size(cp));
     CC_XMEMCPY(publicCryptor->ecKey.public, privateKey->ecKey.public, ctx_size);
     publicCryptor->key_nbits = privateKey->key_nbits;
     publicCryptor->keyType = ccECKeyPublic;

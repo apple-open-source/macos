@@ -69,12 +69,9 @@ JSArrayBufferView::ConstructionContext::ConstructionContext(
         // Attempt GC allocation.
         void* temp;
         size_t size = sizeOf(length, elementSize);
-        if (size) {
-            temp = vm.primitiveGigacageAuxiliarySpace.allocateNonVirtual(vm, size, nullptr, AllocationFailureMode::ReturnNull);
-            if (!temp)
-                return;
-        } else
-            temp = nullptr;
+        temp = vm.primitiveGigacageAuxiliarySpace.allocateNonVirtual(vm, size, nullptr, AllocationFailureMode::ReturnNull);
+        if (!temp)
+            return;
 
         m_structure = structure;
         m_vector = temp;
@@ -305,7 +302,7 @@ RefPtr<ArrayBufferView> JSArrayBufferView::possiblySharedImpl()
     switch (type()) {
 #define FACTORY(type) \
     case type ## ArrayType: \
-        return type ## Array::create(buffer, byteOffset, length);
+        return type ## Array::tryCreate(buffer, byteOffset, length);
     FOR_EACH_TYPED_ARRAY_TYPE_EXCLUDING_DATA_VIEW(FACTORY)
 #undef FACTORY
     case DataViewType:

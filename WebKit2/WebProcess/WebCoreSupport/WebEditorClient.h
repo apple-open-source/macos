@@ -60,8 +60,15 @@ private:
     bool shouldMoveRangeAfterDelete(WebCore::Range*, WebCore::Range*) final;
 
 #if ENABLE(ATTACHMENT_ELEMENT)
-    void didInsertAttachment(const String& identifier, const String& source) final;
-    void didRemoveAttachment(const String& identifier) final;
+    void registerAttachmentIdentifier(const String&, const String& contentType, const String& preferredFileName, Ref<WebCore::SharedBuffer>&&) final;
+    void registerAttachmentIdentifier(const String&, const String& contentType, const String& filePath) final;
+    void registerAttachmentIdentifier(const String&) final;
+    void registerAttachments(Vector<WebCore::SerializedAttachmentData>&&) final;
+    void cloneAttachmentData(const String& fromIdentifier, const String& toIdentifier) final;
+    void didInsertAttachmentWithIdentifier(const String& identifier, const String& source, bool hasEnclosingImage) final;
+    void didRemoveAttachmentWithIdentifier(const String& identifier) final;
+    bool supportsClientSideAttachmentData() const final { return true; }
+    Vector<WebCore::SerializedAttachmentData> serializedAttachmentDataForIdentifiers(const Vector<String>&) final;
 #endif
 
     void didBeginEditing() final;
@@ -143,7 +150,7 @@ private:
     void checkGrammarOfString(StringView, Vector<WebCore::GrammarDetail>&, int* badGrammarLocation, int* badGrammarLength) final;
 
 #if USE(UNIFIED_TEXT_CHECKING)
-    Vector<WebCore::TextCheckingResult> checkTextOfParagraph(StringView, WebCore::TextCheckingTypeMask checkingTypes, const WebCore::VisibleSelection& currentSelection) final;
+    Vector<WebCore::TextCheckingResult> checkTextOfParagraph(StringView, OptionSet<WebCore::TextCheckingType> checkingTypes, const WebCore::VisibleSelection& currentSelection) final;
 #endif
 
     void updateSpellingUIWithGrammarString(const String&, const WebCore::GrammarDetail&) final;
@@ -159,13 +166,14 @@ private:
     bool shouldShowUnicodeMenu() final;
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     void startDelayingAndCoalescingContentChangeNotifications() final;
     void stopDelayingAndCoalescingContentChangeNotifications() final;
     bool hasRichlyEditableSelection() final;
     int getPasteboardItemsCount() final;
     RefPtr<WebCore::DocumentFragment> documentFragmentFromDelegate(int index) final;
     bool performsTwoStepPaste(WebCore::DocumentFragment*) final;
+    void updateStringForFind(const String&) final;
 #endif
 
     bool performTwoStepDrop(WebCore::DocumentFragment&, WebCore::Range&, bool isMove) final;

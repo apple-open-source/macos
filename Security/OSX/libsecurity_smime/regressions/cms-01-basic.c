@@ -393,7 +393,7 @@ static void sign_tests(SecIdentityRef identity, bool isRSA) {
 
 /* Verifying with attributes goes through a different code path than verifying without,
  * so we need to test both. */
-#define kNumberVerifyTests 12
+#define kNumberVerifyTests 13
 static void verify_tests(SecKeychainRef kc, bool isRsa) {
     /* no attributes */
     is(verify_please(kc, (isRsa) ? rsa_md5 : ec_md5,
@@ -421,6 +421,9 @@ static void verify_tests(SecKeychainRef kc, bool isRsa) {
     /***** Once more, with validation errors *****/
 
     /* no attributes */
+    is(verify_please(kc, (isRsa) ? rsa_sinfo_unknown_digest : ec_sinfo_unknown_digest,
+                     (isRsa) ? sizeof(rsa_sinfo_unknown_digest) : sizeof(ec_sinfo_unknown_digest)),
+       errSecInvalidDigestAlgorithm, "Verify unknown digest OID in signer info");
     is(invalidate_and_verify(kc, (isRsa) ? rsa_md5 : ec_md5,
                      (isRsa) ? sizeof(rsa_md5) : sizeof(ec_md5)),
        SECFailure, "Verify invalid MD5, no attributes");

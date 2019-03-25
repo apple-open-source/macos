@@ -35,9 +35,8 @@
 #include "WebPage.h"
 #include <wtf/text/WTFString.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 InjectedBundlePageUIClient::InjectedBundlePageUIClient(const WKBundlePageUIClientBase* client)
 {
@@ -79,10 +78,10 @@ void InjectedBundlePageUIClient::mouseDidMoveOverElement(WebPage* page, const Hi
     if (!m_client.mouseDidMoveOverElement)
         return;
 
-    RefPtr<InjectedBundleHitTestResult> hitTestResult = InjectedBundleHitTestResult::create(coreHitTestResult);
+    auto hitTestResult = InjectedBundleHitTestResult::create(coreHitTestResult);
 
     WKTypeRef userDataToPass = 0;
-    m_client.mouseDidMoveOverElement(toAPI(page), toAPI(hitTestResult.get()), toAPI(modifiers), &userDataToPass, m_client.base.clientInfo);
+    m_client.mouseDidMoveOverElement(toAPI(page), toAPI(hitTestResult.ptr()), toAPI(modifiers), &userDataToPass, m_client.base.clientInfo);
     userData = adoptRef(toImpl(userDataToPass));
 }
 

@@ -26,8 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WTF_FeatureDefines_h
-#define WTF_FeatureDefines_h
+#pragma once
 
 /* Use this file to list _all_ ENABLE() macros. Define the macros to be one of the following values:
  *  - "0" disables the feature by default. The feature can still be enabled for a specific port or environment.
@@ -52,7 +51,7 @@
 /* FIXME: Move out the PLATFORM specific rules into platform specific files. */
 
 /* --------- Apple IOS (but not MAC) port --------- */
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #if !defined(ENABLE_AIRPLAY_PICKER)
 #if !PLATFORM(IOSMAC)
@@ -167,18 +166,29 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #endif
 
 #if !defined(ENABLE_WKLEGACYPDFVIEW)
-#if PLATFORM(IOS) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && !PLATFORM(IOSMAC) && __IPHONE_OS_VERSION_MIN_REQUIRED < 120000
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && !PLATFORM(IOSMAC) && __IPHONE_OS_VERSION_MIN_REQUIRED < 120000
 #define ENABLE_WKLEGACYPDFVIEW 1
 #endif
 #endif
 
 #if !defined(ENABLE_WKPDFVIEW)
-#if PLATFORM(IOS) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && !PLATFORM(IOSMAC) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && !PLATFORM(IOSMAC) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000
 #define ENABLE_WKPDFVIEW 1
 #endif
 #endif
 
-#endif /* PLATFORM(IOS) */
+#endif /* PLATFORM(IOS_FAMILY) */
+
+/* --------- Apple WATCHOS port --------- */
+#if PLATFORM(WATCHOS)
+
+#if !defined(ENABLE_PROXIMITY_NETWORKING)
+#if !TARGET_OS_SIMULATOR && __WATCH_OS_VERSION_MIN_REQUIRED < 60000
+#define ENABLE_PROXIMITY_NETWORKING 1
+#endif
+#endif
+
+#endif /* PLATFORM(WATCHOS) */
 
 /* --------- Apple MAC port (not IOS) --------- */
 #if PLATFORM(MAC)
@@ -390,12 +400,20 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #define ENABLE_CSS_IMAGE_RESOLUTION 0
 #endif
 
+#if !defined(ENABLE_CSS_CONIC_GRADIENTS)
+#define ENABLE_CSS_CONIC_GRADIENTS 0
+#endif
+
 #if !defined(ENABLE_CURSOR_SUPPORT)
 #define ENABLE_CURSOR_SUPPORT 1
 #endif
 
 #if !defined(ENABLE_CUSTOM_SCHEME_HANDLER)
 #define ENABLE_CUSTOM_SCHEME_HANDLER 0
+#endif
+
+#if !defined(ENABLE_DARK_MODE_CSS)
+#define ENABLE_DARK_MODE_CSS 0
 #endif
 
 #if !defined(ENABLE_DASHBOARD_SUPPORT)
@@ -455,11 +473,7 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #endif
 
 #if !defined(ENABLE_INPUT_TYPE_COLOR)
-#define ENABLE_INPUT_TYPE_COLOR 0
-#endif
-
-#if !defined(ENABLE_INPUT_TYPE_COLOR_POPOVER)
-#define ENABLE_INPUT_TYPE_COLOR_POPOVER 0
+#define ENABLE_INPUT_TYPE_COLOR 1
 #endif
 
 #if !defined(ENABLE_INPUT_TYPE_DATE)
@@ -498,18 +512,6 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 
 #if !defined(ENABLE_INTL)
 #define ENABLE_INTL 0
-#endif
-
-#if !defined(ENABLE_INTL_NUMBER_FORMAT_TO_PARTS)
-#define ENABLE_INTL_NUMBER_FORMAT_TO_PARTS 0
-#endif
-
-#if !defined(ENABLE_INTL_PLURAL_RULES)
-#define ENABLE_INTL_PLURAL_RULES 0
-#endif
-
-#if !defined(ENABLE_JAVASCRIPT_I18N_API)
-#define ENABLE_JAVASCRIPT_I18N_API 0
 #endif
 
 #if !defined(ENABLE_LAYOUT_FORMATTING_CONTEXT)
@@ -723,5 +725,3 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #if ENABLE(WEBGL2) && !ENABLE(WEBGL)
 #error "ENABLE(WEBGL2) requires ENABLE(WEBGL)"
 #endif
-
-#endif /* WTF_FeatureDefines_h */

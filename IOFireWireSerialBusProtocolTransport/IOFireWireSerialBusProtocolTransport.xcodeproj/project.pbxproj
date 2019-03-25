@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -316,6 +316,7 @@
 		34DF6B481A93F9C500BFB495 /* Default With Coverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 			};
@@ -327,6 +328,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				BUILD_SETTING = "";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				COPY_PHASE_STRIP = YES;
 				GCC_VERSION = "";
 				INFOPLIST_FILE = "Info-IOFireWireSerialBusProtocolTransport.plist";
@@ -359,6 +361,7 @@
 		ACBBA9AF0D4FDAA300E75387 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 			};
@@ -367,6 +370,7 @@
 		ACBBA9B00D4FDAA300E75387 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 			};
@@ -375,6 +379,7 @@
 		ACBBA9B10D4FDAA300E75387 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 			};
@@ -386,6 +391,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				BUILD_SETTING = "";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -422,6 +428,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				BUILD_SETTING = "";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_VERSION = "";
@@ -455,6 +462,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				BUILD_SETTING = "";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				COPY_PHASE_STRIP = YES;
 				GCC_VERSION = "";
 				INFOPLIST_FILE = "Info-IOFireWireSerialBusProtocolTransport.plist";

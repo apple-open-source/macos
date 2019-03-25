@@ -111,7 +111,7 @@ template<typename T> T nextID(T id) { return static_cast<T>(id + 1); }
 #if ENABLE(MASM_PROBE)
 bool isPC(MacroAssembler::RegisterID id)
 {
-#if CPU(ARM_THUMB2) || CPU(ARM_TRADITIONAL)
+#if CPU(ARM_THUMB2)
     return id == ARMRegisters::pc;
 #else
     UNUSED_PARAM(id);
@@ -153,7 +153,7 @@ MacroAssemblerCodeRef<JSEntryPtrTag> compile(Generator&& generate)
 }
 
 template<typename T, typename... Arguments>
-T invoke(MacroAssemblerCodeRef<JSEntryPtrTag> code, Arguments... arguments)
+T invoke(const MacroAssemblerCodeRef<JSEntryPtrTag>& code, Arguments... arguments)
 {
     void* executableAddress = untagCFunctionPtr<JSEntryPtrTag>(code.code().executableAddress());
     T (*function)(Arguments...) = bitwise_cast<T(*)(Arguments...)>(executableAddress);
@@ -573,7 +573,7 @@ void testProbeModifiesStackPointer(WTF::Function<void*(Probe::Context&)> compute
 #if CPU(X86) || CPU(X86_64)
     auto flagsSPR = X86Registers::eflags;
     uintptr_t flagsMask = 0xc5;
-#elif CPU(ARM_THUMB2) || CPU(ARM_TRADITIONAL)
+#elif CPU(ARM_THUMB2)
     auto flagsSPR = ARMRegisters::apsr;
     uintptr_t flagsMask = 0xf8000000;
 #elif CPU(ARM64)
@@ -753,7 +753,7 @@ void testProbeModifiesStackValues()
 #if CPU(X86) || CPU(X86_64)
     MacroAssembler::SPRegisterID flagsSPR = X86Registers::eflags;
     uintptr_t flagsMask = 0xc5;
-#elif CPU(ARM_THUMB2) || CPU(ARM_TRADITIONAL)
+#elif CPU(ARM_THUMB2)
     MacroAssembler::SPRegisterID flagsSPR = ARMRegisters::apsr;
     uintptr_t flagsMask = 0xf8000000;
 #elif CPU(ARM64)
@@ -863,6 +863,41 @@ void testProbeModifiesStackValues()
 }
 #endif // ENABLE(MASM_PROBE)
 
+void testByteSwap()
+{
+#if CPU(X86_64) || CPU(ARM64)
+    auto byteSwap16 = compile([] (CCallHelpers& jit) {
+        jit.emitFunctionPrologue();
+        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+        jit.byteSwap16(GPRInfo::returnValueGPR);
+        jit.emitFunctionEpilogue();
+        jit.ret();
+    });
+    CHECK_EQ(invoke<uint64_t>(byteSwap16, 0xaabbccddee001122), static_cast<uint64_t>(0x2211));
+    CHECK_EQ(invoke<uint64_t>(byteSwap16, 0xaabbccddee00ffaa), static_cast<uint64_t>(0xaaff));
+
+    auto byteSwap32 = compile([] (CCallHelpers& jit) {
+        jit.emitFunctionPrologue();
+        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+        jit.byteSwap32(GPRInfo::returnValueGPR);
+        jit.emitFunctionEpilogue();
+        jit.ret();
+    });
+    CHECK_EQ(invoke<uint64_t>(byteSwap32, 0xaabbccddee001122), static_cast<uint64_t>(0x221100ee));
+    CHECK_EQ(invoke<uint64_t>(byteSwap32, 0xaabbccddee00ffaa), static_cast<uint64_t>(0xaaff00ee));
+
+    auto byteSwap64 = compile([] (CCallHelpers& jit) {
+        jit.emitFunctionPrologue();
+        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+        jit.byteSwap64(GPRInfo::returnValueGPR);
+        jit.emitFunctionEpilogue();
+        jit.ret();
+    });
+    CHECK_EQ(invoke<uint64_t>(byteSwap64, 0xaabbccddee001122), static_cast<uint64_t>(0x221100eeddccbbaa));
+    CHECK_EQ(invoke<uint64_t>(byteSwap64, 0xaabbccddee00ffaa), static_cast<uint64_t>(0xaaff00eeddccbbaa));
+#endif
+}
+
 #define RUN(test) do {                          \
         if (!shouldRun(#test))                  \
             break;                              \
@@ -946,6 +981,8 @@ void run(const char* filter)
     RUN(testProbeModifiesProgramCounter());
     RUN(testProbeModifiesStackValues());
 #endif // ENABLE(MASM_PROBE)
+
+    RUN(testByteSwap());
 
     if (tasks.isEmpty())
         usage();

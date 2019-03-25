@@ -519,10 +519,10 @@ IOReturn IOHIDEventServiceClass::start(CFDictionaryRef propertyTable __unused, i
         if (createQueue) {
             // allocate the memory
 #if !__LP64__
-            vm_address_t        address = static_cast<vm_address_t>(nil);
+            vm_address_t        address = static_cast<vm_address_t>(0);
             vm_size_t           size    = 0;
 #else
-            mach_vm_address_t   address = static_cast<mach_vm_address_t>(nil);
+            mach_vm_address_t   address = static_cast<mach_vm_address_t>(0);
             mach_vm_size_t      size    = 0;
 #endif
             ret = IOConnectMapMemory (	_connect, 
@@ -826,7 +826,7 @@ IOReturn IOHIDEventServiceClass::setOutputEvent(IOHIDEventRef event)
     IOReturn result = kIOReturnUnsupported;
     CFIndex  LEDUsage = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldLEDNumber);
     if (IOHIDEventGetType(event) == kIOHIDEventTypeLED ) {
-        uint64_t input[3] = {kHIDPage_LEDs, LEDUsage, IOHIDEventGetIntegerValue(event, kIOHIDEventFieldLEDState)};
+        uint64_t input[3] = {kHIDPage_LEDs, (uint64_t)LEDUsage, (uint64_t)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldLEDState)};
         result = IOConnectCallMethod(_connect, kIOHIDEventServiceUserClientSetElementValue, input, 3, NULL, 0, NULL, NULL, NULL, NULL);
         if (result == kIOReturnUnsupported && LEDUsage >= kHIDUsage_LED_Player1 && LEDUsage <= kHIDUsage_LED_Player8) {
             input[1] = 0xff00 | IOHIDEventGetIntegerValue(event, kIOHIDEventFieldLEDNumber) - kHIDUsage_LED_Player1;

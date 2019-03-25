@@ -60,7 +60,7 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 
 #define kMaxRounding    (10)
 
-#if 1
+#if 0
 #define VTHWLOCKTYPE   IOLock
 #define VTHWLOCKALLOC  IOLockAlloc
 #define VTHWLOCK(l)    IOLockLock(l)
@@ -102,8 +102,8 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 
 #define table_flush(addr, size, linesize) __mfence();
 
-#define BLOCK(l)	IOLockLock(l)
-#define BUNLOCK(l)	IOLockUnlock(l)
+#define BLOCK(l)	IOSimpleLockLock(l)
+#define BUNLOCK(l)	IOSimpleLockUnlock(l)
 
 #define arrayCount(x)	(sizeof(x) / sizeof(x[0]))
 
@@ -235,7 +235,8 @@ struct vtd_fault_registers_t
 
 typedef char vtd_registers_t_check[(sizeof(vtd_registers_t) == 0xc0) ? 1 : -1];
 
-#define kIRPageCount 		(atop(256 * sizeof(ir_descriptor_t)))
+#define kIRCount            (512)
+#define kIRPageCount 		(atop(kIRCount * sizeof(ir_descriptor_t)))
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -602,7 +603,7 @@ enum
 
 struct vtd_space
 {
-	IOLock *            block;
+	IOSimpleLock *      block;
 	IOLock *            rlock;
 	ppnum_t				vsize;
 	ppnum_t				rsize;
@@ -1235,7 +1236,7 @@ AppleVTD::space_destroy(vtd_space_t * bf)
 	}
 	if (bf->block)
 	{
-		IOLockFree(bf->block);
+		IOSimpleLockFree(bf->block);
 		bf->block = 0;
 	}
 	if (bf->rlock)
@@ -1383,7 +1384,7 @@ AppleVTD::space_create(ppnum_t vsize, uint32_t buddybits, ppnum_t rsize)
 
 		if (buddybits)
 		{
-			bf->block = IOLockAlloc();
+			bf->block = IOSimpleLockAlloc();
 			if (!bf->block) break;
 			vtd_ballocator_init(bf, buddybits);
 		}
@@ -1511,6 +1512,7 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_vaddr_t addr, vtd_vaddr_t size,
 			vtassert(!(kIODMAMapFixedAddress & mapOptions));
 			BLOCK(bf->block);
 			addr = vtd_balloc(bf, size, mapOptions, pageList);
+			__mfence(); // the VTD table has relaxed consistency
 			STAT_ADD(bf, allocs[list], 1);
 			if (addr) STAT_ADD(bf, bused, (1 << list));
 			BUNLOCK(bf->block);
@@ -1570,6 +1572,7 @@ AppleVTD::space_free(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 		list = vtd_log2up(size);
 		BLOCK(bf->block);
 		vtd_bfree(bf, addr, size);
+		__mfence(); // the VTD table has relaxed consistency
 		STAT_ADD(bf, bused, -(1 << list));
 		BUNLOCK(bf->block);
 	}
@@ -1727,7 +1730,12 @@ AppleVTD::initHardware(IOService *provider)
 						kIOMemoryPageable |
 						kIOMapWriteCombineCache |
 						kIOMemoryMapperNone,
-						2 * page_size, page_size);
+#ifdef BLOCK_DEVICE
+						3 * page_size,
+#else
+						2 * page_size,
+#endif
+						page_size);
 	vtassert(md);
 	if (!md) return (kIOReturnNoMemory);
 
@@ -1766,6 +1774,25 @@ AppleVTD::initHardware(IOService *provider)
 		fRootEntryTable[idx].resv = 0;
 	}
 
+#ifdef BLOCK_DEVICE
+	{
+		enum { bus = 5, dev = 7, fun = 0 };
+		context = (typeof(context)) (fGlobalContextMap->getAddress() + 2 * page_size);
+		for (idx = 0; idx < 256; idx++)
+		{
+			context[idx].address_space_root = ptoa_64(fSpace->root_page)
+											| kEntryPresent
+											| kTranslationType0;
+			context[idx].context_entry      = fContextWidth
+											| fSpace->domain*kDomainIdentifier1;
+		}
+		context_page = pmap_find_phys(kernel_pmap, (uintptr_t) &context[0]);
+		if (!context_page) panic("!context_page");
+		fRootEntryTable[bus].context_entry_ptr = ptoa_64(context_page) | kEntryPresent;
+		context[(dev << 3) | (fun << 0)].address_space_root = 0;
+	}
+#endif
+
 	fRootEntryPage = pmap_find_phys(kernel_pmap, (uintptr_t) &fRootEntryTable[0]);
 	if (!fRootEntryPage) panic("!fRootEntryPage");
 	for (idx = 0; (unit = units[idx]); idx++) 
@@ -1791,7 +1818,7 @@ AppleVTD::initHardware(IOService *provider)
 		md->release();
 
 		fIRTable = (typeof(fIRTable)) (fIRMap->getAddress());
-		fIRAddress = (vtd_log2down(256) - 1)
+		fIRAddress = (vtd_log2down(kIRCount) - 1)
 						 | md->getPhysicalSegment(0, NULL, kIOMemoryMapperNone);
 		VTLOG("ir p 0x%qx v %p\n", fIRAddress, fIRTable);
 		for (idx = 0; (unit = units[idx]); idx++)
@@ -1988,6 +2015,7 @@ IOPCISetMSIInterrupt(uint32_t vector, uint32_t count, uint32_t * msiData)
 {
 	AppleVTD * vtd;
 	uint64_t   present;
+	uint64_t   destVector;
 	uint64_t   destID;
 	uint64_t   levelTrigger;
 	uint64_t   irte;
@@ -1998,15 +2026,18 @@ IOPCISetMSIInterrupt(uint32_t vector, uint32_t count, uint32_t * msiData)
 	if (!(vtd = OSDynamicCast(AppleVTD, IOMapper::gSystem))) return (kIOReturnUnsupported);
 	if (!vtd->fIRTable)                                      return (kIOReturnUnsupported);
 
+    if ((vector + count) > kIRCount) panic("IOPCISetMSIInterrupt(%d, %d)", vector, count);
+
     inval = false;
     for (idx = vector; idx < (vector + count); idx++)
     {
+		extern int cpu_to_lapic[];
 		levelTrigger = 0;
-		destID       = 0;
 		present      = (msiData != 0);
-		if (present) destID = (0xFF & (msiData[0] >> 12));
+		destVector   = (0xFF & idx);
+		destID       = (uint64_t)cpu_to_lapic[((idx & 0xFF00) >> 8)];
 		irte = (destID << 40)      // destID
-			 | (idx << 16)	       // vector
+			 | (destVector << 16)  // vector
 			 | (0 << 5)            // fixed delivery mode
 			 | (levelTrigger << 4) // trigger
 			 | (0 << 3)            // redir

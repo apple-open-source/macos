@@ -27,6 +27,7 @@
 #include "config.h"
 #include "TextIterator.h"
 
+#include "ComposedTreeIterator.h"
 #include "Document.h"
 #include "Editing.h"
 #include "FontCascade.h"
@@ -190,7 +191,7 @@ unsigned BitStack::size() const
 // This function is like Range::pastLastNode, except for the fact that it can climb up out of shadow trees.
 static Node* nextInPreOrderCrossingShadowBoundaries(Node& rangeEndContainer, int rangeEndOffset)
 {
-    if (rangeEndOffset >= 0 && !rangeEndContainer.offsetInCharacters()) {
+    if (rangeEndOffset >= 0 && !rangeEndContainer.isCharacterDataNode()) {
         if (Node* next = rangeEndContainer.traverseToChildAt(rangeEndOffset))
             return next;
     }
@@ -339,10 +340,35 @@ void TextIteratorCopyableText::appendToStringBuilder(StringBuilder& builder) con
 
 // --------
 
+
+TextIterator::TextIterator(Position start, Position end, TextIteratorBehavior behavior)
+    : m_behavior(behavior)
+{
+    if (start.isNull() || end.isNull())
+        return;
+    ASSERT(comparePositions(start, end) <= 0);
+
+    RELEASE_ASSERT(behavior & TextIteratorTraversesFlatTree || start.treeScope() == end.treeScope());
+
+    start.document()->updateLayoutIgnorePendingStylesheets();
+
+    // FIXME: Use Position / PositionIterator instead to avoid offset computation.
+    m_startContainer = start.containerNode();
+    m_startOffset = start.computeOffsetInContainerNode();
+
+    m_endContainer = end.containerNode();
+    m_endOffset = end.computeOffsetInContainerNode();
+
+    m_node = start.firstNode().get();
+    if (!m_node)
+        return;
+
+    init();
+}
+
 TextIterator::TextIterator(const Range* range, TextIteratorBehavior behavior)
     : m_behavior(behavior)
 {
-    // FIXME: Only m_positionNode above needs to be initialized if range is null.
     if (!range)
         return;
 
@@ -358,11 +384,15 @@ TextIterator::TextIterator(const Range* range, TextIteratorBehavior behavior)
     m_endContainer = &range->endContainer();
     m_endOffset = range->endOffset();
 
-    // Set up the current node for processing.
     m_node = range->firstNode();
     if (!m_node)
         return;
 
+    init();
+}
+
+void TextIterator::init()
+{
     if (isClippedByFrameAncestor(m_node->document(), m_behavior))
         return;
 
@@ -379,60 +409,33 @@ TextIterator::TextIterator(const Range* range, TextIteratorBehavior behavior)
 
 TextIterator::~TextIterator() = default;
 
-static HTMLSlotElement* assignedAuthorSlot(Node& node)
-{
-    auto* slot = node.assignedSlot();
-    if (!slot || slot->containingShadowRoot()->mode() == ShadowRootMode::UserAgent)
-        return nullptr;
-    return slot;
-}
-
-static ShadowRoot* authorShadowRoot(Node& node)
-{
-    auto* shadowRoot = node.shadowRoot();
-    if (!shadowRoot || shadowRoot->mode() == ShadowRootMode::UserAgent)
-        return nullptr;
-    return shadowRoot;
-}
-
 // FIXME: Use ComposedTreeIterator instead. These functions are more expensive because they might do O(n) work.
-static inline Node* firstChildInFlatTreeIgnoringUserAgentShadow(Node& node)
-{
-    if (auto* shadowRoot = authorShadowRoot(node))
-        return shadowRoot->firstChild();
-    if (is<HTMLSlotElement>(node)) {
-        if (auto* assignedNodes = downcast<HTMLSlotElement>(node).assignedNodes())
-            return assignedNodes->at(0);
-    }
-    return node.firstChild();
-}
-
-static inline Node* nextSiblingInFlatTreeIgnoringUserAgentShadow(Node& node)
-{
-    if (auto* slot = assignedAuthorSlot(node)) {
-        auto* assignedNodes = slot->assignedNodes();
-        ASSERT(assignedNodes);
-        auto nodeIndex = assignedNodes->find(&node);
-        ASSERT(nodeIndex != notFound);
-        if (assignedNodes->size() > nodeIndex + 1)
-            return assignedNodes->at(nodeIndex + 1);
-        return nullptr;
-    }
-    return node.nextSibling();
-}
-
 static inline Node* firstChild(TextIteratorBehavior options, Node& node)
 {
     if (UNLIKELY(options & TextIteratorTraversesFlatTree))
-        return firstChildInFlatTreeIgnoringUserAgentShadow(node);
+        return firstChildInComposedTreeIgnoringUserAgentShadow(node);
     return node.firstChild();
 }
 
 static inline Node* nextSibling(TextIteratorBehavior options, Node& node)
 {
     if (UNLIKELY(options & TextIteratorTraversesFlatTree))
-        return nextSiblingInFlatTreeIgnoringUserAgentShadow(node);
+        return nextSiblingInComposedTreeIgnoringUserAgentShadow(node);
     return node.nextSibling();
+}
+
+static inline Node* nextNode(TextIteratorBehavior options, Node& node)
+{
+    if (UNLIKELY(options & TextIteratorTraversesFlatTree))
+        return nextInComposedTreeIgnoringUserAgentShadow(node);
+    return NodeTraversal::next(node);
+}
+
+static inline bool isDescendantOf(TextIteratorBehavior options, Node& node, Node& possibleAncestor)
+{
+    if (UNLIKELY(options & TextIteratorTraversesFlatTree))
+        return node.isDescendantOrShadowDescendantOf(&possibleAncestor);
+    return node.isDescendantOf(&possibleAncestor);
 }
 
 static inline Node* parentNodeOrShadowHost(TextIteratorBehavior options, Node& node)
@@ -518,10 +521,10 @@ void TextIterator::advance()
         if (!next) {
             next = nextSibling(m_behavior, *m_node);
             if (!next) {
-                bool pastEnd = NodeTraversal::next(*m_node) == m_pastEndNode;
+                bool pastEnd = nextNode(m_behavior, *m_node) == m_pastEndNode;
                 Node* parentNode = parentNodeOrShadowHost(m_behavior, *m_node);
                 while (!next && parentNode) {
-                    if ((pastEnd && parentNode == m_endContainer) || m_endContainer->isDescendantOf(*parentNode))
+                    if ((pastEnd && parentNode == m_endContainer) || isDescendantOf(m_behavior, *m_endContainer, *parentNode))
                         return;
                     bool haveRenderer = m_node->renderer();
                     Node* exitedNode = m_node;
@@ -1267,7 +1270,7 @@ Node* TextIterator::node() const
     Ref<Range> textRange = range();
 
     Node& node = textRange->startContainer();
-    if (node.offsetInCharacters())
+    if (node.isCharacterDataNode())
         return &node;
     
     return node.traverseToChildAt(textRange->startOffset());
@@ -1284,13 +1287,13 @@ SimplifiedBackwardsTextIterator::SimplifiedBackwardsTextIterator(const Range& ra
     int startOffset = range.startOffset();
     int endOffset = range.endOffset();
 
-    if (!startNode->offsetInCharacters()) {
+    if (!startNode->isCharacterDataNode()) {
         if (startOffset >= 0 && startOffset < static_cast<int>(startNode->countChildNodes())) {
             startNode = startNode->traverseToChildAt(startOffset);
             startOffset = 0;
         }
     }
-    if (!endNode->offsetInCharacters()) {
+    if (!endNode->isCharacterDataNode()) {
         if (endOffset > 0 && endOffset <= static_cast<int>(endNode->countChildNodes())) {
             endNode = endNode->traverseToChildAt(endOffset - 1);
             endOffset = lastOffsetInNode(endNode);
@@ -2011,10 +2014,7 @@ static inline bool containsKanaLetters(const String& pattern)
     return false;
 }
 
-#if COMPILER(GCC_OR_CLANG)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 // NOTE: ICU's unorm_normalize function is deprecated.
 
 static void normalizeCharacters(const UChar* characters, unsigned length, Vector<UChar>& buffer)
@@ -2038,9 +2038,7 @@ static void normalizeCharacters(const UChar* characters, unsigned length, Vector
     ASSERT(status == U_STRING_NOT_TERMINATED_WARNING);
 }
 
-#if COMPILER(GCC_OR_CLANG)
-#pragma GCC diagnostic pop
-#endif
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 static bool isNonLatin1Separator(UChar32 character)
 {
@@ -2097,7 +2095,7 @@ inline SearchBuffer::SearchBuffer(const String& target, FindOptions options)
         // Characters in the separator category never really occur at the beginning of a word,
         // so if the target begins with such a character, we just ignore the AtWordStart option.
         if (isSeparator(targetFirstCharacter)) {
-            m_options -= AtWordStarts;
+            m_options.remove(AtWordStarts);
             m_needsMoreContext = false;
         }
     }
@@ -2659,10 +2657,14 @@ bool hasAnyPlainText(const Range& range, TextIteratorBehavior behavior)
     return false;
 }
 
-String plainText(const Range* r, TextIteratorBehavior defaultBehavior, bool isDisplayString)
+String plainText(Position start, Position end, TextIteratorBehavior defaultBehavior, bool isDisplayString)
 {
     // The initial buffer size can be critical for performance: https://bugs.webkit.org/show_bug.cgi?id=81192
     static const unsigned initialCapacity = 1 << 15;
+
+    if (!start.document())
+        return { };
+    auto document = makeRef(*start.document());
 
     unsigned bufferLength = 0;
     StringBuilder builder;
@@ -2670,8 +2672,8 @@ String plainText(const Range* r, TextIteratorBehavior defaultBehavior, bool isDi
     TextIteratorBehavior behavior = defaultBehavior;
     if (!isDisplayString)
         behavior = static_cast<TextIteratorBehavior>(behavior | TextIteratorEmitsTextsWithoutTranscoding);
-    
-    for (TextIterator it(r, behavior); !it.atEnd(); it.advance()) {
+
+    for (TextIterator it(start, end, behavior); !it.atEnd(); it.advance()) {
         it.appendTextToStringBuilder(builder);
         bufferLength += it.text().length();
     }
@@ -2682,9 +2684,16 @@ String plainText(const Range* r, TextIteratorBehavior defaultBehavior, bool isDi
     String result = builder.toString();
 
     if (isDisplayString)
-        r->ownerDocument().displayStringModifiedByEncoding(result);
+        document->displayStringModifiedByEncoding(result);
 
     return result;
+}
+
+String plainText(const Range* range, TextIteratorBehavior defaultBehavior, bool isDisplayString)
+{
+    if (!range)
+        return emptyString();
+    return plainText(range->startPosition(), range->endPosition(), defaultBehavior, isDisplayString);
 }
 
 String plainTextReplacingNoBreakSpace(const Range* range, TextIteratorBehavior defaultBehavior, bool isDisplayString)

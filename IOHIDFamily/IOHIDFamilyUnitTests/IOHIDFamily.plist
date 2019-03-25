@@ -296,6 +296,22 @@
 		<dict>
 			<key>TestSpecificLogs</key>
 			<array>
+				<string>/var/tmp/hidxctest/TestIOHIDEventDriver_DeviceOrientationAngularSensor.m/.+</string>
+			</array>
+			<key>TestName</key>
+			<string>TestIOHIDEventDriver_DeviceOrientationAngularSensor</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestIOHIDConnectionFilterPlugIn&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>TestSpecificLogs</key>
+			<array>
 				<string>/var/tmp/hidxctest/TestIOHIDEventDriver_Gyro.m/.+</string>
 			</array>
 			<key>TestName</key>
@@ -376,6 +392,39 @@
 			<key>AsRoot</key>
 			<true/>
 		</dict>
+		<dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestIOHIDEventDriver_DeviceOrientationTilt.m/.+</string>
+			</array>
+			<key>TestName</key>
+			<string>TestIOHIDEventDriver_DeviceOrientationTilt</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t</string>
+				<string>TestIOHIDEventDriver_DeviceOrientationTilt</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+		</dict>
+        <dict>
+            <key>TestSpecificLogs</key>
+            <array>
+                <string>/var/tmp/hidxctest/TestNonStandardDescriptor.m/.+</string>
+            </array>
+            <key>AsRoot</key>
+            <true/>
+            <key>Command</key>
+            <array>
+                <string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+                <string>-t &quot;TestNonStandardDescriptor&quot;</string>
+                <string>./IOHIDFamilyUnitTests.xctest</string>
+            </array>
+            <key>TestName</key>
+            <string>TestNonStandardDescriptor</string>
+        </dict>
 	</array>
 </dict>
 </plist>

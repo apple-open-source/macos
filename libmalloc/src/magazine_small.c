@@ -227,7 +227,9 @@ small_oob_free_find_ptr(void *ptr, msize_t msize)
 	// If this changes, then a linear search through the list may
 	// become an unsuitable choice.
 	for (int i=0; i < SMALL_OOB_COUNT; i++) {
-		if (small_oob_free_entry_get_ptr(&region->small_oob_free_entries[i]) == ptr) {
+		oob_free_entry_t oob = &region->small_oob_free_entries[i];
+		if (small_oob_free_entry_get_ptr(oob) == ptr &&
+				oob->ptr & SMALL_IS_OOB) {
 			return &region->small_oob_free_entries[i];
 		}
 	}
@@ -762,34 +764,27 @@ small_find_msize_region(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t mag
 
 	// Mask off the bits representing slots holding free blocks smaller than
 	// the size we need.
-	if (SMALL_FREELIST_BITMAP_WORDS(rack) > 1) {
-		// BITMAPN_CTZ implementation
-		unsigned idx = slot >> 5;
-		bitmap = 0;
-		unsigned mask = ~((1 << (slot & 31)) - 1);
-		for (; idx < SMALL_FREELIST_BITMAP_WORDS(rack); ++idx) {
-			bitmap = small_mag_ptr->mag_bitmap[idx] & mask;
-			if (bitmap != 0) {
-				break;
-			}
-			mask = ~0U;
+	//
+	// BITMAPN_CTZ implementation
+	unsigned idx = slot >> 5;
+	bitmap = 0;
+	unsigned mask = ~((1 << (slot & 31)) - 1);
+	for (; idx < SMALL_FREELIST_BITMAP_WORDS(rack); ++idx) {
+		bitmap = small_mag_ptr->mag_bitmap[idx] & mask;
+		if (bitmap != 0) {
+			break;
 		}
-		// Check for fallthrough: No bits set in bitmap
-		if ((bitmap == 0) && (idx == SMALL_FREELIST_BITMAP_WORDS(rack))) {
-			return NULL;
-		}
-
-		// Start looking at the first set bit, plus 32 bits for every word of
-		// zeroes or entries that were too small.
-		slot = BITMAP32_CTZ((&bitmap)) + (idx * 32);
-	} else {
-		bitmap = small_mag_ptr->mag_bitmap[0] & ~((1 << slot) - 1);
-		if (!bitmap) {
-			return NULL;
-		}
-
-		slot = BITMAP32_CTZ((&bitmap));
+		mask = ~0U;
 	}
+	// Check for fallthrough: No bits set in bitmap
+	if ((bitmap == 0) && (idx == SMALL_FREELIST_BITMAP_WORDS(rack))) {
+		return NULL;
+	}
+
+	// Start looking at the first set bit, plus 32 bits for every word of
+	// zeroes or entries that were too small.
+	slot = BITMAP32_CTZ((&bitmap)) + (idx * 32);
+
 	limit = free_list + SMALL_FREE_SLOT_COUNT(rack) - 1;
 	free_list += slot;
 
@@ -886,6 +881,89 @@ small_get_region_from_depot(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t
 
 	return 1;
 }
+
+#if CONFIG_MADVISE_PRESSURE_RELIEF
+void
+small_madvise_pressure_relief(rack_t *rack)
+{
+	mag_index_t mag_index;
+	magazine_t *small_depot_ptr = &rack->magazines[DEPOT_MAGAZINE_INDEX];
+
+	for (mag_index = 0; mag_index < rack->num_magazines; mag_index++) {
+		size_t index;
+		for (index = 0; index < rack->region_generation->num_regions_allocated; ++index) {
+			SZONE_LOCK(SMALL_SZONE_FROM_RACK(rack));
+
+			region_t small = rack->region_generation->hashed_regions[index];
+			if (!small || small == HASHRING_REGION_DEALLOCATED) {
+				SZONE_UNLOCK(SMALL_SZONE_FROM_RACK(rack));
+				continue;
+			}
+
+			magazine_t *mag_ptr = mag_lock_zine_for_region_trailer(rack->magazines,
+					REGION_TRAILER_FOR_SMALL_REGION(small),
+					MAGAZINE_INDEX_FOR_SMALL_REGION(small));
+			SZONE_UNLOCK(SMALL_SZONE_FROM_RACK(rack));
+
+			/* Ordering is important here, the magazine of a region may potentially change
+			 * during mag_lock_zine_for_region_trailer, so src_mag_index must be taken
+			 * after we've obtained the lock.
+			 */
+			mag_index_t src_mag_index = MAGAZINE_INDEX_FOR_SMALL_REGION(small);
+
+			/* We can (and must) ignore magazines that are already in the recirc depot. */
+			if (src_mag_index == DEPOT_MAGAZINE_INDEX) {
+				SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
+				continue;
+			}
+
+			if (small == mag_ptr->mag_last_region && (mag_ptr->mag_bytes_free_at_end || mag_ptr->mag_bytes_free_at_start)) {
+				small_finalize_region(rack, mag_ptr);
+			}
+
+			/* Because this region is currently in use, we can't safely madvise it while
+			 * it's attached to the magazine. For this operation we have to remove it from
+			 * the current mag, attach it to the depot and then madvise.
+			 */
+
+			recirc_list_extract(rack, mag_ptr, REGION_TRAILER_FOR_SMALL_REGION(small));
+			int objects_in_use = small_free_detach_region(rack, mag_ptr, small);
+
+			SZONE_MAGAZINE_PTR_LOCK(small_depot_ptr);
+			MAGAZINE_INDEX_FOR_SMALL_REGION(small) = DEPOT_MAGAZINE_INDEX;
+			REGION_TRAILER_FOR_SMALL_REGION(small)->pinned_to_depot = 0;
+
+			size_t bytes_inplay = small_free_reattach_region(rack, small_depot_ptr, small);
+
+			/* Fix up the metadata of the target magazine while the region is in the depot. */
+			mag_ptr->mag_num_bytes_in_objects -= bytes_inplay;
+			mag_ptr->num_bytes_in_magazine -= SMALL_REGION_PAYLOAD_BYTES;
+			mag_ptr->mag_num_objects -= objects_in_use;
+
+			/* Now we can drop the magazine lock of the source mag. */
+			SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
+
+			small_depot_ptr->mag_num_bytes_in_objects += bytes_inplay;
+			small_depot_ptr->num_bytes_in_magazine += SMALL_REGION_PAYLOAD_BYTES;
+			small_depot_ptr->mag_num_objects -= objects_in_use;
+
+			recirc_list_splice_last(rack, small_depot_ptr, REGION_TRAILER_FOR_SMALL_REGION(small));
+
+			/* Actually do the scan, done holding the depot lock, the call will drop the lock
+			 * around the actual madvise syscalls.
+			 */
+			small_free_scan_madvise_free(rack, small_depot_ptr, small);
+
+			/* Now the region is in the recirc depot, the next allocations to require more
+			 * blocks will come along and take one of these regions back out of the depot.
+			 * As OS X madvise's reuse on an per-region basis, we leave as many of these
+			 * regions in the depot as possible after memory pressure.
+			 */
+			SZONE_MAGAZINE_PTR_UNLOCK(small_depot_ptr);
+		}
+	}
+}
+#endif // CONFIG_MADVISE_PRESSURE_RELIEF
 
 #if CONFIG_AGGRESSIVE_MADVISE || CONFIG_RECIRC_DEPOT
 static MALLOC_INLINE void
@@ -1760,34 +1838,27 @@ small_malloc_from_free_list(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t
 	// Mask off the bits representing slots holding free blocks smaller than
 	// the size we need.  If there are no larger free blocks, try allocating
 	// from the free space at the end of the small region.
-	if (SMALL_FREELIST_BITMAP_WORDS(rack) > 1) {
-		// BITMAPN_CTZ implementation
-		unsigned idx = slot >> 5;
-		bitmap = 0;
-		unsigned mask = ~((1 << (slot & 31)) - 1);
-		for (; idx < SMALL_FREELIST_BITMAP_WORDS(rack); ++idx) {
-			bitmap = small_mag_ptr->mag_bitmap[idx] & mask;
-			if (bitmap != 0) {
-				break;
-			}
-			mask = ~0U;
+	//
+	// BITMAPN_CTZ implementation
+	unsigned idx = slot >> 5;
+	bitmap = 0;
+	unsigned mask = ~((1 << (slot & 31)) - 1);
+	for (; idx < SMALL_FREELIST_BITMAP_WORDS(rack); ++idx) {
+		bitmap = small_mag_ptr->mag_bitmap[idx] & mask;
+		if (bitmap != 0) {
+			break;
 		}
-		// Check for fallthrough: No bits set in bitmap
-		if ((bitmap == 0) && (idx == SMALL_FREELIST_BITMAP_WORDS(rack))) {
-			goto try_small_from_end;
-		}
-
-		// Start looking at the first set bit, plus 32 bits for every word of
-		// zeroes or entries that were too small.
-		slot = BITMAP32_CTZ((&bitmap)) + (idx * 32);
-	} else {
-		bitmap = small_mag_ptr->mag_bitmap[0] & ~((1 << slot) - 1);
-		if (!bitmap) {
-			goto try_small_from_end;
-		}
-
-		slot = BITMAP32_CTZ((&bitmap));
+		mask = ~0U;
 	}
+	// Check for fallthrough: No bits set in bitmap
+	if ((bitmap == 0) && (idx == SMALL_FREELIST_BITMAP_WORDS(rack))) {
+		goto try_small_from_end;
+	}
+
+	// Start looking at the first set bit, plus 32 bits for every word of
+	// zeroes or entries that were too small.
+	slot = BITMAP32_CTZ((&bitmap)) + (idx * 32);
+
 	// FIXME: Explain use of - 1 here, last slot has special meaning
 	limit = free_list + SMALL_FREE_SLOT_COUNT(rack) - 1;
 	free_list += slot;
@@ -2236,7 +2307,7 @@ small_free_list_check(rack_t *rack, grain_t slot, unsigned counter)
 			current = small_free_list_get_next(rack, current);
 			count++;
 		}
-		
+
 		SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 	}
 	return 1;

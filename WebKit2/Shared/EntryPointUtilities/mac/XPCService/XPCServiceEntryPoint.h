@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef XPCServiceEntryPoint_h
-#define XPCServiceEntryPoint_h
+#pragma once
 
 #import "ChildProcess.h"
 #import "WebKit2Initialize.h"
@@ -71,16 +70,16 @@ protected:
 template<typename XPCServiceType, typename XPCServiceInitializerDelegateType>
 void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage, xpc_object_t priorityBoostMessage)
 {
-#if ENABLE(ASSEMBLER)
     if (initializerMessage && xpc_dictionary_get_bool(initializerMessage, "disable-jit"))
         JSC::ExecutableAllocator::setJITEnabled(false);
-#endif
 
     XPCServiceInitializerDelegateType delegate(WTFMove(connection), initializerMessage);
 
     // We don't want XPC to be in charge of whether the process should be terminated or not,
     // so ensure that we have an outstanding transaction here.
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     xpc_transaction_begin();
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     InitializeWebKit2();
 
@@ -118,11 +117,13 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
         Thread::setGlobalMaxQOSClass(QOS_CLASS_UTILITY);
 #endif
 
+    parameters.processType = XPCServiceType::processType;
+
     XPCServiceType::singleton().initialize(parameters);
 }
+
+int XPCServiceMain(int, const char**);
 
 void XPCServiceExit(OSObjectPtr<xpc_object_t>&& priorityBoostMessage);
 
 } // namespace WebKit
-
-#endif // XPCServiceEntryPoint_h

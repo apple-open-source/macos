@@ -10,7 +10,7 @@
 
 #import <os/log.h>
 
-static os_log_t RemoteHIDLog (void)
+static inline os_log_t RemoteHIDLog (void)
 {
     static os_log_t log = NULL;
     static dispatch_once_t onceToken;
@@ -20,7 +20,7 @@ static os_log_t RemoteHIDLog (void)
     return log;
 }
 
-static os_log_t RemoteHIDLogPackets (void)
+static inline os_log_t RemoteHIDLogPackets (void)
 {
     static os_log_t log = NULL;
     static dispatch_once_t onceToken;

@@ -91,6 +91,11 @@
 @property FakeCKZone*          homeZone;
 @property (readonly) ZoneKeys* homeZoneKeys;
 
+@property CKRecordZoneID*      limitedZoneID;
+@property CKKSKeychainView*    limitedView;
+@property FakeCKZone*          limitedZone;
+@property (readonly) ZoneKeys* limitedZoneKeys;
+
 @end
 
 @implementation CloudKitKeychainSyncingSOSIntegrationTests
@@ -153,11 +158,18 @@
     [self.ckksZones addObject:self.applepayZoneID];
 
     self.homeZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Home" ownerName:CKCurrentUserDefaultName];
-    self.homeZone = [[FakeCKZone alloc] initZone: self.healthZoneID];
+    self.homeZone = [[FakeCKZone alloc] initZone: self.homeZoneID];
     self.zones[self.homeZoneID] = self.homeZone;
     self.homeView = [[CKKSViewManager manager] findView:@"Home"];
     XCTAssertNotNil(self.homeView, "CKKSViewManager created the Home view");
     [self.ckksZones addObject:self.homeZoneID];
+
+    self.limitedZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"LimitedPeersAllowed" ownerName:CKCurrentUserDefaultName];
+    self.limitedZone = [[FakeCKZone alloc] initZone: self.limitedZoneID];
+    self.zones[self.limitedZoneID] = self.limitedZone;
+    self.limitedView = [[CKKSViewManager manager] findView:@"LimitedPeersAllowed"];
+    XCTAssertNotNil(self.limitedView, "CKKSViewManager created the LimitedPeersAllowed view");
+    [self.ckksZones addObject:self.limitedZoneID];
 }
 
 + (void)tearDown {
@@ -325,9 +337,8 @@
     [self startCKKSSubsystem];
 
     XCTestExpectation* applepayChanged = [self expectChangeForView:self.applepayZoneID.zoneName];
-    // ApplePay is NOT is PCS view, so it should not send the fake 'PCS' view notification
     XCTestExpectation* pcsChanged = [self expectChangeForView:@"PCS"];
-    pcsChanged.inverted = YES;
+
 
     // We expect a single record to be uploaded to the ApplePay view.
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.applepayZoneID];
@@ -355,6 +366,48 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForExpectations:@[homeChanged] timeout:1];
     [self waitForExpectations:@[pcsChanged] timeout:0.2];
+}
+
+-(void)testAddLimitedPeersAllowedItems {
+    [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
+
+    [self startCKKSSubsystem];
+
+    XCTestExpectation* limitedChanged = [self expectChangeForView:self.limitedZoneID.zoneName];
+    // LimitedPeersAllowed is a PCS view, so it should send the fake 'PCS' view notification
+    XCTestExpectation* pcsChanged = [self expectChangeForView:@"PCS"];
+
+    // We expect a single record to be uploaded to the LimitedPeersOkay view.
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.limitedZoneID];
+    [self addGenericPassword: @"data" account: @"account-delete-me-limited-peers" viewHint:(NSString*) kSecAttrViewHintLimitedPeersAllowed];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForExpectations:@[limitedChanged] timeout:1];
+    [self waitForExpectations:@[pcsChanged] timeout:0.2];
+
+    [self waitForKeyHierarchyReadinesses];
+
+    // Let's also test that an item added by a future peer (lacking the right viewhint) doesn't sync
+    NSMutableDictionary* item = [[self fakeRecordDictionary:@"asdf" zoneID:self.limitedZoneID] mutableCopy];
+    item[(id)kSecAttrSyncViewHint] = @"new-view";
+
+    CKRecordID* ckrid = [[CKRecordID alloc] initWithRecordName:@"37E6CA21-A586-44E1-9A1C-3EE464C78EB5" zoneID:self.limitedZoneID];
+    CKRecord* ckr = [self newRecord:ckrid withNewItemData:item];
+    [self.limitedZone addToZone:ckr];
+    ckr = [self createFakeRecord:self.limitedZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2AAA" withAccount:@"asdf-exist"];
+    [self.limitedZone addToZone:ckr];
+
+    [self.limitedView notifyZoneChange:nil];
+    [self.limitedView waitForFetchAndIncomingQueueProcessing];
+
+    [self findGenericPassword:@"asdf-exist" expecting:errSecSuccess];
+    [self findGenericPassword:@"asdf" expecting:errSecItemNotFound];
+
+    NSError *error = NULL;
+    XCTAssertEqual([CKKSIncomingQueueEntry countByState:SecCKKSStateZoneMismatch zone:self.limitedZoneID error:&error],
+                   1,
+                   "Expected a ZoneMismatch entry in incoming queue: %@", error);
+    XCTAssertNil(error, "Should be no error fetching incoming queue entries");
 }
 
 -(void)testAddOtherViewHintItem {
@@ -624,6 +677,7 @@
     [self putFakeDeviceStatusInCloudKit: self.healthZoneID];
     [self putFakeDeviceStatusInCloudKit: self.applepayZoneID];
     [self putFakeDeviceStatusInCloudKit: self.homeZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.limitedZoneID];
 }
 
 -(void)putFakeKeyHierachiesInCloudKit{
@@ -633,6 +687,7 @@
     [self putFakeKeyHierarchyInCloudKit: self.healthZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.applepayZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.homeZoneID];
+    [self putFakeKeyHierarchyInCloudKit: self.limitedZoneID];
 }
 -(void)saveTLKsToKeychain{
     [self saveTLKMaterialToKeychain:self.engramZoneID];
@@ -641,6 +696,7 @@
     [self saveTLKMaterialToKeychain:self.healthZoneID];
     [self saveTLKMaterialToKeychain:self.applepayZoneID];
     [self saveTLKMaterialToKeychain:self.homeZoneID];
+    [self saveTLKMaterialToKeychain:self.limitedZoneID];
 }
 -(void)deleteTLKMaterialsFromKeychain{
     [self deleteTLKMaterialFromKeychain: self.engramZoneID];
@@ -649,6 +705,7 @@
     [self deleteTLKMaterialFromKeychain: self.healthZoneID];
     [self deleteTLKMaterialFromKeychain: self.applepayZoneID];
     [self deleteTLKMaterialFromKeychain: self.homeZoneID];
+    [self deleteTLKMaterialFromKeychain:self.limitedZoneID];
 }
 
 -(void)waitForKeyHierarchyReadinesses {
@@ -658,6 +715,7 @@
     [self.healthView waitForKeyHierarchyReadiness];
     [self.applepayView waitForKeyHierarchyReadiness];
     [self.homeView waitForKeyHierarchyReadiness];
+    [self.limitedView waitForKeyHierarchyReadiness];
 }
 
 -(void)testAcceptExistingAndUsePiggyKeyHierarchy {

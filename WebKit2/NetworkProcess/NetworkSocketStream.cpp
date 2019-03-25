@@ -30,13 +30,11 @@
 #include "WebSocketStreamMessages.h"
 #include <WebCore/CookieRequestHeaderFieldProxy.h>
 #include <WebCore/SocketStreamError.h>
-#include <WebCore/SocketStreamHandleImpl.h>
-
-using namespace WebCore;
 
 namespace WebKit {
+using namespace WebCore;
 
-Ref<NetworkSocketStream> NetworkSocketStream::create(WebCore::URL&& url, PAL::SessionID sessionID, const String& credentialPartition, uint64_t identifier, IPC::Connection& connection, SourceApplicationAuditToken&& auditData)
+Ref<NetworkSocketStream> NetworkSocketStream::create(URL&& url, PAL::SessionID sessionID, const String& credentialPartition, uint64_t identifier, IPC::Connection& connection, SourceApplicationAuditToken&& auditData)
 {
     return adoptRef(*new NetworkSocketStream(WTFMove(url), sessionID, credentialPartition, identifier, connection, WTFMove(auditData)));
 }
@@ -55,7 +53,7 @@ void NetworkSocketStream::sendData(const IPC::DataReference& data, uint64_t iden
     });
 }
 
-void NetworkSocketStream::sendHandshake(const IPC::DataReference& data, const std::optional<CookieRequestHeaderFieldProxy>& headerFieldProxy, uint64_t identifier)
+void NetworkSocketStream::sendHandshake(const IPC::DataReference& data, const Optional<CookieRequestHeaderFieldProxy>& headerFieldProxy, uint64_t identifier)
 {
     m_impl->platformSendHandshake(data.data(), data.size(), headerFieldProxy, [this, protectedThis = makeRef(*this), identifier] (bool success, bool didAccessSecureCookies) {
         send(Messages::WebSocketStream::DidSendHandshake(identifier, success, didAccessSecureCookies));

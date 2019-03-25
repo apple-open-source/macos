@@ -24,6 +24,7 @@
 
 #import <Foundation/Foundation.h>
 #import <Security/SecItemPriv.h>
+#import <Security/SecKeyPriv.h>
 
 #import <corecrypto/ccrng.h>
 #import <corecrypto/ccsha1.h>
@@ -48,14 +49,19 @@ static void test_ies_run(id privateKey, SecKeyAlgorithm algorithm) {
        "%@ not supported for encryption - privKey", algorithm);
 
     NSData *message = [NSData dataWithBytes:"hello" length:5];
+    NSDictionary *sharedInfo = @{(id)kSecKeyKeyExchangeParameterSharedInfo :[NSData dataWithBytes:"shared" length:6]};
     error = nil;
     NSData *encrypted = CFBridgingRelease(SecKeyCreateEncryptedData((SecKeyRef)publicKey, algorithm, (CFDataRef)message, (void *)&error));
+    NSData *encryptedSI = CFBridgingRelease(SecKeyCreateEncryptedDataWithParameters((__bridge SecKeyRef)publicKey, algorithm, (__bridge CFDataRef)message, (__bridge CFDictionaryRef)sharedInfo, (void *)&error));
     ok(encrypted, "message encrypted");
 
     error = nil;
     NSData *decrypted = CFBridgingRelease(SecKeyCreateDecryptedData((SecKeyRef)privateKey, algorithm, (CFDataRef)encrypted, (void *)&error));
     ok(decrypted, "encrypted message decrypted");
     ok([decrypted isEqual:message], "decrypted message is equal as original one (original:%@ decrypted:%@)", message, decrypted);
+    NSData *decryptedSI = CFBridgingRelease(SecKeyCreateDecryptedDataWithParameters((__bridge SecKeyRef)privateKey, algorithm, (__bridge CFDataRef)encryptedSI, (__bridge CFDictionaryRef)sharedInfo, (void *)&error));
+    ok(decryptedSI, "encrypted-with-sharedinfo message decrypted: %@", error);
+    ok([decryptedSI isEqual:message], "decrypted-with-sharedinfo message is equal as original one (original:%@ decrypted:%@)", message, decryptedSI);
 
     // Modify encrypted message and verify that it cannot be decrypted.
     NSMutableData *badEncrypted = [NSMutableData dataWithData:encrypted];
@@ -90,7 +96,7 @@ static void test_ies_run(id privateKey, SecKeyAlgorithm algorithm) {
     decrypted = CFBridgingRelease(SecKeyCreateDecryptedData((SecKeyRef)privateKey, algorithm, (CFDataRef)badEncrypted, (void *)&error));
     ok(decrypted == nil, "broken encrypted message failed to decrypt (pubkey data breakage)");
 }
-static const int TestCountIESRun = 12;
+static const int TestCountIESRun = 14;
 
 static void test_ecies() {
     NSError *error;
@@ -170,6 +176,30 @@ static void test_ies_against_corecrypto(id privKey, ccec_const_cp_t cp, const st
     // SecKey encrypt -> cc decrypt.
     static const UInt8 knownPlaintext[] = "KNOWN PLAINTEXT";
     NSData *plaintext = [NSData dataWithBytes:knownPlaintext length:sizeof(knownPlaintext)];
+    static const UInt8 knownSharedInfo[] = "SHARED INFO";
+    NSData *sharedInfo = [NSData dataWithBytes:knownSharedInfo length:sizeof(knownSharedInfo)];
+    static const UInt8 knownSharedInfo2[] = "2SHARED INFO2";
+    NSData *sharedInfo2 = [NSData dataWithBytes:knownSharedInfo2 length:sizeof(knownSharedInfo2)];
+    NSMutableDictionary *parameters = @{(id)kSecKeyKeyExchangeParameterSharedInfo: sharedInfo,
+                                        (id)kSecKeyEncryptionParameterSymmetricAAD: sharedInfo2,
+                                        }.mutableCopy;
+
+    static int keyCounter = 0;
+    keyCounter++;
+    uint32_t ccKeySizeSI = ccKeySize;
+    switch (keyCounter % 3) {
+        case 0:
+            break;
+        case 1:
+            ccKeySizeSI = 16;
+            parameters[(id)kSecKeyEncryptionParameterSymmetricKeySizeInBits] = @(ccKeySizeSI * 8);
+            break;
+        case 2:
+            ccKeySizeSI = 32;
+            parameters[(id)kSecKeyEncryptionParameterSymmetricKeySizeInBits] = @(ccKeySizeSI * 8);
+            break;
+    }
+
     error = nil;
     id publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privKey));
     NSData *ciphertext = CFBridgingRelease(SecKeyCreateEncryptedData((SecKeyRef)publicKey, algorithm, (CFDataRef)plaintext, (void *)&error));
@@ -179,12 +209,21 @@ static void test_ies_against_corecrypto(id privKey, ccec_const_cp_t cp, const st
                               ECIES_EPH_PUBKEY_IN_SHAREDINFO1 | ECIES_EXPORT_PUB_STANDARD | (secureIV ? 0 : ECIES_LEGACY_IV));
     size_t decryptedLength = plaintext.length;
     NSMutableData *decrypted = [NSMutableData dataWithLength:decryptedLength];
-    if (ciphertext != nil) {
-        ok(ccecies_decrypt_gcm(fullkey, &ecies_dec, ciphertext.length, ciphertext.bytes, 0, NULL, 0, NULL,
-                               &decryptedLength, decrypted.mutableBytes) == 0, "decrypt data with cc failed");
-    }
+    ok(ccecies_decrypt_gcm(fullkey, &ecies_dec, ciphertext.length, ciphertext.bytes, 0, NULL, 0, NULL,
+                           &decryptedLength, decrypted.mutableBytes) == 0, "decrypt data with cc failed");
     ok(decryptedLength = plaintext.length);
     ok([plaintext isEqualToData:decrypted], "cc decrypted data are the same");
+
+    NSData *ciphertextSI = CFBridgingRelease(SecKeyCreateEncryptedDataWithParameters((__bridge SecKeyRef)publicKey, algorithm, (__bridge CFDataRef)plaintext, (__bridge CFDictionaryRef)parameters, (void *)&error));
+    ok(ciphertextSI != nil, "encrypt-with-sharedinfo data with SecKey (error %@)", error);
+    struct ccecies_gcm ecies_dec_SI;
+    ccecies_decrypt_gcm_setup(&ecies_dec_SI, di, ccaes_gcm_decrypt_mode(), ccKeySizeSI, 16,
+                              ECIES_EPH_PUBKEY_AND_SHAREDINFO1 | ECIES_EXPORT_PUB_STANDARD | (secureIV ? 0 : ECIES_LEGACY_IV));
+    NSMutableData *decryptedSI = [NSMutableData dataWithLength:decryptedLength];
+    ok(ccecies_decrypt_gcm(fullkey, &ecies_dec_SI, ciphertextSI.length, ciphertextSI.bytes, sizeof(knownSharedInfo), knownSharedInfo,
+                           sizeof(knownSharedInfo2), knownSharedInfo2, &decryptedLength, decryptedSI.mutableBytes) == 0, "decrypt-with-sharedinfo data with cc failed");
+    ok(decryptedLength = plaintext.length);
+    ok([plaintext isEqualToData:decryptedSI], "cc decrypted-with-sharedinfo data are the same");
 
     // cc encrypt -> SecKey decrypt
     struct ccecies_gcm ecies_enc;
@@ -197,8 +236,17 @@ static void test_ies_against_corecrypto(id privKey, ccec_const_cp_t cp, const st
     NSData *decryptedPlaintext = CFBridgingRelease(SecKeyCreateDecryptedData((SecKeyRef)privKey, algorithm, (CFDataRef)encrypted, (void *)&error));
     ok(decryptedPlaintext != nil, "decrypt data with SecKey (error %@)", error);
     ok([plaintext isEqualToData:decryptedPlaintext], "SecKey decrypted data are the same");
+
+    struct ccecies_gcm ecies_enc_SI;
+    ccecies_encrypt_gcm_setup(&ecies_enc_SI, di, ccrng(NULL), ccaes_gcm_encrypt_mode(), ccKeySizeSI, 16,
+                              ECIES_EPH_PUBKEY_AND_SHAREDINFO1 | ECIES_EXPORT_PUB_STANDARD | (secureIV ? 0 : ECIES_LEGACY_IV));
+    NSMutableData *encryptedSI = [NSMutableData dataWithLength:encryptedLength];
+    ok(ccecies_encrypt_gcm(ccec_ctx_pub(fullkey), &ecies_enc_SI, sizeof(knownPlaintext), knownPlaintext, sizeof(knownSharedInfo), knownSharedInfo, sizeof(knownSharedInfo2), knownSharedInfo2, &encryptedLength, encryptedSI.mutableBytes) == 0, "encrypt-with-sharedinfo data with cc failed");
+    NSData *decryptedPlaintextSI = CFBridgingRelease(SecKeyCreateDecryptedDataWithParameters((__bridge SecKeyRef)privKey, algorithm, (__bridge CFDataRef)encryptedSI, (__bridge CFDictionaryRef)parameters, (void *)&error));
+    ok(decryptedPlaintextSI != nil, "decrypt-with-sharedinfo data with SecKey (error %@)", error);
+    ok([plaintext isEqualToData:decryptedPlaintextSI], "SecKey decrypted-with-sharedinfo data are the same");
 }
-static const int TestCountIESAgainstCoreCryptoRun = 9;
+static const int TestCountIESAgainstCoreCryptoRun = 16;
 
 static void test_against_corecrypto() {
     id privKey;

@@ -31,6 +31,11 @@
     <link rel="stylesheet" href="External/CodeMirror/codemirror.css">
 
     <link rel="stylesheet" href="Views/ApplicationCacheFrameContentView.css">
+    <link rel="stylesheet" href="Views/AuditNavigationSidebarPanel.css">
+    <link rel="stylesheet" href="Views/AuditTestCaseContentView.css">
+    <link rel="stylesheet" href="Views/AuditTestContentView.css">
+    <link rel="stylesheet" href="Views/AuditTestGroupContentView.css">
+    <link rel="stylesheet" href="Views/AuditTreeElement.css">
     <link rel="stylesheet" href="Views/BezierEditor.css">
     <link rel="stylesheet" href="Views/BoxModelDetailsSectionRow.css">
     <link rel="stylesheet" href="Views/BreakpointActionView.css">
@@ -38,8 +43,6 @@
     <link rel="stylesheet" href="Views/BreakpointTreeElement.css">
     <link rel="stylesheet" href="Views/ButtonNavigationItem.css">
     <link rel="stylesheet" href="Views/ButtonToolbarItem.css">
-    <link rel="stylesheet" href="Views/CSSStyleDeclarationSection.css">
-    <link rel="stylesheet" href="Views/CSSStyleDeclarationTextEditor.css">
     <link rel="stylesheet" href="Views/CallFrameIcons.css">
     <link rel="stylesheet" href="Views/CallFrameTreeElement.css">
     <link rel="stylesheet" href="Views/CallFrameView.css">
@@ -59,6 +62,7 @@
     <link rel="stylesheet" href="Views/ColorWheel.css">
     <link rel="stylesheet" href="Views/CompletionSuggestionsView.css">
     <link rel="stylesheet" href="Views/ComputedStyleDetailsPanel.css">
+    <link rel="stylesheet" href="Views/ComputedStyleSection.css">
     <link rel="stylesheet" href="Views/ConsoleDrawer.css">
     <link rel="stylesheet" href="Views/ConsoleMessageView.css">
     <link rel="stylesheet" href="Views/ConsolePrompt.css">
@@ -68,7 +72,10 @@
     <link rel="stylesheet" href="Views/ContentViewContainer.css">
     <link rel="stylesheet" href="Views/ControlToolbarItem.css">
     <link rel="stylesheet" href="Views/CookieStorageContentView.css">
+    <link rel="stylesheet" href="Views/DOMEventsBreakdownView.css">
     <link rel="stylesheet" href="Views/DOMNodeDetailsSidebarPanel.css">
+    <link rel="stylesheet" href="Views/DOMNodeEventsContentView.css">
+    <link rel="stylesheet" href="Views/DOMNodeTreeElement.css">
     <link rel="stylesheet" href="Views/DOMStorageContentView.css">
     <link rel="stylesheet" href="Views/DOMTreeContentView.css">
     <link rel="stylesheet" href="Views/DOMTreeDataGrid.css">
@@ -83,6 +90,8 @@
     <link rel="stylesheet" href="Views/DetailsSection.css">
     <link rel="stylesheet" href="Views/DividerNavigationItem.css">
     <link rel="stylesheet" href="Views/Editing.css">
+    <link rel="stylesheet" href="Views/EventBreakpointPopover.css">
+    <link rel="stylesheet" href="Views/EventBreakpointTreeElement.css">
     <link rel="stylesheet" href="Views/EventListenerSectionGroup.css">
     <link rel="stylesheet" href="Views/ErrorObjectView.css">
     <link rel="stylesheet" href="Views/FilterBar.css">
@@ -116,12 +125,15 @@
     <link rel="stylesheet" href="Views/LayoutTimelineView.css">
     <link rel="stylesheet" href="Views/LogContentView.css">
     <link rel="stylesheet" href="Views/LogIcon.css">
+    <link rel="stylesheet" href="Views/MediaTimelineOverviewGraph.css">
+    <link rel="stylesheet" href="Views/MediaTimelineView.css">
     <link rel="stylesheet" href="Views/MemoryCategoryView.css">
     <link rel="stylesheet" href="Views/MemoryTimelineOverviewGraph.css">
     <link rel="stylesheet" href="Views/MemoryTimelineView.css">
     <link rel="stylesheet" href="Views/Main.css">
     <link rel="stylesheet" href="Views/NavigationBar.css">
     <link rel="stylesheet" href="Views/NavigationSidebarPanel.css">
+    <link rel="stylesheet" href="Views/NetworkDetailView.css">
     <link rel="stylesheet" href="Views/NetworkResourceDetailView.css">
     <link rel="stylesheet" href="Views/NetworkTabContentView.css">
     <link rel="stylesheet" href="Views/NetworkTableContentView.css">
@@ -155,12 +167,12 @@
     <link rel="stylesheet" href="Views/ResourceDetailsSidebarPanel.css">
     <link rel="stylesheet" href="Views/ResourceHeadersContentView.css">
     <link rel="stylesheet" href="Views/ResourceIcons.css">
+    <link rel="stylesheet" href="Views/ResourceSecurityContentView.css">
     <link rel="stylesheet" href="Views/ResourceSizesContentView.css">
     <link rel="stylesheet" href="Views/ResourceSidebarPanel.css">
     <link rel="stylesheet" href="Views/ResourceTimelineDataGridNode.css">
     <link rel="stylesheet" href="Views/ResourceTimingBreakdownView.css">
     <link rel="stylesheet" href="Views/ResourceTreeElement.css">
-    <link rel="stylesheet" href="Views/RulesStyleDetailsPanel.css">
     <link rel="stylesheet" href="Views/ScopeBar.css">
     <link rel="stylesheet" href="Views/ScopeChainDetailsSidebarPanel.css">
     <link rel="stylesheet" href="Views/ScopeRadioButtonNavigationItem.css">
@@ -179,7 +191,6 @@
     <link rel="stylesheet" href="Views/Slider.css">
     <link rel="stylesheet" href="Views/SoftContextMenu.css">
     <link rel="stylesheet" href="Views/SourceCodeTextEditor.css">
-    <link rel="stylesheet" href="Views/SourcesSidebarPanel.css">
     <link rel="stylesheet" href="Views/SpreadsheetCSSStyleDeclarationEditor.css">
     <link rel="stylesheet" href="Views/SpreadsheetCSSStyleDeclarationSection.css">
     <link rel="stylesheet" href="Views/SpreadsheetRulesStyleDetailsPanel.css">
@@ -187,7 +198,6 @@
     <link rel="stylesheet" href="Views/StackTraceView.css">
     <link rel="stylesheet" href="Views/StorageIcons.css">
     <link rel="stylesheet" href="Views/StorageSidebarPanel.css">
-    <link rel="stylesheet" href="Views/StyleRuleIcons.css">
     <link rel="stylesheet" href="Views/SyntaxHighlightingDefaultTheme.css">
     <link rel="stylesheet" href="Views/TabBar.css">
     <link rel="stylesheet" href="Views/TabBrowser.css">
@@ -215,29 +225,13 @@
     <link rel="stylesheet" href="Views/TypeTreeElement.css">
     <link rel="stylesheet" href="Views/TypeTreeView.css">
     <link rel="stylesheet" href="Views/Variables.css">
-    <link rel="stylesheet" href="Views/VisualStyleBackgroundPicker.css">
-    <link rel="stylesheet" href="Views/VisualStyleColorPicker.css">
-    <link rel="stylesheet" href="Views/VisualStyleCommaSeparatedKeywordEditor.css">
-    <link rel="stylesheet" href="Views/VisualStyleDetailsPanel.css">
-    <link rel="stylesheet" href="Views/VisualStyleKeywordCheckbox.css">
-    <link rel="stylesheet" href="Views/VisualStyleKeywordIconList.css">
-    <link rel="stylesheet" href="Views/VisualStyleNumberInputBox.css">
-    <link rel="stylesheet" href="Views/VisualStylePropertyEditor.css">
-    <link rel="stylesheet" href="Views/VisualStylePropertyEditorLink.css">
-    <link rel="stylesheet" href="Views/VisualStyleRelativeNumberSlider.css">
-    <link rel="stylesheet" href="Views/VisualStyleSelectorSection.css">
-    <link rel="stylesheet" href="Views/VisualStyleSelectorTreeItem.css">
-    <link rel="stylesheet" href="Views/VisualStyleTabbedPropertiesRow.css">
-    <link rel="stylesheet" href="Views/VisualStyleTimingEditor.css">
-    <link rel="stylesheet" href="Views/VisualStyleUnitSlider.css">
     <link rel="stylesheet" href="Views/WebSocketContentView.css">
     <link rel="stylesheet" href="Views/XHRBreakpointPopover.css">
+    <link rel="stylesheet" href="Views/XHRBreakpointTreeElement.css">
 
     <link rel="stylesheet" href="Controllers/CodeMirrorCompletionController.css">
     <link rel="stylesheet" href="Controllers/CodeMirrorDragToAdjustNumberController.css">
     <link rel="stylesheet" href="Controllers/CodeMirrorTokenTrackingController.css">
-
-    <link rel="stylesheet" href="Views/DarkMode.css">
 
     <link rel="stylesheet" href="Debug/UncaughtExceptionReporter.css">
     <link rel="stylesheet" href="Debug/DebugContentView.css">
@@ -276,6 +270,7 @@
 
     <script src="Base/WebInspector.js"></script>
     <script src="Base/Platform.js"></script>
+    <script src="Base/DebuggableType.js"></script>
     <script src="Base/LinkedList.js"></script>
     <script src="Base/ListMultimap.js"></script>
     <script src="Base/Object.js"></script>
@@ -287,7 +282,7 @@
     <script src="Base/ImageUtilities.js"></script>
     <script src="Base/LoadLocalizedStrings.js"></script>
     <script src="Base/MIMETypeUtilities.js"></script>
-    <script src="Base/TextUtilities.js"></script>
+    <script src="Base/ObjectStore.js"></script>
     <script src="Base/URLUtilities.js"></script>
     <script src="Base/Utilities.js"></script>
     <script src="Base/Setting.js"></script>
@@ -304,7 +299,10 @@
     <script src="Protocol/RemoteObject.js"></script>
     <script src="Protocol/Target.js"></script>
 
-    <script src="Protocol/MainTarget.js"></script>
+    <script src="Protocol/DirectBackendTarget.js"></script>
+    <script src="Protocol/MultiplexingBackendTarget.js"></script>
+    <script src="Protocol/JavaScriptContextTarget.js"></script>
+    <script src="Protocol/PageTarget.js"></script>
     <script src="Protocol/WorkerTarget.js"></script>
 
     <script src="Protocol/ApplicationCacheObserver.js"></script>
@@ -323,6 +321,7 @@
     <script src="Protocol/PageObserver.js"></script>
     <script src="Protocol/RuntimeObserver.js"></script>
     <script src="Protocol/ScriptProfilerObserver.js"></script>
+    <script src="Protocol/TargetObserver.js"></script>
     <script src="Protocol/TimelineObserver.js"></script>
     <script src="Protocol/WorkerObserver.js"></script>
 
@@ -339,7 +338,6 @@
     <script src="Models/Script.js"></script>
     <script src="Models/LocalScript.js"></script>
 
-    <script src="Models/AnalyzerMessage.js"></script>
     <script src="Models/ApplicationCacheFrame.js"></script>
     <script src="Models/ApplicationCacheManifest.js"></script>
     <script src="Models/BackForwardEntry.js"></script>
@@ -376,6 +374,7 @@
     <script src="Models/DebuggerDashboard.js"></script>
     <script src="Models/DebuggerData.js"></script>
     <script src="Models/DefaultDashboard.js"></script>
+    <script src="Models/EventBreakpoint.js"></script>
     <script src="Models/ExecutionContext.js"></script>
     <script src="Models/ExecutionContextList.js"></script>
     <script src="Models/FPSInstrument.js"></script>
@@ -398,6 +397,8 @@
     <script src="Models/LineWidget.js"></script>
     <script src="Models/LogObject.js"></script>
     <script src="Models/LoggingChannel.js"></script>
+    <script src="Models/MediaInstrument.js"></script>
+    <script src="Models/MediaTimelineRecord.js"></script>
     <script src="Models/MemoryCategory.js"></script>
     <script src="Models/MemoryInstrument.js"></script>
     <script src="Models/MemoryPressureEvent.js"></script>
@@ -421,6 +422,8 @@
     <script src="Models/RecordingAction.js"></script>
     <script src="Models/RecordingFrame.js"></script>
     <script src="Models/RecordingInitialStateAction.js"></script>
+    <script src="Models/RecordingState.js"></script>
+    <script src="Models/Redirect.js"></script>
     <script src="Models/RenderingFrameTimelineRecord.js"></script>
     <script src="Models/ResourceCollection.js"></script>
     <script src="Models/ResourceQueryMatch.js"></script>
@@ -432,6 +435,7 @@
     <script src="Models/ScriptInstrument.js"></script>
     <script src="Models/ScriptSyntaxTree.js"></script>
     <script src="Models/ScriptTimelineRecord.js"></script>
+    <script src="Models/ServerTimingEntry.js"></script>
     <script src="Models/ShaderProgram.js"></script>
     <script src="Models/SourceCodePosition.js"></script>
     <script src="Models/SourceCodeRevision.js"></script>
@@ -452,6 +456,13 @@
     <script src="Models/WrappedPromise.js"></script>
     <script src="Models/XHRBreakpoint.js"></script>
 
+    <script src="Models/AuditTestBase.js"></script>
+    <script src="Models/AuditTestCase.js"></script>
+    <script src="Models/AuditTestGroup.js"></script>
+    <script src="Models/AuditTestResultBase.js"></script>
+    <script src="Models/AuditTestCaseResult.js"></script>
+    <script src="Models/AuditTestGroupResult.js"></script>
+
     <script src="Proxies/FormatterWorkerProxy.js"></script>
     <script src="Proxies/HeapSnapshotDiffProxy.js"></script>
     <script src="Proxies/HeapSnapshotEdgeProxy.js"></script>
@@ -460,6 +471,8 @@
     <script src="Proxies/HeapSnapshotWorkerProxy.js"></script>
 
     <script src="Views/View.js"></script>
+
+    <script src="Controllers/SelectionController.js"></script>
 
     <script src="Views/ConsoleCommandView.js"></script>
     <script src="Views/ConsoleMessageView.js"></script>
@@ -507,6 +520,7 @@
     <script src="Views/DOMDetailsSidebarPanel.js"></script>
     <script src="Views/FolderTreeElement.js"></script>
     <script src="Views/FolderizedTreeElement.js"></script>
+    <script src="Views/NetworkDetailView.js"></script>
     <script src="Views/NetworkTabContentView.js"></script>
     <script src="Views/NewTabContentView.js"></script>
     <script src="Views/ObjectTreeBaseTreeElement.js"></script>
@@ -520,9 +534,9 @@
     <script src="Views/GeneralStyleDetailsSidebarPanel.js"></script>
     <script src="Views/RulesStyleDetailsSidebarPanel.js"></script>
     <script src="Views/ComputedStyleDetailsSidebarPanel.js"></script>
-    <script src="Views/VisualStyleDetailsSidebarPanel.js"></script>
     <script src="Views/StyleDetailsPanel.js"></script>
 
+    <script src="Views/AuditTabContentView.js"></script>
     <script src="Views/CanvasTabContentView.js"></script>
     <script src="Views/ConsoleTabContentView.js"></script>
     <script src="Views/DebuggerTabContentView.js"></script>
@@ -532,7 +546,6 @@
     <script src="Views/ResourcesTabContentView.js"></script>
     <script src="Views/SearchTabContentView.js"></script>
     <script src="Views/SettingsTabContentView.js"></script>
-    <script src="Views/SourcesTabContentView.js"></script>
     <script src="Views/StorageTabContentView.js"></script>
     <script src="Views/TimelineTabContentView.js"></script>
 
@@ -554,13 +567,16 @@
     <script src="Views/ApplicationCacheFrameContentView.js"></script>
     <script src="Views/ApplicationCacheFrameTreeElement.js"></script>
     <script src="Views/ApplicationCacheManifestTreeElement.js"></script>
+    <script src="Views/AuditNavigationSidebarPanel.js"></script>
+    <script src="Views/AuditTestContentView.js"></script>
+    <script src="Views/AuditTestCaseContentView.js"></script>
+    <script src="Views/AuditTestGroupContentView.js"></script>
+    <script src="Views/AuditTreeElement.js"></script>
     <script src="Views/BezierEditor.js"></script>
     <script src="Views/BoxModelDetailsSectionRow.js"></script>
     <script src="Views/BreakpointActionView.js"></script>
     <script src="Views/BreakpointTreeElement.js"></script>
     <script src="Views/ButtonToolbarItem.js"></script>
-    <script src="Views/CSSStyleDeclarationSection.js"></script>
-    <script src="Views/CSSStyleDeclarationTextEditor.js"></script>
     <script src="Views/CSSStyleSheetTreeElement.js"></script>
     <script src="Views/CallFrameTreeElement.js"></script>
     <script src="Views/CallFrameView.js"></script>
@@ -582,6 +598,7 @@
     <script src="Views/ColorWheel.js"></script>
     <script src="Views/CompletionSuggestionsView.js"></script>
     <script src="Views/ComputedStyleDetailsPanel.js"></script>
+    <script src="Views/ComputedStyleSection.js"></script>
     <script src="Views/ConsoleDrawer.js"></script>
     <script src="Views/ConsoleGroup.js"></script>
     <script src="Views/ConsolePrompt.js"></script>
@@ -593,7 +610,9 @@
     <script src="Views/CookieStorageContentView.js"></script>
     <script src="Views/CookieStorageTreeElement.js"></script>
     <script src="Views/DOMBreakpointTreeElement.js"></script>
+    <script src="Views/DOMEventsBreakdownView.js"></script>
     <script src="Views/DOMNodeDetailsSidebarPanel.js"></script>
+    <script src="Views/DOMNodeEventsContentView.js"></script>
     <script src="Views/DOMNodeTreeElement.js"></script>
     <script src="Views/DOMStorageContentView.js"></script>
     <script src="Views/DOMStorageTreeElement.js"></script>
@@ -617,7 +636,10 @@
     <script src="Views/EditableDataGridNode.js"></script>
     <script src="Views/EditingSupport.js"></script>
     <script src="Views/ErrorObjectView.js"></script>
+    <script src="Views/EventBreakpointPopover.js"></script>
+    <script src="Views/EventBreakpointTreeElement.js"></script>
     <script src="Views/EventListenerSectionGroup.js"></script>
+    <script src="Views/ExpandableView.js"></script>
     <script src="Views/FilterBar.js"></script>
     <script src="Views/FilterBarButton.js"></script>
     <script src="Views/FilterBarNavigationItem.js"></script>
@@ -669,11 +691,15 @@
     <script src="Views/LayoutTimelineView.js"></script>
     <script src="Views/LineChart.js"></script>
     <script src="Views/LogContentView.js"></script>
+    <script src="Views/MediaTimelineDataGridNode.js"></script>
+    <script src="Views/MediaTimelineOverviewGraph.js"></script>
+    <script src="Views/MediaTimelineView.js"></script>
     <script src="Views/MemoryCategoryView.js"></script>
     <script src="Views/MemoryTimelineOverviewGraph.js"></script>
     <script src="Views/MemoryTimelineView.js"></script>
     <script src="Views/MultipleScopeBarItem.js"></script>
     <script src="Views/NavigationBar.js"></script>
+    <script src="Views/NetworkDOMNodeDetailView.js"></script>
     <script src="Views/NetworkResourceDetailView.js"></script>
     <script src="Views/NetworkTableContentView.js"></script>
     <script src="Views/NetworkTimelineOverviewGraph.js"></script>
@@ -714,13 +740,13 @@
     <script src="Views/ResourceDetailsSection.js"></script>
     <script src="Views/ResourceDetailsSidebarPanel.js"></script>
     <script src="Views/ResourceHeadersContentView.js"></script>
+    <script src="Views/ResourceSecurityContentView.js"></script>
     <script src="Views/ResourceSidebarPanel.js"></script>
     <script src="Views/ResourceSizesContentView.js"></script>
     <script src="Views/ResourceTimelineDataGridNode.js"></script>
     <script src="Views/ResourceTimingBreakdownView.js"></script>
     <script src="Views/ResourceTimingContentView.js"></script>
     <script src="Views/ResourceTimingPopoverDataGridNode.js"></script>
-    <script src="Views/RulesStyleDetailsPanel.js"></script>
     <script src="Views/ScopeBar.js"></script>
     <script src="Views/ScopeBarItem.js"></script>
     <script src="Views/ScopeChainDetailsSidebarPanel.js"></script>
@@ -747,7 +773,6 @@
     <script src="Views/SourceCodeTimelineTimelineDataGridNode.js"></script>
     <script src="Views/SourceCodeTimelineTreeElement.js"></script>
     <script src="Views/SourceMapResourceTreeElement.js"></script>
-    <script src="Views/SourcesSidebarPanel.js"></script>
     <script src="Views/SpanningDataGridNode.js"></script>
 
     <script src="Views/SpreadsheetCSSStyleDeclarationEditor.js"></script>
@@ -756,6 +781,7 @@
     <script src="Views/SpreadsheetSelectorField.js"></script>
     <script src="Views/SpreadsheetStyleProperty.js"></script>
     <script src="Views/SpreadsheetTextField.js"></script>
+    <script src="Views/StyleOriginView.js"></script>
 
     <script src="Views/SpringEditor.js"></script>
     <script src="Views/SVGImageResourceClusterContentView.js"></script>
@@ -777,7 +803,6 @@
     <script src="Views/ToggleButtonNavigationItem.js"></script>
     <script src="Views/Toolbar.js"></script>
     <script src="Views/TreeElementStatusButton.js"></script>
-    <script src="Views/TreeOutlineDataGridSynchronizer.js"></script>
     <script src="Views/TypeTokenView.js"></script>
     <script src="Views/TypeTreeElement.js"></script>
     <script src="Views/TypeTreeView.js"></script>
@@ -788,39 +813,16 @@
     <script src="Views/XHRBreakpointPopover.js"></script>
     <script src="Views/XHRBreakpointTreeElement.js"></script>
 
-    <script src="Views/VisualStyleDetailsPanel.js"></script>
-    <script src="Views/VisualStylePropertyEditor.js"></script>
-    <script src="Views/VisualStyleBackgroundPicker.js"></script>
-    <script src="Views/VisualStyleBasicInput.js"></script>
-    <script src="Views/VisualStyleColorPicker.js"></script>
-    <script src="Views/VisualStyleCommaSeparatedKeywordEditor.js"></script>
-    <script src="Views/VisualStyleFontFamilyListEditor.js"></script>
-    <script src="Views/VisualStyleFontFamilyTreeElement.js"></script>
-    <script src="Views/VisualStyleKeywordCheckbox.js"></script>
-    <script src="Views/VisualStyleKeywordIconList.js"></script>
-    <script src="Views/VisualStyleKeywordPicker.js"></script>
-    <script src="Views/VisualStyleNumberInputBox.js"></script>
-    <script src="Views/VisualStylePropertyCombiner.js"></script>
-    <script src="Views/VisualStylePropertyEditorLink.js"></script>
-    <script src="Views/VisualStylePropertyNameInput.js"></script>
-    <script src="Views/VisualStyleRelativeNumberSlider.js"></script>
-    <script src="Views/VisualStyleSelectorSection.js"></script>
-    <script src="Views/VisualStyleSelectorTreeItem.js"></script>
-    <script src="Views/VisualStyleTabbedPropertiesRow.js"></script>
-    <script src="Views/VisualStyleTimingEditor.js"></script>
-    <script src="Views/VisualStyleURLInput.js"></script>
-    <script src="Views/VisualStyleUnitSlider.js"></script>
-
     <script src="Controllers/Annotator.js"></script>
     <script src="Controllers/CodeMirrorEditingController.js"></script>
 
-    <script src="Controllers/AnalyzerManager.js"></script>
+    <script src="Controllers/AuditManager.js"></script>
     <script src="Controllers/ApplicationCacheManager.js"></script>
     <script src="Controllers/BasicBlockAnnotator.js"></script>
     <script src="Controllers/BranchManager.js"></script>
     <script src="Controllers/BreakpointLogMessageLexer.js"></script>
     <script src="Controllers/BreakpointPopoverController.js"></script>
-    <script src="Controllers/CSSStyleManager.js"></script>
+    <script src="Controllers/CSSManager.js"></script>
     <script src="Controllers/CallFrameTreeController.js"></script>
     <script src="Controllers/CanvasManager.js"></script>
     <script src="Controllers/CodeMirrorColorEditingController.js"></script>
@@ -831,34 +833,29 @@
     <script src="Controllers/CodeMirrorSpringEditingController.js"></script>
     <script src="Controllers/CodeMirrorTokenTrackingController.js"></script>
     <script src="Controllers/CodeMirrorTextKillController.js"></script>
+    <script src="Controllers/ConsoleManager.js"></script>
     <script src="Controllers/DOMDebuggerManager.js"></script>
-    <script src="Controllers/DOMTreeManager.js"></script>
-    <script src="Controllers/DashboardManager.js"></script>
+    <script src="Controllers/DOMManager.js"></script>
+    <script src="Controllers/DOMStorageManager.js"></script>
+    <script src="Controllers/DatabaseManager.js"></script>
     <script src="Controllers/DebuggerManager.js"></script>
-    <script src="Controllers/DOMBreakpointTreeController.js"></script>
     <script src="Controllers/DragToAdjustController.js"></script>
     <script src="Controllers/Formatter.js"></script>
     <script src="Controllers/FormatterSourceMap.js"></script>
-    <script src="Controllers/FrameResourceManager.js"></script>
     <script src="Controllers/HARBuilder.js"></script>
     <script src="Controllers/HeapManager.js"></script>
-    <script src="Controllers/IssueManager.js"></script>
+    <script src="Controllers/IndexedDBManager.js"></script>
     <script src="Controllers/JavaScriptLogViewController.js"></script>
     <script src="Controllers/JavaScriptRuntimeCompletionProvider.js"></script>
     <script src="Controllers/LayerTreeManager.js"></script>
-    <script src="Controllers/LogManager.js"></script>
     <script src="Controllers/MemoryManager.js"></script>
-    <script src="Controllers/ProbeManager.js"></script>
+    <script src="Controllers/NetworkManager.js"></script>
     <script src="Controllers/ResourceQueryController.js"></script>
     <script src="Controllers/RuntimeManager.js"></script>
-    <script src="Controllers/SourceMapManager.js"></script>
-    <script src="Controllers/StorageManager.js"></script>
     <script src="Controllers/TargetManager.js"></script>
     <script src="Controllers/TimelineManager.js"></script>
     <script src="Controllers/TypeTokenAnnotator.js"></script>
-    <script src="Controllers/VisualStyleCompletionsController.js"></script>
     <script src="Controllers/WorkerManager.js"></script>
-    <script src="Controllers/XHRBreakpointTreeController.js"></script>
 
     <script src="Workers/Formatter/FormatterContentBuilder.js"></script>
 

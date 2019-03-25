@@ -406,6 +406,7 @@ void DrawingAreaImpl::display(UpdateInfo& updateInfo)
     if (m_layerTreeHost)
         return;
 
+    m_webPage.willDisplayPage();
     updateInfo.viewSize = m_webPage.size();
     updateInfo.deviceScaleFactor = m_webPage.corePage()->deviceScaleFactor();
 
@@ -416,7 +417,7 @@ void DrawingAreaImpl::display(UpdateInfo& updateInfo)
     IntSize bitmapSize = bounds.size();
     float deviceScaleFactor = m_webPage.corePage()->deviceScaleFactor();
     bitmapSize.scale(deviceScaleFactor);
-    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(bitmapSize, { });
+    auto bitmap = ShareableBitmap::createShareable(bitmapSize, { });
     if (!bitmap)
         return;
 

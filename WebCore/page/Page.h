@@ -22,9 +22,10 @@
 
 #include "ActivityState.h"
 #include "DisabledAdaptations.h"
+#include "Document.h"
 #include "FindOptions.h"
 #include "FrameLoaderTypes.h"
-#include "LayoutMilestones.h"
+#include "LayoutMilestone.h"
 #include "LayoutRect.h"
 #include "LengthBox.h"
 #include "MediaProducer.h"
@@ -76,6 +77,7 @@ class IDBConnectionToServer;
 
 class AlternativeTextClient;
 class ApplicationCacheStorage;
+class AuthenticatorCoordinator;
 class BackForwardController;
 class BackForwardClient;
 class CacheStorageProvider;
@@ -134,7 +136,6 @@ class Settings;
 class SocketProvider;
 class StorageNamespace;
 class StorageNamespaceProvider;
-class URL;
 class UserContentProvider;
 class ValidationMessageClient;
 class ActivityStateChangeObserver;
@@ -161,8 +162,8 @@ enum class CompositingPolicy : uint8_t {
 
 enum class CanWrap : bool;
 enum class DidWrap : bool;
-enum class RouteSharingPolicy;
-enum class ShouldTreatAsContinuingLoad;
+enum class RouteSharingPolicy : uint8_t;
+enum class ShouldTreatAsContinuingLoad : bool;
 
 class Page : public Supplementable<Page> {
     WTF_MAKE_NONCOPYABLE(Page);
@@ -200,6 +201,9 @@ public:
 
     bool openedByDOM() const;
     void setOpenedByDOM();
+
+    bool openedByDOMWithOpener() const { return m_openedByDOMWithOpener; }
+    void setOpenedByDOMWithOpener() { m_openedByDOMWithOpener = true; }
 
     WEBCORE_EXPORT void goToItem(HistoryItem&, FrameLoadType, ShouldTreatAsContinuingLoad);
 
@@ -273,6 +277,8 @@ public:
     bool tabKeyCyclesThroughElements() const { return m_tabKeyCyclesThroughElements; }
 
     WEBCORE_EXPORT bool findString(const String&, FindOptions, DidWrap* = nullptr);
+    WEBCORE_EXPORT uint32_t replaceRangesWithText(const Vector<Ref<Range>>& rangesToReplace, const String& replacementText, bool selectionOnly);
+    WEBCORE_EXPORT uint32_t replaceSelectionWithText(const String& replacementText);
 
     WEBCORE_EXPORT RefPtr<Range> rangeOfString(const String&, Range*, FindOptions);
 
@@ -321,6 +327,8 @@ public:
     void didStartProvisionalLoad();
     void didFinishLoad(); // Called when the load has been committed in the main frame.
 
+    WEBCORE_EXPORT void willDisplayPage();
+
     // The view scale factor is multiplied into the page scale factor by all
     // callers of setPageScaleFactor.
     WEBCORE_EXPORT void setViewScaleFactor(float);
@@ -341,7 +349,7 @@ public:
     const FloatBoxExtent& unobscuredSafeAreaInsets() const { return m_unobscuredSafeAreaInsets; }
     WEBCORE_EXPORT void setUnobscuredSafeAreaInsets(const FloatBoxExtent&);
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     bool enclosedInScrollableAncestorView() const { return m_enclosedInScrollableAncestorView; }
     void setEnclosedInScrollableAncestorView(bool f) { m_enclosedInScrollableAncestorView = f; }
 #endif
@@ -351,6 +359,8 @@ public:
     
     WEBCORE_EXPORT bool useDarkAppearance() const;
     WEBCORE_EXPORT void setUseDarkAppearance(bool);
+    bool defaultUseDarkAppearance() const { return m_useDarkAppearance; }
+    void setUseDarkAppearanceOverride(Optional<bool>);
 
 #if ENABLE(TEXT_AUTOSIZING)
     float textAutosizingWidth() const { return m_textAutosizingWidth; }
@@ -375,6 +385,7 @@ public:
     ScrollElasticity horizontalScrollElasticity() const { return static_cast<ScrollElasticity>(m_horizontalScrollElasticity); }
 
     WEBCORE_EXPORT void accessibilitySettingsDidChange();
+    WEBCORE_EXPORT void appearanceDidChange();
 
     // Page and FrameView both store a Pagination value. Page::pagination() is set only by API,
     // and FrameView::pagination() is set only by CSS. Page::pagination() will affect all
@@ -410,23 +421,27 @@ public:
     WEBCORE_EXPORT void setPaymentCoordinator(std::unique_ptr<PaymentCoordinator>&&);
 #endif
 
+#if ENABLE(WEB_AUTHN)
+    AuthenticatorCoordinator& authenticatorCoordinator() { return m_authenticatorCoordinator.get(); }
+#endif
+
 #if ENABLE(APPLICATION_MANIFEST)
-    const std::optional<ApplicationManifest>& applicationManifest() const { return m_applicationManifest; }
+    const Optional<ApplicationManifest>& applicationManifest() const { return m_applicationManifest; }
 #endif
 
     // Notifications when the Page starts and stops being presented via a native window.
-    WEBCORE_EXPORT void setActivityState(ActivityState::Flags);
-    ActivityState::Flags activityState() const { return m_activityState; }
+    WEBCORE_EXPORT void setActivityState(OptionSet<ActivityState::Flag>);
+    OptionSet<ActivityState::Flag> activityState() const { return m_activityState; }
 
     bool isWindowActive() const;
     bool isVisibleAndActive() const;
     WEBCORE_EXPORT void setIsVisible(bool);
     WEBCORE_EXPORT void setIsPrerender();
-    bool isVisible() const { return m_activityState & ActivityState::IsVisible; }
+    bool isVisible() const { return m_activityState.contains(ActivityState::IsVisible); }
 
     // Notification that this Page was moved into or out of a native window.
     WEBCORE_EXPORT void setIsInWindow(bool);
-    bool isInWindow() const { return m_activityState & ActivityState::IsInWindow; }
+    bool isInWindow() const { return m_activityState.contains(ActivityState::IsInWindow); }
 
     void setIsClosing() { m_isClosing = true; }
     bool isClosing() const { return m_isClosing; }
@@ -434,8 +449,14 @@ public:
     void setIsRestoringCachedPage(bool value) { m_isRestoringCachedPage = value; }
     bool isRestoringCachedPage() const { return m_isRestoringCachedPage; }
 
-    void addActivityStateChangeObserver(ActivityStateChangeObserver&);
-    void removeActivityStateChangeObserver(ActivityStateChangeObserver&);
+    WEBCORE_EXPORT void addActivityStateChangeObserver(ActivityStateChangeObserver&);
+    WEBCORE_EXPORT void removeActivityStateChangeObserver(ActivityStateChangeObserver&);
+
+#if ENABLE(INTERSECTION_OBSERVER)
+    void addDocumentNeedingIntersectionObservationUpdate(Document&);
+    void scheduleForcedIntersectionObservationUpdate(Document&);
+    void updateIntersectionObservations();
+#endif
 
     WEBCORE_EXPORT void suspendScriptedAnimations();
     WEBCORE_EXPORT void resumeScriptedAnimations();
@@ -444,15 +465,14 @@ public:
     void userStyleSheetLocationChanged();
     const String& userStyleSheet() const;
 
+    WEBCORE_EXPORT void userAgentChanged();
+
     void dnsPrefetchingStateChanged();
     void storageBlockingStateChanged();
 
 #if ENABLE(RESOURCE_USAGE)
     void setResourceUsageOverlayVisible(bool);
 #endif
-
-    void setAsRunningUserScripts() { m_isRunningUserScripts = true; }
-    bool isRunningUserScripts() const { return m_isRunningUserScripts; }
 
     void setDebugger(JSC::Debugger*);
     JSC::Debugger* debugger() const { return m_debugger; }
@@ -486,9 +506,9 @@ public:
     WEBCORE_EXPORT VisibilityState visibilityState() const;
     WEBCORE_EXPORT void resumeAnimatingImages();
 
-    WEBCORE_EXPORT void addLayoutMilestones(LayoutMilestones);
-    WEBCORE_EXPORT void removeLayoutMilestones(LayoutMilestones);
-    LayoutMilestones requestedLayoutMilestones() const { return m_requestedLayoutMilestones; }
+    WEBCORE_EXPORT void addLayoutMilestones(OptionSet<LayoutMilestone>);
+    WEBCORE_EXPORT void removeLayoutMilestones(OptionSet<LayoutMilestone>);
+    OptionSet<LayoutMilestone> requestedLayoutMilestones() const { return m_requestedLayoutMilestones; }
 
 #if ENABLE(RUBBER_BANDING)
     WEBCORE_EXPORT void addHeaderWithHeight(int);
@@ -580,6 +600,11 @@ public:
     WEBCORE_EXPORT void setMuted(MediaProducer::MutedStateFlags);
     WEBCORE_EXPORT void stopMediaCapture();
 
+    WEBCORE_EXPORT void stopAllMediaPlayback();
+    WEBCORE_EXPORT void suspendAllMediaPlayback();
+    WEBCORE_EXPORT void resumeAllMediaPlayback();
+    bool mediaPlaybackIsSuspended() { return m_mediaPlaybackIsSuspended; }
+
 #if ENABLE(MEDIA_SESSION)
     WEBCORE_EXPORT void handleMediaEvent(MediaEventType);
     WEBCORE_EXPORT void setVolumeOfMediaElement(double, uint64_t);
@@ -636,11 +661,11 @@ public:
     // Web Inspector can override whatever value is set via WebKit SPI, but only while it is open.
     void setResourceCachingDisabledOverride(bool disabled) { m_resourceCachingDisabledOverride = disabled; }
 
-    std::optional<EventThrottlingBehavior> eventThrottlingBehaviorOverride() const { return m_eventThrottlingBehaviorOverride; }
-    void setEventThrottlingBehaviorOverride(std::optional<EventThrottlingBehavior> throttling) { m_eventThrottlingBehaviorOverride = throttling; }
+    Optional<EventThrottlingBehavior> eventThrottlingBehaviorOverride() const { return m_eventThrottlingBehaviorOverride; }
+    void setEventThrottlingBehaviorOverride(Optional<EventThrottlingBehavior> throttling) { m_eventThrottlingBehaviorOverride = throttling; }
 
-    std::optional<CompositingPolicy> compositingPolicyOverride() const { return m_compositingPolicyOverride; }
-    void setCompositingPolicyOverride(std::optional<CompositingPolicy> policy) { m_compositingPolicyOverride = policy; }
+    Optional<CompositingPolicy> compositingPolicyOverride() const { return m_compositingPolicyOverride; }
+    void setCompositingPolicyOverride(Optional<CompositingPolicy> policy) { m_compositingPolicyOverride = policy; }
 
     WebGLStateTracker* webGLStateTracker() const { return m_webGLStateTracker.get(); }
 
@@ -652,7 +677,7 @@ public:
 #endif
 
     bool isLowPowerModeEnabled() const;
-    WEBCORE_EXPORT void setLowPowerModeEnabledOverrideForTesting(std::optional<bool>);
+    WEBCORE_EXPORT void setLowPowerModeEnabledOverrideForTesting(Optional<bool>);
 
     WEBCORE_EXPORT void applicationWillResignActive();
     WEBCORE_EXPORT void applicationDidEnterBackground();
@@ -685,9 +710,11 @@ private:
 
     unsigned findMatchesForText(const String&, FindOptions, unsigned maxMatchCount, ShouldHighlightMatches, ShouldMarkMatches);
 
-    std::optional<std::pair<MediaCanStartListener&, Document&>> takeAnyMediaCanStartListener();
+    Optional<std::pair<MediaCanStartListener&, Document&>> takeAnyMediaCanStartListener();
 
+#if ENABLE(VIDEO)
     void playbackControlsManagerUpdateTimerFired();
+#endif
 
     Vector<Ref<PluginViewBase>> pluginViews();
 
@@ -744,6 +771,7 @@ private:
     int m_subframeCount { 0 };
     String m_groupName;
     bool m_openedByDOM { false };
+    bool m_openedByDOMWithOpener { false };
 
     bool m_tabKeyCyclesThroughElements { true };
     bool m_defersLoading { false };
@@ -765,12 +793,13 @@ private:
     FloatBoxExtent m_fullscreenInsets;
     Seconds m_fullscreenAutoHideDuration { 0_s };
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     bool m_enclosedInScrollableAncestorView { false };
 #endif
     
     bool m_useSystemAppearance { false };
     bool m_useDarkAppearance { false };
+    Optional<bool> m_useDarkAppearanceOverride;
 
 #if ENABLE(TEXT_AUTOSIZING)
     float m_textAutosizingWidth { 0 };
@@ -787,7 +816,7 @@ private:
     String m_userStyleSheetPath;
     mutable String m_userStyleSheet;
     mutable bool m_didLoadUserStyleSheet { false };
-    mutable time_t m_userStyleSheetModificationTime { 0 };
+    mutable Optional<WallTime> m_userStyleSheetModificationTime;
 
     String m_captionUserPreferencesStyleSheet;
 
@@ -809,9 +838,9 @@ private:
 
     bool m_isEditable { false };
     bool m_isPrerender { false };
-    ActivityState::Flags m_activityState;
+    OptionSet<ActivityState::Flag> m_activityState;
 
-    LayoutMilestones m_requestedLayoutMilestones { 0 };
+    OptionSet<LayoutMilestone> m_requestedLayoutMilestones;
 
     int m_headerHeight { 0 };
     int m_footerHeight { 0 };
@@ -855,6 +884,14 @@ private:
 
     HashSet<ActivityStateChangeObserver*> m_activityStateChangeObservers;
 
+#if ENABLE(INTERSECTION_OBSERVER)
+    Vector<WeakPtr<Document>> m_documentsNeedingIntersectionObservationUpdate;
+
+    // FIXME: Schedule intersection observation updates in a way that fits into the HTML
+    // EventLoop. See https://bugs.webkit.org/show_bug.cgi?id=160711.
+    Timer m_intersectionObservationUpdateTimer;
+#endif
+
 #if ENABLE(RESOURCE_USAGE)
     std::unique_ptr<ResourceUsageOverlay> m_resourceUsageOverlay;
 #endif
@@ -866,7 +903,9 @@ private:
 
     MediaProducer::MediaStateFlags m_mediaState { MediaProducer::IsNotPlaying };
 
+#if ENABLE(VIDEO)
     Timer m_playbackControlsManagerUpdateTimer;
+#endif
 
     bool m_allowsMediaDocumentInlinePlayback { false };
     bool m_allowsPlaybackControlsForAutoplayingAudio { false };
@@ -878,14 +917,14 @@ private:
     UserInterfaceLayoutDirection m_userInterfaceLayoutDirection { UserInterfaceLayoutDirection::LTR };
     
     // For testing.
-    std::optional<EventThrottlingBehavior> m_eventThrottlingBehaviorOverride;
-    std::optional<CompositingPolicy> m_compositingPolicyOverride;
+    Optional<EventThrottlingBehavior> m_eventThrottlingBehaviorOverride;
+    Optional<CompositingPolicy> m_compositingPolicyOverride;
 
     std::unique_ptr<PerformanceMonitor> m_performanceMonitor;
     std::unique_ptr<LowPowerModeNotifier> m_lowPowerModeNotifier;
-    std::optional<bool> m_lowPowerModeEnabledOverrideForTesting;
+    Optional<bool> m_lowPowerModeEnabledOverrideForTesting;
 
-    std::optional<Navigation> m_navigationToLogWhenVisible;
+    Optional<Navigation> m_navigationToLogWhenVisible;
 
     std::unique_ptr<PerformanceLogging> m_performanceLogging;
 #if PLATFORM(MAC)
@@ -902,12 +941,16 @@ private:
     std::unique_ptr<PaymentCoordinator> m_paymentCoordinator;
 #endif
 
-#if ENABLE(APPLICATION_MANIFEST)
-    std::optional<ApplicationManifest> m_applicationManifest;
+#if ENABLE(WEB_AUTHN)
+    UniqueRef<AuthenticatorCoordinator> m_authenticatorCoordinator;
 #endif
 
-    bool m_isRunningUserScripts { false };
+#if ENABLE(APPLICATION_MANIFEST)
+    Optional<ApplicationManifest> m_applicationManifest;
+#endif
+
     bool m_shouldEnableICECandidateFilteringByDefault { true };
+    bool m_mediaPlaybackIsSuspended { false };
 };
 
 inline PageGroup& Page::group()

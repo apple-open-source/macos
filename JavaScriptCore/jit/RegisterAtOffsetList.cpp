@@ -26,7 +26,7 @@
 #include "config.h"
 #include "RegisterAtOffsetList.h"
 
-#if ENABLE(JIT)
+#if ENABLE(ASSEMBLER)
 
 #include <wtf/ListDump.h>
 
@@ -40,12 +40,12 @@ RegisterAtOffsetList::RegisterAtOffsetList(RegisterSet registerSet, OffsetBaseTy
     ptrdiff_t offset = 0;
     
     if (offsetBaseType == FramePointerBased)
-        offset = -(static_cast<ptrdiff_t>(numberOfRegisters) * sizeof(void*));
+        offset = -(static_cast<ptrdiff_t>(numberOfRegisters) * sizeof(CPURegister));
 
     m_registers.reserveInitialCapacity(numberOfRegisters);
     registerSet.forEach([&] (Reg reg) {
         m_registers.append(RegisterAtOffset(reg, offset));
-        offset += sizeof(void*);
+        offset += sizeof(CPURegister);
     });
 }
 
@@ -68,5 +68,5 @@ unsigned RegisterAtOffsetList::indexOf(Reg reg) const
 
 } // namespace JSC
 
-#endif // ENABLE(JIT)
+#endif // ENABLE(ASSEMBLER)
 

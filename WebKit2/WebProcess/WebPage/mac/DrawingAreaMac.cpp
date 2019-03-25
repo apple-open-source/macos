@@ -26,25 +26,23 @@
 #include "config.h"
 #include "DrawingArea.h"
 
-#include "WebPage.h"
-#include "WebPageProxy.h"
-#include "WebPageProxyMessages.h"
+#include "WebProcess.h"
+#include "WebProcessProxy.h"
+#include "WebProcessProxyMessages.h"
 
 #include <WebCore/DisplayRefreshMonitor.h>
-#include <WebCore/DisplayRefreshMonitorManager.h>
 #include <WebCore/RunLoopObserver.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
 
 class DisplayRefreshMonitorMac : public DisplayRefreshMonitor {
 public:
-    static Ref<DisplayRefreshMonitorMac> create(PlatformDisplayID displayID, WebPage& webPage)
+    static Ref<DisplayRefreshMonitorMac> create(PlatformDisplayID displayID)
     {
-        return adoptRef(*new DisplayRefreshMonitorMac(displayID, webPage));
+        return adoptRef(*new DisplayRefreshMonitorMac(displayID));
     }
     
     virtual ~DisplayRefreshMonitorMac();
@@ -53,11 +51,10 @@ public:
     bool requestRefreshCallback() override;
     
 private:
-    explicit DisplayRefreshMonitorMac(PlatformDisplayID, WebPage&);
+    explicit DisplayRefreshMonitorMac(PlatformDisplayID);
     
     bool hasRequestedRefreshCallback() const override { return m_hasSentMessage; }
 
-    Ref<WebPage> m_webPage;
     bool m_hasSentMessage { false };
     unsigned m_observerID;
     static unsigned m_counterID;
@@ -67,16 +64,15 @@ private:
 
 unsigned DisplayRefreshMonitorMac::m_counterID = 0;
 
-DisplayRefreshMonitorMac::DisplayRefreshMonitorMac(PlatformDisplayID displayID, WebPage& webPage)
+DisplayRefreshMonitorMac::DisplayRefreshMonitorMac(PlatformDisplayID displayID)
     : DisplayRefreshMonitor(displayID)
-    , m_webPage(webPage)
     , m_observerID(++m_counterID)
 {
 }
 
 DisplayRefreshMonitorMac::~DisplayRefreshMonitorMac()
 {
-    m_webPage->send(Messages::WebPageProxy::StopDisplayLink(m_observerID));
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebProcessProxy::StopDisplayLink(m_observerID, displayID()), 0);
 }
 
 bool DisplayRefreshMonitorMac::requestRefreshCallback()
@@ -85,7 +81,7 @@ bool DisplayRefreshMonitorMac::requestRefreshCallback()
         return false;
 
     if (!m_hasSentMessage) {
-        m_webPage->send(Messages::WebPageProxy::StartDisplayLink(m_observerID));
+        WebProcess::singleton().parentProcessConnection()->send(Messages::WebProcessProxy::StartDisplayLink(m_observerID, displayID()), 0);
         m_hasSentMessage = true;
         m_runLoopObserver = std::make_unique<RunLoopObserver>(kCFRunLoopEntry, [this]() {
             this->m_firstCallbackInCurrentRunloop = true;
@@ -109,14 +105,9 @@ void DisplayRefreshMonitorMac::displayLinkFired()
     handleDisplayRefreshedNotificationOnMainThread(this);
 }
 
-void DrawingArea::displayWasRefreshed()
-{
-    DisplayRefreshMonitorManager::sharedManager().displayWasUpdated();
-}
-
 RefPtr<WebCore::DisplayRefreshMonitor> DrawingArea::createDisplayRefreshMonitor(PlatformDisplayID displayID)
 {
-    return DisplayRefreshMonitorMac::create(displayID, m_webPage);
+    return DisplayRefreshMonitorMac::create(displayID);
 }
 #endif
 

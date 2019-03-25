@@ -1,4 +1,4 @@
-find_library(ACCELERATE_LIBRARY accelerate)
+find_library(ACCELERATE_LIBRARY Accelerate)
 find_library(APPLICATIONSERVICES_LIBRARY ApplicationServices)
 find_library(AVFOUNDATION_LIBRARY AVFoundation)
 find_library(AUDIOTOOLBOX_LIBRARY AudioToolbox)
@@ -23,7 +23,6 @@ find_package(ZLIB REQUIRED)
 
 list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
     "SourcesCocoa.txt"
-    "SourcesMac.txt"
 )
 
 list(APPEND WebCore_LIBRARIES
@@ -56,6 +55,11 @@ add_definitions(-iframework ${CARBON_LIBRARY}/Versions/Current/Frameworks)
 add_definitions(-iframework ${CORESERVICES_LIBRARY}/Versions/Current/Frameworks)
 add_definitions(-iframework ${QUARTZ_LIBRARY}/Frameworks)
 
+find_library(COREUI_FRAMEWORK CoreUI HINTS /System/Library/PrivateFrameworks)
+if (NOT COREUI_FRAMEWORK-NOTFOUND)
+    list(APPEND WebCore_LIBRARIES ${COREUI_FRAMEWORK})
+endif ()
+
 find_library(DATADETECTORSCORE_FRAMEWORK DataDetectorsCore HINTS /System/Library/PrivateFrameworks)
 if (NOT DATADETECTORSCORE_FRAMEWORK-NOTFOUND)
     list(APPEND WebCore_LIBRARIES ${DATADETECTORSCORE_FRAMEWORK})
@@ -67,6 +71,8 @@ if (NOT LOOKUP_FRAMEWORK-NOTFOUND)
 endif ()
 
 list(APPEND WebCore_INCLUDE_DIRECTORIES
+    "${CMAKE_SOURCE_DIR}/Source"
+    "${DERIVED_SOURCES_WTF_DIR}"
     "${THIRDPARTY_DIR}/ANGLE"
     "${THIRDPARTY_DIR}/ANGLE/include/KHR"
     "${WEBCORE_DIR}/accessibility/mac"
@@ -94,11 +100,13 @@ list(APPEND WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/graphics/cg"
     "${WEBCORE_DIR}/platform/graphics/cv"
     "${WEBCORE_DIR}/platform/graphics/gpu"
+    "${WEBCORE_DIR}/platform/graphics/gpu/legacy"
     "${WEBCORE_DIR}/platform/graphics/egl"
     "${WEBCORE_DIR}/platform/graphics/opentype"
     "${WEBCORE_DIR}/platform/graphics/opengl"
     "${WEBCORE_DIR}/platform/graphics/mac"
     "${WEBCORE_DIR}/platform/mac"
+    "${WEBCORE_DIR}/platform/mediacapabilities"
     "${WEBCORE_DIR}/platform/mediastream/mac"
     "${WEBCORE_DIR}/platform/network/cocoa"
     "${WEBCORE_DIR}/platform/network/cf"
@@ -141,11 +149,9 @@ list(APPEND WebCore_SOURCES
     editing/ios/AutofillElements.cpp
 
     editing/mac/AlternativeTextUIController.mm
-    editing/mac/DictionaryLookup.mm
     editing/mac/EditorMac.mm
     editing/mac/TextAlternativeWithRange.mm
     editing/mac/TextUndoInsertionMarkupMac.mm
-    editing/mac/WebContentReaderMac.mm
 
     html/HTMLSlotElement.cpp
 
@@ -157,7 +163,6 @@ list(APPEND WebCore_SOURCES
     page/mac/EventHandlerMac.mm
     page/mac/ServicesOverlayController.mm
     page/mac/TextIndicatorWindow.mm
-    page/mac/UserAgentMac.mm
     page/mac/WheelEventDeltaFilterMac.mm
 
     page/scrolling/mac/ScrollingCoordinatorMac.mm
@@ -172,7 +177,7 @@ list(APPEND WebCore_SOURCES
 
     platform/audio/AudioSession.cpp
 
-    platform/audio/cocoa/MediaSessionManagerCocoa.cpp
+    platform/audio/cocoa/WebAudioBufferList.cpp
 
     platform/audio/mac/CAAudioStreamDescription.cpp
 
@@ -183,9 +188,7 @@ list(APPEND WebCore_SOURCES
     platform/audio/mac/AudioSessionMac.cpp
     platform/audio/mac/CARingBuffer.cpp
     platform/audio/mac/FFTFrameMac.cpp
-    platform/audio/mac/MediaSessionManagerMac.mm
 
-    platform/cf/CFURLExtras.cpp
     platform/cf/FileSystemCF.cpp
     platform/cf/KeyedDecoderCF.cpp
     platform/cf/KeyedEncoderCF.cpp
@@ -193,7 +196,6 @@ list(APPEND WebCore_SOURCES
     platform/cf/MediaAccessibilitySoftLink.cpp
     platform/cf/RunLoopObserver.cpp
     platform/cf/SharedBufferCF.cpp
-    platform/cf/URLCF.cpp
 
     platform/cocoa/ContentFilterUnblockHandlerCocoa.mm
     platform/cocoa/CoreVideoSoftLink.cpp
@@ -202,7 +204,6 @@ list(APPEND WebCore_SOURCES
     platform/cocoa/KeyEventCocoa.mm
     platform/cocoa/LocalizedStringsCocoa.mm
     platform/cocoa/MIMETypeRegistryCocoa.mm
-    platform/cocoa/MachSendRight.cpp
     platform/cocoa/NetworkExtensionContentFilter.mm
     platform/cocoa/ParentalControlsContentFilter.mm
     platform/cocoa/PasteboardCocoa.mm
@@ -254,7 +255,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/avfoundation/objc/WebCoreAVFResourceLoader.mm
 
     platform/graphics/ca/GraphicsLayerCA.cpp
-    platform/graphics/ca/LayerFlushScheduler.cpp
     platform/graphics/ca/LayerPool.cpp
     platform/graphics/ca/PlatformCAAnimation.cpp
     platform/graphics/ca/PlatformCALayer.cpp
@@ -263,7 +263,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/ca/TileGrid.cpp
     platform/graphics/ca/TransformationMatrixCA.cpp
 
-    platform/graphics/ca/cocoa/LayerFlushSchedulerMac.cpp
     platform/graphics/ca/cocoa/PlatformCAAnimationCocoa.mm
     platform/graphics/ca/cocoa/PlatformCAFiltersCocoa.mm
     platform/graphics/ca/cocoa/PlatformCALayerCocoa.mm
@@ -293,27 +292,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/cg/TransformationMatrixCG.cpp
     platform/graphics/cg/UTIRegistry.cpp
 
-    platform/graphics/cocoa/GPUBufferMetal.mm
-    platform/graphics/cocoa/GPUCommandBufferMetal.mm
-    platform/graphics/cocoa/GPUCommandQueueMetal.mm
-    platform/graphics/cocoa/GPUComputeCommandEncoderMetal.mm
-    platform/graphics/cocoa/GPUComputePipelineStateMetal.mm
-    platform/graphics/cocoa/GPUDepthStencilDescriptorMetal.mm
-    platform/graphics/cocoa/GPUDepthStencilStateMetal.mm
-    platform/graphics/cocoa/GPUDeviceMetal.mm
-    platform/graphics/cocoa/GPUDrawableMetal.mm
-    platform/graphics/cocoa/GPUFunctionMetal.mm
-    platform/graphics/cocoa/GPULibraryMetal.mm
-    platform/graphics/cocoa/GPURenderCommandEncoderMetal.mm
-    platform/graphics/cocoa/GPURenderPassAttachmentDescriptorMetal.mm
-    platform/graphics/cocoa/GPURenderPassColorAttachmentDescriptorMetal.mm
-    platform/graphics/cocoa/GPURenderPassDepthAttachmentDescriptorMetal.mm
-    platform/graphics/cocoa/GPURenderPassDescriptorMetal.mm
-    platform/graphics/cocoa/GPURenderPipelineColorAttachmentDescriptorMetal.mm
-    platform/graphics/cocoa/GPURenderPipelineDescriptorMetal.mm
-    platform/graphics/cocoa/GPURenderPipelineStateMetal.mm
-    platform/graphics/cocoa/GPUTextureDescriptorMetal.mm
-    platform/graphics/cocoa/GPUTextureMetal.mm
     platform/graphics/cocoa/GraphicsContext3DCocoa.mm
     platform/graphics/cocoa/GraphicsContextCocoa.mm
     platform/graphics/cocoa/FontCacheCoreText.cpp
@@ -351,8 +329,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/mac/IntPointMac.mm
     platform/graphics/mac/IntRectMac.mm
     platform/graphics/mac/IntSizeMac.mm
-    platform/graphics/mac/MediaPlayerPrivateQTKit.mm
-    platform/graphics/mac/MediaTimeQTKit.mm
     platform/graphics/mac/PDFDocumentImageMac.mm
     platform/graphics/mac/SimpleFontDataCoreText.cpp
     platform/graphics/mac/WebLayer.mm
@@ -396,7 +372,6 @@ list(APPEND WebCore_SOURCES
     platform/mac/SuddenTermination.mm
     platform/mac/ThemeMac.mm
     platform/mac/ThreadCheck.mm
-    platform/mac/URLMac.mm
     platform/mac/UserActivityMac.mm
     platform/mac/ValidationBubbleMac.mm
     platform/mac/WebCoreFullScreenPlaceholderView.mm
@@ -413,6 +388,7 @@ list(APPEND WebCore_SOURCES
 
     platform/mediastream/mac/MockRealtimeVideoSourceMac.mm
 
+    platform/network/cf/CertificateInfoCFNet.cpp
     platform/network/cf/DNSResolveQueueCFNet.cpp
     platform/network/cf/FormDataStreamCFNet.cpp
     platform/network/cf/NetworkStorageSessionCFNet.cpp
@@ -432,8 +408,6 @@ list(APPEND WebCore_SOURCES
 
     platform/network/mac/AuthenticationMac.mm
     platform/network/mac/BlobDataFileReferenceMac.mm
-    platform/network/mac/CertificateInfoMac.mm
-    platform/network/mac/CookieJarMac.mm
     platform/network/mac/CookieStorageMac.mm
     platform/network/mac/CredentialStorageMac.mm
     platform/network/mac/FormDataStreamMac.mm
@@ -451,6 +425,7 @@ list(APPEND WebCore_SOURCES
 
     platform/text/mac/LocaleMac.mm
     platform/text/mac/TextBoundaries.mm
+    platform/text/mac/TextCheckingMac.mm
     platform/text/mac/TextEncodingRegistryMac.mm
 
     rendering/RenderThemeCocoa.mm
@@ -516,6 +491,7 @@ set(WebCore_FORWARDING_HEADERS_DIRECTORIES
     html/forms
     html/parser
     html/shadow
+    html/track
 
     inspector/agents
 
@@ -538,6 +514,7 @@ set(WebCore_FORWARDING_HEADERS_DIRECTORIES
     platform/audio
     platform/cf
     platform/cocoa
+    platform/ios
     platform/graphics
     platform/mac
     platform/mediastream
@@ -551,6 +528,7 @@ set(WebCore_FORWARDING_HEADERS_DIRECTORIES
     platform/gamepad/cocoa
     platform/gamepad/mac
 
+    platform/graphics/avfoundation
     platform/graphics/ca
     platform/graphics/cocoa
     platform/graphics/cg
@@ -651,6 +629,7 @@ set(ADDITIONAL_BINDINGS_DEPENDENCIES
     ${WORKERGLOBALSCOPE_CONSTRUCTORS_FILE}
     ${DEDICATEDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE}
 )
+set(CSS_VALUE_PLATFORM_DEFINES WTF_PLATFORM_MAC=1)
 
 list(APPEND WebCoreTestSupport_LIBRARIES PRIVATE WebCore)
 list(APPEND WebCoreTestSupport_SOURCES

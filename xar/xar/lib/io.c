@@ -92,9 +92,9 @@ struct datamod xar_datamods[] = {
 	{ (fromheap_in)NULL,
 		(fromheap_out)NULL,
 		(fromheap_done)NULL,
-		xar_macho_in,
+		NULL,
 		(toheap_out)NULL,
-		xar_macho_done
+		NULL
 	},
 	{ xar_gzip_fromheap_in,
 		(fromheap_out)NULL,
@@ -842,7 +842,7 @@ int32_t xar_heap_to_archive(xar_t x) {
 		}
 	}
 	
-	b = malloc(bsize);
+	b = calloc(1, bsize);
 	if( !b ) return -1;
 	
 	lseek(XAR(x)->heap_fd, 0, SEEK_SET);
@@ -855,15 +855,16 @@ int32_t xar_heap_to_archive(xar_t x) {
 			return -1;
 		}
 
+		size_t writesize = r;
 		off = 0;
 		do {
-			r = write(XAR(x)->fd, b+off, bsize-off);
+			r = write(XAR(x)->fd, b+off, writesize-off);
 			if( (r < 0) && (errno != EINTR) ) {
 				free(b);
 				return -1;
 			}
 			off += r;
-		} while( off < bsize );
+		} while( off < bsize && off < writesize ); // writesize should always be less than bsize.
 	}
 	free(b);
 	return 0;

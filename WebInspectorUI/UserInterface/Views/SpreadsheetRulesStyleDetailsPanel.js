@@ -32,8 +32,6 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
         const label = WI.UIString("Styles \u2014 Rules");
         super(delegate, className, identifier, label);
 
-        this.element.classList.add("spreadsheet-style-panel");
-
         // Make the styles sidebar always left-to-right since CSS is strictly an LTR language.
         this.element.dir = "ltr";
 
@@ -106,7 +104,7 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
         if (this.nodeStyles.node.isInUserAgentShadowTree())
             return;
 
-        let styleSheets = WI.cssStyleManager.styleSheets.filter(styleSheet => styleSheet.hasInfo() && !styleSheet.isInlineStyleTag() && !styleSheet.isInlineStyleAttributeStyleSheet());
+        let styleSheets = WI.cssManager.styleSheets.filter(styleSheet => styleSheet.hasInfo() && !styleSheet.isInlineStyleTag() && !styleSheet.isInlineStyleAttributeStyleSheet());
         if (!styleSheets.length)
             return;
 
@@ -217,30 +215,6 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
         this._headerMap.clear();
         this._sections = [];
 
-        let uniqueOrderedStyles = (orderedStyles) => {
-            let uniqueStyles = [];
-
-            for (let style of orderedStyles) {
-                let rule = style.ownerRule;
-                if (!rule) {
-                    uniqueStyles.push(style);
-                    continue;
-                }
-
-                let found = false;
-                for (let existingStyle of uniqueStyles) {
-                    if (rule.isEqualTo(existingStyle.ownerRule)) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                    uniqueStyles.push(style);
-            }
-
-            return uniqueStyles;
-        };
-
         let createHeader = (text, node) => {
             let header = this.element.appendChild(document.createElement("h2"));
             header.classList.add("section-header");
@@ -272,7 +246,7 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
             previousStyle = style;
         };
 
-        for (let style of uniqueOrderedStyles(this.nodeStyles.orderedStyles)) {
+        for (let style of this.nodeStyles.uniqueOrderedStyles) {
             if (style.inherited && (!previousStyle || previousStyle.node !== style.node))
                 createHeader(WI.UIString("Inherited From"), style.node);
 
@@ -280,12 +254,12 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
         }
 
         let pseudoElements = Array.from(this.nodeStyles.node.pseudoElements().values());
-        Promise.all(pseudoElements.map((pseudoElement) => WI.cssStyleManager.stylesForNode(pseudoElement).refreshIfNeeded()))
+        Promise.all(pseudoElements.map((pseudoElement) => WI.cssManager.stylesForNode(pseudoElement).refreshIfNeeded()))
         .then((pseudoNodeStyles) => {
             for (let pseudoNodeStyle of pseudoNodeStyles) {
                 createHeader(WI.UIString("Pseudo Element"), pseudoNodeStyle.node);
 
-                for (let style of uniqueOrderedStyles(pseudoNodeStyle.orderedStyles))
+                for (let style of pseudoNodeStyle.uniqueOrderedStyles)
                     createSection(style);
             }
         });

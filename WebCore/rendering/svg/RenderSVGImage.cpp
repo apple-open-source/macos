@@ -120,7 +120,6 @@ void RenderSVGImage::layout()
         SVGRenderSupport::intersectRepaintRectWithResources(*this, m_repaintBoundingBoxExcludingShadow);
 
         m_repaintBoundingBox = m_repaintBoundingBoxExcludingShadow;
-        SVGRenderSupport::intersectRepaintRectWithShadows(*this, m_repaintBoundingBox);
 
         m_needsBoundariesUpdate = false;
     }
@@ -139,7 +138,7 @@ void RenderSVGImage::layout()
 
 void RenderSVGImage::paint(PaintInfo& paintInfo, const LayoutPoint&)
 {
-    if (paintInfo.context().paintingDisabled() || paintInfo.phase != PaintPhaseForeground
+    if (paintInfo.context().paintingDisabled() || paintInfo.phase != PaintPhase::Foreground
         || style().visibility() == Visibility::Hidden || !imageResource().cachedImage())
         return;
 
@@ -151,7 +150,7 @@ void RenderSVGImage::paint(PaintInfo& paintInfo, const LayoutPoint&)
     GraphicsContextStateSaver stateSaver(childPaintInfo.context());
     childPaintInfo.applyTransform(m_localTransform);
 
-    if (childPaintInfo.phase == PaintPhaseForeground) {
+    if (childPaintInfo.phase == PaintPhase::Foreground) {
         SVGRenderingContext renderingContext(*this, childPaintInfo);
 
         if (renderingContext.isRenderingPrepared()) {
@@ -194,7 +193,7 @@ bool RenderSVGImage::nodeAtFloatPoint(const HitTestRequest& request, HitTestResu
     PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_IMAGE_HITTESTING, request, style().pointerEvents());
     bool isVisible = (style().visibility() == Visibility::Visible);
     if (isVisible || !hitRules.requireVisible) {
-        FloatPoint localPoint = localToParentTransform().inverse().value_or(AffineTransform()).mapPoint(pointInParent);
+        FloatPoint localPoint = localToParentTransform().inverse().valueOr(AffineTransform()).mapPoint(pointInParent);
             
         if (!SVGRenderSupport::pointInClippingArea(*this, localPoint))
             return false;

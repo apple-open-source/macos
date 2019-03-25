@@ -17,15 +17,14 @@
 #pragma clang diagnostic pop
 #import "HIDRemoteSimpleProtocol.h"
 #import "RemoteHIDPrivate.h"
-#import  <IOKit/hid/IOHIDKeys.h>
+#import <IOKit/hid/IOHIDKeys.h>
+#import <mach/mach_time.h>
 
 static void HIDAccesorySessionEventCallback (BTSession session, BTSessionEvent event, BTResult result, void* userData);
 static void HIDAccesoryCustomMessageCallback (BTAccessoryManager manager, BTDevice device, BTAccessoryCustomMessageType type, BTData data, size_t dataSize, void* userData);
 static void HIDAccesoryServiceEventCallback (BTDevice device, BTServiceMask services, BTServiceEventType eventType, BTServiceSpecificEvent event, BTResult result, void* userData);
 
 static uint16_t generation;
-
-
 
 @interface HIDRemoteDeviceAACPServer ()
 {
@@ -199,7 +198,9 @@ exit:
 
 -(BTResult) sendMessageBTDevice:(BTDevice) device data:(BTData) data size:(size_t) size
 {
-    os_log_debug (RemoteHIDLogPackets (), "[%p] Send packet len:%zu data:%@", device, size , [NSData dataWithBytes:data length:size]);
+    
+    os_log_debug (RemoteHIDLogPackets (), "[%p] send packet:%{RemoteHID:packet}.*P", device, (int)size , data);
+
     BTResult status = BTAccessoryManagerSendCustomMessage (_manager, HID_AACP_MESSAGE_TYPE, device, data,  size);
     if (status) {
         os_log_error (RemoteHIDLog (), "BTAccessoryManagerSendCustomMessage device:%p result:%d", device, status);
@@ -219,9 +220,10 @@ exit:
 -(void) btDeviceMessageHandler:(BTDevice) device type:(BTAccessoryCustomMessageType) type data:(BTData) data size:(size_t)dataSize
 {
     os_log_debug (RemoteHIDLog (), "btDeviceMessageHandler device:%p client:0x%x data:%p size:%d", device, type, data, (int)dataSize);
+    uint64_t timestamp = mach_absolute_time ();
     NSValue * endpoint =  [NSValue valueWithPointer:device];
     if ((uint32_t)type == HID_AACP_MESSAGE_TYPE) {
-        os_log_debug (RemoteHIDLogPackets (), "[%p] Receive packet len:%zu data:%@", device, dataSize ,[NSData dataWithBytes:data length:dataSize]);
+        os_log_debug (RemoteHIDLogPackets (), "[%p] receive packet client:0x%x timestamp:%lld packet:%{RemoteHID:packet}.*P", device, type, timestamp, (int)dataSize, (uint8_t*) data);
         [self endpointMessageHandler:(id) endpoint data:(uint8_t*) data size:(size_t)dataSize];
     }
 }

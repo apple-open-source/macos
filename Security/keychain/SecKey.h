@@ -1076,128 +1076,118 @@ __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AV
     @constant kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM
     Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
-    all-zero 16 byte long IV (initialization vector).
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG and all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM
     Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA224.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
-    all-zero 16 byte long IV (initialization vector).
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG and all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM
     Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA256.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
-    all-zero 16 byte long IV (initialization vector).
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG and all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM
     Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA384.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
-    all-zero 16 byte long IV (initialization vector).
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG and all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM
     Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA512.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
-    all-zero 16 byte long IV (initialization vector).
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG and all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorX963SHA1AESGCM
     Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA256AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA1.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
-    all-zero 16 byte long IV (initialization vector).
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG and all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorX963SHA224AESGCM
     Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA224AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA224.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
-    all-zero 16 byte long IV (initialization vector).
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG and all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM
     Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA256AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA256.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
-    all-zero 16 byte long IV (initialization vector).
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG and all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorX963SHA384AESGCM
     Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA384AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA384.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
-    all-zero 16 byte long IV (initialization vector).
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG and all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorX963SHA512AESGCM
     Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA512AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA512.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
-    all-zero 16 byte long IV (initialization vector).
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG and all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM
     ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA224.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
-    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG, AES key is first half of KDF output and 16 byte long IV (initialization vector) is second half
+    of KDF output.
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM
     ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA256.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
-    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG, AES key is first half of KDF output and 16 byte long IV (initialization vector) is second half
+    of KDF output.
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM
     ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA384.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
-    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG, AES key is first half of KDF output and 16 byte long IV (initialization vector) is second half
+    of KDF output.
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM
     ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA512.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
-    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG, AES key is first half of KDF output and 16 byte long IV (initialization vector) is second half
+    of KDF output.
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA224AESGCM
     ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA224.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
-    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG, AES key is first half of KDF output and 16 byte long IV (initialization vector) is second half
+    of KDF output.
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA256AESGCM
     ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA256.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
-    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG, AES key is first half of KDF output and 16 byte long IV (initialization vector) is second half
+    of KDF output.
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA384AESGCM
     ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA384.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
-    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG, AES key is first half of KDF output and 16 byte long IV (initialization vector) is second half
+    of KDF output.
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA512AESGCM
     ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA512.  AES Key size
-    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
-    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
-    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys. Ephemeral public key data is used as sharedInfo for KDF.
+    AES-GCM uses 16 bytes long TAG, AES key is first half of KDF output and 16 byte long IV (initialization vector) is second half
+    of KDF output.
 
     @constant kSecKeyAlgorithmECDHKeyExchangeCofactor
     Compute shared secret using ECDH cofactor algorithm, suitable only for kSecAttrKeyTypeECSECPrimeRandom keys.

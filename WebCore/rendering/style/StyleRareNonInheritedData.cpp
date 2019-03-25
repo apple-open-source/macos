@@ -75,6 +75,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , justifyContent(RenderStyle::initialContentAlignment())
     , justifyItems(RenderStyle::initialJustifyItems())
     , justifySelf(RenderStyle::initialSelfAlignment())
+    , customProperties(StyleCustomPropertyData::create())
 #if ENABLE(TOUCH_EVENTS)
     , touchAction(static_cast<unsigned>(RenderStyle::initialTouchAction()))
 #endif
@@ -91,7 +92,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , textDecorationStyle(static_cast<unsigned>(RenderStyle::initialTextDecorationStyle()))
     , aspectRatioType(static_cast<unsigned>(RenderStyle::initialAspectRatioType()))
 #if ENABLE(CSS_COMPOSITING)
-    , effectiveBlendMode(RenderStyle::initialBlendMode())
+    , effectiveBlendMode(static_cast<unsigned>(RenderStyle::initialBlendMode()))
     , isolation(static_cast<unsigned>(RenderStyle::initialIsolation()))
 #endif
 #if ENABLE(APPLE_PAY)
@@ -167,6 +168,8 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , justifyContent(o.justifyContent)
     , justifyItems(o.justifyItems)
     , justifySelf(o.justifySelf)
+    , customProperties(o.customProperties)
+    , customPaintWatchedProperties(o.customPaintWatchedProperties ? std::make_unique<HashSet<String>>(*o.customPaintWatchedProperties) : nullptr)
 #if ENABLE(TOUCH_EVENTS)
     , touchAction(o.touchAction)
 #endif
@@ -268,6 +271,9 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && justifyContent == o.justifyContent
         && justifyItems == o.justifyItems
         && justifySelf == o.justifySelf
+        && customProperties == o.customProperties
+        && ((customPaintWatchedProperties && o.customPaintWatchedProperties && *customPaintWatchedProperties == *o.customPaintWatchedProperties)
+            || (!customPaintWatchedProperties && !o.customPaintWatchedProperties))
         && pageSizeType == o.pageSizeType
         && transformStyle3D == o.transformStyle3D
         && backfaceVisibility == o.backfaceVisibility

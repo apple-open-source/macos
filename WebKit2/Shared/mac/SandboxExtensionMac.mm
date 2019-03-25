@@ -36,9 +36,8 @@
 #import <wtf/spi/darwin/SandboxSPI.h>
 #import <wtf/text/CString.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 class SandboxExtensionImpl {
 public:
@@ -63,7 +62,7 @@ public:
     bool consume() WARN_UNUSED_RETURN
     {
         m_handle = sandbox_extension_consume(m_token);
-#if PLATFORM(IOS_SIMULATOR)
+#if PLATFORM(IOS_FAMILY_SIMULATOR)
         return !sandbox_check(getpid(), 0, SANDBOX_FILTER_NONE);
 #else
         return m_handle;
@@ -86,12 +85,11 @@ private:
     {
         switch (type) {
         case SandboxExtension::Type::ReadOnly:
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             return sandbox_extension_issue_file(APP_SANDBOX_READ, path, 0);
         case SandboxExtension::Type::ReadWrite:
             return sandbox_extension_issue_file(APP_SANDBOX_READ_WRITE, path, 0);
-#pragma clang diagnostic pop
+            ALLOW_DEPRECATED_DECLARATIONS_END
         case SandboxExtension::Type::Generic:
             return sandbox_extension_issue_generic(path, 0);
         }
@@ -136,11 +134,11 @@ void SandboxExtension::Handle::encode(IPC::Encoder& encoder) const
     m_sandboxExtension = 0;
 }
 
-auto SandboxExtension::Handle::decode(IPC::Decoder& decoder) -> std::optional<Handle>
+auto SandboxExtension::Handle::decode(IPC::Decoder& decoder) -> Optional<Handle>
 {
     IPC::DataReference dataReference;
     if (!decoder.decode(dataReference))
-        return std::nullopt;
+        return WTF::nullopt;
 
     if (dataReference.isEmpty())
         return {{ }};
@@ -192,20 +190,22 @@ void SandboxExtension::HandleArray::encode(IPC::Encoder& encoder) const
         encoder << handle;
 }
 
-bool SandboxExtension::HandleArray::decode(IPC::Decoder& decoder, SandboxExtension::HandleArray& handles)
+Optional<SandboxExtension::HandleArray> SandboxExtension::HandleArray::decode(IPC::Decoder& decoder)
 {
-    uint64_t size;
-    if (!decoder.decode(size))
-        return false;
-    handles.allocate(size);
-    for (size_t i = 0; i < size; i++) {
-        std::optional<SandboxExtension::Handle> handle;
+    Optional<uint64_t> size;
+    decoder >> size;
+    if (!size)
+        return WTF::nullopt;
+    SandboxExtension::HandleArray handles;
+    handles.allocate(*size);
+    for (size_t i = 0; i < *size; ++i) {
+        Optional<SandboxExtension::Handle> handle;
         decoder >> handle;
         if (!handle)
-            return false;
+            return WTF::nullopt;
         handles[i] = WTFMove(*handle);
     }
-    return true;
+    return WTFMove(handles);
 }
 
 RefPtr<SandboxExtension> SandboxExtension::create(Handle&& handle)

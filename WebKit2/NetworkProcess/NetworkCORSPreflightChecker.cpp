@@ -26,13 +26,13 @@
 #include "config.h"
 #include "NetworkCORSPreflightChecker.h"
 
+#include "AuthenticationChallengeDisposition.h"
 #include "AuthenticationManager.h"
 #include "Logging.h"
 #include "NetworkLoadParameters.h"
 #include "NetworkProcess.h"
 #include "SessionTracker.h"
 #include <WebCore/CrossOriginAccessControl.h>
-#include <WebCore/SecurityOrigin.h>
 
 #define RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(m_parameters.sessionID.isAlwaysOnLoggingAllowed(), Network, "%p - NetworkCORSPreflightChecker::" fmt, this, ##__VA_ARGS__)
 
@@ -65,7 +65,6 @@ void NetworkCORSPreflightChecker::startPreflight()
     NetworkLoadParameters loadParameters;
     loadParameters.sessionID = m_parameters.sessionID;
     loadParameters.request = createAccessControlPreflightRequest(m_parameters.originalRequest, m_parameters.sourceOrigin, m_parameters.referrer);
-    loadParameters.shouldFollowRedirects = false;
     if (!m_parameters.userAgent.isNull())
         loadParameters.request.setHTTPHeaderField(HTTPHeaderName::UserAgent, m_parameters.userAgent);
 
@@ -102,20 +101,12 @@ void NetworkCORSPreflightChecker::didReceiveChallenge(WebCore::AuthenticationCha
         return;
     }
 
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-    NetworkProcess::singleton().canAuthenticateAgainstProtectionSpace(challenge.protectionSpace(), m_parameters.pageID, m_parameters.frameID, [this, weakThis = makeWeakPtr(this), completionHandler = WTFMove(completionHandler), challenge = WTFMove(challenge)] (bool canAuthenticate) mutable {
-        if (!canAuthenticate)
-            return completionHandler(AuthenticationChallengeDisposition::RejectProtectionSpace, { });
-        NetworkProcess::singleton().authenticationManager().didReceiveAuthenticationChallenge(m_parameters.pageID, m_parameters.frameID, challenge, WTFMove(completionHandler));
-    });
-#else
     NetworkProcess::singleton().authenticationManager().didReceiveAuthenticationChallenge(m_parameters.pageID, m_parameters.frameID, challenge, WTFMove(completionHandler));
-#endif
 }
 
-void NetworkCORSPreflightChecker::didReceiveResponseNetworkSession(WebCore::ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
+void NetworkCORSPreflightChecker::didReceiveResponse(WebCore::ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
 {
-    RELEASE_LOG_IF_ALLOWED("didReceiveResponseNetworkSession");
+    RELEASE_LOG_IF_ALLOWED("didReceiveResponse");
 
     if (m_shouldCaptureExtraNetworkLoadMetrics)
         m_loadInformation.response = response;
@@ -178,3 +169,5 @@ NetworkTransactionInformation NetworkCORSPreflightChecker::takeInformation()
 }
 
 } // Namespace WebKit
+
+#undef RELEASE_LOG_IF_ALLOWED

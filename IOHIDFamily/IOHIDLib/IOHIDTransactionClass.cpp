@@ -84,7 +84,7 @@ IOHIDTransactionClass::IOHIDTransactionClass() : IOHIDIUnknown(NULL)
     fHIDTransaction.pseudoVTable    = (IUnknownVTbl *)  &sHIDTransactionInterface;
     fHIDTransaction.obj             = this;
 
-    fDirection                      = 0;
+    fDirection                      = kIOHIDTransactionDirectionTypeInput;
     fIsCreated                      = false;
     fOwningDevice                   = NULL;
     fEventCallback                  = NULL;

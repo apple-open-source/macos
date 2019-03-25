@@ -87,7 +87,7 @@ float SettingsBase::defaultMinimumZoomFontSize()
 #endif
 }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
 bool SettingsBase::defaultTextAutosizingEnabled()
 {
     return false;
@@ -290,15 +290,6 @@ void SettingsBase::imageLoadingSettingsTimerFired()
         frame->document()->cachedResourceLoader().setImagesEnabled(m_page->settings().areImagesEnabled());
         frame->document()->cachedResourceLoader().setAutoLoadImages(m_page->settings().loadsImagesAutomatically());
     }
-}
-
-void SettingsBase::scriptEnabledChanged()
-{
-#if PLATFORM(IOS)
-    // FIXME: Why do we only do this on iOS?
-    if (m_page)
-        m_page->setNeedsRecalcStyleInAllFrames();
-#endif
 }
 
 void SettingsBase::pluginsEnabledChanged()

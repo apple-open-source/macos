@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WebPaymentCoordinatorProxy.h"
 
-#if PLATFORM(IOS) && ENABLE(APPLE_PAY)
+#if PLATFORM(IOS_FAMILY) && ENABLE(APPLE_PAY)
 
 #import "APIUIClient.h"
 #import "WebPageProxy.h"
@@ -34,14 +34,11 @@
 #import <PassKit/PassKit.h>
 #import <UIKit/UIViewController.h>
 #import <WebCore/PaymentAuthorizationStatus.h>
-#import <wtf/SoftLinking.h>
-
-SOFT_LINK_FRAMEWORK(PassKit)
-SOFT_LINK_CLASS(PassKit, PKPaymentAuthorizationViewController);
+#import <pal/cocoa/PassKitSoftLink.h>
 
 namespace WebKit {
 
-void WebPaymentCoordinatorProxy::platformShowPaymentUI(const WebCore::URL& originatingURL, const Vector<WebCore::URL>& linkIconURLStrings, const WebCore::ApplePaySessionPaymentRequest& request, WTF::Function<void (bool)>&& completionHandler)
+void WebPaymentCoordinatorProxy::platformShowPaymentUI(const URL& originatingURL, const Vector<URL>& linkIconURLStrings, const WebCore::ApplePaySessionPaymentRequest& request, WTF::Function<void(bool)>&& completionHandler)
 {
     UIViewController *presentingViewController = m_webPageProxy.uiClient().presentingViewController();
 
@@ -54,7 +51,7 @@ void WebPaymentCoordinatorProxy::platformShowPaymentUI(const WebCore::URL& origi
 
     auto paymentRequest = toPKPaymentRequest(m_webPageProxy, originatingURL, linkIconURLStrings, request);
 
-    m_paymentAuthorizationViewController = adoptNS([allocPKPaymentAuthorizationViewControllerInstance() initWithPaymentRequest:paymentRequest.get()]);
+    m_paymentAuthorizationViewController = adoptNS([PAL::allocPKPaymentAuthorizationViewControllerInstance() initWithPaymentRequest:paymentRequest.get()]);
     if (!m_paymentAuthorizationViewController) {
         completionHandler(false);
         return;

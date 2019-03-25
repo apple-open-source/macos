@@ -51,11 +51,13 @@
 #include "RenderLayer.h"
 #include "RenderTextControlSingleLine.h"
 #include "RenderTheme.h"
+#include "RuntimeEnabledFeatures.h"
 #include "ShadowRoot.h"
 #include "TextControlInnerElements.h"
 #include "TextEvent.h"
 #include "TextIterator.h"
 #include "TextNodeTraversal.h"
+#include "UserTypingGestureIndicator.h"
 #include "WheelEvent.h"
 
 #if ENABLE(DATALIST_ELEMENT)
@@ -84,7 +86,7 @@ TextFieldInputType::~TextFieldInputType()
 bool TextFieldInputType::isKeyboardFocusable(KeyboardEvent*) const
 {
     ASSERT(element());
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (element()->isReadOnly())
         return false;
 #endif
@@ -167,6 +169,9 @@ void TextFieldInputType::setValue(const String& sanitizedValue, bool valueChange
     // FIXME: Why do we do this when eventBehavior == DispatchNoEvent
     if (!input->focused() || eventBehavior == DispatchNoEvent)
         input->setTextAsOfLastFormControlChangeEvent(sanitizedValue);
+
+    if (UserTypingGestureIndicator::processingUserTypingGesture())
+        didSetValueByUserEdit();
 }
 
 #if ENABLE(DATALIST_ELEMENT)
@@ -184,8 +189,10 @@ void TextFieldInputType::handleKeydownEvent(KeyboardEvent& event)
         return;
 #if ENABLE(DATALIST_ELEMENT)
     const String& key = event.keyIdentifier();
-    if (m_suggestionPicker && (key == "Enter" || key == "Up" || key == "Down"))
+    if (m_suggestionPicker && (key == "Enter" || key == "Up" || key == "Down")) {
         m_suggestionPicker->handleKeydownWithIdentifier(key);
+        event.setDefaultHandled();
+    }
 #endif
     RefPtr<Frame> frame = element()->document().frame();
     if (!frame || !frame->editor().doTextFieldCommandFromEvent(element(), &event))
@@ -198,6 +205,10 @@ void TextFieldInputType::handleKeydownEventForSpinButton(KeyboardEvent& event)
     ASSERT(element());
     if (element()->isDisabledOrReadOnly())
         return;
+#if ENABLE(DATALIST_ELEMENT)
+    if (m_suggestionPicker)
+        return;
+#endif
     const String& key = event.keyIdentifier();
     if (key == "Up")
         spinButtonStepUp();
@@ -254,8 +265,13 @@ void TextFieldInputType::handleFocusEvent(Node* oldFocusedNode, FocusDirection)
 {
     ASSERT(element());
     ASSERT_UNUSED(oldFocusedNode, oldFocusedNode != element());
-    if (RefPtr<Frame> frame = element()->document().frame())
+    if (RefPtr<Frame> frame = element()->document().frame()) {
         frame->editor().textFieldDidBeginEditing(element());
+#if ENABLE(DATALIST_ELEMENT) && PLATFORM(IOS_FAMILY)
+        if (element()->list() && m_dataListDropdownIndicator)
+            m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, suggestions().size() ? CSSValueBlock : CSSValueNone, true);
+#endif
+    }
 }
 
 void TextFieldInputType::handleBlurEvent()
@@ -263,6 +279,10 @@ void TextFieldInputType::handleBlurEvent()
     InputType::handleBlurEvent();
     ASSERT(element());
     element()->endEditing();
+#if ENABLE(DATALIST_ELEMENT) && PLATFORM(IOS_FAMILY)
+    if (element()->list() && m_dataListDropdownIndicator)
+        m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, CSSValueNone, true);
+#endif
 }
 
 bool TextFieldInputType::shouldSubmitImplicitly(Event& event)
@@ -335,7 +355,6 @@ void TextFieldInputType::createShadowSubtree()
 
         m_container->appendChild(*m_capsLockIndicator);
     }
-
     updateAutoFillButton();
 }
 
@@ -386,6 +405,9 @@ void TextFieldInputType::destroyShadowSubtree()
     m_innerSpinButton = nullptr;
     m_capsLockIndicator = nullptr;
     m_autoFillButton = nullptr;
+#if ENABLE(DATALIST)
+    m_dataListDropdownIndicator = nullptr;
+#endif
     m_container = nullptr;
 }
 
@@ -424,6 +446,18 @@ bool TextFieldInputType::shouldUseInputMethod() const
     return true;
 }
 
+#if ENABLE(DATALIST_ELEMENT)
+void TextFieldInputType::createDataListDropdownIndicator()
+{
+    ASSERT(!m_dataListDropdownIndicator);
+    if (!m_container)
+        createContainer();
+    m_dataListDropdownIndicator = DataListButtonElement::create(element()->document(), *this);
+    m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, CSSValueNone, true);
+    m_container->appendChild(*m_dataListDropdownIndicator);
+}
+#endif
+
 // FIXME: The name of this function doesn't make clear the two jobs it does:
 // 1) Limits the string to a particular number of grapheme clusters.
 // 2) Truncates the string at the first character which is a control character other than tab.
@@ -452,6 +486,8 @@ static String autoFillButtonTypeToAccessibilityLabel(AutoFillButtonType autoFill
         return AXAutoFillCredentialsLabel();
     case AutoFillButtonType::StrongPassword:
         return AXAutoFillStrongPasswordLabel();
+    case AutoFillButtonType::CreditCard:
+        return AXAutoFillCreditCardLabel();
     case AutoFillButtonType::None:
         ASSERT_NOT_REACHED();
         return { };
@@ -465,6 +501,7 @@ static String autoFillButtonTypeToAutoFillButtonText(AutoFillButtonType autoFill
     switch (autoFillButtonType) {
     case AutoFillButtonType::Contacts:
     case AutoFillButtonType::Credentials:
+    case AutoFillButtonType::CreditCard:
         return emptyString();
     case AutoFillButtonType::StrongPassword:
         return autoFillStrongPasswordLabel();
@@ -485,6 +522,8 @@ static AtomicString autoFillButtonTypeToAutoFillButtonPseudoClassName(AutoFillBu
         return { "-webkit-credentials-auto-fill-button", AtomicString::ConstructFromLiteral };
     case AutoFillButtonType::StrongPassword:
         return { "-webkit-strong-password-auto-fill-button", AtomicString::ConstructFromLiteral };
+    case AutoFillButtonType::CreditCard:
+        return { "-webkit-credit-card-auto-fill-button", AtomicString::ConstructFromLiteral };
     case AutoFillButtonType::None:
         ASSERT_NOT_REACHED();
         return emptyAtom();
@@ -500,6 +539,8 @@ static bool isAutoFillButtonTypeChanged(const AtomicString& attribute, AutoFillB
     if (attribute == "-webkit-credentials-auto-fill-button" && autoFillButtonType != AutoFillButtonType::Credentials)
         return true;
     if (attribute == "-webkit-strong-password-auto-fill-button" && autoFillButtonType != AutoFillButtonType::StrongPassword)
+        return true;
+    if (attribute == "-webkit-credit-card-auto-fill-button" && autoFillButtonType != AutoFillButtonType::CreditCard)
         return true;
     return false;
 }
@@ -555,7 +596,7 @@ void TextFieldInputType::handleBeforeTextInsertedEvent(BeforeTextInsertedEvent& 
 bool TextFieldInputType::shouldRespectListAttribute()
 {
 #if ENABLE(DATALIST_ELEMENT)
-    return true;
+    return RuntimeEnabledFeatures::sharedFeatures().dataListElementEnabled();
 #else
     return InputType::themeSupportsDataListUI(this);
 #endif
@@ -630,6 +671,10 @@ void TextFieldInputType::didSetValueByUserEdit()
     if (RefPtr<Frame> frame = element()->document().frame())
         frame->editor().textDidChangeInTextField(element());
 #if ENABLE(DATALIST_ELEMENT)
+#if PLATFORM(IOS_FAMILY)
+    if (element()->list() && m_dataListDropdownIndicator)
+        m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, suggestions().size() ? CSSValueBlock : CSSValueNone, true);
+#endif
     if (element()->list())
         displaySuggestions(DataListSuggestionActivationType::TextChanged);
 #endif
@@ -683,6 +728,9 @@ bool TextFieldInputType::shouldDrawCapsLockIndicator() const
         return false;
 
     if (element()->isDisabledOrReadOnly())
+        return false;
+
+    if (element()->hasAutoFillStrongPasswordButton())
         return false;
 
     RefPtr<Frame> frame = element()->document().frame();
@@ -753,6 +801,8 @@ void TextFieldInputType::createAutoFillButton(AutoFillButtonType autoFillButtonT
 
 void TextFieldInputType::updateAutoFillButton()
 {
+    capsLockStateMayHaveChanged();
+
     if (shouldDrawAutoFillButton()) {
         if (!m_container)
             createContainer();
@@ -779,6 +829,29 @@ void TextFieldInputType::updateAutoFillButton()
 
 #if ENABLE(DATALIST_ELEMENT)
 
+void TextFieldInputType::listAttributeTargetChanged()
+{
+    m_cachedSuggestions = std::make_pair(String(), Vector<String>());
+
+    if (!m_dataListDropdownIndicator)
+        createDataListDropdownIndicator();
+
+#if !PLATFORM(IOS_FAMILY)
+    m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, element()->list() ? CSSValueBlock : CSSValueNone, true);
+#endif
+}
+
+HTMLElement* TextFieldInputType::dataListButtonElement() const
+{
+    return m_dataListDropdownIndicator.get();
+}
+
+void TextFieldInputType::dataListButtonElementWasClicked()
+{
+    if (element()->list())
+        displaySuggestions(DataListSuggestionActivationType::IndicatorClicked);
+}
+
 IntRect TextFieldInputType::elementRectInRootViewCoordinates() const
 {
     if (!element()->renderer())
@@ -786,9 +859,15 @@ IntRect TextFieldInputType::elementRectInRootViewCoordinates() const
     return element()->document().view()->contentsToRootView(element()->renderer()->absoluteBoundingBoxRect());
 }
 
-Vector<String> TextFieldInputType::suggestions() const
+Vector<String> TextFieldInputType::suggestions()
 {
     Vector<String> suggestions;
+    Vector<String> matchesContainingValue;
+
+    String elementValue = element()->value();
+
+    if (!m_cachedSuggestions.first.isNull() && equalIgnoringASCIICase(m_cachedSuggestions.first, elementValue))
+        return m_cachedSuggestions.second;
 
     if (auto dataList = element()->dataList()) {
         Ref<HTMLCollection> options = dataList->options();
@@ -797,10 +876,17 @@ Vector<String> TextFieldInputType::suggestions() const
                 continue;
 
             String value = sanitizeValue(option->value());
-            if (!suggestions.contains(value) && (element()->value().isEmpty() || value.containsIgnoringASCIICase(element()->value())))
+            if (elementValue.isEmpty())
                 suggestions.append(value);
+            else if (value.startsWithIgnoringASCIICase(elementValue))
+                suggestions.append(value);
+            else if (value.containsIgnoringASCIICase(elementValue))
+                matchesContainingValue.append(value);
         }
     }
+
+    suggestions.appendVector(matchesContainingValue);
+    m_cachedSuggestions = std::make_pair(elementValue, suggestions);
 
     return suggestions;
 }
@@ -812,7 +898,10 @@ void TextFieldInputType::didSelectDataListOption(const String& selectedOption)
 
 void TextFieldInputType::didCloseSuggestions()
 {
+    m_cachedSuggestions = std::make_pair(String(), Vector<String>());
     m_suggestionPicker = nullptr;
+    if (element()->renderer())
+        element()->renderer()->repaint();
 }
 
 void TextFieldInputType::displaySuggestions(DataListSuggestionActivationType type)
@@ -820,7 +909,7 @@ void TextFieldInputType::displaySuggestions(DataListSuggestionActivationType typ
     if (element()->isDisabledFormControl() || !element()->renderer())
         return;
 
-    if (!UserGestureIndicator::processingUserGesture())
+    if (!UserGestureIndicator::processingUserGesture() && type != DataListSuggestionActivationType::TextChanged)
         return;
 
     if (!m_suggestionPicker && suggestions().size() > 0)
@@ -836,6 +925,11 @@ void TextFieldInputType::closeSuggestions()
 {
     if (m_suggestionPicker)
         m_suggestionPicker->close();
+}
+
+bool TextFieldInputType::isPresentingAttachedView() const
+{
+    return !!m_suggestionPicker;
 }
 
 #endif

@@ -117,8 +117,37 @@
     os_log_error(LOG_STREAM, fmt, ##args); \
 }
 
+#define CFDictionaryGetIntValue(dict, key, val) { \
+    CFNumberRef n = CFDictionaryGetValue((dict), (key));    \
+    if (n) {    \
+        CFNumberGetValue((n), kCFNumberIntType, &(val)); \
+    } \
+}
 
+#define CFDictionarySetIntValue(dict, key, val) { \
+    CFNumberRef n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &(val)); \
+    if (n) {    \
+        CFDictionarySetValue((dict), (key), n);     \
+        CFRelease(n);   \
+    }   \
+}
 
+#define CFDictionaryGetDoubleValue(dict, key, val) { \
+    CFNumberRef n;   \
+    if (CFDictionaryGetValueIfPresent((dict), (key), (const void **)&n)) { \
+        if (n) {    \
+            CFNumberGetValue((n), kCFNumberDoubleType, &(val)); \
+        } \
+    } \
+}
+
+#define CFDictionarySetDoubleValue(dict, key, val) { \
+    CFNumberRef n = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &(val)); \
+    if (n) {    \
+        CFDictionarySetValue((dict), (key), n);     \
+        CFRelease(n);   \
+    }   \
+}
 
 /*****************************************************************************/
 

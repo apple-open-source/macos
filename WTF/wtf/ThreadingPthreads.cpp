@@ -30,7 +30,7 @@
  */
 
 #include "config.h"
-#include "Threading.h"
+#include <wtf/Threading.h>
 
 #if USE(PTHREADS)
 
@@ -109,31 +109,6 @@ static LazyNeverDestroyed<Semaphore> globalSemaphoreForSuspendResume;
 static constexpr const int SigThreadSuspendResume = SIGUSR1;
 static std::atomic<Thread*> targetThread { nullptr };
 
-#if COMPILER(GCC)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wreturn-local-addr"
-#endif // COMPILER(GCC)
-
-#if COMPILER(CLANG)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wreturn-stack-address"
-#endif // COMPILER(CLANG)
-
-static NEVER_INLINE void* getApproximateStackPointer()
-{
-    volatile uintptr_t stackLocation;
-    stackLocation = bitwise_cast<uintptr_t>(&stackLocation);
-    return bitwise_cast<void*>(stackLocation);
-}
-
-#if COMPILER(GCC)
-#pragma GCC diagnostic pop
-#endif // COMPILER(GCC)
-
-#if COMPILER(CLANG)
-#pragma clang diagnostic pop
-#endif // COMPILER(CLANG)
-
 void Thread::signalHandlerSuspendResume(int, siginfo_t*, void* ucontext)
 {
     // Touching a global variable atomic types from signal handlers is allowed.
@@ -149,7 +124,7 @@ void Thread::signalHandlerSuspendResume(int, siginfo_t*, void* ucontext)
         return;
     }
 
-    void* approximateStackPointer = getApproximateStackPointer();
+    void* approximateStackPointer = currentStackPointer();
     if (!thread->m_stack.contains(approximateStackPointer)) {
         // This happens if we use an alternative signal stack.
         // 1. A user-defined signal handler is invoked with an alternative signal stack.

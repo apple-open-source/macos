@@ -62,6 +62,7 @@
               (id)kSecClass : (id)kSecClassGenericPassword,
               (id)kSecReturnPersistentRef: @YES,
               (id)kSecReturnAttributes: @YES,
+              (id)kSecAttrSyncViewHint: @"keychain",
               (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
               (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
               (id)kSecAttrAccount : account,

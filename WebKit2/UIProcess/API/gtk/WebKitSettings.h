@@ -417,6 +417,13 @@ webkit_settings_set_enable_media_stream                        (WebKitSettings *
                                                                 gboolean        enabled);
 
 WEBKIT_API gboolean
+webkit_settings_get_enable_mock_capture_devices                (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_enable_mock_capture_devices                (WebKitSettings *settings,
+                                                                gboolean        enabled);
+
+WEBKIT_API gboolean
 webkit_settings_get_enable_spatial_navigation                  (WebKitSettings *settings);
 
 WEBKIT_API void
@@ -435,6 +442,13 @@ webkit_settings_get_enable_encrypted_media                     (WebKitSettings *
 
 WEBKIT_API void
 webkit_settings_set_enable_encrypted_media                     (WebKitSettings *settings,
+                                                                gboolean        enabled);
+
+WEBKIT_API gboolean
+webkit_settings_get_enable_media_capabilities                  (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_enable_media_capabilities                  (WebKitSettings *settings,
                                                                 gboolean        enabled);
 
 WEBKIT_API gboolean

@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
 
 #import <wtf/Platform.h>
 #import "PluginProcessShim.h"
@@ -48,8 +48,7 @@ static PluginProcessShimCallbacks pluginProcessShimCallbacks;
 
 #ifndef __LP64__
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 
 static void shimDebugger(void)
 {
@@ -133,7 +132,7 @@ DYLD_INTERPOSE(shimHideWindow, HideWindow);
 DYLD_INTERPOSE(shimLSOpenCFURLRef, LSOpenCFURLRef);
 DYLD_INTERPOSE(shimMachVMMap, mach_vm_map);
 
-#pragma clang diagnostic pop
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 #endif
 
@@ -348,4 +347,4 @@ void WebKitPluginProcessShimInitialize(const PluginProcessShimCallbacks& callbac
 
 } // namespace WebKit
 
-#endif // !PLATFORM(IOS)
+#endif // !PLATFORM(IOS_FAMILY)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2018 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,8 +56,7 @@ WI.Table = class Table extends WI.View
         this._scrollContainerElement.className = "data-container";
         this._scrollContainerElement.addEventListener("scroll", scrollHandler);
         this._scrollContainerElement.addEventListener("mousewheel", scrollHandler);
-        if (this._delegate.tableCellMouseDown)
-            this._scrollContainerElement.addEventListener("mousedown", this._handleMouseDown.bind(this));
+        this._scrollContainerElement.addEventListener("mousedown", this._handleMouseDown.bind(this));
         if (this._delegate.tableCellContextMenuClicked)
             this._scrollContainerElement.addEventListener("contextmenu", this._handleContextMenu.bind(this));
 
@@ -77,6 +76,7 @@ WI.Table = class Table extends WI.View
         this._resizersElement.className = "resizers";
 
         this._cachedRows = new Map;
+        this._cachedNumberOfRows = NaN;
 
         this._columnSpecs = new Map;
         this._columnOrder = [];
@@ -87,7 +87,7 @@ WI.Table = class Table extends WI.View
         this._columnWidths = null; // Calculated in _resizeColumnsAndFiller.
         this._fillerHeight = 0; // Calculated in _resizeColumnsAndFiller.
 
-        this._selectedRowIndex = NaN;
+        this._selectionController = new WI.SelectionController(this, (a, b) => this._indexForRepresentedObject(a) - this._indexForRepresentedObject(b));
 
         this._resizers = [];
         this._currentResizer = null;
@@ -106,12 +106,15 @@ WI.Table = class Table extends WI.View
         this._cachedWidth = NaN;
         this._cachedHeight = NaN;
         this._cachedScrollTop = NaN;
-        this._cachedScrollableHeight = NaN;
+        this._previousCachedWidth = NaN;
         this._previousRevealedRowCount = NaN;
         this._topSpacerHeight = NaN;
         this._bottomSpacerHeight = NaN;
         this._visibleRowIndexStart = NaN;
         this._visibleRowIndexEnd = NaN;
+
+        console.assert(this._dataSource.tableIndexForRepresentedObject, "Table data source must implement tableIndexForRepresentedObject.");
+        console.assert(this._dataSource.tableRepresentedObjectForIndex, "Table data source must implement tableRepresentedObjectForIndex.");
 
         console.assert(this._delegate.tablePopulateCell, "Table delegate must implement tablePopulateCell.");
     }
@@ -122,8 +125,31 @@ WI.Table = class Table extends WI.View
     get dataSource() { return this._dataSource; }
     get delegate() { return this._delegate; }
     get rowHeight() { return this._rowHeight; }
-    get selectedRow() { return this._selectedRowIndex; }
+
+    get selectedRow()
+    {
+        let item = this._selectionController.lastSelectedItem;
+        let index = this._indexForRepresentedObject(item);
+        return index >= 0 ? index : NaN;
+    }
+
+    get selectedRows()
+    {
+        let rowIndexes = [];
+        for (let item of this._selectionController.selectedItems)
+            rowIndexes.push(this._indexForRepresentedObject(item));
+        return rowIndexes;
+    }
+
     get scrollContainer() { return this._scrollContainerElement; }
+
+    get numberOfRows()
+    {
+        if (isNaN(this._cachedNumberOfRows))
+            this._cachedNumberOfRows = this._dataSource.tableNumberOfRows(this);
+
+        return this._cachedNumberOfRows;
+    }
 
     get sortOrder()
     {
@@ -201,18 +227,33 @@ WI.Table = class Table extends WI.View
             this._dataSource.tableSortChanged(this);
     }
 
-    resize()
+    get allowsMultipleSelection()
     {
-        this._cachedWidth = NaN;
-        this._cachedHeight = NaN;
+        return this._selectionController.allowsMultipleSelection;
+    }
 
-        this._resizeColumnsAndFiller();
+    set allowsMultipleSelection(flag)
+    {
+        this._selectionController.allowsMultipleSelection = flag;
+    }
+
+    get columns()
+    {
+        return Array.from(this._columnSpecs.values());
+    }
+
+    isRowSelected(rowIndex)
+    {
+        return this._selectionController.hasSelectedItem(this._representedObjectForIndex(rowIndex));
     }
 
     reloadData()
     {
         this._cachedRows.clear();
 
+        this._selectionController.reset();
+
+        this._cachedNumberOfRows = NaN;
         this._previousRevealedRowCount = NaN;
         this.needsLayout();
     }
@@ -278,35 +319,68 @@ WI.Table = class Table extends WI.View
         this._cachedRows.delete(rowIndex);
     }
 
-    selectRow(rowIndex)
+    selectRow(rowIndex, extendSelection = false)
     {
-        if (this._selectedRowIndex === rowIndex)
-            return;
-
-        let oldSelectedRow = this._cachedRows.get(this._selectedRowIndex);
-        if (oldSelectedRow)
-            oldSelectedRow.classList.remove("selected");
-
-        this._selectedRowIndex = rowIndex;
-
-        let newSelectedRow = this._cachedRows.get(this._selectedRowIndex);
-        if (newSelectedRow)
-            newSelectedRow.classList.add("selected");
-
-        if (this._delegate.tableSelectedRowChanged)
-            this._delegate.tableSelectedRowChanged(this, this._selectedRowIndex);
+        this._selectionController.selectItem(this._representedObjectForIndex(rowIndex), extendSelection);
     }
 
-    clearSelectedRow()
+    deselectRow(rowIndex)
     {
-        if (isNaN(this._selectedRowIndex))
+        this._selectionController.deselectItem(this._representedObjectForIndex(rowIndex));
+    }
+
+    selectAll()
+    {
+        this._selectionController.selectAll();
+    }
+
+    deselectAll()
+    {
+        this._selectionController.deselectAll();
+    }
+
+    removeRow(rowIndex)
+    {
+        console.assert(rowIndex >= 0 && rowIndex < this.numberOfRows);
+
+        if (this.isRowSelected(rowIndex))
+            this.deselectRow(rowIndex);
+
+        this._removeRows(new Set([this._representedObjectForIndex(rowIndex)]));
+    }
+
+    removeSelectedRows()
+    {
+        let selectedItems = this._selectionController.selectedItems;
+        if (!selectedItems.size)
             return;
 
-        let oldSelectedRow = this._cachedRows.get(this._selectedRowIndex);
-        if (oldSelectedRow)
-            oldSelectedRow.classList.remove("selected");
+        // Change the selection before removing rows. This matches the behavior
+        // of macOS Finder (in list and column modes) when removing selected items.
+        this._selectionController.removeSelectedItems();
 
-        this._selectedRowIndex = NaN;
+        this._removeRows(selectedItems);
+    }
+
+    revealRow(rowIndex)
+    {
+        console.assert(rowIndex >= 0 && rowIndex < this.numberOfRows);
+        if (rowIndex < 0 || rowIndex >= this.numberOfRows)
+            return;
+
+        // Force our own scroll update because we may have scrolled.
+        this._cachedScrollTop = NaN;
+
+        if (this._isRowVisible(rowIndex)) {
+            let row = this._cachedRows.get(rowIndex);
+            console.assert(row, "Visible rows should always be in the cache.");
+            if (row)
+                row.scrollIntoViewIfNeeded(false);
+            this.needsLayout();
+        } else {
+            this._scrollContainerElement.scrollTop = rowIndex * this._rowHeight;
+            this.updateLayout();
+        }
     }
 
     columnWithIdentifier(identifier)
@@ -418,7 +492,7 @@ WI.Table = class Table extends WI.View
 
         // Re-layout all columns to make space.
         this._columnWidths = null;
-        this.resize();
+        this._resizeColumnsAndFiller();
 
         // Now populate only the new cells for this column.
         for (let cell of cellsToPopulate)
@@ -499,11 +573,70 @@ WI.Table = class Table extends WI.View
     layout()
     {
         this._updateVisibleRows();
+        this._resizeColumnsAndFiller();
+    }
 
-        if (this.layoutReason === WI.View.LayoutReason.Resize)
-            this.resize();
-        else
-            this._resizeColumnsAndFiller();
+    sizeDidChange()
+    {
+        super.sizeDidChange();
+
+        this._previousCachedWidth = this._cachedWidth;
+        this._cachedWidth = NaN;
+        this._cachedHeight = NaN;
+    }
+
+    // SelectionController delegate
+
+    selectionControllerSelectionDidChange(controller, deselectedItems, selectedItems)
+    {
+        for (let item of deselectedItems) {
+            let rowIndex = this._indexForRepresentedObject(item);
+            let row = this._cachedRows.get(rowIndex);
+            if (row)
+                row.classList.toggle("selected", false);
+        }
+
+        for (let item of selectedItems) {
+            let rowIndex = this._indexForRepresentedObject(item);
+            let row = this._cachedRows.get(rowIndex);
+            if (row)
+                row.classList.toggle("selected", true);
+        }
+
+        if (selectedItems.size === 1) {
+            let rowIndex = this._indexForRepresentedObject(selectedItems.firstValue);
+            if (!this._isRowVisible(rowIndex))
+                this.revealRow(rowIndex);
+        }
+
+        if (this._delegate.tableSelectionDidChange)
+            this._delegate.tableSelectionDidChange(this);
+    }
+
+    selectionControllerFirstSelectableItem(controller)
+    {
+        return this._representedObjectForIndex(0);
+    }
+
+    selectionControllerLastSelectableItem(controller)
+    {
+        return this._representedObjectForIndex(this.numberOfRows - 1);
+    }
+
+    selectionControllerPreviousSelectableItem(controller, item)
+    {
+        let index = this._indexForRepresentedObject(item);
+        console.assert(index >= 0 && index < this.numberOfRows);
+
+        return index > 0 ? this._representedObjectForIndex(index - 1) : null;
+    }
+
+    selectionControllerNextSelectableItem(controller, item)
+    {
+        let index = this._indexForRepresentedObject(item);
+        console.assert(index >= 0 && index < this.numberOfRows);
+
+        return index < this.numberOfRows - 1 ? this._representedObjectForIndex(index + 1) : null;
     }
 
     // Resizer delegate
@@ -679,7 +812,7 @@ WI.Table = class Table extends WI.View
         let row = document.createElement("li");
         row.__index = rowIndex;
         row.__widthGeneration = 0;
-        if (rowIndex === this._selectedRowIndex)
+        if (this.isRowSelected(rowIndex))
             row.classList.add("selected");
 
         this._cachedRows.set(rowIndex, row);
@@ -709,15 +842,8 @@ WI.Table = class Table extends WI.View
 
     _resizeColumnsAndFiller()
     {
-        let oldWidth = this._cachedWidth;
-        let oldHeight = this._cachedHeight;
-        let oldNumberOfRows = this._cachedNumberOfRows;
-
-        if (isNaN(this._cachedWidth)) {
-            let boundingClientRect = this._scrollContainerElement.getBoundingClientRect();
-            this._cachedWidth = Math.floor(boundingClientRect.width);
-            this._cachedHeight = Math.floor(boundingClientRect.height);
-        }
+        if (isNaN(this._cachedWidth) || !this._cachedWidth)
+            this._cachedWidth = Math.floor(this._scrollContainerElement.getBoundingClientRect().width);
 
         // Not visible yet.
         if (!this._cachedWidth)
@@ -726,18 +852,17 @@ WI.Table = class Table extends WI.View
         let availableWidth = this._cachedWidth;
         let availableHeight = this._cachedHeight;
 
-        let numberOfRows = this._dataSource.tableNumberOfRows(this);
-        this._cachedNumberOfRows = numberOfRows;
-
-        let contentHeight = numberOfRows * this._rowHeight;
+        let contentHeight = this.numberOfRows * this._rowHeight;
         this._fillerHeight = Math.max(availableHeight - contentHeight, 0);
 
         // No change to layout metrics so no resizing is needed.
-        if (this._columnWidths && availableWidth === oldWidth && availableWidth === oldHeight && numberOfRows === oldNumberOfRows) {
+        if (this._columnWidths && this._cachedWidth === this._previousCachedWidth) {
             this._updateFillerRowWithNewHeight();
             this._applyColumnWidthsToColumnsIfNeeded();
             return;
         }
+
+        this._previousCachedWidth = this._cachedWidth;
 
         let lockedWidth = 0;
         let lockedColumnCount = 0;
@@ -930,11 +1055,11 @@ WI.Table = class Table extends WI.View
         if (isNaN(this._cachedScrollTop))
             this._cachedScrollTop = this._scrollContainerElement.scrollTop;
 
-        if (isNaN(this._cachedScrollableHeight) || !this._cachedScrollableHeight)
-            this._cachedScrollableHeight = this._scrollContainerElement.getBoundingClientRect().height;
+        if (isNaN(this._cachedHeight) || !this._cachedHeight)
+            this._cachedHeight = Math.floor(this._scrollContainerElement.getBoundingClientRect().height);
 
         let scrollTop = this._cachedScrollTop;
-        let scrollableOffsetHeight = this._cachedScrollableHeight;
+        let scrollableOffsetHeight = this._cachedHeight;
 
         let visibleRowCount = Math.ceil((scrollableOffsetHeight + (overflowPadding * 2)) / rowHeight);
         let currentTopMargin = this._topSpacerHeight;
@@ -947,7 +1072,7 @@ WI.Table = class Table extends WI.View
         if (belowTopThreshold && aboveBottomThreshold && !isNaN(this._previousRevealedRowCount))
             return;
 
-        let numberOfRows = this._dataSource.tableNumberOfRows(this);
+        let numberOfRows = this.numberOfRows;
         this._previousRevealedRowCount = numberOfRows;
 
         // Scroll back up if the number of rows was reduced such that the existing
@@ -1052,11 +1177,13 @@ WI.Table = class Table extends WI.View
     {
         // Apply and create missing cells only if row needs a width update.
         for (let row of this._listElement.children) {
-            if (row.__widthGeneration !== this._widthGeneration && row !== this._fillerRow) {
+            if (row.__widthGeneration !== this._widthGeneration) {
                 for (let i = 0; i < row.children.length; ++i)
                     row.children[i].style.width = this._columnWidths[i] + "px";
-                if (row.children.length !== this._visibleColumns.length)
-                    this._populateRow(row);
+                if (row !== this._fillerRow) {
+                    if (row.children.length !== this._visibleColumns.length)
+                        this._populateRow(row);
+                }
                 row.__widthGeneration = this._widthGeneration;
             }
         }
@@ -1152,44 +1279,11 @@ WI.Table = class Table extends WI.View
 
     _handleKeyDown(event)
     {
-        if (!this._isRowVisible(this._selectedRowIndex))
-            return;
-
-        if (event.shiftKey || event.metaKey || event.ctrlKey)
-            return;
-
-        let rowToSelect = NaN;
-
-        if (event.keyIdentifier === "Up") {
-            if (this._selectedRowIndex > 0)
-                rowToSelect = this._selectedRowIndex - 1;
-        } else if (event.keyIdentifier === "Down") {
-            let numberOfRows = this._dataSource.tableNumberOfRows(this);
-            if (this._selectedRowIndex < (numberOfRows - 1))
-                rowToSelect = this._selectedRowIndex + 1;
-        }
-
-        if (!isNaN(rowToSelect)) {
-            this.selectRow(rowToSelect);
-
-            let row = this._cachedRows.get(this._selectedRowIndex);
-            console.assert(row, "Moving up or down by one should always find a cached row since it is within the overflow bounds.");
-            row.scrollIntoViewIfNeeded();
-
-            // Force our own scroll update because we may have scrolled.
-            this._cachedScrollTop = NaN;
-            this.needsLayout();
-
-            event.preventDefault();
-            event.stopPropagation();
-        }
+        this._selectionController.handleKeyDown(event);
     }
 
     _handleMouseDown(event)
     {
-        if (event.button !== 0 || event.ctrlKey)
-            return;
-
         let cell = event.target.enclosingNodeOrSelfWithClass("cell");
         if (!cell)
             return;
@@ -1198,11 +1292,18 @@ WI.Table = class Table extends WI.View
         if (row === this._fillerRow)
             return;
 
-        let columnIndex = Array.from(row.children).indexOf(cell);
-        let column = this._visibleColumns[columnIndex];
         let rowIndex = row.__index;
 
-        this._delegate.tableCellMouseDown(this, cell, column, rowIndex, event);
+        // Before checking if multiple selection is allowed, check if clicking the
+        // row would cause it to be selected, and whether it is allowed by the delegate.
+        if (!this.isRowSelected(rowIndex) && this._delegate.tableShouldSelectRow) {
+            let columnIndex = Array.from(row.children).indexOf(cell);
+            let column = this._visibleColumns[columnIndex];
+            if (!this._delegate.tableShouldSelectRow(this, cell, column, rowIndex))
+                return;
+        }
+
+        this._selectionController.handleItemMouseDown(this._representedObjectForIndex(rowIndex), event);
     }
 
     _handleContextMenu(event)
@@ -1279,6 +1380,68 @@ WI.Table = class Table extends WI.View
                     this.hideColumn(column);
             }, checked);
         }
+    }
+
+    _removeRows(representedObjects)
+    {
+        let removed = 0;
+
+        let adjustRowAtIndex = (index) => {
+            let row = this._cachedRows.get(index);
+            if (row) {
+                this._cachedRows.delete(index);
+                row.__index -= removed;
+                this._cachedRows.set(row.__index, row);
+            }
+        };
+
+        let rowIndexes = [];
+        for (let object of representedObjects)
+            rowIndexes.push(this._indexForRepresentedObject(object));
+
+        rowIndexes.sort((a, b) => a - b);
+
+        let lastIndex = rowIndexes.lastValue;
+        for (let index = rowIndexes[0]; index <= lastIndex; ++index) {
+            if (rowIndexes.binaryIndexOf(index) >= 0) {
+                let row = this._cachedRows.get(index);
+                if (row) {
+                    this._cachedRows.delete(index);
+                    row.remove();
+                }
+                removed++;
+                continue;
+            }
+
+            if (removed)
+                adjustRowAtIndex(index);
+        }
+
+        if (!removed)
+            return;
+
+        for (let index = lastIndex + 1; index < this._cachedNumberOfRows; ++index)
+            adjustRowAtIndex(index);
+
+        this._cachedNumberOfRows -= removed;
+        console.assert(this._cachedNumberOfRows >= 0);
+
+        this._selectionController.didRemoveItems(representedObjects);
+
+        if (this._delegate.tableDidRemoveRows) {
+            this._delegate.tableDidRemoveRows(this, rowIndexes);
+            console.assert(this._cachedNumberOfRows === this._dataSource.tableNumberOfRows(this), "Table data source should update after removing rows.");
+        }
+    }
+
+    _indexForRepresentedObject(object)
+    {
+        return this.dataSource.tableIndexForRepresentedObject(this, object);
+    }
+
+    _representedObjectForIndex(index)
+    {
+        return this.dataSource.tableRepresentedObjectForIndex(this, index);
     }
 };
 

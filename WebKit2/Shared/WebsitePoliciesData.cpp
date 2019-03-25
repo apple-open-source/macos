@@ -37,58 +37,82 @@ namespace WebKit {
 void WebsitePoliciesData::encode(IPC::Encoder& encoder) const
 {
     encoder << contentBlockersEnabled;
+    encoder << deviceOrientationEventEnabled;
     encoder << autoplayPolicy;
     encoder << allowedAutoplayQuirks;
     encoder << customHeaderFields;
     encoder << popUpPolicy;
     encoder << websiteDataStoreParameters;
+    encoder << customUserAgent;
+    encoder << customNavigatorPlatform;
 }
 
-std::optional<WebsitePoliciesData> WebsitePoliciesData::decode(IPC::Decoder& decoder)
+Optional<WebsitePoliciesData> WebsitePoliciesData::decode(IPC::Decoder& decoder)
 {
-    std::optional<bool> contentBlockersEnabled;
+    Optional<bool> contentBlockersEnabled;
     decoder >> contentBlockersEnabled;
     if (!contentBlockersEnabled)
-        return std::nullopt;
+        return WTF::nullopt;
+
+    Optional<bool> deviceOrientationEventEnabled;
+    decoder >> deviceOrientationEventEnabled;
+    if (!deviceOrientationEventEnabled)
+        return WTF::nullopt;
     
-    std::optional<WebsiteAutoplayPolicy> autoplayPolicy;
+    Optional<WebsiteAutoplayPolicy> autoplayPolicy;
     decoder >> autoplayPolicy;
     if (!autoplayPolicy)
-        return std::nullopt;
+        return WTF::nullopt;
     
-    std::optional<OptionSet<WebsiteAutoplayQuirk>> allowedAutoplayQuirks;
+    Optional<OptionSet<WebsiteAutoplayQuirk>> allowedAutoplayQuirks;
     decoder >> allowedAutoplayQuirks;
     if (!allowedAutoplayQuirks)
-        return std::nullopt;
+        return WTF::nullopt;
     
-    std::optional<Vector<WebCore::HTTPHeaderField>> customHeaderFields;
+    Optional<Vector<WebCore::HTTPHeaderField>> customHeaderFields;
     decoder >> customHeaderFields;
     if (!customHeaderFields)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<WebsitePopUpPolicy> popUpPolicy;
+    Optional<WebsitePopUpPolicy> popUpPolicy;
     decoder >> popUpPolicy;
     if (!popUpPolicy)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<std::optional<WebsiteDataStoreParameters>> websiteDataStoreParameters;
+    Optional<Optional<WebsiteDataStoreParameters>> websiteDataStoreParameters;
     decoder >> websiteDataStoreParameters;
     if (!websiteDataStoreParameters)
-        return std::nullopt;
+        return WTF::nullopt;
+
+    Optional<String> customUserAgent;
+    decoder >> customUserAgent;
+    if (!customUserAgent)
+        return WTF::nullopt;
+
+    Optional<String> customNavigatorPlatform;
+    decoder >> customNavigatorPlatform;
+    if (!customNavigatorPlatform)
+        return WTF::nullopt;
     
     return { {
         WTFMove(*contentBlockersEnabled),
+        WTFMove(*deviceOrientationEventEnabled),
         WTFMove(*allowedAutoplayQuirks),
         WTFMove(*autoplayPolicy),
         WTFMove(*customHeaderFields),
         WTFMove(*popUpPolicy),
         WTFMove(*websiteDataStoreParameters),
+        WTFMove(*customUserAgent),
+        WTFMove(*customNavigatorPlatform),
     } };
 }
 
 void WebsitePoliciesData::applyToDocumentLoader(WebsitePoliciesData&& websitePolicies, WebCore::DocumentLoader& documentLoader)
 {
     documentLoader.setCustomHeaderFields(WTFMove(websitePolicies.customHeaderFields));
+    documentLoader.setCustomUserAgent(websitePolicies.customUserAgent);
+    documentLoader.setCustomNavigatorPlatform(websitePolicies.customNavigatorPlatform);
+    documentLoader.setDeviceOrientationEventEnabled(websitePolicies.deviceOrientationEventEnabled);
     
     // Only setUserContentExtensionsEnabled if it hasn't already been disabled by reloading without content blockers.
     if (documentLoader.userContentExtensionsEnabled())
@@ -98,13 +122,13 @@ void WebsitePoliciesData::applyToDocumentLoader(WebsitePoliciesData&& websitePol
     const auto& allowedQuirks = websitePolicies.allowedAutoplayQuirks;
     
     if (allowedQuirks.contains(WebsiteAutoplayQuirk::InheritedUserGestures))
-        quirks |= WebCore::AutoplayQuirk::InheritedUserGestures;
+        quirks.add(WebCore::AutoplayQuirk::InheritedUserGestures);
     
     if (allowedQuirks.contains(WebsiteAutoplayQuirk::SynthesizedPauseEvents))
-        quirks |= WebCore::AutoplayQuirk::SynthesizedPauseEvents;
+        quirks.add(WebCore::AutoplayQuirk::SynthesizedPauseEvents);
     
     if (allowedQuirks.contains(WebsiteAutoplayQuirk::ArbitraryUserGestures))
-        quirks |= WebCore::AutoplayQuirk::ArbitraryUserGestures;
+        quirks.add(WebCore::AutoplayQuirk::ArbitraryUserGestures);
 
     documentLoader.setAllowedAutoplayQuirks(quirks);
 

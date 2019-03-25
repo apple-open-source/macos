@@ -183,7 +183,7 @@ static SecKeyRef ccec2SecKey(ccec_full_ctx_t fk)
 
     CFRelease(keyattributes);
     CFRelease(exportedkey);
-    bzero(export_keybytes, 0);
+    cc_clear(export_size, export_keybytes);
     return retval;
 }
 

@@ -50,6 +50,7 @@
 #include "CatchScope.h"
 #include "ClonedArguments.h"
 #include "CodeBlock.h"
+#include "CodeBlockSetInlines.h"
 #include "CodeCache.h"
 #include "ConsoleObject.h"
 #include "DateConstructor.h"
@@ -98,10 +99,10 @@
 #include "JSInternalPromise.h"
 #include "JSInternalPromiseConstructor.h"
 #include "JSInternalPromisePrototype.h"
-#include "JSJob.h"
 #include "JSLexicalEnvironment.h"
 #include "JSLock.h"
 #include "JSMap.h"
+#include "JSMicrotask.h"
 #include "JSModuleEnvironment.h"
 #include "JSModuleLoader.h"
 #include "JSModuleNamespaceObject.h"
@@ -302,6 +303,7 @@ const GlobalObjectMethodTable JSGlobalObject::s_globalObjectMethodTable = {
   encodeURI             globalFuncEncodeURI                          DontEnum|Function 1
   encodeURIComponent    globalFuncEncodeURIComponent                 DontEnum|Function 1
   EvalError             JSGlobalObject::m_evalErrorConstructor       DontEnum|CellProperty
+  globalThis            JSGlobalObject::m_globalThis                 DontEnum|CellProperty
   ReferenceError        JSGlobalObject::m_referenceErrorConstructor  DontEnum|CellProperty
   SyntaxError           JSGlobalObject::m_syntaxErrorConstructor     DontEnum|CellProperty
   URIError              JSGlobalObject::m_URIErrorConstructor        DontEnum|CellProperty
@@ -336,7 +338,7 @@ static EncodedJSValue JSC_HOST_CALL enqueueJob(ExecState* exec)
     JSValue arguments = exec->argument(1);
     ASSERT(arguments.inherits<JSArray>(vm));
 
-    globalObject->queueMicrotask(createJSJob(vm, job, jsCast<JSArray*>(arguments)));
+    globalObject->queueMicrotask(createJSMicrotask(vm, job, jsCast<JSArray*>(arguments)));
 
     return JSValue::encode(jsUndefined());
 }
@@ -1097,10 +1099,8 @@ bool JSGlobalObject::put(JSCell* cell, ExecState* exec, PropertyName propertyNam
     JSGlobalObject* thisObject = jsCast<JSGlobalObject*>(cell);
     ASSERT(!Heap::heap(value) || Heap::heap(value) == Heap::heap(thisObject));
 
-    if (UNLIKELY(isThisValueAltered(slot, thisObject))) {
-        scope.release();
-        return ordinarySetSlow(exec, thisObject, propertyName, value, slot.thisValue(), slot.isStrictMode());
-    }
+    if (UNLIKELY(isThisValueAltered(slot, thisObject)))
+        RELEASE_AND_RETURN(scope, ordinarySetSlow(exec, thisObject, propertyName, value, slot.thisValue(), slot.isStrictMode()));
 
     bool shouldThrowReadOnlyError = slot.isStrictMode();
     bool ignoreReadOnlyErrors = false;
@@ -1109,8 +1109,7 @@ bool JSGlobalObject::put(JSCell* cell, ExecState* exec, PropertyName propertyNam
     EXCEPTION_ASSERT((!!scope.exception() == (done && !putResult)) || !shouldThrowReadOnlyError);
     if (done)
         return putResult;
-    scope.release();
-    return Base::put(thisObject, exec, propertyName, value, slot);
+    RELEASE_AND_RETURN(scope, Base::put(thisObject, exec, propertyName, value, slot));
 }
 
 bool JSGlobalObject::defineOwnProperty(JSObject* object, ExecState* exec, PropertyName propertyName, const PropertyDescriptor& descriptor, bool shouldThrow)
@@ -1713,6 +1712,10 @@ void JSGlobalObject::addStaticGlobals(GlobalPropertyInfo* globals, int count)
 
     for (int i = 0; i < count; ++i) {
         GlobalPropertyInfo& global = globals[i];
+        // This `configurable = false` is necessary condition for static globals,
+        // otherwise lexical bindings can change the result of GlobalVar queries too.
+        // We won't be able to declare a global lexical variable with the sanem name to
+        // the static globals because configurable = false.
         ASSERT(global.attributes & PropertyAttribute::DontDelete);
         
         WatchpointSet* watchpointSet = nullptr;
@@ -1796,9 +1799,9 @@ const HashSet<String>& JSGlobalObject::intlCollatorAvailableLocales()
     if (m_intlCollatorAvailableLocales.isEmpty()) {
         int32_t count = ucol_countAvailable();
         for (int32_t i = 0; i < count; ++i) {
-            String locale(ucol_getAvailable(i));
-            convertICULocaleToBCP47LanguageTag(locale);
-            m_intlCollatorAvailableLocales.add(locale);
+            String locale = convertICULocaleToBCP47LanguageTag(ucol_getAvailable(i));
+            if (!locale.isEmpty())
+                m_intlCollatorAvailableLocales.add(locale);
         }
         addMissingScriptLocales(m_intlCollatorAvailableLocales);
     }
@@ -1810,9 +1813,9 @@ const HashSet<String>& JSGlobalObject::intlDateTimeFormatAvailableLocales()
     if (m_intlDateTimeFormatAvailableLocales.isEmpty()) {
         int32_t count = udat_countAvailable();
         for (int32_t i = 0; i < count; ++i) {
-            String locale(udat_getAvailable(i));
-            convertICULocaleToBCP47LanguageTag(locale);
-            m_intlDateTimeFormatAvailableLocales.add(locale);
+            String locale = convertICULocaleToBCP47LanguageTag(udat_getAvailable(i));
+            if (!locale.isEmpty())
+                m_intlDateTimeFormatAvailableLocales.add(locale);
         }
         addMissingScriptLocales(m_intlDateTimeFormatAvailableLocales);
     }
@@ -1824,9 +1827,9 @@ const HashSet<String>& JSGlobalObject::intlNumberFormatAvailableLocales()
     if (m_intlNumberFormatAvailableLocales.isEmpty()) {
         int32_t count = unum_countAvailable();
         for (int32_t i = 0; i < count; ++i) {
-            String locale(unum_getAvailable(i));
-            convertICULocaleToBCP47LanguageTag(locale);
-            m_intlNumberFormatAvailableLocales.add(locale);
+            String locale = convertICULocaleToBCP47LanguageTag(unum_getAvailable(i));
+            if (!locale.isEmpty())
+                m_intlNumberFormatAvailableLocales.add(locale);
         }
         addMissingScriptLocales(m_intlNumberFormatAvailableLocales);
     }
@@ -1838,15 +1841,28 @@ const HashSet<String>& JSGlobalObject::intlPluralRulesAvailableLocales()
     if (m_intlPluralRulesAvailableLocales.isEmpty()) {
         int32_t count = uloc_countAvailable();
         for (int32_t i = 0; i < count; ++i) {
-            String locale(uloc_getAvailable(i));
-            convertICULocaleToBCP47LanguageTag(locale);
-            m_intlPluralRulesAvailableLocales.add(locale);
+            String locale = convertICULocaleToBCP47LanguageTag(uloc_getAvailable(i));
+            if (!locale.isEmpty())
+                m_intlPluralRulesAvailableLocales.add(locale);
         }
         addMissingScriptLocales(m_intlPluralRulesAvailableLocales);
     }
     return m_intlPluralRulesAvailableLocales;
 }
 #endif // ENABLE(INTL)
+
+void JSGlobalObject::bumpGlobalLexicalBindingEpoch(VM& vm)
+{
+    if (++m_globalLexicalBindingEpoch == Options::thresholdForGlobalLexicalBindingEpoch()) {
+        // Since the epoch overflows, we should rewrite all the CodeBlock to adjust to the newly started generation.
+        m_globalLexicalBindingEpoch = 1;
+        vm.heap.codeBlockSet().iterate([&] (CodeBlock* codeBlock) {
+            if (codeBlock->globalObject() != this)
+                return;
+            codeBlock->notifyLexicalBindingUpdate();
+        });
+    }
+}
 
 void JSGlobalObject::queueMicrotask(Ref<Microtask>&& task)
 {
@@ -1867,6 +1883,22 @@ bool JSGlobalObject::hasInteractiveDebugger() const
 { 
     return m_debugger && m_debugger->isInteractivelyDebugging();
 }
+
+#if ENABLE(DFG_JIT)
+WatchpointSet* JSGlobalObject::getReferencedPropertyWatchpointSet(UniquedStringImpl* uid)
+{
+    ConcurrentJSLocker locker(m_referencedGlobalPropertyWatchpointSetsLock);
+    return m_referencedGlobalPropertyWatchpointSets.get(uid);
+}
+
+WatchpointSet& JSGlobalObject::ensureReferencedPropertyWatchpointSet(UniquedStringImpl* uid)
+{
+    ConcurrentJSLocker locker(m_referencedGlobalPropertyWatchpointSetsLock);
+    return m_referencedGlobalPropertyWatchpointSets.ensure(uid, [] {
+        return WatchpointSet::create(IsWatched);
+    }).iterator->value.get();
+}
+#endif
 
 JSGlobalObject* JSGlobalObject::create(VM& vm, Structure* structure)
 {

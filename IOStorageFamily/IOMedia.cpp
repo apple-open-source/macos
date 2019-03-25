@@ -24,6 +24,8 @@
 #include <IOKit/IODeviceTreeSupport.h> // (gIODTPlane, ...)
 #include <IOKit/IOLib.h>               // (IONew, ...)
 #include <IOKit/storage/IOMedia.h>
+#include <IOKit/storage/IOBlockStorageDevice.h>
+#include <sys/proc.h>
 
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOMedia, IOStorage)
@@ -1212,12 +1214,23 @@ bool IOMedia::init(UInt64               base,
 
     bool isEjectable;
     bool isRemovable;
+    bool mediaParametersHaveChanged = false;
 
     // Ask our superclass' opinion.
 
     if (_openClients == 0)
     {
         if (super::init(properties) == false)  return false;
+    }
+    else
+    {
+        if ( ( _mediaBase != base) ||
+             ( _mediaSize != size ) ||
+             ( _preferredBlockSize != preferredBlockSize ) ||
+             ( _isWritable != isWritable ) )
+        {
+            mediaParametersHaveChanged = true;
+        }
     }
 
     // Initialize our state.
@@ -1293,6 +1306,83 @@ bool IOMedia::init(UInt64               base,
     setProperty(kIOMediaWholeKey,              isWhole);
     setProperty(kIOMediaWritableKey,           isWritable);
 
+///w:start
+    if ( mediaParametersHaveChanged == true )
+    {
+
+        IOService *   driver = 0;
+        OSObject *    object;
+        bool          needTeardown = false;
+        bool          needRegisterService = false;
+        //bool          needRequestProbe = false;
+        bool          needMessageClients = false;
+
+        object = ( OSObject * ) OSSymbol::withCString( kIOStorageCategory );
+        if ( object == 0 )
+        {
+            goto handleParametersHaveChanged;
+        }
+
+        driver = copyClientWithCategory( ( OSSymbol * ) object );
+        object->release( );
+
+handleParametersHaveChanged:
+
+        lockForArbitration();
+
+        if ( !isInactive() )
+        {
+            if ( driver )
+            {
+
+                if ( _openLevel == kIOStorageAccessNone )
+                {
+                    needTeardown = true;
+                    needRegisterService = true;
+                }
+                else
+                {
+                    //needRequestProbe = true;
+                    needMessageClients = true;
+                }
+            }
+            else
+            {
+                needRegisterService = true;
+                needMessageClients = true;
+            }
+        }
+        unlockForArbitration();
+
+        if ( needTeardown )
+        {
+            if ( driver->terminate( ) == false )
+            {
+                needRegisterService = false;
+            }
+        }
+
+        //if ( needRequestProbe )
+        //{
+        //    driver->requestProbe( 0 );
+        //}
+
+        if ( needRegisterService )
+        {
+            registerService( kIOServiceAsynchronous );
+        }
+
+        if ( needMessageClients )
+        {
+            messageClients(kIOMessageMediaParametersHaveChanged);
+        }
+
+        if ( driver )
+        {
+            driver->release( );
+        }
+    }
+///w:stop
     return true;
 }
 

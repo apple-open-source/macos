@@ -36,9 +36,8 @@
 #include <pal/SessionID.h>
 #include <wtf/StdLibExtras.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 DownloadManager::DownloadManager(Client& client)
     : m_client(client)
@@ -65,7 +64,11 @@ void DownloadManager::startDownload(NetworkConnectionToWebProcess* connection, P
 void DownloadManager::dataTaskBecameDownloadTask(DownloadID downloadID, std::unique_ptr<Download>&& download)
 {
     ASSERT(m_pendingDownloads.contains(downloadID));
-    m_pendingDownloads.remove(downloadID);
+    if (auto pendingDownload = m_pendingDownloads.take(downloadID)) {
+#if PLATFORM(COCOA)
+        pendingDownload->didBecomeDownload(download);
+#endif
+    }
     ASSERT(!m_downloads.contains(downloadID));
     m_downloadsAfterDestinationDecided.remove(downloadID);
     m_downloads.add(downloadID, WTFMove(download));
@@ -86,10 +89,10 @@ void DownloadManager::willDecidePendingDownloadDestination(NetworkDataTask& netw
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
 }
 
-void DownloadManager::convertNetworkLoadToDownload(DownloadID downloadID, std::unique_ptr<NetworkLoad>&& networkLoad, Vector<RefPtr<WebCore::BlobDataFileReference>>&& blobFileReferences, const ResourceRequest& request, const ResourceResponse& response)
+void DownloadManager::convertNetworkLoadToDownload(DownloadID downloadID, std::unique_ptr<NetworkLoad>&& networkLoad, ResponseCompletionHandler&& completionHandler, Vector<RefPtr<WebCore::BlobDataFileReference>>&& blobFileReferences, const ResourceRequest& request, const ResourceResponse& response)
 {
     ASSERT(!m_pendingDownloads.contains(downloadID));
-    m_pendingDownloads.add(downloadID, std::make_unique<PendingDownload>(WTFMove(networkLoad), downloadID, request, response));
+    m_pendingDownloads.add(downloadID, std::make_unique<PendingDownload>(WTFMove(networkLoad), WTFMove(completionHandler), downloadID, request, response));
 }
 
 void DownloadManager::continueDecidePendingDownloadDestination(DownloadID downloadID, String destination, SandboxExtension::Handle&& sandboxExtensionHandle, bool allowOverwrite)
@@ -155,6 +158,16 @@ void DownloadManager::cancelDownload(DownloadID downloadID)
     if (pendingDownload)
         pendingDownload->cancel();
 }
+
+#if PLATFORM(COCOA)
+void DownloadManager::publishDownloadProgress(DownloadID downloadID, const URL& url, SandboxExtension::Handle&& sandboxExtensionHandle)
+{
+    if (auto* download = m_downloads.get(downloadID))
+        download->publishProgress(url, WTFMove(sandboxExtensionHandle));
+    else if (auto* pendingDownload = m_pendingDownloads.get(downloadID))
+        pendingDownload->publishProgress(url, WTFMove(sandboxExtensionHandle));
+}
+#endif // PLATFORM(COCOA)
 
 void DownloadManager::downloadFinished(Download* download)
 {

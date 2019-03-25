@@ -65,7 +65,7 @@ public:
     void sourceBufferDidChangeActiveState(SourceBuffer&, bool);
 
     enum class EndOfStreamError { Network, Decode };
-    void streamEndedWithError(std::optional<EndOfStreamError>);
+    void streamEndedWithError(Optional<EndOfStreamError>);
 
     MediaTime duration() const final;
     void durationChanged(const MediaTime&) final;
@@ -85,7 +85,7 @@ public:
 
     enum class ReadyState { Closed, Open, Ended };
     ReadyState readyState() const { return m_readyState; }
-    ExceptionOr<void> endOfStream(std::optional<EndOfStreamError>);
+    ExceptionOr<void> endOfStream(Optional<EndOfStreamError>);
 
     HTMLMediaElement* mediaElement() const { return m_mediaElement; }
 
@@ -103,10 +103,13 @@ public:
     bool hasPendingActivity() const final;
 
     static const MediaTime& currentTimeFudgeFactor();
+    static bool contentTypeShouldGenerateTimestamps(const ContentType&);
 
 private:
     explicit MediaSource(ScriptExecutionContext&);
 
+    void suspend(ReasonForSuspension) final;
+    void resume() final;
     void stop() final;
     bool canSuspendForDocumentSuspension() const final;
     const char* activeDOMObjectName() const final;

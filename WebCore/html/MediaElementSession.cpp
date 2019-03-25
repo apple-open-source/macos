@@ -48,7 +48,7 @@
 #include "SourceBuffer.h"
 #include <wtf/text/StringBuilder.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "AudioSession.h"
 #include "RuntimeApplicationChecks.h"
 #include <wtf/spi/darwin/dyldSPI.h>
@@ -61,6 +61,7 @@ static const Seconds elementMainContentCheckInterval { 250_ms };
 
 static bool isElementRectMostlyInMainFrame(const HTMLMediaElement&);
 static bool isElementLargeEnoughForMainContent(const HTMLMediaElement&, MediaSessionMainContentPurpose);
+static bool isElementMainContentForPurposesOfAutoplay(const HTMLMediaElement&, bool shouldHitTestMainFrame);
 
 #if !RELEASE_LOG_DISABLED
 static String restrictionNames(MediaElementSession::BehaviorRestrictions restriction)
@@ -197,7 +198,7 @@ void MediaElementSession::clientDataBufferingTimerFired()
 
     updateClientDataBuffering();
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     PlatformMediaSessionManager::sharedManager().configureWireLessTargetMonitoring();
 #endif
 
@@ -262,6 +263,10 @@ SuccessOr<MediaPlaybackDenialReason> MediaElementSession::playbackPermitted() co
     }
 
     auto& document = m_element.document();
+    auto* page = document.page();
+    if (!page || page->mediaPlaybackIsSuspended())
+        return MediaPlaybackDenialReason::PageConsentRequired;
+
     if (document.isMediaDocument() && !document.ownerElement())
         return { };
 
@@ -371,6 +376,11 @@ bool MediaElementSession::dataBufferingPermitted() const
 
     if (shouldOverrideBackgroundLoadingRestriction())
         return true;
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+    if (m_shouldPlayToPlaybackTarget)
+        return true;
+#endif
 
     if (m_elementIsHiddenUntilVisibleInViewport || m_elementIsHiddenBecauseItWasRemovedFromDOM || m_element.elementIsHidden())
         return false;
@@ -518,6 +528,11 @@ bool MediaElementSession::isLargeEnoughForMainContent(MediaSessionMainContentPur
     return isElementLargeEnoughForMainContent(m_element, purpose);
 }
 
+bool MediaElementSession::isMainContentForPurposesOfAutoplayEvents() const
+{
+    return isElementMainContentForPurposesOfAutoplay(m_element, false);
+}
+
 MonotonicTime MediaElementSession::mostRecentUserInteractionTime() const
 {
     return m_mostRecentUserInteractionTime;
@@ -549,7 +564,7 @@ void MediaElementSession::showPlaybackTargetPicker()
         return;
     }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (m_element.readyState() < HTMLMediaElementEnums::HAVE_METADATA) {
         INFO_LOG(LOGIDENTIFIER, "returning early because element is not playable");
         return;
@@ -579,7 +594,7 @@ bool MediaElementSession::wirelessVideoPlaybackDisabled() const
         return true;
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     auto& legacyAirplayAttributeValue = m_element.attributeWithoutSynchronization(HTMLNames::webkitairplayAttr);
     if (equalLettersIgnoringASCIICase(legacyAirplayAttributeValue, "deny")) {
         INFO_LOG(LOGIDENTIFIER, "returning TRUE because of legacy attribute");
@@ -620,7 +635,7 @@ void MediaElementSession::setHasPlaybackTargetAvailabilityListeners(bool hasList
 {
     INFO_LOG(LOGIDENTIFIER, hasListeners);
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     m_hasPlaybackTargetAvailabilityListeners = hasListeners;
     PlatformMediaSessionManager::sharedManager().configureWireLessTargetMonitoring();
 #else
@@ -653,7 +668,7 @@ void MediaElementSession::externalOutputDeviceAvailableDidChange(bool hasTargets
 
 bool MediaElementSession::isPlayingToWirelessPlaybackTarget() const
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (!m_playbackTarget || !m_playbackTarget->hasActiveRoute())
         return false;
 #endif
@@ -665,6 +680,7 @@ void MediaElementSession::setShouldPlayToPlaybackTarget(bool shouldPlay)
 {
     INFO_LOG(LOGIDENTIFIER, shouldPlay);
     m_shouldPlayToPlaybackTarget = shouldPlay;
+    updateClientDataBuffering();
     client().setShouldPlayToPlaybackTarget(shouldPlay);
 }
 
@@ -716,7 +732,7 @@ bool MediaElementSession::requiresFullscreenForVideoPlayback() const
     if (!m_element.document().settings().inlineMediaPlaybackRequiresPlaysInlineAttribute())
         return false;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (IOSApplication::isIBooks())
         return !m_element.hasAttributeWithoutSynchronization(HTMLNames::webkit_playsinlineAttr) && !m_element.hasAttributeWithoutSynchronization(HTMLNames::playsinlineAttr);
     if (dyld_get_program_sdk_version() < DYLD_IOS_VERSION_10_0)
@@ -763,10 +779,10 @@ void MediaElementSession::resetPlaybackSessionState()
 
 bool MediaElementSession::allowsPictureInPicture() const
 {
-    return m_element.document().settings().allowsPictureInPictureMediaPlayback() && !m_element.webkitCurrentPlaybackTargetIsWireless();
+    return m_element.document().settings().allowsPictureInPictureMediaPlayback();
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 bool MediaElementSession::requiresPlaybackTargetRouteMonitoring() const
 {
     return m_hasPlaybackTargetAvailabilityListeners && !m_element.elementIsHidden();
@@ -797,7 +813,7 @@ size_t MediaElementSession::maximumMediaSourceBufferSize(const SourceBuffer& buf
 }
 #endif
 
-static bool isMainContentForPurposesOfAutoplay(const HTMLMediaElement& element)
+static bool isElementMainContentForPurposesOfAutoplay(const HTMLMediaElement& element, bool shouldHitTestMainFrame)
 {
     Document& document = element.document();
     if (!document.hasLivingRenderTree() || document.activeDOMObjectsAreStopped() || element.isSuspended() || !element.hasAudio() || !element.hasVideo())
@@ -826,6 +842,9 @@ static bool isMainContentForPurposesOfAutoplay(const HTMLMediaElement& element)
     auto& mainFrame = document.frame()->mainFrame();
     if (!mainFrame.view() || !mainFrame.view()->renderView())
         return false;
+
+    if (!shouldHitTestMainFrame)
+        return true;
 
     RenderView& mainRenderView = *mainFrame.view()->renderView();
 
@@ -930,7 +949,7 @@ bool MediaElementSession::updateIsMainContent() const
         return false;
 
     bool wasMainContent = m_isMainContent;
-    m_isMainContent = isMainContentForPurposesOfAutoplay(m_element);
+    m_isMainContent = isElementMainContentForPurposesOfAutoplay(m_element, true);
 
     if (m_isMainContent != wasMainContent)
         m_element.updateShouldPlay();

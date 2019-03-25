@@ -24,6 +24,7 @@
 //
 // signer - Signing operation supervisor and controller
 //
+#include "bundlediskrep.h"
 #include "der_plist.h"
 #include "signer.h"
 #include "resources.h"
@@ -205,7 +206,8 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	}
 	if (!haveCdFlags)
 		cdFlags = 0;
-	if (state.mSigner == SecIdentityRef(kCFNull))	// ad-hoc signing requested...
+	if ((state.mSigner == SecIdentityRef(kCFNull)) &&
+		!state.mOmitAdhocFlag)	// ad-hoc signing requested...
 		cdFlags |= kSecCodeSignatureAdhoc;	// ... so note that
 
 	// prepare the internal requirements input
@@ -994,6 +996,208 @@ void SecCodeSigner::Signer::cookEntitlements(CFDataRef entitlements, bool genera
 			throw;
 		}
 	}
+}
+
+//// Signature Editing
+	
+void SecCodeSigner::Signer::edit(SecCSFlags flags)
+{
+	rep = code->diskRep()->base();
+	
+	Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage();
+	
+	prepareForEdit(flags);
+	
+	if (fat != NULL) {
+		editMachO(fat);
+	} else {
+		editArchitectureAgnostic();
+	}
+}
+
+EditableDiskRep *SecCodeSigner::Signer::editMainExecutableRep(DiskRep *rep)
+{
+	EditableDiskRep *mainExecRep = NULL;
+	BundleDiskRep *bundleDiskRep = dynamic_cast<BundleDiskRep*>(rep);
+	
+	if (bundleDiskRep) {
+		mainExecRep = dynamic_cast<EditableDiskRep*>(bundleDiskRep->mainExecRep());
+	}
+	
+	return mainExecRep;
+}
+	
+void SecCodeSigner::Signer::prepareForEdit(SecCSFlags flags) {
+	setDigestAlgorithms(code->hashAlgorithms());
+	
+	Universal *machO = (code->diskRep()->mainExecutableIsMachO() ?
+						code->diskRep()->mainExecutableImage() : NULL);
+	
+	/* We need at least one architecture in all cases because we index our
+	 * RawComponentMaps by architecture. However, only machOs have any
+	 * architecture at all, for generic targets there will just be one
+	 * RawComponentMap.
+	 * So if the main executable is not a machO, we just choose the local
+	 * (signer's) main architecture as dummy value for the first element in our pair. */
+	editMainArch = (machO != NULL ? machO->bestNativeArch() : Architecture::local());
+
+	if (machO != NULL) {
+		if (machO->narrowed()) {
+			/* --arch gives us a narrowed SecStaticCode, but because
+			 * codesign_allocate always creates or replaces signatures
+			 * for all slices, we must operate on the universal
+			 * SecStaticCode. Instead, we provide --edit-arch to specify
+			 * which slices to edit, the others have their code signature
+			 * copied without modifications.
+			 */
+			MacOSError::throwMe(errSecCSNotSupported,
+								"Signature editing must be performed on universal binary instead of narrow slice (using --edit-arch instead of --arch).");
+		}
+
+		if (state.mEditArch && !machO->isUniversal()) {
+			MacOSError::throwMe(errSecCSInvalidFlags,
+								"--edit-arch is only valid for universal binaries.");
+		}
+		
+		if (state.mEditCMS && machO->isUniversal() && !state.mEditArch) {
+			/* Each slice has its own distinct code signature,
+			 * so a CMS blob is only valid for its one slice.
+			 * Therefore, replacing all CMS blobs in all slices
+			 * with the same blob is rather nonsensical, and we refuse.
+			 *
+			 * (Universal binaries with only one slice can exist,
+			 * and in that case the slice to operate on would be
+			 * umambiguous, but we are not treating those binaries
+			 * specially and still want --edit-arch for consistency.)
+			 */
+			MacOSError::throwMe(errSecCSNotSupported,
+								"CMS editing must be performed on specific slice (specified with --edit-arch).");
+		}
+	}
+	
+	void (^editArch)(SecStaticCode *code, Architecture arch) =
+	^(SecStaticCode *code, Architecture arch) {
+		EditableDiskRep *editRep = dynamic_cast<EditableDiskRep *>(code->diskRep());
+		
+		if (editRep == NULL) {
+			MacOSError::throwMe(errSecCSNotSupported,
+								"Signature editing not supported for code of this type.");
+		}
+		
+		EditableDiskRep *mainExecRep = editMainExecutableRep(code->diskRep());
+		
+		if (mainExecRep != NULL) {
+			// Delegate editing to the main executable if it is an EditableDiskRep.
+			//(Which is the case for machOs.)
+			editRep = mainExecRep;
+		}
+
+		editComponents[arch] = std::make_unique<RawComponentMap>(editRep->createRawComponents());
+		
+		if (!state.mEditArch || arch == state.mEditArch) {
+			if (state.mEditCMS) {
+				CFDataRef cms = state.mEditCMS.get();
+				(*editComponents[arch])[cdSignatureSlot] = cms;
+			}
+		}
+	};
+	
+	editArch(code, editMainArch);
+	
+	code->handleOtherArchitectures(^(Security::CodeSigning::SecStaticCode *subcode) {
+		Universal *fat = subcode->diskRep()->mainExecutableImage();
+		assert(fat && fat->narrowed());	// handleOtherArchitectures gave us a focused architecture slice.
+		Architecture arch = fat->bestNativeArch();	// actually, only architecture for this slice.
+		editArch(subcode, arch);
+	});
+	
+	/* The resource dictionary is special, because it is
+	 * considered "global" instead of per architecture.
+	 * For editing, that means it's usually not embedded
+	 * in the main executable's signature if it exists,
+	 * but in the containing disk rep (e.g. the
+	 * CodeResources file if the rep is a Bundle).
+	 */
+	resourceDictData = rep->component(cdResourceDirSlot);
+}
+	
+void SecCodeSigner::Signer::editMachO(Universal *fat) {
+	// Mach-O executable at the core - perform multi-architecture signature editing
+	RefPointer<DiskRep::Writer> writer = rep->writer();
+	
+	if (state.mPreserveAFSC)
+		writer->setPreserveAFSC(state.mPreserveAFSC);
+	
+	unique_ptr<ArchEditor> editor(new MachOEditor(writer, *fat,
+												  this->digestAlgorithms(),
+												  rep->mainExecutablePath()));
+	assert(editor->count() > 0);
+	
+	if (resourceDictData && !editor->attribute(writerNoGlobal)) {
+		// For when the resource dict is "global", e.g. for bundles.
+		editor->component(cdResourceDirSlot, resourceDictData);
+	}
+	
+	for (MachOEditor::Iterator it = editor->begin(); it != editor->end(); ++it) {
+		MachOEditor::Arch &arch = *it->second;
+		arch.source.reset(fat->architecture(it->first)); // transfer ownership
+		
+		if (resourceDictData && editor->attribute(writerNoGlobal)) {
+			// Technically possible to embed a resource dict in the embedded sig.
+			arch.component(cdResourceDirSlot, resourceDictData);
+		}
+		
+		for (auto const &entry : *editComponents[arch.architecture]) {
+			CodeDirectory::Slot slot = entry.first;
+			CFDataRef data = entry.second.get();
+			arch.component(slot, data);
+		}
+		
+		/* We must preserve the original superblob's size, as the size is
+		 * also in the macho's load commands, which are itself covered
+		 * by the signature. */
+		arch.blobSize = arch.source->signingLength();
+	}
+	
+	editor->allocate();
+	
+	for (MachOEditor::Iterator it = editor->begin(); it != editor->end(); ++it) {
+		MachOEditor::Arch &arch = *it->second;
+		editor->reset(arch);
+		
+		if (!state.mDryRun) {
+			EmbeddedSignatureBlob *blob = arch.make();
+			editor->write(arch, blob);	// takes ownership of blob
+		}
+	}
+	
+	if (!state.mDryRun) {
+		editor->commit();
+	}
+
+}
+
+void SecCodeSigner::Signer::editArchitectureAgnostic()
+{
+	if (state.mDryRun) {
+		return;
+
+	}
+	// non-Mach-O executable - single-instance signature editing
+	RefPointer<DiskRep::Writer> writer = rep->writer();
+	
+	if(state.mPreserveAFSC)
+		writer->setPreserveAFSC(state.mPreserveAFSC);
+	
+	for (auto const &entry : *editComponents[editMainArch]) {
+		CodeDirectory::Slot slot = entry.first;
+		CFDataRef data = entry.second.get();
+		
+		writer->component(slot, data);
+	}
+
+	// commit to storage
+	writer->flush();
 }
 
 } // end namespace CodeSigning

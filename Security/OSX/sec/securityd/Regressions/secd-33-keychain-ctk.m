@@ -554,23 +554,6 @@ static void test_key_sign(void) {
             return acData;
         };
 
-        blocks->copyObjectOperationAlgorithms = ^CFSetRef(CFDataRef oid, CFIndex operation, CFErrorRef *error) {
-            static NSSet *ops[] = {
-                [kSecKeyOperationTypeSign] = NULL,
-                [kSecKeyOperationTypeDecrypt] = NULL,
-                [kSecKeyOperationTypeKeyExchange] = NULL,
-            };
-
-            static dispatch_once_t onceToken;
-            dispatch_once(&onceToken, ^{
-                ops[kSecKeyOperationTypeSign] = [NSSet setWithArray:@[(id)kSecKeyAlgorithmECDSASignatureDigestX962]];
-                ops[kSecKeyOperationTypeDecrypt] = [NSSet setWithArray:@[(id)kSecKeyAlgorithmRSAEncryptionRaw]];
-                ops[kSecKeyOperationTypeKeyExchange] = [NSSet setWithArray:@[(id)kSecKeyAlgorithmECDHKeyExchangeCofactor]];
-            });
-
-            return CFBridgingRetain(ops[operation]);
-        };
-
         blocks->copyOperationResult = ^CFTypeRef(CFDataRef objectID, CFIndex operation, CFArrayRef algorithms, CFIndex secKeyOperationMode, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
             SecKeyAlgorithm algorithm = CFArrayGetValueAtIndex(algorithms, CFArrayGetCount(algorithms) - 1);
             phase++;

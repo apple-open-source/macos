@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #include "RenderThemeCocoa.h"
 
@@ -117,7 +117,6 @@ protected:
 #endif
 
     bool shouldHaveSpinButton(const HTMLInputElement&) const override;
-    bool shouldHaveCapsLockIndicator(const HTMLInputElement&) const override;
 
 #if ENABLE(VIDEO)
     String mediaControlsStyleSheet() override;
@@ -170,4 +169,4 @@ private:
 
 }
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

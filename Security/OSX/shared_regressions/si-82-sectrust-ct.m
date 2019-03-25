@@ -674,6 +674,7 @@ static void test_enforcement(void) {
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("ct.test.apple.com"));
     NSArray *anchors = nil, *keychain_certs = nil;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
+    NSDate *expiredDate = [NSDate dateWithTimeIntervalSinceReferenceDate:570000000.0]; // January 24, 2019 at 12:20:00 AM EST
     CFErrorRef error = nil;
     CFDataRef exceptions = nil;
 
@@ -712,6 +713,11 @@ static void test_enforcement(void) {
     } else {
         fail("expected trust evaluation to fail and it did not.");
     }
+
+    // test expired system cert after date without CT passes with only expiration error
+    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)expiredDate), errOut, fail("failed to set verify date"));
+    ok(SecTrustIsExpiredOnly(trust), "expired system post-flag-date non-CT cert had non-expiration errors");
+    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // test exceptions for failing cert passes
     exceptions = SecTrustCopyExceptions(trust);
@@ -1421,7 +1427,7 @@ static void test_ct_exceptions(void) {
 
 int si_82_sectrust_ct(int argc, char *const *argv)
 {
-	plan_tests(432);
+	plan_tests(433);
 
 	tests();
     test_sct_serialization();

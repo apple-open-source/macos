@@ -123,7 +123,7 @@ static service_user_record_t * get_user_record(uid_t uid)
     if ((bufsize = sysconf(_SC_GETPW_R_SIZE_MAX)) == -1) {
         bufsize = 4096;
     }
-    char buf[bufsize];
+    char *buf = calloc(1, (size_t)bufsize);
     struct passwd pwbuf, *pw = NULL;
     int rc;
     if (((rc = getpwuid_r(uid, &pwbuf, buf, bufsize, &pw)) == 0) && pw != NULL) {
@@ -138,6 +138,7 @@ static service_user_record_t * get_user_record(uid_t uid)
     }
 
 done:
+    free(buf);
     return ur;
 }
 

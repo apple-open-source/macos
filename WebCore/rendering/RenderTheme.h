@@ -96,6 +96,12 @@ public:
 #if ENABLE(SERVICE_CONTROLS)
     virtual String imageControlsStyleSheet() const { return String(); }
 #endif
+#if ENABLE(DATALIST_ELEMENT)
+    String dataListStyleSheet() const;
+#endif
+#if ENABLE(INPUT_TYPE_COLOR)
+    String colorInputStyleSheet() const;
+#endif
 
     // A method to obtain the baseline position for a "leaf" control.  This will only be used if a baseline
     // position cannot be determined by examining child content. Checkboxes and radio buttons are examples of
@@ -155,7 +161,7 @@ public:
 
     virtual Color disabledTextColor(const Color& textColor, const Color& backgroundColor) const;
 
-    static Color focusRingColor(OptionSet<StyleColor::Options>);
+    Color focusRingColor(OptionSet<StyleColor::Options>) const;
     virtual Color platformFocusRingColor(OptionSet<StyleColor::Options>) const { return Color(0, 0, 0); }
     static void setCustomFocusRingColor(const Color&);
     static float platformFocusRingWidth() { return 3; }
@@ -255,10 +261,6 @@ public:
     virtual void paintSystemPreviewBadge(Image&, const PaintInfo&, const FloatRect&);
 #endif
 
-    virtual void drawLineForDocumentMarker(const RenderText&, GraphicsContext&, const FloatPoint& origin, float width, DocumentMarkerLineStyle);
-
-    virtual bool usingDarkAppearance(const RenderObject&) const { return false; }
-
 protected:
     virtual FontCascadeDescription& cachedSystemFontDescription(CSSValueID systemFontID) const;
     virtual void updateCachedSystemFontDescription(CSSValueID systemFontID, FontCascadeDescription&) const = 0;
@@ -339,6 +341,10 @@ protected:
     virtual bool paintAttachment(const RenderObject&, const PaintInfo&, const IntRect&);
 #endif
 
+#if ENABLE(DATALIST_ELEMENT)
+    virtual void adjustListButtonStyle(StyleResolver&, RenderStyle&, const Element*) const;
+#endif
+
     virtual void adjustProgressBarStyle(StyleResolver&, RenderStyle&, const Element*) const;
     virtual bool paintProgressBar(const RenderObject&, const PaintInfo&, const IntRect&) { return true; }
 
@@ -404,6 +410,7 @@ public:
     bool isSpinUpButtonPartPressed(const RenderObject&) const;
     bool isHovered(const RenderObject&) const;
     bool isSpinUpButtonPartHovered(const RenderObject&) const;
+    bool isPresenting(const RenderObject&) const;
     bool isReadOnlyControl(const RenderObject&) const;
     bool isDefault(const RenderObject&) const;
 

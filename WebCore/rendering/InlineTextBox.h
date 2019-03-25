@@ -57,7 +57,14 @@ public:
     void setNextTextBox(InlineTextBox* n) { m_nextTextBox = n; }
     void setPreviousTextBox(InlineTextBox* p) { m_prevTextBox = p; }
 
+    bool hasTextContent() const;
+
+    // These functions do not account for combined text. For combined text this box will always have len() == 1
+    // regardless of whether the resulting composition is the empty string. Use hasTextContent() if you want to
+    // know whether this box has text content.
+    //
     // FIXME: These accessors should ASSERT(!isDirty()). See https://bugs.webkit.org/show_bug.cgi?id=97264
+    // Note len() == 1 for combined text regardless of whether the composition is empty. Use hasTextContent() to
     unsigned start() const { return m_start; }
     unsigned end() const { return m_len ? m_start + m_len - 1 : m_start; }
     unsigned len() const { return m_len; }
@@ -87,7 +94,7 @@ public:
     int baselinePosition(FontBaseline) const final;
     LayoutUnit lineHeight() const final;
 
-    std::optional<bool> emphasisMarkExistsAndIsAbove(const RenderStyle&) const;
+    Optional<bool> emphasisMarkExistsAndIsAbove(const RenderStyle&) const;
 
     LayoutRect logicalOverflowRect() const;
     void setLogicalOverflowRect(const LayoutRect&);
@@ -150,6 +157,10 @@ public:
     virtual int offsetForPosition(float x, bool includePartialGlyphs = true) const;
     virtual float positionForOffset(unsigned offset) const;
 
+    bool hasMarkers() const;
+    FloatRect calculateUnionOfAllDocumentMarkerBounds() const;
+    FloatRect calculateDocumentMarkerBounds(const MarkedText&) const;
+
 private:
     struct MarkedTextStyle;
     struct StyledMarkedText;
@@ -157,7 +168,7 @@ private:
     enum class TextPaintPhase { Background, Foreground, Decoration };
 
     Vector<MarkedText> collectMarkedTextsForDraggedContent();
-    Vector<MarkedText> collectMarkedTextsForDocumentMarkers(TextPaintPhase);
+    Vector<MarkedText> collectMarkedTextsForDocumentMarkers(TextPaintPhase) const;
 
     MarkedTextStyle computeStyleForUnmarkedMarkedText(const PaintInfo&) const;
     StyledMarkedText resolveStyleForMarkedText(const MarkedText&, const MarkedTextStyle& baseStyle, const PaintInfo&);

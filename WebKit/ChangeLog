@@ -1,3 +1,309 @@
+2019-01-23  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Revert r238815. rdar://problem/47457960
+
+2019-01-04  Youenn Fablet  <youenn@apple.com>
+
+        CSP violation reports should bypass CSP checks
+        https://bugs.webkit.org/show_bug.cgi?id=192857
+        <rdar://problem/46887236>
+
+        Reviewed by Chris Dumez.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::startPingLoad):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2018-12-27  Alex Christensen  <achristensen@webkit.org>
+
+        Resurrect Mac CMake build
+        https://bugs.webkit.org/show_bug.cgi?id=192658
+
+        Reviewed by Yusuke Suzuki.
+
+        * PlatformMac.cmake:
+
+2018-12-20  Yusuke Suzuki  <yusukesuzuki@slowstart.org>
+
+        Use Ref<> as much as possible
+        https://bugs.webkit.org/show_bug.cgi?id=192808
+
+        Reviewed by Alex Christensen.
+
+        * Storage/StorageNamespaceImpl.cpp:
+        (WebKit::StorageNamespaceImpl::copy):
+        (WebKit::StorageNamespaceImpl::storageArea):
+        * Storage/StorageNamespaceImpl.h:
+        * Storage/WebStorageNamespaceProvider.cpp:
+        (WebKit::WebStorageNamespaceProvider::create):
+        (WebKit::WebStorageNamespaceProvider::createSessionStorageNamespace):
+        (WebKit::WebStorageNamespaceProvider::createEphemeralLocalStorageNamespace):
+        (WebKit::WebStorageNamespaceProvider::createLocalStorageNamespace):
+        (WebKit::WebStorageNamespaceProvider::createTransientLocalStorageNamespace):
+        * Storage/WebStorageNamespaceProvider.h:
+        * WebCoreSupport/WebViewGroup.cpp:
+        (WebViewGroup::getOrCreate):
+        * WebCoreSupport/WebViewGroup.h:
+
+2018-12-11  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [Win][WebKitLegacy][Clang] WebKit.h warning: 'IWebEditingDelegate2::shouldInsertNode' hides overloaded virtual function [-Woverloaded-virtual]
+        https://bugs.webkit.org/show_bug.cgi?id=192581
+
+        Reviewed by Alex Christensen.
+
+        Conventionally, WebKit COM interface adds a new interface with
+        same name methods with the old interface. For example, both
+        IWebEditingDelegate and IWebEditingDelegate2 interfaces has
+        shouldInsertNode method.
+
+        This is a part of public API, can't be renamed.
+
+        * PlatformWin.cmake: Added -Wno-overloaded-virtual compiler option
+        for WebKitLegacy
+
+2018-12-06  Alex Christensen  <achristensen@webkit.org>
+
+        Remove unused LoaderStrategy::storeDerivedDataToCache and associated dead code
+        https://bugs.webkit.org/show_bug.cgi?id=192452
+
+        Reviewed by Anders Carlsson.
+
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2018-12-03  Jer Noble  <jer.noble@apple.com>
+
+        Get rid of old, dead Mac video fullscreen code.
+        https://bugs.webkit.org/show_bug.cgi?id=192315
+
+        Reviewed by Eric Carlson.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2018-11-30  Alex Christensen  <achristensen@webkit.org>
+
+        Move URL from WebCore to WTF
+        https://bugs.webkit.org/show_bug.cgi?id=190234
+
+        Reviewed by Keith Miller.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2018-11-26  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Reduce the use of WKSI library calls: CoreAnimation
+        https://bugs.webkit.org/show_bug.cgi?id=191777
+        <rdar://problem/46140542>
+
+        Reviewed by Zalan Bujtas.
+
+        Update the Windows build of WebKit to refer to the SPI headers, rather than WebKitSystemInterface.
+        Move a small amount of glue code from WKSI to WebCore, and remove any includes or link
+        directives for WebKitSystemInterface.lib.
+
+        * PlatformWin.cmake:
+
+2018-11-17  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Network: add button to show system certificate dialog
+        https://bugs.webkit.org/show_bug.cgi?id=191458
+        <rdar://problem/45977019>
+
+        Reviewed by Joseph Pecoraro.
+
+        * WebCoreSupport/WebInspectorClientIOS.mm:
+        (WebInspectorFrontendClient::showCertificate): Added.
+
+2018-11-09  Sihui Liu  <sihui_liu@apple.com>
+
+        Remove legacy storage tracker database file after r237330
+        https://bugs.webkit.org/show_bug.cgi?id=191423
+
+        Reviewed by Geoffrey Garen.
+
+        r237330 changed the file name of storage tracker database, but it did not remove the old 
+        file before using the new one.
+
+        * Storage/StorageTracker.cpp:
+        (WebKit::StorageTracker::internalInitialize):
+
+2018-11-01  Sihui Liu  <sihui_liu@apple.com>
+
+        Add a storage limit for IndexedDB
+        https://bugs.webkit.org/show_bug.cgi?id=190598
+        <rdar://problem/44654715>
+
+        Reviewed by Chris Dumez.
+
+        * Storage/WebDatabaseProvider.cpp:
+        (WebDatabaseProvider::idbConnectionToServerForSession):
+        (WebDatabaseProvider::setIDBPerOriginQuota):
+        * Storage/WebDatabaseProvider.h:
+
+2018-10-30  Alexey Proskuryakov  <ap@apple.com>
+
+        Enable InstallAPI for iOS unconditionally
+        https://bugs.webkit.org/show_bug.cgi?id=191043
+        rdar://problem/32728423
+
+        Reviewed by Dan Bernstein.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj: Added NSURLDownloadSPI.h.
+
+2018-10-30  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r237600 and r237604.
+        https://bugs.webkit.org/show_bug.cgi?id=191086
+
+        Breaks internal iOS builds (Requested by ryanhadd_ on
+        #webkit).
+
+        Reverted changesets:
+
+        "Enable InstallAPI for iOS unconditionally"
+        https://bugs.webkit.org/show_bug.cgi?id=191043
+        https://trac.webkit.org/changeset/237600
+
+        "Build fix attempt after enabling InstallAPI for iOS."
+        https://bugs.webkit.org/show_bug.cgi?id=191043
+        https://trac.webkit.org/changeset/237604
+
+2018-10-30  Alexey Proskuryakov  <ap@apple.com>
+
+        Enable InstallAPI for iOS unconditionally
+        https://bugs.webkit.org/show_bug.cgi?id=191043
+        rdar://problem/32728423
+
+        Reviewed by Dan Bernstein.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj: Added NSURLDownloadSPI.h.
+
+2018-10-29  Tim Horton  <timothy_horton@apple.com>
+
+        Modernize WebKit nibs and lprojs for localization's sake
+        https://bugs.webkit.org/show_bug.cgi?id=190911
+        <rdar://problem/45349466>
+
+        Reviewed by Dan Bernstein.
+
+        * English.lproj/WebJavaScriptTextInputPanel.nib/designable.nib: Removed.
+        * English.lproj/WebJavaScriptTextInputPanel.nib/keyedobjects.nib: Removed.
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        * en.lproj/WebJavaScriptTextInputPanel.xib: Added.
+        NIB->XIB, English->en
+
+2018-10-25  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [CMake][Ninja][Win] midl.exe fails to create, open and write a temporary file in parallel build in Docker container
+        https://bugs.webkit.org/show_bug.cgi?id=187725
+
+        Reviewed by Michael Catanzaro.
+
+        * PlatformWin.cmake: Added USES_TERMINAL to serialize midl.exe
+        executions.
+
+2018-10-22  Sihui Liu  <sihui_liu@apple.com>
+
+        Regression (r232410): StorageTracker.db file gets unlinked while in use
+        https://bugs.webkit.org/show_bug.cgi?id=190795
+
+        Reviewed by Chris Dumez.
+
+        WK2 stopped using StorageTracker.db file in r232410 and would delete 
+        the file for safety.
+        It turned out WK1 could use the same file path, so WK2 may delete the 
+        file while WK1 is using it.
+
+        * Storage/StorageTracker.cpp:
+        (WebKit::StorageTracker::trackerDatabasePath):
+
+2018-10-18  Alexey Proskuryakov  <ap@apple.com>
+
+        Switch from PLATFORM(IOS) to PLATFORM(IOS_FAMILY)
+        https://bugs.webkit.org/show_bug.cgi?id=190729
+
+        Reviewed by Tim Horton.
+
+        * Storage/StorageTracker.cpp:
+        (WebKit::StorageTracker::syncDeleteAllOrigins):
+        (WebKit::StorageTracker::syncDeleteOrigin):
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::loadResource):
+        (WebResourceLoadScheduler::scheduleLoad):
+        (WebResourceLoadScheduler::remove):
+        (WebResourceLoadScheduler::servePendingRequests):
+
+2018-10-11  Keith Rollin  <krollin@apple.com>
+
+        CURRENT_ARCH should not be used in Run Script phase.
+        https://bugs.webkit.org/show_bug.cgi?id=190407
+        <rdar://problem/45133556>
+
+        Reviewed by Alexey Proskuryakov.
+
+        CURRENT_ARCH is used in a number of Xcode Run Script phases. However,
+        CURRENT_ARCH is not well-defined during this phase (and may even have
+        the value "undefined") since this phase is run just once per build
+        rather than once per supported architecture. Migrate away from
+        CURRENT_ARCH in favor of ARCHS, either by iterating over ARCHS and
+        performing an operation for each value, or by picking the first entry
+        in ARCHS and using that as a representative value.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj: When generating
+        WebKitLegacy.*.exp, generate both 32- and 64-bit versions for
+        macosx platforms.
+
+2018-10-04  Dan Bernstein  <mitz@apple.com>
+
+        WebKitLegacy part of [Xcode] Update some build settings as recommended by Xcode 10
+        https://bugs.webkit.org/show_bug.cgi?id=190250
+
+        Reviewed by Andy Estes.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj: Let Xcode update LastUpgradeCheck.
+
+2018-10-01  Dean Jackson  <dino@apple.com>
+
+        [macOS] Switching to discrete GPU should be done in the UI process
+        https://bugs.webkit.org/show_bug.cgi?id=189361
+        <rdar://problem/43949622>
+
+        Reviewed by Simon Fraser.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj: Add new files.
+
+2018-09-05  David Kilzer  <ddkilzer@apple.com>
+
+        REGRESSION (r235585): WebDownloadInternal.h is missing from WebKitLegacy Xcode project
+        <https://bugs.webkit.org/show_bug.cgi?id=189072>
+
+        Found using tidy-Xcode-project-file (see Bug 188754).
+
+        * WebKitLegacy.xcodeproj/project.pbxproj: Remove references to
+        WebDownloadInternal.h since the header was removed in r235585.
+
+2018-08-26  Dan Bernstein  <mitz@apple.com>
+
+        [Xcode] Don’t make unnecessary, broken WebKitPluginAgent symlink when WK_USE_OVERRIDE_FRAMEWORKS_DIR=YES
+        https://bugs.webkit.org/show_bug.cgi?id=188956
+        <rdar://problem/43253221>
+
+        Reviewed by Darin Adler.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj: Updated the Symlink WebKitPluginHost build phase.
+
+2018-08-01  Alex Christensen  <achristensen@webkit.org>
+
+        Move all calls to ResourceLoader::start to WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=184946
+
+        Reviewed by Andy Estes.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::setDefersLoading):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
 2018-06-25  Keith Rollin  <krollin@apple.com>
         Unreviewed, rolling out r233087.
 

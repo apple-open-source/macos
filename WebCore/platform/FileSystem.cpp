@@ -339,6 +339,8 @@ PlatformFileHandle openAndLockFile(const String& path, FileOpenMode openMode, Op
 #if USE(FILE_LOCK)
     bool locked = lockFile(handle, lockMode);
     ASSERT_UNUSED(locked, locked);
+#else
+    UNUSED_PARAM(lockMode);
 #endif
 
     return handle;
@@ -359,14 +361,6 @@ bool fileIsDirectory(const String& path, ShouldFollowSymbolicLinks shouldFollowS
     if (!metadata)
         return false;
     return metadata.value().type == FileMetadata::Type::Directory;
-}
-
-std::optional<WallTime> getFileModificationTime(const String& path)
-{
-    time_t modificationTime = 0;
-    if (!getFileModificationTime(path, modificationTime))
-        return std::nullopt;
-    return WallTime::fromRawSeconds(modificationTime);
 }
 
 } // namespace FileSystem

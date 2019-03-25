@@ -25,6 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 -(void) addService: (IOHIDServiceClientRef) service;
 -(void) handleEvent: (IOHIDEventRef) event fromService:(IOHIDServiceClientRef) service;
+-(IOReturn)userDeviceGetReportHandler: (IOHIDReportType)type :(uint32_t)reportID :(uint8_t *)report :(NSUInteger *) length;
 
 @end
 

@@ -41,7 +41,7 @@
 namespace WebCore {
 
 // https://drafts.fxtf.org/geometry/#dom-dommatrixreadonly-dommatrixreadonly
-ExceptionOr<Ref<DOMMatrixReadOnly>> DOMMatrixReadOnly::create(ScriptExecutionContext& scriptExecutionContext, std::optional<Variant<String, Vector<double>>>&& init)
+ExceptionOr<Ref<DOMMatrixReadOnly>> DOMMatrixReadOnly::create(ScriptExecutionContext& scriptExecutionContext, Optional<Variant<String, Vector<double>>>&& init)
 {
     if (!init)
         return adoptRef(*new DOMMatrixReadOnly);
@@ -120,17 +120,17 @@ ExceptionOr<void> DOMMatrixReadOnly::validateAndFixup(DOMMatrix2DInit& init)
         return Exception { TypeError, "init.f and init.m42 do not match"_s };
 
     if (!init.m11)
-        init.m11 = init.a.value_or(1);
+        init.m11 = init.a.valueOr(1);
     if (!init.m12)
-        init.m12 = init.b.value_or(0);
+        init.m12 = init.b.valueOr(0);
     if (!init.m21)
-        init.m21 = init.c.value_or(0);
+        init.m21 = init.c.valueOr(0);
     if (!init.m22)
-        init.m22 = init.d.value_or(1);
+        init.m22 = init.d.valueOr(1);
     if (!init.m41)
-        init.m41 = init.e.value_or(0);
+        init.m41 = init.e.valueOr(0);
     if (!init.m42)
-        init.m42 = init.f.value_or(0);
+        init.m42 = init.f.valueOr(0);
 
     return { };
 }
@@ -288,7 +288,7 @@ ExceptionOr<Ref<DOMMatrix>> DOMMatrixReadOnly::multiply(DOMMatrixInit&& other) c
     return matrix->multiplySelf(WTFMove(other));
 }
 
-Ref<DOMMatrix> DOMMatrixReadOnly::scale(double scaleX, std::optional<double> scaleY, double scaleZ, double originX, double originY, double originZ)
+Ref<DOMMatrix> DOMMatrixReadOnly::scale(double scaleX, Optional<double> scaleY, double scaleZ, double originX, double originY, double originZ)
 {
     auto matrix = cloneAsDOMMatrix();
     return matrix->scaleSelf(scaleX, scaleY, scaleZ, originX, originY, originZ);
@@ -300,7 +300,7 @@ Ref<DOMMatrix> DOMMatrixReadOnly::scale3d(double scale, double originX, double o
     return matrix->scale3dSelf(scale, originX, originY, originZ);
 }
 
-Ref<DOMMatrix> DOMMatrixReadOnly::rotate(double rotX, std::optional<double> rotY, std::optional<double> rotZ)
+Ref<DOMMatrix> DOMMatrixReadOnly::rotate(double rotX, Optional<double> rotY, Optional<double> rotZ)
 {
     auto matrix = cloneAsDOMMatrix();
     return matrix->rotateSelf(rotX, rotY, rotZ);
@@ -345,7 +345,7 @@ Ref<DOMPoint> DOMMatrixReadOnly::transformPoint(DOMPointInit&& pointInit)
 
 ExceptionOr<Ref<Float32Array>> DOMMatrixReadOnly::toFloat32Array() const
 {
-    auto array32 = Float32Array::createUninitialized(16);
+    auto array32 = Float32Array::tryCreateUninitialized(16);
     if (!array32)
         return Exception { UnknownError, "Out of memory"_s };
 
@@ -371,7 +371,7 @@ ExceptionOr<Ref<Float32Array>> DOMMatrixReadOnly::toFloat32Array() const
 
 ExceptionOr<Ref<Float64Array>> DOMMatrixReadOnly::toFloat64Array() const
 {
-    auto array64 = Float64Array::createUninitialized(16);
+    auto array64 = Float64Array::tryCreateUninitialized(16);
     if (!array64)
         return Exception { UnknownError, "Out of memory"_s };
 

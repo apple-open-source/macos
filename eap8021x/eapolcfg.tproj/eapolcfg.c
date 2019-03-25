@@ -2535,7 +2535,6 @@ S_get_system_loginwindow_interfaces(const char * command,
 
 }
 
-
 STATIC int
 S_authentication_start(const char * command, int argc, char * const * argv)
 {

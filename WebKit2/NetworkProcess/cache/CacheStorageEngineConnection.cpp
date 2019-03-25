@@ -33,10 +33,9 @@
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/CacheQueryOptions.h>
 
-using namespace WebCore::DOMCacheEngine;
-using namespace WebKit::CacheStorage;
-
 namespace WebKit {
+using namespace WebCore::DOMCacheEngine;
+using namespace CacheStorage;
 
 #define RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), CacheStorage, "%p - CacheStorageEngineConnection::" fmt, &m_connection.connection(), ##__VA_ARGS__)
 #define RELEASE_LOG_FUNCTION_IF_ALLOWED_IN_CALLBACK(functionName, fmt, resultGetter) \
@@ -90,7 +89,7 @@ void CacheStorageEngineConnection::caches(PAL::SessionID sessionID, uint64_t req
     });
 }
 
-void CacheStorageEngineConnection::retrieveRecords(PAL::SessionID sessionID, uint64_t requestIdentifier, uint64_t cacheIdentifier, WebCore::URL&& url)
+void CacheStorageEngineConnection::retrieveRecords(PAL::SessionID sessionID, uint64_t requestIdentifier, uint64_t cacheIdentifier, URL&& url)
 {
     RELEASE_LOG_IF_ALLOWED("retrieveRecords (%" PRIu64 ") in cache %" PRIu64, requestIdentifier, cacheIdentifier);
     Engine::retrieveRecords(sessionID, cacheIdentifier, WTFMove(url), [connection = makeRef(m_connection.connection()), sessionID, requestIdentifier](RecordsOrError&& result) {
@@ -133,7 +132,6 @@ void CacheStorageEngineConnection::reference(PAL::SessionID sessionID, uint64_t 
 void CacheStorageEngineConnection::dereference(PAL::SessionID sessionID, uint64_t cacheIdentifier)
 {
     RELEASE_LOG_IF_ALLOWED("dereference cache %" PRIu64, cacheIdentifier);
-    ASSERT(m_cachesLocks.contains(sessionID));
     auto& references = m_cachesLocks.ensure(sessionID, []() {
         return HashMap<CacheIdentifier, LockCount> { };
     }).iterator->value;
@@ -153,7 +151,7 @@ void CacheStorageEngineConnection::dereference(PAL::SessionID sessionID, uint64_
 
 void CacheStorageEngineConnection::clearMemoryRepresentation(PAL::SessionID sessionID, uint64_t requestIdentifier, WebCore::ClientOrigin&& origin)
 {
-    Engine::clearMemoryRepresentation(sessionID, WTFMove(origin), [connection = makeRef(m_connection.connection()), sessionID, requestIdentifier] (std::optional<Error>&& error) {
+    Engine::clearMemoryRepresentation(sessionID, WTFMove(origin), [connection = makeRef(m_connection.connection()), sessionID, requestIdentifier] (Optional<Error>&& error) {
         connection->send(Messages::WebCacheStorageConnection::ClearMemoryRepresentationCompleted(requestIdentifier, error), sessionID.sessionID());
     });
 }
@@ -166,3 +164,6 @@ void CacheStorageEngineConnection::engineRepresentation(PAL::SessionID sessionID
 }
 
 }
+
+#undef RELEASE_LOG_IF_ALLOWED
+#undef RELEASE_LOG_FUNCTION_IF_ALLOWED_IN_CALLBACK

@@ -28,15 +28,15 @@
 
 #include <WebCore/BitmapImage.h>
 #include <WebCore/GraphicsContextCG.h>
+#include <WebCore/ImageBufferUtilitiesCG.h>
 #include <WebCore/PlatformScreen.h>
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 #include <pal/spi/cocoa/IOSurfaceSPI.h>
 #include <wtf/RetainPtr.h>
 #include "CGUtilities.h"
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
     
 static CGColorSpaceRef colorSpace(const ShareableBitmap::Configuration& configuration)
 {
@@ -121,6 +121,7 @@ RetainPtr<CGImageRef> ShareableBitmap::makeCGImageCopy()
 RetainPtr<CGImageRef> ShareableBitmap::makeCGImage()
 {
     ref(); // Balanced by deref in releaseDataProviderData.
+    verifyImageBufferIsBigEnough(data(), sizeInBytes());
     RetainPtr<CGDataProvider> dataProvider = adoptCF(CGDataProviderCreateWithData(this, data(), sizeInBytes(), releaseDataProviderData));
     return createCGImage(dataProvider.get());
 }

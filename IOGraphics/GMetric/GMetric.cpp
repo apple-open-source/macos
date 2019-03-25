@@ -5,197 +5,300 @@
 //  Created by Jérémy Tran on 8/16/17.
 //
 
+#include <sys/cdefs.h>
+
+#include <stddef.h>
+
+#include <iolocks>
+
 #include "GMetric.hpp"
+
 #include <mach/mach_time.h>
+#include <IOKit/IOLib.h>
+#include <IOKit/IOMemoryDescriptor.h>
 
-#if defined(_KERNEL_) || defined(KERNEL)
+#if KERNEL
 
-extern "C" {
+__BEGIN_DECLS
 #include <machine/cpu_number.h>
-}
+__END_DECLS
+#include <IOKit/graphics/IOGraphicsPrivate.h>  // Debug logging macros
 
-#pragma mark - OSObject
+#else  // !KERNEL
+
+#include <pthread.h>
+#define cpu_number() (-1)
+
+#define D(categ, name, args...) do{}while(0)  // Not needed in userland
+
+#endif // KERNEL
+
+#define DGM(args...) D(TRACE, "GMetric", args)
 
 OSDefineMetaClassAndStructors(GMetricsRecorder, OSObject);
 
-bool GMetricsRecorder::init()
+using iog::LockGuard;
+
+namespace {
+
+const uint64_t kThreadIDMask = 0xffffff;  // 24 bits
+
+struct Globals {
+    IOLock *fLock;
+    Globals() : fLock(IOLockAlloc()) { }
+    ~Globals() { IOLockFree(fLock); }
+} sGlobals;
+
+constexpr bool isPowerOf2(const uint64_t x) { return 0 == (x & (x-1)); }
+uint32_t nextPowerOf2(uint32_t x)
 {
-    bool bRet = super::init();
+    const uint64_t max32bit = UINT64_C(1) << 32;
+    assert(x <= (max32bit-1)/2);
+    const auto shift = __builtin_clz(x-1);
+    return (x <= 2) ? x : static_cast<uint32_t>(max32bit >> shift);
+}
+};  // namespace
 
-    if (bRet)
-    {
-        fInUseLock = IOLockAlloc();
-        if (!fInUseLock)
-        {
-            bRet = false;
-        }
-        else
-        {
-            GMETRIC_RAII_LOCK(fInUseLock);
+// GMetricsRecorder static variables
+/* static */ GMetricsRecorder*
+    GMetricsRecorder::sRecorder;
+/* static */ _Atomic(gmetric_domain_t)
+    GMetricsRecorder::sDomains = kGMETRICS_DOMAIN_NONE;
 
-            fInitialized = false;
-            fRecordingEnabled = false;
-            fLineCount = 0;
-            fLineMask = 0;
-            fNextLine = 0;
-            fDomains = kGMETRICS_DOMAIN_NONE;
-            fBuffer = NULL;
-            fBufferSize = 0;
-        }
-    }
-
-    return bRet;
+// GMetricsRecorder implementation
+/* static */ IOReturn
+GMetricsRecorder::prepareForRecording()
+{
+    return prepareForRecording(0);  // Use default size
 }
 
+/* static */ IOReturn
+GMetricsRecorder::prepareForRecording(const uint64_t userClientEntries)
+{
+    IOReturn err = kIOReturnNoMemory;
+    const uint32_t entriesCount = nextPowerOf2(
+            (userClientEntries > kGMetricMaximumLineCount)
+            ? kGMetricMaximumLineCount
+            : (userClientEntries
+                ? static_cast<uint32_t>(userClientEntries)
+                : kGMetricDefaultLineCount));
+
+    LockGuard<IOLock> locked(sGlobals.fLock);
+    if (isReady()) {
+        if (entriesCount == sRecorder->fLineCount)
+            return kIOReturnSuccess;
+        OSSafeReleaseNULL(sRecorder);
+    }
+    GMetricsRecorder* me = new GMetricsRecorder;
+    if (me && (err = me->initWithCount(entriesCount)))
+        OSSafeReleaseNULL(me);
+    sRecorder = me;
+    DGM("(e=%lld) {re=%u} -> %x\n",
+        userClientEntries, entriesCount, err);
+    return err;
+}
+
+/* static */ void GMetricsRecorder::doneWithRecording()
+{
+    LockGuard<IOLock> locked(sGlobals.fLock);
+    if (isReady()) {
+        const bool isEnabled = isDomainActive(kGMETRICS_DOMAIN_ENABLED);
+        DGM(" cleanup with %s\n", isEnabled ? "reset" : "release");
+        if (isEnabled)
+            sRecorder->resetLocked();
+        else
+            OSSafeReleaseNULL(sRecorder);
+    }
+}
+
+/* static */ void
+GMetricsRecorder::record(const gmetric_domain_t domain,
+                         const gmetric_event_t type, const uint64_t arg)
+{
+    LockGuard<IOLock> locked(sGlobals.fLock);
+    if (isReady())
+        sRecorder->recordLocked(domain, type, arg);
+}
+
+// Setting domain to kGMETRICS_DOMAIN_NONE will halt further data collection
+/* static */ gmetric_domain_t
+GMetricsRecorder::setDomains(const gmetric_domain_t domains)
+{
+    const gmetric_domain_t ret = atomic_exchange(&sDomains, domains);
+    DGM("(newd=%llx) oldd=%llx\n", domains, ret);
+    return ret;
+}
 
 void GMetricsRecorder::free()
 {
-    if (fInitialized)
-    {
-        {
-            GMETRIC_RAII_LOCK(fInUseLock);
-
-            fInitialized = false;
-
-            if (fBuffer)
-            {
-                GMETRIC_SAFE_FREE(fBuffer, fBufferSize);
-                fBufferSize = 0;
-            }
-        }
-        if (fInUseLock)
-        {
-            IOLockFree(fInUseLock);
-        }
-    }
-
+    DGM("\n");
+    // Can't be in use as free will only be called if sRecorder is empty
+    if (fBuffer)
+        IODelete(fBuffer, gmetric_entry_t, fLineCount);
     super::free();
 }
-
-#endif /* defined(_KERNEL_) || defined(KERNEL) */
-
 
 #pragma mark - GMetricRecorder
 
 IOReturn GMetricsRecorder::initWithCount(const uint32_t lineCount)
 {
-    if (fInitialized)
-    {
-        return kIOReturnNotPermitted;
-    }
-#if defined(_KERNEL_) || defined(KERNEL)
-    if (!init())
-    {
+    if (!super::init())
         return kIOReturnNotOpen;
+
+    if (!lineCount || lineCount > kGMetricMaximumLineCount
+    ||  !isPowerOf2(lineCount))
+        return kIOReturnInternalError;  // prepareForRecording screwed up
+
+    // Enforce power of 2-ness for '&' masked modulo
+    fLineCount = lineCount;
+
+    fBuffer = IONew(gmetric_entry_t, fLineCount);
+    if (static_cast<bool>(fBuffer)) {
+        fBufferSize = sizeof(gmetric_entry_t) * fLineCount;
+        bzero(fBuffer, fBufferSize);
+        return kIOReturnSuccess;
     }
-#endif /* defined(_KERNEL_) || defined(KERNEL) */
-
-    GMETRIC_RAII_LOCK(fInUseLock);
-
-    if (!lineCount)
-    {
-        return kIOReturnBadArgument;
-    }
-    uint32_t bufSize = linesToSize(lineCount);
-    if (!bufSize)
-    {
-        return kIOReturnBadArgument;
-    }
-
-    fBufferSize = bufSize;
-    fBuffer = reinterpret_cast<gmetric_entry_t *>(GMETRIC_MALLOC(fBufferSize));
-    if (!fBuffer)
-    {
-        return kIOReturnNoMemory;
-    }
-    bzero(fBuffer, fBufferSize);
-
-    fRecordingEnabled = false;
-    fLineCount = sizeToLines(fBufferSize);
-    fLineMask = fLineCount - 1;
-    fNextLine = 0;
-    fDomains = kGMETRICS_DOMAIN_NONE;
-
-    fInitialized = true;
-
-    return kIOReturnSuccess;
+    return kIOReturnNoMemory;
 }
 
 
-IOReturn GMetricsRecorder::recordMetric(const gmetric_domain_t domain,
-                                        const gmetric_event_t type,
-                                        const uint64_t arg1)
+// Must be called with the global lock held
+void GMetricsRecorder::recordLocked(
+        const gmetric_domain_t domain, const gmetric_event_t type,
+        const uint64_t arg1)
 {
-    if (!fInitialized) { return kIOReturnNotReady; }
-    if (!fRecordingEnabled) { return kIOReturnOffline; }
-    // Notice that the buffer is not circular, so when the buffer is full, no
-    // more metrics are recorded
-    if (fNextLine >= fLineCount) { return kIOReturnNoMemory; }
+    // define a KERNEL and test environment dependant wrapper
+    auto threadID = []{
+        uint64_t tid;
+#if KERNEL
+        tid = thread_tid(current_thread());
+#else
+        pthread_threadid_np(NULL, &tid);
+#endif
+        return tid;
+    };
 
-    // Filtering out a metric we're not interested in is not considered an error
-    if (domain & fDomains)
-    {
-#if defined(_KERNEL_) || defined(KERNEL)
-        GMETRIC_RETAIN;
-#endif /* defined(_KERNEL_) || defined(KERNEL) */
-        GMETRIC_RAII_LOCK(fInUseLock);
-
-        gmetric_entry_t& metric = fBuffer[fNextLine++];
+    iog::locking_primitives::assertLocked(sGlobals.fLock);
+    const auto i = fNextLine++;
+    if (i < fLineCount) {
+        gmetric_entry_t& metric = fBuffer[i];
         metric.header.type = type;
         metric.header.domain = domain;
-#if defined(_KERNEL_) || defined(KERNEL)
         metric.header.cpu = cpu_number();
-        metric.tid = thread_tid(current_thread());
-#else
-        metric.header.cpu = 0;
-        metric.tid = ((uintptr_t)pthread_self()) & kTHREAD_ID_MASK;
-#endif /* defined(_KERNEL_) || defined(KERNEL) */
+        metric.tid = threadID() & kThreadIDMask;
         metric.timestamp = mach_continuous_time();
         metric.data = arg1;
-
-#if defined(_KERNEL_) || defined(KERNEL)
-        GMETRIC_RELEASE;
-#endif /* defined(_KERNEL_) || defined(KERNEL) */
     }
-    return kIOReturnSuccess;
 }
 
-
-IOReturn GMetricsRecorder::copyMetrics(void * outBufferP,
-                                       const uint32_t bufferSize,
-                                       uint32_t * outEntriesCountP)
+IOReturn GMetricsRecorder::resetLocked()
 {
-    if ((NULL == outEntriesCountP) || (NULL == outBufferP))
-    {
-        return kIOReturnBadArgument;
-    }
-
-    // Make sure bytesCount is a multiple of sizeof(gmetric_entry_t)
-    uint32_t bytesCount = linesToSize(sizeToLines(bufferSize));
-    if (bytesCount > fBufferSize)
-    {
-        bytesCount = fBufferSize;
-    }
-    {
-        GMETRIC_RAII_LOCK(fInUseLock);
-        memcpy(outBufferP, fBuffer, bytesCount);
-    }
-    *outEntriesCountP = fNextLine;
-
-    return kIOReturnSuccess;
-}
-
-
-IOReturn GMetricsRecorder::resetMetrics()
-{
-    if (!fInitialized)
-    {
-        return kIOReturnNotReady;
-    }
-    {
-        GMETRIC_RAII_LOCK(fInUseLock);
-        bzero(fBuffer, fBufferSize);
-    }
+    iog::locking_primitives::assertLocked(sGlobals.fLock);
+    bzero(fBuffer, fBufferSize);
     fNextLine = 0;
     return kIOReturnSuccess;
+}
+
+IOReturn GMetricsRecorder::copyOutLocked(IOMemoryDescriptor* outDesc)
+{
+    // Check that we have a consistent view of metrics
+    iog::locking_primitives::assertLocked(sGlobals.fLock);
+
+    gmetric_buffer_t metricBuffer;
+    const IOByteCount hdrOffset  = 0;
+    const IOByteCount dataOffset = offsetof(gmetric_buffer_t, fEntries);
+    const IOByteCount len        = outDesc->getLength();
+    const IOByteCount dataLen    = len - dataOffset;
+
+    if (len < dataOffset)
+        return kIOReturnBadArgument;  // Out buffer is too small for header
+
+    const IOByteCount filledLen = fNextLine * sizeof(*fBuffer);
+    const IOByteCount bufferLen
+        = (filledLen < fBufferSize) ? filledLen : fBufferSize;
+    const IOByteCount copyLen   = (dataLen < bufferLen) ? dataLen : bufferLen;
+    if (copyLen)
+        (void) outDesc->writeBytes(dataOffset, fBuffer, copyLen);
+
+    bzero(&metricBuffer, sizeof(metricBuffer));
+    metricBuffer.fHeader.fEntriesCount = fNextLine;
+    metricBuffer.fHeader.fCopiedCount
+        = static_cast<uint32_t>(copyLen / sizeof(gmetric_entry_t));
+    (void) outDesc->writeBytes(hdrOffset, &metricBuffer, sizeof(metricBuffer));
+
+    return kIOReturnSuccess;
+}
+
+// APIs for IODisplayWranglerUserClient
+/* static */ IOReturn GMetricsRecorder::enable()
+{
+    IOReturn err = kIOReturnNotReady;
+    if (isReady()) {
+        GMetricsRecorder::setDomains(kGMETRICS_DOMAIN_ENABLED);
+        err = kIOReturnSuccess;
+    }
+    return err;
+}
+
+/* static */ IOReturn GMetricsRecorder::disable()
+{
+    IOReturn err = kIOReturnNotPermitted;
+    if (isDomainActive(kGMETRICS_DOMAIN_ENABLED)) {
+        const auto wasActive = setDomains(kGMETRICS_DOMAIN_NONE);
+        if (static_cast<bool>(wasActive))
+            doneWithRecording();
+        err = kIOReturnSuccess;
+    }
+    return err;
+}
+
+/* static */ IOReturn GMetricsRecorder::start(const uint64_t inDomains)
+{
+    // Only look at interesting bits
+    const auto domains = inDomains & kGMETRICS_DOMAIN_ALL;
+
+    IOReturn err = kIOReturnNotPermitted;
+    if (isDomainActive(kGMETRICS_DOMAIN_ENABLED)) {
+        assert(isReady());
+        setDomains(kGMETRICS_DOMAIN_ENABLED | domains);
+        err = kIOReturnSuccess;
+    }
+
+    DGM("d=%llx) -> %x\n", inDomains, err);
+    return err;
+}
+
+/* static */ IOReturn GMetricsRecorder::stop()
+{
+    IOReturn err = kIOReturnNotPermitted;
+    if (isDomainActive(kGMETRICS_DOMAIN_ENABLED)) {
+        setDomains(kGMETRICS_DOMAIN_ENABLED);
+        err = kIOReturnSuccess;
+    }
+    DGM(" -> %x\n", err);
+    return err;
+}
+
+/* static */ IOReturn GMetricsRecorder::reset()
+{
+    IOReturn err = kIOReturnNotPermitted;
+    if (isDomainActive(kGMETRICS_DOMAIN_ENABLED)) {
+        LockGuard<IOLock> locked(sGlobals.fLock);
+        if (isReady())
+            err = sRecorder->resetLocked();
+    }
+    DGM(" -> %x\n", err);
+    return err;
+}
+
+/* static */ IOReturn GMetricsRecorder::fetch(IOMemoryDescriptor* outDesc)
+{
+    IOReturn err = kIOReturnNotPermitted;
+    if ( GMetricsRecorder::isDomainActive(kGMETRICS_DOMAIN_ENABLED)) {
+        LockGuard<IOLock> locked(sGlobals.fLock);
+        if (isReady())
+            err = sRecorder->copyOutLocked(outDesc);
+    }
+    DGM("(mdl=%llu) -> %x\n", outDesc->getLength(), err);
+    return err;
 }

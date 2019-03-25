@@ -76,7 +76,7 @@ FloatRect computeOverflow(const RenderBlockFlow& flow, const FloatRect& layoutRe
 
 void paintFlow(const RenderBlockFlow& flow, const Layout& layout, PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (paintInfo.phase != PaintPhaseForeground)
+    if (paintInfo.phase != PaintPhase::Foreground)
         return;
 
     auto& style = flow.style();
@@ -93,13 +93,11 @@ void paintFlow(const RenderBlockFlow& flow, const Layout& layout, PaintInfo& pai
         textPainter.setShadow(debugShadow.get());
     }
 
-    std::optional<TextDecorationPainter> textDecorationPainter;
+    Optional<TextDecorationPainter> textDecorationPainter;
     if (!style.textDecorationsInEffect().isEmpty()) {
         const RenderText* textRenderer = childrenOfType<RenderText>(flow).first();
         if (textRenderer) {
-            textDecorationPainter.emplace(paintInfo.context(), style.textDecorationsInEffect(), *textRenderer, false);
-            textDecorationPainter->setFont(style.fontCascade());
-            textDecorationPainter->setBaseline(style.fontMetrics().ascent());
+            textDecorationPainter.emplace(paintInfo.context(), style.textDecorationsInEffect(), *textRenderer, false, style.fontCascade());
         }
     }
 

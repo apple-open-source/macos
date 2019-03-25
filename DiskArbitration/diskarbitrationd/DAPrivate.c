@@ -363,6 +363,29 @@ _DADiskSetEncodingErr:
     return status;
 }
 
+errno_t _DADiskGetEncryptionStatus( CFAllocatorRef allocator, DADiskRef disk, CFBooleanRef *encryption_status, CFNumberRef *encryption_details )
+{
+    bool encrypted;
+    UInt32 detail;
+    errno_t error;
+
+    error = _FSGetMediaEncryptionStatusAtPath( DADiskGetBSDPath(disk, FALSE), &encrypted, &detail );
+
+    if ( error == 0 )
+    {
+        if ( encryption_status )
+        {
+             *encryption_status = encrypted ? kCFBooleanTrue : kCFBooleanFalse;
+        }
+        if ( encryption_details )
+        {
+            *encryption_details = CFNumberCreate( allocator, kCFNumberSInt32Type, &detail);
+        }
+    }
+
+    return error;
+}
+
 Boolean _DAUnitIsUnreadable( DADiskRef disk )
 {
     CFIndex count;

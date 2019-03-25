@@ -26,9 +26,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if !PLATFORM(IOS)
-
 #import "WebPDFView.h"
+
+#if PLATFORM(MAC)
 
 #import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
@@ -62,9 +62,9 @@
 #import <WebCore/MouseEvent.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/RuntimeApplicationChecks.h>
-#import <WebCore/URL.h>
 #import <WebCore/WebNSAttributedStringExtras.h>
 #import <wtf/Assertions.h>
+#import <wtf/URL.h>
 
 extern "C" {
     bool CGContextGetAllowsFontSmoothing(CGContextRef context);
@@ -83,27 +83,6 @@ using namespace WebCore;
 @end
 
 extern "C" NSString *_NSPathForSystemFramework(NSString *framework);
-
-@interface WebPDFView (FileInternal)
-+ (Class)_PDFPreviewViewClass;
-+ (Class)_PDFViewClass;
-- (void)_applyPDFDefaults;
-- (BOOL)_canLookUpInDictionary;
-- (NSClipView *)_clipViewForPDFDocumentView;
-- (NSEvent *)_fakeKeyEventWithFunctionKey:(unichar)functionKey;
-- (NSMutableArray *)_menuItemsFromPDFKitForEvent:(NSEvent *)theEvent;
-- (PDFSelection *)_nextMatchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag fromSelection:(PDFSelection *)initialSelection startInSelection:(BOOL)startInSelection;
-- (void)_openWithFinder:(id)sender;
-- (NSString *)_path;
-- (void)_PDFDocumentViewMightHaveScrolled:(NSNotification *)notification;
-- (BOOL)_pointIsInSelection:(NSPoint)point;
-- (NSAttributedString *)_scaledAttributedString:(NSAttributedString *)unscaledAttributedString;
-- (void)_setTextMatches:(NSArray *)array;
-- (NSString *)_temporaryPDFDirectoryPath;
-- (void)_trackFirstResponder;
-- (void)_updatePreferencesSoon;
-- (NSSet *)_visiblePDFPages;
-@end;
 
 @interface NSView ()
 - (void)_recursiveDisplayRectIfNeededIgnoringOpacity:(NSRect)rect isVisibleRect:(BOOL)isVisibleRect rectIsVisibleRectForView:(NSView *)visibleView topView:(BOOL)topView;
@@ -126,14 +105,13 @@ static void _applicationInfoForMIMEType(NSString *type, NSString **name, NSImage
 {
     CFURLRef appURL = nullptr;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    OSStatus error = LSCopyApplicationForMIMEType((CFStringRef)type, kLSRolesAll, &appURL);
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    OSStatus error = LSCopyApplicationForMIMEType((__bridge CFStringRef)type, kLSRolesAll, &appURL);
+    ALLOW_DEPRECATED_DECLARATIONS_END
     if (error != noErr)
         return;
     
-    NSString *appPath = [(NSURL *)appURL path];
+    NSString *appPath = [(__bridge NSURL *)appURL path];
     CFRelease(appURL);
     
     *image = [[NSWorkspace sharedWorkspace] iconForFile:appPath];  
@@ -212,7 +190,6 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 - (void)dealloc
 {
     [dataSource release];
-    [previewView release];
     [PDFSubview setDelegate:nil];
     [PDFSubview release];
     [path release];
@@ -226,10 +203,9 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 - (void)centerSelectionInVisibleArea:(id)sender
 {
     // FIXME: Get rid of this once <rdar://problem/25149294> has been fixed.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnonnull"
+    IGNORE_NULL_CHECK_WARNINGS_BEGIN
     [PDFSubview scrollSelectionToVisible:nil];
-#pragma clang diagnostic pop
+    IGNORE_NULL_CHECK_WARNINGS_END
 }
 
 - (void)scrollPageDown:(id)sender
@@ -329,31 +305,12 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     if (self) {
         [self setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
         
-        Class previewViewClass = [[self class] _PDFPreviewViewClass];
-        
-        // We might not have found a previewViewClass, but if we did find it
-        // then we should be able to create an instance.
-        if (previewViewClass) {
-            previewView = [[previewViewClass alloc] initWithFrame:frame];
-            ASSERT(previewView);
-        }
-        
-        NSView *topLevelPDFKitView = nil;
-        if (previewView) {
-            // We'll retain the PDFSubview here so that it is equally retained in all
-            // code paths. That way we don't need to worry about conditionally releasing
-            // it later.
-            PDFSubview = [[previewView performSelector:@selector(pdfView)] retain];
-            topLevelPDFKitView = previewView;
-        } else {
-            PDFSubview = [[[[self class] _PDFViewClass] alloc] initWithFrame:frame];
-            topLevelPDFKitView = PDFSubview;
-        }
-        
+        PDFSubview = [[[[self class] _PDFViewClass] alloc] initWithFrame:frame];
+
         ASSERT(PDFSubview);
         
-        [topLevelPDFKitView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-        [self addSubview:topLevelPDFKitView];
+        [PDFSubview setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+        [self addSubview:PDFSubview];
         
         [PDFSubview setDelegate:self];
         written = NO;
@@ -370,10 +327,9 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 
 - (void)_recursiveDisplayRectIfNeededIgnoringOpacity:(NSRect)rect isVisibleRect:(BOOL)isVisibleRect rectIsVisibleRectForView:(NSView *)visibleView topView:(BOOL)topView
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     CGContextRef context = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
     
     bool allowsSmoothing = CGContextGetAllowsFontSmoothing(context);
     bool allowsSubpixelQuantization = CGContextGetAllowsFontSubpixelQuantization(context);
@@ -386,10 +342,9 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 
 - (void)_recursiveDisplayAllDirtyWithLockFocus:(BOOL)needsLockFocus visRect:(NSRect)visRect
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     CGContextRef context = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
     
     bool allowsSmoothing = CGContextGetAllowsFontSmoothing(context);
     bool allowsSubpixelQuantization = CGContextGetAllowsFontSubpixelQuantization(context);
@@ -402,10 +357,9 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 
 - (void)_recursive:(BOOL)recurse displayRectIgnoringOpacity:(NSRect)displayRect inContext:(NSGraphicsContext *)graphicsContext topView:(BOOL)topView
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     CGContextRef context = (CGContextRef)[graphicsContext graphicsPort];
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
     
     bool allowsSmoothing = CGContextGetAllowsFontSmoothing(context);
     bool allowsSubpixelQuantization = CGContextGetAllowsFontSubpixelQuantization(context);
@@ -669,10 +623,9 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     [PDFSubview setCurrentSelection:selection];
 
     // FIXME: Get rid of this once <rdar://problem/25149294> has been fixed.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnonnull"
+    IGNORE_NULL_CHECK_WARNINGS_BEGIN
     [PDFSubview scrollSelectionToVisible:nil];
-#pragma clang diagnostic pop
+    IGNORE_NULL_CHECK_WARNINGS_END
     return YES;
 }
 
@@ -1030,15 +983,10 @@ static BOOL isFrameInRange(WebFrame *frame, DOMRange *range)
         break;
     }
     if (button != noButton) {
-        event = MouseEvent::create(eventNames().clickEvent, true, true, MonotonicTime::now(), 0, [nsEvent clickCount], 0, 0, 0, 0,
-#if ENABLE(POINTER_LOCK)
-            0, 0,
-#endif
-            [nsEvent modifierFlags] & NSEventModifierFlagControl,
-            [nsEvent modifierFlags] & NSEventModifierFlagOption,
-            [nsEvent modifierFlags] & NSEventModifierFlagShift,
-            [nsEvent modifierFlags] & NSEventModifierFlagCommand,
-            button, [NSEvent pressedMouseButtons], nullptr, WebCore::ForceAtClick, 0, nullptr, true);
+        // FIXME: Use createPlatformMouseEvent instead.
+        event = MouseEvent::create(eventNames().clickEvent, Event::CanBubble::Yes, Event::IsCancelable::Yes, Event::IsComposed::Yes,
+            MonotonicTime::now(), nullptr, [nsEvent clickCount], { }, { }, { }, modifiersForEvent(nsEvent),
+            button, [NSEvent pressedMouseButtons], nullptr, WebCore::ForceAtClick, 0, nullptr, MouseEvent::IsSimulated::Yes);
     }
 
     // Call to the frame loader because this is where our security checks are made.
@@ -1069,24 +1017,6 @@ static BOOL isFrameInRange(WebFrame *frame, DOMRange *range)
     // Delegate method sent when the user requests downloading the PDF file to disk. We pass NO for
     // showingPanel: so that the PDF file is saved to the standard location without user intervention.
     CallUIDelegate([self _webView], @selector(webView:saveFrameView:showingPanel:), [[dataSource webFrame] frameView], NO);
-}
-
-@end
-
-@implementation WebPDFView (FileInternal)
-
-+ (Class)_PDFPreviewViewClass
-{
-    static Class PDFPreviewViewClass = nil;
-    static BOOL checkedForPDFPreviewViewClass = NO;
-    
-    if (!checkedForPDFPreviewViewClass) {
-        checkedForPDFPreviewViewClass = YES;
-        PDFPreviewViewClass = [[WebPDFView PDFKitBundle] classNamed:@"PDFPreviewView"];
-    }
-    
-    // This class might not be available; callers need to deal with a nil return here.
-    return PDFPreviewViewClass;
 }
 
 + (Class)_PDFViewClass
@@ -1127,16 +1057,14 @@ static BOOL isFrameInRange(WebFrame *frame, DOMRange *range)
 
 - (BOOL)_canLookUpInDictionary
 {
+IGNORE_WARNINGS_BEGIN("undeclared-selector")
     return [PDFSubview respondsToSelector:@selector(_searchInDictionary:)];
+IGNORE_WARNINGS_END
 }
 
 - (NSClipView *)_clipViewForPDFDocumentView
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
     NSClipView *clipView = (NSClipView *)[[PDFSubview documentScrollView] contentView];
-#else
-    NSClipView *clipView = (NSClipView *)[[PDFSubview documentView] _web_superviewOfClass:[NSClipView class]];
-#endif
     ASSERT(clipView);
     return clipView;
 }
@@ -1163,8 +1091,10 @@ static BOOL isFrameInRange(WebFrame *frame, DOMRange *range)
     // This method is used by WebKit's context menu item. Here we map to the method that
     // PDFView uses. Since the PDFView method isn't API, and isn't available on all versions
     // of PDFKit, we use performSelector after a respondsToSelector check, rather than calling it directly.
+IGNORE_WARNINGS_BEGIN("undeclared-selector")
     if ([self _canLookUpInDictionary])
         [PDFSubview performSelector:@selector(_searchInDictionary:) withObject:sender];
+IGNORE_WARNINGS_END
 }
 
 static void removeUselessMenuItemSeparators(NSMutableArray *menuItems)
@@ -1196,6 +1126,7 @@ static void removeUselessMenuItemSeparators(NSMutableArray *menuItems)
 {
     NSMutableArray *copiedItems = [NSMutableArray array];
     NSDictionary *actionsToTags = [[NSDictionary alloc] initWithObjectsAndKeys:
+IGNORE_WARNINGS_BEGIN("undeclared-selector")
         [NSNumber numberWithInt:WebMenuItemPDFActualSize], NSStringFromSelector(@selector(_setActualSize:)),
         [NSNumber numberWithInt:WebMenuItemPDFZoomIn], NSStringFromSelector(@selector(zoomIn:)),
         [NSNumber numberWithInt:WebMenuItemPDFZoomOut], NSStringFromSelector(@selector(zoomOut:)),
@@ -1207,15 +1138,18 @@ static void removeUselessMenuItemSeparators(NSMutableArray *menuItems)
         [NSNumber numberWithInt:WebMenuItemPDFContinuous], NSStringFromSelector(@selector(_toggleContinuous:)),
         [NSNumber numberWithInt:WebMenuItemPDFNextPage], NSStringFromSelector(@selector(goToNextPage:)),
         [NSNumber numberWithInt:WebMenuItemPDFPreviousPage], NSStringFromSelector(@selector(goToPreviousPage:)),
+IGNORE_WARNINGS_END
         nil];
     
     // Leave these menu items out, since WebKit inserts equivalent ones. Note that we leave out PDFKit's "Look Up in Dictionary"
     // item here because WebKit already includes an item with the same title and purpose. We map WebKit's to PDFKit's 
     // "Look Up in Dictionary" via the implementation of -[WebPDFView _lookUpInDictionaryFromMenu:].
     NSSet *unwantedActions = [[NSSet alloc] initWithObjects:
+IGNORE_WARNINGS_BEGIN("undeclared-selector")
                               NSStringFromSelector(@selector(_searchInSpotlight:)),
                               NSStringFromSelector(@selector(_searchInGoogle:)),
                               NSStringFromSelector(@selector(_searchInDictionary:)),
+IGNORE_WARNINGS_END
                               NSStringFromSelector(@selector(copy:)),
                               nil];
     
@@ -1594,4 +1528,4 @@ static void removeUselessMenuItemSeparators(NSMutableArray *menuItems)
 
 @end
 
-#endif // !PLATFORM(IOS)
+#endif // PLATFORM(MAC)

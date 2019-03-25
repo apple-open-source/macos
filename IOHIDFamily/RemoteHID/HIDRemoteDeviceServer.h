@@ -16,8 +16,9 @@
 #define kRemoteHIDDeviceTimeout    2
 
 @interface HIDRemoteDevice : HIDUserDevice
-@property        id  __nonnull          endpoint;
-@property        uint64_t               deviceID;
+
+@property   (retain)    id  __nonnull          endpoint;
+@property               uint64_t               deviceID;
 
 -(nullable instancetype)initWithProperties:(nonnull NSDictionary *)properties;
 -(IOReturn) getReportHandler:(IOHIDReportType) type

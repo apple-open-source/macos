@@ -130,9 +130,19 @@ Structure* IntlObject::createStructure(VM& vm, JSGlobalObject* globalObject, JSV
     return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
 }
 
-void convertICULocaleToBCP47LanguageTag(String& locale)
+String convertICULocaleToBCP47LanguageTag(const char* localeID)
 {
-    locale.replace('_', '-');
+    UErrorCode status = U_ZERO_ERROR;
+    Vector<char, 32> buffer(32);
+    auto length = uloc_toLanguageTag(localeID, buffer.data(), buffer.size(), false, &status);
+    if (status == U_BUFFER_OVERFLOW_ERROR) {
+        buffer.grow(length);
+        status = U_ZERO_ERROR;
+        uloc_toLanguageTag(localeID, buffer.data(), buffer.size(), false, &status);
+    }
+    if (!U_FAILURE(status))
+        return String(buffer.data(), length);
+    return String();
 }
 
 bool intlBooleanOption(ExecState& state, JSValue options, PropertyName property, bool& usesFallback)
@@ -202,7 +212,7 @@ unsigned intlNumberOption(ExecState& state, JSValue options, PropertyName proper
     JSValue value = opts->get(&state, property);
     RETURN_IF_EXCEPTION(scope, 0);
 
-    return intlDefaultNumberOption(state, value, property, minimum, maximum, fallback);
+    RELEASE_AND_RETURN(scope, intlDefaultNumberOption(state, value, property, minimum, maximum, fallback));
 }
 
 unsigned intlDefaultNumberOption(ExecState& state, JSValue value, PropertyName property, unsigned minimum, unsigned maximum, unsigned fallback)
@@ -473,8 +483,7 @@ static String canonicalizeLanguageTag(const String& locale)
     if (!grandfather.isNull())
         return grandfather;
 
-    Vector<String> parts;
-    locale.split('-', true, parts);
+    Vector<String> parts = locale.splitAllowingEmptyEntries('-');
     if (!parts.isEmpty()) {
         String langtag = canonicalLangTag(parts);
         if (!langtag.isNull())
@@ -589,26 +598,30 @@ String defaultLocale(ExecState& state)
     // same thing as userPreferredLanguages()[0].
     VM& vm = state.vm();
     if (auto defaultLanguage = state.jsCallee()->globalObject(vm)->globalObjectMethodTable()->defaultLanguage) {
-        String locale = defaultLanguage();
+        String locale = canonicalizeLanguageTag(defaultLanguage());
         if (!locale.isEmpty())
-            return canonicalizeLanguageTag(locale);
+            return locale;
     }
 
     Vector<String> languages = userPreferredLanguages();
-    if (!languages.isEmpty() && !languages[0].isEmpty())
-        return canonicalizeLanguageTag(languages[0]);
+    for (const auto& language : languages) {
+        String locale = canonicalizeLanguageTag(language);
+        if (!locale.isEmpty())
+            return locale;
+    }
 
     // If all else fails, ask ICU. It will probably say something bogus like en_us even if the user
     // has configured some other language, but being wrong is better than crashing.
-    String locale = uloc_getDefault();
-    convertICULocaleToBCP47LanguageTag(locale);
-    return locale;
+    String locale = convertICULocaleToBCP47LanguageTag(uloc_getDefault());
+    if (!locale.isEmpty())
+        return locale;
+
+    return "en"_s;
 }
 
 String removeUnicodeLocaleExtension(const String& locale)
 {
-    Vector<String> parts;
-    locale.split('-', parts);
+    Vector<String> parts = locale.split('-');
     StringBuilder builder;
     size_t partsSize = parts.size();
     bool atPrivate = false;
@@ -645,7 +658,7 @@ static MatcherResult lookupMatcher(ExecState& state, const HashSet<String>& avai
     }
 
     MatcherResult result;
-    if (!availableLocale.isNull()) {
+    if (!availableLocale.isEmpty()) {
         result.locale = availableLocale;
         if (locale != noExtensionsLocale) {
             size_t extensionIndex = locale.find("-u-");
@@ -765,11 +778,11 @@ HashMap<String, String> resolveLocale(ExecState& state, const HashSet<String>& a
         HashMap<String, String>::const_iterator iterator = options.find(key);
         if (iterator != options.end()) {
             const String& optionsValue = iterator->value;
-            if (!optionsValue.isNull() && keyLocaleData.contains(optionsValue)) {
-                if (optionsValue != value) {
-                    value = optionsValue;
-                    supportedExtensionAddition = String();
-                }
+            // Undefined should not get added to the options, it won't displace the extension.
+            // Null will remove the extension.
+            if ((optionsValue.isNull() || keyLocaleData.contains(optionsValue)) && optionsValue != value) {
+                value = optionsValue;
+                supportedExtensionAddition = String();
             }
         }
         result.add(key, value);

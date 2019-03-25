@@ -254,6 +254,9 @@ public:
                     break;
                 case MakeRope:
                 case ValueAdd:
+                case ValueSub:
+                case ValueMul:
+                case ValueDiv:
                 case ArithAdd:
                 case ArithSub:
                 case ArithMul:
@@ -377,8 +380,8 @@ public:
 
         // Validate clobbered states.
         struct DefLambdaAdaptor {
-            std::function<void(PureValue)> pureValue;
-            std::function<void(HeapLocation, LazyNode)> locationAndNode;
+            Function<void(PureValue)> pureValue;
+            Function<void(HeapLocation, LazyNode)> locationAndNode;
 
             void operator()(PureValue value) const
             {

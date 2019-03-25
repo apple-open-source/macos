@@ -340,8 +340,6 @@ int xar_path_issane(char* path) {
 }
 
 
-
-
 #ifndef HAVE_STRMODE
 #include "strmode.h"
 #endif

@@ -31,8 +31,8 @@
 #include "DataReference.h"
 #include "FormDataReference.h"
 #include "Logging.h"
+#include "NetworkConnectionToWebProcessMessages.h"
 #include "ServiceWorkerClientFetch.h"
-#include "StorageToWebProcessConnectionMessages.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
 #include "WebProcessPoolMessages.h"
@@ -47,10 +47,9 @@
 #include <WebCore/ServiceWorkerRegistrationData.h>
 #include <WebCore/ServiceWorkerRegistrationKey.h>
 
+namespace WebKit {
 using namespace PAL;
 using namespace WebCore;
-
-namespace WebKit {
 
 WebSWClientConnection::WebSWClientConnection(IPC::Connection& connection, SessionID sessionID)
     : m_sessionID(sessionID)
@@ -58,7 +57,7 @@ WebSWClientConnection::WebSWClientConnection(IPC::Connection& connection, Sessio
     , m_swOriginTable(makeUniqueRef<WebSWOriginTable>())
 {
     ASSERT(sessionID.isValid());
-    bool result = sendSync(Messages::StorageToWebProcessConnection::EstablishSWServerConnection(sessionID), Messages::StorageToWebProcessConnection::EstablishSWServerConnection::Reply(m_identifier), Seconds::infinity(), IPC::SendSyncOption::DoNotProcessIncomingMessagesWhenWaitingForSyncReply);
+    bool result = sendSync(Messages::NetworkConnectionToWebProcess::EstablishSWServerConnection(sessionID), Messages::NetworkConnectionToWebProcess::EstablishSWServerConnection::Reply(m_identifier));
 
     ASSERT_UNUSED(result, result);
 }
@@ -94,9 +93,9 @@ void WebSWClientConnection::postMessageToServiceWorker(ServiceWorkerIdentifier d
     WebProcess::singleton().send(Messages::WebProcessPool::PostMessageToServiceWorker(destinationIdentifier, WTFMove(message), sourceIdentifier, serverConnectionIdentifier()), 0);
 }
 
-void WebSWClientConnection::registerServiceWorkerClient(const SecurityOrigin& topOrigin, const WebCore::ServiceWorkerClientData& data, const std::optional<WebCore::ServiceWorkerRegistrationIdentifier>& controllingServiceWorkerRegistrationIdentifier)
+void WebSWClientConnection::registerServiceWorkerClient(const SecurityOrigin& topOrigin, const WebCore::ServiceWorkerClientData& data, const Optional<WebCore::ServiceWorkerRegistrationIdentifier>& controllingServiceWorkerRegistrationIdentifier, const String& userAgent)
 {
-    send(Messages::WebSWServerConnection::RegisterServiceWorkerClient { topOrigin.data(), data, controllingServiceWorkerRegistrationIdentifier });
+    send(Messages::WebSWServerConnection::RegisterServiceWorkerClient { topOrigin.data(), data, controllingServiceWorkerRegistrationIdentifier, userAgent });
 }
 
 void WebSWClientConnection::unregisterServiceWorkerClient(DocumentIdentifier contextIdentifier)
@@ -129,7 +128,7 @@ void WebSWClientConnection::setSWOriginTableIsImported()
         m_tasksPendingOriginImport.takeFirst()();
 }
 
-void WebSWClientConnection::didMatchRegistration(uint64_t matchingRequest, std::optional<ServiceWorkerRegistrationData>&& result)
+void WebSWClientConnection::didMatchRegistration(uint64_t matchingRequest, Optional<ServiceWorkerRegistrationData>&& result)
 {
     ASSERT(isMainThread());
 
@@ -150,7 +149,7 @@ void WebSWClientConnection::matchRegistration(SecurityOriginData&& topOrigin, co
     ASSERT(isMainThread());
 
     if (!mayHaveServiceWorkerRegisteredForOrigin(topOrigin)) {
-        callback(std::nullopt);
+        callback(WTF::nullopt);
         return;
     }
 
@@ -218,7 +217,7 @@ void WebSWClientConnection::connectionToServerLost()
 {
     auto registrationTasks = WTFMove(m_ongoingMatchRegistrationTasks);
     for (auto& callback : registrationTasks.values())
-        callback(std::nullopt);
+        callback(WTF::nullopt);
 
     auto getRegistrationTasks = WTFMove(m_ongoingGetRegistrationsTasks);
     for (auto& callback : getRegistrationTasks.values())

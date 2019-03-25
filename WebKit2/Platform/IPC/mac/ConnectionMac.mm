@@ -40,7 +40,7 @@
 #import <wtf/RunLoop.h>
 #import <wtf/spi/darwin/XPCSPI.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import "ProcessAssertion.h"
 #import <UIKit/UIAccessibility.h>
 
@@ -72,11 +72,10 @@ namespace IPC {
 
 static const size_t inlineMessageMaxSize = 4096;
 
-// Message flags.
-enum {
-    MessageBodyIsOutOfLine = 1 << 0
-};
-    
+// Arbitrary message IDs that do not collide with Mach notification messages (used my initials).
+constexpr mach_msg_id_t inlineBodyMessageID = 0xdba0dba;
+constexpr mach_msg_id_t outOfLineBodyMessageID = 0xdba1dba;
+
 // ConnectionTerminationWatchdog does two things:
 // 1) It sets a watchdog timer to kill the peered process.
 // 2) On iOS, make the process runnable for the duration of the watchdog
@@ -92,7 +91,7 @@ private:
     ConnectionTerminationWatchdog(OSObjectPtr<xpc_connection_t>& xpcConnection, Seconds interval)
         : m_xpcConnection(xpcConnection)
         , m_watchdogTimer(RunLoop::main(), this, &ConnectionTerminationWatchdog::watchdogTimerFired)
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
         , m_assertion(std::make_unique<WebKit::ProcessAndUIAssertion>(xpc_connection_get_pid(m_xpcConnection.get()), WebKit::AssertionState::Background))
 #endif
     {
@@ -107,7 +106,7 @@ private:
 
     OSObjectPtr<xpc_connection_t> m_xpcConnection;
     RunLoop::Timer<ConnectionTerminationWatchdog> m_watchdogTimer;
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     std::unique_ptr<WebKit::ProcessAndUIAssertion> m_assertion;
 #endif
 };
@@ -297,83 +296,62 @@ bool Connection::sendOutgoingMessage(std::unique_ptr<Encoder> encoder)
 {
     ASSERT(!m_pendingOutgoingMachMessage && !m_isInitializingSendSource);
 
-    Vector<Attachment> attachments = encoder->releaseAttachments();
+    auto attachments = encoder->releaseAttachments();
     
-    size_t numberOfPortDescriptors = 0;
-    size_t numberOfOOLMemoryDescriptors = 0;
-    for (size_t i = 0; i < attachments.size(); ++i) {
-        Attachment::Type type = attachments[i].type();
-        if (type == Attachment::MachPortType)
-            numberOfPortDescriptors++;
-    }
-    
-    size_t messageSize = MachMessage::messageSize(encoder->bufferSize(), numberOfPortDescriptors, numberOfOOLMemoryDescriptors);
-
+    auto numberOfPortDescriptors = std::count_if(attachments.begin(), attachments.end(), [](auto& attachment) { return attachment.type() == Attachment::MachPortType; });
     bool messageBodyIsOOL = false;
+    auto messageSize = MachMessage::messageSize(encoder->bufferSize(), numberOfPortDescriptors, messageBodyIsOOL);
     if (messageSize > inlineMessageMaxSize) {
         messageBodyIsOOL = true;
-
-        numberOfOOLMemoryDescriptors++;
-        messageSize = MachMessage::messageSize(0, numberOfPortDescriptors, numberOfOOLMemoryDescriptors);
+        messageSize = MachMessage::messageSize(0, numberOfPortDescriptors, messageBodyIsOOL);
     }
 
     auto message = MachMessage::create(messageSize);
-
     message->setMessageReceiverName(encoder->messageReceiverName().toString());
     message->setMessageName(encoder->messageName().toString());
 
-    bool isComplex = (numberOfPortDescriptors + numberOfOOLMemoryDescriptors) > 0;
-
-    mach_msg_header_t* header = message->header();
+    auto* header = message->header();
     header->msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
     header->msgh_size = messageSize;
     header->msgh_remote_port = m_sendPort;
     header->msgh_local_port = MACH_PORT_NULL;
-    header->msgh_id = 0;
-    if (messageBodyIsOOL)
-        header->msgh_id |= MessageBodyIsOutOfLine;
+    header->msgh_id = inlineBodyMessageID;
 
-    uint8_t* messageData;
+    auto* messageData = reinterpret_cast<uint8_t*>(header + 1);
 
+    bool isComplex = numberOfPortDescriptors || messageBodyIsOOL;
     if (isComplex) {
         header->msgh_bits |= MACH_MSGH_BITS_COMPLEX;
 
-        mach_msg_body_t* body = reinterpret_cast<mach_msg_body_t*>(header + 1);
-        body->msgh_descriptor_count = numberOfPortDescriptors + numberOfOOLMemoryDescriptors;
-        uint8_t* descriptorData = reinterpret_cast<uint8_t*>(body + 1);
+        auto* body = reinterpret_cast<mach_msg_body_t*>(messageData);
+        body->msgh_descriptor_count = numberOfPortDescriptors + messageBodyIsOOL;
+        messageData = reinterpret_cast<uint8_t*>(body + 1);
 
-        for (size_t i = 0; i < attachments.size(); ++i) {
-            Attachment attachment = attachments[i];
+        auto getDescriptorAndSkip = [](uint8_t*& data) {
+            return reinterpret_cast<mach_msg_descriptor_t*>(std::exchange(data, data + sizeof(mach_msg_port_descriptor_t)));
+        };
 
-            mach_msg_descriptor_t* descriptor = reinterpret_cast<mach_msg_descriptor_t*>(descriptorData);
-            switch (attachment.type()) {
-            case Attachment::MachPortType:
+        for (auto& attachment : attachments) {
+            ASSERT(attachment.type() == Attachment::MachPortType);
+            if (attachment.type() == Attachment::MachPortType) {
+                auto* descriptor = getDescriptorAndSkip(messageData);
                 descriptor->port.name = attachment.port();
                 descriptor->port.disposition = attachment.disposition();
-                descriptor->port.type = MACH_MSG_PORT_DESCRIPTOR;            
-
-                descriptorData += sizeof(mach_msg_port_descriptor_t);
-                break;
-            default:
-                ASSERT_NOT_REACHED();
+                descriptor->port.type = MACH_MSG_PORT_DESCRIPTOR;
             }
         }
 
         if (messageBodyIsOOL) {
-            mach_msg_descriptor_t* descriptor = reinterpret_cast<mach_msg_descriptor_t*>(descriptorData);
+            header->msgh_id = outOfLineBodyMessageID;
 
+            auto* descriptor = getDescriptorAndSkip(messageData);
             descriptor->out_of_line.address = encoder->buffer();
             descriptor->out_of_line.size = encoder->bufferSize();
             descriptor->out_of_line.copy = MACH_MSG_VIRTUAL_COPY;
             descriptor->out_of_line.deallocate = false;
             descriptor->out_of_line.type = MACH_MSG_OOL_DESCRIPTOR;
-
-            descriptorData += sizeof(mach_msg_ool_descriptor_t);
         }
-
-        messageData = descriptorData;
-    } else
-        messageData = (uint8_t*)(header + 1);
+    }
 
     // Copy the data if it is not being sent out-of-line.
     if (!messageBodyIsOOL)
@@ -441,7 +419,7 @@ static std::unique_ptr<Decoder> createMessageDecoder(mach_msg_header_t* header)
         return std::make_unique<Decoder>(body, bodySize, nullptr, Vector<Attachment> { });
     }
 
-    bool messageBodyIsOOL = header->msgh_id & MessageBodyIsOutOfLine;
+    bool messageBodyIsOOL = header->msgh_id == outOfLineBodyMessageID;
 
     mach_msg_body_t* body = reinterpret_cast<mach_msg_body_t*>(header + 1);
     mach_msg_size_t numDescriptors = body->msgh_descriptor_count;
@@ -484,7 +462,7 @@ static std::unique_ptr<Decoder> createMessageDecoder(mach_msg_header_t* header)
     uint8_t* messageBody = descriptorData;
     size_t messageBodySize = header->msgh_size - (descriptorData - reinterpret_cast<uint8_t*>(header));
 
-    return std::make_unique<Decoder>(messageBody, messageBodySize, nullptr, attachments);
+    return std::make_unique<Decoder>(messageBody, messageBodySize, nullptr, WTFMove(attachments));
 }
 
 // The receive buffer size should always include the maximum trailer size.
@@ -538,11 +516,13 @@ void Connection::receiveSourceEventHandler()
             connectionDidClose();
         return;
 
-    case MACH_NOTIFY_SEND_ONCE:
-        return;
-
-    default:
+    case inlineBodyMessageID:
+    case outOfLineBodyMessageID:
         break;
+
+    case MACH_NOTIFY_SEND_ONCE:
+    default:
+        return;
     }
 
     std::unique_ptr<Decoder> decoder = createMessageDecoder(header);
@@ -592,10 +572,10 @@ void Connection::receiveSourceEventHandler()
         return;
     }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (decoder->messageReceiverName() == "IPC" && decoder->messageName() == "SetExceptionPort") {
         if (m_isServer) {
-            // Server connections aren't supposed to have their exception ports overriden. Treat this as an invalid message.
+            // Server connections aren't supposed to have their exception ports overridden. Treat this as an invalid message.
             StringReference messageReceiverNameReference = decoder->messageReceiverName();
             String messageReceiverName(String(messageReceiverNameReference.data(), messageReceiverNameReference.size()));
             StringReference messageNameReference = decoder->messageName();
@@ -647,7 +627,7 @@ static void AccessibilityProcessSuspendedNotification(bool suspended)
 {
 #if PLATFORM(MAC)
     _AXUIElementNotifyProcessSuspendStatus(suspended ? AXSuspendStatusSuspended : AXSuspendStatusRunning);
-#elif PLATFORM(IOS)
+#elif PLATFORM(IOS_FAMILY)
     UIAccessibilityPostNotification(kAXPidStatusChangedNotification, @{ @"pid" : @(getpid()), @"suspended" : @(suspended) });
 #else
     UNUSED_PARAM(suspended);

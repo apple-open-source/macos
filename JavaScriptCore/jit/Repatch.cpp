@@ -130,14 +130,7 @@ static InlineCacheAction actionForCell(VM& vm, JSCell* cell)
 
 static bool forceICFailure(ExecState*)
 {
-#if CPU(ARM_TRADITIONAL)
-    // FIXME: Remove this workaround once the proper fixes are landed.
-    // [ARM] Disable Inline Caching on ARMv7 traditional until proper fix
-    // https://bugs.webkit.org/show_bug.cgi?id=159759
-    return true;
-#else
     return Options::forceICFailure();
-#endif
 }
 
 ALWAYS_INLINE static void fireWatchpointsAndClearStubIfNeeded(VM& vm, StructureStubInfo& stubInfo, CodeBlock* codeBlock, AccessGenerationResult& result)
@@ -215,8 +208,18 @@ static InlineCacheAction tryCacheGetByID(ExecState* exec, JSValue baseValue, con
                 }
 
                 newCase = AccessCase::create(vm, codeBlock, AccessCase::ArrayLength);
-            } else if (isJSString(baseCell))
+            } else if (isJSString(baseCell)) {
+                if (stubInfo.cacheType == CacheType::Unset) {
+                    bool generatedCodeInline = InlineAccess::generateStringLength(stubInfo);
+                    if (generatedCodeInline) {
+                        ftlThunkAwareRepatchCall(codeBlock, stubInfo.slowPathCallLocation(), appropriateOptimizingGetByIdFunction(kind));
+                        stubInfo.initStringLength();
+                        return RetryCacheLater;
+                    }
+                }
+
                 newCase = AccessCase::create(vm, codeBlock, AccessCase::StringLength);
+            }
             else if (DirectArguments* arguments = jsDynamicCast<DirectArguments*>(vm, baseCell)) {
                 // If there were overrides, then we can handle this as a normal property load! Guarding
                 // this with such a check enables us to add an IC case for that load if needed.
@@ -329,7 +332,7 @@ static InlineCacheAction tryCacheGetByID(ExecState* exec, JSValue baseValue, con
             if (slot.isCacheableGetter())
                 getter = jsDynamicCast<JSFunction*>(vm, slot.getterSetter()->getter());
 
-            std::optional<DOMAttributeAnnotation> domAttribute;
+            Optional<DOMAttributeAnnotation> domAttribute;
             if (slot.isCacheableCustom() && slot.domAttribute())
                 domAttribute = slot.domAttribute();
 
@@ -467,8 +470,7 @@ static InlineCacheAction tryCachePutByID(ExecState* exec, JSValue baseValue, Str
             
                 if (stubInfo.cacheType == CacheType::Unset
                     && InlineAccess::canGenerateSelfPropertyReplace(stubInfo, slot.cachedOffset())
-                    && !structure->needImpurePropertyWatchpoint()
-                    && !structure->inferredTypeFor(ident.impl())) {
+                    && !structure->needImpurePropertyWatchpoint()) {
                     
                     bool generatedCodeInline = InlineAccess::generateSelfPropertyReplace(stubInfo, structure, slot.cachedOffset());
                     if (generatedCodeInline) {
@@ -932,6 +934,7 @@ void linkVirtualFor(ExecState* exec, CallLinkInfo& callLinkInfo)
     MacroAssemblerCodeRef<JITStubRoutinePtrTag> virtualThunk = virtualThunkFor(&vm, callLinkInfo);
     revertCall(&vm, callLinkInfo, virtualThunk);
     callLinkInfo.setSlowStub(createJITStubRoutine(virtualThunk, vm, nullptr, true));
+    callLinkInfo.setClearedByVirtual();
 }
 
 namespace {

@@ -314,6 +314,8 @@ static ValidUpdateRequest *request = nil;
         config = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier: @"com.apple.trustd.networking.background"];
         config.networkServiceType = NSURLNetworkServiceTypeBackground;
         config.discretionary = YES;
+        config._requiresPowerPluggedIn = YES;
+        config.allowsCellularAccess = (!updateOnWiFiOnly) ? YES : NO;
     } else {
         config = [NSURLSessionConfiguration ephemeralSessionConfiguration]; // no cookies or data storage
         config.networkServiceType = NSURLNetworkServiceTypeDefault;
@@ -326,10 +328,6 @@ static ValidUpdateRequest *request = nil;
 
     config.TLSMinimumSupportedProtocol = kTLSProtocol12;
     config.TLSMaximumSupportedProtocol = kTLSProtocol13;
-
-    config._requiresPowerPluggedIn = YES;
-
-    config.allowsCellularAccess = (!updateOnWiFiOnly) ? YES : NO;
 
     return config;
 }

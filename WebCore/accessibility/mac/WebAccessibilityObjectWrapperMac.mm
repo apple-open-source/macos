@@ -78,7 +78,7 @@
 #import "WebCoreFrameView.h"
 #import <pal/spi/mac/HIServicesSPI.h>
 #import <pal/spi/mac/NSAccessibilitySPI.h>
-#import <wtf/ObjcRuntimeExtras.h>
+#import <wtf/ObjCRuntimeExtras.h>
 #if ENABLE(TREE_DEBUGGING) || ENABLE(METER_ELEMENT)
 #import <wtf/text/StringBuilder.h>
 #endif
@@ -709,7 +709,9 @@ static CharacterOffset characterOffsetForTextMarker(AXObjectCache* cache, CFType
 static id textMarkerForVisiblePosition(AXObjectCache* cache, const VisiblePosition& visiblePos)
 {
     ASSERT(cache);
-
+    if (!cache)
+        return nil;
+    
     auto textMarkerData = cache->textMarkerDataForVisiblePosition(visiblePos);
     if (!textMarkerData)
         return nil;
@@ -909,7 +911,7 @@ static void AXAttributeStringSetSpelling(NSMutableAttributedString* attrString, 
         
         // checkTextOfParagraph is the only spelling/grammar checker implemented in WK1 and WK2
         Vector<TextCheckingResult> results;
-        checkTextOfParagraph(*checker, text, TextCheckingTypeSpelling, results, node->document().frame()->selection().selection());
+        checkTextOfParagraph(*checker, text, TextCheckingType::Spelling, results, node->document().frame()->selection().selection());
         
         size_t size = results.size();
         for (unsigned i = 0; i < size; i++) {
@@ -1107,6 +1109,9 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
 
 static id textMarkerRangeFromVisiblePositions(AXObjectCache* cache, const VisiblePosition& startPosition, const VisiblePosition& endPosition)
 {
+    if (!cache)
+        return nil;
+    
     id startTextMarker = textMarkerForVisiblePosition(cache, startPosition);
     id endTextMarker = textMarkerForVisiblePosition(cache, endPosition);
     return textMarkerRangeFromMarkers(startTextMarker, endTextMarker);
@@ -1117,7 +1122,9 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache* cache, const Visibl
     return textMarkerRangeFromVisiblePositions(m_object->axObjectCache(), startPosition, endPosition);
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (NSArray*)accessibilityActionNames
+IGNORE_WARNINGS_END
 {
     if (![self updateObjectBackingStore])
         return nil;
@@ -1251,7 +1258,9 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache* cache, const Visibl
     return additional;
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (NSArray*)accessibilityAttributeNames
+IGNORE_WARNINGS_END
 {
     if (![self updateObjectBackingStore])
         return nil;
@@ -1679,10 +1688,9 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache* cache, const Visibl
     Widget* widget = m_object->widget();
     if (!widget)
         return nil;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return [(widget->platformWidget()) accessibilityAttributeValue: NSAccessibilityChildrenAttribute];
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 - (id)remoteAccessibilityParentObject
@@ -1751,10 +1759,9 @@ static NSMutableArray *convertStringsToNSArray(const Vector<String>& vector)
     if (frameView && frameView->platformWidget()) {
         NSPoint nsPoint = (NSPoint)point;
         NSView* view = frameView->documentView();
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         nsPoint = [[view window] convertBaseToScreen:[view convertPoint:nsPoint toView:nil]];
-#pragma clang diagnostic pop
+        ALLOW_DEPRECATED_DECLARATIONS_END
         return CGPointMake(nsPoint.x, nsPoint.y);
     } else {
         
@@ -1844,15 +1851,14 @@ static void WebTransformCGPathToNSBezierPath(void* info, const CGPathElement *el
     return [NSValue valueWithPoint:NSMakePoint(cgPoint.x, cgPoint.y)];
 }
 
-typedef HashMap<int, NSString*> AccessibilityRoleMap;
+using AccessibilityRoleMap = HashMap<int, CFStringRef>;
 
-static const AccessibilityRoleMap& createAccessibilityRoleMap()
+static AccessibilityRoleMap createAccessibilityRoleMap()
 {
     struct RoleEntry {
         AccessibilityRole value;
         __unsafe_unretained NSString *string;
     };
-    
     static const RoleEntry roles[] = {
         { AccessibilityRole::Unknown, NSAccessibilityUnknownRole },
         { AccessibilityRole::Button, NSAccessibilityButtonRole },
@@ -1993,28 +1999,24 @@ static const AccessibilityRoleMap& createAccessibilityRoleMap()
         { AccessibilityRole::GraphicsSymbol, NSAccessibilityImageRole },
         { AccessibilityRole::Caption, NSAccessibilityGroupRole },
     };
-    AccessibilityRoleMap& roleMap = *new AccessibilityRoleMap;
-    
-    const unsigned numRoles = sizeof(roles) / sizeof(roles[0]);
-    for (unsigned i = 0; i < numRoles; ++i)
-        roleMap.set(static_cast<int>(roles[i].value), roles[i].string);
+    AccessibilityRoleMap roleMap;
+    for (auto& role : roles)
+        roleMap.add(static_cast<int>(role.value), (__bridge CFStringRef)role.string);
     return roleMap;
 }
 
-static NSString* roleValueToNSString(AccessibilityRole value)
+static NSString *roleValueToNSString(AccessibilityRole value)
 {
-    ASSERT(static_cast<int>(value));
-    static const AccessibilityRoleMap& roleMap = createAccessibilityRoleMap();
-    return roleMap.get(static_cast<int>(value));
+    static NeverDestroyed<AccessibilityRoleMap> roleMap = createAccessibilityRoleMap();
+    return (__bridge NSString *)roleMap.get().get(static_cast<int>(value));
 }
 
 - (NSString*)role
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (m_object->isAttachment())
         return [[self attachmentView] accessibilityAttributeValue:NSAccessibilityRoleAttribute];
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
     AccessibilityRole role = m_object->roleValue();
 
     if (role == AccessibilityRole::Label && is<AccessibilityLabel>(*m_object) && downcast<AccessibilityLabel>(*m_object).containsOnlyStaticText())
@@ -2034,8 +2036,7 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     return NSAccessibilityUnknownRole;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (NSString*)subrole
 {
     if (m_object->isPasswordField())
@@ -2245,19 +2246,18 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     
     return nil;
 }
-#pragma clang diagnostic pop
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (NSString*)roleDescription
 {
     if (!m_object)
         return nil;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     // attachments have the AXImage role, but a different subrole
     if (m_object->isAttachment())
         return [[self attachmentView] accessibilityAttributeValue:NSAccessibilityRoleDescriptionAttribute];
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
 
     const AtomicString& overrideRoleDescription = m_object->roleDescription();
     if (!overrideRoleDescription.isNull() && !overrideRoleDescription.isEmpty())
@@ -2435,7 +2435,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 // FIXME: split up this function in a better way.
 // suggestions: Use a hash table that maps attribute names to function calls,
 // or maybe pointers to member functions
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (id)accessibilityAttributeValue:(NSString*)attributeName
+IGNORE_WARNINGS_END
 {
     if (![self updateObjectBackingStore])
         return nil;
@@ -3093,8 +3095,7 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return [NSNumber numberWithBool:m_object->isARIAGrabbed()];
     
     if ([attributeName isEqualToString:NSAccessibilityDropEffectsAttribute]) {
-        Vector<String> dropEffects;
-        m_object->determineARIADropEffects(dropEffects);
+        Vector<String> dropEffects = m_object->determineARIADropEffects();
         return convertStringsToNSArray(dropEffects);
     }
     
@@ -3114,6 +3115,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
             return @"contacts";
         case AutoFillButtonType::StrongPassword:
             return @"strong password";
+        case AutoFillButtonType::CreditCard:
+            return @"credit card";
         }
     }
     
@@ -3311,7 +3314,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     return NSAccessibilityUnignoredAncestor(self);
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (BOOL)accessibilityIsAttributeSettable:(NSString*)attributeName
+IGNORE_WARNINGS_END
 {
     if (![self updateObjectBackingStore])
         return NO;
@@ -3364,7 +3369,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 // AppKit's id mapping tables. We do this in detach by calling unregisterUniqueIdForUIElement.
 //
 // Registering an object is also required for observing notifications. Only registered objects can be observed.
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (BOOL)accessibilityIsIgnored
+IGNORE_WARNINGS_END
 {
     if (![self updateObjectBackingStore])
         return YES;
@@ -3374,7 +3381,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     return m_object->accessibilityIsIgnored();
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (NSArray* )accessibilityParameterizedAttributeNames
+IGNORE_WARNINGS_END
 {
     if (![self updateObjectBackingStore])
         return nil;
@@ -3477,8 +3486,7 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     return paramAttrs;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 
 - (void)accessibilityPerformPressAction
 {
@@ -3536,7 +3544,7 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         m_object->decrement();
 }
 
-#pragma clang diagnostic pop
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)accessibilityPerformShowMenuAction
 {
@@ -3595,7 +3603,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     m_object->scrollToGlobalPoint(IntPoint(point));
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (void)accessibilityPerformAction:(NSString*)action
+IGNORE_WARNINGS_END
 {
     if (![self updateObjectBackingStore])
         return;
@@ -3626,7 +3636,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         [self accessibilityScrollToVisible];
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (void)accessibilitySetValue:(id)value forAttribute:(NSString*)attributeName
+IGNORE_WARNINGS_END
 {
 #if PLATFORM(MAC)
     // In case anything we do by changing values causes an alert or other modal
@@ -3769,7 +3781,9 @@ static RenderObject* rendererForView(NSView* view)
     return nil;
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (NSString*)accessibilityActionDescription:(NSString*)action
+IGNORE_WARNINGS_END
 {
     // we have no custom actions
     return NSAccessibilityActionDescription(action);
@@ -3898,7 +3912,9 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
 }
 #endif
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (id)accessibilityAttributeValue:(NSString*)attribute forParameter:(id)parameter
+IGNORE_WARNINGS_END
 {
     id textMarker = nil;
     id textMarkerRange = nil;
@@ -4348,8 +4364,7 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
     return NSNotFound;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (NSUInteger)accessibilityArrayAttributeCount:(NSString *)attribute
 {
     if (![self updateObjectBackingStore])
@@ -4370,7 +4385,7 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
     
     return [super accessibilityArrayAttributeCount:attribute];
 }
-#pragma clang diagnostic pop
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (NSArray *)accessibilityArrayAttributeValues:(NSString *)attribute index:(NSUInteger)index maxCount:(NSUInteger)maxCount
 {

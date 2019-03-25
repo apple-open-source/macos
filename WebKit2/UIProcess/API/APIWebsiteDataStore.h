@@ -39,9 +39,9 @@ public:
     static void deleteDefaultDataStoreForTesting();
 
     static Ref<WebsiteDataStore> createNonPersistentDataStore();
-    static Ref<WebsiteDataStore> createLegacy(WebKit::WebsiteDataStore::Configuration);
+    static Ref<WebsiteDataStore> createLegacy(Ref<WebKit::WebsiteDataStoreConfiguration>&&);
 
-    explicit WebsiteDataStore(WebKit::WebsiteDataStore::Configuration, PAL::SessionID);
+    explicit WebsiteDataStore(Ref<WebKit::WebsiteDataStoreConfiguration>&&, PAL::SessionID);
     virtual ~WebsiteDataStore();
 
     bool isPersistent();
@@ -54,30 +54,41 @@ public:
     WebKit::WebsiteDataStore& websiteDataStore() { return m_websiteDataStore.get(); }
     HTTPCookieStore& httpCookieStore();
 
-    static String defaultApplicationCacheDirectory();
-    static String defaultCacheStorageDirectory();
-    static String defaultNetworkCacheDirectory();
-    static String defaultMediaCacheDirectory();
+    static WTF::String defaultApplicationCacheDirectory();
+    static WTF::String defaultCacheStorageDirectory();
+    static WTF::String defaultNetworkCacheDirectory();
+    static WTF::String defaultMediaCacheDirectory();
+    static WTF::String defaultIndexedDBDatabaseDirectory();
+    static WTF::String defaultServiceWorkerRegistrationDirectory();
+    static WTF::String defaultLocalStorageDirectory();
+    static WTF::String defaultMediaKeysStorageDirectory();
+    static WTF::String defaultDeviceIdHashSaltsStorageDirectory();
+    static WTF::String defaultWebSQLDatabaseDirectory();
+    static WTF::String defaultResourceLoadStatisticsDirectory();
+    static WTF::String defaultJavaScriptConfigurationDirectory();
 
-    static String defaultIndexedDBDatabaseDirectory();
-    static String defaultServiceWorkerRegistrationDirectory();
-    static String defaultLocalStorageDirectory();
-    static String defaultMediaKeysStorageDirectory();
-    static String defaultWebSQLDatabaseDirectory();
-    static String defaultResourceLoadStatisticsDirectory();
+    static Ref<WebKit::WebsiteDataStoreConfiguration> defaultDataStoreConfiguration();
 
-    static String defaultJavaScriptConfigurationDirectory();
+    static WTF::String legacyDefaultApplicationCacheDirectory();
+    static WTF::String legacyDefaultNetworkCacheDirectory();
+    static WTF::String legacyDefaultLocalStorageDirectory();
+    static WTF::String legacyDefaultIndexedDBDatabaseDirectory();
+    static WTF::String legacyDefaultWebSQLDatabaseDirectory();
+    static WTF::String legacyDefaultMediaKeysStorageDirectory();
+    static WTF::String legacyDefaultDeviceIdHashSaltsStorageDirectory();
+    static WTF::String legacyDefaultMediaCacheDirectory();
+    static WTF::String legacyDefaultJavaScriptConfigurationDirectory();
 
-    static WebKit::WebsiteDataStore::Configuration defaultDataStoreConfiguration();
+    static Ref<WebKit::WebsiteDataStoreConfiguration> legacyDefaultDataStoreConfiguration();
 
 private:
     enum ShouldCreateDirectory { CreateDirectory, DontCreateDirectory };
 
     WebsiteDataStore();
 
-    static String tempDirectoryFileSystemRepresentation(const String& directoryName, ShouldCreateDirectory shouldCreateDirectory = CreateDirectory);
-    static String cacheDirectoryFileSystemRepresentation(const String& directoryName);
-    static String websiteDataDirectoryFileSystemRepresentation(const String& directoryName);
+    static WTF::String tempDirectoryFileSystemRepresentation(const WTF::String& directoryName, ShouldCreateDirectory = CreateDirectory);
+    static WTF::String cacheDirectoryFileSystemRepresentation(const WTF::String& directoryName);
+    static WTF::String websiteDataDirectoryFileSystemRepresentation(const WTF::String& directoryName);
 
     Ref<WebKit::WebsiteDataStore> m_websiteDataStore;
     RefPtr<HTTPCookieStore> m_apiHTTPCookieStore;

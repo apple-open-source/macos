@@ -38,13 +38,19 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
         // Necessary events required to track load of resources.
         WI.Frame.addEventListener(WI.Frame.Event.ResourceWasAdded, this._resourceWasAdded, this);
         WI.Target.addEventListener(WI.Target.Event.ResourceAdded, this._resourceWasAdded, this);
-        WI.frameResourceManager.addEventListener(WI.FrameResourceManager.Event.FrameWasAdded, this._frameWasAdded, this);
+        WI.networkManager.addEventListener(WI.NetworkManager.Event.FrameWasAdded, this._frameWasAdded, this);
 
         // Necessary events required to track console messages.
-        var logManager = WI.logManager;
-        logManager.addEventListener(WI.LogManager.Event.Cleared, this._consoleWasCleared, this);
-        logManager.addEventListener(WI.LogManager.Event.MessageAdded, this._consoleMessageAdded, this);
-        logManager.addEventListener(WI.LogManager.Event.PreviousMessageRepeatCountUpdated, this._consoleMessageWasRepeated, this);
+        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.Cleared, this._consoleWasCleared, this);
+        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.MessageAdded, this._consoleMessageAdded, this);
+        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.PreviousMessageRepeatCountUpdated, this._consoleMessageWasRepeated, this);
+
+        // FIXME: This is working around the order of events. Normal page navigation
+        // triggers a MainResource change and then a MainFrame change. Page Transition
+        // triggers a MainFrame change then a MainResource change.
+        this._transitioningPageTarget = false;
+
+        WI.notifications.addEventListener(WI.Notification.TransitionPageTarget, this._transitionPageTarget, this);
 
         this._resourcesCount = 0;
         this._resourcesSize = 0;
@@ -136,9 +142,11 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
         if (!event.target.isMainFrame())
             return;
 
-        this._time = 0;
-        this._resourcesCount = 1;
-        this._resourcesSize = WI.frameResourceManager.mainFrame.mainResource.size || 0;
+        if (!this._transitioningPageTarget) {
+            this._time = 0;
+            this._resourcesCount = 1;
+            this._resourcesSize = WI.networkManager.mainFrame.mainResource.size || 0;
+        }
 
         // We should only track resource sizes on fresh loads.
         if (this._waitingForFirstMainResourceToStartTrackingSize) {
@@ -147,7 +155,12 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
         }
 
         this._dataDidChange();
-        this._startUpdatingTime();
+
+        if (!this._transitioningPageTarget)
+            this._startUpdatingTime();
+
+        if (this._transitioningPageTarget)
+            this._transitioningPageTarget = false;
     }
 
     _capturingStopped(event)
@@ -212,7 +225,7 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
             this._timeIntervalIdentifier = setInterval(this._updateTime.bind(this), this._timeIntervalDelay);
         }
 
-        var mainFrame = WI.frameResourceManager.mainFrame;
+        var mainFrame = WI.networkManager.mainFrame;
         var mainFrameStartTime = mainFrame.mainResource.firstTimestamp;
         var mainFrameLoadEventTime = mainFrame.loadEventTimestamp;
 
@@ -260,6 +273,17 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
         this._logs = 0;
         this._issues = 0;
         this._errors = 0;
+        this._dataDidChange();
+    }
+
+    _transitionPageTarget()
+    {
+        this._transitioningPageTarget = true;
+
+        this._time = 0;
+        this._resourcesCount = 0;
+        this._resourcesSize = 0;
+
         this._dataDidChange();
     }
 };

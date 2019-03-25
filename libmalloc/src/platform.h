@@ -72,6 +72,18 @@
 // This governs a last-free cache of 1 that bypasses the free-list for each region size
 #define CONFIG_TINY_CACHE 1
 #define CONFIG_SMALL_CACHE 1
+#define CONFIG_MEDIUM_CACHE 1
+
+// medium allocator enabled or disabled
+#if MALLOC_TARGET_64BIT
+#if MALLOC_TARGET_IOS
+#define CONFIG_MEDIUM_ALLOCATOR 0
+#else // MALLOC_TARGET_IOS
+#define CONFIG_MEDIUM_ALLOCATOR 0
+#endif // MALLOC_TARGET_IOS
+#else // MALLOC_TARGET_64BIT
+#define CONFIG_MEDIUM_ALLOCATOR 0
+#endif // MALLOC_TARGET_64BIT
 
 // The large last-free cache (aka. death row cache)
 #if MALLOC_TARGET_IOS
@@ -80,16 +92,14 @@
 #define CONFIG_LARGE_CACHE 1
 #endif
 
-// <rdar://problem/26823590> compile-time MALLOC_SMALL cut-off size
 #if MALLOC_TARGET_IOS
-#if MALLOC_TARGET_64BIT
-MALLOC_STATIC_ASSERT(PAGE_MAX_SIZE == 16 * 1024, "Expected 16k pages");
-// TODO: rdar://problem/35395572
-#define CONFIG_SMALL_CUTOFF_DYNAMIC 0
-#endif
+// The VM system on iOS forces malloc-tagged memory to never be marked as
+// copy-on-write, this would include calls we make to vm_copy. Given that the
+// kernel would just be doing a memcpy, we force it to happen in userpsace.
+#define CONFIG_REALLOC_CAN_USE_VMCOPY 0
 #else
-#define CONFIG_SMALL_CUTOFF_LARGEMEM 1
-#endif // MALLOC_TARGET_IOS
+#define CONFIG_REALLOC_CAN_USE_VMCOPY 1
+#endif
 
 // memory resource exception handling
 #if MALLOC_TARGET_IOS || TARGET_OS_SIMULATOR
@@ -105,6 +115,7 @@ MALLOC_STATIC_ASSERT(PAGE_MAX_SIZE == 16 * 1024, "Expected 16k pages");
 #define CONFIG_HAS_COMMPAGE_NCPUS 1
 
 // Use of hyper-shift for magazine selection.
+#define CONFIG_NANO_USES_HYPER_SHIFT 0
 #define CONFIG_TINY_USES_HYPER_SHIFT 0
 #define CONFIG_SMALL_USES_HYPER_SHIFT 0
 

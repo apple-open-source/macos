@@ -31,8 +31,8 @@
 #import "JSDOMBindingSecurity.h"
 #import "JSDOMWindow.h"
 #import "JSDOMWindowCustom.h"
+#import "JSExecState.h"
 #import "JSHTMLElement.h"
-#import "JSMainThreadExecState.h"
 #import "JSPluginElementFunctions.h"
 #import "ObjCRuntimeObject.h"
 #import "WebCoreObjCExtras.h"
@@ -361,7 +361,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
         return nil;
 
     NakedPtr<JSC::Exception> exception;
-    JSC::JSValue result = JSMainThreadExecState::profiledCall(exec, JSC::ProfilingReason::Other, function, callType, callData, [self _imp], argList, exception);
+    JSC::JSValue result = JSExecState::profiledCall(exec, JSC::ProfilingReason::Other, function, callType, callData, [self _imp], argList, exception);
 
     if (exception) {
         addExceptionToConsole(exec, exception);
@@ -386,7 +386,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ExecState* exec = globalObject->globalExec();
     UNUSED_PARAM(scope);
     
-    JSC::JSValue returnValue = JSMainThreadExecState::profiledEvaluate(exec, JSC::ProfilingReason::Other, makeSource(String(script), { }), JSC::JSValue());
+    JSC::JSValue returnValue = JSExecState::profiledEvaluate(exec, JSC::ProfilingReason::Other, makeSource(String(script), { }), JSC::JSValue());
 
     id resultObj = [WebScriptObject _convertValueToObjcValue:returnValue originRootObject:[self _originRootObject] rootObject:[self _rootObject]];
     
@@ -499,11 +499,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ExecState* exec = [self _rootObject]->globalObject()->globalExec();
     JSLockHolder lock(exec);
 
-    id result = convertValueToObjcValue(exec, [self _imp], ObjcObjectType).objectValue;
-
-    NSString *description = [result description];
-
-    return description;
+    return [(__bridge id)convertValueToObjcValue(exec, [self _imp], ObjcObjectType).objectValue description];
 }
 
 - (id)webScriptValueAtIndex:(unsigned)index
@@ -706,13 +702,12 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     return self;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
+IGNORE_WARNINGS_BEGIN("objc-missing-super-calls")
 - (void)dealloc
 {
-    return;
+    // Intentionally not calling [super dealloc] since we never want to deallocate our single instance.
 }
-#pragma clang diagnostic pop
+IGNORE_WARNINGS_END
 
 + (WebUndefined *)undefined
 {

@@ -766,7 +766,7 @@ String AccessibilityRenderObject::stringValue() const
     if (isTextControl())
         return text();
     
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (isInputTypePopupButton())
         return textUnderElement();
 #endif
@@ -1029,17 +1029,16 @@ bool AccessibilityRenderObject::isARIAGrabbed()
     return elementAttributeValue(aria_grabbedAttr);
 }
 
-void AccessibilityRenderObject::determineARIADropEffects(Vector<String>& effects)
+Vector<String> AccessibilityRenderObject::determineARIADropEffects()
 {
     const AtomicString& dropEffects = getAttribute(aria_dropeffectAttr);
     if (dropEffects.isEmpty()) {
-        effects.clear();
-        return;
+        return { };
     }
     
     String dropEffectsString = dropEffects.string();
     dropEffectsString.replace('\n', ' ');
-    dropEffectsString.split(' ', effects);
+    return dropEffectsString.split(' ');
 }
     
 bool AccessibilityRenderObject::exposesTitleUIElement() const
@@ -2524,7 +2523,7 @@ RenderObject* AccessibilityRenderObject::targetElementForActiveDescendant(const 
 {
     AccessibilityObject::AccessibilityChildrenVector elements;
     ariaElementsFromAttribute(elements, attributeName);
-    for (auto element : elements) {
+    for (const auto& element : elements) {
         if (activeDescendant->isDescendantOfObject(element.get()))
             return element->renderer();
     }
@@ -2715,7 +2714,7 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
         if (input.isTextButton())
             return buttonRoleType();
         // On iOS, the date field and time field are popup buttons. On other platforms they are text fields.
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
         if (input.isDateField() || input.isTimeField())
             return AccessibilityRole::PopUpButton;
 #endif
@@ -3491,7 +3490,7 @@ void AccessibilityRenderObject::tabChildren(AccessibilityChildrenVector& result)
     
 const String& AccessibilityRenderObject::actionVerb() const
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     // FIXME: Need to add verbs for select elements.
     static NeverDestroyed<const String> buttonAction(AXButtonActionVerb());
     static NeverDestroyed<const String> textFieldAction(AXTextFieldActionVerb());
@@ -3598,7 +3597,7 @@ bool AccessibilityRenderObject::hasPlainText() const
 
     const RenderStyle& style = m_renderer->style();
     return style.fontDescription().weight() == normalWeightValue()
-        && style.fontDescription().italic() == normalItalicValue()
+        && !isItalic(style.fontDescription().italic())
         && style.textDecorationsInEffect().isEmpty();
 }
 

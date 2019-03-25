@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Eric Seidel <eric@webkit.org>
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2019 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2011. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 
 #include "ApplicationCacheStorage.h"
 #include "BackForwardClient.h"
+#include "CacheStorageProvider.h"
 #include "ColorChooser.h"
 #include "ContextMenuClient.h"
 #include "DataListSuggestionPicker.h"
@@ -46,8 +47,10 @@
 #include "FrameLoaderClient.h"
 #include "FrameNetworkingContext.h"
 #include "HTMLFormElement.h"
+#include "HistoryItem.h"
 #include "InProcessIDBServer.h"
 #include "InspectorClient.h"
+#include "LibWebRTCProvider.h"
 #include "NetworkStorageSession.h"
 #include "Page.h"
 #include "PageConfiguration.h"
@@ -55,6 +58,7 @@
 #include "PluginInfoProvider.h"
 #include "ProgressTrackerClient.h"
 #include "SecurityOriginData.h"
+#include "SocketProvider.h"
 #include "StorageArea.h"
 #include "StorageNamespace.h"
 #include "StorageNamespaceProvider.h"
@@ -80,10 +84,10 @@ class UserMessageHandlerDescriptor;
 
 class EmptyBackForwardClient final : public BackForwardClient {
     void addItem(Ref<HistoryItem>&&) final { }
-    void goToItem(HistoryItem*) final { }
-    HistoryItem* itemAtIndex(int) final { return nullptr; }
-    int backListCount() final { return 0; }
-    int forwardListCount() final { return 0; }
+    void goToItem(HistoryItem&) final { }
+    RefPtr<HistoryItem> itemAtIndex(int) final { return nullptr; }
+    unsigned backListCount() const final { return 0; }
+    unsigned forwardListCount() const final { return 0; }
     void close() final { }
 };
 
@@ -204,13 +208,14 @@ private:
     void textDidChangeInTextArea(Element*) final { }
     void overflowScrollPositionChanged() final { }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     void startDelayingAndCoalescingContentChangeNotifications() final { }
     void stopDelayingAndCoalescingContentChangeNotifications() final { }
     bool hasRichlyEditableSelection() final { return false; }
     int getPasteboardItemsCount() final { return 0; }
     RefPtr<DocumentFragment> documentFragmentFromDelegate(int) final { return nullptr; }
     bool performsTwoStepPaste(DocumentFragment*) final { return false; }
+    void updateStringForFind(const String&) final { }
 #endif
 
     bool performTwoStepDrop(DocumentFragment&, Range&, bool) final { return false; }
@@ -264,7 +269,7 @@ private:
         void checkGrammarOfString(StringView, Vector<GrammarDetail>&, int*, int*) final { }
 
 #if USE(UNIFIED_TEXT_CHECKING)
-        Vector<TextCheckingResult> checkTextOfParagraph(StringView, TextCheckingTypeMask, const VisibleSelection&) final { return Vector<TextCheckingResult>(); }
+        Vector<TextCheckingResult> checkTextOfParagraph(StringView, OptionSet<TextCheckingType>, const VisibleSelection&) final { return Vector<TextCheckingResult>(); }
 #endif
 
         void getGuessesForWord(const String&, const String&, const VisibleSelection&, Vector<String>&) final { }
@@ -306,17 +311,16 @@ class EmptyInspectorClient final : public InspectorClient {
 #if ENABLE(APPLE_PAY)
 
 class EmptyPaymentCoordinatorClient final : public PaymentCoordinatorClient {
-    bool supportsVersion(unsigned) final { return false; }
-    std::optional<String> validatedPaymentNetwork(const String&) final { return std::nullopt; }
+    Optional<String> validatedPaymentNetwork(const String&) final { return WTF::nullopt; }
     bool canMakePayments() final { return false; }
     void canMakePaymentsWithActiveCard(const String&, const String&, WTF::Function<void(bool)>&& completionHandler) final { callOnMainThread([completionHandler = WTFMove(completionHandler)] { completionHandler(false); }); }
     void openPaymentSetup(const String&, const String&, WTF::Function<void(bool)>&& completionHandler) final { callOnMainThread([completionHandler = WTFMove(completionHandler)] { completionHandler(false); }); }
     bool showPaymentUI(const URL&, const Vector<URL>&, const ApplePaySessionPaymentRequest&) final { return false; }
     void completeMerchantValidation(const PaymentMerchantSession&) final { }
-    void completeShippingMethodSelection(std::optional<ShippingMethodUpdate>&&) final { }
-    void completeShippingContactSelection(std::optional<ShippingContactUpdate>&&) final { }
-    void completePaymentMethodSelection(std::optional<PaymentMethodUpdate>&&) final { }
-    void completePaymentSession(std::optional<PaymentAuthorizationResult>&&) final { }
+    void completeShippingMethodSelection(Optional<ShippingMethodUpdate>&&) final { }
+    void completeShippingContactSelection(Optional<ShippingContactUpdate>&&) final { }
+    void completePaymentMethodSelection(Optional<PaymentMethodUpdate>&&) final { }
+    void completePaymentSession(Optional<PaymentAuthorizationResult>&&) final { }
     void cancelPaymentSession() final { }
     void abortPaymentSession() final { }
     void paymentCoordinatorDestroyed() final { }
@@ -326,7 +330,7 @@ class EmptyPaymentCoordinatorClient final : public PaymentCoordinatorClient {
 
 class EmptyPluginInfoProvider final : public PluginInfoProvider {
     void refreshPlugins() final { };
-    Vector<PluginInfo> pluginInfo(Page&, std::optional<Vector<SupportedPluginIdentifier>>&) final { return { }; }
+    Vector<PluginInfo> pluginInfo(Page&, Optional<Vector<SupportedPluginIdentifier>>&) final { return { }; }
     Vector<PluginInfo> webVisiblePluginInfo(Page&, const URL&) final { return { }; }
 };
 
@@ -379,14 +383,14 @@ class EmptyStorageNamespaceProvider final : public StorageNamespaceProvider {
     };
 
     struct EmptyStorageNamespace final : public StorageNamespace {
-        RefPtr<StorageArea> storageArea(const SecurityOriginData&) final { return adoptRef(*new EmptyStorageArea); }
-        RefPtr<StorageNamespace> copy(Page*) final { return adoptRef(*new EmptyStorageNamespace); }
+        Ref<StorageArea> storageArea(const SecurityOriginData&) final { return adoptRef(*new EmptyStorageArea); }
+        Ref<StorageNamespace> copy(Page*) final { return adoptRef(*new EmptyStorageNamespace); }
     };
 
-    RefPtr<StorageNamespace> createSessionStorageNamespace(Page&, unsigned) final;
-    RefPtr<StorageNamespace> createLocalStorageNamespace(unsigned) final;
-    RefPtr<StorageNamespace> createEphemeralLocalStorageNamespace(Page&, unsigned) final;
-    RefPtr<StorageNamespace> createTransientLocalStorageNamespace(SecurityOrigin&, unsigned) final;
+    Ref<StorageNamespace> createSessionStorageNamespace(Page&, unsigned) final;
+    Ref<StorageNamespace> createLocalStorageNamespace(unsigned) final;
+    Ref<StorageNamespace> createEphemeralLocalStorageNamespace(Page&, unsigned) final;
+    Ref<StorageNamespace> createTransientLocalStorageNamespace(SecurityOrigin&, unsigned) final;
 };
 
 class EmptyUserContentProvider final : public UserContentProvider {
@@ -436,17 +440,21 @@ std::unique_ptr<DataListSuggestionPicker> EmptyChromeClient::createDataListSugge
 void EmptyChromeClient::runOpenPanel(Frame&, FileChooser&)
 {
 }
+    
+void EmptyChromeClient::showShareSheet(ShareDataWithParsedURL&, CompletionHandler<void(bool)>&&)
+{
+}
 
 PAL::SessionID EmptyFrameLoaderClient::sessionID() const
 {
     return PAL::SessionID::defaultSessionID();
 }
 
-void EmptyFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const NavigationAction&, const ResourceRequest&, FormState*, const String&, FramePolicyFunction&&)
+void EmptyFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const NavigationAction&, const ResourceRequest&, FormState*, const String&, PolicyCheckIdentifier, FramePolicyFunction&&)
 {
 }
 
-void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse&, FormState*, PolicyDecisionMode, FramePolicyFunction&&)
+void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse&, FormState*, PolicyDecisionMode, PolicyCheckIdentifier, FramePolicyFunction&&)
 {
 }
 
@@ -454,8 +462,9 @@ void EmptyFrameLoaderClient::dispatchWillSendSubmitEvent(Ref<FormState>&&)
 {
 }
 
-void EmptyFrameLoaderClient::dispatchWillSubmitForm(FormState&, WTF::Function<void(void)>&&)
+void EmptyFrameLoaderClient::dispatchWillSubmitForm(FormState&, CompletionHandler<void()>&& completionHandler)
 {
+    completionHandler();
 }
 
 Ref<DocumentLoader> EmptyFrameLoaderClient::createDocumentLoader(const ResourceRequest& request, const SubstituteData& substituteData)
@@ -463,7 +472,7 @@ Ref<DocumentLoader> EmptyFrameLoaderClient::createDocumentLoader(const ResourceR
     return DocumentLoader::create(request, substituteData);
 }
 
-RefPtr<Frame> EmptyFrameLoaderClient::createFrame(const URL&, const String&, HTMLFrameOwnerElement&, const String&, bool, int, int)
+RefPtr<Frame> EmptyFrameLoaderClient::createFrame(const URL&, const String&, HTMLFrameOwnerElement&, const String&)
 {
     return nullptr;
 }
@@ -492,11 +501,6 @@ Ref<FrameNetworkingContext> EmptyFrameLoaderClient::createNetworkingContext()
     return EmptyFrameNetworkingContext::create();
 }
 
-Ref<FrameNetworkingContext> createEmptyFrameNetworkingContext()
-{
-    return EmptyFrameNetworkingContext::create();
-}
-
 void EmptyEditorClient::EmptyTextCheckerClient::requestCheckingOfString(TextCheckingRequest&, const VisibleSelection&)
 {
 }
@@ -509,28 +513,36 @@ void EmptyEditorClient::registerRedoStep(UndoStep&)
 {
 }
 
-RefPtr<StorageNamespace> EmptyStorageNamespaceProvider::createSessionStorageNamespace(Page&, unsigned)
+Ref<StorageNamespace> EmptyStorageNamespaceProvider::createSessionStorageNamespace(Page&, unsigned)
 {
     return adoptRef(*new EmptyStorageNamespace);
 }
 
-RefPtr<StorageNamespace> EmptyStorageNamespaceProvider::createLocalStorageNamespace(unsigned)
+Ref<StorageNamespace> EmptyStorageNamespaceProvider::createLocalStorageNamespace(unsigned)
 {
     return adoptRef(*new EmptyStorageNamespace);
 }
 
-RefPtr<StorageNamespace> EmptyStorageNamespaceProvider::createEphemeralLocalStorageNamespace(Page&, unsigned)
+Ref<StorageNamespace> EmptyStorageNamespaceProvider::createEphemeralLocalStorageNamespace(Page&, unsigned)
 {
     return adoptRef(*new EmptyStorageNamespace);
 }
 
-RefPtr<StorageNamespace> EmptyStorageNamespaceProvider::createTransientLocalStorageNamespace(SecurityOrigin&, unsigned)
+Ref<StorageNamespace> EmptyStorageNamespaceProvider::createTransientLocalStorageNamespace(SecurityOrigin&, unsigned)
 {
     return adoptRef(*new EmptyStorageNamespace);
 }
 
-void fillWithEmptyClients(PageConfiguration& pageConfiguration)
+PageConfiguration pageConfigurationWithEmptyClients()
 {
+    PageConfiguration pageConfiguration {
+        makeUniqueRef<EmptyEditorClient>(),
+        SocketProvider::create(),
+        LibWebRTCProvider::create(),
+        CacheStorageProvider::create(),
+        adoptRef(*new EmptyBackForwardClient)
+    };
+
     static NeverDestroyed<EmptyChromeClient> dummyChromeClient;
     pageConfiguration.chromeClient = &dummyChromeClient.get();
 
@@ -558,7 +570,6 @@ void fillWithEmptyClients(PageConfiguration& pageConfiguration)
     static NeverDestroyed<EmptyProgressTrackerClient> dummyProgressTrackerClient;
     pageConfiguration.progressTrackerClient = &dummyProgressTrackerClient.get();
 
-    pageConfiguration.backForwardClient = adoptRef(*new EmptyBackForwardClient);
     pageConfiguration.diagnosticLoggingClient = std::make_unique<EmptyDiagnosticLoggingClient>();
 
     pageConfiguration.applicationCacheStorage = ApplicationCacheStorage::create({ }, { });
@@ -567,11 +578,8 @@ void fillWithEmptyClients(PageConfiguration& pageConfiguration)
     pageConfiguration.storageNamespaceProvider = adoptRef(*new EmptyStorageNamespaceProvider);
     pageConfiguration.userContentProvider = adoptRef(*new EmptyUserContentProvider);
     pageConfiguration.visitedLinkStore = adoptRef(*new EmptyVisitedLinkStore);
-}
-
-UniqueRef<EditorClient> createEmptyEditorClient()
-{
-    return makeUniqueRef<EmptyEditorClient>();
+    
+    return pageConfiguration;
 }
 
 DiagnosticLoggingClient& emptyDiagnosticLoggingClient()

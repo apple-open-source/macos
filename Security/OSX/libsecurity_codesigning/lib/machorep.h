@@ -45,12 +45,13 @@ namespace CodeSigning {
 // that it's driven directly from the signing code, with no
 // abstractions to get in the way.
 //
-class MachORep : public SingleDiskRep {
+class MachORep : public SingleDiskRep, public EditableDiskRep {
 public:
 	MachORep(const char *path, const Context *ctx = NULL);
 	virtual ~MachORep();
 	
 	CFDataRef component(CodeDirectory::SpecialSlot slot);
+	RawComponentMap createRawComponents();
 	CFDataRef identification();
 	Universal *mainExecutableImage();
 	void prepareForSigning(SigningContext &context);
@@ -86,9 +87,10 @@ protected:
 
 private:
 	static bool needsExecSeg(const MachO& macho);
+	EmbeddedSignatureBlob *signingData();
 
 	Universal *mExecutable;	// cached Mach-O/Universal reference to mainExecutablePath()
-	EmbeddedSignatureBlob *mSigningData; // cached signing data from current architecture
+	mutable EmbeddedSignatureBlob *mSigningData; // cached signing data from current architecture
 };
 
 

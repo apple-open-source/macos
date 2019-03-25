@@ -1110,7 +1110,7 @@ write_file_64(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 	struct segment_command_64 ctfseg_command;
 	struct section_64 ctf_sect; 
 	struct segment_command_64 *curcmd, *ctfcmd;
-	struct symtab_command *symcmd;
+	struct symtab_command *symcmd = NULL;
 	int    minimize = (0 != (CTF_MINIMIZE & flags));
 	uint32_t origcmdcount;
 	uint64_t origcmdsize;

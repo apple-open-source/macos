@@ -25,13 +25,14 @@
 
 #pragma once
 
-#include "WebFrameListenerProxy.h"
+#include "APIObject.h"
+#include <wtf/CompletionHandler.h>
 
 namespace WebKit {
 
 class WebFormSubmissionListenerProxy : public API::ObjectImpl<API::Object::Type::FormSubmissionListener> {
 public:
-    static Ref<WebFormSubmissionListenerProxy> create(WTF::Function<void(void)>&& completionHandler)
+    static Ref<WebFormSubmissionListenerProxy> create(CompletionHandler<void()>&& completionHandler)
     {
         return adoptRef(*new WebFormSubmissionListenerProxy(WTFMove(completionHandler)));
     }
@@ -39,10 +40,10 @@ public:
     void continueSubmission();
 
 private:
-    WebFormSubmissionListenerProxy(WTF::Function<void(void)>&& completionHandler)
+    WebFormSubmissionListenerProxy(CompletionHandler<void()>&& completionHandler)
         : m_completionHandler(WTFMove(completionHandler))
     { }
-    WTF::Function<void(void)> m_completionHandler;
+    CompletionHandler<void()> m_completionHandler;
 };
 
 } // namespace WebKit

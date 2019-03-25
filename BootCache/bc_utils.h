@@ -21,7 +21,8 @@ void bc_get_volume_info(dev_t volume_dev,
 						bool * _Nullable apfs_container_has_encrypted_volumes_out,
 						bool * _Nullable apfs_container_has_rolling_volumes_out);
 
-	
+void bc_get_group_uuid_for_dev(dev_t dev, uuid_t _Nonnull group_uuid_out);
+
 // Get device string to pass to vnode_lookup for APFS container device
 void lookup_dev_name(dev_t dev, char* _Nonnull name, int nmlen);
 

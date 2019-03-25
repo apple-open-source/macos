@@ -31,18 +31,11 @@
 #include "NetworkLoadParameters.h"
 #include <WebCore/AuthenticationChallenge.h>
 #include <wtf/CompletionHandler.h>
-#include <wtf/Optional.h>
 #include <wtf/text/WTFString.h>
-
-#if ENABLE(NETWORK_CAPTURE)
-#include "NetworkCaptureRecorder.h"
-#include "NetworkCaptureReplayer.h"
-#endif
 
 namespace WebKit {
 
-class NetworkLoad final : private NetworkDataTaskClient
-{
+class NetworkLoad final : private NetworkDataTaskClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     NetworkLoad(NetworkLoadClient&, NetworkLoadParameters&&, NetworkSession&);
@@ -54,14 +47,12 @@ public:
     bool isAllowedToAskUserForCredentials() const;
 
     const WebCore::ResourceRequest& currentRequest() const { return m_currentRequest; }
-    void clearCurrentRequest() { m_currentRequest = WebCore::ResourceRequest(); }
 
     const NetworkLoadParameters& parameters() const { return m_parameters; }
 
     void continueWillSendRequest(WebCore::ResourceRequest&&);
-    void continueDidReceiveResponse();
 
-    void convertTaskToDownload(PendingDownload&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
+    void convertTaskToDownload(PendingDownload&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, ResponseCompletionHandler&&);
     void setPendingDownloadID(DownloadID);
     void setSuggestedFilename(const String&);
     void setPendingDownload(PendingDownload&);
@@ -69,23 +60,15 @@ public:
 
     bool shouldCaptureExtraNetworkLoadMetrics() const final;
 
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-    void continueCanAuthenticateAgainstProtectionSpace(bool);
-#endif
-
     String description() const;
 
 private:
-#if ENABLE(NETWORK_CAPTURE)
-    void initializeForRecord(NetworkSession&);
-    void initializeForReplay(NetworkSession&);
-#endif
     void initialize(NetworkSession&);
 
     // NetworkDataTaskClient
     void willPerformHTTPRedirection(WebCore::ResourceResponse&&, WebCore::ResourceRequest&&, RedirectCompletionHandler&&) final;
     void didReceiveChallenge(WebCore::AuthenticationChallenge&&, ChallengeCompletionHandler&&) final;
-    void didReceiveResponseNetworkSession(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) final;
+    void didReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) final;
     void didReceiveData(Ref<WebCore::SharedBuffer>&&) final;
     void didCompleteWithError(const WebCore::ResourceError&, const WebCore::NetworkLoadMetrics&) final;
     void didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedToSend) final;
@@ -95,27 +78,16 @@ private:
     void notifyDidReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&);
     void throttleDelayCompleted();
 
-    void completeAuthenticationChallenge(ChallengeCompletionHandler&&);
-
     std::reference_wrapper<NetworkLoadClient> m_client;
     const NetworkLoadParameters m_parameters;
     CompletionHandler<void(WebCore::ResourceRequest&&)> m_redirectCompletionHandler;
     RefPtr<NetworkDataTask> m_task;
-    std::optional<WebCore::AuthenticationChallenge> m_challenge;
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-    ChallengeCompletionHandler m_challengeCompletionHandler;
-#endif
-    ResponseCompletionHandler m_responseCompletionHandler;
     
     struct Throttle;
     std::unique_ptr<Throttle> m_throttle;
+    Seconds m_loadThrottleLatency;
 
     WebCore::ResourceRequest m_currentRequest; // Updated on redirects.
-
-#if ENABLE(NETWORK_CAPTURE)
-    std::unique_ptr<NetworkCapture::Recorder> m_recorder;
-    std::unique_ptr<NetworkCapture::Replayer> m_replayer;
-#endif
 };
 
 } // namespace WebKit

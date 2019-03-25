@@ -88,6 +88,8 @@ const CFStringRef kDADiskDescriptionMediaTypeKey       = CFSTR( "DAMediaType"   
 const CFStringRef kDADiskDescriptionMediaUUIDKey       = CFSTR( "DAMediaUUID"       );
 const CFStringRef kDADiskDescriptionMediaWholeKey      = CFSTR( "DAMediaWhole"      );
 const CFStringRef kDADiskDescriptionMediaWritableKey   = CFSTR( "DAMediaWritable"   );
+const CFStringRef kDADiskDescriptionMediaEncryptedKey  = CFSTR( "DAMediaEncrypted" );
+const CFStringRef kDADiskDescriptionMediaEncryptionDetailKey = CFSTR( "DAMediaEncryptionDetail" );
 
 const CFStringRef kDADiskDescriptionDeviceGUIDKey      = CFSTR( "DADeviceGUID"      );
 const CFStringRef kDADiskDescriptionDeviceInternalKey  = CFSTR( "DADeviceInternal"  );
@@ -97,6 +99,7 @@ const CFStringRef kDADiskDescriptionDeviceProtocolKey  = CFSTR( "DADeviceProtoco
 const CFStringRef kDADiskDescriptionDeviceRevisionKey  = CFSTR( "DADeviceRevision"  );
 const CFStringRef kDADiskDescriptionDeviceUnitKey      = CFSTR( "DADeviceUnit"      );
 const CFStringRef kDADiskDescriptionDeviceVendorKey    = CFSTR( "DADeviceVendor"    );
+const CFStringRef kDADiskDescriptionDeviceTDMLockedKey = CFSTR( "DADeviceTDMLocked" );
 
 const CFStringRef kDADiskDescriptionBusNameKey         = CFSTR( "DABusName"         );
 const CFStringRef kDADiskDescriptionBusPathKey         = CFSTR( "DABusPath"         );

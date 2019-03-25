@@ -23,6 +23,8 @@
 #ifndef _IOKIT_IOGRAPHICSPRIVATE_H
 #define _IOKIT_IOGRAPHICSPRIVATE_H
 
+#include <stdatomic.h>
+
 #include <mach/vm_param.h>
 #include <libkern/version.h>
 #include <libkern/OSDebug.h>
@@ -98,6 +100,8 @@ typedef enum debg_category_t {
     DEBG_CATEGORY_NOTIFICATIONS    = 4, // Framebuffer notifications, spammy
     DEBG_CATEGORY_MUX              = 5,
     DEBG_CATEGORY_DIM              = 6,
+    DEBG_CATEGORY_DISPLAY_MODES    = 7, // Display modes/timings
+    DEBG_CATEGORY_TRACE            = 8, // GTrace logging
 } debg_category_t;
 
 
@@ -125,12 +129,12 @@ do {                                                                           \
     {                                                                          \
         continue;                                                              \
     }                                                                          \
-    AbsoluteTime    DEBG_now;                                                  \
-    UInt64          DEBG_nano;                                                 \
-    AbsoluteTime_to_scalar(&DEBG_now) = mach_absolute_time();                  \
-    absolutetime_to_nanoseconds(DEBG_now, &DEBG_nano);                         \
-    KPRINTF("%08d [%s]::%s" fmt, (uint32_t) (DEBG_nano / 1000000ull), name,    \
-        __FUNCTION__, ## args);                                                \
+    const uint64_t _DEBG_now_ = mach_absolute_time();                          \
+    uint64_t       _DEBG_nanos_;                                               \
+    absolutetime_to_nanoseconds(_DEBG_now_, &_DEBG_nanos_);                    \
+    const auto _DEBG_millis_ =                                                 \
+        static_cast<uint32_t>(_DEBG_nanos_ / kMillisecondScale);               \
+    KPRINTF("%08d [%s]::%s" fmt, _DEBG_millis_, name, __FUNCTION__, ## args);  \
 } while (false)
 
 static inline void *OBFUSCATE(void *p)
@@ -218,7 +222,7 @@ inline void bzero_nc( void * p, UInt32 l )              { bzero( p, l ); }
 #define getPowerState() pm_vars->myCurrentState
 #endif
 
-extern uint32_t gIOGDebugFlags;
+extern atomic_uint_fast32_t gIOGDebugFlags;
 enum {
 	kIOGDbgLidOpen                      = 0x00000001,
 	kIOGDbgVBLThrottle                  = 0x00000002,
@@ -232,10 +236,8 @@ enum {
     kIOGDbgNoClamshellOffline           = 0x00000200,
     kIOGDbgNoWaitQuietController        = 0x00000400,
     kIOGDbgRemoveShutdownProtection     = 0x00000800,
-    kIOGDbgDisableProbeAfterOpen        = 0x00001000,
 
     kIOGDbgEnableAutomatedTestSupport   = 0x00010000,
-    kIOGDbgEnableGMetrics               = 0x40000000,
     kIOGDbgClamshellInjectionEnabled    = 0x80000000,
 };
 

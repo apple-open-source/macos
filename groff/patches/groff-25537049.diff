@@ -1,0 +1,39 @@
+diff -urp groff.orig/groff/src/devices/grohtml/post-html.cpp groff.fixed/groff/src/devices/grohtml/post-html.cpp
+--- src/devices/grohtml/post-html.cpp	2005-05-26 06:37:18.000000000 -0700
++++ src/devices/grohtml/post-html.cpp	2018-10-24 13:10:56.000000000 -0700
+@@ -1587,7 +1587,7 @@ void header_desc::write_headings (FILE *
+ 
+ 	  buffer += as_string(h);
+ 	  buffer += '\0';
+-	  fprintf(f, buffer.contents());
++	  fprintf(f, "%s", buffer.contents());
+ 	} else
+ 	  fputs(g->text_string, f);
+ 	h++;
+diff -urp groff.orig/groff/src/roff/troff/node.cpp groff.fixed/groff/src/roff/troff/node.cpp
+--- src/roff/troff/node.cpp	2018-10-24 13:09:01.000000000 -0700
++++ src/roff/troff/node.cpp	2018-10-24 13:10:25.000000000 -0700
+@@ -2157,7 +2157,7 @@ void glyph_node::debug_node()
+   if (c)
+     fprintf(stderr, "%c", c);
+   else
+-    fprintf(stderr, ci->nm.contents());
++    fprintf(stderr, "%s", ci->nm.contents());
+   if (push_state)
+     fprintf(stderr, " <push_state>");
+   if (state)
+diff -urp groff.orig/groff/src/utils/hpftodit/hpftodit.cpp groff.fixed/groff/src/utils/hpftodit/hpftodit.cpp
+--- src/utils/hpftodit/hpftodit.cpp	2005-05-26 06:37:21.000000000 -0700
++++ src/utils/hpftodit/hpftodit.cpp	2018-10-24 13:11:42.000000000 -0700
+@@ -870,9 +870,9 @@ output_charset(const int tfm_type)
+       else if (!all_flag)
+ 	continue;
+       else if (tfm_type == MSL)
+-	printf(hp_msl_to_ucode_name(charcode));
++	printf("%s", hp_msl_to_ucode_name(charcode));
+       else
+-	printf(unicode_to_ucode_name(charcode));
++	printf("%s", unicode_to_ucode_name(charcode));
+ 
+       printf("\t%d,%d",
+ 	     scale(char_table[i].width), scale(char_table[i].ascent));

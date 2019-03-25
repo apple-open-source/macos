@@ -43,19 +43,15 @@
 #import <MobileCoreServices/UTCoreTypes.h>
 #import <WebCore/FloatRect.h>
 #import <WebCore/LocalizedStrings.h>
-#import <WebCore/WebCoreNSURLExtras.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/Vector.h>
 #import <wtf/WeakObjCPtr.h>
+#import <wtf/cocoa/NSURLExtras.h>
 
 // All of UIPDFPage* are deprecated, so just ignore deprecated declarations
 // in this file until we switch off them.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-
-using namespace WebCore;
-using namespace WebKit;
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 
 const CGFloat pdfPageMargin = 8;
 const CGFloat pdfMinimumZoomScale = 1;
@@ -730,7 +726,7 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions options)
     RetainPtr<WKWebView> retainedWebView = _webView;
 
     [self _highlightLinkAnnotation:linkAnnotation forDuration:.2 completionHandler:^{
-        retainedWebView->_page->navigateToPDFLinkWithSimulatedClick([url absoluteString], roundedIntPoint(documentPoint), roundedIntPoint(screenPoint));
+        retainedWebView->_page->navigateToPDFLinkWithSimulatedClick([url absoluteString], WebCore::roundedIntPoint(documentPoint), WebCore::roundedIntPoint(screenPoint));
     }];
 }
 
@@ -744,10 +740,10 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions options)
     if (!url)
         return;
 
-    _positionInformation.request.point = roundedIntPoint([controller.pageView convertPoint:point toView:self]);
+    _positionInformation.request.point = WebCore::roundedIntPoint([controller.pageView convertPoint:point toView:self]);
 
     _positionInformation.url = url;
-    _positionInformation.bounds = roundedIntRect([self convertRect:[controller.pageView convertRectFromPDFPageSpace:annotation.Rect] fromView:controller.pageView]);
+    _positionInformation.bounds = WebCore::roundedIntRect([self convertRect:[controller.pageView convertRectFromPDFPageSpace:annotation.Rect] fromView:controller.pageView]);
 
     [self _highlightLinkAnnotation:linkAnnotation forDuration:.75 completionHandler:^{
         [_actionSheetAssistant showLinkSheet];
@@ -756,7 +752,7 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions options)
 
 #pragma mark WKActionSheetAssistantDelegate
 
-- (std::optional<WebKit::InteractionInformationAtPosition>)positionInformationForActionSheetAssistant:(WKActionSheetAssistant *)assistant
+- (Optional<WebKit::InteractionInformationAtPosition>)positionInformationForActionSheetAssistant:(WKActionSheetAssistant *)assistant
 {
     return _positionInformation;
 }
@@ -777,13 +773,13 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions options)
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant openElementAtLocation:(CGPoint)location
 {
     CGPoint screenPoint = [self.window convertPoint:[self convertPoint:location toView:nil] toWindow:nil];
-    _webView->_page->navigateToPDFLinkWithSimulatedClick(_positionInformation.url, roundedIntPoint(location), roundedIntPoint(screenPoint));
+    _webView->_page->navigateToPDFLinkWithSimulatedClick(_positionInformation.url, WebCore::roundedIntPoint(location), WebCore::roundedIntPoint(screenPoint));
 }
 
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant shareElementWithURL:(NSURL *)url rect:(CGRect)boundingRect
 {
     _webSelectionAssistant = adoptNS([[UIWKSelectionAssistant alloc] initWithView:self]);
-    [_webSelectionAssistant showShareSheetFor:userVisibleString(url) fromRect:boundingRect];
+    [_webSelectionAssistant showShareSheetFor:WTF::userVisibleString(url) fromRect:boundingRect];
     _webSelectionAssistant = nil;
 }
 
@@ -860,6 +856,6 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions options)
 
 #endif // !PLATFORM(IOSMAC)
 
-#pragma clang diagnostic pop
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 #endif // ENABLE(WKLEGACYPDFVIEW)

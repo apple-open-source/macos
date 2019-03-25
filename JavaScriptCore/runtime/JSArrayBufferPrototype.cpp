@@ -43,25 +43,20 @@ static EncodedJSValue JSC_HOST_CALL arrayBufferProtoFuncSlice(ExecState* exec)
     JSFunction* callee = jsCast<JSFunction*>(exec->jsCallee());
     
     JSArrayBuffer* thisObject = jsDynamicCast<JSArrayBuffer*>(vm, exec->thisValue());
-    if (!thisObject)
-        return throwVMTypeError(exec, scope, "Receiver of slice must be an array buffer."_s);
-    
-    if (!exec->argumentCount())
-        return throwVMTypeError(exec, scope, "Slice requires at least one argument."_s);
-    
-    int32_t begin = exec->argument(0).toInt32(exec);
+    if (!thisObject || thisObject->impl()->isShared())
+        return throwVMTypeError(exec, scope, "Receiver of slice must be an ArrayBuffer."_s);
+
+    double begin = exec->argument(0).toInteger(exec);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
     
-    int32_t end;
-    if (exec->argumentCount() >= 2) {
-        end = exec->uncheckedArgument(1).toInt32(exec);
+    double end;
+    if (!exec->argument(1).isUndefined()) {
+        end = exec->uncheckedArgument(1).toInteger(exec);
         RETURN_IF_EXCEPTION(scope, encodedJSValue());
     } else
         end = thisObject->impl()->byteLength();
     
-    RefPtr<ArrayBuffer> newBuffer = thisObject->impl()->slice(begin, end);
-    if (!newBuffer)
-        return JSValue::encode(throwOutOfMemoryError(exec, scope));
+    auto newBuffer = thisObject->impl()->slice(begin, end);
     
     Structure* structure = callee->globalObject(vm)->arrayBufferStructure(newBuffer->sharingMode());
     
@@ -85,9 +80,7 @@ static EncodedJSValue JSC_HOST_CALL arrayBufferProtoGetterFuncByteLength(ExecSta
     if (thisObject->isShared())
         return throwVMTypeError(exec, scope, "Receiver should not be a shared array buffer"_s);
 
-    scope.release();
-
-    return JSValue::encode(jsNumber(thisObject->impl()->byteLength()));
+    RELEASE_AND_RETURN(scope, JSValue::encode(jsNumber(thisObject->impl()->byteLength())));
 }
 
 // http://tc39.github.io/ecmascript_sharedmem/shmem.html#StructuredData.SharedArrayBuffer.prototype.get_byteLength
@@ -105,9 +98,7 @@ static EncodedJSValue JSC_HOST_CALL sharedArrayBufferProtoGetterFuncByteLength(E
     if (!thisObject->isShared())
         return throwVMTypeError(exec, scope, "Receiver should be a shared array buffer"_s);
 
-    scope.release();
-
-    return JSValue::encode(jsNumber(thisObject->impl()->byteLength()));
+    RELEASE_AND_RETURN(scope, JSValue::encode(jsNumber(thisObject->impl()->byteLength())));
 }
 
 const ClassInfo JSArrayBufferPrototype::s_info = {

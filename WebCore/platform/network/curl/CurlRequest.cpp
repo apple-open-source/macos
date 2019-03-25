@@ -38,14 +38,14 @@
 
 namespace WebCore {
 
-static void runOnMainThread(Function<void()>&& task);
-
-CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, bool shouldSuspend, bool enableMultipart)
+CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, ShouldSuspend shouldSuspend, EnableMultipart enableMultipart, CaptureNetworkLoadMetrics captureExtraMetrics, MessageQueue<Function<void()>>* messageQueue)
     : m_request(request.isolatedCopy())
     , m_client(client)
-    , m_shouldSuspend(shouldSuspend)
-    , m_enableMultipart(enableMultipart)
+    , m_shouldSuspend(shouldSuspend == ShouldSuspend::Yes)
+    , m_enableMultipart(enableMultipart == EnableMultipart::Yes)
     , m_formDataStream(m_request.httpBody())
+    , m_messageQueue(messageQueue)
+    , m_captureExtraMetrics(captureExtraMetrics == CaptureNetworkLoadMetrics::Extended)
 {
     ASSERT(isMainThread());
 }
@@ -55,6 +55,32 @@ void CurlRequest::invalidateClient()
     ASSERT(isMainThread());
 
     m_client = nullptr;
+    m_messageQueue = nullptr;
+}
+
+void CurlRequest::setAuthenticationScheme(ProtectionSpaceAuthenticationScheme scheme)
+{
+    switch (scheme) {
+    case ProtectionSpaceAuthenticationSchemeHTTPBasic:
+        m_authType = CURLAUTH_BASIC;
+        break;
+
+    case ProtectionSpaceAuthenticationSchemeHTTPDigest:
+        m_authType = CURLAUTH_DIGEST;
+        break;
+
+    case ProtectionSpaceAuthenticationSchemeNTLM:
+        m_authType = CURLAUTH_NTLM;
+        break;
+
+    case ProtectionSpaceAuthenticationSchemeNegotiate:
+        m_authType = CURLAUTH_NEGOTIATE;
+        break;
+
+    default:
+        m_authType = CURLAUTH_ANY;
+        break;
+    }
 }
 
 void CurlRequest::setUserPass(const String& user, const String& password)
@@ -65,7 +91,7 @@ void CurlRequest::setUserPass(const String& user, const String& password)
     m_password = password.isolatedCopy();
 }
 
-void CurlRequest::start(bool isSyncRequest)
+void CurlRequest::start()
 {
     // The pausing of transfer does not work with protocols, like file://.
     // Therefore, PAUSE can not be done in didReceiveData().
@@ -78,28 +104,15 @@ void CurlRequest::start(bool isSyncRequest)
 
     ASSERT(isMainThread());
 
-    m_isSyncRequest = isSyncRequest;
-
     auto url = m_request.url().isolatedCopy();
 
-    if (!m_isSyncRequest) {
-        // For asynchronous, use CurlRequestScheduler. Curl processes runs on sub thread.
-        if (url.isLocalFile())
-            invokeDidReceiveResponseForFile(url);
-        else
-            startWithJobManager();
-    } else {
-        // For synchronous, does not use CurlRequestScheduler. Curl processes runs on main thread.
-        // curl_easy_perform blocks until the transfer is finished.
-        retain();
-        if (url.isLocalFile())
-            invokeDidReceiveResponseForFile(url);
+    if (std::isnan(m_requestStartTime))
+        m_requestStartTime = MonotonicTime::now();
 
-        setupTransfer();
-        CURLcode resultCode = m_curlHandle->perform();
-        didCompleteTransfer(resultCode);
-        release();
-    }
+    if (url.isLocalFile())
+        invokeDidReceiveResponseForFile(url);
+    else
+        startWithJobManager();
 }
 
 void CurlRequest::startWithJobManager()
@@ -118,19 +131,14 @@ void CurlRequest::cancel()
 
     m_cancelled = true;
 
-    if (!m_isSyncRequest) {
-        auto& scheduler = CurlContext::singleton().scheduler();
+    auto& scheduler = CurlContext::singleton().scheduler();
 
-        if (needToInvokeDidCancelTransfer()) {
-            runOnWorkerThreadIfRequired([this, protectedThis = makeRef(*this)]() {
-                didCancelTransfer();
-            });
-        } else
-            scheduler.cancel(this);
-    } else {
-        if (needToInvokeDidCancelTransfer())
+    if (needToInvokeDidCancelTransfer()) {
+        runOnWorkerThreadIfRequired([this, protectedThis = makeRef(*this)]() {
             didCancelTransfer();
-    }
+        });
+    } else
+        scheduler.cancel(this);
 
     invalidateClient();
 }
@@ -158,9 +166,11 @@ void CurlRequest::callClient(Function<void(CurlRequest&, CurlRequestClient&)>&& 
     });
 }
 
-static void runOnMainThread(Function<void()>&& task)
+void CurlRequest::runOnMainThread(Function<void()>&& task)
 {
-    if (isMainThread())
+    if (m_messageQueue)
+        m_messageQueue->append(std::make_unique<Function<void()>>(WTFMove(task)));
+    else if (isMainThread())
         task();
     else
         callOnMainThread(WTFMove(task));
@@ -168,7 +178,7 @@ static void runOnMainThread(Function<void()>&& task)
 
 void CurlRequest::runOnWorkerThreadIfRequired(Function<void()>&& task)
 {
-    if (isMainThread() && !m_isSyncRequest)
+    if (isMainThread())
         CurlContext::singleton().scheduler().callOnWorkerThread(WTFMove(task));
     else
         task();
@@ -202,19 +212,34 @@ CURL* CurlRequest::setupTransfer()
     }
 
     if (!m_user.isEmpty() || !m_password.isEmpty()) {
-        m_curlHandle->enableHttpAuthentication(CURLAUTH_ANY);
-        m_curlHandle->setHttpAuthUserPass(m_user, m_password);
+        m_curlHandle->setHttpAuthUserPass(m_user, m_password, m_authType);
     }
 
     m_curlHandle->setHeaderCallbackFunction(didReceiveHeaderCallback, this);
     m_curlHandle->setWriteCallbackFunction(didReceiveDataCallback, this);
 
-    m_curlHandle->setTimeout(Seconds(m_request.timeoutInterval()));
+    m_curlHandle->setTimeout(timeoutInterval());
 
     if (m_shouldSuspend)
         setRequestPaused(true);
 
+    m_performStartTime = MonotonicTime::now();
+
     return m_curlHandle->handle();
+}
+
+Seconds CurlRequest::timeoutInterval() const
+{
+    // Request specific timeout interval.
+    if (m_request.timeoutInterval())
+        return Seconds { m_request.timeoutInterval() };
+
+    // Default timeout interval set by application.
+    if (m_request.defaultTimeoutInterval())
+        return Seconds { m_request.defaultTimeoutInterval() };
+
+    // Use platform default timeout interval.
+    return CurlContext::singleton().defaultTimeoutInterval();
 }
 
 // This is called to obtain HTTP POST or PUT data.
@@ -306,8 +331,7 @@ size_t CurlRequest::didReceiveHeader(String&& header)
     if (auto version = m_curlHandle->getHttpVersion())
         m_response.httpVersion = *version;
 
-    if (auto metrics = m_curlHandle->getNetworkLoadMetrics())
-        m_networkLoadMetrics = *metrics;
+    updateNetworkLoadMetrics();
 
     if (m_response.availableProxyAuth)
         CurlContext::singleton().setProxyAuthMethod(m_response.availableProxyAuth);
@@ -332,22 +356,17 @@ size_t CurlRequest::didReceiveData(Ref<SharedBuffer>&& buffer)
         return 0;
 
     if (needToInvokeDidReceiveResponse()) {
-        if (!m_isSyncRequest) {
-            // For asynchronous, pause until completeDidReceiveResponse() is called.
-            setCallbackPaused(true);
-            invokeDidReceiveResponse(m_response, Action::ReceiveData);
-            // Because libcurl pauses the handle after returning this CURL_WRITEFUNC_PAUSE,
-            // we need to update its state here.
-            updateHandlePauseState(true);
-            return CURL_WRITEFUNC_PAUSE;
-        }
-
-        // For synchronous, completeDidReceiveResponse() is called in invokeDidReceiveResponse().
-        // In this case, pause is unnecessary.
-        invokeDidReceiveResponse(m_response, Action::None);
+        // Pause until completeDidReceiveResponse() is called.
+        setCallbackPaused(true);
+        invokeDidReceiveResponse(m_response, Action::ReceiveData);
+        // Because libcurl pauses the handle after returning this CURL_WRITEFUNC_PAUSE,
+        // we need to update its state here.
+        updateHandlePauseState(true);
+        return CURL_WRITEFUNC_PAUSE;
     }
 
     auto receiveBytes = buffer->size();
+    m_totalReceivedSize += receiveBytes;
 
     writeDataToDownloadFileIfEnabled(buffer);
 
@@ -413,15 +432,17 @@ void CurlRequest::didCompleteTransfer(CURLcode result)
         if (m_multipartHandle)
             m_multipartHandle->didComplete();
 
-        if (auto metrics = m_curlHandle->getNetworkLoadMetrics())
-            m_networkLoadMetrics = *metrics;
+        updateNetworkLoadMetrics();
 
         finalizeTransfer();
-        callClient([](CurlRequest& request, CurlRequestClient& client) {
+        callClient([this, protectedThis = makeRef(*this)](CurlRequest& request, CurlRequestClient& client) {
+            m_networkLoadMetrics.responseEnd = MonotonicTime::now() - m_requestStartTime;
+            m_networkLoadMetrics.markComplete();
+
             client.curlDidComplete(request);
         });
     } else {
-        auto type = (result == CURLE_OPERATION_TIMEDOUT && m_request.timeoutInterval() > 0.0) ? ResourceError::Type::Timeout : ResourceError::Type::General;
+        auto type = (result == CURLE_OPERATION_TIMEDOUT && timeoutInterval()) ? ResourceError::Type::Timeout : ResourceError::Type::General;
         auto resourceError = ResourceError::httpError(result, m_request.url(), type);
         if (auto sslErrors = m_curlHandle->sslErrors())
             resourceError.setSslErrors(sslErrors);
@@ -474,6 +495,10 @@ void CurlRequest::setupPOST(ResourceRequest& request)
     m_curlHandle->enableHttpPostRequest();
 
     auto elementSize = m_formDataStream.elementSize();
+
+    if (!m_request.hasHTTPHeader(HTTPHeaderName::ContentType) && !elementSize)
+        m_curlHandle->removeRequestHeader("Content-Type"_s);
+
     if (!elementSize)
         return;
 
@@ -517,15 +542,10 @@ void CurlRequest::invokeDidReceiveResponseForFile(URL& url)
     // Determine the MIME type based on the path.
     m_response.headers.append(String("Content-Type: " + MIMETypeRegistry::getMIMETypeForPath(m_response.url.path())));
 
-    if (!m_isSyncRequest) {
-        // DidReceiveResponse must not be called immediately
-        runOnWorkerThreadIfRequired([this, protectedThis = makeRef(*this)]() {
-            invokeDidReceiveResponse(m_response, Action::StartTransfer);
-        });
-    } else {
-        // For synchronous, completeDidReceiveResponse() is called in platformContinueSynchronousDidReceiveResponse().
-        invokeDidReceiveResponse(m_response, Action::None);
-    }
+    // DidReceiveResponse must not be called immediately
+    runOnWorkerThreadIfRequired([this, protectedThis = makeRef(*this)]() {
+        invokeDidReceiveResponse(m_response, Action::StartTransfer);
+    });
 }
 
 void CurlRequest::invokeDidReceiveResponse(const CurlResponse& response, Action behaviorAfterInvoke)
@@ -561,12 +581,9 @@ void CurlRequest::completeDidReceiveResponse()
         // Start transfer for file scheme
         startWithJobManager();
     } else if (m_actionAfterInvoke == Action::FinishTransfer) {
-        if (!m_isSyncRequest) {
-            runOnWorkerThreadIfRequired([this, protectedThis = makeRef(*this), finishedResultCode = m_finishedResultCode]() {
-                didCompleteTransfer(finishedResultCode);
-            });
-        } else
-            didCompleteTransfer(m_finishedResultCode);
+        runOnWorkerThreadIfRequired([this, protectedThis = makeRef(*this), finishedResultCode = m_finishedResultCode]() {
+            didCompleteTransfer(finishedResultCode);
+        });
     }
 }
 
@@ -642,14 +659,29 @@ void CurlRequest::pausedStatusChanged()
 
 void CurlRequest::updateHandlePauseState(bool paused)
 {
-    ASSERT(!isMainThread() || m_isSyncRequest);
+    ASSERT(!isMainThread());
     m_isHandlePaused = paused;
 }
 
 bool CurlRequest::isHandlePaused() const
 {
-    ASSERT(!isMainThread() || m_isSyncRequest);
+    ASSERT(!isMainThread());
     return m_isHandlePaused;
+}
+
+void CurlRequest::updateNetworkLoadMetrics()
+{
+    auto domainLookupStart = m_performStartTime - m_requestStartTime;
+
+    if (auto metrics = m_curlHandle->getNetworkLoadMetrics(domainLookupStart)) {
+        m_networkLoadMetrics = *metrics;
+
+        if (m_captureExtraMetrics) {
+            m_curlHandle->addExtraNetworkLoadMetrics(m_networkLoadMetrics);
+            m_networkLoadMetrics.requestHeaders = m_request.httpHeaderFields();
+            m_networkLoadMetrics.responseBodyDecodedSize = m_totalReceivedSize;
+        }
+    }
 }
 
 void CurlRequest::enableDownloadToFile()

@@ -57,6 +57,12 @@ tiny_mag_get_thread_index(void)
 #endif // CONFIG_SMALL_USES_HYPER_SHIFT
 }
 
+static inline grain_t
+tiny_slot_from_msize(msize_t msize)
+{
+	return (!msize || (msize > NUM_TINY_SLOTS) ? NUM_TINY_SLOTS : msize - 1);
+}
+
 /*
  * Get the size of the previous free block, which is stored in the last two
  * bytes of the block.  If the previous block is not free, then the result is
@@ -91,11 +97,14 @@ set_tiny_meta_header_in_use(const void *ptr, msize_t msize)
 	uint32_t val = (1 << (index & 31));
 
 #if DEBUG_MALLOC
-	if (msize >= NUM_TINY_SLOTS) {
+	if (msize > NUM_TINY_SLOTS) {
 		malloc_report(ASL_LEVEL_ERR, "set_tiny_meta_header_in_use() invariant broken %p %d\n", ptr, msize);
 	}
 	if ((unsigned)index + (unsigned)msize > 0x10000) {
 		malloc_report(ASL_LEVEL_ERR, "set_tiny_meta_header_in_use() invariant broken (2) %p %d\n", ptr, msize);
+	}
+	if (msize > TINY_BITMAP_RANGE_LIMIT) {
+		malloc_report(ASL_LEVEL_ERROR, "set_tiny_meta_header_in_use() invariant broken (3) %p %d\n", ptr, msize);
 	}
 #endif
 
@@ -292,7 +301,7 @@ tiny_previous_preceding_free(void *ptr, msize_t *prev_msize)
 static void
 tiny_free_list_add_ptr(rack_t *rack, magazine_t *tiny_mag_ptr, void *ptr, msize_t msize)
 {
-	grain_t slot = (!msize || (msize >= NUM_TINY_SLOTS)) ? NUM_TINY_SLOTS - 1 : msize - 1;
+	grain_t slot = (!msize || (msize > NUM_TINY_SLOTS)) ? NUM_TINY_SLOTS : msize - 1;
 	tiny_free_list_t *free_ptr = ptr;
 	tiny_free_list_t *free_head = tiny_mag_ptr->mag_free_list[slot].p;
 
@@ -335,7 +344,7 @@ tiny_free_list_add_ptr(rack_t *rack, magazine_t *tiny_mag_ptr, void *ptr, msize_
 static void
 tiny_free_list_remove_ptr(rack_t *rack, magazine_t *tiny_mag_ptr, void *ptr, msize_t msize)
 {
-	grain_t slot = (!msize || (msize >= NUM_TINY_SLOTS)) ? NUM_TINY_SLOTS - 1 : msize - 1;
+	grain_t slot = tiny_slot_from_msize(msize);
 	tiny_free_list_t *free_ptr = ptr, *next, *previous;
 
 	next = free_list_unchecksum_ptr(rack, &free_ptr->next);
@@ -616,7 +625,7 @@ static region_t
 tiny_find_msize_region(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index, msize_t msize)
 {
 	tiny_free_list_t *ptr;
-	grain_t slot = msize - 1;
+	grain_t slot = tiny_slot_from_msize(msize);
 	free_list_t *free_list = tiny_mag_ptr->mag_free_list;
 	free_list_t *the_slot = free_list + slot;
 	free_list_t *limit;
@@ -647,7 +656,7 @@ tiny_find_msize_region(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_i
 	}
 
 	slot = BITMAPV_CTZ(bitmap);
-	limit = free_list + NUM_TINY_SLOTS - 1;
+	limit = free_list + NUM_TINY_SLOTS;
 	free_list += slot;
 
 	if (free_list < limit) {
@@ -663,7 +672,7 @@ tiny_find_msize_region(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_i
 	}
 
 	// We are now looking at the last slot, which contains blocks equal to, or
-	// due to coalescing of free blocks, larger than (NUM_TINY_SLOTS - 1) * tiny quantum size.
+	// due to coalescing of free blocks, larger than NUM_TINY_SLOTS * tiny quantum size.
 	ptr = limit->p;
 	if (ptr) {
 		return TINY_REGION_FOR_PTR(ptr);
@@ -671,6 +680,89 @@ tiny_find_msize_region(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_i
 
 	return NULL;
 }
+
+#if CONFIG_MADVISE_PRESSURE_RELIEF
+void
+tiny_madvise_pressure_relief(rack_t *rack)
+{
+	mag_index_t mag_index;
+	magazine_t *tiny_depot_ptr = (&rack->magazines[DEPOT_MAGAZINE_INDEX]);
+
+	for (mag_index = 0; mag_index < rack->num_magazines; mag_index++) {
+		size_t index;
+		for (index = 0; index < rack->region_generation->num_regions_allocated; ++index) {
+			SZONE_LOCK(TINY_SZONE_FROM_RACK(rack));
+
+			region_t tiny = rack->region_generation->hashed_regions[index];
+			if (!tiny || tiny == HASHRING_REGION_DEALLOCATED) {
+				SZONE_UNLOCK(TINY_SZONE_FROM_RACK(rack));
+				continue;
+			}
+
+			magazine_t *mag_ptr = mag_lock_zine_for_region_trailer(rack->magazines,
+					REGION_TRAILER_FOR_TINY_REGION(tiny),
+					MAGAZINE_INDEX_FOR_TINY_REGION(tiny));
+			SZONE_UNLOCK(TINY_SZONE_FROM_RACK(rack));
+
+			/* Ordering is important here, the magazine of a region may potentially change
+			 * during mag_lock_zine_for_region_trailer, so src_mag_index must be taken
+			 * after we've obtained the lock.
+			 */
+			mag_index_t src_mag_index = MAGAZINE_INDEX_FOR_TINY_REGION(tiny);
+
+			/* We can (and must) ignore magazines that are already in the recirc depot. */
+			if (src_mag_index == DEPOT_MAGAZINE_INDEX) {
+				SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
+				continue;
+			}
+
+			if (tiny == mag_ptr->mag_last_region && (mag_ptr->mag_bytes_free_at_end || mag_ptr->mag_bytes_free_at_start)) {
+				tiny_finalize_region(rack, mag_ptr);
+			}
+
+			/* Because this region is currently in use, we can't safely madvise it while
+			 * it's attached to the magazine. For this operation we have to remove it from
+			 * the current mag, attach it to the depot and then madvise.
+			 */
+
+			recirc_list_extract(rack, mag_ptr, REGION_TRAILER_FOR_TINY_REGION(tiny));
+			int objects_in_use = tiny_free_detach_region(rack, mag_ptr, tiny);
+
+			SZONE_MAGAZINE_PTR_LOCK(tiny_depot_ptr);
+			MAGAZINE_INDEX_FOR_TINY_REGION(tiny) = DEPOT_MAGAZINE_INDEX;
+			REGION_TRAILER_FOR_TINY_REGION(tiny)->pinned_to_depot = 0;
+
+			size_t bytes_inplay = tiny_free_reattach_region(rack, tiny_depot_ptr, tiny);
+
+			/* Fix up the metadata of the target magazine while the region is in the depot. */
+			mag_ptr->mag_num_bytes_in_objects -= bytes_inplay;
+			mag_ptr->num_bytes_in_magazine -= TINY_REGION_PAYLOAD_BYTES;
+			mag_ptr->mag_num_objects -= objects_in_use;
+
+			/* Now we can drop the magazine lock of the source mag. */
+			SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
+
+			tiny_depot_ptr->mag_num_bytes_in_objects += bytes_inplay;
+			tiny_depot_ptr->num_bytes_in_magazine += TINY_REGION_PAYLOAD_BYTES;
+			tiny_depot_ptr->mag_num_objects -= objects_in_use;
+
+			recirc_list_splice_last(rack, tiny_depot_ptr, REGION_TRAILER_FOR_TINY_REGION(tiny));
+
+			/* Actually do the scan, done holding the depot lock, the call will drop the lock
+			 * around the actual madvise syscalls.
+			 */
+			tiny_free_scan_madvise_free(rack, tiny_depot_ptr, tiny);
+
+			/* Now the region is in the recirc depot, the next allocations to require more
+			 * blocks will come along and take one of these regions back out of the depot.
+			 * As OS X madvise's reuse on an per-region basis, we leave as many of these
+			 * regions in the depot as possible after memory pressure.
+			 */
+			SZONE_MAGAZINE_PTR_UNLOCK(tiny_depot_ptr);
+		}
+	}
+}
+#endif // CONFIG_MADVISE_PRESSURE_RELIEF
 
 static MALLOC_INLINE void
 tiny_madvise_free_range_no_lock(rack_t *rack,
@@ -1033,9 +1125,9 @@ tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index,
 #endif
 		// If we are coalescing with the next block, and the next block is in
 		// the last slot of the free list, then we optimize this case here to
-		// avoid removing next_block from the slot (NUM_TINY_SLOTS - 1) and then adding ptr back
-		// to slot (NUM_TINY_SLOTS - 1).
-		if (next_msize >= NUM_TINY_SLOTS) {
+		// avoid removing next_block from the slot NUM_TINY_SLOTS and then adding ptr back
+		// to slot NUM_TINY_SLOTS.
+		if (next_msize > NUM_TINY_SLOTS) {
 			msize += next_msize;
 
 			big_free_block = (tiny_free_list_t *)next_block;
@@ -1043,7 +1135,7 @@ tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index,
 			before_next_block = free_list_unchecksum_ptr(rack, &big_free_block->previous);
 
 			if (!before_next_block) {
-				tiny_mag_ptr->mag_free_list[NUM_TINY_SLOTS - 1].p = ptr;
+				tiny_mag_ptr->mag_free_list[NUM_TINY_SLOTS].p = ptr;
 			} else {
 				before_next_block->next.u = free_list_checksum_ptr(rack, ptr);
 			}
@@ -1487,10 +1579,10 @@ tiny_check_region(rack_t *rack, region_t region, size_t region_index,
 
 		if (!is_free) {
 			/*
-			 * In use blocks cannot be more than (NUM_TINY_SLOTS - 1) quanta large.
+			 * In use blocks cannot be more than NUM_TINY_SLOTS quanta large.
 			 */
 			prev_free = 0;
-			if (msize > (NUM_TINY_SLOTS - 1)) {
+			if (msize > NUM_TINY_SLOTS) {
 				TINY_CHECK_FAIL("*** invariant broken for %p this tiny msize=%d - size is too large\n", (void *)ptr, msize);
 				return 0;
 			}
@@ -1719,7 +1811,7 @@ tiny_malloc_from_free_list(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 {
 	tiny_free_list_t *ptr;
 	msize_t this_msize;
-	grain_t slot = msize - 1;
+	grain_t slot = tiny_slot_from_msize(msize);
 	free_list_t *free_list = tiny_mag_ptr->mag_free_list;
 	free_list_t *the_slot = free_list + slot;
 	tiny_free_list_t *next;
@@ -1768,7 +1860,7 @@ tiny_malloc_from_free_list(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 	}
 
 	slot = BITMAPV_CTZ(bitmap);
-	limit = free_list + NUM_TINY_SLOTS - 1;
+	limit = free_list + NUM_TINY_SLOTS;
 	free_list += slot;
 
 	if (free_list < limit) {
@@ -1790,14 +1882,14 @@ tiny_malloc_from_free_list(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 	}
 
 	// We are now looking at the last slot, which contains blocks equal to, or
-	// due to coalescing of free blocks, larger than (NUM_TINY_SLOTS - 1) * tiny quantum size.
+	// due to coalescing of free blocks, larger than NUM_TINY_SLOTS * tiny quantum size.
 	// If the last freelist is not empty, and the head contains a block that is
 	// larger than our request, then the remainder is put back on the free list.
 	ptr = limit->p;
 	if (ptr) {
 		this_msize = get_tiny_free_size(ptr);
 		next = free_list_unchecksum_ptr(rack, &ptr->next);
-		if (this_msize - msize >= NUM_TINY_SLOTS) {
+		if (this_msize - msize > NUM_TINY_SLOTS) {
 			// the leftover will go back to the free list, so we optimize by
 			// modifying the free list rather than a pop and push of the head
 			leftover_msize = this_msize - msize;
@@ -2269,7 +2361,7 @@ print_tiny_free_list(rack_t *rack)
 			while (slot < NUM_TINY_SLOTS) {
 				ptr = rack->magazines[mag_index].mag_free_list[slot].p;
 				if (ptr) {
-					_simple_sprintf(b, "%s%y[%d]; ", (slot == NUM_TINY_SLOTS - 1) ? ">=" : "", (slot + 1) * TINY_QUANTUM,
+					_simple_sprintf(b, "%s%y[%d]; ", (slot == NUM_TINY_SLOTS) ? ">=" : "", (slot + 1) * TINY_QUANTUM,
 									free_list_count(rack, (free_list_t){ .p = ptr }));
 				}
 				slot++;

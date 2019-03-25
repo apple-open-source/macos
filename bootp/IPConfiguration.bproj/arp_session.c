@@ -332,12 +332,12 @@ arp_client_close_fd(arp_client_t * client)
 	return;
     }
     if_session->read_fd_refcount--;
-    my_log(LOG_INFO, "arp_client_close_fd(%s): bpf open fd count is %d",
+    my_log(LOG_DEBUG, "arp_client_close_fd(%s): bpf open fd count is %d",
 	   if_name(if_session->if_p), if_session->read_fd_refcount);
     client->fd_open = FALSE;
     if (if_session->read_fd_refcount == 0) {
 	if (if_session->read_fd != NULL) {
-	    my_log(LOG_INFO, "arp_client_close_fd(%s): closing bpf fd %d",
+	    my_log(LOG_DEBUG, "arp_client_close_fd(%s): closing bpf fd %d",
 		   if_name(if_session->if_p),
 		   FDCalloutGetFD(if_session->read_fd));
 	    /* this closes the file descriptor */
@@ -755,7 +755,7 @@ arp_client_open_fd(arp_client_t * client)
 	return (TRUE);
     }
     if_session->read_fd_refcount++;
-    my_log(LOG_INFO, "arp_client_open_fd (%s): refcount %d", 
+    my_log(LOG_DEBUG, "arp_client_open_fd (%s): refcount %d", 
 	   if_name(if_session->if_p), if_session->read_fd_refcount);
     client->fd_open = TRUE;
     if (if_session->read_fd_refcount > 1) {
@@ -833,7 +833,7 @@ arp_client_open_fd(arp_client_t * client)
     if (if_session->read_fd == NULL) {
 	goto failed;
     }
-    my_log(LOG_INFO, "arp_client_open_fd (%s): opened bpf fd %d",
+    my_log(LOG_DEBUG, "arp_client_open_fd (%s): opened bpf fd %d",
 	   if_name(if_session->if_p), bpf_fd);
     return (TRUE);
 
@@ -1780,6 +1780,7 @@ arp_session_log(int priority, const char * message, ...)
     fprintf(stderr, "%ld.%06d ", delta.tv_sec, delta.tv_usec);
     va_start(ap, message);
     vfprintf(stderr, message, ap);
+    va_end(ap);
     fprintf(stderr, "\n");
     fflush(stderr);
     return;

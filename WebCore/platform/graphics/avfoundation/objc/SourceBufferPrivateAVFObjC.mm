@@ -30,6 +30,7 @@
 
 #import "AVAssetTrackUtilities.h"
 #import "AudioTrackPrivateMediaSourceAVFObjC.h"
+#import "CDMFairPlayStreaming.h"
 #import "CDMInstanceFairPlayStreamingAVFObjC.h"
 #import "CDMSessionAVContentKeySession.h"
 #import "CDMSessionMediaSourceAVFObjC.h"
@@ -56,6 +57,7 @@
 #import <wtf/HashCountedSet.h>
 #import <wtf/MainThread.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/WTFSemaphore.h>
 #import <wtf/WeakPtr.h>
 #import <wtf/text/AtomicString.h>
 #import <wtf/text/CString.h>
@@ -68,11 +70,9 @@ SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
 
 SOFT_LINK_CLASS(AVFoundation, AVAssetTrack)
 SOFT_LINK_CLASS(AVFoundation, AVStreamDataParser)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
 SOFT_LINK_CLASS(AVFoundation, AVSampleBufferAudioRenderer)
-#pragma clang diagnostic pop
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 SOFT_LINK_CLASS(AVFoundation, AVSampleBufferDisplayLayer)
 SOFT_LINK_CLASS(AVFoundation, AVStreamSession)
 
@@ -102,11 +102,11 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSampleBufferDisplayLayerFailedToDecodeNotific
 
 @interface WebAVStreamDataParserListener : NSObject<AVStreamDataParserOutputHandling> {
     WeakPtr<WebCore::SourceBufferPrivateAVFObjC> _parent;
-    OSObjectPtr<dispatch_semaphore_t> _abortSemaphore;
+    Box<Semaphore> _abortSemaphore;
     AVStreamDataParser* _parser;
 }
 @property (assign) WeakPtr<WebCore::SourceBufferPrivateAVFObjC> parent;
-@property (assign) OSObjectPtr<dispatch_semaphore_t> abortSemaphore;
+@property (assign) Box<Semaphore> abortSemaphore;
 - (id)initWithParser:(AVStreamDataParser*)parser parent:(WeakPtr<WebCore::SourceBufferPrivateAVFObjC>)parent;
 @end
 
@@ -194,46 +194,50 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSampleBufferDisplayLayerFailedToDecodeNotific
     });
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (void)streamDataParserWillProvideContentKeyRequestInitializationData:(AVStreamDataParser *)streamDataParser forTrackID:(CMPersistentTrackID)trackID
+IGNORE_WARNINGS_END
 {
     ASSERT_UNUSED(streamDataParser, streamDataParser == _parser);
 
     // We must call synchronously to the main thread, as the AVStreamSession must be associated
     // with the streamDataParser before the delegate method returns.
-    OSObjectPtr<dispatch_semaphore_t> respondedSemaphore = adoptOSObject(dispatch_semaphore_create(0));
+    Box<BinarySemaphore> respondedSemaphore = Box<BinarySemaphore>::create();
     callOnMainThread([parent = _parent, trackID, respondedSemaphore]() {
         if (parent)
             parent->willProvideContentKeyRequestInitializationDataForTrackID(trackID);
-        dispatch_semaphore_signal(respondedSemaphore.get());
+        respondedSemaphore->signal();
     });
 
     while (true) {
-        if (!dispatch_semaphore_wait(respondedSemaphore.get(), dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC * 100)))
+        if (respondedSemaphore->waitFor(100_ms))
             return;
 
-        if (!dispatch_semaphore_wait(_abortSemaphore.get(), dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC * 100))) {
-            dispatch_semaphore_signal(_abortSemaphore.get());
+        if (_abortSemaphore->waitFor(100_ms)) {
+            _abortSemaphore->signal();
             return;
         }
     }
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (void)streamDataParser:(AVStreamDataParser *)streamDataParser didProvideContentKeyRequestInitializationData:(NSData *)initData forTrackID:(CMPersistentTrackID)trackID
+IGNORE_WARNINGS_END
 {
     ASSERT_UNUSED(streamDataParser, streamDataParser == _parser);
 
-    OSObjectPtr<dispatch_semaphore_t> hasSessionSemaphore = adoptOSObject(dispatch_semaphore_create(0));
+    Box<BinarySemaphore> hasSessionSemaphore = Box<BinarySemaphore>::create();
     callOnMainThread([parent = _parent, protectedInitData = RetainPtr<NSData>(initData), trackID, hasSessionSemaphore] {
         if (parent)
             parent->didProvideContentKeyRequestInitializationDataForTrackID(protectedInitData.get(), trackID, hasSessionSemaphore);
     });
 
     while (true) {
-        if (!dispatch_semaphore_wait(hasSessionSemaphore.get(), dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC * 100)))
+        if (hasSessionSemaphore->waitFor(100_ms))
             return;
 
-        if (!dispatch_semaphore_wait(_abortSemaphore.get(), dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC * 100))) {
-            dispatch_semaphore_signal(_abortSemaphore.get());
+        if (_abortSemaphore->waitFor(100_ms)) {
+            _abortSemaphore->signal();
             return;
         }
     }
@@ -243,23 +247,19 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSampleBufferDisplayLayerFailedToDecodeNotific
 @interface WebAVSampleBufferErrorListener : NSObject {
     WeakPtr<WebCore::SourceBufferPrivateAVFObjC> _parent;
     Vector<RetainPtr<AVSampleBufferDisplayLayer>> _layers;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     Vector<RetainPtr<AVSampleBufferAudioRenderer>> _renderers;
-#pragma clang diagnostic pop
+    ALLOW_NEW_API_WITHOUT_GUARDS_END
 }
 
 - (id)initWithParent:(WeakPtr<WebCore::SourceBufferPrivateAVFObjC>&&)parent;
 - (void)invalidate;
 - (void)beginObservingLayer:(AVSampleBufferDisplayLayer *)layer;
 - (void)stopObservingLayer:(AVSampleBufferDisplayLayer *)layer;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
 - (void)beginObservingRenderer:(AVSampleBufferAudioRenderer *)renderer;
 - (void)stopObservingRenderer:(AVSampleBufferAudioRenderer *)renderer;
-#pragma clang diagnostic pop
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 @end
 
 @implementation WebAVSampleBufferErrorListener
@@ -322,12 +322,10 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSampleBufferDisplayLayerFailedToDecodeNotific
     [[NSNotificationCenter defaultCenter] removeObserver:self name:AVSampleBufferDisplayLayerFailedToDecodeNotification object:layer];
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
 - (void)beginObservingRenderer:(AVSampleBufferAudioRenderer*)renderer
 {
-#pragma clang diagnostic pop
+ALLOW_NEW_API_WITHOUT_GUARDS_END
     ASSERT(_parent);
     ASSERT(!_renderers.contains(renderer));
 
@@ -335,11 +333,9 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSampleBufferDisplayLayerFailedToDecodeNotific
     [renderer addObserver:self forKeyPath:@"error" options:NSKeyValueObservingOptionNew context:nullptr];
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
 - (void)stopObservingRenderer:(AVSampleBufferAudioRenderer*)renderer
-#pragma clang diagnostic pop
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 {
     ASSERT(_parent);
     ASSERT(_renderers.contains(renderer));
@@ -373,11 +369,9 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSampleBufferDisplayLayerFailedToDecodeNotific
             ASSERT_NOT_REACHED();
 
     } else if ([object isKindOfClass:getAVSampleBufferAudioRendererClass()]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+        ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
         RetainPtr<AVSampleBufferAudioRenderer> renderer = (AVSampleBufferAudioRenderer *)object;
-#pragma clang diagnostic pop
+        ALLOW_NEW_API_WITHOUT_GUARDS_END
         RetainPtr<NSError> error = [change valueForKey:NSKeyValueChangeNewKey];
 
         ASSERT(_renderers.contains(renderer.get()));
@@ -436,7 +430,7 @@ using namespace PAL;
 
 class MediaDescriptionAVFObjC final : public MediaDescription {
 public:
-    static RefPtr<MediaDescriptionAVFObjC> create(AVAssetTrack* track) { return adoptRef(new MediaDescriptionAVFObjC(track)); }
+    static Ref<MediaDescriptionAVFObjC> create(AVAssetTrack* track) { return adoptRef(*new MediaDescriptionAVFObjC(track)); }
     virtual ~MediaDescriptionAVFObjC() { }
 
     AtomicString codec() const override { return m_codec; }
@@ -490,9 +484,9 @@ static void bufferWasConsumedCallback(CMNotificationCenterRef, const void*, CFSt
         sourceBuffer->bufferWasConsumed();
 }
 
-RefPtr<SourceBufferPrivateAVFObjC> SourceBufferPrivateAVFObjC::create(MediaSourcePrivateAVFObjC* parent)
+Ref<SourceBufferPrivateAVFObjC> SourceBufferPrivateAVFObjC::create(MediaSourcePrivateAVFObjC* parent)
 {
-    return adoptRef(new SourceBufferPrivateAVFObjC(parent));
+    return adoptRef(*new SourceBufferPrivateAVFObjC(parent));
 }
 
 SourceBufferPrivateAVFObjC::SourceBufferPrivateAVFObjC(MediaSourcePrivateAVFObjC* parent)
@@ -503,7 +497,7 @@ SourceBufferPrivateAVFObjC::SourceBufferPrivateAVFObjC(MediaSourcePrivateAVFObjC
     , m_mediaSource(parent)
 {
     CMNotificationCenterAddListener(CMNotificationCenterGetDefaultLocalCenter(), this, bufferWasConsumedCallback, kCMSampleBufferConsumerNotification_BufferConsumed, nullptr, 0);
-    m_delegate.get().abortSemaphore = adoptOSObject(dispatch_semaphore_create(0));
+    m_delegate.get().abortSemaphore = Box<Semaphore>::create(0);
 }
 
 SourceBufferPrivateAVFObjC::~SourceBufferPrivateAVFObjC()
@@ -515,7 +509,7 @@ SourceBufferPrivateAVFObjC::~SourceBufferPrivateAVFObjC()
     CMNotificationCenterRemoveListener(CMNotificationCenterGetDefaultLocalCenter(), this, bufferWasConsumedCallback, kCMSampleBufferConsumerNotification_BufferConsumed, nullptr);
 
     if (m_hasSessionSemaphore)
-        dispatch_semaphore_signal(m_hasSessionSemaphore.get());
+        m_hasSessionSemaphore->signal();
 }
 
 void SourceBufferPrivateAVFObjC::didParseStreamDataAsAsset(AVAsset* asset)
@@ -539,6 +533,8 @@ void SourceBufferPrivateAVFObjC::didParseStreamDataAsAsset(AVAsset* asset)
     m_videoTracks.clear();
     m_audioTracks.clear();
 
+    m_discardSamplesUntilNextInitializationSegment = false;
+
     SourceBufferPrivateClient::InitializationSegment segment;
 
     if ([m_asset respondsToSelector:@selector(overallDurationHint)])
@@ -555,16 +551,16 @@ void SourceBufferPrivateAVFObjC::didParseStreamDataAsAsset(AVAsset* asset)
 
         if ([track hasMediaCharacteristic:AVMediaCharacteristicVisual]) {
             SourceBufferPrivateClient::InitializationSegment::VideoTrackInformation info;
-            RefPtr<VideoTrackPrivateMediaSourceAVFObjC> videoTrack = VideoTrackPrivateMediaSourceAVFObjC::create(track, this);
-            info.track = videoTrack;
-            m_videoTracks.append(videoTrack);
+            auto videoTrack = VideoTrackPrivateMediaSourceAVFObjC::create(track, this);
+            info.track = videoTrack.copyRef();
+            m_videoTracks.append(WTFMove(videoTrack));
             info.description = MediaDescriptionAVFObjC::create(track);
             segment.videoTracks.append(info);
         } else if ([track hasMediaCharacteristic:AVMediaCharacteristicAudible]) {
             SourceBufferPrivateClient::InitializationSegment::AudioTrackInformation info;
-            RefPtr<AudioTrackPrivateMediaSourceAVFObjC> audioTrack = AudioTrackPrivateMediaSourceAVFObjC::create(track, this);
-            info.track = audioTrack;
-            m_audioTracks.append(audioTrack);
+            auto audioTrack = AudioTrackPrivateMediaSourceAVFObjC::create(track, this);
+            info.track = audioTrack.copyRef();
+            m_audioTracks.append(WTFMove(audioTrack));
             info.description = MediaDescriptionAVFObjC::create(track);
             segment.audioTracks.append(info);
         }
@@ -608,6 +604,9 @@ bool SourceBufferPrivateAVFObjC::processCodedFrame(int trackID, CMSampleBufferRe
         return false;
     }
 
+    if (m_discardSamplesUntilNextInitializationSegment)
+        return false;
+
     if (m_client) {
         Ref<MediaSample> mediaSample = MediaSampleAVFObjC::create(sampleBuffer, trackID);
         LOG(MediaSourceSamples, "SourceBufferPrivateAVFObjC::processCodedFrame(%p) - sample(%s)", this, toString(mediaSample.get()).utf8().data());
@@ -645,7 +644,7 @@ void SourceBufferPrivateAVFObjC::willProvideContentKeyRequestInitializationDataF
 #endif
 }
 
-void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataForTrackID(NSData* initData, int trackID, OSObjectPtr<dispatch_semaphore_t> hasSessionSemaphore)
+void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataForTrackID(NSData* initData, int trackID, Box<BinarySemaphore> hasSessionSemaphore)
 {
     if (!m_mediaSource)
         return;
@@ -653,24 +652,43 @@ void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataFo
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     LOG(MediaSource, "SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataForTrackID(%p) - track:%d", this, trackID);
     m_protectedTrackID = trackID;
-    RefPtr<Uint8Array> initDataArray = Uint8Array::create([initData length]);
+    auto initDataArray = Uint8Array::create([initData length]);
     [initData getBytes:initDataArray->data() length:initDataArray->length()];
-    m_mediaSource->sourceBufferKeyNeeded(this, initDataArray.get());
+    m_mediaSource->sourceBufferKeyNeeded(this, initDataArray.ptr());
     if (auto session = m_mediaSource->player()->cdmSession()) {
         session->addParser(m_parser.get());
-        dispatch_semaphore_signal(hasSessionSemaphore.get());
+        hasSessionSemaphore->signal();
     } else {
         if (m_hasSessionSemaphore)
-            dispatch_semaphore_signal(m_hasSessionSemaphore.get());
+            m_hasSessionSemaphore->signal();
         m_hasSessionSemaphore = hasSessionSemaphore;
     }
 #endif
 
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
-    if (m_mediaSource) {
-        auto initDataBuffer = SharedBuffer::create(initData);
-        m_mediaSource->player()->initializationDataEncountered("sinf", initDataBuffer->tryCreateArrayBuffer());
+    //
+    auto initDataBuffer = SharedBuffer::create(initData);
+    auto keyIDs = CDMPrivateFairPlayStreaming::extractKeyIDsSinf(initDataBuffer);
+    if (!keyIDs)
+        return;
+
+    if (m_cdmInstance) {
+        if (auto instanceSession = m_cdmInstance->sessionForKeyIDs(keyIDs.value())) {
+            [instanceSession->contentKeySession() addContentKeyRecipient:m_parser.get()];
+            if (m_hasSessionSemaphore) {
+                m_hasSessionSemaphore->signal();
+                m_hasSessionSemaphore = nullptr;
+            }
+            m_waitingForKey = false;
+            return;
+        }
     }
+
+    m_keyIDs = WTFMove(keyIDs.value());
+    m_mediaSource->player()->initializationDataEncountered("sinf", initDataBuffer->tryCreateArrayBuffer());
+
+    m_waitingForKey = true;
+    m_mediaSource->player()->waitingForKeyChanged();
 #endif
 
     UNUSED_PARAM(initData);
@@ -736,17 +754,18 @@ void SourceBufferPrivateAVFObjC::abort()
     // were asked to abort, and that cancels all outstanding append operations. Without cancelling this
     // semaphore, the m_isAppendingGroup wait operation will deadlock.
     if (m_hasSessionSemaphore)
-        dispatch_semaphore_signal(m_hasSessionSemaphore.get());
-    dispatch_semaphore_signal(m_delegate.get().abortSemaphore.get());
+        m_hasSessionSemaphore->signal();
+    m_delegate.get().abortSemaphore->signal();
     dispatch_group_wait(m_isAppendingGroup.get(), DISPATCH_TIME_FOREVER);
     m_appendWeakFactory.revokeAll();
     m_delegate.get().parent = m_appendWeakFactory.createWeakPtr(*this);
-    m_delegate.get().abortSemaphore = adoptOSObject(dispatch_semaphore_create(0));
+    m_delegate.get().abortSemaphore = Box<Semaphore>::create(0);
 }
 
 void SourceBufferPrivateAVFObjC::resetParserState()
 {
     m_parserStateWasReset = true;
+    m_discardSamplesUntilNextInitializationSegment = true;
 }
 
 void SourceBufferPrivateAVFObjC::destroyParser()
@@ -756,8 +775,10 @@ void SourceBufferPrivateAVFObjC::destroyParser()
         [m_mediaSource->player()->streamSession() removeStreamDataParser:m_parser.get()];
 #endif
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
-    if (m_cdmInstance)
-        [m_cdmInstance->contentKeySession() removeContentKeyRecipient:m_parser.get()];
+    if (m_cdmInstance) {
+        if (auto instanceSession = m_cdmInstance->sessionForKeyIDs(m_keyIDs))
+            [instanceSession->contentKeySession() removeContentKeyRecipient:m_parser.get()];
+    }
 #endif
 
     [m_delegate invalidate];
@@ -850,21 +871,17 @@ void SourceBufferPrivateAVFObjC::trackDidChangeEnabled(AudioTrackPrivateMediaSou
     int trackID = track->trackID();
 
     if (!track->enabled()) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+        ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
         RetainPtr<AVSampleBufferAudioRenderer> renderer = m_audioRenderers.get(trackID);
-#pragma clang diagnostic pop
+        ALLOW_NEW_API_WITHOUT_GUARDS_END
         [m_parser setShouldProvideMediaData:NO forTrackID:trackID];
         if (m_mediaSource)
             m_mediaSource->player()->removeAudioRenderer(renderer.get());
     } else {
         [m_parser setShouldProvideMediaData:YES forTrackID:trackID];
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+        ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
         RetainPtr<AVSampleBufferAudioRenderer> renderer;
-#pragma clang diagnostic pop
+        ALLOW_NEW_API_WITHOUT_GUARDS_END
         if (!m_audioRenderers.contains(trackID)) {
             renderer = adoptNS([allocAVSampleBufferAudioRendererInstance() init]);
             auto weakThis = createWeakPtr();
@@ -891,12 +908,12 @@ void SourceBufferPrivateAVFObjC::setCDMSession(CDMSessionMediaSourceAVFObjC* ses
     if (m_session)
         m_session->removeSourceBuffer(this);
 
-    m_session = session;
+    m_session = makeWeakPtr(session);
 
     if (m_session) {
         m_session->addSourceBuffer(this);
         if (m_hasSessionSemaphore) {
-            dispatch_semaphore_signal(m_hasSessionSemaphore.get());
+            m_hasSessionSemaphore->signal();
             m_hasSessionSemaphore = nullptr;
         }
 
@@ -920,23 +937,32 @@ void SourceBufferPrivateAVFObjC::setCDMInstance(CDMInstance* instance)
 {
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
     auto* fpsInstance = downcast<CDMInstanceFairPlayStreamingAVFObjC>(instance);
-    if (!fpsInstance || fpsInstance == m_cdmInstance)
+    if (fpsInstance == m_cdmInstance)
         return;
 
-    if (m_cdmInstance)
-        [m_cdmInstance->contentKeySession() removeContentKeyRecipient:m_parser.get()];
-
     m_cdmInstance = fpsInstance;
-
-    if (m_cdmInstance) {
-        [m_cdmInstance->contentKeySession() addContentKeyRecipient:m_parser.get()];
-        if (m_hasSessionSemaphore) {
-            dispatch_semaphore_signal(m_hasSessionSemaphore.get());
-            m_hasSessionSemaphore = nullptr;
-        }
-    }
+    attemptToDecrypt();
 #else
     UNUSED_PARAM(instance);
+#endif
+}
+
+void SourceBufferPrivateAVFObjC::attemptToDecrypt()
+{
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+    if (!m_cdmInstance || m_keyIDs.isEmpty() || !m_waitingForKey)
+        return;
+
+    auto instanceSession = m_cdmInstance->sessionForKeyIDs(m_keyIDs);
+    if (!instanceSession)
+        return;
+
+    [instanceSession->contentKeySession() addContentKeyRecipient:m_parser.get()];
+    if (m_hasSessionSemaphore) {
+        m_hasSessionSemaphore->signal();
+        m_hasSessionSemaphore = nullptr;
+    }
+    m_waitingForKey = false;
 #endif
 }
 
@@ -983,8 +1009,8 @@ void SourceBufferPrivateAVFObjC::layerDidReceiveError(AVSampleBufferDisplayLayer
 void SourceBufferPrivateAVFObjC::outputObscuredDueToInsufficientExternalProtectionChanged(bool obscured)
 {
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
-    if (m_mediaSource->player()->cdmInstance()) {
-        m_mediaSource->player()->outputObscuredDueToInsufficientExternalProtectionChanged(obscured);
+    if (m_mediaSource && m_mediaSource->cdmInstance()) {
+        m_mediaSource->outputObscuredDueToInsufficientExternalProtectionChanged(obscured);
         return;
     }
 #else
@@ -995,11 +1021,9 @@ void SourceBufferPrivateAVFObjC::outputObscuredDueToInsufficientExternalProtecti
     layerDidReceiveError(m_displayLayer.get(), error.get());
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
 void SourceBufferPrivateAVFObjC::rendererDidReceiveError(AVSampleBufferAudioRenderer *renderer, NSError *error)
-#pragma clang diagnostic pop
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 {
     LOG(MediaSource, "SourceBufferPrivateAVFObjC::rendererDidReceiveError(%p): renderer(%p), error(%@)", this, renderer, [error description]);
 
@@ -1040,7 +1064,7 @@ void SourceBufferPrivateAVFObjC::flushVideo()
         });
     }
 
-    m_cachedSize = std::nullopt;
+    m_cachedSize = WTF::nullopt;
 
     if (m_mediaSource) {
         m_mediaSource->player()->setHasAvailableVideoFrame(false);
@@ -1048,11 +1072,9 @@ void SourceBufferPrivateAVFObjC::flushVideo()
     }
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
 void SourceBufferPrivateAVFObjC::flush(AVSampleBufferAudioRenderer *renderer)
-#pragma clang diagnostic pop
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 {
     [renderer flush];
 
@@ -1137,7 +1159,7 @@ void SourceBufferPrivateAVFObjC::setActive(bool isActive)
         m_mediaSource->sourceBufferPrivateDidChangeActiveState(this, isActive);
 }
 
-MediaTime SourceBufferPrivateAVFObjC::fastSeekTimeForMediaTime(MediaTime time, MediaTime negativeThreshold, MediaTime positiveThreshold)
+MediaTime SourceBufferPrivateAVFObjC::fastSeekTimeForMediaTime(const MediaTime& time, const MediaTime& negativeThreshold, const MediaTime& positiveThreshold)
 {
     if (!m_client)
         return time;
@@ -1149,15 +1171,9 @@ void SourceBufferPrivateAVFObjC::willSeek()
     flush();
 }
 
-void SourceBufferPrivateAVFObjC::seekToTime(MediaTime time)
-{
-    if (m_client)
-        m_client->sourceBufferPrivateSeekToTime(time);
-}
-
 FloatSize SourceBufferPrivateAVFObjC::naturalSize()
 {
-    return m_cachedSize.value_or(FloatSize());
+    return m_cachedSize.valueOr(FloatSize());
 }
 
 void SourceBufferPrivateAVFObjC::didBecomeReadyForMoreSamples(int trackID)
@@ -1199,6 +1215,14 @@ void SourceBufferPrivateAVFObjC::notifyClientWhenReadyForMoreSamples(const Atomi
                 weakThis->didBecomeReadyForMoreSamples(trackID);
         }];
     }
+}
+
+bool SourceBufferPrivateAVFObjC::canSwitchToType(const ContentType& contentType)
+{
+    MediaEngineSupportParameters parameters;
+    parameters.isMediaSource = true;
+    parameters.type = contentType;
+    return MediaPlayerPrivateMediaSourceAVFObjC::supportsType(parameters) != MediaPlayer::IsNotSupported;
 }
 
 void SourceBufferPrivateAVFObjC::setVideoLayer(AVSampleBufferDisplayLayer* layer)

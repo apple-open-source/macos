@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -923,17 +923,21 @@ eapmschapv2_process(EAPClientPluginDataRef plugin,
     case kEAPCodeRequest:
 	*out_pkt_p = eapmschapv2_request(plugin, in_pkt, client_status,
 					 error);
-	break;
-    case kEAPCodeSuccess:
 	if (context->state == kMSCHAPv2ClientStateSuccess) {
 	    context->plugin_state = kEAPClientStateSuccess;
 	}
-	break;
-    case kEAPCodeFailure:
 	if (context->state == kMSCHAPv2ClientStateFailure) {
 	    context->plugin_state = kEAPClientStateFailure;
 	}
 	break;
+    case kEAPCodeSuccess:
+	    /* EAP MS-CHAP-v2 Packet Format only supports code 1/2
+	     * so we should never get a packet with code=3
+	     */
+    case kEAPCodeFailure:
+	    /* EAP MS-CHAP-v2 Packet Format only supports code 1/2
+	     * so we should never get a packet with code=4
+	     */
     case kEAPCodeResponse:
     default:
 	/* ignore */

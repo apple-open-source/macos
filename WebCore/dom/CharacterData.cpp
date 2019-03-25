@@ -96,6 +96,7 @@ unsigned CharacterData::parserAppendData(const String& string, unsigned offset, 
     if (!characterLengthLimit)
         return 0;
 
+    String oldData = m_data;
     if (string.is8Bit())
         m_data.append(string.characters8() + offset, characterLengthLimit);
     else
@@ -106,6 +107,10 @@ unsigned CharacterData::parserAppendData(const String& string, unsigned offset, 
         downcast<Text>(*this).updateRendererAfterContentChange(oldLength, 0);
 
     notifyParentAfterChange(ContainerNode::ChildChangeSource::Parser);
+
+    auto mutationRecipients = MutationObserverInterestGroup::createForCharacterDataMutation(*this);
+    if (UNLIKELY(mutationRecipients))
+        mutationRecipients->enqueueMutationRecord(MutationRecord::createCharacterData(*this, oldData));
 
     return characterLengthLimit;
 }
@@ -227,7 +232,7 @@ void CharacterData::dispatchModifiedEvent(const String& oldData)
 
     if (!isInShadowTree()) {
         if (document().hasListenerType(Document::DOMCHARACTERDATAMODIFIED_LISTENER))
-            dispatchScopedEvent(MutationEvent::create(eventNames().DOMCharacterDataModifiedEvent, true, nullptr, oldData, m_data));
+            dispatchScopedEvent(MutationEvent::create(eventNames().DOMCharacterDataModifiedEvent, Event::CanBubble::Yes, nullptr, oldData, m_data));
         dispatchSubtreeModifiedEvent();
     }
 
@@ -237,11 +242,6 @@ void CharacterData::dispatchModifiedEvent(const String& oldData)
 int CharacterData::maxCharacterOffset() const
 {
     return static_cast<int>(length());
-}
-
-bool CharacterData::offsetInCharacters() const
-{
-    return true;
 }
 
 } // namespace WebCore

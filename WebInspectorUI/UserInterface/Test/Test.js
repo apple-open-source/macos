@@ -27,6 +27,7 @@ WI.loaded = function()
 {
     // Register observers for events from the InspectorBackend.
     // The initialization order should match the same in Main.js.
+    InspectorBackend.registerTargetDispatcher(new WI.TargetObserver);
     InspectorBackend.registerInspectorDispatcher(new WI.InspectorObserver);
     InspectorBackend.registerPageDispatcher(new WI.PageObserver);
     InspectorBackend.registerConsoleDispatcher(new WI.ConsoleObserver);
@@ -44,40 +45,85 @@ WI.loaded = function()
     InspectorBackend.registerWorkerDispatcher(new WI.WorkerObserver);
     InspectorBackend.registerCanvasDispatcher(new WI.CanvasObserver);
 
-    WI.mainTarget = new WI.MainTarget;
-    WI.pageTarget = WI.sharedApp.debuggableType === WI.DebuggableType.Web ? WI.mainTarget : null;
-
     // Instantiate controllers used by tests.
-    this.targetManager = new WI.TargetManager;
-    this.frameResourceManager = new WI.FrameResourceManager;
-    this.storageManager = new WI.StorageManager;
-    this.domTreeManager = new WI.DOMTreeManager;
-    this.cssStyleManager = new WI.CSSStyleManager;
-    this.logManager = new WI.LogManager;
-    this.issueManager = new WI.IssueManager;
-    this.runtimeManager = new WI.RuntimeManager;
-    this.heapManager = new WI.HeapManager;
-    this.memoryManager = new WI.MemoryManager;
-    this.timelineManager = new WI.TimelineManager;
-    this.debuggerManager = new WI.DebuggerManager;
-    this.sourceMapManager = new WI.SourceMapManager;
-    this.layerTreeManager = new WI.LayerTreeManager;
-    this.probeManager = new WI.ProbeManager;
-    this.workerManager = new WI.WorkerManager;
-    this.domDebuggerManager = new WI.DOMDebuggerManager;
-    this.canvasManager = new WI.CanvasManager;
+    WI.managers = [
+        WI.targetManager = new WI.TargetManager,
+        WI.networkManager = new WI.NetworkManager,
+        WI.domStorageManager = new WI.DOMStorageManager,
+        WI.domManager = new WI.DOMManager,
+        WI.cssManager = new WI.CSSManager,
+        WI.consoleManager = new WI.ConsoleManager,
+        WI.runtimeManager = new WI.RuntimeManager,
+        WI.heapManager = new WI.HeapManager,
+        WI.memoryManager = new WI.MemoryManager,
+        WI.timelineManager = new WI.TimelineManager,
+        WI.auditManager = new WI.AuditManager,
+        WI.debuggerManager = new WI.DebuggerManager,
+        WI.layerTreeManager = new WI.LayerTreeManager,
+        WI.workerManager = new WI.WorkerManager,
+        WI.domDebuggerManager = new WI.DOMDebuggerManager,
+        WI.canvasManager = new WI.CanvasManager,
+    ];
 
+    // Register for events.
     document.addEventListener("DOMContentLoaded", this.contentLoaded);
 
-    // Enable agents.
-    InspectorAgent.enable();
-    ConsoleAgent.enable();
+    // Non-default global setting values for tests.
+    WI.settings.showShadowDOM.value = true;
 
-    // Perform one-time tasks.
-    WI.CSSCompletions.requestCSSCompletions();
+    // Targets.
+    WI.backendTarget = null;
+    WI.pageTarget = null;
 
-    // Global settings.
-    this.showShadowDOMSetting = new WI.Setting("show-shadow-dom", true);
+    // FIXME: Eliminate `TargetAgent.exists`.
+    TargetAgent.exists((error) => {
+        if (error)
+            WI.targetManager.createDirectBackendTarget();
+    });
+};
+
+WI.initializeBackendTarget = function(target)
+{
+    WI.backendTarget = target;
+
+    WI.resetMainExecutionContext();
+};
+
+WI.initializePageTarget = function(target)
+{
+    WI.pageTarget = target;
+
+    WI.redirectGlobalAgentsToConnection(WI.pageTarget.connection);
+
+    WI.resetMainExecutionContext();
+};
+
+WI.transitionPageTarget = function(target)
+{
+    console.error("WI.transitionPageTarget should not be reached in tests.");
+};
+
+WI.terminatePageTarget = function(target)
+{
+    console.error("WI.terminatePageTarget should not be reached in tests.");
+};
+
+WI.resetMainExecutionContext = function()
+{
+    if (WI.mainTarget instanceof WI.MultiplexingBackendTarget)
+        return;
+
+    if (WI.mainTarget.executionContext)
+        WI.runtimeManager.activeExecutionContext = WI.mainTarget.executionContext;
+};
+
+WI.redirectGlobalAgentsToConnection = function(connection)
+{
+    // This makes global window.FooAgent dispatch to the active page target.
+    for (let [domain, agent] of Object.entries(InspectorBackend._agents)) {
+        if (domain !== "Target")
+            agent.connection = connection;
+    }
 };
 
 WI.contentLoaded = function()
@@ -90,9 +136,28 @@ WI.contentLoaded = function()
     InspectorFrontendHost.loaded();
 };
 
+WI.performOneTimeFrontendInitializationsUsingTarget = function(target)
+{
+    if (!WI.__didPerformConsoleInitialization && target.ConsoleAgent) {
+        WI.__didPerformConsoleInitialization = true;
+        WI.consoleManager.initializeLogChannels(target);
+    }
+
+    // FIXME: This slows down test debug logging considerably.
+    if (!WI.__didPerformCSSInitialization && target.CSSAgent) {
+        WI.__didPerformCSSInitialization = true;
+        WI.CSSCompletions.initializeCSSCompletions(target);
+    }
+};
+
+Object.defineProperty(WI, "mainTarget",
+{
+    get() { return WI.pageTarget || WI.backendTarget; }
+});
+
 Object.defineProperty(WI, "targets",
 {
-    get() { return this.targetManager.targets; }
+    get() { return WI.targetManager.targets; }
 });
 
 WI.assumingMainTarget = () => WI.mainTarget;
@@ -100,9 +165,17 @@ WI.assumingMainTarget = () => WI.mainTarget;
 WI.isDebugUIEnabled = () => false;
 
 WI.unlocalizedString = (string) => string;
-WI.UIString = (string) => string;
+WI.UIString = (string, key, comment) => string;
 
 WI.indentString = () => "    ";
+
+WI.LayoutDirection = {
+    System: "system",
+    LTR: "ltr",
+    RTL: "rtl",
+};
+
+WI.resolvedLayoutDirection = () => { return InspectorFrontendHost.userInterfaceLayoutDirection(); }
 
 // Add stubs that are called by the frontend API.
 WI.updateDockedState = () => {};

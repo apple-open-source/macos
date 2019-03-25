@@ -58,7 +58,6 @@ public:
         Plugin64,
 #endif
         Network,
-        Storage,
     };
 
     struct LaunchOptions {
@@ -67,6 +66,7 @@ public:
         HashMap<String, String> extraInitializationData;
         bool nonValidInjectedCodeAllowed { false };
         bool shouldMakeProcessLaunchFailForTesting { false };
+        CString customWebContentServiceBundleIdentifier;
 
 #if ENABLE(DEVELOPER_MODE) && (PLATFORM(GTK) || PLATFORM(WPE))
         String processCmdPrefix;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -388,6 +388,19 @@ my_CFDictionarySetTypeAsArrayValue(CFMutableDictionaryRef dict,
 	CFDictionarySetValue(dict, prop, array);
 	CFRelease(array);
     }
+    return;
+}
+
+PRIVATE_EXTERN void
+my_CFDictionarySetIPAddressAsString(CFMutableDictionaryRef dict,
+				    CFStringRef prop,
+				    struct in_addr ip_addr)
+{
+    CFStringRef		str;
+
+    str = my_CFStringCreateWithIPAddress(ip_addr);
+    CFDictionarySetValue(dict, prop, str);
+    CFRelease(str);
     return;
 }
 

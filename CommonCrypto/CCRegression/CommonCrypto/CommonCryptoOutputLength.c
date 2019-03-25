@@ -20,7 +20,7 @@ testOutputLength(CCOperation op, CCMode mode, CCAlgorithm alg, size_t keyLength,
     size_t retval;
     CCCryptorStatus status;
     uint8_t iv[16];
-    uint8_t key[16];
+    uint8_t key[24];
     uint8_t dataIn[MAXSTART], dataOut[MAXOUT];
     size_t moved = 0;
     

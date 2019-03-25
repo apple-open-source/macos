@@ -74,7 +74,7 @@ defaultFontSize:
   onChange: setNeedsRecalcStyleInAllFrames
 defaultFixedFontSize:
   type: int
-  initial: 0
+  initial: 13
   onChange: setNeedsRecalcStyleInAllFrames
 
 editingBehaviorType:
@@ -192,8 +192,6 @@ enforceCSSMIMETypeInNoQuirksMode:
   initial: true
 usesEncodingDetector:
   initial: false
-allowScriptsToCloseWindows:
-  initial: false
 canvasUsesAcceleratedDrawing:
   initial: false
 acceleratedDrawingEnabled:
@@ -216,8 +214,6 @@ xssAuditorEnabled:
   initial: false
 acceleratedCompositingForFixedPositionEnabled:
   initial: defaultAcceleratedCompositingForFixedPositionEnabled
-acceleratedCompositingForOverflowScrollEnabled:
-  initial: false
 rubberBandingForSubScrollableRegionsEnabled:
   initial: true
   conditional: RUBBER_BANDING
@@ -227,6 +223,8 @@ experimentalNotificationsEnabled:
 webGLEnabled:
   initial: false
 webGLErrorsToConsoleEnabled:
+  initial: true
+unhandledPromiseRejectionToConsoleEnabled:
   initial: true
 forceSoftwareWebGLRendering:
   initial: false
@@ -331,6 +329,9 @@ wantsBalancedSetDefersLoadingBehavior:
 requestAnimationFrameEnabled:
   initial: true
 
+HTTPSUpgradeEnabled:
+  initial: false
+
 cookieEnabled:
   initial: true
 mediaEnabled:
@@ -346,24 +347,36 @@ windowFocusRestricted:
 
 diagnosticLoggingEnabled:
   initial: false
+
 delegatesPageScaling:
   initial: false
+
 plugInSnapshottingEnabled:
   initial: false
+
 snapshotAllPlugIns:
   initial: false
+
 autostartOriginPlugInSnapshottingEnabled:
   initial: true
+
 primaryPlugInSnapshotDetectionEnabled:
   initial: true
+
 maximumPlugInSnapshotAttempts:
   type: unsigned
   initial: 20
+
 frameFlattening:
   type: FrameFlattening
   initial: FrameFlattening::Disabled
   onChange: setNeedsRelayoutAllFrames
+
 asyncFrameScrollingEnabled:
+  initial: false
+  onChange: setNeedsRelayoutAllFrames
+
+asyncOverflowScrollingEnabled:
   initial: false
   onChange: setNeedsRelayoutAllFrames
 
@@ -393,6 +406,8 @@ smartInsertDeleteEnabled:
   initial: defaultSmartInsertDeleteEnabled
 selectTrailingWhitespaceEnabled:
   initial: defaultSelectTrailingWhitespaceEnabled
+selectionAcrossShadowBoundariesEnabled:
+  initial: true
 
 useLegacyBackgroundSizeShorthandBehavior:
   initial: false
@@ -429,6 +444,10 @@ useGiantTiles:
   initial: false
 
 mediaSourceEnabled:
+  initial: true
+  conditional: MEDIA_SOURCE
+
+sourceBufferChangeTypeEnabled:
   initial: true
   conditional: MEDIA_SOURCE
 
@@ -508,7 +527,7 @@ userInterfaceDirectionPolicy:
   initial: UserInterfaceDirectionPolicy::Content
 systemLayoutDirection:
   type: TextDirection
-  initial: LTR
+  initial: TextDirection::LTR
 
 allowContentSecurityPolicySourceStarToMatchAnyProtocol:
   initial: false
@@ -520,9 +539,6 @@ shouldConvertInvalidURLsToBlank:
   initial: true
 
 springTimingFunctionEnabled:
-  initial: false
-
-conicGradientsEnabled:
   initial: false
 
 colorFilterEnabled:
@@ -550,6 +566,9 @@ visualViewportEnabled:
   onChange: setNeedsRecalcStyleInAllFrames
 
 visualViewportAPIEnabled:
+  initial: false
+
+CSSOMViewScrollingAPIEnabled:
   initial: false
 
 inputEventsEnabled:
@@ -650,7 +669,6 @@ imagesEnabled:
 scriptEnabled:
   initial: false
   getter: isScriptEnabled
-  onChange: scriptEnabledChanged
 pluginsEnabled:
   initial: false
   getter: arePluginsEnabled
@@ -730,6 +748,11 @@ touchEventEmulationEnabled:
   getter: isTouchEventEmulationEnabled
   conditional: TOUCH_EVENTS
 
+deviceOrientationEventEnabled:
+  type: bool
+  initial: true
+  conditional: DEVICE_ORIENTATION
+
 shouldEnableTextAutosizingBoost:
   type: bool
   initial: false
@@ -746,9 +769,6 @@ clientCoordinatesRelativeToLayoutViewport:
   initial: false
   onChange: setNeedsRecalcStyleInAllFrames
 
-crossOriginWindowPolicySupportEnabled:
-  initial: false
-
 accessibilityEventsEnabled:
   initial: true
   conditional: ACCESSIBILITY_EVENTS
@@ -757,4 +777,14 @@ incompleteImageBorderEnabled:
   initial: false
 
 shouldDeferAsynchronousScriptsUntilAfterDocumentLoad:
+  initial: false
+
+shouldIgnoreMetaViewport:
+  initial: false
+
+videoQualityIncludesDisplayCompositingEnabled:
+  initial: false
+  conditional: VIDEO
+
+editableImagesEnabled:
   initial: false

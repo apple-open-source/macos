@@ -197,58 +197,67 @@ int32_t xar_hash_toheap_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_
 }
 
 int32_t xar_hash_fromheap_out(xar_t x, xar_file_t f, xar_prop_t p, void *in, size_t inlen, void **context) {
-	const char *opt;
-	xar_prop_t tmpp;
-
-	opt = NULL;
-	tmpp = xar_prop_pget(p, "extracted-checksum");
-	if( tmpp ) {
-		opt = xar_attr_pget(f, tmpp, "style");
-	} else {
-		// The xar-1.7 release in OS X Yosemite accidentally wrote <unarchived-checksum>
-		// instead of <extracted-checksum>. Since archives like this are now in the wild,
-		// we check for both.
-		tmpp = xar_prop_pget(p, "unarchived-checksum");
-		if( tmpp ) {
-			opt = xar_attr_pget(f, tmpp, "style");
-		}
-	}
-
-	// If there's an <archived-checksum> and no <extracted-checksum> (or
-	// <unarchived-checksum>), the archive is malformed.
-	if ( !opt && xar_prop_pget(p, "archived-checksum") ) {
-		xar_err_new(x);
-		xar_err_set_string(x, "No extracted-checksum");
-		xar_err_callback(x, XAR_SEVERITY_FATAL, XAR_ERR_ARCHIVE_EXTRACTION);
-		return -1;
-	}
-
-	if( !opt )
-		opt = xar_opt_get(x, XAR_OPT_FILECKSUM);
-    
-	if( !opt || (0 == strcmp(opt, XAR_OPT_VAL_NONE) ) )
+	
+	if (!context)
 		return 0;
 	
-	if(!CONTEXT(context)) {
-		*context = calloc(1, sizeof(struct _hash_context));
-		if( ! *context )
-			return -1;
-	}
-	
-	if( ! CONTEXT(context)->unarchived ) {
-		CONTEXT(context)->unarchived = xar_hash_new(opt, NULL);
-		if( ! CONTEXT(context)->unarchived ) {
-			free(*context);
-			*context = NULL;
+	if(!CONTEXT(context) || (! CONTEXT(context)->unarchived) ) {
+		const char *opt;
+		xar_prop_t tmpp;
+
+		opt = NULL;
+		tmpp = xar_prop_pget(p, "extracted-checksum");
+		if( tmpp ) {
+			opt = xar_attr_pget(f, tmpp, "style");
+		} else {
+			// The xar-1.7 release in OS X Yosemite accidentally wrote <unarchived-checksum>
+			// instead of <extracted-checksum>. Since archives like this are now in the wild,
+			// we check for both.
+			tmpp = xar_prop_pget(p, "unarchived-checksum");
+			if( tmpp ) {
+				opt = xar_attr_pget(f, tmpp, "style");
+			}
+		}
+
+		// If there's an <archived-checksum> and no <extracted-checksum> (or
+		// <unarchived-checksum>), the archive is malformed.
+		if ( !opt && xar_prop_pget(p, "archived-checksum") ) {
+			xar_err_new(x);
+			xar_err_set_string(x, "No extracted-checksum");
+			xar_err_callback(x, XAR_SEVERITY_FATAL, XAR_ERR_ARCHIVE_EXTRACTION);
 			return -1;
 		}
-	}
+
+		if( !opt )
+			opt = xar_opt_get(x, XAR_OPT_FILECKSUM);
 		
+		if( !opt || (0 == strcmp(opt, XAR_OPT_VAL_NONE) ) )
+			return 0;
+		
+		
+		if (!CONTEXT(context)) {
+			*context = calloc(1, sizeof(struct _hash_context));
+			if( ! *context )
+				return -1;
+		}
+		
+		if( ! CONTEXT(context)->unarchived ) {
+			CONTEXT(context)->unarchived = xar_hash_new(opt, NULL);
+			if( ! CONTEXT(context)->unarchived ) {
+				free(*context);
+				*context = NULL;
+				return -1;
+				
+			}
+		}
+	}
+	
 	if( inlen == 0 )
 		return 0;
 	
 	CONTEXT(context)->count += inlen;
 	xar_hash_update(CONTEXT(context)->unarchived, in, inlen);
+	
 	return 0;
 }
 

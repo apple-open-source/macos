@@ -26,9 +26,9 @@
 #include "config.h"
 #include "APIAttachment.h"
 
-#include <WebCore/AttachmentTypes.h>
+#if ENABLE(ATTACHMENT_ELEMENT)
+
 #include <WebCore/SharedBuffer.h>
-#include <wtf/BlockPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace API {
@@ -48,30 +48,70 @@ Attachment::~Attachment()
 {
 }
 
-void Attachment::requestInfo(Function<void(const WebCore::AttachmentInfo&, WebKit::CallbackBase::Error)>&& callback)
+void Attachment::updateAttributes(Function<void(WebKit::CallbackBase::Error)>&& callback)
 {
-    if (m_webPage)
-        m_webPage->requestAttachmentInfo(m_identifier, WTFMove(callback));
-    else
-        callback({ }, WebKit::CallbackBase::Error::OwnerWasInvalidated);
-}
-
-void Attachment::setDisplayOptions(WebCore::AttachmentDisplayOptions options, Function<void(WebKit::CallbackBase::Error)>&& callback)
-{
-    if (m_webPage)
-        m_webPage->setAttachmentDisplayOptions(m_identifier, options, WTFMove(callback));
-    else
+    if (!m_webPage) {
         callback(WebKit::CallbackBase::Error::OwnerWasInvalidated);
+        return;
+    }
+
+    if (m_webPage->willUpdateAttachmentAttributes(*this) == WebKit::WebPageProxy::ShouldUpdateAttachmentAttributes::No) {
+        callback(WebKit::CallbackBase::Error::None);
+        return;
+    }
+
+    m_webPage->updateAttachmentAttributes(*this, WTFMove(callback));
 }
 
-void Attachment::setDataAndContentType(WebCore::SharedBuffer& data, const WTF::String& newContentType, const WTF::String& newFilename, Function<void(WebKit::CallbackBase::Error)>&& callback)
+void Attachment::invalidate()
 {
-    auto optionalNewContentType = newContentType.isNull() ? std::nullopt : std::optional<WTF::String> { newContentType };
-    auto optionalNewFilename = newFilename.isNull() ? std::nullopt : std::optional<WTF::String> { newFilename };
-    if (m_webPage)
-        m_webPage->setAttachmentDataAndContentType(m_identifier, data, WTFMove(optionalNewContentType), WTFMove(optionalNewFilename), WTFMove(callback));
-    else
-        callback(WebKit::CallbackBase::Error::OwnerWasInvalidated);
+    m_identifier = { };
+    m_filePath = { };
+    m_contentType = { };
+    m_webPage.clear();
+#if PLATFORM(COCOA)
+    m_fileWrapper.clear();
+#endif
 }
 
+#if !PLATFORM(COCOA)
+
+bool Attachment::isEmpty() const
+{
+    return true;
 }
+
+WTF::String Attachment::mimeType() const
+{
+    return m_contentType;
+}
+
+WTF::String Attachment::fileName() const
+{
+    return { };
+}
+
+Optional<uint64_t> Attachment::fileSizeForDisplay() const
+{
+    return WTF::nullopt;
+}
+
+RefPtr<WebCore::SharedBuffer> Attachment::enclosingImageData() const
+{
+    return nullptr;
+}
+
+RefPtr<WebCore::SharedBuffer> Attachment::createSerializedRepresentation() const
+{
+    return nullptr;
+}
+
+void Attachment::updateFromSerializedRepresentation(Ref<WebCore::SharedBuffer>&&, const WTF::String&)
+{
+}
+
+#endif // !PLATFORM(COCOA)
+
+}
+
+#endif // ENABLE(ATTACHMENT_ELEMENT)

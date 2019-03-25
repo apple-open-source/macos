@@ -38,9 +38,23 @@
 #undef GST_USE_UNSTABLE_API
 #endif
 
-namespace WebCore {
+#if ENABLE(MEDIA_SOURCE)
+#include "WebKitMediaSourceGStreamer.h"
+#endif
 
-const char* webkitGstMapInfoQuarkString = "webkit-gst-map-info";
+#if ENABLE(MEDIA_STREAM) && GST_CHECK_VERSION(1, 10, 0)
+#include "GStreamerMediaStreamSource.h"
+#endif
+
+#if ENABLE(ENCRYPTED_MEDIA)
+#include "WebKitClearKeyDecryptorGStreamer.h"
+#endif
+
+#if ENABLE(VIDEO)
+#include "WebKitWebSourceGStreamer.h"
+#endif
+
+namespace WebCore {
 
 GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTemplate* staticPadTemplate, const gchar* name, GstPad* target)
 {
@@ -96,11 +110,11 @@ bool getVideoSizeAndFormatFromCaps(GstCaps* caps, WebCore::IntSize& size, GstVid
     return true;
 }
 
-std::optional<FloatSize> getVideoResolutionFromCaps(const GstCaps* caps)
+Optional<FloatSize> getVideoResolutionFromCaps(const GstCaps* caps)
 {
     if (!doCapsHaveType(caps, GST_VIDEO_CAPS_TYPE_PREFIX)) {
         GST_WARNING("Failed to get the video resolution, these are not a video caps");
-        return std::nullopt;
+        return WTF::nullopt;
     }
 
     int width = 0, height = 0;
@@ -115,7 +129,7 @@ std::optional<FloatSize> getVideoResolutionFromCaps(const GstCaps* caps)
         GstVideoInfo info;
         gst_video_info_init(&info);
         if (!gst_video_info_from_caps(&info, caps))
-            return std::nullopt;
+            return WTF::nullopt;
 
         width = GST_VIDEO_INFO_WIDTH(&info);
         height = GST_VIDEO_INFO_HEIGHT(&info);
@@ -123,7 +137,7 @@ std::optional<FloatSize> getVideoResolutionFromCaps(const GstCaps* caps)
         pixelAspectRatioDenominator = GST_VIDEO_INFO_PAR_D(&info);
     }
 
-    return std::make_optional(FloatSize(width, height * (static_cast<float>(pixelAspectRatioNumerator) / static_cast<float>(pixelAspectRatioDenominator))));
+    return makeOptional(FloatSize(width, height * (static_cast<float>(pixelAspectRatioDenominator) / static_cast<float>(pixelAspectRatioNumerator))));
 }
 
 bool getSampleVideoInfo(GstSample* sample, GstVideoInfo& videoInfo)
@@ -143,26 +157,6 @@ bool getSampleVideoInfo(GstSample* sample, GstVideoInfo& videoInfo)
 }
 #endif
 
-GstBuffer* createGstBuffer(GstBuffer* buffer)
-{
-    gsize bufferSize = gst_buffer_get_size(buffer);
-    GstBuffer* newBuffer = gst_buffer_new_and_alloc(bufferSize);
-
-    if (!newBuffer)
-        return 0;
-
-    gst_buffer_copy_into(newBuffer, buffer, static_cast<GstBufferCopyFlags>(GST_BUFFER_COPY_METADATA), 0, bufferSize);
-    return newBuffer;
-}
-
-GstBuffer* createGstBufferForData(const char* data, int length)
-{
-    GstBuffer* buffer = gst_buffer_new_and_alloc(length);
-
-    gst_buffer_fill(buffer, 0, data, length);
-
-    return buffer;
-}
 
 const char* capsMediaType(const GstCaps* caps)
 {
@@ -173,7 +167,7 @@ const char* capsMediaType(const GstCaps* caps)
         return nullptr;
     }
 #if ENABLE(ENCRYPTED_MEDIA)
-    if (gst_structure_has_name(structure, "application/x-cenc"))
+    if (gst_structure_has_name(structure, "application/x-cenc") || gst_structure_has_name(structure, "application/x-webm-enc"))
         return gst_structure_get_string(structure, "original-media-type");
 #endif
     return gst_structure_get_name(structure);
@@ -198,43 +192,11 @@ bool areEncryptedCaps(const GstCaps* caps)
         GST_WARNING("caps are empty");
         return false;
     }
-    return gst_structure_has_name(structure, "application/x-cenc");
+    return gst_structure_has_name(structure, "application/x-cenc") || gst_structure_has_name(structure, "application/x-webm-enc");
 #else
     UNUSED_PARAM(caps);
     return false;
 #endif
-}
-
-char* getGstBufferDataPointer(GstBuffer* buffer)
-{
-    GstMiniObject* miniObject = reinterpret_cast<GstMiniObject*>(buffer);
-    GstMapInfo* mapInfo = static_cast<GstMapInfo*>(gst_mini_object_get_qdata(miniObject, g_quark_from_static_string(webkitGstMapInfoQuarkString)));
-    return reinterpret_cast<char*>(mapInfo->data);
-}
-
-void mapGstBuffer(GstBuffer* buffer, uint32_t flags)
-{
-    GstMapInfo* mapInfo = static_cast<GstMapInfo*>(fastMalloc(sizeof(GstMapInfo)));
-    if (!gst_buffer_map(buffer, mapInfo, static_cast<GstMapFlags>(flags))) {
-        fastFree(mapInfo);
-        gst_buffer_unref(buffer);
-        return;
-    }
-
-    GstMiniObject* miniObject = reinterpret_cast<GstMiniObject*>(buffer);
-    gst_mini_object_set_qdata(miniObject, g_quark_from_static_string(webkitGstMapInfoQuarkString), mapInfo, nullptr);
-}
-
-void unmapGstBuffer(GstBuffer* buffer)
-{
-    GstMiniObject* miniObject = reinterpret_cast<GstMiniObject*>(buffer);
-    GstMapInfo* mapInfo = static_cast<GstMapInfo*>(gst_mini_object_steal_qdata(miniObject, g_quark_from_static_string(webkitGstMapInfoQuarkString)));
-
-    if (!mapInfo)
-        return;
-
-    gst_buffer_unmap(buffer, mapInfo);
-    fastFree(mapInfo);
 }
 
 Vector<String> extractGStreamerOptionsFromCommandLine()
@@ -246,14 +208,14 @@ Vector<String> extractGStreamerOptionsFromCommandLine()
 
     Vector<String> options;
     auto optionsString = String::fromUTF8(contents.get(), length);
-    optionsString.split('\0', false, [&options](StringView item) {
+    optionsString.split('\0', [&options](StringView item) {
         if (item.startsWith("--gst"))
             options.append(item.toString());
     });
     return options;
 }
 
-bool initializeGStreamer(std::optional<Vector<String>>&& options)
+bool initializeGStreamer(Optional<Vector<String>>&& options)
 {
     static std::once_flag onceFlag;
     static bool isGStreamerInitialized;
@@ -261,7 +223,7 @@ bool initializeGStreamer(std::optional<Vector<String>>&& options)
         isGStreamerInitialized = false;
 
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-        Vector<String> parameters = options.value_or(extractGStreamerOptionsFromCommandLine());
+        Vector<String> parameters = options.valueOr(extractGStreamerOptionsFromCommandLine());
         char** argv = g_new0(char*, parameters.size() + 2);
         int argc = parameters.size() + 1;
         argv[0] = g_strdup(getCurrentExecutableName().data());
@@ -286,6 +248,34 @@ bool initializeGStreamer(std::optional<Vector<String>>&& options)
 #endif
     });
     return isGStreamerInitialized;
+}
+
+bool initializeGStreamerAndRegisterWebKitElements()
+{
+    if (!initializeGStreamer())
+        return false;
+
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [] {
+#if ENABLE(ENCRYPTED_MEDIA)
+        if (webkitGstCheckVersion(1, 6, 1))
+            gst_element_register(nullptr, "webkitclearkey", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_MEDIA_CK_DECRYPT);
+#endif
+
+#if ENABLE(MEDIA_STREAM) && GST_CHECK_VERSION(1, 10, 0)
+        if (webkitGstCheckVersion(1, 10, 0))
+            gst_element_register(nullptr, "mediastreamsrc", GST_RANK_PRIMARY, WEBKIT_TYPE_MEDIA_STREAM_SRC);
+#endif
+
+#if ENABLE(MEDIA_SOURCE)
+        gst_element_register(nullptr, "webkitmediasrc", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_MEDIA_SRC);
+#endif
+
+#if ENABLE(VIDEO)
+        gst_element_register(0, "webkitwebsrc", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_WEB_SRC);
+#endif
+    });
+    return true;
 }
 
 unsigned getGstPlayFlag(const char* nick)
@@ -354,13 +344,13 @@ static void simpleBusMessageCallback(GstBus*, GstMessage* message, GstBin* pipel
     }
 }
 
-void disconnectSimpleBusMessageCallback(GstElement *pipeline)
+void disconnectSimpleBusMessageCallback(GstElement* pipeline)
 {
     GRefPtr<GstBus> bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(pipeline)));
     g_signal_handlers_disconnect_by_func(bus.get(), reinterpret_cast<gpointer>(simpleBusMessageCallback), pipeline);
 }
 
-void connectSimpleBusMessageCallback(GstElement *pipeline)
+void connectSimpleBusMessageCallback(GstElement* pipeline)
 {
     GRefPtr<GstBus> bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(pipeline)));
     gst_bus_add_signal_watch_full(bus.get(), RunLoopSourcePriority::RunLoopDispatcher);

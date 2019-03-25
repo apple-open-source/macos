@@ -1792,7 +1792,36 @@ IOBlockStorageDriver::setPriority(IOService *       client,
 bool
 IOBlockStorageDriver::validateNewMedia(void)
 {
-    return(true);
+	int boot_arg_value = 0;
+
+	bool boot_arg_found = PE_parse_boot_argn("disable_external_storage", &boot_arg_value, sizeof(boot_arg_value));
+
+	if (!boot_arg_found) {
+		return(true);
+	}
+
+	if (boot_arg_value == 0) {
+		return(true);
+	}
+
+	if (_removable || _ejectable) {
+		return(false);
+	}
+
+	OSDictionary *dictionary = OSDynamicCast(OSDictionary, getProvider()->getProperty(kIOPropertyProtocolCharacteristicsKey));
+
+	if (dictionary) {
+		OSString *string = OSDynamicCast(OSString, dictionary->getObject(kIOPropertyPhysicalInterconnectLocationKey));
+
+		if (string) {
+			if (string->isEqualTo(kIOPropertyInternalKey)) {
+				return(true);
+			}
+		}
+	}
+
+	return(false);
+
 }
 
 // -----------------------------------------------------------------------------

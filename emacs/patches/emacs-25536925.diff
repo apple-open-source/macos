@@ -1,0 +1,50 @@
+diff -urp ../../emacs.orig/emacs/lib-src/movemail.c ./lib-src/movemail.c
+--- ../../emacs.orig/emacs/lib-src/movemail.c	2007-01-15 19:47:24.000000000 -0800
++++ ./lib-src/movemail.c	2018-10-24 13:47:31.000000000 -0700
+@@ -152,8 +152,8 @@ extern char *index __P ((const char *, i
+ extern char *rindex __P((const char *, int));
+ #endif
+ 
+-void fatal ();
+-void error ();
++void fatal (char *s1, char *s2, char *s3) __attribute__((__format__(__printf__,1,0)));
++void error (char *s1, char *s2, char *s3) __attribute__((__format__(__printf__,1,0)));
+ void pfatal_with_name ();
+ void pfatal_and_delete ();
+ char *concat ();
+@@ -604,12 +604,14 @@ mail_spool_name (inname)
+ /* Print error message and exit.  */
+ 
+ void
+-fatal (s1, s2, s3)
+-     char *s1, *s2, *s3;
++fatal (char *s1, char *s2, char *s3)
+ {
+   if (delete_lockname)
+     unlink (delete_lockname);
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wformat-nonliteral"
+   error (s1, s2, s3);
++#pragma clang diagnostic pop
+   exit (EXIT_FAILURE);
+ }
+ 
+@@ -617,8 +619,7 @@ fatal (s1, s2, s3)
+    are args for it or null. */
+ 
+ void
+-error (s1, s2, s3)
+-     char *s1, *s2, *s3;
++error (char *s1, char *s2, char *s3)
+ {
+   fprintf (stderr, "movemail: ");
+   if (s3)
+@@ -626,7 +627,7 @@
+   else if (s2)
+     fprintf (stderr, s1, s2);
+   else
+-    fprintf (stderr, s1);
++    fprintf (stderr, "%s", s1);
+   fprintf (stderr, "\n");
+ }
+ 

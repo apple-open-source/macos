@@ -161,7 +161,7 @@ void PopupMenuWin::show(const IntRect& r, FrameView* view, int index)
         shouldAnimate = FALSE;
 
     if (shouldAnimate) {
-        RECT viewRect = {0};
+        RECT viewRect { };
         ::GetWindowRect(hostWindow, &viewRect);
         if (!::IsRectEmpty(&viewRect))
             ::AnimateWindow(m_popup, defaultAnimationDuration, AW_BLEND);
@@ -609,9 +609,7 @@ void PopupMenuWin::paint(const IntRect& damageRect, HDC hdc)
 
     GraphicsContext context(m_DC.get());
 
-    int itemCount = client()->listSize();
-
-    // listRect is the damageRect translated into the coordinates of the entire menu list (which is itemCount * m_itemHeight pixels tall)
+    // listRect is the damageRect translated into the coordinates of the entire menu list (which is listSize * m_itemHeight pixels tall)
     IntRect listRect = damageRect;
     listRect.move(IntSize(0, m_scrollOffset * m_itemHeight));
 
@@ -657,7 +655,7 @@ void PopupMenuWin::paint(const IntRect& damageRect, HDC hdc)
         // Draw the item text
         if (itemStyle.isVisible()) {
             int textX = 0;
-            if (client()->menuStyle().textDirection() == LTR) {
+            if (client()->menuStyle().textDirection() == TextDirection::LTR) {
                 textX = std::max<int>(0, client()->clientPaddingLeft() - client()->clientInsetLeft());
                 if (RenderTheme::singleton().popupOptionSupportsTextIndent())
                     textX += minimumIntValueForLength(itemStyle.textIndent(), itemRect.width());
@@ -822,8 +820,6 @@ LRESULT CALLBACK PopupMenuWin::PopupMenuWndProc(HWND hWnd, UINT message, WPARAM 
 
     return ::DefWindowProc(hWnd, message, wParam, lParam);
 }
-
-const int smoothScrollAnimationDuration = 5000;
 
 LRESULT PopupMenuWin::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {

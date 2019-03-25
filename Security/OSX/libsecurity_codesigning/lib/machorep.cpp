@@ -265,6 +265,21 @@ CFDataRef MachORep::component(CodeDirectory::SpecialSlot slot)
 	}
 }
 
+//
+// Retrieve all components, used for signature editing.
+//
+EditableDiskRep::RawComponentMap MachORep::createRawComponents()
+{
+	EditableDiskRep::RawComponentMap  blobMap;
+	const EmbeddedSignatureBlob &blobs = *signingData();
+	
+	for (unsigned int i = 0; i < blobs.count(); ++i) {
+		CodeDirectory::Slot slot = blobs.type(i);
+		const BlobCore *blob = blobs.blob(i);
+		blobMap[slot] = blobs.blobData(slot, blob);
+	}
+	return blobMap;
+}
 
 // Retrieve a component from the embedded signature SuperBlob (if present).
 // This reads the entire signing SuperBlob when first called for an executable,
@@ -276,6 +291,18 @@ CFDataRef MachORep::component(CodeDirectory::SpecialSlot slot)
 //
 CFDataRef MachORep::embeddedComponent(CodeDirectory::SpecialSlot slot)
 {
+	if (signingData()) {
+		return signingData()->component(slot);
+	}
+	
+	// not found
+	return NULL;
+}
+	
+	
+
+EmbeddedSignatureBlob *MachORep::signingData()
+{
 	if (!mSigningData) {		// fetch and cache
 		auto_ptr<MachO> macho(mainExecutableImage()->architecture());
 		if (macho.get())
@@ -284,20 +311,16 @@ CFDataRef MachORep::embeddedComponent(CodeDirectory::SpecialSlot slot)
 				size_t length = macho->flip(cs->datasize);
 				if ((mSigningData = EmbeddedSignatureBlob::readBlob(macho->fd(), macho->offset() + offset, length))) {
 					secinfo("machorep", "%zd signing bytes in %d blob(s) from %s(%s)",
-						mSigningData->length(), mSigningData->count(),
-						mainExecutablePath().c_str(), macho->architecture().name());
+							mSigningData->length(), mSigningData->count(),
+							mainExecutablePath().c_str(), macho->architecture().name());
 				} else {
 					secinfo("machorep", "failed to read signing bytes from %s(%s)",
-						mainExecutablePath().c_str(), macho->architecture().name());
+							mainExecutablePath().c_str(), macho->architecture().name());
 					MacOSError::throwMe(errSecCSSignatureInvalid);
 				}
 			}
 	}
-	if (mSigningData)
-		return mSigningData->component(slot);
-	
-	// not found
-	return NULL;
+	return mSigningData;
 }
 
 

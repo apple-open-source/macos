@@ -47,6 +47,11 @@
 #include <dlfcn.h>
 #include "IOHIDLibPrivate.h"
 
+#if TARGET_OS_OSX
+#include <msgtracer_client.h>
+#include <msgtracer_keys.h>
+#endif //TARGET_OS_OSX
+
 #define TCC_FRAMEWORK  "/System/Library/PrivateFrameworks/TCC.framework/TCC"
 void TCCAccessRequest(CFStringRef service, CFDictionaryRef options, void (^callback)(Boolean granted));
 
@@ -145,6 +150,31 @@ static bool _IOPMReportSoftwareHIDEvent(UInt32 eventType)
     return allowEvent;
 }
 
+#if TARGET_OS_OSX
+static void _LOGIOHIDPostEventCaller(void)
+{
+    // This will return bundle re for executable bundle
+    // eg App calling post event
+    CFBundleRef appBundleRef = CFBundleGetMainBundle();
+    CFStringRef appBundleName = NULL;
+    
+    if (appBundleRef) {
+        appBundleName = CFBundleGetValueForInfoDictionaryKey(appBundleRef, CFSTR("CFBundleIdentifier"));
+    }
+    
+    //Log call to message tracer
+    if (!appBundleName) {
+        return;
+    }
+        
+        
+    msgtracer_log_with_keys("com.apple.iokituser.hid.iohidpostevent", ASL_LEVEL_NOTICE,
+                                kMsgTracerKeySignature, CFStringGetCStringPtr(appBundleName, kCFStringEncodingASCII),
+                                kMsgTracerKeySummarize, "YES",
+                                NULL);
+}
+#endif //TARGET_OS_OSX
+
 kern_return_t
 IOHIDPostEvent( io_connect_t        connect,
                 UInt32              eventType,
@@ -174,6 +204,13 @@ IOHIDPostEvent( io_connect_t        connect,
     eventPid = (int *)(event + 1);
     *eventPid = getpid();
 
+#if TARGET_OS_OSX
+    
+    //track caller of API
+    _LOGIOHIDPostEventCaller();
+    
+#endif //TARGET_OS_OSX
+    
     if ( eventDataVersion < 2 )
     {
         // Support calls from legacy IOHIDPostEvent clients.

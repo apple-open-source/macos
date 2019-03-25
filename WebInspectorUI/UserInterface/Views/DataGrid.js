@@ -857,7 +857,7 @@ WI.DataGrid = class DataGrid extends WI.View
             let columnWidths = [];
             for (let i = 0; i < numColumns; ++i) {
                 let headerCellElement = cells[i];
-                if (this._isColumnVisible(headerCellElement.columnIdentifier)) {
+                if (this.isColumnVisible(headerCellElement.columnIdentifier)) {
                     let columnWidth = headerCellElement.offsetWidth;
                     let percentWidth = ((columnWidth / tableWidth) * 100) + "%";
                     columnWidths.push(percentWidth);
@@ -876,7 +876,7 @@ WI.DataGrid = class DataGrid extends WI.View
             this._updateHeaderAndScrollbar();
         }
 
-        this._updateVisibleRows();
+        this.updateVisibleRows();
     }
 
     sizeDidChange()
@@ -894,7 +894,7 @@ WI.DataGrid = class DataGrid extends WI.View
         this._cachedScrollableOffsetHeight = NaN;
     }
 
-    _isColumnVisible(columnIdentifier)
+    isColumnVisible(columnIdentifier)
     {
         return !this.columns.get(columnIdentifier)["hidden"];
     }
@@ -969,7 +969,7 @@ WI.DataGrid = class DataGrid extends WI.View
 
             leadingOffset = columnWidths[i];
 
-            if (this._isColumnVisible(this.orderedColumns[i])) {
+            if (this.isColumnVisible(this.orderedColumns[i])) {
                 resizer.element.style.removeProperty("display");
                 resizer.element.style.setProperty(WI.resolvedLayoutDirection() === WI.LayoutDirection.RTL ? "right" : "left", `${leadingOffset}px`);
                 resizer[WI.DataGrid.PreviousColumnOrdinalSymbol] = i;
@@ -1047,7 +1047,7 @@ WI.DataGrid = class DataGrid extends WI.View
         this.needsLayout();
     }
 
-    _updateVisibleRows()
+    updateVisibleRows(focusedDataGridNode)
     {
         if (this._inline || this._variableHeightRows) {
             // Inline DataGrids always show all their rows, so we can't virtualize them.
@@ -1066,6 +1066,9 @@ WI.DataGrid = class DataGrid extends WI.View
                 nextElement = rowElement;
             }
 
+            if (focusedDataGridNode)
+                focusedDataGridNode.element.scrollIntoViewIfNeeded(false);
+
             return;
         }
 
@@ -1079,26 +1082,32 @@ WI.DataGrid = class DataGrid extends WI.View
         if (isNaN(this._cachedScrollableOffsetHeight))
             this._cachedScrollableOffsetHeight = this._scrollContainerElement.offsetHeight;
 
-        let scrollTop = this._cachedScrollTop;
-        let scrollableOffsetHeight = this._cachedScrollableOffsetHeight;
+        let visibleRowCount = Math.ceil((this._cachedScrollableOffsetHeight + (overflowPadding * 2)) / rowHeight);
 
-        let visibleRowCount = Math.ceil((scrollableOffsetHeight + (overflowPadding * 2)) / rowHeight);
+        if (!focusedDataGridNode) {
+            let currentTopMargin = this._topDataTableMarginHeight;
+            let currentBottomMargin = this._bottomDataTableMarginHeight;
+            let currentTableBottom = currentTopMargin + (visibleRowCount * rowHeight);
 
-        let currentTopMargin = this._topDataTableMarginHeight;
-        let currentBottomMargin = this._bottomDataTableMarginHeight;
-        let currentTableBottom = currentTopMargin + (visibleRowCount * rowHeight);
+            let belowTopThreshold = !currentTopMargin || this._cachedScrollTop > currentTopMargin + updateOffsetThreshold;
+            let aboveBottomThreshold = !currentBottomMargin || this._cachedScrollTop + this._cachedScrollableOffsetHeight < currentTableBottom - updateOffsetThreshold;
 
-        let belowTopThreshold = !currentTopMargin || scrollTop > currentTopMargin + updateOffsetThreshold;
-        let aboveBottomThreshold = !currentBottomMargin || scrollTop + scrollableOffsetHeight < currentTableBottom - updateOffsetThreshold;
-
-        if (belowTopThreshold && aboveBottomThreshold && !isNaN(this._previousRevealedRowCount))
-            return;
+            if (belowTopThreshold && aboveBottomThreshold && !isNaN(this._previousRevealedRowCount))
+                return;
+        }
 
         let revealedRows = this._rows.filter((row) => row.revealed && !row.hidden);
 
         this._previousRevealedRowCount = revealedRows.length;
 
-        let topHiddenRowCount = Math.max(0, Math.floor((scrollTop - overflowPadding) / rowHeight));
+        if (focusedDataGridNode) {
+            let focusedIndex = revealedRows.indexOf(focusedDataGridNode);
+            let firstVisibleRowIndex = this._cachedScrollTop / rowHeight;
+            if (focusedIndex < firstVisibleRowIndex || focusedIndex > firstVisibleRowIndex + visibleRowCount)
+                this._scrollContainerElement.scrollTop = this._cachedScrollTop = (focusedIndex * rowHeight) - (this._cachedScrollableOffsetHeight / 2) + (rowHeight / 2);
+        }
+
+        let topHiddenRowCount = Math.max(0, Math.floor((this._cachedScrollTop - overflowPadding) / rowHeight));
         let bottomHiddenRowCount = Math.max(0, this._previousRevealedRowCount - topHiddenRowCount - visibleRowCount);
 
         let marginTop = topHiddenRowCount * rowHeight;
@@ -1237,32 +1246,6 @@ WI.DataGrid = class DataGrid extends WI.View
 
         this.children = [];
         this.hasChildren = false;
-    }
-
-    removeChildrenRecursive()
-    {
-        var childrenToRemove = this.children;
-
-        var child = this.children[0];
-        while (child) {
-            if (child.children.length)
-                childrenToRemove = childrenToRemove.concat(child.children);
-            child = child.traverseNextNode(false, this, true);
-        }
-
-        for (var i = 0; i < childrenToRemove.length; ++i) {
-            child = childrenToRemove[i];
-            child.deselect();
-            child._detach();
-
-            child.children = [];
-            child.dataGrid = null;
-            child.parent = null;
-            child.nextSibling = null;
-            child.previousSibling = null;
-        }
-
-        this.children = [];
     }
 
     findNode(comparator, skipHidden, stayWithin, dontPopulate)
@@ -1573,7 +1556,6 @@ WI.DataGrid = class DataGrid extends WI.View
         if (!gridNode) {
             if (this.selectedNode)
                 this.selectedNode.deselect();
-            
             return;
         }
 
@@ -1668,7 +1650,7 @@ WI.DataGrid = class DataGrid extends WI.View
                         let element = event.target.enclosingNodeOrSelfWithNodeName("td");
                         let columnIdentifier = element.__columnIdentifier;
                         let columnTitle = this.dataGrid.columns.get(columnIdentifier)["title"];
-                        contextMenu.appendItem(WI.UIString("Edit “%s”").format(columnTitle), this._startEditing.bind(this, event.target));
+                        contextMenu.appendItem(WI.UIString("Edit \u201C%s\u201D").format(columnTitle), this._startEditing.bind(this, event.target));
                     }
                 }
 

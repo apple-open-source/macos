@@ -1192,18 +1192,23 @@ static void TestBreakIteratorSuppressions(void) {
 
 #if APPLE_ADDITIONS
 #include <stdio.h>
-#include <unistd.h>
-#include "unicode/urbtok.h"
-#include "cstring.h"
 #if U_PLATFORM_IS_DARWIN_BASED
+#include <unistd.h>
 #include <mach/mach_time.h>
 #define GET_START() mach_absolute_time()
 #define GET_DURATION(start, info) ((mach_absolute_time() - start) * info.numer)/info.denom
-#else
+#elif !U_PLATFORM_HAS_WIN32_API
+#include <unistd.h>
 #include "putilimp.h"
 #define GET_START() (uint64_t)uprv_getUTCtime()
 #define GET_DURATION(start, info) ((uint64_t)uprv_getUTCtime() - start)
+#else
+#include "putilimp.h"
+#define GET_START() (unsigned long long)uprv_getUTCtime()
+#define GET_DURATION(start, info) ((unsigned long long)uprv_getUTCtime() - start)
 #endif
+#include "unicode/urbtok.h"
+#include "cstring.h"
 
 typedef struct {
     RuleBasedTokenRange token;
@@ -2230,7 +2235,11 @@ static void handleTokResults(const char* testItem, const char* tokClass, const c
 
 static void TestRuleBasedTokenizer(void) {
     const TokRulesAndTests* ruleTypePtr;
+#if !U_PLATFORM_HAS_WIN32_API
     uint64_t start, duration;
+#else
+    unsigned long long start, duration;
+#endif
 #if U_PLATFORM_IS_DARWIN_BASED
     mach_timebase_info_data_t info;
 

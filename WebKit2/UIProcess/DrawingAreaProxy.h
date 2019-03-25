@@ -48,6 +48,7 @@ namespace WebKit {
 class LayerTreeContext;
 class UpdateInfo;
 class WebPageProxy;
+class WebProcessProxy;
 
 class DrawingAreaProxy : public IPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(DrawingAreaProxy);
@@ -77,8 +78,8 @@ public:
     virtual void commitTransientZoom(double, WebCore::FloatPoint) { }
 
 #if PLATFORM(MAC)
-    virtual void setViewExposedRect(std::optional<WebCore::FloatRect>);
-    std::optional<WebCore::FloatRect> viewExposedRect() const { return m_viewExposedRect; }
+    virtual void setViewExposedRect(Optional<WebCore::FloatRect>);
+    Optional<WebCore::FloatRect> viewExposedRect() const { return m_viewExposedRect; }
     void viewExposedRectChangedTimerFired();
 #endif
 
@@ -106,11 +107,15 @@ public:
 
     virtual void dispatchPresentationCallbacksAfterFlushingLayers(const Vector<CallbackID>&) { }
 
+    WebPageProxy& page() const { return m_webPageProxy; }
+    WebProcessProxy& process() { return m_process.get(); }
+
 protected:
-    explicit DrawingAreaProxy(DrawingAreaType, WebPageProxy&);
+    DrawingAreaProxy(DrawingAreaType, WebPageProxy&, WebProcessProxy&);
 
     DrawingAreaType m_type;
     WebPageProxy& m_webPageProxy;
+    Ref<WebProcessProxy> m_process;
 
     WebCore::IntSize m_size;
     WebCore::IntSize m_scrollOffset;
@@ -134,8 +139,8 @@ private:
 
 #if PLATFORM(MAC)
     RunLoop::Timer<DrawingAreaProxy> m_viewExposedRectChangedTimer;
-    std::optional<WebCore::FloatRect> m_viewExposedRect;
-    std::optional<WebCore::FloatRect> m_lastSentViewExposedRect;
+    Optional<WebCore::FloatRect> m_viewExposedRect;
+    Optional<WebCore::FloatRect> m_lastSentViewExposedRect;
 #endif // PLATFORM(MAC)
 #endif
 };

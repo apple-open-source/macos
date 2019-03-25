@@ -93,7 +93,7 @@ NS_ASSUME_NONNULL_END
     {
         Locker<Lock> locker(_dataTasksLock);
         for (auto& task : _dataTasks)
-            task.get().session = nil;
+            ((__bridge WebCoreNSURLSessionDataTask *)task.get()).session = nil;
     }
 
     callOnMainThread([loader = WTFMove(_loader)] {
@@ -116,8 +116,8 @@ NS_ASSUME_NONNULL_END
     {
         Locker<Lock> locker(_dataTasksLock);
 
-        ASSERT(_dataTasks.contains(task));
-        _dataTasks.remove(task);
+        ASSERT(_dataTasks.contains((__bridge CFTypeRef)task));
+        _dataTasks.remove((__bridge CFTypeRef)task);
         if (!_dataTasks.isEmpty() || !_invalidated)
             return;
     }
@@ -132,7 +132,7 @@ NS_ASSUME_NONNULL_END
 - (void)addDelegateOperation:(Function<void()>&&)function
 {
     RetainPtr<WebCoreNSURLSession> strongSelf { self };
-    RetainPtr<NSBlockOperation> operation = [NSBlockOperation blockOperationWithBlock:BlockPtr<void()>::fromCallable(WTFMove(function)).get()];
+    RetainPtr<NSBlockOperation> operation = [NSBlockOperation blockOperationWithBlock:makeBlockPtr(WTFMove(function)).get()];
     dispatch_async(_internalQueue.get(), [strongSelf, operation] {
         [strongSelf.get().delegateQueue addOperation:operation.get()];
         [operation waitUntilFinished];
@@ -155,7 +155,6 @@ NS_ASSUME_NONNULL_END
 }
 
 #pragma mark - NSURLSession API
-@synthesize sessionDescription=_sessionDescription;
 @dynamic delegate;
 - (__nullable id<NSURLSessionDelegate>)delegate
 {
@@ -177,6 +176,16 @@ NS_ASSUME_NONNULL_END
 - (NSURLSessionConfiguration *)configuration
 {
     return nil;
+}
+
+- (NSString *)sessionDescription
+{
+    return _sessionDescription.get();
+}
+
+- (void)setSessionDescription:(NSString *)sessionDescription
+{
+    _sessionDescription = adoptNS([sessionDescription copy]);
 }
 
 @dynamic loader;
@@ -218,14 +227,14 @@ NS_ASSUME_NONNULL_END
 
 - (void)invalidateAndCancel
 {
-    Vector<RetainPtr<WebCoreNSURLSessionDataTask>> tasksCopy;
+    Vector<RetainPtr<CFTypeRef>> tasksCopy;
     {
         Locker<Lock> locker(_dataTasksLock);
         tasksCopy = copyToVector(_dataTasks);
     }
 
     for (auto& task : tasksCopy)
-        [task cancel];
+        [(__bridge WebCoreNSURLSessionDataTask *)task.get() cancel];
 
     [self finishTasksAndInvalidate];
 }
@@ -253,7 +262,7 @@ NS_ASSUME_NONNULL_END
         Locker<Lock> locker(_dataTasksLock);
         array = [NSMutableArray arrayWithCapacity:_dataTasks.size()];
         for (auto& task : _dataTasks)
-            [array addObject:task.get()];
+            [array addObject:(__bridge WebCoreNSURLSessionDataTask *)task.get()];
     }
     [self addDelegateOperation:^{
         completionHandler(array, nil, nil);
@@ -267,7 +276,7 @@ NS_ASSUME_NONNULL_END
         Locker<Lock> locker(_dataTasksLock);
         array = [NSMutableArray arrayWithCapacity:_dataTasks.size()];
         for (auto& task : _dataTasks)
-            [array addObject:task.get()];
+            [array addObject:(__bridge WebCoreNSURLSessionDataTask *)task.get()];
     }
     [self addDelegateOperation:^{
         completionHandler(array);
@@ -282,7 +291,7 @@ NS_ASSUME_NONNULL_END
     WebCoreNSURLSessionDataTask *task = [[WebCoreNSURLSessionDataTask alloc] initWithSession:self identifier:_nextTaskIdentifier++ request:request];
     {
         Locker<Lock> locker(_dataTasksLock);
-        _dataTasks.add(task);
+        _dataTasks.add((__bridge CFTypeRef)task);
     }
     return (NSURLSessionDataTask *)[task autorelease];
 }
@@ -295,7 +304,7 @@ NS_ASSUME_NONNULL_END
     WebCoreNSURLSessionDataTask *task = [[WebCoreNSURLSessionDataTask alloc] initWithSession:self identifier:_nextTaskIdentifier++ URL:url];
     {
         Locker<Lock> locker(_dataTasksLock);
-        _dataTasks.add(task);
+        _dataTasks.add((__bridge CFTypeRef)task);
     }
     return (NSURLSessionDataTask *)[task autorelease];
 }
@@ -698,7 +707,7 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
         
         id<NSURLSessionDataDelegate> dataDelegate = (id<NSURLSessionDataDelegate>)strongSelf.get().session.delegate;
         if ([dataDelegate respondsToSelector:@selector(URLSession:task:willPerformHTTPRedirection:newRequest:completionHandler:)]) {
-            auto completionHandlerBlock = BlockPtr<void(NSURLRequest *)>::fromCallable([completionHandler = WTFMove(completionHandler)](NSURLRequest *newRequest) mutable {
+            auto completionHandlerBlock = makeBlockPtr([completionHandler = WTFMove(completionHandler)](NSURLRequest *newRequest) mutable {
                 if (!isMainThread()) {
                     callOnMainThread([request = ResourceRequest { newRequest }, completionHandler = WTFMove(completionHandler)] () mutable {
                         completionHandler(WTFMove(request));

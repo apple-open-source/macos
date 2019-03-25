@@ -63,6 +63,8 @@ TRACE_CODE(large_free, DBG_UMALLOC_INTERNAL, 0x8);
 TRACE_CODE(malloc_memory_pressure, DBG_UMALLOC_INTERNAL, 0x9);
 TRACE_CODE(nano_memory_pressure, DBG_UMALLOC_INTERNAL, 0xa);
 TRACE_CODE(madvise, DBG_UMALLOC_INTERNAL, 0xb);
+TRACE_CODE(medium_malloc, DBG_UMALLOC_INTERNAL, 0xc);
+TRACE_CODE(medium_free, DBG_UMALLOC_INTERNAL, 0xd);
 
 TRACE_CODE(nanov2_region_allocation, DBG_UMALLOC_INTERNAL, 0x10);
 

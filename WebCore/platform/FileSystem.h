@@ -104,11 +104,10 @@ WEBCORE_EXPORT bool deleteEmptyDirectory(const String&);
 WEBCORE_EXPORT bool moveFile(const String& oldPath, const String& newPath);
 WEBCORE_EXPORT bool getFileSize(const String&, long long& result);
 WEBCORE_EXPORT bool getFileSize(PlatformFileHandle, long long& result);
-WEBCORE_EXPORT bool getFileModificationTime(const String&, time_t& result);
-WEBCORE_EXPORT std::optional<WallTime> getFileModificationTime(const String&);
-WEBCORE_EXPORT bool getFileCreationTime(const String&, time_t& result); // Not all platforms store file creation time.
-WEBCORE_EXPORT std::optional<FileMetadata> fileMetadata(const String& path);
-WEBCORE_EXPORT std::optional<FileMetadata> fileMetadataFollowingSymlinks(const String& path);
+WEBCORE_EXPORT Optional<WallTime> getFileModificationTime(const String&);
+WEBCORE_EXPORT Optional<WallTime> getFileCreationTime(const String&); // Not all platforms store file creation time.
+WEBCORE_EXPORT Optional<FileMetadata> fileMetadata(const String& path);
+WEBCORE_EXPORT Optional<FileMetadata> fileMetadataFollowingSymlinks(const String& path);
 WEBCORE_EXPORT bool fileIsDirectory(const String&, ShouldFollowSymbolicLinks);
 WEBCORE_EXPORT String pathByAppendingComponent(const String& path, const String& component);
 String pathByAppendingComponents(StringView path, const Vector<StringView>& components);
@@ -118,7 +117,7 @@ String homeDirectoryPath();
 WEBCORE_EXPORT String pathGetFileName(const String&);
 WEBCORE_EXPORT String directoryName(const String&);
 WEBCORE_EXPORT bool getVolumeFreeSpace(const String&, uint64_t&);
-WEBCORE_EXPORT std::optional<int32_t> getFileDeviceId(const CString&);
+WEBCORE_EXPORT Optional<int32_t> getFileDeviceId(const CString&);
 WEBCORE_EXPORT bool createSymbolicLink(const String& targetPath, const String& symbolicLinkPath);
 
 WEBCORE_EXPORT void setMetadataURL(const String& path, const String& urlString, const String& referrer = { });
@@ -132,9 +131,6 @@ WEBCORE_EXPORT CString fileSystemRepresentation(const String&);
 String stringFromFileSystemRepresentation(const char*);
 
 inline bool isHandleValid(const PlatformFileHandle& handle) { return handle != invalidPlatformFileHandle; }
-
-inline double invalidFileTime() { return std::numeric_limits<double>::quiet_NaN(); }
-inline bool isValidFileTime(double time) { return std::isfinite(time); }
 
 // Prefix is what the filename should be prefixed with, not the full path.
 WEBCORE_EXPORT String openTemporaryFile(const String& prefix, PlatformFileHandle&);
@@ -184,6 +180,12 @@ String roamingUserSpecificStorageDirectory();
 
 #if PLATFORM(COCOA)
 WEBCORE_EXPORT NSString *createTemporaryDirectory(NSString *directoryPrefix);
+WEBCORE_EXPORT bool deleteNonEmptyDirectory(const String&);
+#endif
+
+#if PLATFORM(WIN_CAIRO)
+WEBCORE_EXPORT String createTemporaryDirectory();
+WEBCORE_EXPORT bool deleteNonEmptyDirectory(const String&);
 #endif
 
 WEBCORE_EXPORT String realPath(const String&);

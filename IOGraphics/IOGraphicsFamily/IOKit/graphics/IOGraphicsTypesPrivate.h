@@ -302,6 +302,7 @@ enum
 };
 
 // Single source
+#define DBG_BUFFER_BRACKET                   9  // 0x09 0x5320024 reserved
 #define DBG_IOG_NOTIFY_SERVER               10  // 0x0A 0x5320028: arg1 regID, arg2 serverNotified
 #define DBG_IOG_SERVER_ACK                  11  // 0x0B 0x532002C: arg1 regID, arg2 serverState
 #define DBG_IOG_VRAM_RESTORE                12	// 0x0C 0x5320030: arg1 regID

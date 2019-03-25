@@ -324,12 +324,13 @@ ServiceRemoveAddressConflict(ServiceRef service_p);
 
 #endif /* TARGET_OS_EMBDEDDED */
 
+CFStringRef
+ServiceGetInterfaceName(ServiceRef service_p);
+
 /**
  ** 464XLAT routines
  **/
 boolean_t	service_clat46_is_enabled(ServiceRef service_p);
-int		service_clat46_remove_address(ServiceRef service_p, struct in_addr addr);
-int		service_clat46_set_address(ServiceRef service_p, struct in_addr addr);
 boolean_t	service_nat64_prefix_available(ServiceRef service_p);
 boolean_t	service_plat_discovery_failed(ServiceRef service_p);
 

@@ -40,7 +40,7 @@ _IODataQueueEnqueueWithReadCallback(IODataQueueMemory *dataQueue, uint64_t queue
  * queue size, since queue size is part of shared memory and may be modified by
  * a bad client. See rdar://42664354&42630424&42679853
  */
-IODataQueueEntry *_IODataQueuePeek(IODataQueueMemory *dataQueue, uint64_t queueSize);
+IODataQueueEntry *_IODataQueuePeek(IODataQueueMemory *dataQueue, uint64_t queueSize, size_t *entrySize);
 
 IOReturn _IODataQueueDequeue(IODataQueueMemory *dataQueue, uint64_t queueSize, void *data, uint32_t *dataSize);
 

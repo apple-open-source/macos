@@ -1,396 +1,526 @@
 //
 //  GTrace.cpp
+//  IOGraphicsFamily
 //
 //  Created by bparke on 3/17/17.
+//  Rewritten by gvdl 2018-10-24
 //
 
+#include <sys/cdefs.h>
+
+#include <osmemory>
+#include <osutility>
+#include <iolocks>
+
+#include <IOKit/IOMemoryDescriptor.h>
+#include <IOKit/IOLib.h>
 
 #include "GTrace.hpp"
+#include "GMetricTypes.h"
 
+#if KERNEL
 
-#if defined(_KERNEL_) || defined (KERNEL)
-#pragma mark - OSObject...
-OSDefineMetaClassAndStructors(GTrace, OSObject);
+#include <IOKit/assert.h>
 
-bool GTrace::init()
+#include <mach/vm_param.h>
+#include <mach/mach_types.h>
+__BEGIN_DECLS
+#include <machine/cpu_number.h>
+__END_DECLS
+#include <IOKit/graphics/IOGraphicsPrivate.h>  // Debug logging macros
+
+#else // !KERNEL
+
+#include <mutex>
+
+#include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+
+#include <mach/mach_time.h>
+#include <IOKit/IOReturn.h>
+
+#include <pthread.h>
+#define cpu_number() (-1)
+
+#define D(categ, name, args...) do{}while(0)  // Not needed in userland
+
+#endif // KERNEL
+
+#define DGT(args...) D(TRACE, "GTraceBuffer", args)
+
+OSDefineMetaClassAndFinalStructors(GTraceBuffer, OSObject);
+
+using iog::LockGuard;
+using iog::OSUniqueObject;
+
+// Give this variable a well known name that can be found in a corefile.
+extern GTraceBuffer::shared_type gGTraceArray[kGTraceMaximumBufferCount];
+GTraceBuffer::shared_type gGTraceArray[kGTraceMaximumBufferCount];
+
+namespace {
+
+enum ThreadWakeups : bool {
+    kOneThreadWakeup  = true,
+    kManyThreadWakeup = false,
+};
+
+struct Globals {
+    IOLock* fLock;
+    uint32_t fCurBufferID;
+    Globals() : fLock(IOLockAlloc())
+        { DGT(" lckOK%d\n", static_cast<bool>(fLock)); }
+    ~Globals() { IOLockFree(fLock); }
+} sGlobals;
+#define sLock        (sGlobals.fLock)
+#define sCurBufferID (sGlobals.fCurBufferID)
+
+// Grabbed from somewhere on the inter-tubes
+uint32_t nextPowerOf2(uint32_t x)
 {
-    bool    bRet = super::init();
-
-    if (true == bRet)
-    {
-        fInUseLock = IOLockAlloc();
-        if (NULL == fInUseLock)
-        {
-            bRet  = false;
-        }
-        else
-        {
-            GTRACE_RAII_LOCK(fInUseLock);
-
-            fInitialized = false;
-            fProvider = NULL;
-            fBuffer = NULL;
-            fBufferSize = 0;
-            fLineCount = 0;
-            fLineMask = 0;
-            fNextLine = 0;
-            fComponentID = 0;
-            fObjectID = 0;
-        }
-    }
-
-    return (bRet);
+    const uint64_t max32bit = UINT64_C(1) << 32;
+    assert(x <= (max32bit-1)/2);
+    const auto shift = __builtin_clz(x-1);
+    return (x <= 2) ? x : static_cast<uint32_t>(max32bit >> shift);
 }
 
-void GTrace::free()
+constexpr bool isPowerOf2(const uint64_t x) { return 0 == (x & (x-1)); }
+
+template <typename T>
+T bound(const T min, const T x, const T max)
 {
-    // RAII scope
-    if (fInitialized)
-    {
-        GTRACE_RAII_LOCK(fInUseLock);
+    assert(min <= max);
+    return (min > x) ? min : ((max < x) ? max : x);
+}
 
-        fInitialized = false;
+// define a KERNEL and test environment dependant wrapper
+uint64_t threadID()
+{
+    uint64_t tid;
+#if KERNEL
+    tid = thread_tid(current_thread());
+#else
+    pthread_threadid_np(NULL, &tid);
+#endif
+    return tid;
+}
 
-        if (NULL != fBuffer)
-        {
-            GTRACE_SAFE_FREE(fBuffer, fBufferSize);
-            fBufferSize = 0;
-        }
+uint8_t cpu()
+{
+    return static_cast<uint8_t>(cpu_number());
+}
 
-        if (NULL != fProvider)
-        {
-            fProvider->removeProperty(kGTracePropertyTokens);
-            fProvider->removeProperty(kGTracePropertyTokenMarker);
-            fProvider->removeProperty(kGTracePropertyTokenCount);
-            OSSafeReleaseNULL(fProvider);
-        }
+};  // namespace
+
+// GTraceBuffer implementation
+
+// Check basic assumptions, power of two assumptions
+static_assert(isPowerOf2(kGTraceEntrySize), "Entry size not a power of two");
+static_assert(isPowerOf2(kGTraceMinimumLineCount), "Min not a power of two");
+static_assert(isPowerOf2(kGTraceMaximumLineCount), "Max not a power of two");
+
+bool GTraceBuffer::init()
+{
+    // Always call super::init even if we are going to fail later
+    return super::init() && static_cast<bool>(sLock);
+}
+
+void GTraceBuffer::free()
+{
+    DGT("[%d]\n", bufferID());
+    if (fBuffer) {
+        IODelete(fBuffer, GTraceEntry, fLineCount);
+        fBuffer = nullptr;
+        fLineCount = 0;
     }
-
-    if (NULL != fInUseLock)
-    {
-        IOLockFree(fInUseLock);
-        fInUseLock = NULL;
-    }
-
     super::free();
 }
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
 
-
-#pragma mark - GTrace...
-void GTrace::delayFor(uint8_t seconds)
+/* static */ GTraceBuffer::shared_type GTraceBuffer::make(
+        const char* decoderName, const char* bufferName,
+        const uint32_t lineCount, breadcrumb_func bcf, void* context)
 {
-    while (seconds)
-    {
-        seconds--;
-        GTRACE_SLEEP(1);
-    }
-}
-
-void GTrace::freeGTraceResources(void)
-{
-#if defined(_KERNEL_) || defined (KERNEL)
-    // GTrace::free does this for kernel clients.
-#else /*defined(_KERNEL_) || defined (KERNEL)*/
-    if (fInitialized)
-    {
-        GTRACE_RAII_LOCK(fInUseLock);
-
-        fInitialized = false;
-
-        if (NULL != fBuffer)
-        {
-            GTRACE_SAFE_FREE(fBuffer, fBufferSize);
-            fBufferSize = 0;
+    shared_type ret(new GTraceBuffer);
+    if (static_cast<bool>(ret)) {
+        IOReturn err
+            = ret->init(decoderName, bufferName, lineCount, bcf, context);
+        if (!err) {
+            // try to find a spare index
+            LockGuard<IOLock> locked(sLock);
+            for (int i = 0; i < kGTraceMaximumBufferCount; ++i) {
+                if ( !static_cast<bool>(gGTraceArray[i]) ) {
+                    gGTraceArray[i] = ret;  // Cache a shared copy
+                    ret->fHeader.fBufferIndex = i;
+                    DGT("[%d] (d=%s,b=%s,lc=%u, bcf=%s) {ind=%d}\n",
+                        ret->bufferID(), decoderName, bufferName,
+                        lineCount, static_cast<bool>(bcf) ? "yes" : "no", i);
+                    return ret;
+                }
+            }
+            err = kIOReturnNoResources;
         }
+        DGT("[%d] (d=%s,b=%s,lc=%u, %s bcf) -> %x\n",
+            ret->bufferID(), decoderName, bufferName, lineCount,
+            static_cast<bool>(bcf) ? "has" : "no", err);
+        IOLog("Failed %x to create "
+              "GTraceBuffer %s for %s decoder and count %d\n",
+              err, bufferName, decoderName, lineCount);
+        ret.reset();  // Release our shared_object reference
     }
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
+
+    return ret;
 }
 
-IOReturn GTrace::initWithDeviceCountAndID( GTRACE_SERVICE * provider, const uint32_t lineCount, const uint64_t componentID )
+IOReturn GTraceBuffer::init(
+        const char* decoderName, const char* bufferName, const uint32_t count,
+        breadcrumb_func bcf, const void* context)
 {
-    uint32_t    bufSize = 0;
-
-    if (fInitialized)
-    {
-        return (kIOReturnNotPermitted);
+    if (!init()) {
+        IOLog("GTraceBuffer init() failed\n");
+        return kIOReturnNoMemory;
     }
 
-#if defined(_KERNEL_) || defined (KERNEL)
-    if (!init())
-    {
-        return (kIOReturnNotOpen);
-    }
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
-
-    GTRACE_RAII_LOCK(fInUseLock);
-
-#if defined(_KERNEL_) || defined (KERNEL)
-    if (NULL == provider)
-    {
-        return (kIOReturnBadArgument);
-    }
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
-
-    if (0 == lineCount)
-    {
-        return (kIOReturnBadArgument);
+    if ( !static_cast<bool>(decoderName) || !*decoderName) {
+        IOLog("GTraceBuffer bad decoder name\n");
+        return kIOReturnBadArgument;
     }
 
-    bufSize = linesToSize(lineCount);
-    if (0 == bufSize)
-    {
-        return (kIOReturnBadArgument);
-    }
+    memset(&fHeader, '\0', sizeof(fHeader));
+    fHeader.fBufferIndex = static_cast<uint16_t>(-1);  // Sentinel, never valid
 
-    fBuffer = reinterpret_cast<sGTrace *>(GTRACE_MALLOC(bufSize));
-    if (NULL == fBuffer)
-    {
-        return (kIOReturnNoMemory);
-    }
+    const auto roundedCount = nextPowerOf2(count);
+    const auto lines = bound(
+            kGTraceMinimumLineCount, roundedCount, kGTraceMaximumLineCount);
+    fBuffer = IONew(GTraceEntry, lines);
+    if (fBuffer)
+        memset(fBuffer, '\0', lines * sizeof(GTraceEntry));
+    else
+        return kIOReturnNoMemory;
 
-    fProvider = provider;
-
-#if defined(_KERNEL_) || defined (KERNEL)
-    fProvider->retain();
-
-    fObjectID = static_cast<uint32_t>(fProvider->getRegistryEntryID() & kGTRACE_REGISTRYID_MASK);
-#else /*defined(_KERNEL_) || defined (KERNEL)*/
-    fObjectID = static_cast<uint64_t>(static_cast<uint32_t>((mach_continuous_time() & 0x0000000000FFFFFF) |
-                                                            ((componentID & kGTRACE_COMPONENT_MASK) << 24)));
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
-
-    fBufferSize = bufSize;
-    bzero(fBuffer,fBufferSize);
-
-    fLineCount = sizeToLines(fBufferSize);
-    fLineMask = fLineCount - 1;
+    // From here on I expect the code to run quickly
+    fLineCount = lines;
+    fLineMask = lines - 1;  // It must be a power of 2, enforced by nextPowerOf2
     fNextLine = 0;
+    fBreadcrumbFunc = bcf;
+    fBCFContext = context;
+    fBCData = nullptr;
+    fBCActiveCount = 0;
 
-    fComponentID = (componentID & kGTRACE_COMPONENT_MASK);
+    fHeader.fVersion = GTRACE_REVISION;
+    fHeader.fCreationTime = mach_continuous_time();
+    if (bufferName)
+        GPACKSTRING(fHeader.fBufferName, bufferName);
+    GPACKSTRING(fHeader.fDecoderName, decoderName);
+    fHeader.fTokensMask = static_cast<uint16_t>(fLineMask);
 
-    fInitialized = true;
+    {
+        LockGuard<IOLock> locked(sLock);
+        fHeader.fBufferID = sCurBufferID++;
+    }
 
-    return (kIOReturnSuccess);
+    DGT("[%d] {lc=%x lm=%x}\n", bufferID(), fLineCount, fLineMask);
+    return kIOReturnSuccess;
 }
 
-void GTrace::recordToken(const uint16_t line,
-                         const uint16_t tag1, const uint64_t arg1,
-                         const uint16_t tag2, const uint64_t arg2,
-                         const uint16_t tag3, const uint64_t arg3,
-                         const uint16_t tag4, const uint64_t arg4,
-                         const uint64_t timestamp)
+#define namecpy(dst, buf, len) \
+    snprintf(dst, len, "%.*s", \
+             static_cast<int>(sizeof(buf)), reinterpret_cast<const char*>(buf))
+size_t GTraceBuffer::decoderName(char* outName, const int outLen) const
 {
-    if (fInitialized)
-    {
-        GTRACE_RETAIN;
-
-        sGTrace * const buffer = &(fBuffer[getLine()]);
-        buffer->traceEntry.timestamp = timestamp;
-        buffer->traceEntry.traceID.ID.line = line;
-        buffer->traceEntry.traceID.ID.component = fComponentID;
-#if defined(_KERNEL_) || defined (KERNEL)
-        buffer->traceEntry.threadInfo.TI.cpu = static_cast<uint8_t>(cpu_number());
-        buffer->traceEntry.threadInfo.TI.threadID = (thread_tid(current_thread()) & kTHREAD_ID_MASK);
-#else /*defined(_KERNEL_) || defined (KERNEL)*/
-        buffer->traceEntry.threadInfo.TI.cpu = 0;
-        buffer->traceEntry.threadInfo.TI.threadID = (((uintptr_t)pthread_self()) & kTHREAD_ID_MASK);
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
-        buffer->traceEntry.threadInfo.TI.registryID = fObjectID;
-        buffer->traceEntry.argsTag.TAG.targ[0] = tag1;
-        buffer->traceEntry.argsTag.TAG.targ[1] = tag2;
-        buffer->traceEntry.argsTag.TAG.targ[2] = tag3;
-        buffer->traceEntry.argsTag.TAG.targ[3] = tag4;
-        buffer->traceEntry.args.ARGS.u64s[0] = arg1;
-        buffer->traceEntry.args.ARGS.u64s[1] = arg2;
-        buffer->traceEntry.args.ARGS.u64s[2] = arg3;
-        buffer->traceEntry.args.ARGS.u64s[3] = arg4;
-
-        GTRACE_RELEASE;
-    }
+    return namecpy(outName, fHeader.fDecoderName, outLen);
 }
 
-IOReturn GTrace::publishTokens( void )
+size_t GTraceBuffer::bufferName(char* outName, const int outLen) const
 {
-#if defined(_KERNEL_) || defined (KERNEL)
-    IOReturn    kr = kIOReturnSuccess;
+    return namecpy(outName, fHeader.fBufferName, outLen);
+}
+#undef namecpy
 
-    if (NULL == fProvider)
-    {
-        return (kIOReturnNotAttached);
-    }
-
-    if (NULL != fBuffer)
-    {
-        return (kIOReturnNotAttached);
-    }
-
-    GTRACE_RAII_LOCK(fInUseLock);
-
-    if (false == fProvider->setProperty(kGTracePropertyTokens, fBuffer, fBufferSize))
-    {
-        kr = kIOReturnIOError;
-    }
-
-    if (kIOReturnSuccess == kr)
-    {
-        if (false == fProvider->setProperty(kGTracePropertyTokenMarker, fNextLine, 16))
-        {
-            kr = kIOReturnIOError;
-        }
-    }
-
-    if (kIOReturnSuccess == kr)
-    {
-        if (false == fProvider->setProperty(kGTracePropertyTokenCount, fLineCount, 16))
-        {
-            kr = kIOReturnIOError;
-        }
-    }
-
-    return (kr);
-#else /*defined(_KERNEL_) || defined (KERNEL)*/
-    return (kIOReturnUnsupported);
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
-
+// Carefully formed to use copy elision. In theory the target will be
+// initialised directly by recordToken, but also allows us to create a defered
+// start and store the value on the stack.
+GTraceEntry
+GTraceBuffer::formatToken(const uint16_t line,
+                          const uint64_t tag1, const uint64_t arg1,
+                          const uint64_t tag2, const uint64_t arg2,
+                          const uint64_t tag3, const uint64_t arg3,
+                          const uint64_t tag4, const uint64_t arg4,
+                          const uint64_t timestamp)
+{
+    return GTraceEntry(timestamp, line, bufferID(),
+                       cpu(), threadID(), /* objectID */ 0,
+                       MAKEGTRACETAG(tag1), MAKEGTRACEARG(arg1),
+                       MAKEGTRACETAG(tag2), MAKEGTRACEARG(arg2),
+                       MAKEGTRACETAG(tag3), MAKEGTRACEARG(arg3),
+                       MAKEGTRACETAG(tag4), MAKEGTRACEARG(arg4));
 }
 
-IOReturn GTrace::copyTokens( uintptr_t ** buffer, uint32_t * length, uint32_t * tokenMarker, uint32_t * tokenCount )
+void GTraceBuffer::recordToken(const GTraceEntry& entry)
 {
-    IOReturn    ret = kIOReturnNotPermitted;
+    fBuffer[getNextLine()] = entry;
+}
 
-    if (fInitialized)
-    {
-        GTRACE_RAII_LOCK(fInUseLock);
+namespace {
+IOReturn fetchValidateAndMap(IOMemoryDescriptor* outDesc,
+                             OSUniqueObject<IOMemoryMap>* mapP)
+{
+    IOReturn err = kIOReturnSuccess;
+    const auto len = outDesc->getLength();
 
-        if ((NULL != buffer) && (NULL != length))
-        {
-            if (NULL != fBuffer)
-            {
-                sGTrace * const     traceBuffer = fBuffer;
-                uintptr_t *         dstBuffer = reinterpret_cast<uintptr_t *>(GTRACE_MALLOC(fBufferSize));
-                if (NULL != dstBuffer)
-                {
-                    *length = fBufferSize;
-                    *buffer = dstBuffer;
-                    memcpy(dstBuffer, traceBuffer, *length);
-
-                    // Post process and obfuscate any kernel pointers.
-                    sGTrace     * gtBuffer = reinterpret_cast<sGTrace *>(dstBuffer);
-                    if (gtBuffer)
-                    {
-                        uint32_t    lineCount = 0;
-                        while (lineCount < fLineCount)
-                        {
-                            for (uint8_t tagIndex = 0; tagIndex < 4; tagIndex++)
-                            {
-                                gtBuffer[lineCount].traceEntry.args.ARGS.u64s[tagIndex] = makeExternalReference(gtBuffer[lineCount], tagIndex);
-                            }
-                            lineCount++;
-                        }
-                    }
-
-                    if (NULL != tokenMarker)
-                    {
-                        *tokenMarker = (fNextLine & fLineMask);
-                    }
-
-                    if (NULL != tokenCount)
-                    {
-                        *tokenCount = fLineCount;
-                    }
-
-                    ret = kIOReturnSuccess;
-                }
-                else
-                {
-                    ret = kIOReturnNoMemory;
-                }
-            }
-            else
-            {
-                ret = kIOReturnNotReadable;
-            }
-        }
+    // Minimal length required to copy out header, range check
+    if (len < sizeof(IOGTraceBuffer))
+        err = kIOReturnBadArgument;
+    else if (len > INT_MAX)
+        err = kIOReturnBadArgument;
+    else {
+        OSUniqueObject<IOMemoryMap> map(outDesc->map());
+        if (static_cast<bool>(map))
+            *mapP = iog::move(map);
         else
-        {
-            ret = kIOReturnBadArgument;
-        }
+            err = kIOReturnVMError;
     }
-
-    return (ret);
+    return kIOReturnSuccess;
 }
+} // namespace
 
-IOReturn GTrace::setTokens( const uintptr_t * buffer, const uint32_t bufferSize )
+// Call from an unlocked environment
+IOReturn GTraceBuffer::copyOut(
+        OSUniqueObject<IOMemoryMap> map, OSData* bcData) const
 {
-    IOReturn    ret = kIOReturnNotPermitted;
-    uint32_t    lineCount = 0;
+    iog::locking_primitives::assertUnlocked(sLock);
 
-    if (fInitialized)
-    {
-        if ((NULL != buffer) && (0 != bufferSize))
-        {
-            lineCount = sizeToLines(bufferSize);
+    GTraceHeader header = fHeader;
+    const auto outLen = static_cast<int>(map->getLength());
+    void* outP = reinterpret_cast<void*>(map->getVirtualAddress());
+    auto* outBufP = static_cast<IOGTraceBuffer*>(outP);
+    uint16_t bcTokens = 0;
 
-            GTRACE_RAII_LOCK(fInUseLock);
+    int remaining = outLen - sizeof(IOGTraceBuffer);
+    assert(remaining >= 0);  // Guaranteed by fetchValidateAndMap
 
-            if ((lineCount) && (lineCount <= fLineCount))
-            {
-                if (NULL != fBuffer)
-                {
-                    memcpy(fBuffer, buffer, linesToSize(lineCount));
-                    ret = kIOReturnSuccess;
+    const uint32_t bcDataLen
+        = static_cast<bool>(bcData) ? bcData->getLength() : 0;
+    const bool hasBCFunc = static_cast<bool>(fBreadcrumbFunc);
+    if (bcDataLen || hasBCFunc) {
+        const uint16_t kBCLen = static_cast<uint16_t>(
+            (remaining < kGTraceMaxBreadcrumbSize)
+                ? remaining : kGTraceMaxBreadcrumbSize);
+        uint16_t bcCopied = 0;
+        if (bcDataLen) {
+            bcCopied = (bcDataLen < kBCLen) ? bcDataLen : kBCLen;
+            memcpy(&outBufP->fTokens[0], bcData->getBytesNoCopy(), bcCopied);
+        }
+        else {
+            assert(hasBCFunc);
+            void* buf = IOMalloc(kGTraceMaxBreadcrumbSize);
+            if (buf) {
+                // Cast the const away, internally we don't touch the data but
+                // the breadcrumb func can modify the context if it chooses.
+                void* context = const_cast<void*>(fBCFContext);
+                bcCopied = kBCLen;
+                IOReturn err = (*fBreadcrumbFunc)(context, buf, &bcCopied);
+                if (!err) {
+                    if (bcCopied > kBCLen) {
+                        // Client's bcFunc may cause a buffer overrun!
+                        err = kIOReturnInternalError;
+                    } else if (bcCopied)
+                        memcpy(&outBufP->fTokens[0], buf, bcCopied);
                 }
-                else
-                {
-                    ret = kIOReturnNotWritable;
+                if (err) {
+                    bcCopied = 0;
+                    IOLog("GTrace[%u] bad breadcrumb %x, dropping\n",
+                            bufferID(), err);
+                }
+                IOFree(buf, kGTraceMaxBreadcrumbSize);
+            }
+        }
+
+        // Round bcCopied to number of fTokens used
+        bcTokens = (bcCopied + (kGTraceEntrySize - 1)) / kGTraceEntrySize;
+        header.fBreadcrumbTokens = bcTokens;
+        remaining -= bcTokens * kGTraceEntrySize;  // Might be negative now
+    }
+    auto* const outTokensP = &outBufP->fTokens[bcTokens];
+    header.fTokenLine = nextLine();
+    if (remaining >= kGTraceEntrySize) {
+        // We have room to copy at least one entry
+        const int outNumEntries = remaining / kGTraceEntrySize;
+        const int availLines = fLineCount;
+        const int copyEntries
+            = (availLines < outNumEntries) ? availLines : outNumEntries;
+
+        // Copy and obfuscate trace entries into client's buffer.
+        int curToken = 0;
+        for (int i = 0; i < copyEntries; i++) {
+            GTraceEntry entry = fBuffer[i];
+            if (!static_cast<bool>(entry.timestamp()))  // Skip unused slots
+                continue;
+
+            const auto& tags = entry.fArgsTag;
+            for (int j = 0; tags.tag() && j < GTraceEntry::ArgsTag::kNum; ++j) {
+                if (kGTRACE_ARGUMENT_POINTER & tags.tag(j)) {
+                    vm_offset_t outArg = 0;
+                    vm_kernel_addrperm_external(
+                        static_cast<vm_offset_t>(entry.arg64(j)), &outArg);
+                    entry.arg64(j) = outArg;
                 }
             }
-            else
-            {
-                ret = kIOReturnOverrun;
-            }
+            outTokensP[curToken++] = entry;
         }
-        else
-        {
-            ret = kIOReturnBadArgument;
-        }
+        header.fTokensCopied = curToken;
     }
-    
-    return (ret);
+    // Add breadcrumb size to copied tokens if any.
+    header.fTokensCopied += bcTokens;
+    header.fBufferSize = kGTraceHeaderSize
+                       + header.fTokensCopied * sizeof(GTraceEntry);
+    outBufP->fHeader = header;  // Copy out the header
+
+    DGT("[%d] sz%d bc%d tkn%d\n", bufferID(),
+        header.fBufferSize, bcTokens, header.fTokensCopied - bcTokens);
+    return kIOReturnSuccess;
 }
 
-IOReturn GTrace::printToken( uint32_t line )
+/* static */ IOReturn
+GTraceBuffer::fetch(const uint32_t index, IOMemoryDescriptor* outDesc)
 {
-    IOReturn            ret = kIOReturnNotPermitted;
-    uint64_t            args[4] = {0};
+    if (index >= kGTraceMaximumBufferCount)
+        return kIOReturnNotFound;
 
-    if (fInitialized)
+    shared_type traceBuffer;
+    bool releaseBuffer = false;
     {
-        GTRACE_RAII_LOCK(fInUseLock);
+        // Locked while we copy cached GTraceBuffer to a local OSSharedObject
+        LockGuard<IOLock> locked(sLock);
 
-        line &= fLineMask;
+        auto& so = gGTraceArray[index];  // alias
+        if (!static_cast<bool>(so))
+            return kIOReturnNotFound;
+        DGT("[%d] cached buffer %u, uc=%ld\n",
+            so->bufferID(), index, so.use_count());
 
-        // Obfuscate any kernel pointers.
-        for (uint8_t tagIndex = 0; tagIndex < 4; tagIndex++)
-        {
-            args[tagIndex] = makeExternalReference(fBuffer[line], tagIndex);
+        releaseBuffer = (1 == so.use_count());  // Release if unique
+        traceBuffer = so; // Copy cached buffer locally, adds reference
+    }
+    __unused const auto bufferID = traceBuffer->bufferID();
+
+    // Drop lock while creating a kernel mapping
+    OSUniqueObject<IOMemoryMap> map;
+    IOReturn err = fetchValidateAndMap(outDesc, &map);
+    if (err) return err;
+
+    OSData* bcData = nullptr;
+    bool isBCActive = false;
+    {
+        // Locked to check for fetch()s on other threads.
+        LockGuard<IOLock> locked(sLock);
+
+        if (static_cast<bool>(traceBuffer->fBCData))
+            iog::swap(bcData, traceBuffer->fBCData);
+        auto& activeCount = traceBuffer->fBCActiveCount;
+        while ((isBCActive = static_cast<bool>(traceBuffer->fBreadcrumbFunc))) {
+            if (activeCount < 8) {  // Arbitary max thread count
+                ++activeCount;
+                break;
+            }
+            IOLockSleep(sLock, &activeCount, THREAD_UNINT);
         }
-
-        GTRACE_PRINTF("%#llx:%#llx:%#llx:%#llx:%#llx:%#llx:%#llx:%#llx\n",
-                      fBuffer[line].traceEntry.timestamp,
-                      fBuffer[line].traceEntry.traceID.ID.u64,
-                      fBuffer[line].traceEntry.threadInfo.TI.u64,
-                      fBuffer[line].traceEntry.argsTag.TAG.u64,
-                      args[0],
-                      args[1],
-                      args[2],
-                      args[3]
-                      );
-
-        ret = kIOReturnSuccess;
     }
 
-    return (ret);
+    err = traceBuffer->copyOut(iog::move(map), bcData);
+    OSSafeReleaseNULL(bcData);
+    // Well that was quick, time for more boilerplate
+
+    {
+        // Lock again to clear out buffer cache entry and decrement active count
+        LockGuard<IOLock> locked(sLock);
+        if (!err && releaseBuffer) {
+            // This line invalidates our cached gGTraceArray entry and replaces
+            // out traceBuffer reference with the previously cached entry. The
+            // net effect is to hold the last reference to the buffer in
+            // traceBuffer.
+            traceBuffer = iog::move(gGTraceArray[index]);
+
+            // Invariant: A use_count of 1 means that only the gGTraceArray
+            // entry is valid as this code NEVER exports an OSSharedObject from
+            // the cache entry it must still be one at this point, just before
+            // we release it.
+            assert(1 == traceBuffer.use_count());
+        }
+        if (isBCActive) {
+            auto& activeCount = traceBuffer->fBCActiveCount;
+            --activeCount;
+            IOLockWakeup(sLock, &activeCount, kManyThreadWakeup);
+        }
+    }
+
+    DGT("[%d] {tuc=%ld} -> %x\n", bufferID, traceBuffer.use_count(), err);
+    return err;
 }
 
+// Note at the end of this function only the cached reference will remain until
+// the next run of iogdiagnose.
+/* static */ void GTraceBuffer::destroy(shared_type&& inBso)
+{
+    DGT("[%d]\n", inBso->bufferID());
+    shared_type bso(iog::move(inBso));  // Grab a move construct copy
+
+    breadcrumb_func breadcrumbFunc = nullptr;
+    const void* ccontext = nullptr; // Context to be passed to fBreadcrumbFunc
+    {
+        LockGuard<IOLock> locked(sLock);
+        while (bso->fBCActiveCount)
+            IOLockSleep(sLock, &bso->fBCActiveCount, THREAD_UNINT);
+        iog::swap(breadcrumbFunc, bso->fBreadcrumbFunc);
+        iog::swap(ccontext, bso->fBCFContext);
+        // Can safely drop the lock now, as the client must still be around as
+        // it is calling us now and fetcher will not call out anymore.
+    }
+
+    if (!static_cast<bool>(breadcrumbFunc))
+        return;
+
+    // Copy the breadcrumb data on first call to destroy()
+    assert(!bso->fBCData);
+
+    void* buf = IOMalloc(kGTraceMaxBreadcrumbSize);
+    if (buf) {
+        // Cast the const away, internally we don't touch the data but the
+        // breadcrumb func can modify the context if it chooses.
+        void* context = const_cast<void*>(ccontext);
+
+        uint16_t bcCopied = kGTraceMaxBreadcrumbSize;
+        const IOReturn err = (*breadcrumbFunc)(context, buf, &bcCopied);
+        if (!err && bcCopied)
+            bso->fBCData = OSData::withBytes(buf, bcCopied);
+        IOFree(buf, kGTraceMaxBreadcrumbSize);
+    }
+
+    // bso now goes out of scope and its reference dropped.
+}
+
+/* static */ IOReturn
+GTraceBuffer::fetch(GTraceBuffer::shared_type bso, IOMemoryDescriptor* outDesc)
+{
+    OSUniqueObject<IOMemoryMap> map;
+    IOReturn err = fetchValidateAndMap(outDesc, &map);
+    if (!err)
+        err = bso->copyOut(iog::move(map), nullptr);
+    DGT("[%d] {buc=%ld} -> %x\n", bso->bufferID(), bso.use_count(), err);
+    return err;
+}
+
+/* static */ GTraceBuffer* GTraceBuffer::makeArchaicCpp(
+        const char* decoderName, const char* bufferName,
+        const uint32_t lineCount, breadcrumb_func bcf, void* context)
+{
+    shared_type bso = make(decoderName, bufferName, lineCount, bcf, context);
+    if (!static_cast<bool>(bso)) return nullptr;
+    bso->fArchaicCPPSharedObjectHack = bso;
+    return bso.get();
+}
+
+/* static */ void
+GTraceBuffer::destroyArchaicCpp(GTraceBuffer *buffer)
+{
+    destroy(iog::move(buffer->fArchaicCPPSharedObjectHack)); // 🤮
+}

@@ -63,7 +63,7 @@ bool IOFireWireSBP2ORB::initWithLogin( IOFireWireSBP2Login * login )
     // these should already be zeroed
     
     fTimeoutTimerSet				= false;
-    fRefCon							= NULL;
+    fRefCon							= 0;
     fBufferAddressSpaceAllocated 	= false;
     fBufferDescriptor 				= NULL;
     fMaxPayloadSize					= 0;

@@ -31,12 +31,15 @@
 
 #include "FontDescription.h"
 #include "FontPlatformData.h"
+#include "FontTaggedSettings.h"
 #include "Timer.h"
 #include <array>
 #include <limits.h>
 #include <wtf/Forward.h>
+#include <wtf/ListHashSet.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/WorkQueue.h>
 #include <wtf/text/AtomicStringHash.h>
 #include <wtf/text/WTFString.h>
 
@@ -110,7 +113,7 @@ struct FontDescriptionKey {
         hasher.add(m_size);
         hasher.add(m_fontSelectionRequest.weight);
         hasher.add(m_fontSelectionRequest.width);
-        hasher.add(m_fontSelectionRequest.slope);
+        hasher.add(m_fontSelectionRequest.slope.valueOr(normalItalicValue()));
         hasher.add(m_locale.existingHash());
         for (unsigned flagItem : m_flags)
             hasher.add(flagItem);
@@ -234,6 +237,19 @@ public:
     bool shouldMockBoldSystemFontForAccessibility() const { return m_shouldMockBoldSystemFontForAccessibility; }
     void setShouldMockBoldSystemFontForAccessibility(bool shouldMockBoldSystemFontForAccessibility) { m_shouldMockBoldSystemFontForAccessibility = shouldMockBoldSystemFontForAccessibility; }
 
+    struct PrewarmInformation {
+        Vector<String> seenFamilies;
+        Vector<String> fontNamesRequiringSystemFallback;
+
+        bool isEmpty() const;
+        PrewarmInformation isolatedCopy() const;
+
+        template<class Encoder> void encode(Encoder&) const;
+        template<class Decoder> static Optional<PrewarmInformation> decode(Decoder&);
+    };
+    PrewarmInformation collectPrewarmInformation() const;
+    void prewarm(const PrewarmInformation&);
+
 private:
     FontCache();
     ~FontCache() = delete;
@@ -257,6 +273,10 @@ private:
     bool m_shouldMockBoldSystemFontForAccessibility { false };
 
 #if PLATFORM(COCOA)
+    ListHashSet<String> m_seenFamiliesForPrewarming;
+    ListHashSet<String> m_fontNamesRequiringSystemFallbackForPrewarming;
+    RefPtr<WorkQueue> m_prewarmQueue;
+
     friend class ComplexTextController;
 #endif
     friend class Font;
@@ -274,5 +294,35 @@ inline void FontCache::platformPurgeInactiveFontData()
 }
 
 #endif
+
+
+inline bool FontCache::PrewarmInformation::isEmpty() const
+{
+    return seenFamilies.isEmpty() && fontNamesRequiringSystemFallback.isEmpty();
+}
+
+inline FontCache::PrewarmInformation FontCache::PrewarmInformation::isolatedCopy() const
+{
+    return { seenFamilies.isolatedCopy(), fontNamesRequiringSystemFallback.isolatedCopy() };
+}
+
+template<class Encoder>
+void FontCache::PrewarmInformation::encode(Encoder& encoder) const
+{
+    encoder << seenFamilies;
+    encoder << fontNamesRequiringSystemFallback;
+}
+
+template<class Decoder>
+Optional<FontCache::PrewarmInformation> FontCache::PrewarmInformation::decode(Decoder& decoder)
+{
+    PrewarmInformation prewarmInformation;
+    if (!decoder.decode(prewarmInformation.seenFamilies))
+        return { };
+    if (!decoder.decode(prewarmInformation.fontNamesRequiringSystemFallback))
+        return { };
+
+    return prewarmInformation;
+}
 
 }

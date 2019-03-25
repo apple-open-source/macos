@@ -63,7 +63,6 @@
 #include "Identifier.h"
 #include "IncrementalSweeper.h"
 #include "IndirectEvalExecutable.h"
-#include "InferredTypeTable.h"
 #include "InferredValue.h"
 #include "Interpreter.h"
 #include "IntlCollatorConstructor.h"
@@ -159,7 +158,7 @@
 #include <wtf/text/AtomicStringTable.h>
 #include <wtf/text/SymbolRegistry.h>
 
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 #include "CLoopStack.h"
 #include "CLoopStackInlines.h"
 #endif
@@ -175,6 +174,15 @@
 using namespace WTF;
 
 namespace JSC {
+
+#if ENABLE(JIT)
+#if !ASSERT_DISABLED
+bool VM::s_canUseJITIsSet = false;
+#endif
+bool VM::s_canUseJIT = false;
+#endif
+
+Atomic<unsigned> VM::s_numberOfIDs;
 
 // Note: Platform.h will enforce that ENABLE(ASSEMBLER) is true if either
 // ENABLE(JIT) or ENABLE(YARR_JIT) or both are enabled. The code below
@@ -211,17 +219,14 @@ bool VM::canUseAssembler()
 #endif
 }
 
-bool VM::canUseJIT()
+void VM::computeCanUseJIT()
 {
 #if ENABLE(JIT)
-    static std::once_flag onceKey;
-    static bool enabled = false;
-    std::call_once(onceKey, [] {
-        enabled = VM::canUseAssembler() && Options::useJIT();
-    });
-    return enabled;
-#else
-    return false; // interpreter only
+#if !ASSERT_DISABLED
+    RELEASE_ASSERT(!s_canUseJITIsSet);
+    s_canUseJITIsSet = true;
+#endif
+    s_canUseJIT = VM::canUseAssembler() && Options::useJIT();
 #endif
 }
 
@@ -244,8 +249,20 @@ bool VM::isInMiniMode()
     return !canUseJIT() || Options::forceMiniVMMode();
 }
 
+inline unsigned VM::nextID()
+{
+    for (;;) {
+        unsigned currentNumberOfIDs = s_numberOfIDs.load();
+        unsigned newID = currentNumberOfIDs + 1;
+        if (s_numberOfIDs.compareExchangeWeak(currentNumberOfIDs, newID))
+            return newID;
+    }
+}
+
+
 VM::VM(VMType vmType, HeapType heapType)
-    : m_apiLock(adoptRef(new JSLock(this)))
+    : m_id(nextID())
+    , m_apiLock(adoptRef(new JSLock(this)))
 #if USE(CF)
     , m_runLoop(CFRunLoopGetCurrent())
 #endif // USE(CF)
@@ -285,7 +302,6 @@ VM::VM(VMType vmType, HeapType heapType)
     , executableToCodeBlockEdgeSpace ISO_SUBSPACE_INIT(heap, cellDangerousBitsHeapCellType.get(), ExecutableToCodeBlockEdge)
     , functionSpace ISO_SUBSPACE_INIT(heap, cellJSValueOOBHeapCellType.get(), JSFunction)
     , generatorFunctionSpace ISO_SUBSPACE_INIT(heap, cellJSValueOOBHeapCellType.get(), JSGeneratorFunction)
-    , inferredTypeSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), InferredType)
     , inferredValueSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), InferredValue)
     , internalFunctionSpace ISO_SUBSPACE_INIT(heap, destructibleObjectHeapCellType.get(), InternalFunction)
 #if ENABLE(INTL)
@@ -316,7 +332,6 @@ VM::VM(VMType vmType, HeapType heapType)
 #endif
     , executableToCodeBlockEdgesWithConstraints(executableToCodeBlockEdgeSpace)
     , executableToCodeBlockEdgesWithFinalizers(executableToCodeBlockEdgeSpace)
-    , inferredTypesWithFinalizers(inferredTypeSpace)
     , inferredValuesWithFinalizers(inferredValueSpace)
     , evalCodeBlockSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), EvalCodeBlock)
     , functionCodeBlockSpace ISO_SUBSPACE_INIT(heap, destructibleCellHeapCellType.get(), FunctionCodeBlock)
@@ -364,6 +379,8 @@ VM::VM(VMType vmType, HeapType heapType)
     updateSoftReservedZoneSize(Options::softReservedZoneSize());
     setLastStackTop(stack.origin());
 
+    JSRunLoopTimer::Manager::shared().registerVM(*this);
+
     // Need to be careful to keep everything consistent here
     JSLockHolder lock(this);
     AtomicStringTable* existingEntryAtomicStringTable = Thread::current().setCurrentAtomicStringTable(m_atomicStringTable);
@@ -407,13 +424,12 @@ VM::VM(VMType vmType, HeapType heapType)
     unlinkedFunctionCodeBlockStructure.set(*this, UnlinkedFunctionCodeBlock::createStructure(*this, 0, jsNull()));
     unlinkedModuleProgramCodeBlockStructure.set(*this, UnlinkedModuleProgramCodeBlock::createStructure(*this, 0, jsNull()));
     propertyTableStructure.set(*this, PropertyTable::createStructure(*this, 0, jsNull()));
-    inferredTypeStructure.set(*this, InferredType::createStructure(*this, 0, jsNull()));
-    inferredTypeTableStructure.set(*this, InferredTypeTable::createStructure(*this, 0, jsNull()));
     inferredValueStructure.set(*this, InferredValue::createStructure(*this, 0, jsNull()));
     functionRareDataStructure.set(*this, FunctionRareData::createStructure(*this, 0, jsNull()));
     exceptionStructure.set(*this, Exception::createStructure(*this, 0, jsNull()));
     promiseDeferredStructure.set(*this, JSPromiseDeferred::createStructure(*this, 0, jsNull()));
     internalPromiseDeferredStructure.set(*this, JSInternalPromiseDeferred::createStructure(*this, 0, jsNull()));
+    nativeStdFunctionCellStructure.set(*this, NativeStdFunctionCell::createStructure(*this, 0, jsNull()));
     programCodeBlockStructure.set(*this, ProgramCodeBlock::createStructure(*this, 0, jsNull()));
     moduleProgramCodeBlockStructure.set(*this, ModuleProgramCodeBlock::createStructure(*this, 0, jsNull()));
     evalCodeBlockStructure.set(*this, EvalCodeBlock::createStructure(*this, 0, jsNull()));
@@ -428,7 +444,6 @@ VM::VM(VMType vmType, HeapType heapType)
     sentinelSetBucket.set(*this, JSSet::BucketType::createSentinel(*this));
     sentinelMapBucket.set(*this, JSMap::BucketType::createSentinel(*this));
 
-    nativeStdFunctionCellStructure.set(*this, NativeStdFunctionCell::createStructure(*this, 0, jsNull()));
     smallStrings.initializeCommonStrings(*this);
 
     Thread::current().setCurrentAtomicStringTable(existingEntryAtomicStringTable);
@@ -441,7 +456,7 @@ VM::VM(VMType vmType, HeapType heapType)
     ftlThunks = std::make_unique<FTL::Thunks>();
 #endif // ENABLE(FTL_JIT)
     
-#if ENABLE(JIT)
+#if !ENABLE(C_LOOP)
     initializeHostCallReturnValue(); // This is needed to convince the linker not to drop host call return support.
 #endif
     
@@ -564,6 +579,8 @@ VM::~VM()
     ASSERT(currentThreadIsHoldingAPILock());
     m_apiLock->willDestroyVM(this);
     heap.lastChanceToFinalize();
+
+    JSRunLoopTimer::Manager::shared().unregisterVM(*this);
     
     delete interpreter;
 #ifndef NDEBUG
@@ -719,9 +736,8 @@ NativeExecutable* VM::getHostFunction(NativeFunction function, Intrinsic intrins
             intrinsic != NoIntrinsic ? thunkGeneratorForIntrinsic(intrinsic) : 0,
             intrinsic, signature, name);
     }
-#else // ENABLE(JIT)
-    UNUSED_PARAM(intrinsic);
 #endif // ENABLE(JIT)
+    UNUSED_PARAM(intrinsic);
     return NativeExecutable::create(*this,
         adoptRef(*new NativeJITCode(LLInt::getCodeRef<JSEntryPtrTag>(llint_native_call_trampoline), JITCode::HostCallThunk)), function,
         adoptRef(*new NativeJITCode(LLInt::getCodeRef<JSEntryPtrTag>(llint_native_construct_trampoline), JITCode::HostCallThunk)), constructor,
@@ -754,14 +770,14 @@ void VM::resetDateCache()
     dateInstanceCache.reset();
 }
 
-void VM::whenIdle(std::function<void()> callback)
+void VM::whenIdle(Function<void()>&& callback)
 {
     if (!entryScope) {
         callback();
         return;
     }
 
-    entryScope->addDidPopListener(callback);
+    entryScope->addDidPopListener(WTFMove(callback));
 }
 
 void VM::deleteAllLinkedCode(DeleteAllCodeEffort effort)
@@ -854,7 +870,7 @@ size_t VM::updateSoftReservedZoneSize(size_t softReservedZoneSize)
 {
     size_t oldSoftReservedZoneSize = m_currentSoftReservedZoneSize;
     m_currentSoftReservedZoneSize = softReservedZoneSize;
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
     interpreter->cloopStack().setSoftReservedZoneSize(softReservedZoneSize);
 #endif
 
@@ -1025,7 +1041,8 @@ void VM::addImpureProperty(const String& propertyName)
         watchpointSet->fireAll(*this, "Impure property added");
 }
 
-static bool enableProfilerWithRespectToCount(unsigned& counter, std::function<void()> doEnableWork)
+template<typename Func>
+static bool enableProfilerWithRespectToCount(unsigned& counter, const Func& doEnableWork)
 {
     bool needsToRecompile = false;
     if (!counter) {
@@ -1037,7 +1054,8 @@ static bool enableProfilerWithRespectToCount(unsigned& counter, std::function<vo
     return needsToRecompile;
 }
 
-static bool disableProfilerWithRespectToCount(unsigned& counter, std::function<void()> doDisableWork)
+template<typename Func>
+static bool disableProfilerWithRespectToCount(unsigned& counter, const Func& doDisableWork)
 {
     RELEASE_ASSERT(counter > 0);
     bool needsToRecompile = false;
@@ -1093,7 +1111,7 @@ void VM::dumpTypeProfilerData()
     if (!typeProfiler())
         return;
 
-    typeProfilerLog()->processLogEntries("VM Dump Types"_s);
+    typeProfilerLog()->processLogEntries(*this, "VM Dump Types"_s);
     typeProfiler()->dumpTypeProfilerData(*this);
 }
 
@@ -1104,8 +1122,11 @@ void VM::queueMicrotask(JSGlobalObject& globalObject, Ref<Microtask>&& task)
 
 void VM::drainMicrotasks()
 {
-    while (!m_microtaskQueue.isEmpty())
+    while (!m_microtaskQueue.isEmpty()) {
         m_microtaskQueue.takeFirst()->run();
+        if (m_onEachMicrotaskTick)
+            m_onEachMicrotaskTick(*this);
+    }
 }
 
 void QueuedTask::run()
@@ -1121,7 +1142,7 @@ void sanitizeStackForVM(VM* vm)
         ASSERT(vm->currentThreadIsHoldingAPILock());
         ASSERT_UNUSED(stackBounds, stackBounds.contains(vm->lastStackTop()));
     }
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
     vm->interpreter->cloopStack().sanitizeStack();
 #else
     sanitizeStackForVMImpl(vm);
@@ -1130,19 +1151,19 @@ void sanitizeStackForVM(VM* vm)
 
 size_t VM::committedStackByteCount()
 {
-#if ENABLE(JIT)
+#if !ENABLE(C_LOOP)
     // When using the C stack, we don't know how many stack pages are actually
     // committed. So, we use the current stack usage as an estimate.
     ASSERT(Thread::current().stack().isGrowingDownward());
-    int8_t* current = reinterpret_cast<int8_t*>(&current);
-    int8_t* high = reinterpret_cast<int8_t*>(Thread::current().stack().origin());
+    uint8_t* current = bitwise_cast<uint8_t*>(currentStackPointer());
+    uint8_t* high = bitwise_cast<uint8_t*>(Thread::current().stack().origin());
     return high - current;
 #else
     return CLoopStack::committedByteCount();
 #endif
 }
 
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 bool VM::ensureStackCapacityForCLoop(Register* newTopOfStack)
 {
     return interpreter->cloopStack().ensureCapacityFor(newTopOfStack);
@@ -1152,7 +1173,7 @@ bool VM::isSafeToRecurseSoftCLoop() const
 {
     return interpreter->cloopStack().isSafeToRecurse();
 }
-#endif // !ENABLE(JIT)
+#endif // ENABLE(C_LOOP)
 
 #if ENABLE(EXCEPTION_SCOPE_VERIFICATION)
 void VM::verifyExceptionCheckNeedIsSatisfied(unsigned recursionDepth, ExceptionEventLocation& location)
@@ -1191,27 +1212,11 @@ void VM::verifyExceptionCheckNeedIsSatisfied(unsigned recursionDepth, ExceptionE
 #endif
 
 #if USE(CF)
-void VM::registerRunLoopTimer(JSRunLoopTimer* timer)
-{
-    ASSERT(runLoop());
-    ASSERT(!m_runLoopTimers.contains(timer));
-    m_runLoopTimers.add(timer);
-    timer->setRunLoop(runLoop());
-}
-
-void VM::unregisterRunLoopTimer(JSRunLoopTimer* timer)
-{
-    ASSERT(m_runLoopTimers.contains(timer));
-    m_runLoopTimers.remove(timer);
-    timer->setRunLoop(nullptr);
-}
-
 void VM::setRunLoop(CFRunLoopRef runLoop)
 {
     ASSERT(runLoop);
     m_runLoop = runLoop;
-    for (auto timer : m_runLoopTimers)
-        timer->setRunLoop(runLoop);
+    JSRunLoopTimer::Manager::shared().didChangeRunLoop(*this, runLoop);
 }
 #endif // USE(CF)
 

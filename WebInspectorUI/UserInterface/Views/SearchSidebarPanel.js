@@ -149,7 +149,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                 if (error || !resourceMatches || !resourceMatches.length)
                     return;
 
-                var frame = WI.frameResourceManager.frameForIdentifier(frameId);
+                var frame = WI.networkManager.frameForIdentifier(frameId);
                 if (!frame)
                     return;
 
@@ -170,10 +170,20 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                 updateEmptyContentPlaceholder.call(this);
             }
 
-            for (var i = 0; i < result.length; ++i) {
-                var searchResult = result[i];
+            let preventDuplicates = new Set;
+
+            for (let i = 0; i < result.length; ++i) {
+                let searchResult = result[i];
                 if (!searchResult.url || !searchResult.frameId)
                     continue;
+
+                // FIXME: Backend sometimes searches files twice.
+                // <https://webkit.org/b/188287> Web Inspector: [Backend] Page.searchInResources sometimes returns duplicate results for a resource
+                // Note we will still want this to fix legacy backends.
+                let key = searchResult.frameId + ":" + searchResult.url;
+                if (preventDuplicates.has(key))
+                    continue;
+                preventDuplicates.add(key);
 
                 // COMPATIBILITY (iOS 9): Page.searchInResources did not have the optional requestId parameter.
                 PageAgent.searchInResource(searchResult.frameId, searchResult.url, searchQuery, isCaseSensitive, isRegex, searchResult.requestId, resourceCallback.bind(this, searchResult.frameId, searchResult.url));
@@ -240,7 +250,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                     if (this._domSearchIdentifier !== searchId)
                         return;
 
-                    var domNode = WI.domTreeManager.nodeForId(nodeIds[i]);
+                    var domNode = WI.domManager.nodeForId(nodeIds[i]);
                     if (!domNode || !domNode.ownerDocument)
                         continue;
 
@@ -249,7 +259,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                         continue;
 
                     // FIXME: This should use a frame to do resourceForURL, but DOMAgent does not provide a frameId.
-                    var resource = WI.frameResourceManager.resourceForURL(domNode.ownerDocument.documentURL);
+                    var resource = WI.networkManager.resourceForURL(domNode.ownerDocument.documentURL);
                     if (!resource)
                         continue;
 
@@ -278,7 +288,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
         }
 
         if (window.DOMAgent)
-            WI.domTreeManager.ensureDocument();
+            WI.domManager.ensureDocument();
 
         if (window.PageAgent)
             PageAgent.searchInResources(searchQuery, isCaseSensitive, isRegex, resourcesCallback.bind(this));
@@ -366,7 +376,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
         if (!this.selected)
             return;
 
-        let treeElement = event.data.selectedElement;
+        let treeElement = this.contentTreeOutline.selectedTreeElement;
         if (!treeElement || treeElement instanceof WI.FolderTreeElement)
             return;
 

@@ -1,20 +1,25 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2018 Sony Interactive Entertainment Inc.
  *
- *  This library is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU Lesser General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution.
  *
- *  This library is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *  Lesser General Public License for more details.
- *
- *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -22,69 +27,122 @@
 
 #if USE(CURL)
 #include "Cookie.h"
+#include "CookieJarDB.h"
 #include "CookieRequestHeaderFieldProxy.h"
 #include "NetworkStorageSession.h"
-#include "URL.h"
+#include "NotImplemented.h"
 
+#include <wtf/Optional.h>
+#include <wtf/URL.h>
+#include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-std::pair<String, bool> cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeSecureCookies includeSecureCookies)
+static String cookiesForSession(const NetworkStorageSession& session, const URL&, const URL& url, bool forHTTPHeader)
 {
-    return session.cookieStorage().cookiesForDOM(session, firstParty, sameSiteInfo, url, frameID, pageID, includeSecureCookies);
+    StringBuilder cookies;
+
+    CookieJarDB& cookieJarDB = session.cookieDatabase();
+    auto searchHTTPOnly = (forHTTPHeader ? WTF::nullopt : Optional<bool> {false});
+    auto secure = url.protocolIs("https") ? WTF::nullopt : Optional<bool> {false};
+
+    if (auto result = cookieJarDB.searchCookies(url.string(), searchHTTPOnly, secure, WTF::nullopt)) {
+        for (auto& cookie : *result) {
+            if (!cookies.isEmpty())
+                cookies.append("; ");
+            cookies.append(cookie.name);
+            cookies.append("=");
+            cookies.append(cookie.value);
+        }
+    }
+    return cookies.toString();
 }
 
-void setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, const String& value)
+void CookieJarCurl::setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, Optional<uint64_t> frameID, Optional<uint64_t> pageID, const String& value) const
 {
-    session.cookieStorage().setCookiesFromDOM(session, firstParty, sameSiteInfo, url, frameID, pageID, value);
+    UNUSED_PARAM(frameID);
+    UNUSED_PARAM(pageID);
+    UNUSED_PARAM(firstParty);
+
+    CookieJarDB& cookieJarDB = session.cookieDatabase();
+    cookieJarDB.setCookie(url.string(), value, CookieJarDB::Source::Script);
 }
 
-std::pair<String, bool> cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeSecureCookies includeSecureCookies)
+void CookieJarCurl::setCookiesFromHTTPResponse(const NetworkStorageSession& session, const URL& url, const String& value) const
 {
-    return session.cookieStorage().cookieRequestHeaderFieldValue(session, firstParty, sameSiteInfo, url, frameID, pageID, includeSecureCookies);
+    CookieJarDB& cookieJarDB = session.cookieDatabase();
+    cookieJarDB.setCookie(url.string(), value, CookieJarDB::Source::Network);
 }
 
-std::pair<String, bool> cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const CookieRequestHeaderFieldProxy& headerFieldProxy)
+std::pair<String, bool> CookieJarCurl::cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, Optional<uint64_t> frameID, Optional<uint64_t> pageID, IncludeSecureCookies) const
 {
-    return session.cookieStorage().cookieRequestHeaderFieldValue(session, headerFieldProxy.firstParty, headerFieldProxy.sameSiteInfo, headerFieldProxy.url, headerFieldProxy.frameID, headerFieldProxy.pageID, headerFieldProxy.includeSecureCookies);
+    UNUSED_PARAM(frameID);
+    UNUSED_PARAM(pageID);
+
+    // FIXME: This should filter secure cookies out if the caller requests it.
+    return { cookiesForSession(session, firstParty, url, false), false };
 }
 
-bool cookiesEnabled(const NetworkStorageSession& session)
+std::pair<String, bool> CookieJarCurl::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, Optional<uint64_t> frameID, Optional<uint64_t> pageID, IncludeSecureCookies) const
 {
-    return session.cookieStorage().cookiesEnabled(session);
+    UNUSED_PARAM(frameID);
+    UNUSED_PARAM(pageID);
+
+    // FIXME: This should filter secure cookies out if the caller requests it.
+    return { cookiesForSession(session, firstParty, url, true), false };
 }
 
-bool getRawCookies(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, Vector<Cookie>& rawCookies)
+std::pair<String, bool> CookieJarCurl::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const CookieRequestHeaderFieldProxy& headerFieldProxy) const
 {
-    return session.cookieStorage().getRawCookies(session, firstParty, sameSiteInfo, url, frameID, pageID, rawCookies);
+    return cookieRequestHeaderFieldValue(session, headerFieldProxy.firstParty, headerFieldProxy.sameSiteInfo, headerFieldProxy.url, headerFieldProxy.frameID, headerFieldProxy.pageID, headerFieldProxy.includeSecureCookies);
 }
 
-void deleteCookie(const NetworkStorageSession& session, const URL& url, const String& cookie)
+bool CookieJarCurl::cookiesEnabled(const NetworkStorageSession& session) const
 {
-    session.cookieStorage().deleteCookie(session, url, cookie);
+    return session.cookieDatabase().isEnabled();
 }
 
-void getHostnamesWithCookies(const NetworkStorageSession& session, HashSet<String>& hostnames)
+bool CookieJarCurl::getRawCookies(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL&, Optional<uint64_t> frameID, Optional<uint64_t> pageID, Vector<Cookie>& rawCookies) const
 {
-    session.cookieStorage().getHostnamesWithCookies(session, hostnames);
+    UNUSED_PARAM(frameID);
+    UNUSED_PARAM(pageID);
+
+    CookieJarDB& cookieJarDB = session.cookieDatabase();
+    if (auto cookies = cookieJarDB.searchCookies(firstParty.string(), WTF::nullopt, WTF::nullopt, WTF::nullopt)) {
+        rawCookies = WTFMove(*cookies);
+        return true;
+    }
+    return false;
 }
 
-void deleteCookiesForHostnames(const NetworkStorageSession& session, const Vector<String>& cookieHostNames)
+void CookieJarCurl::deleteCookie(const NetworkStorageSession& session, const URL& url, const String& name) const
 {
-    session.cookieStorage().deleteCookiesForHostnames(session, cookieHostNames);
+    CookieJarDB& cookieJarDB = session.cookieDatabase();
+    cookieJarDB.deleteCookie(url, name);
 }
 
-void deleteAllCookies(const NetworkStorageSession& session)
+void CookieJarCurl::getHostnamesWithCookies(const NetworkStorageSession&, HashSet<String>&) const
 {
-    session.cookieStorage().deleteAllCookies(session);
+    // FIXME: Not yet implemented
 }
 
-void deleteAllCookiesModifiedSince(const NetworkStorageSession& session, WallTime since)
+void CookieJarCurl::deleteCookiesForHostnames(const NetworkStorageSession&, const Vector<String>&) const
 {
-    session.cookieStorage().deleteAllCookiesModifiedSince(session, since);
+    // FIXME: Not yet implemented
 }
 
+void CookieJarCurl::deleteAllCookies(const NetworkStorageSession& session) const
+{
+    CookieJarDB& cookieJarDB = session.cookieDatabase();
+    cookieJarDB.deleteAllCookies();
 }
 
-#endif
+void CookieJarCurl::deleteAllCookiesModifiedSince(const NetworkStorageSession&, WallTime) const
+{
+    // FIXME: Not yet implemented
+}
+
+} // namespace WebCore
+
+#endif // USE(CURL)

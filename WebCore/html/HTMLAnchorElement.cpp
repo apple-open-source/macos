@@ -53,10 +53,6 @@
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/text/StringBuilder.h>
 
-#if USE(SYSTEM_PREVIEW) && USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/SystemPreviewDetection.cpp>
-#endif
-
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLAnchorElement);
@@ -254,12 +250,15 @@ void HTMLAnchorElement::parseAttribute(const QualifiedName& name, const AtomicSt
         // Update HTMLAnchorElement::relList() if more rel attributes values are supported.
         static NeverDestroyed<AtomicString> noReferrer("noreferrer", AtomicString::ConstructFromLiteral);
         static NeverDestroyed<AtomicString> noOpener("noopener", AtomicString::ConstructFromLiteral);
+        static NeverDestroyed<AtomicString> opener("opener", AtomicString::ConstructFromLiteral);
         const bool shouldFoldCase = true;
         SpaceSplitString relValue(value, shouldFoldCase);
         if (relValue.contains(noReferrer))
-            m_linkRelations |= Relation::NoReferrer;
+            m_linkRelations.add(Relation::NoReferrer);
         if (relValue.contains(noOpener))
-            m_linkRelations |= Relation::NoOpener;
+            m_linkRelations.add(Relation::NoOpener);
+        if (relValue.contains(opener))
+            m_linkRelations.add(Relation::Opener);
         if (m_relList)
             m_relList->associatedAttributeValueChanged(value);
     }
@@ -314,12 +313,7 @@ DOMTokenList& HTMLAnchorElement::relList() const
     if (!m_relList) {
         m_relList = std::make_unique<DOMTokenList>(const_cast<HTMLAnchorElement&>(*this), HTMLNames::relAttr, [](Document&, StringView token) {
 #if USE(SYSTEM_PREVIEW)
-#if USE(APPLE_INTERNAL_SDK)
-            auto systemPreviewRelValue = getSystemPreviewRelValue();
-#else
-            auto systemPreviewRelValue = "system-preview"_s;
-#endif
-            return equalIgnoringASCIICase(token, "noreferrer") || equalIgnoringASCIICase(token, "noopener") || equalIgnoringASCIICase(token, systemPreviewRelValue);
+            return equalIgnoringASCIICase(token, "noreferrer") || equalIgnoringASCIICase(token, "noopener") || equalIgnoringASCIICase(token, "ar");
 #else
             return equalIgnoringASCIICase(token, "noreferrer") || equalIgnoringASCIICase(token, "noopener");
 #endif
@@ -383,11 +377,7 @@ bool HTMLAnchorElement::isSystemPreviewLink() const
     if (!RuntimeEnabledFeatures::sharedFeatures().systemPreviewEnabled())
         return false;
 
-#if USE(APPLE_INTERNAL_SDK)
-    auto systemPreviewRelValue = getSystemPreviewRelValue();
-#else
-    auto systemPreviewRelValue = String { "system-preview"_s };
-#endif
+    static NeverDestroyed<AtomicString> systemPreviewRelValue("ar", AtomicString::ConstructFromLiteral);
 
     if (!relList().contains(systemPreviewRelValue))
         return false;
@@ -395,7 +385,7 @@ bool HTMLAnchorElement::isSystemPreviewLink() const
     if (auto* child = firstElementChild()) {
         if (is<HTMLImageElement>(child) || is<HTMLPictureElement>(child)) {
             auto numChildren = childElementCount();
-            // FIXME: Should only be 1.
+            // FIXME: We've documented that it should be the only child, but some early demos have two children.
             return numChildren == 1 || numChildren == 2;
         }
     }
@@ -440,10 +430,26 @@ void HTMLAnchorElement::handleClick(Event& event)
 #endif
 
     ShouldSendReferrer shouldSendReferrer = hasRel(Relation::NoReferrer) ? NeverSendReferrer : MaybeSendReferrer;
-    auto newFrameOpenerPolicy = hasRel(Relation::NoOpener) ? std::make_optional(NewFrameOpenerPolicy::Suppress) : std::nullopt;
-    frame->loader().urlSelected(completedURL, target(), &event, LockHistory::No, LockBackForwardList::No, shouldSendReferrer, document().shouldOpenExternalURLsPolicyToPropagate(), newFrameOpenerPolicy, downloadAttribute, systemPreviewInfo);
+
+    auto effectiveTarget = this->effectiveTarget();
+    Optional<NewFrameOpenerPolicy> newFrameOpenerPolicy;
+    if (hasRel(Relation::Opener))
+        newFrameOpenerPolicy = NewFrameOpenerPolicy::Allow;
+    else if (hasRel(Relation::NoOpener) || (RuntimeEnabledFeatures::sharedFeatures().blankAnchorTargetImpliesNoOpenerEnabled() && equalIgnoringASCIICase(effectiveTarget, "_blank")))
+        newFrameOpenerPolicy = NewFrameOpenerPolicy::Suppress;
+
+    frame->loader().urlSelected(completedURL, effectiveTarget, &event, LockHistory::No, LockBackForwardList::No, shouldSendReferrer, document().shouldOpenExternalURLsPolicyToPropagate(), newFrameOpenerPolicy, downloadAttribute, systemPreviewInfo);
 
     sendPings(completedURL);
+}
+
+// Falls back to using <base> element's target if the anchor does not have one.
+String HTMLAnchorElement::effectiveTarget() const
+{
+    auto effectiveTarget = target();
+    if (effectiveTarget.isEmpty())
+        effectiveTarget = document().baseTarget();
+    return effectiveTarget;
 }
 
 HTMLAnchorElement::EventType HTMLAnchorElement::eventType(Event& event)

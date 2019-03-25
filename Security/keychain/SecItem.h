@@ -778,7 +778,7 @@ extern const CFStringRef kSecAttrKeyClassSymmetric
     @constant kSecAttrKeyTypeRC4 (OSX only)
     @constant kSecAttrKeyTypeRC2 (OSX only)
     @constant kSecAttrKeyTypeCAST (OSX only)
-    @constant kSecAttrKeyTypeECDSA (deprecated; use kSecAttrKeyTypeEC instead.) (OSX only)
+    @constant kSecAttrKeyTypeECDSA (deprecated; use kSecAttrKeyTypeECSECPrimeRandom instead.) (OSX only)
 */
 extern const CFStringRef kSecAttrKeyTypeRSA
     API_AVAILABLE(macos(10.7), ios(2.0));

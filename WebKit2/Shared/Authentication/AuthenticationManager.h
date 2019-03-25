@@ -51,12 +51,7 @@ class Download;
 class DownloadID;
 class WebFrame;
 
-enum class AuthenticationChallengeDisposition {
-    UseCredential,
-    PerformDefaultHandling,
-    Cancel,
-    RejectProtectionSpace
-};
+enum class AuthenticationChallengeDisposition : uint8_t;
 using ChallengeCompletionHandler = CompletionHandler<void(AuthenticationChallengeDisposition, const WebCore::Credential&)>;
 
 class AuthenticationManager : public NetworkProcessSupplement, public IPC::MessageReceiver, public CanMakeWeakPtr<AuthenticationManager> {
@@ -68,15 +63,8 @@ public:
 
     void didReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler&&);
     void didReceiveAuthenticationChallenge(IPC::MessageSender& download, const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler&&);
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-    void continueCanAuthenticateAgainstProtectionSpace(DownloadID, bool canAuthenticate);
-#endif
 
-    void useCredentialForChallenge(uint64_t challengeID, const WebCore::Credential&);
-    void continueWithoutCredentialForChallenge(uint64_t challengeID);
-    void cancelChallenge(uint64_t challengeID);
-    void performDefaultHandling(uint64_t challengeID);
-    void rejectProtectionSpaceAndContinue(uint64_t challengeID);
+    void completeAuthenticationChallenge(uint64_t challengeID, AuthenticationChallengeDisposition, WebCore::Credential&&);
 
     uint64_t outstandingAuthenticationChallengeCount() const { return m_challenges.size(); }
 
@@ -97,12 +85,6 @@ private:
 
     uint64_t addChallengeToChallengeMap(Challenge&&);
     bool shouldCoalesceChallenge(uint64_t pageID, uint64_t challengeID, const WebCore::AuthenticationChallenge&) const;
-
-    void useCredentialForSingleChallenge(uint64_t challengeID, const WebCore::Credential&);
-    void continueWithoutCredentialForSingleChallenge(uint64_t challengeID);
-    void cancelSingleChallenge(uint64_t challengeID);
-    void performDefaultHandlingForSingleChallenge(uint64_t challengeID);
-    void rejectProtectionSpaceAndContinueForSingleChallenge(uint64_t challengeID);
 
     Vector<uint64_t> coalesceChallengesMatching(uint64_t challengeID) const;
 

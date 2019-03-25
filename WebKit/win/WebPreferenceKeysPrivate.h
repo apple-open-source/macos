@@ -180,8 +180,6 @@
 
 #define WebKitMenuItemElementEnabledPreferenceKey "WebKitMenuItemElementEnabled"
 
-#define WebKitCrossOriginWindowPolicySupportEnabledPreferenceKey "WebKitCrossOriginWindowPolicySupportEnabled"
-
 #define WebKitModernMediaControlsEnabledPreferenceKey "WebKitModernMediaControlsEnabled"
 
 #define WebKitWebAnimationsEnabledPreferenceKey "WebKitWebAnimationsEnabled"
@@ -205,3 +203,6 @@
 #define WebKitVisualViewportAPIEnabledPreferenceKey "WebKitVisualViewportAPIEnabled"
 
 #define WebKitServerTimingEnabledPreferenceKey "WebKitServerTimingEnabled"
+
+#define WebKitCSSOMViewScrollingAPIEnabledPreferenceKey "WebKitCSSOMViewScrollingAPIEnabled"
+

@@ -1774,12 +1774,8 @@ IOReturn IOPMCopyConnectionStatus(int statusSelector, CFTypeRef *output)
 {
     int                 return_code = kIOReturnError;
     mach_port_t         pm_server = MACH_PORT_NULL;
-    kern_return_t       kern_result;
     IOReturn            err;
     
-    vm_offset_t         buffer_ptr = 0;
-    mach_msg_type_number_t    buffer_size = 0;
- 
     CFDictionaryRef     *dictionaryOutput = (CFDictionaryRef *)output;
  
     err = _pm_connect(&pm_server);
@@ -1788,19 +1784,9 @@ IOReturn IOPMCopyConnectionStatus(int statusSelector, CFTypeRef *output)
         goto exit;
     }
     
-    // TODO: serialize passed-in options into buffer_ptr & buffer_size
     *dictionaryOutput = NULL;
-    
-    
-    kern_result = io_pm_connection_copy_status(pm_server, 
-                                            (uint32_t)statusSelector, 
-                                            &buffer_ptr, 
-                                            &buffer_size,
-                                            &return_code);
-
-    if (kern_result != KERN_SUCCESS) {
-        return_code = kern_result;
-    }
+    statusSelector = 0;
+    return_code = kIOReturnSuccess;
 exit:
     if (MACH_PORT_NULL != pm_server) {
         _pm_disconnect(pm_server);

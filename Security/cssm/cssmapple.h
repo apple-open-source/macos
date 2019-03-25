@@ -1190,6 +1190,8 @@ typedef struct {
 #define kSystemKeychainDir		"/Library/Keychains/"
 #define kSystemUnlockFile		"/var/db/SystemKey"
 
+#define kSystemKeychainPath    kSystemKeychainDir kSystemKeychainName
+
 /*
  * CSSM ACL tags used to store partition/integrity data in ACLs
  */

@@ -59,7 +59,6 @@ do {  \
 #define kFinishPolling          0x9999
 
 static const uint32_t kBatteryReadAllTimeout = 10000;       // 10 seconds
-static const uint32_t kExternalConnectedDebounceMs = 1000;
 
 #define kErrorPermanentFailure              "Permanent Battery Failure"
 
@@ -265,8 +264,8 @@ void AppleSmartBattery::initializeCommands(void)
         // cmd,                    address, opType, smcKey, symbol
         {kTransactionRestart,       0,     kASBMInvalidOp,     0, 0, NULL,                      kUserVis},
         {kChargerDataCmd,           kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kUserVis},
-        {kBatteryFCCDataCmd,        kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kUserVis},
-        {kBatteryDataCmd,           kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kUserVis},
+        {kBatteryFCCDataCmd,        kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kFull},
+        {kBatteryDataCmd,           kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kFull},
         {kMStateContCmd,            kMgr,  kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
         {kMStateCmd,                kMgr,  kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
         {kBBatteryStatusCmd,        kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -2096,6 +2096,8 @@ _helperinit(mach_port_t			server,
 	SCHelperSessionPrivateRef	sessionPrivate;
 	pthread_attr_t			tattr;
 	pthread_t			tid;
+
+	*newSession = MACH_PORT_NULL;
 
 	session = __SCHelperSessionFindWithPort(server);
 	if (session != NULL) {

@@ -285,6 +285,12 @@ static void compileToBytecode(CombinedURLFilters&& filters, UniversalActionSet&&
 
 std::error_code compileRuleList(ContentExtensionCompilationClient& client, String&& ruleJSON, Vector<ContentExtensionRule>&& parsedRuleList)
 {
+#if !ASSERT_DISABLED
+    callOnMainThread([ruleJSON = ruleJSON.isolatedCopy(), parsedRuleList = parsedRuleList.isolatedCopy()] {
+        ASSERT(parseRuleList(ruleJSON) == parsedRuleList);
+    });
+#endif
+
     bool domainConditionSeen = false;
     bool topURLConditionSeen = false;
     for (const auto& rule : parsedRuleList) {
@@ -421,9 +427,6 @@ std::error_code compileRuleList(ContentExtensionCompilationClient& client, Strin
 #if CONTENT_EXTENSIONS_PERFORMANCE_REPORTING
     MonotonicTime totalNFAToByteCodeBuildTimeEnd = MonotonicTime::now();
     dataLogF("    Time spent building and compiling the DFAs: %f\n", (totalNFAToByteCodeBuildTimeEnd - totalNFAToByteCodeBuildTimeStart).seconds());
-
-    dataLogF("    Number of machines without condition filters: %d (total bytecode size = %d)\n", machinesWithoutConditionsCount, totalBytecodeSizeForMachinesWithoutConditions);
-    dataLogF("    Number of machines with condition filters: %d (total bytecode size = %d)\n", machinesWithConditionsCount, totalBytecodeSizeForMachinesWithConditions);
 #endif
 
     client.finalize();

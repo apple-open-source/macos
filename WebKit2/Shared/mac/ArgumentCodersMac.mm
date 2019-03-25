@@ -27,7 +27,7 @@
 #import "ArgumentCodersMac.h"
 
 #import <CoreText/CoreText.h>
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import <UIKit/UIKit.h>
 #endif
 
@@ -36,8 +36,6 @@
 #import "Encoder.h"
 #import "WebCoreArgumentCoders.h"
 #import <WebCore/ColorMac.h>
-
-using namespace WebCore;
 
 namespace IPC {
 
@@ -62,6 +60,8 @@ enum class NSType {
 }
 
 namespace IPC {
+using namespace WebCore;
+
 static NSType typeFromObject(id object)
 {
     ASSERT(object);
@@ -407,7 +407,7 @@ bool decode(Decoder& decoder, RetainPtr<NSDictionary>& result)
 void encode(Encoder& encoder, NSFont *font)
 {
     // NSFont could use CTFontRef code if we had it in ArgumentCodersCF.
-    encode(encoder, [[font fontDescriptor] fontAttributes]);
+    encode(encoder, font.fontDescriptor.fontAttributes);
 }
 
 bool decode(Decoder& decoder, RetainPtr<NSFont>& result)
@@ -421,7 +421,28 @@ bool decode(Decoder& decoder, RetainPtr<NSFont>& result)
 
     return result;
 }
-#endif
+#endif // USE(APPKIT)
+
+#if PLATFORM(IOS_FAMILY)
+
+void encode(Encoder& encoder, UIFont *font)
+{
+    encode(encoder, font.fontDescriptor.fontAttributes);
+}
+
+bool decode(Decoder& decoder, RetainPtr<UIFont>& result)
+{
+    RetainPtr<NSDictionary> fontAttributes;
+    if (!decode(decoder, fontAttributes))
+        return false;
+
+    UIFontDescriptor *fontDescriptor = [UIFontDescriptor fontDescriptorWithFontAttributes:fontAttributes.get()];
+    result = [UIFont fontWithDescriptor:fontDescriptor size:0];
+
+    return result;
+}
+
+#endif // PLATFORM(IOS_FAMILY)
 
 void encode(Encoder& encoder, NSNumber *number)
 {

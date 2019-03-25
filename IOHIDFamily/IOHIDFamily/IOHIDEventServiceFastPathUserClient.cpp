@@ -49,7 +49,7 @@ OSDefineMetaClassAndStructors( IOHIDEventServiceFastPathUserClient, IOUserClient
 const IOExternalMethodDispatch IOHIDEventServiceFastPathUserClient::sMethods[kIOHIDEventServiceFastPathUserClientNumCommands] = {
     [kIOHIDEventServiceFastPathUserClientOpen] = { //    kIOHIDEventServiceFastPathUserClientOpen
 	(IOExternalMethodAction) &IOHIDEventServiceFastPathUserClient::_open,
-	1, -1,
+	1, kIOUCVariableStructureSize,
     0,  0
     },
     [kIOHIDEventServiceFastPathUserClientClose] = { //    kIOHIDEventServiceFastPathUserClientClose
@@ -59,8 +59,8 @@ const IOExternalMethodDispatch IOHIDEventServiceFastPathUserClient::sMethods[kIO
     },
     [kIOHIDEventServiceFastPathUserClientCopyEvent] = { //    kIOHIDEventServiceFastPathUserClientCopyEvent
 	(IOExternalMethodAction) &IOHIDEventServiceFastPathUserClient::_copyEvent,
-	2, -1,
-    0, -1
+    2, kIOUCVariableStructureSize,
+    0, kIOUCVariableStructureSize
     },
 };
 
@@ -90,7 +90,7 @@ IOReturn IOHIDEventServiceFastPathUserClient::clientMemoryForType(UInt32 type __
   
     IOReturn result;
     
-    require_action(!_opened || !isInactive(), exit, result = kIOReturnOffline);
+    require_action(!isInactive(), exit, result = kIOReturnOffline);
     
     result = _commandGate->runAction(
                                      OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventServiceFastPathUserClient::clientMemoryForTypeGated),
@@ -108,7 +108,15 @@ exit:
 IOReturn IOHIDEventServiceFastPathUserClient::clientMemoryForTypeGated (IOOptionBits * options, IOMemoryDescriptor ** memory)
 {
     IOReturn result = kIOReturnNoMemory;
-            
+    
+    if (isInactive()) {
+        return kIOReturnOffline;
+    }
+    
+    if (!_opened) {
+        return kIOReturnNotOpen;
+    }
+    
     if (!_buffer) {
         uint32_t queueSize = getSharedMemorySize ();
         if (queueSize > sizeof(uint32_t)) {

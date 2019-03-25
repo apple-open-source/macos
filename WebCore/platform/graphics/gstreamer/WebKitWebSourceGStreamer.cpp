@@ -30,6 +30,7 @@
 #include "ResourceError.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "SecurityOrigin.h"
 #include <cstdint>
 #include <gst/app/gstappsrc.h>
 #include <gst/pbutils/missing-plugins.h>
@@ -42,7 +43,12 @@ class CachedResourceStreamingClient final : public PlatformMediaResourceClient {
 public:
     CachedResourceStreamingClient(WebKitWebSrc*, ResourceRequest&&);
     virtual ~CachedResourceStreamingClient();
+
+    const HashSet<RefPtr<WebCore::SecurityOrigin>>& securityOrigins() const { return m_origins; }
+
 private:
+    void checkUpdateBlocksize(uint64_t bytesRead);
+
     // PlatformMediaResourceClient virtual methods.
     void responseReceived(PlatformMediaResource&, const ResourceResponse&) override;
     void dataReceived(PlatformMediaResource&, const char*, int) override;
@@ -50,8 +56,18 @@ private:
     void loadFailed(PlatformMediaResource&, const ResourceError&) override;
     void loadFinished(PlatformMediaResource&) override;
 
+    static constexpr int s_growBlocksizeLimit { 1 };
+    static constexpr int s_growBlocksizeCount { 1 };
+    static constexpr int s_growBlocksizeFactor { 2 };
+    static constexpr float s_reduceBlocksizeLimit { 0.20 };
+    static constexpr int s_reduceBlocksizeCount { 2 };
+    static constexpr float s_reduceBlocksizeFactor { 0.5 };
+    int m_reduceBlocksizeCount { 0 };
+    int m_increaseBlocksizeCount { 0 };
+
     GRefPtr<GstElement> m_src;
     ResourceRequest m_request;
+    HashSet<RefPtr<WebCore::SecurityOrigin>> m_origins;
 };
 
 enum MainThreadSourceNotification {
@@ -89,8 +105,9 @@ struct _WebKitWebSrcPrivate {
 
     guint64 requestedOffset;
 
+    uint64_t minimumBlocksize;
+
     RefPtr<MainThreadNotifier<MainThreadSourceNotification>> notifier;
-    GRefPtr<GstBuffer> buffer;
 };
 
 enum {
@@ -248,6 +265,8 @@ static void webkit_web_src_init(WebKitWebSrc* src)
     gst_base_src_set_automatic_eos(GST_BASE_SRC(priv->appsrc), FALSE);
 
     gst_app_src_set_caps(priv->appsrc, nullptr);
+
+    priv->minimumBlocksize = gst_base_src_get_blocksize(GST_BASE_SRC_CAST(priv->appsrc));
 }
 
 static void webKitWebSrcDispose(GObject* object)
@@ -350,11 +369,6 @@ static void webKitWebSrcStop(WebKitWebSrc* src)
     }
 
     bool wasSeeking = std::exchange(priv->isSeeking, false);
-
-    if (priv->buffer) {
-        unmapGstBuffer(priv->buffer.get());
-        priv->buffer.clear();
-    }
 
     priv->paused = false;
 
@@ -736,6 +750,41 @@ CachedResourceStreamingClient::CachedResourceStreamingClient(WebKitWebSrc* src, 
 
 CachedResourceStreamingClient::~CachedResourceStreamingClient() = default;
 
+void CachedResourceStreamingClient::checkUpdateBlocksize(uint64_t bytesRead)
+{
+    WebKitWebSrc* src = WEBKIT_WEB_SRC(m_src.get());
+    WebKitWebSrcPrivate* priv = src->priv;
+
+    uint64_t blocksize = gst_base_src_get_blocksize(GST_BASE_SRC_CAST(priv->appsrc));
+    GST_LOG_OBJECT(src, "Checking to update blocksize. Read:%" PRIu64 " blocksize:%" PRIu64, bytesRead, blocksize);
+
+    if (bytesRead >= blocksize * s_growBlocksizeLimit) {
+        m_reduceBlocksizeCount = 0;
+        m_increaseBlocksizeCount++;
+
+        if (m_increaseBlocksizeCount >= s_growBlocksizeCount) {
+            blocksize *= s_growBlocksizeFactor;
+            GST_DEBUG_OBJECT(src, "Increased blocksize to %" PRIu64, blocksize);
+            gst_base_src_set_blocksize(GST_BASE_SRC_CAST(priv->appsrc), blocksize);
+            m_increaseBlocksizeCount = 0;
+        }
+    } else if (bytesRead < blocksize * s_reduceBlocksizeLimit) {
+        m_reduceBlocksizeCount++;
+        m_increaseBlocksizeCount = 0;
+
+        if (m_reduceBlocksizeCount >= s_reduceBlocksizeCount) {
+            blocksize *= s_reduceBlocksizeFactor;
+            blocksize = std::max(blocksize, priv->minimumBlocksize);
+            GST_DEBUG_OBJECT(src, "Decreased blocksize to %" PRIu64, blocksize);
+            gst_base_src_set_blocksize(GST_BASE_SRC_CAST(priv->appsrc), blocksize);
+            m_reduceBlocksizeCount = 0;
+        }
+    } else {
+        m_reduceBlocksizeCount = 0;
+        m_increaseBlocksizeCount = 0;
+    }
+}
+
 void CachedResourceStreamingClient::responseReceived(PlatformMediaResource&, const ResourceResponse& response)
 {
     WebKitWebSrc* src = WEBKIT_WEB_SRC(m_src.get());
@@ -743,6 +792,9 @@ void CachedResourceStreamingClient::responseReceived(PlatformMediaResource&, con
     priv->didPassAccessControlCheck = priv->resource->didPassAccessControlCheck();
 
     GST_DEBUG_OBJECT(src, "Received response: %d", response.httpStatusCode());
+
+    auto origin = SecurityOrigin::create(response.url());
+    m_origins.add(WTFMove(origin));
 
     auto responseURI = response.url().string().utf8();
     if (priv->originalURI != responseURI)
@@ -841,16 +893,8 @@ void CachedResourceStreamingClient::dataReceived(PlatformMediaResource&, const c
     WebKitWebSrc* src = WEBKIT_WEB_SRC(m_src.get());
     WebKitWebSrcPrivate* priv = src->priv;
 
-    GST_LOG_OBJECT(src, "Have %lld bytes of data", priv->buffer ? static_cast<long long>(gst_buffer_get_size(priv->buffer.get())) : length);
-
-    ASSERT(!priv->buffer || data == getGstBufferDataPointer(priv->buffer.get()));
-
-    if (priv->buffer)
-        unmapGstBuffer(priv->buffer.get());
-
     if (priv->isSeeking) {
         GST_DEBUG_OBJECT(src, "Seek in progress, ignoring data");
-        priv->buffer.clear();
         return;
     }
 
@@ -859,7 +903,6 @@ void CachedResourceStreamingClient::dataReceived(PlatformMediaResource&, const c
         if (priv->offset + length <= priv->requestedOffset) {
             // Discard all the buffers coming before the requested seek position.
             priv->offset += length;
-            priv->buffer.clear();
             return;
         }
 
@@ -867,20 +910,13 @@ void CachedResourceStreamingClient::dataReceived(PlatformMediaResource&, const c
             guint64 offset = priv->requestedOffset - priv->offset;
             data += offset;
             length -= offset;
-            if (priv->buffer)
-                gst_buffer_resize(priv->buffer.get(), offset, -1);
             priv->offset = priv->requestedOffset;
         }
 
         priv->requestedOffset = 0;
     }
 
-    // Ports using the GStreamer backend but not the soup implementation of ResourceHandle
-    // won't be using buffers provided by this client, the buffer is created here in that case.
-    if (!priv->buffer)
-        priv->buffer = adoptGRef(createGstBufferForData(data, length));
-    else
-        gst_buffer_set_size(priv->buffer.get(), static_cast<gssize>(length));
+    checkUpdateBlocksize(length);
 
     uint64_t startingOffset = priv->offset;
 
@@ -897,26 +933,35 @@ void CachedResourceStreamingClient::dataReceived(PlatformMediaResource&, const c
     // Now split the recv'd buffer into buffers that are of a size basesrc suggests. It is important not
     // to push buffers that are too large, otherwise incorrect buffering messages can be sent from the
     // pipeline.
-    uint64_t bufferSize = gst_buffer_get_size(priv->buffer.get());
-    uint64_t blockSize = static_cast<uint64_t>(GST_BASE_SRC_CAST(priv->appsrc)->blocksize);
-    ASSERT(blockSize);
+    uint64_t bufferSize = static_cast<uint64_t>(length);
+    uint64_t blockSize = static_cast<uint64_t>(gst_base_src_get_blocksize(GST_BASE_SRC_CAST(priv->appsrc)));
     GST_LOG_OBJECT(src, "Splitting the received buffer into %" PRIu64 " blocks", bufferSize / blockSize);
     for (uint64_t currentOffset = 0; currentOffset < bufferSize; currentOffset += blockSize) {
         uint64_t subBufferOffset = startingOffset + currentOffset;
         uint64_t currentOffsetSize = std::min(blockSize, bufferSize - currentOffset);
 
-        GST_TRACE_OBJECT(src, "Create sub-buffer from [%" PRIu64 ", %" PRIu64 "]", currentOffset, currentOffset + currentOffsetSize);
-        GstBuffer* subBuffer = gst_buffer_copy_region(priv->buffer.get(), GST_BUFFER_COPY_ALL, currentOffset, currentOffsetSize);
+        GstBuffer* subBuffer = gst_buffer_new_wrapped(g_memdup(data + currentOffset, currentOffsetSize), currentOffsetSize);
         if (UNLIKELY(!subBuffer)) {
             GST_ELEMENT_ERROR(src, CORE, FAILED, ("Failed to allocate sub-buffer"), (nullptr));
             break;
         }
 
+        GST_TRACE_OBJECT(src, "Sub-buffer bounds: %" PRIu64 " -- %" PRIu64, subBufferOffset, subBufferOffset + currentOffsetSize);
         GST_BUFFER_OFFSET(subBuffer) = subBufferOffset;
         GST_BUFFER_OFFSET_END(subBuffer) = subBufferOffset + currentOffsetSize;
-        GST_TRACE_OBJECT(src, "Set sub-buffer offset bounds [%" PRIu64 ", %" PRIu64 "]", GST_BUFFER_OFFSET(subBuffer), GST_BUFFER_OFFSET_END(subBuffer));
 
-        GST_TRACE_OBJECT(src, "Pushing buffer of size %" G_GSIZE_FORMAT " bytes", gst_buffer_get_size(subBuffer));
+        if (priv->isSeeking) {
+            GST_TRACE_OBJECT(src, "Stopping buffer appends due to seek");
+            // A seek has happened in the middle of us breaking the
+            // incoming data up from a previous request. Stop pushing
+            // buffers that are now from the incorrect offset.
+            break;
+        }
+
+        // It may be tempting to use a GstBufferList here, but note
+        // that there is a race condition in GstDownloadBuffer during
+        // seek flushes that can cause decoders to read at incorrect
+        // offsets.
         GstFlowReturn ret = gst_app_src_push_buffer(priv->appsrc, subBuffer);
 
         if (UNLIKELY(ret != GST_FLOW_OK && ret != GST_FLOW_EOS && ret != GST_FLOW_FLUSHING)) {
@@ -924,8 +969,6 @@ void CachedResourceStreamingClient::dataReceived(PlatformMediaResource&, const c
             break;
         }
     }
-
-    priv->buffer.clear();
 }
 
 void CachedResourceStreamingClient::accessControlCheckFailed(PlatformMediaResource&, const ResourceError& error)
@@ -957,6 +1000,18 @@ void CachedResourceStreamingClient::loadFinished(PlatformMediaResource&)
 
     if (!priv->isSeeking)
         gst_app_src_end_of_stream(priv->appsrc);
+}
+
+bool webKitSrcWouldTaintOrigin(WebKitWebSrc* src, const SecurityOrigin& origin)
+{
+    WebKitWebSrcPrivate* priv = src->priv;
+
+    auto* cachedResourceStreamingClient = reinterpret_cast<CachedResourceStreamingClient*>(priv->resource->client());
+    for (auto& responseOrigin : cachedResourceStreamingClient->securityOrigins()) {
+        if (!origin.canAccess(*responseOrigin))
+            return true;
+    }
+    return false;
 }
 
 #endif // ENABLE(VIDEO) && USE(GSTREAMER)

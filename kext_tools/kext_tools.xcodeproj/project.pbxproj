@@ -50,6 +50,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				4A78ED40211D00A100A78F41 /* PBXTargetDependency */,
 				0CDA836E1566EF7200FCA0F6 /* PBXTargetDependency */,
 				0CDA83711566EF7400FCA0F6 /* PBXTargetDependency */,
 				3F3E4200206D3EED0044651B /* PBXTargetDependency */,
@@ -154,7 +155,6 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = A66AD3111E80CF4900B2EEC9 /* Build configuration list for PBXAggregateTarget "unit_tests" */;
 			buildPhases = (
-				A66AD3171E80CF7200B2EEC9 /* Copy BATS Plist */,
 			);
 			dependencies = (
 				364A90C1203FB91900F223BF /* PBXTargetDependency */,
@@ -317,6 +317,26 @@
 		3FDA50EE206EF4050089927A /* kext_tools_util.h in Headers */ = {isa = PBXBuildFile; fileRef = 24F041720DC2906D001CFC70 /* kext_tools_util.h */; };
 		3FDA50EF206EF4050089927A /* security.h in Headers */ = {isa = PBXBuildFile; fileRef = 728BAE22167F7CD0004193C6 /* security.h */; };
 		3FDA50F1206EF4360089927A /* kextaudit.h in Headers */ = {isa = PBXBuildFile; fileRef = 3FDA50F0206EF4150089927A /* kextaudit.h */; };
+		4A0EDA00213F385100131491 /* MultiverseSupport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A0ED9FF213F385100131491 /* MultiverseSupport.framework */; };
+		4A521C83215D5042006C154D /* kextaudit_darwintest.m in Sources */ = {isa = PBXBuildFile; fileRef = 4A521C82215D5010006C154D /* kextaudit_darwintest.m */; };
+		4A78ED12211BAC7C00A78F41 /* signposts.m in Sources */ = {isa = PBXBuildFile; fileRef = A620205A20BD0C6800D24B46 /* signposts.m */; };
+		4A78ED13211BAC7C00A78F41 /* syspolicy.m in Sources */ = {isa = PBXBuildFile; fileRef = A6D698151E56AAAA0050FC06 /* syspolicy.m */; };
+		4A78ED14211BAC7C00A78F41 /* staging.m in Sources */ = {isa = PBXBuildFile; fileRef = A65EA4661E57C5A000B49C4E /* staging.m */; };
+		4A78ED15211BAC7C00A78F41 /* kext_tools_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F041730DC2906D001CFC70 /* kext_tools_util.c */; };
+		4A78ED16211BAC7C00A78F41 /* kextaudit.c in Sources */ = {isa = PBXBuildFile; fileRef = 365888AC20352368002DF547 /* kextaudit.c */; };
+		4A78ED17211BAC7C00A78F41 /* security.c in Sources */ = {isa = PBXBuildFile; fileRef = 728BAE1E167F7C97004193C6 /* security.c */; };
+		4A78ED1A211BAC7C00A78F41 /* SystemPolicy.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F5A720506565006108B8 /* SystemPolicy.framework */; };
+		4A78ED1B211BAC7C00A78F41 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F5B220506854006108B8 /* IOKit.framework */; };
+		4A78ED1C211BAC7C00A78F41 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F5A520506550006108B8 /* Security.framework */; };
+		4A78ED1D211BAC7C00A78F41 /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F5AB205065C4006108B8 /* System.framework */; };
+		4A78ED1E211BAC7C00A78F41 /* RemoteServiceDiscovery.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F5A1204F8380006108B8 /* RemoteServiceDiscovery.framework */; };
+		4A78ED1F211BAC7C00A78F41 /* RemoteXPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36F3F59F204F837B006108B8 /* RemoteXPC.framework */; };
+		4A78ED20211BAC7C00A78F41 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
+		4A78ED22211BAC7C00A78F41 /* kextaudit.h in Headers */ = {isa = PBXBuildFile; fileRef = 3FDA50F0206EF4150089927A /* kextaudit.h */; };
+		4A78ED23211BAC7C00A78F41 /* kext_tools_util.h in Headers */ = {isa = PBXBuildFile; fileRef = 24F041720DC2906D001CFC70 /* kext_tools_util.h */; };
+		4A78ED24211BAC7C00A78F41 /* security.h in Headers */ = {isa = PBXBuildFile; fileRef = 728BAE22167F7CD0004193C6 /* security.h */; };
+		4A78ED26211BAC7C00A78F41 /* unit_test.h in Headers */ = {isa = PBXBuildFile; fileRef = A66AD2E91E80CDC200B2EEC9 /* unit_test.h */; };
+		4A78ED2E211BAE3B00A78F41 /* libdarwintest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A78ED2D211BAE3B00A78F41 /* libdarwintest.a */; };
 		4B5563471267821C009908A3 /* libcsfde.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B5563461267821C009908A3 /* libcsfde.dylib */; };
 		4B55634E1267837B009908A3 /* libcsfde.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B5563461267821C009908A3 /* libcsfde.dylib */; };
 		50473D77166C859800211829 /* fsremount in Install kcinstall */ = {isa = PBXBuildFile; fileRef = 50473D74166C855700211829 /* fsremount */; };
@@ -389,7 +409,6 @@
 		A66AD2FE1E80CE5000B2EEC9 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1492D20D01E541CE02CA2A87 /* IOKit.framework */; };
 		A66AD2FF1E80CE5000B2EEC9 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728BAE23167F7FCC004193C6 /* Security.framework */; };
 		A66AD3001E80CE5000B2EEC9 /* SystemPolicy.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A6D698131E56A90D0050FC06 /* SystemPolicy.framework */; settings = {ATTRIBUTES = (Required, ); }; };
-		A66AD3181E80CF8D00B2EEC9 /* kext_tools.plist in Copy BATS Plist */ = {isa = PBXBuildFile; fileRef = A66AD2E81E80CCBD00B2EEC9 /* kext_tools.plist */; };
 		A66AD3191E80CFBD00B2EEC9 /* security_test.m in Sources */ = {isa = PBXBuildFile; fileRef = A66AD2EA1E80CE3600B2EEC9 /* security_test.m */; };
 		A66BCA8B1E981AE1008DD993 /* staging.m in Sources */ = {isa = PBXBuildFile; fileRef = A65EA4661E57C5A000B49C4E /* staging.m */; };
 		A67052AA1ECFA85500CBA8B5 /* staging.m in Sources */ = {isa = PBXBuildFile; fileRef = A65EA4661E57C5A000B49C4E /* staging.m */; };
@@ -565,6 +584,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 3F3E41F8206D3EC30044651B;
 			remoteInfo = osx_kexts;
+		};
+		4A78ED3D211BBC3700A78F41 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4A78ED10211BAC7C00A78F41;
+			remoteInfo = kextaudit_darwintest;
+		};
+		4A78ED3F211D00A100A78F41 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4A78ED38211BBC0D00A78F41;
+			remoteInfo = darwintests;
 		};
 		506B28DF127755760047F9AE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -805,17 +838,6 @@
 			name = "Copy launchd plist";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		A66AD3171E80CF7200B2EEC9 /* Copy BATS Plist */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
-			dstSubfolderSpec = 0;
-			files = (
-				A66AD3181E80CF8D00B2EEC9 /* kext_tools.plist in Copy BATS Plist */,
-			);
-			name = "Copy BATS Plist";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -947,6 +969,13 @@
 		36F3F5B220506854006108B8 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
 		3F059E17206C70E600A46AA9 /* efi_smc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = efi_smc.h; path = KextAudit/efi_smc.h; sourceTree = "<group>"; };
 		3FDA50F0206EF4150089927A /* kextaudit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextaudit.h; sourceTree = "<group>"; };
+		4A0ED9FF213F385100131491 /* MultiverseSupport.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MultiverseSupport.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/PrivateFrameworks/MultiverseSupport.framework; sourceTree = DEVELOPER_DIR; };
+		4A521C81215D5010006C154D /* kextaudit_darwintest.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = kextaudit_darwintest.entitlements; sourceTree = "<group>"; };
+		4A521C82215D5010006C154D /* kextaudit_darwintest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = kextaudit_darwintest.m; sourceTree = "<group>"; };
+		4A650262215DA08400ABEC66 /* sample_passtest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sample_passtest.c; sourceTree = "<group>"; };
+		4A78ED0F211BAC7100A78F41 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		4A78ED2B211BAC7C00A78F41 /* kextaudit_darwintest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextaudit_darwintest; sourceTree = BUILT_PRODUCTS_DIR; };
+		4A78ED2D211BAE3B00A78F41 /* libdarwintest.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libdarwintest.a; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/usr/local/lib/libdarwintest.a; sourceTree = DEVELOPER_DIR; };
 		4B5563461267821C009908A3 /* libcsfde.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcsfde.dylib; path = /usr/lib/libcsfde.dylib; sourceTree = "<absolute>"; };
 		50473D74166C855700211829 /* fsremount */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fsremount; sourceTree = "<group>"; };
 		50473D75166C855700211829 /* kcinstall */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = kcinstall; sourceTree = "<group>"; };
@@ -1173,6 +1202,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4A78ED19211BAC7C00A78F41 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A78ED2E211BAE3B00A78F41 /* libdarwintest.a in Frameworks */,
+				4A78ED1A211BAC7C00A78F41 /* SystemPolicy.framework in Frameworks */,
+				4A78ED1B211BAC7C00A78F41 /* IOKit.framework in Frameworks */,
+				4A78ED1C211BAC7C00A78F41 /* Security.framework in Frameworks */,
+				4A78ED1D211BAC7C00A78F41 /* System.framework in Frameworks */,
+				4A78ED1E211BAC7C00A78F41 /* RemoteServiceDiscovery.framework in Frameworks */,
+				4A78ED1F211BAC7C00A78F41 /* RemoteXPC.framework in Frameworks */,
+				4A78ED20211BAC7C00A78F41 /* CoreFoundation.framework in Frameworks */,
+				4A0EDA00213F385100131491 /* MultiverseSupport.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		506B28D2127755310047F9AE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1310,6 +1355,7 @@
 		1492D16C01E53C3C02CA2A87 = {
 			isa = PBXGroup;
 			children = (
+				4A78ED0D211BAC7100A78F41 /* darwintests */,
 				365342E0203F90F1007C5B77 /* KextAudit */,
 				24C462410DBE942B00E11943 /* shared source */,
 				1485151D03F1F3B302CA28EB /* libBootRoot */,
@@ -1335,7 +1381,7 @@
 				A6D698121E56A90C0050FC06 /* Frameworks */,
 			);
 			sourceTree = "<group>";
-			usesTabs = 0;
+			usesTabs = 1;
 		};
 		1492D16F01E53C9002CA2A87 /* Products */ = {
 			isa = PBXGroup;
@@ -1359,6 +1405,7 @@
 				A66AD30E1E80CE5000B2EEC9 /* security_test */,
 				365342E6203F9163007C5B77 /* KextAudit.kext */,
 				364A90BC203FB79200F223BF /* kextaudit_test */,
+				4A78ED2B211BAC7C00A78F41 /* kextaudit_darwintest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1560,6 +1607,25 @@
 			name = KextAudit;
 			sourceTree = "<group>";
 		};
+		4A521C80215D5010006C154D /* special_darwintests */ = {
+			isa = PBXGroup;
+			children = (
+				4A521C81215D5010006C154D /* kextaudit_darwintest.entitlements */,
+				4A521C82215D5010006C154D /* kextaudit_darwintest.m */,
+			);
+			path = special_darwintests;
+			sourceTree = "<group>";
+		};
+		4A78ED0D211BAC7100A78F41 /* darwintests */ = {
+			isa = PBXGroup;
+			children = (
+				4A650262215DA08400ABEC66 /* sample_passtest.c */,
+				4A521C80215D5010006C154D /* special_darwintests */,
+				4A78ED0F211BAC7100A78F41 /* Makefile */,
+			);
+			path = darwintests;
+			sourceTree = "<group>";
+		};
 		50473D73166C852C00211829 /* kcinstall */ = {
 			isa = PBXGroup;
 			children = (
@@ -1604,6 +1670,8 @@
 		A6D698121E56A90C0050FC06 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				4A0ED9FF213F385100131491 /* MultiverseSupport.framework */,
+				4A78ED2D211BAE3B00A78F41 /* libdarwintest.a */,
 				36F3F5B220506854006108B8 /* IOKit.framework */,
 				36F3F5AB205065C4006108B8 /* System.framework */,
 				36F3F5A92050658D006108B8 /* SystemConfiguration.framework */,
@@ -1650,7 +1718,36 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4A78ED21211BAC7C00A78F41 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A78ED22211BAC7C00A78F41 /* kextaudit.h in Headers */,
+				4A78ED23211BAC7C00A78F41 /* kext_tools_util.h in Headers */,
+				4A78ED24211BAC7C00A78F41 /* security.h in Headers */,
+				4A78ED26211BAC7C00A78F41 /* unit_test.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLegacyTarget section */
+		4A78ED38211BBC0D00A78F41 /* darwintests */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 4A78ED39211BBC0D00A78F41 /* Build configuration list for PBXLegacyTarget "darwintests" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = darwintests;
+			dependencies = (
+				4A78ED3E211BBC3700A78F41 /* PBXTargetDependency */,
+			);
+			name = darwintests;
+			passBuildSettingsInEnvironment = 1;
+			productName = darwintests;
+		};
+/* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
 		0509726C094910D30034B52C /* kextcache */ = {
@@ -1914,6 +2011,25 @@
 			productReference = 365342E6203F9163007C5B77 /* KextAudit.kext */;
 			productType = "com.apple.product-type.kernel-extension";
 		};
+		4A78ED10211BAC7C00A78F41 /* kextaudit_darwintest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4A78ED27211BAC7C00A78F41 /* Build configuration list for PBXNativeTarget "kextaudit_darwintest" */;
+			buildPhases = (
+				4A78ED11211BAC7C00A78F41 /* Sources */,
+				4A78ED19211BAC7C00A78F41 /* Frameworks */,
+				4A78ED21211BAC7C00A78F41 /* Headers */,
+				4A1810A02159779A00A766F6 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = kextaudit_darwintest;
+			productInstallPath = /usr/sbin;
+			productName = kextcache;
+			productReference = 4A78ED2B211BAC7C00A78F41 /* kextaudit_darwintest */;
+			productType = "com.apple.product-type.tool";
+		};
 		506B28D3127755310047F9AE /* kcgen-embedded-host */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 506B28D91277554F0047F9AE /* Build configuration list for PBXNativeTarget "kcgen-embedded-host" */;
@@ -2016,6 +2132,10 @@
 						CreatedOnToolsVersion = 9.3;
 						ProvisioningStyle = Automatic;
 					};
+					4A78ED38211BBC0D00A78F41 = {
+						CreatedOnToolsVersion = 10.0;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 0509730E094910F30034B52C /* Build configuration list for PBXProject "kext_tools" */;
@@ -2065,6 +2185,8 @@
 				A66AD2EB1E80CE5000B2EEC9 /* security_test */,
 				365342E5203F9163007C5B77 /* KextAudit */,
 				364A90AC203FB79200F223BF /* kextaudit_test */,
+				4A78ED10211BAC7C00A78F41 /* kextaudit_darwintest */,
+				4A78ED38211BBC0D00A78F41 /* darwintests */,
 			);
 		};
 /* End PBXProject section */
@@ -2093,6 +2215,23 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "# Create the system caches directory and set its ownership/permissions.\n#\nSYS_CACHES_DIR=\"${DSTROOT}/System/Library/Caches\"\n\n/bin/echo \"Making system caches directory, ${SYS_CACHES_DIR}\"\n/bin/mkdir -p -m 0755 \"${SYS_CACHES_DIR}\"\n\n# Create the extension caches directory and set its ownership/permissions.\n#\n# Commented out, soon to change caching scheme but old scheme no longer used\n#\nKEXT_CACHES_DIR=\"${SYS_CACHES_DIR}/com.apple.kext.caches\"\nKEXT_SLE_CACHE_DIR=\"${KEXT_CACHES_DIR}/Directories/System/Library/Extensions\"\nKEXT_STARTUP_CACHE_DIR=\"${KEXT_CACHES_DIR}/Startup\"\n\n/bin/echo \"Making kernel extension caches directories, ${KEXT_SLE_CACHE_DIR}\"\n/bin/mkdir -p -m 0755 \"${KEXT_SLE_CACHE_DIR}\"\n/bin/mkdir -p -m 0755 \"${KEXT_STARTUP_CACHE_DIR}\"\n\n/bin/echo \"Setting owner and permissions on system caches directory and contents\"\n/usr/sbin/chown -R root:wheel \"${SYS_CACHES_DIR}\"\n";
+		};
+		4A1810A02159779A00A766F6 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\necho \"Just checking stuff\"\nXCRUN=\"/usr/bin/xcrun\"\nTARGETSDK=${SDKROOT}\nINSTALLPATH=\"/AppleInternal/CoreOS/kext_tools\"\nEXTRACTMETA=$(${XCRUN} -sdk ${TARGETSDK} -find dt_extractmeta)\n\necho \"${SYMROOT}\"\necho \"${BUILT_PRODUCTS_DIR}\"\necho \"${EXTRACTMETA} extract -i ${INSTALLPATH}/kextaudit_darwintest -b ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest -o ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest.plist\"\n${EXTRACTMETA} extract -i ${INSTALLPATH}/kextaudit_darwintest -b ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest -o ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest.plist\n\necho \"${EXTRACTMETA} merge -o ${BUILT_PRODUCTS_DIR}/meta.plist ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest.plist\"\n${EXTRACTMETA} merge -o ${BUILT_PRODUCTS_DIR}/meta.plist ${BUILT_PRODUCTS_DIR}/kextaudit_darwintest.plist\n\n\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -2288,6 +2427,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4A78ED11211BAC7C00A78F41 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A521C83215D5042006C154D /* kextaudit_darwintest.m in Sources */,
+				4A78ED12211BAC7C00A78F41 /* signposts.m in Sources */,
+				4A78ED13211BAC7C00A78F41 /* syspolicy.m in Sources */,
+				4A78ED14211BAC7C00A78F41 /* staging.m in Sources */,
+				4A78ED15211BAC7C00A78F41 /* kext_tools_util.c in Sources */,
+				4A78ED16211BAC7C00A78F41 /* kextaudit.c in Sources */,
+				4A78ED17211BAC7C00A78F41 /* security.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		506B28D1127755310047F9AE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2458,6 +2611,16 @@
 			isa = PBXTargetDependency;
 			target = 3F3E41F8206D3EC30044651B /* osx_kexts */;
 			targetProxy = 3F3E41FF206D3EED0044651B /* PBXContainerItemProxy */;
+		};
+		4A78ED3E211BBC3700A78F41 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4A78ED10211BAC7C00A78F41 /* kextaudit_darwintest */;
+			targetProxy = 4A78ED3D211BBC3700A78F41 /* PBXContainerItemProxy */;
+		};
+		4A78ED40211D00A100A78F41 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4A78ED38211BBC0D00A78F41 /* darwintests */;
+			targetProxy = 4A78ED3F211D00A100A78F41 /* PBXContainerItemProxy */;
 		};
 		506B28E0127755760047F9AE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -4124,6 +4287,287 @@
 			};
 			name = Analyze;
 		};
+		4A78ED28211BAC7C00A78F41 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = darwintests/special_darwintests/kextaudit_darwintest.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				INSTALL_PATH = /AppleInternal/CoreOS/kext_tools;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				OTHER_CFLAGS = (
+					"-DPRODUCT_NAME='\"$(PRODUCT_NAME)\"'",
+					"-DDEV_KERNEL_SUPPORT",
+					"-DDEBUG",
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders";
+				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		4A78ED29211BAC7C00A78F41 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = darwintests/special_darwintests/kextaudit_darwintest.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/kext_tools;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				OTHER_CFLAGS = (
+					"-DPRODUCT_NAME='\"$(PRODUCT_NAME)\"'",
+					"-DDEV_KERNEL_SUPPORT",
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders";
+				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		4A78ED2A211BAC7C00A78F41 /* Analyze */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = darwintests/special_darwintests/kextaudit_darwintest.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/kext_tools;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				OTHER_CFLAGS = (
+					"-DPRODUCT_NAME='\"$(PRODUCT_NAME)\"'",
+					"-DDEV_KERNEL_SUPPORT",
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/System/Library/Frameworks/IOKit.framework/PrivateHeaders";
+				VALID_ARCHS = "x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Analyze;
+		};
+		4A78ED3A211BBC0D00A78F41 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		4A78ED3B211BBC0D00A78F41 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		4A78ED3C211BBC0D00A78F41 /* Analyze */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Analyze;
+		};
 		506B28D6127755310047F9AE /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -4827,6 +5271,26 @@
 				3F3E41FA206D3EC30044651B /* Development */,
 				3F3E41FB206D3EC30044651B /* Deployment */,
 				3F3E41FC206D3EC30044651B /* Analyze */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		4A78ED27211BAC7C00A78F41 /* Build configuration list for PBXNativeTarget "kextaudit_darwintest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4A78ED28211BAC7C00A78F41 /* Development */,
+				4A78ED29211BAC7C00A78F41 /* Deployment */,
+				4A78ED2A211BAC7C00A78F41 /* Analyze */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		4A78ED39211BBC0D00A78F41 /* Build configuration list for PBXLegacyTarget "darwintests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4A78ED3A211BBC0D00A78F41 /* Development */,
+				4A78ED3B211BBC0D00A78F41 /* Deployment */,
+				4A78ED3C211BBC0D00A78F41 /* Analyze */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

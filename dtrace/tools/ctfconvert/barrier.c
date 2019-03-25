@@ -34,9 +34,7 @@
  * returns from barrier_wait() with a return code of 1; the remaining threads
  * get a return code of 0.
  */
-#if !defined(__APPLE__)
 #include <pthread.h>
-#include <synch.h>
 #include <stdio.h>
 
 #include "barrier.h"
@@ -45,7 +43,7 @@ void
 barrier_init(barrier_t *bar, int nthreads)
 {
 	pthread_mutex_init(&bar->bar_lock, NULL);
-	sema_init(&bar->bar_sem, 0, USYNC_THREAD, NULL);
+	bar->bar_sem = dispatch_semaphore_create(0);
 
 	bar->bar_numin = 0;
 	bar->bar_nthr = nthreads;
@@ -58,7 +56,7 @@ barrier_wait(barrier_t *bar)
 
 	if (++bar->bar_numin < bar->bar_nthr) {
 		pthread_mutex_unlock(&bar->bar_lock);
-		sema_wait(&bar->bar_sem);
+		dispatch_semaphore_wait(bar->bar_sem, DISPATCH_TIME_FOREVER);
 
 		return (0);
 
@@ -68,50 +66,9 @@ barrier_wait(barrier_t *bar)
 		/* reset for next use */
 		bar->bar_numin = 0;
 		for (i = 1; i < bar->bar_nthr; i++)
-			sema_post(&bar->bar_sem);
+			dispatch_semaphore_signal(bar->bar_sem);
 		pthread_mutex_unlock(&bar->bar_lock);
 
 		return (1);
 	}
 }
-#else
-#include <pthread.h>
-#include <semaphore.h>
-#include <stdio.h>
-
-#include "barrier.h"
-
-void
-barrier_init(barrier_t *bar, int nthreads)
-{
-	pthread_mutex_init(&bar->bar_lock, NULL);
-	bar->bar_sem = sem_open("ctfmerge_barrier", O_CREAT | O_EXCL);
-
-	bar->bar_numin = 0;
-	bar->bar_nthr = nthreads;
-}
-
-int
-barrier_wait(barrier_t *bar)
-{
-	pthread_mutex_lock(&bar->bar_lock);
-
-	if (++bar->bar_numin < bar->bar_nthr) {
-		pthread_mutex_unlock(&bar->bar_lock);
-		sem_wait(bar->bar_sem);
-
-		return (0);
-
-	} else {
-		int i;
-
-		/* reset for next use */
-		bar->bar_numin = 0;
-		for (i = 1; i < bar->bar_nthr; i++)
-			sem_post(bar->bar_sem);
-		pthread_mutex_unlock(&bar->bar_lock);
-
-		return (1);
-	}
-}
-#endif /* __APPLE__ */

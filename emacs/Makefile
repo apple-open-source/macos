@@ -33,7 +33,7 @@ AEP_Patches    = Apple.diff files.el.diff \
 	lisp_Makefile.in.diff xdisp.c.diff lib-src_update-game-score.c.diff \
 	src_fileio.c.diff src_search.c.diff lib-src_etags.c.diff \
 	src_regex.c.diff \
-	src_eval.c.25331628.diff
+	src_eval.c.25331628.diff emacs-25536925.diff
 
 # Extract the source.
 install_source::

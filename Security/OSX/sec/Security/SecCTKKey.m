@@ -73,7 +73,8 @@ static CFIndex SecCTKGetAlgorithmID(SecKeyRef key) {
 
 static SecItemAuthResult SecCTKProcessError(CFStringRef operation, TKTokenRef token, CFDataRef object_id, CFArrayRef *ac_pairs, CFErrorRef *error) {
     if (CFEqualSafe(CFErrorGetDomain(*error), CFSTR(kTKErrorDomain)) &&
-        CFErrorGetCode(*error) == kTKErrorCodeAuthenticationFailed) {
+        CFErrorGetCode(*error) == kTKErrorCodeAuthenticationFailed &&
+        operation != NULL) {
         CFDataRef access_control = TKTokenCopyObjectAccessControl(token, object_id, error);
         if (access_control != NULL) {
             CFArrayRef ac_pair = CFArrayCreateForCFTypes(NULL, access_control, operation, NULL);
@@ -87,12 +88,6 @@ static SecItemAuthResult SecCTKProcessError(CFStringRef operation, TKTokenRef to
     }
     return kSecItemAuthResultError;
 }
-
-static const CFTypeRef *aclOperations[] = {
-    [kSecKeyOperationTypeSign] = &kAKSKeyOpSign,
-    [kSecKeyOperationTypeDecrypt] = &kAKSKeyOpDecrypt,
-    [kSecKeyOperationTypeKeyExchange] = &kAKSKeyOpComputeKey,
-};
 
 static TKTokenRef SecCTKKeyCreateToken(SecKeyRef key, CFDictionaryRef auth_params, CFDictionaryRef *last_params, CFErrorRef *error) {
     TKTokenRef token = NULL;
@@ -161,8 +156,31 @@ static CFTypeRef SecCTKKeyCopyOperationResult(SecKeyRef key, SecKeyOperationType
         if (CFEqualSafe(result, kCFBooleanTrue)) {
             result = TKTokenCopyOperationResult(token, kd->object_id, operation, algorithms, mode, in1, in2, error);
         }
-        return (result != NULL) ? kSecItemAuthResultOK : SecCTKProcessError(*aclOperations[operation], token,
-                                                                            kd->object_id, ac_pairs, error);
+
+        if (result != NULL) {
+            return kSecItemAuthResultOK;
+        }
+
+        CFStringRef AKSOperation = NULL;
+        switch (operation) {
+            case kSecKeyOperationTypeSign:
+                AKSOperation = kAKSKeyOpSign;
+                break;
+            case kSecKeyOperationTypeDecrypt: {
+                AKSOperation = kAKSKeyOpDecrypt;
+                if (in2 != NULL && CFGetTypeID(in2) == CFDictionaryGetTypeID() && CFDictionaryGetValue(in2, kSecKeyEncryptionParameterRecryptCertificate) != NULL) {
+                    // This is actually recrypt operation, which is special separate AKS operation.
+                    AKSOperation = kAKSKeyOpECIESTranscode;
+                }
+                break;
+            }
+            case kSecKeyOperationTypeKeyExchange:
+                AKSOperation = kAKSKeyOpComputeKey;
+                break;
+            default:
+                break;;
+        }
+        return SecCTKProcessError(AKSOperation, token, kd->object_id, ac_pairs, error);
     }, ^{
         CFAssignRetained(token, SecCTKKeyCreateToken(key, auth_params.dictionary, &last_params, NULL));
     });
@@ -570,11 +588,6 @@ out:
     return attestationData;
 }
 
-#if TKTOKEN_CLIENT_INTERFACE_VERSION < 4
-#define kTKTokenControlAttribLifetimeControlKey "lifetimeControlKey"
-#define kTKTokenControlAttribLifetimeType "lifetimeType"
-#endif
-
 Boolean SecKeyControlLifetime(SecKeyRef key, SecKeyControlLifetimeType type, CFErrorRef *error) {
     NSError *localError;
     __block id token;
@@ -604,4 +617,20 @@ Boolean SecKeyControlLifetime(SecKeyRef key, SecKeyControlLifetimeType type, CFE
         NSDictionary *outputAttributes = CFBridgingRelease(TKTokenControl((__bridge TKTokenRef)token, (__bridge CFDictionaryRef)attributes, error));
         return outputAttributes ? kSecItemAuthResultOK : kSecItemAuthResultError;
     }, NULL);
+}
+
+#if TKTOKEN_CLIENT_INTERFACE_VERSION < 5
+#define kTKTokenCreateAttributeTestMode "testmode"
+#endif
+
+void SecCTKKeySetTestMode(CFStringRef tokenID, CFTypeRef enable) {
+    CFErrorRef error = NULL;
+    CFDictionaryRef options = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, kSecAttrTokenID, tokenID, @kTKTokenCreateAttributeTestMode, enable, nil);
+    TKTokenRef token = TKTokenCreate(options, &error);
+    if (token == NULL) {
+        secerror("Failed to set token attributes %@: error %@", options, error);
+    }
+    CFReleaseNull(options);
+    CFReleaseNull(error);
+    CFReleaseNull(token);
 }

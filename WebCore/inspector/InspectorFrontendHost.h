@@ -57,8 +57,12 @@ public:
     void loaded();
     void requestSetDockSide(const String&);
     void closeWindow();
+    void reopen();
     void bringToFront();
     void inspectedURLChanged(const String&);
+
+    bool supportsShowCertificate() const;
+    bool showCertificate(const String& serializedCertificate);
 
     void setZoomFactor(float);
     float zoomFactor();
@@ -90,10 +94,10 @@ public:
     struct ContextMenuItem {
         String type;
         String label;
-        std::optional<int> id;
-        std::optional<bool> enabled;
-        std::optional<bool> checked;
-        std::optional<Vector<ContextMenuItem>> subItems;
+        Optional<int> id;
+        Optional<bool> enabled;
+        Optional<bool> checked;
+        Optional<Vector<ContextMenuItem>> subItems;
     };
     void showContextMenu(Event&, Vector<ContextMenuItem>&&);
 

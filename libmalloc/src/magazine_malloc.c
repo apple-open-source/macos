@@ -45,6 +45,17 @@
 // possibly limited by the MallocMaxMagazines environment variable.
 int max_magazines;
 
+// Control whether medium is enabled at all when creating new magazine zones
+bool magazine_medium_enabled = true;
+
+// Control the DRAM limit at which medium kicks in.
+uint64_t magazine_medium_active_threshold = MEDIUM_ACTIVATION_THRESHOLD;
+
+// <rdar://problem/47353961> Maximum number of magzines that the medium
+// allocator will use. This addresses a 32-bit load-offset range issue found
+// in some apps when introducing medium.
+int max_medium_magazines;
+
 // Number of regions to retain in a recirc depot.
 #if CONFIG_RECIRC_DEPOT
 int recirc_retained_regions = DEFAULT_RECIRC_RETAINED_REGIONS;
@@ -100,6 +111,20 @@ szone_free(szone_t *szone, void *ptr)
 		return;
 	}
 
+#if CONFIG_MEDIUM_ALLOCATOR
+	region_t medium_region;
+
+	if (szone->is_medium_engaged &&
+			(medium_region = medium_region_for_ptr_no_lock(&szone->medium_rack, ptr)) != NULL) {
+		if (MEDIUM_META_INDEX_FOR_PTR(ptr) >= NUM_MEDIUM_BLOCKS) {
+			malloc_zone_error(szone->debug_flags, true, "Pointer %p to metadata being freed (2)\n", ptr);
+			return;
+		}
+		free_medium(&szone->medium_rack, ptr, medium_region, 0);
+		return;
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
 	/* check that it's a legal large allocation */
 	if ((uintptr_t)ptr & (vm_page_quanta_size - 1)) {
 		malloc_zone_error(szone->debug_flags, true, "non-page-aligned, non-allocated pointer %p being freed\n", ptr);
@@ -133,7 +158,7 @@ szone_free_definite_size(szone_t *szone, void *ptr, size_t size)
 		malloc_zone_error(szone->debug_flags, true, "Non-aligned pointer %p being freed\n", ptr);
 		return;
 	}
-	if (size <= SMALL_THRESHOLD) {
+	if (size <= TINY_LIMIT_THRESHOLD) {
 		if (TINY_INDEX_FOR_PTR(ptr) >= NUM_TINY_BLOCKS) {
 			malloc_zone_error(szone->debug_flags, true, "Pointer %p to metadata being freed\n", ptr);
 			return;
@@ -149,7 +174,7 @@ szone_free_definite_size(szone_t *szone, void *ptr, size_t size)
 		malloc_zone_error(szone->debug_flags, true, "Non-aligned pointer %p being freed (2)\n", ptr);
 		return;
 	}
-	if (size <= szone->large_threshold) {
+	if (size <= SMALL_LIMIT_THRESHOLD) {
 		if (SMALL_META_INDEX_FOR_PTR(ptr) >= NUM_SMALL_BLOCKS) {
 			malloc_zone_error(szone->debug_flags, true, "Pointer %p to metadata being freed (2)\n", ptr);
 			return;
@@ -157,6 +182,20 @@ szone_free_definite_size(szone_t *szone, void *ptr, size_t size)
 		free_small(&szone->small_rack, ptr, SMALL_REGION_FOR_PTR(ptr), size);
 		return;
 	}
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	/*
+	 * Try to free to a medium region.
+	 */
+	if (szone->is_medium_engaged && size <= MEDIUM_LIMIT_THRESHOLD) {
+		if (MEDIUM_META_INDEX_FOR_PTR(ptr) >= NUM_MEDIUM_BLOCKS) {
+			malloc_zone_error(szone->debug_flags, true, "Pointer %p to metadata being freed (2)\n", ptr);
+			return;
+		}
+		free_medium(&szone->medium_rack, ptr, MEDIUM_REGION_FOR_PTR(ptr), size);
+		return;
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
 
 	/* check that it's a legal large allocation */
 	if ((uintptr_t)ptr & (vm_page_quanta_size - 1)) {
@@ -172,24 +211,27 @@ szone_malloc_should_clear(szone_t *szone, size_t size, boolean_t cleared_request
 	void *ptr;
 	msize_t msize;
 
-	if (size <= SMALL_THRESHOLD) {
-		// tiny size: <=1008 bytes (64-bit), <=496 bytes (32-bit)
-		// think tiny
+	if (size <= TINY_LIMIT_THRESHOLD) {
 		msize = TINY_MSIZE_FOR_BYTES(size + TINY_QUANTUM - 1);
 		if (!msize) {
 			msize = 1;
 		}
 		ptr = tiny_malloc_should_clear(&szone->tiny_rack, msize, cleared_requested);
-	} else if (size <= szone->large_threshold) {
-		// small size: <=15k (iOS), <=64k (large iOS), <=128k (macOS)
-		// think small
+	} else if (size <= SMALL_LIMIT_THRESHOLD) {
 		msize = SMALL_MSIZE_FOR_BYTES(size + SMALL_QUANTUM - 1);
 		if (!msize) {
 			msize = 1;
 		}
 		ptr = small_malloc_should_clear(&szone->small_rack, msize, cleared_requested);
+#if CONFIG_MEDIUM_ALLOCATOR
+	} else if (szone->is_medium_engaged && size <= MEDIUM_LIMIT_THRESHOLD) {
+		msize = MEDIUM_MSIZE_FOR_BYTES(size + MEDIUM_QUANTUM - 1);
+		if (!msize) {
+			msize = 1;
+		}
+		ptr = medium_malloc_should_clear(&szone->medium_rack, msize, cleared_requested);
+#endif
 	} else {
-		// large: all other allocations
 		size_t num_kernel_pages = round_page_quanta(size) >> vm_page_quanta_shift;
 		if (num_kernel_pages == 0) { /* Overflowed */
 			ptr = 0;
@@ -233,7 +275,7 @@ szone_valloc(szone_t *szone, size_t size)
 {
 	void *ptr;
 
-	if (size <= szone->large_threshold) {
+	if (size <= MEDIUM_LIMIT_THRESHOLD) {
 		ptr = szone_memalign(szone, vm_page_quanta_size, size);
 	} else {
 		size_t num_kernel_pages;
@@ -309,6 +351,18 @@ szone_size(szone_t *szone, const void *ptr)
 		return sz;
 	}
 
+#if CONFIG_MEDIUM_ALLOCATOR
+	/*
+	 * Look for it in a medium region.
+	 */
+	if (szone->is_medium_engaged) {
+		sz = medium_size(&szone->medium_rack, ptr);
+		if (sz) {
+			return sz;
+		}
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
 	/*
 	 * If not page-aligned, it cannot have come from a large allocation.
 	 */
@@ -359,8 +413,8 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
 	 * If the new size suits the tiny allocator and the pointer being resized
 	 * belongs to a tiny region, try to reallocate in-place.
 	 */
-	if (new_good_size <= SMALL_THRESHOLD) {
-		if (old_size <= SMALL_THRESHOLD) {
+	if (new_good_size <= TINY_LIMIT_THRESHOLD) {
+		if (old_size <= TINY_LIMIT_THRESHOLD) {
 			if (new_good_size <= (old_size >> 1)) {
 				/*
 				 * Serious shrinkage (more than half). free() the excess.
@@ -388,8 +442,8 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
 		 * belongs to a small region, and we're not protecting the small allocations
 		 * try to reallocate in-place.
 		 */
-	} else if (new_good_size <= szone->large_threshold) {
-		if (SMALL_THRESHOLD < old_size && old_size <= szone->large_threshold) {
+	} else if (new_good_size <= SMALL_LIMIT_THRESHOLD) {
+		if (TINY_LIMIT_THRESHOLD < old_size && old_size <= SMALL_LIMIT_THRESHOLD) {
 			if (new_good_size <= (old_size >> 1)) {
 				return small_try_shrink_in_place(&szone->small_rack, ptr, old_size, new_good_size);
 			} else if (new_good_size <= old_size) {
@@ -404,11 +458,30 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
 				return ptr;
 			}
 		}
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	} else if (szone->is_medium_engaged && new_good_size <= MEDIUM_LIMIT_THRESHOLD) {
+		if (SMALL_LIMIT_THRESHOLD < old_size && old_size <= MEDIUM_LIMIT_THRESHOLD) {
+			if (new_good_size <= (old_size >> 1)) {
+				return medium_try_shrink_in_place(&szone->medium_rack, ptr, old_size, new_good_size);
+			} else if (new_good_size <= old_size) {
+				if (szone->debug_flags & MALLOC_DO_SCRIBBLE) {
+					memset(ptr + new_size, SCRIBBLE_BYTE, old_size - new_size);
+				}
+			} else if (medium_try_realloc_in_place(&szone->medium_rack, ptr, old_size, new_good_size)) {
+				if (szone->debug_flags & MALLOC_DO_SCRIBBLE) {
+					memset(ptr + old_size, SCRIBBLE_BYTE, new_good_size - old_size);
+				}
+				return ptr;
+			}
+		}
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
 		/*
 		 * Else if the allocation's a large allocation, try to reallocate in-place there.
 		 */
 	} else if (!(szone->debug_flags & MALLOC_PURGEABLE) && // purgeable needs fresh allocation
-			   (old_size > szone->large_threshold) && (new_good_size > szone->large_threshold)) {
+			   (old_size > LARGE_THRESHOLD(szone)) && (new_good_size > LARGE_THRESHOLD(szone))) {
 		if (new_good_size <= (old_size >> 1)) {
 			return large_try_shrink_in_place(szone, ptr, old_size, new_good_size);
 		} else if (new_good_size <= old_size) {
@@ -446,8 +519,11 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
 	 * if it's too small, just copy by hand.
 	 */
 	valid_size = MIN(old_size, new_size);
-	if ((valid_size <= szone->vm_copy_threshold) ||
-			vm_copy(mach_task_self(), (vm_address_t)ptr, valid_size, (vm_address_t)new_ptr)) {
+#if CONFIG_REALLOC_CAN_USE_VMCOPY
+	if ((valid_size <= VM_COPY_THRESHOLD) ||
+			vm_copy(mach_task_self(), (vm_address_t)ptr, valid_size, (vm_address_t)new_ptr))
+#endif
+	{
 		memcpy(new_ptr, ptr, valid_size);
 	}
 	szone_free(szone, ptr);
@@ -470,32 +546,49 @@ szone_memalign(szone_t *szone, size_t alignment, size_t size)
 		return NULL;
 	}
 
-	// alignment is gauranteed a power of 2 at least as large as sizeof(void *), hence non-zero.
-	// Since size + alignment didn't wrap, 0 <= size + alignment - 1 < size + alignment
+	// alignment is a power of 2 at least as large as sizeof(void *), hence
+	// non-zero.  Since size + alignment didn't wrap, 0 <= size + alignment - 1
+	// < size + alignment
 	size_t span = size + alignment - 1;
 
 	if (alignment <= TINY_QUANTUM) {
-		return szone_malloc(szone, size); // Trivially satisfied by tiny, small, or large
+		// Trivially satisfied by tiny, small, medium, or large.
+		return szone_malloc(szone, size);
 	}
-	if (span <= SMALL_THRESHOLD) {
+	if (span <= TINY_LIMIT_THRESHOLD) {
 		return tiny_memalign(szone, alignment, size, span);
 	}
-	if (SMALL_THRESHOLD < size && alignment <= SMALL_QUANTUM) {
-		return szone_malloc(szone, size); // Trivially satisfied by small or large
+	if (TINY_LIMIT_THRESHOLD < size && alignment <= SMALL_QUANTUM) {
+		// Trivially satisfied by small, medium or large.
+		return szone_malloc(szone, size);
 	}
-	if (size <= SMALL_THRESHOLD) {
-		// ensure block allocated by small does not have a tiny-possible size
-		size = SMALL_THRESHOLD + TINY_QUANTUM;
+	if (size <= TINY_LIMIT_THRESHOLD) {
+		// The allocation asked for a size that TINY would normally fulfill
+		// but it cannot guarantee the alignment. So bump it up to fit inside
+		// SMALL and try again.
+		size = TINY_LIMIT_THRESHOLD + TINY_QUANTUM;
 		span = size + alignment - 1;
 	}
-	if (span <= szone->large_threshold) {
+	if (span <= SMALL_LIMIT_THRESHOLD) {
 		return small_memalign(szone, alignment, size, span);
 	}
-	if (szone->large_threshold < size && alignment <= vm_page_quanta_size) {
-		return szone_malloc(szone, size); // Trivially satisfied by large
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		if (size <= SMALL_LIMIT_THRESHOLD) {
+			size = SMALL_LIMIT_THRESHOLD + SMALL_QUANTUM;
+			span = size + alignment - 1;
+		}
+		if (szone->is_medium_engaged && span <= MEDIUM_LIMIT_THRESHOLD) {
+			return medium_memalign(szone, alignment, size, span);
+		}
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
+	if (LARGE_THRESHOLD(szone) < size && alignment <= vm_page_quanta_size) {
+		// Trivially satisfied by large (which rounds to a whole page).
+		return szone_malloc(szone, size);
 	}
 	// ensure block allocated by large does not have a small-possible size
-	size_t num_kernel_pages = round_page_quanta(MAX(szone->large_threshold + 1,
+	size_t num_kernel_pages = round_page_quanta(MAX(LARGE_THRESHOLD(szone) + 1,
 			size)) >> vm_page_quanta_shift;
 	if (num_kernel_pages == 0) { /* Overflowed */
 		return NULL;
@@ -504,6 +597,7 @@ szone_memalign(szone_t *szone, size_t alignment, size_t size)
 				MAX(vm_page_quanta_shift, __builtin_ctz((unsigned)alignment)), 0);
 	}
 	/* NOTREACHED */
+	__builtin_unreachable();
 }
 
 // Given a size, returns the number of pointers allocated capable of holding
@@ -516,7 +610,7 @@ unsigned
 szone_batch_malloc(szone_t *szone, size_t size, void **results, unsigned count)
 {
 	// only bother implementing this for tiny
-	if (size <= SMALL_THRESHOLD) {
+	if (size <= TINY_LIMIT_THRESHOLD) {
 		return tiny_batch_malloc(szone, size, results, count);
 	}
 	return 0;
@@ -536,7 +630,7 @@ szone_batch_free(szone_t *szone, void **to_be_freed, unsigned count)
 	// We only support batch malloc in tiny. Let it free all of the pointers
 	// that belong to it, then let the standard free deal with the rest.
 	tiny_batch_free(szone, to_be_freed, count);
-	
+
 	CHECK(szone, __PRETTY_FUNCTION__);
 	while (count--) {
 		void *ptr = to_be_freed[count];
@@ -608,6 +702,13 @@ szone_destroy(szone_t *szone)
 	rack_destroy(&szone->tiny_rack);
 	rack_destroy(&szone->small_rack);
 
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		rack_destroy_regions(&szone->medium_rack, MEDIUM_REGION_SIZE);
+		rack_destroy(&szone->medium_rack);
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
 	mvm_deallocate_pages((void *)szone, SZONE_PAGED_SIZE, 0);
 }
 
@@ -617,7 +718,7 @@ szone_good_size(szone_t *szone, size_t size)
 	msize_t msize;
 
 	// Find a good size for this tiny allocation.
-	if (size <= SMALL_THRESHOLD) {
+	if (size <= TINY_LIMIT_THRESHOLD) {
 		msize = TINY_MSIZE_FOR_BYTES(size + TINY_QUANTUM - 1);
 		if (!msize) {
 			msize = 1;
@@ -626,13 +727,23 @@ szone_good_size(szone_t *szone, size_t size)
 	}
 
 	// Find a good size for this small allocation.
-	if (size <= szone->large_threshold) {
+	if (size <= SMALL_LIMIT_THRESHOLD) {
 		msize = SMALL_MSIZE_FOR_BYTES(size + SMALL_QUANTUM - 1);
 		if (!msize) {
 			msize = 1;
 		}
 		return SMALL_BYTES_FOR_MSIZE(msize);
 	}
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged && size <= MEDIUM_LIMIT_THRESHOLD) {
+		msize = MEDIUM_MSIZE_FOR_BYTES(size + MEDIUM_QUANTUM - 1);
+		if (!msize) {
+			msize = 1;
+		}
+		return MEDIUM_BYTES_FOR_MSIZE(msize);
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
 
 	// Check for integer overflow on the size, since unlike the two cases above,
 	// there is no upper bound on allocation size at this point.
@@ -656,6 +767,10 @@ szone_claimed_address(szone_t *szone, void *ptr)
 {
 	return tiny_claimed_address(&szone->tiny_rack, ptr)
 			|| small_claimed_address(&szone->small_rack, ptr)
+#if CONFIG_MEDIUM_ALLOCATOR
+			|| (szone->is_medium_engaged &&
+					medium_claimed_address(&szone->medium_rack, ptr))
+#endif // CONFIG_MEDIUM_ALLOCATOR
 			|| large_claimed_address(szone, ptr);
 }
 
@@ -726,6 +841,39 @@ szone_check_all(szone_t *szone, const char *function)
 		}
 	}
 
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		/* check medium regions - could check region count */
+		for (index = 0; index < szone->medium_rack.region_generation->num_regions_allocated; ++index) {
+			region_t medium = szone->medium_rack.region_generation->hashed_regions[index];
+
+			if (HASHRING_REGION_DEALLOCATED == medium) {
+				continue;
+			}
+
+			if (medium) {
+				magazine_t *medium_mag_ptr = mag_lock_zine_for_region_trailer(szone->medium_rack.magazines,
+						REGION_TRAILER_FOR_MEDIUM_REGION(medium),
+						MAGAZINE_INDEX_FOR_MEDIUM_REGION(medium));
+
+				if (!medium_check_region(&szone->medium_rack, medium, index, szone_check_counter)) {
+					SZONE_MAGAZINE_PTR_UNLOCK(medium_mag_ptr);
+					szone->debug_flags &= ~CHECK_REGIONS;
+					return 0;
+				}
+				SZONE_MAGAZINE_PTR_UNLOCK(medium_mag_ptr);
+			}
+		}
+		/* check medium free lists */
+		for (index = 0; index < MEDIUM_FREE_SLOT_COUNT(&szone->medium_rack); ++index) {
+			if (!medium_free_list_check(&szone->medium_rack, (grain_t)index, szone_check_counter)) {
+				szone->debug_flags &= ~CHECK_REGIONS;
+				return 0;
+			}
+		}
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
 	return 1;
 }
 
@@ -776,6 +924,15 @@ szone_ptr_in_use_enumerator(task_t task,
 	if (err) {
 		return err;
 	}
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		err = medium_in_use_enumerator(task, context, type_mask, szone, reader, recorder);
+		if (err) {
+			return err;
+		}
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
 
 	err = large_in_use_enumerator(
 			task, context, type_mask, (vm_address_t)szone->large_entries, szone->num_large_entries, reader, recorder);
@@ -887,6 +1044,28 @@ szone_print(szone_t *szone, boolean_t verbose)
 							: 0);
 		}
 	}
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		// medium
+		malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "%lu medium regions:\n", szone->medium_rack.num_regions);
+		if (szone->medium_rack.num_regions_dealloc) {
+			malloc_report(MALLOC_REPORT_NOLOG | MALLOC_REPORT_NOPREFIX, "[%lu medium regions have been vm_deallocate'd]\n",
+					szone->medium_rack.num_regions_dealloc);
+		}
+		for (index = 0; index < szone->medium_rack.region_generation->num_regions_allocated; ++index) {
+			region = szone->medium_rack.region_generation->hashed_regions[index];
+			if (HASHRING_OPEN_ENTRY != region && HASHRING_REGION_DEALLOCATED != region) {
+				mag_index_t mag_index = MAGAZINE_INDEX_FOR_MEDIUM_REGION(region);
+				print_medium_region(szone, verbose, region, (region == szone->medium_rack.magazines[mag_index].mag_last_region)
+																   ? szone->medium_rack.magazines[mag_index].mag_bytes_free_at_start
+																   : 0,
+						(region == szone->medium_rack.magazines[mag_index].mag_last_region)
+								? szone->medium_rack.magazines[mag_index].mag_bytes_free_at_end
+								: 0);
+			}
+		}
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
 	if (verbose) {
 		print_small_free_list(&szone->small_rack);
 	}
@@ -931,6 +1110,15 @@ szone_force_lock(szone_t *szone)
 	}
 	szone_force_lock_magazine(szone, &szone->small_rack.magazines[DEPOT_MAGAZINE_INDEX]);
 
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		for (i = 0; i < szone->medium_rack.num_magazines; ++i) {
+			szone_force_lock_magazine(szone, &szone->medium_rack.magazines[i]);
+		}
+		szone_force_lock_magazine(szone, &szone->medium_rack.magazines[DEPOT_MAGAZINE_INDEX]);
+	}
+#endif
+
 	SZONE_LOCK(szone);
 }
 
@@ -940,6 +1128,14 @@ szone_force_unlock(szone_t *szone)
 	mag_index_t i;
 
 	SZONE_UNLOCK(szone);
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		for (i = -1; i < szone->medium_rack.num_magazines; ++i) {
+			SZONE_MAGAZINE_PTR_UNLOCK((&(szone->medium_rack.magazines[i])));
+		}
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
 
 	for (i = -1; i < szone->small_rack.num_magazines; ++i) {
 		SZONE_MAGAZINE_PTR_UNLOCK((&(szone->small_rack.magazines[i])));
@@ -956,6 +1152,14 @@ szone_reinit_lock(szone_t *szone)
 	mag_index_t i;
 
 	SZONE_REINIT_LOCK(szone);
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		for (i = -1; i < szone->medium_rack.num_magazines; ++i) {
+			SZONE_MAGAZINE_PTR_REINIT_LOCK((&(szone->medium_rack.magazines[i])));
+		}
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
 
 	for (i = -1; i < szone->small_rack.num_magazines; ++i) {
 		SZONE_MAGAZINE_PTR_REINIT_LOCK((&(szone->small_rack.magazines[i])));
@@ -977,6 +1181,18 @@ szone_locked(szone_t *szone)
 		return 1;
 	}
 	SZONE_UNLOCK(szone);
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		for (i = -1; i < szone->small_rack.num_magazines; ++i) {
+				tookLock = SZONE_MAGAZINE_PTR_TRY_LOCK((&(szone->small_rack.magazines[i])));
+				if (tookLock == 0) {
+					return 1;
+				}
+				SZONE_MAGAZINE_PTR_UNLOCK((&(szone->small_rack.magazines[i])));
+		}
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
 
 	for (i = -1; i < szone->small_rack.num_magazines; ++i) {
 		tookLock = SZONE_MAGAZINE_PTR_TRY_LOCK((&(szone->small_rack.magazines[i])));
@@ -1005,159 +1221,15 @@ szone_pressure_relief(szone_t *szone, size_t goal)
 	MALLOC_TRACE(TRACE_malloc_memory_pressure | DBG_FUNC_START, (uint64_t)szone, goal, 0, 0);
 
 #if CONFIG_MADVISE_PRESSURE_RELIEF
-	mag_index_t mag_index;
+	tiny_madvise_pressure_relief(&szone->tiny_rack);
+	small_madvise_pressure_relief(&szone->small_rack);
 
-	magazine_t *tiny_depot_ptr = (&szone->tiny_rack.magazines[DEPOT_MAGAZINE_INDEX]);
-	magazine_t *small_depot_ptr = (&szone->small_rack.magazines[DEPOT_MAGAZINE_INDEX]);
-
-	for (mag_index = 0; mag_index < szone->tiny_rack.num_magazines; mag_index++) {
-		size_t index;
-		for (index = 0; index < szone->tiny_rack.region_generation->num_regions_allocated; ++index) {
-			SZONE_LOCK(szone);
-
-			region_t tiny = szone->tiny_rack.region_generation->hashed_regions[index];
-			if (!tiny || tiny == HASHRING_REGION_DEALLOCATED) {
-				SZONE_UNLOCK(szone);
-				continue;
-			}
-
-			magazine_t *mag_ptr = mag_lock_zine_for_region_trailer(szone->tiny_rack.magazines,
-					REGION_TRAILER_FOR_TINY_REGION(tiny),
-					MAGAZINE_INDEX_FOR_TINY_REGION(tiny));
-			SZONE_UNLOCK(szone);
-
-			/* Ordering is important here, the magazine of a region may potentially change
-			 * during mag_lock_zine_for_region_trailer, so src_mag_index must be taken
-			 * after we've obtained the lock.
-			 */
-			mag_index_t src_mag_index = MAGAZINE_INDEX_FOR_TINY_REGION(tiny);
-
-			/* We can (and must) ignore magazines that are already in the recirc depot. */
-			if (src_mag_index == DEPOT_MAGAZINE_INDEX) {
-				SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
-				continue;
-			}
-
-			if (tiny == mag_ptr->mag_last_region && (mag_ptr->mag_bytes_free_at_end || mag_ptr->mag_bytes_free_at_start)) {
-				tiny_finalize_region(&szone->tiny_rack, mag_ptr);
-			}
-
-			/* Because this region is currently in use, we can't safely madvise it while
-			 * it's attached to the magazine. For this operation we have to remove it from
-			 * the current mag, attach it to the depot and then madvise.
-			 */
-
-			recirc_list_extract(&szone->tiny_rack, mag_ptr, REGION_TRAILER_FOR_TINY_REGION(tiny));
-			int objects_in_use = tiny_free_detach_region(&szone->tiny_rack, mag_ptr, tiny);
-
-			SZONE_MAGAZINE_PTR_LOCK(tiny_depot_ptr);
-			MAGAZINE_INDEX_FOR_TINY_REGION(tiny) = DEPOT_MAGAZINE_INDEX;
-			REGION_TRAILER_FOR_TINY_REGION(tiny)->pinned_to_depot = 0;
-
-			size_t bytes_inplay = tiny_free_reattach_region(&szone->tiny_rack, tiny_depot_ptr, tiny);
-
-			/* Fix up the metadata of the target magazine while the region is in the depot. */
-			mag_ptr->mag_num_bytes_in_objects -= bytes_inplay;
-			mag_ptr->num_bytes_in_magazine -= TINY_REGION_PAYLOAD_BYTES;
-			mag_ptr->mag_num_objects -= objects_in_use;
-
-			/* Now we can drop the magazine lock of the source mag. */
-			SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
-
-			tiny_depot_ptr->mag_num_bytes_in_objects += bytes_inplay;
-			tiny_depot_ptr->num_bytes_in_magazine += TINY_REGION_PAYLOAD_BYTES;
-			tiny_depot_ptr->mag_num_objects -= objects_in_use;
-
-			recirc_list_splice_last(&szone->tiny_rack, tiny_depot_ptr, REGION_TRAILER_FOR_TINY_REGION(tiny));
-
-			/* Actually do the scan, done holding the depot lock, the call will drop the lock
-			 * around the actual madvise syscalls.
-			 */
-			tiny_free_scan_madvise_free(&szone->tiny_rack, tiny_depot_ptr, tiny);
-
-			/* Now the region is in the recirc depot, the next allocations to require more
-			 * blocks will come along and take one of these regions back out of the depot.
-			 * As OS X madvise's reuse on an per-region basis, we leave as many of these
-			 * regions in the depot as possible after memory pressure.
-			 */
-			SZONE_MAGAZINE_PTR_UNLOCK(tiny_depot_ptr);
-		}
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		medium_madvise_pressure_relief(&szone->medium_rack);
 	}
-
-	for (mag_index = 0; mag_index < szone->small_rack.num_magazines; mag_index++) {
-		size_t index;
-		for (index = 0; index < szone->small_rack.region_generation->num_regions_allocated; ++index) {
-			SZONE_LOCK(szone);
-
-			region_t small = szone->small_rack.region_generation->hashed_regions[index];
-			if (!small || small == HASHRING_REGION_DEALLOCATED) {
-				SZONE_UNLOCK(szone);
-				continue;
-			}
-
-			magazine_t *mag_ptr = mag_lock_zine_for_region_trailer(szone->small_rack.magazines,
-					REGION_TRAILER_FOR_SMALL_REGION(small),
-					MAGAZINE_INDEX_FOR_SMALL_REGION(small));
-			SZONE_UNLOCK(szone);
-
-			/* Ordering is important here, the magazine of a region may potentially change
-			 * during mag_lock_zine_for_region_trailer, so src_mag_index must be taken
-			 * after we've obtained the lock.
-			 */
-			mag_index_t src_mag_index = MAGAZINE_INDEX_FOR_SMALL_REGION(small);
-
-			/* We can (and must) ignore magazines that are already in the recirc depot. */
-			if (src_mag_index == DEPOT_MAGAZINE_INDEX) {
-				SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
-				continue;
-			}
-
-			if (small == mag_ptr->mag_last_region && (mag_ptr->mag_bytes_free_at_end || mag_ptr->mag_bytes_free_at_start)) {
-				small_finalize_region(&szone->small_rack, mag_ptr);
-			}
-
-			/* Because this region is currently in use, we can't safely madvise it while
-			 * it's attached to the magazine. For this operation we have to remove it from
-			 * the current mag, attach it to the depot and then madvise.
-			 */
-
-			recirc_list_extract(&szone->small_rack, mag_ptr, REGION_TRAILER_FOR_SMALL_REGION(small));
-			int objects_in_use = small_free_detach_region(&szone->small_rack, mag_ptr, small);
-
-			SZONE_MAGAZINE_PTR_LOCK(small_depot_ptr);
-			MAGAZINE_INDEX_FOR_SMALL_REGION(small) = DEPOT_MAGAZINE_INDEX;
-			REGION_TRAILER_FOR_SMALL_REGION(small)->pinned_to_depot = 0;
-
-			size_t bytes_inplay = small_free_reattach_region(&szone->small_rack, small_depot_ptr, small);
-
-			/* Fix up the metadata of the target magazine while the region is in the depot. */
-			mag_ptr->mag_num_bytes_in_objects -= bytes_inplay;
-			mag_ptr->num_bytes_in_magazine -= SMALL_REGION_PAYLOAD_BYTES;
-			mag_ptr->mag_num_objects -= objects_in_use;
-
-			/* Now we can drop the magazine lock of the source mag. */
-			SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
-
-			small_depot_ptr->mag_num_bytes_in_objects += bytes_inplay;
-			small_depot_ptr->num_bytes_in_magazine += SMALL_REGION_PAYLOAD_BYTES;
-			small_depot_ptr->mag_num_objects -= objects_in_use;
-
-			recirc_list_splice_last(&szone->small_rack, small_depot_ptr, REGION_TRAILER_FOR_SMALL_REGION(small));
-
-			/* Actually do the scan, done holding the depot lock, the call will drop the lock
-			 * around the actual madvise syscalls.
-			 */
-			small_free_scan_madvise_free(&szone->small_rack, small_depot_ptr, small);
-
-			/* Now the region is in the recirc depot, the next allocations to require more
-			 * blocks will come along and take one of these regions back out of the depot.
-			 * As OS X madvise's reuse on an per-region basis, we leave as many of these
-			 * regions in the depot as possible after memory pressure.
-			 */
-			SZONE_MAGAZINE_PTR_UNLOCK(small_depot_ptr);
-		}
-	}
-#endif
+#endif // CONFIG_MEDIUM_ALLOCATOR
+#endif // CONFIG_MADVISE_PRESSURE_RELIEF
 
 #if CONFIG_LARGE_CACHE
 	if (szone->flotsam_enabled) {
@@ -1255,7 +1327,32 @@ scalable_zone_statistics(malloc_zone_t *zone, malloc_statistics_t *stats, unsign
 		stats->size_in_use = 0;   // DEPRECATED szone->num_bytes_in_huge_objects;
 		stats->max_size_in_use = stats->size_allocated = 0;
 		return 1;
-	}
+	case 4: {
+		size_t s = 0;
+		unsigned t = 0;
+		size_t u = 0;
+		size_t sa = 0;
+
+#if CONFIG_MEDIUM_ALLOCATOR
+		mag_index_t mag_index;
+		if (szone->is_medium_engaged) {
+			for (mag_index = -1; mag_index < szone->medium_rack.num_magazines; mag_index++) {
+				s += szone->medium_rack.magazines[mag_index].mag_bytes_free_at_start;
+				s += szone->medium_rack.magazines[mag_index].mag_bytes_free_at_end;
+				t += szone->medium_rack.magazines[mag_index].mag_num_objects;
+				u += szone->medium_rack.magazines[mag_index].mag_num_bytes_in_objects;
+			}
+		}
+
+		sa = (szone->medium_rack.num_regions - szone->medium_rack.num_regions_dealloc) * MEDIUM_REGION_SIZE;
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
+		stats->blocks_in_use = t;
+		stats->size_in_use = u;
+		stats->size_allocated = sa;
+		stats->max_size_in_use = stats->size_allocated - s;
+		return 1;
+	}}
 	return 0;
 }
 
@@ -1283,6 +1380,17 @@ szone_statistics(szone_t *szone, malloc_statistics_t *stats)
 		u += szone->small_rack.magazines[mag_index].mag_num_bytes_in_objects;
 	}
 
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		for (mag_index = -1; mag_index < szone->medium_rack.num_magazines; mag_index++) {
+			s += szone->medium_rack.magazines[mag_index].mag_bytes_free_at_start;
+			s += szone->medium_rack.magazines[mag_index].mag_bytes_free_at_end;
+			t += szone->medium_rack.magazines[mag_index].mag_num_objects;
+			u += szone->medium_rack.magazines[mag_index].mag_num_bytes_in_objects;
+		}
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
 	large = szone->num_bytes_in_large_objects + 0; // DEPRECATED szone->num_bytes_in_huge_objects;
 
 	stats->blocks_in_use = t + szone->num_large_objects_in_use + 0; // DEPRECATED szone->num_huge_entries;
@@ -1290,6 +1398,13 @@ szone_statistics(szone_t *szone, malloc_statistics_t *stats)
 	stats->max_size_in_use = stats->size_allocated =
 			(szone->tiny_rack.num_regions - szone->tiny_rack.num_regions_dealloc) * TINY_REGION_SIZE +
 			(szone->small_rack.num_regions - szone->small_rack.num_regions_dealloc) * SMALL_REGION_SIZE + large;
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		stats->max_size_in_use += (szone->medium_rack.num_regions -
+				szone->medium_rack.num_regions_dealloc) * MEDIUM_REGION_SIZE;
+	}
+#endif
 	// Now we account for the untouched areas
 	stats->max_size_in_use -= s;
 }
@@ -1334,30 +1449,14 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 		debug_flags |= DISABLE_ASLR;
 	}
 
-#if CONFIG_SMALL_CUTOFF_DYNAMIC || CONFIG_LARGE_CACHE
+#if CONFIG_MEDIUM_ALLOCATOR || CONFIG_LARGE_CACHE
 	uint64_t memsize = platform_hw_memsize();
-#endif
+#endif // CONFIG_MEDIUM_ALLOCATOR || CONFIG_LARGE_CACHE
 
-	bool is_largemem = false;
-#if CONFIG_SMALL_CUTOFF_LARGEMEM
-	is_largemem = true;
-#elif CONFIG_SMALL_CUTOFF_DYNAMIC
-	// TODO: rdar://problem/35395572
-	// switch to largemem thresholds on devices with > 2 cores and > 2gb of memory
-	uint32_t nproc = platform_cpu_count();
-	is_largemem = (nproc > 2) && (memsize > (2ull << 30));
-#endif
-	if (is_largemem) {
-		debug_flags |= MALLOC_EXTENDED_SMALL_SLOTS;
-		szone->is_largemem = 1;
-		szone->large_threshold = LARGE_THRESHOLD_LARGEMEM;
-		szone->vm_copy_threshold = VM_COPY_THRESHOLD_LARGEMEM;
-	} else {
-		debug_flags &= ~MALLOC_EXTENDED_SMALL_SLOTS;
-		szone->is_largemem = 0;
-		szone->large_threshold = LARGE_THRESHOLD;
-		szone->vm_copy_threshold = VM_COPY_THRESHOLD;
-	}
+#if CONFIG_MEDIUM_ALLOCATOR
+	szone->is_medium_engaged = (magazine_medium_enabled &&
+			(memsize >= magazine_medium_active_threshold));
+#endif // CONFIG_MEDIUM_ALLOCATOR
 
 	// Query the number of configured processors.
 	// Uniprocessor case gets just one tiny and one small magazine (whose index is zero). This gives
@@ -1367,6 +1466,16 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 	uint32_t num_magazines = (max_mags > 1) ? MIN(max_mags, TINY_MAX_MAGAZINES) : 1;
 	rack_init(&szone->tiny_rack, RACK_TYPE_TINY, num_magazines, debug_flags);
 	rack_init(&szone->small_rack, RACK_TYPE_SMALL, num_magazines, debug_flags);
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	if (szone->is_medium_engaged) {
+		unsigned max_medium_mags = mag_max_medium_magazines();
+		uint32_t num_medium_mags = (max_medium_mags > 1) ?
+				MIN(max_medium_mags, TINY_MAX_MAGAZINES) : 1;
+		rack_init(&szone->medium_rack, RACK_TYPE_MEDIUM, num_medium_mags,
+				debug_flags);
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
 
 #if CONFIG_LARGE_CACHE
 	// madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]

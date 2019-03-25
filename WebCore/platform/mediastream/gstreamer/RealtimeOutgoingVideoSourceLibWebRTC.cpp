@@ -30,6 +30,9 @@
 #if USE(LIBWEBRTC) && USE(GSTREAMER)
 #include "RealtimeOutgoingVideoSourceLibWebRTC.h"
 
+#include "GStreamerVideoFrameLibWebRTC.h"
+#include "MediaSampleGStreamer.h"
+
 namespace WebCore {
 
 Ref<RealtimeOutgoingVideoSource> RealtimeOutgoingVideoSource::create(Ref<MediaStreamTrackPrivate>&& videoSource)
@@ -47,8 +50,46 @@ RealtimeOutgoingVideoSourceLibWebRTC::RealtimeOutgoingVideoSourceLibWebRTC(Ref<M
 {
 }
 
-void RealtimeOutgoingVideoSourceLibWebRTC::sampleBufferUpdated(MediaStreamTrackPrivate&, MediaSample&)
+void RealtimeOutgoingVideoSourceLibWebRTC::sampleBufferUpdated(MediaStreamTrackPrivate&, MediaSample& sample)
 {
+    if (isSilenced())
+        return;
+
+    switch (sample.videoRotation()) {
+    case MediaSample::VideoRotation::None:
+        m_currentRotation = webrtc::kVideoRotation_0;
+        break;
+    case MediaSample::VideoRotation::UpsideDown:
+        m_currentRotation = webrtc::kVideoRotation_180;
+        break;
+    case MediaSample::VideoRotation::Right:
+        m_currentRotation = webrtc::kVideoRotation_90;
+        break;
+    case MediaSample::VideoRotation::Left:
+        m_currentRotation = webrtc::kVideoRotation_270;
+        break;
+    }
+
+    ASSERT(sample.platformSample().type == PlatformSample::GStreamerSampleType);
+    auto& mediaSample = static_cast<MediaSampleGStreamer&>(sample);
+    auto frameBuffer(GStreamerVideoFrameLibWebRTC::create(gst_sample_ref(mediaSample.platformSample().sample.gstSample)));
+
+    sendFrame(WTFMove(frameBuffer));
+}
+
+rtc::scoped_refptr<webrtc::VideoFrameBuffer> RealtimeOutgoingVideoSourceLibWebRTC::createBlackFrame(size_t  width, size_t  height)
+{
+    GstVideoInfo info;
+
+    gst_video_info_set_format(&info, GST_VIDEO_FORMAT_RGB, width, height);
+
+    GRefPtr<GstBuffer> buffer = adoptGRef(gst_buffer_new_allocate(nullptr, info.size, nullptr));
+    GRefPtr<GstCaps> caps = adoptGRef(gst_video_info_to_caps(&info));
+
+    GstMappedBuffer map(buffer.get(), GST_MAP_WRITE);
+    memset(map.data(), 0, info.size);
+
+    return GStreamerVideoFrameLibWebRTC::create(gst_sample_new(buffer.get(), caps.get(), NULL, NULL));
 }
 
 } // namespace WebCore

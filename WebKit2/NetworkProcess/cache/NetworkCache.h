@@ -31,13 +31,13 @@
 #include <WebCore/ResourceResponse.h>
 #include <wtf/Function.h>
 #include <wtf/OptionSet.h>
+#include <wtf/Seconds.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 class LowPowerModeNotifier;
 class ResourceRequest;
 class SharedBuffer;
-class URL;
 }
 
 namespace WebKit {
@@ -81,7 +81,7 @@ enum class UseDecision {
     NoDueToVaryingHeaderMismatch,
     NoDueToMissingValidatorFields,
     NoDueToDecodeFailure,
-    NoDueToExpiredRedirect,
+    NoDueToExpiredRedirect
 };
 
 using GlobalFrameID = std::pair<uint64_t /*webPageID*/, uint64_t /*webFrameID*/>;
@@ -114,7 +114,7 @@ public:
     using RetrieveCompletionHandler = Function<void (std::unique_ptr<Entry>, const RetrieveInfo&)>;
     void retrieve(const WebCore::ResourceRequest&, const GlobalFrameID&, RetrieveCompletionHandler&&);
     std::unique_ptr<Entry> store(const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, RefPtr<WebCore::SharedBuffer>&&, Function<void (MappedBody&)>&&);
-    std::unique_ptr<Entry> storeRedirect(const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, const WebCore::ResourceRequest& redirectRequest);
+    std::unique_ptr<Entry> storeRedirect(const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, const WebCore::ResourceRequest& redirectRequest, Optional<Seconds> maxAgeCap);
     std::unique_ptr<Entry> update(const WebCore::ResourceRequest&, const GlobalFrameID&, const Entry&, const WebCore::ResourceResponse& validatingResponse);
 
     struct TraversalEntry {
@@ -154,6 +154,8 @@ private:
 
     String dumpFilePath() const;
     void deleteDumpFile();
+
+    Optional<Seconds> maxAgeCap(Entry&, const WebCore::ResourceRequest&, PAL::SessionID);
 
     Ref<Storage> m_storage;
 

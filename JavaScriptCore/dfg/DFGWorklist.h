@@ -47,7 +47,7 @@ public:
 
     ~Worklist();
     
-    static Ref<Worklist> create(CString worklistName, unsigned numberOfThreads, int relativePriority = 0);
+    static Ref<Worklist> create(CString&& tierName, unsigned numberOfThreads, int relativePriority = 0);
     
     void enqueue(Ref<Plan>&&);
     
@@ -82,7 +82,7 @@ public:
     unsigned setNumberOfThreads(unsigned, int);
     
 private:
-    Worklist(CString worklistName);
+    Worklist(CString&& tierName);
     void finishCreation(unsigned numberOfThreads, int);
     void createNewThread(const AbstractLocker&, int);
     
@@ -121,6 +121,9 @@ private:
     Vector<std::unique_ptr<ThreadData>> m_threads;
     unsigned m_numberOfActiveThreads;
 };
+
+JS_EXPORT_PRIVATE unsigned setNumberOfDFGCompilerThreads(unsigned);
+JS_EXPORT_PRIVATE unsigned setNumberOfFTLCompilerThreads(unsigned);
 
 // For DFGMode compilations.
 JS_EXPORT_PRIVATE Worklist& ensureGlobalDFGWorklist();

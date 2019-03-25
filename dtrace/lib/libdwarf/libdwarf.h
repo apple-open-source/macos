@@ -951,7 +951,10 @@ int dwarf_formflag(Dwarf_Attribute /*attr*/,
     Dwarf_Bool *        /*returned_bool*/,
     Dwarf_Error*	/*error*/);
 
-int dwarf_formudata(Dwarf_Attribute /*attr*/, 
+Dwarf_Bool dwarf_formisdata(Dwarf_Attribute attr);
+Dwarf_Bool dwarf_formisudata(Dwarf_Attribute attr);
+
+int dwarf_formudata(Dwarf_Attribute /*attr*/,
     Dwarf_Unsigned  *   /*returned_val*/,
     Dwarf_Error* 	/*error*/);
 

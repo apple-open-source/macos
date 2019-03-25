@@ -316,6 +316,20 @@
 #define kIOPSAppleBatteryCaseCommandSetCurrentLimitBackOffKey "Current Limit Back Off"
 
 /*!
+ * @define      kIOPSAppleBatteryCaseAddress
+ *
+ * @abstract    CFDictionary key for a battery case's advertised resolvable public address,
+ *              as assigned by the last device it was attached to.
+ * @discussion
+ *              <ul>
+ *              <li> Apple-defined power sources may publish this key.
+ *              <li> Type CFString
+ *              <li> A 6-byte address in the format "XX:XX:XX:XX:XX:XX"
+ *              </ul>
+ */
+#define kIOPSAppleBatteryCaseAddress "Address"
+
+/*!
  * @define      kIOPSCommandSendAverageChargingCurrent
  *
  * @abstract Tell the UPS the device's average current drawn from the charger
@@ -339,20 +353,6 @@
 #define kIOPSAppleBatteryCaseCommandEnableChargingKey "Enable Charging"
 
 /*!
- * @define      kIOPSAppleBatteryCaseAddress
- *
- * @abstract    CFDictionary key for a battery case's advertised resolvable public address,
- *              as assigned by the last device it was attached to.
- * @discussion
- *              <ul>
- *              <li> Apple-defined power sources may publish this key.
- *              <li> Type CFString
- *              <li> A 6-byte address in the format "XX:XX:XX:XX:XX:XX"
- *              </ul>
- */
-#define kIOPSAppleBatteryCaseAddress "Address"
-
-/*!
  * @define      kIOPSAppleBatteryCaseCommandSetAddress
  *
  * @abstract    Tell the battery case what resolvable public address it should advertise.
@@ -362,6 +362,18 @@
  *              </ul>
  */
 #define kIOPSAppleBatteryCaseCommandSetAddress "Set Address"
+
+/*!
+ * @define      kIOPSDeviceColor
+ *
+ * @abstract    CFDictionary key for a power source's physical device color.
+ * @discussion
+ *              <ul>
+ *              <li> Apple-defined power sources may publish this key.
+ *              <li> Type CFNumber kCFNumberIntType (signed integer)
+ *              </ul>
+ */
+#define kIOPSDeviceColor "Device Color"
 
 /*!
  * @define      kIOPSLEDsKey

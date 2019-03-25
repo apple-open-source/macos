@@ -396,9 +396,9 @@ int main(int argc, const char *argv[])
     }
     
     // make storage for the real path
-    char buffer[total_length];
-    strlcpy(buffer, home_dir, total_length);
-    strlcat(buffer, g_path_to_plist, total_length);
+    char buffer[PATH_MAX];
+    strlcpy(buffer, home_dir, sizeof(buffer));
+    strlcat(buffer, g_path_to_plist, sizeof(buffer));
     keychain_prefs_path = xpc_string_create(buffer);
     home = xpc_string_create(home_dir);
     

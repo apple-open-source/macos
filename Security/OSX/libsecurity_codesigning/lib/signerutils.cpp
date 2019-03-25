@@ -262,7 +262,11 @@ void MachOEditor::reset(Arch &arch)
 
 	for (auto type = mHashTypes.begin(); type != mHashTypes.end(); ++type) {
 		arch.eachDigest(^(CodeDirectory::Builder& builder) {
-			builder.reopen(tempPath, arch.source->offset(), arch.source->signingOffset());
+			/* Signature editing may have no need for cd builders, and not
+			 * have opened them, so only reopen them conditionally. */
+			if (builder.opened()) {
+				builder.reopen(tempPath, arch.source->offset(), arch.source->signingOffset());
+			}
 		});
 	}
 }

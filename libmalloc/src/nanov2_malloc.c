@@ -567,16 +567,30 @@ nanov2_turn_off_in_use(nanov2_block_meta_t *block_metap)
 static MALLOC_ALWAYS_INLINE MALLOC_INLINE int
 nanov2_get_allocation_block_index(void)
 {
+#if CONFIG_NANO_USES_HYPER_SHIFT
 	if (os_likely(nano_common_max_magazines_is_ncpu)) {
 		// Default case is max magazines == physical number of CPUs, which
 		// must be > _os_cpu_number() >> hyper_shift, so the modulo
 		// operation is not required.
 		return _os_cpu_number() >> hyper_shift;
 	}
-	if (os_likely(_os_cpu_number_override == -1)) {
-		return (_os_cpu_number() >> hyper_shift) % nano_common_max_magazines;
+#else // CONFIG_NANO_USES_HYPER_SHIFT
+	if (os_likely(nano_common_max_magazines_is_ncpu)) {
+		// Default case is max magazines == logical number of CPUs, which
+		// must be > _os_cpu_number() so the modulo operation is not required.
+		return _os_cpu_number();
 	}
-	return (_os_cpu_number_override >> hyper_shift) % nano_common_max_magazines;
+#endif // CONFIG_NANO_USES_HYPER_SHIFT
+
+	unsigned int shift = 0;
+#if CONFIG_NANO_USES_HYPER_SHIFT
+	shift = hyper_shift;
+#endif // CONFIG_NANO_USES_HYPER_SHIFT
+
+	if (os_likely(_os_cpu_number_override == -1)) {
+		return (_os_cpu_number() >> shift) % nano_common_max_magazines;
+	}
+	return (_os_cpu_number_override >> shift) % nano_common_max_magazines;
 }
 #endif // OS_VARIANT_RESOLVED
 
@@ -688,7 +702,7 @@ nanov2_set_block_scan_policy(const char *name, const char *ptr)
 	boolean_t max_found = FALSE;
 	boolean_t lim_found = FALSE;
 	const char *value = ptr;
-	
+
 	if (ptr) {
 		if (!strcmp(ptr, first_fit_key)) {
 			block_scan_policy = NANO_SCAN_FIRST_FIT;
@@ -743,7 +757,7 @@ nanov2_set_block_scan_policy(const char *name, const char *ptr)
 			}
 		}
 	}
-	
+
 	if (!failed) {
 		nanov2_policy_config.block_scan_policy = block_scan_policy;
 		nanov2_policy_config.block_scan_min_capacity = scan_min_capacity;
@@ -1050,7 +1064,7 @@ nanov2_realloc(nanozonev2_t *nanozone, void *ptr, size_t new_size)
 			return ptr;
 		}
 	}
-	
+
 	// If we reach this point, we allocated new memory. Copy the existing
 	// content to the new location and release the old allocation.
 	MALLOC_ASSERT(new_ptr);
@@ -1187,7 +1201,7 @@ nanov2_pressure_relief(nanozonev2_t *nanozone, size_t goal)
 		}
 		region = nanov2_next_region_for_region(nanozone, region);
 	}
-	
+
 done:
 	MAGMALLOC_PRESSURERELIEFEND((void *)nanozone, name, (int)goal, (int)total);
 	MALLOC_TRACE(TRACE_nano_memory_pressure | DBG_FUNC_END,
@@ -2033,9 +2047,6 @@ again:
 			__builtin_unreachable();
 		}
 	}
-
-	// Reset the canary value so that the slot no longer looks free.
-	os_atomic_store(&slotp->double_free_guard, 0, relaxed);
 	
 #if DEBUG_MALLOC
 	nanozone->statistics.size_class_statistics[size_class].total_allocations++;
@@ -2541,10 +2552,10 @@ malloc_zone_t *
 nanov2_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 {
 	// Note: It is important that nanov2_create_zone resets _malloc_engaged_nano
- 	// if it is unable to enable the nanozone (and chooses not to abort). As
+	// if it is unable to enable the nanozone (and chooses not to abort). As
 	// several functions rely on _malloc_engaged_nano to determine if they
 	// should manipulate the nanozone, and these should not run if we failed
- 	// to create the zone.
+	// to create the zone.
 	MALLOC_ASSERT(_malloc_engaged_nano == NANO_V2);
 
 	// Get memory for the zone and disable Nano if we fail.
@@ -2610,7 +2621,7 @@ nanov2_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 	// align it to the block field of a Nano address.
 	nanozone->aslr_cookie = malloc_entropy[1] >> (64 - NANOV2_BLOCK_BITS);
 	nanozone->aslr_cookie_aligned = nanozone->aslr_cookie << NANOV2_OFFSET_BITS;
-	
+
 	_malloc_lock_init(&nanozone->blocks_lock);
 	_malloc_lock_init(&nanozone->regions_lock);
 	_malloc_lock_init(&nanozone->madvise_lock);

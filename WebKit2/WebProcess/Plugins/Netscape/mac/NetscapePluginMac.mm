@@ -41,9 +41,8 @@
 #import <wtf/NeverDestroyed.h>
 #import <wtf/text/StringView.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 #ifndef NP_NO_CARBON
 static const Seconds nullEventIntervalActive { 20_ms };
@@ -205,9 +204,10 @@ void NetscapePlugin::platformPreInitialize()
         // Patch -[NSException release] to not release the object.
         static dispatch_once_t once;
         dispatch_once(&once, ^{
-            Class exceptionClass = [NSException class];
-            Method exceptionReleaseMethod = class_getInstanceMethod(exceptionClass, @selector(release));
-            class_replaceMethod(exceptionClass, @selector(release), reinterpret_cast<IMP>(NSException_release), method_getTypeEncoding(exceptionReleaseMethod));
+            auto exceptionClass = [NSException class];
+            auto releaseSelector = sel_registerName("release");
+            auto exceptionReleaseMethod = class_getInstanceMethod(exceptionClass, releaseSelector);
+            class_replaceMethod(exceptionClass, releaseSelector, reinterpret_cast<IMP>(NSException_release), method_getTypeEncoding(exceptionReleaseMethod));
         });
     }
 }
@@ -373,7 +373,9 @@ static inline EventRecord initializeEventRecord(EventKind eventKind)
 
     eventRecord.what = eventKind;
     eventRecord.message = 0;
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     eventRecord.when = TickCount();
+    ALLOW_DEPRECATED_DECLARATIONS_END
     eventRecord.where = Point();
     eventRecord.modifiers = 0;
 
@@ -741,6 +743,12 @@ static bool isFlagsChangedEvent(const WebKeyboardEvent& keyboardEvent)
     return false;
 }
 
+static NPNSString *convertToNPNNString(const String& string)
+{
+    CFTypeRef releasedString = string.createCFString().autorelease();
+    return static_cast<NPNSString*>(const_cast<void*>(releasedString));
+}
+
 static NPCocoaEvent initializeKeyboardEvent(const WebKeyboardEvent& keyboardEvent)
 {
     NPCocoaEventType eventType;
@@ -763,8 +771,8 @@ static NPCocoaEvent initializeKeyboardEvent(const WebKeyboardEvent& keyboardEven
 
     NPCocoaEvent event = initializeEvent(eventType);
     event.data.key.modifierFlags = modifierFlags(keyboardEvent);
-    event.data.key.characters = reinterpret_cast<NPNSString*>(static_cast<NSString*>(keyboardEvent.text()));
-    event.data.key.charactersIgnoringModifiers = reinterpret_cast<NPNSString*>(static_cast<NSString*>(keyboardEvent.unmodifiedText()));
+    event.data.key.characters = convertToNPNNString(keyboardEvent.text());
+    event.data.key.charactersIgnoringModifiers = convertToNPNNString(keyboardEvent.unmodifiedText());
     event.data.key.isARepeat = keyboardEvent.isAutoRepeat();
     event.data.key.keyCode = keyboardEvent.nativeVirtualKeyCode();
 
@@ -1020,7 +1028,7 @@ void NetscapePlugin::sendComplexTextInput(const String& textInput)
     switch (m_eventModel) {
     case NPEventModelCocoa: {
         NPCocoaEvent event = initializeEvent(NPCocoaEventTextInput);
-        event.data.text.text = reinterpret_cast<NPNSString*>(static_cast<NSString*>(textInput));
+        event.data.text.text = convertToNPNNString(textInput);
         NPP_HandleEvent(&event);
         break;
     }
@@ -1034,7 +1042,9 @@ void NetscapePlugin::sendComplexTextInput(const String& textInput)
 
         // Set the script code as the keyboard script. Normally Carbon does this whenever the input source changes.
         // However, this is only done for the process that has the keyboard focus. We cheat and do it here instead.
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         SetScriptManagerVariable(smKeyScript, scriptCode);
+        ALLOW_DEPRECATED_DECLARATIONS_END
         
         EventRecord event = initializeEventRecord(keyDown);
         event.modifiers = 0;
@@ -1109,8 +1119,10 @@ static void makeCGLPresentLayerOpaque(CALayer *pluginRootLayer)
         return;
 
     Class cglPresentLayerClass = NSClassFromString(@"CGLPresentLayer");
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (![cglPresentLayerClass isSubclassOfClass:[CAOpenGLLayer class]])
         return;
+    ALLOW_DEPRECATED_DECLARATIONS_END
 
     CALayer *layer = [sublayers objectAtIndex:0];
     if (![layer isKindOfClass:cglPresentLayerClass])
@@ -1145,9 +1157,9 @@ void NetscapePlugin::updatePluginLayer()
     // be returned by using NPN_GetValue and pass the WKNVExpectsNonretainedLayer parameter.
     // https://bugs.webkit.org/show_bug.cgi?id=58282 describes the bug where WebKit expects retained layers.
     if (m_pluginReturnsNonretainedLayer)
-        m_pluginLayer = reinterpret_cast<CALayer *>(value);
+        m_pluginLayer = (__bridge CALayer *)value;
     else
-        m_pluginLayer = adoptNS(reinterpret_cast<CALayer *>(value));
+        m_pluginLayer = adoptNS((__bridge CALayer *)value);
 
     if (m_pluginModule->pluginQuirks().contains(PluginQuirks::MakeOpaqueUnlessTransparentSilverlightBackgroundAttributeExists) &&
         !m_isTransparent)
@@ -1166,8 +1178,10 @@ void NetscapePlugin::nullEventTimerFired()
     event.where.v = mousePosition.y;
 
     event.modifiers = GetCurrentKeyModifiers();
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (!Button())
         event.modifiers |= btnState;
+    ALLOW_DEPRECATED_DECLARATIONS_END
 
     NPP_HandleEvent(&event);
 }

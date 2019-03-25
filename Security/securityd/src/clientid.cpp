@@ -45,15 +45,19 @@ ClientIdentification::ClientIdentification()
 // Initialize the ClientIdentification.
 // This creates a process-level code object for the client.
 //
-void ClientIdentification::setup(pid_t pid)
+void ClientIdentification::setup(Security::CommonCriteria::AuditToken const &audit)
 {
-	StLock<Mutex> _(mLock);
-	StLock<Mutex> __(mValidityCheckLock);
-    OSStatus rc = SecCodeCreateWithPID(pid, kSecCSDefaultFlags, &mClientProcess.aref());
-	if (rc)
-		secinfo("clientid", "could not get code for process %d: OSStatus=%d",
-			pid, int32_t(rc));
-	mGuests.erase(mGuests.begin(), mGuests.end());
+    StLock<Mutex> _(mLock);
+    StLock<Mutex> __(mValidityCheckLock);
+    
+    audit_token_t const token = audit.auditToken();
+    OSStatus rc = SecCodeCreateWithAuditToken(&token, kSecCSDefaultFlags, &mClientProcess.aref());
+    
+    if (rc) {
+        secerror("could not get code for process %d: OSStatus=%d",
+                audit.pid(), int32_t(rc));
+    }
+    mGuests.erase(mGuests.begin(), mGuests.end());
 }
 
 

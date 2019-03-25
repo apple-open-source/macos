@@ -30,13 +30,11 @@
 #include <wtf/Gigacage.h>
 #include <wtf/Poisoned.h>
 
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
 #define OFFLINE_ASM_C_LOOP 1
 #define OFFLINE_ASM_X86 0
 #define OFFLINE_ASM_X86_WIN 0
-#define OFFLINE_ASM_ARM 0
 #define OFFLINE_ASM_ARMv7 0
-#define OFFLINE_ASM_ARMv7_TRADITIONAL 0
 #define OFFLINE_ASM_ARM64 0
 #define OFFLINE_ASM_ARM64E 0
 #define OFFLINE_ASM_X86_64 0
@@ -45,7 +43,7 @@
 #define OFFLINE_ASM_ARMv7s 0
 #define OFFLINE_ASM_MIPS 0
 
-#else // ENABLE(JIT)
+#else // ENABLE(C_LOOP)
 
 #define OFFLINE_ASM_C_LOOP 0
 
@@ -77,19 +75,6 @@
 #define OFFLINE_ASM_ARMv7 1
 #else
 #define OFFLINE_ASM_ARMv7 0
-#endif
-
-#if CPU(ARM_TRADITIONAL)
-#if WTF_ARM_ARCH_AT_LEAST(7)
-#define OFFLINE_ASM_ARMv7_TRADITIONAL 1
-#define OFFLINE_ASM_ARM 0
-#else
-#define OFFLINE_ASM_ARM 1
-#define OFFLINE_ASM_ARMv7_TRADITIONAL 0
-#endif
-#else
-#define OFFLINE_ASM_ARMv7_TRADITIONAL 0
-#define OFFLINE_ASM_ARM 0
 #endif
 
 #if CPU(X86_64) && !COMPILER(MSVC)
@@ -137,12 +122,18 @@
 #endif
 #endif
 
-#endif // ENABLE(JIT)
+#endif // ENABLE(C_LOOP)
 
 #if USE(JSVALUE64)
 #define OFFLINE_ASM_JSVALUE64 1
 #else
 #define OFFLINE_ASM_JSVALUE64 0
+#endif
+
+#if CPU(ADDRESS64)
+#define OFFLINE_ASM_ADDRESS64 1
+#else
+#define OFFLINE_ASM_ADDRESS64 0
 #endif
 
 #if ENABLE(POISON)

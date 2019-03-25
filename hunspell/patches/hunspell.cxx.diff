@@ -1,0 +1,173 @@
+--- src/tools/hunspell.cxx.orig	2018-11-15 13:39:39.000000000 -0800
++++ src/tools/hunspell.cxx	2018-11-15 13:33:06.000000000 -0800
+@@ -499,8 +499,8 @@
+   TextParser * parser = get_parser(format, NULL, pMS[0]);
+ 
+   if ((filter_mode == NORMAL)) {
+-    fprintf(stdout,gettext(HUNSPELL_HEADING));
+-    fprintf(stdout,HUNSPELL_VERSION);
++    fprintf(stdout,"%s",gettext(HUNSPELL_HEADING));
++    fprintf(stdout,"%s",HUNSPELL_VERSION);
+     if (pMS[0]->get_version()) fprintf(stdout," - %s", pMS[0]->get_version());
+     fprintf(stdout,"\n");
+     fflush(stdout);
+@@ -544,7 +544,7 @@
+     }
+     case '#': {
+ 	if (HOME) strcpy(buf,HOME); else {
+-	    fprintf(stderr, gettext("error - missing HOME variable\n"));
++	    fprintf(stderr,"%s",gettext("error - missing HOME variable\n"));
+ 	    continue;
+ 	}
+ #ifndef WIN32
+@@ -764,7 +764,7 @@
+ 
+ if (parser) delete(parser);
+ 
+-//			fprintf(stdout,gettext(HUNSPELL_PIPE_HEADING));
++//			fprintf(stdout,"%s",gettext(HUNSPELL_PIPE_HEADING));
+ //	fprintf(stdout, "szia vilag5.\n");
+ //	exit(0);
+ 
+@@ -1019,7 +1019,7 @@
+ 		// save
+ 		strcpy(buf,HOME);
+ 		if (HOME) strcpy(buf,HOME); else {
+-		    fprintf(stderr, gettext("error - missing HOME variable\n"));
++		    fprintf(stderr,"%s",gettext("error - missing HOME variable\n"));
+ 		    break;
+ 		}
+ #ifndef WIN32
+@@ -1035,7 +1035,7 @@
+ 		if (save_privdic(buf2, buf, dicwords)) {
+ 		    dicwords=NULL;
+ 		} else {
+-		    fprintf(stderr,gettext("Cannot update personal dictionary."));
++		    fprintf(stderr,"%s",gettext("Cannot update personal dictionary."));
+ 		    break;
+ 		}
+ 	    } // no break
+@@ -1150,7 +1150,7 @@
+ 		    		    
+ 		    strcpy(buf,HOME);
+ 		    if (HOME) strcpy(buf,HOME); else {
+-			fprintf(stderr, gettext("error - missing HOME variable\n"));
++			fprintf(stderr,"%s",gettext("error - missing HOME variable\n"));
+ 			continue;
+ 		    }
+ #ifndef WIN32
+@@ -1166,7 +1166,7 @@
+ 		    if (save_privdic(buf2, buf, dicwords)) {
+ 			dicwords = NULL;
+ 		    } else {
+-			fprintf(stderr, gettext("Cannot update personal dictionary."));
++			fprintf(stderr,"%s",gettext("Cannot update personal dictionary."));
+ 			break;
+ 		    }
+ 		    
+@@ -1422,52 +1422,52 @@
+ 		else if (strcmp(argv[i],"-i")==0) argstate=3;
+ 		else if (strcmp(argv[i],"-P")==0) argstate=4;
+ 		else if ((strcmp(argv[i],"-h") == 0) || (strcmp(argv[i],"--help") == 0)) {
+-			fprintf(stderr,gettext("Usage: hunspell [OPTION]... [FILE]...\n"));
+-			fprintf(stderr,gettext("Check spelling of each FILE. Without FILE, check standard input.\n\n"));
+-			fprintf(stderr,gettext("  -1\t\tcheck only first field in lines (delimiter = tabulator)\n"));
+-			fprintf(stderr,gettext("  -a\t\tIspell's pipe interface\n"));
+-			fprintf(stderr,gettext("  --check-url\tCheck URLs, e-mail addresses and directory paths\n"));
+-			fprintf(stderr,gettext("  -d d[,d2,...]\tuse d (d2 etc.) dictionaries\n"));
+-			fprintf(stderr,gettext("  -D\t\tshow available dictionaries\n"));
+-			fprintf(stderr,gettext("  -G\t\tprint only correct words or lines\n"));
+-			fprintf(stderr,gettext("  -h, --help\tdisplay this help and exit\n"));
+-			fprintf(stderr,gettext("  -H\t\tHTML input file format\n"));
+-			fprintf(stderr,gettext("  -i enc\tinput encoding\n"));
+-			fprintf(stderr,gettext("  -l\t\tprint mispelled words\n"));
+-			fprintf(stderr,gettext("  -L\t\tprint lines with mispelled words\n"));
+-			fprintf(stderr,gettext("  -m \t\tanalyze the words of the input text\n"));
+-			fprintf(stderr,gettext("  -n\t\tnroff/troff input file format\n"));
+-			fprintf(stderr,gettext("  -p dict\tset dict custom dictionary\n"));
+-			fprintf(stderr,gettext("  -P password\tset password for encrypted dictionaries\n"));
+-			fprintf(stderr,gettext("  -s \t\tstem the words of the input text\n"));
+-			fprintf(stderr,gettext("  -t\t\tTeX/LaTeX input file format\n"));
++			fprintf(stderr,"%s",gettext("Usage: hunspell [OPTION]... [FILE]...\n"));
++			fprintf(stderr,"%s",gettext("Check spelling of each FILE. Without FILE, check standard input.\n\n"));
++			fprintf(stderr,"%s",gettext("  -1\t\tcheck only first field in lines (delimiter = tabulator)\n"));
++			fprintf(stderr,"%s",gettext("  -a\t\tIspell's pipe interface\n"));
++			fprintf(stderr,"%s",gettext("  --check-url\tCheck URLs, e-mail addresses and directory paths\n"));
++			fprintf(stderr,"%s",gettext("  -d d[,d2,...]\tuse d (d2 etc.) dictionaries\n"));
++			fprintf(stderr,"%s",gettext("  -D\t\tshow available dictionaries\n"));
++			fprintf(stderr,"%s",gettext("  -G\t\tprint only correct words or lines\n"));
++			fprintf(stderr,"%s",gettext("  -h, --help\tdisplay this help and exit\n"));
++			fprintf(stderr,"%s",gettext("  -H\t\tHTML input file format\n"));
++			fprintf(stderr,"%s",gettext("  -i enc\tinput encoding\n"));
++			fprintf(stderr,"%s",gettext("  -l\t\tprint mispelled words\n"));
++			fprintf(stderr,"%s",gettext("  -L\t\tprint lines with mispelled words\n"));
++			fprintf(stderr,"%s",gettext("  -m \t\tanalyze the words of the input text\n"));
++			fprintf(stderr,"%s",gettext("  -n\t\tnroff/troff input file format\n"));
++			fprintf(stderr,"%s",gettext("  -p dict\tset dict custom dictionary\n"));
++			fprintf(stderr,"%s",gettext("  -P password\tset password for encrypted dictionaries\n"));
++			fprintf(stderr,"%s",gettext("  -s \t\tstem the words of the input text\n"));
++			fprintf(stderr,"%s",gettext("  -t\t\tTeX/LaTeX input file format\n"));
+ // experimental functions: missing Unicode support
+-//			fprintf(stderr,gettext("  -u\t\tshow typical misspellings\n"));
+-//			fprintf(stderr,gettext("  -u2\t\tprint typical misspellings in sed format\n"));
+-//			fprintf(stderr,gettext("  -U\t\tautomatic correction of typical misspellings to stdout\n"));
+-			fprintf(stderr,gettext("  -v, --version\tprint version number\n"));
+-			fprintf(stderr,gettext("  -vv\t\tprint Ispell compatible version number\n"));
+-			fprintf(stderr,gettext("  -w\t\tprint mispelled words (= lines) from one word/line input.\n\n"));
+-			fprintf(stderr,gettext("Example: hunspell -d en_US file.txt    # interactive spelling\n"
++//			fprintf(stderr,"%s",gettext("  -u\t\tshow typical misspellings\n"));
++//			fprintf(stderr,"%s",gettext("  -u2\t\tprint typical misspellings in sed format\n"));
++//			fprintf(stderr,"%s",gettext("  -U\t\tautomatic correction of typical misspellings to stdout\n"));
++			fprintf(stderr,"%s",gettext("  -v, --version\tprint version number\n"));
++			fprintf(stderr,"%s",gettext("  -vv\t\tprint Ispell compatible version number\n"));
++			fprintf(stderr,"%s",gettext("  -w\t\tprint mispelled words (= lines) from one word/line input.\n\n"));
++			fprintf(stderr,"%s",gettext("Example: hunspell -d en_US file.txt    # interactive spelling\n"
+                                                "         hunspell -l file.txt          # print misspelled words\n"
+                                                "         hunspell -i utf-8 file.txt    # check UTF-8 encoded file\n\n"));
+-			fprintf(stderr,gettext("Bug reports: http://hunspell.sourceforge.net\n"));
++			fprintf(stderr,"%s",gettext("Bug reports: http://hunspell.sourceforge.net\n"));
+ 			exit(0);
+ 	        } else if ((strcmp(argv[i],"-vv")==0) || (strcmp(argv[i],"-v")==0) || (strcmp(argv[i],"--version")==0)) {
+-			fprintf(stdout,gettext(HUNSPELL_PIPE_HEADING));
++			fprintf(stdout,"%s",gettext(HUNSPELL_PIPE_HEADING));
+ 			fprintf(stdout,"\n");
+                         if (strcmp(argv[i],"-vv")!=0) {
+-                            fprintf(stdout,gettext("\nCopyright (C) 2002-2008 L\303\241szl\303\263 N\303\251meth. License: MPL/GPL/LGPL.\n\n"
++                            fprintf(stdout,"%s",gettext("\nCopyright (C) 2002-2008 L\303\241szl\303\263 N\303\251meth. License: MPL/GPL/LGPL.\n\n"
+ 			    "Based on OpenOffice.org's Myspell library.\n"
+ 			    "Myspell's copyright (C) Kevin Hendricks, 2001-2002, License: BSD.\n\n"));
+-			    fprintf(stdout,gettext("This is free software; see the source for copying conditions.  There is NO\n"
++			    fprintf(stdout,"%s",gettext("This is free software; see the source for copying conditions.  There is NO\n"
+ 			    "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE,\n"
+ 			    "to the extent permitted by law.\n"));
+                         }
+ 			exit(0);
+ 		} else if ((strcmp(argv[i],"-a")==0)) {
+ 			filter_mode = PIPE;
+-			fprintf(stdout,gettext(HUNSPELL_PIPE_HEADING));
++			fprintf(stdout,"%s",gettext(HUNSPELL_PIPE_HEADING));
+ 			fflush(stdout);
+ 		} else if ((strcmp(argv[i],"-m")==0)) {
+ 			filter_mode = ANALYZE;
+@@ -1569,7 +1569,7 @@
+                     } else if (dic) pMS[dmax-1]->add_dic(dic);
+ 		}
+ 	} else {
+-		fprintf(stderr,gettext("Can't open affix or dictionary files.\n"));
++		fprintf(stderr,"%s",gettext("Can't open affix or dictionary files.\n"));
+ 		exit(1);
+ 	}
+ 
+@@ -1630,10 +1630,10 @@
+ 		endwin();
+ 		}
+ #else
+-        fprintf(stderr, gettext("Hunspell has been compiled without Ncurses user interface.\n"));
++        fprintf(stderr,"%s",gettext("Hunspell has been compiled without Ncurses user interface.\n"));
+ #endif
+ #else
+-        fprintf(stderr, gettext("Hunspell has been compiled without Ncurses user interface.\n"));
++        fprintf(stderr,"%s",gettext("Hunspell has been compiled without Ncurses user interface.\n"));
+ #endif
+ 	}
+ 

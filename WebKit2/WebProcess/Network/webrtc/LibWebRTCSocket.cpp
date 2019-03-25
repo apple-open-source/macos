@@ -40,13 +40,6 @@
 
 namespace WebKit {
 
-static inline void sendOnMainThread(Function<void(IPC::Connection&)>&& callback)
-{
-    callOnMainThread([callback = WTFMove(callback)]() {
-        callback(WebProcess::singleton().ensureNetworkProcessConnection().connection());
-    });
-}
-
 LibWebRTCSocket::LibWebRTCSocket(LibWebRTCSocketFactory& factory, uint64_t identifier, Type type, const rtc::SocketAddress& localAddress, const rtc::SocketAddress& remoteAddress)
     : m_factory(factory)
     , m_identifier(identifier)
@@ -60,6 +53,13 @@ LibWebRTCSocket::~LibWebRTCSocket()
 {
     Close();
     m_factory.detach(*this);
+}
+
+void LibWebRTCSocket::sendOnMainThread(Function<void(IPC::Connection&)>&& callback)
+{
+    callOnMainThread([callback = WTFMove(callback)]() {
+        callback(WebProcess::singleton().ensureNetworkProcessConnection().connection());
+    });
 }
 
 rtc::SocketAddress LibWebRTCSocket::GetLocalAddress() const
@@ -82,7 +82,7 @@ void LibWebRTCSocket::signalAddressReady(const rtc::SocketAddress& address)
 void LibWebRTCSocket::signalReadPacket(const WebCore::SharedBuffer& buffer, rtc::SocketAddress&& address, int64_t timestamp)
 {
     m_remoteAddress = WTFMove(address);
-    SignalReadPacket(this, buffer.data(), buffer.size(), m_remoteAddress, rtc::PacketTime(timestamp, 0));
+    SignalReadPacket(this, buffer.data(), buffer.size(), m_remoteAddress, timestamp);
 }
 
 void LibWebRTCSocket::signalSentPacket(int rtcPacketID, int64_t sendTimeMs)

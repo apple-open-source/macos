@@ -118,6 +118,7 @@ public:
 
     bool hardClosedForUserDelete() const { return m_hardClosedForUserDelete; }
 
+    void setQuota(uint64_t);
 private:
     void handleDatabaseOperations();
     void handleCurrentOperation();
@@ -212,6 +213,8 @@ private:
     RefPtr<UniqueIDBDatabaseTransaction> takeNextRunnableTransaction(bool& hadDeferredTransactions);
 
     bool prepareToFinishTransaction(UniqueIDBDatabaseTransaction&);
+    
+    void clearStalePendingOpenDBRequests();
 
     void postDatabaseTask(CrossThreadTask&&);
     void postDatabaseTaskReply(CrossThreadTask&&);

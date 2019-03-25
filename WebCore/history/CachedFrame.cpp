@@ -47,7 +47,7 @@
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/text/CString.h>
 
-#if PLATFORM(IOS) || ENABLE(TOUCH_EVENTS)
+#if PLATFORM(IOS_FAMILY) || ENABLE(TOUCH_EVENTS)
 #include "Chrome.h"
 #include "ChromeClient.h"
 #endif
@@ -98,11 +98,6 @@ void CachedFrameBase::restore()
     if (m_document->svgExtensions())
         m_document->accessSVGExtensions().unpauseAnimations();
 
-    if (RuntimeEnabledFeatures::sharedFeatures().webAnimationsCSSIntegrationEnabled())
-        m_document->timeline().resumeAnimations();
-    else
-        frame.animation().resumeAnimationsForDocument(m_document.get());
-
     m_document->resume(ReasonForSuspension::PageCache);
 
     // It is necessary to update any platform script objects after restoring the
@@ -121,7 +116,7 @@ void CachedFrameBase::restore()
         ASSERT_WITH_SECURITY_IMPLICATION(m_document == frame.document());
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (m_isMainFrame) {
         frame.loader().client().didRestoreFrameHierarchyForCachedFrame();
 
@@ -157,7 +152,11 @@ CachedFrame::CachedFrame(Frame& frame)
 
     m_cachedFrameScriptData = std::make_unique<ScriptCachedFrameData>(frame);
 
-    m_document->domWindow()->suspendForDocumentSuspension();
+    m_document->domWindow()->suspendForPageCache();
+
+    // Clear FrameView to reset flags such as 'firstVisuallyNonEmptyLayoutCallbackPending' so that the
+    // 'DidFirstVisuallyNonEmptyLayout' callback gets called against when restoring from PageCache.
+    m_view->resetLayoutMilestones();
 
     frame.loader().client().savePlatformDataToCachedFrame(this);
 
@@ -183,7 +182,7 @@ CachedFrame::CachedFrame(Frame& frame)
         LOG(PageCache, "Finished creating CachedFrame for child frame with url '%s' and DocumentLoader %p\n", m_url.string().utf8().data(), m_documentLoader.get());
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (m_isMainFrame) {
         if (DOMWindow* domWindow = m_document->domWindow()) {
             if (domWindow->scrollEventListenerCount() && frame.page())

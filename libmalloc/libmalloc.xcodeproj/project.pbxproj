@@ -155,6 +155,11 @@
 		C932D2681D6B8D840063B19E /* vm.c in Sources */ = {isa = PBXBuildFile; fileRef = C932D2661D6B8D840063B19E /* vm.c */; };
 		C932D2691D6B8D840063B19E /* vm.h in Headers */ = {isa = PBXBuildFile; fileRef = C932D2671D6B8D840063B19E /* vm.h */; };
 		C938BBD31C74F7A400522BBD /* trace.h in Headers */ = {isa = PBXBuildFile; fileRef = C938BBD21C74F7A400522BBD /* trace.h */; };
+		C94B447821925CA50005EA6F /* magazine_medium.c in Sources */ = {isa = PBXBuildFile; fileRef = C94B447721925C990005EA6F /* magazine_medium.c */; };
+		C94B447921925CA60005EA6F /* magazine_medium.c in Sources */ = {isa = PBXBuildFile; fileRef = C94B447721925C990005EA6F /* magazine_medium.c */; };
+		C94B447A21925CA60005EA6F /* magazine_medium.c in Sources */ = {isa = PBXBuildFile; fileRef = C94B447721925C990005EA6F /* magazine_medium.c */; };
+		C94B447B21925CA70005EA6F /* magazine_medium.c in Sources */ = {isa = PBXBuildFile; fileRef = C94B447721925C990005EA6F /* magazine_medium.c */; };
+		C94B447C21925CA80005EA6F /* magazine_medium.c in Sources */ = {isa = PBXBuildFile; fileRef = C94B447721925C990005EA6F /* magazine_medium.c */; };
 		C9571C3A1C18AA1D00A67EE3 /* stack_logging.h in Headers */ = {isa = PBXBuildFile; fileRef = C9571C391C18AA1D00A67EE3 /* stack_logging.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C95742721BF2C2880027269A /* bitarray.h in Headers */ = {isa = PBXBuildFile; fileRef = 3FE91FD216A90A8D00D1238A /* bitarray.h */; };
 		C95742731BF2C2880027269A /* internal.h in Headers */ = {isa = PBXBuildFile; fileRef = C957426D1BF2C0C80027269A /* internal.h */; };
@@ -360,6 +365,7 @@
 		C932D2671D6B8D840063B19E /* vm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vm.h; sourceTree = "<group>"; };
 		C938BBD21C74F7A400522BBD /* trace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = trace.h; sourceTree = "<group>"; };
 		C93F76D71D6B9F8C0088931B /* magazine_testing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = magazine_testing.h; sourceTree = "<group>"; };
+		C94B447721925C990005EA6F /* magazine_medium.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = magazine_medium.c; sourceTree = "<group>"; };
 		C9571C391C18AA1D00A67EE3 /* stack_logging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stack_logging.h; sourceTree = "<group>"; };
 		C9571C3C1C18AD5F00A67EE3 /* balloon.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = balloon.cpp; sourceTree = "<group>"; };
 		C9571C3D1C18AD5F00A67EE3 /* balloon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = balloon.h; sourceTree = "<group>"; };
@@ -543,6 +549,7 @@
 				B65FBE2B2087AA2F00E21F59 /* malloc_printf.c */,
 				C99E32091D6F7366005655A8 /* magazine_rack.c */,
 				C99E320A1D6F7366005655A8 /* magazine_rack.h */,
+				C94B447721925C990005EA6F /* magazine_medium.c */,
 				C95742981BF670D00027269A /* magazine_small.c */,
 				C957428F1BF419DF0027269A /* magazine_tiny.c */,
 				C95742861BF3F9550027269A /* magazine_zone.h */,
@@ -1137,6 +1144,7 @@
 				B6D5C7F1202E26F80035E376 /* resolver.c in Sources */,
 				B68B7F9F1FCDCBC600BAD1AA /* nano_malloc_common.c in Sources */,
 				3FE91FF216A90B9200D1238A /* malloc.c in Sources */,
+				C94B447821925CA50005EA6F /* magazine_medium.c in Sources */,
 				C95742A61BF6842F0027269A /* frozen_malloc.c in Sources */,
 				3FE91FF416A90B9200D1238A /* nano_malloc.c in Sources */,
 				3FE91FF616A90B9200D1238A /* stack_logging_disk.c in Sources */,
@@ -1149,6 +1157,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C94B447B21925CA70005EA6F /* magazine_medium.c in Sources */,
 				B66C71DB2034BFD30047E265 /* malloc_common.c in Sources */,
 				3FE91FFF16A9109E00D1238A /* bitarray.c in Sources */,
 				C95742A11BF681B00027269A /* purgeable_malloc.c in Sources */,
@@ -1186,6 +1195,7 @@
 				B6D5C7F3202E26F90035E376 /* resolver.c in Sources */,
 				B629CF30202BB337007719B9 /* magazine_large.c in Sources */,
 				B629CF31202BB337007719B9 /* magazine_malloc.c in Sources */,
+				C94B447A21925CA60005EA6F /* magazine_medium.c in Sources */,
 				B629CF32202BB337007719B9 /* empty.s in Sources */,
 				B629CF33202BB337007719B9 /* magazine_small.c in Sources */,
 				B629CF34202BB337007719B9 /* legacy_malloc.c in Sources */,
@@ -1210,6 +1220,7 @@
 				B6D5C7F2202E26F80035E376 /* resolver.c in Sources */,
 				B6910F6A202B630D00FF2EB0 /* magazine_large.c in Sources */,
 				B6910F6B202B630D00FF2EB0 /* magazine_malloc.c in Sources */,
+				C94B447921925CA60005EA6F /* magazine_medium.c in Sources */,
 				B6910F6C202B630D00FF2EB0 /* empty.s in Sources */,
 				B6910F6D202B630D00FF2EB0 /* magazine_small.c in Sources */,
 				B6910F6E202B630D00FF2EB0 /* legacy_malloc.c in Sources */,
@@ -1238,6 +1249,7 @@
 			files = (
 				088C4D841D1AF16F005C6B36 /* radix_tree.c in Sources */,
 				C0CE45311C52C90500C24048 /* bitarray.c in Sources */,
+				C94B447C21925CA80005EA6F /* magazine_medium.c in Sources */,
 				C0CE45321C52C90500C24048 /* purgeable_malloc.c in Sources */,
 				B6D5C7F5202E26FA0035E376 /* resolver.c in Sources */,
 				C0CE45331C52C90500C24048 /* magazine_large.c in Sources */,

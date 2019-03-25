@@ -61,8 +61,9 @@ static bool SOSDigestVectorEnsureCapacity(struct SOSDigestVector *dv, size_t cou
 
 static void SOSDigestVectorAppendOrdered(struct SOSDigestVector *dv, const uint8_t *digest)
 {
-	if (SOSDigestVectorEnsureCapacity(dv, dv->count + 1))
+    if (digest && SOSDigestVectorEnsureCapacity(dv, dv->count + 1)) {
         memcpy(dv->digest[dv->count++], digest, SOSDigestSize);
+    }
 }
 
 void SOSDigestVectorAppend(struct SOSDigestVector *dv, const uint8_t *digest)

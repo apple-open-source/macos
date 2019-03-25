@@ -25,7 +25,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "config.h"
-#include "StringView.h"
+#include <wtf/text/StringView.h>
 
 #include <mutex>
 #include <unicode/ubrk.h>
@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <wtf/Optional.h>
 #include <wtf/text/StringBuffer.h>
 #include <wtf/text/TextBreakIterator.h>
-#include <wtf/unicode/UTF8.h>
+#include <wtf/unicode/UTF8Conversion.h>
 
 namespace WTF {
 
@@ -105,28 +105,31 @@ size_t StringView::find(StringView matchString, unsigned start) const
 void StringView::SplitResult::Iterator::findNextSubstring()
 {
     for (size_t separatorPosition; (separatorPosition = m_result.m_string.find(m_result.m_separator, m_position)) != notFound; ++m_position) {
-        if (separatorPosition > m_position) {
+        if (m_result.m_allowEmptyEntries || separatorPosition > m_position) {
             m_length = separatorPosition - m_position;
             return;
         }
     }
     m_length = m_result.m_string.length() - m_position;
+    if (!m_length && !m_result.m_allowEmptyEntries)
+        m_isDone = true;
 }
 
 auto StringView::SplitResult::Iterator::operator++() -> Iterator&
 {
-    ASSERT(m_position < m_result.m_string.length());
+    ASSERT(m_position <= m_result.m_string.length() && !m_isDone);
     m_position += m_length;
     if (m_position < m_result.m_string.length()) {
         ++m_position;
         findNextSubstring();
-    }
+    } else if (!m_isDone)
+        m_isDone = true;
     return *this;
 }
 
 class StringView::GraphemeClusters::Iterator::Impl {
 public:
-    Impl(const StringView& stringView, std::optional<NonSharedCharacterBreakIterator>&& iterator, unsigned index)
+    Impl(const StringView& stringView, Optional<NonSharedCharacterBreakIterator>&& iterator, unsigned index)
         : m_stringView(stringView)
         , m_iterator(WTFMove(iterator))
         , m_index(index)
@@ -167,13 +170,13 @@ public:
 
 private:
     const StringView& m_stringView;
-    std::optional<NonSharedCharacterBreakIterator> m_iterator;
+    Optional<NonSharedCharacterBreakIterator> m_iterator;
     unsigned m_index;
     unsigned m_indexEnd;
 };
 
 StringView::GraphemeClusters::Iterator::Iterator(const StringView& stringView, unsigned index)
-    : m_impl(std::make_unique<Impl>(stringView, stringView.isNull() ? std::nullopt : std::optional<NonSharedCharacterBreakIterator>(NonSharedCharacterBreakIterator(stringView)), index))
+    : m_impl(std::make_unique<Impl>(stringView, stringView.isNull() ? WTF::nullopt : Optional<NonSharedCharacterBreakIterator>(NonSharedCharacterBreakIterator(stringView)), index))
 {
 }
 

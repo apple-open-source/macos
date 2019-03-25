@@ -1254,7 +1254,7 @@ IOHIDSystem::extSetVirtualDisplayBounds(void* token_ptr,void* minx,void* maxx,vo
     uintptr_t index = token - SCREENTOKEN;
     log_screen_reg("%s: set bounds on token %lu\n", __PRETTY_FUNCTION__, token);
     if (index < EV_MAX_SCREENS) {
-        IOGBounds tempBounds = { (uintptr_t) minx, (uintptr_t) maxx, (uintptr_t) miny, (uintptr_t) maxy };
+        IOGBounds tempBounds = { (SInt16)(uintptr_t) minx, (SInt16)(uintptr_t) maxx, (SInt16)(uintptr_t) miny, (SInt16)(uintptr_t) maxy };
         result = cmdGate->runAction((IOCommandGate::Action)doSetDisplayBounds, (void*) index, (void*) &tempBounds);
     }
     else {
@@ -3166,8 +3166,8 @@ IOReturn IOHIDSystem::extSetOnScreenBounds(void * param, void*, void*, void*, vo
 {
     u_int16_t * data = (u_int16_t *)param;
     
-    IOGPoint  point  = {.x = data[0], .y = data[1]};
-    IOGBounds bounds = {.minx = data[2], .miny = data[3], .maxx = data[4], .maxy = data[5]};
+    IOGPoint  point  = {.x = (SInt16)data[0], .y = (SInt16)data[1]};
+    IOGBounds bounds = {.minx = (SInt16)data[2], .miny = (SInt16)data[3], .maxx = (SInt16)data[4], .maxy = (SInt16)data[5]};
     
     return setBounds(&bounds, &point, true);
 }
@@ -3488,7 +3488,7 @@ void IOHIDSystem::createParameters( void )
     makeNumberParamProperty( savedParameters, kIOHIDClickTimeKey,
                 nano, 64 );
 
-    UInt32  tempClickSpace[] = {clickSpaceThresh.x, clickSpaceThresh.y};
+    UInt32  tempClickSpace[] = {(UInt32)clickSpaceThresh.x, (UInt32)clickSpaceThresh.y};
     makeInt32ArrayParamProperty( savedParameters, kIOHIDClickSpaceKey,
                 tempClickSpace, sizeof(tempClickSpace)/sizeof(UInt32) );
 

@@ -389,6 +389,17 @@ die_signed(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name, Dwarf_Signed *valp,
 	if ((attr = die_attr(dw, die, name, req)) == NULL)
 		return (0); /* die_attr will terminate for us if necessary */
 
+	if (!dwarf_formisdata(attr)) {
+		if (req) {
+			terminate("die %llu: is not data (form 0x%x)\n",
+			    die_off(dw, die), die_attr_form(dw, attr));
+		}
+		else {
+			dwarf_dealloc(dw->dw_dw, attr, DW_DLA_ATTR);
+			return (0);
+		}
+	}
+
 	if (dwarf_formsdata(attr, &val, &dw->dw_err) != DW_DLV_OK) {
 		terminate("die %llu: failed to get signed (form 0x%x)\n",
 		    die_off(dw, die), die_attr_form(dw, attr));
@@ -409,6 +420,17 @@ die_unsigned(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name, Dwarf_Unsigned *valp,
 
 	if ((attr = die_attr(dw, die, name, req)) == NULL)
 		return (0); /* die_attr will terminate for us if necessary */
+
+	if (!dwarf_formisdata(attr)) {
+		if (req) {
+			terminate("die %llu: is not data (form 0x%x)\n",
+			    die_off(dw, die), die_attr_form(dw, attr));
+		}
+		else {
+			dwarf_dealloc(dw->dw_dw, attr, DW_DLA_ATTR);
+			return (0);
+		}
+	}
 
 	if (dwarf_formudata(attr, &val, &dw->dw_err) != DW_DLV_OK) {
 		terminate("die %llu: failed to get unsigned (form 0x%x)\n",
@@ -904,6 +926,7 @@ die_enum_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 
 		do {
 			elist_t *el;
+			Dwarf_Attribute attr;
 
 			if (die_tag(dw, mem) != DW_TAG_enumerator) {
 				/* Nested type declaration */
@@ -914,7 +937,11 @@ die_enum_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 			el = xcalloc(sizeof (elist_t));
 			el->el_name = die_name(dw, mem);
 
-			if (die_signed(dw, mem, DW_AT_const_value, &sval, 0)) {
+			int is_unsigned = 0;
+			if ((attr = die_attr(dw, mem, DW_AT_const_value, 0)) != NULL)
+				is_unsigned = dwarf_formisudata(attr);
+
+			if (!is_unsigned && die_signed(dw, mem, DW_AT_const_value, &sval, 0)) {
 				el->el_number = sval;
 			} else if (die_unsigned(dw, mem, DW_AT_const_value,
 			    &uval, 0)) {

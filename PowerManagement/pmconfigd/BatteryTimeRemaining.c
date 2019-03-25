@@ -150,6 +150,10 @@ typedef enum {
 } PollCommand;
 static bool             startBatteryPoll(PollCommand x);
 
+#if TARGET_OS_IOS || TARGET_OS_WATCH
+static dispatch_source_t batteryDataUpdateTimer = NULL;
+#endif // TARGET_OS_IOS || TARGET_OS_WATCH
+
 
 __private_extern__ void
 BatteryTimeRemaining_prime(void)
@@ -167,6 +171,22 @@ BatteryTimeRemaining_prime(void)
      // Initialize tracing battery events to FDR
      recordFDREvent(kFDRInit, false, NULL);
 
+
+#if TARGET_OS_IOS || TARGET_OS_WATCH
+    /* kick off timer to collect battery data */
+    batteryDataUpdateTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+    dispatch_source_set_timer(batteryDataUpdateTimer, dispatch_walltime(NULL, 0), kBatteryDataSaveInterval * NSEC_PER_SEC, 0);
+    dispatch_source_set_event_handler(batteryDataUpdateTimer, ^{
+        IOPMBattery **b = _batteries();
+        if (b && b[0] && isA_CFDictionary(b[0]->properties)) {
+            updateBatteryData(b[0]->properties);
+        }
+    });
+
+# if !XCTEST
+    dispatch_resume(batteryDataUpdateTimer);
+# endif
+#endif // TARGET_OS_IOS || TARGET_OS_WATCH
 
     /* Do initial full poll and kick of the polling timer */
     startBatteryPoll(kImmediateFullPoll);
@@ -1775,7 +1795,9 @@ kern_return_t _io_ps_update_pspowersource(
     }
 
     if (kIOReturnSuccess != *return_code) {
-        CFRelease(details);
+        if (details) {
+            CFRelease(details);
+        }
     }
 
     vm_deallocate(mach_task_self(), details_ptr, details_len);
@@ -1926,6 +1948,30 @@ static bool CheckAccessoryLedChange(PSStruct *ps, CFDictionaryRef update)
 
         return false;
 }
+
+static bool CheckAccessoryAdapterChange(PSStruct *ps, CFDictionaryRef update)
+{
+        CFDictionaryRef old_adapter = CFDictionaryGetValue(ps->description, CFSTR(kIOPMPSAdapterDetailsKey));
+        CFDictionaryRef new_adapter = CFDictionaryGetValue(update, CFSTR(kIOPMPSAdapterDetailsKey));
+
+        if (!old_adapter && !new_adapter) {
+            return false;
+        }
+
+        if (!!old_adapter ^ !!new_adapter) {
+            return true;
+        }
+
+        int old_fc = 0, new_fc = 0;
+        CFDictionaryGetIntValue(old_adapter, CFSTR(kIOPSPowerAdapterFamilyKey), old_fc);
+        CFDictionaryGetIntValue(new_adapter, CFSTR(kIOPSPowerAdapterFamilyKey), new_fc);
+        if (old_fc != new_fc) {
+            return true;
+        }
+
+
+        return false;
+}
 #endif
 
 static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update)
@@ -2010,6 +2056,10 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
         // Notify for AirPod case LED changes (rdar://problem/37842910)
         if (CheckAccessoryLedChange(ps, update)) {
             do_notify_ps = true; // Not the right notification
+        }
+
+        if (CheckAccessoryAdapterChange(ps, update)) {
+            do_notify_ps = true;
         }
 #endif
 

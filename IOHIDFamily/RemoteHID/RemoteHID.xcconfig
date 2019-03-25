@@ -6,3 +6,32 @@
 //
 
 
+#include "IOHIDFamily/IOHIDFamily.xcconfig"
+
+//
+// Remote HID
+//
+//HIDRCD_INSTALL_PATH = /usr/libexec
+//HIDRCD_PLIST_INSTALL_PATH = /System/Library/LaunchDaemons
+//REMOTEHID_INSTALL_PATH = /System/Library/PrivateFrameworks
+HIDRCD_INSTALL_PATH = /usr/local/libexec
+HIDRCD_PLIST_INSTALL_PATH = /AppleInternal/Library/LaunchDaemons
+
+
+CODE_SIGN_IDENTITY = -
+
+EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*][arch=*] = HIDRemoteDeviceAACPServer-macOS.m
+EXCLUDED_SOURCE_FILE_NAMES[sdk=macos*][arch=*] = HIDRemoteDeviceAACPServer.m
+
+OTHER_LDFLAGS[sdk=iphoneos*][arch=*] = $(inherited) -framework MobileBluetooth
+OTHER_LDFLAGS[sdk=macos*][arch=*] = $(inherited) -framework IOBluetooth
+
+_SUPPORTS_TEXT_BASED_API_log_RemoteHID = NO
+_SUPPORTS_TEXT_BASED_API_RemoteHID = YES
+
+_INSTALL_PATH_RemoteHID = /AppleInternal/Library/Frameworks
+_INSTALL_PATH_log_RemoteHID = /usr/local/lib/log
+
+INSTALL_PATH = $(_INSTALL_PATH_$(PRODUCT_NAME))
+SUPPORTS_TEXT_BASED_API = $(_SUPPORTS_TEXT_BASED_API_$(PRODUCT_NAME))
+TAPI_VERIFY_MODE = Pedantic

@@ -65,6 +65,12 @@ String WebsiteDataStore::defaultMediaKeysStorageDirectory()
     return WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::localUserSpecificStorageDirectory(), "MediaKeyStorage");
 }
 
+String WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory()
+{
+    // Not Implemented.
+    return String();
+}
+
 String WebsiteDataStore::defaultWebSQLDatabaseDirectory()
 {
     return WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::localUserSpecificStorageDirectory(), "WebSQL");
@@ -85,16 +91,62 @@ String WebsiteDataStore::websiteDataDirectoryFileSystemRepresentation(const Stri
     return WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::localUserSpecificStorageDirectory(), directoryName);
 }
 
-WebKit::WebsiteDataStore::Configuration WebsiteDataStore::defaultDataStoreConfiguration()
+String WebsiteDataStore::legacyDefaultApplicationCacheDirectory()
 {
-    WebKit::WebsiteDataStore::Configuration configuration;
+    return WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::localUserSpecificStorageDirectory(), "ApplicationCache");
+}
 
-    configuration.applicationCacheDirectory = defaultApplicationCacheDirectory();
-    configuration.networkCacheDirectory = defaultNetworkCacheDirectory();
-    configuration.webSQLDatabaseDirectory = defaultWebSQLDatabaseDirectory();
-    configuration.localStorageDirectory = defaultLocalStorageDirectory();
-    configuration.mediaKeysStorageDirectory = defaultMediaKeysStorageDirectory();
-    configuration.resourceLoadStatisticsDirectory = defaultResourceLoadStatisticsDirectory();
+String WebsiteDataStore::legacyDefaultNetworkCacheDirectory()
+{
+    return WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::localUserSpecificStorageDirectory(), "NetworkCache");
+}
+
+String WebsiteDataStore::legacyDefaultWebSQLDatabaseDirectory()
+{
+    return WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::localUserSpecificStorageDirectory(), "WebSQL");
+}
+
+String WebsiteDataStore::legacyDefaultIndexedDBDatabaseDirectory()
+{
+    return WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::localUserSpecificStorageDirectory(), "IndexedDB");
+}
+
+String WebsiteDataStore::legacyDefaultLocalStorageDirectory()
+{
+    return WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::localUserSpecificStorageDirectory(), "LocalStorage");
+}
+
+String WebsiteDataStore::legacyDefaultMediaCacheDirectory()
+{
+    return WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::localUserSpecificStorageDirectory(), "MediaCache");
+}
+
+String WebsiteDataStore::legacyDefaultMediaKeysStorageDirectory()
+{
+    return WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::localUserSpecificStorageDirectory(), "MediaKeyStorage");
+}
+
+String WebsiteDataStore::legacyDefaultDeviceIdHashSaltsStorageDirectory()
+{
+    // Not Implemented.
+    return String();
+}
+
+String WebsiteDataStore::legacyDefaultJavaScriptConfigurationDirectory()
+{
+    return WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::localUserSpecificStorageDirectory(), "JavaScriptCoreDebug");
+}
+
+Ref<WebKit::WebsiteDataStoreConfiguration> WebsiteDataStore::defaultDataStoreConfiguration()
+{
+    auto configuration = WebKit::WebsiteDataStoreConfiguration::create();
+
+    configuration->setApplicationCacheDirectory(defaultApplicationCacheDirectory());
+    configuration->setNetworkCacheDirectory(defaultNetworkCacheDirectory());
+    configuration->setWebSQLDatabaseDirectory(defaultWebSQLDatabaseDirectory());
+    configuration->setLocalStorageDirectory(defaultLocalStorageDirectory());
+    configuration->setMediaKeysStorageDirectory(defaultMediaKeysStorageDirectory());
+    configuration->setResourceLoadStatisticsDirectory(defaultResourceLoadStatisticsDirectory());
 
     return configuration;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,25 +30,24 @@
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginData.h>
 
+namespace WebKit {
 using namespace WebCore;
 
-namespace WebKit {
-
-UserMediaPermissionCheckProxy::UserMediaPermissionCheckProxy(uint64_t userMediaID, uint64_t frameID, CompletionHandler&& handler, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin)
-    : m_userMediaID(userMediaID)
-    , m_frameID(frameID)
+UserMediaPermissionCheckProxy::UserMediaPermissionCheckProxy(uint64_t frameID, CompletionHandler&& handler, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin)
+    : m_frameID(frameID)
     , m_completionHandler(WTFMove(handler))
     , m_userMediaDocumentSecurityOrigin(WTFMove(userMediaDocumentOrigin))
     , m_topLevelDocumentSecurityOrigin(WTFMove(topLevelDocumentOrigin))
 {
 }
 
-void UserMediaPermissionCheckProxy::setUserMediaAccessInfo(String&& mediaDeviceIdentifierHashSalt, bool allowed)
+void UserMediaPermissionCheckProxy::setUserMediaAccessInfo(bool allowed)
 {
+    ASSERT(m_completionHandler);
     if (!m_completionHandler)
         return;
 
-    m_completionHandler(m_userMediaID, WTFMove(mediaDeviceIdentifierHashSalt), allowed);
+    m_completionHandler(allowed);
     m_completionHandler = nullptr;
 }
 

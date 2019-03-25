@@ -8,10 +8,13 @@ list(APPEND WTF_LIBRARIES
 )
 
 list(APPEND WTF_PUBLIC_HEADERS
+    WeakObjCPtr.h
+
+    cf/CFURLExtras.h
     cf/TypeCastsCF.h
 
     cocoa/Entitlements.h
-    cocoa/MachSendRight.h
+    cocoa/NSURLExtras.h
     cocoa/SoftLinking.h
 
     darwin/WeakLinking.h
@@ -21,9 +24,9 @@ list(APPEND WTF_PUBLIC_HEADERS
     spi/cf/CFBundleSPI.h
     spi/cf/CFStringSPI.h
 
-    spi/cocoa/FoundationSPI.h
-    spi/cocoa/NSMapTableSPI.h
+    spi/cocoa/CFXPCBridgeSPI.h
     spi/cocoa/SecuritySPI.h
+    spi/cocoa/objcSPI.h
 
     spi/darwin/SandboxSPI.h
     spi/darwin/XPCSPI.h
@@ -38,36 +41,41 @@ list(APPEND WTF_SOURCES
     SchedulePairCF.cpp
     SchedulePairMac.mm
 
+    cf/CFURLExtras.cpp
     cf/LanguageCF.cpp
     cf/RunLoopCF.cpp
+    cf/URLCF.cpp
 
     cocoa/AutodrainedPool.cpp
     cocoa/CPUTimeCocoa.cpp
-    cocoa/Entitlements.cpp
+    cocoa/Entitlements.mm
     cocoa/MachSendRight.cpp
+    cocoa/MainThreadCocoa.mm
     cocoa/MemoryFootprintCocoa.cpp
     cocoa/MemoryPressureHandlerCocoa.mm
+    cocoa/NSURLExtras.mm
+    cocoa/URLCocoa.mm
     cocoa/WorkQueueCocoa.cpp
 
     mac/DeprecatedSymbolsUsedBySafari.mm
-    mac/MainThreadMac.mm
 
     text/cf/AtomicStringImplCF.cpp
     text/cf/StringCF.cpp
     text/cf/StringImplCF.cpp
     text/cf/StringViewCF.cpp
 
+    text/cocoa/StringCocoa.mm
     text/cocoa/StringImplCocoa.mm
     text/cocoa/StringViewCocoa.mm
-    text/cocoa/TextBreakIteratorInternalICUMac.mm
+    text/cocoa/TextBreakIteratorInternalICUCocoa.cpp
 )
 
 list(APPEND WTF_PRIVATE_INCLUDE_DIRECTORIES
-    "${WTF_DIR}/icu"
     ${DERIVED_SOURCES_WTF_DIR}
 )
 
 file(COPY mac/MachExceptions.defs DESTINATION ${DERIVED_SOURCES_WTF_DIR})
+file(COPY "${WTF_DIR}/icu/unicode" DESTINATION ${DERIVED_SOURCES_WTF_DIR})
 
 add_custom_command(
     OUTPUT

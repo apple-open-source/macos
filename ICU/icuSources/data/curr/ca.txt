@@ -1041,6 +1041,10 @@ ca{
         }
         VEF{
             "VEF",
+            "bolívar veneçolà (2008–2018)",
+        }
+        VES{
+            "VES",
             "bolívar veneçolà",
         }
         VND{
@@ -2334,6 +2338,10 @@ ca{
             other{"bolívars veneçolans (1871–2008)"}
         }
         VEF{
+            one{"bolívar veneçolà (2008–2018)"}
+            other{"bolívars veneçolans (2008–2018)"}
+        }
+        VES{
             one{"bolívar veneçolà"}
             other{"bolívars veneçolans"}
         }

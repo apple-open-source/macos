@@ -21,6 +21,7 @@
 #include "JSCClass.h"
 
 #include "APICast.h"
+#include "JSAPIWrapperGlobalObject.h"
 #include "JSAPIWrapperObject.h"
 #include "JSCCallbackFunction.h"
 #include "JSCClassPrivate.h"
@@ -108,22 +109,50 @@ private:
     GRefPtr<JSCException> m_savedException;
 };
 
+static bool isWrappedObject(JSC::JSObject* jsObject)
+{
+    JSC::ExecState* exec = jsObject->globalObject()->globalExec();
+    if (jsObject->isGlobalObject())
+        return jsObject->inherits<JSC::JSCallbackObject<JSC::JSAPIWrapperGlobalObject>>(exec->vm());
+    return jsObject->inherits<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>>(exec->vm());
+}
+
+static JSClassRef wrappedObjectClass(JSC::JSObject* jsObject)
+{
+    ASSERT(isWrappedObject(jsObject));
+    if (jsObject->isGlobalObject())
+        return JSC::jsCast<JSC::JSCallbackObject<JSC::JSAPIWrapperGlobalObject>*>(jsObject)->classRef();
+    return JSC::jsCast<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>*>(jsObject)->classRef();
+}
+
+static GRefPtr<JSCContext> jscContextForObject(JSC::JSObject* jsObject)
+{
+    ASSERT(isWrappedObject(jsObject));
+    JSC::JSGlobalObject* globalObject = jsObject->globalObject();
+    JSC::ExecState* exec = globalObject->globalExec();
+    if (jsObject->isGlobalObject()) {
+        JSC::VM& vm = globalObject->vm();
+        if (auto* globalScopeExtension = vm.vmEntryGlobalObject(exec)->globalScopeExtension())
+            exec = JSC::JSScope::objectAtScope(globalScopeExtension)->globalObject()->globalExec();
+    }
+    return jscContextGetOrCreate(toGlobalRef(exec));
+}
+
 static JSValueRef getProperty(JSContextRef callerContext, JSObjectRef object, JSStringRef propertyName, JSValueRef* exception)
 {
     JSC::JSLockHolder locker(toJS(callerContext));
     auto* jsObject = toJS(object);
-    auto context = jscContextGetOrCreate(toGlobalRef(jsObject->globalObject()->globalExec()));
-    auto* jsContext = jscContextGetJSContext(context.get());
-    if (!jsObject->inherits<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>>(toJS(jsContext)->vm()))
+    if (!isWrappedObject(jsObject))
         return nullptr;
 
+    auto context = jscContextForObject(jsObject);
     gpointer instance = jscContextWrappedObject(context.get(), object);
     if (!instance)
         return nullptr;
 
     VTableExceptionHandler exceptionHandler(context.get(), exception);
 
-    JSClassRef jsClass = JSC::jsCast<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>*>(jsObject)->classRef();
+    JSClassRef jsClass = wrappedObjectClass(jsObject);
     for (auto* jscClass = jscContextGetRegisteredClass(context.get(), jsClass); jscClass; jscClass = jscClass->priv->parentClass) {
         if (!jscClass->priv->vtable)
             continue;
@@ -140,11 +169,10 @@ static bool setProperty(JSContextRef callerContext, JSObjectRef object, JSString
 {
     JSC::JSLockHolder locker(toJS(callerContext));
     auto* jsObject = toJS(object);
-    auto context = jscContextGetOrCreate(toGlobalRef(jsObject->globalObject()->globalExec()));
-    auto* jsContext = jscContextGetJSContext(context.get());
-    if (!jsObject->inherits<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>>(toJS(jsContext)->vm()))
+    if (!isWrappedObject(jsObject))
         return false;
 
+    auto context = jscContextForObject(jsObject);
     gpointer instance = jscContextWrappedObject(context.get(), object);
     if (!instance)
         return false;
@@ -152,7 +180,7 @@ static bool setProperty(JSContextRef callerContext, JSObjectRef object, JSString
     VTableExceptionHandler exceptionHandler(context.get(), exception);
 
     GRefPtr<JSCValue> propertyValue;
-    JSClassRef jsClass = JSC::jsCast<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>*>(jsObject)->classRef();
+    JSClassRef jsClass = wrappedObjectClass(jsObject);
     for (auto* jscClass = jscContextGetRegisteredClass(context.get(), jsClass); jscClass; jscClass = jscClass->priv->parentClass) {
         if (!jscClass->priv->vtable)
             continue;
@@ -171,16 +199,15 @@ static bool hasProperty(JSContextRef callerContext, JSObjectRef object, JSString
 {
     JSC::JSLockHolder locker(toJS(callerContext));
     auto* jsObject = toJS(object);
-    auto context = jscContextGetOrCreate(toGlobalRef(jsObject->globalObject()->globalExec()));
-    auto* jsContext = jscContextGetJSContext(context.get());
-    if (!jsObject->inherits<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>>(toJS(jsContext)->vm()))
+    if (!isWrappedObject(jsObject))
         return false;
 
+    auto context = jscContextForObject(jsObject);
     gpointer instance = jscContextWrappedObject(context.get(), object);
     if (!instance)
         return false;
 
-    JSClassRef jsClass = JSC::jsCast<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>*>(jsObject)->classRef();
+    JSClassRef jsClass = wrappedObjectClass(jsObject);
     for (auto* jscClass = jscContextGetRegisteredClass(context.get(), jsClass); jscClass; jscClass = jscClass->priv->parentClass) {
         if (!jscClass->priv->vtable)
             continue;
@@ -198,18 +225,17 @@ static bool deleteProperty(JSContextRef callerContext, JSObjectRef object, JSStr
 {
     JSC::JSLockHolder locker(toJS(callerContext));
     auto* jsObject = toJS(object);
-    auto context = jscContextGetOrCreate(toGlobalRef(jsObject->globalObject()->globalExec()));
-    auto* jsContext = jscContextGetJSContext(context.get());
-    if (!jsObject->inherits<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>>(toJS(jsContext)->vm()))
+    if (!isWrappedObject(jsObject))
         return false;
 
+    auto context = jscContextForObject(jsObject);
     gpointer instance = jscContextWrappedObject(context.get(), object);
     if (!instance)
         return false;
 
     VTableExceptionHandler exceptionHandler(context.get(), exception);
 
-    JSClassRef jsClass = JSC::jsCast<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>*>(jsObject)->classRef();
+    JSClassRef jsClass = wrappedObjectClass(jsObject);
     for (auto* jscClass = jscContextGetRegisteredClass(context.get(), jsClass); jscClass; jscClass = jscClass->priv->parentClass) {
         if (!jscClass->priv->vtable)
             continue;
@@ -226,16 +252,15 @@ static void getPropertyNames(JSContextRef callerContext, JSObjectRef object, JSP
 {
     JSC::JSLockHolder locker(toJS(callerContext));
     auto* jsObject = toJS(object);
-    auto context = jscContextGetOrCreate(toGlobalRef(jsObject->globalObject()->globalExec()));
-    auto* jsContext = jscContextGetJSContext(context.get());
-    if (!jsObject->inherits<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>>(toJS(jsContext)->vm()))
+    if (!isWrappedObject(jsObject))
         return;
 
+    auto context = jscContextForObject(jsObject);
     gpointer instance = jscContextWrappedObject(context.get(), object);
     if (!instance)
         return;
 
-    JSClassRef jsClass = JSC::jsCast<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>*>(jsObject)->classRef();
+    JSClassRef jsClass = wrappedObjectClass(jsObject);
     for (auto* jscClass = jscContextGetRegisteredClass(context.get(), jsClass); jscClass; jscClass = jscClass->priv->parentClass) {
         if (!jscClass->priv->vtable)
             continue;
@@ -486,6 +511,12 @@ JSC::JSObject* jscClassGetOrCreateJSWrapper(JSCClass* jscClass, gpointer wrapped
     return jscContextGetOrCreateJSWrapper(priv->context, priv->jsClass, toRef(priv->prototype.get()), wrappedObject, priv->destroyFunction);
 }
 
+JSGlobalContextRef jscClassCreateContextWithJSWrapper(JSCClass* jscClass, gpointer wrappedObject)
+{
+    JSCClassPrivate* priv = jscClass->priv;
+    return jscContextCreateContextWithJSWrapper(priv->context, priv->jsClass, toRef(priv->prototype.get()), wrappedObject, priv->destroyFunction);
+}
+
 void jscClassInvalidate(JSCClass* jscClass)
 {
     jscClass->priv->context = nullptr;
@@ -521,7 +552,7 @@ JSCClass* jsc_class_get_parent(JSCClass* jscClass)
     return jscClass->priv->parentClass;
 }
 
-static GRefPtr<JSCValue> jscClassCreateConstructor(JSCClass* jscClass, const char* name, GCallback callback, gpointer userData, GDestroyNotify destroyNotify, GType returnType, std::optional<Vector<GType>>&& parameters)
+static GRefPtr<JSCValue> jscClassCreateConstructor(JSCClass* jscClass, const char* name, GCallback callback, gpointer userData, GDestroyNotify destroyNotify, GType returnType, Optional<Vector<GType>>&& parameters)
 {
     JSCClassPrivate* priv = jscClass->priv;
     GRefPtr<GClosure> closure = adoptGRef(g_cclosure_new(callback, userData, reinterpret_cast<GClosureNotify>(reinterpret_cast<GCallback>(destroyNotify))));
@@ -658,10 +689,10 @@ JSCValue* jsc_class_add_constructor_variadic(JSCClass* jscClass, const char* nam
     if (!name)
         name = priv->name.data();
 
-    return jscClassCreateConstructor(jscClass, name ? name : priv->name.data(), callback, userData, destroyNotify, returnType, std::nullopt).leakRef();
+    return jscClassCreateConstructor(jscClass, name ? name : priv->name.data(), callback, userData, destroyNotify, returnType, WTF::nullopt).leakRef();
 }
 
-static void jscClassAddMethod(JSCClass* jscClass, const char* name, GCallback callback, gpointer userData, GDestroyNotify destroyNotify, GType returnType, std::optional<Vector<GType>>&& parameters)
+static void jscClassAddMethod(JSCClass* jscClass, const char* name, GCallback callback, gpointer userData, GDestroyNotify destroyNotify, GType returnType, Optional<Vector<GType>>&& parameters)
 {
     JSCClassPrivate* priv = jscClass->priv;
     GRefPtr<GClosure> closure = adoptGRef(g_cclosure_new(callback, userData, reinterpret_cast<GClosureNotify>(reinterpret_cast<GCallback>(destroyNotify))));
@@ -767,7 +798,7 @@ void jsc_class_add_method_variadic(JSCClass* jscClass, const char* name, GCallba
     g_return_if_fail(callback);
     g_return_if_fail(jscClass->priv->context);
 
-    jscClassAddMethod(jscClass, name, callback, userData, destroyNotify, returnType, std::nullopt);
+    jscClassAddMethod(jscClass, name, callback, userData, destroyNotify, returnType, WTF::nullopt);
 }
 
 /**

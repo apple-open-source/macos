@@ -39,21 +39,21 @@ void WebsiteData::Entry::encode(IPC::Encoder& encoder) const
     encoder << size;
 }
 
-auto WebsiteData::Entry::decode(IPC::Decoder& decoder) -> std::optional<Entry>
+auto WebsiteData::Entry::decode(IPC::Decoder& decoder) -> Optional<Entry>
 {
     Entry result;
 
-    std::optional<WebCore::SecurityOriginData> securityOriginData;
+    Optional<WebCore::SecurityOriginData> securityOriginData;
     decoder >> securityOriginData;
     if (!securityOriginData)
-        return std::nullopt;
+        return WTF::nullopt;
     result.origin = WTFMove(*securityOriginData);
 
     if (!decoder.decodeEnum(result.type))
-        return std::nullopt;
+        return WTF::nullopt;
 
     if (!decoder.decode(result.size))
-        return std::nullopt;
+        return WTF::nullopt;
 
     return WTFMove(result);
 }
@@ -66,6 +66,7 @@ void WebsiteData::encode(IPC::Encoder& encoder) const
     encoder << hostNamesWithPluginData;
 #endif
     encoder << originsWithCredentials;
+    encoder << hostNamesWithHSTSCache;
 }
 
 bool WebsiteData::decode(IPC::Decoder& decoder, WebsiteData& result)
@@ -79,6 +80,8 @@ bool WebsiteData::decode(IPC::Decoder& decoder, WebsiteData& result)
         return false;
 #endif
     if (!decoder.decode(result.originsWithCredentials))
+        return false;
+    if (!decoder.decode(result.hostNamesWithHSTSCache))
         return false;
     return true;
 }

@@ -26,11 +26,16 @@ JSC_DEPRECATED_FOR
 <TITLE>JSCContext</TITLE>
 JSCContext
 JSCExceptionHandler
+JSCCheckSyntaxMode
+JSCCheckSyntaxResult
 jsc_context_new
 jsc_context_new_with_virtual_machine
 jsc_context_get_virtual_machine
 jsc_context_get_exception
 jsc_context_throw
+jsc_context_throw_printf
+jsc_context_throw_with_name
+jsc_context_throw_with_name_printf
 jsc_context_throw_exception
 jsc_context_clear_exception
 jsc_context_push_exception_handler
@@ -39,6 +44,7 @@ jsc_context_get_current
 jsc_context_evaluate
 jsc_context_evaluate_with_source_uri
 jsc_context_evaluate_in_object
+jsc_context_check_syntax
 jsc_context_get_global_object
 jsc_context_set_value
 jsc_context_get_value
@@ -148,9 +154,19 @@ jsc_weak_value_get_type
 <TITLE>JSCException</TITLE>
 JSCException
 jsc_exception_new
+jsc_exception_new_printf
+jsc_exception_new_vprintf
+jsc_exception_new_with_name
+jsc_exception_new_with_name_printf
+jsc_exception_new_with_name_vprintf
+jsc_exception_get_name
 jsc_exception_get_message
 jsc_exception_get_line_number
+jsc_exception_get_column_number
 jsc_exception_get_source_uri
+jsc_exception_get_backtrace_string
+jsc_exception_to_string
+jsc_exception_report
 
 <SUBSECTION Standard>
 JSCExceptionClass

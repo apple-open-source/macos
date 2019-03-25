@@ -34,10 +34,8 @@
 
 #if WK_API_ENABLED
 
-using namespace WebKit;
-
 @implementation WKWebProcessPlugInNodeHandle {
-    API::ObjectStorage<InjectedBundleNodeHandle> _nodeHandle;
+    API::ObjectStorage<WebKit::InjectedBundleNodeHandle> _nodeHandle;
 }
 
 - (void)dealloc
@@ -49,24 +47,16 @@ using namespace WebKit;
 + (WKWebProcessPlugInNodeHandle *)nodeHandleWithJSValue:(JSValue *)value inContext:(JSContext *)context
 {
     JSContextRef contextRef = [context JSGlobalContextRef];
-    JSObjectRef objectRef = JSValueToObject(contextRef, [value JSValueRef], 0);
-    auto nodeHandle = InjectedBundleNodeHandle::getOrCreate(contextRef, objectRef);
-    if (!nodeHandle)
-        return nil;
-
-    return [wrapper(*nodeHandle.leakRef()) autorelease];
+    JSObjectRef objectRef = JSValueToObject(contextRef, [value JSValueRef], nullptr);
+    return WebKit::wrapper(WebKit::InjectedBundleNodeHandle::getOrCreate(contextRef, objectRef));
 }
 
 - (WKWebProcessPlugInFrame *)htmlIFrameElementContentFrame
 {
-    auto frame = _nodeHandle->htmlIFrameElementContentFrame();
-    if (!frame)
-        return nil;
-
-    return [wrapper(*frame.leakRef()) autorelease];
+    return WebKit::wrapper(_nodeHandle->htmlIFrameElementContentFrame());
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 - (UIImage *)renderedImageWithOptions:(WKSnapshotOptions)options
 {
     return [self renderedImageWithOptions:options width:nil];
@@ -74,11 +64,11 @@ using namespace WebKit;
 
 - (UIImage *)renderedImageWithOptions:(WKSnapshotOptions)options width:(NSNumber *)width
 {
-    std::optional<float> optionalWidth;
+    Optional<float> optionalWidth;
     if (width)
         optionalWidth = width.floatValue;
 
-    RefPtr<WebImage> image = _nodeHandle->renderedImage(toSnapshotOptions(options), options & kWKSnapshotOptionsExcludeOverflow, optionalWidth);
+    RefPtr<WebKit::WebImage> image = _nodeHandle->renderedImage(WebKit::toSnapshotOptions(options), options & kWKSnapshotOptionsExcludeOverflow, optionalWidth);
     if (!image)
         return nil;
 
@@ -94,11 +84,11 @@ using namespace WebKit;
 
 - (NSImage *)renderedImageWithOptions:(WKSnapshotOptions)options width:(NSNumber *)width
 {
-    std::optional<float> optionalWidth;
+    Optional<float> optionalWidth;
     if (width)
         optionalWidth = width.floatValue;
 
-    RefPtr<WebImage> image = _nodeHandle->renderedImage(toSnapshotOptions(options), options & kWKSnapshotOptionsExcludeOverflow, optionalWidth);
+    RefPtr<WebKit::WebImage> image = _nodeHandle->renderedImage(WebKit::toSnapshotOptions(options), options & kWKSnapshotOptionsExcludeOverflow, optionalWidth);
     if (!image)
         return nil;
 
@@ -137,6 +127,8 @@ static WebCore::AutoFillButtonType toAutoFillButtonType(_WKAutoFillButtonType au
         return WebCore::AutoFillButtonType::Credentials;
     case _WKAutoFillButtonTypeStrongPassword:
         return WebCore::AutoFillButtonType::StrongPassword;
+    case _WKAutoFillButtonTypeCreditCard:
+        return WebCore::AutoFillButtonType::CreditCard;
     }
     ASSERT_NOT_REACHED();
     return WebCore::AutoFillButtonType::None;
@@ -153,6 +145,8 @@ static _WKAutoFillButtonType toWKAutoFillButtonType(WebCore::AutoFillButtonType 
         return _WKAutoFillButtonTypeCredentials;
     case WebCore::AutoFillButtonType::StrongPassword:
         return _WKAutoFillButtonTypeStrongPassword;
+    case WebCore::AutoFillButtonType::CreditCard:
+        return _WKAutoFillButtonTypeCreditCard;
     }
     ASSERT_NOT_REACHED();
     return _WKAutoFillButtonTypeNone;
@@ -184,6 +178,11 @@ static _WKAutoFillButtonType toWKAutoFillButtonType(WebCore::AutoFillButtonType 
     return _nodeHandle->htmlTextAreaElementLastChangeWasUserEdit();
 }
 
+- (BOOL)isSelectElement
+{
+    return _nodeHandle->isSelectElement();
+}
+
 - (BOOL)isTextField
 {
     return _nodeHandle->isTextField();
@@ -191,19 +190,15 @@ static _WKAutoFillButtonType toWKAutoFillButtonType(WebCore::AutoFillButtonType 
 
 - (WKWebProcessPlugInNodeHandle *)HTMLTableCellElementCellAbove
 {
-    auto nodeHandle = _nodeHandle->htmlTableCellElementCellAbove();
-    if (!nodeHandle)
-        return nil;
-
-    return [wrapper(*nodeHandle.leakRef()) autorelease];
+    return WebKit::wrapper(_nodeHandle->htmlTableCellElementCellAbove());
 }
 
 - (WKWebProcessPlugInFrame *)frame
 {
-    return [wrapper(*_nodeHandle->document()->documentFrame().leakRef()) autorelease];
+    return WebKit::wrapper(_nodeHandle->document()->documentFrame());
 }
 
-- (InjectedBundleNodeHandle&)_nodeHandle
+- (WebKit::InjectedBundleNodeHandle&)_nodeHandle
 {
     return *_nodeHandle;
 }

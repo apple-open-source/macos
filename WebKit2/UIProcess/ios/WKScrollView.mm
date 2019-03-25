@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WKScrollView.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import "UIKitSPI.h"
 #import "VersionChecks.h"
@@ -37,8 +37,6 @@
 #if PLATFORM(WATCHOS)
 #import <PepperUICore/UIScrollView+PUICAdditionsPrivate.h>
 #endif
-
-using namespace WebKit;
 
 @interface WKScrollViewDelegateForwarder : NSObject <UIScrollViewDelegate>
 
@@ -342,7 +340,7 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
     UIEdgeInsets systemContentInset = [super _systemContentInset];
 
     // Internal clients who use setObscuredInsets include the keyboard height in their
-    // manually overriden insets, so we don't need to re-add it here.
+    // manually overridden insets, so we don't need to re-add it here.
     if (_internalDelegate._haveSetObscuredInsets)
         return systemContentInset;
 
@@ -350,7 +348,7 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
     // to include keyboard insets in the systemContentInset. We always want
     // keyboard insets applied, even when web content has chosen to disable automatic
     // safe area inset adjustment.
-    if (linkedOnOrAfter(SDKVersion::FirstWhereUIScrollViewDoesNotApplyKeyboardInsetsUnconditionally) && self.contentInsetAdjustmentBehavior == UIScrollViewContentInsetAdjustmentNever)
+    if (linkedOnOrAfter(WebKit::SDKVersion::FirstWhereUIScrollViewDoesNotApplyKeyboardInsetsUnconditionally) && self.contentInsetAdjustmentBehavior == UIScrollViewContentInsetAdjustmentNever)
         systemContentInset.bottom += _keyboardBottomInsetAdjustment;
 
     return systemContentInset;
@@ -387,4 +385,4 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
 
 @end
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

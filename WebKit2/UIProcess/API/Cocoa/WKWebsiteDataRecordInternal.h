@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,13 +34,11 @@
 
 namespace WebKit {
 
-inline WKWebsiteDataRecord *wrapper(API::WebsiteDataRecord& websiteDataRecord)
-{
-    ASSERT([websiteDataRecord.wrapper() isKindOfClass:[WKWebsiteDataRecord class]]);
-    return (WKWebsiteDataRecord *)websiteDataRecord.wrapper();
-}
+template<> struct WrapperTraits<API::WebsiteDataRecord> {
+    using WrapperClass = WKWebsiteDataRecord;
+};
 
-static inline std::optional<WebsiteDataType> toWebsiteDataType(NSString *websiteDataType)
+static inline Optional<WebsiteDataType> toWebsiteDataType(NSString *websiteDataType)
 {
     if ([websiteDataType isEqualToString:WKWebsiteDataTypeCookies])
         return WebsiteDataType::Cookies;
@@ -78,7 +76,7 @@ static inline std::optional<WebsiteDataType> toWebsiteDataType(NSString *website
         return WebsiteDataType::ResourceLoadStatistics;
     if ([websiteDataType isEqualToString:_WKWebsiteDataTypeCredentials])
         return WebsiteDataType::Credentials;
-    return std::nullopt;
+    return WTF::nullopt;
 }
 
 static inline OptionSet<WebKit::WebsiteDataType> toWebsiteDataTypes(NSSet *websiteDataTypes)
@@ -87,7 +85,7 @@ static inline OptionSet<WebKit::WebsiteDataType> toWebsiteDataTypes(NSSet *websi
 
     for (NSString *websiteDataType in websiteDataTypes) {
         if (auto dataType = toWebsiteDataType(websiteDataType))
-            result |= *dataType;
+            result.add(*dataType);
     }
 
     return result;

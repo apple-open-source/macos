@@ -40,23 +40,35 @@
 // Construct a Process object.
 //
 Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit)
- :  mTaskPort(taskPort), mByteFlipped(false), mPid(audit.pid()), mUid(audit.euid()), mGid(audit.egid())
+ :  mTaskPort(taskPort), mByteFlipped(false), mPid(audit.pid()), mUid(audit.euid()), mGid(audit.egid()), mAudit(audit)
 {
 	StLock<Mutex> _(*this);
 	
 	// set parent session
 	parent(Session::find(audit.sessionId(), true));
-
-    // let's take a look at our wannabe client...
+	
+	// let's take a look at our wannabe client...
+	
+	// Not enough to make sure we will get the right process, as
+	// pids get recycled. But we will later create the actual SecCode using
+	// the audit token, which is unique to the one instance of the process,
+	// so this just catches a pid mismatch early.
 	if (mTaskPort.pid() != mPid) {
 		secnotice("SecServer", "Task/pid setup mismatch pid=%d task=%d(%d)",
-			mPid, mTaskPort.port(), mTaskPort.pid());
+				  mPid, mTaskPort.port(), mTaskPort.pid());
 		CssmError::throwMe(CSSMERR_CSSM_ADDIN_AUTHENTICATE_FAILED);	// you lied!
 	}
-
+	
 	setup(info);
-	ClientIdentification::setup(this->pid());
-
+	ClientIdentification::setup(this->audit_token());
+	
+	if(!processCode()) {
+		// This can happen if the process died in the meantime.
+		secnotice("SecServer", "no process created in setup, old pid=%d old task=%d(%d)",
+				  mPid, mTaskPort.port(), mTaskPort.pid());
+		CssmError::throwMe(CSSMERR_CSSM_ADDIN_AUTHENTICATE_FAILED);
+	}
+	
     // NB: ServerChild::find() should only be used to determine
     // *existence*.  Don't use the returned Child object for anything else, 
     // as it is not protected against its underlying process's destruction.  
@@ -86,7 +98,7 @@ void Process::reset(TaskPort taskPort, const ClientSetupInfo *info, const Common
 	setup(info);
 	CFCopyRef<SecCodeRef> oldCode = processCode();
 
-	ClientIdentification::setup(this->pid());	// re-constructs processCode()
+	ClientIdentification::setup(this->audit_token());	// re-constructs processCode()
 	if (CFEqual(oldCode, processCode())) {
         secnotice("SecServer", "%p Client reset amnesia", this);
 	} else {
@@ -127,8 +139,9 @@ Process::~Process()
     secinfo("SecServer", "%p client release: %d", this, this->pid());
 
     // release our name for the process's task port
-	if (mTaskPort)
-        mTaskPort.destroy();
+    if (mTaskPort) {
+        mTaskPort.deallocate();
+    }
 }
 
 void Process::kill()

@@ -38,7 +38,7 @@ namespace CodeSigning {
 
 //
 // A SecCode that represents a running UNIX process.
-// Processes are identified by pid.
+// Processes are identified by pid and audit token.
 //
 // ProcessCode inherits GenericCode's access to the cshosting Mach protocol to
 // deal with guests.

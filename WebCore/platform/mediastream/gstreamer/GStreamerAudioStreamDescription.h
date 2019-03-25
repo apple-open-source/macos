@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2018 Metrological Group B.V.
- * Author: Thibault Saunier <tsaunier@igalia.com>
- * Author: Alejandro G. Castro <alex@igalia.com>
+ * Copyright (C) 2018 Igalia S.L. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,6 +23,7 @@
 #if ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC) && USE(GSTREAMER)
 
 #include "AudioStreamDescription.h"
+#include "GStreamerCommon.h"
 #include <gst/audio/audio.h>
 
 namespace WebCore {
@@ -82,6 +82,7 @@ public:
     bool isSignedInteger() const final { return GST_AUDIO_INFO_IS_INTEGER(&m_info); }
     bool isNativeEndian() const final { return GST_AUDIO_INFO_ENDIANNESS(&m_info) == G_BYTE_ORDER; }
     bool isFloat() const final { return GST_AUDIO_INFO_IS_FLOAT(&m_info); }
+    int bytesPerFrame() { return GST_AUDIO_INFO_BPF(&m_info);  }
 
     uint32_t numberOfInterleavedChannels() const final { return isInterleaved() ? GST_AUDIO_INFO_CHANNELS(&m_info) : TRUE; }
     uint32_t numberOfChannelStreams() const final { return GST_AUDIO_INFO_CHANNELS(&m_info); }

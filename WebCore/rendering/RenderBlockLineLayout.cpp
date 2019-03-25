@@ -33,12 +33,12 @@
 #include "InlineIterator.h"
 #include "InlineTextBox.h"
 #include "InlineTextBoxStyle.h"
-#include "LayoutState.h"
 #include "LineLayoutState.h"
 #include "Logging.h"
 #include "RenderBlockFlow.h"
 #include "RenderFragmentContainer.h"
 #include "RenderFragmentedFlow.h"
+#include "RenderLayoutState.h"
 #include "RenderLineBreak.h"
 #include "RenderRubyBase.h"
 #include "RenderRubyText.h"
@@ -60,11 +60,11 @@ static void determineDirectionality(TextDirection& dir, InlineIterator iter)
         if (UChar current = iter.current()) {
             UCharDirection charDirection = u_charDirection(current);
             if (charDirection == U_LEFT_TO_RIGHT) {
-                dir = LTR;
+                dir = TextDirection::LTR;
                 return;
             }
             if (charDirection == U_RIGHT_TO_LEFT || charDirection == U_RIGHT_TO_LEFT_ARABIC) {
-                dir = RTL;
+                dir = TextDirection::RTL;
                 return;
             }
         }
@@ -348,7 +348,7 @@ TextAlignMode RenderBlockFlow::textAlignmentForLine(bool endsWithSoftBreak) cons
 #if ENABLE(CSS3_TEXT)
     TextJustify textJustify = style().textJustify();
     if (alignment == TextAlignMode::Justify && textJustify == TextJustify::None)
-        return style().direction() == LTR ? TextAlignMode::Left : TextAlignMode::Right;
+        return style().direction() == TextDirection::LTR ? TextAlignMode::Left : TextAlignMode::Right;
 #endif
 
     if (endsWithSoftBreak)
@@ -471,7 +471,7 @@ static inline void setLogicalWidthForTextRun(RootInlineBox* lineBox, BidiRun* ru
             glyphOverflow.computeBounds = true; 
     }
     
-    LayoutUnit hyphenWidth = 0;
+    LayoutUnit hyphenWidth;
     if (downcast<InlineTextBox>(*run->box()).hasHyphen())
         hyphenWidth = measureHyphenWidth(renderer, font, &fallbackFonts);
 
@@ -650,13 +650,13 @@ void RenderBlockFlow::updateLogicalWidthForAlignment(const TextAlignMode& textAl
         }
         FALLTHROUGH;
     case TextAlignMode::Start:
-        if (direction == LTR)
+        if (direction == TextDirection::LTR)
             updateLogicalWidthForLeftAlignedBlock(style().isLeftToRightDirection(), trailingSpaceRun, logicalLeft, totalLogicalWidth, availableLogicalWidth);
         else
             updateLogicalWidthForRightAlignedBlock(style().isLeftToRightDirection(), trailingSpaceRun, logicalLeft, totalLogicalWidth, availableLogicalWidth);
         break;
     case TextAlignMode::End:
-        if (direction == LTR)
+        if (direction == TextDirection::LTR)
             updateLogicalWidthForRightAlignedBlock(style().isLeftToRightDirection(), trailingSpaceRun, logicalLeft, totalLogicalWidth, availableLogicalWidth);
         else
             updateLogicalWidthForLeftAlignedBlock(style().isLeftToRightDirection(), trailingSpaceRun, logicalLeft, totalLogicalWidth, availableLogicalWidth);
@@ -1001,7 +1001,7 @@ void RenderBlockFlow::computeBlockDirectionPositionsForLine(RootInlineBox* lineB
         if (is<RenderText>(renderer)) {
             auto& inlineTextBox = downcast<InlineTextBox>(*run->box());
             downcast<RenderText>(renderer).positionLineBox(inlineTextBox);
-            inlineBoxIsRedundant = !inlineTextBox.len();
+            inlineBoxIsRedundant = !inlineTextBox.hasTextContent();
         } else if (is<RenderBox>(renderer)) {
             downcast<RenderBox>(renderer).positionLineBox(downcast<InlineElementBox>(*run->box()));
             inlineBoxIsRedundant = renderer.isOutOfFlowPositioned();
@@ -1061,7 +1061,7 @@ inline BidiRun* RenderBlockFlow::handleTrailingSpaces(BidiRunList<BidiRun>& bidi
         return nullptr;
 
     TextDirection direction = style().direction();
-    bool shouldReorder = trailingSpaceRun != (direction == LTR ? bidiRuns.lastRun() : bidiRuns.firstRun());
+    bool shouldReorder = trailingSpaceRun != (direction == TextDirection::LTR ? bidiRuns.lastRun() : bidiRuns.firstRun());
     if (firstSpace != trailingSpaceRun->start()) {
         BidiContext* baseContext = currentContext;
         while (BidiContext* parent = baseContext->parent())
@@ -1070,7 +1070,7 @@ inline BidiRun* RenderBlockFlow::handleTrailingSpaces(BidiRunList<BidiRun>& bidi
         std::unique_ptr<BidiRun> newTrailingRun = std::make_unique<BidiRun>(firstSpace, trailingSpaceRun->m_stop, trailingSpaceRun->renderer(), baseContext, U_OTHER_NEUTRAL);
         trailingSpaceRun->m_stop = firstSpace;
         trailingSpaceRun = newTrailingRun.get();
-        if (direction == LTR)
+        if (direction == TextDirection::LTR)
             bidiRuns.appendRun(WTFMove(newTrailingRun));
         else
             bidiRuns.prependRun(WTFMove(newTrailingRun));
@@ -1079,7 +1079,7 @@ inline BidiRun* RenderBlockFlow::handleTrailingSpaces(BidiRunList<BidiRun>& bidi
     if (!shouldReorder)
         return trailingSpaceRun;
 
-    if (direction == LTR) {
+    if (direction == TextDirection::LTR) {
         bidiRuns.moveRunToEnd(trailingSpaceRun);
         trailingSpaceRun->m_level = 0;
     } else {
@@ -1378,7 +1378,7 @@ void RenderBlockFlow::layoutRunsAndFloatsInRange(LineLayoutState& layoutState, I
             if (lastRootBox())
                 lastRootBox()->setLineBreakInfo(end.renderer(), end.offset(), resolver.status());
         } else {
-            VisualDirectionOverride override = (styleToUse.rtlOrdering() == Order::Visual ? (styleToUse.direction() == LTR ? VisualLeftToRightOverride : VisualRightToLeftOverride) : NoVisualOverride);
+            VisualDirectionOverride override = (styleToUse.rtlOrdering() == Order::Visual ? (styleToUse.direction() == TextDirection::LTR ? VisualLeftToRightOverride : VisualRightToLeftOverride) : NoVisualOverride);
 
             if (isNewUBAParagraph && styleToUse.unicodeBidi() == Plaintext && !resolver.context()->parent()) {
                 TextDirection direction = styleToUse.direction();
@@ -1413,7 +1413,7 @@ void RenderBlockFlow::layoutRunsAndFloatsInRange(LineLayoutState& layoutState, I
                 if (layoutState.usesRepaintBounds())
                     layoutState.updateRepaintRangeFromBox(lineBox);
                 
-                LayoutUnit adjustment = 0;
+                LayoutUnit adjustment;
                 bool overflowsFragment = false;
                 
                 layoutState.marginInfo().setAtBeforeSideOfBlock(false);
@@ -1457,7 +1457,7 @@ void RenderBlockFlow::layoutRunsAndFloatsInRange(LineLayoutState& layoutState, I
             auto it = floatingObjectSet.begin();
             auto end = floatingObjectSet.end();
             if (auto* lastFloat = layoutState.floatList().lastFloat()) {
-                auto lastFloatIterator = floatingObjectSet.find<FloatingObject&, FloatingObjectHashTranslator>(*lastFloat);
+                auto lastFloatIterator = floatingObjectSet.find(lastFloat);
                 ASSERT(lastFloatIterator != end);
                 ++lastFloatIterator;
                 it = lastFloatIterator;
@@ -1609,8 +1609,8 @@ void RenderBlockFlow::linkToEndLineIfNeeded(LineLayoutState& layoutState)
             trailingFloatsLineBox->alignBoxesInBlockDirection(blockLogicalHeight, textBoxDataMap, verticalPositionCache);
             trailingFloatsLineBox->setLineTopBottomPositions(blockLogicalHeight, blockLogicalHeight, blockLogicalHeight, blockLogicalHeight);
             trailingFloatsLineBox->setPaginatedLineWidth(availableLogicalWidthForContent(blockLogicalHeight));
-            LayoutRect logicalLayoutOverflow(0, blockLogicalHeight, 1, bottomLayoutOverflow - blockLogicalHeight);
-            LayoutRect logicalVisualOverflow(0, blockLogicalHeight, 1, bottomVisualOverflow - blockLogicalHeight);
+            LayoutRect logicalLayoutOverflow(0_lu, blockLogicalHeight, 1_lu, bottomLayoutOverflow - blockLogicalHeight);
+            LayoutRect logicalVisualOverflow(0_lu, blockLogicalHeight, 1_lu, bottomVisualOverflow - blockLogicalHeight);
             trailingFloatsLineBox->setOverflowFromLogicalRects(logicalLayoutOverflow, logicalVisualOverflow, trailingFloatsLineBox->lineTop(), trailingFloatsLineBox->lineBottom());
             if (layoutState.fragmentedFlow())
                 updateFragmentForLine(trailingFloatsLineBox);
@@ -1620,7 +1620,7 @@ void RenderBlockFlow::linkToEndLineIfNeeded(LineLayoutState& layoutState)
         auto it = floatingObjectSet.begin();
         auto end = floatingObjectSet.end();
         if (auto* lastFloat = layoutState.floatList().lastFloat()) {
-            auto lastFloatIterator = floatingObjectSet.find<FloatingObject&, FloatingObjectHashTranslator>(*lastFloat);
+            auto lastFloatIterator = floatingObjectSet.find(lastFloat);
             ASSERT(lastFloatIterator != end);
             ++lastFloatIterator;
             it = lastFloatIterator;
@@ -1789,7 +1789,7 @@ RootInlineBox* RenderBlockFlow::determineStartPosition(LineLayoutState& layoutSt
     if (!layoutState.isFullLayout()) {
         // Paginate all of the clean lines.
         bool paginated = view().frameView().layoutContext().layoutState() && view().frameView().layoutContext().layoutState()->isPaginated();
-        LayoutUnit paginationDelta = 0;
+        LayoutUnit paginationDelta;
         auto floatsIterator = floats.begin();
         auto end = floats.end();
         for (currentLine = firstRootBox(); currentLine && !currentLine->isDirty(); currentLine = currentLine->nextRootBox()) {
@@ -2080,7 +2080,7 @@ void RenderBlockFlow::addOverflowFromInlineChildren()
         SimpleLineLayout::collectFlowOverflow(*this, *layout);
         return;
     }
-    LayoutUnit endPadding = hasOverflowClip() ? paddingEnd() : LayoutUnit();
+    LayoutUnit endPadding = hasOverflowClip() ? paddingEnd() : 0_lu;
     // FIXME: Need to find another way to do this, since scrollbars could show when we don't want them to.
     if (hasOverflowClip() && !endPadding && element() && element()->isRootEditableElement() && style().isLeftToRightDirection())
         endPadding = 1;

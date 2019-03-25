@@ -35,16 +35,17 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
         this._compositingBordersButtonNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._toggleCompositingBorders, this);
         this._compositingBordersButtonNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
 
-        WI.showPaintRectsSetting.addEventListener(WI.Setting.Event.Changed, this._showPaintRectsSettingChanged, this);
+        WI.settings.showPaintRects.addEventListener(WI.Setting.Event.Changed, this._showPaintRectsSettingChanged, this);
         this._paintFlashingButtonNavigationItem = new WI.ActivateButtonNavigationItem("paint-flashing", WI.UIString("Enable paint flashing"), WI.UIString("Disable paint flashing"), "Images/Paint.svg", 16, 16);
         this._paintFlashingButtonNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._togglePaintFlashing, this);
         this._paintFlashingButtonNavigationItem.enabled = !!PageAgent.setShowPaintRects;
-        this._paintFlashingButtonNavigationItem.activated = PageAgent.setShowPaintRects && WI.showPaintRectsSetting.value;
+        this._paintFlashingButtonNavigationItem.activated = PageAgent.setShowPaintRects && WI.settings.showPaintRects.value;
         this._paintFlashingButtonNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
 
         this._layers = [];
         this._layerGroupsById = new Map;
         this._selectedLayerGroup = null;
+        this._candidateSelection = null;
         this._nodeToSelect = null;
 
         this._renderer = null;
@@ -53,7 +54,6 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
         this._scene = null;
         this._boundingBox = null;
         this._raycaster = null;
-        this._mouse = null;
         this._animationFrameRequestId = null;
         this._documentNode = null;
 
@@ -98,7 +98,7 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
 
     closed()
     {
-        WI.showPaintRectsSetting.removeEventListener(WI.Setting.Event.Changed, this._showPaintRectsSettingChanged, this);
+        WI.settings.showPaintRects.removeEventListener(WI.Setting.Event.Changed, this._showPaintRectsSettingChanged, this);
 
         super.closed();
     }
@@ -143,7 +143,8 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
         super.initialLayout();
 
         this._renderer = new THREE.WebGLRenderer({antialias: true});
-        this._renderer.setClearColor("white");
+        const backgroundColor = window.getComputedStyle(document.documentElement).getPropertyValue("--background-color-content").trim();
+        this._renderer.setClearColor(backgroundColor);
         this._renderer.setSize(this.element.offsetWidth, this.element.offsetHeight);
 
         this._camera = new THREE.PerspectiveCamera(45, this.element.offsetWidth / this.element.offsetHeight, 1, 100000);
@@ -164,8 +165,8 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
         this._boundingBox = new THREE.Box3;
 
         this._raycaster = new THREE.Raycaster;
-        this._mouse = new THREE.Vector2;
         this._renderer.domElement.addEventListener("mousedown", this._canvasMouseDown.bind(this));
+        this._renderer.domElement.addEventListener("mouseup", this._canvasMouseUp.bind(this));
 
         this.element.appendChild(this._renderer.domElement);
 
@@ -177,7 +178,7 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
         if (this.layoutReason === WI.View.LayoutReason.Resize)
             return;
 
-        WI.domTreeManager.requestDocument((node) => {
+        WI.domManager.requestDocument((node) => {
             let documentWasUpdated = this._updateDocument(node);
 
             WI.layerTreeManager.layersForNode(node, (layers) => {
@@ -310,13 +311,29 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
 
     _canvasMouseDown(event)
     {
-        this._mouse.x = (event.offsetX / event.target.width) * 2 - 1;
-        this._mouse.y = -(event.offsetY / event.target.height) * 2 + 1;
-        this._raycaster.setFromCamera(this._mouse, this._camera);
+        let x = (event.offsetX / event.target.offsetWidth) * 2 - 1;
+        let y = -(event.offsetY / event.target.offsetHeight) * 2 + 1;
+        this._raycaster.setFromCamera(new THREE.Vector2(x, y), this._camera);
 
         const recursive = true;
         let intersects = this._raycaster.intersectObjects(this._scene.children, recursive);
-        let selection = intersects.length ? intersects[0].object.parent : null;
+        let layerGroup = intersects.length ? intersects[0].object.parent : null;
+        this._candidateSelection = {layerGroup};
+
+        let canvasMouseMove = (event) => {
+            this._candidateSelection = null;
+            this._renderer.domElement.removeEventListener("mousemove", canvasMouseMove);
+        };
+
+        this._renderer.domElement.addEventListener("mousemove", canvasMouseMove);
+    }
+
+    _canvasMouseUp(event)
+    {
+        if (!this._candidateSelection)
+            return;
+
+        let selection = this._candidateSelection.layerGroup;
         if (selection && selection === this._selectedLayerGroup) {
             if (!event.metaKey)
                 return;
@@ -377,13 +394,13 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
     {
         console.assert(PageAgent.setShowPaintRects);
 
-        this._paintFlashingButtonNavigationItem.activated = WI.showPaintRectsSetting.value;
+        this._paintFlashingButtonNavigationItem.activated = WI.settings.showPaintRects.value;
         PageAgent.setShowPaintRects(this._paintFlashingButtonNavigationItem.activated);
     }
 
     _togglePaintFlashing(event)
     {
-        WI.showPaintRectsSetting.value = !WI.showPaintRectsSetting.value;
+        WI.settings.showPaintRects.value = !WI.settings.showPaintRects.value;
     }
 
     _updateCompositingBordersButtonState()
@@ -469,7 +486,7 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
         if (compositingReasons.iFrame)
             addReason(WI.UIString("Element is <iframe>"));
         if (compositingReasons.backfaceVisibilityHidden)
-            addReason(WI.UIString("Element has “backface-visibility: hidden” style"));
+            addReason(WI.UIString("Element has \u201Cbackface-visibility: hidden\u201D style"));
         if (compositingReasons.clipsCompositingDescendants)
             addReason(WI.UIString("Element clips compositing descendants"));
         if (compositingReasons.animation)
@@ -477,11 +494,11 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
         if (compositingReasons.filters)
             addReason(WI.UIString("Element has CSS filters applied"));
         if (compositingReasons.positionFixed)
-            addReason(WI.UIString("Element has “position: fixed” style"));
+            addReason(WI.UIString("Element has \u201Cposition: fixed\u201D style"));
         if (compositingReasons.positionSticky)
-            addReason(WI.UIString("Element has “position: sticky” style"));
+            addReason(WI.UIString("Element has \u201Cposition: sticky\u201D style"));
         if (compositingReasons.overflowScrollingTouch)
-            addReason(WI.UIString("Element has “-webkit-overflow-scrolling: touch” style"));
+            addReason(WI.UIString("Element has \u201C-webkit-overflow-scrolling: touch\u201D style"));
         if (compositingReasons.stacking)
             addReason(WI.UIString("Element may overlap another compositing element"));
         if (compositingReasons.overlap)
@@ -493,7 +510,7 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
         if (compositingReasons.opacityWithCompositedDescendants)
             addReason(WI.UIString("Element has opacity applied and composited descendants"));
         if (compositingReasons.maskWithCompositedDescendants)
-            addReason(WI.UIString("Element is masked and composited descendants"));
+            addReason(WI.UIString("Element is masked and has composited descendants"));
         if (compositingReasons.reflectionWithCompositedDescendants)
             addReason(WI.UIString("Element has a reflection and composited descendants"));
         if (compositingReasons.filterWithCompositedDescendants)
@@ -505,13 +522,13 @@ WI.Layers3DContentView = class Layers3DContentView extends WI.ContentView
         if (compositingReasons.perspective)
             addReason(WI.UIString("Element has perspective applied"));
         if (compositingReasons.preserve3D)
-            addReason(WI.UIString("Element has “transform-style: preserve-3d” style"));
+            addReason(WI.UIString("Element has \u201Ctransform-style: preserve-3d\u201D style"));
         if (compositingReasons.willChange)
-            addReason(WI.UIString("Element has “will-change” style with includes opacity, transform, transform-style, perspective, filter or backdrop-filter"));
+            addReason(WI.UIString("Element has \u201Cwill-change\u201D style which includes opacity, transform, transform-style, perspective, filter or backdrop-filter"));
         if (compositingReasons.root)
             addReason(WI.UIString("Element is the root element"));
         if (compositingReasons.blending)
-            addReason(WI.UIString("Element has “blend-mode” style"));
+            addReason(WI.UIString("Element has \u201Cblend-mode\u201D style"));
     }
 };
 

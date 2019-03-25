@@ -47,7 +47,37 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/storage/IOMedia.h>
 ///w:start
+#include <dlfcn.h>
+#include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
+///w:end
+
+///w:start
+// Dynamic load libCoreStorage.dylib
+static CFMutableDictionaryRef (*__CoreStorageCopyVolumeProperties)( CoreStorageLogicalRef volRef ) = NULL;
+static bool (*__CoreStorageLockFamily)( CoreStorageFamilyRef lvfRef ) = NULL;
+static void *__hlibCoreStorage = NULL;
+
+static void __CoreStorage_init() __attribute__((constructor));
+static void __CoreStorage_exit() __attribute__((destructor));
+
+void __CoreStorage_init()
+{
+    __hlibCoreStorage = dlopen("libCoreStorage.dylib", RTLD_LAZY);
+    if ( __hlibCoreStorage )
+    {
+        *(void **)( &__CoreStorageCopyVolumeProperties ) = dlsym( __hlibCoreStorage, "CoreStorageCopyVolumeProperties" );
+        *(void **)( &__CoreStorageLockFamily )           = dlsym( __hlibCoreStorage, "CoreStorageLockFamily" );
+    }
+}
+
+void __CoreStorage_exit()
+{
+    if ( __hlibCoreStorage )
+    {
+        dlclose( __hlibCoreStorage );
+    }
+}
 ///w:end
 
 static CFMachPortRef       __gDAServer      = NULL;
@@ -237,6 +267,49 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
                     CFArrayAppendValue( keys, kDADiskDescriptionMediaWritableKey );
                 }
 
+                {
+                    CFBooleanRef encrypted = NULL;
+                    CFNumberRef  encryptionDetail = NULL;
+
+                    _DADiskGetEncryptionStatus( kCFAllocatorDefault, disk, &encrypted, &encryptionDetail );
+
+                    if ( DADiskCompareDescription( disk, kDADiskDescriptionMediaEncryptedKey, encrypted ) )
+                    {
+                        DADiskSetDescription( disk, kDADiskDescriptionMediaEncryptedKey, encrypted );
+
+                        CFArrayAppendValue( keys, kDADiskDescriptionMediaEncryptedKey );
+                    }
+
+                    if ( DADiskCompareDescription( disk, kDADiskDescriptionMediaEncryptionDetailKey, encryptionDetail ) )
+                    {
+                        DADiskSetDescription( disk, kDADiskDescriptionMediaEncryptionDetailKey, encryptionDetail );
+
+                        CFArrayAppendValue( keys, kDADiskDescriptionMediaEncryptionDetailKey );
+                    }
+
+                    if ( encryptionDetail )
+                    {
+                        CFRelease ( encryptionDetail );
+                    }
+                }
+
+                object = IORegistryEntrySearchCFProperty( service,
+                                                          kIOServicePlane,
+                                                          CFSTR( "AppleTDMLocked" ),
+                                                          kCFAllocatorDefault,
+                                                          kIORegistryIterateParents | kIORegistryIterateRecursively );
+
+                if ( DADiskCompareDescription( disk, kDADiskDescriptionDeviceTDMLockedKey, object ) )
+                {
+                    DADiskSetDescription( disk, kDADiskDescriptionDeviceTDMLockedKey, object );
+                    CFArrayAppendValue( keys, kDADiskDescriptionDeviceTDMLockedKey );
+                }
+
+                if ( object )
+                {
+                    CFRelease ( object );
+                }
+
                 if ( CFArrayGetCount( keys ) )
                 {
                     DALogDebugHeader( "iokit [0] -> %s", gDAProcessNameID );
@@ -278,6 +351,7 @@ static DASessionRef __DASessionListGetSession( mach_port_t sessionID )
 
     return NULL;
 }
+
 
 void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void * info )
 {
@@ -583,13 +657,47 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
             if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
             {
                 Boolean unmount;
-
+///w:start
+                CFStringRef lvfUUID = NULL;
+///w:stop
                 unmount = FALSE;
 
                 if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
                 {
                     if ( DADiskGetState( disk, _kDADiskStateMountAutomaticNoDefer ) == FALSE )
                     {
+
+///w:start
+                        CFMutableDictionaryRef lvProps = NULL;
+                        CFStringRef lvUUID = NULL;
+                        CFBooleanRef encrypted = DADiskGetDescription( disk, kDADiskDescriptionMediaEncryptedKey );
+                        CFTypeRef object = DADiskGetDescription( disk, kDADiskDescriptionMediaUUIDKey );
+
+                        if ( ( object ) && ( encrypted == kCFBooleanTrue ) )
+                        {
+                            lvUUID = CFUUIDCreateString( kCFAllocatorDefault , object );
+                        }
+
+                        if ( lvUUID != NULL )
+                        {
+                            if ( __CoreStorageCopyVolumeProperties != NULL )
+                            {
+                                lvProps = __CoreStorageCopyVolumeProperties( (CoreStorageLogicalRef)lvUUID );
+                            }
+                            CFRelease( lvUUID );
+                        }
+
+                        if (lvProps )
+                        {
+                            lvfUUID = CFDictionaryGetValue( lvProps, CFSTR( kCoreStorageLogicalFamilyUUIDKey ) );
+                            if ( lvfUUID )
+                            {
+                                CFRetain( lvfUUID );
+                            }
+                            CFRelease( lvProps );
+
+                        }
+///w:stop
                         unmount = TRUE;
                     }
                 }
@@ -597,6 +705,18 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
                 if ( unmount )
                 {
                     DADiskUnmount( disk, kDADiskUnmountOptionDefault, NULL );
+
+///w:start
+                    if ( lvfUUID )
+                    {
+                        if ( __CoreStorageLockFamily != NULL )
+                        {
+                            __CoreStorageLockFamily( (CoreStorageFamilyRef)lvfUUID );
+                        }
+                        CFRelease( lvfUUID );
+                    }
+///w:stop
+
                 }
             }
         }

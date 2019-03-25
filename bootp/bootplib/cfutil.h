@@ -126,6 +126,11 @@ my_CFStringToNumber(CFStringRef str, uint32_t * ret_val);
 void
 my_CFDictionarySetTypeAsArrayValue(CFMutableDictionaryRef dict,
 				   CFStringRef prop, CFTypeRef val);
+
+void
+my_CFDictionarySetIPAddressAsString(CFMutableDictionaryRef dict,
+				    CFStringRef prop,
+				    struct in_addr ip_addr);
 void
 my_CFDictionarySetIPAddressAsArrayValue(CFMutableDictionaryRef dict,
 					CFStringRef prop,

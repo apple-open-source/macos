@@ -31,10 +31,8 @@
 #import <QuartzCore/CALayer.h>
 #import <WebCore/TileController.h>
 
-using namespace WebCore;
-
 namespace WebKit {
-
+using namespace WebCore;
 
 RemoteLayerTreeScrollingPerformanceData::RemoteLayerTreeScrollingPerformanceData(RemoteLayerTreeDrawingAreaProxy& drawingArea)
     : m_drawingArea(drawingArea)
@@ -102,7 +100,7 @@ static CALayer *findTileGridContainerLayer(CALayer *layer)
 
 unsigned RemoteLayerTreeScrollingPerformanceData::blankPixelCount(const FloatRect& visibleRect) const
 {
-    CALayer *rootLayer = asLayer(m_drawingArea.remoteLayerTreeHost().rootLayer());
+    CALayer *rootLayer = m_drawingArea.remoteLayerTreeHost().rootLayer();
 
     CALayer *tileGridContainer = findTileGridContainerLayer(rootLayer);
     if (!tileGridContainer) {

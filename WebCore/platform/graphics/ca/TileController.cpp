@@ -42,7 +42,7 @@
 #include "IOSurface.h"
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "TileControllerMemoryHandlerIOS.h"
 #include <wtf/MemoryPressureHandler.h>
 #endif
@@ -75,7 +75,7 @@ TileController::~TileController()
 {
     ASSERT(isMainThread());
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     tileControllerMemoryHandler().removeTileController(this);
 #endif
 }
@@ -209,7 +209,7 @@ void TileController::setVisibleRect(const FloatRect& rect)
     updateTileCoverageMap();
 }
 
-void TileController::setLayoutViewportRect(std::optional<FloatRect> rect)
+void TileController::setLayoutViewportRect(Optional<FloatRect> rect)
 {
     if (rect == m_layoutViewportRect)
         return;
@@ -359,7 +359,7 @@ IntRect TileController::boundsAtLastRevalidateWithoutMargin() const
     return boundsWithoutMargin;
 }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
 // Return 'rect' padded evenly on all sides to achieve 'newSize', but make the padding uneven to contain within constrainingRect.
 static FloatRect expandRectWithinRect(const FloatRect& rect, const FloatSize& newSize, const FloatRect& constrainingRect)
 {
@@ -393,7 +393,7 @@ void TileController::adjustTileCoverageRect(FloatRect& coverageRect, const Float
         return;
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     // FIXME: unify the iOS and Mac code.
     UNUSED_PARAM(previousVisibleRect);
     
@@ -527,6 +527,11 @@ void TileController::tileSizeChangeTimerFired()
 }
 
 IntSize TileController::tileSize() const
+{
+    return tileGrid().tileSize();
+}
+
+IntSize TileController::computeTileSize()
 {
     if (m_inLiveResize || m_tileSizeLocked)
         return tileGrid().tileSize();
@@ -719,9 +724,9 @@ int TileController::rightMarginWidth() const
     return (m_marginSize * m_marginEdges.right()) / tileGrid().scale();
 }
 
-RefPtr<PlatformCALayer> TileController::createTileLayer(const IntRect& tileRect, TileGrid& grid)
+Ref<PlatformCALayer> TileController::createTileLayer(const IntRect& tileRect, TileGrid& grid)
 {
-    RefPtr<PlatformCALayer> layer = m_tileCacheLayer->createCompatibleLayerOrTakeFromPool(PlatformCALayer::LayerTypeTiledBackingTileLayer, &grid, tileRect.size());
+    auto layer = m_tileCacheLayer->createCompatibleLayerOrTakeFromPool(PlatformCALayer::LayerTypeTiledBackingTileLayer, &grid, tileRect.size());
 
     layer->setAnchorPoint(FloatPoint3D());
     layer->setPosition(tileRect.location());
@@ -759,7 +764,7 @@ Vector<RefPtr<PlatformCALayer>> TileController::containerLayers()
     return layerList;
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 unsigned TileController::numberOfUnparentedTiles() const
 {
     unsigned count = tileGrid().numberOfUnparentedTiles();

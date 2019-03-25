@@ -93,7 +93,12 @@
  * @abstract A character string used for nub matching.
  */
 #define	kIOBlockStorageDeviceTypeGeneric	"Generic"
-
+/*!
+ * @defined kIOBlockStorageDeviceTDMLocked
+ * @abstract A boolean property to tell if device is connected through TDM, and not
+ * authenticated yet
+ */
+#define	kIOBlockStorageDeviceTDMLocked		"AppleTDMLocked"
 /*!
  * @struct IOBlockStorageDeviceExtent
  * @abstract

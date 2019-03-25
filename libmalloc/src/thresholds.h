@@ -25,85 +25,101 @@
 #define __THRESHOLDS_H
 
 /*
- * Tiny region size definitions; these are split into quanta of 16 bytes, 
+ * The actual threshold boundaries between allocators. These boundaries are
+ * where the next allocator will take over and they are *inclusive* of the
+ * limit value.  That is, a TINY limit of X implies that an X-byte
+ * allocation will come from TINY.
+ *
+ * The LARGE allocator cuts in at whatever the last boundary limit is. So, when
+ * the medium allocator is compiled out, or not engaged, then large starts at
+ * the limit of SMALL.
+ */
+#if MALLOC_TARGET_64BIT
+#define TINY_LIMIT_THRESHOLD (1008)
+#else // MALLOC_TARGET_64BIT
+#define TINY_LIMIT_THRESHOLD (496)
+#endif // MALLOC_TARGET_64BIT
+
+#if MALLOC_TARGET_IOS
+#define SMALL_LIMIT_THRESHOLD (15 * 1024)
+#else // MALLOC_TARGET_IOS
+#define SMALL_LIMIT_THRESHOLD (32 * 1024)
+#endif // MALLOC_TARGET_IOS
+#define MEDIUM_LIMIT_THRESHOLD (8 * 1024 * 1024)
+
+/*
+ * Tiny region size definitions; these are split into quanta of 16 bytes,
  * 64520 blocks is the magical value of how many quanta we can fit in a 1mb
  * region including the region trailer and metadata.
  */
-#define SHIFT_TINY_QUANTUM 4
+#define SHIFT_TINY_QUANTUM 4ull
 #define SHIFT_TINY_CEIL_BLOCKS 16 // ceil(log2(NUM_TINY_BLOCKS))
 #define TINY_QUANTUM (1 << SHIFT_TINY_QUANTUM)
 #define NUM_TINY_BLOCKS 64520
 #define NUM_TINY_CEIL_BLOCKS (1 << SHIFT_TINY_CEIL_BLOCKS)
+#define NUM_TINY_SLOTS (TINY_LIMIT_THRESHOLD >> SHIFT_TINY_QUANTUM)
 
-/* 
+#if MALLOC_TARGET_64BIT
+#define TINY_BITMAP_RANGE_LIMIT 63
+#else
+#define TINY_BITMAP_RANGE_LIMIT 31
+#endif
+
+/*
  * Small region size definitions.
  *
  * We can only represent up to 1<<15 for msize; but we choose to stay
  * even below that to avoid the convention msize=0 => msize = (1<<15)
  */
 #define SHIFT_SMALL_QUANTUM (SHIFT_TINY_QUANTUM + 5) // 9
-#define SMALL_QUANTUM (1 << SHIFT_SMALL_QUANTUM)	 // 512 bytes
 #define SHIFT_SMALL_CEIL_BLOCKS 14 // ceil(log2(NUM_SMALL_BLOCKs))
+#define SMALL_QUANTUM (1 << SHIFT_SMALL_QUANTUM) // 512 bytes
+#define SMALL_BLOCKS_ALIGN (SHIFT_SMALL_CEIL_BLOCKS + SHIFT_SMALL_QUANTUM) // 23
 #define NUM_SMALL_BLOCKS 16319
 #define NUM_SMALL_CEIL_BLOCKS (1 << SHIFT_SMALL_CEIL_BLOCKS)
-#define SMALL_BLOCKS_ALIGN (SHIFT_SMALL_CEIL_BLOCKS + SHIFT_SMALL_QUANTUM) // 23
-
-#if MALLOC_TARGET_64BIT
-#define NUM_TINY_SLOTS 64 // number of slots for free-lists
-#else // MALLOC_TARGET_64BIT
-#define NUM_TINY_SLOTS 32 // number of slots for free-lists
-#endif // MALLOC_TARGET_64BIT
-
-/* 
- * The threshold above which we start allocating from the small
- * magazines. Computed from the largest allocation we can make
- * in the tiny region (currently 1008 bytes on 64-bit, and 
- * 496 bytes on 32-bit).
- */
-#define SMALL_THRESHOLD ((NUM_TINY_SLOTS - 1) * TINY_QUANTUM)
+#define NUM_SMALL_SLOTS (SMALL_LIMIT_THRESHOLD >> SHIFT_SMALL_QUANTUM)
 
 /*
- * The threshold above which we start allocating from the large
- * "region" (ie. direct vm_allocates). The LARGEMEM size is used
- * on macOS and 64bit iOS with 16k pages, > 2gb and > 2 cores once
- * CONFIG_SMALL_CUTOFF_DYNAMIC is enabled (TODO: rdar://problem/35395572)
- * Must be a multiple of SMALL_QUANTUM (512 bytes)
- */
-#if MALLOC_TARGET_IOS
-#if MALLOC_TARGET_64BIT
-#define LARGE_THRESHOLD (15 * 1024)						// <1 * 16k pages
-#define LARGE_THRESHOLD_LARGEMEM (64 * 1024)			//  4 * 16k pages
-#else
-#define LARGE_THRESHOLD (15 * 1024)						// <4 * 4k pages
-#define LARGE_THRESHOLD_LARGEMEM (64 * 1024)			// 16 * 4k pages
-#endif
-#else
-#define LARGE_THRESHOLD (15 * 1024)						//  <4 * 4k pages
-#define LARGE_THRESHOLD_LARGEMEM (127 * 1024)			// <32 * 4k pages
-#endif
-
-/*
- * The number of slots in the free-list for small blocks.  To avoid going to
- * vm system as often on large memory machines, increase the number of free list
- * spots above some amount of RAM installed in the system.
- */
-#define NUM_SMALL_SLOTS (LARGE_THRESHOLD >> SHIFT_SMALL_QUANTUM)
-#define NUM_SMALL_SLOTS_LARGEMEM (LARGE_THRESHOLD_LARGEMEM >> SHIFT_SMALL_QUANTUM)
-
-/*
- * When all memory is touched after a copy, vm_copy() is always a lose
- * But if the memory is only read, vm_copy() wins over memmove() at 3 or 4 pages
- * (on a G3/300MHz)
+ * Medium region size definitions.
  *
- * This must be >= LARGE_THRESHOLD
+ * We can only represent up to 1<<15 for msize; but we choose to stay
+ * even below that to avoid the convention msize=0 => msize = (1<<15)
  */
-#if MALLOC_TARGET_IOS && MALLOC_TARGET_64BIT
-#define VM_COPY_THRESHOLD (48 * 1024)					// 3 * 16k pages
-#define VM_COPY_THRESHOLD_LARGEMEM (96 * 1024)			// 6 * 16k pages
-#else
-#define VM_COPY_THRESHOLD (40 * 1024)					// 10 * 4k pages
-#define VM_COPY_THRESHOLD_LARGEMEM (128 * 1024) 		// 32 * 4k pages
-#endif
+#define SHIFT_MEDIUM_QUANTUM (SHIFT_SMALL_QUANTUM + 6) // 15
+#define SHIFT_MEDIUM_CEIL_BLOCKS 14ull // ceil(log2(NUM_MEDIUM_BLOCKS))
+#define MEDIUM_QUANTUM ((uint64_t)(1 << SHIFT_MEDIUM_QUANTUM)) // 32kbytes
+#define MEDIUM_BLOCKS_ALIGN (SHIFT_MEDIUM_CEIL_BLOCKS + SHIFT_MEDIUM_QUANTUM) // 29
+#define NUM_MEDIUM_BLOCKS 16381
+#define NUM_MEDIUM_CEIL_BLOCKS (1ull << SHIFT_MEDIUM_CEIL_BLOCKS)
+#define NUM_MEDIUM_SLOTS (MEDIUM_LIMIT_THRESHOLD >> SHIFT_MEDIUM_QUANTUM)
+#define MEDIUM_ACTIVATION_THRESHOLD (32ull * 1024 * 1024 * 1024)
+#define MEDIUM_CONDITIONAL_MADVISE_LIMIT (2 * 1024 * 1024)
+#define MEDIUM_MADVISE_SHIFT 4
+#define MEDIUM_MADVISE_MIN (512 * 1024)
+
+/*
+ * When performing a realloc() that must fallback to creating a new allocation
+ * and copying the previous contents to the new allocation, vm_copy is used if
+ * the allocation is greater than a given size.
+ *
+ * This threshold must be set such that all eligible allocations would have
+ * come from a page-sized, page-aligned allocator (so, medium or large).
+ *
+ * Note: iOS disables this threshold because the VM forces non-sharing from
+ * malloc-tagged allocations.
+ */
+#define VM_COPY_THRESHOLD (2 * 1024 * 1024)
+
+/*
+ * <rdar://problem/6881926&27190324> Extremely old versions of Microsoft Word
+ * (and, subsequently, versions of Adobe apps) required the Leopard behaviour
+ * where LARGE allocations were zero-filled prior to returning them to the
+ * caller.
+ *
+ * We've always used LARGE_THRESHOLD to denote this boundary but as we keep
+ * moving it around it's better to fix it at the point it was originally.
+ */
+#define LEGACY_ZEROING_THRESHOLD (127 * 1024)
 
 /*
  * Large entry cache (death row) sizes. The large cache is bounded with
@@ -130,12 +146,12 @@
 #define SZONE_FLOTSAM_THRESHOLD_HIGH (1024 * 1024)
 
 /*
- * The magazine freelist array must be large enough to accomdate the allocation
- * granularity of both the tiny and small allocators. In addition, the last
+ * The magazine freelist array must be large enough to accomodate the allocation
+ * granularity of the tiny, small and medium allocators. In addition, the last
  * slot in the list is special and reserved for coalesced regions bigger than
  * the overall max allocation size of the allocator.
  */
-#define MAGAZINE_FREELIST_SLOTS (NUM_SMALL_SLOTS_LARGEMEM + 1)
+#define MAGAZINE_FREELIST_SLOTS (NUM_MEDIUM_SLOTS + 1)
 #define MAGAZINE_FREELIST_BITMAP_WORDS ((MAGAZINE_FREELIST_SLOTS + 31) >> 5)
 
 /*
@@ -152,25 +168,54 @@
 
 /* Sanity checks. */
 
-MALLOC_STATIC_ASSERT(NUM_SMALL_SLOTS_LARGEMEM == LARGE_THRESHOLD_LARGEMEM >> SHIFT_SMALL_QUANTUM,
-		"NUM_SMALL_SLOTS_LARGEMEM must match LARGE_THRESHOLD_LARGEMEM >> SHIFT_SMALL_QUANTUM");
+// Tiny performs an ffsl of a uint64_t in order to determine how big an
+// allocation is. Therefore, the total allocation size of small cannot exceed
+// 63-bits worth of 16-byte quanta (64-bits but minus one for the start of the
+// allocation itself).
+MALLOC_STATIC_ASSERT((TINY_LIMIT_THRESHOLD / TINY_QUANTUM) <= TINY_BITMAP_RANGE_LIMIT,
+		"TINY_LIMIT_THRESHOLD cannot exceed TINY_BITMAP_RANGE_LIMIT-bits worth of metadata");
 
-MALLOC_STATIC_ASSERT(NUM_TINY_SLOTS <= NUM_SMALL_SLOTS_LARGEMEM,
-		"NUM_TINY_SLOTS must be less than or equal to NUM_SMALL_SLOTS_LARGEMEM");
+// Check that the given threshold limits are a round multiple of their
+// allocator's quantum size.
+MALLOC_STATIC_ASSERT((TINY_LIMIT_THRESHOLD % TINY_QUANTUM) == 0,
+		"TINY_LIMIT_THRESHOLD must be a multiple of TINY_QUANTUM");
 
-MALLOC_STATIC_ASSERT((LARGE_THRESHOLD % SMALL_QUANTUM) == 0,
-		"LARGE_THRESHOLD must be a multiple of SMALL_QUANTUM");
-MALLOC_STATIC_ASSERT((LARGE_THRESHOLD_LARGEMEM % SMALL_QUANTUM) == 0,
-		"LARGE_THRESHOLD_LARGEMEM must be a multiple of SMALL_QUANTUM");
+MALLOC_STATIC_ASSERT((SMALL_LIMIT_THRESHOLD % SMALL_QUANTUM) == 0,
+		"SMALL_LIMIT_THRESHOLD must be a multiple of SMALL_QUANTUM");
 
-MALLOC_STATIC_ASSERT((LARGE_THRESHOLD / SMALL_QUANTUM) <= NUM_SMALL_SLOTS,
-		"LARGE_THRESHOLD must be less than NUM_SMALL_SLOTS * SMALL_QUANTUM");
-MALLOC_STATIC_ASSERT((LARGE_THRESHOLD_LARGEMEM / SMALL_QUANTUM) <=  NUM_SMALL_SLOTS_LARGEMEM,
-		"LARGE_THRESHOLD_LARGEMEM must be less than NUM_SMALL_SLOTS * SMALL_QUANTUM");
+MALLOC_STATIC_ASSERT((MEDIUM_LIMIT_THRESHOLD % MEDIUM_QUANTUM) == 0,
+		"MEDIUM_LIMIT_THRESHOLD must be a multiple of MEDIUM_QUANTUM");
 
-MALLOC_STATIC_ASSERT(VM_COPY_THRESHOLD >= LARGE_THRESHOLD,
-		"VM_COPY_THRESHOLD must be larger than LARGE_THRESHOLD");
-MALLOC_STATIC_ASSERT(VM_COPY_THRESHOLD_LARGEMEM >= LARGE_THRESHOLD_LARGEMEM,
-		"VM_COPY_THRESHOLD_LARGEMEM must be larger than LARGE_THRESHOLD_LARGEMEM");
+// All the "slot" counts are calculated as a shift of thresholds now but
+// in-case someone decides to try hand-crafted values, make sure they adhere to
+// the basic expectation that slot count must account for all valid sizes of
+// allocations.
+MALLOC_STATIC_ASSERT(NUM_TINY_SLOTS >= TINY_LIMIT_THRESHOLD >> SHIFT_TINY_QUANTUM,
+		"NUM_TINY_SLOTS must allow a free list for every valid TINY allocation");
+
+MALLOC_STATIC_ASSERT(NUM_SMALL_SLOTS >= SMALL_LIMIT_THRESHOLD >> SHIFT_SMALL_QUANTUM,
+		"NUM_SMALL_SLOTS must allow a free list for every valid SMALL allocation");
+
+MALLOC_STATIC_ASSERT(NUM_MEDIUM_SLOTS >= MEDIUM_LIMIT_THRESHOLD >> SHIFT_MEDIUM_QUANTUM,
+		"NUM_MEDIUM_SLOTS must allow a free list for every valid MEDIUM allocation");
+
+// MAGAZINE_FREELIST_SLOTS cannot be dynamically selected by the MAX() of all
+// three allocators, so it must match (at least) the maxmium slot count of the
+// allocator with the largest range.
+//
+// Additionally, each allocator assumes that there is one additional free-list
+// slot above their maximum allocation size. This allows each allocator to
+// store an unordered list of maximally-sized free list entries.
+MALLOC_STATIC_ASSERT(NUM_TINY_SLOTS < MAGAZINE_FREELIST_SLOTS,
+		"NUM_TINY_SLOTS must be less than MAGAZINE_FREELIST_SLOTS");
+
+MALLOC_STATIC_ASSERT(NUM_SMALL_SLOTS < MAGAZINE_FREELIST_SLOTS,
+		"NUM_SMALL_SLOTS must be less than MAGAZINE_FREELIST_SLOTS");
+
+MALLOC_STATIC_ASSERT(NUM_MEDIUM_SLOTS < MAGAZINE_FREELIST_SLOTS,
+		"NUM_MEDIUM_SLOTS must be less than MAGAZINE_FREELIST_SLOTS");
+
+MALLOC_STATIC_ASSERT(VM_COPY_THRESHOLD >= SMALL_LIMIT_THRESHOLD,
+		"VM_COPY_THRESHOLD must be larger than SMALL_LIMIT_THRESHOLD");
 
 #endif // __THRESHOLDS_H

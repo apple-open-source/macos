@@ -81,7 +81,7 @@ hu{
         CK{"Cook-szigetek"}
         CL{"Chile"}
         CM{"Kamerun"}
-        CN{"Kína"}
+        CN{"Kína - kontinentális"}
         CO{"Kolumbia"}
         CP{"Clipperton-sziget"}
         CR{"Costa Rica"}
@@ -133,7 +133,7 @@ hu{
         GU{"Guam"}
         GW{"Bissau-Guinea"}
         GY{"Guyana"}
-        HK{"Hongkong (Kína)"}
+        HK{"Hongkong"}
         HM{"Heard-sziget és McDonald-szigetek"}
         HN{"Honduras"}
         HR{"Horvátország"}
@@ -187,7 +187,7 @@ hu{
         ML{"Mali"}
         MM{"Mianmar (Burma)"}
         MN{"Mongólia"}
-        MO{"Makaó (Kína)"}
+        MO{"Makaó"}
         MP{"Északi Mariana-szigetek"}
         MQ{"Martinique"}
         MR{"Mauritánia"}
@@ -297,8 +297,6 @@ hu{
     }
     Countries%short{
         GB{"UK"}
-        HK{"Hongkong"}
-        MO{"Makaó"}
         PS{"Palesztina"}
         UN{"ENSZ"}
         US{"USA"}

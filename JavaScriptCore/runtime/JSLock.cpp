@@ -30,6 +30,7 @@
 #include "SamplingProfiler.h"
 #include "WasmMachineThreads.h"
 #include <thread>
+#include <wtf/StackPointer.h>
 #include <wtf/Threading.h>
 #include <wtf/threads/Signals.h>
 
@@ -122,9 +123,7 @@ void JSLock::lock(intptr_t lockCount)
 }
 
 void JSLock::didAcquireLock()
-{
-    WTF::speculationFence();
-    
+{  
     // FIXME: What should happen to the per-thread identifier table if we don't have a VM?
     if (!m_vm)
         return;
@@ -145,7 +144,7 @@ void JSLock::didAcquireLock()
     }
 
     RELEASE_ASSERT(!m_vm->stackPointerAtVMEntry());
-    void* p = &p; // A proxy for the current stack pointer.
+    void* p = currentStackPointer();
     m_vm->setStackPointerAtVMEntry(p);
 
     m_vm->heap.machineThreads().addCurrentThread();
@@ -192,9 +191,7 @@ void JSLock::unlock(intptr_t unlockCount)
 }
 
 void JSLock::willReleaseLock()
-{
-    WTF::speculationFence();
-    
+{   
     RefPtr<VM> vm = m_vm;
     if (vm) {
         vm->drainMicrotasks();

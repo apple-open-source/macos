@@ -25,9 +25,9 @@
 
 #include "WKPageRenderingProgressEvents.h"
 
-#include <WebCore/LayoutMilestones.h>
+#include <WebCore/LayoutMilestone.h>
 
-static inline WKPageRenderingProgressEvents pageRenderingProgressEvents(WebCore::LayoutMilestones milestones)
+static inline WKPageRenderingProgressEvents pageRenderingProgressEvents(OptionSet<WebCore::LayoutMilestone> milestones)
 {
     WKPageRenderingProgressEvents events = 0;
     
@@ -43,5 +43,14 @@ static inline WKPageRenderingProgressEvents pageRenderingProgressEvents(WebCore:
     if (milestones & WebCore::ReachedSessionRestorationRenderTreeSizeThreshold)
         events |= WKPageRenderingProgressEventReachedSessionRestorationRenderTreeSizeThreshold;
     
+    if (milestones & WebCore::DidFirstLayoutAfterSuppressedIncrementalRendering)
+        events |= WKPageRenderingProgressEventFirstLayoutAfterSuppressedIncrementalRendering;
+
+    if (milestones & WebCore::DidFirstPaintAfterSuppressedIncrementalRendering)
+        events |= WKPageRenderingProgressEventFirstPaintAfterSuppressedIncrementalRendering;
+
+    if (milestones & WebCore::DidFirstMeaningfulPaint)
+        events |= WKPageRenderingProgressEventFirstMeaningfulPaint;
+
     return events;
 }

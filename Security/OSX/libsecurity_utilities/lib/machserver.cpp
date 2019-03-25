@@ -562,6 +562,9 @@ kern_return_t cdsa_mach_notify_dead_name(mach_port_t, mach_port_name_t port)
 		MachServer::active().notifyDeadName(port);
 	} catch (...) {
 	}
+    // the act of receiving a dead name notification allocates a dead-name
+    // right that must be deallocated
+    mach_port_deallocate(mach_task_self(), port);
 	return KERN_SUCCESS;
 }
 

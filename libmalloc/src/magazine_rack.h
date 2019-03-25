@@ -48,6 +48,7 @@ OS_ENUM(rack_type, uint32_t,
 	RACK_TYPE_NONE = 0,
 	RACK_TYPE_TINY,
 	RACK_TYPE_SMALL,
+	RACK_TYPE_MEDIUM,
 );
 
 /*******************************************************************************

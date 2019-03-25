@@ -5342,10 +5342,28 @@ case kIOHIDEventTypeOrientation:\
 {\
     switch (field)\
     {\
+        case kIOHIDEventFieldOrientationTiltZ: \
+        case kIOHIDEventFieldOrientationTiltY: \
+        case kIOHIDEventFieldOrientationTiltX: \
+        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationDeviceOrientationUsage: \
         case kIOHIDEventFieldOrientationAltitude: \
-        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationRadius: \
+            if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeTilt) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldOrientationTiltX: \
+                        ((IOHIDOrientationEventData*)event)->orientation.tilt.x = (typeof(((IOHIDOrientationEventData*)event)->orientation.tilt.x)) CAST_INTEGER_TO_FIXED(value); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltY: \
+                        ((IOHIDOrientationEventData*)event)->orientation.tilt.y = (typeof(((IOHIDOrientationEventData*)event)->orientation.tilt.y)) CAST_INTEGER_TO_FIXED(value); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltZ: \
+                        ((IOHIDOrientationEventData*)event)->orientation.tilt.z = (typeof(((IOHIDOrientationEventData*)event)->orientation.tilt.z)) CAST_INTEGER_TO_FIXED(value); \
+                        break; \
+                }\
+                break;\
+            }\
             if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeCMUsage) {\
                 switch (field) \
                 {\
@@ -5384,10 +5402,28 @@ case kIOHIDEventTypeOrientation:\
         case kIOHIDEventFieldOrientationOrientationType: \
             value = (typeof(value))CAST_INTEGER_TO_INTEGER(((__IOHIDOrientationEventData*)event)->orientationType); \
             break; \
+        case kIOHIDEventFieldOrientationTiltZ: \
+        case kIOHIDEventFieldOrientationTiltY: \
+        case kIOHIDEventFieldOrientationTiltX: \
+        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationDeviceOrientationUsage: \
         case kIOHIDEventFieldOrientationAltitude: \
-        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationRadius: \
+            if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeTilt) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldOrientationTiltX: \
+                        value = (typeof(value))CAST_FIXED_TO_INTEGER(((IOHIDOrientationEventData*)event)->orientation.tilt.x); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltY: \
+                        value = (typeof(value))CAST_FIXED_TO_INTEGER(((IOHIDOrientationEventData*)event)->orientation.tilt.y); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltZ: \
+                        value = (typeof(value))CAST_FIXED_TO_INTEGER(((IOHIDOrientationEventData*)event)->orientation.tilt.z); \
+                        break; \
+                }\
+                break;\
+            }\
             if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeCMUsage) {\
                 switch (field) \
                 {\
@@ -5423,10 +5459,28 @@ case kIOHIDEventTypeOrientation:\
 {\
     switch (field)\
     {\
+        case kIOHIDEventFieldOrientationTiltZ: \
+        case kIOHIDEventFieldOrientationTiltY: \
+        case kIOHIDEventFieldOrientationTiltX: \
+        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationDeviceOrientationUsage: \
         case kIOHIDEventFieldOrientationAltitude: \
-        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationRadius: \
+            if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeTilt) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldOrientationTiltX: \
+                        ((IOHIDOrientationEventData*)event)->orientation.tilt.x = (typeof(((IOHIDOrientationEventData*)event)->orientation.tilt.x)) CAST_DOUBLE_TO_FIXED(value); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltY: \
+                        ((IOHIDOrientationEventData*)event)->orientation.tilt.y = (typeof(((IOHIDOrientationEventData*)event)->orientation.tilt.y)) CAST_DOUBLE_TO_FIXED(value); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltZ: \
+                        ((IOHIDOrientationEventData*)event)->orientation.tilt.z = (typeof(((IOHIDOrientationEventData*)event)->orientation.tilt.z)) CAST_DOUBLE_TO_FIXED(value); \
+                        break; \
+                }\
+                break;\
+            }\
             if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeCMUsage) {\
                 switch (field) \
                 {\
@@ -5465,10 +5519,28 @@ case kIOHIDEventTypeOrientation:\
         case kIOHIDEventFieldOrientationOrientationType: \
             value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((__IOHIDOrientationEventData*)event)->orientationType); \
             break; \
+        case kIOHIDEventFieldOrientationTiltZ: \
+        case kIOHIDEventFieldOrientationTiltY: \
+        case kIOHIDEventFieldOrientationTiltX: \
+        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationDeviceOrientationUsage: \
         case kIOHIDEventFieldOrientationAltitude: \
-        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationRadius: \
+            if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeTilt) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldOrientationTiltX: \
+                        value = (typeof(value))CAST_FIXED_TO_DOUBLE(((IOHIDOrientationEventData*)event)->orientation.tilt.x); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltY: \
+                        value = (typeof(value))CAST_FIXED_TO_DOUBLE(((IOHIDOrientationEventData*)event)->orientation.tilt.y); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltZ: \
+                        value = (typeof(value))CAST_FIXED_TO_DOUBLE(((IOHIDOrientationEventData*)event)->orientation.tilt.z); \
+                        break; \
+                }\
+                break;\
+            }\
             if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeCMUsage) {\
                 switch (field) \
                 {\
@@ -5504,10 +5576,28 @@ case kIOHIDEventTypeOrientation:\
 {\
     switch (field)\
     {\
+        case kIOHIDEventFieldOrientationTiltZ: \
+        case kIOHIDEventFieldOrientationTiltY: \
+        case kIOHIDEventFieldOrientationTiltX: \
+        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationDeviceOrientationUsage: \
         case kIOHIDEventFieldOrientationAltitude: \
-        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationRadius: \
+            if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeTilt) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldOrientationTiltX: \
+                        ((IOHIDOrientationEventData*)event)->orientation.tilt.x = (typeof(((IOHIDOrientationEventData*)event)->orientation.tilt.x)) CAST_FIXED_TO_FIXED(value); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltY: \
+                        ((IOHIDOrientationEventData*)event)->orientation.tilt.y = (typeof(((IOHIDOrientationEventData*)event)->orientation.tilt.y)) CAST_FIXED_TO_FIXED(value); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltZ: \
+                        ((IOHIDOrientationEventData*)event)->orientation.tilt.z = (typeof(((IOHIDOrientationEventData*)event)->orientation.tilt.z)) CAST_FIXED_TO_FIXED(value); \
+                        break; \
+                }\
+                break;\
+            }\
             if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeCMUsage) {\
                 switch (field) \
                 {\
@@ -5546,10 +5636,28 @@ case kIOHIDEventTypeOrientation:\
         case kIOHIDEventFieldOrientationOrientationType: \
             value = (typeof(value))CAST_INTEGER_TO_FIXED(((__IOHIDOrientationEventData*)event)->orientationType); \
             break; \
+        case kIOHIDEventFieldOrientationTiltZ: \
+        case kIOHIDEventFieldOrientationTiltY: \
+        case kIOHIDEventFieldOrientationTiltX: \
+        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationDeviceOrientationUsage: \
         case kIOHIDEventFieldOrientationAltitude: \
-        case kIOHIDEventFieldOrientationAzimuth: \
         case kIOHIDEventFieldOrientationRadius: \
+            if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeTilt) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldOrientationTiltX: \
+                        value = (typeof(value))CAST_FIXED_TO_FIXED(((IOHIDOrientationEventData*)event)->orientation.tilt.x); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltY: \
+                        value = (typeof(value))CAST_FIXED_TO_FIXED(((IOHIDOrientationEventData*)event)->orientation.tilt.y); \
+                        break; \
+                    case kIOHIDEventFieldOrientationTiltZ: \
+                        value = (typeof(value))CAST_FIXED_TO_FIXED(((IOHIDOrientationEventData*)event)->orientation.tilt.z); \
+                        break; \
+                }\
+                break;\
+            }\
             if (((__IOHIDOrientationEventData*)event)->orientationType == kIOHIDOrientationTypeCMUsage) {\
                 switch (field) \
                 {\

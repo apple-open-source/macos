@@ -1,153 +1,558 @@
-2018-07-29  Babak Shafiei  <bshafiei@apple.com>
+2019-01-23  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r234328. rdar://problem/42721215
+        Cherry-pick r240193. rdar://problem/47458146
 
-    Explicitly handle memlimit_active < 0
-    https://bugs.webkit.org/show_bug.cgi?id=188125
+    gigacage slide should randomize both start and end
+    https://bugs.webkit.org/show_bug.cgi?id=193601
+    
+    Reviewed by Yusuke Suzuki.
+    
+    This patch makes it so that the gigacade slide has an arbitrary
+    distance from the end as well as the start. This is done by
+    picking a random size then based on that size picking an random
+    starting offset.
+    
+    * bmalloc/Gigacage.h:
+    * bmalloc/Heap.cpp:
+    (bmalloc::Heap::Heap):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@240193 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-18  Keith Miller  <keith_miller@apple.com>
+
+            gigacage slide should randomize both start and end
+            https://bugs.webkit.org/show_bug.cgi?id=193601
+
+            Reviewed by Yusuke Suzuki.
+
+            This patch makes it so that the gigacade slide has an arbitrary
+            distance from the end as well as the start. This is done by
+            picking a random size then based on that size picking an random
+            starting offset.
+
+            * bmalloc/Gigacage.h:
+            * bmalloc/Heap.cpp:
+            (bmalloc::Heap::Heap):
+
+2019-01-23  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r240175. rdar://problem/47458146
+
+    Gigacages should start allocations from a slide
+    https://bugs.webkit.org/show_bug.cgi?id=193523
     
     Reviewed by Mark Lam.
     
-    This may come up during development when someone wants the limit
-    to be "infinite".
+    Source/bmalloc:
     
-    * bmalloc/AvailableMemory.cpp:
-    (bmalloc::jetsamLimit):
+    This patch makes it so that Gigacage Heaps slide the start of the
+    cage by some random amount. We still ensure that there is always
+    at least 4/2GB, on MacOS/iOS respectively, of VA space available
+    for allocation.
     
+    Also, this patch changes some macros into constants since macros
+    are the devil.
     
+    * bmalloc/Gigacage.cpp:
+    (Gigacage::bmalloc::protectGigacageBasePtrs):
+    (Gigacage::bmalloc::unprotectGigacageBasePtrs):
+    (Gigacage::bmalloc::runwaySize):
+    (Gigacage::ensureGigacage):
+    (Gigacage::shouldBeEnabled):
+    * bmalloc/Gigacage.h:
+    (Gigacage::name):
+    (Gigacage::gigacageSizeToMask):
+    (Gigacage::size):
+    (Gigacage::mask):
+    (Gigacage::basePtr):
+    (Gigacage::ensureGigacage):
+    (Gigacage::wasEnabled):
+    (Gigacage::isCaged):
+    (Gigacage::isEnabled):
+    (Gigacage::caged):
+    (Gigacage::disableDisablingPrimitiveGigacageIfShouldBeEnabled):
+    (Gigacage::canPrimitiveGigacageBeDisabled):
+    (Gigacage::disablePrimitiveGigacage):
+    (Gigacage::addPrimitiveDisableCallback):
+    (Gigacage::removePrimitiveDisableCallback):
+    * bmalloc/Heap.cpp:
+    (bmalloc::Heap::Heap):
+    * bmalloc/Sizes.h:
+    (bmalloc::Sizes::maskSizeClass):
+    (bmalloc::Sizes::maskObjectSize):
+    (bmalloc::Sizes::logSizeClass):
+    (bmalloc::Sizes::logObjectSize):
+    (bmalloc::Sizes::sizeClass):
+    (bmalloc::Sizes::objectSize):
+    (bmalloc::Sizes::pageSize):
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234328 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    Source/JavaScriptCore:
+    
+    This patch changes some macros into constants since macros are the
+    devil.
+    
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::caged):
+    * llint/LowLevelInterpreter64.asm:
+    
+    Source/WTF:
+    
+    This patch changes some macros into constants since macros are the
+    devil.
+    
+    * wtf/Gigacage.cpp:
+    * wtf/Gigacage.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@240175 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2018-07-27  Saam Barati  <sbarati@apple.com>
+    2019-01-18  Keith Miller  <keith_miller@apple.com>
 
-            Explicitly handle memlimit_active < 0
-            https://bugs.webkit.org/show_bug.cgi?id=188125
+            Gigacages should start allocations from a slide
+            https://bugs.webkit.org/show_bug.cgi?id=193523
 
             Reviewed by Mark Lam.
 
-            This may come up during development when someone wants the limit
-            to be "infinite".
+            This patch makes it so that Gigacage Heaps slide the start of the
+            cage by some random amount. We still ensure that there is always
+            at least 4/2GB, on MacOS/iOS respectively, of VA space available
+            for allocation.
 
-            * bmalloc/AvailableMemory.cpp:
-            (bmalloc::jetsamLimit):
+            Also, this patch changes some macros into constants since macros
+            are the devil.
 
-2018-07-29  Babak Shafiei  <bshafiei@apple.com>
+            * bmalloc/Gigacage.cpp:
+            (Gigacage::bmalloc::protectGigacageBasePtrs):
+            (Gigacage::bmalloc::unprotectGigacageBasePtrs):
+            (Gigacage::bmalloc::runwaySize):
+            (Gigacage::ensureGigacage):
+            (Gigacage::shouldBeEnabled):
+            * bmalloc/Gigacage.h:
+            (Gigacage::name):
+            (Gigacage::gigacageSizeToMask):
+            (Gigacage::size):
+            (Gigacage::mask):
+            (Gigacage::basePtr):
+            (Gigacage::ensureGigacage):
+            (Gigacage::wasEnabled):
+            (Gigacage::isCaged):
+            (Gigacage::isEnabled):
+            (Gigacage::caged):
+            (Gigacage::disableDisablingPrimitiveGigacageIfShouldBeEnabled):
+            (Gigacage::canPrimitiveGigacageBeDisabled):
+            (Gigacage::disablePrimitiveGigacage):
+            (Gigacage::addPrimitiveDisableCallback):
+            (Gigacage::removePrimitiveDisableCallback):
+            * bmalloc/Heap.cpp:
+            (bmalloc::Heap::Heap):
+            * bmalloc/Sizes.h:
+            (bmalloc::Sizes::maskSizeClass):
+            (bmalloc::Sizes::maskObjectSize):
+            (bmalloc::Sizes::logSizeClass):
+            (bmalloc::Sizes::logObjectSize):
+            (bmalloc::Sizes::sizeClass):
+            (bmalloc::Sizes::objectSize):
+            (bmalloc::Sizes::pageSize):
 
-        Cherry-pick r234326. rdar://problem/42721215
+2019-01-15  Alan Coon  <alancoon@apple.com>
 
-    Use SPI to compute the jetsam limit on iOS instead of hardcoding 840MB
-    https://bugs.webkit.org/show_bug.cgi?id=188091
-    <rdar://problem/42647697>
+        Cherry-pick r239787. rdar://problem/47260350
+
+    Gigacage disabling checks should handle the GIGACAGE_ALLOCATION_CAN_FAIL case properly.
+    https://bugs.webkit.org/show_bug.cgi?id=193292
+    <rdar://problem/46485450>
     
-    Reviewed by Simon Fraser.
+    Reviewed by Yusuke Suzuki.
     
     Source/bmalloc:
     
-    We want bmalloc to dynamically adapt to the jetsam limit of the process
-    it's running in. WTF::ramSize() is based off bmalloc's availableMemory,
-    so it will now reflect the result of the real jetsam limit when we can
-    read it.
+    Previously, when GIGACAGE_ALLOCATION_CAN_FAIL is true, we allow the Gigacage to
+    be disabled if we fail to allocate memory for it.  However, Gigacage::primitiveGigacageDisabled()
+    still always assumes that the Gigacage is always enabled after ensureGigacage() is
+    called.
     
-    Reading the jetsam limit requires an entitlement, so this patch opts in
-    the WebContent/Storage/Network processes. We fall back to 840MB (the
-    old hard coded value) when the SPI call fails (e.g, when we're in a
-    process without the proper entitlement).
+    This patch updates Gigacage::primitiveGigacageDisabled() to allow the Gigacage to
+    already be disabled if GIGACAGE_ALLOCATION_CAN_FAIL is true and wasEnabled() is
+    false.
     
-    * bmalloc.xcodeproj/project.pbxproj:
-    * bmalloc/AvailableMemory.cpp:
-    (bmalloc::jetsamLimit):
-    (bmalloc::computeAvailableMemory):
-    * bmalloc/darwin/MemoryStatusSPI.h: Added.
+    In this patch, we also put the wasEnabled flag in the 0th slot of the
+    g_gigacageBasePtrs buffer to ensure that it is also protected against writes just
+    like the Gigacage base pointers.
     
-    Source/WebKit:
+    To achieve this, we do the following:
+    1. Added a reservedForFlags field in struct BasePtrs.
+    2. Added a ReservedForFlagsAndNotABasePtr Gigacage::Kind.
+    3. Added assertions to ensure that the BasePtrs::primitive is at the offset
+       matching the offset computed from Gigacage::Primitive.  Ditto for
+       BasePtrs::jsValue and Gigacage::JSValue.
+    4. Added assertions to ensure that Gigacage::ReservedForFlagsAndNotABasePtr is not
+       used for fetching a Gigacage base pointer.
+    5. Added RELEASE_BASSERT_NOT_REACHED() to implement such assertions in bmalloc.
     
-    Give the Network/Storage/WebContent process the com.apple.private.memorystatus
-    entitlement. This allows them to read the process jetsam limit.
+    No test added because this issue requires Gigacage allocation to fail in order to
+    manifest.  I've tested it manually by modifying the code locally to force an
+    allocation failure.
     
-    * Configurations/Databases-iOS.entitlements:
-    * Configurations/Network-iOS.entitlements:
-    * Configurations/WebContent-iOS.entitlements:
+    * bmalloc/BAssert.h:
+    * bmalloc/Gigacage.cpp:
+    (Gigacage::ensureGigacage):
+    (Gigacage::primitiveGigacageDisabled):
+    * bmalloc/Gigacage.h:
+    (Gigacage::wasEnabled):
+    (Gigacage::setWasEnabled):
+    (Gigacage::name):
+    (Gigacage::basePtr):
+    (Gigacage::size):
+    * bmalloc/HeapKind.h:
+    (bmalloc::heapKind):
     
+    Source/JavaScriptCore:
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234326 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2018-07-27  Saam Barati  <sbarati@apple.com>
-
-            Use SPI to compute the jetsam limit on iOS instead of hardcoding 840MB
-            https://bugs.webkit.org/show_bug.cgi?id=188091
-            <rdar://problem/42647697>
-
-            Reviewed by Simon Fraser.
-
-            We want bmalloc to dynamically adapt to the jetsam limit of the process
-            it's running in. WTF::ramSize() is based off bmalloc's availableMemory,
-            so it will now reflect the result of the real jetsam limit when we can
-            read it.
-
-            Reading the jetsam limit requires an entitlement, so this patch opts in
-            the WebContent/Storage/Network processes. We fall back to 840MB (the
-            old hard coded value) when the SPI call fails (e.g, when we're in a
-            process without the proper entitlement).
-
-            * bmalloc.xcodeproj/project.pbxproj:
-            * bmalloc/AvailableMemory.cpp:
-            (bmalloc::jetsamLimit):
-            (bmalloc::computeAvailableMemory):
-            * bmalloc/darwin/MemoryStatusSPI.h: Added.
-
-2018-07-25  Babak Shafiei  <bshafiei@apple.com>
-
-        Cherry-pick r234185. rdar://problem/42586981
-
-    Revert back to using phys_footprint to calculate isUnderMemoryPressure()
-    https://bugs.webkit.org/show_bug.cgi?id=187919
-    <rdar://problem/42552888>
+    * runtime/VM.h:
+    (JSC::VM::gigacageAuxiliarySpace):
     
-    Reviewed by Simon Fraser.
+    Source/WTF:
     
-    Currently on iOS, bmalloc will run the scavenger more frequently when it detects
-    that the process is under memory pressure. However, it only uses bmalloc's
-    own footprint as a percentage of the HW available memory to determine if
-    the process is under memory pressure. This is a change I recently made
-    in an effort to run the scavenger less when bmalloc wasn't contributing
-    to the dirty footprint in the process. However, this fails to run the
-    scavenger eagerly when the process in question has a heap split
-    between a lot of dirty bmalloc memory as well as a lot of dirty memory
-    from elsewhere. We also have evidence that we may have increased jetsams
-    in the Web Content process. Since my original change was not a measurable
-    speedup, this patch reverts isUnderMemoryPressure() to its previous
-    behavior of using phys_footprint to determine if 75% of the available
-    HW memory is being used.
+    Update the USE_SYSTEM_MALLOC version of Gigacage.h to match the bmalloc version.
     
-    * bmalloc/AvailableMemory.cpp:
-    (bmalloc::memoryStatus):
+    * wtf/Gigacage.h:
     
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234185 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@239787 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2018-07-24  Saam Barati  <sbarati@apple.com>
+    2019-01-09  Mark Lam  <mark.lam@apple.com>
 
-            Revert back to using phys_footprint to calculate isUnderMemoryPressure()
-            https://bugs.webkit.org/show_bug.cgi?id=187919
-            <rdar://problem/42552888>
+            Gigacage disabling checks should handle the GIGACAGE_ALLOCATION_CAN_FAIL case properly.
+            https://bugs.webkit.org/show_bug.cgi?id=193292
+            <rdar://problem/46485450>
 
-            Reviewed by Simon Fraser.
+            Reviewed by Yusuke Suzuki.
 
-            Currently on iOS, bmalloc will run the scavenger more frequently when it detects
-            that the process is under memory pressure. However, it only uses bmalloc's
-            own footprint as a percentage of the HW available memory to determine if
-            the process is under memory pressure. This is a change I recently made
-            in an effort to run the scavenger less when bmalloc wasn't contributing
-            to the dirty footprint in the process. However, this fails to run the
-            scavenger eagerly when the process in question has a heap split
-            between a lot of dirty bmalloc memory as well as a lot of dirty memory
-            from elsewhere. We also have evidence that we may have increased jetsams
-            in the Web Content process. Since my original change was not a measurable
-            speedup, this patch reverts isUnderMemoryPressure() to its previous
-            behavior of using phys_footprint to determine if 75% of the available
-            HW memory is being used.
+            Previously, when GIGACAGE_ALLOCATION_CAN_FAIL is true, we allow the Gigacage to
+            be disabled if we fail to allocate memory for it.  However, Gigacage::primitiveGigacageDisabled()
+            still always assumes that the Gigacage is always enabled after ensureGigacage() is
+            called.
 
-            * bmalloc/AvailableMemory.cpp:
-            (bmalloc::memoryStatus):
+            This patch updates Gigacage::primitiveGigacageDisabled() to allow the Gigacage to
+            already be disabled if GIGACAGE_ALLOCATION_CAN_FAIL is true and wasEnabled() is
+            false.
+
+            In this patch, we also put the wasEnabled flag in the 0th slot of the
+            g_gigacageBasePtrs buffer to ensure that it is also protected against writes just
+            like the Gigacage base pointers.
+
+            To achieve this, we do the following:
+            1. Added a reservedForFlags field in struct BasePtrs.
+            2. Added a ReservedForFlagsAndNotABasePtr Gigacage::Kind.
+            3. Added assertions to ensure that the BasePtrs::primitive is at the offset
+               matching the offset computed from Gigacage::Primitive.  Ditto for
+               BasePtrs::jsValue and Gigacage::JSValue.
+            4. Added assertions to ensure that Gigacage::ReservedForFlagsAndNotABasePtr is not
+               used for fetching a Gigacage base pointer.
+            5. Added RELEASE_BASSERT_NOT_REACHED() to implement such assertions in bmalloc.
+
+            No test added because this issue requires Gigacage allocation to fail in order to
+            manifest.  I've tested it manually by modifying the code locally to force an
+            allocation failure.
+
+            * bmalloc/BAssert.h:
+            * bmalloc/Gigacage.cpp:
+            (Gigacage::ensureGigacage):
+            (Gigacage::primitiveGigacageDisabled):
+            * bmalloc/Gigacage.h:
+            (Gigacage::wasEnabled):
+            (Gigacage::setWasEnabled):
+            (Gigacage::name):
+            (Gigacage::basePtr):
+            (Gigacage::size):
+            * bmalloc/HeapKind.h:
+            (bmalloc::heapKind):
+
+2018-12-15  Yusuke Suzuki  <yusukesuzuki@slowstart.org>
+
+        Unreviewed, suppress warnings in Linux
+
+        * bmalloc/Gigacage.cpp:
+
+2018-12-14  Keith Miller  <keith_miller@apple.com>
+
+        Gigacage runway should immediately follow the primitive cage
+        https://bugs.webkit.org/show_bug.cgi?id=192733
+
+        Reviewed by Saam Barati.
+
+        This patch makes sure that the Gigacage runway is always
+        immediately after the primitive cage. Since writing outside the
+        primitive gigacage is likely to be more dangerous than the JSValue
+        cage. The ordering of the cages is still random however.
+
+        * bmalloc/Gigacage.cpp:
+        (Gigacage::ensureGigacage):
+
+2018-12-13  Mark Lam  <mark.lam@apple.com>
+
+        Verify that tryLargeZeroedMemalignVirtual()'s aligned size and alignment values are valid.
+        https://bugs.webkit.org/show_bug.cgi?id=192682
+        <rdar://problem/37751522>
+
+        Reviewed by Saam Barati.
+
+        * bmalloc/bmalloc.cpp:
+        (bmalloc::api::tryLargeZeroedMemalignVirtual):
+
+2018-11-21  Dominik Infuehr  <dinfuehr@igalia.com>
+
+        Enable JIT on ARM/Linux
+        https://bugs.webkit.org/show_bug.cgi?id=191548
+
+        Reviewed by Yusuke Suzuki.
+
+        * bmalloc/IsoPageInlines.h:
+        (bmalloc::IsoPage<Config>::startAllocating):
+
+2018-11-01  Jiewen Tan  <jiewen_tan@apple.com>
+
+        Replace CommonRandom SPI with API
+        https://bugs.webkit.org/show_bug.cgi?id=191178
+        <rdar://problem/45722391>
+
+        Reviewed by Brent Fulgham.
+
+        * bmalloc/CryptoRandom.cpp:
+        (bmalloc::ARC4RandomNumberGenerator::stir):
+
+2018-10-29  Mark Lam  <mark.lam@apple.com>
+
+        Correctly detect string overflow when using the 'Function' constructor.
+        https://bugs.webkit.org/show_bug.cgi?id=184883
+        <rdar://problem/36320331>
+
+        Reviewed by Saam Barati.
+
+        * bmalloc/Allocator.cpp:
+        (bmalloc::Allocator::reallocate):
+        (bmalloc::Allocator::tryReallocate):
+        (bmalloc::Allocator::reallocateImpl):
+        * bmalloc/Allocator.h:
+        * bmalloc/Cache.h:
+        (bmalloc::Cache::tryReallocate):
+        * bmalloc/DebugHeap.cpp:
+        (bmalloc::DebugHeap::realloc):
+        * bmalloc/DebugHeap.h:
+        * bmalloc/bmalloc.h:
+        (bmalloc::api::tryRealloc):
+
+2018-10-25  Ross Kirsling  <ross.kirsling@sony.com>
+
+        Cleanup: inline constexpr is redundant as constexpr implies inline
+        https://bugs.webkit.org/show_bug.cgi?id=190819
+
+        Reviewed by Mark Lam.
+
+        * bmalloc/Algorithm.h:
+        (bmalloc::max):
+        (bmalloc::min):
+        (bmalloc::mask):
+        (bmalloc::test):
+        (bmalloc::isPowerOfTwo):
+        (bmalloc::roundDownToMultipleOf):
+        (bmalloc::sizeOf):
+        (bmalloc::bitCount):
+        (bmalloc::log2):
+        * bmalloc/Bits.h:
+        (bmalloc::bitsArrayLength):
+        * bmalloc/Sizes.h:
+        (bmalloc::Sizes::maskSizeClass):
+
+2018-10-24  Alexey Proskuryakov  <ap@apple.com>
+
+        Add BPLATFORM(IOS_FAMILY)
+        https://bugs.webkit.org/show_bug.cgi?id=190878
+
+        Reviewed by Saam Barati.
+
+        * bmalloc/AvailableMemory.cpp:
+        (bmalloc::memorySizeAccordingToKernel):
+        (bmalloc::computeAvailableMemory):
+        * bmalloc/AvailableMemory.h:
+        (bmalloc::isUnderMemoryPressure):
+        * bmalloc/BPlatform.h:
+        * bmalloc/Gigacage.h:
+        * bmalloc/Logging.cpp:
+        (bmalloc::logVMFailure):
+        * bmalloc/VMAllocate.h:
+        (bmalloc::vmPageSizePhysical):
+        * bmalloc/bmalloc.h:
+        * bmalloc/darwin/MemoryStatusSPI.h:
+
+2018-10-12  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r237063.
+
+        Caused layout test fast/dom/Window/window-postmessage-clone-
+        deep-array.html to fail on macOS and iOS Debug bots.
+
+        Reverted changeset:
+
+        "[JSC] Remove gcc warnings on mips and armv7"
+        https://bugs.webkit.org/show_bug.cgi?id=188598
+        https://trac.webkit.org/changeset/237063
+
+2018-10-11  Guillaume Emont  <guijemont@igalia.com>
+
+        [JSC] Remove gcc warnings on mips and armv7
+        https://bugs.webkit.org/show_bug.cgi?id=188598
+
+        Reviewed by Mark Lam.
+
+        Add bitwise_cast (from WTF) and use it instead of reinterpret_cast in
+        a couple places where reinterpret_cast triggers a warning about
+        alignment even though we know that alignment is correct.
+
+        * bmalloc/Algorithm.h:
+        (bmalloc::bitwise_cast): Copied from WTF/wtf/StdLibextras.h
+        * bmalloc/IsoDirectoryPageInlines.h:
+        (bmalloc::IsoDirectoryPage<Config>::pageFor):
+        * bmalloc/IsoPageInlines.h:
+        (bmalloc::IsoPage<Config>::startAllocating):
+
+2018-10-03  Dan Bernstein  <mitz@apple.com>
+
+        bmalloc part of [Xcode] Update some build settings as recommended by Xcode 10
+        https://bugs.webkit.org/show_bug.cgi?id=190250
+
+        Reviewed by Alex Christensen.
+
+        * Configurations/Base.xcconfig: Enabled CLANG_WARN_COMMA, CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS,
+          and CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF.
+
+        * bmalloc.xcodeproj/project.pbxproj: Let Xcode update LastUpgradeCheck.
+
+2018-09-25  Alex Christensen  <achristensen@webkit.org>
+
+        Allow for suffixes to com.apple.WebKit.WebContent
+        https://bugs.webkit.org/show_bug.cgi?id=189972
+
+        Reviewed by Chris Dumez.
+
+        * bmalloc/ProcessCheck.mm:
+        (bmalloc::gigacageEnabledForProcess):
+
+2018-09-24  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        Rename WTF_COMPILER_GCC_OR_CLANG to WTF_COMPILER_GCC_COMPATIBLE
+        https://bugs.webkit.org/show_bug.cgi?id=189733
+
+        Reviewed by Michael Catanzaro.
+
+        * bmalloc/BCompiler.h:
+
+2018-08-27  Keith Rollin  <krollin@apple.com>
+
+        Unreviewed build fix -- disable LTO for production builds
+
+        * Configurations/Base.xcconfig:
+
+2018-08-27  Keith Rollin  <krollin@apple.com>
+
+        Build system support for LTO
+        https://bugs.webkit.org/show_bug.cgi?id=187785
+        <rdar://problem/42353132>
+
+        Reviewed by Dan Bernstein.
+
+        Update Base.xcconfig and DebugRelease.xcconfig to optionally enable
+        LTO.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+
+2018-08-16  Tomas Popela  <tpopela@redhat.com>
+
+        bmalloc: Coverity scan issues
+        https://bugs.webkit.org/show_bug.cgi?id=186763
+
+        Reviewed by Saam Barati.
+
+        * bmalloc/DebugHeap.h: Initialize the m_pageSize variable.
+        * bmalloc/IsoTLS.cpp:
+        (bmalloc::IsoTLS::ensureEntries): Check the return value of
+        pthread_key_create return().
+        * bmalloc/VMAllocate.h:
+        (bmalloc::vmPageSize): Correctly check the return value of sysconf().
+
+2018-07-27  Mark Lam  <mark.lam@apple.com>
+
+        Initialize bmalloc::DebugHeap::m_pageSize for non-Darwin builds.
+        https://bugs.webkit.org/show_bug.cgi?id=188132
+        <rdar://problem/40401599>
+
+        Reviewed by Saam Barati.
+
+        * bmalloc/DebugHeap.cpp:
+        (bmalloc::DebugHeap::DebugHeap):
+
+2018-07-27  Saam Barati  <sbarati@apple.com>
+
+        Explicitly handle memlimit_active < 0
+        https://bugs.webkit.org/show_bug.cgi?id=188125
+
+        Reviewed by Mark Lam.
+
+        This may come up during development when someone wants the limit
+        to be "infinite".
+
+        * bmalloc/AvailableMemory.cpp:
+        (bmalloc::jetsamLimit):
+
+2018-07-27  Saam Barati  <sbarati@apple.com>
+
+        Use SPI to compute the jetsam limit on iOS instead of hardcoding 840MB
+        https://bugs.webkit.org/show_bug.cgi?id=188091
+        <rdar://problem/42647697>
+
+        Reviewed by Simon Fraser.
+
+        We want bmalloc to dynamically adapt to the jetsam limit of the process
+        it's running in. WTF::ramSize() is based off bmalloc's availableMemory,
+        so it will now reflect the result of the real jetsam limit when we can
+        read it.
+        
+        Reading the jetsam limit requires an entitlement, so this patch opts in
+        the WebContent/Storage/Network processes. We fall back to 840MB (the
+        old hard coded value) when the SPI call fails (e.g, when we're in a
+        process without the proper entitlement).
+
+        * bmalloc.xcodeproj/project.pbxproj:
+        * bmalloc/AvailableMemory.cpp:
+        (bmalloc::jetsamLimit):
+        (bmalloc::computeAvailableMemory):
+        * bmalloc/darwin/MemoryStatusSPI.h: Added.
+
+2018-07-24  Saam Barati  <sbarati@apple.com>
+
+        Revert back to using phys_footprint to calculate isUnderMemoryPressure()
+        https://bugs.webkit.org/show_bug.cgi?id=187919
+        <rdar://problem/42552888>
+
+        Reviewed by Simon Fraser.
+
+        Currently on iOS, bmalloc will run the scavenger more frequently when it detects
+        that the process is under memory pressure. However, it only uses bmalloc's
+        own footprint as a percentage of the HW available memory to determine if
+        the process is under memory pressure. This is a change I recently made
+        in an effort to run the scavenger less when bmalloc wasn't contributing
+        to the dirty footprint in the process. However, this fails to run the
+        scavenger eagerly when the process in question has a heap split
+        between a lot of dirty bmalloc memory as well as a lot of dirty memory
+        from elsewhere. We also have evidence that we may have increased jetsams
+        in the Web Content process. Since my original change was not a measurable
+        speedup, this patch reverts isUnderMemoryPressure() to its previous
+        behavior of using phys_footprint to determine if 75% of the available 
+        HW memory is being used.
+
+        * bmalloc/AvailableMemory.cpp:
+        (bmalloc::memoryStatus):
 
 2019-07-12  Michael Saboff  <msaboff@apple.com>
 

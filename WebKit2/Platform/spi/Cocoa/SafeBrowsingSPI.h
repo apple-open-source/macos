@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if WK_API_ENABLED && ((PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000))
+#if HAVE(SAFE_BROWSING)
 
 #import <Foundation/Foundation.h>
 
@@ -52,8 +52,6 @@ WTF_EXTERN_C_END
 @property (nonatomic, readonly, getter=isMalware) BOOL malware;
 @property (nonatomic, readonly, getter=isUnwantedSoftware) BOOL unwantedSoftware;
 
-@property (nonatomic, readonly, getter=isKnownToBeUnsafe) BOOL knownToBeUnsafe;
-
 @end
 
 @interface SSBLookupResult : NSObject <NSCopying, NSSecureCoding>
@@ -73,4 +71,3 @@ WTF_EXTERN_C_END
 #endif
 
 #endif
-

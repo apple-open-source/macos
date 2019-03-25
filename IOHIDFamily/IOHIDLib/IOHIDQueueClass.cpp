@@ -472,10 +472,10 @@ IOReturn IOHIDQueueClass::start (IOOptionBits options __unused)
     if ( !fQueueMappedMemory )
     {
 #if !__LP64__
-        vm_address_t        address = static_cast<vm_address_t>(nil);
+        vm_address_t        address = static_cast<vm_address_t>(0);
         vm_size_t           size    = 0;
 #else
-        mach_vm_address_t   address = static_cast<mach_vm_address_t>(nil);
+        mach_vm_address_t   address = static_cast<mach_vm_address_t>(0);
         mach_vm_size_t      size    = 0;
 #endif
 

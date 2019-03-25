@@ -68,7 +68,7 @@ static bool canUseFastRenderer(const UniChar* buffer, unsigned length)
     [self getCharacters:buffer.data()];
 
     if (canUseFastRenderer(buffer.data(), length)) {
-        FontCascade webCoreFont(FontPlatformData(reinterpret_cast<CTFontRef>(font), [font pointSize]));
+        FontCascade webCoreFont(FontPlatformData((__bridge CTFontRef)font, [font pointSize]));
         TextRun run(StringView(buffer.data(), length));
 
         // The following is a half-assed attempt to match AppKit's rounding rules for drawAtPoint.
@@ -77,10 +77,9 @@ static bool canUseFastRenderer(const UniChar* buffer, unsigned length)
         point.y = CGCeiling(point.y);
 
         NSGraphicsContext *nsContext = [NSGraphicsContext currentContext];
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         CGContextRef cgContext = static_cast<CGContextRef>([nsContext graphicsPort]);
-#pragma clang diagnostic pop
+        ALLOW_DEPRECATED_DECLARATIONS_END
         GraphicsContext graphicsContext { cgContext };
 
         // WebCore requires a flipped graphics context.
@@ -111,7 +110,7 @@ static bool canUseFastRenderer(const UniChar* buffer, unsigned length)
     [self getCharacters:buffer.data()];
 
     if (canUseFastRenderer(buffer.data(), length)) {
-        FontCascade webCoreFont(FontPlatformData(reinterpret_cast<CTFontRef>(font), [font pointSize]));
+        FontCascade webCoreFont(FontPlatformData((__bridge CTFontRef)font, [font pointSize]));
         TextRun run(StringView(buffer.data(), length));
         return webCoreFont.width(run);
     }
@@ -162,7 +161,7 @@ static bool canUseFastRenderer(const UniChar* buffer, unsigned length)
 -(NSString *)_webkit_stringByTrimmingWhitespace
 {
     NSMutableString *trimmed = [[self mutableCopy] autorelease];
-    CFStringTrimWhitespace((CFMutableStringRef)trimmed);
+    CFStringTrimWhitespace((__bridge CFMutableStringRef)trimmed);
     return trimmed;
 }
 
@@ -182,7 +181,7 @@ static bool canUseFastRenderer(const UniChar* buffer, unsigned length)
     NSString *cacheDirectory = [[NSUserDefaults standardUserDefaults] objectForKey:WebKitLocalCacheDefaultsKey];
 
     if (!cacheDirectory || ![cacheDirectory isKindOfClass:[NSString class]]) {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
         cacheDirectory = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Caches"];
 #endif
 #if PLATFORM(MAC)

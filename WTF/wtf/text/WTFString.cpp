@@ -20,20 +20,21 @@
  */
 
 #include "config.h"
-#include "WTFString.h"
+#include <wtf/text/WTFString.h>
 
-#include "IntegerToStringConversion.h"
 #include <stdarg.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/DataLog.h>
 #include <wtf/HexNumber.h>
 #include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/text/CString.h>
 #include <wtf/Vector.h>
 #include <wtf/dtoa.h>
+#include <wtf/text/CString.h>
+#include <wtf/text/IntegerToStringConversion.h>
+#include <wtf/text/StringToIntegerConversion.h>
 #include <wtf/unicode/CharacterNames.h>
-#include <wtf/unicode/UTF8.h>
+#include <wtf/unicode/UTF8Conversion.h>
 
 namespace WTF {
 
@@ -98,7 +99,7 @@ void String::append(const String& otherString)
 
     auto length = m_impl->length();
     auto otherLength = otherString.m_impl->length();
-    if (otherLength > std::numeric_limits<unsigned>::max() - length)
+    if (otherLength > MaxLength - length)
         CRASH();
 
     if (m_impl->is8Bit() && otherString.m_impl->is8Bit()) {
@@ -128,7 +129,7 @@ void String::append(LChar character)
         append(static_cast<UChar>(character));
         return;
     }
-    if (m_impl->length() >= std::numeric_limits<unsigned>::max())
+    if (m_impl->length() >= MaxLength)
         CRASH();
     LChar* data;
     auto newImpl = StringImpl::createUninitialized(m_impl->length() + 1, data);
@@ -149,7 +150,7 @@ void String::append(UChar character)
         append(static_cast<LChar>(character));
         return;
     }
-    if (m_impl->length() >= std::numeric_limits<unsigned>::max())
+    if (m_impl->length() >= MaxLength)
         CRASH();
     UChar* data;
     auto newImpl = StringImpl::createUninitialized(m_impl->length() + 1, data);
@@ -182,7 +183,7 @@ void String::insert(const String& string, unsigned position)
         return;
     }
 
-    if (lengthToInsert > std::numeric_limits<unsigned>::max() - length())
+    if (lengthToInsert > MaxLength - length())
         CRASH();
 
     if (is8Bit() && string.is8Bit()) {
@@ -221,7 +222,7 @@ void String::append(const LChar* charactersToAppend, unsigned lengthToAppend)
     unsigned strLength = m_impl->length();
 
     if (m_impl->is8Bit()) {
-        if (lengthToAppend > std::numeric_limits<unsigned>::max() - strLength)
+        if (lengthToAppend > MaxLength - strLength)
             CRASH();
         LChar* data;
         auto newImpl = StringImpl::createUninitialized(strLength + lengthToAppend, data);
@@ -231,7 +232,7 @@ void String::append(const LChar* charactersToAppend, unsigned lengthToAppend)
         return;
     }
 
-    if (lengthToAppend > std::numeric_limits<unsigned>::max() - strLength)
+    if (lengthToAppend > MaxLength - strLength)
         CRASH();
     UChar* data;
     auto newImpl = StringImpl::createUninitialized(length() + lengthToAppend, data);
@@ -257,7 +258,7 @@ void String::append(const UChar* charactersToAppend, unsigned lengthToAppend)
     unsigned strLength = m_impl->length();
     
     ASSERT(charactersToAppend);
-    if (lengthToAppend > std::numeric_limits<unsigned>::max() - strLength)
+    if (lengthToAppend > MaxLength - strLength)
         CRASH();
     UChar* data;
     auto newImpl = StringImpl::createUninitialized(strLength + lengthToAppend, data);
@@ -453,16 +454,13 @@ WTF_ATTRIBUTE_PRINTF(1, 0) static String createWithFormatAndArguments(const char
     va_list argsCopy;
     va_copy(argsCopy, args);
 
-#if COMPILER(CLANG)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-nonliteral"
-#endif
+    ALLOW_NONLITERAL_FORMAT_BEGIN
 
 #if USE(CF) && !OS(WINDOWS)
     if (strstr(format, "%@")) {
         auto cfFormat = adoptCF(CFStringCreateWithCString(kCFAllocatorDefault, format, kCFStringEncodingUTF8));
         auto result = adoptCF(CFStringCreateWithFormatAndArguments(kCFAllocatorDefault, nullptr, cfFormat.get(), args));
-        va_end(args);
+        va_end(argsCopy);
         return result.get();
     }
 #endif
@@ -474,12 +472,15 @@ WTF_ATTRIBUTE_PRINTF(1, 0) static String createWithFormatAndArguments(const char
     char ch;
     int result = vsnprintf(&ch, 1, format, args);
 #endif
-    va_end(args);
 
-    if (result == 0)
+    if (!result) {
+        va_end(argsCopy);
         return emptyString();
-    if (result < 0)
+    }
+    if (result < 0) {
+        va_end(argsCopy);
         return String();
+    }
 
     Vector<char, 256> buffer;
     unsigned len = result;
@@ -489,16 +490,9 @@ WTF_ATTRIBUTE_PRINTF(1, 0) static String createWithFormatAndArguments(const char
     vsnprintf(buffer.data(), buffer.size(), format, argsCopy);
     va_end(argsCopy);
 
-#if COMPILER(CLANG)
-#pragma clang diagnostic pop
-#endif
+    ALLOW_NONLITERAL_FORMAT_END
 
     return StringImpl::create(reinterpret_cast<const LChar*>(buffer.data()), len);
-}
-
-String String::formatWithArguments(const char *format, va_list args)
-{
-    return createWithFormatAndArguments(format, args);
 }
 
 String String::format(const char *format, ...)
@@ -702,9 +696,10 @@ bool String::isSafeToSendToAnotherThread() const
     return isEmpty() || (m_impl->hasOneRef() && !m_impl->isAtomic());
 }
 
-void String::split(const String& separator, bool allowEmptyEntries, Vector<String>& result) const
+template<bool allowEmptyEntries>
+inline Vector<String> String::splitInternal(const String& separator) const
 {
-    result.clear();
+    Vector<String> result;
 
     unsigned startPos = 0;
     size_t endPos;
@@ -715,9 +710,12 @@ void String::split(const String& separator, bool allowEmptyEntries, Vector<Strin
     }
     if (allowEmptyEntries || startPos != length())
         result.append(substring(startPos));
+
+    return result;
 }
 
-void String::split(UChar separator, bool allowEmptyEntries, const SplitFunctor& functor) const
+template<bool allowEmptyEntries>
+inline void String::splitInternal(UChar separator, const SplitFunctor& functor) const
 {
     StringView view(*this);
 
@@ -732,12 +730,45 @@ void String::split(UChar separator, bool allowEmptyEntries, const SplitFunctor& 
         functor(view.substring(startPos));
 }
 
-void String::split(UChar separator, bool allowEmptyEntries, Vector<String>& result) const
+template<bool allowEmptyEntries>
+inline Vector<String> String::splitInternal(UChar separator) const
 {
-    result.clear();
-    split(separator, allowEmptyEntries, [&result](StringView item) {
+    Vector<String> result;
+    splitInternal<allowEmptyEntries>(separator, [&result](StringView item) {
         result.append(item.toString());
     });
+
+    return result;
+}
+
+void String::split(UChar separator, const SplitFunctor& functor) const
+{
+    splitInternal<false>(separator, functor);
+}
+
+Vector<String> String::split(UChar separator) const
+{
+    return splitInternal<false>(separator);
+}
+
+Vector<String> String::split(const String& separator) const
+{
+    return splitInternal<false>(separator);
+}
+
+void String::splitAllowingEmptyEntries(UChar separator, const SplitFunctor& functor) const
+{
+    splitInternal<true>(separator, functor);
+}
+
+Vector<String> String::splitAllowingEmptyEntries(UChar separator) const
+{
+    return splitInternal<true>(separator);
+}
+
+Vector<String> String::splitAllowingEmptyEntries(const String& separator) const
+{
+    return splitInternal<true>(separator);
 }
 
 CString String::ascii() const
@@ -854,7 +885,7 @@ String String::make16BitFrom8BitSource(const LChar* source, size_t length)
 
 String String::fromUTF8(const LChar* stringStart, size_t length)
 {
-    if (length > std::numeric_limits<unsigned>::max())
+    if (length > MaxLength)
         CRASH();
 
     if (!stringStart)
@@ -900,98 +931,6 @@ String String::fromUTF8WithLatin1Fallback(const LChar* string, size_t size)
 }
 
 // String Operations
-
-static bool isCharacterAllowedInBase(UChar c, int base)
-{
-    if (c > 0x7F)
-        return false;
-    if (isASCIIDigit(c))
-        return c - '0' < base;
-    if (isASCIIAlpha(c)) {
-        if (base > 36)
-            base = 36;
-        return (c >= 'a' && c < 'a' + base - 10)
-            || (c >= 'A' && c < 'A' + base - 10);
-    }
-    return false;
-}
-
-template<typename IntegralType, typename CharacterType>
-static inline IntegralType toIntegralType(const CharacterType* data, size_t length, bool* ok, int base)
-{
-    static const IntegralType integralMax = std::numeric_limits<IntegralType>::max();
-    static const bool isSigned = std::numeric_limits<IntegralType>::is_signed;
-    const IntegralType maxMultiplier = integralMax / base;
-
-    IntegralType value = 0;
-    bool isOk = false;
-    bool isNegative = false;
-
-    if (!data)
-        goto bye;
-
-    // skip leading whitespace
-    while (length && isSpaceOrNewline(*data)) {
-        --length;
-        ++data;
-    }
-
-    if (isSigned && length && *data == '-') {
-        --length;
-        ++data;
-        isNegative = true;
-    } else if (length && *data == '+') {
-        --length;
-        ++data;
-    }
-
-    if (!length || !isCharacterAllowedInBase(*data, base))
-        goto bye;
-
-    while (length && isCharacterAllowedInBase(*data, base)) {
-        --length;
-        IntegralType digitValue;
-        auto c = *data;
-        if (isASCIIDigit(c))
-            digitValue = c - '0';
-        else if (c >= 'a')
-            digitValue = c - 'a' + 10;
-        else
-            digitValue = c - 'A' + 10;
-
-        if (value > maxMultiplier || (value == maxMultiplier && digitValue > (integralMax % base) + isNegative))
-            goto bye;
-
-        value = base * value + digitValue;
-        ++data;
-    }
-
-#if COMPILER(MSVC)
-#pragma warning(push, 0)
-#pragma warning(disable:4146)
-#endif
-
-    if (isNegative)
-        value = -value;
-
-#if COMPILER(MSVC)
-#pragma warning(pop)
-#endif
-
-    // skip trailing space
-    while (length && isSpaceOrNewline(*data)) {
-        --length;
-        ++data;
-    }
-
-    if (!length)
-        isOk = true;
-bye:
-    if (ok)
-        *ok = isOk;
-    return isOk ? value : 0;
-}
-
 template<typename CharacterType>
 static unsigned lengthOfCharactersAsInteger(const CharacterType* data, size_t length)
 {

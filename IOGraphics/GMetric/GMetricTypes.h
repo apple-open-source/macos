@@ -1,21 +1,16 @@
-//
-//  GMetricTypes.h
-//  IOGraphics
-//
-//  Created by Jérémy Tran on 8/16/17.
-//
+/*
+ * CONFIDENTIAL
+ * Copyright (c) 2017-2018 Apple Inc. as an unpublished work.
+ * All Rights Reserved.
+ */
+//  Created by Jérémy Tran on 2017-08-16
 
 #ifndef GMetricTypes_h
 #define GMetricTypes_h
 
-#include <os/base.h>
 #include <stdint.h>
+#include <os/base.h>
 #include <sys/kdebug.h>
-#include <AssertMacros.h>
-
-__BEGIN_DECLS
-
-#pragma mark - GMetric Constants
 
 #define kGMetricMaximumLineCount        8192 // @64b == 512k
 #define kGMetricDefaultLineCount        2048 // @64b == 128K
@@ -41,9 +36,9 @@ OS_ENUM(gmetric_event, uint8_t,
     kGMETRICS_EVENT_END                 = 0b10, // DBG_FUNC_END
     kGMETRICS_EVENT_ERROR               = 0b11,
 );
-__Check_Compile_Time(kGMETRICS_EVENT_SIGNAL == DBG_FUNC_NONE);
-__Check_Compile_Time(kGMETRICS_EVENT_START == DBG_FUNC_START);
-__Check_Compile_Time(kGMETRICS_EVENT_END == DBG_FUNC_END);
+_Static_assert(kGMETRICS_EVENT_SIGNAL == DBG_FUNC_NONE, "Enum value mismatch");
+_Static_assert(kGMETRICS_EVENT_START == DBG_FUNC_START, "Enum value mismatch");
+_Static_assert(kGMETRICS_EVENT_END == DBG_FUNC_END, "Enum value mismatch");
 
 /*!
  gmetric_marker_t
@@ -66,16 +61,16 @@ OS_ENUM(gmetric_marker, uint8_t,
  */
 OS_ENUM(gmetric_domain, uint64_t,
     kGMETRICS_DOMAIN_NONE               = UINT64_C(0),
-    kGMETRICS_DOMAIN_GENERAL            = UINT64_C(1) << 0,   // General - non specific
-    kGMETRICS_DOMAIN_SYSTEM             = UINT64_C(1) << 1,   // SystWork
-    kGMETRICS_DOMAIN_GPUWRANGLER        = UINT64_C(1) << 2,   // Future
-    kGMETRICS_DOMAIN_AGC                = UINT64_C(1) << 3,   // MUX
-    kGMETRICS_DOMAIN_DISPLAYWRANGLER    = UINT64_C(1) << 4,   // IODisplayWrangler
-    kGMETRICS_DOMAIN_FBCONBTROLLER      = UINT64_C(1) << 5,   // FBController
-    kGMETRICS_DOMAIN_FRAMEBUFFER        = UINT64_C(1) << 6,   // IOFramebuffer
-    kGMETRICS_DOMAIN_NDRV               = UINT64_C(1) << 7,   // IONDRVFramebuffer
-    kGMETRICS_DOMAIN_VENDOR             = UINT64_C(1) << 8,   // down call to vendor
-    kGMETRICS_DOMAIN_IODISPLAY          = UINT64_C(1) << 9,   // IODisplay
+    kGMETRICS_DOMAIN_GENERAL            = UINT64_C(1) <<  0,  // General - non specific
+    kGMETRICS_DOMAIN_SYSTEM             = UINT64_C(1) <<  1,  // SystWork
+    kGMETRICS_DOMAIN_GPUWRANGLER        = UINT64_C(1) <<  2,  // Future
+    kGMETRICS_DOMAIN_AGC                = UINT64_C(1) <<  3,  // MUX
+    kGMETRICS_DOMAIN_DISPLAYWRANGLER    = UINT64_C(1) <<  4,  // IODisplayWrangler
+    kGMETRICS_DOMAIN_FBCONBTROLLER      = UINT64_C(1) <<  5,  // FBController
+    kGMETRICS_DOMAIN_FRAMEBUFFER        = UINT64_C(1) <<  6,  // IOFramebuffer
+    kGMETRICS_DOMAIN_NDRV               = UINT64_C(1) <<  7,  // IONDRVFramebuffer
+    kGMETRICS_DOMAIN_VENDOR             = UINT64_C(1) <<  8,  // down call to vendor
+    kGMETRICS_DOMAIN_IODISPLAY          = UINT64_C(1) <<  9,  // IODisplay
     kGMETRICS_DOMAIN_IODISPLAYPH        = UINT64_C(1) << 10,  // IODisplayParameterHandler
     kGMETRICS_DOMAIN_BACKLIGHT          = UINT64_C(1) << 11,  // IOBacklightDisplay
     kGMETRICS_DOMAIN_BOOTFB             = UINT64_C(1) << 12,  // BootFramebuffer
@@ -96,30 +91,54 @@ OS_ENUM(gmetric_domain, uint64_t,
     kGMETRICS_DOMAIN_INITIALIZATION     = UINT64_C(1) << 27,  // Start/Init
     kGMETRICS_DOMAIN_TERMINATION        = UINT64_C(1) << 28,  // Stop/Terminate
 
-    kGMETRICS_DOMAIN_ALL                = UINT64_C(0xFFFFFFFFFFFF) // 48 bits
+    kGMETRICS_DOMAIN_ALL                = (UINT64_C(1) << 47)-1, // 47 bits
+
+    // Flag indicating that GMetric system is enabled, set other domain bits to
+    // initiate recording.
+    kGMETRICS_DOMAIN_ENABLED            = kGMETRICS_DOMAIN_ALL+1
 );
 
-#define GMETRIC_DOMAIN_FROM_POWER_STATE(_state_, _prevState_) \
-    (_state_ == 0 ? kGMETRICS_DOMAIN_SLEEP \
-   : _state_ == 1 ? (_prevState_ > _state_ ? kGMETRICS_DOMAIN_DOZE \
-                                           : kGMETRICS_DOMAIN_DARKWAKE) \
-   : _state_ == 2 ? kGMETRICS_DOMAIN_WAKE \
-                  : kGMETRICS_DOMAIN_NONE)
+#define GMETRIC_DOMAIN_FROM_POWER_STATE(_state_, _prevState_) ({ \
+    const auto _gm_dps_state_ = _state_; \
+    const auto _gm_dps_prev_ = _prevState_; \
+    gmetric_domain_t _gm_dps_ret_ = kGMETRICS_DOMAIN_NONE; \
+    if (_gm_dps_state_ == 0) \
+        _gm_dps_ret_ = kGMETRICS_DOMAIN_SLEEP; \
+    else if (_gm_dps_state_ == 2) \
+        _gm_dps_ret_ = kGMETRICS_DOMAIN_WAKE; \
+    else if (_gm_dps_state_ != 1) \
+        _gm_dps_ret_ = kGMETRICS_DOMAIN_NONE; \
+    else if (_gm_dps_prev_ > _gm_dps_state_) /* state == 1 & prev > cur */ \
+        _gm_dps_ret_ = kGMETRICS_DOMAIN_DOZE; \
+    else                                     /* state == 1 & prev <= cur */ \
+        _gm_dps_ret_ = kGMETRICS_DOMAIN_DARKWAKE; \
+    _gm_dps_ret_; \
+})
 
-#define GMETRIC_MARKER_FROM_POWER_STATE(_state_, _prevState_) \
-    (_state_ == 0 ? kGMETRICS_MARKER_SLEEP \
-   : _state_ == 1 ? (_prevState_ > _state_ ? kGMETRICS_MARKER_DOZE \
-                                           : kGMETRICS_MARKER_DARKWAKE) \
-   : _state_ == 2 ? kGMETRICS_MARKER_WAKE \
-                  : kGMETRICS_MARKER_NONE)
+// TODO(gvdl): Copy and paste error waiting to happen, fix me.
+#define GMETRIC_MARKER_FROM_POWER_STATE(_state_, _prevState_) ({ \
+    const auto _gm_mps_state_ = _state_; \
+    const auto _gm_mps_prev_ = _prevState_; \
+    gmetric_marker_t _gm_mps_ret_ = kGMETRICS_MARKER_NONE; \
+    if (_gm_mps_state_ == 0) \
+        _gm_mps_ret_ = kGMETRICS_MARKER_SLEEP; \
+    else if (_gm_mps_state_ == 2) \
+        _gm_mps_ret_ = kGMETRICS_MARKER_WAKE; \
+    else if (_gm_mps_state_ != 1) \
+        _gm_mps_ret_ = kGMETRICS_MARKER_NONE; \
+    else if (_gm_mps_prev_ > _gm_mps_state_) /* state == 1 & prev > cur */ \
+        _gm_mps_ret_ = kGMETRICS_MARKER_DOZE; \
+    else                                     /* state == 1 & prev <= cur */ \
+        _gm_mps_ret_ = kGMETRICS_MARKER_DARKWAKE; \
+    _gm_mps_ret_; \
+})
 
-#define GMETRIC_FUNC_FROM_DATA(_data_) ((_data_ >> 0x10) & 0xFFFF)
-#define GMETRIC_DATA_FROM_FUNC(_func_) ((_func_ & 0xFFFF) << 0x10)
+#define GMETRIC_FUNC_FROM_DATA(_data_)     ((_data_ >> 16) & 0xFFFF)
+#define GMETRIC_DATA_FROM_FUNC(_func_)     ((_func_ & 0xFFFF) << 16)
 
-#define GMETRIC_MARKER_FROM_DATA(_data_) (_data_ & 0xFFFF)
+#define GMETRIC_MARKER_FROM_DATA(_data_)   (_data_   & 0xFFFF)
 #define GMETRIC_DATA_FROM_MARKER(_marker_) (_marker_ & 0xFFFF)
 
-#pragma mark - GMetric Structures
 #pragma pack(push, 1)
 typedef struct {
     uint64_t    type:2;     // gmetric_event_t
@@ -133,6 +152,11 @@ typedef struct {
     uint64_t                timestamp;  // Event timestamp
     uint64_t                data;       // Type-dependent data.
 } gmetric_entry_t;
+
+typedef struct {
+    uint32_t fEntriesCount;
+    uint32_t fCopiedCount;
+} gmetric_buffer_header_t;
 #pragma pack(pop)
 
 /*!
@@ -144,12 +168,17 @@ typedef struct {
  @discussion
  This structure should be used when using the UserClient to retrieve the metrics
  buffer.
+
+ While the buffer passed in will be filled as much as possible, it is possible
+ that the length is insufficient to return all of the data. In which case the
+ fEntriesCount field will be returned and a new buffer can be provided.
  */
 typedef struct {
-    gmetric_entry_t         entries[kGMetricMaximumLineCount];
-    uint32_t                entriesCount;
+    union {
+        gmetric_buffer_header_t fHeader;
+        gmetric_entry_t         fPadding;
+    };
+    gmetric_entry_t             fEntries[];
 } gmetric_buffer_t;
-
-__END_DECLS
 
 #endif /* GMetricTypes_h */

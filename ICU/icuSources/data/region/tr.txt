@@ -81,7 +81,7 @@ tr{
         CK{"Cook Adaları"}
         CL{"Şili"}
         CM{"Kamerun"}
-        CN{"Çin"}
+        CN{"Çin anakarası"}
         CO{"Kolombiya"}
         CP{"Clipperton Adası"}
         CR{"Kosta Rika"}
@@ -133,7 +133,7 @@ tr{
         GU{"Guam"}
         GW{"Gine-Bissau"}
         GY{"Guyana"}
-        HK{"Hong Kong (Çin)"}
+        HK{"Hong Kong"}
         HM{"Heard Adası ve McDonald Adaları"}
         HN{"Honduras"}
         HR{"Hırvatistan"}
@@ -187,7 +187,7 @@ tr{
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Moğolistan"}
-        MO{"Makao (Çin)"}
+        MO{"Makao"}
         MP{"Kuzey Mariana Adaları"}
         MQ{"Martinik"}
         MR{"Moritanya"}
@@ -297,8 +297,6 @@ tr{
     }
     Countries%short{
         GB{"BK"}
-        HK{"Hong Kong"}
-        MO{"Makao"}
         PS{"Filistin"}
         UN{"BM"}
         US{"ABD"}

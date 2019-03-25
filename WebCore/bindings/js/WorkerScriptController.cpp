@@ -30,6 +30,7 @@
 #include "JSDOMBinding.h"
 #include "JSDedicatedWorkerGlobalScope.h"
 #include "JSEventTarget.h"
+#include "JSExecState.h"
 #include "JSServiceWorkerGlobalScope.h"
 #include "ScriptSourceCode.h"
 #include "WebCoreJSClientData.h"
@@ -39,6 +40,7 @@
 #include <JavaScriptCore/Exception.h>
 #include <JavaScriptCore/ExceptionHelpers.h>
 #include <JavaScriptCore/GCActivityCallback.h>
+#include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/PromiseDeferredTimer.h>
 #include <JavaScriptCore/StrongInlines.h>
@@ -143,7 +145,7 @@ void WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode, NakedP
     VM& vm = state.vm();
     JSLockHolder lock { vm };
 
-    JSC::evaluate(&state, sourceCode.jsSourceCode(), m_workerGlobalScopeWrapper->globalThis(), returnedException);
+    JSExecState::profiledEvaluate(&state, JSC::ProfilingReason::Other, sourceCode.jsSourceCode(), m_workerGlobalScopeWrapper->globalThis(), returnedException);
 
     if ((returnedException && isTerminatedExecutionException(vm, returnedException)) || isTerminatingExecution()) {
         forbidExecution();

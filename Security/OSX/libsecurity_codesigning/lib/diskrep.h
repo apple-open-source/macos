@@ -158,6 +158,27 @@ public:
 	static const size_t monolithicPageSize = 0;		// default page size for non-Mach-O executables
 };
 
+/*
+ * Editable Disk Reps allow editing of their existing code signature.
+ * Specifically, they allow for individual components to be replaced,
+ * while preserving all other components.
+ * Lots of restrictions apply, e.g. machO signatures' superblobs may
+ * not change in size, and components covered by the code directory
+ * cannot be replaced without adjusting the code directory.
+ * Replacing or adding CMS blobs (having reserved enough size in the
+ * superblob beforehand) is the original reason this trait exists.
+ */
+class EditableDiskRep {
+public:
+	typedef std::map<CodeDirectory::Slot, CFCopyRef<CFDataRef>> RawComponentMap;
+	
+	/* Return all components in raw form.
+	 * Signature editing will add all the components obtained hereby
+	 * back to their specific slots, though some of them may have
+	 * been replaced in the map.
+	 */
+	virtual RawComponentMap createRawComponents() = 0;
+};
 
 //
 // Write-access objects.

@@ -1073,7 +1073,7 @@ enum {
     // connection types for IOServiceOpen
     kIOFBServerConnectType              = 0,
     kIOFBSharedConnectType              = 1,
-    kIOFBDiagnoseConnectType            = 2,
+    kIOGDiagnoseConnectType             = 38744,  // On Display Wrangler
 };
 
 enum {

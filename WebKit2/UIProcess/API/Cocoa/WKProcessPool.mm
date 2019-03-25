@@ -36,22 +36,26 @@
 #import "SandboxUtilities.h"
 #import "UIGamepadProvider.h"
 #import "WKObject.h"
+#import "WKWebViewInternal.h"
 #import "WebCertificateInfo.h"
 #import "WebCookieManagerProxy.h"
+#import "WebProcessCache.h"
 #import "WebProcessMessages.h"
 #import "WebProcessPool.h"
 #import "_WKAutomationDelegate.h"
 #import "_WKAutomationSessionInternal.h"
 #import "_WKDownloadDelegate.h"
+#import "_WKDownloadInternal.h"
 #import "_WKProcessPoolConfigurationInternal.h"
 #import <WebCore/CertificateInfo.h>
 #import <WebCore/PluginData.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <pal/spi/cocoa/NSKeyedArchiverSPI.h>
+#import <wtf/BlockPtr.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/WeakObjCPtr.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import <WebCore/WebCoreThreadSystemInterface.h>
 #import "WKGeolocationProviderIOS.h"
 #endif
@@ -63,10 +67,10 @@ static WKProcessPool *sharedProcessPool;
     WeakObjCPtr<id <_WKDownloadDelegate>> _downloadDelegate;
 
     RetainPtr<_WKAutomationSession> _automationSession;
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     RetainPtr<WKGeolocationProviderIOS> _geolocationProvider;
     RetainPtr<id <_WKGeolocationCoreLocationProvider>> _coreLocationProvider;
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
 }
 
 - (instancetype)_initWithConfiguration:(_WKProcessPoolConfiguration *)configuration
@@ -125,7 +129,7 @@ static WKProcessPool *sharedProcessPool;
 
 - (_WKProcessPoolConfiguration *)_configuration
 {
-    return wrapper(_processPool->configuration().copy().leakRef());
+    return wrapper(_processPool->configuration().copy());
 }
 
 - (API::Object&)_apiObject
@@ -133,14 +137,14 @@ static WKProcessPool *sharedProcessPool;
     return *_processPool;
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 - (WKGeolocationProviderIOS *)_geolocationProvider
 {
     if (!_geolocationProvider)
         _geolocationProvider = adoptNS([[WKGeolocationProviderIOS alloc] initWithProcessPool:*_processPool]);
     return _geolocationProvider.get();
 }
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
 
 @end
 
@@ -392,7 +396,7 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
 
 - (void)_warmInitialProcess
 {
-    _processPool->warmInitialProcess();
+    _processPool->prewarmProcess(WebKit::WebProcessPool::MayCreateDefaultDataStore::Yes);
 }
 
 - (void)_automationCapabilitiesDidChange
@@ -423,11 +427,6 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
     _processPool->clearSupportedPlugins();
 }
 
-- (void)_terminateStorageProcess
-{
-    _processPool->terminateStorageProcessForTesting();
-}
-
 - (void)_terminateNetworkProcess
 {
     _processPool->terminateNetworkProcess();
@@ -446,11 +445,6 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
 - (pid_t)_networkProcessIdentifier
 {
     return _processPool->networkProcessIdentifier();
-}
-
-- (pid_t)_storageProcessIdentifier
-{
-    return _processPool->storageProcessIdentifier();
 }
 
 - (void)_syncNetworkProcessCookies
@@ -473,19 +467,23 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
     _processPool->setShouldMakeNextNetworkProcessLaunchFailForTesting(true);
 }
 
-- (size_t)_prewarmedWebProcessCount
+- (BOOL)_hasPrewarmedWebProcess
 {
-    size_t result = 0;
     for (auto& process : _processPool->processes()) {
-        if (process->isInPrewarmedPool())
-            ++result;
+        if (process->isPrewarmed())
+            return YES;
     }
-    return result;
+    return NO;
 }
 
 - (size_t)_webProcessCountIgnoringPrewarmed
 {
-    return [self _webProcessCount] - [self _prewarmedWebProcessCount];
+    return [self _webProcessCount] - ([self _hasPrewarmedWebProcess] ? 1 : 0);
+}
+
+- (size_t)_webProcessCountIgnoringPrewarmedAndCached
+{
+    return [self _webProcessCount] - ([self _hasPrewarmedWebProcess] ? 1 : 0) - _processPool->webProcessCache().size();
 }
 
 - (size_t)_webPageContentProcessCount
@@ -509,11 +507,21 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
 
 - (size_t)_pluginProcessCount
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     return WebKit::PluginProcessManager::singleton().pluginProcesses().size();
 #else
     return 0;
 #endif
+}
+
+- (NSUInteger)_maximumSuspendedPageCount
+{
+    return _processPool->maxSuspendedPageCount();
+}
+
+- (NSUInteger)_processCacheCapacity
+{
+    return _processPool->webProcessCache().capacity();
 }
 
 - (size_t)_serviceWorkerProcessCount
@@ -559,7 +567,7 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
 #endif
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 - (id <_WKGeolocationCoreLocationProvider>)_coreLocationProvider
 {
     return _coreLocationProvider.get();
@@ -572,7 +580,32 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
 
     _coreLocationProvider = coreLocationProvider;
 }
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
+
+- (_WKDownload *)_downloadURLRequest:(NSURLRequest *)request originatingWebView:(WKWebView *)webView
+{
+    return (_WKDownload *)_processPool->download([webView _page], request)->wrapper();
+}
+
+- (_WKDownload *)_resumeDownloadFromData:(NSData *)resumeData path:(NSString *)path originatingWebView:(WKWebView *)webView
+{
+    return wrapper(_processPool->resumeDownload([webView _page], API::Data::createWithoutCopying(resumeData).ptr(), path));
+}
+
+- (void)_getActivePagesOriginsInWebProcessForTesting:(pid_t)pid completionHandler:(void(^)(NSArray<NSString *> *))completionHandler
+{
+    _processPool->activePagesOriginsInWebProcessForTesting(pid, [completionHandler = makeBlockPtr(completionHandler)] (Vector<String>&& activePagesOrigins) {
+        NSMutableArray<NSString *> *array = [[[NSMutableArray alloc] initWithCapacity:activePagesOrigins.size()] autorelease];
+        for (auto& origin : activePagesOrigins)
+            [array addObject:origin];
+        completionHandler(array);
+    });
+}
+
+- (BOOL)_networkProcessHasEntitlementForTesting:(NSString *)entitlement
+{
+    return _processPool->networkProcessHasEntitlementForTesting(entitlement);
+}
 
 @end
 

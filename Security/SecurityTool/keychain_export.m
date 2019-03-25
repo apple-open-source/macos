@@ -37,6 +37,7 @@
 #include <Security/SecKeychainSearch.h>
 #include <Security/SecIdentitySearch.h>
 #include <Security/SecKey.h>
+#include <Security/SecKeyPriv.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecItem.h>
@@ -559,7 +560,7 @@ ctk_obj_to_str(CFTypeRef obj, char *buf, int bufLen, Boolean key)
 
 typedef struct {
     int i;
-    const char *name;
+    NSString *name;
 } ctk_print_context;
 
 OSStatus
@@ -581,7 +582,7 @@ static void
 ctk_dump_item_header(ctk_print_context *ctx)
 {
     printf("\n");
-    printf("==== %s #%d\n", ctx->name, ctx->i);
+    printf("==== %s #%d\n", ctx->name.UTF8String, ctx->i);
 }
 
 static void
@@ -610,7 +611,7 @@ ctk_dump_item(CFTypeRef item, ctk_print_context *ctx)
 }
 
 static OSStatus
-ctk_dump_items(CFArrayRef items, CFTypeRef secClass, const char *name)
+ctk_dump_items(CFArrayRef items, id secClass, NSString *name)
 {
     OSStatus stat = errSecSuccess;
 
@@ -629,17 +630,33 @@ ctk_dump_items(CFArrayRef items, CFTypeRef secClass, const char *name)
     return stat;
 }
 
+static void
+exportData(NSData *dataToExport, NSString *fileName, NSString *exportPath, NSString *elementName) {
+    NSMutableString *pem = [NSMutableString new];
+    [pem appendString:[NSString stringWithFormat:@"-----BEGIN %@-----\n", elementName]];
+    NSString *base64Cert = [dataToExport base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength | NSDataBase64EncodingEndLineWithLineFeed];
+    [pem appendString:base64Cert];
+    [pem appendString:[NSString stringWithFormat:@"\n-----END %@-----\n", elementName]];
+    
+    NSString *fullName = [NSString stringWithFormat:@"%@/%@.pem", exportPath, fileName];
+    NSError *error;
+    [pem writeToFile:fullName atomically:YES encoding:NSUTF8StringEncoding error:&error];
+    if (error) {
+        fprintf(stderr, "%s\n", [NSString stringWithFormat:@"%@", error].UTF8String);
+    }
+}
+
 static OSStatus
-ctk_dump(CFTypeRef secClass, const char *name, const char *tid)
+ctk_dump(id secClass, NSString *name, NSString *tid, NSString *exportPath)
 {
     NSArray *result;
     BOOL returnRef = NO;
 
-    if ([(__bridge id)secClass isEqual:(id)kSecClassIdentity] || [(__bridge id)secClass isEqual:(id)kSecClassCertificate])
+    if ([secClass isEqual:(id)kSecClassIdentity] || [secClass isEqual:(id)kSecClassCertificate])
         returnRef = YES;
 
     NSDictionary *query = @{
-        (id)kSecClass : (__bridge id)secClass,
+        (id)kSecClass : secClass,
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
         (id)kSecAttrAccessGroup : (id)kSecAttrAccessGroupToken,
         (id)kSecReturnAttributes : @YES,
@@ -648,7 +665,7 @@ ctk_dump(CFTypeRef secClass, const char *name, const char *tid)
 
     if(tid) {
         NSMutableDictionary *updatedQuery = [NSMutableDictionary dictionaryWithDictionary:query];
-        updatedQuery[(id)kSecAttrTokenID] = [NSString stringWithUTF8String:tid];
+        updatedQuery[(id)kSecAttrTokenID] = tid;
         query = updatedQuery;
     }
 
@@ -669,7 +686,7 @@ ctk_dump(CFTypeRef secClass, const char *name, const char *tid)
             for (NSDictionary *dict in result) {
                 NSMutableDictionary *updatedItem = [NSMutableDictionary dictionaryWithDictionary:dict];
                 id itemRef = updatedItem[(id)kSecValueRef];
-                if ([(__bridge id)secClass isEqual:(id)kSecClassIdentity]) {
+                if ([secClass isEqual:(id)kSecClassIdentity]) {
                     id certificateRef;
                     if (SecIdentityCopyCertificate((__bridge SecIdentityRef)itemRef, (void *)&certificateRef) != errSecSuccess)
                         continue;
@@ -680,11 +697,21 @@ ctk_dump(CFTypeRef secClass, const char *name, const char *tid)
                 updatedItem[@"sha1"] = certDigest;
                 [updatedItem removeObjectForKey:(id)kSecValueRef];
                 [updatedResult addObject:updatedItem];
+                
+                if (exportPath) {
+                    NSData *certData = (__bridge_transfer NSData *)SecCertificateCopyData((__bridge SecCertificateRef)itemRef);
+                    exportData(certData, updatedItem[(id)kSecAttrLabel], exportPath, @"CERTIFICATE");
+                    id publicKey = (__bridge_transfer id)SecCertificateCopyKey((__bridge SecCertificateRef)itemRef);
+                    NSData *pubKeyInfo = (__bridge_transfer NSData *)SecKeyCopySubjectPublicKeyInfo((__bridge SecKeyRef)publicKey);
+                    exportData(pubKeyInfo, [NSString stringWithFormat:@"Public Key - %@", updatedItem[(id)kSecAttrLabel]], exportPath, @"PUBLIC KEY");
+                }
             }
             result = updatedResult;
         }
 
-        stat = ctk_dump_items((__bridge CFArrayRef)result, secClass, name);
+        if (!exportPath) {
+            stat = ctk_dump_items((__bridge CFArrayRef)result, secClass, name);
+        }
     } else {
         stat = errSecInternalComponent;
     }
@@ -694,13 +721,16 @@ ctk_dump(CFTypeRef secClass, const char *name, const char *tid)
 int
 ctk_export(int argc, char * const *argv)
 {
-    OSStatus stat = errSecSuccess;
+    __block OSStatus stat = errSecSuccess;
 
     ItemSpec itemSpec = IS_All;
-    const char *tid = NULL;
+    NSString *tid;
+    NSString *exportPath;
     int ch;
+    BOOL optT = NO;
+    BOOL optE = NO;
 
-    while ((ch = getopt(argc, argv, "i:t:h")) != -1) {
+    while ((ch = getopt(argc, argv, "i:t:e:h")) != -1) {
         switch  (ch) {
             case 't':
                 if(!strcmp("certs", optarg)) {
@@ -718,9 +748,15 @@ ctk_export(int argc, char * const *argv)
                 else {
                     return SHOW_USAGE_MESSAGE;
                 }
+                optT = YES;
                 break;
             case 'i':
-                tid = optarg;
+                tid = [NSString stringWithUTF8String:optarg];
+                break;
+            case 'e':
+                exportPath = [NSString stringWithUTF8String:optarg];
+                itemSpec = IS_Certs;
+                optE = YES;
                 break;
 
             case '?':
@@ -728,19 +764,23 @@ ctk_export(int argc, char * const *argv)
                 return SHOW_USAGE_MESSAGE;
         }
     }
+    
+    if (optT && optE) {
+        return SHOW_USAGE_MESSAGE;
+    }
 
-    CFTypeRef classes[] = { kSecClassCertificate, kSecClassKey, kSecClassIdentity };
-    const char* names[] = { "certificate", "private key", "identity" };
-    ItemSpec specs[] = { IS_Certs, IS_PrivKeys, IS_Identities };
-
-    for(size_t i = 0; i < sizeof(classes)/sizeof(classes[0]); i++) {
-        if(specs[i] == itemSpec || itemSpec == IS_All) {
-            stat = ctk_dump(classes[i], names[i], tid);
+    NSDictionary<id, NSArray *> *classesAndNames = @{ (id)kSecClassCertificate : @[ @"certificate", @(IS_Certs) ],
+                                                      (id)kSecClassKey : @[ @"private key", @(IS_PrivKeys) ],
+                                                      (id)kSecClassIdentity : @[ @"identity", @(IS_Identities) ] };
+    
+    [classesAndNames enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, NSArray * _Nonnull obj, BOOL * _Nonnull stop) {
+        if (itemSpec == IS_All || itemSpec == ((NSNumber *)obj[1]).unsignedIntegerValue) {
+            stat = ctk_dump(key, obj[0], tid, exportPath);
             if(stat) {
-                break;
+                *stop = YES;
             }
         }
-    }
+    }];
 
     return stat;
 }

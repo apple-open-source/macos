@@ -190,7 +190,7 @@ Enable, disable or list disabled smartcard tokens.
 .It Nm list-smartcards
 Display available smartcards.
 .It Nm export-smartcard
-Export items from a smartcard.
+Export/display items from a smartcard.
 .It Nm error
 Display a descriptive message for the given error code(s).
 .El
@@ -1611,23 +1611,28 @@ s of available smartcards.
 .Ar token
 .Op Fl i Ar id
 .Op Fl t Ar certs Ns | Ns Ar privKeys Ns | Ns Ar identities Ns | Ns Ar all
+.Op Fl e Ar exportPath
 .Bl -item -offset -indent
-Export items from a smartcard. If
+Export/display items from a smartcard. If
 .Ar id
-isn't provided, items from all smartcards will be exported.
+isn't provided, items from all smartcards will be displayed.
 .It
 Options:
 .Bl -tag -compact -width -indent-indent
 .It Fl i Ar id
-Export items from token specified by token
+Export/display items from token specified by token
 .Ar id Ns
 , available
 .Ar id Ns
 s can be listed by list-smartcards command.
 .It Fl t Ar certs Ns | Ns Ar privKeys Ns | Ns Ar identities Ns | Ns Ar all
-Export items of the specified type (Default:
+Display items of the specified type (Default:
 .Ar all Ns
 )
+.It Fl e Ar exportPath
+Specify path to export certificates and public keys. If
+.Ar exportPath Ns
+ is specified screen output is suppressed. This option cannot be combined with -t option.
 .El
 .El
 .It

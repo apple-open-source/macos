@@ -242,6 +242,7 @@ SEC_CONST_DECL (kSecAttrSynchronizableAny, "syna");
    any SecItem apis directly. */
 SEC_CONST_DECL (kSecPrivateKeyAttrs, "private");
 SEC_CONST_DECL (kSecPublicKeyAttrs, "public");
+SEC_CONST_DECL (kSecKeyApplePayEnabled, "applepay");
 
 /* This is here only temporarily until MobileActivation starts using kSecAttrTokenOID instead of this specific attribute. */
 SEC_CONST_DECL (kSecAttrSecureEnclaveKeyBlob, "toid");

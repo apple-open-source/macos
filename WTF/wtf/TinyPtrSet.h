@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef TinyPtrSet_h
-#define TinyPtrSet_h
+#pragma once
 
 #include <wtf/Assertions.h>
 #include <wtf/FastMalloc.h>
@@ -351,6 +350,11 @@ public:
         return isSubsetOf(other);
     }
     
+    bool operator!=(const TinyPtrSet& other) const
+    {
+        return !(*this == other);
+    }
+    
 private:
     friend class JSC::DFG::StructureAbstractValue;
 
@@ -521,6 +525,3 @@ private:
 } // namespace WTF
 
 using WTF::TinyPtrSet;
-
-#endif // TinyPtrSet_h
-

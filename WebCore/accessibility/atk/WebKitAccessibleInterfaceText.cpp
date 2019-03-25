@@ -325,6 +325,10 @@ static IntRect textExtents(AtkText* text, gint startOffset, gint length, AtkCoor
     case ATK_XY_WINDOW:
         // No-op
         break;
+#if ATK_CHECK_VERSION(2, 30, 0)
+    case ATK_XY_PARENT:
+        RELEASE_ASSERT_NOT_REACHED();
+#endif
     }
 
     return extents;
@@ -335,7 +339,7 @@ static int offsetAdjustmentForListItem(const AccessibilityObject* object)
     // We need to adjust the offsets for the list item marker in
     // Left-To-Right text, since we expose it together with the text.
     RenderObject* renderer = object->renderer();
-    if (is<RenderListItem>(renderer) && renderer->style().direction() == LTR)
+    if (is<RenderListItem>(renderer) && renderer->style().direction() == TextDirection::LTR)
         return downcast<RenderListItem>(*renderer).markerTextWithSuffix().length();
 
     return 0;
@@ -402,13 +406,13 @@ static void getSelectionOffsetsForObject(AccessibilityObject* coreObject, Visibl
 
     // Calculate position of the selected range inside the object.
     Position parentFirstPosition = firstPositionInOrBeforeNode(node);
-    RefPtr<Range> rangeInParent = Range::create(node->document(), parentFirstPosition, nodeRangeStart);
+    auto rangeInParent = Range::create(node->document(), parentFirstPosition, nodeRangeStart);
 
     // Set values for start offsets and calculate initial range length.
     // These values might be adjusted later to cover special cases.
-    startOffset = webCoreOffsetToAtkOffset(coreObject, TextIterator::rangeLength(rangeInParent.get(), true));
-    RefPtr<Range> nodeRange = Range::create(node->document(), nodeRangeStart, nodeRangeEnd);
-    int rangeLength = TextIterator::rangeLength(nodeRange.get(), true);
+    startOffset = webCoreOffsetToAtkOffset(coreObject, TextIterator::rangeLength(rangeInParent.ptr(), true));
+    auto nodeRange = Range::create(node->document(), nodeRangeStart, nodeRangeEnd);
+    int rangeLength = TextIterator::rangeLength(nodeRange.ptr(), true);
 
     // Special cases that are only relevant when working with *_END boundaries.
     if (selection.affinity() == UPSTREAM) {
@@ -462,7 +466,7 @@ static gchar* webkitAccessibleTextGetText(AtkText* text, gint startOffset, gint 
         RenderObject* objRenderer = coreObject->renderer();
         if (is<RenderListItem>(objRenderer)) {
             String markerText = downcast<RenderListItem>(*objRenderer).markerTextWithSuffix();
-            ret = objRenderer->style().direction() == LTR ? markerText + ret : ret + markerText;
+            ret = objRenderer->style().direction() == TextDirection::LTR ? markerText + ret : ret + markerText;
             if (endOffset == -1)
                 actualEndOffset = ret.length() + markerText.length();
         }
@@ -905,11 +909,11 @@ static char* webkitAccessibleTextLineForBoundary(AtkText* text, int offset, AtkT
     RenderObject* renderer = coreObject->renderer();
     if (renderer->isListItem()) {
         // For Left-to-Right, the list item marker is at the beginning of the exposed text.
-        if (renderer->style().direction() == LTR && isFirstVisiblePositionInNode(selectedLine.visibleStart(), node))
+        if (renderer->style().direction() == TextDirection::LTR && isFirstVisiblePositionInNode(selectedLine.visibleStart(), node))
             *startOffset = 0;
 
         // For Right-to-Left, the list item marker is at the end of the exposed text.
-        if (renderer->style().direction() == RTL && isLastVisiblePositionInNode(selectedLine.visibleEnd(), node))
+        if (renderer->style().direction() == TextDirection::RTL && isLastVisiblePositionInNode(selectedLine.visibleEnd(), node))
             *endOffset = accessibilityObjectLength(coreObject);
     }
 

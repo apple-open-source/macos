@@ -35,15 +35,13 @@
 
 namespace WebKit {
 
-static const LPCWSTR processName(ProcessLauncher::ProcessType processType)
+static LPCWSTR processName(ProcessLauncher::ProcessType processType)
 {
     switch (processType) {
     case ProcessLauncher::ProcessType::Web:
         return L"WebKitWebProcess.exe";
     case ProcessLauncher::ProcessType::Network:
         return L"WebKitNetworkProcess.exe";
-    case ProcessLauncher::ProcessType::Storage:
-        return L"WebKitStorageProcess.exe";
     }
     return L"WebKitWebProcess.exe";
 }
@@ -89,11 +87,11 @@ void ProcessLauncher::launchProcess()
 
     auto commandLine = stringToNullTerminatedWChar(commandLineBuilder.toString());
 
-    STARTUPINFO startupInfo = { 0 };
+    STARTUPINFO startupInfo { };
     startupInfo.cb = sizeof(startupInfo);
     startupInfo.dwFlags = STARTF_USESHOWWINDOW;
     startupInfo.wShowWindow = SW_HIDE;
-    PROCESS_INFORMATION processInformation = { 0 };
+    PROCESS_INFORMATION processInformation { };
     BOOL result = ::CreateProcess(0, commandLine.data(), 0, 0, true, 0, 0, 0, &startupInfo, &processInformation);
 
     // We can now close the client identifier handle.

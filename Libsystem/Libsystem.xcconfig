@@ -2,7 +2,12 @@
 
 // NO means only libSystem.B_asan.dylib will be ASanified.
 // YES means even the normal variant, libSystem.B.dylib, will be ASanified.
-ASAN_IN_NORMAL_VARIANT = NO
+//
+// XBS sets RC_SUPPORT_ADDRESS_SANITIZATION=1 to trigger the ASanified normal variant.
+ASAN_IN_NORMAL_VARIANT_1 = YES
+ASAN_IN_NORMAL_VARIANT_0 = NO
+ASAN_IN_NORMAL_VARIANT_ = NO
+ASAN_IN_NORMAL_VARIANT = $(ASAN_IN_NORMAL_VARIANT_$(RC_SUPPORT_ADDRESS_SANITIZATION))
 
 ASAN_CFLAGS_ =
 ASAN_CFLAGS_YES = -DCURRENT_VARIANT_asan=1

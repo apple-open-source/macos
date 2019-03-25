@@ -69,6 +69,8 @@ WK_EXPORT void WKContextSetDomainRelaxationForbiddenForURLScheme(WKContextRef co
 
 WK_EXPORT void WKContextSetCanHandleHTTPSServerTrustEvaluation(WKContextRef context, bool value);
 
+WK_EXPORT void WKContextSetPrewarmsProcessesAutomatically(WKContextRef context, bool value);
+
 WK_EXPORT void WKContextSetDiskCacheSpeculativeValidationEnabled(WKContextRef context, bool value);
 
 WK_EXPORT void WKContextSetIconDatabasePath(WKContextRef context, WKStringRef iconDatabasePath);
@@ -90,7 +92,6 @@ WK_EXPORT void WKContextSetUsesNetworkProcess(WKContextRef, bool);
 
 WK_EXPORT void WKContextTerminateNetworkProcess(WKContextRef);
 WK_EXPORT void WKContextTerminateServiceWorkerProcess(WKContextRef);
-WK_EXPORT void WKContextTerminateStorageProcess(WKContextRef);
 
 WK_EXPORT void WKContextSetAllowsAnySSLCertificateForWebSocketTesting(WKContextRef, bool);
 WK_EXPORT void WKContextSetAllowsAnySSLCertificateForServiceWorkerTesting(WKContextRef, bool);
@@ -111,10 +112,13 @@ WK_EXPORT void WKContextSetFontWhitelist(WKContextRef, WKArrayRef);
 WK_EXPORT void WKContextPreconnectToServer(WKContextRef context, WKURLRef serverURL);
 
 WK_EXPORT WKProcessID WKContextGetNetworkProcessIdentifier(WKContextRef context);
-WK_EXPORT WKProcessID WKContextGetDatabaseProcessIdentifier(WKContextRef context);
 
 WK_EXPORT void WKContextAddSupportedPlugin(WKContextRef context, WKStringRef domain, WKStringRef name, WKArrayRef mimeTypes, WKArrayRef extensions);
 WK_EXPORT void WKContextClearSupportedPlugins(WKContextRef context);
+
+WK_EXPORT void WKContextSetIDBPerOriginQuota(WKContextRef context, uint64_t quota);
+
+WK_EXPORT void WKContextClearCurrentModifierStateForTesting(WKContextRef context);
 
 #ifdef __cplusplus
 }

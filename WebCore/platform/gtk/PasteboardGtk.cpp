@@ -20,14 +20,15 @@
 #include "config.h"
 #include "Pasteboard.h"
 
+#include "Color.h"
 #include "DragData.h"
 #include "Image.h"
 #include "NotImplemented.h"
 #include "PasteboardStrategy.h"
 #include "PlatformStrategies.h"
 #include "SelectionData.h"
-#include "URL.h"
 #include <wtf/NeverDestroyed.h>
+#include <wtf/URL.h>
 
 namespace WebCore {
 
@@ -329,6 +330,10 @@ void Pasteboard::writeMarkup(const String&)
 }
 
 void Pasteboard::writeCustomData(const PasteboardCustomData&)
+{
+}
+
+void Pasteboard::write(const Color&)
 {
 }
 

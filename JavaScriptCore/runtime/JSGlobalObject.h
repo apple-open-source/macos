@@ -483,8 +483,15 @@ public:
     bool isMapPrototypeSetFastAndNonObservable();
     bool isSetPrototypeAddFastAndNonObservable();
 
+#if ENABLE(DFG_JIT)
+    using ReferencedGlobalPropertyWatchpointSets = HashMap<RefPtr<UniquedStringImpl>, Ref<WatchpointSet>, IdentifierRepHash>;
+    ReferencedGlobalPropertyWatchpointSets m_referencedGlobalPropertyWatchpointSets;
+    ConcurrentJSLock m_referencedGlobalPropertyWatchpointSetsLock;
+#endif
+
     bool m_evalEnabled { true };
     bool m_webAssemblyEnabled { true };
+    unsigned m_globalLexicalBindingEpoch { 1 };
     String m_evalDisabledErrorMessage;
     String m_webAssemblyDisabledErrorMessage;
     RuntimeFlags m_runtimeFlags;
@@ -511,6 +518,11 @@ public:
     bool hasDebugger() const;
     bool hasInteractiveDebugger() const;
     const RuntimeFlags& runtimeFlags() const { return m_runtimeFlags; }
+
+#if ENABLE(DFG_JIT)
+    WatchpointSet* getReferencedPropertyWatchpointSet(UniquedStringImpl*);
+    WatchpointSet& ensureReferencedPropertyWatchpointSet(UniquedStringImpl*);
+#endif
 
 protected:
     JS_EXPORT_PRIVATE explicit JSGlobalObject(VM&, Structure*, const GlobalObjectMethodTable* = nullptr);
@@ -616,6 +628,7 @@ public:
     MapPrototype* mapPrototype() const { return m_mapPrototype.get(); }
     // Workaround for the name conflict between JSCell::setPrototype.
     SetPrototype* jsSetPrototype() const { return m_setPrototype.get(); }
+    JSPromisePrototype* promisePrototype() const { return m_promisePrototype.get(); }
     AsyncGeneratorPrototype* asyncGeneratorPrototype() const { return m_asyncGeneratorPrototype.get(); }
     AsyncGeneratorFunctionPrototype* asyncGeneratorFunctionPrototype() const { return m_asyncGeneratorFunctionPrototype.get(); }
 
@@ -735,6 +748,11 @@ public:
     const HashSet<String>& intlNumberFormatAvailableLocales();
     const HashSet<String>& intlPluralRulesAvailableLocales();
 #endif // ENABLE(INTL)
+
+    void bumpGlobalLexicalBindingEpoch(VM&);
+    unsigned globalLexicalBindingEpoch() const { return m_globalLexicalBindingEpoch; }
+    static ptrdiff_t globalLexicalBindingEpochOffset() { return OBJECT_OFFSETOF(JSGlobalObject, m_globalLexicalBindingEpoch); }
+    unsigned* addressOfGlobalLexicalBindingEpoch() { return &m_globalLexicalBindingEpoch; }
 
     void setConsoleClient(ConsoleClient* consoleClient) { m_consoleClient = consoleClient; }
     ConsoleClient* consoleClient() const { return m_consoleClient; }

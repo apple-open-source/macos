@@ -37,11 +37,11 @@ class Frame;
 class FrameView;
 class LayoutScope;
 class LayoutSize;
-class LayoutState;
 class RenderBlockFlow;
 class RenderBox;
 class RenderObject;
 class RenderElement;
+class RenderLayoutState;
 class RenderView;
     
 class FrameViewLayoutContext {
@@ -93,7 +93,7 @@ public:
 
     void flushAsynchronousTasks();
 
-    LayoutState* layoutState() const;
+    RenderLayoutState* layoutState() const;
     // Returns true if layoutState should be used for its cached offset and clip.
     bool isPaintOffsetCacheEnabled() const { return !m_paintOffsetCacheDisableCount && layoutState(); }
 #ifndef NDEBUG
@@ -107,7 +107,7 @@ public:
 #if !ASSERT_DISABLED
     bool layoutDeltaMatches(const LayoutSize& delta);
 #endif
-    using LayoutStateStack = Vector<std::unique_ptr<LayoutState>>;
+    using LayoutStateStack = Vector<std::unique_ptr<RenderLayoutState>>;
 
 private:
     friend class LayoutScope;
@@ -139,7 +139,7 @@ private:
     // Subtree push/pop
     void pushLayoutState(RenderElement&);
     bool pushLayoutStateForPaginationIfNeeded(RenderBlockFlow&);
-    bool pushLayoutState(RenderBox& renderer, const LayoutSize& offset, LayoutUnit pageHeight = 0, bool pageHeightChanged = false);
+    bool pushLayoutState(RenderBox& renderer, const LayoutSize& offset, LayoutUnit pageHeight = 0_lu, bool pageHeightChanged = false);
     void popLayoutState();
 
     // Suspends the LayoutState optimization. Used under transforms that cannot be represented by

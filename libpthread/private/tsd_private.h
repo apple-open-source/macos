@@ -93,6 +93,12 @@
  * Windows 64-bit ABI bakes %gs relative accesses into its code in the same
  * range as our TSD keys.  To allow some limited interoperability for code
  * targeting that ABI, we leave slots 6 and 11 unused.
+ *
+ * The Go runtime on x86_64 also uses this because their ABI doesn't reserve a
+ * register for the TSD base.  They were previously using an arbitrarily chosen
+ * dynamic key and relying on being able to get it at runtime, but switched to
+ * this slot to avoid issues with that approach.  It's assumed that Go and
+ * Windows code won't run in the same address space.
  */
 //#define _PTHREAD_TSD_SLOT_RESERVED_WIN64 6
 
@@ -206,6 +212,18 @@
 #define __PTK_FRAMEWORK_JAVASCRIPTCORE_KEY4		94
 /* Keys 95 for CoreText */
 #define __PTK_FRAMEWORK_CORETEXT_KEY0			95
+
+/* Keys 100-109 are for the Swift runtime */
+#define __PTK_FRAMEWORK_SWIFT_KEY0		100
+#define __PTK_FRAMEWORK_SWIFT_KEY1		101
+#define __PTK_FRAMEWORK_SWIFT_KEY2		102
+#define __PTK_FRAMEWORK_SWIFT_KEY3		103
+#define __PTK_FRAMEWORK_SWIFT_KEY4		104
+#define __PTK_FRAMEWORK_SWIFT_KEY5		105
+#define __PTK_FRAMEWORK_SWIFT_KEY6		106
+#define __PTK_FRAMEWORK_SWIFT_KEY7		107
+#define __PTK_FRAMEWORK_SWIFT_KEY8		108
+#define __PTK_FRAMEWORK_SWIFT_KEY9		109
 
 /* Keys 210 - 229 are for libSystem usage within the iOS Simulator */
 /* They are offset from their corresponding libSystem keys by 200 */

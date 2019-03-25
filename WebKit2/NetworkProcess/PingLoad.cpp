@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #include "config.h"
 #include "PingLoad.h"
 
+#include "AuthenticationChallengeDisposition.h"
 #include "AuthenticationManager.h"
 #include "Logging.h"
 #include "NetworkLoadChecker.h"
@@ -38,7 +39,7 @@ namespace WebKit {
 
 using namespace WebCore;
 
-PingLoad::PingLoad(NetworkResourceLoadParameters&& parameters, WTF::CompletionHandler<void(const ResourceError&, const ResourceResponse&)>&& completionHandler)
+PingLoad::PingLoad(NetworkResourceLoadParameters&& parameters, CompletionHandler<void(const ResourceError&, const ResourceResponse&)>&& completionHandler)
     : m_parameters(WTFMove(parameters))
     , m_completionHandler(WTFMove(completionHandler))
     , m_timeoutTimer(*this, &PingLoad::timeoutTimerFired)
@@ -56,11 +57,18 @@ PingLoad::PingLoad(NetworkResourceLoadParameters&& parameters, WTF::CompletionHa
     m_timeoutTimer.startOneShot(60000_s);
 
     m_networkLoadChecker->check(ResourceRequest { m_parameters.request }, nullptr, [this] (auto&& result) {
-        if (!result.has_value()) {
-            this->didFinish(result.error());
-            return;
-        }
-        this->loadRequest(WTFMove(result.value()));
+        WTF::switchOn(result,
+            [this] (ResourceError& error) {
+                this->didFinish(error);
+            },
+            [] (NetworkLoadChecker::RedirectionTriplet& triplet) {
+                // We should never send a synthetic redirect for PingLoads.
+                ASSERT_NOT_REACHED();
+            },
+            [this] (ResourceRequest& request) {
+                this->loadRequest(WTFMove(request));
+            }
+        );
     });
 }
 
@@ -93,15 +101,13 @@ void PingLoad::loadRequest(ResourceRequest&& request)
 
 void PingLoad::willPerformHTTPRedirection(ResourceResponse&& redirectResponse, ResourceRequest&& request, RedirectCompletionHandler&& completionHandler)
 {
-    m_networkLoadChecker->checkRedirection(ResourceRequest { }, WTFMove(request), WTFMove(redirectResponse), nullptr, [this, completionHandler = WTFMove(completionHandler)](auto&& result) {
+    m_networkLoadChecker->checkRedirection(ResourceRequest { }, WTFMove(request), WTFMove(redirectResponse), nullptr, [this, completionHandler = WTFMove(completionHandler)] (auto&& result) mutable {
         if (!result.has_value()) {
             completionHandler({ });
             this->didFinish(result.error());
             return;
         }
         auto request = WTFMove(result->redirectRequest);
-        m_networkLoadChecker->prepareRedirectedRequest(request);
-
         if (!request.url().protocolIsInHTTPFamily()) {
             this->didFinish(ResourceError { String { }, 0, request.url(), "Redirection to URL with a scheme that is not HTTP(S)"_s, ResourceError::Type::AccessControl });
             return;
@@ -121,9 +127,9 @@ void PingLoad::didReceiveChallenge(AuthenticationChallenge&&, ChallengeCompletio
     didFinish(ResourceError { String(), 0, currentURL(), "Failed HTTP authentication"_s, ResourceError::Type::AccessControl });
 }
 
-void PingLoad::didReceiveResponseNetworkSession(ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
+void PingLoad::didReceiveResponse(ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
 {
-    RELEASE_LOG_IF_ALLOWED("didReceiveResponseNetworkSession - httpStatusCode: %d", response.httpStatusCode());
+    RELEASE_LOG_IF_ALLOWED("didReceiveResponse - httpStatusCode: %d", response.httpStatusCode());
     auto weakThis = makeWeakPtr(*this);
     completionHandler(PolicyAction::Ignore);
     if (!weakThis)
@@ -175,3 +181,5 @@ const URL& PingLoad::currentURL() const
 }
 
 } // namespace WebKit
+
+#undef RELEASE_LOG_IF_ALLOWED

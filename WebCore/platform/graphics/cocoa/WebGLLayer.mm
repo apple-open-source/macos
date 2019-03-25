@@ -32,6 +32,7 @@
 #import "GraphicsContextCG.h"
 #import "GraphicsLayer.h"
 #import "GraphicsLayerCA.h"
+#import "ImageBufferUtilitiesCG.h"
 #import "PlatformCALayer.h"
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/FastMalloc.h>
@@ -42,13 +43,11 @@
 #import <OpenGL/gl.h>
 #endif
 
-using namespace WebCore;
-
 @implementation WebGLLayer
 
 @synthesize context=_context;
 
--(id)initWithGraphicsContext3D:(GraphicsContext3D*)context
+-(id)initWithGraphicsContext3D:(WebCore::GraphicsContext3D*)context
 {
     _context = context;
     self = [super init];
@@ -86,7 +85,7 @@ static void freeData(void *, const void *data, size_t /* size */)
 }
 #endif
 
--(CGImageRef)copyImageSnapshotWithColorSpace:(CGColorSpaceRef)colorSpace
+- (CGImageRef)copyImageSnapshotWithColorSpace:(CGColorSpaceRef)colorSpace
 {
     if (!_context)
         return nullptr;
@@ -96,7 +95,7 @@ static void freeData(void *, const void *data, size_t /* size */)
 
     RetainPtr<CGColorSpaceRef> imageColorSpace = colorSpace;
     if (!imageColorSpace)
-        imageColorSpace = sRGBColorSpaceRef();
+        imageColorSpace = WebCore::sRGBColorSpaceRef();
 
     CGRect layerBounds = CGRectIntegral([self bounds]);
 
@@ -112,6 +111,7 @@ static void freeData(void *, const void *data, size_t /* size */)
     glPixelStorei(GL_PACK_ROW_LENGTH, rowBytes / 4);
     glReadPixels(0, 0, width, height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, data);
 
+    WebCore::verifyImageBufferIsBigEnough((uint8_t*)data, dataSize);
     CGDataProviderRef provider = CGDataProviderCreateWithData(0, data, dataSize, freeData);
     CGImageRef image = CGImageCreate(width, height, 8, 32, rowBytes, imageColorSpace.get(),
         kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host, provider, 0, true, kCGRenderingIntentDefault);
@@ -141,19 +141,19 @@ static void freeData(void *, const void *data, size_t /* size */)
 #endif
 
     _context->markLayerComposited();
-    PlatformCALayer* layer = PlatformCALayer::platformCALayer((__bridge void*)self);
+    WebCore::PlatformCALayer* layer = WebCore::PlatformCALayer::platformCALayer((__bridge void*)self);
     if (layer && layer->owner())
         layer->owner()->platformCALayerLayerDidDisplay(layer);
 }
 
 #if USE(OPENGL)
-- (void)allocateIOSurfaceBackingStoreWithSize:(IntSize)size usingAlpha:(BOOL)usingAlpha
+- (void)allocateIOSurfaceBackingStoreWithSize:(WebCore::IntSize)size usingAlpha:(BOOL)usingAlpha
 {
     _bufferSize = size;
     _usingAlpha = usingAlpha;
-    _contentsBuffer = WebCore::IOSurface::create(size, sRGBColorSpaceRef());
-    _drawingBuffer = WebCore::IOSurface::create(size, sRGBColorSpaceRef());
-    _spareBuffer = WebCore::IOSurface::create(size, sRGBColorSpaceRef());
+    _contentsBuffer = WebCore::IOSurface::create(size, WebCore::sRGBColorSpaceRef());
+    _drawingBuffer = WebCore::IOSurface::create(size, WebCore::sRGBColorSpaceRef());
+    _spareBuffer = WebCore::IOSurface::create(size, WebCore::sRGBColorSpaceRef());
 
     ASSERT(_contentsBuffer);
     ASSERT(_drawingBuffer);

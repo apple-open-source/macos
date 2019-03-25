@@ -654,7 +654,8 @@ typedef uint32_t IOHIDSymbolicHotKeyValue;
 
 enum {
     kIOHIDOrientationTypePolar             = 0,
-    kIOHIDOrientationTypeCMUsage           = 1  // see kHIDUsage_AppleVendorMotion_DeviceOrientation* for possible options
+    kIOHIDOrientationTypeCMUsage           = 1,  // see kHIDUsage_AppleVendorMotion_DeviceOrientation* for possible options
+    kIOHIDOrientationTypeTilt              = 2
 };
 
 

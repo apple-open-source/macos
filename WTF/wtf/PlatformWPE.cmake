@@ -19,6 +19,7 @@ list(APPEND WTF_SOURCES
     glib/GLibUtilities.cpp
     glib/GRefPtr.cpp
     glib/RunLoopGLib.cpp
+    glib/URLGLib.cpp
 
     linux/CurrentProcessMemoryStatus.cpp
     linux/MemoryFootprintLinux.cpp

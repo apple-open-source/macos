@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1217,6 +1217,70 @@ EAPTLSTrustExceptionsCopy(CFStringRef domain, CFStringRef identifier,
     }
     my_CFRelease(&domain_list);
     return (exceptions);
+}
+
+#define PREFERENCES_USERNAME CFSTR("mobile")
+
+CFDictionaryRef
+EAPTLSCopyTrustExceptionBindings(CFStringRef domain, CFStringRef identifier)
+{
+    CFDictionaryRef 	domain_list = NULL;
+    CFDictionaryRef 	exceptions_list = NULL;
+
+    exceptions_change_check();
+    domain_list = CFPreferencesCopyValue(domain,
+					 kEAPTLSTrustExceptionsApplicationID,
+					 PREFERENCES_USERNAME,
+					 kCFPreferencesAnyHost);
+    if (isA_CFDictionary(domain_list) != NULL) {
+	exceptions_list = CFDictionaryGetValue(domain_list, identifier);
+	if (isA_CFDictionary(exceptions_list) != NULL) {
+	    CFRetain(exceptions_list);
+	}
+    }
+    my_CFRelease(&domain_list);
+    return (exceptions_list);
+}
+
+void
+EAPTLSSetTrustExceptionBindings(CFStringRef domain, CFStringRef identifier, CFDictionaryRef exceptionList)
+{
+    CFDictionaryRef 	domain_list = NULL;
+
+    exceptions_change_check();
+    domain_list = CFPreferencesCopyValue(domain,
+					 kEAPTLSTrustExceptionsApplicationID,
+					 PREFERENCES_USERNAME,
+					 kCFPreferencesAnyHost);
+    if (domain_list != NULL && isA_CFDictionary(domain_list) == NULL) {
+	my_CFRelease(&domain_list);
+    }
+    if (domain_list == NULL) {
+	domain_list = CFDictionaryCreate(NULL,
+					 (const void * *)&identifier,
+					 (const void * *)&exceptionList,
+					 1,
+					 &kCFTypeDictionaryKeyCallBacks,
+					 &kCFTypeDictionaryValueCallBacks);
+    }
+    else {
+	CFMutableDictionaryRef	new_domain_list;
+
+	new_domain_list = CFDictionaryCreateMutableCopy(NULL, 0, domain_list);
+	CFDictionarySetValue(new_domain_list, identifier, exceptionList);
+	CFRelease(domain_list);
+	domain_list = (CFDictionaryRef)new_domain_list;
+    }
+    CFPreferencesSetValue(domain, domain_list,
+			  kEAPTLSTrustExceptionsApplicationID,
+			  PREFERENCES_USERNAME,
+			  kCFPreferencesAnyHost);
+    CFPreferencesSynchronize(kEAPTLSTrustExceptionsApplicationID,
+			     PREFERENCES_USERNAME,
+			     kCFPreferencesAnyHost);
+    exceptions_change_notify();
+    my_CFRelease(&domain_list);
+    return;
 }
 
 /*

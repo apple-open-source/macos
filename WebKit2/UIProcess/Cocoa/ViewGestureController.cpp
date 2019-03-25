@@ -37,9 +37,8 @@
 #import <wtf/NeverDestroyed.h>
 #import <wtf/text/StringBuilder.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 static const Seconds swipeSnapshotRemovalWatchdogAfterFirstVisuallyNonEmptyLayoutDuration { 3_s };
 static const Seconds swipeSnapshotRemovalActiveLoadMonitoringInterval { 250_ms };
@@ -64,7 +63,7 @@ ViewGestureController::ViewGestureController(WebPageProxy& webPageProxy)
     , m_pendingSwipeTracker(webPageProxy, *this)
 #endif
 {
-    m_webPageProxy.process().addMessageReceiver(Messages::ViewGestureController::messageReceiverName(), m_webPageProxy.pageID(), *this);
+    connectToProcess();
 
     viewGestureControllersForAllPages().add(webPageProxy.pageID(), this);
 }
@@ -75,7 +74,25 @@ ViewGestureController::~ViewGestureController()
 
     viewGestureControllersForAllPages().remove(m_webPageProxy.pageID());
 
+    disconnectFromProcess();
+}
+
+void ViewGestureController::disconnectFromProcess()
+{
+    if (!m_isConnectedToProcess)
+        return;
+
     m_webPageProxy.process().removeMessageReceiver(Messages::ViewGestureController::messageReceiverName(), m_webPageProxy.pageID());
+    m_isConnectedToProcess = false;
+}
+
+void ViewGestureController::connectToProcess()
+{
+    if (m_isConnectedToProcess)
+        return;
+
+    m_webPageProxy.process().addMessageReceiver(Messages::ViewGestureController::messageReceiverName(), m_webPageProxy.pageID(), *this);
+    m_isConnectedToProcess = true;
 }
 
 ViewGestureController* ViewGestureController::controllerForGesture(uint64_t pageID, ViewGestureController::GestureID gestureID)
@@ -128,12 +145,21 @@ bool ViewGestureController::canSwipeInDirection(SwipeDirection direction) const
     return !!backForwardList.forwardItem();
 }
 
-void ViewGestureController::didStartProvisionalLoadForMainFrame()
+void ViewGestureController::didStartProvisionalOrSameDocumentLoadForMainFrame()
 {
-    if (auto provisionalOrSameDocumentLoadCallback = WTFMove(m_provisionalOrSameDocumentLoadCallback))
-        provisionalOrSameDocumentLoadCallback();
+    m_snapshotRemovalTracker.resume();
+#if PLATFORM(MAC)
+    requestRenderTreeSizeNotificationIfNeeded();
+#endif
+
+    if (auto loadCallback = WTFMove(m_loadCallback))
+        loadCallback();
 }
 
+void ViewGestureController::didStartProvisionalLoadForMainFrame()
+{
+    didStartProvisionalOrSameDocumentLoadForMainFrame();
+}
 
 void ViewGestureController::didFirstVisuallyNonEmptyLayoutForMainFrame()
 {
@@ -162,8 +188,7 @@ void ViewGestureController::didRestoreScrollPosition()
 
 void ViewGestureController::didReachMainFrameLoadTerminalState()
 {
-    if (m_provisionalOrSameDocumentLoadCallback) {
-        m_provisionalOrSameDocumentLoadCallback = nullptr;
+    if (m_snapshotRemovalTracker.isPaused() && m_snapshotRemovalTracker.hasRemovalCallback()) {
         removeSwipeSnapshot();
         return;
     }
@@ -176,25 +201,12 @@ void ViewGestureController::didReachMainFrameLoadTerminalState()
     // enough for us too.
     m_snapshotRemovalTracker.cancelOutstandingEvent(SnapshotRemovalTracker::VisuallyNonEmptyLayout);
 
-    // With Web-process scrolling, we check if the scroll position restoration succeeded by comparing the
-    // requested and actual scroll position. It's possible that we will never succeed in restoring
-    // the exact scroll position we wanted, in the case of a dynamic page, but we know that by
-    // main frame load time that we've gotten as close as we're going to get, so stop waiting.
-    // We don't want to do this with UI-side scrolling because scroll position restoration is baked into the transaction.
-    // FIXME: It seems fairly dirty to type-check the DrawingArea like this.
-    if (auto drawingArea = m_webPageProxy.drawingArea()) {
-        if (is<RemoteLayerTreeDrawingAreaProxy>(drawingArea))
-            m_snapshotRemovalTracker.cancelOutstandingEvent(SnapshotRemovalTracker::ScrollPositionRestoration);
-    }
-
     checkForActiveLoads();
 }
 
 void ViewGestureController::didSameDocumentNavigationForMainFrame(SameDocumentNavigationType type)
 {
-
-    if (auto provisionalOrSameDocumentLoadCallback = WTFMove(m_provisionalOrSameDocumentLoadCallback))
-        provisionalOrSameDocumentLoadCallback();
+    didStartProvisionalOrSameDocumentLoadForMainFrame();
 
     bool cancelledOutstandingEvent = false;
 
@@ -256,10 +268,15 @@ String ViewGestureController::SnapshotRemovalTracker::eventsDescription(Events e
 
 void ViewGestureController::SnapshotRemovalTracker::log(const String& log) const
 {
-#if !LOG_DISABLED
     auto sinceStart = MonotonicTime::now() - m_startTime;
-#endif
-    LOG(ViewGestures, "Swipe Snapshot Removal (%0.2f ms) - %s", sinceStart.milliseconds(), log.utf8().data());
+    RELEASE_LOG(ViewGestures, "Swipe Snapshot Removal (%0.2f ms) - %{public}s", sinceStart.milliseconds(), log.utf8().data());
+}
+    
+void ViewGestureController::SnapshotRemovalTracker::resume()
+{
+    if (isPaused() && m_outstandingEvents)
+        log("resume");
+    m_paused = false;
 }
 
 void ViewGestureController::SnapshotRemovalTracker::start(Events desiredEvents, WTF::Function<void()>&& removalCallback)
@@ -271,6 +288,10 @@ void ViewGestureController::SnapshotRemovalTracker::start(Events desiredEvents, 
     log("start");
 
     startWatchdog(swipeSnapshotRemovalWatchdogDuration);
+    
+    // Initially start out paused; we'll resume when the load is committed.
+    // This avoids processing callbacks from earlier loads.
+    pause();
 }
 
 void ViewGestureController::SnapshotRemovalTracker::reset()
@@ -289,6 +310,11 @@ bool ViewGestureController::SnapshotRemovalTracker::stopWaitingForEvent(Events e
     if (!(m_outstandingEvents & event))
         return false;
 
+    if (isPaused()) {
+        log("is paused; ignoring event: " + eventsDescription(event));
+        return false;
+    }
+
     log(logReason + eventsDescription(event));
 
     m_outstandingEvents &= ~event;
@@ -305,6 +331,11 @@ bool ViewGestureController::SnapshotRemovalTracker::eventOccurred(Events event)
 bool ViewGestureController::SnapshotRemovalTracker::cancelOutstandingEvent(Events event)
 {
     return stopWaitingForEvent(event, "wait for event cancelled: ");
+}
+
+bool ViewGestureController::SnapshotRemovalTracker::hasOutstandingEvent(Event event)
+{
+    return m_outstandingEvents & event;
 }
 
 void ViewGestureController::SnapshotRemovalTracker::fireRemovalCallbackIfPossible()

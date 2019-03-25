@@ -57,6 +57,7 @@ Includes
 
 #include "CCLEngine.h"
 #include "CCLEngine_defs.h"
+#include <AssertMacros.h>
 
 /* --------------------------------------------------------------------------
 Defines
@@ -1503,6 +1504,7 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
     chDelimiter = 0;
     if ((*s == chrDblQuote) || (*s == chrQuote)) {
         chDelimiter = *s++;
+        require_action(srcStrIndex < SV.scriptLineSize, exit, dstStrLen = 0);
         srcStrIndex++;
     }
 
@@ -1521,7 +1523,9 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
                 if (chDelimiter == *s)
                     done = 1;
                 else {
+                    require_action(srcStrIndex < SV.scriptLineSize, exit, dstStrLen = 0);
                     srcStrIndex++;
+                    require_action(dstStrLen < UINT8_MAX, exit, dstStrLen = 0);
                     dstStrLen++;
                     *d++ = *s++;
                 }
@@ -1535,7 +1539,9 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
                 if (!chDelimiter)
                     done = 1;
                 else {
+                    require_action(srcStrIndex < SV.scriptLineSize, exit, dstStrLen = 0);
                     srcStrIndex++;
+                    require_action(dstStrLen < UINT8_MAX, exit, dstStrLen = 0);
                     dstStrLen++;
                     *d++ = *s++;
                 }
@@ -1544,11 +1550,16 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
             // copy escape character into the destStr
             case chrBackSlash:
                 s++;
+                require_action(dstStrLen < UINT8_MAX, exit, dstStrLen = 0);
+                dstStrLen++;
+
                 if ((*s == chrBackSlash) || (*s == chrCaret)) {
+                    require_action(srcStrIndex < (SV.scriptLineSize - 1), exit, dstStrLen = 0);
                     srcStrIndex += 2;
                     *d++ = *s++;
                 }
                 else if (*s == 'x') {
+                    require_action(srcStrIndex < (SV.scriptLineSize - 3), exit, dstStrLen = 0);
                     srcStrIndex += 4;
                     s++;                   
                     escChar = ((*s - ((*s <= '9') ? '0' : ('A' - 10))) * 16);
@@ -1558,12 +1569,13 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
                     *d++ = escChar;
                 }
                 else {
+                    require_action(srcStrIndex < (SV.scriptLineSize - 2), exit, dstStrLen = 0);
                     srcStrIndex += 3;
                     escChar = ((*s++ - '0') * 10);
                     escChar += (*s++ - '0');
                     *d++ = escChar;
                 }
-                dstStrLen++;
+
                 break;
 
                 // copy the varString into the destStr
@@ -1573,13 +1585,16 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
                 int 	i;
                 
                 if (varSubstitution == 0) {
+                    require_action(srcStrIndex < SV.scriptLineSize, exit, dstStrLen = 0);
                     srcStrIndex++;
+                    require_action(dstStrLen < UINT8_MAX, exit, dstStrLen = 0);
                     dstStrLen++;
                     *d++ = *s++;
                     break;
                 }
                 
                 s++;
+                require_action(srcStrIndex < (SV.scriptLineSize - 1), exit, dstStrLen = 0);
                 srcStrIndex += 2;
 
                 switch (vs = *s++) {
@@ -1591,6 +1606,7 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
                     default: {
                         vs -= '0';
                         if (*s >= '0' && *s <= '9') {
+                            require_action(srcStrIndex < SV.scriptLineSize, exit, dstStrLen = 0);
                             srcStrIndex++;
                             vs = 10 * vs + *s++ - '0';
                         }
@@ -1609,8 +1625,10 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
                         maskPtr = d + SV.maskStart - 1;
                     }
 
-                    for (i = 1; i <= *vsp; i++, dstStrLen++)
+                    for (i = 1; i <= *vsp; i++, dstStrLen++) {
+                        require_action(dstStrLen < UINT8_MAX, exit, dstStrLen = 0);
                         *d++ = vsp[i];
+                    }
 
                     if (maskPtr) {
                         // %% centerDot = GetPasswordBulletChar();
@@ -1623,13 +1641,16 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
 
             // copy srcStr byte into the destStr
             default:
+                require_action(srcStrIndex < SV.scriptLineSize, exit, dstStrLen = 0);
                 srcStrIndex++;
+                require_action(dstStrLen < UINT8_MAX, exit, dstStrLen = 0);
                 dstStrLen++;
                 *d++ = *s++;
                 break;
         }
     }
 
+exit:
     *destStr = dstStrLen;			// pascal string - set length
     SV.scriptLineIndex = srcStrIndex + 1;	// skip over the string terminator
 	

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,21 +44,23 @@ public:
     static CoreAudioCaptureDeviceManager& singleton();
 
     const Vector<CaptureDevice>& captureDevices() final;
-    std::optional<CaptureDevice> captureDeviceWithPersistentID(CaptureDevice::DeviceType, const String&);
+    Optional<CaptureDevice> captureDeviceWithPersistentID(CaptureDevice::DeviceType, const String&);
 
-    std::optional<CoreAudioCaptureDevice> coreAudioDeviceWithUID(const String&);
+    Optional<CoreAudioCaptureDevice> coreAudioDeviceWithUID(const String&);
 
 private:
     CoreAudioCaptureDeviceManager() = default;
     ~CoreAudioCaptureDeviceManager() = default;
     
-    static OSStatus devicesChanged(AudioObjectID, UInt32, const AudioObjectPropertyAddress*, void*);
     Vector<CoreAudioCaptureDevice>& coreAudioCaptureDevices();
 
-    void refreshAudioCaptureDevices();
+    enum NotifyIfDevicesHaveChanged { Notify, DoNotNotify };
+    void refreshAudioCaptureDevices(NotifyIfDevicesHaveChanged);
 
     Vector<CaptureDevice> m_devices;
     Vector<CoreAudioCaptureDevice> m_coreAudioCaptureDevices;
+
+    AudioObjectPropertyListenerBlock m_listenerBlock;
 };
 
 } // namespace WebCore

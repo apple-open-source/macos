@@ -734,6 +734,60 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 ///w:stop
 
     /*
+     * no DA mount allowed except apfs preboot volume
+     */
+    if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceTDMLockedKey ) == kCFBooleanTrue )
+    {
+        status = EPERM;
+
+///w:start
+        /*
+         * In the future, use APFSVolumeRole when link with apfs framework can not be avoided.
+         */
+        if ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) )
+        {
+
+            CFTypeRef              roles;
+
+            roles = IORegistryEntrySearchCFProperty ( DADiskGetIOMedia( disk ),
+                                                      kIOServicePlane,
+                                                      CFSTR( "Role" ),
+                                                      kCFAllocatorDefault,
+                                                      0 );
+
+            if ( roles )
+            {
+
+                if (CFGetTypeID( roles ) == CFArrayGetTypeID())
+                {
+
+                    CFIndex count = CFArrayGetCount( roles );
+
+                    for ( int i=0; i<count; i++ )
+                    {
+                        CFStringRef role = CFArrayGetValueAtIndex( roles, i );
+
+                        if ( ( CFGetTypeID( role ) == CFStringGetTypeID() ) &&
+                             ( (CFStringCompare( role, CFSTR("PreBoot"), 0 ) == 0) ) )
+                        {
+                            status = 0;
+                            break;
+                        }
+                    }
+
+                }
+
+                CFRelease ( roles );
+            }
+
+        }
+///w:stop
+
+        if ( status )
+            goto DAMountWithArgumentsErr;
+    }
+
+    /*
      * Determine whether the volume is to be updated.
      */
 

@@ -229,7 +229,7 @@ DHCPv6SocketDelayedClose(void * arg1, void * arg2, void * arg3)
 	       "DHCPv6SocketDelayedClose(): called when socket in use");
 	return;
     }
-    my_log(LOG_INFO,
+    my_log(LOG_DEBUG,
 	   "DHCPv6SocketDelayedClose(): closing DHCPv6 socket %d",
 	   FDCalloutGetFD(S_globals->read_fd));
 
@@ -384,13 +384,13 @@ DHCPv6SocketCloseSocket(DHCPv6SocketRef sock)
 	return;
     }
     S_globals->read_fd_refcount--;
-    my_log(LOG_INFO, "DHCPv6SocketCloseSocket(%s): refcount %d",
+    my_log(LOG_DEBUG, "DHCPv6SocketCloseSocket(%s): refcount %d",
 	   if_name(sock->if_p), S_globals->read_fd_refcount);
     sock->fd_open = FALSE;
     if (S_globals->read_fd_refcount == 0) {
 	struct timeval tv;
 
-	my_log(LOG_INFO, 
+	my_log(LOG_DEBUG,
 	       "DHCPv6SocketCloseSocket(): scheduling delayed close");
 
 	tv.tv_sec = 1; /* close it after 1 second of non-use */
@@ -423,6 +423,7 @@ DHCPv6SocketRead(void * arg1, void * arg2)
     mhdr.msg_iovlen = 1;
     mhdr.msg_control = (caddr_t)cmsgbuf;
     mhdr.msg_controllen = sizeof(cmsgbuf);
+    mhdr.msg_flags = 0;
 
     /* get message */
     n = recvmsg(FDCalloutGetFD(S_globals->read_fd), &mhdr, 0);
@@ -479,7 +480,7 @@ DHCPv6SocketOpenSocket(DHCPv6SocketRef sock)
     }
     timer_cancel(S_globals->timer_callout);
     S_globals->read_fd_refcount++;
-    my_log(LOG_INFO, "DHCPv6SocketOpenSocket (%s): refcount %d", 
+    my_log(LOG_DEBUG, "DHCPv6SocketOpenSocket (%s): refcount %d",
 	   if_name(sock->if_p), S_globals->read_fd_refcount);
     sock->fd_open = TRUE;
     if (S_globals->read_fd_refcount > 1) {
@@ -499,7 +500,7 @@ DHCPv6SocketOpenSocket(DHCPv6SocketRef sock)
 		   strerror(errno));
 	    goto failed;
 	}
-	my_log(LOG_INFO,
+	my_log(LOG_DEBUG,
 	       "DHCPv6SocketOpenSocket(): opened DHCPv6 socket %d",
 	       sockfd);
 	/* register as a reader */

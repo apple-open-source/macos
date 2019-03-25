@@ -71,6 +71,7 @@ struct MessagePortIdentifier;
 struct MessageWithMessagePorts;
 struct MockMediaDevice;
 struct PluginInfo;
+struct PrewarmInformation;
 struct SecurityOriginData;
 struct SoupNetworkProxySettings;
 
@@ -97,7 +98,6 @@ class WebLoaderStrategy;
 class WebPage;
 class WebPageGroupProxy;
 class WebProcessSupplement;
-class WebToStorageProcessConnection;
 enum class WebsiteDataType;
 struct WebPageCreationParameters;
 struct WebPageGroupData;
@@ -109,6 +109,7 @@ struct WebsiteDataStoreParameters;
 class WebProcess : public ChildProcess {
 public:
     static WebProcess& singleton();
+    static constexpr ProcessType processType = ProcessType::WebContent;
 
     template <typename T>
     T* supplement()
@@ -165,19 +166,16 @@ public:
     PluginProcessConnectionManager& pluginProcessConnectionManager();
 #endif
 
-    EventDispatcher& eventDispatcher() { return *m_eventDispatcher; }
+    EventDispatcher& eventDispatcher() { return m_eventDispatcher.get(); }
 
     NetworkProcessConnection& ensureNetworkProcessConnection();
     void networkProcessConnectionClosed(NetworkProcessConnection*);
+    NetworkProcessConnection* existingNetworkProcessConnection() { return m_networkProcessConnection.get(); }
     WebLoaderStrategy& webLoaderStrategy();
 
     LibWebRTCNetwork& libWebRTCNetwork();
 
-    void webToStorageProcessConnectionClosed(WebToStorageProcessConnection*);
-    WebToStorageProcessConnection* existingWebToStorageProcessConnection() { return m_webToStorageProcessConnection.get(); }
-    WebToStorageProcessConnection& ensureWebToStorageProcessConnection(PAL::SessionID initialSessionID);
-
-    void setCacheModel(uint32_t);
+    void setCacheModel(CacheModel);
 
     void ensureLegacyPrivateBrowsingSessionInNetworkProcess();
     void addWebsiteDataStore(WebsiteDataStoreParameters&&);
@@ -194,7 +192,8 @@ public:
 #endif
 
     void updateActivePages();
-    void pageActivityStateDidChange(uint64_t pageID, WebCore::ActivityState::Flags changed);
+    void getActivePagesOriginsForTesting(CompletionHandler<void(Vector<String>&&)>&&);
+    void pageActivityStateDidChange(uint64_t pageID, OptionSet<WebCore::ActivityState::Flag> changed);
 
     void setHiddenPageDOMTimerThrottlingIncreaseLimit(int milliseconds);
 
@@ -203,7 +202,11 @@ public:
     void cancelPrepareToSuspend();
     void processDidResume();
 
-#if PLATFORM(IOS)
+    void sendPrewarmInformation(const URL&);
+
+    void isJITEnabled(CompletionHandler<void(bool)>&&);
+
+#if PLATFORM(IOS_FAMILY)
     void resetAllGeolocationPermissions();
 #endif
 
@@ -225,8 +228,6 @@ public:
     bool hasRichContentServices() const { return m_hasRichContentServices; }
 #endif
 
-    void isJITEnabled(CompletionHandler<void(bool)>&&);
-
     WebCore::ApplicationCacheStorage& applicationCacheStorage() { return *m_applicationCacheStorage; }
 
     void prefetchDNS(const String&);
@@ -235,7 +236,7 @@ public:
 
     WebCacheStorageProvider& cacheStorageProvider() { return m_cacheStorageProvider.get(); }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     void accessibilityProcessSuspendedNotification(bool);
 #endif
 
@@ -250,18 +251,27 @@ private:
     void initializeWebProcess(WebProcessCreationParameters&&);
     void platformInitializeWebProcess(WebProcessCreationParameters&&);
 
+    void prewarmGlobally();
+    void prewarmWithDomainInformation(const WebCore::PrewarmInformation&);
+
 #if USE(OS_STATE)
     void registerWithStateDumper();
 #endif
 
     void markAllLayersVolatile(WTF::Function<void(bool)>&& completionHandler);
     void cancelMarkAllLayersVolatile();
-    void setAllLayerTreeStatesFrozen(bool);
+
+    void freezeAllLayerTrees();
+    void unfreezeAllLayerTrees();
+
     void processSuspensionCleanupTimerFired();
 
     void clearCachedCredentials();
 
     void platformTerminate();
+
+    void setIsInProcessCache(bool);
+    void markIsNoLongerPrewarmed();
 
     void registerURLSchemeAsEmptyDocument(const String&);
     void registerURLSchemeAsSecure(const String&) const;
@@ -302,8 +312,6 @@ private:
     void mainThreadPing();
     void backgroundResponsivenessPing();
 
-    void syncIPCMessageWhileWaitingForSyncReplyForTesting();
-
     void didTakeAllMessagesForPort(Vector<WebCore::MessageWithMessagePorts>&& messages, uint64_t messageCallbackIdentifier, uint64_t messageBatchIdentifier);
     void checkProcessLocalPortForActivity(const WebCore::MessagePortIdentifier&, uint64_t callbackIdentifier);
     void didCheckRemotePortForActivity(uint64_t callbackIdentifier, bool hasActivity);
@@ -318,7 +326,7 @@ private:
     void setNetworkProxySettings(const WebCore::SoupNetworkProxySettings&);
 #endif
 #if ENABLE(SERVICE_WORKER)
-    void establishWorkerContextConnectionToStorageProcess(uint64_t pageGroupID, uint64_t pageID, const WebPreferencesStore&, PAL::SessionID);
+    void establishWorkerContextConnectionToNetworkProcess(uint64_t pageGroupID, uint64_t pageID, const WebPreferencesStore&, PAL::SessionID);
     void registerServiceWorkerClients();
 #endif
 
@@ -340,6 +348,9 @@ private:
 
     enum class ShouldAcknowledgeWhenReadyToSuspend { No, Yes };
     void actualPrepareToSuspend(ShouldAcknowledgeWhenReadyToSuspend);
+
+    bool hasPageRequiringPageCacheWhileSuspended() const;
+    bool areAllPagesSuspended() const;
 
     void ensureAutomationSessionProxy(const String& sessionIdentifier);
     void destroyAutomationSessionProxy();
@@ -381,11 +392,16 @@ private:
     void didReceiveSyncWebProcessMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
 
 #if PLATFORM(MAC)
+    void updateProcessName();
     void setScreenProperties(const WebCore::ScreenProperties&);
 #if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
     void scrollerStylePreferenceChanged(bool useOverlayScrollbars);
+    void displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags);
+    void displayWasRefreshed(CGDirectDisplayID);
 #endif
 #endif
+
+    void clearCurrentModifierStateForTesting();
 
     RefPtr<WebConnectionToUIProcess> m_webConnection;
 
@@ -393,8 +409,8 @@ private:
     HashMap<uint64_t, RefPtr<WebPageGroupProxy>> m_pageGroupMap;
     RefPtr<InjectedBundle> m_injectedBundle;
 
-    RefPtr<EventDispatcher> m_eventDispatcher;
-#if PLATFORM(IOS)
+    Ref<EventDispatcher> m_eventDispatcher;
+#if PLATFORM(IOS_FAMILY)
     RefPtr<ViewUpdateDispatcher> m_viewUpdateDispatcher;
 #endif
     RefPtr<WebInspectorInterruptDispatcher> m_webInspectorInterruptDispatcher;
@@ -403,7 +419,7 @@ private:
     HashSet<String> m_plugInAutoStartOrigins;
 
     bool m_hasSetCacheModel { false };
-    CacheModel m_cacheModel { CacheModelDocumentViewer };
+    CacheModel m_cacheModel { CacheModel::DocumentViewer };
 
 #if PLATFORM(COCOA)
     WTF::MachSendRight m_compositingRenderServerPort;
@@ -430,8 +446,6 @@ private:
 
     std::unique_ptr<WebAutomationSessionProxy> m_automationSessionProxy;
 
-    RefPtr<WebToStorageProcessConnection> m_webToStorageProcessConnection;
-
 #if ENABLE(NETSCAPE_PLUGIN_API)
     RefPtr<PluginProcessConnectionManager> m_pluginProcessConnectionManager;
 #endif
@@ -455,7 +469,12 @@ private:
     bool m_suppressMemoryPressureHandler { false };
 #if PLATFORM(MAC)
     std::unique_ptr<WebCore::CPUMonitor> m_cpuMonitor;
-    std::optional<double> m_cpuLimit;
+    Optional<double> m_cpuLimit;
+
+    enum class ProcessType { Inspector, ServiceWorker, PrewarmedWebContent, CachedWebContent, WebContent };
+    ProcessType m_processType { ProcessType::WebContent };
+    String m_uiProcessName;
+    String m_securityOrigin;
 #endif
 
     HashMap<WebCore::UserGestureToken *, uint64_t> m_userGestureTokens;
@@ -463,6 +482,7 @@ private:
 #if PLATFORM(WAYLAND)
     std::unique_ptr<WaylandCompositorDisplay> m_waylandCompositorDisplay;
 #endif
+    bool m_isSuspending { false };
 };
 
 } // namespace WebKit

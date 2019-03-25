@@ -41,10 +41,10 @@
 
 /* int _setjmp(jmp_buf env); */
 ENTRY_POINT(__setjmp)
+	mov		x12, sp
 	_OS_PTR_MUNGE_TOKEN(x16, x16)
 	_OS_PTR_MUNGE(x10, fp, x16)
 	_OS_PTR_MUNGE(x11, lr, x16)
-	mov		x12, sp
 	_OS_PTR_MUNGE(x12, x12, x16)
 	stp		x19, x20,	[x0, JMP_r19_20]
 	stp		x21, x22,	[x0, JMP_r21_22]
@@ -62,7 +62,6 @@ ENTRY_POINT(__setjmp)
 
 /* void _longjmp(jmp_buf env, int val); */
 ENTRY_POINT(__longjmp)
-	_OS_PTR_MUNGE_TOKEN(x16, x16)
 	ldp		x19, x20,	[x0, JMP_r19_20]
 	ldp		x21, x22,	[x0, JMP_r21_22]
 	ldp		x23, x24,	[x0, JMP_r23_24]
@@ -74,6 +73,7 @@ ENTRY_POINT(__longjmp)
 	ldp		d10, d11,	[x0, JMP_d10_d11]
 	ldp		d12, d13,	[x0, JMP_d12_d13]
 	ldp		d14, d15,	[x0, JMP_d14_d15]
+	_OS_PTR_MUNGE_TOKEN(x16, x16)
 	_OS_PTR_UNMUNGE(fp, x10, x16)
 	_OS_PTR_UNMUNGE(lr, x11, x16)
 	_OS_PTR_UNMUNGE(x12, x12, x16)

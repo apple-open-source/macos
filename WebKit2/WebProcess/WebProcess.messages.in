@@ -26,8 +26,11 @@ messages -> WebProcess LegacyReceiver {
     # Create a new page.
     CreateWebPage(uint64_t newPageID, struct WebKit::WebPageCreationParameters pageCreationParameters)
 
+    PrewarmGlobally();
+    PrewarmWithDomainInformation(struct WebCore::PrewarmInformation prewarmInformation)
+
     # Global preferences.
-    SetCacheModel(uint32_t cacheModel)
+    SetCacheModel(enum:uint8_t WebKit::CacheModel cacheModel)
 
     RegisterURLSchemeAsEmptyDocument(String scheme)
     RegisterURLSchemeAsSecure(String scheme)
@@ -79,9 +82,9 @@ messages -> WebProcess LegacyReceiver {
 
     ReleasePageCache()
 
-    FetchWebsiteData(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes) -> (struct WebKit::WebsiteData websiteData)
-    DeleteWebsiteData(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, WallTime modifiedSince) -> ()
-    DeleteWebsiteDataForOrigins(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, Vector<WebCore::SecurityOriginData> origins) -> ()
+    FetchWebsiteData(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes) -> (struct WebKit::WebsiteData websiteData) LegacySync
+    DeleteWebsiteData(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, WallTime modifiedSince) -> () LegacySync
+    DeleteWebsiteDataForOrigins(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, Vector<WebCore::SecurityOriginData> origins) -> () LegacySync
 
     SetHiddenPageDOMTimerThrottlingIncreaseLimit(int milliseconds)
 #if PLATFORM(COCOA)
@@ -97,7 +100,7 @@ messages -> WebProcess LegacyReceiver {
     EnsureAutomationSessionProxy(String sessionIdentifier)
     DestroyAutomationSessionProxy()
 
-    ProcessWillSuspendImminently() -> (bool handled)
+    ProcessWillSuspendImminently() -> (bool handled) LegacySync
     PrepareToSuspend()
     CancelPrepareToSuspend()
     ProcessDidResume()
@@ -111,14 +114,12 @@ messages -> WebProcess LegacyReceiver {
     GamepadDisconnected(unsigned index)
 #endif
 
-    SyncIPCMessageWhileWaitingForSyncReplyForTesting() -> ()
-
 #if USE(SOUP)
     SetNetworkProxySettings(struct WebCore::SoupNetworkProxySettings settings)
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    EstablishWorkerContextConnectionToStorageProcess(uint64_t pageGroupID, uint64_t pageID, struct WebKit::WebPreferencesStore store, PAL::SessionID initialSessionID)
+    EstablishWorkerContextConnectionToNetworkProcess(uint64_t pageGroupID, uint64_t pageID, struct WebKit::WebPreferencesStore store, PAL::SessionID initialSessionID)
     RegisterServiceWorkerClients()
 #endif
 
@@ -127,16 +128,21 @@ messages -> WebProcess LegacyReceiver {
     CheckProcessLocalPortForActivity(struct WebCore::MessagePortIdentifier port, uint64_t callbackIdentifier)
     MessagesAvailableForPort(struct WebCore::MessagePortIdentifier port)
 
+    SetIsInProcessCache(bool isInProcessCache)
+    MarkIsNoLongerPrewarmed()
     UpdateActivePages()
-
-    IsJITEnabled() -> (bool enabled) Delayed
+    GetActivePagesOriginsForTesting() -> (Vector<String> activeOrigins) Async
 
 #if PLATFORM(MAC)
     SetScreenProperties(struct WebCore::ScreenProperties screenProperties)
 #if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
     ScrollerStylePreferenceChanged(bool useOvelayScrollbars)
+    DisplayConfigurationChanged(CGDirectDisplayID displayID, CGDisplayChangeSummaryFlags flags)
+    DisplayWasRefreshed(uint32_t displayID)
 #endif
 #endif
+
+    IsJITEnabled() -> (bool enabled) Async
 
 #if PLATFORM(COCOA)
     SetMediaMIMETypes(Vector<String> types)
@@ -148,4 +154,6 @@ messages -> WebProcess LegacyReceiver {
     RemoveMockMediaDevice(String persistentId);
     ResetMockMediaDevices();
 #endif
+
+    ClearCurrentModifierStateForTesting()
 }

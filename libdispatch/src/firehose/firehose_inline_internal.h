@@ -354,7 +354,7 @@ firehose_buffer_tracepoint_reserve(firehose_buffer_t fb, uint64_t stamp,
 		// firehose_buffer_stream_chunk_install())
 		__firehose_critical_region_enter();
 #if KERNEL
-		new_state.fss_allocator = (uint32_t)cpu_number();
+		new_state.fss_allocator = 1;
 #else
 		new_state.fss_allocator = _dispatch_lock_value_for_self();
 #endif

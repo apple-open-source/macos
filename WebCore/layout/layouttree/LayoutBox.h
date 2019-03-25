@@ -42,71 +42,17 @@ class TreeBuilder;
 class Box : public CanMakeWeakPtr<Box> {
     WTF_MAKE_ISO_ALLOCATED(Box);
 public:
-    friend class TreeBuilder;
-
-    virtual ~Box();
-
-    bool establishesFormattingContext() const;
-    virtual bool establishesBlockFormattingContext() const;
-    virtual bool establishesInlineFormattingContext() const { return false; }
-
-    bool isInFlow() const { return !isFloatingOrOutOfFlowPositioned(); }
-    bool isPositioned() const { return isInFlowPositioned() || isOutOfFlowPositioned(); }
-    bool isInFlowPositioned() const { return isRelativelyPositioned() || isStickyPositioned(); }
-    bool isOutOfFlowPositioned() const { return isAbsolutelyPositioned(); }
-    bool isRelativelyPositioned() const;
-    bool isStickyPositioned() const;
-    bool isAbsolutelyPositioned() const;
-    bool isFixedPositioned() const;
-    bool isFloatingPositioned() const;
-
-    bool isFloatingOrOutOfFlowPositioned() const { return isFloatingPositioned() || isOutOfFlowPositioned(); }
-
-    const Container* containingBlock() const;
-    const Container& formattingContextRoot() const;
-    bool isDescendantOf(Container&) const;
-
-    bool isAnonymous() const { return !m_elementAttributes; }
-
-    bool isBlockLevelBox() const;
-    bool isInlineLevelBox() const;
-    bool isInlineBlockBox() const;
-    bool isBlockContainerBox() const;
-    bool isInitialContainingBlock() const;
-
-    bool isDocumentBox() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::Document; }
-    bool isBodyBox() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::Body; }
-
-    const Container* parent() const { return m_parent; }
-    const Box* nextSibling() const { return m_nextSibling; }
-    const Box* nextInFlowSibling() const;
-    const Box* nextInFlowOrFloatingSibling() const;
-    const Box* previousSibling() const { return m_previousSibling; }
-    const Box* previousInFlowSibling() const;
-    const Box* previousInFlowOrFloatingSibling() const;
-
-    typedef unsigned BaseTypeFlags;
-    bool isContainer() const { return m_baseTypeFlags & ContainerFlag; }
-    bool isBlockContainer() const { return m_baseTypeFlags & BlockContainerFlag; }
-    bool isInlineBox() const { return m_baseTypeFlags & InlineBoxFlag; }
-    bool isInlineContainer() const { return m_baseTypeFlags & InlineContainerFlag; }
-
-    bool isPaddingApplicable() const;
-
-    const RenderStyle& style() const { return m_style; }
-
-    std::optional<const Replaced> replaced() const { return m_replaced; }
-
-protected:
     enum class ElementType {
         Document,
         Body,
+        TableCell,
         TableColumn,
         TableRow,
         TableColumnGroup,
         TableRowGroup,
         TableHeaderGroup,
         TableFooterGroup,
+        Replaced,
         GenericElement
     };
 
@@ -118,25 +64,86 @@ protected:
         ContainerFlag         = 1 << 0,
         BlockContainerFlag    = 1 << 1,
         InlineBoxFlag         = 1 << 2,
-        InlineContainerFlag   = 1 << 3
+        InlineContainerFlag   = 1 << 3,
+        LineBreakBoxFlag      = 1 << 4
     };
-    Box(std::optional<ElementAttributes>, RenderStyle&&, BaseTypeFlags);
+    typedef unsigned BaseTypeFlags;
 
+    Box(Optional<ElementAttributes>, RenderStyle&&, BaseTypeFlags);
+    virtual ~Box();
+
+    bool establishesFormattingContext() const;
+    bool establishesBlockFormattingContext() const;
+    bool establishesBlockFormattingContextOnly() const;
+    virtual bool establishesInlineFormattingContext() const { return false; }
+
+    bool isInFlow() const { return !isFloatingOrOutOfFlowPositioned(); }
+    bool isPositioned() const { return isInFlowPositioned() || isOutOfFlowPositioned(); }
+    bool isInFlowPositioned() const { return isRelativelyPositioned() || isStickyPositioned(); }
+    bool isOutOfFlowPositioned() const { return isAbsolutelyPositioned(); }
+    bool isRelativelyPositioned() const;
+    bool isStickyPositioned() const;
+    bool isAbsolutelyPositioned() const;
+    bool isFixedPositioned() const;
+    bool isFloatingPositioned() const;
+    bool isLeftFloatingPositioned() const;
+    bool isRightFloatingPositioned() const;
+    bool hasFloatClear() const;
+
+    bool isFloatingOrOutOfFlowPositioned() const { return isFloatingPositioned() || isOutOfFlowPositioned(); }
+
+    const Container* containingBlock() const;
+    const Container& formattingContextRoot() const;
+    const Container& initialContainingBlock() const;
+
+    bool isDescendantOf(const Container&) const;
+
+    bool isAnonymous() const { return !m_elementAttributes; }
+
+    bool isBlockLevelBox() const;
+    bool isInlineLevelBox() const;
+    bool isInlineBlockBox() const;
+    bool isBlockContainerBox() const;
+    bool isInitialContainingBlock() const;
+
+    bool isDocumentBox() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::Document; }
+    bool isBodyBox() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::Body; }
+    bool isTableCell() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::TableCell; }
+
+    const Container* parent() const { return m_parent; }
+    const Box* nextSibling() const { return m_nextSibling; }
+    const Box* nextInFlowSibling() const;
+    const Box* nextInFlowOrFloatingSibling() const;
+    const Box* previousSibling() const { return m_previousSibling; }
+    const Box* previousInFlowSibling() const;
+    const Box* previousInFlowOrFloatingSibling() const;
+
+    bool isContainer() const { return m_baseTypeFlags & ContainerFlag; }
+    bool isBlockContainer() const { return m_baseTypeFlags & BlockContainerFlag; }
+    bool isInlineBox() const { return m_baseTypeFlags & InlineBoxFlag; }
+    bool isInlineContainer() const { return m_baseTypeFlags & InlineContainerFlag; }
+    bool isLineBreakBox() const { return m_baseTypeFlags & LineBreakBoxFlag; }
+
+    bool isPaddingApplicable() const;
     bool isOverflowVisible() const;
 
-private:
+    const RenderStyle& style() const { return m_style; }
+
+    const Replaced* replaced() const { return m_replaced.get(); }
+
     void setParent(Container& parent) { m_parent = &parent; }
     void setNextSibling(Box& nextSibling) { m_nextSibling = &nextSibling; }
     void setPreviousSibling(Box& previousSibling) { m_previousSibling = &previousSibling; }
 
+private:
     RenderStyle m_style;
-    std::optional<ElementAttributes> m_elementAttributes;
+    Optional<ElementAttributes> m_elementAttributes;
 
     Container* m_parent { nullptr };
     Box* m_previousSibling { nullptr };
     Box* m_nextSibling { nullptr };
 
-    std::optional<const Replaced> m_replaced;
+    std::unique_ptr<const Replaced> m_replaced;
 
     unsigned m_baseTypeFlags : 4;
 };

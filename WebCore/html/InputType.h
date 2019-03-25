@@ -40,7 +40,7 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "DateComponents.h"
 #endif
 
@@ -76,6 +76,8 @@ public:
     static Ref<InputType> create(HTMLInputElement&, const AtomicString&);
     static Ref<InputType> createText(HTMLInputElement&);
     virtual ~InputType();
+
+    void detachFromElement() { m_element = nullptr; }
 
     static bool themeSupportsDataListUI(InputType*);
 
@@ -226,6 +228,9 @@ public:
     virtual HTMLElement* sliderThumbElement() const { return nullptr; }
     virtual HTMLElement* sliderTrackElement() const { return nullptr; }
     virtual HTMLElement* placeholderElement() const;
+#if ENABLE(DATALIST_ELEMENT)
+    virtual HTMLElement* dataListButtonElement() const { return nullptr; }
+#endif
 
     // Miscellaneous functions.
 
@@ -261,9 +266,11 @@ public:
     virtual String defaultToolTip() const;
     virtual bool matchesIndeterminatePseudoClass() const;
     virtual bool shouldAppearIndeterminate() const;
+    virtual bool isPresentingAttachedView() const;
     virtual bool supportsSelectionAPI() const;
     virtual Color valueAsColor() const;
     virtual void selectColor(StringView);
+    virtual Vector<Color> suggestedColors() const;
 
     // Parses the specified string for the type, and return
     // the Decimal value for the parsing result if the parsing
@@ -291,14 +298,14 @@ public:
 
 #if ENABLE(DATALIST_ELEMENT)
     virtual void listAttributeTargetChanged();
-    virtual std::optional<Decimal> findClosestTickMarkValue(const Decimal&);
+    virtual Optional<Decimal> findClosestTickMarkValue(const Decimal&);
 #endif
 
 #if ENABLE(DRAG_SUPPORT)
     virtual bool receiveDroppedFiles(const DragData&);
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     virtual DateComponents::Type dateType() const;
 #endif
     virtual String displayString() const;
@@ -314,7 +321,7 @@ private:
     // Helper for stepUp()/stepDown(). Adds step value * count to the current value.
     ExceptionOr<void> applyStep(int count, AnyStepHandling, TextFieldEventBehavior);
 
-    // Raw pointer because the HTMLInputElement object owns this InputType object.
+    // m_element is null if this InputType is no longer associated with an element (either the element died or changed input type).
     WeakPtr<HTMLInputElement> m_element;
 };
 

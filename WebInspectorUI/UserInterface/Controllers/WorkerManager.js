@@ -30,17 +30,26 @@ WI.WorkerManager = class WorkerManager extends WI.Object
         super();
 
         this._connections = new Map;
+    }
 
-        if (window.WorkerAgent)
-            WorkerAgent.enable();
+    // Target
+
+    initializeTarget(target)
+    {
+        if (target.WorkerAgent)
+            target.WorkerAgent.enable();
     }
 
     // Public
 
     workerCreated(workerId, url)
     {
+        // Called from WI.WorkerObserver.
+
         let connection = new InspectorBackend.WorkerConnection(workerId);
         let workerTarget = new WI.WorkerTarget(workerId, url, connection);
+        workerTarget.initialize();
+
         WI.targetManager.addTarget(workerTarget);
 
         this._connections.set(workerId, connection);
@@ -51,6 +60,8 @@ WI.WorkerManager = class WorkerManager extends WI.Object
 
     workerTerminated(workerId)
     {
+        // Called from WI.WorkerObserver.
+
         let connection = this._connections.take(workerId);
 
         WI.targetManager.removeTarget(connection.target);
@@ -58,6 +69,8 @@ WI.WorkerManager = class WorkerManager extends WI.Object
 
     dispatchMessageFromWorker(workerId, message)
     {
+        // Called from WI.WorkerObserver.
+
         let connection = this._connections.get(workerId);
 
         console.assert(connection);

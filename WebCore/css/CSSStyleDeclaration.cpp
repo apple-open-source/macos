@@ -235,7 +235,7 @@ static CSSPropertyInfo parseJavaScriptCSSPropertyName(const AtomicString& proper
     *bufferPtr = '\0';
 
     unsigned outputLength = bufferPtr - buffer;
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     cssPropertyNameIOSAliasing(buffer, name, outputLength);
 #endif
 
@@ -255,11 +255,11 @@ CSSPropertyID CSSStyleDeclaration::getCSSPropertyIDFromJavaScriptPropertyName(co
     return parseJavaScriptCSSPropertyName(propertyName).propertyID;
 }
 
-std::optional<Variant<String, double>> CSSStyleDeclaration::namedItem(const AtomicString& propertyName)
+Optional<Variant<String, double>> CSSStyleDeclaration::namedItem(const AtomicString& propertyName)
 {
     auto propertyInfo = parseJavaScriptCSSPropertyName(propertyName);
     if (!propertyInfo.propertyID)
-        return std::nullopt;
+        return WTF::nullopt;
 
     auto value = getPropertyCSSValueInternal(propertyInfo.propertyID);
     if (!value) {

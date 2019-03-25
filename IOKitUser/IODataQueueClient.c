@@ -39,11 +39,12 @@ Boolean IODataQueueDataAvailable(IODataQueueMemory *dataQueue)
     return (dataQueue && (dataQueue->head != dataQueue->tail));
 }
 
-IODataQueueEntry *__IODataQueuePeek(IODataQueueMemory *dataQueue, uint64_t qSize)
+IODataQueueEntry *__IODataQueuePeek(IODataQueueMemory *dataQueue, uint64_t qSize, size_t *entrySize)
 {
     IODataQueueEntry *entry = 0;
     UInt32            headOffset;
     UInt32            tailOffset;
+    size_t            size = 0;
     
     if (!dataQueue) {
         return NULL;
@@ -77,22 +78,40 @@ IODataQueueEntry *__IODataQueuePeek(IODataQueueMemory *dataQueue, uint64_t qSize
             // Note: wrapping even with the UINT32_MAX checks, as we have to support
             // queueSize of UINT32_MAX
             entry = dataQueue->queue;
+            size = entry ? entry->size : 0;
+            
+            if ((size > UINT32_MAX - DATA_QUEUE_ENTRY_HEADER_SIZE) ||
+                (size + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize)) {
+                return NULL;
+            }
+            
+            if (entrySize) {
+                *entrySize = size;
+            }
+            
         } else {
             entry = head;
+            
+            if (entrySize) {
+                *entrySize = headSize;
+            }
         }
     }
+    
     
     return entry;
 }
 
 IODataQueueEntry *IODataQueuePeek(IODataQueueMemory *dataQueue)
 {
-    return __IODataQueuePeek(dataQueue, 0);
+    size_t entrySize = 0;
+    
+    return __IODataQueuePeek(dataQueue, 0, &entrySize);
 }
 
-IODataQueueEntry *_IODataQueuePeek(IODataQueueMemory *dataQueue, uint64_t queueSize)
+IODataQueueEntry *_IODataQueuePeek(IODataQueueMemory *dataQueue, uint64_t queueSize, size_t *entrySize)
 {
-    return __IODataQueuePeek(dataQueue, queueSize);
+    return __IODataQueuePeek(dataQueue, queueSize, entrySize);
 }
 
 IOReturn

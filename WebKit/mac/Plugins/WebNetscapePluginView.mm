@@ -377,10 +377,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             RgnHandle clipRegion = NewRgn();
             qdPortState->clipRegion = clipRegion;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             CGContextRef currentContext = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
-#pragma clang diagnostic pop
+            ALLOW_DEPRECATED_DECLARATIONS_END
             if (currentContext && CGContextGetType(currentContext) == kCGContextTypeBitmap) {
                 // We check for kCGContextTypeBitmap here, because if we just called CGBitmapContextGetData
                 // on any context, we'd log to the console every time. But even if currentContext is a
@@ -503,10 +502,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             
             ASSERT([NSView focusView] == self);
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
-#pragma clang diagnostic pop
+            ALLOW_DEPRECATED_DECLARATIONS_END
 
             PortState_CG *cgPortState = (PortState_CG *)malloc(sizeof(PortState_CG));
             portState = (PortState)cgPortState;
@@ -671,7 +669,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     ASSERT(_eventHandler);
     {
         JSC::JSLock::DropAllLocks dropAllLocks(commonVM());
-        UserGestureIndicator gestureIndicator(_eventHandler->currentEventIsUserGesture() ? std::optional<ProcessingUserGestureState>(ProcessingUserGesture) : std::nullopt);
+        UserGestureIndicator gestureIndicator(_eventHandler->currentEventIsUserGesture() ? Optional<ProcessingUserGestureState>(ProcessingUserGesture) : WTF::nullopt);
         acceptedEvent = [_pluginPackage.get() pluginFuncs]->event(plugin, event);
     }
     [self didCallPlugInFunction];
@@ -695,10 +693,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 {
     ASSERT(_eventHandler);
     
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
     _eventHandler->drawRect(context, rect);
 }
 
@@ -1338,10 +1335,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         if (printedPluginBitmap) {
             // Flip the bitmap before drawing because the QuickDraw port is flipped relative
             // to this view.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             CGContextRef cgContext = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
-#pragma clang diagnostic pop
+            ALLOW_DEPRECATED_DECLARATIONS_END
             CGContextSaveGState(cgContext);
             NSRect bounds = [self bounds];
             CGContextTranslateCTM(cgContext, 0.0f, NSHeight(bounds));
@@ -1521,7 +1517,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         // Don't call NPP_NewStream and other stream methods if there is no JS result to deliver. This is what Mozilla does.
         NSData *JSData = [result dataUsingEncoding:NSUTF8StringEncoding];
         
-        RefPtr<WebNetscapePluginStream> stream = WebNetscapePluginStream::create([NSURLRequest requestWithURL:URL], plugin, [JSPluginRequest sendNotification], [JSPluginRequest notifyData]);
+        auto stream = WebNetscapePluginStream::create([NSURLRequest requestWithURL:URL], plugin, [JSPluginRequest sendNotification], [JSPluginRequest notifyData]);
         
         RetainPtr<NSURLResponse> response = adoptNS([[NSURLResponse alloc] initWithURL:URL 
                                                                              MIMEType:@"text/plain" 
@@ -1682,9 +1678,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         [self performSelector:@selector(loadPluginRequest:) withObject:pluginRequest afterDelay:0];
         [pluginRequest release];
     } else {
-        RefPtr<WebNetscapePluginStream> stream = WebNetscapePluginStream::create(request, plugin, sendNotification, notifyData);
+        auto stream = WebNetscapePluginStream::create(request, plugin, sendNotification, notifyData);
 
-        streams.add(stream.get());
+        streams.add(stream.copyRef());
         stream->start();
     }
     
@@ -1724,19 +1720,18 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
     if (file) {
         // If we're posting a file, buf is either a file URL or a path to the file.
-        NSString *bufString = (NSString *)CFStringCreateWithCString(kCFAllocatorDefault, buf, kCFStringEncodingWindowsLatin1);
+        auto bufString = adoptCF(CFStringCreateWithCString(kCFAllocatorDefault, buf, kCFStringEncodingWindowsLatin1));
         if (!bufString) {
             return NPERR_INVALID_PARAM;
         }
-        NSURL *fileURL = [NSURL _web_URLWithDataAsString:bufString];
+        NSURL *fileURL = [NSURL _web_URLWithDataAsString:(__bridge NSString *)bufString.get()];
         NSString *path;
         if ([fileURL isFileURL]) {
             path = [fileURL path];
         } else {
-            path = bufString;
+            path = (__bridge NSString *)bufString.get();
         }
         postData = [NSData dataWithContentsOfFile:path];
-        CFRelease(bufString);
         if (!postData) {
             return NPERR_FILE_NOT_FOUND;
         }
@@ -1866,7 +1861,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     
     LOG(Plugins, "NPN_Status: %@", status);
     WebView *wv = [self webView];
-    [[wv _UIDelegateForwarder] webView:wv setStatusText:(NSString *)status];
+    [[wv _UIDelegateForwarder] webView:wv setStatusText:(__bridge NSString *)status];
     CFRelease(status);
 }
 
@@ -2120,7 +2115,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (!currentEvent)
         return NPERR_GENERIC_ERROR;
     
-    [NSMenu popUpContextMenu:(NSMenu *)menu withEvent:currentEvent forView:self];
+    [NSMenu popUpContextMenu:(__bridge NSMenu *)menu withEvent:currentEvent forView:self];
     return NPERR_NO_ERROR;
 }
 

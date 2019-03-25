@@ -28,6 +28,11 @@
 #if USE(LIBWEBRTC)
 
 #include "RealtimeOutgoingVideoSource.h"
+#include "PixelBufferConformerCV.h"
+#include <webrtc/api/video/video_rotation.h>
+
+typedef struct OpaqueVTImageRotationSession* VTImageRotationSessionRef;
+typedef struct __CVPixelBufferPool* CVPixelBufferPoolRef;
 
 namespace WebCore {
 
@@ -38,8 +43,21 @@ public:
 private:
     explicit RealtimeOutgoingVideoSourceCocoa(Ref<MediaStreamTrackPrivate>&&);
 
+    rtc::scoped_refptr<webrtc::VideoFrameBuffer> createBlackFrame(size_t width, size_t height) final;
+
     // MediaStreamTrackPrivate::Observer API
     void sampleBufferUpdated(MediaStreamTrackPrivate&, MediaSample&) final;
+
+    RetainPtr<CVPixelBufferRef> convertToYUV(CVPixelBufferRef);
+    RetainPtr<CVPixelBufferRef> rotatePixelBuffer(CVPixelBufferRef, webrtc::VideoRotation);
+
+    std::unique_ptr<PixelBufferConformerCV> m_pixelBufferConformer;
+    RetainPtr<VTImageRotationSessionRef> m_rotationSession;
+    RetainPtr<CVPixelBufferPoolRef> m_rotationPool;
+    webrtc::VideoRotation m_currentRotationAngle { webrtc::kVideoRotation_0 };
+    size_t m_rotatedWidth { 0 };
+    size_t m_rotatedHeight { 0 };
+    OSType m_rotatedFormat;
 
 #if !RELEASE_LOG_DISABLED
     size_t m_numberOfFrames { 0 };

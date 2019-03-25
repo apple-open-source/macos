@@ -59,6 +59,8 @@ struct IOPCIDeviceExpansionData
     uint16_t l1pmCapability;
     uint32_t l1pmCaps;
 
+    uint16_t fpbCapability;
+
     uint16_t aerCapability;
 
     uint16_t            msiCapability;
@@ -157,6 +159,11 @@ struct IOPCIConfigSave
 	uint32_t				 savedAERUMask;       // 0x08
 	uint32_t				 savedAERCMask;       // 0x14
 	uint32_t				 savedAERRootCommand; // 0x2c
+
+	// fpb save
+	uint32_t				 savedFPBControl1;    // 0x08
+	uint32_t				 savedFPBControl2;    // 0x0C
+	uint32_t				 savedFPBRIDVector0;   // 0x20
 };
 
 struct IOPCIConfigShadow
@@ -235,6 +242,7 @@ enum
 #define kIOPCIPMCSStateKey        "IOPCIPMCSState"
 #define kIOPCIHPTypeKey           "IOPCIHPType"
 #define kIOPCIMSIFlagsKey         "pci-msi-flags"
+#define kIOPCIMSILimitKey         "pci-msi-limit"
 
 #ifndef kACPIDevicePathKey
 #define kACPIDevicePathKey             "acpi-path"
@@ -298,6 +306,8 @@ enum
 #ifndef kIOMemoryDescriptorOptionsKey
 #define kIOMemoryDescriptorOptionsKey	 "IOMemoryDescriptorOptions"
 #endif
+
+#define kIOPCIDeviceChangedKey			"IOPCIDeviceChanged"
 
 extern const    IORegistryPlane * gIOPCIACPIPlane;
 extern const    OSSymbol *        gIOPlatformDeviceASPMEnableKey;

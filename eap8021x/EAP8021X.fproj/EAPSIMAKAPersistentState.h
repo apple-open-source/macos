@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,6 +53,9 @@ EAPSIMAKAPersistentStateGetPseudonym(EAPSIMAKAPersistentStateRef persist,
 Boolean
 EAPSIMAKAPersistentStateTemporaryUsernameAvailable(EAPSIMAKAPersistentStateRef persist);
 
+CFStringRef
+EAPSIMAKAPersistentStateGetSSID(EAPSIMAKAPersistentStateRef persist);
+
 void
 EAPSIMAKAPersistentStateSetPseudonym(EAPSIMAKAPersistentStateRef persist,
 				     CFStringRef pseudonym);
@@ -60,9 +63,16 @@ EAPSIMAKAPersistentStateSetPseudonym(EAPSIMAKAPersistentStateRef persist,
 CFStringRef
 EAPSIMAKAPersistentStateGetReauthID(EAPSIMAKAPersistentStateRef persist);
 
+Boolean
+EAPSIMAKAPersistentStateGetReauthIDUsed(EAPSIMAKAPersistentStateRef persist);
+
 void
 EAPSIMAKAPersistentStateSetReauthID(EAPSIMAKAPersistentStateRef persist,
 				    CFStringRef reauth_id);
+
+void
+EAPSIMAKAPersistentStateSetReauthIDUsed(EAPSIMAKAPersistentStateRef persist,
+					  Boolean reauth_id_used);
 
 uint16_t
 EAPSIMAKAPersistentStateGetCounter(EAPSIMAKAPersistentStateRef persist);
@@ -73,11 +83,11 @@ EAPSIMAKAPersistentStateSetCounter(EAPSIMAKAPersistentStateRef persist,
 EAPSIMAKAPersistentStateRef
 EAPSIMAKAPersistentStateCreate(EAPType type, int master_key_size,
 			       CFStringRef imsi,
-			       EAPSIMAKAAttributeType identity_type);
+			       EAPSIMAKAAttributeType identity_type,
+			       CFStringRef ssid);
 void
 EAPSIMAKAPersistentStateSave(EAPSIMAKAPersistentStateRef persist,
-			     Boolean master_key_valid,
-			     CFStringRef ssid);
+			     Boolean master_key_valid);
 void
 EAPSIMAKAPersistentStateRelease(EAPSIMAKAPersistentStateRef persist);
 

@@ -27,13 +27,13 @@
 #include "ClipboardUtilitiesWin.h"
 
 #include "DocumentFragment.h"
-#include "URL.h"
 #include "TextEncoding.h"
 #include "markup.h"
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <wininet.h> // for INTERNET_MAX_URL_LENGTH
 #include <wtf/StringExtras.h>
+#include <wtf/URL.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
@@ -272,7 +272,7 @@ void markupToCFHTML(const String& markup, const String& srcURL, Vector<char>& re
     const char* startMarkup = "<HTML>\n<BODY>\n<!--StartFragment-->\n";
     const char* endMarkup = "\n<!--EndFragment-->\n</BODY>\n</HTML>";
 
-    CString sourceURLUTF8 = srcURL == blankURL() ? "" : srcURL.utf8();
+    CString sourceURLUTF8 = srcURL == WTF::blankURL() ? "" : srcURL.utf8();
     CString markupUTF8 = markup.utf8();
 
     // calculate offsets
@@ -424,7 +424,7 @@ void setFileDescriptorData(IDataObject* dataObject, int size, const String& pass
 {
     String pathname = passedPathname;
 
-    STGMEDIUM medium = { 0 };
+    STGMEDIUM medium { };
     medium.tymed = TYMED_HGLOBAL;
 
     medium.hGlobal = ::GlobalAlloc(GPTR, sizeof(FILEGROUPDESCRIPTOR));
@@ -446,7 +446,7 @@ void setFileDescriptorData(IDataObject* dataObject, int size, const String& pass
 
 void setFileContentData(IDataObject* dataObject, int size, void* dataBlob)
 {
-    STGMEDIUM medium = { 0 };
+    STGMEDIUM medium { };
     medium.tymed = TYMED_HGLOBAL;
 
     medium.hGlobal = ::GlobalAlloc(GPTR, size);
@@ -695,9 +695,9 @@ typedef void (*GetStringFunction)(IDataObject*, FORMATETC*, Vector<String>&);
 typedef void (*SetStringFunction)(IDataObject*, FORMATETC*, const Vector<String>&);
 
 struct ClipboardDataItem {
+    FORMATETC* format;
     GetStringFunction getString;
     SetStringFunction setString;
-    FORMATETC* format;
 
     ClipboardDataItem(FORMATETC* format, GetStringFunction getString, SetStringFunction setString): format(format), getString(getString), setString(setString) { }
 };
@@ -754,7 +754,7 @@ void getCFData(IDataObject* data, FORMATETC* format, Vector<String>& dataStrings
 
 void setUCharData(IDataObject* data, FORMATETC* format, const Vector<String>& dataStrings)
 {
-    STGMEDIUM medium = {0};
+    STGMEDIUM medium { };
     medium.tymed = TYMED_HGLOBAL;
 
     medium.hGlobal = createGlobalData(dataStrings.first());
@@ -766,7 +766,7 @@ void setUCharData(IDataObject* data, FORMATETC* format, const Vector<String>& da
 
 void setUtf8Data(IDataObject* data, FORMATETC* format, const Vector<String>& dataStrings)
 {
-    STGMEDIUM medium = {0};
+    STGMEDIUM medium { };
     medium.tymed = TYMED_HGLOBAL;
 
     CString charString = dataStrings.first().utf8();
@@ -785,7 +785,7 @@ void setUtf8Data(IDataObject* data, FORMATETC* format, const Vector<String>& dat
 #if USE(CF)
 void setCFData(IDataObject* data, FORMATETC* format, const Vector<String>& dataStrings)
 {
-    STGMEDIUM medium = {0};
+    STGMEDIUM medium { };
     medium.tymed = TYMED_HGLOBAL;
 
     SIZE_T dropFilesSize = sizeof(DROPFILES) + (sizeof(WCHAR) * (dataStrings.first().length() + 2));

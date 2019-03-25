@@ -37,7 +37,6 @@
 #import "PlatformPasteboard.h"
 #import "PlatformStrategies.h"
 #import "SharedBuffer.h"
-#import "URL.h"
 #import "UTIUtilities.h"
 #import "WebNSAttributedStringExtras.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
@@ -45,6 +44,7 @@
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/StdLibExtras.h>
+#import <wtf/URL.h>
 #import <wtf/text/StringBuilder.h>
 #import <wtf/unicode/CharacterNames.h>
 
@@ -52,10 +52,10 @@ namespace WebCore {
 
 const char* const WebArchivePboardType = "Apple Web Archive pasteboard type";
 const char* const WebURLNamePboardType = "public.url-name";
+const char* const WebURLsWithTitlesPboardType = "WebURLsWithTitlesPboardType";
 
 const char WebSmartPastePboardType[] = "NeXT smart paste pasteboard type";
 const char WebURLPboardType[] = "public.url";
-const char WebURLsWithTitlesPboardType[] = "WebURLsWithTitlesPboardType";
 
 static const Vector<String> writableTypesForURL()
 {
@@ -99,19 +99,17 @@ Pasteboard::Pasteboard(const String& pasteboardName, const Vector<String>& promi
 
 std::unique_ptr<Pasteboard> Pasteboard::createForCopyAndPaste()
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return std::make_unique<Pasteboard>(NSGeneralPboard);
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 #if ENABLE(DRAG_SUPPORT)
 std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop()
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return std::make_unique<Pasteboard>(NSDragPboard);
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop(const DragData& dragData)
@@ -223,6 +221,13 @@ void Pasteboard::writeTrustworthyWebURLsPboardType(const PasteboardURL& pasteboa
     m_changeCount = platformStrategies()->pasteboardStrategy()->setURL(url, m_pasteboardName);
 }
 
+void Pasteboard::write(const Color& color)
+{
+    Vector<String> types = { legacyColorPasteboardType() };
+    platformStrategies()->pasteboardStrategy()->setTypes(types, m_pasteboardName);
+    m_changeCount = platformStrategies()->pasteboardStrategy()->setColor(color, m_pasteboardName);
+}
+
 static NSFileWrapper* fileWrapper(const PasteboardImage& pasteboardImage)
 {
     NSFileWrapper *wrapper = [[[NSFileWrapper alloc] initRegularFileWithContents:pasteboardImage.resourceData->createNSData().get()] autorelease];
@@ -250,7 +255,7 @@ void Pasteboard::write(const PasteboardImage& pasteboardImage)
         return;
 
     // FIXME: Why can we assert this? It doesn't seem like it's guaranteed.
-    ASSERT(MIMETypeRegistry::isSupportedImageResourceMIMEType(pasteboardImage.resourceMIMEType));
+    ASSERT(MIMETypeRegistry::isSupportedImageMIMEType(pasteboardImage.resourceMIMEType));
 
     auto types = writableTypesForImage();
     if (pasteboardImage.dataInWebArchiveFormat)
@@ -481,22 +486,26 @@ void Pasteboard::clear(const String& type)
     m_changeCount = platformStrategies()->pasteboardStrategy()->setStringForType(emptyString(), cocoaType, m_pasteboardName);
 }
 
-String Pasteboard::readPlatformValueAsString(const String& domType, long changeCount, const String& pasteboardName)
+Vector<String> Pasteboard::readPlatformValuesAsStrings(const String& domType, long changeCount, const String& pasteboardName)
 {
-    const String& cocoaType = cocoaTypeFromHTMLClipboardType(domType);
-    String cocoaValue;
+    auto& strategy = *platformStrategies()->pasteboardStrategy();
+    auto cocoaType = cocoaTypeFromHTMLClipboardType(domType);
+    if (cocoaType.isEmpty())
+        return { };
 
-    if (cocoaType == String(legacyStringPasteboardType()))
-        cocoaValue = [platformStrategies()->pasteboardStrategy()->stringForType(cocoaType, pasteboardName) precomposedStringWithCanonicalMapping];
-    else if (!cocoaType.isEmpty())
-        cocoaValue = platformStrategies()->pasteboardStrategy()->stringForType(cocoaType, pasteboardName);
+    auto values = strategy.allStringsForType(cocoaType, pasteboardName);
+    if (cocoaType == String(legacyStringPasteboardType())) {
+        values = values.map([&] (auto& value) -> String {
+            return [value precomposedStringWithCanonicalMapping];
+        });
+    }
 
     // Enforce changeCount ourselves for security.  We check after reading instead of before to be
     // sure it doesn't change between our testing the change count and accessing the data.
-    if (!cocoaValue.isEmpty() && changeCount == platformStrategies()->pasteboardStrategy()->changeCount(pasteboardName))
-        return cocoaValue;
+    if (changeCount != platformStrategies()->pasteboardStrategy()->changeCount(pasteboardName))
+        return { };
 
-    return String();
+    return values;
 }
 
 static String utiTypeFromCocoaType(const String& type)
@@ -607,18 +616,16 @@ static void setDragImageImpl(NSImage *image, NSPoint offset)
     RetainPtr<NSBitmapImageRep> bitmapImage;
     if (!imageRep || ![imageRep isKindOfClass:[NSBitmapImageRep class]] || !NSEqualSizes(imageRep.size, imageSize)) {
         [image lockFocus];
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         bitmapImage = adoptNS([[NSBitmapImageRep alloc] initWithFocusedViewRect:*(NSRect*)&imageRect]);
-#pragma clang diagnostic pop
+        ALLOW_DEPRECATED_DECLARATIONS_END
         [image unlockFocus];
         
         // we may have to flip the bits we just read if the image was flipped since it means the cache was also
         // and CoreDragSetImage can't take a transform for rendering.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         flipImage = image.isFlipped;
-#pragma clang diagnostic pop
+        ALLOW_DEPRECATED_DECLARATIONS_END
     } else {
         flipImage = false;
         bitmapImage = (NSBitmapImageRep *)imageRep;

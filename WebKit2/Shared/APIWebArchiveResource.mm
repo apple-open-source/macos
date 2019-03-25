@@ -30,12 +30,11 @@
 
 #include "APIData.h"
 #include <WebCore/ArchiveResource.h>
-#include <WebCore/URL.h>
 #include <wtf/RetainPtr.h>
-
-using namespace WebCore;
+#include <wtf/URL.h>
 
 namespace API {
+using namespace WebCore;
 
 Ref<WebArchiveResource> WebArchiveResource::create(API::Data* data, const String& URL, const String& MIMEType, const String& textEncoding)
 {
@@ -47,8 +46,8 @@ Ref<WebArchiveResource> WebArchiveResource::create(RefPtr<ArchiveResource>&& arc
     return adoptRef(*new WebArchiveResource(WTFMove(archiveResource)));
 }
 
-WebArchiveResource::WebArchiveResource(API::Data* data, const String& URL, const String& MIMEType, const String& textEncoding)
-    : m_archiveResource(ArchiveResource::create(SharedBuffer::create(data->bytes(), data->size()), WebCore::URL(WebCore::URL(), URL), MIMEType, textEncoding, String()))
+WebArchiveResource::WebArchiveResource(API::Data* data, const String& url, const String& MIMEType, const String& textEncoding)
+    : m_archiveResource(ArchiveResource::create(SharedBuffer::create(data->bytes(), data->size()), WTF::URL(WTF::URL(), url), MIMEType, textEncoding, String()))
 {
 }
 
@@ -61,7 +60,7 @@ WebArchiveResource::~WebArchiveResource()
 {
 }
 
-static void releaseCFData(unsigned char*, const void* data)
+static void releaseWebArchiveResourceData(unsigned char*, const void* data)
 {
     // Balanced by CFRetain in WebArchiveResource::data().
     CFRelease(data);
@@ -71,10 +70,10 @@ Ref<API::Data> WebArchiveResource::data()
 {
     RetainPtr<CFDataRef> cfData = m_archiveResource->data().createCFData();
 
-    // Balanced by CFRelease in releaseCFData.
+    // Balanced by CFRelease in releaseWebArchiveResourceData.
     CFRetain(cfData.get());
 
-    return API::Data::createWithoutCopying(CFDataGetBytePtr(cfData.get()), CFDataGetLength(cfData.get()), releaseCFData, cfData.get());
+    return API::Data::createWithoutCopying(CFDataGetBytePtr(cfData.get()), CFDataGetLength(cfData.get()), releaseWebArchiveResourceData, cfData.get());
 }
 
 String WebArchiveResource::URL()

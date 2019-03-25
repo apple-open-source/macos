@@ -85,7 +85,7 @@ NetscapePluginHostProxy* NetscapePluginHostManager::hostForPlugin(const WTF::Str
     mach_port_t pluginHostPort = MACH_PORT_NULL;
     ProcessSerialNumber pluginHostPSN;
     if (!spawnPluginHost(pluginPath, pluginArchitecture, clientPort, pluginHostPort, pluginHostPSN)) {
-        mach_port_destroy(mach_task_self(), clientPort);
+        mach_port_mod_refs(mach_task_self(), clientPort, MACH_PORT_RIGHT_RECEIVE, -1);
         m_pluginHosts.remove(result.iterator);
         return nullptr;
     }
@@ -117,11 +117,11 @@ static NSString *preferredBundleLocalizationName()
     LangCode languageCode;
     RegionCode regionCode;
 
-    Boolean success = CFLocaleGetLanguageRegionEncodingForLocaleIdentifier((CFStringRef)language, &languageCode, &regionCode, nullptr, nullptr);
+    Boolean success = CFLocaleGetLanguageRegionEncodingForLocaleIdentifier((__bridge CFStringRef)language, &languageCode, &regionCode, nullptr, nullptr);
     if (!success)
         return @"en_US";
 
-    return adoptCF(CFLocaleCreateCanonicalLocaleIdentifierFromScriptManagerCodes(0, languageCode, regionCode)).bridgingAutorelease();
+    return CFBridgingRelease(CFLocaleCreateCanonicalLocaleIdentifierFromScriptManagerCodes(0, languageCode, regionCode));
 }
 
 bool NetscapePluginHostManager::spawnPluginHost(const String& pluginPath, cpu_type_t pluginArchitecture, mach_port_t clientPort, mach_port_t& pluginHostPort, ProcessSerialNumber& pluginHostPSN)
@@ -187,10 +187,9 @@ bool NetscapePluginHostManager::spawnPluginHost(const String& pluginPath, cpu_ty
 
     ProcessSerialNumber psn;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     GetCurrentProcess(&psn);
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
 
     ASSERT(MACH_PORT_VALID(clientPort));
     kr = _WKPHCheckInWithPluginHost(pluginHostPort, static_cast<uint8_t*>(const_cast<void*>([data bytes])), [data length], clientPort, psn.highLongOfPSN, psn.lowLongOfPSN, renderServerPort,
@@ -272,7 +271,7 @@ RefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePlugin
     NSData *data = [NSPropertyListSerialization dataWithPropertyList:properties.get() format:NSPropertyListBinaryFormat_v1_0 options:0 error:nullptr];
     ASSERT(data);
     
-    RefPtr<NetscapePluginInstanceProxy> instance = NetscapePluginInstanceProxy::create(hostProxy, pluginView, fullFrame);
+    auto instance = NetscapePluginInstanceProxy::create(hostProxy, pluginView, fullFrame);
     uint32_t requestID = instance->nextRequestID();
     kern_return_t kr = _WKPHInstantiatePlugin(hostProxy->port(), requestID, static_cast<uint8_t*>(const_cast<void*>([data bytes])), [data length], instance->pluginID());
     if (kr == MACH_SEND_INVALID_DEST) {
@@ -300,7 +299,7 @@ RefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePlugin
     instance->setRenderContextID(reply->m_renderContextID);
     instance->setRendererType(reply->m_rendererType);
 
-    return instance;
+    return WTFMove(instance);
 }
 
 void NetscapePluginHostManager::createPropertyListFile(const String& pluginPath, cpu_type_t pluginArchitecture, const String& bundleIdentifier)
@@ -322,11 +321,10 @@ void NetscapePluginHostManager::didCreateWindow()
         if (!hostProxy->isMenuBarVisible()) {
             // Make ourselves the front process.
             ProcessSerialNumber psn;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             GetCurrentProcess(&psn);
             SetFrontProcess(&psn);
-#pragma clang diagnostic pop
+            ALLOW_DEPRECATED_DECLARATIONS_END
             return;
         }
     }

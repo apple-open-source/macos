@@ -26,6 +26,7 @@
 #ifndef SoupNetworkSession_h
 #define SoupNetworkSession_h
 
+#include <gio/gio.h>
 #include <glib-object.h>
 #include <pal/SessionID.h>
 #include <wtf/Function.h>
@@ -43,7 +44,6 @@ namespace WebCore {
 
 class CertificateInfo;
 class ResourceError;
-class URL;
 struct SoupNetworkProxySettings;
 
 class SoupNetworkSession {
@@ -66,7 +66,7 @@ public:
     void setAcceptLanguages(const CString&);
 
     static void setShouldIgnoreTLSErrors(bool);
-    static std::optional<ResourceError> checkTLSErrors(const URL&, GTlsCertificate*, GTlsCertificateFlags);
+    static Optional<ResourceError> checkTLSErrors(const URL&, GTlsCertificate*, GTlsCertificateFlags);
     static void allowSpecificHTTPSCertificateForHost(const CertificateInfo&, const String& host);
 
     static void setCustomProtocolRequestType(GType);

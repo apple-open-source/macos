@@ -46,6 +46,7 @@ struct ScreenData {
     bool screenHasInvertedColors { false };
     bool screenIsMonochrome { false };
     uint32_t displayMask { 0 };
+    IORegistryGPUID gpuID { 0 };
 
     enum EncodedColorSpaceDataType {
         Null,
@@ -54,7 +55,7 @@ struct ScreenData {
     };
 
     template<class Encoder> void encode(Encoder&) const;
-    template<class Decoder> static std::optional<ScreenData> decode(Decoder&);
+    template<class Decoder> static Optional<ScreenData> decode(Decoder&);
 };
 
 typedef HashMap<PlatformDisplayID, ScreenData> ScreenDataMap;
@@ -64,7 +65,7 @@ struct ScreenProperties {
     ScreenDataMap screenDataMap;
 
     template<class Encoder> void encode(Encoder&) const;
-    template<class Decoder> static std::optional<ScreenProperties> decode(Decoder&);
+    template<class Decoder> static Optional<ScreenProperties> decode(Decoder&);
 };
 
 template<class Encoder>
@@ -75,17 +76,17 @@ void ScreenProperties::encode(Encoder& encoder) const
 }
 
 template<class Decoder>
-std::optional<ScreenProperties> ScreenProperties::decode(Decoder& decoder)
+Optional<ScreenProperties> ScreenProperties::decode(Decoder& decoder)
 {
-    std::optional<PlatformDisplayID> primaryDisplayID;
+    Optional<PlatformDisplayID> primaryDisplayID;
     decoder >> primaryDisplayID;
     if (!primaryDisplayID)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<ScreenDataMap> screenDataMap;
+    Optional<ScreenDataMap> screenDataMap;
     decoder >> screenDataMap;
     if (!screenDataMap)
-        return std::nullopt;
+        return WTF::nullopt;
 
     return { { *primaryDisplayID, WTFMove(*screenDataMap) } };
 }
@@ -93,7 +94,7 @@ std::optional<ScreenProperties> ScreenProperties::decode(Decoder& decoder)
 template<class Encoder>
 void ScreenData::encode(Encoder& encoder) const
 {
-    encoder << screenAvailableRect << screenRect << screenDepth << screenDepthPerComponent << screenSupportsExtendedColor << screenHasInvertedColors << screenIsMonochrome << displayMask;
+    encoder << screenAvailableRect << screenRect << screenDepth << screenDepthPerComponent << screenSupportsExtendedColor << screenHasInvertedColors << screenIsMonochrome << displayMask << gpuID;
 
     if (colorSpace) {
         // Try to encode the name.
@@ -120,84 +121,88 @@ void ScreenData::encode(Encoder& encoder) const
 }
 
 template<class Decoder>
-std::optional<ScreenData> ScreenData::decode(Decoder& decoder)
+Optional<ScreenData> ScreenData::decode(Decoder& decoder)
 {
-    std::optional<FloatRect> screenAvailableRect;
+    Optional<FloatRect> screenAvailableRect;
     decoder >> screenAvailableRect;
     if (!screenAvailableRect)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<FloatRect> screenRect;
+    Optional<FloatRect> screenRect;
     decoder >> screenRect;
     if (!screenRect)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<int> screenDepth;
+    Optional<int> screenDepth;
     decoder >> screenDepth;
     if (!screenDepth)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<int> screenDepthPerComponent;
+    Optional<int> screenDepthPerComponent;
     decoder >> screenDepthPerComponent;
     if (!screenDepthPerComponent)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<bool> screenSupportsExtendedColor;
+    Optional<bool> screenSupportsExtendedColor;
     decoder >> screenSupportsExtendedColor;
     if (!screenSupportsExtendedColor)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<bool> screenHasInvertedColors;
+    Optional<bool> screenHasInvertedColors;
     decoder >> screenHasInvertedColors;
     if (!screenHasInvertedColors)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<bool> screenIsMonochrome;
+    Optional<bool> screenIsMonochrome;
     decoder >> screenIsMonochrome;
     if (!screenIsMonochrome)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<uint32_t> displayMask;
+    Optional<uint32_t> displayMask;
     decoder >> displayMask;
     if (!displayMask)
-        return std::nullopt;
+        return WTF::nullopt;
+
+    Optional<IORegistryGPUID> gpuID;
+    decoder >> gpuID;
+    if (!gpuID)
+        return WTF::nullopt;
     
     EncodedColorSpaceDataType dataType;
     if (!decoder.decodeEnum(dataType))
-        return std::nullopt;
+        return WTF::nullopt;
 
     RetainPtr<CGColorSpaceRef> cgColorSpace;
     switch (dataType) {
     case Null:
         break;
     case ColorSpaceName: {
-        std::optional<String> colorSpaceName;
+        Optional<String> colorSpaceName;
         decoder >> colorSpaceName;
         ASSERT(colorSpaceName);
         if (!colorSpaceName)
-            return std::nullopt;
+            return WTF::nullopt;
 
         cgColorSpace = adoptCF(CGColorSpaceCreateWithName(colorSpaceName->createCFString().get()));
         break;
     }
     case ColorSpaceData: {
-        std::optional<Vector<uint8_t>> iccData;
+        Optional<Vector<uint8_t>> iccData;
         decoder >> iccData;
         ASSERT(iccData);
         if (!iccData)
-            return std::nullopt;
+            return WTF::nullopt;
 
         auto colorSpaceData = adoptCF(CFDataCreate(kCFAllocatorDefault, iccData->data(), iccData->size()));
         // FIXME: <http://webkit.org/b/184358> We should switch to CGColorSpaceCreateICCBased.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         cgColorSpace = adoptCF(CGColorSpaceCreateWithICCProfile(colorSpaceData.get()));
-#pragma clang diagnostic pop
+        ALLOW_DEPRECATED_DECLARATIONS_END
         break;
     }
     }
 
-    return { { WTFMove(*screenAvailableRect), WTFMove(*screenRect), WTFMove(cgColorSpace), WTFMove(*screenDepth), WTFMove(*screenDepthPerComponent), WTFMove(*screenSupportsExtendedColor), WTFMove(*screenHasInvertedColors), WTFMove(*screenIsMonochrome), WTFMove(*displayMask) } };
+    return { { WTFMove(*screenAvailableRect), WTFMove(*screenRect), WTFMove(cgColorSpace), WTFMove(*screenDepth), WTFMove(*screenDepthPerComponent), WTFMove(*screenSupportsExtendedColor), WTFMove(*screenHasInvertedColors), WTFMove(*screenIsMonochrome), WTFMove(*displayMask), WTFMove(*gpuID) } };
 }
 
 } // namespace WebCore

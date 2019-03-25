@@ -53,8 +53,8 @@ extern const JSC::ConstructAbility s_builtinPromiseFulfillPromiseCodeConstructAb
     macro(fulfillPromise, builtinPromiseFulfillPromise, 2) \
 
 #define JSC_FOREACH_BUILTIN_CODE(macro) \
-    macro(builtinPromiseRejectPromiseCode, rejectPromise, static_cast<const char*>(nullptr), s_builtinPromiseRejectPromiseCodeLength) \
     macro(builtinPromiseFulfillPromiseCode, fulfillPromise, static_cast<const char*>(nullptr), s_builtinPromiseFulfillPromiseCodeLength) \
+    macro(builtinPromiseRejectPromiseCode, rejectPromise, static_cast<const char*>(nullptr), s_builtinPromiseRejectPromiseCodeLength) \
 
 #define JSC_FOREACH_BUILTIN_FUNCTION_NAME(macro) \
     macro(fulfillPromise) \
@@ -115,26 +115,6 @@ JSC_FOREACH_BUILTIN_CODE(DECLARE_BUILTIN_GENERATOR)
 
 namespace JSC {
 
-const JSC::ConstructAbility s_builtinPromiseRejectPromiseCodeConstructAbility = JSC::ConstructAbility::CannotConstruct;
-const int s_builtinPromiseRejectPromiseCodeLength = 413;
-static const JSC::Intrinsic s_builtinPromiseRejectPromiseCodeIntrinsic = JSC::NoIntrinsic;
-const char* s_builtinPromiseRejectPromiseCode =
-    "(function (promise, reason)\n" \
-    "{\n" \
-    "    \"use strict\";\n" \
-    "\n" \
-    "    var reactions = promise.@promiseRejectReactions;\n" \
-    "    promise.@promiseResult = reason;\n" \
-    "    promise.@promiseFulfillReactions = undefined;\n" \
-    "    promise.@promiseRejectReactions = undefined;\n" \
-    "    promise.@promiseState = @promiseRejected;\n" \
-    "\n" \
-    "    @InspectorInstrumentation.promiseRejected(promise, reason, reactions);\n" \
-    "\n" \
-    "    @triggerPromiseReactions(reactions, reason);\n" \
-    "})\n" \
-;
-
 const JSC::ConstructAbility s_builtinPromiseFulfillPromiseCodeConstructAbility = JSC::ConstructAbility::CannotConstruct;
 const int s_builtinPromiseFulfillPromiseCodeLength = 412;
 static const JSC::Intrinsic s_builtinPromiseFulfillPromiseCodeIntrinsic = JSC::NoIntrinsic;
@@ -155,11 +135,31 @@ const char* s_builtinPromiseFulfillPromiseCode =
     "})\n" \
 ;
 
+const JSC::ConstructAbility s_builtinPromiseRejectPromiseCodeConstructAbility = JSC::ConstructAbility::CannotConstruct;
+const int s_builtinPromiseRejectPromiseCodeLength = 413;
+static const JSC::Intrinsic s_builtinPromiseRejectPromiseCodeIntrinsic = JSC::NoIntrinsic;
+const char* s_builtinPromiseRejectPromiseCode =
+    "(function (promise, reason)\n" \
+    "{\n" \
+    "    \"use strict\";\n" \
+    "\n" \
+    "    var reactions = promise.@promiseRejectReactions;\n" \
+    "    promise.@promiseResult = reason;\n" \
+    "    promise.@promiseFulfillReactions = undefined;\n" \
+    "    promise.@promiseRejectReactions = undefined;\n" \
+    "    promise.@promiseState = @promiseRejected;\n" \
+    "\n" \
+    "    @InspectorInstrumentation.promiseRejected(promise, reason, reactions);\n" \
+    "\n" \
+    "    @triggerPromiseReactions(reactions, reason);\n" \
+    "})\n" \
+;
+
 
 #define DEFINE_BUILTIN_GENERATOR(codeName, functionName, overriddenName, argumentCount) \
 JSC::FunctionExecutable* codeName##Generator(JSC::VM& vm) \
 {\
-    return vm.builtinExecutables()->codeName##Executable()->link(vm, vm.builtinExecutables()->codeName##Source(), std::nullopt, s_##codeName##Intrinsic); }
+    return vm.builtinExecutables()->codeName##Executable()->link(vm, vm.builtinExecutables()->codeName##Source(), WTF::nullopt, s_##codeName##Intrinsic); }
 JSC_FOREACH_BUILTIN_CODE(DEFINE_BUILTIN_GENERATOR)
 #undef DEFINE_BUILTIN_GENERATOR
 

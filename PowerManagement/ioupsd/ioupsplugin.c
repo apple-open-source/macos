@@ -106,6 +106,9 @@ void upsd_mach_port_callback(
     mach_msg_return_t   mr;
     int                 options;
 
+    if (bufReply) {
+        bzero(bufReply, _ioupsplugin_subsystem.maxsize);
+    }
     /* we have a request message */
     (void) upsd_demux(&bufRequest->Head, &bufReply->Head);
 

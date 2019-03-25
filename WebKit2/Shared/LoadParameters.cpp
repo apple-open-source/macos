@@ -26,6 +26,7 @@
 #include "config.h"
 #include "LoadParameters.h"
 
+#include "FormDataReference.h"
 #include "WebCoreArgumentCoders.h"
 
 namespace WebKit {
@@ -36,20 +37,25 @@ void LoadParameters::encode(IPC::Encoder& encoder) const
     encoder << request;
 
     encoder << static_cast<bool>(request.httpBody());
-    if (request.httpBody())
-        request.httpBody()->encode(encoder);
+    if (request.httpBody()) {
+        // FormDataReference encoder / decoder takes care of passing and consuming the needed sandbox extensions.
+        encoder << IPC::FormDataReference { request.httpBody() };
+    }
 
     encoder << sandboxExtensionHandle;
     encoder << data;
-    encoder << string;
     encoder << MIMEType;
     encoder << encodingName;
     encoder << baseURLString;
     encoder << unreachableURLString;
     encoder << provisionalLoadErrorURLString;
+    encoder << websitePolicies;
     encoder << shouldOpenExternalURLsPolicy;
     encoder << shouldTreatAsContinuingLoad;
     encoder << userData;
+    encoder.encodeEnum(lockHistory);
+    encoder.encodeEnum(lockBackForwardList);
+    encoder << clientRedirectSourceForHistory;
 
     platformEncode(encoder);
 }
@@ -67,22 +73,22 @@ bool LoadParameters::decode(IPC::Decoder& decoder, LoadParameters& data)
         return false;
 
     if (hasHTTPBody) {
-        RefPtr<WebCore::FormData> formData = WebCore::FormData::decode(decoder);
-        if (!formData)
+        // FormDataReference encoder / decoder takes care of passing and consuming the needed sandbox extensions.
+        Optional<IPC::FormDataReference> formDataReference;
+        decoder >> formDataReference;
+        if (!formDataReference)
             return false;
-        data.request.setHTTPBody(WTFMove(formData));
+
+        data.request.setHTTPBody(formDataReference->takeData());
     }
 
-    std::optional<SandboxExtension::Handle> sandboxExtensionHandle;
+    Optional<SandboxExtension::Handle> sandboxExtensionHandle;
     decoder >> sandboxExtensionHandle;
     if (!sandboxExtensionHandle)
         return false;
     data.sandboxExtensionHandle = WTFMove(*sandboxExtensionHandle);
 
     if (!decoder.decode(data.data))
-        return false;
-
-    if (!decoder.decode(data.string))
         return false;
 
     if (!decoder.decode(data.MIMEType))
@@ -100,6 +106,12 @@ bool LoadParameters::decode(IPC::Decoder& decoder, LoadParameters& data)
     if (!decoder.decode(data.provisionalLoadErrorURLString))
         return false;
 
+    Optional<Optional<WebsitePoliciesData>> websitePolicies;
+    decoder >> websitePolicies;
+    if (!websitePolicies)
+        return false;
+    data.websitePolicies = WTFMove(*websitePolicies);
+
     if (!decoder.decode(data.shouldOpenExternalURLsPolicy))
         return false;
 
@@ -108,6 +120,18 @@ bool LoadParameters::decode(IPC::Decoder& decoder, LoadParameters& data)
 
     if (!decoder.decode(data.userData))
         return false;
+
+    if (!decoder.decodeEnum(data.lockHistory))
+        return false;
+
+    if (!decoder.decodeEnum(data.lockBackForwardList))
+        return false;
+
+    Optional<String> clientRedirectSourceForHistory;
+    decoder >> clientRedirectSourceForHistory;
+    if (!clientRedirectSourceForHistory)
+        return false;
+    data.clientRedirectSourceForHistory = WTFMove(*clientRedirectSourceForHistory);
 
     if (!platformDecode(decoder, data))
         return false;

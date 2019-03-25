@@ -25,6 +25,7 @@
 
 #import "config.h"
 #import "ResourceLoadStatisticsMemoryStore.h"
+#import <wtf/text/WTFString.h>
 
 namespace WebKit {
 
@@ -37,10 +38,6 @@ void ResourceLoadStatisticsMemoryStore::registerUserDefaultsIfNeeded()
         if (timeToLiveUserInteraction > 0_s && timeToLiveUserInteraction <= 24_h * 30)
             setTimeToLiveUserInteraction(timeToLiveUserInteraction);
 
-        Seconds timeToLiveCookiePartitionFree([[NSUserDefaults standardUserDefaults] doubleForKey:@"ResourceLoadStatisticsTimeToLiveCookiePartitionFree"]);
-        if (timeToLiveCookiePartitionFree > 0_s && timeToLiveCookiePartitionFree <= 24_h)
-            setTimeToLiveCookiePartitionFree(timeToLiveCookiePartitionFree);
-
         Seconds minimumTimeBetweenDataRecordsRemoval([[NSUserDefaults standardUserDefaults] doubleForKey:@"ResourceLoadStatisticsMinimumTimeBetweenDataRecordsRemoval"]);
         if (minimumTimeBetweenDataRecordsRemoval > 0_s && minimumTimeBetweenDataRecordsRemoval < 1_h)
             setMinimumTimeBetweenDataRecordsRemoval(minimumTimeBetweenDataRecordsRemoval);
@@ -49,13 +46,20 @@ void ResourceLoadStatisticsMemoryStore::registerUserDefaultsIfNeeded()
         if (grandfatheringTime > 0_s && grandfatheringTime <= 24_h * 7)
             setGrandfatheringTime(grandfatheringTime);
 
+        setDebugLogggingEnabled([[NSUserDefaults standardUserDefaults] boolForKey:@"ResourceLoadStatisticsDebugLoggingEnabled"]);
+        setResourceLoadStatisticsDebugMode([[NSUserDefaults standardUserDefaults] boolForKey:@"ExperimentalResourceLoadStatisticsDebugMode"]);
+        auto* debugManualPrevalentResource = [[NSUserDefaults standardUserDefaults] stringForKey:@"ResourceLoadStatisticsManualPrevalentResource"];
+        if (debugManualPrevalentResource)
+            setPrevalentResourceForDebugMode(debugManualPrevalentResource);
+        setStorageAccessPromptsEnabled([[NSUserDefaults standardUserDefaults] boolForKey:@"ExperimentalStorageAccessPromptsEnabled"]);
+
+        Seconds cacheMaxAgeCapForPrevalentResources([[NSUserDefaults standardUserDefaults] doubleForKey:@"ResourceLoadStatisticsCacheMaxAgeCap"]);
+        if (cacheMaxAgeCapForPrevalentResources > 0_s && cacheMaxAgeCapForPrevalentResources <= 24_h * 365)
+            setCacheMaxAgeCap(cacheMaxAgeCapForPrevalentResources);
+        
         Seconds clientSideCookiesAgeCap([[NSUserDefaults standardUserDefaults] doubleForKey:@"ResourceLoadStatisticsClientSideCookiesAgeCap"]);
         if (clientSideCookiesAgeCap > 0_s && clientSideCookiesAgeCap <= 24_h * 365)
             setAgeCapForClientSideCookies(clientSideCookiesAgeCap);
-
-        setDebugLogggingEnabled([[NSUserDefaults standardUserDefaults] boolForKey:@"ResourceLoadStatisticsDebugLoggingEnabled"]);
-        setResourceLoadStatisticsDebugMode([[NSUserDefaults standardUserDefaults] boolForKey:@"ExperimentalResourceLoadStatisticsDebugMode"]);
-        setStorageAccessPromptsEnabled([[NSUserDefaults standardUserDefaults] boolForKey:@"ExperimentalStorageAccessPromptsEnabled"]);
     });
 }
 

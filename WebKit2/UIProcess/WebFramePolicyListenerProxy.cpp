@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,31 +26,54 @@
 #include "config.h"
 #include "WebFramePolicyListenerProxy.h"
 
+#include "APINavigation.h"
+#include "APIWebsiteDataStore.h"
+#include "APIWebsitePolicies.h"
+#include "SafeBrowsingWarning.h"
 #include "WebFrameProxy.h"
 #include "WebsiteDataStore.h"
 #include "WebsitePoliciesData.h"
 
 namespace WebKit {
 
-WebFramePolicyListenerProxy::WebFramePolicyListenerProxy(WebFrameProxy* frame, uint64_t listenerID, PolicyListenerType policyType)
-    : WebFrameListenerProxy(frame, listenerID)
-    , m_policyType(policyType)
+WebFramePolicyListenerProxy::WebFramePolicyListenerProxy(Reply&& reply, ShouldExpectSafeBrowsingResult expect)
+    : m_reply(WTFMove(reply))
 {
+    if (expect == ShouldExpectSafeBrowsingResult::No)
+        didReceiveSafeBrowsingResults({ });
 }
 
-void WebFramePolicyListenerProxy::use(std::optional<WebsitePoliciesData>&& data)
+WebFramePolicyListenerProxy::~WebFramePolicyListenerProxy() = default;
+
+void WebFramePolicyListenerProxy::didReceiveSafeBrowsingResults(RefPtr<SafeBrowsingWarning>&& safeBrowsingWarning)
 {
-    receivedPolicyDecision(WebCore::PolicyAction::Use, WTFMove(data));
+    ASSERT(!m_safeBrowsingWarning);
+    if (m_policyResult) {
+        if (m_reply)
+            m_reply(WebCore::PolicyAction::Use, m_policyResult->first.get(), m_policyResult->second, WTFMove(safeBrowsingWarning));
+    } else
+        m_safeBrowsingWarning = WTFMove(safeBrowsingWarning);
+}
+
+void WebFramePolicyListenerProxy::use(API::WebsitePolicies* policies, ProcessSwapRequestedByClient processSwapRequestedByClient)
+{
+    if (m_safeBrowsingWarning) {
+        if (m_reply)
+            m_reply(WebCore::PolicyAction::Use, policies, processSwapRequestedByClient, WTFMove(*m_safeBrowsingWarning));
+    } else if (!m_policyResult)
+        m_policyResult = {{ policies, processSwapRequestedByClient }};
 }
 
 void WebFramePolicyListenerProxy::download()
 {
-    receivedPolicyDecision(WebCore::PolicyAction::Download, std::nullopt);
+    if (m_reply)
+        m_reply(WebCore::PolicyAction::Download, nullptr, ProcessSwapRequestedByClient::No, { });
 }
 
 void WebFramePolicyListenerProxy::ignore()
 {
-    receivedPolicyDecision(WebCore::PolicyAction::Ignore, std::nullopt);
+    if (m_reply)
+        m_reply(WebCore::PolicyAction::Ignore, nullptr, ProcessSwapRequestedByClient::No, { });
 }
 
 } // namespace WebKit

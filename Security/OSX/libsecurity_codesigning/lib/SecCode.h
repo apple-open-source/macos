@@ -427,7 +427,8 @@ CF_ENUM(uint32_t) {
 	kSecCSRequirementInformation = 1 << 2,
 	kSecCSDynamicInformation = 1 << 3,
 	kSecCSContentInformation = 1 << 4,
-    kSecCSSkipResourceDirectory = 1 << 5
+    kSecCSSkipResourceDirectory = 1 << 5,
+    kSecCSCalculateCMSDigest = 1 << 6,
 };
 													/* flag required to get this value */
 extern const CFStringRef kSecCodeInfoCertificates;	/* Signing */

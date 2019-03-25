@@ -46,9 +46,14 @@ PageClientImpl::PageClientImpl(WKWPE::View& view)
 
 PageClientImpl::~PageClientImpl() = default;
 
-std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy()
+struct wpe_view_backend* PageClientImpl::viewBackend()
 {
-    return std::make_unique<AcceleratedDrawingAreaProxy>(m_view.page());
+    return m_view.backend();
+}
+
+std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy& process)
+{
+    return std::make_unique<AcceleratedDrawingAreaProxy>(m_view.page(), process);
 }
 
 void PageClientImpl::setViewNeedsDisplay(const WebCore::Region&)
@@ -71,22 +76,22 @@ WebCore::IntSize PageClientImpl::viewSize()
 
 bool PageClientImpl::isViewWindowActive()
 {
-    return m_view.viewState() & WebCore::ActivityState::WindowIsActive;
+    return m_view.viewState().contains(WebCore::ActivityState::WindowIsActive);
 }
 
 bool PageClientImpl::isViewFocused()
 {
-    return m_view.viewState() & WebCore::ActivityState::IsFocused;
+    return m_view.viewState().contains(WebCore::ActivityState::IsFocused);
 }
 
 bool PageClientImpl::isViewVisible()
 {
-    return m_view.viewState() & WebCore::ActivityState::IsVisible;
+    return m_view.viewState().contains(WebCore::ActivityState::IsVisible);
 }
 
 bool PageClientImpl::isViewInWindow()
 {
-    return m_view.viewState() & WebCore::ActivityState::IsInWindow;
+    return m_view.viewState().contains(WebCore::ActivityState::IsInWindow);
 }
 
 void PageClientImpl::processDidExit()
@@ -135,7 +140,7 @@ void PageClientImpl::didChangeViewportProperties(const WebCore::ViewportAttribut
 {
 }
 
-void PageClientImpl::registerEditCommand(Ref<WebEditCommandProxy>&&, WebPageProxy::UndoOrRedo)
+void PageClientImpl::registerEditCommand(Ref<WebEditCommandProxy>&&, UndoOrRedo)
 {
 }
 
@@ -143,12 +148,12 @@ void PageClientImpl::clearAllEditCommands()
 {
 }
 
-bool PageClientImpl::canUndoRedo(WebPageProxy::UndoOrRedo)
+bool PageClientImpl::canUndoRedo(UndoOrRedo)
 {
     return false;
 }
 
-void PageClientImpl::executeUndoRedo(WebPageProxy::UndoOrRedo)
+void PageClientImpl::executeUndoRedo(UndoOrRedo)
 {
 }
 
@@ -176,6 +181,7 @@ void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent&, bool)
 {
 }
 
+#if ENABLE(TOUCH_EVENTS)
 void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& touchEvent, bool wasEventHandled)
 {
     if (wasEventHandled)
@@ -197,13 +203,14 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& touchEvent, b
     struct wpe_input_pointer_event pointerEvent {
         wpe_input_pointer_event_type_null, touchPoint->time,
         touchPoint->x, touchPoint->y,
-        1, 0
+        1, 0, 0
     };
 
     switch (touchPoint->type) {
     case wpe_input_touch_event_type_down:
         pointerEvent.type = wpe_input_pointer_event_type_button;
         pointerEvent.state = 1;
+        pointerEvent.modifiers |= wpe_input_pointer_modifier_button1;
         break;
     case wpe_input_touch_event_type_motion:
         pointerEvent.type = wpe_input_pointer_event_type_motion;
@@ -212,6 +219,7 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& touchEvent, b
     case wpe_input_touch_event_type_up:
         pointerEvent.type = wpe_input_pointer_event_type_button;
         pointerEvent.state = 0;
+        pointerEvent.modifiers &= ~wpe_input_pointer_modifier_button1;
         break;
     case wpe_input_pointer_event_type_null:
         ASSERT_NOT_REACHED();
@@ -220,6 +228,7 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& touchEvent, b
 
     page.handleMouseEvent(NativeWebMouseEvent(&pointerEvent, page.deviceScaleFactor()));
 }
+#endif
 
 void PageClientImpl::wheelEventWasNotHandledByWebCore(const NativeWebWheelEvent&)
 {

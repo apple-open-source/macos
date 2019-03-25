@@ -318,9 +318,12 @@ create_identity(EAPSIMAKAPersistentStateRef persist,
     if (requested_type == kAT_ANY_ID_REQ
 	|| requested_type == kAT_FULLAUTH_ID_REQ) {
 	CFStringRef		reauth_id;
+	Boolean 		reauth_id_used;
 	
 	reauth_id = EAPSIMAKAPersistentStateGetReauthID(persist);
-	if (requested_type == kAT_ANY_ID_REQ && reauth_id != NULL) {
+	reauth_id_used = EAPSIMAKAPersistentStateGetReauthIDUsed(persist);
+	if (requested_type == kAT_ANY_ID_REQ && reauth_id != NULL
+	    && reauth_id_used == FALSE) {
 	    if (is_reauth_id_p != NULL) {
 		*is_reauth_id_p = TRUE;
 	    }
@@ -735,6 +738,7 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
     EAPSIMContextRef		context = NULL;
     EAPSIMAKAAttributeType 	identity_type;
     CFStringRef			imsi = NULL;
+    CFStringRef			ssid = NULL;
     SIMStatic			sim_static;
     bool			static_config = false;
 
@@ -760,6 +764,8 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 	}
 	EAPLOG(LOG_NOTICE, "EAP-SIM: SIM found");
     }
+    ssid = CFDictionaryGetValue(plugin->properties,
+				kEAPClientPropTLSTrustExceptionsID);
 
     /* allocate a context */
     context = (EAPSIMContextRef)malloc(sizeof(*context));
@@ -773,7 +779,7 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
     context->persist 
 	= EAPSIMAKAPersistentStateCreate(kEAPTypeEAPSIM,
 					 CC_SHA1_DIGEST_LENGTH,
-					 imsi, identity_type);
+					 imsi, identity_type, ssid);
     CFRelease(imsi);
     context->sim_static = sim_static;
     context->n_required_rands 
@@ -792,6 +798,14 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 	fips186_2prf(EAPSIMAKAPersistentStateGetMasterKey(context->persist),
 		     context->key_info.key);
 	context->key_info_valid = TRUE;
+	if (EAPSIMAKAPersistentStateGetReauthIDUsed(context->persist)) {
+	    /* Since EAP-SIM Module is initialized it would decide whether to purge
+	     * the current fast reauth ID based on whether EAP server hands over a new one.
+	     * reauth_id_used property of persist is only used to decide whether to use it
+	     * in EAP-Response/Identity packet.
+	     */
+	    EAPSIMAKAPersistentStateSetReauthIDUsed(context->persist, FALSE);
+	}
     }
     if (plugin->encryptedEAPIdentity == NULL) {
 	context->encrypted_identity_info
@@ -861,19 +875,7 @@ eapsim_make_client_error(EAPSIMContextRef context,
 STATIC void
 save_persistent_state(EAPSIMContextRef context)
 {
-    CFStringRef		ssid = NULL;
-#if TARGET_OS_EMBEDDED
-    CFStringRef		trust_domain;
-
-    trust_domain = CFDictionaryGetValue(context->plugin->properties,
-	    				kEAPClientPropTLSTrustExceptionsDomain);
-    if (my_CFEqual(trust_domain, kEAPTLSTrustExceptionsDomainWirelessSSID)) {
-	ssid = CFDictionaryGetValue(context->plugin->properties,
-				    kEAPClientPropTLSTrustExceptionsID);
-    }
-#endif
-    EAPSIMAKAPersistentStateSave(context->persist, context->key_info_valid,
-				 ssid);
+    EAPSIMAKAPersistentStateSave(context->persist, context->key_info_valid);
     return;
 }
 
@@ -1168,6 +1170,8 @@ eapsim_challenge(EAPSIMContextRef context,
     }
     context->state = kEAPSIMClientStateChallenge;
     EAPSIMAKAPersistentStateSetCounter(context->persist, 1);
+    /* we don't need the last fast re-auth id anymore */
+    EAPSIMAKAPersistentStateSetReauthID(context->persist, NULL);
     context->reauth_success = FALSE;
     rand_p = (AT_RAND *)TLVListLookupAttribute(tlvs_p, kAT_RAND);
     if (rand_p == NULL) {
@@ -1358,6 +1362,8 @@ eapsim_reauthentication(EAPSIMContextRef context,
     context->state = kEAPSIMClientStateReauthentication;
     context->plugin_state = kEAPClientStateAuthenticating;
 
+    /* we don't need the last fast re-auth id anymore */
+    EAPSIMAKAPersistentStateSetReauthID(context->persist, NULL);
     /* validate the MAC */
     mac_p = (AT_MAC *)TLVListLookupAttribute(tlvs_p, kAT_MAC);
     if (mac_p == NULL) {
@@ -1905,7 +1911,7 @@ eapsim_user_name_copy(CFDictionaryRef properties)
     identity_type = S_get_identity_type(properties);
     persist = EAPSIMAKAPersistentStateCreate(kEAPTypeEAPSIM,
 					     CC_SHA1_DIGEST_LENGTH,
-					     imsi, identity_type);
+					     imsi, identity_type, NULL);
     my_CFRelease(&imsi);
     if (persist != NULL) {
 	if (encrypted_identity_info != NULL &&
@@ -1913,9 +1919,27 @@ eapsim_user_name_copy(CFDictionaryRef properties)
 	    /* we should send anonymous username in EAP-Response/Identity packet */
 	    ret_identity = CFRetain(encrypted_identity_info->anonymous_identity);
 	} else {
+	    Boolean reauth_id_used = FALSE;
 	    ret_identity = sim_identity_create(persist,
 					       properties,
-					       identity_type, NULL, NULL);
+					       identity_type, &reauth_id_used, NULL);
+	    if (reauth_id_used) {
+		/* Mark Fast Re-Auth ID has been used */
+		EAPSIMAKAPersistentStateSetReauthIDUsed(persist, TRUE);
+		EAPLOG_FL(LOG_NOTICE, "EAP-SIM is using fast re-auth id %@ for ssid : %@",
+			  ret_identity, EAPSIMAKAPersistentStateGetSSID(persist));
+		/* persist the marking */
+		EAPSIMAKAPersistentStateSave(persist, TRUE);
+	    } else {
+		if (EAPSIMAKAPersistentStateGetReauthIDUsed(persist)) {
+		    /* Fast Re-Auth ID was used in last incomplete EAP exchange
+		     * so it must not be used in this exchange
+		     */
+		    EAPSIMAKAPersistentStateSetReauthID(persist, NULL);
+		    EAPSIMAKAPersistentStateSetReauthIDUsed(persist, FALSE);
+		    EAPSIMAKAPersistentStateSave(persist, FALSE);
+		}
+	    }
 	}
 	EAPSIMAKAPersistentStateRelease(persist);
     }

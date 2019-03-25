@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import "WKFormPeripheral.h"
 
@@ -33,4 +33,8 @@
 - (instancetype)initWithView:(WKContentView *)view;
 @end
 
-#endif // PLATFORM(IOS)
+@interface WKFormInputControl (WKTesting)
+@property (nonatomic, readonly) NSString *dateTimePickerCalendarType;
+@end
+
+#endif // PLATFORM(IOS_FAMILY)

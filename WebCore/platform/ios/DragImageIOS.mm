@@ -26,7 +26,7 @@
 #import "config.h"
 #import "DragImage.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import "Document.h"
 #import "Element.h"
@@ -52,8 +52,7 @@
 #import <wtf/NeverDestroyed.h>
 #import <wtf/SoftLinking.h>
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnullability-completeness"
+IGNORE_WARNINGS_BEGIN("nullability-completeness")
 
 SOFT_LINK_FRAMEWORK(UIKit)
 SOFT_LINK_CLASS(UIKit, UIFont)
@@ -63,7 +62,7 @@ SOFT_LINK(UIKit, UIGraphicsGetCurrentContext, CGContextRef, (void), ())
 SOFT_LINK(UIKit, UIGraphicsGetImageFromCurrentImageContext, UIImage *, (void), ())
 SOFT_LINK(UIKit, UIGraphicsEndImageContext, void, (void), ())
 
-#pragma clang diagnostic pop
+IGNORE_WARNINGS_END
 
 namespace WebCore {
 
@@ -251,6 +250,23 @@ DragImageRef createDragImageForRange(Frame& frame, Range& range, bool forceBlack
     return finalImage.CGImage;
 }
 
+DragImageRef createDragImageForColor(const Color& color, const FloatRect& elementRect, float pageScaleFactor, Path& visiblePath)
+{
+    FloatRect imageRect { 0, 0, elementRect.width() * pageScaleFactor, elementRect.height() * pageScaleFactor };
+    FloatRoundedRect swatch { imageRect, FloatRoundedRect::Radii(ColorSwatchCornerRadius * pageScaleFactor) };
+
+    auto render = adoptNS([allocUIGraphicsImageRendererInstance() initWithSize:imageRect.size()]);
+    UIImage *image = [render imageWithActions:^(UIGraphicsImageRendererContext *rendererContext) {
+        GraphicsContext context { rendererContext.CGContext };
+        context.translate(0, CGRectGetHeight(imageRect));
+        context.scale({ 1, -1 });
+        context.fillRoundedRect(swatch, color);
+    }];
+
+    visiblePath.addRoundedRect(swatch);
+    return image.CGImage;
+}
+
 #else
 
 void deleteDragImage(RetainPtr<CGImageRef>)
@@ -284,4 +300,4 @@ DragImageRef createDragImageForRange(Frame&, Range&, bool)
 
 } // namespace WebCore
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

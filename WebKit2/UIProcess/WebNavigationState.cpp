@@ -30,9 +30,8 @@
 #include "WebPageProxy.h"
 #include <WebCore/ResourceRequest.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 WebNavigationState::WebNavigationState()
 {
@@ -69,9 +68,9 @@ Ref<API::Navigation> WebNavigationState::createReloadNavigation()
     return navigation;
 }
 
-Ref<API::Navigation> WebNavigationState::createLoadDataNavigation()
+Ref<API::Navigation> WebNavigationState::createLoadDataNavigation(std::unique_ptr<API::SubstituteData>&& substituteData)
 {
-    auto navigation = API::Navigation::create(*this);
+    auto navigation = API::Navigation::create(*this, WTFMove(substituteData));
 
     m_navigations.set(navigation->navigationID(), navigation.ptr());
 

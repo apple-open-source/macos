@@ -23,6 +23,7 @@
 //#include <IOKit/hid/AppleHIDUsageTables.h>
 #include "AppleHIDUsageTables.h"
 #include "IOHIDNXEventDescription.h"
+#include <os/variant_private.h>
 
 static const char kAdded[]      = "ADDED";
 static const char kRemoved[]    = "REMOVED";
@@ -1007,6 +1008,10 @@ typedef enum {
 int main (int argc __unused, const char * argv[] __unused)
 {
     bool runAsClient = true;
+    
+    if(!os_variant_allows_internal_security_policies(NULL)) {
+        return 0;
+    }
     
     mach_timebase_info(&__timeBaseinfo);
     

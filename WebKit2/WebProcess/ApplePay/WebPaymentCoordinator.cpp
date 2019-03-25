@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@
 #include "WebProcess.h"
 #include <WebCore/Frame.h>
 #include <WebCore/PaymentCoordinator.h>
-#include <WebCore/URL.h>
+#include <wtf/URL.h>
 
 namespace WebKit {
 
@@ -49,21 +49,6 @@ WebPaymentCoordinator::WebPaymentCoordinator(WebPage& webPage)
 WebPaymentCoordinator::~WebPaymentCoordinator()
 {
     WebProcess::singleton().removeMessageReceiver(*this);
-}
-
-bool WebPaymentCoordinator::supportsVersion(unsigned version)
-{
-    ASSERT(version > 0);
-
-#if !ENABLE(APPLE_PAY_SESSION_V3)
-    static const unsigned currentVersion = 2;
-#elif !ENABLE(APPLE_PAY_SESSION_V4)
-    static const unsigned currentVersion = 3;
-#else
-    static const unsigned currentVersion = 5;
-#endif
-
-    return version <= currentVersion;
 }
 
 const WebPaymentCoordinator::AvailablePaymentNetworksSet& WebPaymentCoordinator::availablePaymentNetworks()
@@ -83,12 +68,12 @@ const WebPaymentCoordinator::AvailablePaymentNetworksSet& WebPaymentCoordinator:
     return *m_availablePaymentNetworks;
 }
 
-std::optional<String> WebPaymentCoordinator::validatedPaymentNetwork(const String& paymentNetwork)
+Optional<String> WebPaymentCoordinator::validatedPaymentNetwork(const String& paymentNetwork)
 {
     auto& paymentNetworks = availablePaymentNetworks();
     auto result = paymentNetworks.find(paymentNetwork);
     if (result == paymentNetworks.end())
-        return std::nullopt;
+        return WTF::nullopt;
     return *result;
 }
 
@@ -131,7 +116,7 @@ void WebPaymentCoordinator::openPaymentSetup(const String& merchantIdentifier, c
     m_webPage.send(Messages::WebPaymentCoordinatorProxy::OpenPaymentSetup(merchantIdentifier, domainName, replyID));
 }
 
-bool WebPaymentCoordinator::showPaymentUI(const WebCore::URL& originatingURL, const Vector<WebCore::URL>& linkIconURLs, const WebCore::ApplePaySessionPaymentRequest& paymentRequest)
+bool WebPaymentCoordinator::showPaymentUI(const URL& originatingURL, const Vector<URL>& linkIconURLs, const WebCore::ApplePaySessionPaymentRequest& paymentRequest)
 {
     Vector<String> linkIconURLStrings;
     for (const auto& linkIconURL : linkIconURLs)
@@ -149,22 +134,22 @@ void WebPaymentCoordinator::completeMerchantValidation(const WebCore::PaymentMer
     m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompleteMerchantValidation(paymentMerchantSession));
 }
 
-void WebPaymentCoordinator::completeShippingMethodSelection(std::optional<WebCore::ShippingMethodUpdate>&& update)
+void WebPaymentCoordinator::completeShippingMethodSelection(Optional<WebCore::ShippingMethodUpdate>&& update)
 {
     m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompleteShippingMethodSelection(update));
 }
 
-void WebPaymentCoordinator::completeShippingContactSelection(std::optional<WebCore::ShippingContactUpdate>&& update)
+void WebPaymentCoordinator::completeShippingContactSelection(Optional<WebCore::ShippingContactUpdate>&& update)
 {
     m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompleteShippingContactSelection(update));
 }
 
-void WebPaymentCoordinator::completePaymentMethodSelection(std::optional<WebCore::PaymentMethodUpdate>&& update)
+void WebPaymentCoordinator::completePaymentMethodSelection(Optional<WebCore::PaymentMethodUpdate>&& update)
 {
     m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompletePaymentMethodSelection(update));
 }
 
-void WebPaymentCoordinator::completePaymentSession(std::optional<WebCore::PaymentAuthorizationResult>&& result)
+void WebPaymentCoordinator::completePaymentSession(Optional<WebCore::PaymentAuthorizationResult>&& result)
 {
     m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompletePaymentSession(result));
 }
@@ -186,7 +171,7 @@ void WebPaymentCoordinator::paymentCoordinatorDestroyed()
 
 void WebPaymentCoordinator::validateMerchant(const String& validationURLString)
 {
-    paymentCoordinator().validateMerchant(WebCore::URL(WebCore::URL(), validationURLString));
+    paymentCoordinator().validateMerchant(URL(URL(), validationURLString));
 }
 
 void WebPaymentCoordinator::didAuthorizePayment(const WebCore::Payment& payment)

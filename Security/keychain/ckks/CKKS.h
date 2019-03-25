@@ -61,6 +61,7 @@ extern CKKSItemState* const SecCKKSStateUnauthenticated;
 extern CKKSItemState* const SecCKKSStateInFlight;
 extern CKKSItemState* const SecCKKSStateReencrypt;
 extern CKKSItemState* const SecCKKSStateError;
+extern CKKSItemState* const SecCKKSStateZoneMismatch; // an item has appeared that's in the wrong zone
 extern CKKSItemState* const SecCKKSStateDeleted;  // meta-state: please delete this item!
 
 /* Processed States */

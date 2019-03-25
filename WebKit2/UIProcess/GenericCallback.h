@@ -105,7 +105,7 @@ public:
         if (!m_callback)
             return;
 
-        auto callback = std::exchange(m_callback, std::nullopt);
+        auto callback = std::exchange(m_callback, WTF::nullopt);
         callback.value()(returnValue..., Error::None);
     }
 
@@ -121,7 +121,7 @@ public:
         if (!m_callback)
             return;
 
-        auto callback = std::exchange(m_callback, std::nullopt);
+        auto callback = std::exchange(m_callback, WTF::nullopt);
         callback.value()(typename std::remove_reference<T>::type()..., error);
     }
 
@@ -139,7 +139,7 @@ private:
         return &tag;
     }
 
-    std::optional<CallbackFunction> m_callback;
+    Optional<CallbackFunction> m_callback;
 
 #ifndef NDEBUG
     Ref<Thread> m_originThread { Thread::current() };
@@ -192,14 +192,6 @@ public:
     CallbackID put(Function<void(T...)>&& function, const ProcessThrottler::BackgroundActivityToken& activityToken)
     {
         auto callback = GenericCallbackType<sizeof...(T), T...>::type::create(WTFMove(function), activityToken);
-        return put(WTFMove(callback));
-    }
-
-    // FIXME: <webkit.org/b/174007> WebCookieManagerProxy should pass in BackgroundActivityToken
-    template<typename... T>
-    CallbackID put(Function<void(T...)>&& function)
-    {
-        auto callback = GenericCallbackType<sizeof...(T), T...>::type::create(WTFMove(function));
         return put(WTFMove(callback));
     }
 

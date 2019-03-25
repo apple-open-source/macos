@@ -32,7 +32,7 @@
 
 #if ENABLE(MEDIA_SOURCE)
 
-#include "ContextDestructionObserver.h"
+#include "ActiveDOMObject.h"
 #include "EventTarget.h"
 #include "GenericEventQueue.h"
 #include <wtf/RefCounted.h>
@@ -42,7 +42,7 @@ namespace WebCore {
 
 class SourceBuffer;
 
-class SourceBufferList final : public RefCounted<SourceBufferList>, public EventTargetWithInlineData, public ContextDestructionObserver {
+class SourceBufferList final : public RefCounted<SourceBufferList>, public EventTargetWithInlineData, public ActiveDOMObject {
 public:
     static Ref<SourceBufferList> create(ScriptExecutionContext* context)
     {
@@ -72,12 +72,16 @@ public:
 private:
     explicit SourceBufferList(ScriptExecutionContext*);
 
-    void contextDestroyed() final;
-
     void scheduleEvent(const AtomicString&);
 
     void refEventTarget() override { ref(); }
     void derefEventTarget() override { deref(); }
+
+    bool canSuspendForDocumentSuspension() const final;
+    void suspend(ReasonForSuspension) final;
+    void resume() final;
+    void stop() final;
+    const char* activeDOMObjectName() const final;
 
     GenericEventQueue m_asyncEventQueue;
 

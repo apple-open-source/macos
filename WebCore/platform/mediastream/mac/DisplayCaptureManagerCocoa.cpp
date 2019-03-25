@@ -29,22 +29,18 @@
 #if ENABLE(MEDIA_STREAM)
 
 #include "Logging.h"
+#include <wtf/Algorithms.h>
 #include <wtf/NeverDestroyed.h>
 
 #if PLATFORM(MAC)
 #include "ScreenDisplayCaptureSourceMac.h"
+#include "WindowDisplayCaptureSourceMac.h"
 #include <CoreGraphics/CGDirectDisplay.h>
 #endif
 
-namespace WebCore {
+#include "CoreVideoSoftLink.h"
 
-#if PLATFORM(MAC)
-static void displayReconfigurationCallBack(CGDirectDisplayID, CGDisplayChangeSummaryFlags, void* userInfo)
-{
-    if (userInfo)
-        reinterpret_cast<DisplayCaptureManagerCocoa*>(userInfo)->refreshCaptureDevices();
-}
-#endif
+namespace WebCore {
 
 DisplayCaptureManagerCocoa& DisplayCaptureManagerCocoa::singleton()
 {
@@ -52,115 +48,62 @@ DisplayCaptureManagerCocoa& DisplayCaptureManagerCocoa::singleton()
     return manager.get();
 }
 
-DisplayCaptureManagerCocoa::~DisplayCaptureManagerCocoa()
-{
-#if PLATFORM(MAC)
-    if (m_observingDisplayChanges)
-        CGDisplayRemoveReconfigurationCallback(displayReconfigurationCallBack, this);
-#endif
-}
-
 const Vector<CaptureDevice>& DisplayCaptureManagerCocoa::captureDevices()
 {
-    static bool initialized;
-    if (!initialized) {
-        refreshCaptureDevices();
+    m_devices.clear();
 
-#if PLATFORM(MAC)
-        CGDisplayRegisterReconfigurationCallback(displayReconfigurationCallBack, this);
-#endif
+    updateDisplayCaptureDevices();
+    updateWindowCaptureDevices();
 
-        m_observingDisplayChanges = true;
-        initialized = true;
-    };
-    
-    return m_displays;
+    return m_devices;
 }
 
-void DisplayCaptureManagerCocoa::refreshCaptureDevices()
+void DisplayCaptureManagerCocoa::updateDisplayCaptureDevices()
 {
 #if PLATFORM(MAC)
-    uint32_t displayCount = 0;
-    auto err = CGGetActiveDisplayList(0, nullptr, &displayCount);
-    if (err) {
-        RELEASE_LOG(Media, "CGGetActiveDisplayList() returned error %d when trying to get display count", (int)err);
-        return;
-    }
-
-    if (!displayCount) {
-        RELEASE_LOG(Media, "CGGetActiveDisplayList() returned a display count of 0");
-        return;
-    }
-
-    CGDirectDisplayID activeDisplays[displayCount];
-    err = CGGetActiveDisplayList(displayCount, &(activeDisplays[0]), &displayCount);
-    if (err) {
-        RELEASE_LOG(Media, "CGGetActiveDisplayList() returned error %d when trying to get the active display list", (int)err);
-        return;
-    }
-
-    bool haveDeviceChanges = false;
-    for (auto displayID : activeDisplays) {
-        if (std::any_of(m_displaysInternal.begin(), m_displaysInternal.end(), [displayID](auto& device) { return device.cgDirectDisplayID == displayID; }))
-            continue;
-        haveDeviceChanges = true;
-        m_displaysInternal.append({ displayID, CGDisplayIDToOpenGLDisplayMask(displayID) });
-    }
-
-    for (auto& display : m_displaysInternal) {
-        auto displayMask = CGDisplayIDToOpenGLDisplayMask(display.cgDirectDisplayID);
-        if (display.cgOpenGLDisplayMask != displayMask) {
-            display.cgOpenGLDisplayMask = displayMask;
-            haveDeviceChanges = true;
-        }
-    }
-
-    if (!haveDeviceChanges)
-        return;
-
-    int count = 0;
-    m_displays = Vector<CaptureDevice>();
-    for (auto& device : m_displaysInternal) {
-        CaptureDevice displayDevice(String::number(device.cgDirectDisplayID), CaptureDevice::DeviceType::Screen, makeString("Screen ", String::number(count++)));
-        displayDevice.setEnabled(device.cgOpenGLDisplayMask);
-        m_displays.append(WTFMove(displayDevice));
-    }
+    ScreenDisplayCaptureSourceMac::screenCaptureDevices(m_devices);
 #endif
 }
 
-std::optional<CaptureDevice> DisplayCaptureManagerCocoa::screenCaptureDeviceWithPersistentID(const String& deviceID)
+void DisplayCaptureManagerCocoa::updateWindowCaptureDevices()
 {
 #if PLATFORM(MAC)
-    bool ok;
-    auto displayID = deviceID.toUIntStrict(&ok);
-    if (!ok) {
-        RELEASE_LOG(Media, "Display ID does not convert to 32-bit integer");
-        return std::nullopt;
-    }
+    WindowDisplayCaptureSourceMac::windowCaptureDevices(m_devices);
+#endif
+}
 
-    auto actualDisplayID = ScreenDisplayCaptureSourceMac::updateDisplayID(displayID);
-    if (!actualDisplayID)
-        return std::nullopt;
-
-    auto device = CaptureDevice(String::number(actualDisplayID.value()), CaptureDevice::DeviceType::Screen, "ScreenCaptureDevice"_s);
-    device.setEnabled(true);
-
-    return device;
+Optional<CaptureDevice> DisplayCaptureManagerCocoa::screenCaptureDeviceWithPersistentID(const String& deviceID)
+{
+#if PLATFORM(MAC)
+    return ScreenDisplayCaptureSourceMac::screenCaptureDeviceWithPersistentID(deviceID);
 #else
     UNUSED_PARAM(deviceID);
-    return std::nullopt;
+    return WTF::nullopt;
 #endif
 }
 
-std::optional<CaptureDevice> DisplayCaptureManagerCocoa::captureDeviceWithPersistentID(CaptureDevice::DeviceType type, const String& id)
+Optional<CaptureDevice> DisplayCaptureManagerCocoa::windowCaptureDeviceWithPersistentID(const String& deviceID)
+{
+#if PLATFORM(MAC)
+    return WindowDisplayCaptureSourceMac::windowCaptureDeviceWithPersistentID(deviceID);
+#else
+    UNUSED_PARAM(deviceID);
+    return WTF::nullopt;
+#endif
+}
+
+Optional<CaptureDevice> DisplayCaptureManagerCocoa::captureDeviceWithPersistentID(CaptureDevice::DeviceType type, const String& id)
 {
     switch (type) {
     case CaptureDevice::DeviceType::Screen:
         return screenCaptureDeviceWithPersistentID(id);
         break;
-            
-    case CaptureDevice::DeviceType::Application:
+
     case CaptureDevice::DeviceType::Window:
+        return windowCaptureDeviceWithPersistentID(id);
+        break;
+
+    case CaptureDevice::DeviceType::Application:
     case CaptureDevice::DeviceType::Browser:
         break;
 
@@ -171,7 +114,7 @@ std::optional<CaptureDevice> DisplayCaptureManagerCocoa::captureDeviceWithPersis
         break;
     }
 
-    return std::nullopt;
+    return WTF::nullopt;
 }
 
 } // namespace WebCore

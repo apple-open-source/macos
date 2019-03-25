@@ -26,20 +26,24 @@
 #import "config.h"
 #import "WebPageProxy.h"
 
+#import "APIAttachment.h"
 #import "APIUIClient.h"
 #import "DataDetectionResult.h"
 #import "LoadParameters.h"
 #import "PageClient.h"
+#import "SafeBrowsingSPI.h"
+#import "SafeBrowsingWarning.h"
+#import "WebPageMessages.h"
 #import "WebProcessProxy.h"
 #import <WebCore/DragItem.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/SearchPopupMenuCocoa.h>
 #import <WebCore/ValidationBubble.h>
+#import <wtf/BlockPtr.h>
 #import <wtf/cf/TypeCastsCF.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 #if ENABLE(DATA_DETECTION)
 void WebPageProxy::setDataDetectionResult(const DataDetectionResult& dataDetectionResult)
@@ -68,6 +72,33 @@ void WebPageProxy::loadRecentSearches(const String& name, Vector<WebCore::Recent
     searchItems = WebCore::loadRecentSearches(name);
 }
 
+void WebPageProxy::beginSafeBrowsingCheck(const URL& url, bool forMainFrameNavigation, WebFramePolicyListenerProxy& listener)
+{
+#if HAVE(SAFE_BROWSING)
+    SSBLookupContext *context = [SSBLookupContext sharedLookupContext];
+    if (!context)
+        return listener.didReceiveSafeBrowsingResults({ });
+    [context lookUpURL:url completionHandler:makeBlockPtr([listener = makeRef(listener), forMainFrameNavigation, url = url] (SSBLookupResult *result, NSError *error) mutable {
+        RunLoop::main().dispatch([listener = WTFMove(listener), result = retainPtr(result), error = retainPtr(error), forMainFrameNavigation, url = WTFMove(url)] {
+            if (error) {
+                listener->didReceiveSafeBrowsingResults({ });
+                return;
+            }
+
+            for (SSBServiceLookupResult *lookupResult in [result serviceLookupResults]) {
+                if (lookupResult.isPhishing || lookupResult.isMalware || lookupResult.isUnwantedSoftware) {
+                    listener->didReceiveSafeBrowsingResults(SafeBrowsingWarning::create(url, forMainFrameNavigation, lookupResult));
+                    return;
+                }
+            }
+            listener->didReceiveSafeBrowsingResults({ });
+        });
+    }).get()];
+#else
+    listener.didReceiveSafeBrowsingResults({ });
+#endif
+}
+
 #if ENABLE(CONTENT_FILTERING)
 void WebPageProxy::contentFilterDidBlockLoadForFrame(const WebCore::ContentFilterUnblockHandler& unblockHandler, uint64_t frameID)
 {
@@ -90,7 +121,7 @@ void WebPageProxy::createSandboxExtensionsIfNeeded(const Vector<String>& files, 
         BOOL isDirectory;
         if ([[NSFileManager defaultManager] fileExistsAtPath:files[0] isDirectory:&isDirectory] && !isDirectory) {
             SandboxExtension::createHandle("/", SandboxExtension::Type::ReadOnly, fileReadHandle);
-            process().willAcquireUniversalFileReadSandboxExtension();
+            willAcquireUniversalFileReadSandboxExtension(m_process);
         }
     }
 
@@ -107,10 +138,10 @@ void WebPageProxy::createSandboxExtensionsIfNeeded(const Vector<String>& files, 
 
 void WebPageProxy::startDrag(const DragItem& dragItem, const ShareableBitmap::Handle& dragImageHandle)
 {
-    m_pageClient.startDrag(dragItem, dragImageHandle);
+    pageClient().startDrag(dragItem, dragImageHandle);
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 void WebPageProxy::setPromisedDataForImage(const String&, const SharedMemory::Handle&, uint64_t, const String&, const String&, const String&, const String&, const String&, const SharedMemory::Handle&, uint64_t)
 {
@@ -124,11 +155,56 @@ void WebPageProxy::setDragCaretRect(const IntRect& dragCaretRect)
 
     auto previousRect = m_currentDragCaretRect;
     m_currentDragCaretRect = dragCaretRect;
-    m_pageClient.didChangeDataInteractionCaretRect(previousRect, dragCaretRect);
+    pageClient().didChangeDataInteractionCaretRect(previousRect, dragCaretRect);
 }
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
 
 #endif // ENABLE(DRAG_SUPPORT)
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+
+void WebPageProxy::platformRegisterAttachment(Ref<API::Attachment>&& attachment, const String& preferredFileName, const IPC::DataReference& dataReference)
+{
+    if (dataReference.isEmpty())
+        return;
+
+    auto buffer = SharedBuffer::create(dataReference.data(), dataReference.size());
+    auto fileWrapper = adoptNS([pageClient().allocFileWrapperInstance() initRegularFileWithContents:buffer->createNSData().autorelease()]);
+    [fileWrapper setPreferredFilename:preferredFileName];
+    attachment->setFileWrapper(fileWrapper.get());
 }
+
+void WebPageProxy::platformRegisterAttachment(Ref<API::Attachment>&& attachment, const String& filePath)
+{
+    if (!filePath)
+        return;
+
+    auto fileWrapper = adoptNS([pageClient().allocFileWrapperInstance() initWithURL:[NSURL fileURLWithPath:filePath] options:0 error:nil]);
+    attachment->setFileWrapper(fileWrapper.get());
+}
+
+void WebPageProxy::platformCloneAttachment(Ref<API::Attachment>&& fromAttachment, Ref<API::Attachment>&& toAttachment)
+{
+    toAttachment->setFileWrapper(fromAttachment->fileWrapper());
+}
+
+#endif // ENABLE(ATTACHMENT_ELEMENT)
+    
+void WebPageProxy::performDictionaryLookupAtLocation(const WebCore::FloatPoint& point)
+{
+    if (!isValid())
+        return;
+    
+    process().send(Messages::WebPage::PerformDictionaryLookupAtLocation(point), m_pageID);
+}
+
+void WebPageProxy::performDictionaryLookupOfCurrentSelection()
+{
+    if (!isValid())
+        return;
+    
+    process().send(Messages::WebPage::PerformDictionaryLookupOfCurrentSelection(), m_pageID);
+}
+
+} // namespace WebKit

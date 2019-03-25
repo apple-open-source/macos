@@ -320,6 +320,9 @@ const CFTypeRef kAKSKeyOpUnwrap = (CFTypeRef)CFSTR("kAKSKeyOpUnwrap");
 const CFTypeRef kAKSKeyOpComputeKey = (CFTypeRef)CFSTR("kAKSKeyOpComputeKey");
 const CFTypeRef kAKSKeyOpAttest = (CFTypeRef)CFSTR("kAKSKeyOpAttest");
 const CFTypeRef kAKSKeyOpTranscrypt = (CFTypeRef)CFSTR("kAKSKeyOpTranscrypt");
+const CFTypeRef kAKSKeyOpECIESEncrypt = (CFTypeRef)CFSTR("kAKSKeyOpECIESEncrypt");
+const CFTypeRef kAKSKeyOpECIESDecrypt = (CFTypeRef)CFSTR("kAKSKeyOpECIESDecrypt");
+const CFTypeRef kAKSKeyOpECIESTranscode = (CFTypeRef)CFSTR("kAKSKeyOpECIESTranscode");
 
 
 TKTokenRef TKTokenCreate(CFDictionaryRef attributes, CFErrorRef *error)
@@ -328,11 +331,6 @@ TKTokenRef TKTokenCreate(CFDictionaryRef attributes, CFErrorRef *error)
 }
 
 CFTypeRef TKTokenCopyObjectData(TKTokenRef token, CFDataRef objectID, CFErrorRef *error)
-{
-    return NULL;
-}
-
-CFDataRef TKTokenCopyObjectCreationAccessControl(TKTokenRef token, CFDictionaryRef objectAttributes, CFErrorRef *error)
 {
     return NULL;
 }

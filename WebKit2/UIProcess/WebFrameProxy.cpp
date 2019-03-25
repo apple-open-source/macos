@@ -26,6 +26,8 @@
 #include "config.h"
 #include "WebFrameProxy.h"
 
+#include "APINavigation.h"
+#include "ProvisionalPageProxy.h"
 #include "WebCertificateInfo.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebPageMessages.h"
@@ -39,12 +41,11 @@
 #include <stdio.h>
 #include <wtf/text/WTFString.h>
 
+namespace WebKit {
 using namespace WebCore;
 
-namespace WebKit {
-
-WebFrameProxy::WebFrameProxy(WebPageProxy* page, uint64_t frameID)
-    : m_page(page)
+WebFrameProxy::WebFrameProxy(WebPageProxy& page, uint64_t frameID)
+    : m_page(makeWeakPtr(page))
     , m_isFrameSet(false)
     , m_frameID(frameID)
 {
@@ -64,7 +65,7 @@ void WebFrameProxy::webProcessWillShutDown()
     m_page = nullptr;
 
     if (m_activeListener) {
-        m_activeListener->invalidate();
+        m_activeListener->ignore();
         m_activeListener = nullptr;
     }
 }
@@ -74,7 +75,7 @@ bool WebFrameProxy::isMainFrame() const
     if (!m_page)
         return false;
 
-    return this == m_page->mainFrame();
+    return this == m_page->mainFrame() || (m_page->provisionalPageProxy() && this == m_page->provisionalPageProxy()->mainFrame());
 }
 
 void WebFrameProxy::loadURL(const URL& url)
@@ -177,38 +178,15 @@ void WebFrameProxy::didChangeTitle(const String& title)
     m_title = title;
 }
 
-void WebFrameProxy::receivedPolicyDecision(PolicyAction action, uint64_t listenerID, API::Navigation* navigation, std::optional<WebsitePoliciesData>&& data)
-{
-    if (!m_page)
-        return;
-
-    ASSERT(m_activeListener);
-    ASSERT(m_activeListener->listenerID() == listenerID);
-    m_page->receivedPolicyDecision(action, *this, listenerID, navigation, WTFMove(data));
-}
-
-WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(uint64_t listenerID, PolicyListenerType policyListenerType)
+WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(CompletionHandler<void(PolicyAction, API::WebsitePolicies*, ProcessSwapRequestedByClient, RefPtr<SafeBrowsingWarning>&&)>&& completionHandler, ShouldExpectSafeBrowsingResult expect)
 {
     if (m_activeListener)
-        m_activeListener->invalidate();
-    m_activeListener = WebFramePolicyListenerProxy::create(this, listenerID, policyListenerType);
-    return *static_cast<WebFramePolicyListenerProxy*>(m_activeListener.get());
-}
-
-WebFramePolicyListenerProxy* WebFrameProxy::activePolicyListenerProxy()
-{
-    if (!m_activeListener || m_activeListener->type() != WebFramePolicyListenerProxy::APIType)
-        return nullptr;
-
-    return static_cast<WebFramePolicyListenerProxy*>(m_activeListener.get());
-}
-
-void WebFrameProxy::changeWebsiteDataStore(WebsiteDataStore& websiteDataStore)
-{
-    if (!m_page)
-        return;
-
-    m_page->changeWebsiteDataStore(websiteDataStore);
+        m_activeListener->ignore();
+    m_activeListener = WebFramePolicyListenerProxy::create([this, protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)] (PolicyAction action, API::WebsitePolicies* policies, ProcessSwapRequestedByClient processSwapRequestedByClient, RefPtr<SafeBrowsingWarning>&& safeBrowsingWarning) mutable {
+        completionHandler(action, policies, processSwapRequestedByClient, WTFMove(safeBrowsingWarning));
+        m_activeListener = nullptr;
+    }, expect);
+    return *m_activeListener;
 }
 
 void WebFrameProxy::getWebArchive(Function<void (API::Data*, CallbackBase::Error)>&& callbackFunction)
@@ -254,7 +232,7 @@ bool WebFrameProxy::didHandleContentFilterUnblockNavigation(const ResourceReques
         return false;
     }
 
-    RefPtr<WebPageProxy> page { m_page };
+    RefPtr<WebPageProxy> page { m_page.get() };
     ASSERT(page);
     m_contentFilterUnblockHandler.requestUnblockAsync([page](bool unblocked) {
         if (unblocked)

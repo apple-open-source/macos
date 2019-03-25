@@ -29,8 +29,10 @@
 #if PLATFORM(MAC)
 
 #import "AXObjectCache.h"
+#import "ColorMac.h"
 #import "ControlStates.h"
 #import "GraphicsContext.h"
+#import "GraphicsContextCG.h"
 #import "ImageBuffer.h"
 #import "LengthSize.h"
 #import "LocalCurrentGraphicsContext.h"
@@ -212,6 +214,10 @@ static void updateStates(NSCell* cell, const ControlStates& controlStates, bool 
         [(NSButtonCell*)cell _setState:newState animated:useAnimation];
     }
 
+    // Presenting state
+    if (states & ControlStates::PresentingState)
+        [(NSButtonCell*)cell _setHighlighted:YES animated:NO];
+
     // Window inactive state does not need to be checked explicitly, since we paint parented to 
     // a view in a window whose key state can be detected.
 }
@@ -354,11 +360,11 @@ static NSButtonCell *sharedCheckboxCell(const ControlStates& states, const IntSi
 
 static bool drawCellFocusRingWithFrameAtTime(NSCell *cell, NSRect cellFrame, NSView *controlView, NSTimeInterval timeOffset)
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     CGContextRef cgContext = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
-#pragma clang diagnostic pop
-    CGContextSaveGState(cgContext);
+    ALLOW_DEPRECATED_DECLARATIONS_END
+
+    CGContextStateSaver stateSaver(cgContext);
 
     CGFocusRingStyle focusRingStyle;
     bool needsRepaint = NSInitializeCGFocusRingStyleForTime(NSFocusRingOnly, &focusRingStyle, timeOffset);
@@ -370,13 +376,14 @@ static bool drawCellFocusRingWithFrameAtTime(NSCell *cell, NSRect cellFrame, NSV
     focusRingStyle.accumulate = -1;
 
     // FIXME: This color should be shared with RenderThemeMac. For now just use the same NSColor color.
-    auto style = adoptCF(CGStyleCreateFocusRingWithColor(&focusRingStyle, [NSColor keyboardFocusIndicatorColor].CGColor));
+    // The color is expected to be opaque, since CoreGraphics will apply opacity when drawing (because opacity is normally animated).
+    auto color = colorWithOverrideAlpha(colorFromNSColor([NSColor keyboardFocusIndicatorColor]).rgb(), 1);
+    auto style = adoptCF(CGStyleCreateFocusRingWithColor(&focusRingStyle, cachedCGColor(color)));
     CGContextSetStyle(cgContext, style.get());
 
     CGContextBeginTransparencyLayerWithRect(cgContext, NSRectToCGRect(cellFrame), nullptr);
     [cell drawFocusRingMaskWithFrame:cellFrame inView:controlView];
     CGContextEndTransparencyLayer(cgContext);
-    CGContextRestoreGState(cgContext);
 
     return needsRepaint;
 }
@@ -492,12 +499,20 @@ static void setUpButtonCell(NSButtonCell *cell, ControlPart part, const ControlS
 {
     // Set the control size based off the rectangle we're painting into.
     const std::array<IntSize, 3>& sizes = buttonSizes();
-    if (part == SquareButtonPart || zoomedSize.height() > buttonSizes()[NSControlSizeRegular].height() * zoomFactor) {
-        // Use the square button
-        if ([cell bezelStyle] != NSBezelStyleShadowlessSquare)
-            [cell setBezelStyle:NSBezelStyleShadowlessSquare];
-    } else if ([cell bezelStyle] != NSBezelStyleRounded)
-        [cell setBezelStyle:NSBezelStyleRounded];
+    switch (part) {
+    case SquareButtonPart:
+        [cell setBezelStyle:NSBezelStyleShadowlessSquare];
+        break;
+#if ENABLE(INPUT_TYPE_COLOR)
+    case ColorWellPart:
+        [cell setBezelStyle:NSBezelStyleTexturedSquare];
+        break;
+#endif
+    default:
+        NSBezelStyle style = (zoomedSize.height() > buttonSizes()[NSControlSizeRegular].height() * zoomFactor) ? NSBezelStyleShadowlessSquare : NSBezelStyleRounded;
+        [cell setBezelStyle:style];
+        break;
+    }
 
     setControlSize(cell, sizes, zoomedSize, zoomFactor);
 
@@ -699,6 +714,46 @@ bool ThemeMac::drawCellOrFocusRingWithViewIntoContext(NSCell *cell, GraphicsCont
     return needsRepaint;
 }
 
+// Color Well
+
+#if ENABLE(INPUT_TYPE_COLOR)
+static void paintColorWell(ControlStates& controlStates, GraphicsContext& context, const FloatRect& zoomedRect, float zoomFactor, ScrollView* scrollView, float deviceScaleFactor, float pageScaleFactor)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+
+    // Determine the width and height needed for the control and prepare the cell for painting.
+    ControlStates::States states = controlStates.states();
+    NSButtonCell *buttonCell = button(ColorWellPart, controlStates, IntSize(zoomedRect.size()), zoomFactor);
+    GraphicsContextStateSaver stateSaver(context);
+
+    NSControlSize controlSize = [buttonCell controlSize];
+    IntSize zoomedSize = buttonSizes()[controlSize];
+    zoomedSize.setWidth(zoomedRect.width()); // Buttons don't ever constrain width, so the zoomed width can just be honored.
+    zoomedSize.setHeight(zoomedSize.height() * zoomFactor);
+    FloatRect inflatedRect = zoomedRect;
+
+    LocalCurrentGraphicsContext localContext(context);
+
+    NSView *view = ThemeMac::ensuredView(scrollView, controlStates);
+    NSWindow *window = [view window];
+    NSButtonCell *previousDefaultButtonCell = [window defaultButtonCell];
+
+    bool useImageBuffer = pageScaleFactor != 1.0f || zoomFactor != 1.0f;
+    bool needsRepaint = ThemeMac::drawCellOrFocusRingWithViewIntoContext(buttonCell, context, inflatedRect, view, true, states & ControlStates::FocusState, useImageBuffer, deviceScaleFactor);
+    if ([previousDefaultButtonCell isEqual:buttonCell])
+        [window setDefaultButtonCell:nil];
+
+    controlStates.setNeedsRepaint(needsRepaint);
+
+    [buttonCell setControlView:nil];
+
+    if (![previousDefaultButtonCell isEqual:buttonCell])
+        [window setDefaultButtonCell:previousDefaultButtonCell];
+
+    END_BLOCK_OBJC_EXCEPTIONS
+}
+#endif
+
 // Theme overrides
 
 int ThemeMac::baselinePositionAdjustment(ControlPart part) const
@@ -708,7 +763,7 @@ int ThemeMac::baselinePositionAdjustment(ControlPart part) const
     return Theme::baselinePositionAdjustment(part);
 }
 
-std::optional<FontCascadeDescription> ThemeMac::controlFont(ControlPart part, const FontCascade& font, float zoomFactor) const
+Optional<FontCascadeDescription> ThemeMac::controlFont(ControlPart part, const FontCascade& font, float zoomFactor) const
 {
     switch (part) {
     case PushButtonPart: {
@@ -722,7 +777,7 @@ std::optional<FontCascadeDescription> ThemeMac::controlFont(ControlPart part, co
         return fontDescription;
     }
     default:
-        return std::nullopt;
+        return WTF::nullopt;
     }
 }
 
@@ -749,6 +804,9 @@ LengthSize ThemeMac::minimumControlSize(ControlPart part, const FontCascade& fon
 {
     switch (part) {
     case SquareButtonPart:
+#if ENABLE(INPUT_TYPE_COLOR)
+    case ColorWellPart:
+#endif
     case DefaultButtonPart:
     case ButtonPart:
         return { { 0, Fixed }, { static_cast<int>(15 * zoomFactor), Fixed } };
@@ -766,6 +824,9 @@ LengthBox ThemeMac::controlBorder(ControlPart part, const FontCascade& font, con
 {
     switch (part) {
     case SquareButtonPart:
+#if ENABLE(INPUT_TYPE_COLOR)
+    case ColorWellPart:
+#endif
     case DefaultButtonPart:
     case ButtonPart:
         return LengthBox(0, zoomedBox.right().value(), 0, zoomedBox.left().value());
@@ -850,7 +911,9 @@ void ThemeMac::inflateControlPaintRect(ControlPart part, const ControlStates& st
 
 void ThemeMac::paint(ControlPart part, ControlStates& states, GraphicsContext& context, const FloatRect& zoomedRect, float zoomFactor, ScrollView* scrollView, float deviceScaleFactor, float pageScaleFactor, bool useSystemAppearance, bool useDarkAppearance)
 {
-    LocalDefaultSystemAppearance localAppearance(useSystemAppearance, useDarkAppearance);
+    UNUSED_PARAM(useSystemAppearance);
+
+    LocalDefaultSystemAppearance localAppearance(useDarkAppearance);
 
     switch (part) {
         case CheckboxPart:
@@ -865,6 +928,11 @@ void ThemeMac::paint(ControlPart part, ControlStates& states, GraphicsContext& c
         case SquareButtonPart:
             paintButton(part, states, context, zoomedRect, zoomFactor, scrollView, deviceScaleFactor, pageScaleFactor);
             break;
+#if ENABLE(INPUT_TYPE_COLOR)
+        case ColorWellPart:
+            paintColorWell(states, context, zoomedRect, zoomFactor, scrollView, deviceScaleFactor, pageScaleFactor);
+            break;
+#endif
         case InnerSpinButtonPart:
             paintStepper(states, context, zoomedRect, zoomFactor, scrollView);
             break;

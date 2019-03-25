@@ -123,7 +123,18 @@ int test_encryption_status(const char *bsdname) {
 		return error;
 	}
 
-	printf("For %s, encrypted: %d total encryption status: %u\n", bsdname, encryption_status, encryption_detail);
+	printf("For %s (CFStringRef), encrypted: %d total encryption status: %u\n", bsdname, encryption_status, encryption_detail);
 	CFRelease(bsdname_cfstring);
+
+	// Now, const char * version.
+	encryption_status = false;
+	encryption_detail = 0;
+	error = _FSGetMediaEncryptionStatusAtPath(bsdname, &encryption_status, &encryption_detail);
+	if (error != 0) {
+		return error;
+	}
+
+	printf("For %s (const char *), encrypted: %d total encryption status: %u\n", bsdname, encryption_status, encryption_detail);
+
 	return 0;
 }

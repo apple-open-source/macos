@@ -38,68 +38,90 @@ namespace Layout {
 
 class BlockFormattingState;
 class Box;
+class FloatingContext;
 
 // This class implements the layout logic for block formatting contexts.
 // https://www.w3.org/TR/CSS22/visuren.html#block-formatting
 class BlockFormattingContext : public FormattingContext {
     WTF_MAKE_ISO_ALLOCATED(BlockFormattingContext);
 public:
-    BlockFormattingContext(const Box& formattingContextRoot);
+    BlockFormattingContext(const Box& formattingContextRoot, FormattingState& formattingState);
 
-    void layout(LayoutContext&, FormattingState&) const override;
-    std::unique_ptr<FormattingState> createFormattingState(Ref<FloatingState>&&, const LayoutContext&) const override;
-    Ref<FloatingState> createOrFindFloatingState(LayoutContext&) const override;
+    void layout() const override;
 
 private:
-    void layoutFormattingContextRoot(LayoutContext&, FormattingState&, const Box&, Display::Box&) const;
+    void layoutFormattingContextRoot(FloatingContext&, const Box&) const;
+    void placeInFlowPositionedChildren(const Container&) const;
 
-    void computeWidthAndMargin(LayoutContext&, const Box&, Display::Box&) const;
-    void computeHeightAndMargin(LayoutContext&, const Box&, Display::Box&) const;
+    void computeWidthAndMargin(const Box&) const;
+    void computeHeightAndMargin(const Box&) const;
 
-    void computeStaticPosition(LayoutContext&, const Box&, Display::Box&) const override;
-    void computeInFlowPositionedPosition(LayoutContext&, const Box&, Display::Box&) const override;
-    void computeInFlowWidthAndMargin(LayoutContext&, const Box&, Display::Box&) const;
-    void computeInFlowHeightAndMargin(LayoutContext&, const Box&, Display::Box&) const;
+    void computeStaticPosition(const Box&) const;
+    void computeFloatingPosition(const FloatingContext&, const Box&) const;
+    void computePositionToAvoidFloats(const FloatingContext&, const Box&) const;
+    void computeVerticalPositionForFloatClear(const FloatingContext&, const Box&) const;
 
-    FormattingContext::InstrinsicWidthConstraints instrinsicWidthConstraints(LayoutContext&, const Box&) const override;
+    void computeEstimatedMarginBeforeForAncestors(const Box&) const;
+    void computeEstimatedMarginBefore(const Box&) const;
+
+    void precomputeVerticalPositionForFormattingRootIfNeeded(const Box&) const;
+
+    InstrinsicWidthConstraints instrinsicWidthConstraints() const override;
 
     // This class implements positioning and sizing for boxes participating in a block formatting context.
-    class Geometry {
+    class Geometry : public FormattingContext::Geometry {
     public:
-        static FormattingContext::Geometry::HeightAndMargin inFlowHeightAndMargin(LayoutContext&, const Box&);
-        static FormattingContext::Geometry::WidthAndMargin inFlowWidthAndMargin(LayoutContext&, const Box&);
+        static HeightAndMargin inFlowHeightAndMargin(const LayoutState&, const Box&, Optional<LayoutUnit> usedHeight = { });
+        static WidthAndMargin inFlowWidthAndMargin(const LayoutState&, const Box&, Optional<LayoutUnit> usedWidth = { });
 
-        static FormattingContext::Geometry::Position staticPosition(LayoutContext&, const Box&);
-        static FormattingContext::Geometry::Position inFlowPositionedPosition(LayoutContext&, const Box&);
+        static Point staticPosition(const LayoutState&, const Box&);
 
         static bool instrinsicWidthConstraintsNeedChildrenWidth(const Box&);
-        static FormattingContext::InstrinsicWidthConstraints instrinsicWidthConstraints(LayoutContext&, const Box&);
+        static InstrinsicWidthConstraints instrinsicWidthConstraints(const LayoutState&, const Box&);
+
+        static LayoutUnit estimatedMarginBefore(const LayoutState&, const Box&);
+        static LayoutUnit estimatedMarginAfter(const LayoutState&, const Box&);
 
     private:
-        static FormattingContext::Geometry::HeightAndMargin inFlowNonReplacedHeightAndMargin(LayoutContext&, const Box&);
-        static FormattingContext::Geometry::WidthAndMargin inFlowNonReplacedWidthAndMargin(LayoutContext&, const Box&, std::optional<LayoutUnit> precomputedWidth = std::nullopt);
-        static FormattingContext::Geometry::WidthAndMargin inFlowReplacedWidthAndMargin(LayoutContext&, const Box&);
-        static FormattingContext::Geometry::Position staticPositionForOutOfFlowPositioned(const LayoutContext&, const Box&);
+        static HeightAndMargin inFlowNonReplacedHeightAndMargin(const LayoutState&, const Box&, Optional<LayoutUnit> usedHeight = { });
+        static WidthAndMargin inFlowNonReplacedWidthAndMargin(const LayoutState&, const Box&, Optional<LayoutUnit> usedWidth = { });
+        static WidthAndMargin inFlowReplacedWidthAndMargin(const LayoutState&, const Box&, Optional<LayoutUnit> usedWidth = { });
+        static Point staticPositionForOutOfFlowPositioned(const LayoutState&, const Box&);
     };
-    
+
     // This class implements margin collapsing for block formatting context.
     class MarginCollapse {
     public:
-        static LayoutUnit marginTop(const LayoutContext&, const Box&);
-        static LayoutUnit marginBottom(const LayoutContext&, const Box&);
+        static LayoutUnit marginBefore(const LayoutState&, const Box&);
+        static LayoutUnit marginAfter(const LayoutState&, const Box&);
 
-        static bool isMarginBottomCollapsedWithParent(const LayoutContext&, const Box&);
-        static bool isMarginTopCollapsedWithParentMarginBottom(const Box&);
-    
+        static bool marginBeforeCollapsesWithParentMarginAfter(const LayoutState&, const Box&);
+        static bool marginAfterCollapsesWithParentMarginAfter(const LayoutState&, const Box&);
+
     private:
-        static LayoutUnit collapsedMarginBottomFromLastChild(const LayoutContext&, const Box&);
-        static LayoutUnit nonCollapsedMarginBottom(const LayoutContext&, const Box&);
+        static LayoutUnit collapsedMarginAfterFromLastChild(const LayoutState&, const Box&);
+        static LayoutUnit nonCollapsedMarginAfter(const LayoutState&, const Box&);
 
-        static LayoutUnit computedNonCollapsedMarginTop(const LayoutContext&, const Box&);
-        static LayoutUnit computedNonCollapsedMarginBottom(const LayoutContext&, const Box&);
+        static LayoutUnit computedNonCollapsedMarginBefore(const LayoutState&, const Box&);
+        static LayoutUnit computedNonCollapsedMarginAfter(const LayoutState&, const Box&);
 
-        static LayoutUnit collapsedMarginTopFromFirstChild(const LayoutContext&, const Box&);
-        static LayoutUnit nonCollapsedMarginTop(const LayoutContext&, const Box&);
+        static LayoutUnit collapsedMarginBeforeFromFirstChild(const LayoutState&, const Box&);
+        static LayoutUnit nonCollapsedMarginBefore(const LayoutState&, const Box&);
+
+        static bool marginBeforeCollapsesWithParentMarginBefore(const LayoutState&, const Box&);
+        static bool marginBeforeCollapsesWithPreviousSibling(const Box&);
+        static bool marginAfterCollapsesWithNextSibling(const Box&);
+        static bool marginAfterCollapsesWithSiblingMarginBeforeWithClearance(const LayoutState&, const Box&);
+        static bool marginAfterCollapsesWithParentMarginBefore(const LayoutState&, const Box&);
+        static bool marginsCollapseThrough(const LayoutState&, const Box&);
+    };
+
+    class Quirks {
+    public:
+        static bool needsStretching(const LayoutState&, const Box&);
+        static HeightAndMargin stretchedHeight(const LayoutState&, const Box&, HeightAndMargin);
+
+        static bool shouldIgnoreMarginBefore(const LayoutState&, const Box&);
     };
 };
 

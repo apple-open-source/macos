@@ -100,25 +100,19 @@ private:
 typedef OptionRange optionRange;
 typedef const char* optionString;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #define MAXIMUM_NUMBER_OF_FTL_COMPILER_THREADS 2
 #else
 #define MAXIMUM_NUMBER_OF_FTL_COMPILER_THREADS 8
 #endif
 
-#if ENABLE(JS_ASYNC_ITERATION)
-constexpr bool enableAsyncIteration = true;
-#else
-constexpr bool enableAsyncIteration = false;
-#endif
-
-#if ENABLE(INTL_NUMBER_FORMAT_TO_PARTS) && (!PLATFORM(COCOA) || ENABLE(EXPERIMENTAL_FEATURES))
+#if ENABLE(EXPERIMENTAL_FEATURES)
 constexpr bool enableIntlNumberFormatToParts = true;
 #else
 constexpr bool enableIntlNumberFormatToParts = false;
 #endif
 
-#if ENABLE(INTL_PLURAL_RULES) && (!PLATFORM(COCOA) || ENABLE(EXPERIMENTAL_FEATURES))
+#if ENABLE(EXPERIMENTAL_FEATURES)
 constexpr bool enableIntlPluralRules = true;
 #else
 constexpr bool enableIntlPluralRules = false;
@@ -136,11 +130,11 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(optionString, configFile, nullptr, Normal, "file to configure JSC options and logging location") \
     \
     v(bool, useLLInt,  true, Normal, "allows the LLINT to be used if true") \
-    v(bool, useJIT,    true, Normal, "allows the executable pages to be allocated for JIT and thunks if true") \
+    v(bool, useJIT, jitEnabledByDefault(), Normal, "allows the executable pages to be allocated for JIT and thunks if true") \
     v(bool, useBaselineJIT, true, Normal, "allows the baseline JIT to be used if true") \
     v(bool, useDFGJIT, true, Normal, "allows the DFG JIT to be used if true") \
-    v(bool, useRegExpJIT, true, Normal, "allows the RegExp JIT to be used if true") \
-    v(bool, useDOMJIT, true, Normal, "allows the DOMJIT to be used if true") \
+    v(bool, useRegExpJIT, jitEnabledByDefault(), Normal, "allows the RegExp JIT to be used if true") \
+    v(bool, useDOMJIT, is64Bit(), Normal, "allows the DOMJIT to be used if true") \
     \
     v(bool, reportMustSucceedExecutableAllocations, false, Normal, nullptr) \
     \
@@ -177,7 +171,9 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(bool, asyncDisassembly, false, Normal, nullptr) \
     v(bool, dumpDFGDisassembly, false, Normal, "dumps disassembly of DFG function upon compilation") \
     v(bool, dumpFTLDisassembly, false, Normal, "dumps disassembly of FTL function upon compilation") \
+    v(bool, dumpRegExpDisassembly, false, Normal, "dumps disassembly of RegExp upon compilation") \
     v(bool, dumpAllDFGNodes, false, Normal, nullptr) \
+    v(bool, logJITCodeForPerf, false, Configurable, nullptr) \
     v(optionRange, bytecodeRangeToJITCompile, 0, Normal, "bytecode size range to allow compilation on, e.g. 1:100") \
     v(optionRange, bytecodeRangeToDFGCompile, 0, Normal, "bytecode size range to allow DFG compilation on, e.g. 1:100") \
     v(optionRange, bytecodeRangeToFTLCompile, 0, Normal, "bytecode size range to allow FTL compilation on, e.g. 1:100") \
@@ -275,6 +271,7 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(unsigned, maxAccessVariantListSize, 8, Normal, nullptr) \
     v(bool, usePolyvariantDevirtualization, true, Normal, nullptr) \
     v(bool, usePolymorphicAccessInlining, true, Normal, nullptr) \
+    v(unsigned, maxPolymorphicAccessInliningListSize, 8, Normal, nullptr) \
     v(bool, usePolymorphicCallInlining, true, Normal, nullptr) \
     v(bool, usePolymorphicCallInliningForNonStubStatus, false, Normal, nullptr) \
     v(unsigned, maxPolymorphicCallVariantListSize, 15, Normal, nullptr) \
@@ -306,7 +303,7 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     \
     v(unsigned, maximumOptimizationCandidateInstructionCount, 100000, Normal, nullptr) \
     \
-    v(unsigned, maximumFunctionForCallInlineCandidateInstructionCount, 190, Normal, nullptr) \
+    v(unsigned, maximumFunctionForCallInlineCandidateInstructionCount, 120, Normal, nullptr) \
     v(unsigned, maximumFunctionForClosureCallInlineCandidateInstructionCount, 100, Normal, nullptr) \
     v(unsigned, maximumFunctionForConstructInlineCandidateInstructionCount, 100, Normal, nullptr) \
     \
@@ -321,9 +318,6 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(unsigned, maximumInliningCallerSize, 10000, Normal, nullptr) \
     \
     v(unsigned, maximumVarargsForInlining, 100, Normal, nullptr) \
-    \
-    v(bool, usePolyvariantCallInlining, true, Normal, nullptr) \
-    v(bool, usePolyvariantByIdInlining, true, Normal, nullptr) \
     \
     v(bool, useMaximalFlushInsertionPhase, false, Normal, "Setting to true allows the DFG's MaximalFlushInsertionPhase to run.") \
     \
@@ -484,8 +478,6 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(bool, usePoisoning, true, Normal, "Poison is randomized at load time when true, and initialized to 0 if false which defeats some Spectre and type confusion mitigations, but allows tools such as leak detectors to function better.") \
     v(bool, zeroStackFrame, false, Normal, "Zero stack frame on entry to a function.") \
     \
-    v(bool, useAsyncIterator, enableAsyncIteration, Normal, "Allow to use Async Iterator in JS.") \
-    \
     v(bool, failToCompileWebAssemblyCode, false, Normal, "If true, no Wasm::Plan will sucessfully compile a function.") \
     v(size, webAssemblyPartialCompileLimit, 5000, Normal, "Limit on the number of bytes a Wasm::Plan::compile should attempt before checking for other work.") \
     v(unsigned, webAssemblyBBQOptimizationLevel, 1, Normal, "B3 Optimization level for BBQ Web Assembly module compilations.") \
@@ -506,7 +498,6 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(bool, useWebAssemblyStreamingApi, enableWebAssemblyStreamingApi, Normal, "Allow to run WebAssembly's Streaming API") \
     v(bool, useCallICsForWebAssemblyToJSCalls, true, Normal, "If true, we will use CallLinkInfo to inline cache Wasm to JS calls.") \
     v(bool, useEagerWebAssemblyModuleHashing, false, Normal, "Unnamed WebAssembly modules are identified in backtraces through their hash, if available.") \
-    v(bool, useObjectRestSpread, true, Normal, "If true, we will enable Object Rest/Spread feature.") \
     v(bool, useBigInt, false, Normal, "If true, we will enable BigInt support.") \
     v(bool, useIntlNumberFormatToParts, enableIntlNumberFormatToParts, Normal, "If true, we will enable Intl.NumberFormat.prototype.formatToParts") \
     v(bool, useIntlPluralRules, enableIntlPluralRules, Normal, "If true, we will enable Intl.PluralRules.") \
@@ -516,6 +507,8 @@ constexpr bool enableWebAssemblyStreamingApi = false;
     v(bool, useTracePoints, false, Normal, nullptr) \
     v(bool, traceLLIntExecution, false, Configurable, nullptr) \
     v(bool, traceLLIntSlowPath, false, Configurable, nullptr) \
+    v(bool, traceBaselineJITExecution, false, Normal, nullptr) \
+    v(unsigned, thresholdForGlobalLexicalBindingEpoch, UINT_MAX, Normal, "Threshold for global lexical binding epoch. If the epoch reaches to this value, CodeBlock metadata for scope operations will be revised globally. It needs to be greater than 1.") \
 
 
 enum OptionEquivalence {
@@ -555,7 +548,6 @@ enum OptionEquivalence {
     v(enableOSRExitFuzz, useOSRExitFuzz, SameOption) \
     v(enableDollarVM, useDollarVM, SameOption) \
     v(enableWebAssembly, useWebAssembly, SameOption) \
-    v(enableAsyncIterator, useAsyncIterator, SameOption) \
     v(verboseDFGByteCodeParsing, verboseDFGBytecodeParsing, SameOption) \
 
 

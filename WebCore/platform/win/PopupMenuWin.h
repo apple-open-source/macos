@@ -42,10 +42,10 @@ public:
     PopupMenuWin(PopupMenuClient*);
     ~PopupMenuWin();
 
-    virtual void show(const IntRect&, FrameView*, int index);
-    virtual void hide();
-    virtual void updateFromElement();
-    virtual void disconnectClient();
+    void show(const IntRect&, FrameView*, int index) override;
+    void hide() override;
+    void updateFromElement() override;
+    void disconnectClient() override;
 
     static LPCWSTR popupClassName();
 
@@ -140,7 +140,7 @@ private:
     friend class AccessiblePopupMenu;
 };
 
-class AccessiblePopupMenu : public IAccessible {
+class AccessiblePopupMenu final : public IAccessible {
 public:
     AccessiblePopupMenu(const PopupMenuWin&);
     ~AccessiblePopupMenu();

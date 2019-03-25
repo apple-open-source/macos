@@ -170,8 +170,9 @@ std::string SecCodeSigner::getTeamIDFromSigner(CFArrayRef certs)
 //
 bool SecCodeSigner::valid() const
 {
-	if (mOpFlags & kSecCSRemoveSignature)
+	if (mOpFlags & (kSecCSRemoveSignature | kSecCSEditSignature)) {
 		return true;
+	}
 	return mSigner;
 }
 
@@ -188,6 +189,9 @@ void SecCodeSigner::sign(SecStaticCode *code, SecCSFlags flags)
 	if ((flags | mOpFlags) & kSecCSRemoveSignature) {
 		secinfo("signer", "%p will remove signature from %p", this, code);
 		operation.remove(flags);
+	} else if ((flags | mOpFlags) & kSecCSEditSignature) {
+		secinfo("signer", "%p will edit signature of %p", this, code);
+		operation.edit(flags);
 	} else {
 		if (!valid())
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
@@ -229,6 +233,29 @@ void SecCodeSigner::returnDetachedSignature(BlobCore *blob, Signer &signer)
 SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	: CFDictionary(parameters, errSecCSBadDictionaryFormat)
 {
+	CFNumberRef editCpuType = get<CFNumberRef>(kSecCodeSignerEditCpuType);
+	CFNumberRef editCpuSubtype = get<CFNumberRef>(kSecCodeSignerEditCpuSubtype);
+	if (editCpuType != NULL && editCpuSubtype != NULL) {
+		state.mEditArch = Architecture(cfNumber<uint32_t>(editCpuType),
+									   cfNumber<uint32_t>(editCpuSubtype));
+	}
+	
+	state.mEditCMS = get<CFDataRef>(kSecCodeSignerEditCMS);
+	
+	state.mDryRun = getBool(kSecCodeSignerDryRun);
+	
+	state.mSDKRoot = get<CFURLRef>(kSecCodeSignerSDKRoot);
+	
+	state.mPreserveAFSC = getBool(kSecCodeSignerPreserveAFSC);
+	
+	if (state.mOpFlags & kSecCSEditSignature) {
+		return;
+		/* Everything below this point is irrelevant for
+		 * Signature Editing, which does not create any
+		 * parts of the signature, only replaces them.
+		 */
+	}
+
 	// the signer may be an identity or null
 	state.mSigner = SecIdentityRef(get<CFTypeRef>(kSecCodeSignerIdentity));
 	if (state.mSigner)
@@ -305,15 +332,11 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
 	}
 	
-	state.mDryRun = getBool(kSecCodeSignerDryRun);
-
 	state.mResourceRules = get<CFDictionaryRef>(kSecCodeSignerResourceRules);
 	
 	state.mApplicationData = get<CFDataRef>(kSecCodeSignerApplicationData);
 	state.mEntitlementData = get<CFDataRef>(kSecCodeSignerEntitlements);
 	
-	state.mSDKRoot = get<CFURLRef>(kSecCodeSignerSDKRoot);
-    
 	if (CFBooleanRef timestampRequest = get<CFBooleanRef>(kSecCodeSignerRequireTimestamp)) {
 		state.mWantTimeStamp = timestampRequest == kCFBooleanTrue;
 	} else {	// pick default
@@ -336,7 +359,10 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 		}
 		state.mRuntimeVersionOverride = parseRuntimeVersion(runtime);
 	}
-	state.mPreserveAFSC = getBool(kSecCodeSignerPreserveAFSC);
+	
+	// Don't add the adhoc flag, even if no signer identity was specified.
+	// Useful for editing in the CMS at a later point.
+	state.mOmitAdhocFlag = getBool(kSecCodeSignerOmitAdhocFlag);
 }
 
 

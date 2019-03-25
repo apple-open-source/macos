@@ -52,7 +52,7 @@ GetterSetterAccessCase::GetterSetterAccessCase(VM& vm, JSCell* owner, AccessType
 std::unique_ptr<AccessCase> GetterSetterAccessCase::create(
     VM& vm, JSCell* owner, AccessType type, PropertyOffset offset, Structure* structure, const ObjectPropertyConditionSet& conditionSet,
     bool viaProxy, WatchpointSet* additionalSet, FunctionPtr<OperationPtrTag> customGetter, JSObject* customSlotBase,
-    std::optional<DOMAttributeAnnotation> domAttribute, std::unique_ptr<PolyProtoAccessChain> prototypeAccessChain)
+    Optional<DOMAttributeAnnotation> domAttribute, std::unique_ptr<PolyProtoAccessChain> prototypeAccessChain)
 {
     switch (type) {
     case Getter:
@@ -141,7 +141,7 @@ void GetterSetterAccessCase::emitDOMJITGetter(AccessGenerationState& state, cons
     ScratchRegisterAllocator allocator(stubInfo.patch.usedRegisters);
     allocator.lock(baseGPR);
 #if USE(JSVALUE32_64)
-    allocator.lock(static_cast<GPRReg>(stubInfo.patch.baseTagGPR));
+    allocator.lock(stubInfo.patch.baseTagGPR);
 #endif
     allocator.lock(valueRegs);
     allocator.lock(scratchGPR);

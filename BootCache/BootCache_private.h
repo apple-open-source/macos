@@ -222,8 +222,8 @@ struct BC_statistics {
 	} userspace_timestamps;
 
 	struct BC_userspace_optimizations {
-		u_int64_t	ssup_fusion_num_inodes_optimized;	/* number of inodes optimized for next boot */
-		u_int64_t	ssup_fusion_bytes_optimized;       /* number of bytes optimized for next boot */
+		u_int64_t	ssup_num_inodes_optimized;	/* number of inodes optimized for next boot */
+		u_int64_t	ssup_bytes_optimized;       /* number of bytes optimized for next boot */
 		u_int64_t	ssup_hdd_num_reads_already_optimized; /* number of reads this boot that were previously optimized */
 		u_int64_t	ssup_hdd_bytes_already_optimized; /* number of bytes read this boot that were previously optimized */
 		u_int64_t	ssup_hdd_optimization_range_length; /* size of region holding optimized bytes */

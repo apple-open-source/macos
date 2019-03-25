@@ -68,6 +68,7 @@
 #include "globals.h"
 #include "timer.h"
 #include "ifutil.h"
+#include "rtutil.h"
 #include "util.h"
 #include "symbol_scope.h"
 #include "DHCPv6Client.h"
@@ -95,8 +96,46 @@ typedef struct {
     boolean_t			renew;
     uint32_t			restart_count;
     boolean_t			has_autoconf_address;
-    struct in_addr		clat46_address;
+    boolean_t			clat46_address_set;
 } Service_rtadv_t;
+
+STATIC struct in_addr
+S_get_clat46_address(void)
+{
+    struct in_addr	clat46_address;
+
+    /* CLAT46 IPv4 address: 192.0.0.1 */
+    clat46_address.s_addr = htonl(IN_SERVICE_CONTINUITY + 1);
+    return (clat46_address);
+}
+
+STATIC CFDictionaryRef
+S_ipv4_clat46_dict_copy(CFStringRef ifname)
+{
+    struct in_addr 		clat46_address;
+    CFMutableDictionaryRef	ipv4_dict;
+
+    clat46_address = S_get_clat46_address();
+    ipv4_dict = CFDictionaryCreateMutable(NULL, 0,
+					  &kCFTypeDictionaryKeyCallBacks,
+					  &kCFTypeDictionaryValueCallBacks);
+    /* Addresses */
+    my_CFDictionarySetIPAddressAsArrayValue(ipv4_dict,
+					    kSCPropNetIPv4Addresses,
+					    clat46_address);
+    /* Router */
+    my_CFDictionarySetIPAddressAsString(ipv4_dict,
+					kSCPropNetIPv4Router,
+					clat46_address);
+
+    /* InterfaceName */
+    CFDictionarySetValue(ipv4_dict, kSCPropInterfaceName, ifname);
+
+    /* CLAT46 */
+    CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4CLAT46, kCFBooleanTrue);
+
+    return (ipv4_dict);
+}
 
 
 STATIC void
@@ -163,30 +202,88 @@ rtadv_set_dns_search_domains(Service_rtadv_t * rtadv,
 STATIC void
 rtadv_set_clat46_address(ServiceRef service_p)
 {
+    struct in_addr	addr;
+    interface_t *	if_p = service_interface(service_p);
+    struct in_addr	mask;
+    int			ret = 0;
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+    int			s;
 
-    if (rtadv->clat46_address.s_addr == 0) {
-	struct in_addr	clat46_address;
-
-	/* add CLAT46 IPv4 address: 192.0.0.1 */
-	clat46_address.s_addr = htonl(IN_SERVICE_CONTINUITY + 1);
-	if (service_clat46_set_address(service_p, clat46_address) == 0) {
-	    rtadv->clat46_address = clat46_address;
-	}
+    if (rtadv->clat46_address_set) {
+	return;
     }
+    s = inet_dgram_socket();
+    if (s < 0) {
+	my_log(LOG_ERR, "socket failed, %s (%d)",
+	       strerror(errno), errno);
+	return;
+    }
+    addr = S_get_clat46_address();
+    mask.s_addr = INADDR_BROADCAST;
+    ret = inet_aifaddr(s, if_name(if_p), addr, &mask, &addr);
+    if (ret == 0) {
+	uint64_t	eflags = 0;
+
+	(void)interface_get_eflags(s, if_name(if_p), &eflags);
+	if ((eflags & IFEF_CLAT46) != 0
+	    || inet6_clat46_start(if_name(if_p)) == 0) {
+	    my_log(LOG_NOTICE,
+		   "RTADV %s: CLAT46 enabled using address " IP_FORMAT,
+		   if_name(if_p), IP_LIST(&addr));
+	    rtadv->clat46_address_set = TRUE;
+	}
+	else {
+	    my_log(LOG_ERR,
+		   "RTADV %s: failed to enable CLAT46",
+		   if_name(if_p));
+	    (void)inet_difaddr(s, if_name(if_p), addr);
+	}
+	flush_routes(if_link_index(if_p), G_ip_zeroes, addr);
+    }
+    else {
+	my_log(LOG_NOTICE,
+	       "RTADV %s: set CLAT46 address " IP_FORMAT " failed, %s (%d)",
+	       if_name(if_p), IP_LIST(&addr), strerror(ret), ret);
+    }
+    close(s);
     return;
 }
 
 STATIC void
 rtadv_remove_clat46_address(ServiceRef service_p)
 {
+    struct in_addr	addr;
+    uint64_t		eflags = 0;
+    interface_t *	if_p = service_interface(service_p);
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+    int			s;
 
-    if (rtadv->clat46_address.s_addr != 0) {
-	/* remove CLAT46 IPv4 address */
-	(void)service_clat46_remove_address(service_p, rtadv->clat46_address);
-	rtadv->clat46_address = G_ip_zeroes;
+    s = inet_dgram_socket();
+    if (s < 0) {
+	my_log(LOG_ERR, "socket failed, %s (%d)",
+	       strerror(errno), errno);
+	return;
     }
+    addr = S_get_clat46_address();
+    if (inet_difaddr(s, if_name(if_p), addr) == 0) {
+	my_log(LOG_NOTICE,
+	       "RTADV %s: removed CLAT46 address " IP_FORMAT,
+	       if_name(if_p), IP_LIST(&addr));
+	flush_routes(if_link_index(if_p), G_ip_zeroes, addr);
+    }
+    else if (rtadv->clat46_address_set) {
+	int	error = errno;
+
+	my_log(LOG_NOTICE,
+	       "RTADV %s: remove CLAT46 address " IP_FORMAT " failed, %s (%d)",
+	       if_name(if_p), IP_LIST(&addr), strerror(error), error);
+    }
+    (void)interface_get_eflags(s, if_name(if_p), &eflags);
+    if ((eflags & IFEF_CLAT46) != 0) {
+	inet6_clat46_stop(if_name(if_p));
+    }
+    rtadv->clat46_address_set = FALSE;
+    close(s);
     return;
 }
 
@@ -433,7 +530,9 @@ rtadv_failed(ServiceRef service_p, ipconfig_status_t status)
     rtadv->restart_count = 0;
     rtadv_cancel_pending_events(service_p);
     inet6_rtadv_disable(if_name(service_interface(service_p)));
-    rtadv_remove_clat46_address(service_p);
+    if (service_clat46_is_enabled(service_p)) {
+	rtadv_remove_clat46_address(service_p);
+    }
     rtadv_clear_dns_servers(rtadv);
     rtadv_clear_dns_search_domains(rtadv);
     service_publish_failure(service_p, status);
@@ -469,8 +568,8 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	rtadv->complete = 0;
 	rtadv->dhcpv6_complete = 0;
 	rtadv->success_report_submitted = FALSE;
-	rtadv_cancel_pending_events(service_p);
 	rtadv_remove_clat46_address(service_p);
+	rtadv_cancel_pending_events(service_p);
 	RTADVSocketEnableReceive(rtadv->sock,
 				 (RTADVSocketReceiveFuncPtr)rtadv_start,
 				 service_p, (void *)IFEventID_data_e);
@@ -868,16 +967,16 @@ rtadv_address_changed_common(ServiceRef service_p,
 	    }
 	}
 	if (service_clat46_is_enabled(service_p)) {
-	    boolean_t	have_nat64_prefix;
+	    info.perform_plat_discovery = TRUE;
+	    if (service_nat64_prefix_available(service_p)) {
+		CFStringRef	ifname = ServiceGetInterfaceName(service_p);
 
-	    have_nat64_prefix = service_nat64_prefix_available(service_p);
-	    if (have_nat64_prefix) {
 		rtadv_set_clat46_address(service_p);
+		info.ipv4_dict = S_ipv4_clat46_dict_copy(ifname);
 	    }
 	    else {
 		rtadv_remove_clat46_address(service_p);
 	    }
-	    info.clat46_address = rtadv->clat46_address;
 	}
 	if (router_count != 0) {
 	    CFStringRef		signature;
@@ -894,6 +993,7 @@ rtadv_address_changed_common(ServiceRef service_p,
 	    rtadv_trigger_dad(service_p, list, count);
 	    rtadv->renew = FALSE;
 	}
+	my_CFRelease(&info.ipv4_dict);
     }
     return;
 }
@@ -1013,7 +1113,9 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	(void)inet6_rtadv_disable(if_name(if_p));
 
 	/* remove any CLAT46 address */
-	(void)rtadv_remove_clat46_address(service_p);
+	if (service_clat46_is_enabled) {
+	    rtadv_remove_clat46_address(service_p);
+	}
 
 	/* clean-up resources */
 	if (rtadv->timer) {
@@ -1108,6 +1210,9 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     case IFEventID_plat_discovery_complete_e: {
 	boolean_t	success;
 
+	if (!service_clat46_is_enabled(service_p)) {
+	    break;
+	}
 	if (rtadv == NULL) {
 	    my_log(LOG_INFO, "RTADV %s: private data is NULL",
 		   if_name(if_p));

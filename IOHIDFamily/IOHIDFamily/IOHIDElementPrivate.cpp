@@ -72,7 +72,7 @@ OSMetaClassDefineReservedUsed(IOHIDElement,  3);
 OSMetaClassDefineReservedUsed(IOHIDElement,  4);
 OSMetaClassDefineReservedUsed(IOHIDElement,  5);
 OSMetaClassDefineReservedUsed(IOHIDElement,  6);
-OSMetaClassDefineReservedUnused(IOHIDElement,  7);
+OSMetaClassDefineReservedUsed(IOHIDElement,  7);
 OSMetaClassDefineReservedUnused(IOHIDElement,  8);
 OSMetaClassDefineReservedUnused(IOHIDElement,  9);
 OSMetaClassDefineReservedUnused(IOHIDElement, 10);
@@ -1802,7 +1802,10 @@ OSData * IOHIDElementPrivate::getDataValue()
 OSData * IOHIDElementPrivate::getDataValue(IOOptionBits options)
 {
     if (options & kIOHIDValueOptionsUpdateElementValues) {
-        _owner->updateElementValues(&_cookie, 1);
+        IOReturn status = _owner->updateElementValues(&_cookie, 1);
+        if (status) {
+            HIDLogError ("Device:0x%llx updateElementValues(%lu):%x", _owner->getRegistryEntryID(), (uintptr_t)_cookie, status);
+        }
     }
     return getDataValue();
 }
@@ -1815,11 +1818,13 @@ void IOHIDElementPrivate::setValue(UInt32 value)
         return;
     
     _elementValue->value[0] = value;
-    
-    if (_owner->postElementValues(&_cookie, 1) != kIOReturnSuccess)
+    IOReturn status = _owner->postElementValues(&_cookie, 1);
+    if (status) {
+         HIDLogError ("Device:0x%llx postElementValues(%lu):%x", _owner->getRegistryEntryID(), (uintptr_t)_cookie, status);
         _elementValue->value[0] = previousValue;
-    else
+    } else {
         _previousValue = previousValue;
+    }
 }
 
 void IOHIDElementPrivate::setDataValue(OSData * value)
@@ -1832,8 +1837,11 @@ void IOHIDElementPrivate::setDataValue(OSData * value)
     
     setDataBits(value);
     
-    if (_owner->postElementValues(&_cookie, 1) != kIOReturnSuccess)
+    IOReturn status = _owner->postElementValues(&_cookie, 1);
+    if (status) {
+        HIDLogError ("Device:0x%llx postElementValues(%lu):%x", _owner->getRegistryEntryID(), (uintptr_t)_cookie, status);
         setDataBits(previousValue);
+    }
 }
 
 void IOHIDElementPrivate::setDataBits(OSData *value)
@@ -2071,6 +2079,18 @@ UInt32 IOHIDElementPrivate::getScaledValue(IOHIDValueScaleType type)
     return (UInt32)returnValue;
 }
 
+IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type, IOOptionBits options)
+{
+    if (options & kIOHIDValueOptionsUpdateElementValues) {
+        IOReturn status = _owner->updateElementValues(&_cookie, 1);
+        if (status) {
+            HIDLogError ("Device:0x%llx updateElementValues(%lu):%x", _owner->getRegistryEntryID(), (uintptr_t)_cookie, status);
+        }
+    }
+    return getScaledFixedValue (type);
+}
+
+
 IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type)
 {
     SInt64  logicalValue    = (SInt32)getValue();
@@ -2152,7 +2172,10 @@ UInt32 IOHIDElementPrivate::getValue(IOOptionBits options) {
     
     if ((_reportBits * _reportCount) <= 32) {
         if (options & kIOHIDValueOptionsUpdateElementValues) {
-            _owner->updateElementValues(&_cookie, 1);
+            IOReturn status = _owner->updateElementValues(&_cookie, 1);
+            if (status) {
+                HIDLogError ("Device:0x%llx updateElementValues(%lu):%x", _owner->getRegistryEntryID(), (uintptr_t)_cookie, status);
+            }
         }
         
         newValue = ( options & kIOHIDValueOptionsFlagPrevious ) ? _previousValue : _elementValue->value[0];

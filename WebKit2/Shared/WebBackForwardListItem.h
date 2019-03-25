@@ -28,6 +28,7 @@
 #include "APIObject.h"
 #include "SessionState.h"
 #include <wtf/Ref.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace API {
@@ -55,6 +56,9 @@ public:
     const BackForwardListItemState& itemState() { return m_itemState; }
     uint64_t pageID() const { return m_pageID; }
 
+    WebCore::ProcessIdentifier lastProcessIdentifier() const { return m_lastProcessIdentifier; }
+    void setLastProcessIdentifier(const WebCore::ProcessIdentifier& identifier) { m_lastProcessIdentifier = identifier; }
+
     void setPageState(PageState pageState) { m_itemState.pageState = WTFMove(pageState); }
     const PageState& pageState() const { return m_itemState.pageState; }
 
@@ -69,7 +73,7 @@ public:
     void setSnapshot(RefPtr<ViewSnapshot>&& snapshot) { m_itemState.snapshot = WTFMove(snapshot); }
 #endif
     void setSuspendedPage(SuspendedPageProxy*);
-    SuspendedPageProxy* suspendedPage() const { return m_suspendedPage; }
+    SuspendedPageProxy* suspendedPage() const { return m_suspendedPage.get(); }
 
 #if !LOG_DISABLED
     const char* loggingString();
@@ -78,9 +82,12 @@ public:
 private:
     explicit WebBackForwardListItem(BackForwardListItemState&&, uint64_t pageID);
 
+    void removeSuspendedPageFromProcessPool();
+
     BackForwardListItemState m_itemState;
     uint64_t m_pageID;
-    SuspendedPageProxy* m_suspendedPage { nullptr };
+    WebCore::ProcessIdentifier m_lastProcessIdentifier;
+    WeakPtr<SuspendedPageProxy> m_suspendedPage;
 };
 
 typedef Vector<Ref<WebBackForwardListItem>> BackForwardListItemVector;

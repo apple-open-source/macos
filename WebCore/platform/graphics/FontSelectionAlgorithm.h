@@ -30,6 +30,7 @@
 #include <tuple>
 #include <wtf/Hasher.h>
 #include <wtf/Optional.h>
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -170,9 +171,9 @@ constexpr FontSelectionValue italicThreshold()
     return FontSelectionValue { 20 };
 }
 
-constexpr bool isItalic(FontSelectionValue fontWeight)
+constexpr bool isItalic(Optional<FontSelectionValue> fontWeight)
 {
-    return fontWeight >= italicThreshold();
+    return fontWeight && fontWeight.value() >= italicThreshold();
 }
 
 constexpr FontSelectionValue normalItalicValue()
@@ -330,20 +331,38 @@ struct FontSelectionRequest {
 
     Value weight;
     Value width;
-    Value slope;
+    // FIXME: We are using an optional here to be able to distinguish between an explicit
+    // or implicit slope (for "italic" and "oblique") and the "normal" value which has no
+    // slope. The "italic" and "oblique" values can be distinguished by looking at the
+    // "fontStyleAxis" on the FontDescription. We should come up with a tri-state member
+    // so that it's a lot clearer whether we're dealing with a "normal", "italic" or explicit
+    // "oblique" font style. See webkit.org/b/187774.
+    Optional<Value> slope;
 
-    constexpr std::tuple<Value, Value, Value> tied() const
+    std::tuple<Value, Value, Optional<Value>> tied() const
     {
         return WTF::tie(weight, width, slope);
     }
 };
 
-constexpr bool operator==(const FontSelectionRequest& a, const FontSelectionRequest& b)
+inline TextStream& operator<<(TextStream& ts, const FontSelectionValue& fontSelectionValue)
+{
+    ts << TextStream::FormatNumberRespectingIntegers(fontSelectionValue.rawValue());
+    return ts;
+}
+
+inline TextStream& operator<<(TextStream& ts, const Optional<FontSelectionValue>& optionalFontSelectionValue)
+{
+    ts << optionalFontSelectionValue.valueOr(normalItalicValue());
+    return ts;
+}
+
+inline bool operator==(const FontSelectionRequest& a, const FontSelectionRequest& b)
 {
     return a.tied() == b.tied();
 }
 
-constexpr bool operator!=(const FontSelectionRequest& a, const FontSelectionRequest& b)
+inline bool operator!=(const FontSelectionRequest& a, const FontSelectionRequest& b)
 {
     return !(a == b);
 }
@@ -388,7 +407,7 @@ constexpr bool operator!=(const FontSelectionCapabilities& a, const FontSelectio
 struct FontSelectionSpecifiedCapabilities {
     using Capabilities = FontSelectionCapabilities;
     using Range = FontSelectionRange;
-    using OptionalRange = std::optional<Range>;
+    using OptionalRange = Optional<Range>;
 
     constexpr Capabilities computeFontSelectionCapabilities() const
     {
@@ -413,17 +432,17 @@ struct FontSelectionSpecifiedCapabilities {
 
     constexpr Range computeWeight() const
     {
-        return weight.value_or(Range { normalWeightValue() });
+        return weight.valueOr(Range { normalWeightValue() });
     }
 
     constexpr Range computeWidth() const
     {
-        return width.value_or(Range { normalStretchValue() });
+        return width.valueOr(Range { normalStretchValue() });
     }
 
     constexpr Range computeSlope() const
     {
-        return slope.value_or(Range { normalItalicValue() });
+        return slope.valueOr(Range { normalItalicValue() });
     }
 
     OptionalRange weight;
@@ -446,7 +465,7 @@ public:
     using Capabilities = FontSelectionCapabilities;
 
     FontSelectionAlgorithm() = delete;
-    FontSelectionAlgorithm(FontSelectionRequest, const Vector<Capabilities>&, std::optional<Capabilities> capabilitiesBounds = std::nullopt);
+    FontSelectionAlgorithm(FontSelectionRequest, const Vector<Capabilities>&, Optional<Capabilities> capabilitiesBounds = WTF::nullopt);
 
     struct DistanceResult {
         FontSelectionValue distance;

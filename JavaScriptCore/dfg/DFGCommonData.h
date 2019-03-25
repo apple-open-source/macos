@@ -35,6 +35,7 @@
 #include "InlineCallFrameSet.h"
 #include "JSCast.h"
 #include "ProfilerCompilation.h"
+#include "RecordedStatuses.h"
 #include <wtf/Bag.h>
 #include <wtf/Noncopyable.h>
 
@@ -47,7 +48,7 @@ class TrackedReferences;
 namespace DFG {
 
 struct Node;
-struct Plan;
+class Plan;
 
 // CommonData holds the set of data that both DFG and FTL code blocks need to know
 // about themselves.
@@ -113,6 +114,8 @@ public:
     void validateReferences(const TrackedReferences&);
 
     static ptrdiff_t frameRegisterCountOffset() { return OBJECT_OFFSETOF(CommonData, frameRegisterCount); }
+    
+    void clearWatchpoints();
 
     RefPtr<InlineCallFrameSet> inlineCallFrames;
     Vector<CodeOrigin, 0, UnsafeVectorOverflow> codeOrigins;
@@ -125,6 +128,7 @@ public:
     Bag<CodeBlockJettisoningWatchpoint> watchpoints;
     Bag<AdaptiveStructureWatchpoint> adaptiveStructureWatchpoints;
     Bag<AdaptiveInferredPropertyValueWatchpoint> adaptiveInferredPropertyValueWatchpoints;
+    RecordedStatuses recordedStatuses;
     Vector<JumpReplacement> jumpReplacements;
     
     ScratchBuffer* catchOSREntryBuffer;

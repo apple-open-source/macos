@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "BlockingResponseMap.h"
 #include "CacheStorageEngineConnection.h"
 #include "Connection.h"
 #include "DownloadID.h"
@@ -34,26 +33,27 @@
 #include "NetworkMDNSRegister.h"
 #include "NetworkRTCProvider.h"
 #include <WebCore/NetworkLoadInformation.h>
-#include <WebCore/ResourceLoadPriority.h>
 #include <wtf/RefCounted.h>
+
+namespace PAL {
+class SessionID;
+}
 
 namespace WebCore {
 class BlobDataFileReference;
-class HTTPHeaderMap;
 class ResourceError;
 class ResourceRequest;
 struct SameSiteInfo;
 
-enum class IncludeSecureCookies;
+enum class IncludeSecureCookies : bool;
 }
 
 namespace WebKit {
 
-class NetworkConnectionToWebProcess;
-class NetworkLoadParameters;
 class NetworkResourceLoader;
 class NetworkSocketStream;
-class SyncNetworkResourceLoader;
+class WebIDBConnectionToClient;
+class WebSWServerConnection;
 typedef uint64_t ResourceLoadIdentifier;
 
 namespace NetworkCache {
@@ -116,7 +116,7 @@ public:
         m_networkLoadInformationByID.remove(identifier);
     }
 
-    std::optional<NetworkActivityTracker> startTrackingResourceLoad(uint64_t pageID, ResourceLoadIdentifier resourceID, bool isMainResource, const PAL::SessionID&);
+    Optional<NetworkActivityTracker> startTrackingResourceLoad(uint64_t pageID, ResourceLoadIdentifier resourceID, bool isMainResource, const PAL::SessionID&);
     void stopTrackingResourceLoad(ResourceLoadIdentifier resourceID, NetworkActivityTracker::CompletionCode);
 
 private:
@@ -143,35 +143,43 @@ private:
     void removeLoadIdentifier(ResourceLoadIdentifier);
     void pageLoadCompleted(uint64_t webPageID);
     void setDefersLoading(ResourceLoadIdentifier, bool);
-    void crossOriginRedirectReceived(ResourceLoadIdentifier, const WebCore::URL& redirectURL);
+    void crossOriginRedirectReceived(ResourceLoadIdentifier, const URL& redirectURL);
     void startDownload(PAL::SessionID, DownloadID, const WebCore::ResourceRequest&, const String& suggestedName = { });
     void convertMainResourceLoadToDownload(PAL::SessionID, uint64_t mainResourceLoadIdentifier, DownloadID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
-    void cookiesForDOM(PAL::SessionID, const WebCore::URL& firstParty, const WebCore::SameSiteInfo&, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, WebCore::IncludeSecureCookies, String& cookieString, bool& secureCookiesAccessed);
-    void setCookiesFromDOM(PAL::SessionID, const WebCore::URL& firstParty, const WebCore::SameSiteInfo&, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, const String&);
+    void cookiesForDOM(PAL::SessionID, const URL& firstParty, const WebCore::SameSiteInfo&, const URL&, Optional<uint64_t> frameID, Optional<uint64_t> pageID, WebCore::IncludeSecureCookies, String& cookieString, bool& secureCookiesAccessed);
+    void setCookiesFromDOM(PAL::SessionID, const URL& firstParty, const WebCore::SameSiteInfo&, const URL&, Optional<uint64_t> frameID, Optional<uint64_t> pageID, const String&);
     void cookiesEnabled(PAL::SessionID, bool& result);
-    void cookieRequestHeaderFieldValue(PAL::SessionID, const WebCore::URL& firstParty, const WebCore::SameSiteInfo&, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, WebCore::IncludeSecureCookies, String& cookieString, bool& secureCookiesAccessed);
-    void getRawCookies(PAL::SessionID, const WebCore::URL& firstParty, const WebCore::SameSiteInfo&, const WebCore::URL&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, Vector<WebCore::Cookie>&);
-    void deleteCookie(PAL::SessionID, const WebCore::URL&, const String& cookieName);
+    void cookieRequestHeaderFieldValue(PAL::SessionID, const URL& firstParty, const WebCore::SameSiteInfo&, const URL&, Optional<uint64_t> frameID, Optional<uint64_t> pageID, WebCore::IncludeSecureCookies, String& cookieString, bool& secureCookiesAccessed);
+    void getRawCookies(PAL::SessionID, const URL& firstParty, const WebCore::SameSiteInfo&, const URL&, Optional<uint64_t> frameID, Optional<uint64_t> pageID, Vector<WebCore::Cookie>&);
+    void deleteCookie(PAL::SessionID, const URL&, const String& cookieName);
 
-    void registerFileBlobURL(const WebCore::URL&, const String& path, SandboxExtension::Handle&&, const String& contentType);
-    void registerBlobURL(const WebCore::URL&, Vector<WebCore::BlobPart>&&, const String& contentType);
-    void registerBlobURLFromURL(const WebCore::URL&, const WebCore::URL& srcURL, bool shouldBypassConnectionCheck);
-    void preregisterSandboxExtensionsForOptionallyFileBackedBlob(const Vector<String>& fileBackedPath, SandboxExtension::HandleArray&&);
-    void registerBlobURLOptionallyFileBacked(const WebCore::URL&, const WebCore::URL& srcURL, const String& fileBackedPath, const String& contentType);
-    void registerBlobURLForSlice(const WebCore::URL&, const WebCore::URL& srcURL, int64_t start, int64_t end);
-    void blobSize(const WebCore::URL&, uint64_t& resultSize);
-    void unregisterBlobURL(const WebCore::URL&);
-    void writeBlobsToTemporaryFiles(const Vector<String>& blobURLs, uint64_t requestIdentifier);
-
-    void storeDerivedDataToCache(const WebKit::NetworkCache::DataKey&, const IPC::DataReference&);
+    void registerFileBlobURL(const URL&, const String& path, SandboxExtension::Handle&&, const String& contentType);
+    void registerBlobURL(const URL&, Vector<WebCore::BlobPart>&&, const String& contentType);
+    void registerBlobURLFromURL(const URL&, const URL& srcURL, bool shouldBypassConnectionCheck);
+    void registerBlobURLOptionallyFileBacked(const URL&, const URL& srcURL, const String& fileBackedPath, const String& contentType);
+    void registerBlobURLForSlice(const URL&, const URL& srcURL, int64_t start, int64_t end);
+    void blobSize(const URL&, uint64_t& resultSize);
+    void unregisterBlobURL(const URL&);
+    void writeBlobsToTemporaryFiles(const Vector<String>& blobURLs, CompletionHandler<void(Vector<String>&&)>&&);
 
     void setCaptureExtraNetworkLoadMetricsEnabled(bool);
 
-    void createSocketStream(WebCore::URL&&, PAL::SessionID, String cachePartition, uint64_t);
+    void createSocketStream(URL&&, PAL::SessionID, String cachePartition, uint64_t);
     void destroySocketStream(uint64_t);
     
     void ensureLegacyPrivateBrowsingSession();
+
+#if ENABLE(INDEXED_DATABASE)
+    // Messages handlers (Modern IDB).
+    void establishIDBConnectionToServer(PAL::SessionID, uint64_t& serverConnectionIdentifier);
+    void removeIDBConnectionToServer(uint64_t serverConnectionIdentifier);
+#endif
+
+#if ENABLE(SERVICE_WORKER)
+    void establishSWServerConnection(PAL::SessionID, WebCore::SWServerConnectionIdentifier&);
+    void unregisterSWConnections();
+#endif
 
 #if USE(LIBWEBRTC)
     NetworkRTCProvider& rtcProvider();
@@ -238,6 +246,14 @@ private:
     bool m_captureExtraNetworkLoadMetricsEnabled { false };
 
     RefPtr<CacheStorageEngineConnection> m_cacheStorageConnection;
+
+#if ENABLE(INDEXED_DATABASE)
+    HashMap<uint64_t, RefPtr<WebIDBConnectionToClient>> m_webIDBConnections;
+#endif
+    
+#if ENABLE(SERVICE_WORKER)
+    HashMap<WebCore::SWServerConnectionIdentifier, WeakPtr<WebSWServerConnection>> m_swConnections;
+#endif
 };
 
 } // namespace WebKit

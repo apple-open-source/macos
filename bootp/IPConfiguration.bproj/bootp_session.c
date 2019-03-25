@@ -240,7 +240,7 @@ bootp_session_delayed_close(void * arg1, void * arg2, void * arg3)
 	       "bootp_session_delayed_close(): called when socket in use");
 	return;
     }
-    my_log(LOG_INFO, 
+    my_log(LOG_DEBUG,
 	   "bootp_session_delayed_close(): closing bootp socket %d",
 	   FDCalloutGetFD(session->read_fd));
 
@@ -261,7 +261,7 @@ bootp_session_open_socket(bootp_session_t * session)
 	       strerror(errno));
 	return (FALSE);
     }
-    my_log(LOG_INFO,
+    my_log(LOG_DEBUG,
 	   "bootp_session_open_socket(): opened bootp socket %d",
 	   sockfd);
     /* register as a reader */
@@ -285,13 +285,13 @@ bootp_client_close_socket(bootp_client_t * client)
 	return;
     }
     session->read_fd_refcount--;
-    my_log(LOG_INFO, "bootp_client_close_socket(%s): refcount %d",
+    my_log(LOG_DEBUG, "bootp_client_close_socket(%s): refcount %d",
 	   if_name(client->if_p), session->read_fd_refcount);
     client->fd_open = FALSE;
     if (session->read_fd_refcount == 0) {
 	struct timeval tv;
 
-	my_log(LOG_INFO, 
+	my_log(LOG_DEBUG,
 	       "bootp_client_close_socket(): scheduling delayed close");
 
 	tv.tv_sec = 1; /* close it after 1 second of non-use */
@@ -313,7 +313,7 @@ bootp_client_open_socket(bootp_client_t * client)
     }
     timer_cancel(session->timer_callout);
     session->read_fd_refcount++;
-    my_log(LOG_INFO, "bootp_client_open_socket (%s): refcount %d", 
+    my_log(LOG_DEBUG, "bootp_client_open_socket (%s): refcount %d",
 	   if_name(client->if_p), session->read_fd_refcount);
     client->fd_open = TRUE;
     if (session->read_fd_refcount > 1) {
@@ -321,7 +321,7 @@ bootp_client_open_socket(bootp_client_t * client)
 	return (TRUE);
     }
     if (session->read_fd != NULL) {
-	my_log(LOG_INFO, "bootp_client_open_socket(): socket is still open");
+	my_log(LOG_DEBUG, "bootp_client_open_socket(): socket is still open");
     }
     else if (!bootp_session_open_socket(session)) {
 	my_log(LOG_NOTICE, "bootp_session_open_socket failed");

@@ -28,7 +28,7 @@
 #include "APIObject.h"
 #include "FrameLoadState.h"
 #include "GenericCallback.h"
-#include "WebFrameListenerProxy.h"
+#include "WebFramePolicyListenerProxy.h"
 #include <WebCore/FrameLoaderTypes.h>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
@@ -48,18 +48,20 @@ class Decoder;
 }
 
 namespace WebKit {
+class SafeBrowsingWarning;
 class WebCertificateInfo;
 class WebFramePolicyListenerProxy;
 class WebPageProxy;
 class WebsiteDataStore;
-enum class PolicyListenerType;
+enum class ShouldExpectSafeBrowsingResult;
+enum class ProcessSwapRequestedByClient;
 struct WebsitePoliciesData;
 
 typedef GenericCallback<API::Data*> DataCallback;
 
 class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame> {
 public:
-    static Ref<WebFrameProxy> create(WebPageProxy* page, uint64_t frameID)
+    static Ref<WebFrameProxy> create(WebPageProxy& page, uint64_t frameID)
     {
         return adoptRef(*new WebFrameProxy(page, frameID));
     }
@@ -67,7 +69,7 @@ public:
     virtual ~WebFrameProxy();
 
     uint64_t frameID() const { return m_frameID; }
-    WebPageProxy* page() const { return m_page; }
+    WebPageProxy* page() const { return m_page.get(); }
 
     void webProcessWillShutDown();
 
@@ -78,14 +80,14 @@ public:
 
     FrameLoadState& frameLoadState() { return m_frameLoadState; }
 
-    void loadURL(const WebCore::URL&);
+    void loadURL(const URL&);
     void stopLoading() const;
 
-    const WebCore::URL& url() const { return m_frameLoadState.url(); }
-    const WebCore::URL& provisionalURL() const { return m_frameLoadState.provisionalURL(); }
+    const URL& url() const { return m_frameLoadState.url(); }
+    const URL& provisionalURL() const { return m_frameLoadState.provisionalURL(); }
 
-    void setUnreachableURL(const WebCore::URL&);
-    const WebCore::URL& unreachableURL() const { return m_frameLoadState.unreachableURL(); }
+    void setUnreachableURL(const URL&);
+    const URL& unreachableURL() const { return m_frameLoadState.unreachableURL(); }
 
     const String& mimeType() const { return m_MIMEType; }
     bool containsPluginDocument() const { return m_containsPluginDocument; }
@@ -106,22 +108,16 @@ public:
     void getMainResourceData(Function<void (API::Data*, CallbackBase::Error)>&&);
     void getResourceData(API::URL*, Function<void (API::Data*, CallbackBase::Error)>&&);
 
-    void didStartProvisionalLoad(const WebCore::URL&);
-    void didReceiveServerRedirectForProvisionalLoad(const WebCore::URL&);
+    void didStartProvisionalLoad(const URL&);
+    void didReceiveServerRedirectForProvisionalLoad(const URL&);
     void didFailProvisionalLoad();
     void didCommitLoad(const String& contentType, WebCertificateInfo&, bool containsPluginDocument);
     void didFinishLoad();
     void didFailLoad();
-    void didSameDocumentNavigation(const WebCore::URL&); // eg. anchor navigation, session state change.
+    void didSameDocumentNavigation(const URL&); // eg. anchor navigation, session state change.
     void didChangeTitle(const String&);
 
-    // Policy operations.
-    void receivedPolicyDecision(WebCore::PolicyAction, uint64_t listenerID, API::Navigation*, std::optional<WebsitePoliciesData>&&);
-
-    WebFramePolicyListenerProxy& setUpPolicyListenerProxy(uint64_t listenerID, PolicyListenerType);
-    WebFramePolicyListenerProxy* activePolicyListenerProxy();
-
-    void changeWebsiteDataStore(WebsiteDataStore&);
+    WebFramePolicyListenerProxy& setUpPolicyListenerProxy(CompletionHandler<void(WebCore::PolicyAction, API::WebsitePolicies*, ProcessSwapRequestedByClient, RefPtr<SafeBrowsingWarning>&&)>&&, ShouldExpectSafeBrowsingResult);
 
 #if ENABLE(CONTENT_FILTERING)
     void contentFilterDidBlockLoad(WebCore::ContentFilterUnblockHandler contentFilterUnblockHandler) { m_contentFilterUnblockHandler = WTFMove(contentFilterUnblockHandler); }
@@ -133,9 +129,9 @@ public:
 #endif
 
 private:
-    WebFrameProxy(WebPageProxy* page, uint64_t frameID);
+    WebFrameProxy(WebPageProxy&, uint64_t frameID);
 
-    WebPageProxy* m_page;
+    WeakPtr<WebPageProxy> m_page;
 
     FrameLoadState m_frameLoadState;
 
@@ -144,7 +140,7 @@ private:
     bool m_isFrameSet;
     bool m_containsPluginDocument { false };
     RefPtr<WebCertificateInfo> m_certificateInfo;
-    RefPtr<WebFrameListenerProxy> m_activeListener;
+    RefPtr<WebFramePolicyListenerProxy> m_activeListener;
     uint64_t m_frameID;
 #if ENABLE(CONTENT_FILTERING)
     WebCore::ContentFilterUnblockHandler m_contentFilterUnblockHandler;

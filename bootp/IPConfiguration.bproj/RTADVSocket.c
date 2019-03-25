@@ -239,7 +239,7 @@ RTADVSocketDelayedClose(void * arg1, void * arg2, void * arg3)
 	       "RTADVSocketDelayedClose(): called when socket in use");
 	return;
     }
-    my_log(LOG_INFO,
+    my_log(LOG_DEBUG,
 	   "RTADVSocketDelayedClose(): closing RTADV socket %d",
 	   FDCalloutGetFD(S_globals->read_fd));
 
@@ -575,6 +575,7 @@ RTADVSocketRead(void * arg1, void * arg2)
     mhdr.msg_iovlen = 1;
     mhdr.msg_control = (caddr_t)cmsgbuf;
     mhdr.msg_controllen = sizeof(cmsgbuf);
+    mhdr.msg_flags = 0;
 
     /* get message */
     n = recvmsg(FDCalloutGetFD(S_globals->read_fd), &mhdr, 0);
@@ -775,13 +776,13 @@ RTADVSocketCloseSocket(RTADVSocketRef sock)
 	return;
     }
     S_globals->read_fd_refcount--;
-    my_log(LOG_INFO, "RTADVSocketCloseSocket(%s): refcount %d",
+    my_log(LOG_DEBUG, "RTADVSocketCloseSocket(%s): refcount %d",
 	   if_name(sock->if_p), S_globals->read_fd_refcount);
     sock->fd_open = FALSE;
     if (S_globals->read_fd_refcount == 0) {
 	struct timeval tv;
 
-	my_log(LOG_INFO, 
+	my_log(LOG_DEBUG,
 	       "RTADVSocketCloseSocket(): scheduling delayed close");
 
 	tv.tv_sec = 1; /* close it after 1 second of non-use */
@@ -801,7 +802,7 @@ RTADVSocketOpenSocket(RTADVSocketRef sock)
     }
     timer_cancel(S_globals->timer_callout);
     S_globals->read_fd_refcount++;
-    my_log(LOG_INFO, "RTADVSocketOpenSocket (%s): refcount %d", 
+    my_log(LOG_DEBUG, "RTADVSocketOpenSocket (%s): refcount %d",
 	   if_name(sock->if_p), S_globals->read_fd_refcount);
     sock->fd_open = TRUE;
     if (S_globals->read_fd_refcount > 1) {
@@ -821,7 +822,7 @@ RTADVSocketOpenSocket(RTADVSocketRef sock)
 		   strerror(errno));
 	    goto failed;
 	}
-	my_log(LOG_INFO, 
+	my_log(LOG_DEBUG,
 	       "RTADVSocketOpenSocket(): opened RTADV socket %d",
 	       sockfd);
 	/* register as a reader */

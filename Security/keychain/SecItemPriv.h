@@ -368,6 +368,7 @@ extern const CFStringRef kSecAttrViewHintAutoUnlock;
 extern const CFStringRef kSecAttrViewHintHealth;
 extern const CFStringRef kSecAttrViewHintApplePay;
 extern const CFStringRef kSecAttrViewHintHome;
+extern const CFStringRef kSecAttrViewHintLimitedPeersAllowed;
 
 
 extern const CFStringRef kSecUseSystemKeychain

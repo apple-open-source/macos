@@ -90,6 +90,7 @@
 static int32_t xar_unserialize(xar_t x);
 void xar_serialize(xar_t x, const char *file);
 
+
 #ifdef HAVE_LIBPTHREAD
 static pthread_mutex_t xar_new_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif // HAVE_LIBPTHREAD
@@ -201,14 +202,22 @@ static int32_t xar_parse_header(xar_t x) {
 	return 0;
 }
 
+xar_t xar_open(const char *file, int32_t flags)
+{
+	return xar_open_digest_verify(file, flags, NULL, 0);
+}
+
 /* xar_open
  * file: filename to open
  * flags: flags on how to open the file.  0 for readonly, !0 for read/write
+ * expected_toc_digest: Requires that the xar being opened matches the digest specified.
+ * expected_toc_digest_len: The length of the expected_toc_digest.
  * Returns: allocated and initialized xar structure with an open
  * file descriptor to the target xar file.  If the xarchive is opened
  * for writing, the file is created, and a heap file is opened.
  */
-xar_t xar_open(const char *file, int32_t flags) {
+xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc_digest, size_t expected_toc_digest_len)
+{
 	xar_t ret;
 
 	ret = xar_new();
@@ -311,6 +320,7 @@ xar_t xar_open(const char *file, int32_t flags) {
 			break;
 		};
 
+		// deserialize the TOC
 		if( xar_unserialize(ret) != 0 ) {
 			xar_close(ret);
 			return NULL;
@@ -442,8 +452,63 @@ xar_t xar_open(const char *file, int32_t flags) {
 		free(toccksum);
 		free(cval);
 	}
+	
+	if ( expected_toc_digest )
+	{
+		if ( ! XAR(ret)->toc_hash_ctx )
+		{
+			fprintf(stderr, "xar_open_digest_verify: xar lacks a toc_hash_ctx.\n");
+			xar_close(ret);
+			return NULL;
+		}
+			
+		if ( XAR(ret)->toc_hash_size != expected_toc_digest_len )
+		{
+			fprintf(stderr, "xar_open_digest_verify: toc digest length does not match the expected digest length.\n");
+			xar_close(ret);
+			return NULL;
+		}
+		
+		if ( memcmp(XAR(ret)->toc_hash, expected_toc_digest, expected_toc_digest_len) != 0 )
+		{
+			fprintf(stderr, "xar_open_digest_verify: toc digest does not match the expected.\n");
+			xar_close(ret);
+			return NULL;
+		}
+	}
 
 	return ret;
+}
+
+void* xar_get_toc_checksum(xar_t x, size_t* buffer_size)
+{
+	// Required in, missing.
+	if (!buffer_size)
+		return NULL;
+	
+	// Sanity set values
+	void* result = NULL;
+	*buffer_size = 0;
+	
+	// If we have a hash, return it.
+	if (XAR(x)->toc_hash) {
+		
+		*buffer_size = XAR(x)->toc_hash_size;
+		result = calloc(*buffer_size, 1);
+		
+		// Malloc fail?
+		if (!result)
+			return NULL;
+		
+		memcpy(result, XAR(x)->toc_hash, XAR(x)->toc_hash_size);
+	}
+	
+	return result;
+}
+
+int32_t xar_get_toc_checksum_type(xar_t x)
+{
+	return XAR(x)->header.cksum_alg;
 }
 
 /* xar_close

@@ -29,14 +29,6 @@
 
 #if USE(CURL)
 
-#if USE(CF)
-#if OS(WINDOWS)
-#include "WebCoreBundleWin.h"
-#endif
-
-#include <wtf/RetainPtr.h>
-#endif
-
 #if NEED_OPENSSL_THREAD_SUPPORT && OS(WINDOWS)
 #include <wtf/Threading.h>
 #endif
@@ -45,34 +37,11 @@ namespace WebCore {
 
 CurlSSLHandle::CurlSSLHandle()
 {
-    auto caCertPath = getCACertPathEnv();
-    if (!caCertPath.isEmpty())
-        setCACertPath(WTFMove(caCertPath));
-
 #if NEED_OPENSSL_THREAD_SUPPORT
     ThreadSupport::setup();
 #endif
-}
 
-String CurlSSLHandle::getCACertPathEnv()
-{
-    char* envPath = getenv("CURL_CA_BUNDLE_PATH");
-    if (envPath)
-        return String(envPath);
-
-#if USE(CF)
-    CFBundleRef webKitBundleRef = webKitBundle();
-    if (webKitBundleRef) {
-        RetainPtr<CFURLRef> certURLRef = adoptCF(CFBundleCopyResourceURL(webKitBundleRef, CFSTR("cacert"), CFSTR("pem"), CFSTR("certificates")));
-        if (certURLRef) {
-            char path[MAX_PATH];
-            if (CFURLGetFileSystemRepresentation(certURLRef.get(), false, reinterpret_cast<UInt8*>(path), MAX_PATH) && *path)
-                return String(path);
-        }
-    }
-#endif
-
-    return String();
+    platformInitialize();
 }
 
 void CurlSSLHandle::setCACertPath(String&& caCertPath)
@@ -92,52 +61,34 @@ void CurlSSLHandle::clearCACertInfo()
     m_caCertInfo = WTF::Monostate { };
 }
 
-void CurlSSLHandle::setHostAllowsAnyHTTPSCertificate(const String& hostName)
+void CurlSSLHandle::allowAnyHTTPSCertificatesForHost(const String& host)
 {
-    LockHolder mutex(m_mutex);
+    LockHolder mutex(m_allowedHostsLock);
 
-    m_allowedHosts.set(hostName, Vector<CertificateInfo::Certificate> { });
+    m_allowedHosts.addVoid(host);
 }
 
-bool CurlSSLHandle::isAllowedHTTPSCertificateHost(const String& hostName)
+bool CurlSSLHandle::canIgnoreAnyHTTPSCertificatesForHost(const String& host) const
 {
-    LockHolder mutex(m_mutex);
+    LockHolder mutex(m_allowedHostsLock);
 
-    auto it = m_allowedHosts.find(hostName);
-    return (it != m_allowedHosts.end());
-}
-
-bool CurlSSLHandle::canIgnoredHTTPSCertificate(const String& hostName, const Vector<CertificateInfo::Certificate>& certificates)
-{
-    LockHolder mutex(m_mutex);
-
-    auto found = m_allowedHosts.find(hostName);
-    if (found == m_allowedHosts.end())
-        return false;
-
-    auto& value = found->value;
-    if (value.isEmpty()) {
-        value = certificates;
-        return true;
-    }
-
-    return std::equal(certificates.begin(), certificates.end(), value.begin());
+    return m_allowedHosts.contains(host);
 }
 
 void CurlSSLHandle::setClientCertificateInfo(const String& hostName, const String& certificate, const String& key)
 {
-    LockHolder mutex(m_mutex);
+    LockHolder mutex(m_allowedClientHostsLock);
 
     m_allowedClientHosts.set(hostName, ClientCertificate { certificate, key });
 }
 
-std::optional<CurlSSLHandle::ClientCertificate> CurlSSLHandle::getSSLClientCertificate(const String& hostName)
+Optional<CurlSSLHandle::ClientCertificate> CurlSSLHandle::getSSLClientCertificate(const String& hostName) const
 {
-    LockHolder mutex(m_mutex);
+    LockHolder mutex(m_allowedClientHostsLock);
 
     auto it = m_allowedClientHosts.find(hostName);
     if (it == m_allowedClientHosts.end())
-        return std::nullopt;
+        return WTF::nullopt;
 
     return it->value;
 }

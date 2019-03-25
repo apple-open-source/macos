@@ -26,16 +26,17 @@
 #include "config.h"
 #include "RemoteWebInspectorProxy.h"
 
+#include "APINavigation.h"
 #include "RemoteWebInspectorProxyMessages.h"
 #include "RemoteWebInspectorUIMessages.h"
 #include "WebInspectorProxy.h"
 #include "WebPageGroup.h"
 #include "WebPageProxy.h"
+#include <WebCore/CertificateInfo.h>
 #include <WebCore/NotImplemented.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 RemoteWebInspectorProxy::RemoteWebInspectorProxy()
 {
@@ -54,6 +55,9 @@ void RemoteWebInspectorProxy::invalidate()
 void RemoteWebInspectorProxy::load(const String& debuggableType, const String& backendCommandsURL)
 {
     createFrontendPageAndWindow();
+
+    m_debuggableType = debuggableType;
+    m_backendCommandsURL = backendCommandsURL;
 
     m_inspectorPage->process().send(Messages::RemoteWebInspectorUI::Initialize(debuggableType, backendCommandsURL), m_inspectorPage->pageID());
     m_inspectorPage->loadRequest(URL(URL(), WebInspectorProxy::inspectorPageURL()));
@@ -90,6 +94,14 @@ void RemoteWebInspectorProxy::frontendDidClose()
     closeFrontendPageAndWindow();
 }
 
+void RemoteWebInspectorProxy::reopen()
+{
+    ASSERT(!m_debuggableType.isEmpty());
+
+    closeFrontendPageAndWindow();
+    load(m_debuggableType, m_backendCommandsURL);
+}
+
 void RemoteWebInspectorProxy::bringToFront()
 {
     platformBringToFront();
@@ -115,6 +127,11 @@ void RemoteWebInspectorProxy::openInNewTab(const String& url)
     platformOpenInNewTab(url);
 }
 
+void RemoteWebInspectorProxy::showCertificate(const CertificateInfo& certificateInfo)
+{
+    platformShowCertificate(certificateInfo);
+}
+
 void RemoteWebInspectorProxy::sendMessageToBackend(const String& message)
 {
     if (m_client)
@@ -131,7 +148,7 @@ void RemoteWebInspectorProxy::createFrontendPageAndWindow()
     trackInspectorPage(m_inspectorPage);
 
     m_inspectorPage->process().addMessageReceiver(Messages::RemoteWebInspectorProxy::messageReceiverName(), m_inspectorPage->pageID(), *this);
-    m_inspectorPage->process().assumeReadAccessToBaseURL(WebInspectorProxy::inspectorBaseURL());
+    m_inspectorPage->process().assumeReadAccessToBaseURL(*m_inspectorPage, WebInspectorProxy::inspectorBaseURL());
 }
 
 void RemoteWebInspectorProxy::closeFrontendPageAndWindow()
@@ -148,7 +165,7 @@ void RemoteWebInspectorProxy::closeFrontendPageAndWindow()
     platformCloseFrontendPageAndWindow();
 }
 
-#if !PLATFORM(MAC) && !PLATFORM(GTK)
+#if !ENABLE(REMOTE_INSPECTOR) || (!PLATFORM(MAC) && !PLATFORM(GTK))
 WebPageProxy* RemoteWebInspectorProxy::platformCreateFrontendPageAndWindow()
 {
     notImplemented();
@@ -160,6 +177,7 @@ void RemoteWebInspectorProxy::platformSave(const String&, const String&, bool, b
 void RemoteWebInspectorProxy::platformAppend(const String&, const String&) { }
 void RemoteWebInspectorProxy::platformStartWindowDrag() { }
 void RemoteWebInspectorProxy::platformOpenInNewTab(const String&) { }
+void RemoteWebInspectorProxy::platformShowCertificate(const CertificateInfo&) { }
 void RemoteWebInspectorProxy::platformCloseFrontendPageAndWindow() { }
 #endif
 

@@ -55,14 +55,16 @@ namespace CodeSigning {
 // if it is in Mach-O format, or in files in a _CodeSignature directory if not.
 // This DiskRep supports resource sealing.
 //
-class BundleDiskRep : public DiskRep {
+class BundleDiskRep : public DiskRep, public EditableDiskRep {
 public:
 	BundleDiskRep(const char *path, const Context *ctx = NULL);
 	BundleDiskRep(CFBundleRef ref, const Context *ctx = NULL);
 	~BundleDiskRep();
 	
 	CFDataRef component(CodeDirectory::SpecialSlot slot);
+	RawComponentMap createRawComponents();
 	CFDataRef identification();
+	DiskRep *mainExecRep() const { return mExecRep.get(); };
 	std::string mainExecutablePath();
 	CFURLRef copyCanonicalPath();
 	std::string resourcesRootPath();

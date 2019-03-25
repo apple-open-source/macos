@@ -7,6 +7,8 @@
 #include <AssertMacros.h>
 #include <assert.h>
 
+AUTHD_DEFINE_LOG
+
 xpc_object_t
 SerializeItemSet(const AuthorizationItemSet * itemSet)
 {
@@ -67,6 +69,10 @@ DeserializeItemSet(const xpc_object_t data)
             // <rdar://problem/13033889> authd is holding on to multiple copies of my password in the clear
             if (xpc_dictionary_get_value(value, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH) != NULL) {
                 size_t sensitiveLength = (size_t)xpc_dictionary_get_uint64(value, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH);
+                if (sensitiveLength > len) {
+                    os_log_error(AUTHD_LOG, "Sensitive data len %zu is not valid", sensitiveLength);
+                    goto done;
+                }
                 dataCopy = malloc(sensitiveLength);
                 require(dataCopy != NULL, done);
                 memcpy(dataCopy, valueData, sensitiveLength);

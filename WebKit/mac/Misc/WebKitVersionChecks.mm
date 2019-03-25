@@ -31,11 +31,11 @@
 #import <mach-o/dyld.h>
 
 static int WebKitLinkTimeVersion(void);
-static int overridenWebKitLinkTimeVersion;
+static int overriddenWebKitLinkTimeVersion;
 
 BOOL WebKitLinkedOnOrAfter(int version)
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     return (WebKitLinkTimeVersion() >= version);
 #else
     int32_t linkTimeVersion = WebKitLinkTimeVersion();
@@ -51,15 +51,15 @@ BOOL WebKitLinkedOnOrAfter(int version)
 
 void setWebKitLinkTimeVersion(int version)
 {
-    overridenWebKitLinkTimeVersion = version;
+    overriddenWebKitLinkTimeVersion = version;
 }
 
 static int WebKitLinkTimeVersion(void)
 {
-    if (overridenWebKitLinkTimeVersion)
-        return overridenWebKitLinkTimeVersion;
+    if (overriddenWebKitLinkTimeVersion)
+        return overriddenWebKitLinkTimeVersion;
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     return NSVersionOfLinkTimeLibrary("WebKit");
 #else
     // <rdar://problem/6627758> Need to implement WebKitLinkedOnOrAfter

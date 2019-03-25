@@ -36,7 +36,7 @@
 #import <pal/SessionID.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import <WebCore/WebCoreThread.h>
 #import <WebKitLegacy/WebFrameLoadDelegate.h>
 #endif
@@ -77,7 +77,7 @@ RetainPtr<CFDataRef> WebFrameNetworkingContext::sourceApplicationAuditData() con
     if (!webview)
         return nullptr;
 
-    return reinterpret_cast<CFDataRef>(webview._sourceApplicationAuditData);
+    return (__bridge CFDataRef)webview._sourceApplicationAuditData;
 }
 
 String WebFrameNetworkingContext::sourceApplicationIdentifier() const

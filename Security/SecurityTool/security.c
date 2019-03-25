@@ -505,10 +505,11 @@ const command commands[] =
 	  "Import items into a keychain." },
 
     { "export-smartcard" , ctk_export,
-        "[-i id] [-t type] \n"
+        "[-i id] [-t type] [-e exportPath] \n"
         "    -i  id of the smartcard to export (available IDs can be listed by list-smartcards\n"
-        "        command, default: export all smartcards)\n"
-        "    -t  Type = certs|privKeys|identities|all  (Default: all)\n",
+        "        command, default: export/display all smartcards)\n"
+        "    -t  Type = certs|privKeys|identities|all  (Default: all)\n"
+        "    -e  Specify path to export certificates and public keys. This option cannot be combined with -t option.\n",
         "Export items from a smartcard." },
 
 	{ "cms", cms_util,

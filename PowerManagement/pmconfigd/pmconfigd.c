@@ -858,6 +858,11 @@ static void incoming_XPC_connection(xpc_connection_t peer)
                      else if ((inEvent = xpc_dictionary_get_value(event, kInactivityWindowKey))) {
                          setInactivityWindow(peer, event);
                      }
+#if TARGET_OS_IOS || TARGET_OS_WATCH
+                     else if ((inEvent = xpc_dictionary_get_value(event, kBatteryKioskModeData))) {
+                         sendKioskModeData(peer, event);
+                     }
+#endif // TARGET_OS_IOS || TARGET_OS_WATCH
                      else {
                         os_log_error(OS_LOG_DEFAULT, "Unexpected xpc dictionary\n");
                      }
@@ -934,6 +939,9 @@ mig_server_callback(CFMachPortRef port, void *msg, CFIndex size, void *info)
     mach_msg_return_t   mr;
     int                 options;
 
+    if (bufReply) {
+        bzero(bufReply, _powermanagement_subsystem.maxsize);
+    }
     __MACH_PORT_DEBUG(true, "mig_server_callback", serverPort);
     
     /* we have a request message */

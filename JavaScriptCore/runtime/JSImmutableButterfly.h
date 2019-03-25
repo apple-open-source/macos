@@ -25,8 +25,11 @@
 
 #pragma once
 
+#include "Butterfly.h"
 #include "IndexingHeader.h"
 #include "JSCell.h"
+#include "Structure.h"
+#include "VirtualRegister.h"
 
 namespace JSC {
 
@@ -117,6 +120,10 @@ private:
     {
         m_header.setVectorLength(length);
         m_header.setPublicLength(length);
+        if (hasContiguous(indexingType())) {
+            for (unsigned index = 0; index < length; ++index)
+                toButterfly()->contiguous().at(this, index).setStartingValue(JSValue());
+        }
     }
 
     IndexingHeader m_header;

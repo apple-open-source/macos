@@ -25,7 +25,7 @@
 #import "config.h"
 #import "VideoFullscreenManager.h"
 
-#if (PLATFORM(IOS) && HAVE(AVKIT)) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#if (PLATFORM(IOS_FAMILY) && HAVE(AVKIT)) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
 #import "Attachment.h"
 #import "Logging.h"
@@ -52,9 +52,8 @@
 #import <mach/mach_port.h>
 #import <wtf/MachSendRight.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 static IntRect inlineVideoFrame(HTMLVideoElement& element)
 {
@@ -151,12 +150,12 @@ void VideoFullscreenManager::invalidate()
 
 VideoFullscreenManager::ModelInterfaceTuple VideoFullscreenManager::createModelAndInterface(uint64_t contextId)
 {
-    RefPtr<VideoFullscreenModelVideoElement> model = VideoFullscreenModelVideoElement::create();
-    RefPtr<VideoFullscreenInterfaceContext> interface = VideoFullscreenInterfaceContext::create(*this, contextId);
+    auto model = VideoFullscreenModelVideoElement::create();
+    auto interface = VideoFullscreenInterfaceContext::create(*this, contextId);
     m_playbackSessionManager->addClientForContext(contextId);
 
     interface->setLayerHostingContext(LayerHostingContext::createForExternalHostingProcess());
-    model->addClient(*interface);
+    model->addClient(interface.get());
 
     return std::make_tuple(WTFMove(model), WTFMove(interface));
 }
@@ -223,7 +222,7 @@ void VideoFullscreenManager::removeClientForContext(uint64_t contextId)
 
 bool VideoFullscreenManager::supportsVideoFullscreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode) const
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     UNUSED_PARAM(mode);
     return DeprecatedGlobalSettings::avKitEnabled();
 #else
@@ -233,7 +232,7 @@ bool VideoFullscreenManager::supportsVideoFullscreen(WebCore::HTMLMediaElementEn
 
 bool VideoFullscreenManager::supportsVideoFullscreenStandby() const
 {
-#if PLATFORM(IOS) && ENABLE(FULLSCREEN_API)
+#if PLATFORM(IOS_FAMILY)
     return true;
 #else
     return false;
@@ -411,7 +410,7 @@ void VideoFullscreenManager::didSetupFullscreen(uint64_t contextId)
     RefPtr<VideoFullscreenInterfaceContext> interface;
     std::tie(model, interface) = ensureModelAndInterface(contextId);
 
-#if PLATFORM(IOS) && ENABLE(FULLSCREEN_API)
+#if PLATFORM(IOS_FAMILY)
     dispatch_async(dispatch_get_main_queue(), [protectedThis = makeRefPtr(this), this, contextId] {
         if (protectedThis->m_page)
             m_page->send(Messages::VideoFullscreenManagerProxy::EnterFullscreen(contextId), protectedThis->m_page->pageID());
@@ -484,7 +483,7 @@ void VideoFullscreenManager::didExitFullscreen(uint64_t contextId)
     RefPtr<VideoFullscreenInterfaceContext> interface;
     std::tie(model, interface) = ensureModelAndInterface(contextId);
 
-#if PLATFORM(IOS) && ENABLE(FULLSCREEN_API)
+#if PLATFORM(IOS_FAMILY)
     dispatch_async(dispatch_get_main_queue(), [protectedThis = makeRefPtr(this), contextId, interface] {
         if (protectedThis->m_page)
             protectedThis->m_page->send(Messages::VideoFullscreenManagerProxy::CleanupFullscreen(contextId), protectedThis->m_page->pageID());
@@ -544,7 +543,7 @@ void VideoFullscreenManager::didCleanupFullscreen(uint64_t contextId)
     
 void VideoFullscreenManager::setVideoLayerGravityEnum(uint64_t contextId, unsigned gravity)
 {
-    ensureModel(contextId).setVideoLayerGravity((VideoFullscreenModel::VideoGravity)gravity);
+    ensureModel(contextId).setVideoLayerGravity((MediaPlayerEnums::VideoGravity)gravity);
 }
     
 void VideoFullscreenManager::fullscreenMayReturnToInline(uint64_t contextId, bool isPageVisible)
@@ -559,11 +558,9 @@ void VideoFullscreenManager::fullscreenMayReturnToInline(uint64_t contextId, boo
     m_page->send(Messages::VideoFullscreenManagerProxy::PreparedToReturnToInline(contextId, true, inlineVideoFrame(*model.videoElement())), m_page->pageID());
 }
 
-void VideoFullscreenManager::requestRouteSharingPolicyAndContextUID(uint64_t contextId, CallbackID callbackID)
+void VideoFullscreenManager::requestRouteSharingPolicyAndContextUID(uint64_t contextId, Messages::VideoFullscreenManager::RequestRouteSharingPolicyAndContextUID::AsyncReply&& reply)
 {
-    ensureModel(contextId).requestRouteSharingPolicyAndContextUID([protectedThis = makeRefPtr(this), callbackID] (WebCore::RouteSharingPolicy policy, String contextUID) {
-        protectedThis->m_page->send(Messages::VideoFullscreenManagerProxy::RequestRouteSharingPolicyAndContextUIDCallback(policy, contextUID, callbackID), protectedThis->m_page->pageID());
-    });
+    ensureModel(contextId).requestRouteSharingPolicyAndContextUID(WTFMove(reply));
 }
     
 void VideoFullscreenManager::setVideoLayerFrameFenced(uint64_t contextId, WebCore::FloatRect bounds, IPC::Attachment fencePort)
@@ -592,4 +589,4 @@ void VideoFullscreenManager::setVideoLayerFrameFenced(uint64_t contextId, WebCor
 
 } // namespace WebKit
 
-#endif // PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#endif // PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))

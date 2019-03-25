@@ -65,7 +65,7 @@ G_DEFINE_BOXED_TYPE(WebKitWebsiteData, webkit_website_data, webkit_website_data_
 
 static bool recordContainsSupportedDataTypes(const WebsiteDataRecord& record)
 {
-    static const OptionSet<WebsiteDataType> typesSupported = {
+    return record.types.containsAny({
         WebsiteDataType::MemoryCache,
         WebsiteDataType::DiskCache,
         WebsiteDataType::OfflineWebApplicationCache,
@@ -76,9 +76,9 @@ static bool recordContainsSupportedDataTypes(const WebsiteDataRecord& record)
 #if ENABLE(NETSCAPE_PLUGIN_API)
         WebsiteDataType::PlugInData,
 #endif
-        WebsiteDataType::Cookies
-    };
-    return record.types.contains(typesSupported);
+        WebsiteDataType::Cookies,
+        WebsiteDataType::DeviceIdHashSalt
+    });
 }
 
 static WebKitWebsiteDataTypes toWebKitWebsiteDataTypes(OptionSet<WebsiteDataType> types)
@@ -104,6 +104,8 @@ static WebKitWebsiteDataTypes toWebKitWebsiteDataTypes(OptionSet<WebsiteDataType
 #endif
     if (types.contains(WebsiteDataType::Cookies))
         returnValue |= WEBKIT_WEBSITE_DATA_COOKIES;
+    if (types.contains(WebsiteDataType::DeviceIdHashSalt))
+        returnValue |= WEBKIT_WEBSITE_DATA_DEVICE_ID_HASH_SALT;
     return static_cast<WebKitWebsiteDataTypes>(returnValue);
 }
 

@@ -19,8 +19,7 @@
  *
  */
 
-#ifndef WTFString_h
-#define WTFString_h
+#pragma once
 
 // This file would be called String.h, but that conflicts with <string.h>
 // on systems without case-sensitive file systems.
@@ -195,8 +194,8 @@ public:
     size_t find(const LChar* string, unsigned start = 0) const { return m_impl ? m_impl->find(string, start) : notFound; }
 
     // Find the last instance of a single character or string.
-    size_t reverseFind(UChar character, unsigned start = std::numeric_limits<unsigned>::max()) const { return m_impl ? m_impl->reverseFind(character, start) : notFound; }
-    size_t reverseFind(const String& string, unsigned start = std::numeric_limits<unsigned>::max()) const { return m_impl ? m_impl->reverseFind(string.impl(), start) : notFound; }
+    size_t reverseFind(UChar character, unsigned start = MaxLength) const { return m_impl ? m_impl->reverseFind(character, start) : notFound; }
+    size_t reverseFind(const String& string, unsigned start = MaxLength) const { return m_impl ? m_impl->reverseFind(string.impl(), start) : notFound; }
 
     WTF_EXPORT_PRIVATE Vector<UChar> charactersWithNullTermination() const;
 
@@ -238,8 +237,8 @@ public:
     WTF_EXPORT_PRIVATE void truncate(unsigned length);
     WTF_EXPORT_PRIVATE void remove(unsigned position, unsigned length = 1);
 
-    WTF_EXPORT_PRIVATE String substring(unsigned position, unsigned length = std::numeric_limits<unsigned>::max()) const;
-    WTF_EXPORT_PRIVATE String substringSharingImpl(unsigned position, unsigned length = std::numeric_limits<unsigned>::max()) const;
+    WTF_EXPORT_PRIVATE String substring(unsigned position, unsigned length = MaxLength) const;
+    WTF_EXPORT_PRIVATE String substringSharingImpl(unsigned position, unsigned length = MaxLength) const;
     String left(unsigned length) const { return substring(0, length); }
     String right(unsigned length) const { return substring(this->length() - length, length); }
 
@@ -263,22 +262,21 @@ public:
     WTF_EXPORT_PRIVATE String foldCase() const;
 
     WTF_EXPORT_PRIVATE static String format(const char *, ...) WTF_ATTRIBUTE_PRINTF(1, 2);
-    WTF_EXPORT_PRIVATE static String formatWithArguments(const char *, va_list) WTF_ATTRIBUTE_PRINTF(1, 0);
 
     // Returns an uninitialized string. The characters needs to be written
     // into the buffer returned in data before the returned string is used.
     static String createUninitialized(unsigned length, UChar*& data) { return StringImpl::createUninitialized(length, data); }
     static String createUninitialized(unsigned length, LChar*& data) { return StringImpl::createUninitialized(length, data); }
 
-    WTF_EXPORT_PRIVATE void split(const String& separator, bool allowEmptyEntries, Vector<String>& result) const;
-    void split(const String& separator, Vector<String>& result) const { split(separator, false, result); }
-
     using SplitFunctor = WTF::Function<void(const StringView&)>;
-    WTF_EXPORT_PRIVATE void split(UChar separator, bool allowEmptyEntries, const SplitFunctor&) const;
-    WTF_EXPORT_PRIVATE void split(UChar separator, bool allowEmptyEntries, Vector<String>& result) const;
-    void split(UChar separator, Vector<String>& result) const { split(separator, false, result); }
-    Vector<String> split(UChar separator) const;
-    Vector<String> split(const String& separator) const;
+
+    WTF_EXPORT_PRIVATE void split(UChar separator, const SplitFunctor&) const;
+    WTF_EXPORT_PRIVATE Vector<String> split(UChar separator) const;
+    WTF_EXPORT_PRIVATE Vector<String> split(const String& separator) const;
+
+    WTF_EXPORT_PRIVATE void splitAllowingEmptyEntries(UChar separator, const SplitFunctor&) const;
+    WTF_EXPORT_PRIVATE Vector<String> splitAllowingEmptyEntries(UChar separator) const;
+    WTF_EXPORT_PRIVATE Vector<String> splitAllowingEmptyEntries(const String& separator) const;
 
     WTF_EXPORT_PRIVATE int toIntStrict(bool* ok = nullptr, int base = 10) const;
     WTF_EXPORT_PRIVATE unsigned toUIntStrict(bool* ok = nullptr, int base = 10) const;
@@ -370,7 +368,10 @@ public:
 
 private:
     template<typename CharacterType> void removeInternal(const CharacterType*, unsigned, unsigned);
-    template<typename CharacterType> void appendInternal(CharacterType);
+
+    template<bool allowEmptyEntries> void splitInternal(UChar separator, const SplitFunctor&) const;
+    template<bool allowEmptyEntries> Vector<String> splitInternal(UChar separator) const;
+    template<bool allowEmptyEntries> Vector<String> splitInternal(const String& separator) const;
 
     RefPtr<StringImpl> m_impl;
 };
@@ -427,7 +428,10 @@ WTF_EXPORT_PRIVATE const String& emptyString();
 
 template<typename> struct DefaultHash;
 template<> struct DefaultHash<String> { using Hash = StringHash; };
-template<> struct VectorTraits<String> : SimpleClassVectorTraits { };
+template<> struct VectorTraits<String> : VectorTraitsBase<false, void> {
+    static const bool canInitializeWithMemset = true;
+    static const bool canMoveWithMemcpy = true;
+};
 
 template<> struct IntegerToStringConversionTrait<String> {
     using ReturnType = String;
@@ -534,20 +538,6 @@ template<unsigned characterCount> ALWAYS_INLINE String& String::replaceWithLiter
     return *this;
 }
 
-inline Vector<String> String::split(UChar separator) const
-{
-    Vector<String> result;
-    split(separator, false, result);
-    return result;
-}
-
-inline Vector<String> String::split(const String& separator) const
-{
-    Vector<String> result;
-    split(separator, false, result);
-    return result;
-}
-
 template<size_t inlineCapacity> inline String String::make8BitFrom16BitSource(const Vector<UChar, inlineCapacity>& buffer)
 {
     return make8BitFrom16BitSource(buffer.data(), buffer.size());
@@ -641,6 +631,15 @@ template<unsigned length> inline bool startsWithLettersIgnoringASCIICase(const S
     return startsWithLettersIgnoringASCIICase(string.impl(), lowercaseLetters);
 }
 
+inline namespace StringLiterals {
+
+inline String operator"" _str(const char* characters, size_t)
+{
+    return ASCIILiteral::fromLiteralUnsafe(characters);
+}
+
+} // inline StringLiterals
+
 } // namespace WTF
 
 using WTF::KeepTrailingZeros;
@@ -666,5 +665,3 @@ using WTF::isSpaceOrNewline;
 using WTF::reverseFind;
 
 #include <wtf/text/AtomicString.h>
-
-#endif

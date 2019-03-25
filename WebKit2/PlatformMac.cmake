@@ -29,7 +29,6 @@ list(APPEND WebKit_SOURCES
 
     NetworkProcess/Downloads/cocoa/DownloadCocoa.mm
 
-    NetworkProcess/cache/NetworkCacheCodersCocoa.cpp
     NetworkProcess/cache/NetworkCacheDataCocoa.mm
     NetworkProcess/cache/NetworkCacheIOChannelCocoa.mm
 
@@ -96,8 +95,6 @@ list(APPEND WebKit_SOURCES
     Shared/API/c/mac/WKWebArchive.cpp
     Shared/API/c/mac/WKWebArchiveResource.cpp
 
-    Shared/Authentication/mac/AuthenticationManager.mac.mm
-
     Shared/Cocoa/APIDataCocoa.mm
     Shared/Cocoa/APIObject.mm
     Shared/Cocoa/ChildProcessCocoa.mm
@@ -138,7 +135,6 @@ list(APPEND WebKit_SOURCES
     Shared/mac/ChildProcessMac.mm
     Shared/mac/CodeSigning.mm
     Shared/mac/ColorSpaceData.mm
-    Shared/mac/CookieStorageShimLibrary.cpp
     Shared/mac/HangDetectionDisablerMac.mm
     Shared/mac/NativeWebGestureEventMac.mm
     Shared/mac/NativeWebKeyboardEventMac.mm
@@ -160,8 +156,6 @@ list(APPEND WebKit_SOURCES
     Shared/mac/WebHitTestResultData.mm
     Shared/mac/WebMemorySampler.mac.mm
 
-    StorageProcess/mac/StorageProcessMac.mm
-
     UIProcess/HighPerformanceGraphicsUsageSampler.cpp
     UIProcess/PerActivityStateCPUUsageSampler.cpp
     UIProcess/WebResourceLoadStatisticsStore.cpp
@@ -173,7 +167,6 @@ list(APPEND WebKit_SOURCES
 
     UIProcess/Automation/mac/WebAutomationSessionMac.mm
 
-    UIProcess/API/APIAttachment.cpp
     UIProcess/API/APIUserScript.cpp
     UIProcess/API/APIUserStyleSheet.cpp
     UIProcess/API/APIWebsiteDataRecord.cpp
@@ -260,21 +253,19 @@ list(APPEND WebKit_SOURCES
     UIProcess/Cocoa/UIDelegate.mm
     UIProcess/Cocoa/VersionChecks.mm
     UIProcess/Cocoa/ViewGestureController.cpp
+    UIProcess/Cocoa/WKFullKeyboardAccessWatcher.mm
     UIProcess/Cocoa/WKReloadFrameErrorRecoveryAttempter.mm
     UIProcess/Cocoa/WKWebViewContentProviderRegistry.mm
     UIProcess/Cocoa/WebPageProxyCocoa.mm
     UIProcess/Cocoa/WebPasteboardProxyCocoa.mm
     UIProcess/Cocoa/WebProcessPoolCocoa.mm
     UIProcess/Cocoa/WebProcessProxyCocoa.mm
-    UIProcess/Cocoa/WebResourceLoadStatisticsStoreCocoa.mm
     UIProcess/Cocoa/WebURLSchemeHandlerCocoa.mm
     UIProcess/Cocoa/WebViewImpl.mm
 
     UIProcess/Launcher/mac/ProcessLauncherMac.mm
 
     UIProcess/Network/CustomProtocols/LegacyCustomProtocolManagerProxy.cpp
-
-    UIProcess/Network/mac/NetworkProcessProxyMac.mm
 
     UIProcess/Plugins/mac/PluginInfoStoreMac.mm
     UIProcess/Plugins/mac/PluginProcessManagerMac.mm
@@ -300,7 +291,6 @@ list(APPEND WebKit_SOURCES
     UIProcess/mac/TiledCoreAnimationDrawingAreaProxy.mm
     UIProcess/mac/ViewGestureControllerMac.mm
     UIProcess/mac/ViewSnapshotStore.mm
-    UIProcess/mac/WKFullKeyboardAccessWatcher.mm
     UIProcess/mac/WKFullScreenWindowController.mm
     UIProcess/mac/WKImmediateActionController.mm
     UIProcess/mac/WKInspectorViewController.mm
@@ -455,15 +445,9 @@ list(APPEND NetworkProcess_SOURCES
     ${XPCService_SOURCES}
 )
 
-list(APPEND StorageProcess_SOURCES
-    StorageProcess/EntryPoint/mac/XPCService/StorageServiceEntryPoint.mm
-    ${XPCService_SOURCES}
-)
-
 # FIXME: These should not have Development in production builds.
 set(WebKit_WebProcess_OUTPUT_NAME com.apple.WebKit.WebContent.Development)
 set(WebKit_NetworkProcess_OUTPUT_NAME com.apple.WebKit.Networking.Development)
-set(WebKit_StorageProcess_OUTPUT_NAME com.apple.WebKit.Storage.Development)
 
 add_definitions("-include WebKit2Prefix.h")
 
@@ -789,11 +773,6 @@ function(WEBKIT_DEFINE_XPC_SERVICES)
         "com.apple.WebKit.Networking"
         ${WEBKIT_DIR}/NetworkProcess/EntryPoint/mac/XPCService/NetworkService/Info-OSX.plist
         ${WebKit_NetworkProcess_OUTPUT_NAME})
-
-    WEBKIT_XPC_SERVICE(StorageProcess
-        "com.apple.WebKit.Storage"
-        ${WEBKIT_DIR}/StorageProcess/EntryPoint/mac/XPCService/StorageService/Info.plist
-        ${WebKit_StorageProcess_OUTPUT_NAME})
 
     add_custom_target(WebContentProcessNib COMMAND
         ibtool --compile ${WebKit_XPC_SERVICE_DIR}/com.apple.WebKit.WebContent.xpc/Contents/Resources/WebContentProcess.nib ${WEBKIT_DIR}/Resources/WebContentProcess.xib

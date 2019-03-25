@@ -26,7 +26,7 @@
 #include "config.h"
 #include "CommonCryptoUtilities.h"
 
-#if ENABLE(SUBTLE_CRYPTO)
+#if ENABLE(WEB_CRYPTO)
 
 #if !HAVE(CCRSAGetCRTComponents)
 
@@ -52,7 +52,9 @@ bool getCommonCryptoDigestAlgorithm(CryptoAlgorithmIdentifier hashFunction, CCDi
 {
     switch (hashFunction) {
     case CryptoAlgorithmIdentifier::SHA_1:
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         algorithm = kCCDigestSHA1;
+        ALLOW_DEPRECATED_DECLARATIONS_END
         return true;
     case CryptoAlgorithmIdentifier::SHA_224:
         algorithm = kCCDigestSHA224;
@@ -177,4 +179,4 @@ CCBigNum CCBigNum::inverse(const CCBigNum& modulus) const
 
 } // namespace WebCore
 
-#endif // ENABLE(SUBTLE_CRYPTO)
+#endif // ENABLE(WEB_CRYPTO)

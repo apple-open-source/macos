@@ -179,7 +179,8 @@ OSStatus SecCodeCopyGuestWithAttributes(SecCodeRef hostRef,
 
 
 //
-// Shorthand for getting the SecCodeRef for a UNIX process
+// Deprecated since 10.6, DO NOT USE. This can be raced.
+// Use SecCodeCreateWithAuditToken instead.
 //
 OSStatus SecCodeCreateWithPID(pid_t pid, SecCSFlags flags, SecCodeRef *processRef)
 {
@@ -191,6 +192,25 @@ OSStatus SecCodeCreateWithPID(pid_t pid, SecCSFlags flags, SecCodeRef *processRe
 	else
 		return errSecCSNoSuchCode;
 
+	END_CSAPI
+}
+
+//
+// Shorthand for getting the SecCodeRef for a UNIX process
+//
+OSStatus SecCodeCreateWithAuditToken(const audit_token_t *audit,
+									 SecCSFlags flags, SecCodeRef *processRef)
+{
+	BEGIN_CSAPI
+	
+	checkFlags(flags);
+	CFRef<CFDataRef> auditData = makeCFData(audit, sizeof(audit_token_t));
+	if (SecCode *guest = KernelCode::active()->locateGuest(CFTemp<CFDictionaryRef>("{%O=%O}", kSecGuestAttributeAudit, auditData.get()))) {
+		CodeSigning::Required(processRef) = guest->handle(false);
+	} else {
+		return errSecCSNoSuchCode;
+	}
+	
 	END_CSAPI
 }
 #endif // TARGET_OS_OSX
@@ -258,14 +278,16 @@ const CFStringRef kSecCodeInfoTimestamp =		CFSTR("signing-timestamp");
 const CFStringRef kSecCodeInfoTrust =			CFSTR("trust");
 const CFStringRef kSecCodeInfoUnique =			CFSTR("unique");
 const CFStringRef kSecCodeInfoCdHashes =        CFSTR("cdhashes");
+const CFStringRef kSecCodeInfoCdHashesFull =	CFSTR("cdhashes-full");
 const CFStringRef kSecCodeInfoRuntimeVersion = 	CFSTR("runtime-version");
-
 
 const CFStringRef kSecCodeInfoCodeDirectory =	CFSTR("CodeDirectory");
 const CFStringRef kSecCodeInfoCodeOffset =		CFSTR("CodeOffset");
 const CFStringRef kSecCodeInfoDiskRepInfo =     CFSTR("DiskRepInfo");
 const CFStringRef kSecCodeInfoResourceDirectory = CFSTR("ResourceDirectory");
 const CFStringRef kSecCodeInfoNotarizationDate = CFSTR("NotarizationDate");
+const CFStringRef kSecCodeInfoCMSDigestHashType = CFSTR("CMSDigestHashType");
+const CFStringRef kSecCodeInfoCMSDigest =        CFSTR("CMSDigest");
 
 /* DiskInfoRepInfo types */
 const CFStringRef kSecCodeInfoDiskRepVersionPlatform =	 	CFSTR("VersionPlatform");
@@ -285,7 +307,8 @@ OSStatus SecCodeCopySigningInformation(SecStaticCodeRef codeRef, SecCSFlags flag
 		| kSecCSRequirementInformation
 		| kSecCSDynamicInformation
 		| kSecCSContentInformation
-        | kSecCSSkipResourceDirectory);
+        | kSecCSSkipResourceDirectory
+		| kSecCSCalculateCMSDigest);
 
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(codeRef);
 	CFRef<CFDictionaryRef> info = code->signingInformation(flags);

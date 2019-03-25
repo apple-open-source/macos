@@ -24,6 +24,8 @@ list(APPEND WebCore_SOURCES
     platform/graphics/win/MediaPlayerPrivateMediaFoundation.cpp
     platform/graphics/win/SimpleFontDataCairoWin.cpp
 
+    platform/network/win/CurlSSLHandleWin.cpp
+
     platform/text/win/LocaleWin.cpp
 
     platform/win/DelayLoadedModulesEnumerator.cpp
@@ -55,7 +57,7 @@ list(APPEND WebCoreTestSupport_LIBRARIES
 )
 
 list(APPEND WebCore_FORWARDING_HEADERS_DIRECTORIES
+    platform/mediacapabilities
     platform/graphics/cairo
-
     platform/network/curl
 )

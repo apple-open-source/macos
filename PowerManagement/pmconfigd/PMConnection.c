@@ -889,18 +889,6 @@ kern_return_t _io_pm_get_capability_bits(
 /*****************************************************************************/
 /*****************************************************************************/
 
-kern_return_t _io_pm_connection_copy_status
-(
-    mach_port_t server,
-    int status_index,
-    vm_offset_t *status_data,
-    mach_msg_type_number_t *status_dataCnt,
-    int *return_val
-)
-{
-    return KERN_SUCCESS;
-}
-
 kern_return_t _io_pm_set_debug_flags(
         mach_port_t     server,
         audit_token_t   token,

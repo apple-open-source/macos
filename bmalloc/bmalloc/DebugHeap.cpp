@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,10 +59,10 @@ void* DebugHeap::memalign(size_t alignment, size_t size, bool crashOnFailure)
     return result;
 }
 
-void* DebugHeap::realloc(void* object, size_t size)
+void* DebugHeap::realloc(void* object, size_t size, bool crashOnFailure)
 {
     void* result = malloc_zone_realloc(m_zone, object, size);
-    if (!result)
+    if (!result && crashOnFailure)
         BCRASH();
     return result;
 }
@@ -75,6 +75,7 @@ void DebugHeap::free(void* object)
 #else
 
 DebugHeap::DebugHeap(std::lock_guard<Mutex>&)
+    : m_pageSize(vmPageSize())
 {
 }
 
@@ -97,10 +98,10 @@ void* DebugHeap::memalign(size_t alignment, size_t size, bool crashOnFailure)
     return result;
 }
 
-void* DebugHeap::realloc(void* object, size_t size)
+void* DebugHeap::realloc(void* object, size_t size, bool crashOnFailure)
 {
     void* result = ::realloc(object, size);
-    if (!result)
+    if (!result && crashOnFailure)
         BCRASH();
     return result;
 }

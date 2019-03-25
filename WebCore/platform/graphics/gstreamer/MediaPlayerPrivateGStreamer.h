@@ -66,6 +66,8 @@ public:
     virtual ~MediaPlayerPrivateGStreamer();
 
     static void registerMediaEngine(MediaEngineRegistrar);
+    static bool isAvailable();
+
     void handleMessage(GstMessage*);
     void handlePluginInstallerResult(GstInstallPluginsReturn);
 
@@ -107,6 +109,7 @@ public:
     MediaTime maxTimeLoaded() const override;
 
     bool hasSingleSecurityOrigin() const override;
+    Optional<bool> wouldTaintOrigin(const SecurityOrigin&) const override;
 
     void loadStateChanged();
     void timeChanged();
@@ -136,8 +139,7 @@ public:
 private:
     static void getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>&);
     static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
-
-    static bool isAvailable();
+    void syncOnClock(bool sync);
 
     GstElement* createAudioSink() override;
 
@@ -146,7 +148,7 @@ private:
     virtual void updateStates();
     virtual void asyncStateChangeDone();
 
-    void createGSTPlayBin(const gchar* playbinName);
+    void createGSTPlayBin(const gchar* playbinName, const String& pipelineName);
 
     bool loadNextLocation();
     void mediaLocationChanged(GstMessage*);
@@ -177,7 +179,7 @@ private:
     static void downloadBufferFileCreatedCallback(MediaPlayerPrivateGStreamer*);
 
     void setPlaybinURL(const URL& urlString);
-    void loadFull(const String& url, const gchar *playbinName);
+    void loadFull(const String& url, const gchar* playbinName, const String& pipelineName);
 
 #if GST_CHECK_VERSION(1, 10, 0)
     void updateTracks();
@@ -257,6 +259,7 @@ private:
     mutable unsigned long long m_totalBytes;
     URL m_url;
     bool m_preservesPitch;
+    mutable Optional<Seconds> m_lastQueryTime;
     bool m_isLegacyPlaybin;
 #if GST_CHECK_VERSION(1, 10, 0)
     GRefPtr<GstStreamCollection> m_streamCollection;
@@ -284,6 +287,8 @@ private:
 #endif
 #endif
     virtual bool isMediaSource() const { return false; }
+
+    Optional<bool> m_hasTaintedOrigin { WTF::nullopt };
 };
 }
 

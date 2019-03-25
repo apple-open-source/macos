@@ -50,6 +50,10 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+#include "DisplayLink.h"
+#endif
+
 namespace API {
 class Navigation;
 class PageConfiguration;
@@ -57,7 +61,6 @@ class PageConfiguration;
 
 namespace WebCore {
 class ResourceRequest;
-class URL;
 struct PluginInfo;
 struct SecurityOriginData;
 }
@@ -67,7 +70,7 @@ namespace WebKit {
 class NetworkProcessProxy;
 class ObjCObjectGraph;
 class PageClient;
-class SuspendedPageProxy;
+class ProvisionalPageProxy;
 class UserMediaCaptureManagerProxy;
 class VisitedLinkStore;
 class WebBackForwardListItem;
@@ -82,7 +85,7 @@ struct WebNavigationDataStore;
 struct WebPageCreationParameters;
 struct WebsiteData;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 enum ForegroundWebProcessCounterType { };
 typedef RefCounter<ForegroundWebProcessCounterType> ForegroundWebProcessCounter;
 typedef ForegroundWebProcessCounter::Token ForegroundWebProcessToken;
@@ -91,23 +94,27 @@ typedef RefCounter<BackgroundWebProcessCounterType> BackgroundWebProcessCounter;
 typedef BackgroundWebProcessCounter::Token BackgroundWebProcessToken;
 #endif
 
-class WebProcessProxy : public ChildProcessProxy, public ResponsivenessTimer::Client, private ProcessThrottlerClient {
+class WebProcessProxy : public ChildProcessProxy, public ResponsivenessTimer::Client, public ThreadSafeRefCounted<WebProcessProxy>, public CanMakeWeakPtr<WebProcessProxy>, private ProcessThrottlerClient {
 public:
     typedef HashMap<uint64_t, RefPtr<WebFrameProxy>> WebFrameProxyMap;
     typedef HashMap<uint64_t, WebPageProxy*> WebPageProxyMap;
     typedef HashMap<uint64_t, RefPtr<API::UserInitiatedAction>> UserInitiatedActionMap;
 
-    enum class IsInPrewarmedPool {
+    enum class IsPrewarmed {
         No,
         Yes
     };
 
-    static Ref<WebProcessProxy> create(WebProcessPool&, WebsiteDataStore&, IsInPrewarmedPool);
+    static Ref<WebProcessProxy> create(WebProcessPool&, WebsiteDataStore&, IsPrewarmed);
     ~WebProcessProxy();
 
     WebConnection* webConnection() const { return m_webConnection.get(); }
 
-    WebProcessPool& processPool() const { return m_processPool; }
+    WebProcessPool& processPool() const { ASSERT(m_processPool); return *m_processPool.get(); }
+
+    String registrableDomain() const { return m_registrableDomain.valueOr(String()); }
+    void setIsInProcessCache(bool);
+    bool isInProcessCache() const { return m_isInProcessCache; }
 
     // FIXME: WebsiteDataStores should be made per-WebPageProxy throughout WebKit2
     WebsiteDataStore& websiteDataStore() const { return m_websiteDataStore.get(); }
@@ -115,12 +122,22 @@ public:
     static WebProcessProxy* processForIdentifier(WebCore::ProcessIdentifier);
     static WebPageProxy* webPage(uint64_t pageID);
     Ref<WebPageProxy> createWebPage(PageClient&, Ref<API::PageConfiguration>&&);
-    void addExistingWebPage(WebPageProxy&, uint64_t pageID);
-    void removeWebPage(WebPageProxy&, uint64_t pageID);
+
+    enum class BeginsUsingDataStore : bool { No, Yes };
+    void addExistingWebPage(WebPageProxy&, uint64_t pageID, BeginsUsingDataStore);
+
+    enum class EndsUsingDataStore : bool { No, Yes };
+    void removeWebPage(WebPageProxy&, uint64_t pageID, EndsUsingDataStore);
+
+    void addProvisionalPageProxy(ProvisionalPageProxy& provisionalPage) { ASSERT(!m_provisionalPages.contains(&provisionalPage)); m_provisionalPages.add(&provisionalPage); }
+    void removeProvisionalPageProxy(ProvisionalPageProxy& provisionalPage) { ASSERT(m_provisionalPages.contains(&provisionalPage)); m_provisionalPages.remove(&provisionalPage); }
 
     typename WebPageProxyMap::ValuesConstIteratorRange pages() const { return m_pageMap.values(); }
     unsigned pageCount() const { return m_pageMap.size(); }
+    unsigned provisionalPageCount() const { return m_provisionalPages.size(); }
     unsigned visiblePageCount() const { return m_visiblePageCounter.value(); }
+
+    void activePagesDomainsForTesting(CompletionHandler<void(Vector<String>&&)>&&); // This is what is reported to ActivityMonitor.
 
     virtual bool isServiceWorkerProcess() const { return false; }
 
@@ -142,27 +159,25 @@ public:
 
     VisibleWebPageToken visiblePageToken() const;
 
-    void testIncomingSyncIPCMessageWhileWaitingForSyncReply(bool& handled);
-
     void updateTextCheckerState();
 
     void willAcquireUniversalFileReadSandboxExtension() { m_mayHaveUniversalFileReadSandboxExtension = true; }
-    void assumeReadAccessToBaseURL(const String&);
-    bool hasAssumedReadAccessToURL(const WebCore::URL&) const;
+    void assumeReadAccessToBaseURL(WebPageProxy&, const String&);
+    bool hasAssumedReadAccessToURL(const URL&) const;
 
     bool checkURLReceivedFromWebProcess(const String&);
-    bool checkURLReceivedFromWebProcess(const WebCore::URL&);
+    bool checkURLReceivedFromWebProcess(const URL&);
 
     static bool fullKeyboardAccessEnabled();
 
     void didSaveToPageCache();
     void releasePageCache();
 
-    void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, Function<void(WebsiteData)>&& completionHandler);
-    void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, Function<void()>&& completionHandler);
-    void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, Function<void()>&& completionHandler);
-    static void deleteWebsiteDataForTopPrivatelyControlledDomainsInAllPersistentDataStores(OptionSet<WebsiteDataType>, Vector<String>&& topPrivatelyControlledDomains, bool shouldNotifyPages, Function<void (const HashSet<String>&)>&& completionHandler);
-    static void topPrivatelyControlledDomainsWithWebsiteData(OptionSet<WebsiteDataType> dataTypes, bool shouldNotifyPage, Function<void(HashSet<String>&&)>&& completionHandler);
+    void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, CompletionHandler<void(WebsiteData)>&&);
+    void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
+    void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, CompletionHandler<void()>&&);
+    static void deleteWebsiteDataForTopPrivatelyControlledDomainsInAllPersistentDataStores(OptionSet<WebsiteDataType>, Vector<String>&& topPrivatelyControlledDomains, bool shouldNotifyPages, CompletionHandler<void (const HashSet<String>&)>&&);
+    static void topPrivatelyControlledDomainsWithWebsiteData(OptionSet<WebsiteDataType> dataTypes, bool shouldNotifyPage, CompletionHandler<void(HashSet<String>&&)>&&);
     static void notifyPageStatisticsAndDataRecordsProcessed();
     static void notifyPageStatisticsTelemetryFinished(API::Object* messageBody);
 
@@ -191,7 +206,7 @@ public:
 
     ProcessThrottler& throttler() { return m_throttler; }
 
-    void isResponsive(WTF::Function<void(bool isWebProcessResponsive)>&&);
+    void isResponsive(CompletionHandler<void(bool isWebProcessResponsive)>&&);
     void didReceiveMainThreadPing();
     void didReceiveBackgroundResponsivenessPing();
 
@@ -210,28 +225,43 @@ public:
     void didCommitProvisionalLoad() { m_hasCommittedAnyProvisionalLoads = true; }
     bool hasCommittedAnyProvisionalLoads() const { return m_hasCommittedAnyProvisionalLoads; }
 
-    void suspendWebPageProxy(WebPageProxy&, API::Navigation&);
-    void suspendedPageWasDestroyed(SuspendedPageProxy&);
-
 #if PLATFORM(WATCHOS)
     void takeBackgroundActivityTokenForFullscreenInput();
     void releaseBackgroundActivityTokenForFullscreenInput();
 #endif
 
-    bool isInPrewarmedPool() const { return m_isInPrewarmedPool; }
-    void setIsInPrewarmedPool(bool isInPrewarmedPool) { m_isInPrewarmedPool = isInPrewarmedPool; }
+    bool isPrewarmed() const { return m_isPrewarmed; }
+    void markIsNoLongerInPrewarmedPool();
 
 #if PLATFORM(COCOA)
     Vector<String> mediaMIMETypes();
     void cacheMediaMIMETypes(const Vector<String>&);
 #endif
 
+#if PLATFORM(MAC)
+    void requestHighPerformanceGPU();
+    void releaseHighPerformanceGPU();
+#endif
+
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    void startDisplayLink(unsigned observerID, uint32_t displayID);
+    void stopDisplayLink(unsigned observerID, uint32_t displayID);
+#endif
+
+    // Called when the web process has crashed or we know that it will terminate soon.
+    // Will potentially cause the WebProcessProxy object to be freed.
+    void shutDown();
+    void maybeShutDown();
+
+    void didStartProvisionalLoadForMainFrame(const URL&);
+
 protected:
     static uint64_t generatePageID();
-    WebProcessProxy(WebProcessPool&, WebsiteDataStore&, IsInPrewarmedPool);
+    WebProcessProxy(WebProcessPool&, WebsiteDataStore&, IsPrewarmed);
 
     // ChildProcessProxy
     void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
+    void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void connectionWillOpen(IPC::Connection&) override;
     void processWillShutDown(IPC::Connection&) override;
 
@@ -243,19 +273,17 @@ protected:
 #endif
 
     bool isJITEnabled() const final;
-
+    
 private:
-    // Called when the web process has crashed or we know that it will terminate soon.
-    // Will potentially cause the WebProcessProxy object to be freed.
-    void shutDown();
-    void maybeShutDown();
-
     // IPC message handlers.
     void updateBackForwardItem(const BackForwardListItemState&);
     void didDestroyFrame(uint64_t);
     void didDestroyUserGestureToken(uint64_t);
 
+    bool canBeAddedToWebProcessCache() const;
     void shouldTerminate(bool& shouldTerminate);
+
+    bool hasPageUsingSession(PAL::SessionID) const;
 
     void createNewMessagePortChannel(const WebCore::MessagePortIdentifier& port1, const WebCore::MessagePortIdentifier& port2);
     void entangleLocalPortInThisProcessToRemote(const WebCore::MessagePortIdentifier& local, const WebCore::MessagePortIdentifier& remote);
@@ -267,15 +295,17 @@ private:
     void didDeliverMessagePortMessages(uint64_t messageBatchIdentifier);
     void didCheckProcessLocalPortForActivity(uint64_t callbackIdentifier, bool isLocallyReachable);
 
+    bool hasProvisionalPageWithID(uint64_t pageID) const;
+    bool isAllowedToUpdateBackForwardItem(WebBackForwardListItem&) const;
+
     // Plugins
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    void getPlugins(bool refresh, Vector<WebCore::PluginInfo>& plugins, Vector<WebCore::PluginInfo>& applicationPlugins, std::optional<Vector<WebCore::SupportedPluginIdentifier>>&);
+    void getPlugins(bool refresh, Vector<WebCore::PluginInfo>& plugins, Vector<WebCore::PluginInfo>& applicationPlugins, Optional<Vector<WebCore::SupportedPluginIdentifier>>&);
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
 #if ENABLE(NETSCAPE_PLUGIN_API)
     void getPluginProcessConnection(uint64_t pluginProcessToken, Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply&&);
 #endif
     void getNetworkProcessConnection(Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply&&);
-    void getStorageProcessConnection(PAL::SessionID initialSessionID, Messages::WebProcessProxy::GetStorageProcessConnection::DelayedReply&&);
 
     bool platformIsBeingDebugged() const;
     bool shouldAllowNonValidInjectedCode() const;
@@ -313,20 +343,54 @@ private:
 
     bool canTerminateChildProcess();
 
+    void didCollectPrewarmInformation(const String& domain, const WebCore::PrewarmInformation&);
+
     void logDiagnosticMessageForResourceLimitTermination(const String& limitKey);
+
+    enum class IsWeak { No, Yes };
+    template<typename T> class WeakOrStrongPtr {
+    public:
+        WeakOrStrongPtr(T& object, IsWeak isWeak)
+            : m_isWeak(isWeak)
+            , m_weakObject(makeWeakPtr(object))
+        {
+            updateStrongReference();
+        }
+
+        void setIsWeak(IsWeak isWeak)
+        {
+            m_isWeak = isWeak;
+            updateStrongReference();
+        }
+
+        T* get() const { return m_weakObject.get(); }
+        T* operator->() const { return m_weakObject.get(); }
+        T& operator*() const { return *m_weakObject; }
+        explicit operator bool() const { return !!m_weakObject; }
+
+    private:
+        void updateStrongReference()
+        {
+            m_strongObject = m_isWeak == IsWeak::Yes ? nullptr : m_weakObject.get();
+        }
+
+        IsWeak m_isWeak;
+        WeakPtr<T> m_weakObject;
+        RefPtr<T> m_strongObject;
+    };
 
     ResponsivenessTimer m_responsivenessTimer;
     BackgroundProcessResponsivenessTimer m_backgroundResponsivenessTimer;
     
     RefPtr<WebConnectionToWebProcess> m_webConnection;
-    Ref<WebProcessPool> m_processPool;
+    WeakOrStrongPtr<WebProcessPool> m_processPool; // Pre-warmed and cached processes do not hold a strong reference to their pool.
 
     bool m_mayHaveUniversalFileReadSandboxExtension; // True if a read extension for "/" was ever granted - we don't track whether WebProcess still has it.
     HashSet<String> m_localPathsWithAssumedReadAccess;
 
     WebPageProxyMap m_pageMap;
-    HashMap<uint64_t, SuspendedPageProxy*> m_suspendedPageMap;
     WebFrameProxyMap m_frameMap;
+    HashSet<ProvisionalPageProxy*> m_provisionalPages;
     UserInitiatedActionMap m_userInitiatedActionMap;
 
     HashSet<VisitedLinkStore*> m_visitedLinkStores;
@@ -335,15 +399,18 @@ private:
     int m_numberOfTimesSuddenTerminationWasDisabled;
     ProcessThrottler m_throttler;
     ProcessThrottler::BackgroundActivityToken m_tokenForHoldingLockedFiles;
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     ForegroundWebProcessToken m_foregroundToken;
     BackgroundWebProcessToken m_backgroundToken;
 #endif
 
     HashMap<String, uint64_t> m_pageURLRetainCountMap;
 
+    Optional<String> m_registrableDomain;
+    bool m_isInProcessCache { false };
+
     enum class NoOrMaybe { No, Maybe } m_isResponsive;
-    Vector<WTF::Function<void(bool webProcessIsResponsive)>> m_isResponsiveCallbacks;
+    Vector<CompletionHandler<void(bool webProcessIsResponsive)>> m_isResponsiveCallbacks;
 
     VisibleWebPageCounter m_visiblePageCounter;
 
@@ -361,10 +428,14 @@ private:
     HashMap<uint64_t, CompletionHandler<void(WebCore::MessagePortChannelProvider::HasActivity)>> m_localPortActivityCompletionHandlers;
 
     bool m_hasCommittedAnyProvisionalLoads { false };
-    bool m_isInPrewarmedPool;
+    bool m_isPrewarmed;
 
 #if PLATFORM(WATCHOS)
     ProcessThrottler::BackgroundActivityToken m_backgroundActivityTokenForFullscreenFormControls;
+#endif
+
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    Vector<std::unique_ptr<DisplayLink>> m_displayLinks;
 #endif
 };
 

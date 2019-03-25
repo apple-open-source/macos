@@ -81,7 +81,7 @@ pl{
         CK{"Wyspy Cooka"}
         CL{"Chile"}
         CM{"Kamerun"}
-        CN{"Chiny"}
+        CN{"Chiny kontynentalne"}
         CO{"Kolumbia"}
         CP{"Clipperton"}
         CR{"Kostaryka"}
@@ -133,7 +133,7 @@ pl{
         GU{"Guam"}
         GW{"Gwinea Bissau"}
         GY{"Gujana"}
-        HK{"Hongkong (Chiny)"}
+        HK{"Hongkong"}
         HM{"Wyspy Heard i McDonalda"}
         HN{"Honduras"}
         HR{"Chorwacja"}
@@ -187,7 +187,7 @@ pl{
         ML{"Mali"}
         MM{"Mjanma (Birma)"}
         MN{"Mongolia"}
-        MO{"Makau (Chiny)"}
+        MO{"Makau"}
         MP{"Mariany Północne"}
         MQ{"Martynika"}
         MR{"Mauretania"}
@@ -297,8 +297,6 @@ pl{
     }
     Countries%short{
         GB{"Wlk. Bryt."}
-        HK{"Hongkong"}
-        MO{"Makau"}
         PS{"Palestyna"}
         UN{"ONZ"}
         US{"USA"}

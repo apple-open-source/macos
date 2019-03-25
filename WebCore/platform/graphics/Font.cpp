@@ -65,7 +65,7 @@ Font::Font(const FontPlatformData& platformData, Origin origin, Interstitial int
     , m_isBrokenIdeographFallback(false)
     , m_hasVerticalGlyphs(false)
     , m_isUsedInSystemFallbackCache(false)
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     , m_shouldNotBeUsedForArabic(false)
 #endif
 {
@@ -148,7 +148,7 @@ static bool fillGlyphPage(GlyphPage& pageToFill, UChar* buffer, unsigned bufferL
     return hasGlyphs;
 }
 
-static std::optional<size_t> codePointSupportIndex(UChar32 codePoint)
+static Optional<size_t> codePointSupportIndex(UChar32 codePoint)
 {
     // FIXME: Consider reordering these so the most common ones are at the front.
     // Doing this could cause the BitVector to fit inside inline storage and therefore
@@ -157,7 +157,7 @@ static std::optional<size_t> codePointSupportIndex(UChar32 codePoint)
         return codePoint;
     if (codePoint >= 0x7F && codePoint < 0xA0)
         return codePoint - 0x7F + 0x20;
-    std::optional<size_t> result;
+    Optional<size_t> result;
     switch (codePoint) {
     case softHyphen:
         result = 0x41;
@@ -220,7 +220,7 @@ static std::optional<size_t> codePointSupportIndex(UChar32 codePoint)
         result = 0x54;
         break;
     default:
-        result = std::nullopt;
+        result = WTF::nullopt;
     }
 
 #ifndef NDEBUG
@@ -265,7 +265,7 @@ static std::optional<size_t> codePointSupportIndex(UChar32 codePoint)
 
 static RefPtr<GlyphPage> createAndFillGlyphPage(unsigned pageNumber, const Font& font)
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     // FIXME: Times New Roman contains Arabic glyphs, but Core Text doesn't know how to shape them. See <rdar://problem/9823975>.
     // Once we have the fix for <rdar://problem/9823975> then remove this code together with Font::shouldNotBeUsedForArabic()
     // in <rdar://problem/12096835>.
@@ -454,7 +454,7 @@ const Font& Font::brokenIdeographFont() const
     return *derivedFontData.brokenIdeographFont;
 }
 
-#ifndef NDEBUG
+#if !LOG_DISABLED
 String Font::description() const
 {
     if (origin() == Origin::Remote)
@@ -663,4 +663,15 @@ bool Font::canRenderCombiningCharacterSequence(const UChar* characters, size_t l
     }
     return true;
 }
+
+// Don't store the result of this! The hash map is free to rehash at any point, leaving this reference dangling.
+const Path& Font::pathForGlyph(Glyph glyph) const
+{
+    if (const auto& path = m_glyphPathMap.existingMetricsForGlyph(glyph))
+        return *path;
+    auto path = platformPathForGlyph(glyph);
+    m_glyphPathMap.setMetricsForGlyph(glyph, path);
+    return *m_glyphPathMap.existingMetricsForGlyph(glyph);
+}
+
 } // namespace WebCore

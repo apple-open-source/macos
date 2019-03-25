@@ -489,7 +489,7 @@ KeyItem::key()
         } catch(CssmError cssme) {
             mKey.release();
             secnotice("integrity", "error while checking integrity, denying access: %s", cssme.what());
-            throw cssme;
+            throw;
         }
     }
 

@@ -650,6 +650,8 @@ firehose_client_handle_mach_event(void *ctx, dispatch_mach_reason_t reason,
 			firehose_client_cancel(fc);
 		}
 		break;
+	default:
+		break;
 	}
 }
 

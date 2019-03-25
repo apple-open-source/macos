@@ -12,6 +12,7 @@
 #import <IOKit/hid/IOHIDEventSystemKeys.h>
 #import <IOKit/hid/IOHIDSession.h>
 #import <RemoteHID/RemoteHID.h>
+#import "IOHIDDebug.h"
 #import <objc/runtime.h>
 
 void * IOHIDSessionSensorFilterFactory (CFAllocatorRef allocator, CFUUIDRef typeUUID);
@@ -140,13 +141,14 @@ void * IOHIDSessionSensorFilterFactory (CFAllocatorRef allocator __unused, CFUUI
     // instance of TestType and return the IUnknown interface.
     if (CFEqual(typeUUID, kIOHIDSessionFilterPlugInTypeID)) {
         HIDSessionFilterWrapper * obj;
-//        self = (HIDSessionFilterWrapper *) CFAllocatorAllocate (allocator,
-//                                                                class_getInstanceSize([HIDSessionFilterWrapper class]),
-//                                                                0);
         obj = [[HIDSessionFilterWrapper alloc] init];
         if (obj) {
+            HIDLogInfo ("AACP server object: %@", obj);
             return (void *)&obj->_filterPrt;
         }
+        
+        HIDLogError ("Unable to create AACP HID server");
+        
         return NULL;
     }
     // If the requested type is incorrect, return NULL.

@@ -31,15 +31,11 @@
 #import <pal/spi/cocoa/PassKitSPI.h>
 #import <wtf/BlockPtr.h>
 
-namespace WebCore {
-class URL;
-}
-
 namespace WebKit {
 class WebPageProxy;
 class WebPaymentCoordinatorProxy;
 
-RetainPtr<PKPaymentRequest> toPKPaymentRequest(WebPageProxy&, const WebCore::URL& originatingURL, const Vector<WebCore::URL>& linkIconURLs, const WebCore::ApplePaySessionPaymentRequest&);
+RetainPtr<PKPaymentRequest> toPKPaymentRequest(WebPageProxy&, const URL& originatingURL, const Vector<URL>& linkIconURLs, const WebCore::ApplePaySessionPaymentRequest&);
 
 }
 
@@ -52,7 +48,7 @@ RetainPtr<PKPaymentRequest> toPKPaymentRequest(WebPageProxy&, const WebCore::URL
     BlockPtr<void (PKPaymentMerchantSession *, NSError *)> _sessionBlock;
 
     BOOL _didReachFinalState;
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
     BlockPtr<void (PKPaymentAuthorizationResult *)> _paymentAuthorizedCompletion;
     BlockPtr<void (PKPaymentRequestPaymentMethodUpdate *)> _didSelectPaymentMethodCompletion;
     BlockPtr<void (PKPaymentRequestShippingMethodUpdate *)> _didSelectShippingMethodCompletion;

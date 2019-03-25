@@ -554,6 +554,8 @@
 /* Begin PBXBuildFile section */
 		091B39732063B67700ECAB6F /* RemoteServiceDiscovery.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 091B396D2063B64A00ECAB6F /* RemoteServiceDiscovery.framework */; };
 		0927FEBC1F81338600864E07 /* SecKeyProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = 09E9991F1F7D76550018DF67 /* SecKeyProxy.m */; };
+		0940F6F82151316500C06F18 /* libACM.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC610A3A1D78F228002223DE /* libACM.a */; };
+		0940F6F92151316600C06F18 /* libACM.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC610A3A1D78F228002223DE /* libACM.a */; };
 		096C647020AB1BC700D7B7D5 /* KeychainEntitlementsTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 09BFE35A20A32E0E008511E9 /* KeychainEntitlementsTest.m */; };
 		09A3B9D81F8267BB00C5C324 /* SecKeyProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = 09A3B9D71F8267BB00C5C324 /* SecKeyProxy.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		09A3B9D91F8267BB00C5C324 /* SecKeyProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = 09A3B9D71F8267BB00C5C324 /* SecKeyProxy.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -561,6 +563,7 @@
 		09A3B9E21F838A3400C5C324 /* SecKeyProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = 09E9991F1F7D76550018DF67 /* SecKeyProxy.m */; };
 		09BFE35C20A32E0E008511E9 /* KeychainEntitlementsTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 09BFE35A20A32E0E008511E9 /* KeychainEntitlementsTest.m */; };
 		09CB49701F2F64E300C8E4DE /* si-44-seckey-fv.m in Sources */ = {isa = PBXBuildFile; fileRef = 09CB496A1F2F64AF00C8E4DE /* si-44-seckey-fv.m */; };
+		09EF431B21A5A8CC0066CF20 /* libaks_acl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF8C1A01472C000958DC /* libaks_acl.a */; };
 		0C0582AE20D9657800D7BD7A /* CoreCDP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C9FB40120D8729A00864612 /* CoreCDP.framework */; };
 		0C0582B820D9B70D00D7BD7A /* CoreCDP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C9FB40120D8729A00864612 /* CoreCDP.framework */; };
 		0C0BDB32175685B000BC1A7E /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C0BDB31175685B000BC1A7E /* main.m */; };
@@ -634,7 +637,7 @@
 		0C85DFF61FB38BB6000343A7 /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D46246CE1F9AEAE300D63882 /* libDER.a */; };
 		0C85DFF71FB38BB6000343A7 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 107227350D91FE89003CF14F /* libbsm.dylib */; };
 		0C85DFF81FB38BB6000343A7 /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF6A1A01458F000958DC /* libcoreauthd_client.a */; };
-		0C85DFF91FB38BB6000343A7 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient.a */; };
+		0C85DFF91FB38BB6000343A7 /* libctkclient_sep.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */; };
 		0C85DFFA1FB38BB6000343A7 /* libsqlite3.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = DC27B57D1DDFC24500599261 /* libsqlite3.0.dylib */; };
 		0C85DFFB1FB38BB6000343A7 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BE8ABDD71DC2DD9100EC2D58 /* libz.dylib */; };
 		0C85DFFE1FB38BB6000343A7 /* OCMock.framework in Embed OCMock */ = {isa = PBXBuildFile; fileRef = DC3502E81E02172C00BC0587 /* OCMock.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -859,9 +862,9 @@
 		443381ED18A3D83100215606 /* SecAccessControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 443381D918A3D81400215606 /* SecAccessControl.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		443381EE18A3D83A00215606 /* SecAccessControlPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 443381DA18A3D81400215606 /* SecAccessControlPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4469FBFF1AA0A4820021AA26 /* libctkclient_test.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDC1AA0A45C0021AA26 /* libctkclient_test.a */; };
-		44A655831AA4B4BB0059D185 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient.a */; };
-		44A655A51AA4B4C70059D185 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient.a */; };
-		44A655A61AA4B4C80059D185 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient.a */; };
+		44A655831AA4B4BB0059D185 /* libctkclient_sep.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */; };
+		44A655A51AA4B4C70059D185 /* libctkclient_sep.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */; };
+		44A655A61AA4B4C80059D185 /* libctkclient_sep.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */; };
 		470415DC1E5E1534001F3D95 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 470415DB1E5E1534001F3D95 /* main.m */; };
 		470D96711FCDE55B0065FE90 /* SecCDKeychain.h in Headers */ = {isa = PBXBuildFile; fileRef = 470D966F1FCDE55B0065FE90 /* SecCDKeychain.h */; };
 		470D96721FCDE55B0065FE90 /* SecCDKeychain.h in Headers */ = {isa = PBXBuildFile; fileRef = 470D966F1FCDE55B0065FE90 /* SecCDKeychain.h */; };
@@ -1507,7 +1510,7 @@
 		6C9808571E788AEB00E70590 /* libaks_acl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF8C1A01472C000958DC /* libaks_acl.a */; };
 		6C9808581E788AEB00E70590 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 107227350D91FE89003CF14F /* libbsm.dylib */; };
 		6C9808591E788AEB00E70590 /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF6A1A01458F000958DC /* libcoreauthd_client.a */; };
-		6C98085A1E788AEB00E70590 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient.a */; };
+		6C98085A1E788AEB00E70590 /* libctkclient_sep.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */; };
 		6C98085B1E788AEB00E70590 /* libsqlite3.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = DC27B57D1DDFC24500599261 /* libsqlite3.0.dylib */; };
 		6C98085C1E788AEB00E70590 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BE8ABDD71DC2DD9100EC2D58 /* libz.dylib */; };
 		6C98087A1E788AFD00E70590 /* spi.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78CB01D8085D800865A7C /* spi.c */; };
@@ -1526,13 +1529,14 @@
 		6C9808931E788AFD00E70590 /* libaks_acl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF8C1A01472C000958DC /* libaks_acl.a */; };
 		6C9808941E788AFD00E70590 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 107227350D91FE89003CF14F /* libbsm.dylib */; };
 		6C9808951E788AFD00E70590 /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF6A1A01458F000958DC /* libcoreauthd_client.a */; };
-		6C9808961E788AFD00E70590 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient.a */; };
+		6C9808961E788AFD00E70590 /* libctkclient_sep.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */; };
 		6C9808971E788AFD00E70590 /* libsqlite3.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = DC27B57D1DDFC24500599261 /* libsqlite3.0.dylib */; };
 		6C9808981E788AFD00E70590 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BE8ABDD71DC2DD9100EC2D58 /* libz.dylib */; };
 		6C9808A51E788CD100E70590 /* CKKSCloudKitTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 6CCDF7911E3C2D69003F2555 /* CKKSCloudKitTests.m */; };
 		6C9808A61E788CD200E70590 /* CKKSCloudKitTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 6CCDF7911E3C2D69003F2555 /* CKKSCloudKitTests.m */; };
 		6C9AA7A11F7C1D9000D08296 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C9AA7A01F7C1D9000D08296 /* main.m */; };
 		6C9AA7A51F7C6F7F00D08296 /* SecArgParse.c in Sources */ = {isa = PBXBuildFile; fileRef = DC5BCC461E5380EA00649140 /* SecArgParse.c */; };
+		6CA837642210CA8A002770F1 /* kc-45-change-password.c in Sources */ = {isa = PBXBuildFile; fileRef = 6CA837612210C5E7002770F1 /* kc-45-change-password.c */; };
 		6CAA8CDD1F82EDEF007B6E03 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1789041D77980500B50D50 /* Security.framework */; };
 		6CAA8CEE1F83E417007B6E03 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C32C0AF0A4975F6002891BD /* Security.framework */; };
 		6CAA8CEF1F83E65D007B6E03 /* SFObjCType.m in Sources */ = {isa = PBXBuildFile; fileRef = 4723C9BE1F152EB10082882F /* SFObjCType.m */; };
@@ -2715,7 +2719,7 @@
 		DC1789251D7799CD00B50D50 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1789241D7799CD00B50D50 /* CoreFoundation.framework */; };
 		DC1789271D7799D400B50D50 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1789261D7799D300B50D50 /* IOKit.framework */; };
 		DC1789281D779A0F00B50D50 /* libaks_acl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF8C1A01472C000958DC /* libaks_acl.a */; };
-		DC1789291D779A2800B50D50 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient.a */; };
+		DC1789291D779A2800B50D50 /* libctkclient_sep.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */; };
 		DC17892A1D779A3200B50D50 /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF6A1A01458F000958DC /* libcoreauthd_client.a */; };
 		DC1789471D779AAF00B50D50 /* libsecurity_smime.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1784491D77869A00B50D50 /* libsecurity_smime.a */; };
 		DC1789A21D779DF400B50D50 /* SecBreadcrumb.c in Sources */ = {isa = PBXBuildFile; fileRef = DC1789A01D779DEE00B50D50 /* SecBreadcrumb.c */; };
@@ -2834,7 +2838,7 @@
 		DC3502D31E02115200BC0587 /* libACM.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC610A3A1D78F228002223DE /* libACM.a */; };
 		DC3502D61E02118000BC0587 /* libsecurity.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DCC78EA91D8088E200865A7C /* libsecurity.a */; };
 		DC3502DF1E02129F00BC0587 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
-		DC3502E21E0212D100BC0587 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient.a */; };
+		DC3502E21E0212D100BC0587 /* libctkclient_sep.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */; };
 		DC3502E31E0212E600BC0587 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E71F3E3016EA69A900FAF9B4 /* SystemConfiguration.framework */; };
 		DC3502E41E02130600BC0587 /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF6A1A01458F000958DC /* libcoreauthd_client.a */; };
 		DC3502E71E0214C800BC0587 /* MockCloudKit.m in Sources */ = {isa = PBXBuildFile; fileRef = DC3502E61E0214C800BC0587 /* MockCloudKit.m */; };
@@ -3163,7 +3167,7 @@
 		DC52EE711D80D85F00B0A59C /* SecECKey.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E491D8085FC00865A7C /* SecECKey.m */; };
 		DC52EE721D80D86400B0A59C /* SecuritydXPC.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E9A1D8085FC00865A7C /* SecuritydXPC.c */; };
 		DC52EE731D80D86800B0A59C /* SecKey.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E601D8085FC00865A7C /* SecKey.c */; };
-		DC52EE741D80D86F00B0A59C /* SecAccessControl.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E301D8085FC00865A7C /* SecAccessControl.c */; };
+		DC52EE741D80D86F00B0A59C /* SecAccessControl.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E301D8085FC00865A7C /* SecAccessControl.m */; };
 		DC52EE761D80D87F00B0A59C /* SecCTKKey.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E441D8085FC00865A7C /* SecCTKKey.m */; };
 		DC52EE771D80D88300B0A59C /* SecDH.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E461D8085FC00865A7C /* SecDH.c */; };
 		DC52EE781D80D88800B0A59C /* SecRSAKey.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E851D8085FC00865A7C /* SecRSAKey.c */; };
@@ -4063,7 +4067,7 @@
 		DCC78EE31D808B1300865A7C /* SecCMS.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E421D8085FC00865A7C /* SecCMS.c */; };
 		DCC78EE41D808B1B00865A7C /* SecCFAllocator.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E401D8085FC00865A7C /* SecCFAllocator.c */; };
 		DCC78EE51D808B2100865A7C /* SecBase64.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E351D8085FC00865A7C /* SecBase64.c */; };
-		DCC78EE61D808B2A00865A7C /* SecAccessControl.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E301D8085FC00865A7C /* SecAccessControl.c */; };
+		DCC78EE61D808B2A00865A7C /* SecAccessControl.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E301D8085FC00865A7C /* SecAccessControl.m */; };
 		DCC78EE71D808B2F00865A7C /* secViewDisplay.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78D9E1D8085F200865A7C /* secViewDisplay.c */; };
 		DCCA5E841E539EE7009EE93D /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DCCA5E831E539EE7009EE93D /* AppKit.framework */; };
 		DCCBFA1E1DBA95CD001DD54D /* kc-20-item-delete-stress.c in Sources */ = {isa = PBXBuildFile; fileRef = DCCBFA1D1DBA95CD001DD54D /* kc-20-item-delete-stress.c */; };
@@ -4725,7 +4729,7 @@
 		DCE4E8121D7A4E4F00AFB96E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1789261D7799D300B50D50 /* IOKit.framework */; };
 		DCE4E8131D7A4E5300AFB96E /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1789241D7799CD00B50D50 /* CoreFoundation.framework */; };
 		DCE4E81C1D7A4E8F00AFB96E /* libsqlite3.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = DCE4E81B1D7A4E8F00AFB96E /* libsqlite3.0.dylib */; };
-		DCE4E81F1D7A4EA700AFB96E /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient.a */; };
+		DCE4E81F1D7A4EA700AFB96E /* libctkclient_sep.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */; };
 		DCE4E8201D7A4EAC00AFB96E /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF6A1A01458F000958DC /* libcoreauthd_client.a */; };
 		DCE4E8231D7A4EC900AFB96E /* libaks_acl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF8C1A01472C000958DC /* libaks_acl.a */; };
 		DCE4E8241D7A4ECD00AFB96E /* libaks.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB2CA4D81D2C28C800AB770F /* libaks.a */; };
@@ -5395,7 +5399,7 @@
 		EBCE16501FE6DE5A002E7CCC /* libaks_acl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF8C1A01472C000958DC /* libaks_acl.a */; };
 		EBCE16511FE6DE5A002E7CCC /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 107227350D91FE89003CF14F /* libbsm.dylib */; };
 		EBCE16521FE6DE5A002E7CCC /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF6A1A01458F000958DC /* libcoreauthd_client.a */; };
-		EBCE16531FE6DE5A002E7CCC /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient.a */; };
+		EBCE16531FE6DE5A002E7CCC /* libctkclient_sep.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */; };
 		EBCE16541FE6DE5A002E7CCC /* libprequelite.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CE98B5B1FA9360700CF1D54 /* libprequelite.tbd */; };
 		EBCE16551FE6DE5A002E7CCC /* libsqlite3.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = DC27B57D1DDFC24500599261 /* libsqlite3.0.dylib */; };
 		EBCE16561FE6DE5A002E7CCC /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BE8ABDD71DC2DD9100EC2D58 /* libz.dylib */; };
@@ -9835,7 +9839,7 @@
 		443381D918A3D81400215606 /* SecAccessControl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = SecAccessControl.h; path = ../../../keychain/SecAccessControl.h; sourceTree = "<group>"; };
 		443381DA18A3D81400215606 /* SecAccessControlPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecAccessControlPriv.h; sourceTree = "<group>"; };
 		4469FBDC1AA0A45C0021AA26 /* libctkclient_test.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libctkclient_test.a; path = usr/local/lib/libctkclient_test.a; sourceTree = SDKROOT; };
-		4469FBDD1AA0A45C0021AA26 /* libctkclient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libctkclient.a; path = usr/local/lib/libctkclient.a; sourceTree = SDKROOT; };
+		4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libctkclient_sep.a; path = usr/local/lib/libctkclient_sep.a; sourceTree = SDKROOT; };
 		470415CF1E5E14B5001F3D95 /* seckeychainnetworkextensionstest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = seckeychainnetworkextensionstest; sourceTree = BUILT_PRODUCTS_DIR; };
 		470415DB1E5E1534001F3D95 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = RegressionTests/seckeychainnetworkextensionstest/main.m; sourceTree = SOURCE_ROOT; };
 		470415DD1E5E15B3001F3D95 /* seckeychainnetworkextensionstest.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = seckeychainnetworkextensionstest.entitlements; path = RegressionTests/seckeychainnetworkextensionstest/seckeychainnetworkextensionstest.entitlements; sourceTree = SOURCE_ROOT; };
@@ -10148,6 +10152,8 @@
 		6C9AA79E1F7C1D8F00D08296 /* supdctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = supdctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C9AA7A01F7C1D9000D08296 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		6CA2B9431E9F9F5700C43444 /* RateLimiter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RateLimiter.h; sourceTree = "<group>"; };
+		6CA557FE219E214200993CF4 /* securityuploadd-sim.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "securityuploadd-sim.plist"; sourceTree = "<group>"; };
+		6CA837612210C5E7002770F1 /* kc-45-change-password.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "kc-45-change-password.c"; path = "regressions/kc-45-change-password.c"; sourceTree = "<group>"; };
 		6CAA8D201F842FB3007B6E03 /* securityuploadd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = securityuploadd; sourceTree = BUILT_PRODUCTS_DIR; };
 		6CB5F4751E4025AB00DBF3F0 /* CKKSCloudKitTestsInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = CKKSCloudKitTestsInfo.plist; sourceTree = "<group>"; };
 		6CB5F4781E402E5700DBF3F0 /* KeychainCKKS.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = KeychainCKKS.plist; path = testrunner/KeychainCKKS.plist; sourceTree = "<group>"; };
@@ -11234,7 +11240,7 @@
 		DC3A4B581D91E9FB00E46D4A /* com.apple.CodeSigningHelper.xpc */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = com.apple.CodeSigningHelper.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC3A4B5F1D91EAC500E46D4A /* CodeSigningHelper-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "CodeSigningHelper-Info.plist"; sourceTree = "<group>"; };
 		DC3A4B601D91EAC500E46D4A /* com.apple.CodeSigningHelper.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = com.apple.CodeSigningHelper.sb; sourceTree = "<group>"; };
-		DC3A4B621D91EAC500E46D4A /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		DC3A4B621D91EAC500E46D4A /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; usesTabs = 1; };
 		DC3A81D41D99D567000C7419 /* libcoretls_cfhelpers.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcoretls_cfhelpers.dylib; path = usr/lib/libcoretls_cfhelpers.dylib; sourceTree = SDKROOT; };
 		DC3D748A1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSLocalSynchronizeOperation.h; sourceTree = "<group>"; };
 		DC3D748B1FD2217900AC57DA /* CKKSLocalSynchronizeOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSLocalSynchronizeOperation.m; sourceTree = "<group>"; };
@@ -11359,7 +11365,7 @@
 		DC5ABF7F1D83511A00CF422C /* key.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = key.h; sourceTree = "<group>"; };
 		DC5ABF801D83511A00CF422C /* key.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = key.cpp; sourceTree = "<group>"; };
 		DC5ABF811D83511A00CF422C /* process.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = process.h; sourceTree = "<group>"; };
-		DC5ABF821D83511A00CF422C /* process.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = process.cpp; sourceTree = "<group>"; };
+		DC5ABF821D83511A00CF422C /* process.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = process.cpp; sourceTree = "<group>"; usesTabs = 1; };
 		DC5ABF831D83511A00CF422C /* server.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = server.h; sourceTree = "<group>"; };
 		DC5ABF841D83511A00CF422C /* server.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = server.cpp; sourceTree = "<group>"; };
 		DC5ABF851D83511A00CF422C /* session.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = session.h; sourceTree = "<group>"; };
@@ -11407,7 +11413,7 @@
 		DC5ABFB91D83511A00CF422C /* authhost.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = authhost.cpp; sourceTree = "<group>"; };
 		DC5ABFBA1D83511A00CF422C /* credential.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = credential.h; sourceTree = "<group>"; };
 		DC5ABFBB1D83511A00CF422C /* credential.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = credential.cpp; sourceTree = "<group>"; };
-		DC5ABFBD1D83511A00CF422C /* clientid.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = clientid.h; sourceTree = "<group>"; };
+		DC5ABFBD1D83511A00CF422C /* clientid.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = clientid.h; sourceTree = "<group>"; usesTabs = 1; };
 		DC5ABFBE1D83511A00CF422C /* clientid.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = clientid.cpp; sourceTree = "<group>"; };
 		DC5ABFBF1D83511A00CF422C /* codesigdb.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = codesigdb.h; sourceTree = "<group>"; };
 		DC5ABFC01D83511A00CF422C /* codesigdb.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = codesigdb.cpp; sourceTree = "<group>"; };
@@ -12352,7 +12358,7 @@
 		DCC78E2A1D8085FC00865A7C /* p12import.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = p12import.c; sourceTree = "<group>"; };
 		DCC78E2C1D8085FC00865A7C /* p12pbegen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = p12pbegen.c; sourceTree = "<group>"; };
 		DCC78E2E1D8085FC00865A7C /* pbkdf2.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pbkdf2.c; sourceTree = "<group>"; };
-		DCC78E301D8085FC00865A7C /* SecAccessControl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecAccessControl.c; sourceTree = "<group>"; };
+		DCC78E301D8085FC00865A7C /* SecAccessControl.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SecAccessControl.m; sourceTree = "<group>"; };
 		DCC78E321D8085FC00865A7C /* SecAccessControlExports.exp-in */ = {isa = PBXFileReference; lastKnownFileType = text; path = "SecAccessControlExports.exp-in"; sourceTree = "<group>"; };
 		DCC78E351D8085FC00865A7C /* SecBase64.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecBase64.c; sourceTree = "<group>"; };
 		DCC78E381D8085FC00865A7C /* SecCertificate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecCertificate.c; sourceTree = "<group>"; };
@@ -12502,8 +12508,8 @@
 		DCD067DF1D8CDF7E007602F1 /* singlediskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = singlediskrep.cpp; sourceTree = "<group>"; };
 		DCD067E01D8CDF7E007602F1 /* detachedrep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = detachedrep.h; sourceTree = "<group>"; };
 		DCD067E11D8CDF7E007602F1 /* detachedrep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = detachedrep.cpp; sourceTree = "<group>"; };
-		DCD067E21D8CDF7E007602F1 /* piddiskrep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = piddiskrep.h; sourceTree = "<group>"; };
-		DCD067E31D8CDF7E007602F1 /* piddiskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = piddiskrep.cpp; sourceTree = "<group>"; };
+		DCD067E21D8CDF7E007602F1 /* piddiskrep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = piddiskrep.h; sourceTree = "<group>"; usesTabs = 0; };
+		DCD067E31D8CDF7E007602F1 /* piddiskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = piddiskrep.cpp; sourceTree = "<group>"; usesTabs = 1; };
 		DCD067E71D8CDF7E007602F1 /* SecCodeHostLib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCodeHostLib.h; sourceTree = "<group>"; };
 		DCD067E81D8CDF7E007602F1 /* SecCodeHostLib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecCodeHostLib.c; sourceTree = "<group>"; };
 		DCD067EA1D8CDF7E007602F1 /* sp-watch.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = "sp-watch.d"; path = "../dtrace/sp-watch.d"; sourceTree = "<group>"; };
@@ -13370,6 +13376,7 @@
 		F6A0971F1E953ABD00B1E7D6 /* authdtests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = authdtests.m; path = OSX/authd/tests/authdtests.m; sourceTree = "<group>"; };
 		F6A3CB0D1E7062BA00E7821F /* authd-Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "authd-Entitlements.plist"; path = "OSX/authd/authd-Entitlements.plist"; sourceTree = "<group>"; };
 		F93C493A1AB8FF530047E01A /* ckcdiagnose.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = ckcdiagnose.sh; sourceTree = "<group>"; };
+		F9B458272183E01100F6BCEB /* SignatureEditing.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = SignatureEditing.sh; path = OSX/codesign_tests/SignatureEditing.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -13450,7 +13457,7 @@
 				0C85DFF71FB38BB6000343A7 /* libbsm.dylib in Frameworks */,
 				D491116E209559510066A1E4 /* CoreData.framework in Frameworks */,
 				0C85DFF81FB38BB6000343A7 /* libcoreauthd_client.a in Frameworks */,
-				0C85DFF91FB38BB6000343A7 /* libctkclient.a in Frameworks */,
+				0C85DFF91FB38BB6000343A7 /* libctkclient_sep.a in Frameworks */,
 				0C85DFFA1FB38BB6000343A7 /* libsqlite3.0.dylib in Frameworks */,
 				0C85DFFB1FB38BB6000343A7 /* libz.dylib in Frameworks */,
 			);
@@ -13684,7 +13691,7 @@
 				0C78F1D016A5E3EB00654E08 /* libbsm.dylib in Frameworks */,
 				D46246971F9AE2E400D63882 /* libDER.a in Frameworks */,
 				DCD22D771D8CC9CD001C9B81 /* libASN1_not_installed.a in Frameworks */,
-				44A655831AA4B4BB0059D185 /* libctkclient.a in Frameworks */,
+				44A655831AA4B4BB0059D185 /* libctkclient_sep.a in Frameworks */,
 				DC59E9A41D91C6F0001BDDF5 /* libCMS.a in Frameworks */,
 				DCD22D781D8CC9D8001C9B81 /* libsecurity_ssl.a in Frameworks */,
 				CD791B3D1DFC9AB200F0E5DC /* libsqlite3.dylib in Frameworks */,
@@ -13697,6 +13704,7 @@
 				4432AF8D1A01472C000958DC /* libaks_acl.a in Frameworks */,
 				438166ED1B4ECF9400C54D58 /* CoreFoundation.framework in Frameworks */,
 				4CAF67AC0F3A70220064A534 /* IOKit.framework in Frameworks */,
+				0940F6F82151316500C06F18 /* libACM.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -13744,7 +13752,7 @@
 				DCD22D9C1D8CCFD6001C9B81 /* libutilitiesRegressions.a in Frameworks */,
 				DC00ABB71D821E2F00513D74 /* libiOSSecurityRegressions.a in Frameworks */,
 				DC00ABB81D821E3300513D74 /* libiOSsecuritydRegressions.a in Frameworks */,
-				44A655A61AA4B4C80059D185 /* libctkclient.a in Frameworks */,
+				44A655A61AA4B4C80059D185 /* libctkclient_sep.a in Frameworks */,
 				DC00ABB91D821E3A00513D74 /* libSOSRegressions.a in Frameworks */,
 				4C711D6C13AFCD0900FE865D /* libsqlite3.dylib in Frameworks */,
 				BE405EE31DC2F11E00E227B1 /* libz.dylib in Frameworks */,
@@ -13901,7 +13909,7 @@
 				6C9808571E788AEB00E70590 /* libaks_acl.a in Frameworks */,
 				6C9808581E788AEB00E70590 /* libbsm.dylib in Frameworks */,
 				6C9808591E788AEB00E70590 /* libcoreauthd_client.a in Frameworks */,
-				6C98085A1E788AEB00E70590 /* libctkclient.a in Frameworks */,
+				6C98085A1E788AEB00E70590 /* libctkclient_sep.a in Frameworks */,
 				6C98085B1E788AEB00E70590 /* libsqlite3.0.dylib in Frameworks */,
 				6C98085C1E788AEB00E70590 /* libz.dylib in Frameworks */,
 			);
@@ -13929,7 +13937,7 @@
 				6C9808931E788AFD00E70590 /* libaks_acl.a in Frameworks */,
 				6C9808941E788AFD00E70590 /* libbsm.dylib in Frameworks */,
 				6C9808951E788AFD00E70590 /* libcoreauthd_client.a in Frameworks */,
-				6C9808961E788AFD00E70590 /* libctkclient.a in Frameworks */,
+				6C9808961E788AFD00E70590 /* libctkclient_sep.a in Frameworks */,
 				6C9808971E788AFD00E70590 /* libsqlite3.0.dylib in Frameworks */,
 				6C9808981E788AFD00E70590 /* libz.dylib in Frameworks */,
 			);
@@ -14356,7 +14364,7 @@
 				DC17892A1D779A3200B50D50 /* libcoreauthd_client.a in Frameworks */,
 				DC3A81D61D99D57F000C7419 /* libcoretls.dylib in Frameworks */,
 				DC3A81D71D99D58A000C7419 /* libcoretls_cfhelpers.dylib in Frameworks */,
-				DC1789291D779A2800B50D50 /* libctkclient.a in Frameworks */,
+				DC1789291D779A2800B50D50 /* libctkclient_sep.a in Frameworks */,
 				D46246C91F9AEA5300D63882 /* libDER.a in Frameworks */,
 				DC17891D1D77999700B50D50 /* libpam.dylib in Frameworks */,
 				DC17891F1D77999D00B50D50 /* libsqlite3.dylib in Frameworks */,
@@ -14364,6 +14372,7 @@
 				DC1789231D7799A600B50D50 /* libz.dylib in Frameworks */,
 				DC1789251D7799CD00B50D50 /* CoreFoundation.framework in Frameworks */,
 				DC1789271D7799D400B50D50 /* IOKit.framework in Frameworks */,
+				0940F6F92151316600C06F18 /* libACM.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -14396,7 +14405,7 @@
 				DC0950411E38271300B2C8AC /* libaks_acl.a in Frameworks */,
 				DC222C361E02419B00B09171 /* libbsm.dylib in Frameworks */,
 				DC3502E41E02130600BC0587 /* libcoreauthd_client.a in Frameworks */,
-				DC3502E21E0212D100BC0587 /* libctkclient.a in Frameworks */,
+				DC3502E21E0212D100BC0587 /* libctkclient_sep.a in Frameworks */,
 				DC3502CA1E020DC100BC0587 /* libsqlite3.0.dylib in Frameworks */,
 				DC222C321E0240D300B09171 /* libz.dylib in Frameworks */,
 			);
@@ -14810,6 +14819,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				09EF431B21A5A8CC0066CF20 /* libaks_acl.a in Frameworks */,
 				D4C6C5CD1FB3B423007EA57E /* libarchive.tbd in Frameworks */,
 				D46246B71F9AE76500D63882 /* libDER.a in Frameworks */,
 				DC3A81EC1D99F568000C7419 /* libcoretls.dylib in Frameworks */,
@@ -14870,7 +14880,7 @@
 				DCE4E8231D7A4EC900AFB96E /* libaks_acl.a in Frameworks */,
 				DCD22D711D8CC78E001C9B81 /* libASN1_not_installed.a in Frameworks */,
 				DCE4E8201D7A4EAC00AFB96E /* libcoreauthd_client.a in Frameworks */,
-				DCE4E81F1D7A4EA700AFB96E /* libctkclient.a in Frameworks */,
+				DCE4E81F1D7A4EA700AFB96E /* libctkclient_sep.a in Frameworks */,
 				DCE4E81C1D7A4E8F00AFB96E /* libsqlite3.0.dylib in Frameworks */,
 				DCD8A2041E09FB0D00E4FA0A /* libSecureObjectSyncFramework.a in Frameworks */,
 				DC00AB7A1D821C6B00513D74 /* libSecureObjectSyncServer.a in Frameworks */,
@@ -15024,7 +15034,7 @@
 				DCD22D951D8CCE5E001C9B81 /* libutilitiesRegressions.a in Frameworks */,
 				DC00ABC41D821ED900513D74 /* libiOSSecurityRegressions.a in Frameworks */,
 				DC00ABC51D821EDC00513D74 /* libiOSsecuritydRegressions.a in Frameworks */,
-				44A655A51AA4B4C70059D185 /* libctkclient.a in Frameworks */,
+				44A655A51AA4B4C70059D185 /* libctkclient_sep.a in Frameworks */,
 				DC00ABC61D821EE500513D74 /* libSOSRegressions.a in Frameworks */,
 				4432B1601A014D85000958DC /* libcoreauthd_client.a in Frameworks */,
 				4432B1611A014D85000958DC /* libaks_acl.a in Frameworks */,
@@ -15110,7 +15120,7 @@
 				EBCE16501FE6DE5A002E7CCC /* libaks_acl.a in Frameworks */,
 				EBCE16511FE6DE5A002E7CCC /* libbsm.dylib in Frameworks */,
 				EBCE16521FE6DE5A002E7CCC /* libcoreauthd_client.a in Frameworks */,
-				EBCE16531FE6DE5A002E7CCC /* libctkclient.a in Frameworks */,
+				EBCE16531FE6DE5A002E7CCC /* libctkclient_sep.a in Frameworks */,
 				EBCE16541FE6DE5A002E7CCC /* libprequelite.tbd in Frameworks */,
 				EBCE16551FE6DE5A002E7CCC /* libsqlite3.0.dylib in Frameworks */,
 				D4911171209559620066A1E4 /* CoreData.framework in Frameworks */,
@@ -15895,7 +15905,7 @@
 				4432AF6A1A01458F000958DC /* libcoreauthd_client.a */,
 				5E8B53A41AA0B8A600345E7B /* libcoreauthd_test_client.a */,
 				E7AAB5F415929493005C8BCC /* libcorecrypto.dylib */,
-				4469FBDD1AA0A45C0021AA26 /* libctkclient.a */,
+				4469FBDD1AA0A45C0021AA26 /* libctkclient_sep.a */,
 				4469FBDC1AA0A45C0021AA26 /* libctkclient_test.a */,
 				4CB740680A4749C800D641BB /* libsqlite3.dylib */,
 			);
@@ -17295,7 +17305,7 @@
 			children = (
 				DCC78E281D8085FC00865A7C /* AppleBaselineEscrowCertificates.h */,
 				D41149A01E7C935D00C078C7 /* AppleiPhoneDeviceCACertificates.h */,
-				DCC78E301D8085FC00865A7C /* SecAccessControl.c */,
+				DCC78E301D8085FC00865A7C /* SecAccessControl.m */,
 				443381D918A3D81400215606 /* SecAccessControl.h */,
 				443381DA18A3D81400215606 /* SecAccessControlPriv.h */,
 				DCC78E351D8085FC00865A7C /* SecBase64.c */,
@@ -18236,6 +18246,7 @@
 			isa = PBXGroup;
 			children = (
 				DC610A671D78FA76002223DE /* teamid.sh */,
+				F9B458272183E01100F6BCEB /* SignatureEditing.sh */,
 				DC610A631D78FA54002223DE /* CaspianTests */,
 				DC610A641D78FA54002223DE /* LocalCaspianTestRun.sh */,
 				DC610A681D78FA87002223DE /* validation.sh */,
@@ -19060,6 +19071,7 @@
 				DCB3446D1D8A35270054D16E /* kc-43-seckey-interop.m */,
 				DCB3446E1D8A35270054D16E /* kc-42-trust-revocation.c */,
 				24CBF8731E9D4E4500F09F0E /* kc-44-secrecoverypassword.c */,
+				6CA837612210C5E7002770F1 /* kc-45-change-password.c */,
 				DCB3446F1D8A35270054D16E /* si-20-sectrust-provisioning.c */,
 				DCB344701D8A35270054D16E /* si-20-sectrust-provisioning.h */,
 				DCB344711D8A35270054D16E /* si-33-keychain-backup.c */,
@@ -30236,7 +30248,7 @@
 				09A3B9E21F838A3400C5C324 /* SecKeyProxy.m in Sources */,
 				DC52EE771D80D88300B0A59C /* SecDH.c in Sources */,
 				DC52EE761D80D87F00B0A59C /* SecCTKKey.m in Sources */,
-				DC52EE741D80D86F00B0A59C /* SecAccessControl.c in Sources */,
+				DC52EE741D80D86F00B0A59C /* SecAccessControl.m in Sources */,
 				DC52EE731D80D86800B0A59C /* SecKey.c in Sources */,
 				DC52EE721D80D86400B0A59C /* SecuritydXPC.c in Sources */,
 				DC52EE711D80D85F00B0A59C /* SecECKey.m in Sources */,
@@ -30696,6 +30708,7 @@
 				DCB344971D8A35270054D16E /* kc-26-key-import-public.m in Sources */,
 				DCB344981D8A35270054D16E /* kc-27-key-non-extractable.c in Sources */,
 				DCB3449A1D8A35270054D16E /* kc-28-cert-sign.c in Sources */,
+				6CA837642210CA8A002770F1 /* kc-45-change-password.c in Sources */,
 				DCB344991D8A35270054D16E /* kc-28-p12-import.m in Sources */,
 				DCB3449B1D8A35270054D16E /* kc-30-xara.c in Sources */,
 				DCB344A01D8A35270054D16E /* kc-40-seckey.m in Sources */,
@@ -30715,7 +30728,7 @@
 				0CAD1E581E1C5C6C00537693 /* SOSCloudCircle.m in Sources */,
 				DC5B391A20C08B70005B09F6 /* SecBase.c in Sources */,
 				DCC78EE71D808B2F00865A7C /* secViewDisplay.c in Sources */,
-				DCC78EE61D808B2A00865A7C /* SecAccessControl.c in Sources */,
+				DCC78EE61D808B2A00865A7C /* SecAccessControl.m in Sources */,
 				DCC78EE51D808B2100865A7C /* SecBase64.c in Sources */,
 				DCC78EE41D808B1B00865A7C /* SecCFAllocator.c in Sources */,
 				DCC78EE31D808B1300865A7C /* SecCMS.c in Sources */,

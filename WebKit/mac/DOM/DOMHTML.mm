@@ -47,11 +47,11 @@
 #import <WebCore/Settings.h>
 #import <WebCore/markup.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import "DOMHTMLElementInternal.h"
 #import <WebCore/Autocapitalize.h>
 #import <WebCore/HTMLTextFormControlElement.h>
-#import <WebCore/JSMainThreadExecState.h>
+#import <WebCore/JSExecState.h>
 #import <WebCore/RenderLayer.h>
 #import <WebCore/WAKWindow.h>
 #import <WebCore/WebCoreThreadMessage.h>
@@ -61,7 +61,7 @@
 // These were originally here because they were hand written and the rest generated,
 // but that is no longer true.
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 using namespace WebCore;
 
@@ -140,7 +140,7 @@ using namespace WebCore;
 
 @end
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
 
 //------------------------------------------------------------------------------------------
 // DOMHTMLDocument
@@ -204,7 +204,7 @@ using namespace WebCore;
 
 @end
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 @implementation DOMHTMLInputElement (FormPromptAdditions)
 

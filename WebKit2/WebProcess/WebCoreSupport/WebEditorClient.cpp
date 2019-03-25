@@ -27,6 +27,8 @@
 #include "WebEditorClient.h"
 
 #include "EditorState.h"
+#include "SharedBufferDataReference.h"
+#include "UndoOrRedo.h"
 #include "WKBundlePageEditorClient.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
@@ -47,6 +49,7 @@
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
+#include <WebCore/SerializedAttachmentData.h>
 #include <WebCore/SpellChecker.h>
 #include <WebCore/StyleProperties.h>
 #include <WebCore/TextIterator.h>
@@ -60,10 +63,9 @@
 #include <WebCore/PlatformDisplay.h>
 #endif
 
+namespace WebKit {
 using namespace WebCore;
 using namespace HTMLNames;
-
-namespace WebKit {
 
 static uint64_t generateTextCheckingRequestID()
 {
@@ -159,14 +161,46 @@ bool WebEditorClient::shouldApplyStyle(StyleProperties* style, Range* range)
 
 #if ENABLE(ATTACHMENT_ELEMENT)
 
-void WebEditorClient::didInsertAttachment(const String& identifier, const String& source)
+void WebEditorClient::registerAttachmentIdentifier(const String& identifier, const String& contentType, const String& preferredFileName, Ref<SharedBuffer>&& data)
 {
-    m_page->send(Messages::WebPageProxy::DidInsertAttachment(identifier, source));
+    m_page->send(Messages::WebPageProxy::RegisterAttachmentIdentifierFromData(identifier, contentType, preferredFileName, { data }));
 }
 
-void WebEditorClient::didRemoveAttachment(const String& identifier)
+void WebEditorClient::registerAttachments(Vector<WebCore::SerializedAttachmentData>&& data)
 {
-    m_page->send(Messages::WebPageProxy::DidRemoveAttachment(identifier));
+    m_page->send(Messages::WebPageProxy::registerAttachmentsFromSerializedData(WTFMove(data)));
+}
+
+void WebEditorClient::registerAttachmentIdentifier(const String& identifier, const String& contentType, const String& filePath)
+{
+    m_page->send(Messages::WebPageProxy::RegisterAttachmentIdentifierFromFilePath(identifier, contentType, filePath));
+}
+
+void WebEditorClient::registerAttachmentIdentifier(const String& identifier)
+{
+    m_page->send(Messages::WebPageProxy::RegisterAttachmentIdentifier(identifier));
+}
+
+void WebEditorClient::cloneAttachmentData(const String& fromIdentifier, const String& toIdentifier)
+{
+    m_page->send(Messages::WebPageProxy::CloneAttachmentData(fromIdentifier, toIdentifier));
+}
+
+void WebEditorClient::didInsertAttachmentWithIdentifier(const String& identifier, const String& source, bool hasEnclosingImage)
+{
+    m_page->send(Messages::WebPageProxy::DidInsertAttachmentWithIdentifier(identifier, source, hasEnclosingImage));
+}
+
+void WebEditorClient::didRemoveAttachmentWithIdentifier(const String& identifier)
+{
+    m_page->send(Messages::WebPageProxy::DidRemoveAttachmentWithIdentifier(identifier));
+}
+
+Vector<SerializedAttachmentData> WebEditorClient::serializedAttachmentDataForIdentifiers(const Vector<String>& identifiers)
+{
+    Vector<WebCore::SerializedAttachmentData> serializedData;
+    m_page->sendSync(Messages::WebPageProxy::SerializedAttachmentDataForIdentifiers(identifiers), Messages::WebPageProxy::SerializedAttachmentDataForIdentifiers::Reply(serializedData));
+    return serializedData;
 }
 
 #endif
@@ -276,10 +310,11 @@ void WebEditorClient::registerUndoStep(UndoStep& step)
         return;
 
     auto webStep = WebUndoStep::create(step);
+    auto stepID = webStep->stepID();
     auto editAction = static_cast<uint32_t>(webStep->step().editingAction());
 
-    m_page->addWebUndoStep(webStep->stepID(), webStep.ptr());
-    m_page->send(Messages::WebPageProxy::RegisterEditCommandForUndo(webStep->stepID(), editAction));
+    m_page->addWebUndoStep(stepID, WTFMove(webStep));
+    m_page->send(Messages::WebPageProxy::RegisterEditCommandForUndo(stepID, editAction), m_page->pageID(), IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
 void WebEditorClient::registerRedoStep(UndoStep&)
@@ -304,30 +339,28 @@ bool WebEditorClient::canPaste(Frame*, bool defaultValue) const
 bool WebEditorClient::canUndo() const
 {
     bool result = false;
-    m_page->sendSync(Messages::WebPageProxy::CanUndoRedo(static_cast<uint32_t>(WebPageProxy::Undo)), Messages::WebPageProxy::CanUndoRedo::Reply(result));
+    m_page->sendSync(Messages::WebPageProxy::CanUndoRedo(UndoOrRedo::Undo), Messages::WebPageProxy::CanUndoRedo::Reply(result));
     return result;
 }
 
 bool WebEditorClient::canRedo() const
 {
     bool result = false;
-    m_page->sendSync(Messages::WebPageProxy::CanUndoRedo(static_cast<uint32_t>(WebPageProxy::Redo)), Messages::WebPageProxy::CanUndoRedo::Reply(result));
+    m_page->sendSync(Messages::WebPageProxy::CanUndoRedo(UndoOrRedo::Redo), Messages::WebPageProxy::CanUndoRedo::Reply(result));
     return result;
 }
 
 void WebEditorClient::undo()
 {
-    bool result = false;
-    m_page->sendSync(Messages::WebPageProxy::ExecuteUndoRedo(static_cast<uint32_t>(WebPageProxy::Undo)), Messages::WebPageProxy::ExecuteUndoRedo::Reply(result));
+    m_page->sendSync(Messages::WebPageProxy::ExecuteUndoRedo(UndoOrRedo::Undo), Messages::WebPageProxy::ExecuteUndoRedo::Reply());
 }
 
 void WebEditorClient::redo()
 {
-    bool result = false;
-    m_page->sendSync(Messages::WebPageProxy::ExecuteUndoRedo(static_cast<uint32_t>(WebPageProxy::Redo)), Messages::WebPageProxy::ExecuteUndoRedo::Reply(result));
+    m_page->sendSync(Messages::WebPageProxy::ExecuteUndoRedo(UndoOrRedo::Redo), Messages::WebPageProxy::ExecuteUndoRedo::Reply());
 }
 
-#if !PLATFORM(GTK) && !PLATFORM(COCOA) && !PLATFORM(WPE)
+#if PLATFORM(WIN)
 void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 {
     if (m_page->handleEditingKeyboardEvent(event))
@@ -338,7 +371,7 @@ void WebEditorClient::handleInputMethodKeydown(KeyboardEvent*)
 {
     notImplemented();
 }
-#endif
+#endif // PLATFORM(WIN)
 
 void WebEditorClient::textFieldDidBeginEditing(Element* element)
 {
@@ -386,7 +419,7 @@ void WebEditorClient::textDidChangeInTextArea(Element* element)
     m_page->injectedBundleFormClient().textDidChangeInTextArea(m_page, downcast<HTMLTextAreaElement>(element), webFrame);
 }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
 void WebEditorClient::overflowScrollPositionChanged()
 {
     notImplemented();
@@ -468,7 +501,7 @@ bool WebEditorClient::shouldEraseMarkersAfterChangeSelection(WebCore::TextChecki
 {
     // This prevents erasing spelling markers on OS X Lion or later to match AppKit on these Mac OS X versions.
 #if PLATFORM(COCOA)
-    return type != TextCheckingTypeSpelling;
+    return type != TextCheckingType::Spelling;
 #else
     UNUSED_PARAM(type);
     return true;
@@ -519,12 +552,10 @@ static int32_t insertionPointFromCurrentSelection(const VisibleSelection& curren
 }
 
 #if USE(UNIFIED_TEXT_CHECKING)
-Vector<TextCheckingResult> WebEditorClient::checkTextOfParagraph(StringView stringView, WebCore::TextCheckingTypeMask checkingTypes, const VisibleSelection& currentSelection)
+Vector<TextCheckingResult> WebEditorClient::checkTextOfParagraph(StringView stringView, OptionSet<WebCore::TextCheckingType> checkingTypes, const VisibleSelection& currentSelection)
 {
     Vector<TextCheckingResult> results;
-
     m_page->sendSync(Messages::WebPageProxy::CheckTextOfParagraph(stringView.toStringWithoutCopying(), checkingTypes, insertionPointFromCurrentSelection(currentSelection)), Messages::WebPageProxy::CheckTextOfParagraph::Reply(results));
-
     return results;
 }
 #endif

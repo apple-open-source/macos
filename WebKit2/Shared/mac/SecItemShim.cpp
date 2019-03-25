@@ -39,6 +39,7 @@
 #include <dlfcn.h>
 #include <mutex>
 #include <wtf/ProcessPrivilege.h>
+#include <wtf/threads/BinarySemaphore.h>
 
 #if USE(APPLE_INTERNAL_SDK)
 #include <CFNetwork/CFURLConnectionPriv.h>
@@ -71,20 +72,20 @@ static WorkQueue& workQueue()
     return *workQueue;
 }
 
-static std::optional<SecItemResponseData> sendSecItemRequest(SecItemRequestData::Type requestType, CFDictionaryRef query, CFDictionaryRef attributesToMatch = 0)
+static Optional<SecItemResponseData> sendSecItemRequest(SecItemRequestData::Type requestType, CFDictionaryRef query, CFDictionaryRef attributesToMatch = 0)
 {
-    std::optional<SecItemResponseData> response;
+    Optional<SecItemResponseData> response;
 
-    auto semaphore = adoptOSObject(dispatch_semaphore_create(0));
+    BinarySemaphore semaphore;
 
     sharedProcess->parentProcessConnection()->sendWithReply(Messages::SecItemShimProxy::SecItemRequest(SecItemRequestData(requestType, query, attributesToMatch)), 0, workQueue(), [&response, &semaphore](auto reply) {
         if (reply)
             response = WTFMove(std::get<0>(*reply));
 
-        dispatch_semaphore_signal(semaphore.get());
+        semaphore.signal();
     });
 
-    dispatch_semaphore_wait(semaphore.get(), DISPATCH_TIME_FOREVER);
+    semaphore.wait();
 
     return response;
 }
@@ -137,7 +138,7 @@ void initializeSecItemShim(ChildProcess& process)
 {
     sharedProcess = &process;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     struct _CFNFrameworksStubs stubs = {
         .version = 0,
         .SecItem_stub_CopyMatching = webSecItemCopyMatching,

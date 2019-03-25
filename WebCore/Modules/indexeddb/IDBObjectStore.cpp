@@ -82,7 +82,7 @@ bool IDBObjectStore::canSuspendForDocumentSuspension() const
 
 bool IDBObjectStore::hasPendingActivity() const
 {
-    return !m_transaction.isFinished();
+    return m_transaction.hasPendingActivity();
 }
 
 const String& IDBObjectStore::name() const
@@ -116,17 +116,17 @@ ExceptionOr<void> IDBObjectStore::setName(const String& name)
     return { };
 }
 
-const std::optional<IDBKeyPath>& IDBObjectStore::keyPath() const
+const Optional<IDBKeyPath>& IDBObjectStore::keyPath() const
 {
     ASSERT(&m_transaction.database().originThread() == &Thread::current());
     return m_info.keyPath();
 }
 
-RefPtr<DOMStringList> IDBObjectStore::indexNames() const
+Ref<DOMStringList> IDBObjectStore::indexNames() const
 {
     ASSERT(&m_transaction.database().originThread() == &Thread::current());
 
-    RefPtr<DOMStringList> indexNames = DOMStringList::create();
+    auto indexNames = DOMStringList::create();
 
     if (!m_deleted) {
         for (auto& name : m_info.indexNames())
@@ -521,7 +521,8 @@ ExceptionOr<void> IDBObjectStore::deleteIndex(const String& name)
         Locker<Lock> locker(m_referencedIndexLock);
         if (auto index = m_referencedIndexes.take(name)) {
             index->markAsDeleted();
-            m_deletedIndexes.add(index->info().identifier(), WTFMove(index));
+            auto identifier = index->info().identifier();
+            m_deletedIndexes.add(identifier, WTFMove(index));
         }
     }
 
@@ -569,7 +570,7 @@ ExceptionOr<Ref<IDBRequest>> IDBObjectStore::doCount(ExecState& execState, const
     return m_transaction.requestCount(execState, *this, range);
 }
 
-ExceptionOr<Ref<IDBRequest>> IDBObjectStore::getAll(ExecState& execState, RefPtr<IDBKeyRange> range, std::optional<uint32_t> count)
+ExceptionOr<Ref<IDBRequest>> IDBObjectStore::getAll(ExecState& execState, RefPtr<IDBKeyRange> range, Optional<uint32_t> count)
 {
     LOG(IndexedDB, "IDBObjectStore::getAll");
     ASSERT(&m_transaction.database().originThread() == &Thread::current());
@@ -583,7 +584,7 @@ ExceptionOr<Ref<IDBRequest>> IDBObjectStore::getAll(ExecState& execState, RefPtr
     return m_transaction.requestGetAllObjectStoreRecords(execState, *this, range.get(), IndexedDB::GetAllType::Values, count);
 }
 
-ExceptionOr<Ref<IDBRequest>> IDBObjectStore::getAll(ExecState& execState, JSValue key, std::optional<uint32_t> count)
+ExceptionOr<Ref<IDBRequest>> IDBObjectStore::getAll(ExecState& execState, JSValue key, Optional<uint32_t> count)
 {
     auto onlyResult = IDBKeyRange::only(execState, key);
     if (onlyResult.hasException())
@@ -592,7 +593,7 @@ ExceptionOr<Ref<IDBRequest>> IDBObjectStore::getAll(ExecState& execState, JSValu
     return getAll(execState, onlyResult.releaseReturnValue(), count);
 }
 
-ExceptionOr<Ref<IDBRequest>> IDBObjectStore::getAllKeys(ExecState& execState, RefPtr<IDBKeyRange> range, std::optional<uint32_t> count)
+ExceptionOr<Ref<IDBRequest>> IDBObjectStore::getAllKeys(ExecState& execState, RefPtr<IDBKeyRange> range, Optional<uint32_t> count)
 {
     LOG(IndexedDB, "IDBObjectStore::getAllKeys");
     ASSERT(&m_transaction.database().originThread() == &Thread::current());
@@ -606,7 +607,7 @@ ExceptionOr<Ref<IDBRequest>> IDBObjectStore::getAllKeys(ExecState& execState, Re
     return m_transaction.requestGetAllObjectStoreRecords(execState, *this, range.get(), IndexedDB::GetAllType::Keys, count);
 }
 
-ExceptionOr<Ref<IDBRequest>> IDBObjectStore::getAllKeys(ExecState& execState, JSValue key, std::optional<uint32_t> count)
+ExceptionOr<Ref<IDBRequest>> IDBObjectStore::getAllKeys(ExecState& execState, JSValue key, Optional<uint32_t> count)
 {
     auto onlyResult = IDBKeyRange::only(execState, key);
     if (onlyResult.hasException())

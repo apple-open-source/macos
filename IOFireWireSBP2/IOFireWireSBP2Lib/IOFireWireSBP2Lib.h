@@ -25,6 +25,7 @@
 
 #include <IOKit/firewire/IOFireWireFamilyCommon.h>
 #include <IOKit/IOMessage.h>
+#include <IOKit/IOCFPlugIn.h>
 
 /* A45B8156-B51B-11D4-AB4B-000A277E7234 */
 #define kIOFireWireSBP2LibTypeID CFUUIDGetConstantUUIDWithBytes(NULL,		\

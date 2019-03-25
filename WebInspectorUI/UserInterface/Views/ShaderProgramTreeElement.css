@@ -33,10 +33,16 @@
     display: none;
 }
 
-.tree-outline:matches(:focus, .force-focus) .item.shader-program.selected .status > img {
+.tree-outline:focus .item.shader-program.selected .status > img {
     filter: invert();
 }
 
 .item.shader-program.disabled > * {
     opacity: 0.5;
+}
+
+@media (prefers-dark-interface) {
+    .item.shader-program .status > img {
+        filter: invert();
+    }
 }

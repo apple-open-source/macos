@@ -360,7 +360,7 @@ WI.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode extends WI.
             if (resource.failed)
                 descriptionElement.textContent = WI.UIString("Resource failed to load.");
             else if (resource.urlComponents.scheme === "data")
-                descriptionElement.textContent = WI.UIString("Resource was loaded with the “data” scheme.");
+                descriptionElement.textContent = WI.UIString("Resource was loaded with the \u201Cdata\u201D scheme.");
             else
                 descriptionElement.textContent = WI.UIString("Resource was served from the cache.");
             popoverContentElement.appendChild(descriptionElement);
@@ -396,9 +396,14 @@ WI.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode extends WI.
                 }
             };
 
+            if (resource.timingData.redirectEnd - resource.timingData.redirectStart) {
+                // FIXME: <https://webkit.org/b/190214> Web Inspector: expose full load metrics for redirect requests
+                popoverDataGrid.appendChild(new WI.ResourceTimingPopoverDataGridNode(WI.UIString("Redirects"), resource.timingData.redirectStart, resource.timingData.redirectEnd, graphDataSource));
+            }
+
             let secondTimestamp = resource.timingData.domainLookupStart || resource.timingData.connectStart || resource.timingData.requestStart;
-            if (secondTimestamp - resource.timingData.startTime)
-                popoverDataGrid.appendChild(new WI.ResourceTimingPopoverDataGridNode(WI.UIString("Stalled"), resource.timingData.startTime, secondTimestamp, graphDataSource));
+            if (secondTimestamp - resource.timingData.fetchStart)
+                popoverDataGrid.appendChild(new WI.ResourceTimingPopoverDataGridNode(WI.UIString("Stalled"), resource.timingData.fetchStart, secondTimestamp, graphDataSource));
             if (resource.timingData.domainLookupStart)
                 popoverDataGrid.appendChild(new WI.ResourceTimingPopoverDataGridNode(WI.UIString("DNS"), resource.timingData.domainLookupStart, resource.timingData.domainLookupEnd, graphDataSource));
             if (resource.timingData.connectStart)

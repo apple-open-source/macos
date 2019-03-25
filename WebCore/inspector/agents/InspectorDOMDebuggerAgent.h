@@ -41,9 +41,11 @@
 namespace WebCore {
 
 class Element;
+class Event;
 class Frame;
 class InspectorDOMAgent;
 class Node;
+class RegisteredEventListener;
 
 typedef String ErrorString;
 
@@ -57,10 +59,8 @@ public:
     // DOMDebugger API
     void setXHRBreakpoint(ErrorString&, const String& url, const bool* optionalIsRegex) final;
     void removeXHRBreakpoint(ErrorString&, const String& url) final;
-    void setEventListenerBreakpoint(ErrorString&, const String& eventName) final;
-    void removeEventListenerBreakpoint(ErrorString&, const String& eventName) final;
-    void setInstrumentationBreakpoint(ErrorString&, const String& eventName) final;
-    void removeInstrumentationBreakpoint(ErrorString&, const String& eventName) final;
+    void setEventBreakpoint(ErrorString&, const String& breakpointType, const String& eventName) final;
+    void removeEventBreakpoint(ErrorString&, const String& breakpointType, const String& eventName) final;
     void setDOMBreakpoint(ErrorString&, int nodeId, const String& type) final;
     void removeDOMBreakpoint(ErrorString&, int nodeId, const String& type) final;
 
@@ -72,8 +72,11 @@ public:
     void didRemoveDOMNode(Node&);
     void willModifyDOMAttr(Element&);
     void willSendXMLHttpRequest(const String& url);
-    void pauseOnNativeEventIfNeeded(bool isDOMEvent, const String& eventName, bool synchronous);
     void frameDocumentUpdated(Frame&);
+    void willHandleEvent(const Event&, const RegisteredEventListener&);
+    void willFireTimer(bool oneShot);
+    void willFireAnimationFrame();
+    void mainFrameDOMContentLoaded();
 
     void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) final;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) final;
@@ -89,15 +92,18 @@ private:
     void updateSubtreeBreakpoints(Node*, uint32_t rootMask, bool set);
     bool hasBreakpoint(Node*, int type);
     void discardBindings();
-    void setBreakpoint(ErrorString&, const String& eventName);
-    void removeBreakpoint(ErrorString&, const String& eventName);
 
     RefPtr<Inspector::DOMDebuggerBackendDispatcher> m_backendDispatcher;
     InspectorDOMAgent* m_domAgent { nullptr };
     Inspector::InspectorDebuggerAgent* m_debuggerAgent { nullptr };
 
     HashMap<Node*, uint32_t> m_domBreakpoints;
-    HashSet<String> m_eventListenerBreakpoints;
+
+    using EventBreakpointType = Inspector::Protocol::DOMDebugger::EventBreakpointType;
+    HashSet<std::pair<EventBreakpointType, String>,
+        WTF::PairHash<EventBreakpointType, String>,
+        WTF::PairHashTraits<WTF::StrongEnumHashTraits<EventBreakpointType>, WTF::HashTraits<String>>
+    > m_eventBreakpoints;
 
     enum class XHRBreakpointType { Text, RegularExpression };
 

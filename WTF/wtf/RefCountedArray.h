@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef RefCountedArray_h
-#define RefCountedArray_h
+#pragma once
 
 #include <wtf/DumbPtrTraits.h>
 #include <wtf/FastMalloc.h>
@@ -106,22 +105,13 @@ public:
     template<typename OtherTraits = PtrTraits>
     RefCountedArray& operator=(const RefCountedArray<T, OtherTraits>& other)
     {
-        T* oldData = data();
-        T* otherData = const_cast<T*>(other.data());
-        if (otherData)
-            Header::fromPayload(otherData)->refCount++;
-        m_data = otherData;
-
-        if (!oldData)
-            return *this;
-        if (--Header::fromPayload(oldData)->refCount)
-            return *this;
-        VectorTypeOperations<T>::destruct(oldData, oldData + Header::fromPayload(oldData)->length);
-        fastFree(Header::fromPayload(oldData));
-        return *this;
+        return assign<OtherTraits>(other);
     }
 
-    RefCountedArray& operator=(const RefCountedArray& other) { return this->operator=<PtrTraits>(other); }
+    RefCountedArray& operator=(const RefCountedArray& other)
+    {
+        return assign<PtrTraits>(other);
+    }
 
     ~RefCountedArray()
     {
@@ -201,6 +191,24 @@ public:
     bool operator==(const RefCountedArray& other) const { return this->operator==<PtrTraits>(other); }
     
 private:
+    template<typename OtherTraits = PtrTraits>
+    RefCountedArray& assign(const RefCountedArray<T, OtherTraits>& other)
+    {
+        T* oldData = data();
+        T* otherData = const_cast<T*>(other.data());
+        if (otherData)
+            Header::fromPayload(otherData)->refCount++;
+        m_data = otherData;
+
+        if (!oldData)
+            return *this;
+        if (--Header::fromPayload(oldData)->refCount)
+            return *this;
+        VectorTypeOperations<T>::destruct(oldData, oldData + Header::fromPayload(oldData)->length);
+        fastFree(Header::fromPayload(oldData));
+        return *this;
+    }
+
     struct Header {
         unsigned refCount;
         unsigned length;
@@ -236,6 +244,7 @@ private:
             Header::fromPayload(data())->refCount++;
     }
 
+    friend class JSC::LLIntOffsetsExtractor;
     typename PtrTraits::StorageType m_data { nullptr };
 };
 
@@ -248,6 +257,3 @@ using PoisonedRefCountedArray = RefCountedArray<T, PoisonedPtrTraits<Poison, T>>
 
 using WTF::PoisonedRefCountedArray;
 using WTF::RefCountedArray;
-
-#endif // RefCountedArray_h
-

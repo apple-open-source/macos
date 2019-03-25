@@ -89,6 +89,7 @@
 		052114FF09D20A4F00E51ACA /* fat_util.h in Copy Kext Files */ = {isa = PBXBuildFile; fileRef = 052114F409D2094D00E51ACA /* fat_util.h */; };
 		0521152A09D20B4A00E51ACA /* macho_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0521152909D20B4A00E51ACA /* macho_util.c */; };
 		0531B8CC09F4403800094163 /* bootfiles.h in Copy Files M */ = {isa = PBXBuildFile; fileRef = 0531B8CB09F4403800094163 /* bootfiles.h */; };
+		05AB2CE621234F810024942C /* libDiagnosticMessagesClient.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 05AB2CE521234F810024942C /* libDiagnosticMessagesClient.tbd */; };
 		0CCB80F00C717EF200F51424 /* AppleRAIDUserLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0CCB80EF0C717DE300F51424 /* AppleRAIDUserLib.h */; };
 		1025C8330F5DF5280055FAEA /* macho_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0521152909D20B4A00E51ACA /* macho_util.c */; };
 		1025C8470F5DF79F0055FAEA /* fat_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 052114F809D2095A00E51ACA /* fat_util.c */; };
@@ -2622,6 +2623,7 @@
 		052114F809D2095A00E51ACA /* fat_util.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = fat_util.c; sourceTree = "<group>"; };
 		0521152909D20B4A00E51ACA /* macho_util.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = macho_util.c; sourceTree = "<group>"; };
 		0531B8CB09F4403800094163 /* bootfiles.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = bootfiles.h; sourceTree = "<group>"; };
+		05AB2CE521234F810024942C /* libDiagnosticMessagesClient.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libDiagnosticMessagesClient.tbd; path = usr/lib/libDiagnosticMessagesClient.tbd; sourceTree = SDKROOT; };
 		05EFAE970ABF698800EA1880 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/IODescription.strings; sourceTree = "<group>"; };
 		0CCB80EF0C717DE300F51424 /* AppleRAIDUserLib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppleRAIDUserLib.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/storage/RAID/AppleRAIDUserLib.h; sourceTree = SDKROOT; };
 		10830CCA0F5DDD9A00937E9E /* libkext.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libkext.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -3107,6 +3109,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				05AB2CE621234F810024942C /* libDiagnosticMessagesClient.tbd in Frameworks */,
 				80B849831AAE1ACE00DF24D0 /* libenergytrace.dylib in Frameworks */,
 				B3CA01DA14CA40DD00A67868 /* libbsm.dylib in Frameworks */,
 				E1AF60F007B40A71007EADEA /* CoreFoundation.framework in Frameworks */,
@@ -3119,6 +3122,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		05AB2CE421234F800024942C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				05AB2CE521234F810024942C /* libDiagnosticMessagesClient.tbd */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		3E4B57BB07B4564600F76970 /* Mig .def files */ = {
 			isa = PBXGroup;
 			children = (
@@ -3850,6 +3861,7 @@
 				603D2FAB18D9FFEA00A15FF1 /* ioserviceauthorized */,
 				E1AF600207B40A70007EADEA /* Products */,
 				A6280EDC1FDF56F900F18432 /* Recovered References */,
+				05AB2CE421234F800024942C /* Frameworks */,
 			);
 			name = IOKit;
 			sourceTree = "<group>";

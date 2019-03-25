@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <wtf/Platform.h>
+#define ASSERT_DISABLED 0
+#include "config.h"
 
 #if USE(CF)
 #include "JavaScriptCore.h"
@@ -44,7 +45,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#define ASSERT_DISABLED 0
 #include <wtf/Assertions.h>
 
 #if OS(WINDOWS)
@@ -62,9 +62,15 @@
 #include "PingPongStackOverflowTest.h"
 #include "TypedArrayCTest.h"
 
+#if COMPILER(MSVC)
+#pragma warning(disable:4204)
+#endif
+
 #if JSC_OBJC_API_ENABLED
 void testObjectiveCAPI(void);
 #endif
+
+int testCAPIViaCpp(const char* filter);
 
 bool assertTrue(bool value, const char* message);
 
@@ -195,6 +201,16 @@ static bool MyObject_hasProperty(JSContextRef context, JSObjectRef object, JSStr
     return false;
 }
 
+static JSValueRef throwException(JSContextRef context, JSObjectRef object, JSValueRef* exception)
+{
+    JSStringRef script = JSStringCreateWithUTF8CString("throw 'an exception'");
+    JSStringRef sourceURL = JSStringCreateWithUTF8CString("test script");
+    JSValueRef result = JSEvaluateScript(context, script, object, sourceURL, 1, exception);
+    JSStringRelease(script);
+    JSStringRelease(sourceURL);
+    return result;
+}
+
 static JSValueRef MyObject_getProperty(JSContextRef context, JSObjectRef object, JSStringRef propertyName, JSValueRef* exception)
 {
     UNUSED_PARAM(context);
@@ -217,7 +233,7 @@ static JSValueRef MyObject_getProperty(JSContextRef context, JSObjectRef object,
     }
 
     if (JSStringIsEqualToUTF8CString(propertyName, "throwOnGet")) {
-        return JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), object, JSStringCreateWithUTF8CString("test script"), 1, exception);
+        return throwException(context, object, exception);
     }
 
     if (JSStringIsEqualToUTF8CString(propertyName, "0")) {
@@ -239,7 +255,7 @@ static bool MyObject_setProperty(JSContextRef context, JSObjectRef object, JSStr
         return true; // pretend we set the property in order to swallow it
     
     if (JSStringIsEqualToUTF8CString(propertyName, "throwOnSet")) {
-        JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), object, JSStringCreateWithUTF8CString("test script"), 1, exception);
+        throwException(context, object, exception);
     }
     
     return false;
@@ -254,7 +270,7 @@ static bool MyObject_deleteProperty(JSContextRef context, JSObjectRef object, JS
         return true;
     
     if (JSStringIsEqualToUTF8CString(propertyName, "throwOnDelete")) {
-        JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), object, JSStringCreateWithUTF8CString("test script"), 1, exception);
+        throwException(context, object, exception);
         return false;
     }
 
@@ -277,6 +293,18 @@ static void MyObject_getPropertyNames(JSContextRef context, JSObjectRef object, 
     JSStringRelease(propertyName);
 }
 
+static bool isValueEqualToString(JSContextRef context, JSValueRef value, const char* string)
+{
+    if (!JSValueIsString(context, value))
+        return false;
+    JSStringRef valueString = JSValueToStringCopy(context, value, NULL);
+    if (!valueString)
+        return false;
+    bool isEqual = JSStringIsEqualToUTF8CString(valueString, string);
+    JSStringRelease(valueString);
+    return isEqual;
+}
+
 static JSValueRef MyObject_callAsFunction(JSContextRef context, JSObjectRef object, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     UNUSED_PARAM(context);
@@ -284,8 +312,8 @@ static JSValueRef MyObject_callAsFunction(JSContextRef context, JSObjectRef obje
     UNUSED_PARAM(thisObject);
     UNUSED_PARAM(exception);
 
-    if (argumentCount > 0 && JSValueIsString(context, arguments[0]) && JSStringIsEqualToUTF8CString(JSValueToStringCopy(context, arguments[0], 0), "throwOnCall")) {
-        JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), object, JSStringCreateWithUTF8CString("test script"), 1, exception);
+    if (argumentCount > 0 && isValueEqualToString(context, arguments[0], "throwOnCall")) {
+        throwException(context, object, exception);
         return JSValueMakeUndefined(context);
     }
 
@@ -300,8 +328,8 @@ static JSObjectRef MyObject_callAsConstructor(JSContextRef context, JSObjectRef 
     UNUSED_PARAM(context);
     UNUSED_PARAM(object);
 
-    if (argumentCount > 0 && JSValueIsString(context, arguments[0]) && JSStringIsEqualToUTF8CString(JSValueToStringCopy(context, arguments[0], 0), "throwOnConstruct")) {
-        JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), object, JSStringCreateWithUTF8CString("test script"), 1, exception);
+    if (argumentCount > 0 && isValueEqualToString(context, arguments[0], "throwOnConstruct")) {
+        throwException(context, object, exception);
         return object;
     }
 
@@ -316,8 +344,8 @@ static bool MyObject_hasInstance(JSContextRef context, JSObjectRef constructor, 
     UNUSED_PARAM(context);
     UNUSED_PARAM(constructor);
 
-    if (JSValueIsString(context, possibleValue) && JSStringIsEqualToUTF8CString(JSValueToStringCopy(context, possibleValue, 0), "throwOnHasInstance")) {
-        JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), constructor, JSStringCreateWithUTF8CString("test script"), 1, exception);
+    if (isValueEqualToString(context, possibleValue, "throwOnHasInstance")) {
+        throwException(context, constructor, exception);
         return false;
     }
 
@@ -1131,13 +1159,12 @@ static bool globalContextNameTest()
     JSStringRelease(fetchName1);
     JSStringRelease(fetchName2);
 
+    JSGlobalContextRelease(context);
+
     return result;
 }
 
-#if COMPILER(GCC)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#endif
+IGNORE_GCC_WARNINGS_BEGIN("unused-but-set-variable")
 static void checkConstnessInJSObjectNames()
 {
     JSStaticFunction fun;
@@ -1145,9 +1172,7 @@ static void checkConstnessInJSObjectNames()
     JSStaticValue val;
     val.name = "something";
 }
-#if COMPILER(GCC)
-#pragma GCC diagnostic pop
-#endif
+IGNORE_GCC_WARNINGS_END
 
 #ifdef __cplusplus
 extern "C" {
@@ -1190,7 +1215,6 @@ static void heapFinalizer(JSContextGroupRef group, void *userData)
 static void testMarkingConstraintsAndHeapFinalizers(void)
 {
     JSContextGroupRef group;
-    JSContextRef context;
     JSWeakRef *weakRefs;
     unsigned i;
     unsigned deadCount;
@@ -1200,11 +1224,11 @@ static void testMarkingConstraintsAndHeapFinalizers(void)
     group = JSContextGroupCreate();
     expectedContextGroup = group;
     
-    context = JSGlobalContextCreateInGroup(group, NULL);
+    JSGlobalContextRef context = JSGlobalContextCreateInGroup(group, NULL);
 
     weakRefs = (JSWeakRef*)calloc(numWeakRefs, sizeof(JSWeakRef));
 
-    JSContextGroupAddMarkingConstraint(group, markingConstraint, weakRefs);
+    JSContextGroupAddMarkingConstraint(group, markingConstraint, (void*)weakRefs);
     JSContextGroupAddHeapFinalizer(group, heapFinalizer, (void*)(uintptr_t)42);
     
     for (i = numWeakRefs; i--;)
@@ -1215,7 +1239,7 @@ static void testMarkingConstraintsAndHeapFinalizers(void)
     
     deadCount = 0;
     for (i = 0; i < numWeakRefs; i += 2) {
-        assertTrue(JSWeakGetObject(weakRefs[i]), "Marked objects stayed alive");
+        assertTrue((bool)JSWeakGetObject(weakRefs[i]), "Marked objects stayed alive");
         if (!JSWeakGetObject(weakRefs[i + 1]))
             deadCount++;
     }
@@ -1237,7 +1261,8 @@ static void testMarkingConstraintsAndHeapFinalizers(void)
     didRunHeapFinalizer = false;
     JSSynchronousGarbageCollectForDebugging(context);
     assertTrue(!didRunHeapFinalizer, "Did not run heap finalizer");
-    
+
+    JSGlobalContextRelease(context);
     JSContextGroupRelease(group);
 
     printf("PASS: Marking Constraints and Heap Finalizers.\n");
@@ -1349,23 +1374,23 @@ static void testCFStrings(void)
 int main(int argc, char* argv[])
 {
 #if OS(WINDOWS)
-    // Cygwin calls ::SetErrorMode(SEM_FAILCRITICALERRORS), which we will inherit. This is bad for
+    // Cygwin calls SetErrorMode(SEM_FAILCRITICALERRORS), which we will inherit. This is bad for
     // testing/debugging, as it causes the post-mortem debugger not to be invoked. We reset the
     // error mode here to work around Cygwin's behavior. See <http://webkit.org/b/55222>.
-    ::SetErrorMode(0);
+    SetErrorMode(0);
 #endif
-
-    testCompareAndSwap();
-    startMultithreadedMultiVMExecutionTest();
 
 #if JSC_OBJC_API_ENABLED
     testObjectiveCAPI();
 #endif
 
-    const char *scriptPath = "testapi.js";
-    if (argc > 1) {
-        scriptPath = argv[1];
-    }
+    const char* filter = argc > 1 ? argv[1] : NULL;
+    RELEASE_ASSERT(!testCAPIViaCpp(filter));
+    if (filter)
+        return 0;
+
+    testCompareAndSwap();
+    startMultithreadedMultiVMExecutionTest();
     
     // Test garbage collection with a fresh context
     context = JSGlobalContextCreateInGroup(NULL, NULL);
@@ -1954,6 +1979,7 @@ int main(int argc, char* argv[])
     JSObjectMakeConstructor(context, nullClass, 0);
     JSClassRelease(nullClass);
 
+    const char* scriptPath = "testapi.js";
     char* scriptUTF8 = createStringWithContentsOfFile(scriptPath);
     if (!scriptUTF8) {
         printf("FAIL: Test script could not be loaded.\n");
@@ -2026,7 +2052,7 @@ int main(int argc, char* argv[])
             JSValueRef exception;
             JSStringRef code = JSStringCreateWithUTF8CString("result = 0; Promise.resolve(42).then(function (value) { result = value; });");
             JSStringRef file = JSStringCreateWithUTF8CString("");
-            assertTrue(JSEvaluateScript(context, code, globalObject, file, 1, &exception), "An exception should not be thrown");
+            assertTrue((bool)JSEvaluateScript(context, code, globalObject, file, 1, &exception), "An exception should not be thrown");
             JSStringRelease(code);
             JSStringRelease(file);
 
@@ -2154,8 +2180,8 @@ static char* createStringWithContentsOfFile(const char* fileName)
 }
 
 #if OS(WINDOWS)
-extern "C" __declspec(dllexport) int WINAPI dllLauncherEntryPoint(int argc, const char* argv[])
+__declspec(dllexport) int WINAPI dllLauncherEntryPoint(int argc, char* argv[])
 {
-    return main(argc, const_cast<char**>(argv));
+    return main(argc, argv);
 }
 #endif

@@ -249,6 +249,7 @@ enum {
 #define kIOFBDependentIDKey     "IOFBDependentID"
 #define kIOFBDependentIndexKey  "IOFBDependentIndex"
 
+
 struct StdFBShmem_t;
 class IOFramebufferUserClient;
 class IODisplay;
@@ -270,7 +271,7 @@ class IOFramebuffer : public IOGraphicsDevice
     friend class IOFramebufferParameterHandler;
     friend class IODisplay;
 
-    OSDeclareDefaultStructors(IOFramebuffer)
+    OSDeclareDefaultStructors(IOFramebuffer);
 
 protected:
 /*! @struct ExpansionData
@@ -435,6 +436,7 @@ private:
 
 
 public:
+    // IOKit overrides
     static void initialize();
 
     virtual bool attach( IOService * provider ) APPLE_KEXT_OVERRIDE;

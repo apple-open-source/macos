@@ -10,6 +10,8 @@
 	<true/>
 	<key>com.apple.keystore.access-keychain-keys</key>
 	<true/>
+	<key>com.apple.keystore.sik.access</key>
+	<true/>
 	<key>com.apple.keystore.device</key>
 	<true/>
 	<key>restore-keychain</key>

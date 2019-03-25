@@ -510,7 +510,6 @@
 		C96F50BD15BDFEFB008682F7 /* lsmp.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C96F50AC15BDCBF0008682F7 /* lsmp.1 */; };
 		C96F50BE15BDFF03008682F7 /* lsmp.c in Sources */ = {isa = PBXBuildFile; fileRef = C96F50AD15BDCE8E008682F7 /* lsmp.c */; };
 		C9779F6E159A2A0C009436FD /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA4B7A091373BA4600003422 /* libutil.dylib */; };
-		C99490E42090F55E00246D9D /* zprint.lua in CopyFiles */ = {isa = PBXBuildFile; fileRef = C99490E32090F55D00246D9D /* zprint.lua */; };
 		C99490E52090F56F00246D9D /* zprint.lua in CopyFiles */ = {isa = PBXBuildFile; fileRef = C99490E32090F55D00246D9D /* zprint.lua */; };
 		C9D64CD11B91065D00CFA43B /* system_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9D64CCF1B91063200CFA43B /* system_cmds.plist */; };
 		C9D64CD31B91067500CFA43B /* system_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9D64CCF1B91063200CFA43B /* system_cmds.plist */; };
@@ -521,7 +520,6 @@
 		F2291F601FFEBB9E00161936 /* zlog.c in Sources */ = {isa = PBXBuildFile; fileRef = F2291F5F1FFEBB9E00161936 /* zlog.c */; };
 		F27B70282044CB40003C04FC /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F27B70272044CB40003C04FC /* CoreFoundation.framework */; };
 		F27B702B2045038B003C04FC /* SymbolicationHelper.c in Sources */ = {isa = PBXBuildFile; fileRef = F27B70292045038B003C04FC /* SymbolicationHelper.c */; };
-		F29F5A5B203E12BC005B0099 /* entitlements.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = F29F5A5A203E12BB005B0099 /* entitlements.plist */; };
 		F29F5A5F203E5347005B0099 /* zlog.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = F29F5A5C203E4403005B0099 /* zlog.1 */; };
 /* End PBXBuildFile section */
 
@@ -2300,8 +2298,6 @@
 			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
 			dstSubfolderSpec = 0;
 			files = (
-				F29F5A5B203E12BC005B0099 /* entitlements.plist in CopyFiles */,
-				C99490E42090F55E00246D9D /* zprint.lua in CopyFiles */,
 				C9D64CD31B91067500CFA43B /* system_cmds.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;

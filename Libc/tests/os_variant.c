@@ -19,6 +19,9 @@ T_DECL(os_variant_basic, "Just calls all the APIs")
 
 	T_MAYFAIL;
 	T_EXPECT_TRUE(os_variant_allows_internal_security_policies("com.apple.Libc.tests"), NULL);
+
+	T_MAYFAIL;
+	T_EXPECT_FALSE(os_variant_has_factory_content("com.apple.Libc.tests"), NULL);
 }
 
 #define VARIANT_SKIP_EXPORTED
@@ -27,9 +30,6 @@ T_DECL(os_variant_basic, "Just calls all the APIs")
 
 T_DECL(os_variant_detailed, "Looks at individual checks")
 {
-	T_MAYFAIL;
-	T_EXPECT_FALSE(_check_disabled(VP_ALL), NULL);
-
 	T_MAYFAIL;
 	T_EXPECT_FALSE(_check_disabled(VP_CONTENT), NULL);
 
@@ -50,9 +50,15 @@ T_DECL(os_variant_detailed, "Looks at individual checks")
 #if TARGET_OS_IPHONE
 	T_MAYFAIL;
 	T_EXPECT_TRUE(_check_internal_release_type(), NULL);
+
+	T_MAYFAIL;
+	T_EXPECT_TRUE(_check_factory_release_type(), NULL);
 #else
 	T_MAYFAIL;
 	T_EXPECT_FALSE(_check_internal_diags_profile(), NULL);
+
+	T_MAYFAIL;
+	T_EXPECT_FALSE(_check_factory_content(), NULL);
 #endif
 
 	T_MAYFAIL;
@@ -62,7 +68,7 @@ T_DECL(os_variant_detailed, "Looks at individual checks")
 T_DECL(os_variant_override_parse, "Checks the parsing of the override file")
 {
 	// Warm up the dispatch_once
-	_check_disabled(VP_ALL);
+	_check_disabled(VP_CONTENT);
 
 	T_LOG("Override: NULL"); // Live system
 	_parse_disabled_status(NULL);

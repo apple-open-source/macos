@@ -41,6 +41,7 @@
 #include "PaintInfo.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
+#include "RuntimeEnabledFeatures.h"
 #include "SpinButtonElement.h"
 #include "StringTruncator.h"
 #include "TextControlInnerElements.h"
@@ -116,6 +117,9 @@ void RenderTheme::adjustStyle(StyleResolver& styleResolver, RenderStyle& style, 
     case RadioPart:
     case PushButtonPart:
     case SquareButtonPart:
+#if ENABLE(INPUT_TYPE_COLOR)
+    case ColorWellPart:
+#endif
     case DefaultButtonPart:
     case ButtonPart: {
         // Border
@@ -200,6 +204,9 @@ void RenderTheme::adjustStyle(StyleResolver& styleResolver, RenderStyle& style, 
         return adjustRadioStyle(styleResolver, style, element);
     case PushButtonPart:
     case SquareButtonPart:
+#if ENABLE(INPUT_TYPE_COLOR)
+    case ColorWellPart:
+#endif
     case DefaultButtonPart:
     case ButtonPart:
         return adjustButtonStyle(styleResolver, style, element);
@@ -266,6 +273,10 @@ void RenderTheme::adjustStyle(StyleResolver& styleResolver, RenderStyle& style, 
     case BorderlessAttachmentPart:
         return adjustAttachmentStyle(styleResolver, style, element);
 #endif
+#if ENABLE(DATALIST_ELEMENT)
+    case ListButtonPart:
+        return adjustListButtonStyle(styleResolver, style, element);
+#endif
     default:
         break;
     }
@@ -300,11 +311,14 @@ bool RenderTheme::paint(const RenderBox& box, ControlStates& controlStates, cons
     case RadioPart:
     case PushButtonPart:
     case SquareButtonPart:
+#if ENABLE(INPUT_TYPE_COLOR)
+    case ColorWellPart:
+#endif
     case DefaultButtonPart:
     case ButtonPart:
     case InnerSpinButtonPart:
         updateControlStatesForRenderer(box, controlStates);
-        Theme::singleton().paint(part, controlStates, paintInfo.context(), devicePixelSnappedRect, box.style().effectiveZoom(), &box.view().frameView(), deviceScaleFactor, pageScaleFactor, box.page().useSystemAppearance(), box.page().useDarkAppearance());
+        Theme::singleton().paint(part, controlStates, paintInfo.context(), devicePixelSnappedRect, box.style().effectiveZoom(), &box.view().frameView(), deviceScaleFactor, pageScaleFactor, box.document().useSystemAppearance(), box.useDarkAppearance());
         return false;
     default:
         break;
@@ -322,6 +336,9 @@ bool RenderTheme::paint(const RenderBox& box, ControlStates& controlStates, cons
         return paintRadio(box, paintInfo, integralSnappedRect);
     case PushButtonPart:
     case SquareButtonPart:
+#if ENABLE(INPUT_TYPE_COLOR)
+    case ColorWellPart:
+#endif
     case DefaultButtonPart:
     case ButtonPart:
         return paintButton(box, paintInfo, integralSnappedRect);
@@ -431,7 +448,7 @@ bool RenderTheme::paintBorderOnly(const RenderBox& box, const PaintInfo& paintIn
     if (paintInfo.context().paintingDisabled())
         return false;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     UNUSED_PARAM(rect);
     return box.style().appearance() != NoControlPart;
 #else
@@ -450,6 +467,9 @@ bool RenderTheme::paintBorderOnly(const RenderBox& box, const PaintInfo& paintIn
     case RadioPart:
     case PushButtonPart:
     case SquareButtonPart:
+#if ENABLE(INPUT_TYPE_COLOR)
+    case ColorWellPart:
+#endif
     case DefaultButtonPart:
     case ButtonPart:
     case MenulistPart:
@@ -504,6 +524,9 @@ bool RenderTheme::paintDecorations(const RenderBox& box, const PaintInfo& paintI
         return paintPushButtonDecorations(box, paintInfo, integralSnappedRect);
     case SquareButtonPart:
         return paintSquareButtonDecorations(box, paintInfo, integralSnappedRect);
+#if ENABLE(INPUT_TYPE_COLOR)
+    case ColorWellPart:
+#endif
     case ButtonPart:
         return paintButtonDecorations(box, paintInfo, integralSnappedRect);
     case MenulistPart:
@@ -575,7 +598,7 @@ LayoutPoint RenderTheme::volumeSliderOffsetFromMuteButton(const RenderBox& muteB
     FloatPoint absPoint = muteButtonBox.localToAbsolute(FloatPoint(muteButtonBox.offsetLeft(), y), IsFixed | UseTransforms);
     if (absPoint.y() < 0)
         y = muteButtonBox.height();
-    return LayoutPoint(0, y);
+    return LayoutPoint(0_lu, y);
 }
 
 #endif
@@ -715,6 +738,9 @@ bool RenderTheme::isControlStyled(const RenderStyle& style, const BorderData& bo
     switch (style.appearance()) {
     case PushButtonPart:
     case SquareButtonPart:
+#if ENABLE(INPUT_TYPE_COLOR)
+    case ColorWellPart:
+#endif
     case DefaultButtonPart:
     case ButtonPart:
     case ListboxPart:
@@ -801,6 +827,8 @@ ControlStates::States RenderTheme::extractControlStatesForRenderer(const RenderO
         states |= ControlStates::WindowInactiveState;
     if (isIndeterminate(o))
         states |= ControlStates::IndeterminateState;
+    if (isPresenting(o))
+        states |= ControlStates::PresentingState;
     return states;
 }
 
@@ -883,6 +911,11 @@ bool RenderTheme::isSpinUpButtonPartHovered(const RenderObject& renderer) const
     if (!is<SpinButtonElement>(node))
         return false;
     return downcast<SpinButtonElement>(*node).upDownState() == SpinButtonElement::Up;
+}
+
+bool RenderTheme::isPresenting(const RenderObject& o) const
+{
+    return is<HTMLInputElement>(o.node()) && downcast<HTMLInputElement>(*o.node()).isPresentingAttachedView();
 }
 
 bool RenderTheme::isDefault(const RenderObject& o) const
@@ -1001,7 +1034,27 @@ bool RenderTheme::paintAttachment(const RenderObject&, const PaintInfo&, const I
 
 #endif
 
+#if ENABLE(INPUT_TYPE_COLOR)
+
+String RenderTheme::colorInputStyleSheet() const
+{
+    ASSERT(RuntimeEnabledFeatures::sharedFeatures().inputTypeColorEnabled());
+    return "input[type=\"color\"] { -webkit-appearance: color-well; width: 44px; height: 23px; outline: none; } "_s;
+}
+
+#endif // ENABLE(INPUT_TYPE_COLOR)
+
 #if ENABLE(DATALIST_ELEMENT)
+
+String RenderTheme::dataListStyleSheet() const
+{
+    ASSERT(RuntimeEnabledFeatures::sharedFeatures().dataListElementEnabled());
+    return "datalist { display: none; }"_s;
+}
+
+void RenderTheme::adjustListButtonStyle(StyleResolver&, RenderStyle&, const Element*) const
+{
+}
 
 LayoutUnit RenderTheme::sliderTickSnappingThreshold() const
 {
@@ -1358,9 +1411,15 @@ void RenderTheme::setCustomFocusRingColor(const Color& color)
     customFocusRingColor() = color;
 }
 
-Color RenderTheme::focusRingColor(OptionSet<StyleColor::Options> options)
+Color RenderTheme::focusRingColor(OptionSet<StyleColor::Options> options) const
 {
-    return customFocusRingColor().isValid() ? customFocusRingColor() : RenderTheme::singleton().platformFocusRingColor(options);
+    if (customFocusRingColor().isValid())
+        return customFocusRingColor();
+
+    auto& cache = colorCache(options);
+    if (!cache.systemFocusRingColor.isValid())
+        cache.systemFocusRingColor = platformFocusRingColor(options);
+    return cache.systemFocusRingColor;
 }
 
 String RenderTheme::fileListDefaultLabel(bool multipleFilesAllowed) const
@@ -1417,9 +1476,5 @@ Color RenderTheme::platformTapHighlightColor() const
 }
 
 #endif
-
-void RenderTheme::drawLineForDocumentMarker(const RenderText&, GraphicsContext&, const FloatPoint&, float, DocumentMarkerLineStyle)
-{
-}
 
 } // namespace WebCore

@@ -1034,6 +1034,12 @@ DLDbListCFPref::defaultDLDbIdentifier()
             if (mDefaultDLDbIdentifier.mImpl != NULL && actualIdentifier.mImpl != NULL)
             {
                 st_result = stat(actualIdentifier.dbName(), &st);
+
+                // Always claim that the system keychain exists for purposes of the search list
+                if (st_result && 0 == strncmp(actualIdentifier.dbName(), kSystemKeychainPath, strlen(kSystemKeychainPath))) {
+                    secnotice("secpref", "System keychain (%s) does not exist. Continuing as if it does...", actualIdentifier.dbName());
+                    st_result = 0;
+                }
             }
 
             if (st_result)

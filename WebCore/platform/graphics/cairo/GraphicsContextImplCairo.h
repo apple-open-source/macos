@@ -75,12 +75,12 @@ public:
     ImageDrawResult drawTiledImage(Image&, const FloatRect&, const FloatPoint&, const FloatSize&, const FloatSize&, const ImagePaintingOptions&) override;
     ImageDrawResult drawTiledImage(Image&, const FloatRect&, const FloatRect&, const FloatSize&, Image::TileRule, Image::TileRule, const ImagePaintingOptions&) override;
     void drawNativeImage(const NativeImagePtr&, const FloatSize&, const FloatRect&, const FloatRect&, CompositeOperator, BlendMode, ImageOrientation) override;
-    void drawPattern(Image&, const FloatRect&, const FloatRect&, const AffineTransform&, const FloatPoint&, const FloatSize&, CompositeOperator, BlendMode = BlendModeNormal) override;
+    void drawPattern(Image&, const FloatRect&, const FloatRect&, const AffineTransform&, const FloatPoint&, const FloatSize&, CompositeOperator, BlendMode = BlendMode::Normal) override;
 
     void drawRect(const FloatRect&, float) override;
     void drawLine(const FloatPoint&, const FloatPoint&) override;
-    void drawLinesForText(const FloatPoint&, const DashArray&, bool, bool, float) override;
-    void drawLineForDocumentMarker(const FloatPoint&, float, DocumentMarkerLineStyle) override;
+    void drawLinesForText(const FloatPoint&, float thickness, const DashArray&, bool, bool) override;
+    void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) override;
     void drawEllipse(const FloatRect&) override;
     void drawPath(const Path&) override;
 

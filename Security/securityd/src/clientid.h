@@ -28,6 +28,7 @@
 
 #include "codesigdb.h"
 #include <Security/SecCode.h>
+#include <security_utilities/ccaudit.h>
 #include <security_utilities/cfutilities.h>
 #include <string>
 
@@ -60,7 +61,7 @@ protected:
 	SecCodeRef processCode() const;
 	SecCodeRef currentGuest() const;
 
-	void setup(pid_t pid);
+	void setup(Security::CommonCriteria::AuditToken const &audit);
 
 public:
 	IFDUMP(void dump());

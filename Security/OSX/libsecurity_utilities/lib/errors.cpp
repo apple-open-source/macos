@@ -199,6 +199,12 @@ int MacOSError::unixError() const
 void MacOSError::throwMe(int error)
 { throw MacOSError(error); }
 
+void MacOSError::throwMe(int error, char const *message, ...)
+{
+    // Ignoring the message for now, will do something with it later.
+    throw MacOSError(error);
+}
+
 MacOSError MacOSError::make(int error)
 { return MacOSError(error); }
 

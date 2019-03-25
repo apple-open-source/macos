@@ -35,7 +35,15 @@
 #include "Options.h"
 #include <wtf/CompilationThread.h>
 
+#if OS(LINUX)
+#include "PerfLog.h"
+#endif
+
 namespace JSC {
+
+#if ENABLE(SEPARATED_WX_HEAP)
+extern JS_EXPORT_PRIVATE bool useFastPermisionsJITCopy;
+#endif // ENABLE(SEPARATED_WX_HEAP)
 
 bool shouldDumpDisassemblyFor(CodeBlock* codeBlock)
 {
@@ -55,11 +63,23 @@ LinkBuffer::CodeRef<LinkBufferPtrTag> LinkBuffer::finalizeCodeWithoutDisassembly
     return CodeRef<LinkBufferPtrTag>::createSelfManagedCodeRef(m_code);
 }
 
-LinkBuffer::CodeRef<LinkBufferPtrTag> LinkBuffer::finalizeCodeWithDisassemblyImpl(const char* format, ...)
+LinkBuffer::CodeRef<LinkBufferPtrTag> LinkBuffer::finalizeCodeWithDisassemblyImpl(bool dumpDisassembly, const char* format, ...)
 {
     CodeRef<LinkBufferPtrTag> result = finalizeCodeWithoutDisassemblyImpl();
 
-    if (m_alreadyDisassembled)
+#if OS(LINUX)
+    if (Options::logJITCodeForPerf()) {
+        StringPrintStream out;
+        va_list argList;
+        va_start(argList, format);
+        va_start(argList, format);
+        out.vprintf(format, argList);
+        va_end(argList);
+        PerfLog::log(out.toCString(), result.code().untaggedExecutableAddress<const uint8_t*>(), result.size());
+    }
+#endif
+
+    if (!dumpDisassembly || m_alreadyDisassembled)
         return result;
     
     StringPrintStream out;
@@ -100,6 +120,14 @@ static ALWAYS_INLINE void recordLinkOffsets(AssemblerData& assemblerData, int32_
 template <typename InstructionType>
 void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, void* ownerUID, JITCompilationEffort effort)
 {
+#if CPU(ARM64E) && ENABLE(FAST_JIT_PERMISSIONS)
+#if ENABLE(SEPARATED_WX_HEAP)
+    const bool isUsingFastPermissionsJITCopy = useFastPermisionsJITCopy;
+#else
+    const bool isUsingFastPermissionsJITCopy = true;
+#endif
+#endif
+
     allocate(macroAssembler, ownerUID, effort);
     const size_t initialSize = macroAssembler.m_assembler.codeSize();
     if (didFailToAllocate())
@@ -111,12 +139,21 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, void* ow
 
     uint8_t* codeOutData = m_code.dataLocation<uint8_t*>();
 #if CPU(ARM64E) && ENABLE(FAST_JIT_PERMISSIONS)
-    const ARM64EHash assemblerBufferHash = macroAssembler.m_assembler.buffer().hash();
-    ARM64EHash verifyUncompactedHash(assemblerBufferHash.randomSeed());
+    const uint32_t expectedFinalHash = macroAssembler.m_assembler.buffer().hash().finalHash();
+    ARM64EHash verifyUncompactedHash;
     uint8_t* outData = codeOutData;
+#if ENABLE(SEPARATED_WX_HEAP)
+    AssemblerData outBuffer(m_size);
+    if (!isUsingFastPermissionsJITCopy)
+        outData = reinterpret_cast<uint8_t*>(outBuffer.buffer());
+#endif // ENABLE(SEPARATED_WX_HEAP)
 #else
     AssemblerData outBuffer(m_size);
     uint8_t* outData = reinterpret_cast<uint8_t*>(outBuffer.buffer());
+#endif
+#if CPU(ARM64)
+    RELEASE_ASSERT(roundUpToMultipleOf<sizeof(unsigned)>(outData) == outData);
+    RELEASE_ASSERT(roundUpToMultipleOf<sizeof(unsigned)>(codeOutData) == codeOutData);
 #endif
 
     int readPtr = 0;
@@ -124,7 +161,8 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, void* ow
     unsigned jumpCount = jumpsToLink.size();
 
 #if CPU(ARM64E) && ENABLE(FAST_JIT_PERMISSIONS)
-    os_thread_self_restrict_rwx_to_rw();
+    if (isUsingFastPermissionsJITCopy)
+        os_thread_self_restrict_rwx_to_rw();
 #endif
 
     if (m_shouldPerformBranchCompaction) {
@@ -140,15 +178,11 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, void* ow
             ASSERT(!(regionSize % 2));
             ASSERT(!(readPtr % 2));
             ASSERT(!(writePtr % 2));
-#if CPU(ARM64E) && ENABLE(FAST_JIT_PERMISSIONS)
-            unsigned index = readPtr;
-#endif
             while (copySource != copyEnd) {
                 InstructionType insn = *copySource++;
 #if CPU(ARM64E) && ENABLE(FAST_JIT_PERMISSIONS)
                 static_assert(sizeof(InstructionType) == 4, "");
-                verifyUncompactedHash.update(insn, index);
-                index += sizeof(InstructionType);
+                verifyUncompactedHash.update(insn);
 #endif
                 *copyDst++ = insn;
             }
@@ -193,23 +227,18 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, void* ow
         RELEASE_ASSERT(bitwise_cast<uintptr_t>(src) % sizeof(InstructionType) == 0);
         RELEASE_ASSERT(bytes % sizeof(InstructionType) == 0);
 
-#if CPU(ARM64E) && ENABLE(FAST_JIT_PERMISSIONS)
-        unsigned index = readPtr;
-#endif
-
         for (size_t i = 0; i < bytes; i += sizeof(InstructionType)) {
             InstructionType insn = *src++;
 #if CPU(ARM64E) && ENABLE(FAST_JIT_PERMISSIONS)
-            verifyUncompactedHash.update(insn, index);
-            index += sizeof(InstructionType);
+            verifyUncompactedHash.update(insn);
 #endif
             *dst++ = insn;
         }
     }
 
 #if CPU(ARM64E) && ENABLE(FAST_JIT_PERMISSIONS)
-    if (verifyUncompactedHash.hash() != assemblerBufferHash.hash()) {
-        dataLogLn("Hashes don't match: ", RawPointer(bitwise_cast<void*>(verifyUncompactedHash.hash())), " ", RawPointer(bitwise_cast<void*>(assemblerBufferHash.hash())));
+    if (verifyUncompactedHash.finalHash() != expectedFinalHash) {
+        dataLogLn("Hashes don't match: ", RawPointer(bitwise_cast<void*>(static_cast<uintptr_t>(verifyUncompactedHash.finalHash()))), " ", RawPointer(bitwise_cast<void*>(static_cast<uintptr_t>(expectedFinalHash))));
         dataLogLn("Crashing!");
         CRASH();
     }
@@ -220,6 +249,8 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, void* ow
     for (unsigned i = 0; i < jumpCount; ++i) {
 #if CPU(ARM64E) && ENABLE(FAST_JIT_PERMISSIONS)
         auto memcpyFunction = memcpy;
+        if (!isUsingFastPermissionsJITCopy)
+            memcpyFunction = performJITMemcpy;
 #else
         auto memcpyFunction = performJITMemcpy;
 #endif
@@ -236,7 +267,8 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, void* ow
     }
 
 #if CPU(ARM64E) && ENABLE(FAST_JIT_PERMISSIONS)
-    os_thread_self_restrict_rwx_to_rx();
+    if (isUsingFastPermissionsJITCopy)
+        os_thread_self_restrict_rwx_to_rx();
 #endif
 
     if (m_executableMemory) {
@@ -248,7 +280,12 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, void* ow
     ASSERT(codeOutData != outData);
     performJITMemcpy(codeOutData, outData, m_size);
 #else
-    ASSERT(codeOutData == outData);
+    if (isUsingFastPermissionsJITCopy)
+        ASSERT(codeOutData == outData);
+    else {
+        ASSERT(codeOutData != outData);
+        performJITMemcpy(codeOutData, outData, m_size);
+    }
 #endif
 
     jumpsToLink.clear();
@@ -260,7 +297,7 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, void* ow
     dumpCode(codeOutData, m_size);
 #endif
 }
-#endif
+#endif // ENABLE(BRANCH_COMPACTION)
 
 
 void LinkBuffer::linkCode(MacroAssembler& macroAssembler, void* ownerUID, JITCompilationEffort effort)
@@ -278,8 +315,8 @@ void LinkBuffer::linkCode(MacroAssembler& macroAssembler, void* ownerUID, JITCom
     ASSERT(m_code);
     AssemblerBuffer& buffer = macroAssembler.m_assembler.buffer();
     void* code = m_code.dataLocation();
-#if CPU(ARM_TRADITIONAL)
-    macroAssembler.m_assembler.prepareExecutableCopy(code);
+#if CPU(ARM64)
+    RELEASE_ASSERT(roundUpToMultipleOf<Assembler::instructionSize>(code) == code);
 #endif
     performJITMemcpy(code, buffer.data(), buffer.codeSize());
 #if CPU(MIPS)
@@ -378,23 +415,6 @@ void LinkBuffer::dumpCode(void* code, size_t size)
         
     for (unsigned i = 0; i < tsize; i++)
         dataLogF("\t.short\t0x%x\n", tcode[i]);
-#elif CPU(ARM_TRADITIONAL)
-    //   gcc -c jit.s
-    //   objdump -D jit.o
-    static unsigned codeCount = 0;
-    unsigned int* tcode = static_cast<unsigned int*>(code);
-    size_t tsize = size / sizeof(unsigned int);
-    char nameBuf[128];
-    snprintf(nameBuf, sizeof(nameBuf), "_jsc_jit%u", codeCount++);
-    dataLogF("\t.globl\t%s\n"
-            "\t.align 4\n"
-            "\t.code 32\n"
-            "\t.text\n"
-            "# %p\n"
-            "%s:\n", nameBuf, code, nameBuf);
-
-    for (unsigned i = 0; i < tsize; i++)
-        dataLogF("\t.long\t0x%x\n", tcode[i]);
 #endif
 }
 #endif
@@ -402,5 +422,3 @@ void LinkBuffer::dumpCode(void* code, size_t size)
 } // namespace JSC
 
 #endif // ENABLE(ASSEMBLER)
-
-

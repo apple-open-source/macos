@@ -363,6 +363,45 @@ CFDataRef BundleDiskRep::component(CodeDirectory::SpecialSlot slot)
 	}
 }
 
+BundleDiskRep::RawComponentMap BundleDiskRep::createRawComponents()
+{
+	RawComponentMap map;
+
+	/* Those are the slots known to BundleDiskReps.
+	 * Unlike e.g. MachOReps, we cannot handle unknown slots,
+	 * as we won't know their slot <-> filename mapping.
+	 */
+	int const slots[] = {
+		cdCodeDirectorySlot, cdSignatureSlot, cdResourceDirSlot,
+		cdTopDirectorySlot, cdEntitlementSlot, cdEntitlementDERSlot,
+		cdRepSpecificSlot};
+	
+	for (int slot = 0; slot < (int)(sizeof(slots)/sizeof(slots[0])); ++slot) {
+		/* Here, we only handle metaData slots, i.e. slots that
+		 * are explicit files in the _CodeSignature directory.
+		 * Main executable slots (if the main executable is a
+		 * EditableDiskRep) are handled when editing the
+		 * main executable's rep explicitly.
+		 * There is also an Info.plist slot, which is not a
+		 * real part of the code signature.
+		 */
+		CFRef<CFDataRef> data = metaData(slot);
+		
+		if (data) {
+			map[slot] = data;
+		}
+	}
+	
+	for (CodeDirectory::Slot slot = cdAlternateCodeDirectorySlots; slot < cdAlternateCodeDirectoryLimit; ++slot) {
+		CFRef<CFDataRef> data = metaData(slot);
+		
+		if (data) {
+			map[slot] = data;
+		}
+	}
+	
+	return map;
+}
 
 // Check that all components of this BundleDiskRep come from either the main
 // executable or the _CodeSignature directory (not mix-and-match).

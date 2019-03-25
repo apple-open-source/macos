@@ -1,3 +1,231 @@
+2019-01-04  Simon Fraser  <simon.fraser@apple.com>
+
+        Factor legacy WK1 code for fixed and scrolling layers into their own helper class
+        https://bugs.webkit.org/show_bug.cgi?id=193165
+
+        Reviewed by Frédéric Wang.
+
+        Make the stickyContainerMap argument const. We WTFMove() values out of the first
+        argument, so it can't be const.
+
+        * WebCoreSupport/WebChromeClientIOS.h:
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::updateViewportConstrainedLayers):
+        * WebCoreSupport/WebFixedPositionContent.mm:
+        (-[WebFixedPositionContent setViewportConstrainedLayers:stickyContainerMap:]):
+        * WebCoreSupport/WebFixedPositionContentInternal.h:
+
+2018-12-20  Yusuke Suzuki  <yusukesuzuki@slowstart.org>
+
+        Use Ref<> as much as possible
+        https://bugs.webkit.org/show_bug.cgi?id=192808
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/SearchPopupMenuIOS.cpp:
+        (SearchPopupMenuIOS::SearchPopupMenuIOS):
+        (SearchPopupMenuIOS::popupMenu):
+        * WebCoreSupport/SearchPopupMenuIOS.h:
+        * WebCoreSupport/WebVisiblePosition.mm:
+        (-[WebVisiblePosition enclosingRangeWithDictationPhraseAlternatives:]):
+        (-[WebVisiblePosition enclosingRangeWithCorrectionIndicator]):
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
+
+2018-12-17  Zalan Bujtas  <zalan@apple.com>
+
+        Unreviewed build fix.
+
+        * WebCoreSupport/WebVisiblePosition.mm:
+        (-[WebVisiblePosition enclosingRangeWithDictationPhraseAlternatives:]):
+        (-[WebVisiblePosition enclosingRangeWithCorrectionIndicator]):
+
+2018-12-05  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Turn WritingDirection into an enum class
+        https://bugs.webkit.org/show_bug.cgi?id=192401
+        Work towards <rdar://problem/42075638>
+
+        Reviewed by Dan Bernstein.
+
+        Change WritingDirection from an enum to an enum class. No change in behavior.
+
+        * WebCoreSupport/WebFrameIOS.mm:
+        (-[WebFrame selectionBaseWritingDirection]):
+        (-[WebFrame setBaseWritingDirection:]):
+
+2018-12-03  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Do not handle key events that are key commands
+        https://bugs.webkit.org/show_bug.cgi?id=191608
+        <rdar://problem/46046013>
+
+        Reviewed by Ryosuke Niwa.
+
+        Add default implementation of -handleKeyCommandForCurrentEvent that returns NO - the current
+        event was not handled as a key command.
+
+        * DefaultDelegates/WebDefaultUIKitDelegate.m:
+        (-[WebDefaultUIKitDelegate handleKeyCommandForCurrentEvent]):
+        * WebView/WebUIKitDelegate.h:
+
+2018-11-29  Zalan Bujtas  <zalan@apple.com>
+
+        Rename *ObservedContentModifier(s) to *ObservedDOMTimer(s)
+        https://bugs.webkit.org/show_bug.cgi?id=192168
+
+        Reviewed by Simon Fraser.
+
+        There's only one type of content modifier (DOMTimer).
+
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::clearContentChangeObservers):
+
+2018-11-19  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Web Inspector: "Reload Web Inspector" button no longer partially works
+        https://bugs.webkit.org/show_bug.cgi?id=191773
+        <rdar://problem/46139932>
+
+        Reviewed by Devin Rousso.
+
+        * WebCoreSupport/WebInspectorClientIOS.mm:
+        (WebInspectorFrontendClient::reopen):
+
+2018-10-18  Alexey Proskuryakov  <ap@apple.com>
+
+        Switch from PLATFORM(IOS) to PLATFORM(IOS_FAMILY)
+        https://bugs.webkit.org/show_bug.cgi?id=190729
+
+        Reviewed by Tim Horton.
+
+        * DefaultDelegates/WebDefaultFormDelegate.m:
+        * DefaultDelegates/WebDefaultFrameLoadDelegate.m:
+        * DefaultDelegates/WebDefaultResourceLoadDelegate.m:
+        * DefaultDelegates/WebDefaultUIKitDelegate.m:
+        * Misc/MemoryMeasure.mm:
+        * Misc/WebGeolocationCoreLocationProvider.mm:
+        * Misc/WebGeolocationProviderIOS.mm:
+        * Misc/WebNSStringExtrasIOS.m:
+        * Misc/WebUIKitSupport.mm:
+        (WebKitPlatformSystemRootDirectory):
+        * WebCoreSupport/PopupMenuIOS.mm:
+        * WebCoreSupport/SearchPopupMenuIOS.cpp:
+        * WebCoreSupport/WebChromeClientIOS.h:
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        * WebCoreSupport/WebFixedPositionContent.mm:
+        * WebCoreSupport/WebFrameIOS.mm:
+        * WebCoreSupport/WebGeolocation.mm:
+        * WebCoreSupport/WebInspectorClientIOS.mm:
+        * WebCoreSupport/WebMIMETypeRegistry.mm:
+        * WebCoreSupport/WebSelectionRect.m:
+        * WebCoreSupport/WebVisiblePosition.mm:
+        * WebView/WebFrameViewWAKCompatibility.m:
+        * WebView/WebPDFViewIOS.mm:
+        * WebView/WebPDFViewPlaceholder.mm:
+        * WebView/WebPlainWhiteView.h:
+        * WebView/WebPlainWhiteView.mm:
+
+2018-10-10  Yusuke Suzuki  <yusukesuzuki@slowstart.org>
+
+        [JSC] Rename createXXX to tryCreateXXX if it can return RefPtr
+        https://bugs.webkit.org/show_bug.cgi?id=190429
+
+        Reviewed by Saam Barati.
+
+        Use `tryCreate` or new `create`. If we use new `create`, we can use Ref<> and remove null check.
+
+        * WebView/WebPDFViewIOS.mm:
+        (-[WebPDFView finishedLoadingWithDataSource:]):
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder _evaluateJSForDocument:]):
+
+2018-10-02  Alex Christensen  <achristensen@webkit.org>
+
+        Remove unused linked-on-or-before-iOS5 check
+        https://bugs.webkit.org/show_bug.cgi?id=190164
+
+        Reviewed by Michael Saboff.
+
+        * Misc/WebUIKitSupport.mm:
+        (WebKitInitialize):
+        (linkedOnOrAfterIOS5): Deleted.
+
+2018-09-17  Darin Adler  <darin@apple.com>
+
+        Use OpaqueJSString rather than JSRetainPtr inside WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=189652
+
+        Reviewed by Saam Barati.
+
+        * WebView/WebPDFViewIOS.mm:
+        (-[WebPDFView finishedLoadingWithDataSource:]): Use OpaqueJSString::create.
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder _evaluateJSForDocument:]): Ditto.
+
+2018-08-29  Olivia Barnett  <obarnett@apple.com>
+
+        Implement the Web Share API
+        https://bugs.webkit.org/show_bug.cgi?id=171100
+        <rdar://problem/31751734>
+
+        Reviewed by Tim Horton.
+
+        * WebCoreSupport/WebChromeClientIOS.h:
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::showShareSheet):
+        Empty declaration of showShareSheet.
+
+2018-08-24  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Pass in IsComposed flag to Event constructors
+        https://bugs.webkit.org/show_bug.cgi?id=188720
+        <rdar://problem/43580387>
+
+        Reviewed by Simon Fraser.
+
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]): A trusted click event is composed regardless
+        of whether it's simulated or not.
+
+2018-08-21  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Replace booleans for modifier keys in UIEventWithKeyState with OptionSet<Modifier>
+        https://bugs.webkit.org/show_bug.cgi?id=188777
+
+        Reviewed by Simon Fraser.
+
+        Create MouseEvent::create with IsSimulated set to Yes; correspoding to the last argument
+        being "true" before the code change.
+
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
+
+2018-08-16  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Replace canBubble and cancelable booleans in Event by enum classes
+        https://bugs.webkit.org/show_bug.cgi?id=188692
+
+        Reviewed by Alex Christensen.
+
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
+
+2018-08-13  Alex Christensen  <achristensen@webkit.org>
+
+        Use a 1-byte enum class for TextDirection
+        https://bugs.webkit.org/show_bug.cgi?id=188350
+
+        Reviewed by Simon Fraser.
+
+        * WebCoreSupport/WebFrameIOS.mm:
+        (-[WebFrame selectionRectsForCoreRange:]):
+        * WebCoreSupport/WebVisiblePosition.mm:
+        (-[WebVisiblePosition textDirection]):
+        (-[WebVisiblePosition directionIsDownstream:]):
+        * WebView/WebPDFViewIOS.mm:
+        (-[WebPDFView _checkPDFTitle]):
+
 2018-07-04  Tim Horton  <timothy_horton@apple.com>
 
         Introduce PLATFORM(IOSMAC)

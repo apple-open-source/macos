@@ -50,6 +50,7 @@ CKKSItemState* const SecCKKSStateUnauthenticated = (CKKSItemState*) @"unauthenti
 CKKSItemState* const SecCKKSStateInFlight = (CKKSItemState*) @"inflight";
 CKKSItemState* const SecCKKSStateReencrypt = (CKKSItemState*) @"reencrypt";
 CKKSItemState* const SecCKKSStateError = (CKKSItemState*) @"error";
+CKKSItemState* const SecCKKSStateZoneMismatch = (CKKSItemState*) @"zone_mismatch";
 CKKSItemState* const SecCKKSStateDeleted = (CKKSItemState*) @"deleted";
 
 CKKSProcessedState* const SecCKKSProcessedStateLocal = (CKKSProcessedState*) @"local";

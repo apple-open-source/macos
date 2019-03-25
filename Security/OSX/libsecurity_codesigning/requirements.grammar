@@ -418,6 +418,11 @@ class RequirementLexer extends Lexer;
 options {
 	k=2;
 	testLiterals=false;
+
+    // Pass through valid UTF-8 (which excludes hex C0-C1 and F5-FF),
+	// but also exclude ASCII control characters below 0x20 (space).
+	// Byte ranges according to Unicode 11.0, paragraph 3.9 D92.
+	charVocabulary='\000'..'\277' | '\302'..'\364';
 }
 
 protected

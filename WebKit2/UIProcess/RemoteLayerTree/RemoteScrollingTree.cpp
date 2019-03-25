@@ -33,16 +33,15 @@
 #include <WebCore/ScrollingTreeFixedNode.h>
 #include <WebCore/ScrollingTreeStickyNode.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "ScrollingTreeOverflowScrollingNodeIOS.h"
 #include <WebCore/ScrollingTreeFrameScrollingNodeIOS.h>
 #else
 #include <WebCore/ScrollingTreeFrameScrollingNodeMac.h>
 #endif
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 Ref<RemoteScrollingTree> RemoteScrollingTree::create(RemoteScrollingCoordinatorProxy& scrollingCoordinator)
 {
@@ -77,7 +76,7 @@ void RemoteScrollingTree::handleWheelEventPhase(PlatformWheelEventPhase phase)
 }
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 WebCore::FloatRect RemoteScrollingTree::fixedPositionRect()
 {
     return m_scrollingCoordinatorProxy.customFixedPositionRect();
@@ -100,7 +99,7 @@ void RemoteScrollingTree::scrollingTreeNodeDidEndScroll()
 
 #endif
 
-void RemoteScrollingTree::scrollingTreeNodeDidScroll(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, const std::optional<FloatPoint>& layoutViewportOrigin, ScrollingLayerPositionAction scrollingLayerPositionAction)
+void RemoteScrollingTree::scrollingTreeNodeDidScroll(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, const Optional<FloatPoint>& layoutViewportOrigin, ScrollingLayerPositionAction scrollingLayerPositionAction)
 {
     m_scrollingCoordinatorProxy.scrollingTreeNodeDidScroll(nodeID, scrollPosition, layoutViewportOrigin, scrollingLayerPositionAction);
 }
@@ -113,23 +112,23 @@ void RemoteScrollingTree::scrollingTreeNodeRequestsScroll(ScrollingNodeID nodeID
 Ref<ScrollingTreeNode> RemoteScrollingTree::createScrollingTreeNode(ScrollingNodeType nodeType, ScrollingNodeID nodeID)
 {
     switch (nodeType) {
-    case MainFrameScrollingNode:
-    case SubframeScrollingNode:
-#if PLATFORM(IOS)
+    case ScrollingNodeType::MainFrame:
+    case ScrollingNodeType::Subframe:
+#if PLATFORM(IOS_FAMILY)
         return ScrollingTreeFrameScrollingNodeIOS::create(*this, nodeType, nodeID);
 #else
         return ScrollingTreeFrameScrollingNodeMac::create(*this, nodeType, nodeID);
 #endif
-    case OverflowScrollingNode:
-#if PLATFORM(IOS)
+    case ScrollingNodeType::Overflow:
+#if PLATFORM(IOS_FAMILY)
         return ScrollingTreeOverflowScrollingNodeIOS::create(*this, nodeID);
 #else
         ASSERT_NOT_REACHED();
         break;
 #endif
-    case FixedNode:
+    case ScrollingNodeType::Fixed:
         return ScrollingTreeFixedNode::create(*this, nodeID);
-    case StickyNode:
+    case ScrollingNodeType::Sticky:
         return ScrollingTreeStickyNode::create(*this, nodeID);
     }
     ASSERT_NOT_REACHED();

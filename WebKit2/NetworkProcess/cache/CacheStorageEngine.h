@@ -65,7 +65,7 @@ public:
     static void remove(PAL::SessionID, uint64_t cacheIdentifier, WebCore::DOMCacheEngine::CacheIdentifierCallback&&);
     static void retrieveCaches(PAL::SessionID, WebCore::ClientOrigin&&, uint64_t updateCounter, WebCore::DOMCacheEngine::CacheInfosCallback&&);
 
-    static void retrieveRecords(PAL::SessionID, uint64_t cacheIdentifier, WebCore::URL&&, WebCore::DOMCacheEngine::RecordsCallback&&);
+    static void retrieveRecords(PAL::SessionID, uint64_t cacheIdentifier, URL&&, WebCore::DOMCacheEngine::RecordsCallback&&);
     static void putRecords(PAL::SessionID, uint64_t cacheIdentifier, Vector<WebCore::DOMCacheEngine::Record>&&, WebCore::DOMCacheEngine::RecordIdentifiersCallback&&);
     static void deleteMatchingRecords(PAL::SessionID, uint64_t cacheIdentifier, WebCore::ResourceRequest&&, WebCore::CacheQueryOptions&&, WebCore::DOMCacheEngine::RecordIdentifiersCallback&&);
 
@@ -75,8 +75,8 @@ public:
     static void clearMemoryRepresentation(PAL::SessionID, WebCore::ClientOrigin&&, WebCore::DOMCacheEngine::CompletionCallback&&);
     static void representation(PAL::SessionID, CompletionHandler<void(String&&)>&&);
 
-    static void clearAllCaches(PAL::SessionID, Ref<WTF::CallbackAggregator>&&);
-    static void clearCachesForOrigin(PAL::SessionID, WebCore::SecurityOriginData&&, Ref<WTF::CallbackAggregator>&&);
+    static void clearAllCaches(PAL::SessionID, CompletionHandler<void()>&&);
+    static void clearCachesForOrigin(PAL::SessionID, WebCore::SecurityOriginData&&, CompletionHandler<void()>&&);
 
     bool shouldPersist() const { return !!m_ioQueue;}
 
@@ -95,13 +95,16 @@ private:
     void remove(uint64_t cacheIdentifier, WebCore::DOMCacheEngine::CacheIdentifierCallback&&);
     void retrieveCaches(const WebCore::ClientOrigin&, uint64_t updateCounter, WebCore::DOMCacheEngine::CacheInfosCallback&&);
 
-    void clearAllCaches(WTF::CallbackAggregator&);
-    void clearCachesForOrigin(const WebCore::SecurityOriginData&, WTF::CallbackAggregator&);
+    void clearAllCaches(CompletionHandler<void()>&&);
+    void clearAllCachesFromDisk(CompletionHandler<void()>&&);
+    void clearCachesForOrigin(const WebCore::SecurityOriginData&, CompletionHandler<void()>&&);
+    void clearCachesForOriginFromDisk(const WebCore::SecurityOriginData&, CompletionHandler<void()>&&);
+    void deleteDirectoryRecursivelyOnBackgroundThread(const String& path, CompletionHandler<void()>&&);
 
     void clearMemoryRepresentation(const WebCore::ClientOrigin&, WebCore::DOMCacheEngine::CompletionCallback&&);
     String representation();
 
-    void retrieveRecords(uint64_t cacheIdentifier, WebCore::URL&&, WebCore::DOMCacheEngine::RecordsCallback&&);
+    void retrieveRecords(uint64_t cacheIdentifier, URL&&, WebCore::DOMCacheEngine::RecordsCallback&&);
     void putRecords(uint64_t cacheIdentifier, Vector<WebCore::DOMCacheEngine::Record>&&, WebCore::DOMCacheEngine::RecordIdentifiersCallback&&);
     void deleteMatchingRecords(uint64_t cacheIdentifier, WebCore::ResourceRequest&&, WebCore::CacheQueryOptions&&, WebCore::DOMCacheEngine::RecordIdentifiersCallback&&);
 
@@ -129,7 +132,7 @@ private:
     String m_rootPath;
     uint64_t m_quota { 0 };
     RefPtr<WorkQueue> m_ioQueue;
-    std::optional<NetworkCache::Salt> m_salt;
+    Optional<NetworkCache::Salt> m_salt;
     HashMap<CacheIdentifier, LockCount> m_cacheLocks;
     Vector<WebCore::DOMCacheEngine::CompletionCallback> m_initializationCallbacks;
     HashMap<uint64_t, WebCore::DOMCacheEngine::CompletionCallback> m_pendingWriteCallbacks;

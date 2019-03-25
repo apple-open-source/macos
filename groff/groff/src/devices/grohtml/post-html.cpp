@@ -1587,7 +1587,7 @@ void header_desc::write_headings (FILE *f, int force)
 
 	  buffer += as_string(h);
 	  buffer += '\0';
-	  fprintf(f, buffer.contents());
+	  fprintf(f, "%s", buffer.contents());
 	} else
 	  fputs(g->text_string, f);
 	h++;

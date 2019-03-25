@@ -40,7 +40,15 @@ CharBuffer::CharBuffer(ANTLR_USE_NAMESPACE(std)istream& input_)
 int CharBuffer::getChar()
 {
 //	try {
-		return input.get();
+    int i = input.get();
+    
+    if (i == -1) {
+        // pass through EOF
+        return -1;
+    }
+    
+    // prevent negative-valued characters through sign extension of high-bit characters
+    return static_cast<int>(static_cast<unsigned char>(i));
 //	}
 //	catch (ANTLR_USE_NAMESPACE(std)ios_base::failure& e) {
 //		throw CharStreamIOException(e);

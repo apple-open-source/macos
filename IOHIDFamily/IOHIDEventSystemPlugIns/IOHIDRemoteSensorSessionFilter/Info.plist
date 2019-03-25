@@ -28,13 +28,13 @@
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
 	<dict>
-		<key>AC658E84-3DFE-43DE-945D-6E7919FBEDE1</key>
+		<key>CA5E89C9-65C9-43F1-81C1-BF3874ADEA01</key>
 		<string>IOHIDSessionSensorFilterFactory</string>
 	</dict>
 	<key>CFPlugInTypes</key>
 	<dict>
 		<key>7F1A3AE6-3E3D-470A-BD15-A2DD7E1BB719</key>
-		<string>AC658E84-3DFE-43DE-945D-6E7919FBEDE1</string>
+		<string>CA5E89C9-65C9-43F1-81C1-BF3874ADEA01</string>
 	</dict>
 	<key>CFPlugInUnloadFunction</key>
 	<string></string>

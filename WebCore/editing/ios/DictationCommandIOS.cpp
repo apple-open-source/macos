@@ -26,7 +26,7 @@
 #include "config.h"
 #include "DictationCommandIOS.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #include "Document.h"
 #include "DocumentMarkerController.h"
@@ -40,7 +40,7 @@
 namespace WebCore {
 
 DictationCommandIOS::DictationCommandIOS(Document& document, Vector<Vector<String>>&& dictationPhrases, RetainPtr<id> metadata)
-    : CompositeEditCommand(document, EditActionDictation)
+    : CompositeEditCommand(document, EditAction::Dictation)
     , m_dictationPhrases(WTFMove(dictationPhrases))
     , m_metadata(WTFMove(metadata))
 {
@@ -67,8 +67,8 @@ void DictationCommandIOS::doApply()
     Element* root = afterResults.rootEditableElement();
 
     // FIXME: Add the result marker using a Position cached before results are inserted, instead of relying on TextIterators.
-    RefPtr<Range> rangeToEnd = Range::create(document(), createLegacyEditingPosition((Node *)root, 0), afterResults.deepEquivalent());
-    int endIndex = TextIterator::rangeLength(rangeToEnd.get(), true);
+    auto rangeToEnd = Range::create(document(), createLegacyEditingPosition((Node *)root, 0), afterResults.deepEquivalent());
+    int endIndex = TextIterator::rangeLength(rangeToEnd.ptr(), true);
     int startIndex = endIndex - resultLength;
 
     if (startIndex >= 0) {
@@ -79,4 +79,4 @@ void DictationCommandIOS::doApply()
 
 } // namespace WebCore
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

@@ -223,6 +223,10 @@ void AcceleratedDrawingArea::scheduleCompositingLayerFlush()
         m_layerTreeHost->scheduleLayerFlush();
 }
 
+void AcceleratedDrawingArea::scheduleInitialDeferredPaint()
+{
+}
+
 void AcceleratedDrawingArea::scheduleCompositingLayerFlushImmediately()
 {
     scheduleCompositingLayerFlush();
@@ -252,6 +256,7 @@ void AcceleratedDrawingArea::updateBackingStoreState(uint64_t stateID, bool resp
         m_webPage.layoutIfNeeded();
         m_webPage.flushPendingEditorStateUpdate();
         m_webPage.scrollMainFrameIfNotAtMaxScrollPosition(scrollOffset);
+        m_webPage.willDisplayPage();
 
         if (m_layerTreeHost)
             m_layerTreeHost->sizeDidChange(m_webPage.size());
@@ -455,7 +460,7 @@ void AcceleratedDrawingArea::deviceOrPageScaleFactorChanged()
 }
 #endif
 
-void AcceleratedDrawingArea::activityStateDidChange(ActivityState::Flags changed, ActivityStateChangeID, const Vector<CallbackID>&)
+void AcceleratedDrawingArea::activityStateDidChange(OptionSet<ActivityState::Flag> changed, ActivityStateChangeID, const Vector<CallbackID>&)
 {
     if (changed & ActivityState::IsVisible) {
         if (m_webPage.isVisible())

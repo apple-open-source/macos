@@ -26,27 +26,17 @@
 #include "config.h"
 #include "NetworkProcess.h"
 
-#include "NetworkCache.h"
 #include "NetworkProcessCreationParameters.h"
-#include "ResourceCachesToClear.h"
-#include "WebCookieManager.h"
-#include <WebCore/CertificateInfo.h>
-#include <WebCore/FileSystem.h>
+#include <WebCore/CurlContext.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/NotImplemented.h>
-#include <WebCore/ResourceHandle.h>
-#include <wtf/RAMSize.h>
-#include <wtf/text/CString.h>
-#include <wtf/text/StringBuilder.h>
-
-using namespace WebCore;
 
 namespace WebKit {
 
-void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreationParameters& parameters)
+using namespace WebCore;
+
+void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreationParameters&)
 {
-    if (!parameters.cookiePersistentStorageFile.isEmpty())
-        supplement<WebCookieManager>()->setCookiePersistentStorage(parameters.cookiePersistentStorageFile);
 }
 
 void NetworkProcess::allowSpecificHTTPSCertificateForHost(const CertificateInfo& certificateInfo, const String& host)
@@ -59,9 +49,10 @@ void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
     notImplemented();
 }
 
-void NetworkProcess::clearDiskCache(WallTime, Function<void()>&&)
+void NetworkProcess::clearDiskCache(WallTime, CompletionHandler<void()>&& completionHandler)
 {
     notImplemented();
+    completionHandler();
 }
 
 void NetworkProcess::platformTerminate()
@@ -88,6 +79,14 @@ void NetworkProcess::platformProcessDidTransitionToForeground()
 void NetworkProcess::platformProcessDidTransitionToBackground()
 {
     notImplemented();
+}
+
+void NetworkProcess::setNetworkProxySettings(PAL::SessionID sessionID, WebCore::CurlProxySettings&& settings)
+{
+    if (auto* networkStorageSession = NetworkStorageSession::storageSession(sessionID))
+        networkStorageSession->setProxySettings(WTFMove(settings));
+    else
+        ASSERT_NOT_REACHED();
 }
 
 } // namespace WebKit

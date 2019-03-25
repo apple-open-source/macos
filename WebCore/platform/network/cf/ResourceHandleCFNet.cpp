@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007, 2009, 2010, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,7 +57,6 @@
 #include <wtf/text/CString.h>
 
 #if PLATFORM(WIN)
-#include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <process.h>
 
 // FIXME: Remove this declaration once it's in WebKitSupportLibrary.
@@ -118,6 +117,20 @@ static inline CFStringRef shouldSniffConnectionProperty()
 #endif
 }
 
+#if PLATFORM(WIN)
+static void setClientCertificateInSSLProperties(CFMutableDictionaryRef sslProps, CFDataRef certData)
+{
+    if (!sslProps || !certData)
+        return;
+    CFMutableDictionaryRef certDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (!certDict)
+        return;
+    CFDictionarySetValue(certDict, _kCFWindowsSSLLocalCert, certData);
+    CFDictionarySetValue(sslProps, _kCFStreamPropertyWindowsSSLCertInfo, certDict);
+    CFRelease(certDict);
+}
+#endif
+
 void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool shouldContentSniff, bool shouldContentEncodingSniff, MessageQueue<Function<void()>>* messageQueue, CFDictionaryRef clientProperties)
 {
     if ((!d->m_user.isEmpty() || !d->m_pass.isEmpty()) && !firstRequest().url().protocolIsInHTTPFamily()) {
@@ -166,17 +179,16 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
 
     RetainPtr<CFMutableDictionaryRef> sslProps;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     sslProps = adoptCF(ResourceHandle::createSSLPropertiesFromNSURLRequest(firstRequest()));
 #else
     if (allowsAnyHTTPSCertificateHosts().contains(firstRequest().url().host().toString())) {
         sslProps = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         CFDictionaryAddValue(sslProps.get(), kCFStreamSSLAllowsAnyRoot, kCFBooleanTrue);
         CFDictionaryAddValue(sslProps.get(), kCFStreamSSLAllowsExpiredRoots, kCFBooleanTrue);
         CFDictionaryAddValue(sslProps.get(), kCFStreamSSLAllowsExpiredCertificates, kCFBooleanTrue);
-#pragma clang diagnostic pop
+        ALLOW_DEPRECATED_DECLARATIONS_END
 #if !PLATFORM(WIN) // <rdar://problem/33993462> - Disabling validation of certificate chain breaks SSL on Windows.
         CFDictionaryAddValue(sslProps.get(), kCFStreamSSLValidatesCertificateChain, kCFBooleanFalse);
 #endif
@@ -187,10 +199,10 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
         if (!sslProps)
             sslProps = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 #if PLATFORM(WIN)
-        wkSetClientCertificateInSSLProperties(sslProps.get(), (clientCert->value).get());
+        setClientCertificateInSSLProperties(sslProps.get(), (clientCert->value).get());
 #endif
     }
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
 
     if (sslProps)
         CFURLRequestSetSSLProperties(request.get(), sslProps.get());
@@ -234,10 +246,9 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
     if (shouldUseCredentialStorage)
         client.shouldUseCredentialStorage = 0;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     d->m_connection = adoptCF(CFURLConnectionCreateWithProperties(0, request.get(), reinterpret_cast<CFURLConnectionClient*>(&client), propertiesDictionary.get()));
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 bool ResourceHandle::start()
@@ -585,7 +596,7 @@ void ResourceHandle::platformLoadResourceSynchronously(NetworkingContext* contex
             while (true)
                 CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1E30, true);
         });
-        sem.wait(TimeWithDynamicClockType(WallTime::infinity()));
+        sem.wait();
     }
     CFURLConnectionScheduleWithRunLoop(handle->connection(), runLoop, kCFRunLoopDefaultMode);
     CFURLConnectionScheduleDownloadWithRunLoop(handle->connection(), runLoop, kCFRunLoopDefaultMode);

@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(ASYNC_SCROLLING) && PLATFORM(IOS)
+#if ENABLE(ASYNC_SCROLLING) && PLATFORM(IOS_FAMILY)
 
 #include "ScrollingTreeFrameScrollingNode.h"
 #include <wtf/RetainPtr.h>
@@ -53,6 +53,7 @@ protected:
 
     void updateLayersAfterViewportChange(const FloatRect& fixedPositionRect, double scale) override;
     void updateLayersAfterDelegatedScroll(const FloatPoint&) override;
+    void updateLayersAfterAncestorChange(const ScrollingTreeNode& changedNode, const FloatRect& fixedPositionRect, const FloatSize& cumulativeDelta) override;
 
     void setScrollLayerPosition(const FloatPoint&, const FloatRect& layoutViewport) override;
 
@@ -72,4 +73,4 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(ASYNC_SCROLLING) && PLATFORM(IOS)
+#endif // ENABLE(ASYNC_SCROLLING) && PLATFORM(IOS_FAMILY)

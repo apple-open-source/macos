@@ -30,7 +30,7 @@
 namespace WebCore {
 
 struct FourCC {
-    WEBCORE_EXPORT FourCC(uint32_t value) : value(value) { }
+    FourCC(uint32_t value) : value(value) { }
 
     template<std::size_t N>
     constexpr FourCC(const char (&data)[N])
@@ -40,7 +40,7 @@ struct FourCC {
     }
 
     String toString() const;
-    WEBCORE_EXPORT static std::optional<FourCC> fromString(const String&);
+    WEBCORE_EXPORT static Optional<FourCC> fromString(const String&);
 
     bool operator==(const FourCC& other) const { return value == other.value; }
     bool operator!=(const FourCC& other) const { return value != other.value; }

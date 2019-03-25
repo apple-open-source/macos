@@ -145,26 +145,29 @@ bool getFileSize(const String& path, long long& resultSize)
     return true;
 }
 
-bool getFileSize(PlatformFileHandle, long long&)
+bool getFileSize(PlatformFileHandle handle, long long& resultSize)
 {
-    notImplemented();
-    return false;
+    auto info = g_file_io_stream_query_info(handle, G_FILE_ATTRIBUTE_STANDARD_SIZE, nullptr, nullptr);
+    if (!info)
+        return false;
+
+    resultSize = g_file_info_get_size(info);
+    return true;
 }
 
-bool getFileCreationTime(const String&, time_t&)
+Optional<WallTime> getFileCreationTime(const String&)
 {
     // FIXME: Is there a way to retrieve file creation time with Gtk on platforms that support it?
-    return false;
+    return WTF::nullopt;
 }
 
-bool getFileModificationTime(const String& path, time_t& modifiedTime)
+Optional<WallTime> getFileModificationTime(const String& path)
 {
     GStatBuf statResult;
     if (!getFileStat(path, &statResult))
-        return false;
+        return WTF::nullopt;
 
-    modifiedTime = statResult.st_mtime;
-    return true;
+    return WallTime::fromRawSeconds(statResult.st_mtime);
 }
 
 static FileMetadata::Type toFileMetataType(GStatBuf statResult)
@@ -176,29 +179,29 @@ static FileMetadata::Type toFileMetataType(GStatBuf statResult)
     return FileMetadata::Type::File;
 }
 
-static std::optional<FileMetadata> fileMetadataUsingFunction(const String& path, bool (*statFunc)(const String&, GStatBuf*))
+static Optional<FileMetadata> fileMetadataUsingFunction(const String& path, bool (*statFunc)(const String&, GStatBuf*))
 {
     GStatBuf statResult;
     if (!statFunc(path, &statResult))
-        return std::nullopt;
+        return WTF::nullopt;
 
     String filename = pathGetFileName(path);
     bool isHidden = !filename.isEmpty() && filename[0] == '.';
 
     return FileMetadata {
-        static_cast<double>(statResult.st_mtime),
+        WallTime::fromRawSeconds(statResult.st_mtime),
         statResult.st_size,
         isHidden,
         toFileMetataType(statResult)
     };
 }
 
-std::optional<FileMetadata> fileMetadata(const String& path)
+Optional<FileMetadata> fileMetadata(const String& path)
 {
     return fileMetadataUsingFunction(path, &getFileLStat);
 }
 
-std::optional<FileMetadata> fileMetadataFollowingSymlinks(const String& path)
+Optional<FileMetadata> fileMetadataFollowingSymlinks(const String& path)
 {
     return fileMetadataUsingFunction(path, &getFileStat);
 }
@@ -401,7 +404,10 @@ bool moveFile(const String& oldPath, const String& newPath)
     if (!newFilename)
         return false;
 
-    return g_rename(oldFilename.get(), newFilename.get()) != -1;
+    GRefPtr<GFile> oldFile = adoptGRef(g_file_new_for_path(oldFilename.get()));
+    GRefPtr<GFile> newFile = adoptGRef(g_file_new_for_path(newFilename.get()));
+
+    return g_file_move(oldFile.get(), newFile.get(), G_FILE_COPY_OVERWRITE, nullptr, nullptr, nullptr, nullptr);
 }
 
 bool hardLinkOrCopyFile(const String& source, const String& destination)
@@ -427,16 +433,16 @@ bool hardLinkOrCopyFile(const String& source, const String& destination)
 #endif
 }
 
-std::optional<int32_t> getFileDeviceId(const CString& fsFile)
+Optional<int32_t> getFileDeviceId(const CString& fsFile)
 {
     GUniquePtr<gchar> filename = unescapedFilename(fsFile.data());
     if (!filename)
-        return std::nullopt;
+        return WTF::nullopt;
 
     GRefPtr<GFile> file = adoptGRef(g_file_new_for_path(filename.get()));
     GRefPtr<GFileInfo> fileInfo = adoptGRef(g_file_query_filesystem_info(file.get(), G_FILE_ATTRIBUTE_UNIX_DEVICE, nullptr, nullptr));
     if (!fileInfo)
-        return std::nullopt;
+        return WTF::nullopt;
 
     return g_file_info_get_attribute_uint32(fileInfo.get(), G_FILE_ATTRIBUTE_UNIX_DEVICE);
 }

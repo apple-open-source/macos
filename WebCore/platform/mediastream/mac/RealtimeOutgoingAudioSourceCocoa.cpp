@@ -49,6 +49,11 @@ RealtimeOutgoingAudioSourceCocoa::RealtimeOutgoingAudioSourceCocoa(Ref<MediaStre
 {
 }
 
+RealtimeOutgoingAudioSourceCocoa::~RealtimeOutgoingAudioSourceCocoa()
+{
+    unobserveSource();
+}
+
 Ref<RealtimeOutgoingAudioSource> RealtimeOutgoingAudioSource::create(Ref<MediaStreamTrackPrivate>&& audioSource)
 {
     return RealtimeOutgoingAudioSourceCocoa::create(WTFMove(audioSource));
@@ -81,6 +86,7 @@ bool RealtimeOutgoingAudioSourceCocoa::hasBufferedEnoughData()
     return writtenAudioDuration >= readAudioDuration + 0.01;
 }
 
+// May get called on a background thread.
 void RealtimeOutgoingAudioSourceCocoa::audioSamplesAvailable(const MediaTime&, const PlatformAudioData& audioData, const AudioStreamDescription& streamDescription, size_t sampleCount)
 {
     if (m_inputStreamDescription != streamDescription) {
@@ -134,8 +140,7 @@ void RealtimeOutgoingAudioSourceCocoa::pullAudioData()
 
     m_sampleConverter->pullAvalaibleSamplesAsChunks(bufferList, chunkSampleCount, m_readCount, [this, chunkSampleCount] {
         m_readCount += chunkSampleCount;
-        for (auto sink : m_sinks)
-            sink->OnData(m_audioBuffer.data(), LibWebRTCAudioFormat::sampleSize, m_outputStreamDescription.sampleRate(), m_outputStreamDescription.numberOfChannels(), chunkSampleCount);
+        sendAudioFrames(m_audioBuffer.data(), LibWebRTCAudioFormat::sampleSize, m_outputStreamDescription.sampleRate(), m_outputStreamDescription.numberOfChannels(), chunkSampleCount);
     });
 }
 

@@ -41,30 +41,10 @@
 
 using namespace WebCore;
 
-@class NSURLConnectionDelegateProxy;
-
-// FIXME: The following are NSURLDownload SPI - it would be nice to not have to override them at 
-// some point in the future
-@interface NSURLDownload (WebDownloadCapability)
-- (id)_initWithLoadingConnection:(NSURLConnection *)connection
-                         request:(NSURLRequest *)request
-                        response:(NSURLResponse *)response
-                        delegate:(id)delegate
-                           proxy:(NSURLConnectionDelegateProxy *)proxy;
-- (id)_initWithRequest:(NSURLRequest *)request
-              delegate:(id)delegate
-             directory:(NSString *)directory;
-
-@end
-
-@interface WebDownloadInternal : NSObject <NSURLDownloadDelegate>
-{
-@public
+@interface WebDownloadInternal : NSObject <NSURLDownloadDelegate> {
     id realDelegate;
 }
-
-- (void)setRealDelegate:(id)rd;
-
+- (void)setRealDelegate:(id)realDelegate;
 @end
 
 @implementation WebDownloadInternal
@@ -111,7 +91,7 @@ using namespace WebCore;
 
 - (void)download:(NSURLDownload *)download didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     // Try previously stored credential first.
     if (![challenge previousFailureCount]) {
         NSURLCredential *credential = CredentialStorage::defaultCredentialStorage().get(emptyString(), ProtectionSpace([challenge protectionSpace])).nsCredential();
@@ -201,25 +181,31 @@ using namespace WebCore;
     [super dealloc];
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (id)initWithRequest:(NSURLRequest *)request delegate:(id<NSURLDownloadDelegate>)delegate
+IGNORE_WARNINGS_END
 {
     [self _setRealDelegate:delegate];
     return [super initWithRequest:request delegate:_webInternal];
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (id)_initWithLoadingConnection:(NSURLConnection *)connection
                          request:(NSURLRequest *)request
                         response:(NSURLResponse *)response
                         delegate:(id)delegate
                            proxy:(NSURLConnectionDelegateProxy *)proxy
+IGNORE_WARNINGS_END
 {
     [self _setRealDelegate:delegate];
     return [super _initWithLoadingConnection:connection request:request response:response delegate:_webInternal proxy:proxy];
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (id)_initWithRequest:(NSURLRequest *)request
               delegate:(id)delegate
              directory:(NSString *)directory
+IGNORE_WARNINGS_END
 {
     [self _setRealDelegate:delegate];
     return [super _initWithRequest:request delegate:_webInternal directory:directory];

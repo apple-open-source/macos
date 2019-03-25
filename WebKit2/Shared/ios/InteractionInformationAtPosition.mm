@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
 #import "config.h"
 #import "InteractionInformationAtPosition.h"
 
-#import "ArgumentCodersCF.h"
+#import "ArgumentCodersCocoa.h"
 #import "WebCoreArgumentCoders.h"
 #import <pal/spi/cocoa/DataDetectorsCoreSPI.h>
 #import <pal/spi/cocoa/NSKeyedArchiverSPI.h>
@@ -37,13 +37,13 @@ SOFT_LINK_CLASS(DataDetectorsCore, DDScannerResult)
 
 namespace WebKit {
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 void InteractionInformationAtPosition::encode(IPC::Encoder& encoder) const
 {
     encoder << request;
 
-    encoder << nodeAtPositionIsAssistedNode;
+    encoder << nodeAtPositionIsFocusedElement;
 #if ENABLE(DATA_INTERACTION)
     encoder << hasSelectionAtPosition;
 #endif
@@ -76,11 +76,11 @@ void InteractionInformationAtPosition::encode(IPC::Encoder& encoder) const
     encoder << isDataDetectorLink;
     if (isDataDetectorLink) {
         encoder << dataDetectorIdentifier;
-        auto archiver = secureArchiver();
-        [archiver encodeObject:dataDetectorResults.get() forKey:@"dataDetectorResults"];
-
-        IPC::encode(encoder, reinterpret_cast<CFDataRef>(archiver.get().encodedData));
+        encoder << dataDetectorResults;
     }
+#endif
+#if ENABLE(DATALIST_ELEMENT)
+    encoder << preventTextInteraction;
 #endif
 }
 
@@ -89,7 +89,7 @@ bool InteractionInformationAtPosition::decode(IPC::Decoder& decoder, Interaction
     if (!decoder.decode(result.request))
         return false;
 
-    if (!decoder.decode(result.nodeAtPositionIsAssistedNode))
+    if (!decoder.decode(result.nodeAtPositionIsFocusedElement))
         return false;
 
 #if ENABLE(DATA_INTERACTION)
@@ -150,7 +150,7 @@ bool InteractionInformationAtPosition::decode(IPC::Decoder& decoder, Interaction
     if (!decoder.decode(result.textAfter))
         return false;
     
-    std::optional<WebCore::TextIndicatorData> linkIndicator;
+    Optional<WebCore::TextIndicatorData> linkIndicator;
     decoder >> linkIndicator;
     if (!linkIndicator)
         return false;
@@ -170,20 +170,18 @@ bool InteractionInformationAtPosition::decode(IPC::Decoder& decoder, Interaction
     if (result.isDataDetectorLink) {
         if (!decoder.decode(result.dataDetectorIdentifier))
             return false;
-        RetainPtr<CFDataRef> data;
-        if (!IPC::decode(decoder, data))
+
+        auto dataDetectorResults = IPC::decode<NSArray>(decoder, @[ [NSArray class], getDDScannerResultClass() ]);
+        if (!dataDetectorResults)
             return false;
-        
-        auto unarchiver = secureUnarchiverFromData((NSData *)data.get());
-        @try {
-            result.dataDetectorResults = [unarchiver decodeObjectOfClasses:[NSSet setWithArray:@[ [NSArray class], getDDScannerResultClass()] ] forKey:@"dataDetectorResults"];
-        } @catch (NSException *exception) {
-            LOG_ERROR("Failed to decode NSArray of DDScanResult: %@", exception);
-            return false;
-        }
-        
-        [unarchiver finishDecoding];
+
+        result.dataDetectorResults = WTFMove(*dataDetectorResults);
     }
+#endif
+
+#if ENABLE(DATALIST_ELEMENT)
+    if (!decoder.decode(result.preventTextInteraction))
+        return false;
 #endif
 
     return true;
@@ -201,6 +199,6 @@ void InteractionInformationAtPosition::mergeCompatibleOptionalInformation(const 
         linkIndicator = oldInformation.linkIndicator;
 }
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
 
 }

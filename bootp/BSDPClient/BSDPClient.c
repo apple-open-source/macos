@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -338,6 +338,7 @@ my_log(int priority, const char *message, ...)
 
     va_start(ap, message);
     vfprintf(stderr, message, ap);
+    va_end(ap);
     return;
 }
 
@@ -717,7 +718,7 @@ BSDPClientProcess(CFSocketRef s, CFSocketCallBackType type,
     BSDPClientRef 		client = (BSDPClientRef)info;
     dhcpo_err_str_t		err;
     struct sockaddr_in 		from;
-    socklen_t 			fromlen;
+    socklen_t 			fromlen	= sizeof(from);
     int 			n;
     void *			opt;
     int				opt_len;

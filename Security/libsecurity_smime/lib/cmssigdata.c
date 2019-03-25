@@ -532,8 +532,11 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
     SecAsn1Item *contentType, *digest;
     OSStatus status;
 
-    cinfo = &(sigd->contentInfo);
+    if (sigd == NULL || sigd->signerInfos == NULL || i >= SecCmsSignedDataSignerInfoCount(sigd)) {
+        return errSecParam;
+    }
 
+    cinfo = &(sigd->contentInfo);
     signerinfo = sigd->signerInfos[i];
 
     /* Signature or digest level verificationStatus errors should supercede
@@ -541,15 +544,21 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
 
     /* Find digest and contentType for signerinfo */
     algiddata = SecCmsSignerInfoGetDigestAlg(signerinfo);
+    if (algiddata == NULL) {
+        return errSecInvalidDigestAlgorithm;
+    }
 
     if (!sigd->digests) {
-	SECAlgorithmID **digestalgs = SecCmsSignedDataGetDigestAlgs(sigd);
-	SecCmsDigestContextRef digcx = SecCmsDigestContextStartMultiple(digestalgs);
-	SecCmsSignedDataSetDigestContext(sigd, digcx);
-	SecCmsDigestContextDestroy(digcx);
+        SECAlgorithmID **digestalgs = SecCmsSignedDataGetDigestAlgs(sigd);
+        SecCmsDigestContextRef digcx = SecCmsDigestContextStartMultiple(digestalgs);
+        SecCmsSignedDataSetDigestContext(sigd, digcx);
+        SecCmsDigestContextDestroy(digcx);
     }
 
     digest = SecCmsSignedDataGetDigestByAlgTag(sigd, algiddata->offset);
+    if (digest == NULL) {
+        return errSecDataNotAvailable;
+    }
 
     contentType = SecCmsContentInfoGetContentTypeOID(cinfo);
 

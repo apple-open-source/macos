@@ -121,8 +121,8 @@ static SchemeAndKeyResult extractSchemeAndKeyIdFromSinf(const SharedBuffer& buff
     SchemeAndKeyResult result;
     for (auto& buffer : buffers) {
         unsigned offset = 0;
-        std::optional<FourCC> scheme;
-        std::optional<Vector<uint8_t>> keyID;
+        Optional<FourCC> scheme;
+        Optional<Vector<uint8_t>> keyID;
 
         auto view = JSC::DataView::create(buffer->tryCreateArrayBuffer(), offset, buffer->size());
         while (auto optionalBoxType = ISOBox::peekBox(view, offset)) {
@@ -158,9 +158,8 @@ static SchemeAndKeyResult extractSchemeAndKeyIdFromSinf(const SharedBuffer& buff
     return result;
 }
 
-Vector<Ref<SharedBuffer>> CDMPrivateFairPlayStreaming::extractKeyIDsSinf(const SharedBuffer& buffer)
+Optional<Vector<Ref<SharedBuffer>>> CDMPrivateFairPlayStreaming::extractKeyIDsSinf(const SharedBuffer& buffer)
 {
-
     Vector<Ref<SharedBuffer>> keyIDs;
     auto results = extractSchemeAndKeyIdFromSinf(buffer);
 
@@ -187,7 +186,7 @@ RefPtr<SharedBuffer> CDMPrivateFairPlayStreaming::sanitizeSkd(const SharedBuffer
     return buffer.copy();
 }
 
-Vector<Ref<SharedBuffer>> CDMPrivateFairPlayStreaming::extractKeyIDsSkd(const SharedBuffer& buffer)
+Optional<Vector<Ref<SharedBuffer>>> CDMPrivateFairPlayStreaming::extractKeyIDsSkd(const SharedBuffer& buffer)
 {
     // In the 'skd' scheme, the init data is the key ID.
     Vector<Ref<SharedBuffer>> keyIDs;
@@ -261,13 +260,13 @@ bool CDMPrivateFairPlayStreaming::supportsConfiguration(const CDMKeySystemConfig
 
     if (!configuration.audioCapabilities.isEmpty()
         && !WTF::anyOf(configuration.audioCapabilities, [](auto& capability) {
-            return CDMInstanceFairPlayStreamingAVFObjC::mimeTypeIsPlayable(capability.contentType);
+            return CDMInstanceFairPlayStreamingAVFObjC::supportsMediaCapability(capability);
         }))
         return false;
 
     if (!configuration.videoCapabilities.isEmpty()
         && !WTF::anyOf(configuration.videoCapabilities, [](auto& capability) {
-            return CDMInstanceFairPlayStreamingAVFObjC::mimeTypeIsPlayable(capability.contentType);
+            return CDMInstanceFairPlayStreamingAVFObjC::supportsMediaCapability(capability);
         }))
         return false;
 
@@ -377,7 +376,7 @@ RefPtr<SharedBuffer> CDMPrivateFairPlayStreaming::sanitizeResponse(const SharedB
     return response.copy();
 }
 
-std::optional<String> CDMPrivateFairPlayStreaming::sanitizeSessionId(const String& sessionId) const
+Optional<String> CDMPrivateFairPlayStreaming::sanitizeSessionId(const String& sessionId) const
 {
     return sessionId;
 }

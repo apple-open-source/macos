@@ -88,7 +88,9 @@ public:
     OSMetaClassDeclareReservedUsed(IOHIDElement,  6);
     virtual boolean_t                       isVariableSize()        = 0;
 
-    OSMetaClassDeclareReservedUnused(IOHIDElement,  7);
+    OSMetaClassDeclareReservedUsed(IOHIDElement,  7);
+    virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type, IOOptionBits options)  = 0;
+
     OSMetaClassDeclareReservedUnused(IOHIDElement,  8);
     OSMetaClassDeclareReservedUnused(IOHIDElement,  9);
     OSMetaClassDeclareReservedUnused(IOHIDElement, 10);

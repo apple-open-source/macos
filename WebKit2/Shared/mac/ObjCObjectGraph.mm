@@ -113,7 +113,7 @@ enum class ObjCType {
 #endif
 };
 
-static std::optional<ObjCType> typeFromObject(id object)
+static Optional<ObjCType> typeFromObject(id object)
 {
     ASSERT(object);
 
@@ -133,11 +133,13 @@ static std::optional<ObjCType> typeFromObject(id object)
 #if WK_API_ENABLED
     if (dynamic_objc_cast<WKBrowsingContextHandle>(object))
         return ObjCType::WKBrowsingContextHandle;
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (dynamic_objc_cast<WKTypeRefWrapper>(object))
         return ObjCType::WKTypeRefWrapper;
+    ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 
-    return std::nullopt;
+    return WTF::nullopt;
 }
 
 void ObjCObjectGraph::encode(IPC::Encoder& encoder, id object)
@@ -196,7 +198,9 @@ void ObjCObjectGraph::encode(IPC::Encoder& encoder, id object)
         break;
 
     case ObjCType::WKTypeRefWrapper:
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         UserData::encode(encoder, toImpl(static_cast<WKTypeRefWrapper *>(object).object));
+        ALLOW_DEPRECATED_DECLARATIONS_END
         break;
 #endif
 
@@ -317,7 +321,9 @@ bool ObjCObjectGraph::decode(IPC::Decoder& decoder, RetainPtr<id>& result)
         if (!UserData::decode(decoder, object))
             return false;
 
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         result = adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(object.get())]);
+        ALLOW_DEPRECATED_DECLARATIONS_END
         break;
     }
 #endif

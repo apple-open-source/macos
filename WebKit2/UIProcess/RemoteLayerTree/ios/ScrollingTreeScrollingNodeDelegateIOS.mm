@@ -26,7 +26,7 @@
 #import "config.h"
 #import "ScrollingTreeScrollingNodeDelegateIOS.h"
 
-#if PLATFORM(IOS) && ENABLE(ASYNC_SCROLLING)
+#if PLATFORM(IOS_FAMILY) && ENABLE(ASYNC_SCROLLING)
 
 #import <QuartzCore/QuartzCore.h>
 #import <UIKit/UIPanGestureRecognizer.h>
@@ -42,8 +42,6 @@
 #import <WebCore/AxisScrollSnapOffsets.h>
 #import <WebCore/ScrollSnapOffsetsInfo.h>
 #endif
-
-using namespace WebCore;
 
 @implementation WKScrollingNodeScrollViewDelegate
 
@@ -80,7 +78,7 @@ using namespace WebCore;
 
     if (!_scrollingTreeNodeDelegate->scrollingNode().horizontalSnapOffsets().isEmpty()) {
         unsigned index;
-        float potentialSnapPosition = closestSnapOffset(_scrollingTreeNodeDelegate->scrollingNode().horizontalSnapOffsets(), _scrollingTreeNodeDelegate->scrollingNode().horizontalSnapOffsetRanges(), horizontalTarget, velocity.x, index);
+        float potentialSnapPosition = WebCore::closestSnapOffset(_scrollingTreeNodeDelegate->scrollingNode().horizontalSnapOffsets(), _scrollingTreeNodeDelegate->scrollingNode().horizontalSnapOffsetRanges(), horizontalTarget, velocity.x, index);
         _scrollingTreeNodeDelegate->scrollingNode().setCurrentHorizontalSnapPointIndex(index);
         if (horizontalTarget >= 0 && horizontalTarget <= scrollView.contentSize.width)
             targetContentOffset->x = potentialSnapPosition;
@@ -88,7 +86,7 @@ using namespace WebCore;
 
     if (!_scrollingTreeNodeDelegate->scrollingNode().verticalSnapOffsets().isEmpty()) {
         unsigned index;
-        float potentialSnapPosition = closestSnapOffset(_scrollingTreeNodeDelegate->scrollingNode().verticalSnapOffsets(), _scrollingTreeNodeDelegate->scrollingNode().verticalSnapOffsetRanges(), verticalTarget, velocity.y, index);
+        float potentialSnapPosition = WebCore::closestSnapOffset(_scrollingTreeNodeDelegate->scrollingNode().verticalSnapOffsets(), _scrollingTreeNodeDelegate->scrollingNode().verticalSnapOffsetRanges(), verticalTarget, velocity.y, index);
         _scrollingTreeNodeDelegate->scrollingNode().setCurrentVerticalSnapPointIndex(index);
         if (verticalTarget >= 0 && verticalTarget <= scrollView.contentSize.height)
             targetContentOffset->y = potentialSnapPosition;
@@ -122,6 +120,7 @@ using namespace WebCore;
 @end
 
 namespace WebKit {
+using namespace WebCore;
 
 ScrollingTreeScrollingNodeDelegateIOS::ScrollingTreeScrollingNodeDelegateIOS(ScrollingTreeScrollingNode& scrollingNode)
     : ScrollingTreeScrollingNodeDelegate(scrollingNode)
@@ -247,7 +246,7 @@ void ScrollingTreeScrollingNodeDelegateIOS::updateChildNodesAfterScroll(const Fl
 
     FloatRect fixedPositionRect;
     auto* frameNode = scrollingNode().enclosingFrameNodeIncludingSelf();
-    if (frameNode && frameNode->nodeType() == SubframeScrollingNode)
+    if (frameNode && frameNode->nodeType() == ScrollingNodeType::Subframe)
         fixedPositionRect = frameNode->fixedPositionRect();
     else
         fixedPositionRect = scrollingTree().fixedPositionRect();
@@ -290,4 +289,4 @@ void ScrollingTreeScrollingNodeDelegateIOS::currentSnapPointIndicesDidChange(uns
 
 } // namespace WebKit
 
-#endif // PLATFORM(IOS) && ENABLE(ASYNC_SCROLLING)
+#endif // PLATFORM(IOS_FAMILY) && ENABLE(ASYNC_SCROLLING)

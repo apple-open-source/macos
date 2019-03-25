@@ -128,10 +128,7 @@ do_keychain_set_password(const char *keychainName, const char* oldPassword, cons
 		goto cleanup;
 	}
 
-	/* lock keychain first to remove existing credentials */
-	(void)SecKeychainLock(keychain);
-
-	/* change the password */
+	/* change the password, if daemon agrees everything looks good */
 	result = SecKeychainChangePassword(keychain, oldLen, oldPass, newLen, newPass);
 	if (result)
 	{

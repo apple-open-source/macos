@@ -26,22 +26,19 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
 
 #import "WebContextMenuClient.h"
 
 #import "WebDelegateImplementationCaching.h"
 #import "WebElementDictionary.h"
-#import "WebFrame.h"
 #import "WebFrameInternal.h"
-#import "WebHTMLView.h"
+#import "WebFrameView.h"
 #import "WebHTMLViewInternal.h"
 #import "WebKitVersionChecks.h"
 #import "WebNSPasteboardExtras.h"
 #import "WebSharingServicePickerController.h"
-#import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
-#import "WebView.h"
 #import "WebViewInternal.h"
 #import <WebCore/BitmapImage.h>
 #import <WebCore/ContextMenu.h>
@@ -57,9 +54,9 @@
 #import <WebCore/RenderObject.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SharedBuffer.h>
-#import <WebCore/URL.h>
 #import <WebKitLegacy/DOMPrivate.h>
 #import <pal/spi/mac/NSSharingServicePickerSPI.h>
+#import <wtf/URL.h>
 
 using namespace WebCore;
 
@@ -121,7 +118,7 @@ bool WebContextMenuClient::isSpeaking()
 
 void WebContextMenuClient::speak(const String& string)
 {
-    [NSApp speakString:[[(NSString*)string copy] autorelease]];
+    [NSApp speakString:(NSString *)string];
 }
 
 void WebContextMenuClient::stopSpeaking()
@@ -210,11 +207,11 @@ RetainPtr<NSImage> WebContextMenuClient::imageForCurrentSharingServicePickerItem
         return nil;
 
     VisibleSelection oldSelection = frameView->frame().selection().selection();
-    RefPtr<Range> range = Range::create(node->document(), Position(node, Position::PositionIsBeforeAnchor), Position(node, Position::PositionIsAfterAnchor));
-    frameView->frame().selection().setSelection(VisibleSelection(*range), FrameSelection::DoNotSetFocus);
+    auto range = Range::create(node->document(), Position(node, Position::PositionIsBeforeAnchor), Position(node, Position::PositionIsAfterAnchor));
+    frameView->frame().selection().setSelection(VisibleSelection(range.get()), FrameSelection::DoNotSetFocus);
 
-    PaintBehavior oldPaintBehavior = frameView->paintBehavior();
-    frameView->setPaintBehavior(PaintBehaviorSelectionOnly);
+    OptionSet<PaintBehavior> oldPaintBehavior = frameView->paintBehavior();
+    frameView->setPaintBehavior(PaintBehavior::SelectionOnly);
 
     buffer->context().translate(-toFloatSize(rect.location()));
     frameView->paintContents(buffer->context(), roundedIntRect(rect));
@@ -281,4 +278,4 @@ void WebContextMenuClient::showContextMenu()
     }
 }
 
-#endif // !PLATFORM(IOS)
+#endif // !PLATFORM(IOS_FAMILY)

@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef StringView_h
-#define StringView_h
+#pragma once
 
 #include <limits.h>
 #include <unicode/utypes.h>
@@ -126,6 +125,7 @@ public:
 
     class SplitResult;
     SplitResult split(UChar) const;
+    SplitResult splitAllowingEmptyEntries(UChar) const;
 
     size_t find(UChar, unsigned start = 0) const;
     size_t find(CodeUnitMatchFunction, unsigned start = 0) const;
@@ -153,7 +153,7 @@ public:
     int toInt() const;
     int toInt(bool& isValid) const;
     int toIntStrict(bool& isValid) const;
-    std::optional<uint64_t> toUInt64Strict() const;
+    Optional<uint64_t> toUInt64Strict() const;
     float toFloat(bool& isValid) const;
 
     static void invalidate(const StringImpl&);
@@ -529,11 +529,11 @@ inline int StringView::toIntStrict(bool& isValid) const
     return charactersToIntStrict(characters16(), m_length, &isValid);
 }
 
-inline std::optional<uint64_t> StringView::toUInt64Strict() const
+inline Optional<uint64_t> StringView::toUInt64Strict() const
 {
     bool isValid;
     uint64_t result = is8Bit() ? charactersToUInt64Strict(characters8(), m_length, &isValid) : charactersToUInt64Strict(characters16(), m_length, &isValid);
-    return isValid ? std::make_optional(result) : std::nullopt;
+    return isValid ? makeOptional(result) : WTF::nullopt;
 }
 
 inline String StringView::toStringWithoutCopying() const
@@ -635,7 +635,7 @@ inline bool equalIgnoringASCIICase(StringView a, const char* b)
 
 class StringView::SplitResult {
 public:
-    explicit SplitResult(StringView, UChar separator);
+    SplitResult(StringView, UChar separator, bool allowEmptyEntries);
 
     class Iterator;
     Iterator begin() const;
@@ -644,6 +644,7 @@ public:
 private:
     StringView m_string;
     UChar m_separator;
+    bool m_allowEmptyEntries;
 };
 
 class StringView::GraphemeClusters {
@@ -703,6 +704,7 @@ private:
     const SplitResult& m_result;
     unsigned m_position { 0 };
     unsigned m_length;
+    bool m_isDone;
 };
 
 class StringView::GraphemeClusters::Iterator {
@@ -741,7 +743,7 @@ public:
 
 private:
     std::reference_wrapper<const StringView> m_stringView;
-    std::optional<unsigned> m_nextCodePointOffset;
+    Optional<unsigned> m_nextCodePointOffset;
     UChar32 m_codePoint;
 };
 
@@ -806,7 +808,7 @@ inline auto StringView::CodePoints::Iterator::operator++() -> Iterator&
 {
     ASSERT(m_nextCodePointOffset);
     if (m_nextCodePointOffset.value() == m_stringView.get().length()) {
-        m_nextCodePointOffset = std::nullopt;
+        m_nextCodePointOffset = WTF::nullopt;
         return *this;
     }
     if (m_stringView.get().is8Bit())
@@ -897,12 +899,18 @@ inline auto StringView::CodeUnits::end() const -> Iterator
 
 inline auto StringView::split(UChar separator) const -> SplitResult
 {
-    return SplitResult { *this, separator };
+    return SplitResult { *this, separator, false };
 }
 
-inline StringView::SplitResult::SplitResult(StringView stringView, UChar separator)
+inline auto StringView::splitAllowingEmptyEntries(UChar separator) const -> SplitResult
+{
+    return SplitResult { *this, separator, true };
+}
+
+inline StringView::SplitResult::SplitResult(StringView stringView, UChar separator, bool allowEmptyEntries)
     : m_string { stringView }
     , m_separator { separator }
+    , m_allowEmptyEntries { allowEmptyEntries }
 {
 }
 
@@ -918,6 +926,7 @@ inline auto StringView::SplitResult::end() const -> Iterator
 
 inline StringView::SplitResult::Iterator::Iterator(const SplitResult& result)
     : m_result { result }
+    , m_isDone { result.m_string.isEmpty() && !result.m_allowEmptyEntries }
 {
     findNextSubstring();
 }
@@ -925,19 +934,20 @@ inline StringView::SplitResult::Iterator::Iterator(const SplitResult& result)
 inline StringView::SplitResult::Iterator::Iterator(const SplitResult& result, PositionTag)
     : m_result { result }
     , m_position { result.m_string.length() }
+    , m_isDone { true }
 {
 }
 
 inline StringView StringView::SplitResult::Iterator::operator*() const
 {
-    ASSERT(m_position < m_result.m_string.length());
+    ASSERT(m_position <= m_result.m_string.length() && !m_isDone);
     return m_result.m_string.substring(m_position, m_length);
 }
 
 inline bool StringView::SplitResult::Iterator::operator==(const Iterator& other) const
 {
     ASSERT(&m_result == &other.m_result);
-    return m_position == other.m_position;
+    return m_position == other.m_position && m_isDone == other.m_isDone;
 }
 
 inline bool StringView::SplitResult::Iterator::operator!=(const Iterator& other) const
@@ -989,5 +999,3 @@ template<unsigned length> inline bool equalLettersIgnoringASCIICase(StringView s
 using WTF::append;
 using WTF::equal;
 using WTF::StringView;
-
-#endif

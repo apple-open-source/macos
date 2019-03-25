@@ -29,13 +29,11 @@
 
 #include "ArgumentCoders.h"
 
-using namespace WebCore;
-
 namespace WebKit {
 
 WebPopupItem::WebPopupItem()
     : m_type(Item)
-    , m_textDirection(LTR)
+    , m_textDirection(WebCore::TextDirection::LTR)
     , m_hasTextDirectionOverride(false)
     , m_isEnabled(true)
     , m_isSelected(false)
@@ -44,7 +42,7 @@ WebPopupItem::WebPopupItem()
 
 WebPopupItem::WebPopupItem(Type type)
     : m_type(type)
-    , m_textDirection(LTR)
+    , m_textDirection(WebCore::TextDirection::LTR)
     , m_hasTextDirectionOverride(false)
     , m_isEnabled(true)
     , m_isLabel(false)
@@ -52,7 +50,7 @@ WebPopupItem::WebPopupItem(Type type)
 {
 }
 
-WebPopupItem::WebPopupItem(Type type, const String& text, TextDirection textDirection, bool hasTextDirectionOverride, const String& toolTip, const String& accessibilityText, bool isEnabled, bool isLabel, bool isSelected)
+WebPopupItem::WebPopupItem(Type type, const String& text, WebCore::TextDirection textDirection, bool hasTextDirectionOverride, const String& toolTip, const String& accessibilityText, bool isEnabled, bool isLabel, bool isSelected)
     : m_type(type)
     , m_text(text)
     , m_textDirection(textDirection)
@@ -78,43 +76,43 @@ void WebPopupItem::encode(IPC::Encoder& encoder) const
     encoder << m_isSelected;
 }
 
-std::optional<WebPopupItem> WebPopupItem::decode(IPC::Decoder& decoder)
+Optional<WebPopupItem> WebPopupItem::decode(IPC::Decoder& decoder)
 {
     Type type;
     if (!decoder.decodeEnum(type))
-        return std::nullopt;
+        return WTF::nullopt;
 
     String text;
     if (!decoder.decode(text))
-        return std::nullopt;
+        return WTF::nullopt;
     
-    TextDirection textDirection;
+    WebCore::TextDirection textDirection;
     if (!decoder.decodeEnum(textDirection))
-        return std::nullopt;
+        return WTF::nullopt;
 
     bool hasTextDirectionOverride;
     if (!decoder.decode(hasTextDirectionOverride))
-        return std::nullopt;
+        return WTF::nullopt;
 
     String toolTip;
     if (!decoder.decode(toolTip))
-        return std::nullopt;
+        return WTF::nullopt;
 
     String accessibilityText;
     if (!decoder.decode(accessibilityText))
-        return std::nullopt;
+        return WTF::nullopt;
 
     bool isEnabled;
     if (!decoder.decode(isEnabled))
-        return std::nullopt;
+        return WTF::nullopt;
 
     bool isLabel;
     if (!decoder.decode(isLabel))
-        return std::nullopt;
+        return WTF::nullopt;
 
     bool isSelected;
     if (!decoder.decode(isSelected))
-        return std::nullopt;
+        return WTF::nullopt;
 
     return {{ type, text, textDirection, hasTextDirectionOverride, toolTip, accessibilityText, isEnabled, isLabel, isSelected }};
 }

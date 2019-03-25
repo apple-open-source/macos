@@ -72,14 +72,13 @@ void ChildProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchO
     case ProcessLauncher::ProcessType::Network:
         varname = "NETWORK_PROCESS_CMD_PREFIX";
         break;
-    case ProcessLauncher::ProcessType::Storage:
-        varname = "STORAGE_PROCESS_CMD_PREFIX";
-        break;
     }
     const char* processCmdPrefix = getenv(varname);
     if (processCmdPrefix && *processCmdPrefix)
         launchOptions.processCmdPrefix = String::fromUTF8(processCmdPrefix);
 #endif // ENABLE(DEVELOPER_MODE) && (PLATFORM(GTK) || PLATFORM(WPE))
+
+    platformGetLaunchOptions(launchOptions);
 }
 
 void ChildProcessProxy::connect()
@@ -190,7 +189,7 @@ void ChildProcessProxy::shutDownProcess()
         m_processLauncher = nullptr;
         break;
     case State::Running:
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
         // On iOS deploy a watchdog in the UI process, since the child process may be suspended.
         // If 30s is insufficient for any outstanding activity to complete cleanly, then it will be killed.
         ASSERT(m_connection);

@@ -656,11 +656,14 @@ KeychainImpl::changePassphrase(UInt32 oldPasswordLength, const void *oldPassword
 	UInt32 newPasswordLength, const void *newPassword)
 {
 	StLock<Mutex>_(mMutex);
-	
+
+    secnotice("KCspi", "Attempting to change passphrase for %s", mDb->name());
+
 	bool isSmartcard = 	(mDb->dl()->guid() == gGuidAppleSdCSPDL);
 
 	TrackingAllocator allocator(Allocator::standard());
 	AutoCredentials cred = AutoCredentials(allocator);
+
 	if (oldPassword)
 	{
 		const CssmData &oldPass = *new(allocator) CssmData(const_cast<void *>(oldPassword), oldPasswordLength);

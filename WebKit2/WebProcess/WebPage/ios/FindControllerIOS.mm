@@ -25,7 +25,7 @@
 
 #import <config.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import "FindController.h"
 #import "FindIndicatorOverlayClientIOS.h"
@@ -44,20 +44,19 @@
 #import <WebCore/Settings.h>
 #import <WebCore/TextIndicator.h>
 
+namespace WebKit {
 using namespace WebCore;
 
 const int cornerRadius = 3;
-const int totalHorizontalMargin = 2;
+const int totalHorizontalMargin = 1;
 const int totalVerticalMargin = 1;
 
-const TextIndicatorOptions findTextIndicatorOptions = TextIndicatorOptionTightlyFitContent | TextIndicatorOptionIncludeMarginIfRangeMatchesSelection | TextIndicatorOptionDoNotClipToVisibleRect;
+const TextIndicatorOptions findTextIndicatorOptions = TextIndicatorOptionIncludeMarginIfRangeMatchesSelection | TextIndicatorOptionDoNotClipToVisibleRect;
 
 static Color highlightColor()
 {
     return Color(255, 228, 56, 255);
 }
-
-namespace WebKit {
 
 void FindIndicatorOverlayClientIOS::drawRect(PageOverlay& overlay, GraphicsContext& context, const IntRect& dirtyRect)
 {
@@ -95,7 +94,7 @@ bool FindController::updateFindIndicator(Frame& selectedFrame, bool isShowingOve
         m_isShowingFindIndicator = false;
     }
 
-    RefPtr<TextIndicator> textIndicator = TextIndicator::createWithSelectionInFrame(selectedFrame, findTextIndicatorOptions, TextIndicatorPresentationTransition::None, FloatSize(totalHorizontalMargin, totalVerticalMargin));
+    auto textIndicator = TextIndicator::createWithSelectionInFrame(selectedFrame, findTextIndicatorOptions, TextIndicatorPresentationTransition::None, FloatSize(totalHorizontalMargin, totalVerticalMargin));
     if (!textIndicator)
         return false;
 
@@ -174,6 +173,16 @@ void FindController::didFailToFindString()
 void FindController::didHideFindIndicator()
 {
     setSelectionChangeUpdatesEnabledInAllFrames(*m_webPage, false);
+}
+    
+unsigned FindController::findIndicatorRadius() const
+{
+    return cornerRadius;
+}
+    
+bool FindController::shouldHideFindIndicatorOnScroll() const
+{
+    return false;
 }
 
 } // namespace WebKit

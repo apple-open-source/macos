@@ -71,11 +71,11 @@ public:
     { }
 
     LayerRepresentation(PlatformLayer* platformLayer)
-        : m_platformLayer(platformLayer)
+        : m_typelessPlatformLayer(makePlatformLayerTypeless(platformLayer))
         , m_layerID(0)
         , m_representation(PlatformLayerRepresentation)
     {
-        retainPlatformLayer(platformLayer);
+        retainPlatformLayer(m_typelessPlatformLayer);
     }
 
     LayerRepresentation(GraphicsLayer::PlatformLayerID layerID)
@@ -86,18 +86,18 @@ public:
     }
 
     LayerRepresentation(const LayerRepresentation& other)
-        : m_platformLayer(other.m_platformLayer)
+        : m_typelessPlatformLayer(other.m_typelessPlatformLayer)
         , m_layerID(other.m_layerID)
         , m_representation(other.m_representation)
     {
         if (m_representation == PlatformLayerRepresentation)
-            retainPlatformLayer(m_platformLayer);
+            retainPlatformLayer(m_typelessPlatformLayer);
     }
 
     ~LayerRepresentation()
     {
         if (m_representation == PlatformLayerRepresentation)
-            releasePlatformLayer(m_platformLayer);
+            releasePlatformLayer(m_typelessPlatformLayer);
     }
 
     operator GraphicsLayer*() const
@@ -109,7 +109,7 @@ public:
     operator PlatformLayer*() const
     {
         ASSERT(m_representation == PlatformLayerRepresentation);
-        return m_platformLayer;
+        return makePlatformLayerTyped(m_typelessPlatformLayer);
     }
     
     GraphicsLayer::PlatformLayerID layerID() const
@@ -125,12 +125,12 @@ public:
 
     LayerRepresentation& operator=(const LayerRepresentation& other)
     {
-        m_platformLayer = other.m_platformLayer;
+        m_typelessPlatformLayer = other.m_typelessPlatformLayer;
         m_layerID = other.m_layerID;
         m_representation = other.m_representation;
 
         if (m_representation == PlatformLayerRepresentation)
-            retainPlatformLayer(m_platformLayer);
+            retainPlatformLayer(m_typelessPlatformLayer);
 
         return *this;
     }
@@ -146,7 +146,7 @@ public:
             return m_graphicsLayer == other.m_graphicsLayer
                 && m_layerID == other.m_layerID;
         case PlatformLayerRepresentation:
-            return m_platformLayer == other.m_platformLayer;
+            return m_typelessPlatformLayer == other.m_typelessPlatformLayer;
         case PlatformLayerIDRepresentation:
             return m_layerID == other.m_layerID;
         }
@@ -174,12 +174,14 @@ public:
     bool representsPlatformLayerID() const { return m_representation == PlatformLayerIDRepresentation; }
     
 private:
-    WEBCORE_EXPORT void retainPlatformLayer(PlatformLayer*);
-    WEBCORE_EXPORT void releasePlatformLayer(PlatformLayer*);
+    WEBCORE_EXPORT static void retainPlatformLayer(void* typelessPlatformLayer);
+    WEBCORE_EXPORT static void releasePlatformLayer(void* typelessPlatformLayer);
+    WEBCORE_EXPORT static PlatformLayer* makePlatformLayerTyped(void* typelessPlatformLayer);
+    WEBCORE_EXPORT static void* makePlatformLayerTypeless(PlatformLayer*);
 
     union {
         GraphicsLayer* m_graphicsLayer;
-        PlatformLayer *m_platformLayer;
+        void* m_typelessPlatformLayer;
     };
 
     GraphicsLayer::PlatformLayerID m_layerID;
@@ -194,11 +196,11 @@ public:
     
     ScrollingNodeType nodeType() const { return m_nodeType; }
 
-    bool isFixedNode() const { return m_nodeType == FixedNode; }
-    bool isStickyNode() const { return m_nodeType == StickyNode; }
+    bool isFixedNode() const { return m_nodeType == ScrollingNodeType::Fixed; }
+    bool isStickyNode() const { return m_nodeType == ScrollingNodeType::Sticky; }
     bool isScrollingNode() const { return isFrameScrollingNode() || isOverflowScrollingNode(); }
-    bool isFrameScrollingNode() const { return m_nodeType == MainFrameScrollingNode || m_nodeType == SubframeScrollingNode; }
-    bool isOverflowScrollingNode() const { return m_nodeType == OverflowScrollingNode; }
+    bool isFrameScrollingNode() const { return m_nodeType == ScrollingNodeType::MainFrame || m_nodeType == ScrollingNodeType::Subframe; }
+    bool isOverflowScrollingNode() const { return m_nodeType == ScrollingNodeType::Overflow; }
 
     virtual Ref<ScrollingStateNode> clone(ScrollingStateTree& adoptiveTree) = 0;
     Ref<ScrollingStateNode> cloneAndReset(ScrollingStateTree& adoptiveTree);
@@ -234,6 +236,9 @@ public:
     Vector<RefPtr<ScrollingStateNode>>* children() const { return m_children.get(); }
 
     void appendChild(Ref<ScrollingStateNode>&&);
+    void insertChild(Ref<ScrollingStateNode>&&, size_t index);
+
+    size_t indexOfChild(ScrollingStateNode&) const;
 
     String scrollingStateTreeAsText(ScrollingStateTreeAsTextBehavior = ScrollingStateTreeAsTextBehaviorNormal) const;
 
@@ -246,12 +251,12 @@ private:
     void dump(WTF::TextStream&, ScrollingStateTreeAsTextBehavior) const;
 
     const ScrollingNodeType m_nodeType;
-    ScrollingNodeID m_nodeID;
-    ChangedProperties m_changedProperties;
+    const ScrollingNodeID m_nodeID;
+    ChangedProperties m_changedProperties { 0 };
 
     ScrollingStateTree& m_scrollingStateTree;
 
-    ScrollingStateNode* m_parent;
+    ScrollingStateNode* m_parent { nullptr };
     std::unique_ptr<Vector<RefPtr<ScrollingStateNode>>> m_children;
 
     LayerRepresentation m_layer;

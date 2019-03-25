@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include "ExitFlag.h"
+
 namespace JSC {
 
 template<typename VariantVectorType, typename VariantType>
@@ -32,8 +34,16 @@ bool appendICStatusVariant(VariantVectorType& variants, const VariantType& varia
 {
     // Attempt to merge this variant with an already existing variant.
     for (unsigned i = 0; i < variants.size(); ++i) {
-        if (variants[i].attemptToMerge(variant))
+        VariantType& mergedVariant = variants[i];
+        if (mergedVariant.attemptToMerge(variant)) {
+            for (unsigned j = 0; j < variants.size(); ++j) {
+                if (i == j)
+                    continue;
+                if (variants[j].structureSet().overlaps(mergedVariant.structureSet()))
+                    return false;
+            }
             return true;
+        }
     }
     
     // Make sure there is no overlap. We should have pruned out opportunities for
@@ -51,13 +61,14 @@ bool appendICStatusVariant(VariantVectorType& variants, const VariantType& varia
 template<typename VariantVectorType>
 void filterICStatusVariants(VariantVectorType& variants, const StructureSet& set)
 {
-    // FIXME: We could also filter the variants themselves.
-    
     variants.removeAllMatching(
         [&] (auto& variant) -> bool {
-            return !variant.structureSet().overlaps(set);
+            variant.structureSet().filter(set);
+            return variant.structureSet().isEmpty();
         });
 }
+
+ExitFlag hasBadCacheExitSite(CodeBlock* profiledBlock, unsigned bytecodeIndex);
 
 } // namespace JSC
 

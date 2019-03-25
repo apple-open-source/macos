@@ -8,7 +8,6 @@
 #import <Foundation/Foundation.h>
 #import "HIDRemoteDeviceServer.h"
 #import "HIDRemoteSimpleProtocol.h"
-//#import <HID/HID.h>
 #import "RemoteHIDPrivate.h"
 #import <IOKit/IOKitLib.h>
 
@@ -83,7 +82,7 @@
 
 -(void) disconnectEndpoint:(__nonnull id) endpoint
 {
-     NSMutableDictionary * endpointDevices = self.devices [endpoint];
+    NSMutableDictionary * endpointDevices = self.devices [endpoint];
     
     [endpointDevices enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key __unused, id  _Nonnull obj, BOOL * _Nonnull stop __unused) {
         HIDUserDevice * device = (HIDUserDevice *)obj;

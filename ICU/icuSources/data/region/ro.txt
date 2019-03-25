@@ -81,7 +81,7 @@ ro{
         CK{"Insulele Cook"}
         CL{"Chile"}
         CM{"Camerun"}
-        CN{"China"}
+        CN{"China continentală"}
         CO{"Columbia"}
         CP{"Insula Clipperton"}
         CR{"Costa Rica"}
@@ -133,7 +133,7 @@ ro{
         GU{"Guam"}
         GW{"Guineea-Bissau"}
         GY{"Guyana"}
-        HK{"Hong Kong (China)"}
+        HK{"Hong Kong"}
         HM{"Insula Heard și Insulele McDonald"}
         HN{"Honduras"}
         HR{"Croația"}
@@ -187,7 +187,7 @@ ro{
         ML{"Mali"}
         MM{"Myanmar (Birmania)"}
         MN{"Mongolia"}
-        MO{"Macao (China)"}
+        MO{"Macao"}
         MP{"Insulele Mariane de Nord"}
         MQ{"Martinica"}
         MR{"Mauritania"}
@@ -297,8 +297,6 @@ ro{
     }
     Countries%short{
         GB{"Regatul Unit"}
-        HK{"Hong Kong"}
-        MO{"Macao"}
         PS{"Palestina"}
         UN{"ONU"}
         US{"S.U.A."}

@@ -108,41 +108,20 @@ static bool OSX_AddKeyValuePairToKeychainLoggingTransaction(void *token, CFStrin
 	msgtracer_msg_t msg = instance->message;
 	
 	// Fix up the key
-	CFStringRef real_key = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s%@"), gMessageTracerSetPrefix, key);
+	__block char *real_key = NULL;
+	CFStringPerformWithCString(key, ^(const char *key_utf8) {
+		asprintf(&real_key, "%s%s", gMessageTracerSetPrefix, key_utf8);
+	});
 	if (NULL == real_key)
 	{
 		return false;
 	}
 	
-	CFIndex key_length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(real_key), kCFStringEncodingUTF8);
-    key_length += 1; // For null
-    char key_buffer[key_length];
-    memset(key_buffer, 0, key_length);
-    if (!CFStringGetCString(real_key, key_buffer, key_length, kCFStringEncodingUTF8))
-    {
-        CFRelease(real_key);
-        return false;
-    }
-	CFRelease(real_key);
-	
-	CFStringRef value_str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%lld"), value);
-    if (NULL == value_str)
-    {
-        return false;
-    }
+	char value_buffer[32];
+	snprintf(value_buffer, sizeof(value_buffer), "%lld", value);
 
-    CFIndex value_str_numBytes = CFStringGetMaximumSizeForEncoding(CFStringGetLength(value_str), kCFStringEncodingUTF8);
-    value_str_numBytes += 1; // For null
-    char value_buffer[value_str_numBytes];
-    memset(value_buffer, 0, value_str_numBytes);
-    if (!CFStringGetCString(value_str, value_buffer, value_str_numBytes, kCFStringEncodingUTF8))
-    {
-        CFRelease(value_str);
-        return false;
-    }
-    CFRelease(value_str);
-
-    msgtracer_set(msg, key_buffer, value_buffer);
+	msgtracer_set(msg, real_key, value_buffer);
+	free(real_key);
 	return true;	
 }
 
@@ -198,47 +177,23 @@ static bool OSX_SetCloudKeychainTraceValueForKey(CFStringRef key, int64_t value)
     }
 
     // Fix up the key
-	CFStringRef real_key = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s%@"), gMessageTracerSetPrefix, key);
+	__block char *real_key = NULL;
+	CFStringPerformWithCString(key, ^(const char *key_utf8) {
+		asprintf(&real_key, "%s%s", gMessageTracerSetPrefix, key_utf8);
+	});
 	if (NULL == real_key)
 	{
 		return false;
 	}
 	
-	CFIndex key_length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(real_key), kCFStringEncodingUTF8);
-    key_length += 1; // For null
-    char key_buffer[key_length];
-    memset(key_buffer, 0,key_length);
-    if (!CFStringGetCString(real_key, key_buffer, key_length, kCFStringEncodingUTF8))
-    {
-        CFRelease(real_key);
-        return false;
-    }
-	CFRelease(real_key);
-	
-	
-	CFStringRef value_str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%lld"), value);
-    if (NULL == value_str)
-    {
-        msgtracer_msg_free(message);
-        return result;
-    }
-   
-    CFIndex value_str_numBytes = CFStringGetMaximumSizeForEncoding(CFStringGetLength(value_str), kCFStringEncodingUTF8);
-    value_str_numBytes += 1; // For null
-    char value_buffer[value_str_numBytes];
-    memset(value_buffer, 0, value_str_numBytes);
-    if (!CFStringGetCString(value_str, value_buffer, value_str_numBytes, kCFStringEncodingUTF8))
-    {
-        msgtracer_msg_free(message);
-        CFRelease(value_str);
-        return result;
-    }
-    CFRelease(value_str);
+	char value_buffer[32];
+	snprintf(value_buffer, sizeof(value_buffer), "%lld", value);
 
-    msgtracer_set(message, key_buffer, value_buffer);
-	msgtracer_log(message, ASL_LEVEL_NOTICE, "%s is %lld", key_buffer, value);
+    msgtracer_set(message, real_key, value_buffer);
+	msgtracer_log(message, ASL_LEVEL_NOTICE, "%s is %lld", real_key, value);
     msgtracer_msg_free(message);
     msgtracer_domain_free(domain);
+    free(real_key);
 	return true;
 	
 }

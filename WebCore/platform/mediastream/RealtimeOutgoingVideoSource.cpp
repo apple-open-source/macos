@@ -32,8 +32,14 @@
 #if USE(LIBWEBRTC)
 
 #include "Logging.h"
+
+ALLOW_UNUSED_PARAMETERS_BEGIN
+
 #include <webrtc/api/video/i420_buffer.h>
 #include <webrtc/common_video/libyuv/include/webrtc_libyuv.h>
+
+ALLOW_UNUSED_PARAMETERS_END
+
 #include <wtf/MainThread.h>
 
 namespace WebCore {
@@ -42,8 +48,23 @@ RealtimeOutgoingVideoSource::RealtimeOutgoingVideoSource(Ref<MediaStreamTrackPri
     : m_videoSource(WTFMove(videoSource))
     , m_blackFrameTimer(*this, &RealtimeOutgoingVideoSource::sendOneBlackFrame)
 {
+}
+
+RealtimeOutgoingVideoSource::~RealtimeOutgoingVideoSource()
+{
+    ASSERT(m_sinks.isEmpty());
+    stop();
+}
+
+void RealtimeOutgoingVideoSource::observeSource()
+{
     m_videoSource->addObserver(*this);
     initializeFromSource();
+}
+
+void RealtimeOutgoingVideoSource::unobserveSource()
+{
+    m_videoSource->removeObserver(*this);
 }
 
 bool RealtimeOutgoingVideoSource::setSource(Ref<MediaStreamTrackPrivate>&& newSource)
@@ -51,11 +72,14 @@ bool RealtimeOutgoingVideoSource::setSource(Ref<MediaStreamTrackPrivate>&& newSo
     if (!m_initialSettings)
         m_initialSettings = m_videoSource->source().settings();
 
-    m_videoSource->removeObserver(*this);
-    m_videoSource = WTFMove(newSource);
-    m_videoSource->addObserver(*this);
+    auto locker = holdLock(m_sinksLock);
+    bool hasSinks = !m_sinks.isEmpty();
 
-    initializeFromSource();
+    if (hasSinks)
+        unobserveSource();
+    m_videoSource = WTFMove(newSource);
+    if (hasSinks)
+        observeSource();
 
     return true;
 }
@@ -63,9 +87,8 @@ bool RealtimeOutgoingVideoSource::setSource(Ref<MediaStreamTrackPrivate>&& newSo
 void RealtimeOutgoingVideoSource::stop()
 {
     ASSERT(isMainThread());
-    m_videoSource->removeObserver(*this);
+    unobserveSource();
     m_blackFrameTimer.stop();
-    m_isStopped = true;
 }
 
 void RealtimeOutgoingVideoSource::updateBlackFramesSending()
@@ -116,20 +139,27 @@ void RealtimeOutgoingVideoSource::AddOrUpdateSink(rtc::VideoSinkInterface<webrtc
     if (sinkWants.rotation_applied)
         m_shouldApplyRotation = true;
 
-    if (!m_sinks.contains(sink))
-        m_sinks.append(sink);
+    {
+    auto locker = holdLock(m_sinksLock);
+    if (!m_sinks.add(sink) || m_sinks.size() != 1)
+        return;
+    }
 
     callOnMainThread([protectedThis = makeRef(*this)]() {
-        protectedThis->sendBlackFramesIfNeeded();
+        protectedThis->observeSource();
     });
 }
 
 void RealtimeOutgoingVideoSource::RemoveSink(rtc::VideoSinkInterface<webrtc::VideoFrame>* sink)
 {
-    m_sinks.removeFirst(sink);
+    {
+    auto locker = holdLock(m_sinksLock);
 
-    if (m_sinks.size())
+    if (!m_sinks.remove(sink) || m_sinks.size())
         return;
+    }
+
+    unobserveSource();
 
     callOnMainThread([protectedThis = makeRef(*this)]() {
         if (protectedThis->m_blackFrameTimer.isActive())
@@ -140,9 +170,6 @@ void RealtimeOutgoingVideoSource::RemoveSink(rtc::VideoSinkInterface<webrtc::Vid
 void RealtimeOutgoingVideoSource::sendBlackFramesIfNeeded()
 {
     if (m_blackFrameTimer.isActive())
-        return;
-
-    if (!m_sinks.size())
         return;
 
     if (!m_muted && m_enabled)
@@ -156,14 +183,12 @@ void RealtimeOutgoingVideoSource::sendBlackFramesIfNeeded()
         auto height = m_height;
         if (m_shouldApplyRotation && (m_currentRotation == webrtc::kVideoRotation_0 || m_currentRotation == webrtc::kVideoRotation_90))
             std::swap(width, height);
-        auto frame = m_bufferPool.CreateBuffer(width, height);
-        ASSERT(frame);
-        if (!frame) {
+        m_blackFrame = createBlackFrame(width, height);
+        ASSERT(m_blackFrame);
+        if (!m_blackFrame) {
             RELEASE_LOG(WebRTC, "RealtimeOutgoingVideoSource::sendBlackFramesIfNeeded unable to send black frames");
             return;
         }
-        webrtc::I420Buffer::SetBlack(frame.get());
-        m_blackFrame = WTFMove(frame);
     }
     sendOneBlackFrame();
     m_blackFrameTimer.startRepeating(1_s);
@@ -179,6 +204,8 @@ void RealtimeOutgoingVideoSource::sendFrame(rtc::scoped_refptr<webrtc::VideoFram
 {
     MonotonicTime timestamp = MonotonicTime::now();
     webrtc::VideoFrame frame(buffer, m_shouldApplyRotation ? webrtc::kVideoRotation_0 : m_currentRotation, static_cast<int64_t>(timestamp.secondsSinceEpoch().microseconds()));
+
+    auto locker = holdLock(m_sinksLock);
     for (auto* sink : m_sinks)
         sink->OnFrame(frame);
 }

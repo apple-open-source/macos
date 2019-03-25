@@ -55,7 +55,7 @@ OSDefineMetaClassAndStructors( IOHIDResourceDeviceUserClient, IOUserClient )
 const IOExternalMethodDispatch IOHIDResourceDeviceUserClient::_methods[kIOHIDResourceDeviceUserClientMethodCount] = {
     {   // kIOHIDResourceDeviceUserClientMethodCreate
         (IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_createDevice,
-        1, -1, /* 1 struct input : the report descriptor */
+        1, kIOUCVariableStructureSize, /* 1 struct input : the report descriptor */
         0, 0
     },
     {   // kIOHIDResourceDeviceUserClientMethodTerminate
@@ -65,12 +65,12 @@ const IOExternalMethodDispatch IOHIDResourceDeviceUserClient::_methods[kIOHIDRes
     },
     {   // kIOHIDResourceDeviceUserClientMethodHandleReport
         (IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_handleReport,
-        1, -1, /* 1 struct input : the buffer */
+        1, kIOUCVariableStructureSize, /* 1 struct input : the buffer */
         0, 0
     },
     {   // kIOHIDResourceDeviceUserClientMethodPostReportResult
         (IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_postReportResult,
-        kIOHIDResourceUserClientResponseIndexCount, -1, /* 1 scalar input: the result, 1 struct input : the buffer */
+        kIOHIDResourceUserClientResponseIndexCount, kIOUCVariableStructureSize, /* 1 scalar input: the result, 1 struct input : the buffer */
         0, 0
     }
 };

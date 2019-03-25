@@ -76,7 +76,7 @@ bool IDBDatabase::hasPendingActivity() const
 {
     ASSERT(&originThread() == &Thread::current() || mayBeGCThread());
 
-    if (m_closedInServer)
+    if (m_closedInServer || isContextStopped())
         return false;
 
     if (!m_activeTransactions.isEmpty() || !m_committingTransactions.isEmpty() || !m_abortingTransactions.isEmpty())
@@ -97,11 +97,11 @@ uint64_t IDBDatabase::version() const
     return m_info.version();
 }
 
-RefPtr<DOMStringList> IDBDatabase::objectStoreNames() const
+Ref<DOMStringList> IDBDatabase::objectStoreNames() const
 {
     ASSERT(&originThread() == &Thread::current());
 
-    RefPtr<DOMStringList> objectStoreNames = DOMStringList::create();
+    auto objectStoreNames = DOMStringList::create();
     for (auto& name : m_info.objectStoreNames())
         objectStoreNames->append(name);
     objectStoreNames->sort();
@@ -267,13 +267,13 @@ void IDBDatabase::connectionToServerLost(const IDBError& error)
     for (auto& transaction : m_activeTransactions.values())
         transaction->connectionClosedFromServer(error);
 
-    auto errorEvent = Event::create(m_eventNames.errorEvent, true, false);
+    auto errorEvent = Event::create(m_eventNames.errorEvent, Event::CanBubble::Yes, Event::IsCancelable::No);
     errorEvent->setTarget(this);
 
     if (auto* context = scriptExecutionContext())
         context->eventQueue().enqueueEvent(WTFMove(errorEvent));
 
-    auto closeEvent = Event::create(m_eventNames.closeEvent, true, false);
+    auto closeEvent = Event::create(m_eventNames.closeEvent, Event::CanBubble::Yes, Event::IsCancelable::No);
     closeEvent->setTarget(this);
 
     if (auto* context = scriptExecutionContext())

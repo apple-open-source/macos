@@ -31,7 +31,7 @@
 
 (function (InjectedScriptHost, inspectedGlobalObject, injectedScriptId) {
 
-// FIXME: <https://webkit.org/b/152294> Web Inspector: Parse InjectedScriptSource as a built-in to get guaranteed non-user-overriden built-ins
+// FIXME: <https://webkit.org/b/152294> Web Inspector: Parse InjectedScriptSource as a built-in to get guaranteed non-user-overridden built-ins
 
 var Object = {}.constructor;
 
@@ -106,6 +106,43 @@ let InjectedScript = class InjectedScript
     evaluate(expression, objectGroup, injectCommandLineAPI, returnByValue, generatePreview, saveResult)
     {
         return this._evaluateAndWrap(InjectedScriptHost.evaluateWithScopeExtension, InjectedScriptHost, expression, objectGroup, false, injectCommandLineAPI, returnByValue, generatePreview, saveResult);
+    }
+
+    awaitPromise(promiseObjectId, returnByValue, generatePreview, saveResult, callback)
+    {
+        let parsedPromiseObjectId = this._parseObjectId(promiseObjectId);
+        let promiseObject = this._objectForId(parsedPromiseObjectId);
+        let promiseObjectGroupName = this._idToObjectGroupName[parsedPromiseObjectId.id];
+
+        if (!isDefined(promiseObject)) {
+            callback("Could not find object with given id");
+            return;
+        }
+
+        if (!(promiseObject instanceof Promise)) {
+            callback("Object with given id is not a Promise");
+            return;
+        }
+
+        let resolve = (value) => {
+            let returnObject = {
+                wasThrown: false,
+                result: RemoteObject.create(value, promiseObjectGroupName, returnByValue, generatePreview),
+            };
+
+            if (saveResult) {
+                this._savedResultIndex = 0;
+                this._saveResult(returnObject.result);
+                if (this._savedResultIndex)
+                    returnObject.savedResultIndex = this._savedResultIndex;
+            }
+
+            callback(returnObject);
+        };
+        let reject = (reason) => {
+            callback(this._createThrownValue(reason, promiseObjectGroupName));
+        };
+        promiseObject.then(resolve, reject);
     }
 
     evaluateOnCallFrame(topCallFrame, callFrameId, expression, objectGroup, injectCommandLineAPI, returnByValue, generatePreview, saveResult)
@@ -1286,12 +1323,15 @@ let RemoteObject = class RemoteObject
         if (object.__proto__ && object.__proto__.__proto__)
             return false;
 
-        // Objects are simple if they have 3 or less simple properties.
+        // Objects are simple if they have 3 or less simple value properties.
         let ownPropertyNames = Object.getOwnPropertyNames(object);
         if (ownPropertyNames.length > 3)
             return false;
         for (let i = 0; i < ownPropertyNames.length; ++i) {
             let propertyName = ownPropertyNames[i];
+            let descriptor = Object.getOwnPropertyDescriptor(object, propertyName);
+            if (descriptor && !("value" in descriptor))
+                return false;
             if (!this._isPreviewableObjectInternal(object[propertyName], knownObjects, depth))
                 return false;
         }
@@ -1406,6 +1446,10 @@ BasicCommandLineAPI.methods = [
         for (let key in object)
             result.push(object[key]);
         return result;
+    },
+
+    function queryObjects() {
+        return InjectedScriptHost.queryObjects(...arguments);
     },
 ];
 

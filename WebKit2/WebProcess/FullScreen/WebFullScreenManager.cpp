@@ -28,6 +28,7 @@
 #if ENABLE(FULLSCREEN_API)
 
 #include "Connection.h"
+#include "Logging.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include "WebFullScreenManagerProxyMessages.h"
@@ -45,13 +46,12 @@
 #include <WebCore/Settings.h>
 #include <WebCore/TypedElementDescendantIterator.h>
 
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 #include "PlaybackSessionManager.h"
 #endif
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 static IntRect screenRectOfContents(Element* element)
 {
@@ -71,8 +71,7 @@ Ref<WebFullScreenManager> WebFullScreenManager::create(WebPage* page)
 }
 
 WebFullScreenManager::WebFullScreenManager(WebPage* page)
-    : m_topContentInset(0)
-    , m_page(page)
+    : m_page(page)
 {
 }
     
@@ -87,7 +86,9 @@ WebCore::Element* WebFullScreenManager::element()
 
 void WebFullScreenManager::videoControlsManagerDidChange()
 {
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+    LOG(Fullscreen, "WebFullScreenManager %p videoControlsManagerDidChange()", this);
+
     auto* currentPlaybackControlsElement = m_page->playbackSessionManager().currentPlaybackControlsElement();
     if (!m_element || !is<HTMLVideoElement>(currentPlaybackControlsElement)) {
         setPIPStandbyElement(nullptr);
@@ -100,8 +101,11 @@ void WebFullScreenManager::videoControlsManagerDidChange()
 
 void WebFullScreenManager::setPIPStandbyElement(WebCore::HTMLVideoElement* pipStandbyElement)
 {
+#if ENABLE(VIDEO)
     if (pipStandbyElement == m_pipStandbyElement)
         return;
+
+    LOG(Fullscreen, "WebFullScreenManager %p setPIPStandbyElement() - old element %p, new element %p", this, m_pipStandbyElement.get(), pipStandbyElement);
 
     if (m_pipStandbyElement)
         m_pipStandbyElement->setVideoFullscreenStandby(false);
@@ -110,6 +114,7 @@ void WebFullScreenManager::setPIPStandbyElement(WebCore::HTMLVideoElement* pipSt
 
     if (m_pipStandbyElement)
         m_pipStandbyElement->setVideoFullscreenStandby(true);
+#endif
 }
 
 void WebFullScreenManager::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
@@ -127,6 +132,8 @@ bool WebFullScreenManager::supportsFullScreen(bool withKeyboard)
 
 void WebFullScreenManager::enterFullScreenForElement(WebCore::Element* element)
 {
+    LOG(Fullscreen, "WebFullScreenManager %p enterFullScreenForElement(%p)", this, element);
+
     ASSERT(element);
     m_element = element;
     m_initialFrame = screenRectOfContents(m_element.get());
@@ -135,14 +142,16 @@ void WebFullScreenManager::enterFullScreenForElement(WebCore::Element* element)
 
 void WebFullScreenManager::exitFullScreenForElement(WebCore::Element* element)
 {
+    LOG(Fullscreen, "WebFullScreenManager %p exitFullScreenForElement(%p) - fullscreen element %p", this, element, m_element.get());
     m_page->injectedBundleFullScreenClient().exitFullScreenForElement(m_page.get(), element);
 }
 
 void WebFullScreenManager::willEnterFullScreen()
 {
-    ASSERT(m_element);
+    LOG(Fullscreen, "WebFullScreenManager %p willEnterFullScreen() - element %p", this, m_element.get());
+
     m_element->document().webkitWillEnterFullScreenForElement(m_element.get());
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     m_page->hidePageBanners();
 #endif
     m_element->document().updateLayout();
@@ -153,10 +162,11 @@ void WebFullScreenManager::willEnterFullScreen()
 
 void WebFullScreenManager::didEnterFullScreen()
 {
-    ASSERT(m_element);
+    LOG(Fullscreen, "WebFullScreenManager %p didEnterFullScreen() - element %p", this, m_element.get());
+
     m_element->document().webkitDidEnterFullScreenForElement(m_element.get());
 
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     auto* currentPlaybackControlsElement = m_page->playbackSessionManager().currentPlaybackControlsElement();
     setPIPStandbyElement(is<HTMLVideoElement>(currentPlaybackControlsElement) ? downcast<HTMLVideoElement>(currentPlaybackControlsElement) : nullptr);
 #endif
@@ -164,6 +174,7 @@ void WebFullScreenManager::didEnterFullScreen()
 
 void WebFullScreenManager::willExitFullScreen()
 {
+    LOG(Fullscreen, "WebFullScreenManager %p willExitFullScreen() - element %p", this, m_element.get());
     ASSERT(m_element);
 
 #if ENABLE(VIDEO)
@@ -172,7 +183,7 @@ void WebFullScreenManager::willExitFullScreen()
 
     m_finalFrame = screenRectOfContents(m_element.get());
     m_element->document().webkitWillExitFullScreenForElement(m_element.get());
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     m_page->showPageBanners();
 #endif
     m_page->injectedBundleFullScreenClient().beganExitFullScreen(m_page.get(), m_finalFrame, m_initialFrame);
@@ -180,6 +191,8 @@ void WebFullScreenManager::willExitFullScreen()
 
 void WebFullScreenManager::didExitFullScreen()
 {
+    LOG(Fullscreen, "WebFullScreenManager %p didExitFullScreen() - element %p", this, m_element.get());
+
     ASSERT(m_element);
     setFullscreenInsets(FloatBoxExtent());
     setFullscreenAutoHideDuration(0_s);
@@ -200,6 +213,7 @@ void WebFullScreenManager::requestExitFullScreen()
 
 void WebFullScreenManager::close()
 {
+    LOG(Fullscreen, "WebFullScreenManager %p close()", this);
     m_page->injectedBundleFullScreenClient().closeFullScreen(m_page.get());
 }
 

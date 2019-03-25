@@ -255,9 +255,12 @@ static const IOHIDEventField kIOHIDEventFieldLEDNumber                          
 
 #define kIOHIDEventFieldOrientationBase IOHIDEventFieldBase(kIOHIDEventTypeOrientation)
 static const IOHIDEventField kIOHIDEventFieldOrientationOrientationType                        =  (kIOHIDEventFieldOrientationBase | 3);
+static const IOHIDEventField kIOHIDEventFieldOrientationTiltZ                                  =  (kIOHIDEventFieldOrientationBase | 7);
+static const IOHIDEventField kIOHIDEventFieldOrientationTiltY                                  =  (kIOHIDEventFieldOrientationBase | 6);
+static const IOHIDEventField kIOHIDEventFieldOrientationTiltX                                  =  (kIOHIDEventFieldOrientationBase | 5);
+static const IOHIDEventField kIOHIDEventFieldOrientationAzimuth                                =  (kIOHIDEventFieldOrientationBase | 1);
 static const IOHIDEventField kIOHIDEventFieldOrientationDeviceOrientationUsage                 =  (kIOHIDEventFieldOrientationBase | 4);
 static const IOHIDEventField kIOHIDEventFieldOrientationAltitude                               =  (kIOHIDEventFieldOrientationBase | 2);
-static const IOHIDEventField kIOHIDEventFieldOrientationAzimuth                                =  (kIOHIDEventFieldOrientationBase | 1);
 static const IOHIDEventField kIOHIDEventFieldOrientationRadius                                 =  (kIOHIDEventFieldOrientationBase | 0);
 
 #define kIOHIDEventFieldProximityBase IOHIDEventFieldBase(kIOHIDEventTypeProximity)

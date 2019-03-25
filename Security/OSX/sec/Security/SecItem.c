@@ -828,6 +828,7 @@ TKTokenRef SecTokenCreate(CFStringRef token_id, SecCFDictionaryCOW *auth_params,
         if (ctx == nil) {
             ctx = LACreateNewContextWithACMContext(NULL, error);
             if (!ctx) {
+                os_unfair_lock_unlock(&lock);
                 secerror("Failed to create authentication context %@", *error);
                 return token;
             }
@@ -1542,9 +1543,7 @@ static bool SecTokenProcessError(CFStringRef operation, TKTokenRef token, CFType
         // Replace error with the one which is augmented with access control and operation which failed,
         // which will cause SecItemDoWithAuth to throw UI.
         // Create array containing tuple (array) with error and requested operation.
-        CFDataRef access_control = (CFGetTypeID(object_or_attrs) == CFDataGetTypeID()) ?
-            TKTokenCopyObjectAccessControl(token, object_or_attrs, error) :
-            TKTokenCopyObjectCreationAccessControl(token, object_or_attrs, error);
+        CFDataRef access_control = TKTokenCopyObjectAccessControl(token, object_or_attrs, error);
         if (access_control != NULL) {
             SecTokenCreateAccessControlError(operation, access_control, error);
             CFRelease(access_control);

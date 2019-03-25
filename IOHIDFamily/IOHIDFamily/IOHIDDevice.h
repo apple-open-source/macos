@@ -128,9 +128,10 @@ private:
         OSArray *               inputInterruptElementArray;
         bool                    performTickle;
         bool                    performWakeTickle;
-        IOHIDInterface *        interfaceNub;
+        OSArray *               interfaceNubs;
         IOHIDElementPrivate *   rollOverElement;
         OSArray *               hierarchElements;
+        OSArray *               interfaceElementArrays;
         IOHIDAsyncReportQueue * asyncReportQueue;
         IOWorkLoop *            workLoop;
         IOEventSource *         eventSource;
@@ -177,11 +178,12 @@ private:
 
     IOBufferMemoryDescriptor * createMemoryForElementValues();
 
+    OSNumber * newPrimaryUsageNumber(UInt32 interfaceIdx) const;
 
-    static bool _publishDisplayNotificationHandler(void * target,
-                                                   void * ref,
-                                                   IOService * newService,
-                                                   IONotifier * notifier );
+    OSNumber * newPrimaryUsagePageNumber(UInt32 interfaceIdx) const;
+
+    OSArray * newDeviceUsagePairs(OSArray * elements, UInt32 start);
+
     static bool _publishDeviceNotificationHandler(void * target,
                                                   void * refCon,
                                                   IOService * newService,
@@ -711,15 +713,19 @@ public:
 protected:
     /*! @function createInterface
      @abstract Creates an IOHIDInterface nub for the device to attach to.
+     @discussion Will create multiple interfaces, if applicable and support is
+     enabled.
      @result true on success, false otherwise. */
     OSMetaClassDeclareReservedUsed(IOHIDDevice, 12);
     virtual bool createInterface(IOOptionBits options = 0);
-    
+
     /*! @function destroyInterface
-     @abstract Destroys the IOHIDInterface nub attached to the device. */
+     @abstract Destroys the IOHIDInterface nub attached to the device.
+     @discussion This method will destroy all interfaces if multiple were
+     created. */
     OSMetaClassDeclareReservedUsed(IOHIDDevice, 13);
     virtual void destroyInterface(IOOptionBits options = 0);
-    
+
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 14);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 15);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 16);

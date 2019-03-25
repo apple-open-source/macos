@@ -5,12 +5,19 @@
 //  Created by Jérémy Tran on 8/22/17.
 //
 
+// Include local headers before including the system headers, also include
+// rather than import.
+#include "IOGraphicsTypes.h"
+#include "IOGraphicsTypesPrivate.h" // import DBG_IOG_* defines
+#include "IOGraphicsDiagnose.h"     // import kIOGSharedInterface_* defines
+#include "GMetricTypes.h"
+
 #import <Foundation/Foundation.h>
 #import <getopt.h>
+#import <libgen.h>
 
-#import "IOGraphicsTypesPrivate.h" // import DBG_IOG_* defines
-#import "IOGraphicsDiagnose.h"     // import kIOGSharedInterface_* defines
-#import "GMetricTypes.h"
+#define COUNT_OF(x) \
+    ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
 #pragma mark - Command Constants
 typedef NSString* IOGCommand NS_STRING_ENUM;
@@ -136,7 +143,7 @@ void initGlobals() {
 
 #pragma mark -
 
-void printUsage(const char *bin, char *helpSection) {
+void printUsage(const char *cmdName, char *helpSection) {
     NSString *help = helpSection != NULL ? [NSString stringWithUTF8String:helpSection] : nil;
 
     if ([help isEqualToString:IOGCommandInjectCS]) {
@@ -145,7 +152,7 @@ void printUsage(const char *bin, char *helpSection) {
                "enable\n\tEnable clamshell state injection.\n"
                "disable\n\tDisable clamshell state injection.\n"
                "open\n\tSend an open clamshell event.\n"
-               "close\n\tSend a close clamshell event.\n", bin);
+               "close\n\tSend a close clamshell event.\n", cmdName);
     } else if ([help isEqualToString:IOGCommandMetric]) {
         printf("usage: %s metric.<cmd> [--count|-c <number>] [--domain|-d <domains>] [--format|-f <format>]\n\n"
                "<cmd> can take one of the following values:\n\n"
@@ -163,26 +170,24 @@ void printUsage(const char *bin, char *helpSection) {
 
                "fetch\n\tPrint recorded metrics. If the --count option is provided, it limits the number of metrics to return. "
                    "The optional --format option specifies the format to output the metrics (valid value: json).\n",
-               bin, kGMetricDefaultLineCount, kGMetricMaximumLineCount);
+               cmdName, kGMetricDefaultLineCount, kGMetricMaximumLineCount);
     } else {
         printf("usage: %s [-h] cmd.subcmd [options]\n\n"
                "Supported commands:\n"
                "\tinjectCS.[enable|disable|open|close]\n\n"
                "\tmetric.[enable|disable|start|stop|reset|fetch]\n\n"
                "For more info, use the --help=<argument> option with 'metric' or 'injectCS' as the argument.\n",
-               bin);
+               cmdName);
     }
 }
 
-IOReturn invokeInjectCS(io_connect_t connect, uint64_t injectCSCmd) {
-    uint64_t scalarParams[] = { 'InCS', injectCSCmd, 0, 0 };
-    uint32_t scalarParamsCount = sizeof(scalarParams) / sizeof(scalarParams[0]);
-    uint64_t unusedBuffer = 0;
-    size_t unusedBufferSize = sizeof(unusedBuffer);
-
-    IOReturn err = IOConnectCallMethod(connect, kIOGSharedInterface_ReservedE,
+IOReturn invokeInjectCS(io_connect_t connect, uint64_t injectCSCmd)
+{
+    uint64_t scalarParams[] = { injectCSCmd };
+    uint32_t scalarParamsCount = COUNT_OF(scalarParams);
+    IOReturn err = IOConnectCallMethod(connect, kIOGDUCInterface_clamshell,
                                        scalarParams, scalarParamsCount,
-                                       NULL, 0, NULL, NULL, &unusedBuffer, &unusedBufferSize);
+                                       NULL, 0, NULL, NULL, NULL, NULL);
 
     return err;
 }
@@ -192,19 +197,27 @@ NSArray<NSDictionary *> *arrayFromMetricsBuffer(const gmetric_buffer_t *buffer,
     NSMutableArray<NSDictionary *> *metrics = [@[] mutableCopy];
 
     for (NSInteger i = 0; i < entriesCount; ++i) {
-        NSMutableDictionary *entry = [@{} mutableCopy];
+        const gmetric_entry_t * const entry = &buffer->fEntries[i];
+        const uint16_t func   = GMETRIC_FUNC_FROM_DATA(entry->data);
+        const uint16_t marker = GMETRIC_MARKER_FROM_DATA(entry->data);
 
-        if (GMETRIC_MARKER_FROM_DATA(buffer->entries[i].data)) {
-            entry[@"marker"] = gMarkerMap[@(GMETRIC_MARKER_FROM_DATA(buffer->entries[i].data))];
-
+        if (func) {
+            NSMutableDictionary *entryDict = [@{
+                    @"type": gTypeMap[@(entry->header.type)],
+                    @"func": gFuncMap[@(func)],
+                    @"cpu": @(entry->header.cpu),
+                    @"tid": @(entry->tid),
+                    @"domain": @(entry->header.domain),
+                    @"timestamp": @(entry->timestamp),
+                } mutableCopy];
+            if (marker)
+                entryDict[@"marker"] = gMarkerMap[@(marker)];
+            [metrics addObject: entryDict];
+        } else {
+            NSLog(@"gmetric_buffer.entry[%d] does not have a func provided,"
+                   " ignoring", (int) i);
         }
-        entry[@"type"] = gTypeMap[@(buffer->entries[i].header.type)];
-        entry[@"func"] = gFuncMap[@(GMETRIC_FUNC_FROM_DATA(buffer->entries[i].data))];
-        entry[@"cpu"] = @(buffer->entries[i].header.cpu);
-        entry[@"tid"] = @(buffer->entries[i].tid);
-        entry[@"domain"] = @(buffer->entries[i].header.domain);
-        entry[@"timestamp"] = @(buffer->entries[i].timestamp);
-        [metrics addObject:entry];
+
     }
 
     return metrics;
@@ -214,94 +227,93 @@ IOReturn invokeMetric(io_connect_t connect,
                       uint64_t metricCmd,
                       uint64_t startParam,
                       uint64_t enableParam,
-                      uint64_t limit,
+                      uint64_t fetchCount,
                       GMetricFormat format) {
-    uint64_t scalarParams[] = { 'Mtrc', metricCmd, startParam, enableParam };
-    uint32_t scalarParamsCount = sizeof(scalarParams) / sizeof(scalarParams[0]);
-    gmetric_buffer_t buffer = { .entriesCount = 0 };
-    size_t bufferSize = sizeof(buffer);
+    uint64_t scalarParams[] = { metricCmd, startParam, enableParam };
+    uint32_t scalarParamsCount = COUNT_OF(scalarParams);
+    NSMutableData *fetchData = nil;
+    gmetric_buffer_t *fetchBuffer = NULL;
 
-    IOReturn err = IOConnectCallMethod(connect, kIOGSharedInterface_ReservedE,
-                                       scalarParams, scalarParamsCount,
-                                       NULL, 0, NULL, NULL, &buffer, &bufferSize);
+    if (!fetchCount || fetchCount > kGMetricMaximumLineCount)
+        fetchCount = kGMetricMaximumLineCount;
+    NSUInteger fetchBufferSize
+        = sizeof(gmetric_buffer_t) + fetchCount * sizeof(gmetric_entry_t);
+    if (kGMetricCmdFetch == metricCmd) {
+        fetchData = [NSMutableData dataWithLength: fetchBufferSize];
+        fetchBuffer = fetchData.mutableBytes;
+    }
+
+    IOReturn err = IOConnectCallMethod(
+            connect, kIOGDUCInterface_metrics,
+            scalarParams, scalarParamsCount, NULL, 0,   // Inputs
+            NULL, NULL, fetchBuffer, &fetchBufferSize); // Outputs
 
     if ((kIOReturnSuccess == err) && (metricCmd == kGMetricCmdFetch)) {
-        NSArray<NSDictionary *> *metrics = arrayFromMetricsBuffer(&buffer, MIN(limit, buffer.entriesCount));
+        const NSInteger bufferCount = fetchBuffer->fHeader.fEntriesCount;
+        const NSInteger entriesCount = MIN(fetchCount, bufferCount);
+        NSArray<NSDictionary *> *metrics
+            = arrayFromMetricsBuffer(fetchBuffer, entriesCount);
 
         switch (format) {
-            case GMetricFormatDefault: {
-                printf("Entries count: %u\n", buffer.entriesCount);
-                for (NSInteger i = 0; i < metrics.count; ++i) {
-                    NSDictionary<NSString *, id> *metric = metrics[i];
-                    printf("[%lu]", i);
-                    if (metric[@"marker"]) {
-                        printf(" ====== %s ======", [metric[@"marker"] UTF8String]);
-                    }
-                    printf(" type: %s, func: %s, cpu: %lu, thread: 0x%llx, domain: 0x%llx, timestamp: %llu\n",
-                           [metric[@"type"] UTF8String],
-                           [metric[@"func"] UTF8String],
-                           [metric[@"cpu"] unsignedIntegerValue],
-                           [metric[@"tid"] unsignedLongLongValue],
-                           [metric[@"domain"] unsignedLongLongValue],
-                           [metric[@"timestamp"] unsignedLongLongValue]);
+        case GMetricFormatDefault:
+            printf("Entries count: %u\n", (int) bufferCount);
+            for (NSInteger i = 0; i < metrics.count; ++i) {
+                NSDictionary<NSString *, id> *metric = metrics[i];
+                printf("[%lu]", i);
+                if (metric[@"marker"]) {
+                    printf(" ====== %s ======", [metric[@"marker"] UTF8String]);
                 }
-                break;
+                printf(" type: %s, func: %s, cpu: %lu, thread: 0x%llx, domain: 0x%llx, timestamp: %llu\n",
+                       [metric[@"type"] UTF8String],
+                       [metric[@"func"] UTF8String],
+                       [metric[@"cpu"] unsignedIntegerValue],
+                       [metric[@"tid"] unsignedLongLongValue],
+                       [metric[@"domain"] unsignedLongLongValue],
+                       [metric[@"timestamp"] unsignedLongLongValue]);
             }
+            break;
 
-            case GMetricFormatJSON: {
-                printf("%s\n", [[NSJSONSerialization dataWithJSONObject:metrics options:0 error:nil] bytes]);
-                break;
-            }
+        case GMetricFormatJSON:
+            printf("%s\n", [[NSJSONSerialization dataWithJSONObject:metrics options:0 error:nil] bytes]);
+            break;
         }
     }
 
     return err;
 }
 
-IOReturn sendCmd(IOReturn (^invokeCommand)(io_connect_t)) {
-    IOReturn err;
-    io_iterator_t iterator = IO_OBJECT_NULL;
+IOReturn sendCmd(IOReturn (^invokeCommand)(io_connect_t))
+{
+    static const char * const
+        sWranglerPath = kIOServicePlane ":/IOResources/IODisplayWrangler";
+    io_registry_entry_t wrangler = IO_OBJECT_NULL;
 
-    err = IOServiceGetMatchingServices(kIOMasterPortDefault,
-                                       IOServiceMatching("IOFramebuffer"),
-                                       &iterator);
-    if (kIOReturnSuccess != err) {
-        printf("Service matching for IOFramebuffer failed.\n");
-        return err;
+    wrangler = IORegistryEntryFromPath(kIOMasterPortDefault, sWranglerPath);
+    if (IO_OBJECT_NULL == wrangler) {
+        fprintf(stderr, "IODisplayWrangler search failed");
+        return kIOReturnNotFound;
     }
-    if (IOIteratorIsValid(iterator)) {
-        io_service_t framebuffer = IOIteratorNext(iterator);
 
-        if (framebuffer != IO_OBJECT_NULL) {
-            io_connect_t connect = IO_OBJECT_NULL;
-            err = IOServiceOpen(framebuffer, mach_task_self(), kIOFBDiagnoseConnectType, &connect);
+    io_connect_t wranglerConnect = IO_OBJECT_NULL;
+    IOReturn err = IOServiceOpen(wrangler, mach_task_self(),
+                                 kIOGDiagnoseConnectType, &wranglerConnect);
+    if (kIOReturnSuccess == err) {
+        err = invokeCommand(wranglerConnect);
+        IOServiceClose(wranglerConnect);
+        if (kIOReturnSuccess != err)
+            fprintf(stderr, "User client method call failed.\n");
+    } else
+        fprintf(stderr, "IOService open failed.\n");
+    IOObjectRelease(wrangler);
 
-            if (kIOReturnSuccess == err) {
-                err = invokeCommand(connect);
-                IOServiceClose(connect);
-                if (kIOReturnSuccess != err) {
-                    printf("User client method call failed.\n");
-                }
-            } else {
-                printf("IOService open failed.\n");
-            }
-
-            IOObjectRelease(framebuffer);
-        } else {
-            err = kIOReturnNotFound;
-            printf("No framebuffer found.\n");
-        }
-    } else {
-        err = kIOReturnInvalid;
-        printf("Framebuffer iterator became invalid.\n");
-    }
-    IOObjectRelease(iterator);
     return err;
 }
 
 int main(int argc, char * const argv[]) {
     kern_return_t err;
-    const char *bin = argv[0];
+    char cmdBuffer[MAXPATHLEN];
+    const char * const cmdName = cmdBuffer;
+    basename_r(argv[0], cmdBuffer);
 
     @autoreleasepool {
         static struct option longopts[] = {
@@ -324,7 +336,7 @@ int main(int argc, char * const argv[]) {
         while ((ch = getopt_long(argc, argv, "h?c:d:f:", longopts, NULL)) != -1) {
             switch (ch) {
                 case 'h': {
-                    printUsage(bin, optarg);
+                    printUsage(cmdName, optarg);
                     return 0;
                 }
 
@@ -387,11 +399,11 @@ int main(int argc, char * const argv[]) {
             // different use.
             // If `count` == UINT64_MAX it means the user didn't provide the -c
             // flag. Therefore, use the default value.
-            uint64_t metricsCount =
+            const uint64_t metricsCount =
                 (metricCmd.unsignedLongLongValue == kGMetricCmdEnable && count != UINT64_MAX) ? count : 0;
             // No need to test for UINT64_MAX since IOG won't fetch more metrics
             // than it has in store.
-            uint64_t fetchCount = metricCmd.unsignedLongLongValue == kGMetricCmdFetch ? count : 0;
+            const uint64_t fetchCount = metricCmd.unsignedLongLongValue == kGMetricCmdFetch ? count : 0;
 
             invokeCommand = ^IOReturn(io_connect_t connect) {
                 return invokeMetric(connect,
@@ -411,6 +423,6 @@ int main(int argc, char * const argv[]) {
     return err;
 
 error:
-    printUsage(bin, NULL);
+    printUsage(cmdName, NULL);
     return err;
 }

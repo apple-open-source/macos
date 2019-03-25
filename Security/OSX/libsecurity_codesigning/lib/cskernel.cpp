@@ -106,7 +106,7 @@ SecCode *KernelCode::locateGuest(CFDictionaryRef attributes)
 					MacOSError::throwMe(errSecCSInvalidAttributeValues);
 
 			try {
-				diskRep = new PidDiskRep(pid, infoPlist);
+				diskRep = new PidDiskRep(pid, audit, infoPlist);
 			} catch (...) { }
 	}
 	

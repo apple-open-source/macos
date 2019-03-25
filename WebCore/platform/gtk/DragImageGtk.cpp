@@ -23,9 +23,9 @@
 #include "Image.h"
 #include "TextFlags.h"
 #include "TextIndicator.h"
-#include "URL.h"
 #include <cairo.h>
 #include <gdk/gdk.h>
+#include <wtf/URL.h>
 
 namespace WebCore {
 
@@ -93,6 +93,11 @@ DragImageRef createDragImageIconForCachedImageFilename(const String&)
 }
 
 DragImageRef createDragImageForLink(Element&, URL&, const String&, TextIndicatorData&, FontRenderingMode, float)
+{
+    return nullptr;
+}
+
+DragImageRef createDragImageForColor(const Color&, const FloatRect&, float, Path&)
 {
     return nullptr;
 }

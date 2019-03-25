@@ -621,6 +621,16 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
         m_value.valueID = CSSValueApplePayButton;
         break;
 #endif
+#if ENABLE(INPUT_TYPE_COLOR)
+    case ColorWellPart:
+        m_value.valueID = CSSValueColorWell;
+        break;
+#endif
+#if ENABLE(DATALIST_ELEMENT)
+    case ListButtonPart:
+        m_value.valueID = CSSValueListButton;
+        break;
+#endif
     }
 }
 
@@ -2159,9 +2169,6 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(Overflow e)
     case Overflow::Auto:
         m_value.valueID = CSSValueAuto;
         break;
-    case Overflow::Overlay:
-        m_value.valueID = CSSValueOverlay;
-        break;
     case Overflow::PagedX:
         m_value.valueID = CSSValueWebkitPagedX;
         break;
@@ -2182,10 +2189,9 @@ template<> inline CSSPrimitiveValue::operator Overflow() const
         return Overflow::Hidden;
     case CSSValueScroll:
         return Overflow::Scroll;
+    case CSSValueOverlay:
     case CSSValueAuto:
         return Overflow::Auto;
-    case CSSValueOverlay:
-        return Overflow::Overlay;
     case CSSValueWebkitPagedX:
         return Overflow::PagedX;
     case CSSValueWebkitPagedY:
@@ -2630,42 +2636,41 @@ template<> inline CSSPrimitiveValue::operator TextDecorationStyle() const
     return TextDecorationStyle::Solid;
 }
 
-template<> inline CSSPrimitiveValue::CSSPrimitiveValue(OptionSet<TextUnderlinePosition> e)
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(TextUnderlinePosition position)
     : CSSValue(PrimitiveClass)
 {
     m_primitiveUnitType = CSS_VALUE_ID;
-    switch (static_cast<TextUnderlinePosition>(e.toRaw())) {
+    switch (position) {
     case TextUnderlinePosition::Auto:
         m_value.valueID = CSSValueAuto;
         break;
-    case TextUnderlinePosition::Alphabetic:
-        m_value.valueID = CSSValueAlphabetic;
-        break;
     case TextUnderlinePosition::Under:
         m_value.valueID = CSSValueUnder;
+        break;
+    case TextUnderlinePosition::FromFont:
+        m_value.valueID = CSSValueFromFont;
         break;
     }
 
     // FIXME: Implement support for 'under left' and 'under right' values.
 }
 
-template<> inline CSSPrimitiveValue::operator OptionSet<TextUnderlinePosition>() const
+template<> inline CSSPrimitiveValue::operator TextUnderlinePosition() const
 {
     ASSERT(isValueID());
 
     switch (m_value.valueID) {
     case CSSValueAuto:
         return TextUnderlinePosition::Auto;
-    case CSSValueAlphabetic:
-        return TextUnderlinePosition::Alphabetic;
     case CSSValueUnder:
         return TextUnderlinePosition::Under;
+    case CSSValueFromFont:
+        return TextUnderlinePosition::FromFont;
     default:
         break;
     }
 
     // FIXME: Implement support for 'under left' and 'under right' values.
-
     ASSERT_NOT_REACHED();
     return TextUnderlinePosition::Auto;
 }
@@ -3087,7 +3092,7 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(WordBreak e)
     case WordBreak::KeepAll:
         m_value.valueID = CSSValueKeepAll;
         break;
-    case WordBreak::Break:
+    case WordBreak::BreakWord:
         m_value.valueID = CSSValueBreakWord;
         break;
     }
@@ -3103,7 +3108,7 @@ template<> inline CSSPrimitiveValue::operator WordBreak() const
     case CSSValueKeepAll:
         return WordBreak::KeepAll;
     case CSSValueBreakWord:
-        return WordBreak::Break;
+        return WordBreak::BreakWord;
     case CSSValueNormal:
         return WordBreak::Normal;
     default:
@@ -3150,10 +3155,10 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(TextDirection e)
 {
     m_primitiveUnitType = CSS_VALUE_ID;
     switch (e) {
-    case LTR:
+    case TextDirection::LTR:
         m_value.valueID = CSSValueLtr;
         break;
-    case RTL:
+    case TextDirection::RTL:
         m_value.valueID = CSSValueRtl;
         break;
     }
@@ -3165,15 +3170,15 @@ template<> inline CSSPrimitiveValue::operator TextDirection() const
 
     switch (m_value.valueID) {
     case CSSValueLtr:
-        return LTR;
+        return TextDirection::LTR;
     case CSSValueRtl:
-        return RTL;
+        return TextDirection::RTL;
     default:
         break;
     }
 
     ASSERT_NOT_REACHED();
-    return LTR;
+    return TextDirection::LTR;
 }
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(WritingMode e)
@@ -3903,58 +3908,58 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(BlendMode blendMode)
 {
     m_primitiveUnitType = CSS_VALUE_ID;
     switch (blendMode) {
-    case BlendModeNormal:
+    case BlendMode::Normal:
         m_value.valueID = CSSValueNormal;
         break;
-    case BlendModeMultiply:
+    case BlendMode::Multiply:
         m_value.valueID = CSSValueMultiply;
         break;
-    case BlendModeScreen:
+    case BlendMode::Screen:
         m_value.valueID = CSSValueScreen;
         break;
-    case BlendModeOverlay:
+    case BlendMode::Overlay:
         m_value.valueID = CSSValueOverlay;
         break;
-    case BlendModeDarken:
+    case BlendMode::Darken:
         m_value.valueID = CSSValueDarken;
         break;
-    case BlendModeLighten:
+    case BlendMode::Lighten:
         m_value.valueID = CSSValueLighten;
         break;
-    case BlendModeColorDodge:
+    case BlendMode::ColorDodge:
         m_value.valueID = CSSValueColorDodge;
         break;
-    case BlendModeColorBurn:
+    case BlendMode::ColorBurn:
         m_value.valueID = CSSValueColorBurn;
         break;
-    case BlendModeHardLight:
+    case BlendMode::HardLight:
         m_value.valueID = CSSValueHardLight;
         break;
-    case BlendModeSoftLight:
+    case BlendMode::SoftLight:
         m_value.valueID = CSSValueSoftLight;
         break;
-    case BlendModeDifference:
+    case BlendMode::Difference:
         m_value.valueID = CSSValueDifference;
         break;
-    case BlendModeExclusion:
+    case BlendMode::Exclusion:
         m_value.valueID = CSSValueExclusion;
         break;
-    case BlendModeHue:
+    case BlendMode::Hue:
         m_value.valueID = CSSValueHue;
         break;
-    case BlendModeSaturation:
+    case BlendMode::Saturation:
         m_value.valueID = CSSValueSaturation;
         break;
-    case BlendModeColor:
+    case BlendMode::Color:
         m_value.valueID = CSSValueColor;
         break;
-    case BlendModeLuminosity:
+    case BlendMode::Luminosity:
         m_value.valueID = CSSValueLuminosity;
         break;
-    case BlendModePlusDarker:
+    case BlendMode::PlusDarker:
         m_value.valueID = CSSValuePlusDarker;
         break;
-    case BlendModePlusLighter:
+    case BlendMode::PlusLighter:
         m_value.valueID = CSSValuePlusLighter;
         break;
     }
@@ -3966,47 +3971,47 @@ template<> inline CSSPrimitiveValue::operator BlendMode() const
 
     switch (m_value.valueID) {
     case CSSValueNormal:
-        return BlendModeNormal;
+        return BlendMode::Normal;
     case CSSValueMultiply:
-        return BlendModeMultiply;
+        return BlendMode::Multiply;
     case CSSValueScreen:
-        return BlendModeScreen;
+        return BlendMode::Screen;
     case CSSValueOverlay:
-        return BlendModeOverlay;
+        return BlendMode::Overlay;
     case CSSValueDarken:
-        return BlendModeDarken;
+        return BlendMode::Darken;
     case CSSValueLighten:
-        return BlendModeLighten;
+        return BlendMode::Lighten;
     case CSSValueColorDodge:
-        return BlendModeColorDodge;
+        return BlendMode::ColorDodge;
     case CSSValueColorBurn:
-        return BlendModeColorBurn;
+        return BlendMode::ColorBurn;
     case CSSValueHardLight:
-        return BlendModeHardLight;
+        return BlendMode::HardLight;
     case CSSValueSoftLight:
-        return BlendModeSoftLight;
+        return BlendMode::SoftLight;
     case CSSValueDifference:
-        return BlendModeDifference;
+        return BlendMode::Difference;
     case CSSValueExclusion:
-        return BlendModeExclusion;
+        return BlendMode::Exclusion;
     case CSSValueHue:
-        return BlendModeHue;
+        return BlendMode::Hue;
     case CSSValueSaturation:
-        return BlendModeSaturation;
+        return BlendMode::Saturation;
     case CSSValueColor:
-        return BlendModeColor;
+        return BlendMode::Color;
     case CSSValueLuminosity:
-        return BlendModeLuminosity;
+        return BlendMode::Luminosity;
     case CSSValuePlusDarker:
-        return BlendModePlusDarker;
+        return BlendMode::PlusDarker;
     case CSSValuePlusLighter:
-        return BlendModePlusLighter;
+        return BlendMode::PlusLighter;
     default:
         break;
     }
 
     ASSERT_NOT_REACHED();
-    return BlendModeNormal;
+    return BlendMode::Normal;
 }
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(Isolation isolation)

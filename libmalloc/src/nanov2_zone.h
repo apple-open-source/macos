@@ -238,7 +238,7 @@ typedef struct {
 
 // Maximum number of currently active allocation blocks per size class.
 // Initially, the default is for each physical CPU to have a dedicated block.
-#define MAX_CURRENT_BLOCKS 16
+#define MAX_CURRENT_BLOCKS 64
 #define MAX_CURRENT_BLOCKS_MASK (MAX_CURRENT_BLOCKS - 1)
 MALLOC_STATIC_ASSERT(MAX_CURRENT_BLOCKS > 1 &&
 		!(MAX_CURRENT_BLOCKS & MAX_CURRENT_BLOCKS_MASK),

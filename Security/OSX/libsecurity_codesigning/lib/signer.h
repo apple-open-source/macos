@@ -51,6 +51,7 @@ public:
 
 	void sign(SecCSFlags flags);
 	void remove(SecCSFlags flags);
+	void edit(SecCSFlags flags);
 	
 	SecCodeSigner &state;
 	SecStaticCode * const code;
@@ -66,6 +67,10 @@ protected:
 	void prepare(SecCSFlags flags);				// set up signing parameters
 	void signMachO(Universal *fat, const Requirement::Context &context); // sign a Mach-O binary
 	void signArchitectureAgnostic(const Requirement::Context &context); // sign anything else
+	
+	void prepareForEdit(SecCSFlags flags);		// set up signature editing
+	void editMachO(Universal *fat); 			// edit a Mach-O binary
+	void editArchitectureAgnostic(); 			// edit anything else
 
 	// HashAlgorithm -> PreEncrypt hashes
 	typedef std::map<CodeDirectory::HashAlgorithm, CFCopyRef<CFDataRef> >
@@ -79,6 +84,10 @@ protected:
 	// Architecture -> RuntimeVersionMap
 	typedef std::map<Architecture, RuntimeVersionMap>
 		RuntimeVersionMaps;
+	// Architecture -> RawComponentMap
+	typedef EditableDiskRep::RawComponentMap RawComponentMap;
+	typedef std::map<Architecture, std::unique_ptr<RawComponentMap>>
+		RawComponentMaps;
 
 	void populate(DiskRep::Writer &writer);		// global
 	void populate(CodeDirectory::Builder &builder, DiskRep::Writer &writer,
@@ -101,6 +110,8 @@ protected:
 	SecCSFlags signingFlags() const;
 	
 private:
+	static EditableDiskRep *editMainExecutableRep(DiskRep *rep);
+	
 	void addPreEncryptHashes(PreEncryptHashMap &map, SecStaticCode const *code);
 	void addRuntimeVersions(RuntimeVersionMap &map, SecStaticCode const *code);
 	
@@ -136,6 +147,10 @@ private:
 	bool emitSigningTime;			// emit signing time as a signed CMS attribute
 	bool strict;					// strict validation
 	bool generateEntitlementDER;	// generate entitlement DER
+	
+	// Signature Editing
+	Architecture editMainArch;		// main architecture for editing
+	RawComponentMaps editComponents; // components for signature
 	
 private:
 	Mutex resourceLock;

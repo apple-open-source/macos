@@ -79,6 +79,7 @@ static const IndexingType IndexingTypeMask                = IndexingShapeMask | 
 // Whether or not the butterfly is copy on write. If it is copy on write then the butterfly is actually a JSImmutableButterfly. This should only ever be set if there are no named properties.
 static const IndexingType CopyOnWrite                      = 0x10;
 static const IndexingType IndexingShapeAndWritabilityMask  = CopyOnWrite | IndexingShapeMask;
+static const IndexingType IndexingModeMask                 = CopyOnWrite | IndexingTypeMask;
 static const IndexingType NumberOfCopyOnWriteIndexingModes = 3; // We only have copy on write for int32, double, and contiguous shapes.
 static const IndexingType NumberOfArrayIndexingModes       = NumberOfIndexingShapes + NumberOfCopyOnWriteIndexingModes;
 
@@ -194,7 +195,7 @@ inline bool shouldUseSlowPut(IndexingType indexingType)
     return hasSlowPutArrayStorage(indexingType);
 }
 
-inline constexpr bool isCopyOnWrite(IndexingType indexingMode)
+constexpr bool isCopyOnWrite(IndexingType indexingMode)
 {
     return indexingMode & CopyOnWrite;
 }

@@ -42,7 +42,7 @@
 #include "Frame.h"
 #include "HTMLParserIdioms.h"
 #include "InspectorInstrumentation.h"
-#include "JSMainThreadExecState.h"
+#include "JSExecState.h"
 #include "JSWindowProxy.h"
 #include "ParsingUtilities.h"
 #include "PingLoader.h"
@@ -208,7 +208,7 @@ void ContentSecurityPolicy::didReceiveHeader(const String& header, ContentSecuri
         m_hasAPIPolicy = true;
     }
 
-    m_cachedResponseHeaders = std::nullopt;
+    m_cachedResponseHeaders = WTF::nullopt;
 
     // RFC2616, section 4.2 specifies that headers appearing multiple times can
     // be combined with a comma. Walk the header string, and parse each comma
@@ -691,7 +691,7 @@ void ContentSecurityPolicy::reportViolation(const String& effectiveViolatedDirec
 
         info.documentURI = document.url().strippedForUseAsReferrer();
 
-        auto stack = createScriptCallStack(JSMainThreadExecState::currentState(), 2);
+        auto stack = createScriptCallStack(JSExecState::currentState(), 2);
         auto* callFrame = stack->firstNonNativeCallFrame();
         if (callFrame && callFrame->lineNumber()) {
             info.sourceFile = deprecatedURLForReporting(URL { URL { }, callFrame->sourceURL() });
@@ -882,17 +882,17 @@ void ContentSecurityPolicy::upgradeInsecureRequestIfNeeded(URL& url, InsecureReq
     bool upgradeRequest = m_insecureNavigationRequestsToUpgrade.contains(SecurityOriginData::fromURL(url));
     if (requestType == InsecureRequestType::Load || requestType == InsecureRequestType::FormSubmission)
         upgradeRequest |= m_upgradeInsecureRequests;
-    
+
     if (!upgradeRequest)
         return;
 
     if (url.protocolIs("http"))
         url.setProtocol("https");
-    else if (url.protocolIs("ws"))
+    else {
+        ASSERT(url.protocolIs("ws"));
         url.setProtocol("wss");
-    else
-        return;
-    
+    }
+
     if (url.port() && url.port().value() == 80)
         url.setPort(443);
 }

@@ -26,7 +26,7 @@
 #import "config.h"
 #import "NetworkProcess.h"
 
-#if PLATFORM(IOS) && !PLATFORM(IOSMAC)
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(IOSMAC)
 
 #import "NetworkCache.h"
 #import "NetworkProcessCreationParameters.h"
@@ -37,12 +37,12 @@
 #import <WebCore/NotImplemented.h>
 #import <WebCore/WebCoreThreadSystemInterface.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
+#import <wtf/cocoa/Entitlements.h>
 
 #define ENABLE_MANUAL_NETWORK_SANDBOXING 0
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 void NetworkProcess::initializeProcess(const ChildProcessInitializationParameters&)
 {
@@ -96,6 +96,12 @@ void NetworkProcess::platformTerminate()
     notImplemented();
 }
 
+bool NetworkProcess::parentProcessHasServiceWorkerEntitlement() const
+{
+    static bool hasEntitlement = WTF::hasEntitlement(parentProcessConnection()->xpcConnection(), "com.apple.developer.WebKit.ServiceWorkers");
+    return hasEntitlement;
+}
+
 } // namespace WebKit
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

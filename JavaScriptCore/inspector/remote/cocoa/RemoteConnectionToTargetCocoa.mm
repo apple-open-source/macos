@@ -35,7 +35,7 @@
 #import <dispatch/dispatch.h>
 #import <wtf/Optional.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import <wtf/ios/WebCoreThread.h>
 #endif
 
@@ -120,9 +120,9 @@ RemoteConnectionToTarget::~RemoteConnectionToTarget()
     teardownRunLoop();
 }
 
-std::optional<unsigned> RemoteConnectionToTarget::targetIdentifier() const
+Optional<unsigned> RemoteConnectionToTarget::targetIdentifier() const
 {
-    return m_target ? std::optional<unsigned>(m_target->targetIdentifier()) : std::nullopt;
+    return m_target ? Optional<unsigned>(m_target->targetIdentifier()) : WTF::nullopt;
 }
 
 NSString *RemoteConnectionToTarget::connectionIdentifier() const
@@ -142,7 +142,7 @@ void RemoteConnectionToTarget::dispatchAsyncOnTarget(void (^block)())
         return;
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (WebCoreWebThreadIsEnabled && WebCoreWebThreadIsEnabled()) {
         WebCoreWebThreadRun(block);
         return;
@@ -159,7 +159,7 @@ bool RemoteConnectionToTarget::setup(bool isAutomaticInspection, bool automatica
     if (!m_target)
         return false;
 
-    unsigned targetIdentifier = this->targetIdentifier().value_or(0);
+    unsigned targetIdentifier = this->targetIdentifier().valueOr(0);
     
     ref();
     dispatchAsyncOnTarget(^{
@@ -171,13 +171,13 @@ bool RemoteConnectionToTarget::setup(bool isAutomaticInspection, bool automatica
                 m_target = nullptr;
             } else if (is<RemoteInspectionTarget>(m_target)) {
                 auto castedTarget = downcast<RemoteInspectionTarget>(m_target);
-                castedTarget->connect(this, isAutomaticInspection, automaticallyPause);
+                castedTarget->connect(*this, isAutomaticInspection, automaticallyPause);
                 m_connected = true;
 
                 RemoteInspector::singleton().updateTargetListing(targetIdentifier);
             } else if (is<RemoteAutomationTarget>(m_target)) {
                 auto castedTarget = downcast<RemoteAutomationTarget>(m_target);
-                castedTarget->connect(this);
+                castedTarget->connect(*this);
                 m_connected = true;
 
                 RemoteInspector::singleton().updateTargetListing(targetIdentifier);
@@ -206,7 +206,7 @@ void RemoteConnectionToTarget::close()
             std::lock_guard<Lock> lock(m_targetMutex);
             if (m_target) {
                 if (m_connected)
-                    m_target->disconnect(this);
+                    m_target->disconnect(*this);
 
                 m_target = nullptr;
                 

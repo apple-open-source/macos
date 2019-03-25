@@ -703,156 +703,25 @@ void RequirementLexer::mSTRING(bool _createToken) {
 	text.erase(_saveIndex);
 	{ // ( ... )*
 	for (;;) {
-		switch ( LA(1)) {
-		case 0x5c /* '\\' */ :
-		{
+		if ((LA(1) == 0x5c /* '\\' */ )) {
 			{
 			_saveIndex = text.length();
 			match('\\' /* charlit */ );
 			text.erase(_saveIndex);
 			match('\"' /* charlit */ );
 			}
-			break;
 		}
-		case 0x0 /* '\0' */ :
-		case 0x1 /* '\1' */ :
-		case 0x2 /* '\2' */ :
-		case 0x3 /* '\3' */ :
-		case 0x4 /* '\4' */ :
-		case 0x5 /* '\5' */ :
-		case 0x6 /* '\6' */ :
-		case 0x7 /* '\7' */ :
-		case 0x8 /* '\10' */ :
-		case 0x9 /* '\t' */ :
-		case 0xa /* '\n' */ :
-		case 0xb /* '\13' */ :
-		case 0xc /* '\14' */ :
-		case 0xd /* '\r' */ :
-		case 0xe /* '\16' */ :
-		case 0xf /* '\17' */ :
-		case 0x10 /* '\20' */ :
-		case 0x11 /* '\21' */ :
-		case 0x12 /* '\22' */ :
-		case 0x13 /* '\23' */ :
-		case 0x14 /* '\24' */ :
-		case 0x15 /* '\25' */ :
-		case 0x16 /* '\26' */ :
-		case 0x17 /* '\27' */ :
-		case 0x18 /* '\30' */ :
-		case 0x19 /* '\31' */ :
-		case 0x1a /* '\32' */ :
-		case 0x1b /* '\33' */ :
-		case 0x1c /* '\34' */ :
-		case 0x1d /* '\35' */ :
-		case 0x1e /* '\36' */ :
-		case 0x1f /* '\37' */ :
-		case 0x20 /* ' ' */ :
-		case 0x21 /* '!' */ :
-		case 0x23 /* '#' */ :
-		case 0x24 /* '$' */ :
-		case 0x25 /* '%' */ :
-		case 0x26 /* '&' */ :
-		case 0x27 /* '\'' */ :
-		case 0x28 /* '(' */ :
-		case 0x29 /* ')' */ :
-		case 0x2a /* '*' */ :
-		case 0x2b /* '+' */ :
-		case 0x2c /* ',' */ :
-		case 0x2d /* '-' */ :
-		case 0x2e /* '.' */ :
-		case 0x2f /* '/' */ :
-		case 0x30 /* '0' */ :
-		case 0x31 /* '1' */ :
-		case 0x32 /* '2' */ :
-		case 0x33 /* '3' */ :
-		case 0x34 /* '4' */ :
-		case 0x35 /* '5' */ :
-		case 0x36 /* '6' */ :
-		case 0x37 /* '7' */ :
-		case 0x38 /* '8' */ :
-		case 0x39 /* '9' */ :
-		case 0x3a /* ':' */ :
-		case 0x3b /* ';' */ :
-		case 0x3c /* '<' */ :
-		case 0x3d /* '=' */ :
-		case 0x3e /* '>' */ :
-		case 0x3f /* '?' */ :
-		case 0x40 /* '@' */ :
-		case 0x41 /* 'A' */ :
-		case 0x42 /* 'B' */ :
-		case 0x43 /* 'C' */ :
-		case 0x44 /* 'D' */ :
-		case 0x45 /* 'E' */ :
-		case 0x46 /* 'F' */ :
-		case 0x47 /* 'G' */ :
-		case 0x48 /* 'H' */ :
-		case 0x49 /* 'I' */ :
-		case 0x4a /* 'J' */ :
-		case 0x4b /* 'K' */ :
-		case 0x4c /* 'L' */ :
-		case 0x4d /* 'M' */ :
-		case 0x4e /* 'N' */ :
-		case 0x4f /* 'O' */ :
-		case 0x50 /* 'P' */ :
-		case 0x51 /* 'Q' */ :
-		case 0x52 /* 'R' */ :
-		case 0x53 /* 'S' */ :
-		case 0x54 /* 'T' */ :
-		case 0x55 /* 'U' */ :
-		case 0x56 /* 'V' */ :
-		case 0x57 /* 'W' */ :
-		case 0x58 /* 'X' */ :
-		case 0x59 /* 'Y' */ :
-		case 0x5a /* 'Z' */ :
-		case 0x5b /* '[' */ :
-		case 0x5d /* ']' */ :
-		case 0x5e /* '^' */ :
-		case 0x5f /* '_' */ :
-		case 0x60 /* '`' */ :
-		case 0x61 /* 'a' */ :
-		case 0x62 /* 'b' */ :
-		case 0x63 /* 'c' */ :
-		case 0x64 /* 'd' */ :
-		case 0x65 /* 'e' */ :
-		case 0x66 /* 'f' */ :
-		case 0x67 /* 'g' */ :
-		case 0x68 /* 'h' */ :
-		case 0x69 /* 'i' */ :
-		case 0x6a /* 'j' */ :
-		case 0x6b /* 'k' */ :
-		case 0x6c /* 'l' */ :
-		case 0x6d /* 'm' */ :
-		case 0x6e /* 'n' */ :
-		case 0x6f /* 'o' */ :
-		case 0x70 /* 'p' */ :
-		case 0x71 /* 'q' */ :
-		case 0x72 /* 'r' */ :
-		case 0x73 /* 's' */ :
-		case 0x74 /* 't' */ :
-		case 0x75 /* 'u' */ :
-		case 0x76 /* 'v' */ :
-		case 0x77 /* 'w' */ :
-		case 0x78 /* 'x' */ :
-		case 0x79 /* 'y' */ :
-		case 0x7a /* 'z' */ :
-		case 0x7b /* '{' */ :
-		case 0x7c /* '|' */ :
-		case 0x7d /* '}' */ :
-		case 0x7e /* '~' */ :
-		case 0x7f:
-		{
+		else if ((_tokenSet_2.member(LA(1)))) {
 			{
 			{
 			match(_tokenSet_2);
 			}
 			}
-			break;
 		}
-		default:
-		{
+		else {
 			goto _loop66;
 		}
-		}
+		
 	}
 	_loop66:;
 	} // ( ... )*
@@ -1241,30 +1110,30 @@ void RequirementLexer::mCPP_COMMENT(bool _createToken) {
 }
 
 
-const unsigned long RequirementLexer::_tokenSet_0_data_[] = { 0UL, 0UL, 134217726UL, 134217726UL, 0UL, 0UL, 0UL, 0UL };
-const antlr::BitSet RequirementLexer::_tokenSet_0(_tokenSet_0_data_,8);
-const unsigned long RequirementLexer::_tokenSet_1_data_[] = { 0UL, 67043328UL, 126UL, 126UL, 0UL, 0UL, 0UL, 0UL };
+const unsigned long RequirementLexer::_tokenSet_0_data_[] = { 0UL, 0UL, 134217726UL, 134217726UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
+const antlr::BitSet RequirementLexer::_tokenSet_0(_tokenSet_0_data_,10);
+const unsigned long RequirementLexer::_tokenSet_1_data_[] = { 0UL, 67043328UL, 126UL, 126UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0 1 2 3 4 5 6 7 8 9 
-const antlr::BitSet RequirementLexer::_tokenSet_1(_tokenSet_1_data_,8);
-const unsigned long RequirementLexer::_tokenSet_2_data_[] = { 4294967295UL, 4294967291UL, 4026531839UL, 4294967295UL, 0UL, 0UL, 0UL, 0UL };
+const antlr::BitSet RequirementLexer::_tokenSet_1(_tokenSet_1_data_,10);
+const unsigned long RequirementLexer::_tokenSet_2_data_[] = { 4294967295UL, 4294967291UL, 4026531839UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
 // 0x1f   ! # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : 
-const antlr::BitSet RequirementLexer::_tokenSet_2(_tokenSet_2_data_,8);
-const unsigned long RequirementLexer::_tokenSet_3_data_[] = { 4294966271UL, 4294967295UL, 4294967295UL, 4294967295UL, 0UL, 0UL, 0UL, 0UL };
+const antlr::BitSet RequirementLexer::_tokenSet_2(_tokenSet_2_data_,16);
+const unsigned long RequirementLexer::_tokenSet_3_data_[] = { 4294966271UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xb 0xc 0xd 0xe 0xf 0x10 0x11 
 // 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 0x1f 
 //   ! \" # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : 
-const antlr::BitSet RequirementLexer::_tokenSet_3(_tokenSet_3_data_,8);
-const unsigned long RequirementLexer::_tokenSet_4_data_[] = { 4294967295UL, 4294934527UL, 4294967295UL, 4294967295UL, 0UL, 0UL, 0UL, 0UL };
+const antlr::BitSet RequirementLexer::_tokenSet_3(_tokenSet_3_data_,16);
+const unsigned long RequirementLexer::_tokenSet_4_data_[] = { 4294967295UL, 4294934527UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
 // 0x1f   ! \" # $ % & \' ( ) * + , - . 0 1 2 3 4 5 6 7 8 9 : 
-const antlr::BitSet RequirementLexer::_tokenSet_4(_tokenSet_4_data_,8);
-const unsigned long RequirementLexer::_tokenSet_5_data_[] = { 4294967295UL, 4294966271UL, 4294967295UL, 4294967295UL, 0UL, 0UL, 0UL, 0UL };
+const antlr::BitSet RequirementLexer::_tokenSet_4(_tokenSet_4_data_,16);
+const unsigned long RequirementLexer::_tokenSet_5_data_[] = { 4294967295UL, 4294966271UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
 // 0x1f   ! \" # $ % & \' ( ) + , - . / 0 1 2 3 4 5 6 7 8 9 : 
-const antlr::BitSet RequirementLexer::_tokenSet_5(_tokenSet_5_data_,8);
+const antlr::BitSet RequirementLexer::_tokenSet_5(_tokenSet_5_data_,16);
 
 ANTLR_END_NAMESPACE

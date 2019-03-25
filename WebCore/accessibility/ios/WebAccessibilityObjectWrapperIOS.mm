@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WebAccessibilityObjectWrapperIOS.h"
 
-#if HAVE(ACCESSIBILITY) && PLATFORM(IOS)
+#if HAVE(ACCESSIBILITY) && PLATFORM(IOS_FAMILY)
 
 #import "AccessibilityAttachment.h"
 #import "AccessibilityMediaObject.h"
@@ -117,6 +117,9 @@ static NSString * const UIAccessibilityTokenItalic = @"UIAccessibilityTokenItali
 static NSString * const UIAccessibilityTokenUnderline = @"UIAccessibilityTokenUnderline";
 static NSString * const UIAccessibilityTokenLanguage = @"UIAccessibilityTokenLanguage";
 static NSString * const UIAccessibilityTokenAttachment = @"UIAccessibilityTokenAttachment";
+
+static NSString * const UIAccessibilityTextAttributeContext = @"UIAccessibilityTextAttributeContext";
+static NSString * const UIAccessibilityTextualContextSourceCode = @"UIAccessibilityTextualContextSourceCode";
 
 static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityObjectWrapper *wrapper)
 {
@@ -344,6 +347,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     switch (role) {
     case AccessibilityRole::Button:
     case AccessibilityRole::CheckBox:
+    case AccessibilityRole::ColorWell:
     case AccessibilityRole::ComboBox:
     case AccessibilityRole::DisclosureTriangle:
     case AccessibilityRole::Heading:
@@ -854,6 +858,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     case AccessibilityRole::ToggleButton:
     case AccessibilityRole::PopUpButton:
     case AccessibilityRole::CheckBox:
+    case AccessibilityRole::ColorWell:
     case AccessibilityRole::RadioButton:
     case AccessibilityRole::Slider:
     case AccessibilityRole::MenuButton:
@@ -928,7 +933,6 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     case AccessibilityRole::Canvas:
     case AccessibilityRole::Caption:
     case AccessibilityRole::Cell:
-    case AccessibilityRole::ColorWell:
     case AccessibilityRole::Column:
     case AccessibilityRole::ColumnHeader:
     case AccessibilityRole::Definition:
@@ -1113,6 +1117,12 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 
 - (NSString *)accessibilityRoleDescription
 {
+    if (![self _prepareAccessibilityCall])
+        return nil;
+
+    if (m_object->isColorWell())
+        return AXColorWellText();
+
     return m_object->roleDescription();
 }
 
@@ -1121,7 +1131,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return nil;
 
-    // check if the label was overriden
+    // check if the label was overridden
     NSString *label = [super accessibilityLabel];
     if (label)
         return label;
@@ -1391,18 +1401,32 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     return m_object->placeholderValue();
 }
 
+- (NSString *)accessibilityColorStringValue
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+
+    if (m_object->isColorWell()) {
+        int r, g, b;
+        m_object->colorValue(r, g, b);
+        return [NSString stringWithFormat:@"rgb %7.5f %7.5f %7.5f 1", r / 255., g / 255., b / 255.];
+    }
+
+    return nil;
+}
+
 - (NSString *)accessibilityValue
 {
     if (![self _prepareAccessibilityCall])
         return nil;
     
-    // check if the value was overriden
+    // check if the value was overridden
     NSString *value = [super accessibilityValue];
     if (value)
         return value;
     
     AccessibilityRole role = m_object->roleValue();
-    if (m_object->isCheckboxOrRadio() || role == AccessibilityRole::MenuItemCheckbox || role == AccessibilityRole::MenuItemRadio) {
+    if (m_object->isCheckboxOrRadio() || role == AccessibilityRole::MenuItemCheckbox || role == AccessibilityRole::MenuItemRadio || role == AccessibilityRole::Switch) {
         switch (m_object->checkboxOrRadioValue()) {
         case AccessibilityButtonState::Off:
             return [NSString stringWithFormat:@"%d", 0];
@@ -1889,6 +1913,17 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     return m_object->isAttachment();
 }
 
+- (NSString *)accessibilityTextualContext
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+
+    if (m_object->node() && m_object->node()->hasTagName(codeTag))
+        return UIAccessibilityTextualContextSourceCode;
+    
+    return nil;
+}
+
 - (void)_accessibilityActivate
 {
     if (![self _prepareAccessibilityCall])
@@ -2256,6 +2291,15 @@ static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, Ren
     auto decor = style.textDecorationsInEffect();
     if (decor & TextDecoration::Underline)
         AXAttributeStringSetNumber(attrString, UIAccessibilityTokenUnderline, @YES, range);
+
+    // Add code context if this node is within a <code> block.
+    AccessibilityObject* axObject = renderer->document().axObjectCache()->getOrCreate(renderer);
+    auto matchFunc = [] (const AccessibilityObject& object) {
+        return object.node() && object.node()->hasTagName(codeTag);
+    };
+    
+    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*axObject, true, WTFMove(matchFunc)))
+        [attrString addAttribute:UIAccessibilityTextAttributeContext value:UIAccessibilityTextualContextSourceCode range:range];
 }
 
 static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, Node* node, NSString *text)
@@ -2378,12 +2422,12 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     if (&range->endContainer() != scope && !range->endContainer().isDescendantOf(scope))
         return NSMakeRange(NSNotFound, 0);
 
-    RefPtr<Range> testRange = Range::create(scope->document(), scope, 0, &range->startContainer(), range->startOffset());
+    auto testRange = Range::create(scope->document(), scope, 0, &range->startContainer(), range->startOffset());
     ASSERT(&testRange->startContainer() == scope);
-    int startPosition = TextIterator::rangeLength(testRange.get());
+    int startPosition = TextIterator::rangeLength(testRange.ptr());
     testRange->setEnd(range->endContainer(), range->endOffset());
     ASSERT(&testRange->startContainer() == scope);
-    int endPosition = TextIterator::rangeLength(testRange.get());
+    int endPosition = TextIterator::rangeLength(testRange.ptr());
     return NSMakeRange(startPosition, endPosition - startPosition);
 }
 
@@ -2514,25 +2558,10 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     return [WebAccessibilityTextMarker textMarkerWithCharacterOffset:characterOffset cache:cache];
 }
 
-- (id)_stringForRange:(NSRange)range attributed:(BOOL)attributed
+- (id)_stringFromStartMarker:(WebAccessibilityTextMarker*)startMarker toEndMarker:(WebAccessibilityTextMarker*)endMarker attributed:(BOOL)attributed
 {
-    if (![self _prepareAccessibilityCall])
+    if (!startMarker || !endMarker)
         return nil;
-    
-    WebAccessibilityTextMarker* startMarker = [self textMarkerForPosition:range.location];
-    WebAccessibilityTextMarker* endMarker = [self textMarkerForPosition:NSMaxRange(range)];
-    
-    // Clients don't always know the exact range, rather than force them to compute it,
-    // allow clients to overshoot and use the max text marker range.
-    if (!startMarker || !endMarker) {
-        NSArray *markers = [self textMarkerRange];
-        if ([markers count] != 2)
-            return nil;
-        if (!startMarker)
-            startMarker = [markers objectAtIndex:0];
-        if (!endMarker)
-            endMarker = [markers objectAtIndex:1];
-    }
     
     NSArray* array = [self arrayOfTextForTextMarkers:[NSArray arrayWithObjects:startMarker, endMarker, nil] attributed:attributed];
     Class returnClass = attributed ? [NSMutableAttributedString class] : [NSMutableString class];
@@ -2557,6 +2586,29 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     return returnValue;
 }
 
+- (id)_stringForRange:(NSRange)range attributed:(BOOL)attributed
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+    
+    WebAccessibilityTextMarker* startMarker = [self textMarkerForPosition:range.location];
+    WebAccessibilityTextMarker* endMarker = [self textMarkerForPosition:NSMaxRange(range)];
+    
+    // Clients don't always know the exact range, rather than force them to compute it,
+    // allow clients to overshoot and use the max text marker range.
+    if (!startMarker || !endMarker) {
+        NSArray *markers = [self textMarkerRange];
+        if ([markers count] != 2)
+            return nil;
+        if (!startMarker)
+            startMarker = [markers objectAtIndex:0];
+        if (!endMarker)
+            endMarker = [markers objectAtIndex:1];
+    }
+    
+    return [self _stringFromStartMarker:startMarker toEndMarker:endMarker attributed:attributed];
+}
+
 
 // A convenience method for getting the text of a NSRange. Currently used only by DRT.
 - (NSString *)stringForRange:(NSRange)range
@@ -2567,6 +2619,18 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
 - (NSAttributedString *)attributedStringForRange:(NSRange)range
 {
     return [self _stringForRange:range attributed:YES];
+}
+
+- (NSAttributedString *)attributedStringForElement
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+    
+    NSArray *markers = [self textMarkerRange];
+    if ([markers count] != 2)
+        return nil;
+    
+    return [self _stringFromStartMarker:markers.firstObject toEndMarker:markers.lastObject attributed:YES];
 }
 
 - (NSRange)_accessibilitySelectedTextRange
@@ -3201,4 +3265,4 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
 
 @end
 
-#endif // HAVE(ACCESSIBILITY) && PLATFORM(IOS)
+#endif // HAVE(ACCESSIBILITY) && PLATFORM(IOS_FAMILY)

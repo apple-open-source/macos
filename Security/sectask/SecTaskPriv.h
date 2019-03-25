@@ -39,7 +39,7 @@ __BEGIN_DECLS
     task satisfies the requirement.
 */
 
-OSStatus SecTaskValidateForRequirement(SecTaskRef task, CFStringRef requirement);
+OSStatus SecTaskValidateForRequirement(SecTaskRef _Nonnull task, CFStringRef _Nonnull requirement);
 
 /*!
   @function SecTaskGetCodeSignStatus
@@ -48,7 +48,7 @@ OSStatus SecTaskValidateForRequirement(SecTaskRef task, CFStringRef requirement)
 */
 
 uint32_t
-SecTaskGetCodeSignStatus(SecTaskRef task);
+SecTaskGetCodeSignStatus(SecTaskRef _Nonnull task);
 #endif /* SEC_OS_OSX */
 
 /*!
@@ -57,9 +57,18 @@ SecTaskGetCodeSignStatus(SecTaskRef task);
  false the tasks entitlements must not be used for anything security sensetive.
  @param task A previously created SecTask object
  */
-Boolean SecTaskEntitlementsValidated(SecTaskRef task);
+Boolean SecTaskEntitlementsValidated(SecTaskRef _Nonnull task);
 
-
+/*!
+ @function SecTaskCopyTeamIdentifier
+ @abstract Return the value of the team identifier.
+ @param task A previously created SecTask object
+ @param error On a NULL return, this will contain a CFError describing
+ the problem.  This argument may be NULL if the caller is not interested in
+ detailed errors. The caller must CFRelease the returned value
+ */
+__nullable
+CFStringRef SecTaskCopyTeamIdentifier(SecTaskRef _Nonnull task, CFErrorRef _Nullable * _Nullable error);
 
 __END_DECLS
 

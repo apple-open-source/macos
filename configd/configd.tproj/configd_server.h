@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008, 2011. 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011, 2015, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -79,7 +79,7 @@ kern_return_t	_configadd	(mach_port_t 		server,
 				 mach_msg_type_number_t	keyLen,
 				 xmlData_t		dataRef,
 				 mach_msg_type_number_t	dataLen,
-				 int			*newInstance,
+				 int			*newInstance,		// no longer used
 				 int			*sc_status,
 				 audit_token_t		audit_token);
 
@@ -88,7 +88,7 @@ kern_return_t	_configadd_s	(mach_port_t 		server,
 				 mach_msg_type_number_t	keyLen,
 				 xmlData_t		dataRef,
 				 mach_msg_type_number_t	dataLen,
-				 int			*newInstance,
+				 int			*newInstance,		// no longer used
 				 int			*sc_status);
 
 kern_return_t	_configget	(mach_port_t		server,
@@ -96,7 +96,7 @@ kern_return_t	_configget	(mach_port_t		server,
 				 mach_msg_type_number_t	keyLen,
 				 xmlDataOut_t		*dataRef,
 				 mach_msg_type_number_t	*dataLen,
-				 int			*newInstance,
+				 int			*newInstance,		// no longer used
 				 int			*sc_status,
 				 audit_token_t		audit_token);
 
@@ -105,7 +105,7 @@ kern_return_t	_configset	(mach_port_t		server,
 				 mach_msg_type_number_t	keyLen,
 				 xmlData_t		dataRef,
 				 mach_msg_type_number_t	dataLen,
-				 int			*newInstance,
+				 int			*newInstance,		// no longer used
 				 int			*sc_status,
 				 audit_token_t		audit_token);
 
@@ -186,4 +186,4 @@ kern_return_t	_notifyset	(mach_port_t		server,
 
 __END_DECLS
 
-#endif /* !_S_CONFIGD_SERVER_H */
+#endif	/* !_S_CONFIGD_SERVER_H */

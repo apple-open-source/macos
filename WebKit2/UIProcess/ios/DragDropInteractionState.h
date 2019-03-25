@@ -25,16 +25,17 @@
 
 #pragma once
 
-#if ENABLE(DRAG_SUPPORT) && PLATFORM(IOS)
+#if ENABLE(DRAG_SUPPORT) && PLATFORM(IOS_FAMILY)
 
 #import "UIKitSPI.h"
 #import <WebCore/DragActions.h>
 #import <WebCore/DragData.h>
+#import <WebCore/Path.h>
 #import <WebCore/TextIndicator.h>
-#import <WebCore/URL.h>
 #import <WebCore/WebItemProviderPasteboard.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/URL.h>
 #import <wtf/Vector.h>
 
 namespace WebCore {
@@ -48,9 +49,10 @@ struct DragSourceState {
     CGPoint adjustedOrigin { CGPointZero };
     CGRect dragPreviewFrameInRootViewCoordinates { CGRectZero };
     RetainPtr<UIImage> image;
-    std::optional<WebCore::TextIndicatorData> indicatorData;
+    Optional<WebCore::TextIndicatorData> indicatorData;
+    Optional<WebCore::Path> visiblePath;
     String linkTitle;
-    WebCore::URL linkURL;
+    URL linkURL;
     bool possiblyNeedsDragPreviewUpdate { true };
 
     NSInteger itemIdentifier { 0 };
@@ -92,7 +94,7 @@ public:
 
 private:
     void updatePreviewsForActiveDragSources();
-    std::optional<DragSourceState> activeDragSourceForItem(UIDragItem *) const;
+    Optional<DragSourceState> activeDragSourceForItem(UIDragItem *) const;
 
     CGPoint m_lastGlobalPosition { CGPointZero };
     CGPoint m_adjustedPositionForDragEnd { CGPointZero };
@@ -104,10 +106,10 @@ private:
     BlockPtr<void()> m_dragCancelSetDownBlock;
     BlockPtr<void(NSArray<UIDragItem *> *)> m_addDragItemCompletionBlock;
 
-    std::optional<DragSourceState> m_stagedDragSource;
+    Optional<DragSourceState> m_stagedDragSource;
     Vector<DragSourceState> m_activeDragSources;
 };
 
 } // namespace WebKit
 
-#endif // ENABLE(DRAG_SUPPORT) && PLATFORM(IOS)
+#endif // ENABLE(DRAG_SUPPORT) && PLATFORM(IOS_FAMILY)

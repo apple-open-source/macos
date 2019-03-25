@@ -73,13 +73,4 @@ IOHIDFAMILY_COPYRIGHT = "Copyright © 2000-2018 Apple Inc. All rights reserved. 
 IOHIDFAMILY_VERSION = 2.0.0
 MODULE_VERSION = $(IOHIDFAMILY_VERSION)
 
-//
-// Remote HID
-//
-//HIDRCD_INSTALL_PATH = /usr/libexec
-//HIDRCD_PLIST_INSTALL_PATH = /System/Library/LaunchDaemons
-//REMOTEHID_INSTALL_PATH = /System/Library/PrivateFrameworks
-HIDRCD_INSTALL_PATH = /usr/local/libexec
-HIDRCD_PLIST_INSTALL_PATH = /AppleInternal/Library/LaunchDaemons
-REMOTEHID_INSTALL_PATH = /AppleInternal/Library/Frameworks
 

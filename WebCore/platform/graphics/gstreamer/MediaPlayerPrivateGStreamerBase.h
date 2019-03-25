@@ -26,6 +26,7 @@
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "GStreamerCommon.h"
+#include "GStreamerEMEUtilities.h"
 #include "MainThreadNotifier.h"
 #include "MediaPlayerPrivate.h"
 #include "PlatformLayer.h"
@@ -37,7 +38,11 @@
 #include <wtf/WeakPtr.h>
 
 #if USE(TEXTURE_MAPPER_GL)
+#if USE(NICOSIA)
+#include "NicosiaContentLayerTextureMapperImpl.h"
+#else
 #include "TextureMapperPlatformLayerProxyProvider.h"
+#endif
 #endif
 
 typedef struct _GstStreamVolume GstStreamVolume;
@@ -63,11 +68,17 @@ void registerWebKitGStreamerElements();
 
 class MediaPlayerPrivateGStreamerBase : public MediaPlayerPrivateInterface, public CanMakeWeakPtr<MediaPlayerPrivateGStreamerBase>
 #if USE(TEXTURE_MAPPER_GL)
+#if USE(NICOSIA)
+    , public Nicosia::ContentLayerTextureMapperImpl::Client
+#else
     , public PlatformLayer
+#endif
 #endif
 {
 
 public:
+    static void initializeDebugCategory();
+
     virtual ~MediaPlayerPrivateGStreamerBase();
 
     FloatSize naturalSize() const override;
@@ -79,7 +90,6 @@ public:
     bool ensureGstGLContext();
     GstContext* requestGLContext(const char* contextType);
 #endif
-    static bool initializeGStreamerAndRegisterWebKitElements();
     bool supportsMuting() const override { return true; }
     void setMuted(bool) override;
     bool muted() const;
@@ -126,7 +136,7 @@ public:
     void acceleratedRenderingStateChanged() override;
 
 #if USE(TEXTURE_MAPPER_GL)
-    PlatformLayer* platformLayer() const override { return const_cast<MediaPlayerPrivateGStreamerBase*>(this); }
+    PlatformLayer* platformLayer() const override;
 #if PLATFORM(WIN_CAIRO)
     // FIXME: Accelerated rendering has not been implemented for WinCairo yet.
     bool supportsAcceleratedRendering() const override { return false; }
@@ -140,10 +150,11 @@ public:
     void cdmInstanceDetached(CDMInstance&) override;
     void dispatchDecryptionKey(GstBuffer*);
     void handleProtectionEvent(GstEvent*);
-    void attemptToDecryptWithLocalInstance();
-    void attemptToDecryptWithInstance(CDMInstance&) override;
-    void dispatchCDMInstance();
-    void initializationDataEncountered(GstEvent*);
+    virtual void attemptToDecryptWithLocalInstance();
+    void attemptToDecryptWithInstance(CDMInstance&) final;
+    void initializationDataEncountered(InitData&&);
+    void setWaitingForKey(bool);
+    bool waitingForKey() const override;
 #endif
 
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
@@ -175,9 +186,13 @@ protected:
 #endif
 
 #if USE(TEXTURE_MAPPER_GL)
+    void pushTextureToCompositor();
+#if USE(NICOSIA)
+    void swapBuffersIfNeeded() override;
+#else
     RefPtr<TextureMapperPlatformLayerProxy> proxy() const override;
     void swapBuffersIfNeeded() override;
-    void pushTextureToCompositor();
+#endif
 #endif
 
     GstElement* videoSink() const { return m_videoSink.get(); }
@@ -238,7 +253,11 @@ protected:
     RunLoop::Timer<MediaPlayerPrivateGStreamerBase> m_drawTimer;
 
 #if USE(TEXTURE_MAPPER_GL)
+#if USE(NICOSIA)
+    Ref<Nicosia::ContentLayer> m_nicosiaLayer;
+#else
     RefPtr<TextureMapperPlatformLayerProxy> m_platformLayerProxy;
+#endif
 #endif
 
 #if USE(GSTREAMER_GL)
@@ -256,7 +275,7 @@ protected:
     Condition m_protectionCondition;
     RefPtr<const CDMInstance> m_cdmInstance;
     HashSet<uint32_t> m_handledProtectionEvents;
-    bool m_needToResendCredentials { false };
+    bool m_waitingForKey { false };
 #endif
 };
 

@@ -256,8 +256,10 @@ public:
     WebKeyboardEvent(Type, const String& text, const String& unmodifiedText, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, int macCharCode, bool handledByInputMethod, const Vector<WebCore::KeypressCommand>&, bool isAutoRepeat, bool isKeypad, bool isSystemKey, Modifiers, WallTime timestamp);
 #elif PLATFORM(GTK)
     WebKeyboardEvent(Type, const String& text, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool handledByInputMethod, Vector<String>&& commands, bool isKeypad, Modifiers, WallTime timestamp);
-#elif PLATFORM(IOS)
+#elif PLATFORM(IOS_FAMILY)
     WebKeyboardEvent(Type, const String& text, const String& unmodifiedText, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, int macCharCode, bool isAutoRepeat, bool isKeypad, bool isSystemKey, Modifiers, WallTime timestamp);
+#elif USE(LIBWPE)
+    WebKeyboardEvent(Type, const String& text, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool isKeypad, Modifiers, WallTime timestamp);
 #else
     WebKeyboardEvent(Type, const String& text, const String& unmodifiedText, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, int macCharCode, bool isAutoRepeat, bool isKeypad, bool isSystemKey, Modifiers, WallTime timestamp);
 #endif
@@ -318,7 +320,7 @@ private:
 };
 
 #if ENABLE(TOUCH_EVENTS)
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 class WebPlatformTouchPoint {
 public:
     enum TouchPointState {
@@ -365,7 +367,7 @@ public:
 #endif
 
     void encode(IPC::Encoder&) const;
-    static std::optional<WebPlatformTouchPoint> decode(IPC::Decoder&);
+    static Optional<WebPlatformTouchPoint> decode(IPC::Decoder&);
 
 private:
     unsigned m_identifier;
@@ -458,7 +460,7 @@ public:
     void setState(TouchPointState state) { m_state = state; }
 
     void encode(IPC::Encoder&) const;
-    static std::optional<WebPlatformTouchPoint> decode(IPC::Decoder&);
+    static Optional<WebPlatformTouchPoint> decode(IPC::Decoder&);
 
 private:
     uint32_t m_id;
@@ -489,7 +491,7 @@ private:
     Vector<WebPlatformTouchPoint> m_touchPoints;
 };
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
 #endif // ENABLE(TOUCH_EVENTS)
 
 } // namespace WebKit

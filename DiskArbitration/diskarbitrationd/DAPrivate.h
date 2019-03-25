@@ -38,6 +38,8 @@ extern DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption );
 
 extern DAReturn _DADiskSetEncoding( DADiskRef disk, CFStringEncoding encoding );
 
+extern errno_t _DADiskGetEncryptionStatus( CFAllocatorRef allocator, DADiskRef disk, CFBooleanRef *encryption_status, CFNumberRef *encryption_details );
+
 extern Boolean _DAUnitIsUnreadable( DADiskRef disk );
 
 #ifdef __cplusplus

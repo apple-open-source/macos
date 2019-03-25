@@ -3991,6 +3991,10 @@ supplementalData:table(nofallback){
             "937",
         }
         {
+            "VES",
+            "928",
+        }
+        {
             "VND",
             "704",
         }
@@ -4195,6 +4199,7 @@ supplementalData:table(nofallback){
                 "UYI",
                 "UYP",
                 "VEB",
+                "VEF",
                 "VNN",
                 "XAG",
                 "XAU",
@@ -4366,7 +4371,7 @@ supplementalData:table(nofallback){
                 "USD",
                 "UYU",
                 "UZS",
-                "VEF",
+                "VES",
                 "VND",
                 "VUV",
                 "WST",

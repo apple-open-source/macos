@@ -48,6 +48,20 @@ typedef void (* JSCExceptionHandler) (JSCContext   *context,
                                       JSCException *exception,
                                       gpointer      user_data);
 
+typedef enum {
+    JSC_CHECK_SYNTAX_MODE_SCRIPT,
+    JSC_CHECK_SYNTAX_MODE_MODULE
+} JSCCheckSyntaxMode;
+
+typedef enum {
+    JSC_CHECK_SYNTAX_RESULT_SUCCESS,
+    JSC_CHECK_SYNTAX_RESULT_RECOVERABLE_ERROR,
+    JSC_CHECK_SYNTAX_RESULT_IRRECOVERABLE_ERROR,
+    JSC_CHECK_SYNTAX_RESULT_UNTERMINATED_LITERAL_ERROR,
+    JSC_CHECK_SYNTAX_RESULT_OUT_OF_MEMORY_ERROR,
+    JSC_CHECK_SYNTAX_RESULT_STACK_OVERFLOW_ERROR,
+} JSCCheckSyntaxResult;
+
 struct _JSCContext {
     GObject parent;
 
@@ -84,6 +98,22 @@ jsc_context_throw                    (JSCContext         *context,
                                       const char         *error_message);
 
 JSC_API void
+jsc_context_throw_printf             (JSCContext         *context,
+                                      const char         *format,
+                                      ...) G_GNUC_PRINTF (2, 3);
+
+JSC_API void
+jsc_context_throw_with_name          (JSCContext         *context,
+                                      const char         *error_name,
+                                      const char         *error_message);
+
+JSC_API void
+jsc_context_throw_with_name_printf   (JSCContext         *context,
+                                      const char         *error_name,
+                                      const char         *format,
+                                      ...) G_GNUC_PRINTF (3, 4);
+
+JSC_API void
 jsc_context_throw_exception          (JSCContext         *context,
                                       JSCException       *exception);
 
@@ -105,23 +135,33 @@ jsc_context_get_current              (void);
 JSC_API JSCValue *
 jsc_context_evaluate                 (JSCContext         *context,
                                       const char         *code,
-                                      gssize              length);
+                                      gssize              length) G_GNUC_WARN_UNUSED_RESULT;
 
 JSC_API JSCValue *
 jsc_context_evaluate_with_source_uri (JSCContext         *context,
                                       const char         *code,
                                       gssize              length,
                                       const char         *uri,
-                                      guint               line_number);
+                                      guint               line_number) G_GNUC_WARN_UNUSED_RESULT;
 
 JSC_API JSCValue *
 jsc_context_evaluate_in_object       (JSCContext         *context,
                                       const char         *code,
                                       gssize              length,
+                                      gpointer            object_instance,
                                       JSCClass           *object_class,
                                       const char         *uri,
                                       guint               line_number,
-                                      JSCValue          **object);
+                                      JSCValue          **object) G_GNUC_WARN_UNUSED_RESULT;
+
+JSC_API JSCCheckSyntaxResult
+jsc_context_check_syntax             (JSCContext         *context,
+                                      const char         *code,
+                                      gssize              length,
+                                      JSCCheckSyntaxMode  mode,
+                                      const char         *uri,
+                                      unsigned            line_number,
+                                      JSCException      **exception);
 
 JSC_API JSCValue *
 jsc_context_get_global_object        (JSCContext         *context);

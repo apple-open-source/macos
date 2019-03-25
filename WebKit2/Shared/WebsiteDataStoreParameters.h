@@ -47,14 +47,27 @@ struct WebsiteDataStoreParameters {
 
     static WebsiteDataStoreParameters legacyPrivateSessionParameters() { return privateSessionParameters(PAL::SessionID::legacyPrivateSessionID()); }
     static WebsiteDataStoreParameters privateSessionParameters(PAL::SessionID);
-    
+
     void encode(IPC::Encoder&) const;
-    static std::optional<WebsiteDataStoreParameters> decode(IPC::Decoder&);
+    static Optional<WebsiteDataStoreParameters> decode(IPC::Decoder&);
 
     Vector<uint8_t> uiProcessCookieStorageIdentifier;
     SandboxExtension::Handle cookieStoragePathExtensionHandle;
     Vector<WebCore::Cookie> pendingCookies;
     NetworkSessionCreationParameters networkSessionParameters;
+
+#if ENABLE(INDEXED_DATABASE)
+    String indexedDatabaseDirectory;
+    SandboxExtension::Handle indexedDatabaseDirectoryExtensionHandle;
+#if PLATFORM(IOS_FAMILY)
+    SandboxExtension::Handle indexedDatabaseTempBlobDirectoryExtensionHandle;
+#endif
+#endif
+
+#if ENABLE(SERVICE_WORKER)
+    String serviceWorkerRegistrationDirectory;
+    SandboxExtension::Handle serviceWorkerRegistrationDirectoryExtensionHandle;
+#endif
 };
 
 } // namespace WebKit

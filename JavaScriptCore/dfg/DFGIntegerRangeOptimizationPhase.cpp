@@ -1010,16 +1010,8 @@ public:
         ASSERT(m_graph.m_form == SSA);
         
         // Before we do anything, make sure that we have a zero constant at the top.
-        for (Node* node : *m_graph.block(0)) {
-            if (node->isInt32Constant() && !node->asInt32()) {
-                m_zero = node;
-                break;
-            }
-        }
-        if (!m_zero) {
-            m_zero = m_insertionSet.insertConstant(0, m_graph.block(0)->at(0)->origin, jsNumber(0));
-            m_insertionSet.execute(m_graph.block(0));
-        }
+        m_zero = m_insertionSet.insertConstant(0, m_graph.block(0)->at(0)->origin, jsNumber(0));
+        m_insertionSet.execute(m_graph.block(0));
         
         if (DFGIntegerRangeOptimizationPhaseInternal::verbose) {
             dataLog("Graph before integer range optimization:\n");
@@ -1092,13 +1084,12 @@ public:
             ++m_iterations;
             if (m_iterations >= giveUpThreshold) {
                 // This case is not necessarily wrong but it can be a sign that this phase
-                // does not converge.
-                // If you hit this assertion for a legitimate case, update the giveUpThreshold
+                // does not converge. The value giveUpThreshold was chosen emperically based on
+                // current tests and real world JS.
+                // If you hit this case for a legitimate reason, update the giveUpThreshold
                 // to the smallest values that converges.
-                ASSERT_NOT_REACHED();
 
-                // In release, do not risk holding the thread for too long since this phase
-                // is really slow.
+                // Do not risk holding the thread for too long since this phase is really slow.
                 return false;
             }
 
@@ -1330,7 +1321,7 @@ public:
                     
                     if (nonNegative && lessThanLength) {
                         executeNode(block->at(nodeIndex));
-                        node->remove(m_graph);
+                        node->convertToIdentityOn(m_zero);
                         changed = true;
                     }
                     break;

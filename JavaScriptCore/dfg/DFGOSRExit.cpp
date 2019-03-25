@@ -86,7 +86,7 @@ static void restoreCalleeSavesFor(Context& context, CodeBlock* codeBlock)
     RegisterSet dontRestoreRegisters = RegisterSet(RegisterSet::stackRegisters(), RegisterSet::allFPRs());
     unsigned registerCount = calleeSaves->size();
 
-    uintptr_t* physicalStackFrame = context.fp<uintptr_t*>();
+    UCPURegister* physicalStackFrame = context.fp<UCPURegister*>();
     for (unsigned i = 0; i < registerCount; i++) {
         RegisterAtOffset entry = calleeSaves->at(i);
         if (dontRestoreRegisters.get(entry.reg()))
@@ -94,8 +94,8 @@ static void restoreCalleeSavesFor(Context& context, CodeBlock* codeBlock)
         // The callee saved values come from the original stack, not the recovered stack.
         // Hence, we read the values directly from the physical stack memory instead of
         // going through context.stack().
-        ASSERT(!(entry.offset() % sizeof(uintptr_t)));
-        context.gpr(entry.reg().gpr()) = physicalStackFrame[entry.offset() / sizeof(uintptr_t)];
+        ASSERT(!(entry.offset() % sizeof(UCPURegister)));
+        context.gpr(entry.reg().gpr()) = physicalStackFrame[entry.offset() / sizeof(UCPURegister)];
     }
 }
 
@@ -113,7 +113,7 @@ static void saveCalleeSavesFor(Context& context, CodeBlock* codeBlock)
         RegisterAtOffset entry = calleeSaves->at(i);
         if (dontSaveRegisters.get(entry.reg()))
             continue;
-        stack.set(context.fp(), entry.offset(), context.gpr<uintptr_t>(entry.reg().gpr()));
+        stack.set(context.fp(), entry.offset(), context.gpr<UCPURegister>(entry.reg().gpr()));
     }
 }
 
@@ -127,14 +127,14 @@ static void restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer(Context& context
     unsigned registerCount = allCalleeSaves->size();
 
     VMEntryRecord* entryRecord = vmEntryRecord(vm.topEntryFrame);
-    uintptr_t* calleeSaveBuffer = reinterpret_cast<uintptr_t*>(entryRecord->calleeSaveRegistersBuffer);
+    UCPURegister* calleeSaveBuffer = reinterpret_cast<UCPURegister*>(entryRecord->calleeSaveRegistersBuffer);
 
     // Restore all callee saves.
     for (unsigned i = 0; i < registerCount; i++) {
         RegisterAtOffset entry = allCalleeSaves->at(i);
         if (dontRestoreRegisters.get(entry.reg()))
             continue;
-        size_t uintptrOffset = entry.offset() / sizeof(uintptr_t);
+        size_t uintptrOffset = entry.offset() / sizeof(UCPURegister);
         if (entry.reg().isGPR())
             context.gpr(entry.reg().gpr()) = calleeSaveBuffer[uintptrOffset];
         else
@@ -160,9 +160,9 @@ static void copyCalleeSavesToVMEntryFrameCalleeSavesBuffer(Context& context)
         if (dontCopyRegisters.get(entry.reg()))
             continue;
         if (entry.reg().isGPR())
-            stack.set(calleeSaveBuffer, entry.offset(), context.gpr<uintptr_t>(entry.reg().gpr()));
+            stack.set(calleeSaveBuffer, entry.offset(), context.gpr<UCPURegister>(entry.reg().gpr()));
         else
-            stack.set(calleeSaveBuffer, entry.offset(), context.fpr<uintptr_t>(entry.reg().fpr()));
+            stack.set(calleeSaveBuffer, entry.offset(), context.fpr<UCPURegister>(entry.reg().fpr()));
     }
 }
 
@@ -398,8 +398,8 @@ void OSRExit::executeOSRExit(Context& context)
         // Compute the value recoveries.
         Operands<ValueRecovery> operands;
         Vector<UndefinedOperandSpan> undefinedOperandSpans;
-        unsigned numVariables = dfgJITCode->variableEventStream.reconstruct(codeBlock, exit.m_codeOrigin, dfgJITCode->minifiedDFG, exit.m_streamIndex, operands, &undefinedOperandSpans);
-        ptrdiff_t stackPointerOffset = -static_cast<ptrdiff_t>(numVariables) * sizeof(Register);
+        dfgJITCode->variableEventStream.reconstruct(codeBlock, exit.m_codeOrigin, dfgJITCode->minifiedDFG, exit.m_streamIndex, operands, &undefinedOperandSpans);
+        ptrdiff_t stackPointerOffset = -static_cast<ptrdiff_t>(codeBlock->jitCode()->dfgCommon()->requiredRegisterCountForExit) * sizeof(Register);
 
         exit.exitState = adoptRef(new OSRExitState(exit, codeBlock, baselineCodeBlock, operands, WTFMove(undefinedOperandSpans), recovery, stackPointerOffset, activeThreshold, adjustedThreshold, jumpTarget, arrayProfile));
 
@@ -440,10 +440,8 @@ void OSRExit::executeOSRExit(Context& context)
     do {
         auto extraInitializationLevel = static_cast<ExtraInitializationLevel>(exitState.extraInitializationLevel);
 
-        if (extraInitializationLevel == ExtraInitializationLevel::None) {
-            context.sp() = context.fp<uint8_t*>() + exitState.stackPointerOffset;
+        if (extraInitializationLevel == ExtraInitializationLevel::None)
             break;
-        }
 
         // Begin extra initilization level: SpeculationRecovery
 
@@ -499,7 +497,7 @@ void OSRExit::executeOSRExit(Context& context)
             ASSERT(exit.m_kind == BadCache || exit.m_kind == BadIndexingType);
             Structure* structure = profiledValue.asCell()->structure(vm);
             arrayProfile->observeStructure(structure);
-            arrayProfile->observeArrayMode(asArrayModes(structure->indexingMode()));
+            arrayProfile->observeArrayMode(arrayModesFromStructure(structure));
         }
         if (extraInitializationLevel <= ExtraInitializationLevel::ArrayProfileUpdate)
             break;
@@ -571,7 +569,7 @@ void OSRExit::executeOSRExit(Context& context)
 
         switch (recovery.technique()) {
         case DisplacedInJSStack:
-            frame.setOperand(operand, exec->r(recovery.virtualRegister()).jsValue());
+            frame.setOperand(operand, exec->r(recovery.virtualRegister()).asanUnsafeJSValue());
             break;
 
         case InFPR:
@@ -593,7 +591,7 @@ void OSRExit::executeOSRExit(Context& context)
             break;
 
         case CellDisplacedInJSStack:
-            frame.setOperand(operand, JSValue(exec->r(recovery.virtualRegister()).unboxedCell()));
+            frame.setOperand(operand, JSValue(exec->r(recovery.virtualRegister()).asanUnsafeUnboxedCell()));
             break;
 
 #if USE(JSVALUE32_64)
@@ -604,9 +602,9 @@ void OSRExit::executeOSRExit(Context& context)
 
         case BooleanDisplacedInJSStack:
 #if USE(JSVALUE64)
-            frame.setOperand(operand, exec->r(recovery.virtualRegister()).jsValue());
+            frame.setOperand(operand, exec->r(recovery.virtualRegister()).asanUnsafeJSValue());
 #else
-            frame.setOperand(operand, jsBoolean(exec->r(recovery.virtualRegister()).jsValue().payload()));
+            frame.setOperand(operand, jsBoolean(exec->r(recovery.virtualRegister()).asanUnsafeJSValue().payload()));
 #endif
             break;
 
@@ -615,7 +613,7 @@ void OSRExit::executeOSRExit(Context& context)
             break;
 
         case Int32DisplacedInJSStack:
-            frame.setOperand(operand, JSValue(exec->r(recovery.virtualRegister()).unboxedInt32()));
+            frame.setOperand(operand, JSValue(exec->r(recovery.virtualRegister()).asanUnsafeUnboxedInt32()));
             break;
 
 #if USE(JSVALUE64)
@@ -624,7 +622,7 @@ void OSRExit::executeOSRExit(Context& context)
             break;
 
         case Int52DisplacedInJSStack:
-            frame.setOperand(operand, JSValue(exec->r(recovery.virtualRegister()).unboxedInt52()));
+            frame.setOperand(operand, JSValue(exec->r(recovery.virtualRegister()).asanUnsafeUnboxedInt52()));
             break;
 
         case UnboxedStrictInt52InGPR:
@@ -632,7 +630,7 @@ void OSRExit::executeOSRExit(Context& context)
             break;
 
         case StrictInt52DisplacedInJSStack:
-            frame.setOperand(operand, JSValue(exec->r(recovery.virtualRegister()).unboxedStrictInt52()));
+            frame.setOperand(operand, JSValue(exec->r(recovery.virtualRegister()).asanUnsafeUnboxedStrictInt52()));
             break;
 #endif
 
@@ -641,7 +639,7 @@ void OSRExit::executeOSRExit(Context& context)
             break;
 
         case DoubleDisplacedInJSStack:
-            frame.setOperand(operand, JSValue(JSValue::EncodeAsDouble, purifyNaN(exec->r(recovery.virtualRegister()).unboxedDouble())));
+            frame.setOperand(operand, JSValue(JSValue::EncodeAsDouble, purifyNaN(exec->r(recovery.virtualRegister()).asanUnsafeUnboxedDouble())));
             break;
 
         case Constant:
@@ -813,7 +811,7 @@ static void reifyInlinedCallFrames(Context& context, CodeBlock* outermostBaselin
         if (!inlineCallFrame->isClosureCall)
             frame.setOperand(inlineCallFrame->stackOffset + CallFrameSlot::callee, JSValue(inlineCallFrame->calleeConstant()));
 #else // USE(JSVALUE64) // so this is the 32-bit part
-        Instruction* instruction = &baselineCodeBlock->instructions()[codeOrigin->bytecodeIndex];
+        const Instruction* instruction = baselineCodeBlock->instructions().at(codeOrigin->bytecodeIndex).ptr();
         uint32_t locationBits = CallSiteIndex(instruction).bits();
         frame.setOperand<uint32_t>(inlineCallFrame->stackOffset + CallFrameSlot::argumentCount, TagOffset, locationBits);
         frame.setOperand<uint32_t>(inlineCallFrame->stackOffset + CallFrameSlot::callee, TagOffset, static_cast<uint32_t>(JSValue::CellTag));
@@ -827,7 +825,7 @@ static void reifyInlinedCallFrames(Context& context, CodeBlock* outermostBaselin
 #if USE(JSVALUE64)
         uint32_t locationBits = CallSiteIndex(codeOrigin->bytecodeIndex).bits();
 #else
-        Instruction* instruction = &outermostBaselineCodeBlock->instructions()[codeOrigin->bytecodeIndex];
+        const Instruction* instruction = outermostBaselineCodeBlock->instructions().at(codeOrigin->bytecodeIndex).ptr();
         uint32_t locationBits = CallSiteIndex(instruction).bits();
 #endif
         frame.setOperand<uint32_t>(CallFrameSlot::argumentCount, TagOffset, locationBits);
@@ -1177,13 +1175,24 @@ void OSRExit::compileExit(CCallHelpers& jit, VM& vm, const OSRExit& exit, const 
 
                 jit.load32(AssemblyHelpers::Address(value, JSCell::structureIDOffset()), scratch1);
                 jit.store32(scratch1, arrayProfile->addressOfLastSeenStructureID());
+
+                jit.load8(AssemblyHelpers::Address(value, JSCell::typeInfoTypeOffset()), scratch2);
+                jit.sub32(AssemblyHelpers::TrustedImm32(FirstTypedArrayType), scratch2);
+                auto notTypedArray = jit.branch32(MacroAssembler::AboveOrEqual, scratch2, AssemblyHelpers::TrustedImm32(NumberOfTypedArrayTypesExcludingDataView));
+                jit.move(AssemblyHelpers::TrustedImmPtr(typedArrayModes), scratch1);
+                jit.load32(AssemblyHelpers::BaseIndex(scratch1, scratch2, AssemblyHelpers::TimesFour), scratch2);
+                auto storeArrayModes = jit.jump();
+
+                notTypedArray.link(&jit);
 #if USE(JSVALUE64)
                 jit.load8(AssemblyHelpers::Address(value, JSCell::indexingTypeAndMiscOffset()), scratch1);
 #else
                 jit.load8(AssemblyHelpers::Address(scratch1, Structure::indexingModeIncludingHistoryOffset()), scratch1);
 #endif
+                jit.and32(AssemblyHelpers::TrustedImm32(IndexingModeMask), scratch1);
                 jit.move(AssemblyHelpers::TrustedImm32(1), scratch2);
                 jit.lshift32(scratch1, scratch2);
+                storeArrayModes.link(&jit);
                 jit.or32(scratch2, AssemblyHelpers::AbsoluteAddress(arrayProfile->addressOfArrayModes()));
 
                 if (isARM64()) {

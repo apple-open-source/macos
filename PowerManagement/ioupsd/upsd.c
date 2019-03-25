@@ -130,6 +130,7 @@ static Boolean SetupMIGServer();
 // Battery case helper functions
 //---------------------------------------------------------------------------
 kern_return_t BatteryCaseSendCommand(UPSDataRef upsDataRef, CFStringRef commandString, SInt32 value);
+kern_return_t BatteryCaseSetAddress(UPSDataRef upsDataRef);
 void BatteryCaseBatteryStateChangedCallback(void *refcon, io_service_t service,
                                             uint32_t messageType, void *messageArgument);
 void BatteryCaseCurrentLimitChangeCallback(void *refcon, io_service_t service,
@@ -553,6 +554,13 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
                                                           upsDataRef,
                                                           &(upsDataRef->batteryStateNotification));
                 }
+
+                // Set the battery case's address
+                kr = BatteryCaseSetAddress(upsDataRef);
+                if (kr != kIOReturnSuccess) {
+                    syslog(LOG_ERR, "failed to send address to power source %d (ret=0x%X)\n",
+                           upsDataRef->upsID, kr);
+                }
             }
             
             kr = (*upsPlugInInterface)->getEvent(upsPlugInInterface, &upsEvent);
@@ -792,6 +800,18 @@ void ProcessUPSEvent(UPSDataRef upsDataRef, CFDictionaryRef event)
 // Sends a given command and corresponding value to the UPS plug-in interface
 //---------------------------------------------------------------------------
 kern_return_t BatteryCaseSendCommand(UPSDataRef upsDataRef, CFStringRef commandString, SInt32 value) {
+    // NOOP on OS X
+    return KERN_NOT_SUPPORTED;
+}
+
+//---------------------------------------------------------------------------
+// BatteryCaseSetAddress
+//
+// Generates and sends an Address to the case for it to report back to the
+// phone as a way for clients of IOPowerSources to recognize the case outside
+// of the context of IOPowerSOurces
+//---------------------------------------------------------------------------
+kern_return_t BatteryCaseSetAddress(UPSDataRef upsDataRef) {
     // NOOP on OS X
     return KERN_NOT_SUPPORTED;
 }

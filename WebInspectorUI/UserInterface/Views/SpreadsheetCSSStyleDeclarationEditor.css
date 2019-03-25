@@ -26,11 +26,20 @@
 .spreadsheet-style-declaration-editor {
     position: relative;
     clear: both;
+    font-family: Menlo, monospace;
+    font-size: 11px;
+    color: hsl(0, 0%, 70%);
+    -webkit-user-select: text;
+
+    --background-color-selected: hsl(210, 98%, 93%);
+    --border-color-selected: hsl(225, 91%, 70%);
 }
 
 .spreadsheet-style-declaration-editor .property {
     padding-right: var(--css-declaration-horizontal-padding);
     padding-left: calc(var(--css-declaration-horizontal-padding) + 17px);
+    border-left: 1px solid transparent;
+    outline: none;
 }
 
 .spreadsheet-style-declaration-editor .property:not(.disabled) .name {
@@ -38,7 +47,11 @@
 }
 
 .spreadsheet-style-declaration-editor .property:not(.disabled) .value {
-    color: black;
+    color: var(--text-color);
+}
+
+.spreadsheet-style-declaration-editor :matches(.name, .value):not(.editing) {
+    outline: none;
 }
 
 .spreadsheet-style-declaration-editor :matches(.name, .value).editing {
@@ -79,7 +92,7 @@
 
 .spreadsheet-style-declaration-editor .property:matches(.invalid-name, .other-vendor, .overridden):not(.disabled) .content > * {
     text-decoration: line-through;
-    -webkit-text-decoration-color: hsla(0, 0%, 0%, 0.6);
+    -webkit-text-decoration-color: hsla(0, 0%, var(--foreground-lightness), 0.6);
 }
 
 .spreadsheet-style-declaration-editor .property.invalid-name:not(.disabled) .content > * {
@@ -92,7 +105,7 @@
 }
 
 .spreadsheet-style-declaration-editor .property.has-warning {
-    background-color: hsl(51, 87%, 93%);
+    background-color: var(--warning-background-color-secondary);
 }
 
 .spreadsheet-style-declaration-editor .property .warning {
@@ -107,7 +120,7 @@
     height: 13px;
 
     background-image: url(../Images/Warning.svg);
-    background-color: hsl(43, 97%, 84%);
+    background-color: var(--warning-background-color);
     background-repeat: no-repeat;
     background-size: 9px;
     background-position-y: center;
@@ -116,20 +129,24 @@
     -webkit-clip-path: polygon(0% 50%, 6px 0%, 100% 0%, 100% 100%, 6px 100%);
 }
 
-.spreadsheet-style-declaration-editor .property.not-inherited .content > * {
+.spreadsheet-style-declaration-editor .property.selected {
+    background-color: var(--background-color-selected);
+}
+
+body:matches(.window-docked-inactive, .window-inactive) .spreadsheet-style-declaration-editor .property.selected {
+    background-color: var(--selected-background-color-unfocused);
+}
+
+.spreadsheet-style-declaration-editor .property.selected:focus {
+    border-left-color: var(--border-color-selected);
+}
+
+.spreadsheet-style-declaration-editor .property:matches(.implicit, .not-inherited) .content > * {
     opacity: 0.5;
 }
 
 .spreadsheet-style-declaration-editor .completion-hint {
     color: hsl(0, 0%, 50%) !important;
-}
-
-.spreadsheet-style-declaration-editor .property.highlighted {
-    animation: style-property-highlight 2s;
-}
-
-@keyframes style-property-highlight {
-    from { background-color: yellow; }
 }
 
 .spreadsheet-style-declaration-editor .property:not(.disabled) .token-link {
@@ -141,7 +158,7 @@
 }
 
 .meta-key-pressed .spreadsheet-css-declaration:not(.locked) :matches(.name, .value):not(.editing):hover {
-    color: blue !important;
+    color: var(--syntax-highlight-link-color) !important;
     text-decoration: underline !important;
     cursor: pointer !important;
     -webkit-text-stroke-width: 0 !important;
@@ -149,4 +166,26 @@
 
 .spreadsheet-style-declaration-editor .property:not(.disabled) .token-comment {
     color: var(--syntax-highlight-comment-color);
+}
+
+.spreadsheet-style-declaration-editor.debug-style-locked::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 2px;
+    background-color: red;
+    pointer-events: none;
+}
+
+@media (prefers-dark-interface) {
+    .spreadsheet-style-declaration-editor {
+        --background-color-selected: hsl(230, 51%, 36%);
+        --border-color-selected: hsl(216, 98%, 67%);
+    }
+
+    .spreadsheet-style-declaration-editor :matches(.name, .value).editing {
+        outline-color: var(--background-color-secondary) !important;
+    }
 }

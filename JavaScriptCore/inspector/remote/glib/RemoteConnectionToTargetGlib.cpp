@@ -49,20 +49,20 @@ bool RemoteConnectionToTarget::setup(bool isAutomaticInspection, bool automatica
     if (!m_target)
         return false;
 
-    unsigned targetIdentifier = this->targetIdentifier().value_or(0);
+    unsigned targetIdentifier = this->targetIdentifier().valueOr(0);
 
     if (!m_target || !m_target->remoteControlAllowed()) {
         RemoteInspector::singleton().setupFailed(targetIdentifier);
         m_target = nullptr;
     } else if (is<RemoteInspectionTarget>(m_target)) {
         auto target = downcast<RemoteInspectionTarget>(m_target);
-        target->connect(this, isAutomaticInspection, automaticallyPause);
+        target->connect(*this, isAutomaticInspection, automaticallyPause);
         m_connected = true;
 
         RemoteInspector::singleton().updateTargetListing(targetIdentifier);
     } else if (is<RemoteAutomationTarget>(m_target)) {
         auto target = downcast<RemoteAutomationTarget>(m_target);
-        target->connect(this);
+        target->connect(*this);
         m_connected = true;
 
         RemoteInspector::singleton().updateTargetListing(targetIdentifier);
@@ -93,7 +93,7 @@ void RemoteConnectionToTarget::close()
     unsigned targetIdentifier = m_target->targetIdentifier();
 
     if (m_connected)
-        m_target->disconnect(this);
+        m_target->disconnect(*this);
 
     m_target = nullptr;
 
@@ -106,9 +106,9 @@ void RemoteConnectionToTarget::targetClosed()
     m_target = nullptr;
 }
 
-std::optional<unsigned> RemoteConnectionToTarget::targetIdentifier() const
+Optional<unsigned> RemoteConnectionToTarget::targetIdentifier() const
 {
-    return m_target ? std::optional<unsigned>(m_target->targetIdentifier()) : std::nullopt;
+    return m_target ? Optional<unsigned>(m_target->targetIdentifier()) : WTF::nullopt;
 }
 
 void RemoteConnectionToTarget::sendMessageToFrontend(const String& message)

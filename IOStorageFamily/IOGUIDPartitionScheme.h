@@ -221,6 +221,14 @@ public:
 
     virtual IOReturn requestProbe(IOOptionBits options) APPLE_KEXT_OVERRIDE;
 
+    /*
+     * Generic entry point for calls from the provider.  A return value of
+     * kIOReturnSuccess indicates that the message was received, and where
+     * applicable, that it was successful.
+     */
+
+    virtual IOReturn message(UInt32 type, IOService * provider, void * argument) APPLE_KEXT_OVERRIDE;
+
     OSMetaClassDeclareReservedUnused(IOGUIDPartitionScheme,  0);
     OSMetaClassDeclareReservedUnused(IOGUIDPartitionScheme,  1);
     OSMetaClassDeclareReservedUnused(IOGUIDPartitionScheme,  2);

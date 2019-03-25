@@ -78,7 +78,7 @@ Ref<HTMLStyleElement> HTMLStyleElement::create(Document& document)
 
 void HTMLStyleElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (name == titleAttr && sheet())
+    if (name == titleAttr && sheet() && !isInShadowTree())
         sheet()->setTitle(value);
     else if (name == mediaAttr) {
         m_styleSheetOwner.setMedia(value);
@@ -130,9 +130,9 @@ void HTMLStyleElement::dispatchPendingEvent(StyleEventSender* eventSender)
 {
     ASSERT_UNUSED(eventSender, eventSender == &styleLoadEventSender());
     if (m_loadedSheet)
-        dispatchEvent(Event::create(eventNames().loadEvent, false, false));
+        dispatchEvent(Event::create(eventNames().loadEvent, Event::CanBubble::No, Event::IsCancelable::No));
     else
-        dispatchEvent(Event::create(eventNames().errorEvent, false, false));
+        dispatchEvent(Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::No));
 }
 
 void HTMLStyleElement::notifyLoadedSheetAndAllCriticalSubresources(bool errorOccurred)

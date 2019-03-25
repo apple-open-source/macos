@@ -295,8 +295,9 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_sensorProperty.reportInterval);
     OSSafeReleaseNULL(_sensorProperty.reportLatency);
     OSSafeReleaseNULL(_sensorProperty.sniffControl);
-    OSSafeReleaseNULL(_orientation.elements);
-    
+    OSSafeReleaseNULL(_orientation.cmElements);
+    OSSafeReleaseNULL(_orientation.tiltElements);
+
     if (_commandGate) {
         if ( _workLoop ) {
             _workLoop->removeEventSource(_commandGate);
@@ -1225,17 +1226,29 @@ exit:
 //====================================================================================================
 void IOHIDEventDriver::setDeviceOrientationProperties()
 {
-    OSDictionary *properties = OSDictionary::withCapacity(1);
+    OSArray * elements          = OSArray::withCapacity(1);
+    OSDictionary * properties   = OSDictionary::withCapacity(1);
     
-    require(properties, exit);
-    require(_orientation.elements, exit);
+    require(properties && elements, exit);
     
-    properties->setObject(kIOHIDElementKey, _orientation.elements);
+    if (_orientation.cmElements) {
+        elements->merge (_orientation.cmElements);
+    }
+ 
+    if (_orientation.tiltElements) {
+        elements->merge (_orientation.tiltElements);
+    }
     
-    setProperty("DeviceOrientation", properties);
-    
+    if (elements->getCount()) {
+        properties->setObject(kIOHIDElementKey, elements);
+        setProperty("DeviceOrientation", properties);
+    }
+   
 exit:
+
     OSSafeReleaseNULL(properties);
+    OSSafeReleaseNULL(elements);
+
 }
 
 
@@ -1431,19 +1444,58 @@ IOHIDEvent * IOHIDEventDriver::copyEvent(IOHIDEventType type, IOHIDEvent * match
             break;
         }
     } else if (type == kIOHIDEventTypeOrientation) {
-        require(_orientation.elements, exit);
-        for (unsigned int index = 0; index < _orientation.elements->getCount(); index++)
-        {
-            IOHIDElement * element = OSDynamicCast(IOHIDElement, _orientation.elements->getObject(index));
-            if (!element->getValue()) {
-                continue;
+        if (_orientation.cmElements) {
+            
+            for (unsigned int index = 0; index < _orientation.cmElements->getCount(); index++)
+            {
+                IOHIDElement * element = OSDynamicCast(IOHIDElement, _orientation.cmElements->getObject(index));
+                if (!element->getValue()) {
+                    continue;
+                }
+                
+                event = IOHIDEvent::orientationEvent(element->getTimeStamp(), kIOHIDOrientationTypeCMUsage);
+                if (event) {
+                    event->setIntegerValue (kIOHIDEventFieldOrientationDeviceOrientationUsage, element->getUsage());
+                }
+                break;
             }
             
-            event = IOHIDEvent::orientationEvent(element->getTimeStamp(), kIOHIDOrientationTypeCMUsage);
-            if (event) {
-                event->setIntegerValue (kIOHIDEventFieldOrientationDeviceOrientationUsage, element->getUsage());
+        } else if (_orientation.tiltElements) {
+            
+            IOFixed tiltX = 0;
+            IOFixed tiltY = 0;
+            IOFixed tiltZ = 0;
+            
+            UInt32  reportID = 0xffffffff;
+  
+            for (unsigned int index = 0; index < _orientation.tiltElements->getCount(); index++) {
+ 
+                IOHIDElement * element = OSDynamicCast(IOHIDElement, _orientation.tiltElements->getObject(index));
+                IOOptionBits opt = (element->getReportID() == reportID) ? 0 : kIOHIDValueOptionsUpdateElementValues;
+                
+                switch (element->getUsage()) {
+                    case kHIDUsage_Snsr_Data_Orientation_TiltXAxis:
+                        tiltX =  element->getScaledFixedValue(kIOHIDValueScaleTypeExponent, opt);
+                        break;
+                    case kHIDUsage_Snsr_Data_Orientation_TiltYAxis:
+                        tiltY =  element->getScaledFixedValue(kIOHIDValueScaleTypeExponent, opt);
+                        break;
+                    case kHIDUsage_Snsr_Data_Orientation_TiltZAxis:
+                        tiltZ =  element->getScaledFixedValue(kIOHIDValueScaleTypeExponent, opt);
+                        break;
+                }
+                
+                reportID = element->getReportID();
+                
+                if (!event) {
+                    event = IOHIDEvent::orientationEvent(element->getTimeStamp(), kIOHIDOrientationTypeTilt);
+                }
             }
-            break;
+            if (event) {
+                event->setFixedValue(kIOHIDEventFieldOrientationTiltX, tiltX);
+                event->setFixedValue(kIOHIDEventFieldOrientationTiltY, tiltY);
+                event->setFixedValue(kIOHIDEventFieldOrientationTiltZ, tiltZ);
+            }
         }
     }
 exit:
@@ -2370,7 +2422,7 @@ bool IOHIDEventDriver::parseDeviceOrientationElement(IOHIDElement * element)
 {
     UInt32 usagePage    = element->getUsagePage();
     UInt32 usage        = element->getUsage();
-    bool   store        = false;
+    OSArray ** store    = NULL;
     
     switch (usagePage) {
         case kHIDPage_AppleVendorMotion:
@@ -2382,7 +2434,15 @@ bool IOHIDEventDriver::parseDeviceOrientationElement(IOHIDElement * element)
                 case kHIDUsage_AppleVendorMotion_DeviceOrientationTypeLandscapeRight:
                 case kHIDUsage_AppleVendorMotion_DeviceOrientationTypeFaceUp:
                 case kHIDUsage_AppleVendorMotion_DeviceOrientationTypeFaceDown:
-                    store = true;
+                    store = &(_orientation.cmElements);
+            }
+            break;
+        case kHIDPage_Sensor:
+            switch (usage) {
+                case kHIDUsage_Snsr_Data_Orientation_TiltXAxis:
+                case kHIDUsage_Snsr_Data_Orientation_TiltYAxis:
+                case kHIDUsage_Snsr_Data_Orientation_TiltZAxis:
+                    store = &(_orientation.tiltElements);
             }
             break;
         default:
@@ -2391,15 +2451,16 @@ bool IOHIDEventDriver::parseDeviceOrientationElement(IOHIDElement * element)
     
     require(store, exit);
     
-    if (!_orientation.elements) {
-        _orientation.elements = OSArray::withCapacity(7);
-        require(_orientation.elements, exit);
+    if (*store == NULL) {
+        *store = OSArray::withCapacity(7);
+        require(*store, exit);
     }
     
-    _orientation.elements->setObject(element);
+    (*store)->setObject(element);
     
 exit:
-    return store;
+    
+    return (store != NULL);
 }
 
 //====================================================================================================
@@ -4205,15 +4266,19 @@ void IOHIDEventDriver::handleDeviceOrientationReport(AbsoluteTime timeStamp, UIn
 {
     UInt32      index;
     UInt32      count;
+    IOHIDEvent * event = NULL;
+    IOFixed     tiltX = 0;
+    IOFixed     tiltY = 0;
+    IOFixed     tiltZ = 0;
     
-    require_quiet(_orientation.elements, exit);
+    require_quiet(_orientation.cmElements, tilt);
     
-    for (index = 0, count = _orientation.elements->getCount(); index < count; index++) {
+    for (index = 0, count = _orientation.cmElements->getCount(); index < count; index++) {
         IOHIDElement *  element;
         AbsoluteTime    elementTimeStamp;
         UInt32          usagePage, usage, value, preValue;
         
-        element = OSDynamicCast(IOHIDElement, _orientation.elements->getObject(index));
+        element = OSDynamicCast(IOHIDElement, _orientation.cmElements->getObject(index));
         
         if (element->getReportID() != reportID) {
             continue;
@@ -4223,7 +4288,7 @@ void IOHIDEventDriver::handleDeviceOrientationReport(AbsoluteTime timeStamp, UIn
         if (CMP_ABSOLUTETIME(&timeStamp, &elementTimeStamp) != 0) {
             continue;
         }
-        
+  
         preValue    = element->getValue(kIOHIDValueOptionsFlagPrevious) != 0;
         value       = element->getValue() != 0;
         
@@ -4232,14 +4297,64 @@ void IOHIDEventDriver::handleDeviceOrientationReport(AbsoluteTime timeStamp, UIn
             usagePage   = element->getUsagePage();
             usage       = element->getUsage();
             
-            IOHIDEvent * event = IOHIDEvent::orientationEvent (timeStamp, kIOHIDOrientationTypeCMUsage);
+            event = IOHIDEvent::orientationEvent (timeStamp, kIOHIDOrientationTypeCMUsage);
             if (event) {
                 event->setIntegerValue (kIOHIDEventFieldOrientationDeviceOrientationUsage, usage);
                 dispatchEvent(event);
                 event->release();
+                event = NULL;
             }
             break;
         }
+    }
+    
+tilt:
+
+    require_quiet(_orientation.tiltElements, exit);
+    
+    for (index = 0, count = _orientation.tiltElements->getCount(); index < count; index++) {
+        IOHIDElement *  element;
+        AbsoluteTime    elementTimeStamp;
+        UInt32          usage;
+        
+        element = OSDynamicCast(IOHIDElement, _orientation.tiltElements->getObject(index));
+        
+        if (element->getReportID() != reportID) {
+            continue;
+        }
+   
+        usage = element->getUsage();
+        switch (usage) {
+            case kHIDUsage_Snsr_Data_Orientation_TiltXAxis:
+                tiltX = element->getScaledFixedValue(kIOHIDValueScaleTypeExponent);
+                break;
+            case kHIDUsage_Snsr_Data_Orientation_TiltYAxis:
+                tiltY = element->getScaledFixedValue(kIOHIDValueScaleTypeExponent);
+                break;
+            case kHIDUsage_Snsr_Data_Orientation_TiltZAxis:
+                tiltZ = element->getScaledFixedValue(kIOHIDValueScaleTypeExponent);
+                break;
+            default:
+                break;
+        }
+        
+        
+        elementTimeStamp = element->getTimeStamp();
+        if (CMP_ABSOLUTETIME(&timeStamp, &elementTimeStamp) != 0) {
+            continue;
+        }
+        
+        if (!event) {
+            event = IOHIDEvent::orientationEvent (timeStamp, kIOHIDOrientationTypeTilt);
+        }
+    }
+
+    if (event) {
+        event->setFixedValue(kIOHIDEventFieldOrientationTiltX, tiltX);
+        event->setFixedValue(kIOHIDEventFieldOrientationTiltY, tiltY);
+        event->setFixedValue(kIOHIDEventFieldOrientationTiltZ, tiltZ);
+        dispatchEvent(event);
+        event->release();
     }
     
 exit:

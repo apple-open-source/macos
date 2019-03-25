@@ -79,16 +79,16 @@ bool domainMatch(const String& cookieDomain, const String& host)
     return false;
 }
 
-static std::optional<double> parseExpires(const char* expires)
+static Optional<double> parseExpires(const char* expires)
 {
     double tmp = WTF::parseDateFromNullTerminatedCharacters(expires);
     if (isnan(tmp))
         return { };
 
-    return std::optional<double> {tmp / WTF::msPerSecond};
+    return Optional<double> {tmp / WTF::msPerSecond};
 }
 
-static void parseCookieAttributes(const String& attribute, const String& domain, bool& hasMaxAge, Cookie& result)
+static void parseCookieAttributes(const String& attribute, bool& hasMaxAge, Cookie& result)
 {
     size_t assignmentPosition = attribute.find('=');
 
@@ -113,11 +113,7 @@ static void parseCookieAttributes(const String& attribute, const String& domain,
         if (!isIPAddress(attributeValue) && !attributeValue.startsWith('.') && attributeValue.find('.') != notFound)
             attributeValue = "." + attributeValue;
 
-        // Make sure the host can set a cookie for the domain
-        // FIXME: firefox and chrome both ignore cookies with no valid domain set
-        // we currently ignore the invalid domains and default to the hostname as the domain
-        if (domainMatch(attributeValue, domain))
-            result.domain = attributeValue;
+        result.domain = attributeValue;
 
     } else if (equalIgnoringASCIICase(attributeName, "max-age")) {
         bool ok;
@@ -141,10 +137,10 @@ static void parseCookieAttributes(const String& attribute, const String& domain,
     }
 }
 
-bool parseCookieHeader(const String& cookieLine, const String& domain, Cookie& result)
+Optional<Cookie> parseCookieHeader(const String& cookieLine)
 {
     if (cookieLine.length() >= MAX_COOKIE_LINE)
-        return false;
+        return WTF::nullopt;
 
     // This Algorithm is based on the algorithm defined in RFC 6265 5.2 https://tools.ietf.org/html/rfc6265#section-5.2/
 
@@ -165,18 +161,32 @@ bool parseCookieHeader(const String& cookieLine, const String& domain, Cookie& r
         cookieValue = cookiePair.substring(assignmentPosition + 1);
     }
 
-    result.name = cookieName.stripWhiteSpace();
-    result.value = cookieValue.stripWhiteSpace();
+    Cookie cookie;
+    cookie.name = cookieName.stripWhiteSpace();
+    cookie.value = cookieValue.stripWhiteSpace();
 
     bool hasMaxAge = false;
-    result.session = true;
+    cookie.session = true;
 
-    Vector<String> cookieAttributes;
-    cookieLine.split(';', true, cookieAttributes);
-    for (auto attribute : cookieAttributes)
-        parseCookieAttributes(attribute, domain, hasMaxAge, result);
+    for (auto attribute : cookieLine.splitAllowingEmptyEntries(';'))
+        parseCookieAttributes(attribute, hasMaxAge, cookie);
 
-    return true;
+    return cookie;
+}
+
+String defaultPathForURL(const URL& url)
+{
+    // Algorithm to generate the default path is outlined in https://tools.ietf.org/html/rfc6265#section-5.1.4
+
+    String path = url.path();
+    if (path.isEmpty() || !path.startsWith('/'))
+        return "/";
+
+    auto lastSlashPosition = path.reverseFind('/');
+    if (!lastSlashPosition)
+        return "/";
+
+    return path.substring(0, lastSlashPosition);
 }
 
 } // namespace CookieUtil

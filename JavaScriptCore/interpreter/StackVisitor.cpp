@@ -257,7 +257,7 @@ RegisterAtOffsetList* StackVisitor::Frame::calleeSaveRegisters()
     if (isInlinedFrame())
         return nullptr;
 
-#if ENABLE(JIT) && NUMBER_OF_CALLEE_SAVES_REGISTERS > 0
+#if !ENABLE(C_LOOP) && NUMBER_OF_CALLEE_SAVES_REGISTERS > 0
 
 #if ENABLE(WEBASSEMBLY)
     if (isWasmFrame()) {
@@ -273,7 +273,7 @@ RegisterAtOffsetList* StackVisitor::Frame::calleeSaveRegisters()
     if (CodeBlock* codeBlock = this->codeBlock())
         return codeBlock->calleeSaveRegisters();
 
-#endif // ENABLE(JIT) && NUMBER_OF_CALLEE_SAVES_REGISTERS > 0
+#endif // !ENABLE(C_LOOP) && NUMBER_OF_CALLEE_SAVES_REGISTERS > 0
 
     return nullptr;
 }
@@ -431,7 +431,7 @@ void StackVisitor::Frame::dump(PrintStream& out, Indenter indent) const
     dump(out, indent, [] (PrintStream&) { });
 }
 
-void StackVisitor::Frame::dump(PrintStream& out, Indenter indent, std::function<void(PrintStream&)> prefix) const
+void StackVisitor::Frame::dump(PrintStream& out, Indenter indent, WTF::Function<void(PrintStream&)> prefix) const
 {
     if (!this->callFrame()) {
         out.print(indent, "frame 0x0\n");
@@ -448,7 +448,7 @@ void StackVisitor::Frame::dump(PrintStream& out, Indenter indent, std::function<
 
         CallFrame* callFrame = m_callFrame;
         CallFrame* callerFrame = this->callerFrame();
-        void* returnPC = callFrame->hasReturnPC() ? callFrame->returnPC().value() : nullptr;
+        const void* returnPC = callFrame->hasReturnPC() ? callFrame->returnPC().value() : nullptr;
 
         out.print(indent, "name: ", functionName(), "\n");
         out.print(indent, "sourceURL: ", sourceURL(), "\n");

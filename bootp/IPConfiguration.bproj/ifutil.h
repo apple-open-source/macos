@@ -50,6 +50,9 @@ int
 interface_up_down(const char * ifname, boolean_t up);
 
 int
+interface_get_eflags(int sockfd, const char * name, uint64_t * ret_eflags);
+
+int
 inet_dgram_socket(void);
 
 int
@@ -116,8 +119,7 @@ int	inet6_linklocal_start(const char * ifname,
 			      const struct in6_addr * v6_ll,
 			      boolean_t perform_nud,
 			      boolean_t use_cga,
-			      boolean_t enable_dad,
-			      boolean_t enable_clat46);
+			      boolean_t enable_dad);
 
 int	inet6_linklocal_stop(const char * ifname);
 
@@ -138,6 +140,12 @@ inet6_router_and_prefix_count(int if_index, int * ret_prefix_count);
 
 boolean_t
 inet6_has_nat64_prefixlist(const char * if_name);
+
+int
+inet6_clat46_start(const char * if_name);
+
+int
+inet6_clat46_stop(const char * if_name);
 
 void
 inet6_addrlist_init(inet6_addrlist_t * addr_list_p);

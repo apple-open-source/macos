@@ -50,14 +50,14 @@
 
 #if PLATFORM(WIN)
 #include "LoaderRunLoopCF.h"
-#include <WebKitSystemInterface/WebKitSystemInterface.h>
+#include <pal/spi/cf/CFNetworkSPI.h>
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "WebCoreThreadInternal.h"
 #endif
 
-#if PLATFORM(IOS) || PLATFORM(MAC)
+#if PLATFORM(IOS_FAMILY) || PLATFORM(MAC)
 extern "C" const CFStringRef kCFStreamPropertySourceApplication;
 extern "C" const CFStringRef _kCFStreamSocketSetNoDelay;
 #endif
@@ -79,7 +79,7 @@ static inline CFRunLoopRef callbacksRunLoop()
 {
 #if PLATFORM(WIN)
     return loaderRunLoop();
-#elif PLATFORM(IOS)
+#elif PLATFORM(IOS_FAMILY)
     return WebThreadRunLoop();
 #else
     return CFRunLoopGetMain();
@@ -496,7 +496,7 @@ void SocketStreamHandleImpl::writeStreamCallback(CFWriteStreamRef stream, CFStre
     });
 }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
 static void setResponseProxyURL(CFHTTPMessageRef message, CFURLRef proxyURL)
 {
 #if PLATFORM(WIN)
@@ -515,7 +515,7 @@ static RetainPtr<CFHTTPMessageRef> copyCONNECTProxyResponse(CFReadStreamRef stre
     // This is set by CFNetwork internally for normal HTTP responses, but not for proxies.
     _CFHTTPMessageSetResponseURL(message.get(), responseURL);
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     // Ditto for proxy URL.
     auto proxyURLString = adoptCF(CFStringCreateWithFormat(kCFAllocatorDefault, nullptr, CFSTR("https://%@:%@"), proxyHost, proxyPort));
     auto proxyURL = adoptCF(CFURLCreateWithString(kCFAllocatorDefault, proxyURLString.get(), nullptr));
@@ -666,10 +666,7 @@ void SocketStreamHandleImpl::reportErrorToClient(CFErrorRef error)
 
 #if PLATFORM(MAC)
 
-#if COMPILER(CLANG)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 
     if (CFEqual(CFErrorGetDomain(error), kCFErrorDomainOSStatus)) {
         const char* descriptionOSStatus = GetMacOSStatusCommentString(static_cast<OSStatus>(errorCode));
@@ -677,9 +674,7 @@ void SocketStreamHandleImpl::reportErrorToClient(CFErrorRef error)
             description = "OSStatus Error " + String::number(errorCode) + ": " + descriptionOSStatus;
     }
 
-#if COMPILER(CLANG)
-#pragma clang diagnostic pop
-#endif
+    ALLOW_DEPRECATED_DECLARATIONS_END
 
 #endif
 
@@ -698,7 +693,7 @@ SocketStreamHandleImpl::~SocketStreamHandleImpl()
     ASSERT(!m_pacRunLoopSource);
 }
 
-std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t* data, size_t length)
+Optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t* data, size_t length)
 {
     if (!m_writeStream)
         return 0;
@@ -708,7 +703,7 @@ std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t
 
     CFIndex result = CFWriteStreamWrite(m_writeStream.get(), reinterpret_cast<const UInt8*>(data), length);
     if (result == -1)
-        return std::nullopt;
+        return WTF::nullopt;
 
     ASSERT(result >= 0);
     return static_cast<size_t>(result);

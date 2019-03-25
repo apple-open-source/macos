@@ -26,12 +26,14 @@
 #include "config.h"
 #include "WebBackForwardListItem.h"
 
-#include <WebCore/URL.h>
+#include "SuspendedPageProxy.h"
+#include "WebProcessPool.h"
+#include "WebProcessProxy.h"
 #include <wtf/DebugUtilities.h>
-
-using namespace WebCore;
+#include <wtf/URL.h>
 
 namespace WebKit {
+using namespace WebCore;
 
 Ref<WebBackForwardListItem> WebBackForwardListItem::create(BackForwardListItemState&& backForwardListItemState, uint64_t pageID)
 {
@@ -41,6 +43,7 @@ Ref<WebBackForwardListItem> WebBackForwardListItem::create(BackForwardListItemSt
 WebBackForwardListItem::WebBackForwardListItem(BackForwardListItemState&& backForwardListItemState, uint64_t pageID)
     : m_itemState(WTFMove(backForwardListItemState))
     , m_pageID(pageID)
+    , m_lastProcessIdentifier(m_itemState.identifier.processIdentifier)
 {
     auto result = allItems().add(m_itemState.identifier, this);
     ASSERT_UNUSED(result, result.isNewEntry);
@@ -50,6 +53,8 @@ WebBackForwardListItem::~WebBackForwardListItem()
 {
     ASSERT(allItems().get(m_itemState.identifier) == this);
     allItems().remove(m_itemState.identifier);
+
+    removeSuspendedPageFromProcessPool();
 }
 
 HashMap<BackForwardItemIdentifier, WebBackForwardListItem*>& WebBackForwardListItem::allItems()
@@ -103,8 +108,8 @@ bool WebBackForwardListItem::itemIsInSameDocument(const WebBackForwardListItem& 
     if (mainFrameState.stateObjectData || otherMainFrameState.stateObjectData)
         return mainFrameState.documentSequenceNumber == otherMainFrameState.documentSequenceNumber;
 
-    WebCore::URL url = WebCore::URL(WebCore::ParsedURLString, mainFrameState.urlString);
-    WebCore::URL otherURL = WebCore::URL(WebCore::ParsedURLString, otherMainFrameState.urlString);
+    URL url = URL({ }, mainFrameState.urlString);
+    URL otherURL = URL({ }, otherMainFrameState.urlString);
 
     if ((url.hasFragmentIdentifier() || otherURL.hasFragmentIdentifier()) && equalIgnoringFragmentIdentifier(url, otherURL))
         return mainFrameState.documentSequenceNumber == otherMainFrameState.documentSequenceNumber;
@@ -114,8 +119,20 @@ bool WebBackForwardListItem::itemIsInSameDocument(const WebBackForwardListItem& 
 
 void WebBackForwardListItem::setSuspendedPage(SuspendedPageProxy* page)
 {
-    ASSERT(!m_suspendedPage || page == nullptr);
-    m_suspendedPage = page;
+    if (m_suspendedPage == page)
+        return;
+
+    removeSuspendedPageFromProcessPool();
+    m_suspendedPage = makeWeakPtr(page);
+}
+
+void WebBackForwardListItem::removeSuspendedPageFromProcessPool()
+{
+    if (!m_suspendedPage)
+        return;
+
+    m_suspendedPage->process().processPool().removeSuspendedPage(*m_suspendedPage);
+    ASSERT(!m_suspendedPage);
 }
 
 #if !LOG_DISABLED

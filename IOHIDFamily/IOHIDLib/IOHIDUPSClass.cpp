@@ -810,8 +810,7 @@ void IOHIDUPSClass::sendCommandProcess(
     bzero(&event, sizeof(IOHIDEventStruct));
     elementRef->currentValue = event.value = value;
     if (longValue != NULL && longValueSize != 0) {
-        event.longValue = malloc(longValueSize);
-        memcpy(event.longValue, longValue, longValueSize);
+        event.longValue = (void*) longValue;
         event.longValueSize = longValueSize;
 
         if (elementRef->longValue != NULL) free(elementRef->longValue);
@@ -823,8 +822,6 @@ void IOHIDUPSClass::sendCommandProcess(
     (*_hidTransactionInterface)->setElementValue(_hidTransactionInterface, 
                                     elementRef->cookie,
                                     &event);
-
-    if (event.longValue != NULL) free(event.longValue);
 }
 
 //---------------------------------------------------------------------------
@@ -1246,7 +1243,8 @@ bool IOHIDUPSClass::findElements()
         }
         else if ( newElement.usagePage == kHIDPage_AppleVendorBattery )
         {
-            switch ( newElement.usage ) {
+            switch ( newElement.usage )
+            {
                 case kHIDUsage_AppleVendorBattery_RawCapacity:
                     // Capacity can be given in Amp-Seconds or %
                     if (newElement.unit == kIOHIDUnitAmpSec )
@@ -1307,6 +1305,15 @@ bool IOHIDUPSClass::findElements()
                         newElement.shouldPoll   = false;
                         newElement.isCommand    = true;
                     }
+                    break;
+            }
+        }
+        else if ( newElement.usagePage == kHIDPage_AppleVendor )
+        {
+            switch ( newElement.usage )
+            {
+                case kHIDUsage_AppleVendor_Color:
+                    psKey = CFSTR(kIOPSDeviceColor);
                     break;
             }
         }
@@ -1677,6 +1684,16 @@ PROCESS_EVENT_UPDATE_AC:
                 CFDictionarySetValue(_upsEvent, CFSTR(kIOPSAppleBatteryCaseAddress), addressRef);
                 CFRelease(addressRef);
                 update = true;
+                break;
+        }
+    }
+    else if (hidElement->usagePage == kHIDPage_AppleVendor)
+    {
+        switch ( hidElement->usage )
+        {
+            case kHIDUsage_AppleVendor_Color:
+                value = hidElement->currentValue;
+                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSDeviceColor), value);
                 break;
         }
     }

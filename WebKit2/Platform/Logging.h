@@ -40,9 +40,13 @@ extern "C" {
 #endif
 
 #define WEBKIT2_LOG_CHANNELS(M) \
+    M(Automation) \
+    M(ActivityState) \
     M(BackForward) \
     M(CacheStorage) \
+    M(ContentObservation) \
     M(ContextMenu) \
+    M(DiskPersistency) \
     M(DragAndDrop) \
     M(Fullscreen) \
     M(Gamepad) \
@@ -66,6 +70,7 @@ extern "C" {
     M(Process) \
     M(ProcessSuspension) \
     M(ProcessSwapping) \
+    M(ProximityNetworking) \
     M(RemoteLayerTree) \
     M(Resize) \
     M(ResourceLoadStatistics) \
@@ -79,8 +84,8 @@ extern "C" {
     M(ViewState) \
     M(VirtualMemory) \
     M(VisibleRects) \
+    M(WebGL) \
     M(WebRTC) \
-    M(WiFiAssertions) \
 
 WEBKIT2_LOG_CHANNELS(DECLARE_LOG_CHANNEL)
 

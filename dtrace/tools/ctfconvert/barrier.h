@@ -27,45 +27,18 @@
 #ifndef _BARRIER_H
 #define	_BARRIER_H
 
-#if !defined(__APPLE__)
-/*
- * APIs for the barrier synchronization primitive.
- */
-
-#include <synch.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <dispatch/dispatch.h>
+#include <pthread.h>
 
 typedef struct barrier {
 	pthread_mutex_t bar_lock;	/* protects bar_numin */
 	int bar_numin;			/* current number of waiters */
 
-	sema_t bar_sem;			/* where everyone waits */
+	dispatch_semaphore_t *bar_sem;	/* where everyone waits */
 	int bar_nthr;			/* # of waiters to trigger release */
 } barrier_t;
 
 extern void barrier_init(barrier_t *, int);
 extern int barrier_wait(barrier_t *);
-
-#ifdef __cplusplus
-}
-#endif
-#else /* used by ctfmerge */
-#include <semaphore.h>
-
-typedef struct barrier {
-	pthread_mutex_t bar_lock;	/* protects bar_numin */
-	int bar_numin;			/* current number of waiters */
-
-	sem_t *bar_sem;			/* where everyone waits */
-	int bar_nthr;			/* # of waiters to trigger release */
-} barrier_t;
-
-extern void barrier_init(barrier_t *, int);
-extern int barrier_wait(barrier_t *);
-
-#endif /* __APPLE__ */
 
 #endif /* _BARRIER_H */

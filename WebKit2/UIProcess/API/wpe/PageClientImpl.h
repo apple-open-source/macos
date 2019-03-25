@@ -28,6 +28,8 @@
 #include "PageClient.h"
 #include "WebFullScreenManagerProxy.h"
 
+struct wpe_view_backend;
+
 namespace WKWPE {
 class View;
 }
@@ -35,6 +37,8 @@ class View;
 namespace WebKit {
 
 class ScrollGestureController;
+
+enum class UndoOrRedo : bool;
 
 class PageClientImpl final : public PageClient
 #if ENABLE(FULLSCREEN_API)
@@ -45,9 +49,11 @@ public:
     PageClientImpl(WKWPE::View&);
     virtual ~PageClientImpl();
 
+    struct wpe_view_backend* viewBackend();
+
 private:
     // PageClient
-    std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy() override;
+    std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) override;
     void setViewNeedsDisplay(const WebCore::Region&) override;
     void requestScroll(const WebCore::FloatPoint&, const WebCore::IntPoint&, bool) override;
     WebCore::FloatPoint viewScrollPosition() override;
@@ -72,10 +78,10 @@ private:
     void setCursorHiddenUntilMouseMoves(bool) override;
     void didChangeViewportProperties(const WebCore::ViewportAttributes&) override;
 
-    void registerEditCommand(Ref<WebEditCommandProxy>&&, WebPageProxy::UndoOrRedo) override;
+    void registerEditCommand(Ref<WebEditCommandProxy>&&, UndoOrRedo) override;
     void clearAllEditCommands() override;
-    bool canUndoRedo(WebPageProxy::UndoOrRedo) override;
-    void executeUndoRedo(WebPageProxy::UndoOrRedo) override;
+    bool canUndoRedo(UndoOrRedo) override;
+    void executeUndoRedo(UndoOrRedo) override;
 
     WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&) override;
     WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&) override;
@@ -83,7 +89,9 @@ private:
     WebCore::IntRect rootViewToScreen(const WebCore::IntRect&) override;
 
     void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool) override;
+#if ENABLE(TOUCH_EVENTS)
     void doneWithTouchEvent(const NativeWebTouchEvent&, bool) override;
+#endif
     void wheelEventWasNotHandledByWebCore(const NativeWebWheelEvent&) override;
 
     RefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy&) override;
@@ -132,6 +140,8 @@ private:
     void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
     void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
 #endif
+
+    void didFinishProcessingAllPendingMouseEvents() final { }
 
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() override;
 

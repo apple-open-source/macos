@@ -35,10 +35,10 @@
 #include "MIMETypeRegistry.h"
 #include "SVGImage.h"
 #include "SharedBuffer.h"
-#include "URL.h"
 #include <math.h>
 #include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/URL.h>
 #include <wtf/text/TextStream.h>
 
 #if USE(CG)
@@ -82,7 +82,7 @@ RefPtr<Image> Image::create(ImageObserver& observer)
 
 bool Image::supportsType(const String& type)
 {
-    return MIMETypeRegistry::isSupportedImageResourceMIMEType(type);
+    return MIMETypeRegistry::isSupportedImageMIMEType(type);
 } 
 
 bool Image::isPDFResource(const String& mimeType, const URL& url)
@@ -159,7 +159,7 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRec
 
     ASSERT(!isBitmapImage() || notSolidColor());
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     FloatSize intrinsicTileSize = originalSize();
 #else
     FloatSize intrinsicTileSize = size();
@@ -187,7 +187,7 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRec
         return draw(ctxt, destRect, visibleSrcRect, op, blendMode, decodingMode, ImageOrientationDescription());
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     // When using accelerated drawing on iOS, it's faster to stretch an image than to tile it.
     if (ctxt.isAcceleratedContext()) {
         if (size().width() == 1 && intersection(oneTileRect, destRect).height() == destRect.height()) {
@@ -196,7 +196,7 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRec
             visibleSrcRect.setY((destRect.y() - oneTileRect.y()) / scale.height());
             visibleSrcRect.setWidth(1);
             visibleSrcRect.setHeight(destRect.height() / scale.height());
-            return draw(ctxt, destRect, visibleSrcRect, op, BlendModeNormal, decodingMode, ImageOrientationDescription());
+            return draw(ctxt, destRect, visibleSrcRect, op, BlendMode::Normal, decodingMode, ImageOrientationDescription());
         }
         if (size().height() == 1 && intersection(oneTileRect, destRect).width() == destRect.width()) {
             FloatRect visibleSrcRect;
@@ -204,7 +204,7 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRec
             visibleSrcRect.setY(0);
             visibleSrcRect.setWidth(destRect.width() / scale.width());
             visibleSrcRect.setHeight(1);
-            return draw(ctxt, destRect, visibleSrcRect, op, BlendModeNormal, decodingMode, ImageOrientationDescription());
+            return draw(ctxt, destRect, visibleSrcRect, op, BlendMode::Normal, decodingMode, ImageOrientationDescription());
         }
     }
 #endif
@@ -213,7 +213,7 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRec
     // tile size is large (<rdar://problem/4691859>, <rdar://problem/6239505>).
     // Memory consumption depends on the transformed tile size which can get
     // larger than the original tile if user zooms in enough.
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     const float maxPatternTilePixels = 512 * 512;
 #else
     const float maxPatternTilePixels = 2048 * 2048;
@@ -236,7 +236,7 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRec
                 FloatRect fromRect(toFloatPoint(currentTileRect.location() - oneTileRect.location()), currentTileRect.size());
                 fromRect.scale(1 / scale.width(), 1 / scale.height());
 
-                result = draw(ctxt, toRect, fromRect, op, BlendModeNormal, decodingMode, ImageOrientationDescription());
+                result = draw(ctxt, toRect, fromRect, op, BlendMode::Normal, decodingMode, ImageOrientationDescription());
                 if (result == ImageDrawResult::DidRequestDecoding)
                     return result;
                 toX += currentTileRect.width();
@@ -337,7 +337,7 @@ ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& dstRect
 
 void Image::computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio)
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     intrinsicRatio = originalSize();
 #else
     intrinsicRatio = size();
@@ -387,4 +387,17 @@ TextStream& operator<<(TextStream& ts, const Image& image)
     return ts;
 }
 
+#if !PLATFORM(COCOA) && !PLATFORM(GTK) && !PLATFORM(WIN)
+
+void BitmapImage::invalidatePlatformData()
+{
+}
+
+Ref<Image> Image::loadPlatformResource(const char* resource)
+{
+    WTFLogAlways("WARNING: trying to load platform resource '%s'", resource);
+    return BitmapImage::create();
+}
+
+#endif // !PLATFORM(COCOA) && !PLATFORM(GTK) && !PLATFORM(WIN)
 }

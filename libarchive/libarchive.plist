@@ -37,6 +37,7 @@
 		<string>libarchive/archive_read_support_format_mtree.c: 32125732</string>
 		<string>libarchive/archive_read_support_compression_uu.c: 30881365</string>
 		<string>libarchive/archive_read_support_format_cpio.c: 32125737</string>
+		<string>libarchive/archive_read_support_compression_uu.c 44406435</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

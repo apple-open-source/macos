@@ -80,11 +80,16 @@ void CodeDirectory::Builder::executable(string path,
 
 void CodeDirectory::Builder::reopen(string path, size_t offset, size_t length)
 {
-	assert(mExec);					// already called executable()
+	assert(opened());					// already called executable()
 	mExec.close();
 	mExec.open(path);
 	mExecOffset = offset;
 	mExecLength = length;
+}
+
+bool CodeDirectory::Builder::opened()
+{
+	return bool(mExec);
 }
 
 

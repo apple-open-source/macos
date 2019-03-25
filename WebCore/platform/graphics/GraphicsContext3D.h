@@ -74,6 +74,12 @@ OBJC_CLASS WebGLLayer;
 typedef struct __IOSurface* IOSurfaceRef;
 #endif // PLATFORM(COCOA)
 
+#if USE(NICOSIA)
+namespace Nicosia {
+class GC3DLayer;
+}
+#endif
+
 #if !PLATFORM(COCOA)
 typedef unsigned GLuint;
 typedef void* PlatformGraphicsContext3D;
@@ -712,7 +718,9 @@ public:
         TEXTURE_IMMUTABLE_FORMAT = 0x912F,
         MAX_ELEMENT_INDEX = 0x8D6B,
         NUM_SAMPLE_COUNTS = 0x9380,
-        TEXTURE_IMMUTABLE_LEVELS = 0x82DF, 
+        TEXTURE_IMMUTABLE_LEVELS = 0x82DF,
+        PRIMITIVE_RESTART_FIXED_INDEX = 0x8D69,
+        PRIMITIVE_RESTART = 0x8F9D,
 
         // OpenGL ES 3 constants
         MAP_READ_BIT = 0x0001
@@ -975,6 +983,9 @@ public:
     GC3Dboolean unmapBuffer(GC3Denum target);
     void copyBufferSubData(GC3Denum readTarget, GC3Denum writeTarget, GC3Dintptr readOffset, GC3Dintptr writeOffset, GC3Dsizeiptr);
 
+    void getInternalformativ(GC3Denum target, GC3Denum internalformat, GC3Denum pname, GC3Dsizei bufSize, GC3Dint* params);
+    void renderbufferStorageMultisample(GC3Denum target, GC3Dsizei samples, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height);
+
     void texStorage2D(GC3Denum target, GC3Dsizei levels, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height);
     void texStorage3D(GC3Denum target, GC3Dsizei levels, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dsizei depth);
 
@@ -1142,6 +1153,10 @@ public:
     RefPtr<ImageData> paintRenderingResultsToImageData();
     bool paintCompositedResultsToCanvas(ImageBuffer*);
 
+#if USE(OPENGL) && ENABLE(WEBGL2)
+    void primitiveRestartIndex(GC3Duint);
+#endif
+
 #if PLATFORM(COCOA)
     bool texImageIOSurface2D(GC3Denum target, GC3Denum internalFormat, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, IOSurfaceRef, GC3Duint plane);
 
@@ -1282,6 +1297,11 @@ public:
     GC3Denum currentBoundTarget() const { return m_state.currentBoundTarget(); }
     unsigned textureSeed(GC3Duint texture) { return m_state.textureSeedCount.count(texture); }
 
+#if PLATFORM(MAC)
+    using PlatformDisplayID = uint32_t;
+    void screenDidChange(PlatformDisplayID);
+#endif
+
 private:
     GraphicsContext3D(GraphicsContext3DAttributes, HostWindow*, RenderStyle = RenderOffscreen, GraphicsContext3D* sharedContext = nullptr);
 
@@ -1307,7 +1327,7 @@ private:
     void readRenderingResults(unsigned char* pixels, int pixelsSize);
     void readPixelsAndConvertToBGRAIfNecessary(int x, int y, int width, int height, unsigned char* pixels);
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     void setRenderbufferStorageFromDrawable(GC3Dsizei width, GC3Dsizei height);
 #endif
 
@@ -1393,8 +1413,8 @@ private:
     String mappedSymbolName(Platform3DObject program, ANGLEShaderSymbolType, const String& name);
     String mappedSymbolName(Platform3DObject shaders[2], size_t count, const String& name);
     String originalSymbolName(Platform3DObject program, ANGLEShaderSymbolType, const String& name);
-    std::optional<String> mappedSymbolInShaderSourceMap(Platform3DObject shader, ANGLEShaderSymbolType, const String& name);
-    std::optional<String> originalSymbolInShaderSourceMap(Platform3DObject shader, ANGLEShaderSymbolType, const String& name);
+    Optional<String> mappedSymbolInShaderSourceMap(Platform3DObject shader, ANGLEShaderSymbolType, const String& name);
+    Optional<String> originalSymbolInShaderSourceMap(Platform3DObject shader, ANGLEShaderSymbolType, const String& name);
 
     std::unique_ptr<ShaderNameHash> nameHashMapForShaders;
 
@@ -1476,7 +1496,10 @@ private:
     // Errors raised by synthesizeGLError().
     ListHashSet<GC3Denum> m_syntheticErrors;
 
-#if USE(TEXTURE_MAPPER)
+#if USE(NICOSIA) && USE(TEXTURE_MAPPER)
+    friend class Nicosia::GC3DLayer;
+    std::unique_ptr<Nicosia::GC3DLayer> m_nicosiaLayer;
+#elif USE(TEXTURE_MAPPER)
     friend class TextureMapperGC3DPlatformLayer;
     std::unique_ptr<TextureMapperGC3DPlatformLayer> m_texmapLayer;
 #else
@@ -1495,6 +1518,10 @@ private:
 
 #if USE(CAIRO)
     Platform3DObject m_vao { 0 };
+#endif
+
+#if PLATFORM(COCOA) && USE(OPENGL)
+    bool m_hasSwitchedToHighPerformanceGPU { false };
 #endif
 };
 

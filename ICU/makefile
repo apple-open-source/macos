@@ -58,7 +58,9 @@
 # Either this should be run indirectly from the VS command prompt via the
 # BuildICUForAAS script or project, using the instructions there (which build
 # both 32-bit and 64-bit), or it should be run from within Cygwin using the
-# following instructions or equivalent (different steps for 32-bit or 64-bit):
+# following instructions or equivalent (different steps for 32-bit or 64-bit
+# targets, details may also differ if you have the 32-bit cygwin install vs the
+# 64-bit one, i.e. cygwin vs cygwin64):
 #
 # 1. From VS command prompt, run vcvarsall.bat to set various environment variables.
 #    For a 32-bit build:
@@ -66,7 +68,7 @@
 #    For a 64-bit build:
 #    > "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
 #
-# 2. Launch Cygwin, e.g.
+# 2. Launch Cygwin, e.g. for the 64-bit cygwin install:
 #    > C:\cygwin64\cygwin.bat
 #
 # 3. Within cygwin, cd to the top level of the ICU sources directory, e.g.
@@ -113,6 +115,7 @@ ifdef RC_PROJECTSOURCEVERSION
 	RC_ProjectSourceVersion=$(RC_PROJECTSOURCEVERSION)
 endif
 endif
+$(info # RC_XBS=$(RC_XBS))
 $(info # RC_ARCHS=$(RC_ARCHS))
 $(info # RC_ProjectName=$(RC_ProjectName))
 $(info # RC_ProjectSourceVersion=$(RC_ProjectSourceVersion))
@@ -233,10 +236,10 @@ $(info # SDKPATH=$(SDKPATH))
 #
 ifneq "$(RC_ProjectSourceVersion)" ""
 	ifeq "$(WINDOWS)" "YES"
-		ICU_BUILD_AA  := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\2/')
-		ICU_BUILD_B1 := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\4/')
-		ICU_BUILD_B2 := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\5/')
-		ICU_TRAIN_CODE := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\7/')
+		ICU_BUILD_AA  := $(shell echo $(RC_ProjectSourceVersion) | /usr/bin/sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\2/')
+		ICU_BUILD_B1 := $(shell echo $(RC_ProjectSourceVersion) | /usr/bin/sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\4/')
+		ICU_BUILD_B2 := $(shell echo $(RC_ProjectSourceVersion) | /usr/bin/sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\5/')
+		ICU_TRAIN_CODE := $(shell echo $(RC_ProjectSourceVersion) | /usr/bin/sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\7/')
 	else
 		ICU_BUILD_AA  := $(shell echo $(RC_ProjectSourceVersion) | sed -E -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\2/')
 		ICU_BUILD_B1 := $(shell echo $(RC_ProjectSourceVersion) | sed -E -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\4/')
@@ -877,19 +880,19 @@ LIBOVERRIDES=LIBICUDT="-L$(OBJROOT_CURRENT) -l$(LIB_NAME)" \
 # options here and also the update the LINK.EXE lines in the TARGETS section below.
 ifeq "$(WINDOWS)" "YES"
 	ifeq "$(ARCH64)" "YES"
-		ENV= CFLAGS="/O2 /Ob2 /MD /GF /GS /Zi /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES" \
-			CXXFLAGS="/O2 /Ob2 /MD /GF /GS /Zi /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES /EHsc /Zc:wchar_t" \
+		ENV= CFLAGS="/utf-8 /O2 /Ob2 /MD /GF /GS /Zi /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES" \
+			CXXFLAGS="/utf-8 /O2 /Ob2 /MD /GF /GS /Zi /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES /EHsc /Zc:wchar_t /DU_SHOW_CPLUSPLUS_API=1" \
 			LDFLAGS="/NXCOMPAT /DYNAMICBASE /DEBUG /OPT:REF"
 	else
-		ENV= CFLAGS="/O2 /Ob2 /MD /GF /GS /Zi /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES" \
-			CXXFLAGS="/O2 /Ob2 /MD /GF /GS /Zi /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES /EHsc /Zc:wchar_t" \
+		ENV= CFLAGS="/utf-8 /O2 /Ob2 /MD /GF /GS /Zi /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES" \
+			CXXFLAGS="/utf-8 /O2 /Ob2 /MD /GF /GS /Zi /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES /EHsc /Zc:wchar_t /DU_SHOW_CPLUSPLUS_API=1" \
 			LDFLAGS="/NXCOMPAT /SAFESEH /DYNAMICBASE /DEBUG /OPT:REF"
 	endif
 	ENV_CONFIGURE= CPPFLAGS="-DU_DISABLE_RENAMING=1 $(DEFINE_BUILD_LEVEL)" \
-		CFLAGS="/O2 /Ob2 /MD /GF /GS /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES" \
-		CXXFLAGS="/O2 /Ob2 /MD /GF /GS /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES /EHsc /Zc:wchar_t"
-	ENV_DEBUG= CFLAGS="/O2 /Ob2 /MDd /GF /GS /Zi /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES" \
-		CXXFLAGS="/O2 /Ob2 /MDd /GF /GS /Zi /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES /EHsc" \
+		CFLAGS="/utf-8 /O2 /Ob2 /MD /GF /GS /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES" \
+		CXXFLAGS="/utf-8 /O2 /Ob2 /MD /GF /GS /nologo /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES /EHsc /Zc:wchar_t /DU_SHOW_CPLUSPLUS_API=1"
+	ENV_DEBUG= CFLAGS="/utf-8 /O2 /Ob2 /MDd /GF /GS /Zi /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES" \
+		CXXFLAGS="/utf-8 /O2 /Ob2 /MDd /GF /GS /Zi /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES /EHsc /DU_SHOW_CPLUSPLUS_API=1" \
 		LDFLAGS="/DEBUG /DYNAMICBASE"
 	ENV_PROFILE=
 else ifeq "$(LINUX)" "YES"
@@ -1062,12 +1065,13 @@ crossbuildhost icutztoolsforsdk
 #
 # The various patchconfig files should assume the current directory is icuSources.
 #
-# Note that if sources have been installed by installsrc (only run as part of buildit
-# or B&I builds), then
-#    $(SRCROOT)/.git is not present, and
+# Note that if sources have been installed by installsrc (only run as part of buildit or
+# submitproject for Apple platforms, not for Windows/Linux), then
+#    $(SRCROOT)/installsrcNotRunFlag is not present, and
 #    ADJUST_SOURCES has already have been run.
-# Otherwise, if we are doing a local build (e.g. make check, make install), then
-#    $(SRCROOT)/.git is present, and
+# Otherwise, if we are doing a local build (e.g. make check, make install), or if
+# sources were submitted using submitproject for non-Apple platforms (Windows/Linux) then
+#    $(SRCROOT)/installsrcNotRunFlag is present, and
 #    ADJUST_SOURCES has not been run (run it after copying sources to OBJROOT_CURRENT)
 #
 
@@ -1207,7 +1211,7 @@ crossbuildhost : $(CROSSHOST_OBJROOT)/Makefile
 icutztoolsforsdk : $(OBJROOT_CURRENT)/Makefile
 	echo "# make icutztoolsforsdk";
 	(cd $(OBJROOT_CURRENT); \
-		if test ! -d $(SRCROOT)/.git ; then patch -N -p1 <$(SRCROOT)/crosshostpatchconfig.txt; fi; \
+		if test ! -e $(SRCROOT)/installsrcNotRunFlag ; then patch -N -p1 <$(SRCROOT)/crosshostpatchconfig.txt; fi; \
 		$(MAKE) $($(ENV)) || exit 1; \
 		echo '# build' $(TOOLS_DYLIB_FORTOOLS) 'linked against' $(LIB_NAME) ; \
 		$($(ENV)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
@@ -1269,7 +1273,7 @@ endif
 	fi;
 	cp -Rpf $(SRCROOT)/icuSources/* $(OBJROOT_CURRENT)/;
 	(cd $(OBJROOT_CURRENT); \
-		if test -d $(SRCROOT)/.git ; then $(ADJUST_SOURCES); fi; \
+		if test -e $(SRCROOT)/installsrcNotRunFlag ; then $(ADJUST_SOURCES); fi; \
 		if test -f $(TZAUXFILESDIR)/metaZones.txt ; then cp -p $(TZAUXFILESDIR)/metaZones.txt data/misc/; fi; \
 		if test -f $(TZAUXFILESDIR)/timezoneTypes.txt ; then cp -p $(TZAUXFILESDIR)/timezoneTypes.txt data/misc/; fi; \
 		if test -f $(TZAUXFILESDIR)/windowsZones.txt ; then cp -p $(TZAUXFILESDIR)/windowsZones.txt data/misc/; fi; \
@@ -1300,7 +1304,7 @@ $(CROSSHOST_OBJROOT)/Makefile :
 	fi;
 	cp -Rpf $(SRCROOT)/icuSources/* $(CROSSHOST_OBJROOT);
 	(cd $(CROSSHOST_OBJROOT); \
-		if test -d $(SRCROOT)/.git; then $(ADJUST_SOURCES); fi; \
+		if test -e $(SRCROOT)/installsrcNotRunFlag; then $(ADJUST_SOURCES); fi; \
 		if test -f $(TZAUXFILESDIR)/metaZones.txt ; then cp -p $(TZAUXFILESDIR)/metaZones.txt data/misc/; fi; \
 		if test -f $(TZAUXFILESDIR)/timezoneTypes.txt ; then cp -p $(TZAUXFILESDIR)/timezoneTypes.txt data/misc/; fi; \
 		if test -f $(TZAUXFILESDIR)/windowsZones.txt ; then cp -p $(TZAUXFILESDIR)/windowsZones.txt data/misc/; fi; \
@@ -1319,8 +1323,8 @@ $(CROSSHOST_OBJROOT)/Makefile :
 
 # Since our sources are in icuSources (ignore the ICU subdirectory for now), we wish to
 # copy them to somewhere else. We tar it to stdout, cd to the appropriate directory, and
-# untar from stdin.  We then look for all the CVS directories and remove them. We may have
-# to remove the .cvsignore files also.
+# untar from stdin.
+# Do NOT include installsrcNotRunFlag in the list of files to tar up, that defeats the purpose.
 
 installsrc :
 	if test ! -d $(SRCROOT); then mkdir $(SRCROOT); fi;
@@ -1342,12 +1346,14 @@ endif
 MKINSTALLDIRS=$(SHELL) $(SRCROOT)/icuSources/mkinstalldirs
 INSTALL_DATA=${INSTALL} -m 644
 
-ifeq "$(RC_XBS)" "YES"
-installhdrsint :
-else
+ifneq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
 installhdrsint : $(OBJROOT_CURRENT)/Makefile
+else ifneq "$(RC_XBS)" "YES"
+installhdrsint : $(OBJROOT_CURRENT)/Makefile
+else
+installhdrsint :
 endif
-	(if test -d $(SRCROOT)/.git; then cd $(OBJROOT_CURRENT); else cd $(SRCROOT)/icuSources/; fi; \
+	(if test -e $(SRCROOT)/installsrcNotRunFlag; then cd $(OBJROOT_CURRENT); else cd $(SRCROOT)/icuSources/; fi; \
 		$(MKINSTALLDIRS) $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/; \
 		for subdir in $(HDR_MAKE_SUBDIR); do \
 			echo "# Subdir $$subdir"; \

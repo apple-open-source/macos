@@ -1044,6 +1044,10 @@ hr{
         }
         VEF{
             "VEF",
+            "venezuelanski bolivar (2008. – 2018.)",
+        }
+        VES{
+            "VES",
             "venezuelanski bolivar",
         }
         VND{
@@ -2601,6 +2605,11 @@ hr{
             other{"venezuelanskih bolivara (1871.–2008.)"}
         }
         VEF{
+            few{"venezuelanska bolivara (2008. – 2018.)"}
+            one{"venezuelanski bolivar (2008. – 2018.)"}
+            other{"venezuelanskih bolivara (2008. – 2018.)"}
+        }
+        VES{
             few{"venezuelanska bolivara"}
             one{"venezuelanski bolivar"}
             other{"venezuelanskih bolivara"}

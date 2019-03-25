@@ -41,7 +41,7 @@
 #include "Logging.h"
 #include "MediaControlElements.h"
 #include "TextTrackList.h"
-#include "URL.h"
+#include <wtf/URL.h>
 #include "UserStyleSheetTypes.h"
 #include "VTTCue.h"
 #include <algorithm>
@@ -52,7 +52,7 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import "WebCoreThreadRun.h"
 #endif
 
@@ -97,7 +97,7 @@ namespace WebCore {
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 static void userCaptionPreferencesChangedNotificationCallback(CFNotificationCenterRef, void* observer, CFStringRef, const void *, CFDictionaryRef)
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     static_cast<CaptionUserPreferencesMediaAF*>(observer)->captionPreferencesChanged();
 #else
     WebThreadRun(^{
@@ -562,7 +562,7 @@ String CaptionUserPreferencesMediaAF::captionsStyleSheetOverride() const
     String fontName = captionsDefaultFontCSS();
     String background = captionsBackgroundCSS();
     if (!background.isEmpty() || !captionsColor.isEmpty() || !edgeStyle.isEmpty() || !fontName.isEmpty()) {
-        captionsOverrideStyleSheet.appendLiteral(" video::");
+        captionsOverrideStyleSheet.appendLiteral(" ::");
         captionsOverrideStyleSheet.append(TextTrackCue::cueShadowPseudoId());
         captionsOverrideStyleSheet.append('{');
         
@@ -581,7 +581,7 @@ String CaptionUserPreferencesMediaAF::captionsStyleSheetOverride() const
     String windowColor = captionsWindowCSS();
     String windowCornerRadius = windowRoundedCornerRadiusCSS();
     if (!windowColor.isEmpty() || !windowCornerRadius.isEmpty()) {
-        captionsOverrideStyleSheet.appendLiteral(" video::");
+        captionsOverrideStyleSheet.appendLiteral(" ::");
         captionsOverrideStyleSheet.append(VTTCue::cueBackdropShadowPseudoId());
         captionsOverrideStyleSheet.append('{');
         

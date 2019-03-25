@@ -32,11 +32,14 @@
 #include <WebCore/Settings.h>
 #include <WebCore/SharedBuffer.h>
 
+namespace WebKit {
 using namespace WebCore;
 
-namespace WebKit {
-
 void WebPage::platformInitialize()
+{
+}
+
+void WebPage::platformReinitialize()
 {
 }
 

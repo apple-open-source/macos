@@ -291,7 +291,7 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_IntermediateEKU             SecStringWithDefaultValue("Extended key usage does not match pinned value", "Trust", 0, "Extended key usage does not match pinned value", "Error for intermediate extended key usage pin")
 #define SEC_TRUST_ERROR_IntermediateMarkerOid       SecStringWithDefaultValue("Missing issuer-specific extension OID", "Trust", 0, "Missing issuer-specific extension OID", "Error for intermediate marker OID")
 #define SEC_TRUST_ERROR_IntermediateOrganization    SecStringWithDefaultValue("Organization does not match expected name", "Trust", 0, "Organization does not match expected name", "Error for issuer organization mismatch")
-#define SEC_TRUST_ERROR_IntermediateCountry         SecStringWithDefaultValue("Country does not match expected name", "Trust", 0, "Country does not match expected name", "Error for issuer country mismatch")
+#define SEC_TRUST_ERROR_IntermediateCountry         SecStringWithDefaultValue("Country or Region does not match expected name", "Trust", 0, "Country or Region does not match expected name", "Error for issuer country mismatch")
 #define SEC_TRUST_ERROR_AnchorSHA1                  SecStringWithDefaultValue("Anchor does not match pinned fingerprint", "Trust", 0, "Anchor does not match pinned fingerprint", "Error for anchor SHA-1 fingerprint pin")
 #define SEC_TRUST_ERROR_AnchorSHA256                SecStringWithDefaultValue("Anchor does not match pinned fingerprint", "Trust", 0, "Anchor does not match pinned fingerprint", "Error for anchor SHA-256 fingerprint pin")
 #define SEC_TRUST_ERROR_AnchorTrusted               SecStringWithDefaultValue("Root is not trusted", "Trust", 0, "Root is not trusted", "Error for untrusted root")

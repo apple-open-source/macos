@@ -94,6 +94,7 @@ WI.TextEditor = class TextEditor extends WI.View
         this._formattingPromise = null;
         this._formatterSourceMap = null;
         this._deferReveal = false;
+        this._repeatReveal = false;
 
         this._delegate = delegate || null;
     }
@@ -112,6 +113,8 @@ WI.TextEditor = class TextEditor extends WI.View
 
     set string(newString)
     {
+        let previousSelectedTextRange = this._repeatReveal ? this.selectedTextRange : null;
+
         function update()
         {
             // Clear any styles that may have been set on the empty line before content loaded.
@@ -137,6 +140,13 @@ WI.TextEditor = class TextEditor extends WI.View
                     this._searchQuery = null;
                     this.performSearch(query);
                 }
+
+                if (this._codeMirror.getMode().name === "null") {
+                    // If the content matches a known MIME type, but isn't explicitly declared as
+                    // such, attempt to detect that so we can enable syntax highlighting and
+                    // formatting features.
+                    this._attemptToDetermineMIMEType();
+                }
             }
 
             // Update the execution line now that we might have content for that line.
@@ -147,8 +157,13 @@ WI.TextEditor = class TextEditor extends WI.View
             for (var lineNumber in this._breakpoints)
                 this._setBreakpointStylesOnLine(lineNumber);
 
-            // Try revealing the pending line now that we might have content with enough lines.
+            // Try revealing the pending line, or previous position, now that we might have new content.
             this._revealPendingPositionIfPossible();
+            if (previousSelectedTextRange) {
+                this.selectedTextRange = previousSelectedTextRange;
+                let position = this._codeMirrorPositionFromTextRange(previousSelectedTextRange);
+                this._scrollIntoViewCentered(position.start);
+            }
         }
 
         this._ignoreCodeMirrorContentDidChangeEvent++;
@@ -196,7 +211,7 @@ WI.TextEditor = class TextEditor extends WI.View
 
     canBeFormatted()
     {
-        // Can be overriden by subclasses.
+        // Can be overridden by subclasses.
         return this.hasFormatter();
     }
 
@@ -219,6 +234,9 @@ WI.TextEditor = class TextEditor extends WI.View
 
     set selectedTextRange(textRange)
     {
+        if (document.activeElement === document.body)
+            this.focus();
+
         var position = this._codeMirrorPositionFromTextRange(textRange);
         this._codeMirror.setSelection(position.start, position.end);
     }
@@ -234,6 +252,8 @@ WI.TextEditor = class TextEditor extends WI.View
 
         this._mimeType = newMIMEType;
         this._codeMirror.setOption("mode", {name: newMIMEType, globalVars: true});
+
+        this.dispatchEventToListeners(WI.TextEditor.Event.MIMETypeChanged);
     }
 
     get executionLineNumber()
@@ -290,6 +310,11 @@ WI.TextEditor = class TextEditor extends WI.View
     set deferReveal(defer)
     {
         this._deferReveal = defer;
+    }
+
+    set repeatReveal(repeat)
+    {
+        this._repeatReveal = repeat;
     }
 
     performSearch(query)
@@ -507,7 +532,7 @@ WI.TextEditor = class TextEditor extends WI.View
         let lineHandle = this._codeMirror.getLineHandle(line);
 
         if (!textRangeToSelect) {
-            let column = Number.constrain(position.columnNumber, 0, this._codeMirror.getLine(line).length - 1);
+            let column = Number.constrain(position.columnNumber, 0, this._codeMirror.getLine(line).length);
             textRangeToSelect = new WI.TextRange(line, column, line, column);
         }
 
@@ -871,6 +896,24 @@ WI.TextEditor = class TextEditor extends WI.View
     _canUseFormatterWorker()
     {
         return this._codeMirror.getMode().name === "javascript";
+    }
+
+    _attemptToDetermineMIMEType()
+    {
+        let startTime = Date.now();
+
+        const isModule = false;
+        const includeSourceMapData = false;
+        let workerProxy = WI.FormatterWorkerProxy.singleton();
+        workerProxy.formatJavaScript(this.string, isModule, WI.indentString(), includeSourceMapData, ({formattedText}) => {
+            if (!formattedText)
+                return;
+
+            this.mimeType = "text/javascript";
+
+            if (Date.now() - startTime < 100)
+                this.updateFormattedState(true);
+        });
     }
 
     _startWorkerPrettyPrint(beforePrettyPrintState, callback)
@@ -1332,8 +1375,8 @@ WI.TextEditor = class TextEditor extends WI.View
                 end = {line: this._executionLineNumber};
             } else {
                 // Highlight the range.
-                start = range.startPosition;
-                end = range.endPosition;
+                start = range.startPosition.toCodeMirror();
+                end = range.endPosition.toCodeMirror();
             }
 
             // Ensure the marker is cleared in case there were multiple updates very quickly.
@@ -1706,5 +1749,6 @@ WI.TextEditor.Event = {
     ExecutionLineNumberDidChange: "text-editor-execution-line-number-did-change",
     NumberOfSearchResultsDidChange: "text-editor-number-of-search-results-did-change",
     ContentDidChange: "text-editor-content-did-change",
-    FormattingDidChange: "text-editor-formatting-did-change"
+    FormattingDidChange: "text-editor-formatting-did-change",
+    MIMETypeChanged: "text-editor-mime-type-changed",
 };

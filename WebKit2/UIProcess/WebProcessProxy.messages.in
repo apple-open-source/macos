@@ -26,18 +26,17 @@ messages -> WebProcessProxy LegacyReceiver {
 
     DidDestroyUserGestureToken(uint64_t userGestureTokenID) 
 
-    ShouldTerminate() -> (bool shouldTerminate)
+    ShouldTerminate() -> (bool shouldTerminate) LegacySync
 
     EnableSuddenTermination()
     DisableSuddenTermination()
 
     # Plugin messages.
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    GetPlugins(bool refresh) -> (Vector<WebCore::PluginInfo> plugins, Vector<WebCore::PluginInfo> applicationPlugins, struct std::optional<Vector<WebCore::SupportedPluginIdentifier>> supportedPluginIdentifiers)
+    GetPlugins(bool refresh) -> (Vector<WebCore::PluginInfo> plugins, Vector<WebCore::PluginInfo> applicationPlugins, struct Optional<Vector<WebCore::SupportedPluginIdentifier>> supportedPluginIdentifiers) LegacySync
     GetPluginProcessConnection(uint64_t pluginProcessToken) -> (IPC::Attachment connectionHandle, bool supportsAsynchronousInitialization) Delayed
 #endif
     GetNetworkProcessConnection() -> (IPC::Attachment connectionHandle) Delayed
-    GetStorageProcessConnection(PAL::SessionID initialSessionID) -> (IPC::Attachment connectionHandle) Delayed
     ProcessReadyToSuspend()
     DidCancelProcessSuspension()
 
@@ -46,8 +45,6 @@ messages -> WebProcessProxy LegacyReceiver {
     DidExceedActiveMemoryLimit()
     DidExceedInactiveMemoryLimit()
     DidExceedCPULimit()
-
-    TestIncomingSyncIPCMessageWhileWaitingForSyncReply() -> (bool handled)
 
     StopResponsivenessTimer()
 
@@ -67,7 +64,19 @@ messages -> WebProcessProxy LegacyReceiver {
     DidDeliverMessagePortMessages(uint64_t messageBatchIdentifier)
     DidCheckProcessLocalPortForActivity(uint64_t callbackIdentifier, bool isLocallyReachable)
 
+    DidCollectPrewarmInformation(String domain, struct WebCore::PrewarmInformation prewarmInformation)
+
 #if PLATFORM(COCOA)
     CacheMediaMIMETypes(Vector<String> types)
+#endif
+
+#if PLATFORM(MAC)
+    RequestHighPerformanceGPU()
+    ReleaseHighPerformanceGPU()
+#endif
+
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    StartDisplayLink(unsigned observerID, uint32_t displayID)
+    StopDisplayLink(unsigned observerID, uint32_t displayID)
 #endif
 }

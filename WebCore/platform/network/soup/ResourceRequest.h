@@ -27,16 +27,15 @@
 #ifndef ResourceRequest_h
 #define ResourceRequest_h
 
-#include "GUniquePtrSoup.h"
 #include "ResourceRequestBase.h"
-#include <libsoup/soup.h>
+#include "URLSoup.h"
 
 namespace WebCore {
 
     class ResourceRequest : public ResourceRequestBase {
     public:
         ResourceRequest(const String& url)
-            : ResourceRequestBase(URL(ParsedURLString, url), ResourceRequestCachePolicy::UseProtocolCachePolicy)
+            : ResourceRequestBase(URL({ }, url), ResourceRequestCachePolicy::UseProtocolCachePolicy)
             , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
             , m_initiatingPageID(0)
@@ -78,7 +77,7 @@ namespace WebCore {
         }
 
         ResourceRequest(SoupRequest* soupRequest)
-            : ResourceRequestBase(URL(soup_request_get_uri(soupRequest)), ResourceRequestCachePolicy::UseProtocolCachePolicy)
+            : ResourceRequestBase(soupURIToURL(soup_request_get_uri(soupRequest)), ResourceRequestCachePolicy::UseProtocolCachePolicy)
             , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
             , m_initiatingPageID(0)

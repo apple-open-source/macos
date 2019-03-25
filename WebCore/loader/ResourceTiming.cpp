@@ -28,8 +28,10 @@
 
 #include "CachedResource.h"
 #include "PerformanceServerTiming.h"
+#include "RuntimeEnabledFeatures.h"
 #include "SecurityOrigin.h"
 #include "ServerTimingParser.h"
+#include <wtf/CrossThreadCopier.h>
 
 namespace WebCore {
 
@@ -47,9 +49,7 @@ static bool passesTimingAllowCheck(const ResourceResponse& response, const Secur
         return true;
 
     const String& securityOrigin = initiatorSecurityOrigin.toString();
-    Vector<String> timingAllowOrigins;
-    timingAllowOriginString.split(',', timingAllowOrigins);
-    for (auto& origin : timingAllowOrigins) {
+    for (auto& origin : timingAllowOriginString.split(',')) {
         if (origin.stripWhiteSpace() == securityOrigin)
             return true;
     }

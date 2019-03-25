@@ -31,6 +31,14 @@ es_MX{
             "UZS",
             "sum",
         }
+        VEF{
+            "VEF",
+            "bolívar venezolano (2008–2018)",
+        }
+        VES{
+            "VES",
+            "bolívar venezolano",
+        }
         ZMW{
             "ZMW",
             "kwacha zambiano",
@@ -70,6 +78,14 @@ es_MX{
         UZS{
             one{"sum"}
             other{"sums"}
+        }
+        VEF{
+            one{"bolívar venezolano (2008–2018)"}
+            other{"bolívares venezolanos (2008–2018)"}
+        }
+        VES{
+            one{"bolívar venezolano"}
+            other{"bolivares venezolanos"}
         }
         XXX{
             one{"(moneda desconocida)"}

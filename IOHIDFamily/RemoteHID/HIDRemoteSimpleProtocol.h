@@ -6,8 +6,8 @@
 //  Copyright © 2018 apple. All rights reserved.
 //
 
-#ifndef HIDAACP_h
-#define HIDAACP_h
+#ifndef HIDRemoteSimpleProtocol_h
+#define HIDRemoteSimpleProtocol_h
 
 #include <AssertMacros.h>
 

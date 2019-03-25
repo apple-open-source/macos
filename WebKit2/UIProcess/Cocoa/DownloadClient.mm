@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #if WK_API_ENABLED
 
+#import "AuthenticationChallengeDisposition.h"
 #import "AuthenticationChallengeProxy.h"
 #import "AuthenticationDecisionListener.h"
 #import "CompletionHandlerCallChecker.h"
@@ -47,12 +48,6 @@
 #import <wtf/BlockPtr.h>
 
 namespace WebKit {
-
-static inline _WKDownload *wrapper(DownloadProxy& download)
-{
-    ASSERT([download.wrapper() isKindOfClass:[_WKDownload class]]);
-    return (_WKDownload *)download.wrapper();
-}
 
 DownloadClient::DownloadClient(id <_WKDownloadDelegate> delegate)
     : m_delegate(delegate)
@@ -124,34 +119,28 @@ void DownloadClient::didReceiveAuthenticationChallenge(WebProcessPool&, Download
 {
     // FIXME: System Preview needs code here.
     if (!m_delegateMethods.downloadDidReceiveAuthenticationChallengeCompletionHandler) {
-        authenticationChallenge.listener()->performDefaultHandling();
+        authenticationChallenge.listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::PerformDefaultHandling);
         return;
     }
 
-    [m_delegate _download:wrapper(downloadProxy) didReceiveAuthenticationChallenge:wrapper(authenticationChallenge) completionHandler:BlockPtr<void(NSURLSessionAuthChallengeDisposition, NSURLCredential *)>::fromCallable([authenticationChallenge = makeRef(authenticationChallenge), checker = CompletionHandlerCallChecker::create(m_delegate.get().get(), @selector(_download:didReceiveAuthenticationChallenge:completionHandler:))] (NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential) {
+    [m_delegate _download:wrapper(downloadProxy) didReceiveAuthenticationChallenge:wrapper(authenticationChallenge) completionHandler:makeBlockPtr([authenticationChallenge = makeRef(authenticationChallenge), checker = CompletionHandlerCallChecker::create(m_delegate.get().get(), @selector(_download:didReceiveAuthenticationChallenge:completionHandler:))] (NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential) {
         if (checker->completionHandlerHasBeenCalled())
             return;
         checker->didCallCompletionHandler();
         switch (disposition) {
-        case NSURLSessionAuthChallengeUseCredential: {
-            RefPtr<WebCredential> webCredential;
-            if (credential)
-                webCredential = WebCredential::create(WebCore::Credential(credential));
-            
-            authenticationChallenge->listener()->useCredential(webCredential.get());
+        case NSURLSessionAuthChallengeUseCredential:
+            authenticationChallenge->listener().completeChallenge(AuthenticationChallengeDisposition::UseCredential, credential ? WebCore::Credential(credential) : WebCore::Credential());
             break;
-        }
-            
         case NSURLSessionAuthChallengePerformDefaultHandling:
-            authenticationChallenge->listener()->performDefaultHandling();
+            authenticationChallenge->listener().completeChallenge(AuthenticationChallengeDisposition::PerformDefaultHandling);
             break;
             
         case NSURLSessionAuthChallengeCancelAuthenticationChallenge:
-            authenticationChallenge->listener()->cancel();
+            authenticationChallenge->listener().completeChallenge(AuthenticationChallengeDisposition::Cancel);
             break;
             
         case NSURLSessionAuthChallengeRejectProtectionSpace:
-            authenticationChallenge->listener()->rejectProtectionSpaceAndContinue();
+            authenticationChallenge->listener().completeChallenge(AuthenticationChallengeDisposition::RejectProtectionSpaceAndContinue);
             break;
             
         default:
@@ -204,13 +193,12 @@ void DownloadClient::decideDestinationWithSuggestedFilename(WebProcessPool&, Dow
 
     if (m_delegateMethods.downloadDecideDestinationWithSuggestedFilenameAllowOverwrite) {
         BOOL allowOverwrite = NO;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         NSString *destination = [m_delegate _download:wrapper(downloadProxy) decideDestinationWithSuggestedFilename:filename allowOverwrite:&allowOverwrite];
-#pragma clang diagnostic pop
+        ALLOW_DEPRECATED_DECLARATIONS_END
         completionHandler(allowOverwrite ? AllowOverwrite::Yes : AllowOverwrite::No, destination);
     } else {
-        [m_delegate _download:wrapper(downloadProxy) decideDestinationWithSuggestedFilename:filename completionHandler:BlockPtr<void(BOOL, NSString *)>::fromCallable([checker = CompletionHandlerCallChecker::create(m_delegate.get().get(), @selector(_download:decideDestinationWithSuggestedFilename:completionHandler:)), completionHandler = WTFMove(completionHandler)] (BOOL allowOverwrite, NSString *destination) {
+        [m_delegate _download:wrapper(downloadProxy) decideDestinationWithSuggestedFilename:filename completionHandler:makeBlockPtr([checker = CompletionHandlerCallChecker::create(m_delegate.get().get(), @selector(_download:decideDestinationWithSuggestedFilename:completionHandler:)), completionHandler = WTFMove(completionHandler)] (BOOL allowOverwrite, NSString *destination) {
             if (checker->completionHandlerHasBeenCalled())
                 return;
             checker->didCallCompletionHandler();
@@ -224,8 +212,10 @@ void DownloadClient::didFinish(WebProcessPool&, DownloadProxy& downloadProxy)
 #if USE(SYSTEM_PREVIEW)
     if (downloadProxy.isSystemPreviewDownload()) {
         if (auto* webPage = downloadProxy.originatingPage()) {
-            NSURL *destinationURL = [NSURL fileURLWithPath:(NSString *)downloadProxy.destinationFilename()];
-            webPage->systemPreviewController()->finish(WebCore::URL(destinationURL));
+            WTF::URL destinationURL = WTF::URL::fileURLWithFileSystemPath(downloadProxy.destinationFilename());
+            if (!destinationURL.fragmentIdentifier().length())
+                destinationURL.setFragmentIdentifier(downloadProxy.request().url().fragmentIdentifier());
+            webPage->systemPreviewController()->finish(destinationURL);
         }
         releaseActivityTokenIfNecessary(downloadProxy);
         return;
@@ -277,7 +267,7 @@ void DownloadClient::willSendRequest(WebProcessPool&, DownloadProxy& downloadPro
 #if USE(SYSTEM_PREVIEW)
 void DownloadClient::takeActivityToken(DownloadProxy& downloadProxy)
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (auto* webPage = downloadProxy.originatingPage()) {
         RELEASE_LOG_IF(webPage->isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - UIProcess is taking a background assertion because it is downloading a system preview", this);
         ASSERT(!m_activityToken);
@@ -290,7 +280,7 @@ void DownloadClient::takeActivityToken(DownloadProxy& downloadProxy)
 
 void DownloadClient::releaseActivityTokenIfNecessary(DownloadProxy& downloadProxy)
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (m_activityToken) {
         RELEASE_LOG_IF(downloadProxy.originatingPage()->isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p UIProcess is releasing a background assertion because a system preview download completed", this);
         m_activityToken = nullptr;

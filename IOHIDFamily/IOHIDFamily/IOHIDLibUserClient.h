@@ -183,6 +183,7 @@ protected:
     
     // entitlements
     bool _customQueueSizeEntitlement;
+    bool _privilegedClient;
 	
 	IOOptionBits fCachedOptionBits;
 		

@@ -26,6 +26,7 @@
 #import "config.h"
 #import "NetworkSessionCocoa.h"
 
+#import "AuthenticationChallengeDisposition.h"
 #import "AuthenticationManager.h"
 #import "DataReference.h"
 #import "Download.h"
@@ -44,33 +45,27 @@
 #import <WebCore/ResourceError.h>
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/ResourceResponse.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SharedBuffer.h>
-#import <WebCore/URL.h>
 #import <WebCore/WebCoreURLResponse.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/MainThread.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/ProcessPrivilege.h>
+#import <wtf/URL.h>
 
 using namespace WebKit;
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
-@interface NSURLSessionConfiguration (WKStaging)
-@property (nullable, copy) NSSet *_suppressedAutoAddedHTTPHeaders;
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000)
-// FIXME: Remove this once rdar://problem/40650244 is in a build.
-@property (copy) NSDictionary *_socketStreamProperties;
-#endif
-@end
-#endif
+CFStringRef const WebKit2HTTPProxyDefaultsKey = static_cast<CFStringRef>(@"WebKit2HTTPProxy");
+CFStringRef const WebKit2HTTPSProxyDefaultsKey = static_cast<CFStringRef>(@"WebKit2HTTPSProxy");
 
 static NSURLSessionResponseDisposition toNSURLSessionResponseDisposition(WebCore::PolicyAction disposition)
 {
     switch (disposition) {
-    case WebCore::PolicyAction::Suspend:
-        LOG_ERROR("PolicyAction::Suspend encountered - Treating as PolicyAction::Ignore for now");
+    case WebCore::PolicyAction::StopAllLoads:
+        ASSERT_NOT_REACHED();
+#if ASSERT_DISABLED
         FALLTHROUGH;
+#endif
     case WebCore::PolicyAction::Ignore:
         return NSURLSessionResponseCancel;
     case WebCore::PolicyAction::Use:
@@ -89,7 +84,7 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
         return NSURLSessionAuthChallengePerformDefaultHandling;
     case WebKit::AuthenticationChallengeDisposition::Cancel:
         return NSURLSessionAuthChallengeCancelAuthenticationChallenge;
-    case WebKit::AuthenticationChallengeDisposition::RejectProtectionSpace:
+    case WebKit::AuthenticationChallengeDisposition::RejectProtectionSpaceAndContinue:
         return NSURLSessionAuthChallengeRejectProtectionSpace;
     }
 }
@@ -144,7 +139,7 @@ static WebCore::NetworkLoadPriority toNetworkLoadPriority(float priority)
     return _session->dataTaskForIdentifier(task.taskIdentifier, storedCredentialsPolicy);
 }
 
-- (void)URLSession:(NSURLSession *)session didBecomeInvalidWithError:(nullable NSError *)error
+- (void)URLSession:(NSURLSession *)session didBecomeInvalidWithError:(NSError *)error
 {
     ASSERT(!_session);
 }
@@ -172,7 +167,7 @@ static WebCore::NetworkLoadPriority toNetworkLoadPriority(float priority)
     completionHandler(WebCore::createHTTPBodyNSInputStream(*body).get());
 }
 
-#if USE(CFNETWORK_IGNORE_HSTS)
+#if HAVE(CFNETWORK_WITH_IGNORE_HSTS)
 static NSURLRequest* downgradeRequest(NSURLRequest *request)
 {
     NSMutableURLRequest *nsMutableRequest = [[request mutableCopy] autorelease];
@@ -209,7 +204,7 @@ static bool ignoreHSTS(NSURLRequest *request)
 
 static NSURLRequest* updateIgnoreStrictTransportSecuritySettingIfNecessary(NSURLRequest *request, bool shouldIgnoreHSTS)
 {
-#if USE(CFNETWORK_IGNORE_HSTS)
+#if HAVE(CFNETWORK_WITH_IGNORE_HSTS)
     if ([request.URL.scheme isEqualToString:@"https"] && shouldIgnoreHSTS && ignoreHSTS(request)) {
         // The request was upgraded for some other reason than HSTS.
         // Don't ignore HSTS to avoid the risk of another downgrade.
@@ -239,8 +234,8 @@ static NSURLRequest* updateIgnoreStrictTransportSecuritySettingIfNecessary(NSURL
         auto completionHandlerCopy = Block_copy(completionHandler);
 
         bool shouldIgnoreHSTS = false;
-#if USE(CFNETWORK_IGNORE_HSTS)
-        shouldIgnoreHSTS = schemeWasUpgradedDueToDynamicHSTS(request) && WebCore::NetworkStorageSession::storageSession(_session->sessionID())->shouldBlockCookies(request);
+#if HAVE(CFNETWORK_WITH_IGNORE_HSTS)
+        shouldIgnoreHSTS = schemeWasUpgradedDueToDynamicHSTS(request) && WebCore::NetworkStorageSession::storageSession(_session->sessionID())->shouldBlockCookies(request, networkDataTask->frameID(), networkDataTask->pageID());
         if (shouldIgnoreHSTS) {
             request = downgradeRequest(request);
             ASSERT([request.URL.scheme isEqualToString:@"http"]);
@@ -272,8 +267,8 @@ static NSURLRequest* updateIgnoreStrictTransportSecuritySettingIfNecessary(NSURL
 
     if (auto* networkDataTask = [self existingTask:task]) {
         bool shouldIgnoreHSTS = false;
-#if USE(CFNETWORK_IGNORE_HSTS)
-        shouldIgnoreHSTS = schemeWasUpgradedDueToDynamicHSTS(request) && WebCore::NetworkStorageSession::storageSession(_session->sessionID())->shouldBlockCookies(request);
+#if HAVE(CFNETWORK_WITH_IGNORE_HSTS)
+        shouldIgnoreHSTS = schemeWasUpgradedDueToDynamicHSTS(request) && WebCore::NetworkStorageSession::storageSession(_session->sessionID())->shouldBlockCookies(request, networkDataTask->frameID(), networkDataTask->pageID());
         if (shouldIgnoreHSTS) {
             request = downgradeRequest(request);
             ASSERT([request.URL.scheme isEqualToString:@"http"]);
@@ -299,7 +294,7 @@ static NSURLRequest* updateIgnoreStrictTransportSecuritySettingIfNecessary(NSURL
     }
 }
 
-- (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask willCacheResponse:(NSCachedURLResponse *)proposedResponse completionHandler:(void (^)(NSCachedURLResponse * _Nullable cachedResponse))completionHandler
+- (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask willCacheResponse:(NSCachedURLResponse *)proposedResponse completionHandler:(void (^)(NSCachedURLResponse *cachedResponse))completionHandler
 {
     if (!_session) {
         completionHandler(nil);
@@ -331,13 +326,13 @@ static NSURLRequest* updateIgnoreStrictTransportSecuritySettingIfNecessary(NSURL
         return;
     }
 
-    // Handle server trust evaluation at platform-level if requested, for performance reasons.
-    if ([challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust] && !NetworkProcess::singleton().canHandleHTTPSServerTrustEvaluation()) {
+    if ([challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
         if (NetworkSessionCocoa::allowsSpecificHTTPSCertificateForHost(challenge))
-            completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
-        else
-            completionHandler(NSURLSessionAuthChallengeRejectProtectionSpace, nil);
-        return;
+            return completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
+
+        // Handle server trust evaluation at platform-level if requested, for performance reasons and to use ATS defaults.
+        if (!NetworkProcess::singleton().canHandleHTTPSServerTrustEvaluation())
+            return completionHandler(NSURLSessionAuthChallengeRejectProtectionSpace, nil);
     }
 
     if (auto* networkDataTask = [self existingTask:task]) {
@@ -358,7 +353,7 @@ static NSURLRequest* updateIgnoreStrictTransportSecuritySettingIfNecessary(NSURL
             if (credential.persistence() == WebCore::CredentialPersistenceForSession && authenticationChallenge.protectionSpace().isPasswordBased()) {
 
                 WebCore::Credential nonPersistentCredential(credential.user(), credential.password(), WebCore::CredentialPersistenceNone);
-                WebCore::URL urlToStore;
+                URL urlToStore;
                 if (authenticationChallenge.failureResponse().httpStatusCode() == 401)
                     urlToStore = authenticationChallenge.failureResponse().url();
                 if (auto storageSession = WebCore::NetworkStorageSession::storageSession(sessionID))
@@ -450,7 +445,7 @@ static NSURLRequest* updateIgnoreStrictTransportSecuritySettingIfNecessary(NSURL
         if (networkDataTask->shouldCaptureExtraNetworkLoadMetrics()) {
             networkLoadMetrics.priority = toNetworkLoadPriority(task.priority);
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
             networkLoadMetrics.remoteAddress = String(m._remoteAddressAndPort);
             networkLoadMetrics.connectionIdentifier = String([m._connectionIdentifier UUIDString]);
 #endif
@@ -461,7 +456,7 @@ static NSURLRequest* updateIgnoreStrictTransportSecuritySettingIfNecessary(NSURL
             }];
             networkLoadMetrics.requestHeaders = WTFMove(requestHeaders);
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
             uint64_t requestHeaderBytesSent = 0;
             uint64_t responseHeaderBytesReceived = 0;
             uint64_t responseBodyBytesReceived = 0;
@@ -593,51 +588,15 @@ static NSURLSessionConfiguration *configurationForSessionID(const PAL::SessionID
     return [NSURLSessionConfiguration defaultSessionConfiguration];
 }
 
-static RetainPtr<CFDataRef>& globalSourceApplicationAuditTokenData()
-{
-    static NeverDestroyed<RetainPtr<CFDataRef>> sourceApplicationAuditTokenData;
-    return sourceApplicationAuditTokenData.get();
-}
-
-static String& globalSourceApplicationBundleIdentifier()
-{
-    static NeverDestroyed<String> sourceApplicationBundleIdentifier;
-    return sourceApplicationBundleIdentifier.get();
-}
-
-static String& globalSourceApplicationSecondaryIdentifier()
-{
-    static NeverDestroyed<String> sourceApplicationSecondaryIdentifier;
-    return sourceApplicationSecondaryIdentifier.get();
-}
-
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 static String& globalCTDataConnectionServiceType()
 {
     static NeverDestroyed<String> ctDataConnectionServiceType;
     return ctDataConnectionServiceType.get();
 }
 #endif
-    
-void NetworkSessionCocoa::setSourceApplicationAuditTokenData(RetainPtr<CFDataRef>&& data)
-{
-    ASSERT(!sessionsCreated);
-    globalSourceApplicationAuditTokenData() = data;
-}
 
-void NetworkSessionCocoa::setSourceApplicationBundleIdentifier(const String& identifier)
-{
-    ASSERT(!sessionsCreated);
-    globalSourceApplicationBundleIdentifier() = identifier;
-}
-
-void NetworkSessionCocoa::setSourceApplicationSecondaryIdentifier(const String& identifier)
-{
-    ASSERT(!sessionsCreated);
-    globalSourceApplicationSecondaryIdentifier() = identifier;
-}
-
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 void NetworkSessionCocoa::setCTDataConnectionServiceType(const String& type)
 {
     ASSERT(!sessionsCreated);
@@ -650,10 +609,35 @@ Ref<NetworkSession> NetworkSessionCocoa::create(NetworkSessionCreationParameters
     return adoptRef(*new NetworkSessionCocoa(WTFMove(parameters)));
 }
 
+static NSDictionary *proxyDictionary(const URL& httpProxy, const URL& httpsProxy)
+{
+    if (!httpProxy.isValid() && !httpsProxy.isValid())
+        return nil;
+
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+
+    NSMutableDictionary *dictionary = [[[NSMutableDictionary alloc] init] autorelease];
+    if (httpProxy.isValid()) {
+        [dictionary setObject:httpProxy.host().toString() forKey:(NSString *)kCFStreamPropertyHTTPProxyHost];
+        if (auto port = httpProxy.port())
+            [dictionary setObject:@(*port) forKey:(NSString *)kCFStreamPropertyHTTPProxyPort];
+    }
+    if (httpsProxy.isValid()) {
+        [dictionary setObject:httpsProxy.host().toString() forKey:(NSString *)kCFStreamPropertyHTTPSProxyHost];
+        if (auto port = httpsProxy.port())
+            [dictionary setObject:@(*port) forKey:(NSString *)kCFStreamPropertyHTTPSProxyPort];
+    }
+    return dictionary;
+
+    ALLOW_DEPRECATED_DECLARATIONS_END
+}
+
 NetworkSessionCocoa::NetworkSessionCocoa(NetworkSessionCreationParameters&& parameters)
     : NetworkSession(parameters.sessionID)
     , m_boundInterfaceIdentifier(parameters.boundInterfaceIdentifier)
     , m_proxyConfiguration(parameters.proxyConfiguration)
+    , m_shouldLogCookieInformation(parameters.shouldLogCookieInformation)
+    , m_loadThrottleLatency(parameters.loadThrottleLatency)
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
 
@@ -665,10 +649,9 @@ NetworkSessionCocoa::NetworkSessionCocoa(NetworkSessionCreationParameters&& para
 
     NSURLSessionConfiguration *configuration = configurationForSessionID(m_sessionID);
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
+#if USE(CFNETWORK_AUTO_ADDED_HTTP_HEADER_SUPPRESSION)
     // Without this, CFNetwork would sometimes add a Content-Type header to our requests (rdar://problem/34748470).
-    if ([configuration respondsToSelector:@selector(_suppressedAutoAddedHTTPHeaders)])
-        configuration._suppressedAutoAddedHTTPHeaders = [NSSet setWithObject:@"Content-Type"];
+    configuration._suppressedAutoAddedHTTPHeaders = [NSSet setWithObject:@"Content-Type"];
 #endif
 
     if (parameters.allowsCellularAccess == AllowsCellularAccess::No)
@@ -677,20 +660,20 @@ NetworkSessionCocoa::NetworkSessionCocoa(NetworkSessionCreationParameters&& para
     // The WebKit network cache was already queried.
     configuration.URLCache = nil;
 
-    if (auto& data = globalSourceApplicationAuditTokenData())
+    if (auto data = NetworkProcess::singleton().sourceApplicationAuditData())
         configuration._sourceApplicationAuditTokenData = (__bridge NSData *)data.get();
 
-    auto& sourceApplicationBundleIdentifier = globalSourceApplicationBundleIdentifier();
-    if (!sourceApplicationBundleIdentifier.isEmpty()) {
-        configuration._sourceApplicationBundleIdentifier = sourceApplicationBundleIdentifier;
+    if (!parameters.sourceApplicationBundleIdentifier.isEmpty()) {
+        configuration._sourceApplicationBundleIdentifier = parameters.sourceApplicationBundleIdentifier;
         configuration._sourceApplicationAuditTokenData = nil;
     }
 
-    auto& sourceApplicationSecondaryIdentifier = globalSourceApplicationSecondaryIdentifier();
-    if (!sourceApplicationSecondaryIdentifier.isEmpty())
-        configuration._sourceApplicationSecondaryIdentifier = sourceApplicationSecondaryIdentifier;
+    if (!parameters.sourceApplicationSecondaryIdentifier.isEmpty())
+        configuration._sourceApplicationSecondaryIdentifier = parameters.sourceApplicationSecondaryIdentifier;
 
-#if PLATFORM(IOS)
+    configuration.connectionProxyDictionary = proxyDictionary(parameters.httpProxy, parameters.httpsProxy);
+
+#if PLATFORM(IOS_FAMILY)
     auto& ctDataConnectionServiceType = globalCTDataConnectionServiceType();
     if (!ctDataConnectionServiceType.isEmpty())
         configuration._CTDataConnectionServiceType = ctDataConnectionServiceType;
@@ -706,19 +689,19 @@ NetworkSessionCocoa::NetworkSessionCocoa(NetworkSessionCreationParameters&& para
     setCollectsTimingData();
 #endif
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000)
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000)
     // FIXME: Replace @"kCFStreamPropertyAutoErrorOnSystemChange" with a constant from the SDK once rdar://problem/40650244 is in a build.
     if (NetworkProcess::singleton().suppressesConnectionTerminationOnSystemChange())
         configuration._socketStreamProperties = @{ @"kCFStreamPropertyAutoErrorOnSystemChange" : @(NO) };
 #endif
 
+#if PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MIN_REQUIRED >= 60000
+    configuration._companionProxyPreference = NSURLSessionCompanionProxyPreferencePreferDirectToCloud;
+#endif
+
     auto* storageSession = WebCore::NetworkStorageSession::storageSession(parameters.sessionID);
     RELEASE_ASSERT(storageSession);
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101300) || PLATFORM(IOS)
-    if (CFHTTPCookieStorageRef storage = storageSession->cookieStorage().get())
-        configuration.HTTPCookieStorage = [[[NSHTTPCookieStorage alloc] _initWithCFHTTPCookieStorage:storage] autorelease];
-#else
     NSHTTPCookieStorage* cookieStorage;
     if (CFHTTPCookieStorageRef storage = storageSession->cookieStorage().get()) {
         cookieStorage = [[[NSHTTPCookieStorage alloc] _initWithCFHTTPCookieStorage:storage] autorelease];
@@ -726,11 +709,12 @@ NetworkSessionCocoa::NetworkSessionCocoa(NetworkSessionCreationParameters&& para
     } else
         cookieStorage = storageSession->nsCookieStorage();
 
-    ASSERT(cookieStorage);
-
-    if (WebCore::MacApplication::isSafari() && [cookieStorage respondsToSelector:@selector(_overrideSessionCookieAcceptPolicy)])
+#if HAVE(CFNETWORK_OVERRIDE_SESSION_COOKIE_ACCEPT_POLICY)
+    // We still need to check the selector since CFNetwork updates and WebKit updates are separate
+    // on older macOS.
+    if ([cookieStorage respondsToSelector:@selector(_overrideSessionCookieAcceptPolicy)])
         cookieStorage._overrideSessionCookieAcceptPolicy = YES;
-#endif // (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101300) || PLATFORM(IOS)
+#endif
 
     m_sessionWithCredentialStorageDelegate = adoptNS([[WKNetworkSessionDelegate alloc] initWithNetworkSession:*this withCredentials:true]);
     m_sessionWithCredentialStorage = [NSURLSession sessionWithConfiguration:configuration delegate:static_cast<id>(m_sessionWithCredentialStorageDelegate.get()) delegateQueue:[NSOperationQueue mainQueue]];

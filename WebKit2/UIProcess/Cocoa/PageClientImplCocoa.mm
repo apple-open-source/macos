@@ -26,6 +26,7 @@
 #import "config.h"
 #import "PageClientImplCocoa.h"
 
+#import "WKWebViewConfigurationPrivate.h"
 #import "WKWebViewInternal.h"
 
 namespace WebKit {
@@ -46,22 +47,53 @@ void PageClientImplCocoa::isPlayingAudioDidChange()
 
 #if ENABLE(ATTACHMENT_ELEMENT)
 
-void PageClientImplCocoa::didInsertAttachment(const String& identifier, const String& source)
+void PageClientImplCocoa::didInsertAttachment(API::Attachment& attachment, const String& source)
 {
 #if WK_API_ENABLED
-    [m_webView _didInsertAttachment:identifier withSource:source];
+    [m_webView _didInsertAttachment:attachment withSource:source];
 #else
-    UNUSED_PARAM(identifier);
+    UNUSED_PARAM(attachment);
+    UNUSED_PARAM(source);
 #endif
 }
 
-void PageClientImplCocoa::didRemoveAttachment(const String& identifier)
+void PageClientImplCocoa::didRemoveAttachment(API::Attachment& attachment)
 {
 #if WK_API_ENABLED
-    [m_webView _didRemoveAttachment:identifier];
+    [m_webView _didRemoveAttachment:attachment];
 #else
-    UNUSED_PARAM(identifier);
+    UNUSED_PARAM(attachment);
 #endif
+}
+
+void PageClientImplCocoa::didInvalidateDataForAttachment(API::Attachment& attachment)
+{
+#if WK_API_ENABLED
+    [m_webView _didInvalidateDataForAttachment:attachment];
+#else
+    UNUSED_PARAM(attachment);
+#endif
+}
+
+NSFileWrapper *PageClientImplCocoa::allocFileWrapperInstance() const
+{
+#if WK_API_ENABLED
+    Class cls = [m_webView configuration]._attachmentFileWrapperClass ?: [NSFileWrapper self];
+    return [cls alloc];
+#else
+    return nil;
+#endif
+}
+
+NSSet *PageClientImplCocoa::serializableFileWrapperClasses() const
+{
+    Class defaultFileWrapperClass = NSFileWrapper.self;
+#if WK_API_ENABLED
+    Class configuredFileWrapperClass = [m_webView configuration]._attachmentFileWrapperClass;
+    if (configuredFileWrapperClass && configuredFileWrapperClass != defaultFileWrapperClass)
+        return [NSSet setWithObjects:configuredFileWrapperClass, defaultFileWrapperClass, nil];
+#endif
+    return [NSSet setWithObjects:defaultFileWrapperClass, nil];
 }
 
 #endif

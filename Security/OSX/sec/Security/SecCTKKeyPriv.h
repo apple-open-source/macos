@@ -34,6 +34,7 @@ extern const CFStringRef kSecUseToken;
 OSStatus SecCTKKeyGeneratePair(CFDictionaryRef parameters,
                                SecKeyRef *rsaPublicKey, SecKeyRef *rsaPrivateKey);
 SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttributes, CFErrorRef *error);
+void SecCTKKeySetTestMode(CFStringRef tokenID, CFTypeRef enable);
 
 __END_DECLS
 

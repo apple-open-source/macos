@@ -38,9 +38,8 @@
 #import <wtf/SetForScope.h>
 #import <wtf/SystemTracing.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 RemoteLayerTreeContext::RemoteLayerTreeContext(WebPage& webPage)
     : m_webPage(webPage)
@@ -50,8 +49,23 @@ RemoteLayerTreeContext::RemoteLayerTreeContext(WebPage& webPage)
 
 RemoteLayerTreeContext::~RemoteLayerTreeContext()
 {
-    for (auto& layer : m_liveLayers.values())
+    for (auto& layer : m_livePlatformLayers.values())
         layer->clearContext();
+
+    auto graphicsLayers = m_liveGraphicsLayers;
+    for (auto& layer : graphicsLayers)
+        layer->clearContext();
+}
+
+void RemoteLayerTreeContext::adoptLayersFromContext(RemoteLayerTreeContext& oldContext)
+{
+    auto& platformLayers = oldContext.m_livePlatformLayers;
+    while (!platformLayers.isEmpty())
+        platformLayers.begin()->value->moveToContext(*this);
+
+    auto& graphicsLayers = oldContext.m_liveGraphicsLayers;
+    while (!graphicsLayers.isEmpty())
+        (*graphicsLayers.begin())->moveToContext(*this);
 }
 
 float RemoteLayerTreeContext::deviceScaleFactor() const
@@ -64,13 +78,14 @@ LayerHostingMode RemoteLayerTreeContext::layerHostingMode() const
     return m_webPage.layerHostingMode();
 }
 
-void RemoteLayerTreeContext::layerWasCreated(PlatformCALayerRemote& layer, PlatformCALayer::LayerType type)
+void RemoteLayerTreeContext::layerDidEnterContext(PlatformCALayerRemote& layer, PlatformCALayer::LayerType type)
 {
     GraphicsLayer::PlatformLayerID layerID = layer.layerID();
 
     RemoteLayerTreeTransaction::LayerCreationProperties creationProperties;
     creationProperties.layerID = layerID;
     creationProperties.type = type;
+    creationProperties.embeddedViewID = layer.embeddedViewID();
 
     if (layer.isPlatformCALayerRemoteCustom()) {
         creationProperties.hostingContextID = layer.hostingContextID();
@@ -78,21 +93,31 @@ void RemoteLayerTreeContext::layerWasCreated(PlatformCALayerRemote& layer, Platf
     }
 
     m_createdLayers.add(layerID, WTFMove(creationProperties));
-    m_liveLayers.add(layerID, &layer);
+    m_livePlatformLayers.add(layerID, &layer);
 }
 
-void RemoteLayerTreeContext::layerWillBeDestroyed(PlatformCALayerRemote& layer)
+void RemoteLayerTreeContext::layerWillLeaveContext(PlatformCALayerRemote& layer)
 {
     ASSERT(layer.layerID());
     GraphicsLayer::PlatformLayerID layerID = layer.layerID();
 
     m_createdLayers.remove(layerID);
-    m_liveLayers.remove(layerID);
+    m_livePlatformLayers.remove(layerID);
 
     ASSERT(!m_destroyedLayers.contains(layerID));
     m_destroyedLayers.append(layerID);
     
     m_layersWithAnimations.remove(layerID);
+}
+
+void RemoteLayerTreeContext::graphicsLayerDidEnterContext(GraphicsLayerCARemote& layer)
+{
+    m_liveGraphicsLayers.add(&layer);
+}
+
+void RemoteLayerTreeContext::graphicsLayerWillLeaveContext(GraphicsLayerCARemote& layer)
+{
+    m_liveGraphicsLayers.remove(&layer);
 }
 
 void RemoteLayerTreeContext::backingStoreWasCreated(RemoteLayerBackingStore& backingStore)
@@ -110,9 +135,9 @@ bool RemoteLayerTreeContext::backingStoreWillBeDisplayed(RemoteLayerBackingStore
     return m_backingStoreCollection.backingStoreWillBeDisplayed(backingStore);
 }
 
-std::unique_ptr<GraphicsLayer> RemoteLayerTreeContext::createGraphicsLayer(WebCore::GraphicsLayer::Type layerType, GraphicsLayerClient& client)
+Ref<GraphicsLayer> RemoteLayerTreeContext::createGraphicsLayer(WebCore::GraphicsLayer::Type layerType, GraphicsLayerClient& client)
 {
-    return std::make_unique<GraphicsLayerCARemote>(layerType, client, *this);
+    return adoptRef(*new GraphicsLayerCARemote(layerType, client, *this));
 }
 
 void RemoteLayerTreeContext::buildTransaction(RemoteLayerTreeTransaction& transaction, PlatformCALayer& rootLayer)

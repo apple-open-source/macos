@@ -1124,7 +1124,7 @@ _dispatch_async_waiter_update(dispatch_sync_context_t dsc,
 
 	if (dsc->dsc_autorelease == 0) {
 		dispatch_queue_flags_t dqf = _dispatch_queue_atomic_flags(dqu);
-		dqf &= _DQF_AUTORELEASE_MASK;
+		dqf &= (dispatch_queue_flags_t)_DQF_AUTORELEASE_MASK;
 		dsc->dsc_autorelease = (uint8_t)(dqf / DQF_AUTORELEASE_ALWAYS);
 	}
 }
@@ -3338,7 +3338,7 @@ static struct {
 	uint64_t volatile time_total;
 	uint64_t volatile count_total;
 	uint64_t volatile thread_total;
-} _dispatch_stats[DISPATCH_PERF_MON_BUCKETS];
+} _dispatch_stats[DISPATCH_PERF_MON_BUCKETS] DISPATCH_ATOMIC64_ALIGN;
 DISPATCH_USED static size_t _dispatch_stat_buckets = DISPATCH_PERF_MON_BUCKETS;
 
 void

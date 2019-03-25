@@ -37,11 +37,33 @@
 #include <wtf/text/TextBreakIterator.h>
 #include <wtf/unicode/CharacterNames.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include <CoreText/CoreText.h>
 #endif
 
 namespace WebCore {
+
+#if PLATFORM(WIN)
+
+class TextLayout {
+};
+
+void TextLayoutDeleter::operator()(TextLayout*) const
+{
+}
+
+std::unique_ptr<TextLayout, TextLayoutDeleter> FontCascade::createLayout(RenderText&, float, bool) const
+{
+    return nullptr;
+}
+
+float FontCascade::width(TextLayout&, unsigned, unsigned, HashSet<const Font*>*)
+{
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+#else
 
 class TextLayout {
     WTF_MAKE_FAST_ALLOCATED;
@@ -86,39 +108,19 @@ private:
 
 void TextLayoutDeleter::operator()(TextLayout* layout) const
 {
-#if !PLATFORM(WIN)
     delete layout;
-#else
-    ASSERT_UNUSED(layout, !layout);
-#endif
 }
 
 std::unique_ptr<TextLayout, TextLayoutDeleter> FontCascade::createLayout(RenderText& text, float xPos, bool collapseWhiteSpace) const
 {
-#if !PLATFORM(WIN)
     if (!collapseWhiteSpace || !TextLayout::isNeeded(text, *this))
         return nullptr;
     return std::unique_ptr<TextLayout, TextLayoutDeleter>(new TextLayout(text, *this, xPos));
-#else
-    UNUSED_PARAM(text);
-    UNUSED_PARAM(xPos);
-    UNUSED_PARAM(collapseWhiteSpace);
-    return nullptr;
-#endif
 }
 
 float FontCascade::width(TextLayout& layout, unsigned from, unsigned len, HashSet<const Font*>* fallbackFonts)
 {
-#if !PLATFORM(WIN)
     return layout.width(from, len, fallbackFonts);
-#else
-    UNUSED_PARAM(layout);
-    UNUSED_PARAM(from);
-    UNUSED_PARAM(len);
-    UNUSED_PARAM(fallbackFonts);
-    ASSERT_NOT_REACHED();
-    return 0;
-#endif
 }
 
 void ComplexTextController::computeExpansionOpportunity()
@@ -126,7 +128,7 @@ void ComplexTextController::computeExpansionOpportunity()
     if (!m_expansion)
         m_expansionPerOpportunity = 0;
     else {
-        unsigned expansionOpportunityCount = FontCascade::expansionOpportunityCount(m_run.text(), m_run.ltr() ? LTR : RTL, m_run.expansionBehavior()).first;
+        unsigned expansionOpportunityCount = FontCascade::expansionOpportunityCount(m_run.text(), m_run.ltr() ? TextDirection::LTR : TextDirection::RTL, m_run.expansionBehavior()).first;
 
         if (!expansionOpportunityCount)
             m_expansionPerOpportunity = 0;
@@ -220,12 +222,12 @@ unsigned ComplexTextController::offsetForPosition(float h, bool includePartialGl
                 if (cursorPositionIterator.isBoundary(hitIndex))
                     clusterStart = hitIndex;
                 else
-                    clusterStart = cursorPositionIterator.preceding(hitIndex).value_or(0);
+                    clusterStart = cursorPositionIterator.preceding(hitIndex).valueOr(0);
 
                 if (!includePartialGlyphs)
                     return complexTextRun.stringLocation() + clusterStart;
 
-                unsigned clusterEnd = cursorPositionIterator.following(hitIndex).value_or(stringLength);
+                unsigned clusterEnd = cursorPositionIterator.following(hitIndex).valueOr(stringLength);
 
                 float clusterWidth;
                 // FIXME: The search stops at the boundaries of complexTextRun. In theory, it should go on into neighboring ComplexTextRuns
@@ -314,19 +316,19 @@ static bool advanceByCombiningCharacterSequence(const UChar*& iterator, const UC
 }
 
 // FIXME: Capitalization is language-dependent and context-dependent and should operate on grapheme clusters instead of codepoints.
-static inline std::optional<UChar32> capitalized(UChar32 baseCharacter)
+static inline Optional<UChar32> capitalized(UChar32 baseCharacter)
 {
     if (U_GET_GC_MASK(baseCharacter) & U_GC_M_MASK)
-        return std::nullopt;
+        return WTF::nullopt;
 
     UChar32 uppercaseCharacter = u_toupper(baseCharacter);
     ASSERT(uppercaseCharacter == baseCharacter || (U_IS_BMP(baseCharacter) == U_IS_BMP(uppercaseCharacter)));
     if (uppercaseCharacter != baseCharacter)
         return uppercaseCharacter;
-    return std::nullopt;
+    return WTF::nullopt;
 }
 
-static bool shouldSynthesize(bool dontSynthesizeSmallCaps, const Font* nextFont, UChar32 baseCharacter, std::optional<UChar32> capitalizedBase, FontVariantCaps fontVariantCaps, bool engageAllSmallCapsProcessing)
+static bool shouldSynthesize(bool dontSynthesizeSmallCaps, const Font* nextFont, UChar32 baseCharacter, Optional<UChar32> capitalizedBase, FontVariantCaps fontVariantCaps, bool engageAllSmallCapsProcessing)
 {
     if (dontSynthesizeSmallCaps)
         return false;
@@ -884,5 +886,7 @@ ComplexTextController::ComplexTextRun::ComplexTextRun(const Vector<FloatSize>& a
     , m_isLTR(ltr)
 {
 }
+
+#endif
 
 } // namespace WebCore

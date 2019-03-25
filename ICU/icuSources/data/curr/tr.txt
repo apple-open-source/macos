@@ -1049,6 +1049,10 @@ tr{
         }
         VEF{
             "VEF",
+            "Venezuela Bolivarı (2008–2018)",
+        }
+        VES{
+            "VES",
             "Venezuela Bolivarı",
         }
         VND{
@@ -2284,6 +2288,10 @@ tr{
             other{"Venezuela Bolivarı (1871–2008)"}
         }
         VEF{
+            one{"Venezuela bolivarı (2008–2018)"}
+            other{"Venezuela bolivarı (2008–2018)"}
+        }
+        VES{
             one{"Venezuela bolivarı"}
             other{"Venezuela bolivarı"}
         }

@@ -33,6 +33,7 @@
 #include "NetworkLoad.h"
 #include "NetworkSession.h"
 #include "SessionTracker.h"
+#include <WebCore/NetworkStorageSession.h>
 #include <pal/SessionID.h>
 #include <wtf/RunLoop.h>
 
@@ -41,9 +42,9 @@ namespace NetworkCache {
 
 using namespace WebCore;
 
-SpeculativeLoad::SpeculativeLoad(Cache& cache, const GlobalFrameID& frameID, const ResourceRequest& request, std::unique_ptr<NetworkCache::Entry> cacheEntryForValidation, RevalidationCompletionHandler&& completionHandler)
+SpeculativeLoad::SpeculativeLoad(Cache& cache, const GlobalFrameID& globalFrameID, const ResourceRequest& request, std::unique_ptr<NetworkCache::Entry> cacheEntryForValidation, RevalidationCompletionHandler&& completionHandler)
     : m_cache(cache)
-    , m_frameID(frameID)
+    , m_globalFrameID(globalFrameID)
     , m_completionHandler(WTFMove(completionHandler))
     , m_originalRequest(request)
     , m_bufferedDataForCache(SharedBuffer::create())
@@ -52,6 +53,8 @@ SpeculativeLoad::SpeculativeLoad(Cache& cache, const GlobalFrameID& frameID, con
     ASSERT(!m_cacheEntry || m_cacheEntry->needsValidation());
 
     NetworkLoadParameters parameters;
+    parameters.webPageID = globalFrameID.first;
+    parameters.webFrameID = globalFrameID.second;
     parameters.sessionID = PAL::SessionID::defaultSessionID();
     parameters.storedCredentialsPolicy = StoredCredentialsPolicy::Use;
     parameters.contentSniffingPolicy = ContentSniffingPolicy::DoNotSniffContent;
@@ -69,7 +72,12 @@ void SpeculativeLoad::willSendRedirectedRequest(ResourceRequest&& request, Resou
 {
     LOG(NetworkCacheSpeculativePreloading, "Speculative redirect %s -> %s", request.url().string().utf8().data(), redirectRequest.url().string().utf8().data());
 
-    m_cacheEntry = m_cache->storeRedirect(request, redirectResponse, redirectRequest);
+    Optional<Seconds> maxAgeCap;
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    if (auto networkStorageSession = WebCore::NetworkStorageSession::storageSession(PAL::SessionID::defaultSessionID()))
+        maxAgeCap = networkStorageSession->maxAgeCacheCap(request);
+#endif
+    m_cacheEntry = m_cache->storeRedirect(request, redirectResponse, redirectRequest, maxAgeCap);
     // Create a synthetic cache entry if we can't store.
     if (!m_cacheEntry)
         m_cacheEntry = m_cache->makeRedirectEntry(request, redirectResponse, redirectRequest);
@@ -78,7 +86,7 @@ void SpeculativeLoad::willSendRedirectedRequest(ResourceRequest&& request, Resou
     didComplete();
 }
 
-auto SpeculativeLoad::didReceiveResponse(ResourceResponse&& receivedResponse) -> ShouldContinueDidReceiveResponse
+void SpeculativeLoad::didReceiveResponse(ResourceResponse&& receivedResponse, ResponseCompletionHandler&& completionHandler)
 {
     m_response = receivedResponse;
 
@@ -87,11 +95,11 @@ auto SpeculativeLoad::didReceiveResponse(ResourceResponse&& receivedResponse) ->
 
     bool validationSucceeded = m_response.httpStatusCode() == 304; // 304 Not Modified
     if (validationSucceeded && m_cacheEntry)
-        m_cacheEntry = m_cache->update(m_originalRequest, m_frameID, *m_cacheEntry, m_response);
+        m_cacheEntry = m_cache->update(m_originalRequest, m_globalFrameID, *m_cacheEntry, m_response);
     else
         m_cacheEntry = nullptr;
 
-    return ShouldContinueDidReceiveResponse::Yes;
+    completionHandler(PolicyAction::Use);
 }
 
 void SpeculativeLoad::didReceiveBuffer(Ref<SharedBuffer>&& buffer, int reportedEncodedDataLength)
@@ -121,13 +129,6 @@ void SpeculativeLoad::didFinishLoading(const WebCore::NetworkLoadMetrics&)
 
     didComplete();
 }
-
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-void SpeculativeLoad::canAuthenticateAgainstProtectionSpaceAsync(const WebCore::ProtectionSpace&)
-{
-    m_networkLoad->continueCanAuthenticateAgainstProtectionSpace(false);
-}
-#endif
 
 void SpeculativeLoad::didFailLoading(const ResourceError&)
 {

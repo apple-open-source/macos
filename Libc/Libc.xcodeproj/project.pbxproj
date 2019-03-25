@@ -8983,7 +8983,7 @@
 				926F738F1E03E2A3001E049D /* Frameworks */,
 				3F55A4D72062412800C15893 /* Create public header path (safe to remove once we start installing public headers) */,
 				926F73901E03E2A3001E049D /* Headers */,
-				9280EA241E5A5D6F007A6F58 /* Copy AppleInternalVariant.plist */,
+				9280EA241E5A5D6F007A6F58 /* Copy AppleFooVariant.plists */,
 			);
 			buildRules = (
 			);
@@ -9413,19 +9413,19 @@
 			shellPath = /bin/bash;
 			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\"";
 		};
-		9280EA241E5A5D6F007A6F58 /* Copy AppleInternalVariant.plist */ = {
+		9280EA241E5A5D6F007A6F58 /* Copy AppleFooVariant.plists */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
 			);
-			name = "Copy AppleInternalVariant.plist";
+			name = "Copy AppleFooVariant.plists";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -ex\nINSTALL_PATH=${DSTROOT}/System/Library/CoreServices\n\nif [ \"${PLATFORM_NAME}\" = \"macosx\" ]; then\ninstall -d ${INSTALL_PATH}\ninstall -m 0444 ${SRCROOT}/libdarwin/AppleInternalVariant.plist ${INSTALL_PATH}\nfi";
+			shellScript = "set -ex\nINSTALL_PATH=${DSTROOT}/System/Library/CoreServices\n\nif [ \"${PLATFORM_NAME}\" = \"macosx\" ]; then\ninstall -d ${INSTALL_PATH}\ninstall -m 0444 ${SRCROOT}/libdarwin/AppleInternalVariant.plist ${INSTALL_PATH}\ninstall -m 0444 ${SRCROOT}/libdarwin/AppleFactoryVariant.plist ${INSTALL_PATH}\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		B122F0E81432B8E600AF95D0 /* Generate libc-features.h */ = {
@@ -15638,6 +15638,7 @@
 					"$(inherited)",
 					"_LIBC_NO_FEATURE_VERIFICATION=1",
 					"DARWIN_BUILDING_LIBSYSTEM_DARWIN=1",
+					OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE,
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -15684,6 +15685,7 @@
 					"$(inherited)",
 					"_LIBC_NO_FEATURE_VERIFICATION=1",
 					"DARWIN_BUILDING_LIBSYSTEM_DARWIN=1",
+					OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE,
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;

@@ -58,6 +58,8 @@ protected:
 	
 	IOFireWireLib::UserObjectHandle		fSessionRef;
 	
+    IOLock *                            fUserClientLock;
+
  	virtual IOReturn externalMethod(	uint32_t selector, 
 										IOExternalMethodArguments * args,
 										IOExternalMethodDispatch * dispatch, 

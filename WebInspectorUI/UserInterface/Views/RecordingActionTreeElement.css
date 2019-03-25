@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-.item.action.initial-state > .icon {
+.item.action > .icon {
     content: url("../Images/Source.svg");
 }
 
@@ -52,7 +52,7 @@ body[dir=rtl] .item.action::before {
     margin-left: var(--tree-outline-icon-margin-end);
 }
 
-.tree-outline:matches(:focus, .force-focus) .item.action.selected:not(.initial-state, .invalid) > .icon {
+.tree-outline:focus .item.action.selected:not(.invalid, .initial-state, .has-context-replacer) > .icon {
     filter: invert();
     opacity: 1;
 }
@@ -61,8 +61,14 @@ body[dir=rtl] .item.action::before {
     color: var(--text-color-gray-medium);
 }
 
-body:not(.window-inactive, .window-docked-inactive) .tree-outline:matches(:focus, .force-focus) .item.action.selected > .titles .parameter.swizzled,
-body:not(.window-inactive, .window-docked-inactive) .tree-outline:matches(:focus, .force-focus) .item.action.selected::before {
+.item.action > .titles .parameter.constant {
+    font-size: calc(100% - 1px);
+    font-family: Menlo, monospace;
+    font-style: italic;
+}
+
+body:not(.window-inactive, .window-docked-inactive) .tree-outline:focus .item.action.selected > .titles .parameter.swizzled,
+body:not(.window-inactive, .window-docked-inactive) .tree-outline:focus .item.action.selected::before {
     color: var(--selected-secondary-text-color);
 }
 
@@ -103,6 +109,10 @@ body[dir=rtl] .tree-outline:not(.hide-disclosure-buttons) .item.action:not(.init
     background-color: var(--value-changed-highlight);
 }
 
+.item.action > .titles .context-replacer::after {
+    content: ".";
+}
+
 .item.action.attribute > .titles .parameters::before {
     content: " = ";
 }
@@ -125,6 +135,10 @@ body[dir=rtl] .tree-outline:not(.hide-disclosure-buttons) .item.action:not(.init
 
 .item.action > .titles .parameters > .inline-swatch {
     vertical-align: -1px;
+}
+
+.item.action.has-context-replacer > .icon {
+    content: url("../Images/Source.svg");
 }
 
 .item.action.composite > .icon {
@@ -214,8 +228,24 @@ body[dir=rtl] .tree-outline:not(.hide-disclosure-buttons) .item.action:not(.init
     content: url(../Images/Error.svg);
 }
 
-.item.action.visual.no-visible-effect:not(.invalid) > .status > .warning {
+.item.action.warning:not(.invalid) > .status > .warning {
     width: 12px;
     height: 12px;
     margin-top: 2px;
+}
+
+@media (prefers-dark-interface) {
+    .item.action:not(.initial-state)::before {
+        color: unset;
+        opacity: 0.4;
+    }
+
+    .tree-outline .item.action.visual:not(.selected, .invalid) {
+        color: var(--green-highlight-text-color);
+    }
+
+    .item.action:not(.invalid, .initial-state, .has-context-replacer) > .icon {
+        filter: invert();
+        opacity: 0.8;
+    }
 }

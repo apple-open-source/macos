@@ -84,7 +84,7 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
 
     styleDetailsPanelFocusLastPseudoClassCheckbox(styleDetailsPanel)
     {
-        this._forcedPseudoClassCheckboxes[WI.CSSStyleManager.ForceablePseudoClasses.lastValue].focus();
+        this._forcedPseudoClassCheckboxes[WI.CSSManager.ForceablePseudoClasses.lastValue].focus();
     }
 
     styleDetailsPanelFocusFilterBar(styleDetailsPanel)
@@ -104,9 +104,7 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
         this._panel.markAsNeedsRefresh(domNode);
 
         this._updatePseudoClassCheckboxes();
-
-        if (!this._classListContainer.hidden)
-            this._populateClassToggles();
+        this._populateClassToggles();
     }
 
     addEventListeners()
@@ -131,13 +129,13 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
 
     initialLayout()
     {
-        if (WI.cssStyleManager.canForcePseudoClasses()) {
+        if (WI.cssManager.canForcePseudoClasses()) {
             this._forcedPseudoClassContainer = document.createElement("div");
             this._forcedPseudoClassContainer.className = "pseudo-classes";
 
             let groupElement = null;
 
-            WI.CSSStyleManager.ForceablePseudoClasses.forEach(function(pseudoClass) {
+            WI.CSSManager.ForceablePseudoClasses.forEach(function(pseudoClass) {
                 // We don't localize the label since it is a CSS pseudo-class from the CSS standard.
                 let label = pseudoClass.capitalize();
 
@@ -164,8 +162,6 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
 
             this.contentView.element.appendChild(this._forcedPseudoClassContainer);
         }
-
-        this._panel.addEventListener(WI.StyleDetailsPanel.Event.Refreshed, this._filterDidChange, this);
 
         this._showPanel(this._panel);
 
@@ -199,8 +195,8 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
         this._addClassInput.addEventListener("keypress", this._addClassInputKeyPressed.bind(this));
         this._addClassInput.addEventListener("blur", this._addClassInputBlur.bind(this));
 
-        WI.cssStyleManager.addEventListener(WI.CSSStyleManager.Event.StyleSheetAdded, this._styleSheetAddedOrRemoved, this);
-        WI.cssStyleManager.addEventListener(WI.CSSStyleManager.Event.StyleSheetRemoved, this._styleSheetAddedOrRemoved, this);
+        WI.cssManager.addEventListener(WI.CSSManager.Event.StyleSheetAdded, this._styleSheetAddedOrRemoved, this);
+        WI.cssManager.addEventListener(WI.CSSManager.Event.StyleSheetRemoved, this._styleSheetAddedOrRemoved, this);
 
         if (this._classListContainerToggledSetting.value)
             this._classToggleButtonClicked();
@@ -220,7 +216,7 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
 
     get _initialScrollOffset()
     {
-        if (!WI.cssStyleManager.canForcePseudoClasses())
+        if (!WI.cssManager.canForcePseudoClasses())
             return 0;
         return this.domNode && this.domNode.enabledPseudoClasses.length ? 0 : WI.GeneralStyleDetailsSidebarPanel.NoForcedPseudoClassesScrollOffset;
     }
@@ -249,7 +245,7 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
         if (event.key !== "Tab")
             return;
 
-        let pseudoClasses = WI.CSSStyleManager.ForceablePseudoClasses;
+        let pseudoClasses = WI.CSSManager.ForceablePseudoClasses;
         let index = pseudoClasses.indexOf(pseudoClass);
         if (event.shiftKey) {
             if (index > 0) {
@@ -276,6 +272,8 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
             return;
 
         let effectiveDOMNode = this.domNode.isPseudoElement() ? this.domNode.parentNode : this.domNode;
+        if (!effectiveDOMNode)
+            return;
 
         effectiveDOMNode.setPseudoClassEnabled(pseudoClass, event.target.checked);
 
@@ -288,6 +286,8 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
             return;
 
         let effectiveDOMNode = this.domNode.isPseudoElement() ? this.domNode.parentNode : this.domNode;
+        if (!effectiveDOMNode)
+            return;
 
         let enabledPseudoClasses = effectiveDOMNode.enabledPseudoClasses;
 
@@ -326,9 +326,6 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
         this._classToggleButton.classList.toggle("selected");
         this._classListContainer.hidden = !this._classListContainer.hidden;
         this._classListContainerToggledSetting.value = !this._classListContainer.hidden;
-        if (this._classListContainer.hidden)
-            return;
-
         this._populateClassToggles();
     }
 
@@ -355,6 +352,9 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
 
     _populateClassToggles()
     {
+        if (!this._classListContainer || this._classListContainer.hidden)
+            return;
+
         // Ensure that _addClassContainer is the first child of _classListContainer.
         while (this._classListContainer.children.length > 1)
             this._classListContainer.children[1].remove();
@@ -440,7 +440,7 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
                 event.preventDefault();
             }
         } else {
-            this._forcedPseudoClassCheckboxes[WI.CSSStyleManager.ForceablePseudoClasses[0]].focus();
+            this._forcedPseudoClassCheckboxes[WI.CSSManager.ForceablePseudoClasses[0]].focus();
             event.preventDefault();
         }
     }

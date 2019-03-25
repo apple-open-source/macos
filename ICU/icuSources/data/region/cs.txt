@@ -81,7 +81,7 @@ cs{
         CK{"Cookovy ostrovy"}
         CL{"Chile"}
         CM{"Kamerun"}
-        CN{"Čína"}
+        CN{"Čína – kontinentální"}
         CO{"Kolumbie"}
         CP{"Clippertonův ostrov"}
         CR{"Kostarika"}
@@ -133,7 +133,7 @@ cs{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Hongkong - Čína"}
+        HK{"Hongkong"}
         HM{"Heardův ostrov a McDonaldovy ostrovy"}
         HN{"Honduras"}
         HR{"Chorvatsko"}
@@ -187,7 +187,7 @@ cs{
         ML{"Mali"}
         MM{"Myanmar (Barma)"}
         MN{"Mongolsko"}
-        MO{"Macao – Čína"}
+        MO{"Macao"}
         MP{"Severní Mariany"}
         MQ{"Martinik"}
         MR{"Mauritánie"}
@@ -297,8 +297,6 @@ cs{
     }
     Countries%short{
         GB{"GB"}
-        HK{"Hongkong"}
-        MO{"Macao"}
         PS{"Palestina"}
         UN{"OSN"}
         US{"USA"}

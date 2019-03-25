@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,6 @@
 #include <CoreGraphics/CGDisplayStream.h>
 #include <wtf/Lock.h>
 #include <wtf/OSObjectPtr.h>
-#include <wtf/WeakPtr.h>
 
 typedef struct __CVBuffer *CVPixelBufferRef;
 typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
@@ -42,14 +41,13 @@ namespace WebCore {
 
 class ScreenDisplayCaptureSourceMac : public DisplayCaptureSourceCocoa {
 public:
-    static CaptureSourceOrError create(const String&, const MediaConstraints*);
+    static CaptureSourceOrError create(String&&, const MediaConstraints*);
 
-    WEBCORE_EXPORT static VideoCaptureFactory& factory();
-
-    WEBCORE_EXPORT static std::optional<CGDirectDisplayID> updateDisplayID(CGDirectDisplayID);
+    static Optional<CaptureDevice> screenCaptureDeviceWithPersistentID(const String&);
+    static void screenCaptureDevices(Vector<CaptureDevice>&);
 
 private:
-    ScreenDisplayCaptureSourceMac(uint32_t);
+    ScreenDisplayCaptureSourceMac(uint32_t, String&&);
     virtual ~ScreenDisplayCaptureSourceMac();
 
     static void displayReconfigurationCallBack(CGDirectDisplayID, CGDisplayChangeSummaryFlags, void*);
@@ -58,15 +56,13 @@ private:
 
     void frameAvailable(CGDisplayStreamFrameStatus, uint64_t, IOSurfaceRef, CGDisplayStreamUpdateRef);
 
-    void generateFrame() final;
+    DisplayCaptureSourceCocoa::DisplayFrameType generateFrame() final;
+    RealtimeMediaSourceSettings::DisplaySurfaceType surfaceType() const final { return RealtimeMediaSourceSettings::DisplaySurfaceType::Monitor; }
+
     void startProducingData() final;
     void stopProducingData() final;
-    bool applySize(const IntSize&) final;
-    bool applyFrameRate(double) final;
     void commitConfiguration() final;
 
-    RetainPtr<CMSampleBufferRef> sampleBufferFromPixelBuffer(CVPixelBufferRef);
-    RetainPtr<CVPixelBufferRef> pixelBufferFromIOSurface(IOSurfaceRef);
     bool createDisplayStream();
     void startDisplayStream();
     
@@ -98,14 +94,8 @@ private:
     mutable Lock m_currentFrameMutex;
     DisplaySurface m_currentFrame;
     RetainPtr<CGDisplayStreamRef> m_displayStream;
-    RetainPtr<CFMutableDictionaryRef> m_bufferAttributes;
-    CGDisplayStreamFrameAvailableHandler m_frameAvailableBlock;
-    MediaTime m_presentationTimeStamp;
-    MediaTime m_frameDuration;
-
     OSObjectPtr<dispatch_queue_t> m_captureQueue;
 
-    MonotonicTime m_lastFrameTime { MonotonicTime::nan() };
     uint32_t m_displayID { 0 };
     bool m_isRunning { false };
     bool m_observingDisplayChanges { false };

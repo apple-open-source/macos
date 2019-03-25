@@ -26,6 +26,7 @@
 #include "config.h"
 #include "NetworkDataTaskSoup.h"
 
+#include "AuthenticationChallengeDisposition.h"
 #include "AuthenticationManager.h"
 #include "DataReference.h"
 #include "Download.h"
@@ -39,6 +40,7 @@
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/SoupNetworkSession.h>
+#include <WebCore/TextEncoding.h>
 #include <wtf/MainThread.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
 
@@ -383,14 +385,14 @@ void NetworkDataTaskSoup::dispatchDidReceiveResponse()
                 ASSERT_NOT_REACHED();
 
             break;
-        case PolicyAction::Suspend:
-            LOG_ERROR("PolicyAction::Suspend encountered - Treating as PolicyAction::Ignore for now");
-            FALLTHROUGH;
         case PolicyAction::Ignore:
             clearRequest();
             break;
         case PolicyAction::Download:
             download();
+            break;
+        case PolicyAction::StopAllLoads:
+            ASSERT_NOT_REACHED();
             break;
         }
     });
@@ -421,7 +423,7 @@ gboolean NetworkDataTaskSoup::tlsConnectionAcceptCertificateCallback(GTlsConnect
 bool NetworkDataTaskSoup::tlsConnectionAcceptCertificate(GTlsCertificate* certificate, GTlsCertificateFlags tlsErrors)
 {
     ASSERT(m_soupRequest);
-    URL url(soup_request_get_uri(m_soupRequest.get()));
+    URL url = soupURIToURL(soup_request_get_uri(m_soupRequest.get()));
     auto error = SoupNetworkSession::checkTLSErrors(url, certificate, tlsErrors);
     if (!error)
         return true;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +41,7 @@ public:
     
     void* malloc(size_t);
     void* memalign(size_t alignment, size_t, bool crashOnFailure);
-    void* realloc(void*, size_t);
+    void* realloc(void*, size_t, bool crashOnFailure);
     void free(void*);
     
     void* memalignLarge(size_t alignment, size_t);
@@ -53,7 +53,7 @@ private:
 #endif
     
     // This is the debug heap. We can use whatever data structures we like. It doesn't matter.
-    size_t m_pageSize;
+    size_t m_pageSize { 0 };
     std::mutex m_lock;
     std::unordered_map<void*, size_t> m_sizeMap;
 };

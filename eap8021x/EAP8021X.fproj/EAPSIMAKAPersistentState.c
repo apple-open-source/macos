@@ -258,6 +258,7 @@ STATIC CFStringRef kPrefsPseudonym = CFSTR("Pseudonym"); /* string */
 STATIC CFStringRef kPrefsPseudonymStartTime = CFSTR("PseudonymStartTime"); /* date */
 STATIC CFStringRef kPrefsReauthCounter = CFSTR("ReauthCounter"); /* number */
 STATIC CFStringRef kPrefsReauthID = CFSTR("ReauthID"); 	/* string */
+STATIC CFStringRef kPrefsIsReauthIDUsedBefore = CFSTR("IsReauthIDUsedBefore"); 	/* Boolean */
 STATIC CFStringRef kPrefsSSID = CFSTR("SSID"); 		/* string */
 STATIC CFStringRef kPrefsGenID = CFSTR("GenerationID"); 		/* number */
 
@@ -265,11 +266,13 @@ struct EAPSIMAKAPersistentState {
     EAPType			type;
     EAPSIMAKAAttributeType 	identity_type;
     CFStringRef			imsi;
+    CFStringRef			ssid;
     uint32_t			generation_id;
     uint16_t			counter;
     CFStringRef			pseudonym;
-    CFDateRef		pseudonym_start_time;
+    CFDateRef 			pseudonym_start_time;
     CFStringRef			reauth_id;
+    Boolean 			reauth_id_used;
     ProtoInfoRef		proto_info;
     int				master_key_size;
     uint8_t			master_key[1];
@@ -314,6 +317,12 @@ EAPSIMAKAPersistentStateTemporaryUsernameAvailable(EAPSIMAKAPersistentStateRef p
     return (persist->pseudonym || persist->reauth_id);
 }
 
+PRIVATE_EXTERN CFStringRef
+EAPSIMAKAPersistentStateGetSSID(EAPSIMAKAPersistentStateRef persist)
+{
+    return (persist->ssid);
+}
+
 PRIVATE_EXTERN void
 EAPSIMAKAPersistentStateSetPseudonym(EAPSIMAKAPersistentStateRef persist,
 				     CFStringRef pseudonym)
@@ -350,6 +359,12 @@ EAPSIMAKAPersistentStateGetReauthID(EAPSIMAKAPersistentStateRef persist)
     return (persist->reauth_id);
 }
 
+PRIVATE_EXTERN Boolean
+EAPSIMAKAPersistentStateGetReauthIDUsed(EAPSIMAKAPersistentStateRef persist)
+{
+    return (persist->reauth_id_used);
+}
+
 PRIVATE_EXTERN void
 EAPSIMAKAPersistentStateSetReauthID(EAPSIMAKAPersistentStateRef persist,
 				    CFStringRef reauth_id)
@@ -358,6 +373,14 @@ EAPSIMAKAPersistentStateSetReauthID(EAPSIMAKAPersistentStateRef persist,
 	/* only save this if we want any identity */
 	my_FieldSetRetainedCFType(&persist->reauth_id, reauth_id);
     }
+    return;
+}
+
+PRIVATE_EXTERN void
+EAPSIMAKAPersistentStateSetReauthIDUsed(EAPSIMAKAPersistentStateRef persist,
+				    Boolean reauth_id_used)
+{
+    persist->reauth_id_used = reauth_id_used;
     return;
 }
 
@@ -378,7 +401,8 @@ EAPSIMAKAPersistentStateSetCounter(EAPSIMAKAPersistentStateRef persist,
 PRIVATE_EXTERN EAPSIMAKAPersistentStateRef
 EAPSIMAKAPersistentStateCreate(EAPType type, int master_key_size, 
 			       CFStringRef imsi,
-			       EAPSIMAKAAttributeType identity_type)
+			       EAPSIMAKAAttributeType identity_type,
+			       CFStringRef ssid)
 {
     EAPSIMAKAPersistentStateRef	persist = NULL;
     ProtoInfoRef		proto_info;
@@ -400,7 +424,9 @@ EAPSIMAKAPersistentStateCreate(EAPType type, int master_key_size,
     persist->master_key_size = master_key_size;
     persist->identity_type = identity_type;
     persist->generation_id = EAPOLSIMGenerationGet();
-
+    if (ssid != NULL) {
+	persist->ssid = CFRetain(ssid);
+    }
 
     /* retrieve stored information if it's required */
     if (identity_type != kAT_PERMANENT_ID_REQ) {
@@ -418,6 +444,13 @@ EAPSIMAKAPersistentStateCreate(EAPType type, int master_key_size,
 	if (isA_CFDictionary(info) != NULL) {
 	    CFDictionaryRef	dict = (CFDictionaryRef)info;
 
+	    if (ssid == NULL) {
+		CFStringRef saved_ssid
+			= isA_CFString(CFDictionaryGetValue(dict, kPrefsSSID));
+		if (saved_ssid != NULL) {
+		    persist->ssid = CFRetain(saved_ssid);
+		}
+	    }
 	    num_gen_id = isA_CFNumber(CFDictionaryGetValue(dict,
 							   kPrefsGenID));
 	    if (num_gen_id != NULL) {
@@ -458,6 +491,7 @@ EAPSIMAKAPersistentStateCreate(EAPType type, int master_key_size,
 		CFNumberRef		counter;
 		CFDataRef		master_key;
 		CFStringRef		reauth_id;
+		Boolean 		reauth_id_used = FALSE;
 
 		/* grab the reauth ID information */
 		counter 
@@ -465,6 +499,13 @@ EAPSIMAKAPersistentStateCreate(EAPType type, int master_key_size,
 							kPrefsReauthCounter));
 		reauth_id =
 		    isA_CFString(CFDictionaryGetValue(dict, kPrefsReauthID));
+		{
+		    CFBooleanRef 	b;
+		    b = isA_CFBoolean(CFDictionaryGetValue(dict, kPrefsIsReauthIDUsedBefore));
+		    if (b != NULL) {
+			reauth_id_used = CFBooleanGetValue(b);
+		    }
+		}
 		master_key 
 		    = MasterKeyCopyFromKeychain(proto_info->proto, imsi);
 		if (counter != NULL 
@@ -480,6 +521,7 @@ EAPSIMAKAPersistentStateCreate(EAPType type, int master_key_size,
 				     (void *)&val);
 		    EAPSIMAKAPersistentStateSetCounter(persist, val);
 		    EAPSIMAKAPersistentStateSetReauthID(persist, reauth_id);
+		    EAPSIMAKAPersistentStateSetReauthIDUsed(persist, reauth_id_used);
 		}
 		my_CFRelease(&master_key);
 	    }
@@ -509,8 +551,7 @@ IMSIDoesNotMatch(CFStringRef imsi, CFDictionaryRef info,
 
 PRIVATE_EXTERN void
 EAPSIMAKAPersistentStateSave(EAPSIMAKAPersistentStateRef persist,
-			     Boolean master_key_valid,
-			     CFStringRef ssid)
+			     Boolean master_key_valid)
 {
     CFMutableDictionaryRef	info = NULL;
     CFDateRef			pseudonym_start_time = NULL;
@@ -558,6 +599,14 @@ EAPSIMAKAPersistentStateSave(EAPSIMAKAPersistentStateRef persist,
 	CFDictionarySetValue(info, kPrefsReauthID,
 			     EAPSIMAKAPersistentStateGetReauthID(persist));
 
+	/* Check if Fast Re-Auth ID is used before and if it's TRUE then persist it */
+	{
+	    Boolean reauth_id_used = EAPSIMAKAPersistentStateGetReauthIDUsed(persist);
+	    if (reauth_id_used) {
+		CFDictionarySetValue(info, kPrefsIsReauthIDUsedBefore, kCFBooleanTrue);
+	    }
+	}
+
 	/* Master Key */
 	master_key 
 	    = CFDataCreate(NULL,
@@ -569,10 +618,10 @@ EAPSIMAKAPersistentStateSave(EAPSIMAKAPersistentStateRef persist,
     }
 
     /* SSID */
-    if (info != NULL && ssid != NULL) {
+    if (info != NULL && persist->ssid != NULL) {
 	CFNumberRef generation_id = NULL;
 
-	CFDictionarySetValue(info, kPrefsSSID, ssid);
+	CFDictionarySetValue(info, kPrefsSSID, persist->ssid);
 	generation_id = CFNumberCreate(NULL, kCFNumberSInt32Type,
 									   (const void *)&persist->generation_id);
 	CFDictionarySetValue(info, kPrefsGenID, generation_id);
@@ -597,6 +646,7 @@ PRIVATE_EXTERN void
 EAPSIMAKAPersistentStateRelease(EAPSIMAKAPersistentStateRef persist)
 {
     my_CFRelease(&persist->imsi);
+    my_CFRelease(&persist->ssid);
     EAPSIMAKAPersistentStateSetReauthID(persist, NULL);
     EAPSIMAKAPersistentStateSetPseudonym(persist, NULL);
     free(persist);
@@ -748,7 +798,7 @@ handle_get(const char * progname, EAPType type, int argc, char * argv[])
     persist = EAPSIMAKAPersistentStateCreate(type, 
 					     CC_SHA1_DIGEST_LENGTH,
 					     imsi,
-					     kAT_ANY_ID_REQ);
+					     kAT_ANY_ID_REQ, NULL);
     CFRelease(imsi);
     EAPSIMAKAPersistentStatePrint(persist);
     EAPSIMAKAPersistentStateRelease(persist);
@@ -784,7 +834,7 @@ handle_set(const char * progname, EAPType type, int argc, char * argv[])
     persist = EAPSIMAKAPersistentStateCreate(type, 
 					     CC_SHA1_DIGEST_LENGTH,
 					     imsi,
-					     kAT_ANY_ID_REQ);
+					     kAT_ANY_ID_REQ, NULL);
     CFRelease(imsi);
     while ((ch = getopt(argc, argv, "c:p:r:s:")) != EOF) {
 	switch (ch) {
@@ -847,7 +897,7 @@ handle_set(const char * progname, EAPType type, int argc, char * argv[])
     if (pseudonym == NULL && reauth_id == NULL) {
 	set_usage(progname, type);
     }
-    EAPSIMAKAPersistentStateSave(persist, (reauth_id != NULL), ssid);
+    EAPSIMAKAPersistentStateSave(persist, (reauth_id != NULL));
     EAPSIMAKAPersistentStateRelease(persist);
     return;
 }

@@ -32,7 +32,9 @@
 #include "cdattst.h"
 #include "cformtst.h"
 #include "cmemory.h"
+#if !U_PLATFORM_HAS_WIN32_API
 #include "unicode/uatimeunitformat.h" /* Apple-specific */
+#endif
 
 #include <math.h>
 
@@ -46,7 +48,9 @@ static void TestFormatForFields(void);
 static void TestStandardPatterns(void);
 static void TestApplyPatnOverridesTimeSep(void);
 static void Test12HrFormats(void);
+#if !U_PLATFORM_HAS_WIN32_API
 static void TestTimeUnitFormat(void); /* Apple-specific */
+#endif
 static void TestRemapPatternWithOpts(void); /* Apple-specific */
 
 void addDateForTest(TestNode** root);
@@ -70,7 +74,9 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestStandardPatterns);
     TESTCASE(TestApplyPatnOverridesTimeSep);
     TESTCASE(Test12HrFormats);
+#if !U_PLATFORM_HAS_WIN32_API
     TESTCASE(TestTimeUnitFormat); /* Apple-specific */
+#endif
     TESTCASE(TestRemapPatternWithOpts); /* Apple-specific */
 }
 /* Testing the DateFormat API */
@@ -2151,6 +2157,7 @@ static void Test12HrFormats(void) {
     }
 }
 
+#if !U_PLATFORM_HAS_WIN32_API
 /* *** */
 
 typedef struct {
@@ -2235,6 +2242,7 @@ static void TestTimeUnitFormat(void) { /* Apple-specific */
     }
 
 }
+#endif
 
 typedef enum RemapTesttype {
     REMAP_TESTTYPE_FULL     = UDAT_FULL,       // 0

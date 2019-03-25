@@ -27,7 +27,7 @@ WI.SourceMapResource = class SourceMapResource extends WI.Resource
 {
     constructor(url, sourceMap)
     {
-        super(url, null);
+        super(url);
 
         console.assert(url);
         console.assert(sourceMap);
@@ -51,10 +51,7 @@ WI.SourceMapResource = class SourceMapResource extends WI.Resource
 
     // Public
 
-    get sourceMap()
-    {
-        return this._sourceMap;
-    }
+    get sourceMap() { return this._sourceMap; }
 
     get sourceMapDisplaySubpath()
     {
@@ -139,7 +136,7 @@ WI.SourceMapResource = class SourceMapResource extends WI.Resource
             frameIdentifier = this._sourceMap.originalSourceCode.parentFrame.id;
 
         if (!frameIdentifier)
-            frameIdentifier = WI.frameResourceManager.mainFrame ? WI.frameResourceManager.mainFrame.id : "";
+            frameIdentifier = WI.networkManager.mainFrame ? WI.networkManager.mainFrame.id : "";
 
         return NetworkAgent.loadResource(frameIdentifier, this.url).then(sourceMapResourceLoaded.bind(this)).catch(sourceMapResourceLoadError.bind(this));
     }

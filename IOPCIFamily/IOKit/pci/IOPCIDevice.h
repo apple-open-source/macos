@@ -76,6 +76,7 @@ enum {
     kIOPCISecureCapability              = 0x0f,
     kIOPCIPCIExpressCapability          = 0x10,
     kIOPCIMSIXCapability                = 0x11,
+    kIOPCIFPBCapability                 = 0x15,
 
     kIOPCIExpressErrorReportingCapability            = -0x01UL,
     kIOPCIExpressVirtualChannelCapability            = -0x02UL,

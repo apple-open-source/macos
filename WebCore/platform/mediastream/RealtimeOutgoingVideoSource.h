@@ -33,10 +33,14 @@
 #include "LibWebRTCMacros.h"
 #include "MediaStreamTrackPrivate.h"
 #include <Timer.h>
+
+ALLOW_UNUSED_PARAMETERS_BEGIN
+
 #include <webrtc/api/mediastreaminterface.h>
-#include <webrtc/api/optional.h>
 #include <webrtc/common_video/include/i420_buffer_pool.h>
-#include <webrtc/api/videosinkinterface.h>
+
+ALLOW_UNUSED_PARAMETERS_END
+
 #include <wtf/Optional.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
@@ -45,7 +49,7 @@ namespace WebCore {
 class RealtimeOutgoingVideoSource : public ThreadSafeRefCounted<RealtimeOutgoingVideoSource, WTF::DestructionThread::Main>, public webrtc::VideoTrackSourceInterface, private MediaStreamTrackPrivate::Observer {
 public:
     static Ref<RealtimeOutgoingVideoSource> create(Ref<MediaStreamTrackPrivate>&& videoSource);
-    ~RealtimeOutgoingVideoSource() { stop(); }
+    ~RealtimeOutgoingVideoSource();
 
     void stop();
     bool setSource(Ref<MediaStreamTrackPrivate>&&);
@@ -54,9 +58,8 @@ public:
     void AddRef() const final { ref(); }
     rtc::RefCountReleaseStatus Release() const final
     {
-        auto result = hasOneRef() ? rtc::RefCountReleaseStatus::kDroppedLastRef : rtc::RefCountReleaseStatus::kOtherRefsRemained;
         deref();
-        return result;
+        return rtc::RefCountReleaseStatus::kOtherRefsRemained;
     }
 
     void setApplyRotation(bool shouldApplyRotation) { m_shouldApplyRotation = shouldApplyRotation; }
@@ -65,14 +68,10 @@ protected:
     explicit RealtimeOutgoingVideoSource(Ref<MediaStreamTrackPrivate>&&);
 
     void sendFrame(rtc::scoped_refptr<webrtc::VideoFrameBuffer>&&);
+    bool isSilenced() const { return m_muted || !m_enabled; }
 
-    Vector<rtc::VideoSinkInterface<webrtc::VideoFrame>*> m_sinks;
-    webrtc::I420BufferPool m_bufferPool;
+    virtual rtc::scoped_refptr<webrtc::VideoFrameBuffer> createBlackFrame(size_t width, size_t height) = 0;
 
-    bool m_enabled { true };
-    bool m_muted { false };
-    uint32_t m_width { 0 };
-    uint32_t m_height { 0 };
     bool m_shouldApplyRotation { false };
     webrtc::VideoRotation m_currentRotation { webrtc::kVideoRotation_0 };
 
@@ -82,13 +81,16 @@ private:
     void initializeFromSource();
     void updateBlackFramesSending();
 
+    void observeSource();
+    void unobserveSource();
+
     // Notifier API
     void RegisterObserver(webrtc::ObserverInterface*) final { }
     void UnregisterObserver(webrtc::ObserverInterface*) final { }
 
     // VideoTrackSourceInterface API
     bool is_screencast() const final { return false; }
-    rtc::Optional<bool> needs_denoising() const final { return rtc::Optional<bool>(); }
+    absl::optional<bool> needs_denoising() const final { return absl::optional<bool>(); }
     bool GetStats(Stats*) final { return false; };
 
     // MediaSourceInterface API
@@ -110,10 +112,17 @@ private:
     void trackEnded(MediaStreamTrackPrivate&) final { }
 
     Ref<MediaStreamTrackPrivate> m_videoSource;
-    std::optional<RealtimeMediaSourceSettings> m_initialSettings;
-    bool m_isStopped { false };
+    Optional<RealtimeMediaSourceSettings> m_initialSettings;
     Timer m_blackFrameTimer;
     rtc::scoped_refptr<webrtc::VideoFrameBuffer> m_blackFrame;
+
+    mutable RecursiveLock m_sinksLock;
+    HashSet<rtc::VideoSinkInterface<webrtc::VideoFrame>*> m_sinks;
+
+    bool m_enabled { true };
+    bool m_muted { false };
+    uint32_t m_width { 0 };
+    uint32_t m_height { 0 };
 };
 
 } // namespace WebCore

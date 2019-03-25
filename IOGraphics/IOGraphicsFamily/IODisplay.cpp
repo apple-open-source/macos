@@ -36,6 +36,7 @@
 #include <IOKit/graphics/IOGraphicsPrivate.h>
 
 #include "IOGraphicsKTrace.h"
+#include "GMetric.hpp"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -116,6 +117,10 @@ enum
     kIODisplayBlankValue   = 0x100,
     kIODisplayUnblankValue = 0x200,
 };
+
+#define RECORD_METRIC(func) \
+    GMETRICFUNC(func, DBG_FUNC_NONE, \
+            kGMETRICS_DOMAIN_IODISPLAY | kGMETRICS_DOMAIN_POWER)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -1327,6 +1332,7 @@ void IODisplay::initPowerManagement( IOService * provider )
 
 void IODisplay::setDisplayPowerState(unsigned long state)
 {
+    // On FBController workloop
     IOD_START(setDisplayPowerState,state,0,0);
     if (initialized)
     {
@@ -1338,10 +1344,9 @@ void IODisplay::setDisplayPowerState(unsigned long state)
         }
         fDisplayPMVars->displayIdle = (state != fDisplayPMVars->maxState);
 
-        IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
-                   DBG_FUNC_NONE,
-                   kGMETRICS_DOMAIN_IODISPLAY | kGMETRICS_DOMAIN_POWER,
-                   DBG_IOG_SOURCE_IODISPLAY,
+        RECORD_METRIC(DBG_IOG_CHANGE_POWER_STATE_PRIV);
+        IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV, DBG_FUNC_NONE,
+                   0, DBG_IOG_SOURCE_IODISPLAY,
                    0, state,
                    0, 0,
                    0, 0);
@@ -1371,10 +1376,10 @@ void IODisplay::makeDisplayUsable(void)
 
 IOReturn IODisplay::setPowerState( unsigned long powerState, IOService * whatDevice )
 {
-    IOG_KTRACE(DBG_IOG_SET_POWER_STATE,
-               DBG_FUNC_NONE,
-               kGMETRICS_DOMAIN_IODISPLAY | kGMETRICS_DOMAIN_POWER,
-               powerState,
+    // Single threaded by IOServicePM design
+    RECORD_METRIC(DBG_IOG_SET_POWER_STATE);
+    IOG_KTRACE(DBG_IOG_SET_POWER_STATE, DBG_FUNC_NONE,
+               0, powerState,
                0, DBG_IOG_SOURCE_IODISPLAY,
                0, 0,
                0, 0);

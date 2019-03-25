@@ -23,12 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LoadParameters_h
-#define LoadParameters_h
+#pragma once
 
 #include "DataReference.h"
 #include "SandboxExtension.h"
 #include "UserData.h"
+#include "WebsitePoliciesData.h"
+#include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/ResourceRequest.h>
 
 OBJC_CLASS NSDictionary;
@@ -53,7 +54,6 @@ struct LoadParameters {
     SandboxExtension::Handle sandboxExtensionHandle;
 
     IPC::DataReference data;
-    String string;
     String MIMEType;
     String encodingName;
 
@@ -61,9 +61,14 @@ struct LoadParameters {
     String unreachableURLString;
     String provisionalLoadErrorURLString;
 
+    Optional<WebsitePoliciesData> websitePolicies;
+
     uint64_t shouldOpenExternalURLsPolicy;
     bool shouldTreatAsContinuingLoad { false };
     UserData userData;
+    WebCore::LockHistory lockHistory { WebCore::LockHistory::No };
+    WebCore::LockBackForwardList lockBackForwardList { WebCore::LockBackForwardList::No };
+    String clientRedirectSourceForHistory;
 
 #if PLATFORM(COCOA)
     RetainPtr<NSDictionary> dataDetectionContext;
@@ -71,5 +76,3 @@ struct LoadParameters {
 };
 
 } // namespace WebKit
-
-#endif // LoadParameters_h

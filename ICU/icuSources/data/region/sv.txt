@@ -81,7 +81,7 @@ sv{
         CK{"Cooköarna"}
         CL{"Chile"}
         CM{"Kamerun"}
-        CN{"Kina"}
+        CN{"Kina, fastlandet"}
         CO{"Colombia"}
         CP{"Clippertonön"}
         CR{"Costa Rica"}
@@ -133,7 +133,7 @@ sv{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Hongkong (Kina)"}
+        HK{"Hongkong"}
         HM{"Heardön och McDonaldöarna"}
         HN{"Honduras"}
         HR{"Kroatien"}
@@ -187,7 +187,7 @@ sv{
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongoliet"}
-        MO{"Macao (Kina)"}
+        MO{"Macau"}
         MP{"Nordmarianerna"}
         MQ{"Martinique"}
         MR{"Mauretanien"}
@@ -297,8 +297,6 @@ sv{
     }
     Countries%short{
         GB{"Storbritannien"}
-        HK{"Hongkong"}
-        MO{"Macao"}
         PS{"Palestina"}
         UN{"FN"}
         US{"USA"}

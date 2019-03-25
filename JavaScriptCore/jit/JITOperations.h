@@ -353,10 +353,6 @@ void JIT_OPERATION lookupExceptionHandlerFromCallerFrame(VM*, ExecState*) WTF_IN
 void JIT_OPERATION operationVMHandleException(ExecState*) WTF_INTERNAL;
 
 void JIT_OPERATION operationThrowStackOverflowError(ExecState*, CodeBlock*) WTF_INTERNAL;
-#if ENABLE(WEBASSEMBLY)
-void JIT_OPERATION operationThrowDivideError(ExecState*) WTF_INTERNAL;
-void JIT_OPERATION operationThrowOutOfBoundsAccessError(ExecState*) WTF_INTERNAL;
-#endif
 int32_t JIT_OPERATION operationCallArityCheck(ExecState*) WTF_INTERNAL;
 int32_t JIT_OPERATION operationConstructArityCheck(ExecState*) WTF_INTERNAL;
 EncodedJSValue JIT_OPERATION operationTryGetById(ExecState*, StructureStubInfo*, EncodedJSValue, UniquedStringImpl*) WTF_INTERNAL;
@@ -466,8 +462,8 @@ CallFrame* JIT_OPERATION operationSetupVarargsFrame(ExecState*, CallFrame*, Enco
 char* JIT_OPERATION operationSwitchCharWithUnknownKeyType(ExecState*, EncodedJSValue key, size_t tableIndex) WTF_INTERNAL;
 char* JIT_OPERATION operationSwitchImmWithUnknownKeyType(ExecState*, EncodedJSValue key, size_t tableIndex) WTF_INTERNAL;
 char* JIT_OPERATION operationSwitchStringWithUnknownKeyType(ExecState*, EncodedJSValue key, size_t tableIndex) WTF_INTERNAL;
-EncodedJSValue JIT_OPERATION operationGetFromScope(ExecState*, Instruction* bytecodePC) WTF_INTERNAL;
-void JIT_OPERATION operationPutToScope(ExecState*, Instruction* bytecodePC) WTF_INTERNAL;
+EncodedJSValue JIT_OPERATION operationGetFromScope(ExecState*, const Instruction* bytecodePC) WTF_INTERNAL;
+void JIT_OPERATION operationPutToScope(ExecState*, const Instruction* bytecodePC) WTF_INTERNAL;
 
 char* JIT_OPERATION operationReallocateButterflyToHavePropertyStorageWithInitialCapacity(ExecState*, JSObject*) WTF_INTERNAL;
 char* JIT_OPERATION operationReallocateButterflyToGrowPropertyStorage(ExecState*, JSObject*, size_t newSize) WTF_INTERNAL;

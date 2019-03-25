@@ -40,7 +40,7 @@ WI.CSSProperty = class CSSProperty extends WI.Object
     static isInheritedPropertyName(name)
     {
         console.assert(typeof name === "string");
-        if (name in WI.CSSKeywordCompletions.InheritedProperties)
+        if (WI.CSSKeywordCompletions.InheritedProperties.has(name))
             return true;
         // Check if the name is a CSS variable.
         return name.startsWith("--");
@@ -150,19 +150,9 @@ WI.CSSProperty = class CSSProperty extends WI.Object
             this.text = this._text.slice(2, -2).trim();
     }
 
-    get synthesizedText()
-    {
-        var name = this.name;
-        if (!name)
-            return "";
-
-        var priority = this.priority;
-        return name + ": " + this.value.trim() + (priority ? " !" + priority : "") + ";";
-    }
-
     get text()
     {
-        return this._text || this.synthesizedText;
+        return this._text;
     }
 
     set text(newText)
@@ -172,6 +162,14 @@ WI.CSSProperty = class CSSProperty extends WI.Object
 
         this._updateOwnerStyleText(this._text, newText);
         this._text = newText;
+    }
+
+    get formattedText()
+    {
+        if (!this._name)
+            return "";
+
+        return `${this._name}: ${this._rawValue};`;
     }
 
     get name()
@@ -193,7 +191,7 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         if (this._canonicalName)
             return this._canonicalName;
 
-        this._canonicalName = WI.cssStyleManager.canonicalNameForPropertyName(this.name);
+        this._canonicalName = WI.cssManager.canonicalNameForPropertyName(this.name);
 
         return this._canonicalName;
     }
@@ -330,7 +328,7 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         if ("_hasOtherVendorNameOrKeyword" in this)
             return this._hasOtherVendorNameOrKeyword;
 
-        this._hasOtherVendorNameOrKeyword = WI.cssStyleManager.propertyNameHasOtherVendorPrefix(this.name) || WI.cssStyleManager.propertyValueHasOtherVendorKeyword(this.value);
+        this._hasOtherVendorNameOrKeyword = WI.cssManager.propertyNameHasOtherVendorPrefix(this.name) || WI.cssManager.propertyValueHasOtherVendorKeyword(this.value);
 
         return this._hasOtherVendorNameOrKeyword;
     }
@@ -360,6 +358,12 @@ WI.CSSProperty = class CSSProperty extends WI.Object
             return;
         }
 
+        console.assert(this._ownerStyle);
+        if (!this._ownerStyle)
+            return;
+
+        this._prependSemicolonIfNeeded();
+
         let styleText = this._ownerStyle.text || "";
 
         // _styleSheetTextRange is the position of the property within the stylesheet.
@@ -371,7 +375,13 @@ WI.CSSProperty = class CSSProperty extends WI.Object
 
         console.assert(oldText === styleText.slice(range.startOffset, range.endOffset), "_styleSheetTextRange data is invalid.");
 
-        let newStyleText = this._appendSemicolonIfNeeded(styleText.slice(0, range.startOffset)) + newText + styleText.slice(range.endOffset);
+        if (WI.settings.enableStyleEditingDebugMode.value) {
+            let prefix = styleText.slice(0, range.startOffset);
+            let postfix = styleText.slice(range.endOffset);
+            console.info(`${prefix}%c${oldText}%c${newText}%c${postfix}`, `background: hsl(356, 100%, 90%); color: black`, `background: hsl(100, 100%, 91%); color: black`, `background: transparent`);
+        }
+
+        let newStyleText = styleText.slice(0, range.startOffset) + newText + styleText.slice(range.endOffset);
 
         let lineDelta = newText.lineCount - oldText.lineCount;
         let columnDelta = newText.lastLine.length - oldText.lastLine.length;
@@ -383,12 +393,19 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         this._ownerStyle.shiftPropertiesAfter(this, lineDelta, columnDelta, propertyWasRemoved);
     }
 
-    _appendSemicolonIfNeeded(styleText)
+    _prependSemicolonIfNeeded()
     {
-        if (/[^;\s]\s*$/.test(styleText))
-            return styleText.trimRight() + "; ";
+        for (let i = this.index - 1; i >= 0; --i) {
+            let property = this._ownerStyle.allProperties[i];
+            if (!property.enabled)
+                continue;
 
-        return styleText;
+            let match = property.text.match(/[^;\s](\s*)$/);
+            if (match)
+                property.text = property.text.trimRight() + ";" + match[1];
+
+            break;
+        }
     }
 };
 

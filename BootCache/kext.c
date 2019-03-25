@@ -229,6 +229,7 @@ struct BC_cache_extent {
 struct BC_cache_mount {
 	lck_rw_t                 cm_lock;      /* lock guards instance variables, extents have their own locks */
 	uuid_t                   cm_uuid;      /* this mount's uuid */
+	uuid_t                   cm_group_uuid;/* If non-0, then this mount shares disk space will all other mounts with the same cm_group_uuid (for apfs volumes and containers, this is the container's UUID) */
 	int                      cm_nextents;  /* the number of extents that reference this mount */
 	struct BC_cache_extent **cm_pextents;  /* a list of pointers to extents which reference
 											this mount, sorted by block address */
@@ -264,6 +265,17 @@ struct BC_cache_disk {
 #define CD_IS_SSD       (1 << 2)  /* this is a solid state disk */
 	int       cd_nmounts;    /* The number of mounts that reference this disk */
 	int       cd_batch;      /* What playback batch this disk is on */
+};
+
+/***************************************************************
+ * Structures for tracking dev-container while cache is active *
+ * <rdar://problem/43851924> When discarding data, discard data for that extent from all mounts in the same apfs container
+ ***************************************************************/
+
+/* This structure is copied by value, so must not contain any fields that cannot be copied by value */
+struct BC_noncached_mount {
+	dev_t                    nm_dev;       /* the device for this mount */
+	uuid_t                   nm_group_uuid;/* If non-0, then this mount shares disk space will all other mounts with the same group_uuid (for apfs volumes and containers, this is the container's UUID) */
 };
 
 /************************************
@@ -343,12 +355,16 @@ struct BC_cache_control {
 	u_int64_t   c_root_disk_id;     /* the throttle mask of the root disk, used as an id for the physical device */
 	                                /* This needs to be updated to handle multiple physical volumes backing a mount */
 	
+	lck_rw_t                    c_noncached_mounts_lock;
+	int                         c_noncached_nmounts; /* number of mounts in the array below */
+	struct BC_noncached_mount  *c_noncached_mounts;  /* the array of mounts seen, but not in our cache */
+
 	/*
 	 * The mounts we're tracking
 	 */
 	int                     c_nmounts; /* number of mounts in the array below */
 	struct BC_cache_mount  *c_mounts;  /* the array of mounts the cache extents refer to */
-	
+
 	/*
 	 * Extents, in optimal read order.
 	 *
@@ -486,6 +502,11 @@ p = NULL;					\
 #define LOCK_HISTORY_W()		lck_rw_lock_exclusive(&BC_cache->c_history_lock)
 #define UNLOCK_HISTORY_W()		lck_rw_unlock_exclusive(&BC_cache->c_history_lock)
 
+#define LOCK_NONCACHED_MOUNTS_R()		lck_rw_lock_shared(&BC_cache->c_noncached_mounts_lock)
+#define UNLOCK_NONCACHED_MOUNTS_R()		lck_rw_unlock_shared(&BC_cache->c_noncached_mounts_lock)
+#define LOCK_NONCACHED_MOUNTS_W()		lck_rw_lock_exclusive(&BC_cache->c_noncached_mounts_lock)
+#define UNLOCK_NONCACHED_MOUNTS_W()		lck_rw_unlock_exclusive(&BC_cache->c_noncached_mounts_lock)
+
 #define LOCK_EXTENT(e)			lck_mtx_lock(&(e)->ce_lock)
 #define LOCK_EXTENT_TRY(e)		lck_mtx_try_lock(&(e)->ce_lock)
 #define UNLOCK_EXTENT(e)		lck_mtx_unlock(&(e)->ce_lock)
@@ -565,13 +586,15 @@ static int	BC_init_cache(size_t mounts_size, user_addr_t mounts, size_t entries_
 static int BC_update_mounts(void);
 static void	BC_timeout_history(void *);
 static struct BC_history_mount_device * BC_get_history_mount_device(dev_t dev, int* pindex);
-static int	BC_add_history(u_int64_t inode, daddr64_t blkno, u_int64_t length, int pid, int hit, int write, int tag, int shared, u_int64_t crypto_offset, dev_t dev);
+static int	BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, int write, int tag, int shared, u_int64_t crypto_offset, dev_t dev);
 static int	BC_size_history_mounts(void);
 static int	BC_size_history_entries(void);
 static int	BC_copyout_history_mounts(user_addr_t uptr);
 static int	BC_copyout_history_entries(user_addr_t uptr);
 static void	BC_discard_history(void);
 static int	BC_setup(void);
+
+static struct BC_noncached_mount BC_get_noncached_mount(dev_t dev);
 
 static int	fill_in_bc_cache_mounts(mount_t mount, void* arg);
 static int	check_for_new_mount_itr(mount_t mount, void* arg);
@@ -699,7 +722,7 @@ BC_find_cache_mount(dev_t dev)
 {
 	int i;
 	
-	if (dev == nulldev())
+	if (dev == nulldev() || dev == NODEV)
 		return(-1);
 	
 	if (!(BC_cache->c_flags & BC_FLAG_CACHEACTIVE) || (BC_cache->c_mounts == NULL))
@@ -1704,15 +1727,60 @@ BC_close(dev_t dev, int flags, int devtype, struct proc *p)
 					if (cm->cm_state == CM_ABORTED) {
 						// Mount is aborted, no more work necessary
 						UNLOCK_MOUNT_W(cm);
-						goto out;	
+					} else {
+						BC_teardown_mount(cm);
+						UNLOCK_MOUNT_W(cm);
 					}
+				} else {
+					BC_teardown_mount(cm);
+					UNLOCK_MOUNT_W(cm);
 				}
-				BC_teardown_mount(cm);
-				UNLOCK_MOUNT_W(cm);
 			} else {
 				UNLOCK_MOUNT_R(cm);
 			}
 		}
+		
+		LOCK_NONCACHED_MOUNTS_W();
+		for (int noncached_mount_idx = 0; noncached_mount_idx < BC_cache->c_noncached_nmounts; noncached_mount_idx++) {
+			if (BC_cache->c_noncached_mounts[noncached_mount_idx].nm_dev == dev) {
+				
+				int newSize = BC_cache->c_noncached_nmounts - 1;
+				if (newSize > 0) {
+					struct BC_noncached_mount* shrunkArray = BC_MALLOC(sizeof(*shrunkArray) * newSize, M_TEMP, M_WAITOK | M_ZERO);
+					
+					if (shrunkArray) {
+						
+						// Copy all noncached mounts before noncached_mount_idx
+						memcpy(shrunkArray, BC_cache->c_noncached_mounts, sizeof(*shrunkArray) * noncached_mount_idx);
+						
+						// Copy all noncached mounts after noncached_mount_idx
+						int numMountsAfterwards = BC_cache->c_noncached_nmounts - (noncached_mount_idx + 1);
+						if (numMountsAfterwards > 0) {
+							memcpy(shrunkArray + noncached_mount_idx, BC_cache->c_noncached_mounts + (noncached_mount_idx + 1), sizeof(*shrunkArray) * numMountsAfterwards);
+						}
+						
+						debug("Removed dev %#x -> group %s at index %d", BC_cache->c_noncached_mounts[noncached_mount_idx].nm_dev, uuid_string(BC_cache->c_noncached_mounts[noncached_mount_idx].nm_group_uuid), noncached_mount_idx);
+						
+						_FREE_ZERO(BC_cache->c_noncached_mounts, M_TEMP);
+						BC_cache->c_noncached_mounts = shrunkArray;
+						BC_cache->c_noncached_nmounts = newSize;
+						
+					} else {
+						debug("Cleared dev %#x -> group %s at index %d", BC_cache->c_noncached_mounts[noncached_mount_idx].nm_dev, uuid_string(BC_cache->c_noncached_mounts[noncached_mount_idx].nm_group_uuid), noncached_mount_idx);
+						// Unable to shrink array, just clear the entry
+						BC_cache->c_noncached_mounts[noncached_mount_idx].nm_dev = 0;
+					}
+				} else {
+					debug("Removed last dev %#x -> group %s at index %d", BC_cache->c_noncached_mounts[noncached_mount_idx].nm_dev, uuid_string(BC_cache->c_noncached_mounts[noncached_mount_idx].nm_group_uuid), noncached_mount_idx);
+					_FREE_ZERO(BC_cache->c_noncached_mounts, M_TEMP);
+					BC_cache->c_noncached_nmounts = 0;
+				}
+				
+				break;
+			}
+		}
+		UNLOCK_NONCACHED_MOUNTS_W();
+
 	}
 	
 	BC_ADD_NON_SHARED_CACHE_STAT(close_discards, nonshared_discards);
@@ -1720,7 +1788,6 @@ BC_close(dev_t dev, int flags, int devtype, struct proc *p)
 	BC_ADD_NON_SHARED_CACHE_STAT(close_unread, nonshared_unread);
 	BC_ADD_SHARED_CACHE_STAT(close_unread, shared_unread);
 	
-out:
 	UNLOCK_CACHE_R();
 	
 	return BC_cache->c_close(dev, flags, devtype, p);
@@ -1787,6 +1854,24 @@ static void wait_for_extent(struct BC_cache_extent *ce, struct timeval starttime
 }
 
 /*
+ * Called with the cache mount read lock held
+ */
+static bool bc_mount_should_throttle_cutthrough(int cm_idx, int is_swap) {
+	if (BC_cache->c_readahead_throttles_cutthroughs &&
+		!is_swap &&
+		BC_cache->c_mounts[cm_idx].cm_disk &&
+		(BC_cache->c_mounts[cm_idx].cm_disk->cd_flags & CD_HAS_THREAD) &&
+		!(BC_cache->c_mounts[cm_idx].cm_disk->cd_flags & CD_ISSUE_LOWPRI) &&
+		!(BC_cache->c_mounts[cm_idx].cm_disk->cd_flags & CD_IS_SSD)) {
+		/* We're currently issuing readahead for this disk.
+		 * Throttle this IO so we don't cut-through the readahead so much.
+		 */
+		return true;
+	}
+	return false;
+}
+
+/*
  * Handle an incoming IO request.
  */
 static int
@@ -1797,10 +1882,9 @@ BC_strategy(struct buf *bp)
 	uio_t uio = NULL;
 	u_int64_t nbytes, discards = 0;
 	struct timeval blocked_start_time, blocked_end_time;
-	u_int64_t inode = 0;
 	daddr64_t blkno;
 	caddr_t buf_map_p, buf_extent_p;
-	off_t disk_offset;
+	off_t disk_offset = 0;
 	kern_return_t kret;
 	int cm_idx = -1, ce_idx;
 	dev_t dev;
@@ -1814,6 +1898,7 @@ BC_strategy(struct buf *bp)
 	int is_stolen = 0;
 	int unfilled = 0;
 	vnode_t vp = NULL;
+	bool vp_is_owned = false;
 	int pid = 0;
 	int dont_cache = 0;
 	int throttle_tier = 0;
@@ -1823,16 +1908,33 @@ BC_strategy(struct buf *bp)
 	
 	assert(bp != NULL);
 	
-	blkno = buf_blkno(bp);
 	nbytes = buf_count(bp);
+	dev = buf_device(bp);
+
+	/*
+	 * If the buf doesn't have a device for some reason, pretend
+	 * we never saw the request at all.
+	 */
+	if (dev == nulldev() || dev == NODEV) {
+		BC_cache->c_strategy(bp);
+		BC_ADD_STAT(is_shared, strategy_unknown, 1);
+		BC_ADD_STAT(is_shared, strategy_unknown_bytes, nbytes);
+		return 0;
+	}
+	
+	blkno = buf_blkno(bp);
 	bufflags = buf_flags(bp);
 	bap = buf_attr(bp);
-	dev = buf_device(bp);
 	vp = buf_vnode(bp);
-
-	enum vtype vtype = vnode_vtype(vp);
-	if (vtype == VREG) {
-		inode = apfs_get_inode(vp, blkno, nbytes, vfs_context_current());
+	
+	if (vp) {
+		// We need to access vp after the buf_biodone / c_strategy call,
+		// so take a reference out on it so it doesn't get recycled
+		if (KERN_SUCCESS == vnode_get(vp)) {
+			vp_is_owned = true;
+		} else {
+			debug("Unable to get vnode");
+		}
 	}
 	
 	if (vp && vnode_isdyldsharedcache(vp)) {
@@ -1844,17 +1946,6 @@ BC_strategy(struct buf *bp)
 		crypto_offset = bufattr_cpoff(bap); // Unused if mount isn't encrypted
 	}
 
-	/*
-	 * If the buf doesn't have a vnode for some reason, pretend
-	 * we never saw the request at all.
-	 */
-	if (dev == nulldev()) {
-		BC_cache->c_strategy(bp);
-		BC_ADD_STAT(is_shared, strategy_unknown, 1);
-		BC_ADD_STAT(is_shared, strategy_unknown_bytes, nbytes);
-		return 0;
-	}
-	
 	if (vp && vnode_isswap(vp)) {
 		is_swap = 1;
 		goto bypass;
@@ -2366,9 +2457,13 @@ BC_strategy(struct buf *bp)
 
 	if (! dont_cache) {
 		/* record successful fulfilment (may block) */
-		BC_add_history(inode, blkno, nbytes, pid, 1, 0, 0, is_shared, crypto_offset, dev);
+		BC_add_history(vp_is_owned ? vp : NULL, blkno, nbytes, pid, 1, 0, 0, is_shared, crypto_offset, dev);
 	}
-	
+
+	if (vp_is_owned) {
+		vnode_put(vp);
+	}
+
 	/*
 	 * spec_strategy wants to know if the read has been
 	 * satisfied by the boot cache in order to avoid
@@ -2401,27 +2496,87 @@ bypass:
 	/* not really "bypassed" if the cache is not active */
 	if (during_cache) {
 		u_int64_t unread = 0;
-		if (cm_idx != -1) {
+		
+		if (cm_idx != -1 && uuid_is_null(BC_cache->c_mounts[cm_idx].cm_group_uuid)) {
+			// We have a cache_mount for this I/O's device, and it doesn't share disk space with any other cache_mount
+			
 			LOCK_MOUNT_R(BC_cache->c_mounts + cm_idx);
 			if (BC_cache->c_mounts[cm_idx].cm_state == CM_READY) {
 				discards += BC_handle_discards(BC_cache->c_mounts + cm_idx, disk_offset, nbytes, !(bufflags & B_READ), &unread, is_shared);
 			}
 			
 			/* Check if we should throttle this IO */
-			if (BC_cache->c_readahead_throttles_cutthroughs && 
-				!is_swap &&
-				BC_cache->c_mounts[cm_idx].cm_disk && 
-				(BC_cache->c_mounts[cm_idx].cm_disk->cd_flags & CD_HAS_THREAD) &&
-				!(BC_cache->c_mounts[cm_idx].cm_disk->cd_flags & CD_ISSUE_LOWPRI) &&
-				!(BC_cache->c_mounts[cm_idx].cm_disk->cd_flags & CD_IS_SSD)) {
-				/* We're currently issuing readahead for this disk.
-				 * Throttle this IO so we don't cut-through the readahead so much.
-				 */
+			if (bc_mount_should_throttle_cutthrough(cm_idx, is_swap)) {
 				should_throttle = 1;
 			}
 			
 			UNLOCK_MOUNT_R(BC_cache->c_mounts + cm_idx);
+		} else {
+			// We either don't have a cache_mount for this I/O's device, or the cache_mount potentially shares disk space with another cache_mount: need to check each cache_mount to see if it overlaps and discard the I/O's range from each one
+			// <rdar://problem/43851924> When discarding data, discard data for that extent from all mounts in the same apfs container
+			uuid_t container_uuid = {0};
+			if (cm_idx != -1) {
+				// We have a cache_mount for this device, and it has a group uuid, use it
+				uuid_copy(container_uuid, BC_cache->c_mounts[cm_idx].cm_group_uuid);
+			} else {
+				// We don't have a cache_mount for this device (we're not caching this mount)
+				// Still need to find the group UUID for this device in case we're caching other mounts in the same group, though
+				struct BC_noncached_mount nm = BC_get_noncached_mount(dev);
+				if (nm.nm_dev != dev) {
+					message("Unable to determine grouping for I/O to dev %#x", dev);
+				}
+				uuid_copy(container_uuid, nm.nm_group_uuid);
+			}
+			
+			if (!uuid_is_null(container_uuid)) {
+				// We have a grouping for this device
+				
+				bool first_match = true;
+				for (int mount_idx = 0; mount_idx < BC_cache->c_nmounts; mount_idx++) {
+					if (BC_cache->c_mounts[mount_idx].cm_state == CM_READY &&
+						0 == uuid_compare(BC_cache->c_mounts[mount_idx].cm_group_uuid, container_uuid)) {
+						// This mount is in the same section of disk as this I/O's mount (i.e. same APFS container)
+						// We make no guarantees that we don't have mounts with overlapping ranges in the same container, so we need to check all of them, not just stop at the first one that hits. Also, it could be a partial hit for multiple mounts even if the mounts don't overlap each other
+						
+						LOCK_MOUNT_R(BC_cache->c_mounts + mount_idx);
+						
+						// If we didn't have a matching mount, we don't know disk_offset yet. Get it from this mount from the same part of the disk (we assume any mounts sharing disk space will all have the same block size)
+						off_t disk_offset_mount = CB_BLOCK_TO_BYTE(BC_cache->c_mounts + mount_idx, blkno);
+						assert(disk_offset == 0 || disk_offset_mount == disk_offset);
+						
+						u_int64_t unread_mount = 0;
+						u_int64_t discards_mount = 0;
+						discards_mount = BC_handle_discards(BC_cache->c_mounts + mount_idx, disk_offset_mount, nbytes, !(bufflags & B_READ), &unread_mount, is_shared);
+						discards += discards_mount;
+						unread += unread_mount;
+						
+						if (mount_idx != cm_idx && discards_mount > 0) {
+							if (cm_idx != -1) {
+								debug("Discarded %#llx bytes due to %s from mount %s matching container %s from I/O to mount %s", discards_mount, (bufflags & B_READ) ? "read" : "write", uuid_string(BC_cache->c_mounts[mount_idx].cm_uuid), uuid_string(BC_cache->c_mounts[mount_idx].cm_group_uuid), uuid_string(BC_cache->c_mounts[cm_idx].cm_group_uuid));
+							} else {
+								debug("Discarded %#llx bytes due to %s from mount %s matching container %s from I/O to non-cached mount with device %#x", discards_mount, (bufflags & B_READ) ? "read" : "write", uuid_string(BC_cache->c_mounts[mount_idx].cm_uuid), uuid_string(BC_cache->c_mounts[mount_idx].cm_group_uuid), dev);
+							}
+						}
+						
+						if (first_match) {
+							// Only need to check the disk state once, since anything sharing the same space on disk will have the same cm_disk
+							first_match = false;
+
+							/* Check if we should throttle this IO */
+							if (bc_mount_should_throttle_cutthrough(mount_idx, is_swap)) {
+								should_throttle = 1;
+							}
+							
+						}
+						
+						UNLOCK_MOUNT_R(BC_cache->c_mounts + mount_idx);
+					}
+				}
+			} else {
+				// No grouping for this noncached mount, nothing to discard
+			}
 		}
+		
 		if (take_detailed_stats) {
 			BC_ADD_STAT(is_shared, strategy_bypassed, 1);
 			if (during_io) {
@@ -2467,7 +2622,7 @@ bypass:
 	
 	if (! is_swap) {
 		if (! dont_cache) {
-			is_rejected = BC_add_history(inode, blkno, nbytes, pid, 0, ((bufflags & B_READ) ? 0 : 1), 0, is_shared, crypto_offset, dev);
+			is_rejected = BC_add_history(vp_is_owned ? vp : NULL, blkno, nbytes, pid, 0, ((bufflags & B_READ) ? 0 : 1), 0, is_shared, crypto_offset, dev);
 			
 			if (take_detailed_stats && during_io && !is_rejected) {
 				if (cache_hit) {
@@ -2555,8 +2710,14 @@ bypass:
 		BC_set_flag(BC_FLAG_SHUTDOWN);
 	}
 	
-	KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, (should_throttle ? DBG_BC_IO_MISS_CUT_THROUGH : DBG_BC_IO_MISS)) | DBG_FUNC_NONE, buf_kernel_addrperm_addr(bp_void), 0, 0, 0, 0);
+	if (during_cache) {
+		KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, (should_throttle ? DBG_BC_IO_MISS_CUT_THROUGH : DBG_BC_IO_MISS)) | DBG_FUNC_NONE, buf_kernel_addrperm_addr(bp_void), 0, 0, 0, 0);
+	}
 	
+	if (vp_is_owned) {
+		vnode_put(vp);
+	}
+
 	if (should_throttle && throttle_tier < IOPOL_THROTTLE) {
 		
 		char procname[MAXCOMLEN+1];
@@ -2968,6 +3129,12 @@ BC_terminate_cache(void)
 	BC_cache->c_nmounts = 0;
 	
 	BC_cache->c_batch_offset_for_new_playlists = BC_cache->c_batch_count;
+	
+	LOCK_NONCACHED_MOUNTS_W();
+	_FREE_ZERO(BC_cache->c_noncached_mounts, M_TEMP);
+	BC_cache->c_noncached_nmounts = 0;
+	UNLOCK_NONCACHED_MOUNTS_W();
+	
 	
 	UNLOCK_CACHE_W();
 	
@@ -3382,6 +3549,7 @@ BC_setup_mount(struct BC_cache_mount *cm, struct BC_playlist_mount* pm)
 	
 	lck_rw_init(&cm->cm_lock, BC_cache->c_lckgrp, LCK_ATTR_NULL);
 	uuid_copy(cm->cm_uuid, pm->pm_uuid);
+	uuid_copy(cm->cm_group_uuid, pm->pm_group_uuid);
 	cm->cm_fs_flags = pm->pm_fs_flags;
 	
 	/* These will be set once we've detected that this volume has been mounted */
@@ -3420,6 +3588,85 @@ out:
 	return error;
 }
 
+/*
+ * Returns a copy of the mount's structure (not a pointer, a copy).
+ *
+ * Returns a zero'ed out structure on failure.
+ */
+static struct BC_noncached_mount
+BC_get_noncached_mount(dev_t dev)
+{
+	struct BC_noncached_mount nm;
+	
+	LOCK_NONCACHED_MOUNTS_R();
+	for (int i = 0; i < BC_cache->c_noncached_nmounts; i++) {
+		if (BC_cache->c_noncached_mounts[i].nm_dev == dev) {
+			
+			// Found matching noncached mount struct
+			nm = BC_cache->c_noncached_mounts[i];
+			UNLOCK_NONCACHED_MOUNTS_R();
+			return nm;
+		}
+	}
+	UNLOCK_NONCACHED_MOUNTS_R();
+	
+	// No matching noncached mount struct for this device, create one
+	uuid_t group_uuid = {0};
+	bc_get_group_uuid_for_dev(dev, group_uuid);
+	
+	debug("dev %#x has group UUID %s", dev, uuid_string(group_uuid));
+
+	LOCK_NONCACHED_MOUNTS_W();
+
+	// Make sure no one else filled in this dev while we weren't holding the lock
+	for (int i = 0; i < BC_cache->c_noncached_nmounts; i++) {
+		if (BC_cache->c_noncached_mounts[i].nm_dev == dev) {
+			// Found matching noncached mount struct
+			nm = BC_cache->c_noncached_mounts[i];
+
+			if (0 != uuid_compare(nm.nm_group_uuid, group_uuid)) {
+				message("dev %#x has mismatching group UUIDs! %s vs %s", dev, uuid_string(nm.nm_group_uuid), uuid_string(group_uuid));
+			} else {
+				debug("Lost race for dev %d, using group %s", dev, uuid_string(nm.nm_group_uuid));
+			}
+			
+			UNLOCK_NONCACHED_MOUNTS_W();
+			return nm;
+		}
+	}
+	
+	int newSize = BC_cache->c_noncached_nmounts + 1;
+	struct BC_noncached_mount* extendedArray = BC_MALLOC(sizeof(*extendedArray) * newSize, M_TEMP, M_WAITOK | M_ZERO);
+	
+	if (extendedArray) {
+		if (BC_cache->c_noncached_mounts) {
+			memcpy(extendedArray, BC_cache->c_noncached_mounts, sizeof(*extendedArray) * BC_cache->c_noncached_nmounts);
+			_FREE_ZERO(BC_cache->c_noncached_mounts, M_TEMP);
+		}
+		
+		extendedArray[newSize - 1].nm_dev = dev;
+		uuid_copy(extendedArray[newSize - 1].nm_group_uuid, group_uuid);
+		
+		BC_cache->c_noncached_mounts = extendedArray;
+		BC_cache->c_noncached_nmounts = newSize;
+		
+		nm = BC_cache->c_noncached_mounts[newSize - 1];
+		
+		debug("Added dev %#x -> group %s at index %d", dev, uuid_string(group_uuid), newSize - 1);
+		
+		UNLOCK_NONCACHED_MOUNTS_W();
+		return nm;
+	} else {
+		message("Unable to allocate %d noncached mount entries for dev %#x -> %s", newSize, dev, uuid_string(group_uuid));
+	}
+
+	UNLOCK_NONCACHED_MOUNTS_W();
+
+	nm.nm_dev = 0;
+	uuid_clear(nm.nm_group_uuid);
+	return nm;
+}
+
 // Handles APFS and HFS
 //
 // Upon success, *devvp_out must be vnode_put()
@@ -3447,7 +3694,7 @@ int BC_get_dev(mount_t mount, dev_t *dev_out, vnode_t *devvp_out) {
 	}
 
 	dev_t specrdev = vnode_specrdev(devvp);
-	if (specrdev == nulldev()) {
+	if (specrdev == nulldev() || specrdev == NODEV) {
 		debug("mount %s does not have a device", name);
 		vnode_put(devvp);
 		return ENODEV;
@@ -3888,11 +4135,13 @@ static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
 				}
 				
 				/* a null uuid indicates we want to match the root volume, no matter what the uuid (8350414) */
+				bool was_generalized = false;
 				if ((!match) && uuid_is_null(cm->cm_uuid)) {
 					vnode_t devvp = vfs_devvp(mount); // Use vfs_devvp for comparison to rootdev (rather than BC_get_dev)
 					if (vnode_specrdev(devvp) == rootdev) {
 						uuid_copy(cm->cm_uuid, attr.f_uuid);
 						match = 1;
+						was_generalized = true;
 						debug("Found root mount %s", uuid_string(cm->cm_uuid));
 					}
 					vnode_put(devvp);
@@ -3915,6 +4164,26 @@ static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
 					bool container_has_encrypted_volumes = true;
 					bool container_has_rolling_volumes = true;
 					bc_get_volume_info(dev, &fs_flags, &container_dev, container_uuid, &container_has_encrypted_volumes, &container_has_rolling_volumes);
+					
+					if (was_generalized) {
+						uuid_copy(cm->cm_group_uuid, container_uuid);
+					}
+
+					// All APFS volumes must have a non-null container UUID
+					// <rdar://problem/43851924> When discarding data, discard data for that extent from all mounts in the same apfs container
+					if (fs_flags & BC_FS_APFS) {
+						if (uuid_is_null(container_uuid) || 0 != uuid_compare(cm->cm_group_uuid, container_uuid)) {
+							
+							// We don't expect the container UUID to ever change, so error out if it happens
+							message("Not caching apfs volume %s with wrong container %s (really is %s)", uuid_string(cm->cm_uuid), uuid_string(cm->cm_group_uuid), uuid_string(container_uuid));
+							
+							struct discards discards = BC_teardown_mount_and_extents(cm);
+							BC_ADD_SHARED_CACHE_STAT(unsupported_unread, discards.shared_discards);
+							BC_ADD_NON_SHARED_CACHE_STAT(unsupported_unread, discards.nonshared_discards);
+							break;
+						}
+					}
+					
 
 					/* Locking here isn't necessary since we're only called while holding the cache write lock
 					 * and no one holds the mount locks without also holding the cache lock
@@ -3935,7 +4204,7 @@ static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
 						//
 						// We track apfs volumes, but there is still some I/O directly to the container, so we need to track the container as well as the volume
 
-						if (container_dev == nulldev() || uuid_is_null(container_uuid)) {
+						if (container_dev == nulldev() || container_dev == NODEV || uuid_is_null(container_uuid)) {
 							message("mount %s has no container", uuid_string(cm->cm_uuid));
 							break;
 						}
@@ -3946,6 +4215,14 @@ static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
 							if (CM_SETUP == container_cm->cm_state) {
 								if (0 == uuid_compare(container_cm->cm_uuid, container_uuid)) {
 									
+									if (0 != uuid_compare(container_cm->cm_uuid, container_cm->cm_group_uuid)) {
+										message("Not caching apfs container %s with mismatched group %s", uuid_string(container_cm->cm_uuid), uuid_string(container_cm->cm_group_uuid));
+										struct discards discards = BC_teardown_mount_and_extents(container_cm);
+										BC_ADD_SHARED_CACHE_STAT(unsupported_unread, discards.shared_discards);
+										BC_ADD_NON_SHARED_CACHE_STAT(unsupported_unread, discards.nonshared_discards);
+										break;
+									}
+
 									if (container_has_rolling_volumes) {
 										// <rdar://problem/32395140> Bootcache needs to be disabled for APFS volumes rolling encryption (and their container)
 										message("Not caching apfs container %s that contains rolling volumes", uuid_string(container_uuid));
@@ -4033,7 +4310,7 @@ static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
 				continue;
 			}
 
-			if (container_dev == nulldev() || uuid_is_null(container_uuid)) {
+			if (container_dev == nulldev() || container_dev == NODEV || uuid_is_null(container_uuid)) {
 				message("apfs volume %s has no container", uuid_string(attr.f_uuid));
 				break;
 			}
@@ -4041,6 +4318,14 @@ static int fill_in_bc_cache_mounts(mount_t mount, void* arg)
 
 			if (0 == uuid_compare(container_cm->cm_uuid, container_uuid)) {
 				
+				if (0 != uuid_compare(container_cm->cm_uuid, container_cm->cm_group_uuid)) {
+					message("Not caching apfs container %s with mismatched group %s", uuid_string(container_cm->cm_uuid), uuid_string(container_cm->cm_group_uuid));
+					struct discards discards = BC_teardown_mount_and_extents(container_cm);
+					BC_ADD_SHARED_CACHE_STAT(unsupported_unread, discards.shared_discards);
+					BC_ADD_NON_SHARED_CACHE_STAT(unsupported_unread, discards.nonshared_discards);
+					break;
+				}
+
 				if (container_has_rolling_volumes) {
 					// <rdar://problem/32395140> Bootcache needs to be disabled for APFS volumes rolling encryption (and their container)
 					message("Not caching apfs container %s that contains rolling volumes", uuid_string(container_uuid));
@@ -5006,7 +5291,15 @@ static int check_for_new_mount_itr(mount_t mount, void* arg) {
 		return VFS_RETURNED;
 	}
 	
-	/* 
+	if ((fs_flags & BC_FS_APFS) && uuid_is_null(container_uuid)) {
+		// With <rdar://problem/43851924> (When discarding data, discard data for that extent from all mounts in the same apfs container), we must have a container UUID for all apfs volumes and containers
+		message("historic apfs mount %s has no container UUID, skipping.", name);
+		UNLOCK_HISTORY_R();
+		vnode_put(devvp);
+		return VFS_RETURNED;
+	}
+	
+	/*
 	 * A new mount appeared, but unfortunately we don't know which one.
 	 * So, for every mount we have to check through our list of history_mounts
 	 * to see if we already have info for it.
@@ -5080,6 +5373,10 @@ static int check_for_new_mount_itr(mount_t mount, void* arg) {
 	hmd->hmd_mount.hm_nentries = 0;
 	hmd->hmd_mount.hm_fs_flags = fs_flags;
 	uuid_copy(hmd->hmd_mount.hm_uuid, attr.f_uuid);
+	if (hmd->hmd_mount.hm_fs_flags & BC_FS_APFS) {
+		// Make sure this mount is grouped with everything in this container when sorting the playlist later
+		uuid_copy(hmd->hmd_mount.hm_group_uuid, container_uuid);
+	}
 
 	debug("Found new historic mount after %d IOs: %s, dev 0x%x, disk 0x%llx, blk %d%s, flags 0x%x %son root disk",
 		  hmd->hmd_mount.hm_nentries,
@@ -5108,7 +5405,7 @@ static int check_for_new_mount_itr(mount_t mount, void* arg) {
 		goto check_cache_mounts;
 	}
 	
-	if (container_dev == nulldev() || uuid_is_null(container_uuid)) {
+	if (container_dev == nulldev() || container_dev == NODEV || uuid_is_null(container_uuid)) {
 		message("mount %s has no container", uuid_string(attr.f_uuid));
 		UNLOCK_HISTORY_R();
 		goto check_cache_mounts;
@@ -5170,6 +5467,23 @@ check_cache_mounts:
 					/* Found a matching unfilled mount */
 					
 					LOCK_MOUNT_W(cm);
+					
+					// All APFS volumes must have a non-null container UUID
+					// <rdar://problem/43851924> When discarding data, discard data for that extent from all mounts in the same apfs container
+					if (fs_flags & BC_FS_APFS) {
+						if (uuid_is_null(container_uuid) || 0 != uuid_compare(cm->cm_group_uuid, container_uuid)) {
+							
+							// We don't expect the container UUID to ever change, so error out if it happens
+							message("Not caching apfs volume %s with wrong container %s (really is %s)", uuid_string(cm->cm_uuid), uuid_string(cm->cm_group_uuid), uuid_string(container_uuid));
+							
+							struct discards discards = BC_teardown_mount_and_extents(cm);
+							BC_ADD_SHARED_CACHE_STAT(unsupported_unread, discards.shared_discards);
+							BC_ADD_NON_SHARED_CACHE_STAT(unsupported_unread, discards.nonshared_discards);
+							break;
+						}
+					}
+					
+
 					if ((error = BC_fill_in_cache_mount(cm, mount, dev, devvp, fs_flags)) == 0) {
 						LOCK_MOUNT_W_TO_R(cm);
 						/* Kick off another reader thread if this is a new physical disk */
@@ -5188,6 +5502,14 @@ check_cache_mounts:
 				} else if (!uuid_is_null(container_uuid) && 0 == uuid_compare(cm->cm_uuid, container_uuid)) {
 					/* Found a matching unfilled mount for the container */
 					
+					if (0 != uuid_compare(cm->cm_uuid, cm->cm_group_uuid)) {
+						message("Not caching apfs container %s with mismatched group %s", uuid_string(cm->cm_uuid), uuid_string(cm->cm_group_uuid));
+						struct discards discards = BC_teardown_mount_and_extents(cm);
+						BC_ADD_SHARED_CACHE_STAT(unsupported_unread, discards.shared_discards);
+						BC_ADD_NON_SHARED_CACHE_STAT(unsupported_unread, discards.nonshared_discards);
+						break;
+					}
+
 					if (container_has_rolling_volumes) {
 						// <rdar://problem/32395140> Bootcache needs to be disabled for APFS volumes rolling encryption (and their container)
 						message("Not caching apfs container %s that contains rolling volumes", uuid_string(container_uuid));
@@ -5293,6 +5615,7 @@ static struct BC_history_mount_device * BC_get_history_mount_device(dev_t dev, i
 				/* claim the new entry */
 				tmphmd->hmd_next = NULL;
 				tmphmd->hmd_mount.hm_nentries = 0;
+				tmphmd->hmd_mount.hm_fs_flags = 0x0;
 				uuid_clear(tmphmd->hmd_mount.hm_uuid);
 				uuid_clear(tmphmd->hmd_mount.hm_group_uuid);
 				tmphmd->hmd_disk_id = 0;
@@ -5333,7 +5656,7 @@ out:
  * Note that this function is not reentrant.
  */
 static int
-BC_add_history(u_int64_t inode, daddr64_t blkno, u_int64_t length, int pid, int hit, int write, int tag, int shared, u_int64_t crypto_offset,  dev_t dev)
+BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, int write, int tag, int shared, u_int64_t crypto_offset,  dev_t dev)
 {	
 	u_int64_t offset;
 	struct BC_history_entry_cluster *hec, *tmphec = NULL;
@@ -5514,7 +5837,11 @@ BC_add_history(u_int64_t inode, daddr64_t blkno, u_int64_t length, int pid, int 
 	he = &(hec->hec_data[entry_idx]);
 	assert(he >= &hec->hec_data[0]);
 	assert(he < &hec->hec_data[BC_HISTORY_ENTRIES]);
-	he->he_inode     = inode;
+	if (hmd && (hmd->hmd_mount.hm_fs_flags & BC_FS_APFS) && vp && VREG == vnode_vtype(vp)) {
+		he->he_inode = apfs_get_inode(vp, blkno, length, vfs_context_current());
+	} else {
+		he->he_inode = 0;
+	}
 	he->he_offset    = offset;
 	he->he_length    = length;
 	he->he_pid       = pid;
@@ -5937,8 +6264,8 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 				if ((error = copyin(bc.bc_data1, &userspace_optimizations, bc.bc_data1_size)) != 0) {
 					debug("could not copy in user statistics");
 				} else {
-					BC_cache->c_stats.userspace_optimizations.ssup_fusion_num_inodes_optimized += userspace_optimizations.ssup_fusion_num_inodes_optimized;
-					BC_cache->c_stats.userspace_optimizations.ssup_fusion_bytes_optimized += userspace_optimizations.ssup_fusion_bytes_optimized;
+					BC_cache->c_stats.userspace_optimizations.ssup_num_inodes_optimized += userspace_optimizations.ssup_num_inodes_optimized;
+					BC_cache->c_stats.userspace_optimizations.ssup_bytes_optimized += userspace_optimizations.ssup_bytes_optimized;
 					BC_cache->c_stats.userspace_optimizations.ssup_hdd_num_reads_already_optimized += userspace_optimizations.ssup_hdd_num_reads_already_optimized;
 					BC_cache->c_stats.userspace_optimizations.ssup_hdd_bytes_already_optimized += userspace_optimizations.ssup_hdd_bytes_already_optimized;
 					BC_cache->c_stats.userspace_optimizations.ssup_hdd_optimization_range_length += userspace_optimizations.ssup_hdd_optimization_range_length;
@@ -6111,6 +6438,7 @@ BC_load(void)
 	
 	BC_cache->c_lckgrp = lck_grp_alloc_init("BootCache", LCK_GRP_ATTR_NULL);
 	lck_rw_init(&BC_cache->c_history_lock, BC_cache->c_lckgrp, LCK_ATTR_NULL);
+	lck_rw_init(&BC_cache->c_noncached_mounts_lock, BC_cache->c_lckgrp, LCK_ATTR_NULL);
 	lck_rw_init(&BC_cache->c_cache_lock, BC_cache->c_lckgrp, LCK_ATTR_NULL);
 	lck_mtx_init(&BC_cache->c_handlers_lock, BC_cache->c_lckgrp, LCK_ATTR_NULL);
 	lck_mtx_init(&BC_cache->c_reader_threads_lock, BC_cache->c_lckgrp, LCK_ATTR_NULL);
@@ -6148,6 +6476,7 @@ BC_unload(void)
 	UNLOCK_HISTORY_W();
 	
 	lck_rw_destroy(&BC_cache->c_history_lock, BC_cache->c_lckgrp);
+	lck_rw_destroy(&BC_cache->c_noncached_mounts_lock, BC_cache->c_lckgrp);
 	lck_rw_destroy(&BC_cache->c_cache_lock, BC_cache->c_lckgrp);
 	lck_mtx_destroy(&BC_cache->c_handlers_lock, BC_cache->c_lckgrp);
 	lck_mtx_destroy(&BC_cache->c_reader_threads_lock, BC_cache->c_lckgrp);

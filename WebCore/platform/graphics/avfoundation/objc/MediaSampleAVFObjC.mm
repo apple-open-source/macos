@@ -113,7 +113,13 @@ PlatformSample MediaSampleAVFObjC::platformSample()
     return sample;
 }
 
-static bool CMSampleBufferIsRandomAccess(CMSampleBufferRef sample)
+uint32_t MediaSampleAVFObjC::videoPixelFormat() const
+{
+    auto pixelBuffer = static_cast<CVPixelBufferRef>(CMSampleBufferGetImageBuffer(m_sample.get()));
+    return CVPixelBufferGetPixelFormatType(pixelBuffer);
+}
+
+static bool isCMSampleBufferRandomAccess(CMSampleBufferRef sample)
 {
     CFArrayRef attachments = CMSampleBufferGetSampleAttachmentsArray(sample, false);
     if (!attachments)
@@ -127,7 +133,7 @@ static bool CMSampleBufferIsRandomAccess(CMSampleBufferRef sample)
     return true;
 }
 
-static bool CMSampleBufferIsNonDisplaying(CMSampleBufferRef sample)
+static bool isCMSampleBufferNonDisplaying(CMSampleBufferRef sample)
 {
     CFArrayRef attachments = CMSampleBufferGetSampleAttachmentsArray(sample, false);
     if (!attachments)
@@ -146,10 +152,10 @@ MediaSample::SampleFlags MediaSampleAVFObjC::flags() const
 {
     int returnValue = MediaSample::None;
     
-    if (CMSampleBufferIsRandomAccess(m_sample.get()))
+    if (isCMSampleBufferRandomAccess(m_sample.get()))
         returnValue |= MediaSample::IsSync;
 
-    if (CMSampleBufferIsNonDisplaying(m_sample.get()))
+    if (isCMSampleBufferNonDisplaying(m_sample.get()))
         returnValue |= MediaSample::IsNonDisplaying;
     
     return SampleFlags(returnValue);
@@ -294,7 +300,7 @@ RefPtr<JSC::Uint8ClampedArray> MediaSampleAVFObjC::getRGBAImageData() const
 
     void* data = CVPixelBufferGetBaseAddressOfPlane(rgbaPixelBuffer.get(), 0);
     size_t byteLength = CVPixelBufferGetHeight(pixelBuffer) * CVPixelBufferGetWidth(pixelBuffer) * 4;
-    auto result = JSC::Uint8ClampedArray::create(JSC::ArrayBuffer::create(data, byteLength), 0, byteLength);
+    auto result = JSC::Uint8ClampedArray::tryCreate(JSC::ArrayBuffer::create(data, byteLength), 0, byteLength);
 
     status = CVPixelBufferUnlockBaseAddress(rgbaPixelBuffer.get(), kCVPixelBufferLock_ReadOnly);
     ASSERT(status == noErr);

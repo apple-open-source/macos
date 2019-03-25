@@ -29,7 +29,7 @@
 
 #include "SourceBufferPrivate.h"
 #include <dispatch/group.h>
-#include <dispatch/semaphore.h>
+#include <wtf/Box.h>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/MediaTime.h>
@@ -39,6 +39,7 @@
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/AtomicString.h>
+#include <wtf/threads/BinarySemaphore.h>
 
 OBJC_CLASS AVAsset;
 OBJC_CLASS AVStreamDataParser;
@@ -65,21 +66,20 @@ class VideoTrackPrivate;
 class AudioTrackPrivateMediaSourceAVFObjC;
 class VideoTrackPrivateMediaSourceAVFObjC;
 class WebCoreDecompressionSession;
+class SharedBuffer;
 
 class SourceBufferPrivateAVFObjCErrorClient {
 public:
     virtual ~SourceBufferPrivateAVFObjCErrorClient() = default;
     virtual void layerDidReceiveError(AVSampleBufferDisplayLayer *, NSError *, bool& shouldIgnore) = 0;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     virtual void rendererDidReceiveError(AVSampleBufferAudioRenderer *, NSError *, bool& shouldIgnore) = 0;
-#pragma clang diagnostic pop
+    ALLOW_NEW_API_WITHOUT_GUARDS_END
 };
 
 class SourceBufferPrivateAVFObjC final : public SourceBufferPrivate {
 public:
-    static RefPtr<SourceBufferPrivateAVFObjC> create(MediaSourcePrivateAVFObjC*);
+    static Ref<SourceBufferPrivateAVFObjC> create(MediaSourcePrivateAVFObjC*);
     virtual ~SourceBufferPrivateAVFObjC();
 
     void clearMediaSource() { m_mediaSource = nullptr; }
@@ -90,7 +90,7 @@ public:
     void didProvideMediaDataForTrackID(int trackID, CMSampleBufferRef, const String& mediaType, unsigned flags);
     void didReachEndOfTrackWithTrackID(int trackID, const String& mediaType);
     void willProvideContentKeyRequestInitializationDataForTrackID(int trackID);
-    void didProvideContentKeyRequestInitializationDataForTrackID(NSData*, int trackID, OSObjectPtr<dispatch_semaphore_t>);
+    void didProvideContentKeyRequestInitializationDataForTrackID(NSData*, int trackID, Box<BinarySemaphore>);
 
     bool processCodedFrame(int trackID, CMSampleBufferRef, const String& mediaType);
 
@@ -102,14 +102,15 @@ public:
     void trackDidChangeEnabled(AudioTrackPrivateMediaSourceAVFObjC*);
 
     void willSeek();
-    void seekToTime(MediaTime);
-    MediaTime fastSeekTimeForMediaTime(MediaTime, MediaTime negativeThreshold, MediaTime positiveThreshold);
+    MediaTime fastSeekTimeForMediaTime(const MediaTime&, const MediaTime& negativeThreshold, const MediaTime& positiveThreshold);
     FloatSize naturalSize();
 
     int protectedTrackID() const { return m_protectedTrackID; }
     AVStreamDataParser* parser() const { return m_parser.get(); }
     void setCDMSession(CDMSessionMediaSourceAVFObjC*);
     void setCDMInstance(CDMInstance*);
+    void attemptToDecrypt();
+    bool waitingForKey() const { return m_waitingForKey; }
 
     void flush();
 
@@ -117,11 +118,9 @@ public:
     void unregisterForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient*);
     void layerDidReceiveError(AVSampleBufferDisplayLayer *, NSError *);
     void outputObscuredDueToInsufficientExternalProtectionChanged(bool);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     void rendererDidReceiveError(AVSampleBufferAudioRenderer *, NSError *);
-#pragma clang diagnostic pop
+    ALLOW_NEW_API_WITHOUT_GUARDS_END
 
     void setVideoLayer(AVSampleBufferDisplayLayer*);
     void setDecompressionSession(WebCoreDecompressionSession*);
@@ -144,6 +143,7 @@ private:
     bool isReadyForMoreSamples(const AtomicString& trackID) final;
     void setActive(bool) final;
     void notifyClientWhenReadyForMoreSamples(const AtomicString& trackID) final;
+    bool canSwitchToType(const ContentType&) final;
 
     void didBecomeReadyForMoreSamples(int trackID);
     void appendCompleted();
@@ -151,11 +151,9 @@ private:
     void destroyRenderers();
 
     void flushVideo();
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     void flush(AVSampleBufferAudioRenderer *);
-#pragma clang diagnostic pop
+    ALLOW_NEW_API_WITHOUT_GUARDS_END
 
     WeakPtr<SourceBufferPrivateAVFObjC> createWeakPtr() { return m_weakFactory.createWeakPtr(*this); }
 
@@ -169,31 +167,32 @@ private:
     RetainPtr<AVStreamDataParser> m_parser;
     RetainPtr<AVAsset> m_asset;
     RetainPtr<AVSampleBufferDisplayLayer> m_displayLayer;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     HashMap<int, RetainPtr<AVSampleBufferAudioRenderer>> m_audioRenderers;
-#pragma clang diagnostic pop
+    ALLOW_NEW_API_WITHOUT_GUARDS_END
     RetainPtr<WebAVStreamDataParserListener> m_delegate;
     RetainPtr<WebAVSampleBufferErrorListener> m_errorListener;
     RetainPtr<NSError> m_hdcpError;
-    OSObjectPtr<dispatch_semaphore_t> m_hasSessionSemaphore;
+    Box<BinarySemaphore> m_hasSessionSemaphore;
     OSObjectPtr<dispatch_group_t> m_isAppendingGroup;
     RefPtr<WebCoreDecompressionSession> m_decompressionSession;
 
     MediaSourcePrivateAVFObjC* m_mediaSource;
     SourceBufferPrivateClient* m_client { nullptr };
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    CDMSessionMediaSourceAVFObjC* m_session { nullptr };
+    WeakPtr<CDMSessionMediaSourceAVFObjC> m_session { nullptr };
 #endif
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
     RefPtr<CDMInstanceFairPlayStreamingAVFObjC> m_cdmInstance;
+    Vector<Ref<SharedBuffer>> m_keyIDs;
 #endif
 
-    std::optional<FloatSize> m_cachedSize;
+    Optional<FloatSize> m_cachedSize;
     FloatSize m_currentSize;
     bool m_parsingSucceeded { true };
     bool m_parserStateWasReset { false };
+    bool m_discardSamplesUntilNextInitializationSegment { false };
+    bool m_waitingForKey { true };
     int m_enabledVideoTrackID { -1 };
     int m_protectedTrackID { -1 };
 };

@@ -81,7 +81,7 @@ void IntlCollatorConstructor::finishCreation(VM& vm, IntlCollatorPrototype* coll
 {
     Base::finishCreation(vm, "Collator"_s);
     putDirectWithoutTransition(vm, vm.propertyNames->prototype, collatorPrototype, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
-    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(0), PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum | PropertyAttribute::DontDelete);
+    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(0), PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
     collatorPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, this, static_cast<unsigned>(PropertyAttribute::DontEnum));
     m_collatorStructure.set(vm, this, collatorStructure);
 }
@@ -141,8 +141,7 @@ EncodedJSValue JSC_HOST_CALL IntlCollatorConstructorFuncSupportedLocalesOf(ExecS
 
     // 3. Return SupportedLocales(%Collator%.[[availableLocales]], requestedLocales, options).
     JSGlobalObject* globalObject = state->jsCallee()->globalObject(vm);
-    scope.release();
-    return JSValue::encode(supportedLocales(*state, globalObject->intlCollatorAvailableLocales(), requestedLocales, state->argument(1)));
+    RELEASE_AND_RETURN(scope, JSValue::encode(supportedLocales(*state, globalObject->intlCollatorAvailableLocales(), requestedLocales, state->argument(1))));
 }
 
 void IntlCollatorConstructor::visitChildren(JSCell* cell, SlotVisitor& visitor)

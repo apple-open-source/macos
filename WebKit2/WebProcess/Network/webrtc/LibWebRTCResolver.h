@@ -32,6 +32,10 @@
 #include <webrtc/p2p/base/packetsocketfactory.h>
 #include <wtf/Vector.h>
 
+namespace IPC {
+class Connection;
+}
+
 namespace WebKit {
 class LibWebRTCSocketFactory;
 
@@ -51,8 +55,11 @@ private:
     int GetError() const final { return m_error; }
     void Destroy(bool) final;
 
+    void doDestroy();
     void setError(int);
     void setResolvedAddress(const Vector<rtc::IPAddress>&);
+
+    static void sendOnMainThread(Function<void(IPC::Connection&)>&&);
 
     uint64_t m_identifier;
     Vector<rtc::IPAddress> m_addresses;
@@ -60,6 +67,8 @@ private:
     int m_error { 0 };
     uint16_t m_port { 0 };
     bool m_isResolving { false };
+    bool m_isProvidingResults { false };
+    bool m_shouldDestroy { false };
 };
 
 } // namespace WebKit

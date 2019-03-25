@@ -30,10 +30,8 @@
 
 #import "WKNSURLExtras.h"
 
-using namespace WebKit;
-
 @implementation WKBackForwardListItem {
-    API::ObjectStorage<WebBackForwardListItem> _item;
+    API::ObjectStorage<WebKit::WebBackForwardListItem> _item;
 }
 
 - (void)dealloc
@@ -71,6 +69,11 @@ using namespace WebKit;
     if (auto snapshot = _item->snapshot())
         return snapshot->asImageForTesting().leakRef();
     return nullptr;
+}
+
+- (CGPoint) _scrollPosition
+{
+    return CGPointMake(_item->pageState().mainFrameState.scrollPosition.x(), _item->pageState().mainFrameState.scrollPosition.y());
 }
 
 #pragma mark WKObject protocol implementation

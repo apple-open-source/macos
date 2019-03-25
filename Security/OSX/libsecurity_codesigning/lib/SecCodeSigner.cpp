@@ -60,7 +60,13 @@ const CFStringRef kSecCodeSignerPreserveMetadata = CFSTR("preserve-metadata");
 const CFStringRef kSecCodeSignerTeamIdentifier =	CFSTR("teamidentifier");
 const CFStringRef kSecCodeSignerPlatformIdentifier = CFSTR("platform-identifier");
 const CFStringRef kSecCodeSignerRuntimeVersion = CFSTR("runtime-version");
-const CFStringRef kSecCodeSignerPreserveAFSC = CFSTR("preserve-afsc");
+const CFStringRef kSecCodeSignerPreserveAFSC = 	CFSTR("preserve-afsc");
+const CFStringRef kSecCodeSignerOmitAdhocFlag =	CFSTR("omit-adhoc-flag");
+
+// Keys for signature editing
+const CFStringRef kSecCodeSignerEditCpuType = 	CFSTR("edit-cpu-type");
+const CFStringRef kSecCodeSignerEditCpuSubtype = CFSTR("edit-cpu-subtype");
+const CFStringRef kSecCodeSignerEditCMS = 		CFSTR("edit-cms");
 
 
 
@@ -84,7 +90,8 @@ OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
 	BEGIN_CSAPI
 		
 	checkFlags(flags,
-		  kSecCSRemoveSignature
+		  kSecCSEditSignature
+		| kSecCSRemoveSignature
 		| kSecCSSignPreserveSignature
 		| kSecCSSignNestedCode
 		| kSecCSSignOpaque

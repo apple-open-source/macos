@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef WebCoreNSURLSession_h
-#define WebCoreNSURLSession_h
+#pragma once
 
 #import "SecurityOrigin.h"
 #import <Foundation/NSURLSession.h>
@@ -61,8 +60,8 @@ WEBCORE_EXPORT @interface WebCoreNSURLSession : NSObject {
     RefPtr<WebCore::PlatformMediaResourceLoader> _loader;
     RetainPtr<id<NSURLSessionDelegate>> _delegate;
     RetainPtr<NSOperationQueue> _queue;
-    NSString *_sessionDescription;
-    HashSet<RetainPtr<WebCoreNSURLSessionDataTask>> _dataTasks;
+    RetainPtr<NSString> _sessionDescription;
+    HashSet<RetainPtr<CFTypeRef>> _dataTasks;
     HashSet<RefPtr<WebCore::SecurityOrigin>> _origins;
     Lock _dataTasksLock;
     BOOL _invalidated;
@@ -108,7 +107,7 @@ WEBCORE_EXPORT @interface WebCoreNSURLSession : NSObject {
 @end
 
 @interface WebCoreNSURLSessionDataTask : NSObject {
-    WebCoreNSURLSession *_session;
+    __unsafe_unretained WebCoreNSURLSession *_session;
     RefPtr<WebCore::PlatformMediaResource> _resource;
     RetainPtr<NSURLResponse> _response;
     NSUInteger _taskIdentifier;
@@ -142,5 +141,3 @@ WEBCORE_EXPORT @interface WebCoreNSURLSession : NSObject {
 @end
 
 NS_ASSUME_NONNULL_END
-
-#endif

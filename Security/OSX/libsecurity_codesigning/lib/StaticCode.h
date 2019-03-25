@@ -125,6 +125,7 @@ public:
 	CodeDirectory::HashAlgorithms hashAlgorithms() const { return mHashAlgorithms; }
 	CFDataRef cdHash();
 	CFArrayRef cdHashes();
+	CFDictionaryRef cdHashesFull();
 	CFDataRef signature();
 	CFAbsoluteTime signingTime();
 	CFAbsoluteTime signingTimestamp();
@@ -205,6 +206,8 @@ public:
 
 	void handleOtherArchitectures(void (^handle)(SecStaticCode* other));
 
+	uint8_t cmsDigestHashType() const { return mCMSDigestHashType; };
+	CFDataRef createCmsDigest();
 public:
 	void staticValidate(SecCSFlags flags, const SecRequirement *req);
 	void staticValidateCore(SecCSFlags flags, const SecRequirement *req);
@@ -233,6 +236,8 @@ private:
 	dispatch_once_t mCheckfix30814861builder1_once;
 	
 private:
+	static const uint8_t mCMSDigestHashType = kSecCodeSignatureHashSHA256;
+										// hash of CMS digest (kSecCodeSignatureHash* constant)
 	RefPointer<DiskRep> mRep;			// on-disk representation
 	mutable CodeDirectoryMap mCodeDirectories; // available CodeDirectory blobs by digest type
 	mutable CFRef<CFDataRef> mBaseDir;	// the primary CodeDirectory blob (whether it's chosen or not)
@@ -284,7 +289,8 @@ private:
 	const Requirement *mDesignatedReq;	// cached designated req if we made one up
 	CFRef<CFDataRef> mCDHash;			// hash of chosen CodeDirectory
 	CFRef<CFArrayRef> mCDHashes;		// hashes of all CodeDirectories (in digest type code order)
-	
+	CFRef<CFDictionaryRef> mCDHashFullDict;	// untruncated hashes of CodeDirectories (as dictionary)
+
 	bool mGotResourceBase;				// asked mRep for resourceBasePath
 	CFRef<CFURLRef> mResourceBase;		// URL form of resource base directory
 

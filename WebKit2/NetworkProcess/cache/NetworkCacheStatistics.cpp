@@ -221,7 +221,7 @@ void Statistics::recordNotUsingCacheForRequest(uint64_t webPageID, const Key& ke
     ASSERT(retrieveDecision != RetrieveDecision::Yes);
 
     auto hash = key.hashAsString();
-    queryWasEverRequested(hash, NeedUncachedReason::No, [this, hash, requestURL = request.url(), webPageID, retrieveDecision](bool wasEverRequested, const std::optional<StoreDecision>&) {
+    queryWasEverRequested(hash, NeedUncachedReason::No, [this, hash, requestURL = request.url(), webPageID, retrieveDecision](bool wasEverRequested, const Optional<StoreDecision>&) {
         if (wasEverRequested) {
             String diagnosticKey = retrieveDecisionToDiagnosticKey(retrieveDecision);
             LOG(NetworkCache, "(NetworkProcess) webPageID %" PRIu64 ": %s was previously requested but we are not using the cache, reason: %s", webPageID, requestURL.string().ascii().data(), diagnosticKey.utf8().data());
@@ -261,7 +261,7 @@ static String storeDecisionToDiagnosticKey(StoreDecision storeDecision)
 void Statistics::recordRetrievalFailure(uint64_t webPageID, const Key& key, const WebCore::ResourceRequest& request)
 {
     auto hash = key.hashAsString();
-    queryWasEverRequested(hash, NeedUncachedReason::Yes, [this, hash, requestURL = request.url(), webPageID](bool wasPreviouslyRequested, const std::optional<StoreDecision>& storeDecision) {
+    queryWasEverRequested(hash, NeedUncachedReason::Yes, [this, hash, requestURL = request.url(), webPageID](bool wasPreviouslyRequested, const Optional<StoreDecision>& storeDecision) {
         if (wasPreviouslyRequested) {
             String diagnosticKey = storeDecisionToDiagnosticKey(storeDecision.value());
             LOG(NetworkCache, "(NetworkProcess) webPageID %" PRIu64 ": %s was previously request but is not in the cache, reason: %s", webPageID, requestURL.string().ascii().data(), diagnosticKey.utf8().data());
@@ -282,7 +282,6 @@ static String cachedEntryReuseFailureToDiagnosticKey(UseDecision decision)
         return WebCore::DiagnosticLoggingKeys::missingValidatorFieldsKey();
     case UseDecision::NoDueToDecodeFailure:
     case UseDecision::NoDueToExpiredRedirect:
-        return WebCore::DiagnosticLoggingKeys::otherKey();
     case UseDecision::Use:
     case UseDecision::Validate:
         ASSERT_NOT_REACHED();
@@ -293,7 +292,7 @@ static String cachedEntryReuseFailureToDiagnosticKey(UseDecision decision)
 
 void Statistics::recordRetrievedCachedEntry(uint64_t webPageID, const Key& key, const WebCore::ResourceRequest& request, UseDecision decision)
 {
-    WebCore::URL requestURL = request.url();
+    URL requestURL = request.url();
     if (decision == UseDecision::Use) {
         LOG(NetworkCache, "(NetworkProcess) webPageID %" PRIu64 ": %s is in the cache and is used", webPageID, requestURL.string().ascii().data());
         NetworkProcess::singleton().logDiagnosticMessageWithResult(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheKey(), WebCore::DiagnosticLoggingKeys::retrievalKey(), WebCore::DiagnosticLoggingResultPass, WebCore::ShouldSample::Yes);
@@ -313,7 +312,7 @@ void Statistics::recordRetrievedCachedEntry(uint64_t webPageID, const Key& key, 
 
 void Statistics::recordRevalidationSuccess(uint64_t webPageID, const Key& key, const WebCore::ResourceRequest& request)
 {
-    WebCore::URL requestURL = request.url();
+    URL requestURL = request.url();
     LOG(NetworkCache, "(NetworkProcess) webPageID %" PRIu64 ": %s was successfully revalidated", webPageID, requestURL.string().ascii().data());
 
     NetworkProcess::singleton().logDiagnosticMessageWithResult(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheKey(), WebCore::DiagnosticLoggingKeys::revalidatingKey(), WebCore::DiagnosticLoggingResultPass, WebCore::ShouldSample::Yes);
@@ -356,7 +355,7 @@ void Statistics::queryWasEverRequested(const String& hash, NeedUncachedReason ne
     // Query pending writes first.
     bool wasAlreadyRequested = m_hashesToAdd.contains(hash);
     if (wasAlreadyRequested && needUncachedReason == NeedUncachedReason::No) {
-        completionHandler(true, std::nullopt);
+        completionHandler(true, WTF::nullopt);
         return;
     }
     if (needUncachedReason == NeedUncachedReason::Yes && m_storeDecisionsToAdd.contains(hash)) {
@@ -370,7 +369,7 @@ void Statistics::queryWasEverRequested(const String& hash, NeedUncachedReason ne
     m_activeQueries.add(WTFMove(everRequestedQuery));
     serialBackgroundIOQueue().dispatch([this, wasAlreadyRequested, &query] () mutable {
         WebCore::SQLiteTransactionInProgressAutoCounter transactionCounter;
-        std::optional<StoreDecision> storeDecision;
+        Optional<StoreDecision> storeDecision;
         if (m_database.isOpen()) {
             if (!wasAlreadyRequested) {
                 WebCore::SQLiteStatement statement(m_database, "SELECT hash FROM AlreadyRequested WHERE hash=?"_s);

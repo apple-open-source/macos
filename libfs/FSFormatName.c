@@ -949,28 +949,25 @@ finish:
 }
 
 errno_t
-_FSGetMediaEncryptionStatus(CFStringRef devnode, bool *encryption_status, fs_media_encryption_details_t *encryption_details)
+_FSGetMediaEncryptionStatusAtPath(const char *path, bool *encryption_status, fs_media_encryption_details_t *encryption_details)
 {
-	char bsdname[MAXPATHLEN + 1];
 	bool fs_encrypted = false, di_encrypted = false;
 	errno_t error;
 
 	// Check our arguments.
-	if (!CFStringGetCString(devnode, bsdname, MAXPATHLEN + 1, kCFStringEncodingUTF8)) {
-		return EINVAL;
-	} else if (!encryption_status) {
+	if (!path || !encryption_status) {
 		return EINVAL;
 	}
 
 	// First, check if the FS is encrypted (ignoring FDE status).
-	error = GetFSEncryptionStatus(bsdname, &fs_encrypted, false, encryption_details);
+	error = GetFSEncryptionStatus(path, &fs_encrypted, false, encryption_details);
 	if (error) {
 		return error;
 	}
 
 	if (!fs_encrypted || encryption_details) {
 		// If the result will be visible, also check for disk-image encryption.
-		if (GetDiskImageEncryptionStatus(bsdname, &di_encrypted) == 0) {
+		if (GetDiskImageEncryptionStatus(path, &di_encrypted) == 0) {
 			if (di_encrypted && encryption_details) {
 				*encryption_details |= FS_MEDIA_DEV_ENCRYPTED;
 			}
@@ -979,4 +976,17 @@ _FSGetMediaEncryptionStatus(CFStringRef devnode, bool *encryption_status, fs_med
 
 	*encryption_status = (fs_encrypted || di_encrypted);
 	return 0;
+}
+
+errno_t
+_FSGetMediaEncryptionStatus(CFStringRef devnode, bool *encryption_status, fs_media_encryption_details_t *encryption_details)
+{
+	char bsdname[MAXPATHLEN + 1];
+
+	// Check our arguments.
+	if (!CFStringGetCString(devnode, bsdname, MAXPATHLEN + 1, kCFStringEncodingUTF8)) {
+		return EINVAL;
+	}
+
+	return _FSGetMediaEncryptionStatusAtPath(bsdname, encryption_status, encryption_details);
 }

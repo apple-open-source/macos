@@ -56,8 +56,6 @@ typedef void* DragDataRef;
 
 namespace WebCore {
 
-class URL;
-
 enum DragApplicationFlags {
     DragApplicationNone = 0,
     DragApplicationIsModal = 1,
@@ -73,7 +71,7 @@ typedef HashMap<unsigned, Vector<String>> DragDataMap;
 class DragData {
 public:
     enum FilenameConversionPolicy { DoNotConvertFilenames, ConvertFilenames };
-    enum class DraggingPurpose { ForEditing, ForFileUpload };
+    enum class DraggingPurpose { ForEditing, ForFileUpload, ForColorControl };
 
     // clientPosition is taken to be the position of the drag event within the target window, with (0,0) at the top left
     WEBCORE_EXPORT DragData(DragDataRef, const IntPoint& clientPosition, const IntPoint& globalPosition, DragOperation, DragApplicationFlags = DragApplicationNone, DragDestinationAction actions = DragDestinationActionAny);

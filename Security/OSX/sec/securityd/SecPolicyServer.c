@@ -936,23 +936,19 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
            chain (root). */
         n--;
     } else {
-        /* trust may be restored for a path with an untrusted root that matches the allow list.
-           (isAllowlisted is set by revocation check, which is performed prior to path checks) */
-        if (!SecCertificatePathVCIsAllowlisted(path)) {
-            Boolean isSelfSigned = false;
-            (void) SecCertificateIsSelfSigned(SecCertificatePathVCGetCertificateAtIndex(path, n - 1), &isSelfSigned);
-            if (isSelfSigned) {
-                /* Add a detail for the root not being trusted. */
-                if (!SecPVCSetResultForced(pvc, kSecPolicyCheckAnchorTrusted,
-                                           n - 1, kCFBooleanFalse, true)) {
-                    return;
-                }
-            } else {
-                /* Add a detail for the missing intermediate. */
-                if (!SecPVCSetResultForced(pvc, kSecPolicyCheckMissingIntermediate,
-                                           n - 1, kCFBooleanFalse, true)) {
-                    return;
-                }
+        Boolean isSelfSigned = false;
+        (void) SecCertificateIsSelfSigned(SecCertificatePathVCGetCertificateAtIndex(path, n - 1), &isSelfSigned);
+        if (isSelfSigned) {
+            /* Add a detail for the root not being trusted. */
+            if (!SecPVCSetResultForced(pvc, kSecPolicyCheckAnchorTrusted,
+                                       n - 1, kCFBooleanFalse, true)) {
+                return;
+            }
+        } else {
+            /* Add a detail for the missing intermediate. */
+            if (!SecPVCSetResultForced(pvc, kSecPolicyCheckMissingIntermediate,
+                                       n - 1, kCFBooleanFalse, true)) {
+                return;
             }
         }
     }
@@ -2312,9 +2308,10 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
      *     Or the caller passed in the trusted log list. */
     require_quiet(SecOTAPKIAssetStalenessLessThanSeconds(otaref, kSecOTAPKIAssetStalenessDisable) || trustedLogs, out);
 
-    /*  2. Leaf issuance date is on or after 16 Oct 2018 at 00:00:00 AM UTC */
+    /*  2. Leaf issuance date is on or after 16 Oct 2018 at 00:00:00 AM UTC and not expired. */
     SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
-    require_quiet(SecCertificateNotValidBefore(leaf) >= 561340800.0, out);
+    require_quiet(SecCertificateNotValidBefore(leaf) >= 561340800.0 &&
+                  SecCertificateIsValid(leaf, SecPVCGetVerifyTime(pvc)), out);
 
     /*  3. Chain is anchored with root in the system anchor source but not the Apple anchor source */
     CFIndex count = SecPVCGetCertificateCount(pvc);

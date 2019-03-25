@@ -471,7 +471,8 @@ bool SOSEngineInitializePeerCoder(SOSEngineRef engine, SOSFullPeerInfoRef myPeer
 
     ok &= SOSEngineWithPeerID(engine, peerID, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *forceSaveState) {
         ok = SOSEngineEnsureCoder_locked(engine, txn, peerID, myPeerInfo, peerInfo, coder, error);
-        *forceSaveState = ok;
+        // Only set if the codersNeedSaving state gets set.
+        *forceSaveState = engine->codersNeedSaving;
     });
 
     return ok;
@@ -936,7 +937,12 @@ static void SOSEngineObjectWithView(SOSEngineRef engine, SOSObjectRef object, vo
             CFTypeRef tomb = SecDbItemGetCachedValueWithName(item, kSecAttrTombstone);
             char cvalue = 0;
             bool isTomb = (isNumber(tomb) && CFNumberGetValue(tomb, kCFNumberCharType, &cvalue) && cvalue == 1);
-            CFTypeRef viewHint = SecDbItemGetCachedValueWithName(item, kSecAttrSyncViewHint);
+            CFStringRef viewHint = SecDbItemGetCachedValueWithName(item, kSecAttrSyncViewHint);
+
+            // check that view hint is a string, if its unset it will be kCFNull
+            if (!isString(viewHint)) {
+                viewHint = NULL;
+            }
 
             // Intecept CKKS-handled items here and short-circuit function
             if(SOSViewHintInCKKSSystem(viewHint)) {

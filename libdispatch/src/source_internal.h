@@ -40,10 +40,11 @@ DISPATCH_CLASS_DECL_BARE(source, QUEUE);
 	uint16_t \
 		/* set under the drain lock */ \
 		ds_is_installed:1, \
+		ds_latched:1, \
 		dm_connect_handler_called:1, \
 		dm_cancel_handler_called:1, \
 		dm_is_xpc:1, \
-		__ds_flags_pad : 12; \
+		__ds_flags_pad : 11; \
 	uint16_t __dq_flags_separation[0]; \
 	uint16_t \
 		/* set under the send queue lock */ \

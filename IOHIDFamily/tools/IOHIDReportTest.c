@@ -2,6 +2,7 @@
 #include <IOKit/hid/IOHIDLib.h>
 #include "IOHIDReportDescriptorParser.h"
 #include <sys/time.h>
+#include <os/variant_private.h>
 
 static CFTimeInterval   gPollInterval       = 0.0;
 static bool             gReport             = TRUE;
@@ -226,6 +227,10 @@ int main (int argc, const char * argv[]) {
     
     IOHIDManagerRef         manager     = IOHIDManagerCreate(kCFAllocatorDefault, 0);
     CFMutableDictionaryRef  matching    = NULL;
+    
+    if(!os_variant_allows_internal_security_policies(NULL)) {
+        return 0;
+    }
     
     int argi;
     for (argi=1; argi<argc; argi++) {

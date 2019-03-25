@@ -640,7 +640,7 @@ bool ItemImpl::checkIntegrityFromDictionary(AclBearer& aclBearer, DbAttributes* 
             return false; // No MAC, no integrity.
         }
 
-        throw cssme;
+        throw;
     }
 
     secnotice("integrity", "***** INVALID ITEM");
@@ -1833,7 +1833,7 @@ ItemImpl::getContent(DbAttributes *dbAttributes, CssmDataContainer *itemData)
                 }
             } catch(CssmError cssme) {
                 secnotice("integrity", "error while checking integrity, denying access: %s", cssme.what());
-                throw cssme;
+                throw;
             }
 
 			SSDbUniqueRecordImpl* impl = dynamic_cast<SSDbUniqueRecordImpl *>(&(*dbUniqueRecord()));

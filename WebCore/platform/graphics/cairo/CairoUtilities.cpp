@@ -164,37 +164,37 @@ static cairo_operator_t toCairoCompositeOperator(CompositeOperator op)
 cairo_operator_t toCairoOperator(CompositeOperator op, BlendMode blendOp)
 {
     switch (blendOp) {
-    case BlendModeNormal:
+    case BlendMode::Normal:
         return toCairoCompositeOperator(op);
-    case BlendModeMultiply:
+    case BlendMode::Multiply:
         return CAIRO_OPERATOR_MULTIPLY;
-    case BlendModeScreen:
+    case BlendMode::Screen:
         return CAIRO_OPERATOR_SCREEN;
-    case BlendModeOverlay:
+    case BlendMode::Overlay:
         return CAIRO_OPERATOR_OVERLAY;
-    case BlendModeDarken:
+    case BlendMode::Darken:
         return CAIRO_OPERATOR_DARKEN;
-    case BlendModeLighten:
+    case BlendMode::Lighten:
         return CAIRO_OPERATOR_LIGHTEN;
-    case BlendModeColorDodge:
+    case BlendMode::ColorDodge:
         return CAIRO_OPERATOR_COLOR_DODGE;
-    case BlendModeColorBurn:
+    case BlendMode::ColorBurn:
         return CAIRO_OPERATOR_COLOR_BURN;
-    case BlendModeHardLight:
+    case BlendMode::HardLight:
         return CAIRO_OPERATOR_HARD_LIGHT;
-    case BlendModeSoftLight:
+    case BlendMode::SoftLight:
         return CAIRO_OPERATOR_SOFT_LIGHT;
-    case BlendModeDifference:
+    case BlendMode::Difference:
         return CAIRO_OPERATOR_DIFFERENCE;
-    case BlendModeExclusion:
+    case BlendMode::Exclusion:
         return CAIRO_OPERATOR_EXCLUSION;
-    case BlendModeHue:
+    case BlendMode::Hue:
         return CAIRO_OPERATOR_HSL_HUE;
-    case BlendModeSaturation:
+    case BlendMode::Saturation:
         return CAIRO_OPERATOR_HSL_SATURATION;
-    case BlendModeColor:
+    case BlendMode::Color:
         return CAIRO_OPERATOR_HSL_COLOR;
-    case BlendModeLuminosity:
+    case BlendMode::Luminosity:
         return CAIRO_OPERATOR_HSL_LUMINOSITY;
     default:
         return CAIRO_OPERATOR_OVER;
@@ -232,21 +232,20 @@ void drawPatternToCairoContext(cairo_t* cr, cairo_surface_t* image, const IntSiz
     // user space coordinates to pattern coordinates). The overflow happens only in the translation components of the matrices.
 
     // To avoid the problem in the transformation matrix what we do is remove the translation components of the transformation matrix
-    // and perform the translation by moving the destination rectangle instead. For this, we get its translation components (which are in
-    // device coordinates) and divide them by the scale factor to take them to user space coordinates. Then we move the transformation
-    // matrix by the opposite of that amount (which will zero the translation components of the transformation matrix), and move
-    // the destination rectangle by the same amount. We also need to apply the same translation to the pattern matrix, so we get the
-    // same pattern coordinates for the new destination rectangle.
+    // and perform the translation by moving the destination rectangle instead. For this, we calculate such a translation amount (dx, dy)
+    // that its opposite translate (-dx, -dy) will zero the translation components of the transformation matrix. We move the current
+    // transformation matrix by (-dx, -dy) and move the destination rectangle by (dx, dy). We also need to apply the same translation to
+    // the pattern matrix, so we get the same pattern coordinates for the new destination rectangle. (dx, dy) is caclucated by transforming
+    // the current translation components by the inverse matrix of the current transformation matrix.
 
     cairo_matrix_t ctm;
     cairo_get_matrix(cr, &ctm);
     double dx = 0, dy = 0;
     cairo_matrix_transform_point(&ctm, &dx, &dy);
-    double xScale = 1, yScale = 1;
-    cairo_matrix_transform_distance(&ctm, &xScale, &yScale);
+    cairo_matrix_t inv = ctm;
+    if (cairo_matrix_invert(&inv) == CAIRO_STATUS_SUCCESS)
+        cairo_matrix_transform_distance(&inv, &dx, &dy);
 
-    dx = dx / xScale;
-    dy = dy / yScale;
     cairo_translate(cr, -dx, -dy);
     FloatRect adjustedDestRect(destRect);
     adjustedDestRect.move(dx, dy);

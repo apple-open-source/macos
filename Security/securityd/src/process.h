@@ -79,6 +79,7 @@ public:
     uid_t uid() const			{ return mUid; }
     gid_t gid() const			{ return mGid; }
     pid_t pid() const			{ return mPid; }
+    Security::CommonCriteria::AuditToken const &audit_token() const { return mAudit; }
     TaskPort taskPort() const	{ return mTaskPort; }
 	bool byteFlipped() const	{ return mByteFlipped; }
 	
@@ -110,6 +111,7 @@ private:
     pid_t mPid;							// process id
     uid_t mUid;							// UNIX uid credential
     gid_t mGid;							// primary UNIX gid credential
+    Security::CommonCriteria::AuditToken const mAudit; // audit token
 
 	// canonical local (transient) key store
 	RefPointer<LocalDatabase> mLocalStore;

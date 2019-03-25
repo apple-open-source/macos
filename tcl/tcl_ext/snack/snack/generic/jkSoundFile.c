@@ -2371,7 +2371,7 @@ PutCslHeader(Sound *s, Tcl_Interp *interp, Tcl_Channel ch, Tcl_Obj *obj,
   sprintf(&buf[12], "HEDR");
   PutLELong(buf, 16, 32);
   Tcl_GlobalEvalObj(s->interp, Tcl_NewStringObj(CSL_DATECOMMAND, -1));
-  sprintf(&buf[20], Tcl_GetStringResult(s->interp));
+  sprintf(&buf[20], "%s", Tcl_GetStringResult(s->interp));
   
   PutLELong(buf, 40, s->samprate);
   PutLELong(buf, 44, s->length);

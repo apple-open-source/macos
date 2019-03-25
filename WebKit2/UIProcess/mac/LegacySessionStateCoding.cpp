@@ -60,7 +60,7 @@ static const CFStringRef sessionHistoryEntryShouldOpenExternalURLsPolicyKey = CF
 const uint32_t sessionHistoryEntryDataVersion = 2;
 
 // Maximum size for subframe session data.
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 static const uint32_t maximumSessionStateDataSize = 2 * 1024 * 1024;
 #else
 static const uint32_t maximumSessionStateDataSize = std::numeric_limits<uint32_t>::max();
@@ -146,7 +146,7 @@ public:
         return *this;
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     HistoryEntryDataEncoder& operator<<(WebCore::FloatRect value)
     {
         *this << value.x();
@@ -220,6 +220,8 @@ private:
 
         growCapacity(alignedSize + size);
 
+        std::memset(m_buffer.get() + m_bufferSize, 0, alignedSize - m_bufferSize);
+
         m_bufferSize = alignedSize + size;
         m_bufferPointer = m_buffer.get() + m_bufferSize;
 
@@ -282,8 +284,8 @@ static void encodeFormDataElement(HistoryEntryDataEncoder& encoder, const HTTPBo
         encoder << false;
 
         encoder << element.fileStart;
-        encoder << element.fileLength.value_or(-1);
-        encoder << element.expectedFileModificationTime.value_or(std::numeric_limits<double>::quiet_NaN());
+        encoder << element.fileLength.valueOr(-1);
+        encoder << element.expectedFileModificationTime.valueOr(WallTime::nan()).secondsSinceEpoch().value();
         break;
 
     case HTTPBody::Element::Type::Blob:
@@ -354,7 +356,7 @@ static void encodeFrameStateNode(HistoryEntryDataEncoder& encoder, const FrameSt
 
     encoder << frameState.target;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     // FIXME: iOS should not use the legacy session state encoder.
     encoder << frameState.exposedContentRect;
     encoder << frameState.unobscuredContentRect;
@@ -633,7 +635,7 @@ public:
         return *this;
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     HistoryEntryDataDecoder& operator>>(WebCore::FloatRect& value)
     {
         value = WebCore::FloatRect();
@@ -704,13 +706,13 @@ public:
 #endif
 
     template<typename T>
-    auto operator>>(std::optional<T>& value) -> typename std::enable_if<std::is_enum<T>::value, HistoryEntryDataDecoder&>::type
+    auto operator>>(Optional<T>& value) -> typename std::enable_if<std::is_enum<T>::value, HistoryEntryDataDecoder&>::type
     {
         uint32_t underlyingEnumValue;
         *this >> underlyingEnumValue;
 
         if (!isValid() || !isValidEnum(static_cast<T>(underlyingEnumValue)))
-            value = std::nullopt;
+            value = WTF::nullopt;
         else
             value = static_cast<T>(underlyingEnumValue);
 
@@ -790,7 +792,7 @@ private:
 
 static void decodeFormDataElement(HistoryEntryDataDecoder& decoder, HTTPBody::Element& formDataElement)
 {
-    std::optional<FormDataElementType> elementType;
+    Optional<FormDataElementType> elementType;
     decoder >> elementType;
     if (!elementType)
         return;
@@ -825,11 +827,10 @@ static void decodeFormDataElement(HistoryEntryDataDecoder& decoder, HTTPBody::El
             formDataElement.fileLength = fileLength;
         }
 
-
         double expectedFileModificationTime;
         decoder >> expectedFileModificationTime;
-        if (expectedFileModificationTime != std::numeric_limits<double>::quiet_NaN())
-            formDataElement.expectedFileModificationTime = expectedFileModificationTime;
+        if (!std::isnan(expectedFileModificationTime))
+            formDataElement.expectedFileModificationTime = WallTime::fromRawSeconds(expectedFileModificationTime);
 
         break;
     }
@@ -942,7 +943,7 @@ static void decodeBackForwardTreeNode(HistoryEntryDataDecoder& decoder, FrameSta
 
     decoder >> frameState.target;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     // FIXME: iOS should not use the legacy session state decoder.
     decoder >> frameState.exposedContentRect;
     decoder >> frameState.unobscuredContentRect;
@@ -1068,7 +1069,7 @@ static bool decodeV1SessionHistory(CFDictionaryRef sessionHistoryDictionary, Bac
     auto currentIndexNumber = dynamic_cf_cast<CFNumberRef>(CFDictionaryGetValue(sessionHistoryDictionary, sessionHistoryCurrentIndexKey));
     if (!currentIndexNumber) {
         // No current index means the dictionary represents an empty session.
-        backForwardListState.currentIndex = std::nullopt;
+        backForwardListState.currentIndex = WTF::nullopt;
         backForwardListState.items = { };
         return true;
     }
@@ -1133,7 +1134,7 @@ bool decodeLegacySessionState(const uint8_t* bytes, size_t size, SessionState& s
     }
 
     if (auto provisionalURLString = dynamic_cf_cast<CFStringRef>(CFDictionaryGetValue(sessionStateDictionary, provisionalURLKey))) {
-        sessionState.provisionalURL = WebCore::URL(WebCore::URL(), provisionalURLString);
+        sessionState.provisionalURL = URL(URL(), provisionalURLString);
         if (!sessionState.provisionalURL.isValid())
             return false;
     }

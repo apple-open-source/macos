@@ -29,6 +29,7 @@
 #include <WebCore/BackForwardItemIdentifier.h>
 #include <WebCore/FloatPoint.h>
 #include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/SecurityOriginData.h>
 
 namespace IPC {
 class Decoder;
@@ -39,7 +40,7 @@ namespace WebKit {
 
 struct NavigationActionData {
     void encode(IPC::Encoder&) const;
-    static std::optional<NavigationActionData> decode(IPC::Decoder&);
+    static Optional<NavigationActionData> decode(IPC::Decoder&);
 
     WebCore::NavigationType navigationType { WebCore::NavigationType::Other };
     WebEvent::Modifiers modifiers { };
@@ -52,10 +53,13 @@ struct NavigationActionData {
     WebCore::FloatPoint clickLocationInRootViewCoordinates;
     bool isRedirect { false };
     bool treatAsSameOriginNavigation { false };
-    bool isCrossOriginWindowOpenNavigation { false };
     bool hasOpenedFrames { false };
-    std::optional<std::pair<uint64_t, uint64_t>> opener;
-    std::optional<WebCore::BackForwardItemIdentifier> targetBackForwardItemIdentifier;
+    bool openedByDOMWithOpener { false };
+    WebCore::SecurityOriginData requesterOrigin;
+    Optional<WebCore::BackForwardItemIdentifier> targetBackForwardItemIdentifier;
+    WebCore::LockHistory lockHistory;
+    WebCore::LockBackForwardList lockBackForwardList;
+    WTF::String clientRedirectSourceForHistory;
 };
 
 }

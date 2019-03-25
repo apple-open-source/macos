@@ -31,6 +31,7 @@
 #include "EventNames.h"
 #include "Logging.h"
 #include "PlatformWheelEvent.h"
+#include "ScrollingStateFrameScrollingNode.h"
 #include "ScrollingStateTree.h"
 #include "ScrollingTreeFrameScrollingNode.h"
 #include "ScrollingTreeNode.h"
@@ -107,7 +108,7 @@ void ScrollingTree::scrollPositionChangedViaDelegatedScrolling(ScrollingNodeID n
     downcast<ScrollingTreeScrollingNode>(*node).updateLayersAfterDelegatedScroll(scrollPosition);
 
     // Update GraphicsLayers and scroll state.
-    scrollingTreeNodeDidScroll(nodeID, scrollPosition, std::nullopt, inUserInteraction ? ScrollingLayerPositionAction::Sync : ScrollingLayerPositionAction::Set);
+    scrollingTreeNodeDidScroll(nodeID, scrollPosition, WTF::nullopt, inUserInteraction ? ScrollingLayerPositionAction::Sync : ScrollingLayerPositionAction::Set);
 }
 
 void ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree> scrollingStateTree)
@@ -177,6 +178,9 @@ void ScrollingTree::updateTreeFromStateNode(const ScrollingStateNode* stateNode,
             auto* parent = parentIt->value;
             node->setParent(parent);
             parent->appendChild(*node);
+        } else {
+            // FIXME: Use WeakPtr in m_nodeMap.
+            m_nodeMap.remove(nodeID);
         }
     }
 

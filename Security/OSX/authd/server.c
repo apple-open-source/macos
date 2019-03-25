@@ -37,9 +37,6 @@ static CFMutableDictionaryRef gSessionMap = NULL;
 static CFMutableDictionaryRef gAuthTokenMap = NULL;
 static authdb_t gDatabase = NULL;
 
-static dispatch_queue_t power_queue;
-static bool gInDarkWake = false;
-static IOPMConnection gIOPMconn = NULL;
 static bool gXPCTransaction = false;
 
 static dispatch_queue_t
@@ -112,71 +109,15 @@ void server_cleanup()
     CFRelease(gSessionMap);
     CFRelease(gAuthTokenMap);
     
-    IOPMConnectionSetDispatchQueue(gIOPMconn, NULL);
-    IOPMConnectionRelease(gIOPMconn);
-    
     dispatch_queue_t queue = get_server_dispatch_queue();
     if (queue) {
         dispatch_release(queue);
     }
-    dispatch_release(power_queue);
-}
-
-static void _IOMPCallBack(void * param AUTH_UNUSED, IOPMConnection connection, IOPMConnectionMessageToken token, IOPMSystemPowerStateCapabilities capabilities)
-{
-    os_log_debug(AUTHD_LOG, "server: IOMP powerstates %i", capabilities);
-    if (capabilities & kIOPMSystemPowerStateCapabilityDisk)
-        os_log_debug(AUTHD_LOG, "server: disk");
-    if (capabilities & kIOPMSystemPowerStateCapabilityNetwork)
-        os_log_debug(AUTHD_LOG, "server: net");
-    if (capabilities & kIOPMSystemPowerStateCapabilityAudio)
-        os_log_debug(AUTHD_LOG, "server: audio");
-    if (capabilities & kIOPMSystemPowerStateCapabilityVideo)
-        os_log_debug(AUTHD_LOG, "server: video");
-    
-    /* if cpu and no display -> in DarkWake */
-    os_log_debug(AUTHD_LOG, "server: DarkWake check current=%i==%i", (capabilities & (kIOPMSystemPowerStateCapabilityCPU|kIOPMSystemPowerStateCapabilityVideo)), kIOPMSystemPowerStateCapabilityCPU);
-    if ((capabilities & (kIOPMSystemPowerStateCapabilityCPU|kIOPMSystemPowerStateCapabilityVideo)) == kIOPMSystemPowerStateCapabilityCPU) {
-        os_log_debug(AUTHD_LOG, "server: enter DW");
-        gInDarkWake = true;
-    } else if (gInDarkWake) {
-        os_log_debug(AUTHD_LOG, "server: exit DW");
-        gInDarkWake = false;
-    }
-    
-    (void)IOPMConnectionAcknowledgeEvent(connection, token);
-    
-    return;
-}
-
-static void
-_setupDarkWake(void *__unused ctx)
-{
-    IOReturn ret;
-    
-    IOPMConnectionCreate(CFSTR("IOPowerWatcher"),
-                         kIOPMSystemPowerStateCapabilityDisk
-                         | kIOPMSystemPowerStateCapabilityNetwork
-                         | kIOPMSystemPowerStateCapabilityAudio
-                         | kIOPMSystemPowerStateCapabilityVideo,
-                         &gIOPMconn);
-
-    ret = IOPMConnectionSetNotification(gIOPMconn, NULL, _IOMPCallBack);
-    if (ret != kIOReturnSuccess)
-        return;
-    
-    IOPMConnectionSetDispatchQueue(gIOPMconn, power_queue);
-
-    IOPMScheduleUserActiveChangedNotification(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(bool active) {
-        if (active) {
-            gInDarkWake = false;
-        }
-    });
 }
 
 bool server_in_dark_wake()
 {
-    return gInDarkWake;
+    return IOPMIsADarkWake(IOPMConnectionGetSystemCapabilities());
 }
 
 authdb_t server_get_database()
@@ -256,10 +197,6 @@ OSStatus server_init(void)
     authdb_maintenance(dbconn);
     authdb_connection_release(&dbconn);
     
-    power_queue = dispatch_queue_create("com.apple.security.auth.power", DISPATCH_QUEUE_SERIAL);
-    require_action(power_queue != NULL, done, status = errAuthorizationInternal);
-    dispatch_async_f(power_queue, NULL, _setupDarkWake);
-
     _setupAuditSessionMonitor();
     _setupSignalHandlers();
     

@@ -689,6 +689,22 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
         CFRelease( object );
     }
 
+    /*
+     * Create the disk description -- device is TDM locked
+     */
+
+    object = IORegistryEntrySearchCFProperty( device,
+                                              kIOServicePlane,
+                                              CFSTR( "AppleTDMLocked" ),
+                                              allocator,
+                                              kIORegistryIterateParents | kIORegistryIterateRecursively );
+
+    if ( object )
+    {
+        CFDictionarySetValue( disk->_description, kDADiskDescriptionDeviceTDMLockedKey, object );
+        CFRelease( object );
+    }
+
     CFRelease( properties );
     properties = NULL;
 
@@ -893,6 +909,18 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
     }
 
     IOObjectRelease( device );
+
+    {
+        CFBooleanRef encrypted = NULL;
+        CFNumberRef  encryptionDetail = NULL;
+
+        if ( 0 == _DADiskGetEncryptionStatus( allocator, disk, &encrypted, &encryptionDetail) )
+        {
+            CFDictionarySetValue( disk->_description, kDADiskDescriptionMediaEncryptedKey, encrypted );
+            CFDictionarySetValue( disk->_description, kDADiskDescriptionMediaEncryptionDetailKey, encryptionDetail );
+            CFRelease( encryptionDetail );
+        }
+    }
 
     return disk;
 

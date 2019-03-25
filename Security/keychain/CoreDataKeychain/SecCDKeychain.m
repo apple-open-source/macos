@@ -879,7 +879,7 @@ SecCDKeychainLookupValueType* const SecCDKeychainLookupValueTypeDate = (SecCDKey
     managedItem.metadata = attributeData;
 
     SecCDKeychainManagedAccessControlEntity* owner = [NSEntityDescription insertNewObjectForEntityForName:SecCDKeychainEntityTypeAccessControlEntity inManagedObjectContext:managedObjectContext];
-    owner.type = item.owner.entityType;
+    owner.type = (int32_t)item.owner.entityType;
     owner.stringRepresentation = item.owner.stringRepresentation;
     managedItem.owner = owner;
     [owner addOwnedItemsObject:managedItem];

@@ -115,6 +115,9 @@ int xar_gzip_fromheap_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t 
 
 		GZIP_CONTEXT(context)->z.next_out = ((unsigned char *)out) + offset;
 		GZIP_CONTEXT(context)->z.avail_out = outlen - offset;
+		
+		size_t start_avail_in = GZIP_CONTEXT(context)->z.avail_in;
+		size_t start_avail_out = GZIP_CONTEXT(context)->z.avail_out;
 
 		r = inflate(&(GZIP_CONTEXT(context)->z), Z_NO_FLUSH);
 		if( (r != Z_OK) && (r != Z_STREAM_END) ) {
@@ -124,9 +127,9 @@ int xar_gzip_fromheap_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t 
 			xar_err_callback(x, XAR_SEVERITY_FATAL, XAR_ERR_ARCHIVE_EXTRACTION);
 			return -1;
 		}
+		
 		offset += outlen - offset - GZIP_CONTEXT(context)->z.avail_out;
-		if( (r == Z_STREAM_END) && (offset == 0) )
-			break;
+		
 	}
 
 	free(*in);

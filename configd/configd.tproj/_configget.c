@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008, 2011, 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011, 2013-2016, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -77,6 +77,7 @@ _configget(mach_port_t			server,
 
 	*dataRef = NULL;
 	*dataLen = 0;
+	*newInstance = 0;
 
 	/* un-serialize the key */
 	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
@@ -112,11 +113,6 @@ _configget(mach_port_t			server,
 		*sc_status = kSCStatusFailed;
 		goto done;
 	}
-
-	/*
-	 * return the instance number associated with the returned data.
-	 */
-	*newInstance = 1;
 
     done :
 

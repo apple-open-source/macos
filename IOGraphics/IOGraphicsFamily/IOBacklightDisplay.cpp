@@ -34,6 +34,7 @@
 #include <IOKit/ndrvsupport/IOMacOSVideo.h>
 
 #include "IOGraphicsKTrace.h"
+#include "GMetric.hpp"
 
 /*
     We further divide the actual display panel brightness levels into four
@@ -142,6 +143,10 @@ private:
 #define super IOBacklightDisplay
 
 OSDefineMetaClassAndStructors(AppleBacklightDisplay, IOBacklightDisplay)
+
+#define RECORD_METRIC(func) \
+    GMETRICFUNC(func, DBG_FUNC_NONE, \
+                kGMETRICS_DOMAIN_BACKLIGHT | kGMETRICS_DOMAIN_POWER)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -363,10 +368,10 @@ void AppleBacklightDisplay::initPowerManagement( IOService * provider )
 
 IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOService * whatDevice )
 {
-    IOG_KTRACE(DBG_IOG_SET_POWER_STATE,
-               DBG_FUNC_NONE,
-               kGMETRICS_DOMAIN_BACKLIGHT | kGMETRICS_DOMAIN_POWER,
-               powerState,
+    // Single threaded by IOServicePM design
+    RECORD_METRIC(DBG_IOG_SET_POWER_STATE);
+    IOG_KTRACE(DBG_IOG_SET_POWER_STATE, DBG_FUNC_NONE,
+               0, powerState,
                0, DBG_IOG_SOURCE_APPLEBACKLIGHTDISPLAY,
                0, 0,
                0, 0);
@@ -549,6 +554,7 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 
 void AppleBacklightDisplay::fadeAbort(void)
 {
+    // On FBcontroller workloop or called at start time
     ABL_START(fadeAbort,0,0,0);
 	if (kFadeIdle == fFadeState)
     {
@@ -570,10 +576,9 @@ void AppleBacklightDisplay::fadeAbort(void)
     }
     if (fFadeDown)
     {
-        IOG_KTRACE(DBG_IOG_ACK_POWER_STATE,
-                   DBG_FUNC_NONE,
-                   kGMETRICS_DOMAIN_BACKLIGHT | kGMETRICS_DOMAIN_POWER,
-                   DBG_IOG_SOURCE_IODISPLAY,
+        RECORD_METRIC(DBG_IOG_ACK_POWER_STATE);
+        IOG_KTRACE(DBG_IOG_ACK_POWER_STATE, DBG_FUNC_NONE,
+                   0, DBG_IOG_SOURCE_IODISPLAY,
                    0, 0,
                    0, 0,
                    0, 0);
@@ -588,6 +593,8 @@ bail:
 
 void AppleBacklightDisplay::fadeWork(IOTimerEventSource * sender)
 {
+    // On FBController workloop
+
     ABL_START(fadeWork,0,0,0);
 	SInt32 fade, gamma, point;
     
@@ -656,10 +663,9 @@ void AppleBacklightDisplay::fadeWork(IOTimerEventSource * sender)
 	    DEBGFADE("AppleBacklight: fadeWork ack\n");
         if (fFadeDown)
         {
-            IOG_KTRACE(DBG_IOG_ACK_POWER_STATE,
-                       DBG_FUNC_NONE,
-                       kGMETRICS_DOMAIN_BACKLIGHT | kGMETRICS_DOMAIN_POWER,
-                       DBG_IOG_SOURCE_IODISPLAY,
+            RECORD_METRIC(DBG_IOG_ACK_POWER_STATE);
+            IOG_KTRACE(DBG_IOG_ACK_POWER_STATE, DBG_FUNC_NONE,
+                       0, DBG_IOG_SOURCE_IODISPLAY,
                        0, 0,
                        0, 0,
                        0, 0);

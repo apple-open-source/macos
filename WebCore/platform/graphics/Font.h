@@ -146,8 +146,10 @@ public:
 
     FloatRect boundsForGlyph(Glyph) const;
     float widthForGlyph(Glyph) const;
+    const Path& pathForGlyph(Glyph) const; // Don't store the result of this! The hash map is free to rehash at any point, leaving this reference dangling.
     FloatRect platformBoundsForGlyph(Glyph) const;
     float platformWidthForGlyph(Glyph) const;
+    Path platformPathForGlyph(Glyph) const;
 
     float spaceWidth() const { return m_spaceWidth; }
     float adjustedSpaceWidth() const { return m_adjustedSpaceWidth; }
@@ -185,11 +187,11 @@ public:
     bool isInterstitial() const { return m_isInterstitial; }
     Visibility visibility() const { return m_visibility; }
 
-#ifndef NDEBUG
+#if !LOG_DISABLED
     String description() const;
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     bool shouldNotBeUsedForArabic() const { return m_shouldNotBeUsedForArabic; };
 #endif
 #if PLATFORM(COCOA)
@@ -253,6 +255,7 @@ private:
     mutable HashMap<unsigned, RefPtr<GlyphPage>> m_glyphPages;
     mutable std::unique_ptr<GlyphMetricsMap<FloatRect>> m_glyphToBoundsMap;
     mutable GlyphMetricsMap<float> m_glyphToWidthMap;
+    mutable GlyphMetricsMap<Optional<Path>> m_glyphPathMap;
     mutable BitVector m_codePointSupport;
 
     mutable RefPtr<OpenTypeMathData> m_mathData;
@@ -280,10 +283,10 @@ private:
 #if PLATFORM(COCOA)
     mutable RetainPtr<CFMutableDictionaryRef> m_nonKernedCFStringAttributes;
     mutable RetainPtr<CFMutableDictionaryRef> m_kernedCFStringAttributes;
-    mutable std::optional<BitVector> m_glyphsSupportedBySmallCaps;
-    mutable std::optional<BitVector> m_glyphsSupportedByAllSmallCaps;
-    mutable std::optional<BitVector> m_glyphsSupportedByPetiteCaps;
-    mutable std::optional<BitVector> m_glyphsSupportedByAllPetiteCaps;
+    mutable Optional<BitVector> m_glyphsSupportedBySmallCaps;
+    mutable Optional<BitVector> m_glyphsSupportedByAllSmallCaps;
+    mutable Optional<BitVector> m_glyphsSupportedByPetiteCaps;
+    mutable Optional<BitVector> m_glyphsSupportedByAllPetiteCaps;
 #endif
 
 #if PLATFORM(WIN)
@@ -314,12 +317,12 @@ private:
 
     unsigned m_isUsedInSystemFallbackCache : 1;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     unsigned m_shouldNotBeUsedForArabic : 1;
 #endif
 };
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 bool fontFamilyShouldNotBeUsedForArabic(CFStringRef);
 #endif
 

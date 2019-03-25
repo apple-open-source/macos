@@ -22,7 +22,10 @@
 		<string>added new /Library/Perl/Updates/%lt;version%gt; directory that comes before the system perl directories in the module search order; installprivlib and installarchlib now point to this Updates directory</string>
 		<string>regcomp.c: CVE-2017-12837 34337696</string>
 		<string>regcomp.c: CVE-2018-6797 37828841</string>
+		<string>regcomp.c: CVE-2018-18313 45830522</string>
 		<string>CVE-2018-6913 37828808</string>
+		<string>util.c: CVE-2018-18311 45830462</string>
+		<string>CVE-2018-12015 45830482</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Artistic</string>

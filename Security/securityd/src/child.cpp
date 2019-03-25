@@ -57,7 +57,7 @@ ServerChild::ServerChild()
 //
 ServerChild::~ServerChild()
 {
-	mServicePort.destroy();
+	mServicePort.deallocate();
 	
 	if (state() == alive) {
 		this->kill(SIGTERM);		// shoot it once
@@ -119,7 +119,8 @@ void ServerChild::checkIn(Port servicePort, pid_t pid)
 		{
 			StLock<Mutex> _(mCheckinLock);
 			child->mServicePort = servicePort;
-			servicePort.modRefs(MACH_PORT_RIGHT_SEND, +1);	// retain send right
+            // The macro END_IPCS deallocates this
+            servicePort.modRefs(MACH_PORT_RIGHT_SEND, +1);    // retain send right
 			secinfo("serverchild", "%p (pid %d) checking in; resuming parent thread",
 				child, pid);
 		}

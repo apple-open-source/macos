@@ -2424,14 +2424,27 @@ static int copyfile_data(copyfile_state_t s)
 	/* If supported, do preallocation for Xsan / HFS / apfs volumes */
 #ifdef F_PREALLOCATE
 	{
-		fstore_t fst;
+		off_t dst_bytes_allocated = 0;
+		struct stat dst_sb;
 
-		fst.fst_flags = 0;
-		fst.fst_posmode = F_PEOFPOSMODE;
-		fst.fst_offset = 0;
-		fst.fst_length = s->sb.st_size;
-		/* Ignore errors; this is merely advisory. */
-		(void)fcntl(s->dst_fd, F_PREALLOCATE, &fst);
+		if (fstat(s->dst_fd, &dst_sb) == 0) {
+			// The destination may already have
+			// preallocated space we can use.
+			dst_bytes_allocated = dst_sb.st_blocks * S_BLKSIZE;
+		}
+
+		if (dst_bytes_allocated < s->sb.st_size) {
+			fstore_t fst;
+
+			fst.fst_flags = 0;
+			fst.fst_posmode = F_PEOFPOSMODE;
+			fst.fst_offset = 0;
+			fst.fst_length = s->sb.st_size - dst_bytes_allocated;
+
+			copyfile_debug(3, "preallocating %lld bytes on destination", fst.fst_length);
+			/* Ignore errors; this is merely advisory. */
+			(void)fcntl(s->dst_fd, F_PREALLOCATE, &fst);
+		}
 	}
 #endif
 

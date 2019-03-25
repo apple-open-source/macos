@@ -355,6 +355,7 @@ _SecPKCS12Import
 _SecRandomCopyBytes
 _SecSHA1DigestCreate
 _SecTaskCopySigningIdentifier
+_SecTaskCopyTeamIdentifier
 _SecTaskCopyValueForEntitlement
 _SecTaskCopyValuesForEntitlements
 _SecTaskCreateFromSelf
@@ -1474,6 +1475,7 @@ _SecCodeSetStatus
 _SecCodeCopyStaticCode
 _SecCodeCopyHost
 _SecCodeCopyGuestWithAttributes
+_SecCodeCreateWithAuditToken
 _SecCodeCreateWithPID
 _SecCodeCheckValidity
 _SecCodeCheckValidityWithErrors
@@ -1524,6 +1526,9 @@ _kSecCodeSignerApplicationData
 _kSecCodeSignerDetached
 _kSecCodeSignerDigestAlgorithm
 _kSecCodeSignerDryRun
+_kSecCodeSignerEditCMS
+_kSecCodeSignerEditCpuSubtype
+_kSecCodeSignerEditCpuType
 _kSecCodeSignerEntitlements
 _kSecCodeSignerFlags
 _kSecCodeSignerIdentifier
@@ -1540,12 +1545,17 @@ _kSecCodeSignerTeamIdentifier
 _kSecCodeSignerPlatformIdentifier
 _kSecCodeSignerRuntimeVersion
 _kSecCodeSignerPreserveAFSC
+_kSecCodeSignerOmitAdhocFlag
 _kSecCodeSignerTimestampServer
 _kSecCodeSignerTimestampAuthentication
 _kSecCodeSignerTimestampOmitCertificates
+_kSecCodeInfoCdHashes
+_kSecCodeInfoCdHashesFull
 _kSecCodeInfoCertificates
 _kSecCodeInfoChangedFiles
 _kSecCodeInfoCMS
+_kSecCodeInfoCMSDigest
+_kSecCodeInfoCMSDigestHashType
 _kSecCodeInfoTime
 _kSecCodeInfoTimestamp
 _kSecCodeInfoDesignatedRequirement
@@ -1567,7 +1577,6 @@ _kSecCodeInfoStatus
 _kSecCodeInfoTeamIdentifier
 _kSecCodeInfoTrust
 _kSecCodeInfoUnique
-_kSecCodeInfoCdHashes
 _kSecCodeInfoRuntimeVersion
 _kSecCodeInfoCodeDirectory
 _kSecCodeInfoCodeOffset
@@ -1706,7 +1715,10 @@ _kSecCodeAttributeArchitecture
 _kSecCodeAttributeBundleVersion
 _kSecCodeAttributeSubarchitecture
 _kSecCodeInfoCMS
+_kSecCodeInfoCMSDigest
+_kSecCodeInfoCMSDigestHashType
 _kSecCodeInfoCdHashes
+_kSecCodeInfoCdHashesFull
 _kSecCodeInfoChangedFiles
 _kSecCodeInfoCodeDirectory
 _kSecCodeInfoCodeOffset

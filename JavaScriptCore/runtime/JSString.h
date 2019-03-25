@@ -127,7 +127,7 @@ private:
         Base::finishCreation(vm);
         setLength(length);
         setIs8Bit(m_value.impl()->is8Bit());
-        Heap::heap(this)->reportExtraMemoryAllocated(cost);
+        vm.heap.reportExtraMemoryAllocated(cost);
     }
 
 protected:
@@ -163,7 +163,7 @@ public:
 
     inline bool equal(ExecState*, JSString* other) const;
     const String& value(ExecState*) const;
-    const String& tryGetValue() const;
+    inline const String& tryGetValue() const;
     const StringImpl* tryGetValueImpl() const;
     ALWAYS_INLINE unsigned length() const { return m_length; }
 
@@ -223,7 +223,6 @@ private:
     mutable uint16_t m_flags { 0 };
     // The poison is strategically placed and holds a value such that the first
     // 64 bits of JSString look like a double JSValue.
-    uint16_t m_poison { 1 };
     mutable String m_value;
 
     friend class LLIntOffsetsExtractor;
@@ -427,12 +426,14 @@ private:
     friend JSValue jsStringFromRegisterArray(ExecState*, Register*, unsigned);
     friend JSValue jsStringFromArguments(ExecState*, JSValue);
 
-    JS_EXPORT_PRIVATE void resolveRope(ExecState*) const;
+    // If nullOrExecForOOM is null, resolveRope() will be do nothing in the event of an OOM error.
+    // The rope value will remain a null string in that case.
+    JS_EXPORT_PRIVATE void resolveRope(ExecState* nullOrExecForOOM) const;
     JS_EXPORT_PRIVATE void resolveRopeToAtomicString(ExecState*) const;
     JS_EXPORT_PRIVATE RefPtr<AtomicStringImpl> resolveRopeToExistingAtomicString(ExecState*) const;
     void resolveRopeSlowCase8(LChar*) const;
     void resolveRopeSlowCase(UChar*) const;
-    void outOfMemory(ExecState*) const;
+    void outOfMemory(ExecState* nullOrExecForOOM) const;
     void resolveRopeInternal8(LChar*) const;
     void resolveRopeInternal8NoSubstring(LChar*) const;
     void resolveRopeInternal16(UChar*) const;
@@ -557,8 +558,10 @@ inline const String& JSString::value(ExecState* exec) const
 
 inline const String& JSString::tryGetValue() const
 {
-    if (isRope())
-        static_cast<const JSRopeString*>(this)->resolveRope(0);
+    if (isRope()) {
+        // Pass nullptr for the ExecState so that resolveRope does not throw in the event of an OOM error.
+        static_cast<const JSRopeString*>(this)->resolveRope(nullptr);
+    }
     return m_value;
 }
 
@@ -684,14 +687,18 @@ ALWAYS_INLINE JSString* jsStringWithCache(ExecState* exec, const String& s)
 ALWAYS_INLINE bool JSString::getStringPropertySlot(ExecState* exec, PropertyName propertyName, PropertySlot& slot)
 {
     VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     if (propertyName == vm.propertyNames->length) {
         slot.setValue(this, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly, jsNumber(length()));
         return true;
     }
 
-    std::optional<uint32_t> index = parseIndex(propertyName);
+    Optional<uint32_t> index = parseIndex(propertyName);
     if (index && index.value() < length()) {
-        slot.setValue(this, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly, getIndex(exec, index.value()));
+        JSValue value = getIndex(exec, index.value());
+        RETURN_IF_EXCEPTION(scope, false);
+        slot.setValue(this, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly, value);
         return true;
     }
 
@@ -700,8 +707,13 @@ ALWAYS_INLINE bool JSString::getStringPropertySlot(ExecState* exec, PropertyName
 
 ALWAYS_INLINE bool JSString::getStringPropertySlot(ExecState* exec, unsigned propertyName, PropertySlot& slot)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     if (propertyName < length()) {
-        slot.setValue(this, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly, getIndex(exec, propertyName));
+        JSValue value = getIndex(exec, propertyName);
+        RETURN_IF_EXCEPTION(scope, false);
+        slot.setValue(this, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly, value);
         return true;
     }
 

@@ -36,9 +36,8 @@
 #include <wtf/WorkQueue.h>
 #include <wtf/text/CString.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 Ref<LocalStorageDatabaseTracker> LocalStorageDatabaseTracker::create(Ref<WorkQueue>&& queue, const String& localStorageDirectory)
 {
@@ -49,8 +48,6 @@ LocalStorageDatabaseTracker::LocalStorageDatabaseTracker(Ref<WorkQueue>&& queue,
     : m_queue(WTFMove(queue))
     , m_localStorageDirectory(localStorageDirectory.isolatedCopy())
 {
-    ASSERT(!m_localStorageDirectory.isEmpty());
-
     // Make sure the encoding is initialized before we start dispatching things to the queue.
     UTF8Encoding();
 
@@ -86,7 +83,7 @@ void LocalStorageDatabaseTracker::deleteDatabaseWithOrigin(const SecurityOriginD
 void LocalStorageDatabaseTracker::deleteAllDatabases()
 {
     auto paths = FileSystem::listDirectory(m_localStorageDirectory, "*.localstorage");
-    for (auto path : paths) {
+    for (const auto& path : paths) {
         SQLiteFileSystem::deleteDatabaseFile(path);
 
         // FIXME: Call out to the client.
@@ -103,8 +100,11 @@ Vector<SecurityOriginData> LocalStorageDatabaseTracker::databasesModifiedSince(W
     for (auto origin : databaseOrigins) {
         auto path = databasePath(origin);
         
-        auto modificationTime = WallTime::fromRawSeconds(SQLiteFileSystem::databaseModificationTime(path));
-        if (modificationTime >= time)
+        auto modificationTime = SQLiteFileSystem::databaseModificationTime(path);
+        if (!modificationTime)
+            continue;
+
+        if (modificationTime.value() >= time)
             databaseOriginsModified.append(origin);
     }
 
@@ -116,7 +116,7 @@ Vector<SecurityOriginData> LocalStorageDatabaseTracker::origins() const
     Vector<SecurityOriginData> databaseOrigins;
     auto paths = FileSystem::listDirectory(m_localStorageDirectory, "*.localstorage");
     
-    for (auto path : paths) {
+    for (const auto& path : paths) {
         auto filename = FileSystem::pathGetFileName(path);
         auto originIdentifier = filename.substring(0, filename.length() - strlen(".localstorage"));
         auto origin = SecurityOriginData::fromDatabaseIdentifier(originIdentifier);
@@ -135,13 +135,13 @@ Vector<LocalStorageDatabaseTracker::OriginDetails> LocalStorageDatabaseTracker::
     auto databaseOrigins = origins();
     result.reserveInitialCapacity(databaseOrigins.size());
 
-    for (auto origin : databaseOrigins) {
+    for (const auto& origin : databaseOrigins) {
         String path = databasePath(origin);
 
         OriginDetails details;
         details.originIdentifier = origin.databaseIdentifier();
-        details.creationTime = WallTime::fromRawSeconds(SQLiteFileSystem::databaseCreationTime(path));
-        details.modificationTime = WallTime::fromRawSeconds(SQLiteFileSystem::databaseModificationTime(path));
+        details.creationTime = SQLiteFileSystem::databaseCreationTime(path);
+        details.modificationTime = SQLiteFileSystem::databaseModificationTime(path);
         result.uncheckedAppend(details);
     }
 
@@ -151,11 +151,12 @@ Vector<LocalStorageDatabaseTracker::OriginDetails> LocalStorageDatabaseTracker::
 String LocalStorageDatabaseTracker::databasePath(const String& filename) const
 {
     if (!SQLiteFileSystem::ensureDatabaseDirectoryExists(m_localStorageDirectory)) {
-        LOG_ERROR("Unable to create LocalStorage database path %s", m_localStorageDirectory.utf8().data());
+        if (!m_localStorageDirectory.isNull())
+            LOG_ERROR("Unable to create LocalStorage database path %s", m_localStorageDirectory.utf8().data());
         return String();
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     platformMaybeExcludeFromBackup();
 #endif
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,26 +23,20 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if !PLATFORM(IOS)
-
-#ifndef WebCoreFullScreenPlaceholderView_h
-#define WebCoreFullScreenPlaceholderView_h
+#if PLATFORM(MAC)
 
 #import <wtf/RetainPtr.h>
+#import <wtf/WeakObjCPtr.h>
 
 WEBCORE_EXPORT @interface WebCoreFullScreenPlaceholderView : NSView {
 @private
     RetainPtr<NSVisualEffectView> _effectView;
     RetainPtr<NSTextField> _exitWarning;
-    NSObject* _target;
-    SEL _action;
+    WeakObjCPtr<NSResponder> _target;
 }
-@property(retain) id contents;
-@property(assign) NSObject* target;
-@property(assign) SEL action;
+@property (nullable, strong) id contents;
+@property (nullable, weak) NSResponder *target;
 - (void)setExitWarningVisible:(BOOL)visible;
 @end
 
-#endif // WebCoreFullScreenPlaceholderView_h
-
-#endif // !PLATFORM(IOS)
+#endif

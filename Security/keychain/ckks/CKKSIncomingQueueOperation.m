@@ -227,6 +227,23 @@
                 continue;
             }
 
+
+            // Now, filter: if this item was added locally, would it go to this view?
+            // In this release, this is based solely on viewhint
+            NSString* viewHint = attributes[(id)kSecAttrSyncViewHint];
+            bool itemIsForView = [viewHint isEqualToString: ckks.zoneName];
+            if(!itemIsForView) {
+
+                ckkserror("ckksincoming", ckks, "ViewHint in decrypted item (%@) does not match (%@), skipping item", viewHint, ckks.zoneName);
+                iqe.state = SecCKKSStateZoneMismatch;
+                [iqe saveToDatabase:&error];
+                if(error) {
+                    ckkserror("ckksincoming", ckks, "Couldn't save zone mismatch IQE to database: %@", error);
+                    self.error = error;
+                }
+                continue;
+            }
+
             if([iqe.action isEqualToString: SecCKKSActionAdd] || [iqe.action isEqualToString: SecCKKSActionModify]) {
                 BOOL requireManifestValidation = [CKKSManifest shouldEnforceManifests];
                 BOOL manifestValidatesItem = [manifest validateItem:iqe.item withError:&error];

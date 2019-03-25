@@ -26,14 +26,12 @@
 #include "config.h"
 #include "MediaPlaybackTargetPickerMock.h"
 
-#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
 
 #include "FloatRect.h"
 #include "Logging.h"
 #include "MediaPlaybackTargetMock.h"
 #include "WebMediaSessionManager.h"
-
-using namespace WebCore;
 
 namespace WebCore {
 
@@ -124,4 +122,4 @@ void MediaPlaybackTargetPickerMock::setState(const String& deviceName, MediaPlay
 
 } // namespace WebCore
 
-#endif // ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+#endif // ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)

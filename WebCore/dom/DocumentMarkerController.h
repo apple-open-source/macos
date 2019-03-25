@@ -53,7 +53,7 @@ public:
     void addMarkerToNode(Node*, unsigned startOffset, unsigned length, DocumentMarker::MarkerType);
     void addMarkerToNode(Node*, unsigned startOffset, unsigned length, DocumentMarker::MarkerType, DocumentMarker::Data&&);
     WEBCORE_EXPORT void addTextMatchMarker(const Range*, bool activeMatch);
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     void addMarker(Range*, DocumentMarker::MarkerType, const String& description, const Vector<String>& interpretations, const RetainPtr<id>& metadata);
     void addDictationPhraseWithAlternativesMarker(Range*, const Vector<String>& interpretations);
     void addDictationResultMarker(Range*, const RetainPtr<id>& metadata);
@@ -63,7 +63,7 @@ public:
     void copyMarkers(Node* srcNode, unsigned startOffset, int length, Node* dstNode, int delta);
     bool hasMarkers() const
     {
-        ASSERT(m_markers.isEmpty() == !m_possiblyExistingMarkerTypes.contains(DocumentMarker::allMarkers()));
+        ASSERT(m_markers.isEmpty() == !m_possiblyExistingMarkerTypes.containsAny(DocumentMarker::allMarkers()));
         return !m_markers.isEmpty();
     }
     bool hasMarkers(Range&, OptionSet<DocumentMarker::MarkerType> = DocumentMarker::allMarkers());
@@ -82,7 +82,7 @@ public:
     void setMarkersActive(Range*, bool);
     void setMarkersActive(Node*, unsigned startOffset, unsigned endOffset, bool);
 
-    WEBCORE_EXPORT Vector<RenderedDocumentMarker*> markersFor(Node*, OptionSet<DocumentMarker::MarkerType> = DocumentMarker::allMarkers());
+    WEBCORE_EXPORT Vector<RenderedDocumentMarker*> markersFor(Node&, OptionSet<DocumentMarker::MarkerType> = DocumentMarker::allMarkers());
     WEBCORE_EXPORT Vector<RenderedDocumentMarker*> markersInRange(Range&, OptionSet<DocumentMarker::MarkerType>);
     void clearDescriptionOnMarkersIntersectingRange(Range&, OptionSet<DocumentMarker::MarkerType>);
 

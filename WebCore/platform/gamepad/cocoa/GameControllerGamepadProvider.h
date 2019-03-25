@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(GAMEPAD) && (defined(__LP64__) || PLATFORM(IOS))
+#if ENABLE(GAMEPAD) && (defined(__LP64__) || PLATFORM(IOS_FAMILY))
 
 #include "GamepadProvider.h"
 #include <wtf/HashMap.h>
@@ -72,7 +72,7 @@ private:
 
     void makeInvisibileGamepadsVisible();
 
-    HashMap<GCController *, std::unique_ptr<GameControllerGamepad>> m_gamepadMap;
+    HashMap<CFTypeRef, std::unique_ptr<GameControllerGamepad>> m_gamepadMap;
     Vector<PlatformGamepad*> m_gamepadVector;
     HashSet<PlatformGamepad*> m_invisibleGamepads;
 
@@ -85,4 +85,4 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(GAMEPAD) && (defined(__LP64__) || PLATFORM(IOS))
+#endif // ENABLE(GAMEPAD) && (defined(__LP64__) || PLATFORM(IOS_FAMILY))

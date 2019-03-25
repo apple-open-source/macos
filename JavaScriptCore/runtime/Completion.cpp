@@ -44,30 +44,33 @@
 
 namespace JSC {
 
+static inline bool checkSyntaxInternal(VM& vm, const SourceCode& source, ParserError& error)
+{
+    return !!parse<ProgramNode>(
+        &vm, source, Identifier(), JSParserBuiltinMode::NotBuiltin,
+        JSParserStrictMode::NotStrict, JSParserScriptMode::Classic, SourceParseMode::ProgramMode, SuperBinding::NotNeeded, error);
+}
+
 bool checkSyntax(ExecState* exec, const SourceCode& source, JSValue* returnedException)
 {
     VM& vm = exec->vm();
     JSLockHolder lock(vm);
     RELEASE_ASSERT(vm.atomicStringTable() == Thread::current().atomicStringTable());
 
-    ProgramExecutable* program = ProgramExecutable::create(exec, source);
-    JSObject* error = program->checkSyntax(exec);
-    if (error) {
-        if (returnedException)
-            *returnedException = error;
-        return false;
-    }
-
-    return true;
+    ParserError error;
+    if (checkSyntaxInternal(vm, source, error))
+        return true;
+    ASSERT(error.isValid());
+    if (returnedException)
+        *returnedException = error.toErrorObject(exec->lexicalGlobalObject(), source);
+    return false;
 }
-    
+
 bool checkSyntax(VM& vm, const SourceCode& source, ParserError& error)
 {
     JSLockHolder lock(vm);
     RELEASE_ASSERT(vm.atomicStringTable() == Thread::current().atomicStringTable());
-    return !!parse<ProgramNode>(
-        &vm, source, Identifier(), JSParserBuiltinMode::NotBuiltin,
-        JSParserStrictMode::NotStrict, JSParserScriptMode::Classic, SourceParseMode::ProgramMode, SuperBinding::NotNeeded, error);
+    return checkSyntaxInternal(vm, source, error);
 }
 
 bool checkModuleSyntax(ExecState* exec, const SourceCode& source, ParserError& error)
@@ -151,8 +154,10 @@ static JSInternalPromise* rejectPromise(ExecState* exec, JSGlobalObject* globalO
     scope.assertNoException();
     JSValue exception = scope.exception()->value();
     scope.clearException();
-    JSInternalPromiseDeferred* deferred = JSInternalPromiseDeferred::create(exec, globalObject);
+    JSInternalPromiseDeferred* deferred = JSInternalPromiseDeferred::tryCreate(exec, globalObject);
+    scope.releaseAssertNoException();
     deferred->reject(exec, exception);
+    scope.releaseAssertNoException();
     return deferred->promise();
 }
 

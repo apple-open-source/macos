@@ -46,17 +46,12 @@ legacy_valloc(szone_t *szone, size_t size)
 malloc_zone_t *
 create_legacy_scalable_zone(size_t initial_size, unsigned debug_flags)
 {
-	// legacy always uses 32 small slots
-	malloc_zone_t *mzone = create_scalable_zone(initial_size, debug_flags & ~MALLOC_EXTENDED_SMALL_SLOTS);
+	malloc_zone_t *mzone = create_scalable_zone(initial_size, debug_flags);
 	szone_t *szone = (szone_t *)mzone;
 
 	if (!szone) {
 		return NULL;
 	}
-
-	szone->is_largemem = 0;
-	szone->large_threshold = (15 * 1024);
-	szone->vm_copy_threshold = (40 * 1024);
 
 	mprotect(szone, sizeof(szone->basic_zone), PROT_READ | PROT_WRITE);
 	szone->basic_zone.valloc = (void *)legacy_valloc;

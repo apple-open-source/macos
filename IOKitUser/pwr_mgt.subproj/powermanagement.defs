@@ -180,12 +180,6 @@ routine io_pm_connection_acknowledge_event(
         in options      : pointer_t;
         out return_code : int);
 
-routine io_pm_connection_copy_status(
-           server       : mach_port_t;
-        in status_index : int;
-        out status_data : pointer_t;
-        out return_val  : int);
-
 // OS controlled power sources
 routine io_ps_new_pspowersource(
             server      : mach_port_t;

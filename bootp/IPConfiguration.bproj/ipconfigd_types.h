@@ -200,7 +200,8 @@ typedef struct {
     const struct in6_addr *	dns_servers;
     int				dns_servers_count;
     CFArrayRef			dns_search_domains;
-    struct in_addr		clat46_address;
+    boolean_t			perform_plat_discovery;
+    CFDictionaryRef		ipv4_dict;
 } dhcpv6_info_t;
 
 typedef struct {

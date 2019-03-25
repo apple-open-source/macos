@@ -45,41 +45,11 @@ using namespace WebCore;
 static bool hasFileChangedSince(const String& path, WallTime since)
 {
     ASSERT(!RunLoop::isMain());
-    time_t modificationTime;
-    if (!FileSystem::getFileModificationTime(path, modificationTime))
+    auto modificationTime = FileSystem::getFileModificationTime(path);
+    if (!modificationTime)
         return true;
 
-    return WallTime::fromRawSeconds(modificationTime) > since;
-}
-
-static std::unique_ptr<KeyedDecoder> createDecoderForFile(const String& path)
-{
-    ASSERT(!RunLoop::isMain());
-    auto handle = FileSystem::openAndLockFile(path, FileSystem::FileOpenMode::Read);
-    if (handle == FileSystem::invalidPlatformFileHandle)
-        return nullptr;
-
-    long long fileSize = 0;
-    if (!FileSystem::getFileSize(handle, fileSize)) {
-        FileSystem::unlockAndCloseFile(handle);
-        return nullptr;
-    }
-
-    size_t bytesToRead;
-    if (!WTF::convertSafely(fileSize, bytesToRead)) {
-        FileSystem::unlockAndCloseFile(handle);
-        return nullptr;
-    }
-
-    Vector<char> buffer(bytesToRead);
-    size_t totalBytesRead = FileSystem::readFromFile(handle, buffer.data(), buffer.size());
-
-    FileSystem::unlockAndCloseFile(handle);
-
-    if (totalBytesRead != bytesToRead)
-        return nullptr;
-
-    return KeyedDecoder::decoder(reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+    return modificationTime.value() > since;
 }
 
 ResourceLoadStatisticsPersistentStorage::ResourceLoadStatisticsPersistentStorage(ResourceLoadStatisticsMemoryStore& memoryStore, WorkQueue& workQueue, const String& storageDirectoryPath)
@@ -137,7 +107,7 @@ void ResourceLoadStatisticsPersistentStorage::startMonitoringDisk()
             refreshMemoryStoreFromDisk();
             break;
         case FileMonitor::FileChangeType::Removal:
-            m_memoryStore.clear();
+            m_memoryStore.clear([] { });
             m_fileMonitor = nullptr;
             monitorDirectoryForNewStatistics();
             break;
@@ -203,7 +173,7 @@ void ResourceLoadStatisticsPersistentStorage::refreshMemoryStoreFromDisk()
 
     WallTime readTime = WallTime::now();
 
-    auto decoder = createDecoderForFile(filePath);
+    auto decoder = createForFile(filePath);
     if (!decoder)
         return;
 
@@ -229,13 +199,14 @@ void ResourceLoadStatisticsPersistentStorage::populateMemoryStoreFromDisk()
 
     WallTime readTime = WallTime::now();
 
-    auto decoder = createDecoderForFile(filePath);
+    auto decoder = createForFile(filePath);
     if (!decoder) {
         m_memoryStore.grandfatherExistingWebsiteData([]() { });
         return;
     }
 
-    ASSERT_WITH_MESSAGE(m_memoryStore.isEmpty(), "This is the initial import so the store should be empty");
+    // Debug mode has a prepoulated memory store.
+    ASSERT_WITH_MESSAGE(m_memoryStore.isEmpty() || m_memoryStore.isDebugModeEnabled(), "This is the initial import so the store should be empty");
     m_memoryStore.mergeWithDataFromDecoder(*decoder);
 
     m_lastStatisticsFileSyncTime = readTime;
@@ -250,26 +221,7 @@ void ResourceLoadStatisticsPersistentStorage::writeMemoryStoreToDisk()
     m_hasPendingWrite = false;
     stopMonitoringDisk();
 
-    auto encoder = m_memoryStore.createEncoderFromData();
-    auto rawData = encoder->finishEncoding();
-    if (!rawData)
-        return;
-
-    auto storagePath = storageDirectoryPath();
-    if (!storagePath.isEmpty()) {
-        FileSystem::makeAllDirectories(storagePath);
-        excludeFromBackup();
-    }
-
-    auto handle = FileSystem::openAndLockFile(resourceLogFilePath(), FileSystem::FileOpenMode::Write);
-    if (handle == FileSystem::invalidPlatformFileHandle)
-        return;
-
-    int64_t writtenBytes = FileSystem::writeToFile(handle, rawData->data(), rawData->size());
-    FileSystem::unlockAndCloseFile(handle);
-
-    if (writtenBytes != static_cast<int64_t>(rawData->size()))
-        RELEASE_LOG_ERROR(ResourceLoadStatistics, "ResourceLoadStatisticsPersistentStorage: We only wrote %d out of %zu bytes to disk", static_cast<unsigned>(writtenBytes), rawData->size());
+    writeToDisk(m_memoryStore.createEncoderFromData(), resourceLogFilePath());
 
     m_lastStatisticsFileSyncTime = WallTime::now();
     m_lastStatisticsWriteTime = MonotonicTime::now();
@@ -306,11 +258,11 @@ void ResourceLoadStatisticsPersistentStorage::clear()
 
     stopMonitoringDisk();
 
-    if (!FileSystem::deleteFile(filePath))
+    if (!FileSystem::deleteFile(filePath) && FileSystem::fileExists(filePath))
         RELEASE_LOG_ERROR(ResourceLoadStatistics, "ResourceLoadStatisticsPersistentStorage: Unable to delete statistics file: %s", filePath.utf8().data());
 }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
 void ResourceLoadStatisticsPersistentStorage::excludeFromBackup() const
 {
 }

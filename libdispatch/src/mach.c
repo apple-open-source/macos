@@ -2175,11 +2175,14 @@ _dispatch_mach_barrier_invoke(dispatch_continuation_t dc,
 	}
 	dmrr = dm->dm_recv_refs;
 	DISPATCH_COMPILER_CAN_ASSUME(dc_flags & DC_FLAG_CONSUME);
+	if (unlikely(!dm->dm_connect_handler_called)) {
+		dispatch_invoke_with_autoreleasepool(flags, {
+			// do not coalesce with the block below due to continuation reuse
+			_dispatch_mach_connect_invoke(dm);
+		});
+	}
 	_dispatch_continuation_pop_forwarded(dc, dc_flags, dm, {
 		dispatch_invoke_with_autoreleasepool(flags, {
-			if (unlikely(!dm->dm_connect_handler_called)) {
-				_dispatch_mach_connect_invoke(dm);
-			}
 			_dispatch_client_callout(dc->dc_ctxt, dc->dc_func);
 			_dispatch_client_callout4(dmrr->dmrr_handler_ctxt,
 					DISPATCH_MACH_BARRIER_COMPLETED, NULL, 0,

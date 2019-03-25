@@ -38,7 +38,7 @@
 #import <pal/spi/mac/NSGraphicsSPI.h>
 #import <pal/spi/mac/QuickDrawSPI.h>
 #import <wtf/Assertions.h>
-#import <wtf/ObjcRuntimeExtras.h>
+#import <wtf/ObjCRuntimeExtras.h>
 #import <wtf/cf/TypeCastsCF.h>
 
 WTF_DECLARE_CF_TYPE_TRAIT(CFRunLoop);
@@ -288,11 +288,10 @@ static UInt32 GetBehaviors()
 
 static CGContextRef overrideCGContext(NSWindow *window, CGContextRef context)
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     NSWindowGraphicsContext *graphicsContext = (NSWindowGraphicsContext *)window.graphicsContext;
     CGContextRef savedContext = (CGContextRef)graphicsContext.graphicsPort;
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
     CGContextRetain(savedContext);
     [graphicsContext _web_setGraphicsPort:context];
     return savedContext;
@@ -300,10 +299,9 @@ static CGContextRef overrideCGContext(NSWindow *window, CGContextRef context)
 
 static void restoreCGContext(NSWindow *window, CGContextRef savedContext)
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     NSWindowGraphicsContext *graphicsContext = (NSWindowGraphicsContext *)window.graphicsContext;
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
     [graphicsContext _web_setGraphicsPort:savedContext];
     CGContextRelease(savedContext);
 }
@@ -323,12 +321,10 @@ static void Draw(HIWebView* inView, RgnHandle limitRgn, CGContextRef inContext)
         GrafPtr port;
         Rect portRect;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         GetPort(&port);
         GetPortBounds(port, &portRect);
         CreateCGContextForPort(port, &inContext);
-#pragma clang diagnostic push
         SyncCGContextOriginWithPort(inContext, port);
         CGContextTranslateCTM(inContext, 0, (portRect.bottom - portRect.top));
         CGContextScaleCTM(inContext, 1, -1);
@@ -1075,10 +1071,12 @@ static void RelinquishFocus(HIWebView* view, bool inAutodisplay)
 //
 static void ActiveStateChanged(HIWebView* view)
 {
+IGNORE_WARNINGS_BEGIN("undeclared-selector")
     if ([view->fWebView respondsToSelector:@selector(setEnabled)]) {
         [(NSControl*)view->fWebView setEnabled: IsControlEnabled(view->fViewRef)];
         HIViewSetNeedsDisplay(view->fViewRef, true);
     }
+IGNORE_WARNINGS_END
 }
 
 
@@ -1141,7 +1139,7 @@ UpdateCommandStatus(HIWebView* inView, const HICommand* inCommand)
                     
                 // Can't use -performSelector:withObject: here because the method we're calling returns BOOL, while
                 // -performSelector:withObject:'s return value is assumed to be an id.
-                if (wtfObjcMsgSend<BOOL>(resp, @selector(validateUserInterfaceItem:), proxy))
+                if (wtfObjCMsgSend<BOOL>(resp, @selector(validateUserInterfaceItem:), proxy))
                     EnableMenuItem(inCommand->menu.menuRef, inCommand->menu.menuItemIndex);
                 else
                     DisableMenuItem(inCommand->menu.menuRef, inCommand->menu.menuItemIndex);
@@ -1165,6 +1163,7 @@ UpdateCommandStatus(HIWebView* inView, const HICommand* inCommand)
 //
 static SEL _NSSelectorForHICommand(const HICommand* inCommand)
 {
+IGNORE_WARNINGS_BEGIN("undeclared-selector")
     switch (inCommand->commandID) {
     case kHICommandUndo:
         return @selector(undo:);
@@ -1183,6 +1182,7 @@ static SEL _NSSelectorForHICommand(const HICommand* inCommand)
     default:
         return nullptr;
     }
+IGNORE_WARNINGS_END
 
     return nullptr;
 }
@@ -1475,7 +1475,9 @@ UpdateObserver(CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *
     // printf("Update observer called\n");
 
     if (region) {
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         GetWindowRegion(GetControlOwner(view->fViewRef), kWindowUpdateRgn, region);
+        ALLOW_DEPRECATED_DECLARATIONS_END
         
         if (!EmptyRgn(region)) {
             RgnHandle ourRgn = NewRgn();

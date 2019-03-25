@@ -458,6 +458,20 @@ dwarf_formflag(Dwarf_Attribute attr,
   return (DW_DLV_ERROR);
 }
 
+Dwarf_Bool
+dwarf_formisdata(Dwarf_Attribute attr)
+{
+	Dwarf_Half form = attr->ar_attribute_form;
+	return form == DW_FORM_udata || form == DW_FORM_data1 ||
+		form == DW_FORM_data2 || form == DW_FORM_data4 ||
+		form == DW_FORM_data8 || form == DW_FORM_sdata;
+}
+
+Dwarf_Bool
+dwarf_formisudata(Dwarf_Attribute attr)
+{
+	return attr->ar_attribute_form == DW_FORM_udata;
+}
 
 int
 dwarf_formudata(Dwarf_Attribute attr,

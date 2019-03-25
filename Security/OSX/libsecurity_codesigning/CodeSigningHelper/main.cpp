@@ -40,11 +40,26 @@ request(xpc_connection_t peer, xpc_object_t event)
 	if (pid <= 0)
 		return;
 	
+	size_t audit_size;
+	audit_token_t const *audit =
+		(audit_token_t const *)xpc_dictionary_get_data(event, "audit", &audit_size);
+	
+	if (audit != NULL && audit_size != sizeof(audit_token_t)) {
+		Syslog::error("audit token has unexpected size %zu", audit_size);
+		return;
+	}
+	
 	xpc_object_t reply = xpc_dictionary_create_reply(event);
 	if (reply == NULL)
 		return;
 	
-	CFTemp<CFDictionaryRef> attributes("{%O=%d}", kSecGuestAttributePid, pid);
+	CFTemp<CFMutableDictionaryRef> attributes("{%O=%d}", kSecGuestAttributePid, pid);
+    
+	if (audit != NULL) {
+		CFRef<CFDataRef> auditData = makeCFData(audit, audit_size);
+		CFDictionaryAddValue(attributes.get(), kSecGuestAttributeAudit,
+							 auditData);
+	}
 	CFRef<SecCodeRef> code;
 	if ((rc = SecCodeCopyGuestWithAttributes(NULL, attributes, kSecCSDefaultFlags, &code.aref())) == noErr) {
 		

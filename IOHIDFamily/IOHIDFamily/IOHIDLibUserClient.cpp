@@ -189,8 +189,23 @@ bool IOHIDLibUserClient::initWithTask(task_t owningTask, void * /* security_id *
     
     if (!super::init())
         return false;
-
-    if (IOUserClient::clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator) != kIOReturnSuccess) {
+    
+    entitlement = copyClientEntitlement(owningTask, kIOHIDManagerUserAccessPrivilegedEntitlement);
+    if (entitlement) {
+        _privilegedClient |= (entitlement == kOSBooleanTrue);
+        entitlement->release();
+    }
+    
+    entitlement = copyClientEntitlement(owningTask, kIOHIDManagerUserAccessKeyboardEntitlement);
+    if (entitlement) {
+        _privilegedClient |= (entitlement == kOSBooleanTrue);
+        entitlement->release();
+    }
+    
+    IOReturn ret = IOUserClient::clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator);
+    _privilegedClient |= (ret == kIOReturnSuccess);
+    
+    if (!_privilegedClient) {
         // Preparing for extended data. Set a temporary key.
         setProperty(kIOHIDLibClientExtendedData, true);
     }
@@ -346,20 +361,12 @@ void IOHIDLibUserClient::resourceNotificationGated()
     IOReturn ret = kIOReturnSuccess;
     
     do {
-        // We should force success on seize
-        if ( kIOHIDOptionsTypeSeizeDevice & fCachedOptionBits )
+        if (_privilegedClient) {
             break;
-
+        }
+        
         ret = kIOReturnError;
-        OSObject* entitlement = copyClientEntitlement(fClient, kIOHIDManagerUserAccessPrivilegedEntitlement);
-        if (entitlement) {
-            ret = (entitlement == kOSBooleanTrue) ? kIOReturnSuccess : kIOReturnNotPrivileged;
-            entitlement->release();
-        }
-        if (ret == kIOReturnSuccess) {
-            break;
-        }
-      
+        
 #if !TARGET_OS_EMBEDDED
         OSObject * obj;
         OSData * data;
@@ -404,11 +411,6 @@ void IOHIDLibUserClient::resourceNotificationGated()
         fCachedConsoleUsersSeed = currentSeed;
 #endif
 
-        ret = clientHasPrivilege(fClient, kIOClientPrivilegeAdministrator);
-        if (ret == kIOReturnSuccess) {
-            break;
-        }
-
 #if !TARGET_OS_EMBEDDED
        if ( fNubIsKeyboard ) {
           IOUCProcessToken token;
@@ -421,11 +423,6 @@ void IOHIDLibUserClient::resourceNotificationGated()
         }
 #endif
         if (fNubIsKeyboard) {
-            OSObject* kbdEntitlement = copyClientEntitlement(fClient, kIOHIDManagerUserAccessKeyboardEntitlement);
-            if (kbdEntitlement) {
-                ret = (kbdEntitlement == kOSBooleanTrue) ? kIOReturnSuccess : kIOReturnNotPrivileged;
-                kbdEntitlement->release();
-            }
             if (ret != kIOReturnSuccess) {
                 proc_t      process;
                 process = (proc_t)get_bsdtask_info(fClient);
@@ -528,20 +525,11 @@ IOReturn IOHIDLibUserClient::open(IOOptionBits options)
     IOReturn ret = kIOReturnNotPrivileged;
     
     do {
-        ret = clientHasPrivilege(fClient, kIOClientPrivilegeAdministrator);
-        if ( ret == kIOReturnSuccess ) {
+        if (_privilegedClient) {
+            ret = kIOReturnSuccess;
             break;
         }
-#if !TARGET_OS_EMBEDDED
-        OSObject* entitlement = copyClientEntitlement(fClient, kIOHIDManagerUserAccessPrivilegedEntitlement);
-        if (entitlement) {
-            ret = (entitlement == kOSBooleanTrue) ? kIOReturnSuccess : kIOReturnNotPrivileged;
-            entitlement->release();
-        }
-        if (ret == kIOReturnSuccess) {
-            break;
-        }
-#endif
+        
         // RY: If this is a keyboard and the client is attempting to seize,
         // the client needs to be admin
         if ( !fNubIsKeyboard || ((options & kIOHIDOptionsTypeSeizeDevice) == 0) ) {
@@ -802,6 +790,8 @@ bool IOHIDLibUserClient::serializeDebugState(void *ref __unused, OSSerialize *se
     OSDictionary  *debugDict = OSDictionary::withCapacity(1);
     
     require(debugDict, exit);
+    
+    debugDict->setObject("Privileged", _privilegedClient ? kOSBooleanTrue : kOSBooleanFalse);
     
     if (fQueueMap) {
         debugDict->setObject("EventQueueMap", fQueueMap);

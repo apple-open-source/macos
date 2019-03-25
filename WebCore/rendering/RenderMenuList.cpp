@@ -48,7 +48,7 @@
 #include <math.h>
 #include <wtf/IsoMallocInlines.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "LocalizedStrings.h"
 #endif
 
@@ -58,7 +58,7 @@ using namespace HTMLNames;
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMenuList);
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 static size_t selectedOptionCount(const RenderMenuList& renderMenuList)
 {
     const Vector<HTMLElement*>& listItems = renderMenuList.selectElement().listItems();
@@ -77,7 +77,7 @@ RenderMenuList::RenderMenuList(HTMLSelectElement& element, RenderStyle&& style)
     : RenderFlexibleBox(element, WTFMove(style))
     , m_needsOptionsWidthUpdate(true)
     , m_optionsWidth(0)
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     , m_popupIsVisible(false)
 #endif
 {
@@ -90,7 +90,7 @@ RenderMenuList::~RenderMenuList()
 
 void RenderMenuList::willBeDestroyed()
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (m_popup)
         m_popup->disconnectClient();
     m_popup = nullptr;
@@ -128,15 +128,15 @@ void RenderMenuList::adjustInnerStyle()
         // Items in the popup will not respect the CSS text-align and direction properties,
         // so we must adjust our own style to match.
         innerStyle.setTextAlign(TextAlignMode::Left);
-        TextDirection direction = (m_buttonText && m_buttonText->text().defaultWritingDirection() == U_RIGHT_TO_LEFT) ? RTL : LTR;
+        TextDirection direction = (m_buttonText && m_buttonText->text().defaultWritingDirection() == U_RIGHT_TO_LEFT) ? TextDirection::RTL : TextDirection::LTR;
         innerStyle.setDirection(direction);
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     } else if (document().page()->chrome().selectItemAlignmentFollowsMenuWritingDirection()) {
-        innerStyle.setTextAlign(style().direction() == LTR ? TextAlignMode::Left : TextAlignMode::Right);
+        innerStyle.setTextAlign(style().direction() == TextDirection::LTR ? TextAlignMode::Left : TextAlignMode::Right);
         TextDirection direction;
         EUnicodeBidi unicodeBidi;
         if (multiple() && selectedOptionCount(*this) != 1) {
-            direction = (m_buttonText && m_buttonText->text().defaultWritingDirection() == U_RIGHT_TO_LEFT) ? RTL : LTR;
+            direction = (m_buttonText && m_buttonText->text().defaultWritingDirection() == U_RIGHT_TO_LEFT) ? TextDirection::RTL : TextDirection::LTR;
             unicodeBidi = UBNormal;
         } else if (m_optionStyle) {
             direction = m_optionStyle->direction();
@@ -157,7 +157,7 @@ void RenderMenuList::adjustInnerStyle()
         innerStyle.setDirection(m_optionStyle->direction());
         innerStyle.setUnicodeBidi(m_optionStyle->unicodeBidi());
     }
-#endif // !PLATFORM(IOS)
+#endif // !PLATFORM(IOS_FAMILY)
 }
 
 HTMLSelectElement& RenderMenuList::selectElement() const
@@ -232,7 +232,7 @@ void RenderMenuList::updateFromElement()
         m_needsOptionsWidthUpdate = false;
     }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (m_popupIsVisible)
         m_popup->updateFromElement();
     else
@@ -256,7 +256,7 @@ void RenderMenuList::setTextFromOption(int optionIndex)
         }
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (multiple()) {
         size_t count = selectedOptionCount(*this);
         if (count != 1)
@@ -270,7 +270,7 @@ void RenderMenuList::setTextFromOption(int optionIndex)
 
 void RenderMenuList::setText(const String& s)
 {
-    String textToUse = s.isEmpty() ? String("\n"_s) : s;
+    String textToUse = s.isEmpty() ? "\n"_str : s;
 
     if (m_buttonText)
         m_buttonText->setText(textToUse.impl(), true);
@@ -344,7 +344,7 @@ void RenderMenuList::computePreferredLogicalWidths()
     setPreferredLogicalWidthsDirty(false);
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 NO_RETURN_DUE_TO_ASSERT
 void RenderMenuList::showPopup()
 {
@@ -372,7 +372,7 @@ void RenderMenuList::showPopup()
 
 void RenderMenuList::hidePopup()
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (m_popup)
         m_popup->hide();
 #endif
@@ -579,7 +579,7 @@ const int endOfLinePadding = 2;
 
 LayoutUnit RenderMenuList::clientPaddingLeft() const
 {
-    if ((style().appearance() == MenulistPart || style().appearance() == MenulistButtonPart) && style().direction() == RTL) {
+    if ((style().appearance() == MenulistPart || style().appearance() == MenulistButtonPart) && style().direction() == TextDirection::RTL) {
         // For these appearance values, the theme applies padding to leave room for the
         // drop-down button. But leaving room for the button inside the popup menu itself
         // looks strange, so we return a small default padding to avoid having a large empty
@@ -593,7 +593,7 @@ LayoutUnit RenderMenuList::clientPaddingLeft() const
 
 LayoutUnit RenderMenuList::clientPaddingRight() const
 {
-    if ((style().appearance() == MenulistPart || style().appearance() == MenulistButtonPart) && style().direction() == LTR)
+    if ((style().appearance() == MenulistPart || style().appearance() == MenulistButtonPart) && style().direction() == TextDirection::LTR)
         return endOfLinePadding;
 
     return paddingRight() + m_innerBlock->paddingRight();
@@ -611,7 +611,7 @@ int RenderMenuList::selectedIndex() const
 
 void RenderMenuList::popupDidHide()
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     m_popupIsVisible = false;
 #endif
 }

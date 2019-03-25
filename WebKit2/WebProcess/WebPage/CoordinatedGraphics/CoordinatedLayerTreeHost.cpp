@@ -145,7 +145,7 @@ void CoordinatedLayerTreeHost::setVisibleContentsRect(const FloatRect& rect)
     scheduleLayerFlush();
 }
 
-void CoordinatedLayerTreeHost::renderNextFrame()
+void CoordinatedLayerTreeHost::renderNextFrame(bool forceRepaint)
 {
     m_isWaitingForRenderer = false;
     bool scheduledWhileWaitingForRenderer = std::exchange(m_scheduledWhileWaitingForRenderer, false);
@@ -167,8 +167,10 @@ void CoordinatedLayerTreeHost::renderNextFrame()
         m_forceRepaintAsync.needsFreshFlush = false;
     }
 
-    if (scheduledWhileWaitingForRenderer || m_layerFlushTimer.isActive()) {
+    if (scheduledWhileWaitingForRenderer || m_layerFlushTimer.isActive() || forceRepaint) {
         m_layerFlushTimer.stop();
+        if (forceRepaint)
+            m_coordinator.forceFrameSync();
         layerFlushTimerFired();
     }
 }
@@ -187,6 +189,7 @@ void CoordinatedLayerTreeHost::layerFlushTimerFired()
 
     m_coordinator.syncDisplayState();
     m_webPage.flushPendingEditorStateUpdate();
+    m_webPage.willDisplayPage();
 
     if (!m_isValid || !m_coordinator.rootCompositingLayer())
         return;
@@ -207,6 +210,12 @@ void CoordinatedLayerTreeHost::layerFlushTimerFired()
 void CoordinatedLayerTreeHost::commitSceneState(const CoordinatedGraphicsState& state)
 {
     m_isWaitingForRenderer = true;
+}
+
+void CoordinatedLayerTreeHost::flushLayersAndForceRepaint()
+{
+    m_coordinator.forceFrameSync();
+    scheduleLayerFlush();
 }
 
 void CoordinatedLayerTreeHost::deviceOrPageScaleFactorChanged()

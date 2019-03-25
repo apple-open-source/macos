@@ -39,17 +39,16 @@
 #include "Page.h"
 #include "SWContextManager.h"
 #include "ServiceWorkerGlobalScope.h"
-#include "URLParser.h"
 #include "WheelEventTestTrigger.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/CallFrame.h>
 #include <JavaScriptCore/IdentifierInlines.h>
 #include <JavaScriptCore/JSValueRef.h>
-
-using namespace WebCore;
+#include <wtf/URLParser.h>
 
 namespace WebCoreTestSupport {
 using namespace JSC;
+using namespace WebCore;
 
 void injectInternalsObject(JSContextRef context)
 {

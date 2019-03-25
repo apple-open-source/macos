@@ -88,7 +88,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             this._activeCallFrameDidChange();
         }
 
-        WI.issueManager.addEventListener(WI.IssueManager.Event.IssueWasAdded, this._issueWasAdded, this);
+        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.IssueAdded, this._issueWasAdded, this);
 
         if (this._sourceCode instanceof WI.SourceMapResource || this._sourceCode.sourceMaps.length > 0)
             WI.notifications.addEventListener(WI.Notification.GlobalModifierKeysDidChange, this._updateTokenTrackingControllerState, this);
@@ -99,7 +99,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
         new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.Control, "G", this.showGoToLineDialog.bind(this), this.element);
 
-        WI.logManager.addEventListener(WI.LogManager.Event.Cleared, this._logCleared, this);
+        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.Cleared, this._logCleared, this);
     }
 
     // Public
@@ -126,7 +126,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     {
         super.shown();
 
-        if (WI.showJavaScriptTypeInformationSetting.value) {
+        if (WI.settings.showJavaScriptTypeInformation.value) {
             if (this._typeTokenAnnotator)
                 this._typeTokenAnnotator.resume();
             if (!this._typeTokenScrollHandler && this._typeTokenAnnotator)
@@ -136,7 +136,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
                 this._setTypeTokenAnnotatorEnabledState(false);
         }
 
-        if (WI.enableControlFlowProfilerSetting.value) {
+        if (WI.settings.enableControlFlowProfiler.value) {
             if (this._basicBlockAnnotator)
                 this._basicBlockAnnotator.resume();
 
@@ -178,7 +178,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             }
         }
 
-        WI.issueManager.removeEventListener(WI.IssueManager.Event.IssueWasAdded, this._issueWasAdded, this);
+        WI.consoleManager.removeEventListener(WI.ConsoleManager.Event.IssueAdded, this._issueWasAdded, this);
 
         if (this._sourceCode instanceof WI.SourceMapResource || this._sourceCode.sourceMaps.length > 0)
             WI.notifications.removeEventListener(WI.Notification.GlobalModifierKeysDidChange, this._updateTokenTrackingControllerState, this);
@@ -275,14 +275,11 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         return !isNaN(lineNumber) && lineNumber > 0 && lineNumber <= this.lineCount;
     }
 
-    dialogWasDismissed(goToLineDialog)
+    dialogWasDismissedWithRepresentedObject(goToLineDialog, lineNumber)
     {
-        let lineNumber = goToLineDialog.representedObject;
         let position = new WI.SourceCodePosition(lineNumber - 1, 0);
         let range = new WI.TextRange(lineNumber - 1, 0, lineNumber, 0);
-
         this.revealPosition(position, range, false, true);
-        this.focus();
     }
 
     contentDidChange(replacedRanges, newRanges)
@@ -467,11 +464,11 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         this.string = content;
 
         this._createBasicBlockAnnotator();
-        if (WI.enableControlFlowProfilerSetting.value && this._basicBlockAnnotator)
+        if (WI.settings.enableControlFlowProfiler.value && this._basicBlockAnnotator)
             this._basicBlockAnnotatorEnabled = true;
 
         this._createTypeTokenAnnotator();
-        if (WI.showJavaScriptTypeInformationSetting.value)
+        if (WI.settings.showJavaScriptTypeInformation.value)
             this._setTypeTokenAnnotatorEnabledState(true);
 
         this._contentDidPopulate();
@@ -547,7 +544,13 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         this._fullContentPopulated = true;
         this._invalidLineNumbers = {};
 
+        // If we had partial content (such as inline script content) before we had full content, we
+        // will want to re-restore the revealed position now that we are populating with full content.
+        this.repeatReveal = !!this.string;
+
         this._populateWithContent(content);
+
+        this.repeatReveal = false;
     }
 
     _breakpointStatusDidChange(event)
@@ -664,13 +667,13 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
     _targetAdded(event)
     {
-        if (WI.targets.size === 2)
+        if (WI.targets.length === 2)
             this._reinsertAllThreadIndicators();
     }
 
     _targetRemoved(event)
     {
-        if (WI.targets.size === 1) {
+        if (WI.targets.length === 1) {
             // Back to one thread, remove thread indicators.
             this._reinsertAllThreadIndicators();
             return;
@@ -682,7 +685,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
     _callFramesDidChange(event)
     {
-        if (WI.targets.size === 1)
+        if (WI.targets.length === 1)
             return;
 
         let target = event.data.target;
@@ -768,7 +771,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         if (!widget)
             return;
 
-        console.assert(WI.targets.size > 1);
+        console.assert(WI.targets.length > 1);
 
         let widgetElement = widget.widgetElement;
         widgetElement.removeChildren();
@@ -776,9 +779,6 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         widget[WI.SourceCodeTextEditor.WidgetContainsMultipleThreadsSymbol] = threads.length > 1;
 
         if (widgetElement.classList.contains("inline") || threads.length === 1) {
-            let arrowElement = widgetElement.appendChild(document.createElement("span"));
-            arrowElement.className = "arrow";
-
             let textElement = widgetElement.appendChild(document.createElement("span"));
             textElement.className = "text";
             textElement.textContent = threads.length === 1 ? threads[0].displayName : WI.UIString("%d Threads").format(threads.length);
@@ -1002,7 +1002,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     _issueWasAdded(event)
     {
         var issue = event.data.issue;
-        if (!WI.IssueManager.issueMatchSourceCode(issue, this._sourceCode))
+        if (!WI.ConsoleManager.issueMatchSourceCode(issue, this._sourceCode))
             return;
 
         this._addIssue(issue);
@@ -1083,9 +1083,6 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         widgetElement.removeChildren();
 
         if (widgetElement.classList.contains("inline") || issues.length === 1) {
-            var arrowElement = widgetElement.appendChild(document.createElement("span"));
-            arrowElement.className = "arrow";
-
             var iconElement = widgetElement.appendChild(document.createElement("span"));
             iconElement.className = "icon";
 
@@ -1248,14 +1245,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         if (breakpoints.length === 1) {
             WI.breakpointPopoverController.appendContextMenuItems(contextMenu, breakpoints[0], event.target);
 
-            if (WI.settings.experimentalEnableSourcesTab.value) {
-                if (!WI.isShowingSourcesTab()) {
-                    contextMenu.appendSeparator();
-                    contextMenu.appendItem(WI.UIString("Reveal in Sources Tab"), () => {
-                        WI.showSourcesTab({breakpointToSelect: breakpoints[0]});
-                    });
-                }
-            } else if (!WI.isShowingDebuggerTab()) {
+            if (!WI.isShowingDebuggerTab()) {
                 contextMenu.appendSeparator();
                 contextMenu.appendItem(WI.UIString("Reveal in Debugger Tab"), () => {
                     WI.showDebuggerTab({breakpointToSelect: breakpoints[0]});
@@ -1433,12 +1423,12 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             return new WI.SourceCodePosition(position.lineNumber + startLine, columnNumber);
         }
 
-        // When returning offsets, convert to offsets within the SourceCode being viewed.
+        // When returning positions, convert to positions relative to the TextEditor content.
         let highlightSourceCodeRange = (startPosition, endPosition) => {
-            startPosition = fromInlineScriptPosition(startPosition).toCodeMirror();
-            endPosition = fromInlineScriptPosition(endPosition).toCodeMirror();
+            startPosition = this.originalPositionToCurrentPosition(fromInlineScriptPosition(startPosition));
+            endPosition = this.originalPositionToCurrentPosition(fromInlineScriptPosition(endPosition));
             callback({startPosition, endPosition});
-        }
+        };
 
         script.requestScriptSyntaxTree((syntaxTree) => {
             // Convert to the position within the inline script before querying the AST.
@@ -1559,7 +1549,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         this._issuesLineNumberMap.clear();
         this._clearIssueWidgets();
 
-        let issues = WI.issueManager.issuesForSourceCode(this._sourceCode);
+        let issues = WI.consoleManager.issuesForSourceCode(this._sourceCode);
         for (let issue of issues)
             this._addIssue(issue);
     }
@@ -1579,8 +1569,9 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         // Clear other maps.
         this._threadTargetMap.clear();
 
-        if (WI.targets.size > 1) {
-            for (let target of WI.targets)
+        let debuggableTargets = WI.targets;
+        if (debuggableTargets.length > 1) {
+            for (let target of debuggableTargets)
                 this._addThreadIndicatorForTarget(target);
         }
     }
@@ -1735,6 +1726,9 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     {
         console.assert(candidate.expression);
 
+        let target = WI.debuggerManager.activeCallFrame ? WI.debuggerManager.activeCallFrame.target : this.target;
+        let expression = appendWebInspectorSourceURL(candidate.expression);
+
         function populate(error, result, wasThrown)
         {
             if (error || wasThrown)
@@ -1743,7 +1737,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             if (candidate !== this.tokenTrackingController.candidate)
                 return;
 
-            let data = WI.RemoteObject.fromPayload(result, this.target);
+            let data = WI.RemoteObject.fromPayload(result, target);
             switch (data.type) {
             case "function":
                 this._showPopoverForFunction(data);
@@ -1764,8 +1758,6 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             }
         }
 
-        let target = WI.debuggerManager.activeCallFrame ? WI.debuggerManager.activeCallFrame.target : this.target;
-        let expression = appendWebInspectorSourceURL(candidate.expression);
 
         if (WI.debuggerManager.activeCallFrame) {
             target.DebuggerAgent.evaluateOnCallFrame.invoke({callFrameId: WI.debuggerManager.activeCallFrame.id, expression, objectGroup: "popover", doNotPauseOnExceptionsAndMuteConsole: true}, populate.bind(this), target.DebuggerAgent);
@@ -1885,19 +1877,19 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
                 mode: "text/javascript",
                 readOnly: "nocursor",
             });
-            codeMirror.on("update", () => {
-                this._popover.update();
-            });
 
             const isModule = false;
             const indentString = WI.indentString();
             const includeSourceMapData = false;
             let workerProxy = WI.FormatterWorkerProxy.singleton();
             workerProxy.formatJavaScript(data.description, isModule, indentString, includeSourceMapData, ({formattedText}) => {
-                codeMirror.setValue(formattedText || data.description);
-            });
+                if (candidate !== this.tokenTrackingController.candidate)
+                    return;
 
-            this._showPopover(content);
+                this._showPopover(content);
+                codeMirror.setValue(formattedText || data.description);
+                this._popover.update();
+            });
         }
 
         data.target.DebuggerAgent.getFunctionDetails(data.objectId, didGetDetails.bind(this));
@@ -1918,13 +1910,13 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
                 if (!nodeId)
                     return;
 
-                var domNode = WI.domTreeManager.nodeForId(nodeId);
+                var domNode = WI.domManager.nodeForId(nodeId);
                 if (!domNode.ownerDocument)
                     return;
 
                 var goToButton = titleElement.appendChild(WI.createGoToArrowButton());
                 goToButton.addEventListener("click", function() {
-                    WI.domTreeManager.inspectElement(nodeId);
+                    WI.domManager.inspectElement(nodeId);
                 });
             });
         }
@@ -2108,7 +2100,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
                 this._disableScrollEventsForTypeTokenAnnotator();
         }
 
-        WI.showJavaScriptTypeInformationSetting.value = shouldActivate;
+        WI.settings.showJavaScriptTypeInformation.value = shouldActivate;
 
         this._updateTokenTrackingControllerState();
     }
@@ -2133,7 +2125,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
                 this._disableScrollEventsForControlFlowAnnotator();
         }
 
-        WI.enableControlFlowProfilerSetting.value = shouldActivate;
+        WI.settings.enableControlFlowProfiler.value = shouldActivate;
     }
 
     _getAssociatedScript(position)
@@ -2163,7 +2155,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     _createTypeTokenAnnotator()
     {
         // COMPATIBILITY (iOS 8): Runtime.getRuntimeTypesForVariablesAtOffsets did not exist yet.
-        if (!RuntimeAgent.getRuntimeTypesForVariablesAtOffsets)
+        if (!this.target.RuntimeAgent.getRuntimeTypesForVariablesAtOffsets)
             return;
 
         var script = this._getAssociatedScript();
@@ -2176,7 +2168,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     _createBasicBlockAnnotator()
     {
         // COMPATIBILITY (iOS 8): Runtime.getBasicBlocks did not exist yet.
-        if (!RuntimeAgent.getBasicBlocks)
+        if (!this.target.RuntimeAgent.getBasicBlocks)
             return;
 
         var script = this._getAssociatedScript();

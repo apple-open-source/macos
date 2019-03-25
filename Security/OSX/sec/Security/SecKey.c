@@ -31,6 +31,7 @@
 #include <Security/SecItemPriv.h>
 #include <Security/SecItemShim.h>
 #include <Security/SecFramework.h>
+#include <Security/SecCertificate.h>
 
 #include <utilities/SecIOFormat.h>
 
@@ -1376,7 +1377,10 @@ SecKeyRef SecKeyCreateDuplicate(SecKeyRef key) {
 }
 
 Boolean SecKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error) {
-    if (key->key_class->version >= 4 && key->key_class->setParameter) {
+    if (key == NULL) {
+        SecCTKKeySetTestMode(name, value);
+        return true;
+    } else if (key->key_class->version >= 4 && key->key_class->setParameter) {
         CFErrorRef localError = NULL;
         Boolean result = key->key_class->setParameter(key, name, value, &localError);
         SecKeyErrorPropagate(result, localError, error);
@@ -1560,20 +1564,30 @@ Boolean SecKeyVerifySignature(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRe
     return result;
 }
 
-CFDataRef SecKeyCreateEncryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef plainText, CFErrorRef *error) {
+CFDataRef SecKeyCreateEncryptedDataWithParameters(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef plaintext,
+                                                  CFDictionaryRef parameters, CFErrorRef *error) {
     CFErrorRef localError = NULL;
     SecKeyOperationContext context = { key, kSecKeyOperationTypeEncrypt, SecKeyCreateAlgorithmArray(algorithm) };
-    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, plainText, NULL, &localError);
+    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, plaintext, parameters, &localError);
     SecKeyOperationContextDestroy(&context);
     SecKeyErrorPropagate(result, localError, error);
     return result;
 }
 
-CFDataRef SecKeyCreateDecryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef cipherText, CFErrorRef *error) {
+CFDataRef SecKeyCreateEncryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef plaintext, CFErrorRef *error) {
+    return SecKeyCreateEncryptedDataWithParameters(key, algorithm, plaintext, NULL, error);
+}
+
+CFDataRef SecKeyCreateDecryptedDataWithParameters(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef ciphertext,
+                                                  CFDictionaryRef parameters, CFErrorRef *error) {
     SecKeyOperationContext context = { key, kSecKeyOperationTypeDecrypt, SecKeyCreateAlgorithmArray(algorithm) };
-    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, cipherText, NULL, error);
+    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, ciphertext, parameters, error);
     SecKeyOperationContextDestroy(&context);
     return result;
+}
+
+CFDataRef SecKeyCreateDecryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef ciphertext, CFErrorRef *error) {
+    return SecKeyCreateDecryptedDataWithParameters(key, algorithm, ciphertext, NULL, error);
 }
 
 CFDataRef SecKeyCopyKeyExchangeResult(SecKeyRef key, SecKeyAlgorithm algorithm, SecKeyRef publicKey,

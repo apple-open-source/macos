@@ -111,7 +111,7 @@ WI.ScriptTimelineRecord = class ScriptTimelineRecord extends WI.TimelineRecord
             console.assert("id" in nodePayload);
 
             if (nodePayload.url) {
-                var sourceCode = WI.frameResourceManager.resourceForURL(nodePayload.url);
+                var sourceCode = WI.networkManager.resourceForURL(nodePayload.url);
                 if (!sourceCode)
                     sourceCode = WI.debuggerManager.scriptsForURL(nodePayload.url, WI.assumingMainTarget())[0];
 
@@ -194,6 +194,7 @@ WI.ScriptTimelineRecord.EventType = {
     AnimationFrameFired: "script-timeline-record-animation-frame-fired",
     AnimationFrameRequested: "script-timeline-record-animation-frame-requested",
     AnimationFrameCanceled: "script-timeline-record-animation-frame-canceled",
+    ObserverCallback: "script-timeline-record-observer-callback",
     ConsoleProfileRecorded: "script-timeline-record-console-profile-recorded",
     GarbageCollected: "script-timeline-record-garbage-collected",
 };
@@ -329,11 +330,11 @@ WI.ScriptTimelineRecord.EventType.displayName = function(eventType, details, inc
         nameMap.set("webkitEditableContentChanged", "Editable Content Changed");
         nameMap.set("webkitTransitionEnd", "Transition End");
         nameMap.set("webkitaddsourcebuffer", "Add Source Buffer");
-        nameMap.set("webkitbeginfullscreen", "Begin Full Screen");
+        nameMap.set("webkitbeginfullscreen", "Begin Full-Screen");
         nameMap.set("webkitcurrentplaybacktargetiswirelesschanged", "Current Playback Target Is Wireless Changed");
-        nameMap.set("webkitendfullscreen", "End Full Screen");
-        nameMap.set("webkitfullscreenchange", "Full Screen Change");
-        nameMap.set("webkitfullscreenerror", "Full Screen Error");
+        nameMap.set("webkitendfullscreen", "End Full-Screen");
+        nameMap.set("webkitfullscreenchange", "Full-Screen Change");
+        nameMap.set("webkitfullscreenerror", "Full-Screen Error");
         nameMap.set("webkitkeyadded", "Key Added");
         nameMap.set("webkitkeyerror", "Key Error");
         nameMap.set("webkitkeymessage", "Key Message");
@@ -371,7 +372,7 @@ WI.ScriptTimelineRecord.EventType.displayName = function(eventType, details, inc
         return WI.UIString("Probe Sample Recorded");
     case WI.ScriptTimelineRecord.EventType.ConsoleProfileRecorded:
         if (details && (details instanceof String || typeof details === "string"))
-            return WI.UIString("“%s” Profile Recorded").format(details);
+            return WI.UIString("\u201C%s\u201D Profile Recorded").format(details);
         return WI.UIString("Console Profile Recorded");
     case WI.ScriptTimelineRecord.EventType.GarbageCollected:
         console.assert(details);
@@ -400,6 +401,10 @@ WI.ScriptTimelineRecord.EventType.displayName = function(eventType, details, inc
         if (details && includeDetailsInMainTitle)
             return WI.UIString("Animation Frame %d Fired").format(details);
         return WI.UIString("Animation Frame Fired");
+    case WI.ScriptTimelineRecord.EventType.ObserverCallback:
+        if (details && (details instanceof String || typeof details === "string"))
+            return WI.UIString("%s Callback").format(details);
+        return WI.UIString("Observer Callback");
     case WI.ScriptTimelineRecord.EventType.AnimationFrameRequested:
         if (details && includeDetailsInMainTitle)
             return WI.UIString("Animation Frame %d Requested").format(details);

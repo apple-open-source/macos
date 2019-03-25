@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #include "ArgumentCoders.h"
 #include "InteractionInformationRequest.h"
@@ -33,7 +33,7 @@
 #include <WebCore/IntPoint.h>
 #include <WebCore/SelectionRect.h>
 #include <WebCore/TextIndicator.h>
-#include <WebCore/URL.h>
+#include <wtf/URL.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -41,7 +41,7 @@ namespace WebKit {
 struct InteractionInformationAtPosition {
     InteractionInformationRequest request;
 
-    bool nodeAtPositionIsAssistedNode { false };
+    bool nodeAtPositionIsFocusedElement { false };
 #if ENABLE(DATA_INTERACTION)
     bool hasSelectionAtPosition { false };
 #endif
@@ -56,9 +56,12 @@ struct InteractionInformationAtPosition {
 #if ENABLE(DATA_DETECTION)
     bool isDataDetectorLink { false };
 #endif
+#if ENABLE(DATALIST_ELEMENT)
+    bool preventTextInteraction { false };
+#endif
     WebCore::FloatPoint adjustedPointForNodeRespondingToClickEvents;
-    WebCore::URL url;
-    WebCore::URL imageURL;
+    URL url;
+    URL imageURL;
     String title;
     String idAttribute;
     WebCore::IntRect bounds;
@@ -86,4 +89,4 @@ struct InteractionInformationAtPosition {
 
 }
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

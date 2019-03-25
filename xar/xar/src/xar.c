@@ -51,7 +51,8 @@
 #include <time.h>
 #include "xar.h"
 #include "config.h"
-
+#include "filetree.h"
+#include "util.h"
 #define SYMBOLIC 1
 #define NUMERIC  2
 static int Perms = 0;
@@ -305,7 +306,7 @@ static int archive(const char *filename, int arglen, char *args[]) {
 
 static int extract(const char *filename, int arglen, char *args[]) {
 	xar_t x;
-	xar_iter_t i;
+	xar_iter_t iter;
 	xar_file_t f;
 	int files_extracted = 0;
 	int argi;
@@ -383,18 +384,42 @@ static int extract(const char *filename, int arglen, char *args[]) {
 		xar_opt_set(x, XAR_OPT_SAVESUID, XAR_OPT_VAL_TRUE);
 	}
 	
-	i = xar_iter_new();
-	if( !i ) {
+	iter = xar_iter_new();
+	if( !iter ) {
 		fprintf(stderr, "Error creating xar iterator\n");
 		exit(1);
 	}
 
-	for(f = xar_file_first(x, i); f; f = xar_file_next(i)) {
+	for(f = xar_file_first(x, iter); f; f = xar_file_next(iter)) {
 		int matched = 0;
 		int exclude_match = 1;
 		struct lnode *i;
 
 		char *path = xar_get_path(f);
+		
+		// Check to see if this file is a symlink
+		const char* type = NULL;
+		xar_prop_get(f, "type", &type);
+		if( type == NULL )
+		{
+			if (Verbose)
+				printf("Warning, not extracting file \"%s\" because we can't get it's type.\n", path);
+			free(path);
+			continue;
+		}
+		
+		// Sanity check if we have a symlink, that it's a valid path.
+		const char* kSymlinkName = "symlink"; // Why there is no const for this I have no idea.
+		if (strncmp(kSymlinkName, type, strlen(kSymlinkName)) == 0)
+		{
+			if (XAR_FILE(f)->children != NULL)
+			{
+				if (Verbose)
+					printf("Warning, children of \"%s\" will not extract because it's a symlink.\n", path);
+
+				XAR_ITER(iter)->nochild = 1; // Do no extract children of a symlink
+			}
+		}
 		
 		// This includes a null check
 		if (!xar_path_issane(path)) {
@@ -403,7 +428,7 @@ static int extract(const char *filename, int arglen, char *args[]) {
 			free(path);
 			continue;
 		}
-
+		
 		if( args[0] ) {
 			for(i = extract_files; i != NULL; i = i->next) {
 				int extract_match = 1;
@@ -468,7 +493,7 @@ static int extract(const char *filename, int arglen, char *args[]) {
 	if( Subdoc )
 		extract_subdoc(x, NULL);
 
-	xar_iter_free(i);
+	xar_iter_free(iter);
 	if( xar_close(x) != 0 ) {
 		fprintf(stderr, "Error extracting the archive\n");
 		if( !Err )
@@ -605,6 +630,77 @@ static int dumptoc(const char *filename, const char* tocfile) {
 	return Err;
 }
 
+static int dump_toc_chksum(const char *filename)
+{
+	xar_t x;
+	x = xar_open(filename, READ);
+	if( !x ) {
+		fprintf(stderr, "Error opening xar archive: %s\n", filename);
+		exit(1);
+	}
+	
+	// locate data to sign
+	const char *value;
+	if( 0 != xar_prop_get((xar_file_t)x, "checksum/offset" ,&value) ) {
+		fprintf(stderr, "Could not locate checksum/offset in archive.\n");
+		exit(1);
+	}
+	
+	uint32_t dataToSignOffset = xar_get_heap_offset(x);
+	dataToSignOffset += strtoull(value, (char **)NULL, 10);
+	if( 0 != xar_prop_get((xar_file_t)x, "checksum/size" ,&value) ) {
+		fprintf(stderr, "Could not locate checksum/size in archive.\n");
+		exit(1);
+	}
+	
+	uint32_t dataToSignSize = strtoull(value, (char **)NULL, 10);
+	xar_close(x);
+	
+	// now get data to be signed, using offset and size
+	FILE *file = fopen(filename, "r");
+	if (!file) {
+		fprintf(stderr, "Could not open %s for reading data to sign!\n", filename);
+		exit(1);
+	}
+	fseek(file, dataToSignOffset, SEEK_SET);
+	unsigned char *buffer = malloc(dataToSignSize);
+	int i = fread(buffer, dataToSignSize, 1, file);
+	if (i != 1) {
+		fprintf(stderr, "Failed to read data to sign from %s!\n", filename);
+		exit(1);
+	}
+	printf("Checksum: ");
+	for (int i = 0; i < dataToSignSize; i++)
+		printf("%02x", buffer[i]);
+	printf("\n");
+	free(buffer);
+	
+	xar_header_t xh;
+	fseek(file, 0, SEEK_SET);
+	i = fread(&xh, sizeof(xh), 1, file);
+	
+	printf("Algorithm: ");
+	switch( ntohl(xh.cksum_alg) ) {
+		case XAR_CKSUM_NONE: printf("NONE\n");
+			break;
+		case XAR_CKSUM_SHA1: printf("SHA1\n");
+			break;
+		case XAR_CKSUM_SHA256: printf("SHA256\n");
+			break;
+		case XAR_CKSUM_SHA512: printf("SHA512\n");
+			break;
+		case XAR_CKSUM_MD5: printf("MD5\n");
+			break;
+		default: printf("UNKNOWN\n");
+			break;
+	}
+	
+	fflush(stdout);
+	fclose(file);
+	
+	return 0;
+}
+
 static int dump_header(const char *filename) {
 	int fd;
 	xar_header_t xh;
@@ -738,6 +834,10 @@ static void usage(const char *prog) {
 	fprintf(stderr, "\t                      Valid values: sha1, sha256, and sha512\n");
 #endif
 	fprintf(stderr, "\t                      Default: sha1\n");
+	fprintf(stderr, "\t--dump-toc-cksum      Prints out the ToC chksum in hex.\n");
+	fprintf(stderr, "\t                      The output is a hash of the ToC generated.\n");
+	fprintf(stderr, "\t                      Also prints out the algorithm used.\n");
+	fprintf(stderr, "\t                      by the checksum algorithm used during xar creation.\n");
 	fprintf(stderr, "\t--dump-toc=<filename> Has xar dump the xml header into the\n");
 	fprintf(stderr, "\t                      specified file.\n");
 	fprintf(stderr, "\t--dump-header    Prints out the xar binary header information\n");
@@ -796,6 +896,7 @@ int main(int argc, char *argv[]) {
 		{"toc-cksum",        required_argument, 0, 1},
 		{"file-cksum",       required_argument, 0, 19}, // out of order to avoid regressions
 		{"dump-toc",         required_argument, 0, 'd'},
+		{"dump-toc-cksum",   no_argument,       0, 20},
 		{"compression",      required_argument, 0, 2},
 		{"list-subdocs",     no_argument,       0, 3},
 		{"help",             no_argument,       0, 'h'},
@@ -839,6 +940,9 @@ int main(int argc, char *argv[]) {
 				exit(1);
 			}
 			Toccksum = optarg;
+			break;
+		case 20:
+			command = 20;
 			break;
 		case 19 : // file-cksum
 			if( !optarg ) {
@@ -1091,6 +1195,13 @@ int main(int argc, char *argv[]) {
 				exit(1);
 			}
 			return dumptoc(filename, tocfile);
+		case 20:
+			if( !required_dash_f ) {
+				usage(argv[0]);
+				exit(1);
+			}
+			return dump_toc_chksum(filename);
+			break;
 		case 'x':
 			arglen = argc - optind;
 			args = malloc(sizeof(char*) * (arglen+1));

@@ -150,6 +150,13 @@ enum
     kDiskArbDiskChangeRequestFailed      = 1 << 3
 };
 
+enum
+{
+    kDiskVolumeDevEncrypted         = 0x1, // device-level encryption
+    kDiskVolumeFdeEncrypted         = 0x2, // full-disk encryption
+    kDiskVolumeEncryptionConverting = 0x4, // encryption type is currently in flux
+};
+
 typedef char DiskArbDeviceTreePath[1024];
 typedef char DiskArbDiskIdentifier[1024];
 typedef char DiskArbGenericString[1024];

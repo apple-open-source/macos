@@ -42,7 +42,7 @@ const Vector<PluginInfo>& PluginData::webVisiblePlugins() const
     auto documentURL = m_page.mainFrame().document() ? m_page.mainFrame().document()->url() : URL { };
     if (!documentURL.isNull() && !protocolHostAndPortAreEqual(m_cachedVisiblePlugins.pageURL, documentURL)) {
         m_cachedVisiblePlugins.pageURL = WTFMove(documentURL);
-        m_cachedVisiblePlugins.pluginList = std::nullopt;
+        m_cachedVisiblePlugins.pluginList = WTF::nullopt;
     }
 
     if (!m_cachedVisiblePlugins.pluginList)
@@ -124,6 +124,8 @@ bool PluginData::supportsWebVisibleMimeTypeForURL(const String& mimeType, const 
 {
     if (!protocolHostAndPortAreEqual(m_cachedVisiblePlugins.pageURL, url))
         m_cachedVisiblePlugins = { url, m_page.pluginInfoProvider().webVisiblePluginInfo(m_page, url) };
+    if (!m_cachedVisiblePlugins.pluginList)
+        return false;
     return supportsWebVisibleMimeType(mimeType, allowedPluginTypes, *m_cachedVisiblePlugins.pluginList);
 }
 

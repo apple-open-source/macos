@@ -273,6 +273,7 @@ currencyNumericCodes:table(nofallback){
         UZS:int{860}
         VEB:int{862}
         VEF:int{937}
+        VES:int{928}
         VNC:int{704}
         VND:int{704}
         VUV:int{548}

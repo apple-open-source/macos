@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -210,6 +210,25 @@ EAPTLSRemoveTrustExceptionsBindings(CFStringRef domain,
 				    CFStringRef identifier);
 
 /*
+ * Function: EAPTLSCopyTrustExceptionBindings
+ * Purpose:
+ *   Get a copy of trust exception bindings for the given identifier and trust domain.
+ * Returns:
+ *   NULL if trust exception list is not found for the given identifier and trust domain.
+ */
+CFDictionaryRef
+EAPTLSCopyTrustExceptionBindings(CFStringRef domain, CFStringRef identifier);
+
+/*
+ * Function: EAPTLSSetTrustExceptionBindings
+ * Purpose:
+ *   Store the given trust exception list for the given trust domain and identifier.
+ *
+ */
+void
+EAPTLSSetTrustExceptionBindings(CFStringRef domain, CFStringRef identifier, CFDictionaryRef exceptionList);
+
+/*
  * Function: EAPTLSCreateSecTrust
  * Purpose:
  *   Allocates and configures a SecTrustRef object using the
@@ -235,5 +254,7 @@ OSStatus
 EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
 			     CFDictionaryRef properties,
 			     CFArrayRef * ret_array);
+
+#define EAP_SHAREABILITY_SPI_AVAILABLE 1
 
 #endif /* _EAP8021X_EAPTLSUTIL_H */

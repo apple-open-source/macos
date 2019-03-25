@@ -197,7 +197,7 @@ void HTMLSelectElement::listBoxSelectItem(int listIndex, bool allowMultiplySelec
 
 bool HTMLSelectElement::usesMenuList() const
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (RenderTheme::singleton().delegatesMenuListRendering())
         return true;
 
@@ -221,7 +221,7 @@ int HTMLSelectElement::activeSelectionEndListIndex() const
     return lastSelectedListIndex();
 }
 
-ExceptionOr<void> HTMLSelectElement::add(const OptionOrOptGroupElement& element, const std::optional<HTMLElementOrInt>& before)
+ExceptionOr<void> HTMLSelectElement::add(const OptionOrOptGroupElement& element, const Optional<HTMLElementOrInt>& before)
 {
     RefPtr<HTMLElement> beforeElement;
     if (before) {
@@ -334,7 +334,7 @@ bool HTMLSelectElement::canSelectAll() const
 
 RenderPtr<RenderElement> HTMLSelectElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (usesMenuList())
         return createRenderer<RenderMenuList>(*this, WTFMove(style));
     return createRenderer<RenderListBox>(*this, WTFMove(style));
@@ -347,7 +347,7 @@ bool HTMLSelectElement::childShouldCreateRenderer(const Node& child) const
 {
     if (!HTMLFormControlElementWithState::childShouldCreateRenderer(child))
         return false;
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (!usesMenuList())
         return is<HTMLOptionElement>(child) || is<HTMLOptGroupElement>(child) || validationMessageShadowTreeContains(child);
 #endif
@@ -466,7 +466,7 @@ ExceptionOr<void> HTMLSelectElement::setLength(unsigned newLength)
 
     if (diff < 0) { // Add dummy elements.
         do {
-            auto result = add(HTMLOptionElement::create(document()).ptr(), std::nullopt);
+            auto result = add(HTMLOptionElement::create(document()).ptr(), WTF::nullopt);
             if (result.hasException())
                 return result;
         } while (++diff);
@@ -500,7 +500,7 @@ bool HTMLSelectElement::isRequiredFormControl() const
 
 bool HTMLSelectElement::willRespondToMouseClickEvents()
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     return !isDisabledFormControl();
 #else
     return HTMLFormControlElementWithState::willRespondToMouseClickEvents();
@@ -627,7 +627,7 @@ void HTMLSelectElement::updateListBoxSelection(bool deselectOtherOptions)
 {
     ASSERT(renderer());
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     ASSERT(renderer()->isListBox() || m_multiple);
 #else
     ASSERT(renderer()->isMenuList() || m_multiple);
@@ -700,7 +700,7 @@ void HTMLSelectElement::dispatchChangeEventForMenuList()
 
 void HTMLSelectElement::scrollToSelection()
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (usesMenuList())
         return;
 
@@ -717,7 +717,7 @@ void HTMLSelectElement::scrollToSelection()
 void HTMLSelectElement::setOptionsChangedOnRenderer()
 {
     if (auto* renderer = this->renderer()) {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
         if (is<RenderMenuList>(*renderer))
             downcast<RenderMenuList>(*renderer).setOptionsChanged(true);
         else
@@ -1239,7 +1239,7 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event& event)
 
     if (event.type() == eventNames().mousedownEvent && is<MouseEvent>(event) && downcast<MouseEvent>(event).button() == LeftButton) {
         focus();
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
         auto* renderer = this->renderer();
         if (is<RenderMenuList>(renderer)) {
             auto& menuList = downcast<RenderMenuList>(*renderer);
@@ -1256,7 +1256,7 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event& event)
         event.setDefaultHandled();
     }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (event.type() == eventNames().blurEvent && !focused()) {
         auto& menuList = downcast<RenderMenuList>(*renderer());
         if (menuList.popupIsVisible())
@@ -1500,7 +1500,7 @@ void HTMLSelectElement::defaultEventHandler(Event& event)
     if (!renderer)
         return;
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     if (isDisabledFormControl()) {
         HTMLFormControlElementWithState::defaultEventHandler(event);
         return;

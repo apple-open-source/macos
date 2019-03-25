@@ -52,6 +52,7 @@
 #include "RenderIterator.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
+#include "RenderLayerCompositor.h"
 #include "RenderMultiColumnFlow.h"
 #include "RenderRuby.h"
 #include "RenderSVGBlock.h"
@@ -74,7 +75,7 @@
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/text/TextStream.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "SelectionRect.h"
 #endif
 
@@ -414,16 +415,16 @@ RenderLayer* RenderObject::enclosingLayer() const
     return nullptr;
 }
 
-bool RenderObject::scrollRectToVisible(SelectionRevealMode revealMode, const LayoutRect& absoluteRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY, ShouldAllowCrossOriginScrolling shouldAllowCrossOriginScrolling)
+bool RenderObject::scrollRectToVisible(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions& options)
 {
-    if (revealMode == SelectionRevealMode::DoNotReveal)
+    if (options.revealMode == SelectionRevealMode::DoNotReveal)
         return false;
 
     RenderLayer* enclosingLayer = this->enclosingLayer();
     if (!enclosingLayer)
         return false;
 
-    enclosingLayer->scrollRectToVisible(revealMode, absoluteRect, insideFixed, alignX, alignY, shouldAllowCrossOriginScrolling);
+    enclosingLayer->scrollRectToVisible(absoluteRect, insideFixed, options);
     return true;
 }
 
@@ -660,7 +661,7 @@ void RenderObject::addPDFURLRect(PaintInfo& paintInfo, const LayoutPoint& paintO
 
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 // This function is similar in spirit to RenderText::absoluteRectsForRange, but returns rectangles
 // which are annotated with additional state which helps iOS draw selections in its unique way.
 // No annotations are added in this class.
@@ -961,9 +962,36 @@ LayoutRect RenderObject::clippedOverflowRectForRepaint(const RenderLayerModelObj
     return LayoutRect();
 }
 
-LayoutRect RenderObject::computeRectForRepaint(const LayoutRect& rect, const RenderLayerModelObject* repaintContainer, RepaintContext context) const
+bool RenderObject::shouldApplyCompositedContainerScrollsForRepaint()
 {
-    if (repaintContainer == this)
+#if PLATFORM(IOS_FAMILY)
+    return false;
+#else
+    return true;
+#endif
+}
+
+RenderObject::VisibleRectContext RenderObject::visibleRectContextForRepaint()
+{
+    VisibleRectContext context;
+    if (shouldApplyCompositedContainerScrollsForRepaint())
+        context.m_options.add(VisibleRectContextOption::ApplyCompositedContainerScrolls);
+    return context;
+}
+
+LayoutRect RenderObject::computeRectForRepaint(const LayoutRect& rect, const RenderLayerModelObject* repaintContainer) const
+{
+    return *computeVisibleRectInContainer(rect, repaintContainer, visibleRectContextForRepaint());
+}
+
+FloatRect RenderObject::computeFloatRectForRepaint(const FloatRect& rect, const RenderLayerModelObject* repaintContainer) const
+{
+    return *computeFloatVisibleRectInContainer(rect, repaintContainer, visibleRectContextForRepaint());
+}
+
+Optional<LayoutRect> RenderObject::computeVisibleRectInContainer(const LayoutRect& rect, const RenderLayerModelObject* container, VisibleRectContext context) const
+{
+    if (container == this)
         return rect;
 
     auto* parent = this->parent();
@@ -972,14 +1000,17 @@ LayoutRect RenderObject::computeRectForRepaint(const LayoutRect& rect, const Ren
 
     LayoutRect adjustedRect = rect;
     if (parent->hasOverflowClip()) {
-        downcast<RenderBox>(*parent).applyCachedClipAndScrollPositionForRepaint(adjustedRect);
-        if (adjustedRect.isEmpty())
+        bool isEmpty = !downcast<RenderBox>(*parent).applyCachedClipAndScrollPosition(adjustedRect, container, context);
+        if (isEmpty) {
+            if (context.m_options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection))
+                return WTF::nullopt;
             return adjustedRect;
+        }
     }
-    return parent->computeRectForRepaint(adjustedRect, repaintContainer, context);
+    return parent->computeVisibleRectInContainer(adjustedRect, container, context);
 }
 
-FloatRect RenderObject::computeFloatRectForRepaint(const FloatRect&, const RenderLayerModelObject*, bool) const
+Optional<FloatRect> RenderObject::computeFloatVisibleRectInContainer(const FloatRect&, const RenderLayerModelObject*, VisibleRectContext) const
 {
     ASSERT_NOT_REACHED();
     return FloatRect();
@@ -1469,7 +1500,7 @@ void RenderObject::destroy()
 
     m_bitfields.setBeingDestroyed(true);
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (hasLayer())
         downcast<RenderBoxModelObject>(*this).layer()->willBeDestroyed();
 #endif
@@ -1481,6 +1512,35 @@ void RenderObject::destroy()
         return;
     }
     delete this;
+}
+
+bool RenderObject::isTransparentRespectingParentFrames() const
+{
+    static const double minimumVisibleOpacity = 0.01;
+
+    float currentOpacity = 1;
+    auto* layer = enclosingLayer();
+    while (layer) {
+        auto& layerRenderer = layer->renderer();
+        currentOpacity *= layerRenderer.style().opacity();
+        if (currentOpacity < minimumVisibleOpacity)
+            return true;
+
+        auto* parentLayer = layer->parent();
+        if (!parentLayer) {
+            if (!is<RenderView>(layerRenderer))
+                return false;
+
+            auto& enclosingFrame = downcast<RenderView>(layerRenderer).view().frame();
+            if (enclosingFrame.isMainFrame())
+                return false;
+
+            if (auto *frameOwnerRenderer = enclosingFrame.ownerElement()->renderer())
+                parentLayer = frameOwnerRenderer->enclosingLayer();
+        }
+        layer = parentLayer;
+    }
+    return false;
 }
 
 Position RenderObject::positionForPoint(const LayoutPoint& point)
@@ -1770,6 +1830,16 @@ CursorDirective RenderObject::getCursor(const LayoutPoint&, Cursor&) const
     return SetCursorBasedOnStyle;
 }
 
+bool RenderObject::useDarkAppearance() const
+{
+    return document().useDarkAppearance(&style());
+}
+
+OptionSet<StyleColor::Options> RenderObject::styleColorOptions() const
+{
+    return document().styleColorOptions(&style());
+}
+
 bool RenderObject::canUpdateSelectionOnRootLineBoxes()
 {
     if (needsLayout())
@@ -1934,6 +2004,18 @@ void printLayerTreeForLiveDocuments()
             fprintf(stderr, "----------------------main frame--------------------------\n");
         fprintf(stderr, "%s", document->url().string().utf8().data());
         showLayerTree(document->renderView());
+    }
+}
+
+void printGraphicsLayerTreeForLiveDocuments()
+{
+    for (const auto* document : Document::allDocuments()) {
+        if (!document->renderView())
+            continue;
+        if (document->frame() && document->frame()->isMainFrame()) {
+            WTFLogAlways("Graphics layer tree for root document %p %s", document, document->url().string().utf8().data());
+            showGraphicsLayerTreeForCompositor(document->renderView()->compositor());
+        }
     }
 }
 

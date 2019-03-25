@@ -49,12 +49,8 @@ public:
         return 27;
 #elif CPU(ARM64)
         return 40;
-#elif CPU(ARM)
-#if CPU(ARM_THUMB2)
+#elif CPU(ARM_THUMB2)
         return 48;
-#else
-        return 52;
-#endif
 #elif CPU(MIPS)
         return 72;
 #else
@@ -71,12 +67,8 @@ public:
         return 27;
 #elif CPU(ARM64)
         return 40;
-#elif CPU(ARM)
-#if CPU(ARM_THUMB2)
+#elif CPU(ARM_THUMB2)
         return 48;
-#else
-        return 48;
-#endif
 #elif CPU(MIPS)
         return 72;
 #else
@@ -87,7 +79,7 @@ public:
     // FIXME: Make this constexpr when GCC is able to compile std::max() inside a constexpr function.
     // https://bugs.webkit.org/show_bug.cgi?id=159436
     //
-    // This is the maximum between the size for array length access, and the size for regular self access.
+    // This is the maximum between array length, string length, and regular self access sizes.
     ALWAYS_INLINE static size_t sizeForLengthAccess()
     {
 #if CPU(X86_64)
@@ -96,12 +88,8 @@ public:
         size_t size = 27;
 #elif CPU(ARM64)
         size_t size = 32;
-#elif CPU(ARM)
-#if CPU(ARM_THUMB2)
+#elif CPU(ARM_THUMB2)
         size_t size = 30;
-#else
-        size_t size = 32;
-#endif
 #elif CPU(MIPS)
         size_t size = 56;
 #else
@@ -117,6 +105,7 @@ public:
     static bool generateArrayLength(StructureStubInfo&, JSArray*);
     static void rewireStubAsJump(StructureStubInfo&, CodeLocationLabel<JITStubRoutinePtrTag>);
     static bool generateSelfInAccess(StructureStubInfo&, Structure*);
+    static bool generateStringLength(StructureStubInfo&);
 
     // This is helpful when determining the size of an IC on
     // various platforms. When adding a new type of IC, implement

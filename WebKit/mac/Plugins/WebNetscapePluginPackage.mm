@@ -53,12 +53,16 @@ using namespace WebCore;
 
 - (ResFileRefNum)openResourceFile
 {
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return CFBundleOpenBundleResourceMap(cfBundle.get());
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 - (void)closeResourceFile:(ResFileRefNum)resRef
 {
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     CFBundleCloseBundleResourceMap(cfBundle.get(), resRef);
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 - (BOOL)_initWithPath:(NSString *)pluginPath
@@ -76,11 +80,10 @@ using namespace WebCore;
         return NO;
 
 #if USE(PLUGIN_HOST_PROCESS)
-    RetainPtr<CFArrayRef> archs = adoptCF(CFBundleCopyExecutableArchitectures(cfBundle.get()));
-
-    if ([(NSArray *)archs.get() containsObject:[NSNumber numberWithInteger:NSBundleExecutableArchitectureX86_64]])
+    auto archs = adoptCF(CFBundleCopyExecutableArchitectures(cfBundle.get()));
+    if ([(__bridge NSArray *)archs.get() containsObject:@(NSBundleExecutableArchitectureX86_64)])
         pluginHostArchitecture = CPU_TYPE_X86_64;
-    else if ([(NSArray *)archs.get() containsObject:[NSNumber numberWithInteger:NSBundleExecutableArchitectureI386]])
+    else if ([(__bridge NSArray *)archs.get() containsObject:@(NSBundleExecutableArchitectureI386)])
         pluginHostArchitecture = CPU_TYPE_X86;
     else
         return NO;
@@ -94,7 +97,6 @@ using namespace WebCore;
 
      if (![self isNativeLibraryData:data])
          return NO;
-
 #endif
 
     if (![self getPluginInfoFromPLists])
@@ -120,6 +122,7 @@ using namespace WebCore;
 }
 
 #if USE(PLUGIN_HOST_PROCESS)
+
 - (cpu_type_t)pluginHostArchitecture
 {
     return pluginHostArchitecture;
@@ -168,14 +171,13 @@ using namespace WebCore;
     if (!NP_Initialize || !NP_GetEntryPoints || !NP_Shutdown)
         return NO;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     // Plugins (at least QT) require that you call UseResFile on the resource file before loading it.
     resourceRef = [self openResourceFile];
     if (resourceRef != -1) {
         UseResFile(resourceRef);
     }
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
 
     browserFuncs.version = NP_VERSION_MINOR;
     browserFuncs.size = sizeof(NPNetscapeFuncs);

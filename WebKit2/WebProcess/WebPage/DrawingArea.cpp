@@ -43,15 +43,14 @@
 #include "DrawingAreaImpl.h"
 #endif
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 std::unique_ptr<DrawingArea> DrawingArea::create(WebPage& webPage, const WebPageCreationParameters& parameters)
 {
     switch (parameters.drawingAreaType) {
 #if PLATFORM(COCOA)
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     case DrawingAreaTypeTiledCoreAnimation:
         return std::make_unique<TiledCoreAnimationDrawingArea>(webPage, parameters);
 #endif
@@ -79,7 +78,7 @@ DrawingArea::DrawingArea(DrawingAreaType type, WebPage& webPage)
 
 DrawingArea::~DrawingArea()
 {
-    WebProcess::singleton().removeMessageReceiver(Messages::DrawingArea::messageReceiverName(), m_webPage.pageID());
+    removeMessageReceiverIfNeeded();
 }
 
 void DrawingArea::dispatchAfterEnsuringUpdatedScrollPosition(WTF::Function<void ()>&& function)
@@ -94,5 +93,13 @@ RefPtr<WebCore::DisplayRefreshMonitor> DrawingArea::createDisplayRefreshMonitor(
     return nullptr;
 }
 #endif
+
+void DrawingArea::removeMessageReceiverIfNeeded()
+{
+    if (m_hasRemovedMessageReceiver)
+        return;
+    m_hasRemovedMessageReceiver = true;
+    WebProcess::singleton().removeMessageReceiver(Messages::DrawingArea::messageReceiverName(), m_webPage.pageID());
+}
 
 } // namespace WebKit

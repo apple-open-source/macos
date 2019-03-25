@@ -49,13 +49,14 @@
 
 namespace WebCore {
 
-Performance::Performance(ScriptExecutionContext& context, MonotonicTime timeOrigin)
-    : ContextDestructionObserver(&context)
+Performance::Performance(ScriptExecutionContext* context, MonotonicTime timeOrigin)
+    : ContextDestructionObserver(context)
     , m_resourceTimingBufferFullTimer(*this, &Performance::resourceTimingBufferFullTimerFired)
     , m_timeOrigin(timeOrigin)
     , m_performanceTimelineTaskQueue(context)
 {
     ASSERT(m_timeOrigin);
+    ASSERT(context || m_performanceTimelineTaskQueue.isClosed());
 }
 
 Performance::~Performance() = default;
@@ -93,7 +94,7 @@ PerformanceNavigation* Performance::navigation()
 
     ASSERT(isMainThread());
     if (!m_navigation)
-        m_navigation = PerformanceNavigation::create(downcast<Document>(*scriptExecutionContext()).frame());
+        m_navigation = PerformanceNavigation::create(downcast<Document>(*scriptExecutionContext()).domWindow());
     return m_navigation.get();
 }
 
@@ -104,7 +105,7 @@ PerformanceTiming* Performance::timing()
 
     ASSERT(isMainThread());
     if (!m_timing)
-        m_timing = PerformanceTiming::create(downcast<Document>(*scriptExecutionContext()).frame());
+        m_timing = PerformanceTiming::create(downcast<Document>(*scriptExecutionContext()).domWindow());
     return m_timing.get();
 }
 
@@ -215,7 +216,7 @@ void Performance::resourceTimingBufferFullTimerFired()
         ASSERT(m_backupResourceTimingBuffer.isEmpty());
 
         m_resourceTimingBufferFullFlag = true;
-        dispatchEvent(Event::create(eventNames().resourcetimingbufferfullEvent, true, false));
+        dispatchEvent(Event::create(eventNames().resourcetimingbufferfullEvent, Event::CanBubble::No, Event::IsCancelable::No));
 
         if (m_resourceTimingBufferFullFlag) {
             for (auto& entry : backupBuffer)

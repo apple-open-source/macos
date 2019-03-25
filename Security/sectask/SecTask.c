@@ -150,8 +150,8 @@ csops_task(SecTaskRef task, int ops, void *blob, size_t size)
 	return rc;
 }
 
-CFStringRef
-SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error)
+static CFStringRef
+SecTaskCopyIdentifier(SecTaskRef task, int op, CFErrorRef *error)
 {
         CFStringRef signingId = NULL;
         char *data = NULL;
@@ -159,7 +159,7 @@ SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error)
         uint32_t bufferlen;
         int ret;
 
-        ret = csops_task(task, CS_OPS_IDENTITY, &header, sizeof(header));
+        ret = csops_task(task, op, &header, sizeof(header));
         if (ret != -1 || errno != ERANGE)
                 return NULL;
 
@@ -174,7 +174,7 @@ SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error)
                 ret = ENOMEM;
                 goto out;
         }
-        ret = csops_task(task, CS_OPS_IDENTITY, data, bufferlen);
+        ret = csops_task(task, op, data, bufferlen);
         if (ret) {
                 ret = errno;
                 goto out;
@@ -190,6 +190,18 @@ SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error)
                 *error = CFErrorCreate(NULL, kCFErrorDomainPOSIX, ret, NULL);
 
         return signingId;
+}
+
+CFStringRef
+SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error)
+{
+    return SecTaskCopyIdentifier(task, CS_OPS_IDENTITY, error);
+}
+
+CFStringRef
+SecTaskCopyTeamIdentifier(SecTaskRef task, CFErrorRef *error)
+{
+    return SecTaskCopyIdentifier(task, CS_OPS_TEAMID, error);
 }
 
 uint32_t

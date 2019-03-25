@@ -72,7 +72,7 @@ _dispatch_semaphore_debug(dispatch_object_t dou, char *buf, size_t bufsiz)
 			_dispatch_object_class_name(dsema), dsema);
 	offset += _dispatch_object_debug_attr(dsema, &buf[offset], bufsiz - offset);
 #if USE_MACH_SEM
-	offset += dsnprintf(&buf[offset], bufsiz - offset, "port = 0x%u, ",
+	offset += dsnprintf(&buf[offset], bufsiz - offset, "port = 0x%x, ",
 			dsema->dsema_sema);
 #endif
 	offset += dsnprintf(&buf[offset], bufsiz - offset,

@@ -693,7 +693,12 @@ void KeychainDatabase::changePassphrase(const AccessCredentials *cred)
 {
 	// get and hold the common lock (don't let other threads break in here)
 	StLock<Mutex> _(common());
-	
+
+    if (!checkCredentials(cred)) {
+        secinfo("KCdb", "Cannot change passphrase for (%s): existing passphrase does not match", common().dbName());
+        MacOSError::throwMe(errSecAuthFailed);
+    }
+
 	// establish OLD secret - i.e. unlock the database
 	//@@@ do we want to leave the final lock state alone?
     if (common().isLoginKeychain()) mSaveSecret = true;

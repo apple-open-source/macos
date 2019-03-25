@@ -144,7 +144,7 @@ void ComplexTextController::collectComplexTextRunsForCharacters(const UChar* cp,
     if (!m_mayUseNaturalWritingDirection || m_run.directionalOverride()) {
         const short ltrForcedEmbeddingLevelValue = 0;
         const short rtlForcedEmbeddingLevelValue = 1;
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED == 101400) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED == 120000)
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED == 101400) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED == 120000)
         static const void* optionKeys[] = { kCTTypesetterOptionForcedEmbeddingLevel, kCTTypesetterOptionAllowUnboundedLayout };
         static const void* ltrOptionValues[] = { CFNumberCreate(kCFAllocatorDefault, kCFNumberShortType, &ltrForcedEmbeddingLevelValue), kCFBooleanTrue };
         static const void* rtlOptionValues[] = { CFNumberCreate(kCFAllocatorDefault, kCFNumberShortType, &rtlForcedEmbeddingLevelValue), kCFBooleanTrue };
@@ -158,10 +158,12 @@ void ComplexTextController::collectComplexTextRunsForCharacters(const UChar* cp,
 
         ProviderInfo info = { cp, length, stringAttributes.get() };
         // FIXME: Some SDKs complain that the second parameter below cannot be null.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnonnull"
+        IGNORE_NULL_CHECK_WARNINGS_BEGIN
         RetainPtr<CTTypesetterRef> typesetter = adoptCF(CTTypesetterCreateWithUniCharProviderAndOptions(&provideStringAndAttributes, 0, &info, m_run.ltr() ? ltrTypesetterOptions : rtlTypesetterOptions));
-#pragma clang diagnostic pop
+        IGNORE_NULL_CHECK_WARNINGS_END
+
+        if (!typesetter)
+            return;
 
         line = adoptCF(CTTypesetterCreateLine(typesetter.get(), CFRangeMake(0, 0)));
     } else {
@@ -170,9 +172,15 @@ void ComplexTextController::collectComplexTextRunsForCharacters(const UChar* cp,
         line = adoptCF(CTLineCreateWithUniCharProvider(&provideStringAndAttributes, nullptr, &info));
     }
 
+    if (!line)
+        return;
+
     m_coreTextLines.append(line.get());
 
     CFArrayRef runArray = CTLineGetGlyphRuns(line.get());
+
+    if (!runArray)
+        return;
 
     CFIndex runCount = CFArrayGetCount(runArray);
 

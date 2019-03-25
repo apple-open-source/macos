@@ -243,17 +243,12 @@ print GPERF << "EOF";
 #include \"CSSProperty.h\"
 #include \"CSSPropertyNames.h\"
 #include \"HashTools.h\"
-#include <string.h>
-
 #include <wtf/ASCIICType.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/WTFString.h>
+#include <string.h>
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored \"-Wunknown-pragmas\"
-#pragma clang diagnostic ignored \"-Wimplicit-fallthrough\"
-#endif
+IGNORE_WARNINGS_BEGIN(\"implicit-fallthrough\")
 
 // Older versions of gperf like to use the `register` keyword.
 #define register
@@ -401,11 +396,28 @@ bool CSSProperty::isInheritedProperty(CSSPropertyID id)
     return isInheritedPropertyTable[id];
 }
 
+Vector<String> CSSProperty::aliasesForProperty(CSSPropertyID id)
+{
+    switch (id) {
+EOF
+
+for my $name (@names) {
+    if (!$nameToAliases{$name}) {
+        next;
+    }
+    print GPERF "    case CSSPropertyID::CSSProperty" . $nameToId{$name} . ":\n";
+    print GPERF "        return { \"" . join("\"_s, \"", @{$nameToAliases{$name}}) . "\"_s };\n";
+}
+
+print GPERF << "EOF";
+    default:
+        return { };
+    }
+}
+
 } // namespace WebCore
 
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+IGNORE_WARNINGS_END
 EOF
 
 close GPERF;
@@ -470,7 +482,6 @@ namespace WTF {
 template<> struct DefaultHash<WebCore::CSSPropertyID> { typedef IntHash<unsigned> Hash; };
 template<> struct HashTraits<WebCore::CSSPropertyID> : GenericHashTraits<WebCore::CSSPropertyID> {
     static const bool emptyValueIsZero = true;
-    static const bool needsDestruction = false;
     static void constructDeletedValue(WebCore::CSSPropertyID& slot) { slot = static_cast<WebCore::CSSPropertyID>(WebCore::lastCSSProperty + 1); }
     static bool isDeletedValue(WebCore::CSSPropertyID value) { return value == (WebCore::lastCSSProperty + 1); }
 };
@@ -1010,12 +1021,21 @@ foreach my $name (@names) {
 print STYLEBUILDER << "EOF";
 };
 
-void StyleBuilder::applyProperty(CSSPropertyID property, StyleResolver& styleResolver, CSSValue& value, bool isInitial, bool isInherit)
+void StyleBuilder::applyProperty(CSSPropertyID property, StyleResolver& styleResolver, CSSValue& value, bool isInitial, bool isInherit, const CSSRegisteredCustomProperty* registered)
 {
     switch (property) {
     case CSSPropertyInvalid:
-    case CSSPropertyCustom:
         break;
+    case CSSPropertyCustom: {
+        auto& customProperty = downcast<CSSCustomPropertyValue>(value);
+        if (isInitial)
+            StyleBuilderCustom::applyInitialCustomProperty(styleResolver, registered, customProperty.name());
+        else if (isInherit)
+            StyleBuilderCustom::applyInheritCustomProperty(styleResolver, registered, customProperty.name());
+        else
+            StyleBuilderCustom::applyValueCustomProperty(styleResolver, registered, customProperty);
+        break;
+    }
 EOF
 
 foreach my $name (@names) {

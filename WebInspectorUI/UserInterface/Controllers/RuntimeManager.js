@@ -29,12 +29,32 @@ WI.RuntimeManager = class RuntimeManager extends WI.Object
     {
         super();
 
-        // Enable the RuntimeAgent to receive notification of execution contexts.
-        RuntimeAgent.enable();
-
-        this._activeExecutionContext = WI.mainTarget.executionContext;
+        this._activeExecutionContext = null;
 
         WI.Frame.addEventListener(WI.Frame.Event.ExecutionContextsCleared, this._frameExecutionContextsCleared, this);
+    }
+
+    // Static
+
+    static supportsAwaitPromise()
+    {
+        // COMPATIBILITY (iOS 12): Runtime.awaitPromise did not exist
+        return !!InspectorBackend.domains.Runtime.awaitPromise;
+    }
+
+    // Target
+
+    initializeTarget(target)
+    {
+        target.RuntimeAgent.enable();
+
+        // COMPATIBILITY (iOS 8): Runtime.enableTypeProfiler did not exist.
+        if (target.RuntimeAgent.enableTypeProfiler && WI.settings.showJavaScriptTypeInformation.value)
+            target.RuntimeAgent.enableTypeProfiler();
+
+        // COMPATIBILITY (iOS 10): Runtime.enableControlFlowProfiler did not exist
+        if (target.RuntimeAgent.enableControlFlowProfiler && WI.settings.enableControlFlowProfiler.value)
+            target.RuntimeAgent.enableControlFlowProfiler();
     }
 
     // Public
@@ -56,6 +76,11 @@ WI.RuntimeManager = class RuntimeManager extends WI.Object
 
     evaluateInInspectedWindow(expression, options, callback)
     {
+        if (!this._activeExecutionContext) {
+            callback(null, false);
+            return;
+        }
+
         let {objectGroup, includeCommandLineAPI, doNotPauseOnExceptionsAndMuteConsole, returnByValue, generatePreview, saveResult, sourceURLAppender} = options;
 
         includeCommandLineAPI = includeCommandLineAPI || false;
@@ -119,8 +144,11 @@ WI.RuntimeManager = class RuntimeManager extends WI.Object
     {
         console.assert(remoteObject instanceof WI.RemoteObject);
 
+        let target = this._activeExecutionContext.target;
+        let executionContextId = this._activeExecutionContext.id;
+
         // COMPATIBILITY (iOS 8): Runtime.saveResult did not exist.
-        if (!RuntimeAgent.saveResult) {
+        if (!target.RuntimeAgent.saveResult) {
             callback(undefined);
             return;
         }
@@ -129,9 +157,6 @@ WI.RuntimeManager = class RuntimeManager extends WI.Object
         {
             callback(savedResultIndex);
         }
-
-        let target = this._activeExecutionContext.target;
-        let executionContextId = this._activeExecutionContext.id;
 
         if (remoteObject.objectId)
             target.RuntimeAgent.saveResult(remoteObject.asCallArgument(), mycallback);

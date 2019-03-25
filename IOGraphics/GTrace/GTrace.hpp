@@ -7,238 +7,250 @@
 #ifndef GTrace_hpp
 #define GTrace_hpp
 
-#include <string.h>
+#include <stdatomic.h>
 
-#if defined(_KERNEL_) || defined (KERNEL)
-
-#include <IOKit/IOLib.h>
-#include <IOKit/IOService.h>
-#include <IOKit/assert.h>
-#include <IOKit/IOLocks.h>
-
-#include <libkern/libkern.h>
-#include <libkern/c++/OSContainers.h>
 #include <libkern/c++/OSObject.h>
-#include <libkern/OSByteOrder.h>
-
-#include <sys/kdebug.h>
-#include <sys/queue.h>
-#include <sys/systm.h>
-#include <sys/types.h>
-#include <sys/sysctl.h>
-
-#include <mach/vm_param.h>
-#include <mach/mach_types.h>
-extern "C" {
-#include <machine/cpu_number.h>
-}
-#else /*defined(_KERNEL_) || defined (KERNEL)*/
-
-#include <mutex>
-
-#include <stdlib.h>
-#include <unistd.h>
-#include <pthread.h>
-
-#include <mach/mach_time.h>
+#include <IOKit/IOLib.h>
 #include <IOKit/IOReturn.h>
 
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
+// Kernel clients that haven't enabled C++11 yet
+#define GTRACE_ARCHAIC_CPP (__cplusplus < 201103L)
 
-#include "GTraceTypes.h"
+#if !GTRACE_ARCHAIC_CPP
+#include <osmemory>
+#endif
 
+#include "GTraceTypes.hpp"
 
-#pragma mark - Components
-#define kGTRACE_IODISPLAYWRANGLER                           0x0000000001ULL
-#define kGTRACE_IODISPLAY                                   0x0000000002ULL
-#define kGTRACE_IODISPLAYCONNECT                            0x0000000004ULL
-#define kGTRACE_IOFBCONTROLLER                              0x0000000008ULL
-#define kGTRACE_IOFRAMEBUFFER                               0x0000000010ULL
-#define kGTRACE_IOFRAMEBUFFERPARAMETERHANDLER               0x0000000020ULL
-#define kGTRACE_FRAMEBUFFER                                 0x0000000040ULL
-#define kGTRACE_APPLEBACKLIGHT                              0x0000000080ULL
-#define kGTRACE_IOFBUSERCLIENT                              0x0000000100ULL
-#define kGTRACE_IOFBSHAREDUSERCLIENT                        0x0000000200ULL
-#define kGTRACE_IOI2INTERFACEUSERCLIENT                     0x0000000400ULL
-#define kGTRACE_IOI2INTERFACE                               0x0000000800ULL
-#define kGTRACE_IOFBI2INTERFACE                             0x0000001000ULL
-#define kGTRACE_IOBOOTFRAMEBUFFER                           0x0000002000ULL
-#define kGTRACE_IONDRVFRAMEBUFFER                         	0x0000004000ULL
-#define kGTRACE_IOACCELERATOR                               0x0000008000ULL
-#define kGTRACE_IOACCELERATORUSERCLIENT                     0x0000010000ULL
-#define kGTRACE_APPLEGRAPHICSDISPLAYPOLICY                  0x0000020000ULL
-#define kGTRACE_APPLEGRAPHICSMUXCONTROL                     0x0000040000ULL
-#define kGTRACE_APPLEGRAPHICSPOWERCONTROL                   0x0000080000ULL
-// ...
-#define kGTRACE_VENDOR_INTEL                                0x2000000000ULL
-#define kGTRACE_VENDOR_AMD                                  0x4000000000ULL
-#define kGTRACE_VENDOR_NVIDIA                               0x8000000000ULL
+// TODO: Provide example of GTRACE() macro use.
 
+#define kGTraceMaxBreadcrumbSize  (16 * 1024)    // 16KiB
+#define kGTraceMinimumLineCount UINT32_C(1024)   // @64b ==  64k
+#define kGTraceMaximumLineCount UINT32_C(8192)   // @64b == 512k
+#define kGTraceDefaultLineCount kGTraceMinimumLineCount
 
-#pragma mark - Masks
-#define         kGTRACE_COMPONENT_MASK                      0x000000FFFFFFFFFFULL       // 40 bits
-#define         kTHREAD_ID_MASK                             0x0000000000FFFFFFULL       // 24 bits
-#define         kGTRACE_REGISTRYID_MASK                     0x00000000FFFFFFFFULL       // 32 bits
+// ----------------------------------------------------------------------------
+// Main tracing Macros
+// ----------------------------------------------------------------------------
 
+// Use this to encode t0, for automatic decoding and start/end pairing
+#define GTFuncTag(funcid, functype, tag0)                                      \
+    MAKEGTRACETAG((((functype) & 0x3) << 10) | ((funcid) & 0x03FF) | (tag0))
 
-// Argument Tag Bits
-#define kGTRACE_ARGUMENT_Reserved1                          0x1000  // Future Use
-#define kGTRACE_ARGUMENT_Reserved2                          0x2000  // Future Use
-#define kGTRACE_ARGUMENT_STRING                             0x4000  // Argument is a string
-#define kGTRACE_ARGUMENT_OBFUSCATE                          0x8000  // Arguments tagged with this bit are pointers and will be obfuscated when copied/printed.
-#define kGTRACE_ARGUMENT_MASK                               (kGTRACE_ARGUMENT_Reserved1 | \
-                                                            kGTRACE_ARGUMENT_Reserved2 | \
-                                                            kGTRACE_ARGUMENT_STRING | \
-                                                            kGTRACE_ARGUMENT_OBFUSCATE)
-
-
-// Registry Properties
-#if defined(_KERNEL_) || defined (KERNEL)
-#define         kGTracePropertyTokens                       "GTrace_Tokens"
-#define         kGTracePropertyTokenCount                   "GTrace_Count"
-#define         kGTracePropertyTokenMarker                  "GTrace_Marker"
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
-
-
-#pragma mark - GTrace Marcos
-// TODO: Provide sample of GTRACE() macro usage.
-#define GTRACEOBJ                                           gGTrace                     // This will need to be defined in implementation
-#define GTRACERECORDTOKEN                                   GTRACEOBJ->recordToken      // Define the object deref for the implementation
-#define GPACKNODATA                                         0                           // 0 is a valid value, NoData used to distinguish
-#define GPACKUINT8T(x, y)                                   ((((uint64_t)(y)) & 0x000000ff) << ((x) << 3))
-#define GPACKUINT16T(x, y)                                  ((((uint64_t)(y)) & 0x0000ffff) << ((x) << 4))
-#define GPACKUINT32T(x, y)                                  ((((uint64_t)(y)) & 0xffffffff) << ((x) << 5))
-#define GPACKUINT64T(x)                                     (x)
-#define GPACKBITS(x, y)                                     ((uint64_t)(y) & ((1ULL << (x)) - 1))
-#define MAKEGTRACETAG(x)                                    static_cast<uint16_t>(x)
-// FIXME: Tagging won't work with definitions.  Need to come up with a means to create TAG IDs on the fly.  Was: gTraceTag_##x
-// Main tracing Macro
-#define GTRACE(tag0, arg0, tag1, arg1, tag2, arg2, tag3, arg3) \
-                                                            do{\
-                                                                if(GTRACEOBJ){\
-                                                                    GTRACERECORDTOKEN(__LINE__,\
-                                                                    MAKEGTRACETAG(tag0),static_cast<uint64_t>(arg0),\
-                                                                    MAKEGTRACETAG(tag1),static_cast<uint64_t>(arg1),\
-                                                                    MAKEGTRACETAG(tag2),static_cast<uint64_t>(arg2),\
-                                                                    MAKEGTRACETAG(tag3),static_cast<uint64_t>(arg3));\
-                                                                }\
-                                                            }while(0)
-
-#define GTRACE_DEFER_START(tag0, arg0, tag1, arg1, tag2, arg2, tag3, arg3, _ts_) \
-do{ \
-const uint64_t __gtrace_defer_start_ts__ = _ts_;\
-const uint64_t __gtrace_defer_start_line__ = __LINE__;\
-const uint16_t __gtrace_defer_start_tag0__ = MAKEGTRACETAG(tag0);\
-const uint16_t __gtrace_defer_start_tag1__ = MAKEGTRACETAG(tag1);\
-const uint16_t __gtrace_defer_start_tag2__ = MAKEGTRACETAG(tag2);\
-const uint16_t __gtrace_defer_start_tag3__ = MAKEGTRACETAG(tag3);\
-const uint64_t __gtrace_defer_start_arg0__ = static_cast<uint64_t>(arg0);\
-const uint64_t __gtrace_defer_start_arg1__ = static_cast<uint64_t>(arg1);\
-const uint64_t __gtrace_defer_start_arg2__ = static_cast<uint64_t>(arg2);\
-const uint64_t __gtrace_defer_start_arg3__ = static_cast<uint64_t>(arg3);
-
-#define GTRACE_DEFER_END(tag0, arg0, tag1, arg1, tag2, arg2, tag3, arg3, threshold, _ts_) \
-    if(GTRACEOBJ){\
-        if((_ts_) - __gtrace_defer_start_ts__ > (threshold)){ \
-            GTRACERECORDTOKEN(__gtrace_defer_start_line__,\
-            __gtrace_defer_start_tag0__,__gtrace_defer_start_arg0__,\
-            __gtrace_defer_start_tag1__,__gtrace_defer_start_arg1__,\
-            __gtrace_defer_start_tag2__,__gtrace_defer_start_arg2__,\
-            __gtrace_defer_start_tag3__,__gtrace_defer_start_arg3__,\
-            __gtrace_defer_start_ts__);\
-            GTRACERECORDTOKEN(__LINE__,\
-            MAKEGTRACETAG(tag0),static_cast<uint64_t>(arg0),\
-            MAKEGTRACETAG(tag1),static_cast<uint64_t>(arg1),\
-            MAKEGTRACETAG(tag2),static_cast<uint64_t>(arg2),\
-            MAKEGTRACETAG(tag3),static_cast<uint64_t>(arg3),\
-            _ts_);\
-        }\
-    }\
+#define GTRACERAW(tracer, t0, a0, t1, a1, t2, a2, t3, a3) do{                  \
+    if (static_cast<bool>(tracer)){                                            \
+        (tracer)->recordToken(__LINE__,                                        \
+                MAKEGTRACETAG(t0), MAKEGTRACEARG(a0),                          \
+                MAKEGTRACETAG(t1), MAKEGTRACEARG(a1),                          \
+                MAKEGTRACETAG(t2), MAKEGTRACEARG(a2),                          \
+                MAKEGTRACETAG(t3), MAKEGTRACEARG(a3));                         \
+    }                                                                          \
 }while(0)
 
-#if defined(_KERNEL_) || defined (KERNEL)
+// Convenience macro, used when all args are ordinary hex data fields.
+#define GTRACERAWNT(tracer, a0, a1, a2, a3)                                    \
+    GTRACERAW(tracer, 0, a0, 0, a1, 0, a2, 0, a3)
 
-#define GTRACE_USING_SUPER                                  using super = OSObject
-#define GTRACE_PUBLIC                                       : public OSObject
-#define GTRACE_SERVICE                                      IOService
-#define GTRACE_MALLOC(_s_)                                  IOMalloc(_s_)
-#define GTRACE_SAFE_FREE(_p_,_s_)                           do{if(_p_){IOFree(_p_,_s_);_p_=NULL;}}while(0)
-#define GTRACE_SLEEP(_d_)                                   do{IOSleep(_d_*1000);}while(0)
-#define GTRACE_RAII_LOCK(inLck)                             GTraceLock lock(inLck)
-#define GTRACE_RETAIN                                       retain()
-#define GTRACE_RELEASE                                      release()
-#define GTRACE_PRINTF                                       kprintf
+#define GTRACE(tracer, fid, ft, t0, a0, t1, a1, t2, a2, t3, a3)                \
+    GTRACERAW(tracer, GTFuncTag(fid, ft, t0), a0, t1, a1, t2, a2, t3, a3)
 
-#define GTRACE_LOG_SYNCH(tag0) do {\
-    if (GTRACEOBJ) {\
-        const uint32_t __gtrace_log_sync_ind__ = GTRACEOBJ->synchIndex();\
-        GTRACERECORDTOKEN(__LINE__,\
-            MAKEGTRACETAG(tag0),static_cast<uint64_t>(__gtrace_log_sync_ind__),\
-            0, 0, 0, 0, 0, 0);\
-        IOLog("GTrace synchronization point %x\n", __gtrace_log_sync_ind__);\
-    }\
+// Convenience macro, used when all as are ordinary hex data fields.
+#define GTRACE_NT(tracer, fid, ft, a0, a1, a2, a3)                             \
+    GTRACERAW(tracer, GTFuncTag(fid, ft, 0), a0, 0, a1, 0, a2, 0, a3)
+
+// GTrace for calls that are slow. The GTRACE_IFSLOW_START records the current
+// time, then GTRACE_IFSLOW_END will record an entry if the duration between
+// start and end is > the threshold.  Note `delayat` is in absolute time units.
+#define GTRACE_IFSLOW_START(tracer, fid) do {                                  \
+    const uint64_t _gtrace_ ## fid ## _start_                                  \
+        = ((static_cast<bool>(tracer)) ? mach_continuous_time() : 0)
+
+// Matches the do{ from GTRACE_IFSLOW_START, must be in same scope
+#define GTRACE_IFSLOW_END(tracer, fid, ft, t0, a0, t1, a1, t2, a2, delayat)    \
+    if(static_cast<bool>(tracer)) {                                            \
+        const uint64_t _gtrace_ifslow_now_ = mach_continuous_time();           \
+        const uint64_t _gtrace_delta_                                          \
+            = _gtrace_ifslow_now_ - _gtrace_ ## fid ## _start_;                \
+        if(_gtrace_delta_ > (delayat))                                         \
+            (tracer)->recordToken(__LINE__, GTFuncTag(fid, ft, 0),             \
+                                _gtrace_delta_, t0, a0, t1, a1, t2, a2,        \
+                                _gtrace_ifslow_now_);                          \
+    }                                                                          \
 }while(0)
 
-#else /*defined(_KERNEL_) || defined (KERNEL)*/
+// Create a pair of GTrace records but only record them if the time duration
+// was > than the absolute time threshold given in GTRACE_DEFER_END
+#define GTRACE_DEFER_START(tracer, t0, a0, t1, a1, t2, a2, t3, a3)             \
+do{                                                                            \
+    const GTraceEntry _gtrace_start_ = (static_cast<bool>(tracer))             \
+        ? (tracer)->formatToken(__LINE__, t0, a0, t1, a1, t2, a2, t3, a3)      \
+        : GTraceEntry()
 
-#define GTRACE_USING_SUPER
-#define GTRACE_PUBLIC
-#define GTRACE_SERVICE                                      uintptr_t
-#define GTRACE_MALLOC(_s_)                                  malloc(_s_)
-#define GTRACE_SAFE_FREE(_p_,_s_)                           do{if(_p_){free((void *)_p_);_p_=NULL;}}while(0)
-#define OSSafeReleaseNULL(_p_)                              do{if(_p_){_p_=NULL;}}while(0)
-#define GTRACE_SLEEP(_d_)                                   do{sleep(_d_);}while(0)
-#define GTRACE_RAII_LOCK(inLck)                             std::lock_guard<std::mutex> lock(inLck)
-#define GTRACE_RETAIN                                       GTRACE_RAII_LOCK(fInUseLock)
-#define GTRACE_RELEASE                                      
-#define GTRACE_PRINTF                                       printf
+// Matches the do{ from GTRACE_DEFER_START, must be in same block scope
+#define GTRACE_DEFER_END(tracer, t0, a0, t1, a1, t2, a2, t3, a3, delayat)      \
+    if (static_cast<bool>(tracer)) {                                           \
+        const uint64_t _gtrace_defer_now_ = mach_continuous_time();            \
+        const uint64_t _gtrace_delta_                                          \
+            = _gtrace_defer_now_ - _gtrace_start_.timestamp();                 \
+        if(_gtrace_delta_ > (delayat)) {                                       \
+            (tracer)->recordToken(_gtrace_start_);                             \
+            (tracer)->recordToken(__LINE__, t0, a0, t1, a1,                    \
+                                          t2, a2, t3, a3, _gtrace_defer_now_); \
+        }                                                                      \
+    }                                                                          \
+}while(0)
 
-// TODO(gvdl): IOLog is kernel only, os_log() perhaps
-#define GTRACE_LOG_SYNCH(args...)
+#if GTRACE_IMPL
+// Macro used by IOGraphicsFamily internally, not required for third party use.
+#define GTRACE_LOG_SYNCH(tracer, t0) do {                                      \
+    if (static_cast<bool>(tracer)) {                                           \
+        const uint32_t __gtrace_log_sync_ind__ = tracer->synchIndex();         \
+        tracer->recordToken(__LINE__,                                          \
+            MAKEGTRACETAG(t0),static_cast<uint64_t>(__gtrace_log_sync_ind__),  \
+            0, 0, 0, 0, 0, 0);                                                 \
+        IOLog("GTrace synchronization point %x\n", __gtrace_log_sync_ind__);   \
+    }                                                                          \
+}while(0)
+#endif
 
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
-
-
-#pragma mark - GTrace Class
-class GTrace GTRACE_PUBLIC
+class IOMemoryDescriptor;
+class IOMemoryMap;
+class GTraceBuffer final : public OSObject
 {
-#if defined(_KERNEL_) || defined (KERNEL)
-    OSDeclareDefaultStructors(GTrace);
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
+    OSDeclareFinalStructors(GTraceBuffer);
 
-private:
-    GTRACE_USING_SUPER;
+    using super = OSObject;
 
 public:
-#if defined(_KERNEL_) || defined (KERNEL)
-    virtual bool init() APPLE_KEXT_OVERRIDE;
-    virtual void free() APPLE_KEXT_OVERRIDE;
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
 
-    /*! @function freeGTraceResources
-     @abstract Disables token recording and frees any buffers allocated as the result of calling initWithDeviceCountAndID().
-     @discussion Kernel clients are not required to call this API.  Kernel's free() will handle the disposal of resources allocated as the result of calling initWithDeviceCountAndID().
-     */
-    void freeGTraceResources( void );
+    // sizeP is an in/out variable, size will be <= 16KiB
+    // The Breadcrumb function callout is a clean context that does not hold a
+    // lock.
+    using breadcrumb_func
+        = IOReturn (*)(void* context, void* buffer, uint16_t* sizeP);
 
-    /*! @function initWithDeviceCountAndID
-     @abstract Initialize the GTrace buffer for the associated provider and component.
-     @discussion GTrace main registration function.  Must be called and return success before GTrace can be used.
-     @param provider The owning GTRACE_SERVICE provider.  provider is not used for userland clients.
-     @param lineCount The maximum number of lines to be recorded  lineCount should be power of two, else the value is rounded down to the nearest power of two.
-     @param componentID The component's trace ID.  See kGTRACE_ components
-     @result Return kIOReturnSuccess if GTrace was inititalized, else a descriptive error.
+#if !GTRACE_ARCHAIC_CPP
+    using shared_type = iog::OSSharedObject<GTraceBuffer>;
+
+    /*!
+     @function make
+     @abstract Make a shared object of a new GTrace buffer.
+     @discussion Creates an optimised lockfree algorithm for storing 64byte
+                 records into a ring buffer. This buffer can be dumped by
+                 `iogdiagnose` and then decoded using
+                 /AppleInternal/AppleGraphicsControl/IOGDiagnoseDecode.
+
+                 In addition to the ring buffer the client can also provide a
+                 function that will copy up to 16KiB of additional data used by
+                 the client's decode module. It is much better if this func is
+                 LOCKFREE. If the function does not return within 1 second we
+                 may abort the thread reading the data and discard the buffer.
+                 Thus it is a data-looser to stall the fetch thread for too
+                 long.
+
+                 The breadcrumb_func is not called with GTraceBuffer locks
+                 held.
+     @param bufferName: Max 32 byte C string copied into fetch header.
+     @param decoderName: Max 32 byte C string copied into fetch header, used by
+            IOGDiagnoseDecode to find a decode module in
+            /AppleInternal/AppleGraphicsControl/IOGDiagnose_modules directory.
+     @param lineCount: Number of lines to store in ring buffer. Line count will
+            be rounded up to a power of two and is bounded by
+            kGTraceMinimumLineCount and kGTraceMaximumLineCount.
+     @param bcf: breadcrumb_func. May be null. Function to call when the buffer
+            is being fetched, to be used by your decode module. See discussion.
+     @param context: Context to pass to the bcf function.
+     @result OSSharedObject<GTraceBuffer> with the new created buffer. An empty
+             buffer on failure.
      */
-    IOReturn initWithDeviceCountAndID( GTRACE_SERVICE * provider, const uint32_t lineCount, const uint64_t componentID );
+    static shared_type make(
+            const char* decoderName, const char* bufferName,
+            const uint32_t lineCount, breadcrumb_func bcf, void* context);
+
+    /*! @function destroy
+     @abstract Destroy a buffer shared object created with make.
+     @discussion When a client is done with the gtrace buffer use 
+         destroy(iog::move(<your buffer>)) to destroy your shared object and
+         stop further calls to the breadcrumb func. This will destroy your
+         reference to the buffer. Before completing destruction the breadcrumb
+         function if any will be called only once and then never called again
+         after on return. The breadcrumb function is never called with any
+         internal buffer locks held.  The GTraceBuffer guarantees that no
+         further calls to the breadcrumb function will occur once this call
+         completes.
+
+         Note it is not necessary to destroy every copy of the shared_type
+         (OSSharedObject<GTraceBuffer>), rather only call destroy when you no
+         longer wish any further breadcrumb callouts during teardown of your
+         master objects, essentially it is symetric with make() calls.
+     @param bso An rvalue reference to the buffer shared object.
+     */
+    static void destroy(shared_type&& bso);
+#endif // !GTRACE_ARCHAIC_CPP
+
+#if GTRACE_ARCHAIC_CPP || GTRACE_IMPL
+    /*! @function makeArchaicCpp
+     @abstract Equivalent to make for archaic pre-C++11 projects. See make
+               for more details.
+     */
+    static GTraceBuffer* makeArchaicCpp(
+            const char* decoderName, const char* bufferName,
+            const uint32_t lineCount, breadcrumb_func bcf, void* context)
+        __attribute__((deprecated ("Use C++11 and GTraceBuffer::make.")));
+
+    /*! @function destroyArchaicCpp
+     @abstract Equivalent to destroy for archaic pre-C++11 projects. See
+               destroy for more details.
+     @discussion Similar to destroy, destroyArchaicCpp releases one reference
+                 on the buffer. Clients must use destroyArchaicCpp once
+                 (mirroring the call to makeArchaicCpp).
+     */
+    static void destroyArchaicCpp(GTraceBuffer *buffer)
+        __attribute__((deprecated ("Use C++11 and GTraceBuffer::destroy.")));
+#endif
+
+    /*! @function formatToken
+     @abstract Format a token suitable for recording.
+     @discussion GTrace supports tokenized tracing.  formatToken is used to
+         create a tokenized KTrace style entry suitable for inserting into the
+         ring buffer. Carefully written for C++ return value optimisation.
+     @param line The line number associated with the token
+     @param tag1 An implementation specific tag associated with arg1
+     @param tag2 An implementation specific tag associated with arg2
+     @param tag3 An implementation specific tag associated with arg3
+     @param tag4 An implementation specific tag associated with arg4
+     @param arg1 Component/implementation specific value.
+     @param arg2 Component/implementation specific value.
+     @param arg3 Component/implementation specific value.
+     @param arg4 Component/implementation specific value.
+     @param timestamp Supplied timestamp or current MCT
+     @result GTraceEntry structure filled in with given data.
+     */
+    GTraceEntry formatToken(const uint16_t line,
+                            const uint64_t tag1, const uint64_t arg1,
+                            const uint64_t tag2, const uint64_t arg2,
+                            const uint64_t tag3, const uint64_t arg3,
+                            const uint64_t tag4, const uint64_t arg4,
+                            const uint64_t timestamp = mach_continuous_time());
+
+    /*! @function recordToken
+     @abstract Add token data to token stream.
+     @discussion recordToken() takes a formatted GTraceEntry and writes it to
+         the ring buffer.
+     @param entry a const GTraceEntry reference to be atomically added to token
+         stream.
+     */
+    void recordToken(const GTraceEntry& entry);
 
     /*! @function recordToken
      @abstract Add the token data to the token stream
-     @discussion GTrace supports tokenized tracing.  IOFramebuffer::recordToken can be used any client that has access to an IOFramebuffer object to insert a tokenized KTrace style trace into the trace buffer.
+     @discussion GTrace supports tokenized tracing.  recordToken is used to
+         insert a tokenized KTrace style trace into the trace buffer.
      @param line The line number associated with the token
-     #param tag1 An implementation specific tag associated with arg1
-     #param tag2 An implementation specific tag associated with arg2
-     #param tag3 An implementation specific tag associated with arg3
-     #param tag4 An implementation specific tag associated with arg4
+     @param tag1 An implementation specific tag associated with arg1
+     @param tag2 An implementation specific tag associated with arg2
+     @param tag3 An implementation specific tag associated with arg3
+     @param tag4 An implementation specific tag associated with arg4
      @param arg1 Component/implementation specific value.
      @param arg2 Component/implementation specific value.
      @param arg3 Component/implementation specific value.
@@ -246,152 +258,109 @@ public:
      @param timestamp Supplied timestamp or current MCT
      */
     void recordToken(const uint16_t line,
-                     const uint16_t tag1, const uint64_t arg1,
-                     const uint16_t tag2, const uint64_t arg2,
-                     const uint16_t tag3, const uint64_t arg3,
-                     const uint16_t tag4, const uint64_t arg4,
-                     const uint64_t timestamp = mach_continuous_time());
+                     const uint64_t tag1, const uint64_t arg1,
+                     const uint64_t tag2, const uint64_t arg2,
+                     const uint64_t tag3, const uint64_t arg3,
+                     const uint64_t tag4, const uint64_t arg4,
+                     const uint64_t timestamp = mach_continuous_time())
+    {
+        recordToken(formatToken(
+            line, tag1, arg1, tag2, arg2, tag3, arg3, tag4, arg4, timestamp));
+    }
 
-    /*! @function publishTokens
-     @abstract Publish token data to provider registry.
-     @discussion Publishes the tokens (kGTracePropertyTokens key), total token capacity (kGTracePropertyTokenCount key) and the last token processed (kGTracePropertyTokenMarker key) into the provider's registry.  Published tokens are removed from the registry when the GTrace object is freed.
-     @result kIOReturn success if the properties where published, else a descriptive error.  Not supported in userland contexts.
-     */
-    IOReturn publishTokens( void );
-
-    /*! @function copyTokens
-     @abstract Copies the raw tokenized data from the internal buffer into a newly allocated buffer.
-     @discussion Copies the tokens data from the internal buffers into the callee's buffer up to the buffer size as provided via the length parameter or the internal buffer size (which ever is less).  The token marker and token capacity can optionally be acquired via the tokenMarker and tokeCount parameters.  The buffer memory is not cleared before copy, therefore callers should ensure thier memory is pre-cleared.
-     @param buffer Pointer to a pointer where the buffer address will be returned.  It is the clients responsibility to call kernel:IOFree() userland:free() on this memory when done with it.
-     @param length Length of buffer allocated.
-     @param tokenMarker The token line number for the last recorded token.
-     @param tokenCount The total number of token lines in the buffer.
-     @result kIOReturn success if the copy was successful, else a descriptive error.
-     */
-    IOReturn copyTokens( uintptr_t ** buffer,
-                        uint32_t * length,
-                        uint32_t * tokenMarker,
-                        uint32_t * tokenCount );
-
-    /*! @function printToken
-     @abstract Prints a single token as a string of hex values.
-     @discussion A simple function that prints the line as a string of hex values via printf (user land) or kprintf (kernel land)
-     @param line the line number of the token buffer to be printed
-     */
-    IOReturn printToken( uint32_t line );
-
-    /*! @function setTokens
-     @abstract Updates the internal token buffer with the provided token data.
-     @discussion Copies the data from buffer to the internal buffer size if the bufferSize is within the limits of the internal buffer.  The token data is not validated and assumed to be correct.
-     @param buffer A pointer to a buffer of bufferSize that contains valid token data.
-     @param bufferSize Length of buffer provided.
-     */
-    IOReturn setTokens( const uintptr_t * buffer, const uint32_t bufferSize );
-
+#if GTRACE_IMPL
     /*! @function synchIndex
      @abstract Publishes the current gtrace token index.
      @discussion  Used by Decode to synchronize between os_log and GTrace. I
                   have chosen to share the atomic next index operation though
                   it may cause decode ambiguity. It is very light weight.
      */
-    inline uint32_t synchIndex() { return fNextLine; }
+    inline uint32_t synchIndex() const { return nextLine(); }
+
+    /*! @function fetch
+     @abstract
+         Copies token buffer into provided memory descriptor.
+     @discussion
+         Copies the tokens data from the internal buffers into the provided
+         IOMemoryDescriptor, which must be prepared. Data is copied up to the
+         buffer size or the internal buffer size (which ever is less). Once the
+         data is copied a post processing step that obfuscates pointers is run.
+     @param bso OSSharedObject<GTraceBuffer> (i.e. shared_type) of GTraceBuffer
+     @param outDesc pointer to a prepared memory descriptor.
+     @result kIOReturnSuccess if the copy was successful, else an error.
+     */
+    static IOReturn fetch(shared_type bso, IOMemoryDescriptor* outDesc);
+
+    /* Getters for constant header information */
+    size_t decoderName(char *name, const int len) const;  // truncates
+    size_t bufferName(char *name, const int len) const;   // truncates
+    uint32_t lineMask() const  { return fLineMask;  }
+    uint32_t lineCount() const { return fLineCount; }
+    uint32_t bufferID() const  { return fHeader.fBufferID; }
+
+protected:
+    // OSObject overrides
+    bool init() APPLE_KEXT_OVERRIDE;
+    void free() APPLE_KEXT_OVERRIDE;
+
+    // Internal functions
+    // See make() for details on arguments
+    IOReturn init(
+            const char* decoderName, const char* bufferName,
+            const uint32_t lineCount, breadcrumb_func bcf, const void* context);
+
+    inline uint32_t getNextLine(void)
+        { return atomic_fetch_add(&fNextLine, 1) & fLineMask; }
+
+    // Complicated const casting because atomic_load will not take a const
+    // pointer, problem mixing C and C++, but C++ <atomic> doesn't exist
+    // in the kernel yet and probably never will as it is deep STL.
+    inline uint32_t nextLine() const
+        { return atomic_load(&(const_cast<GTraceBuffer*>(this)->fNextLine)); }
+
+    IOReturn copyOut(
+            iog::OSUniqueObject<IOMemoryMap> map, OSData* bcData) const;
+
+    // APIs for IODisplayWranglerUserClients.cpp, also used by unit tests
+    friend class IOGDiagnosticUserClient;
+
+    /*! @function fetch
+     @abstract
+         Copies the token buffer into the provided memory descriptor.
+         IOGDiagnosticUserClient interface
+     @discussion
+         Copies the tokens data from the internal buffers into the provided
+         IOMemoryDescriptor, which must be prepared. Data is copied up to the
+         buffer size or the internal buffer size (which ever is less). Once the
+         data is copied a post processing step that obfuscates pointers is run.
+
+         Releases buffer if the globally cached OSSharedObject is unique,
+         that is it has only one outstanding reference AND the complete buffer
+         was sucessfully copied into outDesc.
+     @param index Index of buffer in buffer pool cache
+     @param outDesc pointer to a prepared memory descriptor.
+     @result kIOReturnSuccess if the copy was successful, else an error.
+     */
+    static IOReturn fetch(const uint32_t index, IOMemoryDescriptor* outDesc);
 
 private:
-    /*! @function getLine
-     @abstract Returns the current line index.
-     @discussion Atomically increments the line index and returns the available index.
-     */
-    inline uint32_t getLine(void) {
-        uint32_t    ln = fNextLine++;
-        ln &= fLineMask;
-        return (ln);
-    }
+    // Header that is copied out on demand
+    GTraceHeader         fHeader;
+    atomic_uint_fast32_t fNextLine;
+    GTraceEntry*         fBuffer;
 
-    /*! @function sizeToLines
-     @abstract Converts the byte buffer size into a power-of-two number of lines.
-     @discussion Converts the byte buffer size into a power-of-two number of lines.
-     */
-    inline uint32_t sizeToLines( const uint32_t bufSize ) {
-        uint32_t    lines = 0;
-        if (bufSize > (kGTraceMaximumLineCount * sizeof(sGTrace))) {
-            lines = kGTraceMaximumLineCount;
-        } else if (bufSize >= sizeof(sGTrace)) {
-            lines = (1 << (32 - (__builtin_clz(bufSize) + 1))) / sizeof(sGTrace);
-        }
-        return (lines);
-    }
+    breadcrumb_func      fBreadcrumbFunc;
+    const void*          fBCFContext; // Context to be passed to fBreadcrumbFunc
+    OSData*              fBCData;
+    uint32_t             fBCActiveCount;
 
-    /*! @function linesToSize
-     @abstract Converts the number lines into a byte size.
-     @discussion Converts the number lines into a byte size.
-     */
-    inline uint32_t linesToSize( const uint32_t lines ) {
-        uint32_t    bufSize = 0;
-        if (lines > kGTraceMaximumLineCount) {
-            bufSize = kGTraceMaximumLineCount * sizeof(sGTrace);
-        } else {
-            bufSize = lines * sizeof(sGTrace);
-            bufSize = (sizeToLines(bufSize) * sizeof(sGTrace));
-        }
-        return (bufSize);
-    }
+    uint32_t             fLineMask;
+    uint32_t             fLineCount;
+    bool                 fWrapped;
 
-    /*! @function delayFor
-     @abstract Delay for a number of seconds
-     @discussion If token recording is active, delay for the define number of seconds or until token recording goes inactive, whichever comes first.
-     */
-    void delayFor(uint8_t seconds);
-
-    /*! @function makeExternalReference
-     @abstract Obfuscates kernel pointers
-     @discussion If the argument tag specifies that the argument is to be obfuscated, then the obfuscation will occur when the pointer is printed or copied, but not when recorded.  This allows for core dump/kernel debugging with recorded pointers.
-     */
-    inline uint64_t makeExternalReference(const sGTrace& entry, const int tagIndex)
-    {
-        uint64_t ret = entry.traceEntry.args.ARGS.u64s[tagIndex];
-#if defined(_KERNEL_) || defined (KERNEL)
-        const auto tag = entry.traceEntry.argsTag.TAG.targ[tagIndex];
-        if (kGTRACE_ARGUMENT_OBFUSCATE & tag) {
-            vm_offset_t     vmRep = 0;
-            vm_kernel_addrperm_external(static_cast<vm_offset_t>(ret), &vmRep);
-            ret = (static_cast<uint64_t>(vmRep));
-        }
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
-        return (ret);
-    }
-#if defined(_KERNEL_) || defined (KERNEL)
-    struct GTraceLock
-    {
-        GTraceLock(IOLock *inLock) : fGTraceLock(inLock) { IOLockLock(fGTraceLock); }
-        ~GTraceLock() { IOLockUnlock(fGTraceLock); }
-    private:
-        IOLock * const  fGTraceLock;
-    };
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
-
-    
-private:
-    _Atomic(bool)           fInitialized;
-
-#if defined(_KERNEL_) || defined (KERNEL)
-    IOLock                  * fInUseLock;
-#else /*defined(_KERNEL_) || defined (KERNEL)*/
-    std::mutex              fInUseLock;
-#endif /*defined(_KERNEL_) || defined (KERNEL)*/
-
-    GTRACE_SERVICE          * fProvider;
-
-    uint32_t                fLineMask;
-    uint32_t                fLineCount;
-
-    _Atomic(uint32_t)       fNextLine;
-
-    sGTrace                 * fBuffer;
-    uint32_t                fBufferSize;
-
-    uint64_t                fComponentID;
-    uint64_t                fObjectID;
+    // Workaround for pre-C++11 clients, which can't see OSSharedObject.
+    shared_type          fArchaicCPPSharedObjectHack;
+#endif // GTRACE_IMPL
 };
-
 
 #endif /* GTrace_h */

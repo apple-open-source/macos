@@ -77,7 +77,6 @@
 
 
 namespace WebCore {
-using namespace std;
 
 ImageBufferData::ImageBufferData(const IntSize& size, RenderingMode renderingMode)
     : m_platformContext(0)
@@ -91,8 +90,13 @@ ImageBufferData::ImageBufferData(const IntSize& size, RenderingMode renderingMod
 #endif
 {
 #if ENABLE(ACCELERATED_2D_CANVAS) && USE(COORDINATED_GRAPHICS_THREADED)
-    if (m_renderingMode == RenderingMode::Accelerated)
+    if (m_renderingMode == RenderingMode::Accelerated) {
+#if USE(NICOSIA)
+        m_nicosiaLayer = Nicosia::ContentLayer::create(Nicosia::ContentLayerTextureMapperImpl::createFactory(*this));
+#else
         m_platformLayerProxy = adoptRef(new TextureMapperPlatformLayerProxy);
+#endif
+    }
 #endif
 }
 
@@ -102,6 +106,10 @@ ImageBufferData::~ImageBufferData()
         return;
 
 #if ENABLE(ACCELERATED_2D_CANVAS)
+#if USE(COORDINATED_GRAPHICS_THREADED) && USE(NICOSIA)
+    downcast<Nicosia::ContentLayerTextureMapperImpl>(m_nicosiaLayer->impl()).invalidateClient();
+#endif
+
     GLContext* previousActiveContext = GLContext::current();
     PlatformDisplay::sharedDisplayForCompositing().sharingGLContext()->makeContextCurrent();
 
@@ -139,10 +147,12 @@ void ImageBufferData::createCompositorBuffer()
     cairo_set_antialias(m_compositorCr.get(), CAIRO_ANTIALIAS_NONE);
 }
 
+#if !USE(NICOSIA)
 RefPtr<TextureMapperPlatformLayerProxy> ImageBufferData::proxy() const
 {
     return m_platformLayerProxy.copyRef();
 }
+#endif
 
 void ImageBufferData::swapBuffersIfNeeded()
 {
@@ -150,8 +160,18 @@ void ImageBufferData::swapBuffersIfNeeded()
 
     if (!m_compositorTexture) {
         createCompositorBuffer();
-        LockHolder holder(m_platformLayerProxy->lock());
-        m_platformLayerProxy->pushNextBuffer(std::make_unique<TextureMapperPlatformLayerBuffer>(m_compositorTexture, m_size, TextureMapperGL::ShouldBlend, GL_RGBA));
+
+        auto proxyOperation =
+            [this](TextureMapperPlatformLayerProxy& proxy)
+            {
+                LockHolder holder(proxy.lock());
+                proxy.pushNextBuffer(std::make_unique<TextureMapperPlatformLayerBuffer>(m_compositorTexture, m_size, TextureMapperGL::ShouldBlend, GL_RGBA));
+            };
+#if USE(NICOSIA)
+        proxyOperation(downcast<Nicosia::ContentLayerTextureMapperImpl>(m_nicosiaLayer->impl()).proxy());
+#else
+        proxyOperation(*m_platformLayerProxy);
+#endif
     }
 
     // It would be great if we could just swap the buffers here as we do with webgl, but that breaks the cases
@@ -391,7 +411,7 @@ RefPtr<Uint8ClampedArray> getImageData(const IntRect& rect, const IntRect& logic
     if (area.hasOverflowed())
         return nullptr;
 
-    auto result = Uint8ClampedArray::createUninitialized(area.unsafeGet());
+    auto result = Uint8ClampedArray::tryCreateUninitialized(area.unsafeGet());
     if (!result)
         return nullptr;
 
@@ -627,7 +647,7 @@ static bool encodeImage(cairo_surface_t* image, const String& mimeType, Vector<u
     return cairo_surface_write_to_png_stream(image, writeFunction, output) == CAIRO_STATUS_SUCCESS;
 }
 
-String ImageBuffer::toDataURL(const String& mimeType, std::optional<double> quality, PreserveResolution) const
+String ImageBuffer::toDataURL(const String& mimeType, Optional<double> quality, PreserveResolution) const
 {
     Vector<uint8_t> encodedImage = toData(mimeType, quality);
     if (encodedImage.isEmpty())
@@ -639,7 +659,7 @@ String ImageBuffer::toDataURL(const String& mimeType, std::optional<double> qual
     return "data:" + mimeType + ";base64," + base64Data;
 }
 
-Vector<uint8_t> ImageBuffer::toData(const String& mimeType, std::optional<double>) const
+Vector<uint8_t> ImageBuffer::toData(const String& mimeType, Optional<double>) const
 {
     ASSERT(MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(mimeType));
 
@@ -671,8 +691,13 @@ void ImageBufferData::paintToTextureMapper(TextureMapper& textureMapper, const F
 PlatformLayer* ImageBuffer::platformLayer() const
 {
 #if ENABLE(ACCELERATED_2D_CANVAS)
+#if USE(NICOSIA)
+    if (m_data.m_renderingMode == RenderingMode::Accelerated)
+        return m_data.m_nicosiaLayer.get();
+#else
     if (m_data.m_texture)
         return const_cast<ImageBufferData*>(&m_data);
+#endif
 #endif
     return 0;
 }

@@ -34,28 +34,25 @@ messages -> NetworkConnectionToWebProcess LegacyReceiver {
     StartDownload(PAL::SessionID sessionID, WebKit::DownloadID downloadID, WebCore::ResourceRequest request, String suggestedName)
     ConvertMainResourceLoadToDownload(PAL::SessionID sessionID, uint64_t mainResourceLoadIdentifier, WebKit::DownloadID downloadID, WebCore::ResourceRequest request, WebCore::ResourceResponse response)
 
-    CookiesForDOM(PAL::SessionID sessionID, WebCore::URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, enum WebCore::IncludeSecureCookies includeSecureCookies) -> (String cookieString, bool didAccessSecureCookies)
-    SetCookiesFromDOM(PAL::SessionID sessionID, WebCore::URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, String cookieString)
-    CookiesEnabled(PAL::SessionID sessionID) -> (bool enabled)
-    CookieRequestHeaderFieldValue(PAL::SessionID sessionID, WebCore::URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, enum WebCore::IncludeSecureCookies includeSecureCookies) -> (String cookieString, bool didAccessSecureCookies)
-    GetRawCookies(PAL::SessionID sessionID, WebCore::URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, WebCore::URL url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID) -> (Vector<WebCore::Cookie> cookies)
-    DeleteCookie(PAL::SessionID sessionID, WebCore::URL url, String cookieName)
+    CookiesForDOM(PAL::SessionID sessionID, URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, URL url, Optional<uint64_t> frameID, Optional<uint64_t> pageID, enum:bool WebCore::IncludeSecureCookies includeSecureCookies) -> (String cookieString, bool didAccessSecureCookies) LegacySync
+    SetCookiesFromDOM(PAL::SessionID sessionID, URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, URL url, Optional<uint64_t> frameID, Optional<uint64_t> pageID, String cookieString)
+    CookiesEnabled(PAL::SessionID sessionID) -> (bool enabled) LegacySync
+    CookieRequestHeaderFieldValue(PAL::SessionID sessionID, URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, URL url, Optional<uint64_t> frameID, Optional<uint64_t> pageID, enum:bool WebCore::IncludeSecureCookies includeSecureCookies) -> (String cookieString, bool didAccessSecureCookies) LegacySync
+    GetRawCookies(PAL::SessionID sessionID, URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, URL url, Optional<uint64_t> frameID, Optional<uint64_t> pageID) -> (Vector<WebCore::Cookie> cookies) LegacySync
+    DeleteCookie(PAL::SessionID sessionID, URL url, String cookieName)
 
-    RegisterFileBlobURL(WebCore::URL url, String path, WebKit::SandboxExtension::Handle extensionHandle, String contentType)
-    RegisterBlobURL(WebCore::URL url, Vector<WebCore::BlobPart> blobParts, String contentType)
-    RegisterBlobURLFromURL(WebCore::URL url, WebCore::URL srcURL, bool shouldBypassConnectionCheck)
-    PreregisterSandboxExtensionsForOptionallyFileBackedBlob(Vector<String> filePaths, WebKit::SandboxExtension::HandleArray extensionHandles)
-    RegisterBlobURLOptionallyFileBacked(WebCore::URL url, WebCore::URL srcURL, String fileBackedPath, String contentType)
-    RegisterBlobURLForSlice(WebCore::URL url, WebCore::URL srcURL, int64_t start, int64_t end)
-    UnregisterBlobURL(WebCore::URL url)
-    BlobSize(WebCore::URL url) -> (uint64_t resultSize)
-    WriteBlobsToTemporaryFiles(Vector<String> blobURLs, uint64_t requestIdentifier)
-
-    StoreDerivedDataToCache(WebKit::NetworkCache::DataKey key, IPC::DataReference data)
+    RegisterFileBlobURL(URL url, String path, WebKit::SandboxExtension::Handle extensionHandle, String contentType)
+    RegisterBlobURL(URL url, Vector<WebCore::BlobPart> blobParts, String contentType)
+    RegisterBlobURLFromURL(URL url, URL srcURL, bool shouldBypassConnectionCheck)
+    RegisterBlobURLOptionallyFileBacked(URL url, URL srcURL, String fileBackedPath, String contentType)
+    RegisterBlobURLForSlice(URL url, URL srcURL, int64_t start, int64_t end)
+    UnregisterBlobURL(URL url)
+    BlobSize(URL url) -> (uint64_t resultSize) LegacySync
+    WriteBlobsToTemporaryFiles(Vector<String> blobURLs) -> (Vector<String> fileNames) Async
 
     SetCaptureExtraNetworkLoadMetricsEnabled(bool enabled)
 
-    CreateSocketStream(WebCore::URL url, PAL::SessionID sessionID, String cachePartition, uint64_t identifier)
+    CreateSocketStream(URL url, PAL::SessionID sessionID, String cachePartition, uint64_t identifier)
 
     EnsureLegacyPrivateBrowsingSession()
 
@@ -66,8 +63,17 @@ messages -> NetworkConnectionToWebProcess LegacyReceiver {
     RemoveOriginAccessWhitelistEntry(String sourceOrigin, String destinationProtocol, String destinationHost, bool allowDestinationSubdomains);
     ResetOriginAccessWhitelists();
 
-    GetNetworkLoadInformationRequest(uint64_t resourceLoadIdentifier) -> (WebCore::ResourceRequest request);
-    GetNetworkLoadInformationResponse(uint64_t resourceLoadIdentifier) -> (WebCore::ResourceResponse response);
-    GetNetworkLoadIntermediateInformation(uint64_t resourceLoadIdentifier) -> (Vector<WebCore::NetworkTransactionInformation> transactions);
-    TakeNetworkLoadInformationMetrics(uint64_t resourceLoadIdentifier) -> (WebCore::NetworkLoadMetrics networkMetrics);
+    GetNetworkLoadInformationRequest(uint64_t resourceLoadIdentifier) -> (WebCore::ResourceRequest request) LegacySync
+    GetNetworkLoadInformationResponse(uint64_t resourceLoadIdentifier) -> (WebCore::ResourceResponse response) LegacySync
+    GetNetworkLoadIntermediateInformation(uint64_t resourceLoadIdentifier) -> (Vector<WebCore::NetworkTransactionInformation> transactions) LegacySync
+    TakeNetworkLoadInformationMetrics(uint64_t resourceLoadIdentifier) -> (WebCore::NetworkLoadMetrics networkMetrics) LegacySync
+
+#if ENABLE(INDEXED_DATABASE)
+    EstablishIDBConnectionToServer(PAL::SessionID sessionID) -> (uint64_t serverConnectionIdentifier) LegacySync
+    RemoveIDBConnectionToServer(uint64_t serverConnectionIdentifier)
+#endif
+
+#if ENABLE(SERVICE_WORKER)
+    EstablishSWServerConnection(PAL::SessionID sessionID) -> (WebCore::SWServerConnectionIdentifier serverConnectionIdentifier) LegacySync
+#endif
 }

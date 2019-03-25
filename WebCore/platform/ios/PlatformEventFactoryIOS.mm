@@ -26,14 +26,16 @@
 #import "config.h"
 #import "PlatformEventFactoryIOS.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import "IntPoint.h"
 #import "KeyEventCocoa.h"
+#import "KeyEventCodesIOS.h"
 #import "Logging.h"
 #import "WAKAppKitStubs.h"
 #import "WebEvent.h"
 #import "WindowsKeyboardCodes.h"
+#import <wtf/Optional.h>
 #import <wtf/WallTime.h>
 
 namespace WebCore {
@@ -42,16 +44,16 @@ static OptionSet<PlatformEvent::Modifier> modifiersForEvent(WebEvent *event)
 {
     OptionSet<PlatformEvent::Modifier> modifiers;
 
-    if (event.modifierFlags & WebEventFlagMaskShift)
-        modifiers |= PlatformEvent::Modifier::ShiftKey;
-    if (event.modifierFlags & WebEventFlagMaskControl)
-        modifiers |= PlatformEvent::Modifier::CtrlKey;
-    if (event.modifierFlags & WebEventFlagMaskAlternate)
-        modifiers |= PlatformEvent::Modifier::AltKey;
-    if (event.modifierFlags & WebEventFlagMaskCommand)
-        modifiers |= PlatformEvent::Modifier::MetaKey;
-    if (event.modifierFlags & WebEventFlagMaskAlphaShift)
-        modifiers |= PlatformEvent::Modifier::CapsLockKey;
+    if (event.modifierFlags & WebEventFlagMaskShiftKey)
+        modifiers.add(PlatformEvent::Modifier::ShiftKey);
+    if (event.modifierFlags & WebEventFlagMaskControlKey)
+        modifiers.add(PlatformEvent::Modifier::CtrlKey);
+    if (event.modifierFlags & WebEventFlagMaskOptionKey)
+        modifiers.add(PlatformEvent::Modifier::AltKey);
+    if (event.modifierFlags & WebEventFlagMaskCommandKey)
+        modifiers.add(PlatformEvent::Modifier::MetaKey);
+    if (event.modifierFlags & WebEventFlagMaskLeftCapsLockKey)
+        modifiers.add(PlatformEvent::Modifier::CapsLockKey);
 
     return modifiers;
 }
@@ -125,29 +127,84 @@ PlatformWheelEvent PlatformEventFactory::createPlatformWheelEvent(WebEvent *even
 
 String keyIdentifierForKeyEvent(WebEvent *event)
 {
-    NSString *s = event.charactersIgnoringModifiers;
-    if ([s length] != 1) {
-        LOG(Events, "received an unexpected number of characters in key event: %u", [s length]);
-        return "Unidentified";
-    }
+    if (event.keyboardFlags & WebEventKeyboardInputModifierFlagsChanged) {
+        switch (event.keyCode) {
+        case VK_LWIN: // Left Command
+        case VK_APPS: // Right Command
+            return "Meta"_s;
 
-    return keyIdentifierForCharCode(CFStringGetCharacterAtIndex((CFStringRef)s, 0));
+        case VK_CAPITAL: // Caps Lock
+            return "CapsLock"_s;
+
+        case VK_LSHIFT: // Left Shift
+        case VK_RSHIFT: // Right Shift
+            return "Shift"_s;
+
+        case VK_LMENU: // Left Alt
+        case VK_RMENU: // Right Alt
+            return "Alt"_s;
+
+        case VK_LCONTROL: // Left Ctrl
+        case VK_RCONTROL: // Right Ctrl
+            return "Control"_s;
+
+        default:
+            ASSERT_NOT_REACHED();
+            return emptyString();
+        }
+    }
+    NSString *characters = event.charactersIgnoringModifiers;
+    if ([characters length] != 1) {
+        LOG(Events, "received an unexpected number of characters in key event: %u", [characters length]);
+        return "Unidentified"_s;
+    }
+    return keyIdentifierForCharCode([characters characterAtIndex:0]);
 }
 
 String keyForKeyEvent(WebEvent *event)
 {
-    NSString *characters = event.characters;
-    auto length = [characters length];
+    if (event.keyboardFlags & WebEventKeyboardInputModifierFlagsChanged) {
+        switch (event.keyCode) {
+        case VK_LWIN: // Left Command
+        case VK_APPS: // Right Command
+            return "Meta"_s;
 
+        case VK_CAPITAL: // Caps Lock
+            return "CapsLock"_s;
+
+        case VK_LSHIFT: // Left Shift
+        case VK_RSHIFT: // Right Shift
+            return "Shift"_s;
+
+        case VK_LMENU: // Left Alt
+        case VK_RMENU: // Right Alt
+            return "Alt"_s;
+
+        case VK_LCONTROL: // Left Ctrl
+        case VK_RCONTROL: // Right Ctrl
+            return "Control"_s;
+
+        default:
+            ASSERT_NOT_REACHED();
+            return "Unidentified"_s;
+        }
+    }
+
+    // If more than one key is being pressed and the key combination includes one or more modifier keys
+    // that result in the key no longer producing a printable character (e.g., Control + a), then the
+    // key value should be the printable key value that would have been produced if the key had been
+    // typed with the default keyboard layout with no modifier keys except for Shift and AltGr applied.
+    // See <https://www.w3.org/TR/2015/WD-uievents-20151215/#keys-guidelines>.
+    bool isControlDown = event.modifierFlags & WebEventFlagMaskControlKey;
+    NSString *characters = isControlDown ? event.charactersIgnoringModifiers : event.characters;
+    auto length = [characters length];
     // characters return an empty string for dead keys.
     // https://developer.apple.com/reference/appkit/nsevent/1534183-characters
     // "Dead" is defined here https://w3c.github.io/uievents-key/#keys-composition.
     if (!length)
         return "Dead"_s;
-
     if (length > 1)
         return characters;
-
     return keyForCharCode([characters characterAtIndex:0]);
 }
 
@@ -373,13 +430,19 @@ public:
         m_modifiers = modifiersForEvent(event);
         m_timestamp = WallTime::now();
 
-        m_text = event.characters;
-        m_unmodifiedText = event.charactersIgnoringModifiers;
+        if (event.keyboardFlags & WebEventKeyboardInputModifierFlagsChanged) {
+            m_text = emptyString();
+            m_unmodifiedText = emptyString();
+            m_autoRepeat = false;
+        } else {
+            m_text = event.characters;
+            m_unmodifiedText = event.charactersIgnoringModifiers;
+            m_autoRepeat = event.isKeyRepeating;
+        }
         m_key = keyForKeyEvent(event);
         m_code = codeForKeyEvent(event);
         m_keyIdentifier = keyIdentifierForKeyEvent(event);
         m_windowsVirtualKeyCode = event.keyCode;
-        m_autoRepeat = event.isKeyRepeating;
         m_isKeypad = false; // iOS does not distinguish the numpad. See <rdar://problem/7190835>.
         m_isSystemKey = false;
         m_Event = event;
@@ -528,4 +591,4 @@ PlatformTouchEvent PlatformEventFactory::createPlatformSimulatedTouchEvent(Platf
 
 } // namespace WebCore
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

@@ -46,10 +46,8 @@
 #import <WebCore/Scrollbar.h>
 #import <WebCore/WebAccessibilityObjectWrapperMac.h>
 #import <pal/spi/mac/NSAccessibilitySPI.h>
-#import <wtf/ObjcRuntimeExtras.h>
+#import <wtf/ObjCRuntimeExtras.h>
 
-using namespace WebCore;
-using namespace WebKit;
 
 @implementation WKAccessibilityWebPageObject
 
@@ -60,12 +58,16 @@ using namespace WebKit;
     [super dealloc];
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (BOOL)accessibilityIsIgnored
+IGNORE_WARNINGS_END
 {
     return NO;
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (NSArray *)accessibilityAttributeNames
+IGNORE_WARNINGS_END
 {
     if (!m_attributeNames)
         m_attributeNames = adoptNS([[NSArray alloc] initWithObjects:
@@ -76,7 +78,9 @@ using namespace WebKit;
     return m_attributeNames.get();
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (NSArray *)accessibilityParameterizedAttributeNames
+IGNORE_WARNINGS_END
 {
     Vector<String> result = m_page->corePage()->pageOverlayController().copyAccessibilityAttributesNames(true);
     if (result.isEmpty())
@@ -89,12 +93,16 @@ using namespace WebKit;
     return names;
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (BOOL)accessibilityIsAttributeSettable:(NSString *)attribute
+IGNORE_WARNINGS_END
 {
     return NO;
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (void)accessibilitySetValue:(id)value forAttribute:(NSString *)attribute
+IGNORE_WARNINGS_END
 {
 }
 
@@ -103,7 +111,9 @@ using namespace WebKit;
     return m_page->screenToRootView(IntPoint(point.x, point.y));
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (NSArray *)accessibilityActionNames
+IGNORE_WARNINGS_END
 {
     return [NSArray array];
 }
@@ -117,7 +127,9 @@ using namespace WebKit;
     return [NSArray arrayWithObject:wrapper];
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (id)accessibilityAttributeValue:(NSString *)attribute
+IGNORE_WARNINGS_END
 {
     if (!WebCore::AXObjectCache::accessibilityEnabled())
         WebCore::AXObjectCache::enableAccessibility();
@@ -162,7 +174,9 @@ using namespace WebKit;
     return nil;
 }
 
+IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 - (id)accessibilityAttributeValue:(NSString *)attribute forParameter:(id)parameter
+IGNORE_WARNINGS_END
 {
     WebCore::FloatPoint pageOverlayPoint;
     if ([parameter isKindOfClass:[NSValue class]] && !strcmp([(NSValue *)parameter objCType], @encode(NSPoint)))
@@ -192,8 +206,7 @@ using namespace WebKit;
     return YES;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (id)accessibilityHitTest:(NSPoint)point
 {
     if (!m_page)
@@ -203,7 +216,7 @@ using namespace WebKit;
     
     // Some plugins may be able to figure out the scroll position and inset on their own.
     bool applyContentOffset = true;
-    if (auto pluginView = WebPage::pluginViewForFrame(m_page->mainFrame()))
+    if (auto pluginView = WebKit::WebPage::pluginViewForFrame(m_page->mainFrame()))
         applyContentOffset = !pluginView->plugin()->pluginHandlesContentOffsetForAccessibilityHitTest();
 
     if (applyContentOffset) {
@@ -215,7 +228,7 @@ using namespace WebKit;
 
     return [[self accessibilityRootObjectWrapper] accessibilityHitTest:convertedPoint];
 }
-#pragma clang diagnostic pop
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 @end
 

@@ -370,9 +370,12 @@ HIDEvent *createHIDEvent(IOHIDEventRef event);
 @interface HIDOrientationEvent : HIDEvent
 
 @property (readonly) NSNumber *orientationtype;
+@property NSNumber *tiltz;
+@property NSNumber *tilty;
+@property NSNumber *tiltx;
+@property NSNumber *azimuth;
 @property NSNumber *deviceorientationusage;
 @property NSNumber *altitude;
-@property NSNumber *azimuth;
 @property NSNumber *radius;
 
 @end

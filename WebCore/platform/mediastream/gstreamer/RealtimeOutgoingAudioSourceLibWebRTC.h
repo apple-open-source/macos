@@ -21,7 +21,11 @@
 
 #if USE(LIBWEBRTC)
 
+#include "GStreamerAudioStreamDescription.h"
+#include "GStreamerCommon.h"
 #include "RealtimeOutgoingAudioSource.h"
+
+#include <gst/audio/audio.h>
 
 namespace WebCore {
 
@@ -43,6 +47,14 @@ private:
     bool hasBufferedEnoughData() final;
 
     void pullAudioData() final;
+
+    GUniquePtr<GstAudioConverter> m_sampleConverter;
+    std::unique_ptr<GStreamerAudioStreamDescription> m_inputStreamDescription;
+    std::unique_ptr<GStreamerAudioStreamDescription> m_outputStreamDescription;
+
+    Lock m_adapterMutex;
+    GRefPtr<GstAdapter> m_adapter;
+    Vector<uint8_t> m_audioBuffer;
 };
 
 } // namespace WebCore

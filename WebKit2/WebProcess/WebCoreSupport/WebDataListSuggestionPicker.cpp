@@ -28,14 +28,14 @@
 
 #if ENABLE(DATALIST_ELEMENT)
 
+#include "WebCoreArgumentCoders.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
 #include <WebCore/DataListSuggestionsClient.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 WebDataListSuggestionPicker::WebDataListSuggestionPicker(WebPage* page, DataListSuggestionsClient* client)
     : m_dataListSuggestionsClient(client)
@@ -47,27 +47,35 @@ WebDataListSuggestionPicker::~WebDataListSuggestionPicker() { }
 
 void WebDataListSuggestionPicker::handleKeydownWithIdentifier(const WTF::String& key)
 {
-
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebPageProxy::HandleKeydownInDataList(key), m_page->pageID());
 }
 
 void WebDataListSuggestionPicker::didSelectOption(const WTF::String& selectedOption)
 {
-
+    m_dataListSuggestionsClient->didSelectDataListOption(selectedOption);
 }
 
 void WebDataListSuggestionPicker::didCloseSuggestions()
 {
-
+    m_dataListSuggestionsClient->didCloseSuggestions();
 }
 
 void WebDataListSuggestionPicker::close()
 {
-
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebPageProxy::EndDataListSuggestions(), m_page->pageID());
 }
 
 void WebDataListSuggestionPicker::displayWithActivationType(DataListSuggestionActivationType type)
 {
+    if (!m_dataListSuggestionsClient->suggestions().size()) {
+        close();
+        return;
+    }
 
+    m_page->setActiveDataListSuggestionPicker(this);
+
+    DataListSuggestionInformation info = { type, m_dataListSuggestionsClient->suggestions(), m_dataListSuggestionsClient->elementRectInRootViewCoordinates() };
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebPageProxy::ShowDataListSuggestions(info), m_page->pageID());
 }
 
 } // namespace WebKit

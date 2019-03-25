@@ -63,7 +63,7 @@ static bool                gUseForceSync;
 static kern_return_t LinkMacNVRAMSymbols(void);
 static kern_return_t GetMacOFVariable(char *name, char **value);
 static kern_return_t SetMacOFVariable(char *name, char *value);
-static void DeleteMacOFVariable(char *name);
+static kern_return_t DeleteMacOFVariable(char *name);
 
 static bool gBridgeToIntel;
 static void *gDL_handle;
@@ -73,7 +73,8 @@ static void (*hostInterfaceInitialize_fptr)(void);
 static void *(*createNvramHostInterface_fptr)(const char *handle);
 static kern_return_t (*destroyNvramHostInterface_fptr)(void *interface);
 static kern_return_t (*getNVRAMVariable_fptr)(void *interface, char *name, char **buffer, uint32_t *size);
-static kern_return_t (*setNVRAMVariable_fptr)(void *interface, char *name, char *buffer, uint32_t size);
+static kern_return_t (*setNVRAMVariable_fptr)(void *interface, char *name, char *buffer);
+static kern_return_t (*deleteNVRAMVariable_fptr)(void *interface, char *name);
 static void (*hostInterfaceDeinitialize_fptr)(void); /* may not need? */
 
 #endif /* TARGET_OS_BRIDGE */
@@ -137,20 +138,25 @@ int main(int argc, char **argv)
 	  }
 	  break;
 
-	case 'd':
+    case 'd':
+      cnt++;
+      if (cnt < argc && *argv[cnt] != '-') {
 #if TARGET_OS_BRIDGE
-        if (gBridgeToIntel) {
-          fprintf(stderr, "-d not supported for Mac NVRAM store.\n");
-          return 1;
-        }
+          if (gBridgeToIntel) {
+              if ((result = DeleteMacOFVariable(argv[cnt])) != KERN_SUCCESS) {
+                  errx(1, "Error deleting variable - '%s': %s (0x%08x)", argv[cnt],
+                          mach_error_string(result), result);
+              }
+          }
+          else
 #endif
-	  cnt++;
-	  if (cnt < argc && *argv[cnt] != '-') {
-	    DeleteOFVariable(argv[cnt]);
-	  } else {
-	    UsageMessage("missing name");
-	  }
-	  break;
+          {
+              DeleteOFVariable(argv[cnt]);
+          }
+      } else {
+          UsageMessage("missing name");
+      }
+      break;
 
 	case 'c':
 #if TARGET_OS_BRIDGE
@@ -485,6 +491,7 @@ static void SetOrGetOFVariable(char *str)
       }
       nameRef = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8);
       valueRef = CFStringCreateWithCString(kCFAllocatorDefault, value, kCFStringEncodingUTF8);
+      free(value);
     }
     else
 #endif
@@ -531,6 +538,10 @@ static kern_return_t LinkMacNVRAMSymbols()
   if (setNVRAMVariable_fptr == NULL) {
     errx(errno, "failed to link setNVRAMVariable");
   }
+  deleteNVRAMVariable_fptr = dlsym(gDL_handle, "deleteNVRAMVariable");
+  if (deleteNVRAMVariable_fptr == NULL) {
+      errx(errno, "failed to link deleteNVRAMVariable");
+  }
   hostInterfaceDeinitialize_fptr = dlsym(gDL_handle, "hostInterfaceDeinitialize");
   if (hostInterfaceDeinitialize_fptr == NULL) {
     errx(errno, "failed to link hostInterfaceDeinitialize");
@@ -573,12 +584,8 @@ static kern_return_t GetOFVariable(char *name, CFStringRef *nameRef,
 static kern_return_t GetMacOFVariable(char *name, char **value)
 {
   uint32_t value_size;
-  kern_return_t result = KERN_FAILURE;
-  assert(getNVRAMVariable_fptr != NULL);
 
-  result = getNVRAMVariable_fptr(gNvramInterface, name, value, &value_size);
-
-  return result;
+  return getNVRAMVariable_fptr(gNvramInterface, name, value, &value_size);
 }
 #endif
 
@@ -593,52 +600,52 @@ static kern_return_t SetOFVariable(char *name, char *value)
   CFTypeID      typeID;
   kern_return_t result = KERN_SUCCESS;
 
-  nameRef = CFStringCreateWithCString(kCFAllocatorDefault, name,
-				      kCFStringEncodingUTF8);
-  if (nameRef == 0) {
-    errx(1, "Error creating CFString for key %s", name);
-  }
-
-  valueRef = IORegistryEntryCreateCFProperty(gOptionsRef, nameRef, 0, 0);
-  if (valueRef) {
-    typeID = CFGetTypeID(valueRef);
-    CFRelease(valueRef);
-
-    valueRef = ConvertValueToCFTypeRef(typeID, value);
-    if (valueRef == 0) {
-      errx(1, "Error creating CFTypeRef for value %s", value);
-    }  result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
-  } else {
-    while (1) {
-      // In the default case, try data, string, number, then boolean.
-
-      valueRef = ConvertValueToCFTypeRef(CFDataGetTypeID(), value);
-      if (valueRef != 0) {
-	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
-	if (result == KERN_SUCCESS) break;
-      }
-
-      valueRef = ConvertValueToCFTypeRef(CFStringGetTypeID(), value);
-      if (valueRef != 0) {
-	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
-	if (result == KERN_SUCCESS) break;
-      }
-
-      valueRef = ConvertValueToCFTypeRef(CFNumberGetTypeID(), value);
-      if (valueRef != 0) {
-	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
-	if (result == KERN_SUCCESS) break;
-      }
-
-      valueRef = ConvertValueToCFTypeRef(CFBooleanGetTypeID(), value);
-      if (valueRef != 0) {
-	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
-	if (result == KERN_SUCCESS) break;
-      }
-
-      break;
+    nameRef = CFStringCreateWithCString(kCFAllocatorDefault, name,
+                                        kCFStringEncodingUTF8);
+    if (nameRef == 0) {
+        errx(1, "Error creating CFString for key %s", name);
     }
-  }
+
+    valueRef = IORegistryEntryCreateCFProperty(gOptionsRef, nameRef, 0, 0);
+    if (valueRef) {
+        typeID = CFGetTypeID(valueRef);
+        CFRelease(valueRef);
+
+        valueRef = ConvertValueToCFTypeRef(typeID, value);
+        if (valueRef == 0) {
+            errx(1, "Error creating CFTypeRef for value %s", value);
+        }  result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
+    } else {
+        while (1) {
+            // In the default case, try data, string, number, then boolean.
+
+            valueRef = ConvertValueToCFTypeRef(CFDataGetTypeID(), value);
+            if (valueRef != 0) {
+                result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
+                if (result == KERN_SUCCESS) break;
+            }
+
+            valueRef = ConvertValueToCFTypeRef(CFStringGetTypeID(), value);
+            if (valueRef != 0) {
+                result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
+                if (result == KERN_SUCCESS) break;
+            }
+
+            valueRef = ConvertValueToCFTypeRef(CFNumberGetTypeID(), value);
+            if (valueRef != 0) {
+                result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
+                if (result == KERN_SUCCESS) break;
+            }
+
+            valueRef = ConvertValueToCFTypeRef(CFBooleanGetTypeID(), value);
+            if (valueRef != 0) {
+                result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
+                if (result == KERN_SUCCESS) break;
+            }
+
+            break;
+        }
+    }
 
   CFRelease(nameRef);
 
@@ -648,12 +655,7 @@ static kern_return_t SetOFVariable(char *name, char *value)
 #if TARGET_OS_BRIDGE
 static kern_return_t SetMacOFVariable(char *name, char *value)
 {
-  kern_return_t result = KERN_FAILURE;
-  assert(setNVRAMVariable_fptr != NULL);
-
-  result = setNVRAMVariable_fptr(gNvramInterface, name, value, strlen(value));
-
-  return result;
+  return setNVRAMVariable_fptr(gNvramInterface, name, value);
 }
 #endif
 
@@ -668,9 +670,9 @@ static void DeleteOFVariable(char *name)
 }
 
 #if TARGET_OS_BRIDGE
-static void DeleteMacOFVariable(char *name)
+static kern_return_t DeleteMacOFVariable(char *name)
 {
-  /* Not yet implementable */
+    return deleteNVRAMVariable_fptr(gNvramInterface, name);
 }
 #endif
 
@@ -856,39 +858,39 @@ static void ClearOFVariable(const void *key, const void *value, void *context)
 //
 static CFTypeRef ConvertValueToCFTypeRef(CFTypeID typeID, char *value)
 {
-  CFTypeRef     valueRef = 0;
-  long          cnt, cnt2, length;
-  unsigned long number, tmp;
+    CFTypeRef     valueRef = 0;
+    long          cnt, cnt2, length;
+    unsigned long number, tmp;
 
-  if (typeID == CFBooleanGetTypeID()) {
-    if (!strcmp("true", value)) valueRef = kCFBooleanTrue;
-    else if (!strcmp("false", value)) valueRef = kCFBooleanFalse;
-  } else if (typeID == CFNumberGetTypeID()) {
-    number = strtol(value, 0, 0);
-    valueRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type,
-			      &number);
-  } else if (typeID == CFStringGetTypeID()) {
-    valueRef = CFStringCreateWithCString(kCFAllocatorDefault, value,
-					 kCFStringEncodingUTF8);
-  } else if (typeID == CFDataGetTypeID()) {
-    length = strlen(value);
-    for (cnt = cnt2 = 0; cnt < length; cnt++, cnt2++) {
-      if (value[cnt] == '%') {
-	if (!ishexnumber(value[cnt + 1]) ||
-	    !ishexnumber(value[cnt + 2])) return 0;
-	number = toupper(value[++cnt]) - '0';
-	if (number > 9) number -= 7;
-	tmp = toupper(value[++cnt]) - '0';
-	if (tmp > 9) tmp -= 7;
-	number = (number << 4) + tmp;
-	value[cnt2] = number;
-      } else value[cnt2] = value[cnt];
-    }
-    valueRef = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)value,
-					   cnt2, kCFAllocatorDefault);
-  } else return 0;
+    if (typeID == CFBooleanGetTypeID()) {
+        if (!strcmp("true", value)) valueRef = kCFBooleanTrue;
+        else if (!strcmp("false", value)) valueRef = kCFBooleanFalse;
+    } else if (typeID == CFNumberGetTypeID()) {
+        number = strtol(value, 0, 0);
+        valueRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type,
+                                  &number);
+    } else if (typeID == CFStringGetTypeID()) {
+        valueRef = CFStringCreateWithCString(kCFAllocatorDefault, value,
+                                             kCFStringEncodingUTF8);
+    } else if (typeID == CFDataGetTypeID()) {
+        length = strlen(value);
+        for (cnt = cnt2 = 0; cnt < length; cnt++, cnt2++) {
+            if (value[cnt] == '%') {
+                if (!ishexnumber(value[cnt + 1]) ||
+                    !ishexnumber(value[cnt + 2])) return 0;
+                number = toupper(value[++cnt]) - '0';
+                if (number > 9) number -= 7;
+                tmp = toupper(value[++cnt]) - '0';
+                if (tmp > 9) tmp -= 7;
+                number = (number << 4) + tmp;
+                value[cnt2] = number;
+            } else value[cnt2] = value[cnt];
+        }
+        valueRef = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)value,
+                                               cnt2, kCFAllocatorDefault);
+    } else return 0;
 
-  return valueRef;
+    return valueRef;
 }
 
 static void SetOFVariableFromFile(const void *key, const void *value, void *context)

@@ -547,7 +547,7 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
         @autoreleasepool {
             os_transaction_t transaction = os_transaction_create("com.apple.trustd.PKITrustSupplementals.download");
             if (result != MADownloadSucceesful) {
-                MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MADownLoadResult", result,
+                MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MADownLoadResult", (OSStatus)result,
                                   @"failed to download catalog: %ld", (long)result);
                 if (result == MADownloadDaemonNotReady) {
                     /* mobileassetd has to wait for first unlock to downalod. trustd usually launches before first unlock. */
@@ -561,7 +561,7 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
             secnotice("OTATrust", "begin MobileAsset metadata sync request");
             MAQueryResult queryResult = [query queryMetaDataSync];
             if (queryResult != MAQuerySucceesful) {
-                MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MAQueryResult", queryResult,
+                MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MAQueryResult", (OSStatus)queryResult,
                                   @"failed to query MobileAsset metadata: %ld", (long)queryResult);
                 return;
             }
@@ -609,7 +609,7 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
                         updated_version = UpdateAndPurgeAsset(asset, asset_version, &ma_error);
                         break;
                     case MAUnknown:
-                        MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MAAssetState", asset.state,
+                        MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MAAssetState", (OSStatus)asset.state,
                                           @"asset is unknown");
                         continue;
                     case MADownloading:
@@ -622,7 +622,7 @@ static BOOL DownloadOTATrustAsset(BOOL isLocalOnly, BOOL wait, NSError **error) 
                             @autoreleasepool {
                                 os_transaction_t inner_transaction = os_transaction_create("com.apple.trustd.PKITrustSupplementals.downloadAsset");
                                 if (downloadResult != MADownloadSucceesful) {
-                                    MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MADownLoadResult", downloadResult,
+                                    MakeOTATrustError(&ma_error, OTATrustLogLevelError, @"MADownLoadResult", (OSStatus)downloadResult,
                                                       @"failed to download asset: %ld", (long)downloadResult);
                                     return;
                                 }

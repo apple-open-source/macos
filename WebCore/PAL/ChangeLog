@@ -1,698 +1,2023 @@
-2018-11-13  Alan Coon  <alancoon@apple.com>
+2019-02-13  Alan Coon  <alancoon@apple.com>
 
-        Apply patch. rdar://problem/45996792
+        Cherry-pick r241288. rdar://problem/47992210
 
-    2018-11-13  John Wilander  <wilander@apple.com>
+    [Cocoa] Ask platform for generic font family mappings
+    https://bugs.webkit.org/show_bug.cgi?id=187723
+    <rdar://problem/41892438>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    WebKit API allows setting the generic font families for the USCRIPT_COMMON script.
+    When trying to style a character with a generic font family, we first look to see if
+    we have a mapping for the particular script the character is rendered with, and if we
+    don't find a match, we then check USCRIPT_COMMON.
+    
+    In the Cocoa ports, the only way families get set for non-USCRIPT_COMMON scripts (aka
+    the only scripts which won't use the API families) is in
+    SettingsBase::initializeDefaultFontFamilies(). That function only sets the families
+    for the CJK scripts.
+    
+    The mappings inside SettingsBase are incorrect and conflict with our policy regarding
+    user-installed fonts. Instead, we should be consulting with the platform for some of
+    these mappings, by calling CTFontDescriptorCreateForCSSFamily(). However, the WebKit
+    API still has to work to set the mappings for untagged content. Therefore, we use the
+    system mappings for language-tagged content, and the API mappings for non-language-tagged
+    content. This is a good balance that makes sure we always have a good mapping for every
+    language, but API clients can still set the mappings, too.
+    
+    Test: fast/text/ja-sans-serif.html
+    
+    * css/CSSComputedStyleDeclaration.cpp:
+    * css/CSSFontSelector.cpp:
+    (WebCore::resolveGenericFamily):
+    * css/parser/CSSPropertyParser.cpp:
+    (WebCore::consumeFontFamily):
+    * page/cocoa/SettingsBaseCocoa.mm:
+    (WebCore::SettingsBase::initializeDefaultFontFamilies):
+    (WebCore::osakaMonoIsInstalled): Deleted.
+    * platform/graphics/FontDescription.cpp:
+    (WebCore::FontDescription::platformResolveGenericFamily):
+    * platform/graphics/FontDescription.h:
+    * platform/graphics/cocoa/FontDescriptionCocoa.cpp:
+    (WebCore::computeSpecializedChineseLocale):
+    (WebCore::cachedSpecializedChineseLocale):
+    (WebCore::languageChanged):
+    (WebCore::FontDescription::platformResolveGenericFamily):
+    * platform/graphics/cocoa/SystemFontDatabaseCoreText.cpp:
+    (WebCore::SystemFontDatabaseCoreText::clear):
+    (WebCore::genericFamily):
+    (WebCore::SystemFontDatabaseCoreText::serifFamily):
+    (WebCore::SystemFontDatabaseCoreText::sansSerifFamily):
+    (WebCore::SystemFontDatabaseCoreText::cursiveFamily):
+    (WebCore::SystemFontDatabaseCoreText::fantasyFamily):
+    (WebCore::SystemFontDatabaseCoreText::monospaceFamily):
+    * platform/graphics/cocoa/SystemFontDatabaseCoreText.h:
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/cocoa/CoreTextSPI.h:
+    
+    Source/WTF:
+    
+    Add an ENABLE in Platform.
+    
+    * wtf/Platform.h:
+    
+    Tools:
+    
+    Allow testing infrastructure to use fonts that are returned from CTFontDescriptorCreateForCSSFamily().
+    
+    * DumpRenderTree/mac/DumpRenderTree.mm:
+    (allowedFontFamilySet):
+    * WebKitTestRunner/mac/TestControllerMac.mm:
+    (WTR::allowedFontFamilySet):
+    
+    LayoutTests:
+    
+    Update the tests to work with this new model.
+    
+    * fast/text/international/font-fallback-to-common-script-expected.html: Removed.
+    * fast/text/international/font-fallback-to-common-script.html: Removed.
+    * fast/text/international/lang-sensitive-fonts-expected.html:
+    * fast/text/international/lang-sensitive-fonts-xml-expected.html:
+    * fast/text/international/lang-sensitive-fonts-xml.xhtml:
+    * fast/text/international/lang-sensitive-fonts.html:
+    * fast/text/international/locale-sensitive-fonts-expected.html:
+    * fast/text/international/locale-sensitive-fonts.html:
+    * fast/text/ja-sans-serif-expected-mismatch.html: Added.
+    * fast/text/ja-sans-serif.html: Added.
+    * platform/ios/fast/block/float/016-expected.txt:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@241288 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-02-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            [Cocoa] Ask platform for generic font family mappings
+            https://bugs.webkit.org/show_bug.cgi?id=187723
+            <rdar://problem/41892438>
+
+            Reviewed by Brent Fulgham.
+
+            * pal/spi/cocoa/CoreTextSPI.h:
+
+2019-01-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r240633. rdar://problem/47682687
+
+    [watchOS] Enable Parental Controls content filtering
+    https://bugs.webkit.org/show_bug.cgi?id=193939
+    <rdar://problem/46641912>
+    
+    Reviewed by Ryosuke Niwa.
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebCore:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKit:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WTF:
+    
+    * wtf/Platform.h:
+    
+    Tools:
+    
+    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@240633 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-28  Andy Estes  <aestes@apple.com>
+
+            [watchOS] Enable Parental Controls content filtering
+            https://bugs.webkit.org/show_bug.cgi?id=193939
+            <rdar://problem/46641912>
+
+            Reviewed by Ryosuke Niwa.
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2019-01-24  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r240461. rdar://problem/47536283
+
+    [iOS] Silence MediaPlayer compile warnings
+    https://bugs.webkit.org/show_bug.cgi?id=193780
+    <rdar://problem/47518428>
+    
+    Reviewed by Jer Noble.
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/ios/MediaPlayerSPI.h:
+    
+    Source/WebKit:
+    
+    * UIProcess/ios/forms/WKAirPlayRoutePicker.mm:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@240461 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-24  Eric Carlson  <eric.carlson@apple.com>
+
+            [iOS] Silence MediaPlayer compile warnings
+            https://bugs.webkit.org/show_bug.cgi?id=193780
+            <rdar://problem/47518428>
+
+            Reviewed by Jer Noble.
+
+            * pal/spi/ios/MediaPlayerSPI.h:
+
+2019-01-24  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r240430. rdar://problem/47484242
+
+    Follow-up #2: Override the session configuration for cookieAcceptPolicy
+    <https://bugs.webkit.org/show_bug.cgi?id=190925>
+    <rdar://problem/45497382>
+    
+    * pal/spi/cf/CFNetworkSPI.h: Protect Objective-C code using
+    defined(__OBJC__) macro.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@240430 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-24  David Kilzer  <ddkilzer@apple.com>
+
+            Follow-up #2: Override the session configuration for cookieAcceptPolicy
+            <https://bugs.webkit.org/show_bug.cgi?id=190925>
+            <rdar://problem/45497382>
+
+            * pal/spi/cf/CFNetworkSPI.h: Protect Objective-C code using
+            defined(__OBJC__) macro.
+
+2019-01-23  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r240184. rdar://problem/47484242
+
+    Follow-up: Override the session configuration for cookieAcceptPolicy
+    <https://bugs.webkit.org/show_bug.cgi?id=190925>
+    <rdar://problem/45497382>
+    
+    Discussed with John Wilander.
+    
+    * pal/spi/cf/CFNetworkSPI.h: Declare new SPI for the internal
+    macOS 10.12 Sierra SDK since it will never appear in those
+    headers.  This fixes the build for trunk WebKit on Sierra.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@240184 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-18  David Kilzer  <ddkilzer@apple.com>
+
+            Follow-up: Override the session configuration for cookieAcceptPolicy
+            <https://bugs.webkit.org/show_bug.cgi?id=190925>
+            <rdar://problem/45497382>
+
+            Discussed with John Wilander.
+
+            * pal/spi/cf/CFNetworkSPI.h: Declare new SPI for the internal
+            macOS 10.12 Sierra SDK since it will never appear in those
+            headers.  This fixes the build for trunk WebKit on Sierra.
+
+2019-01-23  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r239947. rdar://problem/47295371
+
+    Re-enable ability to build --cloop builds.
+    https://bugs.webkit.org/show_bug.cgi?id=192955
+    Source/JavaScriptCore:
+    
+    <rdar://problem/46882363>
+    
+    Reviewed by Saam barati and Keith Miller.
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebCore:
+    
+    
+    Reviewed by Saam barati and Keith Miller.
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebCore/PAL:
+    
+    <rdar://problem/46882363>
+    
+    Reviewed by Saam barati and Keith Miller.
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKit:
+    
+    <rdar://problem/46882363>
+    
+    Reviewed by Saam barati and Keith Miller.
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    <rdar://problem/46882363>
+    
+    Reviewed by Saam barati and Keith Miller.
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Tools:
+    
+    <rdar://problem/46882363>
+    
+    Reviewed by Saam barati and Keith Miller.
+    
+    The --cloop build option was being ignored this whole time since r236381.
+    This patch makes it possible to build CLoop builds again.
+    
+    * Scripts/build-jsc:
+    * Scripts/webkitperl/FeatureList.pm:
+    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig:
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@239947 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-14  Mark Lam  <mark.lam@apple.com>
+
+            Re-enable ability to build --cloop builds.
+            https://bugs.webkit.org/show_bug.cgi?id=192955
+            <rdar://problem/46882363>
+
+            Reviewed by Saam barati and Keith Miller.
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2019-01-23  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r240010. rdar://problem/47457965
+
+    Cannot tab out of WKWebView on macOS
+    https://bugs.webkit.org/show_bug.cgi?id=161448
+    <rdar://problem/28100085>
+    
+    Reviewed by Dean Jackson.
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/mac/NSViewSPI.h:
+    * pal/spi/mac/NSWindowSPI.h:
+    Move some SPI declarations in here from WebKitLegacy.
+    
+    Source/WebKit:
+    
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::takeFocus):
+    If the UIDelegate doesn't implement takeFocus, provide a simple default
+    implementation that just uses AppKit's key view loop to move the focus.
+    
+    * UIProcess/API/APIUIClient.h:
+    (API::UIClient::takeFocus):
+    * UIProcess/API/C/WKPage.cpp:
+    (WKPageSetPageUIClient):
+    * UIProcess/Cocoa/UIDelegate.h:
+    * UIProcess/Cocoa/UIDelegate.mm:
+    (WebKit::UIDelegate::UIClient::takeFocus):
+    Make API::UIClient's takeFocus return a bool indicating whether the
+    client implements it or not.
+    
+    * UIProcess/PageClient.h:
+    * UIProcess/mac/PageClientImplMac.h:
+    * UIProcess/mac/PageClientImplMac.mm:
+    (WebKit::PageClientImpl::takeFocus):
+    Plumb takeFocus to WebViewImpl.
+    
+    * UIProcess/Cocoa/WebViewImpl.h:
+    * UIProcess/Cocoa/WebViewImpl.mm:
+    (WebKit::WebViewImpl::takeFocus):
+    Borrow the relevant portion of WebKitLegacy's implementation of takeFocus,
+    shifting focus to the next/previous key view in the window.
+    
+    Source/WebKitLegacy/mac:
+    
+    * WebCoreSupport/WebChromeClient.mm:
+    * WebView/WebView.mm:
+    Make use of SPI headers.
+    
+    Tools:
+    
+    Add a test that tabbing into and out of WKWebView works correctly.
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebKitCocoa/CommandBackForward.mm:
+    (WebKit2_CommandBackForwardTest::SetUp):
+    (-[CommandBackForwardOffscreenWindow isKeyWindow]): Deleted.
+    (-[CommandBackForwardOffscreenWindow isVisible]): Deleted.
+    * TestWebKitAPI/Tests/WebKitCocoa/TabOutOfWebView.mm: Added.
+    (-[FocusableView canBecomeKeyView]):
+    (TEST):
+    * TestWebKitAPI/mac/OffscreenWindow.h: Added.
+    * TestWebKitAPI/mac/OffscreenWindow.mm: Added.
+    (-[OffscreenWindow initWithSize:]):
+    (-[OffscreenWindow isKeyWindow]):
+    (-[OffscreenWindow isVisible]):
+    * TestWebKitAPI/mac/PlatformWebViewMac.mm:
+    (TestWebKitAPI::PlatformWebView::initialize):
+    (-[ActiveOffscreenWindow isKeyWindow]): Deleted.
+    (-[ActiveOffscreenWindow isVisible]): Deleted.
+    Factor ActiveOffscreenWindow out into OffscreenWindow and share it.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@240010 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-15  Tim Horton  <timothy_horton@apple.com>
+
+            Cannot tab out of WKWebView on macOS
+            https://bugs.webkit.org/show_bug.cgi?id=161448
+            <rdar://problem/28100085>
+
+            Reviewed by Dean Jackson.
+
+            * pal/spi/mac/NSViewSPI.h:
+            * pal/spi/mac/NSWindowSPI.h:
+            Move some SPI declarations in here from WebKitLegacy.
+
+2019-01-15  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r239904. rdar://problem/4726030
+
+    Have prefers-color-scheme: light always match on macOS versions before Mojave.
+    https://bugs.webkit.org/show_bug.cgi?id=191655
+    rdar://problem/46074680
+    
+    Reviewed by Megan Gardner.
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/FeatureDefines.xcconfig: ENABLE_DARK_MODE_CSS_macosx for all OS versions.
+    
+    Source/WebCore:
+    
+    Tests: css-dark-mode/older-systems/prefers-color-scheme.html
+           css-dark-mode/older-systems/supported-color-schemes-css.html
+           css-dark-mode/older-systems/supported-color-schemes.html
+    
+    Use new HAVE(OS_DARK_MODE_SUPPORT) to make it easier to find code.
+    Added HAVE(OS_DARK_MODE_SUPPORT) around more bits to make it work on older systems.
+    
+    * Configurations/FeatureDefines.xcconfig:
+    * dom/Document.cpp:
+    (WebCore::Document::useDarkAppearance const):
+    * inspector/agents/InspectorPageAgent.cpp:
+    (WebCore::InspectorPageAgent::enable):
+    * page/Page.cpp:
+    (WebCore::Page::setUseDarkAppearance):
+    (WebCore::Page::useDarkAppearance const):
+    (WebCore::Page::setUseDarkAppearanceOverride):
+    * platform/mac/LocalDefaultSystemAppearance.h:
+    (WebCore::LocalDefaultSystemAppearance::usingDarkAppearance const):
+    * platform/mac/LocalDefaultSystemAppearance.mm:
+    (WebCore::LocalDefaultSystemAppearance::LocalDefaultSystemAppearance):
+    (WebCore::LocalDefaultSystemAppearance::~LocalDefaultSystemAppearance):
+    * platform/mac/ScrollAnimatorMac.mm:
+    * rendering/RenderThemeMac.mm:
+    (-[WebCoreTextFieldCell _adjustedCoreUIDrawOptionsForDrawingBordersOnly:]):
+    (-[WebListButtonCell drawWithFrame:inView:]):
+    (WebCore::RenderThemeMac::platformInactiveSelectionBackgroundColor const):
+    (WebCore::RenderThemeMac::platformInactiveSelectionForegroundColor const):
+    (WebCore::RenderThemeMac::platformActiveListBoxSelectionBackgroundColor const):
+    (WebCore::RenderThemeMac::platformInactiveListBoxSelectionBackgroundColor const):
+    (WebCore::RenderThemeMac::platformInactiveListBoxSelectionForegroundColor const):
+    (WebCore::RenderThemeMac::systemColor const):
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/FeatureDefines.xcconfig: ENABLE_DARK_MODE_CSS_macosx for all OS versions.
+    
+    Source/WebKit:
+    
+    * Configurations/FeatureDefines.xcconfig: ENABLE_DARK_MODE_CSS_macosx for all OS versions.
+    * UIProcess/Cocoa/WebViewImpl.mm:
+    (WebKit::WebViewImpl::effectiveAppearanceIsDark):
+    * UIProcess/RemoteLayerTree/mac/ScrollerMac.mm:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/FeatureDefines.xcconfig: ENABLE_DARK_MODE_CSS_macosx for all OS versions.
+    * WebView/WebView.mm:
+    (-[WebView _effectiveAppearanceIsDark]):
+    
+    Source/WTF:
+    
+    * wtf/Platform.h: Define HAVE_OS_DARK_MODE_SUPPORT on macOS 10.14.
+    
+    Tools:
+    
+    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig: ENABLE_DARK_MODE_CSS_macosx for all OS versions.
+    * TestWebKitAPI/Tests/WebKit/mac/ForceLightAppearanceInBundle.mm:
+    
+    LayoutTests:
+    
+    * css-dark-mode/older-systems/prefers-color-scheme-expected.txt: Added.
+    * css-dark-mode/older-systems/prefers-color-scheme.html: Added.
+    * css-dark-mode/older-systems/supported-color-schemes-css-expected.txt: Added.
+    * css-dark-mode/older-systems/supported-color-schemes-css.html: Added.
+    * css-dark-mode/older-systems/supported-color-schemes-expected.txt: Added.
+    * css-dark-mode/older-systems/supported-color-schemes.html: Added.
+    * platform/mac/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@239904 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-12  Timothy Hatcher  <timothy@apple.com>
+
+            Have prefers-color-scheme: light always match on macOS versions before Mojave.
+            https://bugs.webkit.org/show_bug.cgi?id=191655
+            rdar://problem/46074680
+
+            Reviewed by Megan Gardner.
+
+            * Configurations/FeatureDefines.xcconfig: ENABLE_DARK_MODE_CSS_macosx for all OS versions.
+
+2019-01-15  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r239888. rdar://problem/47260286
+
+    Compile out Web API Statistics Collection
+    https://bugs.webkit.org/show_bug.cgi?id=193370
+    <rdar://problem/45388584>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/FeatureDefines.xcconfig:
+        Defined ENABLE_WEB_API_STATISTICS, off by default.
+    
+    Source/WebCore:
+    
+    No new tests. This patch disables functionality. The associated tests
+    are skipped.
+    
+    These functions are now no-ops unless web API statistics is enabled.
+    
+    * Configurations/FeatureDefines.xcconfig:
+    * loader/ResourceLoadObserver.cpp:
+    (WebCore::ResourceLoadObserver::logFontLoad):
+    (WebCore::ResourceLoadObserver::logCanvasRead):
+    (WebCore::ResourceLoadObserver::logCanvasWriteOrMeasure):
+    (WebCore::ResourceLoadObserver::logNavigatorAPIAccessed):
+    (WebCore::ResourceLoadObserver::logScreenAPIAccessed):
+    * loader/ResourceLoadStatistics.cpp:
+    (WebCore::ResourceLoadStatistics::encode const):
+    (WebCore::ResourceLoadStatistics::decode):
+    (WebCore::ResourceLoadStatistics::toString const):
+    (WebCore::ResourceLoadStatistics::merge):
+    * loader/ResourceLoadStatistics.h:
+        The associated struct members are skipped unless web API
+        statistics is enabled.
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/FeatureDefines.xcconfig:
+        Defined ENABLE_WEB_API_STATISTICS, off by default.
+    
+    Source/WebKit:
+    
+    * Configurations/FeatureDefines.xcconfig:
+        Defined ENABLE_WEB_API_STATISTICS, off by default.
+    * Shared/WebCoreArgumentCoders.cpp:
+    (IPC::ArgumentCoder<ResourceLoadStatistics>::encode):
+        Skipped encoding of web API statistics.
+    (IPC::ArgumentCoder<ResourceLoadStatistics>::decode):
+        Skipped decoding of web API statistics.
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/FeatureDefines.xcconfig:
+        Defined ENABLE_WEB_API_STATISTICS, off by default.
+    
+    Tools:
+    
+    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig:
+        Defined ENABLE_WEB_API_STATISTICS, off by default.
+    
+    LayoutTests:
+    
+    * platform/ios-wk2/TestExpectations:
+        http/tests/webAPIStatistics skipped.
+    * platform/mac-wk2/TestExpectations:
+        http/tests/webAPIStatistics skipped.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@239888 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-11  John Wilander  <wilander@apple.com>
+
+            Compile out Web API Statistics Collection
+            https://bugs.webkit.org/show_bug.cgi?id=193370
+            <rdar://problem/45388584>
+
+            Reviewed by Brent Fulgham.
+
+            * Configurations/FeatureDefines.xcconfig:
+                Defined ENABLE_WEB_API_STATISTICS, off by default.
+
+2019-01-15  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r239832. rdar://problem/47260343
+
+    Override the session configuration for cookieAcceptPolicy
+    https://bugs.webkit.org/show_bug.cgi?id=190925
+    <rdar://problem/45497382>
+    
+    Patch by John Wilander <wilander@apple.com> on 2019-01-10
+    Reviewed by Alexey Proskuryakov and Alex Christensen.
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/cf/CFNetworkSPI.h:
+        Declaration of _overrideSessionCookieAcceptPolicy on NSHTTPCookieStorage.
+    
+    Source/WebKit:
+    
+    * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
+    (WebKit::NetworkSessionCocoa::NetworkSessionCocoa):
+        Now sets cookieStorage._overrideSessionCookieAcceptPolicy to YES.
+    
+    Source/WTF:
+    
+    * wtf/Platform.h:
+        Definition of HAVE_CFNETWORK_OVERRIDE_SESSION_COOKIE_ACCEPT_POLICY.
+    
+    Tools:
+    
+    Test infrastructure for setting a first-party-only cookie policy.
+    
+    * DumpRenderTree/TestRunner.cpp:
+    (setOnlyAcceptFirstPartyCookiesCallback):
+    (TestRunner::staticFunctions):
+    * DumpRenderTree/TestRunner.h:
+    * DumpRenderTree/mac/TestRunnerMac.mm:
+    (TestRunner::setOnlyAcceptFirstPartyCookies):
+    * DumpRenderTree/win/TestRunnerWin.cpp:
+    (TestRunner::setOnlyAcceptFirstPartyCookies):
+    * WebKitTestRunner/InjectedBundle/Bindings/TestRunner.idl:
+    * WebKitTestRunner/InjectedBundle/TestRunner.cpp:
+    (WTR::TestRunner::setOnlyAcceptFirstPartyCookies):
+    * WebKitTestRunner/InjectedBundle/TestRunner.h:
+    * WebKitTestRunner/TestInvocation.cpp:
+    (WTR::TestInvocation::didReceiveSynchronousMessageFromInjectedBundle):
+    
+    LayoutTests:
+    
+    * TestExpectations:
+        Skipped since this cookie policy is only supported on Cocoa platforms.
+    * http/tests/cookies/only-accept-first-party-cookies-expected.txt: Added.
+    * http/tests/cookies/only-accept-first-party-cookies.html: Added.
+    * http/tests/cookies/resources/reset-cookies.html: Added.
+        To support reset of third-party cookies in an iframe.
+    * http/tests/cookies/resources/set-cookie-and-redirect-back.php: Added.
+        A simple bounce to set a cookie.
+    * platform/ios/TestExpectations:
+        Skipped for now. Will be fixed in <rdar://problem/47165939>.
+    * platform/mac/TestExpectations:
+        Skipped for now. Will be fixed in <rdar://problem/47165939>.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@239832 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-10  John Wilander  <wilander@apple.com>
 
             Override the session configuration for cookieAcceptPolicy
             https://bugs.webkit.org/show_bug.cgi?id=190925
             <rdar://problem/45497382>
 
-            Reviewed by Alex Christensen.
+            Reviewed by Alexey Proskuryakov and Alex Christensen.
 
             * pal/spi/cf/CFNetworkSPI.h:
-                Added the _overrideSessionCookieAcceptPolicy property.
-                Note that this is declared for both public and internal
-                SDKs so it may cause a build error if the SDK is ever
-                updated to include CFNetwork’s own declaration of the
-                property.
-2018-10-29  Kocsen Chung  <kocsen_chung@apple.com>
-
-        Apply patch. rdar://problem/45363479
-
-    2018-10-29  Jer Noble  <jer.noble@apple.com>
-
-            Adopt -setOverrideRouteSharingPolicy:routingContextUID: SPI
-            https://bugs.webkit.org/show_bug.cgi?id=190951
-            <rdar://problem/45213065>
-
-            Reviewed by Alex Christensen.
-
-            * pal/spi/cocoa/AVKitSPI.h:
-
-2018-10-28  Babak Shafiei  <bshafiei@apple.com>
-
-        Cherry-pick r237466. rdar://problem/45562436
-
-    Use dark appearance scrollbar when page background is dark or document supports dark mode.
-    https://bugs.webkit.org/show_bug.cgi?id=190937
-    rdar://problem/41225839
-    
-    Reviewed by Beth Dakin.
-    
-    Source/WebCore:
-    
-    * page/FrameView.cpp:
-    (WebCore::FrameView::useDarkAppearance const): Added. Ask the document.
-    (WebCore::FrameView::paintScrollCorner): Set LocalDefaultSystemAppearance based
-    on the scrollbar overlay style too.
-    * page/FrameView.h:
-    * platform/ScrollableArea.h:
-    (WebCore::ScrollableArea::useDarkAppearance const): Added. Default to false.
-    * platform/mac/ScrollAnimatorMac.mm:
-    (-[WebScrollerImpDelegate effectiveAppearanceForScrollerImp:]): Added.
-    Ask the ScrollableArea if a dark appearance is desired.
-    
-    Source/WebCore/PAL:
-    
-    * pal/spi/mac/NSScrollerImpSPI.h: Added effectiveAppearanceForScrollerImp:.
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@237466 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2018-10-26  Timothy Hatcher  <timothy@apple.com>
-
-            Use dark appearance scrollbar when page background is dark or document supports dark mode.
-            https://bugs.webkit.org/show_bug.cgi?id=190937
-            rdar://problem/41225839
-
-            Reviewed by Beth Dakin.
-
-            * pal/spi/mac/NSScrollerImpSPI.h: Added effectiveAppearanceForScrollerImp:.
-
-2018-09-06  Babak Shafiei  <bshafiei@apple.com>
-
-        Cherry-pick r235349. rdar://problem/44209834
-
-    [Apple Pay] Introduce new values for -apple-pay-button-type
-    https://bugs.webkit.org/show_bug.cgi?id=188949
-    <rdar://problem/39992228>
-    
-    Reviewed by Anders Carlsson.
-    
-    Source/WebCore:
-    
-    Added "in-store", "checkout", "book", and "subscribe" keywords for -apple-pay-button-type,
-    and mapped those values to their equivalent PKPaymentButtonTypes.
-    
-    Tests: http/tests/ssl/applepay/ApplePayButton.html
-           http/tests/ssl/applepay/ApplePayButtonV4.html
-    
-    * css/CSSPrimitiveValueMappings.h:
-    (WebCore::CSSPrimitiveValue::CSSPrimitiveValue):
-    (WebCore::CSSPrimitiveValue::operator ApplePayButtonType const):
-    * css/CSSValueKeywords.in:
-    * css/parser/CSSParserFastPaths.cpp:
-    (WebCore::CSSParserFastPaths::isValidKeywordPropertyAndValue):
-    * rendering/RenderThemeCocoa.mm:
-    (WebCore::toPKPaymentButtonType):
-    * rendering/style/RenderStyleConstants.h:
-    
-    Source/WebCore/PAL:
-    
-    * pal/spi/cocoa/PassKitSPI.h:
-    
-    LayoutTests:
-    
-    * http/tests/ssl/applepay/ApplePayButton.html: Added.
-    * http/tests/ssl/applepay/ApplePayButtonV4.html: Added.
-    * platform/mac-highsierra/http/tests/ssl/applepay/ApplePayButton-expected.png:
-    * platform/mac-highsierra/http/tests/ssl/applepay/ApplePayButton-expected.txt:
-    * platform/mac/http/tests/ssl/applepay/ApplePayButton-expected.png: Added.
-    * platform/mac/http/tests/ssl/applepay/ApplePayButton-expected.txt: Added.
-    * platform/mac/http/tests/ssl/applepay/ApplePayButtonV4-expected.png: Added.
-    * platform/mac/http/tests/ssl/applepay/ApplePayButtonV4-expected.txt: Added.
-    * platform/mac-wk2/TestExpectations:
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235349 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2018-08-26  Andy Estes  <aestes@apple.com>
-
-            [Apple Pay] Introduce new values for -apple-pay-button-type
-            https://bugs.webkit.org/show_bug.cgi?id=188949
-            <rdar://problem/39992228>
-
-            Reviewed by Anders Carlsson.
-
-            * pal/spi/cocoa/PassKitSPI.h:
-
-2018-09-06  Babak Shafiei  <bshafiei@apple.com>
-
-        Cherry-pick r235251. rdar://problem/44209840
-
-    [Apple Pay] Introduce Apple Pay JS v4 on iOS 12 and macOS Mojave
-    https://bugs.webkit.org/show_bug.cgi?id=188829
-    
-    Reviewed by Tim Horton.
-    
-    Source/JavaScriptCore:
-    
-    * Configurations/FeatureDefines.xcconfig:
-    
-    Source/WebCore:
-    
-    Test: http/tests/ssl/applepay/ApplePaySessionV4.html
-    
-    * Configurations/FeatureDefines.xcconfig:
-    * testing/MockPaymentCoordinator.cpp:
-    (WebCore::MockPaymentCoordinator::supportsVersion):
-    
-    Source/WebCore/PAL:
-    
-    * Configurations/FeatureDefines.xcconfig:
-    
-    Source/WebKit:
-    
-    * Configurations/FeatureDefines.xcconfig:
-    * WebProcess/ApplePay/WebPaymentCoordinator.cpp:
-    (WebKit::WebPaymentCoordinator::supportsVersion):
-    
-    Source/WebKitLegacy/mac:
-    
-    * Configurations/FeatureDefines.xcconfig:
-    
-    Tools:
-    
-    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig:
-    
-    LayoutTests:
-    
-    * http/tests/ssl/applepay/ApplePaySession-expected.txt:
-    * http/tests/ssl/applepay/ApplePaySession.html:
-    * http/tests/ssl/applepay/ApplePaySessionV3-expected.txt:
-    * http/tests/ssl/applepay/ApplePaySessionV3.html:
-    * http/tests/ssl/applepay/ApplePaySessionV4-expected.txt: Added.
-    * http/tests/ssl/applepay/ApplePaySessionV4.html: Added.
-    * platform/mac-wk2/TestExpectations:
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@235251 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2018-08-23  Andy Estes  <aestes@apple.com>
-
-            [Apple Pay] Introduce Apple Pay JS v4 on iOS 12 and macOS Mojave
-            https://bugs.webkit.org/show_bug.cgi?id=188829
-
-            Reviewed by Tim Horton.
-
-            * Configurations/FeatureDefines.xcconfig:
-
-2018-09-05  Babak Shafiei  <bshafiei@apple.com>
-
-        Cherry-pick r234652. rdar://problem/43009928
-
-    [macOS] Scrollbars are not visible when using 3rd party mouse
-    https://bugs.webkit.org/show_bug.cgi?id=188372
-    
-    Reviewed by Simon Fraser.
-    
-    Source/WebCore/PAL:
-    
-    Added declaration of NSScrollerImpPair class method. This method updates all NSScrollerImpPairs
-    with a new recommended scroller style.
-    
-    * pal/spi/mac/NSScrollerImpSPI.h:
-    
-    Source/WebKit:
-    
-    The scrollbars are not visible because they are not updated with the recommended scroller style
-    when a 3rd party mouse is used. They still have the overlay style, but the system is
-    recommending the legacy style in this case. The UI process is currently notifying the WebProcess
-    about changes in the scroller style, but the current style is not set in the WebProcess on
-    startup. This patch sets the initial scroller style in the WebProcess by passing it as part of
-    the WebProcess creation parameters. Also, to make sure hot-plugging of a 3rd party mouse is
-    is visually changing the scroller style of the current page, a class method in NSScrollerImpPair
-    is called to update all NSScrollerImpPairs with the new recommended style. This method was
-    previously called by AppKit, but after blocking WindowServer access, AppKit is no longer calling
-    this method. This has been manually tested by using a 3rd party mouse.
-    
-    * Shared/WebProcessCreationParameters.cpp:
-    (WebKit::WebProcessCreationParameters::encode const):
-    (WebKit::WebProcessCreationParameters::decode):
-    * Shared/WebProcessCreationParameters.h:
-    * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
-    (WebKit::WebProcessPool::platformInitializeWebProcess):
-    * WebProcess/cocoa/WebProcessCocoa.mm:
-    (WebKit::WebProcess::platformInitializeWebProcess):
-    (WebKit::WebProcess::scrollerStylePreferenceChanged):
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234652 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2018-08-07  Per Arne Vollan  <pvollan@apple.com>
-
-            [macOS] Scrollbars are not visible when using 3rd party mouse
-            https://bugs.webkit.org/show_bug.cgi?id=188372
-
-            Reviewed by Simon Fraser.
-
-            Added declaration of NSScrollerImpPair class method. This method updates all NSScrollerImpPairs
-            with a new recommended scroller style.
-
-            * pal/spi/mac/NSScrollerImpSPI.h:
-
-2018-07-30  Babak Shafiei  <bshafiei@apple.com>
-
-        Revert r233926. rdar://problem/42354941
-
-2018-07-26  Babak Shafiei  <bshafiei@apple.com>
-
-        Cherry-pick r233926. rdar://problem/42354941
-
-    PiP from Element Fullscreen should match AVKit's behavior
-    https://bugs.webkit.org/show_bug.cgi?id=187623
-    Source/WebCore:
-    
-    Reviewed by Jon Lee.
-    
-    PiP behavior should be defined at the WebKit2 level, and not in HTMLMediaElement:
-    
-    * html/HTMLMediaElement.cpp:
-    (WebCore::HTMLMediaElement::enterFullscreen):
-    
-    Add an accessor for pictureInPictureWasStartedWhenEnteringBackground():
-    
-    * platform/cocoa/VideoFullscreenModelVideoElement.mm:
-    (VideoFullscreenInterfaceAVKit::pictureInPictureWasStartedWhenEnteringBackground const):
-    
-    Add VideoFullscreenModelClient virutal methods for PiP change notifications:
-    
-    * platform/cocoa/VideoFullscreenModel.h:
-    (WebCore::VideoFullscreenModelClient::hasVideoChanged):
-    (WebCore::VideoFullscreenModelClient::videoDimensionsChanged):
-    (WebCore::VideoFullscreenModelClient::willEnterPictureInPicture):
-    (WebCore::VideoFullscreenModelClient::didEnterPictureInPicture):
-    (WebCore::VideoFullscreenModelClient::failedToEnterPictureInPicture):
-    (WebCore::VideoFullscreenModelClient::willExitPictureInPicture):
-    (WebCore::VideoFullscreenModelClient::didExitPictureInPicture):
-    (WebCore::VideoFullscreenModelClient::failedToExitPictureInPicture):
-    * platform/cocoa/VideoFullscreenModelVideoElement.h:
-    * platform/cocoa/VideoFullscreenModelVideoElement.mm:
-    (VideoFullscreenModelVideoElement::willEnterPictureInPicture):
-    (VideoFullscreenModelVideoElement::didEnterPictureInPicture):
-    (VideoFullscreenModelVideoElement::failedToEnterPictureInPicture):
-    (VideoFullscreenModelVideoElement::willExitPictureInPicture):
-    (VideoFullscreenModelVideoElement::didExitPictureInPicture):
-    (VideoFullscreenModelVideoElement::failedToExitPictureInPicture):
-    * platform/ios/VideoFullscreenInterfaceAVKit.h:
-    * platform/ios/VideoFullscreenInterfaceAVKit.mm:
-    (-[WebAVPlayerLayer layoutSublayers]):
-    (-[WebAVPlayerLayer resolveBounds]):
-    (-[WebAVPlayerLayer setVideoGravity:]):
-    (VideoFullscreenInterfaceAVKit::setupFullscreen):
-    (VideoFullscreenInterfaceAVKit::presentingViewController):
-    (VideoFullscreenInterfaceAVKit::willStartPictureInPicture):
-    (VideoFullscreenInterfaceAVKit::didStartPictureInPicture):
-    (VideoFullscreenInterfaceAVKit::failedToStartPictureInPicture):
-    (VideoFullscreenInterfaceAVKit::willStopPictureInPicture):
-    (VideoFullscreenInterfaceAVKit::didStopPictureInPicture):
-    (VideoFullscreenInterfaceAVKit::shouldExitFullscreenWithReason):
-    (VideoFullscreenInterfaceAVKit::doSetup):
-    * platform/ios/WebVideoFullscreenControllerAVKit.mm:
-    (VideoFullscreenControllerContext::willEnterPictureInPicture):
-    (VideoFullscreenControllerContext::didEnterPictureInPicture):
-    (VideoFullscreenControllerContext::failedToEnterPictureInPicture):
-    (VideoFullscreenControllerContext::willExitPictureInPicture):
-    (VideoFullscreenControllerContext::didExitPictureInPicture):
-    (VideoFullscreenControllerContext::failedToExitPictureInPicture):
-    * platform/mac/VideoFullscreenInterfaceMac.h:
-    (WebCore::VideoFullscreenInterfaceMac::requestHideAndExitFullscreen): Deleted.
-    * platform/mac/VideoFullscreenInterfaceMac.mm:
-    (-[WebVideoFullscreenInterfaceMacObjC invalidateFullscreenState]):
-    (-[WebVideoFullscreenInterfaceMacObjC exitPIP]):
-    (-[WebVideoFullscreenInterfaceMacObjC exitPIPAnimatingToRect:inWindow:]):
-    (-[WebVideoFullscreenInterfaceMacObjC pipShouldClose:]):
-    (-[WebVideoFullscreenInterfaceMacObjC pipDidClose:]):
-    (WebCore::VideoFullscreenInterfaceMac::enterFullscreen):
-    (WebCore::VideoFullscreenInterfaceMac::exitFullscreen):
-    (WebCore::VideoFullscreenInterfaceMac::exitFullscreenWithoutAnimationToMode):
-    (WebCore::VideoFullscreenInterfaceMac::requestHideAndExitFullscreen):
-    
-    Source/WebCore/PAL:
-    
-    Reviewed by Jon Lee.
-    
-    * pal/spi/mac/PIPSPI.h:
-    
-    Source/WebKit:
-    
-    Reviewed by Jon Lee.
-    
-    * UIProcess/Cocoa/PlaybackSessionManagerProxy.h:
-    (WebKit::PlaybackSessionManagerProxy::controlsManagerContextId const):
-    * UIProcess/Cocoa/VideoFullscreenManagerProxy.h:
-    * UIProcess/Cocoa/VideoFullscreenManagerProxy.mm:
-    (WebKit::VideoFullscreenModelContext::willEnterPictureInPicture):
-    (WebKit::VideoFullscreenModelContext::didEnterPictureInPicture):
-    (WebKit::VideoFullscreenModelContext::failedToEnterPictureInPicture):
-    (WebKit::VideoFullscreenModelContext::willExitPictureInPicture):
-    (WebKit::VideoFullscreenModelContext::didExitPictureInPicture):
-    (WebKit::VideoFullscreenModelContext::failedToExitPictureInPicture):
-    (WebKit::VideoFullscreenManagerProxy::controlsManagerInterface):
-    * UIProcess/ios/fullscreen/WKFullScreenViewController.mm:
-    (WKFullScreenViewControllerVideoFullscreenModelClient::setParent):
-    (WKFullScreenViewControllerVideoFullscreenModelClient::setInterface):
-    (WKFullScreenViewControllerVideoFullscreenModelClient::interface const):
-    (-[WKFullScreenViewController initWithWebView:]):
-    (-[WKFullScreenViewController dealloc]):
-    (-[WKFullScreenViewController videoControlsManagerDidChange]):
-    (-[WKFullScreenViewController ensurePiPAnimator]):
-    (-[WKFullScreenViewController willEnterPictureInPicture]):
-    (-[WKFullScreenViewController didEnterPictureInPicture]):
-    (-[WKFullScreenViewController failedToEnterPictureInPicture]):
-    (-[WKFullScreenViewController loadView]):
-    (-[WKFullScreenViewController viewWillAppear:]):
-    * UIProcess/Cocoa/WebViewImpl.mm:
-    (WebKit::WebViewImpl::videoControlsManagerDidChange):
-    * UIProcess/mac/WKFullScreenWindowController.h:
-    * UIProcess/mac/WKFullScreenWindowController.mm:
-    (WebKit::WKFullScreenWindowControllerVideoFullscreenModelClient::setParent):
-    (WebKit::WKFullScreenWindowControllerVideoFullscreenModelClient::setInterface):
-    (WebKit::WKFullScreenWindowControllerVideoFullscreenModelClient::interface const):
-    (-[WKFullScreenWindowController initWithWindow:webView:page:]):
-    (-[WKFullScreenWindowController dealloc]):
-    (-[WKFullScreenWindowController videoControlsManagerDidChange]):
-    (-[WKFullScreenWindowController willEnterPictureInPicture]):
-    
-    Tools:
-    
-    <rdar://problem/41212379>
-    
-    Reviewed by Jon Lee.
-    
-    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
-    * TestWebKitAPI/Tests/WebKitCocoa/ExitFullscreenOnEnterPiP.html: Added.
-    * TestWebKitAPI/Tests/WebKitCocoa/ExitFullscreenOnEnterPiP.mm: Added.
-    (-[ExitFullscreenOnEnterPiPUIDelegate _webView:hasVideoInPictureInPictureDidChange:]):
-    (-[ExitFullscreenOnEnterPiPUIDelegate _webViewDidEnterFullscreen:]):
-    (-[ExitFullscreenOnEnterPiPUIDelegate _webViewDidExitFullscreen:]):
-    (TestWebKitAPI::TEST):
-    
-    LayoutTests:
-    
-    Reviewed by Jon Lee.
-    
-    * TestExpectations:
-    * media/fullscreen-video-going-into-pip-expected.txt: Removed.
-    * media/fullscreen-video-going-into-pip.html: Removed.
-    * media/video-contained-in-fullscreen-element-going-into-pip-expected.txt: Removed.
-    * media/video-contained-in-fullscreen-element-going-into-pip.html: Removed.
-    * platform/mac-wk2/TestExpectations:
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@233926 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2018-07-18  Jer Noble  <jer.noble@apple.com>
-
-            PiP from Element Fullscreen should match AVKit's behavior
-            https://bugs.webkit.org/show_bug.cgi?id=187623
-
-            Reviewed by Jon Lee.
-
-            * pal/spi/mac/PIPSPI.h:
-
-2018-07-26  Babak Shafiei  <bshafiei@apple.com>
-
-        Cherry-pick r234272. rdar://problem/42645434
-
-    Unreviewed, rolling out r234181 and r234189.
-    https://bugs.webkit.org/show_bug.cgi?id=188075
-    
-    These are not needed right now (Requested by thorton on
-    #webkit).
-    
-    Reverted changesets:
-    
-    "Enable Web Content Filtering on watchOS"
-    https://bugs.webkit.org/show_bug.cgi?id=187979
-    https://trac.webkit.org/changeset/234181
-    
-    "HAVE(PARENTAL_CONTROLS) should be true on watchOS"
-    https://bugs.webkit.org/show_bug.cgi?id=187985
-    https://trac.webkit.org/changeset/234189
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234272 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2018-07-26  Commit Queue  <commit-queue@webkit.org>
-
-            Unreviewed, rolling out r234181 and r234189.
-            https://bugs.webkit.org/show_bug.cgi?id=188075
-
-            These are not needed right now (Requested by thorton on
-            #webkit).
-
-            Reverted changesets:
-
-            "Enable Web Content Filtering on watchOS"
-            https://bugs.webkit.org/show_bug.cgi?id=187979
-            https://trac.webkit.org/changeset/234181
-
-            "HAVE(PARENTAL_CONTROLS) should be true on watchOS"
-            https://bugs.webkit.org/show_bug.cgi?id=187985
-            https://trac.webkit.org/changeset/234189
-
-2018-07-25  Babak Shafiei  <bshafiei@apple.com>
-
-        Cherry-pick r234181. rdar://problem/42604524
-
-    Enable Web Content Filtering on watchOS
-    https://bugs.webkit.org/show_bug.cgi?id=187979
-    <rdar://problem/42559346>
-    
-    Reviewed by Wenson Hsieh.
-    
-    Source/JavaScriptCore:
-    
-    * Configurations/FeatureDefines.xcconfig:
-    
-    Source/WebCore:
-    
-    * Configurations/FeatureDefines.xcconfig:
-    
-    Source/WebCore/PAL:
-    
-    * Configurations/FeatureDefines.xcconfig:
-    
-    Source/WebKit:
-    
-    * Configurations/FeatureDefines.xcconfig:
-    
-    Source/WebKitLegacy/mac:
-    
-    * Configurations/FeatureDefines.xcconfig:
-    
-    Tools:
-    
-    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig:
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@234181 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2018-07-24  Tim Horton  <timothy_horton@apple.com>
-
-            Enable Web Content Filtering on watchOS
-            https://bugs.webkit.org/show_bug.cgi?id=187979
-            <rdar://problem/42559346>
-
-            Reviewed by Wenson Hsieh.
-
-            * Configurations/FeatureDefines.xcconfig:
-
-2018-07-20  Babak Shafiei  <bshafiei@apple.com>
-
-        Revert r233926. rdar://problem/42446531
-
-2018-07-18  Babak Shafiei  <bshafiei@apple.com>
-
-        Cherry-pick r233932. rdar://problem/42353789
-
-    The WebContent process does not suspend when MiniBrowser is minimized.
-    https://bugs.webkit.org/show_bug.cgi?id=187708
-    
-    Reviewed by Chris Dumez.
-    
-    Source/WebCore/PAL:
-    
-    Add function for enabling App nap.
-    
-    * pal/spi/cf/CFUtilitiesSPI.h:
-    
-    Source/WebKit:
-    
-    Using the NSRunLoop runloop type prevents the WebContent process from suspending. Instead, use the new
-    _WebKit runloop type. Also do not leak a boost to the WebContent process, since this also prevents the
-    WebContent process from going to sleep. Calling SetApplicationIsDaemon prevents the WebContent process
-    from being assigned the application process priority level. To block WindowServer connections, call
-    CGSSetDenyWindowServerConnections(true) instead. Finally, App nap must be manually enabled, since the
-    WebContent process is no longer a NSApplication.
-    
-    * Configurations/WebContentService.xcconfig:
-    * UIProcess/Launcher/mac/ProcessLauncherMac.mm:
-    (WebKit::shouldLeakBoost):
-    * WebProcess/WebPage/WebPage.cpp:
-    (WebKit::WebPage::updateThrottleState):
-    * WebProcess/cocoa/WebProcessCocoa.mm:
-    (WebKit::WebProcess::platformInitializeProcess):
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@233932 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2018-07-18  Per Arne Vollan  <pvollan@apple.com>
-
-            The WebContent process does not suspend when MiniBrowser is minimized.
-            https://bugs.webkit.org/show_bug.cgi?id=187708
-
-            Reviewed by Chris Dumez.
-
-            Add function for enabling App nap.
-
-            * pal/spi/cf/CFUtilitiesSPI.h:
-
-2018-07-18  Babak Shafiei  <bshafiei@apple.com>
-
-        Cherry-pick r233926. rdar://problem/42354941
-
-    PiP from Element Fullscreen should match AVKit's behavior
-    https://bugs.webkit.org/show_bug.cgi?id=187623
-    Source/WebCore:
-    
-    Reviewed by Jon Lee.
-    
-    PiP behavior should be defined at the WebKit2 level, and not in HTMLMediaElement:
-    
-    * html/HTMLMediaElement.cpp:
-    (WebCore::HTMLMediaElement::enterFullscreen):
-    
-    Add an accessor for pictureInPictureWasStartedWhenEnteringBackground():
-    
-    * platform/cocoa/VideoFullscreenModelVideoElement.mm:
-    (VideoFullscreenInterfaceAVKit::pictureInPictureWasStartedWhenEnteringBackground const):
-    
-    Add VideoFullscreenModelClient virutal methods for PiP change notifications:
-    
-    * platform/cocoa/VideoFullscreenModel.h:
-    (WebCore::VideoFullscreenModelClient::hasVideoChanged):
-    (WebCore::VideoFullscreenModelClient::videoDimensionsChanged):
-    (WebCore::VideoFullscreenModelClient::willEnterPictureInPicture):
-    (WebCore::VideoFullscreenModelClient::didEnterPictureInPicture):
-    (WebCore::VideoFullscreenModelClient::failedToEnterPictureInPicture):
-    (WebCore::VideoFullscreenModelClient::willExitPictureInPicture):
-    (WebCore::VideoFullscreenModelClient::didExitPictureInPicture):
-    (WebCore::VideoFullscreenModelClient::failedToExitPictureInPicture):
-    * platform/cocoa/VideoFullscreenModelVideoElement.h:
-    * platform/cocoa/VideoFullscreenModelVideoElement.mm:
-    (VideoFullscreenModelVideoElement::willEnterPictureInPicture):
-    (VideoFullscreenModelVideoElement::didEnterPictureInPicture):
-    (VideoFullscreenModelVideoElement::failedToEnterPictureInPicture):
-    (VideoFullscreenModelVideoElement::willExitPictureInPicture):
-    (VideoFullscreenModelVideoElement::didExitPictureInPicture):
-    (VideoFullscreenModelVideoElement::failedToExitPictureInPicture):
-    * platform/ios/VideoFullscreenInterfaceAVKit.h:
-    * platform/ios/VideoFullscreenInterfaceAVKit.mm:
-    (-[WebAVPlayerLayer layoutSublayers]):
-    (-[WebAVPlayerLayer resolveBounds]):
-    (-[WebAVPlayerLayer setVideoGravity:]):
-    (VideoFullscreenInterfaceAVKit::setupFullscreen):
-    (VideoFullscreenInterfaceAVKit::presentingViewController):
-    (VideoFullscreenInterfaceAVKit::willStartPictureInPicture):
-    (VideoFullscreenInterfaceAVKit::didStartPictureInPicture):
-    (VideoFullscreenInterfaceAVKit::failedToStartPictureInPicture):
-    (VideoFullscreenInterfaceAVKit::willStopPictureInPicture):
-    (VideoFullscreenInterfaceAVKit::didStopPictureInPicture):
-    (VideoFullscreenInterfaceAVKit::shouldExitFullscreenWithReason):
-    (VideoFullscreenInterfaceAVKit::doSetup):
-    * platform/ios/WebVideoFullscreenControllerAVKit.mm:
-    (VideoFullscreenControllerContext::willEnterPictureInPicture):
-    (VideoFullscreenControllerContext::didEnterPictureInPicture):
-    (VideoFullscreenControllerContext::failedToEnterPictureInPicture):
-    (VideoFullscreenControllerContext::willExitPictureInPicture):
-    (VideoFullscreenControllerContext::didExitPictureInPicture):
-    (VideoFullscreenControllerContext::failedToExitPictureInPicture):
-    * platform/mac/VideoFullscreenInterfaceMac.h:
-    (WebCore::VideoFullscreenInterfaceMac::requestHideAndExitFullscreen): Deleted.
-    * platform/mac/VideoFullscreenInterfaceMac.mm:
-    (-[WebVideoFullscreenInterfaceMacObjC invalidateFullscreenState]):
-    (-[WebVideoFullscreenInterfaceMacObjC exitPIP]):
-    (-[WebVideoFullscreenInterfaceMacObjC exitPIPAnimatingToRect:inWindow:]):
-    (-[WebVideoFullscreenInterfaceMacObjC pipShouldClose:]):
-    (-[WebVideoFullscreenInterfaceMacObjC pipDidClose:]):
-    (WebCore::VideoFullscreenInterfaceMac::enterFullscreen):
-    (WebCore::VideoFullscreenInterfaceMac::exitFullscreen):
-    (WebCore::VideoFullscreenInterfaceMac::exitFullscreenWithoutAnimationToMode):
-    (WebCore::VideoFullscreenInterfaceMac::requestHideAndExitFullscreen):
-    
-    Source/WebCore/PAL:
-    
-    Reviewed by Jon Lee.
-    
-    * pal/spi/mac/PIPSPI.h:
-    
-    Source/WebKit:
-    
-    Reviewed by Jon Lee.
-    
-    * UIProcess/Cocoa/PlaybackSessionManagerProxy.h:
-    (WebKit::PlaybackSessionManagerProxy::controlsManagerContextId const):
-    * UIProcess/Cocoa/VideoFullscreenManagerProxy.h:
-    * UIProcess/Cocoa/VideoFullscreenManagerProxy.mm:
-    (WebKit::VideoFullscreenModelContext::willEnterPictureInPicture):
-    (WebKit::VideoFullscreenModelContext::didEnterPictureInPicture):
-    (WebKit::VideoFullscreenModelContext::failedToEnterPictureInPicture):
-    (WebKit::VideoFullscreenModelContext::willExitPictureInPicture):
-    (WebKit::VideoFullscreenModelContext::didExitPictureInPicture):
-    (WebKit::VideoFullscreenModelContext::failedToExitPictureInPicture):
-    (WebKit::VideoFullscreenManagerProxy::controlsManagerInterface):
-    * UIProcess/ios/fullscreen/WKFullScreenViewController.mm:
-    (WKFullScreenViewControllerVideoFullscreenModelClient::setParent):
-    (WKFullScreenViewControllerVideoFullscreenModelClient::setInterface):
-    (WKFullScreenViewControllerVideoFullscreenModelClient::interface const):
-    (-[WKFullScreenViewController initWithWebView:]):
-    (-[WKFullScreenViewController dealloc]):
-    (-[WKFullScreenViewController videoControlsManagerDidChange]):
-    (-[WKFullScreenViewController ensurePiPAnimator]):
-    (-[WKFullScreenViewController willEnterPictureInPicture]):
-    (-[WKFullScreenViewController didEnterPictureInPicture]):
-    (-[WKFullScreenViewController failedToEnterPictureInPicture]):
-    (-[WKFullScreenViewController loadView]):
-    (-[WKFullScreenViewController viewWillAppear:]):
-    * UIProcess/Cocoa/WebViewImpl.mm:
-    (WebKit::WebViewImpl::videoControlsManagerDidChange):
-    * UIProcess/mac/WKFullScreenWindowController.h:
-    * UIProcess/mac/WKFullScreenWindowController.mm:
-    (WebKit::WKFullScreenWindowControllerVideoFullscreenModelClient::setParent):
-    (WebKit::WKFullScreenWindowControllerVideoFullscreenModelClient::setInterface):
-    (WebKit::WKFullScreenWindowControllerVideoFullscreenModelClient::interface const):
-    (-[WKFullScreenWindowController initWithWindow:webView:page:]):
-    (-[WKFullScreenWindowController dealloc]):
-    (-[WKFullScreenWindowController videoControlsManagerDidChange]):
-    (-[WKFullScreenWindowController willEnterPictureInPicture]):
-    
-    Tools:
-    
-    <rdar://problem/41212379>
-    
-    Reviewed by Jon Lee.
-    
-    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
-    * TestWebKitAPI/Tests/WebKitCocoa/ExitFullscreenOnEnterPiP.html: Added.
-    * TestWebKitAPI/Tests/WebKitCocoa/ExitFullscreenOnEnterPiP.mm: Added.
-    (-[ExitFullscreenOnEnterPiPUIDelegate _webView:hasVideoInPictureInPictureDidChange:]):
-    (-[ExitFullscreenOnEnterPiPUIDelegate _webViewDidEnterFullscreen:]):
-    (-[ExitFullscreenOnEnterPiPUIDelegate _webViewDidExitFullscreen:]):
-    (TestWebKitAPI::TEST):
-    
-    LayoutTests:
-    
-    Reviewed by Jon Lee.
-    
-    * TestExpectations:
-    * media/fullscreen-video-going-into-pip-expected.txt: Removed.
-    * media/fullscreen-video-going-into-pip.html: Removed.
-    * media/video-contained-in-fullscreen-element-going-into-pip-expected.txt: Removed.
-    * media/video-contained-in-fullscreen-element-going-into-pip.html: Removed.
-    * platform/mac-wk2/TestExpectations:
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@233926 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2018-07-18  Jer Noble  <jer.noble@apple.com>
-
-            PiP from Element Fullscreen should match AVKit's behavior
-            https://bugs.webkit.org/show_bug.cgi?id=187623
-
-            Reviewed by Jon Lee.
-
-            * pal/spi/mac/PIPSPI.h:
+                Declaration of _overrideSessionCookieAcceptPolicy on NSHTTPCookieStorage.
+
+2019-01-04  Jer Noble  <jer.noble@apple.com>
+
+        Web Content process main thread blocked beneath ImageDecoderAVFObjC::readSamples for many seconds on imgur.com
+        https://bugs.webkit.org/show_bug.cgi?id=191806
+        <rdar://problem/46151477>
+
+        Reviewed by Dean Jackson.
+
+        * pal/cf/CoreMediaSoftLink.cpp:
+        * pal/cf/CoreMediaSoftLink.h:
+
+2018-12-27  Alex Christensen  <achristensen@webkit.org>
+
+        Resurrect Mac CMake build
+        https://bugs.webkit.org/show_bug.cgi?id=192658
+
+        Reviewed by Yusuke Suzuki.
+
+        * pal/PlatformMac.cmake:
+
+2018-12-21  Eric Carlson  <eric.carlson@apple.com>
+
+        'ended' Event doesn't fire on MediaStreamTrack when a USB camera is unplugged
+        https://bugs.webkit.org/show_bug.cgi?id=187896
+        <rdar://problem/42681445>
+
+        Reviewed by Jer Noble.
+
+        * pal/spi/cf/CoreAudioSPI.h:
+
+2018-12-19  Chris Dumez  <cdumez@apple.com>
+
+        wtf/Optional.h: move-constructor and move-assignment operator should disengage the value being moved from
+        https://bugs.webkit.org/show_bug.cgi?id=192728
+        <rdar://problem/46746779>
+
+        Reviewed by Geoff Garen.
+
+        * pal/*:
+
+2018-12-17  Saam barati  <sbarati@apple.com>
+
+        Enable HTTP and HTTPS proxies on iOS and make it a property of the NSURLSession
+        https://bugs.webkit.org/show_bug.cgi?id=192374
+        <rdar://problem/46506286>
+
+        Reviewed by Alex Christensen.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+        Remove the now-unused SPI declaration.
+
+2018-12-17  Simon Fraser  <simon.fraser@apple.com>
+
+        Don't use more expensive layer backing store formats when subpixel text antialiasing is not enabled
+        https://bugs.webkit.org/show_bug.cgi?id=192780
+        rdar://problem/43394387
+
+        Reviewed by Tim Horton.
+
+        Add CGFontRenderingGetFontSmoothingDisabled().
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+
+2018-12-17  Daniel Bates  <dabates@apple.com>
+
+        Implement UIScriptController::toggleCapsLock() for iOS
+        https://bugs.webkit.org/show_bug.cgi?id=191815
+
+        Reviewed by Andy Estes.
+
+        Add HID usage enumerator for the Caps Lock key.
+
+        * pal/spi/cocoa/IOKitSPI.h:
+
+2018-12-17  Matt Lewis  <jlewis3@apple.com>
+
+        Unreviewed, rolling out r239254.
+
+        This broke the Windows 10 Debug build
+
+        Reverted changeset:
+
+        "Replace many uses of String::format with more type-safe
+        alternatives"
+        https://bugs.webkit.org/show_bug.cgi?id=192742
+        https://trac.webkit.org/changeset/239254
+
+2018-12-15  Darin Adler  <darin@apple.com>
+
+        Use warning-ignoring macros more consistently and simply
+        https://bugs.webkit.org/show_bug.cgi?id=192743
+
+        Reviewed by Mark Lam.
+
+        * pal/spi/cocoa/AVKitSPI.h: Use IGNORE_WARNINGS_BEGIN instead of
+        IGNORE_CLANG_WARNINGS_BEGIN; there is no special need to accomodate
+        non-clang compilers here.
+
+2018-12-15  Darin Adler  <darin@apple.com>
+
+        Replace many uses of String::format with more type-safe alternatives
+        https://bugs.webkit.org/show_bug.cgi?id=192742
+
+        Reviewed by Mark Lam.
+
+        * pal/FileSizeFormatter.cpp:
+        (fileSizeDescription): Use makeString.
+
+2018-12-11  Justin Michaud  <justin_michaud@apple.com>
+
+        Implement feature flag for CSS Typed OM
+        https://bugs.webkit.org/show_bug.cgi?id=192610
+
+        Reviewed by Ryosuke Niwa.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-12-11  Andy Estes  <aestes@apple.com>
+
+        Introduce makeBlockPtr for lambdas
+        https://bugs.webkit.org/show_bug.cgi?id=192594
+
+        Reviewed by Alex Christensen.
+
+        Adopted makeBlockPtr.
+
+        * pal/Logging.cpp:
+        (PAL::registerNotifyCallback):
+
+2018-12-10  Don Olmstead  <don.olmstead@sony.com>
+
+        Move ENABLE_RESOURCE_LOAD_STATISTICS to FeatureDefines.xcconfig
+        https://bugs.webkit.org/show_bug.cgi?id=192573
+
+        Reviewed by Simon Fraser.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-12-10  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r239023.
+        https://bugs.webkit.org/show_bug.cgi?id=192571
+
+        Speculative rollout due to broken perf test (Requested by
+        deanj on #webkit).
+
+        Reverted changeset:
+
+        "Enable HTTP and HTTPS proxies on iOS and make it a property
+        of the NSURLSession"
+        https://bugs.webkit.org/show_bug.cgi?id=192374
+        https://trac.webkit.org/changeset/239023
+
+2018-12-10  Darin Adler  <darin@apple.com>
+
+        [macOS] MSHCreateMIGServerSource invocation does not handle send/receive rights correctly
+        https://bugs.webkit.org/show_bug.cgi?id=192533
+        rdar://problem/45732710
+
+        Reviewed by Anders Carlsson.
+
+        * pal/spi/mac/HIServicesSPI.h: Added kMSHDoNotCreateSendRightOption.
+
+2018-12-09  Saam barati  <sbarati@apple.com>
+
+        Enable HTTP and HTTPS proxies on iOS and make it a property of the NSURLSession
+        https://bugs.webkit.org/show_bug.cgi?id=192374
+        <rdar://problem/46506286>
+
+        Reviewed by Alex Christensen.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+        Remove the now-unused SPI declaration.
+
+2018-12-05  Don Olmstead  <don.olmstead@sony.com>
+
+        [PlayStation] Enable WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=192384
+
+        Reviewed by Brent Fulgham.
+
+        Implements PAL for the PlayStation platform.
+
+        * pal/PlatformPlayStation.cmake: Added.
+
+2018-12-02  Zalan Bujtas  <zalan@apple.com>
+
+        Add a runtime feature flag for LayoutFormattingContext.
+        https://bugs.webkit.org/show_bug.cgi?id=192280
+
+        Reviewed by Simon Fraser.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-12-01  Alexey Proskuryakov  <ap@apple.com>
+
+        Modernize version check for _suppressedAutoAddedHTTPHeaders
+        https://bugs.webkit.org/show_bug.cgi?id=192175
+
+        Reviewed by Tim Horton.
+
+        * pal/spi/cf/CFNetworkSPI.h: Curiously, it was forward declared twice, for no
+        apparent reason.
+
+2018-11-30  Don Olmstead  <don.olmstead@sony.com>
+
+        Rename ENABLE_SUBTLE_CRYPTO to ENABLE_WEB_CRYPTO
+        https://bugs.webkit.org/show_bug.cgi?id=192197
+
+        Reviewed by Jiewen Tan.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * pal/PlatformGTK.cmake:
+        * pal/PlatformWPE.cmake:
+
+2018-11-30  Alexey Proskuryakov  <ap@apple.com>
+
+        Move USE_CFNETWORK_IGNORE_HSTS to its proper place
+        https://bugs.webkit.org/show_bug.cgi?id=192173
+
+        Reviewed by Tim Horton.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+
+2018-11-29  David Quesada  <david_quesada@apple.com>
+
+        Add SPI to publish NSProgress on active downloads
+        https://bugs.webkit.org/show_bug.cgi?id=192021
+        rdar://problem/44405661
+
+        Reviewed by Alex Christensen.
+
+        Add an SPI header for NSProgress's publishing and unpublishing methods. In older
+        SDKs, these methods are explicitly unavailable on platforms other than macOS,
+        with underscore-prefixed versions available as SPI. In newer SDKs, the unprefixed
+        versions are SPI and the prefixed versions are deprecated.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/spi/cocoa/NSProgressSPI.h:
+
+2018-11-29  Megan Gardner  <megan_gardner@apple.com>
+
+        Move Lookup Code for better cross platform usage
+        https://bugs.webkit.org/show_bug.cgi?id=191732
+
+        Reviewed by Alex Christensen.
+
+        * pal/spi/mac/LookupSPI.h:
+        * pal/spi/mac/RevealSPI.h:
+
+2018-11-29  Eric Carlson  <eric.carlson@apple.com>
+
+        [iOS] Tell AirPlay picker when a file has video
+        https://bugs.webkit.org/show_bug.cgi?id=192155
+
+        Reviewed by Jer Noble.
+
+        * pal/spi/ios/MediaPlayerSPI.h:
+
+2018-11-29  Alexey Proskuryakov  <ap@apple.com>
+
+        Modernize the check for kCFURLRequestContentDecoderSkipURLCheck existence
+        https://bugs.webkit.org/show_bug.cgi?id=192041
+
+        Reviewed by Tim Horton.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+
+2018-11-29  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r238678.
+
+        Breaks internal builds.
+
+        Reverted changeset:
+
+        "Move Lookup Code for better cross platform usage"
+        https://bugs.webkit.org/show_bug.cgi?id=191732
+        https://trac.webkit.org/changeset/238678
+
+2018-11-29  Megan Gardner  <megan_gardner@apple.com>
+
+        Move Lookup Code for better cross platform usage
+        https://bugs.webkit.org/show_bug.cgi?id=191732
+
+        Reviewed by Alex Christensen.
+
+        * pal/spi/mac/LookupSPI.h:
+        * pal/spi/mac/RevealSPI.h:
+
+2018-11-28  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r238653 and r238656.
+        https://bugs.webkit.org/show_bug.cgi?id=192130
+
+        Breaks iOS build (Requested by smfr on #webkit).
+
+        Reverted changesets:
+
+        "Move Lookup Code for better cross platform usage"
+        https://bugs.webkit.org/show_bug.cgi?id=191732
+        https://trac.webkit.org/changeset/238653
+
+        "Attempt to fix the iOS build by only including RevealSPI.h
+        when it's needed."
+        https://trac.webkit.org/changeset/238656
+
+2018-11-15  Megan Gardner  <megan_gardner@apple.com>
+
+        Move Lookup Code for better cross platform usage
+        https://bugs.webkit.org/show_bug.cgi?id=191732
+
+        Reviewed by Alex Christensen.
+
+        * pal/spi/mac/LookupSPI.h:
+        * pal/spi/mac/RevealSPI.h:
+
+2018-11-28  Alexey Proskuryakov  <ap@apple.com>
+
+        Modernize version checks for same site cookie support
+        https://bugs.webkit.org/show_bug.cgi?id=192054
+
+        Reviewed by Tim Horton.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+
+2018-11-27  Mark Lam  <mark.lam@apple.com>
+
+        ENABLE_FAST_JIT_PERMISSIONS should be false for iosmac.
+        https://bugs.webkit.org/show_bug.cgi?id=192055
+        <rdar://problem/46288783>
+
+        Reviewed by Saam Barati.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-11-27  Alexey Proskuryakov  <ap@apple.com>
+
+        Modernize the check for async _saveCookies existence
+        https://bugs.webkit.org/show_bug.cgi?id=191987
+
+        Reviewed by Dean Jackson.
+
+        * pal/spi/cf/CFNetworkSPI.h: Also removed a check around _socketStreamProperties,
+        which exists everywhere.
+
+2018-11-27  Jer Noble  <jer.noble@apple.com>
+
+        Adopt -setOverrideRouteSharingPolicy:routingContextUID: SPI
+        https://bugs.webkit.org/show_bug.cgi?id=190951
+        <rdar://problem/45213065>
+
+        Further follow-up build fix; add ASSUME_NONNULL macros to SPI declaration.
+
+        * pal/spi/cocoa/AVKitSPI.h:
+
+2018-11-27  Jer Noble  <jer.noble@apple.com>
+
+        Adopt -setOverrideRouteSharingPolicy:routingContextUID: SPI
+        https://bugs.webkit.org/show_bug.cgi?id=190951
+        <rdar://problem/45213065>
+
+        Follow-up build fix when building against older SDKs.
+
+        * pal/spi/cocoa/AVKitSPI.h:
+
+2018-11-26  Jer Noble  <jer.noble@apple.com>
+
+        Adopt -setOverrideRouteSharingPolicy:routingContextUID: SPI
+        https://bugs.webkit.org/show_bug.cgi?id=190951
+        <rdar://problem/45213065>
+
+        Reviewed by Alex Christensen.
+
+        * pal/spi/cocoa/AVKitSPI.h:
+
+2018-11-26  Andy Estes  <aestes@apple.com>
+
+        [Cocoa] Make it easier to encode NSObjects
+        https://bugs.webkit.org/show_bug.cgi?id=191948
+
+        Reviewed by Dean Jackson.
+
+        * pal/spi/cocoa/PassKitSPI.h: Declared some classes that secretly conform to NSSecureCoding.
+
+2018-11-24  Andy Estes  <aestes@apple.com>
+
+        [Cocoa] SOFT_LINK_CLASS_FOR_{HEADER,SOURCE} should generate a more concise getter function
+        https://bugs.webkit.org/show_bug.cgi?id=191899
+
+        Reviewed by Dean Jackson.
+
+        * pal/cocoa/PassKitSoftLink.h:
+        * pal/ios/UIKitSoftLink.h:
+
+2018-11-23  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Enable drag and drop support for iOSMac
+        https://bugs.webkit.org/show_bug.cgi?id=191818
+        <rdar://problem/43907454>
+
+        Reviewed by Dean Jackson.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-11-21  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [Cocoa] [WebKit2] Add support for replacing find-in-page text matches
+        https://bugs.webkit.org/show_bug.cgi?id=191786
+        <rdar://problem/45813871>
+
+        Reviewed by Ryosuke Niwa.
+
+        Add `-replaceMatches:withString:inSelectionOnly:resultCollector:`.
+
+        * pal/spi/mac/NSTextFinderSPI.h:
+
+2018-11-21  Andy Estes  <aestes@apple.com>
+
+        [Cocoa] Create a soft-linking file for PassKit
+        https://bugs.webkit.org/show_bug.cgi?id=191875
+        <rdar://problem/46203215>
+
+        Reviewed by Myles Maxfield.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/PlatformMac.cmake:
+        * pal/cocoa/PassKitSoftLink.h: Added.
+        * pal/cocoa/PassKitSoftLink.mm: Added. Used _WITH_EXPORT soft-linking macros in order to
+        make the PAL soft-linking symbols visible to WebKit.
+        * pal/spi/cocoa/PassKitSPI.h:
+
+2018-11-17  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS] Remove all usages of UIItemProvider, UIItemProviderReading, and related classes
+        https://bugs.webkit.org/show_bug.cgi?id=191819
+
+        Reviewed by Dan Bernstein.
+
+        Replace UIItemProvider (and related classes) with NSItemProvider.
+
+        * pal/spi/ios/UIKitSPI.h:
+
+2018-11-16  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Reduce the use of WKSI library calls: CFNetwork
+        https://bugs.webkit.org/show_bug.cgi?id=191718
+        <rdar://problem/46108732>
+
+        Reviewed by Alex Christensen.
+
+        Add necessary declarations for CFNetwork SPI needed by the Apple Windows build.
+
+        * pal/PlatformAppleWin.cmake:
+        * pal/spi/cf/CFNetworkSPI.h:
+        * pal/spi/cf/CFNetworkSPIWin.cpp: Added.
+
+2018-11-16  Chris Dumez  <cdumez@apple.com>
+
+        [Mac] Regression: WebContent process's display name is no longer set
+        https://bugs.webkit.org/show_bug.cgi?id=191722
+        <rdar://problem/45960550>
+
+        Reviewed by Per Arne Vollan.
+
+        * pal/spi/cocoa/LaunchServicesSPI.h:
+
+2018-11-15  Brent Fulgham  <bfulgham@apple.com>
+
+        Additional Windows build fix after r238253.
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+
+2018-11-15  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build fix after removing some WKSI calls on Windows.
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+
+2018-11-11  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Draw caps lock indicator in password fields
+        https://bugs.webkit.org/show_bug.cgi?id=190565
+        <rdar://problem/45262343>
+
+        Reviewed by Dean Jackson.
+
+        Forward declare some more SPI.
+
+        * pal/spi/ios/GraphicsServicesSPI.h:
+        * pal/spi/ios/UIKitSPI.h:
+
+2018-11-09  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r238047.
+
+        Introduced layout test failures on iOS simulator.
+
+        Reverted changeset:
+
+        "[iOS] Draw caps lock indicator in password fields"
+        https://bugs.webkit.org/show_bug.cgi?id=190565
+        https://trac.webkit.org/changeset/238047
+
+2018-11-09  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Draw caps lock indicator in password fields
+        https://bugs.webkit.org/show_bug.cgi?id=190565
+        <rdar://problem/45262343>
+
+        Reviewed by Dean Jackson.
+
+        Forward declare some more SPI.
+
+        * pal/spi/ios/GraphicsServicesSPI.h:
+        * pal/spi/ios/UIKitSPI.h:
+
+2018-11-08  Megan Gardner  <megan_gardner@apple.com>
+
+        Adopt Reveal Framework to replace Lookup
+        https://bugs.webkit.org/show_bug.cgi?id=191097
+        <rdar://problem/45924508>
+
+        Reviewed by Tim Horton.
+
+        Add in reveal SPI so WebKit will continue to build without the internal SDK.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/spi/mac/RevealSPI.h: Added.
+
+2018-11-06  Justin Fan  <justin_fan@apple.com>
+
+        [WebGPU] Experimental prototype for WebGPURenderPipeline and WebGPUSwapChain
+        https://bugs.webkit.org/show_bug.cgi?id=191291
+
+        Reviewed by Myles Maxfield.
+
+        Properly disable WEBGPU on all non-Metal platforms for now.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-11-02  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Normalize character string based on key code
+        https://bugs.webkit.org/show_bug.cgi?id=191120
+
+        Reviewed by Tim Horton.
+
+        Remove forward declarations that are no longer needed now that we check key code.
+
+        * pal/spi/ios/UIKitSPI.h:
+
+2018-11-01  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+        [CG] Adopt CG SPI for non-even cornered rounded rects
+        https://bugs.webkit.org/show_bug.cgi?id=190155
+
+        Reviewed by Simon Fraser.
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+
+2018-10-30  Alexey Proskuryakov  <ap@apple.com>
+
+        Clean up some obsolete MAX_ALLOWED macros
+        https://bugs.webkit.org/show_bug.cgi?id=190916
+
+        Reviewed by Tim Horton.
+
+        * pal/cf/CoreMediaSoftLink.cpp:
+        * pal/cf/CoreMediaSoftLink.h:
+        Behavior change here. The check didn't really make sense, pretty sure we would
+        just crash when hitting this code path on iOS.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+        * pal/spi/cocoa/PassKitSPI.h:
+        * pal/spi/mac/AVFoundationSPI.h:
+
+2018-10-29  Tim Horton  <timothy_horton@apple.com>
+
+        Modernize WebKit nibs and lprojs for localization's sake
+        https://bugs.webkit.org/show_bug.cgi?id=190911
+        <rdar://problem/45349466>
+
+        Reviewed by Dan Bernstein.
+
+        * PAL.xcodeproj/project.pbxproj:
+        English->en
+
+2018-10-26  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r237458.
+        https://bugs.webkit.org/show_bug.cgi?id=190973
+
+        broke internal iOS builds (Requested by zalan on #webkit).
+
+        Reverted changeset:
+
+        "Adopt -setOverrideRouteSharingPolicy:routingContextUID: SPI"
+        https://bugs.webkit.org/show_bug.cgi?id=190951
+        https://trac.webkit.org/changeset/237458
+
+2018-10-26  Timothy Hatcher  <timothy@apple.com>
+
+        Use dark appearance scrollbar when page background is dark or document supports dark mode.
+        https://bugs.webkit.org/show_bug.cgi?id=190937
+        rdar://problem/41225839
+
+        Reviewed by Beth Dakin.
+
+        * pal/spi/mac/NSScrollerImpSPI.h: Added effectiveAppearanceForScrollerImp:.
+
+2018-10-26  Jer Noble  <jer.noble@apple.com>
+
+        Adopt -setOverrideRouteSharingPolicy:routingContextUID: SPI
+        https://bugs.webkit.org/show_bug.cgi?id=190951
+        <rdar://problem/45213065>
+
+        Reviewed by Alex Christensen.
+
+        * pal/spi/cocoa/AVKitSPI.h:
+
+2018-10-24  Alexey Proskuryakov  <ap@apple.com>
+
+        Clean up some obsolete macOS version guards
+        https://bugs.webkit.org/show_bug.cgi?id=190887
+
+        Reviewed by Dan Bernstein.
+
+        * pal/spi/mac/TUCallSPI.h:
+
+2018-10-24  Megan Gardner  <megan_gardner@apple.com>
+
+        Turn on Conic Gradients
+        https://bugs.webkit.org/show_bug.cgi?id=190810
+
+        Reviewed by Tim Horton.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-10-23  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r237280.
+
+        Causes fast/box-shadow/box-shadow-with-zero-radius.html to
+        fail on iOS Simulator.
+
+        Reverted changeset:
+
+        "[CG] Adopt CG SPI for non-even cornered rounded rects"
+        https://bugs.webkit.org/show_bug.cgi?id=190155
+        https://trac.webkit.org/changeset/237280
+
+2018-10-18  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+        [CG] Adopt CG SPI for non-even cornered rounded rects
+        https://bugs.webkit.org/show_bug.cgi?id=190155
+
+        Reviewed by Simon Fraser.
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+
+2018-10-18  Alexey Proskuryakov  <ap@apple.com>
+
+        Switch from PLATFORM(IOS) to PLATFORM(IOS_FAMILY)
+        https://bugs.webkit.org/show_bug.cgi?id=190729
+
+        Reviewed by Tim Horton.
+
+        * pal/cf/CoreMediaSoftLink.cpp:
+        * pal/cf/CoreMediaSoftLink.h:
+        * pal/ios/UIKitSoftLink.h:
+        * pal/ios/UIKitSoftLink.mm:
+        * pal/spi/cf/CFNetworkSPI.h:
+        * pal/spi/cocoa/AVKitSPI.h:
+        * pal/spi/cocoa/CFNSURLConnectionSPI.h:
+        * pal/spi/cocoa/CoreTextSPI.h:
+        * pal/spi/cocoa/DataDetectorsCoreSPI.h:
+        * pal/spi/cocoa/IOSurfaceSPI.h:
+        * pal/spi/cocoa/LaunchServicesSPI.h:
+        * pal/spi/cocoa/NEFilterSourceSPI.h:
+        * pal/spi/cocoa/NSAttributedStringSPI.h:
+        * pal/spi/cocoa/NSKeyedArchiverSPI.h:
+        * pal/spi/cocoa/PassKitSPI.h:
+        * pal/spi/cocoa/QuartzCoreSPI.h:
+        * pal/spi/ios/DataDetectorsUISPI.h:
+        * pal/spi/ios/GraphicsServicesSPI.h:
+        * pal/spi/ios/MediaPlayerSPI.h:
+        * pal/spi/ios/MobileGestaltSPI.h:
+        * pal/spi/mac/AVFoundationSPI.h:
+        * pal/system/mac/ClockCM.mm:
+        (ClockCM::ClockCM):
+
+2018-10-17  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Enable the datalist element by default on iOS and macOS
+        https://bugs.webkit.org/show_bug.cgi?id=190594
+        <rdar://problem/45281159>
+
+        Reviewed by Ryosuke Niwa and Tim Horton.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-10-16  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r237163.
+
+        Introduced layout test failures on iOS Simulator.
+
+        Reverted changeset:
+
+        "[CG] Adopt CG SPI for non-even cornered rounded rects"
+        https://bugs.webkit.org/show_bug.cgi?id=190155
+        https://trac.webkit.org/changeset/237163
+
+2018-10-16  Justin Michaud  <justin_michaud@apple.com>
+
+        Implement feature flag and bindings for CSS Painting API
+        https://bugs.webkit.org/show_bug.cgi?id=190237
+
+        Reviewed by Ryosuke Niwa.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-10-15  Justin Fan  <justin_fan@apple.com>
+
+        Add WebGPU 2018 feature flag and experimental feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=190509
+
+        Reviewed by Dean Jackson.
+
+        Re-add ENABLE_WEBGPU, an experimental feature flag, and a RuntimeEnabledFeature
+        for the 2018 WebGPU prototype.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-10-15  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+        [CG] Adopt CG SPI for non-even cornered rounded rects
+        https://bugs.webkit.org/show_bug.cgi?id=190155
+
+        Reviewed by Simon Fraser.
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+
+2018-10-15  Timothy Hatcher  <timothy@apple.com>
+
+        Add support for prefers-color-scheme media query
+        https://bugs.webkit.org/show_bug.cgi?id=190499
+        rdar://problem/45212025
+
+        Reviewed by Dean Jackson.
+
+        * Configurations/FeatureDefines.xcconfig: Added ENABLE_DARK_MODE_CSS.
+
+2018-10-14  Yusuke Suzuki  <yusukesuzuki@slowstart.org>
+
+        [JSC] Remove Option::useAsyncIterator
+        https://bugs.webkit.org/show_bug.cgi?id=190567
+
+        Reviewed by Saam Barati.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-10-08  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [Cocoa] [WK2] Add support for text alignment and text lists in font attributes
+        https://bugs.webkit.org/show_bug.cgi?id=190342
+        <rdar://problem/44767118>
+
+        Reviewed by Tim Horton.
+
+        * pal/ios/UIKitSoftLink.h:
+        * pal/ios/UIKitSoftLink.mm:
+
+        Add NSParagraphStyle and NSTextList to the UIKit soft link header.
+
+        * pal/spi/cocoa/NSAttributedStringSPI.h:
+        * pal/spi/ios/UIKitSPI.h:
+
+        Add some SPI declarations for NSMutableParagraphStyle and NSTextList when building with a non-internal iOS SDK,
+        and import <UIKit/NSParagraphStyle_Private.h> and <UIKit/NSTextList.h> when building with an internal iOS SDK.
+        Additionally, define some internal UIFoundation string constants that denote NSTextList marker formats. These
+        constants are API on macOS, but are neither exposed as API nor SPI on iOS.
+
+2018-10-08  Justin Fan  <justin_fan@apple.com>
+
+        WebGPU: Rename old WebGPU prototype to WebMetal
+        https://bugs.webkit.org/show_bug.cgi?id=190325
+        <rdar://problem/44990443>
+
+        Reviewed by Dean Jackson.
+
+        Rename WebGPU prototype files to WebMetal in preparation for implementing the new (Oct 2018) WebGPU interface.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-10-08  Aditya Keerthi  <akeerthi@apple.com>
+
+        Make <input type=color> a runtime enabled (on-by-default) feature
+        https://bugs.webkit.org/show_bug.cgi?id=189162
+
+        Reviewed by Wenson Hsieh and Tim Horton.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-10-05  Jer Noble  <jer.noble@apple.com>
+
+        Unreviewed build fix: internal builds can't find AVVideoPerformanceMetrics.
+
+        * pal/spi/mac/AVFoundationSPI.h:
+
+2018-10-03  Jer Noble  <jer.noble@apple.com>
+
+        Add support for reporting "display composited video frames" through the VideoPlaybackQuality object.
+        https://bugs.webkit.org/show_bug.cgi?id=190266
+
+        Reviewed by Eric Carlson.
+
+        * pal/spi/mac/AVFoundationSPI.h:
+
+2018-10-05  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r236866.
+
+        Breaks internal builds.
+
+        Reverted changeset:
+
+        "Add support for reporting "display composited video frames"
+        through the VideoPlaybackQuality object."
+        https://bugs.webkit.org/show_bug.cgi?id=190266
+        https://trac.webkit.org/changeset/236866
+
+2018-10-04  Jer Noble  <jer.noble@apple.com>
+
+        Add support for reporting "display composited video frames" through the VideoPlaybackQuality object.
+        https://bugs.webkit.org/show_bug.cgi?id=190266
+
+        Reviewed by Eric Carlson.
+
+        * pal/spi/mac/AVFoundationSPI.h:
+
+2018-10-04  Dan Bernstein  <mitz@apple.com>
+
+        PAL change for the WebKitLegacy part of [Xcode] Update some build settings as recommended by Xcode 10
+        https://bugs.webkit.org/show_bug.cgi?id=190250
+
+        Reviewed by Andy Estes.
+
+        * pal/spi/mac/NSWindowSPI.h: Added a private API declaration.
+
+2018-10-04  Dan Bernstein  <mitz@apple.com>
+
+        PAL part of [Xcode] Update some build settings as recommended by Xcode 10
+        https://bugs.webkit.org/show_bug.cgi?id=190250
+
+        Reviewed by Andy Estes.
+
+        * Configurations/Base.xcconfig: Enabled CLANG_WARN_COMMA, CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF,
+          CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED, and CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS.
+
+        * PAL.xcodeproj/project.pbxproj: Let Xcode update LastUpgradeCheck.
+
+2018-10-01  Dean Jackson  <dino@apple.com>
+
+        Remove CSS Animation Triggers
+        https://bugs.webkit.org/show_bug.cgi?id=190175
+        <rdar://problem/44925626>
+
+        Reviewed by Simon Fraser.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-10-01  Andy Estes  <aestes@apple.com>
+
+        [watchOS] Adopt NSURLSessionCompanionProxyPreference
+        https://bugs.webkit.org/show_bug.cgi?id=190177
+        <rdar://problem/43402114>
+
+        Reviewed by Wenson Hsieh.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+
+2018-10-01  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Special keys are misidentified in DOM keyboard events
+        https://bugs.webkit.org/show_bug.cgi?id=189974
+
+        Reviewed by Wenson Hsieh.
+
+        Forward declare or define more SPI.
+
+        * pal/spi/cocoa/IOKitSPI.h:
+        * pal/spi/ios/UIKitSPI.h:
+
+2018-09-25  Jiewen Tan  <jiewen_tan@apple.com>
+
+        [WebAuthN] Make AuthenticatorManager
+        https://bugs.webkit.org/show_bug.cgi?id=189279
+        <rdar://problem/44116792>
+
+        Reviewed by Chris Dumez.
+
+        It moves linking to DeviceIdentity.framework to WebKit.
+
+        * PAL.xcodeproj/project.pbxproj:
+
+2018-09-25  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS] Fix the open source iOS 12 build after r236445
+        https://bugs.webkit.org/show_bug.cgi?id=189953
+
+        Reviewed by Alex Christensen.
+
+        Introduce a single UIKit soft-linking header in PAL.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/ios/UIKitSoftLink.h: Copied from Source/WebCore/platform/graphics/cocoa/ColorCocoa.mm.
+        * pal/ios/UIKitSoftLink.mm: Copied from Source/WebCore/platform/graphics/cocoa/ColorCocoa.mm.
+
+2018-09-24  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Refactor Editor::fontAttributesForSelectionStart to be platform-agnostic
+        https://bugs.webkit.org/show_bug.cgi?id=189918
+        Work towards <rdar://problem/44648705>
+
+        Reviewed by Tim Horton.
+
+        Add `+_disambiguated_due_to_CIImage_colorWithCGColor:` as a UIColor SPI definition. Also, import
+        `UIColor_Private.h` directly when the Apple internal SDK is used.
+
+        * pal/spi/ios/UIKitSPI.h:
+
+2018-09-21  Jer Noble  <jer.noble@apple.com>
+
+        Unreviewed Sierra Build Fix; ensure AVVideoPerformanceMetrics are defined on Sierra.
+
+        * pal/spi/mac/AVFoundationSPI.h:
+
+2018-09-21  Jer Noble  <jer.noble@apple.com>
+
+        Move AVVideoPerformanceMetrics into AVFoundationSPI.h
+        https://bugs.webkit.org/show_bug.cgi?id=189842
+
+        Reviewed by Jon Lee.
+
+        * pal/spi/mac/AVFoundationSPI.h:
+
+2018-09-21  Jonathan Bedard  <jbedard@apple.com>
+
+        Bring up queues for iOS 12 (Build fix)
+        https://bugs.webkit.org/show_bug.cgi?id=189683
+
+        Unreviewed build fix.
+
+        * pal/spi/cocoa/QuartzCoreSPI.h: Declare setCornerRadius and continuousCorner.
+
+2018-09-20  Daniel Bates  <dabates@apple.com>
+
+        Move IOKitSPI.h from TestRunnerShared to PAL
+        https://bugs.webkit.org/show_bug.cgi?id=189804
+
+        Reviewed by Wenson Hsieh.
+
+        Towards fixing <https://bugs.webkit.org/show_bug.cgi?id=189604> move the IOKit SPI forward
+        declarations to PAL so that they can be shared by both WebKit, DumpRenderTree, and WebKitTestRunner.
+
+        No functionality changed. So, no new tests.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/spi/cocoa/IOKitSPI.h: Renamed from Tools/TestRunnerShared/spi/IOKitSPI.h.
+
+2018-09-14  Eric Carlson  <eric.carlson@apple.com>
+
+        Support arbitrary video resolution in getUserMedia API
+        https://bugs.webkit.org/show_bug.cgi?id=178109
+        <rdar://problem/35083128>
+
+        Reviewed by Youenn Fablet.
+
+        * pal/cf/CoreMediaSoftLink.cpp:
+        * pal/cf/CoreMediaSoftLink.h:
+
+2018-09-12  Guillaume Emont  <guijemont@igalia.com>
+
+        Add IGNORE_WARNING_.* macros
+        https://bugs.webkit.org/show_bug.cgi?id=188996
+
+        Reviewed by Michael Catanzaro.
+
+        * pal/crypto/commoncrypto/CryptoDigestCommonCrypto.cpp:
+        (PAL::CryptoDigest::create):
+        (PAL::CryptoDigest::addBytes):
+        (PAL::CryptoDigest::computeHash):
+        * pal/spi/cocoa/AVKitSPI.h:
+        * pal/spi/cocoa/NSKeyedArchiverSPI.h:
+        (insecurelyUnarchiveObjectFromData):
+        * pal/spi/ios/MediaPlayerSPI.h:
+        * pal/system/mac/PopupMenu.mm:
+        (PAL::popUpMenu):
+        * pal/system/mac/WebPanel.mm:
+        (-[WebPanel init]):
+
+2018-09-10  James Savage  <james.savage@apple.com>
+
+        Expose -apple-system-container-border color to internal web views.
+        https://bugs.webkit.org/show_bug.cgi?id=189178.
+
+        Reviewed by Timothy Hatcher.
+
+        * pal/spi/cocoa/NSColorSPI.h: Declare SPI.
+
+2018-09-06  Megan Gardner  <megan_gardner@apple.com>
+
+        Add Support for Conic Gradients
+        https://bugs.webkit.org/show_bug.cgi?id=189329
+        <rdar://problem/21444701>
+
+        Reviewed by Simon Fraser.
+
+        Define the CG functionality for conic gradients. 
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+
+2018-09-04  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, attempt to fix an internal build after r235585.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+
+2018-09-01  Yoshiaki Jitsukawa  <yoshiaki.jitsukawa@sony.com>
+
+        [WinCairo] Add CryptoDigestOpenSSL
+        https://bugs.webkit.org/show_bug.cgi?id=188978
+
+        Reviewed by Darin Adler.
+
+        Add a CryptoDigest implementation with OpenSSL/LibreSSL and let the
+        WinCairo port use it.
+
+        * pal/PlatformAppleWin.cmake: Add CryptoDigestWin.cpp to PAL_SOURCES
+        * pal/PlatformWin.cmake: Remove CryptoDigestWin.cpp from PAL_SOURCES
+        * pal/PlatformWinCairo.cmake: Add CryptoDigestOpenSSL to PAL_SOURCES
+        * pal/crypto/openssl/CryptoDigestOpenSSL.cpp: Added.
+        (PAL::toSHA1Context):
+        (PAL::toSHA224Context):
+        (PAL::toSHA256Context):
+        (PAL::toSHA384Context):
+        (PAL::toSHA512Context):
+        (PAL::CryptoDigest::CryptoDigest):
+        (PAL::CryptoDigest::~CryptoDigest):
+        (PAL::CryptoDigest::create):
+        (PAL::CryptoDigest::addBytes):
+        (PAL::CryptoDigest::computeHash):
+
+2018-09-01  Darin Adler  <darin@apple.com>
+
+        [CFNetwork] Update CFNetwork SPI use to use CFNetworkSPI.h more consistently
+        https://bugs.webkit.org/show_bug.cgi?id=189072
+
+        Reviewed by Dan Bernstein.
+
+        * pal/spi/cf/CFNetworkSPI.h: Added a FIXME about USE(CFNETWORK_IGNORE_HSTS).
+        Sorted Objective-C class interfaces alphabetically instead of having them
+        relatively randomly ordered in the file. Reduced the platform #if statements
+        since it's not critical to have these SPIs declared only where they are
+        present, as long as they are used only when they are present. Moved some
+        additional declarations into this file.
+
+        * pal/spi/cocoa/NSURLDownloadSPI.h: Added more NSURLDownload methods.
+
+2018-08-30  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Replace AVFoundationSupport.py using CMake
+        https://bugs.webkit.org/show_bug.cgi?id=182891
+
+        Reviewed by Per Arne Vollan.
+
+        Remove AVFoundationSupport.py file and its invocation.
+
+        * AVFoundationSupport.py: Removed.
+        * config.h:
+        * pal/PlatformWin.cmake:
+
+2018-08-29  Jer Noble  <jer.noble@apple.com>
+
+        Muted elements do not have their Now Playing status updated when unmuted.
+        https://bugs.webkit.org/show_bug.cgi?id=189069
+
+        Reviewed by Eric Carlson.
+
+        * pal/spi/mac/MediaRemoteSPI.h:
+
+2018-08-27  Keith Rollin  <krollin@apple.com>
+
+        Unreviewed build fix -- disable LTO for production builds
+
+        * Configurations/Base.xcconfig:
+
+2018-08-27  Aditya Keerthi  <akeerthi@apple.com>
+
+        Consolidate ENABLE_INPUT_TYPE_COLOR and ENABLE_INPUT_TYPE_COLOR_POPOVER
+        https://bugs.webkit.org/show_bug.cgi?id=188931
+
+        Reviewed by Wenson Hsieh.
+
+        * Configurations/FeatureDefines.xcconfig: Removed ENABLE_INPUT_TYPE_COLOR_POPOVER.
+
+2018-08-27  Keith Rollin  <krollin@apple.com>
+
+        Build system support for LTO
+        https://bugs.webkit.org/show_bug.cgi?id=187785
+        <rdar://problem/42353132>
+
+        Reviewed by Dan Bernstein.
+
+        Update Base.xcconfig and DebugRelease.xcconfig to optionally enable
+        LTO.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+
+2018-08-26  Andy Estes  <aestes@apple.com>
+
+        [Apple Pay] Introduce new values for -apple-pay-button-type
+        https://bugs.webkit.org/show_bug.cgi?id=188949
+        <rdar://problem/39992228>
+
+        Reviewed by Anders Carlsson.
+
+        * pal/spi/cocoa/PassKitSPI.h:
+
+2018-08-23  Andy Estes  <aestes@apple.com>
+
+        [Apple Pay] Introduce Apple Pay JS v4 on iOS 12 and macOS Mojave
+        https://bugs.webkit.org/show_bug.cgi?id=188829
+
+        Reviewed by Tim Horton.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-08-21  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Unreviewed macOS Mojave build fix after r235125.
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+
+2018-08-15  Ansh Shukla  <ansh_shukla@apple.com>
+
+        NSURLAuthenticationMethodOAuth challenges are surfaced to clients in -didReceiveAuthenticationChallenge as NSURLAuthenticationMethodDefault
+        https://bugs.webkit.org/show_bug.cgi?id=186870
+        <rdar://problem/41314410>
+
+        Reviewed by Alex Christensen.
+
+        * pal/spi/cf/CFNetworkSPI.h: Declare OAuth string when not building against the
+        internal SDK.
+
+2018-08-15  Aditya Keerthi  <akeerthi@apple.com>
+
+        [Datalist] Add button to TextFieldInputs with a datalist
+        https://bugs.webkit.org/show_bug.cgi?id=187741
+
+        Reviewed by Tim Horton.
+
+        * pal/spi/cocoa/NSColorSPI.h: Added NSColorGetUserAccentColor().
+
+2018-08-15  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r234870.
+
+        The test introduced with this change is a flaky failure.
+
+        Reverted changeset:
+
+        "NSURLAuthenticationMethodOAuth challenges are surfaced to
+        clients in -didReceiveAuthenticationChallenge as
+        NSURLAuthenticationMethodDefault"
+        https://bugs.webkit.org/show_bug.cgi?id=186870
+        https://trac.webkit.org/changeset/234870
+
+2018-08-14  Ansh Shukla  <ansh_shukla@apple.com>
+
+        NSURLAuthenticationMethodOAuth challenges are surfaced to clients in -didReceiveAuthenticationChallenge as NSURLAuthenticationMethodDefault
+        https://bugs.webkit.org/show_bug.cgi?id=186870
+        <rdar://problem/41314410>
+
+        Reviewed by Alex Christensen.
+
+        * pal/spi/cf/CFNetworkSPI.h: Declare OAuth string when not building against the
+        internal SDK.
+
+2018-08-07  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, suppress warnings to fix the build.
+
+        * pal/crypto/commoncrypto/CryptoDigestCommonCrypto.cpp:
+        (PAL::CryptoDigest::create):
+        (PAL::CryptoDigest::addBytes):
+        (PAL::CryptoDigest::computeHash):
+
+2018-08-07  Per Arne Vollan  <pvollan@apple.com>
+
+        [macOS] Scrollbars are not visible when using 3rd party mouse
+        https://bugs.webkit.org/show_bug.cgi?id=188372
+
+        Reviewed by Simon Fraser.
+
+        Added declaration of NSScrollerImpPair class method. This method updates all NSScrollerImpPairs
+        with a new recommended scroller style.
+
+        * pal/spi/mac/NSScrollerImpSPI.h:
+
+2018-08-02  David Fenton  <david_fenton@apple.com>
+
+        Unreviewed, rolling out r234489.
+
+        Caused 50+ crashes and 60+ API failures on iOS
+
+        Reverted changeset:
+
+        "[WTF] Rename String::format to String::deprecatedFormat"
+        https://bugs.webkit.org/show_bug.cgi?id=188191
+        https://trac.webkit.org/changeset/234489
+
+2018-08-01  Tomas Popela  <tpopela@redhat.com>
+
+        [WTF] Rename String::format to String::deprecatedFormat
+        https://bugs.webkit.org/show_bug.cgi?id=188191
+
+        Reviewed by Darin Adler.
+
+        It should be replaced with string concatenation.
+
+        * pal/FileSizeFormatter.cpp:
+        (fileSizeDescription):
+
+2018-08-01  Tim Horton  <timothy_horton@apple.com>
+
+        Using the keyboard arrow keys to scroll a webpage is very slow, not smooth, takes too long
+        https://bugs.webkit.org/show_bug.cgi?id=188239
+        <rdar://problem/22997654>
+
+        Reviewed by Simon Fraser.
+
+        * pal/spi/cocoa/QuartzCoreSPI.h:
+        Add a piece of SPI.
+
+2018-07-30  Sihui Liu  <sihui_liu@apple.com>
+
+        Add support for fetching and remove type  _WKWebsiteDataTypeHSTSCache
+        https://bugs.webkit.org/show_bug.cgi?id=187379
+        <rdar://problem/41879559>
+
+        Reviewed by Geoffrey Garen.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+
+2018-07-30  Devin Rousso  <webkit@devinrousso.com>
+
+        Add missing CoreGraphics SPI
+        https://bugs.webkit.org/show_bug.cgi?id=188177
+
+        Reviewed by Joseph Pecoraro.
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+
+2018-07-26  Andy VanWagoner  <andy@vanwagoner.family>
+
+        [INTL] Remove INTL sub-feature compile flags
+        https://bugs.webkit.org/show_bug.cgi?id=188081
+
+        Reviewed by Michael Catanzaro.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-07-26  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r234281.
+
+        Broke internal builds.
+
+        Reverted changeset:
+
+        "[Datalist] Add button to TextFieldInputs with a datalist"
+        https://bugs.webkit.org/show_bug.cgi?id=187741
+        https://trac.webkit.org/changeset/234281
+
+2018-07-26  Aditya Keerthi  <akeerthi@apple.com>
+
+        [Datalist] Add button to TextFieldInputs with a datalist
+        https://bugs.webkit.org/show_bug.cgi?id=187741
+
+        Reviewed by Tim Horton.
+
+        * pal/spi/cocoa/NSColorSPI.h: Added NSColorGetUserAccentColor().
+
+2018-07-26  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r234181 and r234189.
+        https://bugs.webkit.org/show_bug.cgi?id=188075
+
+        These are not needed right now (Requested by thorton on
+        #webkit).
+
+        Reverted changesets:
+
+        "Enable Web Content Filtering on watchOS"
+        https://bugs.webkit.org/show_bug.cgi?id=187979
+        https://trac.webkit.org/changeset/234181
+
+        "HAVE(PARENTAL_CONTROLS) should be true on watchOS"
+        https://bugs.webkit.org/show_bug.cgi?id=187985
+        https://trac.webkit.org/changeset/234189
+
+2018-07-24  Tim Horton  <timothy_horton@apple.com>
+
+        Enable Web Content Filtering on watchOS
+        https://bugs.webkit.org/show_bug.cgi?id=187979
+        <rdar://problem/42559346>
+
+        Reviewed by Wenson Hsieh.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-07-24  Aditya Keerthi  <akeerthi@apple.com>
+
+        [Datalist][macOS] Display suggestions for input[type=color]
+        https://bugs.webkit.org/show_bug.cgi?id=187794
+
+        Reviewed by Tim Horton.
+
+        Added methods to enable customization of NSPopoverColorWell.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/spi/mac/NSColorWellSPI.h: Added.
+        * pal/spi/mac/NSPopoverColorWellSPI.h: Added.
+        * pal/spi/mac/NSPopoverSPI.h:
+
+2018-07-23  Tim Horton  <timothy_horton@apple.com>
+
+        Creating and loading content in a WKWebView triggers Main Thread Checker warnings under ServicesController
+        https://bugs.webkit.org/show_bug.cgi?id=186963
+        <rdar://problem/41393682>
+
+        Reviewed by Timothy Hatcher.
+
+        * pal/spi/mac/NSSharingServiceSPI.h:
+        Add the new SPI.
+
+2018-07-18  Per Arne Vollan  <pvollan@apple.com>
+
+        The WebContent process does not suspend when MiniBrowser is minimized.
+        https://bugs.webkit.org/show_bug.cgi?id=187708
+
+        Reviewed by Chris Dumez.
+
+        Add function for enabling App nap.
+
+        * pal/spi/cf/CFUtilitiesSPI.h:
+
+2018-07-18  Jer Noble  <jer.noble@apple.com>
+
+        PiP from Element Fullscreen should match AVKit's behavior
+        https://bugs.webkit.org/show_bug.cgi?id=187623
+
+        Reviewed by Jon Lee.
+
+        * pal/spi/mac/PIPSPI.h:
 
 2018-07-14  Kocsen Chung  <kocsen_chung@apple.com>
 

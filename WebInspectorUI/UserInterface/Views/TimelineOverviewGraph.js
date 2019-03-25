@@ -37,7 +37,7 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
         this._currentTime = 0;
         this._timelineOverview = timelineOverview;
         this._selectedRecord = null;
-        this._selectedRecordChanged = false;
+        this._selectedRecordBar = null;
         this._scheduledSelectedRecordLayoutUpdateIdentifier = undefined;
         this._selected = false;
         this._visible = true;
@@ -68,6 +68,9 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
 
         if (timelineType === WI.TimelineRecord.Type.HeapAllocations)
             return new WI.HeapAllocationsTimelineOverviewGraph(timeline, timelineOverview);
+
+        if (timelineType === WI.TimelineRecord.Type.Media)
+            return new WI.MediaTimelineOverviewGraph(timeline, timelineOverview);
 
         throw new Error("Can't make a graph for an unknown timeline.");
     }
@@ -166,9 +169,30 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
             return;
 
         this._selectedRecord = x;
-        this._selectedRecordChanged = true;
 
         this._needsSelectedRecordLayout();
+    }
+
+    get selectedRecordBar()
+    {
+        return this._selectedRecordBar;
+    }
+
+    set selectedRecordBar(recordBar)
+    {
+        if (this._selectedRecordBar === recordBar)
+            return;
+
+        if (this._selectedRecordBar)
+            this._selectedRecordBar.selected = false;
+
+        this._selectedRecordBar = recordBar;
+
+        if (this._selectedRecordBar) {
+            this._selectedRecordBar.selected = true;
+
+            console.assert(this._selectedRecordBar.records.includes(this._selectedRecord));
+        }
     }
 
     get height()
@@ -226,6 +250,13 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
         super.needsLayout();
     }
 
+    // TimelineRecordBar delegate
+
+    timelineRecordBarClicked(timelineRecordBar)
+    {
+        this.selectedRecord = timelineRecordBar.records[0];
+    }
+
     // Protected
 
     updateSelectedRecord()
@@ -248,7 +279,7 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
             this._scheduledSelectedRecordLayoutUpdateIdentifier = undefined;
 
             this.updateSelectedRecord();
-            this.dispatchEventToListeners(WI.TimelineOverviewGraph.Event.RecordSelected, {record: this.selectedRecord});
+            this.dispatchEventToListeners(WI.TimelineOverviewGraph.Event.RecordSelected, {record: this.selectedRecord, recordBar: this.selectedRecordBar});
         });
     }
 };

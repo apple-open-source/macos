@@ -31,6 +31,7 @@
 #include "StyleCustomPropertyData.h"
 #include "StyleFilterData.h"
 #include "StyleImage.h"
+#include "StyleSupportedColorSchemes.h"
 #include <wtf/PointerComparison.h>
 
 namespace WebCore {
@@ -45,12 +46,14 @@ struct GreaterThanOrSameSizeAsStyleRareInheritedData : public RefCounted<Greater
     void* refPtrs[3];
     Length lengths[2];
     float secondFloat;
+    TextUnderlineOffset offset;
+    TextDecorationThickness thickness;
     unsigned bitfields[4];
     short pagedMediaShorts[2];
     unsigned unsigneds[1];
     short hyphenationShorts[3];
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     Color compositionColor; // FIXME: this has gone.
 #endif
 #if ENABLE(TEXT_AUTOSIZING)
@@ -65,6 +68,10 @@ struct GreaterThanOrSameSizeAsStyleRareInheritedData : public RefCounted<Greater
     Color tapHighlightColor;
 #endif
 
+#if ENABLE(DARK_MODE_CSS)
+    StyleSupportedColorSchemes supportedColorSchemes;
+#endif
+
     void* customPropertyDataRefs[1];
 };
 
@@ -75,6 +82,8 @@ StyleRareInheritedData::StyleRareInheritedData()
     , textStrokeWidth(RenderStyle::initialTextStrokeWidth())
     , indent(RenderStyle::initialTextIndent())
     , effectiveZoom(RenderStyle::initialZoom())
+    , textUnderlineOffset(RenderStyle::initialTextUnderlineOffset())
+    , textDecorationThickness(RenderStyle::initialTextDecorationThickness())
     , customProperties(StyleCustomPropertyData::create())
     , widows(RenderStyle::initialWidows())
     , orphans(RenderStyle::initialOrphans())
@@ -116,10 +125,10 @@ StyleRareInheritedData::StyleRareInheritedData()
     , textJustify(RenderStyle::initialTextJustify())
 #endif
     , textDecorationSkip(RenderStyle::initialTextDecorationSkip().toRaw())
-    , textUnderlinePosition(RenderStyle::initialTextUnderlinePosition().toRaw())
+    , textUnderlinePosition(static_cast<unsigned>(RenderStyle::initialTextUnderlinePosition()))
     , rubyPosition(static_cast<unsigned>(RenderStyle::initialRubyPosition()))
     , textZoom(static_cast<unsigned>(RenderStyle::initialTextZoom()))
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     , touchCalloutEnabled(RenderStyle::initialTouchCalloutEnabled())
 #endif
 #if ENABLE(CSS_TRAILING_WORD)
@@ -149,6 +158,9 @@ StyleRareInheritedData::StyleRareInheritedData()
 #if ENABLE(TOUCH_EVENTS)
     , tapHighlightColor(RenderStyle::initialTapHighlightColor())
 #endif
+#if ENABLE(DARK_MODE_CSS)
+    , supportedColorSchemes(RenderStyle::initialSupportedColorSchemes())
+#endif
 {
 }
 
@@ -168,6 +180,8 @@ inline StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedDa
     , cursorData(o.cursorData)
     , indent(o.indent)
     , effectiveZoom(o.effectiveZoom)
+    , textUnderlineOffset(o.textUnderlineOffset)
+    , textDecorationThickness(o.textDecorationThickness)
     , customProperties(o.customProperties)
     , widows(o.widows)
     , orphans(o.orphans)
@@ -212,7 +226,7 @@ inline StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedDa
     , textUnderlinePosition(o.textUnderlinePosition)
     , rubyPosition(o.rubyPosition)
     , textZoom(o.textZoom)
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     , touchCalloutEnabled(o.touchCalloutEnabled)
 #endif
 #if ENABLE(CSS_TRAILING_WORD)
@@ -245,6 +259,9 @@ inline StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedDa
 #if ENABLE(TOUCH_EVENTS)
     , tapHighlightColor(o.tapHighlightColor)
 #endif
+#if ENABLE(DARK_MODE_CSS)
+    , supportedColorSchemes(o.supportedColorSchemes)
+#endif
 {
 }
 
@@ -273,6 +290,8 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && arePointingToEqualData(cursorData, o.cursorData)
         && indent == o.indent
         && effectiveZoom == o.effectiveZoom
+        && textUnderlineOffset == o.textUnderlineOffset
+        && textDecorationThickness == o.textDecorationThickness
         && widows == o.widows
         && orphans == o.orphans
         && hasAutoWidows == o.hasAutoWidows
@@ -289,6 +308,9 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
 #if ENABLE(TEXT_AUTOSIZING)
         && textSizeAdjust == o.textSizeAdjust
 #endif
+#if ENABLE(DARK_MODE_CSS)
+        && supportedColorSchemes == o.supportedColorSchemes
+#endif
         && userSelect == o.userSelect
         && speakAs == o.speakAs
         && hyphens == o.hyphens
@@ -304,7 +326,7 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && textIndentType == o.textIndentType
 #endif
         && lineBoxContain == o.lineBoxContain
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
         && touchCalloutEnabled == o.touchCalloutEnabled
 #endif
         && hyphenationString == o.hyphenationString

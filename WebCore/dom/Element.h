@@ -43,6 +43,7 @@ class DOMRect;
 class DOMRectList;
 class DOMTokenList;
 class ElementRareData;
+class Frame;
 class HTMLDocument;
 class IntSize;
 class JSCustomElementInterface;
@@ -53,8 +54,14 @@ class PlatformMouseEvent;
 class PlatformWheelEvent;
 class PseudoElement;
 class RenderTreePosition;
+class StylePropertyMap;
 class WebAnimation;
 struct ElementStyle;
+struct ScrollIntoViewOptions;
+
+#if ENABLE(INTERSECTION_OBSERVER)
+struct IntersectionObserverData;
+#endif
 
 enum SpellcheckAttributeState {
     SpellcheckAttributeTrue,
@@ -76,6 +83,8 @@ public:
 
     WEBCORE_EXPORT bool hasAttribute(const QualifiedName&) const;
     WEBCORE_EXPORT const AtomicString& getAttribute(const QualifiedName&) const;
+    template<typename... QualifiedNames>
+    const AtomicString& getAttribute(const QualifiedName&, const QualifiedNames&...) const;
     WEBCORE_EXPORT void setAttribute(const QualifiedName&, const AtomicString& value);
     WEBCORE_EXPORT void setAttributeWithoutSynchronization(const QualifiedName&, const AtomicString& value);
     void setSynchronizedLazyAttribute(const QualifiedName&, const AtomicString& value);
@@ -96,7 +105,7 @@ public:
     WEBCORE_EXPORT bool fastAttributeLookupAllowed(const QualifiedName&) const;
 #endif
 
-#ifdef DUMP_NODE_STATISTICS
+#if DUMP_NODE_STATISTICS
     bool hasNamedNodeMap() const;
 #endif
     WEBCORE_EXPORT bool hasAttributes() const;
@@ -114,7 +123,7 @@ public:
     static ExceptionOr<QualifiedName> parseAttributeName(const AtomicString& namespaceURI, const AtomicString& qualifiedName);
     WEBCORE_EXPORT ExceptionOr<void> setAttributeNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, const AtomicString& value);
 
-    ExceptionOr<bool> toggleAttribute(const AtomicString& qualifiedName, std::optional<bool> force);
+    ExceptionOr<bool> toggleAttribute(const AtomicString& qualifiedName, Optional<bool> force);
 
     const AtomicString& getIdAttribute() const;
     void setIdAttribute(const AtomicString&);
@@ -135,6 +144,7 @@ public:
     unsigned findAttributeIndexByName(const QualifiedName& name) const { return elementData()->findAttributeIndexByName(name); }
     unsigned findAttributeIndexByName(const AtomicString& name, bool shouldIgnoreAttributeCase) const { return elementData()->findAttributeIndexByName(name, shouldIgnoreAttributeCase); }
 
+    WEBCORE_EXPORT void scrollIntoView(Optional<Variant<bool, ScrollIntoViewOptions>>&& arg);
     WEBCORE_EXPORT void scrollIntoView(bool alignToTop = true);
     WEBCORE_EXPORT void scrollIntoViewIfNeeded(bool centerIfNeeded = true);
     WEBCORE_EXPORT void scrollIntoViewIfNotVisible(bool centerIfNotVisible = true);
@@ -147,7 +157,9 @@ public:
     WEBCORE_EXPORT void scrollByLines(int lines);
     WEBCORE_EXPORT void scrollByPages(int pages);
 
+    WEBCORE_EXPORT double offsetLeftForBindings();
     WEBCORE_EXPORT double offsetLeft();
+    WEBCORE_EXPORT double offsetTopForBindings();
     WEBCORE_EXPORT double offsetTop();
     WEBCORE_EXPORT double offsetWidth();
     WEBCORE_EXPORT double offsetHeight();
@@ -156,7 +168,7 @@ public:
 
     // FIXME: Replace uses of offsetParent in the platform with calls
     // to the render layer and merge bindingsOffsetParent and offsetParent.
-    WEBCORE_EXPORT Element* bindingsOffsetParent();
+    WEBCORE_EXPORT Element* offsetParentForBindings();
 
     const Element* rootElement() const;
 
@@ -513,11 +525,12 @@ public:
     virtual void didAttachRenderers();
     virtual void willDetachRenderers();
     virtual void didDetachRenderers();
-    virtual std::optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle);
+    virtual Optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle);
 
     LayoutRect absoluteEventHandlerBounds(bool& includesFixedPositionElements) override;
 
     const RenderStyle* existingComputedStyle() const;
+    const RenderStyle* renderOrDisplayContentsStyle() const;
 
     void setBeforePseudoElement(Ref<PseudoElement>&&);
     void setAfterPseudoElement(Ref<PseudoElement>&&);
@@ -565,9 +578,14 @@ public:
     using ContainerNode::setAttributeEventListener;
     void setAttributeEventListener(const AtomicString& eventType, const QualifiedName& attributeName, const AtomicString& value);
 
+#if ENABLE(INTERSECTION_OBSERVER)
+    IntersectionObserverData& ensureIntersectionObserverData();
+    IntersectionObserverData* intersectionObserverData();
+#endif
+
     Element* findAnchorElementForLink(String& outAnchorName);
 
-    ExceptionOr<Ref<WebAnimation>> animate(JSC::ExecState&, JSC::Strong<JSC::JSObject>&&, std::optional<Variant<double, KeyframeAnimationOptions>>&&);
+    ExceptionOr<Ref<WebAnimation>> animate(JSC::ExecState&, JSC::Strong<JSC::JSObject>&&, Optional<Variant<double, KeyframeAnimationOptions>>&&);
     Vector<RefPtr<WebAnimation>> getAnimations();
 
 protected:
@@ -591,7 +609,14 @@ protected:
 
     static ExceptionOr<void> mergeWithNextTextNode(Text&);
 
+#if ENABLE(CSS_TYPED_OM)
+    StylePropertyMap* attributeStyleMap();
+    void setAttributeStyleMap(Ref<StylePropertyMap>&&);
+#endif
+
 private:
+    Frame* documentFrameWithNonNullView() const;
+
     bool isTextNode() const;
 
     bool isUserActionElementInActiveChain() const;
@@ -642,6 +667,10 @@ private:
     
 #if ENABLE(TREE_DEBUGGING)
     void formatForDebugger(char* buffer, unsigned length) const override;
+#endif
+
+#if ENABLE(INTERSECTION_OBSERVER)
+    void disconnectFromIntersectionObservers();
 #endif
 
     // The cloneNode function is private so that non-virtual cloneElementWith/WithoutChildren are used instead.
@@ -815,6 +844,15 @@ inline void Element::setHasFocusWithin(bool flag)
     setFlag(flag, HasFocusWithin);
     if (styleAffectedByFocusWithin())
         invalidateStyleForSubtree();
+}
+
+template<typename... QualifiedNames>
+inline const AtomicString& Element::getAttribute(const QualifiedName& name, const QualifiedNames&... names) const
+{
+    const AtomicString& value = getAttribute(name);
+    if (!value.isNull())
+        return value;
+    return getAttribute(names...);
 }
 
 } // namespace WebCore

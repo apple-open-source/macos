@@ -114,7 +114,7 @@ WI.NetworkTimelineView = class NetworkTimelineView extends WI.TimelineView
         columns.graph.sortable = false;
 
         // COMPATIBILITY(iOS 10.3): Network load metrics were not previously available.
-        if (!NetworkAgent.hasEventParameter("loadingFinished", "metrics")) {
+        if (!InspectorBackend.domains.Network.hasEventParameter("loadingFinished", "metrics")) {
             delete columns.protocol;
             delete columns.priority;
             delete columns.remoteAddress;
@@ -259,7 +259,7 @@ WI.NetworkTimelineView = class NetworkTimelineView extends WI.TimelineView
             dataGridNode = new WI.ResourceTimelineDataGridNode(resourceTimelineRecord, includesGraph, this, shouldShowPopover);
             this._resourceDataGridNodeMap.set(resourceTimelineRecord.resource, dataGridNode);
 
-            this._dataGrid.addRowInSortOrder(null, dataGridNode);
+            this._dataGrid.addRowInSortOrder(dataGridNode);
         }
 
         this._pendingRecords = [];

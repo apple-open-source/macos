@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WebIOSEventFactory.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 #import <WebCore/KeyEventCodesIOS.h>
 #import <WebCore/PlatformEventFactoryIOS.h>
@@ -36,15 +36,15 @@ static WebKit::WebEvent::Modifiers modifiersForEvent(::WebEvent *event)
     unsigned modifiers = 0;
     WebEventFlags eventModifierFlags = event.modifierFlags;
 
-    if (eventModifierFlags & WebEventFlagMaskShift)
+    if (eventModifierFlags & WebEventFlagMaskShiftKey)
         modifiers |= WebKit::WebEvent::ShiftKey;
-    if (eventModifierFlags & WebEventFlagMaskControl)
+    if (eventModifierFlags & WebEventFlagMaskControlKey)
         modifiers |= WebKit::WebEvent::ControlKey;
-    if (eventModifierFlags & WebEventFlagMaskAlternate)
+    if (eventModifierFlags & WebEventFlagMaskOptionKey)
         modifiers |= WebKit::WebEvent::AltKey;
-    if (eventModifierFlags & WebEventFlagMaskCommand)
+    if (eventModifierFlags & WebEventFlagMaskCommandKey)
         modifiers |= WebKit::WebEvent::MetaKey;
-    if (eventModifierFlags & WebEventFlagMaskAlphaShift)
+    if (eventModifierFlags & WebEventFlagMaskLeftCapsLockKey)
         modifiers |= WebKit::WebEvent::CapsLockKey;
 
     return static_cast<WebKit::WebEvent::Modifiers>(modifiers);
@@ -53,15 +53,25 @@ static WebKit::WebEvent::Modifiers modifiersForEvent(::WebEvent *event)
 WebKit::WebKeyboardEvent WebIOSEventFactory::createWebKeyboardEvent(::WebEvent *event)
 {
     WebKit::WebEvent::Type type = (event.type == WebEventKeyUp) ? WebKit::WebEvent::KeyUp : WebKit::WebEvent::KeyDown;
-    String text = event.characters;
-    String unmodifiedText = event.charactersIgnoringModifiers;
+    String text;
+    String unmodifiedText;
+    bool autoRepeat;
+    if (event.keyboardFlags & WebEventKeyboardInputModifierFlagsChanged) {
+        text = emptyString();
+        unmodifiedText = emptyString();
+        autoRepeat = false;
+    } else {
+        text = event.characters;
+        unmodifiedText = event.charactersIgnoringModifiers;
+        autoRepeat = event.isKeyRepeating;
+    }
     String key = WebCore::keyForKeyEvent(event);
     String code = WebCore::codeForKeyEvent(event);
     String keyIdentifier = WebCore::keyIdentifierForKeyEvent(event);
     int windowsVirtualKeyCode = event.keyCode;
+    // FIXME: This is not correct. WebEvent.keyCode represents the Windows native virtual key code.
     int nativeVirtualKeyCode = event.keyCode;
     int macCharCode = 0;
-    bool autoRepeat = event.isKeyRepeating;
     bool isKeypad = false;
     bool isSystemKey = false;
     WebKit::WebEvent::Modifiers modifiers = modifiersForEvent(event);
@@ -107,4 +117,4 @@ WebKit::WebMouseEvent WebIOSEventFactory::createWebMouseEvent(::WebEvent *event)
     return WebKit::WebMouseEvent(type, button, buttons, position, position, deltaX, deltaY, deltaZ, clickCount, modifiers, WallTime::fromRawSeconds(timestamp));
 }
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)

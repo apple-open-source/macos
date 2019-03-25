@@ -1792,6 +1792,38 @@ HIDEvent *createHIDEvent(IOHIDEventRef event)
     return [NSNumber numberWithInteger:IOHIDEventGetIntegerValue(self->eventRef, kIOHIDEventFieldOrientationOrientationType)];
 }
 
+- (NSNumber *)tiltz {
+    return [NSNumber numberWithFloat:IOHIDEventGetFloatValue(self->eventRef, kIOHIDEventFieldOrientationTiltZ)];
+}
+
+- (void)setTiltz:(NSNumber *)tiltz {
+    IOHIDEventSetFloatValue(self->eventRef, kIOHIDEventFieldOrientationTiltZ, tiltz.floatValue);
+}
+
+- (NSNumber *)tilty {
+    return [NSNumber numberWithFloat:IOHIDEventGetFloatValue(self->eventRef, kIOHIDEventFieldOrientationTiltY)];
+}
+
+- (void)setTilty:(NSNumber *)tilty {
+    IOHIDEventSetFloatValue(self->eventRef, kIOHIDEventFieldOrientationTiltY, tilty.floatValue);
+}
+
+- (NSNumber *)tiltx {
+    return [NSNumber numberWithFloat:IOHIDEventGetFloatValue(self->eventRef, kIOHIDEventFieldOrientationTiltX)];
+}
+
+- (void)setTiltx:(NSNumber *)tiltx {
+    IOHIDEventSetFloatValue(self->eventRef, kIOHIDEventFieldOrientationTiltX, tiltx.floatValue);
+}
+
+- (NSNumber *)azimuth {
+    return [NSNumber numberWithFloat:IOHIDEventGetFloatValue(self->eventRef, kIOHIDEventFieldOrientationAzimuth)];
+}
+
+- (void)setAzimuth:(NSNumber *)azimuth {
+    IOHIDEventSetFloatValue(self->eventRef, kIOHIDEventFieldOrientationAzimuth, azimuth.floatValue);
+}
+
 - (NSNumber *)deviceorientationusage {
     return [NSNumber numberWithInteger:IOHIDEventGetIntegerValue(self->eventRef, kIOHIDEventFieldOrientationDeviceOrientationUsage)];
 }
@@ -1808,14 +1840,6 @@ HIDEvent *createHIDEvent(IOHIDEventRef event)
     IOHIDEventSetFloatValue(self->eventRef, kIOHIDEventFieldOrientationAltitude, altitude.floatValue);
 }
 
-- (NSNumber *)azimuth {
-    return [NSNumber numberWithFloat:IOHIDEventGetFloatValue(self->eventRef, kIOHIDEventFieldOrientationAzimuth)];
-}
-
-- (void)setAzimuth:(NSNumber *)azimuth {
-    IOHIDEventSetFloatValue(self->eventRef, kIOHIDEventFieldOrientationAzimuth, azimuth.floatValue);
-}
-
 - (NSNumber *)radius {
     return [NSNumber numberWithFloat:IOHIDEventGetFloatValue(self->eventRef, kIOHIDEventFieldOrientationRadius)];
 }
@@ -1827,6 +1851,9 @@ HIDEvent *createHIDEvent(IOHIDEventRef event)
 - (NSString *)description {
     NSString * desc;
     desc = [NSString stringWithFormat:@"%@ orientationtype:%@", [super description], self.orientationtype];
+    if (IOHIDEventGetIntegerValue(self->eventRef, kIOHIDEventFieldOrientationOrientationType) == kIOHIDOrientationTypeTilt) {
+        desc = [NSString stringWithFormat:@"%@ tiltx:%@ tilty:%@ tiltz:%@", desc, self.tiltx, self.tilty, self.tiltz];
+    }
     if (IOHIDEventGetIntegerValue(self->eventRef, kIOHIDEventFieldOrientationOrientationType) == kIOHIDOrientationTypeCMUsage) {
         desc = [NSString stringWithFormat:@"%@ deviceorientationusage:%@", desc, self.deviceorientationusage];
     }

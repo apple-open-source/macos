@@ -40,6 +40,7 @@
 #import "SandboxUtilities.h"
 #import <CoreAudio/AudioHardware.h>
 #import <WebCore/LocalizedStrings.h>
+#import <WebCore/RuntimeEnabledFeatures.h>
 #import <dlfcn.h>
 #import <mach-o/dyld.h>
 #import <mach-o/getsect.h>
@@ -54,8 +55,6 @@
 #import <sysexits.h>
 #import <wtf/HashSet.h>
 #import <wtf/NeverDestroyed.h>
-
-using namespace WebCore;
 
 const CFStringRef kLSPlugInBundleIdentifierKey = CFSTR("LSPlugInBundleIdentifierKey");
 
@@ -220,7 +219,7 @@ static bool openCFURLRef(CFURLRef url, int32_t& status, CFURLRef* launchedURL)
         return false;
 
     if (!launchedURLString.isNull() && launchedURL)
-        *launchedURL = URL(ParsedURLString, launchedURLString).createCFURL().leakRef();
+        *launchedURL = URL(URL(), launchedURLString).createCFURL().leakRef();
     return true;
 }
 
@@ -259,13 +258,12 @@ static unsigned modalCount;
 
 static void beginModal()
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     // Make sure to make ourselves the front process
     ProcessSerialNumber psn;
     GetCurrentProcess(&psn);
     SetFrontProcess(&psn);
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
 
     if (!modalCount++)
         setModal(true);
@@ -452,8 +450,8 @@ static void initializeCocoaOverrides()
                                                        usingBlock:^(NSNotification *notification) { fullscreenWindowTracker().windowHidden([notification object]); }];
 
     // Leak the two observers so that they observe notifications for the lifetime of the process.
-    CFRetain(orderOnScreenObserver);
-    CFRetain(orderOffScreenObserver);
+    CFRetain((__bridge CFTypeRef)orderOnScreenObserver);
+    CFRetain((__bridge CFTypeRef)orderOffScreenObserver);
 }
 
 void PluginProcess::setModalWindowIsShowing(bool modalWindowIsShowing)
@@ -532,6 +530,9 @@ void PluginProcess::platformInitializeProcess(const ChildProcessInitializationPa
     initializeShim();
 
     initializeCocoaOverrides();
+
+    bool experimentalPlugInSandboxProfilesEnabled = parameters.extraInitializationData.get("experimental-sandbox-plugin") == "1";
+    WebCore::RuntimeEnabledFeatures::sharedFeatures().setExperimentalPlugInSandboxProfilesEnabled(experimentalPlugInSandboxProfilesEnabled);
 
     // FIXME: It would be better to proxy SetCursor calls over to the UI process instead of
     // allowing plug-ins to change the mouse cursor at any time.

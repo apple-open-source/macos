@@ -77,14 +77,14 @@ bool SubframeLoader::requestFrame(HTMLFrameOwnerElement& ownerElement, const Str
     // Support for <frame src="javascript:string">
     URL scriptURL;
     URL url;
-    if (protocolIsJavaScript(urlString)) {
+    if (WTF::protocolIsJavaScript(urlString)) {
         scriptURL = completeURL(urlString); // completeURL() encodes the URL.
-        url = blankURL();
+        url = WTF::blankURL();
     } else
         url = completeURL(urlString);
 
     if (shouldConvertInvalidURLsToBlank() && !url.isValid())
-        url = blankURL();
+        url = WTF::blankURL();
 
     bool hasExistingFrame = ownerElement.contentFrame();
     Frame* frame = loadOrRedirectSubframe(ownerElement, url, frameName, lockHistory, lockBackForwardList);
@@ -94,7 +94,7 @@ bool SubframeLoader::requestFrame(HTMLFrameOwnerElement& ownerElement, const Str
     // If we create a new subframe then an empty document is loaded into it synchronously and may
     // cause script execution (say, via a DOM load event handler) that can do anything, including
     // navigating the subframe. We only want to evaluate scriptURL if the frame has not been navigated.
-    bool canExecuteScript = hasExistingFrame || (frame->loader().documentLoader() && frame->loader().documentLoader()->originalURL() == blankURL());
+    bool canExecuteScript = hasExistingFrame || (frame->loader().documentLoader() && frame->loader().documentLoader()->originalURL() == WTF::blankURL());
     if (!scriptURL.isEmpty() && canExecuteScript && ownerElement.isURLAllowed(scriptURL))
         frame->script().executeIfJavaScriptURL(scriptURL);
 
@@ -308,17 +308,6 @@ Frame* SubframeLoader::loadOrRedirectSubframe(HTMLFrameOwnerElement& ownerElemen
 Frame* SubframeLoader::loadSubframe(HTMLFrameOwnerElement& ownerElement, const URL& url, const String& name, const String& referrer)
 {
     Ref<Frame> protect(m_frame);
-
-    bool allowsScrolling = true;
-    int marginWidth = -1;
-    int marginHeight = -1;
-    if (is<HTMLFrameElementBase>(ownerElement)) {
-        auto& frameElementBase = downcast<HTMLFrameElementBase>(ownerElement);
-        allowsScrolling = frameElementBase.scrollingMode() != ScrollbarAlwaysOff;
-        marginWidth = frameElementBase.marginWidth();
-        marginHeight = frameElementBase.marginHeight();
-    }
-
     auto document = makeRef(ownerElement.document());
 
     if (!document->securityOrigin().canDisplay(url)) {
@@ -334,7 +323,7 @@ Frame* SubframeLoader::loadSubframe(HTMLFrameOwnerElement& ownerElement, const U
     // Prevent initial empty document load from triggering load events.
     document->incrementLoadEventDelayCount();
 
-    auto frame = m_frame.loader().client().createFrame(url, name, ownerElement, referrerToUse, allowsScrolling, marginWidth, marginHeight);
+    auto frame = m_frame.loader().client().createFrame(url, name, ownerElement, referrerToUse);
 
     document->decrementLoadEventDelayCount();
 
@@ -410,7 +399,7 @@ bool SubframeLoader::loadPlugin(HTMLPlugInImageElement& pluginElement, const URL
     IntSize contentSize = roundedIntSize(LayoutSize(renderer->contentWidth(), renderer->contentHeight()));
     bool loadManually = is<PluginDocument>(document) && !m_containsPlugins && downcast<PluginDocument>(document).shouldLoadPluginManually();
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     // On iOS, we only tell the plugin to be in full page mode if the containing plugin document is the top level document.
     if (document.ownerElement())
         loadManually = false;

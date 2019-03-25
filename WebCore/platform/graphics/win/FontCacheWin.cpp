@@ -43,7 +43,6 @@
 #include <wtf/win/GDIObject.h>
 
 #if USE(CG)
-#include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 #endif
 
@@ -351,7 +350,7 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
     // Search all typical Windows-installed full Unicode fonts.
     // Sorted by most to least glyphs according to http://en.wikipedia.org/wiki/Unicode_typefaces
     // Start with Times New Roman also since it is the default if the user doesn't change prefs.
-    static AtomicString fallbackFonts[] = {
+    static NeverDestroyed<AtomicString> fallbackFonts[] = {
         AtomicString("Times New Roman", AtomicString::ConstructFromLiteral),
         AtomicString("Microsoft Sans Serif", AtomicString::ConstructFromLiteral),
         AtomicString("Tahoma", AtomicString::ConstructFromLiteral),
@@ -375,7 +374,7 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
     }
 
     // Fall back to Non-client metrics fonts.
-    NONCLIENTMETRICS nonClientMetrics = {0};
+    NONCLIENTMETRICS nonClientMetrics { };
     nonClientMetrics.cbSize = sizeof(nonClientMetrics);
     if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(nonClientMetrics), &nonClientMetrics, 0)) {
         if (simpleFont = fontFromDescriptionAndLogFont(fontDescription, nonClientMetrics.lfMessageFont, fallbackFontName))
@@ -623,7 +622,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     // FIXME: We will eventually want subpixel precision for GDI mode, but the scaled rendering doesn't
     // look as nice. That may be solvable though.
     LONG weight = adjustedGDIFontWeight(toGDIFontWeight(fontDescription.weight()), family);
-    auto hfont = createGDIFont(family, weight, fontDescription.italic(),
+    auto hfont = createGDIFont(family, weight, isItalic(fontDescription.italic()),
         fontDescription.computedPixelSize() * (useGDI ? 1 : 32), useGDI);
 
     if (!hfont)
@@ -636,7 +635,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     GetObject(hfont.get(), sizeof(LOGFONT), &logFont);
 
     bool synthesizeBold = isGDIFontWeightBold(weight) && !isGDIFontWeightBold(logFont.lfWeight);
-    bool synthesizeItalic = fontDescription.italic() && !logFont.lfItalic;
+    bool synthesizeItalic = isItalic(fontDescription.italic()) && !logFont.lfItalic;
 
     auto result = std::make_unique<FontPlatformData>(WTFMove(hfont), fontDescription.computedPixelSize(), synthesizeBold, synthesizeItalic, useGDI);
 

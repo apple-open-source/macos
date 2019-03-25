@@ -44,7 +44,7 @@ namespace WebCore {
 
 inline bool DocumentMarkerController::possiblyHasMarkers(OptionSet<DocumentMarker::MarkerType> types)
 {
-    return m_possiblyExistingMarkerTypes.contains(types);
+    return m_possiblyExistingMarkerTypes.containsAny(types);
 }
 
 DocumentMarkerController::DocumentMarkerController(Document& document)
@@ -97,7 +97,7 @@ void DocumentMarkerController::addTextMatchMarker(const Range* range, bool activ
     }
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 void DocumentMarkerController::addMarker(Range* range, DocumentMarker::MarkerType type, const String& description, const Vector<String>& interpretations, const RetainPtr<id>& metadata)
 {
@@ -161,9 +161,7 @@ static void updateRenderedRectsForMarker(RenderedDocumentMarker& marker, Node& n
     ASSERT(!node.document().view() || !node.document().view()->needsLayout());
 
     // FIXME: We should refactor this so that we don't use Range (because we only have one Node), but still share code with absoluteTextQuads().
-    RefPtr<Range> markerRange = Range::create(node.document(), &node, marker.startOffset(), &node, marker.endOffset());
-    if (!markerRange)
-        return;
+    auto markerRange = Range::create(node.document(), &node, marker.startOffset(), &node, marker.endOffset());
     Vector<FloatQuad> absoluteMarkerQuads;
     markerRange->absoluteTextQuads(absoluteMarkerQuads, true);
 
@@ -302,7 +300,7 @@ Vector<FloatRect> DocumentMarkerController::renderedRectsForMarkers(DocumentMark
 
 static bool shouldInsertAsSeparateMarker(const DocumentMarker& newMarker)
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (newMarker.type() == DocumentMarker::DictationPhraseWithAlternatives || newMarker.type() == DocumentMarker::DictationResult)
         return true;
 #endif
@@ -331,7 +329,7 @@ void DocumentMarkerController::addMarker(Node* node, const DocumentMarker& newMa
             downcast<RenderBlockFlow>(*renderer).ensureLineBoxes();
     }
 
-    m_possiblyExistingMarkerTypes |= newMarker.type();
+    m_possiblyExistingMarkerTypes.add(newMarker.type());
 
     std::unique_ptr<MarkerList>& list = m_markers.add(node, nullptr).iterator->value;
 
@@ -521,13 +519,13 @@ DocumentMarker* DocumentMarkerController::markerContainingPoint(const LayoutPoin
     return nullptr;
 }
 
-Vector<RenderedDocumentMarker*> DocumentMarkerController::markersFor(Node* node, OptionSet<DocumentMarker::MarkerType> markerTypes)
+Vector<RenderedDocumentMarker*> DocumentMarkerController::markersFor(Node& node, OptionSet<DocumentMarker::MarkerType> markerTypes)
 {
     if (!possiblyHasMarkers(markerTypes))
         return { };
 
     Vector<RenderedDocumentMarker*> result;
-    MarkerList* list = m_markers.get(node);
+    MarkerList* list = m_markers.get(&node);
     if (!list)
         return result;
 
@@ -551,7 +549,8 @@ Vector<RenderedDocumentMarker*> DocumentMarkerController::markersInRange(Range& 
 
     Node* pastLastNode = range.pastLastNode();
     for (Node* node = range.firstNode(); node != pastLastNode; node = NodeTraversal::next(*node)) {
-        for (auto* marker : markersFor(node)) {
+        ASSERT(node);
+        for (auto* marker : markersFor(*node)) {
             if (!markerTypes.contains(marker->type()))
                 continue;
             if (node == &startContainer && marker->endOffset() <= range.startOffset())
@@ -587,7 +586,7 @@ void DocumentMarkerController::removeMarkers(OptionSet<DocumentMarker::MarkerTyp
             removeMarkersFromList(iterator, markerTypes);
     }
 
-    m_possiblyExistingMarkerTypes -= markerTypes;
+    m_possiblyExistingMarkerTypes.remove(markerTypes);
 }
 
 void DocumentMarkerController::removeMarkersFromList(MarkerMap::iterator iterator, OptionSet<DocumentMarker::MarkerType> markerTypes)
@@ -673,7 +672,7 @@ void DocumentMarkerController::shiftMarkers(Node* node, unsigned startOffset, in
     for (size_t i = 0; i != list->size(); ) {
         RenderedDocumentMarker& marker = list->at(i);
         // FIXME: How can this possibly be iOS-specific code?
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
         int targetStartOffset = marker.startOffset() + delta;
         int targetEndOffset = marker.endOffset() + delta;
         if (targetStartOffset >= node->maxCharacterOffset() || targetEndOffset <= 0) {
@@ -685,7 +684,7 @@ void DocumentMarkerController::shiftMarkers(Node* node, unsigned startOffset, in
             ASSERT((int)marker.startOffset() + delta >= 0);
             marker.shiftOffsets(delta);
             didShiftMarker = true;
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
         }
 #else
         // FIXME: Inserting text inside a DocumentMarker does not grow the marker.
@@ -763,7 +762,8 @@ bool DocumentMarkerController::hasMarkers(Range& range, OptionSet<DocumentMarker
 
     Node* pastLastNode = range.pastLastNode();
     for (Node* node = range.firstNode(); node != pastLastNode; node = NodeTraversal::next(*node)) {
-        for (auto* marker : markersFor(node)) {
+        ASSERT(node);
+        for (auto* marker : markersFor(*node)) {
             if (!markerTypes.contains(marker->type()))
                 continue;
             if (node == &startContainer && marker->endOffset() <= static_cast<unsigned>(range.startOffset()))

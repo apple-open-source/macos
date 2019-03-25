@@ -28,6 +28,7 @@
 #include <IOKit/storage/IOGUIDPartitionScheme.h>
 #include <libkern/OSByteOrder.h>
 #include <sys/utfconv.h>
+#include <IOKit/storage/IOBlockStorageDevice.h>
 
 #define super IOPartitionScheme
 OSDefineMetaClassAndStructors(IOGUIDPartitionScheme, IOPartitionScheme);
@@ -627,6 +628,56 @@ IOMedia * IOGUIDPartitionScheme::instantiateDesiredMediaObject(
     //
 
     return new IOMedia;
+}
+
+IOReturn IOGUIDPartitionScheme::message(UInt32      type,
+                                        IOService * provider,
+                                        void *      argument)
+{
+    //
+    // Generic entry point for calls from the provider.  A return value of
+    // kIOReturnSuccess indicates that the message was received, and where
+    // applicable, that it was successful.
+    //
+
+    switch (type)
+    {
+        case kIOMessageMediaParametersHaveChanged:
+        {
+            OSIterator * partitionIterator;
+
+            partitionIterator = OSCollectionIterator::withCollection(_partitions);
+
+            if ( partitionIterator )
+            {
+                IOMedia *    media          = getProvider();
+                IOMedia *    partition;
+
+                while ( (partition = (IOMedia *) partitionIterator->getNextObject()) )
+                {
+
+                    lockForArbitration();
+
+                    partition->init( partition->getBase(),
+                                     partition->getSize(),
+                                     media->getPreferredBlockSize(),
+                                     media->getAttributes(),
+                                     partition->isWhole(),
+                                     media->isWritable(),
+                                     partition->getContentHint() );
+
+                    unlockForArbitration();
+                }
+
+                partitionIterator->release();
+            }
+            return kIOReturnSuccess;
+        }
+        default:
+        {
+            return super::message(type, provider, argument);
+        }
+    }
 }
 
 OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  0);

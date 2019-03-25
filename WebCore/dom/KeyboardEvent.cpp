@@ -94,7 +94,8 @@ static inline KeyboardEvent::KeyLocationCode keyLocationCode(const PlatformKeybo
 inline KeyboardEvent::KeyboardEvent() = default;
 
 inline KeyboardEvent::KeyboardEvent(const PlatformKeyboardEvent& key, RefPtr<WindowProxy>&& view)
-    : UIEventWithKeyState(eventTypeForKeyboardEventType(key.type()), true, true, key.timestamp().approximateMonotonicTime(), view.copyRef(), 0, key.ctrlKey(), key.altKey(), key.shiftKey(), key.metaKey(), false, key.modifiers().contains(PlatformEvent::Modifier::CapsLockKey))
+    : UIEventWithKeyState(eventTypeForKeyboardEventType(key.type()), CanBubble::Yes, IsCancelable::Yes, IsComposed::Yes,
+        key.timestamp().approximateMonotonicTime(), view.copyRef(), 0, key.modifiers(), IsTrusted::Yes)
     , m_underlyingPlatformEvent(std::make_unique<PlatformKeyboardEvent>(key))
 #if ENABLE(KEYBOARD_KEY_ATTRIBUTE)
     , m_key(key.key())
@@ -113,8 +114,8 @@ inline KeyboardEvent::KeyboardEvent(const PlatformKeyboardEvent& key, RefPtr<Win
 {
 }
 
-inline KeyboardEvent::KeyboardEvent(const AtomicString& eventType, const Init& initializer, IsTrusted isTrusted)
-    : UIEventWithKeyState(eventType, initializer, isTrusted)
+inline KeyboardEvent::KeyboardEvent(const AtomicString& eventType, const Init& initializer)
+    : UIEventWithKeyState(eventType, initializer)
 #if ENABLE(KEYBOARD_KEY_ATTRIBUTE)
     , m_key(initializer.key)
 #endif
@@ -143,9 +144,9 @@ Ref<KeyboardEvent> KeyboardEvent::createForBindings()
     return adoptRef(*new KeyboardEvent);
 }
 
-Ref<KeyboardEvent> KeyboardEvent::create(const AtomicString& type, const Init& initializer, IsTrusted isTrusted)
+Ref<KeyboardEvent> KeyboardEvent::create(const AtomicString& type, const Init& initializer)
 {
-    return adoptRef(*new KeyboardEvent(type, initializer, isTrusted));
+    return adoptRef(*new KeyboardEvent(type, initializer));
 }
 
 void KeyboardEvent::initKeyboardEvent(const AtomicString& type, bool canBubble, bool cancelable, RefPtr<WindowProxy>&& view,
@@ -158,18 +159,15 @@ void KeyboardEvent::initKeyboardEvent(const AtomicString& type, bool canBubble, 
 
     m_keyIdentifier = keyIdentifier;
     m_location = location;
-    m_ctrlKey = ctrlKey;
-    m_shiftKey = shiftKey;
-    m_altKey = altKey;
-    m_metaKey = metaKey;
-    m_altGraphKey = altGraphKey;
 
-    m_charCode = std::nullopt;
+    setModifierKeys(ctrlKey, altKey, shiftKey, metaKey, altGraphKey);
+
+    m_charCode = WTF::nullopt;
     m_isComposing = false;
-    m_keyCode = std::nullopt;
+    m_keyCode = WTF::nullopt;
     m_repeat = false;
     m_underlyingPlatformEvent = nullptr;
-    m_which = std::nullopt;
+    m_which = WTF::nullopt;
 
 #if ENABLE(KEYBOARD_CODE_ATTRIBUTE)
     m_code = { };
@@ -183,24 +181,6 @@ void KeyboardEvent::initKeyboardEvent(const AtomicString& type, bool canBubble, 
     m_handledByInputMethod = false;
     m_keypressCommands = { };
 #endif
-}
-
-bool KeyboardEvent::getModifierState(const String& keyIdentifier) const
-{
-    if (keyIdentifier == "Control")
-        return ctrlKey();
-    if (keyIdentifier == "Shift")
-        return shiftKey();
-    if (keyIdentifier == "Alt")
-        return altKey();
-    if (keyIdentifier == "Meta")
-        return metaKey();
-    if (keyIdentifier == "AltGraph")
-        return altGraphKey();
-    if (keyIdentifier == "CapsLock")
-        return capsLockKey();
-    // FIXME: The specification also has Fn, FnLock, Hyper, NumLock, Super, ScrollLock, Symbol, SymbolLock.
-    return false;
 }
 
 int KeyboardEvent::keyCode() const

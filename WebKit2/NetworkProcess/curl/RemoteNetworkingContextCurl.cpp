@@ -26,16 +26,23 @@
 #include "config.h"
 #include "RemoteNetworkingContext.h"
 
+#include "NetworkSession.h"
+#include "SessionTracker.h"
 #include "WebsiteDataStoreParameters.h"
-#include <WebCore/NotImplemented.h>
-
-using namespace WebCore;
+#include <WebCore/NetworkStorageSession.h>
 
 namespace WebKit {
 
-void RemoteNetworkingContext::ensureWebsiteDataStoreSession(WebsiteDataStoreParameters&&)
+using namespace WebCore;
+
+void RemoteNetworkingContext::ensureWebsiteDataStoreSession(WebsiteDataStoreParameters&& parameters)
 {
-    notImplemented();
+    auto sessionID = parameters.networkSessionParameters.sessionID;
+    if (NetworkStorageSession::storageSession(sessionID))
+        return;
+
+    NetworkStorageSession::ensureSession(sessionID, String::number(sessionID.sessionID()));
+    SessionTracker::setSession(sessionID, NetworkSession::create(WTFMove(parameters.networkSessionParameters)));
 }
 
 }

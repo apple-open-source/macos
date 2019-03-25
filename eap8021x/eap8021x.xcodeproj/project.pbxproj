@@ -87,6 +87,9 @@
 /* Begin PBXBuildFile section */
 		44217424207948F200646F75 /* SIMAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 44D554A12065727300681A0F /* SIMAccess.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		442403311DA86E6E0041C533 /* MobileWiFi.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 442403301DA86E6E0041C533 /* MobileWiFi.framework */; };
+		4434A3E42166B75B0067E1E3 /* EAPClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */; };
+		4474E8AA2166AD5A00CD7B6D /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		4474E8AC2166AD8C00CD7B6D /* EAPClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */; };
 		447D07322076C867006B90C4 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 447D07312076C867006B90C4 /* Foundation.framework */; };
 		449213AC1D12062700D8FB30 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 449213AB1D12062700D8FB30 /* CoreTelephony.framework */; };
 		44951A3B1EBA79C6003614DE /* eapolcfg_auth.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44951A3A1EBA79BE003614DE /* eapolcfg_auth.8 */; };
@@ -491,6 +494,8 @@
 /* Begin PBXFileReference section */
 		442403301DA86E6E0041C533 /* MobileWiFi.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileWiFi.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.Internal.sdk/System/Library/PrivateFrameworks/MobileWiFi.framework; sourceTree = DEVELOPER_DIR; };
 		4445AE4320659AD40051CCCD /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = System/Library/Frameworks/CoreTelephony.framework; sourceTree = SDKROOT; };
+		4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EAPClientConfiguration.h; sourceTree = "<group>"; };
+		4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = EAPClientConfiguration.c; sourceTree = "<group>"; };
 		4478B6F71AE19D0100051F29 /* sim_simulator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sim_simulator.h; sourceTree = "<group>"; };
 		447D07312076C867006B90C4 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		449213AB1D12062700D8FB30 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = ../../../../../../../../../System/Library/Frameworks/CoreTelephony.framework; sourceTree = "<group>"; };
@@ -902,6 +907,7 @@
 				44EC34201D130EC000E1886A /* EAPOLSIMPrefsManage.c */,
 				44EC34211D130EC000E1886A /* EAPOLSIMPrefsManage.h */,
 				44D554A12065727300681A0F /* SIMAccess.m */,
+				4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -953,6 +959,7 @@
 				F997F3B50F24F48800A9DC1F /* SIMAccess.h */,
 				F91F7B580C8F7F06000EA394 /* SupplicantTypes.h */,
 				4478B6F71AE19D0100051F29 /* sim_simulator.h */,
+				4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */,
 			);
 			name = Headers;
 			sourceTree = "<group>";
@@ -1150,6 +1157,7 @@
 				F915473A0CD78FA7008D9897 /* EAP.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F915473B0CD78FA7008D9897 /* myCFUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F915473C0CD78FA7008D9897 /* EAPClientPlugin.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				4474E8AA2166AD5A00CD7B6D /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				44EC34231D130EC000E1886A /* EAPOLSIMPrefsManage.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F915473D0CD78FA7008D9897 /* EAPOLControlTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F915473E0CD78FA7008D9897 /* EAPCertificateUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
@@ -1589,6 +1597,7 @@
 				F9B213410EF7442600370E54 /* fips186prf.c in Sources */,
 				F9B213420EF7442600370E54 /* fr_sha1.c in Sources */,
 				F997F3B30F24F46C00A9DC1F /* SIMAccess.c in Sources */,
+				4474E8AC2166AD8C00CD7B6D /* EAPClientConfiguration.c in Sources */,
 				F9A6A2FE122E0212009061FE /* eapol_socket.c in Sources */,
 				F9E31A1B12314F9900181D7D /* EAPOLUtil.c in Sources */,
 				F91FF5FA163B077F00B82B50 /* EAPSIMAKAPersistentState.c in Sources */,
@@ -1603,6 +1612,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4434A3E42166B75B0067E1E3 /* EAPClientConfiguration.c in Sources */,
 				44217424207948F200646F75 /* SIMAccess.m in Sources */,
 				44EC34251D14A59B00E1886A /* EAPOLSIMPrefsManage.c in Sources */,
 				44980A3E1ABBC60400B76F01 /* sim_simulator.c in Sources */,

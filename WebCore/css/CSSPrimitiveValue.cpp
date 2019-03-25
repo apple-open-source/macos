@@ -248,21 +248,21 @@ unsigned short CSSPrimitiveValue::primitiveType() const
         return m_primitiveUnitType;
 
     switch (m_value.calc->category()) {
-    case CalcNumber:
+    case CalculationCategory::Number:
         return CSSPrimitiveValue::CSS_NUMBER;
-    case CalcLength:
+    case CalculationCategory::Length:
         return CSSPrimitiveValue::CSS_PX;
-    case CalcPercent:
+    case CalculationCategory::Percent:
         return CSSPrimitiveValue::CSS_PERCENTAGE;
-    case CalcPercentNumber:
+    case CalculationCategory::PercentNumber:
         return CSSPrimitiveValue::CSS_CALC_PERCENTAGE_WITH_NUMBER;
-    case CalcPercentLength:
+    case CalculationCategory::PercentLength:
         return CSSPrimitiveValue::CSS_CALC_PERCENTAGE_WITH_LENGTH;
-    case CalcAngle:
-    case CalcTime:
-    case CalcFrequency:
+    case CalculationCategory::Angle:
+    case CalculationCategory::Time:
+    case CalculationCategory::Frequency:
         return m_value.calc->primitiveType();
-    case CalcOther:
+    case CalculationCategory::Other:
         return CSSPrimitiveValue::CSS_UNKNOWN;
     }
     return CSSPrimitiveValue::CSS_UNKNOWN;
@@ -277,17 +277,9 @@ static const AtomicString& propertyName(CSSPropertyID propertyID)
 
 static const AtomicString& valueName(CSSValueID valueID)
 {
-    ASSERT_ARG(valueID, valueID >= 0);
-    ASSERT_ARG(valueID, valueID < numCSSValueKeywords);
+    ASSERT_ARG(valueID, (valueID >= firstCSSValueKeyword && valueID <= lastCSSValueKeyword));
 
-    if (valueID < 0)
-        return nullAtom();
-
-    static AtomicString* keywordStrings = new AtomicString[numCSSValueKeywords]; // Leaked intentionally.
-    AtomicString& keywordString = keywordStrings[valueID];
-    if (keywordString.isNull())
-        keywordString = getValueName(valueID);
-    return keywordString;
+    return getValueNameAtomicString(valueID);
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(CSSValueID valueID)
@@ -795,7 +787,7 @@ ExceptionOr<float> CSSPrimitiveValue::getFloatValue(unsigned short unitType) con
 
 double CSSPrimitiveValue::doubleValue(UnitType unitType) const
 {
-    return doubleValueInternal(unitType).value_or(0);
+    return doubleValueInternal(unitType).valueOr(0);
 }
 
 double CSSPrimitiveValue::doubleValue() const
@@ -830,10 +822,10 @@ CSSPrimitiveValue::UnitType CSSPrimitiveValue::canonicalUnitTypeForCategory(Unit
     }
 }
 
-std::optional<double> CSSPrimitiveValue::doubleValueInternal(UnitType requestedUnitType) const
+Optional<double> CSSPrimitiveValue::doubleValueInternal(UnitType requestedUnitType) const
 {
     if (!isValidCSSUnitTypeForDoubleConversion(static_cast<UnitType>(m_primitiveUnitType)) || !isValidCSSUnitTypeForDoubleConversion(requestedUnitType))
-        return std::nullopt;
+        return WTF::nullopt;
 
     UnitType sourceUnitType = static_cast<UnitType>(primitiveType());
     if (requestedUnitType == sourceUnitType || requestedUnitType == CSS_DIMENSION)
@@ -848,20 +840,20 @@ std::optional<double> CSSPrimitiveValue::doubleValueInternal(UnitType requestedU
 
     // Cannot convert between unrelated unit categories if one of them is not UNumber.
     if (sourceCategory != targetCategory && sourceCategory != UNumber && targetCategory != UNumber)
-        return std::nullopt;
+        return WTF::nullopt;
 
     if (targetCategory == UNumber) {
         // We interpret conversion to CSS_NUMBER as conversion to a canonical unit in this value's category.
         targetUnitType = canonicalUnitTypeForCategory(sourceCategory);
         if (targetUnitType == CSS_UNKNOWN)
-            return std::nullopt;
+            return WTF::nullopt;
     }
 
     if (sourceUnitType == CSS_NUMBER) {
         // We interpret conversion from CSS_NUMBER in the same way as CSSParser::validUnit() while using non-strict mode.
         sourceUnitType = canonicalUnitTypeForCategory(targetCategory);
         if (sourceUnitType == CSS_UNKNOWN)
-            return std::nullopt;
+            return WTF::nullopt;
     }
 
     double convertedValue = doubleValue();
@@ -1226,6 +1218,34 @@ bool CSSPrimitiveValue::equals(const CSSPrimitiveValue& other) const
 Ref<DeprecatedCSSOMPrimitiveValue> CSSPrimitiveValue::createDeprecatedCSSOMPrimitiveWrapper(CSSStyleDeclaration& styleDeclaration) const
 {
     return DeprecatedCSSOMPrimitiveValue::create(*this, styleDeclaration);
+}
+
+// https://drafts.css-houdini.org/css-properties-values-api/#dependency-cycles-via-relative-units
+void CSSPrimitiveValue::collectDirectComputationalDependencies(HashSet<CSSPropertyID>& values) const
+{
+    switch (m_primitiveUnitType) {
+    case CSS_EMS:
+    case CSS_QUIRKY_EMS:
+    case CSS_EXS:
+    case CSS_CHS:
+        values.add(CSSPropertyFontSize);
+        break;
+    case CSS_CALC:
+        m_value.calc->collectDirectComputationalDependencies(values);
+        break;
+    }
+}
+
+void CSSPrimitiveValue::collectDirectRootComputationalDependencies(HashSet<CSSPropertyID>& values) const
+{
+    switch (m_primitiveUnitType) {
+    case CSS_REMS:
+        values.add(CSSPropertyFontSize);
+        break;
+    case CSS_CALC:
+        m_value.calc->collectDirectRootComputationalDependencies(values);
+        break;
+    }
 }
 
 } // namespace WebCore

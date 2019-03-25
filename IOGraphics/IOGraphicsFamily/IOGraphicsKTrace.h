@@ -12,40 +12,79 @@
 #include <sys/kdebug.h>
 
 #include "GTrace.hpp"
-#include "GMetric.hpp"
+
+
+#pragma mark - Components
+#define kGTRACE_IODISPLAYWRANGLER                           0x0000000001ULL
+#define kGTRACE_IODISPLAY                                   0x0000000002ULL
+#define kGTRACE_IODISPLAYCONNECT                            0x0000000004ULL
+#define kGTRACE_IOFBCONTROLLER                              0x0000000008ULL
+#define kGTRACE_IOFRAMEBUFFER                               0x0000000010ULL
+#define kGTRACE_IOFRAMEBUFFERPARAMETERHANDLER               0x0000000020ULL
+#define kGTRACE_FRAMEBUFFER                                 0x0000000040ULL
+#define kGTRACE_APPLEBACKLIGHT                              0x0000000080ULL
+#define kGTRACE_IOFBUSERCLIENT                              0x0000000100ULL
+#define kGTRACE_IOFBSHAREDUSERCLIENT                        0x0000000200ULL
+#define kGTRACE_IOI2INTERFACEUSERCLIENT                     0x0000000400ULL
+#define kGTRACE_IOI2INTERFACE                               0x0000000800ULL
+#define kGTRACE_IOFBI2INTERFACE                             0x0000001000ULL
+#define kGTRACE_IOBOOTFRAMEBUFFER                           0x0000002000ULL
+#define kGTRACE_IONDRVFRAMEBUFFER                           0x0000004000ULL
+#define kGTRACE_IOACCELERATOR                               0x0000008000ULL
+#define kGTRACE_IOACCELERATORUSERCLIENT                     0x0000010000ULL
+#define kGTRACE_APPLEGRAPHICSDISPLAYPOLICY                  0x0000020000ULL
+#define kGTRACE_APPLEGRAPHICSMUXCONTROL                     0x0000040000ULL
+#define kGTRACE_APPLEGRAPHICSPOWERCONTROL                   0x0000080000ULL
+// ...
+#define kGTRACE_VENDOR_INTEL                                0x2000000000ULL
+#define kGTRACE_VENDOR_AMD                                  0x4000000000ULL
+#define kGTRACE_VENDOR_NVIDIA                               0x8000000000ULL
 
 
 // KTracing and GTracing always enabled.
 #pragma mark - IOG_KTRACE
 #if GTRACE_REVISION >= 0x1
-class GTrace;
-extern GTrace * gGTrace;
-extern GMetricsRecorder * gGMetrics;
 
-#define _IOG_FT(_f_, _t_) (((_f_) & 0x03FF) | (((_t_) & 0x3) << 10))
+class GTraceBuffer;
+extern GTraceBuffer::shared_type gGTrace;
+
 #ifndef IOG_KTRACE
-    #define IOG_KTRACE(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_) \
-        do{\
-            KERNEL_DEBUG_CONSTANT_RELEASE(IOKDBG_CODE(DBG_IOGRAPHICS, _f_) | _t_, \
-                                          _a1_, _a2_, _a3_, _a4_, 0);\
-            GTRACE((_f_ & 0x03FF)|((_t_ & 0x3) << 10), _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_);\
-            GMETRIC(_t1_, _t_, GMETRIC_DATA_FROM_FUNC(_f_)); \
-        }while(0)
-#endif /*IOG_KTRACE*/
+#define IOG_KTRACE(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_)  \
+do{                                                                           \
+    GTRACE(gGTrace, _f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_);\
+}while(0)
+
+#ifndef IOG_KTRACE_NT
+#define IOG_KTRACE_NT(_f_, _t_, _a1_, _a2_, _a3_, _a4_) \
+    IOG_KTRACE(_f_, _t_, 0, _a1_, 0, _a2_, 0, _a3_, 0, _a4_)
+#endif // IOG_KTRACE_NT
+
+#endif // IOG_KTRACE
 
 #ifndef IOG_KTRACE_DEFER_START
-    #define IOG_KTRACE_DEFER_START(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_, _ts_) \
-        GTRACE_DEFER_START((_f_ & 0x03FF)|((_t_ & 0x3) << 10), _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_, _ts_)
+    #define IOG_KTRACE_DEFER_START(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_) \
+        GTRACE_DEFER_START(gGTrace, GTFuncTag(_f_, _t_, _t1_), _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_)
 #endif /*IOG_KTRACE_DEFER_START*/
 
+// Must be in same scope as IOG_KTRACE_DEFER_START
 #ifndef IOG_KTRACE_DEFER_END
-    #define IOG_KTRACE_DEFER_END(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_, _th_, _ts_) \
-        GTRACE_DEFER_END((_f_ & 0x03FF)|((_t_ & 0x3) << 10), _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_, _th_, _ts_)
+    #define IOG_KTRACE_DEFER_END(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_, _th_) \
+        GTRACE_DEFER_END(gGTrace, GTFuncTag(_f_, _t_, _t1_), _a1_, _t2_, _a2_, _t3_, _a3_, _t4_, _a4_, _th_)
 #endif /*IOG_KTRACE_DEFER_END*/
+
+#ifndef IOG_KTRACE_IFSLOW_START
+    #define IOG_KTRACE_IFSLOW_START(_f_) GTRACE_IFSLOW_START(gGTrace, _f_)
+#endif // !IOG_KTRACE_IFSLOW_START
+
+// Must be in same scope as IOG_KTRACE_IFSLOW_START
+#ifndef IOG_KTRACE_IFSLOW_END
+    #define IOG_KTRACE_IFSLOW_END(_f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _th_) \
+        GTRACE_IFSLOW_END(gGTrace, _f_, _t_, _t1_, _a1_, _t2_, _a2_, _t3_, _a3_, _th_)
+#endif // !IOG_KTRACE_IFSLOW_END
 
 #ifndef IOG_KTRACE_LOG_SYNCH
     #define IOG_KTRACE_LOG_SYNCH(_f_) do { \
-        GTRACE_LOG_SYNCH(_IOG_FT(_f_, DBG_FUNC_NONE)); \
+        GTRACE_LOG_SYNCH(gGTrace, GTFuncTag(_f_, DBG_FUNC_NONE, 0)); \
     } while(0)
 #endif // !IOG_KTRACE_LOG_SYNCH
 
@@ -60,6 +99,8 @@ extern GMetricsRecorder * gGMetrics;
 
 #define IOG_KTRACE_DEFER_START(args...)
 #define IOG_KTRACE_DEFER_END(args...)
+#define IOG_KTRACE_IFSLOW_START(args...)
+#define IOG_KTRACE_IFSLOW_END(args...)
 #define IOG_KTRACE_LOG_SYNCH(args...)
 
 #endif /*IOG_KTRACE*/
@@ -101,7 +142,7 @@ extern uint32_t gIOGATFlags;
 #define TRACE_IONDRVFRAMEBUFFER                         0x00004000
 #define TRACE_IOACCELERATOR                             0x00008000
 #define TRACE_IOACCELERATORUSERCLIENT                   0x00010000
-#define TRACE_IOFBDIAGNOSTICUSERCLIENT                  0x00020000
+#define TRACE_IOGDIAGNOSTICUSERCLIENT                   0x00020000
 
 #define TRACE_MASK                                      0x0001FFFF
 
@@ -145,8 +186,8 @@ extern uint32_t gIOGATFlags;
 #define IOACCELERATOR_TELEMETRY_END                     32
 #define IOACCELERATORUSERCLIENT_TELEMETRY_START         33
 #define IOACCELERATORUSERCLIENT_TELEMETRY_END           34
-#define IOFBDIAGNOSTICUSERCLIENT_TELEMETRY_START        35
-#define IOFBDIAGNOSTICUSERCLIENT_TELEMETRY_END          36
+#define IOGDIAGNOSTICUSERCLIENT_TELEMETRY_START         35
+#define IOGDIAGNOSTICUSERCLIENT_TELEMETRY_END           36
 // - 98 future, 99 reserved
 
 
@@ -186,8 +227,8 @@ extern uint32_t gIOGATFlags;
 #define IOFBSHAREDUSERCLIENT_ARIADNE_START              ARIADNEDBG_CODE(DBG_IOGRAPHICS, IOFBSHAREDUSERCLIENT_TELEMETRY_START)
 #define IOFBSHAREDUSERCLIENT_ARIADNE_END                ARIADNEDBG_CODE(DBG_IOGRAPHICS, IOFBSHAREDUSERCLIENT_TELEMETRY_END)
 // Telemetry for IOFramebufferSharedUserClient functions
-#define IOFBDIAGNOSTICUSERCLIENT_ARIADNE_START          ARIADNEDBG_CODE(DBG_IOGRAPHICS, IOFBDIAGNOSTICUSERCLIENT_TELEMETRY_START)
-#define IOFBDIAGNOSTICUSERCLIENT_ARIADNE_END            ARIADNEDBG_CODE(DBG_IOGRAPHICS, IOFBDIAGNOSTICUSERCLIENT_TELEMETRY_END)
+#define IOGDIAGNOSTICUSERCLIENT_ARIADNE_START           ARIADNEDBG_CODE(DBG_IOGRAPHICS, IOGDIAGNOSTICUSERCLIENT_TELEMETRY_START)
+#define IOGDIAGNOSTICUSERCLIENT_ARIADNE_END             ARIADNEDBG_CODE(DBG_IOGRAPHICS, IOGDIAGNOSTICUSERCLIENT_TELEMETRY_END)
 // Telemetry for IOI2CInterfaceUserClient functions
 #define IOI2INTERFACEUSERCLIENT_ARIADNE_START           ARIADNEDBG_CODE(DBG_IOGRAPHICS, IOI2INTERFACEUSERCLIENT_TELEMETRY_START)
 #define IOI2INTERFACEUSERCLIENT_ARIADNE_END             ARIADNEDBG_CODE(DBG_IOGRAPHICS, IOI2INTERFACEUSERCLIENT_TELEMETRY_END)
@@ -516,12 +557,8 @@ extern uint32_t gIOGATFlags;
 #define IOFB_FID_setIntegerPreference                   219
 #define IOFB_FID_getTransformPrefs                      220
 #define IOFB_FID_diagnoseReport                         221
-#define IOFB_FID_extDiagnose                            222
-#define IOFB_FID_extReservedB                           223
-#define IOFB_FID_extReservedC                           224
-#define IOFB_FID_extReservedD                           225
-#define IOFB_FID_extReservedE                           226
-#define IOFB_FID___Report                               227
+// 222-226 unused since Feb 2018, Sign-posts still covered
+#define IOFB_FID_diagnose                               227
 #define IOFB_FID_dpInterruptProc                        228
 #define IOFB_FID_dpInterrupt                            229
 #define IOFB_FID_dpProcessInterrupt                     230
@@ -541,9 +578,9 @@ extern uint32_t gIOGATFlags;
 #define IOFB_FID_initNotifiers                          244
 #define IOFB_FID_attach                                 245
 #define IOFB_FID_extCopySharedCursor                    246
-#define IOFB_FID_newDiagnosticUserClient                247
+// 247 unused since Feb 2018, Sign-posts still covered
 #define IOFB_FID_extSetHibernateGammaTable              248
-#define IOFB_FID_closeNoSys                             249
+// 249 unused since Dec 2018
 #define IOFB_FID_clamshellOfflineShouldChange           250
 
 // IOFramebufferParameterHandler
@@ -656,18 +693,21 @@ extern uint32_t gIOGATFlags;
 #define IOFBSUC_FID_didTerminate                       13
 #define IOFBSUC_FID_finalize                           14
 #define IOFBSUC_FID_stop                               15
-// IOFramebufferDiagnosticUserClient
-#define IOFBDUC_FID_reserved                            0
-#define IOFBDUC_FID_client                              1
-#define IOFBDUC_FID_start                               2
-#define IOFBDUC_FID_clientClose                         3
-#define IOFBDUC_FID_externalMethod                      4
-#define IOFBDUC_FID_rpcEnter                            5
-#define IOFBDUC_FID_rpcLeave                            6
-#define IOFBDUC_FID_requestTerminate                    7
-#define IOFBDUC_FID_willTerminate                       8
-#define IOFBDUC_FID_didTerminate                        9
-#define IOFBDUC_FID_stop                               10
+// IOGDiagnosticUserClient
+#define IOGDUC_FID_reserved                             0
+#define IOGDUC_FID_newUserClient                        1
+#define IOGDUC_FID_start                                2
+#define IOGDUC_FID_clientClose                          3
+#define IOGDUC_FID_externalMethod                       4
+#define IOGDUC_FID_rpcEnter                             5
+#define IOGDUC_FID_rpcLeave                             6
+#define IOGDUC_FID_requestTerminate                     7
+#define IOGDUC_FID_willTerminate                        8
+#define IOGDUC_FID_didTerminate                         9
+#define IOGDUC_FID_stop                                10
+#define IOGDUC_FID_diagnose                            11
+#define IOGDUC_FID_clamshell                           12
+#define IOGDUC_FID_metrics                             13
 // IOI2CInterfaceUserClient
 #define IOI2CUC_FID_reserved                            0
 #define IOI2CUC_FID_withTask                            1
@@ -871,8 +911,8 @@ extern uint32_t gIOGATFlags;
 #define IOFBSUC_END(_fID_,args...)                      do{if(gIOGATFlags&TRACE_IOFBSHAREDUSERCLIENT){KERNEL_DEBUG_CONSTANT_RELEASE(IOFBSHAREDUSERCLIENT_ARIADNE_END,MAKE_FID_DEFINE(IOFBSUC,_fID_),## args,0);}}while(0)
 
 // IOFramebufferDiagnosticUserClient
-#define IOFBDUC_START(_fID_,args...)                    do{if(gIOGATFlags&TRACE_IOFBDIAGNOSTICUSERCLIENT){KERNEL_DEBUG_CONSTANT_RELEASE(IOFBDIAGNOSTICUSERCLIENT_ARIADNE_START,MAKE_FID_DEFINE(IOFBDUC,_fID_),## args,0);}}while(0)
-#define IOFBDUC_END(_fID_,args...)                      do{if(gIOGATFlags&TRACE_IOFBDIAGNOSTICUSERCLIENT){KERNEL_DEBUG_CONSTANT_RELEASE(IOFBDIAGNOSTICUSERCLIENT_ARIADNE_END,MAKE_FID_DEFINE(IOFBDUC,_fID_),## args,0);}}while(0)
+#define IOGDUC_START(_fID_,args...)                    do{if(gIOGATFlags&TRACE_IOGDIAGNOSTICUSERCLIENT){KERNEL_DEBUG_CONSTANT_RELEASE(IOGDIAGNOSTICUSERCLIENT_ARIADNE_START,MAKE_FID_DEFINE(IOGDUC,_fID_),## args,0);}}while(0)
+#define IOGDUC_END(_fID_,args...)                      do{if(gIOGATFlags&TRACE_IOGDIAGNOSTICUSERCLIENT){KERNEL_DEBUG_CONSTANT_RELEASE(IOGDIAGNOSTICUSERCLIENT_ARIADNE_END,MAKE_FID_DEFINE(IOGDUC,_fID_),## args,0);}}while(0)
 
 // IOI2CInterfaceUserClient
 #define IOI2CUC_START(_fID_,args...)                    do{if(gIOGATFlags&TRACE_IOI2INTERFACEUSERCLIENT){KERNEL_DEBUG_CONSTANT_RELEASE(IOI2INTERFACEUSERCLIENT_ARIADNE_START,MAKE_FID_DEFINE(IOI2CUC,_fID_),## args,0);}}while(0)
@@ -917,10 +957,10 @@ extern uint32_t gIOGATFlags;
 
 
 #define IODW_START(_fID_,args...)
-#define IODW_END(_fID_,args...)                         
+#define IODW_END(_fID_,args...)
 
 #define IOD_START(_fID_,args...)
-#define IOD_END(_fID_,args...)                          
+#define IOD_END(_fID_,args...)
 
 #define IODC_START(_fID_,args...)
 #define IODC_END(_fID_,args...)
@@ -929,7 +969,7 @@ extern uint32_t gIOGATFlags;
 #define IOFBC_END(_fID_,args...)
 
 #define IOFB_START(_fID_,args...)
-#define IOFB_END(_fID_,args...)                         
+#define IOFB_END(_fID_,args...)
 
 #define IOFBPH_START(_fID_,args...)
 #define IOFBPH_END(_fID_,args...)
@@ -946,20 +986,20 @@ extern uint32_t gIOGATFlags;
 #define IOFBSUC_START(_fID_,args...)
 #define IOFBSUC_END(_fID_,args...)
 
-#define IOFBDUC_START(_fID_,args...)
-#define IOFBDUC_END(_fID_,args...)
+#define IOGDUC_START(_fID_,args...)
+#define IOGDUC_END(_fID_,args...)
 
 #define IOI2CUC_START(_fID_,args...)
 #define IOI2CUC_END(_fID_,args...)
 
 #define IOI2C_START(_fID_,args...)
-#define IOI2C_END(_fID_,args...)  
+#define IOI2C_END(_fID_,args...)
 
-#define IOFBI2C_START(_fID_,args...)  
-#define IOFBI2C_END(_fID_,args...)       
+#define IOFBI2C_START(_fID_,args...)
+#define IOFBI2C_END(_fID_,args...)
 
-#define IOBFB_START(_fID_,args...) 
-#define IOBFB_END(_fID_,args...)      
+#define IOBFB_START(_fID_,args...)
+#define IOBFB_END(_fID_,args...)
 
 #define IOA_START(_fID_,args...)
 #define IOA_END(_fID_,args...)

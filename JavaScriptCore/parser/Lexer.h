@@ -179,9 +179,9 @@ private:
     
     using NumberParseResult = Variant<double, const Identifier*>;
     ALWAYS_INLINE NumberParseResult parseHex();
-    ALWAYS_INLINE std::optional<NumberParseResult> parseBinary();
-    ALWAYS_INLINE std::optional<NumberParseResult> parseOctal();
-    ALWAYS_INLINE std::optional<NumberParseResult> parseDecimal();
+    ALWAYS_INLINE Optional<NumberParseResult> parseBinary();
+    ALWAYS_INLINE Optional<NumberParseResult> parseOctal();
+    ALWAYS_INLINE Optional<NumberParseResult> parseDecimal();
     ALWAYS_INLINE void parseNumberAfterDecimalPoint();
     ALWAYS_INLINE bool parseNumberAfterExponentIndicator();
     ALWAYS_INLINE bool parseMultilineComment();
@@ -240,8 +240,7 @@ ALWAYS_INLINE bool Lexer<LChar>::isWhiteSpace(LChar ch)
 template <>
 ALWAYS_INLINE bool Lexer<UChar>::isWhiteSpace(UChar ch)
 {
-    // 0x180E used to be in Zs category before Unicode 6.3, and EcmaScript says that we should keep treating it as such.
-    return (ch < 256) ? Lexer<LChar>::isWhiteSpace(static_cast<LChar>(ch)) : (u_charType(ch) == U_SPACE_SEPARATOR || ch == 0x180E || ch == 0xFEFF);
+    return (ch < 256) ? Lexer<LChar>::isWhiteSpace(static_cast<LChar>(ch)) : (u_charType(ch) == U_SPACE_SEPARATOR || ch == 0xFEFF);
 }
 
 template <>

@@ -43,7 +43,7 @@ typedef struct _NSPoint NSPoint;
 #endif
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 OBJC_CLASS UIScreen;
 #endif
 
@@ -58,6 +58,7 @@ class FloatSize;
 class Widget;
 
 using PlatformDisplayID = uint32_t;
+using IORegistryGPUID = int64_t; // Global IOKit I/O registryID that can match a GPU across process boundaries.
 
 int screenDepth(Widget*);
 int screenDepthPerComponent(Widget*);
@@ -98,11 +99,20 @@ NSPoint flipScreenPoint(const NSPoint&, NSScreen *);
 WEBCORE_EXPORT ScreenProperties collectScreenProperties();
 WEBCORE_EXPORT void setScreenProperties(const ScreenProperties&);
 
+WEBCORE_EXPORT PlatformDisplayID primaryScreenDisplayID();
+
 uint32_t primaryOpenGLDisplayMask();
 uint32_t displayMaskForDisplay(PlatformDisplayID);
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+IORegistryGPUID primaryGPUID();
+IORegistryGPUID gpuIDForDisplay(PlatformDisplayID);
+IORegistryGPUID gpuIDForDisplayMask(uint32_t);
 #endif
 
-#if PLATFORM(IOS)
+#endif // !PLATFORM(MAC)
+
+#if PLATFORM(IOS_FAMILY)
 
 float screenPPIFactor();
 WEBCORE_EXPORT FloatSize screenSize();

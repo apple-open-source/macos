@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2011, 2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2011, 2012, 2015, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -109,14 +109,14 @@ routine configlist	(	server		: mach_port_t;
 routine configadd	(	server		: mach_port_t;
 				key		: xmlData;
 				data		: xmlData;
-			 out	newInstance	: int;
+			 out	newInstance	: int;		// no longer used
 			 out	status		: int;
 	    ServerAuditToken	audit_token	: audit_token_t);
 
 routine configget	(	server		: mach_port_t;
 				key		: xmlData;
 			 out	data		: xmlDataOut, dealloc;
-			 out	newInstance	: int;
+			 out	newInstance	: int;		// no longer used
 			 out	status		: int;
 	    ServerAuditToken	audit_token	: audit_token_t);
 
@@ -124,7 +124,7 @@ routine configset	(	server		: mach_port_t;
 				key		: xmlData;
 				data		: xmlData;
 				instance	: int;
-			 out	newInstance	: int;
+			 out	newInstance	: int;		// no longer used
 			 out	status		: int;
 	    ServerAuditToken	audit_token	: audit_token_t);
 
@@ -138,7 +138,7 @@ routine configremove	(	server		: mach_port_t;
 routine configadd_s	(	server		: mach_port_t;
 				key		: xmlData;
 				data		: xmlData;
-			 out	newInstance	: int;
+			 out	newInstance	: int;		// no longer used
 			 out	status		: int);
 
 routine confignotify	(	server		: mach_port_t;

@@ -57,29 +57,6 @@
 #include "b64.h"
 #include "ea.h"
 
-/* Overview:
- * xar_file_t's exist within a xar_archive_t.  xar_prop_t's exist
- * within xar_file_t's and xar_attr_t's exist within xar_prop_t's
- * and xar_file_t's.
- * Basically, a xar_file_t is a container for xar_prop_t's.
- * xar_attr_t's are things like: <foo bar=5>blah</foo>
- * In this example, foo is the key of a xar_prop_t, and blah is
- * the value.  bar is the key of a xar_attr_t which is part of
- * foo's xar_prop_t, and 5 is bar's value.
- * xar_file_t's have xar_attr_t's for the case of:
- * <file id=42>
- * The file has an attribute of "id" with a value of "42".
- */
-
-struct __xar_iter_t {
-	const void *iter;
-	char *path;
-	void *node;
-	int nochild;
-};
-
-/* Convenience macros for dereferencing the structs */
-#define XAR_ITER(x) ((struct __xar_iter_t *)(x))
 
 /* xar_attr_prop
  * Returns: a newly allocated and initialized property attribute.

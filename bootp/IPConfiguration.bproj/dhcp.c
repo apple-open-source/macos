@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1505,8 +1505,8 @@ switch_to_lease(ServiceRef service_p, DHCPLeaseRef lease_p)
     return (TRUE);
 }
 
-static boolean_t
-recover_lease(ServiceRef service_p, struct in_addr * our_ip)
+static void
+recover_lease(ServiceRef service_p)
 {
     const void *	cid;
     uint8_t		cid_type;
@@ -1523,17 +1523,13 @@ recover_lease(ServiceRef service_p, struct in_addr * our_ip)
 		      cid_type, cid, cid_length);
     count = DHCPLeaseListCount(&dhcp->lease_list);
     if (count == 0) {
-	goto failed;
+	return;
     }
     lease_p = DHCPLeaseListElement(&dhcp->lease_list, count - 1);
     (void)switch_to_lease(service_p, lease_p);
-    *our_ip = lease_p->our_ip;
     my_log(LOG_INFO, "DHCP %s: recovered lease for IP " IP_FORMAT,
-	   if_name(if_p), IP_LIST(our_ip));
-    return (TRUE);
-
- failed:
-    return (FALSE);
+	   if_name(if_p), IP_LIST(&lease_p->our_ip));
+    return;
 }
 
 static boolean_t
@@ -1855,12 +1851,12 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  dhcp->xid = arc4random();
 	  DHCPLeaseListInit(&dhcp->lease_list);
 	  our_ip.s_addr = 0;
-	  if (ServiceIsNetBoot(service_p)
-	      || recover_lease(service_p, &our_ip)) {
+	  if (ServiceIsNetBoot(service_p)) {
 	      dhcp_init_reboot(service_p, IFEventID_start_e, &our_ip);
 	  }
 	  else {
-	      dhcp_init(service_p, IFEventID_start_e, NULL);
+	      recover_lease(service_p);
+	      dhcp_check_link(service_p, IFEventID_start_e);
 	  }
 	  break;
       }

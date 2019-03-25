@@ -135,20 +135,16 @@ void IOFramebufferUserClient::free(void)
 
 bool IOFramebufferUserClient::start( IOService * _owner )
 {
-    IOFBUC_START(start,0,0,0);
     fOwner = OSDynamicCast(IOFramebuffer, _owner);
-    if (NULL != fOwner)
-    {
-        fOwner->fServerConnect = this;
+    if (!static_cast<bool>(fOwner)) return false;
+
 #if RLOG
-        snprintf(fName, sizeof(fName), "%s-UC", fOwner->thisName);
+    snprintf(fName, sizeof(fName), "%s-UC", fOwner->thisName);
+    DEBG(fName, "\n");
 #endif
-        DEBG(fName, "\n");
-        IOFBUC_END(start,true,0,0);
-        return (true);
-    }
-    IOFBUC_END(start,false,0,0);
-    return (false);
+
+    fOwner->fServerConnect = this;
+    return (true);
 }
 
 IOReturn IOFramebufferUserClient::
@@ -164,19 +160,13 @@ registerNotificationPort(mach_port_t         port,
     return status;
 }
 
-// The window server is going away.
-// Purposely not RPC_GUARD'd.
-// Must be safe to race stop().
+// The window server is going away (log out, restart, crash, ...).
+// Can't do much here safely since this can be called in parallel with other
+// user space RPCs.
 IOReturn IOFramebufferUserClient::clientClose( void )
 {
-    IOFBUC_START(clientClose,0,0,0);
     DEBG(fName, "\n");
-    IOFramebuffer *owner = fOwner;
-    if (owner && OSCompareAndSwapPtr(owner, NULL, &fOwner)) {
-        owner->close();
-    }
-    if (!isInactive()) terminate();
-    IOFBUC_END(clientClose,kIOReturnSuccess,0,0);
+    terminate();
     return (kIOReturnSuccess);
 }
 
@@ -230,17 +220,11 @@ bool IOFramebufferUserClient::finalize(IOOptionBits options)
     return status;
 }
 
-// Must be safe to race clientClose()
 void IOFramebufferUserClient::stop(IOService *provider)
 {
     IOFBUC_START(stop,0,0,0);
     DEBG(fName, " provider=%p\n", provider);
-    IOFramebuffer *owner = fOwner;
-    if (owner && OSCompareAndSwapPtr(owner, NULL, &fOwner)) {
-        // Intentionally not calling owner->close() here. We're on the FB
-        // WL so taking SYS WL might deadlock!
-        owner->closeNoSys();
-    }
+    fOwner->extClose();
     super::stop(provider);
     IOFBUC_END(stop,0,0,0);
 }
@@ -629,215 +613,4 @@ IOReturn IOFramebufferSharedUserClient::clientMemoryForType( UInt32 type,
     
     IOFBSUC_END(clientMemoryForType,err,0,0);
     return (err);
-}
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-#pragma mark - IOFramebufferDiagnosticUserClient -
-OSDefineMetaClassAndStructors(IOFramebufferDiagnosticUserClient, IOUserClient)
-
-#undef RPC_GUARD
-#define RPC_GUARD(inst, traceId)                                               \
-    RpcGuard rpcGuard(inst);                                                   \
-    if (rpcGuard.fReturn) {                                                    \
-        IOFBDUC_END(traceId, rpcGuard.fReturn, __LINE__, 0);                   \
-        return rpcGuard.fReturn;                                               \
-    }
-
-IOReturn IOFramebufferDiagnosticUserClient::RpcGuard::rpcEnter()
-{
-    IOFBDUC_START(rpcEnter, 0, 0, 0);
-
-    // Prevent fActive from increasing once termination starts.
-    if (fUC->fTerminating) {
-        IOFBDUC_END(rpcEnter, kIOReturnOffline, fUC->fActive, __LINE__);
-        return kIOReturnOffline;
-    }
-
-    // Atomically increment fActive iff fActive >= 0 before the increment.
-    int32_t was;
-    do {
-        was = fUC->fActive;
-        if (-1 == was) { // last thread has left; no new entries allowed
-            DEBG(fUC->fName, " !active\n");
-            IOFBDUC_END(rpcEnter, kIOReturnOffline, was, __LINE__);
-            return kIOReturnOffline;
-        }
-    } while (!OSCompareAndSwap(was, was + 1, &fUC->fActive));
-
-    IOFBDUC_END(rpcEnter, kIOReturnSuccess, was, __LINE__);
-    return kIOReturnSuccess;
-}
-
-void IOFramebufferDiagnosticUserClient::RpcGuard::rpcLeave()
-{
-    IOFBDUC_START(rpcLeave, 0, 0, 0);
-
-    if (fReturn) {
-        IOFBDUC_END(rpcLeave, __LINE__, 0, 0);
-        return;
-    }
-
-    // Allow provider to continue termination if this is the last thread out.
-    int was;
-    if (0 == (was = OSDecrementAtomic(&fUC->fActive))) {
-        // was 0, now -1: last thread out
-        bool defer = false;
-        DEBG(fUC->fName, " didTerminate(%p)\n", fUC->fOwner);
-        fUC->super::didTerminate(fUC->fOwner, 0, &defer);
-    }
-
-    IOFBDUC_END(rpcLeave, __LINE__, was, 0);
-}
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-IOFramebufferDiagnosticUserClient *IOFramebufferDiagnosticUserClient::
-client()
-{
-    IOFBDUC_START(client,0,0,0);
-    IOFramebufferDiagnosticUserClient   * inst = NULL;
-
-    DEBG("IOGDUC", "\n");
-
-    inst = new IOFramebufferDiagnosticUserClient;
-    if (inst && !inst->init())
-    {
-        DEBG("IOGDUC", " init failed\n");
-        OSSafeReleaseNULL(inst);
-    }
-
-    IOFBDUC_END(client,0,0,0);
-    return (inst);
-}
-
-bool IOFramebufferDiagnosticUserClient::start(IOService *provider)
-{
-    IOFBDUC_START(start,0,0,0);
-
-    fOwner = OSDynamicCast(IOFramebuffer, provider);
-    bool ret = fOwner;
-    if (fOwner) {
-#if RLOG
-        snprintf(fName, sizeof(fName), "%s-DC", fOwner->thisName);
-        DEBG(fName, "\n");
-#endif
-    }
-    else
-        DEBG("IOGDUC", " _owner not IOFB\n");
-
-    IOFBDUC_END(start,ret,0,0);
-    return ret;
-}
-
-IOReturn IOFramebufferDiagnosticUserClient::clientClose()
-{
-    IOFBDUC_START(clientClose,0,0,0);
-    DEBG(fName, "\n");
-    if (!isInactive())
-        terminate();
-    IOFBDUC_END(clientClose,kIOReturnSuccess,0,0);
-    return kIOReturnSuccess;
-}
-
-// Override IOService::requestTerminates recursive terminate we must be a leaf
-bool IOFramebufferDiagnosticUserClient::
-requestTerminate(IOService *provider, IOOptionBits options)
-{
-    IOFBDUC_START(requestTerminate,0,0,0);
-    DEBG(fName, " provider=%p options=%#x -> true\n",
-         provider, (uint32_t)options);
-    IOFBDUC_END(requestTerminate,true,0,0);
-    return true;
-}
-
-void IOFramebufferDiagnosticUserClient::stop(IOService *provider)
-{
-    IOFBDUC_START(stop,0,0,0);
-    DEBG(fName, " provider=%p\n", provider);
-
-    assert(OSDynamicCast(IOFramebuffer, provider));
-    assert(provider->getWorkLoop()->inGate());
-
-    fOwner = NULL;
-
-    super::stop(provider);
-    IOFBDUC_END(stop,0,0,0);
-}
-
-bool IOFramebufferDiagnosticUserClient::
-willTerminate(IOService *provider, IOOptionBits options)
-{
-    IOFBDUC_START(willTerminate,0,0,0);
-    DEBG(fName, " provider=%p options=%#x\n", provider, (uint32_t)options);
-    assert(fOwner == provider);
-    fTerminating = true;
-    bool status = super::willTerminate(provider, options);
-    IOFBDUC_END(willTerminate,status,0,0);
-    return status;
-}
-
-bool IOFramebufferDiagnosticUserClient::
-didTerminate(IOService *provider, IOOptionBits options, bool *defer)
-{
-    IOFBDUC_START(didTerminate,0,0,0);
-    assert(fOwner == provider);
-    // Defer if any threads are active. OSDecrementAtomic returns previous value
-    *defer = (0 != OSDecrementAtomic(&fActive));
-    DEBG(fName, " provider=%p options=%#x defer=%d\n",
-         provider, (uint32_t)options, *defer);
-    bool status = super::didTerminate(provider, options, defer);
-    IOFBDUC_END(didTerminate,status,0,0);
-    return status;
-}
-
-IOReturn IOFramebufferDiagnosticUserClient::
-externalMethod(uint32_t selector, IOExternalMethodArguments *args,
-               IOExternalMethodDispatch *dispatch, OSObject *target,
-               void *reference)
-{
-    static const IOExternalMethodDispatch methodTemplate[] =
-    {
-        // Private
-        /*[0]*/ { (IOExternalMethodAction) &IOFramebuffer::extDiagnose,
-            2, 0, 0, sizeof(IOGDiagnose) },
-        /*[1]*/ { (IOExternalMethodAction) &IOFramebuffer::extReservedB,
-            0, 0, 0, 0 },
-        /*[2]*/ { (IOExternalMethodAction) &IOFramebuffer::extReservedC,
-            0, 0, 0, 0 },
-        /*[3]*/ { (IOExternalMethodAction) &IOFramebuffer::extReservedD,
-            0, 0, 0, 0 },
-        /*[4]*/ { (IOExternalMethodAction) &IOFramebuffer::extReservedE,
-            4, 0, 0, kIOUCVariableStructureSize },
-    };
-
-    IOFBDUC_START(externalMethod,selector,0,0);
-    IOReturn ret = kIOReturnSuccess;
-
-    const auto& method = methodTemplate[selector]; // alias
-    if (selector >= COUNT_OF(methodTemplate)
-    ||  !static_cast<bool>(method.function))
-        ret = kIOReturnBadArgument;
-    else {
-        // Due to the architecture of shared user clients and specifically
-        // their lifetime, Admin priviledge determination only works on the
-        // first instance, first call.  Local works every time, but limits tool
-        // usage for those cases where SSH is required.  Data is compressed
-        // internally and decompressed by the tool, so we'll avoid any checks
-        // at the moment.
-#if 0
-        ret = clientHasPrivilege(current_task(),
-                                 kIOClientPrivilegeAdministrator);
-#elif 0
-        ret = clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser);
-#endif
-
-        dispatch
-            = const_cast<IOExternalMethodDispatch *>(&methodTemplate[selector]);
-        RPC_GUARD(this, externalMethod);
-        ret = super::externalMethod(selector, args, dispatch, fOwner, NULL);
-    }
-
-    DEBG(fName, "(selector %u) -> ret %x\n", selector, ret);
-    IOFBDUC_END(externalMethod,ret,0,0);
-    return (ret);
 }

@@ -26,10 +26,7 @@
 #include "config.h"
 #include "NetworkSession.h"
 
-#include "NetworkDataTask.h"
 #include <WebCore/NetworkStorageSession.h>
-#include <wtf/MainThread.h>
-#include <wtf/RunLoop.h>
 
 #if PLATFORM(COCOA)
 #include "NetworkSessionCocoa.h"
@@ -41,10 +38,8 @@
 #include "NetworkSessionCurl.h"
 #endif
 
-
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 Ref<NetworkSession> NetworkSession::create(NetworkSessionCreationParameters&& parameters)
 {
@@ -79,15 +74,6 @@ void NetworkSession::invalidateAndCancel()
 {
     for (auto* task : m_dataTaskSet)
         task->invalidateAndCancel();
-}
-
-bool NetworkSession::allowsSpecificHTTPSCertificateForHost(const WebCore::AuthenticationChallenge& challenge)
-{
-#if PLATFORM(COCOA)
-    return NetworkSessionCocoa::allowsSpecificHTTPSCertificateForHost(challenge);
-#else
-    return false;
-#endif
 }
 
 } // namespace WebKit

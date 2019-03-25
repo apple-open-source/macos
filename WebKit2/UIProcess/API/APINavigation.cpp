@@ -30,10 +30,9 @@
 #include "WebNavigationState.h"
 #include <wtf/DebugUtilities.h>
 
+namespace API {
 using namespace WebCore;
 using namespace WebKit;
-
-namespace API {
 
 Navigation::Navigation(WebNavigationState& state)
     : m_navigationID(state.generateNavigationID())
@@ -59,6 +58,13 @@ Navigation::Navigation(WebNavigationState& state, WebBackForwardListItem& target
 {
 }
 
+Navigation::Navigation(WebKit::WebNavigationState& state, std::unique_ptr<SubstituteData>&& substituteData)
+    : Navigation(state)
+{
+    ASSERT(substituteData);
+    m_substituteData = WTFMove(substituteData);
+}
+
 Navigation::~Navigation()
 {
 }
@@ -69,7 +75,7 @@ void Navigation::setCurrentRequest(ResourceRequest&& request, ProcessIdentifier 
     m_currentRequestProcessIdentifier = processIdentifier;
 }
 
-void Navigation::appendRedirectionURL(const URL& url)
+void Navigation::appendRedirectionURL(const WTF::URL& url)
 {
     if (m_redirectChain.isEmpty() || m_redirectChain.last() != url)
         m_redirectChain.append(url);
@@ -78,8 +84,8 @@ void Navigation::appendRedirectionURL(const URL& url)
 #if !LOG_DISABLED
 const char* Navigation::loggingString() const
 {
-    return debugString("Most recent URL: ", m_currentRequest.url().string(), " Back/forward list item URL: '", m_targetItem ? m_targetItem->url() : String { }, String::format("' (%p)", m_targetItem.get()));
+    return debugString("Most recent URL: ", m_currentRequest.url().string(), " Back/forward list item URL: '", m_targetItem ? m_targetItem->url() : WTF::String { }, WTF::String::format("' (%p)", m_targetItem.get()));
 }
 #endif
 
-} // namespace WebKit
+} // namespace API

@@ -121,6 +121,12 @@ unsigned int hyper_shift;
 // Boot argument for max magazine control
 static const char max_magazines_boot_arg[] = "malloc_max_magazines";
 
+#if CONFIG_MEDIUM_ALLOCATOR
+static const char medium_enabled_boot_arg[] = "malloc_medium_zone";
+static const char max_medium_magazines_boot_arg[] = "malloc_max_medium_magazines";
+static const char medium_activation_threshold_boot_arg[] = "malloc_medium_activation_threshold";
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
 /*********	Utilities	************/
 static bool _malloc_entropy_initialized;
 
@@ -177,6 +183,44 @@ __malloc_init_from_bootargs(const char *bootargs)
 						   "malloc_max_magazines must be positive - ignored.\n");
 		}
 	}
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	flag = malloc_common_value_for_key_copy(bootargs, medium_enabled_boot_arg,
+			value_buf, sizeof(value_buf));
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp) {
+			magazine_medium_enabled = (value != 0);
+		}
+	}
+
+	flag = malloc_common_value_for_key_copy(bootargs,
+			medium_activation_threshold_boot_arg, value_buf, sizeof(value_buf));
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && value >= 0) {
+			magazine_medium_active_threshold = (uint64_t)value;
+		} else {
+			malloc_report(ASL_LEVEL_ERR,
+					"malloc_medium_activation_threshold must be positive - ignored.\n");
+		}
+	}
+
+	flag = malloc_common_value_for_key_copy(bootargs,
+			max_medium_magazines_boot_arg, value_buf, sizeof(value_buf));
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && value >= 0) {
+			max_medium_magazines = (int)value;
+		} else {
+			malloc_report(ASL_LEVEL_ERR,
+					"malloc_max_medium_magazines must be positive - ignored.\n");
+		}
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
 }
 
 /* TODO: Investigate adding _malloc_initialize() into this libSystem initializer */
@@ -870,6 +914,14 @@ _malloc_initialize(void *context __unused)
 		max_magazines = logical_ncpus;
 	}
 
+	// similiarly, cap medium magazines at logical_ncpus but don't cap it by
+	// the max magazines if it has been set explicitly
+	if (max_medium_magazines) {
+		max_medium_magazines = MIN(max_medium_magazines, logical_ncpus);
+	} else {
+		max_medium_magazines = max_magazines;
+	}
+
 	set_flags_from_environment(); // will only set flags up to two times
 	n = malloc_num_zones;
 
@@ -1010,8 +1062,10 @@ inline_malloc_default_scalable_zone(void)
 static void *
 legacy_zeroing_large_malloc(malloc_zone_t *zone, size_t size)
 {
-	if (size > LARGE_THRESHOLD) {			 // Leopard and earlier returned a ZFOD range, so ...
-		return default_zone_calloc(zone, 1, size); // Clear to zero always, ham-handedly touching in each page
+	if (size > LEGACY_ZEROING_THRESHOLD) {
+		// Leopard and earlier returned a ZFOD range, so clear to zero always,
+		// ham-handedly touching in each page
+		return default_zone_calloc(zone, 1, size);
 	} else {
 		return default_zone_malloc(zone, size);
 	}
@@ -1257,6 +1311,48 @@ set_flags_from_environment(void)
 			malloc_report(ASL_LEVEL_INFO, "Maximum magazines set to %d\n", max_magazines);
 		}
 	}
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	flag = getenv("MallocMediumZone");
+	if (flag) {
+		int value = (unsigned)strtol(flag, NULL, 0);
+		if (value == 0) {
+			magazine_medium_enabled = false;
+		} else if (value == 1) {
+			magazine_medium_enabled = true;
+		}
+	}
+
+	flag = getenv("MallocMediumActivationThreshold");
+	if (flag) {
+		uint64_t value = (uint64_t)strtoull(flag, NULL, 0);
+		if (value == 0) {
+			malloc_report(ASL_LEVEL_INFO, "Medium activation threshold defaulted to %lly\n", magazine_medium_active_threshold);
+		} else if (value < 0) {
+			malloc_report(ASL_LEVEL_ERR, "MallocMediumActivationThreshold must be positive - ignored.\n");
+		} else {
+			magazine_medium_active_threshold = value;
+			malloc_report(ASL_LEVEL_INFO, "Medium activation threshold set to %lly\n", magazine_medium_active_threshold);
+		}
+	}
+
+	flag = getenv("MallocMaxMediumMagazines");
+	if (flag) {
+		int value = (unsigned)strtol(flag, NULL, 0);
+		if (value == 0) {
+			malloc_report(ASL_LEVEL_INFO, "Maximum medium magazines defaulted to %d\n", max_magazines);
+		} else if (value < 0) {
+			malloc_report(ASL_LEVEL_ERR, "MallocMaxMediumMagazines must be positive - ignored.\n");
+		} else if (value > logical_ncpus) {
+			max_medium_magazines = logical_ncpus;
+			malloc_report(ASL_LEVEL_INFO, "Maximum medium magazines limited to number of logical CPUs (%d)\n", max_medium_magazines);
+		} else {
+			max_medium_magazines = value;
+			malloc_report(ASL_LEVEL_INFO, "Maximum medium magazines set to %d\n", max_medium_magazines);
+		}
+	}
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
 #if CONFIG_RECIRC_DEPOT
 	flag = getenv("MallocRecircRetainedRegions");
 	if (flag) {

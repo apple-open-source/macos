@@ -141,6 +141,7 @@ public:
     enum class PlaybackControlsPurpose { ControlsManager, NowPlaying };
     bool canShowControlsManager(PlaybackControlsPurpose) const;
     bool isLargeEnoughForMainContent(MediaSessionMainContentPurpose) const;
+    bool isMainContentForPurposesOfAutoplayEvents() const;
     MonotonicTime mostRecentUserInteractionTime() const;
 
     bool allowsPlaybackControlsForAutoplayingAudio() const;
@@ -168,7 +169,7 @@ private:
     void externalOutputDeviceAvailableDidChange(bool) override;
     void setShouldPlayToPlaybackTarget(bool) override;
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     bool requiresPlaybackTargetRouteMonitoring() const override;
 #endif
     bool updateIsMainContent() const;
@@ -190,7 +191,7 @@ private:
     bool m_shouldPlayToPlaybackTarget { false };
     mutable bool m_hasPlaybackTargets { false };
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     bool m_hasPlaybackTargetAvailabilityListeners { false };
 #endif
 

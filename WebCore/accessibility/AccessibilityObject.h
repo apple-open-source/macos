@@ -731,7 +731,7 @@ public:
     virtual bool supportsARIADragging() const { return false; }
     virtual bool isARIAGrabbed() { return false; }
     virtual void setARIAGrabbed(bool) { }
-    virtual void determineARIADropEffects(Vector<String>&) { }
+    virtual Vector<String> determineARIADropEffects() { return { }; }
     
     // Called on the root AX object to return the deepest available element.
     virtual AccessibilityObject* accessibilityHitTest(const IntPoint&) const { return nullptr; }
@@ -1120,7 +1120,7 @@ public:
     AccessibilityObjectInclusion accessibilityPlatformIncludesObject() const { return AccessibilityObjectInclusion::DefaultBehavior; }
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     int accessibilityPasswordFieldLength();
     bool hasTouchEventListener() const;
     bool isInputTypePopupButton() const;
@@ -1136,7 +1136,7 @@ public:
     void setPreventKeyboardDOMEventDispatch(bool);
 #endif
     
-#if PLATFORM(COCOA) && !PLATFORM(IOS)
+#if PLATFORM(COCOA) && !PLATFORM(IOS_FAMILY)
     bool caretBrowsingEnabled() const;
     void setCaretBrowsingEnabled(bool);
 #endif

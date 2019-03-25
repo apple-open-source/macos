@@ -31,8 +31,6 @@
 #include "Encoder.h"
 #include "WebCoreArgumentCoders.h"
 
-using namespace WebCore;
-
 namespace WebKit {
 
 void NavigationActionData::encode(IPC::Encoder& encoder) const
@@ -48,86 +46,103 @@ void NavigationActionData::encode(IPC::Encoder& encoder) const
     encoder << clickLocationInRootViewCoordinates;
     encoder << isRedirect;
     encoder << treatAsSameOriginNavigation;
-    encoder << isCrossOriginWindowOpenNavigation;
     encoder << hasOpenedFrames;
-    encoder << opener;
+    encoder << openedByDOMWithOpener;
+    encoder << requesterOrigin;
     encoder << targetBackForwardItemIdentifier;
+    encoder.encodeEnum(lockHistory);
+    encoder.encodeEnum(lockBackForwardList);
+    encoder << clientRedirectSourceForHistory;
 }
 
-std::optional<NavigationActionData> NavigationActionData::decode(IPC::Decoder& decoder)
+Optional<NavigationActionData> NavigationActionData::decode(IPC::Decoder& decoder)
 {
     WebCore::NavigationType navigationType;
     if (!decoder.decodeEnum(navigationType))
-        return std::nullopt;
+        return WTF::nullopt;
     
     WebEvent::Modifiers modifiers;
     if (!decoder.decodeEnum(modifiers))
-        return std::nullopt;
+        return WTF::nullopt;
     
     WebMouseEvent::Button mouseButton;
     if (!decoder.decodeEnum(mouseButton))
-        return std::nullopt;
+        return WTF::nullopt;
     
     WebMouseEvent::SyntheticClickType syntheticClickType;
     if (!decoder.decodeEnum(syntheticClickType))
-        return std::nullopt;
+        return WTF::nullopt;
     
-    std::optional<uint64_t> userGestureTokenIdentifier;
+    Optional<uint64_t> userGestureTokenIdentifier;
     decoder >> userGestureTokenIdentifier;
     if (!userGestureTokenIdentifier)
-        return std::nullopt;
+        return WTF::nullopt;
     
-    std::optional<bool> canHandleRequest;
+    Optional<bool> canHandleRequest;
     decoder >> canHandleRequest;
     if (!canHandleRequest)
-        return std::nullopt;
+        return WTF::nullopt;
     
     WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy;
     if (!decoder.decodeEnum(shouldOpenExternalURLsPolicy))
-        return std::nullopt;
+        return WTF::nullopt;
     
-    std::optional<String> downloadAttribute;
+    Optional<String> downloadAttribute;
     decoder >> downloadAttribute;
     if (!downloadAttribute)
-        return std::nullopt;
+        return WTF::nullopt;
     
     WebCore::FloatPoint clickLocationInRootViewCoordinates;
     if (!decoder.decode(clickLocationInRootViewCoordinates))
-        return std::nullopt;
+        return WTF::nullopt;
     
-    std::optional<bool> isRedirect;
+    Optional<bool> isRedirect;
     decoder >> isRedirect;
     if (!isRedirect)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<bool> treatAsSameOriginNavigation;
+    Optional<bool> treatAsSameOriginNavigation;
     decoder >> treatAsSameOriginNavigation;
     if (!treatAsSameOriginNavigation)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<bool> isCrossOriginWindowOpenNavigation;
-    decoder >> isCrossOriginWindowOpenNavigation;
-    if (!isCrossOriginWindowOpenNavigation)
-        return std::nullopt;
-
-    std::optional<bool> hasOpenedFrames;
+    Optional<bool> hasOpenedFrames;
     decoder >> hasOpenedFrames;
     if (!hasOpenedFrames)
-        return std::nullopt;
+        return WTF::nullopt;
 
-    std::optional<std::optional<std::pair<uint64_t, uint64_t>>> opener;
-    decoder >> opener;
-    if (!opener)
-        return std::nullopt;
+    Optional<bool> openedByDOMWithOpener;
+    decoder >> openedByDOMWithOpener;
+    if (!openedByDOMWithOpener)
+        return WTF::nullopt;
 
-    std::optional<std::optional<BackForwardItemIdentifier>> targetBackForwardItemIdentifier;
+    Optional<WebCore::SecurityOriginData> requesterOrigin;
+    decoder >> requesterOrigin;
+    if (!requesterOrigin)
+        return WTF::nullopt;
+
+    Optional<Optional<WebCore::BackForwardItemIdentifier>> targetBackForwardItemIdentifier;
     decoder >> targetBackForwardItemIdentifier;
     if (!targetBackForwardItemIdentifier)
-        return std::nullopt;
-        
+        return WTF::nullopt;
+
+    WebCore::LockHistory lockHistory;
+    if (!decoder.decodeEnum(lockHistory))
+        return WTF::nullopt;
+
+    WebCore::LockBackForwardList lockBackForwardList;
+    if (!decoder.decodeEnum(lockBackForwardList))
+        return WTF::nullopt;
+
+    Optional<String> clientRedirectSourceForHistory;
+    decoder >> clientRedirectSourceForHistory;
+    if (!clientRedirectSourceForHistory)
+        return WTF::nullopt;
+
     return {{ WTFMove(navigationType), WTFMove(modifiers), WTFMove(mouseButton), WTFMove(syntheticClickType), WTFMove(*userGestureTokenIdentifier),
         WTFMove(*canHandleRequest), WTFMove(shouldOpenExternalURLsPolicy), WTFMove(*downloadAttribute), WTFMove(clickLocationInRootViewCoordinates),
-        WTFMove(*isRedirect), *treatAsSameOriginNavigation, *isCrossOriginWindowOpenNavigation, *hasOpenedFrames, WTFMove(*opener), WTFMove(*targetBackForwardItemIdentifier) }};
+        WTFMove(*isRedirect), *treatAsSameOriginNavigation, *hasOpenedFrames, *openedByDOMWithOpener, WTFMove(*requesterOrigin),
+        WTFMove(*targetBackForwardItemIdentifier), lockHistory, lockBackForwardList, WTFMove(*clientRedirectSourceForHistory) }};
 }
 
 } // namespace WebKit

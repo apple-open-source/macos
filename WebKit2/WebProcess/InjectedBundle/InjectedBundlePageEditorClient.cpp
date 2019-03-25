@@ -40,9 +40,8 @@
 #include <WebCore/DocumentFragment.h>
 #include <wtf/text/WTFString.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 InjectedBundlePageEditorClient::InjectedBundlePageEditorClient(const WKBundlePageEditorClientBase& client)
 {
@@ -169,8 +168,8 @@ void InjectedBundlePageEditorClient::getPasteboardDataForRange(WebPage& page, Ra
             pasteboardTypes.append(type->string());
 
         for (auto item : dataArray->elementsOfType<API::Data>()) {
-            RefPtr<SharedBuffer> buffer = SharedBuffer::create(item->bytes(), item->size());
-            pasteboardData.append(buffer);
+            auto buffer = SharedBuffer::create(item->bytes(), item->size());
+            pasteboardData.append(WTFMove(buffer));
         }
     }
 }

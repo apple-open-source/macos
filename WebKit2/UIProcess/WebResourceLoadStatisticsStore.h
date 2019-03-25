@@ -41,7 +41,6 @@ class WorkQueue;
 
 namespace WebCore {
 class ResourceRequest;
-class URL;
 struct ResourceLoadStatistics;
 }
 
@@ -53,7 +52,6 @@ class WebFrameProxy;
 class WebProcessProxy;
 class WebsiteDataStore;
 
-enum class ShouldClearFirst;
 enum class StorageAccessStatus {
     CannotRequestAccess,
     RequiresUserPrompt,
@@ -84,36 +82,34 @@ public:
 
     void applicationWillTerminate();
 
-    void logFrameNavigation(const WebFrameProxy&, const WebCore::URL& pageURL, const WebCore::ResourceRequest&, const WebCore::URL& redirectURL);
-    void logUserInteraction(const WebCore::URL&, CompletionHandler<void()>&&);
-    void logNonRecentUserInteraction(const WebCore::URL&, CompletionHandler<void()>&&);
-    void clearUserInteraction(const WebCore::URL&, CompletionHandler<void()>&&);
-    void hasHadUserInteraction(const WebCore::URL&, CompletionHandler<void(bool)>&&);
-    void setLastSeen(const WebCore::URL&, Seconds, CompletionHandler<void()>&&);
-    void setPrevalentResource(const WebCore::URL&, CompletionHandler<void()>&&);
-    void setVeryPrevalentResource(const WebCore::URL&, CompletionHandler<void()>&&);
-    void isPrevalentResource(const WebCore::URL&, CompletionHandler<void(bool)>&&);
-    void isVeryPrevalentResource(const WebCore::URL&, CompletionHandler<void(bool)>&&);
-    void isRegisteredAsSubFrameUnder(const WebCore::URL& subFrame, const WebCore::URL& topFrame, CompletionHandler<void(bool)>&&);
-    void isRegisteredAsRedirectingTo(const WebCore::URL& hostRedirectedFrom, const WebCore::URL& hostRedirectedTo, CompletionHandler<void(bool)>&&);
-    void clearPrevalentResource(const WebCore::URL&, CompletionHandler<void()>&&);
-    void setGrandfathered(const WebCore::URL&, bool);
-    void isGrandfathered(const WebCore::URL&, CompletionHandler<void(bool)>&&);
-    void setSubframeUnderTopFrameOrigin(const WebCore::URL& subframe, const WebCore::URL& topFrame);
-    void setSubresourceUnderTopFrameOrigin(const WebCore::URL& subresource, const WebCore::URL& topFrame);
-    void setSubresourceUniqueRedirectTo(const WebCore::URL& subresource, const WebCore::URL& hostNameRedirectedTo);
-    void setSubresourceUniqueRedirectFrom(const WebCore::URL& subresource, const WebCore::URL& hostNameRedirectedFrom);
-    void setTopFrameUniqueRedirectTo(const WebCore::URL& topFrameHostName, const WebCore::URL& hostNameRedirectedTo);
-    void setTopFrameUniqueRedirectFrom(const WebCore::URL& topFrameHostName, const WebCore::URL& hostNameRedirectedFrom);
-    void scheduleCookiePartitioningUpdate(CompletionHandler<void()>&&);
-    void scheduleCookiePartitioningUpdateForDomains(const Vector<String>& domainsToPartition, const Vector<String>& domainsToBlock, const Vector<String>& domainsToNeitherPartitionNorBlock, ShouldClearFirst, CompletionHandler<void()>&&);
-    void scheduleClearPartitioningStateForDomains(const Vector<String>& domains, CompletionHandler<void()>&&);
+    void logFrameNavigation(const WebFrameProxy&, const URL& pageURL, const WebCore::ResourceRequest&, const URL& redirectURL);
+    void logUserInteraction(const URL&, CompletionHandler<void()>&&);
+    void clearUserInteraction(const URL&, CompletionHandler<void()>&&);
+    void hasHadUserInteraction(const URL&, CompletionHandler<void(bool)>&&);
+    void setLastSeen(const URL&, Seconds, CompletionHandler<void()>&&);
+    void setPrevalentResource(const URL&, CompletionHandler<void()>&&);
+    void setVeryPrevalentResource(const URL&, CompletionHandler<void()>&&);
+    void dumpResourceLoadStatistics(CompletionHandler<void(const String&)>&&);
+    void isPrevalentResource(const URL&, CompletionHandler<void(bool)>&&);
+    void isVeryPrevalentResource(const URL&, CompletionHandler<void(bool)>&&);
+    void isRegisteredAsSubresourceUnder(const URL& subresource, const URL& topFrame, CompletionHandler<void(bool)>&&);
+    void isRegisteredAsSubFrameUnder(const URL& subFrame, const URL& topFrame, CompletionHandler<void(bool)>&&);
+    void isRegisteredAsRedirectingTo(const URL& hostRedirectedFrom, const URL& hostRedirectedTo, CompletionHandler<void(bool)>&&);
+    void clearPrevalentResource(const URL&, CompletionHandler<void()>&&);
+    void setGrandfathered(const URL&, bool);
+    void isGrandfathered(const URL&, CompletionHandler<void(bool)>&&);
+    void setSubframeUnderTopFrameOrigin(const URL& subframe, const URL& topFrame);
+    void setSubresourceUnderTopFrameOrigin(const URL& subresource, const URL& topFrame);
+    void setSubresourceUniqueRedirectTo(const URL& subresource, const URL& hostNameRedirectedTo);
+    void setSubresourceUniqueRedirectFrom(const URL& subresource, const URL& hostNameRedirectedFrom);
+    void setTopFrameUniqueRedirectTo(const URL& topFrameHostName, const URL& hostNameRedirectedTo);
+    void setTopFrameUniqueRedirectFrom(const URL& topFrameHostName, const URL& hostNameRedirectedFrom);
+    void scheduleCookieBlockingUpdate(CompletionHandler<void()>&&);
+    void scheduleCookieBlockingUpdateForDomains(const Vector<String>& domainsToBlock, CompletionHandler<void()>&&);
+    void scheduleClearBlockingStateForDomains(const Vector<String>& domains, CompletionHandler<void()>&&);
     void scheduleStatisticsAndDataRecordsProcessing();
     void submitTelemetry();
-    void scheduleCookiePartitioningStateReset();
 
-    void scheduleClearInMemory(CompletionHandler<void()>&&);
-    
     enum class ShouldGrandfather {
         No,
         Yes,
@@ -122,25 +118,26 @@ public:
     void scheduleClearInMemoryAndPersistent(WallTime modifiedSince, ShouldGrandfather, CompletionHandler<void()>&&);
 
     void setTimeToLiveUserInteraction(Seconds);
-    void setTimeToLiveCookiePartitionFree(Seconds);
     void setMinimumTimeBetweenDataRecordsRemoval(Seconds);
     void setGrandfatheringTime(Seconds);
+    void setCacheMaxAgeCap(Seconds, CompletionHandler<void()>&&);
     void setMaxStatisticsEntries(size_t);
     void setPruneEntriesDownTo(size_t);
 
     void resetParametersToDefaultValues(CompletionHandler<void()>&&);
 
-    void setResourceLoadStatisticsDebugMode(bool);
-
+    void setResourceLoadStatisticsDebugMode(bool, CompletionHandler<void()>&&);
+    void setPrevalentResourceForDebugMode(const URL&, CompletionHandler<void()>&&);
+    
     void setStatisticsTestingCallback(WTF::Function<void(const String&)>&& callback) { m_statisticsTestingCallback = WTFMove(callback); }
     void logTestingEvent(const String&);
-    void callGrantStorageAccessHandler(const String& subFramePrimaryDomain, const String& topFramePrimaryDomain, std::optional<uint64_t> frameID, uint64_t pageID, CompletionHandler<void(bool)>&&);
-    void removeAllStorageAccess();
-    void callUpdatePrevalentDomainsToPartitionOrBlockCookiesHandler(const Vector<String>& domainsToPartition, const Vector<String>& domainsToBlock, const Vector<String>& domainsToNeitherPartitionNorBlock, ShouldClearFirst, CompletionHandler<void()>&&);
+    void callGrantStorageAccessHandler(const String& subFramePrimaryDomain, const String& topFramePrimaryDomain, Optional<uint64_t> frameID, uint64_t pageID, CompletionHandler<void(bool)>&&);
+    void removeAllStorageAccess(CompletionHandler<void()>&&);
+    void callUpdatePrevalentDomainsToBlockCookiesForHandler(const Vector<String>& domainsToBlock, CompletionHandler<void()>&&);
     void callRemoveDomainsHandler(const Vector<String>& domains);
     void callHasStorageAccessForFrameHandler(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, CompletionHandler<void(bool)>&&);
 
-     void didCreateNetworkProcess();
+    void didCreateNetworkProcess();
 
     WebsiteDataStore* websiteDataStore() { return m_websiteDataStore.get(); }
 
@@ -155,7 +152,7 @@ private:
 
     // IPC message handlers.
     void resourceLoadStatisticsUpdated(Vector<WebCore::ResourceLoadStatistics>&& origins);
-    void requestStorageAccessUnderOpener(String&& primaryDomainInNeedOfStorageAccess, uint64_t openerPageID, String&& openerPrimaryDomain, bool isTriggeredByUserGesture);
+    void requestStorageAccessUnderOpener(String&& primaryDomainInNeedOfStorageAccess, uint64_t openerPageID, String&& openerPrimaryDomain);
 
     void performDailyTasks();
 

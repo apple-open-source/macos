@@ -11,8 +11,21 @@ import argparse
 import json
 import base64
 import Foundation
-from datetime import datetime
+from datetime import datetime, tzinfo, timedelta
 from PyObjCTools.Conversion import propertyListFromPythonCollection
+import re
+
+class UTC(tzinfo):
+    """UTC"""
+
+    def utcoffset(self, dt):
+        return timedelta(0)
+
+    def tzname(self, dt):
+        return "UTC"
+
+    def dst(self, dt):
+        return timedelta(0)
 
 def dataConverter(value):
     if isinstance(value, Foundation.NSData):
@@ -24,7 +37,13 @@ def checkValue(value, type, failureString):
     if not isinstance(value, type):
         raise TypeError(failureString)
 
-parser = argparse.ArgumentParser(description="Calculate log ids and add to log list")
+def checkTime(value, failureString):
+    checkValue(value, basestring, failureString)
+    pattern = re.compile("^[0-9]{4}-[0-1][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-6][0-9]Z$")
+    if not pattern.match(value):
+        raise ValueError(failureString + ": incorrectly formatted time, expected \"YYYY-MM-DDTHH:mm:ssZ\"")
+
+parser = argparse.ArgumentParser(description="Build the trusted logs plist from the log list json")
 parser.add_argument('-infile', help="The filename of the json log list", required=True)
 parser.add_argument('-outfile', help="The filename of the plist log list", required=True)
 
@@ -36,38 +55,51 @@ log_array = []
 
 checkValue(log_list, dict, args.infile + " is not a json dictionary")
 checkValue(log_list["$schema"], basestring, "failed to get \'$schema\' version from " + args.infile)
-if log_list["$schema"] != "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v2.json":
+if log_list["$schema"] != "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json":
     raise ValueError("unknown schema " +  log_list["$schema"] + " for  " + args.infile)
 
-checkValue(log_list["operators"], dict, "failed to get \'operators\' dictionary from " + args.infile)
+checkValue(log_list["operators"], list, "failed to get \'operators\' array from " + args.infile)
 
-for operator,operator_dict in log_list["operators"].iteritems():
-    checkValue(operator, basestring, "failed to get operator string from " + args.infile)
-    checkValue(operator_dict, dict, "failed to get operator dictionary for " + operator)
-    checkValue(operator_dict["logs"], dict, "failed to get \'logs\' dictionary for " + operator)
+for operator_dict in log_list["operators"]:
+    checkValue(operator_dict, dict, "failed to get operator dictionary for index " + str(log_list["operators"].index(operator_dict)))
+    checkValue(operator_dict["name"], basestring, "failed to get operator name from " + args.infile)
+    operator = operator_dict["name"]
+    checkValue(operator_dict["logs"], list, "failed to get \'logs\' array for " + operator)
 
-    for log_name,log_dict in operator_dict["logs"].items():
-        checkValue(log_dict, dict, "failed to get log dictionary for log \"" + log_name + "\" for operator \"" + operator + "\"")
+    for log_dict in operator_dict["logs"]:
+        log_index = str(operator_dict["logs"].index(log_dict))
+        checkValue(log_dict, dict, "failed to get log dictionary for log index" + log_index + "\" for operator \"" + operator + "\"")
 
         state = log_dict["state"]
-        checkValue(state, dict, "failed to get \'state\' for log \"" + log_name + "\" for operator \"" + operator + "\"")
+        checkValue(state, dict, "failed to get \'state\' for log \"" + log_index + "\" for operator \"" + operator + "\"")
 
+        # skip completely untrusted logs
         if "pending" not in state and "rejected" not in state:
             log_entry = {}
             log_entry['operator'] = operator
 
-            checkValue(log_dict["key"], basestring, "failed to get \'key\' for log \"" + log_name + "\" for operator \"" + operator + "\"")
+            checkValue(log_dict["key"], basestring, "failed to get \'key\' for log \"" + log_index + "\" for operator \"" + operator + "\"")
             key_data = base64.b64decode(log_dict["key"])
             log_entry['key'] = Foundation.NSData.dataWithBytes_length_(key_data, len(key_data))
 
-            if "frozen" in state:
-                checkValue(state["frozen"]["timestamp"], basestring, "failed to get frozen timestamp for log \"" + log_name + "\" for operator \"" + operator + "\"")
-                log_entry['frozen'] = datetime.strptime(state["frozen"]["timestamp"],"%Y-%m-%dT%H:%M:%SZ") 
+            checkValue(log_dict["log_id"], basestring, "failed to get \'log_id\' for log \"" + log_index + "\" for operator \"" + operator + "\"")
+            log_id = base64.b64decode(log_dict["log_id"])
+            log_entry['log_id'] = Foundation.NSData.dataWithBytes_length_(log_id, len(log_id))
+
+            if "readonly" in state:
+                checkTime(state["readonly"]["timestamp"], "failed to get frozen timestamp for log \"" + log_index + "\" for operator \"" + operator + "\"")
+                log_entry['frozen'] = datetime.strptime(state["readonly"]["timestamp"],"%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC())
             elif "retired" in state:
-                checkValue(state["retired"]["timestamp"], basestring, "failed to get retired timestamp for log \"" + log_name + "\" for operator \"" + operator + "\"")
-                log_entry['expiry'] = datetime.strptime(state["retired"]["timestamp"],"%Y-%m-%dT%H:%M:%SZ")
+                checkTime(state["retired"]["timestamp"], "failed to get retired timestamp for log \"" + log_index + "\" for operator \"" + operator + "\"")
+                log_entry['expiry'] = datetime.strptime(state["retired"]["timestamp"],"%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC())
             elif "qualified" not in state and "usable" not in state:
-                raise ValueError("unknown state for log \"" + log_name + "\" for operator \"" + operator + "\"")
+                raise ValueError("unknown state for log \"" + log_index + "\" for operator \"" + operator + "\"")
+
+            if "temporal_interval" in log_dict:
+                checkTime(log_dict["temporal_interval"]["start_inclusive"], "failed to get start inclusive timestamp for log \"" + log_index + "\" for operator \"" + operator + "\"")
+                checkTime(log_dict["temporal_interval"]["end_exclusive"], "failed to get end exclusive timestamp for log \"" + log_index + "\" for operator \"" + operator + "\"")
+                log_entry['start_inclusive'] = datetime.strptime(log_dict["temporal_interval"]["start_inclusive"],"%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC())
+                log_entry['end_exclusive'] = datetime.strptime(log_dict["temporal_interval"]["end_exclusive"],"%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC())
 
             log_array.append(log_entry)
 

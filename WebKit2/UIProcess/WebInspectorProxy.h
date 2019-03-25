@@ -30,6 +30,7 @@
 #include "Attachment.h"
 #include "MessageReceiver.h"
 #include "WebInspectorUtilities.h"
+#include <JavaScriptCore/InspectorFrontendChannel.h>
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
@@ -51,7 +52,7 @@ OBJC_CLASS WKInspectorViewController;
 #endif
 
 namespace WebCore {
-class URL;
+class CertificateInfo;
 }
 
 namespace WebKit {
@@ -70,6 +71,7 @@ enum class AttachmentSide {
 class WebInspectorProxy
     : public API::ObjectImpl<API::Object::Type::Inspector>
     , public IPC::MessageReceiver
+    , public Inspector::FrontendChannel
 #if PLATFORM(WIN)
     , public WebCore::WindowMessageListener
 #endif
@@ -97,6 +99,10 @@ public:
     void hide();
     void close();
     void closeForCrash();
+    void reopen();
+
+    void reset();
+    void updateForNewPageProcess(WebPageProxy*);
 
 #if PLATFORM(MAC) && WK_API_ENABLED
     static RetainPtr<NSWindow> createFrontendWindow(NSRect savedWindowFrame);
@@ -107,13 +113,12 @@ public:
     void windowFullScreenDidChange();
     NSWindow* inspectorWindow() const { return m_inspectorWindow.get(); }
 
-    void setInspectorWindowFrame(WKRect&);
-    WKRect inspectorWindowFrame();
-
     void closeFrontendPage();
     void closeFrontendAfterInactivityTimerFired();
 
     void attachmentViewDidChange(NSView *oldView, NSView *newView);
+    void attachmentWillMoveFromWindow(NSWindow *oldWindow);
+    void attachmentDidMoveToWindow(NSWindow *newWindow);
 #endif
 
 #if PLATFORM(GTK)
@@ -151,7 +156,7 @@ public:
     static String inspectorPageURL();
     static String inspectorTestPageURL();
     static String inspectorBaseURL();
-    static bool isMainOrTestInspectorPage(const WebCore::URL&);
+    static bool isMainOrTestInspectorPage(const URL&);
 
     static const unsigned minimumWindowWidth;
     static const unsigned minimumWindowHeight;
@@ -168,6 +173,10 @@ private:
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
+    // Inspector::FrontendChannel
+    void sendMessageToFrontend(const String& message) override;
+    ConnectionType connectionType() const override { return ConnectionType::Local; }
+
     WebPageProxy* platformCreateFrontendPage();
     void platformCreateFrontendWindow();
     void platformCloseFrontendPageAndWindow();
@@ -180,6 +189,7 @@ private:
     bool platformIsFront();
     void platformAttachAvailabilityChanged(bool);
     void platformInspectedURLChanged(const String&);
+    void platformShowCertificate(const WebCore::CertificateInfo&);
     unsigned platformInspectedWindowHeight();
     unsigned platformInspectedWindowWidth();
     void platformAttach();
@@ -197,12 +207,16 @@ private:
 #endif
 
     // Called by WebInspectorProxy messages
-    void createInspectorPage(IPC::Attachment, bool canAttach, bool underTest);
+    void openLocalInspectorFrontend(bool canAttach, bool underTest);
+    void setFrontendConnection(IPC::Attachment);
+
+    void sendMessageToBackend(const String&);
     void frontendLoaded();
     void didClose();
     void bringToFront();
     void attachAvailabilityChanged(bool);
     void inspectedURLChanged(const String&);
+    void showCertificate(const WebCore::CertificateInfo&);
     void elementSelectionChanged(bool);
 
     void save(const String& filename, const String& content, bool base64Encoded, bool forceSaveAs);
@@ -240,8 +254,7 @@ private:
     bool m_elementSelectionActive { false };
     bool m_ignoreElementSelectionChange { false };
     bool m_isOpening { false };
-
-    IPC::Attachment m_connectionIdentifier;
+    bool m_isActiveFrontend { false };
 
     AttachmentSide m_attachmentSide {AttachmentSide::Bottom};
 
@@ -252,6 +265,7 @@ private:
     HashMap<String, RetainPtr<NSURL>> m_suggestedToActualURLMap;
     RunLoop::Timer<WebInspectorProxy> m_closeFrontendAfterInactivityTimer;
     String m_urlString;
+    bool m_isObservingContentLayoutRect { false };
 #elif PLATFORM(GTK)
     std::unique_ptr<WebInspectorProxyClient> m_client;
     GtkWidget* m_inspectorView { nullptr };

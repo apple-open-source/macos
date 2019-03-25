@@ -578,6 +578,10 @@ public:
             xor32(imm, dest, dest);
     }
     
+    void not32(RegisterID srcDest)
+    {
+        m_assembler.mvn(srcDest, srcDest);
+    }
 
     // Memory access operations:
     //
@@ -1938,6 +1942,14 @@ public:
     {
         m_makeJumpPatchable = true;
         Jump result = branchTest32(cond, reg, mask);
+        m_makeJumpPatchable = false;
+        return PatchableJump(result);
+    }
+
+    PatchableJump patchableBranch8(RelationalCondition cond, Address left, TrustedImm32 imm)
+    {
+        m_makeJumpPatchable = true;
+        Jump result = branch8(cond, left, imm);
         m_makeJumpPatchable = false;
         return PatchableJump(result);
     }

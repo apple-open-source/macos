@@ -32,9 +32,8 @@
 #include <WebCore/HIDGamepadProvider.h>
 #include <WebCore/MockGamepadProvider.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 static bool useGameControllerFramework = false;
 
@@ -48,7 +47,7 @@ void UIGamepadProvider::platformSetDefaultGamepadProvider()
     if (GamepadProvider::singleton().isMockGamepadProvider())
         return;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     GamepadProvider::setSharedProvider(GameControllerGamepadProvider::singleton());
 #elif defined(__LP64__)
     if (useGameControllerFramework)

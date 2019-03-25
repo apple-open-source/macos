@@ -80,12 +80,16 @@ WI.StackTrace = class StackTrace
         if (/^[^a-z$_]/i.test(stack[0]))
             return false;
 
-        const reasonablyLongLineLength = 500;
-        const reasonablyLongNativeMethodLength = 120;
-        const stackTraceLine = `(.{1,${reasonablyLongLineLength}}:\\d+:\\d+|eval code|.{1,${reasonablyLongNativeMethodLength}}@\\[native code\\])`;
-        const stackTrace = new RegExp(`^${stackTraceLine}(\\n${stackTraceLine})*$`, "g");
+        if (!WI.StackTrace._likelyStackTraceRegex) {
+            const reasonablyLongProtocolLength = 10;
+            const reasonablyLongLineLength = 500;
+            const reasonablyLongNativeMethodLength = 120;
+            const stackTraceLine = `(global code|eval code|module code|\\w+)?([^:]{1,${reasonablyLongProtocolLength}}://[^:]{1,${reasonablyLongLineLength}}:\\d+:\\d+|[^@]{1,${reasonablyLongNativeMethodLength}}@\\[native code\\])`;
+            WI.StackTrace._likelyStackTraceRegex = new RegExp(`^${stackTraceLine}([\\n\\r]${stackTraceLine})+$`);
+        }
 
-        return stackTrace.test(stack);
+        WI.StackTrace._likelyStackTraceRegex.lastIndex = 0;
+        return WI.StackTrace._likelyStackTraceRegex.test(stack);
     }
 
     static _parseStackTrace(stack)

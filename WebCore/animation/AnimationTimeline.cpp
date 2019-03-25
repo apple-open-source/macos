@@ -28,17 +28,18 @@
 #include "AnimationTimeline.h"
 
 #include "Animation.h"
-#include "AnimationEffectReadOnly.h"
+#include "AnimationEffect.h"
 #include "AnimationList.h"
 #include "CSSAnimation.h"
 #include "CSSPropertyAnimation.h"
 #include "CSSTransition.h"
 #include "DocumentTimeline.h"
 #include "Element.h"
-#include "KeyframeEffectReadOnly.h"
+#include "KeyframeEffect.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
 #include "StylePropertyShorthand.h"
+#include "StyleResolver.h"
 #include "WebAnimationUtilities.h"
 #include <wtf/text/TextStream.h>
 #include <wtf/text/WTFString.h>
@@ -54,74 +55,73 @@ AnimationTimeline::~AnimationTimeline()
 {
 }
 
-void AnimationTimeline::addAnimation(Ref<WebAnimation>&& animation)
+void AnimationTimeline::forgetAnimation(WebAnimation* animation)
 {
-    m_animationsWithoutTarget.add(animation.ptr());
-    m_animations.add(WTFMove(animation));
-    timingModelDidChange();
+    m_allAnimations.remove(animation);
 }
 
-void AnimationTimeline::removeAnimation(Ref<WebAnimation>&& animation)
+void AnimationTimeline::animationTimingDidChange(WebAnimation& animation)
 {
-    m_animationsWithoutTarget.remove(animation.ptr());
-    m_animations.remove(WTFMove(animation));
-    timingModelDidChange();
+    if (m_animations.add(&animation)) {
+        m_allAnimations.add(&animation);
+        auto* timeline = animation.timeline();
+        if (timeline && timeline != this)
+            timeline->removeAnimation(animation);
+    }
 }
 
-std::optional<double> AnimationTimeline::bindingsCurrentTime()
+void AnimationTimeline::removeAnimation(WebAnimation& animation)
+{
+    ASSERT(!animation.timeline() || animation.timeline() == this);
+    m_animations.remove(&animation);
+    if (is<KeyframeEffect>(animation.effect())) {
+        if (auto* target = downcast<KeyframeEffect>(animation.effect())->target())
+            animationWasRemovedFromElement(animation, *target);
+    }
+}
+
+Optional<double> AnimationTimeline::bindingsCurrentTime()
 {
     auto time = currentTime();
     if (!time)
-        return std::nullopt;
+        return WTF::nullopt;
     return secondsToWebAnimationsAPITime(*time);
-}
-
-void AnimationTimeline::setCurrentTime(Seconds currentTime)
-{
-    m_currentTime = currentTime;
-    timingModelDidChange();
-}
-
-HashMap<Element*, ListHashSet<RefPtr<WebAnimation>>>& AnimationTimeline::relevantMapForAnimation(WebAnimation& animation)
-{
-    if (animation.isCSSAnimation())
-        return m_elementToCSSAnimationsMap;
-    if (animation.isCSSTransition())
-        return m_elementToCSSTransitionsMap;
-    return m_elementToAnimationsMap;
 }
 
 void AnimationTimeline::animationWasAddedToElement(WebAnimation& animation, Element& element)
 {
-    m_animationsWithoutTarget.remove(&animation);
-
-    relevantMapForAnimation(animation).ensure(&element, [] {
+    [&] () -> ElementToAnimationsMap& {
+        if (is<CSSTransition>(animation) && downcast<CSSTransition>(animation).owningElement())
+            return m_elementToCSSTransitionsMap;
+        if (is<CSSAnimation>(animation) && downcast<CSSAnimation>(animation).owningElement())
+            return m_elementToCSSAnimationsMap;
+        return m_elementToAnimationsMap;
+    }().ensure(&element, [] {
         return ListHashSet<RefPtr<WebAnimation>> { };
     }).iterator->value.add(&animation);
 }
 
-static inline bool removeCSSTransitionFromMap(CSSTransition& transition, Element& element, HashMap<Element*, HashMap<CSSPropertyID, RefPtr<CSSTransition>>>& map)
+static inline bool removeCSSTransitionFromMap(CSSTransition& transition, Element& element, HashMap<Element*, AnimationTimeline::PropertyToTransitionMap>& map)
 {
     auto iterator = map.find(&element);
     if (iterator == map.end())
         return false;
 
     auto& cssTransitionsByProperty = iterator->value;
-    cssTransitionsByProperty.remove(transition.property());
+
+    auto transitionIterator = cssTransitionsByProperty.find(transition.property());
+    if (transitionIterator == cssTransitionsByProperty.end() || transitionIterator->value != &transition)
+        return false;
+
+    cssTransitionsByProperty.remove(transitionIterator);
+
     if (cssTransitionsByProperty.isEmpty())
         map.remove(&element);
     return true;
 }
 
-void AnimationTimeline::animationWasRemovedFromElement(WebAnimation& animation, Element& element)
+static inline void removeAnimationFromMapForElement(WebAnimation& animation, AnimationTimeline::ElementToAnimationsMap& map, Element& element)
 {
-    // This animation doesn't have a target for now.
-    m_animationsWithoutTarget.add(&animation);
-
-    // First, we clear this animation from one of the m_elementToCSSAnimationsMap, m_elementToCSSTransitionsMap,
-    // m_elementToAnimationsMap or m_elementToCompletedCSSTransitionByCSSPropertyID map, whichever is relevant to
-    // this type of animation.
-    auto& map = relevantMapForAnimation(animation);
     auto iterator = map.find(&element);
     if (iterator == map.end())
         return;
@@ -130,9 +130,24 @@ void AnimationTimeline::animationWasRemovedFromElement(WebAnimation& animation, 
     animations.remove(&animation);
     if (!animations.size())
         map.remove(iterator);
+}
+
+void AnimationTimeline::animationWasRemovedFromElement(WebAnimation& animation, Element& element)
+{
+    removeAnimationFromMapForElement(animation, m_elementToCSSTransitionsMap, element);
+    removeAnimationFromMapForElement(animation, m_elementToCSSAnimationsMap, element);
+    removeAnimationFromMapForElement(animation, m_elementToAnimationsMap, element);
 
     // Now, if we're dealing with a declarative animation, we remove it from either the m_elementToCSSAnimationByName
     // or the m_elementToRunningCSSTransitionByCSSPropertyID map, whichever is relevant to this type of animation.
+    if (is<DeclarativeAnimation>(animation))
+        removeDeclarativeAnimationFromListsForOwningElement(animation, element);
+}
+
+void AnimationTimeline::removeDeclarativeAnimationFromListsForOwningElement(WebAnimation& animation, Element& element)
+{
+    ASSERT(is<DeclarativeAnimation>(animation));
+
     if (is<CSSAnimation>(animation)) {
         auto iterator = m_elementToCSSAnimationByName.find(&element);
         if (iterator != m_elementToCSSAnimationByName.end()) {
@@ -181,6 +196,12 @@ Vector<RefPtr<WebAnimation>> AnimationTimeline::animationsForElement(Element& el
     return animations;
 }
 
+void AnimationTimeline::elementWasRemoved(Element& element)
+{
+    for (auto& animation : animationsForElement(element))
+        animation->cancel(WebAnimation::Silently::Yes);
+}
+
 void AnimationTimeline::removeAnimationsForElement(Element& element)
 {
     for (auto& animation : animationsForElement(element))
@@ -195,13 +216,30 @@ void AnimationTimeline::cancelDeclarativeAnimationsForElement(Element& element)
         cssAnimation->cancel();
 }
 
+static bool shouldConsiderAnimation(Element& element, const Animation& animation)
+{
+    if (!animation.isValidAnimation())
+        return false;
+
+    static NeverDestroyed<const String> animationNameNone(MAKE_STATIC_STRING_IMPL("none"));
+
+    auto& name = animation.name();
+    if (name == animationNameNone || name.isEmpty())
+        return false;
+
+    if (auto* styleScope = Style::Scope::forOrdinal(element, animation.nameStyleScopeOrdinal()))
+        return styleScope->resolver().isAnimationNameValid(name);
+
+    return false;
+}
+
 void AnimationTimeline::updateCSSAnimationsForElement(Element& element, const RenderStyle* currentStyle, const RenderStyle& afterChangeStyle)
 {
     // In case this element is newly getting a "display: none" we need to cancel all of its animations and disregard new ones.
     if (currentStyle && currentStyle->hasAnimations() && currentStyle->display() != DisplayType::None && afterChangeStyle.display() == DisplayType::None) {
         if (m_elementToCSSAnimationByName.contains(&element)) {
             for (const auto& cssAnimationsByNameMapItem : m_elementToCSSAnimationByName.take(&element))
-                cancelOrRemoveDeclarativeAnimation(cssAnimationsByNameMapItem.value);
+                cancelDeclarativeAnimation(*cssAnimationsByNameMapItem.value);
         }
         return;
     }
@@ -209,15 +247,13 @@ void AnimationTimeline::updateCSSAnimationsForElement(Element& element, const Re
     if (currentStyle && currentStyle->hasAnimations() && afterChangeStyle.hasAnimations() && *(currentStyle->animations()) == *(afterChangeStyle.animations()))
         return;
 
-    static NeverDestroyed<const String> animationNameNone(MAKE_STATIC_STRING_IMPL("none"));
-
     // First, compile the list of animation names that were applied to this element up to this point.
     HashSet<String> namesOfPreviousAnimations;
     if (currentStyle && currentStyle->hasAnimations()) {
         auto* previousAnimations = currentStyle->animations();
         for (size_t i = 0; i < previousAnimations->size(); ++i) {
             auto& previousAnimation = previousAnimations->animation(i);
-            if (previousAnimation.isValidAnimation() && previousAnimation.name() != animationNameNone)
+            if (shouldConsiderAnimation(element, previousAnimation))
                 namesOfPreviousAnimations.add(previousAnimation.name());
         }
     }
@@ -235,8 +271,9 @@ void AnimationTimeline::updateCSSAnimationsForElement(Element& element, const Re
                 // We've found the name of this animation in our list of previous animations, this means we've already
                 // created a CSSAnimation object for it and need to ensure that this CSSAnimation is backed by the current
                 // animation object for this animation name.
-                cssAnimationsByName.get(name)->setBackingAnimation(currentAnimation);
-            } else if (currentAnimation.isValidAnimation() && name != animationNameNone) {
+                if (auto cssAnimation = cssAnimationsByName.get(name))
+                    cssAnimation->setBackingAnimation(currentAnimation);
+            } else if (shouldConsiderAnimation(element, currentAnimation)) {
                 // Otherwise we are dealing with a new animation name and must create a CSSAnimation for it.
                 cssAnimationsByName.set(name, CSSAnimation::create(element, currentAnimation, currentStyle, afterChangeStyle));
             }
@@ -247,12 +284,10 @@ void AnimationTimeline::updateCSSAnimationsForElement(Element& element, const Re
 
     // The animations names left in namesOfPreviousAnimations are now known to no longer apply so we need to
     // remove the CSSAnimation object created for them.
-    for (const auto& nameOfAnimationToRemove : namesOfPreviousAnimations)
-        cancelOrRemoveDeclarativeAnimation(cssAnimationsByName.take(nameOfAnimationToRemove));
-
-    // Remove the map of CSSAnimations by animation name for this element if it's now empty.
-    if (cssAnimationsByName.isEmpty())
-        m_elementToCSSAnimationByName.remove(&element);
+    for (const auto& nameOfAnimationToRemove : namesOfPreviousAnimations) {
+        if (auto animation = cssAnimationsByName.take(nameOfAnimationToRemove))
+            cancelDeclarativeAnimation(*animation);
+    }
 }
 
 RefPtr<WebAnimation> AnimationTimeline::cssAnimationForElementAndProperty(Element& element, CSSPropertyID property)
@@ -260,13 +295,13 @@ RefPtr<WebAnimation> AnimationTimeline::cssAnimationForElementAndProperty(Elemen
     RefPtr<WebAnimation> matchingAnimation;
     for (const auto& animation : m_elementToCSSAnimationsMap.get(&element)) {
         auto* effect = animation->effect();
-        if (is<KeyframeEffectReadOnly>(effect) && downcast<KeyframeEffectReadOnly>(effect)->animatedProperties().contains(property))
+        if (is<KeyframeEffect>(effect) && downcast<KeyframeEffect>(effect)->animatedProperties().contains(property))
             matchingAnimation = animation;
     }
     return matchingAnimation;
 }
 
-static bool propertyInStyleMatchesValueForTransitionInMap(CSSPropertyID property, const RenderStyle& style, HashMap<CSSPropertyID, RefPtr<CSSTransition>>& transitions)
+static bool propertyInStyleMatchesValueForTransitionInMap(CSSPropertyID property, const RenderStyle& style, AnimationTimeline::PropertyToTransitionMap& transitions)
 {
     if (auto* transition = transitions.get(property)) {
         if (CSSPropertyAnimation::propertiesEqual(property, &style, &transition->targetStyle()))
@@ -299,13 +334,20 @@ static bool transitionMatchesProperty(const Animation& transition, CSSPropertyID
     return true;
 }
 
+AnimationTimeline::PropertyToTransitionMap& AnimationTimeline::ensureRunningTransitionsByProperty(Element& element)
+{
+    return m_elementToRunningCSSTransitionByCSSPropertyID.ensure(&element, [] {
+        return PropertyToTransitionMap { };
+    }).iterator->value;
+}
+
 void AnimationTimeline::updateCSSTransitionsForElement(Element& element, const RenderStyle& currentStyle, const RenderStyle& afterChangeStyle)
 {
     // In case this element is newly getting a "display: none" we need to cancel all of its transitions and disregard new ones.
     if (currentStyle.hasTransitions() && currentStyle.display() != DisplayType::None && afterChangeStyle.display() == DisplayType::None) {
         if (m_elementToRunningCSSTransitionByCSSPropertyID.contains(&element)) {
             for (const auto& cssTransitionsByCSSPropertyIDMapItem : m_elementToRunningCSSTransitionByCSSPropertyID.take(&element))
-                cancelOrRemoveDeclarativeAnimation(cssTransitionsByCSSPropertyIDMapItem.value);
+                cancelDeclarativeAnimation(*cssTransitionsByCSSPropertyIDMapItem.value);
         }
         return;
     }
@@ -313,19 +355,17 @@ void AnimationTimeline::updateCSSTransitionsForElement(Element& element, const R
     // Section 3 "Starting of transitions" from the CSS Transitions Level 1 specification.
     // https://drafts.csswg.org/css-transitions-1/#starting
 
-    auto& runningTransitionsByProperty = m_elementToRunningCSSTransitionByCSSPropertyID.ensure(&element, [] {
-        return HashMap<CSSPropertyID, RefPtr<CSSTransition>> { };
-    }).iterator->value;
+    auto& runningTransitionsByProperty = ensureRunningTransitionsByProperty(element);
 
     auto& completedTransitionsByProperty = m_elementToCompletedCSSTransitionByCSSPropertyID.ensure(&element, [] {
-        return HashMap<CSSPropertyID, RefPtr<CSSTransition>> { };
+        return PropertyToTransitionMap { };
     }).iterator->value;
 
     auto generationTime = MonotonicTime::now();
 
     auto numberOfProperties = CSSPropertyAnimation::getNumProperties();
     for (int propertyIndex = 0; propertyIndex < numberOfProperties; ++propertyIndex) {
-        std::optional<bool> isShorthand;
+        Optional<bool> isShorthand;
         auto property = CSSPropertyAnimation::getPropertyAtIndex(propertyIndex, isShorthand);
         if (isShorthand && *isShorthand)
             continue;
@@ -396,15 +436,15 @@ void AnimationTimeline::updateCSSTransitionsForElement(Element& element, const R
             if (CSSPropertyAnimation::propertiesEqual(property, &previouslyRunningTransitionCurrentStyle, &afterChangeStyle) || !CSSPropertyAnimation::canPropertyBeInterpolated(property, &currentStyle, &afterChangeStyle)) {
                 // 1. If the current value of the property in the running transition is equal to the value of the property in the after-change style,
                 //    or if these two values cannot be interpolated, then implementations must cancel the running transition.
-                previouslyRunningTransition->cancel();
+                cancelDeclarativeAnimation(*previouslyRunningTransition);
             } else if (transitionCombinedDuration(matchingBackingAnimation) <= 0.0 || !CSSPropertyAnimation::canPropertyBeInterpolated(property, &previouslyRunningTransitionCurrentStyle, &afterChangeStyle)) {
                 // 2. Otherwise, if the combined duration is less than or equal to 0s, or if the current value of the property in the running transition
                 //    cannot be interpolated with the value of the property in the after-change style, then implementations must cancel the running transition.
-                previouslyRunningTransition->cancel();
+                cancelDeclarativeAnimation(*previouslyRunningTransition);
             } else if (CSSPropertyAnimation::propertiesEqual(property, &previouslyRunningTransition->reversingAdjustedStartStyle(), &afterChangeStyle)) {
                 // 3. Otherwise, if the reversing-adjusted start value of the running transition is the same as the value of the property in the after-change
                 //    style (see the section on reversing of transitions for why these case exists), implementations must cancel the running transition
-                previouslyRunningTransition->cancel();
+                cancelDeclarativeAnimation(*previouslyRunningTransition);
 
                 // and start a new transition whose:
                 //   - reversing-adjusted start value is the end value of the running transition,
@@ -420,14 +460,15 @@ void AnimationTimeline::updateCSSTransitionsForElement(Element& element, const R
                 auto& reversingAdjustedStartStyle = previouslyRunningTransition->targetStyle();
                 double transformedProgress = 1;
                 if (auto* effect = previouslyRunningTransition->effect())
-                    transformedProgress = effect->iterationProgress().value_or(transformedProgress);
+                    transformedProgress = effect->iterationProgress().valueOr(transformedProgress);
                 auto reversingShorteningFactor = std::max(std::min(((transformedProgress * previouslyRunningTransition->reversingShorteningFactor()) + (1 - previouslyRunningTransition->reversingShorteningFactor())), 1.0), 0.0);
                 auto delay = matchingBackingAnimation->delay() < 0 ? Seconds(matchingBackingAnimation->delay()) * reversingShorteningFactor : Seconds(matchingBackingAnimation->delay());
                 auto duration = Seconds(matchingBackingAnimation->duration()) * reversingShorteningFactor;
-                runningTransitionsByProperty.set(property, CSSTransition::create(element, property, generationTime, *matchingBackingAnimation, &previouslyRunningTransitionCurrentStyle, afterChangeStyle, delay, duration, reversingAdjustedStartStyle, reversingShorteningFactor));
+
+                ensureRunningTransitionsByProperty(element).set(property, CSSTransition::create(element, property, generationTime, *matchingBackingAnimation, &previouslyRunningTransitionCurrentStyle, afterChangeStyle, delay, duration, reversingAdjustedStartStyle, reversingShorteningFactor));
             } else {
                 // 4. Otherwise, implementations must cancel the running transition
-                previouslyRunningTransition->cancel();
+                cancelDeclarativeAnimation(*previouslyRunningTransition);
 
                 // and start a new transition whose:
                 //   - start time is the time of the style change event plus the matching transition delay,
@@ -440,35 +481,17 @@ void AnimationTimeline::updateCSSTransitionsForElement(Element& element, const R
                 auto duration = Seconds(matchingBackingAnimation->duration());
                 auto& reversingAdjustedStartStyle = currentStyle;
                 auto reversingShorteningFactor = 1;
-                runningTransitionsByProperty.set(property, CSSTransition::create(element, property, generationTime, *matchingBackingAnimation, &previouslyRunningTransitionCurrentStyle, afterChangeStyle, delay, duration, reversingAdjustedStartStyle, reversingShorteningFactor));
+                ensureRunningTransitionsByProperty(element).set(property, CSSTransition::create(element, property, generationTime, *matchingBackingAnimation, &previouslyRunningTransitionCurrentStyle, afterChangeStyle, delay, duration, reversingAdjustedStartStyle, reversingShorteningFactor));
             }
         }
     }
-
 }
 
-void AnimationTimeline::cancelOrRemoveDeclarativeAnimation(RefPtr<DeclarativeAnimation> animation)
+void AnimationTimeline::cancelDeclarativeAnimation(DeclarativeAnimation& animation)
 {
-    auto phase = animation->effect()->phase();
-    if (phase != AnimationEffectReadOnly::Phase::Idle && phase != AnimationEffectReadOnly::Phase::After)
-        animation->cancel();
-    else
-        removeAnimation(animation.releaseNonNull());
-}
-
-String AnimationTimeline::description()
-{
-    TextStream stream;
-    int count = 1;
-    stream << (m_classType == DocumentTimelineClass ? "DocumentTimeline" : "AnimationTimeline") << " with " << m_animations.size() << " animations:";
-    stream << "\n";
-    for (const auto& animation : m_animations) {
-        writeIndent(stream, 1);
-        stream << count << ". " << animation->description();
-        stream << "\n";
-        count++;
-    }
-    return stream.release();
+    animation.cancelFromStyle();
+    removeAnimation(animation);
+    m_allAnimations.remove(&animation);
 }
 
 } // namespace WebCore

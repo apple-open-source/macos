@@ -95,7 +95,7 @@ bool IOFireWireSBP2ManagementORB::initWithLUN( IOFireWireSBP2LUN * lun, void * r
     fResponseBuf 			= NULL;
     fResponseLen 			= 0;
     fResponseAddressSpace 	= NULL;
-    fResponseAddress		= NULL;
+    fResponseAddress		= 0;
     
 	fCompleting = false;
 	

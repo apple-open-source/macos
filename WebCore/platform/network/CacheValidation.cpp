@@ -29,7 +29,6 @@
 #include "CookiesStrategy.h"
 #include "HTTPHeaderMap.h"
 #include "NetworkStorageSession.h"
-#include "PlatformCookieJar.h"
 #include "PlatformStrategies.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
@@ -104,7 +103,7 @@ Seconds computeCurrentAge(const ResourceResponse& response, WallTime responseTim
     // No compensation for latency as that is not terribly important in practice.
     auto dateValue = response.date();
     auto apparentAge = dateValue ? std::max(0_us, responseTime - *dateValue) : 0_us;
-    auto ageValue = response.age().value_or(0_us);
+    auto ageValue = response.age().valueOr(0_us);
     auto correctedInitialAge = std::max(apparentAge, ageValue);
     auto residentTime = WallTime::now() - responseTime;
     return correctedInitialAge + residentTime;
@@ -122,7 +121,7 @@ Seconds computeFreshnessLifetimeForHTTPFamily(const ResourceResponse& response, 
         return *maxAge;
 
     auto date = response.date();
-    auto effectiveDate = date.value_or(responseTime);
+    auto effectiveDate = date.valueOr(responseTime);
     if (auto expires = response.expires())
         return *expires - effectiveDate;
 
@@ -338,9 +337,9 @@ static String headerValueForVary(const ResourceRequest& request, const String& h
         auto* cookieStrategy = platformStrategies() ? platformStrategies()->cookiesStrategy() : nullptr;
         if (!cookieStrategy) {
             ASSERT(sessionID == PAL::SessionID::defaultSessionID());
-            return cookieRequestHeaderFieldValue(NetworkStorageSession::defaultStorageSession(), request.firstPartyForCookies(), SameSiteInfo::create(request), request.url(), std::nullopt, std::nullopt, includeSecureCookies).first;
+            return NetworkStorageSession::defaultStorageSession().cookieRequestHeaderFieldValue(request.firstPartyForCookies(), SameSiteInfo::create(request), request.url(), WTF::nullopt, WTF::nullopt, includeSecureCookies).first;
         }
-        return cookieStrategy->cookieRequestHeaderFieldValue(sessionID, request.firstPartyForCookies(), SameSiteInfo::create(request), request.url(), std::nullopt, std::nullopt, includeSecureCookies).first;
+        return cookieStrategy->cookieRequestHeaderFieldValue(sessionID, request.firstPartyForCookies(), SameSiteInfo::create(request), request.url(), WTF::nullopt, WTF::nullopt, includeSecureCookies).first;
     }
     return request.httpHeaderField(headerName);
 }
@@ -350,8 +349,7 @@ Vector<std::pair<String, String>> collectVaryingRequestHeaders(const WebCore::Re
     String varyValue = response.httpHeaderField(WebCore::HTTPHeaderName::Vary);
     if (varyValue.isEmpty())
         return { };
-    Vector<String> varyingHeaderNames;
-    varyValue.split(',', varyingHeaderNames);
+    Vector<String> varyingHeaderNames = varyValue.split(',');
     Vector<std::pair<String, String>> varyingRequestHeaders;
     varyingRequestHeaders.reserveCapacity(varyingHeaderNames.size());
     for (auto& varyHeaderName : varyingHeaderNames) {

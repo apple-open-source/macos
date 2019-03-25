@@ -42,12 +42,18 @@ inline bool operandIsArgument(int operand)
 }
 
 
+class RegisterID;
+
 class VirtualRegister {
 public:
     friend VirtualRegister virtualRegisterForLocal(int);
     friend VirtualRegister virtualRegisterForArgument(int, int);
 
-    VirtualRegister() = default;
+    VirtualRegister(RegisterID*);
+
+    VirtualRegister()
+        : m_virtualRegister(s_invalidVirtualRegister)
+    { }
 
     explicit VirtualRegister(int virtualRegister)
         : m_virtualRegister(virtualRegister)
@@ -107,7 +113,7 @@ private:
     static int operandToArgument(int operand) { return operand - CallFrame::thisArgumentOffset(); }
     static int argumentToOperand(int argument) { return argument + CallFrame::thisArgumentOffset(); }
 
-    int m_virtualRegister { s_invalidVirtualRegister };
+    int m_virtualRegister;
 };
 
 COMPILE_ASSERT(sizeof(VirtualRegister) == sizeof(int), VirtualRegister_is_32bit);

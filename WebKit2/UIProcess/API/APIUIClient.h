@@ -32,7 +32,7 @@
 #include <WebCore/FloatRect.h>
 #include <wtf/CompletionHandler.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 OBJC_CLASS NSArray;
 OBJC_CLASS _WKActivatedElementInfo;
 OBJC_CLASS UIViewController;
@@ -40,6 +40,7 @@ OBJC_CLASS UIViewController;
 
 namespace WebCore {
 class ResourceRequest;
+struct FontAttributes;
 struct SecurityOriginData;
 struct WindowFeatures;
 }
@@ -80,7 +81,7 @@ public:
     virtual void hasVideoInPictureInPictureDidChange(WebKit::WebPageProxy*, bool) { }
     virtual void close(WebKit::WebPageProxy*) { }
 
-    virtual void takeFocus(WebKit::WebPageProxy*, WKFocusDirection) { }
+    virtual bool takeFocus(WebKit::WebPageProxy*, WKFocusDirection) { return false; }
     virtual void focus(WebKit::WebPageProxy*) { }
     virtual void unfocus(WebKit::WebPageProxy*) { }
 
@@ -123,6 +124,9 @@ public:
         completionHandler(currentQuota);
     }
 
+    virtual bool needsFontAttributes() const { return false; }
+    virtual void didChangeFontAttributes(const WebCore::FontAttributes&) { }
+
     virtual bool runOpenPanel(WebKit::WebPageProxy*, WebKit::WebFrameProxy*, const WebCore::SecurityOriginData&, OpenPanelParameters*, WebKit::WebOpenPanelResultListenerProxy*) { return false; }
     virtual void decidePolicyForGeolocationPermissionRequest(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, SecurityOrigin&, Function<void(bool)>&) { }
     virtual bool decidePolicyForUserMediaPermissionRequest(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, SecurityOrigin&, SecurityOrigin&, WebKit::UserMediaPermissionRequestProxy&) { return false; }
@@ -140,7 +144,7 @@ public:
     virtual bool canRunModal() const { return false; }
     virtual void runModal(WebKit::WebPageProxy&) { }
 
-    virtual void saveDataToFileInDownloadsFolder(WebKit::WebPageProxy*, const WTF::String&, const WTF::String&, const WebCore::URL&, Data&) { }
+    virtual void saveDataToFileInDownloadsFolder(WebKit::WebPageProxy*, const WTF::String&, const WTF::String&, const WTF::URL&, Data&) { }
 
     virtual void pinnedStateDidChange(WebKit::WebPageProxy&) { }
 
@@ -152,7 +156,7 @@ public:
     virtual void mediaSessionMetadataDidChange(WebKit::WebPageProxy&, WebKit::WebMediaSessionMetadata*) { }
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #if HAVE(APP_LINKS)
     virtual bool shouldIncludeAppLinkActionsForElement(_WKActivatedElementInfo *) { return true; }
 #endif
@@ -176,6 +180,9 @@ public:
     virtual void imageOrMediaDocumentSizeChanged(const WebCore::IntSize&) { }
 
     virtual void didExceedBackgroundResourceLimitWhileInForeground(WebKit::WebPageProxy&, WKResourceLimit) { }
+    
+    virtual void didShowSafeBrowsingWarning() { }
+    virtual void didClickGoBackFromSafeBrowsingWarning() { }
 };
 
 } // namespace API

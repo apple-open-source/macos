@@ -27,13 +27,16 @@
     margin: 0;
     padding: 0 0 var(--css-declaration-vertical-padding);
     font-family: Menlo, monospace;
+    font-size: 11px;
     color: hsl(0, 0%, 70%);
     background: white;
     border-bottom: 0.5px solid hsla(0, 0%, 0%, 0.2);
     -webkit-user-select: text;
+}
 
-    --css-declaration-vertical-padding: 4px;
-    --css-declaration-horizontal-padding: 6px;
+.spreadsheet-css-declaration.selecting,
+.spreadsheet-css-declaration.selecting .spreadsheet-style-declaration-editor {
+    -webkit-user-select: none;
 }
 
 .spreadsheet-css-declaration :matches(.header, .header-media) {
@@ -50,7 +53,7 @@
 }
 
 .spreadsheet-css-declaration .media-label {
-    color: black;
+    color: var(--text-color);
 }
 
 .spreadsheet-css-declaration .origin {
@@ -102,7 +105,7 @@
 
 .spreadsheet-css-declaration .selector:focus,
 .spreadsheet-css-declaration .selector > .matched {
-    color: black;
+    color: var(--text-color);
 }
 
 .spreadsheet-css-declaration.locked {
@@ -128,4 +131,30 @@
 .spreadsheet-css-declaration .close-brace {
     display: inline-block;
     padding-left: var(--css-declaration-horizontal-padding);
+}
+
+@media (prefers-dark-interface) {
+    .spreadsheet-css-declaration {
+        background: var(--background-color-code);
+        color: var(--text-color-tertiary);
+        color: hsl(0, 0%, 30%);
+        border-bottom-color: var(--text-color-quaternary);
+    }
+
+    .spreadsheet-css-declaration.locked {
+        background: var(--background-color);
+    }
+
+    .spreadsheet-css-declaration .selector.style-attribute {
+        color: var(--text-color-secondary);
+    }
+
+    .spreadsheet-css-declaration.locked .origin::after {
+        filter: var(--filter-invert);
+    }
+
+    .spreadsheet-css-declaration .origin .go-to-link,
+    .spreadsheet-css-declaration .origin .go-to-link:hover {
+        color: var(--text-color-secondary);
+    }
 }

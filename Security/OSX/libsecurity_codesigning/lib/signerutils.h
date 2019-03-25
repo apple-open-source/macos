@@ -86,7 +86,7 @@ public:
 
 //
 // A multi-architecture editing assistant.
-// ArchEditor collects (Mach-O) architectures in use, and maintains per-archtitecture
+// ArchEditor collects (Mach-O) architectures in use, and maintains per-architecture
 // data structures. It must be subclassed to express a particular way to handle the signing
 // data.
 //

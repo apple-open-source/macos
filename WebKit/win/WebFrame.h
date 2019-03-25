@@ -34,9 +34,9 @@
 #include <WebCore/FrameWin.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/ResourceHandleClient.h>
-#include <WebCore/URL.h>
 #include <sal.h>
 #include <wtf/RefPtr.h>
+#include <wtf/URL.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -75,7 +75,7 @@ interface IWebHistoryItemPrivate;
 WebFrame* kit(WebCore::Frame*);
 WEBKIT_API WebCore::Frame* core(WebFrame*);
 
-class DECLSPEC_UUID("{A3676398-4485-4a9d-87DC-CB5A40E6351D}") WebFrame : public IWebFrame2, IWebFramePrivate, IWebDocumentText
+class DECLSPEC_UUID("{A3676398-4485-4a9d-87DC-CB5A40E6351D}") WebFrame final : public IWebFrame2, IWebFramePrivate, IWebDocumentText
 {
 public:
     static WebFrame* createInstance();
@@ -190,7 +190,7 @@ public:
     HRESULT matchLabelsAgainstElement(const BSTR* labels, int cLabels, IDOMElement* againstElement, BSTR* result);
     HRESULT canProvideDocumentSource(bool* result);
 
-    WebCore::URL url() const;
+    URL url() const;
 
     WebView* webView() const;
     void setWebView(WebView*);
@@ -199,7 +199,7 @@ public:
 
 protected:
     void loadHTMLString(_In_ BSTR string, _In_ BSTR baseURL, _In_ BSTR unreachableURL);
-    void loadData(RefPtr<WebCore::SharedBuffer>&&, BSTR mimeType, BSTR textEncodingName, BSTR baseURL, BSTR failingURL);
+    void loadData(Ref<WebCore::SharedBuffer>&&, BSTR mimeType, BSTR textEncodingName, BSTR baseURL, BSTR failingURL);
     const Vector<WebCore::IntRect>& computePageRects(HDC printDC);
     void setPrinting(bool printing, const WebCore::FloatSize& pageSize, const WebCore::FloatSize& originalPageSize, float maximumShrinkRatio, WebCore::AdjustViewSizeOrNot);
     void headerAndFooterHeights(float*, float*);
@@ -213,7 +213,7 @@ protected:
     class WebFramePrivate;
     WebFramePrivate* d;
     bool m_quickRedirectComing { false };
-    WebCore::URL m_originalRequestURL;
+    URL m_originalRequestURL;
     bool m_inPrintingMode { false };
 
     Vector<WebCore::IntRect> m_pageRects;

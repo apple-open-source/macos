@@ -111,8 +111,8 @@ InternalSettings::Backup::Backup(Settings& settings)
 #if ENABLE(WEBGL2)
     , m_webGL2Enabled(RuntimeEnabledFeatures::sharedFeatures().webGL2Enabled())
 #endif
-#if ENABLE(WEBGPU)
-    , m_webGPUEnabled(RuntimeEnabledFeatures::sharedFeatures().webGPUEnabled())
+#if ENABLE(WEBMETAL)
+    , m_webMetalEnabled(RuntimeEnabledFeatures::sharedFeatures().webMetalEnabled())
 #endif
     , m_webVREnabled(RuntimeEnabledFeatures::sharedFeatures().webVREnabled())
 #if ENABLE(MEDIA_STREAM)
@@ -216,8 +216,8 @@ void InternalSettings::Backup::restoreTo(Settings& settings)
 #if ENABLE(WEBGL2)
     RuntimeEnabledFeatures::sharedFeatures().setWebGL2Enabled(m_webGL2Enabled);
 #endif
-#if ENABLE(WEBGPU)
-    RuntimeEnabledFeatures::sharedFeatures().setWebGPUEnabled(m_webGPUEnabled);
+#if ENABLE(WEBMETAL)
+    RuntimeEnabledFeatures::sharedFeatures().setWebMetalEnabled(m_webMetalEnabled);
 #endif
     RuntimeEnabledFeatures::sharedFeatures().setWebVREnabled(m_webVREnabled);
 #if ENABLE(MEDIA_STREAM)
@@ -286,6 +286,7 @@ void InternalSettings::resetToConsistentState()
     m_page->setPageScaleFactor(1, { 0, 0 });
     m_page->mainFrame().setPageAndTextZoomFactors(1, 1);
     m_page->setCanStartMedia(true);
+    m_page->setUseDarkAppearance(false);
 
     settings().setForcePendingWebGLPolicy(false);
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -526,6 +527,14 @@ ExceptionOr<bool> InternalSettings::shouldDisplayTrackKind(const String& kind)
 #endif
 }
 
+ExceptionOr<void> InternalSettings::setUseDarkAppearance(bool useDarkAppearance)
+{
+    if (!m_page)
+        return Exception { InvalidAccessError };
+    m_page->setUseDarkAppearance(useDarkAppearance);
+    return { };
+}
+
 ExceptionOr<void> InternalSettings::setStorageBlockingPolicy(const String& mode)
 {
     if (!m_page)
@@ -758,10 +767,10 @@ void InternalSettings::setWebGL2Enabled(bool enabled)
 #endif
 }
 
-void InternalSettings::setWebGPUEnabled(bool enabled)
+void InternalSettings::setWebMetalEnabled(bool enabled)
 {
-#if ENABLE(WEBGPU)
-    RuntimeEnabledFeatures::sharedFeatures().setWebGPUEnabled(enabled);
+#if ENABLE(WEBMETAL)
+    RuntimeEnabledFeatures::sharedFeatures().setWebMetalEnabled(enabled);
 #else
     UNUSED_PARAM(enabled);
 #endif
@@ -792,9 +801,9 @@ ExceptionOr<String> InternalSettings::userInterfaceDirectionPolicy()
         return Exception { InvalidAccessError };
     switch (settings().userInterfaceDirectionPolicy()) {
     case UserInterfaceDirectionPolicy::Content:
-        return String { "Content"_s };
+        return "Content"_str;
     case UserInterfaceDirectionPolicy::System:
-        return String { "View"_s };
+        return "View"_str;
     }
     ASSERT_NOT_REACHED();
     return Exception { InvalidAccessError };
@@ -820,10 +829,10 @@ ExceptionOr<String> InternalSettings::systemLayoutDirection()
     if (!m_page)
         return Exception { InvalidAccessError };
     switch (settings().systemLayoutDirection()) {
-    case LTR:
-        return String { "LTR"_s };
-    case RTL:
-        return String { "RTL"_s };
+    case TextDirection::LTR:
+        return "LTR"_str;
+    case TextDirection::RTL:
+        return "RTL"_str;
     }
     ASSERT_NOT_REACHED();
     return Exception { InvalidAccessError };
@@ -834,11 +843,11 @@ ExceptionOr<void> InternalSettings::setSystemLayoutDirection(const String& direc
     if (!m_page)
         return Exception { InvalidAccessError };
     if (equalLettersIgnoringASCIICase(direction, "ltr")) {
-        settings().setSystemLayoutDirection(LTR);
+        settings().setSystemLayoutDirection(TextDirection::LTR);
         return { };
     }
     if (equalLettersIgnoringASCIICase(direction, "rtl")) {
-        settings().setSystemLayoutDirection(RTL);
+        settings().setSystemLayoutDirection(TextDirection::RTL);
         return { };
     }
     return Exception { InvalidAccessError };

@@ -65,6 +65,7 @@ public:
         case SetObjectUse:
         case WeakMapObjectUse:
         case WeakSetObjectUse:
+        case DataViewObjectUse:
         case ObjectOrOtherUse:
         case StringIdentUse:
         case StringUse:
@@ -104,6 +105,11 @@ public:
 
         case KnownPrimitiveUse:
             if (m_state.forNode(edge).m_type & ~(SpecHeapTop & ~SpecObject))
+                m_result = false;
+            return;
+
+        case KnownOtherUse:
+            if (m_state.forNode(edge).m_type & ~SpecOther)
                 m_result = false;
             return;
             
@@ -172,6 +178,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case ToThis:
     case CreateThis:
     case ObjectCreate:
+    case ObjectKeys:
     case GetCallee:
     case SetCallee:
     case GetArgumentCountIncludingThis:
@@ -191,9 +198,10 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case Flush:
     case PhantomLocal:
     case SetArgument:
-    case BitAnd:
-    case BitOr:
-    case BitXor:
+    case ArithBitNot:
+    case ArithBitAnd:
+    case ArithBitOr:
+    case ArithBitXor:
     case BitLShift:
     case BitRShift:
     case BitURShift:
@@ -220,8 +228,14 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case ArithCeil:
     case ArithTrunc:
     case ArithUnary:
+    case ValueBitAnd:
+    case ValueBitXor:
+    case ValueBitOr:
     case ValueNegate:
     case ValueAdd:
+    case ValueSub:
+    case ValueMul:
+    case ValueDiv:
     case TryGetById:
     case DeleteById:
     case DeleteByVal:
@@ -303,6 +317,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case NewArrayWithSpread:
     case Spread:
     case NewRegexp:
+    case NewSymbol:
     case ProfileType:
     case ProfileControlFlow:
     case CheckTypeInfoFlags:
@@ -434,6 +449,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case ResolveScope:
     case MapHash:
     case NormalizeMapKey:
+    case StringValueOf:
     case StringSlice:
     case ToLowerCase:
     case GetMapBucket:
@@ -457,6 +473,8 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case AtomicsIsLockFree:
     case InitializeEntrypointArguments:
     case MatchStructure:
+    case DataViewGetInt:
+    case DataViewGetFloat:
         return true;
 
     case ArraySlice:
@@ -480,6 +498,14 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
         // keep them exactly where they were. This is sort of overkill since the clobberize effects
         // already force these things to be ordered precisely. I'm just not confident enough in my
         // effect based memory model to rely solely on that right now.
+        return false;
+        
+    case FilterCallLinkStatus:
+    case FilterGetByIdStatus:
+    case FilterPutByIdStatus:
+    case FilterInByIdStatus:
+        // We don't want these to be moved anywhere other than where we put them, since we want them
+        // to capture "profiling" at the point in control flow here the user put them.
         return false;
 
     case GetByVal:
@@ -513,31 +539,10 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case PutByOffset: {
         StorageAccessData& data = node->storageAccessData();
         PropertyOffset offset = data.offset;
-        UniquedStringImpl* uid = graph.identifiers()[data.identifierNumber];
-
-        InferredType::Descriptor inferredType;
-        switch (node->op()) {
-        case GetByOffset:
-        case GetGetterSetterByOffset:
-            inferredType = data.inferredType;
-            break;
-        case PutByOffset:
-            // PutByOffset knows about inferred types because it's the enforcer of that type rather
-            // than the consumer of that type. Therefore, PutByOffset expects TOP for the purpose of
-            // safe-to-execute in the sense that it will be happy with anything as general as TOP
-            // (so any type).
-            inferredType = InferredType::Top;
-            break;
-        default:
-            DFG_CRASH(graph, node, "Bad opcode");
-            break;
-        }
-
         // Graph::isSafeToLoad() is all about proofs derived from PropertyConditions. Those don't
         // know anything about inferred types. But if we have a proof derived from watching a
         // structure that has a type proof, then the next case below will deal with it.
-        if (state.structureClobberState() == StructuresAreWatched
-            && inferredType.kind() == InferredType::Top) {
+        if (state.structureClobberState() == StructuresAreWatched) {
             if (JSObject* knownBase = node->child1()->dynamicCastConstant<JSObject*>(graph.m_vm)) {
                 if (graph.isSafeToLoad(knownBase, offset))
                     return true;
@@ -551,12 +556,6 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
             Structure* thisStructure = value[i].get();
             if (!thisStructure->isValidOffset(offset))
                 return false;
-            if (inferredType.kind() != InferredType::Top) {
-                InferredType::Descriptor thisInferredType =
-                    graph.inferredTypeForProperty(thisStructure, uid);
-                if (!inferredType.subsumes(thisInferredType))
-                    return false;
-            }
         }
         return true;
     }
@@ -588,6 +587,9 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
         }
         return true;
     }
+
+    case DataViewSet:
+        return false;
 
     case SetAdd:
     case MapSet:

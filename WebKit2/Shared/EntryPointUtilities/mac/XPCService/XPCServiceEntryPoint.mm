@@ -31,9 +31,8 @@
 #import <WebCore/Process.h>
 #import <wtf/cocoa/Entitlements.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 XPCServiceInitializerDelegate::~XPCServiceInitializerDelegate()
 {
@@ -51,7 +50,7 @@ bool XPCServiceInitializerDelegate::checkEntitlements()
         return false;
     }
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     auto value = adoptOSObject(xpc_connection_copy_entitlement_value(m_connection.get(), "keychain-access-groups"));
     if (value && xpc_get_type(value.get()) == XPC_TYPE_ARRAY) {
         xpc_array_apply(value.get(), ^bool(size_t index, xpc_object_t object) {
@@ -122,6 +121,10 @@ bool XPCServiceInitializerDelegate::getExtraInitializationData(HashMap<String, S
         extraInitializationData.add("service-worker-process"_s, serviceWorkerProcess);
 #endif
 
+    String isPrewarmedProcess = xpc_dictionary_get_string(extraDataInitializationDataObject, "is-prewarmed");
+    if (!isPrewarmedProcess.isEmpty())
+        extraInitializationData.add("is-prewarmed"_s, isPrewarmedProcess);
+
     String securityOrigin = xpc_dictionary_get_string(extraDataInitializationDataObject, "security-origin");
     if (!securityOrigin.isEmpty())
         extraInitializationData.add("security-origin"_s, securityOrigin);
@@ -154,7 +157,9 @@ void XPCServiceExit(OSObjectPtr<xpc_object_t>&& priorityBoostMessage)
     // Make sure to destroy the priority boost message to avoid leaking a transaction.
     priorityBoostMessage = nullptr;
     // Balances the xpc_transaction_begin() in XPCServiceInitializer.
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     xpc_transaction_end();
+ALLOW_DEPRECATED_DECLARATIONS_END
     xpc_transaction_exit_clean();
 }
 

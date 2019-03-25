@@ -48,11 +48,11 @@
 
 namespace WebCore {
 
-static const uint64_t schemaVersion = 3;
+static const uint64_t schemaVersion = 4;
 
 static const String recordsTableSchema(const String& tableName)
 {
-    return makeString("CREATE TABLE ", tableName, " (key TEXT NOT NULL ON CONFLICT FAIL UNIQUE ON CONFLICT REPLACE, origin TEXT NOT NULL ON CONFLICT FAIL, scopeURL TEXT NOT NULL ON CONFLICT FAIL, topOrigin TEXT NOT NULL ON CONFLICT FAIL, lastUpdateCheckTime DOUBLE NOT NULL ON CONFLICT FAIL, updateViaCache TEXT NOT NULL ON CONFLICT FAIL, scriptURL TEXT NOT NULL ON CONFLICT FAIL, script TEXT NOT NULL ON CONFLICT FAIL, workerType TEXT NOT NULL ON CONFLICT FAIL, contentSecurityPolicy BLOB NOT NULL ON CONFLICT FAIL, scriptResourceMap BLOB NOT NULL ON CONFLICT FAIL)");
+    return makeString("CREATE TABLE ", tableName, " (key TEXT NOT NULL ON CONFLICT FAIL UNIQUE ON CONFLICT REPLACE, origin TEXT NOT NULL ON CONFLICT FAIL, scopeURL TEXT NOT NULL ON CONFLICT FAIL, topOrigin TEXT NOT NULL ON CONFLICT FAIL, lastUpdateCheckTime DOUBLE NOT NULL ON CONFLICT FAIL, updateViaCache TEXT NOT NULL ON CONFLICT FAIL, scriptURL TEXT NOT NULL ON CONFLICT FAIL, script TEXT NOT NULL ON CONFLICT FAIL, workerType TEXT NOT NULL ON CONFLICT FAIL, contentSecurityPolicy BLOB NOT NULL ON CONFLICT FAIL, referrerPolicy TEXT NOT NULL ON CONFLICT FAIL, scriptResourceMap BLOB NOT NULL ON CONFLICT FAIL)");
 }
 
 static const String recordsTableSchema()
@@ -236,7 +236,7 @@ static String updateViaCacheToString(ServiceWorkerUpdateViaCache update)
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-static std::optional<ServiceWorkerUpdateViaCache> stringToUpdateViaCache(const String& update)
+static Optional<ServiceWorkerUpdateViaCache> stringToUpdateViaCache(const String& update)
 {
     if (update == "Imports")
         return ServiceWorkerUpdateViaCache::Imports;
@@ -245,7 +245,7 @@ static std::optional<ServiceWorkerUpdateViaCache> stringToUpdateViaCache(const S
     if (update == "None")
         return ServiceWorkerUpdateViaCache::None;
 
-    return std::nullopt;
+    return WTF::nullopt;
 }
 
 static String workerTypeToString(WorkerType workerType)
@@ -260,14 +260,14 @@ static String workerTypeToString(WorkerType workerType)
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-static std::optional<WorkerType> stringToWorkerType(const String& type)
+static Optional<WorkerType> stringToWorkerType(const String& type)
 {
     if (type == "Classic")
         return WorkerType::Classic;
     if (type == "Module")
         return WorkerType::Module;
 
-    return std::nullopt;
+    return WTF::nullopt;
 }
 
 void RegistrationDatabase::pushChanges(Vector<ServiceWorkerContextData>&& datas, CompletionHandler<void()>&& completionHandler)
@@ -278,9 +278,7 @@ void RegistrationDatabase::pushChanges(Vector<ServiceWorkerContextData>&& datas,
         if (!completionHandler)
             return;
 
-        callOnMainThread([completionHandler = WTFMove(completionHandler)] {
-            completionHandler();
-        });
+        callOnMainThread(WTFMove(completionHandler));
     });
 }
 
@@ -292,9 +290,7 @@ void RegistrationDatabase::clearAll(CompletionHandler<void()>&& completionHandle
         SQLiteFileSystem::deleteDatabaseFile(m_databaseFilePath);
         SQLiteFileSystem::deleteEmptyDatabaseDirectory(m_databaseDirectory);
 
-        callOnMainThread([completionHandler = WTFMove(completionHandler)] {
-            completionHandler();
-        });
+        callOnMainThread(WTFMove(completionHandler));
     });
 }
 
@@ -309,7 +305,7 @@ void RegistrationDatabase::doPushChanges(Vector<ServiceWorkerContextData>&& data
     SQLiteTransaction transaction(*m_database);
     transaction.begin();
 
-    SQLiteStatement sql(*m_database, "INSERT INTO Records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"_s);
+    SQLiteStatement sql(*m_database, "INSERT INTO Records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"_s);
     if (sql.prepare() != SQLITE_OK) {
         RELEASE_LOG_ERROR(ServiceWorker, "Failed to prepare statement to store registration data into records table (%i) - %s", m_database->lastError(), m_database->lastErrorMsg());
         return;
@@ -344,7 +340,8 @@ void RegistrationDatabase::doPushChanges(Vector<ServiceWorkerContextData>&& data
             || sql.bindText(8, data.script) != SQLITE_OK
             || sql.bindText(9, workerTypeToString(data.workerType)) != SQLITE_OK
             || sql.bindBlob(10, cspEncoder.buffer(), cspEncoder.bufferSize()) != SQLITE_OK
-            || sql.bindBlob(11, scriptResourceMapEncoder.buffer(), scriptResourceMapEncoder.bufferSize()) != SQLITE_OK
+            || sql.bindText(11, data.referrerPolicy) != SQLITE_OK
+            || sql.bindBlob(12, scriptResourceMapEncoder.buffer(), scriptResourceMapEncoder.bufferSize()) != SQLITE_OK
             || sql.step() != SQLITE_DONE) {
             RELEASE_LOG_ERROR(ServiceWorker, "Failed to store registration data into records table (%i) - %s", m_database->lastError(), m_database->lastErrorMsg());
             return;
@@ -384,8 +381,10 @@ String RegistrationDatabase::importRecords()
         if (contentSecurityPolicyData.size() && !ContentSecurityPolicyResponseHeaders::decode(cspDecoder, contentSecurityPolicy))
             continue;
 
+        auto referrerPolicy = sql.getColumnText(10);
+
         Vector<uint8_t> scriptResourceMapData;
-        sql.getColumnBlobAsVector(10, scriptResourceMapData);
+        sql.getColumnBlobAsVector(11, scriptResourceMapData);
         HashMap<URL, ServiceWorkerContextData::ImportedScript> scriptResourceMap;
 
         WTF::Persistence::Decoder scriptResourceMapDecoder(scriptResourceMapData.data(), scriptResourceMapData.size());
@@ -403,8 +402,8 @@ String RegistrationDatabase::importRecords()
         auto workerIdentifier = generateObjectIdentifier<ServiceWorkerIdentifierType>();
         auto registrationIdentifier = generateObjectIdentifier<ServiceWorkerRegistrationIdentifierType>();
         auto serviceWorkerData = ServiceWorkerData { workerIdentifier, scriptURL, ServiceWorkerState::Activated, *workerType, registrationIdentifier };
-        auto registration = ServiceWorkerRegistrationData { WTFMove(*key), registrationIdentifier, URL(originURL, scopePath), *updateViaCache, lastUpdateCheckTime, std::nullopt, std::nullopt, WTFMove(serviceWorkerData) };
-        auto contextData = ServiceWorkerContextData { std::nullopt, WTFMove(registration), workerIdentifier, WTFMove(script), WTFMove(contentSecurityPolicy), WTFMove(scriptURL), *workerType, m_sessionID, true, WTFMove(scriptResourceMap) };
+        auto registration = ServiceWorkerRegistrationData { WTFMove(*key), registrationIdentifier, URL(originURL, scopePath), *updateViaCache, lastUpdateCheckTime, WTF::nullopt, WTF::nullopt, WTFMove(serviceWorkerData) };
+        auto contextData = ServiceWorkerContextData { WTF::nullopt, WTFMove(registration), workerIdentifier, WTFMove(script), WTFMove(contentSecurityPolicy), WTFMove(referrerPolicy), WTFMove(scriptURL), *workerType, m_sessionID, true, WTFMove(scriptResourceMap) };
 
         callOnMainThread([protectedThis = makeRef(*this), contextData = contextData.isolatedCopy()]() mutable {
             protectedThis->addRegistrationToStore(WTFMove(contextData));

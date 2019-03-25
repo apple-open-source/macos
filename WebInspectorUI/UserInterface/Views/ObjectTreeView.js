@@ -246,12 +246,17 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
 
     update()
     {
+        const options = {
+            ownProperties: true,
+            generatePreview: true,
+        };
+
         if (this._object.isCollectionType() && this._mode === WI.ObjectTreeView.Mode.Properties)
             this._object.getCollectionEntries(0, 100, this._updateChildren.bind(this, this._updateEntries));
         else if (this._object.isClass())
             this._object.classPrototype.getDisplayablePropertyDescriptors(this._updateChildren.bind(this, this._updateProperties));
         else if (this._mode === WI.ObjectTreeView.Mode.PureAPI)
-            this._object.getOwnPropertyDescriptors(this._updateChildren.bind(this, this._updateProperties));
+            this._object.getPropertyDescriptors(this._updateChildren.bind(this, this._updateProperties), options);
         else
             this._object.getDisplayablePropertyDescriptors(this._updateChildren.bind(this, this._updateProperties));
     }
@@ -356,8 +361,8 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
         this._trackingEntries = true;
 
         if (this._inConsole) {
-            WI.logManager.addEventListener(WI.LogManager.Event.Cleared, this._untrackWeakEntries, this);
-            WI.logManager.addEventListener(WI.LogManager.Event.SessionStarted, this._untrackWeakEntries, this);
+            WI.consoleManager.addEventListener(WI.ConsoleManager.Event.Cleared, this._untrackWeakEntries, this);
+            WI.consoleManager.addEventListener(WI.ConsoleManager.Event.SessionStarted, this._untrackWeakEntries, this);
         }
     }
 
@@ -374,8 +379,8 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
         this._object.releaseWeakCollectionEntries();
 
         if (this._inConsole) {
-            WI.logManager.removeEventListener(WI.LogManager.Event.Cleared, this._untrackWeakEntries, this);
-            WI.logManager.removeEventListener(WI.LogManager.Event.SessionStarted, this._untrackWeakEntries, this);
+            WI.consoleManager.removeEventListener(WI.ConsoleManager.Event.Cleared, this._untrackWeakEntries, this);
+            WI.consoleManager.removeEventListener(WI.ConsoleManager.Event.SessionStarted, this._untrackWeakEntries, this);
         }
 
         // FIXME: This only tries to release weak entries if this object was a WeakMap.

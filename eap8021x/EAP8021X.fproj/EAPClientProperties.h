@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -92,6 +92,17 @@
 #define kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled \
 	CFSTR("EAPSIMAKAEncryptedIdentityEnabled")
 
+/*
+ * kEAPClientPropTLSTrustExceptionsDomain
+ * kEAPClientPropTLSTrustExceptionsID
+ * - properties used to locate the appropriate trust exception for the
+ *   current authentication session
+ */
+#define kEAPClientPropTLSTrustExceptionsDomain \
+CFSTR("TLSTrustExceptionsDomain")
+#define kEAPClientPropTLSTrustExceptionsID \
+CFSTR("TLSTrustExceptionsID")
+
 #if TARGET_OS_EMBEDDED
 /*
  * kEAPClientPropTLSSaveTrustExceptions
@@ -100,17 +111,6 @@
  */
 #define kEAPClientPropTLSSaveTrustExceptions \
 	CFSTR("TLSSaveTrustExceptions")			/* boolean (false) */
-
-/*
- * kEAPClientPropTLSTrustExceptionsDomain 
- * kEAPClientPropTLSTrustExceptionsID
- * - properties used to locate the appropriate trust exception for the
- *   current authentication session
- */
-#define kEAPClientPropTLSTrustExceptionsDomain \
-	CFSTR("TLSTrustExceptionsDomain")
-#define kEAPClientPropTLSTrustExceptionsID \
-	CFSTR("TLSTrustExceptionsID")
 
 /*
  * kEAPTLSTrustExceptionsDomain*
@@ -201,6 +201,7 @@
 #define kEAPClientPropTLSClientIdentityTrustChain   CFSTR("TLSClientIdentityTrustChain") /* array */
 #define kEAPClientPropTLSMinimumVersion		    CFSTR("TLSMinimumVersion") /* string (kEAPTLSVersion*) */
 #define kEAPClientPropTLSMaximumVersion		    CFSTR("TLSMaximumVersion") /* string (kEAPTLSVersion*) */
+#define kEAPClientPropTLSShareableIdentityInfo	    CFSTR("TLSShareableIdentityInfo") /* Dictionary */
 
 /* acceptable values for TLs version */
 #define kEAPTLSVersion1_0			CFSTR("1.0")

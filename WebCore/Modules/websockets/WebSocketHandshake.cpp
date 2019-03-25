@@ -44,7 +44,7 @@
 #include "ResourceRequest.h"
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
-#include "URL.h"
+#include <wtf/URL.h>
 #include "WebSocket.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/CryptographicallyRandomNumber.h>
@@ -264,10 +264,10 @@ ResourceRequest WebSocketHandshake::clientHandshakeRequest() const
     return request;
 }
 
-std::optional<CookieRequestHeaderFieldProxy> WebSocketHandshake::clientHandshakeCookieRequestHeaderFieldProxy() const
+Optional<CookieRequestHeaderFieldProxy> WebSocketHandshake::clientHandshakeCookieRequestHeaderFieldProxy() const
 {
     if (!m_document || !m_allowCookies)
-        return std::nullopt;
+        return WTF::nullopt;
     return cookieRequestHeaderFieldProxy(*m_document, httpURLForAuthenticationAndCookies());
 }
 
@@ -605,8 +605,7 @@ bool WebSocketHandshake::checkResponseHeaders()
             m_failureReason = "Error during WebSocket handshake: Sec-WebSocket-Protocol mismatch"_s;
             return false;
         }
-        Vector<String> result;
-        m_clientProtocol.split(WebSocket::subprotocolSeparator(), result);
+        Vector<String> result = m_clientProtocol.split(WebSocket::subprotocolSeparator());
         if (!result.contains(serverWebSocketProtocol)) {
             m_failureReason = "Error during WebSocket handshake: Sec-WebSocket-Protocol mismatch"_s;
             return false;

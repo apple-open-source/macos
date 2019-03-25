@@ -26,7 +26,7 @@
 
 #pragma once
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #ifndef NSView
 #define NSView WAKView
 #endif
@@ -150,6 +150,8 @@ public:
     WEBCORE_EXPORT IntRect convertToRootView(const IntRect&) const;
     IntRect convertFromRootView(const IntRect&) const;
 
+    FloatRect convertFromRootView(const FloatRect&) const;
+
     IntPoint convertToRootView(const IntPoint&) const;
     IntPoint convertFromRootView(const IntPoint&) const;
 
@@ -177,13 +179,14 @@ public:
 
     void removeFromSuperview();
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     void addToSuperview(NSView*);
 #endif
 
     // Virtual methods to convert points to/from the containing ScrollView
     WEBCORE_EXPORT virtual IntRect convertToContainingView(const IntRect&) const;
     WEBCORE_EXPORT virtual IntRect convertFromContainingView(const IntRect&) const;
+    WEBCORE_EXPORT virtual FloatRect convertFromContainingView(const FloatRect&) const;
     WEBCORE_EXPORT virtual IntPoint convertToContainingView(const IntPoint&) const;
     WEBCORE_EXPORT virtual IntPoint convertFromContainingView(const IntPoint&) const;
 

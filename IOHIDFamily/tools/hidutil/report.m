@@ -10,6 +10,7 @@
 #include <getopt.h>
 #include <mach/mach_time.h>
 #include "utility.h"
+#import <os/variant_private.h>
 
 int report(int argc, const char * argv[]);
 static const NSArray *_debugKeys;
@@ -219,6 +220,10 @@ int report(int argc __unused, const char * argv[] __unused) {
     int                 arg, tmpLength;
     _debugKeys = @[ @kIOClassKey, @kIOHIDPrimaryUsagePageKey, @kIOHIDPrimaryUsageKey, @kIOHIDVendorIDKey, @kIOHIDProductIDKey,
                      @kIOHIDTransportKey, @kIOHIDLocationIDKey, @kIOHIDProductKey, @kIOHIDManufacturerKey, @kIOHIDDeviceUsagePairsKey ];
+    
+    if(!os_variant_allows_internal_security_policies(nil)) {
+        return 0;
+    }
     
     while ((arg = getopt_long(argc, (char **) argv, MAIN_OPTIONS_SHORT, MAIN_OPTIONS, NULL)) != -1) {
         switch (arg) {

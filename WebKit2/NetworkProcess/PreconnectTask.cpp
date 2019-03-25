@@ -40,7 +40,7 @@ namespace WebKit {
 
 using namespace WebCore;
 
-PreconnectTask::PreconnectTask(NetworkLoadParameters&& parameters, WTF::CompletionHandler<void(const ResourceError&)>&& completionHandler)
+PreconnectTask::PreconnectTask(NetworkLoadParameters&& parameters, CompletionHandler<void(const ResourceError&)>&& completionHandler)
     : m_completionHandler(WTFMove(completionHandler))
     , m_timeoutTimer([this] { didFinish(ResourceError { String(), 0, m_networkLoad->parameters().request.url(), "Preconnection timed out"_s, ResourceError::Type::Timeout }); })
 {
@@ -68,10 +68,10 @@ void PreconnectTask::willSendRedirectedRequest(ResourceRequest&&, ResourceReques
     ASSERT_NOT_REACHED();
 }
 
-auto PreconnectTask::didReceiveResponse(ResourceResponse&&) -> ShouldContinueDidReceiveResponse
+void PreconnectTask::didReceiveResponse(ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
 {
     ASSERT_NOT_REACHED();
-    return ShouldContinueDidReceiveResponse::No;
+    completionHandler(PolicyAction::Ignore);
 }
 
 void PreconnectTask::didReceiveBuffer(Ref<SharedBuffer>&&, int reportedEncodedDataLength)
@@ -96,34 +96,11 @@ void PreconnectTask::didSendData(unsigned long long bytesSent, unsigned long lon
     ASSERT_NOT_REACHED();
 }
 
-void PreconnectTask::canAuthenticateAgainstProtectionSpaceAsync(const ProtectionSpace& protectionSpace)
-{
-    if (!pageID()) {
-        // The preconnect was started by the UIProcess.
-        m_networkLoad->continueCanAuthenticateAgainstProtectionSpace(false);
-        return;
-    }
-    NetworkProcess::singleton().canAuthenticateAgainstProtectionSpace(protectionSpace, pageID(), frameID(), [weakThis = makeWeakPtr(this)] (bool result) {
-        if (weakThis)
-            weakThis->m_networkLoad->continueCanAuthenticateAgainstProtectionSpace(result);
-    });
-}
-
 void PreconnectTask::didFinish(const ResourceError& error)
 {
     if (m_completionHandler)
         m_completionHandler(error);
     delete this;
-}
-
-uint64_t PreconnectTask::frameID() const
-{
-    return m_networkLoad->parameters().webFrameID;
-}
-
-uint64_t PreconnectTask::pageID() const
-{
-    return m_networkLoad->parameters().webPageID;
 }
 
 } // namespace WebKit

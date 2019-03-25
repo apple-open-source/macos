@@ -28,6 +28,7 @@
 #include <pthread.h>
 #include <AssertMacros.h>
 #include "IOHIDReportDescriptorParser.h"
+#include <os/variant_private.h>
 
 
 typedef struct __attribute__((packed)) {
@@ -736,6 +737,10 @@ int main (int argc, const char * argv[])
     IOHIDUserDeviceReportCallback   outputReportCallback    = NULL;
     IOHIDUserDeviceReportCallback   inputReportCallback     = getReportCallback;
     CFMutableDictionaryRef          properties              = NULL;
+    
+    if(!os_variant_allows_internal_security_policies(NULL)) {
+        return 0;
+    }
     
     properties = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     

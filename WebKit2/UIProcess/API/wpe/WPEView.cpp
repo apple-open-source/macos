@@ -45,7 +45,9 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
     : m_client(std::make_unique<API::ViewClient>())
     , m_pageClient(std::make_unique<PageClientImpl>(*this))
     , m_size { 800, 600 }
-    , m_viewStateFlags(WebCore::ActivityState::WindowIsActive | WebCore::ActivityState::IsFocused | WebCore::ActivityState::IsVisible | WebCore::ActivityState::IsInWindow)
+#if !defined(WPE_BACKEND_CHECK_VERSION) || !WPE_BACKEND_CHECK_VERSION(1, 1, 0)
+    , m_viewStateFlags { WebCore::ActivityState::WindowIsActive, WebCore::ActivityState::IsFocused, WebCore::ActivityState::IsVisible, WebCore::ActivityState::IsInWindow }
+#endif
     , m_compositingManagerProxy(*this)
     , m_backend(backend)
 {
@@ -88,8 +90,26 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
             auto& view = *reinterpret_cast<View*>(data);
             view.frameDisplayed();
         },
-        // padding
+#if defined(WPE_BACKEND_CHECK_VERSION) && WPE_BACKEND_CHECK_VERSION(1, 1, 0)
+        // activity_state_changed
+        [](void* data, uint32_t state)
+        {
+            auto& view = *reinterpret_cast<View*>(data);
+            OptionSet<WebCore::ActivityState::Flag> flags;
+            if (state & wpe_view_activity_state_visible)
+                flags.add(WebCore::ActivityState::IsVisible);
+            if (state & wpe_view_activity_state_focused) {
+                flags.add(WebCore::ActivityState::IsFocused);
+                flags.add(WebCore::ActivityState::WindowIsActive);
+            }
+            if (state & wpe_view_activity_state_in_window)
+                flags.add(WebCore::ActivityState::IsInWindow);
+            view.setViewState(flags);
+        },
+#else
         nullptr,
+#endif
+        // padding
         nullptr,
         nullptr,
         nullptr
@@ -104,7 +124,7 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
             if (event->pressed
                 && event->modifiers & wpe_input_keyboard_modifier_control
                 && event->modifiers & wpe_input_keyboard_modifier_shift
-                && event->keyCode == 'G') {
+                && event->key_code == WPE_KEY_G) {
                 auto& preferences = view.page().preferences();
                 preferences.setResourceUsageOverlayVisible(!preferences.resourceUsageOverlayVisible());
                 return;
@@ -172,12 +192,10 @@ void View::setSize(const WebCore::IntSize& size)
         m_pageProxy->drawingArea()->setSize(size);
 }
 
-void View::setViewState(WebCore::ActivityState::Flags flags)
+void View::setViewState(OptionSet<WebCore::ActivityState::Flag> flags)
 {
-    static const WebCore::ActivityState::Flags defaultFlags = WebCore::ActivityState::WindowIsActive | WebCore::ActivityState::IsFocused;
-
-    WebCore::ActivityState::Flags changedFlags = m_viewStateFlags ^ (defaultFlags | flags);
-    m_viewStateFlags = defaultFlags | flags;
+    auto changedFlags = m_viewStateFlags ^ flags;
+    m_viewStateFlags = flags;
 
     if (changedFlags)
         m_pageProxy->activityStateDidChange(changedFlags);

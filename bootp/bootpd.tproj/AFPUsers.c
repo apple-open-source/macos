@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -672,6 +672,7 @@ my_log(int priority, const char *message, ...)
 
     va_start(ap, message);
     vprintf(message, ap);
+    va_end(ap);
     printf("\n");
     return;
 }

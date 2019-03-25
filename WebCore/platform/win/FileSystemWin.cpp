@@ -124,24 +124,26 @@ bool getFileSize(PlatformFileHandle fileHandle, long long& size)
     return getFileSizeFromByHandleFileInformationStructure(fileInformation, size);
 }
 
-bool getFileModificationTime(const String& path, time_t& time)
+Optional<WallTime> getFileModificationTime(const String& path)
 {
     WIN32_FIND_DATAW findData;
     if (!getFindData(path, findData))
-        return false;
+        return WTF::nullopt;
 
+    time_t time = 0;
     getFileModificationTimeFromFindData(findData, time);
-    return true;
+    return WallTime::fromRawSeconds(time);
 }
 
-bool getFileCreationTime(const String& path, time_t& time)
+Optional<WallTime> getFileCreationTime(const String& path)
 {
     WIN32_FIND_DATAW findData;
     if (!getFindData(path, findData))
-        return false;
+        return WTF::nullopt;
 
+    time_t time = 0;
     getFileCreationTimeFromFindData(findData, time);
-    return true;
+    return WallTime::fromRawSeconds(time);
 }
 
 static String getFinalPathName(const String& path)
@@ -175,44 +177,44 @@ static FileMetadata::Type toFileMetadataType(WIN32_FIND_DATAW findData)
     return FileMetadata::Type::File;
 }
 
-static std::optional<FileMetadata> findDataToFileMetadata(WIN32_FIND_DATAW findData)
+static Optional<FileMetadata> findDataToFileMetadata(WIN32_FIND_DATAW findData)
 {
     long long length;
     if (!getFileSizeFromFindData(findData, length))
-        return std::nullopt;
+        return WTF::nullopt;
 
     time_t modificationTime;
     getFileModificationTimeFromFindData(findData, modificationTime);
 
     return FileMetadata {
-        static_cast<double>(modificationTime),
+        WallTime::fromRawSeconds(modificationTime),
         length,
         static_cast<bool>(findData.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN),
         toFileMetadataType(findData)
     };
 }
 
-std::optional<FileMetadata> fileMetadata(const String& path)
+Optional<FileMetadata> fileMetadata(const String& path)
 {
     WIN32_FIND_DATAW findData;
     if (!getFindData(path, findData))
-        return std::nullopt;
+        return WTF::nullopt;
 
     return findDataToFileMetadata(findData);
 }
 
-std::optional<FileMetadata> fileMetadataFollowingSymlinks(const String& path)
+Optional<FileMetadata> fileMetadataFollowingSymlinks(const String& path)
 {
     WIN32_FIND_DATAW findData;
     if (!getFindData(path, findData))
-        return std::nullopt;
+        return WTF::nullopt;
 
     if (isSymbolicLink(findData)) {
         String targetPath = getFinalPathName(path);
         if (targetPath.isNull())
-            return std::nullopt;
+            return WTF::nullopt;
         if (!getFindData(targetPath, findData))
-            return std::nullopt;
+            return WTF::nullopt;
     }
 
     return findDataToFileMetadata(findData);
@@ -376,10 +378,8 @@ static String cachedStorageDirectory(DWORD pathIdentifier)
     return directory;
 }
 
-String openTemporaryFile(const String&, PlatformFileHandle& handle)
+static String generateTemporaryPath(const Function<bool(const String&)>& action)
 {
-    handle = INVALID_HANDLE_VALUE;
-
     wchar_t tempPath[MAX_PATH];
     int tempPathLength = ::GetTempPathW(WTF_ARRAY_LENGTH(tempPath), tempPath);
     if (tempPathLength <= 0 || tempPathLength > WTF_ARRAY_LENGTH(tempPath))
@@ -402,10 +402,21 @@ String openTemporaryFile(const String&, PlatformFileHandle& handle)
         proposedPath = pathByAppendingComponent(nullTerminatedWCharToString(tempPath), nullTerminatedWCharToString(tempFile));
         if (proposedPath.isEmpty())
             break;
+    } while (!action(proposedPath));
 
+    return proposedPath;
+}
+
+String openTemporaryFile(const String&, PlatformFileHandle& handle)
+{
+    handle = INVALID_HANDLE_VALUE;
+
+    String proposedPath = generateTemporaryPath([&handle](const String& proposedPath) {
         // use CREATE_NEW to avoid overwriting an existing file with the same name
         handle = ::CreateFileW(stringToNullTerminatedWChar(proposedPath).data(), GENERIC_READ | GENERIC_WRITE, 0, 0, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0);
-    } while (!isHandleValid(handle) && GetLastError() == ERROR_ALREADY_EXISTS);
+
+        return isHandleValid(handle) || GetLastError() == ERROR_ALREADY_EXISTS;
+    });
 
     if (!isHandleValid(handle))
         return String();
@@ -514,7 +525,8 @@ Vector<String> listDirectory(const String& directory, const String& filter)
         return entries;
 
     do {
-        if (walker.data().dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        if (walker.data().dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY
+            && (!wcscmp(walker.data().cFileName, L".") || !wcscmp(walker.data().cFileName, L"..")))
             continue;
 
         entries.append(directory + "\\" + reinterpret_cast<const UChar*>(walker.data().cFileName));
@@ -529,16 +541,16 @@ bool getVolumeFreeSpace(const String&, uint64_t&)
     return false;
 }
 
-std::optional<int32_t> getFileDeviceId(const CString& fsFile)
+Optional<int32_t> getFileDeviceId(const CString& fsFile)
 {
     auto handle = openFile(fsFile.data(), FileOpenMode::Read);
     if (!isHandleValid(handle))
-        return std::nullopt;
+        return WTF::nullopt;
 
     BY_HANDLE_FILE_INFORMATION fileInformation = { };
     if (!::GetFileInformationByHandle(handle, &fileInformation)) {
         closeFile(handle);
-        return std::nullopt;
+        return WTF::nullopt;
     }
 
     closeFile(handle);
@@ -549,6 +561,28 @@ std::optional<int32_t> getFileDeviceId(const CString& fsFile)
 String realPath(const String& filePath)
 {
     return getFinalPathName(filePath);
+}
+
+String createTemporaryDirectory()
+{
+    return generateTemporaryPath([](const String& proposedPath) {
+        return makeAllDirectories(proposedPath);
+    });
+}
+
+bool deleteNonEmptyDirectory(const String& directoryPath)
+{
+    SHFILEOPSTRUCT deleteOperation = {
+        nullptr,
+        FO_DELETE,
+        stringToNullTerminatedWChar(directoryPath).data(),
+        L"",
+        FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT,
+        false,
+        0,
+        L""
+    };
+    return !SHFileOperation(&deleteOperation);
 }
 
 } // namespace FileSystem

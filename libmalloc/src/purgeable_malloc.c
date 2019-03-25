@@ -38,7 +38,7 @@ purgeable_size(szone_t *szone, const void *ptr)
 static void *
 purgeable_malloc(szone_t *szone, size_t size)
 {
-	if (size <= szone->large_threshold) {
+	if (size <= LARGE_THRESHOLD(szone)) {
 		return szone_malloc(szone->helper_zone, size);
 	} else {
 		return szone_malloc(szone, size);
@@ -54,7 +54,7 @@ purgeable_calloc(szone_t *szone, size_t num_items, size_t size)
 		return NULL;
 	}
 
-	if (total_bytes <= szone->large_threshold) {
+	if (total_bytes <= LARGE_THRESHOLD(szone)) {
 		return szone_calloc(szone->helper_zone, 1, total_bytes);
 	} else {
 		return szone_calloc(szone, 1, total_bytes);
@@ -64,7 +64,7 @@ purgeable_calloc(szone_t *szone, size_t num_items, size_t size)
 static void *
 purgeable_valloc(szone_t *szone, size_t size)
 {
-	if (size <= szone->large_threshold) {
+	if (size <= LARGE_THRESHOLD(szone)) {
 		return szone_valloc(szone->helper_zone, size);
 	} else {
 		return szone_valloc(szone, size);
@@ -89,7 +89,7 @@ purgeable_free(szone_t *szone, void *ptr)
 static void
 purgeable_free_definite_size(szone_t *szone, void *ptr, size_t size)
 {
-	if (size <= szone->large_threshold) {
+	if (size <= LARGE_THRESHOLD(szone)) {
 		return szone_free_definite_size(szone->helper_zone, ptr, size);
 	} else {
 		return szone_free_definite_size(szone, ptr, size);
@@ -124,8 +124,8 @@ purgeable_realloc(szone_t *szone, void *ptr, size_t new_size)
 
 	// Distinguish 4 cases: {oldsize, newsize} x { <= , > large_threshold }
 	// and deal with the allocation crossing from the purgeable zone to the helper zone and vice versa.
-	if (old_size <= szone->large_threshold) {
-		if (new_size <= szone->large_threshold) {
+	if (old_size <= LARGE_THRESHOLD(szone)) {
+		if (new_size <= LARGE_THRESHOLD(szone)) {
 			return szone_realloc(szone->helper_zone, ptr, new_size);
 		} else {
 			// allocation crosses from helper to purgeable zone
@@ -137,7 +137,7 @@ purgeable_realloc(szone_t *szone, void *ptr, size_t new_size)
 			return new_ptr; // in state VM_PURGABLE_NONVOLATILE
 		}
 	} else {
-		if (new_size <= szone->large_threshold) {
+		if (new_size <= LARGE_THRESHOLD(szone)) {
 			// allocation crosses from purgeable to helper zone
 			void *new_ptr = szone_malloc(szone->helper_zone, new_size);
 			if (new_ptr) {
@@ -196,7 +196,7 @@ purgeable_batch_free(szone_t *szone, void **to_be_freed, unsigned count)
 static void *
 purgeable_memalign(szone_t *szone, size_t alignment, size_t size)
 {
-	if (size <= szone->large_threshold) {
+	if (size <= LARGE_THRESHOLD(szone)) {
 		return szone_memalign(szone->helper_zone, alignment, size);
 	} else {
 		return szone_memalign(szone, alignment, size);
@@ -231,7 +231,7 @@ purgeable_ptr_in_use_enumerator(task_t task,
 static size_t
 purgeable_good_size(szone_t *szone, size_t size)
 {
-	if (size <= szone->large_threshold) {
+	if (size <= LARGE_THRESHOLD(szone)) {
 		return szone_good_size(szone->helper_zone, size);
 	} else {
 		return szone_good_size(szone, size);
@@ -345,11 +345,6 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
 
 	rack_init(&szone->tiny_rack, RACK_TYPE_TINY, 0, debug_flags | MALLOC_PURGEABLE);
 	rack_init(&szone->small_rack, RACK_TYPE_SMALL, 0, debug_flags | MALLOC_PURGEABLE);
-
-	/* Purgeable zone does not participate in the adaptive "largemem" sizing. */
-	szone->is_largemem = 0;
-	szone->large_threshold = LARGE_THRESHOLD;
-	szone->vm_copy_threshold = VM_COPY_THRESHOLD;
 
 #if CONFIG_LARGE_CACHE
 	// madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]

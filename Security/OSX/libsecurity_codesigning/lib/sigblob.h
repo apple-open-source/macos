@@ -43,6 +43,7 @@ namespace CodeSigning {
 class EmbeddedSignatureBlob : public SuperBlobCore<EmbeddedSignatureBlob, 0xfade0cc0, uint32_t> {
 	typedef SuperBlobCore<EmbeddedSignatureBlob, 0xfade0cc0, uint32_t> _Core;
 public:
+	static CFDataRef blobData(CodeDirectory::SpecialSlot slot, BlobCore const *blob);
 	CFDataRef component(CodeDirectory::SpecialSlot slot) const;
 	
 	class Maker : public _Core::Maker {

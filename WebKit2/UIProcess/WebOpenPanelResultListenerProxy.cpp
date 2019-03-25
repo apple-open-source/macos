@@ -29,12 +29,11 @@
 #include "APIArray.h"
 #include "APIString.h"
 #include "WebPageProxy.h"
-#include <WebCore/URL.h>
+#include <wtf/URL.h>
 #include <wtf/Vector.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 WebOpenPanelResultListenerProxy::WebOpenPanelResultListenerProxy(WebPageProxy* page)
     : m_page(page)
@@ -45,7 +44,7 @@ WebOpenPanelResultListenerProxy::~WebOpenPanelResultListenerProxy()
 {
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 void WebOpenPanelResultListenerProxy::chooseFiles(const Vector<WTF::String>& filenames, const String& displayString, const API::Data* iconImageData)
 {
     if (!m_page)

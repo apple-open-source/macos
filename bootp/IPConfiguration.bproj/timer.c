@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -221,7 +221,7 @@ timer_cancel(timer_callout_t * callout)
     callout->func = NULL;
     callout->time_generation = S_time_generation;
     if (callout->timer_source) {
-	my_log(LOG_DEBUG, "timer:  freeing timer source");
+	my_log(LOG_DEBUG, "timer: freeing timer source");
 	CFRunLoopTimerInvalidate(callout->timer_source);
 	CFRelease(callout->timer_source);
 	callout->timer_source = 0;

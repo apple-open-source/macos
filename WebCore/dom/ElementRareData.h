@@ -24,13 +24,20 @@
 #include "CustomElementReactionQueue.h"
 #include "DOMTokenList.h"
 #include "DatasetDOMStringMap.h"
+#include "IntersectionObserver.h"
 #include "NamedNodeMap.h"
 #include "NodeRareData.h"
 #include "PseudoElement.h"
 #include "RenderElement.h"
 #include "ShadowRoot.h"
+#include "StylePropertyMap.h"
 
 namespace WebCore {
+
+inline IntSize defaultMinimumSizeForResizing()
+{
+    return IntSize(LayoutUnit::max(), LayoutUnit::max());
+}
 
 class ElementRareData : public NodeRareData {
 public:
@@ -116,6 +123,51 @@ public:
     bool hasCSSAnimation() const { return m_hasCSSAnimation; }
     void setHasCSSAnimation(bool value) { m_hasCSSAnimation = value; }
 
+#if ENABLE(INTERSECTION_OBSERVER)
+    IntersectionObserverData* intersectionObserverData() { return m_intersectionObserverData.get(); }
+    void setIntersectionObserverData(std::unique_ptr<IntersectionObserverData>&& data) { m_intersectionObserverData = WTFMove(data); }
+#endif
+
+#if ENABLE(CSS_TYPED_OM)
+    StylePropertyMap* attributeStyleMap() { return m_attributeStyleMap.get(); }
+    void setAttributeStyleMap(Ref<StylePropertyMap>&& map) { m_attributeStyleMap = WTFMove(map); }
+#endif
+
+#if DUMP_NODE_STATISTICS
+    OptionSet<UseType> useTypes() const
+    {
+        auto result = NodeRareData::useTypes();
+        if (m_tabIndexWasSetExplicitly)
+            result.add(UseType::TabIndex);
+        if (m_styleAffectedByActive || m_styleAffectedByEmpty || m_styleAffectedByFocusWithin || m_childrenAffectedByHover
+            || m_childrenAffectedByDrag || m_childrenAffectedByLastChildRules || m_childrenAffectedByForwardPositionalRules
+            || m_descendantsAffectedByForwardPositionalRules || m_childrenAffectedByBackwardPositionalRules
+            || m_descendantsAffectedByBackwardPositionalRules || m_childrenAffectedByPropertyBasedBackwardPositionalRules)
+            result.add(UseType::StyleFlags);
+        if (m_minimumSizeForResizing != defaultMinimumSizeForResizing())
+            result.add(UseType::MinimumSize);
+        if (!m_savedLayerScrollPosition.isZero())
+            result.add(UseType::ScrollingPosition);
+        if (m_computedStyle)
+            result.add(UseType::ComputedStyle);
+        if (m_dataset)
+            result.add(UseType::Dataset);
+        if (m_classList)
+            result.add(UseType::ClassList);
+        if (m_shadowRoot)
+            result.add(UseType::ShadowRoot);
+        if (m_customElementReactionQueue)
+            result.add(UseType::CustomElementQueue);
+        if (m_attributeMap)
+            result.add(UseType::AttributeMap);
+        if (m_intersectionObserverData)
+            result.add(UseType::InteractionObserver);
+        if (m_beforePseudoElement || m_afterPseudoElement)
+            result.add(UseType::PseudoElements);
+        return result;
+    }
+#endif
+
 private:
     int m_tabIndex;
     unsigned short m_childIndex;
@@ -149,17 +201,19 @@ private:
     RefPtr<ShadowRoot> m_shadowRoot;
     std::unique_ptr<CustomElementReactionQueue> m_customElementReactionQueue;
     std::unique_ptr<NamedNodeMap> m_attributeMap;
+#if ENABLE(INTERSECTION_OBSERVER)
+    std::unique_ptr<IntersectionObserverData> m_intersectionObserverData;
+#endif
 
     RefPtr<PseudoElement> m_beforePseudoElement;
     RefPtr<PseudoElement> m_afterPseudoElement;
 
+#if ENABLE(CSS_TYPED_OM)
+    RefPtr<StylePropertyMap> m_attributeStyleMap;
+#endif
+
     void releasePseudoElement(PseudoElement*);
 };
-
-inline IntSize defaultMinimumSizeForResizing()
-{
-    return IntSize(LayoutUnit::max(), LayoutUnit::max());
-}
 
 inline ElementRareData::ElementRareData(RenderElement* renderer)
     : NodeRareData(renderer)

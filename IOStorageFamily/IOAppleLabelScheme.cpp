@@ -27,6 +27,7 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/storage/IOAppleLabelScheme.h>
 #include <libkern/OSByteOrder.h>
+#include <os/overflow.h>
 
 #define super IOFilterScheme
 OSDefineMetaClassAndStructors(IOAppleLabelScheme, IOFilterScheme);
@@ -211,6 +212,11 @@ IOMedia * IOAppleLabelScheme::scan(SInt32 * score)
 
     // Allocate a buffer large enough to hold one map, rounded to a media block.
 
+	// Ensure that the end of the label, rounded up to the mediaBlockSize,
+	// will not overflow the integer type of bufferSize
+
+	if ( os_add3_overflow(labelBase, labelSize, mediaBlockSize, &bufferSize ) != 0)  goto scanErr;
+
     buffer->release();
 
     bufferBase = IOTrunc(labelBase, mediaBlockSize);
@@ -240,9 +246,9 @@ IOMedia * IOAppleLabelScheme::scan(SInt32 * score)
 
     // Obtain the properties.
 
-    properties = (OSDictionary *) OSUnserializeXML(labelMap, labelSize);
+	properties = OSDynamicCast(OSDictionary, OSUnserializeXML(labelMap, labelSize));
 
-    if ( OSDynamicCast(OSDictionary, properties) == 0 )
+	if ( properties == 0 )
     {
         goto scanErr;
     }

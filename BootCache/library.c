@@ -2282,8 +2282,8 @@ struct BC_userspace_optimizations
 BC_optimize_history_mount_fusion(struct BC_history * hc, int hm_index, const char *mount_name, struct BC_history_inode* historyInodes, uint numInodes)
 {
 	struct BC_userspace_optimizations userspace_optimizations = {
-		.ssup_fusion_num_inodes_optimized = 0,
-		.ssup_fusion_bytes_optimized = 0,
+		.ssup_num_inodes_optimized = 0,
+		.ssup_bytes_optimized = 0,
 		.ssup_hdd_num_reads_already_optimized = 0,
 		.ssup_hdd_bytes_already_optimized = 0,
 		.ssup_hdd_optimization_range_length = 0,
@@ -2354,7 +2354,7 @@ BC_optimize_history_mount_fusion(struct BC_history * hc, int hm_index, const cha
 				last_successful_inode_index = optimize.out_inode_err - 1;
 			}
 			
-			userspace_optimizations.ssup_fusion_num_inodes_optimized += last_successful_inode_index;
+			userspace_optimizations.ssup_num_inodes_optimized += last_successful_inode_index;
 			
 			// Clear all the history entires from inodes that succeeded
 			// But if we have an extent where all this data moved, add that to our history (re-use the first entry for this inode)
@@ -2364,7 +2364,7 @@ BC_optimize_history_mount_fusion(struct BC_history * hc, int hm_index, const cha
 				for (int i = 0; i < historyInode->numEntries; i++) {
 					struct BC_history_entry* he = hc->h_entries + historyInode->entryIndexes[i];
 					
-					userspace_optimizations.ssup_fusion_bytes_optimized += he->he_length;
+					userspace_optimizations.ssup_bytes_optimized += he->he_length;
 					he->he_length = 0;
 				}
 			}
@@ -2409,8 +2409,8 @@ struct BC_userspace_optimizations
 BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *mount_name, struct BC_history_inode* historyInodes, uint numInodes)
 {
 	struct BC_userspace_optimizations userspace_optimizations = {
-		.ssup_fusion_num_inodes_optimized = 0,
-		.ssup_fusion_bytes_optimized = 0,
+		.ssup_num_inodes_optimized = 0,
+		.ssup_bytes_optimized = 0,
 		.ssup_hdd_num_reads_already_optimized = 0,
 		.ssup_hdd_bytes_already_optimized = 0,
 		.ssup_hdd_optimization_range_length = 0,
@@ -2462,17 +2462,22 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 		
 		struct inode_disk_map* inodeDiskMap = BC_inode_disk_map_create(mount_name, inode, blockSize, hm->hm_fs_flags & BC_FS_APFS_ENCRYPTED);
 		if (!inodeDiskMap) {
-#warning remove this inodes from the list of ones to be optimized since we can't track where the file ends up
 			DLOG("No disk map for inode %llu", inode);
+			// remove this inode from the list of ones to be optimized since we can't track where the file ends up
+			// Typical case here is the file was deleted.
+			// (the BootCache's recorded extents for this inode also get cleared later)
+			historyInodes[inodeIdx].inode = 0;
 			continue;
 		}
 		
 		DLOG_inode_disk_map(inodeDiskMap);
 
 		if (inodeDiskMap->numDstreams == 0) {
-#warning remove this inodes from the list of ones to be optimized since we can't track where the file ends up
 			DLOG_OFT("No dstreams for inode %llu", inode);
 			BC_inode_disk_map_destroy(inodeDiskMap);
+			// remove this inode from the list of ones to be optimized since we can't track where the file ends up
+			// (the BootCache's recorded extents for this inode also get cleared later)
+			historyInodes[inodeIdx].inode = 0;
 			continue;
 		}
 
@@ -2486,6 +2491,7 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 		
 		DLOG_OFT("inode %llu history:", inode);
 
+		bool exentsHaveSomeOverlap = false;
 		for (int historyInodeExtentEntryIndex = 0; historyInodeExtentEntryIndex < historyInodes[inodeIdx].numEntries; historyInodeExtentEntryIndex++) {
 			int he_index = historyInodes[inodeIdx].entryIndexes[historyInodeExtentEntryIndex];
 			struct BC_history_entry* he = hc->h_entries + he_index;
@@ -2529,6 +2535,8 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 							 dstreamFileMap->numRanges - 1,
 							 fileRange->offset, fileRange->offset + fileRange->length, fileRange->length,
 							 overlapBytes - he->he_length);
+						
+						exentsHaveSomeOverlap = true;
 					}
 					
 					dstreamOffset += diskExtent->length;
@@ -2540,8 +2548,17 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 				DLOG_OFT("  entry %d: %#-12llx %#-8llx %#-12llx missing %#llx bytes in dstream data",
 						 he_index,
 						 he->he_offset, he->he_length, he->he_crypto_offset,
-						 overlapBytes - he->he_length);
+						 he->he_length - overlapBytes);
 			}
+		}
+		
+		if (!exentsHaveSomeOverlap) {
+			DLOG("inode %llu no longer exists where BootCache recorded", inode);
+			BC_inode_disk_map_destroy(inodeDiskMap);
+			// This file has moved to a completely new location on disk since the recording we're trying to optimize
+			// remove this inode from the list of ones to be optimized
+			historyInodes[inodeIdx].inode = 0;
+			continue;
 		}
 		
 		// Sort/coalesce the file ranges
@@ -2603,11 +2620,19 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 	uint64_t lowestOptimizedByteAddress = UINT64_MAX;
 	uint64_t highestOptimizedByteAddress = UINT64_MAX;
 
+	int numOptimizedInodes = 0;
 	{
 		uint64_t* inodeBuffer = malloc(numInodes * sizeof(*inodeBuffer));
 		ASSERT(inodeBuffer);
 		for (int i = 0; i < numInodes; i++) {
-			inodeBuffer[i] = historyInodes[i].inode;
+			if (0 != historyInodes[i].inode) {
+				inodeBuffer[numOptimizedInodes] = historyInodes[i].inode;
+				numOptimizedInodes++;
+			}
+		}
+		
+		if (numOptimizedInodes != numInodes) {
+			DLOG("Only optimizing %d out of %d inodes", numOptimizedInodes, numInodes);
 		}
 		
 		apfs_bc_optimize_t optimize;
@@ -2615,25 +2640,25 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 		optimize.out_paddr = 0;
 		optimize.out_length = 0;
 		optimize.out_error = 0;
-		optimize.inode_cnt = numInodes;
+		optimize.inode_cnt = numOptimizedInodes;
 		optimize.inodes = inodeBuffer;
 		optimize.flags = 0;
 		
 		err = fsctl(mount_name, APFSIOC_BC_OPTIMIZE_INODES, &optimize, 0);
 		free(inodeBuffer);
 		if (err != 0) {
-			LOG_ERRNO("BootCache optimization for %s's %d inodes fsctl error", uuid_string(hm->hm_uuid), numInodes);
+			LOG_ERRNO("BootCache optimization for %s's %d inodes fsctl error", uuid_string(hm->hm_uuid), numOptimizedInodes);
 			return userspace_optimizations;
 		}
 		
 		if (optimize.out_error != 0) {
 			errno = optimize.out_error;
-			LOG_ERRNO("BootCache optimization for %s's %d inodes returned error", uuid_string(hm->hm_uuid), numInodes);
+			LOG_ERRNO("BootCache optimization for %s's %d inodes returned error", uuid_string(hm->hm_uuid), numOptimizedInodes);
 			// Not necessarily fatal, lets see if we get a valid range...
 		}
 		
 		if (optimize.out_paddr == UINT64_MAX || optimize.out_length == UINT64_MAX || optimize.out_length == 0) {
-			LOG("BootCache optimization for %s's %d inodes returned invalid range", uuid_string(hm->hm_uuid), numInodes);
+			LOG("BootCache optimization for %s's %d inodes returned invalid range", uuid_string(hm->hm_uuid), numOptimizedInodes);
 			return userspace_optimizations;
 		}
 
@@ -2644,197 +2669,213 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 	// After the data has been optimized, use APFS_DEBUG_OP_GET_FILE_DSTREAMS and APFS_DEBUG_OP_GET_FILE_EXTS to see where the files ended up
 	// Some files may not have been optimized, so compare the extents returned to the original recording before adding to the playlist.
 	
-	DLOG("Optimized %d inodes to %#llx-%#llx (%llu length), checking where they ended up on disk...", numInodes, optimizedRangeStart, optimizedRangeStart + optimizedRangeLength, optimizedRangeLength);
+	DLOG("Optimized %d inodes to %#llx-%#llx (%llu length), checking where they ended up on disk...", numOptimizedInodes, optimizedRangeStart, optimizedRangeStart + optimizedRangeLength, optimizedRangeLength);
+	
+	uint64_t numBytesDropped = 0;
+	int numInodesDropped = 0;
 	
 	for (int inodeIdx = 0; inodeIdx < numInodes; inodeIdx++) {
 		uint64_t inode = historyInodes[inodeIdx].inode;
-		
-		DLOG_OFT("inode %llu post-optimization:", inode);
-
-		struct inode_disk_map* inodeDiskMap = BC_inode_disk_map_create(mount_name, inode, blockSize, hm->hm_fs_flags & BC_FS_APFS_ENCRYPTED);
-		if (!inodeDiskMap) {
-			DLOG("No disk map for inode %llu", inode);
-			continue;
-		}
-
-		DLOG_inode_disk_map(inodeDiskMap);
-
-		// Check how much data was optimized (this time and previously) for statistical purposes
-		uint64_t optimizedBytes = 0;
-		for (int dstreamDiskIndex = 0; dstreamDiskIndex < inodeDiskMap->numDstreams; dstreamDiskIndex++) {
-			struct dstream_disk_map* dstreamDiskMap = inodeDiskMap->dstreamDiskMaps + dstreamDiskIndex;
-			for (int diskExtentIndex = 0; diskExtentIndex < dstreamDiskMap->numExtents; diskExtentIndex++) {
-				struct extent_with_crypto* diskExtent = dstreamDiskMap->diskExtents + diskExtentIndex;
-				
-				if (diskExtent->offset < optimizedRangeStart ||
-					diskExtent->offset + diskExtent->length > optimizedRangeStart + optimizedRangeLength) {
-					
-					DLOG_OFT("inode %llu dstream %llu extent %d not optimized:  %#-12llx %#-8llx", inode, dstreamDiskMap->dstreamID, diskExtentIndex, diskExtent->offset, diskExtent->length);
-				} else {
-					
-					if (lowestOptimizedByteAddress == UINT64_MAX ||
-						lowestOptimizedByteAddress > diskExtent->offset) {
-						lowestOptimizedByteAddress = diskExtent->offset;
-					}
-					if (highestOptimizedByteAddress == UINT64_MAX ||
-						highestOptimizedByteAddress < diskExtent->offset + diskExtent->length) {
-						highestOptimizedByteAddress = diskExtent->offset + diskExtent->length;
-					}
-					optimizedBytes += diskExtent->length;
-				}
-			}
-		}
-		if (optimizedBytes > 0) {
-			userspace_optimizations.ssup_fusion_num_inodes_optimized++;
-			userspace_optimizations.ssup_fusion_bytes_optimized += optimizedBytes;
-		}
-
-		for (int historyInodeExtentEntryIndex = 0; historyInodeExtentEntryIndex < historyInodes[inodeIdx].numEntries; historyInodeExtentEntryIndex++) {
-			int he_index = historyInodes[inodeIdx].entryIndexes[historyInodeExtentEntryIndex];
-			
-			uint64_t intersectionStart = MAX(optimizedRangeStart, hc->h_entries[he_index].he_offset);
-			uint64_t intersectionEnd = MIN(optimizedRangeStart + optimizedRangeLength, hc->h_entries[he_index].he_offset + hc->h_entries[he_index].he_length);
-			
-			if (intersectionStart < intersectionEnd) {
-				userspace_optimizations.ssup_hdd_num_reads_already_optimized++;
-				userspace_optimizations.ssup_hdd_bytes_already_optimized += intersectionEnd - intersectionStart; // Bytes that were already in the optimized range, however they got there previously
-			}
-		}
-
-		// inodeFileMap contains the ranges of the file that we want to include in the playlist
-		struct inode_file_map* inodeFileMap = inodeFileMaps + inodeIdx;
 		int historyInodeExtentEntryIndex = 0;
-		
-		DLOG_OFT("inode %llu history post-optimization:", inode);
-		
-
-		for (int dstreamFileIndex = 0; dstreamFileIndex < inodeFileMap->numDstreams; dstreamFileIndex++) {
-			struct dstream_file_map* dstreamFileMap = inodeFileMap->dstreamFileMaps + dstreamFileIndex;
-			if (dstreamFileMap->numRanges == 0) {
-				DLOG_OFT("inode %llu dstream %llu not in recording", inode, dstreamFileMap->dstreamID);
-				continue;
-			}
+		DLOG_OFT("inode %llu post-optimization:", inode);
+		if (0 != inode) {
 			
-			// Find matching dstream from inodeDiskMap
-			struct dstream_disk_map* dstreamDiskMap = NULL;
-			for (int dstreamDiskIndex = 0; dstreamDiskIndex < inodeDiskMap->numDstreams; dstreamDiskIndex++) {
-				if (inodeDiskMap->dstreamDiskMaps[dstreamDiskIndex].dstreamID == dstreamFileMap->dstreamID) {
-					dstreamDiskMap = inodeDiskMap->dstreamDiskMaps + dstreamDiskIndex;
-					break;
-				}
-			}
-			if (!dstreamDiskMap) {
-				DLOG_OFT("inode %llu dstream %llu no longer exists", inode, dstreamFileMap->dstreamID);
-				continue;
-			}
-
-			DLOG_OFT(" dstream %llu", dstreamFileMap->dstreamID);
-
-			// Iterate over the disk extents, keeping track of what file offset we're at (dstreamOffset), and replace the entries to our history for this inode with the new locations of this file
-			uint64_t dstreamFileOffsetForDiskExtent = 0;
-			int fileRangeIndex = 0;
-			struct extent* fileRange = NULL;
-			for (fileRangeIndex = 0; fileRangeIndex < dstreamFileMap->numRanges; fileRangeIndex++) {
-				fileRange = dstreamFileMap->fileRanges + fileRangeIndex;
-				if (fileRange->length != 0) {
-					break;
-				}
-			}
-			if (fileRangeIndex >= dstreamFileMap->numRanges) {
-				DLOG_OFT("No recorded extents for dstream %llu", dstreamFileMap->dstreamID);
-			}
-			
-			for (int diskExtentIndex = 0; diskExtentIndex < dstreamDiskMap->numExtents; diskExtentIndex++) {
-				struct extent_with_crypto* diskExtent = dstreamDiskMap->diskExtents + diskExtentIndex;
-				if (diskExtent->length == 0) {
-					continue;
-				}
-
-				while (fileRange->offset < dstreamFileOffsetForDiskExtent + diskExtent->length) {
-					// We want part of this disk range in our playlist, use the next entry in our history for this inode
-
-					int he_index;
-					if (historyInodeExtentEntryIndex < historyInodes[inodeIdx].numEntries) {
-						he_index = historyInodes[inodeIdx].entryIndexes[historyInodeExtentEntryIndex];
-						historyInodeExtentEntryIndex++;
-					} else {
-						hc->h_nentries ++;
-						hm->hm_nentries ++;
-						hc->h_entries = reallocf(hc->h_entries, hc->h_nentries * sizeof(*hc->h_entries));
-						ASSERT(hc->h_entries);
+			struct inode_disk_map* inodeDiskMap = BC_inode_disk_map_create(mount_name, inode, blockSize, hm->hm_fs_flags & BC_FS_APFS_ENCRYPTED);
+			if (inodeDiskMap) {
+				
+				DLOG_inode_disk_map(inodeDiskMap);
+				
+				// Check how much data was optimized (this time and previously) for statistical purposes
+				uint64_t optimizedBytes = 0;
+				for (int dstreamDiskIndex = 0; dstreamDiskIndex < inodeDiskMap->numDstreams; dstreamDiskIndex++) {
+					struct dstream_disk_map* dstreamDiskMap = inodeDiskMap->dstreamDiskMaps + dstreamDiskIndex;
+					for (int diskExtentIndex = 0; diskExtentIndex < dstreamDiskMap->numExtents; diskExtentIndex++) {
+						struct extent_with_crypto* diskExtent = dstreamDiskMap->diskExtents + diskExtentIndex;
 						
-						he_index = hc->h_nentries - 1;
-						
-						hc->h_entries[he_index].he_inode = inode;
-						hc->h_entries[he_index].he_mount_idx = hm_index;
+						if (diskExtent->offset < optimizedRangeStart ||
+							diskExtent->offset + diskExtent->length > optimizedRangeStart + optimizedRangeLength) {
+							
+							DLOG_OFT("inode %llu dstream %llu extent %d not optimized:  %#-12llx %#-8llx", inode, dstreamDiskMap->dstreamID, diskExtentIndex, diskExtent->offset, diskExtent->length);
+						} else {
+							
+							if (lowestOptimizedByteAddress == UINT64_MAX ||
+								lowestOptimizedByteAddress > diskExtent->offset) {
+								lowestOptimizedByteAddress = diskExtent->offset;
+							}
+							if (highestOptimizedByteAddress == UINT64_MAX ||
+								highestOptimizedByteAddress < diskExtent->offset + diskExtent->length) {
+								highestOptimizedByteAddress = diskExtent->offset + diskExtent->length;
+							}
+							optimizedBytes += diskExtent->length;
+						}
+					}
+				}
+				if (optimizedBytes > 0) {
+					userspace_optimizations.ssup_num_inodes_optimized++;
+					userspace_optimizations.ssup_bytes_optimized += optimizedBytes;
+				}
+				
+				for (int tempHistoryInodeExtentEntryIndex = 0; tempHistoryInodeExtentEntryIndex < historyInodes[inodeIdx].numEntries; tempHistoryInodeExtentEntryIndex++) {
+					int he_index = historyInodes[inodeIdx].entryIndexes[tempHistoryInodeExtentEntryIndex];
+					
+					uint64_t intersectionStart = MAX(optimizedRangeStart, hc->h_entries[he_index].he_offset);
+					uint64_t intersectionEnd = MIN(optimizedRangeStart + optimizedRangeLength, hc->h_entries[he_index].he_offset + hc->h_entries[he_index].he_length);
+					
+					if (intersectionStart < intersectionEnd) {
+						userspace_optimizations.ssup_hdd_num_reads_already_optimized++;
+						userspace_optimizations.ssup_hdd_bytes_already_optimized += intersectionEnd - intersectionStart; // Bytes that were already in the optimized range, however they got there previously
+					}
+				}
+				
+				// inodeFileMap contains the ranges of the file that we want to include in the playlist
+				struct inode_file_map* inodeFileMap = inodeFileMaps + inodeIdx;
+				historyInodeExtentEntryIndex = 0;
+				
+				DLOG_OFT("inode %llu history post-optimization:", inode);
+				
+				
+				for (int dstreamFileIndex = 0; dstreamFileIndex < inodeFileMap->numDstreams; dstreamFileIndex++) {
+					struct dstream_file_map* dstreamFileMap = inodeFileMap->dstreamFileMaps + dstreamFileIndex;
+					if (dstreamFileMap->numRanges == 0) {
+						DLOG_OFT("inode %llu dstream %llu not in recording", inode, dstreamFileMap->dstreamID);
+						continue;
 					}
 					
-					struct BC_history_entry* he = hc->h_entries + he_index;
-					
-					ASSERT(he->he_inode == inode);
-					ASSERT(he->he_mount_idx == hm_index);
-					
-					uint64_t fileRangeStart = MAX(dstreamFileOffsetForDiskExtent, fileRange->offset);
-					uint64_t fileRangeEnd = MIN(dstreamFileOffsetForDiskExtent + diskExtent->length, fileRange->offset + fileRange->length);
-					uint64_t offsetFromDiskExtentStart = (fileRangeStart - dstreamFileOffsetForDiskExtent);
-					
-					he->he_offset = diskExtent->offset + offsetFromDiskExtentStart;
-					he->he_length = fileRangeEnd - fileRangeStart;
-					if (hm->hm_fs_flags & BC_FS_APFS_ENCRYPTED) {
-						he->he_crypto_offset = diskExtent->cpoff + offsetFromDiskExtentStart;
+					// Find matching dstream from inodeDiskMap
+					struct dstream_disk_map* dstreamDiskMap = NULL;
+					for (int dstreamDiskIndex = 0; dstreamDiskIndex < inodeDiskMap->numDstreams; dstreamDiskIndex++) {
+						if (inodeDiskMap->dstreamDiskMaps[dstreamDiskIndex].dstreamID == dstreamFileMap->dstreamID) {
+							dstreamDiskMap = inodeDiskMap->dstreamDiskMaps + dstreamDiskIndex;
+							break;
+						}
 					}
-					he->he_flags = BC_HE_OPTIMIZED;
-					
-					DLOG_OFT("  entry %d: %#-12llx %#-8llx %#-12llx %5u%s%s from disk %#-12llx file %#-12llx %#-8llx %#-12llx (file range %#llx-%#llx (%#llx bytes) overlap %#llx-%#llx (%#llx bytes))",
-						 he_index,
-						 he->he_offset, he->he_length,
-						 he->he_crypto_offset,
-						 he->he_pid,
-						 he->he_flags & BC_HE_OPTIMIZED ? " optimized" :
-						 he->he_flags & BC_HE_HIT	 ? " hit"	 :
-						 he->he_flags & BC_HE_WRITE  ? " write"  :
-						 he->he_flags & BC_HE_TAG	 ? " tag"	 : " miss",
-						 he->he_flags & BC_HE_SHARED ? " shared" : "",
-						 diskExtent->offset, dstreamFileOffsetForDiskExtent, diskExtent->length, diskExtent->cpoff,
-						 fileRange->offset, fileRange->offset + fileRange->length, fileRange->length,
-						 fileRangeStart, fileRangeEnd, fileRangeEnd - fileRangeStart);
-					
-					if (fileRange->offset + fileRange->length > dstreamFileOffsetForDiskExtent + diskExtent->length) {
-						// This file range needs more data from this dstream, break out of the fileRange loop to iterate to the next dstream extent
-						break;
+					if (!dstreamDiskMap) {
+						DLOG_OFT("inode %llu dstream %llu no longer exists", inode, dstreamFileMap->dstreamID);
+						continue;
 					}
 					
-					// Completed this file range, see if the next one is also satistified by this disk extent
-					for (fileRangeIndex++; fileRangeIndex < dstreamFileMap->numRanges; fileRangeIndex++) {
+					DLOG_OFT(" dstream %llu", dstreamFileMap->dstreamID);
+					
+					// Iterate over the disk extents, keeping track of what file offset we're at (dstreamOffset), and replace the entries to our history for this inode with the new locations of this file
+					uint64_t dstreamFileOffsetForDiskExtent = 0;
+					int fileRangeIndex = 0;
+					struct extent* fileRange = NULL;
+					for (fileRangeIndex = 0; fileRangeIndex < dstreamFileMap->numRanges; fileRangeIndex++) {
 						fileRange = dstreamFileMap->fileRanges + fileRangeIndex;
 						if (fileRange->length != 0) {
 							break;
 						}
 					}
 					if (fileRangeIndex >= dstreamFileMap->numRanges) {
-						break;
+						DLOG_OFT("No recorded extents for dstream %llu", dstreamFileMap->dstreamID);
 					}
+					
+					for (int diskExtentIndex = 0; diskExtentIndex < dstreamDiskMap->numExtents; diskExtentIndex++) {
+						struct extent_with_crypto* diskExtent = dstreamDiskMap->diskExtents + diskExtentIndex;
+						if (diskExtent->length == 0) {
+							continue;
+						}
+						
+						while (fileRange->offset < dstreamFileOffsetForDiskExtent + diskExtent->length) {
+							// We want part of this disk range in our playlist, use the next entry in our history for this inode
+							
+							int he_index;
+							if (historyInodeExtentEntryIndex < historyInodes[inodeIdx].numEntries) {
+								he_index = historyInodes[inodeIdx].entryIndexes[historyInodeExtentEntryIndex];
+								historyInodeExtentEntryIndex++;
+							} else {
+								hc->h_nentries ++;
+								hm->hm_nentries ++;
+								hc->h_entries = reallocf(hc->h_entries, hc->h_nentries * sizeof(*hc->h_entries));
+								ASSERT(hc->h_entries);
+								
+								he_index = hc->h_nentries - 1;
+								
+								hc->h_entries[he_index].he_inode = inode;
+								hc->h_entries[he_index].he_mount_idx = hm_index;
+							}
+							
+							struct BC_history_entry* he = hc->h_entries + he_index;
+							
+							ASSERT(he->he_inode == inode);
+							ASSERT(he->he_mount_idx == hm_index);
+							
+							uint64_t fileRangeStart = MAX(dstreamFileOffsetForDiskExtent, fileRange->offset);
+							uint64_t fileRangeEnd = MIN(dstreamFileOffsetForDiskExtent + diskExtent->length, fileRange->offset + fileRange->length);
+							uint64_t offsetFromDiskExtentStart = (fileRangeStart - dstreamFileOffsetForDiskExtent);
+							
+							he->he_offset = diskExtent->offset + offsetFromDiskExtentStart;
+							he->he_length = fileRangeEnd - fileRangeStart;
+							if (hm->hm_fs_flags & BC_FS_APFS_ENCRYPTED) {
+								he->he_crypto_offset = diskExtent->cpoff + offsetFromDiskExtentStart;
+							}
+							he->he_flags = BC_HE_OPTIMIZED;
+							
+							DLOG_OFT("  entry %d: %#-12llx %#-8llx %#-12llx %5u%s%s from disk %#-12llx file %#-12llx %#-8llx %#-12llx (file range %#llx-%#llx (%#llx bytes) overlap %#llx-%#llx (%#llx bytes))",
+									 he_index,
+									 he->he_offset, he->he_length,
+									 he->he_crypto_offset,
+									 he->he_pid,
+									 he->he_flags & BC_HE_OPTIMIZED ? " optimized" :
+									 he->he_flags & BC_HE_HIT	 ? " hit"	 :
+									 he->he_flags & BC_HE_WRITE  ? " write"  :
+									 he->he_flags & BC_HE_TAG	 ? " tag"	 : " miss",
+									 he->he_flags & BC_HE_SHARED ? " shared" : "",
+									 diskExtent->offset, dstreamFileOffsetForDiskExtent, diskExtent->length, diskExtent->cpoff,
+									 fileRange->offset, fileRange->offset + fileRange->length, fileRange->length,
+									 fileRangeStart, fileRangeEnd, fileRangeEnd - fileRangeStart);
+							
+							if (fileRange->offset + fileRange->length > dstreamFileOffsetForDiskExtent + diskExtent->length) {
+								// This file range needs more data from this dstream, break out of the fileRange loop to iterate to the next dstream extent
+								break;
+							}
+							
+							// Completed this file range, see if the next one is also satistified by this disk extent
+							for (fileRangeIndex++; fileRangeIndex < dstreamFileMap->numRanges; fileRangeIndex++) {
+								fileRange = dstreamFileMap->fileRanges + fileRangeIndex;
+								if (fileRange->length != 0) {
+									break;
+								}
+							}
+							if (fileRangeIndex >= dstreamFileMap->numRanges) {
+								break;
+							}
+						}
+						
+						if (fileRangeIndex >= dstreamFileMap->numRanges) {
+							break;
+						}
+						
+						dstreamFileOffsetForDiskExtent += diskExtent->length;
+					}
+					
 				}
 				
-				if (fileRangeIndex >= dstreamFileMap->numRanges) {
-					break;
-				}
+				BC_inode_disk_map_destroy(inodeDiskMap);
 				
-				dstreamFileOffsetForDiskExtent += diskExtent->length;
+			} else {
+				DLOG("No disk map for inode %llu", inode);
 			}
 			
 		}
 		
-		BC_inode_disk_map_destroy(inodeDiskMap);
-		
 		// Zero-out any remaining history entries we no longer need for this inode
+		uint64_t bytesRemoved = 0;
 		for (int i = historyInodeExtentEntryIndex; i < historyInodes[inodeIdx].numEntries; i++) {
 			int he_index = historyInodes[inodeIdx].entryIndexes[i];
+			bytesRemoved += hc->h_entries[he_index].he_length;
 			hc->h_entries[he_index].he_length = 0;
-
+			
 			DLOG_OFT("  entry %d zero'ed out", he_index);
-
 		}
+		if (historyInodeExtentEntryIndex == 0) {
+			numBytesDropped += bytesRemoved;
+			numInodesDropped ++;
+		}
+	}
+	
+	if (numInodesDropped > 0) {
+		DLOG("%d inodes (%llu bytes) dropped from playlist due to file deleted/moved/error (%d after optimization occurred)", numInodesDropped, numBytesDropped, numInodesDropped - (numInodes - numOptimizedInodes));
 	}
 	
 	for (int inodeIdx = 0; inodeIdx < numInodes; inodeIdx++) {
@@ -2854,7 +2895,7 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 		userspace_optimizations.ssup_hdd_optimization_range_length = highestOptimizedByteAddress - lowestOptimizedByteAddress;
 	}
 	
-	LOG("%llu inodes (%llu bytes) optimized on %s for boot into %#llx-%#llx (%llu bytes) (%.1f%% efficient), this boot had %llu reads (%llu bytes) previously optimized", userspace_optimizations.ssup_fusion_num_inodes_optimized, userspace_optimizations.ssup_fusion_bytes_optimized, uuid_string(hm->hm_uuid), lowestOptimizedByteAddress, highestOptimizedByteAddress, userspace_optimizations.ssup_hdd_optimization_range_length, (userspace_optimizations.ssup_hdd_optimization_range_length != 0) ? ((double)userspace_optimizations.ssup_fusion_bytes_optimized / (double)userspace_optimizations.ssup_hdd_optimization_range_length * 100.0) : 0, userspace_optimizations.ssup_hdd_num_reads_already_optimized, userspace_optimizations.ssup_hdd_bytes_already_optimized);
+	LOG("%llu inodes (%llu bytes) optimized on %s for boot into %#llx-%#llx (%llu bytes) (%.1f%% efficient) (out of %d inodes requested), this boot had %llu reads (%llu bytes) previously optimized", userspace_optimizations.ssup_num_inodes_optimized, userspace_optimizations.ssup_bytes_optimized, uuid_string(hm->hm_uuid), lowestOptimizedByteAddress, highestOptimizedByteAddress, userspace_optimizations.ssup_hdd_optimization_range_length, (userspace_optimizations.ssup_hdd_optimization_range_length != 0) ? ((double)userspace_optimizations.ssup_bytes_optimized / (double)userspace_optimizations.ssup_hdd_optimization_range_length * 100.0) : 0, numOptimizedInodes, userspace_optimizations.ssup_hdd_num_reads_already_optimized, userspace_optimizations.ssup_hdd_bytes_already_optimized);
 	
 	return userspace_optimizations;
 }
@@ -2878,8 +2919,8 @@ BC_optimize_history(struct BC_history * hc)
 	}
 	
 	struct BC_userspace_optimizations userspace_optimizations = {
-		.ssup_fusion_num_inodes_optimized = 0,
-		.ssup_fusion_bytes_optimized = 0,
+		.ssup_num_inodes_optimized = 0,
+		.ssup_bytes_optimized = 0,
 		.ssup_hdd_num_reads_already_optimized = 0,
 		.ssup_hdd_bytes_already_optimized = 0,
 		.ssup_hdd_optimization_range_length = 0,
@@ -3022,8 +3063,8 @@ BC_optimize_history(struct BC_history * hc)
 			userspace_optimizations_mount = BC_optimize_history_mount_hdd(hc, hm_index, mount_name, historyInodes, historyInodesCount);
 		}
 		
-		userspace_optimizations.ssup_fusion_num_inodes_optimized += userspace_optimizations_mount.ssup_fusion_num_inodes_optimized;
-		userspace_optimizations.ssup_fusion_bytes_optimized += userspace_optimizations_mount.ssup_fusion_bytes_optimized;
+		userspace_optimizations.ssup_num_inodes_optimized += userspace_optimizations_mount.ssup_num_inodes_optimized;
+		userspace_optimizations.ssup_bytes_optimized += userspace_optimizations_mount.ssup_bytes_optimized;
 		userspace_optimizations.ssup_hdd_num_reads_already_optimized += userspace_optimizations_mount.ssup_hdd_num_reads_already_optimized;
 		userspace_optimizations.ssup_hdd_bytes_already_optimized += userspace_optimizations_mount.ssup_hdd_bytes_already_optimized;
 		userspace_optimizations.ssup_hdd_optimization_range_length += userspace_optimizations_mount.ssup_hdd_optimization_range_length;
@@ -4549,7 +4590,7 @@ print_string________________________("cache active time", "(still active)");
 	}
 
 	/* optimizations */
-	if (ss->userspace_optimizations.ssup_fusion_num_inodes_optimized > 0) {
+	if (ss->userspace_optimizations.ssup_num_inodes_optimized > 0) {
 print_fp("");
 stat_print_split____________________("reads recorded", history_reads);
 		if (total_stat(history_optimized_reads) > 0) {
@@ -4565,11 +4606,11 @@ stat_print_split_percent____________(" already fusion optimized", history_optimi
 		if (ss->userspace_optimizations.ssup_hdd_bytes_already_optimized > 0) {
 stat_print_nonsharedcache_percent___(" already hdd optimized", ss->userspace_optimizations.ssup_hdd_bytes_already_optimized, nonshared_stat(history_bytes));
 		}
-stat_print_manual___________________("bytes optimized", ss->userspace_optimizations.ssup_fusion_bytes_optimized);
+stat_print_manual___________________("bytes optimized", ss->userspace_optimizations.ssup_bytes_optimized);
 		if (ss->userspace_optimizations.ssup_hdd_optimization_range_length > 0) {
 stat_print_manual___________________("optimization range size", ss->userspace_optimizations.ssup_hdd_optimization_range_length);
 		}
-stat_print_manual___________________("inodes optimized", ss->userspace_optimizations.ssup_fusion_num_inodes_optimized);
+stat_print_manual___________________("inodes optimized", ss->userspace_optimizations.ssup_num_inodes_optimized);
 	}
 
 	/* inbound strategy */

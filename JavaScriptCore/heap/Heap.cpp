@@ -41,7 +41,6 @@
 #include "HeapSnapshot.h"
 #include "HeapVerifier.h"
 #include "IncrementalSweeper.h"
-#include "InferredTypeInlines.h"
 #include "InferredValueInlines.h"
 #include "Interpreter.h"
 #include "IsoCellSetInlines.h"
@@ -85,12 +84,12 @@
 #include <wtf/SimpleStats.h>
 #include <wtf/Threading.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include <bmalloc/bmalloc.h>
 #endif
 
 #if USE(FOUNDATION)
-#include <wtf/spi/cocoa/FoundationSPI.h>
+#include <wtf/spi/cocoa/objcSPI.h>
 #endif
 
 #if USE(GLIB)
@@ -126,7 +125,7 @@ size_t proportionalHeapSize(size_t heapSize, size_t ramSize)
     if (VM::isInMiniMode())
         return Options::miniVMHeapGrowthFactor() * heapSize;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     size_t memoryFootprint = bmalloc::api::memoryFootprint();
     if (memoryFootprint < ramSize * Options::smallHeapRAMFraction())
         return Options::smallHeapGrowthFactor() * heapSize;
@@ -190,7 +189,7 @@ SimpleStats& timingStats(const char* name, CollectionScope scope)
 
 class TimingScope {
 public:
-    TimingScope(std::optional<CollectionScope> scope, const char* name)
+    TimingScope(Optional<CollectionScope> scope, const char* name)
         : m_scope(scope)
         , m_name(name)
     {
@@ -203,7 +202,7 @@ public:
     {
     }
     
-    void setScope(std::optional<CollectionScope> scope)
+    void setScope(Optional<CollectionScope> scope)
     {
         m_scope = scope;
     }
@@ -224,7 +223,7 @@ public:
         }
     }
 private:
-    std::optional<CollectionScope> m_scope;
+    Optional<CollectionScope> m_scope;
     MonotonicTime m_before;
     const char* m_name;
 };
@@ -304,10 +303,10 @@ Heap::Heap(VM* vm, HeapType heapType)
     // schedule the timer if we've never done a collection.
     , m_lastFullGCLength(0.01)
     , m_lastEdenGCLength(0.01)
-    , m_fullActivityCallback(GCActivityCallback::createFullTimer(this))
-    , m_edenActivityCallback(GCActivityCallback::createEdenTimer(this))
-    , m_sweeper(adoptRef(new IncrementalSweeper(this)))
-    , m_stopIfNecessaryTimer(adoptRef(new StopIfNecessaryTimer(vm)))
+    , m_fullActivityCallback(GCActivityCallback::tryCreateFullTimer(this))
+    , m_edenActivityCallback(GCActivityCallback::tryCreateEdenTimer(this))
+    , m_sweeper(adoptRef(*new IncrementalSweeper(this)))
+    , m_stopIfNecessaryTimer(adoptRef(*new StopIfNecessaryTimer(vm)))
     , m_deferralDepth(0)
 #if USE(FOUNDATION)
     , m_delayedReleaseRecursionCount(0)
@@ -515,7 +514,7 @@ void Heap::deprecatedReportExtraMemorySlowCase(size_t size)
 
 bool Heap::overCriticalMemoryThreshold(MemoryThresholdCallType memoryThresholdCallType)
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (memoryThresholdCallType == MemoryThresholdCallType::Direct || ++m_precentAvailableMemoryCachedCallCount >= 100) {
         m_overCriticalMemoryThreshold = bmalloc::api::percentAvailableMemoryInUse() > Options::criticalGCMemoryThreshold();
         m_precentAvailableMemoryCachedCallCount = 0;
@@ -539,7 +538,7 @@ void Heap::reportAbandonedObjectGraph()
     // be more profitable. Since allocation is the trigger for collection, 
     // we hasten the next collection by pretending that we've allocated more memory. 
     if (m_fullActivityCallback) {
-        m_fullActivityCallback->didAllocate(
+        m_fullActivityCallback->didAllocate(*this,
             m_sizeAfterLastCollect - m_sizeAfterLastFullCollect + m_bytesAllocatedThisCycle + m_bytesAbandonedSinceLastFullCollect);
     }
     m_bytesAbandonedSinceLastFullCollect += abandonedBytes;
@@ -586,7 +585,6 @@ void Heap::finalizeMarkedUnconditionalFinalizers(CellSet& cellSet)
 
 void Heap::finalizeUnconditionalFinalizers()
 {
-    finalizeMarkedUnconditionalFinalizers<InferredType>(vm()->inferredTypesWithFinalizers);
     finalizeMarkedUnconditionalFinalizers<InferredValue>(vm()->inferredValuesWithFinalizers);
     vm()->forEachCodeBlockSpace(
         [&] (auto& space) {
@@ -672,7 +670,7 @@ void Heap::gatherStackRoots(ConservativeRoots& roots)
 
 void Heap::gatherJSStackRoots(ConservativeRoots& roots)
 {
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
     m_vm->interpreter->cloopStack().gatherConservativeRoots(roots, *m_jitStubRoutines, *m_codeBlocks);
 #else
     UNUSED_PARAM(roots);
@@ -1121,14 +1119,20 @@ void Heap::collectInCollectorThread()
     }
 }
 
+ALWAYS_INLINE int asInt(CollectorPhase phase)
+{
+    return static_cast<int>(phase);
+}
+
 void Heap::checkConn(GCConductor conn)
 {
+    unsigned worldState = m_worldState.load();
     switch (conn) {
     case GCConductor::Mutator:
-        RELEASE_ASSERT(m_worldState.load() & mutatorHasConnBit);
+        RELEASE_ASSERT(worldState & mutatorHasConnBit, worldState, asInt(m_lastPhase), asInt(m_currentPhase), asInt(m_nextPhase), vm()->id(), VM::numberOfIDs(), vm()->isEntered());
         return;
     case GCConductor::Collector:
-        RELEASE_ASSERT(!(m_worldState.load() & mutatorHasConnBit));
+        RELEASE_ASSERT(!(worldState & mutatorHasConnBit), worldState, asInt(m_lastPhase), asInt(m_currentPhase), asInt(m_nextPhase), vm()->id(), VM::numberOfIDs(), vm()->isEntered());
         return;
     }
     RELEASE_ASSERT_NOT_REACHED();
@@ -1519,6 +1523,7 @@ bool Heap::changePhase(GCConductor conn, CollectorPhase nextPhase)
 {
     checkConn(conn);
 
+    m_lastPhase = m_currentPhase;
     m_nextPhase = nextPhase;
 
     return finishChangingPhase(conn);
@@ -1598,9 +1603,8 @@ void Heap::stopThePeriphery(GCConductor conn)
             && conn == GCConductor::Collector)
             setGCDidJIT();
     }
-#else
-    UNUSED_PARAM(conn);
 #endif // ENABLE(JIT)
+    UNUSED_PARAM(conn);
     
     vm()->shadowChicken().update(*vm(), vm()->topCallFrame);
     
@@ -2187,7 +2191,7 @@ void Heap::notifyIncrementalSweeper()
             m_indexOfNextLogicallyEmptyWeakBlockToSweep = 0;
     }
 
-    m_sweeper->startSweeping();
+    m_sweeper->startSweeping(*this);
 }
 
 void Heap::updateAllocationLimits()
@@ -2266,11 +2270,11 @@ void Heap::updateAllocationLimits()
             dataLog("Eden: maxEdenSize = ", m_maxEdenSize, "\n");
         if (m_fullActivityCallback) {
             ASSERT(currentHeapSize >= m_sizeAfterLastFullCollect);
-            m_fullActivityCallback->didAllocate(currentHeapSize - m_sizeAfterLastFullCollect);
+            m_fullActivityCallback->didAllocate(*this, currentHeapSize - m_sizeAfterLastFullCollect);
         }
     }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     // Get critical memory threshold for next cycle.
     overCriticalMemoryThreshold(MemoryThresholdCallType::Direct);
 #endif
@@ -2307,7 +2311,7 @@ void Heap::didFinishCollection()
 
     RELEASE_ASSERT(m_collectionScope);
     m_lastCollectionScope = m_collectionScope;
-    m_collectionScope = std::nullopt;
+    m_collectionScope = WTF::nullopt;
 
     for (auto* observer : m_observers)
         observer->didGarbageCollect(scope);
@@ -2333,7 +2337,7 @@ GCActivityCallback* Heap::edenActivityCallback()
 
 IncrementalSweeper& Heap::sweeper()
 {
-    return *m_sweeper;
+    return m_sweeper.get();
 }
 
 void Heap::setGarbageCollectionTimerEnabled(bool enable)
@@ -2347,7 +2351,7 @@ void Heap::setGarbageCollectionTimerEnabled(bool enable)
 void Heap::didAllocate(size_t bytes)
 {
     if (m_edenActivityCallback)
-        m_edenActivityCallback->didAllocate(m_bytesAllocatedThisCycle + m_bytesAbandonedSinceLastFullCollect);
+        m_edenActivityCallback->didAllocate(*this, m_bytesAllocatedThisCycle + m_bytesAbandonedSinceLastFullCollect);
     m_bytesAllocatedThisCycle += bytes;
     performIncrement(bytes);
 }
@@ -2562,7 +2566,7 @@ void Heap::collectIfNecessaryOrDefer(GCDeferralContext* deferralContext)
     } else {
         size_t bytesAllowedThisCycle = m_maxEdenSize;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
         if (overCriticalMemoryThreshold())
             bytesAllowedThisCycle = std::min(m_maxEdenSizeWhenCritical, bytesAllowedThisCycle);
 #endif
@@ -2634,12 +2638,23 @@ void Heap::addCoreConstraints()
             
             TimingScope preConvergenceTimingScope(*this, "Constraint: conservative scan");
             m_objectSpace.prepareForConservativeScan();
-            ConservativeRoots conservativeRoots(*this);
-            SuperSamplerScope superSamplerScope(false);
-            gatherStackRoots(conservativeRoots);
-            gatherJSStackRoots(conservativeRoots);
-            gatherScratchBufferRoots(conservativeRoots);
-            slotVisitor.append(conservativeRoots);
+
+            {
+                ConservativeRoots conservativeRoots(*this);
+                SuperSamplerScope superSamplerScope(false);
+
+                gatherStackRoots(conservativeRoots);
+                gatherJSStackRoots(conservativeRoots);
+                gatherScratchBufferRoots(conservativeRoots);
+
+                SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::ConservativeScan);
+                slotVisitor.append(conservativeRoots);
+            }
+            {
+                // JITStubRoutines must be visited after scanning ConservativeRoots since JITStubRoutines depend on the hook executed during gathering ConservativeRoots.
+                SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::JITStubRoutines);
+                m_jitStubRoutines->traceMarkedStubRoutines(slotVisitor);
+            }
             
             lastVersion = m_phaseVersion;
         },
@@ -2648,27 +2663,38 @@ void Heap::addCoreConstraints()
     m_constraintSet->add(
         "Msr", "Misc Small Roots",
         [this] (SlotVisitor& slotVisitor) {
+
 #if JSC_OBJC_API_ENABLED
             scanExternalRememberedSet(*m_vm, slotVisitor);
 #endif
-
-            if (m_vm->smallStrings.needsToBeVisited(*m_collectionScope))
+            if (m_vm->smallStrings.needsToBeVisited(*m_collectionScope)) {
+                SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::StrongReferences);
                 m_vm->smallStrings.visitStrongReferences(slotVisitor);
+            }
             
-            for (auto& pair : m_protectedValues)
-                slotVisitor.appendUnbarriered(pair.key);
+            {
+                SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::ProtectedValues);
+                for (auto& pair : m_protectedValues)
+                    slotVisitor.appendUnbarriered(pair.key);
+            }
             
-            if (m_markListSet && m_markListSet->size())
+            if (m_markListSet && m_markListSet->size()) {
+                SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::ConservativeScan);
                 MarkedArgumentBuffer::markLists(slotVisitor, *m_markListSet);
-            
-            slotVisitor.appendUnbarriered(m_vm->exception());
-            slotVisitor.appendUnbarriered(m_vm->lastException());
+            }
+
+            {
+                SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::VMExceptions);
+                slotVisitor.appendUnbarriered(m_vm->exception());
+                slotVisitor.appendUnbarriered(m_vm->lastException());
+            }
         },
         ConstraintVolatility::GreyedByExecution);
     
     m_constraintSet->add(
         "Sh", "Strong Handles",
         [this] (SlotVisitor& slotVisitor) {
+            SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::StrongHandles);
             m_handleSet.visitStrongHandles(slotVisitor);
         },
         ConstraintVolatility::GreyedByExecution);
@@ -2676,6 +2702,8 @@ void Heap::addCoreConstraints()
     m_constraintSet->add(
         "D", "Debugger",
         [this] (SlotVisitor& slotVisitor) {
+            SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::Debugger);
+
 #if ENABLE(SAMPLING_PROFILER)
             if (SamplingProfiler* samplingProfiler = m_vm->samplingProfiler()) {
                 LockHolder locker(samplingProfiler->getLock());
@@ -2685,7 +2713,7 @@ void Heap::addCoreConstraints()
                     dataLog("Sampling Profiler data:\n", slotVisitor);
             }
 #endif // ENABLE(SAMPLING_PROFILER)
-            
+
             if (m_vm->typeProfiler())
                 m_vm->typeProfilerLog()->visit(slotVisitor);
             
@@ -2694,15 +2722,9 @@ void Heap::addCoreConstraints()
         ConstraintVolatility::GreyedByExecution);
     
     m_constraintSet->add(
-        "Jsr", "JIT Stub Routines",
-        [this] (SlotVisitor& slotVisitor) {
-            m_jitStubRoutines->traceMarkedStubRoutines(slotVisitor);
-        },
-        ConstraintVolatility::GreyedByExecution);
-    
-    m_constraintSet->add(
         "Ws", "Weak Sets",
         [this] (SlotVisitor& slotVisitor) {
+            SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::WeakSets);
             m_objectSpace.visitWeakSets(slotVisitor);
         },
         ConstraintVolatility::GreyedByMarking);
@@ -2711,8 +2733,9 @@ void Heap::addCoreConstraints()
         "O", "Output",
         [] (SlotVisitor& slotVisitor) {
             VM& vm = slotVisitor.vm();
-            
+
             auto callOutputConstraint = [] (SlotVisitor& slotVisitor, HeapCell* heapCell, HeapCell::Kind) {
+                SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::Output);
                 VM& vm = slotVisitor.vm();
                 JSCell* cell = static_cast<JSCell*>(heapCell);
                 cell->methodTable(vm)->visitOutputConstraints(cell, slotVisitor);
@@ -2732,6 +2755,8 @@ void Heap::addCoreConstraints()
     m_constraintSet->add(
         "Dw", "DFG Worklists",
         [this] (SlotVisitor& slotVisitor) {
+            SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::DFGWorkLists);
+
             for (unsigned i = DFG::numberOfWorklists(); i--;)
                 DFG::existingWorklistForIndex(i).visitWeakReferences(slotVisitor);
             
@@ -2752,6 +2777,7 @@ void Heap::addCoreConstraints()
     m_constraintSet->add(
         "Cb", "CodeBlocks",
         [this] (SlotVisitor& slotVisitor) {
+            SetRootMarkReasonScope rootScope(slotVisitor, SlotVisitor::RootMarkReason::CodeBlocks);
             iterateExecutingAndCompilingCodeBlocksWithoutHoldingLocks(
                 [&] (CodeBlock* codeBlock) {
                     // Visit the CodeBlock as a constraint only if it's black.
@@ -2793,7 +2819,7 @@ void Heap::notifyIsSafeToCollect()
                     {
                         LockHolder locker(*m_threadLock);
                         if (m_requests.isEmpty()) {
-                            m_requests.append(std::nullopt);
+                            m_requests.append(WTF::nullopt);
                             m_lastGrantedTicket++;
                             m_threadCondition->notifyOne(locker);
                         }

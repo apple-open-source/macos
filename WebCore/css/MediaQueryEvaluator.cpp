@@ -45,6 +45,7 @@
 #include "PlatformScreen.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
+#include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
 #include "StyleResolver.h"
 #include "Theme.h"
@@ -97,6 +98,15 @@ static bool isViewportDependent(const AtomicString& mediaFeature)
         || mediaFeature == MediaFeatureNames::maxAspectRatio;
 }
 
+static bool isAppearanceDependent(const AtomicString& mediaFeature)
+{
+    return mediaFeature == MediaFeatureNames::prefersDarkInterface
+#if ENABLE(DARK_MODE_CSS)
+        || mediaFeature == MediaFeatureNames::prefersColorScheme
+#endif
+    ;
+}
+
 MediaQueryEvaluator::MediaQueryEvaluator(bool mediaFeatureResult)
     : m_fallbackResult(mediaFeatureResult)
 {
@@ -110,7 +120,7 @@ MediaQueryEvaluator::MediaQueryEvaluator(const String& acceptedMediaType, bool m
 
 MediaQueryEvaluator::MediaQueryEvaluator(const String& acceptedMediaType, const Document& document, const RenderStyle* style)
     : m_mediaType(acceptedMediaType)
-    , m_document(makeWeakPtr(const_cast<Document&>(document)))
+    , m_document(makeWeakPtr(document))
     , m_style(style)
 {
 }
@@ -164,6 +174,8 @@ bool MediaQueryEvaluator::evaluate(const MediaQuerySet& querySet, StyleResolver*
                     styleResolver->addViewportDependentMediaQueryResult(expressions[j], expressionResult);
                 if (styleResolver && isAccessibilitySettingsDependent(expressions[j].mediaFeature()))
                     styleResolver->addAccessibilitySettingsDependentMediaQueryResult(expressions[j], expressionResult);
+                if (styleResolver && isAppearanceDependent(expressions[j].mediaFeature()))
+                    styleResolver->addAppearanceDependentMediaQueryResult(expressions[j], expressionResult);
                 if (!expressionResult)
                     break;
             }
@@ -178,7 +190,7 @@ bool MediaQueryEvaluator::evaluate(const MediaQuerySet& querySet, StyleResolver*
     return result;
 }
 
-bool MediaQueryEvaluator::evaluate(const MediaQuerySet& querySet, Vector<MediaQueryResult>& results) const
+bool MediaQueryEvaluator::evaluate(const MediaQuerySet& querySet, Vector<MediaQueryResult>& viewportDependentResults, Vector<MediaQueryResult>& appearanceDependentResults) const
 {
     auto& queries = querySet.queryVector();
     if (!queries.size())
@@ -197,7 +209,9 @@ bool MediaQueryEvaluator::evaluate(const MediaQuerySet& querySet, Vector<MediaQu
             for (; j < expressions.size(); ++j) {
                 bool expressionResult = evaluate(expressions[j]);
                 if (isViewportDependent(expressions[j].mediaFeature()))
-                    results.append({ expressions[j], expressionResult });
+                    viewportDependentResults.append({ expressions[j], expressionResult });
+                if (isAppearanceDependent(expressions[j].mediaFeature()))
+                    appearanceDependentResults.append({ expressions[j], expressionResult });
                 if (!expressionResult)
                     break;
             }
@@ -241,10 +255,10 @@ static bool compareAspectRatioValue(CSSValue* value, int width, int height, Medi
     return compareValue(width * aspectRatio.denominatorValue(), height * aspectRatio.numeratorValue(), op);
 }
 
-static std::optional<double> doubleValue(CSSValue* value)
+static Optional<double> doubleValue(CSSValue* value)
 {
     if (!is<CSSPrimitiveValue>(value) || !downcast<CSSPrimitiveValue>(*value).isNumber())
-        return std::nullopt;
+        return WTF::nullopt;
     return downcast<CSSPrimitiveValue>(*value).doubleValue(CSSPrimitiveValue::CSS_NUMBER);
 }
 
@@ -712,7 +726,7 @@ static bool anyPointerEvaluate(CSSValue* value, const CSSToLengthConversionData&
 {
     return pointerEvaluate(value, cssToLengthConversionData, frame, prefix);
 }
-    
+
 static bool prefersDarkInterfaceEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame& frame, MediaFeaturePrefix)
 {
     bool prefersDarkInterface = false;
@@ -726,6 +740,33 @@ static bool prefersDarkInterfaceEvaluate(CSSValue* value, const CSSToLengthConve
     return downcast<CSSPrimitiveValue>(*value).valueID() == (prefersDarkInterface ? CSSValuePrefers : CSSValueNoPreference);
 }
 
+#if ENABLE(DARK_MODE_CSS)
+static bool prefersColorSchemeEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame& frame, MediaFeaturePrefix)
+{
+    ASSERT(RuntimeEnabledFeatures::sharedFeatures().darkModeCSSEnabled());
+
+    if (!value)
+        return true;
+
+    if (!is<CSSPrimitiveValue>(value))
+        return false;
+
+    auto keyword = downcast<CSSPrimitiveValue>(*value).valueID();
+    bool useDarkAppearance = frame.page()->useDarkAppearance();
+
+    switch (keyword) {
+    case CSSValueNoPreference:
+        return false;
+    case CSSValueDark:
+        return useDarkAppearance;
+    case CSSValueLight:
+        return !useDarkAppearance;
+    default:
+        return false;
+    }
+}
+#endif
+
 static bool prefersReducedMotionEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame& frame, MediaFeaturePrefix)
 {
     bool userPrefersReducedMotion = false;
@@ -737,7 +778,7 @@ static bool prefersReducedMotionEvaluate(CSSValue* value, const CSSToLengthConve
     case Settings::ForcedAccessibilityValue::Off:
         break;
     case Settings::ForcedAccessibilityValue::System:
-#if USE(NEW_THEME) || PLATFORM(IOS)
+#if USE(NEW_THEME) || PLATFORM(IOS_FAMILY)
         userPrefersReducedMotion = Theme::singleton().userPrefersReducedMotion();
 #endif
         break;
@@ -757,7 +798,7 @@ static bool displayModeEvaluate(CSSValue* value, const CSSToLengthConversionData
 
     auto keyword = downcast<CSSPrimitiveValue>(*value).valueID();
 
-    auto manifest = frame.page() ? frame.page()->applicationManifest() : std::nullopt;
+    auto manifest = frame.page() ? frame.page()->applicationManifest() : WTF::nullopt;
     if (!manifest)
         return keyword == CSSValueBrowser;
 
@@ -787,7 +828,7 @@ bool MediaQueryEvaluator::evaluate(const MediaQueryExpression& expression) const
     if (!m_document)
         return m_fallbackResult;
 
-    Document& document = *m_document;
+    auto& document = *m_document;
     auto* frame = document.frame();
     if (!frame || !frame->view() || !m_style)
         return m_fallbackResult;

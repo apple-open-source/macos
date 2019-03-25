@@ -74,23 +74,23 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         this._checkboxsNavigationItemGroup = new WI.GroupNavigationItem([this._preserveLogNavigationItem, new WI.DividerNavigationItem]);
 
         let scopeBarItems = [
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.All, WI.UIString("All"), true),
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.Errors, WI.UIString("Errors"), false, "errors"),
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.Warnings, WI.UIString("Warnings"), false, "warnings"),
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.Logs, WI.UIString("Logs"), false, "logs"),
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.Infos, WI.UIString("Infos"), false, "infos", true),
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.Debugs, WI.UIString("Debugs"), false, "debugs", true),            
+            new WI.ScopeBarItem(WI.LogContentView.Scopes.All, WI.UIString("All"), {exclusive: true}),
+            new WI.ScopeBarItem(WI.LogContentView.Scopes.Errors, WI.UIString("Errors"), {className: "errors"}),
+            new WI.ScopeBarItem(WI.LogContentView.Scopes.Warnings, WI.UIString("Warnings"), {className: "warnings"}),
+            new WI.ScopeBarItem(WI.LogContentView.Scopes.Logs, WI.UIString("Logs"), {className: "logs"}),
+            new WI.ScopeBarItem(WI.LogContentView.Scopes.Infos, WI.UIString("Infos"), {className: "infos", hidden: true}),
+            new WI.ScopeBarItem(WI.LogContentView.Scopes.Debugs, WI.UIString("Debugs"), {className: "debugs", hidden: true}),
         ];
 
         this._scopeBar = new WI.ScopeBar("log-scope-bar", scopeBarItems, scopeBarItems[0]);
         this._scopeBar.addEventListener(WI.ScopeBar.Event.SelectionChanged, this._scopeBarSelectionDidChange, this);
 
         this._hasNonDefaultLogChannelMessage = false;
-        if (WI.LogManager.supportsLogChannels()) {
+        if (WI.ConsoleManager.supportsLogChannels()) {
             let messageChannelBarItems = [
-                new WI.ScopeBarItem(WI.LogContentView.Scopes.AllChannels, WI.UIString("All"), true),
-                new WI.ScopeBarItem(WI.LogContentView.Scopes.Media, WI.UIString("Media"), false, "media"),
-                new WI.ScopeBarItem(WI.LogContentView.Scopes.WebRTC, WI.UIString("WebRTC"), false, "webrtc")
+                new WI.ScopeBarItem(WI.LogContentView.Scopes.AllChannels, WI.UIString("All"), {exclusive: true}),
+                new WI.ScopeBarItem(WI.LogContentView.Scopes.Media, WI.UIString("Media"), {className: "media"}),
+                new WI.ScopeBarItem(WI.LogContentView.Scopes.WebRTC, WI.UIString("WebRTC"), {className: "webrtc"}),
             ];
 
             this._messageSourceBar = new WI.ScopeBar("message-channel-scope-bar", messageChannelBarItems, messageChannelBarItems[0]);
@@ -111,10 +111,10 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
         this.messagesElement.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this), false);
 
-        WI.logManager.addEventListener(WI.LogManager.Event.SessionStarted, this._sessionStarted, this);
-        WI.logManager.addEventListener(WI.LogManager.Event.MessageAdded, this._messageAdded, this);
-        WI.logManager.addEventListener(WI.LogManager.Event.PreviousMessageRepeatCountUpdated, this._previousMessageRepeatCountUpdated, this);
-        WI.logManager.addEventListener(WI.LogManager.Event.Cleared, this._logCleared, this);
+        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.SessionStarted, this._sessionStarted, this);
+        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.MessageAdded, this._messageAdded, this);
+        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.PreviousMessageRepeatCountUpdated, this._previousMessageRepeatCountUpdated, this);
+        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.Cleared, this._logCleared, this);
 
         WI.Frame.addEventListener(WI.Frame.Event.ProvisionalLoadStarted, this._provisionalLoadStarted, this);
     }
@@ -128,7 +128,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         if (this._hasNonDefaultLogChannelMessage && this._messageSourceBar)
             navigationItems.push(this._messageSourceBar, new WI.DividerNavigationItem);
 
-        if (HeapAgent.gc)
+        if (window.HeapAgent && HeapAgent.gc)
             navigationItems.push(this._garbageCollectNavigationItem);
 
         navigationItems.push(this._clearLogNavigationItem);
@@ -422,7 +422,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         if (this._startedProvisionalLoad)
             this._provisionalMessages.push(message);
 
-        if (!this._hasNonDefaultLogChannelMessage && WI.logManager.logChannelSources.includes(message.source)) {
+        if (!this._hasNonDefaultLogChannelMessage && WI.consoleManager.logChannelSources.includes(message.source)) {
             this._hasNonDefaultLogChannelMessage = true;
             this.dispatchEventToListeners(WI.ContentView.Event.NavigationItemsDidChange);
             this._scopeBar.item(WI.LogContentView.Scopes.Infos).hidden = false;
@@ -472,7 +472,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
             contextMenu.appendItem(WI.UIString("Save Selected"), () => {
                 const forceSaveAs = true;
-                WI.saveDataToFile({
+                WI.FileUtilities.save({
                     url: "web-inspector:///Console.txt",
                     content: this._formatMessagesAsData(true),
                 }, forceSaveAs);
@@ -774,7 +774,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
     _clearLog()
     {
-        WI.logManager.requestClearMessages();
+        WI.consoleManager.requestClearMessages();
     }
 
     _garbageCollect()

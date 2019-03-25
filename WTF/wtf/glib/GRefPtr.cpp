@@ -17,7 +17,7 @@
  */
 
 #include "config.h"
-#include "GRefPtr.h"
+#include <wtf/glib/GRefPtr.h>
 
 #if USE(GLIB)
 
@@ -154,6 +154,19 @@ template <> void derefGPtr(GClosure* ptr)
 {
     if (ptr)
         g_closure_unref(ptr);
+}
+
+template <> GRegex* refGPtr(GRegex* ptr)
+{
+    if (ptr)
+        g_regex_ref(ptr);
+    return ptr;
+}
+
+template <> void derefGPtr(GRegex* ptr)
+{
+    if (ptr)
+        g_regex_unref(ptr);
 }
 
 } // namespace WTF

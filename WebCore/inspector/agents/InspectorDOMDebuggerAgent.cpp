@@ -32,10 +32,12 @@
 #include "config.h"
 #include "InspectorDOMDebuggerAgent.h"
 
+#include "Event.h"
 #include "Frame.h"
 #include "HTMLElement.h"
 #include "InspectorDOMAgent.h"
 #include "InstrumentingAgents.h"
+#include "RegisteredEventListener.h"
 #include <JavaScriptCore/ContentSearchUtilities.h>
 #include <JavaScriptCore/InspectorFrontendDispatchers.h>
 #include <JavaScriptCore/RegularExpression.h>
@@ -49,9 +51,6 @@ enum DOMBreakpointType {
     NodeRemoved,
     DOMBreakpointTypesCount
 };
-
-static const char listenerEventCategoryType[] = "listener:";
-static const char instrumentationEventCategoryType[] = "instrumentation:";
 
 const uint32_t inheritableDOMBreakpointTypesMask = (1 << SubtreeModified);
 const int domBreakpointDerivedTypeShift = 16;
@@ -124,44 +123,46 @@ void InspectorDOMDebuggerAgent::discardBindings()
     m_xhrBreakpoints.clear();
 }
 
-void InspectorDOMDebuggerAgent::setEventListenerBreakpoint(ErrorString& error, const String& eventName)
+void InspectorDOMDebuggerAgent::setEventBreakpoint(ErrorString& error, const String& breakpointTypeString, const String& eventName)
 {
-    setBreakpoint(error, listenerEventCategoryType + eventName);
-}
+    if (breakpointTypeString.isEmpty()) {
+        error = "Event breakpoint type is empty"_s;
+        return;
+    }
 
-void InspectorDOMDebuggerAgent::setInstrumentationBreakpoint(ErrorString& error, const String& eventName)
-{
-    setBreakpoint(error, instrumentationEventCategoryType + eventName);
-}
+    auto breakpointType = Inspector::Protocol::InspectorHelpers::parseEnumValueFromString<Inspector::Protocol::DOMDebugger::EventBreakpointType>(breakpointTypeString);
+    if (!breakpointType) {
+        error = makeString("Unknown event breakpoint type: "_s, breakpointTypeString);
+        return;
+    }
 
-void InspectorDOMDebuggerAgent::setBreakpoint(ErrorString& error, const String& eventName)
-{
     if (eventName.isEmpty()) {
         error = "Event name is empty"_s;
         return;
     }
 
-    m_eventListenerBreakpoints.add(eventName);
+    m_eventBreakpoints.add(std::make_pair(*breakpointType, eventName));
 }
 
-void InspectorDOMDebuggerAgent::removeEventListenerBreakpoint(ErrorString& error, const String& eventName)
+void InspectorDOMDebuggerAgent::removeEventBreakpoint(ErrorString& error, const String& breakpointTypeString, const String& eventName)
 {
-    removeBreakpoint(error, listenerEventCategoryType + eventName);
-}
+    if (breakpointTypeString.isEmpty()) {
+        error = "Event breakpoint type is empty"_s;
+        return;
+    }
 
-void InspectorDOMDebuggerAgent::removeInstrumentationBreakpoint(ErrorString& error, const String& eventName)
-{
-    removeBreakpoint(error, instrumentationEventCategoryType + eventName);
-}
+    auto breakpointType = Inspector::Protocol::InspectorHelpers::parseEnumValueFromString<Inspector::Protocol::DOMDebugger::EventBreakpointType>(breakpointTypeString);
+    if (!breakpointType) {
+        error = makeString("Unknown event breakpoint type: "_s, breakpointTypeString);
+        return;
+    }
 
-void InspectorDOMDebuggerAgent::removeBreakpoint(ErrorString& error, const String& eventName)
-{
     if (eventName.isEmpty()) {
         error = "Event name is empty"_s;
         return;
     }
 
-    m_eventListenerBreakpoints.remove(eventName);
+    m_eventBreakpoints.remove(std::make_pair(*breakpointType, eventName));
 }
 
 void InspectorDOMDebuggerAgent::didInvalidateStyleAttr(Node& node)
@@ -362,21 +363,49 @@ void InspectorDOMDebuggerAgent::updateSubtreeBreakpoints(Node* node, uint32_t ro
         updateSubtreeBreakpoints(child, newRootMask, set);
 }
 
-void InspectorDOMDebuggerAgent::pauseOnNativeEventIfNeeded(bool isDOMEvent, const String& eventName, bool synchronous)
+void InspectorDOMDebuggerAgent::willHandleEvent(const Event& event, const RegisteredEventListener& registeredEventListener)
 {
-    String fullEventName = (isDOMEvent ? listenerEventCategoryType : instrumentationEventCategoryType) + eventName;
+    bool shouldPause = m_debuggerAgent->pauseOnNextStatementEnabled() || m_eventBreakpoints.contains(std::make_pair(Inspector::Protocol::DOMDebugger::EventBreakpointType::Listener, event.type()));
 
-    bool shouldPause = m_debuggerAgent->pauseOnNextStatementEnabled() || m_eventListenerBreakpoints.contains(fullEventName);
+    if (!shouldPause && m_domAgent)
+        shouldPause = m_domAgent->hasBreakpointForEventListener(*event.currentTarget(), event.type(), registeredEventListener.callback(), registeredEventListener.useCapture());
+
     if (!shouldPause)
         return;
 
     Ref<JSON::Object> eventData = JSON::Object::create();
-    eventData->setString("eventName"_s, fullEventName);
+    eventData->setString("eventName"_s, event.type());
+    if (m_domAgent) {
+        int eventListenerId = m_domAgent->idForEventListener(*event.currentTarget(), event.type(), registeredEventListener.callback(), registeredEventListener.useCapture());
+        if (eventListenerId)
+            eventData->setInteger("eventListenerId"_s, eventListenerId);
+    }
 
-    if (synchronous)
-        m_debuggerAgent->breakProgram(Inspector::DebuggerFrontendDispatcher::Reason::EventListener, WTFMove(eventData));
-    else
-        m_debuggerAgent->schedulePauseOnNextStatement(Inspector::DebuggerFrontendDispatcher::Reason::EventListener, WTFMove(eventData));
+    m_debuggerAgent->schedulePauseOnNextStatement(Inspector::DebuggerFrontendDispatcher::Reason::EventListener, WTFMove(eventData));
+}
+
+void InspectorDOMDebuggerAgent::willFireTimer(bool oneShot)
+{
+    String eventName = oneShot ? "setTimeout"_s : "setInterval"_s;
+    bool shouldPause = m_debuggerAgent->pauseOnNextStatementEnabled() || m_eventBreakpoints.contains(std::make_pair(Inspector::Protocol::DOMDebugger::EventBreakpointType::Timer, eventName));
+    if (!shouldPause)
+        return;
+
+    Ref<JSON::Object> eventData = JSON::Object::create();
+    eventData->setString("eventName"_s, eventName);
+    m_debuggerAgent->schedulePauseOnNextStatement(Inspector::DebuggerFrontendDispatcher::Reason::Timer, WTFMove(eventData));
+}
+
+void InspectorDOMDebuggerAgent::willFireAnimationFrame()
+{
+    String eventName = "requestAnimationFrame"_s;
+    bool shouldPause = m_debuggerAgent->pauseOnNextStatementEnabled() || m_eventBreakpoints.contains(std::make_pair(Inspector::Protocol::DOMDebugger::EventBreakpointType::AnimationFrame, eventName));
+    if (!shouldPause)
+        return;
+
+    Ref<JSON::Object> eventData = JSON::Object::create();
+    eventData->setString("eventName"_s, eventName);
+    m_debuggerAgent->schedulePauseOnNextStatement(Inspector::DebuggerFrontendDispatcher::Reason::AnimationFrame, WTFMove(eventData));
 }
 
 void InspectorDOMDebuggerAgent::setXHRBreakpoint(ErrorString&, const String& url, const bool* optionalIsRegex)

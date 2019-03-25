@@ -97,9 +97,8 @@
 #import <WebCore/MediaPlaybackTargetMock.h>
 #endif
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 void WebPage::platformInitialize()
 {
@@ -112,12 +111,20 @@ void WebPage::platformInitialize()
     if ([mockAccessibilityElement respondsToSelector:@selector(accessibilitySetPresenterProcessIdentifier:)])
         [(id)mockAccessibilityElement accessibilitySetPresenterProcessIdentifier:pid];
     [mockAccessibilityElement setWebPage:this];
-
-    // send data back over
-    NSData* remoteToken = [NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:mockAccessibilityElement];
-    IPC::DataReference dataToken = IPC::DataReference(reinterpret_cast<const uint8_t*>([remoteToken bytes]), [remoteToken length]);
-    send(Messages::WebPageProxy::RegisterWebProcessAccessibilityToken(dataToken));
     m_mockAccessibilityElement = mockAccessibilityElement;
+
+    accessibilityTransferRemoteToken(accessibilityRemoteTokenData());
+}
+
+void WebPage::platformReinitialize()
+{
+    accessibilityTransferRemoteToken(accessibilityRemoteTokenData());
+}
+
+RetainPtr<NSData> WebPage::accessibilityRemoteTokenData() const
+{
+    ASSERT(m_mockAccessibilityElement);
+    return [NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:m_mockAccessibilityElement.get()];
 }
 
 void WebPage::platformDetach()
@@ -152,11 +159,11 @@ void WebPage::platformEditorState(Frame& frame, EditorState& result, IncludePost
     Vector<FloatQuad> quads;
     selectedRange->absoluteTextQuads(quads);
     if (!quads.isEmpty())
-        postLayoutData.selectionClipRect = frame.view()->contentsToWindow(quads[0].enclosingBoundingBox());
+        postLayoutData.focusedElementRect = frame.view()->contentsToWindow(quads[0].enclosingBoundingBox());
     else {
         // Range::absoluteTextQuads() will be empty at the start of a paragraph.
         if (selection.isCaret())
-            postLayoutData.selectionClipRect = frame.view()->contentsToWindow(frame.selection().absoluteCaretBounds());
+            postLayoutData.focusedElementRect = frame.view()->contentsToWindow(frame.selection().absoluteCaretBounds());
     }
 }
 
@@ -390,99 +397,7 @@ void WebPage::fontAtSelection(CallbackID callbackID)
     send(Messages::WebPageProxy::FontAtSelectionCallback(fontName, fontSize, selectionHasMultipleFonts, callbackID));
 }
     
-void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
-{
-    if (auto* pluginView = pluginViewForFrame(&m_page->mainFrame())) {
-        if (pluginView->performDictionaryLookupAtLocation(floatPoint))
-            return;
-    }
 
-    // Find the frame the point is over.
-    HitTestResult result = m_page->mainFrame().eventHandler().hitTestResultAtPoint(m_page->mainFrame().view()->windowToContents(roundedIntPoint(floatPoint)));
-    NSDictionary *options = nil;
-    auto range = DictionaryLookup::rangeAtHitTestResult(result, &options);
-    if (!range)
-        return;
-
-    auto* frame = result.innerNonSharedNode() ? result.innerNonSharedNode()->document().frame() : &m_page->focusController().focusedOrMainFrame();
-    if (!frame)
-        return;
-
-    performDictionaryLookupForRange(*frame, *range, options, TextIndicatorPresentationTransition::Bounce);
-}
-
-void WebPage::performDictionaryLookupForSelection(Frame& frame, const VisibleSelection& selection, TextIndicatorPresentationTransition presentationTransition)
-{
-    NSDictionary *options = nil;
-    if (auto selectedRange = DictionaryLookup::rangeForSelection(selection, &options))
-        performDictionaryLookupForRange(frame, *selectedRange, options, presentationTransition);
-}
-
-void WebPage::performDictionaryLookupOfCurrentSelection()
-{
-    auto& frame = m_page->focusController().focusedOrMainFrame();
-    performDictionaryLookupForSelection(frame, frame.selection().selection(), TextIndicatorPresentationTransition::BounceAndCrossfade);
-}
-
-DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(Frame& frame, Range& range, NSDictionary *options, TextIndicatorPresentationTransition presentationTransition)
-{
-    Editor& editor = frame.editor();
-    editor.setIsGettingDictionaryPopupInfo(true);
-
-    DictionaryPopupInfo dictionaryPopupInfo;
-    if (range.text().stripWhiteSpace().isEmpty()) {
-        editor.setIsGettingDictionaryPopupInfo(false);
-        return dictionaryPopupInfo;
-    }
-
-    Vector<FloatQuad> quads;
-    range.absoluteTextQuads(quads);
-    if (quads.isEmpty()) {
-        editor.setIsGettingDictionaryPopupInfo(false);
-        return dictionaryPopupInfo;
-    }
-
-    IntRect rangeRect = frame.view()->contentsToWindow(quads[0].enclosingBoundingBox());
-
-    const RenderStyle* style = range.startContainer().renderStyle();
-    float scaledAscent = style ? style->fontMetrics().ascent() * pageScaleFactor() : 0;
-    dictionaryPopupInfo.origin = FloatPoint(rangeRect.x(), rangeRect.y() + scaledAscent);
-    dictionaryPopupInfo.options = options;
-
-    NSAttributedString *nsAttributedString = editingAttributedStringFromRange(range, IncludeImagesInAttributedString::No);
-
-    RetainPtr<NSMutableAttributedString> scaledNSAttributedString = adoptNS([[NSMutableAttributedString alloc] initWithString:[nsAttributedString string]]);
-
-    NSFontManager *fontManager = [NSFontManager sharedFontManager];
-
-    [nsAttributedString enumerateAttributesInRange:NSMakeRange(0, [nsAttributedString length]) options:0 usingBlock:^(NSDictionary *attributes, NSRange range, BOOL *stop) {
-        RetainPtr<NSMutableDictionary> scaledAttributes = adoptNS([attributes mutableCopy]);
-
-        NSFont *font = [scaledAttributes objectForKey:NSFontAttributeName];
-        if (font) {
-            font = [fontManager convertFont:font toSize:[font pointSize] * pageScaleFactor()];
-            [scaledAttributes setObject:font forKey:NSFontAttributeName];
-        }
-
-        [scaledNSAttributedString addAttributes:scaledAttributes.get() range:range];
-    }];
-
-    TextIndicatorOptions indicatorOptions = TextIndicatorOptionUseBoundingRectAndPaintAllContentForComplexRanges;
-    if (presentationTransition == TextIndicatorPresentationTransition::BounceAndCrossfade)
-        indicatorOptions |= TextIndicatorOptionIncludeSnapshotWithSelectionHighlight;
-
-    RefPtr<TextIndicator> textIndicator = TextIndicator::createWithRange(range, indicatorOptions, presentationTransition);
-    if (!textIndicator) {
-        editor.setIsGettingDictionaryPopupInfo(false);
-        return dictionaryPopupInfo;
-    }
-
-    dictionaryPopupInfo.textIndicator = textIndicator->data();
-    dictionaryPopupInfo.attributedString = scaledNSAttributedString;
-
-    editor.setIsGettingDictionaryPopupInfo(false);
-    return dictionaryPopupInfo;
-}
 
 #if ENABLE(PDFKIT_PLUGIN)
 
@@ -518,13 +433,8 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForSelectionInPDFPlugin(PDFSelec
         [scaledNSAttributedString addAttributes:scaledAttributes.get() range:range];
     }];
 
-    // Based on TextIndicator implementation:
-    // TODO(144307): Come up with a better way to share this information than duplicating these values.
-    CGFloat verticalMargin = 2.5;
-    CGFloat horizontalMargin = 0.5;
-
-    rangeRect.origin.y -= CGCeiling(rangeRect.size.height - maxAscender - std::abs(maxDescender) + verticalMargin * scaleFactor);
-    rangeRect.origin.x += CGFloor(horizontalMargin * scaleFactor);
+    rangeRect.size.height = nsAttributedString.size.height * scaleFactor;
+    rangeRect.size.width = nsAttributedString.size.width * scaleFactor;
     
     TextIndicatorData dataForSelection;
     dataForSelection.selectionRectInRootViewCoordinates = rangeRect;
@@ -541,11 +451,6 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForSelectionInPDFPlugin(PDFSelec
 }
 
 #endif
-
-void WebPage::performDictionaryLookupForRange(Frame& frame, Range& range, NSDictionary *options, TextIndicatorPresentationTransition presentationTransition)
-{
-    send(Messages::WebPageProxy::DidPerformDictionaryLookup(dictionaryPopupInfoForRange(frame, range, options, presentationTransition)));
-}
 
 bool WebPage::performNonEditingBehaviorForSelector(const String& selector, KeyboardEvent* event)
 {
@@ -816,11 +721,10 @@ static void drawPDFPage(PDFDocument *pdfDocument, CFIndex pageIndex, CGContextRe
     }
 
     [NSGraphicsContext saveGraphicsState];
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithGraphicsPort:context flipped:NO]];
     [pdfPage drawWithBox:kPDFDisplayBoxCropBox];
-#pragma clang diagnostic pop
+    ALLOW_DEPRECATED_DECLARATIONS_END
     [NSGraphicsContext restoreGraphicsState];
 
     CGAffineTransform transform = CGContextGetCTM(context);
@@ -829,10 +733,9 @@ static void drawPDFPage(PDFDocument *pdfDocument, CFIndex pageIndex, CGContextRe
         if (![annotation isKindOfClass:pdfAnnotationLinkClass()])
             continue;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         PDFAnnotationLink *linkAnnotation = (PDFAnnotationLink *)annotation;
-#pragma clang diagnostic pop
+        ALLOW_DEPRECATED_DECLARATIONS_END
         NSURL *url = [linkAnnotation URL];
         if (!url)
             continue;
@@ -1052,9 +955,7 @@ std::tuple<RefPtr<WebCore::Range>, NSDictionary *> WebPage::lookupTextAtLocation
 
     auto point = roundedIntPoint(locationInViewCoordinates);
     auto result = mainFrame.eventHandler().hitTestResultAtPoint(m_page->mainFrame().view()->windowToContents(point));
-    NSDictionary *options = nil;
-    auto range = DictionaryLookup::rangeAtHitTestResult(result, &options);
-    return { WTFMove(range), WTFMove(options) };
+    return DictionaryLookup::rangeAtHitTestResult(result);
 }
 
 void WebPage::immediateActionDidUpdate()
@@ -1114,13 +1015,7 @@ void WebPage::dataDetectorsDidHideUI(PageOverlay::PageOverlayID overlayID)
     }
 }
 
-void WebPage::setFont(const String& fontFamily, double fontSize, uint64_t fontTraits)
-{
-    Frame& frame = m_page->focusController().focusedOrMainFrame();
-    frame.editor().applyFontStyles(fontFamily, fontSize, fontTraits);
-}
-
-#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
 void WebPage::playbackTargetSelected(uint64_t contextId, const WebCore::MediaPlaybackTargetContext& targetContext) const
 {
     switch (targetContext.type()) {

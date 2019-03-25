@@ -735,13 +735,27 @@ int32_t xar_stat_extract(xar_t x, xar_file_t f, const char *file, char *buffer, 
 	}
 	if(opt && (strcmp(opt, "directory") == 0)) {
 		ret = mkdir(file, 0700);
-		if( (ret != 0) && (errno != EEXIST) ) {
+
+		if( (ret != 0) && (errno != EEXIST)) {
 			xar_err_new(x);
 			xar_err_set_file(x, f);
 			xar_err_set_string(x, "stat: Could not create directory");
 			xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
 			return ret;
 		}
+		
+		if (errno == EEXIST) {
+			struct stat statdata;
+			if (lstat(file, &statdata) != 0 || (statdata.st_mode & S_IFDIR) == 0)
+			{
+				xar_err_new(x);
+				xar_err_set_file(x, f);
+				xar_err_set_string(x, "stat: Could not create directory because overwriting file is not a directory");
+				xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
+				return EINVAL;
+			}
+		}
+		
 		return 0;
 	}
 	if(opt && (strcmp(opt, "symlink") == 0)) {
