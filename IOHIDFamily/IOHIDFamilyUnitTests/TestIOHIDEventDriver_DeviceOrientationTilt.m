@@ -56,7 +56,7 @@
     HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
                                 result == XCTWaiterResultCompleted,
                                 "result:%ld %@",
-                                result,
+                                (long)result,
                                 self.testServiceExpectation);
 
     HIDDisplayOrientationTiltInputReport01 report;
@@ -180,7 +180,7 @@
 
 -(IOReturn)userDeviceGetReportHandler: (IOHIDReportType)type :(uint32_t)reportID :(uint8_t *)report :(NSUInteger *) length
 {
-    NSLog(@"userDeviceGetReportHandler:%d :%d :%p :%ld", type, reportID, report, *length);
+    NSLog(@"userDeviceGetReportHandler:%d :%d :%p :%lu", type, reportID, report, (unsigned long)*length);
     
     if (*length < sizeof (HIDDisplayOrientationTiltInputReport01) || reportID != 1 || type != kIOHIDReportTypeInput) {
 

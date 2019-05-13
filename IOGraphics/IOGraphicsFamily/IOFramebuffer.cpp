@@ -393,6 +393,9 @@ public:
     int32_t                      fLastMessagedChange;
     int32_t                      fLastFinishedChange;
     int32_t                      fPostWakeChange;
+    bool                         fConnectChangeForMux;
+    bool                         fMuxNeedsBgOn;
+    bool                         fMuxNeedsBgOff;
 
     uint8_t                      fState;
 
@@ -448,8 +451,6 @@ public:
     // controller work loop (this->fWl) APIs
     void startThread();
     void didWork(IOOptionBits work);
-    IOReturn processConnectChange(IOOptionBits mode);
-    IOReturn matchOnlineFramebuffers();
     void asyncWork(IOInterruptEventSource *, int);
     IOOptionBits checkPowerWork(IOOptionBits state);
     IOOptionBits checkConnectionWork(IOOptionBits state);
@@ -615,6 +616,7 @@ struct IOFramebufferPrivate
     int32_t                     lastProcessedChange;
 
     uint32_t                    wsaaState;
+    IOReturn                    lastWSAAStatus;
 
     uint32_t                    fAPIState;
 
@@ -1290,7 +1292,7 @@ public:
 // IOFBController computed states
 enum {
     kIOFBDidWork 			 = 0x00000001,
-    kIOFBWorking  			 = 0x00000002,
+//    kIOFBWorking               = 0x00000002,
     kIOFBPaging   			 = 0x00000004,
     kIOFBWsWait   			 = 0x00000008,
     kIOFBDimmed   			 = 0x00000010,
@@ -1535,7 +1537,7 @@ uint32_t IOFBController::computeState()
 
         if (fDidWork & ~kWorkStateChange)
         {
-            fAsyncWork = false;
+            fAsyncWork = 0;
 
             FOREACH_FRAMEBUFFER(fb)
             {
@@ -1575,7 +1577,7 @@ uint32_t IOFBController::computeState()
                     messageConnectionChange();
                 }
             }
-        }
+        } // fDidWork & ~kWorkStateChange
 
         state = 0;
         if (fWsWait)
@@ -1606,7 +1608,7 @@ uint32_t IOFBController::computeState()
         }
 
         fComputedState = state;
-        fDidWork = false;
+        fDidWork = 0;
         state |= kIOFBDidWork;
     }
 
@@ -1656,38 +1658,6 @@ void IOFBController::didWork(IOOptionBits work)
     IOFBC_END(didWork,0,0,0);
 }
 
-
-IOReturn IOFBController::processConnectChange(IOOptionBits mode)
-{
-    IOFBC_START(processConnectChange,mode,0,0);
-    FCASSERTGATED(this);
-
-    IOFramebuffer *fb;
-    FOREACH_FRAMEBUFFER(fb)
-    {
-        fb->processConnectChange(mode);
-    }
-
-    IOFBC_END(processConnectChange,kIOReturnSuccess,0,0);
-    return (kIOReturnSuccess);
-}
-
-IOReturn IOFBController::matchOnlineFramebuffers()
-{
-    IOFBC_START(matchOnlineFramebuffers,0,0,0);
-    FCASSERTGATED(this);
-
-    IOFramebuffer *fb;
-    FOREACH_FRAMEBUFFER(fb)
-    {
-        if (!fb->__private->online)
-            continue;
-        fb->matchFramebuffer();
-    }
-    IOFBC_END(matchOnlineFramebuffers,kIOReturnSuccess,0,0);
-    return (kIOReturnSuccess);
-}
-
 void IOFBController::asyncWork(IOInterruptEventSource * evtSrc, int intCount)
 {
     IOFBC_START(asyncWork,intCount,0,0);
@@ -1696,9 +1666,11 @@ void IOFBController::asyncWork(IOInterruptEventSource * evtSrc, int intCount)
     uint32_t work = fAsyncWork;
     IOFramebuffer *fb;
 
-    fAsyncWork = true;
+    fAsyncWork = kWorkStateChange;
 
     DEBG1(fName, " (%d)\n", work);
+    IOG_KTRACE_NT(DBG_IOG_ASYNC_WORK, DBG_FUNC_START,
+        fFbs[0]->__private->regID, work, fDidWork, 0);
 
     if (kWorkPower & work)
     {
@@ -1723,12 +1695,21 @@ void IOFBController::asyncWork(IOInterruptEventSource * evtSrc, int intCount)
             FB_END(setAttributeForConnection,0,__LINE__,0);
         }
 
-        processConnectChange(bg);
+        FOREACH_FRAMEBUFFER(fb)
+        {
+            fb->processConnectChange(bg);
+        }
+
         if (fOnlineMask)
-            matchOnlineFramebuffers();
+        {
+            FOREACH_FRAMEBUFFER(fb)
+            {
+                if (fb->__private->online)
+                    fb->matchFramebuffer();
+            }
+        }
         else
         {
-            DEBG1(fName, " bg offline\n");
             fLastFinishedChange = fConnectChange;
         }
 
@@ -1741,6 +1722,9 @@ void IOFBController::asyncWork(IOInterruptEventSource * evtSrc, int intCount)
 
         didWork(kWorkSuspend);
     }
+
+    IOG_KTRACE_NT(DBG_IOG_ASYNC_WORK, DBG_FUNC_END,
+        fFbs[0]->__private->regID, fAsyncWork, fDidWork, 0);
     IOFBC_END(asyncWork,0,0,0);
 }
 
@@ -1817,26 +1801,26 @@ IOOptionBits IOFBController::checkConnectionWork(IOOptionBits state)
                     DEBG1(fb->thisName, " kIODPEventForceRetrain(0x%x)\n", err);
                 }
             }
+
+            const auto c1 =
+                GPACKUINT16T(0, fConnectChange) |
+                GPACKUINT16T(1, fLastForceRetrain) |
+                0;
+            const auto c2 =
+                GPACKUINT32T(0, fOnlineMask) |
+                GPACKBIT(63, isMuted()) |
+                0;
+            IOG_KTRACE_NT(DBG_IOG_CAPTURED_RETRAIN, DBG_FUNC_NONE,
+                fFbs[0]->__private->regID, c1, c2, 0);
         }
         IOFBC_END(checkConnectionWork,state,__LINE__,0);
         return (state);
     }
 
-    if (gIOGraphicsControl
-    && (0 != fAliasID)
-    && (fFbs[0]->__private->lastProcessedChange != fConnectChange)
-    && !fAsyncWork)
+    if (fMuxNeedsBgOn || fMuxNeedsBgOff)
     {
-        bool needAsync = false;
-        if (!fOnlineMask && fLastFinishedChange == fConnectChange)
+        if (fMuxNeedsBgOn)
         {
-            // bgOff
-            needAsync = true;
-        }
-        else if (!fOnlineMask && !isMuted()
-             && fConnectChange != fPostWakeChange)
-        {
-            // bgOn
             IOFBController *oldController = alias(__FUNCTION__);
             if (oldController)
             {
@@ -1850,19 +1834,30 @@ IOOptionBits IOFBController::checkConnectionWork(IOOptionBits state)
                     if (!oldfb || !fb->copyDisplayConfig(oldfb))
                         break;
                 }
-                needAsync = true;
             }
         }
 
-        if (needAsync)
+        const auto c1 =
+            GPACKUINT16T(0, fConnectChange) |
+            GPACKUINT16T(1, fFbs[0]->__private->lastProcessedChange) |
+            GPACKUINT16T(2, fLastFinishedChange) |
+            GPACKUINT16T(3, fPostWakeChange);
+        const auto c2 =
+            GPACKBIT(63, isMuted()) |
+            GPACKBIT(62, 1) |
+            GPACKBIT(61, fMuxNeedsBgOn) |
+            GPACKBIT(60, fMuxNeedsBgOff);
+        IOG_KTRACE_NT(DBG_IOG_CONNECT_WORK_ASYNC, DBG_FUNC_NONE,
+            fFbs[0]->__private->regID, c1, c2, 0);
+
+        FOREACH_FRAMEBUFFER(fb)
         {
-            FOREACH_FRAMEBUFFER(fb)
-            {
-                fb->suspend(true);
-            }
-            startAsync(kWorkSuspend);
-            state |= kIOFBDisplaysChanging;
+            fb->suspend(true);
         }
+
+        fMuxNeedsBgOn = fMuxNeedsBgOff = false;
+        startAsync(kWorkSuspend);
+        state |= kIOFBDisplaysChanging;
     }
 
     if (!fAsyncWork)
@@ -1881,38 +1876,57 @@ void IOFBController::messageConnectionChange()
     bool     		discard = false;
     IOFramebuffer * fb;
 
-    if (fLastMessagedChange != fConnectChange && !fFbs[0]->messaged && !fWsWait)
-    {
+    const auto lastMessagedChange = fLastMessagedChange;
+    const auto connectChange = fConnectChange;
+    const auto changePending = gIOFBIsMuxSwitching
+        ? fConnectChangeForMux
+        : lastMessagedChange != connectChange;
+    const auto messageInProgress = fFbs[0]->messaged;
+    if (changePending && !messageInProgress && !fWsWait) {
         IOG_KTRACE_LOG_SYNCH(DBG_IOG_LOG_SYNCH);
 
-        fLastMessagedChange = fConnectChange;
+        fLastMessagedChange = connectChange;
+        fConnectChangeForMux = false;
+
         if (gIOGraphicsControl)
         {
-            err = gIOGraphicsControl->message(kIOFBMessageConnectChange, fFbs[0], NULL);
+            err = gIOGraphicsControl->message(kIOFBMessageConnectChange,
+                fFbs[0], NULL);
             if (kIOReturnOffline == err)
             {
                 DEBG1(fName, " AGC discard\n");
                 discard = true;
+                fLastFinishedChange = fLastMessagedChange;
+                FOREACH_FRAMEBUFFER(fb)
+                {
+                    fb->__private->lastProcessedChange = fLastMessagedChange;
+                }
             }
         }
-        if (discard)
-        {
-            fLastFinishedChange  = fLastMessagedChange;
-            FOREACH_FRAMEBUFFER(fb)
-            {
-                fb->__private->lastProcessedChange = fLastMessagedChange;
-            }
-        }
-        else
-        {
+
+        if (!discard) {
             uint64_t args[2];
-            args[0] = fFbs[0]->getRegistryEntryID();
-            args[1] = fConnectChange;
+            args[0] = fFbs[0]->__private->regID;
+            args[1] = connectChange;
             DEBG1(fName, " messaged RegID:%#llx CC:%#llx\n", args[0], args[1]);
             fFbs[0]->messaged = true;
-            fFbs[0]->messageClients(kIOMessageServiceIsSuspended, args, sizeof(args));
+            fFbs[0]->messageClients(kIOMessageServiceIsSuspended, args,
+                sizeof(args));
         }
+
+        const auto c1 =
+            GPACKUINT16T(0, fLastFinishedChange) |
+            GPACKUINT16T(1, fLastMessagedChange) |
+            GPACKUINT16T(2, lastMessagedChange) |
+            GPACKUINT16T(3, connectChange);
+        const auto c2 =
+            GPACKBIT(0, discard) |
+            GPACKBIT(1, gIOFBIsMuxSwitching) |
+            0;
+        IOG_KTRACE_NT(DBG_IOG_MSG_CONNECT_CHANGE, DBG_FUNC_NONE,
+            fFbs[0]->__private->regID, c1, c2, 0);
     }
+
     IOFBC_END(messageConnectionChange,0,0,0);
 }
 #pragma mark -
@@ -6728,6 +6742,8 @@ void IOFramebuffer::systemWork(OSObject * owner,
         allState |= controller->computeState();
 
     DEBG1("S1", " state 0x%x\n", allState);
+    IOG_KTRACE_NT(DBG_IOG_SYSTEM_WORK, DBG_FUNC_START,
+        allState, gIOFBGlobalEvents, 0, 0);
 
     STAILQ_FOREACH(controller, &gIOFBAllControllers, fNextController)
     {
@@ -6753,6 +6769,9 @@ void IOFramebuffer::systemWork(OSObject * owner,
 							 && !controller->fFbs[0]->messaged
 							 && gIOFBIsMuxSwitching)
 					{
+                        IOG_KTRACE_NT(DBG_IOG_MUX_ACTIVITY_CHANGE,
+                            DBG_FUNC_NONE,
+                            controller->fFbs[0]->__private->regID, 0, 0, 0);
 						IODisplayWrangler::activityChange(controller->fFbs[0]);
 					}
 				}
@@ -6764,14 +6783,6 @@ void IOFramebuffer::systemWork(OSObject * owner,
 			}
 		}
 	}
-
-    DEBG1("S2", " state 0x%x\n", allState);
-
-	if (kIOFBWorking & allState)
-    {
-        IOFB_END(systemWork,0,__LINE__,0);
-		return;
-    }
 
 	const bool nextWSPowerOn = (gIOFBSystemPower || gIOFBIsMuxSwitching)
                             && !(kIOFBDimmed & allState);
@@ -7083,7 +7094,8 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		&& (kIOMessageSystemHasPoweredOn == gIOFBLastMuxMessage)
 		&& !(kIOFBWsWait & allState)
 		&& !(kIOFBCaptured & allState)
-		&& !(kIOFBDisplaysChanging & allState)) 
+		&& !(kIOFBDisplaysChanging & allState)
+        && !gIOFBIsMuxSwitching)
 	{
 		OSBitAndAtomic(~kIOFBEventProbeAll, &gIOFBGlobalEvents);
 
@@ -7121,6 +7133,9 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		}
 	}
 
+
+    IOG_KTRACE_NT(DBG_IOG_SYSTEM_WORK, DBG_FUNC_END,
+        allState, gIOFBGlobalEvents, 0, 0);
     IOFB_END(systemWork,0,0,0);
 }
 
@@ -7379,6 +7394,8 @@ IOReturn IOFramebuffer::extEndConnectionChange(void)
 {
     IOFB_START(extEndConnectionChange,0,0,0);
     IOFBController * controller = __private->controller;
+    SYSASSERTGATED();
+    FBASSERTGATED(this);
 
 	DEBG1(controller->fName, " WS done msg %d, onl %x, count(%d, msg %d, fin %d, proc %d, wake %d)\n",
 		  controller->fFbs[0]->messaged, controller->fOnlineMask,
@@ -7386,6 +7403,18 @@ IOReturn IOFramebuffer::extEndConnectionChange(void)
           controller->fLastMessagedChange, controller->fLastFinishedChange,
           controller->fFbs[0]->__private->lastProcessedChange,
           controller->fPostWakeChange);
+
+    const auto c1 =
+        GPACKBIT(0, controller->fFbs[0]->messaged) |
+        GPACKUINT32T(1, controller->fOnlineMask);
+    const auto c2 =
+        GPACKUINT8T(0, controller->fConnectChange) |
+        GPACKUINT8T(1, controller->fLastMessagedChange) |
+        GPACKUINT8T(2, controller->fLastFinishedChange) |
+        GPACKUINT8T(3, controller->fPostWakeChange) |
+        GPACKUINT8T(4, controller->fFbs[0]->__private->lastProcessedChange);
+    IOG_KTRACE_NT(DBG_IOG_EXT_END_CONNECT_CHANGE, DBG_FUNC_NONE,
+        controller->fFbs[0]->__private->regID, c1, c2, 0);
 
     if (!controller->fFbs[0]->messaged)
     {
@@ -7396,11 +7425,16 @@ IOReturn IOFramebuffer::extEndConnectionChange(void)
 	controller->fFbs[0]->messaged = false;
 	controller->fLastFinishedChange = controller->fLastMessagedChange;
 
-	if (gIOGraphicsControl)
-	{
-		IOReturn err;
-		err = gIOGraphicsControl->message(kIOFBMessageEndConnectChange, controller->fFbs[0], NULL);
-	}
+    if (gIOGraphicsControl)
+    {
+        IOReturn err;
+        err = gIOGraphicsControl->message(kIOFBMessageEndConnectChange, controller->fFbs[0], NULL);
+        if (gIOFBIsMuxSwitching && !controller->fOnlineMask &&
+            controller->fAliasID && controller->isMuted())
+        {
+            controller->fMuxNeedsBgOff = true;
+        }
+    }
 
 	resetClamshell(kIOFBClamshellProbeDelayMS,
                    DBG_IOG_SOURCE_END_CONNECTION_CHANGE);
@@ -7415,7 +7449,7 @@ IOReturn IOFramebuffer::extProcessConnectionChange(void)
     IOFB_START(extProcessConnectionChange,0,0,0);
     IOFBController * controller = __private->controller;
     IOReturn         err = kIOReturnSuccess;
-	IOOptionBits     mode = 0;
+    IOOptionBits     mode = 0;
 
 	if ((err = extEntrySys(true, kIOGReportAPIState_ProcessConnectionChange)))
 	{
@@ -7423,7 +7457,18 @@ IOReturn IOFramebuffer::extProcessConnectionChange(void)
 		return (err);
 	}
 
-    if (controller->fFbs[0] && controller->fFbs[0]->messaged)
+    const auto msgd = controller->fFbs[0] && controller->fFbs[0]->messaged;
+    const auto a1 =
+        GPACKBIT(0, msgd) |
+        GPACKBIT(1, controller->isMuted());
+    const auto a2 =
+        GPACKUINT32T(0, __private->lastProcessedChange) |
+        GPACKUINT32T(1, controller->fConnectChange);
+    const auto a3 =
+        GPACKUINT32T(0, __private->aliasMode);
+    IOG_KTRACE_NT(DBG_IOG_EXT_PROCESS_CONNECT_CHANGE, DBG_FUNC_START,
+        __private->regID, a1, a2, a3);
+    if (msgd)
 	{
 		if (controller->isMuted())
 			mode = fgOff;
@@ -7498,6 +7543,9 @@ IOReturn IOFramebuffer::extProcessConnectionChange(void)
         err = processConnectChange(mode);
     }
 
+    IOG_KTRACE_NT(DBG_IOG_EXT_PROCESS_CONNECT_CHANGE, DBG_FUNC_END,
+        __private->regID, mode, err, 0);
+
     extExitSys(err, kIOGReportAPIState_ProcessConnectionChange);
 
     IOFB_END(extProcessConnectionChange,err,0,0);
@@ -7512,34 +7560,28 @@ IOReturn IOFramebuffer::processConnectChange(IOOptionBits mode)
     uintptr_t unused;
     bool      nowOnline;
 
-    IOG_KTRACE(DBG_IOG_PROCESS_CONNECT_CHANGE, DBG_FUNC_START,
-               0, __private->regID,
-               0, mode, 0, 0, 0, 0);
+    IOG_KTRACE_NT(DBG_IOG_PROCESS_CONNECT_CHANGE, DBG_FUNC_START,
+        __private->regID, mode, 0, 0);
 
     DEBG1(thisName, " (%d==%s) curr %d\n", 
-    		(uint32_t) mode, processConnectChangeModeNames[mode], __private->lastProcessedChange);
+        (uint32_t) mode, processConnectChangeModeNames[mode],
+        __private->lastProcessedChange);
 
     if (fgOff == mode)
     {
-		displaysOnline(false);
+        displaysOnline(false);
         __private->online = false;
         IOFB_END(processConnectChange,kIOReturnSuccess,__LINE__,0);
-
-        IOG_KTRACE(DBG_IOG_PROCESS_CONNECT_CHANGE, DBG_FUNC_END,
-                   0, __private->regID,
-                   0, 1,
-                   0, __private->online, 0, 0);
-        return (kIOReturnSuccess);
+        IOG_KTRACE_NT(DBG_IOG_PROCESS_CONNECT_CHANGE, DBG_FUNC_END,
+            __private->regID, 1, __private->online, 0);
+        return kIOReturnSuccess;
     }
     if (__private->lastProcessedChange == __private->controller->fConnectChange)
     {
         IOFB_END(processConnectChange,kIOReturnSuccess,__LINE__,0);
-
-        IOG_KTRACE(DBG_IOG_PROCESS_CONNECT_CHANGE, DBG_FUNC_END,
-                   0, __private->regID,
-                   0, 2,
-                   0, __private->online, 0, 0);
-        return (kIOReturnSuccess);
+        IOG_KTRACE_NT(DBG_IOG_PROCESS_CONNECT_CHANGE, DBG_FUNC_END,
+            __private->regID, 2, __private->online, 0);
+        return kIOReturnSuccess;
     }
     
     if (fg == mode) suspend(true);
@@ -7562,12 +7604,6 @@ IOReturn IOFramebuffer::processConnectChange(IOOptionBits mode)
     if (fg == mode) suspend(true);
 
     nowOnline = updateOnline();
-// This code is never executed
-//    if (false && nowOnline)
-//    {
-//        DEBG1(thisName, " bgOff forced\n");
-//        nowOnline = false;
-//    }
 
     displaysOnline(false);
     __private->online = nowOnline;
@@ -7637,9 +7673,8 @@ IOReturn IOFramebuffer::processConnectChange(IOOptionBits mode)
 
     err = kIOReturnSuccess;
 
-    IOG_KTRACE(DBG_IOG_PROCESS_CONNECT_CHANGE, DBG_FUNC_END,
-               0, __private->regID,  0, 0,
-               0, __private->online, 0, 0);
+    IOG_KTRACE_NT(DBG_IOG_PROCESS_CONNECT_CHANGE, DBG_FUNC_END,
+        __private->regID, 0, __private->online, 0);
 
     IOFB_END(processConnectChange,err,0,0);
     return (err);
@@ -8699,27 +8734,27 @@ void IOFramebuffer::writePrefs( OSObject * null, IOTimerEventSource * sender )
     IOFB_END(writePrefs,0,0,0);
 }
 
-void IOFramebuffer::connectChangeInterrupt( IOFramebuffer * inst, void * delay )
+void IOFramebuffer::connectChangeInterruptImpl(uint16_t source)
 {
-    IOFB_START(connectChangeInterrupt,inst->__private->regID,0,0);
-    OSIncrementAtomic( &inst->__private->controller->fConnectChange);
-
-    const uint64_t ctlState0
-        = GPACKUINT32T(1, inst->__private->controller->fLastFinishedChange)
-        | GPACKUINT32T(0, inst->__private->controller->fLastMessagedChange);
-    const uint64_t ctlState1
-        = GPACKUINT32T(1, inst->__private->controller->fLastForceRetrain)
-        | GPACKUINT32T(0, inst->__private->controller->fConnectChange);
-    (void) ctlState0; (void) ctlState1;
-    IOG_KTRACE(DBG_IOG_CONNECT_CHANGE_INTERRUPT, DBG_FUNC_NONE,
-               0, inst->__private->regID,
-               0, inst->__private->lastProcessedChange,
-               0, ctlState0,
-               0, ctlState1);
-
-    DEBG1(inst->thisName, "(%d)\n", inst->__private->controller->fConnectChange);
+    OSIncrementAtomic(&__private->controller->fConnectChange);
+    const auto a1 =
+        GPACKUINT32T(1, __private->lastProcessedChange) |
+        GPACKUINT16T(0, source);
+    const auto a2 =
+        GPACKUINT32T(1, __private->controller->fLastFinishedChange) |
+        GPACKUINT32T(0, __private->controller->fLastMessagedChange);
+    const auto a3 =
+        GPACKUINT32T(1, __private->controller->fLastForceRetrain) |
+        GPACKUINT32T(0, __private->controller->fConnectChange);
+    IOG_KTRACE_NT(DBG_IOG_CONNECT_CHANGE_INTERRUPT_V2, DBG_FUNC_NONE,
+        __private->regID, a1, a2, a3);
+    DEBG1(thisName, "(%d)\n", __private->controller->fConnectChange);
     startThread(false);
-    IOFB_END(connectChangeInterrupt,0,0,0);
+}
+
+void IOFramebuffer::connectChangeInterrupt( IOFramebuffer * inst, void * )
+{
+    inst->connectChangeInterruptImpl(DBG_IOG_SOURCE_VENDOR);
 }
 
 /*! By design, GL indices identify bits in a 32-bit mask. */
@@ -8869,7 +8904,7 @@ IOReturn IOFramebuffer::open( void )
         newController = __private->controller->fState & kIOFBNotOpened;
         if (newController) {
             __private->controller->clearState(kIOFBNotOpened);
-            __private->controller->fDidWork = true;
+            __private->controller->fDidWork = kWorkStateChange;
         }
 		if (__private->controller->fIntegrated) setProperty(kIOFBIntegratedKey, kOSBooleanTrue);
 
@@ -9252,7 +9287,7 @@ void IOFramebuffer::setTransform( UInt64 newTransform, bool generateChange )
         __private->userSetTransform = generateChange;
         __private->selectedTransform = newTransform;
         if (generateChange)
-            connectChangeInterrupt(this, 0);
+            connectChangeInterruptImpl(DBG_IOG_SOURCE_SET_TRANSFORM);
         else
         {
             __private->transform = newTransform;
@@ -9428,7 +9463,7 @@ IOReturn IOFramebuffer::probeAll( IOOptionBits options )
                 if (fb->clamshellOfflineShouldChange(bOnline))
                 {
                     fb->__private->bClamshellOffline = bOnline;
-                    connectChangeInterrupt(fb, 0);
+                    fb->connectChangeInterruptImpl(DBG_IOG_SOURCE_CLAMSHELL_OFFLINE_CHANGE);
                 }
                 else if (!gIOGraphicsControl || !fb->__private->controller->fAliasID)
                 {
@@ -10969,9 +11004,12 @@ IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
             GMETRICFUNC(metricFunc, kGMETRICS_EVENT_START, metricDomain);
             IOG_KTRACE(DBG_IOG_WSAA_DEFER_ENTER, DBG_FUNC_START,
                        0, __private->regID, 0, value, 0, 0, 0, 0);
-            err = setAttribute( attribute, value );
+            __private->lastWSAAStatus = err = setAttribute( attribute, value );
+            const auto a3 =
+                GPACKBIT(63, 1) |
+                GPACKUINT32T(0, err);
             IOG_KTRACE(DBG_IOG_WSAA_DEFER_ENTER, DBG_FUNC_END,
-                       0, __private->regID, 0, value, 0, 0, 0, 0);
+                       0, __private->regID, 0, value, 0, a3, 0, 0);
             GMETRICFUNC(metricFunc, kGMETRICS_EVENT_END, metricDomain);
             FB_END(setAttribute,err,__LINE__,0);
 
@@ -11008,9 +11046,12 @@ IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
             GMETRICFUNC(metricFunc, kGMETRICS_EVENT_START, metricDomain);
             IOG_KTRACE(DBG_IOG_WSAA_DEFER_EXIT, DBG_FUNC_START,
                        0, __private->regID, 0, value, 0, 0, 0, 0);
-            err = setAttribute( attribute, value );
+            __private->lastWSAAStatus = err = setAttribute( attribute, value );
+            const auto a3 =
+                GPACKBIT(63, 1) |
+                GPACKUINT32T(0, err);
             IOG_KTRACE(DBG_IOG_WSAA_DEFER_EXIT, DBG_FUNC_END,
-                       0, __private->regID, 0, value, 0, 0, 0, 0);
+                       0, __private->regID, 0, value, 0, a3, 0, 0);
             GMETRICFUNC(metricFunc, kGMETRICS_EVENT_END, metricDomain);
             FB_END(setAttribute,err,__LINE__,0);
 
@@ -11141,8 +11182,7 @@ IOReturn IOFramebuffer::extGetAttribute(
     IOSelect        attribute = static_cast<IOSelect>(args->scalarInput[0]);
     uint64_t *      value     = &args->scalarOutput[0];
     IOFramebuffer * other     = (IOFramebuffer *) reference;
-
-    IOReturn    err = kIOReturnSuccess;
+    IOReturn        err       = kIOReturnSuccess;
 
     *value = 0;
 
@@ -11250,12 +11290,16 @@ IOReturn IOFramebuffer::extGetAttribute(
                 return (err);
             }
 
-            uintptr_t result = (uintptr_t) other;
-            FB_START(getAttribute,attribute,__LINE__,0);
-            err = inst->getAttribute( attribute, &result );
-            FB_END(getAttribute,err,__LINE__,0);
-            if (kIOReturnSuccess == err) *value = (UInt32) result;
-            
+            bool overridden = false;
+
+            if (!overridden) {
+                uintptr_t result = (uintptr_t) other;
+                FB_START(getAttribute,attribute,__LINE__,0);
+                err = inst->getAttribute( attribute, &result );
+                FB_END(getAttribute,err,__LINE__,0);
+                if (kIOReturnSuccess == err) *value = (UInt32) result;
+            } // if (!overridden)
+
             inst->extExit(err, kIOGReportAPIState_GetAttribute);
             break;
     }
@@ -11530,6 +11574,7 @@ IOReturn IOFramebuffer::extSetProperties( OSDictionary * props )
     IOFB_END(extSetProperties,err,0,0);
     return (err);
 }
+
 
 
 
@@ -12817,40 +12862,66 @@ IOReturn IOFramebuffer::getAttributeExt( IOSelect attribute, uintptr_t * value )
 }
 
 IOReturn IOFramebuffer::setAttributeForConnectionExt( IOIndex connectIndex,
-           IOSelect attribute, uintptr_t value )
+        IOSelect attribute, uintptr_t value )
 {
     IOFB_START(setAttributeForConnectionExt,connectIndex,attribute,value);
-	IOReturn err;
+    IOReturn err;
+    uint16_t endTag = DBG_FUNC_NONE;
 
-	if (!opened)
+    if (!opened)
     {
         IOFB_END(setAttributeForConnectionExt,kIOReturnNotReady,0,0);
-		return (kIOReturnNotReady);
+        return (kIOReturnNotReady);
     }
 
-    FBLOCK(this);
-	if ('\0igr' == attribute)
-	{
-        IOG_KTRACE(DBG_IOG_AGC_MUTE, DBG_FUNC_NONE,
-            0, __private->regID,
-            0, value,
-            0, static_cast<bool>(kIOFBMuted & __private->controller->fState),
-            0, 0);
-		DEBG1(thisName, " 0igr ->0x%lx, gated %d, thread %d\n", value,
-                gIOFBSystemWorkLoop->inGate(), gIOFBSystemWorkLoop->onThread());
-        if (value & (1 << 31))
-            __private->controller->setState(kIOFBMuted);
-        else
-            __private->controller->clearState(kIOFBMuted);
-	}
+    FBGATEGUARD(ctrlgated, this);
+
+    switch (attribute) {
+        case kConnectionIgnore: {
+            IOG_KTRACE_NT(DBG_IOG_AGC_MUTE, DBG_FUNC_NONE,
+                GPACKUINT64T(__private->regID),
+                GPACKUINT32T(0, value),
+                GPACKBIT(0, __private->controller->isMuted()),
+                0);
+            DEBG1(thisName, " 0igr ->0x%lx, gated %d, thread %d\n", value,
+                    gIOFBSystemWorkLoop->inGate(), gIOFBSystemWorkLoop->onThread());
+            if (value & (1 << 31)) __private->controller->setState(kIOFBMuted);
+            else                   __private->controller->clearState(kIOFBMuted);
+            break;
+        }
+        case kConnectionProbe: {
+            IOG_KTRACE_NT(DBG_IOG_SET_ATTR_FOR_CONN_EXT, DBG_FUNC_START,
+                __private->regID, attribute, value, 0);
+            endTag = DBG_FUNC_END;
+            break;
+        }
+    }
 
     FB_START(setAttributeForConnection,attribute,__LINE__,value);
-	err = setAttributeForConnection(connectIndex, attribute, value);
+    err = setAttributeForConnection(connectIndex, attribute, value);
     FB_END(setAttributeForConnection,err,__LINE__,0);
-    FBUNLOCK(this);
+
+    switch (attribute) {
+        case kConnectionProbe: {
+            const auto switching = gIOFBIsMuxSwitching;
+            const auto muxed = static_cast<bool>(__private->controller->fAliasID);
+            const auto fb0 = (0 == __private->controllerIndex);
+            const auto muted = __private->controller->isMuted();
+            const auto offline = (0 == __private->controller->fOnlineMask);
+            if (switching && muxed && fb0 && (muted != offline)) {
+                if (offline) __private->controller->fMuxNeedsBgOn = true;
+                __private->controller->fConnectChangeForMux = true;
+                connectChangeInterruptImpl(DBG_IOG_SOURCE_SET_ATTR_FOR_CONN_EXT);
+            }
+            break;
+        }
+    }
+
+    IOG_KTRACE_NT(DBG_IOG_SET_ATTR_FOR_CONN_EXT, endTag,
+        __private->regID, attribute, value, err);
 
     IOFB_END(setAttributeForConnectionExt,err,0,0);
-	return (err);
+    return err;
 }
 
 IOReturn IOFramebuffer::getAttributeForConnectionExt( IOIndex connectIndex,
@@ -13005,7 +13076,7 @@ IOReturn IOFramebuffer::setAttributeForConnection( IOIndex connectIndex,
                 {
                     __private->selectedTransform = newTransform;
                     if (!suspended)
-                        connectChangeInterrupt(this, 0);
+                        connectChangeInterruptImpl(DBG_IOG_SOURCE_OVERSCAN);
                     else
                     {
                         __private->transform = newTransform;

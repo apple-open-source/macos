@@ -7,11 +7,25 @@
 #include "requirement.h"
 #include "reqmaker.h"
 #include "csutilities.h"
+#include <libDER/libDER.h>
+#include <libDER/asn1Types.h>
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/hashing.h>
 #include <security_cdsa_utilities/cssmdata.h>	// OID coding
+#include <Security/SecCertificate.h>
 using namespace CodeSigning;
 typedef Requirement::Maker Maker;
+
+extern "C" {
+
+/* Decode a choice of UTCTime or GeneralizedTime to a CFAbsoluteTime. Return
+an absoluteTime if the date was valid and properly decoded.  Return
+NULL_TIME otherwise. */
+CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
+	size_t length);
+
+}
+
 
 ANTLR_BEGIN_NAMESPACE(Security_CodeSigning)
 
@@ -66,7 +80,12 @@ ANTLR_BEGIN_NAMESPACE(Security_CodeSigning)
 	
 	void RequirementParser::certMatchOperation(Maker &maker, int32_t slot, string key)
 	{
-		if (matchPrefix(key, "subject.")) {
+		if (const char *oids = matchPrefix(key, "timestamp.")) {
+			maker.put(opCertFieldDate);
+			maker.put(slot);
+			CssmAutoData oid(Allocator::standard()); oid.fromOid(oids);
+			maker.putData(oid.data(), oid.length());
+		} else if (matchPrefix(key, "subject.")) {
 			maker.put(opCertField);
 			maker.put(slot);
 			maker.put(key);
@@ -971,78 +990,10 @@ void RequirementParser::match_suffix(
 			maker.put(matchExists);
 			break;
 		}
-		case EQL:
-		case EQQL:
+		case LITERAL_absent:
 		{
-			{
-			switch ( LA(1)) {
-			case EQL:
-			{
-				match(EQL);
-				break;
-			}
-			case EQQL:
-			{
-				match(EQQL);
-				break;
-			}
-			default:
-			{
-				throw antlr::NoViableAltException(LT(1), getFilename());
-			}
-			}
-			}
-			MatchOperation mop = matchEqual; string value;
-			{
-			switch ( LA(1)) {
-			case STAR:
-			{
-				match(STAR);
-				mop = matchEndsWith;
-				break;
-			}
-			case HEXCONSTANT:
-			case DOTKEY:
-			case STRING:
-			{
-				break;
-			}
-			default:
-			{
-				throw antlr::NoViableAltException(LT(1), getFilename());
-			}
-			}
-			}
-			value=datavalue();
-			{
-			switch ( LA(1)) {
-			case STAR:
-			{
-				match(STAR);
-				mop = (mop == matchEndsWith) ? matchContains : matchBeginsWith;
-				break;
-			}
-			case antlr::Token::EOF_TYPE:
-			case LITERAL_guest:
-			case LITERAL_host:
-			case LITERAL_designated:
-			case LITERAL_library:
-			case LITERAL_plugin:
-			case LITERAL_or:
-			case LITERAL_and:
-			case RPAREN:
-			case INTEGER:
-			case SEMI:
-			{
-				break;
-			}
-			default:
-			{
-				throw antlr::NoViableAltException(LT(1), getFilename());
-			}
-			}
-			}
-			maker.put(mop); maker.put(value);
+			match(LITERAL_absent);
+			maker.put(matchAbsent);
 			break;
 		}
 		case SUBS:
@@ -1053,40 +1004,150 @@ void RequirementParser::match_suffix(
 			maker.put(matchContains); maker.put(value);
 			break;
 		}
-		case LESS:
-		{
-			match(LESS);
-			string value;
-			value=datavalue();
-			maker.put(matchLessThan); maker.put(value);
-			break;
-		}
-		case GT:
-		{
-			match(GT);
-			string value;
-			value=datavalue();
-			maker.put(matchGreaterThan); maker.put(value);
-			break;
-		}
-		case LE:
-		{
-			match(LE);
-			string value;
-			value=datavalue();
-			maker.put(matchLessEqual); maker.put(value);
-			break;
-		}
-		case GE:
-		{
-			match(GE);
-			string value;
-			value=datavalue();
-			maker.put(matchGreaterEqual); maker.put(value);
-			break;
-		}
 		default:
-		{
+			if ((LA(1) == EQL || LA(1) == EQQL) && (_tokenSet_16.member(LA(2)))) {
+				{
+				switch ( LA(1)) {
+				case EQL:
+				{
+					match(EQL);
+					break;
+				}
+				case EQQL:
+				{
+					match(EQQL);
+					break;
+				}
+				default:
+				{
+					throw antlr::NoViableAltException(LT(1), getFilename());
+				}
+				}
+				}
+				MatchOperation mop = matchEqual; string value;
+				{
+				switch ( LA(1)) {
+				case STAR:
+				{
+					match(STAR);
+					mop = matchEndsWith;
+					break;
+				}
+				case HEXCONSTANT:
+				case DOTKEY:
+				case STRING:
+				{
+					break;
+				}
+				default:
+				{
+					throw antlr::NoViableAltException(LT(1), getFilename());
+				}
+				}
+				}
+				value=datavalue();
+				{
+				switch ( LA(1)) {
+				case STAR:
+				{
+					match(STAR);
+					mop = (mop == matchEndsWith) ? matchContains : matchBeginsWith;
+					break;
+				}
+				case antlr::Token::EOF_TYPE:
+				case LITERAL_guest:
+				case LITERAL_host:
+				case LITERAL_designated:
+				case LITERAL_library:
+				case LITERAL_plugin:
+				case LITERAL_or:
+				case LITERAL_and:
+				case RPAREN:
+				case INTEGER:
+				case SEMI:
+				{
+					break;
+				}
+				default:
+				{
+					throw antlr::NoViableAltException(LT(1), getFilename());
+				}
+				}
+				}
+				maker.put(mop); maker.put(value);
+			}
+			else if ((LA(1) == EQL || LA(1) == EQQL) && (LA(2) == LITERAL_timestamp)) {
+				{
+				switch ( LA(1)) {
+				case EQL:
+				{
+					match(EQL);
+					break;
+				}
+				case EQQL:
+				{
+					match(EQQL);
+					break;
+				}
+				default:
+				{
+					throw antlr::NoViableAltException(LT(1), getFilename());
+				}
+				}
+				}
+				MatchOperation mop = matchOn; int64_t value;
+				value=timestamp();
+				maker.put(mop); maker.put(value);
+			}
+			else if ((LA(1) == LESS) && ((LA(2) >= HEXCONSTANT && LA(2) <= STRING))) {
+				match(LESS);
+				string value;
+				value=datavalue();
+				maker.put(matchLessThan); maker.put(value);
+			}
+			else if ((LA(1) == GT) && ((LA(2) >= HEXCONSTANT && LA(2) <= STRING))) {
+				match(GT);
+				string value;
+				value=datavalue();
+				maker.put(matchGreaterThan); maker.put(value);
+			}
+			else if ((LA(1) == LE) && ((LA(2) >= HEXCONSTANT && LA(2) <= STRING))) {
+				match(LE);
+				string value;
+				value=datavalue();
+				maker.put(matchLessEqual); maker.put(value);
+			}
+			else if ((LA(1) == GE) && ((LA(2) >= HEXCONSTANT && LA(2) <= STRING))) {
+				match(GE);
+				string value;
+				value=datavalue();
+				maker.put(matchGreaterEqual); maker.put(value);
+			}
+			else if ((LA(1) == LESS) && (LA(2) == LITERAL_timestamp)) {
+				match(LESS);
+				int64_t value;
+				value=timestamp();
+				maker.put(matchBefore); maker.put(value);
+			}
+			else if ((LA(1) == GT) && (LA(2) == LITERAL_timestamp)) {
+				match(GT);
+				int64_t value;
+				value=timestamp();
+				maker.put(matchAfter); maker.put(value);
+			}
+			else if ((LA(1) == LE) && (LA(2) == LITERAL_timestamp)) {
+				match(LE);
+				int64_t value;
+				value=timestamp();
+				maker.put(matchOnOrBefore); maker.put(value);
+			}
+			else if ((LA(1) == GE) && (LA(2) == LITERAL_timestamp)) {
+				match(GE);
+				int64_t value;
+				value=timestamp();
+				maker.put(matchOnOrAfter); maker.put(value);
+			}
+		else {
 			throw antlr::NoViableAltException(LT(1), getFilename());
 		}
 		}
@@ -1124,7 +1185,24 @@ string  RequirementParser::datavalue() {
 	}
 	catch (antlr::RecognitionException& ex) {
 		reportError(ex);
-		recover(ex,_tokenSet_16);
+		recover(ex,_tokenSet_17);
+	}
+	return result;
+}
+
+int64_t  RequirementParser::timestamp() {
+	int64_t result;
+	antlr::RefToken  s = antlr::nullToken;
+	
+	try {      // for error handling
+		match(LITERAL_timestamp);
+		s = LT(1);
+		match(STRING);
+		result = (int64_t)SecAbsoluteTimeFromDateContent(ASN1_GENERALIZED_TIME, (uint8_t const *)s->getText().c_str(), s->getText().length());
+	}
+	catch (antlr::RecognitionException& ex) {
+		reportError(ex);
+		recover(ex,_tokenSet_9);
 	}
 	return result;
 }
@@ -1158,7 +1236,7 @@ string  RequirementParser::stringvalue() {
 	}
 	catch (antlr::RecognitionException& ex) {
 		reportError(ex);
-		recover(ex,_tokenSet_17);
+		recover(ex,_tokenSet_18);
 	}
 	return result;
 }
@@ -1241,6 +1319,7 @@ const char* RequirementParser::tokenNames[] = {
 	"\"info\"",
 	"\"entitlement\"",
 	"\"exists\"",
+	"\"absent\"",
 	"EQL",
 	"EQQL",
 	"STAR",
@@ -1260,6 +1339,7 @@ const char* RequirementParser::tokenNames[] = {
 	"STRING",
 	"PATHNAME",
 	"INTEGER",
+	"\"timestamp\"",
 	"SEMI",
 	"IDENT",
 	"HEX",
@@ -1274,27 +1354,27 @@ const char* RequirementParser::tokenNames[] = {
 const unsigned long RequirementParser::_tokenSet_0_data_[] = { 2UL, 0UL, 0UL, 0UL };
 // EOF 
 const antlr::BitSet RequirementParser::_tokenSet_0(_tokenSet_0_data_,4);
-const unsigned long RequirementParser::_tokenSet_1_data_[] = { 992UL, 262144UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_1_data_[] = { 992UL, 524288UL, 0UL, 0UL };
 // "guest" "host" "designated" "library" "plugin" INTEGER 
 const antlr::BitSet RequirementParser::_tokenSet_1(_tokenSet_1_data_,4);
 const unsigned long RequirementParser::_tokenSet_2_data_[] = { 16UL, 0UL, 0UL, 0UL };
 // ARROW 
 const antlr::BitSet RequirementParser::_tokenSet_2(_tokenSet_2_data_,4);
-const unsigned long RequirementParser::_tokenSet_3_data_[] = { 994UL, 262144UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_3_data_[] = { 994UL, 524288UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" INTEGER 
 const antlr::BitSet RequirementParser::_tokenSet_3(_tokenSet_3_data_,4);
-const unsigned long RequirementParser::_tokenSet_4_data_[] = { 268447730UL, 1024259UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_4_data_[] = { 268447730UL, 3097094UL, 0UL, 0UL };
 // EOF ARROW "guest" "host" "designated" "library" "plugin" "or" "and" 
 // RPAREN "trusted" EQL EQQL LBRACK HASHCONSTANT DOTKEY STRING PATHNAME 
 // INTEGER SEMI 
 const antlr::BitSet RequirementParser::_tokenSet_4(_tokenSet_4_data_,4);
-const unsigned long RequirementParser::_tokenSet_5_data_[] = { 9186UL, 786432UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_5_data_[] = { 9186UL, 2621440UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" RPAREN INTEGER SEMI 
 const antlr::BitSet RequirementParser::_tokenSet_5(_tokenSet_5_data_,4);
-const unsigned long RequirementParser::_tokenSet_6_data_[] = { 994UL, 786432UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_6_data_[] = { 994UL, 2621440UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" INTEGER SEMI 
 const antlr::BitSet RequirementParser::_tokenSet_6(_tokenSet_6_data_,4);
-const unsigned long RequirementParser::_tokenSet_7_data_[] = { 10210UL, 786432UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_7_data_[] = { 10210UL, 2621440UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" RPAREN INTEGER 
 // SEMI 
 const antlr::BitSet RequirementParser::_tokenSet_7(_tokenSet_7_data_,4);
@@ -1302,38 +1382,41 @@ const unsigned long RequirementParser::_tokenSet_8_data_[] = { 1828704256UL, 0UL
 // LPAREN NOT "always" "true" "never" "false" "identifier" "cdhash" "platform" 
 // "notarized" "anchor" "certificate" "cert" "info" "entitlement" 
 const antlr::BitSet RequirementParser::_tokenSet_8(_tokenSet_8_data_,4);
-const unsigned long RequirementParser::_tokenSet_9_data_[] = { 12258UL, 786432UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_9_data_[] = { 12258UL, 2621440UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" "and" RPAREN 
 // INTEGER SEMI 
 const antlr::BitSet RequirementParser::_tokenSet_9(_tokenSet_9_data_,4);
-const unsigned long RequirementParser::_tokenSet_10_data_[] = { 0UL, 269312UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_10_data_[] = { 0UL, 538624UL, 0UL, 0UL };
 // NEG "leaf" "root" INTEGER 
 const antlr::BitSet RequirementParser::_tokenSet_10(_tokenSet_10_data_,4);
-const unsigned long RequirementParser::_tokenSet_11_data_[] = { 0UL, 237827UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_11_data_[] = { 0UL, 475654UL, 0UL, 0UL };
 // EQL EQQL LBRACK HASHCONSTANT DOTKEY STRING PATHNAME 
 const antlr::BitSet RequirementParser::_tokenSet_11(_tokenSet_11_data_,4);
-const unsigned long RequirementParser::_tokenSet_12_data_[] = { 0UL, 499712UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_12_data_[] = { 0UL, 999424UL, 0UL, 0UL };
 // HASHCONSTANT DOTKEY STRING PATHNAME INTEGER 
 const antlr::BitSet RequirementParser::_tokenSet_12(_tokenSet_12_data_,4);
-const unsigned long RequirementParser::_tokenSet_13_data_[] = { 268435456UL, 237827UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_13_data_[] = { 268435456UL, 475654UL, 0UL, 0UL };
 // "trusted" EQL EQQL LBRACK HASHCONSTANT DOTKEY STRING PATHNAME 
 const antlr::BitSet RequirementParser::_tokenSet_13(_tokenSet_13_data_,4);
-const unsigned long RequirementParser::_tokenSet_14_data_[] = { 2147495906UL, 1024000UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_14_data_[] = { 2147495906UL, 3096576UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" "and" RPAREN 
 // "exists" HASHCONSTANT DOTKEY STRING PATHNAME INTEGER SEMI 
 const antlr::BitSet RequirementParser::_tokenSet_14(_tokenSet_14_data_,4);
-const unsigned long RequirementParser::_tokenSet_15_data_[] = { 2147495906UL, 786683UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_15_data_[] = { 2147495906UL, 2621943UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" "and" RPAREN 
-// "exists" EQL EQQL SUBS LESS GT LE GE INTEGER SEMI 
+// "exists" "absent" EQL EQQL SUBS LESS GT LE GE INTEGER SEMI 
 const antlr::BitSet RequirementParser::_tokenSet_15(_tokenSet_15_data_,4);
-const unsigned long RequirementParser::_tokenSet_16_data_[] = { 12258UL, 786436UL, 0UL, 0UL };
+const unsigned long RequirementParser::_tokenSet_16_data_[] = { 0UL, 229384UL, 0UL, 0UL };
+// STAR HEXCONSTANT DOTKEY STRING 
+const antlr::BitSet RequirementParser::_tokenSet_16(_tokenSet_16_data_,4);
+const unsigned long RequirementParser::_tokenSet_17_data_[] = { 12258UL, 2621448UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" "and" RPAREN 
 // STAR INTEGER SEMI 
-const antlr::BitSet RequirementParser::_tokenSet_16(_tokenSet_16_data_,4);
-const unsigned long RequirementParser::_tokenSet_17_data_[] = { 12258UL, 786948UL, 0UL, 0UL };
+const antlr::BitSet RequirementParser::_tokenSet_17(_tokenSet_17_data_,4);
+const unsigned long RequirementParser::_tokenSet_18_data_[] = { 12258UL, 2622472UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" "and" RPAREN 
 // STAR RBRACK INTEGER SEMI 
-const antlr::BitSet RequirementParser::_tokenSet_17(_tokenSet_17_data_,4);
+const antlr::BitSet RequirementParser::_tokenSet_18(_tokenSet_18_data_,4);
 
 
 ANTLR_END_NAMESPACE

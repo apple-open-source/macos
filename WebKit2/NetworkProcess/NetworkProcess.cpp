@@ -127,6 +127,9 @@ NetworkProcess::NetworkProcess()
 #if PLATFORM(COCOA)
     , m_clearCacheDispatchGroup(0)
 #endif
+#if PLATFORM(IOS_FAMILY)
+    , m_webSQLiteDatabaseTracker(*this)
+#endif
     , m_storageTaskQueue(WorkQueue::create("com.apple.WebKit.StorageTask"))
 #if ENABLE(INDEXED_DATABASE)
     , m_idbPerOriginQuota(IDBServer::defaultPerOriginQuota)
@@ -551,6 +554,23 @@ void NetworkProcess::resetCacheMaxAgeCapForPrevalentResources(PAL::SessionID ses
     else
         ASSERT_NOT_REACHED();
     parentProcessConnection()->send(Messages::NetworkProcessProxy::DidResetCacheMaxAgeCapForPrevalentResources(contextId), 0);
+}
+
+void NetworkProcess::committedCrossSiteLoadWithLinkDecoration(PAL::SessionID sessionID, const String& fromRegistrableDomain, const String& toRegistrableDomain, uint64_t pageID)
+{
+    if (auto* networkStorageSession = NetworkStorageSession::storageSession(sessionID))
+        networkStorageSession->committedCrossSiteLoadWithLinkDecoration(fromRegistrableDomain, toRegistrableDomain, pageID);
+    else
+        ASSERT_NOT_REACHED();
+}
+
+void NetworkProcess::resetCrossSiteLoadsWithLinkDecorationForTesting(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
+{
+    if (auto* networkStorageSession = NetworkStorageSession::storageSession(sessionID))
+        networkStorageSession->resetCrossSiteLoadsWithLinkDecorationForTesting();
+    else
+        ASSERT_NOT_REACHED();
+    completionHandler();
 }
 #endif // ENABLE(RESOURCE_LOAD_STATISTICS)
 

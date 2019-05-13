@@ -52,7 +52,7 @@
     HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
                                 result == XCTWaiterResultCompleted,
                                 "result:%ld %@",
-                                result,
+                                (long)result,
                                 self.testServiceExpectation);
 
     HIDCompassInputReport01 report;

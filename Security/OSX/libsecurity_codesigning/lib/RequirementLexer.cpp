@@ -12,11 +12,25 @@
 #include "requirement.h"
 #include "reqmaker.h"
 #include "csutilities.h"
+#include <libDER/libDER.h>
+#include <libDER/asn1Types.h>
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/hashing.h>
 #include <security_cdsa_utilities/cssmdata.h>	// OID coding
+#include <Security/SecCertificate.h>
 using namespace CodeSigning;
 typedef Requirement::Maker Maker;
+
+extern "C" {
+
+/* Decode a choice of UTCTime or GeneralizedTime to a CFAbsoluteTime. Return
+an absoluteTime if the date was valid and properly decoded.  Return
+NULL_TIME otherwise. */
+CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
+	size_t length);
+
+}
+
 
 ANTLR_BEGIN_NAMESPACE(Security_CodeSigning)
 RequirementLexer::RequirementLexer(std::istream& in)
@@ -46,11 +60,13 @@ void RequirementLexer::initLiterals()
 	literals["cdhash"] = 20;
 	literals["entitlement"] = 30;
 	literals["library"] = 8;
+	literals["timestamp"] = 52;
 	literals["never"] = 17;
 	literals["cert"] = 27;
 	literals["plugin"] = 9;
+	literals["absent"] = 32;
 	literals["or"] = 10;
-	literals["leaf"] = 43;
+	literals["leaf"] = 44;
 	literals["info"] = 29;
 	literals["designated"] = 7;
 	literals["apple"] = 24;
@@ -58,7 +74,7 @@ void RequirementLexer::initLiterals()
 	literals["true"] = 16;
 	literals["notarized"] = 22;
 	literals["and"] = 11;
-	literals["root"] = 44;
+	literals["root"] = 45;
 	literals["platform"] = 21;
 	literals["anchor"] = 23;
 	literals["false"] = 18;
@@ -394,11 +410,11 @@ void RequirementLexer::mIDENT(bool _createToken) {
 		}
 		default:
 		{
-			goto _loop47;
+			goto _loop49;
 		}
 		}
 	}
-	_loop47:;
+	_loop49:;
 	} // ( ... )*
 	_ttype = testLiteralsTable(text.substr(_begin, text.length()-_begin),_ttype);
 	if ( _createToken && _token==antlr::nullToken && _ttype!=antlr::Token::SKIP ) {
@@ -499,11 +515,11 @@ void RequirementLexer::mDOTKEY(bool _createToken) {
 			}
 		}
 		else {
-			goto _loop51;
+			goto _loop53;
 		}
 		
 	}
-	_loop51:;
+	_loop53:;
 	} // ( ... )*
 	_ttype = testLiteralsTable(_ttype);
 	if ( _createToken && _token==antlr::nullToken && _ttype!=antlr::Token::SKIP ) {
@@ -520,18 +536,18 @@ void RequirementLexer::mINTEGER(bool _createToken) {
 	std::string::size_type _saveIndex;
 	
 	{ // ( ... )+
-	int _cnt69=0;
+	int _cnt71=0;
 	for (;;) {
 		if (((LA(1) >= 0x30 /* '0' */  && LA(1) <= 0x39 /* '9' */ ))) {
 			matchRange('0','9');
 		}
 		else {
-			if ( _cnt69>=1 ) { goto _loop69; } else {throw antlr::NoViableAltForCharException(LA(1), getFilename(), getLine(), getColumn());}
+			if ( _cnt71>=1 ) { goto _loop71; } else {throw antlr::NoViableAltForCharException(LA(1), getFilename(), getLine(), getColumn());}
 		}
 		
-		_cnt69++;
+		_cnt71++;
 	}
-	_loop69:;
+	_loop71:;
 	}  // ( ... )+
 	if ( _createToken && _token==antlr::nullToken && _ttype!=antlr::Token::SKIP ) {
 	   _token = makeToken(_ttype);
@@ -549,19 +565,19 @@ void RequirementLexer::mPATHNAME(bool _createToken) {
 	match("/");
 	mIDENT(false);
 	{ // ( ... )+
-	int _cnt54=0;
+	int _cnt56=0;
 	for (;;) {
 		if ((LA(1) == 0x2f /* '/' */ )) {
 			match("/");
 			mIDENT(false);
 		}
 		else {
-			if ( _cnt54>=1 ) { goto _loop54; } else {throw antlr::NoViableAltForCharException(LA(1), getFilename(), getLine(), getColumn());}
+			if ( _cnt56>=1 ) { goto _loop56; } else {throw antlr::NoViableAltForCharException(LA(1), getFilename(), getLine(), getColumn());}
 		}
 		
-		_cnt54++;
+		_cnt56++;
 	}
-	_loop54:;
+	_loop56:;
 	}  // ( ... )+
 	if ( _createToken && _token==antlr::nullToken && _ttype!=antlr::Token::SKIP ) {
 	   _token = makeToken(_ttype);
@@ -583,18 +599,18 @@ void RequirementLexer::mHASHCONSTANT(bool _createToken) {
 	match('\"' /* charlit */ );
 	text.erase(_saveIndex);
 	{ // ( ... )+
-	int _cnt57=0;
+	int _cnt59=0;
 	for (;;) {
 		if ((_tokenSet_1.member(LA(1)))) {
 			mHEX(false);
 		}
 		else {
-			if ( _cnt57>=1 ) { goto _loop57; } else {throw antlr::NoViableAltForCharException(LA(1), getFilename(), getLine(), getColumn());}
+			if ( _cnt59>=1 ) { goto _loop59; } else {throw antlr::NoViableAltForCharException(LA(1), getFilename(), getLine(), getColumn());}
 		}
 		
-		_cnt57++;
+		_cnt59++;
 	}
-	_loop57:;
+	_loop59:;
 	}  // ( ... )+
 	_saveIndex = text.length();
 	match('\"' /* charlit */ );
@@ -672,18 +688,18 @@ void RequirementLexer::mHEXCONSTANT(bool _createToken) {
 	match('x' /* charlit */ );
 	text.erase(_saveIndex);
 	{ // ( ... )+
-	int _cnt60=0;
+	int _cnt62=0;
 	for (;;) {
 		if ((_tokenSet_1.member(LA(1)))) {
 			mHEX(false);
 		}
 		else {
-			if ( _cnt60>=1 ) { goto _loop60; } else {throw antlr::NoViableAltForCharException(LA(1), getFilename(), getLine(), getColumn());}
+			if ( _cnt62>=1 ) { goto _loop62; } else {throw antlr::NoViableAltForCharException(LA(1), getFilename(), getLine(), getColumn());}
 		}
 		
-		_cnt60++;
+		_cnt62++;
 	}
-	_loop60:;
+	_loop62:;
 	}  // ( ... )+
 	if ( _createToken && _token==antlr::nullToken && _ttype!=antlr::Token::SKIP ) {
 	   _token = makeToken(_ttype);
@@ -719,11 +735,11 @@ void RequirementLexer::mSTRING(bool _createToken) {
 			}
 		}
 		else {
-			goto _loop66;
+			goto _loop68;
 		}
 		
 	}
-	_loop66:;
+	_loop68:;
 	} // ( ... )*
 	_saveIndex = text.length();
 	match('\"' /* charlit */ );
@@ -980,7 +996,7 @@ void RequirementLexer::mWS(bool _createToken) {
 	std::string::size_type _saveIndex;
 	
 	{ // ( ... )+
-	int _cnt90=0;
+	int _cnt92=0;
 	for (;;) {
 		switch ( LA(1)) {
 		case 0x20 /* ' ' */ :
@@ -1001,12 +1017,12 @@ void RequirementLexer::mWS(bool _createToken) {
 		}
 		default:
 		{
-			if ( _cnt90>=1 ) { goto _loop90; } else {throw antlr::NoViableAltForCharException(LA(1), getFilename(), getLine(), getColumn());}
+			if ( _cnt92>=1 ) { goto _loop92; } else {throw antlr::NoViableAltForCharException(LA(1), getFilename(), getLine(), getColumn());}
 		}
 		}
-		_cnt90++;
+		_cnt92++;
 	}
-	_loop90:;
+	_loop92:;
 	}  // ( ... )+
 	_ttype = antlr::Token::SKIP;
 	if ( _createToken && _token==antlr::nullToken && _ttype!=antlr::Token::SKIP ) {
@@ -1029,11 +1045,11 @@ void RequirementLexer::mSHELLCOMMENT(bool _createToken) {
 			matchNot('\n' /* charlit */ );
 		}
 		else {
-			goto _loop93;
+			goto _loop95;
 		}
 		
 	}
-	_loop93:;
+	_loop95:;
 	} // ( ... )*
 	_ttype = antlr::Token::SKIP;
 	if ( _createToken && _token==antlr::nullToken && _ttype!=antlr::Token::SKIP ) {
@@ -1066,11 +1082,11 @@ void RequirementLexer::mC_COMMENT(bool _createToken) {
 			}
 		}
 		else {
-			goto _loop99;
+			goto _loop101;
 		}
 		
 	}
-	_loop99:;
+	_loop101:;
 	} // ( ... )*
 	match("*/");
 	_ttype = antlr::Token::SKIP;
@@ -1094,11 +1110,11 @@ void RequirementLexer::mCPP_COMMENT(bool _createToken) {
 			matchNot('\n' /* charlit */ );
 		}
 		else {
-			goto _loop102;
+			goto _loop104;
 		}
 		
 	}
-	_loop102:;
+	_loop104:;
 	} // ( ... )*
 	_ttype = antlr::Token::SKIP;
 	if ( _createToken && _token==antlr::nullToken && _ttype!=antlr::Token::SKIP ) {
@@ -1118,22 +1134,22 @@ const antlr::BitSet RequirementLexer::_tokenSet_1(_tokenSet_1_data_,10);
 const unsigned long RequirementLexer::_tokenSet_2_data_[] = { 4294967295UL, 4294967291UL, 4026531839UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
-// 0x1f   ! # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : 
+// 0x1f   ! # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < 
 const antlr::BitSet RequirementLexer::_tokenSet_2(_tokenSet_2_data_,16);
 const unsigned long RequirementLexer::_tokenSet_3_data_[] = { 4294966271UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xb 0xc 0xd 0xe 0xf 0x10 0x11 
 // 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 0x1f 
-//   ! \" # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : 
+//   ! \" # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < 
 const antlr::BitSet RequirementLexer::_tokenSet_3(_tokenSet_3_data_,16);
 const unsigned long RequirementLexer::_tokenSet_4_data_[] = { 4294967295UL, 4294934527UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
-// 0x1f   ! \" # $ % & \' ( ) * + , - . 0 1 2 3 4 5 6 7 8 9 : 
+// 0x1f   ! \" # $ % & \' ( ) * + , - . 0 1 2 3 4 5 6 7 8 9 : ; < 
 const antlr::BitSet RequirementLexer::_tokenSet_4(_tokenSet_4_data_,16);
 const unsigned long RequirementLexer::_tokenSet_5_data_[] = { 4294967295UL, 4294966271UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
-// 0x1f   ! \" # $ % & \' ( ) + , - . / 0 1 2 3 4 5 6 7 8 9 : 
+// 0x1f   ! \" # $ % & \' ( ) + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < 
 const antlr::BitSet RequirementLexer::_tokenSet_5(_tokenSet_5_data_,16);
 
 ANTLR_END_NAMESPACE

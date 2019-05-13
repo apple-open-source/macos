@@ -20530,6 +20530,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -21446,6 +21484,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -21752,6 +21828,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -22766,6 +22880,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -23077,6 +23229,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -23345,6 +23535,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -23707,6 +23935,61 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                GGGGGyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GGGGGyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GGGGGyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -24160,6 +24443,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -24491,6 +24812,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -24777,6 +25136,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -25055,6 +25452,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -25333,6 +25768,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -25586,10 +26059,10 @@ structLocale:table(nofallback){
                 "",
                 "",
                 "",
-                "",
-                "",
-                "",
-                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
                 "",
                 "A4",
                 "A4",
@@ -25598,6 +26071,7 @@ structLocale:table(nofallback){
             }
             eras{
                 abbreviated{
+                    "",
                     "",
                     "",
                     "",
@@ -26072,8 +26546,10 @@ structLocale:table(nofallback){
                     "",
                     "",
                     "",
+                    "",
                 }
                 narrow{
+                    "",
                     "",
                     "",
                     "",
@@ -26313,6 +26789,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }
@@ -26497,6 +27011,44 @@ structLocale:table(nofallback){
                 }
             }
             intervalFormats{
+                Gy{
+                    G{""}
+                    y{""}
+                }
+                GyM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 H{
                     H{""}
                 }

@@ -155,7 +155,7 @@ enum ExprOp {
 	opCDHash,						// match hash of CodeDirectory directly [cd hash]
 	opNot,							// logical inverse [expr]
 	opInfoKeyField,					// Info.plist key field [string; match suffix]
-	opCertField,					// Certificate field [cert index; field name; match suffix]
+	opCertField,					// Certificate field, existence only [cert index; field name; match suffix]
 	opTrustedCert,					// require trust settings to approve one particular cert [cert index]
 	opTrustedCerts,					// require trust settings to approve the cert chain
 	opCertGeneric,					// Certificate component by OID [cert index; oid; match suffix]
@@ -166,6 +166,7 @@ enum ExprOp {
 	opNamedCode,					// named subroutine
 	opPlatform,						// platform constraint [integer]
 	opNotarized,					// has a developer id+ ticket
+	opCertFieldDate,				// extension value as timestamp [cert index; field name; match suffix]
 	exprOpCount						// (total opcode count in use)
 };
 
@@ -180,6 +181,12 @@ enum MatchOperation {
 	matchGreaterThan,				// greater than (string with numeric comparison)
 	matchLessEqual,					// less or equal (string with numeric comparison)
 	matchGreaterEqual,				// greater or equal (string with numeric comparison)
+	matchOn,						// on (timestamp comparison)
+	matchBefore,					// before (timestamp comparison)
+	matchAfter,						// after (timestamp comparison)
+	matchOnOrBefore,				// on or before (timestamp comparison)
+	matchOnOrAfter,					// on or after (timestamp comparison)
+	matchAbsent,					// not present (kCFNull)
 };
 
 

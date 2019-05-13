@@ -95,9 +95,13 @@ static void tests(void)
     ok(SOSGenerateDeviceBackupFullKey(fullKey3, cp, entropy3, &error), "Generate key 3 (%@)", error);
     CFReleaseNull(error);
 
-    size_t comparisonSize = ccec_full_ctx_size(ccec_ccn_size(cp));
+    size_t ex_size = ccec_x963_export_size(true, ccec_ctx_pub(fullKey1));
+    uint8_t buf1[ex_size];
+    ccec_x963_export(true, buf1, fullKey1);
+    uint8_t buf1a[ex_size];
+    ccec_x963_export(true, buf1a, fullKey1a);
 
-    ok(memcmp(fullKey1, fullKey1a, comparisonSize), "Two derivations match");
+    ok(0 == memcmp(buf1, buf1a, ex_size), "Two derivations match");
 
     CFDataRef publicKeyData = SOSCopyDeviceBackupPublicKey(entropy1, &error);
     ok(publicKeyData, "Public key copy");

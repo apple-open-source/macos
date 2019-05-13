@@ -149,7 +149,6 @@
     static void dpInterrupt(OSObject * owner, IOTimerEventSource * sender);
     void dpProcessInterrupt(void);
     void dpUpdateConnect(void);
-        
 
     static void delayedEvent(thread_call_param_t p0, thread_call_param_t p1);
     static void resetClamshell(uint32_t delay, uint32_t where);
@@ -162,6 +161,7 @@
 
     static void writePrefs( OSObject * owner, IOTimerEventSource * sender );
     static void connectChangeInterrupt( IOFramebuffer * inst, void * ref );
+    void connectChangeInterruptImpl(uint16_t);
     void setNextDependent( IOFramebuffer * dependent );
     IOFramebuffer * getNextDependent( void );
     void setCaptured( bool isCaptured );

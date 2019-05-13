@@ -68,7 +68,6 @@
 #include <uuid/uuid.h>
 #include <libgen.h>
 #include <sandbox/rootless.h>
-#include <sys/csr.h>
 
 #include "OSKext.h"
 #include "OSKextPrivate.h"
@@ -282,7 +281,7 @@ typedef struct __OSKext {
         unsigned int      isLoadableInSafeBoot:1;
 
        /* Set as determined or on demand. */
-        unsigned int      sip_protected:1; // protected by installer:
+        unsigned int      rootless_trusted:1; // protected by installer:
                                            // don't flush authentication bits
 
         unsigned int      validated:1;     // all possible checks done
@@ -394,7 +393,6 @@ static Boolean                __sOSKextSimulatedSafeBoot           = FALSE;
 static Boolean                __sOSKextUsesCaches                  = TRUE;
 static Boolean                __sOSKextStrictRecordingByLastOpened = FALSE;
 static Boolean                __sOSKextStrictAuthentication        = FALSE;
-static Boolean                __sOSKextIsSIPDisabled               = FALSE;
 static OSKextAuthFnPtr        __sOSKextAuthenticationFunction      = _OSKextBasicFilesystemAuthentication;
 static OSKextLoadAuditFnPtr   __sOSKextLoadAuditFunction           = NULL;
 static void                 * __sOSKextAuthenticationContext       = NULL;
@@ -1502,10 +1500,6 @@ static void __OSKextInitialize(void)
     * need to initialize.
     */
     __sOSKextInitializing = true;
-
-    if (csr_check(CSR_ALLOW_UNTRUSTED_KEXTS) == 0) {
-        __sOSKextIsSIPDisabled = TRUE;
-    }
 
     __kOSKextTypeID = _CFRuntimeRegisterClass(&__OSKextClass);
 
@@ -2896,9 +2890,11 @@ OSKextRef OSKextCreate(
     CFAllocatorRef allocator,
     CFURLRef       anURL)
 {
-    OSKextRef   result       = NULL;
+    OSKextRef   result        = NULL;
     CFStringRef pathExtension = NULL;  // must release
-    char        relPath[PATH_MAX];
+    CFURLRef    realURL       = NULL;
+    char        absPath[PATH_MAX];
+    char        realPath[PATH_MAX];
 
     pthread_once(&__sOSKextInitialized, __OSKextInitialize);
 
@@ -2908,18 +2904,36 @@ OSKextRef OSKextCreate(
     }
 
     if (!__OSKextGetFileSystemPath(/* kext */ NULL, /* otherURL */ anURL,
-            /* resolveToBase */ false, relPath)) {
-            
+            /* resolveToBase */ true, absPath)) {
+
         goto finish;
     }
 
-    result = OSKextGetKextWithURL(anURL);
+    if (!realpath(absPath, realPath)) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+            "Unable to determine realpath for %s - failing.",
+            absPath);
+        goto finish;
+    }
+
+    realURL = CFURLCreateFromFileSystemRepresentation(
+                    kCFAllocatorDefault,
+                    (uint8_t *)realPath,
+                    strlen(realPath),
+                    /* isDirectory? */ true);
+    if (!realURL) {
+        OSKextLogMemError();
+        goto finish;
+    }
+
+    result = OSKextGetKextWithURL(realURL);
     if (result) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogDebugLevel |
             kOSKextLogKextBookkeepingFlag | kOSKextLogFileAccessFlag,
             "%s is already open; returning existing object.",
-            relPath);
+            absPath);
         CFRetain(result);
         goto finish;
     }
@@ -2928,19 +2942,20 @@ OSKextRef OSKextCreate(
         kOSKextLogDebugLevel |
         kOSKextLogKextBookkeepingFlag | kOSKextLogFileAccessFlag,
         "Creating %s.",
-        relPath);
+        realPath);
 
     result = __OSKextAlloc(allocator, /* context */ NULL);
     if (!result) {
         OSKextLogMemError();
         goto finish;
     }
-    if (!__OSKextInitWithURL(result, anURL)) {
+    if (!__OSKextInitWithURL(result, realURL)) {
         SAFE_RELEASE_NULL(result);
         goto finish;
     }
 
 finish:
+    SAFE_RELEASE(realURL);
     SAFE_RELEASE(pathExtension);
     return result;
 }
@@ -5003,6 +5018,7 @@ OSKextRef OSKextGetKextWithURL(
     CFURLRef    canonicalURL  = NULL;  // must release
     char        relPath[PATH_MAX];
     char        absPath[PATH_MAX];
+    char        realPath[PATH_MAX];
 
     pthread_once(&__sOSKextInitialized, __OSKextInitialize);
 
@@ -5016,10 +5032,18 @@ OSKextRef OSKextGetKextWithURL(
         goto finish;
     }
 
+    if (!realpath(absPath, realPath)) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+            "Unable to determine realpath for %s - failing.",
+            absPath);
+        goto finish;
+    }
+
    /* Canonicalize the URL so we can use it for a dictionary lookup.
     */
     canonicalURL = CFURLCreateFromFileSystemRepresentation(CFGetAllocator(anURL),
-        (uint8_t *)absPath, strlen(absPath), /* isDir */ true);
+        (uint8_t *)realPath, strlen(realPath), /* isDir */ true);
     if (!canonicalURL) {
         OSKextLogMemError();
         goto finish;
@@ -5734,8 +5758,10 @@ void OSKextFlushInfoDictionary(OSKextRef aKext)
         if (!OSKextIsFromMkext(aKext)) {
             SAFE_RELEASE_NULL(aKext->infoDictionary);
 
-            // Flush cached auth bits for non-Apple kexts only
-            if (!aKext->flags.sip_protected) {
+            // Flush cached auth bits for non-Apple (or invalid or inauthentic) kexts only
+            if (!aKext->flags.rootless_trusted ||
+                !aKext->flags.valid ||
+                !aKext->flags.authentic) {
                /* The info dict could change by the time we read it again,
                 * so clear all validation/authentication flags. Leave
                 * diagnostics in place (a bit funky I suppose).
@@ -11847,8 +11873,10 @@ void OSKextFlushLoadInfo(
             }
             SAFE_FREE_NULL(aKext->loadInfo);
 
-            // Flush cached auth bits for non-Apple kexts only
-            if (!aKext->flags.sip_protected) {
+            // Flush cached auth bits for non-Apple (or invalid or inauthentic) kexts only
+            if (!aKext->flags.rootless_trusted ||
+                !aKext->flags.valid ||
+                !aKext->flags.authentic) {
                /* The executable could change by the time we read it again,
                 * so clear all validation/authentication flags. Leave
                 * diagnostics in place (a bit funky I suppose).
@@ -13349,7 +13377,7 @@ Boolean OSKextAuthenticate(OSKextRef aKext)
     aKext->flags.inauthentic = 0;
     aKext->flags.authentic = 0;
     aKext->flags.authenticated = 0;
-    aKext->flags.sip_protected = 0;
+    aKext->flags.rootless_trusted = 0;
 
     if (__sOSKextAuthenticationFunction) {
         if (!__OSKextGetFileSystemPath(aKext, NULL, true, kextPath)) {
@@ -13360,8 +13388,8 @@ Boolean OSKextAuthenticate(OSKextRef aKext)
             result = false;
             goto finish;
         }
-        if (!__sOSKextIsSIPDisabled && rootless_check_trusted(kextPath) == 0) {
-            aKext->flags.sip_protected = 1;
+        if (rootless_check_trusted(kextPath) == 0) {
+            aKext->flags.rootless_trusted = 1;
         }
 
         result = __sOSKextAuthenticationFunction(aKext, __sOSKextAuthenticationContext);

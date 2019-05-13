@@ -764,8 +764,8 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch()
         callback(false);
 
     if (m_isInProcessCache) {
-        auto removedProcess = processPool().webProcessCache().takeProcess(registrableDomain(), websiteDataStore());
-        ASSERT_UNUSED(removedProcess, removedProcess.get() == this);
+        processPool().webProcessCache().removeProcess(*this, WebProcessCache::ShouldShutDownProcess::No);
+        ASSERT(!m_isInProcessCache);
     }
 
     shutDown();
@@ -1538,6 +1538,21 @@ void WebProcessProxy::didStartProvisionalLoadForMainFrame(const URL& url)
 
     // Associate the process with this registrable domain.
     m_registrableDomain = WTFMove(registrableDomain);
+}
+
+void WebProcessProxy::incrementSuspendedPageCount()
+{
+    ++m_suspendedPageCount;
+    if (m_suspendedPageCount == 1)
+        send(Messages::WebProcess::SetHasSuspendedPageProxy(true), 0);
+}
+
+void WebProcessProxy::decrementSuspendedPageCount()
+{
+    ASSERT(m_suspendedPageCount);
+    --m_suspendedPageCount;
+    if (!m_suspendedPageCount)
+        send(Messages::WebProcess::SetHasSuspendedPageProxy(false), 0);
 }
 
 #if PLATFORM(WATCHOS)

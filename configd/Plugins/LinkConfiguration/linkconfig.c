@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2011, 2013, 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011, 2013, 2015-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -265,8 +265,8 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 	bzero((char *)&ifm, sizeof(ifm));
 	(void)_SC_cfstring_to_cstring(interfaceName, ifm.ifm_name, sizeof(ifm.ifm_name), kCFStringEncodingASCII);
 
-	if (ioctl(sock, SIOCGIFMEDIA, (caddr_t)&ifm) == -1) {
-		SC_log(LOG_ERR, "%@: ioctl(SIOCGIFMEDIA) failed: %s", interfaceName, strerror(errno));
+	if (ioctl(sock, SIOCGIFXMEDIA, (caddr_t)&ifm) == -1) {
+		SC_log(LOG_ERR, "%@: ioctl(SIOCGIFXMEDIA) failed: %s", interfaceName, strerror(errno));
 		goto done;
 	}
 

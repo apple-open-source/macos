@@ -57,6 +57,7 @@
 #include "createFVMaster.h"
 #include "smartcards.h"
 #include "translocate.h"
+#include "requirement.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -732,7 +733,13 @@ const command commands[] =
         "If the provided path is translocated, display the original path\n"
         "If the provided path is not translocated, display the passed in path",
         "Find the original path for a translocated path." },
-	{}
+
+    { "requirement-evaluate", requirement_evaluate,
+        "<requirements> [<DER certificate file> ...]\n"
+        "Evaluates the given requirement string against the given cert chain.",
+        "Evaluate a requirement against a cert chain." },
+
+    {}
 };
 
 /* Global variables. */

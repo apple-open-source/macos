@@ -126,6 +126,7 @@ public:
     void hasStorageAccess(String&& subFrameHost, String&& topFrameHost, uint64_t frameID, uint64_t pageID, CompletionHandler<void(bool)>&&);
     void requestStorageAccess(String&& subFrameHost, String&& topFrameHost, uint64_t frameID, uint64_t pageID, bool promptEnabled, CompletionHandler<void(StorageAccessStatus)>&&);
     void grantStorageAccess(String&& subFrameHost, String&& topFrameHost, uint64_t frameID, uint64_t pageID, bool userWasPrompted, CompletionHandler<void(bool)>&&);
+    void resetCrossSiteLoadsWithLinkDecorationForTesting(CompletionHandler<void()>&&);
 #endif
     void setCacheMaxAgeCapForPrevalentResources(Seconds, CompletionHandler<void()>&&);
     void resetCacheMaxAgeCapForPrevalentResources(CompletionHandler<void()>&&);
@@ -158,6 +159,14 @@ public:
 
     void setBoundInterfaceIdentifier(String&& identifier) { m_boundInterfaceIdentifier = WTFMove(identifier); }
     const String& boundInterfaceIdentifier() { return m_boundInterfaceIdentifier; }
+
+    const String& sourceApplicationBundleIdentifier() const { return m_sourceApplicationBundleIdentifier; }
+    bool setSourceApplicationBundleIdentifier(String&&);
+
+    const String& sourceApplicationSecondaryIdentifier() const { return m_sourceApplicationSecondaryIdentifier; }
+    bool setSourceApplicationSecondaryIdentifier(String&&);
+    
+    void finalizeApplicationIdentifiers() { m_allowedToSetApplicationIdentifiers = false; }
     
     void setAllowsCellularAccess(AllowsCellularAccess allows) { m_allowsCellularAccess = allows; }
     AllowsCellularAccess allowsCellularAccess() { return m_allowsCellularAccess; }
@@ -248,6 +257,9 @@ private:
 
     String m_boundInterfaceIdentifier;
     AllowsCellularAccess m_allowsCellularAccess { AllowsCellularAccess::Yes };
+    String m_sourceApplicationBundleIdentifier;
+    String m_sourceApplicationSecondaryIdentifier;
+    bool m_allowedToSetApplicationIdentifiers { true };
 
 #if HAVE(SEC_KEY_PROXY)
     Vector<Ref<SecKeyProxyStore>> m_secKeyProxyStores;

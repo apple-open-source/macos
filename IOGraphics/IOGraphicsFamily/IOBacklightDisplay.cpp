@@ -129,7 +129,7 @@ public:
                                        IOIndex event, void * info ) APPLE_KEXT_OVERRIDE;
 
 private:
-	bool updatePowerParam(void);
+	bool updatePowerParam(const int where);
     void handlePMSettingCallback(const OSSymbol *, OSObject *, uintptr_t);
     static void _deferredEvent( OSObject * target,
                                 IOInterruptEventSource * evtSrc, int intCount );
@@ -408,7 +408,7 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 	else
 	{
 #if !IOG_FADE
-        updatePowerParam();
+        updatePowerParam(0);
 #else /* IOG_FADE */
         SInt32         current, min, max, steps;
 		uint32_t       fadeTime;
@@ -518,7 +518,7 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 			DEBGFADE("AppleBacklight:  %d -> %d\n", fFadeStateFadeMin, fFadeStateFadeDelta);
 
 			fFadeState      = 0;
-			if (!fFadeDown) updatePowerParam();
+			if (!fFadeDown) updatePowerParam(1);
 
 			fFadeDeadline = mach_absolute_time();
 			fadeTime     /= steps;
@@ -538,7 +538,7 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 		}
 		else
 		{
-			updatePowerParam();
+			updatePowerParam(2);
 			fFadeAbort = false;
 		}
 #endif
@@ -647,7 +647,7 @@ void AppleBacklightDisplay::fadeWork(IOTimerEventSource * sender)
             fFadeState++;
             if (fFadeState > fFadeStateEnd)
             {
-                if (fFadeDown) updatePowerParam();
+                if (fFadeDown) updatePowerParam(3);
                 fFadeState = kFadePostDelay;
                 clock_interval_to_absolutetime_interval(500, kMillisecondScale, &fFadeInterval);
             }
@@ -800,7 +800,7 @@ bool AppleBacklightDisplay::doUpdate( void )
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-bool AppleBacklightDisplay::updatePowerParam(void)
+bool AppleBacklightDisplay::updatePowerParam(const int where)
 {
     ABL_START(updatePowerParam,0,0,0);
 	SInt32 		   value, current;
@@ -824,11 +824,19 @@ bool AppleBacklightDisplay::updatePowerParam(void)
         return (false);
     }
 
-	value = fClamshellSlept ? 0 : fCurrentPowerState;
+	const int targetPower = fClamshellSlept ? 0 : fCurrentPowerState;
+    assert(0 <= fCurrentPowerState
+             && fCurrentPowerState < kIODisplayNumPowerStates);
 
 	if (fPowerUsesBrightness)
 	{
-		switch (value)
+        // TODO(gvdl): AppleBacklightDisplay is used only for built in displays
+        // in iMacs and laptops.  fPowerUserBrightness is only set if the
+        // IODisplayParamater[dsyp(gIODisplayPowerModeKey)] is not found.
+        // I have looked at j130, j145, j80 and j78 machines. They all support
+        // this display parameter.  Further research will be required before we
+        // can delete this code as dead, though.
+		switch (targetPower)
 		{
 			case 0:
 				value = 0;
@@ -853,7 +861,7 @@ bool AppleBacklightDisplay::updatePowerParam(void)
 	}
 	else
 	{
-		switch (value)
+		switch (targetPower)
 		{
 			case 0:
 				value = kIODisplayPowerStateOff;
@@ -868,7 +876,12 @@ bool AppleBacklightDisplay::updatePowerParam(void)
 				value = kIODisplayPowerStateOn;
 				break;
 		}
-		DEBG1("B", " dsyp %d\n", value);
+        DEBG1("B", " dsyp %d\n", value);
+        const uint64_t arg1 = GPACKUINT8T(0, /* version */ 0) // future proofing
+                            | GPACKUINT8T(1, value)
+                            | GPACKUINT8T(2, targetPower)
+                            | GPACKUINT8T(3, where);
+        IOG_KTRACE_NT(DBG_IOG_DISPLAY_POWER, DBG_FUNC_NONE, arg1, 0, 0, 0);
 		ret = super::doIntegerSet(displayParams, gIODisplayPowerStateKey, value);
 #if IOG_FADE2
         if (kIODisplayPowerStateOff == value) IOSleep(700);
@@ -889,7 +902,7 @@ void AppleBacklightDisplay::_deferredEvent( OSObject * target,
     ABL_START(_deferredEvent,intCount,0,0);
     AppleBacklightDisplay * abd = (AppleBacklightDisplay *) target;
 
-	abd->updatePowerParam();
+	abd->updatePowerParam(4);
     ABL_END(_deferredEvent,0,0,0);
 }
 

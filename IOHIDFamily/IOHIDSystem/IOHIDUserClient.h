@@ -37,7 +37,7 @@
 #include "IOHIDSystem.h"
 #include "IOHIDEventServiceQueue.h"
 
-#define MAX_SCREENS 32  // same as EV_MAX_SCREENS in HIDSystem
+#define MAX_SCREENS 64  // same as EV_MAX_SCREENS in HIDSystem
 
 class IOHIDUserClient : public IOUserClient
 {

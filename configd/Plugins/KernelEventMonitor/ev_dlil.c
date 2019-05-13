@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -388,7 +388,7 @@ S_link_update_status(const char *if_name, CFStringRef interface, boolean_t attac
 	bzero((char *)&ifm, sizeof(ifm));
 	(void) strlcpy(ifm.ifm_name, if_name, sizeof(ifm.ifm_name));
 
-	if (ioctl(sock, SIOCGIFMEDIA, (caddr_t)&ifm) == -1) {
+	if (ioctl(sock, SIOCGIFXMEDIA, (caddr_t)&ifm) == -1) {
 		/* if media status not available for this interface */
 		goto update;
 	}

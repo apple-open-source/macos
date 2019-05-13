@@ -419,6 +419,8 @@ CFDataRef SecCertificateCopyExtensionValue(SecCertificateRef certificate,
                                            CFTypeRef extensionOID, bool *isCritical)
     __OSX_AVAILABLE_STARTING(__MAC_10_13_4, __IPHONE_11_3);
 
+bool SecCertificateGetDeveloperIDDate(SecCertificateRef certificate, CFAbsoluteTime *time, CFErrorRef * CF_RETURNS_RETAINED error);
+
 /*
  * Legacy functions (OS X only)
  */

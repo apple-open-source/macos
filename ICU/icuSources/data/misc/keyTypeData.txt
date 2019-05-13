@@ -628,6 +628,7 @@ keyTypeData:table(nofallback){
             java{""}
             jpan{""}
             jpanfin{""}
+            jpanyear{""}
             kali{""}
             khmr{""}
             knda{""}

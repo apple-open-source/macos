@@ -1,0 +1,28 @@
+//
+//  IOHIDFamilyUnitTests.xcconfig
+//  IOHIDFamily
+//
+//  Created by local on 1/16/19.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+#include "IOHIDFamily/IOHIDFamily.xcconfig"
+
+LD_FLAG_DISPLAY_FRAMEWORK_0 = -framework HIDDisplay
+LD_FLAG_DISPLAY_FRAMEWORK_ = -framework HIDDisplay
+EXCLUDE_DISPLAY_FRAMEWORK_FILES_1 = TestHIDDisplaySessionFilter.m TestHIDDisplayFramework.m
+EXCLUDE_DISPLAY_FRAMEWORK_FILES = TestHIDDisplaySessionFilter.m TestHIDDisplayFramework.m
+EXCLUDE_DISPLAY_FRAMEWORK_FILES_MACOS_0 = TestHIDDisplaySessionFilter.m
+EXCLUDE_DISPLAY_FRAMEWORK_FILES_MACOS_1 = TestHIDDisplaySessionFilter.m TestHIDDisplayFramework.m
+EXCLUDE_DISPLAY_FRAMEWORK_FILES_MACOS_ = TestHIDDisplaySessionFilter.m
+OTHER_LDFLAGS[sdk=iphoneos*][arch=*] = $(inherited)  $(LD_FLAG_DISPLAY_FRAMEWORK_$(RC_HIDE_J290))
+OTHER_LDFLAGS[sdk=macos*][arch=*] = $(inherited)  $(LD_FLAG_DISPLAY_FRAMEWORK_$(RC_HIDE_J290))
+OTHER_LDFLAGS[sdk=appletv*][arch=*] = $(inherited)
+OTHER_LDFLAGS[sdk=watch*][arch=*] = $(inherited)
+EXCLUDED_SOURCE_FILE_NAMES[sdk=macos*] = $(EXCLUDE_DISPLAY_FRAMEWORK_FILES_MACOS_$(RC_HIDE_J290))
+EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*][arch=*] = TestIOHIDPostEvent.m $(EXCLUDE_DISPLAY_FRAMEWORK_FILES_$(RC_HIDE_J290))
+EXCLUDED_SOURCE_FILE_NAMES[sdk=watch*][arch=*] = TestIOHIDPostEvent.m $(EXCLUDE_DISPLAY_FRAMEWORK_FILES)
+EXCLUDED_SOURCE_FILE_NAMES[sdk=appletv*][arch=*] = TestIOHIDPostEvent.m $(EXCLUDE_DISPLAY_FRAMEWORK_FILES)
+GCC_WARN_UNUSED_PARAMETER = NO

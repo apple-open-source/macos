@@ -21,9 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#define IOLOCKS_INLINE
+
 #include <IOKit/assert.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/storage/IOStorage.h>
+#include <IOKit/IOLocks.h>
 
 #define super IOService
 OSDefineMetaClassAndAbstractStructors(IOStorage, IOService)
@@ -42,49 +45,52 @@ class IOStorageSyncerLock
 {
 protected:
 
-    IOLock * _lock;
+    IOSimpleLock _lock;
 
 public:
 
     inline IOStorageSyncerLock( )
     {
-        _lock = IOLockAlloc( );
-    }
-
-    inline ~IOStorageSyncerLock( )
-    {
-        if ( _lock ) IOLockFree( _lock );
+        IOSimpleLockInit( &_lock );
     }
 
     inline void lock( )
     {
-        IOLockLock( _lock );
+        IOSimpleLockLock( &_lock );
     }
 
     inline void unlock( )
     {
-        IOLockUnlock( _lock );
+        IOSimpleLockUnlock( &_lock );
     }
 
     inline void sleep( void * event )
     {
-        IOLockSleep( _lock, event, THREAD_UNINT );
+        wait_result_t ret = assert_wait( ( event_t ) event, false );
+        
+        unlock( );
+        
+        if( ret == THREAD_WAITING )
+        {
+            thread_block( THREAD_CONTINUE_NULL );
+        }
+        
+        lock( );
     }
 
     inline void wakeup( void * event )
     {
-        IOLockWakeup( _lock, event, false );
+        thread_wakeup( event );
     }
 };
-
-static IOStorageSyncerLock gIOStorageSyncerLock;
 
 class IOStorageSyncer
 {
 protected:
 
-    IOReturn _status;
-    bool     _wakeup;
+    IOReturn            _status;
+    bool                _wakeup;
+    IOStorageSyncerLock _syncerLock;
 
 public:
 
@@ -95,14 +101,14 @@ public:
 
     IOReturn wait( )
     {
-        gIOStorageSyncerLock.lock( );
+        _syncerLock.lock( );
 
         while ( _wakeup == false )
         {
-            gIOStorageSyncerLock.sleep( this );
+            _syncerLock.sleep( ( void * )this );
         }
 
-        gIOStorageSyncerLock.unlock( );
+        _syncerLock.unlock( );
 
         return _status;
     }
@@ -111,13 +117,13 @@ public:
     {
         _status = status;
 
-        gIOStorageSyncerLock.lock( );
+        _syncerLock.lock( );
 
         _wakeup = true;
 
-        gIOStorageSyncerLock.wakeup( this );
-
-        gIOStorageSyncerLock.unlock( );
+        _syncerLock.unlock( );
+        
+        _syncerLock.wakeup( ( void * )this );
     }
 };
 

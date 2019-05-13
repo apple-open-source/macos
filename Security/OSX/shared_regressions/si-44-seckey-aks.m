@@ -377,21 +377,21 @@ static void rewrapTest(void) {
     // Encrypt message with SEP key.
     NSData *message = [@"message" dataUsingEncoding:NSUTF8StringEncoding];
     id pubKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)key));
-    NSData *encrypted = CFBridgingRelease(SecKeyCreateEncryptedDataWithParameters((__bridge SecKeyRef)pubKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM, (__bridge CFDataRef)message, (__bridge CFDictionaryRef)@{(id)kSecKeyEncryptionParameterSymmetricKeySizeInBits: @256}, (void *)&error));
+    NSData *encrypted = CFBridgingRelease(SecKeyCreateEncryptedDataWithParameters((__bridge SecKeyRef)pubKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM, (__bridge CFDataRef)message, (__bridge CFDictionaryRef)@{(id)kSecKeyEncryptionParameterSymmetricKeySizeInBits: @128}, (void *)&error));
     ok(encrypted, "failed to encrypt with public key, %@", error);
     NSData *cert = [NSData dataWithBytes:satori_test_cert length:sizeof(satori_test_cert)];
     NSDictionary *recryptParams = @{
                                     (id)kSecKeyEncryptionParameterRecryptCertificate: cert,
-                                    (id)kSecKeyEncryptionParameterSymmetricKeySizeInBits: @256,
+                                    (id)kSecKeyEncryptionParameterSymmetricKeySizeInBits: @128,
                                     (id)kSecKeyEncryptionParameterRecryptParameters: @{
-                                            (id)kSecKeyEncryptionParameterSymmetricKeySizeInBits: @256
+                                            (id)kSecKeyEncryptionParameterSymmetricKeySizeInBits: @128
                                             },
                                     };
     NSData *recrypted = CFBridgingRelease(SecKeyCreateDecryptedDataWithParameters((__bridge SecKeyRef)key, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM, (__bridge CFDataRef)encrypted, (__bridge CFDictionaryRef)recryptParams, (void *)&error));
     ok(recrypted, "failed to recrypt, %@", error);
 
     id recryptKey = CFBridgingRelease(SecKeyCreateWithData((CFDataRef)[NSData dataWithBytes:satori_priv length:sizeof(satori_priv)], (CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate}, (void *)&error));
-    NSData *decrypted = CFBridgingRelease(SecKeyCreateDecryptedDataWithParameters((__bridge SecKeyRef)recryptKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM, (__bridge CFDataRef)recrypted, (__bridge CFDictionaryRef)@{(id)kSecKeyEncryptionParameterSymmetricKeySizeInBits: @256}, (void *)&error));
+    NSData *decrypted = CFBridgingRelease(SecKeyCreateDecryptedData((__bridge SecKeyRef)recryptKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM, (__bridge CFDataRef)recrypted, (void *)&error));
     ok(decrypted, "failed to decrypt, %@", error);
     ok([decrypted isEqualToData:message], "Decrypted data differs: %@ vs %@", decrypted, message);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -71,7 +71,7 @@ inet_dgram_socket()
 }
 
 static int
-siocgifmedia(int s, const char * ifname, int * status, int * active)
+siocgifxmedia(int s, const char * ifname, int * status, int * active)
 {
 	struct ifmediareq	ifmr;
 
@@ -79,7 +79,7 @@ siocgifmedia(int s, const char * ifname, int * status, int * active)
 	*active = 0;
 	bzero(&ifmr, sizeof(ifmr));
 	strlcpy(ifmr.ifm_name, ifname, sizeof(ifmr.ifm_name));
-	if (ioctl(s, SIOCGIFMEDIA, &ifmr) == -1) {
+	if (ioctl(s, SIOCGIFXMEDIA, &ifmr) == -1) {
 		return (-1);
 	}
 	if (ifmr.ifm_count != 0) {
@@ -1253,14 +1253,14 @@ SCBondInterfaceCopyStatus(SCBondInterfaceRef bond)
 				if_name,
 				sizeof(if_name),
 				kCFStringEncodingASCII);
-	if (siocgifmedia(s, if_name, &bond_if_status, &bond_if_active) == -1) {
+	if (siocgifxmedia(s, if_name, &bond_if_status, &bond_if_active) == -1) {
 		_SCErrorSet(errno);
 		switch (errno) {
 			case EBUSY :
 			case ENXIO :
 				break;
 			default :
-				SC_log(LOG_NOTICE, "siocgifmedia(%s) failed: %s",
+				SC_log(LOG_NOTICE, "siocgifxmedia(%s) failed: %s",
 				       if_name,
 				       strerror(errno));
 		}
@@ -1314,13 +1314,13 @@ SCBondInterfaceCopyStatus(SCBondInterfaceRef bond)
 			int			status = 0;
 			static lacp_system	zeroes = { {0, 0, 0, 0, 0, 0}};
 
-			if (siocgifmedia(s, scan_p->ibs_if_name, &status, &active) == -1) {
+			if (siocgifxmedia(s, scan_p->ibs_if_name, &status, &active) == -1) {
 				switch (errno) {
 					case EBUSY :
 					case ENXIO :
 						break;
 					default :
-						SC_log(LOG_NOTICE, "siocgifmedia(%s) failed: %s",
+						SC_log(LOG_NOTICE, "siocgifxmedia(%s) failed: %s",
 						       if_name,
 						       strerror(errno));
 						break;

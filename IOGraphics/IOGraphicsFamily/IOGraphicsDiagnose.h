@@ -9,9 +9,10 @@
 #ifndef IOGraphicsDiagnose_h
 #define IOGraphicsDiagnose_h
 
-#define IOGRAPHICS_DIAGNOSE_VERSION             7
+#define IOGRAPHICS_DIAGNOSE_VERSION             9
 
 #define IOGRAPHICS_MAXIMUM_REPORTS              16
+#define IOGRAPHICS_MAXIMUM_FBS                  96
 
 
 
@@ -115,7 +116,10 @@ typedef struct IOGReport {
     uint32_t        lastSuccessfulMode;
     uint32_t        aliasID;
 
-    uint64_t        reservedC[15];
+    uint32_t        lastWSAAStatus;
+
+    uint32_t        reservedA;
+    uint64_t        reservedB[14];
 } IOGReport;
 
 typedef struct IOGDiagnose {
@@ -124,13 +128,11 @@ typedef struct IOGDiagnose {
     uint64_t        framebufferCount;
 
     uint32_t        length;
-    uint32_t        _reservedA;
-
-    IOGReport       fbState[IOGRAPHICS_MAXIMUM_REPORTS];
-
-    uint32_t        _reservedB[8];
+    uint32_t        _reservedB[7];
 
     uint64_t        systemBootEpochTime;
+
+    IOGReport       fbState[IOGRAPHICS_MAXIMUM_FBS];
 } IOGDiagnose;
 #pragma pack(pop)
 

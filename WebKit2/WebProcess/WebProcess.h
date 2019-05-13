@@ -52,6 +52,10 @@
 #include <wtf/MachSendRight.h>
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+#include "WebSQLiteDatabaseTracker.h"
+#endif
+
 namespace API {
 class Object;
 }
@@ -270,6 +274,7 @@ private:
 
     void platformTerminate();
 
+    void setHasSuspendedPageProxy(bool);
     void setIsInProcessCache(bool);
     void markIsNoLongerPrewarmed();
 
@@ -461,6 +466,10 @@ private:
 
     RefPtr<WebCore::ApplicationCacheStorage> m_applicationCacheStorage;
 
+#if PLATFORM(IOS_FAMILY)
+    WebSQLiteDatabaseTracker m_webSQLiteDatabaseTracker;
+#endif
+
     enum PageMarkingLayersAsVolatileCounterType { };
     using PageMarkingLayersAsVolatileCounter = RefCounter<PageMarkingLayersAsVolatileCounterType>;
     std::unique_ptr<PageMarkingLayersAsVolatileCounter> m_pageMarkingLayersAsVolatileCounter;
@@ -482,6 +491,7 @@ private:
 #if PLATFORM(WAYLAND)
     std::unique_ptr<WaylandCompositorDisplay> m_waylandCompositorDisplay;
 #endif
+    bool m_hasSuspendedPageProxy { false };
     bool m_isSuspending { false };
 };
 

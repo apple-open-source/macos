@@ -50,6 +50,14 @@
 #define GPACKBITS(shift, value) \
     (MAKEGTRACEARG(value) & ((1ULL << (shift)) - 1))
 
+/* GPACKBIT
+ * value: boolean value
+ * bitidx: index of bit in uint64_t result; valid range: [0, 63] */
+#define GPACKBIT(bitidx, value) \
+    MAKEGTRACEARG((static_cast<bool>(value)) ? (1ULL << (bitidx)) : 0)
+#define GUNPACKBIT(bitidx, value) \
+    static_cast<bool>(MAKEGTRACEARG(value) & (1ULL << (bitidx)))
+
 /* GPACKUINT8T
  * value: uint8_t value
  * ui8idx: index of uint8_t in uint64_t result; valid range: [0, 7] */

@@ -5443,6 +5443,8 @@
 		F6AF96681E646CAF00917214 /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF6A1A01458F000958DC /* libcoreauthd_client.a */; };
 		F93C493B1AB8FF530047E01A /* ckcdiagnose.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = F93C493A1AB8FF530047E01A /* ckcdiagnose.sh */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		F964772C1E5832540019E4EB /* SecCodePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = DCD0678E1D8CDF7E007602F1 /* SecCodePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F9C8AFCD223740C800E7D6AE /* requirement.h in Headers */ = {isa = PBXBuildFile; fileRef = F9C8AFCB223740C800E7D6AE /* requirement.h */; };
+		F9C8AFD222374D1100E7D6AE /* requirement.c in Sources */ = {isa = PBXBuildFile; fileRef = F9C8AFC5223740C700E7D6AE /* requirement.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
@@ -10152,7 +10154,6 @@
 		6C9AA79E1F7C1D8F00D08296 /* supdctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = supdctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C9AA7A01F7C1D9000D08296 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		6CA2B9431E9F9F5700C43444 /* RateLimiter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RateLimiter.h; sourceTree = "<group>"; };
-		6CA557FE219E214200993CF4 /* securityuploadd-sim.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "securityuploadd-sim.plist"; sourceTree = "<group>"; };
 		6CA837612210C5E7002770F1 /* kc-45-change-password.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "kc-45-change-password.c"; path = "regressions/kc-45-change-password.c"; sourceTree = "<group>"; };
 		6CAA8D201F842FB3007B6E03 /* securityuploadd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = securityuploadd; sourceTree = BUILT_PRODUCTS_DIR; };
 		6CB5F4751E4025AB00DBF3F0 /* CKKSCloudKitTestsInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = CKKSCloudKitTestsInfo.plist; sourceTree = "<group>"; };
@@ -13377,6 +13378,8 @@
 		F6A3CB0D1E7062BA00E7821F /* authd-Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "authd-Entitlements.plist"; path = "OSX/authd/authd-Entitlements.plist"; sourceTree = "<group>"; };
 		F93C493A1AB8FF530047E01A /* ckcdiagnose.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = ckcdiagnose.sh; sourceTree = "<group>"; };
 		F9B458272183E01100F6BCEB /* SignatureEditing.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = SignatureEditing.sh; path = OSX/codesign_tests/SignatureEditing.sh; sourceTree = "<group>"; };
+		F9C8AFC5223740C700E7D6AE /* requirement.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = requirement.c; sourceTree = "<group>"; };
+		F9C8AFCB223740C800E7D6AE /* requirement.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = requirement.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -17784,6 +17787,8 @@
 		DC5ABDBE1D832D5800CF422C /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				F9C8AFC5223740C700E7D6AE /* requirement.c */,
+				F9C8AFCB223740C800E7D6AE /* requirement.h */,
 				DC5ABD781D832D5800CF422C /* srCdsaUtils.cpp */,
 				DC5ABD791D832D5800CF422C /* srCdsaUtils.h */,
 				DC5ABD7A1D832D5800CF422C /* createFVMaster.c */,
@@ -22853,6 +22858,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F9C8AFCD223740C800E7D6AE /* requirement.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -30304,6 +30310,7 @@
 				DC5ABDEB1D832E4000CF422C /* verify_cert.c in Sources */,
 				DC5ABDEC1D832E4000CF422C /* access_utils.c in Sources */,
 				DC5ABDED1D832E4000CF422C /* translocate.c in Sources */,
+				F9C8AFD222374D1100E7D6AE /* requirement.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

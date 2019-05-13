@@ -79,6 +79,7 @@
 #include <ctime>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 extern char **environ;
 
@@ -278,10 +279,17 @@ void dumpGTraceReport(const IOGDiagnose& diag,
     strftime(filename, sizeof(filename), "Report date: %F %H:%M:%S", &timeinfo);
     fprintf(outfile, "%s\n", filename);
 
+    const auto fbCount = std::min<uint64_t>(
+        diag.framebufferCount, IOGRAPHICS_MAXIMUM_FBS);
+
     fprintf(outfile, "Report version: %#llx\n", diag.version);
     fprintf(outfile, "Boot Epoch Time: %llu\n", diag.systemBootEpochTime);
-    fprintf(outfile, "Number of framebuffers: %llu\n\n", diag.framebufferCount);
-    for (uint32_t i = 0; i < diag.framebufferCount; i++) {
+    fprintf(outfile, "Number of framebuffers: %llu%s\n\n",
+        diag.framebufferCount,
+        ((fbCount != diag.framebufferCount)
+            ? " (warning: some fbs not reported)" : ""));
+
+    for (uint32_t i = 0; i < fbCount; i++) {
         const IOGReport& fbState = diag.fbState[i];
 
         fprintf(outfile, "\t%s::",
@@ -324,6 +332,12 @@ void dumpGTraceReport(const IOGDiagnose& diag,
                 fbState.pendingPowerState,
                 fbState.notificationGroup,
                 fbState.wsaaState);
+
+        if ((diag.version >= 9) && (kIOReturnSuccess != fbState.lastWSAAStatus)) {
+            fprintf(outfile,
+                "\t\t**** WARNING: setAttribute(WSAA) failed: %#x\n",
+                fbState.lastWSAAStatus);
+        }
 
         fprintf(outfile, "\t\tA-State   : 0x%08x (b", fbState.externalAPIState);
         for (uint32_t mask = 0x80000000; 0 != mask; mask >>= 1)

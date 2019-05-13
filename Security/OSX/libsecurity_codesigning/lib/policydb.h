@@ -122,6 +122,7 @@ public:
 	void addFeature(const char *feature, const char *value, const char *remarks);
 	void simpleFeature(const char *feature, const char *sql);
 	void simpleFeature(const char *feature, void (^perform)());
+	void simpleFeatureNoTransaction(const char *feature, void (^perform)());
 
 	void installExplicitSet(const char *auth, const char *sigs);
 

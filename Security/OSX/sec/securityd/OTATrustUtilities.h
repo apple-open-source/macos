@@ -145,6 +145,9 @@ NSNumber *SecOTAPKIGetSamplingRateForEvent(SecOTAPKIRef otapkiRef, NSString *eve
 
 CFArrayRef SecOTAPKICopyAppleCertificateAuthorities(SecOTAPKIRef otapkiRef);
 
+extern const CFStringRef kOTAPKIKillSwitchCT;
+bool SecOTAPKIKillSwitchEnabled(SecOTAPKIRef otapkiRef, CFStringRef switchKey);
+
 // SPI to return the array of currently trusted Escrow certificates
 CF_EXPORT
 CFArrayRef SecOTAPKICopyCurrentEscrowCertificates(uint32_t escrowRootType, CFErrorRef* error);

@@ -2329,17 +2329,17 @@
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>ids_prod</string>
+		<string>ids_test</string>
 		<key>Intermediates</key>
-		<string>AppleServerAuthentication</string>
+		<string>TestAppleServerAuthentication</string>
 		<key>Anchors</key>
-		<string>AppleRootCA</string>
+		<string>TestAppleRootCA</string>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
-		<date>2018-02-08T21:00:00Z</date>
+		<date>2019-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
@@ -2385,17 +2385,17 @@
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>ids_prod</string>
+		<string>ids_test</string>
 		<key>Intermediates</key>
-		<string>AppleServerAuthentication</string>
+		<string>TestAppleServerAuthentication</string>
 		<key>Anchors</key>
-		<string>AppleRootCA</string>
+		<string>TestAppleRootCA</string>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
-		<date>2018-02-08T21:00:00Z</date>
+		<date>2019-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
@@ -2441,17 +2441,17 @@
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>ids_prod</string>
+		<string>ids_test</string>
 		<key>Intermediates</key>
-		<string>AppleServerAuthentication</string>
+		<string>TestAppleServerAuthentication</string>
 		<key>Anchors</key>
-		<string>AppleRootCA</string>
+		<string>TestAppleRootCA</string>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
-		<date>2018-02-08T21:00:00Z</date>
+		<date>2019-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
@@ -2499,17 +2499,17 @@
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>ids_prod</string>
+		<string>ids_test</string>
 		<key>Intermediates</key>
-		<string>AppleServerAuthentication</string>
+		<string>TestAppleServerAuthentication</string>
 		<key>Anchors</key>
-		<string>AppleRootCA</string>
+		<string>TestAppleRootCA</string>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>VerifyDate</key>
-		<date>2018-02-08T21:00:00Z</date>
+		<date>2019-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
@@ -3064,7 +3064,7 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>hls-svod.itunes.apple.com</string>
+				<string>hls-slive.itunes.apple.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
@@ -3092,7 +3092,7 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>hls-svod.itunes.apple.com</string>
+				<string>hls-slive.itunes.apple.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>

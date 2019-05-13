@@ -1,6 +1,6 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json",
-    "assetVersion": 5,
+    "assetVersion": 6,
     "operators": [
         {
             "email": [
@@ -60,9 +60,9 @@
                     "log_id": "ejKMVNi3LbYg6jjgUh7phBZwMhOFTTvSK8E6V6NS61I=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2018-10-20T00:47:00Z",
-                            "version": "21"
+                        "qualified": {
+                            "timestamp": "2019-02-23T20:27:56Z",
+                            "version": "37"
                         }
                     },
                     "temporal_interval": {
@@ -77,9 +77,9 @@
                     "log_id": "QcjKsd8iRkoQxqE6CUKHXk4xixsD6+tLx2jwkGKWBvY=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2018-10-20T00:47:00Z",
-                            "version": "21"
+                        "qualified": {
+                            "timestamp": "2019-02-23T20:27:05Z",
+                            "version": "36"
                         }
                     },
                     "temporal_interval": {
@@ -365,9 +365,9 @@
                     "log_id": "CEEUmABxUywWGQRgvPxH/cJlOvopLHKzf/hjrinMyfA=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2018-05-11T21:57:37Z",
-                            "version": "16"
+                        "qualified": {
+                            "timestamp": "2019-02-23T20:46:27Z",
+                            "version": "39"
                         }
                     },
                     "temporal_interval": {
@@ -382,9 +382,9 @@
                     "log_id": "sQzVWabWeEaBH335pRUyc5rEjXA76gMj2l04dVvArU4=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2018-05-11T21:57:37Z",
-                            "version": "16"
+                        "qualified": {
+                            "timestamp": "2019-02-23T20:45:40Z",
+                            "version": "38"
                         }
                     },
                     "temporal_interval": {
@@ -480,9 +480,9 @@
                     "log_id": "B7dcG+V9aP/xsMYdIxXHuuZXfFeUt2ruvGE6GmnTohw=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2018-05-11T21:57:37Z",
-                            "version": "16"
+                        "qualified": {
+                            "timestamp": "2019-02-23T20:47:12Z",
+                            "version": "40"
                         }
                     },
                     "temporal_interval": {
@@ -497,9 +497,9 @@
                     "log_id": "fT7y+I//iFVoJMLAyp5SiXkrxQ54CX8uapdomX4i8Nc=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2018-05-11T21:57:37Z",
-                            "version": "16"
+                        "qualified": {
+                            "timestamp": "2019-02-23T20:47:58Z",
+                            "version": "41"
                         }
                     },
                     "temporal_interval": {
@@ -527,9 +527,9 @@
                     "log_id": "RqVV63X6kSAwtaKJafTzfREsQXS+/Um4havy/HD+bUc=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2018-05-11T21:57:37Z",
-                            "version": "16"
+                        "qualified": {
+                            "timestamp": "2019-02-23T20:48:40Z",
+                            "version": "42"
                         }
                     },
                     "temporal_interval": {
@@ -544,9 +544,9 @@
                     "log_id": "KXm+8J45OSHwVnOfY6V35b5XfZxgCvj5TV0mXCVdx4Q=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2019-01-04T18:25:13Z",
-                            "version": "27"
+                        "qualified": {
+                            "timestamp": "2019-02-23T20:26:04Z",
+                            "version": "35"
                         }
                     },
                     "temporal_interval": {
@@ -662,9 +662,9 @@
                     "log_id": "FZcEiNe5l6Bb61JRKt7o0ui0oxZSZBIan6v71fha2T8=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2017-09-19T18:24:24Z",
-                            "version": "15"
+                        "retired": {
+                            "timestamp": "2019-02-15T23:59:59Z",
+                            "version": "34"
                         }
                     },
                     "url": "sirius.ws.symantec.com/"
@@ -675,9 +675,9 @@
                     "log_id": "3esdK3oNT6Ygi4GtgWhwfi6OnQHVXIiNPRHEzbbsvsw=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2015-12-02T22:55:17Z",
-                            "version": "15"
+                        "retired": {
+                            "timestamp": "2019-02-15T23:59:59Z",
+                            "version": "32"
                         }
                     },
                     "url": "ct.ws.symantec.com/"
@@ -748,9 +748,9 @@
                     "log_id": "vHjh38X2PGhGSTNNoQ+hXwl5aSAJwIG08/aRfz7ZuKU=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2017-05-04T22:18:39Z",
-                            "version": "15"
+                        "retired": {
+                            "timestamp": "2019-02-15T23:59:59Z",
+                            "version": "33"
                         }
                     },
                     "url": "vega.ws.symantec.com/"
@@ -839,6 +839,40 @@
                         "start_inclusive": "2021-01-01T00:00:00Z"
                     },
                     "url": "nessie2021.ct.digicert.com/log/"
+                },
+                {
+                    "description": "DigiCert 'Yeti 2023' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfQ0DsdWYitzwFTvG3F4Nbj8Nv5XIVYzQpkyWsU4nuSYlmcwrAp6m092fsdXEw6w1BAeHlzaqrSgNfyvZaJ9y0Q==",
+                    "log_id": "Nc8ZG7+xbFe/D61MbULLu7YnICZR6j/hKu+oA8M71kw=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2019-01-17T06:04:37Z",
+                            "version": "30"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2024-01-01T00:00:00Z",
+                        "start_inclusive": "2023-01-01T00:00:00Z"
+                    },
+                    "url": "yeti2023.ct.digicert.com/log"
+                },
+                {
+                    "description": "DigiCert 'Nessie 2023' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEXu8iQwSCRSf2CbITGpUpBtFVt8+I0IU0d1C36Lfe1+fbwdaI0Z5FktfM2fBoI1bXBd18k2ggKGYGgdZBgLKTg==",
+                    "log_id": "s3N3B+GEUPhjhtYFqdwRCUp5LbFnDAuH3PADDnk2pZo=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2019-01-17T06:07:26Z",
+                            "version": "31"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2024-01-01T00:00:00Z",
+                        "start_inclusive": "2023-01-01T00:00:00Z"
+                    },
+                    "url": "nessie2023.ct.digicert.com/log"
                 }
             ],
             "name": "DigiCert"
@@ -878,5 +912,5 @@
             "name": "Sectigo"
         }
     ],
-    "version": "29"
+    "version": "42"
 }

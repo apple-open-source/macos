@@ -45,6 +45,10 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RetainPtr.h>
 
+#if PLATFORM(IOS_FAMILY)
+#include "WebSQLiteDatabaseTracker.h"
+#endif
+
 namespace IPC {
 class FormDataReference;
 }
@@ -158,6 +162,8 @@ public:
     void removePrevalentDomains(PAL::SessionID, const Vector<String>& domains);
     void setCacheMaxAgeCapForPrevalentResources(PAL::SessionID, Seconds, uint64_t contextId);
     void resetCacheMaxAgeCapForPrevalentResources(PAL::SessionID, uint64_t contextId);
+    void committedCrossSiteLoadWithLinkDecoration(PAL::SessionID, const String& fromRegistrableDomain, const String& toRegistrableDomain, uint64_t pageID);
+    void resetCrossSiteLoadsWithLinkDecorationForTesting(PAL::SessionID, CompletionHandler<void()>&&);
 #endif
 
     using CacheStorageParametersCallback = CompletionHandler<void(const String&, uint64_t quota)>;
@@ -376,6 +382,10 @@ private:
 
 #if ENABLE(CONTENT_EXTENSIONS)
     NetworkContentRuleListManager m_NetworkContentRuleListManager;
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    WebSQLiteDatabaseTracker m_webSQLiteDatabaseTracker;
 #endif
 
     Ref<WorkQueue> m_storageTaskQueue;

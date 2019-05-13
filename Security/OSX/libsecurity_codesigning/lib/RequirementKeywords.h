@@ -22,5 +22,7 @@
         "info",
         "entitlement",
         "exists",
+        "absent",
         "leaf",
         "root",
+        "timestamp",

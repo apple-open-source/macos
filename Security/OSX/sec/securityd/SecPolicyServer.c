@@ -2300,20 +2300,24 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
     require_quiet(SecCertificatePathVCIsPathValidated(path), out);
 
     /* We only enforce this check when all of the following are true:
-     *  0. Not a pinning policy */
+     * 0. Kill Switch not enabled */
+    require_quiet(!SecOTAPKIKillSwitchEnabled(otaref, kOTAPKIKillSwitchCT), out);
+
+    /*  1. Not a pinning policy */
     SecPolicyRef policy = SecPVCGetPolicy(pvc);
     require_quiet(CFEqualSafe(SecPolicyGetName(policy),kSecPolicyNameSSLServer), out);
 
-    /*  1. Device has checked in to MobileAsset for a current log list within the last 60 days.
+    /*  2. Device has checked in to MobileAsset for a current log list within the last 60 days.
      *     Or the caller passed in the trusted log list. */
     require_quiet(SecOTAPKIAssetStalenessLessThanSeconds(otaref, kSecOTAPKIAssetStalenessDisable) || trustedLogs, out);
 
-    /*  2. Leaf issuance date is on or after 16 Oct 2018 at 00:00:00 AM UTC and not expired. */
+    /*  3. Leaf issuance date is on or after 16 Oct 2018 at 00:00:00 AM UTC and not expired. */
     SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
     require_quiet(SecCertificateNotValidBefore(leaf) >= 561340800.0 &&
                   SecCertificateIsValid(leaf, SecPVCGetVerifyTime(pvc)), out);
 
-    /*  3. Chain is anchored with root in the system anchor source but not the Apple anchor source */
+    /*  4. Chain is anchored with root in the system anchor source but not the Apple anchor source
+     *     with certain excepted CAs and configurable included CAs. */
     CFIndex count = SecPVCGetCertificateCount(pvc);
     SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
     appleAnchorSource = SecMemoryCertificateSourceCreate(SecGetAppleTrustAnchors(false));
@@ -3399,14 +3403,22 @@ static void SecPVCCheckRequireCTConstraints(SecPVCRef pvc) {
     if (ctp <= kSecPathCTNotRequired || !SecPVCIsSSLServerAuthenticationPolicy(pvc)) {
         return;
     }
-    /* CT was required. Error is always set on leaf certificate. */
-    SecPVCSetResultForced(pvc, kSecPolicyCheckCTRequired,
-                          0, kCFBooleanFalse, true);
-    if (ctp != kSecPathCTRequiredOverridable) {
-        /* Normally kSecPolicyCheckCTRequired is recoverable,
-           so need to manually change trust result here. */
-        pvc->result = kSecTrustResultFatalTrustFailure;
+
+    /* We need to have a recent log list or the CT check may have failed due to the list being out of date.
+     * Also, honor the CT kill switch. */
+    SecOTAPKIRef otaref = SecOTAPKICopyCurrentOTAPKIRef();
+    if (!SecOTAPKIKillSwitchEnabled(otaref, kOTAPKIKillSwitchCT) &&
+        SecOTAPKIAssetStalenessLessThanSeconds(otaref, kSecOTAPKIAssetStalenessDisable)) {
+        /* CT was required. Error is always set on leaf certificate. */
+        SecPVCSetResultForced(pvc, kSecPolicyCheckCTRequired,
+                              0, kCFBooleanFalse, true);
+        if (ctp != kSecPathCTRequiredOverridable) {
+            /* Normally kSecPolicyCheckCTRequired is recoverable,
+             so need to manually change trust result here. */
+            pvc->result = kSecTrustResultFatalTrustFailure;
+        }
     }
+    CFReleaseNull(otaref);
 }
 
 /* AUDIT[securityd](done):
@@ -3467,10 +3479,13 @@ void SecPVCPathChecks(SecPVCRef pvc) {
         /* This call will set the value of pvc->is_ct, but won't change the result (pvc->result) */
         SecPolicyCheckCT(pvc);
 
-        /* Certs are only EV if they are also CT verified */
-        if (ev_check_ok && SecCertificatePathVCIsCT(path)) {
+        /* Certs are only EV if they are also CT verified (when the Kill Switch isn't enabled and against a recent log list) */
+        SecOTAPKIRef otaref = SecOTAPKICopyCurrentOTAPKIRef();
+        if (ev_check_ok && (SecCertificatePathVCIsCT(path) || SecOTAPKIKillSwitchEnabled(otaref, kOTAPKIKillSwitchCT) ||
+                            !SecOTAPKIAssetStalenessLessThanSeconds(otaref, kSecOTAPKIAssetStalenessDisable))) {
             SecCertificatePathVCSetIsEV(path, true);
         }
+        CFReleaseNull(otaref);
     }
 
     /* Say that we did the expensive path checks (that we want to skip on the second call) */

@@ -32,7 +32,7 @@ static uint16_t generation;
 -(NSString *) description
 {
 #if !RC_HIDE_B288
-    return [NSString stringWithFormat:@"<IOBluetoothDevicename:%@ address:%@ w2:%d>", self.name, self.addressString, self.isW2];
+    return [NSString stringWithFormat:@"<IOBluetoothDevicename:%@ address:%@ h1:%d>", self.name, self.addressString, self.isH1];
 #else
     return [NSString stringWithFormat:@"<IOBluetoothDevicename:%@ address:%@>", self.name, self.addressString];
 #endif
@@ -114,7 +114,7 @@ static uint16_t generation;
 {
     os_log_info (RemoteHIDLog (), "Connect device:%@", device);
 #if !RC_HIDE_B288
-    if (device.isW2) {
+    if (device.isH1) {
         if (!self.devices[device]) {
             [self addBTDevice:device];
         }

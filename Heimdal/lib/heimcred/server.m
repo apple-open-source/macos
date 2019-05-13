@@ -65,7 +65,6 @@
  */
 
 static bool validateObject(CFDictionaryRef, CFErrorRef *);
-static bool validateUpdate(CFDictionaryRef, CFDictionaryRef, CFErrorRef *);
 static void addErrorToReply(xpc_object_t, CFErrorRef);
 static CFTypeRef GetValidatedValue(CFDictionaryRef, CFStringRef, CFTypeID, CFErrorRef *);
 static void HCMakeError(CFErrorRef *, CFIndex,  const void *const *, const void *const *, CFIndex);
@@ -910,11 +909,6 @@ do_SetAttrs(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	goto out;
     }
 
-    if (validateUpdate(attrs, replacementAttrs, &error)) {
-	addErrorToReply(reply, error);
-	goto out;
-    }
-
     CFDictionaryApplyFunction(replacementAttrs, updateCred, attrs);
     CFRELEASE_NULL(replacementAttrs);
 
@@ -1607,7 +1601,6 @@ GetValidatedValue(CFDictionaryRef object, CFStringRef key, CFTypeID requiredType
 struct validate {
     CFDictionaryRef schema;
     CFDictionaryRef object;
-    CFDictionaryRef updates;
     CFTypeID subTypeID;
     CFErrorRef *error;
     bool valid;
@@ -1631,10 +1624,6 @@ ValidateKey(const void *key, const void *value, void *context)
 {
     struct validate *ctx = (struct validate *)context;
     CFStringRef rule;
-
-    if (!ctx->valid) {
-	return;
-    }
 
     rule = GetValidatedValue(ctx->schema, key, CFStringGetTypeID(), ctx->error);
     if (rule == NULL) {
@@ -1697,10 +1686,6 @@ ValidateSchema(const void *key, const void *value, void *context)
     CFStringRef rule = value;
     CFTypeRef ov;
 
-    if (!ctx->valid) {
-	return;
-    }
-
     if (CFEqual(kHEIMObjectType, key))
 	return;
 
@@ -1730,10 +1715,16 @@ ValidateSchema(const void *key, const void *value, void *context)
     }
 }
 
-static CFDictionaryRef
-getObjectSchema(CFDictionaryRef object, CFErrorRef *error)
+static bool
+validateObject(CFDictionaryRef object, CFErrorRef *error)
 {
-    CFDictionaryRef schema = NULL;
+    heim_assert(error != NULL, "why you bother validating if you wont report the error to the user");
+
+    struct validate ctx = {
+	.object = object,
+	.valid = true,
+	.error = error
+    };
 
     CFStringRef type = GetValidatedValue(object, kHEIMObjectType, CFStringGetTypeID(), error);
     if (type == NULL) {
@@ -1742,32 +1733,12 @@ getObjectSchema(CFDictionaryRef object, CFErrorRef *error)
 	HCMakeError(error, kHeimCredErrorMissingSchemaKey, keys, values, 1);
 	return false;
     }
-
-    schema = GetValidatedValue(HeimCredCTX.schemas, type, CFDictionaryGetTypeID(), error);
-    if (schema == NULL) {
+    
+    ctx.schema = GetValidatedValue(HeimCredCTX.schemas, type, CFDictionaryGetTypeID(), error);
+    if (ctx.schema == NULL) {
 	const void *const keys[] = { CFSTR("CommonErrorCode") };
 	const void *const values[] = { kCFBooleanTrue };
 	HCMakeError(error, kHeimCredErrorNoSuchSchema, keys, values, 1);
-	return false;
-    }
-
-    return schema;
-}
-
-static bool
-validateObject(CFDictionaryRef object, CFErrorRef *error)
-{
-    heim_assert(error != NULL, "why you bother validating if you wont report the error to the user");
-
-    struct validate ctx = {
-	.object = object,
-	.updates = NULL,
-	.valid = true,
-	.error = error
-    };
-
-    ctx.schema = getObjectSchema(object, error);
-    if (ctx.schema == NULL) {
 	return false;
     }
 
@@ -1778,51 +1749,6 @@ validateObject(CFDictionaryRef object, CFErrorRef *error)
 
     return ctx.valid;
 }
-
-static void
-ValidateOverwrite(const void *key, const void *value, void *context)
-{
-    struct validate *ctx = (struct validate *)context;
-    CFStringRef rule = value;
-    CFTypeRef ov;
-
-    if (!ctx->valid) {
-	return;
-    }
-
-    ov = CFDictionaryGetValue(ctx->updates, key);
-    if (ov && StringContains(rule, CFSTR("O"))) {
-	const void *const keys[] = { CFSTR("CommonErrorCode") };
-	const void *const values[] = { kCFBooleanTrue };
-	HCMakeError(ctx->error, kHeimCredErrorOverwriteNotAllowed, keys, values, 1);
-	ctx->valid = false;
-	return;
-    }
-}
-
-
-static bool
-validateUpdate(CFDictionaryRef object, CFDictionaryRef updates, CFErrorRef *error)
-{
-    heim_assert(error != NULL, "why you bother validating if you wont report the error to the user");
-
-    struct validate ctx = {
-	.object = object,
-	.updates = updates,
-	.valid = true,
-	.error = error
-    };
-
-    ctx.schema = getObjectSchema(object, error);
-    if (ctx.schema == NULL) {
-	return false;
-    }
-
-    CFDictionaryApplyFunction(ctx.schema, ValidateOverwrite, &ctx);
-
-    return ctx.valid;
-}
-
 
 static void
 ValidateSchemaAtRegistration(const void *key, const void *value, void *context)
@@ -1891,7 +1817,6 @@ _HeimCredRegisterMech(CFStringRef name,
  * schema rules:
  * R  - required
  * G  - generate
- * O  - no overwrite
  * s  - string
  * ax - array of x
  * u  - uuid
@@ -1909,15 +1834,15 @@ _HeimCredCreateBaseSchema(CFStringRef objectType)
 
     CFDictionarySetValue(schema, kHEIMAttrType, kHEIMTypeSchema);
     CFDictionarySetValue(schema, kHEIMObjectType, objectType);
-    CFDictionarySetValue(schema, kHEIMAttrType, CFSTR("ROs"));
+    CFDictionarySetValue(schema, kHEIMAttrType, CFSTR("Rs"));
     CFDictionarySetValue(schema, kHEIMAttrClientName, CFSTR("s"));
     CFDictionarySetValue(schema, kHEIMAttrServerName, CFSTR("s"));
-    CFDictionarySetValue(schema, kHEIMAttrUUID, CFSTR("GOu"));
+    CFDictionarySetValue(schema, kHEIMAttrUUID, CFSTR("Gu"));
     CFDictionarySetValue(schema, kHEIMAttrDisplayName, CFSTR("s"));
     CFDictionarySetValue(schema, kHEIMAttrCredential, CFSTR("b"));
     CFDictionarySetValue(schema, kHEIMAttrLeadCredential, CFSTR("b"));
     CFDictionarySetValue(schema, kHEIMAttrParentCredential, CFSTR("u"));
-    CFDictionarySetValue(schema, kHEIMAttrBundleIdentifierACL, CFSTR("Oas"));
+    CFDictionarySetValue(schema, kHEIMAttrBundleIdentifierACL, CFSTR("as"));
     CFDictionarySetValue(schema, kHEIMAttrDefaultCredential, CFSTR("b"));
     CFDictionarySetValue(schema, kHEIMAttrAuthTime, CFSTR("t"));
     CFDictionarySetValue(schema, kHEIMAttrStoreTime, CFSTR("Gt"));

@@ -30,6 +30,7 @@
 		<string>softmagic.c: crash fix from upstream file 5.09</string>
 		<string>magic/Magdir/mach: support armv7s, x86_64h, arm64, arm64_32</string>
 		<string>magic/Magdir/mach: tweak output order for historical reasons</string>
+		<string>CVE-2019-8905/CVE-2019-8907 (49230747)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

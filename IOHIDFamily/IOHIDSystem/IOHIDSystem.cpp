@@ -137,7 +137,7 @@ MasterAudioFunctions *masterAudioFunctions = 0;
 
 #define KEYBOARD_EVENT_MASK (NX_KEYDOWNMASK | NX_FLAGSCHANGEDMASK)
 
-#define EV_MAX_SCREENS 32
+#define EV_MAX_SCREENS 64
 
 #define IDLE_HID_ACTIVITY_NSECS ((uint64_t)(5*60*NSEC_PER_SEC))
 

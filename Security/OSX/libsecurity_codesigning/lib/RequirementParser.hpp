@@ -96,6 +96,7 @@ public:
 		Maker &maker
 	);
 	public: string  datavalue();
+	public: int64_t  timestamp();
 	public: string  stringvalue();
 	public: string  pathstring();
 public:
@@ -109,10 +110,10 @@ protected:
 private:
 	static const char* tokenNames[];
 #ifndef NO_STATIC_CONSTS
-	static const int NUM_TOKENS = 59;
+	static const int NUM_TOKENS = 61;
 #else
 	enum {
-		NUM_TOKENS = 59
+		NUM_TOKENS = 61
 	};
 #endif
 	
@@ -152,6 +153,8 @@ private:
 	static const antlr::BitSet _tokenSet_16;
 	static const unsigned long _tokenSet_17_data_[];
 	static const antlr::BitSet _tokenSet_17;
+	static const unsigned long _tokenSet_18_data_[];
+	static const antlr::BitSet _tokenSet_18;
 };
 
 ANTLR_END_NAMESPACE

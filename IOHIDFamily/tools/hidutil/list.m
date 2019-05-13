@@ -31,60 +31,94 @@ MATCHING_HELP
 "  hidutil list --matching '{\"ProductID\":0x54c}'\n"
 "  hidutil list --matching '{\"ProductID\":0x54c,\"VendorID\":746}'\n";
 
+
+struct fields {
+    NSString * key;
+    NSUInteger integerBase;
+    NSUInteger width;
+    NSString * name;
+} serviceFields [] = {
+    {@kIOHIDVendorIDKey,            16, 0, @kIOHIDVendorIDKey},
+    {@kIOHIDProductIDKey,           16, 0, @kIOHIDProductIDKey},
+    {@kIOHIDLocationIDKey,          16, 0, @kIOHIDLocationIDKey },
+    {@kIOHIDPrimaryUsagePageKey,    10, 0, @"UsagePage"},
+    {@kIOHIDPrimaryUsageKey,        10, 0, @"Usage"},
+    {@kIORegistryEntryIDKey,        16, 0, @"RegistryID"},
+    {@kIOHIDTransportKey,            0, 0, @kIOHIDTransportKey},
+    {@kIOClassKey,                   0, 0, @"Class"},
+    {@kIOHIDProductKey,              0, 0, @"Product"},
+};
+
+
+static void listPrint(NSArray * infoArray) {
+    NSDictionary * info;
+
+    for (NSInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
+        serviceFields[index].width = serviceFields[index].name.length;
+    }
+    
+    for (info in infoArray) {
+        for (NSInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
+            NSUInteger width = formatPropertyValue (info[serviceFields[index].key], serviceFields[index].integerBase).length;
+            if (width > serviceFields[index].width) {
+                serviceFields[index].width = width;
+            }
+        }
+    }
+    for (NSInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
+        printf("%-*s", (int)serviceFields[index].width + 1, [serviceFields[index].name cStringUsingEncoding: NSASCIIStringEncoding]);
+    }
+    printf ("\n");
+    
+    for (info in infoArray) {
+        for (NSInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
+            printf("%-*s", (int)serviceFields[index].width + 1, [formatPropertyValue (info[serviceFields[index].key], serviceFields[index].integerBase) cStringUsingEncoding: NSASCIIStringEncoding]);
+        }
+        printf ("\n");
+    }
+}
+
+
 static void listServices(IOHIDEventSystemClientRef client) {
     NSArray *services = (NSArray *)CFBridgingRelease(IOHIDEventSystemClientCopyServices(client));
+    NSDictionary *info;
     
     if (!services) {
         return;
     }
     
-    printf("Services:\n");
-    printf("%-8s   %-8s   %-10s   %-10s  %-6s  %-12s  %-12s  %s\n", "VendorID", "ProductID", "LocationID", "UsagePage", "Usage", "RegistryID", "Transport", "Class/Product");
-    
+    NSMutableArray * infoArray = [[NSMutableArray alloc] init];
     for (id service in services) {
-        NSDictionary *info = createServiceInfoDictionary((__bridge IOHIDServiceClientRef)service);
+        info = createServiceInfoDictionary((__bridge IOHIDServiceClientRef)service);
         if (info) {
-            printf ("0x%-6x   0x%-7x   0x%-8x   %-10d  %-6d  0x%-10lx  %-12s  <%s> \"%s\"\n",
-                    ((NSNumber *)info[@kIOHIDVendorIDKey]).unsignedIntValue,
-                    ((NSNumber *)info[@kIOHIDProductIDKey]).unsignedIntValue,
-                    ((NSNumber *)info[@kIOHIDLocationIDKey]).unsignedIntValue,
-                    ((NSNumber *)info[@kIOHIDPrimaryUsagePageKey]).unsignedIntValue,
-                    ((NSNumber *)info[@kIOHIDPrimaryUsageKey]).unsignedIntValue,
-                    ((NSNumber *)info[@kIORegistryEntryIDKey]).unsignedLongValue,
-                    [((NSString *)info[@kIOHIDTransportKey]) cStringUsingEncoding: NSASCIIStringEncoding],
-                    [((NSString *)info[@kIOClassKey]) cStringUsingEncoding: NSASCIIStringEncoding],
-                    [((NSString *)info[@kIOHIDProductKey]) cStringUsingEncoding: NSASCIIStringEncoding]
-                    );
+            [infoArray addObject: info];
         }
     }
+
+    printf("Services:\n");
+ 
+    listPrint (infoArray);
 }
 
 static void listDevices(IOHIDManagerRef manager) {
     NSSet *devices = CFBridgingRelease(IOHIDManagerCopyDevices(manager));
-    
+    NSDictionary *info;
     if (!devices) {
         return;
     }
     
-    printf("Devices:\n");
-    printf("%-8s   %-8s   %-10s   %-10s  %-6s  %-12s  %-12s  %s\n", "VendorID", "ProductID", "LocationID", "UsagePage", "Usage", "RegistryID", "Transport", "Class/Product");
     
+    NSMutableArray * infoArray = [[NSMutableArray alloc] init];
     for (id device in devices) {
-        NSDictionary *info = createDeviceInfoDictionary((__bridge IOHIDDeviceRef)device);
+        info = createDeviceInfoDictionary((__bridge IOHIDDeviceRef)device);
         if (info) {
-            printf ("0x%-6x   0x%-7x   0x%-8x   %-10d  %-6d  0x%-10lx  %-12s  <%s> \"%s\"\n",
-                    ((NSNumber *)info[@kIOHIDVendorIDKey]).unsignedIntValue,
-                    ((NSNumber *)info[@kIOHIDProductIDKey]).unsignedIntValue,
-                    ((NSNumber *)info[@kIOHIDLocationIDKey]).unsignedIntValue,
-                    ((NSNumber *)info[@kIOHIDPrimaryUsagePageKey]).unsignedIntValue,
-                    ((NSNumber *)info[@kIOHIDPrimaryUsageKey]).unsignedIntValue,
-                    ((NSNumber *)info[@kIORegistryEntryIDKey]).unsignedLongValue,
-                    [((NSString *)info[@kIOHIDTransportKey]) cStringUsingEncoding: NSASCIIStringEncoding],
-                    [((NSString *)info[@kIOClassKey]) cStringUsingEncoding: NSASCIIStringEncoding],
-                    [((NSString *)info[@kIOHIDProductKey]) cStringUsingEncoding: NSASCIIStringEncoding]
-                    );
+            [infoArray addObject: info];
         }
     }
+    
+    printf("Devices:\n");
+
+    listPrint (infoArray);
 }
 
 int list (int argc, const char * argv[]) {

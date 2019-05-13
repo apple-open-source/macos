@@ -1497,8 +1497,47 @@ IOHIDEvent * IOHIDEventDriver::copyEvent(IOHIDEventType type, IOHIDEvent * match
                 event->setFixedValue(kIOHIDEventFieldOrientationTiltZ, tiltZ);
             }
         }
+    } else if (type == kIOHIDEventTypeVendorDefined) {
+        require(matching, exit);
+        
+        usagePage   = matching->getIntegerValue(kIOHIDEventFieldVendorDefinedUsagePage);
+        usage       = matching->getIntegerValue(kIOHIDEventFieldVendorDefinedUsage);
+ 
+        __block IOHIDElement * element = NULL;
+        
+        auto visitor = ^bool(OSObject *object) {
+            IOHIDElement * tmpElement = OSDynamicCast(IOHIDElement, object);
+            if (tmpElement && tmpElement->getUsage() == usage && tmpElement->getUsagePage() == usagePage) {
+                element = tmpElement;
+                return true;
+            }
+            return false;
+        };
+        
+        if (_vendorMessage.childElements) {
+            _vendorMessage.childElements->iterateObjects(visitor);
+        }
+
+        if (!element &&_vendorMessage.primaryElements) {
+            _vendorMessage.primaryElements->iterateObjects(visitor);
+        }
+
+        if (element) {
+            OSData * data = element->getDataValue(kIOHIDValueOptionsUpdateElementValues);
+            if (data) {
+                event = IOHIDEvent::vendorDefinedEvent(element->getTimeStamp(),
+                                                       element->getUsagePage(),
+                                                       element->getUsage(),
+                                                       0,
+                                                       (UInt8*) data->getBytesNoCopy(),
+                                                       data->getLength()
+                                                       );
+            } 
+        }
     }
+    
 exit:
+
     return event;
 }
 

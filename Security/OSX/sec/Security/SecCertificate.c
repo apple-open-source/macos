@@ -6502,3 +6502,25 @@ errOut:
     CFReleaseNull(appleRoot);
     return result;
 }
+
+bool SecCertificateGetDeveloperIDDate(SecCertificateRef certificate, CFAbsoluteTime *time, CFErrorRef *error) {
+    if (!certificate || !time) {
+        return SecError(errSecParam, error, CFSTR("DeveloperID Date parsing: missing required input"));
+    }
+    DERItem *extensionValue = SecCertificateGetExtensionValue(certificate, CFSTR("1.2.840.113635.100.6.1.33"));
+    if (!extensionValue) {
+        return SecError(errSecMissingRequiredExtension, error, CFSTR("DeveloperID Date parsing: extension not found"));
+    }
+    DERDecodedInfo decodedValue;
+    if (DERDecodeItem(extensionValue, &decodedValue) != DR_Success) {
+        return SecError(errSecDecode, error, CFSTR("DeveloperID Date parsing: extension value failed to decode"));
+    }
+    /* The extension value is a DERGeneralizedTime encoded in a UTF8String */
+    CFErrorRef localError = NULL;
+    if (decodedValue.tag == ASN1_UTF8_STRING) {
+         *time = SecAbsoluteTimeFromDateContentWithError(ASN1_GENERALIZED_TIME, decodedValue.content.data, decodedValue.content.length, &localError);
+    } else {
+        return SecError(errSecDecode, error, CFSTR("DeveloperID Date parsing: extension value wrong tag"));
+    }
+    return CFErrorPropagate(localError, error);
+}

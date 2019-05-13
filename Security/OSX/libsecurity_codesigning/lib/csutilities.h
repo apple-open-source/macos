@@ -128,6 +128,7 @@ size_t hashFileData(const char *path, _Hash *hasher)
 #if TARGET_OS_OSX
 bool certificateHasField(SecCertificateRef cert, const CSSM_OID &oid);
 bool certificateHasPolicy(SecCertificateRef cert, const CSSM_OID &policyOid);
+CFDateRef certificateCopyFieldDate(SecCertificateRef cert, const CSSM_OID &policyOid);
 #endif
 
 //

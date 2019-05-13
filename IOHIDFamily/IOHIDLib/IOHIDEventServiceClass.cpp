@@ -787,6 +787,10 @@ IOHIDEventRef IOHIDEventServiceClass::copyEvent(IOHIDEventType eventType, IOHIDE
         if ( !outputDataSize )
             break;
         
+        if ( matching &&  IOHIDEventGetType(matching) == kIOHIDEventTypeVendorDefined) {
+            outputDataSize += IOHIDEventGetIntegerValue(matching, kIOHIDEventFieldVendorDefinedDataLength);
+        }
+        
         eventData = CFDataCreateMutable(kCFAllocatorDefault, outputDataSize);
         if ( !eventData )
             break;

@@ -75,6 +75,15 @@ CFDataRef Requirement::Reader::getHash()
 	return makeCFData(s, length);
 }
 
+CFAbsoluteTime Requirement::Reader::getAbsoluteTime()
+{
+	// timestamps are saved as 64bit ints internally for
+	// portability, but CoreFoundation wants CFAbsoluteTimes,
+	// which are doubles.
+	// This cuts off subseconds.
+	return static_cast<CFAbsoluteTime>(get<int64_t>());
+}
+
 const unsigned char *Requirement::Reader::getSHA1()
 {
 	const unsigned char *digest; size_t length;

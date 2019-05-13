@@ -3181,5 +3181,260 @@ typedef struct __attribute__((packed))
     uint8_t  : 6;                                      // Pad
 } HIDCameraDescriptorInputReport;
 
+
+#define AppleVendorDisplayPreset \
+0x06, 0x00, 0xFF,            /* (GLOBAL) USAGE_PAGE         0xFF00 Vendor Defined Page  */\
+0x0A, 0x02, 0x00,            /* (LOCAL)  USAGE              0xFF000002 AppleVendor_Display (CA=Application Collection)  */\
+0xA1, 0x01,                  /* (MAIN)   COLLECTION         0x01 Application (Usage=0xFF000002: Page=Vendor Defined Page, Usage=AppleVendor_Display, Type=CA) */\
+0x06, 0x20, 0xFF,            /*   (GLOBAL) USAGE_PAGE         0xFF20 Apple Vendor Display Page    */\
+0x0A, 0x01, 0x00,            /*   (LOCAL)  USAGE              0xFF200001 Count    */\
+0xA1, 0x02,                  /*   (MAIN)   COLLECTION         0x02 Logical (Usage=0xFF200001: Page=Apple Vendor Display Page, Usage=Count, Type=)   */\
+0x85, 0x15,                  /*     (GLOBAL) REPORT_ID          0x01 (1)      */\
+0x0A, 0x02, 0x00,            /*     (LOCAL)  USAGE              0xFF200002 Factory Default Index      */\
+0x25, 0x32,                  /* <<<< Edit for changing max preset count >>>>>>    (GLOBAL) LOGICAL_MAXIMUM    0x32 (50)       */\
+0x75, 0x20,                  /*     (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field       */\
+0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 32 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x03, 0x00,            /*     (LOCAL)  USAGE              0xFF200003 Active Index      */\
+0xB1, 0x02,                  /*     (MAIN)   FEATURE            0x00000002 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x85, 0x16,                  /*     (GLOBAL) REPORT_ID          0x02 (2)      */\
+0x0A, 0x04, 0x00,            /*     (LOCAL)  USAGE              0xFF200004 Current Index      */\
+0xB1, 0x02,                  /*     (MAIN)   FEATURE            0x00000002 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x85, 0x17,                  /*     (GLOBAL) REPORT_ID          0x03 (3)      */\
+0x0A, 0x05, 0x00,            /*     (LOCAL)  USAGE              0xFF200005 Writable      */\
+0x25, 0x01,                  /*     (GLOBAL) LOGICAL_MAXIMUM    0x01 (1)       */\
+0x75, 0x01,                  /*     (GLOBAL) REPORT_SIZE        0x01 (1) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 1 bit) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x06, 0x00,            /*     (LOCAL)  USAGE              0xFF200006 Valid      */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 1 bit) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x07, 0x00,            /*     (LOCAL)  USAGE              0xFF200007 Reserved      */\
+0x24,                        /*     (GLOBAL) LOGICAL_MAXIMUM    (0)       */\
+0x75, 0x06,                  /*     (GLOBAL) REPORT_SIZE        0x06 (6) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 6 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x08, 0x00,            /*     (LOCAL)  USAGE              0xFF200008 Unicode String Name      */\
+0x76, 0x00, 0x08,            /*     (GLOBAL) REPORT_SIZE        0x0800 (2048) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 2048 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x09, 0x00,            /*     (LOCAL)  USAGE              0xFF200009 Unicode String Description      */\
+0x76, 0x00, 0x10,            /*     (GLOBAL) REPORT_SIZE        0x1000 (4096) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 4096 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x0A, 0x00,            /*     (LOCAL)  USAGE              0xFF20000A Data Block One Length      */\
+0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 16 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x0B, 0x00,            /*     (LOCAL)  USAGE              0xFF20000B Data Block One  (DV=Dynamic Value)      */\
+0x76, 0x00, 0x02,            /*     (GLOBAL) REPORT_SIZE        0x0080 (128*8) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 128 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x0C, 0x00,            /*     (LOCAL)  USAGE              0xFF20000C Data Block Two Length (DV=Dynamic Value)      */\
+0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 16 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x0D, 0x00,            /*     (LOCAL)  USAGE              0xFF20000D Data Block Two (DV=Dynamic Value)      */\
+0x76, 0x00, 0x06,            /*     (GLOBAL) REPORT_SIZE        0x0080 (128) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 128 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x0E, 0x00,            /*     (LOCAL)  USAGE              0xFF20000E UUID      */\
+0x76, 0x00, 0x04,            /*     (GLOBAL) REPORT_SIZE        0x0080 (128) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 128 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0xC0,                        /*   (MAIN)   END_COLLECTION     Logical   */\
+0xC0,                        /* (MAIN)   END_COLLECTION     Application */\
+
+
+//--------------------------------------------------------------------------------
+// Apple Vendor Display Page AppleVendorDisplayFeatureReport 01 (Device <-> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+    uint8_t  reportId;                                 // Report ID = 0x01 (1)
+    
+    // Field:   1
+    // Width:   32
+    // Count:   1
+    // Flags:   00000003: 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:50 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:32 RID:01 RCNT:1
+    // Locals:  USAG:FF180003 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF180003
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Only
+    // Type:    Variable
+    // Page 0xFF18: Apple Vendor Display Page
+    // Collection: AppleVendor_Display Preset
+    uint32_t AppleVendor_DisplayFactoryDefaultPresetIndex; // Usage 0xFF180003: Factory Default Index, Value = 0 to 50
+    
+    // Field:   2
+    // Width:   32
+    // Count:   1
+    // Flags:   00000002: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:50 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:32 RID:01 RCNT:1
+    // Locals:  USAG:FF180004 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF180004
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Write
+    // Type:    Variable
+    // Page 0xFF18: Apple Vendor Display Page
+    uint32_t AppleVendor_DisplayActivePresetIndex;     // Usage 0xFF180004: Active Index, Value = 0 to 50
+} AppleVendorDisplayFeatureReport01;
+
+
+//--------------------------------------------------------------------------------
+// Apple Vendor Display Page AppleVendorDisplayFeatureReport 02 (Device <-> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+    uint8_t  reportId;                                 // Report ID = 0x02 (2)
+    
+    // Field:   3
+    // Width:   32
+    // Count:   1
+    // Flags:   00000002: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:50 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:32 RID:02 RCNT:1
+    // Locals:  USAG:FF180005 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF180005
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Write
+    // Type:    Variable
+    // Page 0xFF18: Apple Vendor Display Page
+    uint32_t AppleVendor_DisplayCurrentPresetIndex;     // Usage 0xFF180005: Select Index, Value = 0 to 50
+} AppleVendorDisplayFeatureReport02;
+
+
+//--------------------------------------------------------------------------------
+// Apple Vendor Display Page AppleVendorDisplayFeatureReport 03 (Device <-> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+    uint8_t  reportId;                                 // Report ID = 0x03 (3)
+    
+    // Field:   4
+    // Width:   1
+    // Count:   1
+    // Flags:   00000003: 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:1 RID:03 RCNT:1
+    // Locals:  USAG:FF180006 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF180006
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Only
+    // Type:    Variable
+    // Page 0xFF18: Apple Vendor Display Page
+    uint8_t  AppleVendor_DisplayPresetWritable : 1;    // Usage 0xFF180006: Writable, Value = 0 to 1
+    
+    // Field:   5
+    // Width:   1
+    // Count:   1
+    // Flags:   00000003: 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:1 RID:03 RCNT:1
+    // Locals:  USAG:FF180007 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF180007
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Only
+    // Type:    Variable
+    // Page 0xFF18: Apple Vendor Display Page
+    uint8_t  AppleVendor_DisplayPresetValid : 1;       // Usage 0xFF180007: Valid, Value = 0 to 1
+    
+    // Field:   6
+    // Width:   6
+    // Count:   1
+    // Flags:   00000003: 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:0 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:6 RID:03 RCNT:1
+    // Locals:  USAG:FF180008 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF180008
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Only
+    // Type:    Variable
+    // Page 0xFF18: Apple Vendor Display Page
+    uint8_t  AppleVendor_DisplayPresetReserved : 6;    // Usage 0xFF180008: Reserved, Value = 0 to 0
+    
+    // Field:   7
+    // Width:   2048
+    // Count:   1
+    // Flags:   00000001: 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:0 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:2048 RID:03 RCNT:1
+    // Locals:  USAG:FF180009 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF180009
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Only
+    // Type:    Array
+    // Page 0xFF18: Apple Vendor Display Page
+    uint8_t  AppleVendor_DisplayPresetUnicodeStringName[256];          // Value = 0 to 0
+    
+    // Field:   8
+    // Width:   4096
+    // Count:   1
+    // Flags:   00000001: 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:0 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:4096 RID:03 RCNT:1
+    // Locals:  USAG:FF18000A UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF18000A
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Only
+    // Type:    Array
+    // Page 0xFF18: Apple Vendor Display Page
+    uint8_t  AppleVendor_DisplayPresetUnicodeStringDescription[512];       // Value = 0 to 0
+    
+    // Field:   9
+    // Width:   16
+    // Count:   1
+    // Flags:   00000003: 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:0 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:16 RID:03 RCNT:1
+    // Locals:  USAG:FF18000B UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF18000A
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Only
+    // Type:    Variable
+    // Page 0xFF18: Apple Vendor Display Page
+    uint16_t AppleVendor_DisplayPresetDataBlockOneLength;      // Usage 0xFF18000A: Data Length, Value = 0 to 0
+    
+    // Field:   10
+    // Width:   128
+    // Count:   1
+    // Flags:   00000001: 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:0 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:4096 RID:03 RCNT:1
+    // Locals:  USAG:FF18000C UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF18000B
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Only
+    // Type:    Array
+    // Page 0xFF18: Apple Vendor Display Page
+    uint8_t  AppleVendor_DisplayPresetDataBlockOne[64];       // Usage 0xFF18000B: Value = 0 to 0
+    
+    // Field:   11
+    // Width:   16
+    // Count:   1
+    // Flags:   00000003: 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:0 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:16 RID:03 RCNT:1
+    // Locals:  USAG:FF18000B UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF18000C
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Only
+    // Type:    Variable
+    // Page 0xFF18: Apple Vendor Display Page
+    uint16_t AppleVendor_DisplayPresetDataBlockTwoLength;      // Usage 0xFF18000C: Data Length, Value = 0 to 0
+    
+    // Field:   12
+    // Width:   128
+    // Count:   1
+    // Flags:   00000001: 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:0 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:4096 RID:03 RCNT:1
+    // Locals:  USAG:FF18000C UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF18000D
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Only
+    // Type:    Array
+    // Page 0xFF18: Apple Vendor Display Page
+    uint8_t  AppleVendor_DisplayPresetDataBlockTwo[192];       // Usage 0xFF18000D: Value = 0 to 0
+    
+    // Field:   13
+    // Width:   128
+    // Count:   1
+    // Flags:   00000001: 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF18 LMIN:0 LMAX:0 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:4096 RID:03 RCNT:1
+    // Locals:  USAG:FF18000C UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF18000E
+    // Coll:    AppleVendor_Display Preset
+    // Access:  Read/Only
+    // Type:    Array
+    // Page 0xFF18: Apple Vendor Display Page
+    uint8_t  AppleVendor_DisplayPresetUUID[128];       // Usage 0xFF18000E: Value = 0 to 0
+    
+} AppleVendorDisplayFeatureReport03;
+
 #endif /* IOHIDUnitTestDescriptors_h */
 

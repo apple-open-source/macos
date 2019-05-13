@@ -219,6 +219,13 @@ Database *pickDb(Database *db1, Database *db2)
 	return Server::optionalDatabase(noDb);
 }
 
+static void checkPathLength(char const *str) {
+    if (strlen(str) >= PATH_MAX) {
+        secerror("SecServer: path too long");
+        CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+    }
+}
+
 //
 // Setup/Teardown functions.
 //
@@ -306,15 +313,16 @@ kern_return_t ucsp_server_getDbName(UCSP_ARGS, DbHandle db, char name[PATH_MAX])
 {
 	BEGIN_IPC(getDbName)
 	string result = Server::database(db)->dbName();
-	assert(result.length() < PATH_MAX);
-	memcpy(name, result.c_str(), result.length() + 1);
+    checkPathLength(result.c_str());
+    memcpy(name, result.c_str(), result.length() + 1);
 	END_IPC(DL)
 }
 
 kern_return_t ucsp_server_setDbName(UCSP_ARGS, DbHandle db, const char *name)
 {
 	BEGIN_IPC(setDbName)
-	Server::database(db)->dbName(name);
+    checkPathLength(name);
+    Server::database(db)->dbName(name);
 	END_IPC(DL)
 }
 
@@ -541,6 +549,7 @@ kern_return_t ucsp_server_createDb(UCSP_ARGS, DbHandle *db,
 	CopyOutAccessCredentials creds(cred, credLength);
 	CopyOutEntryAcl owneracl(owner, ownerLength);
 	CopyOut flatident(ident, identLength, reinterpret_cast<xdrproc_t>(xdr_DLDbFlatIdentifierRef));
+    checkPathLength((*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data())).name);
 #ifndef __clang_analyzer__
 	*db = (new KeychainDatabase(*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data()), params, connection.process(), creds, owneracl))->handle();
 #endif
@@ -553,6 +562,8 @@ kern_return_t ucsp_server_cloneDb(UCSP_ARGS, DbHandle srcDb, DATA_IN(ident), DbH
     secnotice("integrity", "cloning a db");
 
     CopyOut flatident(ident, identLength, reinterpret_cast<xdrproc_t>(xdr_DLDbFlatIdentifierRef));
+
+    checkPathLength((*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data())).name);
 
     RefPointer<KeychainDatabase> srcKC = Server::keychain(srcDb);
     secnotice("integrity", "cloning db %d", srcKC->handle());
@@ -658,6 +669,8 @@ kern_return_t ucsp_server_decodeDb(UCSP_ARGS, DbHandle *db,
 	CopyOut flatident(ident, identLength, reinterpret_cast<xdrproc_t>(xdr_DLDbFlatIdentifierRef));
 	DLDbFlatIdentifier* flatID = (DLDbFlatIdentifier*) flatident.data();
 	DLDbIdentifier id = *flatID; // invokes a casting operator
+
+    checkPathLength(id.dbName());
 
 #ifndef __clang_analyzer__
 	*db = (new KeychainDatabase(id, SSBLOB(DbBlob, blob),
@@ -1383,6 +1396,7 @@ kern_return_t ucsp_server_createGuest(UCSP_ARGS, SecGuestRef host,
 	SecCSFlags flags, SecGuestRef *newGuest)
 {
 	BEGIN_IPC(createGuest)
+    checkPathLength(path);
 	*newGuest = connection.process().createGuest(host, status, path, DATA(cdhash), DATA(attributes), flags);
 	END_IPC(CSSM)
 }

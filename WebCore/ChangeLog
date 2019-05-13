@@ -1,6 +1,1609 @@
-2019-03-11  Kocsen Chung  <kocsen_chung@apple.com>
+2019-04-30  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r242770. rdar://problem/48795263
+        Cherry-pick r244632. rdar://problem/50344188
+
+    Do not restart WebRTC stats timer if backend is stopped
+    https://bugs.webkit.org/show_bug.cgi?id=197257
+    <rdar://problem/50095879>
+    
+    Reviewed by Eric Carlson.
+    
+    We used to stop and reschedule the stat gathering timer in case the
+    gathering delay is changing. Timer should not be rescheduled if the backend is stopped.
+    
+    * Modules/mediastream/libwebrtc/LibWebRTCMediaEndpoint.cpp:
+    (WebCore::LibWebRTCMediaEndpoint::OnStatsDelivered):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@244632 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-24  Youenn Fablet  <youenn@apple.com>
+
+            Do not restart WebRTC stats timer if backend is stopped
+            https://bugs.webkit.org/show_bug.cgi?id=197257
+            <rdar://problem/50095879>
+
+            Reviewed by Eric Carlson.
+
+            We used to stop and reschedule the stat gathering timer in case the
+            gathering delay is changing. Timer should not be rescheduled if the backend is stopped.
+
+            * Modules/mediastream/libwebrtc/LibWebRTCMediaEndpoint.cpp:
+            (WebCore::LibWebRTCMediaEndpoint::OnStatsDelivered):
+
+2019-04-10  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243841. rdar://problem/49725678
+
+    -apple-trailing-word is needed for browser detection
+    https://bugs.webkit.org/show_bug.cgi?id=196575
+    
+    Unreviewed.
+    
+    PerformanceTests:
+    
+    * MotionMark/resources/debug-runner/motionmark.css:
+    (#intro .start-benchmark p):
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebCore:
+    
+    This is an unreviewed partial revert of r243819. Turns out there are some websites
+    which use this property to do browser detection. So, we need to continue to parse
+    the property, but we don't need the property to do anything.
+    
+    Test: fast/text/trailing-word-detection.html
+    
+    * Configurations/FeatureDefines.xcconfig:
+    * css/CSSComputedStyleDeclaration.cpp:
+    (WebCore::ComputedStyleExtractor::valueForPropertyinStyle):
+    * css/CSSPrimitiveValueMappings.h:
+    (WebCore::CSSPrimitiveValue::CSSPrimitiveValue):
+    (WebCore::CSSPrimitiveValue::operator TrailingWord const):
+    * css/CSSProperties.json:
+    * css/CSSValueKeywords.in:
+    * css/parser/CSSParserFastPaths.cpp:
+    (WebCore::CSSParserFastPaths::isValidKeywordPropertyAndValue):
+    (WebCore::CSSParserFastPaths::isKeywordPropertyID):
+    * rendering/style/RenderStyle.h:
+    (WebCore::RenderStyle::trailingWord const):
+    (WebCore::RenderStyle::setTrailingWord):
+    (WebCore::RenderStyle::initialTrailingWord):
+    * rendering/style/RenderStyleConstants.h:
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKit:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Tools:
+    
+    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig:
+    
+    LayoutTests:
+    
+    * fast/text/trailing-word-detection-expected.txt: Added.
+    * fast/text/trailing-word-detection.html: Added.
+    * platform/gtk/TestExpectations:
+    * platform/win/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243841 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-03  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            -apple-trailing-word is needed for browser detection
+            https://bugs.webkit.org/show_bug.cgi?id=196575
+
+            Unreviewed.
+
+            This is an unreviewed partial revert of r243819. Turns out there are some websites
+            which use this property to do browser detection. So, we need to continue to parse
+            the property, but we don't need the property to do anything.
+
+            Test: fast/text/trailing-word-detection.html
+
+            * Configurations/FeatureDefines.xcconfig:
+            * css/CSSComputedStyleDeclaration.cpp:
+            (WebCore::ComputedStyleExtractor::valueForPropertyinStyle):
+            * css/CSSPrimitiveValueMappings.h:
+            (WebCore::CSSPrimitiveValue::CSSPrimitiveValue):
+            (WebCore::CSSPrimitiveValue::operator TrailingWord const):
+            * css/CSSProperties.json:
+            * css/CSSValueKeywords.in:
+            * css/parser/CSSParserFastPaths.cpp:
+            (WebCore::CSSParserFastPaths::isValidKeywordPropertyAndValue):
+            (WebCore::CSSParserFastPaths::isKeywordPropertyID):
+            * rendering/style/RenderStyle.h:
+            (WebCore::RenderStyle::trailingWord const):
+            (WebCore::RenderStyle::setTrailingWord):
+            (WebCore::RenderStyle::initialTrailingWord):
+            * rendering/style/RenderStyleConstants.h:
+
+2019-04-10  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243819. rdar://problem/49725678
+
+    Remove support for -apple-trailing-word
+    https://bugs.webkit.org/show_bug.cgi?id=196525
+    
+    Reviewed by Zalan Bujtas.
+    
+    This CSS property is nonstandard and not used.
+    
+    .:
+    
+    * Source/cmake/WebKitFeatures.cmake:
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebCore:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    * css/CSSComputedStyleDeclaration.cpp:
+    (WebCore::ComputedStyleExtractor::valueForPropertyinStyle):
+    * css/CSSPrimitiveValueMappings.h:
+    (WebCore::CSSPrimitiveValue::operator TrailingWord const): Deleted.
+    * css/CSSProperties.json:
+    * css/CSSValueKeywords.in:
+    * css/parser/CSSParserFastPaths.cpp:
+    (WebCore::CSSParserFastPaths::isValidKeywordPropertyAndValue):
+    (WebCore::CSSParserFastPaths::isKeywordPropertyID):
+    * rendering/SimpleLineLayout.cpp:
+    (WebCore::SimpleLineLayout::canUseForStyle):
+    * rendering/SimpleLineLayoutCoverage.cpp:
+    (WebCore::SimpleLineLayout::printReason):
+    * rendering/SimpleLineLayoutCoverage.h:
+    * rendering/line/BreakingContext.h:
+    (WebCore::BreakingContext::BreakingContext):
+    (WebCore::BreakingContext::lineBreak):
+    (WebCore::BreakingContext::clearLineBreakIfFitsOnLine):
+    (WebCore::BreakingContext::commitLineBreakClear):
+    (WebCore::BreakingContext::commitLineBreakAtCurrentWidth):
+    (WebCore::BreakingContext::handleBR):
+    (WebCore::BreakingContext::handleFloat):
+    (WebCore::BreakingContext::handleText):
+    (WebCore::BreakingContext::handleEndOfLine):
+    (WebCore::BreakingContext::InlineIteratorHistory::InlineIteratorHistory): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::push): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::update): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::renderer const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::offset const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::nextBreakablePosition const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::atTextParagraphSeparator const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::previousInSameNode const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::get const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::current const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::historyLength const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::moveTo): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::increment): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::clear): Deleted.
+    (WebCore::BreakingContext::optimalLineBreakLocationForTrailingWord): Deleted.
+    * rendering/style/RenderStyle.h:
+    (WebCore::RenderStyle::trailingWord const): Deleted.
+    (WebCore::RenderStyle::setTrailingWord): Deleted.
+    (WebCore::RenderStyle::initialTrailingWord): Deleted.
+    * rendering/style/RenderStyleConstants.h:
+    * rendering/style/StyleRareInheritedData.cpp:
+    (WebCore::StyleRareInheritedData::StyleRareInheritedData):
+    (WebCore::StyleRareInheritedData::operator== const):
+    * rendering/style/StyleRareInheritedData.h:
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebInspectorUI:
+    
+    * UserInterface/Models/CSSKeywordCompletions.js:
+    
+    Source/WebKit:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Tools:
+    
+    * Scripts/webkitperl/FeatureList.pm:
+    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig:
+    
+    LayoutTests:
+    
+    * fast/text/trailing-word-expected.html: Removed.
+    * fast/text/trailing-word.html: Removed.
+    * platform/gtk/TestExpectations:
+    * platform/mac/fast/text/trailing-word-parse-expected.txt: Removed.
+    * platform/mac/fast/text/trailing-word-parse.html: Removed.
+    * platform/win/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243819 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-03  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            Remove support for -apple-trailing-word
+            https://bugs.webkit.org/show_bug.cgi?id=196525
+
+            Reviewed by Zalan Bujtas.
+
+            This CSS property is nonstandard and not used.
+
+            * Configurations/FeatureDefines.xcconfig:
+            * css/CSSComputedStyleDeclaration.cpp:
+            (WebCore::ComputedStyleExtractor::valueForPropertyinStyle):
+            * css/CSSPrimitiveValueMappings.h:
+            (WebCore::CSSPrimitiveValue::operator TrailingWord const): Deleted.
+            * css/CSSProperties.json:
+            * css/CSSValueKeywords.in:
+            * css/parser/CSSParserFastPaths.cpp:
+            (WebCore::CSSParserFastPaths::isValidKeywordPropertyAndValue):
+            (WebCore::CSSParserFastPaths::isKeywordPropertyID):
+            * rendering/SimpleLineLayout.cpp:
+            (WebCore::SimpleLineLayout::canUseForStyle):
+            * rendering/SimpleLineLayoutCoverage.cpp:
+            (WebCore::SimpleLineLayout::printReason):
+            * rendering/SimpleLineLayoutCoverage.h:
+            * rendering/line/BreakingContext.h:
+            (WebCore::BreakingContext::BreakingContext):
+            (WebCore::BreakingContext::lineBreak):
+            (WebCore::BreakingContext::clearLineBreakIfFitsOnLine):
+            (WebCore::BreakingContext::commitLineBreakClear):
+            (WebCore::BreakingContext::commitLineBreakAtCurrentWidth):
+            (WebCore::BreakingContext::handleBR):
+            (WebCore::BreakingContext::handleFloat):
+            (WebCore::BreakingContext::handleText):
+            (WebCore::BreakingContext::handleEndOfLine):
+            (WebCore::BreakingContext::InlineIteratorHistory::InlineIteratorHistory): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::push): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::update): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::renderer const): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::offset const): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::nextBreakablePosition const): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::atTextParagraphSeparator const): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::previousInSameNode const): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::get const): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::current const): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::historyLength const): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::moveTo): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::increment): Deleted.
+            (WebCore::BreakingContext::InlineIteratorHistory::clear): Deleted.
+            (WebCore::BreakingContext::optimalLineBreakLocationForTrailingWord): Deleted.
+            * rendering/style/RenderStyle.h:
+            (WebCore::RenderStyle::trailingWord const): Deleted.
+            (WebCore::RenderStyle::setTrailingWord): Deleted.
+            (WebCore::RenderStyle::initialTrailingWord): Deleted.
+            * rendering/style/RenderStyleConstants.h:
+            * rendering/style/StyleRareInheritedData.cpp:
+            (WebCore::StyleRareInheritedData::StyleRareInheritedData):
+            (WebCore::StyleRareInheritedData::operator== const):
+            * rendering/style/StyleRareInheritedData.h:
+
+2019-04-10  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r244034. rdar://problem/49790376
+
+    LibWebRTCMediaEndpoint does not need to hop to the signaling thread to gather stats
+    https://bugs.webkit.org/show_bug.cgi?id=196697
+    <rdar://problem/47477113>
+    
+    Reviewed by Eric Carlson.
+    
+    It is not thread safe to use m_backend in another thread than the main thread.
+    It is not useful anymore to hop to the signaling thread to gather stats.
+    No change of behavior.
+    
+    * Modules/mediastream/libwebrtc/LibWebRTCMediaEndpoint.cpp:
+    (WebCore::LibWebRTCMediaEndpoint::getStats):
+    (WebCore::LibWebRTCMediaEndpoint::gatherStatsForLogging):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@244034 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-08  Youenn Fablet  <youenn@apple.com>
+
+            LibWebRTCMediaEndpoint does not need to hop to the signaling thread to gather stats
+            https://bugs.webkit.org/show_bug.cgi?id=196697
+            <rdar://problem/47477113>
+
+            Reviewed by Eric Carlson.
+
+            It is not thread safe to use m_backend in another thread than the main thread.
+            It is not useful anymore to hop to the signaling thread to gather stats.
+            No change of behavior.
+
+            * Modules/mediastream/libwebrtc/LibWebRTCMediaEndpoint.cpp:
+            (WebCore::LibWebRTCMediaEndpoint::getStats):
+            (WebCore::LibWebRTCMediaEndpoint::gatherStatsForLogging):
+
+2019-04-09  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243828. rdar://problem/49725673
+
+    Documents can be destroyed before their CSSFontFaceSet is destroyed
+    https://bugs.webkit.org/show_bug.cgi?id=195830
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebCore:
+    
+    CSSFontFaceSet has a raw pointer to its owning document. JS can keep the CSSFontFaceSet alive (by using FontFaceSet)
+    and can destroy the document at any time. When the document is destroyed, the link between the two objects needs to
+    be severed.
+    
+    Test: fast/text/font-face-set-destroy-document.html
+    
+    * css/CSSFontFace.cpp:
+    (WebCore::CSSFontFace::CSSFontFace):
+    * css/CSSFontFace.h:
+    * css/CSSFontFaceSet.cpp:
+    (WebCore::CSSFontFaceSet::CSSFontFaceSet):
+    (WebCore::CSSFontFaceSet::ensureLocalFontFacesForFamilyRegistered):
+    * css/CSSFontFaceSet.h:
+    * css/CSSFontSelector.cpp:
+    (WebCore::CSSFontSelector::CSSFontSelector):
+    (WebCore::CSSFontSelector::addFontFaceRule):
+    * css/CSSFontSelector.h:
+    * css/FontFace.cpp:
+    (WebCore::FontFace::FontFace):
+    
+    LayoutTests:
+    
+    * fast/text/font-face-set-destroy-document-expected.html: Added.
+    * fast/text/font-face-set-destroy-document.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243828 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-03  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            Documents can be destroyed before their CSSFontFaceSet is destroyed
+            https://bugs.webkit.org/show_bug.cgi?id=195830
+
+            Reviewed by Darin Adler.
+
+            CSSFontFaceSet has a raw pointer to its owning document. JS can keep the CSSFontFaceSet alive (by using FontFaceSet)
+            and can destroy the document at any time. When the document is destroyed, the link between the two objects needs to
+            be severed.
+
+            Test: fast/text/font-face-set-destroy-document.html
+
+            * css/CSSFontFace.cpp:
+            (WebCore::CSSFontFace::CSSFontFace):
+            * css/CSSFontFace.h:
+            * css/CSSFontFaceSet.cpp:
+            (WebCore::CSSFontFaceSet::CSSFontFaceSet):
+            (WebCore::CSSFontFaceSet::ensureLocalFontFacesForFamilyRegistered):
+            * css/CSSFontFaceSet.h:
+            * css/CSSFontSelector.cpp:
+            (WebCore::CSSFontSelector::CSSFontSelector):
+            (WebCore::CSSFontSelector::addFontFaceRule):
+            * css/CSSFontSelector.h:
+            * css/FontFace.cpp:
+            (WebCore::FontFace::FontFace):
+
+2019-04-09  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243786. rdar://problem/49725702
+
+    REGRESSION (r238266): Exchange 2013 Outlook Web Access displays partially blank page when creating new e-mail
+    https://bugs.webkit.org/show_bug.cgi?id=196522
+    Source/WebCore:
+    
+    rdar://problem/49472941
+    
+    Reviewed by Zalan Bujtas.
+    
+    In this content a layer is composited to clip descendants, and has negative z-order children,
+    so we compute that it "paints into ancestor", and has a foreground layer. This combination doesn't
+    make sense, and when the layer becomes scrollable, we end up with bad paint phases on layers, and
+    fail to paint the contents.
+    
+    Fix by ensuring that a layer has its own backing store if it requires a foreground layer
+    by virtue of having negative z-order children.
+    
+    Test: compositing/backing/foreground-layer-no-paints-into-ancestor.html
+    
+    * rendering/RenderLayerCompositor.cpp:
+    (WebCore::RenderLayerCompositor::requiresOwnBackingStore const):
+    
+    LayoutTests:
+    
+    Reviewed by Zalan Bujtas.
+    
+    * compositing/backing/foreground-layer-no-paints-into-ancestor-expected.html: Added.
+    * compositing/backing/foreground-layer-no-paints-into-ancestor.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243786 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-02  Simon Fraser  <simon.fraser@apple.com>
+
+            REGRESSION (r238266): Exchange 2013 Outlook Web Access displays partially blank page when creating new e-mail
+            https://bugs.webkit.org/show_bug.cgi?id=196522
+            rdar://problem/49472941
+
+            Reviewed by Zalan Bujtas.
+
+            In this content a layer is composited to clip descendants, and has negative z-order children,
+            so we compute that it "paints into ancestor", and has a foreground layer. This combination doesn't
+            make sense, and when the layer becomes scrollable, we end up with bad paint phases on layers, and
+            fail to paint the contents.
+
+            Fix by ensuring that a layer has its own backing store if it requires a foreground layer
+            by virtue of having negative z-order children.
+
+            Test: compositing/backing/foreground-layer-no-paints-into-ancestor.html
+
+            * rendering/RenderLayerCompositor.cpp:
+            (WebCore::RenderLayerCompositor::requiresOwnBackingStore const):
+
+2019-04-09  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243660. rdar://problem/49725670
+
+    [Simple line layout] Turn off inline boxtree generation for multiline content
+    https://bugs.webkit.org/show_bug.cgi?id=196404
+    <rdar://problem/49234033>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    Currently simple line layout can't provide the correct line breaking context to the inline tree when the boxtree is
+    generated using the simple line runs. This patch limits the generation of such trees to single lines. Multiline content will
+    go through the "let's layout this content again" codepath.
+    This patch fixes disappearing content on Questar.
+    
+    Test: fast/text/simple-line-layout-and-multiline-inlineboxtree.html
+    
+    * rendering/SimpleLineLayoutFunctions.cpp:
+    (WebCore::SimpleLineLayout::canUseForLineBoxTree):
+    
+    LayoutTests:
+    
+    * fast/text/simple-line-layout-and-multiline-inlineboxtree-expected.html: Added.
+    * fast/text/simple-line-layout-and-multiline-inlineboxtree.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243660 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-29  Zalan Bujtas  <zalan@apple.com>
+
+            [Simple line layout] Turn off inline boxtree generation for multiline content
+            https://bugs.webkit.org/show_bug.cgi?id=196404
+            <rdar://problem/49234033>
+
+            Reviewed by Simon Fraser.
+
+            Currently simple line layout can't provide the correct line breaking context to the inline tree when the boxtree is
+            generated using the simple line runs. This patch limits the generation of such trees to single lines. Multiline content will
+            go through the "let's layout this content again" codepath.
+            This patch fixes disappearing content on Questar.
+
+            Test: fast/text/simple-line-layout-and-multiline-inlineboxtree.html
+
+            * rendering/SimpleLineLayoutFunctions.cpp:
+            (WebCore::SimpleLineLayout::canUseForLineBoxTree):
+
+2019-04-09  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243605. rdar://problem/49725707
+
+    [SimpleLineLayout] Disable SLL when text-underline-position is not auto.
+    https://bugs.webkit.org/show_bug.cgi?id=196338
+    <rdar://problem/47975167>
+    
+    Reviewed by Daniel Bates.
+    
+    Source/WebCore:
+    
+    Disable simple line layout unconditionally on non-auto text-underline-position content. We don't support it yet.
+    
+    Test: fast/text/simple-line-layout-with-text-underline-position.html
+    
+    * rendering/SimpleLineLayout.cpp:
+    (WebCore::SimpleLineLayout::canUseForStyle):
+    
+    LayoutTests:
+    
+    * fast/text/simple-line-layout-with-text-underline-position-expected.html: Added.
+    * fast/text/simple-line-layout-with-text-underline-position.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243605 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-28  Zalan Bujtas  <zalan@apple.com>
+
+            [SimpleLineLayout] Disable SLL when text-underline-position is not auto.
+            https://bugs.webkit.org/show_bug.cgi?id=196338
+            <rdar://problem/47975167>
+
+            Reviewed by Daniel Bates.
+
+            Disable simple line layout unconditionally on non-auto text-underline-position content. We don't support it yet.
+
+            Test: fast/text/simple-line-layout-with-text-underline-position.html
+
+            * rendering/SimpleLineLayout.cpp:
+            (WebCore::SimpleLineLayout::canUseForStyle):
+
+2019-04-09  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243104. rdar://problem/49725692
+
+    REGRESSION(r236862): early frame decoupling leaves JSC ArrayBuffer objects lingering
+    https://bugs.webkit.org/show_bug.cgi?id=195322
+    
+    Reviewed by Ryosuke Niwa.
+    
+    Since r236862, DOMWindow objects get disconnected from their Frame object as soon as
+    their iframe element gets removed from the document. Previously, DOMWindow was a
+    FrameDestructionObserver and would stay connected to its frame until the frame died.
+    
+    This means that some of the work that we were doing in DOMWindow::frameDestroyed() and
+    Document::willDetachPage() no longer happens for subframe windows because they get
+    disconnected from their frame because they get a chance to get such notifications.
+    To address this issue, we now also do this work in DOMWindow::willDetachDocumentFromFrame()
+    which gets called when the iframe gets removed from the document and the document / window
+    get disconnected from the Frame element.
+    
+    No new tests, verified locally that the leak is gone on JetStream.
+    
+    * page/DOMWindow.cpp:
+    (WebCore::DOMWindow::willDetachDocumentFromFrame):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243104 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-18  Chris Dumez  <cdumez@apple.com>
+
+            REGRESSION(r236862): early frame decoupling leaves JSC ArrayBuffer objects lingering
+            https://bugs.webkit.org/show_bug.cgi?id=195322
+
+            Reviewed by Ryosuke Niwa.
+
+            Since r236862, DOMWindow objects get disconnected from their Frame object as soon as
+            their iframe element gets removed from the document. Previously, DOMWindow was a
+            FrameDestructionObserver and would stay connected to its frame until the frame died.
+
+            This means that some of the work that we were doing in DOMWindow::frameDestroyed() and
+            Document::willDetachPage() no longer happens for subframe windows because they get
+            disconnected from their frame because they get a chance to get such notifications.
+            To address this issue, we now also do this work in DOMWindow::willDetachDocumentFromFrame()
+            which gets called when the iframe gets removed from the document and the document / window
+            get disconnected from the Frame element.
+
+            No new tests, verified locally that the leak is gone on JetStream.
+
+            * page/DOMWindow.cpp:
+            (WebCore::DOMWindow::willDetachDocumentFromFrame):
+
+2019-04-09  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r241918. rdar://problem/49725665
+
+    Same Site Lax cookies are not sent with cross-site redirect from client-initiated load
+    https://bugs.webkit.org/show_bug.cgi?id=194906
+    <rdar://problem/44305947>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    Ensure that a request for a top-level navigation is annotated as such regardless of whether
+    the request has a computed Same Site policy.
+    
+    "New loads" initiated by a the client (Safari) either by API or a human either explicitly
+    typing a URL in the address bar or Command + clicking a hyperlink to open it in a new window/tab
+    are always considered Same Site. This is by definition from the spec. [1] as we aren't navigating
+    from an existing page. (Command + click should be thought of as a convenience to the user from
+    having to copy the hyperlink's URL, create a new window, and paste the URL into the address bar).
+    Currently the frame loader marks a request as a top-level navigation if and only if the request
+    does not have a pre-computed Same Site policy. However, "New loads" have a pre-computed Same Site
+    policy. So, these loads would never be marked as a top-level navigation by the frame loading code.
+    Therefore, if the "new load" turned out to be a cross-site redirect then WebKit would incorrectly
+    tell the networking stack that the load was a cross-site, non-top-level navigation, and per the
+    Same Site spec [2], the networking stack would not send Same Site Lax cookies. Instead,
+    WebKit should unconditionally ensure that requests are marked as a top-level navigation, if applicable.
+    
+    [1] See Note for (1) in  <https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-02#section-5.2>
+    [2] <https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-02#section-5.3.7.1>
+    
+    Test: http/tests/cookies/same-site/user-load-cross-site-redirect.php
+    
+    * loader/FrameLoader.cpp:
+    (WebCore::FrameLoader::addExtraFieldsToRequest): Unconditionally update the request's top-
+    level navigation bit.
+    * platform/network/ResourceRequestBase.cpp:
+    (WebCore::ResourceRequestBase::setAsIsolatedCopy): Unconditionally copy a request's top-
+    level navigation bit.
+    
+    LayoutTests:
+    
+    Add a test that is representative of a user loading a cross-site page that redirects
+    to a page that expects Same Site Lax cookies.
+    
+    * http/tests/cookies/same-site/user-load-cross-site-redirect-expected.txt: Added.
+    * http/tests/cookies/same-site/user-load-cross-site-redirect.php: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@241918 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-02-21  Daniel Bates  <dabates@apple.com>
+
+            Same Site Lax cookies are not sent with cross-site redirect from client-initiated load
+            https://bugs.webkit.org/show_bug.cgi?id=194906
+            <rdar://problem/44305947>
+
+            Reviewed by Brent Fulgham.
+
+            Ensure that a request for a top-level navigation is annotated as such regardless of whether
+            the request has a computed Same Site policy.
+
+            "New loads" initiated by a the client (Safari) either by API or a human either explicitly
+            typing a URL in the address bar or Command + clicking a hyperlink to open it in a new window/tab
+            are always considered Same Site. This is by definition from the spec. [1] as we aren't navigating
+            from an existing page. (Command + click should be thought of as a convenience to the user from
+            having to copy the hyperlink's URL, create a new window, and paste the URL into the address bar).
+            Currently the frame loader marks a request as a top-level navigation if and only if the request
+            does not have a pre-computed Same Site policy. However, "New loads" have a pre-computed Same Site
+            policy. So, these loads would never be marked as a top-level navigation by the frame loading code.
+            Therefore, if the "new load" turned out to be a cross-site redirect then WebKit would incorrectly
+            tell the networking stack that the load was a cross-site, non-top-level navigation, and per the
+            Same Site spec [2], the networking stack would not send Same Site Lax cookies. Instead,
+            WebKit should unconditionally ensure that requests are marked as a top-level navigation, if applicable.
+
+            [1] See Note for (1) in  <https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-02#section-5.2>
+            [2] <https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-02#section-5.3.7.1>
+
+            Test: http/tests/cookies/same-site/user-load-cross-site-redirect.php
+
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::addExtraFieldsToRequest): Unconditionally update the request's top-
+            level navigation bit.
+            * platform/network/ResourceRequestBase.cpp:
+            (WebCore::ResourceRequestBase::setAsIsolatedCopy): Unconditionally copy a request's top-
+            level navigation bit.
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r242943. rdar://problem/49307995
+
+    Cleanup inline boxes when list marker gets blockified
+    https://bugs.webkit.org/show_bug.cgi?id=195746
+    <rdar://problem/48049175>
+    
+    Reviewed by Antti Koivisto.
+    
+    Source/WebCore:
+    
+    Normally when an element gets blockified (inline -> block) we destroy its renderer and construct a new one (RenderInline -> RenderBlock).
+    During this process the associated inline boxtree gets destroyed as well. Since RenderListMarker is just a generic RenderBox, the blockifying
+    change does not require a new renderer.
+    This patch takes care of destroying the inline boxtree when the marker gains block display type.
+    
+    Test: fast/block/float/list-marker-is-float-crash.html
+    
+    * rendering/RenderListMarker.cpp:
+    (WebCore::RenderListMarker::styleDidChange):
+    
+    LayoutTests:
+    
+    * fast/block/float/list-marker-is-float-crash-expected.txt: Added.
+    * fast/block/float/list-marker-is-float-crash.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242943 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-14  Zalan Bujtas  <zalan@apple.com>
+
+            Cleanup inline boxes when list marker gets blockified
+            https://bugs.webkit.org/show_bug.cgi?id=195746
+            <rdar://problem/48049175>
+
+            Reviewed by Antti Koivisto.
+
+            Normally when an element gets blockified (inline -> block) we destroy its renderer and construct a new one (RenderInline -> RenderBlock).
+            During this process the associated inline boxtree gets destroyed as well. Since RenderListMarker is just a generic RenderBox, the blockifying
+            change does not require a new renderer.
+            This patch takes care of destroying the inline boxtree when the marker gains block display type.
+
+            Test: fast/block/float/list-marker-is-float-crash.html
+
+            * rendering/RenderListMarker.cpp:
+            (WebCore::RenderListMarker::styleDidChange):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r242964. rdar://problem/49359851
+
+    Storing a Node in Ref/RefPtr inside its destructor results in double delete
+    https://bugs.webkit.org/show_bug.cgi?id=195661
+    
+    Reviewed by Brent Fulgham.
+    
+    Set Node::m_refCount to 1 before calling its virtual destructor.
+    
+    This is a security mitigation to prevent any code which ends up storing the node to Ref / RefPtr
+    inside the destructor, which is a programming error caught by debug assertions, from triggering
+    a double-delete on the same Node.
+    
+    Such a code would hit the debug assertions in Node::deref() because m_inRemovedLastRefFunction
+    had been set to true by then.
+    
+    * dom/Document.cpp:
+    (WebCore::Document::removedLastRef):
+    * dom/Document.h:
+    (WebCore::Document::decrementReferencingNodeCount):
+    * dom/Node.cpp:
+    (WebCore::Node::~Node):
+    (WebCore::Node::removedLastRef):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242964 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-14  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Storing a Node in Ref/RefPtr inside its destructor results in double delete
+            https://bugs.webkit.org/show_bug.cgi?id=195661
+
+            Reviewed by Brent Fulgham.
+
+            Set Node::m_refCount to 1 before calling its virtual destructor.
+
+            This is a security mitigation to prevent any code which ends up storing the node to Ref / RefPtr
+            inside the destructor, which is a programming error caught by debug assertions, from triggering
+            a double-delete on the same Node.
+
+            Such a code would hit the debug assertions in Node::deref() because m_inRemovedLastRefFunction
+            had been set to true by then.
+
+            * dom/Document.cpp:
+            (WebCore::Document::removedLastRef):
+            * dom/Document.h:
+            (WebCore::Document::decrementReferencingNodeCount):
+            * dom/Node.cpp:
+            (WebCore::Node::~Node):
+            (WebCore::Node::removedLastRef):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243506. rdar://problem/49307987
+
+    vertexAttribPointer must restrict offset parameter
+    https://bugs.webkit.org/show_bug.cgi?id=196261
+    <rdar://problem/48458086>
+    
+    Reviewed by Antoine Quint.
+    
+    Source/WebCore:
+    
+    This WebGL function should fail if the offset parameter is
+    not within [0, max 32-bit int].
+    
+    Test: fast/canvas/webgl/vertexAttribPointer-with-bad-offset.html
+    
+    * html/canvas/WebGLRenderingContextBase.cpp:
+    (WebCore::WebGLRenderingContextBase::vertexAttribPointer):
+    
+    LayoutTests:
+    
+    Add a test where the offset parameter is out of bounds.
+    
+    * fast/canvas/webgl/vertexAttribPointer-with-bad-offset-expected.txt: Added.
+    * fast/canvas/webgl/vertexAttribPointer-with-bad-offset.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243506 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-26  Dean Jackson  <dino@apple.com>
+
+            vertexAttribPointer must restrict offset parameter
+            https://bugs.webkit.org/show_bug.cgi?id=196261
+            <rdar://problem/48458086>
+
+            Reviewed by Antoine Quint.
+
+            This WebGL function should fail if the offset parameter is
+            not within [0, max 32-bit int].
+
+            Test: fast/canvas/webgl/vertexAttribPointer-with-bad-offset.html
+
+            * html/canvas/WebGLRenderingContextBase.cpp:
+            (WebCore::WebGLRenderingContextBase::vertexAttribPointer):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243341. rdar://problem/49308013
+
+    Inband Text Track cues interspersed with Data cues can display out of order.
+    https://bugs.webkit.org/show_bug.cgi?id=196095
+    
+    Reviewed by Eric Carlson.
+    
+    The compareCueIntervalForDisplay() comparator depends on a virtual function, isPositionedAbove(TextTrackCue* other),
+    but this comparison returns inconsistent results for cueA->isPositionedAbove(cueB) and cueB->isPositionedAbove(cueA)
+    if the two cues are different subclasses of TextTrackCue.
+    
+    The underlying algorithm should be fixed in a future patch, but for now, remove all non-displaying cues from the array
+    of activeCues before sorting, rather than after when iterating over the sorted list of activeCues.
+    
+    * html/shadow/MediaControlElements.cpp:
+    (WebCore::MediaControlTextTrackContainerElement::updateDisplay):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243341 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-21  Jer Noble  <jer.noble@apple.com>
+
+            Inband Text Track cues interspersed with Data cues can display out of order.
+            https://bugs.webkit.org/show_bug.cgi?id=196095
+
+            Reviewed by Eric Carlson.
+
+            The compareCueIntervalForDisplay() comparator depends on a virtual function, isPositionedAbove(TextTrackCue* other),
+            but this comparison returns inconsistent results for cueA->isPositionedAbove(cueB) and cueB->isPositionedAbove(cueA)
+            if the two cues are different subclasses of TextTrackCue.
+
+            The underlying algorithm should be fixed in a future patch, but for now, remove all non-displaying cues from the array
+            of activeCues before sorting, rather than after when iterating over the sorted list of activeCues.
+
+            * html/shadow/MediaControlElements.cpp:
+            (WebCore::MediaControlTextTrackContainerElement::updateDisplay):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243338. rdar://problem/49307958
+
+    Fix iOS build after r243337
+    https://bugs.webkit.org/show_bug.cgi?id=195935
+    
+    * platform/ios/PlaybackSessionInterfaceAVKit.mm:
+    (WebCore::PlaybackSessionInterfaceAVKit::playbackSessionModel const):
+    (WebCore::playbackSessionModel const): Deleted.
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243338 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-21  Alex Christensen  <achristensen@webkit.org>
+
+            Fix iOS build after r243337
+            https://bugs.webkit.org/show_bug.cgi?id=195935
+
+            * platform/ios/PlaybackSessionInterfaceAVKit.mm:
+            (WebCore::PlaybackSessionInterfaceAVKit::playbackSessionModel const):
+            (WebCore::playbackSessionModel const): Deleted.
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243337. rdar://problem/49307958
+
+    Hardening: Use WeakPtrs in PlaybackSessionInterface{Mac,AVKit}
+    https://bugs.webkit.org/show_bug.cgi?id=195935
+    <rdar://problem/49007015>
+    
+    Reviewed by Eric Carlson.
+    
+    The PlaybackSessionInterface{Mac,AVKit} implementations store their playback session model
+    and playback controls manager members as bare pointers, something we've been working
+    to eliminate.
+    
+    This patch corrects this oversight.
+    
+    No new tests since no changes in behavior.
+    
+    * platform/cocoa/PlaybackSessionModel.h:
+    * platform/ios/PlaybackSessionInterfaceAVKit.h:
+    * platform/ios/PlaybackSessionInterfaceAVKit.mm:
+    (WebCore::PlaybackSessionInterfaceAVKit::PlaybackSessionInterfaceAVKit):
+    (WebCore::playbackSessionModel const): Moved to implementation since WEBCORE_EXPORT is not
+    supposed to be used with inline methods.
+    * platform/mac/PlaybackSessionInterfaceMac.h:
+    * platform/mac/PlaybackSessionInterfaceMac.mm:
+    (WebCore::PlaybackSessionInterfaceMac::PlaybackSessionInterfaceMac):
+    (WebCore::PlaybackSessionInterfaceMac::playbackSessionModel const):
+    (WebCore::PlaybackSessionInterfaceMac::beginScrubbing):
+    (WebCore::PlaybackSessionInterfaceMac::endScrubbing):
+    (WebCore::PlaybackSessionInterfaceMac::playBackControlsManager):
+    * platform/mac/VideoFullscreenInterfaceMac.mm:
+    (WebCore::VideoFullscreenInterfaceMac::~VideoFullscreenInterfaceMac):
+    * platform/mac/WebPlaybackControlsManager.mm:
+    (-[WebPlaybackControlsManager seekToTime:toleranceBefore:toleranceAfter:]):
+    (-[WebPlaybackControlsManager setCurrentAudioTouchBarMediaSelectionOption:]):
+    (-[WebPlaybackControlsManager setCurrentLegibleTouchBarMediaSelectionOption:]):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243337 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-21  Brent Fulgham  <bfulgham@apple.com>
+
+            Hardening: Use WeakPtrs in PlaybackSessionInterface{Mac,AVKit}
+            https://bugs.webkit.org/show_bug.cgi?id=195935
+            <rdar://problem/49007015>
+
+            Reviewed by Eric Carlson.
+
+            The PlaybackSessionInterface{Mac,AVKit} implementations store their playback session model
+            and playback controls manager members as bare pointers, something we've been working
+            to eliminate.
+
+            This patch corrects this oversight.
+
+            No new tests since no changes in behavior.
+
+            * platform/cocoa/PlaybackSessionModel.h:
+            * platform/ios/PlaybackSessionInterfaceAVKit.h:
+            * platform/ios/PlaybackSessionInterfaceAVKit.mm:
+            (WebCore::PlaybackSessionInterfaceAVKit::PlaybackSessionInterfaceAVKit):
+            (WebCore::playbackSessionModel const): Moved to implementation since WEBCORE_EXPORT is not
+            supposed to be used with inline methods.
+            * platform/mac/PlaybackSessionInterfaceMac.h:
+            * platform/mac/PlaybackSessionInterfaceMac.mm:
+            (WebCore::PlaybackSessionInterfaceMac::PlaybackSessionInterfaceMac):
+            (WebCore::PlaybackSessionInterfaceMac::playbackSessionModel const):
+            (WebCore::PlaybackSessionInterfaceMac::beginScrubbing):
+            (WebCore::PlaybackSessionInterfaceMac::endScrubbing):
+            (WebCore::PlaybackSessionInterfaceMac::playBackControlsManager):
+            * platform/mac/VideoFullscreenInterfaceMac.mm:
+            (WebCore::VideoFullscreenInterfaceMac::~VideoFullscreenInterfaceMac):
+            * platform/mac/WebPlaybackControlsManager.mm:
+            (-[WebPlaybackControlsManager seekToTime:toleranceBefore:toleranceAfter:]):
+            (-[WebPlaybackControlsManager setCurrentAudioTouchBarMediaSelectionOption:]):
+            (-[WebPlaybackControlsManager setCurrentLegibleTouchBarMediaSelectionOption:]):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243331. rdar://problem/49308068
+
+    Do not insert the first-letter anonymous container until after we've constructed the first-letter renderer.
+    https://bugs.webkit.org/show_bug.cgi?id=195919
+    <rdar://problem/48573434>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    When the container is injected too early, we might end up removing it as part of the collapsing logic
+    while the text renderer is being removed (replaced with the first letter + remaining text).
+    
+    Test: fast/css/first-letter-and-float-crash.html
+    
+    * rendering/updating/RenderTreeBuilderFirstLetter.cpp:
+    (WebCore::RenderTreeBuilder::FirstLetter::createRenderers):
+    
+    LayoutTests:
+    
+    * fast/css/first-letter-and-float-crash-expected.txt: Added.
+    * fast/css/first-letter-and-float-crash.html: Added.
+    * platform/mac/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243331 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-21  Zalan Bujtas  <zalan@apple.com>
+
+            Do not insert the first-letter anonymous container until after we've constructed the first-letter renderer.
+            https://bugs.webkit.org/show_bug.cgi?id=195919
+            <rdar://problem/48573434>
+
+            Reviewed by Brent Fulgham.
+
+            When the container is injected too early, we might end up removing it as part of the collapsing logic
+            while the text renderer is being removed (replaced with the first letter + remaining text).
+
+            Test: fast/css/first-letter-and-float-crash.html
+
+            * rendering/updating/RenderTreeBuilderFirstLetter.cpp:
+            (WebCore::RenderTreeBuilder::FirstLetter::createRenderers):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243298. rdar://problem/49308011
+
+    Hardening: Use WeakPtrs in VideoFullscreenInterface{Mac,AVKit}
+    https://bugs.webkit.org/show_bug.cgi?id=196052
+    <rdar://problem/48778571>
+    
+    Reviewed by Eric Carlson.
+    
+    The VideoFullscreenInterface{Mac,AVKit} implementations store their fullscreen model
+    and fullscreen change observer members as bare pointers, something we've been working
+    to eliminate.
+    
+    This patch corrects this oversight.
+    
+    No new tests since no changes in behavior.
+    
+    * platform/cocoa/VideoFullscreenChangeObserver.h:
+    * platform/cocoa/VideoFullscreenModel.h:
+    * platform/ios/VideoFullscreenInterfaceAVKit.h:
+    * platform/ios/VideoFullscreenInterfaceAVKit.mm:
+    (VideoFullscreenInterfaceAVKit::setVideoFullscreenModel):
+    (VideoFullscreenInterfaceAVKit::setVideoFullscreenChangeObserver):
+    (VideoFullscreenInterfaceAVKit::presentingViewController):
+    (VideoFullscreenInterfaceAVKit::invalidate):
+    (VideoFullscreenInterfaceAVKit::preparedToExitFullscreen):
+    (VideoFullscreenInterfaceAVKit::shouldExitFullscreenWithReason):
+    (VideoFullscreenInterfaceAVKit::doSetup):
+    * platform/mac/VideoFullscreenInterfaceMac.h:
+    (WebCore::VideoFullscreenInterfaceMac::videoFullscreenModel const):
+    (WebCore::VideoFullscreenInterfaceMac::videoFullscreenChangeObserver const):
+    * platform/mac/VideoFullscreenInterfaceMac.mm:
+    (WebCore::VideoFullscreenInterfaceMac::setVideoFullscreenModel):
+    (WebCore::VideoFullscreenInterfaceMac::setVideoFullscreenChangeObserver):
+    (WebCore::VideoFullscreenInterfaceMac::enterFullscreen):
+    (WebCore::VideoFullscreenInterfaceMac::invalidate):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243298 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-21  Brent Fulgham  <bfulgham@apple.com>
+
+            Hardening: Use WeakPtrs in VideoFullscreenInterface{Mac,AVKit}
+            https://bugs.webkit.org/show_bug.cgi?id=196052
+            <rdar://problem/48778571>
+
+            Reviewed by Eric Carlson.
+
+            The VideoFullscreenInterface{Mac,AVKit} implementations store their fullscreen model
+            and fullscreen change observer members as bare pointers, something we've been working
+            to eliminate.
+
+            This patch corrects this oversight.
+
+            No new tests since no changes in behavior.
+
+            * platform/cocoa/VideoFullscreenChangeObserver.h:
+            * platform/cocoa/VideoFullscreenModel.h:
+            * platform/ios/VideoFullscreenInterfaceAVKit.h:
+            * platform/ios/VideoFullscreenInterfaceAVKit.mm:
+            (VideoFullscreenInterfaceAVKit::setVideoFullscreenModel):
+            (VideoFullscreenInterfaceAVKit::setVideoFullscreenChangeObserver):
+            (VideoFullscreenInterfaceAVKit::presentingViewController):
+            (VideoFullscreenInterfaceAVKit::invalidate):
+            (VideoFullscreenInterfaceAVKit::preparedToExitFullscreen):
+            (VideoFullscreenInterfaceAVKit::shouldExitFullscreenWithReason):
+            (VideoFullscreenInterfaceAVKit::doSetup):
+            * platform/mac/VideoFullscreenInterfaceMac.h:
+            (WebCore::VideoFullscreenInterfaceMac::videoFullscreenModel const):
+            (WebCore::VideoFullscreenInterfaceMac::videoFullscreenChangeObserver const):
+            * platform/mac/VideoFullscreenInterfaceMac.mm:
+            (WebCore::VideoFullscreenInterfaceMac::setVideoFullscreenModel):
+            (WebCore::VideoFullscreenInterfaceMac::setVideoFullscreenChangeObserver):
+            (WebCore::VideoFullscreenInterfaceMac::enterFullscreen):
+            (WebCore::VideoFullscreenInterfaceMac::invalidate):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r242946. rdar://problem/49308005
+
+    Certain videos are causing a crash when used as WebGL texture
+    https://bugs.webkit.org/show_bug.cgi?id=195700
+    <rdar://problem/48869347>
+    
+    Reviewed by Eric Carlson.
+    
+    CFEqual is not null-safe, so perform a null and type check before comparing.
+    
+    * platform/graphics/cv/VideoTextureCopierCV.cpp:
+    (WebCore::transferFunctionFromString):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242946 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-14  Jer Noble  <jer.noble@apple.com>
+
+            Certain videos are causing a crash when used as WebGL texture
+            https://bugs.webkit.org/show_bug.cgi?id=195700
+            <rdar://problem/48869347>
+
+            Reviewed by Eric Carlson.
+
+            CFEqual is not null-safe, so perform a null and type check before comparing.
+
+            * platform/graphics/cv/VideoTextureCopierCV.cpp:
+            (WebCore::transferFunctionFromString):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r242921. rdar://problem/49308071
+
+    [WeakPtr] RenderListMarker::m_listItem should be a WeakPtr
+    https://bugs.webkit.org/show_bug.cgi?id=195704
+    <rdar://problem/48486278>
+    
+    Reviewed by Simon Fraser.
+    
+    * rendering/RenderListMarker.cpp:
+    (WebCore::RenderListMarker::RenderListMarker):
+    (WebCore::RenderListMarker::paint):
+    (WebCore::RenderListMarker::layout):
+    (WebCore::RenderListMarker::updateContent):
+    (WebCore::RenderListMarker::computePreferredLogicalWidths):
+    (WebCore::RenderListMarker::lineHeight const):
+    (WebCore::RenderListMarker::baselinePosition const):
+    (WebCore::RenderListMarker::suffix const):
+    (WebCore::RenderListMarker::isInside const):
+    (WebCore::RenderListMarker::getRelativeMarkerRect):
+    * rendering/RenderListMarker.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242921 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-13  Zalan Bujtas  <zalan@apple.com>
+
+            [WeakPtr] RenderListMarker::m_listItem should be a WeakPtr
+            https://bugs.webkit.org/show_bug.cgi?id=195704
+            <rdar://problem/48486278>
+
+            Reviewed by Simon Fraser.
+
+            * rendering/RenderListMarker.cpp:
+            (WebCore::RenderListMarker::RenderListMarker):
+            (WebCore::RenderListMarker::paint):
+            (WebCore::RenderListMarker::layout):
+            (WebCore::RenderListMarker::updateContent):
+            (WebCore::RenderListMarker::computePreferredLogicalWidths):
+            (WebCore::RenderListMarker::lineHeight const):
+            (WebCore::RenderListMarker::baselinePosition const):
+            (WebCore::RenderListMarker::suffix const):
+            (WebCore::RenderListMarker::isInside const):
+            (WebCore::RenderListMarker::getRelativeMarkerRect):
+            * rendering/RenderListMarker.h:
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r242919. rdar://problem/49307949
+
+    Use RenderBox::previousSiblingBox/nextSiblingBox in RenderMultiColumnFlow
+    https://bugs.webkit.org/show_bug.cgi?id=195701
+    <rdar://problem/48448658>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    It's safer to use existing RenderBox functions to get sibling boxes.
+    
+    Test: fast/ruby/crash-when-paginated-ruby.html
+    
+    * rendering/RenderMultiColumnFlow.cpp:
+    (WebCore::RenderMultiColumnFlow::nextColumnSetOrSpannerSiblingOf):
+    (WebCore::RenderMultiColumnFlow::previousColumnSetOrSpannerSiblingOf):
+    
+    LayoutTests:
+    
+    * fast/ruby/crash-when-paginated-ruby-expected.txt: Added.
+    * fast/ruby/crash-when-paginated-ruby.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242919 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-13  Zalan Bujtas  <zalan@apple.com>
+
+            Use RenderBox::previousSiblingBox/nextSiblingBox in RenderMultiColumnFlow
+            https://bugs.webkit.org/show_bug.cgi?id=195701
+            <rdar://problem/48448658>
+
+            Reviewed by Simon Fraser.
+
+            It's safer to use existing RenderBox functions to get sibling boxes.
+
+            Test: fast/ruby/crash-when-paginated-ruby.html
+
+            * rendering/RenderMultiColumnFlow.cpp:
+            (WebCore::RenderMultiColumnFlow::nextColumnSetOrSpannerSiblingOf):
+            (WebCore::RenderMultiColumnFlow::previousColumnSetOrSpannerSiblingOf):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r242917. rdar://problem/49307956
+
+    Fix an edge case where HTMLFormElement::removeFormElement is invoked twice with the same element
+    https://bugs.webkit.org/show_bug.cgi?id=195663
+    <rdar://problem/48576391>
+    
+    Reviewed by Ryosuke Niwa.
+    
+    Source/WebCore:
+    
+    Currently, it's possible for HTMLFormControlElement's destructor to be reentrant. This may happen if the form
+    control element is ref'd while carrying out its destructor's logic. This may happen in two places in
+    HTMLFormControlElement (didChangeForm and resetDefaultButton), both of which actually don't require ensuring a
+    protected reference to the form control element since they should never result in any script execution.
+    
+    To fix the bug, convert these strong references into raw pointers, and add ScriptDisallowedScope to ensure that
+    we don't change these codepaths in the future, such that they trigger arbitrary script execution.
+    
+    Test: fast/forms/remove-associated-element-after-gc.html
+    
+    * html/HTMLFormControlElement.cpp:
+    (WebCore::HTMLFormControlElement::didChangeForm):
+    * html/HTMLFormElement.cpp:
+    (WebCore::HTMLFormElement::resetDefaultButton):
+    
+    LayoutTests:
+    
+    Add a layout test to exercise the scenario described in the WebCore ChangeLog.
+    
+    * fast/forms/remove-associated-element-after-gc-expected.txt: Added.
+    * fast/forms/remove-associated-element-after-gc.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242917 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-13  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Fix an edge case where HTMLFormElement::removeFormElement is invoked twice with the same element
+            https://bugs.webkit.org/show_bug.cgi?id=195663
+            <rdar://problem/48576391>
+
+            Reviewed by Ryosuke Niwa.
+
+            Currently, it's possible for HTMLFormControlElement's destructor to be reentrant. This may happen if the form
+            control element is ref'd while carrying out its destructor's logic. This may happen in two places in
+            HTMLFormControlElement (didChangeForm and resetDefaultButton), both of which actually don't require ensuring a
+            protected reference to the form control element since they should never result in any script execution.
+
+            To fix the bug, convert these strong references into raw pointers, and add ScriptDisallowedScope to ensure that
+            we don't change these codepaths in the future, such that they trigger arbitrary script execution.
+
+            Test: fast/forms/remove-associated-element-after-gc.html
+
+            * html/HTMLFormControlElement.cpp:
+            (WebCore::HTMLFormControlElement::didChangeForm):
+            * html/HTMLFormElement.cpp:
+            (WebCore::HTMLFormElement::resetDefaultButton):
+
+2019-03-18  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/48839387
+
+    2019-03-18  John Wilander  <wilander@apple.com>
+
+            Resource Load Statistics: Further restrict client-side cookie persistence after cross-site navigations with link decoration (branch patch)
+            https://bugs.webkit.org/show_bug.cgi?id=195711
+            <rdar://problem/48839387>
+            <rdar://problem/48832278>
+
+            Reviewed by Brent Fulgham.
+
+            Tests: http/tests/resourceLoadStatistics/capped-lifetime-for-cookie-set-in-js-with-link-decoration-same-site.html
+                   http/tests/resourceLoadStatistics/capped-lifetime-for-cookie-set-in-js-with-link-fragment-from-prevalent-resource.html
+                   http/tests/resourceLoadStatistics/capped-lifetime-for-cookie-set-in-js-with-link-query-and-fragment-from-prevalent-resource.html
+                   http/tests/resourceLoadStatistics/capped-lifetime-for-cookie-set-in-js-with-link-query-from-prevalent-resource.html
+                   http/tests/resourceLoadStatistics/capped-lifetime-for-cookie-set-in-js-without-link-decoration-from-prevalent-resource.html
+
+            This patch does three things:
+
+            1) Applies the changes in https://trac.webkit.org/changeset/242288 to
+            a branch. The only meaningful difference is the use of String instead
+            of WebCore::RegistrableDomain. Tracked by <rdar://problem/48839387>.
+
+            2) Set the lifetime cap for client-side cookies in the call to
+            NetworkStorageSession::setPrevalentDomainsToBlockCookiesFor(). This
+            change makes sure that if ITP is enabled, the cap will be applied.
+            Previously, the cap was set when WebProcessPool::ensureNetworkProcess()
+            called WebsiteDataStore::didCreateNetworkProcess() which might fail if
+            the website data store's m_resourceLoadStatistics object is not created
+            yet. Tracked by <rdar://problem/48832278>.
+
+            3) Makes sure WebProcessPool::ensureNetworkProcess() calls
+            WebsiteDataStore::didCreateNetworkProcess() also if there was an
+            existing website data store object supplied (the withWebsiteDataStore
+            parameter). Tracked by <rdar://problem/48832278>.
+
+            * platform/network/NetworkStorageSession.cpp:
+            (WebCore::NetworkStorageSession::setAgeCapForClientSideCookies):
+            (WebCore::NetworkStorageSession::setPrevalentDomainsToBlockCookiesFor):
+            (WebCore::NetworkStorageSession::clearPageSpecificDataForResourceLoadStatistics):
+            (WebCore::NetworkStorageSession::committedCrossSiteLoadWithLinkDecoration):
+            (WebCore::NetworkStorageSession::resetCrossSiteLoadsWithLinkDecorationForTesting):
+            (WebCore::NetworkStorageSession::clientSideCookieCap const):
+            (WebCore::NetworkStorageSession::removeStorageAccessForAllFramesOnPage): Deleted.
+            * platform/network/NetworkStorageSession.h:
+            * platform/network/cocoa/NetworkStorageSessionCocoa.mm:
+            (WebCore::filterCookies):
+            (WebCore::NetworkStorageSession::setCookiesFromDOM const):
+
+2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r242749. rdar://problem/48839358
+
+    [macOS] Dispatching reentrant "contextmenu" events may cause crashes
+    https://bugs.webkit.org/show_bug.cgi?id=195571
+    <rdar://problem/48086046>
+    
+    Reviewed by Andy Estes.
+    
+    Source/WebCore:
+    
+    Make ContextMenuController::handleContextMenuEvent robust against reentrancy by guarding it with a boolean flag.
+    As demonstrated in the test case, it is currently possible to force WebKit into a bad state by dispatching a
+    synthetic "contextmenu" event from within the scope of one of the "before(copy|cut|paste)" events triggered as
+    a result of handling a context menu event.
+    
+    Test: fast/events/contextmenu-reentrancy-crash.html
+    
+    * page/ContextMenuController.cpp:
+    (WebCore::ContextMenuController::handleContextMenuEvent):
+    * page/ContextMenuController.h:
+    
+    LayoutTests:
+    
+    Add a test to verify that triggering reentrant "contextmenu" events from script does not cause a crash.
+    
+    * fast/events/contextmenu-reentrancy-crash-expected.txt: Added.
+    * fast/events/contextmenu-reentrancy-crash.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242749 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-11  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [macOS] Dispatching reentrant "contextmenu" events may cause crashes
+            https://bugs.webkit.org/show_bug.cgi?id=195571
+            <rdar://problem/48086046>
+
+            Reviewed by Andy Estes.
+
+            Make ContextMenuController::handleContextMenuEvent robust against reentrancy by guarding it with a boolean flag.
+            As demonstrated in the test case, it is currently possible to force WebKit into a bad state by dispatching a
+            synthetic "contextmenu" event from within the scope of one of the "before(copy|cut|paste)" events triggered as
+            a result of handling a context menu event.
+
+            Test: fast/events/contextmenu-reentrancy-crash.html
+
+            * page/ContextMenuController.cpp:
+            (WebCore::ContextMenuController::handleContextMenuEvent):
+            * page/ContextMenuController.h:
+
+2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r242587. rdar://problem/48839354
+
+    Crash when attempting to change input type while dismissing datalist suggestions
+    https://bugs.webkit.org/show_bug.cgi?id=195384
+    <rdar://problem/48563718>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    When closing a datalist suggestion menu, WebPageProxy sends a message to WebPage instructing it to tell its
+    active datalist suggestions picker to close. However, for a myriad of reasons, the suggestions picker (kept
+    alive by its text input type) may have already gone away by this point. To mitigate this, make WebPage weakly
+    reference its active datalist suggestions picker.
+    
+    Test: fast/forms/datalist/change-input-type-after-closing-datalist-suggestions.html
+    
+    * platform/DataListSuggestionPicker.h:
+    
+    Make DataListSuggestionPicker capable of being weakly referenced. Additionally, fix some minor preexisting
+    issues in this header (#imports instead of #includes, as well as an unnecessary include of IntRect.h).
+    
+    Source/WebKit:
+    
+    See WebCore ChangeLog for more details.
+    
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::setActiveDataListSuggestionPicker):
+    (WebKit::WebPage::didSelectDataListOption):
+    (WebKit::WebPage::didCloseSuggestions):
+    * WebProcess/WebPage/WebPage.h:
+    
+    Turn m_activeDataListSuggestionPicker from a raw pointer into a WeakPtr.
+    
+    LayoutTests:
+    
+    Add a new layout test to exercise this scenario.
+    
+    * fast/forms/datalist/change-input-type-after-closing-datalist-suggestions-expected.txt: Added.
+    * fast/forms/datalist/change-input-type-after-closing-datalist-suggestions.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242587 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-06  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Crash when attempting to change input type while dismissing datalist suggestions
+            https://bugs.webkit.org/show_bug.cgi?id=195384
+            <rdar://problem/48563718>
+
+            Reviewed by Brent Fulgham.
+
+            When closing a datalist suggestion menu, WebPageProxy sends a message to WebPage instructing it to tell its
+            active datalist suggestions picker to close. However, for a myriad of reasons, the suggestions picker (kept
+            alive by its text input type) may have already gone away by this point. To mitigate this, make WebPage weakly
+            reference its active datalist suggestions picker.
+
+            Test: fast/forms/datalist/change-input-type-after-closing-datalist-suggestions.html
+
+            * platform/DataListSuggestionPicker.h:
+
+            Make DataListSuggestionPicker capable of being weakly referenced. Additionally, fix some minor preexisting
+            issues in this header (#imports instead of #includes, as well as an unnecessary include of IntRect.h).
+
+2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r242515. rdar://problem/48839275
+
+    SVGPathSegList.insertItemBefore() should fail if the newItem belongs to an animating animPathSegList
+    https://bugs.webkit.org/show_bug.cgi?id=195333
+    <rdar://problem/48475802>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    Because the SVG1.1 specs states that the newItem should be removed from
+    its original list before adding it to another list,
+    SVGPathSegList.insertItemBefore() should fail if the new item belongs to
+    an animating animPathSegList since it is read-only.
+    
+    Test: svg/dom/SVGPathSegList-insert-from-animating-animPathSegList.svg
+    
+    * svg/SVGPathSegList.cpp:
+    (WebCore::SVGPathSegList::processIncomingListItemValue):
+    
+    LayoutTests:
+    
+    * svg/dom/SVGPathSegList-insert-from-animating-animPathSegList-expected.txt: Added.
+    * svg/dom/SVGPathSegList-insert-from-animating-animPathSegList.svg: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242515 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-05  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+            SVGPathSegList.insertItemBefore() should fail if the newItem belongs to an animating animPathSegList
+            https://bugs.webkit.org/show_bug.cgi?id=195333
+            <rdar://problem/48475802>
+
+            Reviewed by Simon Fraser.
+
+            Because the SVG1.1 specs states that the newItem should be removed from
+            its original list before adding it to another list,
+            SVGPathSegList.insertItemBefore() should fail if the new item belongs to
+            an animating animPathSegList since it is read-only.
+
+            Test: svg/dom/SVGPathSegList-insert-from-animating-animPathSegList.svg
+
+            * svg/SVGPathSegList.cpp:
+            (WebCore::SVGPathSegList::processIncomingListItemValue):
+
+2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r241632. rdar://problem/48839379
+
+    Sample domainsVisited diagnostic logging
+    https://bugs.webkit.org/show_bug.cgi?id=194657
+    
+    Reviewed by Ryosuke Niwa.
+    
+    Sample domainsVisited diagnostic logging, we are getting a lot of data from
+    this key and this is hurting our other keys.
+    
+    * page/Page.cpp:
+    (WebCore::Page::logNavigation):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@241632 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-02-15  Chris Dumez  <cdumez@apple.com>
+
+            Sample domainsVisited diagnostic logging
+            https://bugs.webkit.org/show_bug.cgi?id=194657
+
+            Reviewed by Ryosuke Niwa.
+
+            Sample domainsVisited diagnostic logging, we are getting a lot of data from
+            this key and this is hurting our other keys.
+
+            * page/Page.cpp:
+            (WebCore::Page::logNavigation):
+
+2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r241608. rdar://problem/48839277
+
+    [WebVTT] Inline WebVTT styles should start with '::cue'
+    https://bugs.webkit.org/show_bug.cgi?id=194227
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore:
+    
+    The original fix in r241203 is not sufficient, since it only checks if the CSS string starts
+    with '::cue'. Before accepting a CSS string from a WebVTT file, it should be checked that
+    all selectors starts with '::cue'.
+    
+    Test: media/track/track-cue-css.html
+    
+    * html/track/WebVTTParser.cpp:
+    (WebCore::WebVTTParser::checkAndStoreStyleSheet):
+    
+    LayoutTests:
+    
+    Add invalid 'STYLE' blocks which the WebVTT parser should reject.
+    
+    * media/track/captions-webvtt/css-styling.vtt:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@241608 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-02-15  Per Arne Vollan  <pvollan@apple.com>
+
+            [WebVTT] Inline WebVTT styles should start with '::cue'
+            https://bugs.webkit.org/show_bug.cgi?id=194227
+
+            Reviewed by Eric Carlson.
+
+            The original fix in r241203 is not sufficient, since it only checks if the CSS string starts
+            with '::cue'. Before accepting a CSS string from a WebVTT file, it should be checked that
+            all selectors starts with '::cue'.
+
+            Test: media/track/track-cue-css.html
+
+            * html/track/WebVTTParser.cpp:
+            (WebCore::WebVTTParser::checkAndStoreStyleSheet):
+
+2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r241468. rdar://problem/48839280
+
+    REGRESSION: [ Mac Debug WK2 ] Layout Test storage/indexeddb/key-type-infinity-private.html is a flaky crash
+    https://bugs.webkit.org/show_bug.cgi?id=194413
+    <rdar://problem/47897254>
+    
+    Reviewed by Brady Eidson.
+    
+    IDB clients expected transaction operations to be executed in order, but in
+    UniqueIDBDatabase::immediateCloseForUserDelete, callbacks in callback map were errored out randomly.
+    This patch added a callback queue to UniqueIDBDatabase to make sure callbacks will be called in the same order
+    as IDB Server receives the request.
+    
+    * Modules/indexeddb/server/UniqueIDBDatabase.cpp:
+    (WebCore::IDBServer::UniqueIDBDatabase::storeCallbackOrFireError):
+    (WebCore::IDBServer::UniqueIDBDatabase::immediateCloseForUserDelete):
+    (WebCore::IDBServer::UniqueIDBDatabase::performErrorCallback):
+    (WebCore::IDBServer::UniqueIDBDatabase::performKeyDataCallback):
+    (WebCore::IDBServer::UniqueIDBDatabase::performGetResultCallback):
+    (WebCore::IDBServer::UniqueIDBDatabase::performGetAllResultsCallback):
+    (WebCore::IDBServer::UniqueIDBDatabase::performCountCallback):
+    (WebCore::IDBServer::UniqueIDBDatabase::forgetErrorCallback):
+    * Modules/indexeddb/server/UniqueIDBDatabase.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@241468 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-02-13  Sihui Liu  <sihui_liu@apple.com>
+
+            REGRESSION: [ Mac Debug WK2 ] Layout Test storage/indexeddb/key-type-infinity-private.html is a flaky crash
+            https://bugs.webkit.org/show_bug.cgi?id=194413
+            <rdar://problem/47897254>
+
+            Reviewed by Brady Eidson.
+
+            IDB clients expected transaction operations to be executed in order, but in
+            UniqueIDBDatabase::immediateCloseForUserDelete, callbacks in callback map were errored out randomly.
+            This patch added a callback queue to UniqueIDBDatabase to make sure callbacks will be called in the same order
+            as IDB Server receives the request.
+
+            * Modules/indexeddb/server/UniqueIDBDatabase.cpp:
+            (WebCore::IDBServer::UniqueIDBDatabase::storeCallbackOrFireError):
+            (WebCore::IDBServer::UniqueIDBDatabase::immediateCloseForUserDelete):
+            (WebCore::IDBServer::UniqueIDBDatabase::performErrorCallback):
+            (WebCore::IDBServer::UniqueIDBDatabase::performKeyDataCallback):
+            (WebCore::IDBServer::UniqueIDBDatabase::performGetResultCallback):
+            (WebCore::IDBServer::UniqueIDBDatabase::performGetAllResultsCallback):
+            (WebCore::IDBServer::UniqueIDBDatabase::performCountCallback):
+            (WebCore::IDBServer::UniqueIDBDatabase::forgetErrorCallback):
+            * Modules/indexeddb/server/UniqueIDBDatabase.h:
+
+2019-03-12  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r242770. rdar://problem/48795265
 
     REGRESSION(r236281): YouTube Movies fail with "video format" error
     https://bugs.webkit.org/show_bug.cgi?id=195598
@@ -29,9 +1632,124 @@
             * page/Quirks.cpp:
             (WebCore::Quirks::hasBrokenEncryptedMediaAPISupportQuirk const):
 
-2019-02-28  Kocsen Chung  <kocsen_chung@apple.com>
+2019-03-04  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r242204. rdar://problem/48483747
+        Cherry-pick r242355. rdar://problem/48563894
+
+    [iOS] Fullscreen "stay in page" option breaks video playback
+    https://bugs.webkit.org/show_bug.cgi?id=195277
+    <rdar://problem/48537317>
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore:
+    
+    Add a LOG entry when playback is rejected due to media playback suspension.
+    
+    * html/MediaElementSession.cpp:
+    (WebCore::MediaElementSession::playbackPermitted const):
+    
+    Source/WebKit:
+    
+    Make sure we resume media playback when the user chooses "stay in page" from the deceptive
+    website warning dialog.
+    
+    * UIProcess/ios/fullscreen/WKFullScreenViewController.mm:
+    (-[WKFullScreenViewController _showPhishingAlert]):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242355 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-04  Jer Noble  <jer.noble@apple.com>
+
+            [iOS] Fullscreen "stay in page" option breaks video playback
+            https://bugs.webkit.org/show_bug.cgi?id=195277
+            <rdar://problem/48537317>
+
+            Reviewed by Eric Carlson.
+
+            Add a LOG entry when playback is rejected due to media playback suspension.
+
+            * html/MediaElementSession.cpp:
+            (WebCore::MediaElementSession::playbackPermitted const):
+
+2019-03-01  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r242248. rdar://problem/48503715
+
+    [iOS] Dark flash when opening Google AMP pages
+    https://bugs.webkit.org/show_bug.cgi?id=195193
+    rdar://problem/48326442
+    
+    Reviewed by Zalan Bujtas.
+    
+    Source/WebCore:
+    
+    After the incremental compositing updates changes, it was possible for a change in the size
+    of an overflow:hidden element to fail to update the "ancestor clipping layer" geometry on
+    a composited descendant that is not a descendant in z-order. When Google search results
+    create the <iframe> that contain AMP contents, we'd fail to update a zero-sized clipping layer,
+    leaving the #222 background of an intermediate element visible.
+    
+    Fix by setting a flag in RenderLayer::updateLayerPosition() (which is called in containing block order)
+    that sets the "needs geometry update" dirty bit on containing-block-descendant layers. Currently
+    this flag affects all descendants; in future, we might be able to clear it for grand-children.
+    
+    Tests: compositing/geometry/ancestor-clip-change-interleaved-stacking-context.html
+           compositing/geometry/ancestor-clip-change.html
+    
+    * rendering/RenderLayer.cpp:
+    (WebCore::RenderLayer::updateLayerPositions):
+    (WebCore::RenderLayer::updateLayerPosition):
+    * rendering/RenderLayer.h:
+    * rendering/RenderLayerBacking.cpp:
+    (WebCore::RenderLayerBacking::updateAfterLayout):
+    * rendering/RenderLayerBacking.h:
+    
+    LayoutTests:
+    
+    Tests that change the size of a clipping layer with non-z-order composited descendant, with
+    a couple of layer tree configurations.
+    
+    * compositing/geometry/ancestor-clip-change-expected.html: Added.
+    * compositing/geometry/ancestor-clip-change-interleaved-stacking-context-expected.html: Added.
+    * compositing/geometry/ancestor-clip-change-interleaved-stacking-context.html: Added.
+    * compositing/geometry/ancestor-clip-change.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242248 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-02-28  Simon Fraser  <simon.fraser@apple.com>
+
+            [iOS] Dark flash when opening Google AMP pages
+            https://bugs.webkit.org/show_bug.cgi?id=195193
+            rdar://problem/48326442
+
+            Reviewed by Zalan Bujtas.
+
+            After the incremental compositing updates changes, it was possible for a change in the size
+            of an overflow:hidden element to fail to update the "ancestor clipping layer" geometry on
+            a composited descendant that is not a descendant in z-order. When Google search results
+            create the <iframe> that contain AMP contents, we'd fail to update a zero-sized clipping layer,
+            leaving the #222 background of an intermediate element visible.
+
+            Fix by setting a flag in RenderLayer::updateLayerPosition() (which is called in containing block order)
+            that sets the "needs geometry update" dirty bit on containing-block-descendant layers. Currently
+            this flag affects all descendants; in future, we might be able to clear it for grand-children.
+
+            Tests: compositing/geometry/ancestor-clip-change-interleaved-stacking-context.html
+                   compositing/geometry/ancestor-clip-change.html
+
+            * rendering/RenderLayer.cpp:
+            (WebCore::RenderLayer::updateLayerPositions):
+            (WebCore::RenderLayer::updateLayerPosition):
+            * rendering/RenderLayer.h:
+            * rendering/RenderLayerBacking.cpp:
+            (WebCore::RenderLayerBacking::updateAfterLayout):
+            * rendering/RenderLayerBacking.h:
+
+2019-02-28  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r242204. rdar://problem/48483754
 
     Locale names can be nullptr
     https://bugs.webkit.org/show_bug.cgi?id=195171
@@ -65,7 +1783,7 @@
 
 2019-02-28  Alan Coon  <alancoon@apple.com>
 
-        Apply patch. rdar://problem/48464969
+        Apply patch. rdar://problem/48464974
 
     2019-02-28  Timothy Hatcher  <timothy@apple.com>
 
@@ -77,6 +1795,124 @@
 
             * platform/mac/ScrollAnimatorMac.mm:
             (-[WebScrollerImpDelegate effectiveAppearanceForScrollerImp:]): Always return a valid NSAppearance.
+
+2019-02-28  Andy Estes  <aestes@apple.com>
+
+        [watchOS] Disable Parental Controls content filtering
+        <rdar://problem/48464986>
+
+        Rubber-stamped by Beth Dakin.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2019-02-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r242138. rdar://problem/48444136
+
+    Unable to log into chase.com on iPad when DeviceMotionEvent API is disabled
+    https://bugs.webkit.org/show_bug.cgi?id=195101
+    <rdar://problem/48423023>
+    
+    Reviewed by Geoffrey Garen.
+    
+    Add site-specific quirk for chase.com on iOS where we fire a dummy DeviceMotionEvent if the page
+    tries to register a "devicemotion" event listener and fails because the API is disabled. This is
+    needed to unblock the site and proceed with the login flow.
+    
+    Unfortunately, document()->settings().needsSiteSpecificQuirks() is false on iOS so I could not
+    guard the quirk behind this flag.
+    
+    * page/DOMWindow.cpp:
+    (WebCore::DOMWindow::addEventListener):
+    (WebCore::DOMWindow::failedToRegisterDeviceMotionEventListener):
+    * page/DOMWindow.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242138 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-02-27  Chris Dumez  <cdumez@apple.com>
+
+            Unable to log into chase.com on iPad when DeviceMotionEvent API is disabled
+            https://bugs.webkit.org/show_bug.cgi?id=195101
+            <rdar://problem/48423023>
+
+            Reviewed by Geoffrey Garen.
+
+            Add site-specific quirk for chase.com on iOS where we fire a dummy DeviceMotionEvent if the page
+            tries to register a "devicemotion" event listener and fails because the API is disabled. This is
+            needed to unblock the site and proceed with the login flow.
+
+            Unfortunately, document()->settings().needsSiteSpecificQuirks() is false on iOS so I could not
+            guard the quirk behind this flag.
+
+            * page/DOMWindow.cpp:
+            (WebCore::DOMWindow::addEventListener):
+            (WebCore::DOMWindow::failedToRegisterDeviceMotionEventListener):
+            * page/DOMWindow.h:
+
+2019-02-27  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r242099. rdar://problem/48429675
+
+    [iOS] Regression(PSON) Scroll position is no longer restored when navigating back to reddit.com
+    https://bugs.webkit.org/show_bug.cgi?id=195054
+    <rdar://problem/48330549>
+    
+    Reviewed by Geoff Garen.
+    
+    Source/WebCore:
+    
+    Add MaintainMemoryCache flag to indicate that the memory cache should not get purged.
+    
+    * page/MemoryRelease.cpp:
+    (WebCore::releaseNoncriticalMemory):
+    (WebCore::releaseCriticalMemory):
+    (WebCore::releaseMemory):
+    * page/MemoryRelease.h:
+    
+    Source/WebKit:
+    
+    We attempt to restore the scroll position twice, on first layout and then on load completion.
+    Before PSON, the scroll position would fail to get restored on first layout but would succeed
+    on load completion because the view is tall enough by then. With PSON however, we would
+    fail to restore the scroll position on load completion because the view would not be tall
+    enough yet by this point. The reason is that the dynamic resources would not be in the memory cache
+    and would then get reloaded abd finish loading *after* the load event.
+    
+    To address the issue, we now make sure to not purge the memory cache on process suspension on
+    iOS if there is currently a SuspendedPageProxy in the UIProcess for this process.
+    
+    * UIProcess/SuspendedPageProxy.cpp:
+    (WebKit::SuspendedPageProxy::SuspendedPageProxy):
+    (WebKit::SuspendedPageProxy::~SuspendedPageProxy):
+    * UIProcess/WebProcessProxy.cpp:
+    (WebKit::WebProcessProxy::incrementSuspendedPageCount):
+    (WebKit::WebProcessProxy::decrementSuspendedPageCount):
+    * UIProcess/WebProcessProxy.h:
+    * WebProcess/WebProcess.cpp:
+    (WebKit::WebProcess::initializeWebProcess):
+    (WebKit::WebProcess::setHasSuspendedPageProxy):
+    * WebProcess/WebProcess.h:
+    * WebProcess/WebProcess.messages.in:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242099 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-02-26  Chris Dumez  <cdumez@apple.com>
+
+            [iOS] Regression(PSON) Scroll position is no longer restored when navigating back to reddit.com
+            https://bugs.webkit.org/show_bug.cgi?id=195054
+            <rdar://problem/48330549>
+
+            Reviewed by Geoff Garen.
+
+            Add MaintainMemoryCache flag to indicate that the memory cache should not get purged.
+
+            * page/MemoryRelease.cpp:
+            (WebCore::releaseNoncriticalMemory):
+            (WebCore::releaseCriticalMemory):
+            (WebCore::releaseMemory):
+            * page/MemoryRelease.h:
 
 2019-02-24  Babak Shafiei  <bshafiei@apple.com>
 

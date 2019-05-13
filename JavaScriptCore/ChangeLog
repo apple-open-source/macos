@@ -1,3 +1,717 @@
+2019-04-10  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243841. rdar://problem/49725678
+
+    -apple-trailing-word is needed for browser detection
+    https://bugs.webkit.org/show_bug.cgi?id=196575
+    
+    Unreviewed.
+    
+    PerformanceTests:
+    
+    * MotionMark/resources/debug-runner/motionmark.css:
+    (#intro .start-benchmark p):
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebCore:
+    
+    This is an unreviewed partial revert of r243819. Turns out there are some websites
+    which use this property to do browser detection. So, we need to continue to parse
+    the property, but we don't need the property to do anything.
+    
+    Test: fast/text/trailing-word-detection.html
+    
+    * Configurations/FeatureDefines.xcconfig:
+    * css/CSSComputedStyleDeclaration.cpp:
+    (WebCore::ComputedStyleExtractor::valueForPropertyinStyle):
+    * css/CSSPrimitiveValueMappings.h:
+    (WebCore::CSSPrimitiveValue::CSSPrimitiveValue):
+    (WebCore::CSSPrimitiveValue::operator TrailingWord const):
+    * css/CSSProperties.json:
+    * css/CSSValueKeywords.in:
+    * css/parser/CSSParserFastPaths.cpp:
+    (WebCore::CSSParserFastPaths::isValidKeywordPropertyAndValue):
+    (WebCore::CSSParserFastPaths::isKeywordPropertyID):
+    * rendering/style/RenderStyle.h:
+    (WebCore::RenderStyle::trailingWord const):
+    (WebCore::RenderStyle::setTrailingWord):
+    (WebCore::RenderStyle::initialTrailingWord):
+    * rendering/style/RenderStyleConstants.h:
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKit:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Tools:
+    
+    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig:
+    
+    LayoutTests:
+    
+    * fast/text/trailing-word-detection-expected.txt: Added.
+    * fast/text/trailing-word-detection.html: Added.
+    * platform/gtk/TestExpectations:
+    * platform/win/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243841 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-03  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            -apple-trailing-word is needed for browser detection
+            https://bugs.webkit.org/show_bug.cgi?id=196575
+
+            Unreviewed.
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2019-04-10  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243819. rdar://problem/49725678
+
+    Remove support for -apple-trailing-word
+    https://bugs.webkit.org/show_bug.cgi?id=196525
+    
+    Reviewed by Zalan Bujtas.
+    
+    This CSS property is nonstandard and not used.
+    
+    .:
+    
+    * Source/cmake/WebKitFeatures.cmake:
+    
+    Source/JavaScriptCore:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebCore:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    * css/CSSComputedStyleDeclaration.cpp:
+    (WebCore::ComputedStyleExtractor::valueForPropertyinStyle):
+    * css/CSSPrimitiveValueMappings.h:
+    (WebCore::CSSPrimitiveValue::operator TrailingWord const): Deleted.
+    * css/CSSProperties.json:
+    * css/CSSValueKeywords.in:
+    * css/parser/CSSParserFastPaths.cpp:
+    (WebCore::CSSParserFastPaths::isValidKeywordPropertyAndValue):
+    (WebCore::CSSParserFastPaths::isKeywordPropertyID):
+    * rendering/SimpleLineLayout.cpp:
+    (WebCore::SimpleLineLayout::canUseForStyle):
+    * rendering/SimpleLineLayoutCoverage.cpp:
+    (WebCore::SimpleLineLayout::printReason):
+    * rendering/SimpleLineLayoutCoverage.h:
+    * rendering/line/BreakingContext.h:
+    (WebCore::BreakingContext::BreakingContext):
+    (WebCore::BreakingContext::lineBreak):
+    (WebCore::BreakingContext::clearLineBreakIfFitsOnLine):
+    (WebCore::BreakingContext::commitLineBreakClear):
+    (WebCore::BreakingContext::commitLineBreakAtCurrentWidth):
+    (WebCore::BreakingContext::handleBR):
+    (WebCore::BreakingContext::handleFloat):
+    (WebCore::BreakingContext::handleText):
+    (WebCore::BreakingContext::handleEndOfLine):
+    (WebCore::BreakingContext::InlineIteratorHistory::InlineIteratorHistory): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::push): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::update): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::renderer const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::offset const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::nextBreakablePosition const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::atTextParagraphSeparator const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::previousInSameNode const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::get const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::current const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::historyLength const): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::moveTo): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::increment): Deleted.
+    (WebCore::BreakingContext::InlineIteratorHistory::clear): Deleted.
+    (WebCore::BreakingContext::optimalLineBreakLocationForTrailingWord): Deleted.
+    * rendering/style/RenderStyle.h:
+    (WebCore::RenderStyle::trailingWord const): Deleted.
+    (WebCore::RenderStyle::setTrailingWord): Deleted.
+    (WebCore::RenderStyle::initialTrailingWord): Deleted.
+    * rendering/style/RenderStyleConstants.h:
+    * rendering/style/StyleRareInheritedData.cpp:
+    (WebCore::StyleRareInheritedData::StyleRareInheritedData):
+    (WebCore::StyleRareInheritedData::operator== const):
+    * rendering/style/StyleRareInheritedData.h:
+    
+    Source/WebCore/PAL:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebInspectorUI:
+    
+    * UserInterface/Models/CSSKeywordCompletions.js:
+    
+    Source/WebKit:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Source/WebKitLegacy/mac:
+    
+    * Configurations/FeatureDefines.xcconfig:
+    
+    Tools:
+    
+    * Scripts/webkitperl/FeatureList.pm:
+    * TestWebKitAPI/Configurations/FeatureDefines.xcconfig:
+    
+    LayoutTests:
+    
+    * fast/text/trailing-word-expected.html: Removed.
+    * fast/text/trailing-word.html: Removed.
+    * platform/gtk/TestExpectations:
+    * platform/mac/fast/text/trailing-word-parse-expected.txt: Removed.
+    * platform/mac/fast/text/trailing-word-parse.html: Removed.
+    * platform/win/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243819 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-03  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            Remove support for -apple-trailing-word
+            https://bugs.webkit.org/show_bug.cgi?id=196525
+
+            Reviewed by Zalan Bujtas.
+
+            This CSS property is nonstandard and not used.
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2019-04-09  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243639. rdar://problem/49725710
+
+    BackwardsGraph needs to consider back edges as the backward's root successor
+    https://bugs.webkit.org/show_bug.cgi?id=195991
+    
+    Reviewed by Filip Pizlo.
+    
+    JSTests:
+    
+    * stress/map-b3-licm-infinite-loop.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    * b3/testb3.cpp:
+    (JSC::B3::testInfiniteLoopDoesntCauseBadHoisting):
+    (JSC::B3::run):
+    
+    Source/WTF:
+    
+    Previously, our backwards graph analysis was slightly wrong. The idea of
+    backwards graph is that the root of the graph has edges to terminals in
+    the original graph. And then the original directed edges in the graph are flipped.
+            
+    However, we weren't considering loops as a form of terminality. For example,
+    we wouldn't consider an infinite loop as a terminal. So there were no edges
+    from the root to a node in the infinite loop. This lead us to make mistakes
+    when we used backwards dominators to compute control flow equivalence.
+            
+    This is better understood in an example:
+            
+    ```
+    preheader:
+    while (1) {
+        if (!isCell(v))
+            continue;
+        load structure ID
+        if (cond)
+           continue;
+        return
+    }
+    ```
+            
+    In the previous version of this algorithm, the only edge from the backwards
+    root would be to the block containing the return. This would lead us to
+    believe that the loading of the structureID backwards dominates the preheader,
+    leading us to believe it's control flow equivalent to preheader. This is
+    obviously wrong, since we can loop forever if "v" isn't a cell.
+            
+    The solution here is to treat any backedge in the graph as a "terminal" node.
+    Since a backedge implies the existence of a loop.
+            
+    In the above example, the backwards root now has an edge to both blocks with
+    "continue". This prevents us from falsely claiming that the return is control
+    flow equivalent with the preheader.
+            
+    This patch uses DFS spanning trees to compute back edges. An edge
+    u->v is a back edge when u is a descendent of v in the DFS spanning
+    tree of the Graph.
+    
+    * WTF.xcodeproj/project.pbxproj:
+    * wtf/BackwardsGraph.h:
+    (WTF::BackwardsGraph::BackwardsGraph):
+    * wtf/SpanningTree.h: Added.
+    (SpanningTree::SpanningTree):
+    (SpanningTree::isDescendent):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243639 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-28  Saam Barati  <sbarati@apple.com>
+
+            BackwardsGraph needs to consider back edges as the backward's root successor
+            https://bugs.webkit.org/show_bug.cgi?id=195991
+
+            Reviewed by Filip Pizlo.
+
+            * b3/testb3.cpp:
+            (JSC::B3::testInfiniteLoopDoesntCauseBadHoisting):
+            (JSC::B3::run):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243280. rdar://problem/49308036
+
+    Cap length of an array with spread to MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH.
+    https://bugs.webkit.org/show_bug.cgi?id=196055
+    <rdar://problem/49067448>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/new_array_with_spread-should-cap-array-size-to-MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    We are doing this because:
+    1. We expect the array to be densely packed.
+    2. SpeculativeJIT::compileAllocateNewArrayWithSize() (and the FTL equivalent)
+       expects the array length to be less than MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH
+       if we don't want to use an ArrayStorage shape.
+    3. There's no reason why an array with spread needs to be that large anyway.
+       MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH is plenty.
+    
+    In this patch, we also add a debug assert in compileAllocateNewArrayWithSize() and
+    emitAllocateButterfly() to check for overflows.
+    
+    * assembler/AbortReason.h:
+    * dfg/DFGOperations.cpp:
+    * dfg/DFGSpeculativeJIT.cpp:
+    (JSC::DFG::SpeculativeJIT::compileCreateRest):
+    (JSC::DFG::SpeculativeJIT::compileNewArrayWithSpread):
+    (JSC::DFG::SpeculativeJIT::emitAllocateButterfly):
+    (JSC::DFG::SpeculativeJIT::compileAllocateNewArrayWithSize):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileNewArrayWithSpread):
+    * runtime/ArrayConventions.h:
+    * runtime/CommonSlowPaths.cpp:
+    (JSC::SLOW_PATH_DECL):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243280 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-21  Mark Lam  <mark.lam@apple.com>
+
+            Cap length of an array with spread to MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH.
+            https://bugs.webkit.org/show_bug.cgi?id=196055
+            <rdar://problem/49067448>
+
+            Reviewed by Yusuke Suzuki.
+
+            We are doing this because:
+            1. We expect the array to be densely packed.
+            2. SpeculativeJIT::compileAllocateNewArrayWithSize() (and the FTL equivalent)
+               expects the array length to be less than MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH
+               if we don't want to use an ArrayStorage shape.
+            3. There's no reason why an array with spread needs to be that large anyway.
+               MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH is plenty.
+
+            In this patch, we also add a debug assert in compileAllocateNewArrayWithSize() and
+            emitAllocateButterfly() to check for overflows.
+
+            * assembler/AbortReason.h:
+            * dfg/DFGOperations.cpp:
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::compileCreateRest):
+            (JSC::DFG::SpeculativeJIT::compileNewArrayWithSpread):
+            (JSC::DFG::SpeculativeJIT::emitAllocateButterfly):
+            (JSC::DFG::SpeculativeJIT::compileAllocateNewArrayWithSize):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileNewArrayWithSpread):
+            * runtime/ArrayConventions.h:
+            * runtime/CommonSlowPaths.cpp:
+            (JSC::SLOW_PATH_DECL):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243069. rdar://problem/49308056
+
+    Structure::flattenDictionary() should clear unused property slots.
+    https://bugs.webkit.org/show_bug.cgi?id=195871
+    <rdar://problem/48959497>
+    
+    Reviewed by Michael Saboff.
+    
+    JSTests:
+    
+    * stress/structure-flattenDictionary-should-clear-unused-property-slots.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    It currently attempts to do this but fails because it's actually clearing up the
+    preCapacity region instead.  The fix is simply to account for the preCapacity
+    when computing the start address of the property slots.
+    
+    * runtime/Structure.cpp:
+    (JSC::Structure::flattenDictionaryStructure):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243069 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-18  Mark Lam  <mark.lam@apple.com>
+
+            Structure::flattenDictionary() should clear unused property slots.
+            https://bugs.webkit.org/show_bug.cgi?id=195871
+            <rdar://problem/48959497>
+
+            Reviewed by Michael Saboff.
+
+            It currently attempts to do this but fails because it's actually clearing up the
+            preCapacity region instead.  The fix is simply to account for the preCapacity
+            when computing the start address of the property slots.
+
+            * runtime/Structure.cpp:
+            (JSC::Structure::flattenDictionaryStructure):
+
+2019-03-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r242838. rdar://problem/49307991
+
+    REGRESSION (iOS 12.2): Webpage using CoffeeScript crashes
+    https://bugs.webkit.org/show_bug.cgi?id=195613
+    
+    Reviewed by Mark Lam.
+    
+    JSTests:
+    
+    New regression test.
+    
+    * stress/regexp-backref-inbounds.js: Added.
+    (testRegExp):
+    
+    Source/JavaScriptCore:
+    
+    The bug here is in Yarr JIT backreference matching code.  We are incorrectly
+    using a checkedOffset / inputPosition correction when checking for the available
+    length left in a string.  It is improper to do these corrections as a backreference's
+    match length is based on what was matched in the referenced capture group and not
+    part of the checkedOffset and inputPosition computed when we compiled the RegExp.
+    In some cases, the resulting incorrect calculation would allow us to go past
+    the subject string's length.  Removed these adjustments.
+    
+    After writing tests for the first bug, found another bug where the non-greedy
+    backreference backtracking code didn't do an "are we at the end of the input?" check.
+    This caused an infinite loop as we'd jump from the backtracking code back to
+    try matching one more backreference, fail and then backtrack.
+    
+    * yarr/YarrJIT.cpp:
+    (JSC::Yarr::YarrGenerator::generateBackReference):
+    (JSC::Yarr::YarrGenerator::backtrackBackReference):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242838 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-12  Michael Saboff  <msaboff@apple.com>
+
+            REGRESSION (iOS 12.2): Webpage using CoffeeScript crashes
+            https://bugs.webkit.org/show_bug.cgi?id=195613
+
+            Reviewed by Mark Lam.
+
+            The bug here is in Yarr JIT backreference matching code.  We are incorrectly
+            using a checkedOffset / inputPosition correction when checking for the available
+            length left in a string.  It is improper to do these corrections as a backreference's
+            match length is based on what was matched in the referenced capture group and not
+            part of the checkedOffset and inputPosition computed when we compiled the RegExp.
+            In some cases, the resulting incorrect calculation would allow us to go past
+            the subject string's length.  Removed these adjustments.
+
+            After writing tests for the first bug, found another bug where the non-greedy
+            backreference backtracking code didn't do an "are we at the end of the input?" check.
+            This caused an infinite loop as we'd jump from the backtracking code back to
+            try matching one more backreference, fail and then backtrack.
+
+            * yarr/YarrJIT.cpp:
+            (JSC::Yarr::YarrGenerator::generateBackReference):
+            (JSC::Yarr::YarrGenerator::backtrackBackReference):
+
+2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r242810. rdar://problem/48839349
+
+    The HasIndexedProperty node does GC.
+    https://bugs.webkit.org/show_bug.cgi?id=195559
+    <rdar://problem/48767923>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/HasIndexedProperty-does-gc.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    HasIndexedProperty can call the slow path operationHasIndexedPropertyByInt(),
+    which can eventually call JSString::getIndex(), which can resolve a rope.
+    
+    * dfg/DFGDoesGC.cpp:
+    (JSC::DFG::doesGC):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242810 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-12  Mark Lam  <mark.lam@apple.com>
+
+            The HasIndexedProperty node does GC.
+            https://bugs.webkit.org/show_bug.cgi?id=195559
+            <rdar://problem/48767923>
+
+            Reviewed by Yusuke Suzuki.
+
+            HasIndexedProperty can call the slow path operationHasIndexedPropertyByInt(),
+            which can eventually call JSString::getIndex(), which can resolve a rope.
+
+            * dfg/DFGDoesGC.cpp:
+            (JSC::DFG::doesGC):
+
+2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r242667. rdar://problem/48839311
+
+    Stack overflow crash in JSC::JSObject::hasInstance.
+    https://bugs.webkit.org/show_bug.cgi?id=195458
+    <rdar://problem/48710195>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/stack-overflow-in-custom-hasInstance.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    * runtime/JSObject.cpp:
+    (JSC::JSObject::hasInstance):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242667 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-08  Mark Lam  <mark.lam@apple.com>
+
+            Stack overflow crash in JSC::JSObject::hasInstance.
+            https://bugs.webkit.org/show_bug.cgi?id=195458
+            <rdar://problem/48710195>
+
+            Reviewed by Yusuke Suzuki.
+
+            * runtime/JSObject.cpp:
+            (JSC::JSObject::hasInstance):
+
+2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r242569. rdar://problem/48839273
+
+    Air::reportUsedRegisters must padInterference
+    https://bugs.webkit.org/show_bug.cgi?id=195303
+    <rdar://problem/48270343>
+    
+    Reviewed by Keith Miller.
+    
+    JSTests:
+    
+    * stress/optional-def-arg-width-should-be-both-early-and-late-use.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    reportUsedRegisters uses reg liveness to eliminate loads/moves into dead
+    registers. However, liveness can report incorrect results in certain
+    scenarios when considering liveness at instruction boundaries. For example,
+    it can go wrong when an Inst has a LateUse of a register and the following
+    Inst has an EarlyDef of that same register. Such a scenario could lead us
+    to incorrectly say the register is not live-in to the first Inst. Pad
+    interference inserts Nops between such instruction boundaries that cause
+    this issue.
+    
+    The test with this patch fixes the issue in reportUsedRegisters. This patch
+    also conservatively makes it so that lowerAfterRegAlloc calls padInterference
+    since it also reasons about liveness.
+    
+    * b3/air/AirLowerAfterRegAlloc.cpp:
+    (JSC::B3::Air::lowerAfterRegAlloc):
+    * b3/air/AirPadInterference.h:
+    * b3/air/AirReportUsedRegisters.cpp:
+    (JSC::B3::Air::reportUsedRegisters):
+    * b3/testb3.cpp:
+    (JSC::B3::testReportUsedRegistersLateUseNotDead):
+    (JSC::B3::run):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242569 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-06  Saam Barati  <sbarati@apple.com>
+
+            Air::reportUsedRegisters must padInterference
+            https://bugs.webkit.org/show_bug.cgi?id=195303
+            <rdar://problem/48270343>
+
+            Reviewed by Keith Miller.
+
+            reportUsedRegisters uses reg liveness to eliminate loads/moves into dead
+            registers. However, liveness can report incorrect results in certain
+            scenarios when considering liveness at instruction boundaries. For example,
+            it can go wrong when an Inst has a LateUse of a register and the following
+            Inst has an EarlyDef of that same register. Such a scenario could lead us
+            to incorrectly say the register is not live-in to the first Inst. Pad
+            interference inserts Nops between such instruction boundaries that cause
+            this issue.
+
+            The test with this patch fixes the issue in reportUsedRegisters. This patch
+            also conservatively makes it so that lowerAfterRegAlloc calls padInterference
+            since it also reasons about liveness.
+
+            * b3/air/AirLowerAfterRegAlloc.cpp:
+            (JSC::B3::Air::lowerAfterRegAlloc):
+            * b3/air/AirPadInterference.h:
+            * b3/air/AirReportUsedRegisters.cpp:
+            (JSC::B3::Air::reportUsedRegisters):
+            * b3/testb3.cpp:
+            (JSC::B3::testReportUsedRegistersLateUseNotDead):
+            (JSC::B3::run):
+
+2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r242276. rdar://problem/48839389
+
+    DFG: Loop-invariant code motion (LICM) should not hoist dead code
+    https://bugs.webkit.org/show_bug.cgi?id=194945
+    <rdar://problem/48311657>
+    
+    Reviewed by Saam Barati.
+    
+    * dfg/DFGLICMPhase.cpp:
+    (JSC::DFG::LICMPhase::run):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242276 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+            Cherry-pick r242114. rdar://problem/48839372
+
+        wasmToJS() should purify incoming NaNs.
+        https://bugs.webkit.org/show_bug.cgi?id=194807
+        <rdar://problem/48189132>
+
+        Reviewed by Saam Barati.
+
+        JSTests:
+
+        * wasm/regress/wasmToJS-should-purify-NaNs.js: Added.
+
+        Source/JavaScriptCore:
+
+        * runtime/JSCJSValue.h:
+        (JSC::jsNumber):
+        * runtime/TypedArrayAdaptors.h:
+        (JSC::IntegralTypedArrayAdaptor::toJSValue):
+        * wasm/js/WasmToJS.cpp:
+        (JSC::Wasm::wasmToJS):
+
+
+
+        git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242114 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+        2019-02-26  Mark Lam  <mark.lam@apple.com>
+
+                wasmToJS() should purify incoming NaNs.
+                https://bugs.webkit.org/show_bug.cgi?id=194807
+                <rdar://problem/48189132>
+
+                Reviewed by Saam Barati.
+
+                * runtime/JSCJSValue.h:
+                (JSC::jsNumber):
+                * runtime/TypedArrayAdaptors.h:
+                (JSC::IntegralTypedArrayAdaptor::toJSValue):
+                * wasm/js/WasmToJS.cpp:
+                (JSC::Wasm::wasmToJS):
+
+2019-03-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r241615. rdar://problem/48839366
+
+    SamplingProfiler::stackTracesAsJSON() should escape strings.
+    https://bugs.webkit.org/show_bug.cgi?id=194649
+    <rdar://problem/48072386>
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/sampling-profiler-stack-trace-with-double-quote-in-function-name.js: Added.
+    * stress/type-profiler-with-double-quote-in-constructor-name.js: Added.
+    * stress/type-profiler-with-double-quote-in-field-name.js: Added.
+    * stress/type-profiler-with-double-quote-in-optional-field-name.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    Ditto for TypeSet::toJSONString() and TypeSet::toJSONString().
+    
+    * runtime/SamplingProfiler.cpp:
+    (JSC::SamplingProfiler::stackTracesAsJSON):
+    * runtime/TypeSet.cpp:
+    (JSC::TypeSet::toJSONString const):
+    (JSC::StructureShape::toJSONString const):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@241615 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-02-15  Mark Lam  <mark.lam@apple.com>
+
+            SamplingProfiler::stackTracesAsJSON() should escape strings.
+            https://bugs.webkit.org/show_bug.cgi?id=194649
+            <rdar://problem/48072386>
+
+            Reviewed by Saam Barati.
+
+            Ditto for TypeSet::toJSONString() and TypeSet::toJSONString().
+
+            * runtime/SamplingProfiler.cpp:
+            (JSC::SamplingProfiler::stackTracesAsJSON):
+            * runtime/TypeSet.cpp:
+            (JSC::TypeSet::toJSONString const):
+            (JSC::StructureShape::toJSONString const):
+
+2019-02-28  Andy Estes  <aestes@apple.com>
+
+        [watchOS] Disable Parental Controls content filtering
+        <rdar://problem/48464986>
+
+        Rubber-stamped by Beth Dakin.
+
+        * Configurations/FeatureDefines.xcconfig:
+
 2019-02-20  Alan Coon  <alancoon@apple.com>
 
         Cherry-pick r241772. rdar://problem/48248228
@@ -316,6 +1030,17 @@
             Nodes that rely on being dominated by CheckInBounds should have a child edge to it
             https://bugs.webkit.org/show_bug.cgi?id=194334
             <rdar://problem/47844327>
+
+2019-02-27  Robin Morisset  <rmorisset@apple.com>
+
+        DFG: Loop-invariant code motion (LICM) should not hoist dead code
+        https://bugs.webkit.org/show_bug.cgi?id=194945
+        <rdar://problem/48311657>
+
+        Reviewed by Saam Barati.
+
+        * dfg/DFGLICMPhase.cpp:
+        (JSC::DFG::LICMPhase::run):
 
             Reviewed by Mark Lam.
 

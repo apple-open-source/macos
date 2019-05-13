@@ -1,17 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2014-01-27</string>
+	<string>2019-03-25</string>
 	<key>OpenSourceProject</key>
 	<string>perl</string>
 	<key>OpenSourceVersion</key>
-	<string>5.18.2</string>
+	<string>5.18.4</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.perl.com/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.cpan.org/src/5.0/perl-5.18.2.tar.bz2</string>
-	<key>OpenSourceSHA1</key>
-	<string>b8b87ef46630b5a2287b86b6e0c69088da36adfd</string>
+	<string>http://www.cpan.org/src/5.0/perl-5.18.4.tar.bz2</string>
+	<key>OpenSourceSHA512256</key>
+	<string>3056cdc39332caa0a58bd531fba6d62035d4e987b39e545f789583a8f2dd53da</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>regenerate perly.h with bison 2.3</string>

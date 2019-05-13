@@ -1,0 +1,12 @@
+//
+//  IOHIDDisplaySessionFilter.xcconfig
+//  IOHIDFamily
+//
+//  Created by local on 3/12/19.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+SKIP_INSTALL = ${RC_HIDE_J290}
+INSTALL_PATH = /System/Library/HIDPlugins/

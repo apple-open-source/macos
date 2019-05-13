@@ -181,3 +181,29 @@ exit:
 }
 
 
+
+NSString * formatPropertyValue(id value, NSUInteger integerBase)
+{
+    NSString * str;
+    NSMutableString * fmt = [[NSMutableString alloc] initWithString:@"%"];
+    if (value == nil && integerBase != 0) {
+        value = @(0);
+    }
+    if ([value isKindOfClass:[NSNumber class]]) {
+        switch (integerBase) {
+            case 16:
+                [fmt appendString:@"lx"];
+                [fmt insertString:@"0x" atIndex:0];
+                break;
+            case 10:
+            default:
+                [fmt appendString:@"ld"];
+                break;
+        }
+        str = [NSString stringWithFormat:fmt, ((NSNumber *) value).longLongValue];
+    } else {
+        [fmt appendString:@"@"];
+        str = [NSString stringWithFormat:fmt, value];
+    }
+    return str;
+}

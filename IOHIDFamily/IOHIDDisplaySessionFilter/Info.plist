@@ -1,0 +1,45 @@
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>CFBundleDevelopmentRegion</key>
+        <string>English</string>
+        <key>CFBundleExecutable</key>
+        <string>${EXECUTABLE_NAME}</string>
+        <key>CFBundleIconFile</key>
+        <string></string>
+        <key>CFBundleIdentifier</key>
+        <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+        <key>CFBundleInfoDictionaryVersion</key>
+        <string>6.0</string>
+        <key>CFBundleName</key>
+        <string>${PRODUCT_NAME}</string>
+        <key>CFBundlePackageType</key>
+        <string>BNDL</string>
+        <key>CFBundleShortVersionString</key>
+        <string>1.0</string>
+        <key>CFBundleSignature</key>
+        <string>????</string>
+        <key>CFBundleVersion</key>
+        <string>1</string>
+        <key>CFPlugInDynamicRegisterFunction</key>
+        <string></string>
+        <key>CFPlugInDynamicRegistration</key>
+        <string>NO</string>
+        <key>CFPlugInFactories</key>
+        <dict>
+                <key>82A14D6D-0138-4DE2-8784-A2DBEEB6A100</key>
+                <string>IOHIDDisplaySessionFilterFactory</string>
+        </dict>
+        <key>CFPlugInTypes</key>
+        <dict>
+                <key>7F1A3AE6-3E3D-470A-BD15-A2DD7E1BB719</key>
+                <string>82A14D6D-0138-4DE2-8784-A2DBEEB6A100</string>
+        </dict>
+        <key>CFPlugInUnloadFunction</key>
+        <string></string>
+        <key>NSHumanReadableCopyright</key>
+        <string>Copyright © 2018 Apple Inc. All rights reserved.</string>
+</dict>
+</plist>

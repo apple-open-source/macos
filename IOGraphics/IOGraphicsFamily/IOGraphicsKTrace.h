@@ -329,8 +329,8 @@ extern uint32_t gIOGATFlags;
 #define IOFBC_FID_startAsync                            8
 #define IOFBC_FID_startThread                           9
 #define IOFBC_FID_didWork                               10
-#define IOFBC_FID_processConnectChange                  11
-#define IOFBC_FID_matchOnlineFramebuffers               12
+//#define IOFBC_FID_processConnectChange                  11
+//#define IOFBC_FID_matchOnlineFramebuffers               12
 #define IOFBC_FID_asyncWork                             13
 #define IOFBC_FID_checkPowerWork                        14
 #define IOFBC_FID_checkConnectionWork                   15

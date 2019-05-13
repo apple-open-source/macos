@@ -219,12 +219,12 @@ void PolicyDatabase::addFeature(const char *name, const char *value, const char 
 
 void PolicyDatabase::simpleFeature(const char *feature, void (^perform)())
 {
+	SQLite::Transaction update(*this);
 	if (!hasFeature(feature)) {
-		SQLite::Transaction update(*this);
 		perform();
 		addFeature(feature, "upgraded", "upgraded");
-		update.commit();
 	}
+	update.commit();
 }
 
 void PolicyDatabase::simpleFeature(const char *feature, const char *sql)
@@ -233,6 +233,14 @@ void PolicyDatabase::simpleFeature(const char *feature, const char *sql)
 		SQLite::Statement perform(*this, sql);
 		perform.execute();
 	});
+}
+	
+void PolicyDatabase::simpleFeatureNoTransaction(const char *feature, void (^perform)())
+{
+	if (!hasFeature(feature)) {
+		perform();
+		addFeature(feature, "upgraded", "upgraded");
+	}
 }
 
 
@@ -313,6 +321,49 @@ void PolicyDatabase::upgradeDatabase()
 			  "UPDATE authority SET priority = 10.0 WHERE label = 'Mac App Store'");
 		bumpMacAppStorePriority.execute();
 	});
+	
+	{
+		SQLite::Transaction devIdRequirementUpgrades(*this);
+		
+		simpleFeatureNoTransaction("legacy_devid", ^{
+			auto migrateReq = [](auto db, int type, string req) {
+				const string legacy =
+				" and (certificate leaf[timestamp.1.2.840.113635.100.6.1.33] absent or "
+				"certificate leaf[timestamp.1.2.840.113635.100.6.1.33] < timestamp \"20190408000000Z\")";
+				
+				const string unnotarized =
+				" and (certificate leaf[timestamp.1.2.840.113635.100.6.1.33] exists and "
+				"certificate leaf[timestamp.1.2.840.113635.100.6.1.33] >= timestamp \"20190408000000Z\")";
+				
+				SQLite::Statement update(*db, "UPDATE OR IGNORE authority "
+										 "SET requirement = :newreq "
+										 "WHERE requirement = :oldreq "
+										 "      AND type = :type "
+										 "      AND label = 'Developer ID'");
+				update.bind(":oldreq") = req;
+				update.bind(":type") = type;
+				update.bind(":newreq") = req + legacy;
+				update.execute();
+				
+				SQLite::Statement insert(*db, "INSERT OR IGNORE INTO authority "
+										 "(type, requirement, allow, priority, label) "
+										 "VALUES "
+										 "(:type, :req, 0, 4.0, "
+										 "'Unnotarized Developer ID')");
+				insert.bind(":type") = type;
+				insert.bind(":req") = req + unnotarized;
+				insert.execute();
+			};
+			
+			migrateReq(this, 1, "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists");
+			migrateReq(this, 2, "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and (certificate leaf[field.1.2.840.113635.100.6.1.14] or certificate leaf[field.1.2.840.113635.100.6.1.13])");
+			migrateReq(this, 3, "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists");
+		});
+	
+		// Add simpleFeatureNoTransaction for going from the requirements create above, to add secure timestamps in requirements, here before the commit
+		
+		devIdRequirementUpgrades.commit();
+	}
 }
 
 

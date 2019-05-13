@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -410,15 +410,15 @@ __copyMediaList(CFStringRef interfaceName)
 		goto done;
 	}
 
-	if (ioctl(sock, SIOCGIFMEDIA, (caddr_t)ifm) == -1) {
-//		SC_log(LOG_NOTICE, "ioctl(SIOCGIFMEDIA) failed: %s", strerror(errno));
+	if (ioctl(sock, SIOCGIFXMEDIA, (caddr_t)ifm) == -1) {
+//		SC_log(LOG_NOTICE, "ioctl(SIOCGIFXMEDIA) failed: %s", strerror(errno));
 		goto done;
 	}
 
 	if (ifm->ifm_count > 0) {
 		ifm->ifm_ulist = (int *)CFAllocatorAllocate(NULL, ifm->ifm_count * sizeof(int), 0);
-		if (ioctl(sock, SIOCGIFMEDIA, (caddr_t)ifm) == -1) {
-			SC_log(LOG_NOTICE, "ioctl(SIOCGIFMEDIA) failed: %s", strerror(errno));
+		if (ioctl(sock, SIOCGIFXMEDIA, (caddr_t)ifm) == -1) {
+			SC_log(LOG_NOTICE, "ioctl(SIOCGIFXMEDIA) failed: %s", strerror(errno));
 			goto done;
 		}
 	}

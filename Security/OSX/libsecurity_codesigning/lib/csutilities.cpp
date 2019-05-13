@@ -24,8 +24,16 @@
 //
 // csutilities - miscellaneous utilities for the code signing implementation
 //
+
 #include "csutilities.h"
+#include <libDER/DER_Encode.h>
+#include <libDER/DER_Keys.h>
+#include <libDER/asn1Types.h>
+#include <libDER/oids.h>
+#include <security_asn1/SecAsn1Coder.h>
+#include <security_asn1/SecAsn1Templates.h>
 #include <Security/SecCertificatePriv.h>
+#include <Security/SecCertificate.h>
 #include <utilities/SecAppleAnchorPriv.h>
 #include <utilities/SecInternalReleasePriv.h>
 #include "requirement.h"
@@ -34,6 +42,16 @@
 #include <security_utilities/errors.h>
 #include <sys/utsname.h>
 
+extern "C" {
+
+/* Decode a choice of UTCTime or GeneralizedTime to a CFAbsoluteTime. Return
+ an absoluteTime if the date was valid and properly decoded.  Return
+ NULL_TIME otherwise. */
+CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
+											  size_t length);
+
+}
+	
 namespace Security {
 namespace CodeSigning {
 
@@ -150,6 +168,65 @@ bool certificateHasPolicy(SecCertificateRef cert, const CSSM_OID &policyOid)
 	}
 	SecCertificateReleaseFirstFieldValue(cert, &CSSMOID_PolicyConstraints, data);
 	return matched;
+}
+
+	
+CFDateRef certificateCopyFieldDate(SecCertificateRef cert, const CSSM_OID &policyOid)
+{
+	CFDataRef oidData = NULL;
+	CFDateRef value = NULL;
+	CFDataRef data = NULL;
+	SecAsn1CoderRef coder = NULL;
+	CSSM_DATA str = { 0 };
+	CFAbsoluteTime time = 0.0;
+	OSStatus status = 0;
+	bool isCritical;
+	
+	oidData = CFDataCreateWithBytesNoCopy(NULL, policyOid.Data, policyOid.Length,
+										  kCFAllocatorNull);
+	
+	if (oidData == NULL) {
+		goto out;
+	}
+	
+	data = SecCertificateCopyExtensionValue(cert, oidData, &isCritical);
+	
+	if (data == NULL) {
+		goto out;
+	}
+	
+	status = SecAsn1CoderCreate(&coder);
+	if (status != 0) {
+		goto out;
+	}
+	
+	// We currently only support UTF8 strings.
+	status = SecAsn1Decode(coder, CFDataGetBytePtr(data), CFDataGetLength(data),
+						   kSecAsn1UTF8StringTemplate, &str);
+	if (status != 0) {
+		goto out;
+	}
+	
+	time = SecAbsoluteTimeFromDateContent(ASN1_GENERALIZED_TIME,
+										  str.Data, str.Length);
+										  
+	if (time == 0.0) {
+		goto out;
+	}
+
+	value = CFDateCreate(NULL, time);
+out:
+	if (coder) {
+		SecAsn1CoderRelease(coder);
+	}
+	if (data) {
+		CFRelease(data);
+	}
+	if (oidData) {
+		CFRelease(oidData);
+	}
+	
+	return value;
 }
 #endif
 

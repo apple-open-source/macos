@@ -4027,6 +4027,13 @@ void WebPageProxy::clearLoadDependentCallbacks()
     }
 }
 
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+static bool isNonUniqueNavigationWithLinkDecoration(const SecurityOriginData requesterOrigin, const URL& currentURL)
+{
+    return !requesterOrigin.securityOrigin()->isUnique() && (!currentURL.query().isEmpty() || !currentURL.fragmentIdentifier().isEmpty());
+}
+#endif
+    
 void WebPageProxy::didCommitLoadForFrame(uint64_t frameID, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, uint32_t opaqueFrameLoadType, const WebCore::CertificateInfo& certificateInfo, bool containsPluginDocument, Optional<HasInsecureContent> hasInsecureContent, const UserData& userData)
 {
     LOG(Loading, "(Loading) WebPageProxy %" PRIu64 " didCommitLoadForFrame in navigation %" PRIu64, m_pageID, m_navigationID);
@@ -4040,8 +4047,19 @@ void WebPageProxy::didCommitLoadForFrame(uint64_t frameID, uint64_t navigationID
 
     // FIXME: We should message check that navigationID is not zero here, but it's currently zero for some navigations through the page cache.
     RefPtr<API::Navigation> navigation;
-    if (frame->isMainFrame() && navigationID)
+    if (frame->isMainFrame() && navigationID) {
         navigation = navigationState().navigation(navigationID);
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+        auto requesterOrigin = navigation->lastNavigationAction().requesterOrigin;
+        auto currentURL = navigation->currentRequest().url();
+        if (isNonUniqueNavigationWithLinkDecoration(requesterOrigin, currentURL)) {
+            String fromRegistrableDomain = WebCore::topPrivatelyControlledDomain(requesterOrigin.host);
+            String toRegistrableDomain = WebCore::topPrivatelyControlledDomain(currentURL.host().toString());
+            if (fromRegistrableDomain != toRegistrableDomain)
+                m_process->processPool().sendToNetworkingProcess(Messages::NetworkProcess::CommittedCrossSiteLoadWithLinkDecoration(m_websiteDataStore->sessionID(), fromRegistrableDomain, toRegistrableDomain, m_pageID));
+         }
+ #endif
+     }
 
     m_hasCommittedAnyProvisionalLoads = true;
     m_process->didCommitProvisionalLoad();
@@ -5321,10 +5339,10 @@ void WebPageProxy::didChooseColor(const WebCore::Color& color)
 
 void WebPageProxy::didEndColorPicker()
 {
+    m_colorPicker = nullptr;
     if (!isValid())
         return;
 
-    m_colorPicker = nullptr;
     m_process->send(Messages::WebPage::DidEndColorPicker(), m_pageID);
 }
 #endif
@@ -6599,6 +6617,8 @@ void WebPageProxy::processWillBecomeForeground()
 void WebPageProxy::resetState(ResetStateReason resetStateReason)
 {
     m_mainFrame = nullptr;
+    m_focusedFrame = nullptr;
+    m_frameSetLargestFrame = nullptr;
 
 #if PLATFORM(COCOA)
     m_scrollingPerformanceData = nullptr;

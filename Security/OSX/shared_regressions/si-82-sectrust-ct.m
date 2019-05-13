@@ -156,7 +156,6 @@ static void tests()
     SecCertificateRef certA=NULL, certD=NULL, certF=NULL, certCA_alpha=NULL, certCA_beta=NULL;
     CFDataRef proofD=NULL, proofA_1=NULL, proofA_2=NULL;
     SecCertificateRef www_digicert_com_2015_cert=NULL, www_digicert_com_2016_cert=NULL, digicert_sha2_ev_server_ca=NULL;
-    SecCertificateRef www_paypal_com_cert=NULL, www_paypal_com_issuer_cert=NULL;
     SecCertificateRef pilot_cert_3055998=NULL, pilot_cert_3055998_issuer=NULL;
     SecCertificateRef whitelist_00008013=NULL, whitelist_5555bc4f=NULL, whitelist_aaaae152=NULL, whitelist_fff9b5f6=NULL;
     SecCertificateRef whitelist_00008013_issuer=NULL, whitelist_5555bc4f_issuer=NULL, whitelist_fff9b5f6_issuer=NULL;
@@ -184,8 +183,6 @@ static void tests()
     isnt(www_digicert_com_2015_cert = SecCertificateCreateFromResource(@"www_digicert_com_2015"), NULL, "create www.digicert.com 2015 cert");
     isnt(www_digicert_com_2016_cert = SecCertificateCreateFromResource(@"www_digicert_com_2016"), NULL, "create www.digicert.com 2016 cert");
     isnt(digicert_sha2_ev_server_ca = SecCertificateCreateFromResource(@"digicert_sha2_ev_server_ca"), NULL, "create digicert.com subCA cert");
-    isnt(www_paypal_com_cert = SecCertificateCreateFromResource(@"www_paypal_com"), NULL, "create www.paypal.com cert");
-    isnt(www_paypal_com_issuer_cert = SecCertificateCreateFromResource(@"www_paypal_com_issuer"), NULL, "create www.paypal.com issuer cert");
     isnt(valid_ocsp = CFDataCreateFromResource(@"valid_ocsp_response"), NULL, "create valid_ocsp");
     isnt(invalid_ocsp = CFDataCreateFromResource(@"invalid_ocsp_response"), NULL, "create invalid_ocsp");
     isnt(bad_hash_ocsp = CFDataCreateFromResource(@"bad_hash_ocsp_response"), NULL, "create bad_hash_ocsp");
@@ -278,12 +275,20 @@ static void tests()
     CFReleaseNull(certs);
     CFReleaseNull(scts);
 
-    /* case 8: Current (April 2016) www.digicert.com cert: 3 embedded SCTs, CT qualified */
+    /* case 8: April 2016 www.digicert.com cert: 3 embedded SCTs, CT qualified, but OCSP doesn't respond */
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(certs, www_digicert_com_2016_cert);
     CFArrayAppendValue(certs, digicert_sha2_ev_server_ca);
+
+    /* WatchOS doesn't require OCSP for EV flag, so even though the OCSP responder no longer responds for this cert,
+     * it is EV on watchOS. */
+#if TARGET_OS_WATCH
     test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("www.digicert.com"), date_20160422,
                   true, true, false, "digicert 2016");
+#else
+    test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("www.digicert.com"), date_20160422,
+                  true, false, false, "digicert 2016");
+#endif
     CFReleaseNull(certs);
 
 
@@ -323,8 +328,6 @@ static void tests()
     CFReleaseSafe(www_digicert_com_2015_cert);
     CFReleaseSafe(www_digicert_com_2016_cert);
     CFReleaseSafe(digicert_sha2_ev_server_ca);
-    CFReleaseSafe(www_paypal_com_cert);
-    CFReleaseSafe(www_paypal_com_issuer_cert);
     CFReleaseSafe(pilot_cert_3055998);
     CFReleaseSafe(pilot_cert_3055998_issuer);
     CFReleaseSafe(whitelist_00008013);
@@ -817,12 +820,13 @@ errOut:
 
 static void test_apple_enforcement_exceptions(void) {
     SecCertificateRef appleRoot = NULL, appleServerAuthCA = NULL, apple_server_after = NULL;
-    SecCertificateRef geoTrustRoot = NULL, appleISTCA8G1 = NULL, livability = NULL;
+    SecCertificateRef geoTrustRoot = NULL, appleISTCA8G1 = NULL, deprecatedSSLServer = NULL;
     CFArrayRef trustedLogs = CTTestsCopyTrustedLogs();
     SecTrustRef trust = NULL;
     SecPolicyRef policy = NULL;
     NSArray *anchors = nil, *certs = nil;
-    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
+    NSDate *date1 = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
+    NSDate *date2 = [NSDate dateWithTimeIntervalSinceReferenceDate:576000000.0]; // April 3, 2019 at 9:00:00 AM PDT
 
     require_action(appleRoot = SecCertificateCreateFromResource(@"enforcement_apple_root"),
                    errOut, fail("failed to create apple root"));
@@ -834,25 +838,25 @@ static void test_apple_enforcement_exceptions(void) {
                    errOut, fail("failed to create GeoTrust root"));
     require_action(appleISTCA8G1 = SecCertificateCreateFromResource(@"AppleISTCA8G1"),
                    errOut, fail("failed to create apple IST CA"));
-    require_action(livability = SecCertificateCreateFromResource(@"livability"),
+    require_action(deprecatedSSLServer = SecCertificateCreateFromResource(@"deprecatedSSLServer"),
                    errOut, fail("failed to create livability cert"));
 
     // test apple anchor after date without CT passes
     policy = SecPolicyCreateSSL(true, CFSTR("bbasile-test.scv.apple.com"));
     certs = @[ (__bridge id)apple_server_after, (__bridge id)appleServerAuthCA ];
     require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date1), errOut, fail("failed to set verify date"));
     require_noerr_action(SecTrustSetTrustedLogs(trust, trustedLogs), errOut, fail("failed to set trusted logs"));
     ok(SecTrustEvaluateWithError(trust, NULL), "apple root post-flag-date non-CT cert failed");
     CFReleaseNull(trust);
     CFReleaseNull(policy);
 
     // test apple ca after date without CT passes
-    policy = SecPolicyCreateSSL(true, CFSTR("livability.swe.apple.com"));
-    certs = @[ (__bridge id)livability, (__bridge id)appleISTCA8G1 ];
+    policy = SecPolicyCreateSSL(true, CFSTR("bbasile-test.scv.apple.com"));
+    certs = @[ (__bridge id)deprecatedSSLServer, (__bridge id)appleISTCA8G1 ];
     anchors = @[ (__bridge id)geoTrustRoot ];
     require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date2), errOut, fail("failed to set verify date"));
     require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), errOut, fail("failed to set anchors"));
     require_noerr_action(SecTrustSetTrustedLogs(trust, trustedLogs), errOut, fail("failed to set trusted logs"));
     ok(SecTrustEvaluateWithError(trust, NULL), "apple public post-flag-date non-CT cert failed");
@@ -863,7 +867,7 @@ errOut:
     CFReleaseNull(apple_server_after);
     CFReleaseNull(geoTrustRoot);
     CFReleaseNull(appleISTCA8G1);
-    CFReleaseNull(livability);
+    CFReleaseNull(deprecatedSSLServer);
     CFReleaseNull(trustedLogs);
     CFReleaseNull(trust);
     CFReleaseNull(policy);
@@ -1427,7 +1431,7 @@ static void test_ct_exceptions(void) {
 
 int si_82_sectrust_ct(int argc, char *const *argv)
 {
-	plan_tests(433);
+	plan_tests(431);
 
 	tests();
     test_sct_serialization();

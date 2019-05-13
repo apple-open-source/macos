@@ -672,10 +672,12 @@ static bool do_with_account_while_unlocked(CFErrorRef *error, bool (^action)(SOS
     result = SecAKSDoWhileUserBagLocked(&localError, ^{
         do_with_account(^(SOSAccountTransaction* txn) {
             SOSAccount *account = txn.account;
-            if(![SOSAuthKitHelpers peerinfoHasMID: account]) {
-                // This is the first good opportunity to update our FullPeerInfo and
-                // push the resulting circle.
-                [SOSAuthKitHelpers updateMIDInPeerInfo: account];
+            if([account isInCircle: NULL]) {
+                if(![SOSAuthKitHelpers peerinfoHasMID: account]) {
+                    // This is the first good opportunity to update our FullPeerInfo and
+                    // push the resulting circle.
+                    [SOSAuthKitHelpers updateMIDInPeerInfo: account];
+                }
             }
             attempted_action = true;
             action_result = action(txn, error);

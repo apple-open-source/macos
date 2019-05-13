@@ -1348,6 +1348,10 @@ bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool mult
             secdebug("backup", "found exact sys_bound item: %@", item);
             return true;
         }
+        if (isString(service) && CFStringHasPrefix(service, CFSTR("com.apple.gs."))) {
+            secdebug("backup", "found exact sys_bound item: %@", item);
+            return true;
+        }
         if (isString(service) && CFEqual(service, CFSTR("com.apple.facetime"))) {
             CFStringRef account = CFDictionaryGetValue(item, kSecAttrAccount);
             if (isString(account) && CFEqual(account, CFSTR("registrationV1"))) {

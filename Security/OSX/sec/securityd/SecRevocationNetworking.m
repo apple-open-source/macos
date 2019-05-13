@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2017-2019 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -178,10 +178,13 @@ didReceiveResponse:(NSURLResponse *)response
  completionHandler:(void (^)(NSURLSessionResponseDisposition disposition))completionHandler {
     /* nsurlsessiond started our download. Create a transaction since we're going to be working for a little bit */
     self->_transaction = os_transaction_create("com.apple.trustd.valid.download");
-    secinfo("validupdate", "Session %@ data task %@ returned response %ld, expecting %lld bytes", session, dataTask,
-            (long)[(NSHTTPURLResponse *)response statusCode],[response expectedContentLength]);
+    secinfo("validupdate", "Session %@ data task %@ returned response %ld (%@), expecting %lld bytes",
+            session, dataTask, (long)[(NSHTTPURLResponse *)response statusCode],
+            [response MIMEType], [response expectedContentLength]);
 
-    (void)checkBasePath(kSecRevocationBasePath);
+    WithPathInRevocationInfoDirectory(NULL, ^(const char *utf8String) {
+        (void)checkBasePath(utf8String);
+    });
     CFURLRef updateFileURL = SecCopyURLForFileInRevocationInfoDirectory(CFSTR("update-current"));
     self->_currentUpdateFileURL = (updateFileURL) ? CFBridgingRelease(updateFileURL) : nil;
     const char *updateFilePath = [self->_currentUpdateFileURL fileSystemRepresentation];
@@ -327,7 +330,6 @@ static ValidUpdateRequest *request = nil;
                                       @"Accept-Encoding" : @"gzip,deflate,br"};
 
     config.TLSMinimumSupportedProtocol = kTLSProtocol12;
-    config.TLSMaximumSupportedProtocol = kTLSProtocol13;
 
     return config;
 }
@@ -347,6 +349,7 @@ static ValidUpdateRequest *request = nil;
     /* Callbacks should be on a separate NSOperationQueue.
        We'll then dispatch the work on updateQueue and return from the callback. */
     NSOperationQueue *queue = [[NSOperationQueue alloc] init];
+    queue.maxConcurrentOperationCount = 1;
     _backgroundSession = [NSURLSession sessionWithConfiguration:config delegate:delegate delegateQueue:queue];
 }
 
@@ -366,8 +369,6 @@ static ValidUpdateRequest *request = nil;
      * after system boot before trying to initiate network activity, to avoid the possibility
      * of a performance regression in the boot path. */
     dispatch_async(updateQueue, ^{
-        /* Take a transaction while we work */
-        os_transaction_t transaction = os_transaction_create("com.apple.trustd.valid.scheduleUpdate");
         CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
         if (self.updateScheduled != 0.0) {
             secdebug("validupdate", "update in progress (scheduled %f)", (double)self.updateScheduled);
@@ -379,18 +380,15 @@ static ValidUpdateRequest *request = nil;
                 gNextUpdate = now + (minUptime - uptime);
                 gUpdateStarted = 0;
                 secnotice("validupdate", "postponing update until %f", gNextUpdate);
+                return;
             } else {
                 self.updateScheduled = now;
                 secnotice("validupdate", "scheduling update at %f", (double)self.updateScheduled);
             }
         }
 
-        NSURL *validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g3/v%ld",
-                                                server, (unsigned long)version]];
-        if (!validUrl) {
-            secnotice("validupdate", "invalid update url");
-            return;
-        }
+        /* we have an update to schedule, so take a transaction while we work */
+        os_transaction_t transaction = os_transaction_create("com.apple.trustd.valid.scheduleUpdate");
 
         /* clear all old sessions and cleanup disk (for previous download tasks) */
         static dispatch_once_t onceToken;
@@ -416,12 +414,14 @@ static ValidUpdateRequest *request = nil;
             @"version" : @(version)
         });
 
+        NSURL *validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g3/v%ld",
+                                                server, (unsigned long)version]];
         NSURLSessionDataTask *dataTask = [self.backgroundSession dataTaskWithURL:validUrl];
         dataTask.taskDescription = [NSString stringWithFormat:@"%lu",(unsigned long)version];
         [dataTask resume];
         secnotice("validupdate", "scheduled background data task %@ at %f", dataTask, CFAbsoluteTimeGetCurrent());
         (void) transaction; // dead store
-        transaction = nil;
+        transaction = nil; // ARC releases the transaction
     });
 
     return YES;

@@ -1076,13 +1076,28 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
         }
     }
 
-    // Update tail with release barrier
+    // Publish the data we just enqueued
     _enqueueTS = mach_continuous_time();
     __c11_atomic_store((_Atomic UInt32 *)&dataQueue->tail, newTail, __ATOMIC_RELEASE);
-    
+
+    if (tail != head) {
+        // From <rdar://problem/43093190> IOSharedDataQueue stalls
+        //
+        // The memory barrier below pairs with the one in ::dequeue
+        // so that either our store to the tail cannot be missed by
+        // the next dequeue attempt, or we will observe the dequeuer
+        // making the queue empty.
+        //
+        // Of course, if we already think the queue is empty,
+        // there's no point paying this extra cost.
+        //
+        __c11_atomic_thread_fence(__ATOMIC_SEQ_CST);
+        head = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED);
+    }
+
     // Send notification (via mach message) that data is available if either the
     // queue was empty prior to enqueue() or queue was emptied during enqueue()
-    if ( ( head == tail ) || ( __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_ACQUIRE) == tail ) ) {
+    if (head == tail) {
         sendDataAvailableNotification();
     }
 

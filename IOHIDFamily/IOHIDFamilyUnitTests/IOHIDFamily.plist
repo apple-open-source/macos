@@ -409,22 +409,71 @@
 			<key>AsRoot</key>
 			<true/>
 		</dict>
-        <dict>
-            <key>TestSpecificLogs</key>
-            <array>
-                <string>/var/tmp/hidxctest/TestNonStandardDescriptor.m/.+</string>
-            </array>
-            <key>AsRoot</key>
-            <true/>
-            <key>Command</key>
-            <array>
-                <string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
-                <string>-t &quot;TestNonStandardDescriptor&quot;</string>
-                <string>./IOHIDFamilyUnitTests.xctest</string>
-            </array>
-            <key>TestName</key>
-            <string>TestNonStandardDescriptor</string>
-        </dict>
+		<dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestNonStandardDescriptor.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestNonStandardDescriptor&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestNonStandardDescriptor</string>
+		</dict>
+		<dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestIOHIDEventDriver_LuminanceNotificaiton.m/.+</string>
+			</array>
+			<key>TestName</key>
+			<string>TestIOHIDEventDriver_LuminanceNotificaiton</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t</string>
+				<string>TestIOHIDEventDriver_LuminanceNotificaiton</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestHIDDisplayFramework.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestHIDDisplayFramework&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestHIDDisplayFramework</string>
+		</dict>
+		<dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestHIDDisplaySessionFilter.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestHIDDisplaySessionFilter&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestHIDDisplaySessionFilter</string>
+		</dict>
 	</array>
 </dict>
 </plist>

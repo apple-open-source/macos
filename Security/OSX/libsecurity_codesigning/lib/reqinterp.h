@@ -62,8 +62,13 @@ protected:
 		bool inequality(CFTypeRef candidate, CFStringCompareFlags flags, CFComparisonResult outcome, bool negate) const;
 		
 	private:
-		CFCopyRef<CFStringRef> mValue;	// match value
+		CFCopyRef<CFTypeRef> mValue;	// match value
 		MatchOperation mOp;				// type of match
+		
+		bool isStringValue() const { return CFGetTypeID(mValue) == CFStringGetTypeID(); }
+		bool isDateValue() const { return CFGetTypeID(mValue) == CFDateGetTypeID(); }
+		CFStringRef cfStringValue() const { return isStringValue() ? (CFStringRef)mValue.get() : NULL; }
+		CFDateRef cfDateValue() const { return isDateValue() ? (CFDateRef)mValue.get() : NULL; }
 	};
 	
 protected:
@@ -77,6 +82,8 @@ protected:
 	bool certFieldGeneric(const CssmOid &oid, const Match &match, SecCertificateRef cert);
 	bool certFieldPolicy(const string &key, const Match &match, SecCertificateRef cert);
 	bool certFieldPolicy(const CssmOid &oid, const Match &match, SecCertificateRef cert);
+	bool certFieldDate(const string &key, const Match &match, SecCertificateRef cert);
+	bool certFieldDate(const CssmOid &oid, const Match &match, SecCertificateRef cert);
 #endif
 	bool verifyAnchor(SecCertificateRef cert, const unsigned char *digest);
 	bool appleSigned();

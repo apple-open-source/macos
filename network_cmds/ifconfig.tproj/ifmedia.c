@@ -113,7 +113,7 @@ media_status(int s)
 	(void) memset(&ifmr, 0, sizeof(ifmr));
 	(void) strncpy(ifmr.ifm_name, name, sizeof(ifmr.ifm_name));
 
-	if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifmr) < 0) {
+	if (ioctl(s, SIOCGIFXMEDIA, (caddr_t)&ifmr) < 0) {
 		/*
 		 * Interface doesn't support SIOC{G,S}IFMEDIA.
 		 */
@@ -130,9 +130,8 @@ media_status(int s)
 		err(1, "malloc");
 	ifmr.ifm_ulist = media_list;
 
-	if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
-		err(1, "SIOCGIFMEDIA");
-
+	if (ioctl(s, SIOCGIFXMEDIA, (caddr_t)&ifmr) < 0)
+		err(1, "SIOCGIFXMEDIA");
 	printf("\tmedia: ");
 	print_media_word(ifmr.ifm_current, 1);
 	if (ifmr.ifm_active != ifmr.ifm_current) {
@@ -217,8 +216,8 @@ ifmedia_getstate(int s)
 		 * the current media type and the top-level type.
 		 */
 
-		if (ioctl(s, SIOCGIFMEDIA, (caddr_t)ifmr) < 0) {
-			err(1, "SIOCGIFMEDIA");
+		if (ioctl(s, SIOCGIFXMEDIA, (caddr_t)ifmr) < 0) {
+			err(1, "SIOCGIFXMEDIA");
 		}
 
 		if (ifmr->ifm_count == 0)
@@ -229,8 +228,8 @@ ifmedia_getstate(int s)
 			err(1, "malloc");
   
 		ifmr->ifm_ulist = mwords;
-		if (ioctl(s, SIOCGIFMEDIA, (caddr_t)ifmr) < 0)
-			err(1, "SIOCGIFMEDIA");
+		if (ioctl(s, SIOCGIFXMEDIA, (caddr_t)ifmr) < 0)
+			err(1, "SIOCGIFXMEDIA");
 	}
 
 	return ifmr;

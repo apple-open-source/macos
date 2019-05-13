@@ -26,7 +26,7 @@
 static void tests(void)
 {
     SecTrustRef trust;
-    SecCertificateRef cert0, cert1, responderCert;
+    SecCertificateRef cert0, cert1;
     isnt(cert0 = SecCertificateCreateWithBytes(NULL, _ocsp_c0, sizeof(_ocsp_c0)),
 	    NULL, "create cert0");
     isnt(cert1 = SecCertificateCreateWithBytes(NULL, _ocsp_c1, sizeof(_ocsp_c1)),
@@ -36,7 +36,7 @@ static void tests(void)
     CFArrayAppendValue(certs, cert0);
     CFArrayAppendValue(certs, cert1);
 
-    SecPolicyRef sslPolicy = SecPolicyCreateSSL(true, CFSTR("www.paypal.com"));
+    SecPolicyRef sslPolicy = SecPolicyCreateSSL(true, CFSTR("www.apple.com"));
     SecPolicyRef ocspPolicy = SecPolicyCreateRevocation(kSecRevocationOCSPMethod);
     const void *v_policies[] = { sslPolicy, ocspPolicy };
     CFArrayRef policies = CFArrayCreate(NULL, v_policies,
@@ -45,11 +45,11 @@ static void tests(void)
     CFRelease(ocspPolicy);
     ok_status(SecTrustCreateWithCertificates(certs, policies, &trust),
         "create trust");
-    /* April 9, 2018 at 1:53:20 PM PDT */
-    CFDateRef date = CFDateCreate(NULL, 545000000.0);
+    /* August 14, 2018 at 9:26:40 PM PDT */
+    CFDateRef date = CFDateCreate(NULL, 556000000.0);
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
-    is(SecTrustGetVerifyTime(trust), 545000000.0, "get date");
+    is(SecTrustGetVerifyTime(trust), 556000000.0, "get date");
 
     SecTrustResultType trustResult;
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
@@ -62,40 +62,60 @@ static void tests(void)
         kSecTrustInfoExtendedValidationKey);
     ok(ev, "extended validation succeeded");
 
-    SecPolicyRef ocspSignerPolicy;
-    ok(ocspSignerPolicy = SecPolicyCreateOCSPSigner(),
-        "create ocspSigner policy");
-
-    CFReleaseNull(trust);
-    ok_status(SecTrustCreateWithCertificates(certs, ocspSignerPolicy, &trust),
-        "create trust for c0 -> c1");
-    ok_status(SecTrustSetVerifyDate(trust, date), "set date");
-    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
-    is_status(trustResult, kSecTrustResultRecoverableTrustFailure,
-		"trust is kSecTrustResultRecoverableTrustFailure");
-
-    isnt(responderCert = SecCertificateCreateWithBytes(NULL, _responderCert,
-        sizeof(_responderCert)), NULL, "create responderCert");
-    CFArraySetValueAtIndex(certs, 0, responderCert);
-    CFReleaseNull(trust);
-    ok_status(SecTrustCreateWithCertificates(certs, ocspSignerPolicy, &trust),
-        "create trust for ocspResponder -> c1");
-    CFReleaseNull(date);
-    date = CFDateCreate(NULL, 525000000.0); // August 21, 2017 at 2:20:00 AM PDT
-    ok_status(SecTrustSetVerifyDate(trust, date), "set date");
-    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
-    is_status(trustResult, kSecTrustResultUnspecified,
-		"trust is kSecTrustResultUnspecified");
-
-    CFReleaseSafe(ocspSignerPolicy);
     CFReleaseSafe(info);
     CFReleaseSafe(trust);
     CFReleaseSafe(policies);
     CFReleaseSafe(certs);
     CFReleaseSafe(cert0);
     CFReleaseSafe(cert1);
-    CFReleaseSafe(responderCert);
     CFReleaseSafe(date);
+}
+
+static void test_ocsp_responder_policy() {
+    SecCertificateRef leaf = NULL, subCA = NULL, responderCert = NULL;
+    CFMutableArrayRef certs = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+                                                   &kCFTypeArrayCallBacks);
+    SecTrustRef trust = NULL;
+    SecPolicyRef ocspSignerPolicy = NULL;
+    SecTrustResultType trustResult = kSecTrustResultInvalid;
+
+    /* August 14, 2018 at 9:26:40 PM PDT */
+    CFDateRef date = CFDateCreate(NULL, 556000000.0);
+
+    isnt(leaf = SecCertificateCreateWithBytes(NULL, valid_ist_certificate,
+                                              sizeof(valid_ist_certificate)), NULL, "create ist leaf");
+    isnt(subCA = SecCertificateCreateWithBytes(NULL, ist_intermediate_certificate,
+                                               sizeof(ist_intermediate_certificate)), NULL, "create ist subCA");
+    CFArrayAppendValue(certs, leaf);
+    CFArrayAppendValue(certs, subCA);
+
+    ok(ocspSignerPolicy = SecPolicyCreateOCSPSigner(),
+       "create ocspSigner policy");
+
+    ok_status(SecTrustCreateWithCertificates(certs, ocspSignerPolicy, &trust),
+              "create trust for c0 -> c1");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set date");
+    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
+    is_status(trustResult, kSecTrustResultRecoverableTrustFailure,
+              "trust is kSecTrustResultRecoverableTrustFailure");
+
+    isnt(responderCert = SecCertificateCreateWithBytes(NULL, _responderCert,
+                                                       sizeof(_responderCert)), NULL, "create responderCert");
+    CFArraySetValueAtIndex(certs, 0, responderCert);
+    ok_status(SecTrustCreateWithCertificates(certs, ocspSignerPolicy, &trust),
+              "create trust for ocspResponder -> c1");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set date");
+    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
+    is_status(trustResult, kSecTrustResultUnspecified,
+              "trust is kSecTrustResultUnspecified");
+
+    CFReleaseNull(leaf);
+    CFReleaseNull(subCA);
+    CFReleaseNull(responderCert);
+    CFReleaseNull(certs);
+    CFReleaseNull(trust);
+    CFReleaseSafe(ocspSignerPolicy);
+    CFReleaseNull(date);
 }
 
 static void test_revocation() {
@@ -798,7 +818,7 @@ int si_23_sectrust_ocsp(int argc, char *const *argv)
 
     unsigned host_cnt = 0;
 
-    plan_tests(93);
+    plan_tests(95);
 
     for (host_cnt = 0; host_cnt < sizeof(hosts)/sizeof(hosts[0]); host_cnt ++) {
         if(!ping_host(hosts[host_cnt])) {
@@ -808,6 +828,7 @@ int si_23_sectrust_ocsp(int argc, char *const *argv)
     }
 
     tests();
+    test_ocsp_responder_policy();
     test_aia();
     test_aia_https();
     test_revocation();

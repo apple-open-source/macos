@@ -382,7 +382,7 @@
 		221BC4ED00BB072011CA2A5F /* IONDRV.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IONDRV.h; sourceTree = "<group>"; };
 		221BC4EE00BB072011CA2A5F /* IONDRVFramebuffer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVFramebuffer.cpp; sourceTree = "<group>"; };
 		221BC4EF00BB072011CA2A5F /* IONDRVLibraries.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVLibraries.cpp; sourceTree = "<group>"; };
-		24BED4E821E954DC00702AAD /* IOGraphics.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = IOGraphics.py; path = lldbmacros/IOGraphics.py; sourceTree = SOURCE_ROOT; };
+		24BED4E821E954DC00702AAD /* IOGraphicsFamily.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = IOGraphicsFamily.py; path = lldbmacros/IOGraphicsFamily.py; sourceTree = SOURCE_ROOT; };
 		24BED4EA21E9577800702AAD /* syntax_checker.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = syntax_checker.py; sourceTree = "<group>"; };
 		2D20F58821BED8F9007E60D3 /* agdcdecoder.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = agdcdecoder.cpp; sourceTree = "<group>"; };
 		2D289780218A3B0B00AEBEC2 /* iolocks */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = iolocks; path = IOKit/graphics/tl/iolocks; sourceTree = "<group>"; };
@@ -600,7 +600,7 @@
 		24BED4E721E9546C00702AAD /* lldbmacros */ = {
 			isa = PBXGroup;
 			children = (
-				24BED4E821E954DC00702AAD /* IOGraphics.py */,
+				24BED4E821E954DC00702AAD /* IOGraphicsFamily.py */,
 				24BED4EA21E9577800702AAD /* syntax_checker.py */,
 			);
 			path = lldbmacros;
@@ -905,7 +905,7 @@
 		015488CC00BAFF6C11CA2A5F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0820;
+				LastUpgradeCheck = 1100;
 				TargetAttributes = {
 					2D2897902195E44600AEBEC2 = {
 						CreatedOnToolsVersion = 10.1;
@@ -969,7 +969,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "PYTHON_TARGET=\"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/Python/\"\n\npython \"${SRCROOT}/lldbmacros/syntax_checker.py\" \"${SRCROOT}/lldbmacros/IOGraphics.py\"\n\nmkdir -p \"$PYTHON_TARGET\"\n\ninstall \"${SRCROOT}/lldbmacros/IOGraphics.py\" \"$PYTHON_TARGET\"\n";
+			shellScript = "PYTHON_TARGET=\"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/Python/\"\n\npython \"${SRCROOT}/lldbmacros/syntax_checker.py\" \"${SRCROOT}/lldbmacros/IOGraphicsFamily.py\"\n\nmkdir -p \"$PYTHON_TARGET\"\n\ninstall \"${SRCROOT}/lldbmacros/IOGraphicsFamily.py\" \"$PYTHON_TARGET\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1285,12 +1285,12 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INSTALL_PATH = /AppleInternal/AppleGraphicsControl;
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SKIP_INSTALL = YES;
 			};
 			name = Development;
 		};
@@ -1337,11 +1337,11 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INSTALL_PATH = /AppleInternal/AppleGraphicsControl;
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SKIP_INSTALL = YES;
 			};
 			name = Deployment;
 		};
@@ -1388,11 +1388,11 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INSTALL_PATH = /AppleInternal/AppleGraphicsControl;
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SKIP_INSTALL = YES;
 			};
 			name = Default;
 		};
@@ -2008,7 +2008,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)",
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOGraphicsFamily.kext/";
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -2050,7 +2054,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)",
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOGraphicsFamily.kext/";
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -2090,7 +2098,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)",
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOGraphicsFamily.kext/";
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = NO;

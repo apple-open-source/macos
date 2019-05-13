@@ -903,6 +903,7 @@ enum {
     kConnectionEnable                   = 'enab',
     kConnectionCheckEnable              = 'cena',
     kConnectionProbe                    = 'prob',
+    kConnectionIgnore                   = '\0igr',
     kConnectionChanged                  = 'chng',
     kConnectionPower                    = 'powr',
     kConnectionPostWake                 = 'pwak',
@@ -1222,7 +1223,7 @@ enum {
     // MCCS
     kIOFBMCCSInterruptType                  = 'mccs',
     // early vram notification
-    kIOFBWakeInterruptType                  = 'vwak'
+    kIOFBWakeInterruptType                  = 'vwak',
 };
 
 // IOAppleTimingID's

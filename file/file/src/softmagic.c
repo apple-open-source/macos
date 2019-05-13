@@ -746,7 +746,7 @@ mprint(struct magic_set *ms, struct magic *m, const struct buffer *b)
 			return -1;
 		}
 		rval = file_printf(ms, F(ms, desc, "%s"),
-		    file_printable(sbuf, sizeof(sbuf), cp));
+		    file_printable(sbuf, sizeof(sbuf), cp, ms->search.rm_len));
 		free(cp);
 
 		if (rval == -1)
@@ -772,8 +772,9 @@ mprint(struct magic_set *ms, struct magic *m, const struct buffer *b)
 		t = ms->offset;
 		break;
 	case FILE_DER:
-		if (file_printf(ms, F(ms, desc, "%s"), 
-		    file_printable(sbuf, sizeof(sbuf), ms->ms_value.s)) == -1)
+		if (file_printf(ms, F(ms, desc, "%s"),
+		    file_printable(sbuf, sizeof(sbuf), ms->ms_value.s,
+		        sizeof(ms->ms_value.s))) == -1)
 			return -1;
 		t = ms->offset;
 		break;

@@ -1106,6 +1106,7 @@ en{
             java{"Javanese Digits"}
             jpan{"Japanese Numerals"}
             jpanfin{"Japanese Financial Numerals"}
+            jpanyear{"Japanese Calendar Gannen Year Numerals"}
             kali{"Kayah Li Digits"}
             khmr{"Khmer Digits"}
             knda{"Kannada Digits"}
@@ -1236,7 +1237,7 @@ en{
         VALENCIA{"Valencian"}
         WADEGILE{"Wade-Giles Romanization"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.41.98"}
     characterLabelPattern{
         all{"{0} — all"}
         category-list{"{0}: {1}"}

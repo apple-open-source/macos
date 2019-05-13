@@ -48,6 +48,7 @@ public:
 	
 	std::string getString();
 	CFDataRef getHash();
+	CFAbsoluteTime getAbsoluteTime();
 	const unsigned char *getSHA1();
 	
 	template <class T> void getData(T *&data, size_t &length)
