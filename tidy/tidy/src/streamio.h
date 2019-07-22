@@ -200,8 +200,10 @@ uint TY_(DecodeMacRoman)(uint c);
 /* Use numeric constants as opposed to escape chars (\r, \n)
 ** to avoid conflict Mac compilers that may re-define these.
 */
-#define CR    0xD
-#define LF    0xA
+/* Apple: Added TIDY_ prefix to fix compilation failure with WinNT.h.
+*/
+#define TIDY_CR    0xD
+#define TIDY_LF    0xA
 
 #if   defined(MAC_OS_CLASSIC)
 #define DEFAULT_NL_CONFIG TidyCR

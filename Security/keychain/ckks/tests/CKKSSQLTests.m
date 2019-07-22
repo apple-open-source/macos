@@ -276,6 +276,8 @@
     CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initForDevice:testUUID
                                                                    osVersion:@"faux-version"
                                                               lastUnlockTime:nil
+                                                               octagonPeerID:@"peerID"
+                                                               octagonStatus:nil
                                                                 circlePeerID:@"asdf"
                                                                 circleStatus:kSOSCCInCircle
                                                                     keyState:SecCKKSZoneKeyStateReady

@@ -354,7 +354,8 @@ ucsdet_getAllDetectableCharsets(const UCharsetDetector *ucsd,  UErrorCode *statu
   *  Test whether input filtering is enabled for this charset detector.
   *  Input filtering removes text that appears to be HTML or xml
   *  markup from the input before applying the code page detection
-  *  heuristics.
+  *  heuristics. Apple addition per <rdar://problem/48093252>: Will also
+  *  remove text that appears to be CSS declaration blocks.
   *
   *  @param ucsd  The charset detector to check.
   *  @return TRUE if filtering is enabled.
@@ -369,6 +370,8 @@ ucsdet_isInputFilterEnabled(const UCharsetDetector *ucsd);
  * Enable filtering of input text. If filtering is enabled,
  * text within angle brackets ("<" and ">") will be removed
  * before detection, which will remove most HTML or xml markup.
+ * Apple addition per <rdar://problem/48093252>: Will also
+ * remove text between '{' and '}', e.g. CSS declaration blocks.
  *
  * @param ucsd   the charset detector to be modified.
  * @param filter <code>true</code> to enable input text filtering.

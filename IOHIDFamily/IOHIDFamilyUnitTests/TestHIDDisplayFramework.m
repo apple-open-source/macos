@@ -94,7 +94,7 @@ static void __initPresets()
 @interface TestHIDDisplayFramework : XCTestCase
 {
     IOHIDUserDeviceRef   _userDevice;
-    HIDDisplayDeviceRef  _hidDisplayDevice;
+    HIDDisplayDeviceRef  _hidDisplayInterface;
     dispatch_queue_t     _queue;
     NSString             *_containerID;
     XCTMemoryChecker     *_memoryChecker;
@@ -223,22 +223,22 @@ static IOReturn __getReportCallback(void * _Nullable refcon __unused, IOHIDRepor
 // test initial info on presets
 -(void) TestPresetDefaultInfo
 {
-    _presetCount = (NSUInteger)HIDDisplayGetPresetCount(_hidDisplayDevice);
+    _presetCount = (NSUInteger)HIDDisplayGetPresetCount(_hidDisplayInterface);
     
     HIDXCTAssertWithParameters (RETURN_FROM_TEST , _presetCount == kTestPresetCount);
     
-    NSInteger factoryDefaultIndex  = HIDDisplayGetFactoryDefaultPresetIndex(_hidDisplayDevice, NULL);
+    NSInteger factoryDefaultIndex  = HIDDisplayGetFactoryDefaultPresetIndex(_hidDisplayInterface, NULL);
     
     HIDXCTAssertWithParameters (RETURN_FROM_TEST , factoryDefaultIndex == kTestDefaultFactoryPresetIndex);
     
-    NSInteger activePresetIndex = HIDDisplayGetActivePresetIndex(_hidDisplayDevice, NULL);
+    NSInteger activePresetIndex = HIDDisplayGetActivePresetIndex(_hidDisplayInterface, NULL);
     
     HIDXCTAssertWithParameters (RETURN_FROM_TEST , activePresetIndex == kTestDefaultActivePresetIndex || activePresetIndex == kTestDefaultFactoryPresetIndex);
     
     
     for (NSUInteger i=0; i < _presetCount; i++) {
         
-        NSDictionary *info = (__bridge_transfer NSDictionary*)HIDDisplayCopyPreset(_hidDisplayDevice,i, nil);
+        NSDictionary *info = (__bridge_transfer NSDictionary*)HIDDisplayCopyPreset(_hidDisplayInterface,i, nil);
         HIDXCTAssertWithParameters (RETURN_FROM_TEST , info != nil);
         
         NSString* name = info[(__bridge NSString*)kHIDDisplayPresetFieldNameKey];
@@ -247,7 +247,6 @@ static IOReturn __getReportCallback(void * _Nullable refcon __unused, IOHIDRepor
         NSNumber *dataBlockOneLength = info[(__bridge NSString*)kHIDDisplayPresetFieldDataBlockOneLengthKey];
         NSString* dataBlockTwo = [NSString stringWithUTF8String:[info[(__bridge NSString*)kHIDDisplayPresetFieldDataBlockTwoKey] bytes]];
         NSNumber *dataBlockTwoLength = info[(__bridge NSString*)kHIDDisplayPresetFieldDataBlockTwoLengthKey];
-        NSString* uuid = info[(__bridge NSString*)kHIDDisplayPresetUniqueIDKey];
         
         
         HIDXCTAssertWithParameters (RETURN_FROM_TEST , dataBlockOneLength.integerValue == 64);
@@ -263,7 +262,6 @@ static IOReturn __getReportCallback(void * _Nullable refcon __unused, IOHIDRepor
         HIDXCTAssertWithParameters (RETURN_FROM_TEST , dataBlockOne && [expectedDataBlockOne isEqualToString:dataBlockOne]);
         HIDXCTAssertWithParameters (RETURN_FROM_TEST , dataBlockTwo && [expectedDataBlockTwo isEqualToString:dataBlockTwo]);
         
-        HIDXCTAssertWithParameters (RETURN_FROM_TEST , uuid && [uuid isEqualToString:presetUUIDs[i]]);
         
     }
     
@@ -280,15 +278,15 @@ static IOReturn __getReportCallback(void * _Nullable refcon __unused, IOHIDRepor
 {
     for (NSInteger i=0; i < _presetCount; i++) {
         
-        bool isValid = HIDDisplayIsPresetValid(_hidDisplayDevice, i);
+        bool isValid = HIDDisplayIsPresetValid(_hidDisplayInterface, i);
         //valid preset (check __initPreset for description)
         if (i%5 == 0) {
             HIDXCTAssertWithParameters (RETURN_FROM_TEST , isValid == true);
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST , HIDDisplaySetActivePresetIndex(_hidDisplayDevice, i, NULL) == true);
+            HIDXCTAssertWithParameters (RETURN_FROM_TEST , HIDDisplaySetActivePresetIndex(_hidDisplayInterface, i, NULL) == true);
             
         } else {
             HIDXCTAssertWithParameters (RETURN_FROM_TEST , isValid == false);
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST , HIDDisplaySetActivePresetIndex(_hidDisplayDevice, i, NULL) == false);
+            HIDXCTAssertWithParameters (RETURN_FROM_TEST , HIDDisplaySetActivePresetIndex(_hidDisplayInterface, i, NULL) == false);
         }
         
         //writable preset, valid preset
@@ -296,12 +294,12 @@ static IOReturn __getReportCallback(void * _Nullable refcon __unused, IOHIDRepor
             
             //invalidate preset
             NSDictionary *info = @{(__bridge NSString*)kHIDDisplayPresetFieldValidKey : @(0)};
-            bool ret = HIDDisplaySetPreset(_hidDisplayDevice, i, (__bridge CFDictionaryRef)info, nil);
+            bool ret = HIDDisplaySetPreset(_hidDisplayInterface, i, (__bridge CFDictionaryRef)info, nil);
             
             HIDXCTAssertWithParameters (RETURN_FROM_TEST , ret == true);
-            isValid = HIDDisplayIsPresetValid(_hidDisplayDevice, i);
+            isValid = HIDDisplayIsPresetValid(_hidDisplayInterface, i);
             HIDXCTAssertWithParameters (RETURN_FROM_TEST , isValid == false);
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST , HIDDisplaySetActivePresetIndex(_hidDisplayDevice, i, NULL) == false);
+            HIDXCTAssertWithParameters (RETURN_FROM_TEST , HIDDisplaySetActivePresetIndex(_hidDisplayInterface, i, NULL) == false);
             
             
             NSString *expectedName = [NSString stringWithFormat:@"ModifiedTestPreset😊Name_%ld",i];
@@ -309,7 +307,6 @@ static IOReturn __getReportCallback(void * _Nullable refcon __unused, IOHIDRepor
 
             NSString *expectedDataBlockOne = [NSString stringWithFormat:@"ModifiedTestPresetDataBlockOne_%ld",i];
             NSString *expectedDataBlockTwo = [NSString stringWithFormat:@"ModifiedTestPresetDataBlockTwo_%ld",i];
-            NSString *expectedUUID = [[[NSUUID alloc] init] UUIDString];
             
             
             info = @{
@@ -320,15 +317,14 @@ static IOReturn __getReportCallback(void * _Nullable refcon __unused, IOHIDRepor
                      (__bridge NSString*)kHIDDisplayPresetFieldDataBlockTwoKey : [expectedDataBlockTwo dataUsingEncoding:NSUTF8StringEncoding],
                      (__bridge NSString*)kHIDDisplayPresetFieldDataBlockOneLengthKey : @(12+i),
                      (__bridge NSString*)kHIDDisplayPresetFieldDataBlockTwoLengthKey : @(16+i),
-                     (__bridge NSString*)kHIDDisplayPresetUniqueIDKey : expectedUUID,
                      
                      };
             
-            ret = HIDDisplaySetPreset(_hidDisplayDevice, i, (__bridge CFDictionaryRef)info, nil);
+            ret = HIDDisplaySetPreset(_hidDisplayInterface, i, (__bridge CFDictionaryRef)info, nil);
             
             HIDXCTAssertWithParameters (RETURN_FROM_TEST , ret == true);
             
-            info = (__bridge_transfer NSDictionary*)HIDDisplayCopyPreset(_hidDisplayDevice,i, nil);
+            info = (__bridge_transfer NSDictionary*)HIDDisplayCopyPreset(_hidDisplayInterface,i, nil);
             
             
             NSString* name = info[(__bridge NSString*)kHIDDisplayPresetFieldNameKey];
@@ -342,7 +338,6 @@ static IOReturn __getReportCallback(void * _Nullable refcon __unused, IOHIDRepor
             
             NSNumber *dataBlockTwoLength = info[(__bridge NSString*)kHIDDisplayPresetFieldDataBlockTwoLengthKey];
             
-            NSString *uniqueID = info[(__bridge NSString*)kHIDDisplayPresetUniqueIDKey];
             
             HIDXCTAssertWithParameters (RETURN_FROM_TEST , name && [name containsString:expectedName]);
             HIDXCTAssertWithParameters (RETURN_FROM_TEST , desc && [desc containsString:expectedDesc]);
@@ -352,14 +347,12 @@ static IOReturn __getReportCallback(void * _Nullable refcon __unused, IOHIDRepor
             HIDXCTAssertWithParameters (RETURN_FROM_TEST , (unsigned long)dataBlockOneLength.integerValue == 12+i);
             HIDXCTAssertWithParameters (RETURN_FROM_TEST , (unsigned long)dataBlockTwoLength.integerValue == 16+i);
             
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST , uniqueID && [expectedUUID isEqualToString:uniqueID]);
-            
         }
         
         //non writable preset
         if (i%3 !=0) {
             NSDictionary *info = @{(__bridge NSString*)kHIDDisplayPresetFieldValidKey : @(0)};
-            bool ret = HIDDisplaySetPreset(_hidDisplayDevice, i, (__bridge CFDictionaryRef)info, nil);
+            bool ret = HIDDisplaySetPreset(_hidDisplayInterface, i, (__bridge CFDictionaryRef)info, nil);
             HIDXCTAssertWithParameters (RETURN_FROM_TEST , ret == false);
         }
         
@@ -368,19 +361,19 @@ static IOReturn __getReportCallback(void * _Nullable refcon __unused, IOHIDRepor
 - (void)testHIDDisplayFramework {
     
     
-    [_memoryChecker assertObjectsOfTypes:@[@"HIDDisplayDevice", @"HIDDisplayDevicePreset",@"IOHIDDevice",@"HIDElement",@"IOHIDTransaction", @"IOHIDManager"] invalidAfterScope:^{
+    [_memoryChecker assertObjectsOfTypes:@[@"HIDDisplayPresetInterface", @"HIDDisplayPresetData",@"IOHIDDevice",@"HIDElement",@"IOHIDTransaction", @"IOHIDManager"] invalidAfterScope:^{
         
         @autoreleasepool {
             
-            _hidDisplayDevice = HIDDisplayCreateDeviceWithContainerID((__bridge CFStringRef)_containerID);
+            _hidDisplayInterface = HIDDisplayCreateDeviceWithContainerID((__bridge CFStringRef)_containerID);
             
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, _hidDisplayDevice != NULL);
+            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, _hidDisplayInterface != NULL);
             
             [self TestPresetDefaultInfo];
             
             [self TestSetPresetInfo];
             
-            CFRelease(_hidDisplayDevice);
+            CFRelease(_hidDisplayInterface);
         }
     }];
     

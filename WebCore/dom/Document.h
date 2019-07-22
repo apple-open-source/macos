@@ -707,7 +707,7 @@ public:
 #endif
     SocketProvider* socketProvider() final;
 
-    bool canNavigate(Frame* targetFrame);
+    bool canNavigate(Frame* targetFrame, const URL& destinationURL = URL());
 
     bool usesStyleBasedEditability() const;
     void setHasElementUsingStyleBasedEditability();
@@ -1643,6 +1643,9 @@ private:
     void checkViewportDependentPictures();
     void checkAppearanceDependentPictures();
 
+    bool canNavigateInternal(Frame& targetFrame);
+    bool isNavigationBlockedByThirdPartyIFrameRedirectBlocking(Frame& targetFrame, const URL& destinationURL);
+
 #if ENABLE(INTERSECTION_OBSERVER)
     void notifyIntersectionObserversTimerFired();
 #endif
@@ -1905,7 +1908,7 @@ private:
 
     Ref<CSSFontSelector> m_fontSelector;
 
-    HashSet<MediaProducer*> m_audioProducers;
+    HashMap<MediaProducer*, WeakPtr<MediaProducer>> m_audioProducers;
 
     HashSet<ShadowRoot*> m_inDocumentShadowRoots;
 

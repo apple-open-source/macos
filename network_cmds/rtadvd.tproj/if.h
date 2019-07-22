@@ -31,7 +31,6 @@
 
 #define RTADV_TYPE2BITMASK(type) (0x1 << type)
 
-extern struct if_msghdr **iflist;
 extern size_t ifblock_size;
 extern char *ifblock;
 
@@ -55,3 +54,11 @@ int ifmsg_type(char *);
 int rtmsg_len(char *);
 int ifmsg_len(char *);
 void init_iflist(void);
+
+struct  ifinfo {
+	TAILQ_ENTRY(ifinfo)     ifi_next;
+	struct if_msghdr *		ifm;
+};
+
+struct if_msghdr *get_interface_entry(int if_index);
+

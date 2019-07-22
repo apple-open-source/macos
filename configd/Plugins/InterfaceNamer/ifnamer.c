@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -216,6 +216,12 @@ static CFMutableDictionaryRef	S_state			= NULL;
  * Note: this global must only be updated on trustRequired_queue()
  */
 static Boolean			S_trustedHostAttached	= FALSE;
+
+/*
+ *
+ * Note: this global must only be updated on trustRequired_queue()
+ */
+static CFIndex			S_trustedHostCount	= 0;
 
 /*
  * S_trustRequired
@@ -2156,11 +2162,12 @@ watchLockedInterface(SCNetworkInterfaceRef interface)
 static void
 shareExcluded()
 {
-    CFMutableArrayRef	excluded	= NULL;
-    CFIndex		n;
+    CFIndex	n;
 
     n = (S_trustRequired != NULL) ? CFArrayGetCount(S_trustRequired) : 0;
     if ((n > 0) && !S_trustedHostAttached) {
+	CFMutableArrayRef	excluded;
+
 	// if we have interfaces that require not [yet] granted "trust".
 
 	excluded = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -2178,9 +2185,7 @@ shareExcluded()
 	    }
 	    CFArrayAppendValue(excluded, bsdName);
 	}
-    }
 
-    if (excluded != NULL) {
 	CFDictionarySetValue(S_state, kInterfaceNamerKey_ExcludedInterfaces, excluded);
 	CFRelease(excluded);
     } else {
@@ -2210,23 +2215,40 @@ trustRequired_queue()
 static void
 trustRequiredNotification_update(CFRunLoopRef rl, CFStringRef reason)
 {
-    Boolean		curTrusted	= FALSE;
-    CFBooleanRef	trusted;
+    Boolean			changed		= FALSE;
+    CFStringRef			error		= NULL;
+    CFIndex			n;
+    Boolean			trusted;
 
-    trusted = lockdown_copy_trustedHostAttached();
-    if (trusted != NULL) {
-	curTrusted = isA_CFBoolean(trusted) && CFBooleanGetValue(trusted);
-	CFRelease(trusted);
+    /*
+     * determine whether the device has "trusted" the host (or other device)
+     */
+    trusted = lockdown_is_host_trusted(MY_PLUGIN_ID, NULL, &error);
+    n = (S_trustRequired != NULL) ? CFArrayGetCount(S_trustRequired) : 0;
+    if ((S_trustedHostCount != n) || (S_trustedHostAttached != trusted)) {
+	changed = TRUE;
     }
 
-    SC_log(LOG_INFO, "%@, trusted = %s", reason, curTrusted ? "Yes" : "No");
+    SC_log(LOG_INFO, "%@, trusted = %s%s%@, %ld interface%s)%s",
+	   reason,
+	   trusted ? "Yes" : "No",
+	   (error != NULL) ? ", error = " : "",
+	   (error != NULL) ? error : CFSTR(""),
+	   n,
+	   (n == 1) ? "" : "s",
+	   changed ? " *" : "");
 
-    if (S_trustedHostAttached != curTrusted) {
-	S_trustedHostAttached = curTrusted;
+    if (changed) {
+	S_trustedHostAttached = trusted;
+	S_trustedHostCount = n;
 	CFRunLoopPerformBlock(rl, kCFRunLoopDefaultMode, ^{
 	    shareExcluded();
 	});
 	CFRunLoopWakeUp(rl);
+    }
+
+    if (error != NULL) {
+	CFRelease(error);
     }
 
     return;
@@ -2308,6 +2330,26 @@ watchTrustedStatus(CFStringRef notification, CFStringRef reason)
     return;
 }
 
+static Boolean
+isWatchedInterface(SCNetworkInterfaceRef interface)
+{
+    Boolean	found	= FALSE;
+    CFIndex	n;
+
+    n = (S_trustRequired != NULL) ? CFArrayGetCount(S_trustRequired) : 0;
+    for (CFIndex i = 0; i < n; i++) {
+	CFDataRef	watched		= CFArrayGetValueAtIndex(S_trustRequired, i);
+	WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+	if (CFEqual((watchedInfo->interface), interface)) {
+	    found = TRUE;
+	    break;
+	}
+    }
+
+    return found;
+}
+
 static void
 updateTrustRequiredInterfaces(CFArrayRef interfaces)
 {
@@ -2319,7 +2361,7 @@ updateTrustRequiredInterfaces(CFArrayRef interfaces)
 	SCNetworkInterfaceRef	interface;
 
 	interface = CFArrayGetValueAtIndex(interfaces, i);
-	if (_SCNetworkInterfaceIsTrustRequired(interface)) {
+	if (_SCNetworkInterfaceIsTrustRequired(interface) && !isWatchedInterface(interface)) {
 	    CFDataRef	watched;
 
 	    watched = watcherCreate(interface, trustRequiredInterfaceUpdated);
@@ -2341,13 +2383,21 @@ updateTrustRequiredInterfaces(CFArrayRef interfaces)
 	CFRunLoopRef		rl	= CFRunLoopGetCurrent();
 
 	dispatch_once(&once, ^{
-	    // watch for "Trusted host attached"
-	    watchTrustedStatus(kLockdownNotificationTrustedHostAttached,
-			       CFSTR("Trusted Host attached"));
+	    // watch for "Host attached"
+	    watchTrustedStatus(kLockdownNotificationHostAttached,
+			       CFSTR("Host attached"));
 
 	    // watch for "Host detached"
 	    watchTrustedStatus(kLockdownNotificationHostDetached,
 			       CFSTR("Host detached"));
+
+	    // watch for "Trusted host attached"
+	    watchTrustedStatus(kLockdownNotificationTrustedHostAttached,
+			       CFSTR("Trusted Host attached"));
+
+	    // watch for "Trusted PDP attached"
+	    watchTrustedStatus(kLockdownNotificationTrustedPTPAttached,
+			       CFSTR("Trusted PTP attached"));
 	});
 
 	CFRetain(rl);

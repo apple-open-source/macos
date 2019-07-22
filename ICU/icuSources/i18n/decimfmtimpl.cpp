@@ -587,6 +587,7 @@ DecimalFormatImpl::initVisibleDigitsWithExponent(
         return digits;
     }
     if (fUseScientific) {
+        digits.setFormatFullPrecision(fFormatFullPrecision); // Apple
         fEffPrecision.initVisibleDigitsWithExponent(
                 number, digits, status);
     } else {

@@ -115,6 +115,7 @@ static void PopIStack( TidyDocImpl* doc )
         TY_(FreeAttribute)( doc, av );
     }
     MemFree(istack->element);
+    istack->element = NULL; /* remove the freed element */
 }
 
 static void PopIStackUntil( TidyDocImpl* doc, TidyTagId tid )

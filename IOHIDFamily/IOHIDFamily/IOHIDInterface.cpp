@@ -29,6 +29,8 @@
 #include "OSStackRetain.h"
 #include "IOHIDDebug.h"
 #include <IOKit/hidsystem/IOHIDShared.h>
+#include "IOHIDFamilyPrivate.h"
+#include "IOHIDPrivateKeys.h"
 
 //===========================================================================
 // IOHIDInterface class
@@ -216,8 +218,15 @@ bool IOHIDInterface::matchPropertyTable(
         
     // We should retain a reference to our provider while calling matchPropertyTable.
     // This is necessary in a situation where a user space process could be searching
-    // the registry during termination.    
-    ret = provider->matchPropertyTable(table, score);
+    // the registry during termination.
+    
+    bool isPartofMultiInterfaceDevice = (provider->getProperty(kIOHIDMultipleInterfaceEnabledKey) == kOSBooleanTrue);
+    
+    if (isPartofMultiInterfaceDevice) {
+        ret = MatchPropertyTable(this, table, score);
+    } else {
+        ret = provider->matchPropertyTable(table, score);
+    }
     
     provider->release();
     

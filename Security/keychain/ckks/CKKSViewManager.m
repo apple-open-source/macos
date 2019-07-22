@@ -199,7 +199,7 @@
         }
 
         NSMutableDictionary* values = [NSMutableDictionary dictionary];
-        BOOL inCircle = (strongSelf.accountTracker.currentCircleStatus == kSOSCCInCircle);
+        BOOL inCircle = (strongSelf.accountTracker.currentCircleStatus.status == kSOSCCInCircle);
         if (inCircle) {
             [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastInCircle];
         }
@@ -224,7 +224,7 @@
             if(!strongSelf) {
                 return nil;
             }
-            BOOL inCircle = strongSelf.accountTracker && strongSelf.accountTracker.currentCircleStatus == kSOSCCInCircle;
+            BOOL inCircle = strongSelf.accountTracker && strongSelf.accountTracker.currentCircleStatus.status == kSOSCCInCircle;
             NSMutableDictionary* values = [NSMutableDictionary dictionary];
             CKKSKeychainView* view = [strongSelf findOrCreateView:viewName];
             NSDate* dateOfLastSyncClassA = [[CKKSAnalytics logger] dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassA inView:view];

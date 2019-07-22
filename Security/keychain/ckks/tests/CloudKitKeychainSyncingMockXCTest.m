@@ -323,6 +323,8 @@
     CKKSDeviceStateEntry* dse = [[CKKSDeviceStateEntry alloc] initForDevice:self.remoteSOSOnlyPeer.peerID
                                                                   osVersion:@"faux-version"
                                                              lastUnlockTime:nil
+                                                              octagonPeerID:nil
+                                                              octagonStatus:nil
                                                                circlePeerID:self.remoteSOSOnlyPeer.peerID
                                                                circleStatus:kSOSCCInCircle
                                                                    keyState:SecCKKSZoneKeyStateReady
@@ -337,6 +339,28 @@
 - (void)putFakeDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID {
     [self putFakeDeviceStatusInCloudKit:zoneID zonekeys:self.keys[zoneID]];
 }
+
+- (void)putFakeOctagonOnlyDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID zonekeys:(ZoneKeys*)zonekeys {
+    CKKSDeviceStateEntry* dse = [[CKKSDeviceStateEntry alloc] initForDevice:self.remoteSOSOnlyPeer.peerID
+                                                                  osVersion:@"faux-version"
+                                                             lastUnlockTime:nil
+                                                              octagonPeerID:@"octagon-fake-peer-id"
+                                                              octagonStatus:[[OTCliqueStatusWrapper alloc] initWithStatus:CliqueStatusIn]
+                                                               circlePeerID:nil
+                                                               circleStatus:kSOSCCError
+                                                                   keyState:SecCKKSZoneKeyStateReady
+                                                             currentTLKUUID:zonekeys.tlk.uuid
+                                                          currentClassAUUID:zonekeys.classA.uuid
+                                                          currentClassCUUID:zonekeys.classC.uuid
+                                                                     zoneID:zoneID
+                                                            encodedCKRecord:nil];
+    [self.zones[zoneID] addToZone:dse zoneID:zoneID];
+}
+
+- (void)putFakeOctagonOnlyDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID {
+    [self putFakeOctagonOnlyDeviceStatusInCloudKit:zoneID zonekeys:self.keys[zoneID]];
+}
+
 
 - (void)putFakeKeyHierarchyInCloudKit: (CKRecordZoneID*)zoneID {
     ZoneKeys* zonekeys = [self createFakeKeyHierarchy: zoneID oldTLK:nil];

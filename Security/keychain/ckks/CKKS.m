@@ -98,6 +98,8 @@ NSString* const SecCKRecordCurrentItemType = @"currentitem";
 NSString* const SecCKRecordItemRefKey = @"item";
 
 NSString* const SecCKRecordDeviceStateType = @"devicestate";
+NSString* const SecCKRecordOctagonPeerID = @"octagonpeerid";
+NSString* const SecCKRecordOctagonStatus = @"octagonstatus";
 NSString* const SecCKRecordCirclePeerID = @"peerid";
 NSString* const SecCKRecordCircleStatus = @"circle";
 NSString* const SecCKRecordKeyState = @"keystate";

@@ -75,6 +75,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)putFakeDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID
                              zonekeys:(ZoneKeys*)zonekeys;
 
+- (void)putFakeOctagonOnlyDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID zonekeys:(ZoneKeys*)zonekeys;
+- (void)putFakeOctagonOnlyDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID;
+
 - (void)SOSPiggyBackAddToKeychain:(NSDictionary*)piggydata;
 - (NSMutableDictionary*)SOSPiggyBackCopyFromKeychain;
 - (NSMutableArray<NSData*>*)SOSPiggyICloudIdentities;

@@ -623,15 +623,14 @@ static inline bool shouldClearWindowName(const Frame& frame, const Document& new
     return !newDocument.securityOrigin().isSameOriginAs(frame.document()->securityOrigin());
 }
 
-void FrameLoader::clear(Document* newDocument, bool clearWindowProperties, bool clearScriptObjects, bool clearFrameView)
+void FrameLoader::clear(Document* newDocument, bool clearWindowProperties, bool clearScriptObjects, bool clearFrameView, WTF::Function<void()>&& handleDOMWindowCreation)
 {
     m_frame.editor().clear();
 
-    if (!m_needsClear)
-        return;
+    bool neededClear = m_needsClear;
     m_needsClear = false;
-    
-    if (m_frame.document()->pageCacheState() != Document::InPageCache) {
+
+    if (neededClear && m_frame.document()->pageCacheState() != Document::InPageCache) {
         m_frame.document()->cancelParsing();
         m_frame.document()->stopActiveDOMObjects();
         bool hadLivingRenderTree = m_frame.document()->hasLivingRenderTree();
@@ -640,6 +639,12 @@ void FrameLoader::clear(Document* newDocument, bool clearWindowProperties, bool 
             m_frame.document()->adjustFocusedNodeOnNodeRemoval(*m_frame.document());
     }
 
+    if (handleDOMWindowCreation)
+        handleDOMWindowCreation();
+
+    if (!neededClear)
+        return;
+    
     // Do this after detaching the document so that the unload event works.
     if (clearWindowProperties) {
         InspectorInstrumentation::frameWindowDiscarded(m_frame, m_frame.document()->domWindow());
@@ -3665,6 +3670,8 @@ void FrameLoader::loadSameDocumentItem(HistoryItem& item)
 void FrameLoader::loadDifferentDocumentItem(HistoryItem& item, FrameLoadType loadType, FormSubmissionCacheLoadPolicy cacheLoadPolicy, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad)
 {
     RELEASE_LOG_IF_ALLOWED("loadDifferentDocumentItem: frame load started (frame = %p, main = %d)", &m_frame, m_frame.isMainFrame());
+
+    Ref<Frame> protectedFrame(m_frame);
 
     // History items should not be reported to the parent.
     m_shouldReportResourceTimingToParentFrame = false;

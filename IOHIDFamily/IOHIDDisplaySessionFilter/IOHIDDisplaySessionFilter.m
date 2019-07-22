@@ -8,8 +8,8 @@
 
 #import "IOHIDDisplaySessionFilter.h"
 #import <os/log.h>
-#import <HIDDisplay/HIDDisplay.h>
-#import <HIDDisplay/HIDDisplayDevicePrivate.h>
+#import <HIDDisplay/HIDDisplayPresetInterfacePrivate.h>
+#import <HIDDisplay/HIDDisplayPresetInterface.h>
 #import <AssertMacros.h>
 #import <IOKit/hid/AppleHIDUsageTables.h>
 #import <IOKit/hid/IOHIDKeys.h>
@@ -76,7 +76,10 @@ static void __deviceRemovalCallback(void * _Nullable context, IOReturn  result, 
     _manager = IOHIDManagerCreate (kCFAllocatorDefault, kIOHIDOptionsTypeNone);
     require(_manager, exit);
     
-    _matching = @{@kIOHIDPrimaryUsagePageKey : @(kHIDPage_AppleVendor), @kIOHIDPrimaryUsageKey : @(kHIDUsage_AppleVendor_Display)};
+    _matching = @{@kIOHIDDeviceUsagePairsKey : @[@{
+                                                     @kIOHIDDeviceUsagePageKey : @(kHIDPage_AppleVendor),
+                                                     @kIOHIDDeviceUsageKey: @(kHIDUsage_AppleVendor_Display)
+                                                     }]};
     
     _debugInfo = [[NSMutableArray alloc] init];
     
@@ -123,15 +126,15 @@ exit:
 {
     NSNumber *uniqueID = nil;
     
-    HIDDisplayDevice *displayDevice = [[HIDDisplayDevice alloc] initWithMatching:_matching];
+    HIDDisplayPresetInterface *displayInterface = [[HIDDisplayPresetInterface alloc] initWithMatching:_matching];
     
     uniqueID = (__bridge NSNumber*)IOHIDDeviceGetProperty( device, CFSTR(kIOHIDUniqueIDKey) );
     
     // shouldn't expect failure here, but just for case, deviceMatchCallback is called and the device disappear and is not detected by framework
-    require_action(displayDevice, exit, os_log_error(HIDDisplaySessionFilterLog(), "No valid HID device for matching %{public}@",_matching));
+    require_action(displayInterface, exit, os_log_error(HIDDisplaySessionFilterLog(), "No valid HID device for matching %{public}@",_matching));
     
     
-    [self setPresetIndexForDevice:displayDevice uniqueID:uniqueID];
+    [self setPresetIndexForDevice:displayInterface uniqueID:uniqueID];
     
 exit:
     return;
@@ -146,24 +149,24 @@ exit:
     }
 }
 
--(BOOL) setPresetIndexForDevice:(HIDDisplayDevice*) device uniqueID:(NSNumber*) uniqueID
+-(BOOL) setPresetIndexForDevice:(HIDDisplayPresetInterface*) displayInterface uniqueID:(NSNumber*) uniqueID
 {
     NSError *err = nil;
     NSInteger factoryDefaultPresetIndex = -1;
     NSInteger activePresetIndex = -1;
     BOOL ret = NO;
 
-    factoryDefaultPresetIndex = [device getFactoryDefaultPresetIndex:&err];
+    factoryDefaultPresetIndex = [displayInterface getFactoryDefaultPresetIndex:&err];
     require_action(factoryDefaultPresetIndex != -1, exit, os_log_error(HIDDisplaySessionFilterLog(), "Failed to get factory default preset index with %@",err));
     
-    activePresetIndex = [device getActivePresetIndex:&err];
+    activePresetIndex = [displayInterface getActivePresetIndex:&err];
     require_action(activePresetIndex != -1, exit, os_log_error(HIDDisplaySessionFilterLog(), "Failed to get active preset index with %@",err));
     
     if (factoryDefaultPresetIndex != activePresetIndex) {
         
         os_log(HIDDisplaySessionFilterLog(),"Setting active preset index (%ld) to factory default preset index (%ld)", activePresetIndex, factoryDefaultPresetIndex);
         
-        require_action([device setActivePresetIndex:factoryDefaultPresetIndex error:&err], exit, os_log_error(HIDDisplaySessionFilterLog(), "Failed to set active preset to factory default preset with error %@",err));
+        require_action([displayInterface setActivePresetIndex:factoryDefaultPresetIndex error:&err], exit, os_log_error(HIDDisplaySessionFilterLog(), "Failed to set active preset to factory default preset with error %@",err));
     }
     
     ret = YES;
@@ -185,14 +188,22 @@ exit:
     
     if (!_runLoop) return;
     
+     __weak HIDDisplaySessionFilter *weakSelf = self;
+    
     CFRunLoopPerformBlock(_runLoop, kCFRunLoopDefaultMode, ^{
         
-        if (_manager) {
-            
-            IOHIDManagerUnscheduleFromRunLoop(_manager, _runLoop, kCFRunLoopDefaultMode);
-            IOHIDManagerClose(_manager, kIOHIDOptionsTypeNone);
+        __strong HIDDisplaySessionFilter *strongSelf = weakSelf;
+        
+        if (!strongSelf) {
+            return;
         }
-        CFRunLoopStop(_runLoop);
+        
+        if (strongSelf->_manager) {
+            
+            IOHIDManagerUnscheduleFromRunLoop(strongSelf->_manager, strongSelf->_runLoop, kCFRunLoopDefaultMode);
+            IOHIDManagerClose(strongSelf->_manager, kIOHIDOptionsTypeNone);
+        }
+        CFRunLoopStop(strongSelf->_runLoop);
         
     });
 }

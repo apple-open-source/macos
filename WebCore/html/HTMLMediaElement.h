@@ -188,6 +188,8 @@ public:
     MediaPlayerEnums::VideoGravity videoFullscreenGravity() const { return m_videoFullscreenGravity; }
 #endif
 
+    using CanMakeWeakPtr<HTMLMediaElement>::weakPtrFactory;
+
     void scheduleCheckPlaybackTargetCompatability();
     void checkPlaybackTargetCompatablity();
     void scheduleResolvePendingPlayPromises();

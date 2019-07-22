@@ -188,7 +188,7 @@ errno_t ntfs_lookup_inode_by_name(ntfs_inode *dir_ni, const ntfschar *uname,
 		/* Bounds checks. */
 		if ((u8*)ie < (u8*)&ir->index || (u8*)ie +
 				sizeof(INDEX_ENTRY_HEADER) > index_end ||
-				(u8*)ie + le16_to_cpu(ie->key_length) >
+				(u8*)ie + le16_to_cpu(ie->length) >
 				index_end)
 			goto dir_err;
 		/*
@@ -446,7 +446,7 @@ fast_descend_into_child_node:
 		/* Bounds check. */
 		if ((u8*)ie < (u8*)&ia->index || (u8*)ie +
 				sizeof(INDEX_ENTRY_HEADER) > index_end ||
-				(u8*)ie + le16_to_cpu(ie->key_length) >
+				(u8*)ie + le16_to_cpu(ie->length) >
 				index_end) {
 			ntfs_error(mp, "Index entry out of bounds in "
 					"directory inode 0x%llx.",
@@ -1595,7 +1595,7 @@ errno_t ntfs_dir_is_empty(ntfs_inode *dir_ni)
 	/* Bounds checks. */
 	if ((u8*)ie < (u8*)&ir->index ||
 			(u8*)ie + sizeof(INDEX_ENTRY_HEADER) > index_end ||
-			(u8*)ie + le16_to_cpu(ie->key_length) > index_end)
+			(u8*)ie + le16_to_cpu(ie->length) > index_end)
 		goto dir_err;
 	/*
 	 * If this is not the end node, it is a filename and thus the directory
@@ -1758,7 +1758,7 @@ find_next_index_buffer:
 	/* Bounds checks. */
 	if ((u8*)ie < (u8*)&ia->index ||
 			(u8*)ie + sizeof(INDEX_ENTRY_HEADER) > index_end ||
-			(u8*)ie + le16_to_cpu(ie->key_length) > index_end)
+			(u8*)ie + le16_to_cpu(ie->length) > index_end)
 		goto dir_err;
 	/*
 	 * If this is the end node, it is not a filename so we continue to the

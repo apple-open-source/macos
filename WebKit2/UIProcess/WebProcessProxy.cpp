@@ -456,6 +456,31 @@ Ref<WebPageProxy> WebProcessProxy::createWebPage(PageClient& pageClient, Ref<API
     return webPage;
 }
 
+void WebProcessProxy::sendPageDataStore(WebPageProxy& webPage)
+{
+    auto sessionID = webPage.sessionID();
+    if (sessionID.isEphemeral())
+        send(Messages::WebProcess::AddWebsiteDataStore(WebsiteDataStoreParameters::privateSessionParameters(sessionID)), 0);
+    else if (sessionID != PAL::SessionID::defaultSessionID())
+        send(Messages::WebProcess::AddWebsiteDataStore(webPage.websiteDataStore().parameters()), 0);
+}
+
+void WebProcessProxy::addProvisionalPageProxy(ProvisionalPageProxy& provisionalPage)
+{
+    ASSERT(!m_provisionalPages.contains(&provisionalPage));
+    m_provisionalPages.add(&provisionalPage);
+
+    sendPageDataStore(provisionalPage.page());
+}
+
+void WebProcessProxy::removeProvisionalPageProxy(ProvisionalPageProxy& provisionalPage)
+{
+    ASSERT(m_provisionalPages.contains(&provisionalPage));
+    m_provisionalPages.remove(&provisionalPage);
+
+    destroyDataStoreIfUnused(provisionalPage.page().sessionID());
+}
+
 void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, uint64_t pageID, BeginsUsingDataStore beginsUsingDataStore)
 {
     ASSERT(!m_pageMap.contains(pageID));
@@ -465,11 +490,7 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, uint64_t pageID,
     if (beginsUsingDataStore == BeginsUsingDataStore::Yes)
         m_processPool->pageBeginUsingWebsiteDataStore(webPage);
 
-    auto sessionID = webPage.sessionID();
-    if (sessionID.isEphemeral())
-        send(Messages::WebProcess::AddWebsiteDataStore(WebsiteDataStoreParameters::privateSessionParameters(sessionID)), 0);
-    else if (sessionID != PAL::SessionID::defaultSessionID())
-        send(Messages::WebProcess::AddWebsiteDataStore(webPage.websiteDataStore().parameters()), 0);
+    sendPageDataStore(webPage);
 
     m_pageMap.set(pageID, &webPage);
     globalPageMap().set(pageID, &webPage);
@@ -498,19 +519,27 @@ void WebProcessProxy::removeWebPage(WebPageProxy& webPage, uint64_t pageID, Ends
     if (endsUsingDataStore == EndsUsingDataStore::Yes)
         m_processPool->pageEndUsingWebsiteDataStore(webPage);
 
-    auto sessionID = webPage.sessionID();
-    if (sessionID != PAL::SessionID::defaultSessionID() && !hasPageUsingSession(sessionID))
-        send(Messages::WebProcess::DestroySession(sessionID), 0);
+    destroyDataStoreIfUnused(webPage.sessionID());
 
     updateBackgroundResponsivenessTimer();
 
     maybeShutDown();
 }
 
+void WebProcessProxy::destroyDataStoreIfUnused(PAL::SessionID sessionID)
+{
+    if (sessionID != PAL::SessionID::defaultSessionID() && !hasPageUsingSession(sessionID))
+        send(Messages::WebProcess::DestroySession(sessionID), 0);
+}
+
 bool WebProcessProxy::hasPageUsingSession(PAL::SessionID sessionID) const
 {
     for (auto& page : m_pageMap.values()) {
         if (page->sessionID() == sessionID)
+            return true;
+    }
+    for (auto* provisionalPage : m_provisionalPages) {
+        if (provisionalPage->page().sessionID() == sessionID)
             return true;
     }
     return false;
@@ -804,6 +833,8 @@ void WebProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC:
 
 void WebProcessProxy::didBecomeUnresponsive()
 {
+    auto protectedThis = makeRef(*this);
+
     m_isResponsive = NoOrMaybe::No;
 
     auto isResponsiveCallbacks = WTFMove(m_isResponsiveCallbacks);
@@ -974,7 +1005,7 @@ void WebProcessProxy::maybeShutDown()
 
 bool WebProcessProxy::canTerminateChildProcess()
 {
-    if (!m_pageMap.isEmpty() || m_processPool->hasSuspendedPageFor(*this) || !m_provisionalPages.isEmpty() || m_isInProcessCache)
+    if (!m_pageMap.isEmpty() || m_suspendedPageCount || !m_provisionalPages.isEmpty() || m_isInProcessCache)
         return false;
 
     if (!m_processPool->shouldTerminate(this))
@@ -1379,6 +1410,8 @@ void WebProcessProxy::didExceedInactiveMemoryLimit()
 
 void WebProcessProxy::didExceedCPULimit()
 {
+    auto protectedThis = makeRef(*this);
+
     for (auto& page : pages()) {
         if (page->isPlayingAudio()) {
             RELEASE_LOG(PerformanceLogging, "%p - WebProcessProxy::didExceedCPULimit() WebProcess with pid %d has exceeded the background CPU limit but we are not terminating it because there is audio playing", this, processIdentifier());

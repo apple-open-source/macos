@@ -32,11 +32,11 @@
 #include <sys/time.h>
 
 #include <unistd.h>
-#include <syslog.h>
 #include <stdlib.h>
 #include <string.h>
 #include <search.h>
 #include "timer.h"
+#include "rtadvd_logging.h"
 
 static struct rtadvd_timer timer_head;
 
@@ -63,16 +63,14 @@ rtadvd_add_timer(struct rtadvd_timer *(*timeout)(void *),
 	struct rtadvd_timer *newtimer;
 
 	if ((newtimer = malloc(sizeof(*newtimer))) == NULL) {
-		syslog(LOG_ERR,
-		       "<%s> can't allocate memory", __func__);
+		errorlog("<%s> can't allocate memory", __func__);
 		exit(1);
 	}
 
 	memset(newtimer, 0, sizeof(*newtimer));
 
 	if (timeout == NULL) {
-		syslog(LOG_ERR,
-		       "<%s> timeout function unspecified", __func__);
+		errorlog("<%s> timeout function unspecified", __func__);
 		exit(1);
 	}
 	newtimer->expire = timeout;
@@ -161,8 +159,7 @@ rtadvd_timer_rest(struct rtadvd_timer *timer)
 
 	gettimeofday(&now, NULL);
 	if (TIMEVAL_LEQ(timer->tm, now)) {
-		syslog(LOG_DEBUG,
-		       "<%s> a timer must be expired, but not yet",
+		debuglog("<%s> a timer must be expired, but not yet",
 		       __func__);
 		returnval.tv_sec = returnval.tv_usec = 0;
 	}

@@ -31,7 +31,6 @@
 #include "DFGThunks.h"
 #include "FunctionCodeBlock.h"
 #include "JSCInlines.h"
-#include "MacroAssembler.h"
 #include "Opcode.h"
 #include "Repatch.h"
 #include <wtf/ListDump.h>
@@ -61,9 +60,8 @@ CallLinkInfo::CallLinkInfo()
     , m_clearedByGC(false)
     , m_clearedByVirtual(false)
     , m_allowStubs(true)
-    , m_isLinked(false)
+    , m_clearedByJettison(false)
     , m_callType(None)
-    , m_calleeGPR(255)
     , m_maxNumArguments(0)
     , m_slowPathCount(0)
 {
@@ -125,17 +123,13 @@ CodeLocationLabel<JSInternalPtrTag> CallLinkInfo::slowPathStart()
 void CallLinkInfo::setCallee(VM& vm, JSCell* owner, JSObject* callee)
 {
     RELEASE_ASSERT(!isDirect());
-    MacroAssembler::repatchPointer(hotPathBegin(), callee);
     m_calleeOrCodeBlock.set(vm, owner, callee);
-    m_isLinked = true;
 }
 
 void CallLinkInfo::clearCallee()
 {
     RELEASE_ASSERT(!isDirect());
-    MacroAssembler::repatchPointer(hotPathBegin(), nullptr);
     m_calleeOrCodeBlock.clear();
-    m_isLinked = false;
 }
 
 JSObject* CallLinkInfo::callee()
@@ -148,14 +142,12 @@ void CallLinkInfo::setCodeBlock(VM& vm, JSCell* owner, FunctionCodeBlock* codeBl
 {
     RELEASE_ASSERT(isDirect());
     m_calleeOrCodeBlock.setMayBeNull(vm, owner, codeBlock);
-    m_isLinked = true;
 }
 
 void CallLinkInfo::clearCodeBlock()
 {
     RELEASE_ASSERT(isDirect());
     m_calleeOrCodeBlock.clear();
-    m_isLinked = false;
 }
 
 FunctionCodeBlock* CallLinkInfo::codeBlock()

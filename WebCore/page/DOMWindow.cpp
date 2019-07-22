@@ -1239,14 +1239,17 @@ int DOMWindow::outerWidth() const
 
 int DOMWindow::innerHeight() const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!frame())
         return 0;
-
+    
     // Force enough layout in the parent document to ensure that the FrameView has been resized.
     if (auto* frameElement = this->frameElement())
         frameElement->document().updateLayoutIfDimensionsOutOfDate(*frameElement, HeightDimensionsCheck);
 
+    auto* frame = this->frame();
+    if (!frame)
+        return 0;
+    
     FrameView* view = frame->view();
     if (!view)
         return 0;
@@ -1256,13 +1259,16 @@ int DOMWindow::innerHeight() const
 
 int DOMWindow::innerWidth() const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!frame())
         return 0;
 
     // Force enough layout in the parent document to ensure that the FrameView has been resized.
     if (auto* frameElement = this->frameElement())
         frameElement->document().updateLayoutIfDimensionsOutOfDate(*frameElement, WidthDimensionsCheck);
+
+    auto* frame = this->frame();
+    if (!frame)
+        return 0;
 
     FrameView* view = frame->view();
     if (!view)
@@ -1313,7 +1319,16 @@ int DOMWindow::scrollX() const
 
     frame->document()->updateLayoutIgnorePendingStylesheets();
 
-    return view->mapFromLayoutToCSSUnits(view->contentsScrollPosition().x());
+    // Layout may have affected the current frame:
+    auto* frameAfterLayout = this->frame();
+    if (!frameAfterLayout)
+        return 0;
+    
+    FrameView* viewAfterLayout = frameAfterLayout->view();
+    if (!viewAfterLayout)
+        return 0;
+
+    return viewAfterLayout->mapFromLayoutToCSSUnits(viewAfterLayout->contentsScrollPosition().x());
 }
 
 int DOMWindow::scrollY() const
@@ -1332,7 +1347,16 @@ int DOMWindow::scrollY() const
 
     frame->document()->updateLayoutIgnorePendingStylesheets();
 
-    return view->mapFromLayoutToCSSUnits(view->contentsScrollPosition().y());
+    // Layout may have affected the current frame:
+    auto* frameAfterLayout = this->frame();
+    if (!frameAfterLayout)
+        return 0;
+    
+    FrameView* viewAfterLayout = frameAfterLayout->view();
+    if (!viewAfterLayout)
+        return 0;
+    
+    return viewAfterLayout->mapFromLayoutToCSSUnits(viewAfterLayout->contentsScrollPosition().y());
 }
 
 bool DOMWindow::closed() const
@@ -2142,7 +2166,7 @@ void DOMWindow::finishedLoading()
     }
 }
 
-void DOMWindow::setLocation(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& urlString, SetLocationLocking locking)
+void DOMWindow::setLocation(DOMWindow& activeWindow, const URL& completedURL, SetLocationLocking locking)
 {
     if (!isCurrentlyDisplayedInFrame())
         return;
@@ -2152,15 +2176,7 @@ void DOMWindow::setLocation(DOMWindow& activeWindow, DOMWindow& firstWindow, con
         return;
 
     auto* frame = this->frame();
-    if (!activeDocument->canNavigate(frame))
-        return;
-
-    Frame* firstFrame = firstWindow.frame();
-    if (!firstFrame)
-        return;
-
-    URL completedURL = firstFrame->document()->completeURL(urlString);
-    if (completedURL.isNull())
+    if (!activeDocument->canNavigate(frame, completedURL))
         return;
 
     if (isInsecureScriptAccess(activeWindow, completedURL))

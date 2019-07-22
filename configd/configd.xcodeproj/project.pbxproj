@@ -8457,7 +8457,7 @@
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = (
 					"$(inherited)",
-					"-DSC_LOG_HANDLE=\"__log_IPMonitor()\"",
+					"-DSC_LOG_HANDLE=\"__log_InterfaceNamer()\"",
 				);
 				PRODUCT_NAME = InterfaceNamer;
 				SDKROOT = iphoneos.internal;
@@ -8474,7 +8474,7 @@
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = (
 					"$(inherited)",
-					"-DSC_LOG_HANDLE=\"__log_IPMonitor()\"",
+					"-DSC_LOG_HANDLE=\"__log_InterfaceNamer()\"",
 				);
 				PRODUCT_NAME = InterfaceNamer;
 				SDKROOT = iphoneos.internal;

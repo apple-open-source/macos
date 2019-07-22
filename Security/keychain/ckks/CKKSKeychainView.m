@@ -1243,7 +1243,12 @@
         return true;
     }
     for(CKKSDeviceStateEntry* device in allDeviceStates) {
-        if([trustedPeerIDs containsObject:device.circlePeerID]) {
+        if(device.octagonPeerID != nil) {
+            ckksnotice("ckkskey", self, "An Octagon-capable device has been in this account; not resetting: (%@)", device);
+            return true;
+        }
+
+        if([trustedPeerIDs containsObject:device.circlePeerID] || [trustedPeerIDs containsObject:device.octagonPeerID]) {
             // Is this a recent DSE? If it's older than the deadline, skip it
             if([device.storedCKRecord.modificationDate compare:trustedDeadline] == NSOrderedAscending) {
                 ckksnotice("ckkskey", self, "Trusted device state (%@) is too old; ignoring", device);
@@ -2236,6 +2241,8 @@
     CKKSDeviceStateEntry* newcdse = [[CKKSDeviceStateEntry alloc] initForDevice:accountTracker.ckdeviceID
                                                                       osVersion:SecCKKSHostOSVersion()
                                                                  lastUnlockTime:lastUnlockDay
+                                                                  octagonPeerID:nil
+                                                                  octagonStatus:nil
                                                                    circlePeerID:accountTracker.accountCirclePeerID
                                                                    circleStatus:accountTracker.currentCircleStatus.status
                                                                        keyState:self.keyHierarchyState

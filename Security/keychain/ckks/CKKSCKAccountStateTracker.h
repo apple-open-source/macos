@@ -57,6 +57,26 @@ typedef NS_ENUM(NSInteger, CKKSAccountStatus) {
 - (instancetype)init:(SOSCCStatus)status error:error;
 @end
 
+/* CliqueStatus */
+
+typedef NS_ENUM(NSInteger, CliqueStatus) {
+    CliqueStatusIn         = 0, /*There is a clique and I am in it*/
+    CliqueStatusNotIn      = 1, /*There is a clique and I am not in it - you should get a voucher to join or tell another peer to trust us*/
+    CliqueStatusPending    = 2, /*For compatibility, keeping the pending state */
+    CliqueStatusAbsent     = 3, /*There is no clique - you can establish one */
+    CliqueStatusNoCloudKitAccount = 4, /* no cloudkit account present */
+    CliqueStatusError      = -1 /*unable to determine circle status, inspect CFError to find out why */
+};
+NSString* OTCliqueStatusToString(CliqueStatus status);
+CliqueStatus OTCliqueStatusFromString(NSString* str);
+
+@interface OTCliqueStatusWrapper : NSObject
+@property (readonly) CliqueStatus status;
+- (instancetype)initWithStatus:(CliqueStatus)status;
+@end
+
+/* End of clique status */
+
 @protocol CKKSAccountStateListener <NSObject>
 - (void)ckAccountStatusChange:(CKKSAccountStatus)oldStatus to:(CKKSAccountStatus)currentStatus;
 @end

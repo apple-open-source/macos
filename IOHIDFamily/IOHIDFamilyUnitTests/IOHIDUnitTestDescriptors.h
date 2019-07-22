@@ -3436,5 +3436,216 @@ typedef struct __attribute__((packed))
     
 } AppleVendorDisplayFeatureReport03;
 
+
+#define HIDDisplayCompositeDescriptor \
+/* Empty Collection */\
+0x06, 0x00, 0xFF,            /* (GLOBAL) USAGE_PAGE         0xFF00 Vendor-defined (AppleVendor) */\
+0x09, 0x1A,                  /* (LOCAL)  USAGE              0xFF00001A Multiple Interfaces (CA=Application Collection)   */\
+0xA1, 0x01,                  /* (MAIN)   COLLECTION         0x01 Application (Usage=0xFF00001A: Page=Vendor-defined, Usage=, Type=) */\
+0xC0,                        /* (MAIN)   END_COLLECTION     Application */\
+/* DM */\
+0x06, 0x00, 0xFF,            /* (GLOBAL) USAGE_PAGE         0xFF00 Vendor-defined  */\
+0x09, 0x0B,                  /* (LOCAL)  USAGE              0xFF00000B   */\
+0xA1, 0x01,                  /* (MAIN)   COLLECTION         0x01 Application (Usage=0xFF00000B: Page=Vendor-defined, Usage=, Type=) */\
+0x09, 0x0B,                  /*   (LOCAL)  USAGE              0xFF00000B     */\
+0x26, 0xFF, 0x00,            /*   (GLOBAL) LOGICAL_MAXIMUM    0x00FF (255)     */\
+0x75, 0x08,                  /*   (GLOBAL) REPORT_SIZE        0x08 (8) Number of bits per field     */\
+0x95, 0x04,                  /*   (GLOBAL) REPORT_COUNT       0x04 (4) Number of fields     */\
+0x85, 0x01,                  /*   (GLOBAL) REPORT_ID          0x01 (1)    */\
+0x81, 0x22,                  /*   (MAIN)   INPUT              0x00000022 (4 fields x 8 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 0=NonVolatile 0=Bitmap    */\
+0xC0,                        /* (MAIN)   END_COLLECTION     Application */\
+/* EA */\
+0x06, 0x00, 0xFF,            /* (GLOBAL) USAGE_PAGE         0xFF00 Vendor-defined  */\
+0x09, 0x38,                  /* (LOCAL)  USAGE              0xFF000038   */\
+0xA1, 0x01,                  /* (MAIN)   COLLECTION         0x01 Application (Usage=0xFF000038: Page=Vendor-defined, Usage=, Type=) */\
+0x09, 0x25,                  /* (LOCAL)  USAGE              Message Payload   */\
+0xA1, 0x03,                  /* (MAIN)   COLLECTION         0x03 Report  */\
+0x06, 0x22, 0xFF,            /*   (GLOBAL) USAGE_PAGE         0xFF22 Vendor-defined    */\
+0x85, 0x02,                  /*   (GLOBAL) REPORT_ID          0x02 (2)    */\
+0x76, 0x00, 0x80,            /*   (GLOBAL) REPORT_SIZE        0x8000  Number of bits per field     */\
+0x95, 0x01,                  /*   (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields     */\
+0x0A, 0x01, 0x00,            /*   (LOCAL)  USAGE              0xFF220001     */\
+0x81, 0x02,                  /*   (MAIN)   INPUT              0x00000002 (1 field x 32768 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap    */\
+0xC0,                        /* (MAIN)   END_COLLECTION     Report */\
+0x0A, 0x02, 0x00,            /*   (LOCAL)  USAGE              0xFF220002     */\
+0x91, 0x02,                  /*   (MAIN)   OUTPUT             0x00000002 (1 field x 32768 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap    */\
+0xC0,                        /* (MAIN)   END_COLLECTION     Application */\
+/* Presets */\
+0x06, 0x00, 0xFF,            /* (GLOBAL) USAGE_PAGE         0xFF00 Vendor-defined  */\
+0x0A, 0x02, 0x00,            /* (LOCAL)  USAGE              0xFF000002   */\
+0xA1, 0x01,                  /* (MAIN)   COLLECTION         0x01 Application (Usage=0xFF000002: Page=Vendor-defined, Usage=, Type=) */\
+0x06, 0x20, 0xFF,            /*   (GLOBAL) USAGE_PAGE         0xFF20     */\
+0x0A, 0x01, 0x00,            /*   (LOCAL)  USAGE              0xFF200001     */\
+0xA1, 0x02,                  /*   (MAIN)   COLLECTION         0x02 Logical (Usage=0xFF200001: Page=, Usage=, Type=)   */\
+0x85, 0x03,                  /*     (GLOBAL) REPORT_ID          0x03 (3)      */\
+0x0A, 0x02, 0x00,            /*     (LOCAL)  USAGE              0xFF200002       */\
+0x25, 0x32,                  /*     (GLOBAL) LOGICAL_MAXIMUM    0x32 (50)       */\
+0x75, 0x20,                  /*     (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field       */\
+0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 32 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x03, 0x00,            /*     (LOCAL)  USAGE              0xFF200003       */\
+0xB1, 0x02,                  /*     (MAIN)   FEATURE            0x00000002 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x85, 0x04,                  /*     (GLOBAL) REPORT_ID          0x04 (4)      */\
+0x0A, 0x04, 0x00,            /*     (LOCAL)  USAGE              0xFF200004       */\
+0xB1, 0x02,                  /*     (MAIN)   FEATURE            0x00000002 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x85, 0x05,                  /*     (GLOBAL) REPORT_ID          0x05 (5)      */\
+0x0A, 0x05, 0x00,            /*     (LOCAL)  USAGE              0xFF200005       */\
+0x25, 0x01,                  /*     (GLOBAL) LOGICAL_MAXIMUM    0x01 (1)       */\
+0x75, 0x01,                  /*     (GLOBAL) REPORT_SIZE        0x01 (1) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 1 bit) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x06, 0x00,            /*     (LOCAL)  USAGE              0xFF200006       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 1 bit) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x07, 0x00,            /*     (LOCAL)  USAGE              0xFF200007       */\
+0x24,                        /*     (GLOBAL) LOGICAL_MAXIMUM    (0)       */\
+0x75, 0x06,                  /*     (GLOBAL) REPORT_SIZE        0x06 (6) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 6 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x08, 0x00,            /*     (LOCAL)  USAGE              0xFF200008       */\
+0x76, 0x00, 0x08,            /*     (GLOBAL) REPORT_SIZE        0x0800 (2048) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 2048 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x09, 0x00,            /*     (LOCAL)  USAGE              0xFF200009       */\
+0x76, 0x00, 0x10,            /*     (GLOBAL) REPORT_SIZE        0x1000 (4096) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 4096 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x0A, 0x00,            /*     (LOCAL)  USAGE              0xFF20000A       */\
+0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 16 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x0B, 0x00,            /*     (LOCAL)  USAGE              0xFF20000B       */\
+0x76, 0x00, 0x02,            /*     (GLOBAL) REPORT_SIZE        0x0200 (512) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 512 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x0C, 0x00,            /*     (LOCAL)  USAGE              0xFF20000C       */\
+0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 16 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x0D, 0x00,            /*     (LOCAL)  USAGE              0xFF20000D       */\
+0x76, 0x00, 0x06,            /*     (GLOBAL) REPORT_SIZE        0x0600 (1536) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 1536 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0x0A, 0x0E, 0x00,            /*     (LOCAL)  USAGE              0xFF20000E       */\
+0x76, 0x80, 0x00,            /*     (GLOBAL) REPORT_SIZE        0x0080 (128) Number of bits per field       */\
+0xB1, 0x03,                  /*     (MAIN)   FEATURE            0x00000003 (1 field x 1024 bits) 1=Constant 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0xC0,                        /*   (MAIN)   END_COLLECTION     Logical   */\
+0xC0,                        /* (MAIN)   END_COLLECTION     Application */\
+/* Luminance */\
+0x06, 0x00, 0xFF,            /* (GLOBAL) USAGE_PAGE         0xFF00 Vendor-defined <-- Redundant: USAGE_PAGE is already 0xFF00 */\
+0x09, 0x37,                  /* (LOCAL)  USAGE              0xFF000037   */\
+0xA1, 0x01,                  /* (MAIN)   COLLECTION         0x01 Application (Usage=0xFF000037: Page=Vendor-defined, Usage=, Type=) */\
+0x85, 0x06,                  /*   (GLOBAL) REPORT_ID          0x06 (6)    */\
+0x06, 0x00, 0xFF,            /*   (GLOBAL) USAGE_PAGE         0xFF00 Vendor-defined <-- Redundant: USAGE_PAGE is already 0xFF00   */\
+0x09, 0x23,                  /*   (LOCAL)  USAGE              0xFF000023     */\
+0xA1, 0x00,                  /*   (MAIN)   COLLECTION         0x00 Physical (Usage=0xFF000023: Page=Vendor-defined, Usage=, Type=)   */\
+0x06, 0x15, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF15 Vendor-defined      */\
+0x09, 0x03,                  /*     (LOCAL)  USAGE              0xFF150003       */\
+0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields       */\
+0x75, 0x40,                  /*     (GLOBAL) REPORT_SIZE        0x40 (64) Number of bits per field       */\
+0x81, 0x02,                  /*     (MAIN)   INPUT              0x00000002 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+0xC0,                        /*   (MAIN)   END_COLLECTION     Physical   */\
+0x05, 0x20,                  /*   (GLOBAL) USAGE_PAGE         0x0020 Sensor Device Page    */\
+0x0A, 0x0E, 0x03,            /*   (LOCAL)  USAGE              0x0020030E Property: Report Interval (DV=Dynamic Value)    */\
+0x95, 0x01,                  /*   (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1    */\
+0x75, 0x20,                  /*   (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field <-- Redundant: REPORT_SIZE is already 32    */\
+0xB1, 0x02,                  /*   (MAIN)   FEATURE            0x00000002 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap    */\
+0xC0,                        /* (MAIN)   END_COLLECTION     Application */\
+/* IOReporting */\
+0x06, 0x00, 0xFF,            /* (GLOBAL) USAGE_PAGE         0xFF00 Vendor-defined  */\
+0x09, 0x3A,                  /* (LOCAL)  USAGE              0xFF00003A   */\
+0xA1, 0x01,                  /* (MAIN)   COLLECTION         0x01 Application (Usage=0xFF00003A: Page=Vendor-defined, Usage=, Type=) */\
+0x09, 0x25,                  /* (LOCAL)  USAGE              Message Payload   */\
+0xA1, 0x03,                  /* (MAIN)   COLLECTION         0x03 Report  */\
+0x06, 0x23, 0xFF,            /*   (GLOBAL) USAGE_PAGE         0xFF23 Vendor-defined    */\
+0x85, 0x07,                  /*   (GLOBAL) REPORT_ID          0x07 (7)    */\
+0x76, 0x80, 0x3E,            /*   (GLOBAL) REPORT_SIZE        0x3E80 (2000*8) Number of bits per field     */\
+0x95, 0x01,                  /*   (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields     */\
+0x0A, 0x01, 0x00,            /*   (LOCAL)  USAGE              0xFF230001     */\
+0x81, 0x02,                  /*   (MAIN)   INPUT              0x00000002 (1 field x 16000 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap    */\
+0xC0,                        /* (MAIN)   END_COLLECTION     Report */\
+0x75, 0x20,                  /*   (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field     */\
+0x0A, 0x02, 0x00,            /*   (LOCAL)  USAGE              0xFF230002     */\
+0x91, 0x02,                  /*   (MAIN)   OUTPUT             0x00000002 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap    */\
+0xC0,                        /* (MAIN)   END_COLLECTION     Application */\
+
+//--------------------------------------------------------------------------------
+
+// Vendor-defined IOReportingInputReport 07 (Device --> Host)
+
+//--------------------------------------------------------------------------------
+
+
+typedef struct __attribute__((packed))
+
+{
+    
+    uint8_t  reportId;                                 // Report ID = 0x07 (7)
+    
+    
+    
+    
+    // Field:   1
+    
+    // Width:   2000
+    
+    // Count:   1
+    
+    // Flags:   00000002: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    
+    // Globals: PAGE:FF22 LMIN:0 LMAX:0 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:2000 RID:07 RCNT:1
+    
+    // Locals:  USAG:FF220001 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    
+    // Usages:  FF220001
+    
+    // Coll:
+    
+    // Access:  Read/Write
+    
+    // Type:    Variable
+    
+    // Page 0xFF23: Vendor-defined
+    
+    uint8_t VEN_VendorDefined0001[2000];             // Usage 0xFF230001: , Value = 0 to 0
+    
+} IOReportingInputReport07;
+
+
+
+//--------------------------------------------------------------------------------
+
+// Vendor-defined IOReportingOutputReport 07 (Device <-- Host)
+
+//--------------------------------------------------------------------------------
+
+
+
+typedef struct __attribute__((packed))
+
+{
+    
+    uint8_t  reportId;                                 // Report ID = 0x07 (7)
+    
+    
+    
+    
+    // Field:   1
+    
+    // Width:   32
+    
+    // Count:   1
+    
+    // Flags:   00000002: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    
+    // Globals: PAGE:FF22 LMIN:0 LMAX:0 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:32 RID:07 RCNT:1
+    
+    // Locals:  USAG:FF220002 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    
+    // Usages:  FF220002
+    
+    // Coll:
+    
+    // Access:  Read/Write
+    
+    // Type:    Variable
+    
+    // Page 0xFF23: Vendor-defined
+    
+    uint32_t VEN_VendorDefined0002;                    // Usage 0xFF230002: , Value = 0 to 0
+    
+} IOReportingOutputReport07;
+
 #endif /* IOHIDUnitTestDescriptors_h */
 

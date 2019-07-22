@@ -365,21 +365,26 @@
 		7230D18E20865F6000DCA4FB /* IOHIDTestConnectionFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 7230D18D20865F6000DCA4FB /* IOHIDTestConnectionFilter.m */; };
 		7230D190208666C900DCA4FB /* TestIOHIDConnectionFilterPlugIn.m in Sources */ = {isa = PBXBuildFile; fileRef = 7230D18F208666C900DCA4FB /* TestIOHIDConnectionFilterPlugIn.m */; };
 		7230D1912086697F00DCA4FB /* TestHIDEvents.mm in Sources */ = {isa = PBXBuildFile; fileRef = D8B4EB661E5F698000729F9E /* TestHIDEvents.mm */; };
+		72425BDD224ADB0000CBEDE6 /* HIDDisplayPresetInterface.m in Sources */ = {isa = PBXBuildFile; fileRef = 72425BDC224ADB0000CBEDE6 /* HIDDisplayPresetInterface.m */; };
 		7243B48221FB90510023AF9E /* IOHIDDisplaySessionFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 7243B48121FB90510023AF9E /* IOHIDDisplaySessionFilter.m */; };
 		7243B48521FB9B560023AF9E /* IOHIDDisplaySessionFilterWrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = 7243B48421FB9B560023AF9E /* IOHIDDisplaySessionFilterWrapper.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		7243B48721FBB9D20023AF9E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7243B48621FBB9D20023AF9E /* IOKit.framework */; };
 		7243B48921FBB9D70023AF9E /* HIDDisplay.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7243B48821FBB9D70023AF9E /* HIDDisplay.framework */; };
-		7243B48A21FBBC120023AF9E /* HIDDisplayDevicePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 721034E421F103D600C98853 /* HIDDisplayDevicePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		7243B48A21FBBC120023AF9E /* HIDDisplayInterfacePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 721034E421F103D600C98853 /* HIDDisplayInterfacePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7243B48C21FBC53B0023AF9E /* TestHIDDisplaySessionFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 7243B48B21FBC53B0023AF9E /* TestHIDDisplaySessionFilter.m */; };
 		725962C021F109C000D0A03F /* HIDDisplayPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 721034E321F102EE00C98853 /* HIDDisplayPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		725BFF6922650625001DA8E3 /* HIDDisplayPresetCAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 725BFF6822650625001DA8E3 /* HIDDisplayPresetCAPI.m */; };
+		725BFF6B22650673001DA8E3 /* HIDDisplayIOReportingCAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 725BFF6A22650673001DA8E3 /* HIDDisplayIOReportingCAPI.m */; };
+		725BFF6C22650764001DA8E3 /* HIDDisplayPresetCAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 725BFF66226505E7001DA8E3 /* HIDDisplayPresetCAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		725BFF6D22650775001DA8E3 /* HIDDisplayIOReportingCAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 725BFF67226505FB001DA8E3 /* HIDDisplayIOReportingCAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		725BFF6F226507D9001DA8E3 /* HIDDisplayPrivate.m in Sources */ = {isa = PBXBuildFile; fileRef = 725BFF6E226507D9001DA8E3 /* HIDDisplayPrivate.m */; };
 		725E1BA821EFB07400B97205 /* HIDDisplay.h in Headers */ = {isa = PBXBuildFile; fileRef = 725E1BA621EFB07400B97205 /* HIDDisplay.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		725E1BAF21EFB48B00B97205 /* HIDDisplayCAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 725E1BAE21EFB48B00B97205 /* HIDDisplayCAPI.m */; };
-		725E1BB221EFB4AD00B97205 /* HIDDisplayDevice.m in Sources */ = {isa = PBXBuildFile; fileRef = 725E1BB121EFB4AD00B97205 /* HIDDisplayDevice.m */; };
-		725E1BB521EFB4D300B97205 /* HIDDisplayDevicePreset.m in Sources */ = {isa = PBXBuildFile; fileRef = 725E1BB421EFB4D300B97205 /* HIDDisplayDevicePreset.m */; };
+		725E1BB221EFB4AD00B97205 /* HIDDisplayInterface.m in Sources */ = {isa = PBXBuildFile; fileRef = 725E1BB121EFB4AD00B97205 /* HIDDisplayInterface.m */; };
+		725E1BB521EFB4D300B97205 /* HIDDisplayPresetData.m in Sources */ = {isa = PBXBuildFile; fileRef = 725E1BB421EFB4D300B97205 /* HIDDisplayPresetData.m */; };
 		725E1BB821EFB4F300B97205 /* HIDElement.m in Sources */ = {isa = PBXBuildFile; fileRef = 725E1BB721EFB4F300B97205 /* HIDElement.m */; };
 		725E1BB921EFB50F00B97205 /* HIDDisplayCAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 725E1BAD21EFB47700B97205 /* HIDDisplayCAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		725E1BBA21EFB50F00B97205 /* HIDDisplayDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 725E1BB021EFB49C00B97205 /* HIDDisplayDevice.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		725E1BBB21EFB50F00B97205 /* HIDDisplayDevicePreset.h in Headers */ = {isa = PBXBuildFile; fileRef = 725E1BB321EFB4C000B97205 /* HIDDisplayDevicePreset.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		725E1BBA21EFB50F00B97205 /* HIDDisplayInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 725E1BB021EFB49C00B97205 /* HIDDisplayInterface.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		725E1BBB21EFB50F00B97205 /* HIDDisplayPresetData.h in Headers */ = {isa = PBXBuildFile; fileRef = 725E1BB321EFB4C000B97205 /* HIDDisplayPresetData.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		725E1BBC21EFB51600B97205 /* HIDElement.h in Headers */ = {isa = PBXBuildFile; fileRef = 725E1BB621EFB4DF00B97205 /* HIDElement.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		725E1BBE21EFB71D00B97205 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 725E1BBD21EFB71D00B97205 /* IOKit.framework */; };
 		72619B850CFBF9D9008EAB93 /* IOHIDPrivate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F741600D065E7C2A0091C55E /* IOHIDPrivate.cpp */; };
@@ -412,10 +417,16 @@
 		72619BAE0CFBFC81008EAB93 /* IOHIDEventServiceQueue.h in Headers */ = {isa = PBXBuildFile; fileRef = 841C0CDD0C421EE40000195F /* IOHIDEventServiceQueue.h */; };
 		72619BB40CFBFCB7008EAB93 /* IOHIDUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5AB66C202ADD67601FF6135 /* IOHIDUserClient.cpp */; };
 		72619BB50CFBFCBA008EAB93 /* IOHIDUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = F5AB66C302ADD67601FF6135 /* IOHIDUserClient.h */; };
+		726EA803224B083700763519 /* HIDDisplayPresetInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 72425BDB224ADADB00CBEDE6 /* HIDDisplayPresetInterface.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		726EA804224B084700763519 /* HIDDisplayPresetInterfacePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 72425BDE224ADEAD00CBEDE6 /* HIDDisplayPresetInterfacePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		727472952059F6B0003FCBD2 /* TestIOHIDEventSerializationWrapper.mm in Sources */ = {isa = PBXBuildFile; fileRef = 727472942059F6B0003FCBD2 /* TestIOHIDEventSerializationWrapper.mm */; };
 		727472972059F6E3003FCBD2 /* TestIOHIDEventSerialization.mm in Sources */ = {isa = PBXBuildFile; fileRef = 727472962059F6E3003FCBD2 /* TestIOHIDEventSerialization.mm */; };
 		72AD22CC1BD6102D00C4CF8B /* IOHIDLibFactory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D868E2E01BD5DCB100CC07F9 /* IOHIDLibFactory.cpp */; };
 		72B2B87021EFBDE600B8DE86 /* TestHIDDisplayFramework.m in Sources */ = {isa = PBXBuildFile; fileRef = 72B2B86F21EFBDE600B8DE86 /* TestHIDDisplayFramework.m */; };
+		72FFC1012268FFAF001CD8A2 /* TestElementTransactionOrder.m in Sources */ = {isa = PBXBuildFile; fileRef = 72FFC1002268FFAF001CD8A2 /* TestElementTransactionOrder.m */; };
+		72D4775D224C3E88007CEA3F /* HIDDisplayIOReportingInterface.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D4775C224C3E88007CEA3F /* HIDDisplayIOReportingInterface.m */; };
+		72D4775E224C4266007CEA3F /* HIDDisplayIOReportingInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D4775B224C3E6A007CEA3F /* HIDDisplayIOReportingInterface.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		72D47760224D325D007CEA3F /* TestIOReportingHIDDevice.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D4775F224D325D007CEA3F /* TestIOReportingHIDDevice.m */; };
 		84061D6E1606B247003855D6 /* IOHIDEventSystemMonitor.c in Sources */ = {isa = PBXBuildFile; fileRef = 84061D5C1606AF8C003855D6 /* IOHIDEventSystemMonitor.c */; };
 		84061D6F1606B24E003855D6 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B963F4B700BC660708CA29FD /* CoreFoundation.framework */; };
 		84061D701606B252003855D6 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 014C794B00027ECC11CA2CF6 /* IOKit.framework */; };
@@ -2146,8 +2157,8 @@
 		6CC6449C1F43A21B0041D7E6 /* list.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = list.m; sourceTree = "<group>"; };
 		6CC6449F1F43D0070041D7E6 /* report.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = report.m; sourceTree = "<group>"; };
 		721034E321F102EE00C98853 /* HIDDisplayPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayPrivate.h; sourceTree = "<group>"; };
-		721034E421F103D600C98853 /* HIDDisplayDevicePrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayDevicePrivate.h; sourceTree = "<group>"; };
-		721034E521F103F500C98853 /* HIDDisplayDevicePresetPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayDevicePresetPrivate.h; sourceTree = "<group>"; };
+		721034E421F103D600C98853 /* HIDDisplayInterfacePrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayInterfacePrivate.h; sourceTree = "<group>"; };
+		721034E521F103F500C98853 /* HIDDisplayPresetDataPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayPresetDataPrivate.h; sourceTree = "<group>"; };
 		7215EACC22386E2200448449 /* HIDDisplay.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = HIDDisplay.xcconfig; sourceTree = "<group>"; };
 		7215EACD22386E3900448449 /* IOHIDDisplaySessionFilter.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = IOHIDDisplaySessionFilter.xcconfig; sourceTree = "<group>"; };
 		721DB8210E29276500E991AF /* hidd_man.pod */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = hidd_man.pod; path = hidd/hidd_man.pod; sourceTree = SOURCE_ROOT; };
@@ -2156,6 +2167,9 @@
 		7230D18C20865C8E00DCA4FB /* IOHIDTestConnectionFilter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDTestConnectionFilter.h; sourceTree = "<group>"; };
 		7230D18D20865F6000DCA4FB /* IOHIDTestConnectionFilter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDTestConnectionFilter.m; sourceTree = "<group>"; };
 		7230D18F208666C900DCA4FB /* TestIOHIDConnectionFilterPlugIn.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDConnectionFilterPlugIn.m; sourceTree = "<group>"; };
+		72425BDB224ADADB00CBEDE6 /* HIDDisplayPresetInterface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayPresetInterface.h; sourceTree = "<group>"; };
+		72425BDC224ADB0000CBEDE6 /* HIDDisplayPresetInterface.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayPresetInterface.m; sourceTree = "<group>"; };
+		72425BDE224ADEAD00CBEDE6 /* HIDDisplayPresetInterfacePrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayPresetInterfacePrivate.h; sourceTree = "<group>"; };
 		7243B47A21FB8F920023AF9E /* IOHIDDisplaySessionFilter.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDDisplaySessionFilter.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		7243B47C21FB8F920023AF9E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7243B48121FB90510023AF9E /* IOHIDDisplaySessionFilter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDDisplaySessionFilter.m; sourceTree = "<group>"; };
@@ -2165,15 +2179,19 @@
 		7243B48821FBB9D70023AF9E /* HIDDisplay.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HIDDisplay.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/PrivateFrameworks/HIDDisplay.framework; sourceTree = DEVELOPER_DIR; };
 		7243B48B21FBC53B0023AF9E /* TestHIDDisplaySessionFilter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDDisplaySessionFilter.m; sourceTree = "<group>"; };
 		72510C071D650B0C0011DCD5 /* BiometricKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BiometricKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/System/Library/PrivateFrameworks/BiometricKit.framework; sourceTree = DEVELOPER_DIR; };
+		725BFF66226505E7001DA8E3 /* HIDDisplayPresetCAPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayPresetCAPI.h; sourceTree = "<group>"; };
+		725BFF67226505FB001DA8E3 /* HIDDisplayIOReportingCAPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayIOReportingCAPI.h; sourceTree = "<group>"; };
+		725BFF6822650625001DA8E3 /* HIDDisplayPresetCAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayPresetCAPI.m; sourceTree = "<group>"; };
+		725BFF6A22650673001DA8E3 /* HIDDisplayIOReportingCAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayIOReportingCAPI.m; sourceTree = "<group>"; };
+		725BFF6E226507D9001DA8E3 /* HIDDisplayPrivate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayPrivate.m; sourceTree = "<group>"; };
 		725E1BA421EFB07400B97205 /* HIDDisplay.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = HIDDisplay.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		725E1BA621EFB07400B97205 /* HIDDisplay.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplay.h; sourceTree = "<group>"; };
 		725E1BA721EFB07400B97205 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		725E1BAD21EFB47700B97205 /* HIDDisplayCAPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayCAPI.h; sourceTree = "<group>"; };
-		725E1BAE21EFB48B00B97205 /* HIDDisplayCAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayCAPI.m; sourceTree = "<group>"; };
-		725E1BB021EFB49C00B97205 /* HIDDisplayDevice.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayDevice.h; sourceTree = "<group>"; };
-		725E1BB121EFB4AD00B97205 /* HIDDisplayDevice.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayDevice.m; sourceTree = "<group>"; };
-		725E1BB321EFB4C000B97205 /* HIDDisplayDevicePreset.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayDevicePreset.h; sourceTree = "<group>"; };
-		725E1BB421EFB4D300B97205 /* HIDDisplayDevicePreset.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayDevicePreset.m; sourceTree = "<group>"; };
+		725E1BB021EFB49C00B97205 /* HIDDisplayInterface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayInterface.h; sourceTree = "<group>"; };
+		725E1BB121EFB4AD00B97205 /* HIDDisplayInterface.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayInterface.m; sourceTree = "<group>"; };
+		725E1BB321EFB4C000B97205 /* HIDDisplayPresetData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayPresetData.h; sourceTree = "<group>"; };
+		725E1BB421EFB4D300B97205 /* HIDDisplayPresetData.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayPresetData.m; sourceTree = "<group>"; };
 		725E1BB621EFB4DF00B97205 /* HIDElement.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDElement.h; sourceTree = "<group>"; };
 		725E1BB721EFB4F300B97205 /* HIDElement.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDElement.m; sourceTree = "<group>"; };
 		725E1BBD21EFB71D00B97205 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
@@ -2183,6 +2201,11 @@
 		727472962059F6E3003FCBD2 /* TestIOHIDEventSerialization.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = TestIOHIDEventSerialization.mm; sourceTree = "<group>"; };
 		72B2B86C21EFBCC500B8DE86 /* IOHIDFamilyUnitTests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = IOHIDFamilyUnitTests.xcconfig; sourceTree = "<group>"; };
 		72B2B86F21EFBDE600B8DE86 /* TestHIDDisplayFramework.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDDisplayFramework.m; sourceTree = "<group>"; };
+		72FFC1002268FFAF001CD8A2 /* TestElementTransactionOrder.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestElementTransactionOrder.m; sourceTree = "<group>"; };
+		72D4775B224C3E6A007CEA3F /* HIDDisplayIOReportingInterface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayIOReportingInterface.h; sourceTree = "<group>"; };
+		72D4775C224C3E88007CEA3F /* HIDDisplayIOReportingInterface.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayIOReportingInterface.m; sourceTree = "<group>"; };
+		72D4775F224D325D007CEA3F /* TestIOReportingHIDDevice.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestIOReportingHIDDevice.m; sourceTree = "<group>"; };
+		72D47761224D503E007CEA3F /* HIDDisplayIOReportingInterfacePrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayIOReportingInterfacePrivate.h; sourceTree = "<group>"; };
 		74E71AE61540A25F00D5C0B3 /* Info-IOHIDFamily-Embedded-eOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOHIDFamily-Embedded-eOS.plist"; sourceTree = "<group>"; };
 		84061D5C1606AF8C003855D6 /* IOHIDEventSystemMonitor.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = IOHIDEventSystemMonitor.c; path = tools/IOHIDEventSystemMonitor.c; sourceTree = "<group>"; };
 		84061D621606B1E3003855D6 /* hidEventSystemMonitor */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hidEventSystemMonitor; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -3178,18 +3201,28 @@
 				725E1BA621EFB07400B97205 /* HIDDisplay.h */,
 				721034E321F102EE00C98853 /* HIDDisplayPrivate.h */,
 				725E1BAD21EFB47700B97205 /* HIDDisplayCAPI.h */,
-				725E1BAE21EFB48B00B97205 /* HIDDisplayCAPI.m */,
-				725E1BB021EFB49C00B97205 /* HIDDisplayDevice.h */,
-				725E1BB121EFB4AD00B97205 /* HIDDisplayDevice.m */,
-				721034E421F103D600C98853 /* HIDDisplayDevicePrivate.h */,
-				725E1BB321EFB4C000B97205 /* HIDDisplayDevicePreset.h */,
-				725E1BB421EFB4D300B97205 /* HIDDisplayDevicePreset.m */,
-				721034E521F103F500C98853 /* HIDDisplayDevicePresetPrivate.h */,
+				725E1BB021EFB49C00B97205 /* HIDDisplayInterface.h */,
+				721034E421F103D600C98853 /* HIDDisplayInterfacePrivate.h */,
+				725E1BB121EFB4AD00B97205 /* HIDDisplayInterface.m */,
+				72425BDB224ADADB00CBEDE6 /* HIDDisplayPresetInterface.h */,
+				72425BDE224ADEAD00CBEDE6 /* HIDDisplayPresetInterfacePrivate.h */,
+				72425BDC224ADB0000CBEDE6 /* HIDDisplayPresetInterface.m */,
+				725E1BB321EFB4C000B97205 /* HIDDisplayPresetData.h */,
+				725E1BB421EFB4D300B97205 /* HIDDisplayPresetData.m */,
+				721034E521F103F500C98853 /* HIDDisplayPresetDataPrivate.h */,
+				72D4775B224C3E6A007CEA3F /* HIDDisplayIOReportingInterface.h */,
+				72D4775C224C3E88007CEA3F /* HIDDisplayIOReportingInterface.m */,
+				72D47761224D503E007CEA3F /* HIDDisplayIOReportingInterfacePrivate.h */,
 				725E1BB621EFB4DF00B97205 /* HIDElement.h */,
 				725E1BB721EFB4F300B97205 /* HIDElement.m */,
 				725E1BC121EFE66C00B97205 /* HIDElementPrivate.h */,
 				725E1BA721EFB07400B97205 /* Info.plist */,
 				7215EACC22386E2200448449 /* HIDDisplay.xcconfig */,
+				725BFF66226505E7001DA8E3 /* HIDDisplayPresetCAPI.h */,
+				725BFF67226505FB001DA8E3 /* HIDDisplayIOReportingCAPI.h */,
+				725BFF6A22650673001DA8E3 /* HIDDisplayIOReportingCAPI.m */,
+				725BFF6822650625001DA8E3 /* HIDDisplayPresetCAPI.m */,
+				725BFF6E226507D9001DA8E3 /* HIDDisplayPrivate.m */,
 			);
 			path = HIDDisplay;
 			sourceTree = "<group>";
@@ -3723,6 +3756,8 @@
 				660D243E217560DC00DFCBFE /* TestNonStandardDescriptor.m */,
 				72B2B86F21EFBDE600B8DE86 /* TestHIDDisplayFramework.m */,
 				7243B48B21FBC53B0023AF9E /* TestHIDDisplaySessionFilter.m */,
+				72FFC1002268FFAF001CD8A2 /* TestElementTransactionOrder.m */,
+				72D4775F224D325D007CEA3F /* TestIOReportingHIDDevice.m */,
 			);
 			path = IOHIDFamilyUnitTests;
 			sourceTree = "<group>";
@@ -4085,13 +4120,18 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				725E1BBA21EFB50F00B97205 /* HIDDisplayDevice.h in Headers */,
-				725E1BBB21EFB50F00B97205 /* HIDDisplayDevicePreset.h in Headers */,
+				725BFF6D22650775001DA8E3 /* HIDDisplayIOReportingCAPI.h in Headers */,
+				725BFF6C22650764001DA8E3 /* HIDDisplayPresetCAPI.h in Headers */,
+				72D4775E224C4266007CEA3F /* HIDDisplayIOReportingInterface.h in Headers */,
+				725E1BBA21EFB50F00B97205 /* HIDDisplayInterface.h in Headers */,
+				725E1BBB21EFB50F00B97205 /* HIDDisplayPresetData.h in Headers */,
 				725E1BB921EFB50F00B97205 /* HIDDisplayCAPI.h in Headers */,
 				725E1BA821EFB07400B97205 /* HIDDisplay.h in Headers */,
-				7243B48A21FBBC120023AF9E /* HIDDisplayDevicePrivate.h in Headers */,
+				726EA803224B083700763519 /* HIDDisplayPresetInterface.h in Headers */,
+				7243B48A21FBBC120023AF9E /* HIDDisplayInterfacePrivate.h in Headers */,
 				725962C021F109C000D0A03F /* HIDDisplayPrivate.h in Headers */,
 				725E1BBC21EFB51600B97205 /* HIDElement.h in Headers */,
+				726EA804224B084700763519 /* HIDDisplayPresetInterfacePrivate.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5842,10 +5882,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				725E1BB221EFB4AD00B97205 /* HIDDisplayDevice.m in Sources */,
-				725E1BB521EFB4D300B97205 /* HIDDisplayDevicePreset.m in Sources */,
+				72425BDD224ADB0000CBEDE6 /* HIDDisplayPresetInterface.m in Sources */,
+				725E1BB221EFB4AD00B97205 /* HIDDisplayInterface.m in Sources */,
+				72D4775D224C3E88007CEA3F /* HIDDisplayIOReportingInterface.m in Sources */,
+				725E1BB521EFB4D300B97205 /* HIDDisplayPresetData.m in Sources */,
+				725BFF6F226507D9001DA8E3 /* HIDDisplayPrivate.m in Sources */,
 				725E1BB821EFB4F300B97205 /* HIDElement.m in Sources */,
-				725E1BAF21EFB48B00B97205 /* HIDDisplayCAPI.m in Sources */,
+				725BFF6922650625001DA8E3 /* HIDDisplayPresetCAPI.m in Sources */,
+				725BFF6B22650673001DA8E3 /* HIDDisplayIOReportingCAPI.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6212,6 +6256,7 @@
 				D85443441E490795003BF2F7 /* TestHIDEventDriver.m in Sources */,
 				D88C9D86212E785800439CFF /* TestIOHIDEventDriver_DeviceOrientationTilt.m in Sources */,
 				D8911DF01DC8195300EF2CEF /* TestKeyboardServicePlugin.m in Sources */,
+				72D47760224D325D007CEA3F /* TestIOReportingHIDDevice.m in Sources */,
 				D8F3855A21250A260096957A /* TestIOHIDEventDriver_Gyro.m in Sources */,
 				D867408D1ED897620099A4F9 /* TestHIDActivity.m in Sources */,
 				D85DCFD81E370BD5006D9264 /* TestVirtualService.m in Sources */,
@@ -6224,6 +6269,7 @@
 				D8CCD1BF1DBE73D300EB862E /* IOHIDUserDeviceTestController.m in Sources */,
 				660D243F217560DC00DFCBFE /* TestNonStandardDescriptor.m in Sources */,
 				D8CCD1C51DBE754A00EB862E /* IOHIDDeviceTestController.m in Sources */,
+				72FFC1012268FFAF001CD8A2 /* TestElementTransactionOrder.m in Sources */,
 				7243B48C21FBC53B0023AF9E /* TestHIDDisplaySessionFilter.m in Sources */,
 				D81A99131DC0278300B35A3A /* TestHIDEventSystemClient.m in Sources */,
 				D867A96A21207CF3003F2600 /* IOHIDXCTestExpectation.m in Sources */,
@@ -7663,6 +7709,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.HIDDisplay;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
 				VALID_ARCHS = "x86_64 arm64 arm64e arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s x86_64h";
@@ -7739,6 +7786,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.HIDDisplay;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
 				VALID_ARCHS = "x86_64 arm64 arm64e arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s x86_64h";
@@ -7808,6 +7856,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.HIDDisplay;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
 				VALID_ARCHS = "x86_64 arm64e arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s x86_64h";

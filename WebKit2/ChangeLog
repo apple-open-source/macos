@@ -1,3 +1,474 @@
+2019-07-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r244621. rdar://problem/52492610
+
+    PeatyG: Re-land fixes for 3 PeatyF Security Critical that accidentally got reverted in G.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/branches/safari-607-branch@244621 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-19  Kocsen Chung  <kocsen_chung@apple.com>
+
+            Cherry-pick r245911. rdar://problem/51656609
+
+        Network process crash when decoding SecItemResponseData
+        https://bugs.webkit.org/show_bug.cgi?id=198388
+        <rdar://problem/50408046>
+
+        Reviewed by Alex Christensen.
+
+        * Shared/cf/ArgumentCodersCF.cpp:
+        (IPC::decode):
+        When decoding the elements inside a CFArrayRef, if decoding was successful but
+        the CFTypeRef element is still null then skip it instead of trying to append it
+        to the array. A CFArray container is not allowed to contain null.
+        Some of our decoders for CFTypeRef types may not initialize the element even if
+        the decode() function returns true. For example, the decoders for CFArrayRef and
+        CFDictionaryRef return true if the encoded container was null but do not create
+        a container.
+
+        * Shared/mac/SecItemResponseData.cpp:
+        (WebKit::SecItemResponseData::SecItemResponseData):
+        nit: The wrong parameter was being moved. This is more efficient.
+
+        (WebKit::SecItemResponseData::encode const):
+        nit: Drop unnecessary .get().
+
+        * UIProcess/mac/SecItemShimProxy.cpp:
+        (WebKit::SecItemShimProxy::secItemRequest):
+        nit: Use nullptr instead of 0.
+
+        git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245911 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+        2019-05-30  Chris Dumez  <cdumez@apple.com>
+
+                Network process crash when decoding SecItemResponseData
+                https://bugs.webkit.org/show_bug.cgi?id=198388
+                <rdar://problem/50408046>
+
+                Reviewed by Alex Christensen.
+
+                * Shared/cf/ArgumentCodersCF.cpp:
+                (IPC::decode):
+                When decoding the elements inside a CFArrayRef, if decoding was successful but
+                the CFTypeRef element is still null then skip it instead of trying to append it
+                to the array. A CFArray container is not allowed to contain null.
+                Some of our decoders for CFTypeRef types may not initialize the element even if
+                the decode() function returns true. For example, the decoders for CFArrayRef and
+                CFDictionaryRef return true if the encoded container was null but do not create
+                a container.
+
+                * Shared/mac/SecItemResponseData.cpp:
+                (WebKit::SecItemResponseData::SecItemResponseData):
+                nit: The wrong parameter was being moved. This is more efficient.
+
+                (WebKit::SecItemResponseData::encode const):
+                nit: Drop unnecessary .get().
+
+                * UIProcess/mac/SecItemShimProxy.cpp:
+                (WebKit::SecItemShimProxy::secItemRequest):
+                nit: Use nullptr instead of 0.
+
+2019-06-12  Null  <null@apple.com>
+
+        Cherry-pick r245298. rdar://problem/51656613
+
+    Crash under WebKit::WebProcessProxy::didBecomeUnresponsive()
+    https://bugs.webkit.org/show_bug.cgi?id=197883
+    <rdar://problem/50665984>
+    
+    Reviewed by Alex Christensen.
+    
+    Protect |this| in didBecomeUnresponsive() and didExceedCPULimit() since we call client
+    delegates and those may cause |this| to get destroyed.
+    
+    * UIProcess/WebProcessProxy.cpp:
+    (WebKit::WebProcessProxy::didBecomeUnresponsive):
+    (WebKit::WebProcessProxy::didExceedCPULimit):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245298 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-14  Chris Dumez  <cdumez@apple.com>
+
+            Crash under WebKit::WebProcessProxy::didBecomeUnresponsive()
+            https://bugs.webkit.org/show_bug.cgi?id=197883
+            <rdar://problem/50665984>
+
+            Reviewed by Alex Christensen.
+
+            Protect |this| in didBecomeUnresponsive() and didExceedCPULimit() since we call client
+            delegates and those may cause |this| to get destroyed.
+
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::didBecomeUnresponsive):
+            (WebKit::WebProcessProxy::didExceedCPULimit):
+
+2019-06-12  Null  <null@apple.com>
+
+        Cherry-pick r243631. rdar://problem/51656612
+
+    API::Data::createWithoutCopying should do a null check before calling CFRelease
+    https://bugs.webkit.org/show_bug.cgi?id=196276
+    <rdar://problem/48059859>
+    
+    Reviewed by Alex Christensen.
+    
+    Source/WebKit:
+    
+    * Shared/Cocoa/APIDataCocoa.mm:
+    (API::Data::createWithoutCopying):
+    
+    Tools:
+    
+    Add an API test that will pass a nil to API::Data::createWithoutCopying via NavigationState::NavigationClient::webCryptoMasterKey.
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebKit/navigation-client-default-crypto.html:
+    * TestWebKitAPI/Tests/WebKitCocoa/WebCryptoMasterKey.mm: Added.
+    (-[WebCryptoMasterKeyNavigationDelegate _webCryptoMasterKeyForWebView:]):
+    (-[WebCryptoMasterKeyNavigationDelegate webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:completionHandler:]):
+    (TestWebKitAPI::TEST):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243631 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-28  Jiewen Tan  <jiewen_tan@apple.com>
+
+            API::Data::createWithoutCopying should do a null check before calling CFRelease
+            https://bugs.webkit.org/show_bug.cgi?id=196276
+            <rdar://problem/48059859>
+
+            Reviewed by Alex Christensen.
+
+            * Shared/Cocoa/APIDataCocoa.mm:
+            (API::Data::createWithoutCopying):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/51264770
+
+    2019-05-30  Youenn Fablet  <youenn@apple.com>
+
+            UserMediaCaptureManager should remove a source from its map once the source is ended
+            https://bugs.webkit.org/show_bug.cgi?id=198337
+
+            When the source is stopped, for instance using MediaStreamTrack.stop,
+            remove the source from UserMediaCaptureManager sources map.
+            This makes sure the map will not grow over time.
+            Add an if check to ensure that the source is still there before processing an incoming IPC call.
+
+            When UIProcess tells us the capture is finished (typically capture failed), remove the entry on WebProcess side as well.
+
+            * WebProcess/cocoa/UserMediaCaptureManager.cpp:
+            (WebKit::UserMediaCaptureManager::createCaptureSource):
+            (WebKit::UserMediaCaptureManager::sourceStopped):
+            (WebKit::UserMediaCaptureManager::captureFailed):
+            (WebKit::UserMediaCaptureManager::sourceMutedChanged):
+            (WebKit::UserMediaCaptureManager::sourceSettingsChanged):
+            (WebKit::UserMediaCaptureManager::storageChanged):
+            (WebKit::UserMediaCaptureManager::ringBufferFrameBoundsChanged):
+            (WebKit::UserMediaCaptureManager::audioSamplesAvailable):
+            (WebKit::UserMediaCaptureManager::remoteVideoSampleAvailable):
+            (WebKit::UserMediaCaptureManager::sourceEnded):
+            (WebKit::UserMediaCaptureManager::applyConstraintsSucceeded):
+            (WebKit::UserMediaCaptureManager::applyConstraintsFailed):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/51264847
+
+    2019-05-30  Chris Dumez  <cdumez@apple.com>
+
+            <rdar://problem/50435250> v2: CrashTracer: Crash in WebProcessCache::removeProcess
+
+            Reviewed by Geoff Garen.
+
+            * UIProcess/WebProcessCache.cpp:
+            (WebKit::WebProcessCache::removeProcess):
+            This code change is to avoid crashing if my speculative fix below does not work. If
+            WebProcessCache::removeProcess() gets called with a process whole registrable domain
+            is empty (or null), remove it the slow way from the HashMap instead of trying to look
+            up the bad registrable domain in the HashMap. This ensures we do no crash but still
+            remove the process we're supposed to evict.
+
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::canTerminateChildProcess):
+            This is a speculative fix for the crash which aligns the branch with trunk. There is
+            a period of time where a SuspendedPageProxy can exist for a given process but the
+            WebProcessPool is no longer aware of it. This is when we're about to use the
+            SuspendedPageProxy for a load. If WebProcessProxy::maybeShutDown() gets called during
+            this period of time, canTerminateChildProcess() would incorrectly return true and we
+            would cache the WebProcess even though it is about to do a load. The new code relies
+            on m_suspendedPageCount which is a lot more reliable than asking the process pool.
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/50857668
+
+    2019-05-30  Chris Dumez  <cdumez@apple.com>
+
+            TestWebKitAPI.ProcessSwap.UseSessionCookiesAfterProcessSwapInNonDefaultPersistentSession is failing on safari-607-branch
+            <rdar://problem/49980530>
+
+            Reviewed by Brady Eidson.
+
+            On the safari-607-branch banch, we need to send a WebProcess::AddWebsiteDataStore() IPC to the WebContent
+            process before it does any load for a non-default data store. If we fail to do so then the WebContent
+            process will fall back to using the default session for the loads.
+
+            This is what was happening for this API test. The cookie was getting set for session 2 but then it
+            would later try to read the cookie from session 1 (default one) after the process swap, and would
+            thus fail to get the cookie it expected.
+
+            The issue was that we would send the WebProcess::AddWebsiteDataStore() IPC too late, when committing
+            the provisional process (in WebPageProxy::swapToWebProcess()). By this point, the provisional load
+            would have already started in the provisional process and used the wrong session. To address the issue,
+            we now send the WebProcess::AddWebsiteDataStore() IPC as soon as we create the ProvisionalPageProxy.
+
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::sendPageDataStore):
+            (WebKit::WebProcessProxy::addProvisionalPageProxy):
+            (WebKit::WebProcessProxy::removeProvisionalPageProxy):
+            (WebKit::WebProcessProxy::addExistingWebPage):
+            (WebKit::WebProcessProxy::removeWebPage):
+            (WebKit::WebProcessProxy::destroyDataStoreIfUnused):
+            (WebKit::WebProcessProxy::hasPageUsingSession const):
+            * UIProcess/WebProcessProxy.h:
+            (WebKit::WebProcessProxy::addProvisionalPageProxy): Deleted.
+            (WebKit::WebProcessProxy::removeProvisionalPageProxy): Deleted.
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245284. rdar://problem/51264857
+
+    Protect current WebFrame during form submission
+    https://bugs.webkit.org/show_bug.cgi?id=197459
+    <rdar://problem/50368618>
+    
+    Reviewed by Alex Christensen.
+    
+    The 'continueWillSubmitForm' method calls a completion handler that
+    might affect the state of the current frame. Ensure the frame is valid
+    for the scope of the function.
+    
+    * WebProcess/WebPage/WebFrame.cpp:
+    (WebKit::WebFrame::continueWillSubmitForm):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245284 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-14  Brent Fulgham  <bfulgham@apple.com>
+
+            Protect current WebFrame during form submission
+            https://bugs.webkit.org/show_bug.cgi?id=197459
+            <rdar://problem/50368618>
+
+            Reviewed by Alex Christensen.
+
+            The 'continueWillSubmitForm' method calls a completion handler that
+            might affect the state of the current frame. Ensure the frame is valid
+            for the scope of the function.
+
+            * WebProcess/WebPage/WebFrame.cpp:
+            (WebKit::WebFrame::continueWillSubmitForm):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r244781. rdar://problem/51264871
+
+    Long-standing rare crash under -[WKWebView _web_immediateActionAnimationControllerForHitTestResultInternal...]
+    https://bugs.webkit.org/show_bug.cgi?id=197404
+    <rdar://problem/24589331>
+    
+    Reviewed by Wenson Hsieh.
+    
+    * UIProcess/mac/WKImmediateActionController.mm:
+    (-[WKImmediateActionController _updateImmediateActionItem]):
+    (-[WKImmediateActionController menuItem:previewItemAtPoint:]):
+    (-[WKImmediateActionController menuItem:itemFrameForPoint:]):
+    (-[WKImmediateActionController _animationControllerForDataDetectedLink]):
+    Add some null checks; _webHitTestResult can be null if we (somehow) get
+    an immediate action gesture without having previously gotten a
+    mouseDidMoveOverElement from the Web Content process. Cover all our bases.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@244781 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-30  Tim Horton  <timothy_horton@apple.com>
+
+            Long-standing rare crash under -[WKWebView _web_immediateActionAnimationControllerForHitTestResultInternal...]
+            https://bugs.webkit.org/show_bug.cgi?id=197404
+            <rdar://problem/24589331>
+
+            Reviewed by Wenson Hsieh.
+
+            * UIProcess/mac/WKImmediateActionController.mm:
+            (-[WKImmediateActionController _updateImmediateActionItem]):
+            (-[WKImmediateActionController menuItem:previewItemAtPoint:]):
+            (-[WKImmediateActionController menuItem:itemFrameForPoint:]):
+            (-[WKImmediateActionController _animationControllerForDataDetectedLink]):
+            Add some null checks; _webHitTestResult can be null if we (somehow) get
+            an immediate action gesture without having previously gotten a
+            mouseDidMoveOverElement from the Web Content process. Cover all our bases.
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/50753918
+
+    2019-05-14  Chris Dumez  <cdumez@apple.com>
+
+            MobileSafari crash at WebKit: WebKit::WebPageProxy::didCommitLoadForFrame
+            <rdar://problem/49908163>
+
+            Reviewed by Alex Christensen.
+
+            Partial cherry-pick of r243767 to fix the crash on the branch. The rest of
+            r243767 introduced a regression which got fixed later in r244493 so I think
+            this partial cherry-pick is the safest way to resolve the crash while
+            avoiding any potential regressions.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::didCommitLoadForFrame):
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245196. rdar://problem/50753938
+
+    Streamline test-and-clear operation for ContextMenu
+    https://bugs.webkit.org/show_bug.cgi?id=197795
+    <rdar://problem/50473746>
+    
+    Reviewed by Wenson Hsieh.
+    
+    Rather than performing a check when entering the function, doing work,
+    then clearing the member variable, perform the check and clear in
+    a single operation. Only perform the selection if the menu exists.
+    
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::didSelectItemFromActiveContextMenu):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245196 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-10  Brent Fulgham  <bfulgham@apple.com>
+
+            Streamline test-and-clear operation for ContextMenu
+            https://bugs.webkit.org/show_bug.cgi?id=197795
+            <rdar://problem/50473746>
+
+            Reviewed by Wenson Hsieh.
+
+            Rather than performing a check when entering the function, doing work,
+            then clearing the member variable, perform the check and clear in
+            a single operation. Only perform the selection if the menu exists.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::didSelectItemFromActiveContextMenu):
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r239742. rdar://problem/50753925
+
+    Prevent cross-site top-level navigations from third-party iframes
+    https://bugs.webkit.org/show_bug.cgi?id=193076
+    <rdar://problem/36074736>
+    
+    Reviewed by Alex Christensen.
+    
+    Source/WebCore:
+    
+    Prevent cross-site top-level navigations from third-party iframes if the following conditions are met:
+    1. Its tries to navigate the top-level page cross-site (different eTDL+1)
+    2. The user has never interacted with the third-party iframe or any of its subframes
+    
+    This experiment's intent is to block suspicious main-frame navigations by third-party content. The feature
+    is behind a runtime experimental feature flag, on by default.
+    
+    Tests: http/tests/security/allow-top-level-navigations-by-third-party-iframes-to-same-origin.html
+           http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-previous-user-activation.html
+           http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-user-activation.html
+           http/tests/security/block-top-level-navigations-by-third-party-iframes.html
+    
+    * dom/Document.cpp:
+    (WebCore::printNavigationErrorMessage):
+    (WebCore::Document::canNavigate):
+    (WebCore::Document::canNavigateInternal):
+    (WebCore::Document::isNavigationBlockedByThirdPartyIFrameRedirectBlocking):
+    * dom/Document.h:
+    * dom/UserGestureIndicator.cpp:
+    * page/DOMWindow.cpp:
+    (WebCore::DOMWindow::setLocation):
+    * page/DOMWindow.h:
+    * page/Frame.h:
+    * page/Location.cpp:
+    (WebCore::Location::replace):
+    (WebCore::Location::setLocation):
+    * page/Settings.yaml:
+    
+    Source/WebKit:
+    
+    Add experimental feature flag, on by default.
+    
+    * Shared/WebPreferences.yaml:
+    
+    LayoutTests:
+    
+    Add layout test coverage.
+    
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-to-same-origin-expected.txt: Added.
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-to-same-origin.html: Added.
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-previous-user-activation-expected.txt: Added.
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-previous-user-activation.html: Added.
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-user-activation-expected.txt: Added.
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-user-activation.html: Added.
+    * http/tests/security/block-top-level-navigations-by-third-party-iframes-expected.txt: Added.
+    * http/tests/security/block-top-level-navigations-by-third-party-iframes.html: Added.
+    * http/tests/security/resources/navigate-top-level-frame-to-failure-page.html: Added.
+    * http/tests/security/resources/navigate-top-level-frame-to-success-page-same-origin.html: Added.
+    * http/tests/security/resources/navigate-top-level-frame-to-success-page-with-previous-user-gesture.html: Added.
+    * http/tests/security/resources/navigate-top-level-frame-to-success-page-with-user-gesture.html: Added.
+    * http/tests/security/resources/should-have-loaded.html: Added.
+    * http/tests/security/resources/should-not-have-loaded.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@239742 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-08  Chris Dumez  <cdumez@apple.com>
+
+            Prevent cross-site top-level navigations from third-party iframes
+            https://bugs.webkit.org/show_bug.cgi?id=193076
+            <rdar://problem/36074736>
+
+            Reviewed by Alex Christensen.
+
+            Add experimental feature flag, on by default.
+
+            * Shared/WebPreferences.yaml:
+
+2019-04-30  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r244326. rdar://problem/50352719
+
+    Web Inspector: CRASH when reopening tab with docked inspector on crashed page
+    https://bugs.webkit.org/show_bug.cgi?id=196954
+    <rdar://problem/48716433>
+    
+    Reviewed by Ryosuke Niwa.
+    
+    * UIProcess/mac/WebInspectorProxyMac.mm:
+    (WebKit::WebInspectorProxy::inspectedViewFrameDidChange):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@244326 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-15  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: CRASH when reopening tab with docked inspector on crashed page
+            https://bugs.webkit.org/show_bug.cgi?id=196954
+            <rdar://problem/48716433>
+
+            Reviewed by Ryosuke Niwa.
+
+            * UIProcess/mac/WebInspectorProxyMac.mm:
+            (WebKit::WebInspectorProxy::inspectedViewFrameDidChange):
+
 2019-04-19  Kocsen Chung  <kocsen_chung@apple.com>
 
         Cherry-pick r244458. rdar://problem/50041560

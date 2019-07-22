@@ -288,6 +288,7 @@
 		72B732F11899B2430060E6D4 /* cfilstat.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B732F01899B2430060E6D4 /* cfilstat.c */; };
 		72B894EC0EEDB17C00C218D6 /* libipsec.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CD1DB50EE8C619005F825D /* libipsec.dylib */; };
 		72D000C4142BB11100151981 /* dnctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D000C3142BB11100151981 /* dnctl.c */; };
+		72D33F572271319400EF5B5E /* rtadvd_logging.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D33F562271220100EF5B5E /* rtadvd_logging.c */; };
 		72E42BA314B7CF3D003AAE28 /* network_cmds.plist in Install OSS Plist */ = {isa = PBXBuildFile; fileRef = 72E42BA214B7CF37003AAE28 /* network_cmds.plist */; };
 		72E650A7107BF2F000AAF325 /* af_inet.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A2107BF2F000AAF325 /* af_inet.c */; };
 		72E650A8107BF2F000AAF325 /* af_inet6.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A3107BF2F000AAF325 /* af_inet6.c */; };
@@ -1391,6 +1392,8 @@
 		72B732F01899B2430060E6D4 /* cfilstat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cfilstat.c; sourceTree = "<group>"; };
 		72CD1DB50EE8C619005F825D /* libipsec.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libipsec.dylib; path = /usr/lib/libipsec.dylib; sourceTree = "<absolute>"; };
 		72D000C3142BB11100151981 /* dnctl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dnctl.c; sourceTree = "<group>"; };
+		72D33F552271220100EF5B5E /* rtadvd_logging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rtadvd_logging.h; sourceTree = "<group>"; };
+		72D33F562271220100EF5B5E /* rtadvd_logging.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rtadvd_logging.c; sourceTree = "<group>"; };
 		72E42BA214B7CF37003AAE28 /* network_cmds.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = network_cmds.plist; sourceTree = "<group>"; };
 		72E650A2107BF2F000AAF325 /* af_inet.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = af_inet.c; sourceTree = "<group>"; };
 		72E650A3107BF2F000AAF325 /* af_inet6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = af_inet6.c; sourceTree = "<group>"; };
@@ -2076,6 +2079,8 @@
 		726120BB0EE86F8200AFED1B /* rtadvd.tproj */ = {
 			isa = PBXGroup;
 			children = (
+				72D33F562271220100EF5B5E /* rtadvd_logging.c */,
+				72D33F552271220100EF5B5E /* rtadvd_logging.h */,
 				726120BC0EE86F8200AFED1B /* advcap.c */,
 				726120BD0EE86F8200AFED1B /* advcap.h */,
 				726120BE0EE86F8200AFED1B /* config.c */,
@@ -3152,6 +3157,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72D33F572271319400EF5B5E /* rtadvd_logging.c in Sources */,
 				7216D3190EE89EC100AE70E4 /* advcap.c in Sources */,
 				7216D31A0EE89EC100AE70E4 /* config.c in Sources */,
 				7216D31B0EE89EC100AE70E4 /* dump.c in Sources */,

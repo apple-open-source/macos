@@ -71,6 +71,10 @@
 
                     XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
+
+                    XCTAssertNil(record[SecCKRecordOctagonPeerID], "octagon peer ID should be missing");
+                    XCTAssertNil(record[SecCKRecordOctagonStatus], "octagon status should be missing");
+
                     XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateReady), "Device is in ready");
 
                     XCTAssertEqualObjects([record[SecCKRecordCurrentTLK]    recordID].recordName, zoneKeys.tlk.uuid, "Correct TLK uuid");
@@ -113,6 +117,10 @@
 
                     XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
+
+                    XCTAssertNil(record[SecCKRecordOctagonPeerID], "octagon peer ID should be missing");
+                    XCTAssertNil(record[SecCKRecordOctagonStatus], "octagon status should be missing");
+
                     XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateReady), "Device is in ready");
 
                     XCTAssertEqualObjects([record[SecCKRecordCurrentTLK]    recordID].recordName, zoneKeys.tlk.uuid, "Correct TLK uuid");
@@ -222,6 +230,10 @@
 
                     XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
+
+                    XCTAssertNil(record[SecCKRecordOctagonPeerID], "octagon peer ID should be missing");
+                    XCTAssertNil(record[SecCKRecordOctagonStatus], "octagon status should be missing");
+
                     XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateReady), "Device is in ready");
 
                     XCTAssertEqualObjects([record[SecCKRecordCurrentTLK]    recordID].recordName, zoneKeys.tlk.uuid, "Correct TLK uuid");
@@ -266,6 +278,10 @@
 
                     XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID should matche what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device should be in circle");
+
+                    XCTAssertNil(record[SecCKRecordOctagonPeerID], "octagon peer ID should be missing");
+                    XCTAssertNil(record[SecCKRecordOctagonStatus], "octagon status should be missing");
+
                     XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateWaitForTLK), "Device should be in waitfortlk");
 
                     XCTAssertNil([record[SecCKRecordCurrentTLK]    recordID].recordName, "Should have no TLK uuid");
@@ -297,6 +313,8 @@
     CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initForDevice:@"otherdevice"
                                                                    osVersion:@"fake-version"
                                                               lastUnlockTime:date
+                                                               octagonPeerID:nil
+                                                               octagonStatus:nil
                                                                 circlePeerID:@"asdfasdf"
                                                                 circleStatus:kSOSCCInCircle
                                                                     keyState:SecCKKSZoneKeyStateReady
@@ -311,6 +329,8 @@
     CKKSDeviceStateEntry* oldcdse = [[CKKSDeviceStateEntry alloc] initForDevice:@"olderotherdevice"
                                                                       osVersion:nil // old-style, no OSVersion or lastUnlockTime
                                                                  lastUnlockTime:nil
+                                                                  octagonPeerID:nil
+                                                                  octagonStatus:nil
                                                                    circlePeerID:@"olderasdfasdf"
                                                                    circleStatus:kSOSCCInCircle
                                                                        keyState:SecCKKSZoneKeyStateReady
@@ -320,6 +340,21 @@
                                                                          zoneID:self.keychainZoneID
                                                                 encodedCKRecord:nil];
     [self.keychainZone addToZone:[oldcdse CKRecordWithZoneID:self.keychainZoneID]];
+
+    CKKSDeviceStateEntry* octagonOnly = [[CKKSDeviceStateEntry alloc] initForDevice:@"octagon-only"
+                                                                          osVersion:@"octagon-version"
+                                                                     lastUnlockTime:date
+                                                                      octagonPeerID:@"octagon-peer-ID"
+                                                                      octagonStatus:[[OTCliqueStatusWrapper alloc] initWithStatus:CliqueStatusNotIn]
+                                                                       circlePeerID:nil
+                                                                       circleStatus:kSOSCCError
+                                                                           keyState:SecCKKSZoneKeyStateReady
+                                                                     currentTLKUUID:zoneKeys.tlk.uuid
+                                                                  currentClassAUUID:zoneKeys.classA.uuid
+                                                                  currentClassCUUID:zoneKeys.classC.uuid
+                                                                             zoneID:self.keychainZoneID
+                                                                    encodedCKRecord:nil];
+    [self.keychainZone addToZone:[octagonOnly CKRecordWithZoneID:self.keychainZoneID]];
 
     // Trigger a notification (with hilariously fake data)
     [self.keychainView notifyZoneChange:nil];
@@ -334,11 +369,14 @@
 
         CKKSDeviceStateEntry* item = nil;
         CKKSDeviceStateEntry* olderotherdevice = nil;
+        CKKSDeviceStateEntry* octagondevice = nil;
         for(CKKSDeviceStateEntry* dbcdse in cdses) {
             if([dbcdse.device isEqualToString:@"otherdevice"]) {
                 item = dbcdse;
             } else if([dbcdse.device isEqualToString:@"olderotherdevice"]) {
                 olderotherdevice = dbcdse;
+            } else if([dbcdse.device isEqualToString:@"octagon-only"]) {
+                octagondevice = dbcdse;
             }
         }
         XCTAssertNotNil(item, "Found a cdse for otherdevice");
@@ -352,6 +390,8 @@
         XCTAssertEqualObjects(item.currentTLKUUID,    zoneKeys.tlk.uuid,    "correct tlk uuid");
         XCTAssertEqualObjects(item.currentClassAUUID, zoneKeys.classA.uuid, "correct classA uuid");
         XCTAssertEqualObjects(item.currentClassCUUID, zoneKeys.classC.uuid, "correct classC uuid");
+        XCTAssertNil(item.octagonPeerID,                                    "should have no octagon peerID");
+        XCTAssertNil(item.octagonStatus,                                    "should have no octagon status");
 
 
         XCTAssertNotNil(olderotherdevice, "Should have found a cdse for olderotherdevice");
@@ -364,6 +404,23 @@
         XCTAssertEqualObjects(olderotherdevice.currentTLKUUID,    zoneKeys.tlk.uuid,    "correct tlk uuid");
         XCTAssertEqualObjects(olderotherdevice.currentClassAUUID, zoneKeys.classA.uuid, "correct classA uuid");
         XCTAssertEqualObjects(olderotherdevice.currentClassCUUID, zoneKeys.classC.uuid, "correct classC uuid");
+        XCTAssertNil(olderotherdevice.octagonPeerID,                                    "should have no octagon peerID");
+        XCTAssertNil(olderotherdevice.octagonStatus,                                    "should have no octagon status");
+
+
+        XCTAssertNotNil(octagondevice, "Should have found a cdse for octagondevice");
+        XCTAssertEqualObjects(octagonOnly, octagondevice, "Saved item should match pre-cloudkit item");
+        XCTAssertEqualObjects(octagondevice.osVersion,         @"octagon-version",   "osVersion should be right");
+        XCTAssertEqualObjects(octagondevice.lastUnlockTime,    date,                 "correct date");
+        XCTAssertEqualObjects(octagondevice.octagonPeerID,     @"octagon-peer-ID",   "correct octagon peer id");
+        XCTAssertNotNil(octagondevice.octagonStatus,                                 "should have an octagon status");
+        XCTAssertEqual(octagondevice.octagonStatus.status,     CliqueStatusNotIn,    "correct octagon status");
+        XCTAssertEqual(octagondevice.circleStatus,             kSOSCCError,          "correct SOS circle state");
+        XCTAssertNil(octagondevice.circlePeerID,                                     "correct peer id");
+        XCTAssertEqualObjects(octagondevice.keyState, SecCKKSZoneKeyStateReady,      "correct key state");
+        XCTAssertEqualObjects(octagondevice.currentTLKUUID,    zoneKeys.tlk.uuid,    "correct tlk uuid");
+        XCTAssertEqualObjects(octagondevice.currentClassAUUID, zoneKeys.classA.uuid, "correct classA uuid");
+        XCTAssertEqualObjects(octagondevice.currentClassCUUID, zoneKeys.classC.uuid, "correct classC uuid");
 
         return false;
     }];

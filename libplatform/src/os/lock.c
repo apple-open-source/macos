@@ -497,8 +497,10 @@ _retry:
 				__LIBPLATFORM_INTERNAL_CRASH__(-ret, "ulock_wait failure");
 			}
 		}
-		// If there are more waiters, unset nowaiters bit when acquiring lock
-		waiters_mask = (ret > 0) ? OS_ULOCK_NOWAITERS_BIT : 0;
+		if (ret > 0) {
+			// If there are more waiters, unset nowaiters bit when acquiring lock
+			waiters_mask = OS_ULOCK_NOWAITERS_BIT;
+		}
 	}
 	new = self & ~waiters_mask;
 	bool r = os_atomic_cmpxchgv2o(l, oul_value, OS_LOCK_NO_OWNER, new,
@@ -810,8 +812,10 @@ _retry:
 				__LIBPLATFORM_INTERNAL_CRASH__(-ret, "ulock_wait failure");
 			}
 		}
-		// If there are more waiters, unset nowaiters bit when acquiring lock
-		waiters_mask = (ret > 0) ? OS_ULOCK_NOWAITERS_BIT : 0;
+		if (ret > 0) {
+			// If there are more waiters, unset nowaiters bit when acquiring lock
+			waiters_mask = OS_ULOCK_NOWAITERS_BIT;
+		}
 	}
 	new = self & ~waiters_mask;
 	bool r = os_atomic_cmpxchgv2o(l, oul_value, OS_LOCK_NO_OWNER, new,

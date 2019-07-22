@@ -32,6 +32,7 @@
 #import <CloudKit/CloudKit.h>
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSRecordHolder.h"
+#import "keychain/ckks/CKKSCKAccountStateTracker.h"
 #import "keychain/ckks/CKKSSQLDatabaseObject.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -52,7 +53,14 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) NSDate* lastUnlockTime;
 
 @property (nullable) NSString* circlePeerID;
+@property (nullable) NSString* octagonPeerID;
+
 @property SOSCCStatus circleStatus;
+
+// Some devices don't have Octagon, and won't upload this. Therefore, it might not be present,
+// and I'd rather not coerce to "error" or "absent"
+@property (nullable) OTCliqueStatusWrapper* octagonStatus;
+
 @property (nullable) CKKSZoneKeyState* keyState;
 
 @property (nullable) NSString* currentTLKUUID;
@@ -68,6 +76,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initForDevice:(NSString* _Nullable)device
                     osVersion:(NSString* _Nullable)osVersion
                lastUnlockTime:(NSDate* _Nullable)lastUnlockTime
+                octagonPeerID:(NSString* _Nullable)octagonPeerID
+                octagonStatus:(OTCliqueStatusWrapper* _Nullable)octagonStatus
                  circlePeerID:(NSString* _Nullable)circlePeerID
                  circleStatus:(SOSCCStatus)circleStatus
                      keyState:(CKKSZoneKeyState* _Nullable)keyState

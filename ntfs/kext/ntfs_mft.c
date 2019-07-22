@@ -180,7 +180,7 @@ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
 		panic("%s(): Mft record 0x%llx is already mapped.\n",
 				__FUNCTION__, (unsigned long long)ni->mft_no);
 	/* Catch multi sector transfer fixup errors. */
-	if (ntfs_is_mft_record(m->magic)) {
+	if ((ntfs_is_mft_record(m->magic)) && (le32_to_cpu(m->bytes_allocated) <= vol->mft_record_size)) {
 		if (!mft_is_locked)
 			lck_rw_unlock_shared(&mft_ni->lock);
 		ni->mft_ni = mft_ni;

@@ -21,6 +21,7 @@
 		<array>
 			<string>33440987 - revert patch 504</string>
 			<string>Revert patch v8.0.0681 for conformance</string>
+			<string>51642355 - CVE-2019-12735 upstream patch 1365</string>
 		</array>
 	</dict>
 </array>

@@ -50,9 +50,9 @@
 	<true/>
 	<key>com.apple.carousel.modalappservice</key>
 	<true/>
-	<key>com.apple.private.lockdown.finegrained-get</key>
+	<key>com.apple.private.lockdown.is-host-trusted</key>
 	<array>
-		<string>NULL/TrustedHostAttached</string>
+		<string>com.apple.SystemConfiguration.InterfaceNamer</string>
 	</array>
 </dict>
 </plist>

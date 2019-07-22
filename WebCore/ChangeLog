@@ -1,6 +1,599 @@
-2019-04-30  Alan Coon  <alancoon@apple.com>
+2019-07-08  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r244632. rdar://problem/50344188
+        Cherry-pick r246808. rdar://problem/52505041
+
+    Add didBecomePrototype() calls to global context prototypes
+    https://bugs.webkit.org/show_bug.cgi?id=199202
+    
+    Reviewed by Mark Lam.
+    
+    This fixes some crashes related to asserting that all prototypes
+    have been marked as such in JSC from
+    https://trac.webkit.org/changeset/246801. It's ok to call
+    didBecomePrototype here as we setting up the world state right now
+    so we won't be having a bad time.
+    
+    We don't automatically call didBecomePrototype() for
+    setPrototypeWithoutTransition because existing objects may already
+    have this structure so it seems more reasonable to be explicit
+    there.
+    
+    * bindings/js/JSWindowProxy.cpp:
+    (WebCore::JSWindowProxy::setWindow):
+    * bindings/js/WorkerScriptController.cpp:
+    (WebCore::WorkerScriptController::initScript):
+    * worklets/WorkletScriptController.cpp:
+    (WebCore::WorkletScriptController::initScriptWithSubclass):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@246808 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-25  Keith Miller  <keith_miller@apple.com>
+
+            Add didBecomePrototype() calls to global context prototypes
+            https://bugs.webkit.org/show_bug.cgi?id=199202
+
+            Reviewed by Mark Lam.
+
+            This fixes some crashes related to asserting that all prototypes
+            have been marked as such in JSC from
+            https://trac.webkit.org/changeset/246801. It's ok to call
+            didBecomePrototype here as we setting up the world state right now
+            so we won't be having a bad time.
+
+            We don't automatically call didBecomePrototype() for
+            setPrototypeWithoutTransition because existing objects may already
+            have this structure so it seems more reasonable to be explicit
+            there.
+
+            * bindings/js/JSWindowProxy.cpp:
+            (WebCore::JSWindowProxy::setWindow):
+            * bindings/js/WorkerScriptController.cpp:
+            (WebCore::WorkerScriptController::initScript):
+            * worklets/WorkletScriptController.cpp:
+            (WebCore::WorkletScriptController::initScriptWithSubclass):
+
+2019-07-02  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r247017. rdar://problem/52054321
+
+    More judiciously handle clearing/creation of DOMWindows for new Documents.
+    <rdar://problem/51665406> and https://bugs.webkit.org/show_bug.cgi?id=198786
+    
+    Reviewed by Chris Dumez.
+    
+    * bindings/js/ScriptController.cpp:
+    (WebCore::ScriptController::executeIfJavaScriptURL):
+    
+    * loader/DocumentWriter.cpp:
+    (WebCore::DocumentWriter::replaceDocumentWithResultOfExecutingJavascriptURL): Rename for clarity.
+    (WebCore::DocumentWriter::begin): Handle DOMWindow taking/creation inside FrameLoader::clear via a lambda.
+    (WebCore::DocumentWriter::replaceDocument): Deleted.
+    * loader/DocumentWriter.h:
+    
+    * loader/FrameLoader.cpp:
+    (WebCore::FrameLoader::clear): Take a "handleDOMWindowCreation" lambda to run after clearing the previous document.
+    * loader/FrameLoader.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@247017 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-07-01  Brady Eidson  <beidson@apple.com>
+
+            More judiciously handle clearing/creation of DOMWindows for new Documents.
+            <rdar://problem/51665406> and https://bugs.webkit.org/show_bug.cgi?id=198786
+
+            Reviewed by Chris Dumez.
+
+            * bindings/js/ScriptController.cpp:
+            (WebCore::ScriptController::executeIfJavaScriptURL):
+
+            * loader/DocumentWriter.cpp:
+            (WebCore::DocumentWriter::replaceDocumentWithResultOfExecutingJavascriptURL): Rename for clarity.
+            (WebCore::DocumentWriter::begin): Handle DOMWindow taking/creation inside FrameLoader::clear via a lambda.
+            (WebCore::DocumentWriter::replaceDocument): Deleted.
+            * loader/DocumentWriter.h:
+
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::clear): Take a "handleDOMWindowCreation" lambda to run after clearing the previous document.
+            * loader/FrameLoader.h:
+
+2019-07-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r244621. rdar://problem/52492610
+
+    PeatyG: Re-land fixes for 3 PeatyF Security Critical that accidentally got reverted in G.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/branches/safari-607-branch@244621 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-12  Null  <null@apple.com>
+
+            Cherry-pick r246182. rdar://problem/51656840
+
+        Avoid generating new XSLT-based document when already changing the document.
+        https://bugs.webkit.org/show_bug.cgi?id=198525
+        <rdar://problem/51393787>
+
+        Reviewed by Ryosuke Niwa.
+
+        We should not allow a pending XSLT transform to change the current document when
+        that current document is int he process of being replaced.
+
+        * dom/Document.cpp:
+        (WebCore::Document::applyPendingXSLTransformsTimerFired):
+
+        git-svn-id: https://svn.webkit.org/repository/webkit/trunk@246182 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+        2019-06-06  Brent Fulgham  <bfulgham@apple.com>
+
+                Avoid generating new XSLT-based document when already changing the document.
+                https://bugs.webkit.org/show_bug.cgi?id=198525
+                <rdar://problem/51393787>
+
+                Reviewed by Ryosuke Niwa.
+
+                We should not allow a pending XSLT transform to change the current document when
+                that current document is int he process of being replaced.
+
+                * dom/Document.cpp:
+                (WebCore::Document::applyPendingXSLTransformsTimerFired):
+
+2019-06-03  Alan Coon  <alancoon@apple.com>
+
+        Revert r246001. rdar://problem/50871594
+
+2019-05-31  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/50871594
+
+    2019-05-31  youenn fablet  <youennf@gmail.com>
+
+            REGRESSION(245357): Netflix, Hulu, Amazon, YouTube Rental video playback crash at com.apple.WebCore: WebCore::WebKitMediaKeys::setMediaElement
+            rdar://problem/50871594
+
+            Do not cast WeakPtr<MediaProducer> into WeakPtr<HTMLMediaElement>.
+            Instead, make HTMLMediaElement again a CanMakeWeakPtr<HTMLMediaElement>
+            and directly create WeakPtr<HTMLMediaElement>.
+
+            For MediaStreamTrack, rely on weakThis to know whether 'this' is still alive and use 'this' directly.
+
+            Manually tested.
+
+            * Modules/mediastream/MediaStreamTrack.cpp:
+            (WebCore::MediaStreamTrack::applyConstraints):
+            * html/HTMLMediaElement.h:
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/50801017
+
+    2019-05-30  Brent Fulgham  <bfulgham@apple.com>
+
+            Improve safety of HitTest logic
+            https://bugs.webkit.org/show_bug.cgi?id=198030
+            <rdar://problem/50801017>
+
+            Reviewed by Alan Bujtas.
+
+            Don't use the RenderView during hit testing until after all
+            layout is complete.
+
+            * rendering/RenderView.cpp:
+            (WebCore::RenderView::hitTest):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245664. rdar://problem/51264774
+
+    Subselectors not searched when determining property whitelist for selector
+    https://bugs.webkit.org/show_bug.cgi?id=198147
+    <rdar://problem/50405208>
+    
+    Reviewed by Zalan Bujtas.
+    
+    Source/WebCore:
+    
+    This can cause marker elements get style they shouldn't.
+    
+    Test: fast/lists/marker-style-subselector-whitelist.html
+    
+    * css/RuleSet.cpp:
+    (WebCore::determinePropertyWhitelistType):
+    
+    Check subselectors too.
+    
+    LayoutTests:
+    
+    * fast/lists/marker-style-subselector-whitelist-expected.txt: Added.
+    * fast/lists/marker-style-subselector-whitelist.html: Added.
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245664 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-22  Antti Koivisto  <antti@apple.com>
+
+            Subselectors not searched when determining property whitelist for selector
+            https://bugs.webkit.org/show_bug.cgi?id=198147
+            <rdar://problem/50405208>
+
+            Reviewed by Zalan Bujtas.
+
+            This can cause marker elements get style they shouldn't.
+
+            Test: fast/lists/marker-style-subselector-whitelist.html
+
+            * css/RuleSet.cpp:
+            (WebCore::determinePropertyWhitelistType):
+
+            Check subselectors too.
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245538. rdar://problem/50753927
+
+    Fix security check in ScriptController::canAccessFromCurrentOrigin()
+    https://bugs.webkit.org/show_bug.cgi?id=196730
+    <rdar://problem/49731231>
+    
+    Reviewed by Ryosuke Niwa.
+    
+    Source/WebCore:
+    
+    Fix security check in ScriptController::canAccessFromCurrentOrigin() when there is no
+    current JS exec state. Instead of returning true unconditionally, we now fall back to
+    using the accessing document's origin for the security check. The new behavior is
+    aligned with Blink:
+    https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/html/html_frame_element_base.cc?rcl=d3f22423d512b45466f1694020e20da9e0c6ee6a&l=62
+    
+    This fix is based on a patch from Sergei Glazunov <glazunov@google.com>.
+    
+    Test: http/tests/security/showModalDialog-sync-cross-origin-page-load2.html
+    
+    * bindings/js/ScriptController.cpp:
+    (WebCore::ScriptController::canAccessFromCurrentOrigin):
+    * bindings/js/ScriptController.h:
+    * html/HTMLFrameElementBase.cpp:
+    (WebCore::HTMLFrameElementBase::isURLAllowed const):
+    
+    LayoutTests:
+    
+    Add layout test coverage.
+    
+    * http/tests/security/showModalDialog-sync-cross-origin-page-load2-expected.txt: Added.
+    * http/tests/security/showModalDialog-sync-cross-origin-page-load2.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245538 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-20  Chris Dumez  <cdumez@apple.com>
+
+            Fix security check in ScriptController::canAccessFromCurrentOrigin()
+            https://bugs.webkit.org/show_bug.cgi?id=196730
+            <rdar://problem/49731231>
+
+            Reviewed by Ryosuke Niwa.
+
+            Fix security check in ScriptController::canAccessFromCurrentOrigin() when there is no
+            current JS exec state. Instead of returning true unconditionally, we now fall back to
+            using the accessing document's origin for the security check. The new behavior is
+            aligned with Blink:
+            https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/html/html_frame_element_base.cc?rcl=d3f22423d512b45466f1694020e20da9e0c6ee6a&l=62
+
+            This fix is based on a patch from Sergei Glazunov <glazunov@google.com>.
+
+            Test: http/tests/security/showModalDialog-sync-cross-origin-page-load2.html
+
+            * bindings/js/ScriptController.cpp:
+            (WebCore::ScriptController::canAccessFromCurrentOrigin):
+            * bindings/js/ScriptController.h:
+            * html/HTMLFrameElementBase.cpp:
+            (WebCore::HTMLFrameElementBase::isURLAllowed const):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245509. rdar://problem/51264845
+
+    Wait to get frame until after layout has been run
+    https://bugs.webkit.org/show_bug.cgi?id=197999
+    <rdar://problem/50800345>
+    
+    Reviewed by Alex Christensen.
+    
+    Source/WebCore:
+    
+    The current frame can change when layout runs, so don't bother retrieving
+    the frame until the final layout pass is complete.
+    
+    Test: fast/dom/window-inner-width-crash.html
+    
+    * page/DOMWindow.cpp:
+    (WebCore::DOMWindow::innerHeight const): Move frame access past the
+    layout operation.
+    (WebCore::DOMWindow::innerWidth const): Ditto.
+    (WebCore::DOMWindow::scrollX const): Ditto.
+    (WebCore::DOMWindow::scrollY const): Ditto.
+    
+    LayoutTests:
+    
+    * fast/dom/window-inner-width-crash-expected.txt: Added.
+    * fast/dom/window-inner-width-crash.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245509 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-19  Brent Fulgham  <bfulgham@apple.com>
+
+            Wait to get frame until after layout has been run
+            https://bugs.webkit.org/show_bug.cgi?id=197999
+            <rdar://problem/50800345>
+
+            Reviewed by Alex Christensen.
+
+            The current frame can change when layout runs, so don't bother retrieving
+            the frame until the final layout pass is complete.
+
+            Test: fast/dom/window-inner-width-crash.html
+
+            * page/DOMWindow.cpp:
+            (WebCore::DOMWindow::innerHeight const): Move frame access past the
+            layout operation.
+            (WebCore::DOMWindow::innerWidth const): Ditto.
+            (WebCore::DOMWindow::scrollX const): Ditto.
+            (WebCore::DOMWindow::scrollY const): Ditto.
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245464. rdar://problem/51264866
+
+    Hardening: Prevent FrameLoader crash due to SetForScope
+    https://bugs.webkit.org/show_bug.cgi?id=197458
+    <rdar://problem/50368338>
+    
+    Reviewed by Chris Dumez.
+    
+    Since SetForScope takes action during a function returns, it might cause
+    a crash if its scope is broader than the value it is resetting.
+    
+    * loader/FrameLoader.cpp:
+    (WebCore::FrameLoader::loadDifferentDocumentItem):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245464 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-17  Brent Fulgham  <bfulgham@apple.com>
+
+            Hardening: Prevent FrameLoader crash due to SetForScope
+            https://bugs.webkit.org/show_bug.cgi?id=197458
+            <rdar://problem/50368338>
+
+            Reviewed by Chris Dumez.
+
+            Since SetForScope takes action during a function returns, it might cause
+            a crash if its scope is broader than the value it is resetting.
+
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::loadDifferentDocumentItem):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245361. rdar://problem/51264842
+
+    Do not create a shape object outside of the layout context
+    https://bugs.webkit.org/show_bug.cgi?id=197926
+    <rdar://problem/50627858>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    ShapeOutside objects are used to compute line constrains during layout (in a strict sense, they are part of the layout context and should only be mutated during layout).
+    If we don't create one during layout, we probably don't need to know its geometry during paint (or any other non-layout activity) either.
+    
+    Test: fast/block/float/float-with-shape-outside-crash.html
+    
+    * rendering/FloatingObjects.cpp:
+    (WebCore::ComputeFloatOffsetForLineLayoutAdapter<FloatingObject::FloatLeft>::updateOffsetIfNeeded):
+    (WebCore::ComputeFloatOffsetForLineLayoutAdapter<FloatingObject::FloatRight>::updateOffsetIfNeeded):
+    * rendering/shapes/ShapeOutsideInfo.cpp:
+    (WebCore::ShapeOutsideInfo::computeDeltasForContainingBlockLine):
+    
+    LayoutTests:
+    
+    * fast/block/float/float-with-shape-outside-crash-expected.txt: Added.
+    * fast/block/float/float-with-shape-outside-crash.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245361 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-15  Zalan Bujtas  <zalan@apple.com>
+
+            Do not create a shape object outside of the layout context
+            https://bugs.webkit.org/show_bug.cgi?id=197926
+            <rdar://problem/50627858>
+
+            Reviewed by Simon Fraser.
+
+            ShapeOutside objects are used to compute line constrains during layout (in a strict sense, they are part of the layout context and should only be mutated during layout).
+            If we don't create one during layout, we probably don't need to know its geometry during paint (or any other non-layout activity) either.
+
+            Test: fast/block/float/float-with-shape-outside-crash.html
+
+            * rendering/FloatingObjects.cpp:
+            (WebCore::ComputeFloatOffsetForLineLayoutAdapter<FloatingObject::FloatLeft>::updateOffsetIfNeeded):
+            (WebCore::ComputeFloatOffsetForLineLayoutAdapter<FloatingObject::FloatRight>::updateOffsetIfNeeded):
+            * rendering/shapes/ShapeOutsideInfo.cpp:
+            (WebCore::ShapeOutsideInfo::computeDeltasForContainingBlockLine):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245300. rdar://problem/51264763
+
+    Do not try to issue repaint while the render tree is being destroyed.
+    https://bugs.webkit.org/show_bug.cgi?id=197461
+    <rdar://problem/50368992>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    Test: http/tests/svg/crash-on-reload-with-filter.html
+    
+    We don't need to compute repaint rects when the render tree is getting torn down. We'll issue a full repaint at some point.
+    Also during full render tree destruction the inline tree state is undefined. We should avoid accessing it.
+    
+    * rendering/svg/RenderSVGResourceContainer.cpp:
+    (WebCore::RenderSVGResourceContainer::markAllClientLayersForInvalidation):
+    
+    LayoutTests:
+    
+    * http/tests/svg/crash-on-reload-with-filter-expected.txt: Added.
+    * http/tests/svg/crash-on-reload-with-filter.html: Added.
+    * http/tests/svg/resources/finishTest.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245300 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-14  Zalan Bujtas  <zalan@apple.com>
+
+            Do not try to issue repaint while the render tree is being destroyed.
+            https://bugs.webkit.org/show_bug.cgi?id=197461
+            <rdar://problem/50368992>
+
+            Reviewed by Simon Fraser.
+
+            Test: http/tests/svg/crash-on-reload-with-filter.html
+
+            We don't need to compute repaint rects when the render tree is getting torn down. We'll issue a full repaint at some point.
+            Also during full render tree destruction the inline tree state is undefined. We should avoid accessing it.
+
+            * rendering/svg/RenderSVGResourceContainer.cpp:
+            (WebCore::RenderSVGResourceContainer::markAllClientLayersForInvalidation):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r244892. rdar://problem/50753927
+
+    Setting a frame's src to a javascript URL should not run it synchronously
+    https://bugs.webkit.org/show_bug.cgi?id=197466
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebCore:
+    
+    When an iframe's src attribute is set to a javascript URL, whether when parsing
+    or later on via JS, we now execute the URL's JavaScript asynchronously. We used
+    to execute it synchronously, which was a source of bugs and also did not match
+    other browsers.
+    
+    I have verified that our new behavior is aligned with both Firefox and Chrome.
+    
+    Note that for backward-compatibility and interoperability with Blink
+    (https://bugs.chromium.org/p/chromium/issues/detail?id=923585), the
+    "javascript:''" URL will still run synchronously. We should consider dropping
+    this quirk at some point.
+    
+    Test: fast/dom/frame-src-javascript-url-async.html
+    
+    * loader/NavigationScheduler.cpp:
+    (WebCore::ScheduledLocationChange::ScheduledLocationChange):
+    (WebCore::ScheduledLocationChange::~ScheduledLocationChange):
+    (WebCore::NavigationScheduler::scheduleLocationChange):
+    * loader/NavigationScheduler.h:
+    (WebCore::NavigationScheduler::scheduleLocationChange):
+    * loader/SubframeLoader.cpp:
+    (WebCore::SubframeLoader::requestFrame):
+    
+    LayoutTests:
+    
+    * fast/dom/frame-src-javascript-url-async-expected.txt: Added.
+    * fast/dom/frame-src-javascript-url-async.html: Added.
+    Add layout test coverage for the fact that the javascript URL is executed asynchronously
+    whether set during parsing or later via JS. Also makes sure that executing the javascript
+    URL asynchronously does not replace the frame's window. This test passes in both Chrome
+    and Firefox.
+    
+    * imported/blink/fast/frames/navigation-in-pagehide.html:
+    Re-sync this test from the Blink repository.
+    
+    * fast/dom/Element/id-in-frameset-expected.txt:
+    * fast/dom/Element/id-in-frameset.html:
+    * fast/dom/insertedIntoDocument-iframe-expected.txt:
+    * fast/dom/javascript-url-exception-isolation-expected.txt:
+    * fast/dom/javascript-url-exception-isolation.html:
+    * fast/dom/no-assert-for-malformed-js-url-attribute-expected.txt:
+    * fast/dom/resources/javascript-url-crash-function-iframe.html:
+    * fast/frames/adopt-from-created-document.html:
+    * fast/frames/out-of-document-iframe-has-child-frame.html:
+    * fast/loader/javascript-url-iframe-remove-on-navigate-async-delegate.html:
+    * fast/loader/javascript-url-iframe-remove-on-navigate.html:
+    * fast/loader/unload-mutation-crash.html:
+    * fast/parser/resources/set-parent-to-javascript-url.html:
+    * fast/parser/xml-error-adopted.xml:
+    * http/tests/navigation/lockedhistory-iframe-expected.txt:
+    * http/tests/security/contentSecurityPolicy/block-all-mixed-content/insecure-image-in-javascript-url-iframe-in-iframe-expected.txt:
+    * http/tests/security/contentSecurityPolicy/javascript-url-allowed-expected.txt:
+    * http/tests/security/contentSecurityPolicy/javascript-url-blocked-by-default-src-star-expected.txt:
+    * http/tests/security/contentSecurityPolicy/javascript-url-blocked-expected.txt:
+    * http/tests/security/javascriptURL/xss-ALLOWED-from-javascript-url-sub-frame-2-level.html:
+    * http/tests/security/javascriptURL/xss-ALLOWED-from-javascript-url-sub-frame.html:
+    * http/tests/security/javascriptURL/xss-ALLOWED-to-javascript-url-from-javscript-url.html:
+    * imported/blink/loader/iframe-sync-loads-expected.txt:
+    * js/dom/call-base-resolution.html:
+    * platform/wk2/http/tests/security/contentSecurityPolicy/block-all-mixed-content/insecure-image-in-javascript-url-iframe-in-iframe-expected.txt:
+    Update / Rebaseline existing tests to reflect behavior change. I ran those tests in Firefox and Chrome to confirm that our behavior
+    is indeed aligned.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@244892 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-02  Chris Dumez  <cdumez@apple.com>
+
+            Setting a frame's src to a javascript URL should not run it synchronously
+            https://bugs.webkit.org/show_bug.cgi?id=197466
+
+            Reviewed by Darin Adler.
+
+            When an iframe's src attribute is set to a javascript URL, whether when parsing
+            or later on via JS, we now execute the URL's JavaScript asynchronously. We used
+            to execute it synchronously, which was a source of bugs and also did not match
+            other browsers.
+
+            I have verified that our new behavior is aligned with both Firefox and Chrome.
+
+            Note that for backward-compatibility and interoperability with Blink
+            (https://bugs.chromium.org/p/chromium/issues/detail?id=923585), the
+            "javascript:''" URL will still run synchronously. We should consider dropping
+            this quirk at some point.
+
+            Test: fast/dom/frame-src-javascript-url-async.html
+
+            * loader/NavigationScheduler.cpp:
+            (WebCore::ScheduledLocationChange::ScheduledLocationChange):
+            (WebCore::ScheduledLocationChange::~ScheduledLocationChange):
+            (WebCore::NavigationScheduler::scheduleLocationChange):
+            * loader/NavigationScheduler.h:
+            (WebCore::NavigationScheduler::scheduleLocationChange):
+            * loader/SubframeLoader.cpp:
+            (WebCore::SubframeLoader::requestFrame):
+
+2019-05-17  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/50871594
+
+    2019-05-17  youenn fablet  <youennf@gmail.com>
+
+            REGRESSION(245357): Netflix, Hulu, Amazon, YouTube Rental video playback crash at com.apple.WebCore: WebCore::WebKitMediaKeys::setMediaElement
+            rdar://problem/50871594
+
+            Do not cast WeakPtr<MediaProducer> into WeakPtr<HTMLMediaElement>.
+            Instead, make HTMLMediaElement again a CanMakeWeakPtr<HTMLMediaElement>
+            and directly create WeakPtr<HTMLMediaElement>.
+
+            For MediaStreamTrack, rely on weakThis to know whether 'this' is still alive and use 'this' directly.
+
+            Manually tested.
+
+            * Modules/mediastream/MediaStreamTrack.cpp:
+            (WebCore::MediaStreamTrack::applyConstraints):
+            * html/HTMLMediaElement.h:
+
+2019-05-16  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r244632. rdar://problem/50344384
 
     Do not restart WebRTC stats timer if backend is stopped
     https://bugs.webkit.org/show_bug.cgi?id=197257
@@ -30,6 +623,324 @@
 
             * Modules/mediastream/libwebrtc/LibWebRTCMediaEndpoint.cpp:
             (WebCore::LibWebRTCMediaEndpoint::OnStatsDelivered):
+
+2019-05-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/50352476
+
+    2019-05-15  Youenn Fablet  <youenn@apple.com>
+
+            Make Document audio producers use WeakPtr
+            https://bugs.webkit.org/show_bug.cgi?id=197382
+
+            Reviewed by Eric Carlson.
+
+            Move from a hash set of raw pointers to a hash set of weak pointers.
+            This helps make the code cleaner.
+            No observable change of behavior.
+
+            * Modules/mediastream/MediaStreamTrack.h:
+            * dom/Document.cpp:
+            (WebCore::Document::addAudioProducer):
+            (WebCore::Document::removeAudioProducer):
+            (WebCore::Document::updateIsPlayingMedia):
+            (WebCore::Document::pageMutedStateDidChange):
+            * dom/Document.h:
+            * html/HTMLMediaElement.cpp:
+            (WebCore::HTMLMediaElement::updateActiveTextTrackCues):
+            * html/HTMLMediaElement.h:
+            * page/MediaProducer.h:
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245190. rdar://problem/50753948
+
+    Gracefully handle inaccessible font face data
+    https://bugs.webkit.org/show_bug.cgi?id=197762
+    <rdar://problem/50433861>
+    
+    Reviewed by Per Arne Vollan.
+    
+    Make sure CSS Font Face handling gracefully recovers from
+    missing font data.
+    
+    Test: fast/text/missing-font-crash.html
+    
+    * css/CSSFontFace.cpp:
+    (WebCore::CSSFontFace::fontLoadEventOccurred):
+    (WebCore::CSSFontFace::timeoutFired):
+    (WebCore::CSSFontFace::fontLoaded):
+    (WebCore::CSSFontFace::font):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245190 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-10  Brent Fulgham  <bfulgham@apple.com>
+
+            Gracefully handle inaccessible font face data
+            https://bugs.webkit.org/show_bug.cgi?id=197762
+            <rdar://problem/50433861>
+
+            Reviewed by Per Arne Vollan.
+
+            Make sure CSS Font Face handling gracefully recovers from
+            missing font data.
+
+            Test: fast/text/missing-font-crash.html
+
+            * css/CSSFontFace.cpp:
+            (WebCore::CSSFontFace::fontLoadEventOccurred):
+            (WebCore::CSSFontFace::timeoutFired):
+            (WebCore::CSSFontFace::fontLoaded):
+            (WebCore::CSSFontFace::font):
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245158. rdar://problem/50753914
+
+    Do not mix inline and block level boxes.
+    https://bugs.webkit.org/show_bug.cgi?id=197462
+    <rdar://problem/50369362>
+    
+    Reviewed by Antti Koivisto.
+    
+    Source/WebCore:
+    
+    This patch tightens the remove-anonymous-wrappers logic by checking if the removal would
+    produce an inline-block sibling mix.
+    When a block level box is removed from the tree, we check if after the removal the anonymous sibling block
+    boxes are still needed or whether we can removed them as well (and have only inline level child boxes).
+    In addition to checking if the container is anonymous and is part of a continuation, we also need to check
+    if collapsing it (and by that moving its children one level up) would cause a inline-block box mix.
+    
+    Test: fast/ruby/continuation-and-column-spanner-crash.html
+    
+    * rendering/updating/RenderTreeBuilder.cpp:
+    (WebCore::RenderTreeBuilder::removeAnonymousWrappersForInlineChildrenIfNeeded):
+    * rendering/updating/RenderTreeBuilderContinuation.cpp:
+    (WebCore::RenderTreeBuilder::Continuation::cleanupOnDestroy):
+    
+    LayoutTests:
+    
+    * fast/ruby/continuation-and-column-spanner-crash-expected.txt: Added.
+    * fast/ruby/continuation-and-column-spanner-crash.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245158 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-09  Zalan Bujtas  <zalan@apple.com>
+
+            Do not mix inline and block level boxes.
+            https://bugs.webkit.org/show_bug.cgi?id=197462
+            <rdar://problem/50369362>
+
+            Reviewed by Antti Koivisto.
+
+            This patch tightens the remove-anonymous-wrappers logic by checking if the removal would
+            produce an inline-block sibling mix.
+            When a block level box is removed from the tree, we check if after the removal the anonymous sibling block
+            boxes are still needed or whether we can removed them as well (and have only inline level child boxes).
+            In addition to checking if the container is anonymous and is part of a continuation, we also need to check
+            if collapsing it (and by that moving its children one level up) would cause a inline-block box mix.
+
+            Test: fast/ruby/continuation-and-column-spanner-crash.html
+
+            * rendering/updating/RenderTreeBuilder.cpp:
+            (WebCore::RenderTreeBuilder::removeAnonymousWrappersForInlineChildrenIfNeeded):
+            * rendering/updating/RenderTreeBuilderContinuation.cpp:
+            (WebCore::RenderTreeBuilder::Continuation::cleanupOnDestroy):
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r243820. rdar://problem/50753921
+
+    Crash in HTMLCanvasElement::createContext2d after the element got adopted to a new document
+    https://bugs.webkit.org/show_bug.cgi?id=196527
+    
+    Reviewed by Antti Koivisto.
+    
+    We need to update CanvasBase::m_scriptExecutionContext when HTMLCanvasElement moves from
+    one document to another. Fixed the bug by making CanvasBase::scriptExecutionContext make
+    a virtual function call instead of directly storing a raw pointer. In HTMLCanvasElement,
+    we use Node::scriptExecutionContext(). Use ContextDestructionObserver in CustomPaintCanvas
+    and OffscreenCanvas instead of a raw pointer.
+    
+    Unfortunately, no new tests since there is no reproducible test case.
+    
+    * html/CanvasBase.cpp:
+    (WebCore::CanvasBase::CanvasBase):
+    * html/CanvasBase.h:
+    (WebCore::CanvasBase::scriptExecutionContext const):
+    * html/CustomPaintCanvas.cpp:
+    (WebCore::CustomPaintCanvas::CustomPaintCanvas):
+    * html/CustomPaintCanvas.h:
+    * html/HTMLCanvasElement.cpp:
+    (WebCore::HTMLCanvasElement::HTMLCanvasElement):
+    * html/HTMLCanvasElement.h:
+    * html/OffscreenCanvas.cpp:
+    (WebCore::OffscreenCanvas::OffscreenCanvas):
+    * html/OffscreenCanvas.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243820 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-02  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Crash in HTMLCanvasElement::createContext2d after the element got adopted to a new document
+            https://bugs.webkit.org/show_bug.cgi?id=196527
+
+            Reviewed by Antti Koivisto.
+
+            We need to update CanvasBase::m_scriptExecutionContext when HTMLCanvasElement moves from
+            one document to another. Fixed the bug by making CanvasBase::scriptExecutionContext make
+            a virtual function call instead of directly storing a raw pointer. In HTMLCanvasElement,
+            we use Node::scriptExecutionContext(). Use ContextDestructionObserver in CustomPaintCanvas
+            and OffscreenCanvas instead of a raw pointer.
+
+            Unfortunately, no new tests since there is no reproducible test case.
+
+            * html/CanvasBase.cpp:
+            (WebCore::CanvasBase::CanvasBase):
+            * html/CanvasBase.h:
+            (WebCore::CanvasBase::scriptExecutionContext const):
+            * html/CustomPaintCanvas.cpp:
+            (WebCore::CustomPaintCanvas::CustomPaintCanvas):
+            * html/CustomPaintCanvas.h:
+            * html/HTMLCanvasElement.cpp:
+            (WebCore::HTMLCanvasElement::HTMLCanvasElement):
+            * html/HTMLCanvasElement.h:
+            * html/OffscreenCanvas.cpp:
+            (WebCore::OffscreenCanvas::OffscreenCanvas):
+            * html/OffscreenCanvas.h:
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r239742. rdar://problem/50753925
+
+    Prevent cross-site top-level navigations from third-party iframes
+    https://bugs.webkit.org/show_bug.cgi?id=193076
+    <rdar://problem/36074736>
+    
+    Reviewed by Alex Christensen.
+    
+    Source/WebCore:
+    
+    Prevent cross-site top-level navigations from third-party iframes if the following conditions are met:
+    1. Its tries to navigate the top-level page cross-site (different eTDL+1)
+    2. The user has never interacted with the third-party iframe or any of its subframes
+    
+    This experiment's intent is to block suspicious main-frame navigations by third-party content. The feature
+    is behind a runtime experimental feature flag, on by default.
+    
+    Tests: http/tests/security/allow-top-level-navigations-by-third-party-iframes-to-same-origin.html
+           http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-previous-user-activation.html
+           http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-user-activation.html
+           http/tests/security/block-top-level-navigations-by-third-party-iframes.html
+    
+    * dom/Document.cpp:
+    (WebCore::printNavigationErrorMessage):
+    (WebCore::Document::canNavigate):
+    (WebCore::Document::canNavigateInternal):
+    (WebCore::Document::isNavigationBlockedByThirdPartyIFrameRedirectBlocking):
+    * dom/Document.h:
+    * dom/UserGestureIndicator.cpp:
+    * page/DOMWindow.cpp:
+    (WebCore::DOMWindow::setLocation):
+    * page/DOMWindow.h:
+    * page/Frame.h:
+    * page/Location.cpp:
+    (WebCore::Location::replace):
+    (WebCore::Location::setLocation):
+    * page/Settings.yaml:
+    
+    Source/WebKit:
+    
+    Add experimental feature flag, on by default.
+    
+    * Shared/WebPreferences.yaml:
+    
+    LayoutTests:
+    
+    Add layout test coverage.
+    
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-to-same-origin-expected.txt: Added.
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-to-same-origin.html: Added.
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-previous-user-activation-expected.txt: Added.
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-previous-user-activation.html: Added.
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-user-activation-expected.txt: Added.
+    * http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-user-activation.html: Added.
+    * http/tests/security/block-top-level-navigations-by-third-party-iframes-expected.txt: Added.
+    * http/tests/security/block-top-level-navigations-by-third-party-iframes.html: Added.
+    * http/tests/security/resources/navigate-top-level-frame-to-failure-page.html: Added.
+    * http/tests/security/resources/navigate-top-level-frame-to-success-page-same-origin.html: Added.
+    * http/tests/security/resources/navigate-top-level-frame-to-success-page-with-previous-user-gesture.html: Added.
+    * http/tests/security/resources/navigate-top-level-frame-to-success-page-with-user-gesture.html: Added.
+    * http/tests/security/resources/should-have-loaded.html: Added.
+    * http/tests/security/resources/should-not-have-loaded.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@239742 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-01-08  Chris Dumez  <cdumez@apple.com>
+
+            Prevent cross-site top-level navigations from third-party iframes
+            https://bugs.webkit.org/show_bug.cgi?id=193076
+            <rdar://problem/36074736>
+
+            Reviewed by Alex Christensen.
+
+            Prevent cross-site top-level navigations from third-party iframes if the following conditions are met:
+            1. Its tries to navigate the top-level page cross-site (different eTDL+1)
+            2. The user has never interacted with the third-party iframe or any of its subframes
+
+            This experiment's intent is to block suspicious main-frame navigations by third-party content. The feature
+            is behind a runtime experimental feature flag, on by default.
+
+            Tests: http/tests/security/allow-top-level-navigations-by-third-party-iframes-to-same-origin.html
+                   http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-previous-user-activation.html
+                   http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-user-activation.html
+                   http/tests/security/block-top-level-navigations-by-third-party-iframes.html
+
+            * dom/Document.cpp:
+            (WebCore::printNavigationErrorMessage):
+            (WebCore::Document::canNavigate):
+            (WebCore::Document::canNavigateInternal):
+            (WebCore::Document::isNavigationBlockedByThirdPartyIFrameRedirectBlocking):
+            * dom/Document.h:
+            * dom/UserGestureIndicator.cpp:
+            * page/DOMWindow.cpp:
+            (WebCore::DOMWindow::setLocation):
+            * page/DOMWindow.h:
+            * page/Frame.h:
+            * page/Location.cpp:
+            (WebCore::Location::replace):
+            (WebCore::Location::setLocation):
+            * page/Settings.yaml:
+
+2019-04-30  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r244727. rdar://problem/50344746
+
+    [Apple Pay] Increment the API version from 6 to 7
+    https://bugs.webkit.org/show_bug.cgi?id=197041
+    <rdar://problem/49986625>
+    
+    Reviewed by Geoffrey Garen.
+    
+    * Modules/applepay/PaymentCoordinatorClient.cpp:
+    (WebCore::PaymentCoordinatorClient::supportsVersion):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@244727 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-28  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Increment the API version from 6 to 7
+            https://bugs.webkit.org/show_bug.cgi?id=197041
+            <rdar://problem/49986625>
+
+            Reviewed by Geoffrey Garen.
+
+            * Modules/applepay/PaymentCoordinatorClient.cpp:
+            (WebCore::PaymentCoordinatorClient::supportsVersion):
 
 2019-04-10  Alan Coon  <alancoon@apple.com>
 

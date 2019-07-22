@@ -1298,6 +1298,33 @@
     XCTAssertFalse(self.keychainZone.flag, "Zone flag should have been reset to false");
 }
 
+- (void)testDoNotResetCloudKitZoneFromWaitForTLKDueToAncientOctagonDeviceState {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+
+    // CKKS should not reset this zone, because some Octagon device appeared on this account ever
+    self.silentZoneDeletesAllowed = true;
+    [self putFakeOctagonOnlyDeviceStatusInCloudKit:self.keychainZoneID];
+
+    NSDateComponents* offset = [[NSDateComponents alloc] init];
+    [offset setDay:-46];
+    NSDate* updateTime = [[NSCalendar currentCalendar] dateByAddingComponents:offset toDate:[NSDate date] options:0];
+    for(CKRecord* record in self.keychainZone.currentDatabase.allValues) {
+        if([record.recordType isEqualToString:SecCKRecordDeviceStateType] || [record.recordType isEqualToString:SecCKRecordTLKShareType]) {
+            record.creationDate = updateTime;
+            record.modificationDate = updateTime;
+        }
+    }
+
+    self.keychainZone.flag = true;
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], @"Key state should become 'waitfortlk'");
+    XCTAssertTrue(self.keychainZone.flag, "Zone flag should not have been reset to false");
+
+    // And ensure it doesn't go on to 'reset'
+    XCTAssertNotEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:100*NSEC_PER_MSEC], @"Key state should not become 'resetzone'");
+}
+
 - (void)testAcceptExistingKeyHierarchy {
     // Test starts with no keys in CKKS database, but one in our fake CloudKit.
     // Test also begins with the TLK having arrived in the local keychain (via SOS)
@@ -3022,6 +3049,8 @@
         CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initForDevice:self.ckDeviceID
                                                                        osVersion:@"fake-record"
                                                                   lastUnlockTime:[NSDate date]
+                                                                   octagonPeerID:nil
+                                                                   octagonStatus:nil
                                                                     circlePeerID:self.circlePeerID
                                                                     circleStatus:kSOSCCInCircle
                                                                         keyState:SecCKKSZoneKeyStateWaitForTLK

@@ -2030,8 +2030,10 @@ Node* TY_(GetToken)( TidyDocImpl* doc, GetTokenMode mode )
     assert( !(lexer->pushed || lexer->itoken) );
 
     /* at start of block elements, unclosed inline
-       elements are inserted into the token stream */
-    if (lexer->insert || lexer->inode)
+       elements are inserted into the token stream 
+       Issue #341 - Can NOT insert a token if NO istacksize  
+     */
+    if ((lexer->insert || lexer->inode) && lexer->istacksize)
         return lexer->token = TY_(InsertedToken)( doc );
 
     if (mode == CdataContent)

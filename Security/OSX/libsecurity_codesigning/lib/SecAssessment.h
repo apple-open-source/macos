@@ -323,6 +323,7 @@ enum {
 	kSecAssessmentTicketFlagForceOnlineCheck = 1 << 0,	// force an online check
 };
 Boolean SecAssessmentTicketRegister(CFDataRef ticketData, CFErrorRef *errors);
+Boolean SecAssessmentRegisterPackageTicket(CFURLRef packageURL, CFErrorRef* errors) API_AVAILABLE(macos(10.14.6));
 Boolean SecAssessmentTicketLookup(CFDataRef hash, SecCSDigestAlgorithm hashType, SecAssessmentTicketFlags flags, double *date, CFErrorRef *errors);
 
 #ifdef __cplusplus

@@ -131,6 +131,8 @@ extern NSString* const SecCKRecordItemRefKey;
 /* Device State CKRecord Keys */
 extern NSString* const SecCKRecordDeviceStateType;
 extern NSString* const SecCKRecordCirclePeerID;
+extern NSString* const SecCKRecordOctagonPeerID;
+extern NSString* const SecCKRecordOctagonStatus;
 extern NSString* const SecCKRecordCircleStatus;
 extern NSString* const SecCKRecordKeyState;
 extern NSString* const SecCKRecordCurrentTLK;

@@ -711,7 +711,15 @@ namespace JSC {
         RegisterID* emitBinaryOp(OpcodeID, RegisterID* dst, RegisterID* src1, RegisterID* src2, OperandTypes);
 
         template<typename EqOp>
-        RegisterID* emitEqualityOp(RegisterID* dst, RegisterID* src1, RegisterID* src2);
+        RegisterID* emitEqualityOp(RegisterID* dst, RegisterID* src1, RegisterID* src2)
+        {
+            if (!emitEqualityOpImpl(dst, src1, src2))
+                EqOp::emit(this, dst, src1, src2);
+            return dst;
+        }
+
+        bool emitEqualityOpImpl(RegisterID* dst, RegisterID* src1, RegisterID* src2);
+
         RegisterID* emitCreateThis(RegisterID* dst);
         void emitTDZCheck(RegisterID* target);
         bool needsTDZCheck(const Variable&);
@@ -1046,6 +1054,8 @@ namespace JSC {
         void emitToThis();
 
         RegisterID* emitMove(RegisterID* dst, RegisterID* src);
+
+        bool canDoPeepholeOptimization() const { return m_lastOpcodeID != op_end; }
 
     public:
         bool isSuperUsedInInnerArrowFunction();

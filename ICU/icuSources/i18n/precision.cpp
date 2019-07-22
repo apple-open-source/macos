@@ -423,6 +423,7 @@ ScientificPrecision::initVisibleDigitsWithExponent(
         return digits;
     }
     DigitList digitList;
+    digitList.fFormatFullPrecision = digits.fMantissa.formatFullPrecision(); // Apples
     digitList.set(value);
     return initVisibleDigitsWithExponent(digitList, digits, status);
 }

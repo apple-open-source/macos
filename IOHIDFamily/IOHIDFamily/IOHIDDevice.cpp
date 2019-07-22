@@ -2011,7 +2011,7 @@ IOReturn IOHIDDevice::checkEventDelivery( IOHIDEventQueue *  queue,
 
 OSMetaClassDefineReservedUsed(IOHIDDevice,  0);
 IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 cookieCount) {
-    IOMemoryDescriptor *	report = NULL;
+    IOBufferMemoryDescriptor *	report = NULL;
     IOHIDElementPrivate *		element = NULL;
     IOHIDReportType		reportType;
     UInt32			maxReportLength;
@@ -2051,6 +2051,12 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
 
         reportID = element->getReportID();
 
+        // We must set report to max size if transaction have
+        // elements of different report sizes
+        
+        report->setLength(maxReportLength);
+    
+    
         // calling down into our subclass, so lets unlock
         WORKLOOP_UNLOCK;
         

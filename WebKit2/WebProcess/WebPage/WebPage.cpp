@@ -244,6 +244,8 @@
 #include "PDFPlugin.h"
 #include "PlaybackSessionManager.h"
 #include "RemoteLayerTreeTransaction.h"
+#include "RemoteObjectRegistry.h"
+#include "RemoteObjectRegistryMessages.h"
 #include "TouchBarMenuData.h"
 #include "TouchBarMenuItemData.h"
 #include "VideoFullscreenManager.h"
@@ -1294,6 +1296,8 @@ void WebPage::close()
     m_isRunningModal = false;
 
     auto& webProcess = WebProcess::singleton();
+    if (m_remoteObjectRegistry)
+        m_remoteObjectRegistry->close();
 #if ENABLE(ASYNC_SCROLLING)
     if (m_useAsyncScrolling)
         webProcess.eventDispatcher().removeScrollingTreeForPage(this);
@@ -4124,11 +4128,8 @@ void WebPage::failedToShowPopupMenu()
 #if ENABLE(CONTEXT_MENUS)
 void WebPage::didSelectItemFromActiveContextMenu(const WebContextMenuItemData& item)
 {
-    if (!m_contextMenu)
-        return;
-
-    m_contextMenu->itemSelected(item);
-    m_contextMenu = nullptr;
+    if (auto contextMenu = std::exchange(m_contextMenu, nullptr))
+        contextMenu->itemSelected(item);
 }
 #endif
 

@@ -1,8 +1,8 @@
 
 install:
 # ========== libxslt ==========
-	set PATH=$(PATH);$(CYGWINPATH);$(PROGRAMFILESAAS)
-	$(CYGWINPATH)\perl "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.pl" "$(OBJROOT)\libxslt\obj"
+	set PATH=$(PATH);$(PROGRAMFILESAAS)
+	C:\Perl\bin\perl.exe "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.pl" "$(OBJROOT)\libxslt\obj"
 	cd "$(SRCROOT)\libxslt\win32"
 	cscript //nologo configure.js cruntime=/MD prefix="$(OBJROOT)\libxslt" rinclude="$(OBJROOT)\libxslt\obj\include" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib$(ARCH)"
 	nmake /f Makefile.msvc
@@ -15,8 +15,8 @@ install:
 
 install_DEBUG:
 # ========== libxslt ==========
-	set PATH=$(PATH);$(CYGWINPATH);$(PROGRAMFILESAAS)
-	$(CYGWINPATH)\perl "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.pl" "$(OBJROOT)\libxslt\obj"
+	set PATH=$(PATH);$(PROGRAMFILESAAS)
+	C:\Perl\bin\perl.exe "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.pl" "$(OBJROOT)\libxslt\obj"
 	cd "$(SRCROOT)\libxslt\win32"
 	cscript //nologo configure.js debug=1 cruntime=/MDd prefix="$(OBJROOT)\libxslt" rinclude="$(OBJROOT)\libxslt\obj\include" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib$(ARCH)"
 	nmake /f Makefile.msvc

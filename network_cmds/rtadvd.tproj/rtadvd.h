@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 1998 WIDE Project.
+ * Copyright (C) 2011 Hiroki Sato <hrs@FreeBSD.org>
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -28,6 +29,18 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#include "rtadvd_logging.h"
+
+#define	ELM_MALLOC(p, error_action)					\
+	do {								\
+		p = malloc(sizeof(*p));					\
+		if (p == NULL) {					\
+			errorlog("<%s> malloc failed: %s",	\
+			    __func__, strerror(errno));			\
+			error_action;					\
+		}							\
+		memset(p, 0, sizeof(*p));				\
+	} while(0)
 
 #define	ROUTEINFO	1
 

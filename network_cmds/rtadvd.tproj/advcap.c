@@ -73,10 +73,10 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <syslog.h>
 #include <errno.h>
 #include <string.h>
 #include "pathnames.h"
+#include "rtadvd_logging.h"
 
 #ifndef BUFSIZ
 #define	BUFSIZ		1024
@@ -165,8 +165,7 @@ getent(bp, name, cp)
 		tf = open(RM = cp, O_RDONLY);
 	}
 	if (tf < 0) {
-		syslog(LOG_INFO,
-		       "<%s> open: %s", __func__, strerror(errno));
+		infolog("<%s> open: %s", __func__, strerror(errno));
 		return (-2);
 	}
 	for (;;) {

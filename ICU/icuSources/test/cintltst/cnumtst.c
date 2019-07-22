@@ -70,6 +70,7 @@ static void TestParseAltNum(void);
 static void TestParseCurrPatternWithDecStyle(void);
 static void TestParseCases(void);
 static void TestFormatPrecision(void);
+static void TestSciNotationRound(void); // Apple <rdar://problem/49159521>
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/cnumtst/" #x)
 
@@ -107,6 +108,7 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestParseCurrPatternWithDecStyle);
     TESTCASE(TestParseCases);
     TESTCASE(TestFormatPrecision);
+    TESTCASE(TestSciNotationRound);
 }
 
 /* test Parse int 64 */
@@ -3269,6 +3271,43 @@ static void TestFormatPrecision(void) {
             }
         }
 
+        unum_close(unum);
+    }
+}
+
+// Currently Apple only for <rdar://problem/49159521>
+enum { kBBufMax = 128  };
+static const UChar* pat1 = u"#.##E+00;-#.##E+00";
+static void TestSciNotationRound(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UNumberFormat* unum = unum_open(UNUM_PATTERN_DECIMAL, NULL, 0, "en_US", NULL, &status);
+    if ( U_FAILURE(status) ) {
+        log_data_err("unum_open UNUM_PATTERN_DECIMAL with null pattern for \"en_US\" fails with %s\n", u_errorName(status));
+    } else {
+        unum_applyPattern(unum, FALSE, pat1, u_strlen(pat1), NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_applyPattern fails with %s\n", u_errorName(status));
+        } else {
+            double value;
+            UChar ubuf[kUBufMax];
+            char bbuf[kBBufMax];
+            int32_t ulen;
+
+            unum_setAttribute(unum, UNUM_ROUNDING_MODE, UNUM_ROUND_HALFUP);
+            unum_setAttribute(unum, UNUM_MIN_FRACTION_DIGITS, 0);
+            unum_setAttribute(unum, UNUM_MAX_FRACTION_DIGITS, 50); // problem happens at 15 or more
+
+            for (value = 10000000000000000000000.0; value < 1000000000000000000000000000000000000000.0; value *= 10.0) {
+                status = U_ZERO_ERROR;
+                ulen = unum_formatDouble(unum, value, ubuf, kUBufMax, NULL, &status);
+                if ( U_FAILURE(status) ) {
+                    printf("unum_formatDouble value %.1f status %s\n", value, u_errorName(status));
+                } else if (u_strncmp(ubuf,u"1E+",3) != 0) {
+                    u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
+                    log_err("unum_formatDouble value %.1f expected result to begin with 1E+, got %s\n", value, bbuf);
+                }
+            }
+        }
         unum_close(unum);
     }
 }

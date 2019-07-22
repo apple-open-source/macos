@@ -553,4 +553,67 @@
 }
 @end
 
+
+@implementation OTCliqueStatusWrapper
+- (instancetype)initWithStatus:(CliqueStatus)status
+{
+    if((self = [super init])) {
+        _status = status;
+    }
+    return self;
+}
+
+- (BOOL)isEqual:(id)object
+{
+    if(![object isKindOfClass:[OTCliqueStatusWrapper class]]) {
+        return NO;
+    }
+
+    OTCliqueStatusWrapper* obj = (OTCliqueStatusWrapper*)object;
+    return obj.status == self.status;
+}
+- (NSString*)description
+{
+    return [NSString stringWithFormat:@"<CliqueStatus: %@>", OTCliqueStatusToString(self.status)];
+}
+@end
+
+NSString* OTCliqueStatusToString(CliqueStatus status)
+{
+    switch(status) {
+        case CliqueStatusIn:
+            return @"CliqueStatusIn";
+        case CliqueStatusNotIn:
+            return @"CliqueStatusNotIn";
+        case CliqueStatusPending:
+            return @"CliqueStatusPending";
+        case CliqueStatusAbsent:
+            return @"CliqueStatusAbsent";
+        case CliqueStatusNoCloudKitAccount:
+            return @"CliqueStatusNoCloudKitAccount";
+        case CliqueStatusError:
+            return @"CliqueStatusError";
+    };
+}
+CliqueStatus OTCliqueStatusFromString(NSString* str)
+{
+    if([str isEqualToString: @"CliqueStatusIn"]) {
+        return CliqueStatusIn;
+    } else if([str isEqualToString: @"CliqueStatusNotIn"]) {
+        return CliqueStatusNotIn;
+    } else if([str isEqualToString: @"CliqueStatusPending"]) {
+        return CliqueStatusPending;
+    } else if([str isEqualToString: @"CliqueStatusAbsent"]) {
+        return CliqueStatusAbsent;
+    } else if([str isEqualToString: @"CliqueStatusNoCloudKitAccount"]) {
+        return CliqueStatusNoCloudKitAccount;
+    } else if([str isEqualToString: @"CliqueStatusError"]) {
+        return CliqueStatusError;
+    }
+
+    return CliqueStatusError;
+}
+
+
+
 #endif // OCTAGON

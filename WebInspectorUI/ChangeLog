@@ -1,3 +1,70 @@
+2019-07-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r244621. rdar://problem/52492610
+
+    PeatyG: Re-land fixes for 3 PeatyF Security Critical that accidentally got reverted in G.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/branches/safari-607-branch@244621 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-30  Alan Coon  <alancoon@apple.com>
+
+            Cherry-pick r244358. rdar://problem/50352725
+
+        REGRESSION(r238168) Web Inspector: <iframe src=...> request does not show up in Network Tab
+        https://bugs.webkit.org/show_bug.cgi?id=193505
+        <rdar://problem/47325957>
+
+        Reviewed by Devin Rousso.
+
+        * UserInterface/Views/NetworkTableContentView.js:
+        (WI.NetworkTableContentView):
+        (WI.NetworkTableContentView.prototype._handleFrameWasAdded):
+        Handle new frames by adding the frame's main resource.
+
+        git-svn-id: https://svn.webkit.org/repository/webkit/trunk@244358 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+        2019-04-16  Joseph Pecoraro  <pecoraro@apple.com>
+
+                REGRESSION(r238168) Web Inspector: <iframe src=...> request does not show up in Network Tab
+                https://bugs.webkit.org/show_bug.cgi?id=193505
+                <rdar://problem/47325957>
+
+                Reviewed by Devin Rousso.
+
+                * UserInterface/Views/NetworkTableContentView.js:
+                (WI.NetworkTableContentView):
+                (WI.NetworkTableContentView.prototype._handleFrameWasAdded):
+                Handle new frames by adding the frame's main resource.
+
+2019-04-30  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r242772. rdar://problem/50352729
+
+    Web Inspector: REGRESSION: Network Cookies Table does not load
+    https://bugs.webkit.org/show_bug.cgi?id=195599
+    
+    Patch by Joseph Pecoraro <pecoraro@apple.com> on 2019-03-11
+    Reviewed by Devin Rousso.
+    
+    * UserInterface/Views/ResourceCookiesContentView.js:
+    (WI.ResourceCookiesContentView.prototype.tableIndexForRepresentedObject):
+    (WI.ResourceCookiesContentView.prototype.tableRepresentedObjectForIndex):
+    Include needed delegate methods.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@242772 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-11  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: REGRESSION: Network Cookies Table does not load
+            https://bugs.webkit.org/show_bug.cgi?id=195599
+
+            Reviewed by Devin Rousso.
+
+            * UserInterface/Views/ResourceCookiesContentView.js:
+            (WI.ResourceCookiesContentView.prototype.tableIndexForRepresentedObject):
+            (WI.ResourceCookiesContentView.prototype.tableRepresentedObjectForIndex):
+            Include needed delegate methods.
+
 2019-04-10  Alan Coon  <alancoon@apple.com>
 
         Cherry-pick r243819. rdar://problem/49725678

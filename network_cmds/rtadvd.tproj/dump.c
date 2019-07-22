@@ -75,7 +75,6 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <syslog.h>
 #include <string.h>
 #include <errno.h>
 
@@ -129,10 +128,15 @@ if_dump()
 
 	gettimeofday(&now, NULL); /* XXX: unused in most cases */
 	for (rai = ralist; rai; rai = rai->next) {
-		fprintf(fp, "%s:\n", rai->ifname);
-
+        fprintf(fp, "%s:\n", rai->ifname);
+        struct if_msghdr *ifm = get_interface_entry(rai->ifindex);
+        if (ifm == NULL) {
+            debuglog("Skippingg RA entry for interface %s"
+                "as we couldn't find interface entry for it.", rai->ifname);
+            continue;
+        }
 		fprintf(fp, "  Status: %s\n",
-			(iflist[rai->ifindex]->ifm_flags & IFF_UP) ? "UP" :
+			(ifm->ifm_flags & IFF_UP) ? "UP" :
 			"DOWN");
 
 		/* control information */
@@ -264,11 +268,11 @@ void
 rtadvd_dump_file(dumpfile)
 	char *dumpfile;
 {
-	syslog(LOG_DEBUG, "<%s> dump current status to %s", __func__,
+	debuglog("<%s> dump current status to %s", __func__,
 	    dumpfile);
 
 	if ((fp = fopen(dumpfile, "w")) == NULL) {
-		syslog(LOG_WARNING, "<%s> open a dump file(%s)",
+		errorlog("<%s> open a dump file(%s)",
 		    __func__, dumpfile);
 		return;
 	}

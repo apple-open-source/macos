@@ -1776,7 +1776,6 @@ IOReturn IOPCIBridge::_restoreDeviceDependents(IOPCIDevice * device, IOOptionBit
 			ret = restoreTunnelState(device, kMachineRestoreBridges, &didTunnelController);
 			ret = restoreTunnelState(device, 0,                      &didTunnelController);
 			ret = restoreTunnelState(device, kMachineRestoreTunnels, &didTunnelController);
-			if (!queue_empty(&configShadow(device)->dependents)) panic("tunnelq");
 
             if (didTunnelController)
             {

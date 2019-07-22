@@ -26,6 +26,7 @@
 #include "policyengine.h"
 #include "xpcengine.h"
 #include "csutilities.h"
+#include "xar++.h"
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFBundlePriv.h>
 #include <security_utilities/globalizer.h>
@@ -580,6 +581,23 @@ Boolean SecAssessmentTicketRegister(CFDataRef ticketData, CFErrorRef *errors)
 	xpcEngineTicketRegister(ticketData);
 	return true;
 
+	END_CSAPI_ERRORS1(false)
+}
+
+Boolean SecAssessmentRegisterPackageTicket(CFURLRef packageURL, CFErrorRef* errors)
+{
+	BEGIN_CSAPI
+	
+	string path = cfString(packageURL);
+	Xar xar(path.c_str());
+	
+	if (!xar) {
+		MacOSError::throwMe(errSecParam);
+	}
+	
+	xar.registerStapledNotarization();
+	return true;
+	
 	END_CSAPI_ERRORS1(false)
 }
 

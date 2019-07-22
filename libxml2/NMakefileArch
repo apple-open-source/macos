@@ -2,8 +2,8 @@
 
 install:
 # ========== libxml2 ==========
-	set PATH=$(PATH);$(CYGWINPATH);$(PROGRAMFILESAAS)
-	$(CYGWINPATH)\perl "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.pl" "$(OBJROOT)\libxml\obj"
+	set PATH=$(PATH);$(PROGRAMFILESAAS)
+	C:\Perl\bin\perl.exe "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.pl" "$(OBJROOT)\libxml\obj"
 	cd "$(SRCROOT)\libxml2\win32"
 	cscript //nologo configure.js cruntime=/MD prefix="$(OBJROOT)\libxml" rinclude="$(OBJROOT)\libxml\obj\include" include="$(SRCROOT)\AppleInternal\include" lib="$(SRCROOT)\AppleInternal\lib$(ARCH)" iconv=no icu=yes
 	nmake /f Makefile.msvc
@@ -15,8 +15,8 @@ install:
 
 install_DEBUG:
 # ========== libxml2 ==========
-	set PATH=$(PATH);$(CYGWINPATH);$(PROGRAMFILESAAS)
-	$(CYGWINPATH)\perl "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.pl" "$(OBJROOT)\libxml\obj"
+	set PATH=$(PATH);$(PROGRAMFILESAAS)
+	C:\Perl\bin\perl.exe "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.pl" "$(OBJROOT)\libxml\obj"
 	cd "$(SRCROOT)\libxml2\win32"
 	cscript //nologo configure.js debug=1 cruntime=/MDd prefix="$(OBJROOT)\libxml" rinclude="$(OBJROOT)\libxml\obj\include" include="$(SRCROOT)\AppleInternal\include" lib="$(SRCROOT)\AppleInternal\lib$(ARCH)" iconv=no icu=yes
 	nmake /f Makefile.msvc

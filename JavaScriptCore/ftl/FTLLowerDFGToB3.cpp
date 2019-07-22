@@ -4232,13 +4232,15 @@ private:
         
         LValue numberOfArgs = m_out.sub(numberOfArgsIncludingThis, m_out.int32One);
         LValue indexToCheck = originalIndex;
+        LValue numberOfArgumentsToSkip = m_out.int32Zero;
         if (m_node->numberOfArgumentsToSkip()) {
-            CheckValue* check = m_out.speculateAdd(indexToCheck, m_out.constInt32(m_node->numberOfArgumentsToSkip()));
+            numberOfArgumentsToSkip = m_out.constInt32(m_node->numberOfArgumentsToSkip());
+            CheckValue* check = m_out.speculateAdd(indexToCheck, numberOfArgumentsToSkip);
             blessSpeculation(check, Overflow, noValue(), nullptr, m_origin);
             indexToCheck = check;
         }
 
-        LValue isOutOfBounds = m_out.aboveOrEqual(indexToCheck, numberOfArgs);
+        LValue isOutOfBounds = m_out.bitOr(m_out.aboveOrEqual(indexToCheck, numberOfArgs), m_out.below(indexToCheck, numberOfArgumentsToSkip));
         LBasicBlock continuation = nullptr;
         LBasicBlock lastNext = nullptr;
         ValueFromBlock slowResult;
@@ -4885,6 +4887,7 @@ private:
     {
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_node->origin.semantic);
 
+        LValue sourceArray = lowCell(m_graph.varArgChild(m_node, 0));
         LValue sourceStorage = lowStorage(m_graph.varArgChild(m_node, m_node->numChildren() - 1));
         LValue inputLength = m_out.load32(sourceStorage, m_heaps.Butterfly_publicLength);
 
@@ -4910,7 +4913,7 @@ private:
 
         ArrayValues arrayResult;
         {
-            LValue indexingType = m_out.load8ZeroExt32(lowCell(m_graph.varArgChild(m_node, 0)), m_heaps.JSCell_indexingTypeAndMisc);
+            LValue indexingType = m_out.load8ZeroExt32(sourceArray, m_heaps.JSCell_indexingTypeAndMisc);
             // We can ignore the writability of the cell since we won't write to the source.
             indexingType = m_out.bitAnd(indexingType, m_out.constInt32(AllWritableArrayTypesAndHistory));
             // When we emit an ArraySlice, we dominate the use of the array by a CheckStructure
@@ -4924,6 +4927,9 @@ private:
                     weakStructure(m_graph.registerStructure(globalObject->arrayStructureForIndexingTypeDuringAllocation(ArrayWithDouble)))));
             arrayResult = allocateJSArray(resultLength, resultLength, structure, indexingType, false, false);
         }
+
+        // Keep the sourceArray alive at least until after anything that can GC.
+        keepAlive(sourceArray);
 
         LBasicBlock loop = m_out.newBlock();
         LBasicBlock continuation = m_out.newBlock();
@@ -13391,7 +13397,7 @@ private:
         }
         
         ValueFromBlock noButterfly = m_out.anchor(m_out.intPtrZero);
-        
+
         LValue predicate;
         if (shouldLargeArraySizeCreateArrayStorage)
             predicate = m_out.aboveOrEqual(publicLength, m_out.constInt32(MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH));
@@ -13401,16 +13407,16 @@ private:
         m_out.branch(predicate, rarely(largeCase), usually(fastCase));
         
         m_out.appendTo(fastCase, largeCase);
-            
+
         LValue payloadSize =
             m_out.shl(m_out.zeroExt(vectorLength, pointerType()), m_out.constIntPtr(3));
-            
+
         LValue butterflySize = m_out.add(
             payloadSize, m_out.constIntPtr(sizeof(IndexingHeader)));
-            
+
         LValue allocator = allocatorForSize(vm().jsValueGigacageAuxiliarySpace, butterflySize, failCase);
         LValue startOfStorage = allocateHeapCell(allocator, failCase);
-            
+
         LValue butterfly = m_out.add(startOfStorage, m_out.constIntPtr(sizeof(IndexingHeader)));
         
         m_out.store32(publicLength, butterfly, m_heaps.Butterfly_publicLength);
@@ -16918,7 +16924,16 @@ private:
             return false;
         return true;
     }
-    
+
+    void keepAlive(LValue value)
+    {
+        PatchpointValue* patchpoint = m_out.patchpoint(Void);
+        patchpoint->effects = Effects::none();
+        patchpoint->effects.writesLocalState = true;
+        patchpoint->append(value, ValueRep::ColdAny);
+        patchpoint->setGenerator([=] (CCallHelpers&, const StackmapGenerationParams&) { });
+    }
+
     void addWeakReference(JSCell* target)
     {
         m_graph.m_plan.weakReferences().addLazily(target);
@@ -16926,12 +16941,13 @@ private:
 
     LValue loadStructure(LValue value)
     {
-        LValue tableIndex = m_out.load32(value, m_heaps.JSCell_structureID);
-        LValue tableBase = m_out.loadPtr(
-            m_out.absolute(vm().heap.structureIDTable().base()));
-        TypedPointer address = m_out.baseIndex(
-            m_heaps.structureTable, tableBase, m_out.zeroExtPtr(tableIndex));
-        return m_out.loadPtr(address);
+        LValue structureID = m_out.load32(value, m_heaps.JSCell_structureID);
+        LValue tableBase = m_out.loadPtr(m_out.absolute(vm().heap.structureIDTable().base()));
+        LValue tableIndex = m_out.aShr(structureID, m_out.constInt32(StructureIDTable::s_numberOfEntropyBits));
+        LValue entropyBits = m_out.shl(m_out.zeroExtPtr(structureID), m_out.constInt32(StructureIDTable::s_entropyBitsShiftForStructurePointer));
+        TypedPointer address = m_out.baseIndex(m_heaps.structureTable, tableBase, m_out.zeroExtPtr(tableIndex));
+        LValue encodedStructureBits = m_out.loadPtr(address);
+        return m_out.bitXor(encodedStructureBits, entropyBits);
     }
 
     LValue weakPointer(JSCell* pointer)

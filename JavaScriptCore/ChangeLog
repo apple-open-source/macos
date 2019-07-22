@@ -1,3 +1,1668 @@
+2019-07-07  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r246801. rdar://problem/52505041
+
+    Structure::create should call didBecomePrototype()
+    https://bugs.webkit.org/show_bug.cgi?id=196315
+    
+    Reviewed by Filip Pizlo.
+    
+    Structure::create should also assert that the indexing type makes sense
+    for the prototype being used.
+    
+    * runtime/JSObject.h:
+    * runtime/Structure.cpp:
+    (JSC::Structure::isValidPrototype):
+    (JSC::Structure::changePrototypeTransition):
+    * runtime/Structure.h:
+    (JSC::Structure::create): Deleted.
+    * runtime/StructureInlines.h:
+    (JSC::Structure::create):
+    (JSC::Structure::setPrototypeWithoutTransition):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@246801 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-25  Keith Miller  <keith_miller@apple.com>
+
+            Structure::create should call didBecomePrototype()
+            https://bugs.webkit.org/show_bug.cgi?id=196315
+
+            Reviewed by Filip Pizlo.
+
+            Structure::create should also assert that the indexing type makes sense
+            for the prototype being used.
+
+            * runtime/JSObject.h:
+            * runtime/Structure.cpp:
+            (JSC::Structure::isValidPrototype):
+            (JSC::Structure::changePrototypeTransition):
+            * runtime/Structure.h:
+            (JSC::Structure::create): Deleted.
+            * runtime/StructureInlines.h:
+            (JSC::Structure::create):
+            (JSC::Structure::setPrototypeWithoutTransition):
+
+2019-07-02  Alan Coon  <alancoon@apple.com>
+
+        Revert r246801. rdar://problem/52505041
+
+2019-07-01  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r246801. rdar://problem/52505041
+
+    Structure::create should call didBecomePrototype()
+    https://bugs.webkit.org/show_bug.cgi?id=196315
+    
+    Reviewed by Filip Pizlo.
+    
+    Structure::create should also assert that the indexing type makes sense
+    for the prototype being used.
+    
+    * runtime/JSObject.h:
+    * runtime/Structure.cpp:
+    (JSC::Structure::isValidPrototype):
+    (JSC::Structure::changePrototypeTransition):
+    * runtime/Structure.h:
+    (JSC::Structure::create): Deleted.
+    * runtime/StructureInlines.h:
+    (JSC::Structure::create):
+    (JSC::Structure::setPrototypeWithoutTransition):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@246801 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-25  Keith Miller  <keith_miller@apple.com>
+
+            Structure::create should call didBecomePrototype()
+            https://bugs.webkit.org/show_bug.cgi?id=196315
+
+            Reviewed by Filip Pizlo.
+
+            Structure::create should also assert that the indexing type makes sense
+            for the prototype being used.
+
+            * runtime/JSObject.h:
+            * runtime/Structure.cpp:
+            (JSC::Structure::isValidPrototype):
+            (JSC::Structure::changePrototypeTransition):
+            * runtime/Structure.h:
+            (JSC::Structure::create): Deleted.
+            * runtime/StructureInlines.h:
+            (JSC::Structure::create):
+            (JSC::Structure::setPrototypeWithoutTransition):
+
+2019-07-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r244621. rdar://problem/52492610
+
+    PeatyG: Re-land fixes for 3 PeatyF Security Critical that accidentally got reverted in G.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/branches/safari-607-branch@244621 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-27  Kocsen Chung  <kocsen_chung@apple.com>
+
+            Cherry-pick r246740. rdar://problem/52054323
+
+        ArraySlice needs to keep the source array alive.
+        https://bugs.webkit.org/show_bug.cgi?id=197374
+        <rdar://problem/50304429>
+
+        Reviewed by Michael Saboff and Filip Pizlo.
+
+        JSTests:
+
+        * stress/array-slice-must-keep-source-array-alive.js: Added.
+
+        Source/JavaScriptCore:
+
+        The implementation of the FTL ArraySlice intrinsics may GC while allocating the
+        result array and its butterfly.  Previously, ArraySlice already keeps the source
+        butterfly alive in order to copy from it to the new butterfly after the allocation.
+        Unfortunately, this is not enough.  We also need to keep the source array alive
+        so that GC will scan the values in the butterfly as well.  Note: the butterfly
+        does not have a visitChildren() method to do this scan.  It's the parent object's
+        responsibility to do the scanning.
+
+        This patch fixes this by introducing a keepAlive() utility method, and we use it
+        to keep the source array alive while allocating the result array and butterfly.
+
+        keepAlive() works by using a patchpoint to communicate to B3 that a value (the
+        source array in this case) is still in use.  It also uses a fence to keep B3 from
+        relocating the patchpoint, which may defeat the fix.
+
+        For the DFG's SpeculativeJIT::compileArraySlice(), we may have lucked out and the
+        source array cell is kept alive.  This patch makes it explicit that we should
+        keep its cell alive till after the result array has been allocated.
+
+        For the Baseline JIT and LLInt, we use the arrayProtoFuncSlice() runtime function
+        and there is no issue because the source array (in "thisObj") is in the element
+        copying loop that follows the allocation of the result array.  However, for
+        documentation purposes, this patch adds a call to HeapCell::use() to indicate that
+        the source array need to kept alive at least until after the allocation of the
+        result array.
+
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileArraySlice):
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileArraySlice):
+        (JSC::FTL::DFG::LowerDFGToB3::allocateJSArray):
+        (JSC::FTL::DFG::LowerDFGToB3::keepAlive):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncSlice):
+
+
+
+        git-svn-id: https://svn.webkit.org/repository/webkit/trunk@246740 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+        2019-06-24  Mark Lam  <mark.lam@apple.com>
+
+                ArraySlice needs to keep the source array alive.
+                https://bugs.webkit.org/show_bug.cgi?id=197374
+                <rdar://problem/50304429>
+
+                Reviewed by Michael Saboff and Filip Pizlo.
+
+                The implementation of the FTL ArraySlice intrinsics may GC while allocating the
+                result array and its butterfly.  Previously, ArraySlice already keeps the source
+                butterfly alive in order to copy from it to the new butterfly after the allocation.
+                Unfortunately, this is not enough.  We also need to keep the source array alive
+                so that GC will scan the values in the butterfly as well.  Note: the butterfly
+                does not have a visitChildren() method to do this scan.  It's the parent object's
+                responsibility to do the scanning.
+
+                This patch fixes this by introducing a keepAlive() utility method, and we use it
+                to keep the source array alive while allocating the result array and butterfly.
+
+                keepAlive() works by using a patchpoint to communicate to B3 that a value (the
+                source array in this case) is still in use.  It also uses a fence to keep B3 from
+                relocating the patchpoint, which may defeat the fix.
+
+                For the DFG's SpeculativeJIT::compileArraySlice(), we may have lucked out and the
+                source array cell is kept alive.  This patch makes it explicit that we should
+                keep its cell alive till after the result array has been allocated.
+
+                For the Baseline JIT and LLInt, we use the arrayProtoFuncSlice() runtime function
+                and there is no issue because the source array (in "thisObj") is in the element
+                copying loop that follows the allocation of the result array.  However, for
+                documentation purposes, this patch adds a call to HeapCell::use() to indicate that
+                the source array need to kept alive at least until after the allocation of the
+                result array.
+
+                * dfg/DFGSpeculativeJIT.cpp:
+                (JSC::DFG::SpeculativeJIT::compileArraySlice):
+                * ftl/FTLLowerDFGToB3.cpp:
+                (JSC::FTL::DFG::LowerDFGToB3::compileArraySlice):
+                (JSC::FTL::DFG::LowerDFGToB3::allocateJSArray):
+                (JSC::FTL::DFG::LowerDFGToB3::keepAlive):
+                * runtime/ArrayPrototype.cpp:
+                (JSC::arrayProtoFuncSlice):
+
+2019-06-24  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r246372. rdar://problem/51927634
+
+    [JSC] Polymorphic call stub's slow path should restore callee saves before performing tail call
+    https://bugs.webkit.org/show_bug.cgi?id=198770
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/poly-call-stub-slow-path-should-restore-callee-saves-when-doing-tail-call.js: Added.
+    (test):
+    
+    Source/JavaScriptCore:
+    
+    Polymorphic call stub is a bit specially patched in JS call site. Typical JS call site for tail calls
+    are the following.
+    
+        if (callee == patchableCallee) {
+            restore callee saves for tail call
+            prepare for tail call
+            jump to the target function
+        }
+        restore callee saves for slow path
+        call the slow path function
+    
+    And linking patches patchableCallee, target function, and slow path function. But polymorphic call stub
+    patches the above `if` statement with the jump to the stub.
+    
+        jump to the polymorphic call stub
+    
+    This is because polymorphic call stub wants to use CallFrameShuffler to get scratch registers. As a result,
+    "restore callee saves for tail call" thing needs to be done in the polymorphic call stubs. While it is
+    correctly done for the major cases, we have `slowPath` skips, and that path missed restoring callee saves.
+    This skip happens if the callee is non JSCell or non JS function, so typically, InternalFunction is handled
+    in that path.
+    
+    This patch does that skips after restoring callee saves.
+    
+    * bytecode/CallLinkInfo.cpp:
+    (JSC::CallLinkInfo::CallLinkInfo):
+    * bytecode/CallLinkInfo.h:
+    (JSC::CallLinkInfo::setUpCall):
+    (JSC::CallLinkInfo::calleeGPR):
+    (JSC::CallLinkInfo::setCalleeGPR): Deleted.
+    * jit/Repatch.cpp:
+    (JSC::revertCall):
+    (JSC::linkVirtualFor):
+    (JSC::linkPolymorphicCall):
+    * jit/Repatch.h:
+    * jit/ThunkGenerators.cpp:
+    (JSC::virtualThunkFor):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@246372 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-12  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Polymorphic call stub's slow path should restore callee saves before performing tail call
+            https://bugs.webkit.org/show_bug.cgi?id=198770
+
+            Reviewed by Saam Barati.
+
+            Polymorphic call stub is a bit specially patched in JS call site. Typical JS call site for tail calls
+            are the following.
+
+                if (callee == patchableCallee) {
+                    restore callee saves for tail call
+                    prepare for tail call
+                    jump to the target function
+                }
+                restore callee saves for slow path
+                call the slow path function
+
+            And linking patches patchableCallee, target function, and slow path function. But polymorphic call stub
+            patches the above `if` statement with the jump to the stub.
+
+                jump to the polymorphic call stub
+
+            This is because polymorphic call stub wants to use CallFrameShuffler to get scratch registers. As a result,
+            "restore callee saves for tail call" thing needs to be done in the polymorphic call stubs. While it is
+            correctly done for the major cases, we have `slowPath` skips, and that path missed restoring callee saves.
+            This skip happens if the callee is non JSCell or non JS function, so typically, InternalFunction is handled
+            in that path.
+
+            This patch does that skips after restoring callee saves.
+
+            * bytecode/CallLinkInfo.cpp:
+            (JSC::CallLinkInfo::CallLinkInfo):
+            * bytecode/CallLinkInfo.h:
+            (JSC::CallLinkInfo::setUpCall):
+            (JSC::CallLinkInfo::calleeGPR):
+            (JSC::CallLinkInfo::setCalleeGPR): Deleted.
+            * jit/Repatch.cpp:
+            (JSC::revertCall):
+            (JSC::linkVirtualFor):
+            (JSC::linkPolymorphicCall):
+            * jit/Repatch.h:
+            * jit/ThunkGenerators.cpp:
+            (JSC::virtualThunkFor):
+
+2019-06-24  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r243966. rdar://problem/51927634
+
+    [JSC] CallLinkInfo should clear Callee or CodeBlock even if it is unlinked by jettison
+    https://bugs.webkit.org/show_bug.cgi?id=196683
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/clear-callee-or-codeblock-in-calllinkinfo-even-cleared-by-jettison.js: Added.
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    In r243626, we stop repatching CallLinkInfo when the CallLinkInfo is held by jettisoned CodeBlock.
+    But we still need to clear the Callee or CodeBlock since they are now dead. Otherwise, CodeBlock's
+    visitWeak eventually accesses this dead cells and crashes because the owner CodeBlock of CallLinkInfo
+    can be still live.
+    
+    We also move all repatching operations from CallLinkInfo.cpp to Repatch.cpp for consistency because the
+    other repatching operations in CallLinkInfo are implemented in Repatch.cpp side.
+    
+    * bytecode/CallLinkInfo.cpp:
+    (JSC::CallLinkInfo::setCallee):
+    (JSC::CallLinkInfo::clearCallee):
+    * jit/Repatch.cpp:
+    (JSC::linkFor):
+    (JSC::revertCall):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243966 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-07  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] CallLinkInfo should clear Callee or CodeBlock even if it is unlinked by jettison
+            https://bugs.webkit.org/show_bug.cgi?id=196683
+
+            Reviewed by Saam Barati.
+
+            In r243626, we stop repatching CallLinkInfo when the CallLinkInfo is held by jettisoned CodeBlock.
+            But we still need to clear the Callee or CodeBlock since they are now dead. Otherwise, CodeBlock's
+            visitWeak eventually accesses this dead cells and crashes because the owner CodeBlock of CallLinkInfo
+            can be still live.
+
+            We also move all repatching operations from CallLinkInfo.cpp to Repatch.cpp for consistency because the
+            other repatching operations in CallLinkInfo are implemented in Repatch.cpp side.
+
+            * bytecode/CallLinkInfo.cpp:
+            (JSC::CallLinkInfo::setCallee):
+            (JSC::CallLinkInfo::clearCallee):
+            * jit/Repatch.cpp:
+            (JSC::linkFor):
+            (JSC::revertCall):
+
+2019-06-24  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r243626. rdar://problem/51927634
+
+    CodeBlock::jettison() should disallow repatching its own calls
+    https://bugs.webkit.org/show_bug.cgi?id=196359
+    <rdar://problem/48973663>
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/call-link-info-osrexit-repatch.js: Added.
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    CodeBlock::jettison() calls CommonData::invalidate, which replaces the `hlt`
+    instruction with the jump to OSR exit. However, if the `hlt` was immediately
+    followed by a call to the CodeBlock being jettisoned, we would write over the
+    OSR exit address while unlinking all the incoming CallLinkInfos later in
+    CodeBlock::jettison().
+    
+    Change it so that we set a flag, `clearedByJettison`, in all the CallLinkInfos
+    owned by the CodeBlock being jettisoned. If the flag is set, we will avoid
+    repatching the call during unlinking. This is safe because this call will never
+    be reachable again after the CodeBlock is jettisoned.
+    
+    * bytecode/CallLinkInfo.cpp:
+    (JSC::CallLinkInfo::CallLinkInfo):
+    (JSC::CallLinkInfo::setCallee):
+    (JSC::CallLinkInfo::clearCallee):
+    (JSC::CallLinkInfo::setCodeBlock):
+    (JSC::CallLinkInfo::clearCodeBlock):
+    * bytecode/CallLinkInfo.h:
+    (JSC::CallLinkInfo::clearedByJettison):
+    (JSC::CallLinkInfo::setClearedByJettison):
+    * bytecode/CodeBlock.cpp:
+    (JSC::CodeBlock::jettison):
+    * jit/Repatch.cpp:
+    (JSC::revertCall):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243626 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-28  Tadeu Zagallo  <tzagallo@apple.com>
+
+            CodeBlock::jettison() should disallow repatching its own calls
+            https://bugs.webkit.org/show_bug.cgi?id=196359
+            <rdar://problem/48973663>
+
+            Reviewed by Saam Barati.
+
+            CodeBlock::jettison() calls CommonData::invalidate, which replaces the `hlt`
+            instruction with the jump to OSR exit. However, if the `hlt` was immediately
+            followed by a call to the CodeBlock being jettisoned, we would write over the
+            OSR exit address while unlinking all the incoming CallLinkInfos later in
+            CodeBlock::jettison().
+
+            Change it so that we set a flag, `clearedByJettison`, in all the CallLinkInfos
+            owned by the CodeBlock being jettisoned. If the flag is set, we will avoid
+            repatching the call during unlinking. This is safe because this call will never
+            be reachable again after the CodeBlock is jettisoned.
+
+            * bytecode/CallLinkInfo.cpp:
+            (JSC::CallLinkInfo::CallLinkInfo):
+            (JSC::CallLinkInfo::setCallee):
+            (JSC::CallLinkInfo::clearCallee):
+            (JSC::CallLinkInfo::setCodeBlock):
+            (JSC::CallLinkInfo::clearCodeBlock):
+            * bytecode/CallLinkInfo.h:
+            (JSC::CallLinkInfo::clearedByJettison):
+            (JSC::CallLinkInfo::setClearedByJettison):
+            * bytecode/CodeBlock.cpp:
+            (JSC::CodeBlock::jettison):
+            * jit/Repatch.cpp:
+            (JSC::revertCall):
+
+2019-06-24  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r246507. rdar://problem/51927645
+
+    Concurrent GC should check the conn before starting a new collection cycle
+    https://bugs.webkit.org/show_bug.cgi?id=198913
+    <rdar://problem/49515149>
+    
+    Reviewed by Filip Pizlo.
+    
+    Heap::requestCollection tries to steal the conn as an optimization to avoid waking up the collector
+    thread if it's idle. We determine if the collector is idle by ensuring that there are no pending collections
+    and that the current GC phase is NotRunning. However, that's not safe immediately after the concurrent
+    GC has finished processing the last pending request. The collector thread will runEndPhase and immediately
+    start runNotRunningPhase, without checking if it still has the conn. If the mutator has stolen the conn in
+    the mean time, this will lead to both threads collecting concurrently, and eventually we'll crash in checkConn,
+    since the collector is running but doesn't have the conn anymore.
+    
+    To solve this, we check if we still have the conn after holding the lock in runNotRunningPhase, in case the mutator
+    has stolen the conn. Ideally, we wouldn't let the mutator steal the conn in the first place, but that doesn't seem
+    trivial to determine.
+    
+    * heap/Heap.cpp:
+    (JSC::Heap::runNotRunningPhase):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@246507 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-17  Tadeu Zagallo  <tzagallo@apple.com>
+
+            Concurrent GC should check the conn before starting a new collection cycle
+            https://bugs.webkit.org/show_bug.cgi?id=198913
+            <rdar://problem/49515149>
+
+            Reviewed by Filip Pizlo.
+
+            Heap::requestCollection tries to steal the conn as an optimization to avoid waking up the collector
+            thread if it's idle. We determine if the collector is idle by ensuring that there are no pending collections
+            and that the current GC phase is NotRunning. However, that's not safe immediately after the concurrent
+            GC has finished processing the last pending request. The collector thread will runEndPhase and immediately
+            start runNotRunningPhase, without checking if it still has the conn. If the mutator has stolen the conn in
+            the mean time, this will lead to both threads collecting concurrently, and eventually we'll crash in checkConn,
+            since the collector is running but doesn't have the conn anymore.
+
+            To solve this, we check if we still have the conn after holding the lock in runNotRunningPhase, in case the mutator
+            has stolen the conn. Ideally, we wouldn't let the mutator steal the conn in the first place, but that doesn't seem
+            trivial to determine.
+
+            * heap/Heap.cpp:
+            (JSC::Heap::runNotRunningPhase):
+
+2019-06-24  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r246505. rdar://problem/51927642
+
+    [JSC] Introduce DisposableCallSiteIndex to enforce type-safety
+    https://bugs.webkit.org/show_bug.cgi?id=197378
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/disposable-call-site-index-with-call-and-this.js: Added.
+    (foo):
+    (bar):
+    * stress/disposable-call-site-index.js: Added.
+    (foo):
+    (bar):
+    
+    Source/JavaScriptCore:
+    
+    Some of CallSiteIndex are disposable. This is because some of CallSiteIndex are allocated and freed at runtime (not DFG/FTL compile time).
+    The example is CallSiteIndex for exception handler in GCAwareJITStubRoutineWithExceptionHandler. If we do not allocate and free CallSiteIndex,
+    we will create a new CallSiteIndex continuously and leak memory.
+    
+    The other CallSiteIndex are not simply disposable because the ownership model is not unique one. They can be shared between multiple clients.
+    But not disposing them is OK because they are static one: they are allocated when compiling DFG/FTL, and we do not allocate such CallSiteIndex
+    at runtime.
+    
+    To make this difference explicit and avoid disposing non-disposable CallSiteIndex accidentally, we introduce DisposableCallSiteIndex type, and
+    enforce type-safety to some degree.
+    
+    We also correctly update the DisposableCallSiteIndex => CodeOrigin table when we are reusing the previously used DisposableCallSiteIndex.
+    
+    * bytecode/CodeBlock.cpp:
+    (JSC::CodeBlock::newExceptionHandlingCallSiteIndex):
+    (JSC::CodeBlock::removeExceptionHandlerForCallSite):
+    * bytecode/CodeBlock.h:
+    * bytecode/PolymorphicAccess.cpp:
+    (JSC::AccessGenerationState::callSiteIndexForExceptionHandling):
+    (JSC::PolymorphicAccess::regenerate):
+    * bytecode/PolymorphicAccess.h:
+    (JSC::AccessGenerationState::callSiteIndexForExceptionHandling): Deleted.
+    * dfg/DFGCommonData.cpp:
+    (JSC::DFG::CommonData::addUniqueCallSiteIndex):
+    (JSC::DFG::CommonData::addDisposableCallSiteIndex):
+    (JSC::DFG::CommonData::removeDisposableCallSiteIndex):
+    (JSC::DFG::CommonData::removeCallSiteIndex): Deleted.
+    * dfg/DFGCommonData.h:
+    * interpreter/CallFrame.h:
+    (JSC::DisposableCallSiteIndex::DisposableCallSiteIndex):
+    (JSC::DisposableCallSiteIndex::fromCallSiteIndex):
+    * jit/GCAwareJITStubRoutine.cpp:
+    (JSC::GCAwareJITStubRoutineWithExceptionHandler::GCAwareJITStubRoutineWithExceptionHandler):
+    (JSC::GCAwareJITStubRoutineWithExceptionHandler::observeZeroRefCount):
+    (JSC::createJITStubRoutine):
+    * jit/GCAwareJITStubRoutine.h:
+    * jit/JITInlineCacheGenerator.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@246505 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Introduce DisposableCallSiteIndex to enforce type-safety
+            https://bugs.webkit.org/show_bug.cgi?id=197378
+
+            Reviewed by Saam Barati.
+
+            Some of CallSiteIndex are disposable. This is because some of CallSiteIndex are allocated and freed at runtime (not DFG/FTL compile time).
+            The example is CallSiteIndex for exception handler in GCAwareJITStubRoutineWithExceptionHandler. If we do not allocate and free CallSiteIndex,
+            we will create a new CallSiteIndex continuously and leak memory.
+
+            The other CallSiteIndex are not simply disposable because the ownership model is not unique one. They can be shared between multiple clients.
+            But not disposing them is OK because they are static one: they are allocated when compiling DFG/FTL, and we do not allocate such CallSiteIndex
+            at runtime.
+
+            To make this difference explicit and avoid disposing non-disposable CallSiteIndex accidentally, we introduce DisposableCallSiteIndex type, and
+            enforce type-safety to some degree.
+
+            We also correctly update the DisposableCallSiteIndex => CodeOrigin table when we are reusing the previously used DisposableCallSiteIndex.
+
+            * bytecode/CodeBlock.cpp:
+            (JSC::CodeBlock::newExceptionHandlingCallSiteIndex):
+            (JSC::CodeBlock::removeExceptionHandlerForCallSite):
+            * bytecode/CodeBlock.h:
+            * bytecode/PolymorphicAccess.cpp:
+            (JSC::AccessGenerationState::callSiteIndexForExceptionHandling):
+            (JSC::PolymorphicAccess::regenerate):
+            * bytecode/PolymorphicAccess.h:
+            (JSC::AccessGenerationState::callSiteIndexForExceptionHandling): Deleted.
+            * dfg/DFGCommonData.cpp:
+            (JSC::DFG::CommonData::addUniqueCallSiteIndex):
+            (JSC::DFG::CommonData::addDisposableCallSiteIndex):
+            (JSC::DFG::CommonData::removeDisposableCallSiteIndex):
+            (JSC::DFG::CommonData::removeCallSiteIndex): Deleted.
+            * dfg/DFGCommonData.h:
+            * interpreter/CallFrame.h:
+            (JSC::DisposableCallSiteIndex::DisposableCallSiteIndex):
+            (JSC::DisposableCallSiteIndex::fromCallSiteIndex):
+            * jit/GCAwareJITStubRoutine.cpp:
+            (JSC::GCAwareJITStubRoutineWithExceptionHandler::GCAwareJITStubRoutineWithExceptionHandler):
+            (JSC::GCAwareJITStubRoutineWithExceptionHandler::observeZeroRefCount):
+            (JSC::createJITStubRoutine):
+            * jit/GCAwareJITStubRoutine.h:
+            * jit/JITInlineCacheGenerator.h:
+
+2019-06-13  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/51656841
+
+    2019-06-13  Mark Lam  <mark.lam@apple.com>
+
+            Misc cleanup in StructureIDTable after r242096.
+            https://bugs.webkit.org/show_bug.cgi?id=195063
+
+            Reviewed by Saam Barati.
+
+            * runtime/StructureIDTable.cpp:
+            (JSC::StructureIDTable::allocateID):
+            - RELEASE_ASSERT that the StructureID allocation will succeed.
+
+            * runtime/StructureIDTable.h:
+            (JSC::StructureIDTable::decode):
+            (JSC::StructureIDTable::encode):
+            - Add back a comment that Yusuke requested but was lost when the patch was rolled
+              out and relanded.
+            - Applied bitwise_casts that Saam requested.
+
+2019-02-26  Mark Lam  <mark.lam@apple.com>
+
+        [Re-landing] Add some randomness into the StructureID.
+        https://bugs.webkit.org/show_bug.cgi?id=194989
+        <rdar://problem/47975563>
+
+        Reviewed by Yusuke Suzuki.
+
+        1. On 64-bit, the StructureID will now be encoded as:
+
+            ----------------------------------------------------------------
+            | 1 Nuke Bit | 24 StructureIDTable index bits | 7 entropy bits |
+            ----------------------------------------------------------------
+
+           The entropy bits are chosen at random and assigned when a StructureID is
+           allocated.
+
+        2. Instead of Structure pointers, the StructureIDTable will now contain
+           encodedStructureBits, which is encoded as such:
+
+            ----------------------------------------------------------------
+            | 7 entropy bits |                   57 structure pointer bits |
+            ----------------------------------------------------------------
+
+           The entropy bits here are the same 7 bits used in the encoding of the
+           StructureID for this structure entry in the StructureIDTable.
+
+        3. Retrieval of the structure pointer given a StructureID is now computed as
+           follows:
+
+                index = structureID >> 7; // with arithmetic shift.
+                encodedStructureBits = structureIDTable[index];
+                structure = encodedStructureBits ^ (structureID << 57);
+
+            We use an arithmetic shift for the right shift because that will preserve
+            the nuke bit in the high bit of the index if the StructureID was not
+            decontaminated before use as expected.
+
+        4. Remove unused function loadArgumentWithSpecificClass() in SpecializedThunkJIT.
+
+        5. Define StructureIDTable::m_size to be the number of allocated StructureIDs
+           instead of always being the same as m_capacity.
+
+        6. Change StructureIDTable::s_unusedID's value to 0.
+
+           Its previous value of unusedPointer i.e. 0xd1e7beef, does not make sense for
+           StructureID on 64-bit.  Also, there was never any code that initializes unused
+           IDs to the s_unusedID.  The only meaningful value for s_unusedID is 0, which
+           is the ID we'll get when the freelist is empty, prompting a resize of the
+           structureIDTable.
+
+        This patch appears to be perf neutral on JetStream 2 run via the cli on a
+        11" MacBook Air, 13" MacBook Pro, iPhone 6S, and iPhone XR.
+
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::loadStructure):
+        * heap/SlotVisitor.cpp:
+        (JSC::SlotVisitor::appendJSCellOrAuxiliary):
+        * jit/AssemblyHelpers.cpp:
+        (JSC::AssemblyHelpers::emitLoadStructure):
+        * jit/AssemblyHelpers.h:
+        * jit/SpecializedThunkJIT.h:
+        (JSC::SpecializedThunkJIT::loadArgumentWithSpecificClass): Deleted.
+        * llint/LowLevelInterpreter.asm:
+        * llint/LowLevelInterpreter64.asm:
+        * runtime/StructureIDTable.cpp:
+        (JSC::StructureIDTable::StructureIDTable):
+        (JSC::StructureIDTable::makeFreeListFromRange):
+        (JSC::StructureIDTable::resize):
+        (JSC::StructureIDTable::allocateID):
+        (JSC::StructureIDTable::deallocateID):
+        * runtime/StructureIDTable.h:
+        (JSC::StructureIDTable::decode):
+        (JSC::StructureIDTable::encode):
+        (JSC::StructureIDTable::get):
+        (JSC::StructureIDTable::isValid):
+
+2019-02-13  Mark Lam  <mark.lam@apple.com>
+
+        Create a randomized free list for new StructureIDs on StructureIDTable resize.
+        https://bugs.webkit.org/show_bug.cgi?id=194566
+        <rdar://problem/47975502>
+
+        Reviewed by Michael Saboff.
+
+        Also isolate 32-bit implementation of StructureIDTable out more so the 64-bit
+        implementation is a little easier to read.
+
+        This patch appears to be perf neutral on JetStream2 (as run from the command line).
+
+        * runtime/StructureIDTable.cpp:
+        (JSC::StructureIDTable::StructureIDTable):
+        (JSC::StructureIDTable::makeFreeListFromRange):
+        (JSC::StructureIDTable::resize):
+        (JSC::StructureIDTable::allocateID):
+        (JSC::StructureIDTable::deallocateID):
+        * runtime/StructureIDTable.h:
+        (JSC::StructureIDTable::get):
+        (JSC::StructureIDTable::deallocateID):
+        (JSC::StructureIDTable::allocateID):
+        (JSC::StructureIDTable::flushOldTables):
+
+2019-02-11  Mark Lam  <mark.lam@apple.com>
+
+        Randomize insertion of deallocated StructureIDs into the StructureIDTable's free list.
+        https://bugs.webkit.org/show_bug.cgi?id=194512
+        <rdar://problem/47975465>
+
+        Reviewed by Yusuke Suzuki.
+
+        * runtime/StructureIDTable.cpp:
+        (JSC::StructureIDTable::StructureIDTable):
+        (JSC::StructureIDTable::allocateID):
+        (JSC::StructureIDTable::deallocateID):
+        * runtime/StructureIDTable.h:
+
+2019-06-13  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/51656844
+
+    2019-06-13  Tadeu Zagallo  <tzagallo@apple.com>
+
+            Argument elimination should check transitive dependents for interference
+            https://bugs.webkit.org/show_bug.cgi?id=198520
+            <rdar://problem/50863343>
+
+            Reviewed by Filip Pizlo.
+
+            Consider the following program:
+
+                a: CreateRest
+                -->
+                    b: CreateRest
+                <--
+                c: Spread(@a)
+                d: Spread(@b)
+                e: NewArrayWithSpread(@a, @b)
+                f: KillStack(locX)
+                g: LoadVarargs(@e)
+
+            Suppose @b reads locX, then we cannot transform @e to PhantomNewArraySpread, since that would
+            move the stack access from @b into @g, and that stack location is no longer valid at that point.
+
+            We fix that by computing a set of all inline call frames that any argument elimination candidate
+            depends on and checking each of them for interference in `eliminateCandidatesThatInterfere`.
+
+            * dfg/DFGArgumentsEliminationPhase.cpp:
+
+2019-06-12  Null  <null@apple.com>
+
+        Cherry-pick r246084. rdar://problem/51656856
+
+    Unreviewed, update exception scope for putByIndexBeyondVectorLength
+    https://bugs.webkit.org/show_bug.cgi?id=198477
+    
+    * runtime/JSObject.cpp:
+    (JSC::JSObject::putByIndexBeyondVectorLength):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@246084 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-04  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            Unreviewed, update exception scope for putByIndexBeyondVectorLength
+            https://bugs.webkit.org/show_bug.cgi?id=198477
+
+            * runtime/JSObject.cpp:
+            (JSC::JSObject::putByIndexBeyondVectorLength):
+
+2019-06-12  Null  <null@apple.com>
+
+        Cherry-pick r246071. rdar://problem/51656838
+
+    Argument elimination should check for negative indices in GetByVal
+    https://bugs.webkit.org/show_bug.cgi?id=198302
+    <rdar://problem/51188095>
+    
+    Reviewed by Filip Pizlo.
+    
+    JSTests:
+    
+    * stress/eliminate-arguments-negative-rest-access.js: Added.
+    (inlinee):
+    (opt):
+    
+    Source/JavaScriptCore:
+    
+    In DFG::ArgumentEliminationPhase, the index is treated as unsigned, but there's no check
+    for overflow in the addition. In compileGetMyArgumentByVal, there's a check for overflow,
+    but the index is treated as signed, resulting in an index lower than numberOfArgumentsToSkip.
+    
+    * dfg/DFGArgumentsEliminationPhase.cpp:
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetMyArgumentByVal):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@246071 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-04  Tadeu Zagallo  <tzagallo@apple.com>
+
+            Argument elimination should check for negative indices in GetByVal
+            https://bugs.webkit.org/show_bug.cgi?id=198302
+            <rdar://problem/51188095>
+
+            Reviewed by Filip Pizlo.
+
+            In DFG::ArgumentEliminationPhase, the index is treated as unsigned, but there's no check
+            for overflow in the addition. In compileGetMyArgumentByVal, there's a check for overflow,
+            but the index is treated as signed, resulting in an index lower than numberOfArgumentsToSkip.
+
+            * dfg/DFGArgumentsEliminationPhase.cpp:
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileGetMyArgumentByVal):
+
+2019-06-12  Null  <null@apple.com>
+
+        Cherry-pick r246040. rdar://problem/51656856
+
+    [JSC] JSObject::attemptToInterceptPutByIndexOnHole should use getPrototype instead of getPrototypeDirect
+    https://bugs.webkit.org/show_bug.cgi?id=198477
+    <rdar://problem/51299504>
+    
+    Reviewed by Saam Barati.
+    
+    Source/JavaScriptCore:
+    
+    JSObject::attemptToInterceptPutByIndexOnHole uses getPrototypeDirect, but it should use getPrototype to
+    handle getPrototype methods in derived JSObject classes correctly.
+    
+    * runtime/JSArrayInlines.h:
+    (JSC::JSArray::pushInline):
+    * runtime/JSObject.cpp:
+    (JSC::JSObject::putByIndex):
+    (JSC::JSObject::attemptToInterceptPutByIndexOnHoleForPrototype):
+    (JSC::JSObject::attemptToInterceptPutByIndexOnHole):
+    (JSC::JSObject::putByIndexBeyondVectorLength):
+    
+    LayoutTests:
+    
+    Ensure that JSWindow::getPrototype is used.
+    
+    * http/tests/security/cross-frame-access-object-getPrototypeOf-in-put-expected.txt: Added.
+    * http/tests/security/cross-frame-access-object-getPrototypeOf-in-put.html: Added.
+    * http/tests/security/resources/cross-frame-iframe-for-object-getPrototypeOf-in-put-test.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@246040 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-06-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] JSObject::attemptToInterceptPutByIndexOnHole should use getPrototype instead of getPrototypeDirect
+            https://bugs.webkit.org/show_bug.cgi?id=198477
+            <rdar://problem/51299504>
+
+            Reviewed by Saam Barati.
+
+            JSObject::attemptToInterceptPutByIndexOnHole uses getPrototypeDirect, but it should use getPrototype to
+            handle getPrototype methods in derived JSObject classes correctly.
+
+            * runtime/JSArrayInlines.h:
+            (JSC::JSArray::pushInline):
+            * runtime/JSObject.cpp:
+            (JSC::JSObject::putByIndex):
+            (JSC::JSObject::attemptToInterceptPutByIndexOnHoleForPrototype):
+            (JSC::JSObject::attemptToInterceptPutByIndexOnHole):
+            (JSC::JSObject::putByIndexBeyondVectorLength):
+
+2019-05-30  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r243237. rdar://problem/51264876
+
+    JSC test crash: stress/dont-strength-reduce-regexp-with-compile-error.js.default
+    https://bugs.webkit.org/show_bug.cgi?id=195906
+    
+    Reviewed by Mark Lam.
+    
+    The problem here as that we may successfully parsed a RegExp without running out of stack,
+    but later run out of stack when trying to JIT compile the same expression.
+    
+    Added a check for available stack space when we call into one of the parenthesis compilation
+    functions that recurse.  When we don't have enough stack space to recurse, we fail the JIT
+    compilation and let the interpreter handle the expression.
+    
+    From code inspection of the YARR interpreter it has the same issue, but I couldn't cause a failure.
+    Filed a new bug and added a FIXME comment for the Interpreter to have similar checks.
+    Given that we can reproduce a failure, this is sufficient for now.
+    
+    This change is covered by the previously added failing test,
+    JSTests/stress/dont-strength-reduce-regexp-with-compile-error.js.
+    
+    * yarr/YarrInterpreter.cpp:
+    (JSC::Yarr::Interpreter::interpret):
+    * yarr/YarrJIT.cpp:
+    (JSC::Yarr::YarrGenerator::opCompileParenthesesSubpattern):
+    (JSC::Yarr::YarrGenerator::opCompileParentheticalAssertion):
+    (JSC::Yarr::YarrGenerator::opCompileBody):
+    (JSC::Yarr::dumpCompileFailure):
+    * yarr/YarrJIT.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243237 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-03-20  Michael Saboff  <msaboff@apple.com>
+
+            JSC test crash: stress/dont-strength-reduce-regexp-with-compile-error.js.default
+            https://bugs.webkit.org/show_bug.cgi?id=195906
+
+            Reviewed by Mark Lam.
+
+            The problem here as that we may successfully parsed a RegExp without running out of stack,
+            but later run out of stack when trying to JIT compile the same expression.
+
+            Added a check for available stack space when we call into one of the parenthesis compilation
+            functions that recurse.  When we don't have enough stack space to recurse, we fail the JIT
+            compilation and let the interpreter handle the expression.
+
+            From code inspection of the YARR interpreter it has the same issue, but I couldn't cause a failure.
+            Filed a new bug and added a FIXME comment for the Interpreter to have similar checks.
+            Given that we can reproduce a failure, this is sufficient for now.
+
+            This change is covered by the previously added failing test,
+            JSTests/stress/dont-strength-reduce-regexp-with-compile-error.js.
+
+            * yarr/YarrInterpreter.cpp:
+            (JSC::Yarr::Interpreter::interpret):
+            * yarr/YarrJIT.cpp:
+            (JSC::Yarr::YarrGenerator::opCompileParenthesesSubpattern):
+            (JSC::Yarr::YarrGenerator::opCompileParentheticalAssertion):
+            (JSC::Yarr::YarrGenerator::opCompileBody):
+            (JSC::Yarr::dumpCompileFailure):
+            * yarr/YarrJIT.h:
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245593. rdar://problem/51264876
+
+    Unreviewed, add mistakenly ommited initializer.
+    
+    * runtime/RegExpInlines.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245593 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-21  Keith Miller  <keith_miller@apple.com>
+
+            Unreviewed, add mistakenly ommited initializer.
+
+            * runtime/RegExpInlines.h:
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245588. rdar://problem/51264876
+
+    Unreviewed build fix add UNUSED_PARAM.
+    
+    * runtime/RegExpInlines.h:
+    (JSC::PatternContextBufferHolder::PatternContextBufferHolder):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245588 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-21  Keith Miller  <keith_miller@apple.com>
+
+            Unreviewed build fix add UNUSED_PARAM.
+
+            * runtime/RegExpInlines.h:
+            (JSC::PatternContextBufferHolder::PatternContextBufferHolder):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245815. rdar://problem/51264876
+
+    [YARR] Properly handle RegExp's that require large ParenContext space
+    https://bugs.webkit.org/show_bug.cgi?id=198065
+    
+    Reviewed by Keith Miller.
+    
+    JSTests:
+    
+    New test.
+    
+    * stress/regexp-large-paren-context.js: Added.
+    (testLargeRegExp):
+    
+    Source/JavaScriptCore:
+    
+    Changed what happens when we exceed VM::patternContextBufferSize when compiling a RegExp
+    that needs ParenCOntextSpace to fail the RegExp JIT compilation and fall back to the YARR
+    interpreter.  This can save large amounts of JIT memory for a
+    JIT'ed function that cannot ever succeed.
+    
+    * yarr/YarrJIT.cpp:
+    (JSC::Yarr::YarrGenerator::initParenContextFreeList):
+    (JSC::Yarr::YarrGenerator::compile):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245815 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-28  Michael Saboff  <msaboff@apple.com>
+
+            [YARR] Properly handle RegExp's that require large ParenContext space
+            https://bugs.webkit.org/show_bug.cgi?id=198065
+
+            Reviewed by Keith Miller.
+
+            Changed what happens when we exceed VM::patternContextBufferSize when compiling a RegExp
+            that needs ParenCOntextSpace to fail the RegExp JIT compilation and fall back to the YARR
+            interpreter.  This can save large amounts of JIT memory for a
+            JIT'ed function that cannot ever succeed.
+
+            * yarr/YarrJIT.cpp:
+            (JSC::Yarr::YarrGenerator::initParenContextFreeList):
+            (JSC::Yarr::YarrGenerator::compile):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245586. rdar://problem/51264876
+
+    Cleanup Yarr regexp code around paren contexts.
+    https://bugs.webkit.org/show_bug.cgi?id=198063
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/regexp-many-named-sequential-capture-groups.js: Added.
+    (i.s):
+    * stress/regexp-many-unnamed-sequential-capture-groups.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    There are three refactoring changes around paren contexts:
+    1. Make EncodedMatchResult the same type as MatchResult on X86_64 and arm64 and uint64_t elsewhere.
+    2. All function pointer types for Yarr JIT generated code reserve space for paren contexts.
+    3. initParenContextFreeList should bail based on VM::patternContextBufferSize as that's the buffer size anyway.
+    
+    * runtime/MatchResult.h:
+    (JSC::MatchResult::MatchResult):
+    * runtime/RegExpInlines.h:
+    (JSC::PatternContextBufferHolder::PatternContextBufferHolder):
+    (JSC::PatternContextBufferHolder::~PatternContextBufferHolder):
+    (JSC::PatternContextBufferHolder::size):
+    (JSC::RegExp::matchInline):
+    * runtime/VM.h:
+    * yarr/YarrJIT.cpp:
+    (JSC::Yarr::YarrGenerator::initParenContextFreeList):
+    * yarr/YarrJIT.h:
+    (JSC::Yarr::YarrCodeBlock::execute):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245586 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-20  Keith Miller  <keith_miller@apple.com>
+
+            Cleanup Yarr regexp code around paren contexts.
+            https://bugs.webkit.org/show_bug.cgi?id=198063
+
+            Reviewed by Yusuke Suzuki.
+
+            There are three refactoring changes around paren contexts:
+            1. Make EncodedMatchResult the same type as MatchResult on X86_64 and arm64 and uint64_t elsewhere.
+            2. All function pointer types for Yarr JIT generated code reserve space for paren contexts.
+            3. initParenContextFreeList should bail based on VM::patternContextBufferSize as that's the buffer size anyway.
+
+            * runtime/MatchResult.h:
+            (JSC::MatchResult::MatchResult):
+            * runtime/RegExpInlines.h:
+            (JSC::PatternContextBufferHolder::PatternContextBufferHolder):
+            (JSC::PatternContextBufferHolder::~PatternContextBufferHolder):
+            (JSC::PatternContextBufferHolder::size):
+            (JSC::RegExp::matchInline):
+            * runtime/VM.h:
+            * yarr/YarrJIT.cpp:
+            (JSC::Yarr::YarrGenerator::initParenContextFreeList):
+            * yarr/YarrJIT.h:
+            (JSC::Yarr::YarrCodeBlock::execute):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245071. rdar://problem/51264850
+
+    Invalid DFG JIT genereation in high CPU usage state
+    https://bugs.webkit.org/show_bug.cgi?id=197453
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/string-ident-use-clears-abstract-value-if-rope-string-constant-is-held.js: Added.
+    (trigger):
+    (main):
+    
+    Source/JavaScriptCore:
+    
+    We have a DFG graph like this.
+    
+        a: JSConstant(rope JSString)
+        b: CheckStringIdent(Check:StringUse:@a)
+        ... AI think this is unreachable ...
+    
+    When executing StringUse edge filter onto @a, AbstractValue::filterValueByType clears AbstractValue and makes it None.
+    This is because @a constant produces SpecString (SpecStringVar | SpecStringIdent) while StringUse edge filter requires
+    SpecStringIdent. AbstractValue::filterValueByType has an assumption that the JS constant always produces the same
+    SpeculatedType. So it clears AbstractValue completely.
+    But this assumption is wrong. JSString can produce SpecStringIdent later if the string is resolved to AtomicStringImpl.
+    AI think that we always fail. But once the string is resolved to AtomicStringImpl, we pass this check. So we execute
+    the breakpoint emitted by DFG since DFG think this is unreachable.
+    
+    In this patch, we just clear the `m_value` if AbstractValue type filter fails with the held constant, since the constant
+    may produce a narrower type which can meet the type filter later.
+    
+    * dfg/DFGAbstractValue.cpp:
+    (JSC::DFG::AbstractValue::filterValueByType):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245071 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-08  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            Invalid DFG JIT genereation in high CPU usage state
+            https://bugs.webkit.org/show_bug.cgi?id=197453
+
+            Reviewed by Saam Barati.
+
+            We have a DFG graph like this.
+
+                a: JSConstant(rope JSString)
+                b: CheckStringIdent(Check:StringUse:@a)
+                ... AI think this is unreachable ...
+
+            When executing StringUse edge filter onto @a, AbstractValue::filterValueByType clears AbstractValue and makes it None.
+            This is because @a constant produces SpecString (SpecStringVar | SpecStringIdent) while StringUse edge filter requires
+            SpecStringIdent. AbstractValue::filterValueByType has an assumption that the JS constant always produces the same
+            SpeculatedType. So it clears AbstractValue completely.
+            But this assumption is wrong. JSString can produce SpecStringIdent later if the string is resolved to AtomicStringImpl.
+            AI think that we always fail. But once the string is resolved to AtomicStringImpl, we pass this check. So we execute
+            the breakpoint emitted by DFG since DFG think this is unreachable.
+
+            In this patch, we just clear the `m_value` if AbstractValue type filter fails with the held constant, since the constant
+            may produce a narrower type which can meet the type filter later.
+
+            * dfg/DFGAbstractValue.cpp:
+            (JSC::DFG::AbstractValue::filterValueByType):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245018. rdar://problem/51264878
+
+    tryCachePutByID should not crash if target offset changes
+    https://bugs.webkit.org/show_bug.cgi?id=197311
+    <rdar://problem/48033612>
+    
+    Reviewed by Filip Pizlo.
+    
+    JSTests:
+    
+    Add a series of tests related tryCachePutByID. Two of these tests used to crash and were fixed
+    by this patch: `cache-put-by-id-different-attributes.js` and `cache-put-by-id-different-offset.js`
+    
+    * stress/cache-put-by-id-delete-prototype.js: Added.
+    (A.prototype.set y):
+    (A):
+    (B.prototype.set y):
+    (B):
+    (C):
+    * stress/cache-put-by-id-different-__proto__.js: Added.
+    (A.prototype.set y):
+    (A):
+    (B1):
+    (B2.prototype.set y):
+    (B2):
+    (C):
+    (D):
+    * stress/cache-put-by-id-different-attributes.js: Added.
+    (Foo):
+    (set x):
+    * stress/cache-put-by-id-different-offset.js: Added.
+    (Foo):
+    (set x):
+    * stress/cache-put-by-id-insert-prototype.js: Added.
+    (A.prototype.set y):
+    (A):
+    (C):
+    * stress/cache-put-by-id-poly-proto.js: Added.
+    (Foo):
+    (set _):
+    (createBar.Bar):
+    (createBar):
+    
+    Source/JavaScriptCore:
+    
+    When tryCachePutID is called with a cacheable setter, if the target object where the setter was
+    found is still in the prototype chain and there's no poly protos in the chain, we use
+    generateConditionsForPrototypePropertyHit to validate that the target object remains the same.
+    It checks for the absence of the property in every object in the prototype chain from the base
+    down to the target object and checks that the property is still present in the target object. It
+    also bails if there are any uncacheable objects, proxies or dictionary objects in the prototype
+    chain. However, it does not consider two edge cases:
+    - It asserts that the property should still be at the same offset in the target object, but this
+    assertion does not hold if the setter deletes properties of the object and causes the structure
+    to be flattened after the deletion. Instead of asserting, we just use the updated offset.
+    - It does not check whether the new slot is also a setter, which leads to a crash in case it's not.
+    
+    * jit/Repatch.cpp:
+    (JSC::tryCachePutByID):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245018 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-07  Tadeu Zagallo  <tzagallo@apple.com>
+
+            tryCachePutByID should not crash if target offset changes
+            https://bugs.webkit.org/show_bug.cgi?id=197311
+            <rdar://problem/48033612>
+
+            Reviewed by Filip Pizlo.
+
+            When tryCachePutID is called with a cacheable setter, if the target object where the setter was
+            found is still in the prototype chain and there's no poly protos in the chain, we use
+            generateConditionsForPrototypePropertyHit to validate that the target object remains the same.
+            It checks for the absence of the property in every object in the prototype chain from the base
+            down to the target object and checks that the property is still present in the target object. It
+            also bails if there are any uncacheable objects, proxies or dictionary objects in the prototype
+            chain. However, it does not consider two edge cases:
+            - It asserts that the property should still be at the same offset in the target object, but this
+            assertion does not hold if the setter deletes properties of the object and causes the structure
+            to be flattened after the deletion. Instead of asserting, we just use the updated offset.
+            - It does not check whether the new slot is also a setter, which leads to a crash in case it's not.
+
+            * jit/Repatch.cpp:
+            (JSC::tryCachePutByID):
+
+2019-05-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r244950. rdar://problem/51265731
+
+    TypedArrays should not store properties that are canonical numeric indices
+    https://bugs.webkit.org/show_bug.cgi?id=197228
+    <rdar://problem/49557381>
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/array-species-config-array-constructor.js:
+    (test):
+    * stress/put-direct-index-broken-2.js:
+    * stress/typed-array-canonical-numeric-index-string.js: Added.
+    (makeTest.assert):
+    (makeTest):
+    (const.testInvalidIndices.makeTest.set assert):
+    (const.testInvalidIndices.makeTest):
+    (const.makeTestValidIndex.configurable.set assert):
+    (const.makeTestValidIndex.configurable):
+    * stress/typedarray-access-monomorphic-neutered.js:
+    (checkNoException):
+    (testNoException):
+    (testFTLNoException):
+    * stress/typedarray-access-neutered.js:
+    (testNoException):
+    * stress/typedarray-getownproperty-not-configurable.js:
+    (foo):
+    * test262/expectations.yaml:
+    
+    Source/JavaScriptCore:
+    
+    According to the spec[1]:
+    - TypedArrays should not perform an ordinary GetOwnProperty/SetOwnProperty if the index is a
+    CanonicalNumericIndexString, but invalid according to IntegerIndexedElementGet and similar
+    functions. I.e., there are a few properties that should not be set in a TypedArray, like NaN,
+    Infinity and -0.
+    - On DefineOwnProperty, the out-of-bounds check should be performed before validating the property
+    descriptor.
+    - On GetOwnProperty, the returned descriptor for numeric properties should have writable set to true.
+    
+    [1]: https://www.ecma-international.org/ecma-262/9.0/index.html#sec-integer-indexed-exotic-objects-defineownproperty-p-desc
+    
+    * CMakeLists.txt:
+    * JavaScriptCore.xcodeproj/project.pbxproj:
+    * runtime/JSGenericTypedArrayViewInlines.h:
+    (JSC::JSGenericTypedArrayView<Adaptor>::getOwnPropertySlot):
+    (JSC::JSGenericTypedArrayView<Adaptor>::put):
+    (JSC::JSGenericTypedArrayView<Adaptor>::defineOwnProperty):
+    (JSC::JSGenericTypedArrayView<Adaptor>::getOwnPropertySlotByIndex):
+    (JSC::JSGenericTypedArrayView<Adaptor>::putByIndex):
+    * runtime/PropertyName.h:
+    (JSC::isCanonicalNumericIndexString):
+    
+    LayoutTests:
+    
+    * fast/canvas/canvas-ImageData-behaviour-expected.txt:
+    * fast/canvas/canvas-ImageData-behaviour.js:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@244950 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-04  Tadeu Zagallo  <tzagallo@apple.com>
+
+            TypedArrays should not store properties that are canonical numeric indices
+            https://bugs.webkit.org/show_bug.cgi?id=197228
+            <rdar://problem/49557381>
+
+            Reviewed by Saam Barati.
+
+            According to the spec[1]:
+            - TypedArrays should not perform an ordinary GetOwnProperty/SetOwnProperty if the index is a
+            CanonicalNumericIndexString, but invalid according to IntegerIndexedElementGet and similar
+            functions. I.e., there are a few properties that should not be set in a TypedArray, like NaN,
+            Infinity and -0.
+            - On DefineOwnProperty, the out-of-bounds check should be performed before validating the property
+            descriptor.
+            - On GetOwnProperty, the returned descriptor for numeric properties should have writable set to true.
+
+            [1]: https://www.ecma-international.org/ecma-262/9.0/index.html#sec-integer-indexed-exotic-objects-defineownproperty-p-desc
+
+            * CMakeLists.txt:
+            * JavaScriptCore.xcodeproj/project.pbxproj:
+            * runtime/JSGenericTypedArrayViewInlines.h:
+            (JSC::JSGenericTypedArrayView<Adaptor>::getOwnPropertySlot):
+            (JSC::JSGenericTypedArrayView<Adaptor>::put):
+            (JSC::JSGenericTypedArrayView<Adaptor>::defineOwnProperty):
+            (JSC::JSGenericTypedArrayView<Adaptor>::getOwnPropertySlotByIndex):
+            (JSC::JSGenericTypedArrayView<Adaptor>::putByIndex):
+            * runtime/PropertyName.h:
+            (JSC::isCanonicalNumericIndexString):
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r245047. rdar://problem/50753944
+
+    JSC: A bug in BytecodeGenerator::emitEqualityOpImpl
+    https://bugs.webkit.org/show_bug.cgi?id=197479
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/do-not-perform-bytecode-peephole-optimization-in-jump-target.js: Added.
+    (shouldBe):
+    
+    Source/JavaScriptCore:
+    
+    Our peephole optimization in BytecodeGenerator is (1) rewinding the previous instruction and (2) emit optimized instruction instead.
+    If we have jump target between the previous instruction and the subsequent instruction, this peephole optimization breaks the jump target.
+    To prevent it, we had a mechanism disabling peephole optimization, setting m_lastOpcodeID = op_end and checking m_lastOpcodeID when performing
+    peephole optimization. However, BytecodeGenerator::emitEqualityOpImpl checks `m_lastInstruction->is<OpTypeof>` instead of `m_lastOpcodeID == op_typeof`,
+    and miss `op_end` case.
+    
+    This patch makes the following changes.
+    
+    1. Add canDoPeepholeOptimization method to clarify the intent of `m_lastInstruction = op_end`.
+    2. Check canDoPeepholeOptimization status before performing peephole optimization in emitJumpIfTrue, emitJumpIfFalse, and emitEqualityOpImpl.
+    3. Add `ASSERT(canDoPeepholeOptimization())` in fuseCompareAndJump and fuseTestAndJmp to ensure that peephole optimization is allowed.
+    
+    * bytecompiler/BytecodeGenerator.cpp:
+    (JSC::BytecodeGenerator::fuseCompareAndJump):
+    (JSC::BytecodeGenerator::fuseTestAndJmp):
+    (JSC::BytecodeGenerator::emitJumpIfTrue):
+    (JSC::BytecodeGenerator::emitJumpIfFalse):
+    (JSC::BytecodeGenerator::emitEqualityOpImpl):
+    * bytecompiler/BytecodeGenerator.h:
+    (JSC::BytecodeGenerator::canDoPeepholeOptimization const):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@245047 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-07  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            JSC: A bug in BytecodeGenerator::emitEqualityOpImpl
+            https://bugs.webkit.org/show_bug.cgi?id=197479
+
+            Reviewed by Saam Barati.
+
+            Our peephole optimization in BytecodeGenerator is (1) rewinding the previous instruction and (2) emit optimized instruction instead.
+            If we have jump target between the previous instruction and the subsequent instruction, this peephole optimization breaks the jump target.
+            To prevent it, we had a mechanism disabling peephole optimization, setting m_lastOpcodeID = op_end and checking m_lastOpcodeID when performing
+            peephole optimization. However, BytecodeGenerator::emitEqualityOpImpl checks `m_lastInstruction->is<OpTypeof>` instead of `m_lastOpcodeID == op_typeof`,
+            and miss `op_end` case.
+
+            This patch makes the following changes.
+
+            1. Add canDoPeepholeOptimization method to clarify the intent of `m_lastInstruction = op_end`.
+            2. Check canDoPeepholeOptimization status before performing peephole optimization in emitJumpIfTrue, emitJumpIfFalse, and emitEqualityOpImpl.
+            3. Add `ASSERT(canDoPeepholeOptimization())` in fuseCompareAndJump and fuseTestAndJmp to ensure that peephole optimization is allowed.
+
+            * bytecompiler/BytecodeGenerator.cpp:
+            (JSC::BytecodeGenerator::fuseCompareAndJump):
+            (JSC::BytecodeGenerator::fuseTestAndJmp):
+            (JSC::BytecodeGenerator::emitJumpIfTrue):
+            (JSC::BytecodeGenerator::emitJumpIfFalse):
+            (JSC::BytecodeGenerator::emitEqualityOpImpl):
+            * bytecompiler/BytecodeGenerator.h:
+            (JSC::BytecodeGenerator::canDoPeepholeOptimization const):
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r244996. rdar://problem/50754981
+
+    [JSC] We should check OOM for description string of Symbol
+    https://bugs.webkit.org/show_bug.cgi?id=197634
+    
+    Reviewed by Keith Miller.
+    
+    JSTests:
+    
+    * stress/check-symbol-description-oom.js: Added.
+    (shouldThrow):
+    
+    Source/JavaScriptCore:
+    
+    When resoling JSString for description of Symbol, we should check OOM error.
+    We also change JSValueMakeSymbol(..., nullptr) to returning a symbol value
+    without description, (1) to simplify the code and (2) give a way for JSC API
+    to create a symbol value without description.
+    
+    * API/JSValueRef.cpp:
+    (JSValueMakeSymbol):
+    * API/tests/testapi.cpp:
+    (TestAPI::symbolsTypeof):
+    (TestAPI::symbolsDescription):
+    (testCAPIViaCpp):
+    * dfg/DFGOperations.cpp:
+    * runtime/Symbol.cpp:
+    (JSC::Symbol::createWithDescription):
+    * runtime/Symbol.h:
+    * runtime/SymbolConstructor.cpp:
+    (JSC::callSymbol):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@244996 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-06  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] We should check OOM for description string of Symbol
+            https://bugs.webkit.org/show_bug.cgi?id=197634
+
+            Reviewed by Keith Miller.
+
+            When resoling JSString for description of Symbol, we should check OOM error.
+            We also change JSValueMakeSymbol(..., nullptr) to returning a symbol value
+            without description, (1) to simplify the code and (2) give a way for JSC API
+            to create a symbol value without description.
+
+            * API/JSValueRef.cpp:
+            (JSValueMakeSymbol):
+            * API/tests/testapi.cpp:
+            (TestAPI::symbolsTypeof):
+            (TestAPI::symbolsDescription):
+            (testCAPIViaCpp):
+            * dfg/DFGOperations.cpp:
+            * runtime/Symbol.cpp:
+            (JSC::Symbol::createWithDescription):
+            * runtime/Symbol.h:
+            * runtime/SymbolConstructor.cpp:
+            (JSC::callSymbol):
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r244865. rdar://problem/50753937
+
+    Baseline JIT should do argument value profiling after checking for stack overflow
+    https://bugs.webkit.org/show_bug.cgi?id=197052
+    <rdar://problem/50009602>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/check-stack-overflow-before-value-profiling-arguments.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    Otherwise, we may do value profiling without running a write barrier, which
+    is against the rules of how we do value profiling.
+    
+    * jit/JIT.cpp:
+    (JSC::JIT::compileWithoutLinking):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@244865 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-05-01  Saam barati  <sbarati@apple.com>
+
+            Baseline JIT should do argument value profiling after checking for stack overflow
+            https://bugs.webkit.org/show_bug.cgi?id=197052
+            <rdar://problem/50009602>
+
+            Reviewed by Yusuke Suzuki.
+
+            Otherwise, we may do value profiling without running a write barrier, which
+            is against the rules of how we do value profiling.
+
+            * jit/JIT.cpp:
+            (JSC::JIT::compileWithoutLinking):
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r244314. rdar://problem/50753930
+
+    SafeToExecute for GetByOffset/GetGetterByOffset/PutByOffset is using the wrong child for the base
+    https://bugs.webkit.org/show_bug.cgi?id=196945
+    <rdar://problem/49802750>
+    
+    Reviewed by Filip Pizlo.
+    
+    JSTests:
+    
+    * stress/get-by-offset-should-use-correct-child.js: Added.
+    (foo.bar):
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    * dfg/DFGSafeToExecute.h:
+    (JSC::DFG::safeToExecute):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@244314 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-15  Saam barati  <sbarati@apple.com>
+
+            SafeToExecute for GetByOffset/GetGetterByOffset/PutByOffset is using the wrong child for the base
+            https://bugs.webkit.org/show_bug.cgi?id=196945
+            <rdar://problem/49802750>
+
+            Reviewed by Filip Pizlo.
+
+            * dfg/DFGSafeToExecute.h:
+            (JSC::DFG::safeToExecute):
+
+2019-05-14  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r243948. rdar://problem/50753934
+
+    SIGSEGV in JSC::BytecodeGenerator::addStringConstant
+    https://bugs.webkit.org/show_bug.cgi?id=196486
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/arrow-function-and-use-strict-directive.js: Added.
+    * stress/arrow-function-syntax.js: Added. Checking EOF token handling.
+    (checkSyntax):
+    (checkSyntaxError): Currently not using it. But it is useful for testing more things related to arrow function syntax.
+    
+    Source/JavaScriptCore:
+    
+    When parsing a FunctionExpression / FunctionDeclaration etc., we use SyntaxChecker for the body of the function because we do not have any interest on the nodes of the body at that time.
+    The nodes will be parsed with the ASTBuilder when the function itself is parsed for code generation. This works well previously because all the function ends with "}" previously.
+    SyntaxChecker lexes this "}" token, and parser restores the context back to ASTBuilder and continues parsing.
+    
+    But now, we have ArrowFunctionExpression without braces `arrow => expr`. Let's consider the following code.
+    
+            arrow => expr
+            "string!"
+    
+    We parse arrow function's body with SyntaxChecker. At that time, we lex "string!" token under the SyntaxChecker context. But this means that we may not build string content for this token
+    since SyntaxChecker may not have interest on string content itself in certain case. After the parser is back to ASTBuilder, we parse "string!" as ExpressionStatement with string constant,
+    generate StringNode with non-built identifier (nullptr), and we accidentally create StringNode with nullptr.
+    
+    This patch fixes this problem. The root cause of this problem is that the last token lexed in the previous context is used. We add lexCurrentTokenAgainUnderCurrentContext which will re-lex
+    the current token under the current context (may be ASTBuilder). This should be done only when the caller's context is different from SyntaxChecker, which avoids unnecessary lexing.
+    We leverage existing SavePoint mechanism to implement lexCurrentTokenAgainUnderCurrentContext cleanly.
+    
+    And we also fix the bug in the existing SavePoint mechanism, which is shown in the attached test script. When we save LexerState, we do not save line terminator status. This patch also introduces
+    lexWithoutClearingLineTerminator, which lex the token without clearing line terminator status.
+    
+    * parser/ASTBuilder.h:
+    (JSC::ASTBuilder::createString):
+    * parser/Lexer.cpp:
+    (JSC::Lexer<T>::parseMultilineComment):
+    (JSC::Lexer<T>::lexWithoutClearingLineTerminator): EOF token also should record offset information. This offset information is correctly handled in Lexer::setOffset too.
+    (JSC::Lexer<T>::lex): Deleted.
+    * parser/Lexer.h:
+    (JSC::Lexer::hasLineTerminatorBeforeToken const):
+    (JSC::Lexer::setHasLineTerminatorBeforeToken):
+    (JSC::Lexer<T>::lex):
+    (JSC::Lexer::prevTerminator const): Deleted.
+    (JSC::Lexer::setTerminator): Deleted.
+    * parser/Parser.cpp:
+    (JSC::Parser<LexerType>::allowAutomaticSemicolon):
+    (JSC::Parser<LexerType>::parseSingleFunction):
+    (JSC::Parser<LexerType>::parseStatementListItem):
+    (JSC::Parser<LexerType>::maybeParseAsyncFunctionDeclarationStatement):
+    (JSC::Parser<LexerType>::parseFunctionInfo):
+    (JSC::Parser<LexerType>::parseClass):
+    (JSC::Parser<LexerType>::parseExportDeclaration):
+    (JSC::Parser<LexerType>::parseAssignmentExpression):
+    (JSC::Parser<LexerType>::parseYieldExpression):
+    (JSC::Parser<LexerType>::parseProperty):
+    (JSC::Parser<LexerType>::parsePrimaryExpression):
+    (JSC::Parser<LexerType>::parseMemberExpression):
+    * parser/Parser.h:
+    (JSC::Parser::nextWithoutClearingLineTerminator):
+    (JSC::Parser::lexCurrentTokenAgainUnderCurrentContext):
+    (JSC::Parser::internalSaveLexerState):
+    (JSC::Parser::restoreLexerState):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@243948 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-04-05  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            SIGSEGV in JSC::BytecodeGenerator::addStringConstant
+            https://bugs.webkit.org/show_bug.cgi?id=196486
+
+            Reviewed by Saam Barati.
+
+            When parsing a FunctionExpression / FunctionDeclaration etc., we use SyntaxChecker for the body of the function because we do not have any interest on the nodes of the body at that time.
+            The nodes will be parsed with the ASTBuilder when the function itself is parsed for code generation. This works well previously because all the function ends with "}" previously.
+            SyntaxChecker lexes this "}" token, and parser restores the context back to ASTBuilder and continues parsing.
+
+            But now, we have ArrowFunctionExpression without braces `arrow => expr`. Let's consider the following code.
+
+                    arrow => expr
+                    "string!"
+
+            We parse arrow function's body with SyntaxChecker. At that time, we lex "string!" token under the SyntaxChecker context. But this means that we may not build string content for this token
+            since SyntaxChecker may not have interest on string content itself in certain case. After the parser is back to ASTBuilder, we parse "string!" as ExpressionStatement with string constant,
+            generate StringNode with non-built identifier (nullptr), and we accidentally create StringNode with nullptr.
+
+            This patch fixes this problem. The root cause of this problem is that the last token lexed in the previous context is used. We add lexCurrentTokenAgainUnderCurrentContext which will re-lex
+            the current token under the current context (may be ASTBuilder). This should be done only when the caller's context is different from SyntaxChecker, which avoids unnecessary lexing.
+            We leverage existing SavePoint mechanism to implement lexCurrentTokenAgainUnderCurrentContext cleanly.
+
+            And we also fix the bug in the existing SavePoint mechanism, which is shown in the attached test script. When we save LexerState, we do not save line terminator status. This patch also introduces
+            lexWithoutClearingLineTerminator, which lex the token without clearing line terminator status.
+
+            * parser/ASTBuilder.h:
+            (JSC::ASTBuilder::createString):
+            * parser/Lexer.cpp:
+            (JSC::Lexer<T>::parseMultilineComment):
+            (JSC::Lexer<T>::lexWithoutClearingLineTerminator): EOF token also should record offset information. This offset information is correctly handled in Lexer::setOffset too.
+            (JSC::Lexer<T>::lex): Deleted.
+            * parser/Lexer.h:
+            (JSC::Lexer::hasLineTerminatorBeforeToken const):
+            (JSC::Lexer::setHasLineTerminatorBeforeToken):
+            (JSC::Lexer<T>::lex):
+            (JSC::Lexer::prevTerminator const): Deleted.
+            (JSC::Lexer::setTerminator): Deleted.
+            * parser/Parser.cpp:
+            (JSC::Parser<LexerType>::allowAutomaticSemicolon):
+            (JSC::Parser<LexerType>::parseSingleFunction):
+            (JSC::Parser<LexerType>::parseStatementListItem):
+            (JSC::Parser<LexerType>::maybeParseAsyncFunctionDeclarationStatement):
+            (JSC::Parser<LexerType>::parseFunctionInfo):
+            (JSC::Parser<LexerType>::parseClass):
+            (JSC::Parser<LexerType>::parseExportDeclaration):
+            (JSC::Parser<LexerType>::parseAssignmentExpression):
+            (JSC::Parser<LexerType>::parseYieldExpression):
+            (JSC::Parser<LexerType>::parseProperty):
+            (JSC::Parser<LexerType>::parsePrimaryExpression):
+            (JSC::Parser<LexerType>::parseMemberExpression):
+            * parser/Parser.h:
+            (JSC::Parser::nextWithoutClearingLineTerminator):
+            (JSC::Parser::lexCurrentTokenAgainUnderCurrentContext):
+            (JSC::Parser::internalSaveLexerState):
+            (JSC::Parser::restoreLexerState):
+
 2019-04-10  Alan Coon  <alancoon@apple.com>
 
         Cherry-pick r243841. rdar://problem/49725678

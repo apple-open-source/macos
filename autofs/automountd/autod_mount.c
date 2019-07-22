@@ -499,6 +499,15 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 		newargv[i++] = "nfs";
 
 		/*
+		 *  Add quarantine flag to /net mounts.
+		 *  For more info see rdar://problem/48284485
+		 */
+		if (strlen(mntpnt) >= 4 && strncmp(mntpnt, "/net", 4) == 0) {
+			newargv[i++] = "-o";
+			newargv[i++] = "quarantine";
+		}
+
+		/*
 		 * Turn down mount_nfs's aggressiveness about
 		 * trying to mount.
 		 */

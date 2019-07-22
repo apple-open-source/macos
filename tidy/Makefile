@@ -63,6 +63,17 @@ install::
 	$(LN) -s "libtidy.A.dylib" "$(DSTROOT)/usr/lib/libtidy.dylib"
 	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(DSTROOT)/usr" devinst_prefix="$(DSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installexes devinst_prefix="$(DSTROOT)/usr" runinst_prefix="$(DSTROOT)/usr" LIBDIR="$(DSTROOT)/usr/lib"
 	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(DSTROOT)/usr" devinst_prefix="$(DSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installmanpage_apple devinst_prefix="$(DSTROOT)/usr" runinst_prefix="$(DSTROOT)/usr"
+
+	# Create symbols.
+	$(MKDIR) -p "$(SYMROOT)"
+	$(CP) -p "$(DSTROOT)/usr/bin/tab2space" "$(SYMROOT)/tab2space"
+	$(CP) -p "$(DSTROOT)/usr/bin/tidy" "$(SYMROOT)/tidy"
+	$(CP) -p "$(DSTROOT)/usr/lib/libtidy.A.dylib" "$(SYMROOT)/libtidy.A.dylib"
+	for F in libtidy.A.dylib tab2space tidy; do \
+		xcrun dsymutil -o "$(SYMROOT)"/$$F.dSYM "$(SYMROOT)"/$$F; \
+	done;
+
+	# Strip binaries.
 ifndef TIDY_DEBUG
 	$(STRIP) "$(DSTROOT)/usr/bin/tab2space"
 	$(STRIP) "$(DSTROOT)/usr/bin/tidy"

@@ -12,10 +12,10 @@
 
 LD_FLAG_DISPLAY_FRAMEWORK_0 = -framework HIDDisplay
 LD_FLAG_DISPLAY_FRAMEWORK_ = -framework HIDDisplay
-EXCLUDE_DISPLAY_FRAMEWORK_FILES_1 = TestHIDDisplaySessionFilter.m TestHIDDisplayFramework.m
-EXCLUDE_DISPLAY_FRAMEWORK_FILES = TestHIDDisplaySessionFilter.m TestHIDDisplayFramework.m
+EXCLUDE_DISPLAY_FRAMEWORK_FILES_1 = TestHIDDisplaySessionFilter.m TestHIDDisplayFramework.m TestIOReportingHIDDevice.m
+EXCLUDE_DISPLAY_FRAMEWORK_FILES = TestHIDDisplaySessionFilter.m TestHIDDisplayFramework.m TestIOReportingHIDDevice.m
 EXCLUDE_DISPLAY_FRAMEWORK_FILES_MACOS_0 = TestHIDDisplaySessionFilter.m
-EXCLUDE_DISPLAY_FRAMEWORK_FILES_MACOS_1 = TestHIDDisplaySessionFilter.m TestHIDDisplayFramework.m
+EXCLUDE_DISPLAY_FRAMEWORK_FILES_MACOS_1 = TestHIDDisplaySessionFilter.m TestHIDDisplayFramework.m TestIOReportingHIDDevice.m
 EXCLUDE_DISPLAY_FRAMEWORK_FILES_MACOS_ = TestHIDDisplaySessionFilter.m
 OTHER_LDFLAGS[sdk=iphoneos*][arch=*] = $(inherited)  $(LD_FLAG_DISPLAY_FRAMEWORK_$(RC_HIDE_J290))
 OTHER_LDFLAGS[sdk=macos*][arch=*] = $(inherited)  $(LD_FLAG_DISPLAY_FRAMEWORK_$(RC_HIDE_J290))

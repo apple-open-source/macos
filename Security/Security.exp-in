@@ -1621,6 +1621,7 @@ _SecAssessmentUpdate
 _SecAssessmentCopyUpdate
 _SecAssessmentControl
 _SecAssessmentGetTypeID
+_SecAssessmentRegisterPackageTicket
 _SecAssessmentTicketLookup
 _SecAssessmentTicketRegister
 _kSecAssessmentContextKeyOperation
